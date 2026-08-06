@@ -1,0 +1,10 @@
+{
+  "schemaVersion": 1,
+  "adapters": [
+    {
+      "id": "ejs-4.2.3-v1",
+      "version": "4.2.3",
+      "module": "ejs-4.2.3-v1.ts"
+    }
+  ]
+}

@@ -26,7 +26,7 @@
 | [核心运行时验证基线](./core-runtime-validation.md) | 8 核真实夹具、Chrome 启动画面证据、可重复验证链路和兼容覆盖 |
 | [存储与数据库](./storage-and-database.md) | SQLite 时间戳规则、表目录、CAS、归档安全、GC 和备份 |
 | [一期数据库实体与不变量](./data-model.md) | 表字段、枚举、revision、外键、索引与数据库级保护 |
-| [HTTP API、上传与启动凭据契约](./http-api-contract.md) | JSON/错误协议、上传分块、CSRF、launch cookie、内容缓存和路由 |
+| [HTTP API、上传与启动凭据契约](./http-api-contract.md) | JSON/错误协议、上传分块、受信内网写请求、launch cookie、内容缓存和路由 |
 | [第三方运行时与 DAT 依赖管理](./dependency-management.md) | 小型 manifest、构建前物化、完整性校验、镜像纳入与升级规则 |
 | [后端、API 与运行维护](./backend-api-and-operations.md) | Go 模块、API、任务队列、文件端点、安全、日志和部署 |
 | [工程质量、Lint 与测试规范](./engineering-quality-and-testing.md) | Go/Next.js lint、统一门禁、关键路径测试、bug 回归固化和 CI |

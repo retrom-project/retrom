@@ -34,7 +34,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`core-runtime-validation.md`](./core-runtime-validation.md)：8 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路与 MAME2003 兼容覆盖。
 - [`storage-and-database.md`](./storage-and-database.md)：SQLite Unix 毫秒 `INTEGER` 时间规范、表目录、本地 SHA-256 CAS、GC 和备份。
 - [`data-model.md`](./data-model.md)：一期表字段、ID、枚举、不可变 revision、外键、索引和数据库级不变量的唯一数据字典。
-- [`http-api-contract.md`](./http-api-contract.md)：JSON/错误、CSRF、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。
+- [`http-api-contract.md`](./http-api-contract.md)：JSON/错误、受信内网写请求、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。
 - [`dependency-management.md`](./dependency-management.md)：EmulatorJS/core/DAT 的小型 manifest、构建前物化、离线校验、镜像 allowlist、许可与升级规则。
 - [`backend-api-and-operations.md`](./backend-api-and-operations.md)：Go 模块、HTTP/API、后台任务、文件端点、双镜像、`make dev`、NG/TLS 边界、安全和部署。
 - [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)：Go/Next.js lint、统一命令、镜像构建 targets、关键路径测试、bug 回归固化与 CI 落地规范。

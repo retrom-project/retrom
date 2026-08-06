@@ -1,0 +1,26 @@
+{
+  "schemaVersion": 1,
+  "edges": [
+    {"table":"archive_entries","column":"archive_blob_id","target":"BLOBS","class":"ARCHIVE_OWNERSHIP"},
+    {"table":"archive_entries","column":"materialized_blob_id","target":"BLOBS","class":"ARCHIVE_OWNERSHIP"},
+    {"table":"bios_installations","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"blob_gc_candidates","column":"blob_id","target":"BLOBS","class":"BOOKKEEPING"},
+    {"table":"content_hash_evidence","column":"archive_blob_id","target":"ARCHIVE_ENTRY","class":"PROTECTIVE"},
+    {"table":"content_hash_evidence","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"dat_versions","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"game_assets","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"game_content_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"game_content_files","column":"source_archive_blob_id","target":"ARCHIVE_ENTRY","class":"PROTECTIVE"},
+    {"table":"import_item_source_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"import_item_source_files","column":"source_archive_blob_id","target":"ARCHIVE_ENTRY","class":"PROTECTIVE"},
+    {"table":"import_item_validation_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"launch_content_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"metadata_provider_responses","column":"raw_response_blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"persistent_save_revisions","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"save_states","column":"screenshot_blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"save_states","column":"state_blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"scrape_candidate_assets","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"upload_files","column":"final_blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"variant_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"}
+  ]
+}

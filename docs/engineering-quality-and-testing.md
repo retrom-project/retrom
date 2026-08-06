@@ -35,9 +35,9 @@
 
 ### 2.3 一期工具链基线
 
-脚手架必须从以下已审定基线开始，并以锁文件为最终事实源：Go `1.26.5`；`modernc.org/sqlite v1.52.0`；`github.com/google/uuid v1.6.0`；`oapi-codegen v2.8.0`；`github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其直接使用的 `github.com/getkin/kin-openapi v0.142.0`；`gofumpt v0.11.0`；`goimports` 来自 `golang.org/x/tools v0.48.0`；Node `24.18.0`（`.node-version`）；npm `11.16.0`（`packageManager`）；Next.js 与 `eslint-config-next` `16.2.7`；React/React DOM `19.2.7`；Tailwind CSS 与 `@tailwindcss/postcss` `4.3.0`；TypeScript `5.9.3`；ESLint `9.39.0`；Vitest `4.1.8` 与 Vite `8.2.0`；`@playwright/test 1.61.1`（它锁定同版本 `playwright` runtime）；`openapi-typescript 7.13.0`；`openapi-fetch 0.17.0`；golangci-lint `v2.11.4`。
+脚手架必须从以下已审定基线开始，并以锁文件为最终事实源：Go `1.26.5`；`modernc.org/sqlite v1.52.0`；`github.com/google/uuid v1.6.0`；`oapi-codegen v2.8.0`；`github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其直接使用的 `github.com/getkin/kin-openapi v0.142.0`；`gofumpt v0.11.0`；`goimports` 来自 `golang.org/x/tools v0.48.0`；Node `24.18.0`（`.node-version`）；npm `11.16.0`（`packageManager`）；Next.js 与 `eslint-config-next` `16.3.0`；React/React DOM `19.2.7`；Tailwind CSS 与 `@tailwindcss/postcss` `4.3.0`；TypeScript `5.9.3`；ESLint `9.39.0`；Vitest `4.1.8` 与 Vite `8.2.0`；`@playwright/test 1.61.1`（它锁定同版本 `playwright` runtime）；`openapi-typescript 7.13.0`；`openapi-fetch 0.17.0`；golangci-lint `v2.11.4`。
 
-前端测试配套固定为 `@testing-library/react 16.3.2`、`@testing-library/dom 10.4.1`、`@testing-library/user-event 14.6.3`、`@testing-library/jest-dom 6.9.1`、`jsdom 29.1.1`、`@vitejs/plugin-react 6.0.2`、`postcss 8.5.15`、`@types/node 24.13.3`、`@types/react 19.2.18`、`@types/react-dom 19.2.4`。Vite 必须作为直接 devDependency，不能只依赖 Vitest 的传递依赖；`@testing-library/dom` 同理是 React Testing Library 的必需 peer。`package.json` 的全部直接依赖/devDependency 使用精确版本而非 `^`/`~`，`package-lock.json` 和 `go.sum` 必须提交；若首次 `npm ci` 证明某组合存在 peer incompatibility，必须作为独立工具链修订更新本节与锁文件，不能在功能 PR 中静默漂移到 `latest`。TypeScript 固定 5.9.3 是因为 `openapi-typescript 7.13.0` 的正式 peer range 为 `^5.x`；升级到 TypeScript 6 前必须先升级/验证生成器，不能使用 `--force` 或 `legacy-peer-deps` 绕过。
+前端测试配套固定为 `@testing-library/react 16.3.2`、`@testing-library/dom 10.4.1`、`@testing-library/user-event 14.6.3`、`@testing-library/jest-dom 6.9.1`、`jsdom 29.1.1`、`@vitejs/plugin-react 6.0.2`、`postcss 8.5.26`、`@types/node 24.13.3`、`@types/react 19.2.18`、`@types/react-dom 19.2.4`。Vite 必须作为直接 devDependency，不能只依赖 Vitest 的传递依赖；`@testing-library/dom` 同理是 React Testing Library 的必需 peer。`package.json` 的全部直接依赖/devDependency 使用精确版本而非 `^`/`~`，`package-lock.json` 和 `go.sum` 必须提交；若首次 `npm ci` 证明某组合存在 peer incompatibility，必须作为独立工具链修订更新本节与锁文件，不能在功能 PR 中静默漂移到 `latest`。TypeScript 固定 5.9.3 是因为 `openapi-typescript 7.13.0` 的正式 peer range 为 `^5.x`；升级到 TypeScript 6 前必须先升级/验证生成器，不能使用 `--force` 或 `legacy-peer-deps` 绕过。
 
 这些版本是一期起点，不是永不升级的承诺。若安全修复要求升级，必须在独立变更中更新版本文件/锁文件、兼容说明与完整门禁；Agent 不得在功能实现中自行改用 `latest`。
 
@@ -90,7 +90,7 @@
 - Makefile 固定 golangci-lint `v2.11.4`；升级必须显式修改变量和本节并运行完整门禁，不能在安装命令使用 `@latest`。
 - Makefile 固定 `DOCKER ?= docker`、`BACKEND_IMAGE ?= retrom`、`WEB_IMAGE ?= retrom-web`、`IMAGE_TAG ?= latest`。默认输出必须是 `retrom:latest` 与 `retrom-web:latest`，同时允许调用者显式覆盖 tag 或完整镜像仓库前缀。
 - 三个 image targets 只能调用镜像构建，不得依赖 `dev`，也不得执行 `docker run`、`docker compose`、push、登录 registry 或部署操作。
-- `make dev` 除前置执行 `make prepare-deps` 外，只能运行宿主机的 `go run ./cmd/retrom` 与 `npm run dev`（可以由 `scripts/dev.sh` 编排），必须正确转发 `SIGINT/SIGTERM` 并在任一子进程异常退出时结束另一进程；不得要求 Docker daemon。
+- `make dev` 除前置执行 `make prepare-deps` 外，只能运行宿主机的 `go run ./cmd/retrom` 与 `npm run dev`（可以由 `scripts/dev.sh` 编排），必须正确转发 `SIGINT/SIGTERM` 并在任一子进程异常退出时结束另一进程；启动前以仓库专用 PID/start ticks/工作目录/命令行身份安全停止并等待旧 dev supervisor，不能按端口或名称误杀其他进程；不得要求 Docker daemon。
 
 ## 4. Go Lint 基线
 

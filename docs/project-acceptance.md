@@ -235,8 +235,8 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
 - 前置：验收准备已完成，`make deps-check` 离线通过。
-- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，同时将 `DOCKER` 指向该哨兵后启动 `make dev`；确认它的 `prepare-deps` 命中本地缓存且不联网，然后依次等待 `127.0.0.1:8080/health/live`、`/health/ready` 与 `localhost:3000` 可访问；通过前端 origin 请求 `/api/v1/home`；记录监听 socket并发送 `SIGINT`。
-- 通过标准：Go 与 Next.js 均为宿主机子进程，Docker 哨兵无调用；默认只监听 loopback，未把无账户管理后台直接绑定到外部接口；前端 rewrite 同源成功；退出码与信号处理正确，5 秒内不残留两个子进程。
+- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，同时将 `DOCKER` 指向该哨兵后启动未覆盖 `NEXT_DEV_HOST` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认它的 `prepare-deps` 命中本地缓存且不联网，然后依次等待 `127.0.0.1:8080/health/live`、`/health/ready` 与 `localhost:3000` 可访问。保持首个实例运行并再次执行相同 `make dev`，确认新 supervisor 主动识别、停止并等待旧 supervisor 后成功接管。通过前端 origin 请求 `/api/v1/home`，再携带该开发域名 Origin 对 `/_next/hmr` 完成 WebSocket upgrade；记录监听 socket 并向已验证的 supervisor 发送 `SIGTERM`。最后把当前验收 shell 的真实 PID/start ticks 写成伪造 dev 登记，确认 stop helper 只清理登记而不终止该进程。
+- 通过标准：第二次启动不因旧 Next lock/端口失败，旧 supervisor 及其 Go/Next 子进程已退出且只剩新实例；伪造、陈旧或非 `scripts/dev.sh` 身份的 PID 不被终止；Go 与 Next.js 均为宿主机子进程，Docker 哨兵无调用；Go 默认只监听 `127.0.0.1`，Next.js 默认监听 `0.0.0.0:3000`，没有把后端直接绑定到外部接口；前端 rewrite 同源成功，HMR 返回 `101 Switching Protocols` 而非跨源拒绝；退出码与信号处理正确，5 秒内不残留两个子进程。
 - 证据：进程树、三个 HTTP 结果和退出后的 PID 检查。
 
 ### ACC-NET-001：应用侧代理契约与同源隔离
@@ -311,16 +311,16 @@ make acceptance-case CASE=<case-id>
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-SEC-002`。
 - 流程：在临时数据根首次启动并检查 key 权限；以同一 Idempotency-Key/body 并发重放，创建只授权一个 VariantRevision 的 LaunchSession；记录 response/body/Set-Cookie、idempotency record 和数据库行；分别用正确 cookie、无 cookie、错误 cookie、fake clock bootstrap/hard/已 start idle 过期、pre-start finish 与正常 finish 后撤销、其他游戏 logical path、编码 traversal 和 Range 请求访问 game/BIOS/parent/state；在全新 browser context 只复制 `/play/{launchId}`。另读取固定 runtime 与已发布 Asset，并以 symlink/错误长度 key 做启动负向测试。
-- 通过标准：key 为原子生成的 owner-only 32 bytes，symlink/错误长度使启动失败；body/URL 只有非秘密 UUIDv7 `launchId`。并发幂等响应的 launchId/capability 相同且 cookie 都有效；32-byte capability 仅以无 padding base64url 出现在 `retrom_launch_<launchId>` HttpOnly/SameSite=Strict/`Max-Age=86400`/限定 Path/无 Domain cookie（生产另有 Secure），数据库 LaunchSession 只有对原始 bytes 的 SHA-256，idempotency record 无 Set-Cookie/secret；finish 尝试清除同 name/path cookie。config/start/heartbeat/finish/save 写入都在限定 Path 内并要求 cookie；无 cookie 但有公开 launchId 和 CSRF 也不能更新 PlaySession。config 前 5 分钟 bootstrap TTL、config 后/start 前仅 hard expiry、start 后 2 分钟 idle 均由 fake clock 精确生效，耗时加载不会被未发生的 heartbeat 误杀；pre-start finish 不创建 PlaySession。正确 cookie 只取得清单内内容；缺失/错误/过期/撤销 credential 为稳定 `401`，越界 logical path 为不泄露存在性的 `404`；复制 URL 无 cookie 不能取得 config。受限内容为 `private, no-store` + `Vary: Cookie`，runtime/Asset 为版本化 `public immutable`；单 Range/ETag/MIME/`nosniff` 正确。日志、Referer、诊断、JSON 和路由均无 capability、ROM/BIOS bytes、key 或宿主绝对路径。
+- 通过标准：key 为原子生成的 owner-only 32 bytes，symlink/错误长度使启动失败；body/URL 只有非秘密 UUIDv7 `launchId`。并发幂等响应的 launchId/capability 相同且 cookie 都有效；32-byte capability 仅以无 padding base64url 出现在 `retrom_launch_<launchId>` HttpOnly/SameSite=Strict/`Max-Age=86400`/限定 Path/无 Domain cookie（生产另有 Secure），数据库 LaunchSession 只有对原始 bytes 的 SHA-256，idempotency record 无 Set-Cookie/secret；finish 尝试清除同 name/path cookie。config/start/heartbeat/finish/save 写入都在限定 Path 内并要求 cookie；无 cookie 但有公开 launchId 也不能更新 PlaySession。config 前 5 分钟 bootstrap TTL、config 后/start 前仅 hard expiry、start 后 2 分钟 idle 均由 fake clock 精确生效，耗时加载不会被未发生的 heartbeat 误杀；pre-start finish 不创建 PlaySession。正确 cookie 只取得清单内内容；缺失/错误/过期/撤销 credential 为稳定 `401`，越界 logical path 为不泄露存在性的 `404`；复制 URL 无 cookie 不能取得 config。受限内容为 `private, no-store` + `Vary: Cookie`，runtime/Asset 为版本化 `public immutable`；单 Range/ETag/MIME/`nosniff` 正确。日志、Referer、诊断、JSON 和路由均无 capability、ROM/BIOS bytes、key 或宿主绝对路径。
 - 证据：cookie/数据库摘要（capability 只记录不可逆 hash）、请求矩阵、缓存/Range 响应头、新 context trace 和脱敏扫描。
 
-### ACC-SEC-003：CSRF、Origin 与受信代理
+### ACC-SEC-003：受信内网写请求
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-SEC-003`。
-- 流程：先 `GET /api/v1/session`，依次发送有效写请求、缺 header、缺/错误 cookie、跨 origin、`Sec-Fetch-Site: cross-site` 和由非 allowlist 地址伪造 `X-Forwarded-Proto/Host` 的请求；再由 allowlist NG 地址发送正确转发头。
-- 通过标准：session JSON 与可读 `retrom_csrf` SameSite=Strict cookie 同值；只有 `Origin == RETROM_PUBLIC_ORIGIN`、`Sec-Fetch-Site == same-origin` 且 header/cookie 常量时间相等的写请求成功。失败均在读取大 body/写 DB 前以 `401 CSRF_VALIDATION_FAILED` 拒绝；非受信转发头不改变 origin，受信 NG 路径成功；API 没有宽松 CORS 响应。
-- 证据：完整请求矩阵、数据库行数前后、代理来源配置和响应头。
+- 流程：分别发送不带 `Origin`/session/cookie/header 的写请求和带跨站 `Origin`、`Sec-Fetch-Site: cross-site` 的写请求。
+- 通过标准：两种请求都进入相同的 schema、幂等和领域校验并可成功写入；API 不读取或要求 CSRF token，也不返回宽松 CORS 响应。测试明确记录这是受信内网部署决策，不把 CORS 误作写请求授权。
+- 证据：请求矩阵、数据库结果和响应头。
 
 ### ACC-SEC-004：Hasheous 媒体 SSRF 与不可信展示数据
 
@@ -334,7 +334,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-API-001`。
-- 流程：先用固定生成器/validator 加载 OpenAPI 3.0.3；覆盖正常读取、未知/重复 JSON 字段、无效 UTF-8、多个顶层 JSON/depth 65、未知/重复 query、错误 CSRF、未授权、不可见资源、不存在、缺少/错误 If-Match、上传过大、可修复业务校验、限流、Idempotency-Key 的同语义 JSON 不同 key 顺序、异 body/path/If-Match、两个并发相同请求及 SaveState/PersistentSave streaming 摘要，并单独验证 UploadPart 的 path/range/digest 永久幂等，以及 cursor 正常翻页、篡改、过期、超长和错 route/filter 复用；对待审队列另以两个 ImportJob 的交错 Item 验证 `importJobId` 精确筛选、cursor 绑定、封闭摘要字段和宿主路径脱敏。并发发送普通 JSON 与三种流式请求，确认 validator chain 选择互不污染；再让代表性成功/错误 response 通过 schema contract test。对 Import SSE，先在事务内注入两个 scope 交错的事件，无 `Last-Event-ID` 连接后记录 snapshot ID，再注入新事件并以该 ID 重连；另对一个通用 Job 注入与其他 Job 交错的事件，重复无 cursor snapshot、合法跨 Job 水位、重连和非法/超前水位矩阵。覆盖 Launch 的四个合法 `returnTo` 和 origin/query/fragment/percent-encoding/不同 game ID 负向值，以及 NEEDS_VALIDATION 的 202/no-cookie、旧 key 稳定重放 202 与 Job 完成后新 key 返回 201/cookie。最后让诊断摘要与其他代表性响应通过 OpenAPI schema 校验。
+- 流程：先用固定生成器/validator 加载 OpenAPI 3.0.3；覆盖正常读取、未知/重复 JSON 字段、无效 UTF-8、多个顶层 JSON/depth 65、未知/重复 query、未授权、不可见资源、不存在、缺少/错误 If-Match、上传过大、可修复业务校验、限流、Idempotency-Key 的同语义 JSON 不同 key 顺序、异 body/path/If-Match、两个并发相同请求及 SaveState/PersistentSave streaming 摘要，并单独验证 UploadPart 的 path/range/digest 永久幂等，以及 cursor 正常翻页、篡改、过期、超长和错 route/filter 复用；对待审队列另以两个 ImportJob 的交错 Item 验证 `importJobId` 精确筛选、cursor 绑定、封闭摘要字段和宿主路径脱敏。并发发送普通 JSON 与三种流式请求，确认 validator chain 选择互不污染；再让代表性成功/错误 response 通过 schema contract test。对 Import SSE，先在事务内注入两个 scope 交错的事件，无 `Last-Event-ID` 连接后记录 snapshot ID，再注入新事件并以该 ID 重连；另对一个通用 Job 注入与其他 Job 交错的事件，重复无 cursor snapshot、合法跨 Job 水位、重连和非法/超前水位矩阵。覆盖 Launch 的四个合法 `returnTo` 和 origin/query/fragment/percent-encoding/不同 game ID 负向值，以及 NEEDS_VALIDATION 的 202/no-cookie、旧 key 稳定重放 202 与 Job 完成后新 key 返回 201/cookie。最后让诊断摘要与其他代表性响应通过 OpenAPI schema 校验。
 - 通过标准：固定 JSON object 全部禁止未知 property，lexical guard 在生成 binder 前拒绝重复 key/无效 UTF-8/尾随值，query guard 拒绝未声明名和标量多值；OpenAPI 恰有 `putAdminUploadPart`/`postRuntimeSaveState`/`putRuntimePersistentSave` 三个 `x-retrom-streaming-body=true`，它们生成 reader 而非 `[]byte`/`ParseMultipartForm`；启动时构建普通/流式两条不可变 validator chain，前置 router 按 extension 分派，只有流式链设置 `Options.Options.ExcludeRequestBody=true`，且不跳过 path/query/header。普通 JSON 与流式请求并发时不能使对方误跳过或误读取 body，不得动态修改共享 options、维护 URL skip 清单或使用全局 `Skipper`。错误 envelope 固定为 `error.code/message/details/requestId`；状态码按契约覆盖 400/401/403/404/409/413/416/422/428/429/503；ID 是 UUIDv7 字符串或稳定 seed code、时刻是 int64。语义相同请求返回原 status/body/白名单 header，并发只产生一个领域结果；body/path/precondition/stream digest 任一语义变化均冲突，记录与事务同成败且无敏感 header。Launch validation pending 符合 202 schema、不设 capability cookie/不建 LaunchSession，并发请求复用 Job；完成后只有新 key 的新请求产生 201/cookie。cursor 严格按契约签名/限长/24 小时过期，分页无重复漏项且不能跨 route/filter 复用，payload 不含 secret/宿主路径；Import 与通用 Job SSE 的首帧 snapshot ID 都等于同一快照事务看到的全局最大 JobEvent ID，后续/重连只发送更大且属于目标 aggregate/job 的持久事件，不丢失、不混 scope、不因断开取消 Job；其他 scope/job 的合法 ID 可作为全局水位，非法/超前值返回 `400 INVALID_EVENT_CURSOR`，15 秒 heartbeat 是无 ID comment。`returnTo` 只接受精确白名单。诊断与抽样 response、两条 health response 符合相同 OpenAPI schema。
 - 证据：生成/validator 版本、负向请求矩阵和请求/响应 contract snapshot；动态 request ID 需规范化后比较。
 
@@ -619,7 +619,7 @@ make acceptance-case CASE=<case-id>
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-PLAY-001`。
 - 流程：使用 fake clock 先驱动一次 config 后/start 前超过 2 分钟的加载和 pre-start finish，再用新 Launch 驱动 start、两次 heartbeat、页面隐藏、暂停、失联和重复 finish；另提交越界 `clientObservedAtMs`。
-- 通过标准：加载阶段没有 PlaySession/idle 误过期，pre-start finish 撤销且不创建游玩记录；真实 start 后才启用 2 分钟 idle。三个事件端点都位于 `/runtime/launches/{launchId}/` 且同时校验 launch cookie/CSRF，只有 launchId 或只有 CSRF 均为 401。只累计实际运行区间；隐藏/暂停/超出失联上限不累计；heartbeat/finish 幂等、跳号冲突，client time 只审计且越界拒绝；数据库全为整数毫秒，首页/详情汇总一致。
+- 通过标准：加载阶段没有 PlaySession/idle 误过期，pre-start finish 撤销且不创建游玩记录；真实 start 后才启用 2 分钟 idle。三个事件端点都位于 `/runtime/launches/{launchId}/` 且校验 launch cookie，只有公开 launchId 没有 cookie 时为 401。只累计实际运行区间；隐藏/暂停/超出失联上限不累计；heartbeat/finish 幂等、跳号冲突，client time 只审计且越界拒绝；数据库全为整数毫秒，首页/详情汇总一致。
 - 证据：事件时间线、期望/实际 duration 和 API 汇总。
 
 ## 12. 八个核心的真实运行画面

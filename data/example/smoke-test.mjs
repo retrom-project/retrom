@@ -11,7 +11,6 @@ const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../..");
 const MANIFEST_PATH = path.join(SCRIPT_DIR, "fixtures.json");
 const RESULTS_DIR = path.join(SCRIPT_DIR, "results");
-const CHROME_BIN = process.env.RETROM_CHROME_BIN || "/usr/bin/google-chrome";
 const PORT = Number.parseInt(process.env.RETROM_EXAMPLE_PORT || "4173", 10);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
@@ -140,7 +139,41 @@ async function waitForServer(server) {
   throw new Error(`Example server did not become ready: ${lastError?.message || "timeout"}`);
 }
 
-function launchChrome(profileDirectory) {
+async function executable(pathname) {
+  try {
+    await fs.access(pathname, 0o1);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+export async function resolveChromeBinary(environment = process.env, homeDirectory = os.homedir()) {
+  if (environment.RETROM_CHROME_BIN) {
+    if (await executable(environment.RETROM_CHROME_BIN)) return environment.RETROM_CHROME_BIN;
+    throw new Error(`RETROM_CHROME_BIN is not executable: ${environment.RETROM_CHROME_BIN}`);
+  }
+  for (const candidate of ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"]) {
+    if (await executable(candidate)) return candidate;
+  }
+  const browserRoot = environment.PLAYWRIGHT_BROWSERS_PATH || path.join(homeDirectory, ".cache", "ms-playwright");
+  let entries = [];
+  try {
+    entries = await fs.readdir(browserRoot, { withFileTypes: true });
+  } catch {
+    // A missing Playwright cache is reported by the stable error below.
+  }
+  const versions = entries.filter(entry => entry.isDirectory() && /^chromium-\d+$/.test(entry.name)).map(entry => entry.name).sort((left, right) => right.localeCompare(left, "en", { numeric: true }));
+  for (const version of versions) {
+    for (const relative of ["chrome-linux64/chrome", "chrome-linux/chrome"]) {
+      const candidate = path.join(browserRoot, version, relative);
+      if (await executable(candidate)) return candidate;
+    }
+  }
+  throw new Error("No supported Chrome binary found; install Playwright Chromium or set RETROM_CHROME_BIN");
+}
+
+function launchChrome(chromeBinary, profileDirectory) {
   const args = [
     "--remote-debugging-pipe",
     "--no-sandbox",
@@ -156,7 +189,7 @@ function launchChrome(profileDirectory) {
     "about:blank"
   ];
   if (process.env.RETROM_CHROME_HEADFUL !== "1") args.unshift("--headless=new");
-  return spawn(CHROME_BIN, args, {
+  return spawn(chromeBinary, args, {
     cwd: REPO_ROOT,
     stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"]
   });
@@ -518,7 +551,7 @@ async function main() {
 
   try {
     await waitForServer(server);
-    chrome = launchChrome(profileDirectory);
+    chrome = launchChrome(await resolveChromeBinary(), profileDirectory);
     chrome.stderr.on("data", chunk => {
       chromeStderr.push(chunk.toString("utf8"));
       if (chromeStderr.length > 20) chromeStderr.shift();
@@ -590,7 +623,9 @@ async function main() {
   }
 }
 
-main().catch(error => {
-  console.error(error.stack || error.message || String(error));
-  process.exitCode = 1;
-});
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
+  main().catch(error => {
+    console.error(error.stack || error.message || String(error));
+    process.exitCode = 1;
+  });
+}

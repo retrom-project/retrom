@@ -1,0 +1,907 @@
+//go:build integration
+
+package httpapi
+
+import (
+	"bytes"
+	"context"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"strings"
+	"sync"
+	"testing"
+	"time"
+
+	"github.com/google/uuid"
+
+	"retrom/internal/blobstore"
+	"retrom/internal/cleanup"
+	"retrom/internal/launch"
+)
+
+func TestGameMovePreviewQueuesTargetCoreValidationAndPreservesHistory(t *testing.T) {
+	server := newTestServer(t)
+	ctx := context.Background()
+	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	gameID, contentID := seedMovableGame(t, server)
+	targetID := "01980000-0000-7000-8000-000000000171"
+	if _, err := server.database.ExecContext(ctx, `
+INSERT INTO platform_instances(id,
+platform_id,
+default_core_id,
+name,
+slug,
+description,
+sort_order,
+enabled,
+version,
+created_at_ms,
+updated_at_ms) VALUES(?,
+'gbc',
+'mgba',
+'Move target',
+'move-target',
+'',
+99,
+1,
+1,
+?,
+?)
+`, targetID, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+
+	handler := server.Handler()
+	session := httptest.NewRecorder()
+	handler.ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
+	var sessionBody struct {
+		CSRFToken string `json:"csrfToken"`
+	}
+	if err := json.Unmarshal(session.Body.Bytes(), &sessionBody); err != nil {
+		t.Fatal(err)
+	}
+	cookie := session.Result().Cookies()[0]
+	previewBody := fmt.Sprintf(`{"targetPlatformInstanceId":%q}`, targetID)
+	send := func(path, body, key, etag string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", key)
+		request.Header.Set("If-Match", etag)
+		setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		return recorder
+	}
+
+	keys := []string{
+		"01980000-0000-7000-8000-000000000172",
+		"01980000-0000-7000-8000-000000000173",
+	}
+	responses := make([]*httptest.ResponseRecorder, len(keys))
+	var wait sync.WaitGroup
+	for index := range keys {
+		wait.Add(1)
+		go func() {
+			defer wait.Done()
+			responses[index] = send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[index], `"v1"`)
+		}()
+	}
+	wait.Wait()
+	jobIDs := make([]string, len(responses))
+	for index, response := range responses {
+		var payload struct {
+			Status string `json:"status"`
+			JobID  string `json:"jobId"`
+		}
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil ||
+			response.Code != http.StatusAccepted || payload.Status != "VALIDATION_PENDING" || payload.JobID == "" {
+			t.Fatalf("move preview %d = %d %s, error=%v", index, response.Code, response.Body.String(), err)
+		}
+		jobIDs[index] = payload.JobID
+	}
+	if jobIDs[0] != jobIDs[1] {
+		t.Fatalf("concurrent move previews queued different jobs: %v", jobIDs)
+	}
+	waitForHTTPJob(t, server.database, jobIDs[0], "SUCCEEDED")
+
+	replayed := send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[0], `"v1"`)
+	if replayed.Code != http.StatusAccepted || replayed.Body.String() != responses[0].Body.String() {
+		t.Fatalf("old preview key was not replayed: %d %s", replayed.Code, replayed.Body.String())
+	}
+	ready := send(
+		"/api/v1/admin/games/"+gameID+"/move-preview",
+		previewBody,
+		"01980000-0000-7000-8000-000000000174",
+		`"v1"`,
+	)
+	var readyBody struct {
+		Impact struct {
+			VariantStatus string `json:"variantStatus"`
+		} `json:"impact"`
+		ImpactDigest string `json:"impactDigest"`
+	}
+	if err := json.Unmarshal(ready.Body.Bytes(), &readyBody); err != nil || ready.Code != http.StatusOK ||
+		readyBody.Impact.VariantStatus != "READY" || readyBody.ImpactDigest == "" {
+		t.Fatalf("ready move preview = %d %s, error=%v", ready.Code, ready.Body.String(), err)
+	}
+	commitBody := fmt.Sprintf(
+		`{"targetPlatformInstanceId":%q,"impactDigest":%q,"confirmBlocked":false}`,
+		targetID,
+		readyBody.ImpactDigest,
+	)
+	committed := send(
+		"/api/v1/admin/games/"+gameID+"/move",
+		commitBody,
+		"01980000-0000-7000-8000-000000000175",
+		`"v1"`,
+	)
+	if committed.Code != http.StatusOK || committed.Header().Get("ETag") != `"v2"` {
+		t.Fatalf("move commit = %d %s", committed.Code, committed.Body.String())
+	}
+	var storedTarget, storedContent string
+	var version, variantCount, revisionCount, auditCount int64
+	if err := server.database.QueryRowContext(ctx, `
+SELECT platform_instance_id,
+current_content_revision_id,
+version,
+(SELECT count(*) FROM game_variants WHERE game_id=games.id),
+(SELECT count(*) FROM game_variant_revisions r JOIN game_variants v ON v.id=r.game_variant_id WHERE v.game_id=games.id),
+(SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=games.id AND action='GAME_MOVED')
+FROM games
+WHERE id=?
+`, gameID).Scan(&storedTarget, &storedContent, &version, &variantCount, &revisionCount, &auditCount); err != nil {
+		t.Fatal(err)
+	}
+	if storedTarget != targetID || storedContent != contentID || version != 2 ||
+		variantCount != 2 || revisionCount != 2 || auditCount != 1 {
+		t.Fatalf(
+			"move state = target:%s content:%s version:%d variants:%d revisions:%d audits:%d",
+			storedTarget,
+			storedContent,
+			version,
+			variantCount,
+			revisionCount,
+			auditCount,
+		)
+	}
+}
+
+func TestPlatformInstanceOwnershipAndNonEmptyLifecycleBoundaries(t *testing.T) {
+	server := newTestServer(t)
+	if err := server.dependencies.Bootstrap(context.Background(), server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.dependencies.BootstrapCatalogs(context.Background(), server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	gameID, _ := seedMovableGame(t, server)
+	handler := server.Handler()
+	session := httptest.NewRecorder()
+	handler.ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
+	var sessionBody struct {
+		CSRFToken string `json:"csrfToken"`
+	}
+	if err := json.Unmarshal(session.Body.Bytes(), &sessionBody); err != nil {
+		t.Fatal(err)
+	}
+	cookie := session.Result().Cookies()[0]
+	send := func(method, path, body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(method, path, strings.NewReader(body))
+		if body != "" {
+			request.Header.Set("Content-Type", "application/json")
+		}
+		request.Header.Set("If-Match", `"v1"`)
+		setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		return recorder
+	}
+	sourceID := "01980000-0000-7000-8000-000000000004"
+	disabled := send(http.MethodPatch, "/api/v1/admin/platform-instances/"+sourceID, `{"enabled":false}`)
+	if disabled.Code != http.StatusConflict ||
+		!strings.Contains(disabled.Body.String(), `"code":"PLATFORM_INSTANCE_NOT_EMPTY"`) {
+		t.Fatalf("disable non-empty platform = %d %s", disabled.Code, disabled.Body.String())
+	}
+	deleted := send(http.MethodDelete, "/api/v1/admin/platform-instances/"+sourceID, "")
+	if deleted.Code != http.StatusConflict ||
+		!strings.Contains(deleted.Body.String(), `"code":"PLATFORM_INSTANCE_NOT_EMPTY"`) {
+		t.Fatalf("delete non-empty platform = %d %s", deleted.Code, deleted.Body.String())
+	}
+
+	var ownerID string
+	if err := server.database.QueryRow(`SELECT platform_instance_id FROM games WHERE id=?`, gameID).Scan(&ownerID); err != nil ||
+		ownerID != sourceID {
+		t.Fatalf("game owner = %s, error=%v", ownerID, err)
+	}
+	if _, err := server.database.Exec(`UPDATE games SET platform_instance_id=NULL WHERE id=?`, gameID); err == nil {
+		t.Fatal("published game accepted an empty platform instance owner")
+	}
+	columns, err := server.database.Query(`PRAGMA table_info(games)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", columns.Close()) }()
+	for columns.Next() {
+		var cid, notNull, primaryKey int
+		var name, dataType string
+		var defaultValue any
+		if err := columns.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &primaryKey); err != nil {
+			t.Fatal(err)
+		}
+		if name == "platform_id" {
+			t.Fatal("games table exposes a second direct platform owner")
+		}
+	}
+	if err := columns.Err(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testing.T) {
+	server := newTestServer(t)
+	ctx := context.Background()
+	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	gameID, _ := seedMovableGame(t, server)
+	cloneMovableGame(t, server, gameID, "181", "182", "183", "184", "185")
+	cloneMovableGame(t, server, gameID, "186", "187", "188", "189", "190")
+
+	handler := server.Handler()
+	session := httptest.NewRecorder()
+	handler.ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
+	var sessionBody struct {
+		CSRFToken string `json:"csrfToken"`
+	}
+	if err := json.Unmarshal(session.Body.Bytes(), &sessionBody); err != nil {
+		t.Fatal(err)
+	}
+	cookie := session.Result().Cookies()[0]
+	instanceID := "01980000-0000-7000-8000-000000000004"
+	preview := func(cursorValue *string) *httptest.ResponseRecorder {
+		body, err := json.Marshal(map[string]any{"coreId": "mgba", "cursor": cursorValue, "limit": 1})
+		if err != nil {
+			t.Fatal(err)
+		}
+		request := httptest.NewRequest(
+			http.MethodPost,
+			"/api/v1/admin/platform-instances/"+instanceID+"/default-core-preview",
+			bytes.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("If-Match", `"v1"`)
+		request.Header.Set("Idempotency-Key", uuid.NewString())
+		setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		return recorder
+	}
+	type previewResponse struct {
+		Counts map[string]int64 `json:"counts"`
+		Items  []struct {
+			GameID string `json:"gameId"`
+		} `json:"items"`
+		NextCursor              *string `json:"nextCursor"`
+		ImpactDigest            string  `json:"impactDigest"`
+		PlatformInstanceVersion int64   `json:"platformInstanceVersion"`
+	}
+	first := preview(nil)
+	var firstBody previewResponse
+	if err := json.Unmarshal(first.Body.Bytes(), &firstBody); err != nil || first.Code != http.StatusOK ||
+		len(firstBody.Items) != 1 || firstBody.NextCursor == nil || firstBody.Counts["needsValidation"] != 3 {
+		t.Fatalf("first default core page = %d %s, error=%v", first.Code, first.Body.String(), err)
+	}
+	oldCursor := *firstBody.NextCursor
+	newMetadataID := "01980000-0000-7000-8000-000000000192"
+	if _, err := server.database.ExecContext(ctx, `
+INSERT INTO game_metadata_revisions(id,
+game_id,
+title,
+description,
+developer,
+publisher,
+genre,
+players,
+release_year,
+source_kind,
+source_ref_id,
+created_at_ms)
+SELECT ?,
+game_id,
+title,
+description,
+developer,
+publisher,
+genre,
+players,
+release_year,
+'ADMIN_EDIT',
+NULL,
+?
+FROM game_metadata_revisions
+WHERE id=(SELECT current_metadata_revision_id FROM games WHERE id=?)
+`, newMetadataID, time.Now().UnixMilli(), gameID); err != nil {
+		t.Fatal(err)
+	}
+	var originalMetadataID string
+	if err := server.database.QueryRowContext(ctx, `SELECT current_metadata_revision_id FROM games WHERE id=?`, gameID).
+		Scan(&originalMetadataID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.ExecContext(ctx, `UPDATE games SET current_metadata_revision_id=? WHERE id=?`, newMetadataID, gameID); err != nil {
+		t.Fatal(err)
+	}
+	stale := preview(&oldCursor)
+	if stale.Code != http.StatusConflict || !strings.Contains(stale.Body.String(), `"code":"IMPACT_PREVIEW_STALE"`) {
+		t.Fatalf("drifted preview cursor = %d %s", stale.Code, stale.Body.String())
+	}
+	if _, err := server.database.ExecContext(ctx, `UPDATE games SET current_metadata_revision_id=? WHERE id=?`, originalMetadataID, gameID); err != nil {
+		t.Fatal(err)
+	}
+
+	seen := map[string]struct{}{}
+	var cursorValue *string
+	var digest string
+	for pageNumber := 0; pageNumber < 3; pageNumber++ {
+		response := preview(cursorValue)
+		var payload previewResponse
+		if err := json.Unmarshal(response.Body.Bytes(), &payload); err != nil || response.Code != http.StatusOK ||
+			len(payload.Items) != 1 || payload.Counts["needsValidation"] != 3 || payload.PlatformInstanceVersion != 1 {
+			t.Fatalf("default core page %d = %d %s, error=%v", pageNumber, response.Code, response.Body.String(), err)
+		}
+		if digest == "" {
+			digest = payload.ImpactDigest
+		} else if payload.ImpactDigest != digest {
+			t.Fatalf("impact digest drifted across pages: %s != %s", payload.ImpactDigest, digest)
+		}
+		if _, duplicate := seen[payload.Items[0].GameID]; duplicate {
+			t.Fatalf("duplicate game across preview pages: %s", payload.Items[0].GameID)
+		}
+		seen[payload.Items[0].GameID] = struct{}{}
+		cursorValue = payload.NextCursor
+	}
+	if len(seen) != 3 || cursorValue != nil {
+		t.Fatalf("preview coverage = %d games, cursor=%v", len(seen), cursorValue)
+	}
+
+	requestBody := fmt.Sprintf(`{"coreId":"mgba","impactDigest":%q,"confirmBlocked":false}`, digest)
+	request := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/platform-instances/"+instanceID+"/default-core",
+		strings.NewReader(requestBody),
+	)
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("If-Match", `"v1"`)
+	request.Header.Set("Idempotency-Key", uuid.NewString())
+	setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+	changed := httptest.NewRecorder()
+	handler.ServeHTTP(changed, request)
+	if changed.Code != http.StatusOK || changed.Header().Get("ETag") != `"v2"` {
+		t.Fatalf("default core change = %d %s", changed.Code, changed.Body.String())
+	}
+
+	saveID := "01980000-0000-7000-8000-000000000191"
+	if _, err := server.database.ExecContext(ctx, `
+INSERT INTO save_states(id,
+profile_id,
+game_id,
+game_variant_revision_id,
+core_artifact_id,
+state_blob_id,
+screenshot_blob_id,
+name,
+active_duration_ms,
+version,
+created_at_ms,
+updated_at_ms)
+SELECT ?,
+'local',
+g.id,
+r.id,
+r.core_artifact_id,
+f.blob_id,
+f.blob_id,
+'Old core save',
+0,
+1,
+?,
+?
+FROM games g
+JOIN game_variants v ON v.game_id=g.id AND v.core_id='gambatte'
+JOIN game_variant_revisions r ON r.id=v.current_revision_id
+JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id AND f.role='CONTENT'
+WHERE g.id=?
+`, saveID, time.Now().UnixMilli(), time.Now().UnixMilli(), gameID); err != nil {
+		t.Fatal(err)
+	}
+	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
+	pending, err := server.launcher.Create(
+		ctx,
+		launch.CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities},
+	)
+	if err != nil || pending.Status != "VALIDATION_PENDING" || pending.JobID == "" {
+		t.Fatalf("new default core launch = %#v, error=%v", pending, err)
+	}
+	saved, err := server.launcher.Create(
+		ctx,
+		launch.CreateRequest{
+			GameID: gameID, SaveStateID: &saveID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities,
+		},
+	)
+	if err != nil || saved.LaunchID == "" || saved.Status == "VALIDATION_PENDING" {
+		t.Fatalf("old save launch = %#v, error=%v", saved, err)
+	}
+	var savedCore string
+	if err := server.database.QueryRowContext(ctx, `
+SELECT a.core_id
+FROM launch_sessions l
+JOIN core_artifacts a ON a.id=l.core_artifact_id
+WHERE l.id=?
+`, saved.LaunchID).Scan(&savedCore); err != nil || savedCore != "gambatte" {
+		t.Fatalf("save launch core = %s, error=%v", savedCore, err)
+	}
+}
+
+func TestGameMetadataRevisionProjectionAndOptimisticEdit(t *testing.T) {
+	server := newReadyHTTPServer(t)
+	gameID, contentID := seedMovableGame(t, server)
+	handler, cookie, csrf := httpSession(t, server)
+
+	detail := httptest.NewRecorder()
+	detailRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/games/"+gameID, nil)
+	handler.ServeHTTP(detail, detailRequest)
+	if detail.Code != http.StatusOK || detail.Header().Get("ETag") != `"v1"` ||
+		!strings.Contains(detail.Body.String(), `"contentRevisions"`) ||
+		!strings.Contains(detail.Body.String(), `"variants"`) {
+		t.Fatalf("admin game projection = %d %s", detail.Code, detail.Body.String())
+	}
+
+	sendPatch := func(etag string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(
+			http.MethodPatch,
+			"/api/v1/admin/games/"+gameID,
+			strings.NewReader(
+				`{"title":"Edited fixture","description":"Updated","developer":"Retrom","publisher":"Local","genre":"Puzzle","players":2,"releaseYear":2001}`,
+			),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("If-Match", etag)
+		setCSRFCredentials(request, cookie, csrf)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		return recorder
+	}
+	edited := sendPatch(`"v1"`)
+	if edited.Code != http.StatusOK || edited.Header().Get("ETag") != `"v2"` {
+		t.Fatalf("metadata edit = %d %s", edited.Code, edited.Body.String())
+	}
+	stale := sendPatch(`"v1"`)
+	if stale.Code != http.StatusConflict || !strings.Contains(stale.Body.String(), `"code":"VERSION_CONFLICT"`) {
+		t.Fatalf("stale metadata edit = %d %s", stale.Code, stale.Body.String())
+	}
+	var title, sourceKind string
+	var sourceRef sql.NullString
+	var storedContent, ownerID string
+	var auditCount, revisionCount int64
+	if err := server.database.QueryRow(`
+SELECT m.title,
+m.source_kind,
+m.source_ref_id,
+g.current_content_revision_id,
+g.platform_instance_id,
+(SELECT count(*) FROM game_metadata_revisions WHERE game_id=g.id),
+(SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=g.id AND action='GAME_METADATA_UPDATED')
+FROM games g
+JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+WHERE g.id=?
+`, gameID).Scan(&title, &sourceKind, &sourceRef, &storedContent, &ownerID, &revisionCount, &auditCount); err != nil {
+		t.Fatal(err)
+	}
+	if title != "Edited fixture" || sourceKind != "ADMIN_EDIT" || sourceRef.Valid || storedContent != contentID ||
+		ownerID != "01980000-0000-7000-8000-000000000004" || revisionCount != 2 || auditCount != 1 {
+		t.Fatalf(
+			"metadata state = title:%s source:%s/%v content:%s owner:%s revisions:%d audits:%d",
+			title,
+			sourceKind,
+			sourceRef,
+			storedContent,
+			ownerID,
+			revisionCount,
+			auditCount,
+		)
+	}
+	public := httptest.NewRecorder()
+	handler.ServeHTTP(public, httptest.NewRequest(http.MethodGet, "/api/v1/games/"+gameID, nil))
+	if public.Code != http.StatusOK || !strings.Contains(public.Body.String(), `"title":"Edited fixture"`) {
+		t.Fatalf("public game metadata = %d %s", public.Code, public.Body.String())
+	}
+}
+
+func TestGameSoftDeleteIsIdempotentRevokesLaunchAndPreservesReferences(t *testing.T) {
+	server := newReadyHTTPServer(t)
+	gameID, _ := seedMovableGame(t, server)
+	ctx := context.Background()
+	created, err := server.launcher.Create(
+		ctx,
+		launch.CreateRequest{
+			GameID:   gameID,
+			ReturnTo: "/games/" + gameID,
+			ClientCapabilities: launch.Capabilities{
+				SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
+			},
+		},
+	)
+	if err != nil || created.LaunchID == "" {
+		t.Fatalf("create launch before deletion = %#v, error=%v", created, err)
+	}
+	var revisionID, artifactID, blobID string
+	if err := server.database.QueryRowContext(ctx, `
+SELECT r.id,
+r.core_artifact_id,
+f.blob_id
+FROM games g
+JOIN game_variants v ON v.game_id=g.id AND v.core_id='gambatte'
+JOIN game_variant_revisions r ON r.id=v.current_revision_id
+JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id AND f.role='CONTENT'
+WHERE g.id=?
+`, gameID).Scan(&revisionID, &artifactID, &blobID); err != nil {
+		t.Fatal(err)
+	}
+	saveID := "01980000-0000-7000-8000-000000000193"
+	if _, err := server.database.ExecContext(ctx, `
+INSERT INTO save_states(id,
+profile_id,
+game_id,
+game_variant_revision_id,
+core_artifact_id,
+state_blob_id,
+screenshot_blob_id,
+name,
+active_duration_ms,
+version,
+created_at_ms,
+updated_at_ms) VALUES(?,
+'local',
+?,
+?,
+?,
+?,
+?,
+'Delete fixture save',
+0,
+1,
+?,
+?)
+`, saveID, gameID, revisionID, artifactID, blobID, blobID, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	handler, cookie, csrf := httpSession(t, server)
+	sendDelete := func(etag, title, key string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(
+			http.MethodDelete,
+			"/api/v1/admin/games/"+gameID,
+			strings.NewReader(fmt.Sprintf(`{"confirmTitle":%q}`, title)),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("If-Match", etag)
+		request.Header.Set("Idempotency-Key", key)
+		setCSRFCredentials(request, cookie, csrf)
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		return recorder
+	}
+	if response := sendDelete(`"v2"`, "Move fixture", uuid.NewString()); response.Code != http.StatusConflict {
+		t.Fatalf("stale game delete = %d %s", response.Code, response.Body.String())
+	}
+	if response := sendDelete(`"v1"`, "Wrong title", uuid.NewString()); response.Code != http.StatusUnprocessableEntity ||
+		!strings.Contains(response.Body.String(), `"code":"GAME_DELETE_CONFIRMATION_MISMATCH"`) {
+		t.Fatalf("mismatched game delete = %d %s", response.Code, response.Body.String())
+	}
+	key := uuid.NewString()
+	deleted := sendDelete(`"v1"`, "Move fixture", key)
+	if deleted.Code != http.StatusNoContent || deleted.Header().Get("ETag") != `"v2"` {
+		t.Fatalf("game delete = %d %s", deleted.Code, deleted.Body.String())
+	}
+	replayed := sendDelete(`"v1"`, "Move fixture", key)
+	if replayed.Code != http.StatusNoContent || replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" {
+		t.Fatalf("game delete replay = %d %s", replayed.Code, replayed.Body.String())
+	}
+	again := sendDelete(`"v2"`, "Move fixture", uuid.NewString())
+	if again.Code != http.StatusConflict || !strings.Contains(again.Body.String(), `"code":"GAME_ALREADY_DELETED"`) {
+		t.Fatalf("second game delete = %d %s", again.Code, again.Body.String())
+	}
+	var status, launchState string
+	var deletedAt sql.NullInt64
+	var version, saveCount, metadataCount, contentCount, variantCount, auditCount int64
+	if err := server.database.QueryRowContext(ctx, `
+SELECT g.status,
+g.deleted_at_ms,
+g.version,
+(SELECT count(*) FROM save_states WHERE game_id=g.id),
+(SELECT count(*) FROM game_metadata_revisions WHERE game_id=g.id),
+(SELECT count(*) FROM game_content_revisions WHERE game_id=g.id),
+(SELECT count(*) FROM game_variant_revisions r JOIN game_variants v ON v.id=r.game_variant_id WHERE v.game_id=g.id),
+(SELECT count(*) FROM audit_events WHERE resource_type='GAME' AND resource_id=g.id AND action='GAME_DELETED'),
+(SELECT state FROM launch_sessions WHERE id=?)
+FROM games g
+WHERE g.id=?
+`, created.LaunchID, gameID).Scan(
+		&status,
+		&deletedAt,
+		&version,
+		&saveCount,
+		&metadataCount,
+		&contentCount,
+		&variantCount,
+		&auditCount,
+		&launchState,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if status != "DELETED" || !deletedAt.Valid || version != 2 || saveCount != 1 || metadataCount != 1 ||
+		contentCount != 1 || variantCount != 1 || auditCount != 1 || launchState != "REVOKED" {
+		t.Fatalf(
+			"deleted aggregate = %s/%v v%d saves:%d metadata:%d content:%d variants:%d audits:%d launch:%s",
+			status,
+			deletedAt,
+			version,
+			saveCount,
+			metadataCount,
+			contentCount,
+			variantCount,
+			auditCount,
+			launchState,
+		)
+	}
+	publicList := httptest.NewRecorder()
+	handler.ServeHTTP(publicList, httptest.NewRequest(http.MethodGet, "/api/v1/games?limit=100", nil))
+	if publicList.Code != http.StatusOK || strings.Contains(publicList.Body.String(), gameID) {
+		t.Fatalf("deleted game remained public = %d %s", publicList.Code, publicList.Body.String())
+	}
+	admin := httptest.NewRecorder()
+	handler.ServeHTTP(admin, httptest.NewRequest(http.MethodGet, "/api/v1/admin/games/"+gameID, nil))
+	if admin.Code != http.StatusOK || !strings.Contains(admin.Body.String(), `"status":"DELETED"`) {
+		t.Fatalf("deleted admin history = %d %s", admin.Code, admin.Body.String())
+	}
+}
+
+func newReadyHTTPServer(t *testing.T) *Server {
+	t.Helper()
+	server := newTestServer(t)
+	if err := server.dependencies.Bootstrap(context.Background(), server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.dependencies.BootstrapCatalogs(context.Background(), server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	return server
+}
+
+func httpSession(t *testing.T, server *Server) (http.Handler, *http.Cookie, string) {
+	t.Helper()
+	handler := server.Handler()
+	session := httptest.NewRecorder()
+	handler.ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
+	var body struct {
+		CSRFToken string `json:"csrfToken"`
+	}
+	if err := json.Unmarshal(session.Body.Bytes(), &body); err != nil {
+		t.Fatal(err)
+	}
+	cookies := session.Result().Cookies()
+	if session.Code != http.StatusOK || len(cookies) != 1 {
+		t.Fatalf("session = %d %s", session.Code, session.Body.String())
+	}
+	return handler, cookies[0], body.CSRFToken
+}
+
+func seedMovableGame(t *testing.T, server *Server) (string, string) {
+	t.Helper()
+	ctx := context.Background()
+	var artifactID string
+	if err := server.database.QueryRowContext(ctx, `
+SELECT id
+FROM core_artifacts
+WHERE core_id='gambatte'
+AND enabled=1
+`).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	contents := []byte("move-game")
+	metadata, err := server.blobs.Put(bytes.NewReader(contents))
+	if err != nil {
+		t.Fatal(err)
+	}
+	blobID, err := blobstore.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	gameID := "01980000-0000-7000-8000-000000000176"
+	metadataID := "01980000-0000-7000-8000-000000000177"
+	contentID := "01980000-0000-7000-8000-000000000178"
+	variantID := "01980000-0000-7000-8000-000000000179"
+	revisionID := "01980000-0000-7000-8000-000000000180"
+	now := time.Now().UnixMilli()
+	transaction, err := server.database.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(transaction)
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`PRAGMA defer_foreign_keys=ON`, nil},
+		{`
+INSERT INTO game_metadata_revisions(id, game_id, title, description, developer, publisher, genre, players,
+release_year, source_kind, source_ref_id, created_at_ms)
+VALUES(?, ?, 'Move fixture', '', '', '', '', NULL, NULL, 'IMPORT_REVIEW', 'fixture', ?)
+`, []any{metadataID, gameID, now}},
+		{`
+INSERT INTO game_content_revisions(id, game_id, source_kind, source_ref_id, source_manifest_json,
+source_manifest_digest, created_at_ms)
+VALUES(?, ?, 'IMPORT_REVIEW', 'fixture', '{}', ?, ?)
+`, []any{contentID, gameID, strings.Repeat("1", 64), now}},
+		{`
+INSERT INTO games(id, platform_instance_id, status, current_metadata_revision_id, current_content_revision_id,
+search_text, version, created_at_ms, updated_at_ms)
+VALUES(?, '01980000-0000-7000-8000-000000000004', 'PUBLISHED', ?, ?, 'move fixture', 1, ?, ?)
+`, []any{gameID, metadataID, contentID, now, now}},
+		{`
+INSERT INTO game_content_files(game_content_revision_id, role, logical_name, blob_id, sort_order)
+VALUES(?, 'CONTENT', 'move.gbc', ?, 0)
+`, []any{contentID, blobID}},
+		{`
+INSERT INTO game_variants(id, game_id, core_id, current_revision_id, version, created_at_ms, updated_at_ms)
+VALUES(?, ?, 'gambatte', NULL, 1, ?, ?)
+`, []any{variantID, gameID, now, now}},
+		{`
+INSERT INTO game_variant_revisions(id, game_variant_id, game_content_revision_id, core_artifact_id,
+dat_version_id, validation_input_digest, emulator_game_id, status, compatibility_code,
+dependency_snapshot_json, created_at_ms)
+VALUES(?, ?, ?, ?, NULL, ?, 7001, 'READY', 'READY', '{"schemaVersion":1}', ?)
+`, []any{revisionID, variantID, contentID, artifactID, launch.ValidationInputDigest(artifactID, contentID, sql.NullString{}), now}},
+		{`
+UPDATE game_variants
+SET current_revision_id=?
+WHERE id=?
+`, []any{revisionID, variantID}},
+	}
+	for _, statement := range statements {
+		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			t.Fatalf("seed movable game: %v", err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	return gameID, contentID
+}
+
+func cloneMovableGame(
+	t *testing.T,
+	server *Server,
+	sourceGameID, gameSuffix, metadataSuffix, contentSuffix, variantSuffix, revisionSuffix string,
+) {
+	t.Helper()
+	id := func(suffix string) string { return "01980000-0000-7000-8000-000000000" + suffix }
+	ctx := context.Background()
+	transaction, err := server.database.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.ExecContext(ctx, `PRAGMA defer_foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`
+INSERT INTO game_metadata_revisions(id, game_id, title, description, developer, publisher, genre, players,
+release_year, source_kind, source_ref_id, created_at_ms)
+SELECT ?, ?, title || ?, description, developer, publisher, genre, players, release_year, source_kind, source_ref_id,
+created_at_ms
+FROM game_metadata_revisions
+WHERE id=(SELECT current_metadata_revision_id FROM games WHERE id=?)
+`, []any{id(metadataSuffix), id(gameSuffix), gameSuffix, sourceGameID}},
+		{`
+INSERT INTO game_content_revisions(id, game_id, source_kind, source_ref_id, source_manifest_json,
+source_manifest_digest, created_at_ms)
+SELECT ?, ?, source_kind, source_ref_id, source_manifest_json, source_manifest_digest, created_at_ms
+FROM game_content_revisions
+WHERE id=(SELECT current_content_revision_id FROM games WHERE id=?)
+`, []any{id(contentSuffix), id(gameSuffix), sourceGameID}},
+		{`
+INSERT INTO games(id, platform_instance_id, status, current_metadata_revision_id, current_content_revision_id,
+search_text, version, created_at_ms, updated_at_ms)
+SELECT ?, platform_instance_id, status, ?, ?, search_text || ?, 1, created_at_ms, updated_at_ms
+FROM games
+WHERE id=?
+`, []any{id(gameSuffix), id(metadataSuffix), id(contentSuffix), gameSuffix, sourceGameID}},
+		{`
+INSERT INTO game_content_files(game_content_revision_id, role, logical_name, blob_id, sort_order,
+source_archive_blob_id, source_archive_entry_ordinal)
+SELECT ?, role, logical_name, blob_id, sort_order, source_archive_blob_id, source_archive_entry_ordinal
+FROM game_content_files
+WHERE game_content_revision_id=(SELECT current_content_revision_id FROM games WHERE id=?)
+`, []any{id(contentSuffix), sourceGameID}},
+		{`
+INSERT INTO game_variants(id, game_id, core_id, current_revision_id, version, created_at_ms, updated_at_ms)
+SELECT ?, ?, core_id, NULL, 1, created_at_ms, updated_at_ms
+FROM game_variants
+WHERE game_id=? AND core_id='gambatte'
+`, []any{id(variantSuffix), id(gameSuffix), sourceGameID}},
+		{`
+INSERT INTO game_variant_revisions(id, game_variant_id, game_content_revision_id, core_artifact_id,
+dat_version_id, validation_input_digest, emulator_game_id, status, compatibility_code,
+dependency_snapshot_json, created_at_ms)
+SELECT ?, ?, ?, core_artifact_id, dat_version_id, ?, emulator_game_id + ?, status, compatibility_code,
+dependency_snapshot_json, created_at_ms
+FROM game_variant_revisions
+WHERE id=(SELECT current_revision_id FROM game_variants WHERE game_id=? AND core_id='gambatte')
+`, []any{
+			id(revisionSuffix), id(variantSuffix), id(contentSuffix),
+			launch.ValidationInputDigest("01980000-0000-7000-8000-000000000000", id(contentSuffix), sql.NullString{}),
+			mustSuffixInt(t, gameSuffix), sourceGameID,
+		}},
+		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{id(revisionSuffix), id(variantSuffix)}},
+	}
+	var artifactID string
+	if err := transaction.QueryRowContext(ctx, `SELECT core_artifact_id FROM game_variant_revisions WHERE id=(
+SELECT current_revision_id FROM game_variants WHERE game_id=? AND core_id='gambatte')`, sourceGameID).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	statements[5].args[3] = launch.ValidationInputDigest(artifactID, id(contentSuffix), sql.NullString{})
+	for _, statement := range statements {
+		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			t.Fatalf("clone movable game: %v", err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func mustSuffixInt(t *testing.T, value string) int64 {
+	t.Helper()
+	var result int64
+	if _, err := fmt.Sscan(value, &result); err != nil {
+		t.Fatal(err)
+	}
+	return result
+}
+
+func waitForHTTPJob(t *testing.T, database interface {
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}, jobID, expected string,
+) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var state string
+		if err := database.QueryRowContext(context.Background(), "SELECT state FROM jobs WHERE id=?", jobID).
+			Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state == expected {
+			return
+		}
+		if state == "FAILED" || state == "CANCELLED" || time.Now().After(deadline) {
+			t.Fatalf("job %s state = %s, wanted %s", jobID, state, expected)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
