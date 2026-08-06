@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
+import { newUuid } from "@/lib/crypto";
 import { responseError, uploadOne, waitForJob } from "@/lib/upload";
 
 export type DATVersion = {
@@ -83,7 +84,7 @@ export function DATManager({ versions, artifacts }: { versions: DATVersion[]; ar
       const response = await fetch("/api/v1/admin/arcade-dats", {
         method: "POST",
         credentials: "same-origin",
-        headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }),
+        headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
         body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, coreArtifactId: artifactId })
       });
       if (!response.ok) throw new Error(await responseError(response, "无法创建 DAT 候选"));
@@ -147,7 +148,7 @@ export function DATManager({ versions, artifacts }: { versions: DATVersion[]; ar
       const response = await fetch(`/api/v1/admin/arcade-dats/${item.id}/${rollback ? "rollback" : "activate"}`, {
         method: "POST",
         credentials: "same-origin",
-        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${artifact.version}"`, "Idempotency-Key": crypto.randomUUID() }),
+        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${artifact.version}"`, "Idempotency-Key": newUuid() }),
         body: JSON.stringify({ impactDigest: currentDiff.impactDigest, confirmBlocked: blocked, confirmUnknownCompatibility: item.compatibilityStatus === "UNKNOWN" })
       });
       if (!response.ok) throw new Error(await responseError(response, `DAT ${action}失败`));
@@ -163,7 +164,7 @@ export function DATManager({ versions, artifacts }: { versions: DATVersion[]; ar
     if (!item.jobId || !item.jobVersion) return;
     setBusy(item.id); setError("");
     try {
-      const response = await fetch(`/api/v1/admin/jobs/${item.jobId}/cancel`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${item.jobVersion}"`, "Idempotency-Key": crypto.randomUUID() }), body: JSON.stringify({ reason: "用户从 DAT 管理页取消解析" }) });
+      const response = await fetch(`/api/v1/admin/jobs/${item.jobId}/cancel`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${item.jobVersion}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify({ reason: "用户从 DAT 管理页取消解析" }) });
       if (!response.ok) throw new Error(await responseError(response, "无法取消 DAT 解析"));
       setNotice("已请求取消；worker 会在下一个有界检查点确认。");
       router.refresh();

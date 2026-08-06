@@ -1,4 +1,5 @@
 import { writeHeaders } from "@/lib/api/client";
+import { newUuid, sha256 } from "@/lib/crypto";
 
 export type CompletedUpload = {
   uploadId: string;
@@ -21,7 +22,7 @@ export async function responseError(response: Response, fallback: string) {
 }
 
 async function sha256Base64(blob: Blob) {
-  const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await blob.arrayBuffer()));
+  const digest = await sha256(await blob.arrayBuffer());
   let binary = "";
   for (const byte of digest) binary += String.fromCharCode(byte);
   return btoa(binary);
@@ -46,7 +47,7 @@ export async function uploadFiles(files: File[], onProgress?: (message: string) 
   const create = await fetch("/api/v1/admin/uploads", {
     method: "POST",
     credentials: "same-origin",
-    headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }),
+    headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
     body: JSON.stringify({ sourceType: files.some((file) => file.webkitRelativePath) ? "DIRECTORY" : "FILES", files: files.map((file, index) => ({ clientFileId: `file-${index}`, relativePath: file.webkitRelativePath || file.name, sizeBytes: file.size })) })
   });
   if (!create.ok) throw new Error(await responseError(create, "无法创建上传会话"));
@@ -81,7 +82,7 @@ export async function uploadFiles(files: File[], onProgress?: (message: string) 
   const completion = await fetch(`/api/v1/admin/uploads/${session.uploadId}/complete`, {
     method: "POST",
     credentials: "same-origin",
-    headers: await writeHeaders({ "If-Match": snapshot.headers.get("ETag") ?? "", "Idempotency-Key": crypto.randomUUID() })
+    headers: await writeHeaders({ "If-Match": snapshot.headers.get("ETag") ?? "", "Idempotency-Key": newUuid() })
   });
   if (!completion.ok) throw new Error(await responseError(completion, "无法终结上传会话"));
   const result = await completion.json() as { jobId: string };

@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 import { StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
+import { newUuid } from "@/lib/crypto";
 
 export type Platform = { id: string; name: string; enabled: boolean; cores: Array<{ id: string; name: string; enabled: boolean }> };
 export type PlatformInstance = { id: string; platformId: string; platformName: string; defaultCoreId: string; defaultCoreName: string; name: string; slug: string; description: string; sortOrder: number; enabled: boolean; version: number };
@@ -25,7 +26,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
     event.preventDefault(); setBusy(true); setError(""); setNotice("");
     const values = new FormData(event.currentTarget);
     const body = { platformId: String(values.get("platformId")), defaultCoreId: String(values.get("defaultCoreId")), name: String(values.get("name")), slug: String(values.get("slug")), description: String(values.get("description")), sortOrder: Number(values.get("sortOrder")) };
-    const response = await fetch("/api/v1/admin/platform-instances", { method: "POST", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }), body: JSON.stringify(body) });
+    const response = await fetch("/api/v1/admin/platform-instances", { method: "POST", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
     if (!response.ok) setError(await message(response)); else { setNotice("平台目录已创建"); event.currentTarget.reset(); router.refresh(); }
     setBusy(false);
   }
@@ -48,7 +49,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
     const impact = await preview.json() as { impactDigest: string; counts: { blocked: number } };
     const confirmBlocked = impact.counts.blocked > 0 && window.confirm(`${impact.counts.blocked} 个游戏会被阻断，仍要更换默认核心吗？`);
     if (impact.counts.blocked > 0 && !confirmBlocked) { setBusy(false); return; }
-    const commit = await fetch(`/api/v1/admin/platform-instances/${instance.id}/default-core`, { method: "POST", headers: { ...headers, "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ coreId, impactDigest: impact.impactDigest, confirmBlocked }) });
+    const commit = await fetch(`/api/v1/admin/platform-instances/${instance.id}/default-core`, { method: "POST", headers: { ...headers, "Idempotency-Key": newUuid() }, body: JSON.stringify({ coreId, impactDigest: impact.impactDigest, confirmBlocked }) });
     if (!commit.ok) setError(await message(commit)); else { setNotice("默认核心已更新"); router.refresh(); }
     setBusy(false);
   }

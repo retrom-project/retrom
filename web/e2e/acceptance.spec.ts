@@ -422,3 +422,24 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   expect((await mismatch.json() as { error: { code: string } }).error.code).toBe("LAUNCH_BLOCKED");
   await page.screenshot({ path: evidencePath(testInfo, "three-save-resume-entry-points.png"), fullPage: true });
 });
+
+test("LAN HTTP upload works without secure-context crypto APIs", async ({ page }) => {
+  await page.addInitScript(() => {
+    const cryptoPrototype = Object.getPrototypeOf(window.crypto) as object;
+    Object.defineProperty(cryptoPrototype, "randomUUID", { configurable: true, value: undefined });
+    Object.defineProperty(cryptoPrototype, "subtle", { configurable: true, value: undefined });
+  });
+  await page.goto("/admin/imports/new");
+  expect(await page.evaluate(() => ({ randomUUID: typeof crypto.randomUUID, subtle: typeof crypto.subtle }))).toEqual({
+    randomUUID: "undefined",
+    subtle: "undefined",
+  });
+  await page.locator('input[type="file"]').first().setInputFiles({
+    name: "lan-http-regression.nes",
+    mimeType: "application/octet-stream",
+    buffer: Buffer.from([0x4e, 0x45, 0x53, 0x1a, 0, 0, 0, 0]),
+  });
+  await page.locator("#provider").selectOption("NONE");
+  await page.getByRole("button", { name: "上传、验证并创建导入任务" }).click();
+  await expect(page).toHaveURL(/\/admin\/reviews\?importJobId=[0-9a-f-]+$/, { timeout: 30_000 });
+});

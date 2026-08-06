@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
+import { newUuid } from "@/lib/crypto";
 import { responseError, uploadOne } from "@/lib/upload";
 
 export type BIOSRequirement = {
@@ -40,7 +41,7 @@ export function BIOSManager({ items }: { items: BIOSRequirement[] }) {
       const response = await fetch(`/api/v1/admin/bios/${requirement.id}/installations`, {
         method: "POST",
         credentials: "same-origin",
-        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${requirement.version}"`, "Idempotency-Key": crypto.randomUUID() }),
+        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${requirement.version}"`, "Idempotency-Key": newUuid() }),
         body: JSON.stringify({ uploadFileId: upload.uploadFileId })
       });
       if (!response.ok) throw new Error(await responseError(response, "BIOS 安装失败"));
