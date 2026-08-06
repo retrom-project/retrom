@@ -1,0 +1,1494 @@
+<div id="retrom-ui-review">
+  <style>
+    #retrom-ui-review {
+      --retrom-bg: light-dark(#ebe9e3, #090a0f);
+      --retrom-shell: light-dark(#f8f7f3, #101119);
+      --retrom-sidebar: light-dark(#181922, #11121a);
+      --retrom-sidebar-text: #f5f4ff;
+      --retrom-sidebar-muted: #9d9eaf;
+      --retrom-panel: light-dark(#ffffff, #181a24);
+      --retrom-panel-raised: light-dark(#f4f2ec, #20222e);
+      --retrom-text: light-dark(#171821, #f3f2fa);
+      --retrom-muted: light-dark(#686976, #a7a8b7);
+      --retrom-line: light-dark(#ddd9d0, #30323f);
+      --retrom-purple: light-dark(#6045d9, #9b86ff);
+      --retrom-purple-soft: light-dark(#ece7ff, #2c2747);
+      --retrom-cyan: light-dark(#087e88, #55dbe1);
+      --retrom-cyan-soft: light-dark(#e1f5f4, #18383d);
+      --retrom-green: light-dark(#147449, #62d89b);
+      --retrom-green-soft: light-dark(#e2f4e9, #183a2a);
+      --retrom-amber: light-dark(#95600a, #f0bc5d);
+      --retrom-amber-soft: light-dark(#fff1cf, #3e311b);
+      --retrom-red: light-dark(#a63e43, #ff8e93);
+      --retrom-red-soft: light-dark(#fde8e8, #422328);
+      --retrom-cover-a: light-dark(#38216c, #4b2c87);
+      --retrom-cover-b: light-dark(#105e6a, #126f7c);
+      --retrom-cover-c: light-dark(#8a3a31, #9e493c);
+      --retrom-cover-d: light-dark(#355d2c, #45763a);
+      --retrom-cover-e: light-dark(#7a4f1e, #966428);
+      --retrom-cover-f: light-dark(#323b79, #424d97);
+      --retrom-content-max: 2160px;
+      color: var(--retrom-text);
+      color-scheme: light dark;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      font-size: 14px;
+      width: 100%;
+    }
+
+    #retrom-ui-review * { box-sizing: border-box; }
+    #retrom-ui-review [hidden] { display: none !important; }
+    #retrom-ui-review button,
+    #retrom-ui-review input,
+    #retrom-ui-review select,
+    #retrom-ui-review textarea { font: inherit; }
+
+    #retrom-ui-review .rt-app {
+      display: grid;
+      grid-template-columns: 224px minmax(0, 1fr);
+      min-height: max(760px, calc(100vh - 32px));
+      overflow: hidden;
+      background: var(--retrom-shell);
+      border: 1px solid var(--retrom-line);
+      border-radius: 18px;
+      box-shadow: 0 22px 70px light-dark(rgb(32 26 16 / 0.14), rgb(0 0 0 / 0.36));
+    }
+
+    #retrom-ui-review .rt-sidebar {
+      display: flex;
+      flex-direction: column;
+      gap: 18px;
+      padding: 20px 14px 16px;
+      background:
+        radial-gradient(circle at 15% 0%, rgb(120 86 255 / 0.22), transparent 30%),
+        var(--retrom-sidebar);
+      color: var(--retrom-sidebar-text);
+    }
+
+    #retrom-ui-review .rt-brand {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 0 8px 8px;
+      font-weight: 500;
+      letter-spacing: 0.04em;
+    }
+
+    #retrom-ui-review .rt-brand-mark {
+      display: grid;
+      grid-template-columns: repeat(2, 7px);
+      grid-template-rows: repeat(2, 7px);
+      gap: 2px;
+      padding: 7px;
+      border-radius: 9px;
+      background: #9b86ff;
+      box-shadow: 0 0 24px rgb(155 134 255 / 0.36);
+    }
+
+    #retrom-ui-review .rt-brand-mark span { background: #17131f; border-radius: 2px; }
+    #retrom-ui-review .rt-brand-mark span:nth-child(2),
+    #retrom-ui-review .rt-brand-mark span:nth-child(3) { opacity: 0.35; }
+
+    #retrom-ui-review .rt-mode-label {
+      padding: 0 10px;
+      color: var(--retrom-sidebar-muted);
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+    }
+
+    #retrom-ui-review .rt-nav { display: grid; gap: 5px; }
+    #retrom-ui-review .rt-nav-group { display: grid; gap: 5px; }
+    #retrom-ui-review .rt-nav-group[hidden] { display: none; }
+    #retrom-ui-review .rt-nav-section { display: grid; gap: 3px; }
+
+    #retrom-ui-review .rt-nav-button,
+    #retrom-ui-review .rt-mode-button {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      min-height: 40px;
+      padding: 9px 10px;
+      border: 0;
+      border-radius: 10px;
+      color: var(--retrom-sidebar-muted);
+      background: transparent;
+      cursor: pointer;
+      text-align: left;
+    }
+
+    #retrom-ui-review .rt-nav-button:hover,
+    #retrom-ui-review .rt-mode-button:hover { background: rgb(255 255 255 / 0.06); color: var(--retrom-sidebar-text); }
+    #retrom-ui-review .rt-nav-button.is-active { background: rgb(155 134 255 / 0.17); color: #fff; }
+    #retrom-ui-review .rt-nav-button.is-context { color: #fff; }
+    #retrom-ui-review .rt-nav-label { flex: 1; min-width: 0; }
+    #retrom-ui-review .rt-nav-chevron { width: 14px; height: 14px; opacity: 0.64; }
+    #retrom-ui-review .rt-nav-children {
+      display: grid;
+      gap: 3px;
+      margin: 0 0 5px 18px;
+      padding-left: 12px;
+      border-left: 1px solid rgb(255 255 255 / 0.16);
+    }
+    #retrom-ui-review .rt-nav-child {
+      position: relative;
+      min-height: 34px;
+      padding: 7px 9px;
+      border-radius: 8px;
+      font-size: 12px;
+    }
+    #retrom-ui-review .rt-nav-child::before {
+      position: absolute;
+      top: 50%;
+      left: -13px;
+      width: 10px;
+      height: 1px;
+      background: rgb(255 255 255 / 0.16);
+      content: "";
+    }
+    #retrom-ui-review .rt-nav-child.is-active::before { background: #9b86ff; }
+    #retrom-ui-review .rt-nav-count {
+      min-width: 20px;
+      padding: 1px 6px;
+      border-radius: 999px;
+      background: rgb(255 255 255 / 0.08);
+      color: #d9d6e8;
+      font-size: 10px;
+      text-align: center;
+    }
+    #retrom-ui-review .rt-nav-child.is-active .rt-nav-count { background: rgb(155 134 255 / 0.28); color: #fff; }
+    #retrom-ui-review .rt-nav-button svg,
+    #retrom-ui-review .rt-mode-button svg { width: 16px; height: 16px; flex: none; }
+    #retrom-ui-review .rt-nav-spacer { flex: 1; min-height: 16px; }
+    #retrom-ui-review .rt-mode-button { border: 1px solid rgb(255 255 255 / 0.1); color: #d4d2df; }
+
+    #retrom-ui-review .rt-main {
+      min-width: 0;
+      background:
+        linear-gradient(90deg, transparent 23px, light-dark(rgb(0 0 0 / 0.018), rgb(255 255 255 / 0.018)) 24px, transparent 25px),
+        var(--retrom-bg);
+    }
+
+    #retrom-ui-review .rt-app.is-playing { grid-template-columns: 1fr; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
+    #retrom-ui-review .rt-app.is-playing .rt-sidebar,
+    #retrom-ui-review .rt-app.is-playing .rt-topbar { display: none; }
+    #retrom-ui-review .rt-app.is-playing .rt-page[data-page="play"] { width: 100%; max-width: none; min-height: 100vh; }
+    #retrom-ui-review .rt-app.is-playing .rt-player-shell { min-height: 100vh; }
+
+    #retrom-ui-review .rt-topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      min-height: 64px;
+      padding: 12px 24px;
+      border-bottom: 1px solid var(--retrom-line);
+      background: color-mix(in srgb, var(--retrom-shell) 92%, transparent);
+    }
+
+    #retrom-ui-review .rt-breadcrumb { color: var(--retrom-muted); font-size: 12px; }
+    #retrom-ui-review .rt-breadcrumb strong { color: var(--retrom-text); font-weight: 500; }
+    #retrom-ui-review .rt-top-actions { display: flex; align-items: center; gap: 8px; }
+    #retrom-ui-review .rt-status-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--retrom-green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--retrom-green) 16%, transparent); }
+    #retrom-ui-review .rt-local-label { color: var(--retrom-muted); font-size: 12px; }
+
+    #retrom-ui-review .rt-page { display: none; width: 100%; max-width: var(--retrom-content-max); margin: 0 auto; padding: 24px; }
+    #retrom-ui-review .rt-page.is-active { display: block; }
+    #retrom-ui-review .rt-page[data-page="play"] { padding: 0; }
+    #retrom-ui-review .rt-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
+    #retrom-ui-review h1,
+    #retrom-ui-review h2,
+    #retrom-ui-review h3,
+    #retrom-ui-review p { margin: 0; }
+    #retrom-ui-review h1 { font-size: 24px; font-weight: 500; letter-spacing: -0.025em; }
+    #retrom-ui-review h2 { font-size: 17px; font-weight: 500; }
+    #retrom-ui-review h3 { font-size: 14px; font-weight: 500; }
+    #retrom-ui-review .rt-subtitle { margin-top: 5px; color: var(--retrom-muted); font-size: 12px; }
+
+    #retrom-ui-review .rt-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      min-height: 36px;
+      padding: 8px 13px;
+      border: 1px solid var(--retrom-line);
+      border-radius: 9px;
+      background: var(--retrom-panel);
+      color: var(--retrom-text);
+      cursor: pointer;
+      text-decoration: none;
+    }
+
+    #retrom-ui-review .rt-button:hover { background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-button-primary { border-color: transparent; background: var(--retrom-purple); color: light-dark(#fff, #111018); }
+    #retrom-ui-review .rt-button-primary:hover { background: color-mix(in srgb, var(--retrom-purple) 85%, var(--retrom-text)); }
+    #retrom-ui-review .rt-button-danger { color: var(--retrom-red); }
+    #retrom-ui-review .rt-button svg { width: 15px; height: 15px; }
+    #retrom-ui-review .rt-button:disabled { cursor: not-allowed; opacity: 0.48; }
+
+    #retrom-ui-review .rt-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; max-width: 1240px; margin-bottom: 24px; }
+    #retrom-ui-review .rt-stat {
+      padding: 16px;
+      border: 1px solid var(--retrom-line);
+      border-radius: 13px;
+      background: var(--retrom-panel);
+    }
+    #retrom-ui-review .rt-stat-label { display: flex; justify-content: space-between; color: var(--retrom-muted); font-size: 12px; }
+    #retrom-ui-review .rt-stat-label svg { width: 15px; height: 15px; color: var(--retrom-purple); }
+    #retrom-ui-review .rt-stat-value { margin-top: 13px; font-size: 25px; font-weight: 500; letter-spacing: -0.03em; }
+    #retrom-ui-review .rt-stat-note { margin-top: 4px; color: var(--retrom-muted); font-size: 11px; }
+
+    #retrom-ui-review .rt-section-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 20px 0 12px; }
+    #retrom-ui-review .rt-text-link { padding: 0; border: 0; background: transparent; color: var(--retrom-purple); cursor: pointer; font-size: 12px; }
+    #retrom-ui-review .rt-game-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+
+    #retrom-ui-review .rt-game-card {
+      min-width: 0;
+      padding: 0;
+      overflow: hidden;
+      border: 1px solid var(--retrom-line);
+      border-radius: 13px;
+      background: var(--retrom-panel);
+      color: var(--retrom-text);
+      cursor: pointer;
+      text-align: left;
+    }
+    #retrom-ui-review .rt-game-card:hover { transform: translateY(-1px); border-color: color-mix(in srgb, var(--retrom-purple) 48%, var(--retrom-line)); }
+    #retrom-ui-review .rt-cover {
+      position: relative;
+      display: grid;
+      place-items: center;
+      aspect-ratio: 4 / 3;
+      overflow: hidden;
+      color: #fff;
+      background: var(--retrom-cover-a);
+    }
+    #retrom-ui-review .rt-cover::before,
+    #retrom-ui-review .rt-cover::after { content: ""; position: absolute; inset: auto; background: rgb(255 255 255 / 0.13); transform: rotate(45deg); }
+    #retrom-ui-review .rt-cover::before { width: 100px; height: 100px; left: -52px; top: -52px; }
+    #retrom-ui-review .rt-cover::after { width: 70px; height: 70px; right: -38px; bottom: -38px; }
+    #retrom-ui-review .rt-cover-b { background: var(--retrom-cover-b); }
+    #retrom-ui-review .rt-cover-c { background: var(--retrom-cover-c); }
+    #retrom-ui-review .rt-cover-d { background: var(--retrom-cover-d); }
+    #retrom-ui-review .rt-cover-e { background: var(--retrom-cover-e); }
+    #retrom-ui-review .rt-cover-f { background: var(--retrom-cover-f); }
+    #retrom-ui-review .rt-cover-title { position: relative; z-index: 1; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 16px; font-weight: 500; letter-spacing: 0.08em; text-shadow: 0 2px 10px rgb(0 0 0 / 0.45); }
+    #retrom-ui-review .rt-card-copy { padding: 11px 12px 12px; }
+    #retrom-ui-review .rt-card-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+    #retrom-ui-review .rt-card-meta { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 5px; color: var(--retrom-muted); font-size: 11px; }
+
+    #retrom-ui-review .rt-resume-row {
+      display: grid;
+      grid-template-columns: 72px minmax(0, 1fr) auto;
+      align-items: center;
+      gap: 13px;
+      padding: 10px;
+      border: 1px solid var(--retrom-line);
+      border-radius: 13px;
+      background: var(--retrom-panel);
+    }
+    #retrom-ui-review .rt-resume-cover { width: 72px; aspect-ratio: 16 / 10; border-radius: 8px; }
+    #retrom-ui-review .rt-resume-copy { min-width: 0; }
+    #retrom-ui-review .rt-resume-title { font-weight: 500; }
+    #retrom-ui-review .rt-progress { height: 5px; margin-top: 9px; overflow: hidden; border-radius: 999px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-progress span { display: block; height: 100%; width: 68%; background: var(--retrom-purple); }
+    #retrom-ui-review .rt-resume-meta { margin-top: 5px; color: var(--retrom-muted); font-size: 11px; }
+
+    #retrom-ui-review .rt-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 16px; }
+    #retrom-ui-review .rt-search { position: relative; flex: 1 1 240px; }
+    #retrom-ui-review .rt-search svg { position: absolute; left: 11px; top: 50%; width: 15px; height: 15px; color: var(--retrom-muted); transform: translateY(-50%); }
+    #retrom-ui-review .rt-input,
+    #retrom-ui-review .rt-select,
+    #retrom-ui-review .rt-textarea {
+      width: 100%;
+      min-height: 38px;
+      border: 1px solid var(--retrom-line);
+      border-radius: 9px;
+      background: var(--retrom-panel);
+      color: var(--retrom-text);
+    }
+    #retrom-ui-review .rt-input { padding: 8px 11px; }
+    #retrom-ui-review .rt-search .rt-input { padding-left: 34px; }
+    #retrom-ui-review .rt-select { padding: 8px 30px 8px 10px; }
+    #retrom-ui-review .rt-textarea { min-height: 84px; padding: 10px; resize: vertical; }
+    #retrom-ui-review .rt-filter-select { width: auto; min-width: 132px; }
+
+    #retrom-ui-review .rt-save-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    #retrom-ui-review .rt-save-card { overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 13px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-save-shot {
+      position: relative;
+      display: grid;
+      place-items: center;
+      aspect-ratio: 16 / 9;
+      overflow: hidden;
+      background:
+        linear-gradient(0deg, rgb(0 0 0 / 0.55), transparent 52%),
+        repeating-linear-gradient(90deg, transparent 0 18px, rgb(255 255 255 / 0.045) 18px 19px),
+        var(--retrom-cover-b);
+      color: #fff;
+      font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+      letter-spacing: 0.08em;
+    }
+    #retrom-ui-review .rt-save-shot::after { content: ""; position: absolute; width: 56px; height: 18px; bottom: 20px; left: 20px; background: rgb(255 255 255 / 0.22); box-shadow: 76px -24px 0 rgb(255 255 255 / 0.12), 150px 4px 0 rgb(255 255 255 / 0.18); }
+    #retrom-ui-review .rt-save-copy { padding: 12px; }
+    #retrom-ui-review .rt-save-title-row { display: flex; justify-content: space-between; gap: 8px; }
+    #retrom-ui-review .rt-save-time { margin-top: 5px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-save-actions { display: flex; gap: 7px; margin-top: 11px; }
+
+    #retrom-ui-review .rt-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      width: fit-content;
+      padding: 4px 7px;
+      border-radius: 999px;
+      background: var(--retrom-purple-soft);
+      color: var(--retrom-purple);
+      font-size: 10px;
+      white-space: nowrap;
+    }
+    #retrom-ui-review .rt-badge-green { background: var(--retrom-green-soft); color: var(--retrom-green); }
+    #retrom-ui-review .rt-badge-amber { background: var(--retrom-amber-soft); color: var(--retrom-amber); }
+    #retrom-ui-review .rt-badge-red { background: var(--retrom-red-soft); color: var(--retrom-red); }
+    #retrom-ui-review .rt-badge-cyan { background: var(--retrom-cyan-soft); color: var(--retrom-cyan); }
+
+    #retrom-ui-review .rt-detail-hero {
+      position: relative;
+      display: grid;
+      grid-template-columns: 150px minmax(0, 1fr) minmax(220px, 0.72fr);
+      gap: 20px;
+      padding: 20px;
+      overflow: hidden;
+      border: 1px solid var(--retrom-line);
+      border-radius: 16px;
+      background: var(--retrom-panel);
+    }
+    #retrom-ui-review .rt-detail-hero::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: linear-gradient(90deg, var(--retrom-purple), var(--retrom-cyan)); }
+    #retrom-ui-review .rt-detail-cover { aspect-ratio: 3 / 4; border-radius: 11px; }
+    #retrom-ui-review .rt-detail-copy { min-width: 0; padding-top: 3px; }
+    #retrom-ui-review .rt-detail-kicker { color: var(--retrom-purple); font-size: 11px; letter-spacing: 0.09em; text-transform: uppercase; }
+    #retrom-ui-review .rt-detail-title { margin-top: 7px; font-size: 27px; font-weight: 500; letter-spacing: -0.035em; }
+    #retrom-ui-review .rt-detail-meta { display: flex; flex-wrap: wrap; gap: 7px 12px; margin-top: 10px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-detail-description { margin-top: 16px; max-width: 46ch; color: var(--retrom-muted); font-size: 12px; line-height: 1.65; }
+    #retrom-ui-review .rt-detail-stats { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 18px; }
+    #retrom-ui-review .rt-detail-stat strong { display: block; color: var(--retrom-text); font-size: 16px; font-weight: 500; }
+    #retrom-ui-review .rt-detail-stat span { color: var(--retrom-muted); font-size: 10px; }
+
+    #retrom-ui-review .rt-launch-panel { align-self: start; padding: 14px; border-radius: 12px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-launch-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; }
+    #retrom-ui-review .rt-field { display: grid; gap: 6px; margin-top: 10px; }
+    #retrom-ui-review .rt-label { color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-checkline { display: flex; align-items: flex-start; gap: 8px; margin-top: 11px; padding: 9px; border-radius: 9px; background: var(--retrom-green-soft); color: var(--retrom-green); font-size: 11px; line-height: 1.45; }
+    #retrom-ui-review .rt-checkline.is-warning { background: var(--retrom-amber-soft); color: var(--retrom-amber); }
+    #retrom-ui-review .rt-checkline svg { width: 14px; height: 14px; flex: none; margin-top: 1px; }
+    #retrom-ui-review .rt-launch-button { width: 100%; margin-top: 12px; }
+    #retrom-ui-review .rt-launch-note { margin-top: 7px; color: var(--retrom-muted); font-size: 10px; text-align: center; }
+
+    #retrom-ui-review .rt-tab-row { display: flex; gap: 18px; margin: 18px 0 12px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-tab { padding: 10px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--retrom-muted); cursor: pointer; }
+    #retrom-ui-review .rt-tab.is-active { border-bottom-color: var(--retrom-purple); color: var(--retrom-text); }
+    #retrom-ui-review .rt-detail-lower { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 12px; }
+    #retrom-ui-review .rt-panel { border: 1px solid var(--retrom-line); border-radius: 13px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-panel-pad { padding: 15px; }
+    #retrom-ui-review .rt-mini-save { display: grid; grid-template-columns: 90px minmax(0, 1fr) auto; align-items: center; gap: 11px; }
+    #retrom-ui-review .rt-mini-shot { aspect-ratio: 16 / 9; border-radius: 8px; background: var(--retrom-cover-b); }
+    #retrom-ui-review .rt-info-list { display: grid; gap: 10px; margin-top: 12px; }
+    #retrom-ui-review .rt-info-row { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
+    #retrom-ui-review .rt-info-row span:first-child { color: var(--retrom-muted); }
+
+    #retrom-ui-review .rt-admin-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 17px; }
+    #retrom-ui-review .rt-admin-tab { padding: 7px 10px; border: 1px solid var(--retrom-line); border-radius: 8px; background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; }
+    #retrom-ui-review .rt-admin-tab.is-active { border-color: color-mix(in srgb, var(--retrom-purple) 52%, var(--retrom-line)); background: var(--retrom-purple-soft); color: var(--retrom-purple); }
+    #retrom-ui-review .rt-import-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.75fr); gap: 12px; }
+    #retrom-ui-review .rt-dropzone { display: grid; place-items: center; min-height: 200px; padding: 22px; border: 1px dashed color-mix(in srgb, var(--retrom-purple) 46%, var(--retrom-line)); border-radius: 13px; background: color-mix(in srgb, var(--retrom-purple-soft) 38%, var(--retrom-panel)); text-align: center; }
+    #retrom-ui-review .rt-drop-icon { display: grid; place-items: center; width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 12px; background: var(--retrom-purple-soft); color: var(--retrom-purple); }
+    #retrom-ui-review .rt-drop-icon svg { width: 21px; height: 21px; }
+    #retrom-ui-review .rt-drop-copy { margin-top: 6px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-drop-actions { display: flex; justify-content: center; gap: 8px; margin-top: 14px; }
+    #retrom-ui-review .rt-import-settings { padding: 15px; }
+    #retrom-ui-review .rt-setting-note { margin-top: 12px; padding: 10px; border-radius: 9px; background: var(--retrom-cyan-soft); color: var(--retrom-cyan); font-size: 11px; line-height: 1.5; }
+
+    #retrom-ui-review .rt-page-head-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    #retrom-ui-review .rt-ingest-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
+    #retrom-ui-review .rt-overview-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.55fr); gap: 12px; }
+    #retrom-ui-review .rt-overview-panel { padding: 18px; }
+    #retrom-ui-review .rt-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    #retrom-ui-review .rt-panel-heading-copy { min-width: 0; }
+    #retrom-ui-review .rt-panel-heading-copy .rt-subtitle { max-width: 62ch; }
+    #retrom-ui-review .rt-pipeline-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 22px; }
+    #retrom-ui-review .rt-pipeline-stage { position: relative; padding: 18px 10px 0; border-top: 2px solid var(--retrom-line); }
+    #retrom-ui-review .rt-pipeline-stage::before { position: absolute; top: -6px; left: 10px; width: 10px; height: 10px; border: 2px solid var(--retrom-panel); border-radius: 50%; background: var(--retrom-line); content: ""; }
+    #retrom-ui-review .rt-pipeline-stage.is-running { border-color: var(--retrom-purple); }
+    #retrom-ui-review .rt-pipeline-stage.is-running::before { background: var(--retrom-purple); }
+    #retrom-ui-review .rt-pipeline-count { font-size: 22px; font-weight: 500; letter-spacing: -0.03em; }
+    #retrom-ui-review .rt-pipeline-label { margin-top: 3px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-pipeline-caption { margin-top: 16px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-action-list { display: grid; gap: 2px; margin-top: 12px; }
+    #retrom-ui-review .rt-action-row { display: grid; grid-template-columns: 32px minmax(0, 1fr) auto; align-items: center; gap: 10px; width: 100%; padding: 10px 0; border: 0; border-bottom: 1px solid var(--retrom-line); background: transparent; color: var(--retrom-text); cursor: pointer; text-align: left; }
+    #retrom-ui-review .rt-action-row:last-child { border-bottom: 0; }
+    #retrom-ui-review .rt-action-icon { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 9px; background: var(--retrom-panel-raised); color: var(--retrom-purple); }
+    #retrom-ui-review .rt-action-icon.is-warning { background: var(--retrom-amber-soft); color: var(--retrom-amber); }
+    #retrom-ui-review .rt-action-icon.is-danger { background: var(--retrom-red-soft); color: var(--retrom-red); }
+    #retrom-ui-review .rt-action-icon svg { width: 15px; height: 15px; }
+    #retrom-ui-review .rt-action-copy { min-width: 0; }
+    #retrom-ui-review .rt-action-title { font-weight: 500; }
+    #retrom-ui-review .rt-action-note { margin-top: 2px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-action-arrow { color: var(--retrom-muted); }
+    #retrom-ui-review .rt-action-arrow svg { width: 15px; height: 15px; }
+
+    #retrom-ui-review .rt-import-stepbar { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 14px; }
+    #retrom-ui-review .rt-import-step { display: flex; align-items: center; gap: 8px; padding: 9px 11px; border: 1px solid var(--retrom-line); border-radius: 10px; background: color-mix(in srgb, var(--retrom-panel) 82%, transparent); color: var(--retrom-muted); }
+    #retrom-ui-review .rt-import-step.is-active { border-color: color-mix(in srgb, var(--retrom-purple) 46%, var(--retrom-line)); background: var(--retrom-purple-soft); color: var(--retrom-purple); }
+    #retrom-ui-review .rt-step-number { display: grid; place-items: center; width: 22px; height: 22px; flex: none; border-radius: 50%; background: var(--retrom-panel-raised); color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-import-step.is-active .rt-step-number { background: var(--retrom-purple); color: light-dark(#fff, #111018); }
+    #retrom-ui-review .rt-import-checklist { display: grid; gap: 9px; margin-top: 14px; }
+    #retrom-ui-review .rt-import-check { display: grid; grid-template-columns: 22px minmax(0, 1fr); gap: 9px; align-items: start; }
+    #retrom-ui-review .rt-import-check svg { width: 16px; height: 16px; margin-top: 1px; color: var(--retrom-green); }
+    #retrom-ui-review .rt-preflight { margin-top: 12px; padding: 15px; }
+    #retrom-ui-review .rt-preflight-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; margin-top: 12px; }
+    #retrom-ui-review .rt-preflight-item { min-width: 0; padding: 0 14px; border-left: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-preflight-item:first-child { padding-left: 0; border-left: 0; }
+    #retrom-ui-review .rt-preflight-label { color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-preflight-value { margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+
+    #retrom-ui-review .rt-task-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr); gap: 12px; }
+    #retrom-ui-review .rt-job-list { overflow: hidden; }
+    #retrom-ui-review .rt-job-row { padding: 16px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-job-row:last-child { border-bottom: 0; }
+    #retrom-ui-review .rt-job-row.is-selected { background: color-mix(in srgb, var(--retrom-purple-soft) 44%, var(--retrom-panel)); box-shadow: inset 3px 0 0 var(--retrom-purple); }
+    #retrom-ui-review .rt-job-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+    #retrom-ui-review .rt-job-title { display: flex; align-items: center; gap: 9px; min-width: 0; }
+    #retrom-ui-review .rt-job-title svg { width: 16px; height: 16px; flex: none; color: var(--retrom-purple); }
+    #retrom-ui-review .rt-job-meta { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 7px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-job-progress { height: 6px; margin-top: 13px; overflow: hidden; border-radius: 999px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-job-progress span { display: block; height: 100%; background: var(--retrom-purple); }
+    #retrom-ui-review .rt-job-progress.is-warning span { background: var(--retrom-amber); }
+    #retrom-ui-review .rt-job-progress.is-danger span { background: var(--retrom-red); }
+    #retrom-ui-review .rt-job-footer { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-top: 10px; }
+    #retrom-ui-review .rt-job-counts { display: flex; flex-wrap: wrap; gap: 6px 13px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-job-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    #retrom-ui-review .rt-task-detail { align-self: start; padding: 16px; }
+    #retrom-ui-review .rt-timeline { display: grid; gap: 0; margin-top: 14px; }
+    #retrom-ui-review .rt-timeline-item { position: relative; display: grid; grid-template-columns: 16px minmax(0, 1fr); gap: 9px; padding-bottom: 13px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-timeline-item::before { width: 8px; height: 8px; margin: 4px 0 0 4px; border-radius: 50%; background: var(--retrom-line); content: ""; }
+    #retrom-ui-review .rt-timeline-item::after { position: absolute; top: 14px; bottom: 0; left: 7px; width: 1px; background: var(--retrom-line); content: ""; }
+    #retrom-ui-review .rt-timeline-item:last-child::after { display: none; }
+    #retrom-ui-review .rt-timeline-item.is-current { color: var(--retrom-text); }
+    #retrom-ui-review .rt-timeline-item.is-current::before { background: var(--retrom-purple); box-shadow: 0 0 0 4px color-mix(in srgb, var(--retrom-purple) 14%, transparent); }
+    #retrom-ui-review .rt-timeline-title { font-weight: 500; }
+    #retrom-ui-review .rt-timeline-time { margin-top: 2px; color: var(--retrom-muted); }
+
+    #retrom-ui-review .rt-history-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(320px, 0.55fr); gap: 12px; }
+    #retrom-ui-review .rt-history-table tr.is-selected td { background: color-mix(in srgb, var(--retrom-purple-soft) 50%, var(--retrom-panel)); }
+    #retrom-ui-review .rt-audit-detail { align-self: start; padding: 16px; }
+    #retrom-ui-review .rt-audit-meta { display: grid; gap: 8px; margin-top: 13px; }
+    #retrom-ui-review .rt-audit-diff { display: grid; gap: 8px; margin-top: 15px; }
+    #retrom-ui-review .rt-diff-row { display: grid; grid-template-columns: 76px minmax(0, 1fr); gap: 10px; padding-top: 8px; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-diff-label { color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-diff-value { min-width: 0; font-size: 11px; }
+    #retrom-ui-review .rt-diff-before { color: var(--retrom-red); text-decoration: line-through; }
+    #retrom-ui-review .rt-diff-after { margin-top: 2px; color: var(--retrom-green); }
+
+    #retrom-ui-review .rt-flow { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 0; margin-top: 18px; }
+    #retrom-ui-review .rt-flow-step { position: relative; padding-top: 24px; color: var(--retrom-muted); font-size: 10px; text-align: center; }
+    #retrom-ui-review .rt-flow-step::before { content: ""; position: absolute; top: 8px; left: 50%; z-index: 1; width: 10px; height: 10px; border: 3px solid var(--retrom-panel); border-radius: 50%; background: var(--retrom-line); transform: translateX(-50%); }
+    #retrom-ui-review .rt-flow-step::after { content: ""; position: absolute; top: 12px; left: 0; width: 100%; height: 2px; background: var(--retrom-line); }
+    #retrom-ui-review .rt-flow-step:first-child::after { left: 50%; width: 50%; }
+    #retrom-ui-review .rt-flow-step:last-child::after { width: 50%; }
+    #retrom-ui-review .rt-flow-step.is-done::before,
+    #retrom-ui-review .rt-flow-step.is-active::before { background: var(--retrom-purple); }
+    #retrom-ui-review .rt-flow-step.is-done::after { background: var(--retrom-purple); }
+    #retrom-ui-review .rt-flow-step.is-active { color: var(--retrom-text); }
+
+    #retrom-ui-review .rt-table-wrap { overflow-x: auto; }
+    #retrom-ui-review .rt-table { width: 100%; border-collapse: collapse; }
+    #retrom-ui-review .rt-table th,
+    #retrom-ui-review .rt-table td { padding: 11px 10px; border-bottom: 1px solid var(--retrom-line); text-align: left; vertical-align: middle; }
+    #retrom-ui-review .rt-table th { color: var(--retrom-muted); font-size: 10px; font-weight: 500; }
+    #retrom-ui-review .rt-table td { font-size: 11px; }
+    #retrom-ui-review .rt-table tr:last-child td { border-bottom: 0; }
+    #retrom-ui-review .rt-table-title { font-weight: 500; }
+    #retrom-ui-review .rt-table-sub { margin-top: 3px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-mono { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+
+    #retrom-ui-review .rt-review-workspace { display: grid; grid-template-columns: minmax(300px, 0.54fr) minmax(0, 2.46fr); gap: 12px; align-items: start; }
+    #retrom-ui-review .rt-review-queue { min-width: 0; padding: 15px; }
+    #retrom-ui-review .rt-review-queue-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 12px; }
+    #retrom-ui-review .rt-review-queue-filters { display: grid; gap: 8px; margin-top: 8px; }
+    #retrom-ui-review .rt-review-queue-context { margin: 10px 0; padding: 9px; border-radius: 8px; background: var(--retrom-purple-soft); color: var(--retrom-purple); font-size: 10px; line-height: 1.45; }
+    #retrom-ui-review .rt-review-queue-list { display: grid; gap: 7px; }
+    #retrom-ui-review .rt-review-item { width: 100%; padding: 10px; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel); color: var(--retrom-text); cursor: pointer; text-align: left; }
+    #retrom-ui-review .rt-review-item:hover { border-color: color-mix(in srgb, var(--retrom-purple) 44%, var(--retrom-line)); }
+    #retrom-ui-review .rt-review-item.is-selected { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); box-shadow: inset 3px 0 0 var(--retrom-purple); }
+    #retrom-ui-review .rt-review-item-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    #retrom-ui-review .rt-review-item-title { margin-top: 5px; font-weight: 500; }
+    #retrom-ui-review .rt-review-item-source { overflow: hidden; color: var(--retrom-muted); font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+    #retrom-ui-review .rt-review-item-meta { display: grid; gap: 3px; margin-top: 7px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-review-queue-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-review-queue-pages { display: flex; gap: 6px; }
+    #retrom-ui-review .rt-review-queue-pages .rt-button { min-height: 30px; padding: 5px 8px; }
+    #retrom-ui-review .rt-review-layout { display: grid; grid-template-columns: minmax(0, 0.9fr) minmax(260px, 1.1fr); gap: 12px; }
+    #retrom-ui-review .rt-review-back { display: none; justify-self: start; }
+    #retrom-ui-review .rt-review-file { padding: 15px; }
+    #retrom-ui-review .rt-file-preview { display: grid; place-items: center; aspect-ratio: 16 / 10; margin-bottom: 13px; border-radius: 10px; background: var(--retrom-cover-c); color: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; letter-spacing: 0.1em; }
+    #retrom-ui-review .rt-candidate-list { display: grid; gap: 8px; margin-top: 13px; }
+    #retrom-ui-review .rt-candidate { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; padding: 8px; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel); color: var(--retrom-text); cursor: pointer; text-align: left; }
+    #retrom-ui-review .rt-candidate.is-selected { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-candidate-thumb { width: 34px; aspect-ratio: 3 / 4; border-radius: 5px; background: var(--retrom-cover-c); }
+    #retrom-ui-review .rt-review-form { padding: 15px; }
+    #retrom-ui-review .rt-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #retrom-ui-review .rt-form-grid .rt-field { margin-top: 0; }
+    #retrom-ui-review .rt-field-wide { grid-column: 1 / -1; }
+    #retrom-ui-review .rt-validation-box { margin-top: 12px; padding: 11px; border-radius: 9px; background: var(--retrom-green-soft); color: var(--retrom-green); font-size: 11px; }
+    #retrom-ui-review .rt-review-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 14px; }
+
+    #retrom-ui-review .rt-management-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+    #retrom-ui-review .rt-management-card { display: grid; grid-template-columns: 72px minmax(0, 1fr); gap: 11px; padding: 11px; border: 1px solid var(--retrom-line); border-radius: 12px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-management-cover { aspect-ratio: 3 / 4; border-radius: 7px; }
+    #retrom-ui-review .rt-management-copy { min-width: 0; }
+    #retrom-ui-review .rt-management-title { font-weight: 500; }
+    #retrom-ui-review .rt-management-meta { margin-top: 4px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-management-actions { display: flex; gap: 7px; margin-top: 11px; }
+    #retrom-ui-review .rt-admin-game-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(340px, 0.7fr); gap: 12px; }
+    #retrom-ui-review .rt-admin-game-stack { display: grid; align-content: start; gap: 12px; }
+    #retrom-ui-review .rt-admin-game-panel { padding: 16px; }
+    #retrom-ui-review .rt-admin-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
+    #retrom-ui-review .rt-admin-section-head .rt-subtitle { max-width: 68ch; }
+    #retrom-ui-review .rt-admin-game-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 13px; }
+    #retrom-ui-review .rt-admin-summary-item { padding: 10px; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-admin-summary-label { color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-admin-summary-value { margin-top: 4px; font-weight: 500; }
+    #retrom-ui-review .rt-media-grid { display: grid; grid-template-columns: 1.2fr repeat(2, 1fr); gap: 9px; }
+    #retrom-ui-review .rt-media-tile { position: relative; display: grid; place-items: end start; min-height: 104px; padding: 10px; overflow: hidden; border-radius: 10px; background: var(--retrom-cover-b); color: #fff; }
+    #retrom-ui-review .rt-media-tile.is-wide { grid-column: span 2; background: var(--retrom-cover-e); }
+    #retrom-ui-review .rt-media-tile span { position: relative; z-index: 1; padding: 3px 6px; border-radius: 5px; background: rgb(4 7 14 / 0.58); font-size: 10px; }
+    #retrom-ui-review .rt-operation-list { display: grid; gap: 8px; }
+    #retrom-ui-review .rt-operation-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-operation-copy { min-width: 0; }
+    #retrom-ui-review .rt-operation-title { font-weight: 500; }
+    #retrom-ui-review .rt-operation-note { margin-top: 3px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-danger-zone { border-color: color-mix(in srgb, var(--retrom-red) 34%, var(--retrom-line)); }
+
+    #retrom-ui-review .rt-bios-groups { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
+    #retrom-ui-review .rt-chip { padding: 7px 10px; border: 1px solid var(--retrom-line); border-radius: 999px; background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; }
+    #retrom-ui-review .rt-chip.is-active { background: var(--retrom-purple-soft); color: var(--retrom-purple); border-color: color-mix(in srgb, var(--retrom-purple) 46%, var(--retrom-line)); }
+    #retrom-ui-review .rt-bios-file { display: flex; align-items: center; gap: 8px; }
+    #retrom-ui-review .rt-file-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: var(--retrom-panel-raised); color: var(--retrom-purple); }
+    #retrom-ui-review .rt-file-icon svg { width: 14px; height: 14px; }
+
+    #retrom-ui-review .rt-empty-note { padding: 28px; color: var(--retrom-muted); text-align: center; }
+
+    #retrom-ui-review .rt-player-shell { min-height: 760px; background: #07080c; color: #f5f4ff; }
+    #retrom-ui-review .rt-player-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding: 13px 16px;
+      border-bottom: 1px solid #292b36;
+      background: #11121a;
+    }
+    #retrom-ui-review .rt-player-title { display: flex; align-items: center; gap: 10px; }
+    #retrom-ui-review .rt-player-title strong { font-weight: 500; }
+    #retrom-ui-review .rt-player-meta { color: #a7a8b7; font-size: 11px; }
+    #retrom-ui-review .rt-player-launch-state { display: inline-flex; align-items: center; gap: 6px; margin-top: 5px; color: #b9efcd; font-size: 10px; }
+    #retrom-ui-review .rt-player-launch-state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #5ad68a; box-shadow: 0 0 0 4px rgb(90 214 138 / 0.11); }
+    #retrom-ui-review .rt-player-launch-state.is-loading { color: #dac8ff; }
+    #retrom-ui-review .rt-player-launch-state.is-loading::before { background: #a781ff; box-shadow: 0 0 0 4px rgb(167 129 255 / 0.13); }
+    #retrom-ui-review .rt-player-actions { display: flex; flex-wrap: wrap; gap: 7px; }
+    #retrom-ui-review .rt-player-actions .rt-button { border-color: #30323f; background: #181a24; color: #f3f2fa; }
+    #retrom-ui-review .rt-player-stage { padding: 22px; }
+    #retrom-ui-review .rt-player-screen {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: min(100%, 960px);
+      aspect-ratio: 16 / 9;
+      margin: 0 auto;
+      overflow: hidden;
+      border: 1px solid #30323f;
+      background:
+        linear-gradient(180deg, transparent 0 48%, rgb(4 7 15 / 0.36) 49%),
+        repeating-linear-gradient(90deg, transparent 0 39px, rgb(255 255 255 / 0.035) 40px),
+        linear-gradient(160deg, #173c4a 0 46%, #0a202a 47% 62%, #07080c 63%);
+      box-shadow: 0 18px 70px rgb(0 0 0 / 0.45);
+    }
+    #retrom-ui-review .rt-player-screen::before { content: ""; position: absolute; width: 13%; aspect-ratio: 1; left: 18%; top: 23%; border-radius: 50%; background: rgb(247 214 127 / 0.72); box-shadow: 0 0 54px rgb(247 214 127 / 0.28); }
+    #retrom-ui-review .rt-player-screen::after { content: ""; position: absolute; width: 28%; height: 8%; left: 34%; bottom: 18%; background: #345c57; box-shadow: -130px 28px 0 #283f49, 150px 16px 0 #2d4c4c; }
+    #retrom-ui-review .rt-player-logo { position: relative; z-index: 1; padding: 10px 13px; border: 1px solid rgb(255 255 255 / 0.22); background: rgb(5 7 12 / 0.58); color: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.16em; }
+    #retrom-ui-review .rt-player-bottom { display: flex; justify-content: space-between; gap: 12px; width: min(100%, 960px); margin: 13px auto 0; color: #a7a8b7; font-size: 11px; }
+
+    @media (min-width: 1600px) {
+      #retrom-ui-review { font-size: 15px; }
+      #retrom-ui-review .rt-app { grid-template-columns: 248px minmax(0, 1fr); min-height: max(920px, calc(100vh - 32px)); }
+      #retrom-ui-review .rt-sidebar { padding: 26px 18px 20px; }
+      #retrom-ui-review .rt-topbar {
+        min-height: 72px;
+        padding-inline: max(32px, calc((100% - var(--retrom-content-max)) / 2 + 32px));
+      }
+      #retrom-ui-review .rt-page { padding: 32px; }
+      #retrom-ui-review .rt-game-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
+      #retrom-ui-review .rt-save-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+      #retrom-ui-review .rt-management-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+      #retrom-ui-review .rt-detail-hero { grid-template-columns: 210px minmax(0, 1fr) 360px; gap: 28px; padding: 26px; }
+      #retrom-ui-review .rt-detail-title { font-size: 31px; }
+      #retrom-ui-review .rt-player-screen,
+      #retrom-ui-review .rt-player-bottom { width: min(100%, 155vh, 2200px); }
+    }
+
+    @media (min-width: 2600px) {
+      #retrom-ui-review { --retrom-content-max: 2560px; font-size: 16px; }
+      #retrom-ui-review .rt-app { grid-template-columns: 280px minmax(0, 1fr); min-height: max(1120px, calc(100vh - 32px)); }
+      #retrom-ui-review .rt-page { padding: 44px; }
+      #retrom-ui-review h1 { font-size: 30px; }
+      #retrom-ui-review h2 { font-size: 20px; }
+      #retrom-ui-review h3 { font-size: 16px; }
+      #retrom-ui-review .rt-subtitle,
+      #retrom-ui-review .rt-breadcrumb,
+      #retrom-ui-review .rt-local-label,
+      #retrom-ui-review .rt-stat-label { font-size: 14px; }
+      #retrom-ui-review .rt-stat-note,
+      #retrom-ui-review .rt-card-meta,
+      #retrom-ui-review .rt-label,
+      #retrom-ui-review .rt-detail-kicker,
+      #retrom-ui-review .rt-detail-meta,
+      #retrom-ui-review .rt-detail-description,
+      #retrom-ui-review .rt-info-row,
+      #retrom-ui-review .rt-save-time,
+      #retrom-ui-review .rt-setting-note,
+      #retrom-ui-review .rt-validation-box { font-size: 13px; }
+      #retrom-ui-review .rt-table th,
+      #retrom-ui-review .rt-table-sub,
+      #retrom-ui-review .rt-mono,
+      #retrom-ui-review .rt-badge,
+      #retrom-ui-review .rt-flow-step,
+      #retrom-ui-review .rt-pipeline-label,
+      #retrom-ui-review .rt-pipeline-caption,
+      #retrom-ui-review .rt-action-note,
+      #retrom-ui-review .rt-preflight-label,
+      #retrom-ui-review .rt-job-meta,
+      #retrom-ui-review .rt-job-counts,
+      #retrom-ui-review .rt-timeline-item,
+      #retrom-ui-review .rt-diff-label,
+      #retrom-ui-review .rt-review-item-source,
+      #retrom-ui-review .rt-review-item-meta,
+      #retrom-ui-review .rt-review-queue-context,
+      #retrom-ui-review .rt-review-queue-footer { font-size: 12px; }
+      #retrom-ui-review .rt-table td,
+      #retrom-ui-review .rt-button,
+      #retrom-ui-review .rt-input,
+      #retrom-ui-review .rt-select,
+      #retrom-ui-review .rt-textarea { font-size: 14px; }
+      #retrom-ui-review .rt-input,
+      #retrom-ui-review .rt-select { min-height: 44px; }
+      #retrom-ui-review .rt-button { min-height: 42px; }
+      #retrom-ui-review .rt-nav-child { min-height: 38px; font-size: 13px; }
+      #retrom-ui-review .rt-pipeline-count { font-size: 28px; }
+      #retrom-ui-review .rt-action-title,
+      #retrom-ui-review .rt-preflight-value,
+      #retrom-ui-review .rt-diff-value { font-size: 14px; }
+      #retrom-ui-review .rt-card-title { font-size: 15px; }
+      #retrom-ui-review .rt-cover-title { font-size: 18px; }
+      #retrom-ui-review .rt-game-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-save-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-management-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-player-meta { font-size: 14px; }
+      #retrom-ui-review .rt-player-launch-state,
+      #retrom-ui-review .rt-player-bottom { font-size: 13px; }
+      #retrom-ui-review .rt-player-screen,
+      #retrom-ui-review .rt-player-bottom { width: min(100%, 160vh, 3000px); }
+    }
+
+    @media (max-width: 1400px) {
+      #retrom-ui-review .rt-review-workspace { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-review-workspace:not(.is-detail-open) .rt-review-layout { display: none; }
+      #retrom-ui-review .rt-review-workspace.is-detail-open .rt-review-queue { display: none; }
+      #retrom-ui-review .rt-review-back { display: inline-flex; grid-column: 1 / -1; }
+    }
+
+    @media (max-width: 820px) {
+      #retrom-ui-review .rt-ingest-stat-grid,
+      #retrom-ui-review .rt-preflight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-overview-grid,
+      #retrom-ui-review .rt-task-layout,
+      #retrom-ui-review .rt-history-layout,
+      #retrom-ui-review .rt-admin-game-layout,
+      #retrom-ui-review .rt-review-workspace { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-admin-game-summary { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-game-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-detail-hero { grid-template-columns: 120px minmax(0, 1fr); }
+      #retrom-ui-review .rt-launch-panel { grid-column: 1 / -1; }
+      #retrom-ui-review .rt-save-grid,
+      #retrom-ui-review .rt-management-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 620px) {
+      #retrom-ui-review .rt-app { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-sidebar { gap: 10px; }
+      #retrom-ui-review .rt-nav-group { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-nav-group[data-nav-mode="admin"] { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-nav-spacer { display: none; }
+      #retrom-ui-review .rt-mode-label { display: none; }
+      #retrom-ui-review .rt-main { min-width: 0; }
+      #retrom-ui-review .rt-topbar,
+      #retrom-ui-review .rt-page { padding-left: 15px; padding-right: 15px; }
+      #retrom-ui-review .rt-stat-grid,
+      #retrom-ui-review .rt-save-grid,
+      #retrom-ui-review .rt-management-grid,
+      #retrom-ui-review .rt-detail-lower,
+      #retrom-ui-review .rt-import-layout,
+      #retrom-ui-review .rt-review-layout { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-ingest-stat-grid,
+      #retrom-ui-review .rt-preflight-grid,
+      #retrom-ui-review .rt-pipeline-grid,
+      #retrom-ui-review .rt-import-stepbar { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-preflight-item { padding: 10px 0; border-top: 1px solid var(--retrom-line); border-left: 0; }
+      #retrom-ui-review .rt-preflight-item:first-child { border-top: 0; }
+      #retrom-ui-review .rt-game-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-detail-hero { grid-template-columns: 100px minmax(0, 1fr); gap: 13px; padding: 14px; }
+      #retrom-ui-review .rt-detail-description,
+      #retrom-ui-review .rt-detail-stats { grid-column: 1 / -1; }
+      #retrom-ui-review .rt-resume-row,
+      #retrom-ui-review .rt-mini-save { grid-template-columns: 64px minmax(0, 1fr); }
+      #retrom-ui-review .rt-resume-row .rt-button,
+      #retrom-ui-review .rt-mini-save .rt-button { grid-column: 1 / -1; }
+      #retrom-ui-review .rt-form-grid { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-field-wide { grid-column: auto; }
+    }
+  </style>
+
+  <div class="rt-app">
+    <aside class="rt-sidebar" aria-label="主导航">
+      <div class="rt-brand">
+        <span class="rt-brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
+        <span>RETROM</span>
+      </div>
+
+      <div class="rt-mode-label" id="rt-mode-label">Play space</div>
+      <nav class="rt-nav" aria-label="页面">
+        <div class="rt-nav-group" data-nav-mode="user">
+          <button type="button" class="rt-nav-button is-active" data-page-target="home"><i data-lucide="house" aria-hidden="true"></i><span>首页</span></button>
+          <button type="button" class="rt-nav-button" data-page-target="library"><i data-lucide="library" aria-hidden="true"></i><span>游戏库</span></button>
+          <button type="button" class="rt-nav-button" data-page-target="saves"><i data-lucide="camera" aria-hidden="true"></i><span>我的存档</span></button>
+        </div>
+        <div class="rt-nav-group" data-nav-mode="admin" hidden>
+          <div class="rt-nav-section">
+            <button type="button" class="rt-nav-button rt-nav-parent is-active" data-page-target="admin-import" data-ingest-parent><i data-lucide="package-plus" aria-hidden="true"></i><span class="rt-nav-label">游戏入库</span><i class="rt-nav-chevron" data-lucide="chevron-down" aria-hidden="true"></i></button>
+            <div class="rt-nav-children" aria-label="游戏入库子菜单">
+              <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-import-new"><span class="rt-nav-label">导入文件 / 目录</span></button>
+              <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-import-tasks"><span class="rt-nav-label">任务进度</span><span class="rt-nav-count">2</span></button>
+              <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-review"><span class="rt-nav-label">待审核</span><span class="rt-nav-count">4</span></button>
+              <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-review-history"><span class="rt-nav-label">审核历史</span></button>
+            </div>
+          </div>
+          <button type="button" class="rt-nav-button" data-page-target="admin-games"><i data-lucide="settings-2" aria-hidden="true"></i><span>游戏管理</span></button>
+          <button type="button" class="rt-nav-button" data-page-target="admin-platform-instances"><i data-lucide="folders" aria-hidden="true"></i><span>平台目录</span></button>
+          <button type="button" class="rt-nav-button" data-page-target="admin-bios"><i data-lucide="microchip" aria-hidden="true"></i><span>BIOS 管理</span></button>
+        </div>
+      </nav>
+
+      <div class="rt-nav-spacer"></div>
+      <button type="button" class="rt-mode-button" id="rt-mode-button"><i data-lucide="shield-check" aria-hidden="true"></i><span>管理后台</span></button>
+    </aside>
+
+    <main class="rt-main">
+      <header class="rt-topbar">
+        <div class="rt-breadcrumb"><span id="rt-breadcrumb-mode">用户侧</span> / <strong id="rt-breadcrumb-page">首页</strong></div>
+        <div class="rt-top-actions"><span class="rt-status-dot" aria-hidden="true"></span><span class="rt-local-label">本地服务正常</span></div>
+      </header>
+
+      <section class="rt-page is-active" data-page="home">
+        <div class="rt-page-head">
+          <div><h1>晚上好，继续上次的冒险</h1><p class="rt-subtitle">所有数据保存在这台设备上 · 最近同步于 2 分钟前</p></div>
+        </div>
+        <div class="rt-stat-grid">
+          <div class="rt-stat"><div class="rt-stat-label"><span>总游玩时长</span><i data-lucide="clock-3" aria-hidden="true"></i></div><div class="rt-stat-value">42.6h</div><div class="rt-stat-note">本周新增 3.2 小时</div></div>
+          <div class="rt-stat"><div class="rt-stat-label"><span>已发布游戏</span><i data-lucide="library" aria-hidden="true"></i></div><div class="rt-stat-value">38</div><div class="rt-stat-note">覆盖 6 个平台</div></div>
+          <div class="rt-stat"><div class="rt-stat-label"><span>手动存档</span><i data-lucide="camera" aria-hidden="true"></i></div><div class="rt-stat-value">12</div><div class="rt-stat-note">最近保存于今天 22:14</div></div>
+        </div>
+
+        <div class="rt-section-head"><h2>继续游玩</h2><button type="button" class="rt-text-link" data-open-game="metal">查看详情</button></div>
+        <div class="rt-resume-row">
+          <div class="rt-cover rt-cover-b rt-resume-cover"><span class="rt-cover-title">MS</span></div>
+          <div class="rt-resume-copy"><div class="rt-resume-title">Metal Slug</div><div class="rt-progress"><span></span></div><div class="rt-resume-meta">Mission 4 · FBNeo · 今天 22:14</div></div>
+          <button type="button" class="rt-button rt-button-primary" data-quick-start="metal" data-save-start="沙漠据点前"><i data-lucide="play" aria-hidden="true"></i>继续游戏</button>
+        </div>
+
+        <div class="rt-section-head"><h2>最近游玩</h2><button type="button" class="rt-text-link" data-page-link="library">全部游戏</button></div>
+        <div class="rt-game-grid">
+          <button type="button" class="rt-game-card" data-open-game="metal"><div class="rt-cover rt-cover-b"><span class="rt-cover-title">METAL SLUG</span></div><div class="rt-card-copy"><div class="rt-card-title">Metal Slug</div><div class="rt-card-meta"><span>Arcade · FBNeo 游戏列表</span><span>2.4h</span></div></div></button>
+          <button type="button" class="rt-game-card" data-open-game="doom"><div class="rt-cover rt-cover-c"><span class="rt-cover-title">DOOM</span></div><div class="rt-card-copy"><div class="rt-card-title">DOOM</div><div class="rt-card-meta"><span>MS-DOS · DOS 经典游戏</span><span>1.8h</span></div></div></button>
+          <button type="button" class="rt-game-card" data-open-game="zelda"><div class="rt-cover rt-cover-a"><span class="rt-cover-title">ZELDA</span></div><div class="rt-card-copy"><div class="rt-card-title">Zelda no Densetsu</div><div class="rt-card-meta"><span>Famicom Disk</span><span>48m</span></div></div></button>
+          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-f"><span class="rt-cover-title">F-ZERO</span></div><div class="rt-card-copy"><div class="rt-card-title">F-Zero</div><div class="rt-card-meta"><span>SNES</span><span>31m</span></div></div></button>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="library">
+        <div class="rt-page-head"><div><h1>游戏库</h1><p class="rt-subtitle">仅展示审核通过并已发布的游戏</p></div></div>
+        <div class="rt-toolbar">
+          <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索游戏</span><input class="rt-input" type="search" placeholder="搜索标题、厂商或年份"></label>
+          <select class="rt-select rt-filter-select" aria-label="平台"><option>全部平台</option><option>Arcade</option><option>MS-DOS</option><option>NES</option><option>SNES</option></select>
+          <select class="rt-select rt-filter-select" aria-label="平台目录"><option>全部平台目录</option><optgroup label="Arcade"><option>FBNeo 游戏列表</option><option>MAME 游戏列表</option><option>FBNeo 飞行游戏</option></optgroup><optgroup label="MS-DOS"><option>DOS 经典游戏</option></optgroup></select>
+          <select class="rt-select rt-filter-select" aria-label="排序"><option>最近游玩</option><option>标题 A–Z</option><option>发行年份</option></select>
+        </div>
+        <div class="rt-game-grid">
+          <button type="button" class="rt-game-card" data-open-game="metal"><div class="rt-cover rt-cover-b"><span class="rt-cover-title">METAL SLUG</span></div><div class="rt-card-copy"><div class="rt-card-title">Metal Slug</div><div class="rt-card-meta"><span>Arcade · FBNeo 游戏列表 · 1996</span><span class="rt-badge rt-badge-green">可游玩</span></div></div></button>
+          <button type="button" class="rt-game-card" data-open-game="doom"><div class="rt-cover rt-cover-c"><span class="rt-cover-title">DOOM</span></div><div class="rt-card-copy"><div class="rt-card-title">DOOM</div><div class="rt-card-meta"><span>MS-DOS · DOS 经典游戏 · 1993</span><span class="rt-badge rt-badge-green">可游玩</span></div></div></button>
+          <button type="button" class="rt-game-card" data-open-game="zelda"><div class="rt-cover rt-cover-a"><span class="rt-cover-title">ZELDA</span></div><div class="rt-card-copy"><div class="rt-card-title">Zelda no Densetsu</div><div class="rt-card-meta"><span>Famicom Disk · 磁碟冒险 · 1986</span><span class="rt-badge rt-badge-amber">缺少 BIOS</span></div></div></button>
+          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-f"><span class="rt-cover-title">F-ZERO</span></div><div class="rt-card-copy"><div class="rt-card-title">F-Zero</div><div class="rt-card-meta"><span>SNES · SNES 游戏 · 1990</span><span class="rt-badge rt-badge-green">可游玩</span></div></div></button>
+          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-d"><span class="rt-cover-title">POKÉMON</span></div><div class="rt-card-copy"><div class="rt-card-title">Pokémon Green</div><div class="rt-card-meta"><span>Game Boy · 掌机收藏 · 1996</span><span class="rt-badge rt-badge-green">可游玩</span></div></div></button>
+          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-e"><span class="rt-cover-title">METROID</span></div><div class="rt-card-copy"><div class="rt-card-title">Metroid Fusion</div><div class="rt-card-meta"><span>GBA · GBA 游戏 · 2002</span><span class="rt-badge rt-badge-green">可游玩</span></div></div></button>
+          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-c"><span class="rt-cover-title">CASTLEVANIA</span></div><div class="rt-card-copy"><div class="rt-card-title">Castlevania</div><div class="rt-card-meta"><span>NES · NES 游戏 · 1986</span><span class="rt-badge rt-badge-green">可游玩</span></div></div></button>
+          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-a"><span class="rt-cover-title">KIRBY</span></div><div class="rt-card-copy"><div class="rt-card-title">Kirby's Dream Land</div><div class="rt-card-meta"><span>Game Boy · 掌机收藏 · 1992</span><span class="rt-badge rt-badge-green">可游玩</span></div></div></button>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="saves">
+        <div class="rt-page-head"><div><h1>我的存档</h1><p class="rt-subtitle">手动存档会同时保存画面、核心和游戏文件版本</p></div><select class="rt-select rt-filter-select" aria-label="筛选存档"><option>全部游戏</option><option>Metal Slug</option><option>DOOM</option></select></div>
+        <div class="rt-save-grid">
+          <article class="rt-save-card"><div class="rt-save-shot">MISSION 4</div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>沙漠据点前</h3><span class="rt-badge">FBNeo</span></div><div class="rt-save-time">Metal Slug · 今天 22:14 · 累计 2.4h</div><div class="rt-save-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal" data-save-start="沙漠据点前"><i data-lucide="play" aria-hidden="true"></i>从这里继续</button><button type="button" class="rt-button" data-open-game="metal">游戏详情</button></div></div></article>
+          <article class="rt-save-card"><div class="rt-save-shot" style="background-color:var(--retrom-cover-c)">E1M5</div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>Phobos Lab</h3><span class="rt-badge rt-badge-cyan">DOSBox Pure</span></div><div class="rt-save-time">DOOM · 昨天 23:06 · 累计 1.8h</div><div class="rt-save-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="doom" data-save-start="Phobos Lab"><i data-lucide="play" aria-hidden="true"></i>从这里继续</button><button type="button" class="rt-button" data-open-game="doom">游戏详情</button></div></div></article>
+          <article class="rt-save-card"><div class="rt-save-shot" style="background-color:var(--retrom-cover-a)">LEVEL 3</div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>迷失森林入口</h3><span class="rt-badge">FCEUmm</span></div><div class="rt-save-time">The Legend of Zelda · 8 月 3 日 · 48m</div><div class="rt-save-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="zelda" data-save-start="迷失森林入口" disabled title="缺少 disksys.rom"><i data-lucide="play" aria-hidden="true"></i>缺少 BIOS</button><button type="button" class="rt-button" data-open-game="zelda">游戏详情</button></div></div></article>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="detail">
+        <div class="rt-page-head"><div><button type="button" class="rt-text-link" data-page-link="library">← 返回游戏库</button></div></div>
+        <div class="rt-detail-hero">
+          <div class="rt-cover rt-cover-b rt-detail-cover" id="rt-detail-cover"><span class="rt-cover-title" id="rt-detail-cover-title">METAL SLUG</span></div>
+          <div class="rt-detail-copy">
+            <div class="rt-detail-kicker" id="rt-detail-platform">Arcade / FBNeo 游戏列表 · 1996</div>
+            <div class="rt-detail-title" id="rt-detail-title">Metal Slug</div>
+            <div class="rt-detail-meta" id="rt-detail-meta"><span>SNK</span><span>动作 / 射击</span><span>1–2 人</span></div>
+            <p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。当前 ROM 已用 FBNeo DAT 完成 parent / BIOS 依赖解析，另有两个兼容核心可供选择。</p>
+            <div class="rt-detail-stats"><div class="rt-detail-stat"><strong id="rt-detail-hours">2.4h</strong><span>总游玩时长</span></div><div class="rt-detail-stat"><strong>3</strong><span>手动存档</span></div><div class="rt-detail-stat"><strong>今天</strong><span>最近游玩</span></div></div>
+          </div>
+          <aside class="rt-launch-panel" aria-label="启动配置">
+            <div class="rt-launch-head"><h3>启动配置</h3><span class="rt-badge rt-badge-green" id="rt-launch-ready">准备就绪</span></div>
+            <label class="rt-field"><span class="rt-label">模拟核心</span><select class="rt-select" id="rt-core-select"><option>FBNeo · 目录默认</option><option>MAME 2003 Plus · 兼容</option><option>MAME 2003 · 需验证</option></select></label>
+            <div class="rt-table-sub" id="rt-core-origin">默认核心来自平台目录“FBNeo 游戏列表”；切换只影响本次启动</div>
+            <label class="rt-field" id="rt-dos-field" hidden><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option></select></label>
+            <div class="rt-checkline" id="rt-launch-check"><i data-lucide="circle-check" aria-hidden="true"></i><span id="rt-launch-check-text">ROM、parent 与 BIOS 依赖均已满足</span></div>
+            <button type="button" class="rt-button rt-button-primary rt-launch-button" data-start-game><i data-lucide="play" aria-hidden="true"></i>开始游戏</button>
+            <div class="rt-launch-note">需验证时会留在同一加载壳，完成后自动继续</div>
+          </aside>
+        </div>
+        <div class="rt-tab-row" role="tablist" aria-label="详情内容"><button type="button" class="rt-tab is-active">存档</button><button type="button" class="rt-tab">游戏介绍</button><button type="button" class="rt-tab">详细信息</button></div>
+        <div class="rt-detail-lower">
+          <div class="rt-panel rt-panel-pad"><div class="rt-mini-save"><div class="rt-mini-shot"></div><div><h3 id="rt-detail-save-title">沙漠据点前</h3><div class="rt-save-time" id="rt-detail-save-meta">今天 22:14 · FBNeo · 与当前核心兼容</div></div><button type="button" class="rt-button rt-button-primary" data-start-current-save><i data-lucide="play" aria-hidden="true"></i>继续</button></div></div>
+          <div class="rt-panel rt-panel-pad"><h3>游戏信息</h3><div class="rt-info-list"><div class="rt-info-row"><span>平台目录</span><span id="rt-info-directory">FBNeo 游戏列表</span></div><div class="rt-info-row"><span>发行商</span><span id="rt-info-publisher">SNK</span></div><div class="rt-info-row"><span>区域</span><span>World</span></div><div class="rt-info-row"><span>元信息来源</span><span>Hasheous · 哈希匹配</span></div><div class="rt-info-row"><span>运行依赖</span><span class="rt-badge rt-badge-green">DAT 检查通过</span></div></div></div>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="play">
+        <div class="rt-player-shell">
+          <div class="rt-player-top">
+            <div class="rt-player-title"><span class="rt-brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><div><strong id="rt-player-game">Metal Slug</strong><div class="rt-player-meta" id="rt-player-core">FBNeo · 本次游玩 00:18:42</div><div class="rt-player-launch-state" id="rt-player-launch-state" role="status" aria-live="polite">运行中 · 自动启动 · 默认全屏</div></div></div>
+            <div class="rt-player-actions"><button type="button" class="rt-button"><i data-lucide="camera" aria-hidden="true"></i>保存进度</button><button type="button" class="rt-button"><i data-lucide="gamepad-2" aria-hidden="true"></i>控制器</button><button type="button" class="rt-button" id="rt-enter-fullscreen"><i data-lucide="maximize" aria-hidden="true"></i>全屏</button><button type="button" class="rt-button" id="rt-exit-player"><i data-lucide="log-out" aria-hidden="true"></i>退出</button></div>
+          </div>
+          <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div><div class="rt-player-bottom"><span id="rt-player-stage-state">一次点击后已自动运行 · 已连接控制器 1</span><span>Esc 退出全屏 · 使用工具栏保存进度</span></div></div>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="admin-import">
+        <div class="rt-page-head">
+          <div><h1>游戏入库</h1><p class="rt-subtitle">查看从文件接收、识别、刮削到审核发布的当前概况</p></div>
+          <div class="rt-page-head-actions"><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>新建导入</button></div>
+        </div>
+        <div class="rt-ingest-stat-grid">
+          <div class="rt-stat"><div class="rt-stat-label"><span>运行中的任务</span><i data-lucide="loader-circle" aria-hidden="true"></i></div><div class="rt-stat-value">2</div><div class="rt-stat-note">另有 1 个任务等待 Worker</div></div>
+          <div class="rt-stat"><div class="rt-stat-label"><span>待审核条目</span><i data-lucide="list-checks" aria-hidden="true"></i></div><div class="rt-stat-value">4</div><div class="rt-stat-note">最早等待 18 分钟</div></div>
+          <div class="rt-stat"><div class="rt-stat-label"><span>异常条目</span><i data-lucide="triangle-alert" aria-hidden="true"></i></div><div class="rt-stat-value">3</div><div class="rt-stat-note">2 个可重试 · 1 个需人工处理</div></div>
+          <div class="rt-stat"><div class="rt-stat-label"><span>本周已发布</span><i data-lucide="library-big" aria-hidden="true"></i></div><div class="rt-stat-value">36</div><div class="rt-stat-note">来自 5 次导入</div></div>
+        </div>
+
+        <div class="rt-overview-grid">
+          <div class="rt-panel rt-overview-panel">
+            <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>当前流水线</h2><p class="rt-subtitle">每个数字表示此刻停留在该阶段的条目；发布数为本周累计</p></div><span class="rt-badge rt-badge-cyan">SSE 实时更新</span></div>
+            <div class="rt-pipeline-grid" aria-label="当前入库流水线">
+              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">1</div><div class="rt-pipeline-label">上传与去重</div></div>
+              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">2</div><div class="rt-pipeline-label">文件识别</div></div>
+              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">8</div><div class="rt-pipeline-label">元信息刮削</div></div>
+              <div class="rt-pipeline-stage"><div class="rt-pipeline-count">4</div><div class="rt-pipeline-label">等待审核</div></div>
+              <div class="rt-pipeline-stage"><div class="rt-pipeline-count">36</div><div class="rt-pipeline-label">本周发布</div></div>
+            </div>
+            <div class="rt-pipeline-caption">Arcade DAT 只参与运行依赖识别；展示元信息由 Hasheous 或人工填写生成。</div>
+          </div>
+          <aside class="rt-panel rt-overview-panel" aria-label="需要处理">
+            <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>需要处理</h2><p class="rt-subtitle">按阻塞范围排序</p></div></div>
+            <div class="rt-action-list">
+              <button type="button" class="rt-action-row" data-page-link="admin-review"><span class="rt-action-icon is-warning"><i data-lucide="list-checks" aria-hidden="true"></i></span><span class="rt-action-copy"><span class="rt-action-title">4 个条目待审核</span><span class="rt-action-note">其中 1 个没有元信息候选</span></span><span class="rt-action-arrow"><i data-lucide="arrow-right" aria-hidden="true"></i></span></button>
+              <button type="button" class="rt-action-row" data-page-link="admin-import-tasks"><span class="rt-action-icon is-danger"><i data-lucide="package-x" aria-hidden="true"></i></span><span class="rt-action-copy"><span class="rt-action-title">2 个文件需重新打包</span><span class="rt-action-note">nes-pack/ · AMBIGUOUS_PRIMARY_CONTENT</span></span><span class="rt-action-arrow"><i data-lucide="arrow-right" aria-hidden="true"></i></span></button>
+              <button type="button" class="rt-action-row" data-page-link="admin-review-history"><span class="rt-action-icon"><i data-lucide="history" aria-hidden="true"></i></span><span class="rt-action-copy"><span class="rt-action-title">最近完成 7 次审核</span><span class="rt-action-note">查看采用候选与字段差异</span></span><span class="rt-action-arrow"><i data-lucide="arrow-right" aria-hidden="true"></i></span></button>
+            </div>
+          </aside>
+        </div>
+
+        <div class="rt-section-head"><h2>最近入库任务</h2><button type="button" class="rt-text-link" data-page-link="admin-import-tasks">查看全部任务</button></div>
+        <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>任务</th><th>平台目录 / 默认核心快照</th><th>当前阶段</th><th>条目摘要</th><th>更新时间</th></tr></thead><tbody>
+          <tr><td><div class="rt-table-title">arcade-batch-08.zip</div><div class="rt-table-sub">JOB-20260806-0041</div></td><td><div class="rt-table-title">FBNeo 游戏列表</div><div class="rt-table-sub">Arcade · FBNeo · DAT 1.0.0.03</div></td><td><span class="rt-badge rt-badge-cyan">刮削中</span></td><td>8 完成 · 3 处理中 · 1 警告</td><td>刚刚</td></tr>
+          <tr><td><div class="rt-table-title">dos-classics/</div><div class="rt-table-sub">JOB-20260806-0040</div></td><td><div class="rt-table-title">DOS 经典游戏</div><div class="rt-table-sub">MS-DOS · DOSBox Pure</div></td><td><span class="rt-badge rt-badge-amber">等待审核</span></td><td>4 / 4 已识别</td><td>6 分钟前</td></tr>
+          <tr><td><div class="rt-table-title">nes-pack/</div><div class="rt-table-sub">JOB-20260805-0039</div></td><td><div class="rt-table-title">NES 游戏</div><div class="rt-table-sub">NES · FCEUmm</div></td><td><span class="rt-badge rt-badge-red">部分失败</span></td><td>26 完成 · 2 可重试</td><td>昨天 23:18</td></tr>
+        </tbody></table></div>
+      </section>
+
+      <section class="rt-page" data-page="admin-import-new">
+        <div class="rt-page-head">
+          <div><h1>导入文件 / 目录</h1><p class="rt-subtitle">选择内容并冻结目标平台目录、默认核心、Core artifact 与 Arcade DAT 快照</p></div>
+          <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-import-tasks"><i data-lucide="activity" aria-hidden="true"></i>查看任务进度</button></div>
+        </div>
+        <div class="rt-import-stepbar" aria-label="新建导入步骤">
+          <div class="rt-import-step is-active"><span class="rt-step-number">1</span><span>选择文件或目录</span></div>
+          <div class="rt-import-step"><span class="rt-step-number">2</span><span>确认任务配置</span></div>
+          <div class="rt-import-step"><span class="rt-step-number">3</span><span>上传并验证文件</span></div>
+        </div>
+        <div class="rt-import-layout">
+          <div class="rt-dropzone"><div><div class="rt-drop-icon"><i data-lucide="upload-cloud" aria-hidden="true"></i></div><h2>拖放游戏文件或目录</h2><p class="rt-drop-copy">保留 Chrome 目录相对路径以识别 DOS bundle；CHD 仅保留证据并阻断发布</p><div class="rt-drop-actions"><button type="button" class="rt-button rt-button-primary">选择文件</button><button type="button" class="rt-button">选择目录</button></div><p class="rt-drop-copy">尚未选择内容</p></div></div>
+          <div class="rt-panel rt-import-settings">
+            <h3>任务配置</h3>
+            <label class="rt-field"><span class="rt-label">归属平台目录</span><select class="rt-select"><optgroup label="Arcade"><option>FBNeo 游戏列表 · 默认 FBNeo</option><option>MAME 游戏列表 · 默认 MAME 2003</option><option>FBNeo 飞行游戏 · 默认 FBNeo</option></optgroup><optgroup label="MS-DOS"><option>DOS 经典游戏 · 默认 DOSBox Pure</option></optgroup></select></label>
+            <div class="rt-table-sub">基础平台 Arcade · 默认核心 FBNeo · EmulatorJS 4.2.3 · DAT 1.0.0.03</div>
+            <label class="rt-field"><span class="rt-label">元信息来源</span><select class="rt-select"><option>Hasheous · 文件哈希（无需登录）</option><option>不刮削 · 稍后手动填写</option></select></label>
+            <div class="rt-setting-note">Arcade DAT 只解析 machine、parent、BIOS 与 ROM entry；它不是元信息刮削源。</div>
+            <div class="rt-import-checklist" aria-label="提交后处理">
+              <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">SHA-256 与 CAS 去重</div><div class="rt-table-sub">重复 Blob 复用存储，仍创建本次任务证据</div></div></div>
+              <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">按基础平台分组</div><div class="rt-table-sub">目录结构不会在浏览器端丢失</div></div></div>
+              <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">生成待审核条目</div><div class="rt-table-sub">Hasheous 未命中也不会阻断人工审核</div></div></div>
+            </div>
+          </div>
+        </div>
+        <div class="rt-panel rt-preflight">
+          <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h3>提交前快照</h3><p class="rt-subtitle">任务创建后沿用此配置；后续目录或 DAT 变更不会静默覆盖</p></div><button type="button" class="rt-button rt-button-primary" disabled><i data-lucide="upload" aria-hidden="true"></i>选择内容后上传</button></div>
+          <div class="rt-preflight-grid">
+            <div class="rt-preflight-item"><div class="rt-preflight-label">平台目录</div><div class="rt-preflight-value">FBNeo 游戏列表</div></div>
+            <div class="rt-preflight-item"><div class="rt-preflight-label">默认核心 / Artifact</div><div class="rt-preflight-value">FBNeo · EmulatorJS 4.2.3</div></div>
+            <div class="rt-preflight-item"><div class="rt-preflight-label">Arcade DAT</div><div class="rt-preflight-value">1.0.0.03 · 活动版本</div></div>
+            <div class="rt-preflight-item"><div class="rt-preflight-label">展示元信息</div><div class="rt-preflight-value">Hasheous Hash Lookup</div></div>
+          </div>
+          <div class="rt-setting-note">分块齐备后先进入“正在验证与入库文件（FINALIZING）”；只有全部文件完成 SHA-256 / CAS 校验，主操作才变为“创建导入任务”。取消处理中会显示“正在取消”，不会立即伪装成已删除。</div>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="admin-import-tasks">
+        <div class="rt-page-head">
+          <div><h1>任务进度</h1><p class="rt-subtitle">查看 ImportJob 的实时阶段、条目级异常与冻结配置，不混入审核历史</p></div>
+          <div class="rt-page-head-actions"><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>新建导入</button></div>
+        </div>
+        <div class="rt-stat-grid">
+          <div class="rt-stat"><div class="rt-stat-label"><span>运行中</span><i data-lucide="loader-circle" aria-hidden="true"></i></div><div class="rt-stat-value">2</div><div class="rt-stat-note">最近心跳 3 秒前</div></div>
+          <div class="rt-stat"><div class="rt-stat-label"><span>排队中</span><i data-lucide="list-ordered" aria-hidden="true"></i></div><div class="rt-stat-value">1</div><div class="rt-stat-note">等待 Hash / Copy Worker</div></div>
+          <div class="rt-stat"><div class="rt-stat-label"><span>需处理</span><i data-lucide="triangle-alert" aria-hidden="true"></i></div><div class="rt-stat-value">3</div><div class="rt-stat-note">2 可重试 · 1 手动处理</div></div>
+        </div>
+        <div class="rt-toolbar">
+          <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索任务</span><input class="rt-input" type="search" placeholder="搜索任务名或 Job ID"></label>
+          <select class="rt-select rt-filter-select" aria-label="任务状态"><option>全部状态</option><option>运行中</option><option>排队中</option><option>部分失败</option><option>已完成</option></select>
+          <select class="rt-select rt-filter-select" aria-label="平台目录"><option>全部平台目录</option><option>FBNeo 游戏列表</option><option>DOS 经典游戏</option><option>NES 游戏</option></select>
+        </div>
+        <div class="rt-task-layout">
+          <div class="rt-panel rt-job-list">
+            <article class="rt-job-row is-selected">
+              <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="file-archive" aria-hidden="true"></i><div><div class="rt-table-title">arcade-batch-08.zip</div><div class="rt-table-sub">JOB-20260806-0041 · 12 个条目</div></div></div><div class="rt-job-meta"><span>FBNeo 游戏列表</span><span>Arcade · FBNeo</span><span>心跳 3 秒前</span></div></div><span class="rt-badge rt-badge-cyan">刮削中 · 67%</span></div>
+              <div class="rt-job-progress"><span style="width:67%"></span></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>8 完成</span><span>3 处理中</span><span>1 警告</span><span>0 失败</span></div><div class="rt-job-actions"><button type="button" class="rt-button">查看任务</button><button type="button" class="rt-button rt-button-danger" data-cancel-job>取消</button></div></div>
+            </article>
+            <article class="rt-job-row">
+              <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">dos-classics/</div><div class="rt-table-sub">JOB-20260806-0040 · 4 个目录</div></div></div><div class="rt-job-meta"><span>DOS 经典游戏</span><span>MS-DOS · DOSBox Pure</span><span>更新于 6 分钟前</span></div></div><span class="rt-badge rt-badge-amber">等待审核</span></div>
+              <div class="rt-job-progress"><span style="width:100%"></span></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>4 已识别</span><span>4 待审核</span><span>0 失败</span></div><div class="rt-job-actions"><button type="button" class="rt-button" data-page-link="admin-review">进入待审核</button></div></div>
+            </article>
+            <article class="rt-job-row">
+              <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">nes-pack/</div><div class="rt-table-sub">JOB-20260805-0039 · 28 个文件</div></div></div><div class="rt-job-meta"><span>NES 游戏</span><span>NES · FCEUmm</span><span>更新于昨天 23:18</span></div></div><span class="rt-badge rt-badge-red">部分失败</span></div>
+              <div class="rt-job-progress is-danger"><span style="width:93%"></span></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>26 完成</span><span>2 文件已拒绝 · AMBIGUOUS_PRIMARY_CONTENT</span></div><div class="rt-job-actions"><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new">重新打包并上传</button><button type="button" class="rt-button">查看文件错误</button></div></div>
+            </article>
+          </div>
+          <aside class="rt-panel rt-task-detail" aria-label="所选任务详情">
+            <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>任务详情</h2><p class="rt-subtitle">JOB-20260806-0041</p></div><span class="rt-badge rt-badge-cyan" id="rt-task-detail-status">运行中</span></div>
+            <div class="rt-info-list">
+              <div class="rt-info-row"><span>平台目录快照</span><span>FBNeo 游戏列表</span></div>
+              <div class="rt-info-row"><span>核心 / EJS</span><span>FBNeo / 4.2.3</span></div>
+              <div class="rt-info-row"><span>Arcade DAT</span><span>1.0.0.03</span></div>
+              <div class="rt-info-row"><span>元信息源</span><span>Hasheous</span></div>
+              <div class="rt-info-row"><span>创建时间</span><span>今天 22:41</span></div>
+            </div>
+            <div class="rt-section-head"><h3>阶段事件</h3><span class="rt-subtitle">自动更新</span></div>
+            <div class="rt-timeline">
+              <div class="rt-timeline-item is-current"><div><div class="rt-timeline-title">元信息刮削 · 8 / 12</div><div class="rt-timeline-time">正在等待 Hasheous 限速窗口</div></div></div>
+              <div class="rt-timeline-item"><div><div class="rt-timeline-title">默认核心依赖识别完成</div><div class="rt-timeline-time">FBNeo DAT · 12 个 machine 匹配</div></div></div>
+              <div class="rt-timeline-item"><div><div class="rt-timeline-title">SHA-256 与分组完成</div><div class="rt-timeline-time">复用 2 个已有 Blob</div></div></div>
+              <div class="rt-timeline-item"><div><div class="rt-timeline-title">上传完成</div><div class="rt-timeline-time">今天 22:42 · 684 MB</div></div></div>
+            </div>
+            <div class="rt-setting-note" id="rt-job-cancel-note">任务运行时使用创建时快照；平台目录或 DAT 后续变更只会产生差异提示。运行中取消先进入 CANCEL_REQUESTED，Worker 在有界检查点停止后才显示“已取消”。</div>
+          </aside>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="admin-review">
+        <div class="rt-page-head"><div><h1>待审核</h1><p class="rt-subtitle"><span data-review-position>已选 1 / 4</span> · 当前批次 4 条，可任意选择审核顺序</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-review-history"><i data-lucide="history" aria-hidden="true"></i>审核历史</button></div></div>
+        <div class="rt-review-workspace" data-review-workspace>
+          <aside class="rt-panel rt-review-queue" aria-label="待审核队列">
+            <div class="rt-review-queue-head"><div><h2>待审列表</h2><p class="rt-subtitle">跨批次查看，或只处理当前导入</p></div><span class="rt-badge rt-badge-amber">4 条</span></div>
+            <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索待审核条目</span><input class="rt-input" type="search" placeholder="搜索文件、标题或 Item ID"></label>
+            <div class="rt-review-queue-filters">
+              <select class="rt-select" aria-label="导入批次"><option>本批：arcade-romset/ · JOB-0042</option><option>全部导入批次</option><option>dos-classics/ · JOB-0040</option></select>
+              <select class="rt-select" aria-label="审核状态"><option>全部 Validation 状态</option><option>可发布</option><option>有 Blocker</option><option>无元信息候选</option></select>
+            </div>
+            <div class="rt-review-queue-context">从任务进度进入时保留 ImportJob 筛选；清除筛选即可查看全部待审条目。最终发布仍逐条确认。</div>
+            <div class="rt-review-queue-list">
+              <button type="button" class="rt-review-item is-selected" aria-current="true" data-review-item data-review-position-value="已选 1 / 4" data-review-file="mslug3.zip" data-review-preview="METAL SLUG 3" data-review-title="Metal Slug 3" data-review-year="2000" data-review-developer="SNK" data-review-players="1–2" data-review-description="阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。" data-review-candidate="Metal Slug 3" data-review-candidate-meta="World · 2000 · SNK" data-review-candidate-badge="精确" data-review-validation-status="READY" data-review-validation="✓ 目录默认核心 FBNeo 的 DAT 依赖检查通过：主 ROMset、parent 与 BIOS neogeo.zip 均已匹配；展示元信息来自 Hasheous">
+                <span class="rt-review-item-head"><span class="rt-review-item-source">mslug3.zip</span><span class="rt-badge rt-badge-green">可发布</span></span><span class="rt-review-item-title">Metal Slug 3</span><span class="rt-review-item-meta"><span>arcade-romset/ · JOB-0042</span><span>FBNeo 游戏列表 · 1 个候选 · 2 分钟前</span></span>
+              </button>
+              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 2 / 4" data-review-file="garou.zip" data-review-preview="GAROU" data-review-title="Garou: Mark of the Wolves" data-review-year="1999" data-review-developer="SNK" data-review-players="1–2" data-review-description="南镇格斗大会再度开幕，新的格斗家加入战局。" data-review-candidate="Garou: Mark of the Wolves" data-review-candidate-meta="World · 1999 · SNK" data-review-candidate-badge="精确" data-review-validation-status="BLOCKED" data-review-validation="! 当前目录缺少必需 BIOS neogeo.zip；安装并完成新 Validation 前不能发布">
+                <span class="rt-review-item-head"><span class="rt-review-item-source">garou.zip</span><span class="rt-badge rt-badge-red">缺 BIOS</span></span><span class="rt-review-item-title">Garou: Mark of the Wolves</span><span class="rt-review-item-meta"><span>arcade-romset/ · JOB-0042</span><span>FBNeo 游戏列表 · 1 个候选 · 5 分钟前</span></span>
+              </button>
+              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 3 / 4" data-review-file="lastbld2.zip" data-review-preview="LAST BLADE 2" data-review-title="lastbld2" data-review-year="" data-review-developer="" data-review-players="" data-review-description="" data-review-candidate="没有精确候选" data-review-candidate-meta="保留安全文件名并手动编辑" data-review-candidate-badge="手动" data-review-validation-status="READY" data-review-validation="✓ 目录默认核心 FBNeo 的 DAT 依赖检查通过；Hasheous 未命中不阻断人工补全后发布">
+                <span class="rt-review-item-head"><span class="rt-review-item-source">lastbld2.zip</span><span class="rt-badge rt-badge-amber">需补信息</span></span><span class="rt-review-item-title">lastbld2</span><span class="rt-review-item-meta"><span>arcade-romset/ · JOB-0042</span><span>FBNeo 游戏列表 · 0 个候选 · 7 分钟前</span></span>
+              </button>
+              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 4 / 4" data-review-file="shocktro.zip" data-review-preview="SHOCK TROOPERS" data-review-title="Shock Troopers" data-review-year="1997" data-review-developer="Saurus" data-review-players="1–2" data-review-description="小队深入敌后，营救被绑架的科学家与家人。" data-review-candidate="Shock Troopers" data-review-candidate-meta="World · 1997 · Saurus" data-review-candidate-badge="精确" data-review-validation-status="READY" data-review-validation="✓ 目录默认核心 FBNeo 的 DAT 依赖检查通过：主 ROMset、parent 与 BIOS 均已满足">
+                <span class="rt-review-item-head"><span class="rt-review-item-source">shocktro.zip</span><span class="rt-badge rt-badge-green">可发布</span></span><span class="rt-review-item-title">Shock Troopers</span><span class="rt-review-item-meta"><span>arcade-romset/ · JOB-0042</span><span>FBNeo 游戏列表 · 1 个候选 · 9 分钟前</span></span>
+              </button>
+            </div>
+            <div class="rt-review-queue-footer"><span>已加载 4 条 · 按更新时间升序</span><span class="rt-review-queue-pages"><button type="button" class="rt-button" disabled>上一页</button><button type="button" class="rt-button" disabled>继续加载</button></span></div>
+          </aside>
+          <div class="rt-review-layout">
+            <button type="button" class="rt-button rt-review-back" data-review-back><i data-lucide="arrow-left" aria-hidden="true"></i>返回待审列表</button>
+            <div class="rt-panel rt-review-file"><div class="rt-file-preview" data-review-preview-output>METAL SLUG 3</div><h3 data-review-file-output>mslug3.zip</h3><div class="rt-info-list"><div class="rt-info-row"><span>导入批次</span><span>arcade-romset/ · JOB-0042</span></div><div class="rt-info-row"><span>平台目录</span><span>FBNeo 游戏列表</span></div><div class="rt-info-row"><span>平台 / 默认核心</span><span>Arcade / FBNeo</span></div><div class="rt-info-row"><span>SHA-256</span><span class="rt-mono">7d2c…f198</span></div><div class="rt-info-row"><span>DAT 依赖检查</span><span class="rt-badge rt-badge-green">已计算</span></div></div><div class="rt-section-head"><h3>Hasheous 元信息候选</h3><span class="rt-subtitle">当前 Item 的独立结果</span></div><div class="rt-candidate-list"><button type="button" class="rt-candidate is-selected"><span class="rt-candidate-thumb"></span><span><strong data-review-candidate-title>Metal Slug 3</strong><span class="rt-table-sub" data-review-candidate-meta>World · 2000 · SNK</span></span><span class="rt-badge rt-badge-green" data-review-candidate-badge>精确</span></button><button type="button" class="rt-candidate"><span class="rt-candidate-thumb" style="background:var(--retrom-cover-e)"></span><span><strong>不采用候选</strong><span class="rt-table-sub">保留字段并手动编辑</span></span><span class="rt-badge">手动</span></button></div></div>
+            <div class="rt-panel rt-review-form"><div class="rt-form-grid"><label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" data-review-field="title" value="Metal Slug 3"></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" data-review-field="year" value="2000"></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" data-review-field="developer" value="SNK"></label><label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" data-review-field="players" value="1–2"></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea" data-review-field="description">阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。</textarea></label><label class="rt-field"><span class="rt-label">封面来源</span><select class="rt-select"><option>Hasheous · 图片属性</option><option>本地上传</option></select></label><label class="rt-field"><span class="rt-label">平台目录</span><select class="rt-select"><option>FBNeo 游戏列表 · 默认 FBNeo</option><option>MAME 游戏列表 · 默认 MAME 2003</option></select></label></div><div class="rt-validation-box" data-review-validation-output>✓ 目录默认核心 FBNeo 的 DAT 依赖检查通过：主 ROMset、parent 与 BIOS neogeo.zip 均已匹配；展示元信息来自 Hasheous</div><div class="rt-review-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>Discard</button><button type="button" class="rt-button">保存草稿</button><button type="button" class="rt-button rt-button-primary" data-review-approve><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="admin-review-history">
+        <div class="rt-page-head">
+          <div><h1>审核历史</h1><p class="rt-subtitle">查询不可变 ReviewEvent，并还原当时的输入、候选、字段差异与决策证据</p></div>
+          <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-review"><i data-lucide="list-checks" aria-hidden="true"></i>返回待审核</button></div>
+        </div>
+        <div class="rt-toolbar">
+          <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索审核记录</span><input class="rt-input" type="search" placeholder="搜索游戏标题、文件名或 ImportItem ID"></label>
+          <select class="rt-select rt-filter-select" aria-label="审核结果"><option>全部结果</option><option>通过并发布</option><option>Discard</option><option>保存草稿</option></select>
+          <select class="rt-select rt-filter-select" aria-label="平台目录"><option>全部平台目录</option><option>FBNeo 游戏列表</option><option>MAME 游戏列表</option><option>DOS 经典游戏</option></select>
+          <select class="rt-select rt-filter-select" aria-label="时间范围"><option>最近 30 天</option><option>最近 7 天</option><option>全部时间</option></select>
+        </div>
+        <div class="rt-history-layout">
+          <div class="rt-panel rt-table-wrap">
+            <table class="rt-table rt-history-table"><thead><tr><th>时间</th><th>游戏 / 原文件</th><th>平台目录</th><th>决策</th><th>证据摘要</th><th>操作</th></tr></thead><tbody>
+              <tr class="is-selected"><td>8 月 5 日 22:09</td><td><div class="rt-table-title">Metal Slug</div><div class="rt-table-sub">mslug.zip · ITEM-0182</div></td><td><div class="rt-table-title">FBNeo 游戏列表</div><div class="rt-table-sub">Arcade · FBNeo</div></td><td><span class="rt-badge rt-badge-green">通过并发布</span></td><td><div class="rt-table-title">采用 Hasheous 精确候选</div><div class="rt-table-sub">DAT 依赖通过 · 替换封面</div></td><td><button type="button" class="rt-button">查看</button></td></tr>
+              <tr><td>8 月 4 日 19:32</td><td><div class="rt-table-title">Bad Dump (U)</div><div class="rt-table-sub">baddumpu.zip · ITEM-0171</div></td><td><div class="rt-table-title">MAME 游戏列表</div><div class="rt-table-sub">Arcade · MAME 2003</div></td><td><span class="rt-badge rt-badge-red">Discard</span></td><td><div class="rt-table-title">未采用元信息候选</div><div class="rt-table-sub">parent archive 不完整</div></td><td><button type="button" class="rt-button">查看</button></td></tr>
+              <tr><td>8 月 2 日 20:17</td><td><div class="rt-table-title">DOOM</div><div class="rt-table-sub">doom-shareware/ · ITEM-0154</div></td><td><div class="rt-table-title">DOS 经典游戏</div><div class="rt-table-sub">MS-DOS · DOSBox Pure</div></td><td><span class="rt-badge rt-badge-green">通过并发布</span></td><td><div class="rt-table-title">采用 Hasheous 精确候选</div><div class="rt-table-sub">默认程序设为 DOOM.EXE</div></td><td><button type="button" class="rt-button">查看</button></td></tr>
+              <tr><td>7 月 29 日 18:44</td><td><div class="rt-table-title">Metroid Fusion</div><div class="rt-table-sub">metroid-fusion.gba · ITEM-0142</div></td><td><div class="rt-table-title">GBA 游戏</div><div class="rt-table-sub">GBA · mGBA</div></td><td><span class="rt-badge">保存草稿</span></td><td><div class="rt-table-title">保留手工元信息</div><div class="rt-table-sub">等待补充本地封面</div></td><td><button type="button" class="rt-button">查看</button></td></tr>
+            </tbody></table>
+          </div>
+          <aside class="rt-panel rt-audit-detail" aria-label="所选审核记录详情">
+            <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>Metal Slug</h2><p class="rt-subtitle">ReviewEvent · REV-20260805-0097</p></div><span class="rt-badge rt-badge-green">通过并发布</span></div>
+            <div class="rt-audit-meta">
+              <div class="rt-info-row"><span>Actor</span><span>local</span></div>
+              <div class="rt-info-row"><span>ImportItem</span><span class="rt-mono">ITEM-0182</span></div>
+              <div class="rt-info-row"><span>配置快照</span><span>FBNeo / DAT 1.0.0.03</span></div>
+              <div class="rt-info-row"><span>元信息候选</span><span>Hasheous · 精确哈希</span></div>
+              <div class="rt-info-row"><span>决策时间</span><span>8 月 5 日 22:09</span></div>
+            </div>
+            <div class="rt-section-head"><h3>字段差异</h3><span class="rt-subtitle">2 项变更</span></div>
+            <div class="rt-audit-diff">
+              <div class="rt-diff-row"><div class="rt-diff-label">标题</div><div class="rt-diff-value"><div class="rt-diff-before">mslug</div><div class="rt-diff-after">Metal Slug</div></div></div>
+              <div class="rt-diff-row"><div class="rt-diff-label">封面</div><div class="rt-diff-value"><div class="rt-diff-before">无</div><div class="rt-diff-after">采用 Hasheous 图片候选 → CAS</div></div></div>
+            </div>
+            <div class="rt-section-head"><h3>运行依赖证据</h3></div>
+            <div class="rt-validation-box">FBNeo DAT：machine、parent 与 neogeo.zip 均满足。该结果与展示元信息候选分开保存。</div>
+            <button type="button" class="rt-button rt-launch-button"><i data-lucide="scan-search" aria-hidden="true"></i>查看完整输入 / 输出快照</button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="admin-games">
+        <div class="rt-page-head"><div><h1>游戏管理</h1><p class="rt-subtitle">编辑已发布内容、替换游戏文件或移除游戏</p></div><button type="button" class="rt-button"><i data-lucide="filter" aria-hidden="true"></i>筛选</button></div>
+        <div class="rt-management-grid">
+          <article class="rt-management-card"><div class="rt-cover rt-cover-b rt-management-cover"><span class="rt-cover-title">MS</span></div><div class="rt-management-copy"><div class="rt-management-title">Metal Slug</div><div class="rt-management-meta">Arcade · FBNeo 游戏列表 · 3 个核心状态</div><div class="rt-management-actions"><button type="button" class="rt-button" data-page-link="admin-game-detail">进入管理详情</button><button type="button" class="rt-button" aria-label="更多"><i data-lucide="ellipsis" aria-hidden="true"></i></button></div></div></article>
+          <article class="rt-management-card"><div class="rt-cover rt-cover-c rt-management-cover"><span class="rt-cover-title">DOOM</span></div><div class="rt-management-copy"><div class="rt-management-title">DOOM</div><div class="rt-management-meta">MS-DOS · DOS 经典游戏 · 3 个启动程序</div><div class="rt-management-actions"><button type="button" class="rt-button" data-page-link="admin-game-detail">进入管理详情</button><button type="button" class="rt-button" aria-label="更多"><i data-lucide="ellipsis" aria-hidden="true"></i></button></div></div></article>
+          <article class="rt-management-card"><div class="rt-cover rt-cover-a rt-management-cover"><span class="rt-cover-title">ZELDA</span></div><div class="rt-management-copy"><div class="rt-management-title">The Legend of Zelda</div><div class="rt-management-meta">Famicom Disk · 磁碟冒险 · BIOS 待处理</div><div class="rt-management-actions"><button type="button" class="rt-button" data-page-link="admin-game-detail">进入管理详情</button><button type="button" class="rt-button" aria-label="更多"><i data-lucide="ellipsis" aria-hidden="true"></i></button></div></div></article>
+          <article class="rt-management-card"><div class="rt-cover rt-cover-f rt-management-cover"><span class="rt-cover-title">FZ</span></div><div class="rt-management-copy"><div class="rt-management-title">F-Zero</div><div class="rt-management-meta">SNES · SNES 游戏 · Snes9x</div><div class="rt-management-actions"><button type="button" class="rt-button" data-page-link="admin-game-detail">进入管理详情</button><button type="button" class="rt-button" aria-label="更多"><i data-lucide="ellipsis" aria-hidden="true"></i></button></div></div></article>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="admin-game-detail">
+        <div class="rt-page-head">
+          <div><button type="button" class="rt-back-link" data-page-link="admin-games">← 返回游戏管理</button><h1>Metal Slug</h1><p class="rt-subtitle">GAME-0182 · Arcade / FBNeo 游戏列表 · 当前内容版本 CONTENT-0007</p></div>
+          <div class="rt-page-head-actions"><span class="rt-badge rt-badge-green">已发布</span><button type="button" class="rt-button rt-button-primary"><i data-lucide="save" aria-hidden="true"></i>保存发布信息</button></div>
+        </div>
+        <div class="rt-admin-game-layout">
+          <div class="rt-admin-game-stack">
+            <section class="rt-panel rt-admin-game-panel">
+              <div class="rt-admin-section-head"><div><h2>1. 发布信息</h2><p class="rt-subtitle">保存时创建新的 MetadataRevision；当前 ETag 为 v12，不原地改写历史。</p></div><span class="rt-badge">Metadata v12</span></div>
+              <div class="rt-form-grid">
+                <label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" value="Metal Slug"></label>
+                <label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" value="1996"></label>
+                <label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" value="Nazca Corporation"></label>
+                <label class="rt-field"><span class="rt-label">发行商</span><input class="rt-input" value="SNK"></label>
+                <label class="rt-field"><span class="rt-label">类型</span><input class="rt-input" value="动作 / 射击"></label>
+                <label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" value="1–2"></label>
+                <label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea">驾驶载具、营救俘虏并击败叛军。当前展示字段来自已审核的元信息修订。</textarea></label>
+              </div>
+            </section>
+
+            <section class="rt-panel rt-admin-game-panel">
+              <div class="rt-admin-section-head"><div><h2>3. 内容与运行版本</h2><p class="rt-subtitle">用户内容与每个 Core 的验证结果分开版本化；普通启动只使用 current ContentRevision。</p></div><button type="button" class="rt-button"><i data-lucide="upload" aria-hidden="true"></i>替换游戏文件</button></div>
+              <div class="rt-admin-game-summary">
+                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">当前内容</div><div class="rt-admin-summary-value">CONTENT-0007</div></div>
+                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">用户文件</div><div class="rt-admin-summary-value">mslug.zip · 13.1 MB</div></div>
+                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">来源</div><div class="rt-admin-summary-value">审核发布 · ITEM-0182</div></div>
+                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">历史内容版本</div><div class="rt-admin-summary-value">2 个 · 均受引用保护</div></div>
+              </div>
+              <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>核心槽</th><th>当前 Revision</th><th>CoreArtifact / DAT</th><th>与当前内容</th><th>依赖诊断</th><th>操作</th></tr></thead><tbody>
+                <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">目录默认核心</div></td><td><span class="rt-mono">VAR-0042</span></td><td><div class="rt-table-title">EJS 4.2.3</div><div class="rt-table-sub">DAT 1.0.0.03</div></td><td><span class="rt-badge rt-badge-green">READY</span></td><td>ROM / parent / BIOS 满足</td><td><button type="button" class="rt-button">查看版本链</button></td></tr>
+                <tr><td><div class="rt-table-title">MAME 2003</div><div class="rt-table-sub">备用核心</div></td><td><span class="rt-mono">VAR-0031</span></td><td><div class="rt-table-title">EJS 4.2.1 override</div><div class="rt-table-sub">DAT MAME 0.78</div></td><td><span class="rt-badge rt-badge-amber">NEEDS_VALIDATION</span></td><td>旧 revision 指向 CONTENT-0005</td><td><button type="button" class="rt-button">创建验证任务</button></td></tr>
+                <tr><td><div class="rt-table-title">MAME 2003 Plus</div><div class="rt-table-sub">备用核心</div></td><td>—</td><td><div class="rt-table-title">EJS 4.2.3</div><div class="rt-table-sub">DAT bound 09e84fe</div></td><td><span class="rt-badge">未验证</span></td><td>尚无 VariantRevision</td><td><button type="button" class="rt-button">创建验证任务</button></td></tr>
+              </tbody></table></div>
+              <div class="rt-setting-note">文件替换先创建 UploadSession 与 GAME_FILE_REVISION Job；只有默认核心验证 READY 且快照未漂移，才原子切换 Content 与目标 Variant 两个 current。</div>
+            </section>
+          </div>
+
+          <div class="rt-admin-game-stack">
+            <section class="rt-panel rt-admin-game-panel">
+              <div class="rt-admin-section-head"><div><h2>2. 媒体</h2><p class="rt-subtitle">替换会创建新的 Asset/MetadataRevision；旧 Blob 保持不可变。</p></div><button type="button" class="rt-button"><i data-lucide="image-plus" aria-hidden="true"></i>上传媒体</button></div>
+              <div class="rt-media-grid">
+                <div class="rt-media-tile"><span>当前封面 · COVER</span></div>
+                <div class="rt-media-tile is-wide"><span>当前背景 · BACKGROUND</span></div>
+                <div class="rt-media-tile" style="background:var(--retrom-cover-c)"><span>截图 1</span></div>
+                <div class="rt-media-tile" style="background:var(--retrom-cover-e)"><span>截图 2</span></div>
+                <div class="rt-media-tile" style="background:var(--retrom-cover-a)"><span>截图 3</span></div>
+              </div>
+              <div class="rt-setting-note">媒体来源：审核采用的 Hasheous 候选 + 本地替换。页面只显示 Retrom Asset ID，不暴露 Blob hash 或宿主路径。</div>
+            </section>
+
+            <section class="rt-panel rt-admin-game-panel">
+              <div class="rt-admin-section-head"><div><h2>4. 管理操作</h2><p class="rt-subtitle">长任务均进入任务进度；危险操作必须先给影响摘要。</p></div></div>
+              <div class="rt-operation-list">
+                <div class="rt-operation-row"><div class="rt-operation-copy"><div class="rt-operation-title">重新刮削元信息</div><div class="rt-operation-note">创建独立候选批次，不自动覆盖当前发布信息</div></div><button type="button" class="rt-button">创建候选</button></div>
+                <div class="rt-operation-row"><div class="rt-operation-copy"><div class="rt-operation-title">移动平台目录</div><div class="rt-operation-note">仅允许同基础平台；先预览默认核心与存档影响</div></div><button type="button" class="rt-button">影响预览</button></div>
+                <div class="rt-operation-row"><div class="rt-operation-copy"><div class="rt-operation-title">查看不可变历史</div><div class="rt-operation-note">Metadata、Content、Variant、审核与任务事件</div></div><button type="button" class="rt-button">查看历史</button></div>
+                <div class="rt-operation-row rt-danger-zone"><div class="rt-operation-copy"><div class="rt-operation-title">软删除游戏</div><div class="rt-operation-note">输入完整标题确认；存档和审核历史继续保留</div></div><button type="button" class="rt-button rt-button-danger">删除…</button></div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="admin-platform-instances">
+        <div class="rt-page-head"><div><h1>平台目录</h1><p class="rt-subtitle">游戏只属于一个平台目录；目录提供普通启动时的默认核心</p></div></div>
+        <div class="rt-stat-grid"><div class="rt-stat"><div class="rt-stat-label"><span>平台目录</span><i data-lucide="folders" aria-hidden="true"></i></div><div class="rt-stat-value">9</div><div class="rt-stat-note">覆盖 7 个基础平台</div></div><div class="rt-stat"><div class="rt-stat-label"><span>Arcade 目录</span><i data-lucide="joystick" aria-hidden="true"></i></div><div class="rt-stat-value">3</div><div class="rt-stat-note">FBNeo 2 · MAME 2003 1</div></div><div class="rt-stat"><div class="rt-stat-label"><span>待重新验证</span><i data-lucide="scan-search" aria-hidden="true"></i></div><div class="rt-stat-value">2</div><div class="rt-stat-note">来自非默认核心切换测试</div></div></div>
+        <div class="rt-import-layout">
+          <div>
+            <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>平台目录</th><th>基础平台</th><th>默认核心</th><th>游戏</th><th>默认核心兼容性</th><th>操作</th></tr></thead><tbody>
+              <tr><td><div class="rt-table-title">FBNeo 游戏列表</div><div class="rt-table-sub">fbneo-games</div></td><td>Arcade</td><td><span class="rt-badge rt-badge-cyan">FBNeo</span></td><td>18</td><td><span class="rt-badge rt-badge-green">16 可启动</span> <span class="rt-badge rt-badge-amber">2 缺 BIOS</span></td><td><button type="button" class="rt-button">编辑 / 影响预览</button></td></tr>
+              <tr><td><div class="rt-table-title">MAME 游戏列表</div><div class="rt-table-sub">mame-games</div></td><td>Arcade</td><td><span class="rt-badge">MAME 2003</span></td><td>7</td><td><span class="rt-badge rt-badge-green">7 可启动</span></td><td><button type="button" class="rt-button">编辑 / 影响预览</button></td></tr>
+              <tr><td><div class="rt-table-title">FBNeo 飞行游戏</div><div class="rt-table-sub">fbneo-shmups</div></td><td>Arcade</td><td><span class="rt-badge rt-badge-cyan">FBNeo</span></td><td>4</td><td><span class="rt-badge rt-badge-green">4 可启动</span></td><td><button type="button" class="rt-button">编辑 / 影响预览</button></td></tr>
+              <tr><td><div class="rt-table-title">DOS 经典游戏</div><div class="rt-table-sub">dos-classics</div></td><td>MS-DOS</td><td><span class="rt-badge">DOSBox Pure</span></td><td>5</td><td><span class="rt-badge rt-badge-green">5 可启动</span></td><td><button type="button" class="rt-button">编辑 / 影响预览</button></td></tr>
+            </tbody></table></div>
+            <div class="rt-setting-note">修改默认核心会先验证此目录内的全部已发布游戏；存档仍锁定原 GameVariant 和文件 revision。非空目录不可删除。</div>
+          </div>
+          <div class="rt-panel rt-import-settings"><h3>新建平台目录</h3><label class="rt-field"><span class="rt-label">目录名称</span><input class="rt-input" value="FBNeo 格斗游戏"></label><label class="rt-field"><span class="rt-label">基础平台</span><select class="rt-select"><option>Arcade</option><option>MS-DOS</option><option>NES / Famicom</option></select></label><label class="rt-field"><span class="rt-label">默认核心</span><select class="rt-select"><option>FBNeo</option><option>MAME 2003 Plus</option><option>MAME 2003</option></select></label><label class="rt-field"><span class="rt-label">说明（可选）</span><textarea class="rt-textarea">以 FBNeo ROMset 为主的格斗游戏。</textarea></label><div class="rt-setting-note">默认核心只决定普通启动的首选项；详情页仍保留 Arcade 的其他已启用核心。</div><button type="button" class="rt-button rt-button-primary rt-launch-button"><i data-lucide="folder-plus" aria-hidden="true"></i>创建平台目录</button></div>
+        </div>
+      </section>
+
+      <section class="rt-page" data-page="admin-bios">
+        <div class="rt-page-head"><div><h1>BIOS 管理</h1><p class="rt-subtitle">各 Arcade 核心使用独立 DAT；页面读取已解析目录，启动时只做依赖预检</p></div></div>
+        <div class="rt-admin-tabs"><button type="button" class="rt-admin-tab is-active" data-bios-view="files">BIOS 文件</button><button type="button" class="rt-admin-tab" data-bios-view="dats">Arcade DAT 版本</button></div>
+
+        <div data-bios-panel="files">
+          <div class="rt-section-head"><div class="rt-bios-groups" data-chip-group="bios-scope"><button type="button" class="rt-chip is-active">当前游戏库所需</button><button type="button" class="rt-chip">核心完整目录</button></div><button type="button" class="rt-button rt-button-primary"><i data-lucide="upload" aria-hidden="true"></i>上传 BIOS</button></div>
+          <div class="rt-stat-grid"><div class="rt-stat"><div class="rt-stat-label"><span>已满足</span></div><div class="rt-stat-value">9</div><div class="rt-stat-note">含由 Full Non-Merged 游戏文件满足</div></div><div class="rt-stat"><div class="rt-stat-label"><span>存在警告</span></div><div class="rt-stat-value">2</div><div class="rt-stat-note">entry 存在但哈希不同，可启动</div></div><div class="rt-stat"><div class="rt-stat-label"><span>缺失 / 不完整</span></div><div class="rt-stat-value">3</div><div class="rt-stat-note">仅统计当前游戏库，阻断相关游戏</div></div></div>
+          <div class="rt-bios-groups" data-chip-group="bios-platform"><button type="button" class="rt-chip">全部平台</button><button type="button" class="rt-chip">NES</button><button type="button" class="rt-chip">SNES</button><button type="button" class="rt-chip">Game Boy</button><button type="button" class="rt-chip is-active">Arcade</button><button type="button" class="rt-chip">GBA</button></div>
+          <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>核心 / DAT</th><th>BIOS ROMset</th><th>当前游戏库</th><th>Entry 校验</th><th>当前状态</th><th>操作</th></tr></thead><tbody>
+            <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">EmulatorJS 4.2.3 · DAT 1.0.0.03</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">neogeo.zip</div><div class="rt-table-sub">Neo Geo BIOS</div></div></div></td><td>12 个变体</td><td><span class="rt-mono">按活动 DAT 校验</span></td><td><span class="rt-badge rt-badge-green">完全匹配</span></td><td><button type="button" class="rt-button">替换</button></td></tr>
+            <tr><td><div class="rt-table-title">MAME 2003</div><div class="rt-table-sub">Core 0.78 · DAT MAME 0.78</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">neogeo.zip</div><div class="rt-table-sub">与 FBNeo 同名但要求独立</div></div></div></td><td>4 个变体</td><td><span class="rt-mono">未上传</span></td><td><span class="rt-badge rt-badge-red">缺失</span></td><td><button type="button" class="rt-button rt-button-primary">上传</button></td></tr>
+            <tr><td><div class="rt-table-title">MAME 2003 Plus</div><div class="rt-table-sub">EmulatorJS 4.2.3 · bound source 09e84fe</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">pgm.zip</div><div class="rt-table-sub">PGM System BIOS</div></div></div></td><td>2 个变体</td><td><span class="rt-mono">按活动 DAT 校验</span></td><td><span class="rt-badge rt-badge-amber">2 项哈希不同</span></td><td><button type="button" class="rt-button">查看 / 替换</button></td></tr>
+            <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">EmulatorJS 4.2.3 · DAT 1.0.0.03</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="package-check" aria-hidden="true"></i></span><div><div class="rt-table-title">ym2608</div><div class="rt-table-sub">已包含在游戏 archive</div></div></div></td><td>1 个变体</td><td><span class="rt-mono">由内容满足</span></td><td><span class="rt-badge rt-badge-green">无需上传</span></td><td><button type="button" class="rt-button">查看来源</button></td></tr>
+          </tbody></table></div>
+        </div>
+
+        <div data-bios-panel="dats" hidden>
+          <div class="rt-section-head"><div><h2>核心 DAT 目录</h2><p class="rt-subtitle">上传只创建候选；解析并查看差异后才可显式启用</p></div><button type="button" class="rt-button rt-button-primary"><i data-lucide="file-up" aria-hidden="true"></i>上传 DAT</button></div>
+          <div class="rt-setting-note">上传 → 安全校验与后台解析 → 查看 BIOS / parent 依赖差异 → 显式启用 → 分批重校验 GameVariant；系统预置版本始终可回滚。</div>
+          <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>核心</th><th>当前生效 DAT</th><th>来源</th><th>解析结果</th><th>影响范围</th><th>状态</th><th>操作</th></tr></thead><tbody>
+            <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">EmulatorJS 4.2.3 · source c8c70ba</div></td><td><div class="rt-table-title">fbneo-arcade.dat</div><div class="rt-table-sub rt-mono">SHA-256 · 9960…3637</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">7,980 machines</div><div class="rt-table-sub">13 个显式 BIOS machines</div></td><td>2 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
+            <tr><td><div class="rt-table-title">MAME 2003</div><div class="rt-table-sub">DAT source 0ee1c0e · Core 4.2.1 覆盖</div></td><td><div class="rt-table-title">mame2003.xml</div><div class="rt-table-sub rt-mono">SHA-256 · dacf…a147</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">4,727 machines</div><div class="rt-table-sub">17 个 base dependency targets</div></td><td>1 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
+            <tr><td><div class="rt-table-title">MAME 2003 Plus</div><div class="rt-table-sub">EmulatorJS 4.2.3 · source 09e84fe</div></td><td><div class="rt-table-title">mame2003-plus.xml</div><div class="rt-table-sub rt-mono">SHA-256 · e110…303c</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">5,257 machines</div><div class="rt-table-sub">17 个 base dependency targets</div></td><td>0 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
+          </tbody></table></div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    (() => {
+      const root = document.getElementById('retrom-ui-review');
+      const modeButton = root.querySelector('#rt-mode-button');
+      const modeLabel = root.querySelector('#rt-mode-label');
+      const breadcrumbMode = root.querySelector('#rt-breadcrumb-mode');
+      const breadcrumbPage = root.querySelector('#rt-breadcrumb-page');
+      let mode = 'user';
+
+      const pageNames = {
+        home: '首页', library: '游戏库', saves: '我的存档', detail: '游戏详情', play: '游玩',
+        'admin-import': '游戏入库', 'admin-import-new': '导入文件 / 目录', 'admin-import-tasks': '任务进度',
+        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-platform-instances': '平台目录', 'admin-bios': 'BIOS 管理'
+      };
+      const ingestionPages = new Set(['admin-import', 'admin-import-new', 'admin-import-tasks', 'admin-review', 'admin-review-history']);
+
+      function showPage(page) {
+        const activeNavigationTarget = page === 'detail' ? 'library' : page === 'admin-game-detail' ? 'admin-games' : page;
+        root.querySelector('.rt-app').classList.toggle('is-playing', page === 'play');
+        root.querySelectorAll('.rt-page').forEach((element) => element.classList.toggle('is-active', element.dataset.page === page));
+        root.querySelectorAll('.rt-nav-button').forEach((button) => button.classList.toggle('is-active', button.dataset.pageTarget === activeNavigationTarget));
+        root.querySelector('[data-ingest-parent]').classList.toggle('is-context', page !== 'admin-import' && ingestionPages.has(page));
+        breadcrumbPage.textContent = page !== 'admin-import' && ingestionPages.has(page)
+          ? `游戏入库 / ${pageNames[page]}`
+          : page === 'admin-game-detail'
+            ? '游戏管理 / 游戏详情'
+            : (pageNames[page] || '页面');
+      }
+
+      root.querySelectorAll('[data-page-target]').forEach((button) => button.addEventListener('click', () => showPage(button.dataset.pageTarget)));
+      root.querySelectorAll('[data-page-link]').forEach((button) => button.addEventListener('click', () => showPage(button.dataset.pageLink)));
+
+      function setMode(nextMode) {
+        mode = nextMode;
+        root.querySelectorAll('[data-nav-mode]').forEach((group) => { group.hidden = group.dataset.navMode !== mode; });
+        modeLabel.textContent = mode === 'user' ? 'Play space' : 'Administration';
+        breadcrumbMode.textContent = mode === 'user' ? '用户侧' : '管理后台';
+        modeButton.querySelector('span').textContent = mode === 'user' ? '管理后台' : '返回用户侧';
+        showPage(mode === 'user' ? 'home' : 'admin-import');
+      }
+
+      modeButton.addEventListener('click', () => setMode(mode === 'user' ? 'admin' : 'user'));
+
+      let currentGame = 'metal';
+      const gameDetails = {
+        metal: {
+          title: 'Metal Slug', coverTitle: 'METAL SLUG', coverClass: 'rt-cover-b', platform: 'Arcade / FBNeo 游戏列表 · 1996', directory: 'FBNeo 游戏列表',
+          meta: ['SNK', '动作 / 射击', '1–2 人'], description: '驾驶载具、营救俘虏并一路突破敌军防线。当前 ROM 已用 FBNeo DAT 完成 parent / BIOS 依赖解析，另有两个兼容核心可供选择。',
+          hours: '2.4h', publisher: 'SNK', saveName: '沙漠据点前', saveCore: 'FBNeo', save: '今天 22:14 · FBNeo · 与当前核心兼容', dos: false, ready: true,
+          cores: ['FBNeo · 目录默认', 'MAME 2003 Plus · 兼容', 'MAME 2003 · 需验证'], check: 'ROM、parent 与 BIOS 依赖均已满足'
+        },
+        doom: {
+          title: 'DOOM', coverTitle: 'DOOM', coverClass: 'rt-cover-c', platform: 'MS-DOS / DOS 经典游戏 · 1993', directory: 'DOS 经典游戏',
+          meta: ['id Software', '第一人称射击', '1 人'], description: '火星基地被恶魔占领。DOS 游戏在启动前可指定可执行程序，默认项由审核阶段确认，也可在每次启动时覆盖。',
+          hours: '1.8h', publisher: 'id Software', saveName: 'Phobos Lab', saveCore: 'DOSBox Pure', save: '昨天 23:06 · DOSBox Pure · 与当前核心兼容', dos: true, ready: true,
+          cores: ['DOSBox Pure · 目录默认 / 必需线程模式'], check: '启动包完整，已识别 3 个可执行程序'
+        },
+        zelda: {
+          title: 'Zelda no Densetsu', coverTitle: 'ZELDA', coverClass: 'rt-cover-a', platform: 'Famicom Disk System / 磁碟冒险 · 1986', directory: '磁碟冒险',
+          meta: ['Nintendo', '动作 / 冒险', '1 人'], description: '这是磁碟系统版本，FCEUmm 启动时必须加载 disksys.rom。游戏文件已通过识别，但当前系统缺少所需 BIOS。',
+          hours: '48m', publisher: 'Nintendo', saveName: '迷失森林入口', saveCore: 'FCEUmm', save: '8 月 3 日 · FCEUmm · 等待 BIOS', dos: false, ready: false,
+          cores: ['FCEUmm · 目录默认 / 缺少 BIOS'], check: '缺少 disksys.rom，上传后才能开始游戏'
+        }
+      };
+
+      function openGame(key) {
+        const game = gameDetails[key] || gameDetails.metal;
+        currentGame = key in gameDetails ? key : 'metal';
+        const cover = root.querySelector('#rt-detail-cover');
+        cover.className = `rt-cover ${game.coverClass} rt-detail-cover`;
+        root.querySelector('#rt-detail-cover-title').textContent = game.coverTitle;
+        root.querySelector('#rt-detail-platform').textContent = game.platform;
+        root.querySelector('#rt-detail-title').textContent = game.title;
+        root.querySelector('#rt-detail-meta').innerHTML = game.meta.map((item) => `<span>${item}</span>`).join('');
+        root.querySelector('#rt-detail-description').textContent = game.description;
+        root.querySelector('#rt-detail-hours').textContent = game.hours;
+        root.querySelector('#rt-info-directory').textContent = game.directory;
+        root.querySelector('#rt-info-publisher').textContent = game.publisher;
+        root.querySelector('#rt-detail-save-title').textContent = game.saveName;
+        root.querySelector('#rt-detail-save-meta').textContent = game.save;
+        root.querySelector('#rt-dos-field').hidden = !game.dos;
+        root.querySelector('#rt-core-select').innerHTML = game.cores.map((item) => `<option>${item}</option>`).join('');
+        root.querySelector('#rt-core-origin').textContent = `默认核心来自平台目录“${game.directory}”；切换只影响本次启动`;
+        root.querySelector('#rt-launch-check-text').textContent = game.check;
+        root.querySelector('#rt-launch-ready').textContent = game.ready ? '准备就绪' : '启动受阻';
+        root.querySelector('#rt-launch-ready').className = game.ready ? 'rt-badge rt-badge-green' : 'rt-badge rt-badge-red';
+        root.querySelector('#rt-launch-check').className = game.ready ? 'rt-checkline' : 'rt-checkline is-warning';
+        root.querySelectorAll('[data-start-game]').forEach((button) => { button.disabled = !game.ready; });
+        root.querySelector('[data-start-current-save]').disabled = !game.ready;
+        showPage('detail');
+      }
+
+      root.querySelectorAll('[data-open-game]').forEach((button) => button.addEventListener('click', () => openGame(button.dataset.openGame)));
+
+      root.querySelector('#rt-core-select').addEventListener('change', (event) => {
+        const label = event.target.value;
+        const blocked = label.includes('缺少 BIOS') || label.includes('不兼容');
+        const needsValidation = label.includes('需验证');
+        const status = root.querySelector('#rt-launch-ready');
+        const checkline = root.querySelector('#rt-launch-check');
+        if (blocked) {
+          status.textContent = '启动受阻';
+          status.className = 'rt-badge rt-badge-red';
+          checkline.className = 'rt-checkline is-warning';
+        } else if (needsValidation) {
+          status.textContent = '启动时验证';
+          status.className = 'rt-badge rt-badge-amber';
+          checkline.className = 'rt-checkline is-warning';
+          root.querySelector('#rt-launch-check-text').textContent = '将使用所选核心的 DAT / 文件规则创建兼容性结果';
+        } else {
+          status.textContent = '准备就绪';
+          status.className = 'rt-badge rt-badge-green';
+          checkline.className = 'rt-checkline';
+          root.querySelector('#rt-launch-check-text').textContent = gameDetails[currentGame].check;
+        }
+        root.querySelectorAll('[data-start-game]').forEach((button) => { button.disabled = blocked; });
+      });
+
+      let playerReturnPage = 'detail';
+      let playerRunToken = 0;
+
+      function requestPlayerFullscreen() {
+        const fullscreenTarget = document.documentElement;
+        if (document.fullscreenElement || !fullscreenTarget.requestFullscreen) return;
+        fullscreenTarget.requestFullscreen({ navigationUI: 'hide' }).catch(() => {
+          const state = root.querySelector('#rt-player-launch-state');
+          state.textContent = '运行中 · 浏览器未允许全屏，可用右上角重试';
+          state.classList.remove('is-loading');
+        });
+      }
+
+      function startGame(key, { fromSave = false, returnPage = 'detail' } = {}) {
+        const game = gameDetails[key] || gameDetails.metal;
+        if (!game.ready) return;
+        currentGame = key in gameDetails ? key : 'metal';
+        playerReturnPage = returnPage;
+        const runToken = ++playerRunToken;
+        const selectedCore = fromSave ? game.saveCore : root.querySelector('#rt-core-select').value;
+        const needsValidation = !fromSave && selectedCore.includes('需验证');
+        const state = root.querySelector('#rt-player-launch-state');
+        const stageState = root.querySelector('#rt-player-stage-state');
+        root.querySelector('#rt-player-game').textContent = game.title;
+        root.querySelector('#rt-player-core').textContent = fromSave
+          ? `${selectedCore} · 正在恢复“${game.saveName}”`
+          : needsValidation
+            ? `${selectedCore.split(' · ')[0]} · 正在验证核心兼容性`
+            : `${selectedCore.split(' · ')[0]} · 正在创建新会话`;
+        state.textContent = needsValidation
+          ? '验证中 · 复用共享兼容性任务 · 退出等待不会取消任务'
+          : '启动中 · 自动预检并加载 EmulatorJS';
+        stageState.textContent = needsValidation
+          ? '正在验证核心兼容性 · 完成后自动继续，无第二个开始按钮'
+          : '正在加载 EmulatorJS · 无第二个开始按钮';
+        state.classList.add('is-loading');
+        showPage('play');
+        requestPlayerFullscreen();
+        if (needsValidation) window.setTimeout(() => {
+          if (runToken !== playerRunToken) return;
+          state.textContent = '验证中 · 正在生成依赖包';
+          root.querySelector('#rt-player-core').textContent = `${selectedCore.split(' · ')[0]} · 兼容性检查通过`;
+        }, 650);
+        window.setTimeout(() => {
+          if (runToken !== playerRunToken) return;
+          root.querySelector('#rt-player-core').textContent = `${selectedCore.split(' · ')[0]} · 本次游玩 00:00:01`;
+          state.textContent = document.fullscreenElement
+            ? '运行中 · 自动启动 · 已进入全屏'
+            : '运行中 · 自动启动 · 全屏请求未获允许';
+          stageState.textContent = '一次点击后已自动运行 · 已连接控制器 1';
+          state.classList.remove('is-loading');
+        }, needsValidation ? 1300 : 650);
+      }
+
+      root.querySelectorAll('[data-start-game]').forEach((button) => button.addEventListener('click', () => {
+        if (!button.disabled) startGame(currentGame, { returnPage: 'detail' });
+      }));
+      root.querySelector('[data-start-current-save]').addEventListener('click', (event) => {
+        if (!event.currentTarget.disabled) startGame(currentGame, { fromSave: true, returnPage: 'detail' });
+      });
+      root.querySelectorAll('[data-quick-start]').forEach((button) => button.addEventListener('click', () => {
+        if (button.disabled) return;
+        const sourcePage = button.closest('[data-page]')?.dataset.page || 'home';
+        startGame(button.dataset.quickStart, { fromSave: true, returnPage: sourcePage });
+      }));
+      root.querySelector('#rt-enter-fullscreen').addEventListener('click', requestPlayerFullscreen);
+      root.querySelector('#rt-exit-player').addEventListener('click', () => {
+        playerRunToken += 1;
+        const returnToSource = () => showPage(playerReturnPage);
+        if (document.fullscreenElement) document.exitFullscreen().then(returnToSource, returnToSource);
+        else returnToSource();
+      });
+
+      root.querySelector('[data-cancel-job]').addEventListener('click', (event) => {
+        const button = event.currentTarget;
+        button.disabled = true;
+        button.textContent = '正在取消';
+        const rowStatus = button.closest('.rt-job-row').querySelector('.rt-badge');
+        rowStatus.textContent = '正在取消 · 67%';
+        rowStatus.className = 'rt-badge rt-badge-amber';
+        const detailStatus = root.querySelector('#rt-task-detail-status');
+        detailStatus.textContent = '正在取消';
+        detailStatus.className = 'rt-badge rt-badge-amber';
+        root.querySelector('#rt-job-cancel-note').textContent = '已提交取消请求；Worker 会在下一个有界检查点停止并清理 scratch。状态仍不是“已取消”，已完成条目也不会回滚。';
+      });
+
+      root.querySelectorAll('[data-bios-view]').forEach((button) => button.addEventListener('click', () => {
+        root.querySelectorAll('[data-bios-view]').forEach((peer) => peer.classList.toggle('is-active', peer === button));
+        root.querySelectorAll('[data-bios-panel]').forEach((panel) => { panel.hidden = panel.dataset.biosPanel !== button.dataset.biosView; });
+      }));
+
+      root.querySelectorAll('.rt-candidate').forEach((button) => button.addEventListener('click', () => {
+        root.querySelectorAll('.rt-candidate').forEach((peer) => peer.classList.toggle('is-selected', peer === button));
+      }));
+
+      root.querySelectorAll('[data-review-item]').forEach((button) => button.addEventListener('click', () => {
+        root.querySelector('[data-review-workspace]').classList.add('is-detail-open');
+        root.querySelectorAll('[data-review-item]').forEach((peer) => {
+          peer.classList.toggle('is-selected', peer === button);
+          peer.setAttribute('aria-current', peer === button ? 'true' : 'false');
+        });
+        root.querySelector('[data-review-position]').textContent = button.dataset.reviewPositionValue;
+        root.querySelector('[data-review-file-output]').textContent = button.dataset.reviewFile;
+        root.querySelector('[data-review-preview-output]').textContent = button.dataset.reviewPreview;
+        root.querySelector('[data-review-field="title"]').value = button.dataset.reviewTitle;
+        root.querySelector('[data-review-field="year"]').value = button.dataset.reviewYear;
+        root.querySelector('[data-review-field="developer"]').value = button.dataset.reviewDeveloper;
+        root.querySelector('[data-review-field="players"]').value = button.dataset.reviewPlayers;
+        root.querySelector('[data-review-field="description"]').value = button.dataset.reviewDescription;
+        root.querySelector('[data-review-candidate-title]').textContent = button.dataset.reviewCandidate;
+        root.querySelector('[data-review-candidate-meta]').textContent = button.dataset.reviewCandidateMeta;
+        const candidateBadge = root.querySelector('[data-review-candidate-badge]');
+        candidateBadge.textContent = button.dataset.reviewCandidateBadge;
+        candidateBadge.className = button.dataset.reviewCandidateBadge === '精确' ? 'rt-badge rt-badge-green' : 'rt-badge rt-badge-amber';
+        const validation = root.querySelector('[data-review-validation-output]');
+        validation.textContent = button.dataset.reviewValidation;
+        validation.classList.toggle('is-warning', button.dataset.reviewValidationStatus !== 'READY');
+        root.querySelector('[data-review-approve]').disabled = button.dataset.reviewValidationStatus !== 'READY';
+      }));
+      root.querySelector('[data-review-back]').addEventListener('click', () => {
+        root.querySelector('[data-review-workspace]').classList.remove('is-detail-open');
+      });
+
+      root.querySelectorAll('.rt-chip').forEach((button) => button.addEventListener('click', () => {
+        const group = button.closest('[data-chip-group]') || root;
+        group.querySelectorAll('.rt-chip').forEach((peer) => peer.classList.toggle('is-active', peer === button));
+      }));
+
+      const applyRequestedView = (requestedView) => {
+        if (requestedView.startsWith('game-')) {
+          setMode('user');
+          openGame(requestedView.slice(5));
+        } else if (requestedView === 'admin-bios-dats') {
+          setMode('admin');
+          showPage('admin-bios');
+          root.querySelector('[data-bios-view="dats"]').click();
+        } else if (requestedView.startsWith('admin-') && pageNames[requestedView]) {
+          setMode('admin');
+          showPage(requestedView);
+        } else if (pageNames[requestedView]) {
+          if (['home', 'library', 'saves'].includes(requestedView)) setMode('user');
+          showPage(requestedView);
+        }
+      };
+
+      applyRequestedView(window.location.hash.slice(1));
+      window.addEventListener('message', (event) => {
+        if (event.data?.type === 'retrom-view') applyRequestedView(event.data.view || '');
+      });
+      window.parent.postMessage({ type: 'retrom-ready' }, '*');
+
+      if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+    })();
+  </script>
+</div>

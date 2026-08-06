@@ -1,0 +1,41 @@
+# Arcade DAT 基线
+
+本目录随代码维护真实 Arcade DAT 的小型来源 manifest、物化配方、SHA-256 和统计，不提交约 53 MiB DAT payload，也不包含 ROM/BIOS。当前基线只对应 EmulatorJS `v4.2.3` 与 manifest 选定的实际 core artifact；升级 EmulatorJS 或替换核心文件时，必须重新确认绑定关系，不能沿用“最新版 DAT”。
+
+## 文件映射
+
+| EmulatorJS | Core | DAT | 来源方式 |
+| --- | --- | --- | --- |
+| `v4.2.3` | `fbneo` | `emulatorjs/4.2.3/fbneo/fbneo-arcade.dat` | 权威来源是绑定提交的 release build + `fbneo -dat`；日常物化按 manifest 下载固定快照并执行两项计数替换，最终 bytes 与权威生成结果相同 |
+| `v4.2.3` | `mame2003` | `emulatorjs/4.2.3/mame2003/mame2003.xml` | 构建时点对应的 EmulatorJS/mame2003-libretro 提交内置 XML |
+| `v4.2.3` | `mame2003_plus` | `emulatorjs/4.2.3/mame2003_plus/mame2003-plus.xml` | 构建时点对应的 EmulatorJS/mame2003-plus-libretro 提交内置 XML |
+
+精确的 Player adapter ID、runtime base/loader、发布包、runtime allowlist、核心文件、源码提交、生成方式、文件大小、SHA-256 和解析统计位于 `emulatorjs/4.2.3/manifest.json`。adapter 的前端实现索引固定为 `web/features/player/adapters/registry.json`，由 `make data-check` 与 manifest 双向核对；版本目录是绑定关系的一部分，以后升级 EmulatorJS 时新增目录与精确 adapter，不覆盖旧基线。命令边界：
+
+```bash
+make data-check     # 无 payload、无网络也可运行，只校验 Git 小文件
+make prepare-deps   # 按固定来源物化/校验 payload
+make deps-check     # 完全离线校验本地 bytes 与解析统计
+```
+
+应用同步启动预检只执行等价于 `deps-check` 的本地校验，不下载；缺少解析缓存时由服务 Worker 从这些已校验 bytes 建数据库索引。直接在未物化目录运行 `sha256sum --check SHA256SUMS` 会因缺文件失败，不是仓库健康检查入口。
+
+## 重要解析差异
+
+- FBNeo DAT 使用 Logiqx `datafile` 根结构，并显式提供 `isbios="yes"`。当前 release 基线有 13 个显式 BIOS machine。
+- MAME 2003 与 MAME 2003-Plus 使用旧式 MAME List XML，根结构为 `mame`，没有 `isbios` 属性。不能把“没有 `isbios`”解释为“不需要 BIOS”。解析器应把 `cloneof` 作为 parent 关系，把 `romof != cloneof` 的目标作为 BIOS/base archive 依赖，并沿 parent 链继续解析。
+- 两份 MAME XML 还真实包含 `biosset default` 与 ROM `bios` 属性；解析器只能把每个 machine 的唯一 default bios option 纳入必需闭包，不能要求所有地区/版本 BIOS。manifest 同时锁定 merge/biosset/bios/nodump/baddump 统计，避免只核对 machine 总数却漏掉依赖语义。
+- 两份 MAME XML 都真实包含两个指向未定义 `psarc95` 的 `romof` 关系。这是上游数据特征，应记录为可诊断的 unresolved dependency，不能伪造一个 machine，也不应导致整份 DAT 导入失败。
+- 三份文件都声明 DOCTYPE：FBNeo 是外部 PUBLIC DTD，MAME 是内部结构声明。运行时按 BIOS/DAT 专题的有界 scanner 跳过声明，绝不解析 DTD、实体或访问网络；本目录校验也只读取 XML 元素，不获取任何 DTD URL。
+- DAT 只用于 machine、ROM entry、parent 与 BIOS/base 依赖识别，不是游戏展示元信息刮削源。
+
+## 更新规则
+
+1. 先锁定新的 EmulatorJS 发布版本及官方发布资产 SHA-256。
+2. 对每个核心记录发布包内实际 artifact 的 SHA-256 和官方 build report。
+3. 定位对应核心源码提交。若发布物未内嵌提交号，必须像当前 manifest 一样明确标记为“按构建时间推定”，不得写成官方明示值。
+4. 优先使用该源码提交内置的 DAT；没有预生成 DAT 时，只能用同一提交的官方生成器生成。
+5. 校验 XML 可解析、关系目标、统计值、文件大小与 SHA-256，再更新 `manifest.json` 和 `SHA256SUMS`。
+6. 用户在管理后台上传的 DAT 进入 CAS 和数据库版本表，不写回本目录。
+
+更完整的证据链和后端约束见 [`docs/arcade-dat-baseline.md`](../../docs/arcade-dat-baseline.md) 与 [`docs/dependency-management.md`](../../docs/dependency-management.md)。

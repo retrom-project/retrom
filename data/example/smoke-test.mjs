@@ -1,0 +1,596 @@
+#!/usr/bin/env node
+
+import { spawn } from "node:child_process";
+import { inflateSync } from "node:zlib";
+import { promises as fs } from "node:fs";
+import os from "node:os";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+
+const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
+const REPO_ROOT = path.resolve(SCRIPT_DIR, "../..");
+const MANIFEST_PATH = path.join(SCRIPT_DIR, "fixtures.json");
+const RESULTS_DIR = path.join(SCRIPT_DIR, "results");
+const CHROME_BIN = process.env.RETROM_CHROME_BIN || "/usr/bin/google-chrome";
+const PORT = Number.parseInt(process.env.RETROM_EXAMPLE_PORT || "4173", 10);
+const BASE_URL = `http://127.0.0.1:${PORT}`;
+
+const sleep = milliseconds => new Promise(resolve => setTimeout(resolve, milliseconds));
+
+async function stopProcess(child) {
+  if (!child || child.exitCode !== null) return;
+  const exited = new Promise(resolve => child.once("exit", resolve));
+  child.kill("SIGTERM");
+  await Promise.race([exited, sleep(3000)]);
+  if (child.exitCode === null) {
+    child.kill("SIGKILL");
+    await Promise.race([exited, sleep(3000)]);
+  }
+}
+
+class CdpPipe {
+  constructor(process) {
+    this.process = process;
+    this.nextId = 1;
+    this.buffer = Buffer.alloc(0);
+    this.pending = new Map();
+    this.listeners = new Map();
+    process.stdio[4].on("data", chunk => this.consume(chunk));
+    process.stdio[4].on("error", error => this.rejectAll(error));
+    process.on("exit", (code, signal) => {
+      this.rejectAll(new Error(`Chrome exited early (code=${code}, signal=${signal})`));
+    });
+  }
+
+  consume(chunk) {
+    this.buffer = Buffer.concat([this.buffer, chunk]);
+    let separator;
+    while ((separator = this.buffer.indexOf(0)) !== -1) {
+      const payload = this.buffer.subarray(0, separator).toString("utf8");
+      this.buffer = this.buffer.subarray(separator + 1);
+      if (!payload) continue;
+      const message = JSON.parse(payload);
+      if (message.id !== undefined) {
+        const pending = this.pending.get(message.id);
+        if (!pending) continue;
+        this.pending.delete(message.id);
+        clearTimeout(pending.timer);
+        if (message.error) {
+          pending.reject(new Error(`${message.error.message} (${message.error.code})`));
+        } else {
+          pending.resolve(message.result || {});
+        }
+        continue;
+      }
+      for (const listener of this.listeners.get(message.method) || []) {
+        listener(message.params || {}, message.sessionId);
+      }
+    }
+  }
+
+  rejectAll(error) {
+    for (const pending of this.pending.values()) {
+      clearTimeout(pending.timer);
+      pending.reject(error);
+    }
+    this.pending.clear();
+  }
+
+  on(method, listener) {
+    const listeners = this.listeners.get(method) || [];
+    listeners.push(listener);
+    this.listeners.set(method, listeners);
+  }
+
+  call(method, params = {}, sessionId = undefined, timeoutMs = 30000) {
+    const id = this.nextId++;
+    const message = { id, method, params };
+    if (sessionId) message.sessionId = sessionId;
+    return new Promise((resolve, reject) => {
+      const timer = setTimeout(() => {
+        this.pending.delete(id);
+        reject(new Error(`CDP timeout: ${method}`));
+      }, timeoutMs);
+      this.pending.set(id, { resolve, reject, timer });
+      this.process.stdio[3].write(`${JSON.stringify(message)}\0`, error => {
+        if (!error) return;
+        clearTimeout(timer);
+        this.pending.delete(id);
+        reject(error);
+      });
+    });
+  }
+}
+
+async function evaluate(cdp, sessionId, expression, options = {}) {
+  const result = await cdp.call(
+    "Runtime.evaluate",
+    {
+      expression,
+      returnByValue: true,
+      awaitPromise: true,
+      userGesture: options.userGesture === true
+    },
+    sessionId
+  );
+  if (result.exceptionDetails) {
+    const detail = result.exceptionDetails.exception?.description
+      || result.exceptionDetails.text
+      || "Runtime.evaluate failed";
+    throw new Error(detail);
+  }
+  return result.result?.value;
+}
+
+async function waitForServer(server) {
+  const deadline = Date.now() + 20000;
+  let lastError;
+  while (Date.now() < deadline) {
+    if (server.exitCode !== null) {
+      throw new Error(`Example server exited with code ${server.exitCode}`);
+    }
+    try {
+      const response = await fetch(`${BASE_URL}/__health`, { cache: "no-store" });
+      if (response.ok) return;
+    } catch (error) {
+      lastError = error;
+    }
+    await sleep(200);
+  }
+  throw new Error(`Example server did not become ready: ${lastError?.message || "timeout"}`);
+}
+
+function launchChrome(profileDirectory) {
+  const args = [
+    "--remote-debugging-pipe",
+    "--no-sandbox",
+    "--disable-dev-shm-usage",
+    "--no-first-run",
+    "--no-default-browser-check",
+    "--autoplay-policy=no-user-gesture-required",
+    "--enable-unsafe-swiftshader",
+    "--use-angle=swiftshader",
+    "--hide-scrollbars",
+    "--window-size=1280,800",
+    `--user-data-dir=${profileDirectory}`,
+    "about:blank"
+  ];
+  if (process.env.RETROM_CHROME_HEADFUL !== "1") args.unshift("--headless=new");
+  return spawn(CHROME_BIN, args, {
+    cwd: REPO_ROOT,
+    stdio: ["ignore", "ignore", "pipe", "pipe", "pipe"]
+  });
+}
+
+function paeth(left, above, upperLeft) {
+  const estimate = left + above - upperLeft;
+  const leftDistance = Math.abs(estimate - left);
+  const aboveDistance = Math.abs(estimate - above);
+  const diagonalDistance = Math.abs(estimate - upperLeft);
+  if (leftDistance <= aboveDistance && leftDistance <= diagonalDistance) return left;
+  if (aboveDistance <= diagonalDistance) return above;
+  return upperLeft;
+}
+
+function inspectPng(buffer) {
+  const signature = "89504e470d0a1a0a";
+  if (buffer.subarray(0, 8).toString("hex") !== signature) {
+    throw new Error("Screenshot is not a PNG file");
+  }
+
+  let offset = 8;
+  let width;
+  let height;
+  let bitDepth;
+  let colorType;
+  const compressed = [];
+  while (offset < buffer.length) {
+    const length = buffer.readUInt32BE(offset);
+    const type = buffer.subarray(offset + 4, offset + 8).toString("ascii");
+    const data = buffer.subarray(offset + 8, offset + 8 + length);
+    offset += length + 12;
+    if (type === "IHDR") {
+      width = data.readUInt32BE(0);
+      height = data.readUInt32BE(4);
+      bitDepth = data[8];
+      colorType = data[9];
+    } else if (type === "IDAT") {
+      compressed.push(data);
+    } else if (type === "IEND") {
+      break;
+    }
+  }
+
+  const channelCount = { 0: 1, 2: 3, 4: 2, 6: 4 }[colorType];
+  if (!width || !height || bitDepth !== 8 || !channelCount) {
+    throw new Error(`Unsupported screenshot PNG: ${width}x${height}, depth=${bitDepth}, type=${colorType}`);
+  }
+
+  const encoded = inflateSync(Buffer.concat(compressed));
+  const stride = width * channelCount;
+  const pixels = Buffer.alloc(stride * height);
+  let encodedOffset = 0;
+  for (let y = 0; y < height; y += 1) {
+    const filter = encoded[encodedOffset++];
+    const rowStart = y * stride;
+    const previousStart = (y - 1) * stride;
+    for (let x = 0; x < stride; x += 1) {
+      const raw = encoded[encodedOffset++];
+      const left = x >= channelCount ? pixels[rowStart + x - channelCount] : 0;
+      const above = y > 0 ? pixels[previousStart + x] : 0;
+      const upperLeft = y > 0 && x >= channelCount
+        ? pixels[previousStart + x - channelCount]
+        : 0;
+      let value;
+      if (filter === 0) value = raw;
+      else if (filter === 1) value = raw + left;
+      else if (filter === 2) value = raw + above;
+      else if (filter === 3) value = raw + Math.floor((left + above) / 2);
+      else if (filter === 4) value = raw + paeth(left, above, upperLeft);
+      else throw new Error(`Unsupported PNG filter ${filter}`);
+      pixels[rowStart + x] = value & 0xff;
+    }
+  }
+
+  const sampleStride = Math.max(1, Math.floor(Math.sqrt((width * height) / 100000)));
+  const colors = new Set();
+  let samples = 0;
+  let nonBlack = 0;
+  let sum = 0;
+  let sumSquares = 0;
+  for (let y = 0; y < height; y += sampleStride) {
+    for (let x = 0; x < width; x += sampleStride) {
+      const pixelOffset = (y * width + x) * channelCount;
+      let red;
+      let green;
+      let blue;
+      if (colorType === 0 || colorType === 4) {
+        red = green = blue = pixels[pixelOffset];
+      } else {
+        red = pixels[pixelOffset];
+        green = pixels[pixelOffset + 1];
+        blue = pixels[pixelOffset + 2];
+      }
+      const luminance = 0.2126 * red + 0.7152 * green + 0.0722 * blue;
+      colors.add(`${red >> 4}:${green >> 4}:${blue >> 4}`);
+      samples += 1;
+      if (luminance > 12) nonBlack += 1;
+      sum += luminance;
+      sumSquares += luminance * luminance;
+    }
+  }
+  const mean = sum / samples;
+  const variance = Math.max(0, sumSquares / samples - mean * mean);
+  return {
+    width,
+    height,
+    sampledPixels: samples,
+    colorBuckets: colors.size,
+    nonBlackRatio: Number((nonBlack / samples).toFixed(4)),
+    meanLuminance: Number(mean.toFixed(2)),
+    luminanceStdDev: Number(Math.sqrt(variance).toFixed(2))
+  };
+}
+
+function visualScore(stats) {
+  return stats.colorBuckets + stats.luminanceStdDev * 3 + stats.nonBlackRatio * 20;
+}
+
+function visualLooksRendered(stats) {
+  return stats.colorBuckets >= 3
+    && stats.luminanceStdDev >= 5
+    && stats.nonBlackRatio >= 0.01;
+}
+
+async function canvasClip(cdp, sessionId) {
+  return evaluate(cdp, sessionId, `(() => {
+    const canvases = [...document.querySelectorAll("canvas")]
+      .map(canvas => ({ canvas, rect: canvas.getBoundingClientRect() }))
+      .filter(item => item.rect.width >= 2 && item.rect.height >= 2)
+      .sort((a, b) => b.rect.width * b.rect.height - a.rect.width * a.rect.height);
+    if (!canvases.length) return null;
+    const rect = canvases[0].rect;
+    const x = Math.max(0, rect.left);
+    const y = Math.max(0, rect.top);
+    const width = Math.min(innerWidth - x, rect.right - x);
+    const height = Math.min(innerHeight - y, rect.bottom - y);
+    if (width < 2 || height < 2) return null;
+    return { x, y, width, height, scale: 1 };
+  })()`);
+}
+
+async function takeScreenshot(cdp, sessionId, outputPath, attempts = 1) {
+  let best;
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    const clip = await canvasClip(cdp, sessionId);
+    const params = {
+      format: "png",
+      fromSurface: true,
+      captureBeyondViewport: false
+    };
+    if (clip) params.clip = clip;
+    const capture = await cdp.call("Page.captureScreenshot", params, sessionId, 30000);
+    const buffer = Buffer.from(capture.data, "base64");
+    const stats = inspectPng(buffer);
+    if (!best || visualScore(stats) > visualScore(best.stats)) {
+      best = { buffer, stats, canvasCropUsed: Boolean(clip) };
+    }
+    if (attempt + 1 < attempts) await sleep(1000);
+  }
+  await fs.writeFile(outputPath, best.buffer);
+  return { ...best.stats, canvasCropUsed: best.canvasCropUsed };
+}
+
+async function waitForPage(cdp, sessionId, timeoutMs) {
+  const deadline = Date.now() + timeoutMs;
+  let lastState = null;
+  while (Date.now() < deadline) {
+    try {
+      lastState = await evaluate(cdp, sessionId, `(() => ({
+        readyState: document.readyState,
+        smoke: window.__RETROM_SMOKE__ ? JSON.parse(JSON.stringify(window.__RETROM_SMOKE__)) : null,
+        bodyText: (document.body?.innerText || "").slice(0, 1000),
+        crossOriginIsolated: window.crossOriginIsolated
+      }))()`);
+      if (lastState?.smoke?.phase === "error") {
+        throw new Error(`Example reported an error: ${lastState.smoke.errors.join("; ")}`);
+      }
+      if (lastState?.bodyText?.includes("Failed to start game")) {
+        throw new Error("EmulatorJS displayed 'Failed to start game'");
+      }
+      if (lastState?.smoke?.phase === "frames-advancing") return lastState;
+    } catch (error) {
+      if (
+        String(error.message).startsWith("Example reported an error:")
+        || String(error.message).startsWith("EmulatorJS displayed")
+      ) throw error;
+    }
+    await sleep(500);
+  }
+  throw new Error(
+    `Timed out waiting for frames; last state: ${JSON.stringify(lastState?.smoke || lastState)}`
+  );
+}
+
+async function runFixture(cdp, fixture) {
+  const startedAtMs = Date.now();
+  const screenshotRelative = `data/example/results/${fixture.core}.png`;
+  const screenshotPath = path.join(REPO_ROOT, screenshotRelative);
+  const pageUrl = `${BASE_URL}/${fixture.examplePath}`;
+  const coreRequests = [];
+  const consoleErrors = [];
+  const consoleMessages = [];
+  let browserContextId;
+  let sessionId;
+  let state;
+  let visual;
+  let failure;
+
+  try {
+    ({ browserContextId } = await cdp.call("Target.createBrowserContext"));
+    const { targetId } = await cdp.call("Target.createTarget", {
+      url: "about:blank",
+      browserContextId,
+      width: 1280,
+      height: 800
+    });
+    ({ sessionId } = await cdp.call("Target.attachToTarget", { targetId, flatten: true }));
+    await Promise.all([
+      cdp.call("Page.enable", {}, sessionId),
+      cdp.call("Runtime.enable", {}, sessionId),
+      cdp.call("Network.enable", {}, sessionId)
+    ]);
+
+    cdp.on("Network.responseReceived", (params, eventSessionId) => {
+      if (eventSessionId !== sessionId) return;
+      const url = params.response?.url || "";
+      if (url.includes("/cores/") || url.includes("/overrides/")) {
+        coreRequests.push({ url, status: params.response.status });
+      }
+    });
+    cdp.on("Network.loadingFailed", (params, eventSessionId) => {
+      if (eventSessionId === sessionId && params.errorText) {
+        consoleErrors.push(`Network: ${params.errorText} (${params.type || "unknown"})`);
+      }
+    });
+    cdp.on("Runtime.exceptionThrown", (params, eventSessionId) => {
+      if (eventSessionId !== sessionId) return;
+      const exception = params.exceptionDetails;
+      consoleErrors.push(
+        exception?.exception?.description || exception?.text || "Uncaught page exception"
+      );
+    });
+    cdp.on("Runtime.consoleAPICalled", (params, eventSessionId) => {
+      if (eventSessionId !== sessionId) return;
+      const text = params.args.map(argument => argument.value ?? argument.description ?? "").join(" ");
+      consoleMessages.push(`${params.type}: ${text}`);
+      if (["error", "warning"].includes(params.type)) {
+        consoleErrors.push(`${params.type}: ${text}`);
+      }
+    });
+
+    await cdp.call("Page.navigate", { url: pageUrl }, sessionId, 30000);
+    const interactionDeadline = Date.now() + 15000;
+    while (Date.now() < interactionDeadline) {
+      try {
+        const readyState = await evaluate(cdp, sessionId, "document.readyState");
+        if (readyState === "interactive" || readyState === "complete") break;
+      } catch {
+        // The execution context is briefly unavailable during navigation.
+      }
+      await sleep(100);
+    }
+    await evaluate(
+      cdp,
+      sessionId,
+      `(() => {
+        document.body?.click();
+        document.querySelector("button.ejs_start_button, .ejs_start_button")?.click();
+        return true;
+      })()`,
+      { userGesture: true }
+    );
+
+    state = await waitForPage(cdp, sessionId, fixture.timeoutMs);
+    if (fixture.core === "dosbox_pure" && !state.crossOriginIsolated) {
+      throw new Error("dosbox_pure requires crossOriginIsolated=true for its threaded core");
+    }
+    const expectedCoreArtifactUrl = `${BASE_URL}/${fixture.coreArtifact.path}`;
+    const loadedExpectedCore = coreRequests.some(
+      request => request.url === expectedCoreArtifactUrl
+        && request.status >= 200
+        && request.status < 300
+    );
+    if (!loadedExpectedCore) {
+      throw new Error(`Expected core artifact was not loaded: ${expectedCoreArtifactUrl}`);
+    }
+    await sleep(fixture.settleMs);
+    state = await evaluate(cdp, sessionId, `(() => ({
+      smoke: JSON.parse(JSON.stringify(window.__RETROM_SMOKE__)),
+      crossOriginIsolated: window.crossOriginIsolated
+    }))()`);
+    visual = await takeScreenshot(cdp, sessionId, screenshotPath, 4);
+    if (!visualLooksRendered(visual)) {
+      throw new Error(`Canvas did not contain a non-uniform game image: ${JSON.stringify(visual)}`);
+    }
+  } catch (error) {
+    failure = error instanceof Error ? error.message : String(error);
+    if (sessionId && !visual) {
+      try {
+        visual = await takeScreenshot(cdp, sessionId, screenshotPath, 1);
+      } catch (screenshotError) {
+        consoleErrors.push(`Screenshot: ${screenshotError.message}`);
+      }
+    }
+  } finally {
+    if (browserContextId) {
+      try {
+        await cdp.call("Target.disposeBrowserContext", { browserContextId });
+      } catch {
+        // Browser cleanup errors do not change the test result.
+      }
+    }
+  }
+
+  const finishedAtMs = Date.now();
+  return {
+    core: fixture.core,
+    status: failure ? "failed" : "passed",
+    failure: failure || null,
+    startedAtMs,
+    finishedAtMs,
+    durationMs: finishedAtMs - startedAtMs,
+    pageUrl,
+    screenshotPath: visual ? screenshotRelative : null,
+    smoke: state?.smoke || null,
+    crossOriginIsolated: state?.crossOriginIsolated ?? null,
+    visual: visual || null,
+    expectedCoreArtifact: fixture.coreArtifact,
+    requestedCoreAssets: [...new Map(coreRequests.map(item => [item.url, item])).values()],
+    consoleErrors: [...new Set(consoleErrors)].slice(0, 30),
+    consoleMessages: consoleMessages.slice(-100)
+  };
+}
+
+async function main() {
+  const manifest = JSON.parse(await fs.readFile(MANIFEST_PATH, "utf8"));
+  const requestedCores = process.argv.slice(2);
+  const fixtures = requestedCores.length
+    ? manifest.fixtures.filter(fixture => requestedCores.includes(fixture.core))
+    : manifest.fixtures;
+  const unknown = requestedCores.filter(
+    core => !manifest.fixtures.some(fixture => fixture.core === core)
+  );
+  if (unknown.length) throw new Error(`Unknown core(s): ${unknown.join(", ")}`);
+  if (!fixtures.length) throw new Error("No core fixtures selected");
+
+  await fs.mkdir(RESULTS_DIR, { recursive: true });
+  const profileDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "retrom-ejs-smoke-"));
+  const server = spawn(
+    "/usr/bin/python3",
+    [path.join(SCRIPT_DIR, "serve.py"), "--port", String(PORT)],
+    { cwd: REPO_ROOT, stdio: ["ignore", "pipe", "pipe"] }
+  );
+  const chromeStderr = [];
+  let chrome;
+  let cdp;
+  const results = [];
+
+  try {
+    await waitForServer(server);
+    chrome = launchChrome(profileDirectory);
+    chrome.stderr.on("data", chunk => {
+      chromeStderr.push(chunk.toString("utf8"));
+      if (chromeStderr.length > 20) chromeStderr.shift();
+    });
+    cdp = new CdpPipe(chrome);
+    const browserVersion = await cdp.call("Browser.getVersion", {}, undefined, 30000);
+
+    for (const fixture of fixtures) {
+      process.stdout.write(`[${fixture.core}] launching... `);
+      const result = await runFixture(cdp, fixture);
+      results.push(result);
+      if (result.status === "passed") {
+        console.log(
+          `PASS (${result.durationMs} ms, ${result.smoke.frameDelta} frames, `
+          + `${result.visual.colorBuckets} color buckets)`
+        );
+      } else {
+        console.log(`FAIL (${result.failure})`);
+      }
+    }
+
+    const generatedAtMs = Date.now();
+    const report = {
+      schemaVersion: 1,
+      generatedAtMs,
+      emulatorjs: {
+        version: manifest.emulatorjs.version,
+        archiveSha256: manifest.emulatorjs.archiveSha256
+      },
+      browser: {
+        product: browserVersion.product,
+        revision: browserVersion.revision,
+        userAgent: browserVersion.userAgent
+      },
+      criteria: {
+        minFrameDelta: 120,
+        minColorBuckets: 3,
+        minLuminanceStdDev: 5,
+        minNonBlackRatio: 0.01,
+        manualScreenshotReviewRequired: true
+      },
+      results
+    };
+    await fs.writeFile(
+      path.join(RESULTS_DIR, "latest.json"),
+      `${JSON.stringify(report, null, 2)}\n`,
+      "utf8"
+    );
+    if (results.some(result => result.status !== "passed")) process.exitCode = 1;
+  } finally {
+    if (cdp) {
+      try {
+        await cdp.call("Browser.close", {}, undefined, 5000);
+      } catch {
+        // Chrome may close the pipe before acknowledging Browser.close.
+      }
+    }
+    await stopProcess(chrome);
+    await stopProcess(server);
+    await fs.rm(profileDirectory, {
+      recursive: true,
+      force: true,
+      maxRetries: 10,
+      retryDelay: 200
+    });
+    if (process.exitCode && chromeStderr.length) {
+      console.error(chromeStderr.join("").split("\n").slice(-20).join("\n"));
+    }
+  }
+}
+
+main().catch(error => {
+  console.error(error.stack || error.message || String(error));
+  process.exitCode = 1;
+});
