@@ -49,6 +49,8 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 `GET /api/v1/admin/reviews` 只返回 state=`REVIEW_PENDING` 的 ImportItem；`importJobId` 精确绑定同一导入批次并进入 cursor filter canonical object，不存在的批次返回空列表而不回退到全局队列。每个 `items[]` 固定包含 `itemId/reviewVersion/importJobId/sourceDisplayName/draftTitle/platformInstance{id,name}/validationStatus/validationJobId/blockerCodes/candidateCount/updatedAtMs`。`validationStatus` 是队列投影枚举 `READY|BLOCKED|INCOMPATIBLE|NEEDS_VALIDATION`：前三者表示存在精确匹配当前目录/config 的不可变结论，配置漂移或新目标尚无当前结论时为 NEEDS_VALIDATION，并在已有重验证任务时返回其 `validationJobId`，其他状态该字段为 null；`blockerCodes` 去重后按 code 排序。`candidateCount` 只统计本 Item 已完成 Run 的候选。`updatedAtMs` 固定取 ReviewDraft `updated_at_ms`，`UPDATED_ASC/DESC` 也按该值再加 Item ID 排序；后台媒体完成不会偷偷重排用户正在处理的队列。`sourceDisplayName` 只使用导入相对 basename 或目录 common root，不返回宿主绝对路径。列表不内嵌完整候选、媒体或 source manifest；选择条目后再读取详情。任务页进入审核必须使用 `/admin/reviews?importJobId=<jobId>`，不能以客户端拿到的当前 Item 数组冒充服务器分页队列。
 
+`GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 按 `createdAtMs,id` 倒序返回最近 10 个独立批次；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。该投影用于区分“没有 eligible hash”“精确 hash 未命中”“上游返回不可解析内容”和 Job 失败，不能把它们都压成空 candidate；`candidates` 仍只返回 COMPLETED run 的候选及媒体。
+
 错误统一为：
 
 ```json
@@ -331,7 +333,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /health/live`、`GET /health/ready` | 不需要 cookie。live 成功固定返回 `200 {"status":"ok"}`；ready 成功返回 `200 {"status":"ready"}`，失败返回 `503 {"status":"not_ready","reasonCode":"DATABASE_UNAVAILABLE|CAS_UNAVAILABLE|DEPENDENCY_INVALID|DEPENDENCY_DAT_PARSE_FAILED|DEPENDENCY_INDEXING"}`，多原因时按此枚举顺序选第一项。响应禁止暴露宿主路径、hash 或秘密，两条路径都进入 OpenAPI。 |
 | `GET /api/v1/session` | 旧客户端兼容 token；不参与授权，新前端不得调用。 |
 | `GET /api/v1/home` | 首页聚合。 |
-| `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情。 |
+| `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。 |
 | `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。创建走第 8 节 launch runtime endpoint。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |

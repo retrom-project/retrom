@@ -254,6 +254,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.screenshot({ path: evidencePath(testInfo, "review-detail-1280.png"), fullPage: true });
   await page.getByRole("button", { name: "通过并发布" }).click();
   await expect(page).not.toHaveURL(new RegExp(`/admin/reviews/${itemId(3)}(?:\\?|$)`));
+  await expect(page.locator(".app-toast")).toContainText("游戏已成功发布");
 
   await page.getByRole("link", { name: "返回待审核列表" }).click();
   await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}`));
@@ -264,6 +265,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.getByRole("textbox", { name: "丢弃原因" }).fill("验收：明确丢弃单个条目");
   await page.getByRole("button", { name: "丢弃条目" }).click();
   await expect(page).not.toHaveURL(new RegExp(`/admin/reviews/${itemId(58)}(?:\\?|$)`));
+  await expect(page.locator(".app-toast")).toContainText("条目已丢弃");
 
   const response = await page.request.get(`/api/v1/admin/reviews?importJobId=${primaryJob}&limit=100`);
   expect(response.ok()).toBe(true);
@@ -434,11 +436,15 @@ test("LAN HTTP upload works without secure-context crypto APIs", async ({ page }
     randomUUID: "undefined",
     subtle: "undefined",
   });
-  await page.locator('input[type="file"]').first().setInputFiles({
+  const fileChooserPromise = page.waitForEvent("filechooser");
+  await page.getByRole("button", { name: "选择文件" }).click();
+  const fileChooser = await fileChooserPromise;
+  await fileChooser.setFiles({
     name: "lan-http-regression.nes",
     mimeType: "application/octet-stream",
     buffer: Buffer.from([0x4e, 0x45, 0x53, 0x1a, 0, 0, 0, 0]),
   });
+  await expect(page.getByRole("heading", { name: "已选择 1 个文件" })).toBeVisible();
   await page.locator("#provider").selectOption("NONE");
   await page.getByRole("button", { name: "上传、验证并创建导入任务" }).click();
   await expect(page).toHaveURL(/\/admin\/reviews\?importJobId=[0-9a-f-]+$/, { timeout: 30_000 });

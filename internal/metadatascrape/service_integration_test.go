@@ -118,7 +118,7 @@ WHERE id=?
 			return httpResponse(
 				http.StatusOK,
 				"application/json",
-				`{"id":73,"name":"Metadata Result","platform":{"name":"Game Boy Advance"},"signature":{"game":{"description":"safe","year":"2002"}},"attributes":[{"name":"Logo","attributeType":"ImageId","attributeRelationType":"None","value":"logo","link":"/api/v1/images/logo"}]}`,
+				`{"id":73,"name":"Metadata Result","platform":{"name":"Game Boy Advance"},"signature":{"game":{"description":"safe","year":"2002"}},"attributes":[{"attributeName":"Logo","attributeType":"ImageId","attributeRelationType":"None","value":"logo","link":"/api/v1/images/logo"},{"attributeName":"Tags","attributeType":"EmbeddedList","attributeRelationType":"None","value":{"GameGenre":{"Tags":[{"Text":"action"}]}}}]}`,
 			), nil
 		}
 		return &http.Response{
@@ -553,6 +553,19 @@ WHERE id=?
 	var requestBodies [][]byte
 	var requestLock sync.Mutex
 	client := doerFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Path != "/api/v1/Lookup/ByHash" {
+			pngBytes, decodeErr := base64.StdEncoding.DecodeString(
+				"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+			)
+			if decodeErr != nil {
+				return nil, decodeErr
+			}
+			return &http.Response{
+				StatusCode: http.StatusOK,
+				Header:     http.Header{"Content-Type": []string{"image/png"}},
+				Body:       io.NopCloser(bytes.NewReader(pngBytes)),
+			}, nil
+		}
 		contents, readErr := io.ReadAll(request.Body)
 		if readErr != nil {
 			return nil, readErr
@@ -560,9 +573,16 @@ WHERE id=?
 		requestLock.Lock()
 		requestBodies = append(requestBodies, contents)
 		requestLock.Unlock()
-		return httpResponse(http.StatusNotFound, "text/plain", "not found"), nil
+		return httpResponse(
+			http.StatusOK,
+			"application/json",
+			`{"id":50192,"name":"Shared Arcade Candidate","platform":{"name":"Arcade"},"signature":{"game":{"year":"1990"}},"attributes":[{"attributeName":"Logo","attributeType":"ImageId","attributeRelationType":"None","value":"arcade-logo","link":"/api/v1/images/arcade-logo"}]}`,
+		), nil
 	})
-	scraper := metadatascrape.New(database.SQL, blobs, hasheous.New(client, nil, time.Now), time.Now)
+	resolver := resolverFunc(func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
+	})
+	scraper := metadatascrape.New(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
 	importer := libraryimport.New(database.SQL, time.Now, scraper).WithBlobStore(blobs)
 	created, err := importer.Create(
 		ctx,
@@ -621,6 +641,23 @@ WHERE scrape_run_id=?
 			values["shA1"] == "" {
 			t.Fatalf("arcade lookup body = %s, error=%v", body, err)
 		}
+	}
+	var candidateCount, hitCount, readyAssetCount int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT (SELECT count(*) FROM scrape_candidates WHERE scrape_run_id=?),
+(SELECT count(*)
+FROM scrape_candidate_hits h
+JOIN scrape_candidates c ON c.id=h.scrape_candidate_id
+WHERE c.scrape_run_id=?),
+(SELECT count(*)
+FROM scrape_candidate_assets a
+JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
+WHERE c.scrape_run_id=? AND a.status='READY')
+`, scheduled.RunID, scheduled.RunID, scheduled.RunID).Scan(&candidateCount, &hitCount, &readyAssetCount); err != nil {
+		t.Fatal(err)
+	}
+	if candidateCount != 1 || hitCount != 8 || readyAssetCount != 1 {
+		t.Fatalf("aggregated arcade candidate/hits/ready assets = %d/%d/%d", candidateCount, hitCount, readyAssetCount)
 	}
 }
 

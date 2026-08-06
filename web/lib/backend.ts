@@ -26,3 +26,17 @@ export function formatTime(value: number | null | undefined) {
   if (!value) return "尚无记录";
   return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
+
+export function formatBytes(value: number) {
+  if (!Number.isFinite(value) || value < 0) return "—";
+  if (value < 1024) return `${value} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let amount = value;
+  let unit = -1;
+  do {
+    amount /= 1024;
+    unit += 1;
+  } while (amount >= 1024 && unit < units.length - 1);
+  const digits = amount >= 10 ? 1 : 2;
+  return `${Number(amount.toFixed(digits))} ${units[unit]}`;
+}

@@ -330,13 +330,15 @@ type providerResponse struct {
 			Score json.Number `json:"score"`
 		} `json:"rom"`
 	} `json:"signature"`
-	Attributes []struct {
-		Name                  string `json:"name"`
-		AttributeType         string `json:"attributeType"`
-		AttributeRelationType string `json:"attributeRelationType"`
-		Value                 string `json:"value"`
-		Link                  string `json:"link"`
-	} `json:"attributes"`
+	Attributes []providerAttribute `json:"attributes"`
+}
+
+type providerAttribute struct {
+	Name                  string          `json:"attributeName"`
+	AttributeType         string          `json:"attributeType"`
+	AttributeRelationType string          `json:"attributeRelationType"`
+	Value                 json.RawMessage `json:"value"`
+	Link                  string          `json:"link"`
 }
 
 func normalizeCandidate(contents []byte, normalizationYear int) (Candidate, error) {
@@ -481,21 +483,20 @@ func optionalScore(number json.Number) (any, bool) {
 	return value, false
 }
 
-func normalizeAssets(attributes []struct {
-	Name                  string `json:"name"`
-	AttributeType         string `json:"attributeType"`
-	AttributeRelationType string `json:"attributeRelationType"`
-	Value                 string `json:"value"`
-	Link                  string `json:"link"`
-},
-) ([]AssetRef, []string) {
+func normalizeAssets(attributes []providerAttribute) ([]AssetRef, []string) {
 	assets := make([]AssetRef, 0, 5)
 	warnings := make([]string, 0)
 	seen := make(map[string]struct{})
 	for _, attribute := range attributes {
+		var value string
+		if attribute.AttributeType == "ImageId" {
+			// Hasheous attributes are heterogeneous: for example Tags uses an
+			// object value. Decode only the ImageId values Retrom consumes.
+			_ = json.Unmarshal(attribute.Value, &value)
+		}
 		if attribute.AttributeType != "ImageId" || attribute.AttributeRelationType != "None" ||
-			!validOpaqueID(attribute.Value) ||
-			attribute.Link != "/api/v1/images/"+attribute.Value {
+			!validOpaqueID(value) ||
+			attribute.Link != "/api/v1/images/"+value {
 			continue
 		}
 		kind, ordinal, ok := assetSlot(attribute.Name)
@@ -510,7 +511,7 @@ func normalizeAssets(attributes []struct {
 		seen[slot] = struct{}{}
 		assets = append(
 			assets,
-			AssetRef{ProviderAssetID: attribute.Value, Kind: kind, Ordinal: ordinal, Path: attribute.Link},
+			AssetRef{ProviderAssetID: value, Kind: kind, Ordinal: ordinal, Path: attribute.Link},
 		)
 	}
 	return assets, warnings

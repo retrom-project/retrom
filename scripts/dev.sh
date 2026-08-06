@@ -5,6 +5,8 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 state_directory="$repository_root/.cache/retrom"
 pid_file="$state_directory/dev.pid"
 takeover_lock="$state_directory/dev-takeover.lock"
+data_root="${RETROM_DATA_DIR:-$state_directory/data}"
+data_root_lock="$data_root/retrom.lock"
 backend_pid=""
 web_pid=""
 process_start_ticks=""
@@ -35,6 +37,18 @@ is_retrom_dev_process() {
   [[ "$process_cwd" == "$repository_root" ]] || return 1
   process_command="$(tr '\0' ' ' <"/proc/${pid}/cmdline" 2>/dev/null)" || return 1
   [[ "$process_command" == *"scripts/dev.sh"* ]]
+}
+
+data_root_lock_available() {
+  [[ -e "$data_root_lock" ]] || return 0
+  exec 8<>"$data_root_lock" || return 1
+  if flock -n 8; then
+    flock -u 8
+    exec 8>&-
+    return 0
+  fi
+  exec 8>&-
+  return 1
 }
 
 remove_own_pid_file() {
@@ -81,6 +95,14 @@ if [[ -r "$pid_file" ]]; then
     while is_retrom_dev_process "$previous_pid" "$previous_start_ticks"; do
       if (( SECONDS >= deadline )); then
         printf 'previous Retrom dev instance did not stop within 15 seconds (pid %s)\n' "$previous_pid" >&2
+        exit 1
+      fi
+      sleep 0.1
+    done
+    deadline=$((SECONDS + 15))
+    while ! data_root_lock_available; do
+      if (( SECONDS >= deadline )); then
+        printf 'previous Retrom backend did not release its data lock within 15 seconds (%s)\n' "$data_root_lock" >&2
         exit 1
       fi
       sleep 0.1

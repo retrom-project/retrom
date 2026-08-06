@@ -170,11 +170,11 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 1. `go run ./cmd/retrom`，默认监听 `127.0.0.1:8080`；
 2. `cd web && npm run dev`，默认监听所有 IPv4 接口 `0.0.0.0:3000`，可用 `NEXT_DEV_HOST` 显式收窄；
-3. Next.js dev rewrite 将 `/api/`、`/content/`、`/runtime/` 和 `/health/` 转发到本地 Go 端口，使浏览器始终访问 `http://localhost:3000` 的同一 origin。
+3. Next.js dev rewrite 将 `/api/`、`/content/`、`/runtime/` 和 `/health/` 转发到本地 Go 端口，使浏览器始终访问 `http://local.sendev.cc:3000` 的同一 origin；需要纯本机开发时可显式覆盖为 `RETROM_PUBLIC_ORIGIN=http://localhost:3000`。
 
 脚本必须转发 `SIGINT/SIGTERM`、在任一子进程异常退出时停止另一进程并返回非零状态，退出后不得残留后台进程。每次启动还必须通过仓库 `.cache/retrom/dev.pid` 中的 PID、Linux process start ticks、工作目录和命令行共同确认上一实例身份；确认后先发送 `SIGTERM` 并等待最多 15 秒，旧实例完全退出后才登记新实例并启动子进程。陈旧 PID、PID 复用或其他工作目录的同名进程不得被终止；无法在期限内退出时新实例必须失败，不得按端口或进程名批量杀进程。启动接管以 `.cache/retrom/dev-takeover.lock` 串行化，PID 文件由 owner 在退出时清理。
 
-`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。前端的全接口监听只服务于受信开发局域网，后端仍保持回环监听；从另一主机访问时把 `RETROM_PUBLIC_ORIGIN` 显式设置为浏览器实际使用的单一 origin，例如 `make dev RETROM_PUBLIC_ORIGIN=http://local.sendev.cc:3000`。Next.js 配置从同一变量提取 hostname 写入开发资源/HMR 的 `allowedDevOrigins`，不维护第二份域名白名单。仅 `make dev` 注入 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true` 以支持这种明文开发 origin；普通服务进程默认拒绝非 localhost 的 HTTP origin。由于非 localhost 的 HTTP 不是浏览器 secure context，前端的幂等 UUID 与上传/存档 SHA-256 必须在缺少 `crypto.randomUUID`/`crypto.subtle` 时使用受测的 Web Crypto 兼容 fallback；安全随机数仍必须来自 `crypto.getRandomValues`。
+`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。前端的全接口监听只服务于受信开发局域网，后端仍保持回环监听；仓库默认浏览器 origin 为 `http://local.sendev.cc:3000`，使用其他域名或地址时必须把 `RETROM_PUBLIC_ORIGIN` 显式设置为浏览器实际使用的单一 origin。Next.js 配置从同一变量提取 hostname 写入开发资源/HMR 的 `allowedDevOrigins`，不维护第二份域名白名单。仅 `make dev` 注入 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true` 以支持这种明文开发 origin；普通服务进程默认拒绝非 localhost 的 HTTP origin。由于非 localhost 的 HTTP 不是浏览器 secure context，前端的幂等 UUID 与上传/存档 SHA-256 必须在缺少 `crypto.randomUUID`/`crypto.subtle` 时使用受测的 Web Crypto 兼容 fallback；安全随机数仍必须来自 `crypto.getRandomValues`。
 
 ### 7.3 TLS 只在 NG 终结
 
@@ -219,7 +219,7 @@ RETROM_DATA_DIR/
 | 变量 | 开发默认 / 生产规则 |
 | --- | --- |
 | `RETROM_HTTP_ADDR` | `make dev` 注入 `127.0.0.1:8080`；容器部署显式设为 `0.0.0.0:8080`，没有 HTTPS 值。 |
-| `RETROM_PUBLIC_ORIGIN` | 开发为 `http://localhost:3000`；生产必填且必须是无 path/query/fragment 的单个 `https` origin，用于 cookie Secure 策略和开发 HMR host 派生，不作为写请求授权。 |
+| `RETROM_PUBLIC_ORIGIN` | 当前仓库开发默认 `http://local.sendev.cc:3000`，可覆盖为 `http://localhost:3000` 或实际受信开发 origin；生产必填且必须是无 path/query/fragment 的单个 `https` origin，用于 cookie Secure 策略和开发 HMR host 派生，不作为写请求授权。 |
 | `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN` | 服务默认 `false`/未设置，仅接受 `https` 或 `http://localhost`；`make dev` 固定注入 `true`，允许显式 `RETROM_PUBLIC_ORIGIN=http://<开发域名或局域网地址>:3000`。生产必须保持未设置或 `false`。 |
 | `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.cache/retrom/data`，生产为持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
 | `RETROM_DB_PATH` | 未设置时派生为数据根下 `retrom.db`；若设置必须是数据根内的绝对普通文件路径。 |

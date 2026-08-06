@@ -43,7 +43,7 @@ func TestLookupNormalizesBoundedResponse(t *testing.T) {
 		return response(
 			http.StatusOK,
 			"application/json",
-			`{"id":42,"name":"  <script>name</script>  ","publisher":{"name":"Pub"},"platform":{"name":"Game Boy Advance"},"signature":{"game":{"description":"Plain text","year":"2001","score":8},"rom":{"score":4}},"attributes":[{"name":"Logo","attributeType":"ImageId","attributeRelationType":"None","value":"cover-1","link":"/api/v1/images/cover-1"},{"name":"Logo","attributeType":"ImageId","attributeRelationType":"None","value":"cover-2","link":"/api/v1/images/cover-2"}]}`,
+			`{"id":42,"name":"  <script>name</script>  ","publisher":{"name":"Pub"},"platform":{"name":"Game Boy Advance"},"signature":{"game":{"description":"Plain text","year":"2001","score":8},"rom":{"score":4}},"attributes":[{"attributeName":"Logo","attributeType":"ImageId","attributeRelationType":"None","value":"cover-1","link":"/api/v1/images/cover-1"},{"attributeName":"Tags","attributeType":"EmbeddedList","attributeRelationType":"None","value":{"GameGenre":{"Tags":[{"Text":"action"}]}}},{"attributeName":"Logo","attributeType":"ImageId","attributeRelationType":"None","value":"cover-2","link":"/api/v1/images/cover-2"}]}`,
 		), nil
 	})
 	provider := New(client, nil, func() time.Time { return time.Date(2026, time.August, 6, 0, 0, 0, 0, time.UTC) })

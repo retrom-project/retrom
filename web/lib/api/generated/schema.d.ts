@@ -79,6 +79,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Published game summaries; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset. */
         get: operations["getGames"];
         put?: never;
         post?: never;
@@ -97,6 +98,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Published game detail; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset. */
         get: operations["getGame"];
         put?: never;
         post?: never;
@@ -1337,6 +1339,7 @@ export interface components {
             assetId?: unknown;
             assetIds?: unknown;
             assets?: unknown;
+            attemptCount?: unknown;
             association?: unknown;
             attributeRelationType?: unknown;
             attributeType?: unknown;
@@ -1482,6 +1485,7 @@ export interface components {
             itemId?: unknown;
             items?: unknown;
             jobId?: unknown;
+            jobState?: unknown;
             jobs?: unknown;
             kind?: unknown;
             level?: unknown;
@@ -1532,6 +1536,7 @@ export interface components {
             players?: unknown;
             previousInterval?: unknown;
             protected?: unknown;
+            provider?: unknown;
             providerAssetId?: unknown;
             providerEvidence?: unknown;
             providerGameId?: unknown;
@@ -1589,6 +1594,10 @@ export interface components {
             scopeType?: unknown;
             score?: unknown;
             scrapeRunId?: unknown;
+            scrapeRuns?: unknown;
+            outcomes?: unknown;
+            evidenceCount?: unknown;
+            completedAtMs?: unknown;
             screenshot?: unknown;
             screenshotCandidateAssetIds?: unknown;
             section?: unknown;

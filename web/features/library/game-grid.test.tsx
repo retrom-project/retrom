@@ -15,9 +15,10 @@ describe("GameGrid", () => {
   });
 
   it("links every published game to its detail page", () => {
-    const game: GameSummary = { gameId: "01980000-0000-7000-8000-000000000001", title: "Metroid", platform: { id: "gba", name: "Game Boy Advance" }, platformInstance: { id: "instance", name: "GBA 游戏" }, status: "PUBLISHED", coverUrl: null };
+    const game: GameSummary = { gameId: "01980000-0000-7000-8000-000000000001", title: "Metroid", platform: { id: "gba", name: "Game Boy Advance" }, platformInstance: { id: "instance", name: "GBA 游戏" }, status: "PUBLISHED", coverUrl: "/content/assets/cover" };
     render(<GameGrid games={[game]} />);
     expect(screen.getByRole("link", { name: /Metroid/ })).toHaveAttribute("href", `/games/${game.gameId}`);
+    expect(screen.getByRole("img", { name: "Metroid 封面" }).getAttribute("src")).toContain("cover");
     expect(screen.getByText("可运行")).toBeInTheDocument();
   });
 });
