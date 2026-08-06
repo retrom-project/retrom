@@ -1167,6 +1167,7 @@ func (server *Server) game(writer http.ResponseWriter, request *http.Request) {
 	var title, description, developer, publisher, genre string
 	var platformID, platformName, instanceID, instanceName, contentRevisionID string
 	var players, releaseYear sql.NullInt64
+	var coverAssetID sql.NullString
 	var version, updatedAtMS, activeDurationMS int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT m.title,
@@ -1183,6 +1184,14 @@ pi.name,
 g.current_content_revision_id,
 g.version,
 g.updated_at_ms,
+(SELECT a.id
+FROM game_assets a
+WHERE a.game_id=g.id
+AND a.metadata_revision_id=g.current_metadata_revision_id
+AND a.kind='COVER'
+ORDER BY a.ordinal,
+a.id
+LIMIT 1),
 COALESCE((SELECT SUM(active_duration_ms)
 FROM play_sessions ps
 WHERE ps.game_id=g.id),
@@ -1196,7 +1205,7 @@ AND g.status='PUBLISHED'
 `, gameID).
 		Scan(&title, &description, &developer, &publisher, &genre, &players, &releaseYear,
 			&platformID, &platformName, &instanceID, &instanceName, &contentRevisionID,
-			&version, &updatedAtMS, &activeDurationMS,
+			&version, &updatedAtMS, &coverAssetID, &activeDurationMS,
 		)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
@@ -1386,7 +1395,7 @@ LIMIT 10
 		"platform":                 map[string]any{"id": platformID, "name": platformName},
 		"platformInstance":         map[string]any{"id": instanceID, "name": instanceName},
 		"currentContentRevisionId": contentRevisionID, "version": version, "updatedAtMs": updatedAtMS,
-		"activeDurationMs": activeDurationMS, "coreOptions": coreOptions,
+		"coverUrl": gameCoverURL(coverAssetID), "activeDurationMs": activeDurationMS, "coreOptions": coreOptions,
 		"dosEntries": dosEntries, "defaultDosEntry": nullableString(defaultDOSEntry), "saveStates": saveStates,
 	})
 }
@@ -1406,7 +1415,15 @@ SELECT g.id,
  pi.name,
  g.status,
  g.version,
- g.updated_at_ms
+ g.updated_at_ms,
+ (SELECT a.id
+ FROM game_assets a
+ WHERE a.game_id=g.id
+ AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.kind='COVER'
+ ORDER BY a.ordinal,
+ a.id
+ LIMIT 1)
 FROM games g
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
@@ -1473,6 +1490,7 @@ JOIN platforms p ON p.id=pi.platform_id
 	for rows.Next() {
 		var id, title, platformID, platformName, instanceID, instanceName, status string
 		var version, updatedAtMS int64
+		var coverAssetID sql.NullString
 		if err := rows.Scan(
 			&id,
 			&title,
@@ -1483,6 +1501,7 @@ JOIN platforms p ON p.id=pi.platform_id
 			&status,
 			&version,
 			&updatedAtMS,
+			&coverAssetID,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -1490,7 +1509,7 @@ JOIN platforms p ON p.id=pi.platform_id
 		items = append(items, map[string]any{
 			"gameId": id, "title": title, "platform": map[string]any{"id": platformID, "name": platformName},
 			"platformInstance": map[string]any{"id": instanceID, "name": instanceName}, "status": status,
-			"version": version, "updatedAtMs": updatedAtMS, "coverUrl": nil,
+			"version": version, "updatedAtMs": updatedAtMS, "coverUrl": gameCoverURL(coverAssetID),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -2686,7 +2705,7 @@ AND i.state='REVIEW_PENDING'
 	if dependencySnapshot.Valid {
 		_ = json.Unmarshal([]byte(dependencySnapshot.String), &dependencyValue)
 	}
-	candidates, err := server.reviewCandidates(request, itemID)
+	candidates, scrapeRuns, err := server.reviewMetadataEvidence(request, itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -2781,7 +2800,7 @@ normalized_path
 			"id":   platformID,
 			"name": platformName,
 		}, "metadata": metadataValue, "sourceManifest": sourceValue,
-		"validation": validation, "candidates": candidates,
+		"validation": validation, "candidates": candidates, "scrapeRuns": scrapeRuns,
 		"selectedCandidateId": nullableString(selectedCandidateID),
 		"defaultDosEntry":     nullableString(defaultDOSEntry),
 		"selectedAssets": map[string]any{
@@ -2790,6 +2809,149 @@ normalized_path
 			"screenshotCandidateAssetIds": screenshotIDs,
 		}, "dosEntries": dosEntries,
 	})
+}
+
+func (server *Server) reviewMetadataEvidence(
+	request *http.Request,
+	itemID string,
+) ([]map[string]any, []map[string]any, error) {
+	candidates, err := server.reviewCandidates(request, itemID)
+	if err != nil {
+		return nil, nil, err
+	}
+	runs, err := server.reviewScrapeRuns(request, itemID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return candidates, runs, nil
+}
+
+func (server *Server) reviewScrapeRuns(request *http.Request, itemID string) ([]map[string]any, error) {
+	rows, err := server.database.QueryContext(
+		request.Context(),
+		`
+WITH evidence_counts AS (
+  SELECT scrape_run_id,
+  COUNT(*) AS evidence_count
+  FROM content_hash_evidence
+  GROUP BY scrape_run_id
+), candidate_counts AS (
+  SELECT scrape_run_id,
+  COUNT(*) AS candidate_count
+  FROM scrape_candidates
+  GROUP BY scrape_run_id
+), outcome_counts AS (
+  SELECT a.scrape_run_id,
+  COUNT(*) AS attempt_count,
+  SUM(CASE WHEN p.outcome='HIT' THEN 1 ELSE 0 END) AS hit,
+  SUM(CASE WHEN p.outcome='MISS' THEN 1 ELSE 0 END) AS miss,
+  SUM(CASE WHEN p.outcome='RATE_LIMITED' THEN 1 ELSE 0 END) AS rate_limited,
+  SUM(CASE WHEN p.outcome='TIMEOUT' THEN 1 ELSE 0 END) AS timeout,
+  SUM(CASE WHEN p.outcome='INVALID_RESPONSE' THEN 1 ELSE 0 END) AS invalid_response,
+  SUM(CASE WHEN p.outcome='NETWORK_ERROR' THEN 1 ELSE 0 END) AS network_error
+  FROM metadata_scrape_query_attempts a
+  JOIN metadata_provider_responses p ON p.id=a.provider_response_id
+  GROUP BY a.scrape_run_id
+)
+SELECT r.id,
+r.job_id,
+r.provider,
+r.state,
+j.state,
+r.created_at_ms,
+r.completed_at_ms,
+r.error_code,
+COALESCE(e.evidence_count,0),
+COALESCE(o.attempt_count,0),
+COALESCE(c.candidate_count,0),
+COALESCE(o.hit,0),
+COALESCE(o.miss,0),
+COALESCE(o.rate_limited,0),
+COALESCE(o.timeout,0),
+COALESCE(o.invalid_response,0),
+COALESCE(o.network_error,0)
+FROM metadata_scrape_runs r
+JOIN jobs j ON j.id=r.job_id
+LEFT JOIN evidence_counts e ON e.scrape_run_id=r.id
+LEFT JOIN candidate_counts c ON c.scrape_run_id=r.id
+LEFT JOIN outcome_counts o ON o.scrape_run_id=r.id
+WHERE r.import_item_id=?
+ORDER BY r.created_at_ms DESC,
+r.id DESC
+LIMIT 10
+`,
+		itemID,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("query review scrape runs: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	runs := make([]map[string]any, 0)
+	for rows.Next() {
+		run, scanErr := scanReviewScrapeRun(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		runs = append(runs, run)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan review scrape runs: %w", err)
+	}
+	return runs, nil
+}
+
+type rowScanner interface {
+	Scan(destinations ...any) error
+}
+
+func scanReviewScrapeRun(scanner rowScanner) (map[string]any, error) {
+	var runID, jobID, provider, state, jobState string
+	var createdAtMS, evidenceCount, attemptCount, candidateCount int64
+	var completedAtMS sql.NullInt64
+	var errorCode sql.NullString
+	var hit, miss, rateLimited, timeout, invalidResponse, networkError int64
+	if err := scanner.Scan(
+		&runID,
+		&jobID,
+		&provider,
+		&state,
+		&jobState,
+		&createdAtMS,
+		&completedAtMS,
+		&errorCode,
+		&evidenceCount,
+		&attemptCount,
+		&candidateCount,
+		&hit,
+		&miss,
+		&rateLimited,
+		&timeout,
+		&invalidResponse,
+		&networkError,
+	); err != nil {
+		return nil, fmt.Errorf("scan review scrape run: %w", err)
+	}
+	return map[string]any{
+		"scrapeRunId":    runID,
+		"jobId":          jobID,
+		"provider":       provider,
+		"state":          state,
+		"jobState":       jobState,
+		"createdAtMs":    createdAtMS,
+		"completedAtMs":  nullableInt64(completedAtMS),
+		"errorCode":      nullableString(errorCode),
+		"evidenceCount":  evidenceCount,
+		"attemptCount":   attemptCount,
+		"candidateCount": candidateCount,
+		"outcomes": map[string]any{
+			"hit":             hit,
+			"miss":            miss,
+			"rateLimited":     rateLimited,
+			"timeout":         timeout,
+			"invalidResponse": invalidResponse,
+			"networkError":    networkError,
+		},
+	}, nil
 }
 
 func (server *Server) reviewCandidates(request *http.Request, itemID string) ([]map[string]any, error) {
@@ -2816,39 +2978,56 @@ c.id
 		return nil, fmt.Errorf("httpapi/server: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	result := make([]map[string]any, 0)
+	type candidateRow struct {
+		id, runID, providerGameID, metadataJSON, evidenceJSON string
+		createdAtMS                                           int64
+	}
+	records := make([]candidateRow, 0)
 	for rows.Next() {
-		var candidateID, runID, providerGameID, metadataJSON, evidenceJSON string
-		var createdAtMS int64
-		if err := rows.Scan(&candidateID, &runID, &providerGameID, &metadataJSON, &evidenceJSON, &createdAtMS); err != nil {
+		var record candidateRow
+		if err := rows.Scan(
+			&record.id,
+			&record.runID,
+			&record.providerGameID,
+			&record.metadataJSON,
+			&record.evidenceJSON,
+			&record.createdAtMS,
+		); err != nil {
 			return nil, fmt.Errorf("httpapi/server: %w", err)
 		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan review candidates: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close review candidates: %w", err)
+	}
+	result := make([]map[string]any, 0, len(records))
+	for _, record := range records {
 		var metadataValue, evidenceValue any
-		if err := json.Unmarshal([]byte(metadataJSON), &metadataValue); err != nil {
+		if err := json.Unmarshal([]byte(record.metadataJSON), &metadataValue); err != nil {
 			return nil, fmt.Errorf("httpapi/server: %w", err)
 		}
-		if err := json.Unmarshal([]byte(evidenceJSON), &evidenceValue); err != nil {
+		if err := json.Unmarshal([]byte(record.evidenceJSON), &evidenceValue); err != nil {
 			return nil, fmt.Errorf("httpapi/server: %w", err)
 		}
-		assets, err := server.reviewCandidateAssets(request, candidateID)
+		assets, err := server.reviewCandidateAssets(request, record.id)
 		if err != nil {
 			return nil, err
 		}
 		result = append(
 			result,
 			map[string]any{
-				"candidateId":    candidateID,
-				"scrapeRunId":    runID,
-				"providerGameId": providerGameID,
+				"candidateId":    record.id,
+				"scrapeRunId":    record.runID,
+				"providerGameId": record.providerGameID,
 				"metadata":       metadataValue,
 				"evidence":       evidenceValue,
 				"assets":         assets,
-				"createdAtMs":    createdAtMS,
+				"createdAtMs":    record.createdAtMS,
 			},
 		)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan review candidates: %w", err)
 	}
 	return result, nil
 }
@@ -3227,6 +3406,13 @@ func validateJSONLexical(contents []byte, maxDepth int) error {
 func nullableString(value sql.NullString) any {
 	if value.Valid {
 		return value.String
+	}
+	return nil
+}
+
+func gameCoverURL(assetID sql.NullString) any {
+	if assetID.Valid {
+		return "/content/assets/" + assetID.String
 	}
 	return nil
 }

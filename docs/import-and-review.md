@@ -191,7 +191,7 @@ type MetadataProvider interface {
 
 `evidence_json` 精确字段为 `schemaVersion/normalizerVersion/normalizationYear/platformName/providerGameScore/providerRomScore/warnings`；其中 `normalizerVersion="HASHEOUS_BY_HASH_V1"`，`normalizationYear` 是 run `created_at_ms` 对应的 UTC 年整数（不是硬编码 2026，也不是重放时当前年份），两个 score 为 null 或非负整数。该固定输入保证同一 raw response 可重复归一化。候选排序仍只使用命中数、primary query order 和 provider ID，不使用上游 score。
 
-图片属性只从 primary response 的 `attributes[]` 读取，并同时要求：`attributeType="ImageId"`、`attributeRelationType="None"`、`value` 是 1..128 字符的 ASCII opaque ID、`link` 精确等于 `/api/v1/images/` + `value` 且没有 query/fragment。`Logo` 映射 `COVER/ordinal=0`；`Screenshot1..Screenshot4` 映射 `SCREENSHOT/ordinal=0..3`；`BY_HASH_V1` 不生成 BACKGROUND。重复 `(kind,ordinal)` 取 attributes 原数组中第一项并告警，其他/未知 ImageId 仅留 raw evidence、不下载。于是一期单 candidate 最多 1 个 cover 和 4 个 screenshot。
+图片属性只从 primary response 的 `attributes[]` 读取，并同时要求：`attributeType="ImageId"`、`attributeName` 是支持的槽位名、`attributeRelationType="None"`、`value` 是 1..128 字符的 ASCII opaque ID、`link` 精确等于 `/api/v1/images/` + `value` 且没有 query/fragment。Hasheous 的属性 `value` 是异构字段（例如 `EmbeddedList/Tags` 为 object）；适配器只对 `ImageId` 解码字符串，未知属性保留在 raw evidence，不能因其为非字符串而拒绝整份合法 response。`Logo` 映射 `COVER/ordinal=0`；`Screenshot1..Screenshot4` 映射 `SCREENSHOT/ordinal=0..3`；`BY_HASH_V1` 不生成 BACKGROUND。重复 `(kind,ordinal)` 取 attributes 原数组中第一项并告警，其他/未知 ImageId 仅留 raw evidence、不下载。于是一期单 candidate 最多 1 个 cover 和 4 个 screenshot。
 
 若同一 run 的多个 HIT 使用相同 provider ID，先全部写 Hit，再按前述 primary 规则仅生成一份 Candidate/Asset；primary response 的 `id/name` 合法但可选字段异常时保留候选并告警，而不是用另一次响应暗中拼字段。`metadata[]`、`signatures`、`AIDescription`、`Tags` 和任何上游 source link 均不参与一期归一化。
 
@@ -228,7 +228,7 @@ type MetadataProvider interface {
 
 发布前校验平台目录仍启用且当前 version/default CoreArtifact/DAT/BIOS input 与 ReviewDraft.selectedValidation 完全一致。Approve 事务用已审核的 source manifest 创建 Game、GameContentRevision/GameContentFiles、默认核心 GameVariant/READY VariantRevision、复制 ValidationFiles、MetadataRevision/Asset 和 ReviewEvent，并同时闭合 Game 的 metadata/content current 与 Variant current；任一步失败全部回滚。事务不得读取大 archive、生成 ZIP 或访问网络；Validation 非 READY/过期时返回可修复冲突并投递新验证，不能发布。
 
-审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都写 `SCRAPE_REQUESTED` ReviewEvent，但不会自动覆盖草稿。文本 candidate 可从本 Item 任意 COMPLETED run 选择，媒体可在这些 run 的 READY asset 间人工混合；来源 run/candidate/asset ID 必须完整进入草稿和最终审核事件。
+审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都写 `SCRAPE_REQUESTED` ReviewEvent，但不会自动覆盖草稿。页面按独立批次展示 Job/Run 状态和 HIT/MISS/上游异常摘要；显式查询后原位等待 Job 成功、失败或取消，结束时以 toast 反馈并刷新候选，不能只显示 `QUEUED` 后让用户自行寻找后台任务。文本 candidate 可从本 Item 任意 COMPLETED run 选择，媒体可在这些 run 的 READY asset 间人工混合；来源 run/candidate/asset ID 必须完整进入草稿和最终审核事件。
 
 ## 10. 审核历史
 

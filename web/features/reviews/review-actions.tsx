@@ -3,7 +3,10 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { queueFlashToast, Toast, type ToastMessage } from "@/components/flash-toast";
+import { formatTime } from "@/lib/backend";
 import { newUuid } from "@/lib/crypto";
+import { responseError, waitForJob } from "@/lib/upload";
 
 export type ReviewAsset = {
   candidateAssetId: string;
@@ -25,12 +28,28 @@ export type ReviewCandidate = {
   assets: ReviewAsset[];
 };
 
+export type ReviewScrapeRun = {
+  scrapeRunId: string;
+  jobId: string;
+  provider: "HASHEOUS" | "NONE";
+  state: string;
+  jobState: string;
+  createdAtMs: number;
+  completedAtMs: number | null;
+  errorCode: string | null;
+  evidenceCount: number;
+  attemptCount: number;
+  candidateCount: number;
+  outcomes: { hit: number; miss: number; rateLimited: number; timeout: number; invalidResponse: number; networkError: number };
+};
+
 export type ReviewWorkspace = {
   itemId: string;
   version: number;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
   validation: { id: string; status: string; compatibilityCode: string } | null;
   candidates: ReviewCandidate[];
+  scrapeRuns?: ReviewScrapeRun[];
   selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
   defaultDosEntry: string | null;
@@ -43,6 +62,21 @@ function textValue(value: unknown): string | null {
 
 function numberValue(value: unknown): string | null {
   return typeof value === "number" && Number.isInteger(value) ? String(value) : null;
+}
+
+function runResult(run: ReviewScrapeRun) {
+  if (run.provider === "NONE") return "已明确跳过元信息查询";
+  if (run.state === "RUNNING" || run.jobState === "QUEUED" || run.jobState === "RUNNING") return "查询进行中";
+  if (run.state === "FAILED" || run.jobState === "FAILED") return `查询失败${run.errorCode ? `：${run.errorCode}` : ""}`;
+  if (run.candidateCount > 0) return `命中 ${run.outcomes.hit} 次，生成 ${run.candidateCount} 个候选`;
+  if (run.outcomes.invalidResponse > 0) return `${run.outcomes.invalidResponse} 份上游响应无法解析`;
+  if (run.outcomes.rateLimited + run.outcomes.timeout + run.outcomes.networkError > 0) return "上游限流、超时或网络异常";
+  if (run.outcomes.miss > 0) return `${run.outcomes.miss} 次精确 hash 查询均未命中`;
+  return run.evidenceCount === 0 ? "没有可查询的内容 hash" : "查询完成，未生成候选";
+}
+
+function ScrapeRunRow({ run }: { run: ReviewScrapeRun }) {
+  return <article className="scrape-run"><div><strong>{run.provider} · {run.state}</strong><span>{runResult(run)}</span></div><small title={run.jobId}>{formatTime(run.createdAtMs)} · Job {run.jobId.slice(0, 12)}… · {run.attemptCount} attempts</small></article>;
 }
 
 export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId = null }: { review: ReviewWorkspace; returnTo?: string; nextItemId?: string | null }) {
@@ -66,6 +100,10 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const [dirty, setDirty] = useState(false);
+  const [candidates, setCandidates] = useState(review.candidates);
+  const [scrapeRuns, setScrapeRuns] = useState(review.scrapeRuns ?? []);
+  const [jobProgress, setJobProgress] = useState("");
+  const [toast, setToast] = useState<ToastMessage | null>(null);
 
   useEffect(() => {
     if (!dirty) return;
@@ -105,8 +143,11 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   async function run(label: string, operation: () => Promise<void>) {
     setBusy(label); setError(""); setNotice("");
     try { await operation(); }
-    catch (caught) { setError(caught instanceof Error ? caught.message : `${label}失败`); }
-    finally { setBusy(null); }
+    catch (caught) {
+      const message = caught instanceof Error ? caught.message : `${label}失败`;
+      setError(message); setToast({ message, tone: "bad" });
+    }
+    finally { setBusy(null); setJobProgress(""); }
   }
 
   async function save() {
@@ -128,15 +169,42 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   }
 
   async function rescrape(metadataProvider: "HASHEOUS" | "NONE") {
-    await run("重新刮削", async () => {
+    const label = metadataProvider === "HASHEOUS" ? "重新查询 Hasheous" : "停用元信息源";
+    await run(label, async () => {
       const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/scrape-candidates`, {
         method: "POST", credentials: "same-origin",
         headers: { "Content-Type": "application/json", "If-Match": `"v${version}"`, "Idempotency-Key": newUuid() },
         body: JSON.stringify({ metadataProvider }),
       });
-      if (!response.ok) throw new Error("重新刮削失败：条目或版本已经变化");
-      const result = await response.json() as { version: number; state: string };
-      setVersion(result.version); setNotice(metadataProvider === "NONE" ? "已记录不使用元信息源" : `Hasheous 任务已进入 ${result.state}`); router.refresh();
+      if (!response.ok) throw new Error(await responseError(response, "重新查询失败：条目或版本已经变化"));
+      const result = await response.json() as { version: number; state: string; scrapeRunId: string; jobId: string };
+      setVersion(result.version);
+      setJobProgress(`${result.state} · Job ${result.jobId.slice(0, 8)}…`);
+      await waitForJob(result.jobId, setJobProgress);
+
+      const updatedResponse = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { cache: "no-store" });
+      if (!updatedResponse.ok) throw new Error(await responseError(updatedResponse, "查询完成，但无法刷新审核元信息"));
+      const updated = await updatedResponse.json() as ReviewWorkspace;
+      const updatedRuns = updated.scrapeRuns ?? [];
+      const completed = updatedRuns.find((entry) => entry.scrapeRunId === result.scrapeRunId);
+      setCandidates(updated.candidates);
+      setScrapeRuns(updatedRuns);
+      if (metadataProvider === "NONE") {
+        const message = "已记录不使用元信息源";
+        setNotice(message); setToast({ message, tone: "good" });
+      } else if (!completed) {
+        throw new Error("Hasheous 查询完成，但服务器没有返回对应批次结果");
+      } else if (completed.candidateCount > 0) {
+        const message = `Hasheous 查询完成，已刷新 ${completed.candidateCount} 个候选；明确采用后才会更新草稿。`;
+        setNotice(message); setToast({ message, tone: "good" });
+      } else if (completed.outcomes.invalidResponse + completed.outcomes.rateLimited + completed.outcomes.timeout + completed.outcomes.networkError > 0) {
+        const message = `Hasheous 查询已结束，但未得到可用候选：${runResult(completed)}`;
+        setNotice(message); setToast({ message, tone: "warn" });
+      } else {
+        const message = `Hasheous 查询完成：${runResult(completed)}`;
+        setNotice(message); setToast({ message, tone: "warn" });
+      }
+      router.refresh();
     });
   }
 
@@ -154,7 +222,8 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       });
       if (!response.ok) throw new Error("发布失败：必须先保存草稿并选择当前 READY Validation");
       clearQueueCache();
-      router.push(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo); router.refresh();
+      queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
+      router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
     });
   }
 
@@ -167,7 +236,8 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       });
       if (!response.ok) throw new Error("丢弃失败：请填写原因并刷新当前版本");
       clearQueueCache();
-      router.push(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo); router.refresh();
+      queueFlashToast({ message: "条目已丢弃，待审核队列已更新。", tone: "good" });
+      router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
     });
   }
 
@@ -184,10 +254,18 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     </div>
 
     <section className="stack" aria-label="Hasheous 元信息候选">
-      <div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void rescrape("HASHEOUS")}>重新查询 Hasheous</button><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void rescrape("NONE")}>不使用元信息源</button>{candidateId ? <button type="button" className="button secondary" disabled={busy !== null} onClick={() => { setCandidateId(null); setDirty(true); }}>清除文本来源</button> : null}</div>
-      {review.candidates.length === 0 ? <p>当前没有可用元信息候选；仍可人工填写并发布 READY 条目。</p> : review.candidates.map((candidate) => <article className="candidate" key={candidate.candidateId}>
+      <div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询 Hasheous"}</button><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void rescrape("NONE")}>{busy === "停用元信息源" ? "正在记录…" : "不使用元信息源"}</button>{candidateId ? <button type="button" className="button secondary" disabled={busy !== null} onClick={() => { setCandidateId(null); setDirty(true); }}>清除文本来源</button> : null}</div>
+      {jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />Hasheous 查询中：{jobProgress}</p> : null}
+      {scrapeRuns.length ? <div className="stack scrape-batches"><div><strong>最近查询批次</strong><ScrapeRunRow run={scrapeRuns[0]} /></div>{scrapeRuns.length > 1 ? <details className="scrape-history"><summary>查看更早 {scrapeRuns.length - 1} 次查询</summary><div className="stack">{scrapeRuns.slice(1).map((entry) => <ScrapeRunRow run={entry} key={entry.scrapeRunId} />)}</div></details> : null}</div> : <p>尚无元信息查询批次。</p>}
+      {candidates.length === 0 ? <p>当前没有可用元信息候选；查询批次会在上方区分未命中、上游异常与无可查询 hash。仍可人工填写并发布 READY 条目。</p> : candidates.map((candidate) => <article className="candidate" key={candidate.candidateId}>
         <div className="panel-head"><div><strong>{textValue(candidate.metadata.title) ?? candidate.providerGameId}</strong><p>Hasheous {candidate.providerGameId} · Run {candidate.scrapeRunId.slice(0, 8)}</p></div><button type="button" className="button secondary" disabled={busy !== null} onClick={() => adoptCandidate(candidate)}>{candidateId === candidate.candidateId ? "已选文本来源" : "采用候选文本"}</button></div>
-        <pre>{JSON.stringify(candidate.metadata, null, 2)}</pre>
+        <div className="candidate-metadata">
+          <div><span>发行商</span><strong>{textValue(candidate.metadata.publisher) || "未提供"}</strong></div>
+          <div><span>年份</span><strong>{numberValue(candidate.metadata.releaseYear) || "未提供"}</strong></div>
+          <div><span>开发商</span><strong>{textValue(candidate.metadata.developer) || "未提供"}</strong></div>
+          <div><span>类型</span><strong>{textValue(candidate.metadata.genre) || "未提供"}</strong></div>
+          {textValue(candidate.metadata.description) ? <p>{textValue(candidate.metadata.description)}</p> : null}
+        </div>
         {candidate.assets.length ? <div className="asset-grid">{candidate.assets.map((asset) => {
           const selected = coverId === asset.candidateAssetId || backgroundId === asset.candidateAssetId || screenshotIds.includes(asset.candidateAssetId);
           return <figure key={asset.candidateAssetId}>{asset.status === "READY" && asset.widthPx && asset.heightPx ? <Image src={`/api/v1/admin/review-assets/${asset.candidateAssetId}`} alt={`${asset.kind} 候选`} width={asset.widthPx} height={asset.heightPx} unoptimized /> : <div className="asset-placeholder">{asset.errorCode ?? asset.status}</div>}<figcaption>{asset.kind} #{asset.ordinal + 1}</figcaption><button type="button" className="button secondary" disabled={busy !== null || asset.status !== "READY"} onClick={() => selectAsset(asset)}>{selected ? "取消选择" : "选择媒体"}</button></figure>;
@@ -198,7 +276,8 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     <div className="form-grid">
       <label className="field full">发布说明（可空）<input value={approvalReason} onChange={(event) => setApprovalReason(event.target.value)} maxLength={500} /></label>
       <label className="field full">丢弃原因<input value={discardReason} onChange={(event) => setDiscardReason(event.target.value)} maxLength={500} placeholder="丢弃时必填" /></label>
-      <div className="field full"><div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void save()}>保存草稿</button><button type="button" className="button secondary" disabled={busy !== null || !discardReason.trim()} onClick={() => void discard()}>丢弃条目</button><button type="button" className="button" disabled={dirty || busy !== null || review.validation?.status !== "READY"} onClick={() => void approve()}>{busy ?? "通过并发布"}</button></div>{notice ? <p role="status" className="status good">{notice}</p> : null}{error ? <p role="alert" className="status bad">{error}</p> : null}</div>
+      <div className="field full"><div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void save()}>{busy === "保存草稿" ? "正在保存…" : "保存草稿"}</button><button type="button" className="button secondary" disabled={busy !== null || !discardReason.trim()} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={dirty || busy !== null || review.validation?.status !== "READY"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div>{notice ? <p role="status" className="status good">{notice}</p> : null}{error ? <p role="alert" className="status bad">{error}</p> : null}</div>
     </div>
+    <Toast toast={toast} onDismiss={() => setToast(null)} />
   </div>;
 }

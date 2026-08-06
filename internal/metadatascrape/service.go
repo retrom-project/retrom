@@ -1295,9 +1295,10 @@ created_at_ms) VALUES(?,
 `, candidateID, attemptID, string(matchedJSON), now); err != nil {
 		return false, fmt.Errorf("metadatascrape/service: %w", err)
 	}
-	for _, asset := range result.Candidate.Assets {
-		assetID := newID()
-		if _, err := transaction.ExecContext(ctx, `
+	if inserted == 1 {
+		for _, asset := range result.Candidate.Assets {
+			assetID := newID()
+			if _, err := transaction.ExecContext(ctx, `
 INSERT INTO scrape_candidate_assets(id,
 scrape_candidate_id,
 provider_response_id,
@@ -1320,17 +1321,18 @@ updated_at_ms) VALUES(?,
 ?,
 ?)
 `,
-			assetID,
-			candidateID,
-			responseID,
-			asset.ProviderAssetID,
-			asset.Kind,
-			asset.Ordinal,
-			asset.Path,
-			now,
-			now,
-		); err != nil {
-			return false, fmt.Errorf("metadatascrape/service: %w", err)
+				assetID,
+				candidateID,
+				responseID,
+				asset.ProviderAssetID,
+				asset.Kind,
+				asset.Ordinal,
+				asset.Path,
+				now,
+				now,
+			); err != nil {
+				return false, fmt.Errorf("metadatascrape/service: %w", err)
+			}
 		}
 	}
 	if err := transaction.Commit(); err != nil {

@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { notFound } from "next/navigation";
 import { ButtonLink, PageHeader, StatusBadge } from "@/components/ui";
 import { LaunchControls, type CoreOption, type DOSEntry } from "@/features/player/launch-controls";
@@ -7,6 +8,7 @@ import { backendJSON } from "@/lib/backend";
 type GameDetail = {
   gameId: string; title: string; description: string; developer: string; publisher: string; genre: string;
   players: number | null; releaseYear: number | null; activeDurationMs: number;
+  coverUrl: string | null;
   platform: { id: string; name: string }; platformInstance: { id: string; name: string };
   coreOptions: CoreOption[];
   dosEntries: DOSEntry[];
@@ -22,7 +24,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
     <>
       <PageHeader title="游戏详情" description="本次启动不会修改目录默认核心，存档会锁定实际运行版本。" actions={<ButtonLink href="/library" secondary>返回游戏库</ButtonLink>} />
       <section className="panel hero">
-        <div className="hero-cover" role="img" aria-label={`${game.title} 封面占位`} />
+        {game.coverUrl ? <div className="hero-cover has-image"><Image className="hero-cover-image" src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="280px" priority /></div> : <div className="hero-cover" role="img" aria-label={`${game.title} 暂无封面`} />}
         <div className="hero-info"><StatusBadge tone="good">已发布</StatusBadge><h1>{game.title}</h1><div className="game-meta"><span>{game.platform.name}</span><span>{game.platformInstance.name}</span>{game.releaseYear ? <span>{game.releaseYear}</span> : null}</div><p>{game.description || "尚未填写游戏简介。"}</p><dl className="detail-list"><div><dt>开发 / 发行</dt><dd>{game.developer || "—"} / {game.publisher || "—"}</dd></div><div><dt>类型 / 玩家</dt><dd>{game.genre || "—"} / {game.players ?? "—"}</dd></div><div><dt>有效游玩</dt><dd>{Math.round(game.activeDurationMs / 60000)} 分钟</dd></div></dl></div>
         <LaunchControls gameId={game.gameId} coreOptions={game.coreOptions} dosEntries={game.dosEntries} defaultDosEntry={game.defaultDosEntry} />
       </section>

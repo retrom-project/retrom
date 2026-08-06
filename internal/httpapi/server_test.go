@@ -195,6 +195,11 @@ AND enabled=1
 	uploadID := "01980000-0000-7000-8000-000000000123"
 	validationID := "01980000-0000-7000-8000-000000000124"
 	draftID := "01980000-0000-7000-8000-000000000125"
+	scrapeJobID := "01980000-0000-7000-8000-000000000126"
+	scrapeRunID := "01980000-0000-7000-8000-000000000127"
+	providerResponseID := "01980000-0000-7000-8000-000000000128"
+	candidateID := "01980000-0000-7000-8000-000000000129"
+	candidateAssetID := "01980000-0000-7000-8000-000000000130"
 	digest := strings.Repeat("a", 64)
 	timestamp := now.UnixMilli()
 	transaction, err := server.database.Begin()
@@ -248,7 +253,7 @@ updated_at_ms) VALUES(?,
 'gba',
 'mgba',
 ?,
-'NONE',
+'HASHEOUS',
 '{}',
 ?,
 'REVIEW_PENDING',
@@ -330,6 +335,125 @@ NULL,
 `, draftID, itemID, timestamp, timestamp); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := transaction.Exec(`
+INSERT INTO jobs(id,
+scope_type,
+scope_id,
+kind,
+dedupe_key,
+execution_no,
+payload_json,
+cancellable,
+state,
+attempt_count,
+max_attempts,
+version,
+available_at_ms,
+finished_at_ms,
+created_at_ms,
+updated_at_ms) VALUES(?,
+'IMPORT_ITEM',
+?,
+'METADATA_SCRAPE',
+?,
+1,
+'{}',
+0,
+'SUCCEEDED',
+1,
+1,
+1,
+?,
+?,
+?,
+?)
+`, scrapeJobID, itemID, digest, timestamp, timestamp, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO metadata_scrape_runs(id,
+import_item_id,
+job_id,
+provider,
+provider_config_version,
+state,
+version,
+created_at_ms,
+updated_at_ms,
+completed_at_ms) VALUES(?,
+?,
+?,
+'HASHEOUS',
+1,
+'COMPLETED',
+1,
+?,
+?,
+?)
+`, scrapeRunID, itemID, scrapeJobID, timestamp, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO metadata_provider_responses(id,
+provider,
+request_digest,
+http_status,
+outcome,
+fetched_at_ms,
+expires_at_ms) VALUES(?,
+'HASHEOUS',
+?,
+200,
+'HIT',
+?,
+?)
+`, providerResponseID, digest, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO scrape_candidates(id,
+scrape_run_id,
+primary_response_id,
+provider_game_id,
+normalized_metadata_json,
+evidence_json,
+created_at_ms) VALUES(?,
+?,
+?,
+'73',
+'{"title":"Visible candidate"}',
+'{}',
+?)
+`, candidateID, scrapeRunID, providerResponseID, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO scrape_candidate_assets(id,
+scrape_candidate_id,
+provider_response_id,
+provider_asset_id,
+kind_hint,
+ordinal,
+source_path,
+status,
+error_code,
+version,
+created_at_ms,
+updated_at_ms) VALUES(?,
+?,
+?,
+'cover',
+'COVER',
+0,
+'/api/v1/images/cover',
+'FAILED',
+'ASSET_HTTP_STATUS',
+1,
+?,
+?)
+`, candidateAssetID, candidateID, providerResponseID, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
@@ -339,7 +463,10 @@ NULL,
 	server.review(recorder, request)
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"status":"BLOCKED"`) ||
 		!strings.Contains(recorder.Body.String(), `"compatibilityCode":"DEPENDENCY_MISSING"`) ||
-		!strings.Contains(recorder.Body.String(), `"candidates":[]`) {
+		!strings.Contains(recorder.Body.String(), `"title":"Visible candidate"`) ||
+		!strings.Contains(recorder.Body.String(), `"errorCode":"ASSET_HTTP_STATUS"`) ||
+		!strings.Contains(recorder.Body.String(), `"scrapeRuns":[{"attemptCount":0,"candidateCount":1,"completedAtMs":`) ||
+		!strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) {
 		t.Fatalf("blocked review detail = %d %s", recorder.Code, recorder.Body.String())
 	}
 }
@@ -350,6 +477,8 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	gameID := "01980000-0000-7000-8000-000000000101"
 	metadataID := "01980000-0000-7000-8000-000000000102"
 	contentID := "01980000-0000-7000-8000-000000000103"
+	coverBlobID := "01980000-0000-7000-8000-000000000104"
+	coverAssetID := "01980000-0000-7000-8000-000000000105"
 	transaction, err := server.database.Begin()
 	if err != nil {
 		t.Fatal(err)
@@ -427,6 +556,49 @@ updated_at_ms) VALUES(?,
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`
+INSERT INTO blobs(id,
+sha256,
+size_bytes,
+md5,
+sha1,
+crc32,
+media_type,
+created_at_ms) VALUES(?,
+?,
+4,
+?,
+?,
+?,
+'image/png',
+?)
+`, coverBlobID, strings.Repeat("1", 64), strings.Repeat("2", 32), strings.Repeat("3", 40),
+		strings.Repeat("4", 8), now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO game_assets(id,
+game_id,
+metadata_revision_id,
+blob_id,
+kind,
+ordinal,
+width_px,
+height_px,
+media_type,
+created_at_ms) VALUES(?,
+?,
+?,
+?,
+'COVER',
+0,
+600,
+800,
+'image/png',
+?)
+`, coverAssetID, gameID, metadataID, coverBlobID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
 INSERT INTO dos_entries(game_content_revision_id,
 normalized_path,
 original_relative_path,
@@ -460,6 +632,7 @@ direct_launch_safe) VALUES(?,
 	}
 	var response struct {
 		DefaultDOSEntry *string `json:"defaultDosEntry"`
+		CoverURL        *string `json:"coverUrl"`
 		CoreOptions     []struct {
 			CoreID string `json:"coreId"`
 			Status string `json:"status"`
@@ -476,11 +649,18 @@ direct_launch_safe) VALUES(?,
 		response.CoreOptions[0].Status != "NEEDS_VALIDATION" {
 		t.Fatalf("core options = %#v", response.CoreOptions)
 	}
-	if response.DefaultDOSEntry != nil || len(response.DOSEntries) != 2 ||
+	expectedCoverURL := "/content/assets/" + coverAssetID
+	if response.CoverURL == nil || *response.CoverURL != expectedCoverURL || response.DefaultDOSEntry != nil ||
+		len(response.DOSEntries) != 2 ||
 		response.DOSEntries[0].Path != "GAMES/DOOM.EXE" ||
 		!response.DOSEntries[0].DirectLaunchSafe ||
 		response.DOSEntries[1].DirectLaunchSafe {
 		t.Fatalf("DOS choices = default:%v entries:%#v", response.DefaultDOSEntry, response.DOSEntries)
+	}
+	list := httptest.NewRecorder()
+	server.Handler().ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/api/v1/games?limit=100", nil))
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`) {
+		t.Fatalf("game list cover = %d: %s", list.Code, list.Body.String())
 	}
 }
 
