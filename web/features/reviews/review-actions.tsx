@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { newUuid } from "@/lib/crypto";
 
 export type ReviewAsset = {
   candidateAssetId: string;
@@ -130,7 +131,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     await run("重新刮削", async () => {
       const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/scrape-candidates`, {
         method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "If-Match": `"v${version}"`, "Idempotency-Key": crypto.randomUUID() },
+        headers: { "Content-Type": "application/json", "If-Match": `"v${version}"`, "Idempotency-Key": newUuid() },
         body: JSON.stringify({ metadataProvider }),
       });
       if (!response.ok) throw new Error("重新刮削失败：条目或版本已经变化");
@@ -148,7 +149,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     await run("发布", async () => {
       const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/approve`, {
         method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "If-Match": `"v${version}"`, "Idempotency-Key": crypto.randomUUID() },
+        headers: { "Content-Type": "application/json", "If-Match": `"v${version}"`, "Idempotency-Key": newUuid() },
         body: JSON.stringify({ reason: approvalReason.trim() || null }),
       });
       if (!response.ok) throw new Error("发布失败：必须先保存草稿并选择当前 READY Validation");
@@ -161,7 +162,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     await run("丢弃", async () => {
       const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/discard`, {
         method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "If-Match": `"v${version}"`, "Idempotency-Key": crypto.randomUUID() },
+        headers: { "Content-Type": "application/json", "If-Match": `"v${version}"`, "Idempotency-Key": newUuid() },
         body: JSON.stringify({ reason: discardReason }),
       });
       if (!response.ok) throw new Error("丢弃失败：请填写原因并刷新当前版本");

@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
 import { formatTime } from "@/lib/backend";
+import { newUuid } from "@/lib/crypto";
 import { responseError, uploadFiles, uploadOne, waitForJob } from "@/lib/upload";
 
 type Revision = { id: string; sourceKind: string; sourceRefId: string | null; current: boolean; createdAtMs: number };
@@ -60,7 +61,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   async function replaceAsset(file: File, kind: string) {
     await action("asset", async () => {
       const uploaded = await uploadOne(file, setNotice);
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}/assets`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind, ordinal: 0 }) });
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/assets`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind, ordinal: 0 }) });
       if (!response.ok) throw new Error(await responseError(response, "媒体替换失败"));
       const result = await response.json() as { assetId: string; metadataRevisionId: string };
       return `已创建 Asset ${result.assetId} 与 MetadataRevision ${result.metadataRevisionId}`;
@@ -70,7 +71,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   async function replaceContent(files: File[]) {
     await action("content", async () => {
       const uploaded = await uploadFiles(files, setNotice);
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}/content-revisions`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ uploadId: uploaded.uploadId }) });
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/content-revisions`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId }) });
       if (!response.ok) throw new Error(await responseError(response, "内容替换任务创建失败"));
       const result = await response.json() as { jobId: string };
       setNotice(`内容替换 Job ${result.jobId} 正在验证…`);
@@ -81,7 +82,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
 
   async function rescrape() {
     await action("scrape", async () => {
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ metadataProvider: "HASHEOUS" }) });
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ metadataProvider: "HASHEOUS" }) });
       if (!response.ok) throw new Error(await responseError(response, "重新刮削任务创建失败"));
       const result = await response.json() as { scrapeRunId: string; jobId: string };
       setNotice(`ScrapeRun ${result.scrapeRunId} · Job ${result.jobId}`);
@@ -93,7 +94,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   async function applyCandidate(candidate: ScrapeCandidate) {
     await action("candidate", async () => {
       const fields = metadataFields.filter((field) => Object.hasOwn(candidate.metadata, field));
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates/${candidate.candidateId}/apply`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ fields, selectedAssets: { coverCandidateAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] } }) });
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates/${candidate.candidateId}/apply`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ fields, selectedAssets: { coverCandidateAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] } }) });
       if (!response.ok) throw new Error(await responseError(response, "候选采用失败"));
       const result = await response.json() as { metadataRevisionId: string };
       return `已采用候选并创建 MetadataRevision ${result.metadataRevisionId}`;
@@ -105,7 +106,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
       type MoveImpact = { impactDigest: string; impact: { targetCoreId: string; variantStatus: string; blockerCodes: string[] } };
       let impact: MoveImpact | null = null;
       for (let attempt = 0; attempt < 2; attempt += 1) {
-        const preview = await fetch(`/api/v1/admin/games/${game.gameId}/move-preview`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ targetPlatformInstanceId }) });
+        const preview = await fetch(`/api/v1/admin/games/${game.gameId}/move-preview`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ targetPlatformInstanceId }) });
         if (!preview.ok) throw new Error(await responseError(preview, "无法预览移动影响"));
         if (preview.status === 202) {
           const pending = await preview.json() as { status: string; jobId: string };
@@ -119,7 +120,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
       if (!impact) throw new Error("目标核心验证完成后仍无法生成移动影响");
       const blocked = impact.impact.blockerCodes.length > 0;
       if (!window.confirm(`移动到新目录？目标默认核心 ${impact.impact.targetCoreId}，状态 ${impact.impact.variantStatus}${blocked ? `，阻断：${impact.impact.blockerCodes.join("、")}` : ""}。`)) return "已取消移动，游戏归属未改变。";
-      const commit = await fetch(`/api/v1/admin/games/${game.gameId}/move`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ targetPlatformInstanceId, impactDigest: impact.impactDigest, confirmBlocked: blocked }) });
+      const commit = await fetch(`/api/v1/admin/games/${game.gameId}/move`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ targetPlatformInstanceId, impactDigest: impact.impactDigest, confirmBlocked: blocked }) });
       if (!commit.ok) throw new Error(await responseError(commit, "游戏移动失败"));
       return "游戏已移动到目标目录；内容与历史 revision 未改变。";
     });
@@ -128,7 +129,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   async function remove(confirmTitle: string) {
     await action("delete", async () => {
       if (confirmTitle !== game.title) throw new Error("请输入完整游戏标题确认删除");
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}`, { method: "DELETE", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ confirmTitle }) });
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}`, { method: "DELETE", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ confirmTitle }) });
       if (!response.ok) throw new Error(await responseError(response, "游戏删除失败"));
       return "游戏已软删除；存档、审核与历史 revision 仍受引用保护。";
     });

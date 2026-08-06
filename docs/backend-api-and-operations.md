@@ -174,7 +174,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 脚本必须转发 `SIGINT/SIGTERM`、在任一子进程异常退出时停止另一进程并返回非零状态，退出后不得残留后台进程。每次启动还必须通过仓库 `.cache/retrom/dev.pid` 中的 PID、Linux process start ticks、工作目录和命令行共同确认上一实例身份；确认后先发送 `SIGTERM` 并等待最多 15 秒，旧实例完全退出后才登记新实例并启动子进程。陈旧 PID、PID 复用或其他工作目录的同名进程不得被终止；无法在期限内退出时新实例必须失败，不得按端口或进程名批量杀进程。启动接管以 `.cache/retrom/dev-takeover.lock` 串行化，PID 文件由 owner 在退出时清理。
 
-`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。前端的全接口监听只服务于受信开发局域网，后端仍保持回环监听；从另一主机访问时把 `RETROM_PUBLIC_ORIGIN` 显式设置为浏览器实际使用的单一 origin，例如 `make dev RETROM_PUBLIC_ORIGIN=http://local.sendev.cc:3000`。Next.js 配置从同一变量提取 hostname 写入开发资源/HMR 的 `allowedDevOrigins`，不维护第二份域名白名单。仅 `make dev` 注入 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true` 以支持这种明文开发 origin；普通服务进程默认拒绝非 localhost 的 HTTP origin。
+`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。前端的全接口监听只服务于受信开发局域网，后端仍保持回环监听；从另一主机访问时把 `RETROM_PUBLIC_ORIGIN` 显式设置为浏览器实际使用的单一 origin，例如 `make dev RETROM_PUBLIC_ORIGIN=http://local.sendev.cc:3000`。Next.js 配置从同一变量提取 hostname 写入开发资源/HMR 的 `allowedDevOrigins`，不维护第二份域名白名单。仅 `make dev` 注入 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true` 以支持这种明文开发 origin；普通服务进程默认拒绝非 localhost 的 HTTP origin。由于非 localhost 的 HTTP 不是浏览器 secure context，前端的幂等 UUID 与上传/存档 SHA-256 必须在缺少 `crypto.randomUUID`/`crypto.subtle` 时使用受测的 Web Crypto 兼容 fallback；安全随机数仍必须来自 `crypto.getRandomValues`。
 
 ### 7.3 TLS 只在 NG 终结
 

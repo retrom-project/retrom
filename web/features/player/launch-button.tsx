@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
+import { newUuid } from "@/lib/crypto";
 
 type LaunchResponse = { launchId: string; playUrl: string };
 type PendingResponse = { status: "VALIDATION_PENDING"; jobId: string; retryAfterMs: number };
@@ -58,7 +59,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
         const response = await fetch("/api/v1/launches", {
           method: "POST",
           credentials: "same-origin",
-          headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+          headers: { "Content-Type": "application/json", "Idempotency-Key": newUuid() },
           body
         });
         if (!response.ok) {

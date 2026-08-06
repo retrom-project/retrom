@@ -2,13 +2,14 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { newUuid, sha256 } from "@/lib/crypto";
 import { captureManualState, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "./adapters/ejs-4.2.3-v1";
 
 type ShellState = "loading" | "running" | "error";
 
-function base64(bytes: ArrayBuffer) {
+function base64(bytes: Uint8Array) {
   let value = "";
-  for (const byte of new Uint8Array(bytes)) value += String.fromCharCode(byte);
+  for (const byte of bytes) value += String.fromCharCode(byte);
   return btoa(value);
 }
 
@@ -66,9 +67,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     const stableBytes = new Uint8Array(bytes);
     persistentQueue.current = persistentQueue.current.then(async () => {
       if (persistentConflict.current) return;
-      const digest = await crypto.subtle.digest("SHA-256", stableBytes);
+      const digest = await sha256(stableBytes);
       const next = persistentSequence.current + 1;
-      const idempotencyKey = crypto.randomUUID();
+      const idempotencyKey = newUuid();
       let response: Response | undefined;
       for (let attempt = 0; attempt < 2; attempt += 1) {
         try {
@@ -117,7 +118,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     form.append("screenshot", payload.screenshot, `screenshot.${payload.format || "png"}`);
     const response = await fetch(`/runtime/launches/${launchId}/save-states`, {
       method: "POST", credentials: "same-origin",
-      headers: { "Idempotency-Key": crypto.randomUUID() }, body: form
+      headers: { "Idempotency-Key": newUuid() }, body: form
     });
     setSaveMessage(response.ok ? "手动存档和截图已保存" : "手动存档失败，服务器未创建不完整记录");
   }, [launchId]);

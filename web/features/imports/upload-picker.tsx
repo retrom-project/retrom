@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import { newUuid } from "@/lib/crypto";
+import { uploadFiles } from "@/lib/upload";
 
 type ChosenFile = { id: string; file: File; name: string; size: number; path: string };
 type Directory = { id: string; name: string; platformName: string; coreName: string };
@@ -25,40 +27,9 @@ export function UploadPicker({ directories }: { directories: Directory[] }) {
   async function upload() {
     setBusy(true); setError("");
     try {
-      const commonHeaders = {};
-      setProgress("正在创建安全上传会话…");
-      const create = await fetch("/api/v1/admin/uploads", { method: "POST", credentials: "same-origin", headers: { ...commonHeaders, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ sourceType: files.some((file) => file.file.webkitRelativePath) ? "DIRECTORY" : "FILES", files: files.map((file) => ({ clientFileId: file.id, relativePath: file.path, sizeBytes: file.size })) }) });
-      if (!create.ok) throw new Error("无法创建上传会话");
-      const session = await create.json() as { uploadId: string; chunkSizeBytes: number; files: Array<{ fileId: string; clientFileId: string }> };
-      for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
-        const chosen = files[fileIndex]; const remote = session.files.find((file) => file.clientFileId === chosen.id);
-        if (!remote) throw new Error("上传文件映射无效");
-        for (let offset = 0, part = 0; offset < chosen.size; offset += session.chunkSizeBytes, part += 1) {
-          const end = Math.min(offset + session.chunkSizeBytes, chosen.size);
-          const chunk = chosen.file.slice(offset, end);
-          const digest = new Uint8Array(await crypto.subtle.digest("SHA-256", await chunk.arrayBuffer()));
-          const base64 = btoa(String.fromCharCode(...digest));
-          setProgress(`上传 ${fileIndex + 1}/${files.length} · ${chosen.path}`);
-          const response = await fetch(`/api/v1/admin/uploads/${session.uploadId}/files/${remote.fileId}/parts/${part}`, { method: "PUT", credentials: "same-origin", headers: { ...commonHeaders, "Content-Type": "application/octet-stream", "Content-Range": `bytes ${offset}-${end - 1}/${chosen.size}`, "Content-Digest": `sha-256=:${base64}:` }, body: chunk });
-          if (!response.ok) throw new Error(`文件分块 ${part} 校验失败`);
-        }
-      }
-      const snapshot = await fetch(`/api/v1/admin/uploads/${session.uploadId}`, { cache: "no-store" });
-      if (!snapshot.ok) throw new Error("无法读取上传状态");
-      setProgress("正在校验完整字节并写入内容存储…");
-      const completion = await fetch(`/api/v1/admin/uploads/${session.uploadId}/complete`, { method: "POST", credentials: "same-origin", headers: { ...commonHeaders, "If-Match": snapshot.headers.get("ETag") ?? "", "Idempotency-Key": crypto.randomUUID() } });
-      if (!completion.ok) throw new Error("无法终结上传会话");
-      const finalizing = await completion.json() as { jobId: string };
-      for (;;) {
-        const jobResponse = await fetch(`/api/v1/admin/jobs/${finalizing.jobId}`, { cache: "no-store" });
-        if (!jobResponse.ok) throw new Error("无法读取终结任务");
-        const job = await jobResponse.json() as { state: string; errorCode: string | null };
-        if (job.state === "SUCCEEDED") break;
-        if (job.state === "FAILED" || job.state === "CANCELLED") throw new Error(job.errorCode ?? "上传终结失败");
-        await new Promise((resolve) => window.setTimeout(resolve, 300));
-      }
+      const uploaded = await uploadFiles(files.map((chosen) => chosen.file), setProgress);
       setProgress("正在创建导入任务…");
-      const imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: { ...commonHeaders, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() }, body: JSON.stringify({ uploadId: session.uploadId, targetPlatformInstanceId: target, metadataProvider: provider }) });
+      const imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: provider }) });
       if (!imported.ok) throw new Error("上传完成，但无法创建导入任务");
       const result = await imported.json() as { importJobId: string };
       router.push(`/admin/reviews?importJobId=${result.importJobId}`);
