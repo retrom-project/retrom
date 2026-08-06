@@ -1,0 +1,174 @@
+# Retrom Agent 实施规范
+
+## 1. 适用范围与优先级
+
+本文件适用于整个 Retrom 仓库。子目录如果以后增加更具体的 `AGENTS.md`，只能在其目录范围内补充或收紧规则，不能降低本文件的质量与安全要求。
+
+执行优先级依次为：用户与系统指令、距离目标文件最近的 `AGENTS.md`、`docs/` 中的正式契约、仓库已有实现与惯例。发现正式文档彼此冲突、文档与实现冲突或需求会破坏既有契约时，不得静默选择一种解释；先核对事实，再修正文档或向用户报告需要决策的冲突。
+
+本文件只规定实施纪律，不复制产品规格。开始工作前按改动范围阅读：
+
+- `docs/README.md`：文档地图与事实源；
+- `docs/retrom-product-architecture.md`：跨模块边界和稳定不变量；
+- `docs/implementation-plan.md`：实现顺序、migration 边界和里程碑退出门禁；
+- `docs/engineering-quality-and-testing.md`：lint、测试、CI 和回归规范；
+- `docs/project-acceptance.md`：统一验收 Case、证据格式和最终通过规则；
+- `docs/data-model.md`、`docs/http-api-contract.md`：数据库与 HTTP 的唯一细节契约；
+- `docs/dependency-management.md`：EmulatorJS/core/DAT 的物化、校验与镜像边界；
+- 目标功能对应的领域专题文档。
+
+## 2. 仓库边界
+
+- Go 后端位于仓库根目录，入口放在 `cmd/retrom/`，内部实现放在 `internal/`，数据库迁移放在 `migrations/`。
+- Next.js、React、TypeScript 与 Tailwind CSS 前端全部位于 `web/`。
+- 根目录 `Dockerfile` 只构建后端镜像 `retrom`，`web/Dockerfile` 只构建前端镜像 `retrom-web`；镜像构建和服务启动是两个独立动作。
+- `docs/` 保存可长期维护的正式契约；设计决策、行为或验收标准变化时必须同步更新。
+- `data/dat/` 的 Git 内容只保存受版本约束的真实来源 manifest、SHA、DAT/许可物化配方与说明；约 53 MiB DAT、runtime、许可原文和生成 notice 由 `make prepare-deps` 写入被忽略目录，不得提交、手工改写或用 mock 替换。
+- `data/example/` 保存核心兼容性验证脚本和可提交的清单。ROM、BIOS、运行时包、游戏截图、运行数据库和 CAS 内容不得提交到仓库。
+- 不得提交凭据、launch capability/cookie、本机 `launch-capability.key`、用户主机绝对路径、专有游戏内容或来源不明的二进制文件。非秘密 `launchId` 不得被误当成授权凭据。
+
+修改生成物前先找到唯一源文件，并从源文件重新生成。具体事实源以 `docs/README.md` 为准；禁止只改导出文件造成源稿、清单或快照漂移。
+
+## 3. 默认工作方式
+
+1. 先读适用指令、正式文档、现有代码和测试，再提出结论或修改。
+2. 先检查工作树，保留用户已有及与当前任务无关的改动；不得顺手清理、回滚或格式化无关文件。
+3. 明确受影响的契约、风险和验证范围，实施能完整解决问题的最小变更。
+4. 业务行为变化时同时修改实现、测试和正式文档；不要把必要工作留成无归属的 TODO。
+5. 新依赖必须有明确必要性，使用锁文件固定版本，并避免引入与现有能力重复的框架。
+6. 不做未经请求的大规模重构、技术栈替换、数据迁移或破坏兼容性的接口改造。
+7. 未获得命令结果、测试证据或可复现验证前，不得宣称完成。
+
+## 4. 实现边界
+
+### 4.1 Go 后端
+
+- HTTP handler 负责协议解析、校验和错误映射；业务规则进入对应应用模块；SQL 与持久化细节留在存储层。
+- 后台任务只负责编排、租约和重试，不复制领域规则。耗时哈希、网络访问、归档扫描和 DAT 解析不得占用长数据库写事务。
+- 依赖方向遵循 `httpapi/jobs -> 应用模块 -> store/blobstore`。底层包不得反向依赖 HTTP、任务编排或进程入口。
+- 错误必须保留原因并在边界映射为稳定错误码；不得静默吞错、依赖错误字符串分支或输出临时调试日志。
+- 已发布数据库只能通过有序 migration 演进；运行时代码不得动态修补 schema。每个迁移都要覆盖新建库和旧库升级路径。
+- SQLite 中表示业务时刻的字段必须为 Unix 毫秒 `INTEGER`，命名为 `*_at_ms`；Go/API 使用 `int64`。详细规则见存储专题。
+
+### 4.2 Web 前端
+
+- 路由与页面壳放在 `web/app/`，能力模块放在 `web/features/`，通用无业务状态组件放在 `web/components/`，API client 与纯逻辑放在 `web/lib/`。
+- 复杂状态转换和可独立验证的计算必须从 JSX 中抽离并测试；组件不直接解析 DAT、不访问宿主路径，也不复制后端授权与兼容性规则。
+- Server/Client Component 边界应明确；仅在需要浏览器 API、交互状态或客户端数据时使用 `"use client"`。
+- 可访问性、键盘操作、加载/空/错误状态和 4K 桌面布局属于功能契约，不是交付后的美化项。
+
+### 4.3 构建与部署
+
+- `make dev` 只启动宿主机上的 Go 与 Next.js 开发进程，不得调用 Docker、Compose、容器镜像或容器网络。
+- `make dev` 可以且必须先调用幂等 `make prepare-deps`；依赖准备结束后仍只启动宿主机进程。应用启动期只校验依赖，不自行联网下载。
+- `make build-backend-image`、`make build-web-image` 和 `make build-images` 只构建/检查镜像；不得隐式执行 `docker run`、Compose、push、部署或修改运行数据。两个镜像必须使用依赖专题的同一 `io.retrom.release-input-sha256`，不得用 tag 相同冒充可组合证据。
+- 默认镜像名固定为后端 `retrom`、前端 `retrom-web`。改变默认名称属于构建契约变更，必须同步正式文档。
+- 两个应用进程只监听明文 HTTP。TLS 证书、TLS 握手、HTTP 到 HTTPS 跳转和 HSTS 由前置 NG/反向代理负责；不得在 Go 或 Next.js 应用内加入 TLS 终结能力。
+
+## 5. 质量底线
+
+未经用户明确批准，不得通过降低标准让检查通过，包括但不限于：
+
+- 放宽、关闭或绕过 lint、TypeScript、测试、构建或安全规则；
+- 添加宽泛的 `nolint`、`eslint-disable`、类型断言、`any` 或跳过测试来掩盖问题；
+- 删除失败用例、弱化断言、更新快照以接受错误行为；
+- 把当前变更引入的错误或 warning 描述成“已有问题”；
+- 在主链路、迁移或数据安全仍未闭环时声明完成。
+
+确需例外时，抑制必须精确到规则和最小代码范围，写明无法通过结构性修复消除的原因，并在交付说明中列出。生成代码和经确认的第三方产物可以使用集中、可审计的排除项；业务源码不能使用整目录兜底排除。
+
+## 6. 测试纪律
+
+- 不设置单元测试覆盖率百分比门槛；覆盖率报告只用于发现风险，不代替测试设计。
+- 关键路径中可分离的业务决策、状态转换、校验和计算必须有单元测试；集成/E2E/smoke 作为跨边界补充，不能替代这些单元测试。普通改动至少覆盖受影响的正常路径、错误路径和边界条件。
+- 纯逻辑优先单元测试；SQLite、migration、HTTP 契约和跨模块事务使用集成测试；关键浏览器交互使用 React Testing Library 和 Chrome E2E；核心兼容性使用 `data/example/` 的真实运行时冒烟验证。
+- 任意在开发自测、验收、评审或生产使用中发现的 bug，都必须留下能阻止同类问题再次出现的回归用例。修复前应先证明用例在旧行为上失败，修复后运行聚焦用例及受影响的完整测试集。
+- 若浏览器权限、第三方运行时或不得提交的 ROM/BIOS 使普通自动化无法完整复现，仍须在最近的确定性边界增加自动化测试，并补充可执行 smoke 用例和机器可读验收记录；不得只留下文字说明。
+- 测试必须可重复：常规测试不依赖真实外网、真实时间、随机执行顺序或用户本机状态；使用 fake clock、固定 seed、临时目录和独立 SQLite 数据库。
+- 测试夹具只包含合法可分发内容。格式兼容性测试应同时覆盖小型确定性夹具与仓库中固定版本的真实 DAT 基线，不得用臆造数据冒充生产基线。
+- 项目验收必须按 `docs/project-acceptance.md` 的 Case ID 和硬超时执行；不得临时合并 Case、复用历史截图，或加入 soak、压力、无限等待类验收。
+
+## 7. 必跑门禁
+
+项目脚手架应实现 `docs/engineering-quality-and-testing.md` 规定的 Makefile 命令。涉及代码修改时按范围执行：
+
+后端：
+
+```bash
+make fmt-check
+make build
+make test
+make lint-go
+```
+
+前端：
+
+```bash
+make web-install
+make web-lint
+make web-typecheck
+make web-test
+make web-build
+```
+
+涉及 migration、SQLite 事务、HTTP 契约或跨模块主链路时：
+
+```bash
+make integration-test
+```
+
+影响 Player Shell、EmulatorJS、core artifact、DAT、BIOS 装配或存档恢复时，还须执行对应 Chrome E2E 与：
+
+```bash
+make web-e2e
+python3 data/example/verify-fixtures.py
+node data/example/smoke-test.mjs mgba mame2003
+```
+
+最后一条命令中的核心名只是可执行示例，实际应替换为全部受影响核心；影响共享 loader、Player Shell 或版本基线时运行不带核心参数的全量 smoke。
+
+跨端改动或影响范围不确定时运行：
+
+```bash
+make ci
+```
+
+新增/修改 HTTP route、DTO、错误码或 client 调用时，必须先改 `api/openapi.yaml`，运行 `make api-generate` 并提交两端生成物，随后运行不会写工作树的 `make api-check`；禁止手改 generated 文件。
+
+修改 Dockerfile、镜像内容、构建参数或发布资产时还必须运行：
+
+```bash
+make build-images
+```
+
+该命令成功只证明两个镜像可以构建，不得在验证过程中启动容器来改变服务状态，除非任务另有明确授权。
+
+质量基础设施尚未落地时，引入首批业务代码的任务必须先补齐对应命令和 CI，不能以“命令不存在”作为跳过理由。纯文档改动不要求运行代码门禁，但必须检查链接、结构、事实源一致性和 diff。
+
+## 8. 文档与数据维护
+
+- 正式文档描述稳定行为、接口、数据约束、验证不变量和可重复命令，不记录普通开发运行产生的临时 PASS 输出、任务 ID 或本机路径。版本化依赖/核心兼容基线可以记录固定浏览器、artifact hash、解析统计和机器结果引用，但必须同时说明它只是该版本的历史证据，正式验收仍生成当次证据。
+- 字段、状态机、API 或页面细节只在其负责的专题中维护一次；总览只保留跨领域摘要和链接。
+- 可执行验收流程、标准、证据和 Case ID 只在 `docs/project-acceptance.md` 维护；领域文档只链接对应 ID，不得形成第二份清单。
+- 修改机器可读 manifest、DAT、迁移或 API schema 时，同一变更中必须更新校验、测试和相应文档。
+- 第三方 payload 不进入 Git。修改依赖 manifest、Player adapter registry、DAT/许可物化配方或 notice 规则时必须运行 `make data-check`、`make prepare-deps` 与 `make deps-check`，并验证 manifest/adapter ID/版本/实现双向一致，最终镜像只包含 allowlist、逐字节校验的许可原文和确定性 notice，而非下载 archive/缓存目录。不得让未知 EmulatorJS 版本回退到默认 adapter，不得把推断的 core source association 写成已证明精确构建源码，也不得把本地 image build 解释为外部分发授权。
+- 第三方版本、core/DAT 哈希和兼容覆盖不得凭记忆填写；以仓库机器可读清单和可复现实验为准。
+
+## 9. 安全与破坏性操作
+
+- 文件上传、归档展开、CAS、运行时内容端点和路径处理必须防止目录穿越、符号链接逃逸、压缩炸弹和越权 Blob 访问，并有负向测试。
+- 不记录 ROM/BIOS 内容、launch capability/cookie、完整宿主路径或上游敏感响应；可记录非秘密 `launchId` 用于关联诊断。
+- 删除、覆盖、批量迁移或垃圾回收前必须精确解析目标并证明仍受引用保护；优先使用可恢复方案。
+- 不得对用户工作树执行 `git reset --hard`、无范围删除或其他难以恢复的操作，除非用户明确授权。
+
+## 10. 交付说明
+
+每次交付必须说明：
+
+- 改了什么以及为什么；
+- 新增或更新了哪些测试；
+- 实际运行了哪些检查及结果；
+- 哪些检查未运行、原因和剩余风险；
+- 是否同步了文档、migration、API 或机器可读基线。
+
+只要必需检查失败、关键回归用例缺失或文档与实现仍冲突，就不得把任务描述为完成。若失败来自当前授权范围之外，应提供可复现证据并明确报告阻塞项。

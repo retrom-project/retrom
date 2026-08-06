@@ -1,0 +1,42 @@
+# Retrom runtime state and downloaded third-party payloads.
+**/__pycache__/
+*.py[cod]
+
+/.artifacts/
+/.cache/
+/bin/
+/coverage/
+/coverage.out
+/playwright-report/
+/test-results/
+/.env
+/.env.*
+!/.env.example
+
+/web/node_modules/
+/web/.next/
+/web/out/
+/web/coverage/
+/web/playwright-report/
+/web/test-results/
+/web/.env*
+!/web/.env.example
+
+/data/*
+!/data/dat/
+!/data/dat/**
+!/data/example/
+!/data/example/**
+/data/example/**/__pycache__/
+/data/example/**/*.py[cod]
+
+# Git stores DAT provenance, recipes and checksums, not the 53 MiB XML payload.
+/data/dat/emulatorjs/*/fbneo/
+/data/dat/emulatorjs/*/mame2003/
+/data/dat/emulatorjs/*/mame2003_plus/
+
+# Test evidence is reproducible and may contain game imagery. Keep it local.
+/data/example/results/*
+!/data/example/results/.gitkeep
+!/data/example/results/latest.json
+!/data/example/results/manual-review.json

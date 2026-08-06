@@ -1,0 +1,502 @@
+{
+  "schema_version": 3,
+  "created_at": "2026-08-05T17:07:36Z",
+  "reviewed_at": "2026-08-06T00:00:00Z",
+  "purpose": "Version-bound EmulatorJS runtime selection, real Arcade DAT baseline, and reproducible license notice inputs for Retrom; not mock or scrape metadata",
+  "repository_policy": {
+    "payloads_tracked_in_git": false,
+    "tracked_files": [
+      "manifest.json",
+      "SHA256SUMS"
+    ],
+    "materialization_command": "make prepare-deps",
+    "verification_command": "make deps-check",
+    "service_downloads_at_startup": false
+  },
+  "license_materialization": {
+    "output_relative_dir": "licenses",
+    "third_party_notices_relative_path": "THIRD_PARTY_NOTICES",
+    "notice_format_version": 1,
+    "notice_order": [
+      "emulatorjs",
+      "fceumm",
+      "snes9x",
+      "gambatte",
+      "mgba",
+      "fbneo",
+      "mame2003",
+      "mame2003_plus",
+      "dosbox_pure"
+    ],
+    "redistribution_policy": {
+      "intended_use": "private_self_hosted_build",
+      "external_distribution_requires_manual_legal_review": true,
+      "restricted_components": ["snes9x", "fbneo", "mame2003", "mame2003_plus"],
+      "note": "This manifest records reproducible notice inputs and source provenance; it is not a legal opinion or a grant of redistribution rights."
+    },
+    "entries": [
+      {
+        "component_id": "emulatorjs",
+        "binary_artifact_ref": "/emulatorjs/release_asset",
+        "repository": "https://github.com/EmulatorJS/EmulatorJS",
+        "source_commit": "e150dc0491ae747028919fb82d6598954976ede6",
+        "binary_association_status": "EXACT_RELEASE",
+        "declared_license_path": "LICENSE",
+        "materialization": {
+          "type": "RELEASE_ENTRY",
+          "path_in_release": "LICENSE"
+        },
+        "output_relative_path": "licenses/emulatorjs/LICENSE",
+        "size_bytes": 35111,
+        "sha256": "a617fab6d251b3302b1cb2c1c94f52d1c584f6fcb2fc218ec1a475bc08053a61"
+      },
+      {
+        "component_id": "fceumm",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/0",
+        "repository": "https://github.com/EmulatorJS/libretro-fceumm",
+        "source_commit": "d9d7e141274d07186b6a871ca2919b6f13cfb2f9",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "declared_license_path": "Copying",
+        "materialization": {
+          "type": "PINNED_RAW_FILE",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/libretro-fceumm/d9d7e141274d07186b6a871ca2919b6f13cfb2f9/Copying"
+        },
+        "output_relative_path": "licenses/fceumm/Copying",
+        "size_bytes": 18010,
+        "sha256": "a6996dcf0c334281f734560926e079b2dbbd5b78e81c0ca00a413ec01e1cd2fb"
+      },
+      {
+        "component_id": "snes9x",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/1",
+        "repository": "https://github.com/EmulatorJS/snes9x",
+        "source_commit": "6ca2343e5f3b0acbea49ca958251e3a0af58a81d",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "declared_license_path": "LICENSE",
+        "materialization": {
+          "type": "PINNED_RAW_FILE",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/snes9x/6ca2343e5f3b0acbea49ca958251e3a0af58a81d/LICENSE"
+        },
+        "output_relative_path": "licenses/snes9x/LICENSE",
+        "size_bytes": 7047,
+        "sha256": "70efeee282d82a6e9d26aeed5466d08c632369858371dc6a4644c8dcedc2be78"
+      },
+      {
+        "component_id": "gambatte",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/2",
+        "repository": "https://github.com/EmulatorJS/gambatte-libretro",
+        "source_commit": "811b1f7a56c16f8588caada36d7a3f9a56cb16d4",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "declared_license_path": "COPYING",
+        "materialization": {
+          "type": "PINNED_RAW_FILE",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/gambatte-libretro/811b1f7a56c16f8588caada36d7a3f9a56cb16d4/COPYING"
+        },
+        "output_relative_path": "licenses/gambatte/COPYING",
+        "size_bytes": 17987,
+        "sha256": "ab15fd526bd8dd18a9e77ebc139656bf4d33e97fc7238cd11bf60e2b9b8666c6"
+      },
+      {
+        "component_id": "mgba",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/3",
+        "repository": "https://github.com/EmulatorJS/mgba",
+        "source_commit": "57678d6180e7020798809703283e02d2bba18b63",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "declared_license_path": "LICENSE",
+        "materialization": {
+          "type": "PINNED_RAW_FILE",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/mgba/57678d6180e7020798809703283e02d2bba18b63/LICENSE"
+        },
+        "output_relative_path": "licenses/mgba/LICENSE",
+        "size_bytes": 16726,
+        "sha256": "fab3dd6bdab226f1c08630b1dd917e11fcb4ec5e1e020e2c16f83a0a13863e85"
+      },
+      {
+        "component_id": "fbneo",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/4",
+        "repository": "https://github.com/EmulatorJS/FBNeo",
+        "source_commit": "c8c70ba4858458c44b7200b88a29ebbb48c9bb23",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "declared_license_path": "src/license.txt",
+        "materialization": {
+          "type": "PINNED_RAW_FILE",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/FBNeo/c8c70ba4858458c44b7200b88a29ebbb48c9bb23/src/license.txt"
+        },
+        "output_relative_path": "licenses/fbneo/license.txt",
+        "size_bytes": 11086,
+        "sha256": "957b7bc8ef1e269eecf090022739e5444df2bad6add8ce4f04379ddbe30d88da"
+      },
+      {
+        "component_id": "mame2003",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/5",
+        "repository": "https://github.com/EmulatorJS/mame2003-libretro",
+        "source_commit": "a5c20980f1df1b49e2cc2298ed924cf0c7907f68",
+        "binary_association_status": "EMBEDDED_GIT_VERSION",
+        "declared_license_path": "LICENSE.md",
+        "materialization": {
+          "type": "PINNED_RAW_FILE",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/mame2003-libretro/a5c20980f1df1b49e2cc2298ed924cf0c7907f68/LICENSE.md"
+        },
+        "output_relative_path": "licenses/mame2003/LICENSE.md",
+        "size_bytes": 7937,
+        "sha256": "ba6c4d2d81531ba22fe9d2cf6ce6b4787b7c7e5fc4bcdfe4aa4c2012508f9549"
+      },
+      {
+        "component_id": "mame2003_plus",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/6",
+        "repository": "https://github.com/EmulatorJS/mame2003-plus-libretro",
+        "source_commit": "09e84fe55799031e225b9da5e526d82ee85b9cd8",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "declared_license_path": "LICENSE.md",
+        "materialization": {
+          "type": "PINNED_RAW_FILE",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/mame2003-plus-libretro/09e84fe55799031e225b9da5e526d82ee85b9cd8/LICENSE.md"
+        },
+        "output_relative_path": "licenses/mame2003_plus/LICENSE.md",
+        "size_bytes": 7913,
+        "sha256": "b3a631505e25262c3e0ed794195344d226c38c747e96e744b5c69e8d548a812f"
+      },
+      {
+        "component_id": "dosbox_pure",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/7",
+        "repository": "https://github.com/EmulatorJS/dosbox-pure",
+        "source_commit": "bdabec1651380f3f736eecff8d859090ae822f9b",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "declared_license_path": "LICENSE",
+        "materialization": {
+          "type": "PINNED_RAW_FILE",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/dosbox-pure/bdabec1651380f3f736eecff8d859090ae822f9b/LICENSE"
+        },
+        "output_relative_path": "licenses/dosbox_pure/LICENSE",
+        "size_bytes": 17995,
+        "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374"
+      }
+    ]
+  },
+  "emulatorjs": {
+    "version": "4.2.3",
+    "tag": "v4.2.3",
+    "tag_commit": "e150dc0491ae747028919fb82d6598954976ede6",
+    "release_published_at": "2025-07-05T19:41:36Z",
+    "player_adapter": {
+      "id": "ejs-4.2.3-v1",
+      "runtime_base_path_in_release": "data/",
+      "loader_path_in_release": "data/loader.js"
+    },
+    "release_asset": {
+      "name": "4.2.3.7z",
+      "size_bytes": 303554683,
+      "sha256": "07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b",
+      "url": "https://github.com/EmulatorJS/EmulatorJS/releases/download/v4.2.3/4.2.3.7z"
+    },
+    "build_pipeline": {
+      "repository": "https://github.com/EmulatorJS/build",
+      "commit_at_build_time": "b24e5b535034dc7c3428d76f236d4793881969b6",
+      "source_resolution_note": "The official v4.2.3 core reports contain build timestamps but no source commit. Source associations are marked per core: inferred from the build timestamp unless an embedded core Git version was observed at runtime."
+    },
+    "runtime_allowlist": [
+      {"path_in_release":"LICENSE","size_bytes":35111,"sha256":"a617fab6d251b3302b1cb2c1c94f52d1c584f6fcb2fc218ec1a475bc08053a61","role":"license"},
+      {"path_in_release":"data/loader.js","size_bytes":7594,"sha256":"69e0903bf1e2f62ced78895e7e511fa26e11316f7eb734925c35e919ba1287b2","role":"loader"},
+      {"path_in_release":"data/emulator.min.js","size_bytes":426343,"sha256":"6aec3fd7bb2721255801b0a6af02e47e78b05e28a1822b1f213aacbd348abaee","role":"loader"},
+      {"path_in_release":"data/emulator.min.css","size_bytes":25630,"sha256":"16406c60b2dc3b04ae9b115e308613e6f567a0cc7068e21d9d0c1e5030fb395e","role":"loader"},
+      {"path_in_release":"data/compression/extractzip.js","size_bytes":196199,"sha256":"3cc825428724213acd43d30552a78008e0869b2326de17dee240dbff9ee2f629","role":"archive_helper"},
+      {"path_in_release":"data/localization/en-US.json","size_bytes":9825,"sha256":"b0c9a9bb92ecd2d03614ee2b0eeda160e883ee79ea94d9e8131addb92c5803f9","role":"localization_fallback"},
+      {"path_in_release":"data/localization/zh-CN.json","size_bytes":10521,"sha256":"a20b7d3c3395d3cce4d697b45555e4228c076f07caba1c2bcf76bb66bedb79d2","role":"localization"},
+      {"path_in_release":"data/localization/retroarch.json","size_bytes":30095,"sha256":"31e0c9c1876402da54219ad6da5294eafe78e94d4663e7d2b02193d1b14925b7","role":"localization"},
+      {"path_in_release":"data/cores/cores.json","size_bytes":21091,"sha256":"ac78770a8f1db3f9bd0c2ace86b3cf6c32e5f56ee670fda47ce22091aae9ec64","role":"core_index"},
+      {"path_in_release":"data/cores/reports/fceumm.json","size_bytes":120,"sha256":"13dbbfba0ea1bea087c97c38f47dd49c3fb8f16c3f5ed5678dd75d352b737132","role":"core_report"},
+      {"path_in_release":"data/cores/reports/snes9x.json","size_bytes":120,"sha256":"dc7ac963eb7935a7ac78956235ac0b8912ec785c57026336825aa2ed8031b3ad","role":"core_report"},
+      {"path_in_release":"data/cores/reports/gambatte.json","size_bytes":122,"sha256":"a240a47bd6b2a38a6c46ee63c80bdcd24befbd50474453df4898d49282bd5f57","role":"core_report"},
+      {"path_in_release":"data/cores/reports/mgba.json","size_bytes":118,"sha256":"08219f6c855a9d996f04ed21169bb0c5ac64d469a8a536468b9876205b5c268d","role":"core_report"},
+      {"path_in_release":"data/cores/reports/fbneo.json","size_bytes":119,"sha256":"d2c5e07c2afc2b53937f14b721d7d025ad599d111e9627fc77e9b3fd17450e70","role":"core_report"},
+      {"path_in_release":"data/cores/reports/mame2003.json","size_bytes":263,"sha256":"abaf28221e2e30c664b536c7ece73e1a93cc3736978f33215ef09efd14ecdf6d","role":"core_report"},
+      {"path_in_release":"data/cores/reports/mame2003_plus.json","size_bytes":127,"sha256":"bda548626942b8878beb6de3487043eea80e633bd53dd69e7bae7457373a48a1","role":"core_report"},
+      {"path_in_release":"data/cores/reports/dosbox_pure.json","size_bytes":193,"sha256":"2ed89393fc41fcb9c551bc2dacefcd8b4b041778c7aef23636275693e7ea6b51","role":"core_report"}
+    ],
+    "selected_core_artifacts": [
+      {"core_id":"fceumm","path_in_release":"data/cores/fceumm-wasm.data","size_bytes":1054015,"sha256":"8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493"},
+      {"core_id":"snes9x","path_in_release":"data/cores/snes9x-wasm.data","size_bytes":1093765,"sha256":"eaa0bcfce67673809886e50387a80a616b719502175db64c090d04c9d75958ee"},
+      {"core_id":"gambatte","path_in_release":"data/cores/gambatte-wasm.data","size_bytes":967156,"sha256":"ad67c7bf57f8f8b62606048e6ea498afac5b5abc76ad8de5f9dfc2a6719374bb"},
+      {"core_id":"mgba","path_in_release":"data/cores/mgba-wasm.data","size_bytes":1055616,"sha256":"01fcaf6d4296ef1db6676e0c69400c4474e24572d0b2b99cc097e4ae885e02d7"},
+      {"core_id":"fbneo","path_in_release":"data/cores/fbneo-wasm.data","size_bytes":8273551,"sha256":"315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c"},
+      {"core_id":"mame2003","path_in_release":null,"local_path":"overrides/mame2003-4.2.1-wasm.data","size_bytes":4993110,"sha256":"1d8283ce042f71607b9b55656cd4068f703c52faa7a3d0940855c9dd21d542df","override_ref":"cores[mame2003].tested_runtime_override"},
+      {"core_id":"mame2003_plus","path_in_release":"data/cores/mame2003_plus-wasm.data","size_bytes":5391355,"sha256":"cb6d9c80a88b65d1579d16d02128a678f8d1cd3f51de1479e647cea27b13247b"},
+      {"core_id":"dosbox_pure","path_in_release":"data/cores/dosbox_pure-thread-wasm.data","size_bytes":1793257,"sha256":"d96b657d3f2be94fec41531575e2afafd1f3cceed046b73ca34d69564aa4cc11","requires_threads":true}
+    ]
+  },
+  "cores": [
+    {
+      "core_id": "fbneo",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.2.3/data/cores/reports/fbneo.json",
+        "build_start": "2025-06-14T18:50:28Z",
+        "build_end": "2025-06-14T18:54:56Z"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/FBNeo",
+        "commit": "c8c70ba4858458c44b7200b88a29ebbb48c9bb23",
+        "commit_time": "2025-06-14T16:33:13Z",
+        "association_status": "inferred_from_official_build_timestamp"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/fbneo-wasm.data",
+          "size_bytes": 8273551,
+          "sha256": "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c"
+        },
+        {
+          "path_in_release": "data/cores/fbneo-legacy-wasm.data",
+          "size_bytes": 8272960,
+          "sha256": "9dbb6242c028f4179549f324688b654353881beb552292f939bc6171a0828b5f"
+        },
+        {
+          "path_in_release": "data/cores/fbneo-thread-wasm.data",
+          "size_bytes": 8182154,
+          "sha256": "78ed565a670462465c2e62bfdcdb2bf6bbe6691ebdb998459a4196faae07eec9"
+        },
+        {
+          "path_in_release": "data/cores/fbneo-thread-legacy-wasm.data",
+          "size_bytes": 8183085,
+          "sha256": "59386c3a3a9e0d516d92cd9a32251778d925a69e3e73193ed365cb414bbd7c14"
+        }
+      ],
+      "dat": {
+        "local_path": "fbneo/fbneo-arcade.dat",
+        "format": "logiqx-datafile-xml",
+        "root_element": "datafile",
+        "declared_name": "FinalBurn Neo - Arcade Games",
+        "declared_version": "1.0.0.03",
+        "source_type": "generated_from_matching_core_source",
+        "source_url": "https://github.com/EmulatorJS/FBNeo/tree/c8c70ba4858458c44b7200b88a29ebbb48c9bb23",
+        "generator_source_url": "https://github.com/EmulatorJS/FBNeo/blob/c8c70ba4858458c44b7200b88a29ebbb48c9bb23/src/burner/dat.cpp",
+        "generation": "release SDL2 build with RELEASEBUILD=1, then fbneo -dat; retained FBNeo_-_Arcade.dat only",
+        "materialization": {
+          "strategy": "download_pinned_snapshot_then_replace_exact_bytes",
+          "base_repository": "https://github.com/libretro/FBNeo",
+          "base_commit": "70248599206b0e6589eb0278bf9bee26333469aa",
+          "base_url": "https://raw.githubusercontent.com/libretro/FBNeo/70248599206b0e6589eb0278bf9bee26333469aa/dats/FinalBurn%20Neo%20%28ClrMame%20Pro%20XML%2C%20Arcade%20only%29.dat",
+          "base_size_bytes": 13330371,
+          "base_sha256": "734fe46695e8e23664cb2b17f86bc4a6ca895cc605bd50f12d07b01099640597",
+          "byte_replacements": [
+            {
+              "from_utf8": "width=\"400\" height=\"254\"",
+              "to_utf8": "width=\"400\" height=\"256\"",
+              "expected_count": 65
+            },
+            {
+              "from_utf8": "name=\"s_&amp;_k_",
+              "to_utf8": "name=\"s&amp;k_",
+              "expected_count": 9
+            }
+          ],
+          "provenance_note": "The base snapshot was generated by the upstream libretro automation immediately after the bound EmulatorJS source commit. The two counted byte substitutions reproduce the DAT generated directly from c8c70ba exactly; the final size and SHA-256 remain authoritative. The slower source-build recipe above is the independent audit path."
+        },
+        "size_bytes": 13330353,
+        "sha256": "99605be7351a04eb619fe1555483a00229c89e74db7657173d30fde666d73637"
+      },
+      "parse_stats": {
+        "machine_count": 7980,
+        "rom_entry_count": 155706,
+        "rom_entry_with_merge_count": 86944,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 1288,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 1288,
+        "rom_missing_sha1_count": 155706,
+        "rom_missing_all_hash_count": 1288,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 1474,
+        "cloneof_relation_count": 5470,
+        "romof_relation_count": 5841,
+        "explicit_bios_machine_count": 13,
+        "base_dependency_target_count": 13,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      }
+    },
+    {
+      "core_id": "mame2003",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.2.3/data/cores/reports/mame2003.json",
+        "build_start": "2025-06-14T19:06:32Z",
+        "build_end": "2025-06-14T19:09:40Z"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/mame2003-libretro",
+        "commit": "0ee1c0e4daf9fb7d96119ebf4627ee5d9af2c312",
+        "commit_time": "2025-05-12T02:19:48Z",
+        "association_status": "embedded_git_version_observed_in_official_core_runtime_log"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/mame2003-wasm.data",
+          "size_bytes": 5031434,
+          "sha256": "064d33170bcad1e2f53145dc5ddb10257ec26adf8b4cfed92ce9e99bf017e861"
+        },
+        {
+          "path_in_release": "data/cores/mame2003-legacy-wasm.data",
+          "size_bytes": 5030690,
+          "sha256": "626e29f411f2a922110b311a4587f51c05424183424d5df9fddb6ef82a6faf2f"
+        },
+        {
+          "path_in_release": "data/cores/mame2003-thread-wasm.data",
+          "size_bytes": 4955024,
+          "sha256": "8b1fca57ba0c955a62f0bffe604aa9604ba40d4097362910205af489b6058020"
+        },
+        {
+          "path_in_release": "data/cores/mame2003-thread-legacy-wasm.data",
+          "size_bytes": 4954461,
+          "sha256": "cee6b1883c7a5c7be0c547c44820dd6774529bffd818b83627417f01ef8a5c13"
+        }
+      ],
+      "tested_runtime_override": {
+        "reason": "The official v4.2.3 MAME2003 bundle 2.0.2 aborts during retro_load_game in Chrome 149 for two DAT-valid parent sets. Retrom's smoke fixture therefore pins the closest tested official compatible bundle while retaining the v4.2.3 frontend runtime.",
+        "runtime_emulatorjs_version": "4.2.3",
+        "core_bundle_emulatorjs_version": "4.2.1",
+        "core_bundle_version": "2.0.1",
+        "official_url": "https://cdn.emulatorjs.org/4.2.1/data/cores/mame2003-wasm.data",
+        "local_path_from_repository_root": "data/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data",
+        "size_bytes": 4993110,
+        "sha256": "1d8283ce042f71607b9b55656cd4068f703c52faa7a3d0940855c9dd21d542df",
+        "build_report": {
+          "url": "https://cdn.emulatorjs.org/4.2.1/data/cores/reports/mame2003.json",
+          "build_start": "2025-01-07T14:01:24Z",
+          "build_end": "2025-01-07T14:04:51Z"
+        },
+        "core_source": {
+          "repository": "https://github.com/EmulatorJS/mame2003-libretro",
+          "commit": "a5c20980f1df1b49e2cc2298ed924cf0c7907f68",
+          "commit_time": "2024-12-10T04:50:32Z",
+          "association_status": "embedded_git_version_observed_in_official_core_runtime_log"
+        },
+        "dat_compatibility": "metadata/mame2003.xml is byte-identical at the override and v4.2.3 core source commits",
+        "dat_sha256": "dacf9d5739ddf386705bc703f7f70239ac61b8ab44c438f76f6658c7156da147"
+      },
+      "dat": {
+        "local_path": "mame2003/mame2003.xml",
+        "format": "mame-listxml",
+        "root_element": "mame",
+        "declared_name": null,
+        "declared_version": null,
+        "compatibility_family": "MAME 0.78",
+        "source_type": "file_from_matching_core_source",
+        "source_url": "https://github.com/EmulatorJS/mame2003-libretro/blob/0ee1c0e4daf9fb7d96119ebf4627ee5d9af2c312/metadata/mame2003.xml",
+        "materialization": {
+          "strategy": "download_exact_file",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/mame2003-libretro/0ee1c0e4daf9fb7d96119ebf4627ee5d9af2c312/metadata/mame2003.xml"
+        },
+        "upstream_git_blob_sha1": "402017d7798acb5da9e89c446a4fa6914abe7491",
+        "size_bytes": 19304927,
+        "sha256": "dacf9d5739ddf386705bc703f7f70239ac61b8ab44c438f76f6658c7156da147"
+      },
+      "parse_stats": {
+        "machine_count": 4727,
+        "rom_entry_count": 70951,
+        "rom_entry_with_merge_count": 24274,
+        "rom_entry_with_bios_count": 1408,
+        "rom_nodump_count": 148,
+        "rom_baddump_count": 177,
+        "rom_missing_crc32_count": 148,
+        "rom_missing_sha1_count": 154,
+        "rom_missing_all_hash_count": 148,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 1427,
+        "default_bios_set_count": 213,
+        "disk_entry_count": 30,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 2024,
+        "cloneof_relation_count": 2045,
+        "romof_relation_count": 2415,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 17,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 1,
+        "unresolved_romof_targets": [
+          "psarc95"
+        ]
+      }
+    },
+    {
+      "core_id": "mame2003_plus",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.2.3/data/cores/reports/mame2003_plus.json",
+        "build_start": "2025-06-14T19:09:40Z",
+        "build_end": "2025-06-14T19:14:42Z"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/mame2003-plus-libretro",
+        "commit": "09e84fe55799031e225b9da5e526d82ee85b9cd8",
+        "commit_time": "2025-06-13T20:06:05Z",
+        "association_status": "inferred_from_official_build_timestamp"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/mame2003_plus-wasm.data",
+          "size_bytes": 5391355,
+          "sha256": "cb6d9c80a88b65d1579d16d02128a678f8d1cd3f51de1479e647cea27b13247b"
+        },
+        {
+          "path_in_release": "data/cores/mame2003_plus-legacy-wasm.data",
+          "size_bytes": 5388568,
+          "sha256": "a01286082b7b2b83cc10e702afaf730f5effedb49e583a6ca73f59bc28b0c12a"
+        },
+        {
+          "path_in_release": "data/cores/mame2003_plus-thread-wasm.data",
+          "size_bytes": 5300486,
+          "sha256": "66daad3091cface59814910d2e390eab84c37b352d7bcc185fafaf95532b8bc3"
+        },
+        {
+          "path_in_release": "data/cores/mame2003_plus-thread-legacy-wasm.data",
+          "size_bytes": 5302802,
+          "sha256": "5b60a8101fd9cbd65bee6a723eac88e0350552fb0fe939786d66f40118c1d2c3"
+        }
+      ],
+      "dat": {
+        "local_path": "mame2003_plus/mame2003-plus.xml",
+        "format": "mame-listxml",
+        "root_element": "mame",
+        "declared_name": null,
+        "declared_version": null,
+        "compatibility_family": "MAME 2003-Plus at the bound core source commit",
+        "source_type": "file_from_matching_core_source",
+        "source_url": "https://github.com/EmulatorJS/mame2003-plus-libretro/blob/09e84fe55799031e225b9da5e526d82ee85b9cd8/metadata/mame2003-plus.xml",
+        "materialization": {
+          "strategy": "download_exact_file",
+          "url": "https://raw.githubusercontent.com/EmulatorJS/mame2003-plus-libretro/09e84fe55799031e225b9da5e526d82ee85b9cd8/metadata/mame2003-plus.xml"
+        },
+        "upstream_git_blob_sha1": "0ee9922294fcf89ce10fca72b009bab6f9da0628",
+        "size_bytes": 21961641,
+        "sha256": "e1107634c5847b825d6769e19e38cee7581f2faedd213c2457580aa6a7d7303c"
+      },
+      "parse_stats": {
+        "machine_count": 5257,
+        "rom_entry_count": 80829,
+        "rom_entry_with_merge_count": 29580,
+        "rom_entry_with_bios_count": 3435,
+        "rom_nodump_count": 92,
+        "rom_baddump_count": 140,
+        "rom_missing_crc32_count": 92,
+        "rom_missing_sha1_count": 193,
+        "rom_missing_all_hash_count": 92,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 3462,
+        "default_bios_set_count": 268,
+        "disk_entry_count": 30,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 6752,
+        "cloneof_relation_count": 2331,
+        "romof_relation_count": 2744,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 17,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 1,
+        "unresolved_romof_targets": [
+          "psarc95"
+        ]
+      }
+    }
+  ]
+}

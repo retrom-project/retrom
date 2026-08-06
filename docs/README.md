@@ -1,0 +1,73 @@
+# Retrom 文档索引
+
+Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数据基线”维护。总览只保留跨领域决策；字段与流程在对应专题维护一次，全部验收 Case 只在统一验收文档维护。
+
+## 实施就绪结论
+
+一期需求已经收敛到可实施阶段，实施从 [`implementation-plan.md`](./implementation-plan.md) 的 M0 开始。这里的“可实施”表示产品范围、领域归属、数据不变量、HTTP/安全边界、第三方版本、页面行为、质量门禁和最终验收均已有唯一事实源，不需要实现 Agent 再决定产品语义；不表示代码、migration、OpenAPI 或生成物已经存在或项目已经交付。
+
+| 检查面 | 状态 | 实施事实源 |
+| --- | --- | --- |
+| 一期范围、非目标与跨模块不变量 | 已锁定 | [`retrom-product-architecture.md`](./retrom-product-architecture.md) |
+| 实体、状态机、migration 顺序与存储安全 | 已锁定 | [`data-model.md`](./data-model.md)、[`storage-and-database.md`](./storage-and-database.md)、[`implementation-plan.md`](./implementation-plan.md) |
+| HTTP、上传、SSE、并发、凭据与诊断输出 | 已锁定；实施时按切片先写 OpenAPI | [`http-api-contract.md`](./http-api-contract.md) |
+| EmulatorJS/core/DAT/BIOS 与真实兼容基线 | 已锁定；payload 按 manifest 物化 | [`dependency-management.md`](./dependency-management.md)、[`core-runtime-validation.md`](./core-runtime-validation.md) |
+| 页面、直接启动、4K 与无障碍 | 已锁定 | [`ui-specification.md`](./ui-specification.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
+| 测试、CI、镜像与最终通过规则 | 已锁定 | [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)、[`project-acceptance.md`](./project-acceptance.md) |
+
+`api/openapi.yaml`、两端生成物、migration、Makefile 和应用代码是 M0 之后按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余条件仅是依赖首次物化需要公网、八核验收需要用户授权夹具、生产需要前置 NG，以及外部分发需要许可复核；它们的阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成一期产品决策缺口。
+
+## 从这里开始
+
+- [`../AGENTS.md`](../AGENTS.md)：项目级 Agent 实施铁律；任何代码、测试、迁移或正式文档变更都必须先遵守。
+- [`retrom-product-architecture.md`](./retrom-product-architecture.md)：一期范围、关键决策、系统关系、业务流程和阶段计划。
+- [`implementation-plan.md`](./implementation-plan.md)：不可倒置的实现依赖、migration 顺序、里程碑与退出门禁；后续 Agent 的落地路线图。
+- [`project-acceptance.md`](./project-acceptance.md)：一期唯一验收事实源；包含覆盖全部领域的可执行、可复现、短时 Case、证据格式和最终通过规则。
+- [`ui-specification.md`](./ui-specification.md)：页面信息架构、交互状态、4K 规则，以及“一次点击、自动启动、默认全屏”的 UI 契约。
+
+## 领域与实现专题
+
+- [`platform-instance.md`](./platform-instance.md)：平台目录（PlatformInstance）的唯一归属、默认核心、导入快照、数据库约束和生命周期。
+- [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核与历史回溯。
+- [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、核心专属 Arcade DAT、machine/parent/BIOS 依赖和管理能力。
+- [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、预检、EmulatorJS、DOS 启动程序、存档与游玩时长。
+- [`core-runtime-validation.md`](./core-runtime-validation.md)：8 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路与 MAME2003 兼容覆盖。
+- [`storage-and-database.md`](./storage-and-database.md)：SQLite Unix 毫秒 `INTEGER` 时间规范、表目录、本地 SHA-256 CAS、GC 和备份。
+- [`data-model.md`](./data-model.md)：一期表字段、ID、枚举、不可变 revision、外键、索引和数据库级不变量的唯一数据字典。
+- [`http-api-contract.md`](./http-api-contract.md)：JSON/错误、CSRF、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。
+- [`dependency-management.md`](./dependency-management.md)：EmulatorJS/core/DAT 的小型 manifest、构建前物化、离线校验、镜像 allowlist、许可与升级规则。
+- [`backend-api-and-operations.md`](./backend-api-and-operations.md)：Go 模块、HTTP/API、后台任务、文件端点、双镜像、`make dev`、NG/TLS 边界、安全和部署。
+- [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)：Go/Next.js lint、统一命令、镜像构建 targets、关键路径测试、bug 回归固化与 CI 落地规范。
+- [`arcade-dat-baseline.md`](./arcade-dat-baseline.md)：EmulatorJS 4.2.3、实际 core artifact、真实 Arcade DAT、SHA-256 和升级流程的精确绑定基线。
+
+## UI 评审
+
+- [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)：可交互的桌面端 UI 评审稿。
+- [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)：可交互评审稿的可维护源文件；修改页面结构时先更新此文件，再重新导出 HTML 与快照。
+- [`design/retrom-ui-library-4k.png`](./design/retrom-ui-library-4k.png)：4K 游戏库。
+- [`design/retrom-ui-game-detail.png`](./design/retrom-ui-game-detail.png)：从游戏库卡片进入的游戏详情。
+- [`design/retrom-ui-saves.png`](./design/retrom-ui-saves.png)：存档列表与直接继续入口。
+- [`design/retrom-ui-play.png`](./design/retrom-ui-play.png)：点击后自动启动的全屏 Player Shell。
+- [`design/retrom-ui-play-4k.png`](./design/retrom-ui-play-4k.png)：4K 下按视口高度放大的 Player Shell。
+- [`design/retrom-ui-admin-import-overview-4k.png`](./design/retrom-ui-admin-import-overview-4k.png)：4K 游戏入库父级总览。
+- [`design/retrom-ui-admin-import.png`](./design/retrom-ui-admin-import.png)：2560×1440 文件/目录导入与配置快照。
+- [`design/retrom-ui-admin-import-new-4k.png`](./design/retrom-ui-admin-import-new-4k.png)：4K 文件/目录导入与配置快照。
+- [`design/retrom-ui-admin-import-tasks-4k.png`](./design/retrom-ui-admin-import-tasks-4k.png)：4K ImportJob 运行态与异常处置。
+- [`design/retrom-ui-admin-review-4k.png`](./design/retrom-ui-admin-review-4k.png)：4K 导入审核。
+- [`design/retrom-ui-admin-review-history-4k.png`](./design/retrom-ui-admin-review-history-4k.png)：4K 不可变审核历史与字段差异回放。
+- [`design/retrom-ui-admin-games-4k.png`](./design/retrom-ui-admin-games-4k.png)：4K 游戏管理列表。
+- [`design/retrom-ui-admin-game-detail-4k.png`](./design/retrom-ui-admin-game-detail-4k.png)：4K 游戏管理详情的四区版本化工作台。
+- [`design/retrom-ui-platform-directories.png`](./design/retrom-ui-platform-directories.png)：4K 平台目录管理与创建表单。
+- [`design/retrom-ui-bios-files.png`](./design/retrom-ui-bios-files.png)：BIOS 文件管理。
+- [`design/retrom-ui-dat-versions.png`](./design/retrom-ui-dat-versions.png)：Arcade DAT 版本管理。
+
+## 维护规则
+
+- 跨领域产品决策先更新总览，再更新受影响专题。
+- 字段、状态机、API 和页面细节只在负责该领域的专题维护，总览仅链接和摘要。
+- 所有项目验收流程和通过标准只在 `project-acceptance.md` 维护；专题文档只按 Case ID 回链，不得复制验收清单。
+- `design/retrom-ui-review.fragment.html` 是 UI 源稿；`design/retrom-ui-review.html` 与 PNG 只从该源稿重新导出，禁止只改导出文件造成评审稿漂移。
+- `data/dat/emulatorjs/4.2.3/manifest.json` 与 `SHA256SUMS` 是 EmulatorJS/runtime、Player adapter 描述、真实 DAT 和许可输入的机器事实源；前端 adapter 实现索引固定为 `web/features/player/adapters/registry.json` 并由 `make data-check` 双向核对。runtime、DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
+- `data/example/fixtures.json` 是用户本地核心启动夹具的相对来源/hash 事实源；它不得覆盖依赖 manifest。`results/latest.json` 与 `results/manual-review.json` 只记录既有验证，正式验收必须生成当次证据；ROM、BIOS 与截图只保存在本机。
+- 任何表示时刻的 SQLite 字段必须为 Unix 毫秒 `INTEGER` 并以 `*_at_ms` 命名。
+- 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。

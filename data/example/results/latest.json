@@ -1,0 +1,502 @@
+{
+  "schemaVersion": 1,
+  "generatedAtMs": 1785954864961,
+  "emulatorjs": {
+    "version": "4.2.3",
+    "archiveSha256": "07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b"
+  },
+  "browser": {
+    "product": "Chrome/149.0.7827.114",
+    "revision": "@5be7af702aa73ed64f47858cecc86290e42f2a20",
+    "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/149.0.0.0 Safari/537.36"
+  },
+  "criteria": {
+    "minFrameDelta": 120,
+    "minColorBuckets": 3,
+    "minLuminanceStdDev": 5,
+    "minNonBlackRatio": 0.01,
+    "manualScreenshotReviewRequired": true
+  },
+  "results": [
+    {
+      "core": "fceumm",
+      "status": "passed",
+      "failure": null,
+      "startedAtMs": 1785954759247,
+      "finishedAtMs": 1785954771183,
+      "durationMs": 11936,
+      "pageUrl": "http://127.0.0.1:4173/data/example/fceumm/index.html",
+      "screenshotPath": "data/example/results/fceumm.png",
+      "smoke": {
+        "core": "fceumm",
+        "system": "nes",
+        "title": "Famicom Disk System / Smash Ping Pong",
+        "phase": "frames-advancing",
+        "configuredAtMs": 1785954759501,
+        "readyAtMs": 1785954759676,
+        "startedAtMs": 1785954760266,
+        "framesAdvancingAtMs": 1785954762516,
+        "frameStart": 0,
+        "frameNow": 123,
+        "frameDelta": 123,
+        "canvas": {
+          "width": 1246,
+          "height": 605,
+          "cssWidth": 1246,
+          "cssHeight": 605
+        },
+        "crossOriginIsolated": true,
+        "errors": []
+      },
+      "crossOriginIsolated": true,
+      "visual": {
+        "width": 1246,
+        "height": 605,
+        "sampledPixels": 188769,
+        "colorBuckets": 7,
+        "nonBlackRatio": 0.0362,
+        "meanLuminance": 9.22,
+        "luminanceStdDev": 47.61,
+        "canvasCropUsed": true
+      },
+      "expectedCoreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/fceumm-wasm.data",
+        "size": 1054015,
+        "sha256": "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493"
+      },
+      "requestedCoreAssets": [
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/reports/fceumm.json",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/fceumm-wasm.data",
+          "status": 200
+        }
+      ],
+      "consoleErrors": [],
+      "consoleMessages": []
+    },
+    {
+      "core": "snes9x",
+      "status": "passed",
+      "failure": null,
+      "startedAtMs": 1785954771183,
+      "finishedAtMs": 1785954783006,
+      "durationMs": 11823,
+      "pageUrl": "http://127.0.0.1:4173/data/example/snes9x/index.html",
+      "screenshotPath": "data/example/results/snes9x.png",
+      "smoke": {
+        "core": "snes9x",
+        "system": "snes",
+        "title": "Super Famicom / Dr. Mario",
+        "phase": "frames-advancing",
+        "configuredAtMs": 1785954771292,
+        "readyAtMs": 1785954771364,
+        "startedAtMs": 1785954772002,
+        "framesAdvancingAtMs": 1785954774260,
+        "frameStart": 0,
+        "frameNow": 133,
+        "frameDelta": 133,
+        "canvas": {
+          "width": 1246,
+          "height": 605,
+          "cssWidth": 1246,
+          "cssHeight": 605
+        },
+        "crossOriginIsolated": true,
+        "errors": []
+      },
+      "crossOriginIsolated": true,
+      "visual": {
+        "width": 1246,
+        "height": 605,
+        "sampledPixels": 188769,
+        "colorBuckets": 55,
+        "nonBlackRatio": 0.6107,
+        "meanLuminance": 68.83,
+        "luminanceStdDev": 73.08,
+        "canvasCropUsed": true
+      },
+      "expectedCoreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/snes9x-wasm.data",
+        "size": 1093765,
+        "sha256": "eaa0bcfce67673809886e50387a80a616b719502175db64c090d04c9d75958ee"
+      },
+      "requestedCoreAssets": [
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/reports/snes9x.json",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/snes9x-wasm.data",
+          "status": 200
+        }
+      ],
+      "consoleErrors": [],
+      "consoleMessages": []
+    },
+    {
+      "core": "gambatte",
+      "status": "passed",
+      "failure": null,
+      "startedAtMs": 1785954783006,
+      "finishedAtMs": 1785954793095,
+      "durationMs": 10089,
+      "pageUrl": "http://127.0.0.1:4173/data/example/gambatte/index.html",
+      "screenshotPath": "data/example/results/gambatte.png",
+      "smoke": {
+        "core": "gambatte",
+        "system": "gb",
+        "title": "Game Boy / Tetris",
+        "phase": "frames-advancing",
+        "configuredAtMs": 1785954783084,
+        "readyAtMs": 1785954783143,
+        "startedAtMs": 1785954783608,
+        "framesAdvancingAtMs": 1785954785611,
+        "frameStart": 0,
+        "frameNow": 120,
+        "frameDelta": 120,
+        "canvas": {
+          "width": 1246,
+          "height": 605,
+          "cssWidth": 1246,
+          "cssHeight": 605
+        },
+        "crossOriginIsolated": true,
+        "errors": []
+      },
+      "crossOriginIsolated": true,
+      "visual": {
+        "width": 1246,
+        "height": 605,
+        "sampledPixels": 188769,
+        "colorBuckets": 7,
+        "nonBlackRatio": 0.4484,
+        "meanLuminance": 113.05,
+        "luminanceStdDev": 125.39,
+        "canvasCropUsed": true
+      },
+      "expectedCoreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/gambatte-wasm.data",
+        "size": 967156,
+        "sha256": "ad67c7bf57f8f8b62606048e6ea498afac5b5abc76ad8de5f9dfc2a6719374bb"
+      },
+      "requestedCoreAssets": [
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/reports/gambatte.json",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/gambatte-wasm.data",
+          "status": 200
+        }
+      ],
+      "consoleErrors": [],
+      "consoleMessages": []
+    },
+    {
+      "core": "mgba",
+      "status": "passed",
+      "failure": null,
+      "startedAtMs": 1785954793095,
+      "finishedAtMs": 1785954804704,
+      "durationMs": 11609,
+      "pageUrl": "http://127.0.0.1:4173/data/example/mgba/index.html",
+      "screenshotPath": "data/example/results/mgba.png",
+      "smoke": {
+        "core": "mgba",
+        "system": "gba",
+        "title": "Game Boy Advance / Sudoku",
+        "phase": "frames-advancing",
+        "configuredAtMs": 1785954793190,
+        "readyAtMs": 1785954793253,
+        "startedAtMs": 1785954793756,
+        "framesAdvancingAtMs": 1785954796007,
+        "frameStart": 0,
+        "frameNow": 134,
+        "frameDelta": 134,
+        "canvas": {
+          "width": 1246,
+          "height": 605,
+          "cssWidth": 1246,
+          "cssHeight": 605
+        },
+        "crossOriginIsolated": true,
+        "errors": []
+      },
+      "crossOriginIsolated": true,
+      "visual": {
+        "width": 1246,
+        "height": 605,
+        "sampledPixels": 188769,
+        "colorBuckets": 214,
+        "nonBlackRatio": 0.7288,
+        "meanLuminance": 110.88,
+        "luminanceStdDev": 81.63,
+        "canvasCropUsed": true
+      },
+      "expectedCoreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data",
+        "size": 1055616,
+        "sha256": "01fcaf6d4296ef1db6676e0c69400c4474e24572d0b2b99cc097e4ae885e02d7"
+      },
+      "requestedCoreAssets": [
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/reports/mgba.json",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data",
+          "status": 200
+        }
+      ],
+      "consoleErrors": [],
+      "consoleMessages": []
+    },
+    {
+      "core": "fbneo",
+      "status": "passed",
+      "failure": null,
+      "startedAtMs": 1785954804704,
+      "finishedAtMs": 1785954818762,
+      "durationMs": 14058,
+      "pageUrl": "http://127.0.0.1:4173/data/example/fbneo/index.html",
+      "screenshotPath": "data/example/results/fbneo.png",
+      "smoke": {
+        "core": "fbneo",
+        "system": "arcade",
+        "title": "Arcade / Lode Runner",
+        "phase": "frames-advancing",
+        "configuredAtMs": 1785954804786,
+        "readyAtMs": 1785954804867,
+        "startedAtMs": 1785954806716,
+        "framesAdvancingAtMs": 1785954808970,
+        "frameStart": 0,
+        "frameNow": 126,
+        "frameDelta": 126,
+        "canvas": {
+          "width": 1246,
+          "height": 605,
+          "cssWidth": 1246,
+          "cssHeight": 605
+        },
+        "crossOriginIsolated": true,
+        "errors": []
+      },
+      "crossOriginIsolated": true,
+      "visual": {
+        "width": 1246,
+        "height": 605,
+        "sampledPixels": 188769,
+        "colorBuckets": 10,
+        "nonBlackRatio": 0.0539,
+        "meanLuminance": 5.23,
+        "luminanceStdDev": 27.63,
+        "canvasCropUsed": true
+      },
+      "expectedCoreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/fbneo-wasm.data",
+        "size": 8273551,
+        "sha256": "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c"
+      },
+      "requestedCoreAssets": [
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/reports/fbneo.json",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/fbneo-wasm.data",
+          "status": 200
+        }
+      ],
+      "consoleErrors": [],
+      "consoleMessages": []
+    },
+    {
+      "core": "mame2003",
+      "status": "passed",
+      "failure": null,
+      "startedAtMs": 1785954818762,
+      "finishedAtMs": 1785954832278,
+      "durationMs": 13516,
+      "pageUrl": "http://127.0.0.1:4173/data/example/mame2003/index.html",
+      "screenshotPath": "data/example/results/mame2003.png",
+      "smoke": {
+        "core": "mame2003",
+        "system": "mame",
+        "title": "Arcade / Lode Runner",
+        "phase": "frames-advancing",
+        "configuredAtMs": 1785954818847,
+        "readyAtMs": 1785954818953,
+        "startedAtMs": 1785954820229,
+        "framesAdvancingAtMs": 1785954822484,
+        "frameStart": 0,
+        "frameNow": 129,
+        "frameDelta": 129,
+        "canvas": {
+          "width": 1246,
+          "height": 605,
+          "cssWidth": 1246,
+          "cssHeight": 605
+        },
+        "crossOriginIsolated": true,
+        "errors": []
+      },
+      "crossOriginIsolated": true,
+      "visual": {
+        "width": 1246,
+        "height": 605,
+        "sampledPixels": 188769,
+        "colorBuckets": 13,
+        "nonBlackRatio": 0.0486,
+        "meanLuminance": 6.09,
+        "luminanceStdDev": 32.49,
+        "canvasCropUsed": true
+      },
+      "expectedCoreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data",
+        "size": 4993110,
+        "sha256": "1d8283ce042f71607b9b55656cd4068f703c52faa7a3d0940855c9dd21d542df",
+        "sourceEmulatorjsVersion": "4.2.1",
+        "sourceUrl": "https://cdn.emulatorjs.org/4.2.1/data/cores/mame2003-wasm.data",
+        "bundleVersion": "2.0.1",
+        "embeddedCoreCommit": "a5c20980f1df1b49e2cc2298ed924cf0c7907f68"
+      },
+      "requestedCoreAssets": [
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/reports/mame2003.json",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data",
+          "status": 200
+        }
+      ],
+      "consoleErrors": [],
+      "consoleMessages": []
+    },
+    {
+      "core": "mame2003_plus",
+      "status": "passed",
+      "failure": null,
+      "startedAtMs": 1785954832278,
+      "finishedAtMs": 1785954845827,
+      "durationMs": 13549,
+      "pageUrl": "http://127.0.0.1:4173/data/example/mame2003_plus/index.html",
+      "screenshotPath": "data/example/results/mame2003_plus.png",
+      "smoke": {
+        "core": "mame2003_plus",
+        "system": "mame",
+        "title": "Arcade / Lode Runner",
+        "phase": "frames-advancing",
+        "configuredAtMs": 1785954832357,
+        "readyAtMs": 1785954832443,
+        "startedAtMs": 1785954833796,
+        "framesAdvancingAtMs": 1785954836049,
+        "frameStart": 0,
+        "frameNow": 125,
+        "frameDelta": 125,
+        "canvas": {
+          "width": 1246,
+          "height": 605,
+          "cssWidth": 1246,
+          "cssHeight": 605
+        },
+        "crossOriginIsolated": true,
+        "errors": []
+      },
+      "crossOriginIsolated": true,
+      "visual": {
+        "width": 1246,
+        "height": 605,
+        "sampledPixels": 188769,
+        "colorBuckets": 10,
+        "nonBlackRatio": 0.0539,
+        "meanLuminance": 5.23,
+        "luminanceStdDev": 27.63,
+        "canvasCropUsed": true
+      },
+      "expectedCoreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/mame2003_plus-wasm.data",
+        "size": 5391355,
+        "sha256": "cb6d9c80a88b65d1579d16d02128a678f8d1cd3f51de1479e647cea27b13247b"
+      },
+      "requestedCoreAssets": [
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/reports/mame2003_plus.json",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/mame2003_plus-wasm.data",
+          "status": 200
+        }
+      ],
+      "consoleErrors": [],
+      "consoleMessages": []
+    },
+    {
+      "core": "dosbox_pure",
+      "status": "passed",
+      "failure": null,
+      "startedAtMs": 1785954845827,
+      "finishedAtMs": 1785954864961,
+      "durationMs": 19134,
+      "pageUrl": "http://127.0.0.1:4173/data/example/dosbox_pure/index.html",
+      "screenshotPath": "data/example/results/dosbox_pure.png",
+      "smoke": {
+        "core": "dosbox_pure",
+        "system": "dos",
+        "title": "MS-DOS / DOOM II",
+        "phase": "frames-advancing",
+        "configuredAtMs": 1785954845909,
+        "readyAtMs": 1785954846015,
+        "startedAtMs": 1785954847349,
+        "framesAdvancingAtMs": 1785954849356,
+        "frameStart": 0,
+        "frameNow": 121,
+        "frameDelta": 121,
+        "canvas": {
+          "width": 1246,
+          "height": 605,
+          "cssWidth": 1246,
+          "cssHeight": 605
+        },
+        "crossOriginIsolated": true,
+        "errors": [
+          "{\"name\":\"ErrnoError\",\"errno\":20}"
+        ]
+      },
+      "crossOriginIsolated": true,
+      "visual": {
+        "width": 1246,
+        "height": 605,
+        "sampledPixels": 188769,
+        "colorBuckets": 166,
+        "nonBlackRatio": 0.6922,
+        "meanLuminance": 61.36,
+        "luminanceStdDev": 62.05,
+        "canvasCropUsed": true
+      },
+      "expectedCoreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/dosbox_pure-thread-wasm.data",
+        "size": 1793257,
+        "sha256": "d96b657d3f2be94fec41531575e2afafd1f3cceed046b73ca34d69564aa4cc11"
+      },
+      "requestedCoreAssets": [
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/reports/dosbox_pure.json",
+          "status": 200
+        },
+        {
+          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/dosbox_pure-thread-wasm.data",
+          "status": 200
+        }
+      ],
+      "consoleErrors": [
+        "ErrnoError"
+      ],
+      "consoleMessages": []
+    }
+  ]
+}

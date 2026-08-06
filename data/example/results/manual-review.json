@@ -1,0 +1,58 @@
+{
+  "schemaVersion": 1,
+  "reviewedAtMs": 1785954879887,
+  "automatedResultPath": "data/example/results/latest.json",
+  "decision": "passed",
+  "criteria": "Visible game boot, title, or attract screen; EmulatorJS wait screens and RetroArch content menus are rejected.",
+  "reviews": [
+    {
+      "core": "fceumm",
+      "decision": "passed",
+      "observed": "Nintendo Family Computer/FDS copyright boot screen",
+      "screenshotPath": "data/example/results/fceumm.png"
+    },
+    {
+      "core": "snes9x",
+      "decision": "passed",
+      "observed": "Dr. Mario title and player-selection menu",
+      "screenshotPath": "data/example/results/snes9x.png"
+    },
+    {
+      "core": "gambatte",
+      "decision": "passed",
+      "observed": "Tetris copyright boot screen",
+      "screenshotPath": "data/example/results/gambatte.png"
+    },
+    {
+      "core": "mgba",
+      "decision": "passed",
+      "observed": "Sudoku Advance title and menu screen",
+      "screenshotPath": "data/example/results/mgba.png"
+    },
+    {
+      "core": "fbneo",
+      "decision": "passed",
+      "observed": "Lode Runner title and insert-coin screen",
+      "screenshotPath": "data/example/results/fbneo.png"
+    },
+    {
+      "core": "mame2003",
+      "decision": "passed",
+      "observed": "Lode Runner title/attract screen rendered by the pinned MAME2003 compatibility core",
+      "screenshotPath": "data/example/results/mame2003.png"
+    },
+    {
+      "core": "mame2003_plus",
+      "decision": "passed",
+      "observed": "Lode Runner title and insert-coin screen",
+      "screenshotPath": "data/example/results/mame2003_plus.png"
+    },
+    {
+      "core": "dosbox_pure",
+      "decision": "passed",
+      "observed": "DOOM II title artwork",
+      "screenshotPath": "data/example/results/dosbox_pure.png",
+      "note": "A non-blocking ErrnoError was emitted after start; frames and the title sequence continued."
+    }
+  ]
+}
