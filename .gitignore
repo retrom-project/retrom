@@ -5,6 +5,7 @@
 /.artifacts/
 /.cache/
 /bin/
+/retrom
 /coverage/
 /coverage.out
 /playwright-report/
@@ -17,10 +18,14 @@
 /web/.next/
 /web/out/
 /web/coverage/
+/web/*.tsbuildinfo
 /web/playwright-report/
 /web/test-results/
 /web/.env*
 !/web/.env.example
+
+# Dependency license payload and generated notices are materialized locally.
+/data/runtime/
 
 /data/*
 !/data/dat/

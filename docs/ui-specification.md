@@ -30,7 +30,7 @@
 - [BIOS 文件 · 2560×1440](./design/retrom-ui-bios-files.png)
 - [Arcade DAT 版本 · 2560×1440](./design/retrom-ui-dat-versions.png)
 
-设计稿是已审定的页面结构、视觉语义和主流程基线，不代表最终封面素材，也不是可复制进产品的 HTML/安全配置。评审导出为了独立打开可加载外部图标脚本并使用宽松 sandbox CSP；正式 Next.js/Player 实现绝不能沿用这些 CDN、inline script 或 CSP，必须遵循 [HTTP API 契约](./http-api-contract.md#2-同源写请求与-csrf) 的同源 nonce 策略。稿内示例标题、数量和日期只是视觉内容，不是数据库 seed 或 API fixture。
+设计稿是已审定的页面结构、视觉语义和主流程基线，不代表最终封面素材，也不是可复制进产品的 HTML/安全配置。评审导出为了独立打开可加载外部图标脚本并使用宽松 sandbox CSP；正式 Next.js/Player 实现绝不能沿用这些 CDN、inline script 或 CSP，必须遵循 [HTTP API 契约](./http-api-contract.md#2-受信内网写请求) 的 nonce/CSP 策略。稿内示例标题、数量和日期只是视觉内容，不是数据库 seed 或 API fixture。
 
 本文负责完整状态和尺寸契约；静态图未展示的错误/空状态以本文为准。实现若改变导航层级、直接启动行为、阻断状态或审核流程，应先更新本文档和设计稿源文件，再重新生成 HTML/快照。
 

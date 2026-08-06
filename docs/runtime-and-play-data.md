@@ -55,7 +55,7 @@ sequenceDiagram
 
 ## 3. Launch API 与凭据
 
-唯一创建入口是 `POST /api/v1/launches`，body 包含 `gameId`、可空字符串 `coreId`、`saveStateId`、`dosEntry`、站内 `returnTo` 和当前 Chrome 的 `clientCapabilities`。精确 request/response、CSRF、Idempotency-Key、cookie、TTL 与内容路径见 [HTTP API 契约](./http-api-contract.md)。
+唯一创建入口是 `POST /api/v1/launches`，body 包含 `gameId`、可空字符串 `coreId`、`saveStateId`、`dosEntry`、站内 `returnTo` 和当前 Chrome 的 `clientCapabilities`。精确 request/response、Idempotency-Key、cookie、TTL 与内容路径见 [HTTP API 契约](./http-api-contract.md)。
 
 关键规则：
 
@@ -144,11 +144,11 @@ Player Shell 创建同源 `about:blank` iframe，由父页面在 iframe document
 - `exit`：触发最后一次持久保存、finish 和资源销毁；
 - `saveDatabaseLoaded`：取得 FS，注入服务端当前 PersistentSave；
 - `saveSaveFiles`：接收 core 定时/退出时产生的持久 bytes；
-- 浏览器 `pagehide`：使用可携带 `X-Retrom-CSRF` 的 `fetch(..., {keepalive:true})` 尝试最后 heartbeat/finish；`sendBeacon` 不能设置所需 header，不作为有效路径。服务端仍以最后已确认心跳截断。
+- 浏览器 `pagehide`：使用 `fetch(..., {keepalive:true})` 尝试最后 heartbeat/finish；服务端仍以最后已确认心跳截断。
 
 `EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。Retrom 必须同时上传非空 state 与截图，任一失败都不创建 SaveState。`EJS_onSaveSave` 是用户手动导出持久保存时的 `{ screenshot, format, save }`，自动同步则监听 `saveSaveFiles`，两条路径去重到同一 PersistentSave service。
 
-PersistentSave 预载必须避免事件竞态：Launch 创建时锁定当时可空 current revision，Player 在加载 `loader.js` 前从本次受限 URL 把该精确 revision 完整读入一个 `Uint8Array`；另一会话稍后的保存不能改变本次 GET。服务端和客户端共同硬限 64 MiB，超限在 loader 启动前以 `LAUNCH_PERSISTENT_SAVE_TOO_LARGE` 阻断，不能在主线程复制 512 MiB 级对象。`EJS_ready` 立即注册 `saveDatabaseLoaded/saveSaveFiles/exit` listener。`saveDatabaseLoaded` 在 v4.2.3 中无条件发生于 IDBFS `mount + syncfs(true)` 后、ROM 下载与 `startGame()` 前，即使 `disableDatabases=true` 也会触发；handler 必须同步取得 `gameManager.getSaveFilePath()`：有服务端 bytes 时创建父目录、覆盖目标并调用 `loadSaveFiles()`；没有服务端保存时若 IDBFS 中存在同路径旧文件则先删除并调用 `loadSaveFiles()`，避免复活浏览器残留。在任何可能调用 `saveState()` 前必须至少注册一个 `saveState` listener；v4.2.3 的 `callEvent` 忽略 callback 返回值并返回 listener 数，只有该数量为 0 时才 fallback 写入独立 `EmulatorJS-states` store，所以不得实现一个依赖 callback 布尔返回值的虚假协议。路径为空、listener 未及时安装或读写失败都终止本次运行并显示 `LAUNCH_PERSISTENT_SAVE_LOAD_FAILED`；不得等到 `start` 后再注入。每个 CoreArtifact 的此顺序必须有真实 smoke，尤其是 DOS overlay。
+PersistentSave 预载必须避免事件竞态：Launch 创建时锁定当时可空 current revision，Player 在加载 `loader.js` 前从本次受限 URL 把该精确 revision 完整读入一个 `Uint8Array`；另一会话稍后的保存不能改变本次 GET。服务端和客户端共同硬限 64 MiB，超限在 loader 启动前以 `LAUNCH_PERSISTENT_SAVE_TOO_LARGE` 阻断，不能在主线程复制 512 MiB 级对象。`EJS_ready` 立即注册 `saveDatabaseLoaded/saveSaveFiles/exit` listener。`saveDatabaseLoaded` 在 v4.2.3 中无条件发生于 IDBFS `mount + syncfs(true)` 后、ROM 下载与 `startGame()` 前，即使 `disableDatabases=true` 也会触发。真实 mGBA v4.2.3 验证表明该事件和 `startGame()` 入口处的 `gameManager.getSaveFilePath()` 均仍可为空，路径直到 `EJS_onGameStart` 才稳定；因此 handler 在 `saveDatabaseLoaded` 保存经验证的 FS 引用，并在 `EJS_onGameStart` 的第一个同步动作中暂停 main loop、取得路径、完成注入、调用 `loadSaveFiles()` 后再恢复 main loop和提交 Retrom `start` 事件。这样不会把未恢复的区间计入 PlaySession，也不会让后端开始 idle 计时。有服务端 bytes 时创建父目录并覆盖目标；没有服务端保存时若 IDBFS 中存在同路径旧文件则先删除，避免复活浏览器残留。在任何可能调用 `saveState()` 前必须至少注册一个 `saveState` listener；v4.2.3 的 `callEvent` 忽略 callback 返回值并返回 listener 数，只有该数量为 0 时才 fallback 写入独立 `EmulatorJS-states` store，所以不得实现一个依赖 callback 布尔返回值的虚假协议。路径为空、listener/FS 未及时安装或读写失败都终止本次运行并显示 `LAUNCH_PERSISTENT_SAVE_LOAD_FAILED`；不得在 Retrom `start` 事件后再注入。每个 CoreArtifact 的此顺序必须有真实 smoke，尤其是 DOS overlay。
 
 ## 7. BIOS 与 parent bundle
 

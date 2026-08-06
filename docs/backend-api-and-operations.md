@@ -94,7 +94,7 @@ web/components/           无业务状态的通用组件
 }
 ```
 
-状态码、CSRF、幂等、分页、上传及全部 route 的唯一协议见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。后端以固定 `oapi-codegen` 的 strict `net/http` 接口实现 `api/openapi.yaml`，前端由同一文件生成 TypeScript schema 并用类型化 fetch client；`make api-check` 拒绝生成物漂移。不能维护另一组手写路径、DTO 或状态码。
+状态码、受信内网写请求、幂等、分页、上传及全部 route 的唯一协议见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。后端以固定 `oapi-codegen` 的 strict `net/http` 接口实现 `api/openapi.yaml`，前端由同一文件生成 TypeScript schema 并用类型化 fetch client；`make api-check` 拒绝生成物漂移。不能维护另一组手写路径、DTO 或状态码。
 
 `strict-server` 主要约束 handler/response type，并不自动完成全部请求验证。正式 handler 外层固定使用 `github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其锁定的 `github.com/getkin/kin-openapi v0.142.0` 加载同一 OpenAPI 3.0.3，验证 path/query/header/body schema；所有固定 object schema 必须 `additionalProperties:false`。在它之前的 JSON lexical middleware 对 `application/json` body 施加 route 上限（全局最高 16 MiB），先 `utf8.Valid`，再用 token stack 拒绝重复 object key、depth >64、多个顶层值和尾随非空白，最后恢复 body 给 validator/generated binder。query middleware 根据匹配 operation 的参数集合拒绝未知名、标量重复值与非法 percent encoding。
 
@@ -109,7 +109,7 @@ web/components/           无业务状态的通用组件
 - 管理写入：upload、import、review、game revision、platform instance、BIOS installation、Arcade DAT installation。
 - 管理读取：入库总览/任务/SSE、待审核/历史、游戏管理、BIOS/DAT 状态、审计事件和脱敏诊断摘要。
 
-详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。管理 API 一期不做账户鉴权，但所有写请求仍执行同源 CSRF、乐观并发与幂等校验。浏览器目录上传只传相对路径，服务端不提供任意宿主目录扫描端点。
+详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。管理 API 一期不做账户鉴权或 CSRF 校验，但所有写请求仍执行乐观并发与幂等校验。浏览器目录上传只传相对路径，服务端不提供任意宿主目录扫描端点。
 
 ## 5. 内容端点与 LaunchSession capability
 
@@ -169,10 +169,12 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 `make dev` 是宿主机开发入口，不是容器入口，也不得依赖 Docker daemon。它先执行幂等 `make prepare-deps`，成功后以前台 supervisor 方式同时启动：
 
 1. `go run ./cmd/retrom`，默认监听 `127.0.0.1:8080`；
-2. `cd web && npm run dev`，默认监听 `127.0.0.1:3000`；
+2. `cd web && npm run dev`，默认监听所有 IPv4 接口 `0.0.0.0:3000`，可用 `NEXT_DEV_HOST` 显式收窄；
 3. Next.js dev rewrite 将 `/api/`、`/content/`、`/runtime/` 和 `/health/` 转发到本地 Go 端口，使浏览器始终访问 `http://localhost:3000` 的同一 origin。
 
-脚本必须转发 `SIGINT/SIGTERM`、在任一子进程异常退出时停止另一进程并返回非零状态，退出后不得残留后台进程。`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。
+脚本必须转发 `SIGINT/SIGTERM`、在任一子进程异常退出时停止另一进程并返回非零状态，退出后不得残留后台进程。每次启动还必须通过仓库 `.cache/retrom/dev.pid` 中的 PID、Linux process start ticks、工作目录和命令行共同确认上一实例身份；确认后先发送 `SIGTERM` 并等待最多 15 秒，旧实例完全退出后才登记新实例并启动子进程。陈旧 PID、PID 复用或其他工作目录的同名进程不得被终止；无法在期限内退出时新实例必须失败，不得按端口或进程名批量杀进程。启动接管以 `.cache/retrom/dev-takeover.lock` 串行化，PID 文件由 owner 在退出时清理。
+
+`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。前端的全接口监听只服务于受信开发局域网，后端仍保持回环监听；从另一主机访问时把 `RETROM_PUBLIC_ORIGIN` 显式设置为浏览器实际使用的单一 origin，例如 `make dev RETROM_PUBLIC_ORIGIN=http://local.sendev.cc:3000`。Next.js 配置从同一变量提取 hostname 写入开发资源/HMR 的 `allowedDevOrigins`，不维护第二份域名白名单。仅 `make dev` 注入 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true` 以支持这种明文开发 origin；普通服务进程默认拒绝非 localhost 的 HTTP origin。
 
 ### 7.3 TLS 只在 NG 终结
 
@@ -217,7 +219,8 @@ RETROM_DATA_DIR/
 | 变量 | 开发默认 / 生产规则 |
 | --- | --- |
 | `RETROM_HTTP_ADDR` | `make dev` 注入 `127.0.0.1:8080`；容器部署显式设为 `0.0.0.0:8080`，没有 HTTPS 值。 |
-| `RETROM_PUBLIC_ORIGIN` | 开发为 `http://localhost:3000`；生产必填且必须是无 path/query/fragment 的单个 `https` origin，用于 CSRF/代理校验。 |
+| `RETROM_PUBLIC_ORIGIN` | 开发为 `http://localhost:3000`；生产必填且必须是无 path/query/fragment 的单个 `https` origin，用于 cookie Secure 策略和开发 HMR host 派生，不作为写请求授权。 |
+| `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN` | 服务默认 `false`/未设置，仅接受 `https` 或 `http://localhost`；`make dev` 固定注入 `true`，允许显式 `RETROM_PUBLIC_ORIGIN=http://<开发域名或局域网地址>:3000`。生产必须保持未设置或 `false`。 |
 | `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.cache/retrom/data`，生产为持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
 | `RETROM_DB_PATH` | 未设置时派生为数据根下 `retrom.db`；若设置必须是数据根内的绝对普通文件路径。 |
 | `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；其下按 `dat/emulatorjs/<version>` 与 `runtime/emulatorjs/<version>` 布局。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。 |
@@ -239,7 +242,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 一期访问模型是“可信局域网内共享管理员”，不是公网匿名服务：
 
-- `make dev` 默认只监听回环地址；容器内可监听容器接口，但端口只能留在受信内部网络，由 NG 作为唯一对外入口。任何直接向局域网发布应用端口的部署都需显式配置并提示风险。
+- `make dev` 的 Go 后端默认只监听回环地址，Next.js 前端默认监听 `0.0.0.0:3000` 以供受信开发局域网访问；宿主机防火墙必须限制该端口，且不得把无账户管理界面直接暴露到公网。容器端口只能留在受信内部网络，由 NG 作为唯一生产入口。
 - 对外 HTTPS 必须由前置 NG 提供；Retrom 两个应用进程只监听内部 HTTP。线程模式和 Fullscreen API 的完整能力仍依赖 NG 暴露的安全上下文。
 - 所有改变状态的请求校验同源 `Origin`/`Sec-Fetch-Site`，Cookie 若存在必须为 `SameSite=Strict`。
 - 上传只接受白名单后缀只是提示层，服务端仍需检查大小、归档结构和文件魔数。

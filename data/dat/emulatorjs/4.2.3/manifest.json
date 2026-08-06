@@ -198,6 +198,7 @@
       {"path_in_release":"data/loader.js","size_bytes":7594,"sha256":"69e0903bf1e2f62ced78895e7e511fa26e11316f7eb734925c35e919ba1287b2","role":"loader"},
       {"path_in_release":"data/emulator.min.js","size_bytes":426343,"sha256":"6aec3fd7bb2721255801b0a6af02e47e78b05e28a1822b1f213aacbd348abaee","role":"loader"},
       {"path_in_release":"data/emulator.min.css","size_bytes":25630,"sha256":"16406c60b2dc3b04ae9b115e308613e6f567a0cc7068e21d9d0c1e5030fb395e","role":"loader"},
+      {"path_in_release":"data/compression/extract7z.js","size_bytes":280155,"sha256":"4ac9933b995a516cb6b3ca4027db860278372a20c21c405d93ceb1998498853a","role":"archive_helper"},
       {"path_in_release":"data/compression/extractzip.js","size_bytes":196199,"sha256":"3cc825428724213acd43d30552a78008e0869b2326de17dee240dbff9ee2f629","role":"archive_helper"},
       {"path_in_release":"data/localization/en-US.json","size_bytes":9825,"sha256":"b0c9a9bb92ecd2d03614ee2b0eeda160e883ee79ea94d9e8131addb92c5803f9","role":"localization_fallback"},
       {"path_in_release":"data/localization/zh-CN.json","size_bytes":10521,"sha256":"a20b7d3c3395d3cce4d697b45555e4228c076f07caba1c2bcf76bb66bedb79d2","role":"localization"},

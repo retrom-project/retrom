@@ -1,0 +1,717 @@
+//go:build integration
+
+package metadatascrape_test
+
+import (
+	"archive/zip"
+	"bytes"
+	"context"
+	"crypto/md5"
+	"crypto/sha1"
+	"crypto/sha256"
+	"database/sql"
+	"encoding/base64"
+	"encoding/json"
+	"fmt"
+	"hash/crc32"
+	"io"
+	"net"
+	"net/http"
+	"path/filepath"
+	"runtime"
+	"sort"
+	"strings"
+	"sync"
+	"sync/atomic"
+	"testing"
+	"time"
+
+	"retrom/internal/blobstore"
+	"retrom/internal/cleanup"
+	"retrom/internal/dependencies"
+	"retrom/internal/hasheous"
+	"retrom/internal/libraryimport"
+	"retrom/internal/metadatascrape"
+	"retrom/internal/store"
+	"retrom/internal/uploads"
+)
+
+type doerFunc func(*http.Request) (*http.Response, error)
+
+func (function doerFunc) Do(request *http.Request) (*http.Response, error) { return function(request) }
+
+type resolverFunc func(context.Context, string) ([]net.IPAddr, error)
+
+func (function resolverFunc) LookupIPAddr(ctx context.Context, host string) ([]net.IPAddr, error) {
+	return function(ctx, host)
+}
+
+func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	contents := []byte("deterministic metadata fixture")
+	upload, err := uploadService.Create(
+		ctx,
+		uploads.CreateRequest{
+			SourceType: "FILES",
+			Files: []uploads.FileDeclaration{
+				{ClientFileID: "game", RelativePath: "Metadata.gba", SizeBytes: int64(len(contents))},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(contents)
+	digestHeader := "sha-256=:" + base64.StdEncoding.EncodeToString(digest[:]) + ":"
+	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)), digestHeader, bytes.NewReader(contents)); err != nil {
+		t.Fatal(err)
+	}
+	current, _ := uploadService.Get(ctx, upload.ID)
+	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForState(t, database.SQL.QueryRowContext, `
+SELECT state
+FROM jobs
+WHERE id=?
+`, jobID, "SUCCEEDED")
+	pngBytes, _ := base64.StdEncoding.DecodeString(
+		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+	)
+	var lookupCount atomic.Int64
+	client := doerFunc(func(request *http.Request) (*http.Response, error) {
+		if request.URL.Path == "/api/v1/Lookup/ByHash" {
+			body, readErr := io.ReadAll(request.Body)
+			var hashes map[string]string
+			if readErr != nil || json.Unmarshal(body, &hashes) != nil || len(hashes) != 4 ||
+				hashes["crc"] != fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents)) ||
+				hashes["mD5"] != fmt.Sprintf("%x", md5.Sum(contents)) ||
+				hashes["shA1"] != fmt.Sprintf("%x", sha1.Sum(contents)) ||
+				hashes["shA256"] != fmt.Sprintf("%x", sha256.Sum256(contents)) {
+				t.Errorf("raw/member lookup body = %s, read error=%v", body, readErr)
+			}
+			if lookupCount.Add(1) == 1 {
+				return httpResponse(http.StatusTooManyRequests, "text/plain", "retry"), nil
+			}
+			return httpResponse(
+				http.StatusOK,
+				"application/json",
+				`{"id":73,"name":"Metadata Result","platform":{"name":"Game Boy Advance"},"signature":{"game":{"description":"safe","year":"2002"}},"attributes":[{"name":"Logo","attributeType":"ImageId","attributeRelationType":"None","value":"logo","link":"/api/v1/images/logo"}]}`,
+			), nil
+		}
+		return &http.Response{
+			StatusCode: http.StatusOK,
+			Header:     http.Header{"Content-Type": []string{"image/png"}},
+			Body:       io.NopCloser(bytes.NewReader(pngBytes)),
+		}, nil
+	})
+	resolver := resolverFunc(func(context.Context, string) ([]net.IPAddr, error) {
+		return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
+	})
+	scraper := metadatascrape.New(database.SQL, blobs, hasheous.New(client, resolver, time.Now), time.Now)
+	importer := libraryimport.New(database.SQL, time.Now, scraper).WithBlobStore(blobs)
+	created, err := importer.Create(
+		ctx,
+		libraryimport.CreateRequest{
+			UploadID:                 upload.ID,
+			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005",
+			MetadataProvider:         "HASHEOUS",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var scrapeJobID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT job_id
+FROM metadata_scrape_runs r
+JOIN import_items i ON i.id=r.import_item_id
+WHERE i.import_job_id=?
+`, created.ImportJobID).Scan(&scrapeJobID); err != nil {
+		t.Fatal(err)
+	}
+	waitForState(t, database.SQL.QueryRowContext, `
+SELECT state
+FROM jobs
+WHERE id=?
+`, scrapeJobID, "SUCCEEDED")
+	var rawProfile, rawCRC32, rawMD5, rawSHA1, rawSHA256 string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT profile,
+crc32,
+md5,
+sha1,
+sha256
+FROM content_hash_evidence e
+JOIN metadata_scrape_runs r ON r.id=e.scrape_run_id
+WHERE r.job_id=?
+`, scrapeJobID).Scan(&rawProfile, &rawCRC32, &rawMD5, &rawSHA1, &rawSHA256); err != nil ||
+		rawProfile != "RAW_FILE_V1" ||
+		rawCRC32 != fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents)) ||
+		rawMD5 != fmt.Sprintf("%x", md5.Sum(contents)) ||
+		rawSHA1 != fmt.Sprintf("%x", sha1.Sum(contents)) ||
+		rawSHA256 != fmt.Sprintf("%x", sha256.Sum256(contents)) {
+		t.Fatalf("raw evidence = %s %s %s %s %s, error=%v", rawProfile, rawCRC32, rawMD5, rawSHA1, rawSHA256, err)
+	}
+	var candidates, attempts, readyAssets, rawResponses int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT (SELECT count(*)
+FROM scrape_candidates c
+JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
+WHERE r.job_id=?),
+(SELECT count(*)
+FROM metadata_scrape_query_attempts a
+JOIN metadata_scrape_runs r ON r.id=a.scrape_run_id
+WHERE r.job_id=?),
+(SELECT count(*)
+FROM scrape_candidate_assets a
+JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
+JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
+WHERE r.job_id=?
+AND a.status='READY'),
+(SELECT count(*)
+FROM metadata_provider_responses p
+JOIN metadata_scrape_query_attempts a ON a.provider_response_id=p.id
+JOIN metadata_scrape_runs r ON r.id=a.scrape_run_id
+WHERE r.job_id=?
+AND p.raw_response_blob_id IS NOT NULL)
+`, scrapeJobID, scrapeJobID, scrapeJobID, scrapeJobID).Scan(
+		&candidates,
+		&attempts,
+		&readyAssets,
+		&rawResponses,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if lookupCount.Load() != 2 || candidates != 1 || attempts != 2 || readyAssets != 1 || rawResponses != 2 {
+		t.Fatalf(
+			"lookup/candidates/attempts/assets/raw = %d/%d/%d/%d/%d",
+			lookupCount.Load(),
+			candidates,
+			attempts,
+			readyAssets,
+			rawResponses,
+		)
+	}
+	var firstItemID, candidateID, candidateAssetID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT i.id,
+c.id,
+a.id
+FROM import_items i
+JOIN metadata_scrape_runs r ON r.import_item_id=i.id
+JOIN scrape_candidates c ON c.scrape_run_id=r.id
+JOIN scrape_candidate_assets a ON a.scrape_candidate_id=c.id
+WHERE i.import_job_id=?
+AND a.status='READY'
+`, created.ImportJobID).Scan(&firstItemID, &candidateID, &candidateAssetID); err != nil {
+		t.Fatal(err)
+	}
+	var draftPatch libraryimport.DraftPatch
+	patchJSON, _ := json.Marshal(
+		map[string]any{
+			"selectedCandidateId": candidateID,
+			"selectedAssets": map[string]any{
+				"coverCandidateAssetId":       candidateAssetID,
+				"backgroundCandidateAssetId":  nil,
+				"screenshotCandidateAssetIds": []string{},
+			},
+		},
+	)
+	if err := json.Unmarshal(patchJSON, &draftPatch); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := importer.PatchDraft(ctx, firstItemID, 1, draftPatch); err != nil {
+		t.Fatal(err)
+	}
+	reason := "已核对 Hasheous 候选与封面"
+	approved, err := importer.ApproveWithReason(ctx, firstItemID, 2, &reason)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var publishedAssets int
+	var providerEvidence, storedReason string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT (SELECT count(*)
+FROM game_assets
+WHERE game_id=?
+AND kind='COVER'),
+provider_evidence_json,
+reason
+FROM review_events
+WHERE import_item_id=?
+AND event_type='APPROVED'
+`, approved.GameID, firstItemID).Scan(&publishedAssets, &providerEvidence, &storedReason); err != nil ||
+		publishedAssets != 1 ||
+		storedReason != reason ||
+		!strings.Contains(providerEvidence, candidateAssetID) {
+		t.Fatalf(
+			"published review assets/evidence = %d %s %q, error=%v",
+			publishedAssets,
+			providerEvidence,
+			storedReason,
+			err,
+		)
+	}
+
+	archiveContents := makeDeterministicZIP(t, map[string][]byte{"folder/Metadata-copy.gba": contents})
+	secondUpload, err := uploadService.Create(
+		ctx,
+		uploads.CreateRequest{
+			SourceType: "FILES",
+			Files: []uploads.FileDeclaration{
+				{ClientFileID: "game-2", RelativePath: "Metadata-copy.zip", SizeBytes: int64(len(archiveContents))},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveDigest := sha256.Sum256(archiveContents)
+	archiveDigestHeader := "sha-256=:" + base64.StdEncoding.EncodeToString(archiveDigest[:]) + ":"
+	if err := uploadService.PutPart(ctx, secondUpload.ID, secondUpload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(archiveContents)-1, len(archiveContents)), archiveDigestHeader, bytes.NewReader(archiveContents)); err != nil {
+		t.Fatal(err)
+	}
+	secondCurrent, _ := uploadService.Get(ctx, secondUpload.ID)
+	secondFinalizeJob, _, err := uploadService.Complete(ctx, secondUpload.ID, secondCurrent.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForState(t, database.SQL.QueryRowContext, `
+SELECT state
+FROM jobs
+WHERE id=?
+`, secondFinalizeJob, "SUCCEEDED")
+	secondImport, err := importer.Create(
+		ctx,
+		libraryimport.CreateRequest{
+			UploadID:                 secondUpload.ID,
+			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005",
+			MetadataProvider:         "HASHEOUS",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var secondScrapeJobID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT job_id
+FROM metadata_scrape_runs r
+JOIN import_items i ON i.id=r.import_item_id
+WHERE i.import_job_id=?
+`, secondImport.ImportJobID).Scan(&secondScrapeJobID); err != nil {
+		t.Fatal(err)
+	}
+	waitForState(t, database.SQL.QueryRowContext, `
+SELECT state
+FROM jobs
+WHERE id=?
+`, secondScrapeJobID, "SUCCEEDED")
+	var memberProfile string
+	var memberArchiveID sql.NullString
+	var memberOrdinal sql.NullInt64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT e.profile,
+e.archive_blob_id,
+e.archive_entry_ordinal
+FROM content_hash_evidence e
+JOIN metadata_scrape_runs r ON r.id=e.scrape_run_id
+WHERE r.job_id=?
+`, secondScrapeJobID).Scan(&memberProfile, &memberArchiveID, &memberOrdinal); err != nil ||
+		memberProfile != "SINGLE_ARCHIVE_MEMBER_V1" || !memberArchiveID.Valid || !memberOrdinal.Valid {
+		t.Fatalf("archive member evidence = %s/%#v/%#v, error=%v", memberProfile, memberArchiveID, memberOrdinal, err)
+	}
+	var networkAttempts, cacheAttempts, providerResponses int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT
+(SELECT count(*)
+FROM metadata_scrape_query_attempts
+WHERE source='NETWORK'),
+(SELECT count(*)
+FROM metadata_scrape_query_attempts
+WHERE source='CACHE'),
+(SELECT count(*)
+FROM metadata_provider_responses
+WHERE provider='HASHEOUS')
+`).Scan(&networkAttempts, &cacheAttempts, &providerResponses); err != nil {
+		t.Fatal(err)
+	}
+	if lookupCount.Load() != 2 || networkAttempts != 2 || cacheAttempts != 1 || providerResponses != 2 {
+		t.Fatalf(
+			"cache reuse lookup/network/cache/responses = %d/%d/%d/%d",
+			lookupCount.Load(),
+			networkAttempts,
+			cacheAttempts,
+			providerResponses,
+		)
+	}
+}
+
+func TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dummy, err := blobs.Put(bytes.NewReader([]byte("arcade evidence dat")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dummyID, err := blobstore.EnsureRecord(ctx, database.SQL, dummy, "application/xml", time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var artifactID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT id
+FROM core_artifacts
+WHERE core_id='fbneo'
+AND enabled=1
+`).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE dat_versions
+SET is_active=0
+WHERE core_artifact_id=?
+`, artifactID); err != nil {
+		t.Fatal(err)
+	}
+	datID := "01980000-0000-7000-8000-000000000231"
+	now := time.Now().UnixMilli()
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO dat_versions(id,
+core_id,
+core_artifact_id,
+source,
+blob_id,
+sha256,
+parser_version,
+compatibility_status,
+parse_status,
+is_active,
+machine_count,
+rom_entry_count,
+disk_entry_count,
+bios_set_count,
+default_bios_set_count,
+explicit_bios_machine_count,
+base_dependency_target_count,
+unresolved_relation_count,
+version,
+created_at_ms,
+updated_at_ms,
+parsed_at_ms,
+activated_at_ms) VALUES(?,
+'fbneo',
+?,
+'USER',
+?,
+?,
+'test',
+'MATCHED',
+'READY',
+1,
+1,
+11,
+0,
+0,
+0,
+0,
+0,
+0,
+1,
+?,
+?,
+?,
+?)
+`, datID, artifactID, dummyID, dummy.SHA256, now, now, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO dat_machines(dat_version_id,
+machine_name,
+description,
+year,
+manufacturer,
+cloneof,
+romof,
+is_explicit_bios,
+classification) VALUES(?,
+'evidence',
+'Evidence',
+'',
+'',
+NULL,
+NULL,
+0,
+'NORMAL')
+`, datID); err != nil {
+		t.Fatal(err)
+	}
+	archiveFiles := make(map[string][]byte, 11)
+	for index := 0; index < 10; index++ {
+		archiveFiles[fmt.Sprintf("rom-%02d.bin", index)] = bytes.Repeat([]byte{byte('a' + index)}, index+1)
+	}
+	archiveFiles["duplicate.bin"] = append([]byte(nil), archiveFiles["rom-09.bin"]...)
+	archiveBytes := makeDeterministicZIP(t, archiveFiles)
+	archiveMetadata, err := blobs.Put(bytes.NewReader(archiveBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	entries, err := scanZIPForTest(blobs.Path(archiveMetadata.SHA256))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for ordinal, entry := range entries {
+		if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO dat_rom_entries(dat_version_id,
+machine_name,
+ordinal,
+name,
+size_bytes,
+crc32,
+sha1,
+status) VALUES(?,
+'evidence',
+?,
+?,
+?,
+?,
+?,
+'GOOD')
+`, datID, ordinal, entry.Name, entry.Size, entry.CRC32, entry.SHA1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(
+		ctx,
+		uploads.CreateRequest{
+			SourceType: "FILES",
+			Files: []uploads.FileDeclaration{
+				{ClientFileID: "arcade", RelativePath: "evidence.zip", SizeBytes: int64(len(archiveBytes))},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(archiveBytes)
+	digestHeader := "sha-256=:" + base64.StdEncoding.EncodeToString(digest[:]) + ":"
+	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(archiveBytes)-1, len(archiveBytes)), digestHeader, bytes.NewReader(archiveBytes)); err != nil {
+		t.Fatal(err)
+	}
+	current, _ := uploadService.Get(ctx, upload.ID)
+	finalizeJob, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForState(t, database.SQL.QueryRowContext, `
+SELECT state
+FROM jobs
+WHERE id=?
+`, finalizeJob, "SUCCEEDED")
+	var requestBodies [][]byte
+	var requestLock sync.Mutex
+	client := doerFunc(func(request *http.Request) (*http.Response, error) {
+		contents, readErr := io.ReadAll(request.Body)
+		if readErr != nil {
+			return nil, readErr
+		}
+		requestLock.Lock()
+		requestBodies = append(requestBodies, contents)
+		requestLock.Unlock()
+		return httpResponse(http.StatusNotFound, "text/plain", "not found"), nil
+	})
+	scraper := metadatascrape.New(database.SQL, blobs, hasheous.New(client, nil, time.Now), time.Now)
+	importer := libraryimport.New(database.SQL, time.Now, scraper).WithBlobStore(blobs)
+	created, err := importer.Create(
+		ctx,
+		libraryimport.CreateRequest{
+			UploadID:                 upload.ID,
+			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
+			MetadataProvider:         "NONE",
+		},
+	)
+	if err != nil || created.ItemCount != 1 {
+		t.Fatalf("create arcade import = %#v, error=%v", created, err)
+	}
+	var itemID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT id
+FROM import_items
+WHERE import_job_id=?
+`, created.ImportJobID).Scan(&itemID); err != nil {
+		t.Fatal(err)
+	}
+	scheduled, _, err := scraper.ScheduleReview(ctx, itemID, 1, "HASHEOUS")
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForState(t, database.SQL.QueryRowContext, `
+SELECT state
+FROM jobs
+WHERE id=?
+`, scheduled.JobID, "SUCCEEDED")
+	var evidenceCount, arcadeProfileCount, leakedHashCount int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT count(*),
+sum(profile='ARCADE_DAT_ENTRIES_V1'),
+sum(md5 IS NOT NULL
+OR sha256 IS NOT NULL)
+FROM content_hash_evidence
+WHERE scrape_run_id=?
+`, scheduled.RunID).Scan(&evidenceCount, &arcadeProfileCount, &leakedHashCount); err != nil {
+		t.Fatal(err)
+	}
+	requestLock.Lock()
+	bodies := append([][]byte(nil), requestBodies...)
+	requestLock.Unlock()
+	if evidenceCount != 8 || arcadeProfileCount != 8 || leakedHashCount != 0 || len(bodies) != 8 {
+		t.Fatalf(
+			"arcade evidence/profile/leaked/requests = %d/%d/%d/%d",
+			evidenceCount,
+			arcadeProfileCount,
+			leakedHashCount,
+			len(bodies),
+		)
+	}
+	for _, body := range bodies {
+		var values map[string]string
+		if err := json.Unmarshal(body, &values); err != nil || len(values) != 2 || values["crc"] == "" ||
+			values["shA1"] == "" {
+			t.Fatalf("arcade lookup body = %s, error=%v", body, err)
+		}
+	}
+}
+
+type testArchiveEntry struct {
+	Name, CRC32, SHA1 string
+	Size              int64
+}
+
+func scanZIPForTest(path string) ([]testArchiveEntry, error) {
+	reader, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, err
+	}
+	defer func() { cleanup.Error("close", reader.Close()) }()
+	result := make([]testArchiveEntry, 0, len(reader.File))
+	for _, file := range reader.File {
+		source, err := file.Open()
+		if err != nil {
+			return nil, err
+		}
+		contents, readErr := io.ReadAll(source)
+		cleanup.Error("close", source.Close())
+		if readErr != nil {
+			return nil, readErr
+		}
+		result = append(
+			result,
+			testArchiveEntry{
+				Name:  file.Name,
+				Size:  int64(len(contents)),
+				CRC32: fmt.Sprintf("%08x", file.CRC32),
+				SHA1:  fmt.Sprintf("%x", sha1Digest(contents)),
+			},
+		)
+	}
+	return result, nil
+}
+
+func sha1Digest(contents []byte) []byte {
+	digest := sha1.Sum(contents)
+	return digest[:]
+}
+
+func makeDeterministicZIP(t *testing.T, files map[string][]byte) []byte {
+	t.Helper()
+	var output bytes.Buffer
+	writer := zip.NewWriter(&output)
+	names := make([]string, 0, len(files))
+	for name := range files {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		header := &zip.FileHeader{Name: name, Method: zip.Store}
+		header.SetMode(0o644)
+		header.Modified = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
+		part, err := writer.CreateHeader(header)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := part.Write(files[name]); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	return output.Bytes()
+}
+
+type queryRow func(context.Context, string, ...any) *sql.Row
+
+func waitForState(t *testing.T, query queryRow, statement string, id string, expected string) {
+	t.Helper()
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		var state string
+		if err := query(context.Background(), statement, id).Scan(&state); err == nil && state == expected {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("state did not become %s", expected)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func httpResponse(status int, mediaType, body string) *http.Response {
+	return &http.Response{
+		StatusCode: status,
+		Header:     http.Header{"Content-Type": []string{mediaType}},
+		Body:       io.NopCloser(strings.NewReader(body)),
+	}
+}

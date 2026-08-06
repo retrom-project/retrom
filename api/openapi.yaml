@@ -1,0 +1,1264 @@
+openapi: 3.0.3
+info:
+  title: Retrom HTTP API
+  version: 1.0.0
+servers:
+  - url: /
+paths:
+  /health/live:
+    get:
+      operationId: getHealthLive
+      responses:
+        '200': { $ref: '#/components/responses/HealthLiveResponse' }
+  /health/ready:
+    get:
+      operationId: getHealthReady
+      responses:
+        '200': { $ref: '#/components/responses/HealthReadyResponse' }
+        '503': { $ref: '#/components/responses/HealthNotReadyResponse' }
+  /api/v1/session:
+    get:
+      operationId: getSession
+      deprecated: true
+      description: Legacy compatibility token; it is not used for authorization.
+      responses:
+        '200': { $ref: '#/components/responses/SessionResponse' }
+  /api/v1/home:
+    get:
+      operationId: getHome
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/games:
+    get:
+      operationId: getGames
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/games/{gameId}:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    get:
+      operationId: getGame
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/saves:
+    get:
+      operationId: getSaves
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/Availability' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/saves/{saveStateId}:
+    parameters: [{ $ref: '#/components/parameters/SaveStateID' }]
+    patch:
+      operationId: patchSave
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      requestBody: { $ref: '#/components/requestBodies/RenameSave' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    delete:
+      operationId: deleteSave
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      responses:
+        '204': { description: Deleted }
+  /api/v1/launches:
+    post:
+      operationId: postLaunch
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Launch' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/uploads:
+    post:
+      operationId: postAdminUpload
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/CreateUpload' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/uploads/{uploadId}:
+    parameters: [{ $ref: '#/components/parameters/UploadID' }]
+    get:
+      operationId: getAdminUpload
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    delete:
+      operationId: deleteAdminUpload
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      responses:
+        '204': { description: Cancelled }
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}:
+    parameters:
+      - { $ref: '#/components/parameters/UploadID' }
+      - { $ref: '#/components/parameters/FileID' }
+      - { $ref: '#/components/parameters/PartNo' }
+    put:
+      operationId: putAdminUploadPart
+      x-retrom-streaming-body: true
+      parameters:
+        - { $ref: '#/components/parameters/ContentRange' }
+        - { $ref: '#/components/parameters/ContentDigest' }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '204': { description: Stored }
+  /api/v1/admin/uploads/{uploadId}/complete:
+    parameters: [{ $ref: '#/components/parameters/UploadID' }]
+    post:
+      operationId: postAdminUploadComplete
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/imports/summary:
+    get:
+      operationId: getAdminImportsSummary
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/imports:
+    get:
+      operationId: getAdminImports
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/State' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    post:
+      operationId: postAdminImport
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/CreateImport' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/imports/{importJobId}:
+    parameters: [{ $ref: '#/components/parameters/ImportJobID' }]
+    get:
+      operationId: getAdminImport
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/imports/{importJobId}/events:
+    parameters: [{ $ref: '#/components/parameters/ImportJobID' }]
+    get:
+      operationId: getAdminImportEvents
+      parameters: [{ $ref: '#/components/parameters/LastEventID' }]
+      responses:
+        '200': { $ref: '#/components/responses/SSEResponse' }
+  /api/v1/admin/imports/{importJobId}/cancel:
+    parameters: [{ $ref: '#/components/parameters/ImportJobID' }]
+    post:
+      operationId: postAdminImportCancel
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Reason' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/import-items/{importItemId}/retry:
+    parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
+    post:
+      operationId: postAdminImportItemRetry
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/jobs/{jobId}:
+    parameters: [{ $ref: '#/components/parameters/JobID' }]
+    get:
+      operationId: getAdminJob
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/jobs/{jobId}/events:
+    parameters: [{ $ref: '#/components/parameters/JobID' }]
+    get:
+      operationId: getAdminJobEvents
+      parameters: [{ $ref: '#/components/parameters/LastEventID' }]
+      responses:
+        '200': { $ref: '#/components/responses/SSEResponse' }
+  /api/v1/admin/jobs/{jobId}/cancel:
+    parameters: [{ $ref: '#/components/parameters/JobID' }]
+    post:
+      operationId: postAdminJobCancel
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Reason' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/jobs/{jobId}/retry:
+    parameters: [{ $ref: '#/components/parameters/JobID' }]
+    post:
+      operationId: postAdminJobRetry
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/reviews:
+    get:
+      operationId: getAdminReviews
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/ImportJobIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/BlockerCode' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/reviews/{importItemId}:
+    parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
+    get:
+      operationId: getAdminReview
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    patch:
+      operationId: patchAdminReview
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      requestBody: { $ref: '#/components/requestBodies/ReviewDraft' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/reviews/{importItemId}/scrape-candidates:
+    parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
+    post:
+      operationId: postAdminReviewScrapeCandidates
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/MetadataProvider' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/reviews/{importItemId}/approve:
+    parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
+    post:
+      operationId: postAdminReviewApprove
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ApprovalReason' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/reviews/{importItemId}/discard:
+    parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
+    post:
+      operationId: postAdminReviewDiscard
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Reason' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/review-history:
+    get:
+      operationId: getAdminReviewHistory
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/Decision' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/FromAtMs' }, { $ref: '#/components/parameters/ToAtMs' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/review-history/{reviewEventId}:
+    parameters: [{ $ref: '#/components/parameters/ReviewEventID' }]
+    get:
+      operationId: getAdminReviewHistoryEvent
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/games:
+    get:
+      operationId: getAdminGames
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/games/{gameId}:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    get:
+      operationId: getAdminGame
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    patch:
+      operationId: patchAdminGame
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      requestBody: { $ref: '#/components/requestBodies/MetadataFields' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    delete:
+      operationId: deleteAdminGame
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/DeleteGame' }
+      responses:
+        '204': { description: Deleted }
+  /api/v1/admin/games/{gameId}/assets:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    post:
+      operationId: postAdminGameAsset
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/GameAsset' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/games/{gameId}/content-revisions:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    post:
+      operationId: postAdminGameContentRevision
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/UploadReference' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/games/{gameId}/scrape-candidates:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    get:
+      operationId: getAdminGameScrapeCandidates
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    post:
+      operationId: postAdminGameScrapeCandidates
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/MetadataProvider' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply:
+    parameters: [{ $ref: '#/components/parameters/GameID' }, { $ref: '#/components/parameters/CandidateID' }]
+    post:
+      operationId: postAdminGameScrapeCandidateApply
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ApplyCandidate' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/games/{gameId}/move-preview:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    post:
+      operationId: postAdminGameMovePreview
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/MovePreview' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/games/{gameId}/move:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    post:
+      operationId: postAdminGameMove
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/MoveGame' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/platforms:
+    get:
+      operationId: getAdminPlatforms
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/core-artifacts:
+    get:
+      operationId: getAdminCoreArtifacts
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/platform-instances:
+    get:
+      operationId: getAdminPlatformInstances
+      parameters: [{ $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/Enabled' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    post:
+      operationId: postAdminPlatformInstance
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/CreatePlatformInstance' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/platform-instances/{platformInstanceId}:
+    parameters: [{ $ref: '#/components/parameters/PlatformInstanceID' }]
+    get:
+      operationId: getAdminPlatformInstance
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    patch:
+      operationId: patchAdminPlatformInstance
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      requestBody: { $ref: '#/components/requestBodies/PatchPlatformInstance' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    delete:
+      operationId: deleteAdminPlatformInstance
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      responses:
+        '204': { description: Deleted }
+  /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview:
+    parameters: [{ $ref: '#/components/parameters/PlatformInstanceID' }]
+    post:
+      operationId: postAdminPlatformDefaultCorePreview
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      requestBody: { $ref: '#/components/requestBodies/DefaultCorePreview' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/platform-instances/{platformInstanceId}/default-core:
+    parameters: [{ $ref: '#/components/parameters/PlatformInstanceID' }]
+    post:
+      operationId: postAdminPlatformDefaultCore
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/DefaultCore' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/bios:
+    get:
+      operationId: getAdminBIOS
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/CoreArtifactIDQuery' }, { $ref: '#/components/parameters/Scope' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/bios/{requirementId}/installations:
+    parameters: [{ $ref: '#/components/parameters/RequirementID' }]
+    post:
+      operationId: postAdminBIOSInstallation
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/InstallBIOS' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/arcade-dats:
+    get:
+      operationId: getAdminArcadeDATs
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/CoreArtifactIDQuery' }, { $ref: '#/components/parameters/Source' }, { $ref: '#/components/parameters/ParseStatus' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    post:
+      operationId: postAdminArcadeDAT
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/CreateDAT' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/arcade-dats/{datVersionId}/diff:
+    parameters: [{ $ref: '#/components/parameters/DATVersionID' }]
+    get:
+      operationId: getAdminArcadeDATDiff
+      parameters: [{ $ref: '#/components/parameters/Section' }, { $ref: '#/components/parameters/Change' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/arcade-dats/{datVersionId}/activate:
+    parameters: [{ $ref: '#/components/parameters/DATVersionID' }]
+    post:
+      operationId: postAdminArcadeDATActivate
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ActivateDAT' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/arcade-dats/{datVersionId}/rollback:
+    parameters: [{ $ref: '#/components/parameters/DATVersionID' }]
+    post:
+      operationId: postAdminArcadeDATRollback
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ActivateDAT' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/arcade-dats/{datVersionId}:
+    parameters: [{ $ref: '#/components/parameters/DATVersionID' }]
+    delete:
+      operationId: deleteAdminArcadeDAT
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
+      responses:
+        '204': { description: Deleted }
+  /api/v1/admin/diagnostics:
+    get:
+      operationId: getAdminDiagnostics
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /content/assets/{assetId}:
+    parameters: [{ $ref: '#/components/parameters/AssetID' }]
+    get:
+      operationId: getContentAsset
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+    head:
+      operationId: headContentAsset
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+  /api/v1/admin/review-assets/{assetId}:
+    parameters: [{ $ref: '#/components/parameters/AssetID' }]
+    get:
+      operationId: getAdminReviewAsset
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+    head:
+      operationId: headAdminReviewAsset
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+  /runtime/emulatorjs/{configuredVersion}/{runtimePath}:
+    x-retrom-router-template: /runtime/emulatorjs/{configuredVersion}/{runtimePath:.+}
+    parameters:
+      - { $ref: '#/components/parameters/ConfiguredVersion' }
+      - name: runtimePath
+        in: path
+        required: true
+        schema: { type: string }
+    get:
+      operationId: getRuntimeEmulatorJS
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+    head:
+      operationId: headRuntimeEmulatorJS
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+  /runtime/launches/{launchId}/config:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    get:
+      operationId: getRuntimeLaunchConfig
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /runtime/launches/{launchId}/start:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    post:
+      operationId: postRuntimeLaunchStart
+      requestBody: { $ref: '#/components/requestBodies/PlayEvent' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /runtime/launches/{launchId}/heartbeat:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    post:
+      operationId: postRuntimeLaunchHeartbeat
+      requestBody: { $ref: '#/components/requestBodies/PlayEvent' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /runtime/launches/{launchId}/finish:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    post:
+      operationId: postRuntimeLaunchFinish
+      requestBody: { $ref: '#/components/requestBodies/PlayEvent' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /runtime/launches/{launchId}/save-states:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    post:
+      operationId: postRuntimeSaveState
+      x-retrom-streaming-body: true
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                metadata: { type: string }
+                state: { type: string, format: binary }
+                screenshot: { type: string, format: binary }
+              required: [metadata, state, screenshot]
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /runtime/launches/{launchId}/persistent-save:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    get:
+      operationId: getRuntimePersistentSave
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+        '204': { description: No persistent save }
+    put:
+      operationId: putRuntimePersistentSave
+      x-retrom-streaming-body: true
+      parameters:
+        - { $ref: '#/components/parameters/ContentDigest' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - name: X-Retrom-Save-Sequence
+          in: header
+          required: true
+          schema: { type: integer, format: int64, minimum: 1 }
+        - name: X-Retrom-Save-Event
+          in: header
+          required: true
+          schema: { type: string, enum: [AUTO_INTERVAL, MANUAL_EXPORT, EXIT] }
+      requestBody:
+        required: true
+        content:
+          application/octet-stream:
+            schema: { type: string, format: binary }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /runtime/launches/{launchId}/game/{logicalName}:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }, { $ref: '#/components/parameters/LogicalName' }]
+    get:
+      operationId: getRuntimeGame
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+    head:
+      operationId: headRuntimeGame
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+  /runtime/launches/{launchId}/bios/bundle.zip:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    get:
+      operationId: getRuntimeBIOSBundle
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+  /runtime/launches/{launchId}/parent/bundle.zip:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    get:
+      operationId: getRuntimeParentBundle
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+  /runtime/launches/{launchId}/state:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    get:
+      operationId: getRuntimeState
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+    head:
+      operationId: headRuntimeState
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+components:
+  schemas:
+    EmptyRequest:
+      type: object
+      additionalProperties: false
+    RenameSaveRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 120 }
+    LaunchRequest:
+      type: object
+      additionalProperties: false
+      required: [gameId, coreId, saveStateId, dosEntry, returnTo, clientCapabilities]
+      properties:
+        gameId: { type: string, format: uuid }
+        coreId: { type: string, nullable: true }
+        saveStateId: { type: string, format: uuid, nullable: true }
+        dosEntry: { type: string, nullable: true }
+        returnTo: { type: string }
+        clientCapabilities:
+          type: object
+          additionalProperties: false
+          required: [secureContext, crossOriginIsolated, sharedArrayBuffer]
+          properties:
+            secureContext: { type: boolean }
+            crossOriginIsolated: { type: boolean }
+            sharedArrayBuffer: { type: boolean }
+    CreateUploadRequest:
+      type: object
+      additionalProperties: false
+      required: [sourceType, files]
+      properties:
+        sourceType: { type: string, enum: [FILES, DIRECTORY] }
+        files:
+          type: array
+          minItems: 1
+          maxItems: 10000
+          items:
+            type: object
+            additionalProperties: false
+            required: [clientFileId, relativePath, sizeBytes]
+            properties:
+              clientFileId: { type: string, maxLength: 200 }
+              relativePath: { type: string, maxLength: 4096 }
+              sizeBytes: { type: integer, format: int64, minimum: 0 }
+    CreateImportRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadId, targetPlatformInstanceId, metadataProvider]
+      properties:
+        uploadId: { type: string, format: uuid }
+        targetPlatformInstanceId: { type: string, format: uuid }
+        metadataProvider: { type: string, enum: [HASHEOUS, NONE] }
+    ReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties: { reason: { type: string, minLength: 1, maxLength: 500 } }
+    ApprovalReasonRequest:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties: { reason: { type: string, nullable: true, maxLength: 500 } }
+    MetadataFields:
+      type: object
+      additionalProperties: false
+      properties:
+        title: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 10000 }
+        developer: { type: string, maxLength: 200 }
+        publisher: { type: string, maxLength: 200 }
+        genre: { type: string, maxLength: 200 }
+        players: { type: integer, format: int64, minimum: 1, maximum: 64, nullable: true }
+        releaseYear: { type: integer, format: int64, minimum: 1950, nullable: true }
+    SelectedAssetsRequest:
+      type: object
+      additionalProperties: false
+      required: [coverCandidateAssetId, backgroundCandidateAssetId, screenshotCandidateAssetIds]
+      properties:
+        coverCandidateAssetId: { type: string, format: uuid, nullable: true }
+        backgroundCandidateAssetId: { type: string, format: uuid, nullable: true }
+        screenshotCandidateAssetIds: { type: array, maxItems: 32, uniqueItems: true, items: { type: string, format: uuid } }
+    ReviewDraftRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        targetPlatformInstanceId: { type: string, format: uuid }
+        metadata: { $ref: '#/components/schemas/MetadataFields' }
+        selectedValidationId: { type: string, format: uuid }
+        selectedCandidateId: { type: string, format: uuid, nullable: true }
+        selectedAssets: { $ref: '#/components/schemas/SelectedAssetsRequest' }
+        defaultDosEntry: { type: string, nullable: true }
+      minProperties: 1
+    MetadataProviderRequest:
+      type: object
+      additionalProperties: false
+      required: [metadataProvider]
+      properties: { metadataProvider: { type: string, enum: [HASHEOUS, NONE] } }
+    DeleteGameRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmTitle]
+      properties: { confirmTitle: { type: string, minLength: 1, maxLength: 200 } }
+    GameAssetRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadFileId, kind, ordinal]
+      properties:
+        uploadFileId: { type: string, format: uuid }
+        kind: { type: string, enum: [COVER, BACKGROUND, SCREENSHOT] }
+        ordinal: { type: integer, minimum: 0, maximum: 31 }
+    UploadReferenceRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadId]
+      properties: { uploadId: { type: string, format: uuid } }
+    ApplyCandidateRequest:
+      type: object
+      additionalProperties: false
+      required: [fields, selectedAssets]
+      properties:
+        fields:
+          type: array
+          uniqueItems: true
+          items: { type: string, enum: [title, description, developer, publisher, genre, players, releaseYear] }
+        selectedAssets: { $ref: '#/components/schemas/SelectedAssetsRequest' }
+    MovePreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [targetPlatformInstanceId]
+      properties: { targetPlatformInstanceId: { type: string, format: uuid } }
+    MoveGameRequest:
+      type: object
+      additionalProperties: false
+      required: [targetPlatformInstanceId, impactDigest, confirmBlocked]
+      properties:
+        targetPlatformInstanceId: { type: string, format: uuid }
+        impactDigest: { type: string }
+        confirmBlocked: { type: boolean }
+    CreatePlatformInstanceRequest:
+      type: object
+      additionalProperties: false
+      required: [platformId, defaultCoreId, name, slug, description, sortOrder]
+      properties:
+        platformId: { type: string }
+        defaultCoreId: { type: string }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        slug: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
+        description: { type: string, maxLength: 10000 }
+        sortOrder: { type: integer, format: int64 }
+    PatchPlatformInstanceRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 10000 }
+        sortOrder: { type: integer, format: int64 }
+        enabled: { type: boolean }
+    DefaultCorePreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [coreId]
+      properties:
+        coreId: { type: string }
+        cursor: { type: string, nullable: true, maxLength: 8192 }
+        limit: { type: integer, minimum: 1, maximum: 100 }
+    DefaultCoreRequest:
+      type: object
+      additionalProperties: false
+      required: [coreId, impactDigest, confirmBlocked]
+      properties:
+        coreId: { type: string }
+        impactDigest: { type: string }
+        confirmBlocked: { type: boolean }
+    InstallBIOSRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadFileId]
+      properties: { uploadFileId: { type: string, format: uuid } }
+    CreateDATRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadFileId, coreArtifactId]
+      properties:
+        uploadFileId: { type: string, format: uuid }
+        coreArtifactId: { type: string, format: uuid }
+    ActivateDATRequest:
+      type: object
+      additionalProperties: false
+      required: [impactDigest, confirmBlocked, confirmUnknownCompatibility]
+      properties:
+        impactDigest: { type: string }
+        confirmBlocked: { type: boolean }
+        confirmUnknownCompatibility: { type: boolean }
+    PlayEventRequest:
+      type: object
+      additionalProperties: false
+      required: [clientSequence, clientObservedAtMs, previousInterval]
+      properties:
+        clientSequence: { type: integer, format: int64, minimum: 0 }
+        clientObservedAtMs: { type: integer, format: int64, minimum: 0 }
+        previousInterval:
+          nullable: true
+          allOf:
+            - type: object
+              additionalProperties: false
+              required: [running, visible, paused]
+              properties:
+                running: { type: boolean }
+                visible: { type: boolean }
+                paused: { type: boolean }
+    HealthLive:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [ok] }
+    HealthReady:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [ready] }
+    HealthNotReady:
+      type: object
+      additionalProperties: false
+      required: [status, reasonCode]
+      properties:
+        status: { type: string, enum: [not_ready] }
+        reasonCode: { type: string, enum: [DATABASE_UNAVAILABLE, CAS_UNAVAILABLE, DEPENDENCY_INVALID, DEPENDENCY_DAT_PARSE_FAILED, DEPENDENCY_INDEXING] }
+    Session:
+      type: object
+      additionalProperties: false
+      required: [csrfToken, expiresAtMs]
+      properties:
+        csrfToken: { type: string, minLength: 43, maxLength: 43 }
+        expiresAtMs: { type: integer, format: int64, minimum: 0 }
+    JSONObject:
+      type: object
+      additionalProperties: false
+      properties:
+        acceptedDurationMs: {}
+        action: {}
+        activatedAtMs: {}
+        active: {}
+        activeDurationMs: {}
+        activeEmulatorjsVersion: {}
+        activeInstallation: {}
+        activeLaunchCount: {}
+        actor: {}
+        after: {}
+        assetId: {}
+        assetIds: {}
+        assets: {}
+        association: {}
+        attributeRelationType: {}
+        attributeType: {}
+        attributes: {}
+        availability: {}
+        backgroundCandidateAssetId: {}
+        base: {}
+        baseContentRevisionId: {}
+        baseDatVersionId: {}
+        binary: {}
+        bios: {}
+        biosSetCount: {}
+        biosUrl: {}
+        blobCount: {}
+        blocked: {}
+        blockedCount: {}
+        blockerCode: {}
+        blockerCodes: {}
+        blockers: {}
+        bootstrapExpiresAtMs: {}
+        bundleVersion: {}
+        cancelReason: {}
+        cancelled: {}
+        candidateCount: {}
+        candidateId: {}
+        candidates: {}
+        change: {}
+        chunkSizeBytes: {}
+        class: {}
+        clientCapabilities: {}
+        clientFileId: {}
+        clientObservedAtMs: {}
+        clientSequence: {}
+        cloneof: {}
+        code: {}
+        column: {}
+        commit: {}
+        compatibilityCode: {}
+        compatibilityStatus: {}
+        completed: {}
+        conditionCode: {}
+        configEvidence: {}
+        configSnapshot: {}
+        configSnapshotDigest: {}
+        configuredDependencyVersionCount: {}
+        configuredEmulatorjsVersions: {}
+        configuredVersion: {}
+        contentRevisionId: {}
+        core: {}
+        coreArtifactId: {}
+        coreId: {}
+        coreName: {}
+        coreOptions: {}
+        cores: {}
+        counts: {}
+        coverCandidateAssetId: {}
+        coverUrl: {}
+        createdAtMs: {}
+        crossOriginIsolated: {}
+        csrfToken: { type: string }
+        currentContentRevisionId: {}
+        currentMetadataRevisionId: {}
+        currentVariantRevisionId: {}
+        dat: {}
+        datEvidence: {}
+        datVersionId: {}
+        databaseSchemaVersion: {}
+        databaseSha256: {}
+        decision: {}
+        default: {}
+        defaultCoreId: {}
+        defaultCoreName: {}
+        defaultCoreOptions: {}
+        defaultDosEntry: {}
+        deleteImpact: {}
+        deleted: {}
+        deletedAtMs: {}
+        dependencies: {}
+        dependencyManifests: {}
+        dependencyVersionCount: {}
+        dependencyVersions: {}
+        description: {}
+        details: {}
+        developer: {}
+        diff: {}
+        directLaunchSafe: {}
+        discarded: {}
+        disk: {}
+        diskEntryCount: {}
+        dosEntry: {}
+        dosEntries: {}
+        edges: {}
+        emulatorGameId: {}
+        emulatorjs: {}
+        emulatorjsVersion: {}
+        enabled: {}
+        entries: {}
+        error: {}
+        errorCode: {}
+        eventType: {}
+        evidence: {}
+        executionId: {}
+        executionNo: {}
+        expectedMd5: {}
+        expiresAtMs: { type: integer, format: int64 }
+        explicit: {}
+        failed: {}
+        failedItemCount: {}
+        fileCount: {}
+        fileId: {}
+        files: {}
+        filterDigest: {}
+        finalizationNo: {}
+        finalizeJobId: {}
+        flavor: {}
+        game: {}
+        gameCount: {}
+        gameId: {}
+        gameIds: {}
+        gameName: {}
+        gameTitle: {}
+        gameUrl: {}
+        gameVersion: {}
+        games: {}
+        generatedAtMs: { type: integer, format: int64 }
+        genre: {}
+        hardExpiresAtMs: {}
+        heightPx: {}
+        hitCount: {}
+        id: {}
+        ignoredFiles: {}
+        impact: {}
+        impactDigest: {}
+        importItemId: {}
+        importJobId: {}
+        imports: {}
+        inputs: {}
+        installationId: {}
+        isDefault: {}
+        itemCount: {}
+        itemId: {}
+        items: {}
+        jobId: {}
+        jobs: {}
+        kind: {}
+        level: {}
+        library: {}
+        license: {}
+        loader: {}
+        loaderUrl: {}
+        logicalName: {}
+        machine: {}
+        machineCount: {}
+        manifestPath: {}
+        manifestSha256: {}
+        maxAttempts: {}
+        md5: {}
+        mediaType: {}
+        message: {}
+        metadata: {}
+        metadataProvider: {}
+        metadataRevisionId: {}
+        mode: {}
+        name: {}
+        needsValidation: {}
+        nextCursor: {}
+        non: {}
+        operationId: {}
+        originalPath: {}
+        ordinal: {}
+        output: {}
+        parentUrl: {}
+        parse: {}
+        parseStatus: {}
+        partNo: {}
+        path: {}
+        paused: {}
+        persistentSaveId: {}
+        persistentSaveUrl: {}
+        platform: {}
+        platformId: {}
+        platformInstance: {}
+        platformInstanceId: {}
+        platformInstanceName: {}
+        platformInstanceVersion: {}
+        platformName: {}
+        playSessionId: {}
+        playUrl: {}
+        player: {}
+        playerAdapterId: {}
+        players: {}
+        previousInterval: {}
+        protected: {}
+        providerAssetId: {}
+        providerEvidence: {}
+        providerGameId: {}
+        published: {}
+        publisher: {}
+        q: {}
+        queued: {}
+        rank: {}
+        ready: {}
+        reason: {}
+        reasonCode: {}
+        reasons: {}
+        receivedParts: {}
+        receivedSizeBytes: {}
+        recentGames: {}
+        recentSaves: {}
+        rejectedFiles: {}
+        releaseYear: {}
+        repository: {}
+        requestId: {}
+        requestedArtifactBasename: {}
+        requirementId: {}
+        requirementMode: {}
+        requires: {}
+        requiresThreads: {}
+        retained: {}
+        retryAfterMs: {}
+        retryable: {}
+        returnTo: {}
+        reviewEventCount: {}
+        reviewEventId: {}
+        reviewPending: {}
+        reviewPendingCount: {}
+        reviewPendingItemCount: {}
+        reviewVersion: {}
+        revisionId: {}
+        role: {}
+        rom: {}
+        romEntryCount: {}
+        romof: {}
+        running: {}
+        runtime: {}
+        runtimeBaseUrl: {}
+        runtimePath: {}
+        runtimePathOverrides: {}
+        sample: {}
+        saveStateCount: {}
+        saveStateId: {}
+        saveStates: {}
+        scheduled: {}
+        schema: {}
+        schemaVersion: { type: integer }
+        scope: {}
+        scopeId: {}
+        scopeType: {}
+        score: {}
+        scrapeRunId: {}
+        screenshot: {}
+        screenshotCandidateAssetIds: {}
+        section: {}
+        secureContext: {}
+        selected: {}
+        selectedAssets: {}
+        selectedCandidateId: {}
+        selectedValidationId: {}
+        sequence: {}
+        sha1: {}
+        sha256: {}
+        sha256sumsPath: {}
+        sha256sumsSha256: {}
+        sharedArrayBuffer: {}
+        signature: {}
+        size: {}
+        sizeBytes: {}
+        slug: {}
+        sort: {}
+        sortCode: {}
+        sortOrder: {}
+        sortValues: {}
+        source: {}
+        sourceDisplayName: {}
+        sourceManifest: {}
+        sourcePlatformInstanceId: {}
+        sourceType: {}
+        state: {}
+        stateUrl: {}
+        status: {}
+        summary: {}
+        table: {}
+        target: {}
+        targetCoreId: {}
+        targetDatVersionId: {}
+        targetPlatformInstance: {}
+        targetPlatformInstanceId: {}
+        tested: {}
+        third: {}
+        title: {}
+        toAtMs: {}
+        total: {}
+        totalBytes: {}
+        totalItemCount: {}
+        trailing: {}
+        unresolved: {}
+        updatedAtMs: {}
+        uploadFileId: {}
+        uploadId: {}
+        uploadPartCount: {}
+        uploadSessionId: {}
+        validatedRequirementVersion: {}
+        validation: {}
+        validationDetails: {}
+        validationJobId: {}
+        validationStatus: {}
+        value: {}
+        variantStatus: {}
+        version: {}
+        visible: {}
+        warnings: {}
+        widthPx: {}
+        year: {}
+    ErrorEnvelope:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          type: object
+          additionalProperties: false
+          required: [code, message, details, requestId]
+          properties:
+            code: { type: string }
+            message: { type: string }
+            details: { type: object, additionalProperties: true }
+            requestId: { type: string, format: uuid }
+  requestBodies:
+    RenameSave: { $ref: '#/components/requestBodies/FromRenameSave' }
+    FromRenameSave: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RenameSaveRequest' } } } }
+    Launch: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LaunchRequest' } } } }
+    CreateUpload: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateUploadRequest' } } } }
+    CreateImport: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateImportRequest' } } } }
+    Reason: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonRequest' } } } }
+    ApprovalReason: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApprovalReasonRequest' } } } }
+    Empty: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyRequest' } } } }
+    ReviewDraft: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewDraftRequest' } } } }
+    MetadataProvider: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MetadataProviderRequest' } } } }
+    MetadataFields: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MetadataFields' } } } }
+    DeleteGame: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeleteGameRequest' } } } }
+    GameAsset: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GameAssetRequest' } } } }
+    UploadReference: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UploadReferenceRequest' } } } }
+    ApplyCandidate: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApplyCandidateRequest' } } } }
+    MovePreview: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MovePreviewRequest' } } } }
+    MoveGame: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MoveGameRequest' } } } }
+    CreatePlatformInstance: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreatePlatformInstanceRequest' } } } }
+    PatchPlatformInstance: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PatchPlatformInstanceRequest' } } } }
+    DefaultCorePreview: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DefaultCorePreviewRequest' } } } }
+    DefaultCore: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DefaultCoreRequest' } } } }
+    InstallBIOS: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InstallBIOSRequest' } } } }
+    CreateDAT: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateDATRequest' } } } }
+    ActivateDAT: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ActivateDATRequest' } } } }
+    PlayEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PlayEventRequest' } } } }
+  responses:
+    HealthLiveResponse:
+      description: Process is live
+      content: { application/json: { schema: { $ref: '#/components/schemas/HealthLive' } } }
+    HealthReadyResponse:
+      description: Service is ready
+      content: { application/json: { schema: { $ref: '#/components/schemas/HealthReady' } } }
+    HealthNotReadyResponse:
+      description: Service is not ready
+      content: { application/json: { schema: { $ref: '#/components/schemas/HealthNotReady' } } }
+    SessionResponse:
+      description: Legacy compatibility token response; not authorization
+      content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } }
+    JSONResponse:
+      description: JSON response
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/JSONObject' }
+    SSEResponse:
+      description: Server-sent events
+      content:
+        text/event-stream:
+          schema: { type: string }
+    BinaryResponse:
+      description: Binary content
+      headers:
+        ETag: { schema: { type: string } }
+        Accept-Ranges: { schema: { type: string } }
+      content:
+        application/octet-stream:
+          schema: { type: string, format: binary }
+  parameters:
+    Q: { name: q, in: query, schema: { type: string, maxLength: 200 } }
+    PlatformIDQuery: { name: platformId, in: query, schema: { type: string } }
+    PlatformInstanceIDQuery: { name: platformInstanceId, in: query, schema: { type: string, format: uuid } }
+    CoreIDQuery: { name: coreId, in: query, schema: { type: string } }
+    CoreArtifactIDQuery: { name: coreArtifactId, in: query, schema: { type: string, format: uuid } }
+    ImportJobIDQuery: { name: importJobId, in: query, schema: { type: string, format: uuid } }
+    Availability: { name: availability, in: query, schema: { type: string } }
+    State: { name: state, in: query, schema: { type: string } }
+    Status: { name: status, in: query, schema: { type: string } }
+    BlockerCode: { name: blockerCode, in: query, schema: { type: string } }
+    Decision: { name: decision, in: query, schema: { type: string } }
+    Enabled: { name: enabled, in: query, schema: { type: boolean } }
+    Scope: { name: scope, in: query, schema: { type: string } }
+    Source: { name: source, in: query, schema: { type: string } }
+    ParseStatus: { name: parseStatus, in: query, schema: { type: string } }
+    Section: { name: section, in: query, schema: { type: string } }
+    Change: { name: change, in: query, schema: { type: string } }
+    Sort: { name: sort, in: query, schema: { type: string } }
+    FromAtMs: { name: fromAtMs, in: query, schema: { type: integer, format: int64, minimum: 0 } }
+    ToAtMs: { name: toAtMs, in: query, schema: { type: integer, format: int64, minimum: 0 } }
+    Cursor: { name: cursor, in: query, schema: { type: string, maxLength: 8192 } }
+    Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    IfMatch: { name: If-Match, in: header, required: true, schema: { type: string } }
+    IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, format: uuid } }
+    ContentRange: { name: Content-Range, in: header, required: true, schema: { type: string } }
+    ContentDigest: { name: Content-Digest, in: header, required: true, schema: { type: string } }
+    LastEventID: { name: Last-Event-ID, in: header, schema: { type: string, pattern: '^[0-9]+$' } }
+    GameID: { name: gameId, in: path, required: true, schema: { type: string, format: uuid } }
+    SaveStateID: { name: saveStateId, in: path, required: true, schema: { type: string, format: uuid } }
+    UploadID: { name: uploadId, in: path, required: true, schema: { type: string, format: uuid } }
+    FileID: { name: fileId, in: path, required: true, schema: { type: string, format: uuid } }
+    PartNo: { name: partNo, in: path, required: true, schema: { type: integer, minimum: 0 } }
+    ImportJobID: { name: importJobId, in: path, required: true, schema: { type: string, format: uuid } }
+    ImportItemID: { name: importItemId, in: path, required: true, schema: { type: string, format: uuid } }
+    JobID: { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
+    ReviewEventID: { name: reviewEventId, in: path, required: true, schema: { type: string, format: uuid } }
+    CandidateID: { name: candidateId, in: path, required: true, schema: { type: string, format: uuid } }
+    PlatformInstanceID: { name: platformInstanceId, in: path, required: true, schema: { type: string, format: uuid } }
+    RequirementID: { name: requirementId, in: path, required: true, schema: { type: string, format: uuid } }
+    DATVersionID: { name: datVersionId, in: path, required: true, schema: { type: string, format: uuid } }
+    AssetID: { name: assetId, in: path, required: true, schema: { type: string, format: uuid } }
+    LaunchID: { name: launchId, in: path, required: true, schema: { type: string, format: uuid } }
+    ConfiguredVersion: { name: configuredVersion, in: path, required: true, schema: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+$' } }
+    LogicalName: { name: logicalName, in: path, required: true, schema: { type: string } }

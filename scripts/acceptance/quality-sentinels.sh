@@ -1,0 +1,155 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-quality-sentinels.XXXXXX")"
+trap 'rm -rf -- "$temporary_root"' EXIT
+
+worktree_hash() {
+  python3 - "$repository_root" <<'PY'
+import hashlib
+import subprocess
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+listed = subprocess.run(
+    ["git", "ls-files", "-co", "--exclude-standard", "-z"],
+    cwd=root,
+    check=True,
+    stdout=subprocess.PIPE,
+).stdout.split(b"\0")
+digest = hashlib.sha256()
+for encoded in sorted(item for item in listed if item):
+    path = root / encoded.decode("utf-8", "surrogateescape")
+    digest.update(encoded)
+    digest.update(b"\0")
+    if path.is_symlink():
+        digest.update(b"SYMLINK\0")
+        digest.update(path.readlink().as_posix().encode())
+    else:
+        digest.update(path.read_bytes())
+    digest.update(b"\0")
+print(digest.hexdigest())
+PY
+}
+
+expect_failure() {
+  local label="$1"
+  local expected="$2"
+  shift 2
+  local output_file="$temporary_root/${label}.log"
+  set +e
+  "$@" >"$output_file" 2>&1
+  local status=$?
+  set -e
+  sed "s/^/[${label}] /" "$output_file"
+  if [[ $status -eq 0 ]]; then
+    echo "${label}: sentinel was incorrectly accepted" >&2
+    return 1
+  fi
+  if ! grep -Eq "$expected" "$output_file"; then
+    echo "${label}: expected rejection marker not found: ${expected}" >&2
+    return 1
+  fi
+  echo "${label}: rejected as expected (exit=${status})"
+}
+
+before_hash="$(worktree_hash)"
+rsync -a \
+  --exclude '.git/' \
+  --exclude '.artifacts/' \
+  --exclude '.cache/' \
+  --exclude 'bin/' \
+  --exclude 'web/.next/' \
+  --exclude 'web/node_modules/' \
+  --exclude 'web/playwright-report/' \
+  --exclude 'web/test-results/' \
+  "$repository_root/" "$temporary_root/repository/"
+sentinel_root="$temporary_root/repository"
+ln -s "$repository_root/web/node_modules" "$sentinel_root/web/node_modules"
+
+cat >"$sentinel_root/internal/config/qa_sentinel.go" <<'EOF'
+package config
+
+import "os"
+
+func qualitySentinelUnhandledError() {
+	os.Chdir(".")
+}
+EOF
+expect_failure \
+  go-unhandled-error \
+  'errcheck|Error return value of .os\.Chdir.' \
+  bash -lc "cd '$sentinel_root' && '$repository_root/bin/golangci-lint' run ./internal/config"
+rm -f -- "$sentinel_root/internal/config/qa_sentinel.go"
+
+cat >"$sentinel_root/web/qa-sentinel.ts" <<'EOF'
+async function qualitySentinelPromise(): Promise<void> {
+  await Promise.resolve();
+}
+
+qualitySentinelPromise();
+EOF
+expect_failure \
+  web-floating-promise \
+  '@typescript-eslint/no-floating-promises|Promises must be awaited' \
+  bash -lc "cd '$sentinel_root/web' && ./node_modules/.bin/eslint qa-sentinel.ts --max-warnings=0"
+rm -f -- "$sentinel_root/web/qa-sentinel.ts"
+
+cat >"$sentinel_root/migrations/999_qa_sentinel.sql" <<'EOF'
+CREATE TABLE qa_sentinel_times (
+    id INTEGER PRIMARY KEY,
+    broken_at_ms TEXT NOT NULL
+);
+EOF
+expect_failure \
+  migration-text-time \
+  'qa_sentinel_times\.broken_at_ms uses TEXT, want INTEGER|uses TEXT, want INTEGER' \
+  bash -lc "cd '$sentinel_root' && go test ./internal/store -run '^TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog$' -count=1"
+rm -f -- "$sentinel_root/migrations/999_qa_sentinel.sql"
+
+cat >"$sentinel_root/internal/importing/qa_sentinel_test.go" <<'EOF'
+package importing
+
+import "testing"
+
+func TestQualitySentinelTraversalCannotBeAccepted(t *testing.T) {
+	if _, err := ValidateLogicalPath("../escape.rom"); err != nil {
+		t.Fatalf("injected traversal was rejected: %v", err)
+	}
+}
+EOF
+expect_failure \
+  path-traversal \
+  'injected traversal was rejected|TestQualitySentinelTraversalCannotBeAccepted' \
+  bash -lc "cd '$sentinel_root' && go test ./internal/importing -run '^TestQualitySentinelTraversalCannotBeAccepted$' -count=1"
+rm -f -- "$sentinel_root/internal/importing/qa_sentinel_test.go"
+
+python3 - "$sentinel_root" <<'PY'
+import importlib.util
+import sys
+from pathlib import Path
+
+root = Path(sys.argv[1])
+runner = root / "scripts" / "acceptance" / "run.py"
+spec = importlib.util.spec_from_file_location("retrom_acceptance_runner", runner)
+if spec is None or spec.loader is None:
+    raise SystemExit("acceptance runner could not be loaded")
+module = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(module)
+catalog = module.all_cases()
+missing = [case_id for case_id in module.CORE_CASES if case_id not in catalog]
+if missing:
+    raise SystemExit(f"acceptance catalog omitted core cases: {missing}")
+if len(catalog) != 69:
+    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 69")
+print(f"acceptance_catalog={len(catalog)} core_cases={len(module.CORE_CASES)}")
+PY
+
+after_hash="$(worktree_hash)"
+printf 'worktree_hash_before=%s\nworktree_hash_after=%s\n' "$before_hash" "$after_hash"
+if [[ "$before_hash" != "$after_hash" ]]; then
+  echo "quality sentinel changed the main worktree" >&2
+  exit 1
+fi
