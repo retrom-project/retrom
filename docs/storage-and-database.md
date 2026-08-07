@@ -180,12 +180,13 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [平台�
 | `import_item_core_validations` / `import_item_validation_files` | 审核可选择的默认核心验证证据与派生文件 |
 | `upload_sessions` / `upload_files` | 浏览器上传会话与相对路径 |
 | `upload_parts` | 分块上传 |
-| `upload_consumptions` | 已完成上传到 Import、游戏文件替换 Job、BIOS/DAT/Asset 的互斥审计归属 |
+| `upload_consumptions` | 已完成上传到 Import、游戏文件替换 Job、BIOS/DAT/Game Asset/Review Asset 的互斥审计归属 |
 | `metadata_scrape_runs` | ImportItem 或 Game 的一次 hash/provider 证据批次 |
 | `content_hash_evidence` | run 内的版本化 hash profile、来源 Blob/archive entry 与查询顺序 |
 | `metadata_scrape_query_attempts` | run/evidence 到每次网络或缓存 response 的不可变关联 |
 | `scrape_candidates` / `scrape_candidate_hits` | Hasheous 元信息候选及多 hash/entry 命中关系 |
 | `scrape_candidate_assets` | 候选媒体的受控获取状态、Blob 与尺寸 |
+| `review_uploaded_assets` | 审核期间人工上传的不可变封面资源及 Blob 归属 |
 | `metadata_provider_cache` | provider + request digest 的可变缓存指针与过期时间 |
 | `metadata_provider_responses` | 每次查询的不可变状态、原始响应 Blob 与有效期 |
 | `review_drafts` | 待审核条目的可编辑草稿与 version |

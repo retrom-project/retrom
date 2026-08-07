@@ -142,6 +142,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /health/ready", server.healthReady)
 	mux.HandleFunc("GET /api/v1/session", server.session)
 	mux.HandleFunc("GET /api/v1/home", server.home)
+	mux.HandleFunc("GET /api/v1/recent-games", server.recentGames)
 	mux.HandleFunc("GET /api/v1/games", server.games)
 	mux.HandleFunc("GET /api/v1/games/{gameId}", server.game)
 	mux.HandleFunc("GET /api/v1/saves", server.saves)
@@ -189,6 +190,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/admin/reviews/{importItemId}", server.review)
 	mux.HandleFunc("PATCH /api/v1/admin/reviews/{importItemId}", server.patchReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/scrape-candidates", server.scrapeReview)
+	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/assets", server.createReviewAsset)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/approve", server.approveReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/discard", server.discardReview)
 	mux.HandleFunc("GET /api/v1/admin/review-history", server.reviewHistory)
@@ -280,6 +282,8 @@ func validateQuery(request *http.Request) error {
 	}
 	path := request.URL.Path
 	switch {
+	case request.Method == http.MethodGet && path == "/api/v1/recent-games":
+		add("limit")
 	case request.Method == http.MethodGet && path == "/api/v1/games":
 		add("q", "platformId", "platformInstanceId", "sort", "cursor", "limit")
 	case request.Method == http.MethodGet && path == "/api/v1/saves":
@@ -1207,6 +1211,77 @@ s.id DESC LIMIT 3
 		"play":        map[string]any{"activeDurationMs": activeDurationMS},
 		"recentGames": recentGames, "recentSaves": recentSaves,
 	})
+}
+
+// recentGames returns one row per visible game, ordered by the most recent
+// durable play-session update. The page intentionally defaults to 50 rows so
+// revisiting it does not turn into an unbounded history query.
+func (server *Server) recentGames(writer http.ResponseWriter, request *http.Request) {
+	limit := 50
+	if raw := request.URL.Query().Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 100 {
+			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "分页大小无效", map[string]any{})
+			return
+		}
+		limit = parsed
+	}
+	rows, err := server.database.QueryContext(request.Context(), `
+SELECT g.id,
+m.title,
+p.id,
+p.name,
+pi.id,
+pi.name,
+max(ps.updated_at_ms),
+sum(ps.active_duration_ms),
+count(ps.id),
+(SELECT a.id
+ FROM game_assets a
+ WHERE a.game_id=g.id
+ AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.kind='COVER'
+ ORDER BY a.ordinal,a.id
+ LIMIT 1)
+FROM play_sessions ps
+JOIN games g ON g.id=ps.game_id
+JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
+JOIN platforms p ON p.id=pi.platform_id
+WHERE g.status='PUBLISHED'
+AND pi.enabled=1
+GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name
+ORDER BY max(ps.updated_at_ms) DESC,g.id DESC
+LIMIT ?
+`, limit)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]map[string]any, 0, limit)
+	for rows.Next() {
+		var gameID, title, platformID, platformName, instanceID, instanceName string
+		var lastPlayedAtMS, activeDurationMS, sessionCount int64
+		var coverAssetID sql.NullString
+		if err := rows.Scan(&gameID, &title, &platformID, &platformName, &instanceID, &instanceName,
+			&lastPlayedAtMS, &activeDurationMS, &sessionCount, &coverAssetID); err != nil {
+			server.databaseError(writer, request, err)
+			return
+		}
+		items = append(items, map[string]any{
+			"gameId": gameID, "title": title,
+			"platform":         map[string]any{"id": platformID, "name": platformName},
+			"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
+			"lastPlayedAtMs":   lastPlayedAtMS, "activeDurationMs": activeDurationMS,
+			"sessionCount": sessionCount, "coverUrl": gameCoverURL(coverAssetID),
+		})
+	}
+	if err := rows.Err(); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "limit": limit})
 }
 
 func (server *Server) games(writer http.ResponseWriter, request *http.Request) {
@@ -2553,7 +2628,7 @@ AND r.state='COMPLETED'),
  source_file.sort_order,
  source_file.logical_name
  LIMIT 1),
-(SELECT asset.id
+COALESCE(d.cover_uploaded_asset_id,(SELECT asset.id
  FROM scrape_candidate_assets asset
  JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
  JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
@@ -2565,7 +2640,7 @@ AND r.state='COMPLETED'),
  run.completed_at_ms DESC,
  asset.ordinal,
  asset.id
- LIMIT 1)
+ LIMIT 1))
 FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
@@ -2761,7 +2836,7 @@ WHERE i.state='REVIEW_PENDING'
 func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
 	var itemID, importJobID, metadata, platformID, platformName, sourceManifest string
 	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
-	var selectedCandidateID, coverID, backgroundID, defaultDOSEntry sql.NullString
+	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
 	var version, updatedAtMS int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT i.id,
@@ -2778,6 +2853,7 @@ v.dependency_snapshot_json,
 i.source_manifest_json,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
+d.cover_uploaded_asset_id,
 d.background_candidate_asset_id,
 d.default_dos_entry
 FROM import_items i
@@ -2811,6 +2887,7 @@ AND i.state='REVIEW_PENDING'
 			&sourceManifest,
 			&selectedCandidateID,
 			&coverID,
+			&uploadedCoverID,
 			&backgroundID,
 			&defaultDOSEntry,
 		)
@@ -2836,77 +2913,23 @@ AND i.state='REVIEW_PENDING'
 		server.databaseError(writer, request, err)
 		return
 	}
-	screenshotIDs := make([]string, 0)
-	rows, err := server.database.QueryContext(
-		request.Context(),
-		`
-SELECT s.candidate_asset_id
-FROM review_draft_screenshot_assets s
-JOIN review_drafts d ON d.id=s.review_draft_id
-WHERE d.import_item_id=?
-ORDER BY s.ordinal
-`,
-		itemID,
-	)
+	uploadedAssets, err := server.reviewUploadedAssets(request, itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer func(rows *sql.Rows) { cleanup.Error("close", rows.Close()) }(rows)
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		screenshotIDs = append(screenshotIDs, id)
-	}
-	if err := rows.Err(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	dosEntries := make([]map[string]any, 0)
-	rows, err = server.database.QueryContext(
-		request.Context(),
-		`
-SELECT normalized_path,
-original_relative_path,
-kind,
-rank,
-enabled,
-direct_launch_safe
-FROM import_item_dos_entries
-WHERE import_item_id=?
-ORDER BY rank,
-normalized_path
-`,
-		itemID,
-	)
+	sourceFiles, err := server.reviewSourceFiles(request, itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer func(rows *sql.Rows) { cleanup.Error("close", rows.Close()) }(rows)
-	for rows.Next() {
-		var path, originalPath, kind string
-		var rank, enabled, directSafe int64
-		if err := rows.Scan(&path, &originalPath, &kind, &rank, &enabled, &directSafe); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		dosEntries = append(
-			dosEntries,
-			map[string]any{
-				"path":             path,
-				"originalPath":     originalPath,
-				"kind":             kind,
-				"rank":             rank,
-				"enabled":          enabled == 1,
-				"directLaunchSafe": directSafe == 1,
-			},
-		)
+	screenshotIDs, err := server.reviewScreenshotIDs(request.Context(), itemID)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
 	}
-	if err := rows.Err(); err != nil {
+	dosEntries, err := server.reviewDOSEntries(request.Context(), itemID)
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -2927,10 +2950,12 @@ normalized_path
 			"name": platformName,
 		}, "metadata": metadataValue, "sourceManifest": sourceValue,
 		"validation": validation, "candidates": candidates, "scrapeRuns": scrapeRuns,
+		"uploadedAssets": uploadedAssets, "sourceFiles": sourceFiles,
 		"selectedCandidateId": nullableString(selectedCandidateID),
 		"defaultDosEntry":     nullableString(defaultDOSEntry),
 		"selectedAssets": map[string]any{
 			"coverCandidateAssetId":       nullableString(coverID),
+			"coverUploadedAssetId":        nullableString(uploadedCoverID),
 			"backgroundCandidateAssetId":  nullableString(backgroundID),
 			"screenshotCandidateAssetIds": screenshotIDs,
 		}, "dosEntries": dosEntries,
@@ -2950,6 +2975,178 @@ func (server *Server) reviewMetadataEvidence(
 		return nil, nil, err
 	}
 	return candidates, runs, nil
+}
+
+func (server *Server) reviewScreenshotIDs(ctx context.Context, itemID string) ([]string, error) {
+	rows, err := server.database.QueryContext(ctx, `
+SELECT s.candidate_asset_id
+FROM review_draft_screenshot_assets s
+JOIN review_drafts d ON d.id=s.review_draft_id
+WHERE d.import_item_id=?
+ORDER BY s.ordinal
+`, itemID)
+	if err != nil {
+		return nil, fmt.Errorf("query review screenshots: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, fmt.Errorf("scan review screenshot: %w", err)
+		}
+		ids = append(ids, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan review screenshots: %w", err)
+	}
+	return ids, nil
+}
+
+func (server *Server) reviewDOSEntries(ctx context.Context, itemID string) ([]map[string]any, error) {
+	rows, err := server.database.QueryContext(ctx, `
+SELECT normalized_path,
+original_relative_path,
+kind,
+rank,
+enabled,
+direct_launch_safe
+FROM import_item_dos_entries
+WHERE import_item_id=?
+ORDER BY rank,normalized_path
+`, itemID)
+	if err != nil {
+		return nil, fmt.Errorf("query review DOS entries: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	entries := make([]map[string]any, 0)
+	for rows.Next() {
+		var path, originalPath, kind string
+		var rank, enabled, directSafe int64
+		if err := rows.Scan(&path, &originalPath, &kind, &rank, &enabled, &directSafe); err != nil {
+			return nil, fmt.Errorf("scan review DOS entry: %w", err)
+		}
+		entries = append(entries, map[string]any{
+			"path": path, "originalPath": originalPath, "kind": kind, "rank": rank,
+			"enabled": enabled == 1, "directLaunchSafe": directSafe == 1,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan review DOS entries: %w", err)
+	}
+	return entries, nil
+}
+
+func (server *Server) reviewUploadedAssets(request *http.Request, itemID string) ([]map[string]any, error) {
+	rows, err := server.database.QueryContext(request.Context(), `
+SELECT id,kind,width_px,height_px,media_type,created_at_ms
+FROM review_uploaded_assets
+WHERE import_item_id=?
+ORDER BY created_at_ms,id
+`, itemID)
+	if err != nil {
+		return nil, fmt.Errorf("query uploaded review assets: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	assets := make([]map[string]any, 0)
+	for rows.Next() {
+		var id, kind, mediaType string
+		var width, height, createdAtMS int64
+		if err := rows.Scan(&id, &kind, &width, &height, &mediaType, &createdAtMS); err != nil {
+			return nil, fmt.Errorf("scan uploaded review asset: %w", err)
+		}
+		assets = append(assets, map[string]any{
+			"assetId": id, "kind": kind, "widthPx": width, "heightPx": height,
+			"mediaType": mediaType, "url": "/api/v1/admin/review-assets/" + id, "createdAtMs": createdAtMS,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan uploaded review assets: %w", err)
+	}
+	return assets, nil
+}
+
+func (server *Server) reviewSourceFiles(request *http.Request, itemID string) ([]map[string]any, error) {
+	rows, err := server.database.QueryContext(request.Context(), `
+SELECT f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32,
+MAX(CASE WHEN s.source_archive_blob_id IS NOT NULL THEN 1 ELSE 0 END),
+MAX(s.source_archive_blob_id)
+FROM import_item_source_files s
+JOIN upload_files f ON f.id=s.upload_file_id
+JOIN blobs b ON b.id=f.final_blob_id
+WHERE s.import_item_id=?
+GROUP BY f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32
+ORDER BY min(s.sort_order),f.relative_path,f.id
+`, itemID)
+	if err != nil {
+		return nil, fmt.Errorf("query review source files: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	type sourceRow struct {
+		id, name, sha256, md5, crc32 string
+		size                         int64
+		archive                      int64
+		archiveBlobID                sql.NullString
+	}
+	records := make([]sourceRow, 0)
+	for rows.Next() {
+		var record sourceRow
+		if err := rows.Scan(&record.id, &record.name, &record.size, &record.sha256, &record.md5,
+			&record.crc32, &record.archive, &record.archiveBlobID); err != nil {
+			return nil, fmt.Errorf("scan review source file: %w", err)
+		}
+		records = append(records, record)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan review source files: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("close review source files: %w", err)
+	}
+	result := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		var entries []map[string]any
+		if record.archiveBlobID.Valid {
+			entries, err = server.reviewArchiveEntries(request.Context(), record.archiveBlobID.String)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			entries = make([]map[string]any, 0)
+		}
+		result = append(result, map[string]any{
+			"uploadFileId": record.id, "name": record.name, "sizeBytes": record.size,
+			"sha256": record.sha256, "md5": record.md5, "crc32": record.crc32,
+			"archive": record.archive == 1, "archiveEntries": entries,
+		})
+	}
+	return result, nil
+}
+
+func (server *Server) reviewArchiveEntries(ctx context.Context, archiveBlobID string) ([]map[string]any, error) {
+	rows, err := server.database.QueryContext(ctx, `
+SELECT original_relative_path,uncompressed_size_bytes,crc32
+FROM archive_entries
+WHERE archive_blob_id=?
+ORDER BY ordinal
+`, archiveBlobID)
+	if err != nil {
+		return nil, fmt.Errorf("query review archive entries: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	entries := make([]map[string]any, 0)
+	for rows.Next() {
+		var name, crc32 string
+		var size int64
+		if err := rows.Scan(&name, &size, &crc32); err != nil {
+			return nil, fmt.Errorf("scan review archive entry: %w", err)
+		}
+		entries = append(entries, map[string]any{"name": name, "sizeBytes": size, "crc32": crc32})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan review archive entries: %w", err)
+	}
+	return entries, nil
 }
 
 func (server *Server) reviewScrapeRuns(request *http.Request, itemID string) ([]map[string]any, error) {
@@ -3564,25 +3761,29 @@ func nullableInt64(value sql.NullInt64) any {
 func (server *Server) reviewCandidateAsset(writer http.ResponseWriter, request *http.Request) {
 	var digest, mediaType string
 	err := server.database.QueryRowContext(request.Context(), `
-SELECT b.sha256,
-a.media_type
-FROM scrape_candidate_assets a
-JOIN blobs b ON b.id=a.blob_id
-JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
-JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
-LEFT
-JOIN import_items i ON i.id=r.import_item_id
-LEFT
-JOIN games g ON g.id=r.game_id
-WHERE a.id=?
-AND a.status='READY'
-AND (i.state='REVIEW_PENDING'
-OR g.status='PUBLISHED'
-OR EXISTS (SELECT 1
-FROM review_events e
-WHERE e.import_item_id=i.id
-AND e.event_type IN ('APPROVED','DISCARDED')))
-`, request.PathValue("assetId")).Scan(&digest, &mediaType)
+SELECT digest,media_type FROM (
+  SELECT b.sha256 AS digest,a.media_type AS media_type
+  FROM scrape_candidate_assets a
+  JOIN blobs b ON b.id=a.blob_id
+  JOIN scrape_candidates c ON c.id=a.scrape_candidate_id
+  JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
+  LEFT JOIN import_items i ON i.id=r.import_item_id
+  LEFT JOIN games g ON g.id=r.game_id
+  WHERE a.id=? AND a.status='READY'
+  AND (i.state='REVIEW_PENDING' OR g.status='PUBLISHED' OR EXISTS (
+    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
+  ))
+  UNION ALL
+  SELECT b.sha256 AS digest,a.media_type AS media_type
+  FROM review_uploaded_assets a
+  JOIN blobs b ON b.id=a.blob_id
+  JOIN import_items i ON i.id=a.import_item_id
+  WHERE a.id=?
+  AND (i.state='REVIEW_PENDING' OR EXISTS (
+    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
+  ))
+) LIMIT 1
+`, request.PathValue("assetId"), request.PathValue("assetId")).Scan(&digest, &mediaType)
 	if err != nil {
 		writeError(writer, request, http.StatusNotFound, "REVIEW_ASSET_NOT_FOUND", "候选媒体不存在", map[string]any{})
 		return

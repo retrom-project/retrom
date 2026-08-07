@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -39,7 +40,7 @@ func TestHealthAndWritesDoNotRequireCSRF(t *testing.T) {
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/admin/platform-instances",
-		strings.NewReader(`{"platformId":"gbc","defaultCoreId":"gambatte","name":"No CSRF","slug":"no-csrf","description":"","sortOrder":900}`),
+		strings.NewReader(`{"platformId":"gbc","defaultCoreId":"gambatte","name":"No CSRF","description":"","sortOrder":900}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", uuid.NewString())
@@ -54,11 +55,10 @@ func TestWritesIgnoreBrowserOriginWithoutEnablingCORS(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	handler := server.Handler()
-	send := func(slug string, headers map[string]string) *httptest.ResponseRecorder {
+	send := func(name string, headers map[string]string) *httptest.ResponseRecorder {
 		body := fmt.Sprintf(
-			`{"platformId":"gbc","defaultCoreId":"gambatte","name":"LAN %s","slug":%q,"description":"","sortOrder":900}`,
-			slug,
-			slug,
+			`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"description":"","sortOrder":900}`,
+			"LAN "+name,
 		)
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
@@ -167,7 +167,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 11 ||
+		response.DatabaseSchemaVersion != 12 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -204,9 +204,13 @@ AND enabled=1
 	sourceBlobID := "01980000-0000-7000-8000-000000000132"
 	coverBlobID := "01980000-0000-7000-8000-000000000133"
 	uploadFileID := "01980000-0000-7000-8000-000000000134"
+	coverUploadFileID := "01980000-0000-7000-8000-000000000136"
 	digest := strings.Repeat("a", 64)
 	timestamp := now.UnixMilli()
-	coverPayload := []byte("historical-cover-payload")
+	coverPayload, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	if err != nil {
+		t.Fatal(err)
+	}
 	coverMetadata, err := server.blobs.Put(bytes.NewReader(coverPayload))
 	if err != nil {
 		t.Fatal(err)
@@ -308,14 +312,23 @@ INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) 
 	}
 	if _, err := transaction.Exec(`
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
-VALUES(?,?, 'blocked.gba',4096,4096,?,'COMPLETE',?,?)
-	`, uploadFileID, uploadID, sourceBlobID, timestamp, timestamp); err != nil {
+VALUES(?,?, 'blocked.zip',4096,4096,?,'COMPLETE',?,?),
+(?,?,'manual-cover.png',?,?,?,'COMPLETE',?,?)
+	`, uploadFileID, uploadID, sourceBlobID, timestamp, timestamp,
+		coverUploadFileID, uploadID, coverMetadata.Size, coverMetadata.Size, coverBlobID, timestamp, timestamp); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`
-INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,sort_order,created_at_ms)
-VALUES(?,'CONTENT','blocked.gba',?,?,0,?)
-	`, itemID, uploadFileID, sourceBlobID, timestamp); err != nil {
+INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+compression_method,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
+VALUES(?,0,'blocked.gba','blocked.gba','blocked.gba',8,4096,?,?,?,?,?,?)
+	`, sourceBlobID, strings.Repeat("e", 8), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), sourceBlobID, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
+VALUES(?,'CONTENT','blocked.gba',?,?,?,0,0,?)
+	`, itemID, uploadFileID, sourceBlobID, sourceBlobID, timestamp); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`
@@ -501,15 +514,67 @@ VALUES(?,?,?,'cover-ready','COVER',1,'/api/v1/images/cover-ready','READY',?,600,
 		!strings.Contains(recorder.Body.String(), `"compatibilityCode":"DEPENDENCY_MISSING"`) ||
 		!strings.Contains(recorder.Body.String(), `"title":"Visible candidate"`) ||
 		!strings.Contains(recorder.Body.String(), `"errorCode":"ASSET_HTTP_STATUS"`) ||
+		!strings.Contains(recorder.Body.String(), `"name":"blocked.zip"`) ||
+		!strings.Contains(recorder.Body.String(), `"archiveEntries":[{"crc32":"`+strings.Repeat("e", 8)+`","name":"blocked.gba","sizeBytes":4096}]`) ||
 		!strings.Contains(recorder.Body.String(), `"scrapeRuns":[{"attemptCount":0,"candidateCount":1,"completedAtMs":`) ||
 		!strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) {
 		t.Fatalf("blocked review detail = %d %s", recorder.Code, recorder.Body.String())
+	}
+	uploadedCover := httptest.NewRecorder()
+	invalidCoverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"BACKGROUND"}`))
+	invalidCoverRequest.SetPathValue("importItemId", itemID)
+	invalidCoverRequest.Header.Set("Content-Type", "application/json")
+	invalidCoverRequest.Header.Set("If-Match", `"v1"`)
+	invalidCoverRequest.Header.Set("Idempotency-Key", uuid.NewString())
+	server.createReviewAsset(uploadedCover, invalidCoverRequest)
+	if uploadedCover.Code != http.StatusBadRequest || !strings.Contains(uploadedCover.Body.String(), `"code":"INVALID_REQUEST"`) {
+		t.Fatalf("reject non-cover review asset = %d %s", uploadedCover.Code, uploadedCover.Body.String())
+	}
+	uploadedCover = httptest.NewRecorder()
+	uploadedCoverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"COVER"}`))
+	uploadedCoverRequest.SetPathValue("importItemId", itemID)
+	uploadedCoverRequest.Header.Set("Content-Type", "application/json")
+	uploadedCoverRequest.Header.Set("If-Match", `"v1"`)
+	uploadedCoverRequest.Header.Set("Idempotency-Key", uuid.NewString())
+	server.createReviewAsset(uploadedCover, uploadedCoverRequest)
+	if uploadedCover.Code != http.StatusCreated || !strings.Contains(uploadedCover.Body.String(), `"url":"/api/v1/admin/review-assets/`) {
+		t.Fatalf("create review cover = %d %s", uploadedCover.Code, uploadedCover.Body.String())
+	}
+	var uploadedCoverResult struct {
+		AssetID string `json:"assetId"`
+	}
+	if err := json.Unmarshal(uploadedCover.Body.Bytes(), &uploadedCoverResult); err != nil {
+		t.Fatal(err)
+	}
+	patch := httptest.NewRecorder()
+	patchRequest := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/reviews/"+itemID, strings.NewReader(`{"selectedAssets":{"coverCandidateAssetId":null,"coverUploadedAssetId":"`+uploadedCoverResult.AssetID+`","backgroundCandidateAssetId":null,"screenshotCandidateAssetIds":[]}}`))
+	patchRequest.SetPathValue("importItemId", itemID)
+	patchRequest.Header.Set("Content-Type", "application/json")
+	patchRequest.Header.Set("If-Match", `"v1"`)
+	server.patchReview(patch, patchRequest)
+	if patch.Code != http.StatusOK || !strings.Contains(patch.Body.String(), `"version":2`) {
+		t.Fatalf("select review cover = %d %s", patch.Code, patch.Body.String())
+	}
+	staleCover := httptest.NewRecorder()
+	staleCoverRequest := httptest.NewRequest(http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/assets", strings.NewReader(`{"uploadFileId":"`+coverUploadFileID+`","kind":"COVER"}`))
+	staleCoverRequest.SetPathValue("importItemId", itemID)
+	staleCoverRequest.Header.Set("Content-Type", "application/json")
+	staleCoverRequest.Header.Set("If-Match", `"v1"`)
+	staleCoverRequest.Header.Set("Idempotency-Key", uuid.NewString())
+	server.createReviewAsset(staleCover, staleCoverRequest)
+	if staleCover.Code != http.StatusConflict || !strings.Contains(staleCover.Body.String(), `"code":"REVIEW_VERSION_CONFLICT"`) {
+		t.Fatalf("stale review cover upload = %d %s", staleCover.Code, staleCover.Body.String())
+	}
+	if _, err := server.database.Exec(`
+UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
+`, readyCoverAssetID, itemID); err == nil || !strings.Contains(err.Error(), "invalid review uploaded cover") {
+		t.Fatalf("manual and candidate cover database invariant error = %v", err)
 	}
 	list := httptest.NewRecorder()
 	server.reviews(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/reviews", nil))
 	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"sourceTotalSizeBytes":4096`) ||
 		!strings.Contains(list.Body.String(), `"sourceMd5":"`+strings.Repeat("c", 32)+`"`) ||
-		!strings.Contains(list.Body.String(), `"coverUrl":"/api/v1/admin/review-assets/`+readyCoverAssetID+`"`) {
+		!strings.Contains(list.Body.String(), `"coverUrl":"/api/v1/admin/review-assets/`+uploadedCoverResult.AssetID+`"`) {
 		t.Fatalf("review queue source projection = %d %s", list.Code, list.Body.String())
 	}
 	if _, err := server.database.Exec(`
@@ -527,6 +592,13 @@ VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','local',?,
 	server.reviewCandidateAsset(historicalCover, historicalRequest)
 	if historicalCover.Code != http.StatusOK || !bytes.Equal(historicalCover.Body.Bytes(), coverPayload) {
 		t.Fatalf("historical review cover = %d %q", historicalCover.Code, historicalCover.Body.Bytes())
+	}
+	historicalUploadedCover := httptest.NewRecorder()
+	historicalUploadedRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/review-assets/"+uploadedCoverResult.AssetID, nil)
+	historicalUploadedRequest.SetPathValue("assetId", uploadedCoverResult.AssetID)
+	server.reviewCandidateAsset(historicalUploadedCover, historicalUploadedRequest)
+	if historicalUploadedCover.Code != http.StatusOK || !bytes.Equal(historicalUploadedCover.Body.Bytes(), coverPayload) {
+		t.Fatalf("historical uploaded review cover = %d %q", historicalUploadedCover.Code, historicalUploadedCover.Body.Bytes())
 	}
 }
 
@@ -734,6 +806,23 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,60000,1,?,?,NULL)
 			t.Fatal(err)
 		}
 	}
+	for index, duration := range []int64{120_000, 240_000} {
+		launchID, playID := uuid.NewString(), uuid.NewString()
+		if _, err := transaction.Exec(`
+INSERT INTO launch_sessions(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,return_to,
+credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
+VALUES(?,'local',?,?,?,'/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+`, launchID, gameID, variantRevisionID, coreArtifactID, now+60_000, now+int64(index), now+120_000, now, now+int64(index)); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,
+last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
+`, playID, launchID, gameID, variantRevisionID, now-10_000, now, now, duration, now, now+int64(index)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
@@ -800,6 +889,18 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,60000,1,?,?,NULL)
 	server.Handler().ServeHTTP(home, httptest.NewRequest(http.MethodGet, "/api/v1/home", nil))
 	if home.Code != http.StatusOK || !strings.Contains(home.Body.String(), `"recentSaves":[{"activeDurationMs":60000`) {
 		t.Fatalf("home recent save duration = %d: %s", home.Code, home.Body.String())
+	}
+	recent := httptest.NewRecorder()
+	server.Handler().ServeHTTP(recent, httptest.NewRequest(http.MethodGet, "/api/v1/recent-games", nil))
+	if recent.Code != http.StatusOK || !strings.Contains(recent.Body.String(), `"activeDurationMs":360000`) ||
+		!strings.Contains(recent.Body.String(), `"sessionCount":2`) || !strings.Contains(recent.Body.String(), `"limit":50`) ||
+		!strings.Contains(recent.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`) {
+		t.Fatalf("recent games projection = %d: %s", recent.Code, recent.Body.String())
+	}
+	invalidRecentLimit := httptest.NewRecorder()
+	server.Handler().ServeHTTP(invalidRecentLimit, httptest.NewRequest(http.MethodGet, "/api/v1/recent-games?limit=0", nil))
+	if invalidRecentLimit.Code != http.StatusBadRequest || !strings.Contains(invalidRecentLimit.Body.String(), `"code":"INVALID_QUERY"`) {
+		t.Fatalf("recent games invalid limit = %d: %s", invalidRecentLimit.Code, invalidRecentLimit.Body.String())
 	}
 	screenshotResponse := httptest.NewRecorder()
 	server.Handler().ServeHTTP(
@@ -933,7 +1034,7 @@ func TestGenericIdempotencySerializesConcurrentCreates(t *testing.T) {
 	}
 	cookie := sessionRecorder.Result().Cookies()[0]
 	key := "01980000-0000-7000-8000-000000000077"
-	body := `{"platformId":"nes","defaultCoreId":"fceumm","name":"并发目录","slug":"concurrent-directory","description":"","sortOrder":99}`
+	body := `{"platformId":"nes","defaultCoreId":"fceumm","name":"Concurrent Directory","description":"","sortOrder":99}`
 	send := func(contents string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(contents))
 		request.Header.Set("Content-Type", "application/json")
@@ -973,7 +1074,7 @@ WHERE slug='concurrent-directory'
 		t.Fatalf("created rows = %d, error=%v", count, err)
 	}
 	conflict := send(
-		`{"platformId":"nes","defaultCoreId":"fceumm","name":"不同请求","slug":"different-directory","description":"","sortOrder":99}`,
+		`{"platformId":"nes","defaultCoreId":"fceumm","name":"Different Directory","description":"","sortOrder":99}`,
 	)
 	if conflict.Code != http.StatusConflict ||
 		!strings.Contains(conflict.Body.String(), `"code":"IDEMPOTENCY_KEY_REUSED"`) {
@@ -1043,7 +1144,7 @@ NULL,
 	created := send(
 		http.MethodPost,
 		"/api/v1/admin/platform-instances",
-		`{"platformId":"gbc","defaultCoreId":"gambatte","name":"掌机分区","slug":"handheld-zone","description":"测试目录","sortOrder":120}`,
+		`{"platformId":"gbc","defaultCoreId":"gambatte","name":"Handheld Zone","description":"测试目录","sortOrder":120}`,
 		map[string]string{"Idempotency-Key": uuid.NewString()},
 	)
 	if created.Code != http.StatusCreated {
@@ -1058,21 +1159,21 @@ NULL,
 	invalidCore := send(
 		http.MethodPost,
 		"/api/v1/admin/platform-instances",
-		`{"platformId":"gbc","defaultCoreId":"fceumm","name":"错误核心","slug":"invalid-core","description":"","sortOrder":122}`,
+		`{"platformId":"gbc","defaultCoreId":"fceumm","name":"错误核心","description":"","sortOrder":122}`,
 		map[string]string{"Idempotency-Key": uuid.NewString()},
 	)
 	if invalidCore.Code != http.StatusUnprocessableEntity ||
 		!strings.Contains(invalidCore.Body.String(), `"code":"PLATFORM_DEFAULT_CORE_INVALID"`) {
 		t.Fatalf("invalid platform core = %d %s", invalidCore.Code, invalidCore.Body.String())
 	}
-	duplicateSlug := send(
+	duplicateName := send(
 		http.MethodPost,
 		"/api/v1/admin/platform-instances",
-		`{"platformId":"gbc","defaultCoreId":"gambatte","name":"重复目录","slug":"handheld-zone","description":"","sortOrder":123}`,
+		`{"platformId":"gbc","defaultCoreId":"gambatte","name":"Handheld Zone","description":"","sortOrder":123}`,
 		map[string]string{"Idempotency-Key": uuid.NewString()},
 	)
-	if duplicateSlug.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("duplicate platform slug = %d %s", duplicateSlug.Code, duplicateSlug.Body.String())
+	if duplicateName.Code != http.StatusCreated || !strings.Contains(duplicateName.Body.String(), `"slug":"handheld-zone-2"`) {
+		t.Fatalf("generated duplicate platform slug = %d %s", duplicateName.Code, duplicateName.Body.String())
 	}
 	patched := send(
 		http.MethodPatch,
@@ -1128,11 +1229,11 @@ NULL,
 	reusedSlug := send(
 		http.MethodPost,
 		"/api/v1/admin/platform-instances",
-		`{"platformId":"gbc","defaultCoreId":"gambatte","name":"复用目录","slug":"handheld-zone","description":"","sortOrder":124}`,
+		`{"platformId":"gbc","defaultCoreId":"gambatte","name":"Handheld Zone","description":"","sortOrder":124}`,
 		map[string]string{"Idempotency-Key": uuid.NewString()},
 	)
-	if reusedSlug.Code != http.StatusUnprocessableEntity {
-		t.Fatalf("deleted platform slug was released = %d %s", reusedSlug.Code, reusedSlug.Body.String())
+	if reusedSlug.Code != http.StatusCreated || !strings.Contains(reusedSlug.Body.String(), `"slug":"handheld-zone-3"`) {
+		t.Fatalf("deleted platform slug was reused = %d %s", reusedSlug.Code, reusedSlug.Body.String())
 	}
 	var actions int
 	if err := server.database.QueryRow(`
@@ -1150,10 +1251,10 @@ func TestPlatformInstanceOrderIsAtomicVersionedAndExact(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	handler := server.Handler()
-	create := func(name, slug string, sortOrder int) string {
+	create := func(name string, sortOrder int) string {
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(fmt.Sprintf(
-			`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"slug":%q,"description":"","sortOrder":%d}`,
-			name, slug, sortOrder,
+			`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"description":"","sortOrder":%d}`,
+			name, sortOrder,
 		)))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("Idempotency-Key", uuid.NewString())
@@ -1170,8 +1271,8 @@ func TestPlatformInstanceOrderIsAtomicVersionedAndExact(t *testing.T) {
 		}
 		return body.ID
 	}
-	firstID := create("第一目录", "order-first", 100)
-	secondID := create("第二目录", "order-second", 200)
+	firstID := create("第一目录", 100)
+	secondID := create("第二目录", 200)
 
 	list := httptest.NewRecorder()
 	handler.ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/platform-instances", nil))

@@ -11,6 +11,7 @@ const captures = [
   ["retrom-ui-library-4k.png", "library", 3840, 2160],
   ["retrom-ui-game-detail.png", "detail", 2560, 1440],
   ["retrom-ui-saves.png", "saves", 2560, 1440],
+  ["retrom-ui-recent-4k.png", "recent", 3840, 2160],
   ["retrom-ui-play.png", "play", 2560, 1440],
   ["retrom-ui-play-portrait.png", "play", 2560, 1440, "portrait"],
   ["retrom-ui-play-4k.png", "play", 3840, 2160],

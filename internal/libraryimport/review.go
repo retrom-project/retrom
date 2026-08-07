@@ -68,6 +68,7 @@ func (value *optionalNullableString) UnmarshalJSON(contents []byte) error {
 
 type SelectedAssets struct {
 	CoverCandidateAssetID       *string  `json:"coverCandidateAssetId,omitempty"`
+	CoverUploadedAssetID        *string  `json:"coverUploadedAssetId,omitempty"`
 	BackgroundCandidateAssetID  *string  `json:"backgroundCandidateAssetId,omitempty"`
 	ScreenshotCandidateAssetIDs []string `json:"screenshotCandidateAssetIds,omitempty"`
 }
@@ -122,7 +123,7 @@ func (service *Service) PatchDraft(
 	var importJobID, targetID, validationID, metadataJSON string
 	targetOrDOSChanged := false
 	var currentVersion int64
-	var candidateID, coverID, backgroundID, dosEntry sql.NullString
+	var candidateID, coverID, uploadedCoverID, backgroundID, dosEntry sql.NullString
 	err = transaction.QueryRowContext(ctx, `
 SELECT i.import_job_id,
 d.target_platform_instance_id,
@@ -130,6 +131,7 @@ COALESCE(d.selected_validation_id,
 ''),
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
+d.cover_uploaded_asset_id,
 d.background_candidate_asset_id,
 d.default_dos_entry,
 d.metadata_json,
@@ -145,6 +147,7 @@ AND i.state='REVIEW_PENDING'
 			&validationID,
 			&candidateID,
 			&coverID,
+			&uploadedCoverID,
 			&backgroundID,
 			&dosEntry,
 			&metadataJSON,
@@ -310,6 +313,13 @@ AND enabled=1
 			selected[id] = struct{}{}
 		}
 		coverID = nullableCandidate(patch.SelectedAssets.CoverCandidateAssetID)
+		uploadedCoverID = nullableCandidate(patch.SelectedAssets.CoverUploadedAssetID)
+		if coverID.Valid && uploadedCoverID.Valid {
+			return DraftResult{}, ErrInvalid
+		}
+		if uploadedCoverID.Valid && !service.validUploadedAsset(ctx, transaction, itemID, uploadedCoverID.String) {
+			return DraftResult{}, ErrInvalid
+		}
 		backgroundID = nullableCandidate(patch.SelectedAssets.BackgroundCandidateAssetID)
 		for _, id := range []sql.NullString{coverID, backgroundID} {
 			if id.Valid && !service.validCandidateAsset(ctx, transaction, itemID, id.String) {
@@ -386,6 +396,7 @@ selected_validation_id=NULLIF(?,
 ''),
 selected_candidate_id=?,
 cover_candidate_asset_id=?,
+cover_uploaded_asset_id=?,
 background_candidate_asset_id=?,
 default_dos_entry=?,
 metadata_json=?,
@@ -398,6 +409,7 @@ AND version=?
 		validationID,
 		nullable(candidateID),
 		nullable(coverID),
+		nullable(uploadedCoverID),
 		nullable(backgroundID),
 		nullable(dosEntry),
 		string(encoded),
@@ -631,6 +643,16 @@ AND a.status='READY'
 	return err == nil && count == 1
 }
 
+func (service *Service) validUploadedAsset(ctx context.Context, transaction *sql.Tx, itemID, assetID string) bool {
+	var count int
+	err := transaction.QueryRowContext(ctx, `
+SELECT count(*)
+FROM review_uploaded_assets
+WHERE id=? AND import_item_id=? AND kind='COVER'
+`, assetID, itemID).Scan(&count)
+	return err == nil && count == 1
+}
+
 type DecisionResult struct {
 	ItemID      string `json:"itemId"`
 	EventID     string `json:"reviewEventId"`
@@ -647,7 +669,7 @@ func (service *Service) Discard(
 	reason string,
 ) (DecisionResult, error) {
 	reason = strings.TrimSpace(reason)
-	if reason == "" || !validField(reason, 500, true) {
+	if reason != "" && !validField(reason, 500, true) {
 		return DecisionResult{}, ErrInvalid
 	}
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -656,7 +678,7 @@ func (service *Service) Discard(
 	}
 	defer cleanup.Rollback(transaction)
 	var importID, metadataJSON, sourceManifestJSON, configSnapshotJSON string
-	var validationID, datID, dependencySnapshot, candidateID, coverID, backgroundID sql.NullString
+	var validationID, datID, dependencySnapshot, candidateID, coverID, uploadedCoverID, backgroundID sql.NullString
 	var currentVersion int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT i.import_job_id,
@@ -669,6 +691,7 @@ v.dat_version_id,
 v.dependency_snapshot_json,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
+d.cover_uploaded_asset_id,
 d.background_candidate_asset_id
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
@@ -687,6 +710,7 @@ AND i.state='REVIEW_PENDING'
 		&dependencySnapshot,
 		&candidateID,
 		&coverID,
+		&uploadedCoverID,
 		&backgroundID,
 	); err != nil ||
 		currentVersion != expectedVersion {
@@ -700,6 +724,7 @@ AND i.state='REVIEW_PENDING'
 		"selectedCandidateId":  nullable(candidateID),
 		"selectedAssets": map[string]any{
 			"coverCandidateAssetId":      nullable(coverID),
+			"coverUploadedAssetId":       nullable(uploadedCoverID),
 			"backgroundCandidateAssetId": nullable(backgroundID),
 		},
 	})
@@ -721,6 +746,7 @@ AND i.state='REVIEW_PENDING'
 		"schemaVersion":              1,
 		"selectedCandidateId":        nullable(candidateID),
 		"coverCandidateAssetId":      nullable(coverID),
+		"coverUploadedAssetId":       nullable(uploadedCoverID),
 		"backgroundCandidateAssetId": nullable(backgroundID),
 	})
 	now := service.now().UnixMilli()
@@ -777,7 +803,7 @@ created_at_ms) VALUES(?,
 		string(configEvidenceJSON),
 		string(datEvidenceJSON),
 		string(providerEvidenceJSON),
-		reason,
+		nullableText(reason),
 		now,
 	); err != nil {
 		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)

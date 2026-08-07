@@ -187,31 +187,48 @@ WHERE d.import_item_id=?
 		!strings.Contains(importConfigSnapshot, `"platformInstanceVersion":1`) {
 		t.Fatalf("old/new validation snapshot = %s/%s v%d config=%s error=%v", oldValidationID, refreshedValidationID, refreshedPlatformVersion, importConfigSnapshot, err)
 	}
-	approved, err := importer.Approve(ctx, itemID, 4)
+	manualCoverID := "01990000-0000-7000-8000-000000000001"
+	var sourceBlobID string
+	if err := database.SQL.QueryRowContext(ctx, "SELECT final_blob_id FROM upload_files WHERE id=?", upload.Files[0].ID).Scan(&sourceBlobID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO review_uploaded_assets(id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,created_at_ms)
+VALUES(?,?,?,?,'COVER',600,900,'image/png',?)
+`, manualCoverID, itemID, upload.Files[0].ID, sourceBlobID, time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	selected, err := importer.PatchDraft(ctx, itemID, 4, DraftPatch{SelectedAssets: &SelectedAssets{CoverUploadedAssetID: &manualCoverID}})
+	if err != nil || selected.Version != 5 {
+		t.Fatalf("select uploaded review cover = %#v, error=%v", selected, err)
+	}
+	approved, err := importer.Approve(ctx, itemID, 5)
 	if err != nil {
 		t.Fatalf("approve: %v", err)
 	}
-	var title, variantStatus string
+	var title, variantStatus, publishedCoverBlobID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT m.title,
-r.status
+r.status,
+(SELECT blob_id FROM game_assets WHERE game_id=g.id AND metadata_revision_id=g.current_metadata_revision_id AND kind='COVER')
 FROM games g
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN game_variants v ON v.game_id=g.id
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
 WHERE g.id=?
-`, approved.GameID).Scan(&title, &variantStatus); err != nil {
+`, approved.GameID).Scan(&title, &variantStatus, &publishedCoverBlobID); err != nil {
 		t.Fatal(err)
 	}
-	if title != "Sudoku" || variantStatus != "READY" {
-		t.Fatalf("published title/status = %s/%s", title, variantStatus)
+	if title != "Sudoku" || variantStatus != "READY" || publishedCoverBlobID != sourceBlobID {
+		t.Fatalf("published title/status/cover = %s/%s/%s", title, variantStatus, publishedCoverBlobID)
 	}
-	discarded, err := importer.Discard(ctx, discardItemID, 1, "重复内容，不发布")
+	discarded, err := importer.Discard(ctx, discardItemID, 1, "")
 	if err != nil || discarded.Status != "DISCARDED" {
 		t.Fatalf("discard review = %#v, error=%v", discarded, err)
 	}
 	var publishedDiscard, retainedBlob int
 	var beforeJSON, configEvidenceJSON, datEvidenceJSON string
+	var discardReason sql.NullString
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT (SELECT count(*)
 FROM games g
@@ -221,10 +238,13 @@ WHERE m.title='Discarded'),
 before_json,
 config_evidence_json,
 dat_evidence_json
+,
+reason
 FROM review_events
 WHERE id=?
-`, discardBlobID, discarded.EventID).Scan(&publishedDiscard, &retainedBlob, &beforeJSON, &configEvidenceJSON, &datEvidenceJSON); err != nil ||
+`, discardBlobID, discarded.EventID).Scan(&publishedDiscard, &retainedBlob, &beforeJSON, &configEvidenceJSON, &datEvidenceJSON, &discardReason); err != nil ||
 		publishedDiscard != 0 || retainedBlob != 1 ||
+		discardReason.Valid ||
 		!strings.Contains(beforeJSON, "sourceManifest") ||
 		!strings.Contains(configEvidenceJSON, "configSnapshot") ||
 		!strings.Contains(datEvidenceJSON, "dependencySnapshot") {
