@@ -16,7 +16,7 @@ const userNavigation: NavItem[] = [
 
 const adminNavigation: NavItem[] = [
   { href: "/admin/imports", label: "游戏入库", icon: "download", exact: true },
-  { href: "/admin/imports/new", label: "导入文件 / 目录", icon: "plus", child: true },
+  { href: "/admin/imports/new", label: "导入游戏", icon: "plus", child: true },
   { href: "/admin/imports/tasks", label: "任务进度", icon: "clock", child: true },
   { href: "/admin/reviews", label: "待审核", icon: "check", exact: true, child: true },
   { href: "/admin/reviews/history", label: "审核历史", icon: "history", child: true },

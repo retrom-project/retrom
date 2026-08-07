@@ -19,7 +19,8 @@ describe("ListFilters", () => {
 
     rerender(<ListFilters action="/library" placeholder="search" values={{ q: "metroid" }} resultCount={3} />);
     expect(screen.getByRole("link", { name: "清除全部" })).toHaveAttribute("href", "/library");
-    expect(screen.getByRole("link", { name: "移除关键词：metroid" })).toHaveAttribute("href", "/library");
+    expect(screen.getByText("筛选条件已应用")).toBeInTheDocument();
+    expect(screen.queryByText(/关键词：metroid/)).not.toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
   });
 
@@ -41,10 +42,11 @@ describe("ListFilters", () => {
     expect(screen.getByRole("option", { name: "街机游戏" })).toBeInTheDocument();
   });
 
-  it("preserves an exact game filter while allowing the user to remove it", () => {
-    render(<ListFilters action="/saves" placeholder="search" values={{ gameId: "game-1", availability: "AVAILABLE" }} fixedFilters={[{ name: "gameId", value: "game-1", label: "游戏：Metal Slug" }]} filters={[{ name: "availability", label: "存档状态", options: [{ value: "AVAILABLE", label: "可以继续" }] }]} />);
+  it("preserves an exact game filter without rendering a height-changing tag", () => {
+    render(<ListFilters action="/saves" placeholder="search" values={{ gameId: "game-1", availability: "AVAILABLE" }} fixedFilters={[{ name: "gameId", value: "game-1" }]} filters={[{ name: "availability", label: "存档状态", options: [{ value: "AVAILABLE", label: "可以继续" }] }]} />);
     expect(screen.getByDisplayValue("game-1")).toHaveAttribute("type", "hidden");
-    expect(screen.getByRole("link", { name: "移除游戏：Metal Slug" })).toHaveAttribute("href", "/saves?availability=AVAILABLE");
+    expect(screen.queryByText("游戏：Metal Slug")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "清除全部" })).toHaveAttribute("href", "/saves");
   });
 
   it("updates the routed results without a native document submission", async () => {

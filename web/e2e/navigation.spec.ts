@@ -66,8 +66,14 @@ test("library grid and management workbench match desktop breakpoints", async ({
   await expect(page.getByRole("heading", { name: "游戏库", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   if (payload.items.length > 0) {
-    const expectedColumns = testInfo.project.name === "chrome-1280" ? 4 : testInfo.project.name === "chrome-1440p" ? 6 : 8;
-    expect(await page.locator(".game-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(expectedColumns);
+    const libraryCard = await page.locator(".admin-game-card").first().evaluate((card) => {
+      const cardBox = card.getBoundingClientRect();
+      const coverBox = card.querySelector(".admin-game-cover")?.getBoundingClientRect();
+      return { cardWidth: cardBox.width, coverRatio: coverBox ? coverBox.width / coverBox.height : 0 };
+    });
+    expect(libraryCard.cardWidth).toBeGreaterThanOrEqual(269);
+    expect(libraryCard.cardWidth).toBeLessThanOrEqual(321);
+    expect(Math.abs(libraryCard.coverRatio - 0.75)).toBeLessThanOrEqual(0.01);
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
     for (const heading of ["发布信息", "媒体", "游戏内容与运行环境", "管理操作"]) await expect(page.getByRole("heading", { name: heading })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);

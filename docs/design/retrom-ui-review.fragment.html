@@ -318,9 +318,7 @@
     #retrom-ui-review .rt-filter-control { display: grid; gap: 5px; }
     #retrom-ui-review .rt-filter-control.rt-search { flex: 1 1 260px; }
     #retrom-ui-review .rt-filter-label { color: var(--retrom-muted); font-size: 11px; font-weight: 500; }
-    #retrom-ui-review .rt-filter-summary { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 9px; border-top: 1px solid var(--retrom-line); color: var(--retrom-muted); font-size: 11px; }
-    #retrom-ui-review .rt-filter-chips { display: flex; flex-wrap: wrap; gap: 6px; }
-    #retrom-ui-review .rt-filter-chip { padding: 4px 8px; border: 0; border-radius: 999px; color: var(--retrom-purple); background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-filter-summary { height: 30px; overflow: hidden; display: flex; flex: 0 0 30px; align-items: center; justify-content: space-between; gap: 10px; padding-top: 9px; border-top: 1px solid var(--retrom-line); color: var(--retrom-muted); font-size: 11px; }
     #retrom-ui-review .rt-search { position: relative; flex: 1 1 240px; }
     #retrom-ui-review .rt-search svg { position: absolute; left: 11px; top: 50%; width: 15px; height: 15px; color: var(--retrom-muted); transform: translateY(-50%); }
     #retrom-ui-review .rt-input,
@@ -362,6 +360,7 @@
     #retrom-ui-review .rt-save-card:hover .rt-save-delete,
     #retrom-ui-review .rt-save-delete:focus-visible { opacity: 1; transform: none; }
     #retrom-ui-review .rt-save-delete svg { width: 14px; height: 14px; }
+    #retrom-ui-review .rt-save-blocked { position: absolute; z-index: 3; top: 9px; left: 9px; padding: 4px 7px; border-radius: 7px; color: #fff; background: var(--retrom-red); font-size: 9px; font-weight: 600; }
     #retrom-ui-review .rt-save-copy { padding: 12px; }
     #retrom-ui-review .rt-save-title-row { display: flex; align-items: center; gap: 7px; }
     #retrom-ui-review .rt-save-title-row .rt-text-link { display: inline-grid; place-items: center; }
@@ -417,10 +416,14 @@
     #retrom-ui-review .rt-checkline svg { width: 14px; height: 14px; flex: none; margin-top: 1px; }
     #retrom-ui-review .rt-launch-button { width: 100%; margin-top: 12px; }
     #retrom-ui-review .rt-launch-note { margin-top: 7px; color: var(--retrom-muted); font-size: 10px; text-align: center; }
+    #retrom-ui-review .rt-launch-note.is-override, #retrom-ui-review .rt-core-origin.is-override, #retrom-ui-review .rt-core-override { color: var(--retrom-red); font-weight: 600; }
     #retrom-ui-review .rt-launch-kicker { color: var(--retrom-purple); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; }
     #retrom-ui-review .rt-launch-panel > .rt-advanced { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--retrom-line); }
     #retrom-ui-review .rt-advanced > summary { width: fit-content; color: var(--retrom-purple); cursor: pointer; font-size: 11px; font-weight: 500; }
-    #retrom-ui-review .rt-launch-popover { position: absolute; z-index: 7; right: 14px; bottom: 52px; left: 14px; padding: 12px; border: 1px solid color-mix(in srgb, var(--retrom-purple) 35%, var(--retrom-line)); border-radius: 10px; background: var(--retrom-panel); box-shadow: 0 16px 38px rgb(0 0 0 / 0.2); }
+    #retrom-ui-review .rt-launch-popover { position: absolute; z-index: 7; right: 14px; bottom: 52px; left: 14px; padding: 12px 40px 12px 12px; border: 1px solid color-mix(in srgb, var(--retrom-purple) 35%, var(--retrom-line)); border-radius: 10px; background: var(--retrom-panel); box-shadow: 0 16px 38px rgb(0 0 0 / 0.2); }
+    #retrom-ui-review .rt-launch-popover-close { position: absolute; top: 8px; right: 8px; width: 27px; height: 27px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 7px; color: var(--retrom-muted); background: transparent; cursor: pointer; }
+    #retrom-ui-review .rt-launch-popover-close:hover { color: var(--retrom-text); background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-launch-popover-close svg { width: 15px; height: 15px; }
 
     #retrom-ui-review .rt-tab-row { display: flex; gap: 18px; margin: 18px 0 12px; border-bottom: 1px solid var(--retrom-line); }
     #retrom-ui-review .rt-tab { padding: 10px 0; border: 0; border-bottom: 2px solid transparent; background: transparent; color: var(--retrom-muted); cursor: pointer; }
@@ -612,7 +615,7 @@
     #retrom-ui-review .rt-review-context-item span { color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-review-context-item.is-active { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
 
-    #retrom-ui-review .rt-management-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 300px)); gap: 16px; }
+    #retrom-ui-review .rt-management-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 320px)); gap: 20px; }
     #retrom-ui-review .rt-management-card { display: flex; min-width: 0; overflow: hidden; flex-direction: column; border: 1px solid var(--retrom-line); border-radius: 13px; color: var(--retrom-text); background: var(--retrom-panel); cursor: pointer; text-align: left; }
     #retrom-ui-review .rt-management-cover { position: relative; width: 100%; aspect-ratio: 3 / 4; }
     #retrom-ui-review .rt-management-hidden { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: rgb(180 55 66 / .9); color: #fff; }
@@ -720,7 +723,7 @@
       #retrom-ui-review .rt-page { padding: 32px; }
       #retrom-ui-review .rt-game-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 16px; }
       #retrom-ui-review .rt-save-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
-      #retrom-ui-review .rt-management-grid { grid-template-columns: repeat(4, minmax(0, 300px)); gap: 16px; }
+      #retrom-ui-review .rt-management-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 320px)); gap: 20px; }
       #retrom-ui-review .rt-detail-hero { grid-template-columns: 210px minmax(0, 1fr) 360px; gap: 28px; padding: 26px; }
       #retrom-ui-review .rt-detail-title { font-size: 31px; }
       #retrom-ui-review .rt-player-screen,
@@ -784,7 +787,7 @@
       #retrom-ui-review .rt-cover-title { font-size: 18px; }
       #retrom-ui-review .rt-game-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
       #retrom-ui-review .rt-save-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-      #retrom-ui-review .rt-management-grid { grid-template-columns: repeat(4, minmax(0, 300px)); }
+      #retrom-ui-review .rt-management-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 320px)); }
       #retrom-ui-review .rt-player-meta { font-size: 14px; }
       #retrom-ui-review .rt-player-launch-state,
       #retrom-ui-review .rt-player-bottom { font-size: 13px; }
@@ -875,7 +878,7 @@
           <div class="rt-nav-section">
             <button type="button" class="rt-nav-button rt-nav-parent is-active" data-page-target="admin-import" data-ingest-parent><i data-lucide="package-plus" aria-hidden="true"></i><span class="rt-nav-label">游戏入库</span><i class="rt-nav-chevron" data-lucide="chevron-down" aria-hidden="true"></i></button>
             <div class="rt-nav-children" aria-label="游戏入库子菜单">
-              <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-import-new"><span class="rt-nav-label">导入文件 / 目录</span></button>
+              <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-import-new"><span class="rt-nav-label">导入游戏</span></button>
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-import-tasks"><span class="rt-nav-label">任务进度</span><span class="rt-nav-count">2</span></button>
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-review"><span class="rt-nav-label">待审核</span><span class="rt-nav-count">4</span></button>
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-review-history"><span class="rt-nav-label">审核历史</span></button>
@@ -912,16 +915,16 @@
 
       <section class="rt-page" data-page="library">
         <div class="rt-page-head"><div><h1>游戏库</h1><p class="rt-subtitle">按名称或平台找到游戏，打开详情后即可使用推荐配置开始游玩</p></div></div>
-        <div class="rt-filter-shell"><div class="rt-filter-controls"><label class="rt-filter-control rt-search"><span class="rt-filter-label">搜索</span><span><i data-lucide="search" aria-hidden="true"></i><input class="rt-input" type="search" placeholder="输入游戏名称"></span></label><label class="rt-filter-control"><span class="rt-filter-label">游戏平台</span><select class="rt-select rt-filter-select"><option>所有平台</option><option>街机</option><option>MS-DOS</option><option>NES</option><option>SNES</option></select></label><label class="rt-filter-control"><span class="rt-filter-label">游戏目录</span><select class="rt-select rt-filter-select"><option>所有目录</option><optgroup label="街机"><option>FBNeo 游戏列表</option><option>MAME 游戏列表</option><option>FBNeo 飞行游戏</option></optgroup><optgroup label="MS-DOS"><option>DOS 经典游戏</option></optgroup></select></label><label class="rt-filter-control"><span class="rt-filter-label">排列顺序</span><select class="rt-select rt-filter-select"><option>最近游玩</option><option>标题 A–Z</option><option>发行年份</option></select></label><button type="button" class="rt-button rt-button-primary">搜索</button></div><div class="rt-filter-summary"><div class="rt-filter-chips"><button type="button" class="rt-filter-chip">游戏平台：街机 ×</button></div><span>当前显示 <strong>8</strong> 项 · <button type="button" class="rt-text-link">清除全部</button></span></div></div>
-        <div class="rt-game-grid">
-          <button type="button" class="rt-game-card" data-open-game="metal"><div class="rt-cover rt-cover-b"><span class="rt-cover-title">METAL SLUG</span></div><div class="rt-card-copy"><div class="rt-card-title">Metal Slug</div><div class="rt-card-meta"><span>Arcade · FBNeo 游戏列表 · 1996</span></div></div></button>
-          <button type="button" class="rt-game-card" data-open-game="doom"><div class="rt-cover rt-cover-c"><span class="rt-cover-title">DOOM</span></div><div class="rt-card-copy"><div class="rt-card-title">DOOM</div><div class="rt-card-meta"><span>MS-DOS · DOS 经典游戏 · 1993</span></div></div></button>
-          <button type="button" class="rt-game-card" data-open-game="zelda"><div class="rt-cover rt-cover-a"><span class="rt-cover-title">ZELDA</span></div><div class="rt-card-copy"><div class="rt-card-title">Zelda no Densetsu</div><div class="rt-card-meta"><span>Famicom Disk · 磁碟冒险 · 1986</span><span class="rt-badge rt-badge-amber">缺少 BIOS</span></div></div></button>
-          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-f"><span class="rt-cover-title">F-ZERO</span></div><div class="rt-card-copy"><div class="rt-card-title">F-Zero</div><div class="rt-card-meta"><span>SNES · SNES 游戏 · 1990</span></div></div></button>
-          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-d"><span class="rt-cover-title">POKÉMON</span></div><div class="rt-card-copy"><div class="rt-card-title">Pokémon Green</div><div class="rt-card-meta"><span>Game Boy · 掌机收藏 · 1996</span></div></div></button>
-          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-e"><span class="rt-cover-title">METROID</span></div><div class="rt-card-copy"><div class="rt-card-title">Metroid Fusion</div><div class="rt-card-meta"><span>GBA · GBA 游戏 · 2002</span></div></div></button>
-          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-c"><span class="rt-cover-title">CASTLEVANIA</span></div><div class="rt-card-copy"><div class="rt-card-title">Castlevania</div><div class="rt-card-meta"><span>NES · NES 游戏 · 1986</span></div></div></button>
-          <button type="button" class="rt-game-card"><div class="rt-cover rt-cover-a"><span class="rt-cover-title">KIRBY</span></div><div class="rt-card-copy"><div class="rt-card-title">Kirby's Dream Land</div><div class="rt-card-meta"><span>Game Boy · 掌机收藏 · 1992</span></div></div></button>
+        <div class="rt-filter-shell"><div class="rt-filter-controls"><label class="rt-filter-control rt-search"><span class="rt-filter-label">搜索</span><span><i data-lucide="search" aria-hidden="true"></i><input class="rt-input" type="search" placeholder="输入游戏名称"></span></label><label class="rt-filter-control"><span class="rt-filter-label">游戏平台</span><select class="rt-select rt-filter-select"><option>所有平台</option><option>街机</option><option>MS-DOS</option><option>NES</option><option>SNES</option></select></label><label class="rt-filter-control"><span class="rt-filter-label">游戏目录</span><select class="rt-select rt-filter-select"><option>所有目录</option><optgroup label="街机"><option>FBNeo 游戏列表</option><option>MAME 游戏列表</option><option>FBNeo 飞行游戏</option></optgroup><optgroup label="MS-DOS"><option>DOS 经典游戏</option></optgroup></select></label><label class="rt-filter-control"><span class="rt-filter-label">排列顺序</span><select class="rt-select rt-filter-select"><option>最近游玩</option><option>标题 A–Z</option><option>发行年份</option></select></label><button type="button" class="rt-button rt-button-primary">搜索</button></div><div class="rt-filter-summary"><span>筛选条件已应用</span><span>当前显示 <strong>8</strong> 项 · <button type="button" class="rt-text-link">清除全部</button></span></div></div>
+        <div class="rt-management-grid">
+          <button type="button" class="rt-management-card" data-open-game="metal"><span class="rt-cover rt-cover-b rt-management-cover"><span class="rt-cover-title">METAL SLUG</span></span><span class="rt-management-copy"><span class="rt-management-title">Metal Slug</span><span class="rt-management-meta">Arcade · FBNeo 游戏列表</span></span></button>
+          <button type="button" class="rt-management-card" data-open-game="doom"><span class="rt-cover rt-cover-c rt-management-cover"><span class="rt-cover-title">DOOM</span></span><span class="rt-management-copy"><span class="rt-management-title">DOOM</span><span class="rt-management-meta">MS-DOS · DOS 经典游戏</span></span></button>
+          <button type="button" class="rt-management-card" data-open-game="zelda"><span class="rt-cover rt-cover-a rt-management-cover"><span class="rt-cover-title">ZELDA</span><span class="rt-management-hidden" title="缺少 BIOS"><i data-lucide="triangle-alert" aria-hidden="true"></i></span></span><span class="rt-management-copy"><span class="rt-management-title">Zelda no Densetsu</span><span class="rt-management-meta">Famicom Disk · 磁碟冒险</span></span></button>
+          <button type="button" class="rt-management-card"><span class="rt-cover rt-cover-f rt-management-cover"><span class="rt-cover-title">F-ZERO</span></span><span class="rt-management-copy"><span class="rt-management-title">F-Zero</span><span class="rt-management-meta">SNES · SNES 游戏</span></span></button>
+          <button type="button" class="rt-management-card"><span class="rt-cover rt-cover-d rt-management-cover"><span class="rt-cover-title">POKÉMON</span></span><span class="rt-management-copy"><span class="rt-management-title">Pokémon Green</span><span class="rt-management-meta">Game Boy · 掌机收藏</span></span></button>
+          <button type="button" class="rt-management-card"><span class="rt-cover rt-cover-e rt-management-cover"><span class="rt-cover-title">METROID</span></span><span class="rt-management-copy"><span class="rt-management-title">Metroid Fusion</span><span class="rt-management-meta">GBA · GBA 游戏</span></span></button>
+          <button type="button" class="rt-management-card"><span class="rt-cover rt-cover-c rt-management-cover"><span class="rt-cover-title">CASTLEVANIA</span></span><span class="rt-management-copy"><span class="rt-management-title">Castlevania</span><span class="rt-management-meta">NES · NES 游戏</span></span></button>
+          <button type="button" class="rt-management-card"><span class="rt-cover rt-cover-a rt-management-cover"><span class="rt-cover-title">KIRBY</span></span><span class="rt-management-copy"><span class="rt-management-title">Kirby's Dream Land</span><span class="rt-management-meta">Game Boy · 掌机收藏</span></span></button>
         </div>
       </section>
 
@@ -930,7 +933,7 @@
         <div class="rt-save-grid">
           <article class="rt-save-card"><div class="rt-save-shot"><button type="button" class="rt-button rt-button-primary rt-save-resume" data-quick-start="metal" data-save-start="沙漠据点前"><i data-lucide="play" aria-hidden="true"></i>从这里继续</button><button type="button" class="rt-button rt-save-delete" aria-label="删除沙漠据点前"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>沙漠据点前</h3><button type="button" class="rt-text-link" aria-label="重命名沙漠据点前"><i data-lucide="pencil" aria-hidden="true"></i></button></div><div class="rt-save-game">Metal Slug</div><div class="rt-save-time">FBNeo · 今天 22:14<br>已游玩 2 小时 24 分</div></div></article>
           <article class="rt-save-card"><div class="rt-save-shot" style="background-color:var(--retrom-cover-c)"><button type="button" class="rt-button rt-button-primary rt-save-resume" data-quick-start="doom" data-save-start="Phobos Lab"><i data-lucide="play" aria-hidden="true"></i>从这里继续</button><button type="button" class="rt-button rt-save-delete" aria-label="删除 Phobos Lab"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>Phobos Lab</h3><button type="button" class="rt-text-link" aria-label="重命名 Phobos Lab"><i data-lucide="pencil" aria-hidden="true"></i></button></div><div class="rt-save-game">DOOM</div><div class="rt-save-time">DOSBox Pure · 昨天 23:06<br>已游玩 1 小时 48 分</div></div></article>
-          <article class="rt-save-card"><div class="rt-save-shot" style="background-color:var(--retrom-cover-a)"><button type="button" class="rt-button rt-save-resume" disabled title="缺少 disksys.rom"><i data-lucide="play" aria-hidden="true"></i>缺少 BIOS</button><button type="button" class="rt-button rt-save-delete" aria-label="删除迷失森林入口"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>迷失森林入口</h3><button type="button" class="rt-text-link" aria-label="重命名迷失森林入口"><i data-lucide="pencil" aria-hidden="true"></i></button></div><div class="rt-save-game">The Legend of Zelda</div><div class="rt-save-time">FCEUmm · 8 月 3 日<br>已游玩 48 分</div></div></article>
+          <article class="rt-save-card"><div class="rt-save-shot" style="background-color:var(--retrom-cover-a)"><span class="rt-save-blocked">当前不可用 · 缺少 BIOS</span><button type="button" class="rt-button rt-save-resume" disabled title="缺少 disksys.rom"><i data-lucide="play" aria-hidden="true"></i>缺少 BIOS</button><button type="button" class="rt-button rt-save-delete" aria-label="删除迷失森林入口"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>迷失森林入口</h3><button type="button" class="rt-text-link" aria-label="重命名迷失森林入口"><i data-lucide="pencil" aria-hidden="true"></i></button></div><div class="rt-save-game">The Legend of Zelda</div><div class="rt-save-time">FCEUmm · 8 月 3 日<br>已游玩 48 分</div></div></article>
         </div>
       </section>
 
@@ -961,8 +964,8 @@
             <label class="rt-field" id="rt-dos-field" hidden><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option></select></label>
             <div class="rt-checkline" id="rt-launch-check"><i data-lucide="circle-check" aria-hidden="true"></i><span id="rt-launch-check-text">系统已选好适合这个目录的运行方式</span></div>
             <button type="button" class="rt-button rt-button-primary rt-launch-button" data-start-game><i data-lucide="play" aria-hidden="true"></i>开始游戏</button>
-            <div class="rt-launch-note">开始前会自动检查游戏文件和所需系统文件</div>
-            <details class="rt-advanced"><summary>更换运行方式</summary><div class="rt-launch-popover"><label class="rt-field"><span class="rt-label">运行引擎</span><select class="rt-select" id="rt-core-select"><option>FBNeo · 推荐</option><option>MAME 2003 Plus · 可选</option><option>MAME 2003 · 开始时检查</option></select></label><div class="rt-table-sub" id="rt-core-origin">只有遇到兼容问题或需要特定存档时才建议更改</div></div></details>
+            <div class="rt-launch-note" id="rt-launch-note">开始前会自动检查游戏文件和所需系统文件</div>
+            <details class="rt-advanced" id="rt-core-details"><summary>更换运行方式<span class="rt-core-override" id="rt-core-override" hidden>（未采用默认核心）</span></summary><div class="rt-launch-popover"><button type="button" class="rt-launch-popover-close" data-close-core aria-label="关闭运行方式选择"><i data-lucide="x" aria-hidden="true"></i></button><label class="rt-field"><span class="rt-label">运行引擎</span><select class="rt-select" id="rt-core-select"><option>FBNeo · 推荐</option><option>MAME 2003 Plus · 可选</option><option>MAME 2003 · 开始时检查</option></select></label><div class="rt-table-sub rt-core-origin" id="rt-core-origin">只有遇到兼容问题或需要特定存档时才建议更改</div></div></details>
           </aside>
         </div>
         <div class="rt-tab-row" role="tablist" aria-label="详情内容"><button type="button" class="rt-tab is-active">存档</button><button type="button" class="rt-tab">游戏介绍</button><button type="button" class="rt-tab">详细信息</button></div>
@@ -1026,7 +1029,7 @@
 
       <section class="rt-page" data-page="admin-import-new">
         <div class="rt-page-head">
-          <div><h1>导入文件 / 目录</h1><p class="rt-subtitle">选择游戏内容、目标目录和信息来源，提交后配置保持不变</p></div>
+          <div><h1>导入游戏</h1><p class="rt-subtitle">选择游戏内容、目标目录和信息来源，提交后配置保持不变</p></div>
           <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-import-tasks"><i data-lucide="activity" aria-hidden="true"></i>查看任务进度</button></div>
         </div>
         <div class="rt-import-stepbar" aria-label="新建导入步骤">
@@ -1038,8 +1041,8 @@
           <div class="rt-dropzone"><div><div class="rt-drop-icon"><i data-lucide="upload-cloud" aria-hidden="true"></i></div><h2>拖放游戏文件或目录</h2><p class="rt-drop-copy">保留 Chrome 目录相对路径以识别 DOS bundle；CHD 仅保留证据并阻断发布</p><div class="rt-drop-actions"><button type="button" class="rt-button rt-button-primary">选择文件</button><button type="button" class="rt-button">选择目录</button></div><p class="rt-drop-copy">尚未选择内容</p></div></div>
           <div class="rt-panel rt-import-settings">
             <h3>任务配置</h3>
-            <label class="rt-field"><span class="rt-label">归属平台目录</span><select class="rt-select"><optgroup label="Arcade"><option>FBNeo 游戏列表 · 默认 FBNeo</option><option>MAME 游戏列表 · 默认 MAME 2003</option><option>FBNeo 飞行游戏 · 默认 FBNeo</option></optgroup><optgroup label="MS-DOS"><option>DOS 经典游戏 · 默认 DOSBox Pure</option></optgroup></select></label>
-            <div class="rt-table-sub">基础平台 Arcade · 默认核心 FBNeo · EmulatorJS 4.2.3 · DAT 1.0.0.03</div>
+            <label class="rt-field"><span class="rt-label">归属平台目录</span><select class="rt-select"><option selected disabled>请选择目标平台目录</option><optgroup label="Arcade"><option>FBNeo 游戏列表 · 默认 FBNeo</option><option>MAME 游戏列表 · 默认 MAME 2003</option><option>FBNeo 飞行游戏 · 默认 FBNeo</option></optgroup><optgroup label="MS-DOS"><option>DOS 经典游戏 · 默认 DOSBox Pure</option></optgroup></select></label>
+            <div class="rt-table-sub">必须主动选择，避免将游戏导入到错误目录。</div>
             <label class="rt-field"><span class="rt-label">元信息来源</span><select class="rt-select"><option>Hasheous · 文件哈希（无需登录）</option><option>不刮削 · 稍后手动填写</option></select></label>
             <div class="rt-setting-note">Arcade DAT 只解析 machine、parent、BIOS 与 ROM entry；它不是元信息刮削源。</div>
             <div class="rt-import-checklist" aria-label="提交后处理">
@@ -1052,9 +1055,9 @@
         <div class="rt-panel rt-preflight">
           <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h3>提交前快照</h3><p class="rt-subtitle">任务创建后沿用此配置；后续目录或 DAT 变更不会静默覆盖</p></div><button type="button" class="rt-button rt-button-primary" disabled><i data-lucide="upload" aria-hidden="true"></i>选择内容后上传</button></div>
           <div class="rt-preflight-grid">
-            <div class="rt-preflight-item"><div class="rt-preflight-label">平台目录</div><div class="rt-preflight-value">FBNeo 游戏列表</div></div>
-            <div class="rt-preflight-item"><div class="rt-preflight-label">默认核心 / Artifact</div><div class="rt-preflight-value">FBNeo · EmulatorJS 4.2.3</div></div>
-            <div class="rt-preflight-item"><div class="rt-preflight-label">Arcade DAT</div><div class="rt-preflight-value">1.0.0.03 · 活动版本</div></div>
+            <div class="rt-preflight-item"><div class="rt-preflight-label">平台目录</div><div class="rt-preflight-value">尚未选择</div></div>
+            <div class="rt-preflight-item"><div class="rt-preflight-label">默认核心 / Artifact</div><div class="rt-preflight-value">选择目录后显示</div></div>
+            <div class="rt-preflight-item"><div class="rt-preflight-label">Arcade DAT</div><div class="rt-preflight-value">选择目录后显示</div></div>
             <div class="rt-preflight-item"><div class="rt-preflight-label">展示元信息</div><div class="rt-preflight-value">Hasheous Hash Lookup</div></div>
           </div>
           <div class="rt-setting-note">分块齐备后先进入“正在验证与入库文件（FINALIZING）”；只有全部文件完成 SHA-256 / CAS 校验，主操作才变为“创建导入任务”。取消处理中会显示“正在取消”，不会立即伪装成已删除。</div>
@@ -1180,7 +1183,7 @@
 
       <section class="rt-page" data-page="admin-games">
         <div class="rt-page-head"><div><h1>游戏管理</h1><p class="rt-subtitle">编辑已发布内容、替换游戏文件或移除游戏</p></div></div>
-        <div class="rt-filter-shell"><div class="rt-filter-controls"><label class="rt-filter-control rt-search"><span class="rt-filter-label">搜索</span><span><i data-lucide="search" aria-hidden="true"></i><input class="rt-input" type="search" placeholder="输入游戏名称"></span></label><label class="rt-filter-control"><span class="rt-filter-label">游戏状态</span><select class="rt-select rt-filter-select"><option>用户可见</option><option>已移出游戏库</option><option>全部</option></select></label><button type="button" class="rt-button rt-button-primary">搜索</button></div><div class="rt-filter-summary"><span>当前显示 <strong>4</strong> 项</span></div></div>
+        <div class="rt-filter-shell"><div class="rt-filter-controls"><label class="rt-filter-control rt-search"><span class="rt-filter-label">搜索</span><span><i data-lucide="search" aria-hidden="true"></i><input class="rt-input" type="search" placeholder="输入游戏名称"></span></label><label class="rt-filter-control"><span class="rt-filter-label">游戏状态</span><select class="rt-select rt-filter-select"><option>用户可见</option><option>已移出游戏库</option><option>全部</option></select></label><button type="button" class="rt-button rt-button-primary">搜索</button></div><div class="rt-filter-summary"><span>未设置筛选条件</span><span>当前显示 <strong>4</strong> 项</span></div></div>
         <div class="rt-management-grid">
           <button type="button" class="rt-management-card" data-page-link="admin-game-detail"><span class="rt-cover rt-cover-b rt-management-cover"><span class="rt-cover-title">MS</span></span><span class="rt-management-copy"><span class="rt-management-title">Metal Slug</span><span class="rt-management-meta">Arcade · FBNeo 游戏列表</span></span></button>
           <button type="button" class="rt-management-card" data-page-link="admin-game-detail"><span class="rt-cover rt-cover-c rt-management-cover"><span class="rt-cover-title">DOOM</span></span><span class="rt-management-copy"><span class="rt-management-title">DOOM</span><span class="rt-management-meta">MS-DOS · DOS 经典游戏</span></span></button>
@@ -1333,7 +1336,7 @@
 
       const pageNames = {
         home: '首页', library: '游戏库', saves: '我的存档', recent: '最近游玩', detail: '游戏详情', play: '游玩',
-        'admin-import': '游戏入库', 'admin-import-new': '导入文件 / 目录', 'admin-import-tasks': '任务进度',
+        'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
         'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-platform-instances': '游戏目录', 'admin-bios': 'BIOS 管理'
       };
       function showPage(page) {
@@ -1387,6 +1390,7 @@
           cores: ['FCEUmm · 推荐 / 缺少 BIOS'], check: '缺少 disksys.rom，安装后才能开始游戏'
         }
       };
+      const corePreferences = {};
 
       function openGame(key) {
         const game = gameDetails[key] || gameDetails.metal;
@@ -1404,25 +1408,39 @@
         root.querySelector('#rt-detail-save-title').textContent = game.title;
         root.querySelector('#rt-detail-save-meta').textContent = game.save;
         root.querySelector('#rt-dos-field').hidden = !game.dos;
-        root.querySelector('#rt-core-select').innerHTML = game.cores.map((item) => `<option>${item}</option>`).join('');
-        root.querySelector('#rt-core-origin').textContent = '只有遇到兼容问题或需要特定存档时才建议更改';
+        const coreSelect = root.querySelector('#rt-core-select');
+        coreSelect.innerHTML = game.cores.map((item) => `<option>${item}</option>`).join('');
+        if (corePreferences[currentGame] && game.cores.includes(corePreferences[currentGame])) coreSelect.value = corePreferences[currentGame];
+        root.querySelector('#rt-core-details').removeAttribute('open');
         root.querySelector('#rt-launch-check-text').textContent = game.check;
         root.querySelector('#rt-launch-ready').textContent = game.ready ? '可以直接开始' : '当前不可用';
         root.querySelector('#rt-launch-ready').className = game.ready ? 'rt-badge rt-badge-green' : 'rt-badge rt-badge-red';
         root.querySelector('#rt-launch-check').className = game.ready ? 'rt-checkline' : 'rt-checkline is-warning';
         root.querySelectorAll('[data-start-game]').forEach((button) => { button.disabled = !game.ready; });
         root.querySelector('[data-start-current-save]').disabled = !game.ready;
+        updateCoreSelection(coreSelect.value, false);
         showPage('detail');
       }
 
       root.querySelectorAll('[data-open-game]').forEach((button) => button.addEventListener('click', () => openGame(button.dataset.openGame)));
 
-      root.querySelector('#rt-core-select').addEventListener('change', (event) => {
-        const label = event.target.value;
+      function updateCoreSelection(label, remember = true) {
         const blocked = label.includes('缺少 BIOS') || label.includes('不兼容');
         const needsValidation = label.includes('开始时检查');
+        const usesOverride = !label.includes('推荐');
         const status = root.querySelector('#rt-launch-ready');
         const checkline = root.querySelector('#rt-launch-check');
+        const launchNote = root.querySelector('#rt-launch-note');
+        const coreOrigin = root.querySelector('#rt-core-origin');
+        if (remember) {
+          if (usesOverride) corePreferences[currentGame] = label;
+          else delete corePreferences[currentGame];
+        }
+        root.querySelector('#rt-core-override').hidden = !usesOverride;
+        launchNote.classList.toggle('is-override', usesOverride);
+        launchNote.textContent = usesOverride ? `已记住这个游戏使用 ${label.split(' · ')[0]}，后续启动将优先使用` : '开始前会自动检查游戏文件和所需系统文件';
+        coreOrigin.classList.toggle('is-override', usesOverride);
+        coreOrigin.textContent = usesOverride ? '已保留当前选择；改回推荐核心可恢复目录默认设置' : '只有遇到兼容问题或需要特定存档时才建议更改';
         if (blocked) {
           status.textContent = '当前不可用';
           status.className = 'rt-badge rt-badge-red';
@@ -1439,6 +1457,18 @@
           root.querySelector('#rt-launch-check-text').textContent = gameDetails[currentGame].check;
         }
         root.querySelectorAll('[data-start-game]').forEach((button) => { button.disabled = blocked; });
+      }
+
+      root.querySelector('#rt-core-select').addEventListener('change', (event) => {
+        updateCoreSelection(event.target.value);
+      });
+      const coreDetails = root.querySelector('#rt-core-details');
+      root.querySelector('[data-close-core]').addEventListener('click', () => coreDetails.removeAttribute('open'));
+      document.addEventListener('pointerdown', (event) => {
+        if (coreDetails.open && !coreDetails.contains(event.target)) coreDetails.removeAttribute('open');
+      });
+      document.addEventListener('keydown', (event) => {
+        if (event.key === 'Escape') coreDetails.removeAttribute('open');
       });
 
       let playerReturnPage = 'detail';

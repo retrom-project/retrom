@@ -252,7 +252,7 @@ Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选�
 | 页面 | 路由 | 主要问题 | 允许的主要操作 |
 | --- | --- | --- | --- |
 | 游戏入库总览 | `/admin/imports` | 当前流水线是否健康、哪里需要处理 | 新建导入、跳转任务/待审核/历史 |
-| 导入文件 / 目录 | `/admin/imports/new` | 本次导入什么、归属哪个平台目录、冻结什么配置 | 选择内容、配置、预检、创建 ImportJob |
+| 导入游戏 | `/admin/imports/new` | 本次导入什么、归属哪个平台目录、冻结什么配置 | 选择内容、配置、预检、创建 ImportJob |
 | 任务进度 | `/admin/imports/tasks` | ImportJob/ImportItem 运行到哪里、为何失败 | 查看事件、取消任务、重试失败条目 |
 | 待审核 | `/admin/reviews`、`/admin/reviews/:itemId` | 候选是否正确、最终发布内容是什么 | 实时编辑、替换封面、Discard、通过并发布 |
 | 审核历史 | `/admin/reviews/history` | 当时依据什么作出什么决策 | 筛选、查看不可变快照与字段 diff |

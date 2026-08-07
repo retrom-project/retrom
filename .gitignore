@@ -46,3 +46,4 @@
 !/data/example/results/.gitkeep
 !/data/example/results/latest.json
 !/data/example/results/manual-review.json
+/sample

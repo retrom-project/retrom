@@ -8,14 +8,7 @@ import { AppIcon } from "@/components/app-icon";
 export type FilterOption = { label: string; value: string; parentValue?: string };
 export type FilterDefinition = { dependsOn?: string; label: string; name: string; options: FilterOption[] };
 export type TextFilterDefinition = { label: string; name: string; placeholder: string };
-export type FixedFilterDefinition = { label: string; name: string; value: string };
-
-function hrefWithout(action: string, values: Record<string, string>, name: string) {
-  const query = new URLSearchParams();
-  for (const [key, value] of Object.entries(values)) if (key !== name && value) query.set(key, value);
-  const encoded = query.toString();
-  return encoded ? `${action}?${encoded}` : action;
-}
+export type FixedFilterDefinition = { name: string; value: string };
 
 export function ListFilters({ action, placeholder, values, filters = [], textFilters = [], fixedFilters = [], resultCount }: { action: string; placeholder: string; values: Record<string, string>; filters?: FilterDefinition[]; textFilters?: TextFilterDefinition[]; fixedFilters?: FixedFilterDefinition[]; resultCount?: number }) {
   const router = useRouter();
@@ -58,17 +51,6 @@ export function ListFilters({ action, placeholder, values, filters = [], textFil
   }
 
   const hasActiveFilters = Object.values(values).some((value) => Boolean(value));
-  const chips = Object.entries(values).flatMap(([name, value]) => {
-    if (!value) return [];
-    if (name === "q") return [{ name, label: `关键词：${value}` }];
-    const fixedFilter = fixedFilters.find((filter) => filter.name === name && filter.value === value);
-    if (fixedFilter) return [{ name, label: fixedFilter.label }];
-    const textFilter = textFilters.find((filter) => filter.name === name);
-    if (textFilter) return [{ name, label: `${textFilter.label}：${value}` }];
-    const filter = filters.find((item) => item.name === name);
-    const option = filter?.options.find((item) => item.value === value);
-    return filter ? [{ name, label: `${filter.label}：${option?.label ?? value}` }] : [];
-  });
 
   return <form className="filter-bar" action={action} method="get" onSubmit={search} aria-busy={pending}>
     {fixedFilters.map((filter) => <input key={filter.name} type="hidden" name={filter.name} value={filter.value} />)}
@@ -83,7 +65,7 @@ export function ListFilters({ action, placeholder, values, filters = [], textFil
       <button className="button filter-submit" type="submit" disabled={pending}>{pending ? "搜索中…" : "搜索"}</button>
     </div>
     <div className="filter-summary">
-      <div className="filter-chips" aria-label="当前筛选条件">{chips.length ? chips.map((chip) => <Link className="filter-chip" href={hrefWithout(action, values, chip.name)} aria-label={`移除${chip.label}`} key={chip.name}>{chip.label}<span aria-hidden="true">×</span></Link>) : <span className="filter-hint">未设置筛选条件</span>}</div>
+      <span className="filter-hint">{hasActiveFilters ? "筛选条件已应用" : "未设置筛选条件"}</span>
       <div className="filter-result">{resultCount === undefined ? null : <span>当前显示 <strong>{resultCount}</strong> 项</span>}{hasActiveFilters ? <Link className="row-action filter-reset" href={action}>清除全部</Link> : null}</div>
     </div>
   </form>;

@@ -3069,8 +3069,15 @@ ORDER BY created_at_ms,id
 func (server *Server) reviewSourceFiles(request *http.Request, itemID string) ([]map[string]any, error) {
 	rows, err := server.database.QueryContext(request.Context(), `
 SELECT f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32,
-MAX(CASE WHEN s.source_archive_blob_id IS NOT NULL THEN 1 ELSE 0 END),
-MAX(s.source_archive_blob_id)
+MAX(CASE WHEN s.source_archive_blob_id IS NOT NULL OR EXISTS(
+  SELECT 1 FROM archive_entries ae WHERE ae.archive_blob_id=f.final_blob_id
+) THEN 1 ELSE 0 END),
+COALESCE(
+  MAX(s.source_archive_blob_id),
+  MAX(CASE WHEN EXISTS(
+    SELECT 1 FROM archive_entries ae WHERE ae.archive_blob_id=f.final_blob_id
+  ) THEN f.final_blob_id END)
+)
 FROM import_item_source_files s
 JOIN upload_files f ON f.id=s.upload_file_id
 JOIN blobs b ON b.id=f.final_blob_id
