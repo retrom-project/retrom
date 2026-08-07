@@ -352,8 +352,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-PLAT-001`。
-- 流程：为 Arcade 创建 `acc-arcade-fbneo` 并选择 `fbneo`；再尝试选择未关联/停用核心和重复 slug。
-- 通过标准：合法目录创建成功；非法默认核心和重复 `(platform_id, slug)` 被 409/422 与数据库约束拒绝；时刻字段为整数。
+- 流程：为 Arcade 创建名为 `acc-arcade-fbneo` 的目录并选择 `fbneo`；使用相同名称再次创建，随后软删除第一项并第三次使用相同名称；另尝试选择未关联/停用核心。
+- 通过标准：创建请求不包含 slug，合法目录创建成功；服务端依次生成 `acc-arcade-fbneo`、`acc-arcade-fbneo-2`、`acc-arcade-fbneo-3`，不会复用软删除标识；非法默认核心被 422 与数据库约束拒绝；时刻字段为整数。
 - 证据：API 响应和数据库行。
 
 ### ACC-PLAT-002：Game 唯一归属

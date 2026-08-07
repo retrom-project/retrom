@@ -24,6 +24,7 @@ import (
 var (
 	errPlatformInstanceOrderInvalid = errors.New("invalid platform instance order")
 	errPlatformInstanceOrderVersion = errors.New("platform instance order version conflict")
+	errPlatformSlugExhausted        = errors.New("platform slug space exhausted")
 )
 
 type createPlatformInstanceRequest struct {
@@ -143,7 +144,7 @@ func nextPlatformSlug(ctx context.Context, transaction *sql.Tx, platformID, name
 			return candidate, nil
 		}
 	}
-	return "", errors.New("platform slug space exhausted")
+	return "", errPlatformSlugExhausted
 }
 
 //nolint:funlen // Request validation, uniqueness checks, creation, and audit write share one transaction.
