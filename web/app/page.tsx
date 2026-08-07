@@ -29,7 +29,7 @@ export default async function HomePage() {
           </div>
         </aside>
         <div className="panel recent-panel">
-          <div className="panel-head"><div><h2>最近游玩</h2><p>继续探索你的游戏资料库</p></div><Link className="row-action" href="/library">查看全部</Link></div>
+          <div className="panel-head"><div><h2>最近游玩</h2><p>继续探索你的游戏资料库</p></div><Link className="row-action" href="/recent">查看全部</Link></div>
           <div className="panel-body">
             {home.recentGames.length === 0 ? <EmptyState title="还没有游玩记录" description="游戏开始后，最近玩过的内容会出现在这里。" action={<ButtonLink href="/library">浏览游戏库</ButtonLink>} /> : <div className="recent-game-grid">{home.recentGames.map((game) => <Link className="recent-game-card" href={`/games/${game.gameId}`} key={game.gameId}>{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} width={480} height={360} /> : <div className="recent-game-cover" role="img" aria-label={`${game.title} 暂无封面`} />}<div><StatusBadge tone="info">最近游玩</StatusBadge><h2>{game.title}</h2><p>{game.platform.name} · {game.platformInstance.name}<br />{formatTime(game.lastPlayedAtMs)}</p><div className="metric-line"><span>累计</span><strong>{duration(game.activeDurationMs)}</strong></div></div></Link>)}</div>}
           </div>

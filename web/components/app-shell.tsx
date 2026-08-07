@@ -10,7 +10,8 @@ type NavItem = { href: string; label: string; icon: AppIconName; exact?: boolean
 const userNavigation: NavItem[] = [
   { href: "/", label: "首页", icon: "home", exact: true },
   { href: "/library", label: "游戏库", icon: "library" },
-  { href: "/saves", label: "我的存档", icon: "save" }
+  { href: "/saves", label: "我的存档", icon: "save" },
+  { href: "/recent", label: "最近游玩", icon: "history" }
 ];
 
 const adminNavigation: NavItem[] = [

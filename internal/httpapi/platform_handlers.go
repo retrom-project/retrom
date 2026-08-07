@@ -10,7 +10,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"regexp"
+	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -21,8 +21,6 @@ import (
 	"github.com/google/uuid"
 )
 
-var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
-
 var (
 	errPlatformInstanceOrderInvalid = errors.New("invalid platform instance order")
 	errPlatformInstanceOrderVersion = errors.New("platform instance order version conflict")
@@ -32,7 +30,6 @@ type createPlatformInstanceRequest struct {
 	PlatformID    string `json:"platformId"`
 	DefaultCoreID string `json:"defaultCoreId"`
 	Name          string `json:"name"`
-	Slug          string `json:"slug"`
 	Description   string `json:"description"`
 	SortOrder     int64  `json:"sortOrder"`
 }
@@ -73,6 +70,82 @@ func validText(value string, minimum, maximum int, allowNewline bool) bool {
 	return count >= minimum && count <= maximum
 }
 
+func platformSlugBase(name, platformID string) string {
+	toSlug := func(value string) string {
+		var builder strings.Builder
+		separator := false
+		for _, character := range value {
+			if character >= 'A' && character <= 'Z' {
+				character += 'a' - 'A'
+			}
+			if character >= 'a' && character <= 'z' || character >= '0' && character <= '9' {
+				if separator && builder.Len() > 0 && builder.Len() < 80 {
+					builder.WriteByte('-')
+				}
+				separator = false
+				if builder.Len() < 80 {
+					builder.WriteRune(character)
+				}
+				continue
+			}
+			separator = builder.Len() > 0
+		}
+		return strings.TrimRight(builder.String(), "-")
+	}
+	if slug := toSlug(name); slug != "" {
+		return slug
+	}
+	prefix := toSlug(platformID)
+	if prefix == "" {
+		prefix = "game"
+	}
+	return prefix + "-library"
+}
+
+func platformSlugWithSuffix(base string, suffix int) string {
+	if suffix < 2 {
+		return base
+	}
+	ending := "-" + strconv.Itoa(suffix)
+	prefix := strings.TrimRight(base[:min(len(base), 80-len(ending))], "-")
+	return prefix + ending
+}
+
+func nextPlatformSlug(ctx context.Context, transaction *sql.Tx, platformID, name string) (string, error) {
+	base := platformSlugBase(name, platformID)
+	prefix := base + "-"
+	rows, err := transaction.QueryContext(
+		ctx,
+		`SELECT slug FROM platform_instances WHERE platform_id=? AND (slug=? OR substr(slug,1,?)=?)`,
+		platformID,
+		base,
+		len(prefix),
+		prefix,
+	)
+	if err != nil {
+		return "", fmt.Errorf("query platform slugs: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	used := make(map[string]struct{})
+	for rows.Next() {
+		var slug string
+		if err := rows.Scan(&slug); err != nil {
+			return "", fmt.Errorf("scan platform slug: %w", err)
+		}
+		used[slug] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return "", fmt.Errorf("iterate platform slugs: %w", err)
+	}
+	for suffix := 1; suffix <= len(used)+1; suffix++ {
+		candidate := platformSlugWithSuffix(base, suffix)
+		if _, exists := used[candidate]; !exists {
+			return candidate, nil
+		}
+	}
+	return "", errors.New("platform slug space exhausted")
+}
+
 //nolint:funlen // Request validation, uniqueness checks, creation, and audit write share one transaction.
 func (server *Server) createPlatformInstance(writer http.ResponseWriter, request *http.Request) {
 	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
@@ -81,7 +154,7 @@ func (server *Server) createPlatformInstance(writer http.ResponseWriter, request
 	}
 	var body createPlatformInstanceRequest
 	if err := decodeJSON(writer, request, &body, 32<<10); err != nil || !validText(body.Name, 1, 200, false) ||
-		!validText(body.Description, 0, 10_000, true) || len(body.Slug) > 80 || !slugPattern.MatchString(body.Slug) {
+		!validText(body.Description, 0, 10_000, true) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "平台目录字段无效", map[string]any{})
 		return
 	}
@@ -97,6 +170,11 @@ func (server *Server) createPlatformInstance(writer http.ResponseWriter, request
 		return
 	}
 	defer cleanup.Rollback(transaction)
+	slug, err := nextPlatformSlug(request.Context(), transaction, body.PlatformID, body.Name)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	_, err = transaction.ExecContext(
 		request.Context(),
 		`
@@ -127,7 +205,7 @@ VALUES(?,
 		body.PlatformID,
 		body.DefaultCoreID,
 		body.Name,
-		body.Slug,
+		slug,
 		body.Description,
 		body.SortOrder,
 		now,
@@ -139,7 +217,7 @@ VALUES(?,
 			request,
 			http.StatusUnprocessableEntity,
 			"PLATFORM_DEFAULT_CORE_INVALID",
-			"默认核心不属于该平台或 slug 已存在",
+			"默认核心不属于该平台",
 			map[string]any{},
 		)
 		return
@@ -151,7 +229,10 @@ VALUES(?,
 		"PLATFORM_INSTANCE",
 		id.String(),
 		nil,
-		body,
+		map[string]any{
+			"platformId": body.PlatformID, "defaultCoreId": body.DefaultCoreID, "name": body.Name,
+			"slug": slug, "description": body.Description, "sortOrder": body.SortOrder,
+		},
 		now,
 	); err != nil {
 		server.databaseError(writer, request, err)
@@ -170,7 +251,7 @@ VALUES(?,
 			"platformId":    body.PlatformID,
 			"defaultCoreId": body.DefaultCoreID,
 			"name":          body.Name,
-			"slug":          body.Slug,
+			"slug":          slug,
 			"description":   body.Description,
 			"sortOrder":     body.SortOrder,
 			"enabled":       true,

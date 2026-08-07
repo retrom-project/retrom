@@ -56,7 +56,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 4. `bios_requirements/bios_installations/dat_versions/dat_machines/dat_bios_sets/dat_rom_entries/dat_disk_entries/dat_import_jobs`；
 5. `import_jobs/import_job_files/import_items/import_item_source_files/import_item_dos_entries/import_item_core_validations/import_item_validation_files`；
 6. `games/game_metadata_revisions/game_assets/game_content_revisions/game_content_files/game_variants/game_variant_revisions/variant_files/dos_entries/variant_dependencies`；这些循环 current FK 在同一 schema 边界声明 deferred；
-7. `metadata_scrape_runs/content_hash_evidence/metadata_provider_cache/metadata_provider_responses/metadata_scrape_query_attempts/scrape_candidates/scrape_candidate_hits/scrape_candidate_assets/review_drafts/review_draft_screenshot_assets/review_events`；Game owner 的 scrape run 因而不会引用尚未建立的 Game/ContentRevision；
+7. `metadata_scrape_runs/content_hash_evidence/metadata_provider_cache/metadata_provider_responses/metadata_scrape_query_attempts/scrape_candidates/scrape_candidate_hits/scrape_candidate_assets/review_uploaded_assets/review_drafts/review_draft_screenshot_assets/review_events`；Game owner 的 scrape run 因而不会引用尚未建立的 Game/ContentRevision；
 8. `launch_sessions/play_sessions/play_session_events/save_states/persistent_saves/persistent_save_revisions`；
 9. 全部 partial unique index、不可变/归属 trigger、搜索索引和 schema checksum 回归。
 

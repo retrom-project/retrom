@@ -1892,6 +1892,177 @@ AND version=?
 	)
 }
 
+var (
+	errReviewAssetUploadInvalid  = errors.New("review asset upload invalid")
+	errReviewAssetCASUnavailable = errors.New("review asset CAS unavailable")
+	errReviewAssetImageInvalid   = errors.New("review asset image invalid")
+	errReviewAssetVersion        = errors.New("review asset version conflict")
+	errReviewAssetConsumed       = errors.New("review asset upload consumed")
+)
+
+type reviewAssetSource struct {
+	uploadID string
+	blobID   string
+	image    hasheous.AssetData
+}
+
+type reviewAssetRecord struct {
+	id          string
+	createdAtMS int64
+}
+
+func (server *Server) loadReviewAssetSource(ctx context.Context, uploadFileID string) (reviewAssetSource, error) {
+	var source reviewAssetSource
+	var digest string
+	if err := server.database.QueryRowContext(ctx, `
+SELECT f.upload_session_id,b.id,b.sha256
+FROM upload_files f
+JOIN blobs b ON b.id=f.final_blob_id
+WHERE f.id=? AND f.state='COMPLETE'
+`, uploadFileID).Scan(&source.uploadID, &source.blobID, &digest); err != nil {
+		return reviewAssetSource{}, errReviewAssetUploadInvalid
+	}
+	file, err := server.blobs.OpenDigest(digest)
+	if err != nil {
+		return reviewAssetSource{}, errReviewAssetCASUnavailable
+	}
+	contents, readErr := io.ReadAll(io.LimitReader(file, (10<<20)+1))
+	cleanup.Error("close", file.Close())
+	if readErr != nil {
+		return reviewAssetSource{}, errReviewAssetCASUnavailable
+	}
+	source.image, err = hasheous.ValidateImage(contents, "")
+	if err != nil {
+		return reviewAssetSource{}, errReviewAssetImageInvalid
+	}
+	return source, nil
+}
+
+func (server *Server) persistReviewAsset(
+	ctx context.Context,
+	itemID, uploadFileID, kind string,
+	expected int64,
+	source reviewAssetSource,
+) (reviewAssetRecord, error) {
+	transaction, err := server.database.BeginTx(ctx, nil)
+	if err != nil {
+		return reviewAssetRecord{}, fmt.Errorf("begin review asset transaction: %w", err)
+	}
+	defer cleanup.Rollback(transaction)
+	var currentVersion int64
+	if err := transaction.QueryRowContext(ctx, `
+SELECT d.version
+FROM review_drafts d
+JOIN import_items i ON i.id=d.import_item_id
+WHERE i.id=? AND i.state='REVIEW_PENDING'
+`, itemID).Scan(&currentVersion); err != nil || currentVersion != expected {
+		return reviewAssetRecord{}, errReviewAssetVersion
+	}
+	var record reviewAssetRecord
+	var ownerItemID string
+	err = transaction.QueryRowContext(ctx, `
+SELECT id,import_item_id,created_at_ms
+FROM review_uploaded_assets
+WHERE upload_file_id=?
+`, uploadFileID).Scan(&record.id, &ownerItemID, &record.createdAtMS)
+	switch {
+	case err == nil:
+		if ownerItemID != itemID {
+			return reviewAssetRecord{}, errReviewAssetConsumed
+		}
+	case errors.Is(err, sql.ErrNoRows):
+		record.id = newUUIDString()
+		record.createdAtMS = server.now().UnixMilli()
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO review_uploaded_assets(
+id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,created_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?)
+`, record.id, itemID, uploadFileID, source.blobID, kind, source.image.Width, source.image.Height,
+			source.image.MediaType, record.createdAtMS); err != nil {
+			return reviewAssetRecord{}, fmt.Errorf("insert review uploaded asset: %w", err)
+		}
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO upload_consumptions(
+id,upload_session_id,upload_file_id,consumer_type,consumer_id,created_at_ms
+) VALUES(?,?,?,'REVIEW_ASSET',?,?)
+`, newUUIDString(), source.uploadID, uploadFileID, record.id, record.createdAtMS); err != nil {
+			return reviewAssetRecord{}, errReviewAssetConsumed
+		}
+	default:
+		return reviewAssetRecord{}, fmt.Errorf("query existing review uploaded asset: %w", err)
+	}
+	if err := transaction.Commit(); err != nil {
+		return reviewAssetRecord{}, fmt.Errorf("commit review asset transaction: %w", err)
+	}
+	return record, nil
+}
+
+func (server *Server) createReviewAsset(writer http.ResponseWriter, request *http.Request) {
+	expected, ok := requireVersion(writer, request)
+	if !ok {
+		return
+	}
+	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
+		return
+	}
+	var body struct {
+		UploadFileID string `json:"uploadFileId"`
+		Kind         string `json:"kind"`
+	}
+	if decodeJSON(writer, request, &body, 8<<10) != nil || body.Kind != "COVER" {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核封面参数无效", map[string]any{})
+		return
+	}
+	source, err := server.loadReviewAssetSource(request.Context(), body.UploadFileID)
+	switch {
+	case errors.Is(err, errReviewAssetUploadInvalid):
+		writeError(writer, request, http.StatusUnprocessableEntity, "ASSET_UPLOAD_INVALID", "上传文件不可用", map[string]any{})
+		return
+	case errors.Is(err, errReviewAssetCASUnavailable):
+		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "媒体字节不可用", map[string]any{})
+		return
+	case errors.Is(err, errReviewAssetImageInvalid):
+		writeError(
+			writer,
+			request,
+			http.StatusUnprocessableEntity,
+			"ASSET_IMAGE_INVALID",
+			"封面必须是受限 PNG、JPEG 或 WebP",
+			map[string]any{},
+		)
+		return
+	case err != nil:
+		server.databaseError(writer, request, err)
+		return
+	}
+	record, err := server.persistReviewAsset(
+		request.Context(),
+		request.PathValue("importItemId"),
+		body.UploadFileID,
+		body.Kind,
+		expected,
+		source,
+	)
+	switch {
+	case errors.Is(err, errReviewAssetVersion):
+		writeError(writer, request, http.StatusConflict, "REVIEW_VERSION_CONFLICT", "审核条目已发生变化", map[string]any{})
+		return
+	case errors.Is(err, errReviewAssetConsumed):
+		writeError(writer, request, http.StatusConflict, "UPLOAD_ALREADY_CONSUMED", "上传文件已被其他操作占用", map[string]any{})
+		return
+	case err != nil:
+		server.databaseError(writer, request, err)
+		return
+	}
+	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected))
+	writeJSON(writer, http.StatusCreated, map[string]any{
+		"assetId": record.id, "kind": body.Kind, "widthPx": source.image.Width, "heightPx": source.image.Height,
+		"mediaType": source.image.MediaType, "url": "/api/v1/admin/review-assets/" + record.id,
+		"version": expected, "createdAtMs": record.createdAtMS,
+	})
+}
+
 func copyAssetsExcept(
 	request *http.Request,
 	transaction *sql.Tx,

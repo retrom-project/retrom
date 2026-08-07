@@ -29,4 +29,13 @@ describe("ReviewHistory", () => {
     fireEvent.error(await screen.findByRole("img", { name: "1943: The Battle of Midway 审核时封面" }));
     expect(screen.getByText("历史封面暂不可用")).toBeInTheDocument();
   });
+
+  it("replays a manually uploaded cover from the review snapshot", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reviewEventId: "event-1", eventType: "APPROVED", reason: null, createdAtMs: item.createdAtMs, before: { metadata: { title: "1943: The Battle of Midway" }, selectedAssets: { coverCandidateAssetId: "candidate-cover", coverUploadedAssetId: "uploaded-cover" } } }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const user = userEvent.setup();
+    render(<ReviewHistory items={[item]} />);
+
+    await user.click(screen.getByRole("button", { name: "查看“1941”的审核快照" }));
+    expect((await screen.findByRole("img", { name: "1943: The Battle of Midway 审核时封面" })).getAttribute("src")).toMatch(/\/api\/v1\/admin\/review-assets\/uploaded-cover$/);
+  });
 });

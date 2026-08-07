@@ -22,11 +22,6 @@ async function message(response: Response) {
   return body?.error?.message ?? `请求失败（${response.status}）`;
 }
 
-function slugify(value: string, platformId: string) {
-  const slug = value.normalize("NFKD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "").slice(0, 80);
-  return slug || `${platformId || "game"}-library`;
-}
-
 export function PlatformManager({ instances, platforms, createOpen }: { instances: PlatformInstance[]; platforms: Platform[]; createOpen: boolean }) {
   const router = useRouter();
   const [rows, setRows] = useState(() => [...instances].sort((left, right) => left.sortOrder - right.sortOrder));
@@ -34,9 +29,6 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
   const [error, setError] = useState("");
   const firstPlatform = platforms.find((platform) => platform.enabled !== false) ?? platforms[0];
   const [createPlatformID, setCreatePlatformID] = useState(firstPlatform?.id ?? "");
-  const [createName, setCreateName] = useState("");
-  const [createSlug, setCreateSlug] = useState(() => slugify("", firstPlatform?.id ?? ""));
-  const [slugEdited, setSlugEdited] = useState(false);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [editing, setEditing] = useState<EditTarget>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -48,11 +40,11 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
     const form = event.currentTarget;
     const values = new FormData(form);
     const sortOrder = (rows.at(-1)?.sortOrder ?? 0) + 100;
-    const body = { platformId: String(values.get("platformId")), defaultCoreId: String(values.get("defaultCoreId")), name: String(values.get("name")), slug: String(values.get("slug")), description: String(values.get("description")), sortOrder };
+    const body = { platformId: String(values.get("platformId")), defaultCoreId: String(values.get("defaultCoreId")), name: String(values.get("name")), description: String(values.get("description")), sortOrder };
     try {
       const response = await fetch("/api/v1/admin/platform-instances", { method: "POST", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
       if (!response.ok) throw new Error(await message(response));
-      form.reset(); setCreateName(""); setCreateSlug(slugify("", createPlatformID)); setSlugEdited(false); router.refresh();
+      form.reset(); router.refresh();
     } catch (caught) { setError(caught instanceof Error ? caught.message : "目录创建失败"); }
     finally { setBusy(null); }
   }
@@ -147,11 +139,10 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
     <details className="panel" open={createOpen}>
       <summary className="panel-head"><div><strong>新建游戏目录</strong><p>填写用户可见信息；创建后可直接拖动调整顺序。</p></div><span className="status info"><i />分步填写</span></summary>
       <form className="panel-body form-grid" onSubmit={(event) => void create(event)}>
-        <div className="field"><label htmlFor="platform-create-base">游戏平台</label><select id="platform-create-base" name="platformId" value={createPlatformID} onChange={(event) => { const value = event.target.value; setCreatePlatformID(value); if (!slugEdited) setCreateSlug(slugify(createName, value)); }}>{platforms.map((platform) => <option value={platform.id} key={platform.id}>{platform.name}</option>)}</select></div>
-        <div className="field"><label htmlFor="platform-create-name">目录名称</label><input id="platform-create-name" name="name" value={createName} onChange={(event) => { setCreateName(event.target.value); if (!slugEdited) setCreateSlug(slugify(event.target.value, createPlatformID)); }} placeholder="例如：我的 GBA 游戏" required maxLength={200} /></div>
+        <div className="field"><label htmlFor="platform-create-base">游戏平台</label><select id="platform-create-base" name="platformId" value={createPlatformID} onChange={(event) => setCreatePlatformID(event.target.value)}>{platforms.map((platform) => <option value={platform.id} key={platform.id}>{platform.name}</option>)}</select></div>
+        <div className="field"><label htmlFor="platform-create-name">目录名称</label><input id="platform-create-name" name="name" placeholder="例如：我的 GBA 游戏" required maxLength={200} /></div>
         <div className="field"><label htmlFor="platform-create-core">推荐运行方式</label><select id="platform-create-core" name="defaultCoreId" key={createPlatformID}>{platforms.find((platform) => platform.id === createPlatformID)?.cores.filter((core) => core.enabled).map((core) => <option value={core.id} key={core.id}>{core.name}</option>)}</select></div>
         <div className="field full"><label htmlFor="platform-create-description">给用户看的说明</label><textarea id="platform-create-description" name="description" placeholder="说明这个目录收录了哪些游戏（可不填）" /></div>
-        <details className="field full advanced-form-options"><summary>高级设置</summary><div className="form-grid"><div className="field"><label htmlFor="platform-create-slug">网址标识</label><input id="platform-create-slug" name="slug" value={createSlug} onChange={(event) => { setCreateSlug(event.target.value); setSlugEdited(true); }} required pattern="[a-z0-9]+(?:-[a-z0-9]+)*" maxLength={80} /><small>系统会自动生成；创建后不可修改。</small></div></div></details>
         <div className="field full"><button className="button" disabled={busy !== null}>{busy === "create" ? "正在创建…" : "创建目录"}</button></div>
       </form>
     </details>

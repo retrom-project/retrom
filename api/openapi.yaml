@@ -29,6 +29,13 @@ paths:
       description: Dashboard counters, recent games, and the three latest save states from enabled platform directories; recent saves include activeDurationMs for compact play-time presentation.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/recent-games:
+    get:
+      operationId: getRecentGames
+      description: Up to 50 visible games by default, ordered by the newest play-session update, with aggregate active duration and session count.
+      parameters: [{ $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/games:
     get:
       operationId: getGames
@@ -218,6 +225,15 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/MetadataProvider' }
       responses:
         '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/reviews/{importItemId}/assets:
+    parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
+    post:
+      operationId: postAdminReviewAsset
+      description: Validates a completed local image upload and records an immutable manual review asset. Selection is persisted separately through the review draft PATCH.
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ReviewAsset' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/reviews/{importItemId}/approve:
     parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
     post:
@@ -231,7 +247,7 @@ paths:
     post:
       operationId: postAdminReviewDiscard
       parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody: { $ref: '#/components/requestBodies/Reason' }
+      requestBody: { $ref: '#/components/requestBodies/ApprovalReason' }
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/review-history:
@@ -672,7 +688,6 @@ components:
     ApprovalReasonRequest:
       type: object
       additionalProperties: false
-      required: [reason]
       properties: { reason: { type: string, nullable: true, maxLength: 500 } }
     MetadataFields:
       type: object
@@ -693,6 +708,15 @@ components:
         coverCandidateAssetId: { type: string, format: uuid, nullable: true }
         backgroundCandidateAssetId: { type: string, format: uuid, nullable: true }
         screenshotCandidateAssetIds: { type: array, maxItems: 32, uniqueItems: true, items: { type: string, format: uuid } }
+    ReviewSelectedAssetsRequest:
+      type: object
+      additionalProperties: false
+      required: [coverCandidateAssetId, coverUploadedAssetId, backgroundCandidateAssetId, screenshotCandidateAssetIds]
+      properties:
+        coverCandidateAssetId: { type: string, format: uuid, nullable: true }
+        coverUploadedAssetId: { type: string, format: uuid, nullable: true }
+        backgroundCandidateAssetId: { type: string, format: uuid, nullable: true }
+        screenshotCandidateAssetIds: { type: array, maxItems: 32, uniqueItems: true, items: { type: string, format: uuid } }
     ReviewDraftRequest:
       type: object
       additionalProperties: false
@@ -701,7 +725,7 @@ components:
         metadata: { $ref: '#/components/schemas/MetadataFields' }
         selectedValidationId: { type: string, format: uuid }
         selectedCandidateId: { type: string, format: uuid, nullable: true }
-        selectedAssets: { $ref: '#/components/schemas/SelectedAssetsRequest' }
+        selectedAssets: { $ref: '#/components/schemas/ReviewSelectedAssetsRequest' }
         defaultDosEntry: { type: string, nullable: true }
       minProperties: 1
     MetadataProviderRequest:
@@ -722,6 +746,13 @@ components:
         uploadFileId: { type: string, format: uuid }
         kind: { type: string, enum: [COVER, BACKGROUND, SCREENSHOT] }
         ordinal: { type: integer, minimum: 0, maximum: 31 }
+    ReviewAssetRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadFileId, kind]
+      properties:
+        uploadFileId: { type: string, format: uuid }
+        kind: { type: string, enum: [COVER] }
     UploadReferenceRequest:
       type: object
       additionalProperties: false
@@ -753,12 +784,11 @@ components:
     CreatePlatformInstanceRequest:
       type: object
       additionalProperties: false
-      required: [platformId, defaultCoreId, name, slug, description, sortOrder]
+      required: [platformId, defaultCoreId, name, description, sortOrder]
       properties:
         platformId: { type: string }
         defaultCoreId: { type: string }
         name: { type: string, minLength: 1, maxLength: 200 }
-        slug: { type: string, minLength: 1, maxLength: 80, pattern: '^[a-z0-9]+(?:-[a-z0-9]+)*$' }
         description: { type: string, maxLength: 10000 }
         sortOrder: { type: integer, format: int64 }
     PatchPlatformInstanceRequest:
@@ -1232,6 +1262,7 @@ components:
     MetadataFields: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MetadataFields' } } } }
     DeleteGame: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeleteGameRequest' } } } }
     GameAsset: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GameAssetRequest' } } } }
+    ReviewAsset: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewAssetRequest' } } } }
     UploadReference: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UploadReferenceRequest' } } } }
     ApplyCandidate: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApplyCandidateRequest' } } } }
     MovePreview: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MovePreviewRequest' } } } }

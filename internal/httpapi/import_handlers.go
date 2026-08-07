@@ -282,13 +282,17 @@ func (server *Server) discardReview(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	var body struct {
-		Reason string `json:"reason"`
+		Reason *string `json:"reason"`
 	}
 	if decodeJSON(writer, request, &body, 8<<10) != nil {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "丢弃原因无效", map[string]any{})
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "丢弃请求无效", map[string]any{})
 		return
 	}
-	result, err := server.importer.Discard(request.Context(), request.PathValue("importItemId"), version, body.Reason)
+	reason := ""
+	if body.Reason != nil {
+		reason = *body.Reason
+	}
+	result, err := server.importer.Discard(request.Context(), request.PathValue("importItemId"), version, reason)
 	if err != nil {
 		writeError(writer, request, http.StatusConflict, "REVIEW_DECISION_CONFLICT", "审核状态或版本已经变化", map[string]any{})
 		return

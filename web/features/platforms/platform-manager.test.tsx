@@ -47,15 +47,19 @@ describe("PlatformManager", () => {
     expect(within(row).getByLabelText("“掌机游戏”的推荐运行方式")).toHaveValue("vba_next");
   });
 
-  it("generates a stable URL slug while keeping technical fields advanced", async () => {
+  it("keeps the generated URL slug out of the creation form and request", async () => {
     const user = userEvent.setup();
     render(<PlatformManager instances={[]} platforms={platforms} createOpen />);
 
     await user.type(screen.getByLabelText("目录名称"), "My GBA Games");
-    expect(screen.queryByLabelText("网址标识")).not.toBeVisible();
-    await user.click(screen.getByText("高级设置"));
-    expect(screen.getByLabelText("网址标识")).toHaveValue("my-gba-games");
+    expect(screen.queryByText("高级设置")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("网址标识")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("显示顺序")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "创建目录" }));
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const body = JSON.parse(String((fetch as ReturnType<typeof vi.fn>).mock.calls[0][1]?.body)) as Record<string, unknown>;
+    expect(body).toMatchObject({ platformId: "gba", defaultCoreId: "mgba", name: "My GBA Games" });
+    expect(body).not.toHaveProperty("slug");
   });
 
   it("persists keyboard reordering without exposing numeric sort fields", async () => {

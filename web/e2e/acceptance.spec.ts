@@ -22,15 +22,17 @@ async function noPageOverflow(page: Page) {
 test("ACC-UI-001 user navigation and account-free access", async ({ page }, testInfo) => {
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "主要导航" });
-  await expect(navigation.getByRole("link")).toHaveCount(3);
-  for (const label of ["首页", "游戏库", "我的存档"]) await expect(navigation.getByRole("link", { name: label })).toBeVisible();
+  await expect(navigation.getByRole("link")).toHaveCount(4);
+  for (const label of ["首页", "游戏库", "我的存档", "最近游玩"]) await expect(navigation.getByRole("link", { name: label })).toBeVisible();
+  await navigation.getByRole("link", { name: "最近游玩" }).click();
+  await expect(page).toHaveURL(/\/recent$/);
   await navigation.getByRole("link", { name: "游戏库" }).click();
   await expect(page).toHaveURL(/\/library$/);
   const firstGame = page.locator(".game-card").first();
   if (await firstGame.count()) {
     await firstGame.click();
     await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
-    await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(3);
+    await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(4);
   }
   await page.getByRole("link", { name: "管理后台" }).click();
   await expect(page).toHaveURL(/\/admin\/imports$/);
@@ -71,10 +73,12 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   const directoryValue = await directory.locator("option").nth(1).getAttribute("value");
   expect(directoryValue).toBeTruthy();
   await directory.selectOption(directoryValue!);
-  await page.getByRole("button", { name: "查看结果" }).click();
+  await page.evaluate(() => { (window as typeof window & { __retromSearchMarker?: string }).__retromSearchMarker = "preserved"; });
+  await page.getByRole("button", { name: "搜索" }).click();
   await expect(page).toHaveURL(/q=Sudoku/);
   await expect(page).toHaveURL(/platformId=gba/);
   await expect(page).toHaveURL(/platformInstanceId=/);
+  expect(await page.evaluate(() => (window as typeof window & { __retromSearchMarker?: string }).__retromSearchMarker)).toBe("preserved");
   await page.reload();
   await expect(page.getByRole("textbox", { name: "搜索" })).toHaveValue("Sudoku");
   await expect(page.getByRole("combobox", { name: "游戏平台" })).toHaveValue("gba");
@@ -303,18 +307,14 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   expect(await page.locator(".review-detail-workbench").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);
   await page.screenshot({ path: evidencePath(testInfo, "review-workbench-4k.png"), fullPage: true });
 
-  await page.getByRole("textbox", { name: "标题" }).fill("尚未保存的标题");
-  await page.getByRole("navigation", { name: "当前待审队列" }).getByRole("link", { name: /Batch 1 Game 03/ }).click();
-  await expect(page.getByRole("alertdialog", { name: "草稿还没有保存" })).toBeVisible();
-  await page.getByRole("button", { name: "留在页面" }).click();
-  await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(57)}`));
-  await page.getByRole("button", { name: "保存草稿" }).click();
-  await expect(page.getByRole("status")).toContainText("草稿及来源选择已保存");
+  await page.getByRole("textbox", { name: "标题" }).fill("实时保存的标题");
+  await expect(page.locator(".autosave-state")).toContainText(/等待保存|正在实时保存/);
+  await expect(page.locator(".autosave-state")).toHaveText("已实时保存");
   await page.getByRole("navigation", { name: "当前待审队列" }).getByRole("link", { name: /Batch 1 Game 03/ }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(3)}`));
   await page.getByRole("textbox", { name: "标题" }).fill("Batch 1 Game 03 Saved");
-  await page.getByRole("button", { name: "保存草稿" }).click();
-  await expect(page.getByRole("status")).toContainText("草稿及来源选择已保存");
+  await expect(page.locator(".autosave-state")).toContainText(/等待保存|正在实时保存/);
+  await expect(page.locator(".autosave-state")).toHaveText("已实时保存");
 
   await page.setViewportSize({ width: 1280, height: 800 });
   await expect(page.getByRole("navigation", { name: "当前待审队列" })).toBeHidden();
@@ -329,7 +329,6 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.getByRole("button", { name: "加载更多待审条目" }).click();
   await expect(rows).toHaveCount(59);
   await page.locator(`[data-review-item="${itemId(58)}"]`).getByRole("link", { name: "审核条目" }).click();
-  await page.getByRole("textbox", { name: "丢弃原因" }).fill("验收：明确丢弃单个条目");
   await page.getByRole("button", { name: "丢弃条目" }).click();
   await expect(page).not.toHaveURL(new RegExp(`/admin/reviews/${itemId(58)}(?:\\?|$)`));
   await expect(page.locator(".app-toast")).toContainText("条目已丢弃");

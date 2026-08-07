@@ -24,7 +24,7 @@ type HistoryDetail = {
   createdAtMs: number;
   before: {
     metadata?: { title?: string; description?: string; developer?: string; publisher?: string; genre?: string; players?: number | null; releaseYear?: number | null };
-    selectedAssets?: { coverCandidateAssetId?: string | null };
+    selectedAssets?: { coverCandidateAssetId?: string | null; coverUploadedAssetId?: string | null };
   };
 };
 
@@ -57,7 +57,9 @@ export function ReviewHistory({ items }: { items: HistoryItem[] }) {
   }
 
   const metadata = detail?.before.metadata;
-  const coverId = detail?.before.selectedAssets?.coverCandidateAssetId ?? null;
+  const coverId = detail?.before.selectedAssets?.coverUploadedAssetId
+    ?? detail?.before.selectedAssets?.coverCandidateAssetId
+    ?? null;
   return <>
     <section className="panel table-wrap"><table className="history-table"><thead><tr><th>游戏</th><th>决定</th><th>原因</th><th>时间</th></tr></thead><tbody>{items.map((item) => <tr key={item.reviewEventId} role="button" tabIndex={0} aria-label={`查看“${item.title}”的审核快照`} onClick={() => void open(item)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); void open(item); } }}><td><strong>{item.title}</strong><small>点击查看审核完成时的游戏信息</small></td><td><StatusBadge tone={item.decision === "APPROVED" ? "good" : "bad"}>{item.decision === "APPROVED" ? "已发布" : "已丢弃"}</StatusBadge></td><td>{item.reason ?? "—"}</td><td>{formatTime(item.createdAtMs)}</td></tr>)}</tbody></table></section>
     <ConfirmDialog open={selected !== null} wide hideCancel title="审核完成时的游戏信息" description={selected ? `${selected.decision === "APPROVED" ? "发布" : "丢弃"}于 ${formatTime(selected.createdAtMs)}` : undefined} confirmLabel="关闭" busy={loading} onCancel={() => setSelected(null)} onConfirm={() => setSelected(null)}>

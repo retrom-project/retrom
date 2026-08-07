@@ -1771,7 +1771,7 @@ PRAGMA defer_foreign_keys=ON
 	var metadataJSON, sourceManifestJSON, sourceManifestDigest, dependencySnapshotJSON string
 	var coreID, artifactID string
 	var draftVersion int64
-	var datID, validationDOSEntry, draftDOSEntry, candidateID, coverID, backgroundID sql.NullString
+	var datID, validationDOSEntry, draftDOSEntry, candidateID, coverID, uploadedCoverID, backgroundID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
 SELECT i.state,
 i.import_job_id,
@@ -1790,6 +1790,7 @@ v.dependency_snapshot_json,
 d.version,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
+d.cover_uploaded_asset_id,
 d.background_candidate_asset_id
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
@@ -1828,6 +1829,7 @@ AND active.is_active=1)
 			&draftVersion,
 			&candidateID,
 			&coverID,
+			&uploadedCoverID,
 			&backgroundID,
 		)
 	if err != nil || state != "REVIEW_PENDING" || draftVersion != expectedVersion {
@@ -1939,6 +1941,7 @@ updated_at_ms) VALUES(?,
 		gameID.String(),
 		metadataID.String(),
 		coverID,
+		uploadedCoverID,
 		backgroundID,
 		now,
 	)
@@ -2166,6 +2169,7 @@ WHERE id=?
 			"selectedCandidateId":  nullable(candidateID),
 			"selectedAssets": map[string]any{
 				"coverCandidateAssetId":       nullable(coverID),
+				"coverUploadedAssetId":        nullable(uploadedCoverID),
 				"backgroundCandidateAssetId":  nullable(backgroundID),
 				"screenshotCandidateAssetIds": screenshotIDs,
 			},
@@ -2201,6 +2205,7 @@ WHERE id=?
 			"schemaVersion":               1,
 			"selectedCandidateId":         nullable(candidateID),
 			"coverCandidateAssetId":       nullable(coverID),
+			"coverUploadedAssetId":        nullable(uploadedCoverID),
 			"backgroundCandidateAssetId":  nullable(backgroundID),
 			"screenshotCandidateAssetIds": screenshotIDs,
 		},
@@ -2273,18 +2278,16 @@ WHERE id=?
 	return Approved{GameID: gameID.String(), EventID: eventID.String(), Status: "PUBLISHED"}, nil
 }
 
-//nolint:funlen // Contract branches stay contiguous for a single auditable decision.
-func (service *Service) copyReviewAssets(
+func copyCandidateReviewAsset(
 	ctx context.Context,
 	transaction *sql.Tx,
-	itemID, gameID, metadataID string,
-	coverID, backgroundID sql.NullString,
+	itemID, gameID, metadataID, assetID, kind string,
+	ordinal int,
 	now int64,
-) ([]string, error) {
-	copyAsset := func(assetID, kind string, ordinal int) error {
-		var blobID, mediaType string
-		var width, height int64
-		err := transaction.QueryRowContext(ctx, `
+) error {
+	var blobID, mediaType string
+	var width, height int64
+	err := transaction.QueryRowContext(ctx, `
 SELECT a.blob_id,
 a.width_px,
 a.height_px,
@@ -2297,56 +2300,71 @@ AND a.status='READY'
 AND r.import_item_id=?
 AND r.state='COMPLETED'
 `, assetID, itemID).Scan(&blobID, &width, &height, &mediaType)
-		if err != nil {
-			return ErrInvalid
-		}
-		assetUUID, _ := uuid.NewV7()
-		_, err = transaction.ExecContext(
-			ctx,
-			`
-INSERT INTO game_assets(id,
-game_id,
-metadata_revision_id,
-blob_id,
-kind,
-ordinal,
-width_px,
-height_px,
-media_type,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?)
-`,
-			assetUUID.String(),
-			gameID,
-			metadataID,
-			blobID,
-			kind,
-			ordinal,
-			width,
-			height,
-			mediaType,
-			now,
-		)
-		if err != nil {
-			return fmt.Errorf("copy approved review asset: %w", err)
-		}
-		return nil
+	if err != nil {
+		return ErrInvalid
 	}
+	assetUUID, _ := uuid.NewV7()
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO game_assets(
+id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?,?)
+`, assetUUID.String(), gameID, metadataID, blobID, kind, ordinal, width, height, mediaType, now); err != nil {
+		return fmt.Errorf("copy approved review asset: %w", err)
+	}
+	return nil
+}
+
+func copyUploadedReviewCover(
+	ctx context.Context,
+	transaction *sql.Tx,
+	itemID, gameID, metadataID, assetID string,
+	now int64,
+) error {
+	var blobID, mediaType string
+	var width, height int64
+	if err := transaction.QueryRowContext(ctx, `
+SELECT blob_id,width_px,height_px,media_type
+FROM review_uploaded_assets
+WHERE id=? AND import_item_id=? AND kind='COVER'
+`, assetID, itemID).Scan(&blobID, &width, &height, &mediaType); err != nil {
+		return ErrInvalid
+	}
+	assetUUID, _ := uuid.NewV7()
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO game_assets(
+id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms
+) VALUES(?,?,?,?, 'COVER',0,?,?,?,?)
+`, assetUUID.String(), gameID, metadataID, blobID, width, height, mediaType, now); err != nil {
+		return fmt.Errorf("copy uploaded review cover: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) copyReviewAssets(
+	ctx context.Context,
+	transaction *sql.Tx,
+	itemID, gameID, metadataID string,
+	coverID, uploadedCoverID, backgroundID sql.NullString,
+	now int64,
+) ([]string, error) {
 	if coverID.Valid {
-		if err := copyAsset(coverID.String, "COVER", 0); err != nil {
+		if err := copyCandidateReviewAsset(
+			ctx, transaction, itemID, gameID, metadataID, coverID.String, "COVER", 0, now,
+		); err != nil {
+			return nil, err
+		}
+	}
+	if uploadedCoverID.Valid {
+		if err := copyUploadedReviewCover(
+			ctx, transaction, itemID, gameID, metadataID, uploadedCoverID.String, now,
+		); err != nil {
 			return nil, err
 		}
 	}
 	if backgroundID.Valid {
-		if err := copyAsset(backgroundID.String, "BACKGROUND", 0); err != nil {
+		if err := copyCandidateReviewAsset(
+			ctx, transaction, itemID, gameID, metadataID, backgroundID.String, "BACKGROUND", 0, now,
+		); err != nil {
 			return nil, err
 		}
 	}
@@ -2377,7 +2395,9 @@ ORDER BY s.ordinal
 		return nil, fmt.Errorf("libraryimport/service: %w", err)
 	}
 	for ordinal, assetID := range screenshotIDs {
-		if err := copyAsset(assetID, "SCREENSHOT", ordinal); err != nil {
+		if err := copyCandidateReviewAsset(
+			ctx, transaction, itemID, gameID, metadataID, assetID, "SCREENSHOT", ordinal, now,
+		); err != nil {
 			return nil, err
 		}
 	}

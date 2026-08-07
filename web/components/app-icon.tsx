@@ -1,6 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type AppIconName = "home" | "library" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "chip" | "database" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play";
+export type AppIconName = "home" | "library" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "chip" | "database" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off";
 
 const paths: Record<AppIconName, ReactNode> = {
   home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></>,
@@ -21,7 +21,8 @@ const paths: Record<AppIconName, ReactNode> = {
   x: <><path d="M6 6l12 12M18 6 6 18" /></>,
   grip: <><circle cx="9" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="6" r="1" fill="currentColor" stroke="none" /><circle cx="9" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="12" r="1" fill="currentColor" stroke="none" /><circle cx="9" cy="18" r="1" fill="currentColor" stroke="none" /><circle cx="15" cy="18" r="1" fill="currentColor" stroke="none" /></>,
   pause: <><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></>,
-  play: <><path d="m8 5 11 7-11 7Z" /></>
+  play: <><path d="m8 5 11 7-11 7Z" /></>,
+  "eye-off": <><path d="m3 3 18 18" /><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 4.2A10.8 10.8 0 0 1 12 4c5 0 9 5.2 9 8a8.5 8.5 0 0 1-2 3.6M6.6 6.6C4.3 8.1 3 10.4 3 12c0 2.8 4 8 9 8 1.2 0 2.4-.3 3.4-.8" /></>
 };
 
 export function AppIcon({ name, ...props }: { name: AppIconName } & SVGProps<SVGSVGElement>) {
