@@ -15,6 +15,7 @@ export type PlayerConfig = {
   requiresThreads: boolean;
   runtimePathOverrides: Record<string, string>;
   defaultCoreOptions: Record<string, string>;
+  externalFiles: Record<string, string>;
   dosEntry?: string | null;
   warnings?: string[];
   returnTo: string;
@@ -71,6 +72,7 @@ declare global {
     EJS_threads?: boolean;
     EJS_defaultOptions?: Record<string, string>;
     EJS_paths?: Record<string, string>;
+    EJS_externalFiles?: Record<string, string>;
     EJS_gameParentUrl?: string;
     EJS_fullscreenOnLoaded?: boolean;
     EJS_disableDatabases?: boolean;
@@ -86,8 +88,20 @@ declare global {
 
 export const adapterID = "ejs-4.2.3-v1";
 
+function validatedExternalFiles(config: PlayerConfig): Record<string, string> {
+  const entries = Object.entries(config.externalFiles);
+  const expectedURL = `/runtime/launches/${config.launchId}/dos-config/game.conf`;
+  const expectsDOSConfig = config.core === "dosbox_pure" && config.dosEntry != null && config.defaultCoreOptions.dosbox_pure_conf === "outside";
+  if (entries.length === 0 && !expectsDOSConfig) return {};
+  if (entries.length !== 1 || entries[0][0] !== "/game.conf" || entries[0][1] !== expectedURL || !expectsDOSConfig) {
+    throw new Error("PLAYER_EXTERNAL_FILES_INVALID");
+  }
+  return { "/game.conf": expectedURL };
+}
+
 export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callbacks: AdapterCallbacks = {}, playerWindow: Window = window) {
   if (config.playerAdapterId !== adapterID || config.emulatorjsVersion !== "4.2.3") throw new Error("PLAYER_ADAPTER_MISMATCH");
+  const externalFiles = validatedExternalFiles(config);
   target.id = "retrom-emulator";
   const runtimeWindow = playerWindow as typeof window;
   runtimeWindow.EJS_player = "#retrom-emulator";
@@ -113,6 +127,7 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_onSaveSave = callbacks.onSaveSave;
   runtimeWindow.EJS_defaultOptions = { ...config.defaultCoreOptions };
   runtimeWindow.EJS_paths = { ...config.runtimePathOverrides };
+  runtimeWindow.EJS_externalFiles = externalFiles;
   const script = runtimeWindow.document.createElement("script");
   script.src = config.loaderUrl;
   script.async = true;

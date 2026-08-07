@@ -107,6 +107,7 @@ window.EJS_disableLocalStorage = true;
 window.EJS_CacheLimit = 0;
 window.EJS_paths = config.runtimePathOverrides;
 window.EJS_defaultOptions = config.defaultCoreOptions;
+window.EJS_externalFiles = config.externalFiles;
 
 if (config.biosUrl !== null) window.EJS_biosUrl = config.biosUrl;
 if (config.parentUrl !== null) window.EJS_gameParentUrl = config.parentUrl;
@@ -117,7 +118,7 @@ if (config.stateUrl !== null) window.EJS_loadStateURL = config.stateUrl;
 
 `runtimeBaseUrl` 与 `loaderUrl` 必须锁定 Launch 所选 CoreArtifact 的精确 `emulatorjs_version`，不能固定取当前 active 版本。对基线 v4.2.3，它们分别是 `/runtime/emulatorjs/4.2.3/data/` 与 `/runtime/emulatorjs/4.2.3/data/loader.js`；通用派生规则是给该版本 manifest 的 `emulatorjs.player_adapter.runtime_base_path_in_release/loader_path_in_release` 加 `/runtime/emulatorjs/<exact-version>/` 前缀，并要求 loader 属于 runtime base 且两者都命中 allowlist。它们只由 config 返回，前端不得拼版本、猜目录或回退 active 版本。`gameName` 固定为 `retrom-<emulatorGameId>`，只使用 ASCII 字母、数字与连字符，使 EJS 的 save key 在元信息重命名后仍稳定。
 
-`runtimePathOverrides` 对每个已接受版本精确包含一个键：该版本 loader 对所选 artifact 实际请求的 basename；值是该 CoreArtifact 的固定同源 URL。这两个值只由 CoreArtifact 的已校验 `compatibility_config_json.requestedArtifactBasename`、`emulatorjs_version` 和 `relative_path` 派生。v4.2.3 的普通 artifact 例如 `{"mgba-wasm.data":"/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data"}`；`mame2003` 必须是 `{"mame2003-wasm.data":"/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"}`。key 不是 CoreArtifact ID，也不是 override 文件自身 basename。v4.2.3 的 `emulator.min.js` 会以 `requestedPath.split("/").pop()` 查 `EJS_paths`；这一映射是选择 4.2.1 override 而不误取 4.2.3 文件的必要条件。其余 loader、CSS、语言、archive helper 和 core report 都从本次 config 的 runtime base 读取，不增加浮动 URL。`defaultCoreOptions` 先放固定 `webgl2Enabled: "enabled"`，再按 Requirement ID 合并本次 VariantRevision 依赖快照中适用、已装入 BIOS bundle 的 `activation_options_json`，最后加入 DOS 派生启动包的 `dosbox_pure_conf: "inside"`；任何重复 key 异值在验证阶段失败，不能靠合并顺序覆盖。这样 Gambatte/mGBA 上传的启动 BIOS 会实际启用，而缺失可选 BIOS 不会被误升为 Blocker。这些 key/value 必须来自对应版本 loader、静态 BIOS catalog 和锁定 artifact 的集成测试，不能由前端按显示名称猜测。`canvasResizePolicy` 也只从该配置读取；`ON_GAME_START_TO_CSS_PIXELS` 在 game-start callback 把 canvas backing `width/height` 设为正整数 `clientWidth/clientHeight`，v4.2.3 仅锁定的 `mame2003` override 使用。
+`runtimePathOverrides` 对每个已接受版本精确包含一个键：该版本 loader 对所选 artifact 实际请求的 basename；值是该 CoreArtifact 的固定同源 URL。这两个值只由 CoreArtifact 的已校验 `compatibility_config_json.requestedArtifactBasename`、`emulatorjs_version` 和 `relative_path` 派生。v4.2.3 的普通 artifact 例如 `{"mgba-wasm.data":"/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data"}`；`mame2003` 必须是 `{"mame2003-wasm.data":"/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"}`。key 不是 CoreArtifact ID，也不是 override 文件自身 basename。v4.2.3 的 `emulator.min.js` 会以 `requestedPath.split("/").pop()` 查 `EJS_paths`；这一映射是选择 4.2.1 override 而不误取 4.2.3 文件的必要条件。其余 loader、CSS、语言、archive helper 和 core report 都从本次 config 的 runtime base 读取，不增加浮动 URL。`defaultCoreOptions` 先放固定 `webgl2Enabled: "enabled"`，再按 Requirement ID 合并本次 VariantRevision 依赖快照中适用、已装入 BIOS bundle 的 `activation_options_json`；DOS 直接启动最后加入 `dosbox_pure_conf: "outside"`，并仅为该 Launch 返回 `externalFiles={"/game.conf":"/runtime/launches/<launchId>/dos-config/game.conf"}`。任何重复 key 异值在验证阶段失败，不能靠合并顺序覆盖。这样 Gambatte/mGBA 上传的启动 BIOS 会实际启用，而缺失可选 BIOS 不会被误升为 Blocker。这些 key/value 必须来自对应版本 loader、静态 BIOS catalog和锁定 artifact 的集成测试，不能由前端按显示名称猜测。`canvasResizePolicy` 也只从该配置读取；`ON_GAME_START_TO_CSS_PIXELS` 在 game-start callback 把 canvas backing `width/height` 设为正整数 `clientWidth/clientHeight`，v4.2.3 仅锁定的 `mame2003` override 使用。
 
 Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 registry，不允许默认分支把未知 ID/版本当成 v4.2.3。机器可读 registry 固定为 `web/features/player/adapters/registry.json`，当前只登记 `ejs-4.2.3-v1 → 4.2.3`；同目录 TypeScript 实现必须与 JSON 双向一一对应，`make data-check` 校验每份依赖 manifest 的 ID/版本均命中它。v4.2.3 adapter 的 globals、event 顺序、IDBFS 规则和 callback 以本文为准。未来版本若行为完全兼容也必须新增精确 ID 并跑版本升级门禁；若行为变化则新增独立 adapter。浏览器收到未知或版本不匹配的 ID 时必须在加载 loader 前终止为 `PLAYER_ADAPTER_UNSUPPORTED`，不得回退 active 版本或任意旧 adapter。后端和前端镜像必须来自通过同一次 `data-check` 的同一版本化项目发布；一期不声称两个独立进程能在启动时互相检查镜像内容。
 
@@ -165,13 +166,13 @@ v4.2.3 的实际 loader 对 Arcade `EJS_gameUrl` 保留整个 ROMset ZIP，并�
 
 导入扫描 `.exe`、`.com`、`.bat`，排除控制字符/路径逃逸，对 setup/install/uninstall/配置工具降权，但不凭文件名删除候选。详情下拉默认选择审核确认的 `default_dos_entry`；用户可选择另一个 entry，或显式选择“显示 DOSBox Pure 程序菜单”。存档记录当次选择。
 
-DOSBox Pure 没有 EmulatorJS 的“启动某个可执行文件”参数。正常直接启动使用真实、已验证的 core 能力：
+DOSBox Pure 没有 EmulatorJS 的“启动某个可执行文件”参数，但支持读取与内容同 basename、位于内容旁的 `.conf`。正常直接启动使用 EmulatorJS 的虚拟文件注入与该 core 能力：
 
-1. 从 VariantRevision 引用的 GameContentRevision 读取并保留全部 `DOS_SOURCE` GameContentFile；
-2. 以 `VariantRevision + selected entry + packer version` 为 key，生成确定性派生 ZIP；
-3. 在 ZIP 根加入 `dosbox.conf`，其 `[autoexec]` 只执行规范化后的所选相对程序；
-4. 通过 `EJS_defaultOptions` 设置 core option `dosbox_pure_conf: "inside"`，使 core 读取内容根的 `dosbox.conf`；
-5. 把派生 ZIP 作为 `EJS_gameUrl`，而不是生成无依据的 `DOSBOX.BAT`。
+1. LaunchContent 始终锁定 VariantRevision 已有的规范 `DOS_LAUNCH_BUNDLE`，以原 `game.zip` 作为 `EJS_gameUrl`；选择多少个入口都不得复制 ROM bundle 或创建 Blob；
+2. LaunchSession 只保存审核过的 `dos_entry_path`；`GET /runtime/launches/{launchId}/dos-config/game.conf` 在通过该 Launch 的 HttpOnly cookie、状态与 hard expiry 校验后，按请求即时返回极小的确定性配置，不落 CAS/数据库/临时文件；
+3. config 设置 `EJS_externalFiles={"/game.conf":"/runtime/launches/<launchId>/dos-config/game.conf"}`，由 v4.2.3 loader 在下载 ROM 前写入同一虚拟文件系统；
+4. 通过 `EJS_defaultOptions` 设置 `dosbox_pure_conf: "outside"`，使 core 把 `game.conf` 作为 `game.zip` 的同名旁置配置读取；
+5. 配置中的 `[autoexec]` 只执行规范化后的所选相对程序，不生成 `DOSBOX.BAT`，也不改变原 ZIP。
 
 autoexec 不接受用户参数。直接启动只允许 `dos_entries` 中每个路径段为 1–255 个 ASCII byte、匹配 `^[A-Za-z0-9][A-Za-z0-9 ._-]{0,254}$`、末 byte 另须匹配 `[A-Za-z0-9_-]`、不为 `.`/`..`，且最后一段后缀为 `.EXE/.COM/.BAT`（ASCII case-insensitive）的精确成员；这会排除尾随空格/点及所有 shell 元字符。其他合法 DOS entry 仍可在 core 程序菜单中启动，但详情页把直接启动选项标为不可用。把路径分隔符 `/` 替换为单个 `0x5C` 反斜杠后，`dosbox.conf` 必须是 UTF-8 无 BOM、使用 CRLF。例如选中成员 `GAMES/DOOM2.EXE` 时，唯一模板实例为：
 
@@ -183,9 +184,9 @@ CD "\GAMES"
 "DOOM2.EXE"
 ```
 
-根目录程序的 `CD` 行固定为一个 `C`、`D`、空格和单个反斜杠（hex `43 44 20 5c`，即 `CD \`）；非根目录则取选中成员最后一段之前的目录段，用反斜杠连接并在引号内以单个反斜杠开头；程序行只写成员的最后一段。双引号内不会出现引号、百分号、shell 分隔符或转义字符，因为上述 allowlist 已拒绝它们；文件名保留 archive 中的原始大小写，不能添加参数。派生包固定 entry 顺序、1980-01-01 00:00:00 时间、Unix mode `0644`、空 extra/comment、DEFLATE level 6 和 packer format version，并保存 hash；更换 ZIP 实现或参数必须提升 format version。若选择“程序菜单”，使用原始/规范 bundle 且不注入 conf；这是用户主动选择的 core UI，不是 Retrom 的等待页。程序消失返回 `LAUNCH_DOS_ENTRY_MISSING`，路径不满足直接启动规则返回 `LAUNCH_DOS_ENTRY_UNSAFE`，均不猜替代项。
+根目录程序的 `CD` 行固定为一个 `C`、`D`、空格和单个反斜杠（hex `43 44 20 5c`，即 `CD \`）；非根目录则取选中成员最后一段之前的目录段，用反斜杠连接并在引号内以单个反斜杠开头；程序行只写成员的最后一段。双引号内不会出现引号、百分号、shell 分隔符或转义字符，因为上述 allowlist 已拒绝它们；文件名保留 archive 中的原始大小写，不能添加参数。若选择“程序菜单”，使用原始/规范 bundle 且不注入 conf；这是用户主动选择的 core UI，不是 Retrom 的等待页。程序消失返回 `LAUNCH_DOS_ENTRY_MISSING`，路径不满足直接启动规则返回 `LAUNCH_DOS_ENTRY_UNSAFE`，均不猜替代项。
 
-依据：[DOSBox Pure 官方 README](https://github.com/schellingb/dosbox-pure#start-menu)说明内容 ZIP 的程序菜单、auto start 和 `dosbox.conf [autoexec]`；`dosbox_pure_conf=inside` 同时由固定 core artifact 内的 option strings 与 smoke 锁定。
+依据：[DOSBox Pure 官方 README](https://github.com/schellingb/dosbox-pure#loading-a-dosboxconf-file)说明同名旁置 `.conf`；[EmulatorJS options](https://emulatorjs.org/docs/options/)说明 `EJS_externalFiles` 的虚拟路径到 URL 映射；`dosbox_pure_conf=outside` 同时由固定 core artifact 内的 option strings 与 smoke 锁定。
 
 ## 9. 状态存档与持久存档
 

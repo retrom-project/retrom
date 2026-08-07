@@ -2,17 +2,21 @@ package store
 
 import (
 	"context"
+	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/migrations"
 )
 
 func TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog(t *testing.T) {
@@ -71,8 +75,12 @@ func TestSupportedMigrationVersionsIdempotencyAndFutureProtection(t *testing.T) 
 		t.Fatal(err)
 	}
 	var supported []int
-	if err := json.Unmarshal(contents, &supported); err != nil || supported == nil || len(supported) != 0 {
-		t.Fatalf("greenfield supported versions = %#v, error=%v", supported, err)
+	if err := json.Unmarshal(contents, &supported); err != nil || len(supported) != 1 || supported[0] != 10 {
+		t.Fatalf("supported versions = %#v, error=%v", supported, err)
+	}
+	fixtures, err := filepath.Glob(filepath.Join(repositoryRoot, "migrations", "testdata", "*_fixture.sql"))
+	if err != nil || len(fixtures) != len(supported) || filepath.Base(fixtures[0]) != "010_fixture.sql" {
+		t.Fatalf("migration fixtures = %#v, error=%v", fixtures, err)
 	}
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	database, err := Open(context.Background(), path, time.Now)
@@ -105,6 +113,77 @@ applied_at_ms) VALUES(999,
 			cleanup.Error("close", future.Close())
 		}
 		t.Fatalf("future schema error = %v", err)
+	}
+}
+
+func TestDOSExternalConfigMigrationRepointsLegacyLaunchContent(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	databasePath := filepath.Join(t.TempDir(), "retrom.db")
+	legacy, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.SetMaxOpenConns(1)
+	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Join(repositoryRoot, "migrations"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
+			continue
+		}
+		version, parseErr := strconv.Atoi(strings.SplitN(entry.Name(), "_", 2)[0])
+		if parseErr != nil || version > 10 {
+			continue
+		}
+		migration, readErr := migrations.Files.ReadFile(entry.Name())
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		digest := sha256.Sum256(migration)
+		if err := runMigration(ctx, legacy, version, entry.Name(), fmt.Sprintf("%x", digest), migration, time.Now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "010_fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	upgraded, err := Open(ctx, databasePath, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
+	var logicalName, blobID, formatVersion string
+	if err := upgraded.SQL.QueryRowContext(ctx, `
+SELECT logical_name, blob_id, format_version
+FROM launch_content_files
+WHERE launch_session_id='dos-launch'
+`).Scan(&logicalName, &blobID, &formatVersion); err != nil ||
+		logicalName != "game.zip" || blobID != "base-blob" || formatVersion != "SOURCE_V1" {
+		t.Fatalf("upgraded launch content = %s/%s/%s, error=%v", logicalName, blobID, formatVersion, err)
+	}
+	if _, err := upgraded.SQL.ExecContext(ctx, `UPDATE launch_content_files SET logical_name='changed.zip' WHERE launch_session_id='dos-launch'`); err == nil || !strings.Contains(err.Error(), "immutable") {
+		t.Fatalf("launch content immutability after migration error = %v", err)
+	}
+	if err := upgraded.IntegrityCheck(ctx); err != nil {
+		t.Fatal(err)
 	}
 }
 

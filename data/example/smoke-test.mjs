@@ -391,6 +391,7 @@ async function runFixture(cdp, fixture) {
   const screenshotPath = path.join(REPO_ROOT, screenshotRelative);
   const pageUrl = `${BASE_URL}/${fixture.examplePath}`;
   const coreRequests = [];
+  const externalFileRequests = [];
   const consoleErrors = [];
   const consoleMessages = [];
   let browserContextId;
@@ -419,6 +420,9 @@ async function runFixture(cdp, fixture) {
       const url = params.response?.url || "";
       if (url.includes("/cores/") || url.includes("/overrides/")) {
         coreRequests.push({ url, status: params.response.status });
+      }
+      if ((fixture.expectedExternalFiles || []).some(expected => url === `${BASE_URL}/${expected}`)) {
+        externalFileRequests.push({ url, status: params.response.status });
       }
     });
     cdp.on("Network.loadingFailed", (params, eventSessionId) => {
@@ -477,6 +481,12 @@ async function runFixture(cdp, fixture) {
     if (!loadedExpectedCore) {
       throw new Error(`Expected core artifact was not loaded: ${expectedCoreArtifactUrl}`);
     }
+    for (const expected of fixture.expectedExternalFiles || []) {
+      const expectedURL = `${BASE_URL}/${expected}`;
+      if (!externalFileRequests.some(request => request.url === expectedURL && request.status >= 200 && request.status < 300)) {
+        throw new Error(`Expected external file was not loaded: ${expectedURL}`);
+      }
+    }
     await sleep(fixture.settleMs);
     state = await evaluate(cdp, sessionId, `(() => ({
       smoke: JSON.parse(JSON.stringify(window.__RETROM_SMOKE__)),
@@ -520,6 +530,7 @@ async function runFixture(cdp, fixture) {
     visual: visual || null,
     expectedCoreArtifact: fixture.coreArtifact,
     requestedCoreAssets: [...new Map(coreRequests.map(item => [item.url, item])).values()],
+    requestedExternalFiles: [...new Map(externalFileRequests.map(item => [item.url, item])).values()],
     consoleErrors: [...new Set(consoleErrors)].slice(0, 30),
     consoleMessages: consoleMessages.slice(-100)
   };

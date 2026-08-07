@@ -18,6 +18,7 @@ const config: PlayerConfig = {
   requiresThreads: false,
   runtimePathOverrides: {},
   defaultCoreOptions: { webgl2Enabled: "enabled" },
+  externalFiles: {},
   returnTo: "/library"
 };
 
@@ -35,8 +36,24 @@ describe("EmulatorJS adapter", () => {
     const cleanup = mountEmulatorJS(config, target);
     expect(window.EJS_core).toBe("mgba");
     expect(window.EJS_gameUrl).toBe(config.gameUrl);
+    expect(window.EJS_externalFiles).toEqual({});
     expect(document.querySelector<HTMLScriptElement>("script[data-retrom-loader]")?.src).toContain(config.loaderUrl);
     cleanup();
+  });
+
+  it("maps only the launch-scoped DOS configuration into the virtual filesystem", () => {
+    const target = document.createElement("div");
+    const dosConfig: PlayerConfig = {
+      ...config,
+      core: "dosbox_pure",
+      dosEntry: "GAMES/DOOM.EXE",
+      defaultCoreOptions: { dosbox_pure_conf: "outside" },
+      externalFiles: { "/game.conf": `/runtime/launches/${config.launchId}/dos-config/game.conf` }
+    };
+    const cleanup = mountEmulatorJS(dosConfig, target);
+    expect(window.EJS_externalFiles).toEqual(dosConfig.externalFiles);
+    cleanup();
+    expect(() => mountEmulatorJS({ ...dosConfig, externalFiles: { "/game.conf": "https://example.test/game.conf" } }, target)).toThrow("PLAYER_EXTERNAL_FILES_INVALID");
   });
 
   it("normalizes the 4.2.3 state and screenshot APIs into a manual save payload", async () => {

@@ -96,7 +96,7 @@ Cross-Origin-Embedder-Policy: require-corp
 Cross-Origin-Resource-Policy: same-origin
 ~~~
 
-测试同时断言 `window.crossOriginIsolated === true`。该 DOOM II bundle 被 DOSBox Pure 自动启动并进入标题画面。运行后出现一个非阻断 `ErrnoError`，但 frame counter 持续增长且标题序列继续播放；结果中保留该诊断，不将其隐藏。
+测试同时断言 `window.crossOriginIsolated === true`。该 DOOM II bundle 保持原 ZIP，smoke 通过 `EJS_externalFiles` 成功请求旁置 `game.conf`，以 `dosbox_pure_conf=outside` 自动启动并进入标题画面。运行后出现一个非阻断 `ErrnoError`，但 frame counter 持续增长且标题序列继续播放；结果中保留该诊断，不将其隐藏。
 
 ## 8. 统一升级验收入口
 

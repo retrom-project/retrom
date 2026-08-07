@@ -586,9 +586,9 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-005`。
-- 流程：在 DOS 详情加载可执行程序列表，选择非默认程序并启动；检查派生 ZIP；再选择“显示 DOSBox Pure 程序菜单”，最后构造选中程序已不存在的 revision。
-- 通过标准：直接启动的派生 ZIP 保留原内容并只新增运行时专题规定的逐字节确定性 `dosbox.conf [autoexec]`，安全路径可进入所选程序画面，`EJS_defaultOptions.dosbox_pure_conf == "inside"`，没有伪造 `DOSBOX.BAT`；相同输入两次生成 ZIP 的 SHA-256 相同，运行页不二次询问。程序菜单选项使用无注入 conf 的原 bundle；缺失 entry 以 `LAUNCH_DOS_ENTRY_MISSING`、含 `%`/引号/控制字符/尾随空格或点等不安全 entry 以 `LAUNCH_DOS_ENTRY_UNSAFE` 阻断直接启动，且都不猜替代程序。
-- 证据：程序列表、launch/config payload、派生 ZIP entry/hash、core option、运行画面与错误响应。
+- 流程：在 DOS 详情加载可执行程序列表，选择非默认程序并启动；检查锁定内容、config 与按需 `game.conf`；再选择“显示 DOSBox Pure 程序菜单”，最后构造选中程序已不存在的 revision。
+- 通过标准：直接启动仍以原 `game.zip`/Blob 作为 `EJS_gameUrl`，选择入口前后 Blob 数不增加；`EJS_externalFiles` 只把 `/game.conf` 映射到本次 Launch 的受限 config URL，`EJS_defaultOptions.dosbox_pure_conf == "outside"`，端点逐字节返回运行时专题规定的 `[autoexec]` 且不落磁盘/数据库，安全路径可进入所选程序画面，没有伪造 `DOSBOX.BAT`，运行页不二次询问。程序菜单选项使用原 bundle 且无 external config；缺失 entry 以 `LAUNCH_DOS_ENTRY_MISSING`、含 `%`/引号/控制字符/尾随空格或点等不安全 entry 以 `LAUNCH_DOS_ENTRY_UNSAFE` 阻断直接启动，且都不猜替代程序。
+- 证据：程序列表、launch/config payload、原 Blob/引用计数、按需 config bytes、core option、运行画面与错误响应。
 
 ### ACC-SAVE-001：手动状态存档与截图
 
@@ -695,7 +695,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-005`。
 - 流程：在 `1280×800`、`2560×1440` CSS viewport，以及 3840×2160、100% scale viewport 分别打开首页、游戏库、详情、存档和 Player Shell。
-- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；三个 viewport 的游戏库分别为 4/6/8 列，内容分别不超过文档最大宽度。Player stage 为 100vw×100dvh，测得可用区扣除 56px toolbar 与对应留白；canvas rect 完全在可用区，CSS/drawing-buffer 宽高比误差 ≤0.01，宽/高与 contain 公式误差 ≤2px，未被裁切或拉伸，主要操作在视口内。
+- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；三个 viewport 的游戏库分别为 4/6/8 列，内容分别不超过文档最大宽度。Player stage 为无边距的 100vw×100dvh；运行后 56px toolbar 自动移出画面且鼠标移动/键盘聚焦可恢复。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式居中，未被裁切或拉伸。
 - 证据：三个 viewport 的布局测量、overflow 断言和页面截图。
 
 ### ACC-UI-006：管理侧 4K

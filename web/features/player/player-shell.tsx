@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { newUuid, sha256 } from "@/lib/crypto";
 import { captureManualState, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "./adapters/ejs-4.2.3-v1";
+import { installCanvasContain } from "./canvas-fit";
 
 type ShellState = "loading" | "running" | "error";
 
@@ -30,6 +31,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [message, setMessage] = useState("正在验证运行快照…");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [saveMessage, setSaveMessage] = useState("");
+  const [controlsVisible, setControlsVisible] = useState(true);
   const returnTo = useRef("/library");
   const sequence = useRef(0);
   const started = useRef(false);
@@ -39,6 +41,21 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const persistentQueue = useRef(Promise.resolve());
   const persistentConflict = useRef<Uint8Array | null>(null);
   const [hasPersistentConflict, setHasPersistentConflict] = useState(false);
+  const controlsTimer = useRef<number | null>(null);
+  const running = useRef(false);
+
+  const clearControlsTimer = useCallback(() => {
+    if (controlsTimer.current !== null) window.clearTimeout(controlsTimer.current);
+    controlsTimer.current = null;
+  }, []);
+
+  const showControls = useCallback(() => {
+    setControlsVisible(true);
+    clearControlsTimer();
+    if (running.current) {
+      controlsTimer.current = window.setTimeout(() => setControlsVisible(false), 2_000);
+    }
+  }, [clearControlsTimer]);
 
   const sendEvent = useCallback(async (kind: "start" | "heartbeat" | "finish") => {
     if (kind === "heartbeat" && !started.current) throw new Error("PLAY_SESSION_NOT_STARTED");
@@ -153,6 +170,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   useEffect(() => {
     const controller = new AbortController();
     let cleanup: (() => void) | undefined;
+    let cleanupCanvas: (() => void) | undefined;
+    let cleanupFrameControls: (() => void) | undefined;
     async function bootstrap() {
       try {
         setMessage("正在加载 Core、ROM 与依赖配置…");
@@ -176,11 +195,20 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         if (!frameWindow || !frameDocument) throw new Error("PLAYER_FRAME_UNAVAILABLE");
         frameDocument.documentElement.lang = "zh-CN";
         const style = frameDocument.createElement("style");
-        style.textContent = "html,body,#game{width:100%;height:100%;margin:0;overflow:hidden;background:#05060a} canvas{max-width:100%;max-height:100%}";
+        style.textContent = "html,body,#game,#retrom-emulator,.ejs_parent,.ejs_game,.ejs_canvas_parent{width:100%;height:100%;margin:0;overflow:hidden;background:#05060a}.ejs_canvas_parent{display:grid!important;place-items:center!important}canvas{display:block;max-width:none!important;max-height:none!important}";
         frameDocument.head.append(style);
         const target = frameDocument.createElement("div");
         target.id = "game";
         frameDocument.body.append(target);
+        cleanupCanvas = installCanvasContain(frameDocument);
+        const handleFramePointerMove = () => showControls();
+        const handleFrameKeyDown = () => showControls();
+        frameDocument.addEventListener("pointermove", handleFramePointerMove, { passive: true });
+        frameDocument.addEventListener("keydown", handleFrameKeyDown);
+        cleanupFrameControls = () => {
+          frameDocument.removeEventListener("pointermove", handleFramePointerMove);
+          frameDocument.removeEventListener("keydown", handleFrameKeyDown);
+        };
 
         let mountedSaveFS: NonNullable<NonNullable<EmulatorInstance["gameManager"]>["FS"]> | undefined;
         cleanup = mountEmulatorJS(config, target, {
@@ -227,10 +255,17 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     }
     void bootstrap();
     return () => {
-      controller.abort(); cleanup?.();
+      controller.abort(); cleanup?.(); cleanupCanvas?.(); cleanupFrameControls?.();
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
     };
-  }, [launchId, sendEvent, uploadManualState, uploadPersistent]);
+  }, [launchId, sendEvent, showControls, uploadManualState, uploadPersistent]);
+
+  useEffect(() => {
+    running.current = state === "running";
+    clearControlsTimer();
+    if (running.current) controlsTimer.current = window.setTimeout(() => setControlsVisible(false), 2_000);
+    return clearControlsTimer;
+  }, [clearControlsTimer, state]);
 
   useEffect(() => {
     const handlePageHide = () => {
@@ -265,5 +300,32 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     }
   }
 
-  return <main className="player-shell"><header className="player-toolbar"><strong>Retrom Player · {launchId.slice(0, 8)}</strong><div aria-live="polite" className="player-save-status">{warnings.includes("BIOS_HASH_WARNING") ? <span>BIOS Hash 与目录期望不一致，已按 Warning 继续运行。</span> : null}{saveMessage}{hasPersistentConflict ? <button type="button" onClick={downloadConflictingSave}>下载当前存档</button> : null}</div><div className="player-actions"><button type="button" disabled={state !== "running"} onClick={() => void saveManualState()}>保存进度</button><button type="button" onClick={() => void document.documentElement.requestFullscreen()}>全屏</button><button type="button" onClick={() => void exit()}>退出游戏</button></div></header><div className="player-stage" ref={stage}><iframe ref={frameRef} title="Retrom EmulatorJS Player" className="player-frame" src="about:blank" />{state !== "running" ? <div className="player-loading">{state === "loading" ? <i /> : null}<strong>{message}</strong><p>{state === "error" ? <><span>凭据可能已过期或依赖不兼容。</span> <Link href="/library">返回游戏库</Link></> : "页面会在验证和存档预取后自动开始，无需再次点击。"}</p></div> : null}</div></main>;
+  return (
+    <main className="player-shell" onKeyDown={showControls} onPointerMove={showControls}>
+      <header
+        className={`player-toolbar ${controlsVisible ? "is-visible" : ""}`}
+        onBlurCapture={showControls}
+        onFocusCapture={() => { setControlsVisible(true); clearControlsTimer(); }}
+        onPointerEnter={clearControlsTimer}
+        onPointerLeave={showControls}
+        onPointerMove={(event) => { event.stopPropagation(); clearControlsTimer(); }}
+      >
+        <strong>Retrom Player · {launchId.slice(0, 8)}</strong>
+        <div aria-live="polite" className="player-save-status">
+          {warnings.includes("BIOS_HASH_WARNING") ? <span>BIOS Hash 与目录期望不一致，已按 Warning 继续运行。</span> : null}
+          {saveMessage}
+          {hasPersistentConflict ? <button type="button" onClick={downloadConflictingSave}>下载当前存档</button> : null}
+        </div>
+        <div className="player-actions">
+          <button type="button" disabled={state !== "running"} onClick={() => void saveManualState()}>保存进度</button>
+          <button type="button" onClick={() => void document.documentElement.requestFullscreen()}>全屏</button>
+          <button type="button" onClick={() => void exit()}>退出游戏</button>
+        </div>
+      </header>
+      <div className="player-stage" ref={stage}>
+        <iframe ref={frameRef} title="Retrom EmulatorJS Player" className="player-frame" src="about:blank" />
+        {state !== "running" ? <div className="player-loading">{state === "loading" ? <i /> : null}<strong>{message}</strong><p>{state === "error" ? <><span>凭据可能已过期或依赖不兼容。</span> <Link href="/library">返回游戏库</Link></> : "页面会在验证和存档预取后自动开始，无需再次点击。"}</p></div> : null}
+      </div>
+    </main>
+  );
 }

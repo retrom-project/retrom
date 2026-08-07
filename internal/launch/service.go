@@ -1,25 +1,19 @@
 package launch
 
 import (
-	"archive/zip"
-	"compress/flate"
 	"context"
-	"crypto/sha256"
 	"database/sql"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"net/url"
 	"path"
 	"slices"
-	"sort"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 
-	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	retromruntime "retrom/internal/runtime"
@@ -61,7 +55,6 @@ type Created struct {
 
 type Service struct {
 	database     *sql.DB
-	blobs        *blobstore.Store
 	dependencies *dependencies.Set
 	credentials  *retromruntime.Credentials
 	now          func() time.Time
@@ -74,11 +67,6 @@ func New(
 	now func() time.Time,
 ) *Service {
 	return &Service{database: database, dependencies: dependencySet, credentials: credentials, now: now}
-}
-
-func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
-	service.blobs = blobs
-	return service
 }
 
 //nolint:funlen,gocognit,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
@@ -191,7 +179,6 @@ AND d.enabled=1
 		ctx,
 		variantRevisionID,
 		selectedCore,
-		selectedDOSEntry,
 	)
 	if err != nil {
 		return Created{}, err
@@ -349,7 +336,6 @@ logical_name
 func (service *Service) lockLaunchContent(
 	ctx context.Context,
 	variantRevisionID, coreID string,
-	dosEntry *string,
 ) (string, string, string, error) {
 	if coreID != "dosbox_pure" {
 		var blobID, logicalName string
@@ -369,128 +355,19 @@ f.logical_name LIMIT 1
 		}
 		return blobID, logicalName, "SOURCE_V1", nil
 	}
-	var baseBlobID, baseDigest string
+	var baseBlobID string
 	err := service.database.QueryRowContext(ctx, `
-SELECT vf.blob_id,
-b.sha256
+SELECT vf.blob_id
 FROM variant_files vf
-JOIN blobs b ON b.id=vf.blob_id
 WHERE vf.game_variant_revision_id=?
 AND vf.role='DOS_LAUNCH_BUNDLE'
 AND vf.logical_name='game.zip'
 `, variantRevisionID).
-		Scan(&baseBlobID, &baseDigest)
+		Scan(&baseBlobID)
 	if err != nil {
 		return "", "", "", ErrBlocked
 	}
-	if dosEntry == nil {
-		return baseBlobID, "game.zip", "SOURCE_V1", nil
-	}
-	if service.blobs == nil {
-		return "", "", "", ErrBlocked
-	}
-	metadata, err := service.buildDOSDirectBundle(baseDigest, *dosEntry)
-	if err != nil {
-		return "", "", "", err
-	}
-	blobID, err := blobstore.EnsureRecord(ctx, service.database, metadata, "application/zip", service.now().UnixMilli())
-	if err != nil {
-		return "", "", "", fmt.Errorf("launch/service: %w", err)
-	}
-	entryDigest := sha256.Sum256([]byte(*dosEntry))
-	return blobID, fmt.Sprintf("game-%x.zip", entryDigest[:8]), "RETROM_DOS_DIRECT_ZIP_V1", nil
-}
-
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
-func (service *Service) buildDOSDirectBundle(baseDigest, selectedEntry string) (blobstore.Metadata, error) {
-	base, err := service.blobs.OpenDigest(baseDigest)
-	if err != nil {
-		return blobstore.Metadata{}, ErrBlocked
-	}
-	defer func() { cleanup.Error("close", base.Close()) }()
-	stat, err := base.Stat()
-	if err != nil {
-		return blobstore.Metadata{}, ErrBlocked
-	}
-	archive, err := zip.NewReader(base, stat.Size())
-	if err != nil {
-		return blobstore.Metadata{}, ErrBlocked
-	}
-	files := make(map[string]*zip.File, len(archive.File))
-	found := false
-	for _, file := range archive.File {
-		if file.FileInfo().IsDir() || strings.EqualFold(file.Name, "dosbox.conf") {
-			return blobstore.Metadata{}, ErrBlocked
-		}
-		files[file.Name] = file
-		if file.Name == selectedEntry {
-			found = true
-		}
-	}
-	if !found {
-		return blobstore.Metadata{}, ErrDOSEntryMissing
-	}
-	names := make([]string, 0, len(files)+1)
-	for name := range files {
-		names = append(names, name)
-	}
-	names = append(names, "dosbox.conf")
-	sort.Strings(names)
-	reader, writer := io.Pipe()
-	done := make(chan error, 1)
-	go func() {
-		output := zip.NewWriter(writer)
-		output.RegisterCompressor(zip.Deflate, func(destination io.Writer) (io.WriteCloser, error) {
-			return flate.NewWriter(destination, 6)
-		})
-		var buildErr error
-		for _, name := range names {
-			header := &zip.FileHeader{Name: name, Method: zip.Deflate}
-			header.SetMode(0o644)
-			// archive/zip otherwise injects an extended-timestamp extra field. The
-			// legacy DOS fields are the only public API that can encode the required
-			// 1980 epoch while keeping Extra byte-for-byte empty.
-			header.ModifiedDate = 33 //nolint:staticcheck // See deterministic ZIP rationale above.
-			header.ModifiedTime = 0  //nolint:staticcheck // See deterministic ZIP rationale above.
-			destination, createErr := output.CreateHeader(header)
-			if createErr != nil {
-				buildErr = createErr
-				break
-			}
-			if name == "dosbox.conf" {
-				_, buildErr = io.WriteString(destination, dosboxConfig(selectedEntry))
-			} else {
-				source, openErr := files[name].Open()
-				if openErr != nil {
-					buildErr = openErr
-					break
-				}
-				_, buildErr = io.Copy(destination, source)
-				closeErr := source.Close()
-				if buildErr == nil {
-					buildErr = closeErr
-				}
-			}
-			if buildErr != nil {
-				break
-			}
-		}
-		closeErr := output.Close()
-		if buildErr == nil {
-			buildErr = closeErr
-		}
-		_ = writer.CloseWithError(buildErr)
-		done <- buildErr
-	}()
-	metadata, putErr := service.blobs.Put(reader)
-	buildErr := <-done
-	if putErr != nil {
-		return blobstore.Metadata{}, fmt.Errorf("launch/service: %w", putErr)
-	}
-	if buildErr != nil {
-		return blobstore.Metadata{}, buildErr
-	}
-	return metadata, nil
+	return baseBlobID, "game.zip", "SOURCE_V1", nil
 }
 
 func dosboxConfig(selectedEntry string) string {
@@ -528,6 +405,7 @@ type Config struct {
 	RequiresThreads      bool              `json:"requiresThreads"`
 	RuntimePathOverrides map[string]string `json:"runtimePathOverrides"`
 	DefaultCoreOptions   map[string]string `json:"defaultCoreOptions"`
+	ExternalFiles        map[string]string `json:"externalFiles"`
 	DOSEntry             any               `json:"dosEntry"`
 	Warnings             []string          `json:"warnings"`
 	ReturnTo             string            `json:"returnTo"`
@@ -541,7 +419,8 @@ type BundleFile struct {
 //nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) Config(ctx context.Context, launchID, capability string) (Config, error) {
 	var credentialHash []byte
-	var state, coreID, artifactID, emulatorVersion, relativePath, compatibilityJSON, logicalName, returnTo string
+	var state, coreID, artifactID, emulatorVersion, relativePath, compatibilityJSON string
+	var logicalName, contentFormat, returnTo string
 	var bootstrapExpires, hardExpires, emulatorGameID int64
 	var requiresThreads int
 	var saveStateID, dosEntry sql.NullString
@@ -560,6 +439,7 @@ a.compatibility_config_json,
 c.requires_threads,
 r.emulator_game_id,
 lc.logical_name,
+lc.format_version,
 l.return_to,
 l.save_state_id,
 l.dos_entry_path
@@ -584,6 +464,7 @@ WHERE l.id=?
 			&requiresThreads,
 			&emulatorGameID,
 			&logicalName,
+			&contentFormat,
 			&returnTo,
 			&saveStateID,
 			&dosEntry,
@@ -688,11 +569,18 @@ ORDER BY q.logical_name
 	if err := optionRows.Err(); err != nil {
 		return Config{}, fmt.Errorf("launch/service: %w", err)
 	}
+	externalFiles := make(map[string]string)
 	if coreID == "dosbox_pure" && dosEntry.Valid {
-		if existing, ok := coreOptions["dosbox_pure_conf"]; ok && existing != "inside" {
+		configurationLocation := "outside"
+		if contentFormat == "RETROM_DOS_DIRECT_ZIP_V1" {
+			configurationLocation = "inside"
+		} else {
+			externalFiles["/game.conf"] = "/runtime/launches/" + launchID + "/dos-config/game.conf"
+		}
+		if existing, ok := coreOptions["dosbox_pure_conf"]; ok && existing != configurationLocation {
 			return Config{}, ErrBlocked
 		}
-		coreOptions["dosbox_pure_conf"] = "inside"
+		coreOptions["dosbox_pure_conf"] = configurationLocation
 	}
 	return Config{
 		LaunchID:          launchID,
@@ -715,10 +603,36 @@ ORDER BY q.logical_name
 		RequiresThreads:      requiresThreads == 1,
 		RuntimePathOverrides: overrides,
 		DefaultCoreOptions:   coreOptions,
+		ExternalFiles:        externalFiles,
 		DOSEntry:             nullableString(dosEntry),
 		Warnings:             warnings,
 		ReturnTo:             returnTo,
 	}, nil
+}
+
+func (service *Service) DOSConfig(ctx context.Context, launchID, capability string) (string, error) {
+	var credentialHash []byte
+	var state, coreID, selectedEntry string
+	var hardExpires int64
+	err := service.database.QueryRowContext(ctx, `
+SELECT l.credential_sha256,
+l.state,
+l.hard_expires_at_ms,
+a.core_id,
+l.dos_entry_path
+FROM launch_sessions l
+JOIN core_artifacts a ON a.id=l.core_artifact_id
+JOIN launch_content_files lc ON lc.launch_session_id=l.id
+WHERE l.id=?
+AND lc.format_version='SOURCE_V1'
+AND l.dos_entry_path IS NOT NULL
+`, launchID).Scan(&credentialHash, &state, &hardExpires, &coreID, &selectedEntry)
+	if err != nil || coreID != "dosbox_pure" ||
+		!retromruntime.MatchesCapability(capability, credentialHash) ||
+		hardExpires <= service.now().UnixMilli() || state != "ACTIVE" {
+		return "", ErrCredential
+	}
+	return dosboxConfig(selectedEntry), nil
 }
 
 //nolint:funlen,gocognit,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.

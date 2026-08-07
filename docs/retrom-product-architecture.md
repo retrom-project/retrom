@@ -294,7 +294,7 @@ flowchart LR
 - 验证直接启动、默认全屏、状态存档/截图、持久存档、有效时长心跳。
 - 验证 FBNeo/MAME Split 与 Full Non-Merged 的 parent/BIOS 加载，及三个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
-- 现有 8/8 历史 smoke 已确认固定运行时在 Chrome 中 `crossOriginIsolated`、核心帧推进并进入可辨识画面；它不是产品启动编排的替代。DOSBox Pure 的 ZIP 内 `dosbox.conf [autoexec]` 与 `dosbox_pure_conf=inside` 能力来自官方契约，产品生成的精确模板、直接进入所选程序及不安全路径阻断仍必须执行 `ACC-RUN-005`。
+- 现有 8/8 历史 smoke 已确认固定运行时在 Chrome 中 `crossOriginIsolated`、核心帧推进并进入可辨识画面；它不是产品启动编排的替代。DOSBox Pure 的同名旁置 `.conf [autoexec]`、`dosbox_pure_conf=outside` 与 EmulatorJS `EJS_externalFiles` 能力来自官方契约，产品生成的精确模板、直接进入所选程序、原 bundle 不复制及不安全路径阻断仍必须执行 `ACC-RUN-005`。
 
 Phase 0 未通过时，不进入大规模业务实现。
 

@@ -3,7 +3,6 @@
 package launch
 
 import (
-	"archive/zip"
 	"bytes"
 	"context"
 	"crypto/sha256"
@@ -11,8 +10,6 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"io"
-	"os"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -29,78 +26,10 @@ import (
 	"retrom/internal/uploads"
 )
 
-func TestDOSDirectBundleIsDeterministicAndInjectsOnlyExactConfig(t *testing.T) {
+func TestDOSConfigTemplateIsExactAndEphemeral(t *testing.T) {
 	t.Parallel()
-	blobs, err := blobstore.Open(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	var base bytes.Buffer
-	writer := zip.NewWriter(&base)
-	for _, file := range []struct {
-		name string
-		body string
-	}{{"GAMES/DOOM.EXE", "exe"}, {"GAMES/DOOM.WAD", "wad"}} {
-		header := &zip.FileHeader{Name: file.name, Method: zip.Store, ModifiedDate: 33}
-		header.SetMode(0o644)
-		part, createErr := writer.CreateHeader(header)
-		if createErr != nil {
-			t.Fatal(createErr)
-		}
-		if _, writeErr := io.WriteString(part, file.body); writeErr != nil {
-			t.Fatal(writeErr)
-		}
-	}
-	if err := writer.Close(); err != nil {
-		t.Fatal(err)
-	}
-	baseMetadata, err := blobs.Put(bytes.NewReader(base.Bytes()))
-	if err != nil {
-		t.Fatal(err)
-	}
-	service := (&Service{}).WithBlobStore(blobs)
-	first, err := service.buildDOSDirectBundle(baseMetadata.SHA256, "GAMES/DOOM.EXE")
-	if err != nil {
-		t.Fatal(err)
-	}
-	second, err := service.buildDOSDirectBundle(baseMetadata.SHA256, "GAMES/DOOM.EXE")
-	if err != nil || first.SHA256 != second.SHA256 {
-		t.Fatalf("derived bundle drift = %s/%s, error=%v", first.SHA256, second.SHA256, err)
-	}
-	contents, err := os.ReadFile(first.Path)
-	if err != nil {
-		t.Fatal(err)
-	}
-	archive, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(archive.File) != 3 {
-		t.Fatalf("derived entry count = %d", len(archive.File))
-	}
-	for _, entry := range archive.File {
-		if entry.Method != zip.Deflate || len(entry.Extra) != 0 || entry.Mode().Perm() != 0o644 {
-			t.Fatalf(
-				"derived header = %s method:%d extra:%x mode:%o",
-				entry.Name,
-				entry.Method,
-				entry.Extra,
-				entry.Mode().Perm(),
-			)
-		}
-		if entry.Name != "dosbox.conf" {
-			continue
-		}
-		reader, openErr := entry.Open()
-		if openErr != nil {
-			t.Fatal(openErr)
-		}
-		configuration, readErr := io.ReadAll(reader)
-		cleanup.Error("close", reader.Close())
-		if readErr != nil ||
-			string(configuration) != "[autoexec]\r\n@ECHO OFF\r\nC:\r\nCD \"\\GAMES\"\r\n\"DOOM.EXE\"\r\n" {
-			t.Fatalf("dosbox.conf = %q, error=%v", configuration, readErr)
-		}
+	if configuration := dosboxConfig("GAMES/DOOM.EXE"); configuration != "[autoexec]\r\n@ECHO OFF\r\nC:\r\nCD \"\\GAMES\"\r\n\"DOOM.EXE\"\r\n" {
+		t.Fatalf("dosbox.conf = %q", configuration)
 	}
 	if dosboxConfig("DOOM.EXE") != "[autoexec]\r\n@ECHO OFF\r\nC:\r\nCD \\\r\n\"DOOM.EXE\"\r\n" {
 		t.Fatalf("root dosbox.conf = %q", dosboxConfig("DOOM.EXE"))
@@ -670,9 +599,13 @@ WHERE d.import_item_id=?
 	if err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs)
+	service := New(database.SQL, dependencySet, credentials, time.Now)
 	selected := "DOOM/DOOM.EXE"
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
+	var blobCountBefore int
+	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM blobs`).Scan(&blobCountBefore); err != nil {
+		t.Fatal(err)
+	}
 	direct, err := service.Create(
 		ctx,
 		CreateRequest{
@@ -689,19 +622,30 @@ WHERE d.import_item_id=?
 	if err != nil {
 		t.Fatal(err)
 	}
-	if configuration.DOSEntry != selected || configuration.DefaultCoreOptions["dosbox_pure_conf"] != "inside" {
+	expectedConfigURL := "/runtime/launches/" + direct.LaunchID + "/dos-config/game.conf"
+	if configuration.DOSEntry != selected || configuration.DefaultCoreOptions["dosbox_pure_conf"] != "outside" ||
+		configuration.ExternalFiles["/game.conf"] != expectedConfigURL {
 		t.Fatalf("DOS direct config = %#v", configuration)
 	}
-	var directFormat, directLogicalName string
+	generatedConfig, err := service.DOSConfig(ctx, direct.LaunchID, direct.Capability)
+	if err != nil || generatedConfig != dosboxConfig(selected) {
+		t.Fatalf("DOS ephemeral config = %q, error=%v", generatedConfig, err)
+	}
+	var directFormat, directLogicalName, directBlobID string
+	var blobCountAfter int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT format_version,
-logical_name
+logical_name,
+blob_id
 FROM launch_content_files
 WHERE launch_session_id=?
-`, direct.LaunchID).Scan(&directFormat, &directLogicalName); err != nil ||
-		directFormat != "RETROM_DOS_DIRECT_ZIP_V1" ||
-		directLogicalName == "game.zip" {
-		t.Fatalf("DOS direct lock = %s/%s, error=%v", directFormat, directLogicalName, err)
+`, direct.LaunchID).Scan(&directFormat, &directLogicalName, &directBlobID); err != nil ||
+		directFormat != "SOURCE_V1" || directLogicalName != "game.zip" {
+		t.Fatalf("DOS direct lock = %s/%s/%s, error=%v", directFormat, directLogicalName, directBlobID, err)
+	}
+	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM blobs`).Scan(&blobCountAfter); err != nil ||
+		blobCountAfter != blobCountBefore {
+		t.Fatalf("DOS direct launch materialized blobs = %d -> %d, error=%v", blobCountBefore, blobCountAfter, err)
 	}
 	if _, err := service.ContentBlob(ctx, direct.LaunchID, direct.Capability, directLogicalName); err != nil {
 		t.Fatalf("DOS direct content: %v", err)
@@ -717,9 +661,12 @@ WHERE launch_session_id=?
 	if err != nil {
 		t.Fatal(err)
 	}
-	if menuConfig.DOSEntry != nil || menuConfig.DefaultCoreOptions["dosbox_pure_conf"] != "" ||
+	if menuConfig.DOSEntry != nil || menuConfig.DefaultCoreOptions["dosbox_pure_conf"] != "" || len(menuConfig.ExternalFiles) != 0 ||
 		menuConfig.GameURL[len(menuConfig.GameURL)-len("game.zip"):] != "game.zip" {
 		t.Fatalf("DOS menu config = %#v", menuConfig)
+	}
+	if _, err := service.DOSConfig(ctx, menu.LaunchID, menu.Capability); !errors.Is(err, ErrCredential) {
+		t.Fatalf("DOS menu ephemeral config error = %v", err)
 	}
 	unsafe := "DOOM/SETUP%.BAT"
 	if _, err := service.Create(ctx, CreateRequest{GameID: approved.GameID, DOSEntry: &unsafe, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
