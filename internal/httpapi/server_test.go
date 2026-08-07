@@ -3,6 +3,7 @@ package httpapi
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -943,15 +944,23 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,'本次游玩存档',240000,1,?,?,NULL)
 		homeResponse.FeaturedGame.LastSessionSave.SaveStateID != sessionSaveID {
 		t.Fatalf("featured session save = %#v", homeResponse.FeaturedGame)
 	}
+	seedRecentGameHistory(t, server.database, coreArtifactID, now, 55)
 	recent := httptest.NewRecorder()
 	server.Handler().ServeHTTP(recent, httptest.NewRequest(http.MethodGet, "/api/v1/recent-games", nil))
 	if recent.Code != http.StatusOK || !strings.Contains(recent.Body.String(), `"activeDurationMs":360000`) ||
-		!strings.Contains(recent.Body.String(), `"sessionCount":2`) || !strings.Contains(recent.Body.String(), `"limit":50`) ||
-		!strings.Contains(recent.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`) {
+		!strings.Contains(recent.Body.String(), `"sessionCount":2`) || strings.Contains(recent.Body.String(), `"limit"`) ||
+		!strings.Contains(recent.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`) ||
+		!strings.Contains(recent.Body.String(), `"generatedAtMs":`) {
 		t.Fatalf("recent games projection = %d: %s", recent.Code, recent.Body.String())
 	}
+	var recentResponse struct {
+		Items []recentGameProjection `json:"items"`
+	}
+	if err := json.Unmarshal(recent.Body.Bytes(), &recentResponse); err != nil || len(recentResponse.Items) != 56 {
+		t.Fatalf("unbounded recent games count = %d, error = %v", len(recentResponse.Items), err)
+	}
 	invalidRecentLimit := httptest.NewRecorder()
-	server.Handler().ServeHTTP(invalidRecentLimit, httptest.NewRequest(http.MethodGet, "/api/v1/recent-games?limit=0", nil))
+	server.Handler().ServeHTTP(invalidRecentLimit, httptest.NewRequest(http.MethodGet, "/api/v1/recent-games?limit=50", nil))
 	if invalidRecentLimit.Code != http.StatusBadRequest || !strings.Contains(invalidRecentLimit.Body.String(), `"code":"INVALID_QUERY"`) {
 		t.Fatalf("recent games invalid limit = %d: %s", invalidRecentLimit.Code, invalidRecentLimit.Body.String())
 	}
@@ -976,6 +985,80 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,'本次游玩存档',240000,1,?,?,NULL)
 	if deletedScreenshot.Code != http.StatusNotFound ||
 		!strings.Contains(deletedScreenshot.Body.String(), `"code":"SAVE_SCREENSHOT_NOT_FOUND"`) {
 		t.Fatalf("deleted save screenshot = %d: %s", deletedScreenshot.Code, deletedScreenshot.Body.String())
+	}
+}
+
+func seedRecentGameHistory(t *testing.T, database *sql.DB, coreArtifactID string, now int64, count int) {
+	t.Helper()
+	transaction, err := database.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.Exec("PRAGMA defer_foreign_keys=ON"); err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index < count; index++ {
+		gameID := uuid.NewString()
+		metadataID := uuid.NewString()
+		contentID := uuid.NewString()
+		variantID := uuid.NewString()
+		variantRevisionID := uuid.NewString()
+		launchID := uuid.NewString()
+		playID := uuid.NewString()
+		if _, err := transaction.Exec(`
+INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,release_year,
+source_kind,source_ref_id,created_at_ms)
+VALUES(?,?,?,'','','','',NULL,NULL,'ADMIN_EDIT',NULL,?)
+`, metadataID, gameID, fmt.Sprintf("Recent fixture %02d", index), now); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
+VALUES(?,?,'ADMIN_REPLACE',?,'{}',?,?)
+`, contentID, gameID, fmt.Sprintf("recent-%d", index), strings.Repeat("7", 64), now); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,
+version,created_at_ms,updated_at_ms)
+VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
+`, gameID, metadataID, contentID, fmt.Sprintf("recent fixture %02d", index), now, now); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'dosbox_pure',NULL,1,?,?)
+`, variantID, gameID, now, now); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
+validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
+VALUES(?,?,?,?,NULL,?,?,'READY','READY','{}',NULL,?)
+`, variantRevisionID, variantID, contentID, coreArtifactID, strings.Repeat("8", 64), 10_000+index, now); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec("UPDATE game_variants SET current_revision_id=? WHERE id=?", variantRevisionID, variantID); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO launch_sessions(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,return_to,credential_sha256,
+state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
+VALUES(?,'local',?,?,?,'/recent',zeroblob(32),'FINISHED',?,?,?,?,?,1)
+`, launchID, gameID, variantRevisionID, coreArtifactID, now+60_000, now, now+120_000, now, now); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,
+last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'local',?,?,?,?,?,60000,1,'FINISHED',1,?,?)
+`, playID, launchID, gameID, variantRevisionID, now-int64(index+1)*1_000, now, now, now, now); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
 	}
 }
 

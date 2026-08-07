@@ -359,14 +359,41 @@
     #retrom-ui-review .rt-home-summary > span { padding: 0 18px; display: flex; align-items: baseline; gap: 6px; border-right: 1px solid var(--retrom-line); color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-home-summary > span:last-child { border-right: 0; }
     #retrom-ui-review .rt-home-summary b { color: var(--retrom-text); font-size: 16px; }
-    #retrom-ui-review .rt-recent-list { overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 13px; background: var(--retrom-panel); }
-    #retrom-ui-review .rt-recent-row { display: grid; grid-template-columns: 88px minmax(220px, 1fr) minmax(160px, .55fr) 120px 90px; align-items: center; gap: 16px; width: 100%; padding: 12px 16px; border: 0; border-bottom: 1px solid var(--retrom-line); color: var(--retrom-text); background: transparent; text-align: left; }
-    #retrom-ui-review .rt-recent-row:last-child { border-bottom: 0; }
-    #retrom-ui-review .rt-recent-row:hover { background: var(--retrom-panel-raised); }
-    #retrom-ui-review .rt-recent-cover { width: 88px; aspect-ratio: 4 / 3; border-radius: 9px; }
+    #retrom-ui-review .rt-recent-stats { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; margin-bottom: 16px; }
+    #retrom-ui-review .rt-recent-stat { min-height: 82px; padding: 14px 18px; display: flex; align-items: center; gap: 14px; border: 1px solid var(--retrom-line); border-radius: 12px; background: var(--retrom-panel); box-shadow: 0 5px 18px rgb(24 32 51 / .05); }
+    #retrom-ui-review .rt-recent-stat > i { width: 42px!important; height: 42px!important; padding: 10px; color: var(--retrom-purple); border-radius: 11px; background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-recent-stat small, #retrom-ui-review .rt-recent-stat strong { display: block; }
+    #retrom-ui-review .rt-recent-stat small { color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-recent-stat strong { margin-top: 3px; font-size: 19px; }
+    #retrom-ui-review .rt-recent-filters { min-height: 80px; margin-bottom: 15px; padding: 11px 13px; display: grid; grid-template-columns: minmax(210px,1.4fr) minmax(130px,.7fr) minmax(170px,.9fr) auto 64px; gap: 9px; align-items: end; border: 1px solid var(--retrom-line); border-radius: 12px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-recent-filter { min-width: 0; display: grid; gap: 5px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-recent-filter > span:last-child { position: relative; }
+    #retrom-ui-review .rt-recent-filter svg { position: absolute; left: 10px; top: 50%; color: var(--retrom-muted); transform: translateY(-50%); }
+    #retrom-ui-review .rt-recent-filter .rt-input { padding-left: 33px; }
+    #retrom-ui-review .rt-recent-ranges { height: 36px; display: flex; }
+    #retrom-ui-review .rt-recent-ranges button { min-width: 53px; padding: 0 10px; border: 1px solid var(--retrom-line); border-right: 0; color: var(--retrom-text); background: var(--retrom-panel); }
+    #retrom-ui-review .rt-recent-ranges button:first-child { border-radius: 8px 0 0 8px; }
+    #retrom-ui-review .rt-recent-ranges button:last-child { border-right: 1px solid var(--retrom-line); border-radius: 0 8px 8px 0; }
+    #retrom-ui-review .rt-recent-ranges button.is-active { color: var(--retrom-purple); border-color: var(--retrom-purple); background: var(--retrom-purple-soft); font-weight: 700; }
+    #retrom-ui-review .rt-recent-count { height: 36px; margin: 0; display: flex; align-items: center; justify-content: flex-end; color: var(--retrom-muted); font-size: 10px; white-space: nowrap; }
+    #retrom-ui-review .rt-recent-group + .rt-recent-group { margin-top: 13px; }
+    #retrom-ui-review .rt-recent-group > h2 { margin: 0 0 7px 2px; font-size: 12px; }
+    #retrom-ui-review .rt-recent-list { display: grid; gap: 8px; }
+    #retrom-ui-review .rt-recent-row { min-height: 122px; padding: 8px 14px 8px 8px; display: grid; grid-template-columns: 140px minmax(0,1fr) 118px; align-items: center; gap: 18px; width: 100%; border: 1px solid var(--retrom-line); border-radius: 11px; color: var(--retrom-text); background: var(--retrom-panel); text-align: left; box-shadow: 0 4px 14px rgb(24 32 51 / .04); }
+    #retrom-ui-review .rt-recent-cover { width: 140px; height: 104px; border-radius: 9px; }
+    #retrom-ui-review .rt-recent-content { min-width: 0; align-self: stretch; padding: 9px 0 7px; display: flex; flex-direction: column; }
     #retrom-ui-review .rt-recent-main, #retrom-ui-review .rt-recent-fact { min-width: 0; }
     #retrom-ui-review .rt-recent-main strong, #retrom-ui-review .rt-recent-main span, #retrom-ui-review .rt-recent-fact strong, #retrom-ui-review .rt-recent-fact span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    #retrom-ui-review .rt-recent-main span, #retrom-ui-review .rt-recent-fact span { margin-top: 4px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-recent-main strong { font-size: 13px; }
+    #retrom-ui-review .rt-recent-main span { margin-top: 4px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-recent-facts { margin-top: auto; padding-top: 8px; display: grid; grid-template-columns: 1.4fr 1fr .8fr; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-recent-fact { padding: 0 14px; border-left: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-recent-fact:first-child { padding-left: 0; border-left: 0; }
+    #retrom-ui-review .rt-recent-fact span { color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-recent-fact strong { margin-top: 2px; font-size: 10px; }
+    #retrom-ui-review .rt-recent-actions { display: grid; gap: 7px; }
+    #retrom-ui-review .rt-recent-actions .rt-button { min-height: 36px; padding: 0 11px; font-size: 10px; }
+    #retrom-ui-review .rt-recent-detail { min-height: 30px; border: 0; border-radius: 8px; color: var(--retrom-muted); background: transparent; font-size: 9px; }
 
     #retrom-ui-review .rt-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 9px; margin-bottom: 16px; }
     #retrom-ui-review .rt-filter-shell { display: grid; gap: 10px; margin-bottom: 16px; padding: 12px; border: 1px solid var(--retrom-line); border-radius: 13px; background: var(--retrom-panel); }
@@ -1005,13 +1032,11 @@
       </section>
 
       <section class="rt-page" data-page="recent">
-        <div class="rt-page-head"><div><h1>最近游玩</h1><p class="rt-subtitle">按最近一次游玩时间排列，快速回到你刚刚放下的游戏</p></div></div>
-        <div class="rt-recent-list">
-          <button type="button" class="rt-recent-row" data-open-game="metal"><span class="rt-cover rt-cover-b rt-recent-cover"><span class="rt-cover-title">MS</span></span><span class="rt-recent-main"><strong>Metal Slug</strong><span>Arcade · FBNeo 游戏列表</span></span><span class="rt-recent-fact"><strong>今天 22:14</strong><span>最近游玩</span></span><span class="rt-recent-fact"><strong>2 小时 24 分</strong><span>累计时长</span></span><span class="rt-recent-fact"><strong>12 次</strong><span>游玩次数</span></span></button>
-          <button type="button" class="rt-recent-row" data-open-game="doom"><span class="rt-cover rt-cover-c rt-recent-cover"><span class="rt-cover-title">DOOM</span></span><span class="rt-recent-main"><strong>DOOM</strong><span>MS-DOS · DOS 经典游戏</span></span><span class="rt-recent-fact"><strong>昨天 23:06</strong><span>最近游玩</span></span><span class="rt-recent-fact"><strong>1 小时 48 分</strong><span>累计时长</span></span><span class="rt-recent-fact"><strong>8 次</strong><span>游玩次数</span></span></button>
-          <button type="button" class="rt-recent-row" data-open-game="zelda"><span class="rt-cover rt-cover-a rt-recent-cover"><span class="rt-cover-title">ZELDA</span></span><span class="rt-recent-main"><strong>Zelda no Densetsu</strong><span>Famicom Disk · 磁碟冒险</span></span><span class="rt-recent-fact"><strong>8 月 3 日 20:31</strong><span>最近游玩</span></span><span class="rt-recent-fact"><strong>48 分钟</strong><span>累计时长</span></span><span class="rt-recent-fact"><strong>5 次</strong><span>游玩次数</span></span></button>
-          <button type="button" class="rt-recent-row"><span class="rt-cover rt-cover-f rt-recent-cover"><span class="rt-cover-title">FZ</span></span><span class="rt-recent-main"><strong>F-Zero</strong><span>SNES · SNES 游戏</span></span><span class="rt-recent-fact"><strong>8 月 1 日 18:05</strong><span>最近游玩</span></span><span class="rt-recent-fact"><strong>31 分钟</strong><span>累计时长</span></span><span class="rt-recent-fact"><strong>3 次</strong><span>游玩次数</span></span></button>
-        </div>
+        <div class="rt-page-head"><div><div class="rt-eyebrow">我的游戏</div><h1>最近游玩</h1><p class="rt-subtitle">按最近一次游玩时间排序，快速回到你刚刚放下的游戏。</p></div></div>
+        <div class="rt-recent-stats" aria-label="游玩统计"><div class="rt-recent-stat"><i data-lucide="gamepad-2" aria-hidden="true"></i><span><small>最近游玩的游戏</small><strong>3</strong></span></div><div class="rt-recent-stat"><i data-lucide="clock-3" aria-hidden="true"></i><span><small>累计游玩时长</small><strong>5 分钟</strong></span></div><div class="rt-recent-stat"><i data-lucide="trophy" aria-hidden="true"></i><span><small>总游玩次数</small><strong>10 次</strong></span></div></div>
+        <div class="rt-recent-filters" aria-label="筛选最近游玩"><label class="rt-recent-filter"><span>搜索游戏</span><span><i data-lucide="search" aria-hidden="true"></i><input class="rt-input" type="search" placeholder="输入游戏名称"></span></label><label class="rt-recent-filter"><span>游戏平台</span><select class="rt-select"><option>所有平台</option><option>Arcade</option><option>MS-DOS</option></select></label><label class="rt-recent-filter"><span>排列顺序</span><select class="rt-select"><option>按最近游玩排序</option><option>按累计时长排序</option><option>按游玩次数排序</option></select></label><label class="rt-recent-filter"><span>时间范围</span><span class="rt-recent-ranges"><button type="button" class="is-active">全部</button><button type="button">7 天</button><button type="button">30 天</button></span></label><p class="rt-recent-count">共 3 款</p></div>
+        <div class="rt-recent-group"><h2>今天</h2><div class="rt-recent-list"><article class="rt-recent-row"><button type="button" class="rt-cover rt-cover-b rt-recent-cover" data-open-game="metal"><span class="rt-cover-title">1943</span></button><span class="rt-recent-content"><span class="rt-recent-main"><strong>1943: The Battle of Midway</strong><span>Arcade · FBNeo 游戏</span></span><span class="rt-recent-facts"><span class="rt-recent-fact"><span>最近游玩</span><strong>2026年8月8日 01:20</strong></span><span class="rt-recent-fact"><span>累计时长</span><strong>少于 1 分钟</strong></span><span class="rt-recent-fact"><span>游玩次数</span><strong>1 次</strong></span></span></span><span class="rt-recent-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal"><i data-lucide="play" aria-hidden="true"></i>再玩一次</button><button type="button" class="rt-recent-detail" data-open-game="metal">查看详情　›</button></span></article></div></div>
+        <div class="rt-recent-group"><h2>更早</h2><div class="rt-recent-list"><article class="rt-recent-row"><button type="button" class="rt-cover rt-cover-c rt-recent-cover" data-open-game="doom"><span class="rt-cover-title">1941</span></button><span class="rt-recent-content"><span class="rt-recent-main"><strong>1941</strong><span>Arcade · FBNeo 游戏</span></span><span class="rt-recent-facts"><span class="rt-recent-fact"><span>最近游玩</span><strong>2026年8月7日 21:10</strong></span><span class="rt-recent-fact"><span>累计时长</span><strong>4 分钟</strong></span><span class="rt-recent-fact"><span>游玩次数</span><strong>8 次</strong></span></span></span><span class="rt-recent-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="doom"><i data-lucide="play" aria-hidden="true"></i>再玩一次</button><button type="button" class="rt-recent-detail" data-open-game="doom">查看详情　›</button></span></article><article class="rt-recent-row"><button type="button" class="rt-cover rt-cover-f rt-recent-cover" data-open-game="zelda"><span class="rt-cover-title">1945 KIII</span></button><span class="rt-recent-content"><span class="rt-recent-main"><strong>1945kiii</strong><span>Arcade · FBNeo 游戏</span></span><span class="rt-recent-facts"><span class="rt-recent-fact"><span>最近游玩</span><strong>2026年8月7日 21:02</strong></span><span class="rt-recent-fact"><span>累计时长</span><strong>1 分钟</strong></span><span class="rt-recent-fact"><span>游玩次数</span><strong>1 次</strong></span></span></span><span class="rt-recent-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="zelda"><i data-lucide="play" aria-hidden="true"></i>再玩一次</button><button type="button" class="rt-recent-detail" data-open-game="zelda">查看详情　›</button></span></article></div></div>
       </section>
 
       <section class="rt-page" data-page="detail">

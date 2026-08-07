@@ -32,8 +32,7 @@ paths:
   /api/v1/recent-games:
     get:
       operationId: getRecentGames
-      description: Up to 50 visible games by default, ordered by the newest play-session start, with aggregate active duration and session count.
-      parameters: [{ $ref: '#/components/parameters/Limit' }]
+      description: All visible games with play history, ordered by the newest play-session start, with aggregate active duration and session count. The response includes generatedAtMs so client-side day and rolling-window filters use the same clock as the server-rendered page.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/games:
