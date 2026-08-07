@@ -64,7 +64,8 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
 
 test("ACC-UI-003 library filters and game detail use URL state", async ({ page }, testInfo) => {
   await page.goto("/");
-  await expect(page.getByText("有效游玩时长")).toBeVisible();
+  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
+  await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
   await page.goto("/library");
   await page.getByRole("textbox", { name: "搜索" }).fill("Sudoku");
   await page.getByRole("combobox", { name: "游戏平台" }).selectOption("gba");
@@ -148,19 +149,12 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
     await noPageOverflow(page);
   }
   await page.goto("/");
-  await expect(page.getByText("有效游玩时长", { exact: true })).toBeVisible();
-  const metricAlignment = await page.locator(".home-metrics .kpi").evaluateAll((cards) => cards.map((card) => {
-    const label = card.querySelector(".kpi-label")?.getBoundingClientRect();
-    const accent = card.querySelector(".kpi-accent")?.getBoundingClientRect();
-    const value = card.querySelector(".kpi-value strong")?.getBoundingClientRect();
-    return label && accent && value ? {
-      accentToLabel: Math.abs((accent.top + accent.height / 2) - (label.top + label.height / 2)),
-      accentToValue: Math.abs((accent.top + accent.height / 2) - (value.top + value.height / 2)),
-      accentAfterValue: accent.left > value.right,
-    } : null;
-  }));
-  expect(metricAlignment).toHaveLength(3);
-  expect(metricAlignment.every((item) => item !== null && item.accentToLabel <= 1 && item.accentToValue <= 1 && item.accentAfterValue), JSON.stringify(metricAlignment)).toBe(true);
+  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
+  await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
+  if (testInfo.project.name === "chrome-4k") {
+    const fourthLayerBottom = await page.locator('[data-home-layer="4"]').evaluate((element) => element.getBoundingClientRect().bottom);
+    expect(fourthLayerBottom).toBeLessThanOrEqual(await page.evaluate(() => window.innerHeight));
+  }
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
   const launchableGame = page.locator(".admin-game-card").filter({ hasText: "Sudoku" });
@@ -456,6 +450,7 @@ test("ACC-RUN-004 BIOS blockers stop launch while hash warnings auto-start", asy
 });
 
 test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
   await page.addInitScript(() => {
     Object.defineProperty(Element.prototype, "requestFullscreen", { configurable: true, value: () => Promise.resolve() });
   });
@@ -485,8 +480,19 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   await page.goto("/saves");
   await page.getByRole("button", { name: "从这里继续" }).first().click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+  await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
+  const latestLaunchId = page.url().split("/").at(-1)!;
+  const latestSaveResponse = await page.request.post(`/runtime/launches/${latestLaunchId}/save-states`, {
+    headers: { "Idempotency-Key": crypto.randomUUID() },
+    multipart: {
+      metadata: { name: "metadata.json", mimeType: "application/json", buffer: Buffer.from('{"name":"Latest Session Save"}') },
+      state: { name: "state.bin", mimeType: "application/octet-stream", buffer: Buffer.from([5, 6, 7, 8]) },
+      screenshot: { name: "screenshot.png", mimeType: "image/png", buffer: png },
+    },
+  });
+  expect(latestSaveResponse.status()).toBe(201);
   await page.goto("/");
-  await page.getByRole("button", { name: "继续此存档" }).click();
+  await page.getByRole("button", { name: "继续游玩" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
 
   const mismatch = await page.request.post("/api/v1/launches", {

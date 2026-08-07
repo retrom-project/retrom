@@ -63,7 +63,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Dashboard counters, recent games, and the three latest save states from enabled platform directories; recent saves include activeDurationMs for compact play-time presentation. */
+        /** @description Homepage aggregate from enabled platform directories. It includes library counters, the ten games with the most recently started play sessions, the latest started session's game with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count. */
         get: operations["getHome"];
         put?: never;
         post?: never;
@@ -80,7 +80,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Up to 50 visible games by default, ordered by the newest play-session update, with aggregate active duration and session count. */
+        /** @description Up to 50 visible games by default, ordered by the newest play-session start, with aggregate active duration and session count. */
         get: operations["getRecentGames"];
         put?: never;
         post?: never;

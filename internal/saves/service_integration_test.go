@@ -365,18 +365,21 @@ func TestManualStateRequiresAtomicNonEmptyStateAndScreenshot(t *testing.T) {
 	if err != nil || replayed || result.SaveStateID == "" {
 		t.Fatalf("manual state = %#v, replayed=%v, error=%v", result, replayed, err)
 	}
+	var sourceLaunchID string
 	var stateSize, screenshotSize int64
 	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
-SELECT state_blob.size_bytes,
+SELECT s.source_launch_session_id,
+state_blob.size_bytes,
 screenshot_blob.size_bytes
 FROM save_states s
 JOIN blobs state_blob ON state_blob.id=s.state_blob_id
 JOIN blobs screenshot_blob ON screenshot_blob.id=s.screenshot_blob_id
 WHERE s.id=?
-`, result.SaveStateID).Scan(&stateSize, &screenshotSize); err != nil ||
+`, result.SaveStateID).Scan(&sourceLaunchID, &stateSize, &screenshotSize); err != nil ||
+		sourceLaunchID != created.LaunchID ||
 		stateSize != int64(len(state)) ||
 		screenshotSize != int64(len(screenshot)) {
-		t.Fatalf("manual blob references = %d/%d, error=%v", stateSize, screenshotSize, err)
+		t.Fatalf("manual source/blob references = %s/%d/%d, error=%v", sourceLaunchID, stateSize, screenshotSize, err)
 	}
 	replay, replayed, err := fixture.saves.CreateManual(
 		fixture.ctx,
