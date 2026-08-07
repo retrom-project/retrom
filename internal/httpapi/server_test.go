@@ -167,7 +167,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 12 ||
+		response.DatabaseSchemaVersion != 13 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -807,8 +807,10 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,60000,1,?,?,NULL)
 			t.Fatal(err)
 		}
 	}
+	var latestLaunchID string
 	for index, duration := range []int64{120_000, 240_000} {
 		launchID, playID := uuid.NewString(), uuid.NewString()
+		latestLaunchID = launchID
 		if _, err := transaction.Exec(`
 INSERT INTO launch_sessions(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
@@ -820,7 +822,8 @@ VALUES(?,'local',?,?,?,'/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,
 last_heartbeat_at_ms,ended_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
 VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
-`, playID, launchID, gameID, variantRevisionID, now-10_000, now, now, duration, now, now+int64(index)); err != nil {
+`, playID, launchID, gameID, variantRevisionID, now-20_000+int64(index)*10_000, now, now, duration,
+			now, now+int64(10-index)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -890,6 +893,55 @@ VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
 	server.Handler().ServeHTTP(home, httptest.NewRequest(http.MethodGet, "/api/v1/home", nil))
 	if home.Code != http.StatusOK || !strings.Contains(home.Body.String(), `"recentSaves":[{"activeDurationMs":60000`) {
 		t.Fatalf("home recent save duration = %d: %s", home.Code, home.Body.String())
+	}
+	var homeResponse struct {
+		FeaturedGame *struct {
+			GameID          string `json:"gameId"`
+			HasSaveStates   bool   `json:"hasSaveStates"`
+			LastSessionSave *struct {
+				SaveStateID string `json:"saveStateId"`
+			} `json:"lastSessionSave"`
+		} `json:"featuredGame"`
+		RecentGames []struct {
+			GameID       string `json:"gameId"`
+			SessionCount int64  `json:"sessionCount"`
+		} `json:"recentGames"`
+		QuickPlatforms []homePlatform `json:"quickPlatforms"`
+	}
+	if err := json.Unmarshal(home.Body.Bytes(), &homeResponse); err != nil {
+		t.Fatal(err)
+	}
+	if homeResponse.FeaturedGame == nil || homeResponse.FeaturedGame.GameID != gameID ||
+		!homeResponse.FeaturedGame.HasSaveStates || homeResponse.FeaturedGame.LastSessionSave != nil ||
+		len(homeResponse.RecentGames) != 1 || homeResponse.RecentGames[0].SessionCount != 2 ||
+		len(homeResponse.QuickPlatforms) != 4 || homeResponse.QuickPlatforms[0].ID != "dos" ||
+		homeResponse.QuickPlatforms[0].PlayCount != 2 {
+		t.Fatalf("home projection = %#v", homeResponse)
+	}
+	sessionSaveID := uuid.NewString()
+	if _, err := server.database.Exec(`
+INSERT INTO save_states(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,dat_version_id,dos_entry_path,
+state_blob_id,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms)
+VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,'本次游玩存档',240000,1,?,?,NULL)
+`, sessionSaveID, gameID, variantRevisionID, coreArtifactID, screenshotBlobID, screenshotBlobID,
+		latestLaunchID, now+20, now+20); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`UPDATE save_states SET source_launch_session_id=NULL WHERE id=?`, sessionSaveID); err == nil ||
+		!strings.Contains(err.Error(), "source launch is immutable") {
+		t.Fatalf("mutable save source error = %v", err)
+	}
+	homeWithSessionSave := httptest.NewRecorder()
+	server.Handler().ServeHTTP(homeWithSessionSave, httptest.NewRequest(http.MethodGet, "/api/v1/home", nil))
+	if homeWithSessionSave.Code != http.StatusOK {
+		t.Fatalf("home with session save = %d: %s", homeWithSessionSave.Code, homeWithSessionSave.Body.String())
+	}
+	if err := json.Unmarshal(homeWithSessionSave.Body.Bytes(), &homeResponse); err != nil {
+		t.Fatal(err)
+	}
+	if homeResponse.FeaturedGame == nil || homeResponse.FeaturedGame.LastSessionSave == nil ||
+		homeResponse.FeaturedGame.LastSessionSave.SaveStateID != sessionSaveID {
+		t.Fatalf("featured session save = %#v", homeResponse.FeaturedGame)
 	}
 	recent := httptest.NewRecorder()
 	server.Handler().ServeHTTP(recent, httptest.NewRequest(http.MethodGet, "/api/v1/recent-games", nil))

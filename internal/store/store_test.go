@@ -182,6 +182,12 @@ WHERE launch_session_id='dos-launch'
 	if _, err := upgraded.SQL.ExecContext(ctx, `UPDATE launch_content_files SET logical_name='changed.zip' WHERE launch_session_id='dos-launch'`); err == nil || !strings.Contains(err.Error(), "immutable") {
 		t.Fatalf("launch content immutability after migration error = %v", err)
 	}
+	var sourceLaunchColumnCount int
+	if err := upgraded.SQL.QueryRowContext(ctx, `
+SELECT count(*) FROM pragma_table_info('save_states') WHERE name='source_launch_session_id'
+`).Scan(&sourceLaunchColumnCount); err != nil || sourceLaunchColumnCount != 1 {
+		t.Fatalf("upgraded save source column count = %d, error=%v", sourceLaunchColumnCount, err)
+	}
 	if err := upgraded.IntegrityCheck(ctx); err != nil {
 		t.Fatal(err)
 	}

@@ -1024,6 +1024,31 @@ func deterministicStoreZIPHeader(name string) *zip.FileHeader {
 	return header
 }
 
+type recentGameProjection struct {
+	GameID           string         `json:"gameId"`
+	Title            string         `json:"title"`
+	Platform         map[string]any `json:"platform"`
+	PlatformInstance map[string]any `json:"platformInstance"`
+	LastPlayedAtMS   int64          `json:"lastPlayedAtMs"`
+	ActiveDurationMS int64          `json:"activeDurationMs"`
+	SessionCount     int64          `json:"sessionCount"`
+	CoverURL         any            `json:"coverUrl"`
+}
+
+func scanRecentGame(scanner rowScanner) (recentGameProjection, error) {
+	var game recentGameProjection
+	var platformID, platformName, instanceID, instanceName string
+	var coverAssetID sql.NullString
+	if err := scanner.Scan(&game.GameID, &game.Title, &platformID, &platformName, &instanceID, &instanceName,
+		&game.LastPlayedAtMS, &game.ActiveDurationMS, &game.SessionCount, &coverAssetID); err != nil {
+		return recentGameProjection{}, fmt.Errorf("scan recent game: %w", err)
+	}
+	game.Platform = map[string]any{"id": platformID, "name": platformName}
+	game.PlatformInstance = map[string]any{"id": instanceID, "name": instanceName}
+	game.CoverURL = gameCoverURL(coverAssetID)
+	return game, nil
+}
+
 //nolint:funlen // The dashboard aggregates documented counters in one consistent response snapshot.
 func (server *Server) home(writer http.ResponseWriter, request *http.Request) {
 	var gameCount, saveCount, reviewCount, activeDurationMS int64
@@ -1078,7 +1103,7 @@ AND pi.enabled=1`,
 		server.databaseError(writer, request, err)
 		return
 	}
-	recentGames := make([]map[string]any, 0, 6)
+	recentGames := make([]recentGameProjection, 0, 10)
 	gameRows, err := server.database.QueryContext(
 		request.Context(),
 		`
@@ -1088,8 +1113,9 @@ p.id,
 p.name,
 pi.id,
 pi.name,
-max(ps.updated_at_ms),
+max(ps.started_at_ms),
 sum(ps.active_duration_ms),
+count(ps.id),
 (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
@@ -1111,8 +1137,8 @@ p.id,
 p.name,
 pi.id,
 pi.name
-ORDER BY max(ps.updated_at_ms) DESC,
-g.id LIMIT 6
+ORDER BY max(ps.started_at_ms) DESC,
+g.id DESC LIMIT 10
 `,
 	)
 	if err != nil {
@@ -1121,35 +1147,12 @@ g.id LIMIT 6
 	}
 	defer func() { cleanup.Error("close", gameRows.Close()) }()
 	for gameRows.Next() {
-		var gameID, title, platformID, platformName, instanceID, instanceName string
-		var lastPlayedAtMS, durationMS int64
-		var coverAssetID sql.NullString
-		if err := gameRows.Scan(
-			&gameID,
-			&title,
-			&platformID,
-			&platformName,
-			&instanceID,
-			&instanceName,
-			&lastPlayedAtMS,
-			&durationMS,
-			&coverAssetID,
-		); err != nil {
+		game, err := scanRecentGame(gameRows)
+		if err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
-		recentGames = append(
-			recentGames,
-			map[string]any{
-				"gameId":           gameID,
-				"title":            title,
-				"platform":         map[string]any{"id": platformID, "name": platformName},
-				"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
-				"lastPlayedAtMs":   lastPlayedAtMS,
-				"activeDurationMs": durationMS,
-				"coverUrl":         gameCoverURL(coverAssetID),
-			},
-		)
+		recentGames = append(recentGames, game)
 	}
 	if err := gameRows.Err(); err != nil {
 		server.databaseError(writer, request, err)
@@ -1205,16 +1208,159 @@ s.id DESC LIMIT 3
 		server.databaseError(writer, request, err)
 		return
 	}
+	featuredGame, err := server.homeFeaturedGame(request.Context())
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	platforms, quickPlatforms, err := server.homePlatforms(request.Context())
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	writeJSON(writer, http.StatusOK, map[string]any{
-		"library":     map[string]any{"gameCount": gameCount, "saveStateCount": saveCount},
-		"imports":     map[string]any{"reviewPendingCount": reviewCount},
-		"play":        map[string]any{"activeDurationMs": activeDurationMS},
-		"recentGames": recentGames, "recentSaves": recentSaves,
+		"library":        map[string]any{"gameCount": gameCount, "saveStateCount": saveCount},
+		"imports":        map[string]any{"reviewPendingCount": reviewCount},
+		"play":           map[string]any{"activeDurationMs": activeDurationMS},
+		"featuredGame":   featuredGame.Value,
+		"recentGames":    recentGames,
+		"recentSaves":    recentSaves,
+		"platforms":      platforms,
+		"quickPlatforms": quickPlatforms,
 	})
 }
 
-// recentGames returns one row per visible game, ordered by the most recent
-// durable play-session update. The page intentionally defaults to 50 rows so
+type homeFeaturedResult struct {
+	Value map[string]any
+}
+
+func (server *Server) homeFeaturedGame(ctx context.Context) (homeFeaturedResult, error) {
+	var launchID, gameID, title, platformID, platformName, instanceID, instanceName string
+	var lastPlayedAtMS, activeDurationMS, sessionCount int64
+	var coverAssetID sql.NullString
+	err := server.database.QueryRowContext(ctx, `
+SELECT ps.launch_session_id,
+g.id,
+m.title,
+p.id,
+p.name,
+pi.id,
+pi.name,
+ps.started_at_ms,
+(SELECT COALESCE(sum(all_sessions.active_duration_ms),0)
+ FROM play_sessions all_sessions
+ WHERE all_sessions.game_id=g.id),
+(SELECT count(*) FROM play_sessions all_sessions WHERE all_sessions.game_id=g.id),
+(SELECT a.id
+ FROM game_assets a
+ WHERE a.game_id=g.id
+ AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.kind='COVER'
+ ORDER BY a.ordinal,a.id
+ LIMIT 1)
+FROM play_sessions ps
+JOIN games g ON g.id=ps.game_id
+JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
+JOIN platforms p ON p.id=pi.platform_id
+WHERE g.status='PUBLISHED'
+AND pi.enabled=1
+ORDER BY ps.started_at_ms DESC,ps.id DESC
+LIMIT 1
+`).Scan(&launchID, &gameID, &title, &platformID, &platformName, &instanceID, &instanceName,
+		&lastPlayedAtMS, &activeDurationMS, &sessionCount, &coverAssetID)
+	if errors.Is(err, sql.ErrNoRows) {
+		return homeFeaturedResult{}, nil
+	}
+	if err != nil {
+		return homeFeaturedResult{}, fmt.Errorf("home featured game: %w", err)
+	}
+	var historicalSaveCount int64
+	if err := server.database.QueryRowContext(ctx, `
+SELECT count(*) FROM save_states WHERE game_id=? AND deleted_at_ms IS NULL
+`, gameID).Scan(&historicalSaveCount); err != nil {
+		return homeFeaturedResult{}, fmt.Errorf("home featured save count: %w", err)
+	}
+	var saveID string
+	var saveCreatedAtMS, saveActiveDurationMS int64
+	saveErr := server.database.QueryRowContext(ctx, `
+SELECT id,created_at_ms,active_duration_ms
+FROM save_states
+WHERE source_launch_session_id=?
+AND deleted_at_ms IS NULL
+ORDER BY created_at_ms DESC,id DESC
+LIMIT 1
+`, launchID).Scan(&saveID, &saveCreatedAtMS, &saveActiveDurationMS)
+	var lastSessionSave any
+	if saveErr == nil {
+		lastSessionSave = map[string]any{
+			"saveStateId": saveID, "createdAtMs": saveCreatedAtMS, "activeDurationMs": saveActiveDurationMS,
+			"screenshotUrl": saveStateScreenshotURL(saveID),
+		}
+	} else if !errors.Is(saveErr, sql.ErrNoRows) {
+		return homeFeaturedResult{}, fmt.Errorf("home featured session save: %w", saveErr)
+	}
+	return homeFeaturedResult{Value: map[string]any{
+		"gameId": gameID, "title": title,
+		"platform":         map[string]any{"id": platformID, "name": platformName},
+		"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
+		"lastPlayedAtMs":   lastPlayedAtMS, "activeDurationMs": activeDurationMS,
+		"sessionCount": sessionCount, "coverUrl": gameCoverURL(coverAssetID),
+		"hasSaveStates": historicalSaveCount > 0, "lastSessionSave": lastSessionSave,
+	}}, nil
+}
+
+type homePlatform struct {
+	ID        string `json:"id"`
+	Name      string `json:"name"`
+	GameCount int64  `json:"gameCount"`
+	PlayCount int64  `json:"playCount"`
+}
+
+func (server *Server) homePlatforms(ctx context.Context) ([]homePlatform, []homePlatform, error) {
+	rows, err := server.database.QueryContext(ctx, `
+SELECT p.id,p.name,count(DISTINCT g.id),count(ps.id)
+FROM platforms p
+LEFT JOIN platform_instances pi ON pi.platform_id=p.id AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
+LEFT JOIN games g ON g.platform_instance_id=pi.id AND g.status='PUBLISHED'
+LEFT JOIN play_sessions ps ON ps.game_id=g.id
+WHERE EXISTS (SELECT 1 FROM platform_cores pc WHERE pc.platform_id=p.id AND pc.enabled=1)
+GROUP BY p.id,p.name
+ORDER BY p.name COLLATE NOCASE,p.id
+`)
+	if err != nil {
+		return nil, nil, fmt.Errorf("home platforms: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	platforms := make([]homePlatform, 0, 8)
+	for rows.Next() {
+		var platform homePlatform
+		if err := rows.Scan(&platform.ID, &platform.Name, &platform.GameCount, &platform.PlayCount); err != nil {
+			return nil, nil, fmt.Errorf("home platform row: %w", err)
+		}
+		platforms = append(platforms, platform)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, nil, fmt.Errorf("home platform rows: %w", err)
+	}
+	quickPlatforms := append([]homePlatform(nil), platforms...)
+	sort.Slice(quickPlatforms, func(left, right int) bool {
+		if quickPlatforms[left].PlayCount != quickPlatforms[right].PlayCount {
+			return quickPlatforms[left].PlayCount > quickPlatforms[right].PlayCount
+		}
+		if quickPlatforms[left].Name != quickPlatforms[right].Name {
+			return quickPlatforms[left].Name < quickPlatforms[right].Name
+		}
+		return quickPlatforms[left].ID < quickPlatforms[right].ID
+	})
+	if len(quickPlatforms) > 4 {
+		quickPlatforms = quickPlatforms[:4]
+	}
+	return platforms, quickPlatforms, nil
+}
+
+// recentGames returns one row per visible game, ordered by the most recently
+// started play session. The page intentionally defaults to 50 rows so
 // revisiting it does not turn into an unbounded history query.
 func (server *Server) recentGames(writer http.ResponseWriter, request *http.Request) {
 	limit := 50
@@ -1233,7 +1379,7 @@ p.id,
 p.name,
 pi.id,
 pi.name,
-max(ps.updated_at_ms),
+max(ps.started_at_ms),
 sum(ps.active_duration_ms),
 count(ps.id),
 (SELECT a.id
@@ -1251,7 +1397,7 @@ JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED'
 AND pi.enabled=1
 GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name
-ORDER BY max(ps.updated_at_ms) DESC,g.id DESC
+ORDER BY max(ps.started_at_ms) DESC,g.id DESC
 LIMIT ?
 `, limit)
 	if err != nil {
@@ -1259,23 +1405,14 @@ LIMIT ?
 		return
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0, limit)
+	items := make([]recentGameProjection, 0, limit)
 	for rows.Next() {
-		var gameID, title, platformID, platformName, instanceID, instanceName string
-		var lastPlayedAtMS, activeDurationMS, sessionCount int64
-		var coverAssetID sql.NullString
-		if err := rows.Scan(&gameID, &title, &platformID, &platformName, &instanceID, &instanceName,
-			&lastPlayedAtMS, &activeDurationMS, &sessionCount, &coverAssetID); err != nil {
+		game, err := scanRecentGame(rows)
+		if err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
-		items = append(items, map[string]any{
-			"gameId": gameID, "title": title,
-			"platform":         map[string]any{"id": platformID, "name": platformName},
-			"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
-			"lastPlayedAtMs":   lastPlayedAtMS, "activeDurationMs": activeDurationMS,
-			"sessionCount": sessionCount, "coverUrl": gameCoverURL(coverAssetID),
-		})
+		items = append(items, game)
 	}
 	if err := rows.Err(); err != nil {
 		server.databaseError(writer, request, err)

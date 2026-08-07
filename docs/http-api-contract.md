@@ -285,7 +285,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 运行中写入要求正确 launch cookie：
 
-- `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，且只允许三个 part：`metadata`（`application/json`，仅 `{ "name": string }`，trim 后 1–120 Unicode code points）、`state`（1 byte–64 MiB）和 `screenshot`（1 byte–10 MiB PNG/JPEG/WebP、解码 ≤40 MP）。服务端从 LaunchSession 推导 Profile/Game/VariantRevision/CoreArtifact/时长；三个 Blob/引用与 SaveState 必须全成或全不成，返回 `201`；网络重放不得重复创建存档。
+- `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，且只允许三个 part：`metadata`（`application/json`，仅 `{ "name": string }`，trim 后 1–120 Unicode code points）、`state`（1 byte–64 MiB）和 `screenshot`（1 byte–10 MiB PNG/JPEG/WebP、解码 ≤40 MP）。服务端从 LaunchSession 推导 Profile/Game/VariantRevision/CoreArtifact/时长，并把该 LaunchSession 记录为 SaveState 的来源；三个 Blob/引用与 SaveState 必须全成或全不成，返回 `201`；网络重放不得重复创建存档。
 - `PUT /runtime/launches/{launchId}/persistent-save` body 是 1 byte–64 MiB 的单个二进制保存，必须带 RFC 9530 `Content-Digest`、UUID `Idempotency-Key`、`X-Retrom-Save-Sequence` 和 `X-Retrom-Save-Event: AUTO_INTERVAL|MANUAL_EXPORT|EXIT`。sequence 是每个 LaunchSession 独立、从 1 开始且无跳号的正十进制 int64；同 sequence/同 event/digest 返回原结果，复用 sequence 但任一不同返回 `409 SAVE_SEQUENCE_REUSED`，跳号返回 `409 SAVE_SEQUENCE_GAP`。Player 只在当前 sequence 成功后递增；进行中再次收到 callback 时保留最新 bytes 作为下一 sequence，不能换掉正在重试的 body。该上限同时保证 Player 能在 `saveDatabaseLoaded` 同步注入前有界预取；一期不可配置调高。kind 由 core 决定（DOSBox Pure 为 `DOS_OVERLAY`，其他一期 core 为 `CORE_SAVE`）；服务端流式写 CAS、校验后创建带 launch/sequence/event 的不可变 revision，再以 compare-and-swap 原子切换 current：首项期望 current 等于 Launch 创建时锁定的可空 base，后续项期望等于本 launch 前一项。另一会话已推进 current 时返回 `409 PERSISTENT_SAVE_CONFLICT`，不创建 revision、不覆盖服务器 current；Player 必须保留当前 bytes，提供本地下载并要求退出后重新启动，不能无限自动重试。其他失败也保留最后有效 revision。
 
 这两个写端点在验证 launch cookie 后才读取 body；有 `Content-Length` 时先校验上限，没有时允许 HTTP/2/chunked 并在流式读取超过上限的第一个 byte 立即终止为 `413`。NG 必须关闭请求 buffering 或使用足够的临时空间，且自身限制不得低于应用上限；应用仍独立流式计数、校验 digest 并清理临时文件。`pagehide` 不尝试发送大 save body；显式退出等待最后一次有界 PUT，超时后提示保存失败并允许重试/强制退出。
@@ -338,7 +338,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | --- | --- |
 | `GET /health/live`、`GET /health/ready` | 不需要 cookie。live 成功固定返回 `200 {"status":"ok"}`；ready 成功返回 `200 {"status":"ready"}`，失败返回 `503 {"status":"not_ready","reasonCode":"DATABASE_UNAVAILABLE|CAS_UNAVAILABLE|DEPENDENCY_INVALID|DEPENDENCY_DAT_PARSE_FAILED|DEPENDENCY_INDEXING"}`，多原因时按此枚举顺序选第一项。响应禁止暴露宿主路径、hash 或秘密，两条路径都进入 OpenAPI。 |
 | `GET /api/v1/session` | 旧客户端兼容 token；不参与授权，新前端不得调用。 |
-| `GET /api/v1/home` | 首页聚合。 |
+| `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。 |
 | `GET /api/v1/recent-games` | 默认 `limit=50`、最大 100；只返回启用目录中的已发布游戏，按最近 PlaySession 更新时间降序聚合 `lastPlayedAtMs/activeDurationMs/sessionCount` 与可空封面 URL。 |
 | `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。 |
 | `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；列表项包含 `screenshotUrl=/content/save-states/{saveStateId}/screenshot` 与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。 |
