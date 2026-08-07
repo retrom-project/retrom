@@ -80,7 +80,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Up to 50 visible games by default, ordered by the newest play-session start, with aggregate active duration and session count. */
+        /** @description All visible games with play history, ordered by the newest play-session start, with aggregate active duration and session count. The response includes generatedAtMs so client-side day and rolling-window filters use the same clock as the server-rendered page. */
         get: operations["getRecentGames"];
         put?: never;
         post?: never;
@@ -2111,9 +2111,7 @@ export interface operations {
     };
     getRecentGames: {
         parameters: {
-            query?: {
-                limit?: components["parameters"]["Limit"];
-            };
+            query?: never;
             header?: never;
             path?: never;
             cookie?: never;

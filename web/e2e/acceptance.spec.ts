@@ -491,6 +491,15 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
     },
   });
   expect(latestSaveResponse.status()).toBe(201);
+  await page.goto("/recent");
+  await expect(page.getByRole("region", { name: "游玩统计" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "筛选最近游玩" })).toBeVisible();
+  await expect(page.locator(".recent-history-row").filter({ hasText: "Sudoku" })).toBeVisible();
+  const filterHeight = await page.locator(".recent-filter-panel").evaluate((element) => element.getBoundingClientRect().height);
+  await page.getByRole("searchbox", { name: "搜索游戏" }).fill("Sudoku");
+  await expect(page.locator(".recent-result-count")).toContainText("1");
+  expect(await page.locator(".recent-filter-panel").evaluate((element) => element.getBoundingClientRect().height)).toBe(filterHeight);
+  await noPageOverflow(page);
   await page.goto("/");
   await page.getByRole("button", { name: "继续游玩" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);

@@ -282,8 +282,6 @@ func validateQuery(request *http.Request) error {
 	}
 	path := request.URL.Path
 	switch {
-	case request.Method == http.MethodGet && path == "/api/v1/recent-games":
-		add("limit")
 	case request.Method == http.MethodGet && path == "/api/v1/games":
 		add("q", "platformId", "platformInstanceId", "sort", "cursor", "limit")
 	case request.Method == http.MethodGet && path == "/api/v1/saves":
@@ -1359,19 +1357,10 @@ ORDER BY p.name COLLATE NOCASE,p.id
 	return platforms, quickPlatforms, nil
 }
 
-// recentGames returns one row per visible game, ordered by the most recently
-// started play session. The page intentionally defaults to 50 rows so
-// revisiting it does not turn into an unbounded history query.
+// recentGames returns every visible game with play history, ordered by the
+// most recently started play session. This is a game projection rather than a
+// session log, so one game always occupies one row regardless of play count.
 func (server *Server) recentGames(writer http.ResponseWriter, request *http.Request) {
-	limit := 50
-	if raw := request.URL.Query().Get("limit"); raw != "" {
-		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 1 || parsed > 100 {
-			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "分页大小无效", map[string]any{})
-			return
-		}
-		limit = parsed
-	}
 	rows, err := server.database.QueryContext(request.Context(), `
 SELECT g.id,
 m.title,
@@ -1398,14 +1387,13 @@ WHERE g.status='PUBLISHED'
 AND pi.enabled=1
 GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name
 ORDER BY max(ps.started_at_ms) DESC,g.id DESC
-LIMIT ?
-`, limit)
+`)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]recentGameProjection, 0, limit)
+	items := make([]recentGameProjection, 0)
 	for rows.Next() {
 		game, err := scanRecentGame(rows)
 		if err != nil {
@@ -1418,7 +1406,7 @@ LIMIT ?
 		server.databaseError(writer, request, err)
 		return
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "limit": limit})
+	writeJSON(writer, http.StatusOK, map[string]any{"generatedAtMs": server.now().UnixMilli(), "items": items})
 }
 
 func (server *Server) games(writer http.ResponseWriter, request *http.Request) {
