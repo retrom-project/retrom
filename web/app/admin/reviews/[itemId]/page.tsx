@@ -3,6 +3,7 @@ import { FlashToast } from "@/components/flash-toast";
 import { ReviewActions, type ReviewWorkspace } from "@/features/reviews/review-actions";
 import { type ReviewQueueItem } from "@/features/reviews/review-queue";
 import { backendJSON, formatBytes, type ListResponse } from "@/lib/backend";
+import { statusTone } from "@/lib/status";
 import Link from "next/link";
 
 type DependencySnapshot = {
@@ -66,14 +67,16 @@ export default async function ReviewDetailPage({ params, searchParams }: { param
   const selectedIndex = context.items.findIndex((item) => item.itemId === itemId);
   const nextItem = context.items[selectedIndex + 1] ?? context.items[selectedIndex - 1] ?? null;
   return <><FlashToast />
-    <PageHeader title="审核条目" description="核对游戏文件、兼容性和游戏信息，确认无误后发布。" actions={<ButtonLink href={returnTo} secondary>返回待审核列表</ButtonLink>} />
+    <PageHeader title="审核条目" description="核对游戏文件、运行检查和游戏信息，确认无误后发布。" actions={<ButtonLink href={returnTo} secondary>返回待审核列表</ButtonLink>} />
     <div className="review-detail-workbench">
       <aside className="panel review-context-queue"><div className="panel-head"><div><h2>当前队列</h2><p>{context.items.length} 条 · 可任意选择</p></div></div><nav aria-label="当前待审队列">{context.items.map((item) => <Link className={item.itemId === itemId ? "review-context-item is-active" : "review-context-item"} href={`/admin/reviews/${item.itemId}?returnTo=${encodeURIComponent(returnTo)}`} key={item.itemId}><strong>{item.draftTitle}</strong><small>{item.sourceDisplayName} · {validationLabels[item.validationStatus] ?? item.validationStatus}</small></Link>)}</nav></aside>
-      <div className="stack">
-        <section className="panel"><div className="panel-head"><div><h2>游戏文件</h2><p>确认文件和目标目录是否正确</p></div><StatusBadge tone="info">{review.sourceManifest.files.length} 个文件</StatusBadge></div><div className="panel-body stack"><p>目标目录：<strong>{review.platformInstance.name}</strong></p>{review.sourceManifest.files.map((file, index) => <div className="candidate" key={`${file.role}-${file.logicalName}-${index}`}><div className="metric-line"><span>{roleLabels[file.role] ?? "文件"}</span><strong>{file.logicalName}</strong></div>{file.sizeBytes === undefined ? null : <div className="metric-line"><span>大小</span><strong title={`${file.sizeBytes} bytes`}>{formatBytes(file.sizeBytes)}</strong></div>}<details className="technical-details"><summary>技术详情</summary><code>{file.blobSha256 ? `SHA-256 ${file.blobSha256}` : "无内容校验值"}{file.sourceArchiveSha256 ? `\n来源归档 ${file.sourceArchiveSha256}` : ""}</code></details></div>)}</div></section>
-        <section className="panel"><div className="panel-head"><div><h2>兼容性检查</h2><p>确认游戏在目标目录中是否可以运行</p></div><StatusBadge tone={validationStatus === "READY" ? "good" : "warn"}>{validationLabels[validationStatus] ?? validationStatus}</StatusBadge></div><div className="panel-body stack">{review.validation ? <><div className="metric-line"><span>运行状态</span><strong>{validationLabels[review.validation.compatibilityCode] ?? validationLabels[validationStatus] ?? "需要检查"}</strong></div><details className="technical-details"><summary>检查记录</summary><code>{review.validation.id}</code></details>{review.validation.dependencySnapshot ? <DependencySummary snapshot={review.validation.dependencySnapshot} /> : null}</> : <p>兼容性检查尚未完成，暂时不能发布。</p>}</div></section>
-      </div>
-      <section className="panel"><div className="panel-head"><div><h2>元信息、候选与发布</h2><p>候选只在明确采用并保存草稿后成为来源</p></div><StatusBadge tone={review.selectedCandidateId || review.candidates.length ? "info" : "warn"}>{review.selectedCandidateId ? "已选候选" : review.candidates.length ? `${review.candidates.length} 个候选 · 未采用` : "人工元信息"}</StatusBadge></div><div className="panel-body"><ReviewActions review={review} returnTo={returnTo} nextItemId={nextItem?.itemId ?? null} /></div></section>
+      <section className="panel review-main-workbench"><div className="panel-head"><div><h2>审核与发布</h2><p>文件、运行检查和游戏信息集中在同一工作区</p></div><StatusBadge tone={statusTone(review.validation?.compatibilityCode ?? validationStatus)}>{validationLabels[validationStatus] ?? validationStatus}</StatusBadge></div><div className="panel-body stack">
+        <div className="review-overview-grid">
+          <section className="review-overview-card"><div className="review-overview-title"><div><h3>游戏文件</h3><p>目标目录：{review.platformInstance.name}</p></div><StatusBadge tone="info">{review.sourceManifest.files.length} 个</StatusBadge></div><div className="review-file-list">{review.sourceManifest.files.map((file, index) => <div key={`${file.role}-${file.logicalName}-${index}`}><span>{roleLabels[file.role] ?? "文件"}</span><strong title={file.logicalName}>{file.logicalName}</strong><small>{file.sizeBytes === undefined ? "大小未知" : formatBytes(file.sizeBytes)}</small></div>)}</div></section>
+          <section className="review-overview-card"><div className="review-overview-title"><div><h3>运行检查</h3><p>发布前必须处于可以运行状态</p></div><StatusBadge tone={statusTone(review.validation?.compatibilityCode ?? validationStatus)}>{validationLabels[review.validation?.compatibilityCode ?? validationStatus] ?? "需要检查"}</StatusBadge></div>{review.validation?.dependencySnapshot ? <DependencySummary snapshot={review.validation.dependencySnapshot} /> : <p className="muted-copy">运行检查尚未完成，暂时不能发布。</p>}</section>
+        </div>
+        <ReviewActions review={review} returnTo={returnTo} nextItemId={nextItem?.itemId ?? null} />
+      </div></section>
     </div>
   </>;
 }

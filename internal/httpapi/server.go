@@ -17,6 +17,7 @@ import (
 	"log/slog"
 	"mime"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -151,6 +152,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/admin/core-artifacts", server.coreArtifacts)
 	mux.HandleFunc("GET /api/v1/admin/platform-instances", server.platformInstances)
 	mux.HandleFunc("POST /api/v1/admin/platform-instances", server.createPlatformInstance)
+	mux.HandleFunc("PUT /api/v1/admin/platform-instances/order", server.reorderPlatformInstances)
 	mux.HandleFunc("GET /api/v1/admin/platform-instances/{platformInstanceId}", server.platformInstance)
 	mux.HandleFunc("PATCH /api/v1/admin/platform-instances/{platformInstanceId}", server.patchPlatformInstance)
 	mux.HandleFunc("DELETE /api/v1/admin/platform-instances/{platformInstanceId}", server.deletePlatformInstance)
@@ -281,7 +283,7 @@ func validateQuery(request *http.Request) error {
 	case request.Method == http.MethodGet && path == "/api/v1/games":
 		add("q", "platformId", "platformInstanceId", "sort", "cursor", "limit")
 	case request.Method == http.MethodGet && path == "/api/v1/saves":
-		add("q", "platformId", "platformInstanceId", "coreId", "availability", "sort", "cursor", "limit")
+		add("q", "gameId", "platformId", "platformInstanceId", "coreId", "availability", "sort", "cursor", "limit")
 	case request.Method == http.MethodGet && path == "/api/v1/admin/imports":
 		add("q", "state", "platformInstanceId", "sort", "cursor", "limit")
 	case request.Method == http.MethodGet && path == "/api/v1/admin/reviews":
@@ -1023,7 +1025,11 @@ func (server *Server) home(writer http.ResponseWriter, request *http.Request) {
 	var gameCount, saveCount, reviewCount, activeDurationMS int64
 	if err := server.database.QueryRowContext(
 		request.Context(),
-		"SELECT count(*) FROM games WHERE status = 'PUBLISHED'",
+		`SELECT count(*)
+FROM games g
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
+WHERE g.status='PUBLISHED'
+AND pi.enabled=1`,
 	).Scan(
 		&gameCount,
 	); err != nil {
@@ -1032,7 +1038,13 @@ func (server *Server) home(writer http.ResponseWriter, request *http.Request) {
 	}
 	if err := server.database.QueryRowContext(
 		request.Context(),
-		"SELECT count(*) FROM save_states WHERE deleted_at_ms IS NULL",
+		`SELECT count(*)
+FROM save_states s
+JOIN games g ON g.id=s.game_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
+WHERE s.deleted_at_ms IS NULL
+AND g.status='PUBLISHED'
+AND pi.enabled=1`,
 	).Scan(
 		&saveCount,
 	); err != nil {
@@ -1050,7 +1062,12 @@ func (server *Server) home(writer http.ResponseWriter, request *http.Request) {
 	}
 	if err := server.database.QueryRowContext(
 		request.Context(),
-		"SELECT COALESCE(sum(active_duration_ms),0) FROM play_sessions",
+		`SELECT COALESCE(sum(ps.active_duration_ms),0)
+FROM play_sessions ps
+JOIN games g ON g.id=ps.game_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
+WHERE g.status='PUBLISHED'
+AND pi.enabled=1`,
 	).Scan(
 		&activeDurationMS,
 	); err != nil {
@@ -1083,6 +1100,7 @@ JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED'
+AND pi.enabled=1
 GROUP BY g.id,
 m.title,
 p.id,
@@ -1141,12 +1159,15 @@ SELECT s.id,
 s.game_id,
 m.title,
 s.name,
-s.created_at_ms
+s.created_at_ms,
+s.active_duration_ms
 FROM save_states s
 JOIN games g ON g.id=s.game_id
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE s.deleted_at_ms IS NULL
 AND g.status='PUBLISHED'
+AND pi.enabled=1
 ORDER BY s.created_at_ms DESC,
 s.id DESC LIMIT 3
 `,
@@ -1158,20 +1179,21 @@ s.id DESC LIMIT 3
 	defer func() { cleanup.Error("close", saveRows.Close()) }()
 	for saveRows.Next() {
 		var saveID, gameID, title, name string
-		var createdAtMS int64
-		if err := saveRows.Scan(&saveID, &gameID, &title, &name, &createdAtMS); err != nil {
+		var createdAtMS, activeDurationMS int64
+		if err := saveRows.Scan(&saveID, &gameID, &title, &name, &createdAtMS, &activeDurationMS); err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
 		recentSaves = append(
 			recentSaves,
 			map[string]any{
-				"saveStateId":   saveID,
-				"gameId":        gameID,
-				"gameTitle":     title,
-				"name":          name,
-				"createdAtMs":   createdAtMS,
-				"screenshotUrl": saveStateScreenshotURL(saveID),
+				"saveStateId":      saveID,
+				"gameId":           gameID,
+				"gameTitle":        title,
+				"name":             name,
+				"createdAtMs":      createdAtMS,
+				"activeDurationMs": activeDurationMS,
+				"screenshotUrl":    saveStateScreenshotURL(saveID),
 			},
 		)
 	}
@@ -1232,6 +1254,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.id=?
 AND g.status='PUBLISHED'
+AND pi.enabled=1
 `, gameID).
 		Scan(&title, &description, &developer, &publisher, &genre, &players, &releaseYear,
 			&platformID, &platformName, &instanceID, &instanceName, &contentRevisionID,
@@ -1382,6 +1405,16 @@ WHERE g.id=?
 		server.databaseError(writer, request, err)
 		return
 	}
+	var saveStateCount int64
+	if err := server.database.QueryRowContext(request.Context(), `
+SELECT count(*)
+FROM save_states
+WHERE game_id=?
+AND deleted_at_ms IS NULL
+`, gameID).Scan(&saveStateCount); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	saveRows, err := server.database.QueryContext(request.Context(), `
 SELECT s.id,
 s.name,
@@ -1395,7 +1428,7 @@ WHERE s.game_id=?
 AND s.deleted_at_ms IS NULL
 ORDER BY s.created_at_ms DESC,
 s.id DESC
-LIMIT 10
+LIMIT 8
 `, gameID)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -1427,12 +1460,20 @@ LIMIT 10
 		"platformInstance":         map[string]any{"id": instanceID, "name": instanceName},
 		"currentContentRevisionId": contentRevisionID, "version": version, "updatedAtMs": updatedAtMS,
 		"coverUrl": gameCoverURL(coverAssetID), "activeDurationMs": activeDurationMS, "coreOptions": coreOptions,
-		"dosEntries": dosEntries, "defaultDosEntry": nullableString(defaultDOSEntry), "saveStates": saveStates,
+		"dosEntries": dosEntries, "defaultDosEntry": nullableString(defaultDOSEntry),
+		"saveStateCount": saveStateCount, "saveStates": saveStates,
 	})
 }
 
 func (server *Server) adminGames(writer http.ResponseWriter, request *http.Request) {
 	server.gameList(writer, request, true)
+}
+
+func gameListVisibilityConditions(includeDisabled bool) []string {
+	if includeDisabled {
+		return nil
+	}
+	return []string{"pi.enabled=1"}
 }
 
 //nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
@@ -1460,7 +1501,7 @@ JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 `
-	conditions := make([]string, 0)
+	conditions := gameListVisibilityConditions(includeDeleted)
 	arguments := make([]any, 0)
 	values := request.URL.Query()
 	if !includeDeleted || values.Get("status") == "PUBLISHED" {
@@ -1575,52 +1616,69 @@ JOIN platforms p ON p.id=pi.platform_id
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nextCursor})
 }
 
-//nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
+type saveListFilters struct {
+	Conditions   []string
+	Arguments    []any
+	NormalizedQ  string
+	Availability string
+	Digest       string
+}
+
+func parseSaveListFilters(values url.Values) (saveListFilters, error) {
+	filters := saveListFilters{
+		Conditions:   []string{"s.deleted_at_ms IS NULL", "pi.enabled=1"},
+		Arguments:    make([]any, 0),
+		NormalizedQ:  strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " ")),
+		Availability: values.Get("availability"),
+	}
+	if filters.NormalizedQ != "" {
+		filters.Conditions = append(filters.Conditions, "(instr(g.search_text,?)>0 OR instr(lower(s.name),?)>0)")
+		filters.Arguments = append(filters.Arguments, filters.NormalizedQ, filters.NormalizedQ)
+	}
+	for _, filter := range []struct{ queryName, column string }{
+		{"gameId", "s.game_id"},
+		{"platformId", "pi.platform_id"},
+		{"platformInstanceId", "pi.id"},
+		{"coreId", "a.core_id"},
+	} {
+		if value := values.Get(filter.queryName); value != "" {
+			filters.Conditions = append(filters.Conditions, filter.column+"=?")
+			filters.Arguments = append(filters.Arguments, value)
+		}
+	}
+	if filters.Availability == "" {
+		filters.Availability = "AVAILABLE"
+	}
+	switch filters.Availability {
+	case "AVAILABLE":
+		filters.Conditions = append(filters.Conditions, "g.status='PUBLISHED'")
+	case "BLOCKED":
+		filters.Conditions = append(filters.Conditions, "g.status!='PUBLISHED'")
+	case "ALL":
+	default:
+		return saveListFilters{}, fmt.Errorf("%w: availability", errUnknownQuery)
+	}
+	filters.Digest = cursor.FilterDigest(map[string]any{
+		"q":                  filters.NormalizedQ,
+		"gameId":             values.Get("gameId"),
+		"platformId":         values.Get("platformId"),
+		"platformInstanceId": values.Get("platformInstanceId"),
+		"coreId":             values.Get("coreId"),
+		"availability":       filters.Availability,
+	})
+	return filters, nil
+}
+
+//nolint:funlen // Query projection stays contiguous with pagination assembly.
 func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
 	values := request.URL.Query()
-	conditions := []string{"s.deleted_at_ms IS NULL"}
-	arguments := make([]any, 0)
-	normalizedQ := strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " "))
-	if normalizedQ != "" {
-		conditions = append(conditions, "(instr(g.search_text,?)>0 OR instr(lower(s.name),?)>0)")
-		arguments = append(arguments, normalizedQ, normalizedQ)
-	}
-	if value := values.Get("platformId"); value != "" {
-		conditions = append(conditions, "pi.platform_id=?")
-		arguments = append(arguments, value)
-	}
-	if value := values.Get("platformInstanceId"); value != "" {
-		conditions = append(conditions, "pi.id=?")
-		arguments = append(arguments, value)
-	}
-	if value := values.Get("coreId"); value != "" {
-		conditions = append(conditions, "a.core_id=?")
-		arguments = append(arguments, value)
-	}
-	availability := values.Get("availability")
-	if availability == "" {
-		availability = "AVAILABLE"
-	}
-	switch {
-	case availability == "AVAILABLE":
-		conditions = append(conditions, "g.status='PUBLISHED'")
-	case availability != "ALL" && availability != "BLOCKED":
+	filters, err := parseSaveListFilters(values)
+	if err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "存档可用性筛选无效", map[string]any{})
 		return
-	case availability == "BLOCKED":
-		conditions = append(conditions, "g.status!='PUBLISHED'")
 	}
-	filterDigest := cursor.FilterDigest(
-		map[string]any{
-			"q":                  normalizedQ,
-			"platformId":         values.Get("platformId"),
-			"platformInstanceId": values.Get("platformInstanceId"),
-			"coreId":             values.Get("coreId"),
-			"availability":       availability,
-		},
-	)
 	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getSaves", filterDigest, "CREATED_DESC")
+		payload, err := server.cursors.Decode(token, "getSaves", filters.Digest, "CREATED_DESC")
 		if err != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -1630,8 +1688,8 @@ func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
 		}
-		conditions = append(conditions, "(s.created_at_ms<? OR (s.created_at_ms=? AND s.id<?))")
-		arguments = append(arguments, createdAt, createdAt, payload.ID)
+		filters.Conditions = append(filters.Conditions, "(s.created_at_ms<? OR (s.created_at_ms=? AND s.id<?))")
+		filters.Arguments = append(filters.Arguments, createdAt, createdAt, payload.ID)
 	}
 	limit := 50
 	if raw := values.Get("limit"); raw != "" {
@@ -1659,11 +1717,11 @@ JOIN core_artifacts a ON a.id=s.core_artifact_id
 JOIN cores c ON c.id=a.core_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 `,
-		conditions,
+		filters.Conditions,
 		` ORDER BY s.created_at_ms DESC,s.id DESC LIMIT ?`,
 	)
-	arguments = append(arguments, limit+1)
-	rows, err := server.database.QueryContext(request.Context(), query, arguments...)
+	filters.Arguments = append(filters.Arguments, limit+1)
+	rows, err := server.database.QueryContext(request.Context(), query, filters.Arguments...)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -1722,7 +1780,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 		token, err := server.cursors.Encode(
 			cursor.Payload{
 				OperationID:  "getSaves",
-				FilterDigest: filterDigest,
+				FilterDigest: filters.Digest,
 				SortCode:     "CREATED_DESC",
 				SortValues:   []string{strconv.FormatInt(createdAtMS, 10)},
 				ID:           lastID,
@@ -2008,7 +2066,8 @@ pi.description,
 pi.sort_order,
 pi.enabled,
 pi.version,
-pi.updated_at_ms
+pi.updated_at_ms,
+(SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores c ON c.id=pi.default_core_id
@@ -2026,7 +2085,7 @@ JOIN cores c ON c.id=pi.default_core_id
 	for rows.Next() {
 		var id, platformID, platformName, coreID, coreName, name, slug, description string
 		var sortOrder, enabled int
-		var version, updatedAtMS int64
+		var version, updatedAtMS, gameCount int64
 		if err := rows.Scan(
 			&id,
 			&platformID,
@@ -2040,6 +2099,7 @@ JOIN cores c ON c.id=pi.default_core_id
 			&enabled,
 			&version,
 			&updatedAtMS,
+			&gameCount,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -2048,6 +2108,7 @@ JOIN cores c ON c.id=pi.default_core_id
 			"id": id, "platformId": platformID, "platformName": platformName, "defaultCoreId": coreID,
 			"defaultCoreName": coreName, "name": name, "slug": slug, "description": description,
 			"sortOrder": sortOrder, "enabled": enabled == 1, "version": version, "updatedAtMs": updatedAtMS,
+			"gameCount": gameCount,
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -2479,7 +2540,32 @@ i.updated_at_ms,
 FROM scrape_candidates c
 JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
 WHERE r.import_item_id=i.id
-AND r.state='COMPLETED')
+AND r.state='COMPLETED'),
+(SELECT COALESCE(sum(b.size_bytes),0)
+ FROM import_item_source_files source_file
+ JOIN blobs b ON b.id=source_file.blob_id
+ WHERE source_file.import_item_id=i.id),
+(SELECT b.md5
+ FROM import_item_source_files source_file
+ JOIN blobs b ON b.id=source_file.blob_id
+ WHERE source_file.import_item_id=i.id
+ ORDER BY CASE source_file.role WHEN 'CONTENT' THEN 0 WHEN 'DOS_SOURCE' THEN 1 ELSE 2 END,
+ source_file.sort_order,
+ source_file.logical_name
+ LIMIT 1),
+(SELECT asset.id
+ FROM scrape_candidate_assets asset
+ JOIN scrape_candidates candidate ON candidate.id=asset.scrape_candidate_id
+ JOIN metadata_scrape_runs run ON run.id=candidate.scrape_run_id
+ WHERE run.import_item_id=i.id
+ AND run.state='COMPLETED'
+ AND asset.status='READY'
+ AND asset.kind_hint='COVER'
+ ORDER BY CASE WHEN asset.id=d.cover_candidate_asset_id THEN 0 ELSE 1 END,
+ run.completed_at_ms DESC,
+ asset.ordinal,
+ asset.id
+ LIMIT 1)
 FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
@@ -2590,8 +2676,8 @@ WHERE i.state='REVIEW_PENDING'
 	items := make([]map[string]any, 0, limit+1)
 	for rows.Next() {
 		var itemID, importJobID, title, sourceName, platformID, platformName string
-		var reviewVersion, updatedAtMS, candidateCount int64
-		var validationStatus, compatibilityCode sql.NullString
+		var reviewVersion, updatedAtMS, candidateCount, sourceTotalSizeBytes int64
+		var validationStatus, compatibilityCode, sourceMD5, coverAssetID sql.NullString
 		if err := rows.Scan(
 			&itemID,
 			&reviewVersion,
@@ -2604,6 +2690,9 @@ WHERE i.state='REVIEW_PENDING'
 			&compatibilityCode,
 			&updatedAtMS,
 			&candidateCount,
+			&sourceTotalSizeBytes,
+			&sourceMD5,
+			&coverAssetID,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -2619,17 +2708,20 @@ WHERE i.state='REVIEW_PENDING'
 		items = append(
 			items,
 			map[string]any{
-				"itemId":            itemID,
-				"reviewVersion":     reviewVersion,
-				"importJobId":       importJobID,
-				"sourceDisplayName": sourceName,
-				"draftTitle":        title,
-				"platformInstance":  map[string]any{"id": platformID, "name": platformName},
-				"validationStatus":  status,
-				"validationJobId":   nil,
-				"blockerCodes":      blockers,
-				"candidateCount":    candidateCount,
-				"updatedAtMs":       updatedAtMS,
+				"itemId":               itemID,
+				"reviewVersion":        reviewVersion,
+				"importJobId":          importJobID,
+				"sourceDisplayName":    sourceName,
+				"draftTitle":           title,
+				"platformInstance":     map[string]any{"id": platformID, "name": platformName},
+				"validationStatus":     status,
+				"validationJobId":      nil,
+				"blockerCodes":         blockers,
+				"candidateCount":       candidateCount,
+				"sourceTotalSizeBytes": sourceTotalSizeBytes,
+				"sourceMd5":            nullableString(sourceMD5),
+				"coverUrl":             reviewAssetURL(coverAssetID),
+				"updatedAtMs":          updatedAtMS,
 			},
 		)
 	}
@@ -3451,6 +3543,13 @@ func gameCoverURL(assetID sql.NullString) any {
 	return nil
 }
 
+func reviewAssetURL(assetID sql.NullString) any {
+	if assetID.Valid {
+		return "/api/v1/admin/review-assets/" + assetID.String
+	}
+	return nil
+}
+
 func saveStateScreenshotURL(saveStateID string) string {
 	return "/content/save-states/" + saveStateID + "/screenshot"
 }
@@ -3478,7 +3577,11 @@ JOIN games g ON g.id=r.game_id
 WHERE a.id=?
 AND a.status='READY'
 AND (i.state='REVIEW_PENDING'
-OR g.status='PUBLISHED')
+OR g.status='PUBLISHED'
+OR EXISTS (SELECT 1
+FROM review_events e
+WHERE e.import_item_id=i.id
+AND e.event_type IN ('APPROVED','DISCARDED')))
 `, request.PathValue("assetId")).Scan(&digest, &mediaType)
 	if err != nil {
 		writeError(writer, request, http.StatusNotFound, "REVIEW_ASSET_NOT_FOUND", "候选媒体不存在", map[string]any{})

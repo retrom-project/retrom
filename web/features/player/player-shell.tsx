@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { AppIcon } from "@/components/app-icon";
 import { newUuid, sha256 } from "@/lib/crypto";
 import { captureManualState, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "./adapters/ejs-4.2.3-v1";
 import { installCanvasContain } from "./canvas-fit";
+import { setEmulatorPaused } from "./pause-control";
 
 type ShellState = "loading" | "running" | "error";
 
@@ -32,6 +34,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [warnings, setWarnings] = useState<string[]>([]);
   const [saveMessage, setSaveMessage] = useState("");
   const [controlsVisible, setControlsVisible] = useState(true);
+  const [paused, setPaused] = useState(false);
   const returnTo = useRef("/library");
   const sequence = useRef(0);
   const started = useRef(false);
@@ -43,6 +46,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [hasPersistentConflict, setHasPersistentConflict] = useState(false);
   const controlsTimer = useRef<number | null>(null);
   const running = useRef(false);
+  const pausedRef = useRef(false);
 
   const clearControlsTimer = useCallback(() => {
     if (controlsTimer.current !== null) window.clearTimeout(controlsTimer.current);
@@ -52,7 +56,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const showControls = useCallback(() => {
     setControlsVisible(true);
     clearControlsTimer();
-    if (running.current) {
+    if (running.current && !pausedRef.current) {
       controlsTimer.current = window.setTimeout(() => setControlsVisible(false), 2_000);
     }
   }, [clearControlsTimer]);
@@ -170,7 +174,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   useEffect(() => {
     const controller = new AbortController();
     let cleanup: (() => void) | undefined;
-    let cleanupCanvas: (() => void) | undefined;
+    let canvasContain: ReturnType<typeof installCanvasContain> | undefined;
     let cleanupFrameControls: (() => void) | undefined;
     async function bootstrap() {
       try {
@@ -200,7 +204,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         const target = frameDocument.createElement("div");
         target.id = "game";
         frameDocument.body.append(target);
-        cleanupCanvas = installCanvasContain(frameDocument);
+        canvasContain = installCanvasContain(frameDocument, () => emulator.current?.gameManager?.getVideoDimensions?.("aspect"));
         const handleFramePointerMove = () => showControls();
         const handleFrameKeyDown = () => showControls();
         frameDocument.addEventListener("pointermove", handleFramePointerMove, { passive: true });
@@ -235,6 +239,10 @@ export function PlayerShell({ launchId }: { launchId: string }) {
             else if (mountedSaveFS.analyzePath(savePath).exists) mountedSaveFS.unlink(savePath);
             manager.loadSaveFiles?.();
             manager.toggleMainLoop?.(true);
+            if (emulator.current) emulator.current.paused = false;
+            pausedRef.current = false;
+            setPaused(false);
+            frameWindow.requestAnimationFrame(() => canvasContain?.refresh());
             void sendEvent("start").then(() => {
               setState("running");
               heartbeat.current = window.setInterval(() => { void sendEvent("heartbeat"); }, 30_000);
@@ -255,7 +263,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     }
     void bootstrap();
     return () => {
-      controller.abort(); cleanup?.(); cleanupCanvas?.(); cleanupFrameControls?.();
+      controller.abort(); cleanup?.(); canvasContain?.cleanup(); cleanupFrameControls?.();
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
     };
   }, [launchId, sendEvent, showControls, uploadManualState, uploadPersistent]);
@@ -263,7 +271,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   useEffect(() => {
     running.current = state === "running";
     clearControlsTimer();
-    if (running.current) controlsTimer.current = window.setTimeout(() => setControlsVisible(false), 2_000);
+    if (running.current && !pausedRef.current) controlsTimer.current = window.setTimeout(() => setControlsVisible(false), 2_000);
     return clearControlsTimer;
   }, [clearControlsTimer, state]);
 
@@ -300,6 +308,17 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     }
   }
 
+  function togglePause() {
+    const next = !pausedRef.current;
+    if (!setEmulatorPaused(emulator.current, next)) return;
+    pausedRef.current = next;
+    setPaused(next);
+    setSaveMessage(next ? "游戏已暂停" : "游戏已继续");
+    setControlsVisible(true);
+    if (next) clearControlsTimer();
+    else showControls();
+  }
+
   return (
     <main className="player-shell" onKeyDown={showControls} onPointerMove={showControls}>
       <header
@@ -318,6 +337,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         </div>
         <div className="player-actions">
           <button type="button" disabled={state !== "running"} onClick={() => void saveManualState()}>保存进度</button>
+          <button type="button" aria-pressed={paused} disabled={state !== "running"} onClick={togglePause}><AppIcon name={paused ? "play" : "pause"} />{paused ? "继续" : "暂停"}</button>
           <button type="button" onClick={() => void document.documentElement.requestFullscreen()}>全屏</button>
           <button type="button" onClick={() => void exit()}>退出游戏</button>
         </div>

@@ -32,6 +32,7 @@ export type EmulatorInstance = {
     getState?: () => Uint8Array;
     getSaveFile?: () => Promise<Uint8Array>;
     getSaveFilePath?: () => string;
+    getVideoDimensions?: (dimension: "aspect" | "width" | "height") => number | undefined;
     loadSaveFiles?: () => void;
     toggleMainLoop?: (running: boolean) => void;
   };

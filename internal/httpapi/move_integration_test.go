@@ -7,6 +7,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -174,7 +175,7 @@ WHERE id=?
 	}
 }
 
-func TestPlatformInstanceOwnershipAndNonEmptyLifecycleBoundaries(t *testing.T) {
+func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	server := newTestServer(t)
 	if err := server.dependencies.Bootstrap(context.Background(), server.database, time.Now()); err != nil {
 		t.Fatal(err)
@@ -193,27 +194,61 @@ func TestPlatformInstanceOwnershipAndNonEmptyLifecycleBoundaries(t *testing.T) {
 		t.Fatal(err)
 	}
 	cookie := session.Result().Cookies()[0]
-	send := func(method, path, body string) *httptest.ResponseRecorder {
+	send := func(method, path, body, version string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(method, path, strings.NewReader(body))
 		if body != "" {
 			request.Header.Set("Content-Type", "application/json")
 		}
-		request.Header.Set("If-Match", `"v1"`)
+		request.Header.Set("If-Match", version)
 		setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, request)
 		return recorder
 	}
 	sourceID := "01980000-0000-7000-8000-000000000004"
-	disabled := send(http.MethodPatch, "/api/v1/admin/platform-instances/"+sourceID, `{"enabled":false}`)
-	if disabled.Code != http.StatusConflict ||
-		!strings.Contains(disabled.Body.String(), `"code":"PLATFORM_INSTANCE_NOT_EMPTY"`) {
+	disabled := send(http.MethodPatch, "/api/v1/admin/platform-instances/"+sourceID, `{"enabled":false}`, `"v1"`)
+	if disabled.Code != http.StatusOK || disabled.Header().Get("ETag") != `"v2"` {
 		t.Fatalf("disable non-empty platform = %d %s", disabled.Code, disabled.Body.String())
 	}
-	deleted := send(http.MethodDelete, "/api/v1/admin/platform-instances/"+sourceID, "")
+	userGames := httptest.NewRecorder()
+	handler.ServeHTTP(userGames, httptest.NewRequest(http.MethodGet, "/api/v1/games?limit=100", nil))
+	if userGames.Code != http.StatusOK || strings.Contains(userGames.Body.String(), gameID) {
+		t.Fatalf("disabled platform leaked into user games = %d %s", userGames.Code, userGames.Body.String())
+	}
+	home := httptest.NewRecorder()
+	handler.ServeHTTP(home, httptest.NewRequest(http.MethodGet, "/api/v1/home", nil))
+	if home.Code != http.StatusOK || !strings.Contains(home.Body.String(), `"gameCount":0`) {
+		t.Fatalf("disabled platform leaked into home = %d %s", home.Code, home.Body.String())
+	}
+	adminGames := httptest.NewRecorder()
+	handler.ServeHTTP(adminGames, httptest.NewRequest(http.MethodGet, "/api/v1/admin/games?limit=100", nil))
+	if adminGames.Code != http.StatusOK || !strings.Contains(adminGames.Body.String(), gameID) {
+		t.Fatalf("disabled platform missing from admin games = %d %s", adminGames.Code, adminGames.Body.String())
+	}
+	gameDetail := httptest.NewRecorder()
+	handler.ServeHTTP(gameDetail, httptest.NewRequest(http.MethodGet, "/api/v1/games/"+gameID, nil))
+	if gameDetail.Code != http.StatusNotFound {
+		t.Fatalf("disabled platform game detail = %d %s", gameDetail.Code, gameDetail.Body.String())
+	}
+	if _, err := server.launcher.Create(context.Background(), launch.CreateRequest{
+		GameID: gameID, ReturnTo: "/games/" + gameID,
+		ClientCapabilities: launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
+	}); !errors.Is(err, launch.ErrBlocked) {
+		t.Fatalf("disabled platform launch error = %v", err)
+	}
+	deleted := send(http.MethodDelete, "/api/v1/admin/platform-instances/"+sourceID, "", `"v2"`)
 	if deleted.Code != http.StatusConflict ||
 		!strings.Contains(deleted.Body.String(), `"code":"PLATFORM_INSTANCE_NOT_EMPTY"`) {
 		t.Fatalf("delete non-empty platform = %d %s", deleted.Code, deleted.Body.String())
+	}
+	reenabled := send(http.MethodPatch, "/api/v1/admin/platform-instances/"+sourceID, `{"enabled":true}`, `"v2"`)
+	if reenabled.Code != http.StatusOK || reenabled.Header().Get("ETag") != `"v3"` {
+		t.Fatalf("re-enable non-empty platform = %d %s", reenabled.Code, reenabled.Body.String())
+	}
+	restoredGames := httptest.NewRecorder()
+	handler.ServeHTTP(restoredGames, httptest.NewRequest(http.MethodGet, "/api/v1/games?limit=100", nil))
+	if restoredGames.Code != http.StatusOK || !strings.Contains(restoredGames.Body.String(), gameID) {
+		t.Fatalf("re-enabled platform missing from user games = %d %s", restoredGames.Code, restoredGames.Body.String())
 	}
 
 	var ownerID string

@@ -200,8 +200,17 @@ AND enabled=1
 	providerResponseID := "01980000-0000-7000-8000-000000000128"
 	candidateID := "01980000-0000-7000-8000-000000000129"
 	candidateAssetID := "01980000-0000-7000-8000-000000000130"
+	readyCoverAssetID := "01980000-0000-7000-8000-000000000131"
+	sourceBlobID := "01980000-0000-7000-8000-000000000132"
+	coverBlobID := "01980000-0000-7000-8000-000000000133"
+	uploadFileID := "01980000-0000-7000-8000-000000000134"
 	digest := strings.Repeat("a", 64)
 	timestamp := now.UnixMilli()
+	coverPayload := []byte("historical-cover-payload")
+	coverMetadata, err := server.blobs.Put(bytes.NewReader(coverPayload))
+	if err != nil {
+		t.Fatal(err)
+	}
 	transaction, err := server.database.Begin()
 	if err != nil {
 		t.Fatal(err)
@@ -287,6 +296,26 @@ updated_at_ms) VALUES(?,
 ?,
 ?)
 `, itemID, importID, digest, manifest, digest, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES
+(?,?,4096,?,?,?,'application/octet-stream',?),
+(?,?,?,?,?,?,'image/png',?)
+`, sourceBlobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), timestamp,
+		coverBlobID, coverMetadata.SHA256, coverMetadata.Size, coverMetadata.MD5, coverMetadata.SHA1, coverMetadata.CRC32, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
+VALUES(?,?, 'blocked.gba',4096,4096,?,'COMPLETE',?,?)
+	`, uploadFileID, uploadID, sourceBlobID, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,sort_order,created_at_ms)
+VALUES(?,'CONTENT','blocked.gba',?,?,0,?)
+	`, itemID, uploadFileID, sourceBlobID, timestamp); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`
@@ -454,6 +483,13 @@ updated_at_ms) VALUES(?,
 `, candidateAssetID, candidateID, providerResponseID, timestamp, timestamp); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := transaction.Exec(`
+INSERT INTO scrape_candidate_assets(id,scrape_candidate_id,provider_response_id,provider_asset_id,kind_hint,ordinal,
+source_path,status,blob_id,width_px,height_px,media_type,fetched_at_ms,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,'cover-ready','COVER',1,'/api/v1/images/cover-ready','READY',?,600,800,'image/png',?,1,?,?)
+`, readyCoverAssetID, candidateID, providerResponseID, coverBlobID, timestamp, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
@@ -468,6 +504,29 @@ updated_at_ms) VALUES(?,
 		!strings.Contains(recorder.Body.String(), `"scrapeRuns":[{"attemptCount":0,"candidateCount":1,"completedAtMs":`) ||
 		!strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) {
 		t.Fatalf("blocked review detail = %d %s", recorder.Code, recorder.Body.String())
+	}
+	list := httptest.NewRecorder()
+	server.reviews(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/reviews", nil))
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"sourceTotalSizeBytes":4096`) ||
+		!strings.Contains(list.Body.String(), `"sourceMd5":"`+strings.Repeat("c", 32)+`"`) ||
+		!strings.Contains(list.Body.String(), `"coverUrl":"/api/v1/admin/review-assets/`+readyCoverAssetID+`"`) {
+		t.Fatalf("review queue source projection = %d %s", list.Code, list.Body.String())
+	}
+	if _, err := server.database.Exec(`
+UPDATE import_items SET state='PUBLISHED' WHERE id=?;
+INSERT INTO review_events(id,import_item_id,event_type,actor,before_json,after_json,diff_json,
+config_evidence_json,dat_evidence_json,provider_evidence_json,reason,created_at_ms)
+VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','local',?,
+'{"schemaVersion":1,"decision":"APPROVED"}','{}','{}','{}','{}',NULL,?)
+`, itemID, itemID, `{"schemaVersion":1,"selectedAssets":{"coverCandidateAssetId":"`+readyCoverAssetID+`"}}`, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	historicalCover := httptest.NewRecorder()
+	historicalRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/review-assets/"+readyCoverAssetID, nil)
+	historicalRequest.SetPathValue("assetId", readyCoverAssetID)
+	server.reviewCandidateAsset(historicalCover, historicalRequest)
+	if historicalCover.Code != http.StatusOK || !bytes.Equal(historicalCover.Body.Bytes(), coverPayload) {
+		t.Fatalf("historical review cover = %d %q", historicalCover.Code, historicalCover.Body.Bytes())
 	}
 }
 
@@ -665,6 +724,16 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,'入口存档',180000,1,?,?,NULL)
 `, saveStateID, gameID, variantRevisionID, coreArtifactID, screenshotBlobID, screenshotBlobID, now, now); err != nil {
 		t.Fatal(err)
 	}
+	for index := 0; index < 8; index++ {
+		if _, err := transaction.Exec(`
+INSERT INTO save_states(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,dat_version_id,dos_entry_path,
+state_blob_id,screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms)
+VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,60000,1,?,?,NULL)
+`, uuid.NewString(), gameID, variantRevisionID, coreArtifactID, screenshotBlobID, screenshotBlobID,
+			fmt.Sprintf("额外存档 %d", index+1), now+int64(index+1), now+int64(index+1)); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
@@ -688,6 +757,7 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,'入口存档',180000,1,?,?,NULL)
 			SaveStateID   string `json:"saveStateId"`
 			ScreenshotURL string `json:"screenshotUrl"`
 		} `json:"saveStates"`
+		SaveStateCount int64 `json:"saveStateCount"`
 	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
@@ -701,8 +771,7 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,'入口存档',180000,1,?,?,NULL)
 		len(response.DOSEntries) != 2 ||
 		response.DOSEntries[0].Path != "GAMES/DOOM.EXE" ||
 		!response.DOSEntries[0].DirectLaunchSafe ||
-		response.DOSEntries[1].DirectLaunchSafe || len(response.SaveStates) != 1 ||
-		response.SaveStates[0].ScreenshotURL != saveStateScreenshotURL(saveStateID) {
+		response.DOSEntries[1].DirectLaunchSafe || len(response.SaveStates) != 8 || response.SaveStateCount != 9 {
 		t.Fatalf("DOS choices = default:%v entries:%#v", response.DefaultDOSEntry, response.DOSEntries)
 	}
 	list := httptest.NewRecorder()
@@ -716,6 +785,21 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,'入口存档',180000,1,?,?,NULL)
 		!strings.Contains(saves.Body.String(), `"screenshotUrl":"`+saveStateScreenshotURL(saveStateID)+`"`) ||
 		!strings.Contains(saves.Body.String(), `"activeDurationMs":180000`) {
 		t.Fatalf("save list projection = %d: %s", saves.Code, saves.Body.String())
+	}
+	filteredSaves := httptest.NewRecorder()
+	server.Handler().ServeHTTP(filteredSaves, httptest.NewRequest(http.MethodGet, "/api/v1/saves?gameId="+gameID, nil))
+	if filteredSaves.Code != http.StatusOK || !strings.Contains(filteredSaves.Body.String(), `"gameId":"`+gameID+`"`) {
+		t.Fatalf("save game filter = %d: %s", filteredSaves.Code, filteredSaves.Body.String())
+	}
+	missingGameSaves := httptest.NewRecorder()
+	server.Handler().ServeHTTP(missingGameSaves, httptest.NewRequest(http.MethodGet, "/api/v1/saves?gameId="+uuid.NewString(), nil))
+	if missingGameSaves.Code != http.StatusOK || !strings.Contains(missingGameSaves.Body.String(), `"items":[]`) {
+		t.Fatalf("save missing game filter = %d: %s", missingGameSaves.Code, missingGameSaves.Body.String())
+	}
+	home := httptest.NewRecorder()
+	server.Handler().ServeHTTP(home, httptest.NewRequest(http.MethodGet, "/api/v1/home", nil))
+	if home.Code != http.StatusOK || !strings.Contains(home.Body.String(), `"recentSaves":[{"activeDurationMs":60000`) {
+		t.Fatalf("home recent save duration = %d: %s", home.Code, home.Body.String())
 	}
 	screenshotResponse := httptest.NewRecorder()
 	server.Handler().ServeHTTP(
@@ -1059,6 +1143,100 @@ AND resource_id=?
 `, createdBody.ID).Scan(&actions); err != nil ||
 		actions != 4 {
 		t.Fatalf("platform audit actions = %d, error=%v", actions, err)
+	}
+}
+
+func TestPlatformInstanceOrderIsAtomicVersionedAndExact(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	handler := server.Handler()
+	create := func(name, slug string, sortOrder int) string {
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(fmt.Sprintf(
+			`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"slug":%q,"description":"","sortOrder":%d}`,
+			name, slug, sortOrder,
+		)))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", uuid.NewString())
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		if recorder.Code != http.StatusCreated {
+			t.Fatalf("create reorder fixture = %d %s", recorder.Code, recorder.Body.String())
+		}
+		var body struct {
+			ID string `json:"id"`
+		}
+		if err := json.Unmarshal(recorder.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		return body.ID
+	}
+	firstID := create("第一目录", "order-first", 100)
+	secondID := create("第二目录", "order-second", 200)
+
+	list := httptest.NewRecorder()
+	handler.ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/platform-instances", nil))
+	if list.Code != http.StatusOK || strings.Count(list.Body.String(), `"gameCount":0`) != 11 {
+		t.Fatalf("platform game counts = %d %s", list.Code, list.Body.String())
+	}
+	sendOrder := func(body string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPut, "/api/v1/admin/platform-instances/order", strings.NewReader(body))
+		request.Header.Set("Content-Type", "application/json")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		return recorder
+	}
+	type orderItem struct {
+		ID      string `json:"id"`
+		Version int64  `json:"version"`
+	}
+	items := []orderItem{{ID: secondID, Version: 1}, {ID: firstID, Version: 1}}
+	func() {
+		rows, err := server.database.Query(
+			"SELECT id,version FROM platform_instances WHERE deleted_at_ms IS NULL ORDER BY sort_order,id",
+		)
+		if err != nil {
+			t.Fatal(err)
+		}
+		defer func() { cleanup.Error("close", rows.Close()) }()
+		for rows.Next() {
+			var item orderItem
+			if err := rows.Scan(&item.ID, &item.Version); err != nil {
+				t.Fatal(err)
+			}
+			if item.ID != firstID && item.ID != secondID {
+				items = append(items, item)
+			}
+		}
+		if err := rows.Err(); err != nil {
+			t.Fatal(err)
+		}
+	}()
+	orderBody, err := json.Marshal(map[string]any{"items": items})
+	if err != nil {
+		t.Fatal(err)
+	}
+	reordered := sendOrder(string(orderBody))
+	if reordered.Code != http.StatusOK || !strings.Contains(reordered.Body.String(), `"sortOrder":100`) ||
+		!strings.Contains(reordered.Body.String(), `"version":2`) {
+		t.Fatalf("platform reorder = %d %s", reordered.Code, reordered.Body.String())
+	}
+	var firstSort, firstVersion, secondSort, secondVersion int64
+	if err := server.database.QueryRow("SELECT sort_order,version FROM platform_instances WHERE id=?", firstID).Scan(&firstSort, &firstVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.database.QueryRow("SELECT sort_order,version FROM platform_instances WHERE id=?", secondID).Scan(&secondSort, &secondVersion); err != nil {
+		t.Fatal(err)
+	}
+	if secondSort != 100 || firstSort != 200 || firstVersion != 2 || secondVersion != 2 {
+		t.Fatalf("stored reorder first=%d/v%d second=%d/v%d", firstSort, firstVersion, secondSort, secondVersion)
+	}
+	stale := sendOrder(string(orderBody))
+	if stale.Code != http.StatusConflict || !strings.Contains(stale.Body.String(), `"code":"VERSION_CONFLICT"`) {
+		t.Fatalf("stale reorder = %d %s", stale.Code, stale.Body.String())
+	}
+	incomplete := sendOrder(fmt.Sprintf(`{"items":[{"id":%q,"version":2}]}`, firstID))
+	if incomplete.Code != http.StatusConflict || !strings.Contains(incomplete.Body.String(), `"code":"PLATFORM_INSTANCE_ORDER_STALE"`) {
+		t.Fatalf("incomplete reorder = %d %s", incomplete.Code, incomplete.Body.String())
 	}
 }
 

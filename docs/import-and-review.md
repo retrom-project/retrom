@@ -228,7 +228,7 @@ type MetadataProvider interface {
 
 发布前校验平台目录仍启用且当前 version/default CoreArtifact/DAT/BIOS input 与 ReviewDraft.selectedValidation 完全一致。Approve 事务用已审核的 source manifest 创建 Game、GameContentRevision/GameContentFiles、默认核心 GameVariant/READY VariantRevision、复制 ValidationFiles、MetadataRevision/Asset 和 ReviewEvent，并同时闭合 Game 的 metadata/content current 与 Variant current；任一步失败全部回滚。事务不得读取大 archive、生成 ZIP 或访问网络；Validation 非 READY/过期时返回可修复冲突并投递新验证，不能发布。
 
-审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都写 `SCRAPE_REQUESTED` ReviewEvent，但不会自动覆盖草稿。页面按独立批次展示 Job/Run 状态和 HIT/MISS/上游异常摘要；显式查询后原位等待 Job 成功、失败或取消，结束时以 toast 反馈并刷新候选，不能只显示 `QUEUED` 后让用户自行寻找后台任务。文本 candidate 可从本 Item 任意 COMPLETED run 选择，媒体可在这些 run 的 READY asset 间人工混合；来源 run/candidate/asset ID 必须完整进入草稿和最终审核事件。
+审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都写 `SCRAPE_REQUESTED` ReviewEvent，服务端不会自动覆盖持久化草稿。首次自动刮削已有候选且草稿尚未选择来源时，前端可把首个候选基础信息与 READY 封面填入客户端草稿并标记 dirty，仍须用户保存且必须通过当前 ETag。之后显式查询原位等待 Job 终态，并以单个“当前信息 / 最新信息”对比对话框呈现结果：右侧可编辑，取消不采用，应用只更新客户端草稿而不直接 PATCH；不得把历次候选卡不断追加到页面正文。来源 run/candidate/asset ID 必须在保存时完整进入草稿和最终审核事件。
 
 ## 10. 审核历史
 
@@ -243,7 +243,7 @@ ReviewEvent 只追加不覆盖，至少包含：
 
 保存草稿、改变目标目录、应用/撤销候选、Approve 和 Discard 都写一条事件；纯自动 Worker 进度写 JobEvent，不混入 ReviewEvent。历史页默认按最终 `APPROVED/DISCARDED` 决策列出记录，详情可回放此前草稿事件。
 
-Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选、修改和决策。
+Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选、修改和决策。最终审核事件所属 ImportItem 即使已进入 `PUBLISHED/DISCARDED`，其 READY 候选媒体端点仍允许历史快照读取；前端在物理媒体确实缺失时显示占位，不留下裂图。
 
 ### 10.1 管理后台页面职责
 

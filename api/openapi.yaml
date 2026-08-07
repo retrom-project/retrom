@@ -26,12 +26,13 @@ paths:
   /api/v1/home:
     get:
       operationId: getHome
+      description: Dashboard counters, recent games, and the three latest save states from enabled platform directories; recent saves include activeDurationMs for compact play-time presentation.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/games:
     get:
       operationId: getGames
-      description: Published game summaries; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset.
+      description: Published game summaries from enabled platform directories; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset.
       parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
@@ -39,13 +40,14 @@ paths:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     get:
       operationId: getGame
-      description: Published game detail; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset.
+      description: Published game detail from an enabled platform directory; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset, saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest entries.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/saves:
     get:
       operationId: getSaves
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/Availability' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      description: Save states whose games belong to enabled platform directories.
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/GameIDQuery' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/Availability' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/saves/{saveStateId}:
@@ -64,6 +66,7 @@ paths:
   /api/v1/launches:
     post:
       operationId: postLaunch
+      description: Creates a launch only for a published game in an enabled platform directory.
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/Launch' }
       responses:
@@ -191,6 +194,7 @@ paths:
   /api/v1/admin/reviews:
     get:
       operationId: getAdminReviews
+      description: Pending review summaries including sourceTotalSizeBytes, sourceMd5, and a nullable coverUrl for compact queue previews.
       parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/ImportJobIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/BlockerCode' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
@@ -233,6 +237,7 @@ paths:
   /api/v1/admin/review-history:
     get:
       operationId: getAdminReviewHistory
+      description: Review decision summaries; selecting a row can load the immutable metadata snapshot captured at decision time.
       parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/Decision' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/FromAtMs' }, { $ref: '#/components/parameters/ToAtMs' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
@@ -240,6 +245,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/ReviewEventID' }]
     get:
       operationId: getAdminReviewHistoryEvent
+      description: Immutable before/after metadata and evidence captured for an approved or discarded review decision.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/games:
@@ -332,6 +338,7 @@ paths:
   /api/v1/admin/platform-instances:
     get:
       operationId: getAdminPlatformInstances
+      description: Platform directory summaries ordered by sortOrder; each item includes gameCount so destructive and disable actions can be guarded in the UI.
       parameters: [{ $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/Enabled' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
@@ -341,6 +348,13 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/CreatePlatformInstance' }
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/platform-instances/order:
+    put:
+      operationId: putAdminPlatformInstanceOrder
+      description: Atomically replaces the visual order of all non-deleted platform directories using optimistic item versions.
+      requestBody: { $ref: '#/components/requestBodies/ReorderPlatformInstances' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/platform-instances/{platformInstanceId}:
     parameters: [{ $ref: '#/components/parameters/PlatformInstanceID' }]
     get:
@@ -349,6 +363,7 @@ paths:
         '200': { $ref: '#/components/responses/JSONResponse' }
     patch:
       operationId: patchAdminPlatformInstance
+      description: Updates directory fields; enabled controls user-side visibility and may be changed while the directory contains games.
       parameters: [{ $ref: '#/components/parameters/IfMatch' }]
       requestBody: { $ref: '#/components/requestBodies/PatchPlatformInstance' }
       responses:
@@ -755,6 +770,23 @@ components:
         description: { type: string, maxLength: 10000 }
         sortOrder: { type: integer, format: int64 }
         enabled: { type: boolean }
+    ReorderPlatformInstanceItem:
+      type: object
+      additionalProperties: false
+      required: [id, version]
+      properties:
+        id: { type: string, format: uuid }
+        version: { type: integer, format: int64, minimum: 1 }
+    ReorderPlatformInstancesRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: '#/components/schemas/ReorderPlatformInstanceItem' }
     DefaultCorePreviewRequest:
       type: object
       additionalProperties: false
@@ -1206,6 +1238,7 @@ components:
     MoveGame: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MoveGameRequest' } } } }
     CreatePlatformInstance: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreatePlatformInstanceRequest' } } } }
     PatchPlatformInstance: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PatchPlatformInstanceRequest' } } } }
+    ReorderPlatformInstances: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReorderPlatformInstancesRequest' } } } }
     DefaultCorePreview: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DefaultCorePreviewRequest' } } } }
     DefaultCore: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DefaultCoreRequest' } } } }
     InstallBIOS: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InstallBIOSRequest' } } } }
@@ -1251,6 +1284,7 @@ components:
   parameters:
     Q: { name: q, in: query, schema: { type: string, maxLength: 200 } }
     PlatformIDQuery: { name: platformId, in: query, schema: { type: string } }
+    GameIDQuery: { name: gameId, in: query, schema: { type: string, format: uuid } }
     PlatformInstanceIDQuery: { name: platformInstanceId, in: query, schema: { type: string, format: uuid } }
     CoreIDQuery: { name: coreId, in: query, schema: { type: string } }
     CoreArtifactIDQuery: { name: coreArtifactId, in: query, schema: { type: string, format: uuid } }

@@ -94,6 +94,7 @@ c.requires_threads,
 s.dos_entry_path
 FROM save_states s
 JOIN games g ON g.id=s.game_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN game_variant_revisions r ON r.id=s.game_variant_revision_id
 AND r.core_artifact_id=s.core_artifact_id
 JOIN core_artifacts a ON a.id=s.core_artifact_id
@@ -103,6 +104,7 @@ AND s.game_id=?
 AND s.profile_id='local'
 AND s.deleted_at_ms IS NULL
 AND g.status='PUBLISHED'
+AND pi.enabled=1
 AND r.status='READY'
 `, *request.SaveStateID, request.GameID).
 			Scan(&variantRevisionID, &artifactID, &selectedCore, &emulatorVersion, &requiresThreads, &savedDOSEntry)
@@ -125,6 +127,7 @@ JOIN core_artifacts a ON a.id=r.core_artifact_id
 JOIN cores c ON c.id=a.core_id
 WHERE g.id=?
 AND g.status='PUBLISHED'
+AND pi.enabled=1
 AND r.status='READY'
 AND v.core_id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
 `

@@ -47,13 +47,11 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   }
 
   return <aside className="launch-panel">
-    <h2>启动配置</h2>
-    <div className="field">
-      <label htmlFor="core">本次运行核心</label>
-      <select id="core" name="core" value={coreId} onChange={(event) => selectCore(event.target.value)}>
-        {coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 目录默认" : ""} · {coreStatusLabels[core.status]}</option>)}
-      </select>
-    </div>
+    <span className="launch-kicker">推荐配置</span>
+    <h2>准备开始游戏</h2>
+    {selectedCore?.status === "READY" ? <p><StatusBadge tone="good">可以直接开始</StatusBadge></p> : null}
+    {selectedCore?.status === "NEEDS_VALIDATION" ? <p><StatusBadge tone="info">开始时会自动检查</StatusBadge></p> : null}
+    {blocked ? <p><StatusBadge tone="bad">当前运行方式需要处理</StatusBadge></p> : null}
     {isDOS ? <div className="field">
       <label htmlFor="dos-entry">启动程序</label>
       <select id="dos-entry" value={dosEntry ?? ""} onChange={(event) => setDosEntry(event.target.value || null)}>
@@ -61,10 +59,19 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
         {dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled || !entry.directLaunchSafe}>{entry.originalPath}{entry.path === defaultDosEntry ? " · 审核默认" : ""}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}
       </select>
     </div> : null}
-    {selectedCore?.status === "READY" ? <p><StatusBadge tone="good">运行依赖已就绪</StatusBadge></p> : null}
-    {selectedCore?.status === "NEEDS_VALIDATION" ? <p><StatusBadge tone="neutral">启动时验证此核心</StatusBadge></p> : null}
-    {blocked ? <p><StatusBadge tone="bad">当前核心需要修复依赖</StatusBadge></p> : null}
-    <p className="game-meta">开始前会再次检查游戏文件、运行核心和必要依赖。</p>
+    <p className="launch-help">系统已选择适合这个目录的运行方式，开始前会自动检查所需文件。</p>
     <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} disabled={blocked} />
+    <details className="launch-advanced">
+      <summary>更换运行方式</summary>
+      <div className="launch-advanced-popover">
+        <div className="field">
+          <label htmlFor="core">运行引擎</label>
+          <select id="core" name="core" value={coreId} onChange={(event) => selectCore(event.target.value)}>
+            {coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 推荐" : ""} · {coreStatusLabels[core.status]}</option>)}
+          </select>
+        </div>
+        <p>只有遇到兼容问题或需要特定存档时才建议更改。</p>
+      </div>
+    </details>
   </aside>;
 }

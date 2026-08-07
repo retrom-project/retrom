@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
@@ -313,6 +314,10 @@ WHERE e.event_type IN ('APPROVED',
 'DISCARDED')
 `
 	arguments := []any{}
+	if normalizedQ := strings.ToLower(strings.Join(strings.Fields(request.URL.Query().Get("q")), " ")); normalizedQ != "" {
+		query += " AND (instr(lower(COALESCE(json_extract(d.metadata_json,'$.title'),'')),?)>0 OR instr(i.search_text,?)>0)"
+		arguments = append(arguments, normalizedQ, normalizedQ)
+	}
 	if decision := request.URL.Query().Get("decision"); decision != "" {
 		if decision != "APPROVED" && decision != "DISCARDED" {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "审核决定筛选无效", map[string]any{})

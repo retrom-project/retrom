@@ -1,6 +1,8 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it } from "vitest";
 import { GameGrid, type GameSummary } from "./game-grid";
+
+afterEach(cleanup);
 
 describe("GameGrid", () => {
   it("renders an actionable empty state", () => {
@@ -19,6 +21,12 @@ describe("GameGrid", () => {
     render(<GameGrid games={[game]} />);
     expect(screen.getByRole("link", { name: /Metroid/ })).toHaveAttribute("href", `/games/${game.gameId}`);
     expect(screen.getByRole("img", { name: "Metroid 封面" }).getAttribute("src")).toContain("cover");
-    expect(screen.getByText("可运行")).toBeInTheDocument();
+    expect(screen.queryByText("可运行")).not.toBeInTheDocument();
+  });
+
+  it("only shows a semantic status when a game needs attention", () => {
+    const game: GameSummary = { gameId: "deleted", title: "Removed", platform: { id: "gba", name: "GBA" }, platformInstance: { id: "instance", name: "GBA 游戏" }, status: "DELETED", coverUrl: null };
+    render(<GameGrid games={[game]} />);
+    expect(screen.getByText("已删除")).toHaveClass("bad");
   });
 });

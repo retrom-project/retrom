@@ -63,6 +63,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Dashboard counters, recent games, and the three latest save states from enabled platform directories; recent saves include activeDurationMs for compact play-time presentation. */
         get: operations["getHome"];
         put?: never;
         post?: never;
@@ -79,7 +80,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Published game summaries; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset. */
+        /** @description Published game summaries from enabled platform directories; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset. */
         get: operations["getGames"];
         put?: never;
         post?: never;
@@ -98,7 +99,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Published game detail; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset. */
+        /** @description Published game detail from an enabled platform directory; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset, saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest entries. */
         get: operations["getGame"];
         put?: never;
         post?: never;
@@ -115,6 +116,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Save states whose games belong to enabled platform directories. */
         get: operations["getSaves"];
         put?: never;
         post?: never;
@@ -151,6 +153,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Creates a launch only for a published game in an enabled platform directory. */
         post: operations["postLaunch"];
         delete?: never;
         options?: never;
@@ -413,6 +416,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Pending review summaries including sourceTotalSizeBytes, sourceMd5, and a nullable coverUrl for compact queue previews. */
         get: operations["getAdminReviews"];
         put?: never;
         post?: never;
@@ -501,6 +505,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Review decision summaries; selecting a row can load the immutable metadata snapshot captured at decision time. */
         get: operations["getAdminReviewHistory"];
         put?: never;
         post?: never;
@@ -519,6 +524,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Immutable before/after metadata and evidence captured for an approved or discarded review decision. */
         get: operations["getAdminReviewHistoryEvent"];
         put?: never;
         post?: never;
@@ -710,9 +716,27 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Platform directory summaries ordered by sortOrder; each item includes gameCount so destructive and disable actions can be guarded in the UI. */
         get: operations["getAdminPlatformInstances"];
         put?: never;
         post: operations["postAdminPlatformInstance"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-instances/order": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Atomically replaces the visual order of all non-deleted platform directories using optimistic item versions. */
+        put: operations["putAdminPlatformInstanceOrder"];
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -734,6 +758,7 @@ export interface paths {
         delete: operations["deleteAdminPlatformInstance"];
         options?: never;
         head?: never;
+        /** @description Updates directory fields; enabled controls user-side visibility and may be changed while the directory contains games. */
         patch: operations["patchAdminPlatformInstance"];
         trace?: never;
     };
@@ -1306,6 +1331,15 @@ export interface components {
             sortOrder?: number;
             enabled?: boolean;
         };
+        ReorderPlatformInstanceItem: {
+            /** Format: uuid */
+            id: string;
+            /** Format: int64 */
+            version: number;
+        };
+        ReorderPlatformInstancesRequest: {
+            items: components["schemas"]["ReorderPlatformInstanceItem"][];
+        };
         DefaultCorePreviewRequest: {
             coreId: string;
             cursor?: string | null;
@@ -1790,6 +1824,7 @@ export interface components {
     parameters: {
         Q: string;
         PlatformIDQuery: string;
+        GameIDQuery: string;
         PlatformInstanceIDQuery: string;
         CoreIDQuery: string;
         CoreArtifactIDQuery: string;
@@ -1929,6 +1964,11 @@ export interface components {
                 "application/json": components["schemas"]["PatchPlatformInstanceRequest"];
             };
         };
+        ReorderPlatformInstances: {
+            content: {
+                "application/json": components["schemas"]["ReorderPlatformInstancesRequest"];
+            };
+        };
         DefaultCorePreview: {
             content: {
                 "application/json": components["schemas"]["DefaultCorePreviewRequest"];
@@ -2051,6 +2091,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: components["parameters"]["Q"];
+                gameId?: components["parameters"]["GameIDQuery"];
                 platformId?: components["parameters"]["PlatformIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
                 coreId?: components["parameters"]["CoreIDQuery"];
@@ -2772,6 +2813,18 @@ export interface operations {
         requestBody: components["requestBodies"]["CreatePlatformInstance"];
         responses: {
             201: components["responses"]["JSONResponse"];
+        };
+    };
+    putAdminPlatformInstanceOrder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["ReorderPlatformInstances"];
+        responses: {
+            200: components["responses"]["JSONResponse"];
         };
     };
     getAdminPlatformInstance: {

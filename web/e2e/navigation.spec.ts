@@ -15,7 +15,7 @@ test("library exposes its filters and empty state", async ({ page }) => {
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库", exact: true })).toBeVisible();
   await expect(page.getByRole("textbox", { name: "搜索" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "基础平台" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "游戏平台" })).toBeVisible();
 });
 
 test("HTML CSP uses a fresh nonce and only development enables unsafe-eval", async ({ page }) => {
@@ -44,6 +44,13 @@ test("one click creates a capability launch and advances real emulator frames", 
   expect(playerFrame).toBeTruthy();
   const initial = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
   await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 30_000 }).toBeGreaterThan(initial + 30);
+  await page.mouse.move(20, 20);
+  await page.getByRole("button", { name: "暂停" }).click();
+  const pausedAt = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
+  await page.waitForTimeout(350);
+  expect(await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0)).toBeLessThanOrEqual(pausedAt + 1);
+  await page.getByRole("button", { name: "继续" }).click();
+  await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 10_000 }).toBeGreaterThan(pausedAt + 5);
   await page.getByRole("button", { name: "保存进度" }).click();
   await expect(page.getByText("手动存档和截图已保存")).toBeVisible({ timeout: 20_000 });
   const saves = await page.request.get("/api/v1/saves?limit=100");
@@ -74,13 +81,14 @@ test("BIOS, DAT and save controls are labeled and keyboard reachable", async ({ 
   await expect(page.getByRole("textbox", { name: "搜索" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.goto("/admin/bios/dats");
-  await expect(page.getByRole("heading", { name: "Arcade DAT 版本" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "街机数据目录" })).toBeVisible();
+  await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
   await expect(page.getByLabel("目标核心版本")).toBeVisible();
   await expect(page.getByRole("button", { name: "选择 DAT 或 XML 文件" })).toBeVisible();
   await page.goto("/saves?availability=ALL");
   await expect(page.getByRole("heading", { name: "我的存档" })).toBeVisible();
-  const management = page.getByText("管理存档").first();
-  if (await management.count()) await expect(management).toBeVisible();
+  const rename = page.getByRole("button", { name: /编辑存档.*的名称/ }).first();
+  if (await rename.count()) await expect(rename).toBeVisible();
   await page.keyboard.press("Tab");
   expect(await page.evaluate(() => document.activeElement?.tagName !== "BODY")).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("bios-dat-saves.png"), fullPage: true });

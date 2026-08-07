@@ -19,4 +19,13 @@ describe("player canvas contain sizing", () => {
     expect(canvas.style.height).toBe("900px");
     expect(containSize(0, 900, 256, 224)).toBeNull();
   });
+
+  it("uses the core-reported portrait aspect instead of a landscape drawing buffer", () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 1920;
+    canvas.height = 1080;
+    expect(fitCanvasToViewport(canvas, 1920, 1080, 3 / 4)).toBe(true);
+    expect(canvas.style.width).toBe("810px");
+    expect(canvas.style.height).toBe("1080px");
+  });
 });

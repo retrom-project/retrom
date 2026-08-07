@@ -95,6 +95,7 @@ JOIN core_artifacts a ON a.core_id=c.id
 AND a.enabled=1
 WHERE g.id=?
 AND g.status='PUBLISHED'
+AND pi.enabled=1
 AND c.id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
 `, request.GameID, requestedCore, requestedCore).
 		Scan(&contentID, &coreID, &artifactID, &requiresThreads, &datID)

@@ -3,8 +3,9 @@
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { queueFlashToast, Toast, type ToastMessage } from "@/components/flash-toast";
-import { formatTime } from "@/lib/backend";
+import { FeedbackBanner } from "@/components/ui";
 import { newUuid } from "@/lib/crypto";
 import { responseError, waitForJob } from "@/lib/upload";
 
@@ -56,41 +57,92 @@ export type ReviewWorkspace = {
   dosEntries: Array<{ path: string; originalPath: string; kind: string; enabled: boolean; directLaunchSafe: boolean }>;
 };
 
-function textValue(value: unknown): string | null {
-  return typeof value === "string" ? value : null;
+type MetadataForm = {
+  title: string;
+  description: string;
+  developer: string;
+  publisher: string;
+  genre: string;
+  players: string;
+  releaseYear: string;
+};
+
+type Comparison = {
+  candidate: ReviewCandidate;
+  current: MetadataForm;
+  next: MetadataForm;
+  currentCoverId: string | null;
+  nextCoverId: string | null;
+};
+
+const compareFields: Array<{ key: keyof MetadataForm; label: string; multiline?: boolean; type?: "number" }> = [
+  { key: "title", label: "标题" },
+  { key: "description", label: "简介", multiline: true },
+  { key: "developer", label: "开发商" },
+  { key: "publisher", label: "发行商" },
+  { key: "genre", label: "类型" },
+  { key: "players", label: "玩家数", type: "number" },
+  { key: "releaseYear", label: "发行年份", type: "number" },
+];
+
+function metadataForm(review: ReviewWorkspace): MetadataForm {
+  return {
+    title: review.metadata.title,
+    description: review.metadata.description,
+    developer: review.metadata.developer,
+    publisher: review.metadata.publisher,
+    genre: review.metadata.genre,
+    players: review.metadata.players === null ? "" : String(review.metadata.players),
+    releaseYear: review.metadata.releaseYear === null ? "" : String(review.metadata.releaseYear),
+  };
 }
 
-function numberValue(value: unknown): string | null {
-  return typeof value === "number" && Number.isInteger(value) ? String(value) : null;
+function candidateForm(candidate: ReviewCandidate, fallback: MetadataForm): MetadataForm {
+  const stringField = (key: keyof MetadataForm) => typeof candidate.metadata[key] === "string" ? String(candidate.metadata[key]) : fallback[key];
+  const numberField = (key: "players" | "releaseYear") => typeof candidate.metadata[key] === "number" && Number.isInteger(candidate.metadata[key]) ? String(candidate.metadata[key]) : fallback[key];
+  return {
+    title: stringField("title"),
+    description: stringField("description"),
+    developer: stringField("developer"),
+    publisher: stringField("publisher"),
+    genre: stringField("genre"),
+    players: numberField("players"),
+    releaseYear: numberField("releaseYear"),
+  };
 }
 
-function runResult(run: ReviewScrapeRun) {
-  if (run.provider === "NONE") return "已明确跳过元信息查询";
-  if (run.state === "RUNNING" || run.jobState === "QUEUED" || run.jobState === "RUNNING") return "查询进行中";
-  if (run.state === "FAILED" || run.jobState === "FAILED") return `查询失败${run.errorCode ? `：${run.errorCode}` : ""}`;
-  if (run.candidateCount > 0) return `命中 ${run.outcomes.hit} 次，生成 ${run.candidateCount} 个候选`;
-  if (run.outcomes.invalidResponse > 0) return `${run.outcomes.invalidResponse} 份上游响应无法解析`;
+function readyCover(candidate: ReviewCandidate | null) {
+  return candidate?.assets.find((asset) => asset.kind === "COVER" && asset.status === "READY") ?? null;
+}
+
+function assetById(candidates: ReviewCandidate[], id: string | null) {
+  if (!id) return null;
+  return candidates.flatMap((candidate) => candidate.assets).find((asset) => asset.candidateAssetId === id) ?? null;
+}
+
+function scrapeResult(run: ReviewScrapeRun) {
+  if (run.candidateCount > 0) return `找到 ${run.candidateCount} 组可用信息`;
+  if (run.outcomes.invalidResponse > 0) return "上游响应无法解析";
   if (run.outcomes.rateLimited + run.outcomes.timeout + run.outcomes.networkError > 0) return "上游限流、超时或网络异常";
-  if (run.outcomes.miss > 0) return `${run.outcomes.miss} 次精确 hash 查询均未命中`;
-  return run.evidenceCount === 0 ? "没有可查询的内容 hash" : "查询完成，未生成候选";
+  if (run.outcomes.miss > 0) return "精确文件特征查询未命中";
+  return run.evidenceCount === 0 ? "没有可查询的文件特征" : "没有找到可用信息";
 }
 
-function ScrapeRunRow({ run }: { run: ReviewScrapeRun }) {
-  return <article className="scrape-run"><div><strong>{run.provider} · {run.state}</strong><span>{runResult(run)}</span></div><small title={run.jobId}>{formatTime(run.createdAtMs)} · Job {run.jobId.slice(0, 12)}… · {run.attemptCount} attempts</small></article>;
+function AssetPreview({ asset, label }: { asset: ReviewAsset | null; label: string }) {
+  return asset?.status === "READY" && asset.widthPx && asset.heightPx
+    ? <Image src={`/api/v1/admin/review-assets/${asset.candidateAssetId}`} alt={label} width={asset.widthPx} height={asset.heightPx} unoptimized />
+    : <div className="asset-placeholder">暂无封面</div>;
 }
 
 export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId = null }: { review: ReviewWorkspace; returnTo?: string; nextItemId?: string | null }) {
   const router = useRouter();
+  const initialMetadata = metadataForm(review);
+  const automaticCandidate = review.selectedCandidateId ? null : review.candidates[0] ?? null;
+  const automaticCover = readyCover(automaticCandidate);
   const [version, setVersion] = useState(review.version);
-  const [title, setTitle] = useState(review.metadata.title);
-  const [description, setDescription] = useState(review.metadata.description);
-  const [developer, setDeveloper] = useState(review.metadata.developer);
-  const [publisher, setPublisher] = useState(review.metadata.publisher);
-  const [genre, setGenre] = useState(review.metadata.genre);
-  const [players, setPlayers] = useState(review.metadata.players === null ? "" : String(review.metadata.players));
-  const [releaseYear, setReleaseYear] = useState(review.metadata.releaseYear === null ? "" : String(review.metadata.releaseYear));
-  const [candidateId, setCandidateId] = useState<string | null>(review.selectedCandidateId);
-  const [coverId, setCoverId] = useState<string | null>(review.selectedAssets.coverCandidateAssetId);
+  const [form, setForm] = useState<MetadataForm>(() => automaticCandidate ? candidateForm(automaticCandidate, initialMetadata) : initialMetadata);
+  const [candidateId, setCandidateId] = useState<string | null>(review.selectedCandidateId ?? automaticCandidate?.candidateId ?? null);
+  const [coverId, setCoverId] = useState<string | null>(review.selectedAssets.coverCandidateAssetId ?? automaticCover?.candidateAssetId ?? null);
   const [backgroundId, setBackgroundId] = useState<string | null>(review.selectedAssets.backgroundCandidateAssetId);
   const [screenshotIds, setScreenshotIds] = useState(review.selectedAssets.screenshotCandidateAssetIds);
   const [defaultDosEntry, setDefaultDosEntry] = useState<string | null>(review.defaultDosEntry);
@@ -98,74 +150,71 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const [discardReason, setDiscardReason] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
-  const [notice, setNotice] = useState("");
-  const [dirty, setDirty] = useState(false);
+  const [notice, setNotice] = useState(automaticCandidate ? "首次查询到的游戏信息和封面已填入草稿，请核对后保存。" : "");
+  const [dirty, setDirty] = useState(automaticCandidate !== null);
   const [candidates, setCandidates] = useState(review.candidates);
-  const [scrapeRuns, setScrapeRuns] = useState(review.scrapeRuns ?? []);
   const [jobProgress, setJobProgress] = useState("");
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [pendingNavigation, setPendingNavigation] = useState<string | null>(null);
+  const [comparison, setComparison] = useState<Comparison | null>(null);
 
   useEffect(() => {
     if (!dirty) return;
     const unload = (event: BeforeUnloadEvent) => event.preventDefault();
     const navigate = (event: MouseEvent) => {
       const link = (event.target as Element | null)?.closest("a[href]");
-      if (!link || window.confirm("草稿尚未保存。要放弃本次修改并离开吗？")) return;
-      event.preventDefault();
-      event.stopPropagation();
+      if (!link || link.getAttribute("target") === "_blank") return;
+      const href = link.getAttribute("href");
+      if (!href || href.startsWith("#")) return;
+      event.preventDefault(); event.stopPropagation(); setPendingNavigation(href);
     };
     window.addEventListener("beforeunload", unload);
     document.addEventListener("click", navigate, true);
     return () => { window.removeEventListener("beforeunload", unload); document.removeEventListener("click", navigate, true); };
   }, [dirty]);
 
-  function adoptCandidate(candidate: ReviewCandidate) {
+  function updateField(key: keyof MetadataForm, value: string) {
+    setForm((current) => ({ ...current, [key]: value }));
     setDirty(true);
-    setCandidateId(candidate.candidateId);
-    setTitle(textValue(candidate.metadata.title) ?? title);
-    setDescription(textValue(candidate.metadata.description) ?? description);
-    setDeveloper(textValue(candidate.metadata.developer) ?? developer);
-    setPublisher(textValue(candidate.metadata.publisher) ?? publisher);
-    setGenre(textValue(candidate.metadata.genre) ?? genre);
-    setPlayers(numberValue(candidate.metadata.players) ?? players);
-    setReleaseYear(numberValue(candidate.metadata.releaseYear) ?? releaseYear);
-    setNotice(`已将候选 ${candidate.providerGameId} 合并到草稿；保存后才会持久化。`);
-  }
-
-  function selectAsset(asset: ReviewAsset) {
-    if (asset.status !== "READY") return;
-    setDirty(true);
-    if (asset.kind === "COVER") setCoverId((current) => current === asset.candidateAssetId ? null : asset.candidateAssetId);
-    if (asset.kind === "BACKGROUND") setBackgroundId((current) => current === asset.candidateAssetId ? null : asset.candidateAssetId);
-    if (asset.kind === "SCREENSHOT") setScreenshotIds((current) => current.includes(asset.candidateAssetId) ? current.filter((id) => id !== asset.candidateAssetId) : [...current, asset.candidateAssetId].slice(0, 32));
   }
 
   async function run(label: string, operation: () => Promise<void>) {
     setBusy(label); setError(""); setNotice("");
-    try { await operation(); }
+    try { await operation(); return true; }
     catch (caught) {
       const message = caught instanceof Error ? caught.message : `${label}失败`;
-      setError(message); setToast({ message, tone: "bad" });
-    }
-    finally { setBusy(null); setJobProgress(""); }
+      setError(message); setToast({ message, tone: "bad" }); return false;
+    } finally { setBusy(null); setJobProgress(""); }
   }
 
   async function save() {
-    await run("保存草稿", async () => {
+    return run("保存草稿", async () => {
       const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, {
         method: "PATCH", credentials: "same-origin",
         headers: { "Content-Type": "application/json", "If-Match": `"v${version}"` },
         body: JSON.stringify({
-          metadata: { title, description, developer, publisher, genre, players: players === "" ? null : Number(players), releaseYear: releaseYear === "" ? null : Number(releaseYear) },
+          metadata: { ...form, players: form.players === "" ? null : Number(form.players), releaseYear: form.releaseYear === "" ? null : Number(form.releaseYear) },
           selectedCandidateId: candidateId,
           selectedAssets: { coverCandidateAssetId: coverId, backgroundCandidateAssetId: backgroundId, screenshotCandidateAssetIds: screenshotIds },
           defaultDosEntry,
         }),
       });
-      if (!response.ok) throw new Error("草稿保存失败：字段、候选、Validation 或版本已经变化");
+      if (!response.ok) throw new Error(await responseError(response, "草稿保存失败：字段、候选、运行检查或版本已经变化"));
       const result = await response.json() as { version: number };
       setVersion(result.version); setDirty(false); setNotice("草稿及来源选择已保存");
     });
+  }
+
+  async function saveAndNavigate() {
+    const href = pendingNavigation;
+    if (!href || !await save()) return;
+    setPendingNavigation(null); router.push(href);
+  }
+
+  function discardAndNavigate() {
+    if (!pendingNavigation) return;
+    const href = pendingNavigation;
+    setDirty(false); setPendingNavigation(null); router.push(href);
   }
 
   async function rescrape(metadataProvider: "HASHEOUS" | "NONE") {
@@ -178,34 +227,36 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       });
       if (!response.ok) throw new Error(await responseError(response, "重新查询失败：条目或版本已经变化"));
       const result = await response.json() as { version: number; state: string; scrapeRunId: string; jobId: string };
-      setVersion(result.version);
-      setJobProgress(`${result.state} · Job ${result.jobId.slice(0, 8)}…`);
+      setVersion(result.version); setJobProgress(`${result.state} · Job ${result.jobId.slice(0, 8)}…`);
       await waitForJob(result.jobId, setJobProgress);
-
       const updatedResponse = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { cache: "no-store" });
-      if (!updatedResponse.ok) throw new Error(await responseError(updatedResponse, "查询完成，但无法刷新审核元信息"));
+      if (!updatedResponse.ok) throw new Error(await responseError(updatedResponse, "查询完成，但无法读取新游戏信息"));
       const updated = await updatedResponse.json() as ReviewWorkspace;
-      const updatedRuns = updated.scrapeRuns ?? [];
-      const completed = updatedRuns.find((entry) => entry.scrapeRunId === result.scrapeRunId);
       setCandidates(updated.candidates);
-      setScrapeRuns(updatedRuns);
       if (metadataProvider === "NONE") {
-        const message = "已记录不使用元信息源";
-        setNotice(message); setToast({ message, tone: "good" });
-      } else if (!completed) {
-        throw new Error("Hasheous 查询完成，但服务器没有返回对应批次结果");
-      } else if (completed.candidateCount > 0) {
-        const message = `Hasheous 查询完成，已刷新 ${completed.candidateCount} 个候选；明确采用后才会更新草稿。`;
-        setNotice(message); setToast({ message, tone: "good" });
-      } else if (completed.outcomes.invalidResponse + completed.outcomes.rateLimited + completed.outcomes.timeout + completed.outcomes.networkError > 0) {
-        const message = `Hasheous 查询已结束，但未得到可用候选：${runResult(completed)}`;
-        setNotice(message); setToast({ message, tone: "warn" });
-      } else {
-        const message = `Hasheous 查询完成：${runResult(completed)}`;
-        setNotice(message); setToast({ message, tone: "warn" });
+        setNotice("已记录不使用在线游戏信息"); return;
       }
-      router.refresh();
+      const completed = (updated.scrapeRuns ?? []).find((entry) => entry.scrapeRunId === result.scrapeRunId);
+      const latest = updated.candidates.find((entry) => entry.scrapeRunId === result.scrapeRunId);
+      if (!completed) throw new Error("查询完成，但服务器没有返回对应结果");
+      if (!latest) {
+        const message = `查询完成，但${scrapeResult(completed)}`;
+        setNotice(message); setToast({ message, tone: "warn" }); return;
+      }
+      setComparison({ candidate: latest, current: { ...form }, next: candidateForm(latest, form), currentCoverId: coverId, nextCoverId: readyCover(latest)?.candidateAssetId ?? null });
     });
+  }
+
+  function applyComparison() {
+    if (!comparison) return;
+    setForm(comparison.next);
+    setCandidateId(comparison.candidate.candidateId);
+    setCoverId(comparison.nextCoverId);
+    setBackgroundId(null);
+    setScreenshotIds([]);
+    setDirty(true);
+    setComparison(null);
+    setNotice("新查询结果已应用到草稿；保存草稿后才会持久化。旧候选素材选择已清除。");
   }
 
   function clearQueueCache() {
@@ -221,8 +272,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
         body: JSON.stringify({ reason: approvalReason.trim() || null }),
       });
       if (!response.ok) throw new Error("发布失败：请先保存草稿，并确认当前兼容性检查已经通过");
-      clearQueueCache();
-      queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
+      clearQueueCache(); queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
       router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
     });
   }
@@ -235,50 +285,55 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
         body: JSON.stringify({ reason: discardReason }),
       });
       if (!response.ok) throw new Error("丢弃失败：请填写原因并刷新当前版本");
-      clearQueueCache();
-      queueFlashToast({ message: "条目已丢弃，待审核队列已更新。", tone: "good" });
+      clearQueueCache(); queueFlashToast({ message: "条目已丢弃，待审核队列已更新。", tone: "good" });
       router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
     });
   }
 
-  return <div className="stack" data-dirty={dirty ? "true" : "false"}>
-    <div className="form-grid">
-      <label className="field full">标题<input value={title} onChange={(event) => { setTitle(event.target.value); setDirty(true); }} maxLength={200} /></label>
-      <label className="field full">简介<textarea value={description} onChange={(event) => { setDescription(event.target.value); setDirty(true); }} maxLength={10000} /></label>
-      <label className="field">开发商<input value={developer} onChange={(event) => { setDeveloper(event.target.value); setDirty(true); }} maxLength={200} /></label>
-      <label className="field">发行商<input value={publisher} onChange={(event) => { setPublisher(event.target.value); setDirty(true); }} maxLength={200} /></label>
-      <label className="field">类型<input value={genre} onChange={(event) => { setGenre(event.target.value); setDirty(true); }} maxLength={200} /></label>
-      <label className="field">玩家数<input type="number" min={1} max={64} value={players} onChange={(event) => { setPlayers(event.target.value); setDirty(true); }} /></label>
-      <label className="field">发行年份<input type="number" min={1950} value={releaseYear} onChange={(event) => { setReleaseYear(event.target.value); setDirty(true); }} /></label>
-      {review.dosEntries.length ? <label className="field">DOS 默认程序<select value={defaultDosEntry ?? ""} onChange={(event) => { setDefaultDosEntry(event.target.value || null); setDirty(true); }}><option value="">打开 DOSBox 程序菜单</option>{review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}
+  const selectedCover = assetById(candidates, coverId);
+  const currentCompareCover = comparison ? assetById(candidates, comparison.currentCoverId) : null;
+  const nextCompareCover = comparison ? assetById(candidates, comparison.nextCoverId) : null;
+
+  return <div className="stack review-editor" data-dirty={dirty ? "true" : "false"}>
+    {notice ? <FeedbackBanner tone="good">{notice}</FeedbackBanner> : null}
+    {error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}
+    <div className="review-editor-grid">
+      <div className="form-grid">
+        <label className="field full">标题<input value={form.title} onChange={(event) => updateField("title", event.target.value)} maxLength={200} /></label>
+        <label className="field full">简介<textarea value={form.description} onChange={(event) => updateField("description", event.target.value)} maxLength={10000} /></label>
+        <label className="field">开发商<input value={form.developer} onChange={(event) => updateField("developer", event.target.value)} maxLength={200} /></label>
+        <label className="field">发行商<input value={form.publisher} onChange={(event) => updateField("publisher", event.target.value)} maxLength={200} /></label>
+        <label className="field">类型<input value={form.genre} onChange={(event) => updateField("genre", event.target.value)} maxLength={200} /></label>
+        <label className="field">玩家数<input type="number" min={1} max={64} value={form.players} onChange={(event) => updateField("players", event.target.value)} /></label>
+        <label className="field">发行年份<input type="number" min={1950} value={form.releaseYear} onChange={(event) => updateField("releaseYear", event.target.value)} /></label>
+        {review.dosEntries.length ? <label className="field">DOS 默认程序<select value={defaultDosEntry ?? ""} onChange={(event) => { setDefaultDosEntry(event.target.value || null); setDirty(true); }}><option value="">打开 DOSBox 程序菜单</option>{review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}
+      </div>
+      <aside className="review-cover-panel"><span className="field-label">当前封面</span><AssetPreview asset={selectedCover} label="当前选择的游戏封面" />{coverId ? <button type="button" className="button secondary compact" onClick={() => { setCoverId(null); setDirty(true); }}>移除封面</button> : null}<small>{candidateId ? "封面与文字来源已关联到当前候选" : "当前使用人工填写的信息"}</small></aside>
     </div>
 
-    <section className="stack" aria-label="游戏信息候选">
-      <div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void rescrape("NONE")}>{busy === "停用元信息源" ? "正在记录…" : "不使用在线游戏信息"}</button>{candidateId ? <button type="button" className="button secondary" disabled={busy !== null} onClick={() => { setCandidateId(null); setDirty(true); }}>清除文本来源</button> : null}</div>
-      {jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}
-      {scrapeRuns.length ? <div className="stack scrape-batches"><div><strong>最近查询批次</strong><ScrapeRunRow run={scrapeRuns[0]} /></div>{scrapeRuns.length > 1 ? <details className="scrape-history"><summary>查看更早 {scrapeRuns.length - 1} 次查询</summary><div className="stack">{scrapeRuns.slice(1).map((entry) => <ScrapeRunRow run={entry} key={entry.scrapeRunId} />)}</div></details> : null}</div> : <p>尚无元信息查询批次。</p>}
-      {candidates.length === 0 ? <p>当前没有可用的游戏信息候选。你仍可人工填写；兼容性检查通过后即可发布。</p> : candidates.map((candidate) => <article className="candidate" key={candidate.candidateId}>
-        <div className="panel-head"><div><strong>{textValue(candidate.metadata.title) ?? candidate.providerGameId}</strong><p>在线游戏信息候选</p><details className="technical-details"><summary>技术详情</summary><code>{candidate.providerGameId} · {candidate.scrapeRunId}</code></details></div><button type="button" className="button secondary" disabled={busy !== null} onClick={() => adoptCandidate(candidate)}>{candidateId === candidate.candidateId ? "已选文本来源" : "采用候选文本"}</button></div>
-        <div className="candidate-metadata">
-          <div><span>发行商</span><strong>{textValue(candidate.metadata.publisher) || "未提供"}</strong></div>
-          <div><span>年份</span><strong>{numberValue(candidate.metadata.releaseYear) || "未提供"}</strong></div>
-          <div><span>开发商</span><strong>{textValue(candidate.metadata.developer) || "未提供"}</strong></div>
-          <div><span>类型</span><strong>{textValue(candidate.metadata.genre) || "未提供"}</strong></div>
-          {textValue(candidate.metadata.description) ? <p>{textValue(candidate.metadata.description)}</p> : null}
-        </div>
-        {candidate.assets.length ? <div className="asset-grid">{candidate.assets.map((asset) => {
-          const selected = coverId === asset.candidateAssetId || backgroundId === asset.candidateAssetId || screenshotIds.includes(asset.candidateAssetId);
-          const kind = asset.kind === "COVER" ? "封面" : asset.kind === "BACKGROUND" ? "背景" : "游戏截图";
-          return <figure key={asset.candidateAssetId}>{asset.status === "READY" && asset.widthPx && asset.heightPx ? <Image src={`/api/v1/admin/review-assets/${asset.candidateAssetId}`} alt={`${kind}候选`} width={asset.widthPx} height={asset.heightPx} unoptimized /> : <div className="asset-placeholder">图片暂不可用</div>}<figcaption>{kind} {asset.ordinal + 1}</figcaption><button type="button" className="button secondary" disabled={busy !== null || asset.status !== "READY"} onClick={() => selectAsset(asset)}>{selected ? "取消选择" : "选择媒体"}</button></figure>;
-        })}</div> : null}
-      </article>)}
+    <section className="review-query-bar" aria-label="在线游戏信息">
+      <div><strong>在线游戏信息</strong><p>重新查询后先对比当前草稿与最新结果，不会在页面下方累积候选卡片。</p></div>
+      <div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void rescrape("NONE")}>{busy === "停用元信息源" ? "正在记录…" : "不使用在线游戏信息"}</button></div>
     </section>
+    {jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}
 
-    <div className="form-grid">
+    <div className="form-grid review-decision-fields">
       <label className="field full">发布说明（可空）<input value={approvalReason} onChange={(event) => setApprovalReason(event.target.value)} maxLength={500} /></label>
       <label className="field full">丢弃原因<input value={discardReason} onChange={(event) => setDiscardReason(event.target.value)} maxLength={500} placeholder="丢弃时必填" /></label>
-      <div className="field full"><div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void save()}>{busy === "保存草稿" ? "正在保存…" : "保存草稿"}</button><button type="button" className="button secondary" disabled={busy !== null || !discardReason.trim()} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={dirty || busy !== null || review.validation?.status !== "READY"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div>{notice ? <p role="status" className="status good">{notice}</p> : null}{error ? <p role="alert" className="status bad">{error}</p> : null}</div>
+      <div className="field full"><div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void save()}>{busy === "保存草稿" ? "正在保存…" : "保存草稿"}</button><button type="button" className="button secondary" disabled={busy !== null || !discardReason.trim()} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={dirty || busy !== null || review.validation?.status !== "READY"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></div>
     </div>
+
+    <ConfirmDialog open={comparison !== null} wide title="对比最新查询结果" description="左侧是当前草稿，右侧是最新查询结果。红色表示内容不同，绿色表示一致；右侧内容可继续修改。" confirmLabel="应用到草稿" busy={busy !== null} onCancel={() => setComparison(null)} onConfirm={applyComparison}>
+      {comparison ? <div className="metadata-compare">
+        <div className="metadata-compare-head"><strong>当前信息（只读）</strong><strong>最新信息（可编辑）</strong></div>
+        {compareFields.map((field) => {
+          const same = comparison.current[field.key] === comparison.next[field.key];
+          return <div className="metadata-compare-row" key={field.key}><div className="compare-readonly"><span>{field.label}</span><p>{comparison.current[field.key] || "未填写"}</p></div><label className={`compare-field ${same ? "is-same" : "is-changed"}`}><span>{field.label}</span>{field.multiline ? <textarea value={comparison.next[field.key]} onChange={(event) => setComparison((current) => current ? { ...current, next: { ...current.next, [field.key]: event.target.value } } : null)} /> : <input type={field.type ?? "text"} value={comparison.next[field.key]} onChange={(event) => setComparison((current) => current ? { ...current, next: { ...current.next, [field.key]: event.target.value } } : null)} />}</label></div>;
+        })}
+        <div className="metadata-compare-row compare-cover-row"><div className="compare-readonly"><span>当前封面</span><AssetPreview asset={currentCompareCover} label="当前游戏封面" /></div><div className={`compare-field ${comparison.currentCoverId === comparison.nextCoverId ? "is-same" : "is-changed"}`}><span>最新封面</span><AssetPreview asset={nextCompareCover} label="最新查询封面" />{comparison.nextCoverId ? <button type="button" className="button secondary compact" onClick={() => setComparison((current) => current ? { ...current, nextCoverId: null } : null)}>不使用新封面</button> : null}</div></div>
+      </div> : null}
+    </ConfirmDialog>
+    <ConfirmDialog open={pendingNavigation !== null} title="草稿还没有保存" description="离开前请选择如何处理本页修改。" confirmLabel="保存并离开" secondaryLabel="放弃修改" cancelLabel="留在页面" busy={busy !== null} onCancel={() => setPendingNavigation(null)} onSecondary={discardAndNavigate} onConfirm={() => void saveAndNavigate()}><ul><li>保存后，当前字段和候选来源会写入草稿</li><li>放弃修改会恢复到最近一次已保存版本</li></ul></ConfirmDialog>
     <Toast toast={toast} onDismiss={() => setToast(null)} />
   </div>;
 }

@@ -65,25 +65,30 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   await expect(page.getByText("有效游玩时长")).toBeVisible();
   await page.goto("/library");
   await page.getByRole("textbox", { name: "搜索" }).fill("Sudoku");
-  await page.getByRole("combobox", { name: "基础平台" }).selectOption("gba");
-  const directory = page.getByRole("combobox", { name: "平台目录" });
+  await page.getByRole("combobox", { name: "游戏平台" }).selectOption("gba");
+  const directory = page.getByRole("combobox", { name: "游戏目录" });
   await expect(directory).toBeVisible();
   const directoryValue = await directory.locator("option").nth(1).getAttribute("value");
   expect(directoryValue).toBeTruthy();
   await directory.selectOption(directoryValue!);
-  await page.getByRole("button", { name: "应用筛选" }).click();
+  await page.getByRole("button", { name: "查看结果" }).click();
   await expect(page).toHaveURL(/q=Sudoku/);
   await expect(page).toHaveURL(/platformId=gba/);
   await expect(page).toHaveURL(/platformInstanceId=/);
   await page.reload();
   await expect(page.getByRole("textbox", { name: "搜索" })).toHaveValue("Sudoku");
-  await expect(page.getByRole("combobox", { name: "基础平台" })).toHaveValue("gba");
+  await expect(page.getByRole("combobox", { name: "游戏平台" })).toHaveValue("gba");
+  await expect(page.getByRole("link", { name: /移除关键词：Sudoku/ })).toBeVisible();
   const game = page.locator(".game-card").first();
   await expect(game).toBeVisible();
   await game.click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
   await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "本次运行核心" }).locator("option:checked")).toContainText("目录默认");
+  await expect(page.getByText("推荐配置", { exact: true })).toBeVisible();
+  const heroHeight = await page.locator(".hero").evaluate((element) => element.getBoundingClientRect().height);
+  await page.getByText("更换运行方式", { exact: true }).click();
+  await expect(page.getByRole("combobox", { name: "运行引擎" }).locator("option:checked")).toContainText("推荐");
+  expect(await page.locator(".hero").evaluate((element) => element.getBoundingClientRect().height)).toBe(heroHeight);
   await page.screenshot({ path: evidencePath(testInfo, "library-detail-flow.png"), fullPage: true });
 });
 
@@ -137,6 +142,20 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
     await expect(page.locator(".page-header")).toBeVisible();
     await noPageOverflow(page);
   }
+  await page.goto("/");
+  await expect(page.getByText("有效游玩时长", { exact: true })).toBeVisible();
+  const metricAlignment = await page.locator(".home-metrics .kpi").evaluateAll((cards) => cards.map((card) => {
+    const label = card.querySelector(".kpi-label")?.getBoundingClientRect();
+    const accent = card.querySelector(".kpi-accent")?.getBoundingClientRect();
+    const value = card.querySelector(".kpi-value strong")?.getBoundingClientRect();
+    return label && accent && value ? {
+      accentToLabel: Math.abs((accent.top + accent.height / 2) - (label.top + label.height / 2)),
+      accentToValue: Math.abs((accent.top + accent.height / 2) - (value.top + value.height / 2)),
+      accentAfterValue: accent.left > value.right,
+    } : null;
+  }));
+  expect(metricAlignment).toHaveLength(3);
+  expect(metricAlignment.every((item) => item !== null && item.accentToLabel <= 1 && item.accentToValue <= 1 && item.accentAfterValue), JSON.stringify(metricAlignment)).toBe(true);
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
   const launchableGame = page.locator(".game-card").filter({ hasText: "Sudoku" });
@@ -164,14 +183,14 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   const canvasBox = await canvas.boundingBox();
   const drawingBuffer = await canvas.evaluate((element) => {
     const canvasElement = element as HTMLCanvasElement;
-    return { height: canvasElement.height, width: canvasElement.width };
+    return { height: canvasElement.height, width: canvasElement.width, runtimeAspect: window.EJS_emulator?.gameManager?.getVideoDimensions?.("aspect") ?? 0 };
   });
   expect(canvasBox).not.toBeNull();
   expect(canvasBox!.x).toBeGreaterThanOrEqual(-1);
   expect(canvasBox!.y).toBeGreaterThanOrEqual(-1);
   expect(canvasBox!.x + canvasBox!.width).toBeLessThanOrEqual(dimensions.width + 1);
   expect(canvasBox!.y + canvasBox!.height).toBeLessThanOrEqual(dimensions.height + 1);
-  expect(Math.abs(canvasBox!.width / canvasBox!.height - drawingBuffer.width / drawingBuffer.height)).toBeLessThanOrEqual(0.01);
+  expect(Math.abs(canvasBox!.width / canvasBox!.height - (drawingBuffer.runtimeAspect || drawingBuffer.width / drawingBuffer.height))).toBeLessThanOrEqual(0.01);
   expect(Math.min(Math.abs(canvasBox!.width - dimensions.width), Math.abs(canvasBox!.height - dimensions.height))).toBeLessThanOrEqual(2);
   await page.mouse.move(dimensions.width / 2, dimensions.height / 2);
   await expect(toolbar).toHaveCSS("opacity", "1");
@@ -189,6 +208,40 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
     await expect(page.locator(".page-header")).toBeVisible();
     await noPageOverflow(page);
     await expect(page.getByRole("main")).toBeVisible();
+  }
+  await page.goto("/admin/imports/new");
+  const dropzoneAlignment = await page.locator(".dropzone").evaluate((dropzone) => {
+    const dropzoneBox = dropzone.getBoundingClientRect();
+    const actionsBox = dropzone.querySelector(".dropzone-actions")?.getBoundingClientRect();
+    return actionsBox ? Math.abs((dropzoneBox.left + dropzoneBox.width / 2) - (actionsBox.left + actionsBox.width / 2)) : null;
+  });
+  expect(dropzoneAlignment).not.toBeNull();
+  expect(dropzoneAlignment!).toBeLessThanOrEqual(1);
+  await page.goto("/admin/imports/tasks");
+  await expect(page.getByRole("heading", { name: "任务进度", exact: true })).toBeVisible();
+  await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
+  await page.goto("/admin/games");
+  await expect(page.getByRole("heading", { name: "游戏管理", exact: true })).toBeVisible();
+  await expect(page.getByText("信息版本", { exact: true })).toHaveCount(0);
+  const adminGameCard = page.locator(".admin-game-card").first();
+  await expect(adminGameCard).toBeVisible();
+  expect((await adminGameCard.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(219);
+  await page.goto("/admin/bios/dats");
+  await expect(page.getByRole("heading", { name: "街机数据目录", exact: true })).toBeVisible();
+  await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
+  await page.goto("/admin/platform-instances");
+  await expect(page.getByRole("columnheader", { name: "启用状态" })).toBeVisible();
+  const populatedDirectory = page.locator(".platform-table tbody tr").filter({ hasText: /[1-9]\d* 个游戏/ }).first();
+  if (await populatedDirectory.count()) await expect(populatedDirectory.getByRole("checkbox", { name: /启用状态/ })).toBeEnabled();
+  const descriptionRow = page.locator(".platform-table tbody tr").first();
+  const descriptionEdit = descriptionRow.getByRole("button", { name: /给用户看的说明/ });
+  if (await descriptionEdit.count()) {
+    const before = await descriptionRow.evaluate((element) => element.getBoundingClientRect().height);
+    await descriptionEdit.click();
+    await expect(descriptionRow.getByRole("textbox", { name: "给用户看的说明" })).toHaveAttribute("rows", "1");
+    const after = await descriptionRow.evaluate((element) => element.getBoundingClientRect().height);
+    expect(Math.abs(after - before)).toBeLessThanOrEqual(4);
+    await descriptionRow.getByRole("button", { name: "取消修改说明" }).click();
   }
   const games = await page.request.get("/api/v1/admin/games?limit=100");
   const payload = await games.json() as { items: Array<{ gameId: string }> };
@@ -223,7 +276,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await expect(primaryRow).toBeVisible();
   await primaryRow.getByRole("link", { name: "查看待审核" }).click();
   await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}`));
-  await expect(page.getByRole("textbox", { name: "导入批次编号" })).toHaveValue(primaryJob);
+  await expect(page.getByRole("textbox", { name: "导入批次" })).toHaveValue(primaryJob);
   const rows = page.locator("[data-review-item]");
   await expect(rows).toHaveCount(50);
   await page.getByRole("button", { name: "加载更多待审条目" }).click();
@@ -247,12 +300,13 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(57)}`));
   await page.setViewportSize({ width: 3840, height: 2160 });
   await expect(page.getByRole("navigation", { name: "当前待审队列" })).toBeVisible();
-  expect(await page.locator(".review-detail-workbench").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(3);
+  expect(await page.locator(".review-detail-workbench").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);
   await page.screenshot({ path: evidencePath(testInfo, "review-workbench-4k.png"), fullPage: true });
 
   await page.getByRole("textbox", { name: "标题" }).fill("尚未保存的标题");
-  page.once("dialog", async (dialog) => dialog.dismiss());
   await page.getByRole("navigation", { name: "当前待审队列" }).getByRole("link", { name: /Batch 1 Game 03/ }).click();
+  await expect(page.getByRole("alertdialog", { name: "草稿还没有保存" })).toBeVisible();
+  await page.getByRole("button", { name: "留在页面" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(57)}`));
   await page.getByRole("button", { name: "保存草稿" }).click();
   await expect(page.getByRole("status")).toContainText("草稿及来源选择已保存");
