@@ -220,7 +220,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
         headers: { "Content-Type": "application/json", "If-Match": `"v${version}"`, "Idempotency-Key": newUuid() },
         body: JSON.stringify({ reason: approvalReason.trim() || null }),
       });
-      if (!response.ok) throw new Error("发布失败：必须先保存草稿并选择当前 READY Validation");
+      if (!response.ok) throw new Error("发布失败：请先保存草稿，并确认当前兼容性检查已经通过");
       clearQueueCache();
       queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
       router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
@@ -253,12 +253,12 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       {review.dosEntries.length ? <label className="field">DOS 默认程序<select value={defaultDosEntry ?? ""} onChange={(event) => { setDefaultDosEntry(event.target.value || null); setDirty(true); }}><option value="">打开 DOSBox 程序菜单</option>{review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}
     </div>
 
-    <section className="stack" aria-label="Hasheous 元信息候选">
-      <div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询 Hasheous"}</button><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void rescrape("NONE")}>{busy === "停用元信息源" ? "正在记录…" : "不使用元信息源"}</button>{candidateId ? <button type="button" className="button secondary" disabled={busy !== null} onClick={() => { setCandidateId(null); setDirty(true); }}>清除文本来源</button> : null}</div>
-      {jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />Hasheous 查询中：{jobProgress}</p> : null}
+    <section className="stack" aria-label="游戏信息候选">
+      <div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void rescrape("NONE")}>{busy === "停用元信息源" ? "正在记录…" : "不使用在线游戏信息"}</button>{candidateId ? <button type="button" className="button secondary" disabled={busy !== null} onClick={() => { setCandidateId(null); setDirty(true); }}>清除文本来源</button> : null}</div>
+      {jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}
       {scrapeRuns.length ? <div className="stack scrape-batches"><div><strong>最近查询批次</strong><ScrapeRunRow run={scrapeRuns[0]} /></div>{scrapeRuns.length > 1 ? <details className="scrape-history"><summary>查看更早 {scrapeRuns.length - 1} 次查询</summary><div className="stack">{scrapeRuns.slice(1).map((entry) => <ScrapeRunRow run={entry} key={entry.scrapeRunId} />)}</div></details> : null}</div> : <p>尚无元信息查询批次。</p>}
-      {candidates.length === 0 ? <p>当前没有可用元信息候选；查询批次会在上方区分未命中、上游异常与无可查询 hash。仍可人工填写并发布 READY 条目。</p> : candidates.map((candidate) => <article className="candidate" key={candidate.candidateId}>
-        <div className="panel-head"><div><strong>{textValue(candidate.metadata.title) ?? candidate.providerGameId}</strong><p>Hasheous {candidate.providerGameId} · Run {candidate.scrapeRunId.slice(0, 8)}</p></div><button type="button" className="button secondary" disabled={busy !== null} onClick={() => adoptCandidate(candidate)}>{candidateId === candidate.candidateId ? "已选文本来源" : "采用候选文本"}</button></div>
+      {candidates.length === 0 ? <p>当前没有可用的游戏信息候选。你仍可人工填写；兼容性检查通过后即可发布。</p> : candidates.map((candidate) => <article className="candidate" key={candidate.candidateId}>
+        <div className="panel-head"><div><strong>{textValue(candidate.metadata.title) ?? candidate.providerGameId}</strong><p>在线游戏信息候选</p><details className="technical-details"><summary>技术详情</summary><code>{candidate.providerGameId} · {candidate.scrapeRunId}</code></details></div><button type="button" className="button secondary" disabled={busy !== null} onClick={() => adoptCandidate(candidate)}>{candidateId === candidate.candidateId ? "已选文本来源" : "采用候选文本"}</button></div>
         <div className="candidate-metadata">
           <div><span>发行商</span><strong>{textValue(candidate.metadata.publisher) || "未提供"}</strong></div>
           <div><span>年份</span><strong>{numberValue(candidate.metadata.releaseYear) || "未提供"}</strong></div>
@@ -268,7 +268,8 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
         </div>
         {candidate.assets.length ? <div className="asset-grid">{candidate.assets.map((asset) => {
           const selected = coverId === asset.candidateAssetId || backgroundId === asset.candidateAssetId || screenshotIds.includes(asset.candidateAssetId);
-          return <figure key={asset.candidateAssetId}>{asset.status === "READY" && asset.widthPx && asset.heightPx ? <Image src={`/api/v1/admin/review-assets/${asset.candidateAssetId}`} alt={`${asset.kind} 候选`} width={asset.widthPx} height={asset.heightPx} unoptimized /> : <div className="asset-placeholder">{asset.errorCode ?? asset.status}</div>}<figcaption>{asset.kind} #{asset.ordinal + 1}</figcaption><button type="button" className="button secondary" disabled={busy !== null || asset.status !== "READY"} onClick={() => selectAsset(asset)}>{selected ? "取消选择" : "选择媒体"}</button></figure>;
+          const kind = asset.kind === "COVER" ? "封面" : asset.kind === "BACKGROUND" ? "背景" : "游戏截图";
+          return <figure key={asset.candidateAssetId}>{asset.status === "READY" && asset.widthPx && asset.heightPx ? <Image src={`/api/v1/admin/review-assets/${asset.candidateAssetId}`} alt={`${kind}候选`} width={asset.widthPx} height={asset.heightPx} unoptimized /> : <div className="asset-placeholder">图片暂不可用</div>}<figcaption>{kind} {asset.ordinal + 1}</figcaption><button type="button" className="button secondary" disabled={busy !== null || asset.status !== "READY"} onClick={() => selectAsset(asset)}>{selected ? "取消选择" : "选择媒体"}</button></figure>;
         })}</div> : null}
       </article>)}
     </section>

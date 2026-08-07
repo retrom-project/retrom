@@ -236,6 +236,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | --- | --- |
 | `/runtime/emulatorjs/{configuredVersion}/...` | 固定公开运行时；初始配置列表只有 `4.2.3`，通过版本升级门禁后可同时保留多个版本。版本必须在后端启动时已验证的依赖列表内，路径/文件必须在该版本 manifest allowlist 内；manifest 与前端 Player adapter registry 的对应关系由两个镜像构建前共同执行的 `make data-check` 保证，浏览器仍按 config 中的 `playerAdapterId` 独立拒绝部署错配。`public, max-age=31536000, immutable`，强 ETag。CSP 禁止 CDN fallback。 |
 | `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。内容 revision URL 不变更 bytes，`public, max-age=31536000, immutable`。 |
+| `/content/save-states/{saveStateId}/screenshot` | 只用于未删除、且所属游戏仍已发布的手动存档截图；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。响应固定为 `private, no-store`，存档删除或游戏下架后立即不可读取。 |
 | `/api/v1/admin/review-assets/{candidateAssetId}` | 只用于仍待审核 Item 或已发布 Game 当前重刮削批次中的 READY 候选媒体预览；响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器。 |
 | `/runtime/launches/{launchId}/config` | 需要 launch cookie，返回逻辑 URL 和非秘密配置；`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/game/{logicalName}` | 只允许本会话清单内运行内容；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
@@ -337,7 +338,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/session` | 旧客户端兼容 token；不参与授权，新前端不得调用。 |
 | `GET /api/v1/home` | 首页聚合。 |
 | `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。 |
-| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。创建走第 8 节 launch runtime endpoint。 |
+| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。列表项包含 `screenshotUrl=/content/save-states/{saveStateId}/screenshot` 与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID；创建走第 8 节 launch runtime endpoint。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |
 | `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容、状态与 PersistentSave。 |

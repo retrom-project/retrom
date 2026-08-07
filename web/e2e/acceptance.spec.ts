@@ -49,7 +49,7 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
   for (const [index, [route, label]] of routes.entries()) {
     await page.goto(route);
     const navigation = page.getByRole("navigation", { name: "主要导航" });
-    await expect(navigation.getByRole("link", { name: "游戏入库", exact: true })).toHaveClass(/is-active/);
+    await expect(navigation.getByRole("link", { name: "游戏入库", exact: true })).toHaveClass(index === 0 ? /is-active/ : /is-context/);
     await expect(navigation.getByRole("link", { name: label, exact: true })).toHaveClass(/is-active/);
     if (index > 0) await expect(navigation.getByRole("link", { name: label, exact: true })).toHaveClass(/nav-child/);
     await page.screenshot({ path: evidencePath(testInfo, `import-route-${index + 1}.png`), fullPage: true });
@@ -88,16 +88,18 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
 });
 
 test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states are explicit", async ({ page }, testInfo) => {
-  await page.goto("/");
-  await page.route((url) => url.pathname === "/library" && url.searchParams.get("q") === "loading-state", async (route) => {
-    await new Promise((resolve) => setTimeout(resolve, 800));
+  let releaseLibrary: () => void = () => undefined;
+  const libraryGate = new Promise<void>((resolve) => { releaseLibrary = resolve; });
+  await page.route((url) => url.pathname === "/library", async (route) => {
+    await libraryGate;
     await route.continue();
   });
+  await page.goto("/");
   const libraryLink = page.getByRole("link", { name: "游戏库", exact: true });
-  await libraryLink.evaluate((element) => element.setAttribute("href", "/library?q=loading-state"));
   const navigation = libraryLink.click();
   await expect(page.getByLabel("正在加载")).toBeVisible();
   await page.screenshot({ path: evidencePath(testInfo, "state-loading.png"), fullPage: true });
+  releaseLibrary();
   await navigation;
   await page.unrouteAll({ behavior: "wait" });
 
@@ -115,15 +117,13 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
   await expect(page.getByRole("heading", { name: "BIOS 管理" })).toBeVisible();
   const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
   await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
-  await expect(gbaRow.getByText("HASH_WARNING", { exact: true })).toBeVisible();
+  await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();
   await expect(gbaRow.getByText("MD5", { exact: false })).toBeVisible();
   await page.screenshot({ path: evidencePath(testInfo, "state-warning.png"), fullPage: true });
 
-  const requiredCell = page.getByRole("cell", { name: "REQUIRED", exact: true }).first();
-  await expect(requiredCell).toBeVisible();
-  const blockerRow = requiredCell.locator("..");
-  await expect(blockerRow.getByText("MISSING", { exact: true })).toBeVisible();
-  await expect(blockerRow.getByText("安装 revision", { exact: true }).last()).toBeVisible();
+  const blockerRow = page.getByRole("row").filter({ hasText: "缺少文件" }).filter({ hasText: "必需" }).first();
+  await expect(blockerRow.getByText("必需", { exact: false })).toBeVisible();
+  await expect(blockerRow.getByRole("button", { name: "选择 BIOS 文件" })).toBeVisible();
   await page.screenshot({ path: evidencePath(testInfo, "state-blocker.png"), fullPage: true });
 });
 
@@ -194,7 +194,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   const payload = await games.json() as { items: Array<{ gameId: string }> };
   if (payload.items[0]) {
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
-    for (const heading of ["发布信息", "媒体", "内容与运行版本", "管理操作"]) {
+    for (const heading of ["发布信息", "媒体", "游戏内容与运行环境", "管理操作"]) {
       await expect(page.getByRole("heading", { name: heading })).toBeVisible();
     }
     await noPageOverflow(page);
@@ -221,16 +221,15 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.goto("/admin/imports/tasks");
   const primaryRow = page.getByRole("row").filter({ hasText: "60 / 0" });
   await expect(primaryRow).toBeVisible();
-  await primaryRow.getByRole("link", { name: "查看" }).click();
+  await primaryRow.getByRole("link", { name: "查看待审核" }).click();
   await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}`));
-  await expect(page.getByRole("textbox", { name: "导入批次" })).toHaveValue(primaryJob);
+  await expect(page.getByRole("textbox", { name: "导入批次编号" })).toHaveValue(primaryJob);
   const rows = page.locator("[data-review-item]");
   await expect(rows).toHaveCount(50);
   await page.getByRole("button", { name: "加载更多待审条目" }).click();
   await expect(rows).toHaveCount(60);
   expect(new Set(await rows.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-review-item")))).size).toBe(60);
-  await expect(rows.first()).toContainText("READY");
-  await expect(rows.first()).toContainText("无 Blocker");
+  await expect(rows.first()).toContainText("可以发布");
   await expect(page.getByRole("button", { name: /批量/ })).toHaveCount(0);
 
   await page.getByRole("link", { name: "清除" }).click();
@@ -372,7 +371,7 @@ test("ACC-RUN-004 BIOS blockers stop launch while hash warnings auto-start", asy
   await page.goto("/admin/bios?scope=FULL_CATALOG");
   const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
   await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
-  await expect(gbaRow.getByText("HASH_WARNING", { exact: true })).toBeVisible();
+  await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();
   await page.goto("/library");
   await page.locator(".game-card").filter({ hasText: "Sudoku" }).click();
   await page.getByRole("button", { name: "开始游戏" }).click();

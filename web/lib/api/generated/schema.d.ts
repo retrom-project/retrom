@@ -929,6 +929,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/content/save-states/{saveStateId}/screenshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saveStateId: components["parameters"]["SaveStateID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getSaveStateScreenshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head: operations["headSaveStateScreenshot"];
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/review-assets/{assetId}": {
         parameters: {
             query?: never;
@@ -3020,6 +3038,34 @@ export interface operations {
             header?: never;
             path: {
                 assetId: components["parameters"]["AssetID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
+    getSaveStateScreenshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saveStateId: components["parameters"]["SaveStateID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
+    headSaveStateScreenshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                saveStateId: components["parameters"]["SaveStateID"];
             };
             cookie?: never;
         };

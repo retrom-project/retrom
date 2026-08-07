@@ -765,7 +765,7 @@
         <span>RETROM</span>
       </div>
 
-      <div class="rt-mode-label" id="rt-mode-label">Play space</div>
+      <div class="rt-mode-label" id="rt-mode-label">我的游戏</div>
       <nav class="rt-nav" aria-label="页面">
         <div class="rt-nav-group" data-nav-mode="user">
           <button type="button" class="rt-nav-button is-active" data-page-target="home"><i data-lucide="house" aria-hidden="true"></i><span>首页</span></button>
@@ -794,13 +794,13 @@
 
     <main class="rt-main">
       <header class="rt-topbar">
-        <div class="rt-breadcrumb"><span id="rt-breadcrumb-mode">用户侧</span> / <strong id="rt-breadcrumb-page">首页</strong></div>
-        <div class="rt-top-actions"><span class="rt-status-dot" aria-hidden="true"></span><span class="rt-local-label">本地服务正常</span></div>
+        <div class="rt-breadcrumb"><span id="rt-breadcrumb-mode">我的游戏</span> / <strong id="rt-breadcrumb-page">首页</strong></div>
+        <div class="rt-top-actions"><span class="rt-status-dot" aria-hidden="true"></span><span class="rt-local-label">服务正常</span></div>
       </header>
 
       <section class="rt-page is-active" data-page="home">
         <div class="rt-page-head">
-          <div><h1>晚上好，继续上次的冒险</h1><p class="rt-subtitle">所有数据保存在这台设备上 · 最近同步于 2 分钟前</p></div>
+          <div><h1>今天想玩什么？</h1><p class="rt-subtitle">从最近的进度继续，或重新发现资料库里的经典游戏</p></div>
         </div>
         <div class="rt-stat-grid">
           <div class="rt-stat"><div class="rt-stat-label"><span>总游玩时长</span><i data-lucide="clock-3" aria-hidden="true"></i></div><div class="rt-stat-value">42.6h</div><div class="rt-stat-note">本周新增 3.2 小时</div></div>
@@ -861,7 +861,7 @@
             <div class="rt-detail-kicker" id="rt-detail-platform">Arcade / FBNeo 游戏列表 · 1996</div>
             <div class="rt-detail-title" id="rt-detail-title">Metal Slug</div>
             <div class="rt-detail-meta" id="rt-detail-meta"><span>SNK</span><span>动作 / 射击</span><span>1–2 人</span></div>
-            <p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。当前 ROM 已用 FBNeo DAT 完成 parent / BIOS 依赖解析，另有两个兼容核心可供选择。</p>
+            <p class="rt-detail-description" id="rt-detail-description">驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。</p>
             <div class="rt-detail-stats"><div class="rt-detail-stat"><strong id="rt-detail-hours">2.4h</strong><span>总游玩时长</span></div><div class="rt-detail-stat"><strong>3</strong><span>手动存档</span></div><div class="rt-detail-stat"><strong>今天</strong><span>最近游玩</span></div></div>
           </div>
           <aside class="rt-launch-panel" aria-label="启动配置">
@@ -869,7 +869,7 @@
             <label class="rt-field"><span class="rt-label">模拟核心</span><select class="rt-select" id="rt-core-select"><option>FBNeo · 目录默认</option><option>MAME 2003 Plus · 兼容</option><option>MAME 2003 · 需验证</option></select></label>
             <div class="rt-table-sub" id="rt-core-origin">默认核心来自平台目录“FBNeo 游戏列表”；切换只影响本次启动</div>
             <label class="rt-field" id="rt-dos-field" hidden><span class="rt-label">启动程序</span><select class="rt-select"><option>DOOM.EXE · 默认</option><option>SETUP.EXE</option><option>DEICE.EXE</option></select></label>
-            <div class="rt-checkline" id="rt-launch-check"><i data-lucide="circle-check" aria-hidden="true"></i><span id="rt-launch-check-text">ROM、parent 与 BIOS 依赖均已满足</span></div>
+            <div class="rt-checkline" id="rt-launch-check"><i data-lucide="circle-check" aria-hidden="true"></i><span id="rt-launch-check-text">游戏文件和运行依赖均已就绪</span></div>
             <button type="button" class="rt-button rt-button-primary rt-launch-button" data-start-game><i data-lucide="play" aria-hidden="true"></i>开始游戏</button>
             <div class="rt-launch-note">需验证时会留在同一加载壳，完成后自动继续</div>
           </aside>
@@ -877,7 +877,7 @@
         <div class="rt-tab-row" role="tablist" aria-label="详情内容"><button type="button" class="rt-tab is-active">存档</button><button type="button" class="rt-tab">游戏介绍</button><button type="button" class="rt-tab">详细信息</button></div>
         <div class="rt-detail-lower">
           <div class="rt-panel rt-panel-pad"><div class="rt-mini-save"><div class="rt-mini-shot"></div><div><h3 id="rt-detail-save-title">沙漠据点前</h3><div class="rt-save-time" id="rt-detail-save-meta">今天 22:14 · FBNeo · 与当前核心兼容</div></div><button type="button" class="rt-button rt-button-primary" data-start-current-save><i data-lucide="play" aria-hidden="true"></i>继续</button></div></div>
-          <div class="rt-panel rt-panel-pad"><h3>游戏信息</h3><div class="rt-info-list"><div class="rt-info-row"><span>平台目录</span><span id="rt-info-directory">FBNeo 游戏列表</span></div><div class="rt-info-row"><span>发行商</span><span id="rt-info-publisher">SNK</span></div><div class="rt-info-row"><span>区域</span><span>World</span></div><div class="rt-info-row"><span>元信息来源</span><span>Hasheous · 哈希匹配</span></div><div class="rt-info-row"><span>运行依赖</span><span class="rt-badge rt-badge-green">DAT 检查通过</span></div></div></div>
+          <div class="rt-panel rt-panel-pad"><h3>游戏信息</h3><div class="rt-info-list"><div class="rt-info-row"><span>平台目录</span><span id="rt-info-directory">FBNeo 游戏列表</span></div><div class="rt-info-row"><span>发行商</span><span id="rt-info-publisher">SNK</span></div><div class="rt-info-row"><span>区域</span><span>World</span></div><div class="rt-info-row"><span>游戏信息来源</span><span>在线匹配</span></div><div class="rt-info-row"><span>运行状态</span><span class="rt-badge rt-badge-green">可以运行</span></div></div></div>
         </div>
       </section>
 
@@ -897,7 +897,7 @@
           <div class="rt-page-head-actions"><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>新建导入</button></div>
         </div>
         <div class="rt-ingest-stat-grid">
-          <div class="rt-stat"><div class="rt-stat-label"><span>运行中的任务</span><i data-lucide="loader-circle" aria-hidden="true"></i></div><div class="rt-stat-value">2</div><div class="rt-stat-note">另有 1 个任务等待 Worker</div></div>
+          <div class="rt-stat"><div class="rt-stat-label"><span>运行中的任务</span><i data-lucide="loader-circle" aria-hidden="true"></i></div><div class="rt-stat-value">2</div><div class="rt-stat-note">另有 1 个任务正在排队</div></div>
           <div class="rt-stat"><div class="rt-stat-label"><span>待审核条目</span><i data-lucide="list-checks" aria-hidden="true"></i></div><div class="rt-stat-value">4</div><div class="rt-stat-note">最早等待 18 分钟</div></div>
           <div class="rt-stat"><div class="rt-stat-label"><span>异常条目</span><i data-lucide="triangle-alert" aria-hidden="true"></i></div><div class="rt-stat-value">3</div><div class="rt-stat-note">2 个可重试 · 1 个需人工处理</div></div>
           <div class="rt-stat"><div class="rt-stat-label"><span>本周已发布</span><i data-lucide="library-big" aria-hidden="true"></i></div><div class="rt-stat-value">36</div><div class="rt-stat-note">来自 5 次导入</div></div>
@@ -913,7 +913,7 @@
               <div class="rt-pipeline-stage"><div class="rt-pipeline-count">4</div><div class="rt-pipeline-label">等待审核</div></div>
               <div class="rt-pipeline-stage"><div class="rt-pipeline-count">36</div><div class="rt-pipeline-label">本周发布</div></div>
             </div>
-            <div class="rt-pipeline-caption">Arcade DAT 只参与运行依赖识别；展示元信息由 Hasheous 或人工填写生成。</div>
+            <div class="rt-pipeline-caption">系统会自动识别运行依赖并准备游戏信息；最终内容由你逐条确认。</div>
           </div>
           <aside class="rt-panel rt-overview-panel" aria-label="需要处理">
             <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>需要处理</h2><p class="rt-subtitle">按阻塞范围排序</p></div></div>
@@ -935,7 +935,7 @@
 
       <section class="rt-page" data-page="admin-import-new">
         <div class="rt-page-head">
-          <div><h1>导入文件 / 目录</h1><p class="rt-subtitle">选择内容并冻结目标平台目录、默认核心、Core artifact 与 Arcade DAT 快照</p></div>
+          <div><h1>导入文件 / 目录</h1><p class="rt-subtitle">选择游戏内容、目标目录和信息来源，提交后配置保持不变</p></div>
           <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-import-tasks"><i data-lucide="activity" aria-hidden="true"></i>查看任务进度</button></div>
         </div>
         <div class="rt-import-stepbar" aria-label="新建导入步骤">
@@ -952,7 +952,7 @@
             <label class="rt-field"><span class="rt-label">元信息来源</span><select class="rt-select"><option>Hasheous · 文件哈希（无需登录）</option><option>不刮削 · 稍后手动填写</option></select></label>
             <div class="rt-setting-note">Arcade DAT 只解析 machine、parent、BIOS 与 ROM entry；它不是元信息刮削源。</div>
             <div class="rt-import-checklist" aria-label="提交后处理">
-              <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">SHA-256 与 CAS 去重</div><div class="rt-table-sub">重复 Blob 复用存储，仍创建本次任务证据</div></div></div>
+              <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">校验并避免重复</div><div class="rt-table-sub">重复内容不会再次占用存储空间</div></div></div>
               <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">按基础平台分组</div><div class="rt-table-sub">目录结构不会在浏览器端丢失</div></div></div>
               <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">生成待审核条目</div><div class="rt-table-sub">Hasheous 未命中也不会阻断人工审核</div></div></div>
             </div>
@@ -972,12 +972,12 @@
 
       <section class="rt-page" data-page="admin-import-tasks">
         <div class="rt-page-head">
-          <div><h1>任务进度</h1><p class="rt-subtitle">查看 ImportJob 的实时阶段、条目级异常与冻结配置，不混入审核历史</p></div>
+          <div><h1>任务进度</h1><p class="rt-subtitle">查看每次导入的当前阶段、异常条目和提交时配置</p></div>
           <div class="rt-page-head-actions"><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>新建导入</button></div>
         </div>
         <div class="rt-stat-grid">
           <div class="rt-stat"><div class="rt-stat-label"><span>运行中</span><i data-lucide="loader-circle" aria-hidden="true"></i></div><div class="rt-stat-value">2</div><div class="rt-stat-note">最近心跳 3 秒前</div></div>
-          <div class="rt-stat"><div class="rt-stat-label"><span>排队中</span><i data-lucide="list-ordered" aria-hidden="true"></i></div><div class="rt-stat-value">1</div><div class="rt-stat-note">等待 Hash / Copy Worker</div></div>
+          <div class="rt-stat"><div class="rt-stat-label"><span>排队中</span><i data-lucide="list-ordered" aria-hidden="true"></i></div><div class="rt-stat-value">1</div><div class="rt-stat-note">等待校验和复制</div></div>
           <div class="rt-stat"><div class="rt-stat-label"><span>需处理</span><i data-lucide="triangle-alert" aria-hidden="true"></i></div><div class="rt-stat-value">3</div><div class="rt-stat-note">2 可重试 · 1 手动处理</div></div>
         </div>
         <div class="rt-toolbar">
@@ -1032,20 +1032,20 @@
             <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索待审核条目</span><input class="rt-input" type="search" placeholder="搜索文件、标题或 Item ID"></label>
             <div class="rt-review-queue-filters">
               <select class="rt-select" aria-label="导入批次"><option>本批：arcade-romset/ · JOB-0042</option><option>全部导入批次</option><option>dos-classics/ · JOB-0040</option></select>
-              <select class="rt-select" aria-label="审核状态"><option>全部 Validation 状态</option><option>可发布</option><option>有 Blocker</option><option>无元信息候选</option></select>
+              <select class="rt-select" aria-label="审核状态"><option>所有兼容性状态</option><option>可以发布</option><option>需要处理</option><option>无游戏信息候选</option></select>
             </div>
-            <div class="rt-review-queue-context">从任务进度进入时保留 ImportJob 筛选；清除筛选即可查看全部待审条目。最终发布仍逐条确认。</div>
+            <div class="rt-review-queue-context">从任务进度进入时会保留当前导入批次；清除筛选即可查看全部待审条目。最终发布仍逐条确认。</div>
             <div class="rt-review-queue-list">
-              <button type="button" class="rt-review-item is-selected" aria-current="true" data-review-item data-review-position-value="已选 1 / 4" data-review-file="mslug3.zip" data-review-preview="METAL SLUG 3" data-review-title="Metal Slug 3" data-review-year="2000" data-review-developer="SNK" data-review-players="1–2" data-review-description="阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。" data-review-candidate="Metal Slug 3" data-review-candidate-meta="World · 2000 · SNK" data-review-candidate-badge="精确" data-review-validation-status="READY" data-review-validation="✓ 目录默认核心 FBNeo 的 DAT 依赖检查通过：主 ROMset、parent 与 BIOS neogeo.zip 均已匹配；展示元信息来自 Hasheous">
+              <button type="button" class="rt-review-item is-selected" aria-current="true" data-review-item data-review-position-value="已选 1 / 4" data-review-file="mslug3.zip" data-review-preview="METAL SLUG 3" data-review-title="Metal Slug 3" data-review-year="2000" data-review-developer="SNK" data-review-players="1–2" data-review-description="阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。" data-review-candidate="Metal Slug 3" data-review-candidate-meta="World · 2000 · SNK" data-review-candidate-badge="精确" data-review-validation-status="READY" data-review-validation="✓ 当前目录的游戏文件和运行依赖均已就绪，可以发布">
                 <span class="rt-review-item-head"><span class="rt-review-item-source">mslug3.zip</span><span class="rt-badge rt-badge-green">可发布</span></span><span class="rt-review-item-title">Metal Slug 3</span><span class="rt-review-item-meta"><span>arcade-romset/ · JOB-0042</span><span>FBNeo 游戏列表 · 1 个候选 · 2 分钟前</span></span>
               </button>
-              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 2 / 4" data-review-file="garou.zip" data-review-preview="GAROU" data-review-title="Garou: Mark of the Wolves" data-review-year="1999" data-review-developer="SNK" data-review-players="1–2" data-review-description="南镇格斗大会再度开幕，新的格斗家加入战局。" data-review-candidate="Garou: Mark of the Wolves" data-review-candidate-meta="World · 1999 · SNK" data-review-candidate-badge="精确" data-review-validation-status="BLOCKED" data-review-validation="! 当前目录缺少必需 BIOS neogeo.zip；安装并完成新 Validation 前不能发布">
+              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 2 / 4" data-review-file="garou.zip" data-review-preview="GAROU" data-review-title="Garou: Mark of the Wolves" data-review-year="1999" data-review-developer="SNK" data-review-players="1–2" data-review-description="南镇格斗大会再度开幕，新的格斗家加入战局。" data-review-candidate="Garou: Mark of the Wolves" data-review-candidate-meta="World · 1999 · SNK" data-review-candidate-badge="精确" data-review-validation-status="BLOCKED" data-review-validation="! 当前目录缺少必需 BIOS neogeo.zip；安装并重新检查后才能发布">
                 <span class="rt-review-item-head"><span class="rt-review-item-source">garou.zip</span><span class="rt-badge rt-badge-red">缺 BIOS</span></span><span class="rt-review-item-title">Garou: Mark of the Wolves</span><span class="rt-review-item-meta"><span>arcade-romset/ · JOB-0042</span><span>FBNeo 游戏列表 · 1 个候选 · 5 分钟前</span></span>
               </button>
-              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 3 / 4" data-review-file="lastbld2.zip" data-review-preview="LAST BLADE 2" data-review-title="lastbld2" data-review-year="" data-review-developer="" data-review-players="" data-review-description="" data-review-candidate="没有精确候选" data-review-candidate-meta="保留安全文件名并手动编辑" data-review-candidate-badge="手动" data-review-validation-status="READY" data-review-validation="✓ 目录默认核心 FBNeo 的 DAT 依赖检查通过；Hasheous 未命中不阻断人工补全后发布">
+              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 3 / 4" data-review-file="lastbld2.zip" data-review-preview="LAST BLADE 2" data-review-title="lastbld2" data-review-year="" data-review-developer="" data-review-players="" data-review-description="" data-review-candidate="没有精确候选" data-review-candidate-meta="保留安全文件名并手动编辑" data-review-candidate-badge="手动" data-review-validation-status="READY" data-review-validation="✓ 运行检查已经通过；未找到游戏信息不影响手动补全后发布">
                 <span class="rt-review-item-head"><span class="rt-review-item-source">lastbld2.zip</span><span class="rt-badge rt-badge-amber">需补信息</span></span><span class="rt-review-item-title">lastbld2</span><span class="rt-review-item-meta"><span>arcade-romset/ · JOB-0042</span><span>FBNeo 游戏列表 · 0 个候选 · 7 分钟前</span></span>
               </button>
-              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 4 / 4" data-review-file="shocktro.zip" data-review-preview="SHOCK TROOPERS" data-review-title="Shock Troopers" data-review-year="1997" data-review-developer="Saurus" data-review-players="1–2" data-review-description="小队深入敌后，营救被绑架的科学家与家人。" data-review-candidate="Shock Troopers" data-review-candidate-meta="World · 1997 · Saurus" data-review-candidate-badge="精确" data-review-validation-status="READY" data-review-validation="✓ 目录默认核心 FBNeo 的 DAT 依赖检查通过：主 ROMset、parent 与 BIOS 均已满足">
+              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 4 / 4" data-review-file="shocktro.zip" data-review-preview="SHOCK TROOPERS" data-review-title="Shock Troopers" data-review-year="1997" data-review-developer="Saurus" data-review-players="1–2" data-review-description="小队深入敌后，营救被绑架的科学家与家人。" data-review-candidate="Shock Troopers" data-review-candidate-meta="World · 1997 · Saurus" data-review-candidate-badge="精确" data-review-validation-status="READY" data-review-validation="✓ 当前目录的游戏文件和运行依赖均已就绪，可以发布">
                 <span class="rt-review-item-head"><span class="rt-review-item-source">shocktro.zip</span><span class="rt-badge rt-badge-green">可发布</span></span><span class="rt-review-item-title">Shock Troopers</span><span class="rt-review-item-meta"><span>arcade-romset/ · JOB-0042</span><span>FBNeo 游戏列表 · 1 个候选 · 9 分钟前</span></span>
               </button>
             </div>
@@ -1054,7 +1054,7 @@
           <div class="rt-review-layout">
             <button type="button" class="rt-button rt-review-back" data-review-back><i data-lucide="arrow-left" aria-hidden="true"></i>返回待审列表</button>
             <div class="rt-panel rt-review-file"><div class="rt-file-preview" data-review-preview-output>METAL SLUG 3</div><h3 data-review-file-output>mslug3.zip</h3><div class="rt-info-list"><div class="rt-info-row"><span>导入批次</span><span>arcade-romset/ · JOB-0042</span></div><div class="rt-info-row"><span>平台目录</span><span>FBNeo 游戏列表</span></div><div class="rt-info-row"><span>平台 / 默认核心</span><span>Arcade / FBNeo</span></div><div class="rt-info-row"><span>SHA-256</span><span class="rt-mono">7d2c…f198</span></div><div class="rt-info-row"><span>DAT 依赖检查</span><span class="rt-badge rt-badge-green">已计算</span></div></div><div class="rt-section-head"><h3>Hasheous 元信息候选</h3><span class="rt-subtitle">当前 Item 的独立结果</span></div><div class="rt-candidate-list"><button type="button" class="rt-candidate is-selected"><span class="rt-candidate-thumb"></span><span><strong data-review-candidate-title>Metal Slug 3</strong><span class="rt-table-sub" data-review-candidate-meta>World · 2000 · SNK</span></span><span class="rt-badge rt-badge-green" data-review-candidate-badge>精确</span></button><button type="button" class="rt-candidate"><span class="rt-candidate-thumb" style="background:var(--retrom-cover-e)"></span><span><strong>不采用候选</strong><span class="rt-table-sub">保留字段并手动编辑</span></span><span class="rt-badge">手动</span></button></div></div>
-            <div class="rt-panel rt-review-form"><div class="rt-form-grid"><label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" data-review-field="title" value="Metal Slug 3"></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" data-review-field="year" value="2000"></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" data-review-field="developer" value="SNK"></label><label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" data-review-field="players" value="1–2"></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea" data-review-field="description">阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。</textarea></label><label class="rt-field"><span class="rt-label">封面来源</span><select class="rt-select"><option>Hasheous · 图片属性</option><option>本地上传</option></select></label><label class="rt-field"><span class="rt-label">平台目录</span><select class="rt-select"><option>FBNeo 游戏列表 · 默认 FBNeo</option><option>MAME 游戏列表 · 默认 MAME 2003</option></select></label></div><div class="rt-validation-box" data-review-validation-output>✓ 目录默认核心 FBNeo 的 DAT 依赖检查通过：主 ROMset、parent 与 BIOS neogeo.zip 均已匹配；展示元信息来自 Hasheous</div><div class="rt-review-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>Discard</button><button type="button" class="rt-button">保存草稿</button><button type="button" class="rt-button rt-button-primary" data-review-approve><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></div>
+            <div class="rt-panel rt-review-form"><div class="rt-form-grid"><label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" data-review-field="title" value="Metal Slug 3"></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" data-review-field="year" value="2000"></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" data-review-field="developer" value="SNK"></label><label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" data-review-field="players" value="1–2"></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea" data-review-field="description">阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。</textarea></label><label class="rt-field"><span class="rt-label">封面来源</span><select class="rt-select"><option>在线游戏信息</option><option>本地上传</option></select></label><label class="rt-field"><span class="rt-label">平台目录</span><select class="rt-select"><option>FBNeo 游戏列表 · 默认 FBNeo</option><option>MAME 游戏列表 · 默认 MAME 2003</option></select></label></div><div class="rt-validation-box" data-review-validation-output>✓ 当前目录的游戏文件和运行依赖均已就绪，可以发布</div><div class="rt-review-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>丢弃条目</button><button type="button" class="rt-button">保存草稿</button><button type="button" class="rt-button rt-button-primary" data-review-approve><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></div>
           </div>
         </div>
       </section>
@@ -1112,13 +1112,13 @@
 
       <section class="rt-page" data-page="admin-game-detail">
         <div class="rt-page-head">
-          <div><button type="button" class="rt-back-link" data-page-link="admin-games">← 返回游戏管理</button><h1>Metal Slug</h1><p class="rt-subtitle">GAME-0182 · Arcade / FBNeo 游戏列表 · 当前内容版本 CONTENT-0007</p></div>
+          <div><button type="button" class="rt-back-link" data-page-link="admin-games">← 返回游戏管理</button><h1>Metal Slug</h1><p class="rt-subtitle">Arcade / FBNeo 游戏列表 · 已发布</p></div>
           <div class="rt-page-head-actions"><span class="rt-badge rt-badge-green">已发布</span><button type="button" class="rt-button rt-button-primary"><i data-lucide="save" aria-hidden="true"></i>保存发布信息</button></div>
         </div>
         <div class="rt-admin-game-layout">
           <div class="rt-admin-game-stack">
             <section class="rt-panel rt-admin-game-panel">
-              <div class="rt-admin-section-head"><div><h2>1. 发布信息</h2><p class="rt-subtitle">保存时创建新的 MetadataRevision；当前 ETag 为 v12，不原地改写历史。</p></div><span class="rt-badge">Metadata v12</span></div>
+              <div class="rt-admin-section-head"><div><h2>1. 发布信息</h2><p class="rt-subtitle">保存后创建一份新版本，历史信息仍可回看。</p></div><span class="rt-badge">信息版本 12</span></div>
               <div class="rt-form-grid">
                 <label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" value="Metal Slug"></label>
                 <label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" value="1996"></label>
@@ -1131,25 +1131,25 @@
             </section>
 
             <section class="rt-panel rt-admin-game-panel">
-              <div class="rt-admin-section-head"><div><h2>3. 内容与运行版本</h2><p class="rt-subtitle">用户内容与每个 Core 的验证结果分开版本化；普通启动只使用 current ContentRevision。</p></div><button type="button" class="rt-button"><i data-lucide="upload" aria-hidden="true"></i>替换游戏文件</button></div>
+              <div class="rt-admin-section-head"><div><h2>3. 游戏内容与运行环境</h2><p class="rt-subtitle">替换游戏文件前会检查当前默认核心是否可以运行。</p></div><button type="button" class="rt-button"><i data-lucide="upload" aria-hidden="true"></i>选择游戏文件</button></div>
               <div class="rt-admin-game-summary">
-                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">当前内容</div><div class="rt-admin-summary-value">CONTENT-0007</div></div>
+                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">当前内容</div><div class="rt-admin-summary-value">第 3 版 · 使用中</div></div>
                 <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">用户文件</div><div class="rt-admin-summary-value">mslug.zip · 13.1 MB</div></div>
-                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">来源</div><div class="rt-admin-summary-value">审核发布 · ITEM-0182</div></div>
+                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">来源</div><div class="rt-admin-summary-value">审核发布</div></div>
                 <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">历史内容版本</div><div class="rt-admin-summary-value">2 个 · 均受引用保护</div></div>
               </div>
-              <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>核心槽</th><th>当前 Revision</th><th>CoreArtifact / DAT</th><th>与当前内容</th><th>依赖诊断</th><th>操作</th></tr></thead><tbody>
-                <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">目录默认核心</div></td><td><span class="rt-mono">VAR-0042</span></td><td><div class="rt-table-title">EJS 4.2.3</div><div class="rt-table-sub">DAT 1.0.0.03</div></td><td><span class="rt-badge rt-badge-green">READY</span></td><td>ROM / parent / BIOS 满足</td><td><button type="button" class="rt-button">查看版本链</button></td></tr>
-                <tr><td><div class="rt-table-title">MAME 2003</div><div class="rt-table-sub">备用核心</div></td><td><span class="rt-mono">VAR-0031</span></td><td><div class="rt-table-title">EJS 4.2.1 override</div><div class="rt-table-sub">DAT MAME 0.78</div></td><td><span class="rt-badge rt-badge-amber">NEEDS_VALIDATION</span></td><td>旧 revision 指向 CONTENT-0005</td><td><button type="button" class="rt-button">创建验证任务</button></td></tr>
-                <tr><td><div class="rt-table-title">MAME 2003 Plus</div><div class="rt-table-sub">备用核心</div></td><td>—</td><td><div class="rt-table-title">EJS 4.2.3</div><div class="rt-table-sub">DAT bound 09e84fe</div></td><td><span class="rt-badge">未验证</span></td><td>尚无 VariantRevision</td><td><button type="button" class="rt-button">创建验证任务</button></td></tr>
+              <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>运行核心</th><th>运行记录</th><th>核心版本 / 数据目录</th><th>当前状态</th><th>依赖检查</th><th>操作</th></tr></thead><tbody>
+                <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">目录默认核心</div></td><td>当前记录</td><td><div class="rt-table-title">EmulatorJS 4.2.3</div><div class="rt-table-sub">街机目录 1.0.0.03</div></td><td><span class="rt-badge rt-badge-green">可以运行</span></td><td>游戏文件与 BIOS 均满足</td><td><button type="button" class="rt-button">查看技术详情</button></td></tr>
+                <tr><td><div class="rt-table-title">MAME 2003</div><div class="rt-table-sub">备用核心</div></td><td>历史记录</td><td><div class="rt-table-title">EmulatorJS 4.2.1</div><div class="rt-table-sub">MAME 0.78 目录</div></td><td><span class="rt-badge rt-badge-amber">需要重新检查</span></td><td>游戏内容已更新</td><td><button type="button" class="rt-button">重新检查</button></td></tr>
+                <tr><td><div class="rt-table-title">MAME 2003 Plus</div><div class="rt-table-sub">备用核心</div></td><td>—</td><td><div class="rt-table-title">EmulatorJS 4.2.3</div><div class="rt-table-sub">街机数据目录已绑定</div></td><td><span class="rt-badge">未检查</span></td><td>尚无运行记录</td><td><button type="button" class="rt-button">开始检查</button></td></tr>
               </tbody></table></div>
-              <div class="rt-setting-note">文件替换先创建 UploadSession 与 GAME_FILE_REVISION Job；只有默认核心验证 READY 且快照未漂移，才原子切换 Content 与目标 Variant 两个 current。</div>
+              <div class="rt-setting-note">新文件会先在后台安全校验；只有当前配置仍未变化且默认核心可以运行，才会正式替换。</div>
             </section>
           </div>
 
           <div class="rt-admin-game-stack">
             <section class="rt-panel rt-admin-game-panel">
-              <div class="rt-admin-section-head"><div><h2>2. 媒体</h2><p class="rt-subtitle">替换会创建新的 Asset/MetadataRevision；旧 Blob 保持不可变。</p></div><button type="button" class="rt-button"><i data-lucide="image-plus" aria-hidden="true"></i>上传媒体</button></div>
+              <div class="rt-admin-section-head"><div><h2>2. 媒体</h2><p class="rt-subtitle">更新封面、背景或游戏截图；旧版本仍可回看。</p></div><button type="button" class="rt-button"><i data-lucide="image-plus" aria-hidden="true"></i>选择图片</button></div>
               <div class="rt-media-grid">
                 <div class="rt-media-tile"><span>当前封面 · COVER</span></div>
                 <div class="rt-media-tile is-wide"><span>当前背景 · BACKGROUND</span></div>
@@ -1184,7 +1184,7 @@
               <tr><td><div class="rt-table-title">FBNeo 飞行游戏</div><div class="rt-table-sub">fbneo-shmups</div></td><td>Arcade</td><td><span class="rt-badge rt-badge-cyan">FBNeo</span></td><td>4</td><td><span class="rt-badge rt-badge-green">4 可启动</span></td><td><button type="button" class="rt-button">编辑 / 影响预览</button></td></tr>
               <tr><td><div class="rt-table-title">DOS 经典游戏</div><div class="rt-table-sub">dos-classics</div></td><td>MS-DOS</td><td><span class="rt-badge">DOSBox Pure</span></td><td>5</td><td><span class="rt-badge rt-badge-green">5 可启动</span></td><td><button type="button" class="rt-button">编辑 / 影响预览</button></td></tr>
             </tbody></table></div>
-            <div class="rt-setting-note">修改默认核心会先验证此目录内的全部已发布游戏；存档仍锁定原 GameVariant 和文件 revision。非空目录不可删除。</div>
+            <div class="rt-setting-note">点击“编辑 / 影响预览”后才能选择新核心；预览完成仍需明确确认。已有存档继续使用原来的运行环境，非空目录不可删除。</div>
           </div>
           <div class="rt-panel rt-import-settings"><h3>新建平台目录</h3><label class="rt-field"><span class="rt-label">目录名称</span><input class="rt-input" value="FBNeo 格斗游戏"></label><label class="rt-field"><span class="rt-label">基础平台</span><select class="rt-select"><option>Arcade</option><option>MS-DOS</option><option>NES / Famicom</option></select></label><label class="rt-field"><span class="rt-label">默认核心</span><select class="rt-select"><option>FBNeo</option><option>MAME 2003 Plus</option><option>MAME 2003</option></select></label><label class="rt-field"><span class="rt-label">说明（可选）</span><textarea class="rt-textarea">以 FBNeo ROMset 为主的格斗游戏。</textarea></label><div class="rt-setting-note">默认核心只决定普通启动的首选项；详情页仍保留 Arcade 的其他已启用核心。</div><button type="button" class="rt-button rt-button-primary rt-launch-button"><i data-lucide="folder-plus" aria-hidden="true"></i>创建平台目录</button></div>
         </div>
@@ -1198,11 +1198,11 @@
           <div class="rt-section-head"><div class="rt-bios-groups" data-chip-group="bios-scope"><button type="button" class="rt-chip is-active">当前游戏库所需</button><button type="button" class="rt-chip">核心完整目录</button></div><button type="button" class="rt-button rt-button-primary"><i data-lucide="upload" aria-hidden="true"></i>上传 BIOS</button></div>
           <div class="rt-stat-grid"><div class="rt-stat"><div class="rt-stat-label"><span>已满足</span></div><div class="rt-stat-value">9</div><div class="rt-stat-note">含由 Full Non-Merged 游戏文件满足</div></div><div class="rt-stat"><div class="rt-stat-label"><span>存在警告</span></div><div class="rt-stat-value">2</div><div class="rt-stat-note">entry 存在但哈希不同，可启动</div></div><div class="rt-stat"><div class="rt-stat-label"><span>缺失 / 不完整</span></div><div class="rt-stat-value">3</div><div class="rt-stat-note">仅统计当前游戏库，阻断相关游戏</div></div></div>
           <div class="rt-bios-groups" data-chip-group="bios-platform"><button type="button" class="rt-chip">全部平台</button><button type="button" class="rt-chip">NES</button><button type="button" class="rt-chip">SNES</button><button type="button" class="rt-chip">Game Boy</button><button type="button" class="rt-chip is-active">Arcade</button><button type="button" class="rt-chip">GBA</button></div>
-          <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>核心 / DAT</th><th>BIOS ROMset</th><th>当前游戏库</th><th>Entry 校验</th><th>当前状态</th><th>操作</th></tr></thead><tbody>
-            <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">EmulatorJS 4.2.3 · DAT 1.0.0.03</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">neogeo.zip</div><div class="rt-table-sub">Neo Geo BIOS</div></div></div></td><td>12 个变体</td><td><span class="rt-mono">按活动 DAT 校验</span></td><td><span class="rt-badge rt-badge-green">完全匹配</span></td><td><button type="button" class="rt-button">替换</button></td></tr>
-            <tr><td><div class="rt-table-title">MAME 2003</div><div class="rt-table-sub">Core 0.78 · DAT MAME 0.78</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">neogeo.zip</div><div class="rt-table-sub">与 FBNeo 同名但要求独立</div></div></div></td><td>4 个变体</td><td><span class="rt-mono">未上传</span></td><td><span class="rt-badge rt-badge-red">缺失</span></td><td><button type="button" class="rt-button rt-button-primary">上传</button></td></tr>
-            <tr><td><div class="rt-table-title">MAME 2003 Plus</div><div class="rt-table-sub">EmulatorJS 4.2.3 · bound source 09e84fe</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">pgm.zip</div><div class="rt-table-sub">PGM System BIOS</div></div></div></td><td>2 个变体</td><td><span class="rt-mono">按活动 DAT 校验</span></td><td><span class="rt-badge rt-badge-amber">2 项哈希不同</span></td><td><button type="button" class="rt-button">查看 / 替换</button></td></tr>
-            <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">EmulatorJS 4.2.3 · DAT 1.0.0.03</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="package-check" aria-hidden="true"></i></span><div><div class="rt-table-title">ym2608</div><div class="rt-table-sub">已包含在游戏 archive</div></div></div></td><td>1 个变体</td><td><span class="rt-mono">由内容满足</span></td><td><span class="rt-badge rt-badge-green">无需上传</span></td><td><button type="button" class="rt-button">查看来源</button></td></tr>
+          <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>适用核心</th><th>BIOS 文件</th><th>当前游戏库</th><th>校验方式</th><th>当前状态</th><th>操作</th></tr></thead><tbody>
+            <tr><td><div class="rt-table-title">FBNeo</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">neogeo.zip</div><div class="rt-table-sub">必需 · Neo Geo BIOS</div></div></div></td><td>12 个游戏</td><td>按当前目录校验</td><td><span class="rt-badge rt-badge-green">已安装并匹配</span></td><td><button type="button" class="rt-button">选择 BIOS 文件</button></td></tr>
+            <tr><td><div class="rt-table-title">MAME 2003</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">neogeo.zip</div><div class="rt-table-sub">必需 · 与 FBNeo 分开安装</div></div></div></td><td>4 个游戏</td><td>安装后验证</td><td><span class="rt-badge rt-badge-red">缺少文件</span></td><td><button type="button" class="rt-button rt-button-primary">选择 BIOS 文件</button></td></tr>
+            <tr><td><div class="rt-table-title">MAME 2003 Plus</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">pgm.zip</div><div class="rt-table-sub">必需 · PGM System BIOS</div></div></div></td><td>2 个游戏</td><td>按当前目录校验</td><td><span class="rt-badge rt-badge-amber">2 项校验值不同</span></td><td><button type="button" class="rt-button">查看 / 替换</button></td></tr>
+            <tr><td><div class="rt-table-title">FBNeo</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="package-check" aria-hidden="true"></i></span><div><div class="rt-table-title">ym2608</div><div class="rt-table-sub">已包含在游戏文件中</div></div></div></td><td>1 个游戏</td><td>由游戏内容满足</td><td><span class="rt-badge rt-badge-green">无需上传</span></td><td><button type="button" class="rt-button">查看来源</button></td></tr>
           </tbody></table></div>
         </div>
 
@@ -1210,7 +1210,7 @@
           <div class="rt-section-head"><div><h2>核心 DAT 目录</h2><p class="rt-subtitle">上传只创建候选；解析并查看差异后才可显式启用</p></div><button type="button" class="rt-button rt-button-primary"><i data-lucide="file-up" aria-hidden="true"></i>上传 DAT</button></div>
           <div class="rt-setting-note">上传 → 安全校验与后台解析 → 查看 BIOS / parent 依赖差异 → 显式启用 → 分批重校验 GameVariant；系统预置版本始终可回滚。</div>
           <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>核心</th><th>当前生效 DAT</th><th>来源</th><th>解析结果</th><th>影响范围</th><th>状态</th><th>操作</th></tr></thead><tbody>
-            <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">EmulatorJS 4.2.3 · source c8c70ba</div></td><td><div class="rt-table-title">fbneo-arcade.dat</div><div class="rt-table-sub rt-mono">SHA-256 · 9960…3637</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">7,980 machines</div><div class="rt-table-sub">13 个显式 BIOS machines</div></td><td>2 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
+            <tr><td><div class="rt-table-title">FBNeo</div></td><td><div class="rt-table-title">fbneo-arcade.dat</div><div class="rt-table-sub">技术校验值可展开查看</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">7,980 个游戏</div><div class="rt-table-sub">13 个显式 BIOS 集合</div></td><td>2 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
             <tr><td><div class="rt-table-title">MAME 2003</div><div class="rt-table-sub">DAT source 0ee1c0e · Core 4.2.1 覆盖</div></td><td><div class="rt-table-title">mame2003.xml</div><div class="rt-table-sub rt-mono">SHA-256 · dacf…a147</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">4,727 machines</div><div class="rt-table-sub">17 个 base dependency targets</div></td><td>1 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
             <tr><td><div class="rt-table-title">MAME 2003 Plus</div><div class="rt-table-sub">EmulatorJS 4.2.3 · source 09e84fe</div></td><td><div class="rt-table-title">mame2003-plus.xml</div><div class="rt-table-sub rt-mono">SHA-256 · e110…303c</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">5,257 machines</div><div class="rt-table-sub">17 个 base dependency targets</div></td><td>0 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
           </tbody></table></div>
@@ -1254,8 +1254,8 @@
       function setMode(nextMode) {
         mode = nextMode;
         root.querySelectorAll('[data-nav-mode]').forEach((group) => { group.hidden = group.dataset.navMode !== mode; });
-        modeLabel.textContent = mode === 'user' ? 'Play space' : 'Administration';
-        breadcrumbMode.textContent = mode === 'user' ? '用户侧' : '管理后台';
+        modeLabel.textContent = mode === 'user' ? '我的游戏' : '管理后台';
+        breadcrumbMode.textContent = mode === 'user' ? '我的游戏' : '管理后台';
         modeButton.querySelector('span').textContent = mode === 'user' ? '管理后台' : '返回用户侧';
         showPage(mode === 'user' ? 'home' : 'admin-import');
       }
@@ -1266,9 +1266,9 @@
       const gameDetails = {
         metal: {
           title: 'Metal Slug', coverTitle: 'METAL SLUG', coverClass: 'rt-cover-b', platform: 'Arcade / FBNeo 游戏列表 · 1996', directory: 'FBNeo 游戏列表',
-          meta: ['SNK', '动作 / 射击', '1–2 人'], description: '驾驶载具、营救俘虏并一路突破敌军防线。当前 ROM 已用 FBNeo DAT 完成 parent / BIOS 依赖解析，另有两个兼容核心可供选择。',
+          meta: ['SNK', '动作 / 射击', '1–2 人'], description: '驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。',
           hours: '2.4h', publisher: 'SNK', saveName: '沙漠据点前', saveCore: 'FBNeo', save: '今天 22:14 · FBNeo · 与当前核心兼容', dos: false, ready: true,
-          cores: ['FBNeo · 目录默认', 'MAME 2003 Plus · 兼容', 'MAME 2003 · 需验证'], check: 'ROM、parent 与 BIOS 依赖均已满足'
+          cores: ['FBNeo · 目录默认', 'MAME 2003 Plus · 兼容', 'MAME 2003 · 需验证'], check: '游戏文件和运行依赖均已就绪'
         },
         doom: {
           title: 'DOOM', coverTitle: 'DOOM', coverClass: 'rt-cover-c', platform: 'MS-DOS / DOS 经典游戏 · 1993', directory: 'DOS 经典游戏',

@@ -6,6 +6,14 @@ import { ListFilters } from "./list-filters";
 afterEach(cleanup);
 
 describe("ListFilters", () => {
+  it("only offers clear when a filter is active", () => {
+    const { rerender } = render(<ListFilters action="/library" placeholder="search" values={{ q: "" }} />);
+    expect(screen.queryByRole("link", { name: "清除" })).not.toBeInTheDocument();
+
+    rerender(<ListFilters action="/library" placeholder="search" values={{ q: "metroid" }} />);
+    expect(screen.getByRole("link", { name: "清除" })).toHaveAttribute("href", "/library");
+  });
+
   it("shows only directories belonging to the selected platform and clears a stale directory", async () => {
     const user = userEvent.setup();
     render(<ListFilters action="/library" placeholder="search" values={{}} filters={[

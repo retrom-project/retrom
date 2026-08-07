@@ -16,6 +16,7 @@
 
 /web/node_modules/
 /web/.next/
+/web/.next-e2e/
 /web/out/
 /web/coverage/
 /web/*.tsbuildinfo

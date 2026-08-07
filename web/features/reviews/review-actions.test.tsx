@@ -67,9 +67,9 @@ describe("ReviewActions", () => {
     const user = userEvent.setup();
     render(<ReviewActions review={review} />);
 
-    await user.click(screen.getByRole("button", { name: "重新查询 Hasheous" }));
+    await user.click(screen.getByRole("button", { name: "重新查询游戏信息" }));
     expect(await screen.findByRole("button", { name: "查询中…" })).toHaveAttribute("aria-busy", "true");
-    expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Hasheous 查询中");
+    expect(screen.getByRole("status", { name: "" })).toHaveTextContent("正在查询游戏信息");
 
     finishJob?.(jsonResponse({ state: "SUCCEEDED" }));
     expect(await screen.findByText("1941: Counter Attack")).toBeInTheDocument();

@@ -479,6 +479,10 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	contentID := "01980000-0000-7000-8000-000000000103"
 	coverBlobID := "01980000-0000-7000-8000-000000000104"
 	coverAssetID := "01980000-0000-7000-8000-000000000105"
+	variantID := "01980000-0000-7000-8000-000000000106"
+	variantRevisionID := "01980000-0000-7000-8000-000000000107"
+	saveStateID := "01980000-0000-7000-8000-000000000108"
+	coreArtifactID := "01980000-0000-7000-8000-000000000109"
 	transaction, err := server.database.Begin()
 	if err != nil {
 		t.Fatal(err)
@@ -622,6 +626,45 @@ direct_launch_safe) VALUES(?,
 `, contentID, contentID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := transaction.Exec(`
+INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
+source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
+VALUES(?,'dosbox_pure','4.2.3','test','THREAD_WASM','cores/dosbox_pure.js',1,?,NULL,'{}','{}',1,1,?,?)
+`, coreArtifactID, strings.Repeat("6", 64), now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,NULL,1,?,?)
+`, variantID, gameID, "dosbox_pure", now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
+validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
+VALUES(?,?,?,?,NULL,?,9001,'READY','READY','{}',NULL,?)
+`, variantRevisionID, variantID, contentID, coreArtifactID, strings.Repeat("5", 64), now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec("UPDATE game_variants SET current_revision_id=? WHERE id=?", variantRevisionID, variantID); err != nil {
+		t.Fatal(err)
+	}
+	screenshot := []byte("retrom-save-screenshot")
+	screenshotMetadata, err := server.blobs.Put(bytes.NewReader(screenshot))
+	if err != nil {
+		t.Fatal(err)
+	}
+	screenshotBlobID, err := blobstore.EnsureRecord(t.Context(), transaction, screenshotMetadata, "image/png", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO save_states(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,dat_version_id,dos_entry_path,
+state_blob_id,screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms)
+VALUES(?,'local',?,?,?,NULL,NULL,?,?,'入口存档',180000,1,?,?,NULL)
+`, saveStateID, gameID, variantRevisionID, coreArtifactID, screenshotBlobID, screenshotBlobID, now, now); err != nil {
+		t.Fatal(err)
+	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
@@ -641,12 +684,16 @@ direct_launch_safe) VALUES(?,
 			Path             string `json:"path"`
 			DirectLaunchSafe bool   `json:"directLaunchSafe"`
 		} `json:"dosEntries"`
+		SaveStates []struct {
+			SaveStateID   string `json:"saveStateId"`
+			ScreenshotURL string `json:"screenshotUrl"`
+		} `json:"saveStates"`
 	}
 	if err := json.Unmarshal(recorder.Body.Bytes(), &response); err != nil {
 		t.Fatal(err)
 	}
 	if len(response.CoreOptions) != 1 || response.CoreOptions[0].CoreID != "dosbox_pure" ||
-		response.CoreOptions[0].Status != "NEEDS_VALIDATION" {
+		response.CoreOptions[0].Status != "READY" {
 		t.Fatalf("core options = %#v", response.CoreOptions)
 	}
 	expectedCoverURL := "/content/assets/" + coverAssetID
@@ -654,13 +701,43 @@ direct_launch_safe) VALUES(?,
 		len(response.DOSEntries) != 2 ||
 		response.DOSEntries[0].Path != "GAMES/DOOM.EXE" ||
 		!response.DOSEntries[0].DirectLaunchSafe ||
-		response.DOSEntries[1].DirectLaunchSafe {
+		response.DOSEntries[1].DirectLaunchSafe || len(response.SaveStates) != 1 ||
+		response.SaveStates[0].ScreenshotURL != saveStateScreenshotURL(saveStateID) {
 		t.Fatalf("DOS choices = default:%v entries:%#v", response.DefaultDOSEntry, response.DOSEntries)
 	}
 	list := httptest.NewRecorder()
 	server.Handler().ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/api/v1/games?limit=100", nil))
 	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`) {
 		t.Fatalf("game list cover = %d: %s", list.Code, list.Body.String())
+	}
+	saves := httptest.NewRecorder()
+	server.Handler().ServeHTTP(saves, httptest.NewRequest(http.MethodGet, "/api/v1/saves", nil))
+	if saves.Code != http.StatusOK ||
+		!strings.Contains(saves.Body.String(), `"screenshotUrl":"`+saveStateScreenshotURL(saveStateID)+`"`) ||
+		!strings.Contains(saves.Body.String(), `"activeDurationMs":180000`) {
+		t.Fatalf("save list projection = %d: %s", saves.Code, saves.Body.String())
+	}
+	screenshotResponse := httptest.NewRecorder()
+	server.Handler().ServeHTTP(
+		screenshotResponse,
+		httptest.NewRequest(http.MethodGet, saveStateScreenshotURL(saveStateID), nil),
+	)
+	if screenshotResponse.Code != http.StatusOK || screenshotResponse.Body.String() != string(screenshot) ||
+		screenshotResponse.Header().Get("Cache-Control") != "private, no-store" ||
+		screenshotResponse.Header().Get("Content-Type") != "image/png" {
+		t.Fatalf("save screenshot = %d headers=%v body=%q", screenshotResponse.Code, screenshotResponse.Header(), screenshotResponse.Body.String())
+	}
+	if _, err := server.database.Exec("UPDATE save_states SET deleted_at_ms=? WHERE id=?", now+1, saveStateID); err != nil {
+		t.Fatal(err)
+	}
+	deletedScreenshot := httptest.NewRecorder()
+	server.Handler().ServeHTTP(
+		deletedScreenshot,
+		httptest.NewRequest(http.MethodGet, saveStateScreenshotURL(saveStateID), nil),
+	)
+	if deletedScreenshot.Code != http.StatusNotFound ||
+		!strings.Contains(deletedScreenshot.Body.String(), `"code":"SAVE_SCREENSHOT_NOT_FOUND"`) {
+		t.Fatalf("deleted save screenshot = %d: %s", deletedScreenshot.Code, deletedScreenshot.Body.String())
 	}
 }
 

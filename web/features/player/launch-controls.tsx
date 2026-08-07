@@ -21,6 +21,13 @@ export type DOSEntry = {
   directLaunchSafe: boolean;
 };
 
+const coreStatusLabels: Record<CoreOption["status"], string> = {
+  READY: "可运行",
+  NEEDS_VALIDATION: "将在启动时检查",
+  DEPENDENCY_MISSING: "缺少运行依赖",
+  INCOMPATIBLE: "不兼容"
+};
+
 export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntry }: {
   gameId: string;
   coreOptions: CoreOption[];
@@ -44,7 +51,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
     <div className="field">
       <label htmlFor="core">本次运行核心</label>
       <select id="core" name="core" value={coreId} onChange={(event) => selectCore(event.target.value)}>
-        {coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 目录默认" : ""} · {core.status}</option>)}
+        {coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 目录默认" : ""} · {coreStatusLabels[core.status]}</option>)}
       </select>
     </div>
     {isDOS ? <div className="field">
@@ -57,7 +64,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
     {selectedCore?.status === "READY" ? <p><StatusBadge tone="good">运行依赖已就绪</StatusBadge></p> : null}
     {selectedCore?.status === "NEEDS_VALIDATION" ? <p><StatusBadge tone="neutral">启动时验证此核心</StatusBadge></p> : null}
     {blocked ? <p><StatusBadge tone="bad">当前核心需要修复依赖</StatusBadge></p> : null}
-    <p className="game-meta">启动时会再次验证 Core、DAT、BIOS 与内容 revision。</p>
+    <p className="game-meta">开始前会再次检查游戏文件、运行核心和必要依赖。</p>
     <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} disabled={blocked} />
   </aside>;
 }

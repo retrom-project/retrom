@@ -2,50 +2,88 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import { AppIcon, type AppIconName } from "@/components/app-icon";
 
-type NavItem = { href: string; label: string; icon: string; exact?: boolean; child?: boolean };
+type NavItem = { href: string; label: string; icon: AppIconName; exact?: boolean; child?: boolean };
 
 const userNavigation: NavItem[] = [
-  { href: "/", label: "首页", icon: "⌂", exact: true },
-  { href: "/library", label: "游戏库", icon: "▦" },
-  { href: "/saves", label: "我的存档", icon: "◫" }
+  { href: "/", label: "首页", icon: "home", exact: true },
+  { href: "/library", label: "游戏库", icon: "library" },
+  { href: "/saves", label: "我的存档", icon: "save" }
 ];
 
 const adminNavigation: NavItem[] = [
-  { href: "/admin/imports", label: "游戏入库", icon: "⇩", exact: true },
-  { href: "/admin/imports/new", label: "导入文件 / 目录", icon: "＋", child: true },
-  { href: "/admin/imports/tasks", label: "任务进度", icon: "◴", child: true },
-  { href: "/admin/reviews", label: "待审核", icon: "✓", exact: true, child: true },
-  { href: "/admin/reviews/history", label: "审核历史", icon: "↺", child: true },
-  { href: "/admin/games", label: "游戏管理", icon: "▦" },
-  { href: "/admin/platform-instances", label: "平台目录", icon: "▤" },
-  { href: "/admin/bios", label: "BIOS 管理", icon: "◇", exact: true },
-  { href: "/admin/bios/dats", label: "Arcade DAT", icon: "≋", child: true }
+  { href: "/admin/imports", label: "游戏入库", icon: "download", exact: true },
+  { href: "/admin/imports/new", label: "导入文件 / 目录", icon: "plus", child: true },
+  { href: "/admin/imports/tasks", label: "任务进度", icon: "clock", child: true },
+  { href: "/admin/reviews", label: "待审核", icon: "check", exact: true, child: true },
+  { href: "/admin/reviews/history", label: "审核历史", icon: "history", child: true },
+  { href: "/admin/games", label: "游戏管理", icon: "library" },
+  { href: "/admin/platform-instances", label: "平台目录", icon: "list" },
+  { href: "/admin/bios", label: "BIOS 管理", icon: "chip", exact: true },
+  { href: "/admin/bios/dats", label: "街机数据目录", icon: "database", child: true }
 ];
 
-function active(item: NavItem, pathname: string) {
-  if (item.href === "/admin/imports" &&
-    (pathname.startsWith("/admin/imports") || pathname.startsWith("/admin/reviews"))) return true;
-  if (item.exact) return pathname === item.href;
-  return pathname === item.href || pathname.startsWith(`${item.href}/`);
+function navState(item: NavItem, pathname: string): "active" | "context" | "" {
+  if (item.href === "/admin/imports" && pathname !== item.href &&
+    (pathname.startsWith("/admin/imports") || pathname.startsWith("/admin/reviews"))) return "context";
+  if (item.exact) return pathname === item.href ? "active" : "";
+  return pathname === item.href || pathname.startsWith(`${item.href}/`) ? "active" : "";
 }
 
 function Navigation({ items, pathname }: { items: NavItem[]; pathname: string }) {
   return (
     <nav aria-label="主要导航" className="side-nav">
-      {items.map((item) => (
-        <Link
-          className={`nav-link ${item.child ? "nav-child" : ""} ${active(item, pathname) ? "is-active" : ""}`}
+      {items.map((item) => {
+        const state = navState(item, pathname);
+        return <Link
+          aria-current={state === "active" ? "page" : undefined}
+          className={`nav-link ${item.child ? "nav-child" : ""} ${state === "active" ? "is-active" : ""} ${state === "context" ? "is-context" : ""}`}
           href={item.href}
           key={item.href}
         >
-          <span aria-hidden="true" className="nav-icon">{item.icon}</span>
+          <AppIcon className="nav-icon" name={item.icon} />
           <span>{item.label}</span>
-        </Link>
-      ))}
+        </Link>;
+      })}
     </nav>
   );
+}
+
+function breadcrumbs(pathname: string) {
+  const root = pathname.startsWith("/admin") ? "管理后台" : "我的游戏";
+  const routes: Array<[string, string[]]> = [
+    ["/admin/reviews/history", ["游戏入库", "审核历史"]],
+    ["/admin/reviews/", ["游戏入库", "待审核", "审核条目"]],
+    ["/admin/reviews", ["游戏入库", "待审核"]],
+    ["/admin/imports/new", ["游戏入库", "导入内容"]],
+    ["/admin/imports/tasks", ["游戏入库", "任务进度"]],
+    ["/admin/imports", ["游戏入库"]],
+    ["/admin/games/", ["游戏管理", "游戏详情"]],
+    ["/admin/games", ["游戏管理"]],
+    ["/admin/platform-instances", ["平台目录"]],
+    ["/admin/bios/dats", ["BIOS 管理", "街机数据目录"]],
+    ["/admin/bios", ["BIOS 管理"]],
+    ["/games/", ["游戏详情"]],
+    ["/library", ["游戏库"]],
+    ["/saves", ["我的存档"]],
+    ["/", ["首页"]]
+  ];
+  return [root, ...(routes.find(([prefix]) => prefix === "/" ? pathname === "/" : pathname === prefix || pathname.startsWith(prefix))?.[1] ?? [])];
+}
+
+function ServiceHealth() {
+  const [state, setState] = useState<"checking" | "ready" | "unavailable">("checking");
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/health/ready", { cache: "no-store", signal: controller.signal })
+      .then((response) => setState(response.ok ? "ready" : "unavailable"))
+      .catch((error: unknown) => { if (!(error instanceof DOMException && error.name === "AbortError")) setState("unavailable"); });
+    return () => controller.abort();
+  }, []);
+  const label = state === "checking" ? "正在检查服务" : state === "ready" ? "服务正常" : "服务不可用";
+  return <span className={`connection ${state}`} aria-live="polite"><i />{label}</span>;
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -65,16 +103,12 @@ export function AppShell({ children }: { children: ReactNode }) {
             <span aria-hidden="true">{administrator ? "←" : "⚙"}</span>
             {administrator ? "返回用户侧" : "管理后台"}
           </Link>
-          <div className="system-state"><i />系统运行正常</div>
         </div>
       </aside>
       <div className="app-body">
         <header className="topbar">
-          <span className="breadcrumb">{administrator ? "管理后台" : "我的游戏空间"}</span>
-          <div className="top-actions">
-            <span className="connection"><i />本机服务</span>
-            <span className="avatar" aria-label="本地玩家">本</span>
-          </div>
+          <nav aria-label="面包屑" className="breadcrumb"><ol>{breadcrumbs(pathname).map((item, index) => <li key={`${item}-${index}`}>{index ? <span aria-hidden="true">/</span> : null}{item}</li>)}</ol></nav>
+          <ServiceHealth />
         </header>
         <main className="content">{children}</main>
       </div>
