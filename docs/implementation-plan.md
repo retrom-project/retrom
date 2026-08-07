@@ -98,7 +98,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 ### M5：用户目录与一键启动
 
-范围：首页、游戏库、详情、存档列表空壳的真实 API；LaunchSession/HMAC capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202 `VARIANT_REVALIDATE`/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 确定性启动包；Player Shell 通过 config 的显式 `playerAdapterId` 设置该锁定 EmulatorJS 版本的 globals、callback、locale 与 artifact basename override，未知/错配 adapter 在加载 loader 前阻断，并在同一次 click 中请求全屏和自动开始。当前首个 adapter 对应 v4.2.3。
+范围：首页、游戏库、详情、存档列表空壳的真实 API；LaunchSession/HMAC capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202 `VARIANT_REVALIDATE`/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 原 bundle 加 Launch 受限旁置 config；Player Shell 通过 config 的显式 `playerAdapterId` 设置该锁定 EmulatorJS 版本的 globals、callback、locale、external files 与 artifact basename override，未知/错配 adapter 在加载 loader 前阻断，并在同一次 click 中请求全屏和自动开始。当前首个 adapter 对应 v4.2.3。
 
 退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`005` 与 `ACC-CORE-001`–`008`；若依赖版本发生变化另执行 `ACC-DAT-006`。核心 Case 与核心的映射以验收文档表格为准，使用本地授权夹具；夹具不可用时可以阻塞这些 Case，但不能以 mock 或历史截图判为通过。
 

@@ -984,6 +984,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runtime/launches/{launchId}/dos-config/game.conf": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getRuntimeDOSConfig"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runtime/launches/{launchId}/start": {
         parameters: {
             query?: never;
@@ -1413,6 +1431,7 @@ export interface components {
             defaultCoreId?: unknown;
             defaultCoreName?: unknown;
             defaultCoreOptions?: unknown;
+            externalFiles?: unknown;
             defaultDosEntry?: unknown;
             deleteImpact?: unknown;
             deleted?: unknown;
@@ -1738,6 +1757,15 @@ export interface components {
             };
             content: {
                 "application/octet-stream": string;
+            };
+        };
+        /** @description Ephemeral DOSBox Pure entry configuration */
+        DOSConfigResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "text/plain": string;
             };
         };
     };
@@ -3070,6 +3098,20 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    getRuntimeDOSConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["DOSConfigResponse"];
         };
     };
     postRuntimeLaunchStart: {

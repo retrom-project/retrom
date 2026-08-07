@@ -227,13 +227,14 @@ summary { cursor: pointer; }
 .launch-panel .button { width: 100%; margin-top: 16px; }
 .save-strip { margin-top: 20px; }
 
-.player-shell { width: 100vw; height: 100dvh; overflow: hidden; display: grid; grid-template-rows: 56px 1fr; color: white; background: #080b12; }
-.player-toolbar { padding: 0 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid #242a36; background: #111622; }
+.player-shell { position: relative; width: 100vw; height: 100dvh; overflow: hidden; color: white; background: #000; }
+.player-toolbar { position: absolute; z-index: 4; inset: 0 0 auto; height: 56px; padding: 0 24px; display: flex; align-items: center; justify-content: space-between; border-bottom: 1px solid rgb(77 86 104 / 80%); background: rgb(17 22 34 / 92%); box-shadow: 0 8px 24px rgb(0 0 0 / 28%); opacity: 0; pointer-events: none; transform: translateY(-100%); transition: opacity 150ms ease, transform 150ms ease; backdrop-filter: blur(10px); }
+.player-toolbar.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
 .player-toolbar strong { font-size: 14px; }
 .player-save-status { flex: 1; padding: 0 20px; color: #aab4c5; font-size: 12px; text-align: right; }
 .player-actions { display: flex; gap: 9px; }
 .player-actions button, .player-actions a { min-height: 36px; padding: 0 13px; display: inline-flex; align-items: center; border: 1px solid #343b49; border-radius: 8px; color: #e9ecf3; background: #1a202c; font-size: 12px; }
-.player-stage { margin: 24px; min-width: 0; min-height: 0; display: grid; place-items: center; border-radius: 8px; overflow: hidden; background: #000; }
+.player-stage { position: absolute; inset: 0; min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; background: #000; }
 .player-frame { grid-area: 1 / 1; width: 100%; height: 100%; border: 0; background: #000; }
 .player-loading { z-index: 2; grid-area: 1 / 1; padding: 24px; text-align: center; color: #b8c0ce; background: rgb(0 0 0 / 86%); border-radius: 10px; }
 .player-loading i { width: 42px; height: 42px; display: block; margin: 0 auto 15px; border: 4px solid #343c4b; border-top-color: #8d7df1; border-radius: 50%; animation: spin 1s linear infinite; }
@@ -255,7 +256,6 @@ summary { cursor: pointer; }
   .game-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 24px; }
   .admin-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
   .kpi-grid { gap: 22px; }
-  .player-stage { margin: 48px; }
 }
 @media (max-width: 1279px) {
   .app-frame { min-width: 1080px; }

@@ -102,7 +102,7 @@ func New(
 	now func() time.Time,
 ) *Server {
 	scraper := metadatascrape.New(database, blobs, hasheous.New(nil, nil, now), now)
-	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs)
+	launcher := launch.New(database, dependencySet, credentials, now)
 	arcadeDAT := arcadecatalog.New(
 		database,
 		blobs,
@@ -213,6 +213,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
 	mux.HandleFunc("HEAD /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/config", server.launchConfig)
+	mux.HandleFunc("GET /runtime/launches/{launchId}/dos-config/game.conf", server.launchDOSConfig)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/game/{logicalName}", server.launchGame)
 	mux.HandleFunc("HEAD /runtime/launches/{launchId}/game/{logicalName}", server.launchGame)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/bios/bundle.zip", server.launchBIOSBundle)
@@ -581,6 +582,22 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 	}
 	writer.Header().Set("Vary", "Cookie")
 	writeJSON(writer, http.StatusOK, configuration)
+}
+
+func (server *Server) launchDOSConfig(writer http.ResponseWriter, request *http.Request) {
+	configuration, err := server.launcher.DOSConfig(
+		request.Context(),
+		request.PathValue("launchId"),
+		server.launchCapability(request),
+	)
+	if err != nil {
+		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "DOS 启动配置不可用", map[string]any{})
+		return
+	}
+	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	writer.Header().Set("Cache-Control", "private, no-store")
+	writer.Header().Set("Vary", "Cookie")
+	http.ServeContent(writer, request, "game.conf", time.Unix(0, 0), strings.NewReader(configuration))
 }
 
 func (server *Server) launchGame(writer http.ResponseWriter, request *http.Request) {

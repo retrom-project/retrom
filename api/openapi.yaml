@@ -477,6 +477,12 @@ paths:
       operationId: getRuntimeLaunchConfig
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
+  /runtime/launches/{launchId}/dos-config/game.conf:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    get:
+      operationId: getRuntimeDOSConfig
+      responses:
+        '200': { $ref: '#/components/responses/DOSConfigResponse' }
   /runtime/launches/{launchId}/start:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     post:
@@ -909,6 +915,7 @@ components:
         defaultCoreId: {}
         defaultCoreName: {}
         defaultCoreOptions: {}
+        externalFiles: {}
         defaultDosEntry: {}
         deleteImpact: {}
         deleted: {}
@@ -1226,6 +1233,11 @@ components:
       content:
         application/octet-stream:
           schema: { type: string, format: binary }
+    DOSConfigResponse:
+      description: Ephemeral DOSBox Pure entry configuration
+      content:
+        text/plain:
+          schema: { type: string }
   parameters:
     Q: { name: q, in: query, schema: { type: string, maxLength: 200 } }
     PlatformIDQuery: { name: platformId, in: query, schema: { type: string } }

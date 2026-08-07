@@ -84,6 +84,7 @@
   window.EJS_paths = config.coreArtifactUrl && config.coreArtifactFilename
     ? { [config.coreArtifactFilename]: config.coreArtifactUrl }
     : {};
+  window.EJS_externalFiles = { ...(config.externalFiles || {}) };
   // Chrome is the only supported browser in phase one. Pin WebGL2 so the smoke
   // suite exercises the modern 4.2.3 core artifact instead of the legacy build.
   window.EJS_defaultOptions = {

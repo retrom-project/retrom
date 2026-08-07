@@ -267,17 +267,20 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
     "mame2003-wasm.data": "/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"
   },
   "defaultCoreOptions": {"webgl2Enabled":"enabled"},
+  "externalFiles": {},
   "dosEntry": null,
   "warnings": [],
   "returnTo": "/games/0198..."
 }
 ```
 
-`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止 `__proto__/prototype/constructor`；固定基线、适用 BIOS Requirement activation options 与 DOS option 按运行时专题合并，不能接受客户端输入或前端补写。`emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；`runtimeBaseUrl/loaderUrl/runtimePathOverrides` 都来自该精确版本的已校验 manifest/compatibility config。`runtimePathOverrides` 只能有一个条目：key 是相应版本 loader 实际请求的 core artifact basename，value 必须命中本次 CoreArtifact 的 manifest URL；v4.2.3 的 `mame2003-wasm.data` 尤其指向固定 4.2.1 override。所有 URL 必须是以 `/` 开头的同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写的任意 URL。重复 config GET 返回相同快照，不重新做配置选择；start 前只受 hard expiry，start 后由 heartbeat 刷新 idle；已撤销/过期统一返回 `401 LAUNCH_CREDENTIAL_INVALID`。
+`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止 `__proto__/prototype/constructor`；固定基线、适用 BIOS Requirement activation options 与 DOS option 按运行时专题合并，不能接受客户端输入或前端补写。`externalFiles` 通常为空；只在 DOS 直接启动时精确为 `{ "/game.conf": "/runtime/launches/<launchId>/dos-config/game.conf" }`，前端必须拒绝其他虚拟路径、跨 Launch 或跨源 URL。`emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；`runtimeBaseUrl/loaderUrl/runtimePathOverrides` 都来自该精确版本的已校验 manifest/compatibility config。`runtimePathOverrides` 只能有一个条目：key 是相应版本 loader 实际请求的 core artifact basename，value 必须命中本次 CoreArtifact 的 manifest URL；v4.2.3 的 `mame2003-wasm.data` 尤其指向固定 4.2.1 override。所有 URL 必须是以 `/` 开头的同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写的任意 URL。重复 config GET 返回相同快照，不重新做配置选择；start 前只受 hard expiry，start 后由 heartbeat 刷新 idle；已撤销/过期统一返回 `401 LAUNCH_CREDENTIAL_INVALID`。
 
 `gameUrl` 的 `logicalName` 保留实际运行文件后缀；host console ZIP 已在入库时物化为唯一可运行 member，Arcade 与 DOS 才向 EJS 提供规范 ZIP。BIOS/parent 外层 bundle 的结构见运行时专题。config response 先按严格 JSON schema 校验，再由 Player adapter 设置 globals；页面不得从 core 名称自行推导文件名、线程开关、option 或 URL。
 
 二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。受限 URL 不包含 Blob ID/hash，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
+
+`GET /runtime/launches/{launchId}/dos-config/game.conf` 只对 `ACTIVE`、未过 hard expiry、选择了安全 DOS entry 且锁定 `SOURCE_V1` bundle 的 DOSBox Pure Launch 开放。它使用同一 HttpOnly launch cookie，返回 `text/plain; charset=utf-8`、`Cache-Control: private, no-store` 的确定性 `[autoexec]`，不创建 Blob、临时文件或数据库记录；其他 Launch 与无效 cookie 统一返回 `401 LAUNCH_CREDENTIAL_INVALID`。
 
 运行中写入要求正确 launch cookie：
 

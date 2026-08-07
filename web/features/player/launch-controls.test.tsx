@@ -3,6 +3,9 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LaunchControls, type CoreOption, type DOSEntry } from "./launch-controls";
 
+const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
+
 const cores: CoreOption[] = [
   { coreId: "mgba", name: "mGBA", isDefault: true, status: "READY", reasons: [] },
   { coreId: "gambatte", name: "Gambatte", isDefault: false, status: "NEEDS_VALIDATION", reasons: [{ code: "VARIANT_VALIDATION_REQUIRED", level: "INFO" }] }
@@ -18,6 +21,7 @@ describe("LaunchControls", () => {
 
   beforeEach(() => {
     requests.length = 0;
+    navigation.replace.mockReset();
     Object.defineProperty(document.documentElement, "requestFullscreen", { configurable: true, value: vi.fn().mockResolvedValue(undefined) });
     vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
       requests.push(String(init?.body));
@@ -40,6 +44,16 @@ describe("LaunchControls", () => {
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(JSON.parse(requests[0])).toMatchObject({ gameId: "game-1", coreId: "gambatte", dosEntry: null });
+  });
+
+  it("keeps the fullscreen document alive by using App Router navigation", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ launchId: "launch-1", playUrl: "/play/launch-1" }), { status: 201, headers: { "Content-Type": "application/json" } })));
+    render(<LaunchControls gameId="game-1" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />);
+
+    await user.click(screen.getByRole("button", { name: "开始游戏" }));
+
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/play/launch-1"));
   });
 
   it("exits fullscreen and exposes a repair entry when BIOS blocks launch", async () => {

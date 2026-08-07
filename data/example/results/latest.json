@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAtMs": 1786029921447,
+  "generatedAtMs": 1786038865579,
   "emulatorjs": {
     "version": "4.2.3",
     "archiveSha256": "07d451bc06fa3ad04ab30d9b94eb63ac34ad0babee52d60357b002bde8f3850b"
@@ -22,9 +22,9 @@
       "core": "dosbox_pure",
       "status": "passed",
       "failure": null,
-      "startedAtMs": 1786029901416,
-      "finishedAtMs": 1786029921446,
-      "durationMs": 20030,
+      "startedAtMs": 1786038845466,
+      "finishedAtMs": 1786038865579,
+      "durationMs": 20113,
       "pageUrl": "http://127.0.0.1:4173/data/example/dosbox_pure/index.html",
       "screenshotPath": "data/example/results/dosbox_pure.png",
       "smoke": {
@@ -32,13 +32,13 @@
         "system": "dos",
         "title": "MS-DOS / DOOM II",
         "phase": "frames-advancing",
-        "configuredAtMs": 1786029901540,
-        "readyAtMs": 1786029901910,
-        "startedAtMs": 1786029903270,
-        "framesAdvancingAtMs": 1786029905527,
+        "configuredAtMs": 1786038845606,
+        "readyAtMs": 1786038845986,
+        "startedAtMs": 1786038847341,
+        "framesAdvancingAtMs": 1786038849593,
         "frameStart": 0,
-        "frameNow": 122,
-        "frameDelta": 122,
+        "frameNow": 123,
+        "frameDelta": 123,
         "canvas": {
           "width": 1246,
           "height": 549,
@@ -73,6 +73,12 @@
         },
         {
           "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/dosbox_pure-thread-wasm.data",
+          "status": 200
+        }
+      ],
+      "requestedExternalFiles": [
+        {
+          "url": "http://127.0.0.1:4173/data/example/dosbox_pure/game.conf",
           "status": 200
         }
       ],

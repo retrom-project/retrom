@@ -100,8 +100,8 @@
 - `2600px+`：280px 侧栏、44px 内容内边距、游戏库 8 列、存档/管理 5 列。
 - 4K 基准正文 16px；表格/徽标/辅助文本不低于 12px，输入框和按钮不低于 14px、42px 高。
 - 详情 Hero 为“封面 / 元信息 / 启动配置”三列，启动面板不漂移到物理屏幕最右侧。
-- Player Shell 不受普通内容最大宽度限制。stage 固定占满 `100vw × 100dvh`；工具栏 56px，四周安全留白在 1280–2599px 为 24px、2600px+ 为 48px。画布容器可用宽高分别为 `100vw - 2×留白` 与 `100dvh - 56px - 2×留白`。
-- EJS canvas 的 CSS 宽度为 `min(可用宽度, 可用高度 × 当前 drawing-buffer 宽高比)`，CSS 高度由同一宽高比反推，且 `max-width/max-height: 100%`、水平/垂直居中。ResizeObserver 在 drawing buffer 比例变化时更新 CSS custom property；不得用 `vh` 直接当宽度、拉伸到容器两边或裁切画面。只有 CoreArtifact 的版本化兼容配置可以调整 backing buffer，不能改变此 contain 布局。
+- Player Shell 不受普通内容最大宽度限制。stage 无圆角、无外边距并固定占满 `100vw × 100dvh`；56px 工具栏叠加在画面上方，不能占用 canvas 可用区。
+- EJS canvas 的 CSS 宽度为 `min(100vw, 100dvh × 当前 drawing-buffer 宽高比)`，CSS 高度由同一宽高比反推并在 viewport 水平/垂直居中；因此宽或高至少有一边贴满屏幕，宽高比不一致时只在另一轴保留必要的 letterbox。ResizeObserver/画布尺寸观察在 viewport 或 drawing buffer 比例变化时重算；不得拉伸到错误宽高比或裁切画面。只有 CoreArtifact 的版本化兼容配置可以调整 backing buffer，不能改变此 contain 布局。
 - UI 验收覆盖最小桌面 `1280×800` CSS viewport、`2560×1440` CSS viewport，以及 3840×2160、系统缩放 100% 的 4K viewport。
 
 ## 5. 全局状态
@@ -175,7 +175,7 @@ Hero 展示封面、标题、基础平台/平台目录、年份、开发商、�
 
 - 默认请求浏览器全屏，并隐藏普通侧边栏和顶部导航。
 - 加载层只展示 Variant 验证/依赖物化、预检、Core/WASM、ROM、BIOS、存档恢复等进度。验证 Job 失败时退出全屏并返回来源上下文，不自动无限重建 Job。
-- 运行工具包含保存进度、控制器、全屏切换和退出。
+- 运行工具包含保存进度、控制器、全屏切换和退出；游戏进入运行态 2 秒无交互后，56px 工具栏向上隐藏，鼠标在任意画面移动或键盘聚焦工具时立即展示，指针/焦点停留在工具栏内时不得自动消失。
 - `Escape` 仅退出浏览器全屏，不结束游戏。
 - 显式退出时刷新持久存档、结束 PlaySession，并返回发起本次启动的详情页、存档页或首页。
 - 若另一会话已推进同一 PersistentSave，当前保存以冲突停止，不能覆盖服务器版本或自动死循环；加载层/退出面板必须保留本地 bytes，提供“下载当前保存”和“退出后重新启动”，在用户处理前不谎报“保存成功”。

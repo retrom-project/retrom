@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { newUuid } from "@/lib/crypto";
 
@@ -34,6 +35,7 @@ function waitForValidation(jobId: string) {
 }
 
 export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEntry = null, returnTo = `/games/${gameId}`, disabled = false, label = "开始游戏" }: { gameId: string; coreId?: string | null; saveStateId?: string | null; dosEntry?: string | null; returnTo?: string; disabled?: boolean; label?: string }) {
+  const router = useRouter();
   const [state, setState] = useState<"idle" | "starting" | "blocked">("idle");
   const [message, setMessage] = useState("");
 
@@ -73,7 +75,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
           continue;
         }
         const result = await response.json() as LaunchResponse;
-        window.location.assign(result.playUrl);
+        router.replace(result.playUrl);
         return;
       }
       throw new Error("核心验证完成后仍无法启动");
