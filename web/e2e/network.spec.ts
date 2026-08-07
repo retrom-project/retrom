@@ -7,7 +7,8 @@ async function navigationEvidence(page: Page) {
   page.on("console", (message) => {
     if (message.type() === "error") consoleErrors.push(message.text());
   });
-  const response = await page.goto("/", { waitUntil: "networkidle" });
+  const response = await page.goto("/", { waitUntil: "load" });
+  await expect(page.getByRole("main")).toBeVisible();
   expect(response?.ok()).toBe(true);
   const csp = response?.headers()["content-security-policy"] ?? "";
   const nonce = csp.match(noncePattern)?.[1] ?? "";

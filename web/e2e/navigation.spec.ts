@@ -3,7 +3,7 @@ import { expect, test } from "@playwright/test";
 test("user and admin navigation remain usable without page overflow", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Retrom 首页" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: /本地玩家/ })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
   await page.getByRole("link", { name: "管理后台" }).click();
   await expect(page).toHaveURL(/\/admin\/imports$/);
   await expect(page.getByRole("heading", { name: "游戏入库" })).toBeVisible();
@@ -62,7 +62,7 @@ test("library grid and management workbench match desktop breakpoints", async ({
     const expectedColumns = testInfo.project.name === "chrome-1280" ? 4 : testInfo.project.name === "chrome-1440p" ? 6 : 8;
     expect(await page.locator(".game-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(expectedColumns);
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
-    for (const heading of ["发布信息", "媒体", "内容与运行版本", "管理操作"]) await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    for (const heading of ["发布信息", "媒体", "游戏内容与运行环境", "管理操作"]) await expect(page.getByRole("heading", { name: heading })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
   await page.screenshot({ path: testInfo.outputPath("library-and-game-admin.png"), fullPage: true });
@@ -75,8 +75,8 @@ test("BIOS, DAT and save controls are labeled and keyboard reachable", async ({ 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.goto("/admin/bios/dats");
   await expect(page.getByRole("heading", { name: "Arcade DAT 版本" })).toBeVisible();
-  await expect(page.getByLabel("目标 CoreArtifact")).toBeVisible();
-  await expect(page.getByLabel("DAT XML 文件")).toBeVisible();
+  await expect(page.getByLabel("目标核心版本")).toBeVisible();
+  await expect(page.getByRole("button", { name: "选择 DAT 或 XML 文件" })).toBeVisible();
   await page.goto("/saves?availability=ALL");
   await expect(page.getByRole("heading", { name: "我的存档" })).toBeVisible();
   const management = page.getByText("管理存档").first();

@@ -445,6 +445,16 @@ paths:
       operationId: headContentAsset
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
+  /content/save-states/{saveStateId}/screenshot:
+    parameters: [{ $ref: '#/components/parameters/SaveStateID' }]
+    get:
+      operationId: getSaveStateScreenshot
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+    head:
+      operationId: headSaveStateScreenshot
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
   /api/v1/admin/review-assets/{assetId}:
     parameters: [{ $ref: '#/components/parameters/AssetID' }]
     get:

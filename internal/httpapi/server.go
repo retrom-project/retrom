@@ -207,6 +207,8 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/admin/games/{gameId}/move", server.moveGame)
 	mux.HandleFunc("GET /content/assets/{assetId}", server.contentAsset)
 	mux.HandleFunc("HEAD /content/assets/{assetId}", server.contentAsset)
+	mux.HandleFunc("GET /content/save-states/{saveStateId}/screenshot", server.saveStateScreenshot)
+	mux.HandleFunc("HEAD /content/save-states/{saveStateId}/screenshot", server.saveStateScreenshot)
 	mux.HandleFunc("GET /api/v1/admin/review-assets/{assetId}", server.reviewCandidateAsset)
 	mux.HandleFunc("HEAD /api/v1/admin/review-assets/{assetId}", server.reviewCandidateAsset)
 	mux.HandleFunc("GET /api/v1/admin/diagnostics", server.diagnostics)
@@ -1066,7 +1068,15 @@ p.name,
 pi.id,
 pi.name,
 max(ps.updated_at_ms),
-sum(ps.active_duration_ms)
+sum(ps.active_duration_ms),
+(SELECT a.id
+ FROM game_assets a
+ WHERE a.game_id=g.id
+ AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.kind='COVER'
+ ORDER BY a.ordinal,
+ a.id
+ LIMIT 1)
 FROM play_sessions ps
 JOIN games g ON g.id=ps.game_id
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
@@ -1091,6 +1101,7 @@ g.id LIMIT 6
 	for gameRows.Next() {
 		var gameID, title, platformID, platformName, instanceID, instanceName string
 		var lastPlayedAtMS, durationMS int64
+		var coverAssetID sql.NullString
 		if err := gameRows.Scan(
 			&gameID,
 			&title,
@@ -1100,6 +1111,7 @@ g.id LIMIT 6
 			&instanceName,
 			&lastPlayedAtMS,
 			&durationMS,
+			&coverAssetID,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -1113,7 +1125,7 @@ g.id LIMIT 6
 				"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
 				"lastPlayedAtMs":   lastPlayedAtMS,
 				"activeDurationMs": durationMS,
-				"coverUrl":         nil,
+				"coverUrl":         gameCoverURL(coverAssetID),
 			},
 		)
 	}
@@ -1154,11 +1166,12 @@ s.id DESC LIMIT 3
 		recentSaves = append(
 			recentSaves,
 			map[string]any{
-				"saveStateId": saveID,
-				"gameId":      gameID,
-				"gameTitle":   title,
-				"name":        name,
-				"createdAtMs": createdAtMS,
+				"saveStateId":   saveID,
+				"gameId":        gameID,
+				"gameTitle":     title,
+				"name":          name,
+				"createdAtMs":   createdAtMS,
+				"screenshotUrl": saveStateScreenshotURL(saveID),
 			},
 		)
 	}
@@ -1399,7 +1412,8 @@ LIMIT 10
 		}
 		saveStates = append(saveStates, map[string]any{
 			"saveStateId": saveID, "name": saveName, "createdAtMs": createdAtMS,
-			"core": map[string]any{"id": coreID, "name": coreName},
+			"screenshotUrl": saveStateScreenshotURL(saveID),
+			"core":          map[string]any{"id": coreID, "name": coreName},
 		})
 	}
 	if err := saveRows.Err(); err != nil {
@@ -1631,6 +1645,7 @@ m.title,
 s.name,
 s.version,
 s.created_at_ms,
+s.active_duration_ms,
 a.core_id,
 c.name,
 g.status,
@@ -1657,7 +1672,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 	items := make([]map[string]any, 0, limit+1)
 	for rows.Next() {
 		var id, gameID, gameTitle, name, coreID, coreName, gameStatus, platformID, instanceID, instanceName string
-		var version, createdAtMS int64
+		var version, createdAtMS, activeDurationMS int64
 		if err := rows.Scan(
 			&id,
 			&gameID,
@@ -1665,6 +1680,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 			&name,
 			&version,
 			&createdAtMS,
+			&activeDurationMS,
 			&coreID,
 			&coreName,
 			&gameStatus,
@@ -1678,6 +1694,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 		items = append(items, map[string]any{
 			"saveStateId": id, "gameId": gameID, "gameTitle": gameTitle,
 			"name": name, "version": version, "createdAtMs": createdAtMS,
+			"activeDurationMs": activeDurationMS, "screenshotUrl": saveStateScreenshotURL(id),
 			"core": map[string]any{
 				"id":   coreID,
 				"name": coreName,
@@ -3432,6 +3449,10 @@ func gameCoverURL(assetID sql.NullString) any {
 		return "/content/assets/" + assetID.String
 	}
 	return nil
+}
+
+func saveStateScreenshotURL(saveStateID string) string {
+	return "/content/save-states/" + saveStateID + "/screenshot"
 }
 
 func nullableInt64(value sql.NullInt64) any {

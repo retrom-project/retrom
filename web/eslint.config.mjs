@@ -18,5 +18,5 @@ export default defineConfig([
       "@typescript-eslint/no-misused-promises": "error",
     },
   },
-  globalIgnores([".next/**", "lib/api/generated/**", "playwright-report/**", "test-results/**"]),
+  globalIgnores([".next/**", ".next-e2e/**", "lib/api/generated/**", "playwright-report/**", "test-results/**"]),
 ]);

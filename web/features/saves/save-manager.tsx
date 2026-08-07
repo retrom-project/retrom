@@ -1,5 +1,6 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -16,6 +17,8 @@ export type SaveItem = {
   name: string;
   version: number;
   createdAtMs: number;
+  activeDurationMs: number;
+  screenshotUrl: string;
   core?: { id: string; name: string };
   availability?: { status: "AVAILABLE" | "BLOCKED"; reasons: Array<{ code?: string; logicalName?: string }> };
 };
@@ -51,9 +54,10 @@ export function SaveManager({ saves }: { saves: SaveItem[] }) {
   return <div className="stack">
     {notice ? <p role="status" className="status good">{notice}</p> : null}
     {error ? <p role="alert" className="status bad">{error}</p> : null}
-    <div className="admin-grid">{saves.map((save) => {
+    <div className="save-card-grid">{saves.map((save) => {
       const available = save.availability?.status !== "BLOCKED";
-      return <article className="admin-card" key={save.saveStateId}><StatusBadge tone={available ? "good" : "bad"}>{available ? "可以继续" : "当前不可用"}</StatusBadge><h2>{save.name}</h2><p><Link className="row-action" href={`/games/${save.gameId}`}>{save.gameTitle}</Link><br />{save.core?.name ? `${save.core.name} · ` : ""}{formatTime(save.createdAtMs)}</p>{!available ? <p role="alert">{save.availability?.reasons.map((reason) => reason.logicalName ? `${reason.code}: ${reason.logicalName}` : reason.code).filter(Boolean).join("；") || "游戏或锁定运行依赖当前不可部署。"}</p> : null}<div className="metric-line">{available ? <LaunchButton gameId={save.gameId} saveStateId={save.saveStateId} returnTo="/saves" label="从这里继续" /> : <button className="button" disabled>从这里继续</button>}<span>v{save.version}</span></div><details><summary className="row-action">管理存档</summary><form className="inline-editor" onSubmit={(event) => void rename(event, save)}><label>存档名称<input name="name" defaultValue={save.name} required maxLength={120} /></label><div className="header-actions"><button className="button secondary" disabled={busy !== null}>保存名称</button><button className="button danger" type="button" disabled={busy !== null} onClick={() => void remove(save)}>删除存档</button></div></form></details></article>;
+      const duration = Math.max(0, Math.round(save.activeDurationMs / 60_000));
+      return <article className="save-card" key={save.saveStateId}><Image src={save.screenshotUrl} alt={`${save.name} 存档画面`} width={640} height={360} unoptimized /><div className="save-card-body"><StatusBadge tone={available ? "good" : "bad"}>{available ? "可以继续" : "当前不可用"}</StatusBadge><h2>{save.name}</h2><p><Link className="row-action" href={`/games/${save.gameId}`}>{save.gameTitle}</Link><br />{save.core?.name ? `${save.core.name} · ` : ""}{formatTime(save.createdAtMs)}<br />已游玩 {duration} 分钟</p>{!available ? <p role="alert">{save.availability?.reasons.map((reason) => reason.logicalName ? `${reason.logicalName} 当前不可用` : "运行依赖当前不可用").join("；") || "游戏或运行依赖当前不可用。"}</p> : null}<div className="save-card-actions">{available ? <LaunchButton gameId={save.gameId} saveStateId={save.saveStateId} returnTo="/saves" label="从这里继续" /> : <button className="button" disabled>从这里继续</button>}<details className="save-actions"><summary className="button secondary">管理存档</summary><form className="save-editor" onSubmit={(event) => void rename(event, save)}><label>存档名称<input name="name" defaultValue={save.name} required maxLength={120} /></label><div className="header-actions"><button className="button secondary" disabled={busy !== null}>保存名称</button><button className="button danger" type="button" disabled={busy !== null} onClick={() => void remove(save)}>删除存档</button></div></form></details></div></div></article>;
     })}</div>
   </div>;
 }

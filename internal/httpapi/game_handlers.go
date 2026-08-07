@@ -1983,3 +1983,29 @@ AND g.status='PUBLISHED'
 	}
 	server.serveBlob(writer, request, digest, mediaType, false)
 }
+
+func (server *Server) saveStateScreenshot(writer http.ResponseWriter, request *http.Request) {
+	var digest, mediaType string
+	err := server.database.QueryRowContext(request.Context(), `
+SELECT b.sha256,
+b.media_type
+FROM save_states s
+JOIN blobs b ON b.id=s.screenshot_blob_id
+JOIN games g ON g.id=s.game_id
+WHERE s.id=?
+AND s.deleted_at_ms IS NULL
+AND g.status='PUBLISHED'
+`, request.PathValue("saveStateId")).Scan(&digest, &mediaType)
+	if err != nil {
+		writeError(
+			writer,
+			request,
+			http.StatusNotFound,
+			"SAVE_SCREENSHOT_NOT_FOUND",
+			"存档截图不存在",
+			map[string]any{},
+		)
+		return
+	}
+	server.serveBlob(writer, request, digest, mediaType, true)
+}

@@ -11,10 +11,11 @@ process_id=""
 
 cleanup() {
   if [[ -n "$process_id" ]]; then
-    "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
+    RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
     wait "$process_id" 2>/dev/null || true
   fi
   rm -rf -- "$temporary_root"
+  rm -rf -- "$repository_root/web/.next-e2e"
 }
 trap cleanup EXIT
 
@@ -33,6 +34,7 @@ setsid make dev \
   RETROM_PUBLIC_ORIGIN="$web_origin" \
   NEXT_DEV_HOST="127.0.0.1" \
   NEXT_DEV_PORT="$web_port" \
+  NEXT_DIST_DIR=".next-e2e" \
   NEXT_BACKEND_ORIGIN="$backend_origin" \
   >"$temporary_root/server.log" 2>&1 &
 process_id=$!
@@ -60,7 +62,7 @@ scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 
 (cd web && RETROM_WEB_ORIGIN="$web_origin" npm run test:e2e)
 
-"$repository_root/scripts/dev.sh" --stop
+RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop
 set +e
 wait "$process_id"
 set -e

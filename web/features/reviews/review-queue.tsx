@@ -23,6 +23,8 @@ function queryString(values: Record<string, string>) {
   return new URLSearchParams(Object.entries(values).filter(([, value]) => value)).toString();
 }
 
+const validationLabels: Record<string, string> = { READY: "可以发布", BLOCKED: "缺少依赖", DEPENDENCY_MISSING: "缺少依赖", INCOMPATIBLE: "不兼容", NEEDS_VALIDATION: "等待检查" };
+
 export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQueueItem>; values: Record<string, string> }) {
   const listQuery = useMemo(() => queryString(values), [values]);
   const listURL = `/admin/reviews${listQuery ? `?${listQuery}` : ""}`;
@@ -87,7 +89,7 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
 
   return <section className="panel table-wrap" aria-label="待审核队列">
     <div className="panel-head"><div><h2>待审核队列</h2><p>当前已加载 {items.length} 条，可任意选择审核顺序</p></div><StatusBadge tone="info">{items.length}</StatusBadge></div>
-    <table><thead><tr><th>来源 / 草稿</th><th>目标目录</th><th>Validation / Blocker</th><th>候选</th><th>导入批次</th><th>更新时间</th><th>操作</th></tr></thead><tbody>{items.map((item) => <tr key={item.itemId} data-review-item={item.itemId}><td><strong>{item.draftTitle}</strong><small>{item.sourceDisplayName}</small></td><td>{item.platformInstance.name}</td><td><StatusBadge tone={item.validationStatus === "READY" ? "good" : "warn"}>{item.validationStatus}{item.blockerCodes.length ? ` · ${item.blockerCodes.join("、")}` : " · 无 Blocker"}</StatusBadge></td><td>{item.candidateCount}</td><td title={item.importJobId}>{item.importJobId.slice(0, 12)}…</td><td>{formatTime(item.updatedAtMs)}</td><td><Link className="row-action" onClick={remember} href={`/admin/reviews/${item.itemId}?returnTo=${encodeURIComponent(listURL)}`}>审核条目</Link></td></tr>)}</tbody></table>
+    <table><thead><tr><th>来源 / 草稿</th><th>目标目录</th><th>兼容性</th><th>信息候选</th><th>更新时间</th><th>操作</th></tr></thead><tbody>{items.map((item) => <tr key={item.itemId} data-review-item={item.itemId}><td><strong>{item.draftTitle}</strong><small>{item.sourceDisplayName}</small><details className="technical-details"><summary>批次详情</summary><code>{item.importJobId}</code></details></td><td>{item.platformInstance.name}</td><td><StatusBadge tone={item.validationStatus === "READY" ? "good" : "warn"}>{validationLabels[item.validationStatus] ?? item.validationStatus}{item.blockerCodes.length ? " · 需要处理" : ""}</StatusBadge></td><td>{item.candidateCount}</td><td>{formatTime(item.updatedAtMs)}</td><td><Link className="row-action" onClick={remember} href={`/admin/reviews/${item.itemId}?returnTo=${encodeURIComponent(listURL)}`}>审核条目</Link></td></tr>)}</tbody></table>
     <div className="queue-footer">{nextCursor ? <button type="button" className="button secondary" disabled={loading} onClick={() => void loadMore()}>{loading ? "正在加载…" : "加载更多待审条目"}</button> : <span className="status good">已加载当前筛选的全部条目</span>}{error ? <span role="alert" className="status bad">{error}</span> : null}</div>
   </section>;
 }

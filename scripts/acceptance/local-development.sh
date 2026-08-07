@@ -10,14 +10,45 @@ web_origin="http://localhost:${web_port}"
 browser_origin="http://local.retrom.test:${web_port}"
 process_id=""
 previous_process_id=""
+orphan_backend_pid=""
+orphan_backend_start_ticks=""
+orphan_web_pid=""
+orphan_web_start_ticks=""
 dev_log="$temporary_root/dev.log"
+
+read_start_ticks() {
+  local pid="$1"
+  local stat_line=""
+  local fields=""
+  [[ -r "/proc/${pid}/stat" ]] || return 1
+  IFS= read -r stat_line <"/proc/${pid}/stat" || return 1
+  fields="${stat_line##*) }"
+  [[ "$fields" != "$stat_line" ]] || return 1
+  set -- $fields
+  [[ $# -ge 20 ]] || return 1
+  printf '%s\n' "${20}"
+}
+
+process_matches_start_ticks() {
+  local pid="$1"
+  local expected_start_ticks="$2"
+  local actual_start_ticks=""
+  [[ "$pid" =~ ^[1-9][0-9]*$ ]] || return 1
+  actual_start_ticks="$(read_start_ticks "$pid")" || return 1
+  [[ "$actual_start_ticks" == "$expected_start_ticks" ]]
+}
 
 cleanup() {
   if [[ -r "$repository_root/.cache/retrom/dev.pid" ]]; then
+    registration_marker=""
     registered_pid=""
-    read -r registered_pid _registered_start_ticks <"$repository_root/.cache/retrom/dev.pid" || true
+    read -r registration_marker registered_pid _registered_start_ticks \
+      <"$repository_root/.cache/retrom/dev.pid" || true
+    if [[ "$registration_marker" != "v2" ]]; then
+      registered_pid="$registration_marker"
+    fi
     if [[ "$registered_pid" =~ ^[1-9][0-9]*$ ]] && \
-      tr '\0' ' ' <"/proc/${registered_pid}/cmdline" 2>/dev/null | grep -q 'scripts/dev.sh'; then
+      tr '\0' ' ' 2>/dev/null <"/proc/${registered_pid}/cmdline" | grep -q 'scripts/dev.sh'; then
       kill -TERM "$registered_pid" 2>/dev/null || true
     fi
   fi
@@ -28,6 +59,12 @@ cleanup() {
   if [[ -n "$process_id" ]]; then
     kill -TERM -- "-$process_id" 2>/dev/null || true
     wait "$process_id" 2>/dev/null || true
+  fi
+  if process_matches_start_ticks "$orphan_backend_pid" "$orphan_backend_start_ticks"; then
+    kill -TERM -- "-$orphan_backend_pid" 2>/dev/null || true
+  fi
+  if process_matches_start_ticks "$orphan_web_pid" "$orphan_web_start_ticks"; then
+    kill -TERM -- "-$orphan_web_pid" 2>/dev/null || true
   fi
   rm -rf -- "$temporary_root"
 }
@@ -119,6 +156,62 @@ wait_http "$backend_origin/health/ready"
 wait_http "$web_origin"
 grep -q 'stopping previous Retrom dev instance' "$dev_log"
 
+registration_version=""
+orphan_supervisor_pid=""
+orphan_supervisor_start_ticks=""
+read -r registration_version orphan_supervisor_pid orphan_supervisor_start_ticks \
+  orphan_backend_pid orphan_backend_start_ticks orphan_web_pid orphan_web_start_ticks \
+  <"$repository_root/.cache/retrom/dev.pid"
+if [[ "$registration_version" != "v2" ]]; then
+  echo "development registration does not preserve child identities" >&2
+  exit 1
+fi
+if ! process_matches_start_ticks "$orphan_backend_pid" "$orphan_backend_start_ticks" || \
+  ! process_matches_start_ticks "$orphan_web_pid" "$orphan_web_start_ticks"; then
+  echo "development registration contains stale child identities" >&2
+  exit 1
+fi
+
+kill -KILL "$orphan_supervisor_pid"
+set +e
+wait "$process_id"
+orphaned_exit_status=$?
+set -e
+process_id=""
+if ! process_matches_start_ticks "$orphan_backend_pid" "$orphan_backend_start_ticks" || \
+  ! process_matches_start_ticks "$orphan_web_pid" "$orphan_web_start_ticks"; then
+  echo "SIGKILL reproduction did not leave both development children running" >&2
+  exit 1
+fi
+if flock -n "$temporary_root/data/retrom.lock" true; then
+  echo "SIGKILL reproduction did not leave the data root locked" >&2
+  exit 1
+fi
+
+dev_log="$temporary_root/dev-orphan-replacement.log"
+start_dev
+deadline=$((SECONDS + 20))
+until grep -q 'recovering orphaned Retrom dev children' "$dev_log"; do
+  if ! kill -0 "$process_id" 2>/dev/null; then
+    sed 's/^/[orphan-replacement] /' "$dev_log" >&2
+    echo "replacement make dev exited before recovering orphaned children" >&2
+    exit 1
+  fi
+  if (( SECONDS >= deadline )); then
+    sed 's/^/[orphan-replacement] /' "$dev_log" >&2
+    echo "replacement make dev did not report orphan recovery" >&2
+    exit 1
+  fi
+  sleep 0.1
+done
+wait_http "$backend_origin/health/ready"
+wait_http "$web_origin"
+if process_matches_start_ticks "$orphan_backend_pid" "$orphan_backend_start_ticks" || \
+  process_matches_start_ticks "$orphan_web_pid" "$orphan_web_start_ticks"; then
+  echo "replacement left an orphaned development child running" >&2
+  exit 1
+fi
+
 home="$(curl --fail --silent --show-error "$web_origin/api/v1/home")"
 hmr_status="$(python3 - "$web_port" "$browser_origin" <<'PY'
 import base64
@@ -197,7 +290,8 @@ fi
 printf 'live=%s\nready=%s\nfront_end_home=%s\nhmr_status=%s\n' "$live" "$ready" "$home" "$hmr_status"
 printf 'process_tree:\n%s\nlisteners:\n%s\n' "$process_tree" "$listeners"
 
-read -r supervisor_pid _supervisor_start_ticks <"$repository_root/.cache/retrom/dev.pid"
+read -r _registration_version supervisor_pid _supervisor_start_ticks \
+  <"$repository_root/.cache/retrom/dev.pid"
 kill -TERM "$supervisor_pid"
 set +e
 wait "$process_id"
@@ -225,14 +319,14 @@ while ss -ltn "sport = :${backend_port} or sport = :${web_port}" | tail -n +2 | 
   sleep 0.1
 done
 
-foreign_start_ticks="$(awk '{print $22}' "/proc/$$/stat")"
+foreign_start_ticks="$(read_start_ticks "$$")"
 printf '%s %s\n' "$$" "$foreign_start_ticks" >"$repository_root/.cache/retrom/dev.pid"
-"$repository_root/scripts/dev.sh" --stop
+RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop
 kill -0 "$$"
 if [[ -e "$repository_root/.cache/retrom/dev.pid" ]]; then
   echo "stale or foreign dev PID registration was not cleaned" >&2
   exit 1
 fi
 
-printf 'docker_calls=0\nprevious_exit_status=%d\nexit_status=%d\nchildren_remaining=0\nforeign_process_preserved=1\n' \
-  "$previous_exit_status" "$exit_status"
+printf 'docker_calls=0\nprevious_exit_status=%d\norphaned_exit_status=%d\nexit_status=%d\nchildren_remaining=0\nforeign_process_preserved=1\n' \
+  "$previous_exit_status" "$orphaned_exit_status" "$exit_status"

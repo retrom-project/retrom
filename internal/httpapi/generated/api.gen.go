@@ -1642,6 +1642,12 @@ type ServerInterface interface {
 	// (HEAD /content/assets/{assetId})
 	HeadContentAsset(w http.ResponseWriter, r *http.Request, assetId AssetID)
 
+	// (GET /content/save-states/{saveStateId}/screenshot)
+	GetSaveStateScreenshot(w http.ResponseWriter, r *http.Request, saveStateId SaveStateID)
+
+	// (HEAD /content/save-states/{saveStateId}/screenshot)
+	HeadSaveStateScreenshot(w http.ResponseWriter, r *http.Request, saveStateId SaveStateID)
+
 	// (GET /health/live)
 	GetHealthLive(w http.ResponseWriter, r *http.Request)
 
@@ -5573,6 +5579,58 @@ func (siw *ServerInterfaceWrapper) HeadContentAsset(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetSaveStateScreenshot operation middleware
+func (siw *ServerInterfaceWrapper) GetSaveStateScreenshot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "saveStateId" -------------
+	var saveStateId SaveStateID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "saveStateId", r.PathValue("saveStateId"), &saveStateId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "saveStateId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSaveStateScreenshot(w, r, saveStateId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// HeadSaveStateScreenshot operation middleware
+func (siw *ServerInterfaceWrapper) HeadSaveStateScreenshot(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "saveStateId" -------------
+	var saveStateId SaveStateID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "saveStateId", r.PathValue("saveStateId"), &saveStateId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "saveStateId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.HeadSaveStateScreenshot(w, r, saveStateId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetHealthLive operation middleware
 func (siw *ServerInterfaceWrapper) GetHealthLive(w http.ResponseWriter, r *http.Request) {
 
@@ -6363,6 +6421,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/diagnostics", wrapper.GetAdminDiagnostics)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/content/assets/{assetId}", wrapper.GetContentAsset)
 	m.HandleFunc(http.MethodHead+" "+options.BaseURL+"/content/assets/{assetId}", wrapper.HeadContentAsset)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/content/save-states/{saveStateId}/screenshot", wrapper.GetSaveStateScreenshot)
+	m.HandleFunc(http.MethodHead+" "+options.BaseURL+"/content/save-states/{saveStateId}/screenshot", wrapper.HeadSaveStateScreenshot)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/review-assets/{assetId}", wrapper.GetAdminReviewAsset)
 	m.HandleFunc(http.MethodHead+" "+options.BaseURL+"/api/v1/admin/review-assets/{assetId}", wrapper.HeadAdminReviewAsset)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/runtime/emulatorjs/{configuredVersion}/{runtimePath}", wrapper.GetRuntimeEmulatorJS)
@@ -8008,6 +8068,72 @@ func (response HeadContentAsset200ApplicationoctetStreamResponse) VisitHeadConte
 	return err
 }
 
+type GetSaveStateScreenshotRequestObject struct {
+	SaveStateId SaveStateID `json:"saveStateId"`
+}
+
+type GetSaveStateScreenshotResponseObject interface {
+	VisitGetSaveStateScreenshotResponse(w http.ResponseWriter) error
+}
+
+type GetSaveStateScreenshot200ApplicationoctetStreamResponse struct {
+	BinaryResponseApplicationoctetStreamResponse
+}
+
+func (response GetSaveStateScreenshot200ApplicationoctetStreamResponse) VisitGetSaveStateScreenshotResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.AcceptRanges != nil {
+		w.Header().Set("Accept-Ranges", fmt.Sprint(*response.Headers.AcceptRanges))
+	}
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type HeadSaveStateScreenshotRequestObject struct {
+	SaveStateId SaveStateID `json:"saveStateId"`
+}
+
+type HeadSaveStateScreenshotResponseObject interface {
+	VisitHeadSaveStateScreenshotResponse(w http.ResponseWriter) error
+}
+
+type HeadSaveStateScreenshot200ApplicationoctetStreamResponse struct {
+	BinaryResponseApplicationoctetStreamResponse
+}
+
+func (response HeadSaveStateScreenshot200ApplicationoctetStreamResponse) VisitHeadSaveStateScreenshotResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.AcceptRanges != nil {
+		w.Header().Set("Accept-Ranges", fmt.Sprint(*response.Headers.AcceptRanges))
+	}
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
 type GetHealthLiveRequestObject struct {
 }
 
@@ -8734,6 +8860,12 @@ type StrictServerInterface interface {
 
 	// (HEAD /content/assets/{assetId})
 	HeadContentAsset(ctx context.Context, request HeadContentAssetRequestObject) (HeadContentAssetResponseObject, error)
+
+	// (GET /content/save-states/{saveStateId}/screenshot)
+	GetSaveStateScreenshot(ctx context.Context, request GetSaveStateScreenshotRequestObject) (GetSaveStateScreenshotResponseObject, error)
+
+	// (HEAD /content/save-states/{saveStateId}/screenshot)
+	HeadSaveStateScreenshot(ctx context.Context, request HeadSaveStateScreenshotRequestObject) (HeadSaveStateScreenshotResponseObject, error)
 
 	// (GET /health/live)
 	GetHealthLive(ctx context.Context, request GetHealthLiveRequestObject) (GetHealthLiveResponseObject, error)
@@ -10740,6 +10872,58 @@ func (sh *strictHandler) HeadContentAsset(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// GetSaveStateScreenshot operation middleware
+func (sh *strictHandler) GetSaveStateScreenshot(w http.ResponseWriter, r *http.Request, saveStateId SaveStateID) {
+	var request GetSaveStateScreenshotRequestObject
+
+	request.SaveStateId = saveStateId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSaveStateScreenshot(ctx, request.(GetSaveStateScreenshotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSaveStateScreenshot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSaveStateScreenshotResponseObject); ok {
+		if err := validResponse.VisitGetSaveStateScreenshotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// HeadSaveStateScreenshot operation middleware
+func (sh *strictHandler) HeadSaveStateScreenshot(w http.ResponseWriter, r *http.Request, saveStateId SaveStateID) {
+	var request HeadSaveStateScreenshotRequestObject
+
+	request.SaveStateId = saveStateId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.HeadSaveStateScreenshot(ctx, request.(HeadSaveStateScreenshotRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "HeadSaveStateScreenshot")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(HeadSaveStateScreenshotResponseObject); ok {
+		if err := validResponse.VisitHeadSaveStateScreenshotResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetHealthLive operation middleware
 func (sh *strictHandler) GetHealthLive(w http.ResponseWriter, r *http.Request) {
 	var request GetHealthLiveRequestObject
@@ -11343,16 +11527,16 @@ var swaggerSpec = []string{
 	"AHI/EO//DYQr7EUwrGqtP8+puq9lsVo9JddFROSrNE8jH08bke6Qbo3lBWp1U/BbfCBkHZixuMQYtlh2",
 	"8qrjJzHqFOgDmHP7H4ug6k2EWg7JRxP+BOqm500FE/fxwD+TNhMcHz84VzR3MPi5FDzf+4EWpi/tTrkD",
 	"9KS3s0FfQnlwhwO1N9SZKSkjMJR3p8sr/IpUvoQrEN4PCu8ZDhj+DNO/DhDjc1SK2SCnMBosMRmAnK0x",
-	"UW9peacbfUneToFq8r/lzikzctxnW1DZpo+1JXgUcPtsB67Fq7zjWD2uXDvf2ieYd8Ha/r3MMwVfv+vT",
-	"goB8PXh3DMT/3Wnw+5Nvu/5Xv/pc7oF6JWZs3+UbP1Sex9yOH5zXZBolci7r6Zc3f1o8glgeD2bvlWXp",
-	"WVE+3yGugMRjXvrm6sJbPeWVnvOcTmVZ+KuzsCM4Z5CMGEyyWNz0thMvT1/8ZRu4cqDNyPGDTF1EW3lb",
-	"j3w798UfKOvA/rOL68WZ+MMTsUIam0ZPNPVOUqhDp/Q70KL6Uyw1enQqwnQkOybWcS94ukMXp9eLPfpn",
-	"/v1InVyiFNF1f9eVA6LJMVhg+2sJa5dAQX1p/OHsoCaicHaPH5x3HLuo651Xzzsp6oNC25X1HVYizluY",
-	"7cK4hoCwOyjeP34EeXxrwD1/kZQPYPabQW7Ef76WOcS+vzniK8wu/Su82HmQHtZsC13hgUVvINDbjxj1",
-	"rvm6vu3koNcO9/5bKtro4ooIEmt2/TySl2iPOFoj5x2Iegus4bEg313knQDbYLM6qPrxnsn72+uPF1e3",
-	"s/mHyWUwDN5Nrt5PLj/Ofr65nt8Gw2D288Wt70Wf57JH0X+jtsvORdNA5OI9omy3QIN+eti4X47gTXXY",
-	"leQxQxkgbCwCyvWbFZZTOzwU5X8czX1Ds53/9m3GDrLif2Iq0G0UgPuvw3+GosYAeaTJfsEA+RomeiMR",
-	"LZOfHjaPZG8eFtzuRoR4rYVs9D9zEvNVO//yfwEAAP//",
+	"UW9peacbfUneToFq8r/lzikzctxnW1DZpo+1JXgUcPtsB2qa8WE9Eg9ElMb4uPAySKO6F39Z2OrHJ+cx",
+	"oe6jSjhl1+K943Gsnq2utWTs49a7YG7/Xh4NCr5+MakFAfku8+4YiP+7Bsb3J992/a9+T7vcA/X+zti+",
+	"eDh+qDw8uh0/OO/0NI71uayn3zT9afEIEno8mL3X7KUHW7klgbhqF8+k6TvBC68gldfQzkNFlQX3r86S",
+	"meCcQTJiMMlicYfeTrw8ffGXbeDKgTbQxw8yxbWTuAdJvkr84g+UdWD/2cX14kz84YlYIc14oyeaeicp",
+	"1KFT+oVtUf0pFnE9OhVhOpIdEyvkFzzdoYvT68Ue/TP/fqROLlGK6Lq/U9AB0eRyLbD9tYS1Swimvo7/",
+	"cBZmE1E4u8cPzguZXdT1zn6JnRT1QaHtyvoOazznldF2YVxDQNgdFC9LP4I8vjXgnr9IyqdF+80gN+I/",
+	"X8scYl82HXG7vkv/Cm+hHqSHNRtuV3hg0RsI9PYjRv2mR13fdtr60FsZ/TertNHFFREk1uz6eSSvJx9x",
+	"tEbOCxv1FljDM0y+W947AbZhfHVQ9bNIk/e31x8vrm5n8w+Ty2AYvJtcvZ9cfpz9fHM9vw2Gwezni1vf",
+	"W0nPZfen/xZ4lz2hpoHoLLGPrYfNavQIfmqHXUkeM5QBwsYiVF+/BmI5tcMTXP5n5wo+iFb+21cvO8iK",
+	"//GuQLdRAO5/aOAZihoD5JEm+wUD5GuY6I1EtEx+etg8kr15WHC7GxHiHRyy0f/MScxX7fzL/wUAAP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -235,8 +235,8 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
 - 前置：验收准备已完成，`make deps-check` 离线通过。
-- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，同时将 `DOCKER` 指向该哨兵后启动未覆盖 `NEXT_DEV_HOST` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认它的 `prepare-deps` 命中本地缓存且不联网，然后依次等待 `127.0.0.1:8080/health/live`、`/health/ready` 与 `localhost:3000` 可访问。保持首个实例运行并再次执行相同 `make dev`，确认新 supervisor 主动识别、停止并等待旧 supervisor 后成功接管。通过前端 origin 请求 `/api/v1/home`，再携带该开发域名 Origin 对 `/_next/hmr` 完成 WebSocket upgrade；记录监听 socket 并向已验证的 supervisor 发送 `SIGTERM`。最后把当前验收 shell 的真实 PID/start ticks 写成伪造 dev 登记，确认 stop helper 只清理登记而不终止该进程。
-- 通过标准：第二次启动不因旧 Next lock/端口失败，旧 supervisor 及其 Go/Next 子进程已退出且只剩新实例；伪造、陈旧或非 `scripts/dev.sh` 身份的 PID 不被终止；Go 与 Next.js 均为宿主机子进程，Docker 哨兵无调用；Go 默认只监听 `127.0.0.1`，Next.js 默认监听 `0.0.0.0:3000`，没有把后端直接绑定到外部接口；前端 rewrite 同源成功，HMR 返回 `101 Switching Protocols` 而非跨源拒绝；退出码与信号处理正确，5 秒内不残留两个子进程。
+- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，同时将 `DOCKER` 指向该哨兵后启动未覆盖 `NEXT_DEV_HOST` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认它的 `prepare-deps` 命中本地缓存且不联网，然后依次等待 `127.0.0.1:8080/health/live`、`/health/ready` 与 `localhost:3000` 可访问。保持首个实例运行并再次执行相同 `make dev`，确认新 supervisor 主动识别、停止并等待旧 supervisor 后成功接管。随后读取已登记的 supervisor/Go/Next.js PID 与 start ticks，只向 supervisor 发送 `SIGKILL`，确认两个独立 process group 和数据根 lock 均仍存在；第三次启动必须用登记身份识别并停止两个孤儿 process group，等待 lock 释放后完成接管。通过前端 origin 请求 `/api/v1/home`，再携带该开发域名 Origin 对 `/_next/hmr` 完成 WebSocket upgrade；记录监听 socket 并向已验证的 supervisor 发送 `SIGTERM`。最后把当前验收 shell 的真实 PID/start ticks 写成伪造 dev 登记，确认 stop helper 只清理登记而不终止该进程。
+- 通过标准：正常接管和 supervisor `SIGKILL` 后的孤儿接管都不因数据锁、旧 Next lock 或端口失败；每次旧 supervisor 及其 Go/Next 子进程都已退出且只剩新实例；伪造、陈旧或非 `scripts/dev.sh` 身份的 PID 不被终止；Go 与 Next.js 均为宿主机子进程，Docker 哨兵无调用；Go 默认只监听 `127.0.0.1`，Next.js 默认监听 `0.0.0.0:3000`，没有把后端直接绑定到外部接口；前端 rewrite 同源成功，HMR 返回 `101 Switching Protocols` 而非跨源拒绝；退出码与信号处理正确，5 秒内不残留两个子进程。
 - 证据：进程树、三个 HTTP 结果和退出后的 PID 检查。
 
 ### ACC-NET-001：应用侧代理契约与同源隔离
