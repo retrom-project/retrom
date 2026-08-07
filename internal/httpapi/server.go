@@ -1907,7 +1907,8 @@ s.active_duration_ms,
 a.core_id,
 c.name,
 g.status,
-pi.platform_id,
+p.id,
+p.name,
 pi.id,
 pi.name
 FROM save_states s
@@ -1916,6 +1917,7 @@ JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN core_artifacts a ON a.id=s.core_artifact_id
 JOIN cores c ON c.id=a.core_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
+JOIN platforms p ON p.id=pi.platform_id
 `,
 		filters.Conditions,
 		` ORDER BY s.created_at_ms DESC,s.id DESC LIMIT ?`,
@@ -1929,7 +1931,8 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0, limit+1)
 	for rows.Next() {
-		var id, gameID, gameTitle, name, coreID, coreName, gameStatus, platformID, instanceID, instanceName string
+		var id, gameID, gameTitle, name, coreID, coreName, gameStatus string
+		var platformID, platformName, instanceID, instanceName string
 		var version, createdAtMS, activeDurationMS int64
 		if err := rows.Scan(
 			&id,
@@ -1943,6 +1946,7 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 			&coreName,
 			&gameStatus,
 			&platformID,
+			&platformName,
 			&instanceID,
 			&instanceName,
 		); err != nil {
@@ -1956,7 +1960,8 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 			"core": map[string]any{
 				"id":   coreID,
 				"name": coreName,
-			}, "platformId": platformID, "platformInstance": map[string]any{"id": instanceID, "name": instanceName},
+			}, "platformId": platformID, "platform": map[string]any{"id": platformID, "name": platformName},
+			"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
 			"availability": map[string]any{
 				"status":  map[bool]string{true: "AVAILABLE", false: "BLOCKED"}[gameStatus == "PUBLISHED"],
 				"reasons": []any{},
@@ -1992,7 +1997,9 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 		}
 		nextCursor = token
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nextCursor})
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"generatedAtMs": server.now().UnixMilli(), "items": items, "nextCursor": nextCursor,
+	})
 }
 
 func (server *Server) patchSave(writer http.ResponseWriter, request *http.Request) {

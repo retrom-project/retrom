@@ -1,6 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type AppIconName = "home" | "library" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "chip" | "database" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin";
+export type AppIconName = "home" | "library" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "chip" | "database" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad";
 
 const paths: Record<AppIconName, ReactNode> = {
   home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></>,
@@ -23,7 +23,8 @@ const paths: Record<AppIconName, ReactNode> = {
   pause: <><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></>,
   play: <><path d="m8 5 11 7-11 7Z" /></>,
   "eye-off": <><path d="m3 3 18 18" /><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 4.2A10.8 10.8 0 0 1 12 4c5 0 9 5.2 9 8a8.5 8.5 0 0 1-2 3.6M6.6 6.6C4.3 8.1 3 10.4 3 12c0 2.8 4 8 9 8 1.2 0 2.4-.3 3.4-.8" /></>,
-  pin: <><path d="m9 3 6 6" /><path d="m10 8-4.5 4.5 6 1 1 6L17 15" /><path d="m13 5 6 6" /><path d="M5 19 19 5" /></>
+  pin: <><path d="m9 3 6 6" /><path d="m10 8-4.5 4.5 6 1 1 6L17 15" /><path d="m13 5 6 6" /><path d="M5 19 19 5" /></>,
+  gamepad: <><path d="M8 8h8l4 4v5a3 3 0 0 1-5 2l-1-1h-4l-1 1a3 3 0 0 1-5-2v-5Z" /><path d="M8 13h4M10 11v4M16 12h.01M18 14h.01" /></>
 };
 
 export function AppIcon({ name, ...props }: { name: AppIconName } & SVGProps<SVGSVGElement>) {

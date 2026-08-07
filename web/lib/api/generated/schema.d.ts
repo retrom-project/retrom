@@ -133,7 +133,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Save states whose games belong to enabled platform directories. */
+        /** @description Save states whose games belong to enabled platform directories. Each item includes its base platform, platform directory, locked core, availability and screenshot URL; generatedAtMs gives grouped save views a stable response clock. */
         get: operations["getSaves"];
         put?: never;
         post?: never;
