@@ -63,7 +63,7 @@ export function SaveManager({ saves }: { saves: SaveItem[] }) {
       return <article className="save-card" key={save.saveStateId}>
         <div className="save-shot">
           <Image src={save.screenshotUrl} alt={`${save.gameTitle} 存档画面`} width={640} height={360} unoptimized />
-          <span className="save-shot-status"><StatusBadge tone={available ? "good" : "bad"}>{available ? "可以继续" : "当前不可用"}</StatusBadge></span>
+          {!available ? <span className="save-shot-status"><StatusBadge tone="bad">当前不可用</StatusBadge></span> : null}
           <button className="save-delete" type="button" aria-label={`删除存档“${save.name}”`} title="删除存档" disabled={busy !== null} onClick={() => setPendingDelete(save)}><AppIcon name="x" /></button>
           <div className="save-shot-action">{available ? <LaunchButton gameId={save.gameId} saveStateId={save.saveStateId} returnTo="/saves" label="从这里继续" /> : <button className="button" disabled>当前不可继续</button>}</div>
         </div>

@@ -20,6 +20,8 @@ describe("GameGrid", () => {
     const game: GameSummary = { gameId: "01980000-0000-7000-8000-000000000001", title: "Metroid", platform: { id: "gba", name: "Game Boy Advance" }, platformInstance: { id: "instance", name: "GBA 游戏" }, status: "PUBLISHED", coverUrl: "/content/assets/cover" };
     render(<GameGrid games={[game]} />);
     expect(screen.getByRole("link", { name: /Metroid/ })).toHaveAttribute("href", `/games/${game.gameId}`);
+    expect(screen.getByRole("link", { name: /Metroid/ })).toHaveClass("admin-game-card");
+    expect(screen.getByRole("img", { name: "Metroid 封面" }).parentElement).toHaveClass("admin-game-cover");
     expect(screen.getByRole("img", { name: "Metroid 封面" }).getAttribute("src")).toContain("cover");
     expect(screen.queryByText("可运行")).not.toBeInTheDocument();
   });
@@ -27,6 +29,7 @@ describe("GameGrid", () => {
   it("only shows a semantic status when a game needs attention", () => {
     const game: GameSummary = { gameId: "deleted", title: "Removed", platform: { id: "gba", name: "GBA" }, platformInstance: { id: "instance", name: "GBA 游戏" }, status: "DELETED", coverUrl: null };
     render(<GameGrid games={[game]} />);
-    expect(screen.getByText("已删除")).toHaveClass("bad");
+    expect(screen.getByLabelText("Removed 暂无封面")).toBeInTheDocument();
+    expect(screen.getByLabelText("游戏当前不可见")).toBeInTheDocument();
   });
 });

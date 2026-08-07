@@ -327,8 +327,8 @@ VALUES(?,0,'blocked.gba','blocked.gba','blocked.gba',8,4096,?,?,?,?,?,?)
 	}
 	if _, err := transaction.Exec(`
 INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
-VALUES(?,'CONTENT','blocked.gba',?,?,?,0,0,?)
-	`, itemID, uploadFileID, sourceBlobID, sourceBlobID, timestamp); err != nil {
+VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
+	`, itemID, uploadFileID, sourceBlobID, timestamp); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`
@@ -515,6 +515,7 @@ VALUES(?,?,?,'cover-ready','COVER',1,'/api/v1/images/cover-ready','READY',?,600,
 		!strings.Contains(recorder.Body.String(), `"title":"Visible candidate"`) ||
 		!strings.Contains(recorder.Body.String(), `"errorCode":"ASSET_HTTP_STATUS"`) ||
 		!strings.Contains(recorder.Body.String(), `"name":"blocked.zip"`) ||
+		!strings.Contains(recorder.Body.String(), `"archive":true`) ||
 		!strings.Contains(recorder.Body.String(), `"archiveEntries":[{"crc32":"`+strings.Repeat("e", 8)+`","name":"blocked.gba","sizeBytes":4096}]`) ||
 		!strings.Contains(recorder.Body.String(), `"scrapeRuns":[{"attemptCount":0,"candidateCount":1,"completedAtMs":`) ||
 		!strings.Contains(recorder.Body.String(), `"provider":"HASHEOUS"`) {

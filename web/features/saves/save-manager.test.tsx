@@ -25,6 +25,7 @@ describe("SaveManager", () => {
     render(<SaveManager saves={[save]} />);
     expect(screen.queryByRole("button", { name: "管理存档" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "从这里继续" })).toBeInTheDocument();
+    expect(screen.queryByText("可以继续")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "编辑存档“最终关”的名称" }));
     const input = screen.getByLabelText("存档名称");
@@ -37,5 +38,12 @@ describe("SaveManager", () => {
     expect(screen.getByRole("alertdialog", { name: "删除这份存档？" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "删除存档" }));
     await waitFor(() => expect(fetch).toHaveBeenCalledWith("/api/v1/saves/save-1", expect.objectContaining({ method: "DELETE" })));
+  });
+
+  it("only displays availability when a save is blocked", () => {
+    render(<SaveManager saves={[{ ...save, availability: { status: "BLOCKED", reasons: [{ logicalName: "neogeo.zip" }] } }]} />);
+    expect(screen.getByText("当前不可用")).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("neogeo.zip 当前不可用");
+    expect(screen.queryByText("可以继续")).not.toBeInTheDocument();
   });
 });

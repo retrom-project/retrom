@@ -28,7 +28,7 @@ test("ACC-UI-001 user navigation and account-free access", async ({ page }, test
   await expect(page).toHaveURL(/\/recent$/);
   await navigation.getByRole("link", { name: "游戏库" }).click();
   await expect(page).toHaveURL(/\/library$/);
-  const firstGame = page.locator(".game-card").first();
+  const firstGame = page.locator(".admin-game-card").first();
   if (await firstGame.count()) {
     await firstGame.click();
     await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
@@ -43,7 +43,7 @@ test("ACC-UI-001 user navigation and account-free access", async ({ page }, test
 test("ACC-UI-002 import parent and child routes preserve browser history", async ({ page }, testInfo) => {
   const routes = [
     ["/admin/imports", "游戏入库"],
-    ["/admin/imports/new", "导入文件 / 目录"],
+    ["/admin/imports/new", "导入游戏"],
     ["/admin/imports/tasks", "任务进度"],
     ["/admin/reviews", "待审核"],
     ["/admin/reviews/history", "审核历史"],
@@ -82,8 +82,9 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   await page.reload();
   await expect(page.getByRole("textbox", { name: "搜索" })).toHaveValue("Sudoku");
   await expect(page.getByRole("combobox", { name: "游戏平台" })).toHaveValue("gba");
-  await expect(page.getByRole("link", { name: /移除关键词：Sudoku/ })).toBeVisible();
-  const game = page.locator(".game-card").first();
+  await expect(page.getByText("筛选条件已应用", { exact: true })).toBeVisible();
+  await expect(page.getByText(/关键词：Sudoku/)).toHaveCount(0);
+  const game = page.locator(".admin-game-card").first();
   await expect(game).toBeVisible();
   await game.click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
@@ -162,10 +163,16 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   expect(metricAlignment.every((item) => item !== null && item.accentToLabel <= 1 && item.accentToValue <= 1 && item.accentAfterValue), JSON.stringify(metricAlignment)).toBe(true);
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
-  const launchableGame = page.locator(".game-card").filter({ hasText: "Sudoku" });
+  const launchableGame = page.locator(".admin-game-card").filter({ hasText: "Sudoku" });
   await expect(launchableGame).toBeVisible();
-  const expectedColumns = testInfo.project.name === "chrome-1280" ? 4 : testInfo.project.name === "chrome-1440p" ? 6 : 8;
-  expect(await page.locator(".game-grid").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(expectedColumns);
+  const libraryCard = await launchableGame.evaluate((card) => {
+    const cardBox = card.getBoundingClientRect();
+    const coverBox = card.querySelector(".admin-game-cover")?.getBoundingClientRect();
+    return { cardWidth: cardBox.width, coverRatio: coverBox ? coverBox.width / coverBox.height : 0 };
+  });
+  expect(libraryCard.cardWidth).toBeGreaterThanOrEqual(269);
+  expect(libraryCard.cardWidth).toBeLessThanOrEqual(321);
+  expect(Math.abs(libraryCard.coverRatio - 0.75)).toBeLessThanOrEqual(0.01);
   await launchableGame.click();
   await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible();
   await noPageOverflow(page);
@@ -264,7 +271,7 @@ test("ACC-UI-007 keyboard focus and reduced motion remain explicit", async ({ pa
   await page.goto("/library");
   await page.keyboard.press("Tab");
   expect(await page.evaluate(() => document.activeElement?.tagName)).not.toBe("BODY");
-  const reducedDuration = await page.locator(".game-card").first().evaluate((element) => getComputedStyle(element).transitionDuration);
+  const reducedDuration = await page.locator(".admin-game-card").first().evaluate((element) => getComputedStyle(element).transitionDuration);
   expect(Number.parseFloat(reducedDuration)).toBeLessThanOrEqual(0.01);
   const focusable = page.locator("a,button,input,select");
   expect(await focusable.count()).toBeGreaterThan(5);
@@ -357,7 +364,7 @@ test("ACC-RUN-002 one click requests fullscreen before launch and auto-starts th
   const requests: string[] = [];
   page.on("request", (request) => requests.push(request.url()));
   await page.goto("/library");
-  await page.locator(".game-card").filter({ hasText: "Sudoku" }).click();
+  await page.locator(".admin-game-card").filter({ hasText: "Sudoku" }).click();
   const configResponse = page.waitForResponse((response) => /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
@@ -395,7 +402,7 @@ test("ACC-RUN-003 fullscreen refusal and launch deep-link credentials remain rec
     Object.defineProperty(Element.prototype, "requestFullscreen", { configurable: true, value: () => Promise.reject(new DOMException("denied", "NotAllowedError")) });
   });
   await page.goto("/library");
-  await page.locator(".game-card").filter({ hasText: "Sudoku" }).click();
+  await page.locator(".admin-game-card").filter({ hasText: "Sudoku" }).click();
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
   const playURL = page.url();
@@ -426,7 +433,7 @@ test("ACC-RUN-004 BIOS blockers stop launch while hash warnings auto-start", asy
   await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
   await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();
   await page.goto("/library");
-  await page.locator(".game-card").filter({ hasText: "Sudoku" }).click();
+  await page.locator(".admin-game-card").filter({ hasText: "Sudoku" }).click();
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
   await expect(page.getByText("BIOS Hash 与目录期望不一致，已按 Warning 继续运行。", { exact: true })).toBeVisible();
@@ -437,7 +444,7 @@ test("ACC-RUN-004 BIOS blockers stop launch while hash warnings auto-start", asy
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
 
   await page.goto("/library");
-  await page.locator(".game-card").filter({ hasText: "Acceptance Missing FDS BIOS" }).click();
+  await page.locator(".admin-game-card").filter({ hasText: "Acceptance Missing FDS BIOS" }).click();
   await expect(page).toHaveURL(/\/games\/60000000-0000-7000-8000-000000000001$/);
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page.locator(".launch-panel [role=alert]")).toContainText("LAUNCH_BIOS_MISSING", { timeout: 30_000 });
@@ -453,7 +460,7 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
     Object.defineProperty(Element.prototype, "requestFullscreen", { configurable: true, value: () => Promise.resolve() });
   });
   await page.goto("/library");
-  await page.locator(".game-card").filter({ hasText: "Sudoku" }).click();
+  await page.locator(".admin-game-card").filter({ hasText: "Sudoku" }).click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
   const detailURL = page.url();
   const gameId = detailURL.split("/").at(-1)!;
@@ -511,6 +518,10 @@ test("LAN HTTP upload works without secure-context crypto APIs", async ({ page }
     buffer: Buffer.from([0x4e, 0x45, 0x53, 0x1a, 0, 0, 0, 0]),
   });
   await expect(page.getByRole("heading", { name: "已选择 1 个文件" })).toBeVisible();
+  await expect(page.locator("#directory")).toHaveValue("");
+  const targetDirectory = await page.locator("#directory option:not([disabled])").first().getAttribute("value");
+  expect(targetDirectory).toBeTruthy();
+  await page.locator("#directory").selectOption(targetDirectory!);
   await page.locator("#provider").selectOption("NONE");
   await page.getByRole("button", { name: "上传、验证并创建导入任务" }).click();
   await expect(page).toHaveURL(/\/admin\/reviews\?importJobId=[0-9a-f-]+$/, { timeout: 30_000 });

@@ -10,6 +10,7 @@ const captures = [
   ["retrom-ui-home-4k.png", "home", 3840, 2160],
   ["retrom-ui-library-4k.png", "library", 3840, 2160],
   ["retrom-ui-game-detail.png", "detail", 2560, 1440],
+  ["retrom-ui-game-detail-core-override.png", "detail", 2560, 1440, "core-override"],
   ["retrom-ui-saves.png", "saves", 2560, 1440],
   ["retrom-ui-recent-4k.png", "recent", 3840, 2160],
   ["retrom-ui-play.png", "play", 2560, 1440],
@@ -65,6 +66,10 @@ try {
     if (variant === "review-detail" || variant === "review-compare") await frame.locator("[data-review-item]").first().click();
     if (variant === "review-compare") await frame.locator("[data-open-compare]").click();
     if (variant === "history-detail") await frame.locator("[data-open-history]").first().click();
+    if (variant === "core-override") {
+      await frame.locator("#rt-core-details > summary").click();
+      await frame.locator("#rt-core-select").selectOption({ label: "MAME 2003 Plus · 可选" });
+    }
     await frame.locator("[data-lucide]").first().waitFor({ state: "attached" });
     await page.screenshot({ path: path.join(designRoot, filename) });
     await page.close();
