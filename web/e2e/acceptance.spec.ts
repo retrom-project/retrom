@@ -478,6 +478,14 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   await page.getByRole("button", { name: "从此存档继续" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
   await page.goto("/saves");
+  await expect(page.getByRole("heading", { name: "最近保存" })).toBeVisible();
+  await expect(page.getByRole("region", { name: "筛选存档" })).toBeVisible();
+  await expect(page.locator(".save-library-group").filter({ hasText: "Sudoku" })).toBeVisible();
+  const saveFilterHeight = await page.locator(".save-library-toolbar").evaluate((element) => element.getBoundingClientRect().height);
+  await page.getByPlaceholder("搜索游戏或存档名称").fill("Sudoku");
+  await expect(page.locator(".save-library-toolbar")).toContainText("当前显示 1 份");
+  expect(await page.locator(".save-library-toolbar").evaluate((element) => element.getBoundingClientRect().height)).toBe(saveFilterHeight);
+  await noPageOverflow(page);
   await page.getByRole("button", { name: "从这里继续" }).first().click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });

@@ -52,7 +52,7 @@ paths:
   /api/v1/saves:
     get:
       operationId: getSaves
-      description: Save states whose games belong to enabled platform directories.
+      description: Save states whose games belong to enabled platform directories. Each item includes its base platform, platform directory, locked core, availability and screenshot URL; generatedAtMs gives grouped save views a stable response clock.
       parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/GameIDQuery' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/Availability' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }

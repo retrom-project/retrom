@@ -450,6 +450,69 @@
     #retrom-ui-review .rt-save-title-row .rt-text-link svg { width: 13px; height: 13px; }
     #retrom-ui-review .rt-save-game { margin-top: 9px; font-weight: 500; }
     #retrom-ui-review .rt-save-time { margin-top: 5px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-save-head-summary { display: flex; gap: 10px; }
+    #retrom-ui-review .rt-save-head-summary > div { min-width: 106px; padding: 9px 12px; border: 1px solid var(--retrom-line); border-radius: 11px; background: rgb(255 255 255 / .72); box-shadow: 0 2px 8px rgb(34 41 58 / .03); }
+    #retrom-ui-review .rt-save-head-summary span,
+    #retrom-ui-review .rt-save-head-summary strong { display: block; }
+    #retrom-ui-review .rt-save-head-summary span { color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-save-head-summary strong { margin-top: 2px; font-size: 17px; }
+    #retrom-ui-review .rt-save-section-label { margin: 0 0 9px; }
+    #retrom-ui-review .rt-save-section-label h2 { margin: 0; font-size: 15px; }
+    #retrom-ui-review .rt-save-section-label p { margin: 2px 0 0; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-save-latest { min-height: 205px; margin-bottom: 18px; overflow: hidden; display: grid; grid-template-columns: 360px minmax(0, 1fr) 180px; border: 1px solid #dcd6f5; border-radius: 15px; background: var(--retrom-panel); box-shadow: 0 15px 38px rgb(61 48 139 / .08); }
+    #retrom-ui-review .rt-save-latest-shot,
+    #retrom-ui-review .rt-save-library-shot { position: relative; overflow: hidden; background: linear-gradient(90deg, #047db4 0 42%, #bba87d 42% 58%, #087db1 58%); }
+    #retrom-ui-review .rt-save-latest-shot::before,
+    #retrom-ui-review .rt-save-library-shot::before { content: ""; position: absolute; inset: 0; background: repeating-linear-gradient(0deg, rgb(255 255 255 / .1) 0 2px, transparent 2px 16px), linear-gradient(100deg, transparent 30%, rgb(5 32 67 / .34) 50%, transparent 70%); }
+    #retrom-ui-review .rt-save-latest-shot::after { content: ""; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, rgb(14 19 32 / .26)); }
+    #retrom-ui-review .rt-save-latest-copy { min-width: 0; padding: 24px 26px; display: flex; flex-direction: column; justify-content: center; }
+    #retrom-ui-review .rt-save-latest-kicker { display: flex; align-items: center; gap: 7px; color: var(--retrom-purple); font-size: 11px; font-weight: 700; }
+    #retrom-ui-review .rt-save-latest-kicker i { width: 7px; height: 7px; border-radius: 50%; background: var(--retrom-purple); }
+    #retrom-ui-review .rt-save-latest-copy h2 { margin: 8px 0 5px; font-size: 22px; }
+    #retrom-ui-review .rt-save-latest-copy > p { margin: 0; color: var(--retrom-muted); font-size: 12px; }
+    #retrom-ui-review .rt-save-latest-facts { margin-top: 19px; padding-top: 15px; display: flex; gap: 30px; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-save-latest-facts span,
+    #retrom-ui-review .rt-save-latest-facts strong { display: block; }
+    #retrom-ui-review .rt-save-latest-facts span { color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-save-latest-facts strong { margin-top: 3px; font-size: 13px; }
+    #retrom-ui-review .rt-save-latest-actions { padding: 24px 20px; display: flex; flex-direction: column; justify-content: center; gap: 9px; background: linear-gradient(135deg, #fbfaff, #f5fbfb); }
+    #retrom-ui-review .rt-save-latest-actions .rt-button { width: 100%; }
+    #retrom-ui-review .rt-save-latest-actions small { color: var(--retrom-muted); text-align: center; font-size: 10px; }
+    #retrom-ui-review .rt-save-toolbar { min-height: 78px; margin-bottom: 19px; padding: 14px; display: grid; grid-template-columns: minmax(300px, 1fr) 170px 160px 180px auto; gap: 10px; align-items: end; border: 1px solid var(--retrom-line); border-radius: 14px; background: var(--retrom-panel); box-shadow: 0 2px 7px rgb(31 38 58 / .03); }
+    #retrom-ui-review .rt-save-filter { min-width: 0; display: grid; gap: 5px; color: #5d6677; font-size: 10px; font-weight: 600; }
+    #retrom-ui-review .rt-save-search { position: relative; }
+    #retrom-ui-review .rt-save-search i { position: absolute; left: 11px; top: 50%; width: 15px; height: 15px; color: var(--retrom-muted); transform: translateY(-50%); }
+    #retrom-ui-review .rt-save-search .rt-input { padding-left: 35px; background: #fafafa; }
+    #retrom-ui-review .rt-save-toolbar > p { align-self: center; margin: 17px 0 0; color: var(--retrom-muted); white-space: nowrap; font-size: 11px; }
+    #retrom-ui-review .rt-save-toolbar > p strong { color: var(--retrom-text); }
+    #retrom-ui-review .rt-save-groups { display: grid; gap: 20px; }
+    #retrom-ui-review .rt-save-group { overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 15px; background: rgb(255 255 255 / .76); }
+    #retrom-ui-review .rt-save-group-head { padding: 15px 18px 13px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--retrom-line); background: linear-gradient(180deg, #fff, #fcfbf9); }
+    #retrom-ui-review .rt-save-group-main { min-width: 0; display: flex; align-items: center; gap: 13px; }
+    #retrom-ui-review .rt-save-group-icon { width: 38px; height: 38px; display: grid; place-items: center; color: var(--retrom-purple); border-radius: 10px; background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-save-group-icon svg { width: 20px; height: 20px; }
+    #retrom-ui-review .rt-save-group-main h2 { margin: 0; font-size: 16px; }
+    #retrom-ui-review .rt-save-group-main p { margin: 4px 0 0; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-save-group-meta { display: flex; align-items: center; gap: 22px; color: var(--retrom-muted); white-space: nowrap; font-size: 11px; }
+    #retrom-ui-review .rt-save-group-meta strong { color: var(--retrom-text); font-size: 12px; }
+    #retrom-ui-review .rt-save-library-grid { padding: 15px; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 12px; }
+    #retrom-ui-review .rt-save-library-card { min-width: 0; overflow: visible; border: 1px solid #e6e2da; border-radius: 12px; background: var(--retrom-panel); transition: border-color .16s ease, box-shadow .16s ease, transform .16s ease; }
+    #retrom-ui-review .rt-save-library-card:hover { z-index: 2; border-color: #d9d1f5; box-shadow: 0 12px 30px rgb(31 38 58 / .13); transform: translateY(-2px); }
+    #retrom-ui-review .rt-save-library-shot { aspect-ratio: 16 / 9; border-radius: 11px 11px 0 0; }
+    #retrom-ui-review .rt-save-screen-b { background: linear-gradient(150deg, #0d315f, #058bc0 45%, #d6a235 46% 58%, #1b83a7 59%); }
+    #retrom-ui-review .rt-save-screen-c { background: radial-gradient(circle at 62% 58%, #ff9f25 0 5%, #e34b25 6% 10%, transparent 11%), linear-gradient(145deg, #0d315f, #098db5 55%, #b8d8db 56%); }
+    #retrom-ui-review .rt-save-screen-d { background: radial-gradient(circle at 75% 35%, transparent 0 14%, #ff9d31 15% 17%, transparent 18%), linear-gradient(145deg, #0c305b, #067dab 65%, #94b4ad 66%); }
+    #retrom-ui-review .rt-save-library-resume { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; opacity: 0; background: rgb(11 15 25 / .36); transition: opacity .16s ease; }
+    #retrom-ui-review .rt-save-library-card:hover .rt-save-library-resume,
+    #retrom-ui-review .rt-save-library-shot:focus-within .rt-save-library-resume { opacity: 1; }
+    #retrom-ui-review .rt-save-library-copy { position: relative; min-height: 68px; padding: 10px 12px 11px; }
+    #retrom-ui-review .rt-save-library-title { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    #retrom-ui-review .rt-save-library-title strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+    #retrom-ui-review .rt-save-library-title button { width: 28px; min-height: 28px; padding: 0; color: var(--retrom-muted); border: 0; background: transparent; font-weight: 800; letter-spacing: 1px; }
+    #retrom-ui-review .rt-save-library-meta { margin-top: 4px; display: flex; justify-content: space-between; gap: 8px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-save-empty-slot { min-height: 148px; display: grid; place-items: center; color: #a0a5ae; border: 1px dashed #ddd8cf; border-radius: 12px; background: rgb(250 249 246 / .7); font-size: 11px; }
+    #retrom-ui-review .rt-save-group-foot { padding: 0 15px 15px; text-align: right; }
+    #retrom-ui-review .rt-save-group-foot .rt-button { min-height: 34px; font-size: 11px; }
 
     #retrom-ui-review .rt-badge {
       display: inline-flex;
@@ -1023,11 +1086,19 @@
       </section>
 
       <section class="rt-page" data-page="saves">
-        <div class="rt-page-head"><div><h1>我的存档</h1><p class="rt-subtitle">手动存档会同时保存画面、核心和游戏文件版本</p></div><select class="rt-select rt-filter-select" aria-label="筛选存档"><option>全部游戏</option><option>Metal Slug</option><option>DOOM</option></select></div>
-        <div class="rt-save-grid">
-          <article class="rt-save-card"><div class="rt-save-shot"><button type="button" class="rt-button rt-button-primary rt-save-resume" data-quick-start="metal" data-save-start="沙漠据点前"><i data-lucide="play" aria-hidden="true"></i>从这里继续</button><button type="button" class="rt-button rt-save-delete" aria-label="删除沙漠据点前"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>沙漠据点前</h3><button type="button" class="rt-text-link" aria-label="重命名沙漠据点前"><i data-lucide="pencil" aria-hidden="true"></i></button></div><div class="rt-save-game">Metal Slug</div><div class="rt-save-time">FBNeo · 今天 22:14<br>已游玩 2 小时 24 分</div></div></article>
-          <article class="rt-save-card"><div class="rt-save-shot" style="background-color:var(--retrom-cover-c)"><button type="button" class="rt-button rt-button-primary rt-save-resume" data-quick-start="doom" data-save-start="Phobos Lab"><i data-lucide="play" aria-hidden="true"></i>从这里继续</button><button type="button" class="rt-button rt-save-delete" aria-label="删除 Phobos Lab"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>Phobos Lab</h3><button type="button" class="rt-text-link" aria-label="重命名 Phobos Lab"><i data-lucide="pencil" aria-hidden="true"></i></button></div><div class="rt-save-game">DOOM</div><div class="rt-save-time">DOSBox Pure · 昨天 23:06<br>已游玩 1 小时 48 分</div></div></article>
-          <article class="rt-save-card"><div class="rt-save-shot" style="background-color:var(--retrom-cover-a)"><span class="rt-save-blocked">当前不可用 · 缺少 BIOS</span><button type="button" class="rt-button rt-save-resume" disabled title="缺少 disksys.rom"><i data-lucide="play" aria-hidden="true"></i>缺少 BIOS</button><button type="button" class="rt-button rt-save-delete" aria-label="删除迷失森林入口"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="rt-save-copy"><div class="rt-save-title-row"><h3>迷失森林入口</h3><button type="button" class="rt-text-link" aria-label="重命名迷失森林入口"><i data-lucide="pencil" aria-hidden="true"></i></button></div><div class="rt-save-game">The Legend of Zelda</div><div class="rt-save-time">FCEUmm · 8 月 3 日<br>已游玩 48 分</div></div></article>
+        <div class="rt-page-head"><div><div class="rt-eyebrow">我的游戏</div><h1>我的存档</h1><p class="rt-subtitle">查看保存画面，找到想恢复的游戏状态，并随时从这里继续。</p></div><div class="rt-save-head-summary"><div><span>存档</span><strong>44 份</strong></div><div><span>涉及游戏</span><strong>3 款</strong></div></div></div>
+        <div class="rt-save-section-label"><h2>最近保存</h2><p>最近创建的一份可用手动存档</p></div>
+        <section class="rt-save-latest" aria-label="最近保存"><div class="rt-save-latest-shot"></div><div class="rt-save-latest-copy"><div class="rt-save-latest-kicker"><i></i>最近保存</div><h2>1943: The Battle of Midway</h2><p>Arcade · FinalBurn Neo</p><div class="rt-save-latest-facts"><div><span>保存时间</span><strong>今天 01:20:12</strong></div><div><span>当时已游玩</span><strong>少于 1 分钟</strong></div><div><span>存档状态</span><strong>可以继续</strong></div></div></div><div class="rt-save-latest-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal" data-save-start="最近保存"><i data-lucide="play" aria-hidden="true"></i>从这里继续</button><button type="button" class="rt-button" data-open-game="metal">查看游戏详情</button><small>直接恢复这份手动存档</small></div></section>
+        <section class="rt-save-toolbar" aria-label="筛选存档"><label class="rt-save-filter"><span>搜索</span><span class="rt-save-search"><i data-lucide="search" aria-hidden="true"></i><input class="rt-input" type="search" placeholder="搜索游戏或存档名称"></span></label><label class="rt-save-filter"><span>游戏</span><select class="rt-select"><option>所有游戏</option><option>1941</option><option>1943: The Battle of Midway</option></select></label><label class="rt-save-filter"><span>存档状态</span><select class="rt-select"><option>可以继续</option><option>全部存档</option><option>当前不可用</option></select></label><label class="rt-save-filter"><span>排列</span><select class="rt-select"><option>最近保存优先</option><option>最早保存优先</option></select></label><p>当前显示 <strong>44</strong> 份</p></section>
+        <div class="rt-save-groups">
+          <section class="rt-save-group"><header class="rt-save-group-head"><div class="rt-save-group-main"><span class="rt-save-group-icon"><i data-lucide="gamepad-2" aria-hidden="true"></i></span><div><h2>1941</h2><p>Arcade · FinalBurn Neo</p></div></div><div class="rt-save-group-meta"><span><strong>12</strong> 份存档</span><span>最近保存 <strong>昨天 21:09</strong></span><button type="button" class="rt-text-link" data-open-game="doom">查看游戏详情</button></div></header><div class="rt-save-library-grid">
+            <article class="rt-save-library-card"><div class="rt-save-library-shot rt-save-screen-b"><div class="rt-save-library-resume"><button type="button" class="rt-button rt-button-primary" data-quick-start="doom" data-save-start="21:09:47">从这里继续</button></div></div><div class="rt-save-library-copy"><div class="rt-save-library-title"><strong>昨天 21:09:47</strong><button type="button" aria-label="更多操作">•••</button></div><div class="rt-save-library-meta"><span>当时已游玩 4 分钟</span><span>昨天</span></div></div></article>
+            <article class="rt-save-library-card"><div class="rt-save-library-shot"><div class="rt-save-library-resume"><button type="button" class="rt-button rt-button-primary" data-quick-start="doom" data-save-start="21:09:45">从这里继续</button></div></div><div class="rt-save-library-copy"><div class="rt-save-library-title"><strong>昨天 21:09:45</strong><button type="button" aria-label="更多操作">•••</button></div><div class="rt-save-library-meta"><span>当时已游玩 4 分钟</span><span>昨天</span></div></div></article>
+            <article class="rt-save-library-card"><div class="rt-save-library-shot rt-save-screen-b"><div class="rt-save-library-resume"><button type="button" class="rt-button rt-button-primary" data-quick-start="doom" data-save-start="21:09:44">从这里继续</button></div></div><div class="rt-save-library-copy"><div class="rt-save-library-title"><strong>昨天 21:09:44</strong><button type="button" aria-label="更多操作">•••</button></div><div class="rt-save-library-meta"><span>当时已游玩 4 分钟</span><span>昨天</span></div></div></article>
+            <article class="rt-save-library-card"><div class="rt-save-library-shot rt-save-screen-c"><div class="rt-save-library-resume"><button type="button" class="rt-button rt-button-primary" data-quick-start="doom" data-save-start="21:09:41">从这里继续</button></div></div><div class="rt-save-library-copy"><div class="rt-save-library-title"><strong>昨天 21:09:41</strong><button type="button" aria-label="更多操作">•••</button></div><div class="rt-save-library-meta"><span>当时已游玩 4 分钟</span><span>昨天</span></div></div></article>
+            <article class="rt-save-library-card"><div class="rt-save-library-shot rt-save-screen-d"><div class="rt-save-library-resume"><button type="button" class="rt-button rt-button-primary" data-quick-start="doom" data-save-start="21:09:40">从这里继续</button></div></div><div class="rt-save-library-copy"><div class="rt-save-library-title"><strong>昨天 21:09:40</strong><button type="button" aria-label="更多操作">•••</button></div><div class="rt-save-library-meta"><span>当时已游玩 4 分钟</span><span>昨天</span></div></div></article>
+          </div><div class="rt-save-group-foot"><button type="button" class="rt-button">展开全部 12 份 ↓</button></div></section>
+          <section class="rt-save-group"><header class="rt-save-group-head"><div class="rt-save-group-main"><span class="rt-save-group-icon"><i data-lucide="gamepad-2" aria-hidden="true"></i></span><div><h2>1943: The Battle of Midway</h2><p>Arcade · FinalBurn Neo</p></div></div><div class="rt-save-group-meta"><span><strong>1</strong> 份存档</span><span>最近保存 <strong>今天 01:20</strong></span><button type="button" class="rt-text-link" data-open-game="metal">查看游戏详情</button></div></header><div class="rt-save-library-grid"><article class="rt-save-library-card"><div class="rt-save-library-shot"><div class="rt-save-library-resume"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal" data-save-start="今天 01:20:12">从这里继续</button></div></div><div class="rt-save-library-copy"><div class="rt-save-library-title"><strong>今天 01:20:12</strong><button type="button" aria-label="更多操作">•••</button></div><div class="rt-save-library-meta"><span>当时已游玩 少于 1 分钟</span><span>今天</span></div></div></article><div class="rt-save-empty-slot">该游戏目前只有这一份存档</div></div></section>
         </div>
       </section>
 

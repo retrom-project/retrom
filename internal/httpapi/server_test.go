@@ -877,7 +877,9 @@ VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
 	server.Handler().ServeHTTP(saves, httptest.NewRequest(http.MethodGet, "/api/v1/saves", nil))
 	if saves.Code != http.StatusOK ||
 		!strings.Contains(saves.Body.String(), `"screenshotUrl":"`+saveStateScreenshotURL(saveStateID)+`"`) ||
-		!strings.Contains(saves.Body.String(), `"activeDurationMs":180000`) {
+		!strings.Contains(saves.Body.String(), `"activeDurationMs":180000`) ||
+		!strings.Contains(saves.Body.String(), `"platform":{"id":"dos","name":"MS-DOS"}`) ||
+		!strings.Contains(saves.Body.String(), `"generatedAtMs":`) {
 		t.Fatalf("save list projection = %d: %s", saves.Code, saves.Body.String())
 	}
 	filteredSaves := httptest.NewRecorder()
