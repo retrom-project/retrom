@@ -124,6 +124,10 @@ Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 re
 
 Player Shell 创建同源 `about:blank` iframe，由父页面在 iframe document 中建立唯一 `#game` 容器、设置上述 globals、注册 callback，最后追加 `src=config.loaderUrl` 的 script；不使用 `srcdoc` inline script、跨源 frame 或 `document.write`。iframe 继承父页面 origin/CSP，所有内容请求会按 `/runtime/launches/<launchId>/` 路径自动携带 capability cookie。只有 config 校验与可选 PersistentSave 预读完成后才加载 loader。
 
+Player canvas contain 必须优先使用锁定运行时 `gameManager.getVideoDimensions("aspect")` 的正数结果，只有 game-start 前尚不可用时才回退 drawing-buffer `canvas.width/canvas.height`。这能处理 drawing buffer 仍为横向但核心实际输出为 3:4 等竖屏画面的情况：竖屏画面 CSS 高度贴满 `100dvh`，左右保留必要黑边，不能误在上下留下黑边。viewport、canvas 属性或核心比例变化时必须重新计算，不能拉伸或裁切。
+
+工具栏的“暂停”直接调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；“继续”调用 `toggleMainLoop(true)` 并恢复 `paused=false`。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏保持可见，避免用户失去恢复入口。
+
 映射：
 
 | Retrom | EmulatorJS v4.2.3 |

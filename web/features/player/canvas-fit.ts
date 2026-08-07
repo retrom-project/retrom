@@ -14,8 +14,11 @@ export function containSize(
   return { width: viewportHeight * contentRatio, height: viewportHeight };
 }
 
-export function fitCanvasToViewport(canvas: HTMLCanvasElement, viewportWidth: number, viewportHeight: number) {
-  const size = containSize(viewportWidth, viewportHeight, canvas.width, canvas.height);
+export function fitCanvasToViewport(canvas: HTMLCanvasElement, viewportWidth: number, viewportHeight: number, aspectRatio?: number) {
+  const hasRuntimeAspect = typeof aspectRatio === "number" && Number.isFinite(aspectRatio) && aspectRatio > 0;
+  const size = hasRuntimeAspect
+    ? containSize(viewportWidth, viewportHeight, aspectRatio, 1)
+    : containSize(viewportWidth, viewportHeight, canvas.width, canvas.height);
   if (!size) return false;
   canvas.style.setProperty("width", `${size.width}px`, "important");
   canvas.style.setProperty("height", `${size.height}px`, "important");
@@ -24,13 +27,13 @@ export function fitCanvasToViewport(canvas: HTMLCanvasElement, viewportWidth: nu
   return true;
 }
 
-export function installCanvasContain(frameDocument: Document) {
+export function installCanvasContain(frameDocument: Document, getAspectRatio: () => number | undefined = () => undefined) {
   const frameWindow = frameDocument.defaultView;
-  if (!frameWindow) return () => undefined;
+  if (!frameWindow) return { refresh: () => undefined, cleanup: () => undefined };
   const fit = () => {
     const canvas = frameDocument.querySelector<HTMLCanvasElement>("canvas");
     if (!canvas) return;
-    fitCanvasToViewport(canvas, frameWindow.innerWidth, frameWindow.innerHeight);
+    fitCanvasToViewport(canvas, frameWindow.innerWidth, frameWindow.innerHeight, getAspectRatio());
   };
   const mutationObserver = new frameWindow.MutationObserver(fit);
   mutationObserver.observe(frameDocument.documentElement, {
@@ -44,9 +47,9 @@ export function installCanvasContain(frameDocument: Document) {
   resizeObserver?.observe(frameDocument.documentElement);
   frameWindow.addEventListener("resize", fit);
   fit();
-  return () => {
+  return { refresh: fit, cleanup: () => {
     mutationObserver.disconnect();
     resizeObserver?.disconnect();
     frameWindow.removeEventListener("resize", fit);
-  };
+  } };
 }

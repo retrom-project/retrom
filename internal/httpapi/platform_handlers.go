@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
@@ -22,6 +23,11 @@ import (
 
 var slugPattern = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
 
+var (
+	errPlatformInstanceOrderInvalid = errors.New("invalid platform instance order")
+	errPlatformInstanceOrderVersion = errors.New("platform instance order version conflict")
+)
+
 type createPlatformInstanceRequest struct {
 	PlatformID    string `json:"platformId"`
 	DefaultCoreID string `json:"defaultCoreId"`
@@ -36,6 +42,20 @@ type patchPlatformInstanceRequest struct {
 	Description *string `json:"description,omitempty"`
 	SortOrder   *int64  `json:"sortOrder,omitempty"`
 	Enabled     *bool   `json:"enabled,omitempty"`
+}
+
+type reorderPlatformInstanceItem struct {
+	ID      string `json:"id"`
+	Version int64  `json:"version"`
+}
+
+type reorderPlatformInstancesRequest struct {
+	Items []reorderPlatformInstanceItem `json:"items"`
+}
+
+type platformInstanceOrderState struct {
+	Version   int64
+	SortOrder int64
 }
 
 func validText(value string, minimum, maximum int, allowNewline bool) bool {
@@ -154,6 +174,7 @@ VALUES(?,
 			"description":   body.Description,
 			"sortOrder":     body.SortOrder,
 			"enabled":       true,
+			"gameCount":     0,
 			"version":       1,
 			"createdAtMs":   now,
 			"updatedAtMs":   now,
@@ -240,7 +261,7 @@ func (server *Server) platformInstance(writer http.ResponseWriter, request *http
 
 func (server *Server) readPlatformInstance(request *http.Request, id string) (map[string]any, error) {
 	var platformID, platformName, defaultCoreID, defaultCoreName, name, slug, description string
-	var sortOrder, enabled, version, createdAtMS, updatedAtMS int64
+	var sortOrder, enabled, version, createdAtMS, updatedAtMS, gameCount int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT pi.platform_id,
 p.name,
@@ -253,7 +274,8 @@ pi.sort_order,
 pi.enabled,
 pi.version,
 pi.created_at_ms,
-pi.updated_at_ms
+pi.updated_at_ms,
+(SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores c ON c.id=pi.default_core_id
@@ -273,6 +295,7 @@ AND pi.deleted_at_ms IS NULL
 			&version,
 			&createdAtMS,
 			&updatedAtMS,
+			&gameCount,
 		)
 	if err != nil {
 		return nil, fmt.Errorf("httpapi/platform_handlers: %w", err)
@@ -291,7 +314,149 @@ AND pi.deleted_at_ms IS NULL
 		"version":         version,
 		"createdAtMs":     createdAtMS,
 		"updatedAtMs":     updatedAtMS,
+		"gameCount":       gameCount,
 	}, nil
+}
+
+func readPlatformInstanceOrder(
+	ctx context.Context,
+	transaction *sql.Tx,
+	capacity int,
+) (map[string]platformInstanceOrderState, error) {
+	rows, err := transaction.QueryContext(ctx, `
+SELECT id,version,sort_order
+FROM platform_instances
+WHERE deleted_at_ms IS NULL
+ORDER BY sort_order,id
+`)
+	if err != nil {
+		return nil, fmt.Errorf("httpapi/platform order query: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	current := make(map[string]platformInstanceOrderState, capacity)
+	for rows.Next() {
+		var id string
+		var state platformInstanceOrderState
+		if err := rows.Scan(&id, &state.Version, &state.SortOrder); err != nil {
+			return nil, fmt.Errorf("httpapi/platform order scan: %w", err)
+		}
+		current[id] = state
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("httpapi/platform order rows: %w", err)
+	}
+	return current, nil
+}
+
+func applyPlatformInstanceOrder(
+	request *http.Request,
+	transaction *sql.Tx,
+	items []reorderPlatformInstanceItem,
+	current map[string]platformInstanceOrderState,
+	now int64,
+) ([]map[string]any, error) {
+	resultItems := make([]map[string]any, 0, len(items))
+	for index, item := range items {
+		sortOrder := int64(index+1) * 100
+		result, err := transaction.ExecContext(request.Context(), `
+UPDATE platform_instances
+SET sort_order=?,version=version+1,updated_at_ms=?
+WHERE id=? AND version=? AND deleted_at_ms IS NULL
+`, sortOrder, now, item.ID, item.Version)
+		if err != nil {
+			return nil, fmt.Errorf("httpapi/platform order update: %w", err)
+		}
+		changed, err := result.RowsAffected()
+		if err != nil {
+			return nil, fmt.Errorf("httpapi/platform order affected rows: %w", err)
+		}
+		if changed != 1 {
+			return nil, errPlatformInstanceOrderVersion
+		}
+		previous := current[item.ID]
+		before := map[string]any{"version": previous.Version, "sortOrder": previous.SortOrder}
+		after := map[string]any{"version": item.Version + 1, "sortOrder": sortOrder}
+		if err := insertAudit(
+			request,
+			transaction,
+			"PLATFORM_INSTANCE_REORDERED",
+			"PLATFORM_INSTANCE",
+			item.ID,
+			before,
+			after,
+			now,
+		); err != nil {
+			return nil, fmt.Errorf("httpapi/platform order audit: %w", err)
+		}
+		resultItems = append(resultItems, map[string]any{
+			"id": item.ID, "sortOrder": sortOrder, "version": item.Version + 1, "updatedAtMs": now,
+		})
+	}
+	return resultItems, nil
+}
+
+func requestedPlatformInstanceOrder(items []reorderPlatformInstanceItem) (map[string]int64, error) {
+	requested := make(map[string]int64, len(items))
+	for _, item := range items {
+		if _, err := uuid.Parse(item.ID); err != nil || item.Version < 1 {
+			return nil, errPlatformInstanceOrderInvalid
+		}
+		if _, exists := requested[item.ID]; exists {
+			return nil, errPlatformInstanceOrderInvalid
+		}
+		requested[item.ID] = item.Version
+	}
+	return requested, nil
+}
+
+func (server *Server) reorderPlatformInstances(writer http.ResponseWriter, request *http.Request) {
+	var body reorderPlatformInstancesRequest
+	if err := decodeJSON(writer, request, &body, 32<<10); err != nil || len(body.Items) == 0 || len(body.Items) > 100 {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "目录排序数据无效", map[string]any{})
+		return
+	}
+	requested, err := requestedPlatformInstanceOrder(body.Items)
+	if err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "目录排序数据无效", map[string]any{})
+		return
+	}
+	transaction, err := server.database.BeginTx(request.Context(), nil)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	defer cleanup.Rollback(transaction)
+	current, err := readPlatformInstanceOrder(request.Context(), transaction, len(body.Items))
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if len(current) != len(requested) {
+		writeError(writer, request, http.StatusConflict, "PLATFORM_INSTANCE_ORDER_STALE", "目录列表已变化，请刷新后重试", map[string]any{})
+		return
+	}
+	for id, version := range requested {
+		entry, exists := current[id]
+		if !exists || entry.Version != version {
+			writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "目录已被修改，请刷新后重试", map[string]any{})
+			return
+		}
+	}
+	now := server.now().UnixMilli()
+	resultItems, err := applyPlatformInstanceOrder(request, transaction, body.Items, current, now)
+	if errors.Is(err, errPlatformInstanceOrderVersion) {
+		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "目录已被修改，请刷新后重试", map[string]any{})
+		return
+	}
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if err := transaction.Commit(); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, map[string]any{"items": resultItems})
 }
 
 //nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
@@ -345,26 +510,6 @@ func (server *Server) patchPlatformInstance(writer http.ResponseWriter, request 
 	}
 	if body.Enabled != nil {
 		enabled = *body.Enabled
-	}
-	if !enabled {
-		var count int
-		if err := server.database.QueryRowContext(request.Context(), `
-SELECT count(*)
-FROM games
-WHERE platform_instance_id=?
-AND status='PUBLISHED'
-`, request.PathValue("platformInstanceId")).Scan(&count); err != nil ||
-			count != 0 {
-			writeError(
-				writer,
-				request,
-				http.StatusConflict,
-				"PLATFORM_INSTANCE_NOT_EMPTY",
-				"非空目录不能停用",
-				map[string]any{},
-			)
-			return
-		}
 	}
 	now := server.now().UnixMilli()
 	transaction, err := server.database.BeginTx(request.Context(), nil)

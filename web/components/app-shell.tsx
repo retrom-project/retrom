@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
@@ -32,6 +32,11 @@ function navState(item: NavItem, pathname: string): "active" | "context" | "" {
   return pathname === item.href || pathname.startsWith(`${item.href}/`) ? "active" : "";
 }
 
+function NavigationPending() {
+  const { pending } = useLinkStatus();
+  return pending ? <span className="button-spinner nav-pending" role="status" aria-label="正在加载" /> : null;
+}
+
 function Navigation({ items, pathname }: { items: NavItem[]; pathname: string }) {
   return (
     <nav aria-label="主要导航" className="side-nav">
@@ -45,45 +50,34 @@ function Navigation({ items, pathname }: { items: NavItem[]; pathname: string })
         >
           <AppIcon className="nav-icon" name={item.icon} />
           <span>{item.label}</span>
+          <NavigationPending />
         </Link>;
       })}
     </nav>
   );
 }
 
-function breadcrumbs(pathname: string) {
-  const root = pathname.startsWith("/admin") ? "管理后台" : "我的游戏";
-  const routes: Array<[string, string[]]> = [
-    ["/admin/reviews/history", ["游戏入库", "审核历史"]],
-    ["/admin/reviews/", ["游戏入库", "待审核", "审核条目"]],
-    ["/admin/reviews", ["游戏入库", "待审核"]],
-    ["/admin/imports/new", ["游戏入库", "导入内容"]],
-    ["/admin/imports/tasks", ["游戏入库", "任务进度"]],
-    ["/admin/imports", ["游戏入库"]],
-    ["/admin/games/", ["游戏管理", "游戏详情"]],
-    ["/admin/games", ["游戏管理"]],
-    ["/admin/platform-instances", ["平台目录"]],
-    ["/admin/bios/dats", ["BIOS 管理", "街机数据目录"]],
-    ["/admin/bios", ["BIOS 管理"]],
-    ["/games/", ["游戏详情"]],
-    ["/library", ["游戏库"]],
-    ["/saves", ["我的存档"]],
-    ["/", ["首页"]]
-  ];
-  return [root, ...(routes.find(([prefix]) => prefix === "/" ? pathname === "/" : pathname === prefix || pathname.startsWith(prefix))?.[1] ?? [])];
-}
-
 function ServiceHealth() {
   const [state, setState] = useState<"checking" | "ready" | "unavailable">("checking");
+  const [detail, setDetail] = useState("正在检查服务状态");
   useEffect(() => {
     const controller = new AbortController();
     void fetch("/health/ready", { cache: "no-store", signal: controller.signal })
-      .then((response) => setState(response.ok ? "ready" : "unavailable"))
-      .catch((error: unknown) => { if (!(error instanceof DOMException && error.name === "AbortError")) setState("unavailable"); });
+      .then(async (response) => {
+        setState(response.ok ? "ready" : "unavailable");
+        if (response.ok) { setDetail("服务正常"); return; }
+        const payload = await response.json().catch(() => null) as { error?: { message?: string }; checks?: Record<string, string> } | null;
+        const checks = Object.entries(payload?.checks ?? {}).map(([name, value]) => `${name}：${value}`).join("；");
+        setDetail(payload?.error?.message ?? (checks || `服务异常（HTTP ${response.status}）`));
+      })
+      .catch((error: unknown) => {
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        setState("unavailable"); setDetail(error instanceof Error ? `服务连接失败：${error.message}` : "服务连接失败");
+      });
     return () => controller.abort();
   }, []);
-  const label = state === "checking" ? "正在检查服务" : state === "ready" ? "服务正常" : "服务不可用";
-  return <span className={`connection ${state}`} aria-live="polite"><i />{label}</span>;
+  const label = state === "checking" ? "正在检查服务" : state === "ready" ? "服务正常" : "服务存在异常";
+  return <span className={`connection ${state}`} aria-label={`${label}：${detail}`} aria-live="polite" tabIndex={0}><i aria-hidden="true" /><span className="connection-tooltip" role="tooltip"><strong>{label}</strong><small>{detail}</small></span></span>;
 }
 
 export function AppShell({ children }: { children: ReactNode }) {
@@ -99,17 +93,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Link>
         <Navigation items={administrator ? adminNavigation : userNavigation} pathname={pathname} />
         <div className="sidebar-foot">
-          <Link className="context-switch" href={administrator ? "/" : "/admin/imports"}>
-            <span aria-hidden="true">{administrator ? "←" : "⚙"}</span>
-            {administrator ? "返回用户侧" : "管理后台"}
-          </Link>
+          <div className="sidebar-foot-row"><Link className="context-switch" href={administrator ? "/" : "/admin/imports"}>
+              <AppIcon className="nav-icon" name={administrator ? "arrow-left" : "settings"} />
+              {administrator ? "返回用户侧" : "管理后台"}
+            </Link><ServiceHealth /></div>
         </div>
       </aside>
       <div className="app-body">
-        <header className="topbar">
-          <nav aria-label="面包屑" className="breadcrumb"><ol>{breadcrumbs(pathname).map((item, index) => <li key={`${item}-${index}`}>{index ? <span aria-hidden="true">/</span> : null}{item}</li>)}</ol></nav>
-          <ServiceHealth />
-        </header>
         <main className="content">{children}</main>
       </div>
     </div>

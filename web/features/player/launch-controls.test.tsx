@@ -38,8 +38,10 @@ describe("LaunchControls", () => {
     const user = userEvent.setup();
     render(<LaunchControls gameId="game-1" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
 
-    await user.selectOptions(screen.getByLabelText("本次运行核心"), "gambatte");
-    expect(screen.getByText("启动时验证此核心")).toBeInTheDocument();
+    expect(screen.queryByLabelText("运行引擎")).not.toBeVisible();
+    await user.click(screen.getByText("更换运行方式"));
+    await user.selectOptions(screen.getByLabelText("运行引擎"), "gambatte");
+    expect(screen.getByText("开始时会自动检查")).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "开始游戏" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
+import type { StatusTone } from "@/lib/status";
 
 export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description: string; actions?: ReactNode }) {
   return (
@@ -14,8 +15,12 @@ export function ButtonLink({ href, children, secondary = false }: { href: string
   return <Link className={secondary ? "button secondary" : "button"} href={href}>{children}</Link>;
 }
 
-export function StatusBadge({ tone = "neutral", children }: { tone?: "good" | "warn" | "bad" | "info" | "neutral"; children: ReactNode }) {
+export function StatusBadge({ tone = "neutral", children }: { tone?: StatusTone; children: ReactNode }) {
   return <span className={`status ${tone}`}><i />{children}</span>;
+}
+
+export function FeedbackBanner({ tone, children }: { tone: "good" | "bad" | "info"; children: ReactNode }) {
+  return <div className={`feedback-banner ${tone}`} role={tone === "bad" ? "alert" : "status"}><i aria-hidden="true" /> <span>{children}</span></div>;
 }
 
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
@@ -23,7 +28,7 @@ export function EmptyState({ title, description, action }: { title: string; desc
 }
 
 export function Kpi({ label, value, note, tone = "purple" }: { label: string; value: string | number; note: string; tone?: "purple" | "cyan" | "amber" | "slate" }) {
-  return <article className={`kpi ${tone}`}><div><span>{label}</span><strong>{value}</strong></div><p>{note}</p></article>;
+  return <article className={`kpi ${tone}`}><div className="kpi-main"><span className="kpi-label">{label}</span><span className="kpi-value"><strong>{value}</strong><i className="kpi-accent" aria-hidden="true" /></span></div><p>{note}</p></article>;
 }
 
 export function FilterBar({ placeholder = "搜索游戏、平台或任务…", children }: { placeholder?: string; children?: ReactNode }) {
