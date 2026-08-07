@@ -1370,7 +1370,6 @@ export interface components {
             platformId: string;
             defaultCoreId: string;
             name: string;
-            slug: string;
             description: string;
             /** Format: int64 */
             sortOrder: number;

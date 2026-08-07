@@ -117,7 +117,7 @@ CREATE TABLE games (
 );
 ~~~
 
-SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVariant 核心属于 Game 间接关联的平台”。两条规则必须同时由服务层事务和数据库触发器保护，并有 migration/集成测试覆盖，不能只依赖前端下拉框。`slug` 创建时规范为小写并匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$`，之后不可修改。
+SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVariant 核心属于 Game 间接关联的平台”。两条规则必须同时由服务层事务和数据库触发器保护，并有 migration/集成测试覆盖，不能只依赖前端下拉框。`slug` 由服务端从展示名称生成小写 ASCII 标识；名称无法产生 ASCII 单词时回退为 `<platform_id>-library`，同一基础平台发生冲突时追加从 `-2` 开始的最小可用序号。最终值匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$`、最长 80 byte，创建后不可修改。
 
 所有其他时间点与时长字段遵循 [存储与数据库设计](./storage-and-database.md) 的 Unix 毫秒规则，不使用 TEXT 时间。
 
@@ -198,7 +198,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 ### 创建
 
 - 先选择基础平台，再选择该平台已启用的默认核心。
-- 名称在站点内可以重复；<code>(platform_id, slug)</code> 必须唯一，选择器同时显示基础平台消除歧义。
+- 名称在站点内可以重复；创建请求不接收 slug，服务端在事务内生成唯一的 <code>(platform_id, slug)</code>，选择器同时显示基础平台消除歧义。
 - 空库 bootstrap 必须幂等创建总览文档第 6 节列出的初始平台目录；用户也可在管理后台新增。seed 使用稳定 `(platform_id, slug)`，不得每次启动生成新 UUID 行。
 
 ### 修改默认核心

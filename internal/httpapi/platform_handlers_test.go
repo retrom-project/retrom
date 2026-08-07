@@ -17,7 +17,6 @@ func TestPlatformSlugBaseUsesReadableASCIIOrPlatformFallback(t *testing.T) {
 		{name: "GBA 游戏", platformID: "gba", want: "gba"},
 	}
 	for _, test := range tests {
-		test := test
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			if got := platformSlugBase(test.name, test.platformID); got != test.want {
