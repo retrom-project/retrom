@@ -16,7 +16,7 @@ describe("ReviewQueue", () => {
     render(<ReviewQueue initial={{ items: [item], nextCursor: null }} values={{}} />);
     expect(screen.getByAltText("1941: Counter Attack 封面缩略图")).toBeInTheDocument();
     expect(screen.getByText("4.0 MiB")).toBeInTheDocument();
-    expect(screen.getByText(/MD5 012345/)).toHaveAttribute("title", `MD5 ${item.sourceMd5}`);
+    expect(screen.getByText("MD5 0123…")).toHaveAttribute("title", `MD5 ${item.sourceMd5}`);
     expect(screen.queryByText("批次详情")).not.toBeInTheDocument();
     expect(screen.queryByText(item.importJobId)).not.toBeInTheDocument();
   });

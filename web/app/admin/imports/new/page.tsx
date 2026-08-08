@@ -10,10 +10,9 @@ export default async function NewImportPage() {
   const result = await backendJSON<ListResponse<Instance>>("/api/v1/admin/platform-instances");
   const directories = result.items.map((item) => ({ id: item.id, name: item.name, platformName: item.platformName, coreName: item.defaultCoreName }));
   return (
-    <>
-      <PageHeader eyebrow="New import" title="导入游戏" description="内容只来自浏览器选择，不会扫描或暴露宿主机任意路径。" actions={<ButtonLink href="/admin/imports" secondary>返回总览</ButtonLink>} />
-      <div className="stepper"><div className="step is-active"><i>1</i>选择内容</div><div className="step"><i>2</i>确认配置</div><div className="step"><i>3</i>上传并验证</div></div>
+    <div className="import-workflow-page import-new-page">
+      <PageHeader eyebrow="New import" title="导入游戏" description="通过三个明确阶段提交内容。导入任务创建后进入“任务进度”，不会直接跳到尚未准备好的审核队列。" actions={<ButtonLink href="/admin/imports" secondary>返回总览</ButtonLink>} />
       <UploadPicker directories={directories} />
-    </>
+    </div>
   );
 }

@@ -14,7 +14,7 @@ describe("ReviewHistory", () => {
     render(<ReviewHistory items={[item]} />);
     expect(screen.queryByText("技术详情")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "查看“1941”的审核快照" }));
-    const dialog = await screen.findByRole("alertdialog", { name: "审核完成时的游戏信息" });
+    const dialog = await screen.findByRole("alertdialog", { name: "1941" });
     expect(dialog).toHaveTextContent("1941: Counter Attack");
     expect(dialog).toHaveTextContent("Capcom");
     expect(dialog).toHaveTextContent("1990");

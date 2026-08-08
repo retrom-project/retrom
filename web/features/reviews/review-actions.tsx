@@ -131,7 +131,7 @@ function scrapeResult(run: ReviewScrapeRun) {
   return run.evidenceCount === 0 ? "没有可查询的文件特征" : "没有找到可用信息";
 }
 
-export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId = null, children }: { review: ReviewWorkspace; returnTo?: string; nextItemId?: string | null; children?: ReactNode }) {
+export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId = null, sourceDisplayName = "游戏文件", platformInstanceName = "游戏目录", children }: { review: ReviewWorkspace; returnTo?: string; nextItemId?: string | null; sourceDisplayName?: string; platformInstanceName?: string; children?: ReactNode }) {
   const router = useRouter();
   const initialMetadata = metadataForm(review);
   const automaticCandidate = review.selectedCandidateId ? null : review.candidates[0] ?? null;
@@ -284,31 +284,41 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const nextCompareCover = comparison ? previewAsset(candidates, uploadedAssets, comparison.nextCover) : null;
   const saveLabel = saveState === "saving" ? "正在实时保存…" : saveState === "pending" ? "等待保存…" : saveState === "error" ? "实时保存失败" : "已实时保存";
 
-  return <section className="panel review-main-workbench">
-    <div className="panel-head review-workbench-head"><div><h2>审核与发布</h2><p>文件、运行检查和游戏信息集中在同一工作区 · <span className={`autosave-state ${saveState}`}>{saveLabel}</span></p></div><div className="header-actions"><button type="button" className="button danger" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || review.validation?.status !== "READY" || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></div>
-    <div className="panel-body stack review-editor">
-      {children}
-      {notice ? <FeedbackBanner tone="good">{notice}</FeedbackBanner> : null}
-      {error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}
-      <div className="review-editor-grid">
-        <div className="form-grid">
-          <label className="field full">标题<input value={form.title} onChange={(event) => updateField("title", event.target.value)} maxLength={200} /></label>
-          <label className="field full">简介<textarea value={form.description} onChange={(event) => updateField("description", event.target.value)} maxLength={10000} /></label>
-          <label className="field">开发商<input value={form.developer} onChange={(event) => updateField("developer", event.target.value)} maxLength={200} /></label>
-          <label className="field">发行商<input value={form.publisher} onChange={(event) => updateField("publisher", event.target.value)} maxLength={200} /></label>
-          <label className="field">类型<input value={form.genre} onChange={(event) => updateField("genre", event.target.value)} maxLength={200} /></label>
-          <label className="field">玩家数<input type="number" min={1} max={64} value={form.players} onChange={(event) => updateField("players", event.target.value)} /></label>
-          <label className="field">发行年份<input type="number" min={1950} value={form.releaseYear} onChange={(event) => updateField("releaseYear", event.target.value)} /></label>
-          {review.dosEntries.length ? <label className="field">DOS 默认程序<select value={defaultDosEntry ?? ""} onChange={(event) => setDefaultDosEntry(event.target.value || null)}><option value="">打开 DOSBox 程序菜单</option>{review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}
+  const publishReady = review.validation?.status === "READY";
+
+  return <div className="review-workflow-detail">
+    <div className="review-workflow-top">
+      <section className="review-workflow-summary-card"><StatusPill tone="info">来源：{sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><div><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{publishReady ? "运行检查通过" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : "未找到游戏信息"}</StatusPill></div></section>
+      <aside className="review-workflow-decision"><h2>审核决定</h2><p>字段会实时保存；只有运行检查通过时才允许发布。</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
+    </div>
+    {notice || error ? <div className="review-workflow-feedback">{notice ? <FeedbackBanner tone="info">{notice}</FeedbackBanner> : null}{error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}</div> : null}
+    <div className="review-workflow-columns">
+      <div className="review-workflow-left">{children}</div>
+      <section className="panel review-workflow-metadata">
+        <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介和封面；修改会实时保存。</p></div><button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div>
+        <div className="panel-body review-workflow-editor">
+          <div className="form-grid">
+            <label className="field full">标题<input value={form.title} onChange={(event) => updateField("title", event.target.value)} maxLength={200} /></label>
+            <label className="field full">简介<textarea value={form.description} onChange={(event) => updateField("description", event.target.value)} maxLength={10000} /></label>
+            <label className="field">开发商<input value={form.developer} onChange={(event) => updateField("developer", event.target.value)} maxLength={200} /></label>
+            <label className="field">发行商<input value={form.publisher} onChange={(event) => updateField("publisher", event.target.value)} maxLength={200} /></label>
+            <label className="field">类型<input value={form.genre} onChange={(event) => updateField("genre", event.target.value)} maxLength={200} /></label>
+            <label className="field">玩家数<input type="number" min={1} max={64} value={form.players} onChange={(event) => updateField("players", event.target.value)} /></label>
+            <label className="field">发行年份<input type="number" min={1950} value={form.releaseYear} onChange={(event) => updateField("releaseYear", event.target.value)} /></label>
+            {review.dosEntries.length ? <label className="field">DOS 默认程序<select value={defaultDosEntry ?? ""} onChange={(event) => setDefaultDosEntry(event.target.value || null)}><option value="">打开 DOSBox 程序菜单</option>{review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}
+          </div>
+          <div className="review-workflow-cover-row"><aside className="review-cover-panel"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCover(file, "current"); event.currentTarget.value = ""; }} /></label>{cover.candidateId || cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => setCover({ candidateId: null, uploadedId: null })}>移除封面</button> : null}</aside><div className="review-workflow-candidate-stack"><div><StatusPill tone="info">当前信息</StatusPill><strong>{candidateId ? "Hasheous 候选信息" : "人工填写信息"}</strong><p>{candidateId ? "已采用查询结果；封面仍可单独上传替换。" : "当前没有关联在线候选。"}</p></div><div><strong>信息来源</strong><p>{candidateId ? `${candidates.length} 个可用候选` : "未找到候选，需要手动填写发布信息"}</p><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void rescrape("NONE")}>{busy === "停用元信息源" ? "正在记录…" : "不使用在线游戏信息"}</button></div></div></div>
+          {jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}
         </div>
-        <aside className="review-cover-panel"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCover(file, "current"); event.currentTarget.value = ""; }} /></label>{cover.candidateId || cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => setCover({ candidateId: null, uploadedId: null })}>移除封面</button> : null}<small>{candidateId ? "文字来源关联到当前候选；封面可单独人工替换" : "当前使用人工填写的信息"}</small></aside>
-      </div>
-      <section className="review-query-bar" aria-label="在线游戏信息"><div><strong>在线游戏信息</strong><p>重新查询后对比当前信息与最新结果，不会在页面下方累积候选卡片。</p></div><div className="header-actions"><button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void rescrape("NONE")}>{busy === "停用元信息源" ? "正在记录…" : "不使用在线游戏信息"}</button></div></section>
-      {jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}
+      </section>
     </div>
     <ConfirmDialog open={comparison !== null} wide title="对比最新查询结果" description="左侧是当前信息，右侧是最新结果。红色表示内容不同，绿色表示一致；右侧可编辑并替换封面。" confirmLabel="应用" busy={busy !== null} onCancel={() => setComparison(null)} onConfirm={applyComparison}>
       {comparison ? <div className="metadata-compare"><div className="metadata-compare-head"><strong>当前信息（只读）</strong><strong>最新信息（可编辑）</strong></div>{compareFields.map((field) => { const same = comparison.current[field.key] === comparison.next[field.key]; return <div className="metadata-compare-row" key={field.key}><div className="compare-readonly"><span>{field.label}</span><p>{comparison.current[field.key] || "未填写"}</p></div><label className={`compare-field ${same ? "is-same" : "is-changed"}`}><span>{field.label}</span>{field.multiline ? <textarea aria-label={field.label} value={comparison.next[field.key]} onChange={(event) => setComparison((current) => current ? { ...current, next: { ...current.next, [field.key]: event.target.value } } : null)} /> : <input aria-label={field.label} type={field.type ?? "text"} value={comparison.next[field.key]} onChange={(event) => setComparison((current) => current ? { ...current, next: { ...current.next, [field.key]: event.target.value } } : null)} />}</label></div>; })}<div className="metadata-compare-row compare-cover-row"><div className="compare-readonly"><span>当前封面</span><AssetPreview asset={currentCompareCover} label="当前游戏封面" /></div><div className={`${comparison.currentCover.candidateId === comparison.nextCover.candidateId && comparison.currentCover.uploadedId === comparison.nextCover.uploadedId ? "is-same" : "is-changed"} compare-field`}><span>最新封面</span><label className="review-cover-upload"><AssetPreview asset={nextCompareCover} label="最新查询封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCover(file, "comparison"); event.currentTarget.value = ""; }} /></label>{comparison.nextCover.candidateId || comparison.nextCover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => setComparison((current) => current ? { ...current, nextCover: { candidateId: null, uploadedId: null } } : null)}>不使用新封面</button> : null}</div></div></div> : null}
     </ConfirmDialog>
     <Toast toast={toast} onDismiss={() => setToast(null)} />
-  </section>;
+  </div>;
+}
+
+function StatusPill({ tone, children }: { tone: "good" | "warn" | "info"; children: ReactNode }) {
+  return <span className={`status ${tone}`}><i />{children}</span>;
 }

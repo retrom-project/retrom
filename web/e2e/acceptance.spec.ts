@@ -248,6 +248,9 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await expect(page.getByRole("heading", { name: "游戏目录", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "主要导航" }).getByText("游戏目录", { exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "启用状态" })).toBeVisible();
+  const directoryRowHeights = await page.locator(".platform-directory-row").evaluateAll((rows) => rows.map((row) => row.getBoundingClientRect().height));
+  expect(directoryRowHeights.length).toBeGreaterThan(0);
+  expect(directoryRowHeights.every((height) => height >= 87 && height <= 90)).toBe(true);
   const populatedDirectory = page.locator(".platform-directory-row").filter({ hasText: /[1-9]\d* 款/ }).first();
   if (await populatedDirectory.count()) await expect(populatedDirectory.getByRole("checkbox", { name: /启用状态/ })).toBeEnabled();
   const descriptionRow = page.locator(".platform-directory-row").first();
@@ -296,7 +299,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   const primaryJob = "20000000-0000-7000-8000-000000000001";
   const itemId = (number: number) => `30000000-0000-7000-8001-${String(number).padStart(12, "0")}`;
   await page.goto("/admin/imports/tasks");
-  const primaryRow = page.getByRole("row").filter({ hasText: "60 / 0" });
+  const primaryRow = page.locator(".import-task-card").filter({ hasText: "60 个条目" });
   await expect(primaryRow).toBeVisible();
   await primaryRow.getByRole("link", { name: "查看待审核" }).click();
   await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}`));
@@ -323,21 +326,22 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(57)}`));
   await page.setViewportSize({ width: 3840, height: 2160 });
-  await expect(page.getByRole("navigation", { name: "当前待审队列" })).toBeVisible();
-  expect(await page.locator(".review-detail-workbench").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);
+  await expect(page.getByRole("heading", { name: "审核决定" })).toBeVisible();
+  expect(await page.locator(".review-workflow-columns").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);
   await page.screenshot({ path: evidencePath(testInfo, "review-workbench-4k.png"), fullPage: true });
 
   await page.getByRole("textbox", { name: "标题" }).fill("实时保存的标题");
   await expect(page.locator(".autosave-state")).toContainText(/等待保存|正在实时保存/);
   await expect(page.locator(".autosave-state")).toHaveText("已实时保存");
-  await page.getByRole("navigation", { name: "当前待审队列" }).getByRole("link", { name: /Batch 1 Game 03/ }).click();
+  await page.getByRole("link", { name: "返回待审核列表" }).click();
+  await page.locator(`[data-review-item="${itemId(3)}"]`).getByRole("link", { name: "审核条目" }).click();
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(3)}`));
   await page.getByRole("textbox", { name: "标题" }).fill("Batch 1 Game 03 Saved");
   await expect(page.locator(".autosave-state")).toContainText(/等待保存|正在实时保存/);
   await expect(page.locator(".autosave-state")).toHaveText("已实时保存");
 
   await page.setViewportSize({ width: 1280, height: 800 });
-  await expect(page.getByRole("navigation", { name: "当前待审队列" })).toBeHidden();
+  expect(await page.locator(".review-workflow-columns").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(1);
   await page.screenshot({ path: evidencePath(testInfo, "review-detail-1280.png"), fullPage: true });
   await page.getByRole("button", { name: "通过并发布" }).click();
   await expect(page).not.toHaveURL(new RegExp(`/admin/reviews/${itemId(3)}(?:\\?|$)`));
@@ -559,12 +563,15 @@ test("LAN HTTP upload works without secure-context crypto APIs", async ({ page }
     mimeType: "application/octet-stream",
     buffer: Buffer.from([0x4e, 0x45, 0x53, 0x1a, 0, 0, 0, 0]),
   });
-  await expect(page.getByRole("heading", { name: "已选择 1 个文件" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: /^1 个文件/ })).toBeVisible();
+  await page.getByRole("button", { name: "下一步" }).click();
   await expect(page.locator("#directory")).toHaveValue("");
   const targetDirectory = await page.locator("#directory option:not([disabled])").first().getAttribute("value");
   expect(targetDirectory).toBeTruthy();
   await page.locator("#directory").selectOption(targetDirectory!);
   await page.locator("#provider").selectOption("NONE");
-  await page.getByRole("button", { name: "上传、验证并创建导入任务" }).click();
-  await expect(page).toHaveURL(/\/admin\/reviews\?importJobId=[0-9a-f-]+$/, { timeout: 30_000 });
+  await page.getByRole("button", { name: "开始上传并验证" }).click();
+  await expect(page.getByRole("heading", { name: "导入任务已创建" })).toBeVisible({ timeout: 30_000 });
+  await page.getByRole("button", { name: "查看任务进度 →" }).click();
+  await expect(page).toHaveURL(/\/admin\/imports\/tasks$/);
 });
