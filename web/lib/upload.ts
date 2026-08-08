@@ -29,14 +29,14 @@ async function sha256Base64(blob: Blob) {
 }
 
 export async function waitForJob(jobId: string, onProgress?: (message: string) => void) {
-  for (let attempt = 0; attempt < 600; attempt += 1) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
     const response = await fetch(`/api/v1/admin/jobs/${jobId}`, { cache: "no-store" });
     if (!response.ok) throw new Error(await responseError(response, "无法读取任务状态"));
     const job = await response.json() as { state: string; phase?: string; errorCode?: string | null };
     onProgress?.(job.phase ? `${job.state} · ${job.phase}` : job.state);
     if (job.state === "SUCCEEDED") return job;
     if (job.state === "FAILED" || job.state === "CANCELLED") throw new Error(job.errorCode ?? `任务${job.state === "FAILED" ? "失败" : "已取消"}`);
-    await new Promise((resolve) => window.setTimeout(resolve, 250));
+    await new Promise((resolve) => window.setTimeout(resolve, 1_000));
   }
   throw new Error("任务在五分钟内没有完成");
 }

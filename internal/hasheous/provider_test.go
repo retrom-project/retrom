@@ -3,6 +3,7 @@ package hasheous
 import (
 	"context"
 	"encoding/base64"
+	"errors"
 	"io"
 	"net"
 	"net/http"
@@ -132,6 +133,23 @@ func TestFetchAssetValidatesImageAndEveryRedirect(t *testing.T) {
 	if _, err := redirecting.FetchAsset(context.Background(), AssetRef{ProviderAssetID: "one", Path: "/api/v1/images/one"}); err == nil ||
 		err.Error() != "ASSET_URL_REJECTED" {
 		t.Fatalf("redirect error = %v", err)
+	}
+}
+
+func TestValidateImageUsesDecodedBytesWhenSupportedImageHeaderIsMislabeled(t *testing.T) {
+	t.Parallel()
+	pngBytes, err := base64.StdEncoding.DecodeString(
+		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	asset, err := ValidateImage(pngBytes, "image/jpeg; x-api-version=1")
+	if err != nil || asset.MediaType != "image/png" || asset.Width != 1 || asset.Height != 1 {
+		t.Fatalf("mislabeled supported image = %#v, error=%v", asset, err)
+	}
+	if _, err := ValidateImage(pngBytes, "text/html"); !errors.Is(err, ErrAssetMediaTypeMismatch) {
+		t.Fatalf("non-image declared media type error = %v", err)
 	}
 }
 

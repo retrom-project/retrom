@@ -13,7 +13,7 @@ export function queueFlashToast(toast: ToastMessage) {
 export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDismiss: () => void }) {
   useEffect(() => {
     if (!toast) return;
-    const timer = window.setTimeout(onDismiss, 6000);
+    const timer = window.setTimeout(onDismiss, 2_000);
     return () => window.clearTimeout(timer);
   }, [onDismiss, toast]);
 
