@@ -1,10 +1,10 @@
 # EmulatorJS 核心验证夹具
 
-本目录提供 Retrom 一期 8 个核心的可重复启动示例和 Chrome 冒烟测试。运行时锁定 EmulatorJS `4.2.3`；ROM、BIOS、EmulatorJS 发布包和截图留在本机并由 `.gitignore` 排除，清单、示例、脚本及 JSON 结果可提交。
+本目录提供 Retrom 一期 8 个正式核心，以及 20 个 EmulatorJS `4.2.3` 候选核心的可重复启动示例和 Chrome 冒烟测试。候选记录只证明固定样本能运行，不会把核心加入产品清单或 `ACC-CORE-*` 正式验收。ROM、BIOS、EmulatorJS 发布包和截图留在本机并由 `.gitignore` 排除，清单、示例、脚本及 JSON 结果可提交。
 
 ## 已记录基线
 
-既有全量验证在 Chrome `149.0.7827.114` 下为 **8/8 通过**。机器结果见 [`results/latest.json`](./results/latest.json)，逐图复核记录见 [`results/manual-review.json`](./results/manual-review.json)；这些记录用于说明夹具已知状态，不能作为未来版本的当次验收证据。
+一期正式基线在 Chrome `149.0.7827.114` 下为 **8/8 通过**。本次扩展结果在 Chrome `149.0.7827.55` 下为 **28/28 通过**（8 个正式核心加 20 个候选核心）。当前机器结果见 [`results/latest.json`](./results/latest.json)，逐图复核记录见 [`results/manual-review.json`](./results/manual-review.json)；结果可以包含候选核心，用于说明夹具已知状态，不能作为未来版本的当次验收证据。
 
 正式验收必须分别执行 [`project-acceptance.md`](../../docs/project-acceptance.md) 的 `ACC-CORE-001`–`ACC-CORE-008`，使用当次新生成的机器结果和截图，并遵守其中的画面阈值、人工复核与单 Case 超时。截图保存在本机 `data/example/results/<core>.png`，不进入 Git。
 
@@ -21,7 +21,43 @@
 | `mame2003_plus` | `data/game/arcade/ldrun.zip` | Lode Runner 标题/投币画面 | 此 machine 无额外依赖 | `mame2003-plus.xml`，20/20 entries |
 | `dosbox_pure` | `data/game/dosbox_pure/doom2.zip` | DOOM II 标题画面 | — | — |
 
-来源相对路径、文件大小、SHA-256、BIOS MD5、core artifact 和超时值以 [`fixtures.json`](./fixtures.json) 为唯一事实源。远端 host/root 由操作者分别通过 `RETROM_FIXTURE_HOST`、`RETROM_FIXTURE_ROOT` 提供，不写入仓库。GBA 原始 ZIP 被保留作来源证据；示例使用其中逐字节解出的 `.gba`，因为 4.2.3 直接传入该 ZIP 会进入 RetroArch `Load Content`，不满足自动启动要求。
+## 4.2.3 候选示例
+
+以下核心使用 `supportStatus: "candidate"`，不反向修改一期 8 核心依赖 manifest：
+
+| 核心 | 固定样本 | 额外文件/处理 | 预期可辨识画面 |
+| --- | --- | --- | --- |
+| `nestopia` | FDS Smash Ping Pong | `disksys.rom` | Famicom/FDS 启动画面 |
+| `melonds` | Zoo Keeper | `bios7.bin`、`bios9.bin`、`firmware.bin` | 动物管理员标题菜单 |
+| `desmume2015` | Zoo Keeper | — | 动物管理员标题菜单 |
+| `desmume` | Zoo Keeper | — | 动物管理员标题菜单 |
+| `a5200` | Super Breakout | `5200.rom` | Super Breakout 游戏画面 |
+| `pcsx_rearmed` | Nekketsu Oyako | `scph5500.bin` | PlayStation/游戏启动画面 |
+| `mednafen_psx_hw` | Nekketsu Oyako | `scph5500.bin`、thread artifact、software renderer | PlayStation/游戏启动画面 |
+| `handy` | Lode Runner | `lynxboot.img` | Lode Runner 标题/游戏画面 |
+| `yabause` | Saturn fixture 095 | `saturn_bios.bin` | Sega Saturn 游戏画面 |
+| `genesis_plus_gx` | Felix the Cat | — | Felix the Cat 标题画面 |
+| `mupen64plus_next` | Dr. Mario 64 | — | Dr. Mario 64 标题画面 |
+| `parallel-n64` | Dr. Mario 64 | core catalog ID 为 `parallel_n64` | Dr. Mario 64 标题画面 |
+| `opera` | Total Eclipse | `panafz10.bin` | Total Eclipse 游戏画面 |
+| `prosystem` | Asteroids | `7800 BIOS (U).rom` | Asteroids 标题画面 |
+| `stella2014` | Freeway | — | Freeway 游戏画面 |
+| `picodrive` | Felix the Cat | — | Felix the Cat 标题画面 |
+| `mednafen_pce` | Adventure Island | — | Adventure Island 游戏画面 |
+| `mednafen_pcfx` | PC Engine Fan Special CD-ROM Vol. 3 | `pcfx.rom` | 光盘内游戏菜单 |
+| `mednafen_ngp` | Pac-Man | 从来源 ZIP 固定提取 `.ngp` | Pac-Man 游戏画面 |
+| `ppsspp` | Sheep Defense | thread artifact、PPSSPP assets、自动确认启动提示 | Sheep Defense 标题画面 |
+
+`melonds` 的 BIOS 必须放到 4.2.3 RetroArch system 目录 `/retroarch/userdata/system/`；写到虚拟文件系统根目录会回退到 FreeBIOS 并停在空白双屏。`mednafen_psx_hw` 在本机无 GPU 的 Chrome/SwiftShader 硬件渲染路径会于启动阶段失败，因此候选示例显式选择同一 core 的 software renderer；本记录不声称硬件渲染路径已验证。
+
+原请求中未生成示例的核心：
+
+| 核心 | 原因 |
+| --- | --- |
+| `bsnes`、`genesis_plus_gx_wide`、`azahar` | EmulatorJS `4.2.3` 的 `cores.json` 中不存在 |
+| `virtualjaguar`、`vice_x64sc` | 操作者提供的夹具根目录中没有对应 Jaguar/C64 ROM 目录，无法按要求取得合法验证内容 |
+
+来源相对路径、文件大小、SHA-256、BIOS MD5、core artifact 和超时值以 [`fixtures.json`](./fixtures.json) 为唯一事实源。远端 host/root 由操作者分别通过 `RETROM_FIXTURE_HOST`、`RETROM_FIXTURE_ROOT` 提供，不写入仓库。GBA 与 NGP 原始 ZIP 被保留作来源证据；示例使用其中逐字节解出的 ROM，因为 4.2.3 直接传入这些 ZIP 会进入 RetroArch `Load Content`，不满足自动启动要求。
 
 ## MAME2003 兼容覆盖
 

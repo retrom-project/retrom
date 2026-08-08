@@ -63,6 +63,17 @@
   window.addEventListener("unhandledrejection", event => fail(event.reason));
   document.addEventListener("DOMContentLoaded", renderStatus);
 
+  function resizeCanvasToCss() {
+    const canvas = document.querySelector("canvas.ejs_canvas") || window.EJS_emulator?.canvas;
+    const rect = canvas?.getBoundingClientRect();
+    const host = document.getElementById("game");
+    if (!canvas) return;
+    const width = rect?.width || host?.clientWidth || 1;
+    const height = rect?.height || host?.clientHeight || 1;
+    canvas.width = Math.max(1, Math.round(width * devicePixelRatio));
+    canvas.height = Math.max(1, Math.round(height * devicePixelRatio));
+  }
+
   window.EJS_player = "#game";
   window.EJS_DEBUG_XX = config.debug === true;
   window.EJS_core = config.core;
@@ -98,6 +109,7 @@
   window.EJS_ready = () => {
     smoke.phase = "ready";
     smoke.readyAtMs = Date.now();
+    if (config.workarounds?.resizeCanvasToCss) resizeCanvasToCss();
     renderStatus();
   };
 
@@ -112,14 +124,29 @@
     renderStatus();
 
     if (config.workarounds?.resizeCanvasToCss) {
+      window.setTimeout(resizeCanvasToCss, 100);
+    }
+
+    for (const input of config.startupInputs || []) {
       window.setTimeout(() => {
-        const canvas = document.querySelector("canvas.ejs_canvas");
-        const rect = canvas?.getBoundingClientRect();
-        if (canvas && rect) {
-          canvas.width = Math.max(1, Math.round(rect.width * devicePixelRatio));
-          canvas.height = Math.max(1, Math.round(rect.height * devicePixelRatio));
+        try {
+          window.EJS_emulator.gameManager.simulateInput(
+            input.player || 0,
+            input.control,
+            1
+          );
+          window.setTimeout(
+            () => window.EJS_emulator.gameManager.simulateInput(
+              input.player || 0,
+              input.control,
+              0
+            ),
+            input.durationMs || 120
+          );
+        } catch (error) {
+          smoke.errors.push(`Startup input: ${error.message}`);
         }
-      }, 100);
+      }, input.delayMs);
     }
 
     const timer = window.setInterval(() => {
