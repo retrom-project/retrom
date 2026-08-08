@@ -928,6 +928,11 @@ VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
 			GameID       string `json:"gameId"`
 			SessionCount int64  `json:"sessionCount"`
 		} `json:"recentGames"`
+		LatestGames []struct {
+			GameID      string `json:"gameId"`
+			Title       string `json:"title"`
+			CreatedAtMS int64  `json:"createdAtMs"`
+		} `json:"latestGames"`
 		QuickPlatforms []homePlatform `json:"quickPlatforms"`
 	}
 	if err := json.Unmarshal(home.Body.Bytes(), &homeResponse); err != nil {
@@ -936,6 +941,8 @@ VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
 	if homeResponse.FeaturedGame == nil || homeResponse.FeaturedGame.GameID != gameID ||
 		!homeResponse.FeaturedGame.HasSaveStates || homeResponse.FeaturedGame.LastSessionSave != nil ||
 		len(homeResponse.RecentGames) != 1 || homeResponse.RecentGames[0].SessionCount != 2 ||
+		len(homeResponse.LatestGames) != 1 || homeResponse.LatestGames[0].GameID != gameID ||
+		homeResponse.LatestGames[0].CreatedAtMS != now ||
 		len(homeResponse.QuickPlatforms) != 4 || homeResponse.QuickPlatforms[0].ID != "dos" ||
 		homeResponse.QuickPlatforms[0].PlayCount != 2 {
 		t.Fatalf("home projection = %#v", homeResponse)
@@ -966,6 +973,29 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,'本次游玩存档',240000,1,?,?,NULL)
 		t.Fatalf("featured session save = %#v", homeResponse.FeaturedGame)
 	}
 	seedRecentGameHistory(t, server.database, coreArtifactID, now, 55)
+	latest := httptest.NewRecorder()
+	server.Handler().ServeHTTP(latest, httptest.NewRequest(http.MethodGet, "/api/v1/home", nil))
+	if latest.Code != http.StatusOK {
+		t.Fatalf("home latest games = %d: %s", latest.Code, latest.Body.String())
+	}
+	var latestResponse struct {
+		LatestGames []struct {
+			Title       string `json:"title"`
+			CreatedAtMS int64  `json:"createdAtMs"`
+		} `json:"latestGames"`
+	}
+	if err := json.Unmarshal(latest.Body.Bytes(), &latestResponse); err != nil {
+		t.Fatal(err)
+	}
+	if len(latestResponse.LatestGames) != 10 || latestResponse.LatestGames[0].Title != "Recent fixture 54" ||
+		latestResponse.LatestGames[9].Title != "Recent fixture 45" {
+		t.Fatalf("latest game order = %#v", latestResponse.LatestGames)
+	}
+	for index := 1; index < len(latestResponse.LatestGames); index++ {
+		if latestResponse.LatestGames[index-1].CreatedAtMS <= latestResponse.LatestGames[index].CreatedAtMS {
+			t.Fatalf("latest game timestamps are not descending: %#v", latestResponse.LatestGames)
+		}
+	}
 	recent := httptest.NewRecorder()
 	server.Handler().ServeHTTP(recent, httptest.NewRequest(http.MethodGet, "/api/v1/recent-games", nil))
 	if recent.Code != http.StatusOK || !strings.Contains(recent.Body.String(), `"activeDurationMs":360000`) ||
@@ -1044,7 +1074,7 @@ VALUES(?,?,'ADMIN_REPLACE',?,'{}',?,?)
 INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,
 version,created_at_ms,updated_at_ms)
 VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
-`, gameID, metadataID, contentID, fmt.Sprintf("recent fixture %02d", index), now, now); err != nil {
+`, gameID, metadataID, contentID, fmt.Sprintf("recent fixture %02d", index), now+int64(index), now+int64(index)); err != nil {
 			t.Fatal(err)
 		}
 		if _, err := transaction.Exec(`

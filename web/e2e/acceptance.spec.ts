@@ -64,8 +64,16 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
 
 test("ACC-UI-003 library filters and game detail use URL state", async ({ page }, testInfo) => {
   await page.goto("/");
-  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
+  await expect(page.locator("[data-home-layer]")).toHaveCount(5);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
+  const latestLayer = page.locator('[data-home-layer="3"]');
+  await expect(latestLayer.getByRole("heading", { name: "最新添加" })).toBeVisible();
+  const latestCardCount = await latestLayer.locator(".home-recent-card").count();
+  expect(latestCardCount).toBeGreaterThan(0);
+  expect(latestCardCount).toBeLessThanOrEqual(10);
+  await latestLayer.getByRole("link", { name: "查看游戏库", exact: true }).click();
+  await expect(page).toHaveURL(/\/library\?sort=ADDED_DESC$/);
+  await expect(page.getByRole("combobox", { name: "排列顺序" })).toHaveValue("ADDED_DESC");
   await page.goto("/library");
   await expect(page.locator(".library-toolbar")).toBeVisible();
   const toolbarHeight = await page.locator(".library-toolbar").evaluate((element) => element.getBoundingClientRect().height);
@@ -154,14 +162,90 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
     await noPageOverflow(page);
   }
   await page.goto("/");
-  await expect(page.locator("[data-home-layer]")).toHaveCount(4);
+  await expect(page.locator("[data-home-layer]")).toHaveCount(5);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
+  let homeLeftGap4K: number | null = null;
+  let homeRightGap4K: number | null = null;
   if (testInfo.project.name === "chrome-4k") {
-    const fourthLayerBottom = await page.locator('[data-home-layer="4"]').evaluate((element) => element.getBoundingClientRect().bottom);
-    expect(fourthLayerBottom).toBeLessThanOrEqual(await page.evaluate(() => window.innerHeight));
+    const measureHomeLayout = () => page.evaluate(() => {
+      const platform = document.querySelector<HTMLElement>('[data-home-layer="4"]');
+      const platformTitle = platform?.querySelector<HTMLElement>("h2");
+      const homePage = document.querySelector<HTMLElement>(".home-page");
+      const appBody = document.querySelector<HTMLElement>(".app-body");
+      const featuredMedia = document.querySelector<HTMLElement>(".home-featured-media")?.getBoundingClientRect();
+      const featuredCover = document.querySelector<HTMLElement>(".home-featured-cover")?.getBoundingClientRect();
+      const featuredSave = document.querySelector<HTMLElement>(".home-featured-save-preview")?.getBoundingClientRect();
+      const featuredActions = document.querySelector<HTMLElement>(".home-featured-actions")?.getBoundingClientRect();
+      return {
+        fifthLayerBottom: document.querySelector<HTMLElement>('[data-home-layer="5"]')?.getBoundingClientRect().bottom ?? Number.POSITIVE_INFINITY,
+        viewportHeight: document.documentElement.clientHeight,
+        documentHeight: document.documentElement.scrollHeight,
+        homeWidth: homePage?.getBoundingClientRect().width ?? 0,
+        appBodyWidth: appBody?.getBoundingClientRect().width ?? Number.POSITIVE_INFINITY,
+        platformTitleOffset: platform && platformTitle ? platformTitle.getBoundingClientRect().top - platform.getBoundingClientRect().top : Number.POSITIVE_INFINITY,
+        featuredCoverHeightRatio: featuredMedia && featuredCover ? featuredCover.height / featuredMedia.height : 0,
+        featuredCoverHeight: featuredCover?.height ?? 0,
+        featuredHasSave: Boolean(featuredSave),
+        featuredSaveWidthRatio: featuredMedia && featuredSave ? featuredSave.width / featuredMedia.width : 0,
+        featuredSaveWidth: featuredSave?.width ?? 0,
+        featuredActionsBottomGap: featuredMedia && featuredActions ? featuredMedia.bottom - featuredActions.bottom : Number.POSITIVE_INFINITY,
+        featuredCoverActionsBottomDelta: featuredCover && featuredActions ? featuredCover.bottom - featuredActions.bottom : Number.POSITIVE_INFINITY,
+        homeLeftGap: homePage && appBody ? homePage.getBoundingClientRect().left - appBody.getBoundingClientRect().left : Number.POSITIVE_INFINITY,
+        homeRightGap: homePage && appBody ? appBody.getBoundingClientRect().right - homePage.getBoundingClientRect().right : Number.POSITIVE_INFINITY,
+      };
+    });
+    const homeLayout = await measureHomeLayout();
+    homeLeftGap4K = homeLayout.homeLeftGap;
+    homeRightGap4K = homeLayout.homeRightGap;
+    expect(homeLayout.fifthLayerBottom).toBeLessThanOrEqual(homeLayout.viewportHeight);
+    expect(homeLayout.fifthLayerBottom).toBeGreaterThanOrEqual(homeLayout.viewportHeight - 48);
+    expect(homeLayout.documentHeight).toBeLessThanOrEqual(homeLayout.viewportHeight);
+    expect(homeLayout.homeWidth / homeLayout.appBodyWidth).toBeGreaterThanOrEqual(0.65);
+    expect(homeLayout.platformTitleOffset).toBeLessThanOrEqual(20);
+    expect(homeLayout.featuredCoverHeightRatio).toBeGreaterThanOrEqual(0.75);
+    if (homeLayout.featuredHasSave) expect(homeLayout.featuredSaveWidthRatio).toBeGreaterThanOrEqual(0.24);
+    expect(homeLayout.featuredActionsBottomGap).toBeLessThanOrEqual(50);
+    expect(Math.abs(homeLayout.featuredCoverActionsBottomDelta)).toBeLessThanOrEqual(1);
+
+    const fluidFeaturedLayout: Array<{ coverHeight: number; saveWidth: number }> = [];
+    for (const width of [1900, 2200, 2500, 2800, 3100]) {
+      await page.setViewportSize({ width, height: 1250 });
+      const measurement = await measureHomeLayout();
+      fluidFeaturedLayout.push({ coverHeight: measurement.featuredCoverHeight, saveWidth: measurement.featuredSaveWidth });
+      expect(Math.abs(measurement.featuredCoverActionsBottomDelta)).toBeLessThanOrEqual(1);
+    }
+    for (let index = 1; index < fluidFeaturedLayout.length; index += 1) {
+      expect(fluidFeaturedLayout[index].coverHeight).toBeGreaterThanOrEqual(fluidFeaturedLayout[index - 1].coverHeight - 1);
+      expect(fluidFeaturedLayout[index].saveWidth).toBeGreaterThanOrEqual(fluidFeaturedLayout[index - 1].saveWidth - 1);
+    }
+    if (homeLayout.featuredHasSave) expect(fluidFeaturedLayout.at(-1)!.saveWidth).toBeGreaterThan(fluidFeaturedLayout[0].saveWidth);
+
+    // A physical 4K display commonly exposes a much smaller CSS viewport after
+    // OS scaling and browser chrome are applied. Keep that real-world case in
+    // the acceptance boundary instead of testing only 3840 × 2160 CSS pixels.
+    await page.setViewportSize({ width: 1920, height: 950 });
+    const scaledHomeLayout = await measureHomeLayout();
+    expect(scaledHomeLayout.fifthLayerBottom).toBeLessThanOrEqual(scaledHomeLayout.viewportHeight);
+    expect(scaledHomeLayout.documentHeight).toBeLessThanOrEqual(scaledHomeLayout.viewportHeight);
+    expect(scaledHomeLayout.platformTitleOffset).toBeLessThanOrEqual(16);
+    await page.setViewportSize({ width: 3840, height: 2160 });
   }
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
+  if (testInfo.project.name === "chrome-4k") {
+    const libraryGaps = await page.evaluate(() => {
+      const library = document.querySelector<HTMLElement>(".page-layout-library");
+      const appBody = document.querySelector<HTMLElement>(".app-body");
+      if (!library || !appBody) return { left: Number.POSITIVE_INFINITY, right: Number.POSITIVE_INFINITY };
+      const libraryRect = library.getBoundingClientRect();
+      const appBodyRect = appBody.getBoundingClientRect();
+      return { left: libraryRect.left - appBodyRect.left, right: appBodyRect.right - libraryRect.right };
+    });
+    expect(homeLeftGap4K).not.toBeNull();
+    expect(homeRightGap4K).not.toBeNull();
+    expect(Math.abs(libraryGaps.left - (homeLeftGap4K ?? Number.POSITIVE_INFINITY))).toBeLessThanOrEqual(1);
+    expect(Math.abs(libraryGaps.right - (homeRightGap4K ?? Number.POSITIVE_INFINITY))).toBeLessThanOrEqual(1);
+  }
   const launchableGame = page.locator(".library-game-card").filter({ hasText: "Sudoku" });
   await expect(launchableGame).toBeVisible();
   const libraryCard = await launchableGame.evaluate((card) => {

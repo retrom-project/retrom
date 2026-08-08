@@ -26,7 +26,7 @@ paths:
   /api/v1/home:
     get:
       operationId: getHome
-      description: Homepage aggregate from enabled platform directories. It includes library counters, the ten games with the most recently started play sessions, the latest started session's game with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count.
+      description: Homepage aggregate from enabled platform directories. It includes library counters, the ten games with the most recently started play sessions, the ten most recently added published games ordered by game creation time, the latest started session's game with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/recent-games:
@@ -1065,6 +1065,7 @@ components:
         kind: {}
         level: {}
         library: {}
+        latestGames: {}
         license: {}
         loader: {}
         loaderUrl: {}

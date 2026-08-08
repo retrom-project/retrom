@@ -1033,6 +1033,15 @@ type recentGameProjection struct {
 	CoverURL         any            `json:"coverUrl"`
 }
 
+type latestGameProjection struct {
+	GameID           string         `json:"gameId"`
+	Title            string         `json:"title"`
+	Platform         map[string]any `json:"platform"`
+	PlatformInstance map[string]any `json:"platformInstance"`
+	CreatedAtMS      int64          `json:"createdAtMs"`
+	CoverURL         any            `json:"coverUrl"`
+}
+
 func scanRecentGame(scanner rowScanner) (recentGameProjection, error) {
 	var game recentGameProjection
 	var platformID, platformName, instanceID, instanceName string
@@ -1040,6 +1049,20 @@ func scanRecentGame(scanner rowScanner) (recentGameProjection, error) {
 	if err := scanner.Scan(&game.GameID, &game.Title, &platformID, &platformName, &instanceID, &instanceName,
 		&game.LastPlayedAtMS, &game.ActiveDurationMS, &game.SessionCount, &coverAssetID); err != nil {
 		return recentGameProjection{}, fmt.Errorf("scan recent game: %w", err)
+	}
+	game.Platform = map[string]any{"id": platformID, "name": platformName}
+	game.PlatformInstance = map[string]any{"id": instanceID, "name": instanceName}
+	game.CoverURL = gameCoverURL(coverAssetID)
+	return game, nil
+}
+
+func scanLatestGame(scanner rowScanner) (latestGameProjection, error) {
+	var game latestGameProjection
+	var platformID, platformName, instanceID, instanceName string
+	var coverAssetID sql.NullString
+	if err := scanner.Scan(&game.GameID, &game.Title, &platformID, &platformName, &instanceID, &instanceName,
+		&game.CreatedAtMS, &coverAssetID); err != nil {
+		return latestGameProjection{}, fmt.Errorf("scan latest game: %w", err)
 	}
 	game.Platform = map[string]any{"id": platformID, "name": platformName}
 	game.PlatformInstance = map[string]any{"id": instanceID, "name": instanceName}
@@ -1101,58 +1124,8 @@ AND pi.enabled=1`,
 		server.databaseError(writer, request, err)
 		return
 	}
-	recentGames := make([]recentGameProjection, 0, 10)
-	gameRows, err := server.database.QueryContext(
-		request.Context(),
-		`
-SELECT g.id,
-m.title,
-p.id,
-p.name,
-pi.id,
-pi.name,
-max(ps.started_at_ms),
-sum(ps.active_duration_ms),
-count(ps.id),
-(SELECT a.id
- FROM game_assets a
- WHERE a.game_id=g.id
- AND a.metadata_revision_id=g.current_metadata_revision_id
- AND a.kind='COVER'
- ORDER BY a.ordinal,
- a.id
- LIMIT 1)
-FROM play_sessions ps
-JOIN games g ON g.id=ps.game_id
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
-JOIN platform_instances pi ON pi.id=g.platform_instance_id
-JOIN platforms p ON p.id=pi.platform_id
-WHERE g.status='PUBLISHED'
-AND pi.enabled=1
-GROUP BY g.id,
-m.title,
-p.id,
-p.name,
-pi.id,
-pi.name
-ORDER BY max(ps.started_at_ms) DESC,
-g.id DESC LIMIT 10
-`,
-	)
+	recentGames, err := server.homeRecentGames(request.Context())
 	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer func() { cleanup.Error("close", gameRows.Close()) }()
-	for gameRows.Next() {
-		game, err := scanRecentGame(gameRows)
-		if err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		recentGames = append(recentGames, game)
-	}
-	if err := gameRows.Err(); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -1206,6 +1179,11 @@ s.id DESC LIMIT 3
 		server.databaseError(writer, request, err)
 		return
 	}
+	latestGames, err := server.homeLatestGames(request.Context())
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	featuredGame, err := server.homeFeaturedGame(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -1221,11 +1199,102 @@ s.id DESC LIMIT 3
 		"imports":        map[string]any{"reviewPendingCount": reviewCount},
 		"play":           map[string]any{"activeDurationMs": activeDurationMS},
 		"featuredGame":   featuredGame.Value,
+		"latestGames":    latestGames,
 		"recentGames":    recentGames,
 		"recentSaves":    recentSaves,
 		"platforms":      platforms,
 		"quickPlatforms": quickPlatforms,
 	})
+}
+
+func (server *Server) homeRecentGames(ctx context.Context) ([]recentGameProjection, error) {
+	rows, err := server.database.QueryContext(ctx, `
+SELECT g.id,
+m.title,
+p.id,
+p.name,
+pi.id,
+pi.name,
+max(ps.started_at_ms),
+sum(ps.active_duration_ms),
+count(ps.id),
+(SELECT a.id
+ FROM game_assets a
+ WHERE a.game_id=g.id
+ AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.kind='COVER'
+ ORDER BY a.ordinal,a.id
+ LIMIT 1)
+FROM play_sessions ps
+JOIN games g ON g.id=ps.game_id
+JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
+JOIN platforms p ON p.id=pi.platform_id
+WHERE g.status='PUBLISHED'
+AND pi.enabled=1
+GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name
+ORDER BY max(ps.started_at_ms) DESC,g.id DESC
+LIMIT 10
+`)
+	if err != nil {
+		return nil, fmt.Errorf("home recent games: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	games := make([]recentGameProjection, 0, 10)
+	for rows.Next() {
+		game, scanErr := scanRecentGame(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		games = append(games, game)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("home recent game rows: %w", err)
+	}
+	return games, nil
+}
+
+func (server *Server) homeLatestGames(ctx context.Context) ([]latestGameProjection, error) {
+	rows, err := server.database.QueryContext(ctx, `
+SELECT g.id,
+m.title,
+p.id,
+p.name,
+pi.id,
+pi.name,
+g.created_at_ms,
+(SELECT a.id
+ FROM game_assets a
+ WHERE a.game_id=g.id
+ AND a.metadata_revision_id=g.current_metadata_revision_id
+ AND a.kind='COVER'
+ ORDER BY a.ordinal,a.id
+ LIMIT 1)
+FROM games g
+JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
+JOIN platforms p ON p.id=pi.platform_id
+WHERE g.status='PUBLISHED'
+AND pi.enabled=1
+ORDER BY g.created_at_ms DESC,g.id DESC
+LIMIT 10
+`)
+	if err != nil {
+		return nil, fmt.Errorf("home latest games: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	games := make([]latestGameProjection, 0, 10)
+	for rows.Next() {
+		game, scanErr := scanLatestGame(rows)
+		if scanErr != nil {
+			return nil, scanErr
+		}
+		games = append(games, game)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("home latest game rows: %w", err)
+	}
+	return games, nil
 }
 
 type homeFeaturedResult struct {
