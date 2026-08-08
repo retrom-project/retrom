@@ -114,9 +114,12 @@ describe("PlatformManager", () => {
 
   it("uses status summary controls as real quick filters", async () => {
     const user = userEvent.setup();
-    const disabled: PlatformInstance = { ...instances[0], id: "instance-2", name: "停用目录", slug: "disabled", enabled: false };
+    const disabled: PlatformInstance = { ...instances[0], id: "instance-2", name: "停用目录", slug: "disabled", enabled: false, platformId: "arcade", platformName: "Arcade" };
     render(<PlatformManager instances={[...instances, disabled]} platforms={platforms} createOpen={false} />);
 
+    const quickFilters = screen.getByLabelText("游戏目录快速筛选");
+    expect(within(quickFilters).queryByText("空目录 2")).not.toBeInTheDocument();
+    expect(within(quickFilters).queryByText("Arcade 1")).not.toBeInTheDocument();
     const disabledFilter = screen.getByRole("button", { name: "已停用 1" });
     expect(screen.getByRole("button", { name: "全部 2" })).toHaveAttribute("aria-pressed", "true");
     await user.click(disabledFilter);

@@ -47,8 +47,6 @@ export function platformDirectorySummary(instances: PlatformInstance[]) {
     total: instances.length,
     enabled: instances.filter((instance) => instance.enabled).length,
     disabled: instances.filter((instance) => !instance.enabled).length,
-    empty: instances.filter((instance) => instance.gameCount === 0).length,
-    arcade: instances.filter((instance) => instance.platformId === "arcade" || /arcade|街机/i.test(instance.platformName)).length,
   };
 }
 
