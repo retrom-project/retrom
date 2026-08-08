@@ -512,6 +512,7 @@ VALUES(?,?,?,'cover-ready','COVER',1,'/api/v1/images/cover-ready','READY',?,600,
 	request.SetPathValue("importItemId", itemID)
 	server.review(recorder, request)
 	if recorder.Code != http.StatusOK || !strings.Contains(recorder.Body.String(), `"status":"BLOCKED"`) ||
+		!strings.Contains(recorder.Body.String(), `"current":false`) ||
 		!strings.Contains(recorder.Body.String(), `"compatibilityCode":"DEPENDENCY_MISSING"`) ||
 		!strings.Contains(recorder.Body.String(), `"title":"Visible candidate"`) ||
 		!strings.Contains(recorder.Body.String(), `"errorCode":"ASSET_HTTP_STATUS"`) ||

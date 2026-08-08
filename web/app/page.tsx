@@ -63,8 +63,9 @@ function FeaturedGamePanel({ game }: { game: FeaturedGame | null }) {
       {game.hasSaveStates ? <Link className="home-save-link" href={`/saves?gameId=${encodeURIComponent(game.gameId)}`}>查看存档</Link> : <span className="home-save-status"><i aria-hidden="true" />暂无可恢复存档</span>}
     </div>
     <div className="home-featured-body">
-      <div className="home-featured-media">
+      <div className={`home-featured-media${sessionSave ? " has-session-save" : ""}`}>
         {game.coverUrl ? <><Image className="home-featured-backdrop" src={game.coverUrl} alt="" fill sizes="(min-width: 1280px) 900px, 70vw" aria-hidden="true" /><span className="home-featured-cover"><Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="190px" /></span></> : <><span className="home-featured-backdrop home-cover-placeholder" aria-hidden="true" /><span className="home-featured-cover home-cover-placeholder" role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span></>}
+        {sessionSave ? <div className="home-featured-save-preview"><Image src={sessionSave.screenshotUrl} alt={`${game.title} 上次存档截图`} fill sizes="310px" unoptimized /><span>将从这里继续</span></div> : null}
         <div className="home-featured-copy">
           <p className="home-featured-overline">{game.platform.name} · {game.platformInstance.name}</p>
           <h2>{game.title}</h2>

@@ -3112,9 +3112,34 @@ AND i.state='REVIEW_PENDING'
 	}
 	validation := any(nil)
 	if validationID.Valid {
+		var validationCurrent int
+		if err := server.database.QueryRowContext(request.Context(), `
+SELECT EXISTS(
+SELECT 1
+FROM import_item_core_validations v
+JOIN platform_instances p ON p.id=v.target_platform_instance_id
+AND p.enabled=1
+AND p.deleted_at_ms IS NULL
+AND p.version=v.platform_instance_version
+JOIN core_artifacts a ON a.id=v.core_artifact_id
+AND a.core_id=p.default_core_id
+AND a.enabled=1
+WHERE v.id=?
+AND p.id=?
+AND v.status='READY'
+AND v.default_dos_entry IS ?
+AND v.dat_version_id IS (SELECT active.id
+FROM dat_versions active
+WHERE active.core_artifact_id=a.id
+AND active.is_active=1))
+`, validationID.String, platformID, nullableString(defaultDOSEntry)).Scan(&validationCurrent); err != nil {
+			server.databaseError(writer, request, err)
+			return
+		}
 		validation = map[string]any{
 			"id":                 validationID.String,
 			"status":             validationStatus.String,
+			"current":            validationCurrent == 1,
 			"compatibilityCode":  compatibilityCode.String,
 			"dependencySnapshot": dependencyValue,
 		}

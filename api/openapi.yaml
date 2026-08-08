@@ -976,6 +976,7 @@ components:
         crossOriginIsolated: {}
         csrfToken: { type: string }
         currentContentRevisionId: {}
+        current: {}
         currentMetadataRevisionId: {}
         currentVariantRevisionId: {}
         dat: {}

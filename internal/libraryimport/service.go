@@ -27,6 +27,7 @@ import (
 var (
 	ErrInvalid                        = errors.New("IMPORT_INVALID")
 	ErrReimportRequiredPlatformChange = errors.New("REIMPORT_REQUIRED_FOR_PLATFORM_CHANGE")
+	errMetadataScraperNotConfigured   = errors.New("metadata scraper is not configured")
 )
 
 type CreateRequest struct {
@@ -996,6 +997,9 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 	if request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS" {
 		return Created{}, ErrInvalid
 	}
+	if request.MetadataProvider == "HASHEOUS" && service.scraper == nil {
+		return Created{}, fmt.Errorf("libraryimport/service: %w", errMetadataScraperNotConfigured)
+	}
 	var uploadState, sourceType string
 	if err := service.database.QueryRowContext(ctx, `
 SELECT state,
@@ -1183,8 +1187,10 @@ created_at_ms) VALUES(?,
 			rejected++
 		}
 	}
-	state := "REVIEW_PENDING"
-	if rejected > 0 {
+	state, itemState, runningItems, reviewPendingItems := "REVIEW_PENDING", "REVIEW_PENDING", 0, len(groups)
+	if request.MetadataProvider == "HASHEOUS" {
+		state, itemState, runningItems, reviewPendingItems = "RUNNING", "SCRAPING", len(groups), 0
+	} else if rejected > 0 {
 		state = "PARTIAL_FAILURE"
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -1201,12 +1207,14 @@ config_snapshot_json,
 config_snapshot_digest,
 state,
 total_item_count,
+running_item_count,
 review_pending_item_count,
 ignored_file_count,
 rejected_file_count,
 version,
 created_at_ms,
 updated_at_ms) VALUES(?,
+?,
 ?,
 ?,
 ?,
@@ -1239,7 +1247,8 @@ updated_at_ms) VALUES(?,
 		hex.EncodeToString(configDigest[:]),
 		state,
 		len(groups),
-		len(groups),
+		runningItems,
+		reviewPendingItems,
 		ignored,
 		rejected,
 		now,
@@ -1441,7 +1450,7 @@ created_at_ms,
 updated_at_ms) VALUES(?,
  ?,
  ?,
- 'REVIEW_PENDING',
+ ?,
  ?,
  ?,
  ?,
@@ -1452,6 +1461,7 @@ updated_at_ms) VALUES(?,
 			itemID.String(),
 			importID.String(),
 			hex.EncodeToString(groupDigest[:]),
+			itemState,
 			string(manifestJSON),
 			manifestDigestHex,
 			strings.ToLower(strings.Join(searchParts, " ")),

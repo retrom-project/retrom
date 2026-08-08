@@ -4,7 +4,8 @@ import { type FormEvent, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { FeedbackBanner, StatusBadge } from "@/components/ui";
+import { Toast } from "@/components/flash-toast";
+import { StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
 import { formatTime } from "@/lib/backend";
 import { newUuid } from "@/lib/crypto";
@@ -167,7 +168,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const disabled = busy !== null || game.status !== "PUBLISHED";
 
   return <div className="admin-game-detail">
-    {notice || error ? <div className="admin-game-toast">{error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : <FeedbackBanner tone="good">{notice}</FeedbackBanner>}</div> : null}
+    <Toast toast={error ? { message: error, tone: "bad" } : notice ? { message: notice, tone: "good" } : null} onDismiss={() => { setNotice(""); setError(""); }} />
     <section className="admin-game-hero">
       <div className="admin-game-hero-cover">{cover ? <Image src={cover.url} alt={`${game.title} 封面`} fill sizes="102px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span>}</div>
       <div className="admin-game-hero-copy"><h2>{game.title}</h2><p>{currentInstance?.platformName ?? game.platformId} · {game.platformInstance.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}{game.developer ? ` · ${game.developer}` : ""}</p><div><StatusBadge tone={game.status === "PUBLISHED" ? "good" : "bad"}>{game.status === "PUBLISHED" ? "用户可见" : "用户不可见"}</StatusBadge><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge><StatusBadge tone={metadataComplete ? "info" : "warn"}>{metadataComplete ? "资料完整" : "资料待补充"}</StatusBadge></div></div>

@@ -206,6 +206,18 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
     move(sourceId, rows.findIndex((row) => row.id === targetId));
   }
 
+  function startDrag(event: DragEvent<HTMLButtonElement>, instanceId: string) {
+    const row = event.currentTarget.closest<HTMLElement>(".platform-directory-row");
+    if (row) {
+      const bounds = row.getBoundingClientRect();
+      const offsetX = Math.max(0, Math.min(bounds.width, event.clientX - bounds.left));
+      const offsetY = Math.max(0, Math.min(bounds.height, event.clientY - bounds.top));
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setDragImage(row, offsetX, offsetY);
+    }
+    setDraggedId(instanceId);
+  }
+
   return <div className="platform-directory-manager">
     <PageHeader eyebrow="管理后台" title="游戏目录" description="维护现有游戏平台实例，为每个游戏集合配置推荐运行方式。列表只展示当前状态；修改默认运行方式时，系统会在确认前单独展示影响范围。" actions={<><button className="button secondary" type="button" onClick={() => setSortHelpOpen(true)}>排序说明</button><button ref={createTriggerRef} className="button" type="button" onClick={() => setDrawerOpen(true)}><AppIcon name="plus" />新建游戏目录</button></>} />
 
@@ -219,7 +231,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
     </section>
 
     <div className="platform-directory-quick">
-      <div className="platform-directory-chips" aria-label="游戏目录摘要"><span className="active">全部 {summary.total}</span><span>已启用 {summary.enabled}</span><span>已停用 {summary.disabled}</span><span>空目录 {summary.empty}</span><span>Arcade {summary.arcade}</span></div>
+      <div className="platform-directory-chips" aria-label="游戏目录快速筛选"><button type="button" className={filters.status === "ALL" ? "active" : ""} aria-pressed={filters.status === "ALL"} onClick={() => setFilters((current) => ({ ...current, status: "ALL" }))}>全部 {summary.total}</button><button type="button" className={filters.status === "ENABLED" ? "active" : ""} aria-pressed={filters.status === "ENABLED"} onClick={() => setFilters((current) => ({ ...current, status: "ENABLED" }))}>已启用 {summary.enabled}</button><button type="button" className={filters.status === "DISABLED" ? "active" : ""} aria-pressed={filters.status === "DISABLED"} onClick={() => setFilters((current) => ({ ...current, status: "DISABLED" }))}>已停用 {summary.disabled}</button><span>空目录 {summary.empty}</span><span>Arcade {summary.arcade}</span></div>
       <p><strong>拖动左侧手柄</strong>调整用户侧目录展示顺序</p>
     </div>
 
@@ -229,8 +241,8 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
         <div role="rowgroup">{visibleRows.map((instance, index) => {
           const globalIndex = rows.findIndex((row) => row.id === instance.id);
           const menuOpen = openMenuId === instance.id;
-          return <div className={`platform-directory-row${menuOpen ? " has-open-menu" : ""}`} role="row" key={instance.id} onDragOver={(event) => { if (reorderEnabled) event.preventDefault(); }} onDrop={(event) => dropOn(event, instance.id)}>
-            <div className="platform-directory-order" role="cell"><button className="platform-directory-handle" type="button" draggable={reorderEnabled && busy === null} disabled={!reorderEnabled || busy !== null} aria-label={`拖动“${instance.name}”调整顺序`} title={reorderEnabled ? "拖动排序；也可使用上下方向键" : "清除筛选并选择展示顺序后可排序"} onDragStart={() => setDraggedId(instance.id)} onDragEnd={() => setDraggedId(null)} onKeyDown={(event) => { if (event.key === "ArrowUp") { event.preventDefault(); move(instance.id, globalIndex - 1); } if (event.key === "ArrowDown") { event.preventDefault(); move(instance.id, globalIndex + 1); } }}><AppIcon name="grip" /></button><span>{String(globalIndex + 1).padStart(2, "0")}</span></div>
+          return <div className={`platform-directory-row${menuOpen ? " has-open-menu" : ""}${draggedId === instance.id ? " is-dragging" : ""}`} role="row" key={instance.id} onDragOver={(event) => { if (reorderEnabled) event.preventDefault(); }} onDrop={(event) => dropOn(event, instance.id)}>
+            <div className="platform-directory-order" role="cell"><button className="platform-directory-handle" type="button" draggable={reorderEnabled && busy === null} disabled={!reorderEnabled || busy !== null} aria-label={`拖动“${instance.name}”调整顺序`} title={reorderEnabled ? "拖动排序；也可使用上下方向键" : "清除筛选并选择展示顺序后可排序"} onDragStart={(event) => startDrag(event, instance.id)} onDragEnd={() => setDraggedId(null)} onKeyDown={(event) => { if (event.key === "ArrowUp") { event.preventDefault(); move(instance.id, globalIndex - 1); } if (event.key === "ArrowDown") { event.preventDefault(); move(instance.id, globalIndex + 1); } }}><AppIcon name="grip" /></button><span>{String(globalIndex + 1).padStart(2, "0")}</span></div>
             <div className="platform-directory-copy" role="cell">{editing?.id === instance.id && editing.field === "name" ? <form className="platform-directory-inline" onSubmit={(event) => void submitInline(event, instance, "name")}><input aria-label="游戏目录" name="name" defaultValue={instance.name} required maxLength={200} autoFocus /><button className="button" disabled={busy !== null}>保存</button><button className="icon-button" type="button" aria-label="取消修改目录名称" onClick={() => setEditing(null)}><AppIcon name="x" /></button></form> : <h3>{instance.name}</h3>}{editing?.id === instance.id && editing.field === "description" ? <form className="platform-directory-inline" onSubmit={(event) => void submitInline(event, instance, "description")}><textarea aria-label="给用户看的说明" name="description" defaultValue={instance.description} rows={1} maxLength={10000} autoFocus /><button className="button" disabled={busy !== null}>保存</button><button className="icon-button" type="button" aria-label="取消修改说明" onClick={() => setEditing(null)}><AppIcon name="x" /></button></form> : <p>{instance.description || "暂无说明"}</p>}</div>
             <div className="platform-directory-platform" role="cell"><strong>{instance.platformName}</strong><small>平台实例</small></div>
             <div className="platform-directory-games" role="cell"><strong className={instance.gameCount === 0 ? "is-empty" : ""}>{instance.gameCount} 款</strong>{instance.gameCount === 0 ? <small>空目录</small> : null}</div>

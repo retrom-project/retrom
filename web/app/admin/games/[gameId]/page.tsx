@@ -15,7 +15,7 @@ export default async function AdminGameDetail({ params }: { params: Promise<{ ga
       eyebrow={`游戏管理 / ${platformName}`}
       title={game.title}
       description="维护发布信息、媒体、游戏内容与运行环境；历史版本与存档引用都会保留。"
-      actions={<><ButtonLink href="/admin/games" secondary>← 返回游戏管理</ButtonLink><ButtonLink href={`/games/${gameId}`} secondary>查看用户详情 ↗</ButtonLink></>}
+      actions={<ButtonLink href="/admin/games" secondary>← 返回游戏管理</ButtonLink>}
     />
     <AdminGameManager game={game} platformInstances={instances.items} candidates={scrape.items} />
   </>;

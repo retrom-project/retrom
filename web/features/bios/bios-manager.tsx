@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppIcon } from "@/components/app-icon";
+import { Toast } from "@/components/flash-toast";
 import { StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
 import { newUuid } from "@/lib/crypto";
@@ -164,6 +165,6 @@ export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIR
       {attention.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>{attention.length} 项</span></div><div className="runtime-list" role="table" aria-label="需要处理的 BIOS 文件">{attention.map((item) => <BIOSRow item={item} currentLibrary={libraryIds.has(item.id)} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} key={item.id} />)}</div></section> : null}
       {ready.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>{ready.length} 项</span></div><div className="runtime-list" role="table" aria-label="已就绪的 BIOS 文件">{ready.map((item) => <BIOSRow item={item} currentLibrary={libraryIds.has(item.id)} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} key={item.id} />)}</div></section> : null}
     </>}
-    {notice || error ? <div className={`app-toast ${error ? "bad" : "good"}`} role={error ? "alert" : "status"}><span>{error || notice}</span><button type="button" aria-label="关闭提示" onClick={() => { setNotice(""); setError(""); }}>×</button></div> : null}
+    <Toast toast={error ? { message: error, tone: "bad" } : notice ? { message: notice, tone: "good" } : null} onDismiss={() => { setNotice(""); setError(""); }} />
   </div>;
 }

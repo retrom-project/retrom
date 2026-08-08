@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { PlatformManager, type Platform, type PlatformInstance } from "./platform-manager";
@@ -110,6 +110,30 @@ describe("PlatformManager", () => {
     expect(screen.queryByText("掌机游戏")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "拖动“街机目录”调整顺序" })).toBeDisabled();
     expect(screen.getByText("筛选状态下仅查看；清除筛选后可调整全局展示顺序")).toBeInTheDocument();
+  });
+
+  it("uses status summary controls as real quick filters", async () => {
+    const user = userEvent.setup();
+    const disabled: PlatformInstance = { ...instances[0], id: "instance-2", name: "停用目录", slug: "disabled", enabled: false };
+    render(<PlatformManager instances={[...instances, disabled]} platforms={platforms} createOpen={false} />);
+
+    const disabledFilter = screen.getByRole("button", { name: "已停用 1" });
+    expect(screen.getByRole("button", { name: "全部 2" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(disabledFilter);
+    expect(disabledFilter).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByText("停用目录")).toBeInTheDocument();
+    expect(screen.queryByText("掌机游戏")).not.toBeInTheDocument();
+  });
+
+  it("uses the complete directory row as the drag preview", () => {
+    render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
+    const handle = screen.getByRole("button", { name: "拖动“掌机游戏”调整顺序" });
+    const row = handle.closest<HTMLElement>("[role='row']")!;
+    const setDragImage = vi.fn();
+
+    fireEvent.dragStart(handle, { dataTransfer: { effectAllowed: "none", setDragImage } });
+    expect(setDragImage).toHaveBeenCalledWith(row, expect.any(Number), expect.any(Number));
+    expect(row).toHaveClass("is-dragging");
   });
 
   it("opens the creation drawer from the page header and closes it from the backdrop", async () => {

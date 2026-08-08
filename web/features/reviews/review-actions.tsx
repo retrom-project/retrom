@@ -58,7 +58,7 @@ export type ReviewWorkspace = {
   itemId: string;
   version: number;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
-  validation: { id: string; status: string; compatibilityCode: string } | null;
+  validation: { id: string; status: string; current: boolean; compatibilityCode: string } | null;
   candidates: ReviewCandidate[];
   uploadedAssets?: UploadedReviewAsset[];
   scrapeRuns?: ReviewScrapeRun[];
@@ -133,6 +133,8 @@ function scrapeResult(run: ReviewScrapeRun) {
 
 export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId = null, sourceDisplayName = "游戏文件", platformInstanceName = "游戏目录", children }: { review: ReviewWorkspace; returnTo?: string; nextItemId?: string | null; sourceDisplayName?: string; platformInstanceName?: string; children?: ReactNode }) {
   const router = useRouter();
+  const validationStatus = review.validation?.status ?? null;
+  const validationWasCurrent = review.validation?.current ?? false;
   const initialMetadata = metadataForm(review);
   const automaticCandidate = review.selectedCandidateId ? null : review.candidates[0] ?? null;
   const automaticCover = readyCover(automaticCandidate);
@@ -148,11 +150,12 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">(automaticCandidate ? "pending" : "saved");
-  const [error, setError] = useState("");
   const [notice, setNotice] = useState(automaticCandidate ? "首次查询到的信息已自动填入，系统会实时保存。" : "");
   const [jobProgress, setJobProgress] = useState("");
   const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [validationCurrent, setValidationCurrent] = useState(validationWasCurrent);
   const versionRef = useRef(review.version);
+  const validationRefreshRequestedRef = useRef(false);
   const latestKeyRef = useRef("");
   const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
   const serverPayload = toPayload(initialMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: review.selectedAssets.coverUploadedAssetId ?? null }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry);
@@ -161,9 +164,9 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const draftKey = useMemo(() => JSON.stringify(draftPayload), [draftPayload]);
   const latestPayloadRef = useRef(draftPayload);
 
-  const enqueueSave = useCallback((key: string, payload: DraftPayload) => {
+  const enqueueSave = useCallback((key: string, payload: DraftPayload, force = false) => {
     saveQueueRef.current = saveQueueRef.current.catch(() => false).then(async () => {
-      if (lastSavedKeyRef.current === key) return true;
+      if (!force && lastSavedKeyRef.current === key) return true;
       if (latestKeyRef.current === key) setSaveState("saving");
       try {
         const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { method: "PATCH", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"` }, body: JSON.stringify(payload) });
@@ -171,16 +174,17 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
         const result = await response.json() as { version: number };
         versionRef.current = result.version;
         lastSavedKeyRef.current = key;
-        if (latestKeyRef.current === key) { setSaveState("saved"); setError(""); }
+        if (validationStatus === "READY") setValidationCurrent(true);
+        if (latestKeyRef.current === key) setSaveState("saved");
         return true;
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "实时保存失败";
-        if (latestKeyRef.current === key) { setSaveState("error"); setError(message); setToast({ message, tone: "bad" }); }
+        if (latestKeyRef.current === key) { setSaveState("error"); setToast({ message, tone: "bad" }); }
         return false;
       }
     });
     return saveQueueRef.current;
-  }, [review.itemId]);
+  }, [review.itemId, validationStatus]);
 
   useEffect(() => {
     latestKeyRef.current = draftKey;
@@ -197,12 +201,25 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     }
   }, [enqueueSave]);
 
+  useEffect(() => {
+    if (validationStatus !== "READY" || validationWasCurrent || validationRefreshRequestedRef.current) return;
+    validationRefreshRequestedRef.current = true;
+    setSaveState("pending");
+    void enqueueSave(draftKey, draftPayload, true);
+  }, [draftKey, draftPayload, enqueueSave, validationStatus, validationWasCurrent]);
+
+  useEffect(() => {
+    if (!notice) return;
+    const timer = window.setTimeout(() => setNotice(""), 2_000);
+    return () => window.clearTimeout(timer);
+  }, [notice]);
+
   function updateField(key: keyof MetadataForm, value: string) { setForm((current) => ({ ...current, [key]: value })); }
 
   async function run(label: string, operation: () => Promise<void>) {
-    setBusy(label); setError(""); setNotice("");
+    setBusy(label); setNotice("");
     try { await operation(); return true; }
-    catch (caught) { const message = caught instanceof Error ? caught.message : `${label}失败`; setError(message); setToast({ message, tone: "bad" }); return false; }
+    catch (caught) { const message = caught instanceof Error ? caught.message : `${label}失败`; setToast({ message, tone: "bad" }); return false; }
     finally { setBusy(null); setJobProgress(""); }
   }
 
@@ -263,7 +280,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     if (!await flushDraft()) return;
     await run("发布", async () => {
       const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }, body: "{}" });
-      if (!response.ok) throw new Error("发布失败：请确认实时保存和运行检查均已完成");
+      if (!response.ok) throw new Error(await responseError(response, "发布失败：请确认实时保存和运行检查均已完成"));
       clearQueueCache(); queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
       router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
     });
@@ -273,7 +290,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     if (!await flushDraft()) return;
     await run("丢弃", async () => {
       const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/discard`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }, body: "{}" });
-      if (!response.ok) throw new Error("丢弃失败：审核状态或版本已经变化");
+      if (!response.ok) throw new Error(await responseError(response, "丢弃失败：审核状态或版本已经变化"));
       clearQueueCache(); queueFlashToast({ message: "条目已丢弃，待审核队列已更新。", tone: "good" });
       router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
     });
@@ -284,18 +301,18 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const nextCompareCover = comparison ? previewAsset(candidates, uploadedAssets, comparison.nextCover) : null;
   const saveLabel = saveState === "saving" ? "正在实时保存…" : saveState === "pending" ? "等待保存…" : saveState === "error" ? "实时保存失败" : "已实时保存";
 
-  const publishReady = review.validation?.status === "READY";
+  const publishReady = validationStatus === "READY" && validationCurrent;
 
   return <div className="review-workflow-detail">
     <div className="review-workflow-top">
-      <section className="review-workflow-summary-card"><StatusPill tone="info">来源：{sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><div><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{publishReady ? "运行检查通过" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : "未找到游戏信息"}</StatusPill></div></section>
+      <section className="review-workflow-summary-card"><StatusPill tone="info">来源：{sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><div><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{publishReady ? "运行检查通过" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : "未找到游戏信息"}</StatusPill></div></section>
       <aside className="review-workflow-decision"><h2>审核决定</h2><p>字段会实时保存；只有运行检查通过时才允许发布。</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
     </div>
-    {notice || error ? <div className="review-workflow-feedback">{notice ? <FeedbackBanner tone="info">{notice}</FeedbackBanner> : null}{error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}</div> : null}
+    {notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{notice}</FeedbackBanner></div> : null}
     <div className="review-workflow-columns">
       <div className="review-workflow-left">{children}</div>
       <section className="panel review-workflow-metadata">
-        <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介和封面；修改会实时保存。</p></div><button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div>
+        <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介和封面；修改会实时保存。</p></div><div className="review-workflow-query-actions">{jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}<button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>
         <div className="panel-body review-workflow-editor">
           <div className="review-workflow-publish-layout">
             <div className="form-grid review-workflow-metadata-fields">
@@ -310,7 +327,6 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
             </div>
             <aside className="review-cover-panel review-workflow-cover-side"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCover(file, "current"); event.currentTarget.value = ""; }} /></label>{cover.candidateId || cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => setCover({ candidateId: null, uploadedId: null })}>移除封面</button> : null}</aside>
           </div>
-          {jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}
         </div>
       </section>
     </div>

@@ -28,6 +28,7 @@ describe("home rails", () => {
   it("moves a pinned platform to the front and persists the choice", async () => {
     const user = userEvent.setup();
     render(<PlatformRail platforms={platforms} />);
+    expect(screen.getByRole("button", { name: "置顶“街机”" })).toHaveTextContent("📌");
     expect(screen.getAllByRole("article").map((item) => item.textContent)).toEqual([
       expect.stringContaining("街机"),
       expect.stringContaining("Game Boy Advance"),
