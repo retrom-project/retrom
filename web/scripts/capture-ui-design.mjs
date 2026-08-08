@@ -28,6 +28,7 @@ const captures = [
   ["retrom-ui-admin-games-4k.png", "admin-games", 3840, 2160],
   ["retrom-ui-admin-game-detail-4k.png", "admin-game-detail", 3840, 2160],
   ["retrom-ui-platform-directories.png", "admin-platform-instances", 3840, 2160],
+  ["retrom-ui-platform-directory-create.png", "admin-platform-instances", 2560, 1440, "drawer"],
   ["retrom-ui-confirm-dialog.png", "admin-platform-instances", 2560, 1440, "dialog"],
   ["retrom-ui-bios-files.png", "admin-bios", 2560, 1440],
   ["retrom-ui-dat-versions.png", "admin-bios", 2560, 1440, "dats"]
@@ -71,6 +72,7 @@ try {
     }
     await frame.locator(`[data-page="${view}"]`).waitFor({ state: "visible" });
     if (variant === "dats") await frame.getByRole("button", { name: "Arcade DAT 版本" }).click();
+    if (variant === "drawer") await frame.locator("[data-open-platform-drawer]").click();
     if (variant === "dialog") await frame.locator("[data-preview-core]").first().click();
     if (variant === "portrait") await frame.locator(".rt-player-screen").evaluate((element) => element.classList.add("is-portrait"));
     if (variant === "review-detail" || variant === "review-compare") await frame.locator("[data-review-item]").first().click();

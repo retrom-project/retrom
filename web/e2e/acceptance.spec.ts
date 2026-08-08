@@ -245,19 +245,25 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await expect(page.getByRole("heading", { name: "街机数据目录", exact: true })).toBeVisible();
   await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
   await page.goto("/admin/platform-instances");
+  await expect(page.getByRole("heading", { name: "游戏目录", exact: true })).toBeVisible();
+  await expect(page.getByRole("navigation", { name: "主要导航" }).getByText("游戏目录", { exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "启用状态" })).toBeVisible();
-  const populatedDirectory = page.locator(".platform-table tbody tr").filter({ hasText: /[1-9]\d* 个游戏/ }).first();
+  const populatedDirectory = page.locator(".platform-directory-row").filter({ hasText: /[1-9]\d* 款/ }).first();
   if (await populatedDirectory.count()) await expect(populatedDirectory.getByRole("checkbox", { name: /启用状态/ })).toBeEnabled();
-  const descriptionRow = page.locator(".platform-table tbody tr").first();
-  const descriptionEdit = descriptionRow.getByRole("button", { name: /给用户看的说明/ });
-  if (await descriptionEdit.count()) {
+  const descriptionRow = page.locator(".platform-directory-row").first();
+  if (await descriptionRow.count()) {
     const before = await descriptionRow.evaluate((element) => element.getBoundingClientRect().height);
-    await descriptionEdit.click();
+    await descriptionRow.getByRole("button", { name: /管理目录/ }).click();
+    await descriptionRow.getByRole("menuitem", { name: "编辑说明" }).click();
     await expect(descriptionRow.getByRole("textbox", { name: "给用户看的说明" })).toHaveAttribute("rows", "1");
     const after = await descriptionRow.evaluate((element) => element.getBoundingClientRect().height);
     expect(Math.abs(after - before)).toBeLessThanOrEqual(4);
     await descriptionRow.getByRole("button", { name: "取消修改说明" }).click();
   }
+  await page.getByRole("button", { name: "新建游戏目录" }).click();
+  await expect(page.getByRole("dialog", { name: "新建游戏目录" })).toBeVisible();
+  await expect(page.getByText("新建平台实例", { exact: true })).toHaveCount(0);
+  await page.getByRole("dialog", { name: "新建游戏目录" }).getByRole("button", { name: "关闭", exact: true }).click();
   const games = await page.request.get("/api/v1/admin/games?limit=100");
   const payload = await games.json() as { items: Array<{ gameId: string }> };
   if (payload.items[0]) {

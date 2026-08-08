@@ -224,7 +224,7 @@ erDiagram
   - 待审核
   - 审核历史
 - 游戏管理
-- 平台目录
+- 游戏目录
 - BIOS 管理（包含“BIOS 文件”和“Arcade DAT 版本”视图）
 
 “游戏入库”是可点击的父级总览；四个子项使用明确缩进并保持同级。进入子页时父项保留上下文高亮，当前子项使用强高亮。游戏详情不是左侧一级菜单。它只能从游戏库卡片、首页最近游戏或资源详情链接进入；进入时左侧仍保持“游戏库”上下文。存档的主按钮直接启动，标题/次要操作才进入游戏详情。
@@ -240,7 +240,7 @@ erDiagram
 | 新建导入 / 任务进度 | `/admin/imports/new`、`/admin/imports/tasks` |
 | 待审核 / 审核详情 / 历史 | `/admin/reviews`、`/admin/reviews/:itemId`、`/admin/reviews/history` |
 | 游戏管理 / 详情 | `/admin/games`、`/admin/games/:gameId` |
-| 平台目录 | `/admin/platform-instances` |
+| 游戏目录 | `/admin/platform-instances` |
 | BIOS 与 DAT | `/admin/bios`、`/admin/bios/dats` |
 
 完整页面状态、4K 密度和响应式上限见 [UI 与交互规范](./ui-specification.md)。

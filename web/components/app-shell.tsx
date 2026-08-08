@@ -21,7 +21,7 @@ const adminNavigation: NavItem[] = [
   { href: "/admin/reviews", label: "待审核", icon: "check", exact: true, child: true },
   { href: "/admin/reviews/history", label: "审核历史", icon: "history", child: true },
   { href: "/admin/games", label: "游戏管理", icon: "library" },
-  { href: "/admin/platform-instances", label: "平台目录", icon: "list" },
+  { href: "/admin/platform-instances", label: "游戏目录", icon: "list" },
   { href: "/admin/bios", label: "BIOS 管理", icon: "chip", exact: true },
   { href: "/admin/bios/dats", label: "街机数据目录", icon: "database", child: true }
 ];
