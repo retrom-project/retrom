@@ -1,9 +1,9 @@
 {
   "schemaVersion": 1,
-  "reviewedAtMs": 1785954879887,
+  "reviewedAtMs": 1786199491271,
   "automatedResultPath": "data/example/results/latest.json",
   "decision": "passed",
-  "criteria": "Visible game boot, title, or attract screen; EmulatorJS wait screens and RetroArch content menus are rejected.",
+  "criteria": "Visible game boot, title, attract, or active gameplay screen; blank canvases, firmware errors, EmulatorJS wait screens, and RetroArch content menus are rejected.",
   "reviews": [
     {
       "core": "fceumm",
@@ -53,6 +53,127 @@
       "observed": "DOOM II title artwork",
       "screenshotPath": "data/example/results/dosbox_pure.png",
       "note": "A non-blocking ErrnoError was emitted after start; frames and the title sequence continued."
+    },
+    {
+      "core": "nestopia",
+      "decision": "passed",
+      "observed": "Nintendo Family Computer/FDS copyright boot screen",
+      "screenshotPath": "data/example/results/nestopia.png"
+    },
+    {
+      "core": "melonds",
+      "decision": "passed",
+      "observed": "Chinese Zoo Keeper title and start menu",
+      "screenshotPath": "data/example/results/melonds.png"
+    },
+    {
+      "core": "desmume2015",
+      "decision": "passed",
+      "observed": "Chinese Zoo Keeper title and start menu",
+      "screenshotPath": "data/example/results/desmume2015.png"
+    },
+    {
+      "core": "desmume",
+      "decision": "passed",
+      "observed": "Chinese Zoo Keeper title and start menu",
+      "screenshotPath": "data/example/results/desmume.png"
+    },
+    {
+      "core": "a5200",
+      "decision": "passed",
+      "observed": "Super Breakout active playfield",
+      "screenshotPath": "data/example/results/a5200.png"
+    },
+    {
+      "core": "pcsx_rearmed",
+      "decision": "passed",
+      "observed": "Nekketsu Oyako character/game intro screen",
+      "screenshotPath": "data/example/results/pcsx_rearmed.png"
+    },
+    {
+      "core": "mednafen_psx_hw",
+      "decision": "passed",
+      "observed": "Nekketsu Oyako Tecno Soft game boot screen",
+      "screenshotPath": "data/example/results/mednafen_psx_hw.png",
+      "note": "The 4.2.3 core uses its software renderer because hardware rendering fails under the local headless SwiftShader environment."
+    },
+    {
+      "core": "handy",
+      "decision": "passed",
+      "observed": "Lode Runner level 001 gameplay",
+      "screenshotPath": "data/example/results/handy.png"
+    },
+    {
+      "core": "yabause",
+      "decision": "passed",
+      "observed": "Sega licensed-disc game boot screen",
+      "screenshotPath": "data/example/results/yabause.png"
+    },
+    {
+      "core": "genesis_plus_gx",
+      "decision": "passed",
+      "observed": "Felix the Cat high-score/attract screen",
+      "screenshotPath": "data/example/results/genesis_plus_gx.png"
+    },
+    {
+      "core": "mupen64plus_next",
+      "decision": "passed",
+      "observed": "Dr. Mario 64 animated game intro scene",
+      "screenshotPath": "data/example/results/mupen64plus_next.png"
+    },
+    {
+      "core": "parallel-n64",
+      "decision": "passed",
+      "observed": "Dr. Mario 64 animated game intro scene",
+      "screenshotPath": "data/example/results/parallel-n64.png"
+    },
+    {
+      "core": "opera",
+      "decision": "passed",
+      "observed": "Total Eclipse planet/space opening",
+      "screenshotPath": "data/example/results/opera.png"
+    },
+    {
+      "core": "prosystem",
+      "decision": "passed",
+      "observed": "Asteroids title screen",
+      "screenshotPath": "data/example/results/prosystem.png"
+    },
+    {
+      "core": "stella2014",
+      "decision": "passed",
+      "observed": "Freeway active road gameplay",
+      "screenshotPath": "data/example/results/stella2014.png"
+    },
+    {
+      "core": "picodrive",
+      "decision": "passed",
+      "observed": "Felix the Cat high-score/attract screen",
+      "screenshotPath": "data/example/results/picodrive.png"
+    },
+    {
+      "core": "mednafen_pce",
+      "decision": "passed",
+      "observed": "Adventure Island game intro scene",
+      "screenshotPath": "data/example/results/mednafen_pce.png"
+    },
+    {
+      "core": "mednafen_pcfx",
+      "decision": "passed",
+      "observed": "PC Engine Fan Special CD-ROM game selection menu",
+      "screenshotPath": "data/example/results/mednafen_pcfx.png"
+    },
+    {
+      "core": "mednafen_ngp",
+      "decision": "passed",
+      "observed": "Pac-Man training gameplay",
+      "screenshotPath": "data/example/results/mednafen_ngp.png"
+    },
+    {
+      "core": "ppsspp",
+      "decision": "passed",
+      "observed": "Sheep Defense title screen",
+      "screenshotPath": "data/example/results/ppsspp.png"
     }
   ]
 }

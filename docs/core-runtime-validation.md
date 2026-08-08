@@ -10,7 +10,7 @@
 
 ## 1. 文档职责
 
-本文定义一期核心能否进入实现清单的既有运行证据、画面判定依据和已知兼容覆盖。ROM/BIOS 的精确来源、哈希、实际 core artifact 路径和测试参数由 [`data/example/fixtures.json`](../data/example/fixtures.json) 维护；工具说明与故障细节见 [`data/example/README.md`](../data/example/README.md)。本文不重复保存一份可能漂移的二进制清单或验收 Case。
+本文定义一期核心能否进入实现清单的既有运行证据、画面判定依据和已知兼容覆盖。ROM/BIOS 的精确来源、哈希、实际 core artifact 路径和测试参数由 [`data/example/fixtures.json`](../data/example/fixtures.json) 维护；该清单还可保存 `supportStatus: "candidate"` 的探索性示例，但候选记录不会自动进入本章矩阵、产品核心清单或正式验收 Case。工具说明与故障细节见 [`data/example/README.md`](../data/example/README.md)。本文不重复保存一份可能漂移的二进制清单或验收 Case。
 
 ## 2. 统一验收入口
 
@@ -51,7 +51,7 @@ python3 data/example/verify-fixtures.py
 node data/example/smoke-test.mjs
 ~~~
 
-机器结果使用整数毫秒字段并写入 [`latest.json`](../data/example/results/latest.json)；人工复核写入 [`manual-review.json`](../data/example/results/manual-review.json)。截图包含游戏内容，默认只保存在本机，不提交仓库。
+机器结果使用整数毫秒字段并写入 [`latest.json`](../data/example/results/latest.json)；人工复核写入 [`manual-review.json`](../data/example/results/manual-review.json)。这两个结果文件可以包含候选示例；只有本章 8 个正式核心对应 `ACC-CORE-001`–`ACC-CORE-008`。截图包含游戏内容，默认只保存在本机，不提交仓库。
 
 ## 5. MAME2003 版本覆盖
 

@@ -163,21 +163,47 @@ def main() -> int:
         "EmulatorJS archive",
         errors,
     )
+    cores_path = REPO_ROOT / emulatorjs["dataPath"] / "cores/cores.json"
+    try:
+        core_catalog = json.loads(cores_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as error:
+        errors.append(f"unable to read EmulatorJS core catalog: {error}")
+        core_catalog = []
 
     seen_games: set[str] = set()
+    seen_cores: set[str] = set()
     for fixture in manifest["fixtures"]:
         core = fixture["core"]
+        if core in seen_cores:
+            errors.append(f"fixtures.json: duplicate core {core!r}")
+        seen_cores.add(core)
+        require_file({"path": fixture["examplePath"]}, f"{core} example", errors)
+        emulator_core = fixture.get("emulatorCore", core)
+        runtime_version = fixture.get("runtimeVersion", emulatorjs["version"])
+        if runtime_version != emulatorjs["version"]:
+            errors.append(f"{core}: runtimeVersion must remain {emulatorjs['version']}")
         expected_artifact = selected_artifacts.get(core)
         actual_artifact = fixture["coreArtifact"]
-        expected_suffix = (expected_artifact or {}).get("path_in_release") or (
-            expected_artifact or {}
-        ).get("local_path")
-        if expected_artifact is None or (
-            actual_artifact["size"] != expected_artifact["size_bytes"]
-            or actual_artifact["sha256"] != expected_artifact["sha256"]
-            or not actual_artifact["path"].endswith(expected_suffix)
-        ):
-            errors.append(f"{core}: core artifact does not match dependency manifest selection")
+        if fixture.get("supportStatus") != "candidate":
+            expected_suffix = (expected_artifact or {}).get("path_in_release") or (
+                expected_artifact or {}
+            ).get("local_path")
+            if expected_artifact is None or (
+                actual_artifact["size"] != expected_artifact["size_bytes"]
+                or actual_artifact["sha256"] != expected_artifact["sha256"]
+                or not actual_artifact["path"].endswith(expected_suffix)
+            ):
+                errors.append(f"{core}: core artifact does not match dependency manifest selection")
+        else:
+            if not any(record.get("name") == emulator_core for record in core_catalog):
+                errors.append(
+                    f"{core}: EmulatorJS core {emulator_core!r} is absent from {runtime_version}"
+                )
+            expected_prefix = f"{emulatorjs['dataPath']}/cores/{emulator_core}-"
+            if not actual_artifact["path"].startswith(expected_prefix):
+                errors.append(
+                    f"{core}: candidate artifact is outside the pinned core path"
+                )
 
         source_relative = fixture["game"].get("sourceRelativePath", "")
         if not source_relative or Path(source_relative).is_absolute() or ".." in Path(source_relative).parts:
@@ -212,12 +238,14 @@ def main() -> int:
                 errors.append(f"{core}: unsafe or missing BIOS sourceRelativePath")
             require_file(bios, f"{core} BIOS {bios['filename']}", errors)
         require_file(fixture["coreArtifact"], f"{core} core artifact", errors)
+        for runtime_file in fixture.get("runtimeFiles", []):
+            require_file(runtime_file, f"{core} runtime file", errors)
 
         game_key = str(game_path)
         if fixture.get("datPath") and game_path.is_file():
             notes.append(f"{core}: {verify_arcade(fixture, game_path, errors)}")
         elif game_key not in seen_games:
-            notes.append(f"{core}: fixture hash and size matched")
+            notes.append(f"{core} ({runtime_version}): fixture hash and size matched")
         seen_games.add(game_key)
 
     for note in notes:

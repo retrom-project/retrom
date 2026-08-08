@@ -392,6 +392,11 @@ async function runFixture(cdp, fixture) {
   const pageUrl = `${BASE_URL}/${fixture.examplePath}`;
   const coreRequests = [];
   const externalFileRequests = [];
+  const expectedExternalFiles = [
+    ...(fixture.expectedExternalFiles || []),
+    ...(fixture.bios || []).map(record => record.localPath),
+    ...(fixture.runtimeFiles || []).map(record => record.path)
+  ];
   const consoleErrors = [];
   const consoleMessages = [];
   let browserContextId;
@@ -421,7 +426,9 @@ async function runFixture(cdp, fixture) {
       if (url.includes("/cores/") || url.includes("/overrides/")) {
         coreRequests.push({ url, status: params.response.status });
       }
-      if ((fixture.expectedExternalFiles || []).some(expected => url === `${BASE_URL}/${expected}`)) {
+      if (expectedExternalFiles.some(
+        expected => url === new URL(`/${expected}`, BASE_URL).href
+      )) {
         externalFileRequests.push({ url, status: params.response.status });
       }
     });
@@ -469,8 +476,8 @@ async function runFixture(cdp, fixture) {
     );
 
     state = await waitForPage(cdp, sessionId, fixture.timeoutMs);
-    if (fixture.core === "dosbox_pure" && !state.crossOriginIsolated) {
-      throw new Error("dosbox_pure requires crossOriginIsolated=true for its threaded core");
+    if ((fixture.core === "dosbox_pure" || fixture.requiresThreads) && !state.crossOriginIsolated) {
+      throw new Error(`${fixture.core} requires crossOriginIsolated=true for its threaded core`);
     }
     const expectedCoreArtifactUrl = `${BASE_URL}/${fixture.coreArtifact.path}`;
     const loadedExpectedCore = coreRequests.some(
@@ -481,8 +488,8 @@ async function runFixture(cdp, fixture) {
     if (!loadedExpectedCore) {
       throw new Error(`Expected core artifact was not loaded: ${expectedCoreArtifactUrl}`);
     }
-    for (const expected of fixture.expectedExternalFiles || []) {
-      const expectedURL = `${BASE_URL}/${expected}`;
+    for (const expected of expectedExternalFiles) {
+      const expectedURL = new URL(`/${expected}`, BASE_URL).href;
       if (!externalFileRequests.some(request => request.url === expectedURL && request.status >= 200 && request.status < 300)) {
         throw new Error(`Expected external file was not loaded: ${expectedURL}`);
       }
