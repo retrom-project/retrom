@@ -62,7 +62,8 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`design/retrom-ui-admin-review-history-detail-4k.png`](./design/retrom-ui-admin-review-history-detail-4k.png)：4K 审核完成瞬间的元信息快照。
 - [`design/retrom-ui-admin-games-4k.png`](./design/retrom-ui-admin-games-4k.png)：4K 游戏管理列表。
 - [`design/retrom-ui-admin-game-detail-4k.png`](./design/retrom-ui-admin-game-detail-4k.png)：4K 游戏管理详情的四区版本化工作台。
-- [`design/retrom-ui-platform-directories.png`](./design/retrom-ui-platform-directories.png)：4K 平台目录管理与创建表单。
+- [`design/retrom-ui-platform-directories.png`](./design/retrom-ui-platform-directories.png)：4K 游戏目录管理列表。
+- [`design/retrom-ui-platform-directory-create.png`](./design/retrom-ui-platform-directory-create.png)：新建游戏目录 Drawer。
 - [`design/retrom-ui-bios-files.png`](./design/retrom-ui-bios-files.png)：BIOS 文件管理。
 - [`design/retrom-ui-dat-versions.png`](./design/retrom-ui-dat-versions.png)：Arcade DAT 版本管理。
 

@@ -20,7 +20,7 @@ describe("PlatformManager", () => {
     navigation.refresh.mockReset();
     vi.stubGlobal("fetch", vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       if (String(input).endsWith("/default-core-preview")) {
-        return new Response(JSON.stringify({ impactDigest: "impact", counts: { blocked: 0 } }), { status: 200, headers: { "Content-Type": "application/json" } });
+        return new Response(JSON.stringify({ impactDigest: "impact", counts: { ready: 1, needsValidation: 0, blocked: 0 } }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       if (String(input).endsWith("/order")) {
         const request = JSON.parse(String(init?.body)) as { items: Array<{ id: string; version: number }> };
@@ -36,10 +36,10 @@ describe("PlatformManager", () => {
     const user = userEvent.setup();
     render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
 
-    const row = screen.getByText("掌机游戏").closest("tr")!;
+    const row = screen.getByText("掌机游戏").closest<HTMLElement>("[role='row']")!;
     await user.selectOptions(within(row).getByLabelText("“掌机游戏”的推荐运行方式"), "vba_next");
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
-    expect(screen.getByRole("alertdialog", { name: "确认更改推荐运行方式？" })).toHaveTextContent("现有游戏不会被阻断");
+    expect(screen.getByRole("alertdialog", { name: "确认更改推荐运行方式？" })).toHaveTextContent("没有游戏会被阻断");
     expect(navigation.refresh).not.toHaveBeenCalled();
 
     await user.click(screen.getByRole("button", { name: "应用更改" }));
@@ -52,6 +52,8 @@ describe("PlatformManager", () => {
     render(<PlatformManager instances={[]} platforms={platforms} createOpen />);
 
     await user.type(screen.getByLabelText("目录名称"), "My GBA Games");
+    expect(screen.getByRole("dialog", { name: "新建游戏目录" })).toBeInTheDocument();
+    expect(screen.queryByText("新建平台实例")).not.toBeInTheDocument();
     expect(screen.queryByText("高级设置")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("网址标识")).not.toBeInTheDocument();
     expect(screen.queryByLabelText("显示顺序")).not.toBeInTheDocument();
@@ -92,8 +94,31 @@ describe("PlatformManager", () => {
     const user = userEvent.setup();
     render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
 
-    await user.click(screen.getByRole("button", { name: "修改“掌机游戏”给用户看的说明" }));
-    const row = screen.getByText("掌机游戏").closest("tr")!;
+    await user.click(screen.getByRole("button", { name: "管理目录“掌机游戏”" }));
+    await user.click(screen.getByRole("menuitem", { name: "编辑说明" }));
+    const row = screen.getByText("掌机游戏").closest<HTMLElement>("[role='row']")!;
     expect(within(row).getByRole("textbox", { name: "给用户看的说明" })).toHaveAttribute("rows", "1");
+  });
+
+  it("filters rows locally and disables global reordering while filtered", async () => {
+    const user = userEvent.setup();
+    const second: PlatformInstance = { ...instances[0], id: "instance-2", name: "街机目录", slug: "arcade", platformId: "arcade", platformName: "Arcade" };
+    render(<PlatformManager instances={[...instances, second]} platforms={platforms} createOpen={false} />);
+
+    await user.type(screen.getByRole("searchbox", { name: "搜索目录" }), "街机");
+    expect(screen.getByText("街机目录")).toBeInTheDocument();
+    expect(screen.queryByText("掌机游戏")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "拖动“街机目录”调整顺序" })).toBeDisabled();
+    expect(screen.getByText("筛选状态下仅查看；清除筛选后可调整全局展示顺序")).toBeInTheDocument();
+  });
+
+  it("opens the creation drawer from the page header and closes it from the backdrop", async () => {
+    const user = userEvent.setup();
+    render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
+
+    await user.click(screen.getByRole("button", { name: "新建游戏目录" }));
+    expect(screen.getByRole("dialog", { name: "新建游戏目录" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "关闭新建游戏目录" }));
+    expect(screen.queryByRole("dialog", { name: "新建游戏目录" })).not.toBeInTheDocument();
   });
 });
