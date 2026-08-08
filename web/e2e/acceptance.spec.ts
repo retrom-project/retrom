@@ -174,6 +174,7 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
       const appBody = document.querySelector<HTMLElement>(".app-body");
       const featuredMedia = document.querySelector<HTMLElement>(".home-featured-media")?.getBoundingClientRect();
       const featuredCover = document.querySelector<HTMLElement>(".home-featured-cover")?.getBoundingClientRect();
+      const featuredCopy = document.querySelector<HTMLElement>(".home-featured-copy")?.getBoundingClientRect();
       const featuredSave = document.querySelector<HTMLElement>(".home-featured-save-preview")?.getBoundingClientRect();
       const featuredActions = document.querySelector<HTMLElement>(".home-featured-actions")?.getBoundingClientRect();
       return {
@@ -190,6 +191,8 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
         featuredSaveWidth: featuredSave?.width ?? 0,
         featuredActionsBottomGap: featuredMedia && featuredActions ? featuredMedia.bottom - featuredActions.bottom : Number.POSITIVE_INFINITY,
         featuredCoverActionsBottomDelta: featuredCover && featuredActions ? featuredCover.bottom - featuredActions.bottom : Number.POSITIVE_INFINITY,
+        featuredCopyCoverGap: featuredCover && featuredCopy ? featuredCopy.left - featuredCover.right : Number.POSITIVE_INFINITY,
+        featuredActionsCoverGap: featuredCover && featuredActions ? featuredActions.left - featuredCover.right : Number.POSITIVE_INFINITY,
         homeLeftGap: homePage && appBody ? homePage.getBoundingClientRect().left - appBody.getBoundingClientRect().left : Number.POSITIVE_INFINITY,
         homeRightGap: homePage && appBody ? appBody.getBoundingClientRect().right - homePage.getBoundingClientRect().right : Number.POSITIVE_INFINITY,
       };
@@ -206,14 +209,21 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
     if (homeLayout.featuredHasSave) expect(homeLayout.featuredSaveWidthRatio).toBeGreaterThanOrEqual(0.24);
     expect(homeLayout.featuredActionsBottomGap).toBeLessThanOrEqual(50);
     expect(Math.abs(homeLayout.featuredCoverActionsBottomDelta)).toBeLessThanOrEqual(1);
+    expect(homeLayout.featuredCopyCoverGap).toBeGreaterThanOrEqual(23);
+    expect(homeLayout.featuredCopyCoverGap).toBeLessThanOrEqual(33);
+    expect(Math.abs(homeLayout.featuredActionsCoverGap - homeLayout.featuredCopyCoverGap)).toBeLessThanOrEqual(1);
 
-    const fluidFeaturedLayout: Array<{ coverHeight: number; saveWidth: number }> = [];
+    const fluidFeaturedLayout: Array<{ coverHeight: number; saveWidth: number; copyGap: number }> = [];
     for (const width of [1900, 2200, 2500, 2800, 3100]) {
       await page.setViewportSize({ width, height: 1250 });
       const measurement = await measureHomeLayout();
-      fluidFeaturedLayout.push({ coverHeight: measurement.featuredCoverHeight, saveWidth: measurement.featuredSaveWidth });
+      fluidFeaturedLayout.push({ coverHeight: measurement.featuredCoverHeight, saveWidth: measurement.featuredSaveWidth, copyGap: measurement.featuredCopyCoverGap });
       expect(Math.abs(measurement.featuredCoverActionsBottomDelta)).toBeLessThanOrEqual(1);
+      expect(measurement.featuredCopyCoverGap).toBeGreaterThanOrEqual(23);
+      expect(measurement.featuredCopyCoverGap).toBeLessThanOrEqual(33);
     }
+    const fluidCopyGaps = fluidFeaturedLayout.map((measurement) => measurement.copyGap);
+    expect(Math.max(...fluidCopyGaps) - Math.min(...fluidCopyGaps)).toBeLessThanOrEqual(9);
     for (let index = 1; index < fluidFeaturedLayout.length; index += 1) {
       expect(fluidFeaturedLayout[index].coverHeight).toBeGreaterThanOrEqual(fluidFeaturedLayout[index - 1].coverHeight - 1);
       expect(fluidFeaturedLayout[index].saveWidth).toBeGreaterThanOrEqual(fluidFeaturedLayout[index - 1].saveWidth - 1);

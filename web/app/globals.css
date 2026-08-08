@@ -1648,28 +1648,50 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
    height cap keeps the 3:4 cover inside the first layer; cqw avoids a visible
    size jump when a wide browser crosses a viewport breakpoint. */
 @media (min-width: 1800px) and (min-height: 950px) {
+  .home-featured-media { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); column-gap: clamp(24px, .8vw, 32px); align-items: stretch; }
+  .home-featured-media:not(.has-session-save) { grid-template-columns: auto minmax(0, 1fr); }
   .home-featured-cover {
-    left: clamp(20px, 1.85cqw, 42px);
+    position: relative;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+    left: auto;
     top: auto;
-    bottom: clamp(16px, 1.67vh, 36px);
+    bottom: auto;
     width: auto;
     height: min(calc(100% - clamp(16px, 1.67vh, 36px) - clamp(16px, 1.67vh, 36px)), clamp(224px, 36cqw, 516px));
+    margin-left: clamp(20px, 1.85cqw, 42px);
+    margin-bottom: clamp(16px, 1.67vh, 36px);
     aspect-ratio: 3 / 4;
     transform: none;
   }
   .home-featured-copy {
-    left: clamp(260px, 31cqw, 480px);
-    right: clamp(20px, 1.7cqw, 38px);
-    top: 0;
-    bottom: 0;
+    position: relative;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: stretch;
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
     padding-block: clamp(16px, 1.67vh, 36px);
     display: flex;
     flex-direction: column;
     transform: none;
   }
-  .home-featured-media.has-session-save .home-featured-copy { right: clamp(300px, 35cqw, 650px); }
+  .home-featured-media.has-session-save .home-featured-copy { right: auto; }
   .home-featured-details { margin-block: auto; }
-  .home-featured-save-preview { right: clamp(16px, 1.7cqw, 38px); width: clamp(210px, 30cqw, 560px); }
+  .home-featured-save-preview {
+    position: relative;
+    grid-column: 3;
+    grid-row: 1;
+    align-self: center;
+    right: auto;
+    top: auto;
+    width: clamp(210px, 30cqw, 560px);
+    margin-right: clamp(16px, 1.7cqw, 38px);
+    transform: none;
+  }
   .home-featured-overline { margin-bottom: clamp(5px, .4cqw, 9px); font-size: clamp(11px, .57cqw, 13px); }
   .home-featured-copy h2 { font-size: clamp(27px, 1.67cqw, 38px); }
   .home-featured-description { margin-top: clamp(5px, .44cqw, 10px); font-size: clamp(12px, .7cqw, 16px); }
