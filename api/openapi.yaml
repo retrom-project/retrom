@@ -266,6 +266,7 @@ paths:
   /api/v1/admin/games:
     get:
       operationId: getAdminGames
+      description: Lists every managed game with platform/directory/default-core identity, cover, release year, metadata completeness, current default-core runtime status, visibility, creation/update/play timestamps, and cursor pagination.
       parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
@@ -273,6 +274,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     get:
       operationId: getAdminGame
+      description: Returns the complete management workbench projection and a generatedAtMs timestamp for deterministic relative-time presentation.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
     patch:

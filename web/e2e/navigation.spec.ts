@@ -76,7 +76,7 @@ test("library grid and management workbench match desktop breakpoints", async ({
     expect(libraryCard.cardWidth).toBeLessThanOrEqual(321);
     expect(Math.abs(libraryCard.coverRatio - 0.75)).toBeLessThanOrEqual(0.01);
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
-    for (const heading of ["发布信息", "媒体", "游戏内容与运行环境", "管理操作"]) await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作"]) await expect(page.getByRole("heading", { name: heading })).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
   await page.screenshot({ path: testInfo.outputPath("library-and-game-admin.png"), fullPage: true });

@@ -67,6 +67,7 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   await expect(page.locator("[data-home-layer]")).toHaveCount(4);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
   await page.goto("/library");
+  await expect(page.locator(".library-toolbar")).toBeVisible();
   const toolbarHeight = await page.locator(".library-toolbar").evaluate((element) => element.getBoundingClientRect().height);
   await page.evaluate(() => { (window as typeof window & { __retromSearchMarker?: string }).__retromSearchMarker = "preserved"; });
   await page.getByRole("searchbox", { name: "搜索游戏" }).fill("Sudoku");
@@ -230,9 +231,16 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await page.goto("/admin/games");
   await expect(page.getByRole("heading", { name: "游戏管理", exact: true })).toBeVisible();
   await expect(page.getByText("信息版本", { exact: true })).toHaveCount(0);
-  const adminGameCard = page.locator(".admin-game-card").first();
-  await expect(adminGameCard).toBeVisible();
-  expect((await adminGameCard.boundingBox())?.width ?? 0).toBeGreaterThanOrEqual(219);
+  const adminGameRow = page.locator(".admin-game-table tbody tr").first();
+  await expect(adminGameRow).toBeVisible();
+  expect((await adminGameRow.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(84);
+  await expect(page.getByRole("region", { name: "游戏管理摘要" })).toBeVisible();
+  await page.evaluate(() => window.history.replaceState({ marker: "admin-games" }, "", window.location.href));
+  const firstAdminTitle = await adminGameRow.locator(".admin-game-identity a").innerText();
+  await page.getByRole("searchbox", { name: "搜索游戏" }).fill(firstAdminTitle);
+  await expect(page.locator(".admin-game-table tbody tr")).toHaveCount(1);
+  expect(await page.evaluate(() => window.history.state?.marker)).toBe("admin-games");
+  await page.getByRole("searchbox", { name: "搜索游戏" }).fill("");
   await page.goto("/admin/bios/dats");
   await expect(page.getByRole("heading", { name: "街机数据目录", exact: true })).toBeVisible();
   await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
@@ -254,8 +262,11 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   const payload = await games.json() as { items: Array<{ gameId: string }> };
   if (payload.items[0]) {
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
-    for (const heading of ["发布信息", "媒体", "游戏内容与运行环境", "管理操作"]) {
+    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "从游戏库移除"]) {
       await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    }
+    for (const omittedTag of ["媒体资源", "运行状态正常", "维护工具", "危险区域"]) {
+      await expect(page.getByText(omittedTag, { exact: true })).toHaveCount(0);
     }
     await noPageOverflow(page);
   }

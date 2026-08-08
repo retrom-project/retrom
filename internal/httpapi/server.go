@@ -1676,6 +1676,48 @@ func gameListVisibilityConditions(includeDisabled bool) []string {
 	return []string{"pi.enabled=1"}
 }
 
+func scanGameListItem(scanner rowScanner, includeAdminProjection bool) (map[string]any, error) {
+	var id, title, platformID, platformName, instanceID, instanceName, defaultCoreID, defaultCoreName, status string
+	var version, createdAtMS, updatedAtMS int64
+	var lastPlayedAtMS, releaseYear sql.NullInt64
+	var metadataComplete int64
+	var runtimeStatus, coverAssetID sql.NullString
+	if err := scanner.Scan(
+		&id,
+		&title,
+		&platformID,
+		&platformName,
+		&instanceID,
+		&instanceName,
+		&defaultCoreID,
+		&defaultCoreName,
+		&status,
+		&version,
+		&createdAtMS,
+		&updatedAtMS,
+		&lastPlayedAtMS,
+		&releaseYear,
+		&metadataComplete,
+		&runtimeStatus,
+		&coverAssetID,
+	); err != nil {
+		return nil, fmt.Errorf("scan game list item: %w", err)
+	}
+	item := map[string]any{
+		"gameId": id, "title": title, "platform": map[string]any{"id": platformID, "name": platformName},
+		"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
+		"defaultCore":      map[string]any{"id": defaultCoreID, "name": defaultCoreName},
+		"status":           status, "version": version, "createdAtMs": createdAtMS, "updatedAtMs": updatedAtMS,
+		"lastPlayedAtMs": nullableInteger(lastPlayedAtMS), "coverUrl": gameCoverURL(coverAssetID),
+	}
+	if includeAdminProjection {
+		item["releaseYear"] = nullableInteger(releaseYear)
+		item["metadataComplete"] = metadataComplete == 1
+		item["runtimeStatus"] = nullableString(runtimeStatus)
+	}
+	return item, nil
+}
+
 //nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) gameList(writer http.ResponseWriter, request *http.Request, includeDeleted bool) {
 	query := `
@@ -1692,6 +1734,19 @@ SELECT g.id,
  g.created_at_ms,
  g.updated_at_ms,
  (SELECT max(ps.started_at_ms) FROM play_sessions ps WHERE ps.game_id=g.id),
+ m.release_year,
+ CASE WHEN trim(m.description)<>''
+ AND trim(m.developer)<>''
+ AND trim(m.publisher)<>''
+ AND trim(m.genre)<>''
+ AND m.players IS NOT NULL
+ AND m.release_year IS NOT NULL THEN 1 ELSE 0 END,
+ (SELECT vr.status
+ FROM game_variants v
+ JOIN game_variant_revisions vr ON vr.id=v.current_revision_id
+ WHERE v.game_id=g.id
+ AND v.core_id=pi.default_core_id
+ LIMIT 1),
  (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
@@ -1765,36 +1820,12 @@ JOIN cores dc ON dc.id=pi.default_core_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0, limit+1)
 	for rows.Next() {
-		var id, title, platformID, platformName, instanceID, instanceName, defaultCoreID, defaultCoreName, status string
-		var version, createdAtMS, updatedAtMS int64
-		var lastPlayedAtMS sql.NullInt64
-		var coverAssetID sql.NullString
-		if err := rows.Scan(
-			&id,
-			&title,
-			&platformID,
-			&platformName,
-			&instanceID,
-			&instanceName,
-			&defaultCoreID,
-			&defaultCoreName,
-			&status,
-			&version,
-			&createdAtMS,
-			&updatedAtMS,
-			&lastPlayedAtMS,
-			&coverAssetID,
-		); err != nil {
-			server.databaseError(writer, request, err)
+		item, scanErr := scanGameListItem(rows, includeDeleted)
+		if scanErr != nil {
+			server.databaseError(writer, request, scanErr)
 			return
 		}
-		items = append(items, map[string]any{
-			"gameId": id, "title": title, "platform": map[string]any{"id": platformID, "name": platformName},
-			"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
-			"defaultCore":      map[string]any{"id": defaultCoreID, "name": defaultCoreName},
-			"status":           status, "version": version, "createdAtMs": createdAtMS, "updatedAtMs": updatedAtMS,
-			"lastPlayedAtMs": nullableInteger(lastPlayedAtMS), "coverUrl": gameCoverURL(coverAssetID),
-		})
+		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
 		server.databaseError(writer, request, err)

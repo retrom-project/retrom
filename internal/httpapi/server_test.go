@@ -878,6 +878,19 @@ VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
 		!strings.Contains(list.Body.String(), `"generatedAtMs":`) {
 		t.Fatalf("game list cover = %d: %s", list.Code, list.Body.String())
 	}
+	adminList := httptest.NewRecorder()
+	server.Handler().ServeHTTP(adminList, httptest.NewRequest(http.MethodGet, "/api/v1/admin/games?limit=100", nil))
+	if adminList.Code != http.StatusOK ||
+		!strings.Contains(adminList.Body.String(), `"releaseYear":`) ||
+		!strings.Contains(adminList.Body.String(), `"metadataComplete":`) ||
+		!strings.Contains(adminList.Body.String(), `"runtimeStatus":"READY"`) {
+		t.Fatalf("admin game health projection = %d: %s", adminList.Code, adminList.Body.String())
+	}
+	adminDetail := httptest.NewRecorder()
+	server.Handler().ServeHTTP(adminDetail, httptest.NewRequest(http.MethodGet, "/api/v1/admin/games/"+gameID, nil))
+	if adminDetail.Code != http.StatusOK || !strings.Contains(adminDetail.Body.String(), `"generatedAtMs":`) {
+		t.Fatalf("admin game detail generated time = %d: %s", adminDetail.Code, adminDetail.Body.String())
+	}
 	saves := httptest.NewRecorder()
 	server.Handler().ServeHTTP(saves, httptest.NewRequest(http.MethodGet, "/api/v1/saves", nil))
 	if saves.Code != http.StatusOK ||
