@@ -587,8 +587,8 @@
     #retrom-ui-review .rt-admin-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 17px; }
     #retrom-ui-review .rt-admin-tab { padding: 7px 10px; border: 1px solid var(--retrom-line); border-radius: 8px; background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; }
     #retrom-ui-review .rt-admin-tab.is-active { border-color: color-mix(in srgb, var(--retrom-purple) 52%, var(--retrom-line)); background: var(--retrom-purple-soft); color: var(--retrom-purple); }
-    #retrom-ui-review .rt-import-layout { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(220px, 0.75fr); gap: 12px; }
-    #retrom-ui-review .rt-dropzone { display: grid; place-items: center; min-height: 200px; padding: 22px; border: 1px dashed color-mix(in srgb, var(--retrom-purple) 46%, var(--retrom-line)); border-radius: 13px; background: color-mix(in srgb, var(--retrom-purple-soft) 38%, var(--retrom-panel)); text-align: center; }
+    #retrom-ui-review .rt-import-layout { display: grid; gap: 12px; max-width: 1180px; margin-inline: auto; }
+    #retrom-ui-review .rt-dropzone { display: grid; place-items: center; min-height: 310px; padding: 22px; border: 1px dashed color-mix(in srgb, var(--retrom-purple) 46%, var(--retrom-line)); border-radius: 13px; background: color-mix(in srgb, var(--retrom-purple-soft) 38%, var(--retrom-panel)); text-align: center; }
     #retrom-ui-review .rt-drop-icon { display: grid; place-items: center; width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 12px; background: var(--retrom-purple-soft); color: var(--retrom-purple); }
     #retrom-ui-review .rt-drop-icon svg { width: 21px; height: 21px; }
     #retrom-ui-review .rt-drop-copy { margin-top: 6px; color: var(--retrom-muted); font-size: 11px; }
@@ -605,13 +605,21 @@
     #retrom-ui-review .rt-dialog-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 18px; }
 
     #retrom-ui-review .rt-page-head-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+    #retrom-ui-review .rt-ingest-priority-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-bottom: 14px; }
+    #retrom-ui-review .rt-ingest-priority { min-height: 118px; padding: 16px 18px; display: flex; align-items: center; justify-content: space-between; gap: 24px; border: 1px solid var(--retrom-line); border-radius: 13px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-ingest-priority.is-warning { background: color-mix(in srgb, var(--retrom-amber-soft) 52%, var(--retrom-panel)); }
+    #retrom-ui-review .rt-ingest-priority.is-danger { background: color-mix(in srgb, var(--retrom-red-soft) 52%, var(--retrom-panel)); }
+    #retrom-ui-review .rt-ingest-priority h2 { margin: 7px 0 2px; font-size: 16px; }
+    #retrom-ui-review .rt-ingest-priority .rt-subtitle { max-width: 58ch; }
+    #retrom-ui-review .rt-ingest-priority > div:last-child { display: grid; justify-items: end; gap: 10px; }
+    #retrom-ui-review .rt-ingest-priority strong { font-size: 32px; }
     #retrom-ui-review .rt-ingest-stat-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-bottom: 20px; }
-    #retrom-ui-review .rt-overview-grid { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(260px, 0.55fr); gap: 12px; }
+    #retrom-ui-review .rt-overview-grid { display: grid; gap: 12px; }
     #retrom-ui-review .rt-overview-panel { padding: 18px; }
     #retrom-ui-review .rt-panel-heading { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
     #retrom-ui-review .rt-panel-heading-copy { min-width: 0; }
     #retrom-ui-review .rt-panel-heading-copy .rt-subtitle { max-width: 62ch; }
-    #retrom-ui-review .rt-pipeline-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); margin-top: 22px; }
+    #retrom-ui-review .rt-pipeline-grid { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); margin-top: 22px; }
     #retrom-ui-review .rt-pipeline-stage { position: relative; padding: 18px 10px 0; border-top: 2px solid var(--retrom-line); }
     #retrom-ui-review .rt-pipeline-stage::before { position: absolute; top: -6px; left: 10px; width: 10px; height: 10px; border: 2px solid var(--retrom-panel); border-radius: 50%; background: var(--retrom-line); content: ""; }
     #retrom-ui-review .rt-pipeline-stage.is-running { border-color: var(--retrom-purple); }
@@ -647,7 +655,14 @@
     #retrom-ui-review .rt-preflight-label { color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-preflight-value { margin-top: 4px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
 
-    #retrom-ui-review .rt-task-layout { display: grid; grid-template-columns: minmax(0, 1.45fr) minmax(300px, 0.55fr); gap: 12px; }
+    #retrom-ui-review .rt-task-layout { display: grid; gap: 12px; }
+    #retrom-ui-review .rt-workflow-chips { display: flex; gap: 7px; margin: 10px 0 12px; }
+    #retrom-ui-review .rt-workflow-chips span { padding: 5px 10px; border: 1px solid var(--retrom-line); border-radius: 999px; color: var(--retrom-muted); background: var(--retrom-panel); font-size: 10px; }
+    #retrom-ui-review .rt-workflow-chips span.is-active { border-color: color-mix(in srgb, var(--retrom-purple) 42%, var(--retrom-line)); color: var(--retrom-purple); background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-stage-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-stage-strip span { padding: 7px; border-radius: 7px; color: var(--retrom-muted); background: var(--retrom-panel-raised); font-size: 9px; }
+    #retrom-ui-review .rt-stage-strip span.is-done { color: var(--retrom-green); background: var(--retrom-green-soft); }
+    #retrom-ui-review .rt-stage-strip span.is-active { color: var(--retrom-purple); background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-job-list { overflow: hidden; }
     #retrom-ui-review .rt-job-row { padding: 16px; border-bottom: 1px solid var(--retrom-line); }
     #retrom-ui-review .rt-job-row:last-child { border-bottom: 0; }
@@ -726,7 +741,7 @@
     #retrom-ui-review .rt-review-queue-footer { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 11px; color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-review-queue-pages { display: flex; gap: 6px; }
     #retrom-ui-review .rt-review-queue-pages .rt-button { min-height: 30px; padding: 5px 8px; }
-    #retrom-ui-review .rt-review-layout { display: grid; grid-template-columns: minmax(220px, .35fr) minmax(0, 1.65fr); gap: 12px; }
+    #retrom-ui-review .rt-review-layout { display: grid; gap: 12px; }
     #retrom-ui-review .rt-review-back { display: none; justify-self: start; }
     #retrom-ui-review .rt-review-file { padding: 15px; }
     #retrom-ui-review .rt-file-preview { display: grid; place-items: center; aspect-ratio: 16 / 10; margin-bottom: 13px; border-radius: 10px; background: var(--retrom-cover-c); color: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 18px; letter-spacing: 0.1em; }
@@ -760,6 +775,17 @@
     #retrom-ui-review .rt-review-context-item { display: grid; gap: 3px; width: 100%; padding: 9px; border: 1px solid var(--retrom-line); border-radius: 8px; color: var(--retrom-text); background: var(--retrom-panel); text-align: left; }
     #retrom-ui-review .rt-review-context-item span { color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-review-context-item.is-active { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; }
+    #retrom-ui-review .rt-review-summary, #retrom-ui-review .rt-review-decision { min-height: 142px; padding: 15px; }
+    #retrom-ui-review .rt-review-summary h2, #retrom-ui-review .rt-review-decision h2 { margin: 8px 0 3px; }
+    #retrom-ui-review .rt-review-summary-status { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+    #retrom-ui-review .rt-review-save { display: flex; justify-content: space-between; margin: 12px 0; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-review-save strong { color: var(--retrom-green); }
+    #retrom-ui-review .rt-review-detail-columns { display: grid; grid-template-columns: minmax(330px, .72fr) minmax(580px, 1.28fr); align-items: start; gap: 12px; }
+    #retrom-ui-review .rt-review-capability { display: grid; gap: 8px; margin-top: 12px; }
+    #retrom-ui-review .rt-review-capability > div { padding: 9px; border-radius: 8px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-review-capability strong, #retrom-ui-review .rt-review-capability span { display: block; }
+    #retrom-ui-review .rt-review-capability span { margin-top: 2px; color: var(--retrom-muted); font-size: 9px; }
 
     #retrom-ui-review .rt-management-head-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
     #retrom-ui-review .rt-management-stat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
@@ -1274,134 +1300,88 @@
 
       <section class="rt-page" data-page="admin-import">
         <div class="rt-page-head">
-          <div><h1>游戏入库</h1><p class="rt-subtitle">查看从文件接收、识别、刮削到审核发布的当前概况</p></div>
-          <div class="rt-page-head-actions"><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>新建导入</button></div>
+          <div><h1>游戏入库</h1><p class="rt-subtitle">管理游戏从上传、识别、运行检查到人工审核发布的完整流程。优先处理会阻塞入库进度的事项。</p></div>
+          <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-import-tasks">任务进度</button><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>导入游戏</button></div>
+        </div>
+        <div class="rt-ingest-priority-grid">
+          <article class="rt-ingest-priority is-warning"><div><span class="rt-badge rt-badge-amber">需要处理</span><h2>待审核条目</h2><p class="rt-subtitle">运行检查已完成，等待管理员确认发布信息。</p></div><div><strong>4</strong><button type="button" class="rt-button" data-page-link="admin-review">进入待审核 →</button></div></article>
+          <article class="rt-ingest-priority is-danger"><div><span class="rt-badge rt-badge-red">阻塞进度</span><h2>异常任务</h2><p class="rt-subtitle">文件、依赖或运行检查存在问题，需要先处理。</p></div><div><strong>3</strong><button type="button" class="rt-button" data-page-link="admin-import-tasks">查看异常任务 →</button></div></article>
         </div>
         <div class="rt-ingest-stat-grid">
-          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">运行中的任务</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>2</span></div><div class="rt-stat-note">另有 1 个任务正在排队</div></div>
-          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">待审核条目</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>4</span></div><div class="rt-stat-note">最早等待 18 分钟</div></div>
-          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">异常条目</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>3</span></div><div class="rt-stat-note">2 个可重试 · 1 个需人工处理</div></div>
-          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">本周已发布</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>36</span></div><div class="rt-stat-note">来自 5 次导入</div></div>
+          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">运行中任务</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>2</span></div><div class="rt-stat-note">正在上传、识别或检查</div></div>
+          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">等待审核</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>4</span></div><div class="rt-stat-note">已进入人工审核队列</div></div>
+          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">异常条目</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>3</span></div><div class="rt-stat-note">需要重新整理或补齐依赖</div></div>
+          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">历史完成批次</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>36</span></div><div class="rt-stat-note">已完成的全部导入任务</div></div>
         </div>
 
         <div class="rt-overview-grid">
           <div class="rt-panel rt-overview-panel">
-            <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>当前流水线</h2><p class="rt-subtitle">每个数字表示此刻停留在该阶段的条目；发布数为本周累计</p></div><span class="rt-badge rt-badge-cyan">SSE 实时更新</span></div>
+            <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>当前入库流水线</h2><p class="rt-subtitle">展示当前任务规模和需要处理的真实条目。</p></div><span class="rt-badge rt-badge-cyan">实时快照</span></div>
             <div class="rt-pipeline-grid" aria-label="当前入库流水线">
-              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">1</div><div class="rt-pipeline-label">上传与去重</div></div>
-              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">2</div><div class="rt-pipeline-label">文件识别</div></div>
-              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">8</div><div class="rt-pipeline-label">元信息刮削</div></div>
-              <div class="rt-pipeline-stage"><div class="rt-pipeline-count">4</div><div class="rt-pipeline-label">等待审核</div></div>
-              <div class="rt-pipeline-stage"><div class="rt-pipeline-count">36</div><div class="rt-pipeline-label">本周发布</div></div>
+              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">2</div><div class="rt-pipeline-label">上传与校验</div></div>
+              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">44</div><div class="rt-pipeline-label">识别游戏</div></div>
+              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">3</div><div class="rt-pipeline-label">运行检查</div></div>
+              <div class="rt-pipeline-stage"><div class="rt-pipeline-count">2</div><div class="rt-pipeline-label">获取游戏信息</div></div>
+              <div class="rt-pipeline-stage"><div class="rt-pipeline-count">4</div><div class="rt-pipeline-label">人工审核</div></div>
+              <div class="rt-pipeline-stage"><div class="rt-pipeline-count">36</div><div class="rt-pipeline-label">发布</div></div>
             </div>
-            <div class="rt-pipeline-caption">系统会自动识别运行依赖并准备游戏信息；最终内容由你逐条确认。</div>
+            <div class="rt-pipeline-caption">系统会继续推进自动阶段；人工审核只处理已经完成运行检查的条目。</div>
           </div>
-          <aside class="rt-panel rt-overview-panel" aria-label="需要处理">
-            <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>需要处理</h2><p class="rt-subtitle">按阻塞范围排序</p></div></div>
-            <div class="rt-action-list">
-              <button type="button" class="rt-action-row" data-page-link="admin-review"><span class="rt-action-icon is-warning"><i data-lucide="list-checks" aria-hidden="true"></i></span><span class="rt-action-copy"><span class="rt-action-title">4 个条目待审核</span><span class="rt-action-note">其中 1 个没有元信息候选</span></span><span class="rt-action-arrow"><i data-lucide="arrow-right" aria-hidden="true"></i></span></button>
-              <button type="button" class="rt-action-row" data-page-link="admin-import-tasks"><span class="rt-action-icon is-danger"><i data-lucide="package-x" aria-hidden="true"></i></span><span class="rt-action-copy"><span class="rt-action-title">2 个文件需重新打包</span><span class="rt-action-note">nes-pack/ · AMBIGUOUS_PRIMARY_CONTENT</span></span><span class="rt-action-arrow"><i data-lucide="arrow-right" aria-hidden="true"></i></span></button>
-              <button type="button" class="rt-action-row" data-page-link="admin-review-history"><span class="rt-action-icon"><i data-lucide="history" aria-hidden="true"></i></span><span class="rt-action-copy"><span class="rt-action-title">最近完成 7 次审核</span><span class="rt-action-note">查看采用候选与字段差异</span></span><span class="rt-action-arrow"><i data-lucide="arrow-right" aria-hidden="true"></i></span></button>
-            </div>
-          </aside>
         </div>
 
-        <div class="rt-section-head"><h2>最近入库任务</h2><button type="button" class="rt-text-link" data-page-link="admin-import-tasks">查看全部任务</button></div>
-        <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>任务</th><th>平台目录 / 默认核心快照</th><th>当前阶段</th><th>条目摘要</th><th>更新时间</th></tr></thead><tbody>
-          <tr><td><div class="rt-table-title">arcade-batch-08.zip</div><div class="rt-table-sub">JOB-20260806-0041</div></td><td><div class="rt-table-title">FBNeo 游戏列表</div><div class="rt-table-sub">Arcade · FBNeo · DAT 1.0.0.03</div></td><td><span class="rt-badge rt-badge-cyan">刮削中</span></td><td>8 完成 · 3 处理中 · 1 警告</td><td>刚刚</td></tr>
-          <tr><td><div class="rt-table-title">dos-classics/</div><div class="rt-table-sub">JOB-20260806-0040</div></td><td><div class="rt-table-title">DOS 经典游戏</div><div class="rt-table-sub">MS-DOS · DOSBox Pure</div></td><td><span class="rt-badge rt-badge-amber">等待审核</span></td><td>4 / 4 已识别</td><td>6 分钟前</td></tr>
-          <tr><td><div class="rt-table-title">nes-pack/</div><div class="rt-table-sub">JOB-20260805-0039</div></td><td><div class="rt-table-title">NES 游戏</div><div class="rt-table-sub">NES · FCEUmm</div></td><td><span class="rt-badge rt-badge-red">部分失败</span></td><td>26 完成 · 2 可重试</td><td>昨天 23:18</td></tr>
+        <div class="rt-section-head"><h2>最近任务</h2><button type="button" class="rt-text-link" data-page-link="admin-import-tasks">查看全部</button></div>
+        <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>创建时间 / 目标目录</th><th>当前状态</th><th>当前阶段</th><th>条目摘要</th><th>操作</th></tr></thead><tbody>
+          <tr><td><div class="rt-table-title">今天 22:41 · FBNeo 游戏</div><div class="rt-table-sub">12 个条目 · Hasheous 哈希查询</div></td><td><span class="rt-badge rt-badge-cyan">运行中</span></td><td>获取游戏信息</td><td>0 待审核 · 0 异常</td><td><button class="rt-button" data-page-link="admin-import-tasks">查看</button></td></tr>
+          <tr><td><div class="rt-table-title">今天 22:18 · DOS 经典游戏</div><div class="rt-table-sub">4 个条目 · Hasheous 哈希查询</div></td><td><span class="rt-badge rt-badge-amber">等待审核</span></td><td>人工审核</td><td>4 个待审核</td><td><button class="rt-button" data-page-link="admin-review">审核</button></td></tr>
+          <tr><td><div class="rt-table-title">昨天 23:18 · NES 游戏</div><div class="rt-table-sub">28 个条目 · 不刮削</div></td><td><span class="rt-badge rt-badge-red">部分失败</span></td><td>运行检查</td><td>2 个异常</td><td><button class="rt-button" data-page-link="admin-import-tasks">查看</button></td></tr>
         </tbody></table></div>
       </section>
 
       <section class="rt-page" data-page="admin-import-new">
         <div class="rt-page-head">
-          <div><h1>导入游戏</h1><p class="rt-subtitle">选择游戏内容、目标目录和信息来源，提交后配置保持不变</p></div>
+          <div><h1>导入游戏</h1><p class="rt-subtitle">选择游戏文件或目录，确认目标游戏目录和信息来源，再上传并验证。</p></div>
           <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-import-tasks"><i data-lucide="activity" aria-hidden="true"></i>查看任务进度</button></div>
         </div>
         <div class="rt-import-stepbar" aria-label="新建导入步骤">
-          <div class="rt-import-step is-active"><span class="rt-step-number">1</span><span>选择文件或目录</span></div>
-          <div class="rt-import-step"><span class="rt-step-number">2</span><span>确认任务配置</span></div>
-          <div class="rt-import-step"><span class="rt-step-number">3</span><span>上传并验证文件</span></div>
+          <div class="rt-import-step is-active"><span class="rt-step-number">1</span><span>选择内容</span></div>
+          <div class="rt-import-step"><span class="rt-step-number">2</span><span>确认配置</span></div>
+          <div class="rt-import-step"><span class="rt-step-number">3</span><span>上传并验证</span></div>
         </div>
         <div class="rt-import-layout">
-          <div class="rt-dropzone"><div><div class="rt-drop-icon"><i data-lucide="upload-cloud" aria-hidden="true"></i></div><h2>拖放游戏文件或目录</h2><p class="rt-drop-copy">保留 Chrome 目录相对路径以识别 DOS bundle；CHD 仅保留证据并阻断发布</p><div class="rt-drop-actions"><button type="button" class="rt-button rt-button-primary">选择文件</button><button type="button" class="rt-button">选择目录</button></div><p class="rt-drop-copy">尚未选择内容</p></div></div>
-          <div class="rt-panel rt-import-settings">
-            <h3>任务配置</h3>
-            <label class="rt-field"><span class="rt-label">归属平台目录</span><select class="rt-select"><option selected disabled>请选择目标平台目录</option><optgroup label="Arcade"><option>FBNeo 游戏列表 · 默认 FBNeo</option><option>MAME 游戏列表 · 默认 MAME 2003</option><option>FBNeo 飞行游戏 · 默认 FBNeo</option></optgroup><optgroup label="MS-DOS"><option>DOS 经典游戏 · 默认 DOSBox Pure</option></optgroup></select></label>
-            <div class="rt-table-sub">必须主动选择，避免将游戏导入到错误目录。</div>
-            <label class="rt-field"><span class="rt-label">元信息来源</span><select class="rt-select"><option>Hasheous · 文件哈希（无需登录）</option><option>不刮削 · 稍后手动填写</option></select></label>
-            <div class="rt-setting-note">Arcade DAT 只解析 machine、parent、BIOS 与 ROM entry；它不是元信息刮削源。</div>
-            <div class="rt-import-checklist" aria-label="提交后处理">
-              <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">校验并避免重复</div><div class="rt-table-sub">重复内容不会再次占用存储空间</div></div></div>
-              <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">按基础平台分组</div><div class="rt-table-sub">目录结构不会在浏览器端丢失</div></div></div>
-              <div class="rt-import-check"><i data-lucide="check-circle-2" aria-hidden="true"></i><div><div class="rt-table-title">生成待审核条目</div><div class="rt-table-sub">Hasheous 未命中也不会阻断人工审核</div></div></div>
-            </div>
-          </div>
-        </div>
-        <div class="rt-panel rt-preflight">
-          <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h3>提交前快照</h3><p class="rt-subtitle">任务创建后沿用此配置；后续目录或 DAT 变更不会静默覆盖</p></div><button type="button" class="rt-button rt-button-primary" disabled><i data-lucide="upload" aria-hidden="true"></i>选择内容后上传</button></div>
-          <div class="rt-preflight-grid">
-            <div class="rt-preflight-item"><div class="rt-preflight-label">平台目录</div><div class="rt-preflight-value">尚未选择</div></div>
-            <div class="rt-preflight-item"><div class="rt-preflight-label">默认核心 / Artifact</div><div class="rt-preflight-value">选择目录后显示</div></div>
-            <div class="rt-preflight-item"><div class="rt-preflight-label">Arcade DAT</div><div class="rt-preflight-value">选择目录后显示</div></div>
-            <div class="rt-preflight-item"><div class="rt-preflight-label">展示元信息</div><div class="rt-preflight-value">Hasheous Hash Lookup</div></div>
-          </div>
-          <div class="rt-setting-note">分块齐备后先进入“正在验证与入库文件（FINALIZING）”；只有全部文件完成 SHA-256 / CAS 校验，主操作才变为“创建导入任务”。取消处理中会显示“正在取消”，不会立即伪装成已删除。</div>
+          <div class="rt-dropzone"><div><div class="rt-drop-icon"><i data-lucide="upload-cloud" aria-hidden="true"></i></div><h2>将游戏文件或目录拖到这里</h2><p class="rt-drop-copy">支持普通 ROM、Arcade ZIP 与 DOS 内容目录；相对路径会完整保留。</p><div class="rt-drop-actions"><button type="button" class="rt-button rt-button-primary">选择文件</button><button type="button" class="rt-button">选择目录</button></div><p class="rt-drop-copy">选择内容后进入配置步骤，目标游戏目录不会默认选中。</p></div></div>
         </div>
       </section>
 
       <section class="rt-page" data-page="admin-import-tasks">
         <div class="rt-page-head">
-          <div><h1>任务进度</h1><p class="rt-subtitle">查看每次导入的当前阶段、异常条目和提交时配置</p></div>
+          <div><h1>任务进度</h1><p class="rt-subtitle">关注每个导入批次当前所处阶段、完成比例和条目分布。异常和运行中任务优先展示。</p></div>
           <div class="rt-page-head-actions"><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>新建导入</button></div>
         </div>
-        <div class="rt-stat-grid">
-          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">运行中</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>2</span></div><div class="rt-stat-note">最近心跳 3 秒前</div></div>
-          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">排队中</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>1</span></div><div class="rt-stat-note">等待校验和复制</div></div>
-          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">需处理</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>3</span></div><div class="rt-stat-note">2 可重试 · 1 手动处理</div></div>
-        </div>
         <div class="rt-toolbar">
-          <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索任务</span><input class="rt-input" type="search" placeholder="搜索任务名或目录"></label>
-          <select class="rt-select rt-filter-select" aria-label="任务状态"><option>全部状态</option><option>运行中</option><option>排队中</option><option>部分失败</option><option>已完成</option></select>
-          <select class="rt-select rt-filter-select" aria-label="平台目录"><option>全部平台目录</option><option>FBNeo 游戏列表</option><option>DOS 经典游戏</option><option>NES 游戏</option></select>
+          <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索任务</span><input class="rt-input" type="search" placeholder="输入目录名称或任务状态"></label>
+          <select class="rt-select rt-filter-select" aria-label="目标目录"><option>所有目录</option><option>FBNeo 游戏</option><option>DOS 经典游戏</option><option>NES 游戏</option></select>
+          <select class="rt-select rt-filter-select" aria-label="任务状态"><option>所有状态</option><option>运行中</option><option>排队中</option><option>需要处理</option><option>等待审核</option><option>已完成</option></select>
         </div>
+        <div class="rt-workflow-chips"><span class="is-active">全部 3</span><span>运行中 1</span><span>需要处理 1</span><span>等待审核 1</span><span>已完成 0</span></div>
         <div class="rt-task-layout">
           <div class="rt-panel rt-job-list">
             <article class="rt-job-row is-selected">
-              <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="file-archive" aria-hidden="true"></i><div><div class="rt-table-title">arcade-batch-08.zip</div><div class="rt-table-sub">12 个游戏条目</div></div></div><div class="rt-job-meta"><span>FBNeo 游戏列表</span><span>Arcade · FBNeo</span><span>心跳 3 秒前</span></div></div><span class="rt-badge rt-badge-cyan">刮削中 · 67%</span></div>
+              <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="file-archive" aria-hidden="true"></i><div><div class="rt-table-title">今天 22:41 · FBNeo 游戏</div><div class="rt-table-sub">12 个条目 · Hasheous 哈希查询 · 更新于刚刚</div></div></div></div><span class="rt-badge rt-badge-cyan">运行中</span></div>
               <div class="rt-job-progress"><span style="width:67%"></span></div>
-              <div class="rt-job-footer"><div class="rt-job-counts"><span>8 完成</span><span>3 处理中</span><span>1 警告</span><span>0 失败</span></div><div class="rt-job-actions"><button type="button" class="rt-button">查看任务</button><button type="button" class="rt-button rt-button-danger" data-cancel-job>取消</button></div></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>获取游戏信息 · 67%</span><span>0 待审核</span><span>0 异常</span><span>下一步：后台继续处理</span></div><div class="rt-job-actions"><button type="button" class="rt-button">收起详情</button></div></div>
+              <div class="rt-stage-strip"><span class="is-done">上传 ✓</span><span class="is-done">识别 ✓</span><span class="is-done">运行检查 ✓</span><span class="is-active">游戏信息 · 处理中</span><span>人工审核 · 等待</span><span>发布 · 等待</span></div>
             </article>
             <article class="rt-job-row">
-              <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">dos-classics/</div><div class="rt-table-sub">4 个游戏目录</div></div></div><div class="rt-job-meta"><span>DOS 经典游戏</span><span>MS-DOS · DOSBox Pure</span><span>更新于 6 分钟前</span></div></div><span class="rt-badge rt-badge-amber">等待审核</span></div>
+              <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">今天 22:18 · DOS 经典游戏</div><div class="rt-table-sub">4 个条目 · Hasheous 哈希查询 · 更新于 6 分钟前</div></div></div></div><span class="rt-badge rt-badge-amber">等待审核</span></div>
               <div class="rt-job-progress"><span style="width:100%"></span></div>
-              <div class="rt-job-footer"><div class="rt-job-counts"><span>4 已识别</span><span>4 待审核</span><span>0 失败</span></div><div class="rt-job-actions"><button type="button" class="rt-button" data-page-link="admin-review">进入待审核</button></div></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>人工审核 · 100%</span><span>4 待审核</span><span>0 异常</span></div><div class="rt-job-actions"><button type="button" class="rt-button" data-page-link="admin-review">审核 4 个条目</button></div></div>
             </article>
             <article class="rt-job-row">
-              <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">nes-pack/</div><div class="rt-table-sub">28 个游戏文件</div></div></div><div class="rt-job-meta"><span>NES 游戏</span><span>NES · FCEUmm</span><span>更新于昨天 23:18</span></div></div><span class="rt-badge rt-badge-red">部分失败</span></div>
+              <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">昨天 23:18 · NES 游戏</div><div class="rt-table-sub">28 个条目 · 不刮削 · 更新于昨天 23:18</div></div></div></div><span class="rt-badge rt-badge-red">部分失败</span></div>
               <div class="rt-job-progress is-danger"><span style="width:93%"></span></div>
-              <div class="rt-job-footer"><div class="rt-job-counts"><span>26 完成</span><span>2 文件已拒绝 · AMBIGUOUS_PRIMARY_CONTENT</span></div><div class="rt-job-actions"><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new">重新打包并上传</button><button type="button" class="rt-button">查看文件错误</button></div></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>运行检查 · 93%</span><span>0 待审核</span><span>2 异常</span><span>当前问题：2 个条目需要处理</span></div><div class="rt-job-actions"><button type="button" class="rt-button">处理问题</button></div></div>
             </article>
           </div>
-          <aside class="rt-panel rt-task-detail" aria-label="所选任务详情">
-            <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>当前任务</h2><p class="rt-subtitle">arcade-batch-08.zip</p></div><span class="rt-badge rt-badge-cyan" id="rt-task-detail-status">运行中</span></div>
-            <div class="rt-info-list">
-              <div class="rt-info-row"><span>平台目录快照</span><span>FBNeo 游戏列表</span></div>
-              <div class="rt-info-row"><span>核心 / EJS</span><span>FBNeo / 4.2.3</span></div>
-              <div class="rt-info-row"><span>Arcade DAT</span><span>1.0.0.03</span></div>
-              <div class="rt-info-row"><span>元信息源</span><span>Hasheous</span></div>
-              <div class="rt-info-row"><span>创建时间</span><span>今天 22:41</span></div>
-            </div>
-            <div class="rt-section-head"><h3>阶段事件</h3><span class="rt-subtitle">自动更新</span></div>
-            <div class="rt-timeline">
-              <div class="rt-timeline-item is-current"><div><div class="rt-timeline-title">元信息刮削 · 8 / 12</div><div class="rt-timeline-time">正在等待 Hasheous 限速窗口</div></div></div>
-              <div class="rt-timeline-item"><div><div class="rt-timeline-title">默认核心依赖识别完成</div><div class="rt-timeline-time">FBNeo DAT · 12 个 machine 匹配</div></div></div>
-              <div class="rt-timeline-item"><div><div class="rt-timeline-title">SHA-256 与分组完成</div><div class="rt-timeline-time">复用 2 个已有 Blob</div></div></div>
-              <div class="rt-timeline-item"><div><div class="rt-timeline-title">上传完成</div><div class="rt-timeline-time">今天 22:42 · 684 MB</div></div></div>
-            </div>
-            <div class="rt-setting-note" id="rt-job-cancel-note">任务运行时使用创建时快照；平台目录或 DAT 后续变更只会产生差异提示。运行中取消先进入 CANCEL_REQUESTED，Worker 在有界检查点停止后才显示“已取消”。</div>
-          </aside>
         </div>
       </section>
 
@@ -1434,12 +1414,16 @@
           </section>
           <div class="rt-review-layout" data-review-view="detail" hidden>
             <button type="button" class="rt-button rt-review-back" data-review-back><i data-lucide="arrow-left" aria-hidden="true"></i>返回待审列表</button>
-            <aside class="rt-panel rt-review-file"><div class="rt-section-head"><div><h3>当前队列</h3><p class="rt-subtitle">4 条 · 可任意选择</p></div></div><nav class="rt-review-context-list" aria-label="当前待审队列"><button type="button" class="rt-review-context-item is-active"><strong>Metal Slug 3</strong><span>mslug3.zip · 可以发布</span></button><button type="button" class="rt-review-context-item"><strong>Garou: Mark of the Wolves</strong><span>garou.zip · 缺少 BIOS</span></button><button type="button" class="rt-review-context-item"><strong>lastbld2</strong><span>lastbld2.zip · 可以发布</span></button><button type="button" class="rt-review-context-item"><strong>Shock Troopers</strong><span>shocktro.zip · 可以发布</span></button></nav></aside>
-            <div class="rt-panel rt-review-form">
-              <div class="rt-review-editor-head"><div><h2>审核与发布</h2><p class="rt-subtitle">文件、运行检查和游戏信息集中在同一工作区 · <span style="color:var(--retrom-green)">已实时保存</span></p></div><div class="rt-review-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>丢弃条目</button><button type="button" class="rt-button rt-button-primary" data-review-approve><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></div>
-              <div class="rt-review-overview"><section><h3>游戏文件</h3><p class="rt-subtitle">FBNeo 游戏列表</p><details class="rt-review-file-summary" open><summary><strong>mslug3.zip</strong><span>28.4 MiB / 7d2c1a4f…</span></summary><div class="rt-archive-list"><div><strong>mslug3-p1.bin</strong><span>8.0 MiB</span><code>72d3a4c1</code></div><div><strong>mslug3-s1.bin</strong><span>512 KiB</span><code>9bc3e12f</code></div><div><strong>mslug3-c1.bin</strong><span>16 MiB</span><code>fe8a3d77</code></div><div><strong>mslug3-m1.bin</strong><span>4.0 MiB</span><code>10b40c77</code></div></div></details></section><section><h3>运行检查</h3><p class="rt-subtitle">发布前必须处于可以运行状态</p><div class="rt-runtime-facts"><div><strong>mslug3</strong><span>街机条目</span></div><div><strong>4</strong><span>游戏文件</span></div><div><strong>0</strong><span>异常项</span></div></div><div class="rt-validation-box">✓ 文件、核心和 BIOS 均已就绪</div></section></div>
-              <div class="rt-review-metadata"><div class="rt-form-grid"><label class="rt-field rt-field-wide"><span class="rt-label">游戏标题</span><input class="rt-input" data-review-field="title" value="Metal Slug 3"></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea" data-review-field="description">阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。</textarea></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" data-review-field="developer" value="SNK"></label><label class="rt-field"><span class="rt-label">发行商</span><input class="rt-input" value="SNK"></label><label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" data-review-field="players" value="1–2"></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" data-review-field="year" value="2000"></label></div><button type="button" class="rt-review-cover-upload"><span><i data-lucide="upload" aria-hidden="true"></i> 点击封面上传替换</span></button></div>
-              <div class="rt-review-editor-head" style="margin-top:12px;margin-bottom:0"><div><h3>在线游戏信息</h3><p class="rt-subtitle">重新查询后对比当前信息与最新结果</p></div><button type="button" class="rt-button" data-open-compare><i data-lucide="refresh-cw" aria-hidden="true"></i>重新查询游戏信息</button></div><div hidden data-review-validation-output>✓ 当前目录的游戏文件和运行依赖均已就绪，可以发布</div>
+            <div class="rt-review-detail-top">
+              <section class="rt-panel rt-review-summary"><span class="rt-badge">来源：<span data-review-file-output>mslug3.zip</span></span><h2 data-review-preview-output>METAL SLUG 3</h2><p class="rt-subtitle">目标目录：FBNeo 游戏</p><div class="rt-review-summary-status"><span class="rt-badge">已接收来源文件</span><span class="rt-badge rt-badge-green">运行检查通过</span><span class="rt-badge rt-badge-cyan">已找到游戏信息</span></div></section>
+              <aside class="rt-panel rt-review-decision"><h2>审核决定</h2><p class="rt-subtitle">字段会实时保存；只有运行检查通过时才允许发布。</p><div class="rt-review-save"><span>实时保存</span><strong>● 已实时保存</strong></div><div class="rt-review-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>丢弃条目</button><button type="button" class="rt-button rt-button-primary" data-review-approve><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></aside>
+            </div>
+            <div class="rt-review-detail-columns">
+              <div>
+                <section class="rt-panel rt-review-file"><div class="rt-section-head"><div><h2>① 能不能发布？</h2><p class="rt-subtitle">直接展示文件、运行方式和依赖检查结论。</p></div><span class="rt-badge rt-badge-green">运行检查通过</span></div><div class="rt-review-capability"><div><strong>游戏文件</strong><span>mslug3.zip · 28.4 MiB</span></div><div><strong>运行检查</strong><span>识别为 mslug3 · FinalBurn Neo</span></div><div><strong>依赖检查</strong><span>0 项异常，没有发现缺失依赖</span></div></div><div class="rt-validation-box" data-review-validation-output>✓ 当前目录的游戏文件和运行依赖均已就绪</div></section>
+                <section class="rt-panel rt-review-file" style="margin-top:12px"><div class="rt-section-head"><div><h2>来源文件</h2><p class="rt-subtitle">用于核对这条游戏来自哪份内容。</p></div></div><details class="rt-review-file-summary" open><summary><strong>mslug3.zip</strong><span>28.4 MiB / 7d2c1a4f…</span></summary><div class="rt-archive-list"><div><strong>mslug3-p1.bin</strong><span>8.0 MiB</span><code>72d3a4c1</code></div><div><strong>mslug3-s1.bin</strong><span>512 KiB</span><code>9bc3e12f</code></div><div><strong>mslug3-c1.bin</strong><span>16 MiB</span><code>fe8a3d77</code></div><div><strong>mslug3-m1.bin</strong><span>4.0 MiB</span><code>10b40c77</code></div></div></details></section>
+              </div>
+              <section class="rt-panel rt-review-form"><div class="rt-review-editor-head"><div><h2>② 发布成什么？</h2><p class="rt-subtitle">核对标题、简介和封面；修改会实时保存。</p></div><button type="button" class="rt-button" data-open-compare><i data-lucide="refresh-cw" aria-hidden="true"></i>重新查询游戏信息</button></div><div class="rt-review-metadata"><div class="rt-form-grid"><label class="rt-field rt-field-wide"><span class="rt-label">游戏标题</span><input class="rt-input" data-review-field="title" value="Metal Slug 3"></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea" data-review-field="description">阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。</textarea></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" data-review-field="developer" value="SNK"></label><label class="rt-field"><span class="rt-label">发行商</span><input class="rt-input" value="SNK"></label><label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" data-review-field="players" value="1–2"></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" data-review-field="year" value="2000"></label><div class="rt-panel rt-import-settings"><span class="rt-badge" data-review-candidate-badge>精确</span><h3 data-review-candidate-title>Metal Slug 3</h3><p class="rt-subtitle" data-review-candidate-meta>World · 2000 · SNK</p></div></div><button type="button" class="rt-review-cover-upload"><span><i data-lucide="upload" aria-hidden="true"></i> 点击封面上传替换</span></button></div></section>
             </div>
           </div>
         </div>
@@ -1447,23 +1431,22 @@
 
       <section class="rt-page" data-page="admin-review-history">
         <div class="rt-page-head">
-          <div><h1>审核历史</h1><p class="rt-subtitle">查询不可变 ReviewEvent，并还原当时的输入、候选、字段差异与决策证据</p></div>
+          <div><h1>审核历史</h1><p class="rt-subtitle">查询已经发布或丢弃的条目，并查看审核完成时采用的信息和决定。</p></div>
           <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-review"><i data-lucide="list-checks" aria-hidden="true"></i>返回待审核</button></div>
         </div>
         <div class="rt-toolbar">
-          <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索审核记录</span><input class="rt-input" type="search" placeholder="搜索游戏标题、文件名或 ImportItem ID"></label>
+          <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索审核记录</span><input class="rt-input" type="search" placeholder="输入游戏标题或来源文件"></label>
           <select class="rt-select rt-filter-select" aria-label="审核结果"><option>全部结果</option><option>通过并发布</option><option>已丢弃</option></select>
           <select class="rt-select rt-filter-select" aria-label="平台目录"><option>全部平台目录</option><option>FBNeo 游戏列表</option><option>MAME 游戏列表</option><option>DOS 经典游戏</option></select>
           <select class="rt-select rt-filter-select" aria-label="时间范围"><option>最近 30 天</option><option>最近 7 天</option><option>全部时间</option></select>
         </div>
+        <div class="rt-workflow-chips"><span class="is-active">当前已加载 4</span><span>已发布 3</span><span>已丢弃 1</span></div>
         <div class="rt-history-layout">
-          <div class="rt-panel rt-table-wrap">
-            <table class="rt-table rt-history-table"><thead><tr><th>时间</th><th>游戏 / 原文件</th><th>平台目录</th><th>决策</th><th>当时采用的信息</th></tr></thead><tbody>
-              <tr data-open-history tabindex="0"><td>8 月 5 日 22:09</td><td><div class="rt-table-title">Metal Slug</div><div class="rt-table-sub">mslug.zip</div></td><td><div class="rt-table-title">FBNeo 游戏列表</div><div class="rt-table-sub">Arcade · FBNeo</div></td><td><span class="rt-badge rt-badge-green">通过并发布</span></td><td><div class="rt-table-title">Metal Slug · 1996 · SNK</div><div class="rt-table-sub">点击查看审核完成瞬间的完整元信息</div></td></tr>
-              <tr data-open-history tabindex="0"><td>8 月 4 日 19:32</td><td><div class="rt-table-title">Bad Dump (U)</div><div class="rt-table-sub">baddumpu.zip</div></td><td><div class="rt-table-title">MAME 游戏列表</div><div class="rt-table-sub">Arcade · MAME 2003</div></td><td><span class="rt-badge rt-badge-red">已丢弃</span></td><td><div class="rt-table-title">Bad Dump (U) · 未发布</div><div class="rt-table-sub">parent archive 不完整</div></td></tr>
-              <tr data-open-history tabindex="0"><td>8 月 2 日 20:17</td><td><div class="rt-table-title">DOOM</div><div class="rt-table-sub">doom-shareware/</div></td><td><div class="rt-table-title">DOS 经典游戏</div><div class="rt-table-sub">MS-DOS · DOSBox Pure</div></td><td><span class="rt-badge rt-badge-green">通过并发布</span></td><td><div class="rt-table-title">DOOM · 1993 · id Software</div><div class="rt-table-sub">默认程序 DOOM.EXE</div></td></tr>
-              <tr data-open-history tabindex="0"><td>7 月 29 日 18:44</td><td><div class="rt-table-title">Metroid Fusion</div><div class="rt-table-sub">metroid-fusion.gba</div></td><td><div class="rt-table-title">GBA 游戏</div><div class="rt-table-sub">GBA · mGBA</div></td><td><span class="rt-badge">已发布</span></td><td><div class="rt-table-title">Metroid Fusion · 2002 · Nintendo</div><div class="rt-table-sub">采用本地封面</div></td></tr>
-            </tbody></table>
+          <div class="rt-review-queue-list">
+            <button class="rt-review-item" type="button" data-open-history><span class="rt-review-thumb">MS</span><span><span class="rt-review-item-title">Metal Slug</span><span class="rt-review-item-source">审核完成时的信息快照</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>8 月 5 日 22:09</span><span>查看快照 →</span></button>
+            <button class="rt-review-item" type="button" data-open-history><span class="rt-review-thumb is-empty">BD</span><span><span class="rt-review-item-title">Bad Dump (U)</span><span class="rt-review-item-source">审核完成时的信息快照</span></span><span class="rt-badge rt-badge-red">已丢弃</span><span>管理员丢弃条目</span><span>8 月 4 日 19:32</span><span>查看快照 →</span></button>
+            <button class="rt-review-item" type="button" data-open-history><span class="rt-review-thumb" style="background:var(--retrom-cover-c)">DOOM</span><span><span class="rt-review-item-title">DOOM</span><span class="rt-review-item-source">审核完成时的信息快照</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>8 月 2 日 20:17</span><span>查看快照 →</span></button>
+            <button class="rt-review-item" type="button" data-open-history><span class="rt-review-thumb" style="background:var(--retrom-cover-e)">MF</span><span><span class="rt-review-item-title">Metroid Fusion</span><span class="rt-review-item-source">审核完成时的信息快照</span></span><span class="rt-badge rt-badge-green">已发布</span><span>审核通过并发布</span><span>7 月 29 日 18:44</span><span>查看快照 →</span></button>
           </div>
         </div>
       </section>
@@ -1823,19 +1806,6 @@
         const returnToSource = () => showPage(playerReturnPage);
         if (document.fullscreenElement) document.exitFullscreen().then(returnToSource, returnToSource);
         else returnToSource();
-      });
-
-      root.querySelector('[data-cancel-job]').addEventListener('click', (event) => {
-        const button = event.currentTarget;
-        button.disabled = true;
-        button.textContent = '正在取消';
-        const rowStatus = button.closest('.rt-job-row').querySelector('.rt-badge');
-        rowStatus.textContent = '正在取消 · 67%';
-        rowStatus.className = 'rt-badge rt-badge-amber';
-        const detailStatus = root.querySelector('#rt-task-detail-status');
-        detailStatus.textContent = '正在取消';
-        detailStatus.className = 'rt-badge rt-badge-amber';
-        root.querySelector('#rt-job-cancel-note').textContent = '已提交取消请求；Worker 会在下一个有界检查点停止并清理 scratch。状态仍不是“已取消”，已完成条目也不会回滚。';
       });
 
       root.querySelectorAll('[data-bios-view]').forEach((button) => button.addEventListener('click', () => {

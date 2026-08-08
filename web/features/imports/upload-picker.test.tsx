@@ -22,14 +22,16 @@ describe("UploadPicker", () => {
     const user = userEvent.setup();
     render(<UploadPicker directories={[{ id: "arcade", name: "街机游戏", platformName: "Arcade", coreName: "FinalBurn Neo" }]} />);
 
-    expect(screen.getByRole("combobox", { name: "目标平台目录" })).toHaveValue("");
-    expect(screen.getByRole("option", { name: "请选择目标平台目录" })).toBeDisabled();
-    const submit = screen.getByRole("button", { name: "上传、验证并创建导入任务" });
     const file = new File(["rom"], "game.zip", { type: "application/zip" });
     await user.upload(screen.getByLabelText("选择导入文件"), file);
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+
+    expect(screen.getByRole("combobox", { name: "目标游戏目录" })).toHaveValue("");
+    expect(screen.getByRole("option", { name: "请选择目标游戏目录" })).toBeDisabled();
+    const submit = screen.getByRole("button", { name: "开始上传并验证" });
     expect(submit).toBeDisabled();
 
-    await user.selectOptions(screen.getByRole("combobox", { name: "目标平台目录" }), "arcade");
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "arcade");
     expect(submit).toBeEnabled();
   });
 });
