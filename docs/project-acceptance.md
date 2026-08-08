@@ -695,7 +695,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-005`。
 - 流程：在 `1280×800`、`2560×1440` CSS viewport，以及 3840×2160、100% scale viewport 分别打开首页、游戏库、详情、存档和 Player Shell。
-- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；三个 viewport 的游戏库分别为 4/6/8 列，内容分别不超过文档最大宽度。Player stage 为无边距的 100vw×100dvh；运行后 56px toolbar 自动移出画面且鼠标移动/键盘聚焦可恢复。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式居中，未被裁切或拉伸。
+- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；三个 viewport 的游戏库分别为 4/6/8 列，内容分别不超过文档最大宽度。Player stage 为无边距的 100vw×100dvh；运行后 58px toolbar 自动移出画面且鼠标移动/键盘聚焦可恢复，标题/Core/平台和同步状态不挤压主操作。点击顶部 toolbar 的标题空白或任一操作都先暂停且保持暂停，只有点击游戏画面恢复；点击 EmulatorJS 设置控件不能误恢复。EmulatorJS 底部工具栏启动后及靠近底边时均保持隐藏，只有 Retrom 的“模拟器设置”能显示，且其中不存在 EmulatorJS 原生退出按钮。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式居中，未被裁切或拉伸。
 - 证据：三个 viewport 的布局测量、overflow 断言和页面截图。
 
 ### ACC-UI-006：管理侧 4K

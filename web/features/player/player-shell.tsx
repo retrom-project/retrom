@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { AppIcon } from "@/components/app-icon";
 import { newUuid, sha256 } from "@/lib/crypto";
 import { captureManualState, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "./adapters/ejs-4.2.3-v1";
 import { installCanvasContain } from "./canvas-fit";
 import { setEmulatorPaused } from "./pause-control";
+import { PlayerChrome } from "./player-chrome";
 
 type ShellState = "loading" | "running" | "error";
 
@@ -32,9 +32,15 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [state, setState] = useState<ShellState>("loading");
   const [message, setMessage] = useState("正在验证运行快照…");
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [saveMessage, setSaveMessage] = useState("");
+  const [toast, setToast] = useState("");
+  const [syncText, setSyncText] = useState("正在连接…");
+  const [syncTone, setSyncTone] = useState<"synced" | "busy" | "warning">("busy");
+  const [gameTitle, setGameTitle] = useState("正在运行的游戏");
+  const [coreName, setCoreName] = useState("");
+  const [platformName, setPlatformName] = useState("");
   const [controlsVisible, setControlsVisible] = useState(true);
   const [paused, setPaused] = useState(false);
+  const [fullscreen, setFullscreen] = useState(false);
   const returnTo = useRef("/library");
   const sequence = useRef(0);
   const started = useRef(false);
@@ -45,8 +51,10 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const persistentConflict = useRef<Uint8Array | null>(null);
   const [hasPersistentConflict, setHasPersistentConflict] = useState(false);
   const controlsTimer = useRef<number | null>(null);
+  const toastTimer = useRef<number | null>(null);
   const running = useRef(false);
   const pausedRef = useRef(false);
+  const chromePinned = useRef(false);
 
   const clearControlsTimer = useCallback(() => {
     if (controlsTimer.current !== null) window.clearTimeout(controlsTimer.current);
@@ -56,10 +64,51 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const showControls = useCallback(() => {
     setControlsVisible(true);
     clearControlsTimer();
-    if (running.current && !pausedRef.current) {
-      controlsTimer.current = window.setTimeout(() => setControlsVisible(false), 2_000);
+    if (running.current && !pausedRef.current && !chromePinned.current) {
+      controlsTimer.current = window.setTimeout(() => {
+        if (!pausedRef.current && !chromePinned.current) setControlsVisible(false);
+      }, 2_000);
     }
   }, [clearControlsTimer]);
+
+  const showToast = useCallback((value: string, timeout = 2_400) => {
+    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
+    setToast(value);
+    toastTimer.current = window.setTimeout(() => {
+      setToast("");
+      toastTimer.current = null;
+    }, timeout);
+  }, []);
+
+  const holdControls = useCallback(() => {
+    chromePinned.current = true;
+    setControlsVisible(true);
+    clearControlsTimer();
+  }, [clearControlsTimer]);
+
+  const releaseControls = useCallback(() => {
+    chromePinned.current = false;
+    showControls();
+  }, [showControls]);
+
+  const pauseForToolbarInteraction = useCallback(() => {
+    if (!running.current || pausedRef.current) return;
+    if (!setEmulatorPaused(emulator.current, true)) return;
+    pausedRef.current = true;
+    setPaused(true);
+    showToast("游戏已暂停，点击游戏画面继续");
+    setControlsVisible(true);
+    clearControlsTimer();
+  }, [clearControlsTimer, showToast]);
+
+  const handleGameSurfaceInteraction = useCallback(() => {
+    if (!running.current) return;
+    if (!pausedRef.current || !setEmulatorPaused(emulator.current, false)) return;
+    pausedRef.current = false;
+    setPaused(false);
+    showToast("游戏已继续");
+    showControls();
+  }, [showControls, showToast]);
 
   const sendEvent = useCallback(async (kind: "start" | "heartbeat" | "finish") => {
     if (kind === "heartbeat" && !started.current) throw new Error("PLAY_SESSION_NOT_STARTED");
@@ -88,6 +137,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     const stableBytes = new Uint8Array(bytes);
     persistentQueue.current = persistentQueue.current.then(async () => {
       if (persistentConflict.current) return;
+      setSyncText("正在同步…");
+      setSyncTone("busy");
       const digest = await sha256(stableBytes);
       const next = persistentSequence.current + 1;
       const idempotencyKey = newUuid();
@@ -116,20 +167,26 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         if (response.status === 409) {
           persistentConflict.current = stableBytes;
           setHasPersistentConflict(true);
-          setSaveMessage("服务器存档已由另一会话推进；当前进度未覆盖，请先下载本地副本再退出重启。");
+          setSyncText("存档需要处理");
+          setSyncTone("warning");
         } else {
-          setSaveMessage("持久存档同步失败，最后有效版本仍被保留。");
+          setSyncText("同步失败");
+          setSyncTone("warning");
+          showToast("持久存档同步失败，最后有效版本仍被保留。", 4_000);
         }
         throw new Error("PERSISTENT_SAVE_FAILED");
       }
       persistentSequence.current = next;
-      setSaveMessage("持久进度已同步");
+      setSyncText("已同步");
+      setSyncTone("synced");
     }).catch(() => undefined);
-  }, [launchId]);
+  }, [launchId, showToast]);
 
   const uploadManualState = useCallback(async (payload: { screenshot: Blob; format: string; state: Uint8Array }) => {
     if (!payload.screenshot.size || !payload.state.byteLength) {
-      setSaveMessage("状态或截图为空，未创建存档。");
+      setSyncText("保存失败");
+      setSyncTone("warning");
+      showToast("状态或截图为空，未创建存档。", 4_000);
       return;
     }
     const form = new FormData();
@@ -141,10 +198,20 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       method: "POST", credentials: "same-origin",
       headers: { "Idempotency-Key": newUuid() }, body: form
     });
-    setSaveMessage(response.ok ? "手动存档和截图已保存" : "手动存档失败，服务器未创建不完整记录");
-  }, [launchId]);
+    if (response.ok) {
+      setSyncText("已同步");
+      setSyncTone("synced");
+      showToast("手动存档和截图已保存");
+    } else {
+      setSyncText("保存失败");
+      setSyncTone("warning");
+      showToast("手动存档失败，服务器未创建不完整记录", 4_000);
+    }
+  }, [launchId, showToast]);
 
-  async function exit() {
+  const exit = useCallback(async () => {
+    if (finishing.current) return;
+    finishing.current = true;
     try {
       const manager = emulator.current?.gameManager;
       const path = manager?.getSaveFilePath?.();
@@ -157,7 +224,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     } catch { /* expiry is already a terminal server state */ }
     if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
     window.location.assign(returnTo.current);
-  }
+  }, [sendEvent, uploadPersistent]);
 
   function downloadConflictingSave() {
     const bytes = persistentConflict.current;
@@ -176,6 +243,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     let cleanup: (() => void) | undefined;
     let canvasContain: ReturnType<typeof installCanvasContain> | undefined;
     let cleanupFrameControls: (() => void) | undefined;
+    let nativeMenuObserver: MutationObserver | undefined;
     async function bootstrap() {
       try {
         setMessage("正在加载 Core、ROM 与依赖配置…");
@@ -184,6 +252,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         const config = await response.json() as PlayerConfig;
         returnTo.current = config.returnTo;
         setWarnings(config.warnings ?? []);
+        setGameTitle(config.gameTitle);
+        setCoreName(config.coreName || config.core);
+        setPlatformName(config.platformName);
 
         const persistentResponse = await fetch(config.persistentSaveUrl, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
         if (!persistentResponse.ok && persistentResponse.status !== 204) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
@@ -198,8 +269,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         const frameDocument = frame.contentDocument;
         if (!frameWindow || !frameDocument) throw new Error("PLAYER_FRAME_UNAVAILABLE");
         frameDocument.documentElement.lang = "zh-CN";
+        frameDocument.documentElement.classList.add("retrom-native-menu-locked");
         const style = frameDocument.createElement("style");
-        style.textContent = "html,body,#game,#retrom-emulator,.ejs_parent,.ejs_game,.ejs_canvas_parent{width:100%;height:100%;margin:0;overflow:hidden;background:#05060a}.ejs_canvas_parent{display:grid!important;place-items:center!important}canvas{display:block;max-width:none!important;max-height:none!important}";
+        style.textContent = "html,body,#game,#retrom-emulator,.ejs_parent,.ejs_game,.ejs_canvas_parent{width:100%;height:100%;margin:0;overflow:hidden;background:#05060a}.ejs_canvas_parent{display:grid!important;place-items:center!important}canvas{display:block;max-width:none!important;max-height:none!important}html.retrom-native-menu-locked .ejs_menu_bar{visibility:hidden!important;opacity:0!important;pointer-events:none!important}";
         frameDocument.head.append(style);
         const target = frameDocument.createElement("div");
         target.id = "game";
@@ -207,17 +279,34 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         canvasContain = installCanvasContain(frameDocument, () => emulator.current?.gameManager?.getVideoDimensions?.("aspect"));
         const handleFramePointerMove = () => showControls();
         const handleFrameKeyDown = () => showControls();
+        const handleFrameClick = (event: MouseEvent) => {
+          const target = event.target;
+          if (target && "closest" in target && typeof target.closest === "function" && target.closest(".ejs_menu_bar,.ejs_popup_container,.ejs_cheat_parent,.ejs_control_bar,button,a,input,select,textarea,[role=button]")) return;
+          frame.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
+          frame.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+        };
         frameDocument.addEventListener("pointermove", handleFramePointerMove, { passive: true });
         frameDocument.addEventListener("keydown", handleFrameKeyDown);
+        frameDocument.addEventListener("click", handleFrameClick);
         cleanupFrameControls = () => {
           frameDocument.removeEventListener("pointermove", handleFramePointerMove);
           frameDocument.removeEventListener("keydown", handleFrameKeyDown);
+          frameDocument.removeEventListener("click", handleFrameClick);
         };
 
         let mountedSaveFS: NonNullable<NonNullable<EmulatorInstance["gameManager"]>["FS"]> | undefined;
         cleanup = mountEmulatorJS(config, target, {
           onReady: (instance) => {
             emulator.current = instance;
+            const nativeMenu = frameDocument.querySelector<HTMLElement>(".ejs_menu_bar");
+            if (nativeMenu) {
+              nativeMenuObserver = new MutationObserver(() => {
+                if (nativeMenu.classList.contains("ejs_menu_bar_hidden")) {
+                  frameDocument.documentElement.classList.add("retrom-native-menu-locked");
+                }
+              });
+              nativeMenuObserver.observe(nativeMenu, { attributes: true, attributeFilter: ["class"] });
+            }
             instance.on("saveState", () => undefined);
             instance.on("saveDatabaseLoaded", () => {
               const fs = instance.gameManager?.FS;
@@ -230,6 +319,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
             instance.on("exit", () => { void sendEvent("finish"); });
           },
           onGameStart: () => {
+            frameDocument.documentElement.classList.add("retrom-native-menu-locked");
+            emulator.current?.menu?.close?.();
             const manager = emulator.current?.gameManager;
             const savePath = manager?.getSaveFilePath?.();
             if (!manager || !mountedSaveFS || !savePath) { setState("error"); setMessage("LAUNCH_PERSISTENT_SAVE_PATH_UNAVAILABLE"); return; }
@@ -245,6 +336,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
             frameWindow.requestAnimationFrame(() => canvasContain?.refresh());
             void sendEvent("start").then(() => {
               setState("running");
+              setSyncText("已同步");
+              setSyncTone("synced");
               heartbeat.current = window.setInterval(() => { void sendEvent("heartbeat"); }, 30_000);
             }).catch(() => {
               setState("error");
@@ -264,16 +357,25 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     void bootstrap();
     return () => {
       controller.abort(); cleanup?.(); canvasContain?.cleanup(); cleanupFrameControls?.();
+      nativeMenuObserver?.disconnect();
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
+      if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     };
-  }, [launchId, sendEvent, showControls, uploadManualState, uploadPersistent]);
+  }, [exit, launchId, sendEvent, showControls, uploadManualState, uploadPersistent]);
 
   useEffect(() => {
     running.current = state === "running";
     clearControlsTimer();
-    if (running.current && !pausedRef.current) controlsTimer.current = window.setTimeout(() => setControlsVisible(false), 2_000);
+    if (running.current && !pausedRef.current && !chromePinned.current) controlsTimer.current = window.setTimeout(() => setControlsVisible(false), 2_000);
     return clearControlsTimer;
   }, [clearControlsTimer, state]);
+
+  useEffect(() => {
+    const updateFullscreen = () => setFullscreen(document.fullscreenElement !== null);
+    updateFullscreen();
+    document.addEventListener("fullscreenchange", updateFullscreen);
+    return () => document.removeEventListener("fullscreenchange", updateFullscreen);
+  }, []);
 
   useEffect(() => {
     const handlePageHide = () => {
@@ -300,49 +402,60 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   async function saveManualState() {
     const current = emulator.current;
     if (!current) return;
-    setSaveMessage("正在保存进度…");
+    setSyncText("正在保存…");
+    setSyncTone("busy");
+    showToast("正在创建存档…");
     try {
       await uploadManualState(await captureManualState(current));
     } catch {
-      setSaveMessage("无法从模拟器读取完整状态和截图");
+      setSyncText("保存失败");
+      setSyncTone("warning");
+      showToast("无法从模拟器读取完整状态和截图", 4_000);
     }
   }
 
-  function togglePause() {
-    const next = !pausedRef.current;
-    if (!setEmulatorPaused(emulator.current, next)) return;
-    pausedRef.current = next;
-    setPaused(next);
-    setSaveMessage(next ? "游戏已暂停" : "游戏已继续");
-    setControlsVisible(true);
-    if (next) clearControlsTimer();
-    else showControls();
+  async function toggleFullscreen() {
+    if (document.fullscreenElement) await document.exitFullscreen().catch(() => showToast("浏览器未能退出全屏"));
+    else await document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => showToast("浏览器未允许全屏，游戏仍会继续运行。", 4_000));
+  }
+
+  function openEmulatorSettings() {
+    const menu = emulator.current?.menu;
+    const frameDocument = frameRef.current?.contentDocument;
+    if (!menu?.open || !frameDocument) {
+      showToast("模拟器设置尚未准备好，请稍后再试。", 3_000);
+      return;
+    }
+    frameDocument.documentElement.classList.remove("retrom-native-menu-locked");
+    menu.open();
+    showToast("已显示 EmulatorJS 工具栏");
   }
 
   return (
-    <main className="player-shell" onKeyDown={showControls} onPointerMove={showControls}>
-      <header
-        className={`player-toolbar ${controlsVisible ? "is-visible" : ""}`}
-        onBlurCapture={showControls}
-        onFocusCapture={() => { setControlsVisible(true); clearControlsTimer(); }}
-        onPointerEnter={clearControlsTimer}
-        onPointerLeave={showControls}
-        onPointerMove={(event) => { event.stopPropagation(); clearControlsTimer(); }}
-      >
-        <strong>Retrom Player · {launchId.slice(0, 8)}</strong>
-        <div aria-live="polite" className="player-save-status">
-          {warnings.includes("BIOS_HASH_WARNING") ? <span>BIOS Hash 与目录期望不一致，已按 Warning 继续运行。</span> : null}
-          {saveMessage}
-          {hasPersistentConflict ? <button type="button" onClick={downloadConflictingSave}>下载当前存档</button> : null}
-        </div>
-        <div className="player-actions">
-          <button type="button" disabled={state !== "running"} onClick={() => void saveManualState()}>保存进度</button>
-          <button type="button" aria-pressed={paused} disabled={state !== "running"} onClick={togglePause}><AppIcon name={paused ? "play" : "pause"} />{paused ? "继续" : "暂停"}</button>
-          <button type="button" onClick={() => void document.documentElement.requestFullscreen()}>全屏</button>
-          <button type="button" onClick={() => void exit()}>退出游戏</button>
-        </div>
-      </header>
-      <div className="player-stage" ref={stage}>
+    <main className={`player-shell${paused ? " is-paused" : ""}`} onKeyDown={showControls} onPointerMove={showControls}>
+      <PlayerChrome
+        controlsVisible={controlsVisible}
+        running={state === "running"}
+        paused={paused}
+        fullscreen={fullscreen}
+        gameTitle={gameTitle}
+        coreName={coreName}
+        platformName={platformName}
+        syncText={syncText}
+        syncTone={syncTone}
+        toast={toast}
+        warnings={warnings}
+        hasPersistentConflict={hasPersistentConflict}
+        onHoldControls={holdControls}
+        onReleaseControls={releaseControls}
+        onSave={() => void saveManualState()}
+        onPauseForToolbarInteraction={pauseForToolbarInteraction}
+        onToggleFullscreen={() => void toggleFullscreen()}
+        onOpenEmulatorSettings={openEmulatorSettings}
+        onExit={() => void exit()}
+        onDownloadConflict={downloadConflictingSave}
+      />
+      <div className="player-stage" ref={stage} onClick={handleGameSurfaceInteraction}>
         <iframe ref={frameRef} title="Retrom EmulatorJS Player" className="player-frame" src="about:blank" />
         {state !== "running" ? <div className="player-loading">{state === "loading" ? <i /> : null}<strong>{message}</strong><p>{state === "error" ? <><span>凭据可能已过期或依赖不兼容。</span> <Link href="/library">返回游戏库</Link></> : "页面会在验证和存档预取后自动开始，无需再次点击。"}</p></div> : null}
       </div>

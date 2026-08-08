@@ -257,7 +257,7 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
       onRename={(event, save) => void rename(event, save)}
       onDelete={(save) => { setPendingDelete(save); setMenuId(null); }}
       key={group.gameId}
-    />)}</div> : <EmptyState title={items.length === 0 ? "还没有手动存档" : "没有符合条件的存档"} description={items.length === 0 ? "游玩时使用工具栏的“保存进度”，存档会安全地出现在这里。" : "尝试更换游戏、存档状态或搜索关键词。"} />}
+    />)}</div> : <EmptyState title={items.length === 0 ? "还没有手动存档" : "没有符合条件的存档"} description={items.length === 0 ? "游玩时使用工具栏的“创建存档”，存档会安全地出现在这里。" : "尝试更换游戏、存档状态或搜索关键词。"} />}
 
     <Toast toast={toast} onDismiss={dismissToast} />
     <ConfirmDialog open={pendingDelete !== null} title="删除这份存档？" description={`“${pendingDelete?.name ?? ""}”将从你的存档列表中移除。`} confirmLabel="删除存档" tone="danger" busy={busyId !== null} onCancel={() => setPendingDelete(null)} onConfirm={() => { if (pendingDelete) void remove(pendingDelete); }}><ul><li>删除后不能再从这份进度继续</li><li>底层内容会先进入引用保护期，不会立即清除</li></ul></ConfirmDialog>

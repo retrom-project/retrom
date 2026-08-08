@@ -395,9 +395,12 @@ type Config struct {
 	EmulatorJSVersion    string            `json:"emulatorjsVersion"`
 	PlayerAdapterID      string            `json:"playerAdapterId"`
 	Core                 string            `json:"core"`
+	CoreName             string            `json:"coreName"`
 	CoreArtifactID       string            `json:"coreArtifactId"`
 	EmulatorGameID       int64             `json:"emulatorGameId"`
 	GameName             string            `json:"gameName"`
+	GameTitle            string            `json:"gameTitle"`
+	PlatformName         string            `json:"platformName"`
 	RuntimeBaseURL       string            `json:"runtimeBaseUrl"`
 	LoaderURL            string            `json:"loaderUrl"`
 	GameURL              string            `json:"gameUrl"`
@@ -422,7 +425,8 @@ type BundleFile struct {
 //nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) Config(ctx context.Context, launchID, capability string) (Config, error) {
 	var credentialHash []byte
-	var state, coreID, artifactID, emulatorVersion, relativePath, compatibilityJSON string
+	var state, coreID, coreName, artifactID, emulatorVersion, relativePath, compatibilityJSON string
+	var gameTitle, platformName string
 	var logicalName, contentFormat, returnTo string
 	var bootstrapExpires, hardExpires, emulatorGameID int64
 	var requiresThreads int
@@ -440,7 +444,10 @@ a.emulatorjs_version,
 a.relative_path,
 a.compatibility_config_json,
 c.requires_threads,
+c.name,
 r.emulator_game_id,
+metadata.title,
+platform.name,
 lc.logical_name,
 lc.format_version,
 l.return_to,
@@ -450,6 +457,10 @@ FROM launch_sessions l
 JOIN core_artifacts a ON a.id=l.core_artifact_id
 JOIN cores c ON c.id=a.core_id
 JOIN game_variant_revisions r ON r.id=l.game_variant_revision_id
+JOIN games g ON g.id=l.game_id
+JOIN game_metadata_revisions metadata ON metadata.id=g.current_metadata_revision_id
+JOIN platform_instances instance ON instance.id=g.platform_instance_id
+JOIN platforms platform ON platform.id=instance.platform_id
 JOIN launch_content_files lc ON lc.launch_session_id=l.id
 WHERE l.id=?
 `, launchID).
@@ -465,7 +476,10 @@ WHERE l.id=?
 			&relativePath,
 			&compatibilityJSON,
 			&requiresThreads,
+			&coreName,
 			&emulatorGameID,
+			&gameTitle,
+			&platformName,
 			&logicalName,
 			&contentFormat,
 			&returnTo,
@@ -590,9 +604,12 @@ ORDER BY q.logical_name
 		EmulatorJSVersion: emulatorVersion,
 		PlayerAdapterID:   version.Manifest.EmulatorJS.PlayerAdapter.ID,
 		Core:              coreID,
+		CoreName:          coreName,
 		CoreArtifactID:    artifactID,
 		EmulatorGameID:    emulatorGameID,
 		GameName:          fmt.Sprintf("retrom-%d", emulatorGameID),
+		GameTitle:         gameTitle,
+		PlatformName:      platformName,
 		RuntimeBaseURL: base + strings.TrimSuffix(
 			version.Manifest.EmulatorJS.PlayerAdapter.RuntimeBasePath,
 			"/",
