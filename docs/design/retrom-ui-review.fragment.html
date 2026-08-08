@@ -301,7 +301,7 @@
     #retrom-ui-review .rt-home-featured .rt-home-panel-head { background: linear-gradient(120deg, #faf8ff, #f2fbfb); }
     #retrom-ui-review .rt-home-save-link { min-height: 25px; padding: 3px 9px; border: 0; border-radius: 999px; color: var(--retrom-purple-dark); background: var(--retrom-purple-soft); font-size: 11px; font-weight: 600; }
     #retrom-ui-review .rt-home-featured-body { padding: 16px; }
-    #retrom-ui-review .rt-home-featured-media { position: relative; height: 270px; overflow: hidden; border-radius: 13px; color: white; background: radial-gradient(circle at 70% 20%, rgb(78 212 221 / 24%), transparent 26%), linear-gradient(135deg, #202942, #111625 72%); }
+    #retrom-ui-review .rt-home-featured-media { position: relative; height: 270px; overflow: hidden; container-type: inline-size; border-radius: 13px; color: white; background: radial-gradient(circle at 70% 20%, rgb(78 212 221 / 24%), transparent 26%), linear-gradient(135deg, #202942, #111625 72%); }
     #retrom-ui-review .rt-home-featured-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(13 18 31 / 55%), transparent 52%, rgb(13 18 31 / 38%)); }
     #retrom-ui-review .rt-home-featured-cover { position: absolute; z-index: 2; left: 28px; top: 23px; width: 168px; height: 224px; border: 1px solid rgb(255 255 255 / 20%); border-radius: 11px; box-shadow: 0 16px 42px rgb(0 0 0 / 38%); }
     #retrom-ui-review .rt-home-featured-copy { position: absolute; z-index: 3; left: 224px; right: 25px; top: 50%; transform: translateY(-50%); }
@@ -310,7 +310,7 @@
     #retrom-ui-review .rt-home-featured-save-preview span { position: absolute; right: 8px; bottom: 8px; padding: 4px 8px; border-radius: 999px; color: white; background: rgb(12 17 28 / 78%); font-size: 9px; font-weight: 800; }
     #retrom-ui-review .rt-home-featured-copy .rt-overline { margin: 0 0 7px; color: #d7d0ff; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
     #retrom-ui-review .rt-home-featured-copy h2 { margin: 0; overflow: hidden; font-size: 26px; text-overflow: ellipsis; white-space: nowrap; }
-    #retrom-ui-review .rt-home-featured-copy > p:not(.rt-overline) { margin: 7px 0 0; color: #d5d9e2; font-size: 11px; }
+    #retrom-ui-review .rt-home-featured-details > p:not(.rt-overline) { margin: 7px 0 0; color: #d5d9e2; font-size: 11px; }
     #retrom-ui-review .rt-home-facts { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 15px; font-size: 11px; }
     #retrom-ui-review .rt-home-featured-actions { margin-top: 17px; display: flex; align-items: center; gap: 11px; }
     #retrom-ui-review .rt-home-featured-actions span { color: #d5d9e2; font-size: 10px; }
@@ -335,6 +335,7 @@
     #retrom-ui-review .rt-home-quick-platform small { color: var(--retrom-muted); font-size: 8px; }
     #retrom-ui-review .rt-home-quick-platform code { color: var(--retrom-purple-dark); font-size: 8px; font-weight: 700; }
     #retrom-ui-review .rt-home-layer { margin-top: 18px; }
+    #retrom-ui-review .rt-home-hero-layer { margin-top: 0; }
     #retrom-ui-review .rt-home-layer-head { min-height: 42px; margin-bottom: 9px; display: flex; align-items: end; justify-content: space-between; gap: 18px; }
     #retrom-ui-review .rt-home-layer-head h2 { margin: 0; font-size: 16px; }
     #retrom-ui-review .rt-home-layer-head p { margin: 3px 0 0; color: var(--retrom-muted); font-size: 10px; }
@@ -346,7 +347,8 @@
     #retrom-ui-review .rt-home-recent-copy strong, #retrom-ui-review .rt-home-recent-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-home-recent-copy > small { margin-top: 5px; color: var(--retrom-muted); font-size: 9px; line-height: 1.6; }
     #retrom-ui-review .rt-home-recent-copy span { margin-top: auto; padding-top: 9px; display: flex; justify-content: space-between; border-top: 1px solid var(--retrom-line); font-size: 10px; }
-    #retrom-ui-review .rt-home-platform-layer { padding: 14px 16px 9px; border: 1px solid var(--retrom-line); border-radius: 14px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-home-platform-layer { padding: 9px 16px 8px; border: 1px solid var(--retrom-line); border-radius: 14px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-home-platform-layer .rt-home-layer-head { min-height: 30px; margin-bottom: 5px; align-items: center; }
     #retrom-ui-review .rt-home-platform-rail { grid-auto-columns: minmax(220px, 1fr); gap: 9px; }
     #retrom-ui-review .rt-home-platform { position: relative; min-height: 60px; padding: 9px 42px 9px 12px; display: flex; align-items: center; justify-content: space-between; border: 1px solid var(--retrom-line); border-radius: 10px; color: var(--retrom-text); background: var(--retrom-panel-raised); text-align: left; }
     #retrom-ui-review .rt-home-platform.is-pinned { border-color: #c9c1f2; background: #faf8ff; }
@@ -1260,6 +1262,148 @@
       #retrom-ui-review .rt-player-meta { font-size: 11px; }
     }
 
+    @media (min-width: 1800px) and (max-height: 1399px) {
+      #retrom-ui-review .rt-page[data-page="home"] { max-width: 2320px; height: 100vh; padding-top: 12px; padding-bottom: 12px; display: grid; grid-template-rows: minmax(420px, 46fr) minmax(156px, 19fr) minmax(156px, 19fr) minmax(104px, 12fr) minmax(44px, 4fr); gap: 10px; }
+      #retrom-ui-review .rt-home-hero-layer { min-height: 0; display: grid; grid-template-rows: 76px minmax(0, 1fr); }
+      #retrom-ui-review .rt-page[data-page="home"] .rt-page-head { height: 68px; margin: 0; }
+      #retrom-ui-review .rt-page[data-page="home"] .rt-page-head h1 { font-size: 32px; line-height: 1.12; }
+      #retrom-ui-review .rt-page[data-page="home"] .rt-subtitle { margin-top: 2px; font-size: 12px; }
+      #retrom-ui-review .rt-home-first { min-height: 0; height: auto; }
+      #retrom-ui-review .rt-home-first > .rt-home-panel { height: 100%; }
+      #retrom-ui-review .rt-home-panel-head { min-height: 52px; padding: 9px 15px; }
+      #retrom-ui-review .rt-home-featured-body { height: calc(100% - 52px); padding: 9px; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+      #retrom-ui-review .rt-home-featured-media { height: auto; min-height: 0; }
+      #retrom-ui-review .rt-home-featured-cover { left: 20px; top: 12px; width: 144px; height: 192px; }
+      #retrom-ui-review .rt-home-featured-copy { left: 184px; right: 20px; }
+      #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { right: 234px; }
+      #retrom-ui-review .rt-home-featured-save-preview { right: 16px; width: 200px; }
+      #retrom-ui-review .rt-home-featured-copy .rt-overline { margin-bottom: 5px; font-size: 11px; }
+      #retrom-ui-review .rt-home-featured-copy h2 { font-size: 27px; }
+      #retrom-ui-review .rt-home-featured-details > p:not(.rt-overline) { margin-top: 5px; font-size: 12px; }
+      #retrom-ui-review .rt-home-facts { margin-top: 12px; gap: 14px; font-size: 11px; }
+      #retrom-ui-review .rt-home-featured-actions { margin-top: 12px; }
+      #retrom-ui-review .rt-home-featured-bottom { padding-top: 8px; }
+      #retrom-ui-review .rt-home-featured-bottom strong { font-size: 16px; }
+      #retrom-ui-review .rt-home-featured-bottom span { margin-top: 2px; font-size: 11px; }
+      #retrom-ui-review .rt-home-quick { display: grid; grid-template-rows: 52px minmax(147px, .9fr) minmax(130px, 1.1fr); }
+      #retrom-ui-review .rt-home-quick-links { min-height: 0; padding: 5px 11px; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-home-quick-link { min-height: 49px; padding: 5px 9px; grid-template-columns: 35px minmax(0,1fr) 15px; gap: 9px; }
+      #retrom-ui-review .rt-home-quick-icon { width: 35px; height: 35px; border-radius: 9px; }
+      #retrom-ui-review .rt-home-quick-platforms { min-height: 0; height: auto; margin-top: 0; padding: 9px 11px; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+      #retrom-ui-review .rt-home-quick-platforms > div:first-child { margin-bottom: 6px; }
+      #retrom-ui-review .rt-home-quick-grid { gap: 6px; }
+      #retrom-ui-review .rt-home-quick-platform { min-height: 42px; padding: 5px 8px; }
+      #retrom-ui-review .rt-home-layer { min-height: 0; margin-top: 0; }
+      #retrom-ui-review .rt-home-layer:not(.rt-home-hero-layer):not(.rt-home-platform-layer):not(.rt-home-summary) { display: grid; grid-template-rows: 34px minmax(0, 1fr); }
+      #retrom-ui-review .rt-home-layer-head { min-height: 30px; margin-bottom: 4px; align-items: center; }
+      #retrom-ui-review .rt-home-layer-head h2 { font-size: 16px; }
+      #retrom-ui-review .rt-home-rail { padding-bottom: 4px; }
+      #retrom-ui-review .rt-home-rail { min-height: 0; height: 100%; }
+      #retrom-ui-review .rt-home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(118px, 34%, 180px) minmax(0,1fr); }
+      #retrom-ui-review .rt-home-recent-card .rt-cover { width: 100%; }
+      #retrom-ui-review .rt-home-recent-copy { padding: 10px; }
+      #retrom-ui-review .rt-home-recent-copy > small { margin-top: 3px; line-height: 1.45; }
+      #retrom-ui-review .rt-home-recent-copy span { padding-top: 7px; }
+      #retrom-ui-review .rt-home-platform-layer { padding: 7px 12px 6px; display: grid; grid-template-rows: 29px minmax(0, 1fr); }
+      #retrom-ui-review .rt-home-platform-layer .rt-home-layer-head { min-height: 29px; margin: 0; }
+      #retrom-ui-review .rt-home-platform { height: 100%; min-height: 0; padding-block: 5px; }
+      #retrom-ui-review .rt-home-summary { height: 100%; min-height: 0; }
+    }
+
+    @media (min-width: 2600px) and (min-height: 1600px) {
+      #retrom-ui-review .rt-app:has(.rt-page[data-page="home"].is-active) { height: 100vh; min-height: 0; }
+      #retrom-ui-review .rt-page[data-page="home"] { width: 100%; max-width: 2320px; height: 100%; padding: 36px 44px 32px; display: grid; grid-template-rows: minmax(0, 46fr) minmax(0, 19fr) minmax(0, 19fr) minmax(0, 12fr) minmax(0, 4fr); gap: 18px; }
+      #retrom-ui-review .rt-home-hero-layer { min-height: 0; display: grid; grid-template-rows: 110px minmax(0, 1fr); }
+      #retrom-ui-review .rt-page[data-page="home"] .rt-page-head { height: 110px; margin: 0; align-items: flex-start; }
+      #retrom-ui-review .rt-page[data-page="home"] .rt-page-head h1 { font-size: 44px; }
+      #retrom-ui-review .rt-page[data-page="home"] .rt-subtitle { font-size: 16px; }
+      #retrom-ui-review .rt-home-first { min-height: 0; height: auto; gap: 22px; }
+      #retrom-ui-review .rt-home-first > .rt-home-panel { height: 100%; }
+      #retrom-ui-review .rt-home-panel-head { min-height: 86px; padding: 18px 24px; }
+      #retrom-ui-review .rt-home-panel-head h2 { font-size: 22px; }
+      #retrom-ui-review .rt-home-featured-body { height: calc(100% - 86px); padding: 20px; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+      #retrom-ui-review .rt-home-featured-media { height: auto; min-height: 0; }
+      #retrom-ui-review .rt-home-featured-cover { left: 42px; top: 50%; width: auto; height: min(calc(100% - 48px), 516px); aspect-ratio: 3 / 4; transform: translateY(-50%); }
+      #retrom-ui-review .rt-home-featured-copy { left: 480px; right: 38px; top: 0; bottom: 0; padding-block: 36px; display: flex; flex-direction: column; transform: none; }
+      #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { right: 710px; }
+      #retrom-ui-review .rt-home-featured-details { margin-block: auto; }
+      #retrom-ui-review .rt-home-featured-save-preview { right: 38px; width: 620px; }
+      #retrom-ui-review .rt-home-featured-copy .rt-overline { margin-bottom: 9px; font-size: 13px; }
+      #retrom-ui-review .rt-home-featured-copy h2 { font-size: 38px; }
+      #retrom-ui-review .rt-home-featured-details > p:not(.rt-overline) { margin-top: 10px; font-size: 16px; }
+      #retrom-ui-review .rt-home-facts { margin-top: 22px; gap: 24px; font-size: 14px; }
+      #retrom-ui-review .rt-home-featured-actions { margin-top: 0; gap: 16px; }
+      #retrom-ui-review .rt-home-featured-bottom { min-height: 66px; padding: 14px 4px 0; }
+      #retrom-ui-review .rt-home-featured-bottom strong { font-size: 21px; }
+      #retrom-ui-review .rt-home-featured-bottom span { font-size: 14px; }
+      #retrom-ui-review .rt-home-quick { display: grid; grid-template-rows: 86px minmax(0, 1fr) 330px; }
+      #retrom-ui-review .rt-home-quick-links { min-height: 0; padding: 12px 18px; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-home-quick-link { min-height: 0; padding: 12px 14px; grid-template-columns: 52px minmax(0,1fr) 20px; gap: 15px; }
+      #retrom-ui-review .rt-home-quick-icon { width: 52px; height: 52px; border-radius: 13px; }
+      #retrom-ui-review .rt-home-quick-link strong { font-size: 16px; }
+      #retrom-ui-review .rt-home-quick-link small { font-size: 12px; }
+      #retrom-ui-review .rt-home-quick-platforms { height: auto; margin-top: 0; padding: 18px; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+      #retrom-ui-review .rt-home-quick-platforms > div:first-child { margin-bottom: 12px; font-size: 15px; }
+      #retrom-ui-review .rt-home-quick-grid { min-height: 0; gap: 10px; }
+      #retrom-ui-review .rt-home-quick-platform { min-height: 0; padding: 12px 14px; }
+      #retrom-ui-review .rt-home-quick-platform strong { font-size: 14px; }
+      #retrom-ui-review .rt-home-quick-platform small, #retrom-ui-review .rt-home-quick-platform code { font-size: 11px; }
+      #retrom-ui-review .rt-home-layer { min-height: 0; margin-top: 0; }
+      #retrom-ui-review .rt-home-layer:not(.rt-home-hero-layer):not(.rt-home-platform-layer):not(.rt-home-summary) { display: grid; grid-template-rows: 54px minmax(0, 1fr); }
+      #retrom-ui-review .rt-home-layer-head { min-height: 54px; margin: 0; align-items: center; }
+      #retrom-ui-review .rt-home-layer-head h2 { font-size: 22px; }
+      #retrom-ui-review .rt-home-rail { min-height: 0; height: 100%; padding-bottom: 10px; }
+      #retrom-ui-review .rt-home-recent-rail { grid-auto-columns: minmax(480px, 1fr); gap: 16px; }
+      #retrom-ui-review .rt-home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(240px, 34%, 340px) minmax(0,1fr); }
+      #retrom-ui-review .rt-home-recent-card .rt-cover { width: 100%; }
+      #retrom-ui-review .rt-home-recent-copy { padding: 20px; }
+      #retrom-ui-review .rt-home-recent-copy strong { font-size: 17px; }
+      #retrom-ui-review .rt-home-recent-copy > small { margin-top: 8px; font-size: 12px; line-height: 1.6; }
+      #retrom-ui-review .rt-home-recent-copy span { padding-top: 14px; font-size: 12px; }
+      #retrom-ui-review .rt-home-platform-layer { padding: 10px 20px 12px; display: grid; grid-template-rows: 44px minmax(0, 1fr); }
+      #retrom-ui-review .rt-home-platform-layer .rt-home-layer-head { min-height: 44px; margin: 0; }
+      #retrom-ui-review .rt-home-platform-rail { padding-bottom: 8px; }
+      #retrom-ui-review .rt-home-platform { height: 100%; min-height: 0; padding: 14px 52px 14px 17px; }
+      #retrom-ui-review .rt-home-platform strong { font-size: 16px; }
+      #retrom-ui-review .rt-home-platform small { font-size: 11px; }
+      #retrom-ui-review .rt-home-platform code { font-size: 12px; }
+      #retrom-ui-review .rt-home-summary { height: 100%; min-height: 0; padding-inline: 24px; }
+      #retrom-ui-review .rt-home-summary > strong { font-size: 15px; }
+      #retrom-ui-review .rt-home-summary > span { font-size: 13px; }
+      #retrom-ui-review .rt-home-summary b { font-size: 24px; }
+    }
+
+    @media (min-width: 1800px) and (min-height: 950px) {
+      #retrom-ui-review .rt-home-featured-cover {
+        left: clamp(20px, 1.85cqw, 42px);
+        top: auto;
+        bottom: clamp(16px, 1.67vh, 36px);
+        width: auto;
+        height: min(calc(100% - clamp(16px, 1.67vh, 36px) - clamp(16px, 1.67vh, 36px)), clamp(224px, 36cqw, 516px));
+        aspect-ratio: 3 / 4;
+        transform: none;
+      }
+      #retrom-ui-review .rt-home-featured-copy {
+        left: clamp(260px, 31cqw, 480px);
+        right: clamp(20px, 1.7cqw, 38px);
+        top: 0;
+        bottom: 0;
+        padding-block: clamp(16px, 1.67vh, 36px);
+        display: flex;
+        flex-direction: column;
+        transform: none;
+      }
+      #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { right: clamp(300px, 35cqw, 650px); }
+      #retrom-ui-review .rt-home-featured-details { margin-block: auto; }
+      #retrom-ui-review .rt-home-featured-save-preview { right: clamp(16px, 1.7cqw, 38px); width: clamp(210px, 30cqw, 560px); }
+      #retrom-ui-review .rt-home-featured-copy .rt-overline { margin-bottom: clamp(5px, .4cqw, 9px); font-size: clamp(11px, .57cqw, 13px); }
+      #retrom-ui-review .rt-home-featured-copy h2 { font-size: clamp(27px, 1.67cqw, 38px); }
+      #retrom-ui-review .rt-home-featured-details > p:not(.rt-overline) { margin-top: clamp(5px, .44cqw, 10px); font-size: clamp(12px, .7cqw, 16px); }
+      #retrom-ui-review .rt-home-facts { margin-top: clamp(12px, .96cqw, 22px); gap: clamp(14px, 1.05cqw, 24px); font-size: clamp(11px, .62cqw, 14px); }
+      #retrom-ui-review .rt-home-featured-actions { margin-top: 0; gap: clamp(12px, .7cqw, 16px); }
+      #retrom-ui-review .rt-home-featured-actions span { font-size: clamp(11px, .57cqw, 13px); }
+    }
+
     @media (max-width: 1400px) {
       #retrom-ui-review .rt-review-item { grid-template-columns: 54px minmax(220px, 1.2fr) minmax(130px, .8fr) 150px 94px; }
       #retrom-ui-review .rt-review-item > :nth-child(5) { display: none; }
@@ -1370,27 +1514,31 @@
 
     <main class="rt-main">
       <section class="rt-page is-active" data-page="home">
-        <div class="rt-page-head">
-          <div><h1>今天想玩什么？</h1><p class="rt-subtitle">从最近的进度继续，或重新发现资料库里的经典游戏</p></div>
-        </div>
-        <div class="rt-home-first">
+        <section class="rt-home-layer rt-home-hero-layer">
+          <div class="rt-page-head">
+            <div><h1>今天想玩什么？</h1><p class="rt-subtitle">从最近的进度继续，或重新发现资料库里的经典游戏</p></div>
+          </div>
+          <div class="rt-home-first">
           <section class="rt-home-panel rt-home-featured">
-            <div class="rt-home-panel-head"><div><div class="rt-launch-kicker">最近玩的游戏</div><h2>继续刚才的那一局</h2><p>上次游玩已经留下存档，可以接着进度继续</p></div><button type="button" class="rt-home-save-link" data-page-link="saves">查看存档</button></div>
+            <div class="rt-home-panel-head"><div><div class="rt-launch-kicker">最近玩的游戏</div><h2>继续刚才的那一局</h2></div><button type="button" class="rt-home-save-link" data-page-link="saves">查看存档</button></div>
             <div class="rt-home-featured-body">
-              <div class="rt-home-featured-media has-session-save"><div class="rt-cover rt-cover-b rt-home-featured-cover"><span class="rt-cover-title">METAL SLUG</span></div><div class="rt-home-featured-copy"><p class="rt-overline">ARCADE · FBNEO 游戏列表</p><h2>Metal Slug</h2><p>最近一次游玩记录</p><div class="rt-home-facts"><span>上次游玩 <b>今天 22:14</b></span><span>累计游玩 <b>2 小时 24 分</b></span><span>游玩 <b>12 次</b></span></div><div class="rt-home-featured-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal" data-save-start="上次游玩存档"><i data-lucide="play" aria-hidden="true"></i>继续游玩</button><span>本次将从存档位置启动</span></div></div><div class="rt-home-featured-save-preview rt-save-screen-b"><span>将从这里继续</span></div></div>
+              <div class="rt-home-featured-media has-session-save"><div class="rt-cover rt-cover-b rt-home-featured-cover"><span class="rt-cover-title">METAL SLUG</span></div><div class="rt-home-featured-copy"><div class="rt-home-featured-details"><p class="rt-overline">ARCADE · FBNEO 游戏列表</p><h2>Metal Slug</h2><p>最近一次游玩记录</p><div class="rt-home-facts"><span>上次游玩 <b>今天 22:14</b></span><span>累计游玩 <b>2 小时 24 分</b></span><span>游玩 <b>12 次</b></span></div></div><div class="rt-home-featured-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal" data-save-start="上次游玩存档"><i data-lucide="play" aria-hidden="true"></i>继续游玩</button><span>本次将从存档位置启动</span></div></div><div class="rt-home-featured-save-preview rt-save-screen-b"><span>将从这里继续</span></div></div>
               <div class="rt-home-featured-bottom"><div><strong>Metal Slug</strong><span>上次存档保存于今天 22:14，可以直接回到当时的进度。</span></div><button type="button" class="rt-text-link" data-open-game="metal">查看游戏详情 →</button></div>
             </div>
           </section>
           <aside class="rt-home-panel rt-home-quick">
-            <div class="rt-home-panel-head"><div><h2>快速开始</h2><p>不用翻列表，直接进入常用入口</p></div></div>
+            <div class="rt-home-panel-head"><div><h2>快速开始</h2></div></div>
             <div class="rt-home-quick-links"><button type="button" class="rt-home-quick-link" data-page-link="library"><span class="rt-home-quick-icon"><i data-lucide="library" aria-hidden="true"></i></span><span><strong>浏览游戏库</strong><small>查看全部 38 款游戏</small></span><b>›</b></button><button type="button" class="rt-home-quick-link" data-page-link="recent"><span class="rt-home-quick-icon"><i data-lucide="history" aria-hidden="true"></i></span><span><strong>最近游玩</strong><small>回到最近玩过的游戏</small></span><b>›</b></button><button type="button" class="rt-home-quick-link" data-page-link="saves"><span class="rt-home-quick-icon"><i data-lucide="save" aria-hidden="true"></i></span><span><strong>我的存档</strong><small>12 份手动存档</small></span><b>›</b></button></div>
             <div class="rt-home-quick-platforms"><div><strong>按平台浏览</strong><span>游玩次数最多</span></div><div class="rt-home-quick-grid"><button type="button" class="rt-home-quick-platform" data-page-link="library"><span><strong>街机</strong><small>18 款游戏</small></span><code>ARC</code></button><button type="button" class="rt-home-quick-platform" data-page-link="library"><span><strong>NES</strong><small>7 款游戏</small></span><code>NES</code></button><button type="button" class="rt-home-quick-platform" data-page-link="library"><span><strong>SNES</strong><small>5 款游戏</small></span><code>SFC</code></button><button type="button" class="rt-home-quick-platform" data-page-link="library"><span><strong>GBA</strong><small>4 款游戏</small></span><code>GBA</code></button></div></div>
-          </aside>
-        </div>
+            </aside>
+          </div>
+        </section>
 
-        <section class="rt-home-layer"><div class="rt-home-layer-head"><div><h2>最近游玩</h2><p>按最近一次游玩时间排列，最多展示 10 款游戏</p></div><button type="button" class="rt-text-link" data-page-link="recent">查看全部</button></div><div class="rt-home-rail rt-home-recent-rail"><button type="button" class="rt-home-recent-card" data-open-game="metal"><span class="rt-cover rt-cover-b"><span class="rt-cover-title">METAL SLUG</span></span><span class="rt-home-recent-copy"><strong>Metal Slug</strong><small>Arcade · FBNeo 游戏列表<br>今天 22:14 玩过</small><span><small>累计游玩</small><b>2 小时 24 分</b></span></span></button><button type="button" class="rt-home-recent-card" data-open-game="doom"><span class="rt-cover rt-cover-c"><span class="rt-cover-title">DOOM</span></span><span class="rt-home-recent-copy"><strong>DOOM</strong><small>MS-DOS · DOS 经典游戏<br>昨天 23:06 玩过</small><span><small>累计游玩</small><b>1 小时 48 分</b></span></span></button><button type="button" class="rt-home-recent-card" data-open-game="zelda"><span class="rt-cover rt-cover-a"><span class="rt-cover-title">ZELDA</span></span><span class="rt-home-recent-copy"><strong>Zelda no Densetsu</strong><small>Famicom Disk · 磁碟冒险<br>8 月 3 日 20:31 玩过</small><span><small>累计游玩</small><b>48 分钟</b></span></span></button><button type="button" class="rt-home-recent-card"><span class="rt-cover rt-cover-f"><span class="rt-cover-title">F-ZERO</span></span><span class="rt-home-recent-copy"><strong>F-Zero</strong><small>SNES · SNES 游戏<br>8 月 1 日 18:05 玩过</small><span><small>累计游玩</small><b>31 分钟</b></span></span></button></div></section>
+        <section class="rt-home-layer"><div class="rt-home-layer-head"><div><h2>最近游玩</h2></div><button type="button" class="rt-text-link" data-page-link="recent">查看全部</button></div><div class="rt-home-rail rt-home-recent-rail"><button type="button" class="rt-home-recent-card" data-open-game="metal"><span class="rt-cover rt-cover-b"><span class="rt-cover-title">METAL SLUG</span></span><span class="rt-home-recent-copy"><strong>Metal Slug</strong><small>Arcade · FBNeo 游戏列表<br>今天 22:14 玩过</small><span><small>累计游玩</small><b>2 小时 24 分</b></span></span></button><button type="button" class="rt-home-recent-card" data-open-game="doom"><span class="rt-cover rt-cover-c"><span class="rt-cover-title">DOOM</span></span><span class="rt-home-recent-copy"><strong>DOOM</strong><small>MS-DOS · DOS 经典游戏<br>昨天 23:06 玩过</small><span><small>累计游玩</small><b>1 小时 48 分</b></span></span></button><button type="button" class="rt-home-recent-card" data-open-game="zelda"><span class="rt-cover rt-cover-a"><span class="rt-cover-title">ZELDA</span></span><span class="rt-home-recent-copy"><strong>Zelda no Densetsu</strong><small>Famicom Disk · 磁碟冒险<br>8 月 3 日 20:31 玩过</small><span><small>累计游玩</small><b>48 分钟</b></span></span></button><button type="button" class="rt-home-recent-card"><span class="rt-cover rt-cover-f"><span class="rt-cover-title">F-ZERO</span></span><span class="rt-home-recent-copy"><strong>F-Zero</strong><small>SNES · SNES 游戏<br>8 月 1 日 18:05 玩过</small><span><small>累计游玩</small><b>31 分钟</b></span></span></button></div></section>
 
-        <section class="rt-home-layer rt-home-platform-layer"><div class="rt-home-layer-head"><div><h2>换个平台逛逛</h2><p>点击图钉可把常用平台固定在最前面</p></div><button type="button" class="rt-text-link" data-page-link="library">进入游戏库 →</button></div><div class="rt-home-rail rt-home-platform-rail" data-home-platforms><div class="rt-home-platform" data-platform-name="街机"><span><strong>街机</strong><small>18 款游戏</small></span><code>ARC</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶街机"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="DOS"><span><strong>DOS</strong><small>3 款游戏</small></span><code>DOS</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 DOS"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="GBA"><span><strong>GBA</strong><small>4 款游戏</small></span><code>GBA</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 GBA"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="GB / GBC"><span><strong>GB / GBC</strong><small>2 款游戏</small></span><code>GB</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 GB / GBC"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="NES"><span><strong>NES</strong><small>7 款游戏</small></span><code>NES</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 NES"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="SNES"><span><strong>SNES</strong><small>5 款游戏</small></span><code>SFC</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 SNES"><i data-lucide="pin" aria-hidden="true"></i></button></div></div></section>
+        <section class="rt-home-layer"><div class="rt-home-layer-head"><div><h2>最新添加</h2></div><button type="button" class="rt-text-link" data-page-link="library">查看游戏库</button></div><div class="rt-home-rail rt-home-recent-rail"><button type="button" class="rt-home-recent-card" data-open-game="zelda"><span class="rt-cover rt-cover-f"><span class="rt-cover-title">1945 KIII</span></span><span class="rt-home-recent-copy"><strong>1945kiii</strong><small>Arcade · FBNeo 游戏列表<br>新加入资料库</small><span><small>添加时间</small><b>今天 18:42</b></span></span></button><button type="button" class="rt-home-recent-card" data-open-game="metal"><span class="rt-cover rt-cover-b"><span class="rt-cover-title">1943</span></span><span class="rt-home-recent-copy"><strong>1943: The Battle of Midway</strong><small>Arcade · FBNeo 游戏列表<br>新加入资料库</small><span><small>添加时间</small><b>今天 16:08</b></span></span></button><button type="button" class="rt-home-recent-card" data-open-game="doom"><span class="rt-cover rt-cover-c"><span class="rt-cover-title">1941</span></span><span class="rt-home-recent-copy"><strong>1941</strong><small>Arcade · FBNeo 游戏列表<br>新加入资料库</small><span><small>添加时间</small><b>昨天 21:10</b></span></span></button><button type="button" class="rt-home-recent-card"><span class="rt-cover rt-cover-a"><span class="rt-cover-title">ZELDA</span></span><span class="rt-home-recent-copy"><strong>Zelda no Densetsu</strong><small>Famicom Disk · 磁碟冒险<br>新加入资料库</small><span><small>添加时间</small><b>8 月 6 日</b></span></span></button></div></section>
+
+        <section class="rt-home-layer rt-home-platform-layer"><div class="rt-home-layer-head"><div><h2>换个平台逛逛</h2></div><button type="button" class="rt-text-link" data-page-link="library">进入游戏库 →</button></div><div class="rt-home-rail rt-home-platform-rail" data-home-platforms><div class="rt-home-platform" data-platform-name="街机"><span><strong>街机</strong><small>18 款游戏</small></span><code>ARC</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶街机"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="DOS"><span><strong>DOS</strong><small>3 款游戏</small></span><code>DOS</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 DOS"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="GBA"><span><strong>GBA</strong><small>4 款游戏</small></span><code>GBA</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 GBA"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="GB / GBC"><span><strong>GB / GBC</strong><small>2 款游戏</small></span><code>GB</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 GB / GBC"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="NES"><span><strong>NES</strong><small>7 款游戏</small></span><code>NES</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 NES"><i data-lucide="pin" aria-hidden="true"></i></button></div><div class="rt-home-platform" data-platform-name="SNES"><span><strong>SNES</strong><small>5 款游戏</small></span><code>SFC</code><button type="button" class="rt-home-pin" data-home-pin aria-label="置顶 SNES"><i data-lucide="pin" aria-hidden="true"></i></button></div></div></section>
 
         <section class="rt-home-layer rt-home-summary"><strong>我的资料库</strong><span><b>38</b> 款游戏</span><span><b>12</b> 份存档</span><span><b>42.6 小时</b> 累计游玩</span></section>
       </section>

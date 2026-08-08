@@ -63,7 +63,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Homepage aggregate from enabled platform directories. It includes library counters, the ten games with the most recently started play sessions, the latest started session's game with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count. */
+        /** @description Homepage aggregate from enabled platform directories. It includes library counters, the ten games with the most recently started play sessions, the ten most recently added published games ordered by game creation time, the latest started session's game with a save created by that exact launch when available, all supported platforms in deterministic order, and four quick platforms ranked by play-session count. */
         get: operations["getHome"];
         put?: never;
         post?: never;
@@ -1614,6 +1614,7 @@ export interface components {
             kind?: unknown;
             level?: unknown;
             library?: unknown;
+            latestGames?: unknown;
             license?: unknown;
             loader?: unknown;
             loaderUrl?: unknown;
