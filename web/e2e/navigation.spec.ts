@@ -14,8 +14,9 @@ test("user and admin navigation remain usable without page overflow", async ({ p
 test("library exposes its filters and empty state", async ({ page }) => {
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库", exact: true })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "搜索" })).toBeVisible();
-  await expect(page.getByRole("combobox", { name: "游戏平台" })).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "搜索游戏" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "游戏集合" })).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "排列顺序" })).toBeVisible();
 });
 
 test("HTML CSP uses a fresh nonce and only development enables unsafe-eval", async ({ page }) => {
@@ -66,9 +67,9 @@ test("library grid and management workbench match desktop breakpoints", async ({
   await expect(page.getByRole("heading", { name: "游戏库", exact: true })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   if (payload.items.length > 0) {
-    const libraryCard = await page.locator(".admin-game-card").first().evaluate((card) => {
+    const libraryCard = await page.locator(".library-game-card").first().evaluate((card) => {
       const cardBox = card.getBoundingClientRect();
-      const coverBox = card.querySelector(".admin-game-cover")?.getBoundingClientRect();
+      const coverBox = card.querySelector(".library-game-cover")?.getBoundingClientRect();
       return { cardWidth: cardBox.width, coverRatio: coverBox ? coverBox.width / coverBox.height : 0 };
     });
     expect(libraryCard.cardWidth).toBeGreaterThanOrEqual(269);

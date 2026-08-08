@@ -38,7 +38,7 @@ paths:
   /api/v1/games:
     get:
       operationId: getGames
-      description: Published game summaries from enabled platform directories; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset.
+      description: Published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL; generatedAtMs gives client-side filtering and relative-time labels a stable response clock.
       parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }

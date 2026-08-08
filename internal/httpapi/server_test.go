@@ -870,7 +870,12 @@ VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
 	}
 	list := httptest.NewRecorder()
 	server.Handler().ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/api/v1/games?limit=100", nil))
-	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`) {
+	if list.Code != http.StatusOK ||
+		!strings.Contains(list.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`) ||
+		!strings.Contains(list.Body.String(), `"defaultCore":{"id":"dosbox_pure","name":"DOSBox Pure"}`) ||
+		!strings.Contains(list.Body.String(), `"lastPlayedAtMs":`) ||
+		!strings.Contains(list.Body.String(), `"createdAtMs":`) ||
+		!strings.Contains(list.Body.String(), `"generatedAtMs":`) {
 		t.Fatalf("game list cover = %d: %s", list.Code, list.Body.String())
 	}
 	saves := httptest.NewRecorder()

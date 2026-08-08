@@ -1685,9 +1685,13 @@ SELECT g.id,
  p.name,
  pi.id,
  pi.name,
+ dc.id,
+ dc.name,
  g.status,
  g.version,
+ g.created_at_ms,
  g.updated_at_ms,
+ (SELECT max(ps.started_at_ms) FROM play_sessions ps WHERE ps.game_id=g.id),
  (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
@@ -1700,6 +1704,7 @@ FROM games g
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
+JOIN cores dc ON dc.id=pi.default_core_id
 `
 	conditions := gameListVisibilityConditions(includeDeleted)
 	arguments := make([]any, 0)
@@ -1760,8 +1765,9 @@ JOIN platforms p ON p.id=pi.platform_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0, limit+1)
 	for rows.Next() {
-		var id, title, platformID, platformName, instanceID, instanceName, status string
-		var version, updatedAtMS int64
+		var id, title, platformID, platformName, instanceID, instanceName, defaultCoreID, defaultCoreName, status string
+		var version, createdAtMS, updatedAtMS int64
+		var lastPlayedAtMS sql.NullInt64
 		var coverAssetID sql.NullString
 		if err := rows.Scan(
 			&id,
@@ -1770,9 +1776,13 @@ JOIN platforms p ON p.id=pi.platform_id
 			&platformName,
 			&instanceID,
 			&instanceName,
+			&defaultCoreID,
+			&defaultCoreName,
 			&status,
 			&version,
+			&createdAtMS,
 			&updatedAtMS,
+			&lastPlayedAtMS,
 			&coverAssetID,
 		); err != nil {
 			server.databaseError(writer, request, err)
@@ -1780,8 +1790,10 @@ JOIN platforms p ON p.id=pi.platform_id
 		}
 		items = append(items, map[string]any{
 			"gameId": id, "title": title, "platform": map[string]any{"id": platformID, "name": platformName},
-			"platformInstance": map[string]any{"id": instanceID, "name": instanceName}, "status": status,
-			"version": version, "updatedAtMs": updatedAtMS, "coverUrl": gameCoverURL(coverAssetID),
+			"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
+			"defaultCore":      map[string]any{"id": defaultCoreID, "name": defaultCoreName},
+			"status":           status, "version": version, "createdAtMs": createdAtMS, "updatedAtMs": updatedAtMS,
+			"lastPlayedAtMs": nullableInteger(lastPlayedAtMS), "coverUrl": gameCoverURL(coverAssetID),
 		})
 	}
 	if err := rows.Err(); err != nil {
@@ -1813,7 +1825,9 @@ JOIN platforms p ON p.id=pi.platform_id
 		}
 		nextCursor = token
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nextCursor})
+	writeJSON(writer, http.StatusOK, map[string]any{
+		"generatedAtMs": server.now().UnixMilli(), "items": items, "nextCursor": nextCursor,
+	})
 }
 
 type saveListFilters struct {

@@ -793,6 +793,43 @@
     #retrom-ui-review .rt-management-meta { margin-top: 4px; color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-management-actions { display: flex; gap: 7px; margin-top: auto; padding-top: 13px; }
     #retrom-ui-review .rt-management-actions .rt-button:first-child { flex: 1; }
+    #retrom-ui-review .rt-library-tools { margin-bottom: 26px; padding: 15px 16px 13px; overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 16px; background: var(--retrom-panel); box-shadow: 0 2px 4px rgb(24 32 51 / .02); }
+    #retrom-ui-review .rt-library-tool-row { display: grid; grid-template-columns: minmax(360px, 1fr) 190px 190px; gap: 10px; }
+    #retrom-ui-review .rt-library-search { height: 44px; padding: 0 13px; display: flex; align-items: center; gap: 10px; color: var(--retrom-muted); border: 1px solid var(--retrom-line); border-radius: 10px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-library-search svg { width: 16px; height: 16px; }
+    #retrom-ui-review .rt-library-search input { min-width: 0; width: 100%; height: 100%; padding: 0; color: var(--retrom-text); border: 0; outline: 0; background: transparent; }
+    #retrom-ui-review .rt-library-tool-row .rt-select { height: 44px; }
+    #retrom-ui-review .rt-library-platforms { min-height: 43px; margin-top: 12px; padding-top: 12px; overflow-x: auto; display: flex; align-items: center; gap: 8px; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-library-platforms &gt; span:first-child { margin-right: 2px; flex: none; color: var(--retrom-muted); font-size: 11px; font-weight: 600; }
+    #retrom-ui-review .rt-library-chip { min-height: 30px; padding: 4px 11px; flex: none; color: var(--retrom-muted); border: 1px solid transparent; border-radius: 999px; background: transparent; font-size: 11px; font-weight: 600; }
+    #retrom-ui-review .rt-library-chip.is-active { color: var(--retrom-purple); border-color: color-mix(in srgb, var(--retrom-purple) 25%, var(--retrom-line)); background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-library-result { margin-left: auto; flex: none; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-library-result strong { color: var(--retrom-text); }
+    #retrom-ui-review .rt-library-section-head { margin-bottom: 14px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
+    #retrom-ui-review .rt-library-section-head h2 { margin: 0; font-size: 17px; }
+    #retrom-ui-review .rt-library-section-head p { margin: 5px 0 0; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-library-view-hint { color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-library-view-hint kbd { padding: 2px 5px; border: 1px solid var(--retrom-line); border-bottom-width: 2px; border-radius: 5px; background: var(--retrom-panel); font-size: 9px; }
+    #retrom-ui-review .rt-library-grid { display: grid; grid-template-columns: repeat(auto-fill, 280px); gap: 18px; align-items: start; }
+    #retrom-ui-review .rt-library-card { position: relative; overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 15px; background: var(--retrom-panel); cursor: pointer; text-align: left; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
+    #retrom-ui-review .rt-library-card:hover { border-color: color-mix(in srgb, var(--retrom-purple) 28%, var(--retrom-line)); box-shadow: 0 14px 36px rgb(24 32 51 / .08); transform: translateY(-3px); }
+    #retrom-ui-review .rt-library-cover { position: relative; width: 100%; aspect-ratio: 3 / 4; overflow: hidden; display: grid; place-items: center; background: #171d30; }
+    #retrom-ui-review .rt-library-cover::before { position: absolute; inset: 0; background-image: linear-gradient(rgb(255 255 255 / .025) 1px, transparent 1px), linear-gradient(90deg, rgb(255 255 255 / .025) 1px, transparent 1px); background-size: 20px 20px; content: &quot;&quot;; mask-image: linear-gradient(to bottom, transparent, black 30%, black 70%, transparent); }
+    #retrom-ui-review .rt-library-poster { position: relative; z-index: 1; padding: 20px; color: #fff; text-align: center; }
+    #retrom-ui-review .rt-library-poster small { display: block; color: #adb8cb; font: 700 9px/1.2 ui-monospace, monospace; letter-spacing: .24em; }
+    #retrom-ui-review .rt-library-poster strong { display: block; margin: 16px 0 13px; font: 800 37px/1 ui-monospace, monospace; letter-spacing: -.05em; }
+    #retrom-ui-review .rt-library-poster span { display: inline-flex; padding: 5px 9px; color: #c9d2e2; border: 1px solid rgb(255 255 255 / .14); border-radius: 999px; background: rgb(255 255 255 / .06); font: 600 9px/1 ui-monospace, monospace; letter-spacing: .1em; }
+    #retrom-ui-review .rt-library-platform-tag { position: absolute; z-index: 3; left: 12px; top: 12px; padding: 5px 9px; color: #eef1f7; border: 1px solid rgb(255 255 255 / .12); border-radius: 999px; background: rgb(15 19 32 / .72); font-size: 10px; font-weight: 600; text-transform: uppercase; }
+    #retrom-ui-review .rt-library-hover { position: absolute; z-index: 4; inset: 0; padding: 16px; display: flex; align-items: flex-end; opacity: 0; background: linear-gradient(180deg, transparent 44%, rgb(8 12 22 / .72)); transition: opacity .18s ease; }
+    #retrom-ui-review .rt-library-card:hover .rt-library-hover { opacity: 1; }
+    #retrom-ui-review .rt-library-hover span { width: 100%; min-height: 40px; display: grid; place-items: center; color: var(--retrom-purple); border-radius: 10px; background: rgb(255 255 255 / .94); font-size: 11px; font-weight: 700; }
+    #retrom-ui-review .rt-library-body { padding: 14px 15px 15px; }
+    #retrom-ui-review .rt-library-title { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+    #retrom-ui-review .rt-library-title strong { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #retrom-ui-review .rt-library-title span { color: var(--retrom-muted); font-weight: 700; letter-spacing: 1px; }
+    #retrom-ui-review .rt-library-meta { margin-top: 7px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-library-played { margin-top: 12px; padding-top: 11px; display: flex; justify-content: space-between; color: var(--retrom-muted); border-top: 1px solid var(--retrom-line); font-size: 10px; }
+    #retrom-ui-review .rt-library-played strong { color: var(--retrom-text); }
     #retrom-ui-review .rt-platform-row { display: grid; grid-template-columns: 34px minmax(190px, 1fr) minmax(120px, .7fr) minmax(170px, .8fr) 100px 80px 42px; align-items: center; gap: 12px; padding: 12px; border-bottom: 1px solid var(--retrom-line); }
     #retrom-ui-review .rt-platform-row:last-child { border-bottom: 0; }
     #retrom-ui-review .rt-platform-grip { color: var(--retrom-muted); cursor: grab; }
@@ -1094,17 +1131,13 @@
       &lt;/section&gt;
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;library&quot;&gt;
-        &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;h1&gt;游戏库&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;按名称或平台找到游戏，打开详情后即可使用推荐配置开始游玩&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
-        &lt;div class=&quot;rt-filter-shell&quot;&gt;&lt;div class=&quot;rt-filter-controls&quot;&gt;&lt;label class=&quot;rt-filter-control rt-search&quot;&gt;&lt;span class=&quot;rt-filter-label&quot;&gt;搜索&lt;/span&gt;&lt;span&gt;&lt;i data-lucide=&quot;search&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;input class=&quot;rt-input&quot; type=&quot;search&quot; placeholder=&quot;输入游戏名称&quot;&gt;&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;rt-filter-control&quot;&gt;&lt;span class=&quot;rt-filter-label&quot;&gt;游戏平台&lt;/span&gt;&lt;select class=&quot;rt-select rt-filter-select&quot;&gt;&lt;option&gt;所有平台&lt;/option&gt;&lt;option&gt;街机&lt;/option&gt;&lt;option&gt;MS-DOS&lt;/option&gt;&lt;option&gt;NES&lt;/option&gt;&lt;option&gt;SNES&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;label class=&quot;rt-filter-control&quot;&gt;&lt;span class=&quot;rt-filter-label&quot;&gt;游戏目录&lt;/span&gt;&lt;select class=&quot;rt-select rt-filter-select&quot;&gt;&lt;option&gt;所有目录&lt;/option&gt;&lt;optgroup label=&quot;街机&quot;&gt;&lt;option&gt;FBNeo 游戏列表&lt;/option&gt;&lt;option&gt;MAME 游戏列表&lt;/option&gt;&lt;option&gt;FBNeo 飞行游戏&lt;/option&gt;&lt;/optgroup&gt;&lt;optgroup label=&quot;MS-DOS&quot;&gt;&lt;option&gt;DOS 经典游戏&lt;/option&gt;&lt;/optgroup&gt;&lt;/select&gt;&lt;/label&gt;&lt;label class=&quot;rt-filter-control&quot;&gt;&lt;span class=&quot;rt-filter-label&quot;&gt;排列顺序&lt;/span&gt;&lt;select class=&quot;rt-select rt-filter-select&quot;&gt;&lt;option&gt;最近游玩&lt;/option&gt;&lt;option&gt;标题 A–Z&lt;/option&gt;&lt;option&gt;发行年份&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;搜索&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-filter-summary&quot;&gt;&lt;span&gt;筛选条件已应用&lt;/span&gt;&lt;span&gt;当前显示 &lt;strong&gt;8&lt;/strong&gt; 项 · &lt;button type=&quot;button&quot; class=&quot;rt-text-link&quot;&gt;清除全部&lt;/button&gt;&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
-        &lt;div class=&quot;rt-management-grid&quot;&gt;
-          &lt;button type=&quot;button&quot; class=&quot;rt-management-card&quot; data-open-game=&quot;metal&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-b rt-management-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;METAL SLUG&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-management-copy&quot;&gt;&lt;span class=&quot;rt-management-title&quot;&gt;Metal Slug&lt;/span&gt;&lt;span class=&quot;rt-management-meta&quot;&gt;Arcade · FBNeo 游戏列表&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot; class=&quot;rt-management-card&quot; data-open-game=&quot;doom&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-c rt-management-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;DOOM&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-management-copy&quot;&gt;&lt;span class=&quot;rt-management-title&quot;&gt;DOOM&lt;/span&gt;&lt;span class=&quot;rt-management-meta&quot;&gt;MS-DOS · DOS 经典游戏&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot; class=&quot;rt-management-card&quot; data-open-game=&quot;zelda&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-a rt-management-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;ZELDA&lt;/span&gt;&lt;span class=&quot;rt-management-hidden&quot; title=&quot;缺少 BIOS&quot;&gt;&lt;i data-lucide=&quot;triangle-alert&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-management-copy&quot;&gt;&lt;span class=&quot;rt-management-title&quot;&gt;Zelda no Densetsu&lt;/span&gt;&lt;span class=&quot;rt-management-meta&quot;&gt;Famicom Disk · 磁碟冒险&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot; class=&quot;rt-management-card&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-f rt-management-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;F-ZERO&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-management-copy&quot;&gt;&lt;span class=&quot;rt-management-title&quot;&gt;F-Zero&lt;/span&gt;&lt;span class=&quot;rt-management-meta&quot;&gt;SNES · SNES 游戏&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot; class=&quot;rt-management-card&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-d rt-management-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;POKÉMON&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-management-copy&quot;&gt;&lt;span class=&quot;rt-management-title&quot;&gt;Pokémon Green&lt;/span&gt;&lt;span class=&quot;rt-management-meta&quot;&gt;Game Boy · 掌机收藏&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot; class=&quot;rt-management-card&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-e rt-management-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;METROID&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-management-copy&quot;&gt;&lt;span class=&quot;rt-management-title&quot;&gt;Metroid Fusion&lt;/span&gt;&lt;span class=&quot;rt-management-meta&quot;&gt;GBA · GBA 游戏&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot; class=&quot;rt-management-card&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-c rt-management-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;CASTLEVANIA&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-management-copy&quot;&gt;&lt;span class=&quot;rt-management-title&quot;&gt;Castlevania&lt;/span&gt;&lt;span class=&quot;rt-management-meta&quot;&gt;NES · NES 游戏&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
-          &lt;button type=&quot;button&quot; class=&quot;rt-management-card&quot;&gt;&lt;span class=&quot;rt-cover rt-cover-a rt-management-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;KIRBY&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-management-copy&quot;&gt;&lt;span class=&quot;rt-management-title&quot;&gt;Kirby's Dream Land&lt;/span&gt;&lt;span class=&quot;rt-management-meta&quot;&gt;Game Boy · 掌机收藏&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
+        &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;我的游戏&lt;/div&gt;&lt;h1&gt;游戏库&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;找到想玩的经典游戏，打开详情后即可使用推荐配置开始游玩。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;section class=&quot;rt-library-tools&quot; aria-label=&quot;游戏筛选&quot;&gt;&lt;div class=&quot;rt-library-tool-row&quot;&gt;&lt;label class=&quot;rt-library-search&quot;&gt;&lt;i data-lucide=&quot;search&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;input type=&quot;search&quot; placeholder=&quot;搜索游戏&quot; aria-label=&quot;搜索游戏&quot; data-library-search&gt;&lt;/label&gt;&lt;select class=&quot;rt-select&quot; aria-label=&quot;游戏集合&quot;&gt;&lt;option&gt;所有游戏集合&lt;/option&gt;&lt;option&gt;FBNeo 游戏&lt;/option&gt;&lt;/select&gt;&lt;select class=&quot;rt-select&quot; aria-label=&quot;排列顺序&quot; data-library-sort&gt;&lt;option value=&quot;recent&quot;&gt;最近游玩&lt;/option&gt;&lt;option value=&quot;added&quot;&gt;最近加入&lt;/option&gt;&lt;option value=&quot;title&quot;&gt;名称 A–Z&lt;/option&gt;&lt;/select&gt;&lt;/div&gt;&lt;div class=&quot;rt-library-platforms&quot;&gt;&lt;span&gt;游戏平台&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-library-chip is-active&quot; data-library-platform=&quot;&quot;&gt;全部 &lt;strong&gt;3&lt;/strong&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-library-chip&quot; data-library-platform=&quot;Arcade&quot;&gt;Arcade &lt;strong&gt;3&lt;/strong&gt;&lt;/button&gt;&lt;span class=&quot;rt-library-result&quot;&gt;当前显示 &lt;strong data-library-count&gt;3&lt;/strong&gt; 款游戏&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;
+        &lt;div class=&quot;rt-library-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;所有游戏&lt;/h2&gt;&lt;p&gt;封面是识别入口；没有封面的游戏也保留清晰的标题与平台信息。&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;rt-library-view-hint&quot;&gt;卡片视图 · &lt;kbd&gt;/&lt;/kbd&gt; 搜索&lt;/span&gt;&lt;/div&gt;
+        &lt;div class=&quot;rt-library-grid&quot;&gt;
+          &lt;button type=&quot;button&quot; class=&quot;rt-library-card&quot; data-library-card data-library-title=&quot;1941&quot; data-library-platform-name=&quot;Arcade&quot; data-library-recent=&quot;2&quot; data-library-added=&quot;3&quot; data-open-game=&quot;doom&quot;&gt;&lt;span class=&quot;rt-library-cover&quot; style=&quot;background:radial-gradient(circle at 78% 17%,rgb(67 208 218 / .34),transparent 19%),linear-gradient(150deg,#36415f,#111829)&quot;&gt;&lt;span class=&quot;rt-library-platform-tag&quot;&gt;ARCADE&lt;/span&gt;&lt;span class=&quot;rt-library-poster&quot;&gt;&lt;small&gt;RETROM CLASSICS&lt;/small&gt;&lt;strong&gt;1941&lt;/strong&gt;&lt;span&gt;FINALBURN NEO&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-hover&quot;&gt;&lt;span&gt;查看游戏详情 →&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-body&quot;&gt;&lt;span class=&quot;rt-library-title&quot;&gt;&lt;strong&gt;1941&lt;/strong&gt;&lt;span&gt;•••&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-meta&quot;&gt;Arcade · FBNeo 游戏&lt;/span&gt;&lt;span class=&quot;rt-library-played&quot;&gt;&lt;span&gt;最近游玩&lt;/span&gt;&lt;strong&gt;昨天 21:10&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
+          &lt;button type=&quot;button&quot; class=&quot;rt-library-card&quot; data-library-card data-library-title=&quot;1943: The Battle of Midway&quot; data-library-platform-name=&quot;Arcade&quot; data-library-recent=&quot;1&quot; data-library-added=&quot;2&quot; data-open-game=&quot;metal&quot;&gt;&lt;span class=&quot;rt-library-cover rt-cover-b&quot;&gt;&lt;span class=&quot;rt-library-platform-tag&quot;&gt;ARCADE&lt;/span&gt;&lt;span class=&quot;rt-library-poster&quot;&gt;&lt;small&gt;THE BATTLE OF MIDWAY&lt;/small&gt;&lt;strong&gt;1943&lt;/strong&gt;&lt;span&gt;FINALBURN NEO&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-hover&quot;&gt;&lt;span&gt;查看游戏详情 →&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-body&quot;&gt;&lt;span class=&quot;rt-library-title&quot;&gt;&lt;strong&gt;1943: The Battle of Midway&lt;/strong&gt;&lt;span&gt;•••&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-meta&quot;&gt;Arcade · FBNeo 游戏&lt;/span&gt;&lt;span class=&quot;rt-library-played&quot;&gt;&lt;span&gt;最近游玩&lt;/span&gt;&lt;strong&gt;今天 01:20&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
+          &lt;button type=&quot;button&quot; class=&quot;rt-library-card&quot; data-library-card data-library-title=&quot;1945kiii&quot; data-library-platform-name=&quot;Arcade&quot; data-library-recent=&quot;3&quot; data-library-added=&quot;1&quot; data-open-game=&quot;zelda&quot;&gt;&lt;span class=&quot;rt-library-cover&quot; style=&quot;background:radial-gradient(circle at 72% 20%,rgb(78 212 221 / .32),transparent 22%),linear-gradient(150deg,#313b58,#131a2b)&quot;&gt;&lt;span class=&quot;rt-library-platform-tag&quot;&gt;ARCADE&lt;/span&gt;&lt;span class=&quot;rt-library-poster&quot;&gt;&lt;small&gt;RETROM CLASSICS&lt;/small&gt;&lt;strong style=&quot;font-size:32px&quot;&gt;1945 KIII&lt;/strong&gt;&lt;span&gt;FINALBURN NEO&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-hover&quot;&gt;&lt;span&gt;查看游戏详情 →&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-body&quot;&gt;&lt;span class=&quot;rt-library-title&quot;&gt;&lt;strong&gt;1945kiii&lt;/strong&gt;&lt;span&gt;•••&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-library-meta&quot;&gt;Arcade · FBNeo 游戏&lt;/span&gt;&lt;span class=&quot;rt-library-played&quot;&gt;&lt;span&gt;最近游玩&lt;/span&gt;&lt;strong&gt;昨天 21:02&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt;&lt;/button&gt;
         &lt;/div&gt;
       &lt;/section&gt;
 
@@ -1609,6 +1642,40 @@
       }
 
       root.querySelectorAll('[data-open-game]').forEach((button) =&gt; button.addEventListener('click', () =&gt; openGame(button.dataset.openGame)));
+
+      const libraryGrid = root.querySelector('.rt-library-grid');
+      const librarySearch = root.querySelector('[data-library-search]');
+      const librarySort = root.querySelector('[data-library-sort]');
+      const libraryCards = [...root.querySelectorAll('[data-library-card]')];
+      let libraryPlatform = '';
+      function updateLibrary() {
+        const query = librarySearch.value.trim().toLocaleLowerCase('zh-CN');
+        const visible = libraryCards.filter((card) =&gt; {
+          const matches = (!query || card.dataset.libraryTitle.toLocaleLowerCase('zh-CN').includes(query)) &amp;&amp;
+            (!libraryPlatform || card.dataset.libraryPlatformName === libraryPlatform);
+          card.hidden = !matches;
+          return matches;
+        });
+        const sortMode = librarySort.value;
+        [...libraryCards].sort((left, right) =&gt; sortMode === 'title'
+          ? left.dataset.libraryTitle.localeCompare(right.dataset.libraryTitle, 'zh-CN')
+          : Number(left.dataset[sortMode === 'added' ? 'libraryAdded' : 'libraryRecent']) - Number(right.dataset[sortMode === 'added' ? 'libraryAdded' : 'libraryRecent']))
+          .forEach((card) =&gt; libraryGrid.appendChild(card));
+        root.querySelector('[data-library-count]').textContent = String(visible.length);
+      }
+      librarySearch.addEventListener('input', updateLibrary);
+      librarySort.addEventListener('change', updateLibrary);
+      root.querySelectorAll('[data-library-platform]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        root.querySelectorAll('[data-library-platform]').forEach((candidate) =&gt; candidate.classList.remove('is-active'));
+        button.classList.add('is-active');
+        libraryPlatform = button.dataset.libraryPlatform;
+        updateLibrary();
+      }));
+      root.addEventListener('keydown', (event) =&gt; {
+        if (event.key !== '/' || ['INPUT', 'SELECT', 'TEXTAREA'].includes(document.activeElement?.tagName)) return;
+        event.preventDefault();
+        librarySearch.focus();
+      });
 
       function updateCoreSelection(label, remember = true) {
         const blocked = label.includes('缺少 BIOS') || label.includes('不兼容');
