@@ -84,13 +84,14 @@ test("library grid and management workbench match desktop breakpoints", async ({
 
 test("BIOS, DAT and save controls are labeled and keyboard reachable", async ({ page }, testInfo) => {
   await page.goto("/admin/bios?scope=FULL_CATALOG");
-  await expect(page.getByRole("heading", { name: "BIOS 管理" })).toBeVisible();
-  await expect(page.getByRole("textbox", { name: "搜索" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "BIOS 文件" })).toBeVisible();
+  await expect(page.getByRole("searchbox", { name: "搜索 BIOS 文件" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   await page.goto("/admin/bios/dats");
   await expect(page.getByRole("heading", { name: "街机数据目录" })).toBeVisible();
   await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
-  await expect(page.getByLabel("目标核心版本")).toBeVisible();
+  await page.getByRole("button", { name: "上传新目录" }).click();
+  await expect(page.getByLabel("目标运行方式")).toBeVisible();
   await expect(page.getByRole("button", { name: "选择 DAT 或 XML 文件" })).toBeVisible();
   await page.goto("/saves?availability=ALL");
   await expect(page.getByRole("heading", { name: "我的存档" })).toBeVisible();

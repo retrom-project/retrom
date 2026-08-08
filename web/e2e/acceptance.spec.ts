@@ -128,11 +128,12 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
   await page.screenshot({ path: evidencePath(testInfo, "state-error.png"), fullPage: true });
 
   await page.goto("/admin/bios?scope=FULL_CATALOG");
-  await expect(page.getByRole("heading", { name: "BIOS 管理" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "BIOS 文件" })).toBeVisible();
   const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
   await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
   await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();
-  await expect(gbaRow.getByText("MD5", { exact: false })).toBeVisible();
+  await gbaRow.getByText("校验信息", { exact: true }).click();
+  await expect(gbaRow.getByText("期望 MD5", { exact: true })).toBeVisible();
   await page.screenshot({ path: evidencePath(testInfo, "state-warning.png"), fullPage: true });
 
   const blockerRow = page.getByRole("row").filter({ hasText: "缺少文件" }).filter({ hasText: "必需" }).first();
@@ -244,6 +245,11 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await page.goto("/admin/bios/dats");
   await expect(page.getByRole("heading", { name: "街机数据目录", exact: true })).toBeVisible();
   await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "当前启用", exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "上传新目录" }).click();
+  await expect(page.getByRole("dialog", { name: "上传街机数据目录" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "开始上传" })).toBeDisabled();
+  await page.getByRole("button", { name: "取消", exact: true }).click();
   await page.goto("/admin/platform-instances");
   await expect(page.getByRole("heading", { name: "游戏目录", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "主要导航" }).getByText("游戏目录", { exact: true })).toBeVisible();

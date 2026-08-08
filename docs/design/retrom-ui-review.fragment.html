@@ -973,6 +973,67 @@
     #retrom-ui-review .rt-file-icon { display: grid; place-items: center; width: 30px; height: 30px; border-radius: 7px; background: var(--retrom-panel-raised); color: var(--retrom-purple); }
     #retrom-ui-review .rt-file-icon svg { width: 14px; height: 14px; }
 
+    #retrom-ui-review .rt-runtime-scope { width: fit-content; margin-bottom: 12px; padding: 4px; display: flex; gap: 5px; border: 1px solid var(--retrom-line); border-radius: 10px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-runtime-scope button { min-height: 32px; padding: 0 11px; border: 0; border-radius: 7px; color: var(--retrom-muted); background: transparent; cursor: pointer; font-size: 10px; font-weight: 650; }
+    #retrom-ui-review .rt-runtime-scope button.is-active { color: var(--retrom-purple); background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-runtime-kpis { margin-bottom: 12px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+    #retrom-ui-review .rt-runtime-kpis article { position: relative; min-height: 89px; padding: 13px 15px; overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 11px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-runtime-kpis article::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 3px; background: var(--retrom-purple); }
+    #retrom-ui-review .rt-runtime-kpis article:nth-child(2)::before { background: var(--retrom-red); }
+    #retrom-ui-review .rt-runtime-kpis article:nth-child(3)::before { background: var(--retrom-amber); }
+    #retrom-ui-review .rt-runtime-kpis article:nth-child(4)::before { background: var(--retrom-cyan); }
+    #retrom-ui-review .rt-runtime-kpis span, #retrom-ui-review .rt-runtime-kpis strong, #retrom-ui-review .rt-runtime-kpis small { display: block; }
+    #retrom-ui-review .rt-runtime-kpis span, #retrom-ui-review .rt-runtime-kpis small { color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-runtime-kpis strong { margin-top: 1px; font-size: 23px; }
+    #retrom-ui-review .rt-runtime-kpis small { margin-top: 5px; }
+    #retrom-ui-review .rt-runtime-toolbar { margin-bottom: 10px; padding: 11px; display: grid; grid-template-columns: minmax(280px, 1.7fr) 180px 180px; gap: 9px; align-items: end; border: 1px solid var(--retrom-line); border-radius: 11px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-runtime-toolbar label { display: grid; gap: 4px; color: var(--retrom-muted); font-size: 9px; font-weight: 650; }
+    #retrom-ui-review .rt-runtime-toolbar .rt-input, #retrom-ui-review .rt-runtime-toolbar .rt-select { min-width: 0; width: 100%; height: 36px; }
+    #retrom-ui-review .rt-runtime-chips { min-height: 28px; margin-bottom: 11px; display: flex; flex-wrap: wrap; gap: 6px; }
+    #retrom-ui-review .rt-runtime-chips button { min-height: 27px; padding: 0 9px; color: var(--retrom-muted); border: 1px solid transparent; border-radius: 999px; background: var(--retrom-panel-raised); cursor: pointer; font-size: 9px; }
+    #retrom-ui-review .rt-runtime-chips button.is-active { color: var(--retrom-purple); border-color: #d4ccf6; background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-runtime-section-head { margin: 13px 0 8px; display: flex; align-items: flex-end; justify-content: space-between; gap: 18px; }
+    #retrom-ui-review .rt-runtime-section-head h2 { margin: 0; font-size: 15px; }
+    #retrom-ui-review .rt-runtime-section-head p, #retrom-ui-review .rt-runtime-section-head > span { margin: 3px 0 0; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-runtime-list { overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 11px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-runtime-bios-row { min-height: 63px; padding: 9px 12px; display: grid; grid-template-columns: minmax(260px, 1.25fr) 145px 145px minmax(230px, 1fr) 120px; gap: 12px; align-items: center; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-runtime-bios-row:last-child, #retrom-ui-review .rt-runtime-dat-row:last-child { border-bottom: 0; }
+    #retrom-ui-review .rt-runtime-file { min-width: 0; display: grid; grid-template-columns: 34px minmax(0, 1fr); gap: 9px; align-items: center; }
+    #retrom-ui-review .rt-runtime-file > i { width: 34px; height: 34px; display: grid; place-items: center; color: var(--retrom-purple); border-radius: 8px; background: var(--retrom-purple-soft); font-style: normal; font-size: 7px; font-weight: 700; }
+    #retrom-ui-review .rt-runtime-file strong, #retrom-ui-review .rt-runtime-cell strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; }
+    #retrom-ui-review .rt-runtime-file small, #retrom-ui-review .rt-runtime-cell small { display: block; margin-top: 2px; color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-runtime-actions { display: flex; justify-content: flex-end; gap: 5px; }
+    #retrom-ui-review .rt-runtime-actions .rt-button { min-height: 30px; padding: 0 9px; font-size: 8px; }
+    #retrom-ui-review .rt-runtime-active-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+    #retrom-ui-review .rt-runtime-active { padding: 13px; border: 1px solid var(--retrom-line); border-radius: 11px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-runtime-active h3 { margin: 7px 0 0; font-size: 13px; }
+    #retrom-ui-review .rt-runtime-active > p { margin: 3px 0 0; color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-runtime-active dl { margin: 11px 0 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    #retrom-ui-review .rt-runtime-active dl div { padding: 7px; border-radius: 7px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-runtime-active dt { color: var(--retrom-muted); font-size: 7px; }
+    #retrom-ui-review .rt-runtime-active dd { margin: 2px 0 0; font-size: 9px; font-weight: 650; }
+    #retrom-ui-review .rt-runtime-active footer { margin-top: 8px; display: flex; justify-content: space-between; color: var(--retrom-muted); font-size: 7px; }
+    #retrom-ui-review .rt-runtime-dat-row { min-height: 61px; padding: 9px 12px; display: grid; grid-template-columns: minmax(220px, 1fr) 115px 125px minmax(180px, .8fr) minmax(180px, .8fr) 180px; gap: 11px; align-items: center; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-runtime-drawer-backdrop { position: fixed; z-index: 41; inset: 0; background: rgb(17 23 39 / 42%); }
+    #retrom-ui-review .rt-runtime-drawer { position: fixed; z-index: 42; inset: 0 0 0 auto; width: 500px; display: flex; flex-direction: column; border-left: 1px solid var(--retrom-line); background: var(--retrom-panel); box-shadow: -22px 0 60px rgb(17 23 39 / 20%); }
+    #retrom-ui-review .rt-runtime-drawer header { padding: 20px; display: flex; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-runtime-drawer h2 { margin: 7px 0 0; font-size: 20px; }
+    #retrom-ui-review .rt-runtime-drawer header p { margin: 5px 0 0; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-runtime-drawer-body { padding: 20px; display: grid; gap: 11px; }
+    #retrom-ui-review .rt-runtime-drawer-body label { display: grid; gap: 5px; color: var(--retrom-muted); font-size: 9px; font-weight: 650; }
+    #retrom-ui-review .rt-runtime-upload-flow { margin: 5px 0 0; padding: 0; display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; list-style: none; }
+    #retrom-ui-review .rt-runtime-upload-flow li { padding: 8px; display: grid; gap: 2px; place-items: center; border: 1px solid var(--retrom-line); border-radius: 8px; background: var(--retrom-panel-raised); font-size: 8px; }
+    #retrom-ui-review .rt-runtime-drawer > footer { margin-top: auto; padding: 15px 20px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-runtime-diff-dialog { width: min(980px, 100%); }
+    #retrom-ui-review .rt-runtime-compare { display: grid; grid-template-columns: 1fr 26px 1fr; align-items: center; gap: 7px; }
+    #retrom-ui-review .rt-runtime-compare article { padding: 10px; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-runtime-compare h3 { margin: 6px 0 0; font-size: 11px; }
+    #retrom-ui-review .rt-runtime-compare p { margin: 2px 0 0; color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-runtime-diff-kpis { margin-top: 10px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px; }
+    #retrom-ui-review .rt-runtime-diff-kpis div { padding: 9px; border: 1px solid var(--retrom-line); border-radius: 8px; font-size: 8px; }
+    #retrom-ui-review .rt-runtime-diff-kpis strong { display: block; margin-top: 3px; color: var(--retrom-green); }
+    #retrom-ui-review .rt-runtime-impact { margin: 10px 0; padding: 9px; color: var(--retrom-amber); border: 1px solid #ead398; border-radius: 8px; background: var(--retrom-amber-soft); font-size: 8px; }
+
     #retrom-ui-review .rt-empty-note { padding: 28px; color: var(--retrom-muted); text-align: center; }
 
     #retrom-ui-review .rt-player-shell { min-height: 760px; background: #07080c; color: #f5f4ff; }
@@ -1186,7 +1247,13 @@
           </div>
           <button type="button" class="rt-nav-button" data-page-target="admin-games"><i data-lucide="settings-2" aria-hidden="true"></i><span>游戏管理</span></button>
           <button type="button" class="rt-nav-button" data-page-target="admin-platform-instances"><i data-lucide="folders" aria-hidden="true"></i><span>游戏目录</span></button>
-          <button type="button" class="rt-nav-button" data-page-target="admin-bios"><i data-lucide="microchip" aria-hidden="true"></i><span>BIOS 管理</span></button>
+          <div class="rt-nav-section">
+            <button type="button" class="rt-nav-button rt-nav-parent" data-page-target="admin-bios" data-runtime-parent><i data-lucide="microchip" aria-hidden="true"></i><span class="rt-nav-label">运行依赖</span></button>
+            <div class="rt-nav-children" aria-label="运行依赖子菜单">
+              <button type="button" class="rt-nav-button rt-nav-child is-active" data-bios-view="files"><span class="rt-nav-label">BIOS 文件</span></button>
+              <button type="button" class="rt-nav-button rt-nav-child" data-bios-view="dats"><span class="rt-nav-label">街机数据目录</span></button>
+            </div>
+          </div>
         </div>
       </nav>
 
@@ -1497,33 +1564,48 @@
       </section>
 
       <section class="rt-page" data-page="admin-bios">
-        <div class="rt-page-head"><div><h1>BIOS 管理</h1><p class="rt-subtitle">各 Arcade 核心使用独立 DAT；页面读取已解析目录，启动时只做依赖预检</p></div></div>
-        <div class="rt-admin-tabs"><button type="button" class="rt-admin-tab is-active" data-bios-view="files">BIOS 文件</button><button type="button" class="rt-admin-tab" data-bios-view="dats">Arcade DAT 版本</button></div>
-
         <div data-bios-panel="files">
-          <div class="rt-section-head"><div class="rt-bios-groups" data-chip-group="bios-scope"><button type="button" class="rt-chip is-active">当前游戏库所需</button><button type="button" class="rt-chip">核心完整目录</button></div><button type="button" class="rt-button rt-button-primary"><i data-lucide="upload" aria-hidden="true"></i>上传 BIOS</button></div>
-          <div class="rt-stat-grid"><div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">已满足</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>9</span></div><div class="rt-stat-note">含由 Full Non-Merged 游戏文件满足</div></div><div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">存在警告</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>2</span></div><div class="rt-stat-note">entry 存在但哈希不同，可启动</div></div><div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">缺失 / 不完整</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>3</span></div><div class="rt-stat-note">仅统计当前游戏库，阻断相关游戏</div></div></div>
-          <div class="rt-bios-groups" data-chip-group="bios-platform"><button type="button" class="rt-chip">全部平台</button><button type="button" class="rt-chip">NES</button><button type="button" class="rt-chip">SNES</button><button type="button" class="rt-chip">Game Boy</button><button type="button" class="rt-chip is-active">Arcade</button><button type="button" class="rt-chip">GBA</button></div>
-          <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>适用核心</th><th>BIOS 文件</th><th>当前游戏库</th><th>校验方式</th><th>当前状态</th><th>操作</th></tr></thead><tbody>
-            <tr><td><div class="rt-table-title">FBNeo</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">neogeo.zip</div><div class="rt-table-sub">必需 · Neo Geo BIOS</div></div></div></td><td>12 个游戏</td><td>按当前目录校验</td><td><span class="rt-badge rt-badge-green">已安装并匹配</span></td><td><button type="button" class="rt-button">选择 BIOS 文件</button></td></tr>
-            <tr><td><div class="rt-table-title">MAME 2003</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">neogeo.zip</div><div class="rt-table-sub">必需 · 与 FBNeo 分开安装</div></div></div></td><td>4 个游戏</td><td>安装后验证</td><td><span class="rt-badge rt-badge-red">缺少文件</span></td><td><button type="button" class="rt-button rt-button-primary">选择 BIOS 文件</button></td></tr>
-            <tr><td><div class="rt-table-title">MAME 2003 Plus</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="file-archive" aria-hidden="true"></i></span><div><div class="rt-table-title">pgm.zip</div><div class="rt-table-sub">必需 · PGM System BIOS</div></div></div></td><td>2 个游戏</td><td>按当前目录校验</td><td><span class="rt-badge rt-badge-amber">2 项校验值不同</span></td><td><button type="button" class="rt-button">查看 / 替换</button></td></tr>
-            <tr><td><div class="rt-table-title">FBNeo</div></td><td><div class="rt-bios-file"><span class="rt-file-icon"><i data-lucide="package-check" aria-hidden="true"></i></span><div><div class="rt-table-title">ym2608</div><div class="rt-table-sub">已包含在游戏文件中</div></div></div></td><td>1 个游戏</td><td>由游戏内容满足</td><td><span class="rt-badge rt-badge-green">无需上传</span></td><td><button type="button" class="rt-button">查看来源</button></td></tr>
-          </tbody></table></div>
+          <div class="rt-page-head"><div><div class="rt-eyebrow">运行依赖</div><h1>BIOS 文件</h1><p class="rt-subtitle">管理游戏运行所需的系统文件。默认只关注当前游戏库实际用到的依赖，也可切换到完整核心目录。</p></div><button type="button" class="rt-button" data-bios-view="dats">街机数据目录 →</button></div>
+          <div class="rt-runtime-scope"><button type="button" class="is-active">当前游戏库需要 <strong>12</strong></button><button type="button">完整 BIOS 目录 <strong>27</strong></button></div>
+          <div class="rt-runtime-kpis"><article><span>当前范围</span><strong>12</strong><small>游戏库实际引用的依赖</small></article><article><span>缺失 / 阻断</span><strong>2</strong><small>必需文件缺失会阻断相关游戏</small></article><article><span>需要核对</span><strong>1</strong><small>哈希不同仍可启动，建议替换</small></article><article><span>已就绪</span><strong>9</strong><small>已经安装并通过当前校验</small></article></div>
+          <div class="rt-runtime-toolbar"><label>搜索文件或运行方式<input class="rt-input" placeholder="例如 gba_bios.bin 或 mGBA"></label><label>运行方式<select class="rt-select"><option>全部运行方式</option><option>FinalBurn Neo</option><option>mGBA</option></select></label><label>文件状态<select class="rt-select"><option>所有状态</option><option>缺少文件</option><option>校验值不一致</option><option>已安装并匹配</option></select></label></div>
+          <div class="rt-runtime-chips"><button type="button" class="is-active">全部 12</button><button type="button">需要处理 3</button><button type="button">必需 7</button><button type="button">可选 5</button></div>
+          <div class="rt-runtime-section-head"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>3 项</span></div>
+          <div class="rt-runtime-list">
+            <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><strong>neogeo.zip</strong><small>必需 · 启动前按当前目录检查</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003</strong><small>mame2003</small></div><span class="rt-badge rt-badge-red">缺少文件</span><div class="rt-runtime-cell"><strong>当前游戏库需要处理</strong><small>缺少必需依赖会阻断相关游戏</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button rt-button-primary">选择 BIOS 文件</button></div></div>
+            <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><strong>pgm.zip</strong><small>必需 · 启动前按当前目录检查</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>mame2003_plus</small></div><span class="rt-badge rt-badge-red">归档内缺少文件</span><div class="rt-runtime-cell"><strong>当前游戏库需要处理</strong><small>上传完整归档后重新验证</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button rt-button-primary">替换文件</button></div></div>
+            <div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>BIOS</i><div><strong>gba_bios.bin</strong><small>可选 · 按游戏内容决定是否需要</small></div></div><div class="rt-runtime-cell"><strong>mGBA</strong><small>mgba</small></div><span class="rt-badge rt-badge-amber">校验值不一致</span><div class="rt-runtime-cell"><strong>当前游戏库需要核对</strong><small>校验警告允许启动，但建议替换</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div>
+          </div>
+          <div class="rt-runtime-section-head"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>9 项</span></div>
+          <div class="rt-runtime-list"><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>BIOS</i><div><strong>gb_bios.bin</strong><small>可选 · 按游戏内容决定是否需要</small></div></div><div class="rt-runtime-cell"><strong>Gambatte</strong><small>gambatte</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>未安装可选项不会作为必需依赖阻断</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div></div>
         </div>
 
         <div data-bios-panel="dats" hidden>
-          <div class="rt-section-head"><div><h2>核心 DAT 目录</h2><p class="rt-subtitle">上传只创建候选；解析并查看差异后才可显式启用</p></div><button type="button" class="rt-button rt-button-primary"><i data-lucide="file-up" aria-hidden="true"></i>上传 DAT</button></div>
-          <div class="rt-setting-note">上传 → 安全校验与后台解析 → 查看 BIOS / parent 依赖差异 → 显式启用 → 分批重校验 GameVariant；系统预置版本始终可回滚。</div>
-          <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>核心</th><th>当前生效 DAT</th><th>来源</th><th>解析结果</th><th>影响范围</th><th>状态</th><th>操作</th></tr></thead><tbody>
-            <tr><td><div class="rt-table-title">FBNeo</div></td><td><div class="rt-table-title">fbneo-arcade.dat</div><div class="rt-table-sub">与当前运行方式匹配</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">7,980 个游戏</div><div class="rt-table-sub">13 个 BIOS 集合</div></td><td>2 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
-            <tr><td><div class="rt-table-title">MAME 2003</div><div class="rt-table-sub">MAME 0.78 兼容目录</div></td><td><div class="rt-table-title">mame2003.xml</div><div class="rt-table-sub">与当前运行方式匹配</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">4,727 个游戏</div><div class="rt-table-sub">17 个依赖目标</div></td><td>1 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
-            <tr><td><div class="rt-table-title">MAME 2003 Plus</div><div class="rt-table-sub">增强兼容目录</div></td><td><div class="rt-table-title">mame2003-plus.xml</div><div class="rt-table-sub">与当前运行方式匹配</div></td><td><span class="rt-badge">系统预置</span></td><td><div class="rt-table-title">5,257 个游戏</div><div class="rt-table-sub">17 个依赖目标</div></td><td>0 个平台目录</td><td><span class="rt-badge rt-badge-green">生效中</span></td><td><button type="button" class="rt-button">查看差异</button> <button type="button" class="rt-button">上传新版本</button></td></tr>
-          </tbody></table></div>
+          <div class="rt-page-head"><div><div class="rt-eyebrow">运行依赖</div><h1>街机数据目录</h1><p class="rt-subtitle">管理 Arcade 运行方式当前使用的数据目录，以及候选和历史版本。先确认当前启用版本，再上传、比较或切换。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-bios-view="files">← BIOS 文件</button><button type="button" class="rt-button rt-button-primary" data-open-runtime-drawer><i data-lucide="plus" aria-hidden="true"></i>上传新目录</button></div></div>
+          <div class="rt-runtime-section-head"><div><h2>当前启用</h2><p>这里展示每个街机运行方式实际生效的数据目录。</p></div><span>3 个运行方式</span></div>
+          <div class="rt-runtime-active-grid">
+            <article class="rt-runtime-active"><span class="rt-badge rt-badge-green">当前启用</span><h3>FinalBurn Neo</h3><p>系统内置 · EmulatorJS 4.2.3</p><dl><div><dt>游戏条目</dt><dd>7,980</dd></div><div><dt>BIOS 集合</dt><dd>13</dd></div><div><dt>匹配状态</dt><dd>已匹配</dd></div></dl><footer><span>最后启用：2026/08/08</span><span>bundle 4.2.3</span></footer></article>
+            <article class="rt-runtime-active"><span class="rt-badge rt-badge-green">当前启用</span><h3>MAME 2003</h3><p>系统内置 · EmulatorJS 4.2.3</p><dl><div><dt>游戏条目</dt><dd>4,727</dd></div><div><dt>BIOS 集合</dt><dd>1,427</dd></div><div><dt>匹配状态</dt><dd>已匹配</dd></div></dl><footer><span>最后启用：2026/08/08</span><span>bundle 4.2.1</span></footer></article>
+            <article class="rt-runtime-active"><span class="rt-badge rt-badge-green">当前启用</span><h3>MAME 2003 Plus</h3><p>系统内置 · EmulatorJS 4.2.3</p><dl><div><dt>游戏条目</dt><dd>5,257</dd></div><div><dt>BIOS 集合</dt><dd>3,462</dd></div><div><dt>匹配状态</dt><dd>已匹配</dd></div></dl><footer><span>最后启用：2026/08/08</span><span>bundle 4.2.3</span></footer></article>
+          </div>
+          <div class="rt-runtime-toolbar" style="margin-top:12px"><label>搜索运行方式<input class="rt-input" placeholder="例如 FinalBurn Neo"></label><label>目录来源<select class="rt-select"><option>所有来源</option><option>系统内置</option><option>手动上传</option></select></label><label>处理状态<select class="rt-select"><option>所有状态</option><option>解析完成</option><option>正在解析</option><option>解析失败</option></select></label></div>
+          <div class="rt-runtime-chips"><button type="button" class="is-active">全部 7</button><button type="button">可启用 1</button><button type="button">处理中 1</button><button type="button">需处理 1</button><button type="button">历史版本 1</button></div>
+          <div class="rt-runtime-section-head"><div><h2>候选与历史版本</h2><p>只有解析成功的候选可以查看差异并显式启用。</p></div><span>4 个版本</span></div>
+          <div class="rt-runtime-list">
+            <div class="rt-runtime-dat-row"><div class="rt-runtime-cell"><strong>FinalBurn Neo</strong><small>手动上传 · 更新于 2026/08/08</small></div><span>手动上传</span><span class="rt-badge rt-badge-purple">可以启用</span><div class="rt-runtime-cell"><strong>8,012 个游戏</strong><small>58,431 个 ROM 条目</small></div><div class="rt-runtime-cell"><strong>需要确认</strong><small>启用前查看实际变化</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button" data-open-runtime-diff>查看差异</button><button type="button" class="rt-button rt-button-primary" data-open-runtime-diff>启用</button></div></div>
+            <div class="rt-runtime-dat-row"><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>手动上传 · 更新于 2026/08/08</small></div><span>手动上传</span><span class="rt-badge rt-badge-purple">正在解析</span><div class="rt-runtime-cell"><strong>—</strong><small>解析完成后显示统计</small></div><div class="rt-runtime-cell"><strong>等待</strong><small>尚未产生匹配结果</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">取消解析</button></div></div>
+            <div class="rt-runtime-dat-row"><div class="rt-runtime-cell"><strong>MAME 2003</strong><small>手动上传 · 更新于 2026/08/07</small></div><span>手动上传</span><span class="rt-badge rt-badge-red">解析失败</span><div class="rt-runtime-cell"><strong>—</strong><small>候选未生成索引</small></div><div class="rt-runtime-cell"><strong>无法判断</strong><small>重新上传有效 XML</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">删除</button></div></div>
+            <div class="rt-runtime-dat-row"><div class="rt-runtime-cell"><strong>FinalBurn Neo</strong><small>系统内置 · 更新于 2026/07/20</small></div><span>系统内置</span><span class="rt-badge">历史版本</span><div class="rt-runtime-cell"><strong>7,944 个游戏</strong><small>57,990 个 ROM 条目</small></div><div class="rt-runtime-cell"><strong>已匹配</strong><small>回滚前重新计算影响</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button" data-open-runtime-diff>预览回滚</button></div></div>
+          </div>
         </div>
       </section>
     </main>
   </div>
+
+  <div class="rt-runtime-drawer-backdrop" data-runtime-drawer-backdrop hidden></div>
+  <aside class="rt-runtime-drawer" data-runtime-drawer hidden><header><div><span class="rt-badge rt-badge-purple">新候选</span><h2>上传街机数据目录</h2><p>上传后先安全解析，再查看差异，最后才允许启用。</p></div><button type="button" class="rt-button" data-close-runtime-drawer aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></header><div class="rt-runtime-drawer-body"><label>目标运行方式<select class="rt-select"><option>FinalBurn Neo · bundle 4.2.3</option><option>MAME 2003 · bundle 4.2.1</option><option>MAME 2003 Plus · bundle 4.2.3</option></select></label><label>DAT / XML 文件<input class="rt-input" placeholder="尚未选择文件" readonly></label><button type="button" class="rt-button">选择 DAT 或 XML 文件</button><ol class="rt-runtime-upload-flow"><li><span>1</span><strong>上传</strong></li><li><span>2</span><strong>解析</strong></li><li><span>3</span><strong>查看差异</strong></li><li><span>4</span><strong>启用</strong></li></ol></div><footer><button type="button" class="rt-button" data-close-runtime-drawer>取消</button><button type="button" class="rt-button rt-button-primary" disabled>开始上传</button></footer></aside>
+
+  <div class="rt-dialog-backdrop" data-runtime-diff hidden><section class="rt-dialog rt-runtime-diff-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-runtime-diff-title"><div class="rt-panel-heading"><div><span class="rt-badge rt-badge-amber">差异与运行影响</span><h2 id="rt-runtime-diff-title" style="margin-top:7px">启用 FinalBurn Neo 数据目录？</h2><p class="rt-dialog-copy">比较当前启用版本与目标版本；提交时会重新校验本次预览是否过期。</p></div><button type="button" class="rt-button" data-close-runtime-diff aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></div><div style="margin-top:13px"><div class="rt-runtime-compare"><article><span class="rt-badge rt-badge-green">当前启用</span><h3>FinalBurn Neo</h3><p>系统内置 · 7,980 个游戏</p></article><span>→</span><article><span class="rt-badge rt-badge-purple">目标版本</span><h3>FinalBurn Neo</h3><p>手动上传 · 8,012 个游戏</p></article></div><div class="rt-runtime-diff-kpis"><div>游戏条目<strong>+32 / −4 / ~18</strong></div><div>ROM 文件<strong>+126 / −12 / ~43</strong></div><div>BIOS 集合<strong>+1 / −0 / ~2</strong></div><div>依赖目标<strong>+3 / −1 / ~4</strong></div></div><div class="rt-runtime-impact"><strong>运行影响</strong> · 2 个游戏目录受到影响；38 个游戏运行版本需要重新检查；3 项解析警告。</div><div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>变化</th><th>对象</th><th>当前</th><th>目标</th></tr></thead><tbody><tr><td><span class="rt-badge rt-badge-green">新增</span></td><td>machine: newgame</td><td>—</td><td>parent: none</td></tr><tr><td><span class="rt-badge rt-badge-red">移除</span></td><td>machine: oldgame</td><td>parent: oldbase</td><td>—</td></tr><tr><td><span class="rt-badge rt-badge-amber">变更</span></td><td>machine: 1943</td><td>parent: 1943old</td><td>parent: 1943</td></tr></tbody></table></div></div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-runtime-diff>取消</button><button type="button" class="rt-button rt-button-primary">启用这个版本</button></div></section></div>
 
   <div class="rt-dialog-backdrop" data-impact-dialog hidden>
     <section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-dialog-title">
@@ -1562,7 +1644,7 @@
       const pageNames = {
         home: '首页', library: '游戏库', saves: '我的存档', recent: '最近游玩', detail: '游戏详情', play: '游玩',
         'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
-        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-platform-instances': '游戏目录', 'admin-bios': 'BIOS 管理'
+        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-platform-instances': '游戏目录', 'admin-bios': '运行依赖'
       };
       function showPage(page) {
         const activeNavigationTarget = page === 'detail' ? 'library' : page === 'admin-game-detail' ? 'admin-games' : page;
@@ -1570,6 +1652,13 @@
         root.querySelectorAll('.rt-page').forEach((element) => element.classList.toggle('is-active', element.dataset.page === page));
         root.querySelectorAll('.rt-nav-button').forEach((button) => button.classList.toggle('is-active', button.dataset.pageTarget === activeNavigationTarget));
         root.querySelector('[data-ingest-parent]').classList.toggle('is-context', ['admin-import-new', 'admin-import-tasks', 'admin-review', 'admin-review-history'].includes(page));
+        const runtimeParent = root.querySelector('[data-runtime-parent]');
+        runtimeParent.classList.toggle('is-context', page === 'admin-bios');
+        if (page === 'admin-bios') {
+          runtimeParent.classList.remove('is-active');
+          const currentView = [...root.querySelectorAll('[data-bios-panel]')].find((panel) => !panel.hidden)?.dataset.biosPanel || 'files';
+          root.querySelectorAll('[data-bios-view]').forEach((button) => button.classList.toggle('is-active', button.dataset.biosView === currentView));
+        }
         if (page === 'admin-review') {
           root.querySelector('[data-review-page-title]').textContent = '待审核';
           root.querySelector('[data-review-position]').textContent = '已加载 4 条';
@@ -1809,9 +1898,18 @@
       });
 
       root.querySelectorAll('[data-bios-view]').forEach((button) => button.addEventListener('click', () => {
-        root.querySelectorAll('[data-bios-view]').forEach((peer) => peer.classList.toggle('is-active', peer === button));
+        showPage('admin-bios');
+        root.querySelectorAll('[data-bios-view]').forEach((peer) => peer.classList.toggle('is-active', peer.dataset.biosView === button.dataset.biosView));
         root.querySelectorAll('[data-bios-panel]').forEach((panel) => { panel.hidden = panel.dataset.biosPanel !== button.dataset.biosView; });
       }));
+      const runtimeDrawer = root.querySelector('[data-runtime-drawer]');
+      const runtimeDrawerBackdrop = root.querySelector('[data-runtime-drawer-backdrop]');
+      root.querySelectorAll('[data-open-runtime-drawer]').forEach((button) => button.addEventListener('click', () => { runtimeDrawer.hidden = false; runtimeDrawerBackdrop.hidden = false; }));
+      root.querySelectorAll('[data-close-runtime-drawer]').forEach((button) => button.addEventListener('click', () => { runtimeDrawer.hidden = true; runtimeDrawerBackdrop.hidden = true; }));
+      runtimeDrawerBackdrop.addEventListener('click', () => { runtimeDrawer.hidden = true; runtimeDrawerBackdrop.hidden = true; });
+      const runtimeDiff = root.querySelector('[data-runtime-diff]');
+      root.querySelectorAll('[data-open-runtime-diff]').forEach((button) => button.addEventListener('click', () => { runtimeDiff.hidden = false; }));
+      root.querySelectorAll('[data-close-runtime-diff]').forEach((button) => button.addEventListener('click', () => { runtimeDiff.hidden = true; }));
 
       root.querySelectorAll('.rt-candidate').forEach((button) => button.addEventListener('click', () => {
         root.querySelectorAll('.rt-candidate').forEach((peer) => peer.classList.toggle('is-selected', peer === button));
