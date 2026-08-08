@@ -22,13 +22,15 @@ const adminNavigation: NavItem[] = [
   { href: "/admin/reviews/history", label: "审核历史", icon: "history", child: true },
   { href: "/admin/games", label: "游戏管理", icon: "library" },
   { href: "/admin/platform-instances", label: "游戏目录", icon: "list" },
-  { href: "/admin/bios", label: "BIOS 管理", icon: "chip", exact: true },
+  { href: "/admin/bios", label: "运行依赖", icon: "chip", exact: true },
+  { href: "/admin/bios", label: "BIOS 文件", icon: "chip", exact: true, child: true },
   { href: "/admin/bios/dats", label: "街机数据目录", icon: "database", child: true }
 ];
 
 function navState(item: NavItem, pathname: string): "active" | "context" | "" {
   if (item.href === "/admin/imports" && pathname !== item.href &&
     (pathname.startsWith("/admin/imports") || pathname.startsWith("/admin/reviews"))) return "context";
+  if (item.href === "/admin/bios" && item.label === "运行依赖" && pathname.startsWith("/admin/bios")) return "context";
   if (item.exact) return pathname === item.href ? "active" : "";
   return pathname === item.href || pathname.startsWith(`${item.href}/`) ? "active" : "";
 }
@@ -47,7 +49,7 @@ function Navigation({ items, pathname }: { items: NavItem[]; pathname: string })
           aria-current={state === "active" ? "page" : undefined}
           className={`nav-link ${item.child ? "nav-child" : ""} ${state === "active" ? "is-active" : ""} ${state === "context" ? "is-context" : ""}`}
           href={item.href}
-          key={item.href}
+          key={`${item.href}:${item.label}`}
         >
           <AppIcon className="nav-icon" name={item.icon} />
           <span>{item.label}</span>
