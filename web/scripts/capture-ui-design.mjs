@@ -16,7 +16,7 @@ const captures = [
   ["retrom-ui-play.png", "play", 2560, 1440],
   ["retrom-ui-play-portrait.png", "play", 2560, 1440, "portrait"],
   ["retrom-ui-play-4k.png", "play", 3840, 2160],
-  ["retrom-ui-play-native-controls.png", "play", 2560, 1440, "native-controls"],
+  ["retrom-ui-play-emulator-controls.png", "play", 2560, 1440, "emulator-controls"],
   ["retrom-ui-admin-import-overview-4k.png", "admin-import", 3840, 2160],
   ["retrom-ui-admin-import.png", "admin-import-new", 2560, 1440],
   ["retrom-ui-admin-import-new-4k.png", "admin-import-new", 3840, 2160],
@@ -80,7 +80,7 @@ try {
     if (variant === "drawer") await frame.locator("[data-open-platform-drawer]").click();
     if (variant === "dialog") await frame.locator("[data-preview-core]").first().click();
     if (variant === "portrait") await frame.locator(".rt-player-screen").evaluate((element) => element.classList.add("is-portrait"));
-    if (variant === "native-controls") {
+    if (variant === "emulator-controls") {
       await frame.locator("#rt-player-more").click();
       await frame.locator("[data-open-emulator-controls]").click();
     }

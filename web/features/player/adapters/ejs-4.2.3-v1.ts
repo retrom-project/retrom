@@ -26,7 +26,14 @@ export type PlayerConfig = {
 
 export type EmulatorInstance = {
   paused?: boolean;
+  volume?: number;
+  muted?: boolean;
+  setVolume?: (volume: number) => void;
   menu?: { close?: () => void; open?: (force?: boolean) => void; toggle?: () => void };
+  controlMenu?: HTMLElement;
+  settingsMenu?: HTMLElement;
+  settingsMenuOpen?: boolean;
+  closeSettingsMenu?: () => void;
   on: (event: string, callback: (...args: unknown[]) => void) => void;
   capture?: { photo?: { source?: string; format?: string; upscale?: number } };
   takeScreenshot?: (source: string, format: string, upscale: number) => Promise<{ blob: Blob; format: string }>;
