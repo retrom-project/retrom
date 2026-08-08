@@ -1383,7 +1383,7 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
 .player-toolbar.is-visible { opacity: 1; pointer-events: auto; transform: translateY(0); }
 .player-back, .player-control { min-height: 34px; border: 1px solid var(--player-line); border-radius: 8px; color: #edf0f5; background: #171d29; cursor: pointer; }
 .player-back:hover, .player-control:hover:not(:disabled) { border-color: #4b566b; background: #1c2432; }
-.player-back:focus-visible, .player-control:focus-visible, .player-menu button:focus-visible, .player-warning-dot:focus-visible { outline: 3px solid rgb(139 123 241 / 54%); outline-offset: 2px; }
+.player-back:focus-visible, .player-control:focus-visible, .player-menu button:focus-visible, .player-warning-dot:focus-visible, .player-emulator-toolbar button:focus-visible, .player-emulator-toolbar input:focus-visible { outline: 3px solid rgb(139 123 241 / 54%); outline-offset: 2px; }
 .player-back { width: 34px; padding: 0; flex: 0 0 auto; display: grid; place-items: center; }
 .player-back svg { width: 18px; height: 18px; }
 .player-game-meta { min-width: 0; max-width: min(34vw, 430px); display: flex; flex-direction: column; gap: 1px; }
@@ -1418,6 +1418,16 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
 .player-pause-pill svg { width: 29px; height: 29px; }
 .player-pause-pill strong { color: #d7dce5; font-size: 13px; }
 .player-pause-pill small { color: #929cad; font-size: 10px; font-weight: 650; }
+.player-emulator-toolbar { position: absolute; z-index: 18; left: 50%; bottom: 14px; width: min(620px, calc(100vw - 32px)); min-height: 52px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #dbe0e9; border: 1px solid var(--player-line); border-radius: 13px; background: rgb(16 22 32 / 94%); box-shadow: 0 18px 44px rgb(0 0 0 / 38%); opacity: 0; pointer-events: none; transform: translate(-50%, 120%); transition: opacity 180ms ease, transform 180ms ease; backdrop-filter: blur(12px); }
+.player-emulator-toolbar.is-open { opacity: 1; pointer-events: auto; transform: translate(-50%, 0); }
+.player-emulator-group { min-width: 0; display: flex; align-items: center; gap: 5px; }
+.player-emulator-label { margin: 0 4px; color: #8c96a8; font-size: 10px; white-space: nowrap; }
+.player-emulator-toolbar button { min-width: 38px; height: 34px; padding: 0 9px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: #dbe0e9; border: 0; border-radius: 8px; background: transparent; cursor: pointer; font-size: 11px; white-space: nowrap; }
+.player-emulator-toolbar button:hover:not(:disabled) { background: #263041; }
+.player-emulator-toolbar button:disabled { cursor: default; }
+.player-emulator-toolbar button > span { font-size: 14px; line-height: 1; }
+.player-emulator-volume { display: flex; align-items: center; gap: 5px; }
+.player-emulator-volume input { width: 84px; accent-color: #8b7bf1; cursor: pointer; }
 .player-toast { position: absolute; z-index: 50; top: 76px; left: 50%; min-width: 240px; max-width: min(420px, calc(100vw - 32px)); padding: 11px 14px; color: #eff2f6; border: 1px solid var(--player-line); border-radius: 10px; background: #151c28; box-shadow: 0 15px 36px rgb(0 0 0 / 32%); opacity: 0; pointer-events: none; transform: translateX(-50%) translateY(-10px); transition: opacity 180ms ease, transform 180ms ease; text-align: center; font-size: 12px; }
 .player-toast.is-visible { opacity: 1; transform: translateX(-50%); }
 .player-conflict { position: absolute; z-index: 45; top: 76px; left: 50%; width: min(620px, calc(100vw - 32px)); padding: 14px 15px; display: grid; grid-template-columns: 28px minmax(0, 1fr) auto; align-items: center; gap: 10px; color: #f1e8e2; border: 1px solid #775949; border-radius: 12px; background: #261f1b; box-shadow: 0 18px 42px rgb(0 0 0 / 35%); transform: translateX(-50%); }
@@ -1449,8 +1459,14 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
   .player-conflict { grid-template-columns: 28px minmax(0, 1fr); }
   .player-conflict-actions { grid-column: 2; }
 }
+@media (max-width: 680px) {
+  .player-emulator-toolbar { width: calc(100vw - 20px); min-height: 52px; padding: 7px 9px; gap: 6px; }
+  .player-emulator-label { display: none; }
+  .player-emulator-toolbar button { padding-inline: 7px; }
+  .player-emulator-volume input { width: 68px; }
+}
 @media (prefers-reduced-motion: reduce) {
-  .player-toolbar, .player-pause-overlay, .player-toast, .player-controls-hint { transition: none; }
+  .player-toolbar, .player-pause-overlay, .player-emulator-toolbar, .player-toast, .player-controls-hint { transition: none; }
   .player-sync-status.is-busy > i { animation: none; }
 }
 @keyframes spin { to { transform: rotate(360deg); } }

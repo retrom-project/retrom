@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import type { EmulatorSettingsPanel } from "./emulator-settings";
 
 type SyncTone = "synced" | "busy" | "warning";
 
@@ -19,12 +20,19 @@ export function PlayerChrome({
   toast,
   warnings,
   hasPersistentConflict,
+  emulatorToolbarOpen,
+  emulatorVolume,
+  emulatorMuted,
   onHoldControls,
   onReleaseControls,
   onSave,
   onPauseForToolbarInteraction,
   onToggleFullscreen,
   onOpenEmulatorSettings,
+  onCloseEmulatorSettings,
+  onOpenEmulatorPanel,
+  onChangeEmulatorVolume,
+  onToggleEmulatorMute,
   onExit,
   onDownloadConflict,
 }: {
@@ -40,12 +48,19 @@ export function PlayerChrome({
   toast: string;
   warnings: string[];
   hasPersistentConflict: boolean;
+  emulatorToolbarOpen: boolean;
+  emulatorVolume: number;
+  emulatorMuted: boolean;
   onHoldControls: () => void;
   onReleaseControls: () => void;
   onSave: () => void;
   onPauseForToolbarInteraction: () => void;
   onToggleFullscreen: () => void;
   onOpenEmulatorSettings: () => void;
+  onCloseEmulatorSettings: () => void;
+  onOpenEmulatorPanel: (panel: EmulatorSettingsPanel) => void;
+  onChangeEmulatorVolume: (volume: number) => void;
+  onToggleEmulatorMute: () => void;
   onExit: () => void;
   onDownloadConflict: () => void;
 }) {
@@ -75,9 +90,9 @@ export function PlayerChrome({
   }, [menuOpen]);
 
   useEffect(() => {
-    if (menuOpen || exitOpen) onHoldControls();
+    if (menuOpen || exitOpen || emulatorToolbarOpen) onHoldControls();
     else if (!toolbarHovered.current && !toolbarFocused.current) onReleaseControls();
-  }, [exitOpen, menuOpen, onHoldControls, onReleaseControls]);
+  }, [emulatorToolbarOpen, exitOpen, menuOpen, onHoldControls, onReleaseControls]);
 
   useEffect(() => {
     if (!localToast) return;
@@ -103,11 +118,11 @@ export function PlayerChrome({
       onBlurCapture={(event) => {
         if (event.relatedTarget instanceof Node && toolbarRef.current?.contains(event.relatedTarget)) return;
         toolbarFocused.current = false;
-        if (!menuOpen && !exitOpen) onReleaseControls();
+        if (!menuOpen && !exitOpen && !emulatorToolbarOpen) onReleaseControls();
       }}
       onFocusCapture={() => { toolbarFocused.current = true; onHoldControls(); }}
       onPointerEnter={() => { toolbarHovered.current = true; onHoldControls(); }}
-      onPointerLeave={() => { toolbarHovered.current = false; if (!menuOpen && !exitOpen) onReleaseControls(); }}
+      onPointerLeave={() => { toolbarHovered.current = false; if (!menuOpen && !exitOpen && !emulatorToolbarOpen) onReleaseControls(); }}
       onPointerMove={(event) => event.stopPropagation()}
     >
       <button className="player-back" type="button" aria-label="返回并退出游戏" title="返回并退出游戏" onClick={requestExit}>
@@ -142,6 +157,39 @@ export function PlayerChrome({
     <div className={`player-pause-overlay${paused ? " is-visible" : ""}`} aria-hidden={!paused}>
       <div className="player-pause-pill"><AppIcon name="pause" /><strong>已暂停</strong><small>点击游戏画面继续</small></div>
     </div>
+
+    <section
+      className={`player-emulator-toolbar${emulatorToolbarOpen ? " is-open" : ""}`}
+      aria-label="模拟器设置工具栏"
+      aria-hidden={!emulatorToolbarOpen}
+      onFocusCapture={onHoldControls}
+      onPointerEnter={onHoldControls}
+    >
+      <div className="player-emulator-group">
+        <span className="player-emulator-label">模拟器</span>
+        <button type="button" disabled={!emulatorToolbarOpen} onClick={() => onOpenEmulatorPanel("controls")}><span aria-hidden="true">🎮</span>控制</button>
+        <button type="button" disabled={!emulatorToolbarOpen} onClick={() => onOpenEmulatorPanel("display")}><span aria-hidden="true">▤</span>显示</button>
+        <button type="button" disabled={!emulatorToolbarOpen} onClick={() => onOpenEmulatorPanel("core")}><span aria-hidden="true">⚙</span>Core 设置</button>
+      </div>
+      <div className="player-emulator-group">
+        <label className="player-emulator-volume">
+          <span className="player-emulator-label">音量</span>
+          <input
+            type="range"
+            min="0"
+            max="100"
+            step="1"
+            value={Math.round(emulatorVolume * 100)}
+            aria-label="模拟器音量"
+            aria-valuetext={emulatorMuted ? `已静音，音量 ${Math.round(emulatorVolume * 100)}%` : `${Math.round(emulatorVolume * 100)}%`}
+            disabled={!emulatorToolbarOpen}
+            onChange={(event) => onChangeEmulatorVolume(Number(event.currentTarget.value) / 100)}
+          />
+        </label>
+        <button type="button" disabled={!emulatorToolbarOpen} aria-label={emulatorMuted ? "取消静音" : "静音"} aria-pressed={emulatorMuted} onClick={onToggleEmulatorMute}><span aria-hidden="true">{emulatorMuted ? "🔇" : "🔊"}</span></button>
+        <button type="button" disabled={!emulatorToolbarOpen} onClick={onCloseEmulatorSettings}>收起</button>
+      </div>
+    </section>
 
     {!conflictDismissed && hasPersistentConflict ? <aside className="player-conflict" role="alert">
       <span className="player-conflict-mark" aria-hidden="true">!</span>

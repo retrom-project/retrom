@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { newUuid, sha256 } from "@/lib/crypto";
 import { captureManualScreenshot, captureManualState, mountEmulatorJS, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v1";
 import { installCanvasContain } from "./canvas-fit";
+import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
 import { setEmulatorPaused } from "./pause-control";
 import { PlayerChrome } from "./player-chrome";
 
@@ -41,6 +42,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [controlsVisible, setControlsVisible] = useState(true);
   const [paused, setPaused] = useState(false);
   const [fullscreen, setFullscreen] = useState(false);
+  const [emulatorToolbarOpen, setEmulatorToolbarOpen] = useState(false);
+  const [emulatorVolume, setEmulatorVolume] = useState(0.5);
+  const [emulatorMuted, setEmulatorMuted] = useState(false);
   const returnTo = useRef("/library");
   const sequence = useRef(0);
   const started = useRef(false);
@@ -58,6 +62,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const pauseCapture = useRef<Promise<ManualScreenshot | null>>(Promise.resolve(null));
   const lastManualScreenshot = useRef<ManualScreenshot | null>(null);
   const chromePinned = useRef(false);
+  const lastAudibleVolume = useRef(0.5);
 
   const clearControlsTimer = useCallback(() => {
     if (controlsTimer.current !== null) window.clearTimeout(controlsTimer.current);
@@ -291,7 +296,17 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         frameDocument.documentElement.lang = "zh-CN";
         frameDocument.documentElement.classList.add("retrom-native-menu-locked");
         const style = frameDocument.createElement("style");
-        style.textContent = "html,body,#game,#retrom-emulator,.ejs_parent,.ejs_game,.ejs_canvas_parent{width:100%;height:100%;margin:0;overflow:hidden;background:#05060a}.ejs_canvas_parent{display:grid!important;place-items:center!important}canvas{display:block;max-width:none!important;max-height:none!important}html.retrom-native-menu-locked .ejs_menu_bar{visibility:hidden!important;opacity:0!important;pointer-events:none!important}";
+        style.textContent = `
+html,body,#game,#retrom-emulator,.ejs_parent,.ejs_game,.ejs_canvas_parent{width:100%;height:100%;margin:0;overflow:hidden;background:#05060a}
+.ejs_canvas_parent{display:grid!important;place-items:center!important}
+canvas{display:block;max-width:none!important;max-height:none!important}
+html.retrom-native-menu-locked:not(.retrom-native-settings-open) .ejs_menu_bar{visibility:hidden!important;opacity:0!important;pointer-events:none!important}
+html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar{border:0!important;background:transparent!important;box-shadow:none!important;pointer-events:none!important}
+html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar>*{visibility:hidden!important;pointer-events:none!important}
+html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar>:has(>.ejs_settings_parent){visibility:visible!important}
+html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar>:has(>.ejs_settings_parent)>.ejs_menu_button{visibility:hidden!important;pointer-events:none!important}
+html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_settings_parent{visibility:visible!important;pointer-events:auto!important}
+`;
         frameDocument.head.append(style);
         const target = frameDocument.createElement("div");
         target.id = "game";
@@ -318,6 +333,10 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         cleanup = mountEmulatorJS(config, target, {
           onReady: (instance) => {
             emulator.current = instance;
+            const initialVolume = Math.min(1, Math.max(0, typeof instance.volume === "number" ? instance.volume : 0.5));
+            setEmulatorVolume(initialVolume);
+            setEmulatorMuted(instance.muted === true || initialVolume === 0);
+            if (initialVolume > 0) lastAudibleVolume.current = initialVolume;
             const nativeMenu = frameDocument.querySelector<HTMLElement>(".ejs_menu_bar");
             if (nativeMenu) {
               nativeMenuObserver = new MutationObserver(() => {
@@ -377,6 +396,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     void bootstrap();
     return () => {
       controller.abort(); cleanup?.(); canvasContain?.cleanup(); cleanupFrameControls?.();
+      closeEmulatorSettingsPanels(emulator.current);
       nativeMenuObserver?.disconnect();
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
@@ -442,15 +462,57 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }
 
   function openEmulatorSettings() {
-    const menu = emulator.current?.menu;
-    const frameDocument = frameRef.current?.contentDocument;
-    if (!menu?.open || !frameDocument) {
+    if (!emulator.current || state !== "running") {
       showToast("模拟器设置尚未准备好，请稍后再试。", 3_000);
       return;
     }
-    frameDocument.documentElement.classList.remove("retrom-native-menu-locked");
-    menu.open();
-    showToast("已显示 EmulatorJS 工具栏");
+    setEmulatorToolbarOpen(true);
+    holdControls();
+  }
+
+  function closeEmulatorSettings() {
+    closeEmulatorSettingsPanels(emulator.current);
+    setEmulatorToolbarOpen(false);
+    releaseControls();
+  }
+
+  function openEmulatorPanel(panel: EmulatorSettingsPanel) {
+    const current = emulator.current;
+    if (!current || !openEmulatorSettingsPanel(current, panel)) {
+      showToast("当前模拟器未提供这项设置。", 3_000);
+      return;
+    }
+    holdControls();
+  }
+
+  function changeEmulatorVolume(volume: number) {
+    const current = emulator.current;
+    if (!current) return;
+    const normalized = Math.min(1, Math.max(0, volume));
+    current.volume = normalized;
+    current.muted = normalized === 0;
+    current.setVolume?.(normalized);
+    setEmulatorVolume(normalized);
+    setEmulatorMuted(normalized === 0);
+    if (normalized > 0) lastAudibleVolume.current = normalized;
+  }
+
+  function toggleEmulatorMute() {
+    const current = emulator.current;
+    if (!current) return;
+    if (emulatorMuted) {
+      const restored = Math.min(1, Math.max(0.01, lastAudibleVolume.current));
+      current.volume = restored;
+      current.muted = false;
+      current.setVolume?.(restored);
+      setEmulatorVolume(restored);
+      setEmulatorMuted(false);
+      return;
+    }
+    if (emulatorVolume > 0) lastAudibleVolume.current = emulatorVolume;
+    current.muted = true;
+    current.setVolume?.(0);
+    setEmulatorMuted(true);
   }
 
   return (
@@ -468,12 +530,19 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         toast={toast}
         warnings={warnings}
         hasPersistentConflict={hasPersistentConflict}
+        emulatorToolbarOpen={emulatorToolbarOpen}
+        emulatorVolume={emulatorVolume}
+        emulatorMuted={emulatorMuted}
         onHoldControls={holdControls}
         onReleaseControls={releaseControls}
         onSave={() => void saveManualState()}
         onPauseForToolbarInteraction={pauseForToolbarInteraction}
         onToggleFullscreen={() => void toggleFullscreen()}
         onOpenEmulatorSettings={openEmulatorSettings}
+        onCloseEmulatorSettings={closeEmulatorSettings}
+        onOpenEmulatorPanel={openEmulatorPanel}
+        onChangeEmulatorVolume={changeEmulatorVolume}
+        onToggleEmulatorMute={toggleEmulatorMute}
         onExit={() => void exit()}
         onDownloadConflict={downloadConflictingSave}
       />

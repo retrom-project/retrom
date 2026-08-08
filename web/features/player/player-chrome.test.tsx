@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PlayerChrome } from "./player-chrome";
@@ -19,12 +19,19 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     toast: "",
     warnings: [],
     hasPersistentConflict: false,
+    emulatorToolbarOpen: false,
+    emulatorVolume: 0.72,
+    emulatorMuted: false,
     onHoldControls: vi.fn(),
     onReleaseControls: vi.fn(),
     onSave: vi.fn(),
     onPauseForToolbarInteraction: vi.fn(),
     onToggleFullscreen: vi.fn(),
     onOpenEmulatorSettings: vi.fn(),
+    onCloseEmulatorSettings: vi.fn(),
+    onOpenEmulatorPanel: vi.fn(),
+    onChangeEmulatorVolume: vi.fn(),
+    onToggleEmulatorMute: vi.fn(),
     onExit: vi.fn(),
     onDownloadConflict: vi.fn(),
     ...overrides,
@@ -65,6 +72,27 @@ describe("PlayerChrome", () => {
     expect(values.onPauseForToolbarInteraction).toHaveBeenCalledOnce();
     expect(values.onSave).toHaveBeenCalledOnce();
     expect(calls).toEqual(["pause", "save"]);
+  });
+
+  it("renders the Retrom emulator toolbar without a native exit action", async () => {
+    const user = userEvent.setup();
+    const values = props({ emulatorToolbarOpen: true });
+    render(<PlayerChrome {...values} />);
+
+    const toolbar = screen.getByRole("region", { name: "模拟器设置工具栏" });
+    expect(toolbar).toBeVisible();
+    expect(screen.getByRole("button", { name: "控制" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "显示" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "Core 设置" })).toBeVisible();
+    expect(screen.getByRole("slider", { name: "模拟器音量" })).toHaveValue("72");
+    expect(within(toolbar).queryByRole("button", { name: /退出/ })).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "显示" }));
+    expect(values.onOpenEmulatorPanel).toHaveBeenCalledWith("display");
+    await user.click(screen.getByRole("button", { name: "静音" }));
+    expect(values.onToggleEmulatorMute).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: "收起" }));
+    expect(values.onCloseEmulatorSettings).toHaveBeenCalledOnce();
   });
 
   it("requires exit confirmation and preserves the local-save conflict actions", async () => {

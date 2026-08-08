@@ -1190,11 +1190,14 @@
     #retrom-ui-review .rt-player-menu button { min-height: 35px; padding: 0 10px; color: #e7ebf2; border: 0; border-radius: 7px; background: transparent; text-align: left; }
     #retrom-ui-review .rt-player-menu .is-danger { color: #ff9ca7; }
     #retrom-ui-review .rt-player-menu hr { width: 100%; border: 0; border-top: 1px solid #30394a; }
-    #retrom-ui-review .rt-player-native-controls { position: absolute; z-index: 4; inset: auto 0 0; min-height: 54px; padding: 10px 14px; display: flex; align-items: center; gap: 7px; color: #dce2eb; background: linear-gradient(180deg, rgb(0 0 0 / 0%), rgb(0 0 0 / 86%)); opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(100%); transition: opacity .2s ease, transform .2s ease; }
-    #retrom-ui-review .rt-player-native-controls.is-open { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
-    #retrom-ui-review .rt-player-native-controls button { min-height: 31px; padding: 0 9px; color: inherit; border: 0; border-radius: 6px; background: transparent; font-size: 9px; }
-    #retrom-ui-review .rt-player-native-controls button:hover { background: rgb(255 255 255 / 12%); }
-    #retrom-ui-review .rt-player-native-spacer { flex: 1; }
+    #retrom-ui-review .rt-player-emulator-controls { position: absolute; z-index: 4; left: 50%; bottom: 14px; width: min(620px, calc(100vw - 32px)); min-height: 52px; padding: 8px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: #dbe0e9; border: 1px solid #343d4f; border-radius: 13px; background: rgb(16 22 32 / 94%); box-shadow: 0 18px 44px rgb(0 0 0 / 38%); opacity: 0; visibility: hidden; pointer-events: none; transform: translate(-50%, 120%); transition: opacity .18s ease, transform .18s ease; backdrop-filter: blur(12px); }
+    #retrom-ui-review .rt-player-emulator-controls.is-open { opacity: 1; visibility: visible; pointer-events: auto; transform: translate(-50%, 0); }
+    #retrom-ui-review .rt-player-emulator-group { display: flex; align-items: center; gap: 5px; }
+    #retrom-ui-review .rt-player-emulator-label { margin: 0 4px; color: #8c96a8; font-size: 9px; white-space: nowrap; }
+    #retrom-ui-review .rt-player-emulator-controls button { min-width: 38px; min-height: 34px; padding: 0 9px; display: inline-flex; align-items: center; gap: 6px; color: inherit; border: 0; border-radius: 8px; background: transparent; font-size: 9px; }
+    #retrom-ui-review .rt-player-emulator-controls button:hover { background: #263041; }
+    #retrom-ui-review .rt-player-emulator-volume { display: flex; align-items: center; gap: 5px; }
+    #retrom-ui-review .rt-player-emulator-volume input { width: 84px; accent-color: #8b7bf1; }
     #retrom-ui-review .rt-player-pause-overlay { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 22%); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s ease; }
     #retrom-ui-review .rt-player-pause-overlay.is-open { opacity: 1; visibility: visible; }
     #retrom-ui-review .rt-player-pause-pill { min-width: 150px; padding: 18px 24px; display: grid; justify-items: center; gap: 7px; border: 1px solid #343d4f; border-radius: 15px; background: rgb(17 23 34 / 88%); box-shadow: 0 18px 48px rgb(0 0 0 / 35%); }
@@ -1495,7 +1498,7 @@
             &lt;div class=&quot;rt-player-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control&quot;&gt;&lt;i data-lucide=&quot;save&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;创建存档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; aria-label=&quot;暂停&quot;&gt;&lt;i data-lucide=&quot;pause&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; id=&quot;rt-enter-fullscreen&quot; aria-label=&quot;全屏&quot;&gt;&lt;i data-lucide=&quot;maximize&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-menu-wrap&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-player-control is-icon&quot; id=&quot;rt-player-more&quot; aria-label=&quot;更多操作&quot;&gt;&lt;i data-lucide=&quot;ellipsis&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;div class=&quot;rt-player-menu&quot; id=&quot;rt-player-menu&quot;&gt;&lt;button type=&quot;button&quot; data-open-emulator-controls&gt;模拟器设置&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;查看快捷键&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;查看运行提醒&lt;/button&gt;&lt;hr&gt;&lt;button type=&quot;button&quot; class=&quot;is-danger&quot; data-player-exit&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;/div&gt;
           &lt;div class=&quot;rt-player-pause-overlay&quot; id=&quot;rt-player-pause-overlay&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-pause-pill&quot;&gt;&lt;i data-lucide=&quot;pause&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;strong&gt;已暂停&lt;/strong&gt;&lt;small&gt;点击游戏画面继续&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;
-          &lt;div class=&quot;rt-player-native-controls&quot; id=&quot;rt-player-native-controls&quot; aria-hidden=&quot;true&quot;&gt;&lt;button type=&quot;button&quot;&gt;重新开始&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;暂停&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;保存状态&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;加载状态&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;控制设置&lt;/button&gt;&lt;span class=&quot;rt-player-native-spacer&quot;&gt;&lt;/span&gt;&lt;button type=&quot;button&quot;&gt;静音&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;设置&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;全屏&lt;/button&gt;&lt;/div&gt;
+          &lt;div class=&quot;rt-player-emulator-controls&quot; id=&quot;rt-player-emulator-controls&quot; aria-hidden=&quot;true&quot;&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;模拟器&lt;/span&gt;&lt;button type=&quot;button&quot;&gt;🎮 控制&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;▤ 显示&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;⚙ Core 设置&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-player-emulator-group&quot;&gt;&lt;label class=&quot;rt-player-emulator-volume&quot;&gt;&lt;span class=&quot;rt-player-emulator-label&quot;&gt;音量&lt;/span&gt;&lt;input type=&quot;range&quot; min=&quot;0&quot; max=&quot;100&quot; value=&quot;72&quot; aria-label=&quot;模拟器音量&quot;&gt;&lt;/label&gt;&lt;button type=&quot;button&quot; aria-label=&quot;静音&quot;&gt;🔊&lt;/button&gt;&lt;button type=&quot;button&quot; data-close-emulator-controls&gt;收起&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-player-hint&quot;&gt;移动鼠标显示 Retrom 控制&lt;/div&gt;
           &lt;span class=&quot;rt-player-stage-state&quot; id=&quot;rt-player-stage-state&quot;&gt;一次点击后已自动运行&lt;/span&gt;
         &lt;/div&gt;
@@ -2050,17 +2053,16 @@
         playerPauseOverlay.setAttribute('aria-hidden', 'true');
       });
       root.querySelector('#rt-player-more').addEventListener('click', () =&gt; root.querySelector('#rt-player-menu').classList.toggle('is-open'));
-      let emulatorControlsTimer;
       root.querySelector('[data-open-emulator-controls]').addEventListener('click', () =&gt; {
-        const controls = root.querySelector('#rt-player-native-controls');
+        const controls = root.querySelector('#rt-player-emulator-controls');
         root.querySelector('#rt-player-menu').classList.remove('is-open');
         controls.classList.add('is-open');
         controls.setAttribute('aria-hidden', 'false');
-        window.clearTimeout(emulatorControlsTimer);
-        emulatorControlsTimer = window.setTimeout(() =&gt; {
-          controls.classList.remove('is-open');
-          controls.setAttribute('aria-hidden', 'true');
-        }, 3000);
+      });
+      root.querySelector('[data-close-emulator-controls]').addEventListener('click', () =&gt; {
+        const controls = root.querySelector('#rt-player-emulator-controls');
+        controls.classList.remove('is-open');
+        controls.setAttribute('aria-hidden', 'true');
       });
       const playerExitDialog = root.querySelector('[data-player-exit-dialog]');
       root.querySelectorAll('[data-player-exit]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
