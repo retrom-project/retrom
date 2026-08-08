@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { type FormEvent, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -8,8 +8,8 @@ import { FeedbackBanner, StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
 import { formatTime } from "@/lib/backend";
 import { newUuid } from "@/lib/crypto";
-import { statusTone } from "@/lib/status";
 import { responseError, uploadFiles, uploadOne, waitForJob } from "@/lib/upload";
+import { formatAdminGameTime, runtimePresentation } from "./admin-game-library";
 
 type Revision = { id: string; sourceKind: string; sourceRefId: string | null; current: boolean; createdAtMs: number };
 type ContentRevision = Revision & { files: Array<{ role: string; logicalName: string; sortOrder: number }> };
@@ -20,12 +20,12 @@ type Asset = { assetId: string; kind: string; ordinal: number; widthPx: number; 
 export type AdminGame = {
   gameId: string; status: string; title: string; description: string; developer: string; publisher: string; genre: string;
   players: number | null; releaseYear: number | null; platformId: string; platformInstance: { id: string; name: string };
-  currentContentRevisionId: string; currentMetadataRevisionId: string; version: number; updatedAtMs: number;
+  currentContentRevisionId: string; currentMetadataRevisionId: string; version: number; createdAtMs: number; updatedAtMs: number; generatedAtMs: number;
   deleteImpact: { saveStateCount: number; reviewEventCount: number; activeLaunchCount: number };
   metadataRevisions: Revision[]; assets: Asset[]; contentRevisions: ContentRevision[]; variants: Variant[];
 };
 
-export type PlatformInstanceOption = { id: string; platformId: string; name: string; defaultCoreName: string; enabled: boolean };
+export type PlatformInstanceOption = { id: string; platformId: string; platformName: string; name: string; defaultCoreId: string; defaultCoreName: string; enabled: boolean };
 export type ScrapeCandidate = { candidateId: string; providerGameId: string; metadata: Record<string, unknown>; hitCount: number };
 type MoveImpact = { impactDigest: string; impact: { targetCoreId: string; variantStatus: string; blockerCodes: string[] } };
 type PendingMove = { targetPlatformInstanceId: string; targetName: string; result: MoveImpact };
@@ -38,6 +38,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
+  const [moveTarget, setMoveTarget] = useState("");
 
   async function action(name: string, callback: () => Promise<string>) {
     setBusy(name); setNotice(""); setError("");
@@ -63,10 +64,10 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
     });
   }
 
-  async function replaceAsset(file: File, kind: string) {
+  async function replaceAsset(file: File, kind: string, ordinal: number) {
     await action("asset", async () => {
       const uploaded = await uploadOne(file, setNotice);
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}/assets`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind, ordinal: 0 }) });
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/assets`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind, ordinal }) });
       if (!response.ok) throw new Error(await responseError(response, "媒体替换失败"));
       const result = await response.json() as { assetId: string; metadataRevisionId: string };
       return result.assetId && result.metadataRevisionId ? "图片已更新，旧版本仍会保留。" : "图片已更新。";
@@ -151,16 +152,62 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
     });
   }
 
+  const currentInstance = platformInstances.find((item) => item.id === game.platformInstance.id);
+  const currentContent = game.contentRevisions.find((revision) => revision.current) ?? game.contentRevisions[0];
+  const currentFile = currentContent?.files[0]?.logicalName ?? "尚无游戏文件";
+  const currentVariant = game.variants.find((variant) => variant.coreId === currentInstance?.defaultCoreId) ?? game.variants[0];
+  const currentRuntime = currentVariant?.revisions.find((revision) => revision.current) ?? currentVariant?.revisions[0];
+  const runtime = runtimePresentation(currentRuntime?.status ?? null);
+  const cover = game.assets.find((asset) => asset.kind === "COVER");
+  const background = game.assets.find((asset) => asset.kind === "BACKGROUND");
+  const screenshots = game.assets.filter((asset) => asset.kind === "SCREENSHOT").sort((left, right) => left.ordinal - right.ordinal);
+  const nextScreenshotOrdinal = Math.min(31, Math.max(-1, ...screenshots.map((asset) => asset.ordinal)) + 1);
+  const metadataComplete = Boolean(game.description.trim() && game.developer.trim() && game.publisher.trim() && game.genre.trim() && game.players && game.releaseYear);
   const moveTargets = platformInstances.filter((item) => item.enabled && item.platformId === game.platformId && item.id !== game.platformInstance.id);
-  return <div className="stack">
-    {notice ? <FeedbackBanner tone="good">{notice}</FeedbackBanner> : null}
-    {error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : null}
-    <div className="admin-workbench">
-      <section className="panel"><div className="panel-head"><div><StatusBadge tone="info">信息版本 · {game.metadataRevisions.length}</StatusBadge><h2>发布信息</h2></div></div><form className="panel-body form-grid" onSubmit={(event) => void saveMetadata(event)}><div className="field full"><label htmlFor="game-title">标题</label><input id="game-title" name="title" defaultValue={game.title} required maxLength={200} /></div><div className="field full"><label htmlFor="game-description">简介</label><textarea id="game-description" name="description" defaultValue={game.description} maxLength={10000} /></div><div className="field"><label htmlFor="game-developer">开发商</label><input id="game-developer" name="developer" defaultValue={game.developer} maxLength={200} /></div><div className="field"><label htmlFor="game-publisher">发行商</label><input id="game-publisher" name="publisher" defaultValue={game.publisher} maxLength={200} /></div><div className="field"><label htmlFor="game-genre">类型</label><input id="game-genre" name="genre" defaultValue={game.genre} maxLength={200} /></div><div className="field"><label htmlFor="game-players">玩家数</label><input id="game-players" name="players" type="number" min={1} max={64} defaultValue={game.players ?? ""} /></div><div className="field"><label htmlFor="game-year">发行年份</label><input id="game-year" name="releaseYear" type="number" min={1950} defaultValue={game.releaseYear ?? ""} /></div><div className="field"><button className="button" disabled={busy !== null || game.status !== "PUBLISHED"}>保存并创建新版本</button></div></form><details className="revision-list technical-details"><summary>查看版本历史</summary>{game.metadataRevisions.map((revision) => <small key={revision.id}>{revision.current ? "● 当前" : "○ 历史"} · {formatTime(revision.createdAtMs)} · {revision.id}</small>)}</details></section>
-      <section className="panel"><div className="panel-head"><div><StatusBadge tone="info">媒体资源</StatusBadge><h2>媒体</h2></div></div><div className="panel-body"><div className="asset-grid">{game.assets.map((asset) => <figure key={asset.assetId}><Image src={asset.url} alt={`${game.title} ${asset.kind}`} width={asset.widthPx} height={asset.heightPx} unoptimized /><figcaption>{asset.kind === "COVER" ? "封面" : asset.kind === "BACKGROUND" ? "背景" : "游戏截图"} · {asset.widthPx}×{asset.heightPx}</figcaption></figure>)}</div><div className="form-grid"><label className="field">媒体类型<select id="asset-kind" defaultValue="COVER"><option value="COVER">封面</option><option value="BACKGROUND">背景</option><option value="SCREENSHOT">游戏截图</option></select></label><div className="field"><span className="field-label">替换图片</span><input id="game-asset-file" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null || game.status !== "PUBLISHED"} onChange={(event) => { const file = event.target.files?.[0]; const kind = (document.getElementById("asset-kind") as HTMLSelectElement | null)?.value ?? "COVER"; if (file) void replaceAsset(file, kind); }} /><label className="button secondary" aria-disabled={busy !== null || game.status !== "PUBLISHED"} htmlFor="game-asset-file">选择图片</label></div></div></div></section>
-      <section className="panel"><div className="panel-head"><div><StatusBadge tone="good">运行快照</StatusBadge><h2>游戏内容与运行环境</h2></div></div><div className="panel-body"><div className="field"><span className="field-label">替换游戏文件（DOS 游戏可多选）</span><input id="game-content-files" hidden type="file" multiple disabled={busy !== null || game.status !== "PUBLISHED"} onChange={(event) => { const files = Array.from(event.target.files ?? []); if (files.length) void replaceContent(files); }} /><label className="button secondary" aria-disabled={busy !== null || game.status !== "PUBLISHED"} htmlFor="game-content-files">选择游戏文件</label></div>{game.contentRevisions.map((revision) => <details key={revision.id} open={revision.current}><summary>{revision.current ? "● 当前内容" : "○ 历史内容"} · {formatTime(revision.createdAtMs)}</summary><ul>{revision.files.map((file) => <li key={`${file.role}-${file.logicalName}`}>{file.logicalName}</li>)}</ul><details className="technical-details"><summary>技术详情</summary><code>{revision.id}</code></details></details>)}{game.variants.map((variant) => <details key={variant.id} open><summary>{variant.coreName} · 运行记录</summary>{variant.revisions.map((revision) => <div key={revision.id}><StatusBadge tone={statusTone(revision.status)}>{revision.current ? "当前 · " : "历史 · "}{revision.status === "READY" ? "可以运行" : "需要处理"}</StatusBadge><details className="technical-details"><summary>技术详情</summary><code>{revision.id} · {revision.coreArtifactId} · {revision.datVersionId ?? "无 DAT"}</code></details></div>)}</details>)}</div></section>
-      <section className="panel"><div className="panel-head"><div><StatusBadge tone="warn">需确认</StatusBadge><h2>管理操作</h2></div></div><div className="panel-body stack"><button className="button secondary" type="button" disabled={busy !== null || game.status !== "PUBLISHED"} onClick={() => void rescrape()}>重新查找游戏信息</button>{candidates.map((candidate) => <div className="candidate" key={candidate.candidateId}><strong>{String(candidate.metadata.title ?? candidate.providerGameId)}</strong><p>在线信息候选 · {candidate.hitCount} 条证据命中</p><details className="technical-details"><summary>查看原始信息</summary><pre>{JSON.stringify(candidate.metadata, null, 2)}</pre></details><button className="button secondary" disabled={busy !== null} onClick={() => void applyCandidate(candidate)}>采用可用文字信息</button></div>)}{moveTargets.length ? <label className="field">移动到其他游戏目录<select disabled={busy !== null || game.status !== "PUBLISHED"} defaultValue="" onChange={(event) => { if (event.target.value) void previewMove(event.target.value); }}><option value="" disabled>选择目录并预览影响…</option>{moveTargets.map((item) => <option value={item.id} key={item.id}>{item.name} · 推荐 {item.defaultCoreName}</option>)}</select></label> : <p>没有其他同游戏平台目录可移动。</p>}<form onSubmit={(event) => { event.preventDefault(); void remove(String(new FormData(event.currentTarget).get("confirmTitle") ?? "")); }}><label className="field">输入“{game.title}”确认移出游戏库<input name="confirmTitle" autoComplete="off" disabled={busy !== null || game.status !== "PUBLISHED"} /></label><p>存档与审核历史会保留；当前有 {game.deleteImpact.activeLaunchCount} 个活动游戏会话。</p><details className="technical-details"><summary>查看完整影响</summary><p>{game.deleteImpact.saveStateCount} 个存档、{game.deleteImpact.reviewEventCount} 条审核历史。</p></details><button className="button danger" disabled={busy !== null || game.status !== "PUBLISHED"}>从游戏库移除</button></form></div></section>
+  const disabled = busy !== null || game.status !== "PUBLISHED";
+
+  return <div className="admin-game-detail">
+    {notice || error ? <div className="admin-game-toast">{error ? <FeedbackBanner tone="bad">{error}</FeedbackBanner> : <FeedbackBanner tone="good">{notice}</FeedbackBanner>}</div> : null}
+    <section className="admin-game-hero">
+      <div className="admin-game-hero-cover">{cover ? <Image src={cover.url} alt={`${game.title} 封面`} fill sizes="102px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span>}</div>
+      <div className="admin-game-hero-copy"><h2>{game.title}</h2><p>{currentInstance?.platformName ?? game.platformId} · {game.platformInstance.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}{game.developer ? ` · ${game.developer}` : ""}</p><div><StatusBadge tone={game.status === "PUBLISHED" ? "good" : "bad"}>{game.status === "PUBLISHED" ? "用户可见" : "用户不可见"}</StatusBadge><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge><StatusBadge tone={metadataComplete ? "info" : "warn"}>{metadataComplete ? "资料完整" : "资料待补充"}</StatusBadge></div></div>
+      <div className="admin-game-hero-update"><span>最近更新</span><strong>{formatAdminGameTime(game.updatedAtMs, game.generatedAtMs)}</strong><small>{game.metadataRevisions.length} 个信息版本 · {game.contentRevisions.length} 个内容版本</small></div>
+    </section>
+
+    <nav className="admin-game-section-nav" aria-label="游戏管理详情分区"><a href="#admin-game-basic">基本信息</a><a href="#admin-game-media">媒体</a><a href="#admin-game-runtime">游戏文件与运行</a><a href="#admin-game-actions">管理操作</a></nav>
+
+    <section className="admin-game-overview" aria-label="游戏概览">
+      <div><span>所属目录</span><strong>{game.platformInstance.name}</strong></div><div><span>推荐运行方式</span><strong>{currentInstance?.defaultCoreName ?? currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>当前游戏文件</span><strong>{currentFile}</strong></div><div><span>最后运行验证</span><strong>{formatTime(currentRuntime?.createdAtMs)}</strong></div><div><span>关联存档</span><strong>{game.deleteImpact.saveStateCount} 份</strong></div>
+    </section>
+
+    <div className="admin-game-primary-grid">
+      <section className="panel admin-game-publish" id="admin-game-basic"><div className="panel-head"><h2>发布信息</h2></div><form className="panel-body admin-game-publish-form" onSubmit={(event) => void saveMetadata(event)}>
+        <label className="full">标题<input name="title" defaultValue={game.title} required maxLength={200} /></label>
+        <label className="full">简介<textarea name="description" defaultValue={game.description} maxLength={10000} /></label>
+        <label>开发商<input name="developer" defaultValue={game.developer} maxLength={200} /></label><label>发行商<input name="publisher" defaultValue={game.publisher} maxLength={200} /></label>
+        <label>类型<input name="genre" defaultValue={game.genre} maxLength={200} /></label><label>玩家数<input name="players" type="number" min={1} max={64} defaultValue={game.players ?? ""} /></label>
+        <label>发行年份<input name="releaseYear" type="number" min={1950} defaultValue={game.releaseYear ?? ""} /></label><label>平台<input value={currentInstance?.platformName ?? game.platformId} readOnly aria-readonly="true" /></label>
+        <div className="admin-game-savebar full"><span>上次保存：{formatAdminGameTime(game.updatedAtMs, game.generatedAtMs)}</span><div><details><summary>查看版本历史</summary><div>{game.metadataRevisions.map((revision) => <small key={revision.id}>{revision.current ? "● 当前" : "○ 历史"} · {formatTime(revision.createdAtMs)} · {revision.sourceKind}</small>)}</div></details><button className="button" disabled={disabled}>保存新版本</button></div></div>
+      </form></section>
+
+      <section className="panel admin-game-media" id="admin-game-media"><div className="panel-head"><h2>媒体</h2></div><div className="panel-body admin-game-media-grid">
+        <article className="admin-game-cover-slot"><h3>封面</h3><div>{cover ? <Image src={cover.url} alt={`${game.title} 封面`} fill sizes="180px" unoptimized /> : <span>暂无封面</span>}</div><footer>{cover ? `${cover.widthPx}×${cover.heightPx}` : "建议使用 3:4 图片"}<input id="admin-cover-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "COVER", 0); }} /><label aria-disabled={disabled} htmlFor="admin-cover-upload">{cover ? "替换" : "添加"}</label></footer></article>
+        <div className="admin-game-other-media"><article className="admin-game-background-slot"><h3>背景图</h3><div>{background ? <Image src={background.url} alt={`${game.title} 背景图`} fill sizes="360px" unoptimized /> : <span><strong>暂无背景图</strong><small>添加一张用于用户详情页</small></span>}</div><input id="admin-background-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "BACKGROUND", 0); }} /><label aria-disabled={disabled} htmlFor="admin-background-upload">{background ? "替换背景" : "＋ 添加背景"}</label></article>
+          <div className="admin-game-screenshots"><h3>游戏截图</h3><div>{screenshots.slice(0, 2).map((asset) => <article key={asset.assetId}><Image src={asset.url} alt={`${game.title} 游戏截图 ${asset.ordinal + 1}`} fill sizes="130px" unoptimized /><input id={`admin-shot-${asset.ordinal}`} hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "SCREENSHOT", asset.ordinal); }} /><label aria-disabled={disabled} htmlFor={`admin-shot-${asset.ordinal}`}>替换截图 {asset.ordinal + 1}</label></article>)}<article className="add"><input id="admin-screenshot-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled || screenshots.length >= 32} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "SCREENSHOT", nextScreenshotOrdinal); }} /><label aria-disabled={disabled || screenshots.length >= 32} htmlFor="admin-screenshot-upload">＋ 添加截图</label></article></div></div>
+        </div>
+      </div></section>
     </div>
+
+    <section className="panel admin-game-runtime" id="admin-game-runtime"><div className="panel-head"><h2>游戏文件与运行环境</h2></div><div className="panel-body"><div className="admin-game-runtime-grid"><div><span>当前游戏文件</span><strong>{currentFile}</strong></div><div><span>推荐运行方式</span><strong>{currentInstance?.defaultCoreName ?? currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>兼容状态</span><strong className={runtime.tone}>{runtime.label}</strong></div><div><span>最后验证</span><strong>{formatTime(currentRuntime?.createdAtMs)}</strong></div></div>
+      <div className="admin-game-runtime-note"><p>替换游戏文件后会创建新的内容版本并执行兼容性验证；验证通过后才切换当前版本。原文件、历史版本和已有存档不会删除。</p><input id="admin-game-content-upload" hidden type="file" multiple disabled={disabled} onChange={(event) => { const files = Array.from(event.target.files ?? []); if (files.length) void replaceContent(files); }} /><label className="button secondary" aria-disabled={disabled} htmlFor="admin-game-content-upload">替换游戏文件</label></div>
+      <details className="admin-game-technical"><summary>技术详情</summary><div>{game.contentRevisions.map((revision) => <p key={revision.id}><strong>{revision.current ? "当前内容" : "历史内容"}</strong> · {formatTime(revision.createdAtMs)} · {revision.files.map((file) => file.logicalName).join("、")}<code>{revision.id}</code></p>)}{game.variants.map((variant) => <p key={variant.id}><strong>{variant.coreName}</strong> · {variant.revisions.map((revision) => `${revision.current ? "当前" : "历史"} ${revision.status}`).join(" / ")}<code>{variant.id}</code></p>)}</div></details>
+    </div></section>
+
+    <section className="panel admin-game-actions" id="admin-game-actions"><div className="panel-head"><h2>管理操作</h2></div><div className="panel-body admin-game-action-grid"><article><h3>重新获取游戏资料</h3><p>重新查询标题、简介与媒体候选；确认后才会应用，不直接覆盖当前信息。</p><button className="button secondary" type="button" disabled={disabled} onClick={() => void rescrape()}>重新查找游戏信息</button>{candidates.length ? <div className="admin-game-candidates">{candidates.map((candidate) => <div key={candidate.candidateId}><strong>{String(candidate.metadata.title ?? candidate.providerGameId)}</strong><small>{candidate.hitCount} 条证据命中</small><button type="button" disabled={busy !== null} onClick={() => void applyCandidate(candidate)}>采用文字信息</button></div>)}</div> : null}</article>
+      <article><h3>移动到其他游戏目录</h3><p>移动前检查目标目录推荐运行方式与兼容性，不修改文件与存档。</p>{moveTargets.length ? <div><select aria-label="目标游戏目录" value={moveTarget} disabled={disabled} onChange={(event) => setMoveTarget(event.target.value)}><option value="">选择目标目录…</option>{moveTargets.map((item) => <option value={item.id} key={item.id}>{item.name} · 推荐 {item.defaultCoreName}</option>)}</select><button className="button secondary" type="button" disabled={disabled || !moveTarget} onClick={() => void previewMove(moveTarget)}>预览移动影响</button></div> : <small>没有其他同游戏平台目录可移动。</small>}</article></div></section>
+
+    <section className="panel admin-game-remove"><div className="panel-head"><h2>从游戏库移除</h2></div><form className="panel-body" onSubmit={(event) => { event.preventDefault(); void remove(String(new FormData(event.currentTarget).get("confirmTitle") ?? "")); }}><div><strong>游戏将不再对用户可见。</strong><p>已有 {game.deleteImpact.saveStateCount} 份存档、{game.deleteImpact.reviewEventCount} 条审核历史及历史版本会继续保留；当前 {game.deleteImpact.activeLaunchCount} 个活动游戏会话。</p></div><label>输入完整游戏标题确认<input name="confirmTitle" placeholder={game.title} autoComplete="off" disabled={disabled} /><button className="button danger" disabled={disabled}>移除游戏</button></label></form></section>
+
     <ConfirmDialog open={pendingMove !== null} title={`移动“${game.title}”到新目录？`} description={`目标目录：${pendingMove?.targetName ?? ""}`} confirmLabel="确认移动" tone={pendingMove?.result.impact.blockerCodes.length ? "danger" : "default"} busy={busy !== null} onCancel={() => setPendingMove(null)} onConfirm={() => void confirmMove()}><ul><li>新的推荐运行方式：{pendingMove?.result.impact.targetCoreId}</li><li>检查结果：{pendingMove?.result.impact.variantStatus}</li>{pendingMove?.result.impact.blockerCodes.length ? <li>{pendingMove.result.impact.blockerCodes.length} 项问题会暂时阻止运行</li> : <li>没有发现会阻止运行的问题</li>}<li>游戏文件、存档和历史版本不会移动或删除</li></ul></ConfirmDialog>
   </div>;
 }

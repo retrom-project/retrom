@@ -761,15 +761,32 @@
     #retrom-ui-review .rt-review-context-item span { color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-review-context-item.is-active { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
 
-    #retrom-ui-review .rt-management-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 320px)); gap: 20px; }
-    #retrom-ui-review .rt-management-card { display: flex; min-width: 0; overflow: hidden; flex-direction: column; border: 1px solid var(--retrom-line); border-radius: 13px; color: var(--retrom-text); background: var(--retrom-panel); cursor: pointer; text-align: left; }
-    #retrom-ui-review .rt-management-cover { position: relative; width: 100%; aspect-ratio: 3 / 4; }
-    #retrom-ui-review .rt-management-hidden { position: absolute; top: 10px; right: 10px; width: 30px; height: 30px; display: grid; place-items: center; border-radius: 9px; background: rgb(180 55 66 / .9); color: #fff; }
-    #retrom-ui-review .rt-management-copy { display: flex; min-width: 0; flex: 1; flex-direction: column; padding: 13px; }
-    #retrom-ui-review .rt-management-title { font-weight: 500; }
+    #retrom-ui-review .rt-management-head-actions { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; }
+    #retrom-ui-review .rt-management-stat-grid { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    #retrom-ui-review .rt-management-stat { min-height: 68px; padding: 11px 14px; border: 1px solid var(--retrom-line); border-radius: 13px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-management-stat.is-active { border-color: color-mix(in srgb, var(--retrom-purple) 38%, var(--retrom-line)); background: color-mix(in srgb, var(--retrom-purple-soft) 42%, var(--retrom-panel)); }
+    #retrom-ui-review .rt-management-stat span, #retrom-ui-review .rt-management-stat strong { display: block; }
+    #retrom-ui-review .rt-management-stat span { color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-management-stat strong { margin-top: 2px; font-size: 22px; font-weight: 550; }
+    #retrom-ui-review .rt-management-tools { margin-bottom: 14px; padding: 14px; display: grid; grid-template-columns: minmax(280px, 2fr) repeat(5, minmax(110px, 1fr)); gap: 10px; align-items: end; border: 1px solid var(--retrom-line); border-radius: 14px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-management-tools label { min-width: 0; display: grid; gap: 5px; color: var(--retrom-muted); font-size: 10px; font-weight: 600; }
+    #retrom-ui-review .rt-management-search { height: 40px; padding: 0 10px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--retrom-line); border-radius: 8px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-management-search svg { width: 14px; height: 14px; }
+    #retrom-ui-review .rt-management-search input { min-width: 0; width: 100%; height: 100%; color: var(--retrom-text); border: 0; outline: 0; background: transparent; }
+    #retrom-ui-review .rt-management-tools .rt-select { height: 40px; }
+    #retrom-ui-review .rt-management-table-wrap { overflow-x: auto; border: 1px solid var(--retrom-line); border-radius: 14px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-management-table { width: 100%; min-width: 1080px; border-collapse: collapse; }
+    #retrom-ui-review .rt-management-table th, #retrom-ui-review .rt-management-table td { padding: 10px 13px; border-bottom: 1px solid var(--retrom-line); text-align: left; vertical-align: middle; }
+    #retrom-ui-review .rt-management-table th { color: var(--retrom-muted); background: var(--retrom-panel-raised); font-size: 10px; font-weight: 500; }
+    #retrom-ui-review .rt-management-table td { height: 96px; font-size: 11px; }
+    #retrom-ui-review .rt-management-table tr:last-child td { border-bottom: 0; }
+    #retrom-ui-review .rt-management-thumb { width: 64px; height: 76px; display: grid; place-items: center; border-radius: 9px; color: #fff; font-size: 10px; text-align: center; }
+    #retrom-ui-review .rt-management-title { font-weight: 600; }
     #retrom-ui-review .rt-management-meta { margin-top: 4px; color: var(--retrom-muted); font-size: 10px; }
-    #retrom-ui-review .rt-management-actions { display: flex; gap: 7px; margin-top: auto; padding-top: 13px; }
-    #retrom-ui-review .rt-management-actions .rt-button:first-child { flex: 1; }
+    #retrom-ui-review .rt-management-pill { width: fit-content; margin-top: 5px; padding: 2px 7px; border-radius: 999px; color: var(--retrom-muted); background: var(--retrom-panel-raised); font-size: 9px; }
+    #retrom-ui-review .rt-management-cell-stack strong, #retrom-ui-review .rt-management-cell-stack span { display: block; }
+    #retrom-ui-review .rt-management-cell-stack span { margin-top: 4px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-management-footer { min-height: 42px; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-library-tools { margin-bottom: 26px; padding: 15px 16px 13px; overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 16px; background: var(--retrom-panel); box-shadow: 0 2px 4px rgb(24 32 51 / .02); }
     #retrom-ui-review .rt-library-tool-row { display: grid; grid-template-columns: minmax(360px, 1fr) 190px 190px; gap: 10px; }
     #retrom-ui-review .rt-library-search { height: 44px; padding: 0 13px; display: flex; align-items: center; gap: 10px; color: var(--retrom-muted); border: 1px solid var(--retrom-line); border-radius: 10px; background: var(--retrom-panel-raised); }
@@ -829,25 +846,61 @@
     #retrom-ui-review .rt-field.is-changed .rt-textarea { border-color: var(--retrom-red); }
     #retrom-ui-review .rt-snapshot { display: grid; grid-template-columns: 190px minmax(0, 1fr); gap: 18px; margin-top: 16px; }
     #retrom-ui-review .rt-snapshot-cover { aspect-ratio: 3 / 4; border-radius: 10px; }
-    #retrom-ui-review .rt-admin-game-layout { display: grid; grid-template-columns: minmax(0, 1.3fr) minmax(340px, 0.7fr); gap: 12px; }
-    #retrom-ui-review .rt-admin-game-stack { display: grid; align-content: start; gap: 12px; }
-    #retrom-ui-review .rt-admin-game-panel { padding: 16px; }
-    #retrom-ui-review .rt-admin-section-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 14px; }
-    #retrom-ui-review .rt-admin-section-head .rt-subtitle { max-width: 68ch; }
-    #retrom-ui-review .rt-admin-game-summary { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-bottom: 13px; }
-    #retrom-ui-review .rt-admin-summary-item { padding: 10px; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel-raised); }
-    #retrom-ui-review .rt-admin-summary-label { color: var(--retrom-muted); font-size: 10px; }
-    #retrom-ui-review .rt-admin-summary-value { margin-top: 4px; font-weight: 500; }
-    #retrom-ui-review .rt-media-grid { display: grid; grid-template-columns: 1.2fr repeat(2, 1fr); gap: 9px; }
-    #retrom-ui-review .rt-media-tile { position: relative; display: grid; place-items: end start; min-height: 104px; padding: 10px; overflow: hidden; border-radius: 10px; background: var(--retrom-cover-b); color: #fff; }
-    #retrom-ui-review .rt-media-tile.is-wide { grid-column: span 2; background: var(--retrom-cover-e); }
-    #retrom-ui-review .rt-media-tile span { position: relative; z-index: 1; padding: 3px 6px; border-radius: 5px; background: rgb(4 7 14 / 0.58); font-size: 10px; }
-    #retrom-ui-review .rt-operation-list { display: grid; gap: 8px; }
-    #retrom-ui-review .rt-operation-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel-raised); }
-    #retrom-ui-review .rt-operation-copy { min-width: 0; }
-    #retrom-ui-review .rt-operation-title { font-weight: 500; }
-    #retrom-ui-review .rt-operation-note { margin-top: 3px; color: var(--retrom-muted); font-size: 10px; }
-    #retrom-ui-review .rt-danger-zone { border-color: color-mix(in srgb, var(--retrom-red) 34%, var(--retrom-line)); }
+    #retrom-ui-review .rt-admin-detail-hero { min-height: 132px; padding: 14px; display: grid; grid-template-columns: 100px minmax(0, 1fr) 210px; align-items: center; border: 1px solid var(--retrom-line); border-radius: 14px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-admin-detail-cover { width: 88px; height: 106px; border-radius: 10px; }
+    #retrom-ui-review .rt-admin-detail-copy h2 { margin: 0; font-size: 20px; }
+    #retrom-ui-review .rt-admin-detail-copy p { margin: 5px 0 9px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-admin-detail-statuses { display: flex; flex-wrap: wrap; gap: 7px; }
+    #retrom-ui-review .rt-admin-detail-update { text-align: right; }
+    #retrom-ui-review .rt-admin-detail-update span, #retrom-ui-review .rt-admin-detail-update strong, #retrom-ui-review .rt-admin-detail-update small { display: block; }
+    #retrom-ui-review .rt-admin-detail-update span, #retrom-ui-review .rt-admin-detail-update small { color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-admin-detail-update strong { margin: 3px 0 6px; }
+    #retrom-ui-review .rt-admin-detail-tabs { min-height: 46px; padding: 7px; display: flex; align-items: center; gap: 6px; }
+    #retrom-ui-review .rt-admin-detail-tabs span { padding: 7px 10px; color: var(--retrom-muted); border: 1px solid transparent; border-radius: 8px; font-size: 10px; font-weight: 600; }
+    #retrom-ui-review .rt-admin-detail-tabs span:first-child { color: var(--retrom-purple); border-color: color-mix(in srgb, var(--retrom-purple) 25%, var(--retrom-line)); background: var(--retrom-panel); }
+    #retrom-ui-review .rt-admin-detail-overview { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); overflow: hidden; margin-bottom: 12px; border: 1px solid var(--retrom-line); border-radius: 13px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-admin-detail-overview div { min-width: 0; padding: 11px 14px; border-right: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-admin-detail-overview div:last-child { border-right: 0; }
+    #retrom-ui-review .rt-admin-detail-overview span, #retrom-ui-review .rt-admin-detail-overview strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #retrom-ui-review .rt-admin-detail-overview span { color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-admin-detail-overview strong { margin-top: 3px; font-size: 11px; }
+    #retrom-ui-review .rt-admin-detail-primary { display: grid; grid-template-columns: minmax(0, 58fr) minmax(0, 42fr); gap: 12px; margin-bottom: 12px; align-items: start; }
+    #retrom-ui-review .rt-admin-detail-panel { overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 13px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-admin-detail-panel-head { padding: 13px 15px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-admin-detail-panel-head h2 { margin: 0; font-size: 14px; }
+    #retrom-ui-review .rt-admin-detail-panel-body { padding: 14px; }
+    #retrom-ui-review .rt-admin-detail-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    #retrom-ui-review .rt-admin-detail-form .rt-field { margin-top: 0; }
+    #retrom-ui-review .rt-admin-detail-form .rt-field-wide { grid-column: 1 / -1; }
+    #retrom-ui-review .rt-admin-detail-form .rt-input { height: 36px; }
+    #retrom-ui-review .rt-admin-detail-form .rt-textarea { min-height: 64px; }
+    #retrom-ui-review .rt-admin-detail-savebar { grid-column: 1 / -1; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-top: 1px solid var(--retrom-line); color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-admin-detail-media { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 9px; }
+    #retrom-ui-review .rt-admin-media-slot { overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-admin-media-slot h3 { margin: 0; padding: 7px 9px; border-bottom: 1px solid var(--retrom-line); font-size: 10px; }
+    #retrom-ui-review .rt-admin-media-cover { height: 190px; }
+    #retrom-ui-review .rt-admin-media-footer { padding: 7px 8px; display: flex; justify-content: space-between; color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-admin-media-background { height: 92px; display: grid; place-items: center; color: var(--retrom-muted); font-size: 9px; text-align: center; }
+    #retrom-ui-review .rt-admin-media-shots { margin-top: 9px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    #retrom-ui-review .rt-admin-media-shot { min-height: 58px; display: grid; place-items: center; color: var(--retrom-muted); border: 1px dashed var(--retrom-line); border-radius: 7px; font-size: 8px; }
+    #retrom-ui-review .rt-admin-detail-wide { margin-bottom: 12px; }
+    #retrom-ui-review .rt-admin-runtime-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    #retrom-ui-review .rt-admin-runtime-grid div { min-width: 0; padding: 9px; border: 1px solid var(--retrom-line); border-radius: 8px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-admin-runtime-grid span, #retrom-ui-review .rt-admin-runtime-grid strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #retrom-ui-review .rt-admin-runtime-grid span { color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-admin-runtime-grid strong { margin-top: 3px; font-size: 10px; }
+    #retrom-ui-review .rt-admin-runtime-note { margin-top: 10px; padding-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; color: var(--retrom-muted); border-top: 1px solid var(--retrom-line); font-size: 9px; }
+    #retrom-ui-review .rt-admin-technical { margin-top: 8px; padding: 8px 9px; border-radius: 7px; color: var(--retrom-purple); background: var(--retrom-purple-soft); font-size: 8px; }
+    #retrom-ui-review .rt-admin-actions-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #retrom-ui-review .rt-admin-action-card { padding: 11px; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-admin-action-card h3 { margin: 0 0 3px; font-size: 11px; }
+    #retrom-ui-review .rt-admin-action-card p { margin: 0 0 8px; color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-admin-action-card-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+    #retrom-ui-review .rt-admin-remove { border-color: color-mix(in srgb, var(--retrom-red) 36%, var(--retrom-line)); background: color-mix(in srgb, var(--retrom-red-soft) 28%, var(--retrom-panel)); }
+    #retrom-ui-review .rt-admin-remove .rt-admin-detail-panel-head { border-bottom-color: color-mix(in srgb, var(--retrom-red) 25%, var(--retrom-line)); }
+    #retrom-ui-review .rt-admin-remove-row { display: grid; grid-template-columns: minmax(0, 1fr) 420px; align-items: end; gap: 20px; }
+    #retrom-ui-review .rt-admin-remove-row p { margin: 4px 0 0; color: var(--retrom-red); font-size: 8px; }
+    #retrom-ui-review .rt-admin-remove-confirm { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
 
     #retrom-ui-review .rt-bios-groups { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 14px; }
     #retrom-ui-review .rt-chip { padding: 7px 10px; border: 1px solid var(--retrom-line); border-radius: 999px; background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; }
@@ -1378,77 +1431,32 @@
       </section>
 
       <section class="rt-page" data-page="admin-games">
-        <div class="rt-page-head"><div><h1>游戏管理</h1><p class="rt-subtitle">编辑已发布内容、替换游戏文件或移除游戏</p></div></div>
-        <div class="rt-filter-shell"><div class="rt-filter-controls"><label class="rt-filter-control rt-search"><span class="rt-filter-label">搜索</span><span><i data-lucide="search" aria-hidden="true"></i><input class="rt-input" type="search" placeholder="输入游戏名称"></span></label><label class="rt-filter-control"><span class="rt-filter-label">游戏状态</span><select class="rt-select rt-filter-select"><option>用户可见</option><option>已移出游戏库</option><option>全部</option></select></label><button type="button" class="rt-button rt-button-primary">搜索</button></div><div class="rt-filter-summary"><span>未设置筛选条件</span><span>当前显示 <strong>4</strong> 项</span></div></div>
-        <div class="rt-management-grid">
-          <button type="button" class="rt-management-card" data-page-link="admin-game-detail"><span class="rt-cover rt-cover-b rt-management-cover"><span class="rt-cover-title">MS</span></span><span class="rt-management-copy"><span class="rt-management-title">Metal Slug</span><span class="rt-management-meta">Arcade · FBNeo 游戏列表</span></span></button>
-          <button type="button" class="rt-management-card" data-page-link="admin-game-detail"><span class="rt-cover rt-cover-c rt-management-cover"><span class="rt-cover-title">DOOM</span></span><span class="rt-management-copy"><span class="rt-management-title">DOOM</span><span class="rt-management-meta">MS-DOS · DOS 经典游戏</span></span></button>
-          <button type="button" class="rt-management-card" data-page-link="admin-game-detail"><span class="rt-cover rt-cover-a rt-management-cover"><span class="rt-cover-title">ZELDA</span><span class="rt-management-hidden" title="用户当前不可见"><i data-lucide="eye-off" aria-hidden="true"></i></span></span><span class="rt-management-copy"><span class="rt-management-title">The Legend of Zelda</span><span class="rt-management-meta">Famicom Disk · 磁碟冒险</span></span></button>
-          <button type="button" class="rt-management-card" data-page-link="admin-game-detail"><span class="rt-cover rt-cover-f rt-management-cover"><span class="rt-cover-title">FZ</span></span><span class="rt-management-copy"><span class="rt-management-title">F-Zero</span><span class="rt-management-meta">SNES · SNES 游戏</span></span></button>
-        </div>
+        <div class="rt-page-head rt-management-head-actions"><div><div class="rt-detail-kicker">管理后台</div><h1>游戏管理</h1><p class="rt-subtitle">维护已发布游戏的信息、媒体和运行配置，快速定位需要处理的内容。</p></div><button type="button" class="rt-button"><i data-lucide="download" aria-hidden="true"></i>导出当前列表</button></div>
+        <div class="rt-management-stat-grid"><div class="rt-management-stat is-active"><span>全部游戏</span><strong>126</strong></div><div class="rt-management-stat"><span>运行异常</span><strong style="color:var(--retrom-amber)">7</strong></div><div class="rt-management-stat"><span>缺少封面</span><strong>18</strong></div><div class="rt-management-stat"><span>资料不完整</span><strong>24</strong></div><div class="rt-management-stat"><span>用户不可见</span><strong style="color:var(--retrom-red)">3</strong></div></div>
+        <div class="rt-management-tools"><label>搜索游戏<span class="rt-management-search"><i data-lucide="search" aria-hidden="true"></i><input placeholder="输入游戏名称"></span></label><label>平台<select class="rt-select"><option>所有平台</option></select></label><label>游戏目录<select class="rt-select"><option>所有目录</option></select></label><label>用户状态<select class="rt-select"><option>全部状态</option></select></label><label>运行状态<select class="rt-select"><option>全部状态</option></select></label><label>排序<select class="rt-select"><option>最近更新</option></select></label></div>
+        <div class="rt-management-table-wrap"><table class="rt-management-table"><thead><tr><th>封面</th><th>游戏</th><th>用户状态</th><th>运行状态</th><th>运行环境 / 目录</th><th>最近更新</th><th style="text-align:right">操作</th></tr></thead><tbody>
+          <tr><td><span class="rt-cover rt-cover-b rt-management-thumb"><span class="rt-cover-title">1943</span></span></td><td><div class="rt-management-title">1943: The Battle of Midway</div><div class="rt-management-meta">Arcade · 1987</div><div class="rt-management-pill">FBNeo 游戏</div></td><td><span class="rt-badge rt-badge-green">用户可见</span></td><td><span class="rt-badge rt-badge-cyan">可以运行</span></td><td><div class="rt-management-cell-stack"><strong>FBNeo 游戏</strong><span>Arcade · 推荐 FinalBurn Neo</span></div></td><td><div class="rt-management-cell-stack"><strong>今天 09:42</strong><span>运行验证已通过</span></div></td><td style="text-align:right"><button type="button" class="rt-button" data-page-link="admin-game-detail">管理 →</button></td></tr>
+          <tr><td><span class="rt-cover rt-cover-f rt-management-thumb"><span class="rt-cover-title">1941</span></span></td><td><div class="rt-management-title">1941</div><div class="rt-management-meta">Arcade · 1990</div><div class="rt-management-pill">FBNeo 游戏</div></td><td><span class="rt-badge rt-badge-green">用户可见</span></td><td><span class="rt-badge rt-badge-cyan">可以运行</span></td><td><div class="rt-management-cell-stack"><strong>FBNeo 游戏</strong><span>Arcade · 推荐 FinalBurn Neo</span></div></td><td><div class="rt-management-cell-stack"><strong>昨天 21:13</strong><span>运行验证已通过</span></div></td><td style="text-align:right"><button type="button" class="rt-button" data-page-link="admin-game-detail">管理 →</button></td></tr>
+          <tr><td><span class="rt-cover rt-cover-e rt-management-thumb"><span class="rt-cover-title">1945</span></span></td><td><div class="rt-management-title">1945kiii</div><div class="rt-management-meta">Arcade · 2000</div><div class="rt-management-pill">FBNeo 游戏</div></td><td><span class="rt-badge rt-badge-green">用户可见</span></td><td><span class="rt-badge rt-badge-amber">待验证</span></td><td><div class="rt-management-cell-stack"><strong>FBNeo 游戏</strong><span>Arcade · 推荐 FinalBurn Neo</span></div></td><td><div class="rt-management-cell-stack"><strong>昨天 20:58</strong><span>资料不完整</span></div></td><td style="text-align:right"><button type="button" class="rt-button" data-page-link="admin-game-detail">管理 →</button></td></tr>
+          <tr><td><span class="rt-cover rt-cover-c rt-management-thumb"><span class="rt-cover-title">MS3</span></span></td><td><div class="rt-management-title">Metal Slug 3</div><div class="rt-management-meta">Arcade · 2000</div><div class="rt-management-pill">Neo Geo</div></td><td><span class="rt-badge rt-badge-green">用户可见</span></td><td><span class="rt-badge rt-badge-amber">待验证</span></td><td><div class="rt-management-cell-stack"><strong>Neo Geo</strong><span>Arcade · 推荐 FinalBurn Neo</span></div></td><td><div class="rt-management-cell-stack"><strong>8 月 6 日 18:20</strong><span>等待兼容性验证</span></div></td><td style="text-align:right"><button type="button" class="rt-button" data-page-link="admin-game-detail">管理 →</button></td></tr>
+          <tr><td><span class="rt-cover rt-cover-a rt-management-thumb"><span class="rt-cover-title">FF</span></span></td><td><div class="rt-management-title">Final Fight</div><div class="rt-management-meta">Arcade · 1989</div><div class="rt-management-pill">CPS1</div></td><td><span class="rt-badge rt-badge-red">用户不可见</span></td><td><span class="rt-badge rt-badge-cyan">可以运行</span></td><td><div class="rt-management-cell-stack"><strong>CPS1</strong><span>Arcade · 推荐 FinalBurn Neo</span></div></td><td><div class="rt-management-cell-stack"><strong>8 月 5 日 11:04</strong><span>已从用户侧移出</span></div></td><td style="text-align:right"><button type="button" class="rt-button" data-page-link="admin-game-detail">管理 →</button></td></tr>
+          <tr><td><span class="rt-cover rt-cover-d rt-management-thumb"><span class="rt-cover-title">CAD</span></span></td><td><div class="rt-management-title">Cadillacs and Dinosaurs</div><div class="rt-management-meta">Arcade · 1993</div><div class="rt-management-pill">CPS1</div></td><td><span class="rt-badge rt-badge-green">用户可见</span></td><td><span class="rt-badge rt-badge-cyan">可以运行</span></td><td><div class="rt-management-cell-stack"><strong>CPS1</strong><span>Arcade · 推荐 FinalBurn Neo</span></div></td><td><div class="rt-management-cell-stack"><strong>8 月 4 日 16:37</strong><span>运行验证已通过</span></div></td><td style="text-align:right"><button type="button" class="rt-button" data-page-link="admin-game-detail">管理 →</button></td></tr>
+        </tbody></table></div>
+        <div class="rt-management-footer"><span>当前展示 6 / 126 款游戏</span><span>第 1 页 · 共 21 页</span></div>
       </section>
 
       <section class="rt-page" data-page="admin-game-detail">
-        <div class="rt-page-head">
-          <div><button type="button" class="rt-back-link" data-page-link="admin-games">← 返回游戏管理</button><h1>Metal Slug</h1><p class="rt-subtitle">Arcade / FBNeo 游戏列表 · 已发布</p></div>
-          <div class="rt-page-head-actions"><span class="rt-badge rt-badge-green">已发布</span><button type="button" class="rt-button rt-button-primary"><i data-lucide="save" aria-hidden="true"></i>保存发布信息</button></div>
+        <div class="rt-page-head"><div><div class="rt-detail-kicker">游戏管理 / Arcade</div><h1>1943: The Battle of Midway</h1><p class="rt-subtitle">维护发布信息、媒体、游戏内容与运行环境；历史版本与存档引用都会保留。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-games">← 返回游戏管理</button><button type="button" class="rt-button">查看用户详情 ↗</button></div></div>
+        <section class="rt-admin-detail-hero"><span class="rt-cover rt-cover-b rt-admin-detail-cover"><span class="rt-cover-title">1943</span></span><div class="rt-admin-detail-copy"><h2>1943: The Battle of Midway</h2><p>Arcade · FBNeo 游戏 · 1987 · Capcom</p><div class="rt-admin-detail-statuses"><span class="rt-badge rt-badge-green">用户可见</span><span class="rt-badge rt-badge-cyan">可以运行</span><span class="rt-badge">资料完整</span></div></div><div class="rt-admin-detail-update"><span>最近更新</span><strong>今天 09:42</strong><small>3 个信息版本 · 2 个内容版本</small></div></section>
+        <div class="rt-admin-detail-tabs"><span>基本信息</span><span>媒体</span><span>游戏文件与运行</span><span>管理操作</span></div>
+        <div class="rt-admin-detail-overview"><div><span>所属目录</span><strong>FBNeo 游戏</strong></div><div><span>推荐运行方式</span><strong>FinalBurn Neo</strong></div><div><span>当前游戏文件</span><strong>1943.zip</strong></div><div><span>最后运行验证</span><strong>今天 01:11</strong></div><div><span>关联存档</span><strong>44 份</strong></div></div>
+        <div class="rt-admin-detail-primary">
+          <section class="rt-admin-detail-panel"><div class="rt-admin-detail-panel-head"><h2>发布信息</h2></div><div class="rt-admin-detail-panel-body rt-admin-detail-form"><label class="rt-field rt-field-wide"><span class="rt-label">标题</span><input class="rt-input" value="1943: The Battle of Midway"></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea">1943</textarea></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" value="Capcom"></label><label class="rt-field"><span class="rt-label">发行商</span><input class="rt-input" value="Capcom"></label><label class="rt-field"><span class="rt-label">类型</span><input class="rt-input" value="Shoot 'em up"></label><label class="rt-field"><span class="rt-label">玩家数</span><input class="rt-input" value="2"></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" value="1987"></label><label class="rt-field"><span class="rt-label">平台</span><input class="rt-input" value="Arcade" readonly></label><div class="rt-admin-detail-savebar"><span>上次保存：今天 09:42</span><div><button type="button" class="rt-button">查看版本历史</button> <button type="button" class="rt-button rt-button-primary">保存新版本</button></div></div></div></section>
+          <section class="rt-admin-detail-panel"><div class="rt-admin-detail-panel-head"><h2>媒体</h2></div><div class="rt-admin-detail-panel-body rt-admin-detail-media"><div class="rt-admin-media-slot"><h3>封面</h3><div class="rt-cover rt-cover-b rt-admin-media-cover"><span class="rt-cover-title">1943</span></div><div class="rt-admin-media-footer"><span>828×1104</span><button type="button" class="rt-text-link">替换</button></div></div><div><div class="rt-admin-media-slot"><h3>背景图</h3><div class="rt-admin-media-background">暂无背景图<br>添加一张用于用户详情页</div></div><div class="rt-admin-media-shots"><div class="rt-admin-media-shot">截图 1</div><div class="rt-admin-media-shot">截图 2</div><div class="rt-admin-media-shot" style="color:var(--retrom-purple)">＋ 添加截图</div></div></div></div></section>
         </div>
-        <div class="rt-admin-game-layout">
-          <div class="rt-admin-game-stack">
-            <section class="rt-panel rt-admin-game-panel">
-              <div class="rt-admin-section-head"><div><h2>1. 发布信息</h2><p class="rt-subtitle">保存后创建一份新版本，历史信息仍可回看。</p></div><span class="rt-badge">信息版本 12</span></div>
-              <div class="rt-form-grid">
-                <label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" value="Metal Slug"></label>
-                <label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" value="1996"></label>
-                <label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" value="Nazca Corporation"></label>
-                <label class="rt-field"><span class="rt-label">发行商</span><input class="rt-input" value="SNK"></label>
-                <label class="rt-field"><span class="rt-label">类型</span><input class="rt-input" value="动作 / 射击"></label>
-                <label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" value="1–2"></label>
-                <label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea">驾驶载具、营救俘虏并击败叛军。当前展示字段来自已审核的元信息修订。</textarea></label>
-              </div>
-            </section>
-
-            <section class="rt-panel rt-admin-game-panel">
-              <div class="rt-admin-section-head"><div><h2>3. 游戏内容与运行环境</h2><p class="rt-subtitle">替换游戏文件前会检查当前默认核心是否可以运行。</p></div><button type="button" class="rt-button"><i data-lucide="upload" aria-hidden="true"></i>选择游戏文件</button></div>
-              <div class="rt-admin-game-summary">
-                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">当前内容</div><div class="rt-admin-summary-value">第 3 版 · 使用中</div></div>
-                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">用户文件</div><div class="rt-admin-summary-value">mslug.zip · 13.1 MB</div></div>
-                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">来源</div><div class="rt-admin-summary-value">审核发布</div></div>
-                <div class="rt-admin-summary-item"><div class="rt-admin-summary-label">历史内容版本</div><div class="rt-admin-summary-value">2 个 · 均受引用保护</div></div>
-              </div>
-              <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>运行核心</th><th>运行记录</th><th>核心版本 / 数据目录</th><th>当前状态</th><th>依赖检查</th><th>操作</th></tr></thead><tbody>
-                <tr><td><div class="rt-table-title">FBNeo</div><div class="rt-table-sub">目录默认核心</div></td><td>当前记录</td><td><div class="rt-table-title">EmulatorJS 4.2.3</div><div class="rt-table-sub">街机目录 1.0.0.03</div></td><td><span class="rt-badge rt-badge-green">可以运行</span></td><td>游戏文件与 BIOS 均满足</td><td>—</td></tr>
-                <tr><td><div class="rt-table-title">MAME 2003</div><div class="rt-table-sub">备用核心</div></td><td>历史记录</td><td><div class="rt-table-title">EmulatorJS 4.2.1</div><div class="rt-table-sub">MAME 0.78 目录</div></td><td><span class="rt-badge rt-badge-amber">需要重新检查</span></td><td>游戏内容已更新</td><td><button type="button" class="rt-button">重新检查</button></td></tr>
-                <tr><td><div class="rt-table-title">MAME 2003 Plus</div><div class="rt-table-sub">备用核心</div></td><td>—</td><td><div class="rt-table-title">EmulatorJS 4.2.3</div><div class="rt-table-sub">街机数据目录已绑定</div></td><td><span class="rt-badge">未检查</span></td><td>尚无运行记录</td><td><button type="button" class="rt-button">开始检查</button></td></tr>
-              </tbody></table></div>
-              <div class="rt-setting-note">新文件会先在后台安全校验；只有当前配置仍未变化且默认核心可以运行，才会正式替换。</div>
-            </section>
-          </div>
-
-          <div class="rt-admin-game-stack">
-            <section class="rt-panel rt-admin-game-panel">
-              <div class="rt-admin-section-head"><div><h2>2. 媒体</h2><p class="rt-subtitle">更新封面、背景或游戏截图；旧版本仍可回看。</p></div><button type="button" class="rt-button"><i data-lucide="image-plus" aria-hidden="true"></i>选择图片</button></div>
-              <div class="rt-media-grid">
-                <div class="rt-media-tile"><span>当前封面 · COVER</span></div>
-                <div class="rt-media-tile is-wide"><span>当前背景 · BACKGROUND</span></div>
-                <div class="rt-media-tile" style="background:var(--retrom-cover-c)"><span>截图 1</span></div>
-                <div class="rt-media-tile" style="background:var(--retrom-cover-e)"><span>截图 2</span></div>
-                <div class="rt-media-tile" style="background:var(--retrom-cover-a)"><span>截图 3</span></div>
-              </div>
-              <div class="rt-setting-note">媒体来源：审核采用的 Hasheous 候选 + 本地替换。页面只显示 Retrom Asset ID，不暴露 Blob hash 或宿主路径。</div>
-            </section>
-
-            <section class="rt-panel rt-admin-game-panel">
-              <div class="rt-admin-section-head"><div><h2>4. 管理操作</h2><p class="rt-subtitle">长任务均进入任务进度；危险操作必须先给影响摘要。</p></div></div>
-              <div class="rt-operation-list">
-                <div class="rt-operation-row"><div class="rt-operation-copy"><div class="rt-operation-title">重新刮削元信息</div><div class="rt-operation-note">创建独立候选批次，不自动覆盖当前发布信息</div></div><button type="button" class="rt-button">创建候选</button></div>
-                <div class="rt-operation-row"><div class="rt-operation-copy"><div class="rt-operation-title">移动平台目录</div><div class="rt-operation-note">仅允许同基础平台；先预览默认核心与存档影响</div></div><button type="button" class="rt-button">影响预览</button></div>
-                <div class="rt-operation-row"><div class="rt-operation-copy"><div class="rt-operation-title">查看不可变历史</div><div class="rt-operation-note">Metadata、Content、Variant、审核与任务事件</div></div><button type="button" class="rt-button">查看历史</button></div>
-                <div class="rt-operation-row rt-danger-zone"><div class="rt-operation-copy"><div class="rt-operation-title">软删除游戏</div><div class="rt-operation-note">输入完整标题确认；存档和审核历史继续保留</div></div><button type="button" class="rt-button rt-button-danger">删除…</button></div>
-              </div>
-            </section>
-          </div>
-        </div>
+        <section class="rt-admin-detail-panel rt-admin-detail-wide"><div class="rt-admin-detail-panel-head"><h2>游戏文件与运行环境</h2></div><div class="rt-admin-detail-panel-body"><div class="rt-admin-runtime-grid"><div><span>当前游戏文件</span><strong>1943.zip</strong></div><div><span>推荐运行方式</span><strong>FinalBurn Neo</strong></div><div><span>兼容状态</span><strong style="color:var(--retrom-cyan)">可以运行</strong></div><div><span>最后验证</span><strong>今天 01:11</strong></div></div><div class="rt-admin-runtime-note"><span>替换游戏文件后创建新的内容版本并执行兼容性验证；通过后才切换当前版本，历史内容与存档不会删除。</span><button type="button" class="rt-button">替换游戏文件</button></div><div class="rt-admin-technical">▸ 技术详情　Content Revision、Variant Revision、Core Artifact、DAT、文件 hash 等按需展开</div></div></section>
+        <section class="rt-admin-detail-panel rt-admin-detail-wide"><div class="rt-admin-detail-panel-head"><h2>管理操作</h2></div><div class="rt-admin-detail-panel-body rt-admin-actions-grid"><div class="rt-admin-action-card"><h3>重新获取游戏资料</h3><p>重新查询标题、简介与媒体候选；确认后才会应用，不直接覆盖当前信息。</p><button type="button" class="rt-button">重新查找游戏信息</button></div><div class="rt-admin-action-card"><h3>移动到其他游戏目录</h3><p>移动前检查目标目录推荐运行方式与兼容性，不修改文件与存档。</p><div class="rt-admin-action-card-row"><select class="rt-select"><option>选择目标目录…</option></select><button type="button" class="rt-button">预览移动影响</button></div></div></div></section>
+        <section class="rt-admin-detail-panel rt-admin-remove"><div class="rt-admin-detail-panel-head"><h2>从游戏库移除</h2></div><div class="rt-admin-detail-panel-body rt-admin-remove-row"><div><strong>游戏将不再对用户可见。</strong><p>已有 44 份存档、审核历史及历史版本会继续保留；当前 0 个活动游戏会话。</p></div><div class="rt-admin-remove-confirm"><input class="rt-input" placeholder="输入完整游戏标题确认"><button type="button" class="rt-button rt-button-danger">移除游戏</button></div></div></section>
       </section>
 
       <section class="rt-page" data-page="admin-platform-instances">

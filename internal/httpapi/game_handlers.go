@@ -449,7 +449,8 @@ v.id
 		"players": nullableInteger(players), "releaseYear": nullableInteger(releaseYear),
 		"platformId": platformID, "platformInstance": map[string]any{"id": instanceID, "name": instanceName},
 		"currentContentRevisionId": contentID, "currentMetadataRevisionId": metadataID, "version": version,
-		"createdAtMs": createdAt, "updatedAtMs": updatedAt, "deletedAtMs": nullableInteger(deletedAt),
+		"createdAtMs": createdAt, "updatedAtMs": updatedAt, "generatedAtMs": server.now().UnixMilli(),
+		"deletedAtMs": nullableInteger(deletedAt),
 		"deleteImpact": map[string]any{
 			"saveStateCount":    saveCount,
 			"reviewEventCount":  reviewCount,

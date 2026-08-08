@@ -39,7 +39,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 | `/admin/imports` | `q`、`state`、`platformInstanceId`、`sort=UPDATED_DESC|CREATED_DESC`、`cursor/limit` |
 | `/admin/reviews` | `q`、`importJobId`、`platformInstanceId`、`blockerCode`、`sort=UPDATED_ASC|UPDATED_DESC`、`cursor/limit` |
 | `/admin/review-history` | `q`、`decision=APPROVED|DISCARDED`、`platformInstanceId`、可空 `fromAtMs/toAtMs`、`sort=DECIDED_DESC|DECIDED_ASC`、`cursor/limit` |
-| `/admin/games` | `q`、`platformId`、`platformInstanceId`、`status=PUBLISHED|DELETED|ALL`、`sort=TITLE_ASC|UPDATED_DESC`、`cursor/limit` |
+| `/admin/games` | `q`、`platformId`、`platformInstanceId`、`status=PUBLISHED|DELETED|ALL`、`sort=TITLE_ASC|UPDATED_DESC`、`cursor/limit`；列表项同时返回 `releaseYear`、`metadataComplete` 与目录默认核心当前 `runtimeStatus`，供管理列表健康摘要与筛选使用。 |
 | `/admin/platform-instances` | `platformId`、`enabled`、`sort=SORT_ORDER_ASC|NAME_ASC`、`cursor/limit` |
 | `/admin/bios` | `platformId`、`coreId`、`coreArtifactId`、`scope=REQUIRED_BY_LIBRARY|FULL_CATALOG`、`status`、`cursor/limit` |
 | `/admin/arcade-dats` | `coreId`、`coreArtifactId`、`source=BUILTIN|USER`、`parseStatus=PENDING|PARSING|READY|FAILED|CANCELLED`、`cursor/limit` |
@@ -358,7 +358,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/reviews/{importItemId}/scrape-candidates` | 审核中切换/重新执行 HASHEOUS 或 NONE 元信息源；显式请求不使用旧 cache。 |
 | `POST /api/v1/admin/reviews/{importItemId}/approve`、`POST /api/v1/admin/reviews/{importItemId}/discard` | 最终审核决策。 |
 | `GET /api/v1/admin/review-history`、`GET /api/v1/admin/review-history/{reviewEventId}` | 只读最终决策列表与完整事件回放。 |
-| `GET /api/v1/admin/games`、`GET /api/v1/admin/games/{gameId}`、`PATCH /api/v1/admin/games/{gameId}`、`DELETE /api/v1/admin/games/{gameId}` | 游戏管理、MetadataRevision 与软删除。 |
+| `GET /api/v1/admin/games`、`GET /api/v1/admin/games/{gameId}`、`PATCH /api/v1/admin/games/{gameId}`、`DELETE /api/v1/admin/games/{gameId}` | 游戏管理、MetadataRevision 与软删除；详情投影包含 `generatedAtMs`，使最近更新时间在客户端确定性格式化。 |
 | `POST /api/v1/admin/games/{gameId}/assets` | 从已完成 UploadFile 创建新 Asset。 |
 | `POST /api/v1/admin/games/{gameId}/content-revisions` | 从已完成 UploadSession 创建游戏内容验证 Job；成功才创建 ContentRevision/VariantRevision 并切换两个 current。 |
 | `GET /api/v1/admin/games/{gameId}/scrape-candidates`、`POST /api/v1/admin/games/{gameId}/scrape-candidates`、`POST /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply` | 重刮削候选列表、创建批次与选择字段/媒体应用。 |

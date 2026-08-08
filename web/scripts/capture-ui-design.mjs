@@ -33,9 +33,19 @@ const captures = [
   ["retrom-ui-dat-versions.png", "admin-bios", 2560, 1440, "dats"]
 ];
 
+const requestedNames = new Set(process.argv.slice(2));
+const selectedCaptures = requestedNames.size
+  ? captures.filter(([filename]) => requestedNames.has(filename))
+  : captures;
+if (selectedCaptures.length !== requestedNames.size) {
+  const knownNames = new Set(captures.map(([filename]) => filename));
+  const unknownNames = [...requestedNames].filter((filename) => !knownNames.has(filename));
+  throw new Error(`unknown design capture: ${unknownNames.join(", ")}`);
+}
+
 const browser = await chromium.launch({ headless: true });
 try {
-  for (const [filename, view, width, height, variant] of captures) {
+  for (const [filename, view, width, height, variant] of selectedCaptures) {
     const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, colorScheme: "light" });
     await page.goto(documentURL.href, { waitUntil: "load" });
     const frame = page.frames().find((candidate) => candidate !== page.mainFrame());

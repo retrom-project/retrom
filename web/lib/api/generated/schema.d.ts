@@ -577,6 +577,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Lists every managed game with platform/directory/default-core identity, cover, release year, metadata completeness, current default-core runtime status, visibility, creation/update/play timestamps, and cursor pagination. */
         get: operations["getAdminGames"];
         put?: never;
         post?: never;
@@ -595,6 +596,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Returns the complete management workbench projection and a generatedAtMs timestamp for deterministic relative-time presentation. */
         get: operations["getAdminGame"];
         put?: never;
         post?: never;
