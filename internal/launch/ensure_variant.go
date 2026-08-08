@@ -13,6 +13,8 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/contentprofile"
+	"retrom/internal/corevalidation"
 
 	"github.com/google/uuid"
 )
@@ -23,6 +25,7 @@ type validationInputs struct {
 	CoreArtifactID        string `json:"coreArtifactId"`
 	DATVersionID          any    `json:"datVersionId"`
 	ValidationInputDigest string `json:"validationInputDigest"`
+	BIOSDependencyDigest  string `json:"biosDependencyDigest"`
 }
 
 type validationSnapshot struct {
@@ -36,21 +39,6 @@ type validationSnapshot struct {
 type validationScope struct {
 	Type string `json:"type"`
 	ID   string `json:"id"`
-}
-
-// ValidationInputDigest is the stable identity shared by launch, move preview,
-// DAT activation and background validation.
-func ValidationInputDigest(artifactID, contentID string, datID sql.NullString) string {
-	input, _ := json.Marshal(
-		map[string]any{
-			"coreArtifactId":        artifactID,
-			"datVersionId":          nullableSQL(datID),
-			"gameContentRevisionId": contentID,
-			"schemaVersion":         1,
-		},
-	)
-	digestBytes := sha256.Sum256(input)
-	return hex.EncodeToString(digestBytes[:])
 }
 
 func validationDedupeKey(variantID, digest string) string {
@@ -73,11 +61,12 @@ func (service *Service) ensureVariant(
 		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var contentID, coreID, artifactID string
+	var contentID, contentLogicalName, coreID, artifactID string
 	var requiresThreads int
 	var datID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
 SELECT g.current_content_revision_id,
+COALESCE(f.logical_name,''),
 c.id,
 a.id,
 c.requires_threads,
@@ -87,6 +76,7 @@ WHERE core_artifact_id=a.id
 AND is_active=1)
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
+LEFT JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id AND f.role='CONTENT'
 JOIN platform_cores pc ON pc.platform_id=pi.platform_id
 AND pc.enabled=1
 JOIN cores c ON c.id=pc.core_id
@@ -97,8 +87,10 @@ WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND c.id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
+ORDER BY f.sort_order,f.logical_name
+LIMIT 1
 `, request.GameID, requestedCore, requestedCore).
-		Scan(&contentID, &coreID, &artifactID, &requiresThreads, &datID)
+		Scan(&contentID, &contentLogicalName, &coreID, &artifactID, &requiresThreads, &datID)
 	if err != nil ||
 		requiresThreads == 1 &&
 			(!request.ClientCapabilities.SecureContext ||
@@ -140,7 +132,21 @@ NULL,
 	} else if err != nil {
 		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
-	digest := ValidationInputDigest(artifactID, contentID, datID)
+	biosSnapshot, _, _, err := corevalidation.ResolveBIOS(
+		ctx,
+		transaction,
+		artifactID,
+		contentLogicalName,
+	)
+	if err != nil {
+		return Created{}, ErrBlocked
+	}
+	digest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
+	if err != nil {
+		return Created{}, ErrBlocked
+	}
+	biosSnapshotJSON, _ := biosSnapshot.JSON()
+	biosSnapshotDigest := sha256.Sum256(biosSnapshotJSON)
 	var existingRevisionID, existingStatus string
 	err = transaction.QueryRowContext(ctx, `
 SELECT id,
@@ -175,7 +181,16 @@ AND current_revision_id IS NOT ?
 	if !errors.Is(err, sql.ErrNoRows) {
 		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
-	jobID, _, err := service.queueValidationJob(ctx, transaction, variantID, contentID, artifactID, datID, digest)
+	jobID, _, err := service.queueValidationJob(
+		ctx,
+		transaction,
+		variantID,
+		contentID,
+		artifactID,
+		datID,
+		digest,
+		hex.EncodeToString(biosSnapshotDigest[:]),
+	)
 	if err != nil {
 		return Created{}, err
 	}
@@ -218,6 +233,7 @@ func (service *Service) queueValidationJob(
 	variantID, contentID, artifactID string,
 	datID sql.NullString,
 	digest string,
+	biosDependencyDigest string,
 ) (string, bool, error) {
 	dedupeKey := validationDedupeKey(variantID, digest)
 	var jobID, jobState string
@@ -253,6 +269,7 @@ AND dedupe_key=?
 			CoreArtifactID:        artifactID,
 			DATVersionID:          nullableSQL(datID),
 			ValidationInputDigest: digest,
+			BIOSDependencyDigest:  biosDependencyDigest,
 		},
 	}
 	inputJSON, _ := json.Marshal(snapshot)
@@ -322,7 +339,7 @@ created_at_ms) VALUES(?,
 // QueueDATRevalidations records every job in the caller's DAT activation
 // transaction. Workers are resumed only after that transaction commits.
 //
-//nolint:funlen // The DAT activation fan-out and per-variant deduplication share one consistent catalog snapshot.
+//nolint:funlen,gocognit // The DAT fan-out and per-variant deduplication share one consistent catalog snapshot.
 func (service *Service) QueueDATRevalidations(
 	ctx context.Context,
 	transaction *sql.Tx,
@@ -361,9 +378,26 @@ ORDER BY v.id
 	queued := int64(0)
 	targetDAT := sql.NullString{String: datID, Valid: true}
 	for _, item := range targets {
-		digest := ValidationInputDigest(artifactID, item.contentID, targetDAT)
+		var logicalName string
+		if err := transaction.QueryRowContext(ctx, `
+SELECT logical_name FROM game_content_files
+WHERE game_content_revision_id=? AND role='CONTENT'
+ORDER BY sort_order,logical_name LIMIT 1
+`, item.contentID).Scan(&logicalName); err != nil {
+			return 0, fmt.Errorf("launch/ensure_variant: %w", err)
+		}
+		biosSnapshot, _, _, err := corevalidation.ResolveBIOS(ctx, transaction, artifactID, logicalName)
+		if err != nil {
+			return 0, fmt.Errorf("launch/ensure_variant: %w", err)
+		}
+		digest, err := corevalidation.ValidationInputDigest(artifactID, item.contentID, targetDAT, biosSnapshot)
+		if err != nil {
+			return 0, fmt.Errorf("launch/ensure_variant: %w", err)
+		}
+		biosJSON, _ := biosSnapshot.JSON()
+		biosDigest := sha256.Sum256(biosJSON)
 		var revisionID, status string
-		err := transaction.QueryRowContext(ctx, `
+		err = transaction.QueryRowContext(ctx, `
 SELECT id,
 status
 FROM game_variant_revisions
@@ -397,6 +431,7 @@ AND current_revision_id<>?
 			artifactID,
 			targetDAT,
 			digest,
+			hex.EncodeToString(biosDigest[:]),
 		)
 		if err != nil {
 			return 0, err
@@ -475,15 +510,17 @@ AND j.kind='VARIANT_REVALIDATE'
 		snapshot.Inputs.CoreArtifactID,
 		datID,
 		snapshot.Inputs.ValidationInputDigest,
+		snapshot.Inputs.BIOSDependencyDigest,
 	)
 }
 
-//nolint:funlen // Core, artifact, DAT, BIOS, content, and launch-file checks form one canonical readiness decision.
+//nolint:funlen,gocyclo // Core, artifact, DAT, BIOS, content, and launch-file checks form one readiness decision.
 func (service *Service) validateVariant(
 	parent context.Context,
 	jobID, variantID, contentID, artifactID string,
 	datID sql.NullString,
 	digest string,
+	biosDependencyDigest string,
 ) {
 	ctx, cancel := context.WithTimeout(parent, 30*time.Minute)
 	defer cancel()
@@ -536,7 +573,39 @@ created_at_ms) VALUES(?,
 		variantID,
 		now,
 	)
+	var contentLogicalName string
+	if err := service.database.QueryRowContext(ctx, `
+SELECT logical_name FROM game_content_files
+WHERE game_content_revision_id=? AND role='CONTENT'
+ORDER BY sort_order,logical_name LIMIT 1
+`, contentID).Scan(&contentLogicalName); err != nil {
+		return
+	}
+	biosSnapshot, biosStatus, biosCode, err := corevalidation.ResolveBIOS(
+		ctx,
+		service.database,
+		artifactID,
+		contentLogicalName,
+	)
+	if err != nil {
+		return
+	}
+	biosSnapshotJSON, err := biosSnapshot.JSON()
+	if err != nil {
+		return
+	}
+	biosDigest := sha256.Sum256(biosSnapshotJSON)
+	currentDigest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
+	if err != nil {
+		return
+	}
 	status, code := service.validateContentForArtifact(ctx, contentID, artifactID, datID)
+	if biosStatus != "READY" {
+		status, code = biosStatus, biosCode
+	}
+	if currentDigest != digest || hex.EncodeToString(biosDigest[:]) != biosDependencyDigest {
+		status, code = "BLOCKED", "LAUNCH_VALIDATION_INPUT_STALE"
+	}
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return
@@ -555,9 +624,6 @@ FROM game_variant_revisions
 		}
 		emulatorGameID = next
 	}
-	snapshot, _ := json.Marshal(
-		map[string]any{"coreArtifactId": artifactID, "datVersionId": nullableSQL(datID), "schemaVersion": 1},
-	)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_variant_revisions(id,
 game_variant_id,
@@ -590,10 +656,21 @@ created_at_ms) VALUES(?,
 		emulatorGameID,
 		status,
 		code,
-		string(snapshot),
+		string(biosSnapshotJSON),
 		service.now().UnixMilli(),
 	); err != nil {
 		return
+	}
+	for sortOrder, dependency := range biosSnapshot.BIOS {
+		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
+			continue
+		}
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
+VALUES(?,'BIOS_BUNDLE',?,?,?)
+`, revisionID, dependency.LogicalName, *dependency.BlobID, sortOrder); err != nil {
+			return
+		}
 	}
 	jobState, eventType := "FAILED", "FAILED"
 	var errorCode any = code
@@ -648,26 +725,46 @@ func (service *Service) validateContentForArtifact(
 	contentID, artifactID string,
 	datID sql.NullString,
 ) (string, string) {
-	var coreID, logicalName string
+	var coreID, platformID, logicalName string
+	var relationshipEnabled int
 	err := service.database.QueryRowContext(ctx, `
 SELECT a.core_id,
-f.logical_name
+pi.platform_id,
+f.logical_name,
+EXISTS(SELECT 1
+FROM platform_cores pc
+WHERE pc.platform_id=pi.platform_id
+AND pc.core_id=a.core_id
+AND pc.enabled=1)
 FROM core_artifacts a
 JOIN game_content_files f ON f.game_content_revision_id=?
 AND f.role='CONTENT'
+JOIN game_content_revisions cr ON cr.id=f.game_content_revision_id
+JOIN games g ON g.id=cr.game_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE a.id=?
 ORDER BY f.sort_order,
 f.logical_name LIMIT 1
 `, contentID, artifactID).
-		Scan(&coreID, &logicalName)
+		Scan(&coreID, &platformID, &logicalName, &relationshipEnabled)
 	if err != nil {
 		return "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
+	}
+	if relationshipEnabled != 1 {
+		return "INCOMPATIBLE", "CORE_PLATFORM_UNSUPPORTED"
+	}
+	if _, exists := contentprofile.ByPlatform(platformID); exists {
+		if !contentprofile.AcceptsRaw(platformID, logicalName) {
+			return "INCOMPATIBLE", "CORE_CONTENT_FORMAT_UNSUPPORTED"
+		}
+	} else if platformID != "arcade" && platformID != "dos" {
+		return "BLOCKED", "CORE_CONTENT_PROFILE_MISSING"
 	}
 	if status, code := service.validateStaticBIOSForContent(ctx, artifactID, logicalName); status != "READY" {
 		return status, code
 	}
 	if coreID == "fbneo" || coreID == "mame2003" || coreID == "mame2003_plus" {
-		if !datID.Valid || filepath.Ext(logicalName) != ".zip" {
+		if !datID.Valid || !strings.EqualFold(filepath.Ext(logicalName), ".zip") {
 			return "INCOMPATIBLE", "ARCADE_CONTENT_NOT_ROMSET"
 		}
 		machine := strings.TrimSuffix(filepath.Base(logicalName), filepath.Ext(logicalName))
@@ -689,45 +786,11 @@ func (service *Service) validateStaticBIOSForContent(
 	ctx context.Context,
 	artifactID, logicalName string,
 ) (string, string) {
-	rows, err := service.database.QueryContext(ctx, `
-SELECT q.requirement_mode,
-q.condition_code,
-i.status
-FROM bios_requirements q
-LEFT JOIN bios_installations i ON i.requirement_id=q.id
-AND i.is_active=1
-WHERE q.core_artifact_id=?
-AND q.source_kind='STATIC'
-AND q.enabled=1
-ORDER BY q.id
-`, artifactID)
+	_, status, code, err := corevalidation.ResolveBIOS(ctx, service.database, artifactID, logicalName)
 	if err != nil {
 		return "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	for rows.Next() {
-		var mode string
-		var condition, installationStatus sql.NullString
-		if err := rows.Scan(&mode, &condition, &installationStatus); err != nil {
-			return "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
-		}
-		if condition.Valid && !biosApplies(condition.String, logicalName) {
-			continue
-		}
-		if installationStatus.Valid {
-			if installationStatus.String != "MATCHED" && installationStatus.String != "HASH_WARNING" {
-				return "BLOCKED", "LAUNCH_BIOS_MISSING"
-			}
-			continue
-		}
-		if mode != "OPTIONAL" {
-			return "BLOCKED", "LAUNCH_BIOS_MISSING"
-		}
-	}
-	if err := rows.Err(); err != nil {
-		return "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
-	}
-	return "READY", "READY"
+	return status, code
 }
 
 func nullableSQL(value sql.NullString) any {

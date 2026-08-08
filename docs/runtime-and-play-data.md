@@ -93,7 +93,7 @@ sequenceDiagram
 ```javascript
 window.EJS_player = "#game";
 window.EJS_pathtodata = config.runtimeBaseUrl;
-window.EJS_core = config.core;
+window.EJS_core = config.runtimeCore;
 window.EJS_gameName = config.gameName;
 window.EJS_gameID = config.emulatorGameId;
 window.EJS_gameUrl = config.gameUrl;
@@ -114,6 +114,8 @@ if (config.biosUrl !== null) window.EJS_biosUrl = config.biosUrl;
 if (config.parentUrl !== null) window.EJS_gameParentUrl = config.parentUrl;
 if (config.stateUrl !== null) window.EJS_loadStateURL = config.stateUrl;
 ```
+
+`core` 是产品/数据库 core ID，只用于展示与审计；`runtimeCore` 是锁定 artifact compatibility V2 的 EmulatorJS core ID，只有它可以写入 `EJS_core`。`persistentSaveMode`、`inputMode`、`startupActions` 和 `externalFiles` 同样由该配置返回，Player 只做封闭 schema 校验，不按 `ppsspp`、`melonds` 或显示名推导行为。
 
 `EJS_fullscreenOnLoaded` 必须为 `false`：全屏由 Retrom host 在用户手势中唯一管理，避免 loader 稍后重复请求。`EJS_Buttons.exitEmulation=false` 从运行时配置移除 EmulatorJS 自带退出按钮，退出只能经过 Retrom 的确认、持久存档刷新和 PlaySession 结束流程。语言固定 `zh-CN`。v4.2.3 `loader.js` 对 `EJS_disableAutoLang` 的判断是 `!== false`，因此这里必须显式设为 `false` 才会禁用 system locale 分支；不能凭变量名改成 `true`。这样只请求 manifest 中的 `zh-CN.json`。`EJS_disableDatabases=true` 在 v4.2.3 只把 ROM/BIOS/core asset cache 换成 dummy storage，`EJS_disableLocalStorage=true` 关闭设置持久化，`EJS_CacheLimit=0` 防止 ROM cache；它们并不会关闭 `/data/saves` 的 IDBFS，也不会阻止 `saveDatabaseLoaded`。Retrom 必须按第 6 节显式覆盖/清理该 IDBFS 路径，才能让服务端 PersistentSave 成为事实源；不得把开关名称误解为“所有 IndexedDB 均已禁用”。`EJS_gameID` 来自精确 GameVariantRevision 的稳定数字 surrogate，而不是 Game ID。
 
@@ -142,6 +144,10 @@ Retrom 顶部工具栏是运行中的暂停边界：点击工具栏任意区域�
 | 线程 core | `EJS_threads` |
 | 自动开始 | `EJS_startOnLoaded = true` |
 | Host 管理全屏 | `EJS_fullscreenOnLoaded = false` |
+
+线程核心的 override key 必须使用 loader 实测 basename：`dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`。MelonDS 的 `externalFiles` 精确包含 `/retroarch/userdata/system/bios7.bin`、`bios9.bin`、`firmware.bin` 三个虚拟路径，URL 只能指向本 Launch 的 `/external-files/<logicalName>`；这些 Blob 在创建 Launch 时锁定，不能在 config GET 时重新选择 active BIOS。DOS `/game.conf` 与 BIOS external mapping 合并时，虚拟路径或 logical name 冲突必须阻断。
+
+NDS 三核心的 `inputMode=POINTER`：Player 不向 iframe 合成额外的 `pointerdown/click`，真实浏览器事件直接到 EmulatorJS canvas。其他核心为 STANDARD。PPSSPP 的两条 `startupActions` 只在一次 `onGameStart` 后分别延迟 2,000/5,000ms 调用 `simulateInput(0,0,1)`，120ms 后释放；Strict Mode 重入不得重复调度，unmount/失败/退出必须取消 timer 并释放已按下控制，最后一次释放后不再自动输入。这是版本绑定的有限启动动作，不是通用宏功能。
 
 ## 6. v4.2.3 事件适配器
 
@@ -200,6 +206,8 @@ CD "\GAMES"
 SaveState 同时引用 Profile、Game、GameVariantRevision、CoreArtifact、可空 DatVersion、DOS entry、状态 Blob、截图 Blob、名称、累计有效时长和创建时刻。默认禁止跨 CoreArtifact 或 VariantRevision 恢复；未来若有显式迁移器，必须另建兼容结果，不能自动尝试。
 
 PersistentSave 用于 SRAM/NVRAM/DOS overlay 等，按 `Profile + VariantRevision + kind` 隔离。每次成功上传先创建带 `LaunchSession + 连续 client sequence + AUTO_INTERVAL/MANUAL_EXPORT/EXIT` 的不可变 revision，校验后以 current compare-and-swap 提升；同 sequence 只能重放相同 event/bytes，失败不覆盖最后有效版本。首项必须仍以 Launch 锁定的 base 为服务器 current，后续项必须以上一 sequence revision 为 current；若另一会话已推进则返回 `PERSISTENT_SAVE_CONFLICT`，当前页保留 bytes 并提供本地下载/退出重启，不把旧进度最后写入覆盖新进度。Player 仅在当前上传成功后递增 sequence，回调并发时把最新 bytes 排到下一 sequence，不能让重试 body 漂移。替换游戏文件后旧保存继续绑定旧 VariantRevision。
+
+PersistentSave 能力来自 artifact compatibility：`SINGLE_FILE` 沿用上述单文件流程，`DOS_OVERLAY` 使用 DOS overlay，`NONE` 则不请求 persistent URL、不要求 `getSaveFilePath()`、不监听或上传 `saveSaveFiles`，game-start 直接继续。`handy`、`prosystem`、`stella2014`、`ppsspp` 当前为 NONE；状态存档仍必须可创建/恢复，UI 明示“此核心不支持自动持久存档，可使用状态存档”。服务端对 NONE 的 persistent GET/PUT 返回 `409 PERSISTENT_SAVE_UNSUPPORTED`，Launch 的 persistent base 必须为空。
 
 ## 10. PlaySession 与有效时长
 

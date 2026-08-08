@@ -5,9 +5,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import subprocess
 import sys
 import xml.etree.ElementTree as ET
 import zipfile
+import zlib
 from pathlib import Path
 from typing import Any
 
@@ -127,6 +129,51 @@ def verify_arcade(fixture: dict[str, Any], game_path: Path, errors: list[str]) -
     return f"DAT matched {matched}/{len(required)} required ROMs; {len(extras)} extra members"
 
 
+def verify_materialized_7z(fixture: dict[str, Any], game_path: Path, errors: list[str]) -> None:
+    expected = fixture["game"].get("expectedMaterializedMember")
+    if not expected:
+        return
+    try:
+        result = subprocess.run(
+            ["7z", "x", "-so", "-bd", str(game_path), expected["name"]],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except (OSError, subprocess.CalledProcessError) as error:
+        errors.append(f"{fixture['core']}: unable to extract fixed 7z member: {error}")
+        return
+    payload = result.stdout
+    actual_crc32 = f"{zlib.crc32(payload) & 0xFFFFFFFF:08x}"
+    actual_sha256 = hashlib.sha256(payload).hexdigest()
+    if len(payload) != expected["size"] or actual_crc32 != expected["crc32"] or actual_sha256 != expected["sha256"]:
+        errors.append(
+            f"{fixture['core']}: materialized 7z member mismatch "
+            f"size={len(payload)} crc32={actual_crc32} sha256={actual_sha256}"
+        )
+
+
+def verify_format_variants(fixture: dict[str, Any], errors: list[str]) -> None:
+    variants = fixture.get("formatVariants", [])
+    if fixture["core"] != "ppsspp":
+        if variants:
+            errors.append(f"{fixture['core']}: formatVariants is only defined for PPSSPP")
+        return
+    if fixture["game"].get("formatId") != "cso" or len(variants) != 1 or variants[0].get("formatId") != "iso":
+        errors.append("ppsspp: expected one cso source and one iso format variant")
+        return
+    variant = variants[0]
+    materialized = variant.get("materializedFrom", {})
+    if materialized.get("format") != "CISO_V1" or materialized.get("sourceSha256") != fixture["game"]["sha256"]:
+        errors.append("ppsspp: invalid ISO materializedFrom relationship")
+    iso_path = require_file(variant, "ppsspp ISO variant", errors)
+    if iso_path.is_file():
+        with iso_path.open("rb") as iso:
+            iso.seek(16 * 2048 + 1)
+            if iso.read(5) != b"CD001":
+                errors.append("ppsspp: ISO sector 16 does not contain CD001")
+
+
 def main() -> int:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     dependency_manifest = json.loads(DEPENDENCY_MANIFEST_PATH.read_text(encoding="utf-8"))
@@ -209,6 +256,8 @@ def main() -> int:
         if not source_relative or Path(source_relative).is_absolute() or ".." in Path(source_relative).parts:
             errors.append(f"{core}: unsafe or missing sourceRelativePath")
         game_path = require_file(fixture["game"], f"{core} game", errors)
+        verify_materialized_7z(fixture, game_path, errors)
+        verify_format_variants(fixture, errors)
         source_archive_path = fixture["game"].get("sourceArchiveLocalPath")
         if source_archive_path:
             archive_path = require_file(

@@ -387,9 +387,10 @@ async function waitForPage(cdp, sessionId, timeoutMs) {
 
 async function runFixture(cdp, fixture) {
   const startedAtMs = Date.now();
-  const screenshotRelative = `data/example/results/${fixture.core}.png`;
+  const runId = fixture.runId || fixture.core;
+  const screenshotRelative = `data/example/results/${runId}.png`;
   const screenshotPath = path.join(REPO_ROOT, screenshotRelative);
-  const pageUrl = `${BASE_URL}/${fixture.examplePath}`;
+  const pageUrl = `${BASE_URL}/${fixture.examplePath}${fixture.exampleQuery || ""}`;
   const coreRequests = [];
   const externalFileRequests = [];
   const expectedExternalFiles = [
@@ -524,7 +525,9 @@ async function runFixture(cdp, fixture) {
 
   const finishedAtMs = Date.now();
   return {
-    core: fixture.core,
+    core: runId,
+    productCore: fixture.core,
+    formatId: fixture.formatId || null,
     status: failure ? "failed" : "passed",
     failure: failure || null,
     startedAtMs,
@@ -543,16 +546,31 @@ async function runFixture(cdp, fixture) {
   };
 }
 
+export function expandFixtureRuns(allFixtures, requestedCores = []) {
+  const fixtures = requestedCores.length
+    ? allFixtures.filter(fixture => requestedCores.includes(fixture.core))
+    : allFixtures;
+  const unknown = requestedCores.filter(
+    core => !allFixtures.some(fixture => fixture.core === core)
+  );
+  if (unknown.length) throw new Error(`Unknown core(s): ${unknown.join(", ")}`);
+  return fixtures.flatMap(fixture => {
+    if (fixture.core !== "ppsspp") return [fixture];
+    const iso = fixture.formatVariants?.find(variant => variant.formatId === "iso");
+    if (!iso || fixture.game?.formatId !== "cso") {
+      throw new Error("PPSSPP requires fixed cso and iso format variants");
+    }
+    return [
+      { ...fixture, runId: "ppsspp-cso", formatId: "cso", exampleQuery: "?format=cso" },
+      { ...fixture, runId: "ppsspp-iso", formatId: "iso", exampleQuery: "?format=iso" }
+    ];
+  });
+}
+
 async function main() {
   const manifest = JSON.parse(await fs.readFile(MANIFEST_PATH, "utf8"));
   const requestedCores = process.argv.slice(2);
-  const fixtures = requestedCores.length
-    ? manifest.fixtures.filter(fixture => requestedCores.includes(fixture.core))
-    : manifest.fixtures;
-  const unknown = requestedCores.filter(
-    core => !manifest.fixtures.some(fixture => fixture.core === core)
-  );
-  if (unknown.length) throw new Error(`Unknown core(s): ${unknown.join(", ")}`);
+  const fixtures = expandFixtureRuns(manifest.fixtures, requestedCores);
   if (!fixtures.length) throw new Error("No core fixtures selected");
 
   await fs.mkdir(RESULTS_DIR, { recursive: true });
@@ -578,7 +596,7 @@ async function main() {
     const browserVersion = await cdp.call("Browser.getVersion", {}, undefined, 30000);
 
     for (const fixture of fixtures) {
-      process.stdout.write(`[${fixture.core}] launching... `);
+      process.stdout.write(`[${fixture.runId || fixture.core}] launching... `);
       const result = await runFixture(cdp, fixture);
       results.push(result);
       if (result.status === "passed") {

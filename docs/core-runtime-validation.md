@@ -3,18 +3,18 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已验证 / 一期实现基线 |
-| 验证时间 | `1785954879887`（UTC Unix 毫秒） |
-| 浏览器 | Chrome `149.0.7827.114` |
+| 验证时间 | 以 `data/example/results/latest.json` 的当次整数毫秒为准 |
+| 浏览器 | 以当次 Chrome 机器结果为准 |
 | 前端运行时 | EmulatorJS `4.2.3` |
-| 结果 | 8/8 核心进入游戏画面 |
+| 结果 | 28 个正式核心均有固定 fixture 与独立验收 Case；历史结果不能替代当次验收 |
 
 ## 1. 文档职责
 
-本文定义一期核心能否进入实现清单的既有运行证据、画面判定依据和已知兼容覆盖。ROM/BIOS 的精确来源、哈希、实际 core artifact 路径和测试参数由 [`data/example/fixtures.json`](../data/example/fixtures.json) 维护；该清单还可保存 `supportStatus: "candidate"` 的探索性示例，但候选记录不会自动进入本章矩阵、产品核心清单或正式验收 Case。工具说明与故障细节见 [`data/example/README.md`](../data/example/README.md)。本文不重复保存一份可能漂移的二进制清单或验收 Case。
+本文定义核心进入正式实现清单所需的运行证据、画面判定依据和已知兼容覆盖。ROM/BIOS 的精确来源、哈希、实际 core artifact 路径和测试参数由 [`data/example/fixtures.json`](../data/example/fixtures.json) 维护；只有 `supported` 或原有正式条目进入本章矩阵，探索性 candidate 不会自动进入产品核心清单或正式验收 Case。工具说明与故障细节见 [`data/example/README.md`](../data/example/README.md)。本文不重复保存一份可能漂移的二进制清单或验收 Case。
 
 ## 2. 统一验收入口
 
-八个核心必须分别执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-CORE-001`–`ACC-CORE-008`。固定命令、帧/画面阈值、当次截图复核、超时与证据格式只在统一文档维护；本专题的矩阵记录已经确认过的兼容事实，不能代替当前版本的验收结果。
+二十八个核心必须分别执行 [项目验收规范](./project-acceptance.md) 的 `ACC-CORE-001`–`ACC-CORE-028`。固定命令、帧/画面阈值、当次截图复核、超时与证据格式只在统一文档维护；本专题的矩阵记录已经确认过的兼容事实，不能代替当前版本的验收结果。`ACC-CORE-028` 内含 PPSSPP ISO/CSO 两个独立 run。
 
 ## 3. 已验证矩阵
 
@@ -28,6 +28,26 @@
 | `mame2003` | Lode Runner | 当前 machine 无 parent/BIOS | 标题/attract 画面 | 通过，使用第 5 节覆盖 |
 | `mame2003_plus` | Lode Runner | 当前 machine 无 parent/BIOS | 标题/投币画面 | 通过 |
 | `dosbox_pure` | DOOM II | 线程与跨源隔离 | DOOM II 标题画面 | 通过 |
+| `nestopia` | FDS Smash Ping Pong | 条件 `disksys.rom` | Family Computer/FDS 启动画面 | 正式支持 |
+| `melonds` | Zoo Keeper | 三个 external BIOS、pointer | Zoo Keeper 标题菜单 | 正式支持 |
+| `desmume2015` | Zoo Keeper | pointer | Zoo Keeper 标题菜单 | 正式支持 |
+| `desmume` | Zoo Keeper | pointer | Zoo Keeper 标题菜单 | 正式支持 |
+| `a5200` | Super Breakout | 7z→`.a52`、`5200.rom` | 游戏画面 | 正式支持 |
+| `pcsx_rearmed` | Nekketsu Oyako | 单文件 CHD、`scph5500.bin` | PlayStation/游戏启动画面 | 正式支持 |
+| `mednafen_psx_hw` | Nekketsu Oyako | thread、software renderer、`scph5500.bin` | PlayStation/游戏启动画面 | 正式支持 |
+| `handy` | Lode Runner | `lynxboot.img`、PersistentSave NONE | 标题/游戏画面 | 正式支持 |
+| `yabause` | Saturn fixture 095 | 单文件 CHD、`saturn_bios.bin` | 游戏画面 | 正式支持 |
+| `genesis_plus_gx` | Felix the Cat | ZIP→`.md` | 标题画面 | 正式支持 |
+| `mupen64plus_next` | Dr. Mario 64 | raw `.z64` | 标题画面 | 正式支持 |
+| `parallel_n64` | Dr. Mario 64 | 产品/runtime ID 均为 `parallel_n64` | 标题画面 | 正式支持 |
+| `opera` | Total Eclipse | 单文件 CHD、`panafz10.bin` | 游戏画面 | 正式支持 |
+| `prosystem` | Asteroids | 7z→`.a78`、BIOS、PersistentSave NONE | 标题画面 | 正式支持 |
+| `stella2014` | Freeway | 7z→`.a26`、PersistentSave NONE | 游戏画面 | 正式支持 |
+| `picodrive` | Felix the Cat | ZIP→`.md` | 标题画面 | 正式支持 |
+| `mednafen_pce` | Adventure Island | raw `.pce` | 游戏画面 | 正式支持 |
+| `mednafen_pcfx` | PC Engine Fan Special CD-ROM Vol. 3 | 单文件 CHD、`pcfx.rom` | 光盘内菜单 | 正式支持 |
+| `mednafen_ngp` | Pac-Man | raw `.ngp` | 游戏画面 | 正式支持 |
+| `ppsspp` | Sheep Defense | raw CSO+ISO、thread、assets、启动动作、PersistentSave NONE | 两种格式标题画面 | 正式支持 |
 
 Arcade 的 `ldrun.zip` 分别使用三个核心自己的 DAT 验证；三者均匹配 20/20 个必需 ROM entry。ZIP 内另有 3 个不属于 `ldrun` 父集要求的成员，不构成缺失或 hash mismatch。DAT 只用于兼容与依赖判断，不参与元信息刮削。
 
@@ -51,7 +71,7 @@ python3 data/example/verify-fixtures.py
 node data/example/smoke-test.mjs
 ~~~
 
-机器结果使用整数毫秒字段并写入 [`latest.json`](../data/example/results/latest.json)；人工复核写入 [`manual-review.json`](../data/example/results/manual-review.json)。这两个结果文件可以包含候选示例；只有本章 8 个正式核心对应 `ACC-CORE-001`–`ACC-CORE-008`。截图包含游戏内容，默认只保存在本机，不提交仓库。
+机器结果使用整数毫秒字段并写入 [`latest.json`](../data/example/results/latest.json)；人工复核写入 [`manual-review.json`](../data/example/results/manual-review.json)。28 个正式核心对应 `ACC-CORE-001`–`ACC-CORE-028`；PPSSPP 展开为 `ppsspp-cso`、`ppsspp-iso` 两个 run。截图包含游戏内容，默认只保存在本机，不提交仓库。
 
 ## 5. MAME2003 版本覆盖
 
@@ -98,7 +118,13 @@ Cross-Origin-Resource-Policy: same-origin
 
 测试同时断言 `window.crossOriginIsolated === true`。该 DOOM II bundle 保持原 ZIP，smoke 通过 `EJS_externalFiles` 成功请求旁置 `game.conf`，以 `dosbox_pure_conf=outside` 自动启动并进入标题画面。运行后出现一个非阻断 `ErrnoError`，但 frame counter 持续增长且标题序列继续播放；结果中保留该诊断，不将其隐藏。
 
-## 8. 统一升级验收入口
+## 8. PSP ISO/CSO 与线程产物
+
+PSP profile 正式接受 raw `.cso` 和 `.iso`，均以 `RAW_FILE_V1` 成为独立 CONTENT、Variant 与 Launch，生产导入/Launch/Player 不做格式互转。fixture 的 ISO 只由固定 CSO 通过 `data/example/materialize-cso.py` 确定性派生：ISO 为 11,024,384 bytes，SHA-256 `081e200248ac13c279821023c8cd7bdb1fdd59205129d0d9b46f2814ea583dbf`，sector 16 标识 `CD001`。该脚本只服务测试供应链，物化 ISO 被 Git 忽略。
+
+`smoke-test.mjs ppsspp` 必须生成 `ppsspp-cso` 与 `ppsspp-iso` 两条结果并分别校验请求路径/hash、帧推进与截图。PPSSPP 使用 `ppsspp-thread-wasm.data` 和固定 `ppsspp-assets.zip`；`mednafen_psx_hw` 使用 `mednafen_psx_hw-thread-wasm.data`，固定 software renderer。线程 basename 来自 loader 实测，不得映射成非 thread 名称。
+
+## 9. 统一升级验收入口
 
 升级 EmulatorJS、任一 core 或 Arcade DAT 时执行 [一期项目验收规范](./project-acceptance.md) 的条件 Case `ACC-DAT-006`，并按其引用分别重跑 `ACC-CORE-*`、Arcade 依赖和存档兼容 Case。旧版本保留、hash/来源证据、逐核心画面复核和回滚均属于该 Case 的硬性通过标准。
 

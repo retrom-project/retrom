@@ -23,7 +23,7 @@
 | [BIOS 与 Arcade DAT](./bios-and-arcade.md) | BIOS 要求、哈希校验、核心专属 DAT、依赖解析和管理 UI |
 | [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md) | 真实 DAT 的来源、SHA-256、统计值、artifact 绑定与升级校验 |
 | [运行时、启动与游玩数据](./runtime-and-play-data.md) | 一键启动、默认全屏、预检、EmulatorJS、DOS、存档与游玩时长 |
-| [核心运行时验证基线](./core-runtime-validation.md) | 8 核真实夹具、Chrome 启动画面证据、可重复验证链路和兼容覆盖 |
+| [核心运行时验证基线](./core-runtime-validation.md) | 28 核真实夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 和兼容覆盖 |
 | [存储与数据库](./storage-and-database.md) | SQLite 时间戳规则、表目录、CAS、归档安全、GC 和备份 |
 | [一期数据库实体与不变量](./data-model.md) | 表字段、枚举、revision、外键、索引与数据库级保护 |
 | [HTTP API、上传与启动凭据契约](./http-api-contract.md) | JSON/错误协议、上传分块、受信内网写请求、launch cookie、内容缓存和路由 |
@@ -204,6 +204,20 @@ erDiagram
 | Game Boy Advance (`gba`) | `mgba` | GBA 游戏（`gba-games`）→ `mgba` | BIOS 可选 |
 | Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003` | FBNeo 游戏（`fbneo-games`）→ `fbneo`；MAME 2003 Plus 游戏（`mame2003-plus-games`）→ `mame2003_plus`；MAME 2003 游戏（`mame2003-games`）→ `mame2003` | 每个核心使用独立 DAT |
 | MS-DOS (`dos`) | `dosbox_pure` | DOS 经典游戏（`dos-games`）→ `dosbox_pure` | 启动前可选程序；需要线程模式 |
+| Nintendo DS (`nds`) | `melonds`、`desmume2015`、`desmume` | Nintendo DS 游戏（`nds-games`）→ `desmume2015` | 指针输入；MelonDS 需要三个外部 BIOS 文件 |
+| Atari 2600 (`atari2600`) | `stella2014` | Atari 2600 游戏（`atari-2600-games`）→ `stella2014` | `.a26`；允许 ZIP/7z 单成员来源 |
+| Atari 5200 (`atari5200`) | `a5200` | Atari 5200 游戏（`atari-5200-games`）→ `a5200` | `.a52`；需要 `5200.rom` |
+| Atari 7800 (`atari7800`) | `prosystem` | Atari 7800 游戏（`atari-7800-games`）→ `prosystem` | `.a78`；需要 `7800 BIOS (U).rom` |
+| Atari Lynx (`lynx`) | `handy` | Atari Lynx 游戏（`atari-lynx-games`）→ `handy` | `.lnx`；需要 `lynxboot.img` |
+| Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive` | Mega Drive 游戏（`mega-drive-games`）→ `genesis_plus_gx` | `.md`；允许 ZIP/7z 单成员来源 |
+| PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏（`pc-engine-games`）→ `mednafen_pce` | `.pce` |
+| Neo Geo Pocket / Color (`ngpc`) | `mednafen_ngp` | Neo Geo Pocket 游戏（`neo-geo-pocket-games`）→ `mednafen_ngp` | `.ngp` |
+| Nintendo 64 (`n64`) | `mupen64plus_next`、`parallel_n64` | Nintendo 64 游戏（`nintendo-64-games`）→ `mupen64plus_next` | `.z64`；产品 ID 只使用 `parallel_n64` |
+| PlayStation (`psx`) | `pcsx_rearmed`、`mednafen_psx_hw` | PlayStation 游戏（`playstation-games`）→ `pcsx_rearmed` | 单文件 CHD；后者需要线程且固定 software renderer |
+| Sega Saturn (`saturn`) | `yabause` | Sega Saturn 游戏（`sega-saturn-games`）→ `yabause` | 单文件 CHD |
+| PC-FX (`pcfx`) | `mednafen_pcfx` | PC-FX 游戏（`pc-fx-games`）→ `mednafen_pcfx` | 单文件 CHD |
+| 3DO (`3do`) | `opera` | 3DO 游戏（`3do-games`）→ `opera` | 单文件 CHD |
+| PlayStation Portable (`psp`) | `ppsspp` | PSP 游戏（`psp-games`）→ `ppsspp` | raw ISO/CSO；需要线程与固定辅助资产 |
 
 平台和核心是代码种子/版本化配置；平台目录是管理员可创建、重命名和调整默认核心的业务实体。平台目录不是标签或多对多收藏集。
 
@@ -290,11 +304,11 @@ flowchart LR
 
 ### Phase 0：兼容性闸门
 
-- 锁定 EmulatorJS 4.2.3 前端运行时与八个实际 core artifact（包括版本化覆盖），每个核心启动至少一个用户合法提供的测试游戏；当前 8/8 最小启动门禁已通过，证据见[核心运行时验证基线](./core-runtime-validation.md)。
+- 锁定 EmulatorJS 4.2.3 前端运行时与二十八个实际 core artifact（包括版本化覆盖），每个核心启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
 - 验证直接启动、默认全屏、状态存档/截图、持久存档、有效时长心跳。
 - 验证 FBNeo/MAME Split 与 Full Non-Merged 的 parent/BIOS 加载，及三个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
-- 现有 8/8 历史 smoke 已确认固定运行时在 Chrome 中 `crossOriginIsolated`、核心帧推进并进入可辨识画面；它不是产品启动编排的替代。DOSBox Pure 的同名旁置 `.conf [autoexec]`、`dosbox_pure_conf=outside` 与 EmulatorJS `EJS_externalFiles` 能力来自官方契约，产品生成的精确模板、直接进入所选程序、原 bundle 不复制及不安全路径阻断仍必须执行 `ACC-RUN-005`。
+- 已有二十八核历史 smoke 确认固定运行时在 Chrome 中 `crossOriginIsolated`、核心帧推进并进入可辨识画面；它不是产品启动编排的替代。DOSBox Pure 的同名旁置 `.conf [autoexec]`、`dosbox_pure_conf=outside` 与 EmulatorJS `EJS_externalFiles` 能力来自官方契约，产品生成的精确模板、直接进入所选程序、原 bundle 不复制及不安全路径阻断仍必须执行 `ACC-RUN-005`。
 
 Phase 0 未通过时，不进入大规模业务实现。
 
@@ -327,7 +341,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 一期所有验收流程、标准、固定夹具、证据要求和短时执行上限统一由 [一期项目验收规范](./project-acceptance.md) 维护。该文档中的 `ACC-*` Case 覆盖本文的全部一期范围；专题文档只解释设计和实现约束，不再维护另一份通过条件。
 
-Agent 不得根据本总览自行省略或合并 Case，尤其不得把八个核心合成一个长时间运行任务，也不得用 soak、压力测试或无限等待代替统一规范中的确定性短时流程。
+Agent 不得根据本总览自行省略或合并 Case，尤其不得把二十八个核心合成一个长时间运行任务，也不得用 soak、压力测试或无限等待代替统一规范中的确定性短时流程。
 
 ## 12. 已锁定边界与后续议题
 

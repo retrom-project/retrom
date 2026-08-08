@@ -24,16 +24,9 @@ HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 PINNED_RAW = re.compile(
     r"^https://raw\.githubusercontent\.com/[^/]+/[^/]+/[0-9a-f]{40}/.+$"
 )
-CORE_IDS = (
-    "fceumm",
-    "snes9x",
-    "gambatte",
-    "mgba",
-    "fbneo",
-    "mame2003",
-    "mame2003_plus",
-    "dosbox_pure",
-)
+RUNTIME_CORE_ID = re.compile(r"^[a-z0-9_]{1,64}$")
+ARTIFACT_BASENAME = re.compile(r"^[A-Za-z0-9_.-]+-wasm\.data$")
+DANGEROUS_OPTION_KEYS = {"__proto__", "constructor", "prototype"}
 
 
 class CheckError(RuntimeError):
@@ -110,7 +103,7 @@ def manifest_path(version: str) -> Path:
 
 def load_manifest(version: str) -> dict[str, Any]:
     manifest = load_json(manifest_path(version))
-    if manifest.get("schema_version") != 3:
+    if manifest.get("schema_version") != 4:
         raise CheckError(f"DEPENDENCY_SCHEMA_UNSUPPORTED:{version}")
     emulatorjs = manifest.get("emulatorjs")
     if not isinstance(emulatorjs, dict) or emulatorjs.get("version") != version:
@@ -190,51 +183,90 @@ def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
             raise CheckError("DEPENDENCY_ALLOWLIST_SIZE_INVALID")
         expect_digest(item.get("sha256"), "DEPENDENCY_ALLOWLIST_SHA256_INVALID")
     selected_ids: list[str] = []
+    runtime_ids: set[str] = set()
+    selected_paths: set[str] = set()
     for item in selected:
         if not isinstance(item, dict):
             raise CheckError("DEPENDENCY_CORE_INVALID")
         core_id = item.get("core_id")
-        if not isinstance(core_id, str):
+        runtime_core_id = item.get("runtime_core_id")
+        if not isinstance(core_id, str) or core_id in selected_ids:
             raise CheckError("DEPENDENCY_CORE_INVALID")
+        if not isinstance(runtime_core_id, str) or RUNTIME_CORE_ID.fullmatch(runtime_core_id) is None:
+            raise CheckError("DEPENDENCY_RUNTIME_CORE_INVALID")
+        if runtime_core_id in runtime_ids:
+            raise CheckError("DEPENDENCY_RUNTIME_CORE_DUPLICATE")
         selected_ids.append(core_id)
+        runtime_ids.add(runtime_core_id)
         path_value = item.get("path_in_release") or item.get("local_path")
         safe_relative_path(path_value, "DEPENDENCY_CORE_PATH_INVALID")
+        if path_value in selected_paths:
+            raise CheckError("DEPENDENCY_CORE_PATH_DUPLICATE")
+        selected_paths.add(path_value)
         if not isinstance(item.get("size_bytes"), int):
             raise CheckError("DEPENDENCY_CORE_SIZE_INVALID")
         expect_digest(item.get("sha256"), "DEPENDENCY_CORE_SHA256_INVALID")
-    if tuple(selected_ids) != CORE_IDS:
-        raise CheckError("DEPENDENCY_CORE_SELECTION_INVALID")
+        validate_artifact_capability(item, paths)
+
+    auxiliary = emulatorjs.get("auxiliary_files")
+    if not isinstance(auxiliary, list):
+        raise CheckError("DEPENDENCY_AUXILIARY_INVALID")
+    auxiliary_paths: set[str] = set()
+    for item in auxiliary:
+        if not isinstance(item, dict) or item.get("component_id") not in selected_ids:
+            raise CheckError("DEPENDENCY_AUXILIARY_INVALID")
+        auxiliary_path = safe_relative_path(
+            item.get("path_in_release"), "DEPENDENCY_AUXILIARY_PATH_INVALID"
+        )
+        if auxiliary_path in auxiliary_paths or auxiliary_path not in paths:
+            raise CheckError("DEPENDENCY_AUXILIARY_ALLOWLIST_INVALID")
+        auxiliary_paths.add(auxiliary_path)
+        if not isinstance(item.get("size_bytes"), int):
+            raise CheckError("DEPENDENCY_AUXILIARY_SIZE_INVALID")
+        expect_digest(item.get("sha256"), "DEPENDENCY_AUXILIARY_SHA256_INVALID")
 
     licenses = manifest.get("license_materialization")
     if not isinstance(licenses, dict):
         raise CheckError("DEPENDENCY_LICENSE_MANIFEST_INVALID")
-    entries = licenses.get("entries")
+    entries = licenses.get("components")
     order = licenses.get("notice_order")
     if not isinstance(entries, list) or order != [entry.get("component_id") for entry in entries]:
         raise CheckError("DEPENDENCY_LICENSE_ORDER_INVALID")
-    if tuple(order) != ("emulatorjs",) + CORE_IDS:
+    if order != ["emulatorjs", *selected_ids] or len(set(order)) != len(order):
         raise CheckError("DEPENDENCY_LICENSE_COMPONENTS_INVALID")
-    for entry in entries:
-        if not isinstance(entry, dict):
+    component_ids = {
+        component.get("component_id") for component in entries if isinstance(component, dict)
+    }
+    if any(item.get("source_component_id") not in component_ids for item in selected):
+        raise CheckError("DEPENDENCY_CORE_COMPONENT_INVALID")
+    for component in entries:
+        if not isinstance(component, dict):
             raise CheckError("DEPENDENCY_LICENSE_ENTRY_INVALID")
-        safe_relative_path(entry.get("output_relative_path"), "DEPENDENCY_LICENSE_PATH_INVALID")
-        expect_digest(entry.get("sha256"), "DEPENDENCY_LICENSE_SHA256_INVALID")
-        if not isinstance(entry.get("size_bytes"), int):
-            raise CheckError("DEPENDENCY_LICENSE_SIZE_INVALID")
-        materialization = entry.get("materialization")
-        if not isinstance(materialization, dict):
-            raise CheckError("DEPENDENCY_LICENSE_SOURCE_INVALID")
-        source_type = materialization.get("type")
-        if source_type == "PINNED_RAW_FILE":
-            url = materialization.get("url")
-            if not isinstance(url, str) or PINNED_RAW.fullmatch(url) is None:
+        files = component.get("license_files")
+        if not isinstance(files, list) or not files:
+            raise CheckError("DEPENDENCY_LICENSE_FILES_EMPTY")
+        output_paths = [entry.get("output_relative_path") for entry in files if isinstance(entry, dict)]
+        if len(output_paths) != len(files) or output_paths != sorted(output_paths, key=lambda value: value.encode("utf-8")):
+            raise CheckError("DEPENDENCY_LICENSE_FILE_ORDER_INVALID")
+        for entry in files:
+            safe_relative_path(entry.get("output_relative_path"), "DEPENDENCY_LICENSE_PATH_INVALID")
+            expect_digest(entry.get("sha256"), "DEPENDENCY_LICENSE_SHA256_INVALID")
+            if not isinstance(entry.get("size_bytes"), int):
+                raise CheckError("DEPENDENCY_LICENSE_SIZE_INVALID")
+            materialization = entry.get("materialization")
+            if not isinstance(materialization, dict):
                 raise CheckError("DEPENDENCY_LICENSE_SOURCE_INVALID")
-            if entry.get("source_commit") not in url:
-                raise CheckError("DEPENDENCY_LICENSE_COMMIT_MISMATCH")
-        elif source_type == "RELEASE_ENTRY":
-            safe_relative_path(materialization.get("path_in_release"), "DEPENDENCY_LICENSE_SOURCE_INVALID")
-        else:
-            raise CheckError("DEPENDENCY_LICENSE_SOURCE_INVALID")
+            source_type = materialization.get("type")
+            if source_type == "PINNED_RAW_FILE":
+                url = materialization.get("url")
+                if not isinstance(url, str) or PINNED_RAW.fullmatch(url) is None:
+                    raise CheckError("DEPENDENCY_LICENSE_SOURCE_INVALID")
+                if component.get("source_commit") not in url:
+                    raise CheckError("DEPENDENCY_LICENSE_COMMIT_MISMATCH")
+            elif source_type == "RELEASE_ENTRY":
+                safe_relative_path(materialization.get("path_in_release"), "DEPENDENCY_LICENSE_SOURCE_INVALID")
+            else:
+                raise CheckError("DEPENDENCY_LICENSE_SOURCE_INVALID")
 
     dat_lines = (DATA_ROOT / "dat/emulatorjs" / version / "SHA256SUMS").read_text(
         encoding="utf-8"
@@ -249,17 +281,73 @@ def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
         safe_relative_path(path, "DEPENDENCY_SHA256SUMS_INVALID")
         sums[path] = digest
     cores = manifest.get("cores")
-    if not isinstance(cores, list) or len(cores) != 3:
+    if not isinstance(cores, list):
         raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
     expected_sums: dict[str, str] = {}
     for core in cores:
-        if not isinstance(core, dict) or not isinstance(core.get("dat"), dict):
+        if not isinstance(core, dict):
+            raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
+        if "dat" not in core:
+            continue
+        if not isinstance(core.get("dat"), dict):
             raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
         dat = core["dat"]
         local_path = safe_relative_path(dat.get("local_path"), "DEPENDENCY_DAT_PATH_INVALID")
         expected_sums[local_path] = expect_digest(dat.get("sha256"), "DEPENDENCY_DAT_SHA256_INVALID")
     if sums != expected_sums:
         raise CheckError("DEPENDENCY_SHA256SUMS_DRIFT")
+    if len(expected_sums) != 3:
+        raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
+
+
+def validate_artifact_capability(item: dict[str, Any], allowlist_paths: set[str]) -> None:
+    basename = item.get("requested_artifact_basename")
+    if not isinstance(basename, str) or ARTIFACT_BASENAME.fullmatch(basename) is None or ".." in basename:
+        raise CheckError("DEPENDENCY_ARTIFACT_BASENAME_INVALID")
+    threaded = item.get("requires_threads")
+    if not isinstance(threaded, bool) or ("-thread-wasm.data" in basename) != threaded:
+        raise CheckError("DEPENDENCY_ARTIFACT_THREAD_MISMATCH")
+    policy = item.get("canvas_resize_policy")
+    if policy not in ("NONE", "ON_GAME_START_TO_CSS_PIXELS"):
+        raise CheckError("DEPENDENCY_CANVAS_POLICY_INVALID")
+    options = item.get("default_options")
+    if not isinstance(options, dict) or len(options) > 32:
+        raise CheckError("DEPENDENCY_CORE_OPTIONS_INVALID")
+    for key, value in options.items():
+        if key in DANGEROUS_OPTION_KEYS or not isinstance(key, str) or not isinstance(value, str):
+            raise CheckError("DEPENDENCY_CORE_OPTIONS_INVALID")
+        try:
+            encoded_key = key.encode("ascii")
+            encoded_value = value.encode("ascii")
+        except UnicodeEncodeError as exc:
+            raise CheckError("DEPENDENCY_CORE_OPTIONS_INVALID") from exc
+        if not 1 <= len(encoded_key) <= 128 or len(encoded_value) > 128 or any(byte < 0x20 or byte > 0x7E for byte in (*encoded_key, *encoded_value)):
+            raise CheckError("DEPENDENCY_CORE_OPTIONS_INVALID")
+    mode = item.get("persistent_save_mode")
+    kind = item.get("persistent_save_kind")
+    expected_kind = {"SINGLE_FILE": "CORE_SAVE", "DOS_OVERLAY": "DOS_OVERLAY", "NONE": None}
+    if mode not in expected_kind or kind != expected_kind[mode]:
+        raise CheckError("DEPENDENCY_PERSISTENT_SAVE_INVALID")
+    if item.get("input_mode") not in ("STANDARD", "POINTER"):
+        raise CheckError("DEPENDENCY_INPUT_MODE_INVALID")
+    report_path = safe_relative_path(item.get("report_path"), "DEPENDENCY_CORE_REPORT_INVALID")
+    if report_path not in allowlist_paths:
+        raise CheckError("DEPENDENCY_CORE_REPORT_NOT_ALLOWLISTED")
+    if not isinstance(item.get("source_component_id"), str):
+        raise CheckError("DEPENDENCY_CORE_COMPONENT_INVALID")
+    actions = item.get("startup_actions")
+    if not isinstance(actions, list) or len(actions) > 4:
+        raise CheckError("DEPENDENCY_STARTUP_ACTION_INVALID")
+    for action in actions:
+        if not isinstance(action, dict) or set(action) != {
+            "event", "kind", "delayMs", "player", "control", "durationMs"
+        } or action.get("event") != "GAME_START" or action.get("kind") != "PRESS_CONTROL":
+            raise CheckError("DEPENDENCY_STARTUP_ACTION_INVALID")
+        values = [action.get(name) for name in ("delayMs", "player", "control", "durationMs")]
+        if any(not isinstance(value, int) or isinstance(value, bool) for value in values):
+            raise CheckError("DEPENDENCY_STARTUP_ACTION_INVALID")
+        if not 0 <= values[0] <= 10_000 or not 0 <= values[1] <= 3 or not 0 <= values[2] <= 255 or not 1 <= values[3] <= 1_000:
+            raise CheckError("DEPENDENCY_STARTUP_ACTION_INVALID")
 
 
 def runtime_path(version: str, relative: str) -> Path:
@@ -279,14 +367,17 @@ def check_payload(version: str, manifest: dict[str, Any]) -> None:
         check_file(runtime_path(version, relative), item["size_bytes"], item["sha256"])
     dat_root = DATA_ROOT / "dat/emulatorjs" / version
     for core in manifest["cores"]:
+        if "dat" not in core:
+            continue
         dat = core["dat"]
         check_file(dat_root / dat["local_path"], dat["size_bytes"], dat["sha256"])
-    for entry in manifest["license_materialization"]["entries"]:
-        check_file(
-            runtime_path(version, entry["output_relative_path"]),
-            entry["size_bytes"],
-            entry["sha256"],
-        )
+    for component in manifest["license_materialization"]["components"]:
+        for entry in component["license_files"]:
+            check_file(
+                runtime_path(version, entry["output_relative_path"]),
+                entry["size_bytes"],
+                entry["sha256"],
+            )
     notice = render_notice(manifest)
     notice_path = runtime_path(
         version, manifest["license_materialization"]["third_party_notices_relative_path"]
@@ -361,6 +452,8 @@ def ensure_release(version: str, manifest: dict[str, Any]) -> None:
 def ensure_dat(version: str, manifest: dict[str, Any]) -> None:
     dat_root = DATA_ROOT / "dat/emulatorjs" / version
     for core in manifest["cores"]:
+        if "dat" not in core:
+            continue
         dat = core["dat"]
         target = dat_root / dat["local_path"]
         try:
@@ -413,7 +506,12 @@ def ensure_override(version: str, manifest: dict[str, Any]) -> None:
 
 def ensure_licenses(version: str, manifest: dict[str, Any]) -> None:
     archive_root = runtime_path(version, ".")
-    for entry in manifest["license_materialization"]["entries"]:
+    entries = [
+        entry
+        for component in manifest["license_materialization"]["components"]
+        for entry in component["license_files"]
+    ]
+    for entry in entries:
         target = runtime_path(version, entry["output_relative_path"])
         try:
             check_file(target, entry["size_bytes"], entry["sha256"])
@@ -434,18 +532,42 @@ def ensure_licenses(version: str, manifest: dict[str, Any]) -> None:
 def render_notice(manifest: dict[str, Any]) -> bytes:
     chunks: list[bytes] = []
     version = manifest["emulatorjs"]["version"]
-    for entry in manifest["license_materialization"]["entries"]:
-        header = (
+    for component in manifest["license_materialization"]["components"]:
+        for entry in component["license_files"]:
+            header = (
             "===============================================================================\n"
-            f"Component: {entry['component_id']}\n"
-            f"Source: {entry['repository']}/tree/{entry['source_commit']}\n"
-            f"Binary association: {entry['binary_association_status']}\n"
+            f"Component: {component['component_id']}\n"
+            f"Source: {component['repository']}/tree/{component['source_commit']}\n"
+            f"Binary association: {component['binary_association_status']}\n"
             f"Declared license path: {entry['declared_license_path']}\n"
             "-------------------------------------------------------------------------------\n"
-        ).encode("ascii")
-        license_bytes = runtime_path(version, entry["output_relative_path"]).read_bytes()
-        chunks.append(header + license_bytes.rstrip(b"\n") + b"\n")
+            ).encode("ascii")
+            license_bytes = runtime_path(version, entry["output_relative_path"]).read_bytes()
+            chunks.append(header + license_bytes.rstrip(b"\n") + b"\n")
     return b"\n".join(chunks)
+
+
+def publish_bytes_if_changed(target: Path, contents: bytes) -> bool:
+    try:
+        if target.read_bytes() == contents:
+            if target.stat().st_mode & 0o777 != 0o600:
+                os.chmod(target, 0o600)
+            return False
+    except FileNotFoundError:
+        pass
+    target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+    descriptor, candidate_name = tempfile.mkstemp(prefix=f".{target.name}.", dir=target.parent)
+    candidate = Path(candidate_name)
+    try:
+        with os.fdopen(descriptor, "wb") as output:
+            output.write(contents)
+            output.flush()
+            os.fsync(output.fileno())
+        os.chmod(candidate, 0o600)
+        os.replace(candidate, target)
+    finally:
+        candidate.unlink(missing_ok=True)
+    return True
 
 
 def prepare(version: str, manifest: dict[str, Any]) -> None:
@@ -457,8 +579,7 @@ def prepare(version: str, manifest: dict[str, Any]) -> None:
         version, manifest["license_materialization"]["third_party_notices_relative_path"]
     )
     notice = render_notice(manifest)
-    notice_path.write_bytes(notice)
-    os.chmod(notice_path, 0o600)
+    publish_bytes_if_changed(notice_path, notice)
 
 
 def main() -> int:

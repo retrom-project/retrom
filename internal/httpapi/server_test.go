@@ -168,7 +168,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 13 ||
+		response.DatabaseSchemaVersion != 14 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -321,8 +321,8 @@ VALUES(?,?, 'blocked.zip',4096,4096,?,'COMPLETE',?,?),
 	}
 	if _, err := transaction.Exec(`
 INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
-compression_method,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
-VALUES(?,0,'blocked.gba','blocked.gba','blocked.gba',8,4096,?,?,?,?,?,?)
+archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
+VALUES(?,0,'blocked.gba','blocked.gba','blocked.gba','ZIP','DEFLATE',4096,?,?,?,?,?,?)
 	`, sourceBlobID, strings.Repeat("e", 8), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), sourceBlobID, timestamp); err != nil {
 		t.Fatal(err)
 	}
@@ -1463,7 +1463,7 @@ func TestPlatformInstanceOrderIsAtomicVersionedAndExact(t *testing.T) {
 
 	list := httptest.NewRecorder()
 	handler.ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/platform-instances", nil))
-	if list.Code != http.StatusOK || strings.Count(list.Body.String(), `"gameCount":0`) != 11 {
+	if list.Code != http.StatusOK || strings.Count(list.Body.String(), `"gameCount":0`) != 25 {
 		t.Fatalf("platform game counts = %d %s", list.Code, list.Body.String())
 	}
 	sendOrder := func(body string) *httptest.ResponseRecorder {

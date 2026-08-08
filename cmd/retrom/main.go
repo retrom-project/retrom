@@ -18,6 +18,7 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
 	"retrom/internal/httpapi"
+	"retrom/internal/importing"
 	"retrom/internal/maintenance"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
@@ -37,7 +38,15 @@ func main() {
 	}
 }
 
+//nolint:gocyclo // Each CLI command owns a small, explicit argument contract.
 func execute(arguments []string) error {
+	worker, err := importing.RunArchiveWorker(arguments)
+	if worker {
+		if err != nil {
+			return fmt.Errorf("retrom/archive worker: %w", err)
+		}
+		return nil
+	}
 	if len(arguments) == 0 {
 		return run()
 	}

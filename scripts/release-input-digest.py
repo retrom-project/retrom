@@ -43,7 +43,12 @@ def source_entries() -> list[dict[str, object]]:
         if path.is_absolute() or any(part in ("", ".", "..") for part in path.parts):
             raise ValueError("RELEASE_INPUT_PATH_INVALID")
         absolute = ROOT / relative
-        info = absolute.lstat()
+        try:
+            info = absolute.lstat()
+        except FileNotFoundError:
+            # git ls-files includes tracked paths deleted from an unstaged
+            # worktree. They are absent from the source tree being built.
+            continue
         if stat.S_ISLNK(info.st_mode):
             mode = "120000"
             content = os.readlink(absolute).encode()

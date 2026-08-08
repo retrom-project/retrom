@@ -6,8 +6,10 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
 	"image"
 	"image/color"
@@ -25,6 +27,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
@@ -94,6 +97,23 @@ AND enabled=1
 	contentID := uuid.NewString()
 	variantID := uuid.NewString()
 	variantRevisionID := uuid.NewString()
+	dependencySnapshot, status, _, err := corevalidation.ResolveBIOS(ctx, database.SQL, artifactID, "save.gba")
+	if err != nil || status != "READY" {
+		t.Fatalf("save fixture dependencies = %#v/%s, error=%v", dependencySnapshot, status, err)
+	}
+	validationDigest, err := corevalidation.ValidationInputDigest(
+		artifactID,
+		contentID,
+		sql.NullString{},
+		dependencySnapshot,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	dependencySnapshotJSON, err := dependencySnapshot.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -234,10 +254,18 @@ NULL,
 424242,
 'READY',
 'READY',
-'{}',
+?,
 ?)
 `,
-			[]any{variantRevisionID, variantID, contentID, artifactID, strings.Repeat("2", 64), stamp},
+			[]any{
+				variantRevisionID,
+				variantID,
+				contentID,
+				artifactID,
+				validationDigest,
+				string(dependencySnapshotJSON),
+				stamp,
+			},
 		},
 		{`
 UPDATE game_variants
@@ -529,5 +557,65 @@ WHERE id=?
 		ErrTooLarge,
 	) {
 		t.Fatalf("oversized locked base error = %v", err)
+	}
+}
+
+func TestPersistentSaveNoneRejectsGetAndPutWithoutCreatingRows(t *testing.T) {
+	fixture := newSaveFixture(t)
+	var artifactID, compatibilityJSON string
+	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
+SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND enabled=1
+`).Scan(&artifactID, &compatibilityJSON); err != nil {
+		t.Fatal(err)
+	}
+	var compatibility map[string]any
+	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil {
+		t.Fatal(err)
+	}
+	compatibility["persistentSaveMode"] = "NONE"
+	compatibility["persistentSaveKind"] = nil
+	updatedCompatibility, err := json.Marshal(compatibility)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.database.SQL.ExecContext(
+		fixture.ctx,
+		`UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?`,
+		string(updatedCompatibility),
+		artifactID,
+	); err != nil {
+		t.Fatal(err)
+	}
+	created := fixture.createLaunch(t)
+	var persistentBase sql.NullString
+	if err := fixture.database.SQL.QueryRowContext(
+		fixture.ctx,
+		`SELECT persistent_save_base_revision_id FROM launch_sessions WHERE id=?`,
+		created.LaunchID,
+	).Scan(&persistentBase); err != nil || persistentBase.Valid {
+		t.Fatalf("NONE persistent base = %v, error=%v", persistentBase, err)
+	}
+	if _, _, err := fixture.saves.GetPersistent(
+		fixture.ctx,
+		created.LaunchID,
+		created.Capability,
+	); !errors.Is(err, ErrPersistentUnsupported) {
+		t.Fatalf("NONE persistent GET error = %v", err)
+	}
+	if _, _, err := fixture.saves.PutPersistent(
+		fixture.ctx,
+		created.LaunchID,
+		created.Capability,
+		uuid.NewString(),
+		contentDigest([]byte("unsupported")),
+		"AUTO_INTERVAL",
+		1,
+		bytes.NewReader([]byte("unsupported")),
+	); !errors.Is(err, ErrPersistentUnsupported) {
+		t.Fatalf("NONE persistent PUT error = %v", err)
+	}
+	var count int
+	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `SELECT count(*) FROM persistent_saves`).Scan(&count); err != nil || count != 0 {
+		t.Fatalf("NONE persistent rows = %d, error=%v", count, err)
 	}
 }

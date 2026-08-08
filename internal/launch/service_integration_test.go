@@ -12,6 +12,7 @@ import (
 	"errors"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
@@ -211,6 +213,35 @@ AND enabled=1
 	if err != nil {
 		t.Fatalf("create launch: %v", err)
 	}
+	if createdLaunch.Status == "VALIDATION_PENDING" {
+		for deadline := time.Now().Add(3 * time.Second); ; {
+			var state string
+			var errorCode sql.NullString
+			if queryErr := database.SQL.QueryRowContext(ctx, `
+SELECT state,error_code FROM jobs WHERE id=?
+`, createdLaunch.JobID).Scan(&state, &errorCode); queryErr != nil {
+				t.Fatal(queryErr)
+			}
+			if state == "SUCCEEDED" {
+				break
+			}
+			if state == "FAILED" || time.Now().After(deadline) {
+				t.Fatalf("BIOS dependency revalidation = %s/%s", state, errorCode.String)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		createdLaunch, err = service.Create(
+			ctx,
+			CreateRequest{
+				GameID:             approved.GameID,
+				ReturnTo:           "/games/" + approved.GameID,
+				ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
+			},
+		)
+		if err != nil || createdLaunch.LaunchID == "" {
+			t.Fatalf("create launch after BIOS dependency revalidation = %#v, error=%v", createdLaunch, err)
+		}
+	}
 	if _, err := service.Config(ctx, createdLaunch.LaunchID, "bad-capability"); err != ErrCredential {
 		t.Fatalf("bad credential error = %v", err)
 	}
@@ -221,6 +252,7 @@ AND enabled=1
 	if configuration.Core != "mgba" || configuration.EmulatorJSVersion != "4.2.3" || configuration.GameURL == "" ||
 		configuration.CoreName != "mGBA" || configuration.GameTitle != "Launch" || configuration.PlatformName != "Game Boy Advance" ||
 		configuration.BIOSURL == nil || configuration.DefaultCoreOptions["mgba_use_bios"] != "ON" ||
+		configuration.StartupActions == nil ||
 		len(configuration.Warnings) != 1 || configuration.Warnings[0] != "BIOS_HASH_WARNING" {
 		t.Fatalf("configuration = %#v", configuration)
 	}
@@ -371,6 +403,41 @@ WHERE id=?
 	if err != nil || quickConfig.Core != "mgba" || quickConfig.StateURL == nil {
 		t.Fatalf("locked save config = %#v, error=%v", quickConfig, err)
 	}
+	gbContentID := newUUID()
+	contentTx, err := database.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(contentTx)
+	if _, err := contentTx.ExecContext(ctx, `
+INSERT INTO game_content_revisions(
+  id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
+) VALUES(?,?, 'ADMIN_REPLACE','fixture','{}',?,?)
+`, gbContentID, approved.GameID, strings.Repeat("f", 64), time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := contentTx.ExecContext(ctx, `
+INSERT INTO game_content_files(
+  game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+)
+SELECT ?,'CONTENT','Launch.gb',blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+FROM game_content_files
+WHERE game_content_revision_id=(
+  SELECT game_content_revision_id FROM game_variant_revisions WHERE id=?
+) AND role='CONTENT'
+`, gbContentID, lockedVariantRevisionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := contentTx.ExecContext(ctx, `
+UPDATE games
+SET current_content_revision_id=?,version=version+1,updated_at_ms=?
+WHERE id=?
+`, gbContentID, time.Now().UnixMilli(), approved.GameID); err != nil {
+		t.Fatal(err)
+	}
+	if err := contentTx.Commit(); err != nil {
+		t.Fatal(err)
+	}
 	gambatte := "gambatte"
 	pending, err := service.Create(
 		ctx,
@@ -427,7 +494,10 @@ WHERE id=?
 			break
 		}
 		if state == "FAILED" || time.Now().After(deadline) {
-			t.Fatalf("variant validation = %s", state)
+			var errorCode sql.NullString
+			_ = database.SQL.QueryRowContext(ctx, "SELECT error_code FROM jobs WHERE id=?", pending.JobID).
+				Scan(&errorCode)
+			t.Fatalf("variant validation = %s/%s", state, errorCode.String)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
@@ -453,7 +523,14 @@ WHERE id=?
 	if err != nil || validatedLaunch.LaunchID == "" || validatedLaunch.Status != "" {
 		t.Fatalf("validated launch = %#v, error=%v", validatedLaunch, err)
 	}
-	var contentBlobID string
+	var currentVariantRevisionID, contentBlobID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT game_variant_revision_id
+FROM launch_sessions
+WHERE id=?
+`, validatedLaunch.LaunchID).Scan(&currentVariantRevisionID); err != nil {
+		t.Fatal(err)
+	}
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT blob_id
 FROM game_content_files
@@ -471,14 +548,13 @@ logical_name,
 blob_id,
 sort_order) VALUES(?,
 'PARENT',
-'launch.GBA',
+'launch.GB',
 ?,
 0)
-`, lockedVariantRevisionID, contentBlobID); err != nil {
+	`, currentVariantRevisionID, contentBlobID); err != nil {
 		t.Fatal(err)
 	}
-	mgba := "mgba"
-	if _, err := service.Create(ctx, CreateRequest{GameID: approved.GameID, CoreID: &mgba, ReturnTo: "/", ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}}); !errors.Is(
+	if _, err := service.Create(ctx, CreateRequest{GameID: approved.GameID, CoreID: &gambatte, ReturnTo: "/", ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}}); !errors.Is(
 		err,
 		ErrBlocked,
 	) {
@@ -487,6 +563,227 @@ sort_order) VALUES(?,
 }
 
 func ptr(value string) *string { return &value }
+
+type melondsRequirement struct {
+	id          string
+	logicalName string
+	virtualPath string
+	version     int64
+	oldDigest   string
+	newDigest   string
+}
+
+func TestMelonDSExternalBIOSIsLockedPerLaunch(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var artifactID, platformInstanceID string
+	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM core_artifacts WHERE core_id='melonds' AND enabled=1`).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM platform_instances WHERE platform_id='nds' AND enabled=1`).Scan(&platformInstanceID); err != nil {
+		t.Fatal(err)
+	}
+	requirements := make([]melondsRequirement, 0, 3)
+	rows, err := database.SQL.QueryContext(ctx, `
+SELECT id,logical_name,emulator_path,version
+FROM bios_requirements
+WHERE core_artifact_id=? AND delivery_kind='EXTERNAL_FILE' AND enabled=1
+ORDER BY logical_name
+`, artifactID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for rows.Next() {
+		var item melondsRequirement
+		if err := rows.Scan(&item.id, &item.logicalName, &item.virtualPath, &item.version); err != nil {
+			t.Fatal(err)
+		}
+		requirements = append(requirements, item)
+	}
+	cleanup.Error("close", rows.Close())
+	if err := rows.Err(); err != nil || len(requirements) != 3 {
+		t.Fatalf("MelonDS requirements = %#v, error=%v", requirements, err)
+	}
+	install := func(item *melondsRequirement, generation string, active int) string {
+		t.Helper()
+		metadata, putErr := blobs.Put(bytes.NewReader([]byte(generation + "-" + item.logicalName)))
+		if putErr != nil {
+			t.Fatal(putErr)
+		}
+		blobID, recordErr := blobstore.EnsureRecord(
+			ctx,
+			database.SQL,
+			metadata,
+			"application/octet-stream",
+			time.Now().UnixMilli(),
+		)
+		if recordErr != nil {
+			t.Fatal(recordErr)
+		}
+		installationID, _ := uuid.NewV7()
+		if _, execErr := database.SQL.ExecContext(ctx, `
+INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',?,1,?,?)
+`, installationID.String(), item.id, blobID, item.logicalName, metadata.Size, metadata.MD5, metadata.SHA1,
+			metadata.SHA256, item.version, active, time.Now().UnixMilli(), time.Now().UnixMilli()); execErr != nil {
+			t.Fatal(execErr)
+		}
+		return metadata.SHA256
+	}
+	for index := range requirements {
+		requirements[index].oldDigest = install(&requirements[index], "old", 1)
+	}
+	gameMetadata, err := blobs.Put(bytes.NewReader([]byte("nds-content")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	gameBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, gameMetadata, "application/octet-stream", time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshot, status, _, err := corevalidation.ResolveBIOS(ctx, database.SQL, artifactID, "game.nds")
+	if err != nil || status != "READY" {
+		t.Fatalf("MelonDS BIOS snapshot = %#v/%s, error=%v", snapshot, status, err)
+	}
+	contentID, gameID, metadataID, variantID, revisionID := newUUID(), newUUID(), newUUID(), newUUID(), newUUID()
+	digest, err := corevalidation.ValidationInputDigest(artifactID, contentID, sql.NullString{}, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	snapshotJSON, err := snapshot.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	transaction, err := database.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(transaction)
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`PRAGMA defer_foreign_keys=ON`, nil},
+		{`INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms)
+VALUES(?,?,'MelonDS fixture','','','','',NULL,NULL,'IMPORT_REVIEW','fixture',?)`, []any{metadataID, gameID, now}},
+		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
+VALUES(?,?,'IMPORT_REVIEW','fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("a", 64), now}},
+		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'PUBLISHED',?,?,'melonds fixture',1,?,?)`, []any{gameID, platformInstanceID, metadataID, contentID, now, now}},
+		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','game.nds',?,0)`, []any{contentID, gameBlobID}},
+		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms) VALUES(?,?,'melonds',NULL,1,?,?)`, []any{variantID, gameID, now, now}},
+		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms)
+VALUES(?,?,?,?,NULL,?,8100,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, artifactID, digest, string(snapshotJSON), now}},
+		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{revisionID, variantID}},
+	}
+	for _, statement := range statements {
+		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	service := New(database.SQL, dependencySet, credentials, time.Now)
+	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
+	melonds := "melonds"
+	oldLaunch, err := service.Create(ctx, CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
+	if err != nil || oldLaunch.LaunchID == "" {
+		t.Fatalf("old MelonDS launch = %#v, error=%v", oldLaunch, err)
+	}
+	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
+	for index := range requirements {
+		if _, err := database.SQL.ExecContext(ctx, `UPDATE bios_installations SET is_active=0,version=version+1,updated_at_ms=? WHERE requirement_id=? AND is_active=1`, time.Now().UnixMilli(), requirements[index].id); err != nil {
+			t.Fatal(err)
+		}
+		requirements[index].newDigest = install(&requirements[index], "new", 1)
+	}
+	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
+	pending, err := service.Create(ctx, CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
+	if err != nil || pending.Status != "VALIDATION_PENDING" || pending.JobID == "" {
+		t.Fatalf("new BIOS validation = %#v, error=%v", pending, err)
+	}
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		var state string
+		if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, pending.JobID).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state == "SUCCEEDED" {
+			break
+		}
+		if state == "FAILED" || time.Now().After(deadline) {
+			t.Fatalf("new BIOS validation state = %s", state)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	newLaunch, err := service.Create(ctx, CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
+	if err != nil || newLaunch.LaunchID == "" {
+		t.Fatalf("new MelonDS launch = %#v, error=%v", newLaunch, err)
+	}
+	assertMelonDSLaunch(t, ctx, service, newLaunch, requirements, true)
+	if _, err := service.ExternalBlob(ctx, newLaunch.LaunchID, oldLaunch.Capability, requirements[0].logicalName); !errors.Is(err, ErrCredential) {
+		t.Fatalf("cross-launch capability error = %v", err)
+	}
+}
+
+func assertMelonDSLaunch(
+	t *testing.T,
+	ctx context.Context,
+	service *Service,
+	launch Created,
+	requirements []melondsRequirement,
+	useNew bool,
+) {
+	t.Helper()
+	configuration, err := service.Config(ctx, launch.LaunchID, launch.Capability)
+	if err != nil || configuration.Core != "melonds" || configuration.RuntimeCore != "melonds" ||
+		configuration.InputMode != "POINTER" || len(configuration.ExternalFiles) != 3 {
+		t.Fatalf("MelonDS config = %#v, error=%v", configuration, err)
+	}
+	for _, item := range requirements {
+		expectedURL := "/runtime/launches/" + launch.LaunchID + "/external-files/" + item.logicalName
+		if configuration.ExternalFiles[item.virtualPath] != expectedURL {
+			t.Errorf("external mapping %s = %q", item.virtualPath, configuration.ExternalFiles[item.virtualPath])
+		}
+		digest, blobErr := service.ExternalBlob(ctx, launch.LaunchID, launch.Capability, item.logicalName)
+		expectedDigest := item.oldDigest
+		if useNew {
+			expectedDigest = item.newDigest
+		}
+		if blobErr != nil || digest != expectedDigest {
+			t.Errorf("external %s = %s, error=%v", item.logicalName, digest, blobErr)
+		}
+	}
+	bundle, err := service.BundleFiles(ctx, launch.LaunchID, launch.Capability, "BIOS_BUNDLE")
+	if err != nil || len(bundle) != 0 {
+		t.Fatalf("external BIOS leaked into bundle = %#v, error=%v", bundle, err)
+	}
+}
 
 func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 	t.Parallel()

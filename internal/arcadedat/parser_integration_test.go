@@ -23,7 +23,7 @@ func TestRealDATStatisticsMatchManifest(t *testing.T) {
 	var manifest struct {
 		Cores []struct {
 			CoreID string `json:"core_id"`
-			DAT    struct {
+			DAT    *struct {
 				LocalPath string `json:"local_path"`
 			} `json:"dat"`
 			ParseStats Stats `json:"parse_stats"`
@@ -33,6 +33,9 @@ func TestRealDATStatisticsMatchManifest(t *testing.T) {
 		t.Fatalf("parse manifest: %v", err)
 	}
 	for _, core := range manifest.Cores {
+		if core.DAT == nil {
+			continue
+		}
 		core := core
 		t.Run(core.CoreID, func(t *testing.T) {
 			t.Parallel()

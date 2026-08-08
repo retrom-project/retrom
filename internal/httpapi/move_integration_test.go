@@ -20,6 +20,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/corevalidation"
 	"retrom/internal/launch"
 )
 
@@ -767,6 +768,7 @@ AND enabled=1
 	contentID := "01980000-0000-7000-8000-000000000178"
 	variantID := "01980000-0000-7000-8000-000000000179"
 	revisionID := "01980000-0000-7000-8000-000000000180"
+	validationDigest, dependencySnapshot := validationFixture(t, server.database, artifactID, contentID, "move.gbc")
 	now := time.Now().UnixMilli()
 	transaction, err := server.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -805,8 +807,8 @@ VALUES(?, ?, 'gambatte', NULL, 1, ?, ?)
 INSERT INTO game_variant_revisions(id, game_variant_id, game_content_revision_id, core_artifact_id,
 dat_version_id, validation_input_digest, emulator_game_id, status, compatibility_code,
 dependency_snapshot_json, created_at_ms)
-VALUES(?, ?, ?, ?, NULL, ?, 7001, 'READY', 'READY', '{"schemaVersion":1}', ?)
-`, []any{revisionID, variantID, contentID, artifactID, launch.ValidationInputDigest(artifactID, contentID, sql.NullString{}), now}},
+VALUES(?, ?, ?, ?, NULL, ?, 7001, 'READY', 'READY', ?, ?)
+`, []any{revisionID, variantID, contentID, artifactID, validationDigest, dependencySnapshot, now}},
 		{`
 UPDATE game_variants
 SET current_revision_id=?
@@ -832,6 +834,12 @@ func cloneMovableGame(
 	t.Helper()
 	id := func(suffix string) string { return "01980000-0000-7000-8000-000000000" + suffix }
 	ctx := context.Background()
+	var artifactID string
+	if err := server.database.QueryRowContext(ctx, `SELECT core_artifact_id FROM game_variant_revisions WHERE id=(
+SELECT current_revision_id FROM game_variants WHERE game_id=? AND core_id='gambatte')`, sourceGameID).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	validationDigest, _ := validationFixture(t, server.database, artifactID, id(contentSuffix), "move.gbc")
 	transaction, err := server.database.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatal(err)
@@ -887,19 +895,13 @@ SELECT ?, ?, ?, core_artifact_id, dat_version_id, ?, emulator_game_id + ?, statu
 dependency_snapshot_json, created_at_ms
 FROM game_variant_revisions
 WHERE id=(SELECT current_revision_id FROM game_variants WHERE game_id=? AND core_id='gambatte')
-`, []any{
+		`, []any{
 			id(revisionSuffix), id(variantSuffix), id(contentSuffix),
-			launch.ValidationInputDigest("01980000-0000-7000-8000-000000000000", id(contentSuffix), sql.NullString{}),
+			validationDigest,
 			mustSuffixInt(t, gameSuffix), sourceGameID,
 		}},
 		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{id(revisionSuffix), id(variantSuffix)}},
 	}
-	var artifactID string
-	if err := transaction.QueryRowContext(ctx, `SELECT core_artifact_id FROM game_variant_revisions WHERE id=(
-SELECT current_revision_id FROM game_variants WHERE game_id=? AND core_id='gambatte')`, sourceGameID).Scan(&artifactID); err != nil {
-		t.Fatal(err)
-	}
-	statements[5].args[3] = launch.ValidationInputDigest(artifactID, id(contentSuffix), sql.NullString{})
 	for _, statement := range statements {
 		if _, err := transaction.ExecContext(ctx, statement.query, statement.args...); err != nil {
 			t.Fatalf("clone movable game: %v", err)
@@ -908,6 +910,27 @@ SELECT current_revision_id FROM game_variants WHERE game_id=? AND core_id='gamba
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
+}
+
+func validationFixture(
+	t *testing.T,
+	database *sql.DB,
+	artifactID, contentID, logicalName string,
+) (string, string) {
+	t.Helper()
+	snapshot, _, _, err := corevalidation.ResolveBIOS(context.Background(), database, artifactID, logicalName)
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest, err := corevalidation.ValidationInputDigest(artifactID, contentID, sql.NullString{}, snapshot)
+	if err != nil {
+		t.Fatal(err)
+	}
+	encoded, err := snapshot.JSON()
+	if err != nil {
+		t.Fatal(err)
+	}
+	return digest, string(encoded)
 }
 
 func mustSuffixInt(t *testing.T, value string) int64 {

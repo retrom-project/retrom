@@ -14,6 +14,7 @@ import (
 	"unicode/utf8"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/corevalidation"
 
 	"github.com/google/uuid"
 )
@@ -294,9 +295,7 @@ AND enabled=1
 		if refreshErr != nil {
 			return DraftResult{}, refreshErr
 		}
-		if refreshedValidationID != "" {
-			validationID = refreshedValidationID
-		}
+		validationID = refreshedValidationID
 	}
 	if targetOrDOSChanged && validationID == "" {
 		return DraftResult{}, ErrInvalid
@@ -462,7 +461,7 @@ created_at_ms) VALUES(?,
 	return DraftResult{ItemID: itemID, Version: expectedVersion + 1, Metadata: metadata, UpdatedAtMS: now}, nil
 }
 
-//nolint:funlen // Contract branches stay contiguous for a single auditable decision.
+//nolint:funlen,gocognit,gocyclo,nestif // Keep immutable validation refresh branches together for auditability.
 func (service *Service) ensureCompatibleDraftValidation(
 	ctx context.Context,
 	transaction *sql.Tx,
@@ -489,9 +488,14 @@ AND p.deleted_at_ms IS NULL
 `, targetID).Scan(&platformVersion, &coreID, &artifactID, &datID); err != nil {
 		return "", ErrInvalid
 	}
-	var validationID string
+	var sourceID, sourceManifestDigest, sourceStatus, compatibilityCode, dependencySnapshot string
+	var exactBIOSState draftBIOSState
 	err := transaction.QueryRowContext(ctx, `
-SELECT id
+SELECT id,
+source_manifest_digest,
+status,
+compatibility_code,
+dependency_snapshot_json
 FROM import_item_core_validations
 WHERE import_item_id=?
 AND target_platform_instance_id=?
@@ -500,21 +504,35 @@ AND core_id=?
 AND core_artifact_id=?
 AND dat_version_id IS ?
 AND default_dos_entry IS ?
-AND status='READY'
 ORDER BY created_at_ms DESC,
 id DESC LIMIT 1
 `, itemID, targetID, platformVersion, coreID, artifactID, nullable(datID), nullable(dosEntry)).
-		Scan(&validationID)
+		Scan(&sourceID, &sourceManifestDigest, &sourceStatus, &compatibilityCode, &dependencySnapshot)
 	if err == nil {
-		return validationID, nil
+		biosState, stateErr := resolveDraftBIOSState(ctx, transaction, itemID, artifactID, dependencySnapshot)
+		if stateErr != nil {
+			return "", stateErr
+		}
+		exactBIOSState = biosState
+		if !biosState.tracked && sourceStatus == "READY" {
+			return sourceID, nil
+		}
+		if biosState.tracked && biosState.snapshotJSON == dependencySnapshot &&
+			biosState.status == sourceStatus && biosState.code == compatibilityCode {
+			if sourceStatus == "READY" {
+				return sourceID, nil
+			}
+			return "", nil
+		}
 	}
-	if !errors.Is(err, sql.ErrNoRows) {
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return "", fmt.Errorf("libraryimport/review: %w", err)
 	}
-	var sourceID, sourceManifestDigest, compatibilityCode, dependencySnapshot string
-	err = transaction.QueryRowContext(ctx, `
+	if sourceID == "" || sourceStatus != "READY" && !exactBIOSState.tracked {
+		err = transaction.QueryRowContext(ctx, `
 SELECT id,
 source_manifest_digest,
+status,
 compatibility_code,
 dependency_snapshot_json
 FROM import_item_core_validations
@@ -526,23 +544,35 @@ AND status='READY'
 ORDER BY created_at_ms DESC,
 id DESC LIMIT 1
 `, itemID, coreID, artifactID, nullable(datID)).
-		Scan(&sourceID, &sourceManifestDigest, &compatibilityCode, &dependencySnapshot)
-	if errors.Is(err, sql.ErrNoRows) {
-		return "", nil
+			Scan(&sourceID, &sourceManifestDigest, &sourceStatus, &compatibilityCode, &dependencySnapshot)
+		if errors.Is(err, sql.ErrNoRows) {
+			return "", nil
+		}
+		if err != nil {
+			return "", fmt.Errorf("libraryimport/review: %w", err)
+		}
 	}
+	biosState, err := resolveDraftBIOSState(ctx, transaction, itemID, artifactID, dependencySnapshot)
 	if err != nil {
-		return "", fmt.Errorf("libraryimport/review: %w", err)
+		return "", err
+	}
+	if biosState.tracked {
+		sourceStatus = biosState.status
+		compatibilityCode = biosState.code
+		dependencySnapshot = biosState.snapshotJSON
 	}
 	input, _ := json.Marshal(
 		map[string]any{
 			"schemaVersion":            1,
-			"validatorVersion":         "review-compatible-v1",
+			"validatorVersion":         "review-compatible-v2",
 			"sourceManifestDigest":     sourceManifestDigest,
 			"targetPlatformInstanceId": targetID,
 			"platformInstanceVersion":  platformVersion,
 			"coreArtifactId":           artifactID,
 			"datVersionId":             nullable(datID),
 			"defaultDosEntry":          nullable(dosEntry),
+			"dependencySnapshot":       dependencySnapshot,
+			"status":                   sourceStatus,
 		},
 	)
 	digest := sha256.Sum256(input)
@@ -572,7 +602,7 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
-'READY',
+?,
 ?,
 ?,
 ?)
@@ -587,6 +617,7 @@ created_at_ms) VALUES(?,
 		nullable(dosEntry),
 		sourceManifestDigest,
 		hex.EncodeToString(digest[:]),
+		sourceStatus,
 		compatibilityCode,
 		dependencySnapshot,
 		now,
@@ -607,10 +638,89 @@ sort_order,
 ?
 FROM import_item_validation_files
 WHERE import_item_core_validation_id=?
-`, createdID.String(), now, sourceID); err != nil {
+AND (?=0 OR role<>'BIOS_BUNDLE')
+`, createdID.String(), now, sourceID, biosState.tracked); err != nil {
 		return "", fmt.Errorf("libraryimport/review: %w", err)
 	}
+	if biosState.tracked {
+		var sortOrder int
+		if err := transaction.QueryRowContext(ctx, `
+SELECT COALESCE(MAX(sort_order),-1)+1
+FROM import_item_validation_files
+WHERE import_item_core_validation_id=?
+`, createdID.String()).Scan(&sortOrder); err != nil {
+			return "", fmt.Errorf("libraryimport/review: %w", err)
+		}
+		for _, dependency := range biosState.dependencies {
+			if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
+				continue
+			}
+			if _, err := transaction.ExecContext(ctx, `
+INSERT INTO import_item_validation_files(import_item_core_validation_id,
+role,
+logical_name,
+blob_id,
+sort_order,
+created_at_ms) VALUES(?,'BIOS_BUNDLE',?,?,?,?)
+`, createdID.String(), dependency.LogicalName, *dependency.BlobID, sortOrder, now); err != nil {
+				return "", fmt.Errorf("libraryimport/review: %w", err)
+			}
+			sortOrder++
+		}
+	}
+	if sourceStatus != "READY" {
+		return "", nil
+	}
 	return createdID.String(), nil
+}
+
+type draftBIOSState struct {
+	tracked      bool
+	snapshotJSON string
+	status       string
+	code         string
+	dependencies []corevalidation.BIOSDependency
+}
+
+func resolveDraftBIOSState(
+	ctx context.Context,
+	transaction *sql.Tx,
+	itemID, artifactID, previousSnapshot string,
+) (draftBIOSState, error) {
+	if !isStaticBIOSSnapshot(previousSnapshot) {
+		return draftBIOSState{}, nil
+	}
+	var logicalName string
+	err := transaction.QueryRowContext(ctx, `
+SELECT logical_name
+FROM import_item_source_files
+WHERE import_item_id=? AND role='CONTENT'
+ORDER BY sort_order,logical_name
+LIMIT 1
+`, itemID).Scan(&logicalName)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return draftBIOSState{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
+	snapshot, status, code, err := corevalidation.ResolveBIOS(ctx, transaction, artifactID, logicalName)
+	if err != nil {
+		return draftBIOSState{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
+	encoded, err := snapshot.JSON()
+	if err != nil {
+		return draftBIOSState{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
+	return draftBIOSState{
+		tracked:      true,
+		snapshotJSON: string(encoded),
+		status:       status,
+		code:         code,
+		dependencies: snapshot.BIOS,
+	}, nil
+}
+
+func isStaticBIOSSnapshot(raw string) bool {
+	_, err := corevalidation.ParseSnapshot(raw)
+	return err == nil
 }
 
 func nullablePatchInt(value *int64) any {

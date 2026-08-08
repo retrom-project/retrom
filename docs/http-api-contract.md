@@ -68,6 +68,8 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 全局 readiness 为 false 时，前置 middleware 必须在 validator、body 读取、静态 runtime 和领域 handler 之前阻断除 `/health/live`、`/health/ready` 外的所有后端路由，返回 `503` 标准错误 envelope：`code=SERVICE_NOT_READY`，`details={"reasonCode":"<与 ready 相同的稳定枚举>"}`。健康端点仍使用第 9 节的专用非 envelope 外形；前端只能根据 code/reasonCode 展示稍后重试，不得绕过门禁调用部分管理能力。
 
+`sourceFiles[]` 对归档来源额外返回 `archiveFormat: ZIP|SEVEN_Z`；非归档为 null。审核 UI 必须明确区分“来源 ZIP/7z”与“物化后的运行 CONTENT”，不能根据文件扩展名猜测，也不能在详情 GET 时重新解析 archive。
+
 ## 2. 受信内网写请求
 
 一期没有账户，部署边界明确为受信内网。应用不执行 CSRF token、`Origin` 或 `Sec-Fetch-Site` 校验，所有 `POST`、`PUT`、`PATCH`、`DELETE` 在满足各自 schema、并发、幂等和领域约束后均可调用。`GET /api/v1/session` 仅为旧客户端兼容保留，返回值不参与授权，新前端不得请求或发送 `X-Retrom-CSRF`。
@@ -242,6 +244,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | `/runtime/launches/{launchId}/game/{logicalName}` | 只允许本会话清单内运行内容；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/bios/bundle.zip` | 只允许预检 bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/parent/bundle.zip` | 只允许预检确定性 parent bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
+| `/runtime/launches/{launchId}/external-files/{logicalName}` | 只允许本 Launch 创建事务锁定的外部 BIOS 文件；需要 cookie；`private, no-store`、`Vary: Cookie`。未锁定名、跨 Launch、错误/过期 cookie 与 Blob 缺失不得泄露存在性。 |
 | `/runtime/launches/{launchId}/state` | 只允许选中状态存档；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/persistent-save` | 需要 cookie；返回创建 Launch 时锁定的可空 `CORE_SAVE/DOS_OVERLAY` revision bytes，不存在时 `204`；不会因另一会话稍后保存而漂移。`private, no-store`、`Vary: Cookie`。 |
 
@@ -253,6 +256,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
   "emulatorjsVersion": "4.2.3",
   "playerAdapterId": "ejs-4.2.3-v1",
   "core": "mame2003",
+  "runtimeCore": "mame2003",
   "coreName": "MAME 2003",
   "coreArtifactId": "0198...",
   "emulatorGameId": 42,
@@ -266,6 +270,9 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
   "parentUrl": "/runtime/launches/0198.../parent/bundle.zip",
   "stateUrl": null,
   "persistentSaveUrl": "/runtime/launches/0198.../persistent-save",
+  "persistentSaveMode": "SINGLE_FILE",
+  "inputMode": "STANDARD",
+  "startupActions": [],
   "requiresThreads": false,
   "runtimePathOverrides": {
     "mame2003-wasm.data": "/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"
@@ -294,6 +301,8 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 这两个写端点在验证 launch cookie 后才读取 body；有 `Content-Length` 时先校验上限，没有时允许 HTTP/2/chunked 并在流式读取超过上限的第一个 byte 立即终止为 `413`。NG 必须关闭请求 buffering 或使用足够的临时空间，且自身限制不得低于应用上限；应用仍独立流式计数、校验 digest 并清理临时文件。`pagehide` 不尝试发送大 save body；显式退出等待最后一次有界 PUT，超时后提示保存失败并允许重试/强制退出。
 
 OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `putRuntimePersistentSave` 三个 operation 必须且只能标记 `x-retrom-streaming-body: true`；生成物应分别暴露 `io.Reader`/`multipart.Reader`，不能生成 `[]byte` 或先 `ParseMultipartForm`。启动时基于同一份已加载 spec 构建两条不可变的 `nethttp-middleware` validator chain：普通链保持 `Options.Options.ExcludeRequestBody=false`，流式链设置 `Options.Options.ExcludeRequestBody=true`。前置 kin-openapi router 先匹配 operation 并读取该 extension，再把请求分派给对应链；请求处理中不得修改共享 options。流式链仍验证 method/path/query/header/content-type，领域 handler 的流式检查才是 body 的权威门禁；不得另维护 URL skip 清单，也不得用全局 `Skipper` 跳过完整验证。所有 `operationId` 使用唯一 lowerCamelCase，格式为 HTTP 动词加稳定领域动作；已经发布后改名视为生成代码破坏性变更。
+
+`core` 表示产品目录 ID，`runtimeCore` 表示 EmulatorJS runtime ID；Player 只能把后者写入 `EJS_core`。`persistentSaveMode` 只允许 `SINGLE_FILE|DOS_OVERLAY|NONE`，NONE 时 `persistentSaveUrl=null`；`inputMode` 只允许 `STANDARD|POINTER`；`startupActions` 只允许 OpenAPI 的有界 `PRESS_CONTROL` 结构。`externalFiles` 除 DOS `/game.conf` 外，还允许 Variant dependency snapshot 锁定的 MelonDS 三个绝对虚拟路径，其 URL 必须属于同一 Launch 的 external-files 前缀；最多 16 项，重复路径/逻辑名或跨 Launch URL 均阻断。主机/掌机 ZIP/7z 已在入库时物化为唯一可运行 member；PSP `.iso/.cso` 作为 raw CONTENT 返回，不做运行时转换。
 
 ## 9. 核心 API 路由表
 

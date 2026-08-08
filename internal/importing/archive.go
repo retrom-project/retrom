@@ -19,11 +19,15 @@ import (
 )
 
 var (
-	ErrArchiveUnsafe            = errors.New("ARCHIVE_UNSAFE")
-	ErrArchiveLimitExceeded     = errors.New("ARCHIVE_LIMIT_EXCEEDED")
-	ErrNestedArchiveUnsupported = errors.New("NESTED_ARCHIVE_UNSUPPORTED")
-	ErrArchiveMethodUnsupported = errors.New("ARCHIVE_METHOD_UNSUPPORTED")
-	ErrArchiveCasefoldCollision = errors.New("ARCHIVE_CASEFOLD_COLLISION")
+	ErrArchiveUnsafe             = errors.New("ARCHIVE_UNSAFE")
+	ErrArchiveLimitExceeded      = errors.New("ARCHIVE_LIMIT_EXCEEDED")
+	ErrArchiveEncrypted          = errors.New("ARCHIVE_ENCRYPTED_UNSUPPORTED")
+	ErrArchiveVolumeUnsupported  = errors.New("ARCHIVE_VOLUME_UNSUPPORTED")
+	ErrArchiveResourceLimit      = errors.New("ARCHIVE_RESOURCE_LIMIT")
+	ErrArchiveSandboxUnavailable = errors.New("ARCHIVE_SANDBOX_UNAVAILABLE")
+	ErrNestedArchiveUnsupported  = errors.New("NESTED_ARCHIVE_UNSUPPORTED")
+	ErrArchiveMethodUnsupported  = errors.New("ARCHIVE_METHOD_UNSUPPORTED")
+	ErrArchiveCasefoldCollision  = errors.New("ARCHIVE_CASEFOLD_COLLISION")
 )
 
 type ArchiveLimits struct {
@@ -43,16 +47,17 @@ func DefaultArchiveLimits() ArchiveLimits {
 }
 
 type ArchiveEntry struct {
-	Ordinal           int
-	OriginalPath      string
-	NormalizedPath    string
-	ASCIICasefoldPath string
-	Method            uint16
-	Size              int64
-	CRC32             string
-	MD5               string
-	SHA1              string
-	SHA256            string
+	Ordinal            int
+	OriginalPath       string
+	NormalizedPath     string
+	ASCIICasefoldPath  string
+	ArchiveFormat      string
+	CompressionProfile string
+	Size               int64
+	CRC32              string
+	MD5                string
+	SHA1               string
+	SHA256             string
 }
 
 //nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
@@ -206,10 +211,18 @@ func readArchiveEntry(
 	}
 	return ArchiveEntry{
 		Ordinal: ordinal, OriginalPath: pathValue, NormalizedPath: pathValue, ASCIICasefoldPath: folded,
-		Method: item.Method, Size: written, CRC32: hex.EncodeToString(crc32Hash.Sum(nil)),
+		ArchiveFormat: "ZIP", CompressionProfile: zipCompressionProfile(item.Method),
+		Size: written, CRC32: hex.EncodeToString(crc32Hash.Sum(nil)),
 		MD5: hex.EncodeToString(md5Hash.Sum(nil)), SHA1: hex.EncodeToString(sha1Hash.Sum(nil)),
 		SHA256: hex.EncodeToString(sha256Hash.Sum(nil)),
 	}, nil
+}
+
+func zipCompressionProfile(method uint16) string {
+	if method == zip.Store {
+		return "STORE"
+	}
+	return "DEFLATE"
 }
 
 func nestedArchive(name string, prefix []byte) bool {

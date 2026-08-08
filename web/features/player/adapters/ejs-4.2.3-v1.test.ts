@@ -1,11 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adapterID, captureManualScreenshot, captureManualState, mountEmulatorJS, type PlayerConfig } from "./ejs-4.2.3-v1";
+import { adapterID, captureManualScreenshot, captureManualState, mountEmulatorJS, scheduleStartupActions, type PlayerConfig } from "./ejs-4.2.3-v1";
 
 const config: PlayerConfig = {
   launchId: "01980000-0000-7000-8000-000000000001",
   emulatorjsVersion: "4.2.3",
   playerAdapterId: adapterID,
   core: "mgba",
+  runtimeCore: "mgba",
   coreName: "mGBA",
   emulatorGameId: 1004,
   gameName: "retrom-1",
@@ -17,9 +18,12 @@ const config: PlayerConfig = {
   biosUrl: null,
   parentUrl: null,
   stateUrl: null,
-  persistentSaveUrl: "/runtime/launches/launch/persistent-save",
+  persistentSaveMode: "SINGLE_FILE",
+  persistentSaveUrl: "/runtime/launches/01980000-0000-7000-8000-000000000001/persistent-save",
+  inputMode: "STANDARD",
+  startupActions: [],
   requiresThreads: false,
-  runtimePathOverrides: {},
+  runtimePathOverrides: { "mgba-wasm.data": "/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data" },
   defaultCoreOptions: { webgl2Enabled: "enabled" },
   externalFiles: {},
   returnTo: "/library"
@@ -37,7 +41,7 @@ describe("EmulatorJS adapter", () => {
   it("maps validated config into the 4.2.3 globals and same-origin loader", () => {
     const target = document.createElement("div");
     const cleanup = mountEmulatorJS(config, target);
-    expect(window.EJS_core).toBe("mgba");
+    expect(window.EJS_core).toBe(config.runtimeCore);
     expect(window.EJS_gameUrl).toBe(config.gameUrl);
     expect(window.EJS_externalFiles).toEqual({});
     expect(window.EJS_Buttons).toEqual({ exitEmulation: false });
@@ -50,6 +54,7 @@ describe("EmulatorJS adapter", () => {
     const dosConfig: PlayerConfig = {
       ...config,
       core: "dosbox_pure",
+      runtimeCore: "dosbox_pure",
       dosEntry: "GAMES/DOOM.EXE",
       defaultCoreOptions: { dosbox_pure_conf: "outside" },
       externalFiles: { "/game.conf": `/runtime/launches/${config.launchId}/dos-config/game.conf` }
@@ -58,6 +63,54 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_externalFiles).toEqual(dosConfig.externalFiles);
     cleanup();
     expect(() => mountEmulatorJS({ ...dosConfig, externalFiles: { "/game.conf": "https://example.test/game.conf" } }, target)).toThrow("PLAYER_EXTERNAL_FILES_INVALID");
+  });
+
+  it("accepts only launch-scoped BIOS external files", () => {
+    const target = document.createElement("div");
+    const biosConfig = {
+      ...config,
+      externalFiles: {
+        "/retroarch/userdata/system/bios7.bin": `/runtime/launches/${config.launchId}/external-files/bios7.bin`
+      }
+    };
+    const cleanup = mountEmulatorJS(biosConfig, target);
+    expect(window.EJS_externalFiles).toEqual(biosConfig.externalFiles);
+    cleanup();
+    expect(() => mountEmulatorJS({ ...biosConfig, externalFiles: { "/../bios7.bin": biosConfig.externalFiles["/retroarch/userdata/system/bios7.bin"] } }, target)).toThrow("PLAYER_EXTERNAL_FILES_INVALID");
+  });
+
+  it("treats NONE persistent saves as an explicit capability while keeping state callbacks", () => {
+    const target = document.createElement("div");
+    const onSaveState = vi.fn();
+    const onSaveSave = vi.fn();
+    const cleanup = mountEmulatorJS(
+      { ...config, persistentSaveMode: "NONE", persistentSaveUrl: null },
+      target,
+      { onSaveState, onSaveSave }
+    );
+    expect(window.EJS_onSaveState).toBe(onSaveState);
+    expect(window.EJS_onSaveSave).toBeUndefined();
+    cleanup();
+    expect(() => mountEmulatorJS({ ...config, persistentSaveMode: "NONE" }, target)).toThrow("PLAYER_PERSISTENT_CAPABILITY_INVALID");
+  });
+
+  it("presses and releases bounded startup controls exactly once", () => {
+    vi.useFakeTimers();
+    const simulateInput = vi.fn();
+    const startupConfig: PlayerConfig = {
+      ...config,
+      startupActions: [{ event: "GAME_START", kind: "PRESS_CONTROL", delayMs: 2000, player: 0, control: 0, durationMs: 120 }]
+    };
+    const cleanup = scheduleStartupActions(startupConfig, { on: () => undefined, gameManager: { simulateInput } });
+    vi.advanceTimersByTime(1999);
+    expect(simulateInput).not.toHaveBeenCalled();
+    vi.advanceTimersByTime(1);
+    expect(simulateInput).toHaveBeenLastCalledWith(0, 0, 1);
+    vi.advanceTimersByTime(120);
+    expect(simulateInput).toHaveBeenLastCalledWith(0, 0, 0);
+    cleanup();
+    expect(simulateInput).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
   });
 
   it("captures the running canvas before normalizing the paused manual state", async () => {

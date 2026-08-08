@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	retromruntime "retrom/internal/runtime"
 )
@@ -53,6 +54,18 @@ type Created struct {
 	Capability           string   `json:"-"`
 }
 
+type artifactCompatibility struct {
+	SchemaVersion             int                          `json:"schemaVersion"`
+	RuntimeCoreID             string                       `json:"runtimeCoreId"`
+	RequestedArtifactBasename string                       `json:"requestedArtifactBasename"`
+	CanvasResizePolicy        string                       `json:"canvasResizePolicy"`
+	DefaultOptions            map[string]string            `json:"defaultOptions"`
+	PersistentSaveMode        string                       `json:"persistentSaveMode"`
+	PersistentSaveKind        *string                      `json:"persistentSaveKind"`
+	InputMode                 string                       `json:"inputMode"`
+	StartupActions            []dependencies.StartupAction `json:"startupActions"`
+}
+
 type Service struct {
 	database     *sql.DB
 	dependencies *dependencies.Set
@@ -79,6 +92,8 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 		coreID = *request.CoreID
 	}
 	var variantRevisionID, artifactID, selectedCore, emulatorVersion string
+	var validationInputDigest, contentRevisionID, contentLogicalName string
+	var revisionDATID sql.NullString
 	var requiresThreads int
 	var savedDOSEntry sql.NullString
 	if request.SaveStateID != nil {
@@ -117,7 +132,11 @@ SELECT v.current_revision_id,
 r.core_artifact_id,
 a.core_id,
 a.emulatorjs_version,
-c.requires_threads
+c.requires_threads,
+r.validation_input_digest,
+r.game_content_revision_id,
+r.dat_version_id,
+COALESCE(content.logical_name,'')
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN game_variants v ON v.game_id=g.id
@@ -125,11 +144,15 @@ JOIN game_variant_revisions r ON r.id=v.current_revision_id
 AND r.game_content_revision_id=g.current_content_revision_id
 JOIN core_artifacts a ON a.id=r.core_artifact_id
 JOIN cores c ON c.id=a.core_id
+LEFT JOIN game_content_files content ON content.game_content_revision_id=r.game_content_revision_id
+AND content.role='CONTENT'
 WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
 AND v.core_id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
+ORDER BY content.sort_order,content.logical_name
+LIMIT 1
 `
 		if err := service.database.QueryRowContext(ctx, query, request.GameID, coreID, coreID).Scan(
 			&variantRevisionID,
@@ -137,11 +160,36 @@ AND v.core_id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
 			&selectedCore,
 			&emulatorVersion,
 			&requiresThreads,
+			&validationInputDigest,
+			&contentRevisionID,
+			&revisionDATID,
+			&contentLogicalName,
 		); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
 				return service.ensureVariant(ctx, request, coreID, true)
 			}
 			return Created{}, ErrBlocked
+		}
+		biosSnapshot, biosStatus, _, resolveErr := corevalidation.ResolveBIOS(
+			ctx,
+			service.database,
+			artifactID,
+			contentLogicalName,
+		)
+		if resolveErr != nil || biosStatus != "READY" {
+			return Created{}, ErrBlocked
+		}
+		expectedDigest, digestErr := corevalidation.ValidationInputDigest(
+			artifactID,
+			contentRevisionID,
+			revisionDATID,
+			biosSnapshot,
+		)
+		if digestErr != nil {
+			return Created{}, ErrBlocked
+		}
+		if validationInputDigest != expectedDigest {
+			return service.ensureVariant(ctx, request, coreID, true)
 		}
 	}
 	if requiresThreads == 1 &&
@@ -151,6 +199,10 @@ AND v.core_id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
 		return Created{}, ErrBlocked
 	}
 	if service.dependencies.Versions[emulatorVersion] == nil {
+		return Created{}, ErrBlocked
+	}
+	compatibility, err := service.loadArtifactCompatibility(ctx, artifactID)
+	if err != nil {
 		return Created{}, ErrBlocked
 	}
 	selectedDOSEntry := request.DOSEntry
@@ -189,21 +241,19 @@ AND d.enabled=1
 	if err := service.validateLaunchLogicalNames(ctx, variantRevisionID, contentLogicalName); err != nil {
 		return Created{}, err
 	}
-	kind := "CORE_SAVE"
-	if selectedCore == "dosbox_pure" {
-		kind = "DOS_OVERLAY"
-	}
 	var persistentBase sql.NullString
-	baseErr := service.database.QueryRowContext(ctx, `
+	if compatibility.PersistentSaveMode != "NONE" {
+		baseErr := service.database.QueryRowContext(ctx, `
 SELECT current_revision_id
 FROM persistent_saves
 WHERE profile_id='local'
 AND game_variant_revision_id=?
 AND kind=?
-`, variantRevisionID, kind).
-		Scan(&persistentBase)
-	if baseErr != nil && !errors.Is(baseErr, sql.ErrNoRows) {
-		return Created{}, fmt.Errorf("launch/service: %w", baseErr)
+	`, variantRevisionID, *compatibility.PersistentSaveKind).
+			Scan(&persistentBase)
+		if baseErr != nil && !errors.Is(baseErr, sql.ErrNoRows) {
+			return Created{}, fmt.Errorf("launch/service: %w", baseErr)
+		}
 	}
 	launchID, err := uuid.NewV7()
 	if err != nil {
@@ -282,6 +332,11 @@ created_at_ms) VALUES(?,
 `, launchID.String(), contentLogicalName, contentBlobID, contentFormat, now); err != nil {
 		return Created{}, fmt.Errorf("lock launch content: %w", err)
 	}
+	if err := service.lockExternalBIOS(
+		ctx, transaction, launchID.String(), variantRevisionID, now,
+	); err != nil {
+		return Created{}, err
+	}
 	if err := transaction.Commit(); err != nil {
 		return Created{}, fmt.Errorf("commit launch session: %w", err)
 	}
@@ -293,6 +348,171 @@ created_at_ms) VALUES(?,
 		HardExpiresAtMS:      hardExpires,
 		Capability:           retromruntime.EncodeCapability(capability),
 	}, nil
+}
+
+func (service *Service) loadArtifactCompatibility(
+	ctx context.Context,
+	artifactID string,
+) (artifactCompatibility, error) {
+	var raw string
+	if err := service.database.QueryRowContext(ctx, `
+SELECT compatibility_config_json
+FROM core_artifacts
+WHERE id=?
+`, artifactID).Scan(&raw); err != nil {
+		return artifactCompatibility{}, fmt.Errorf("launch/artifact compatibility: %w", err)
+	}
+	var compatibility artifactCompatibility
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&compatibility); err != nil || !validArtifactCompatibility(compatibility) {
+		return artifactCompatibility{}, ErrBlocked
+	}
+	return compatibility, nil
+}
+
+func validArtifactCompatibility(compatibility artifactCompatibility) bool {
+	if compatibility.SchemaVersion != 2 || compatibility.DefaultOptions == nil ||
+		compatibility.StartupActions == nil {
+		return false
+	}
+	if len(compatibility.DefaultOptions) > 32 || len(compatibility.StartupActions) > 4 {
+		return false
+	}
+	if !validRuntimeCoreID(compatibility.RuntimeCoreID) ||
+		!validRequestedArtifactBasename(compatibility.RequestedArtifactBasename) {
+		return false
+	}
+	if compatibility.CanvasResizePolicy != "NONE" &&
+		compatibility.CanvasResizePolicy != "ON_GAME_START_TO_CSS_PIXELS" {
+		return false
+	}
+	if compatibility.InputMode != "STANDARD" && compatibility.InputMode != "POINTER" {
+		return false
+	}
+	return validPersistentCapability(compatibility) &&
+		validDefaultOptions(compatibility.DefaultOptions) &&
+		validStartupActions(compatibility.StartupActions)
+}
+
+func validRuntimeCoreID(value string) bool {
+	if len(value) == 0 || len(value) > 64 {
+		return false
+	}
+	for _, character := range value {
+		if character != '_' && (character < 'a' || character > 'z') &&
+			(character < '0' || character > '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func validRequestedArtifactBasename(value string) bool {
+	return path.Base(value) == value && !strings.Contains(value, `\`) &&
+		!strings.Contains(value, "..") && strings.HasSuffix(value, "-wasm.data")
+}
+
+func validPersistentCapability(compatibility artifactCompatibility) bool {
+	switch compatibility.PersistentSaveMode {
+	case "SINGLE_FILE":
+		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "CORE_SAVE"
+	case "DOS_OVERLAY":
+		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "DOS_OVERLAY"
+	case "NONE":
+		return compatibility.PersistentSaveKind == nil
+	default:
+		return false
+	}
+}
+
+func validDefaultOptions(options map[string]string) bool {
+	for name, value := range options {
+		if name == "__proto__" || name == "prototype" || name == "constructor" ||
+			!printableASCII(name, 1, 128) || !printableASCII(value, 0, 128) {
+			return false
+		}
+	}
+	return true
+}
+
+func validStartupActions(actions []dependencies.StartupAction) bool {
+	for _, action := range actions {
+		if action.Event != "GAME_START" || action.Kind != "PRESS_CONTROL" ||
+			action.DelayMS < 0 || action.DelayMS > 10_000 || action.Player < 0 || action.Player > 3 ||
+			action.Control < 0 || action.Control > 255 || action.DurationMS < 1 || action.DurationMS > 1_000 {
+			return false
+		}
+	}
+	return true
+}
+
+func printableASCII(value string, minimum, maximum int) bool {
+	if len(value) < minimum || len(value) > maximum {
+		return false
+	}
+	for _, character := range value {
+		if character < 0x20 || character > 0x7e {
+			return false
+		}
+	}
+	return true
+}
+
+func (service *Service) lockExternalBIOS(
+	ctx context.Context,
+	transaction *sql.Tx,
+	launchID, variantRevisionID string,
+	now int64,
+) error {
+	var snapshotJSON, contentLogicalName string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT revision.dependency_snapshot_json,content.logical_name
+FROM game_variant_revisions revision
+JOIN launch_content_files content ON content.launch_session_id=?
+WHERE revision.id=?
+`, launchID, variantRevisionID).Scan(&snapshotJSON, &contentLogicalName); err != nil {
+		return ErrBlocked
+	}
+	snapshot, err := corevalidation.ParseSnapshot(snapshotJSON)
+	if err != nil {
+		return ErrBlocked
+	}
+	seenLogicalNames := map[string]struct{}{strings.ToLower(contentLogicalName): {}}
+	seenVirtualPaths := make(map[string]struct{})
+	count := 0
+	for _, dependency := range snapshot.BIOS {
+		if dependency.DeliveryKind != "EXTERNAL_FILE" {
+			continue
+		}
+		if dependency.EmulatorPath == nil || dependency.BlobID == nil || dependency.InstallationStatus == nil ||
+			(*dependency.InstallationStatus != "MATCHED" && *dependency.InstallationStatus != "HASH_WARNING") {
+			return ErrBlocked
+		}
+		count++
+		if count > 16 {
+			return ErrBlocked
+		}
+		logicalKey := strings.ToLower(dependency.LogicalName)
+		if _, duplicate := seenLogicalNames[logicalKey]; duplicate {
+			return ErrBlocked
+		}
+		if _, duplicate := seenVirtualPaths[*dependency.EmulatorPath]; duplicate {
+			return ErrBlocked
+		}
+		seenLogicalNames[logicalKey] = struct{}{}
+		seenVirtualPaths[*dependency.EmulatorPath] = struct{}{}
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO launch_external_files(launch_session_id,
+virtual_path,
+logical_name,
+blob_id,
+created_at_ms) VALUES(?,?,?,?,?)
+`, launchID, *dependency.EmulatorPath, dependency.LogicalName, *dependency.BlobID, now); err != nil {
+			return fmt.Errorf("lock launch external BIOS: %w", err)
+		}
+	}
+	return nil
 }
 
 func (service *Service) validateLaunchLogicalNames(
@@ -391,30 +611,34 @@ func validReturnTo(value, gameID string) bool {
 }
 
 type Config struct {
-	LaunchID             string            `json:"launchId"`
-	EmulatorJSVersion    string            `json:"emulatorjsVersion"`
-	PlayerAdapterID      string            `json:"playerAdapterId"`
-	Core                 string            `json:"core"`
-	CoreName             string            `json:"coreName"`
-	CoreArtifactID       string            `json:"coreArtifactId"`
-	EmulatorGameID       int64             `json:"emulatorGameId"`
-	GameName             string            `json:"gameName"`
-	GameTitle            string            `json:"gameTitle"`
-	PlatformName         string            `json:"platformName"`
-	RuntimeBaseURL       string            `json:"runtimeBaseUrl"`
-	LoaderURL            string            `json:"loaderUrl"`
-	GameURL              string            `json:"gameUrl"`
-	BIOSURL              any               `json:"biosUrl"`
-	ParentURL            any               `json:"parentUrl"`
-	StateURL             any               `json:"stateUrl"`
-	PersistentSaveURL    string            `json:"persistentSaveUrl"`
-	RequiresThreads      bool              `json:"requiresThreads"`
-	RuntimePathOverrides map[string]string `json:"runtimePathOverrides"`
-	DefaultCoreOptions   map[string]string `json:"defaultCoreOptions"`
-	ExternalFiles        map[string]string `json:"externalFiles"`
-	DOSEntry             any               `json:"dosEntry"`
-	Warnings             []string          `json:"warnings"`
-	ReturnTo             string            `json:"returnTo"`
+	LaunchID             string                       `json:"launchId"`
+	EmulatorJSVersion    string                       `json:"emulatorjsVersion"`
+	PlayerAdapterID      string                       `json:"playerAdapterId"`
+	Core                 string                       `json:"core"`
+	RuntimeCore          string                       `json:"runtimeCore"`
+	CoreName             string                       `json:"coreName"`
+	CoreArtifactID       string                       `json:"coreArtifactId"`
+	EmulatorGameID       int64                        `json:"emulatorGameId"`
+	GameName             string                       `json:"gameName"`
+	GameTitle            string                       `json:"gameTitle"`
+	PlatformName         string                       `json:"platformName"`
+	RuntimeBaseURL       string                       `json:"runtimeBaseUrl"`
+	LoaderURL            string                       `json:"loaderUrl"`
+	GameURL              string                       `json:"gameUrl"`
+	BIOSURL              any                          `json:"biosUrl"`
+	ParentURL            any                          `json:"parentUrl"`
+	StateURL             any                          `json:"stateUrl"`
+	PersistentSaveMode   string                       `json:"persistentSaveMode"`
+	PersistentSaveURL    *string                      `json:"persistentSaveUrl"`
+	InputMode            string                       `json:"inputMode"`
+	StartupActions       []dependencies.StartupAction `json:"startupActions"`
+	RequiresThreads      bool                         `json:"requiresThreads"`
+	RuntimePathOverrides map[string]string            `json:"runtimePathOverrides"`
+	DefaultCoreOptions   map[string]string            `json:"defaultCoreOptions"`
+	ExternalFiles        map[string]string            `json:"externalFiles"`
+	DOSEntry             any                          `json:"dosEntry"`
+	Warnings             []string                     `json:"warnings"`
+	ReturnTo             string                       `json:"returnTo"`
 }
 
 type BundleFile struct {
@@ -426,6 +650,7 @@ type BundleFile struct {
 func (service *Service) Config(ctx context.Context, launchID, capability string) (Config, error) {
 	var credentialHash []byte
 	var state, coreID, coreName, artifactID, emulatorVersion, relativePath, compatibilityJSON string
+	var dependencySnapshotJSON string
 	var gameTitle, platformName string
 	var logicalName, contentFormat, returnTo string
 	var bootstrapExpires, hardExpires, emulatorGameID int64
@@ -446,6 +671,7 @@ a.compatibility_config_json,
 c.requires_threads,
 c.name,
 r.emulator_game_id,
+r.dependency_snapshot_json,
 metadata.title,
 platform.name,
 lc.logical_name,
@@ -478,6 +704,7 @@ WHERE l.id=?
 			&requiresThreads,
 			&coreName,
 			&emulatorGameID,
+			&dependencySnapshotJSON,
 			&gameTitle,
 			&platformName,
 			&logicalName,
@@ -515,11 +742,10 @@ AND state='CREATED'
 		return Config{}, ErrCredential
 	}
 	base := "/runtime/emulatorjs/" + emulatorVersion + "/"
-	var compatibility struct {
-		RequestedArtifactBasename string `json:"requestedArtifactBasename"`
-	}
-	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil ||
-		compatibility.RequestedArtifactBasename == "" {
+	var compatibility artifactCompatibility
+	decoder := json.NewDecoder(strings.NewReader(compatibilityJSON))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&compatibility); err != nil || !validArtifactCompatibility(compatibility) {
 		return Config{}, ErrCredential
 	}
 	overrides := map[string]string{compatibility.RequestedArtifactBasename: base + relativePath}
@@ -536,74 +762,71 @@ AND state='CREATED'
 	if len(parentFiles) > 0 {
 		parentURL = "/runtime/launches/" + launchID + "/parent/bundle.zip"
 	}
-	coreOptions := map[string]string{"webgl2Enabled": "enabled"}
-	warnings := make([]string, 0)
-	optionRows, optionErr := service.database.QueryContext(
-		ctx,
-		`
-SELECT q.condition_code,
-q.activation_options_json,
-i.status
-FROM launch_sessions l
-JOIN bios_requirements q ON q.core_artifact_id=l.core_artifact_id
-AND q.enabled=1
-JOIN bios_installations i ON i.requirement_id=q.id
-AND i.is_active=1
-AND i.status IN ('MATCHED',
-'HASH_WARNING')
-WHERE l.id=?
-AND q.activation_options_json IS NOT NULL
-ORDER BY q.logical_name
-`,
-		launchID,
-	)
-	if optionErr != nil {
-		return Config{}, fmt.Errorf("launch/service: %w", optionErr)
+	coreOptions := make(map[string]string, len(compatibility.DefaultOptions)+4)
+	for name, value := range compatibility.DefaultOptions {
+		coreOptions[name] = value
 	}
-	defer func() { cleanup.Error("close", optionRows.Close()) }()
-	for optionRows.Next() {
-		var condition, optionsJSON, installationStatus string
-		if err := optionRows.Scan(&condition, &optionsJSON, &installationStatus); err != nil {
-			return Config{}, fmt.Errorf("launch/service: %w", err)
-		}
-		if !biosApplies(condition, logicalName) {
+	if existing, ok := coreOptions["webgl2Enabled"]; ok && existing != "enabled" {
+		return Config{}, ErrBlocked
+	}
+	coreOptions["webgl2Enabled"] = "enabled"
+	warnings := make([]string, 0)
+	dependencySnapshot, snapshotErr := corevalidation.ParseSnapshot(dependencySnapshotJSON)
+	if snapshotErr != nil {
+		return Config{}, ErrBlocked
+	}
+	for _, dependency := range dependencySnapshot.BIOS {
+		if dependency.BlobID == nil || dependency.InstallationStatus == nil {
 			continue
 		}
-		var options map[string]string
-		if err := json.Unmarshal([]byte(optionsJSON), &options); err != nil {
-			return Config{}, ErrBlocked
-		}
-		for name, value := range options {
+		for name, value := range dependency.ActivationOptions {
 			if existing, ok := coreOptions[name]; ok && existing != value {
 				return Config{}, ErrBlocked
 			}
 			coreOptions[name] = value
 		}
-		if installationStatus == "HASH_WARNING" {
+		if *dependency.InstallationStatus == "HASH_WARNING" {
 			warnings = append(warnings, "BIOS_HASH_WARNING")
 		}
 	}
-	if err := optionRows.Err(); err != nil {
-		return Config{}, fmt.Errorf("launch/service: %w", err)
-	}
 	externalFiles := make(map[string]string)
-	if coreID == "dosbox_pure" && dosEntry.Valid {
-		configurationLocation := "outside"
-		if contentFormat == "RETROM_DOS_DIRECT_ZIP_V1" {
-			configurationLocation = "inside"
-		} else {
-			externalFiles["/game.conf"] = "/runtime/launches/" + launchID + "/dos-config/game.conf"
-		}
-		if existing, ok := coreOptions["dosbox_pure_conf"]; ok && existing != configurationLocation {
+	externalRows, externalErr := service.database.QueryContext(ctx, `
+SELECT virtual_path,
+logical_name
+FROM launch_external_files
+WHERE launch_session_id=?
+ORDER BY virtual_path
+`, launchID)
+	if externalErr != nil {
+		return Config{}, fmt.Errorf("launch/service: %w", externalErr)
+	}
+	defer func() { cleanup.Error("close", externalRows.Close()) }()
+	for externalRows.Next() {
+		var virtualPath, externalName string
+		if err := externalRows.Scan(&virtualPath, &externalName); err != nil || len(externalFiles) >= 16 {
 			return Config{}, ErrBlocked
 		}
-		coreOptions["dosbox_pure_conf"] = configurationLocation
+		externalFiles[virtualPath] = "/runtime/launches/" + launchID + "/external-files/" + url.PathEscape(externalName)
 	}
+	if err := externalRows.Err(); err != nil {
+		return Config{}, fmt.Errorf("launch/service: %w", err)
+	}
+	if !configureDOSLaunch(coreID, contentFormat, launchID, dosEntry, externalFiles, coreOptions) {
+		return Config{}, ErrBlocked
+	}
+	var persistentSaveURL *string
+	if compatibility.PersistentSaveMode != "NONE" {
+		value := "/runtime/launches/" + launchID + "/persistent-save"
+		persistentSaveURL = &value
+	}
+	startupActions := make([]dependencies.StartupAction, len(compatibility.StartupActions))
+	copy(startupActions, compatibility.StartupActions)
 	return Config{
 		LaunchID:          launchID,
 		EmulatorJSVersion: emulatorVersion,
 		PlayerAdapterID:   version.Manifest.EmulatorJS.PlayerAdapter.ID,
 		Core:              coreID,
+		RuntimeCore:       compatibility.RuntimeCoreID,
 		CoreName:          coreName,
 		CoreArtifactID:    artifactID,
 		EmulatorGameID:    emulatorGameID,
@@ -619,7 +842,10 @@ ORDER BY q.logical_name
 		BIOSURL:              biosURL,
 		ParentURL:            parentURL,
 		StateURL:             stateURL,
-		PersistentSaveURL:    "/runtime/launches/" + launchID + "/persistent-save",
+		PersistentSaveMode:   compatibility.PersistentSaveMode,
+		PersistentSaveURL:    persistentSaveURL,
+		InputMode:            compatibility.InputMode,
+		StartupActions:       startupActions,
 		RequiresThreads:      requiresThreads == 1,
 		RuntimePathOverrides: overrides,
 		DefaultCoreOptions:   coreOptions,
@@ -628,6 +854,29 @@ ORDER BY q.logical_name
 		Warnings:             warnings,
 		ReturnTo:             returnTo,
 	}, nil
+}
+
+func configureDOSLaunch(
+	coreID, contentFormat, launchID string,
+	dosEntry sql.NullString,
+	externalFiles, coreOptions map[string]string,
+) bool {
+	if coreID != "dosbox_pure" || !dosEntry.Valid {
+		return true
+	}
+	configurationLocation := "inside"
+	if contentFormat != "RETROM_DOS_DIRECT_ZIP_V1" {
+		configurationLocation = "outside"
+		if _, exists := externalFiles["/game.conf"]; exists {
+			return false
+		}
+		externalFiles["/game.conf"] = "/runtime/launches/" + launchID + "/dos-config/game.conf"
+	}
+	if existing, ok := coreOptions["dosbox_pure_conf"]; ok && existing != configurationLocation {
+		return false
+	}
+	coreOptions["dosbox_pure_conf"] = configurationLocation
+	return true
 }
 
 func (service *Service) DOSConfig(ctx context.Context, launchID, capability string) (string, error) {
@@ -655,24 +904,21 @@ AND l.dos_entry_path IS NOT NULL
 	return dosboxConfig(selectedEntry), nil
 }
 
-//nolint:funlen,gocognit,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) BundleFiles(ctx context.Context, launchID, capability, kind string) ([]BundleFile, error) {
 	if kind != "BIOS_BUNDLE" && kind != "PARENT" {
 		return nil, ErrCredential
 	}
 	var credentialHash []byte
-	var state, contentName string
+	var state string
 	var hardExpires int64
 	err := service.database.QueryRowContext(ctx, `
 SELECT l.credential_sha256,
 l.state,
-l.hard_expires_at_ms,
-lc.logical_name
+l.hard_expires_at_ms
 FROM launch_sessions l
-JOIN launch_content_files lc ON lc.launch_session_id=l.id
 WHERE l.id=?
 `, launchID).
-		Scan(&credentialHash, &state, &hardExpires, &contentName)
+		Scan(&credentialHash, &state, &hardExpires)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		hardExpires <= service.now().UnixMilli() ||
 		state != "ACTIVE" {
@@ -713,73 +959,11 @@ vf.logical_name
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("launch/service: %w", err)
 	}
-	if kind == "BIOS_BUNDLE" {
-		biosRows, err := service.database.QueryContext(
-			ctx,
-			`
-SELECT q.logical_name,
-q.condition_code,
-q.activation_options_json,
-b.sha256
-FROM launch_sessions l
-JOIN bios_requirements q ON q.core_artifact_id=l.core_artifact_id
-AND q.enabled=1
-JOIN bios_installations i ON i.requirement_id=q.id
-AND i.is_active=1
-AND i.status IN ('MATCHED',
-'HASH_WARNING')
-JOIN blobs b ON b.id=i.blob_id
-WHERE l.id=?
-ORDER BY q.logical_name
-`,
-			launchID,
-		)
-		if err != nil {
-			return nil, fmt.Errorf("launch/service: %w", err)
-		}
-		defer func() { cleanup.Error("close", biosRows.Close()) }()
-		for biosRows.Next() {
-			var file BundleFile
-			var condition string
-			var options sql.NullString
-			if err := biosRows.Scan(&file.LogicalName, &condition, &options, &file.SHA256); err != nil {
-				return nil, fmt.Errorf("launch/service: %w", err)
-			}
-			if !biosApplies(condition, contentName) {
-				continue
-			}
-			if _, duplicate := seen[file.LogicalName]; !duplicate {
-				files = append(files, file)
-				seen[file.LogicalName] = struct{}{}
-			}
-		}
-		if err := biosRows.Err(); err != nil {
-			return nil, fmt.Errorf("launch/service: %w", err)
-		}
-	}
 	slices.SortFunc(
 		files,
 		func(left, right BundleFile) int { return strings.Compare(left.LogicalName, right.LogicalName) },
 	)
 	return files, nil
-}
-
-func biosApplies(condition, contentName string) bool {
-	extension := strings.ToLower(path.Ext(contentName))
-	switch condition {
-	case "FDS_CONTENT":
-		return extension == ".fds"
-	case "GB_CONTENT":
-		return extension == ".gb" || extension == ".dmg"
-	case "GBC_CONTENT":
-		return extension == ".gbc"
-	case "GBA_CONTENT":
-		return extension == ".gba"
-	case "GAME_GENIE_ADDON_MODE", "MGBA_SGB_MODEL":
-		return false
-	default:
-		return true
-	}
 }
 
 func nullableString(value sql.NullString) any {
@@ -807,6 +991,28 @@ AND lc.logical_name=?
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		hardExpires <= service.now().UnixMilli() ||
 		state != "ACTIVE" {
+		return "", ErrCredential
+	}
+	return digest, nil
+}
+
+func (service *Service) ExternalBlob(ctx context.Context, launchID, capability, logicalName string) (string, error) {
+	var credentialHash []byte
+	var digest, state string
+	var hardExpires int64
+	err := service.database.QueryRowContext(ctx, `
+SELECT l.credential_sha256,
+l.state,
+l.hard_expires_at_ms,
+b.sha256
+FROM launch_sessions l
+JOIN launch_external_files f ON f.launch_session_id=l.id
+JOIN blobs b ON b.id=f.blob_id
+WHERE l.id=?
+AND f.logical_name=?
+`, launchID, logicalName).Scan(&credentialHash, &state, &hardExpires, &digest)
+	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
+		hardExpires <= service.now().UnixMilli() || state != "ACTIVE" {
 		return "", ErrCredential
 	}
 	return digest, nil

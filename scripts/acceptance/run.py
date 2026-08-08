@@ -119,7 +119,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-IMP-003": (
         180,
-        "go test -tags=integration ./internal/metadatascrape ./internal/libraryimport -run 'TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly|TestImportGroupsSingleArchiveMemberAndReportsEveryFile|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure' -count=1",
+        "go test -tags=integration ./internal/metadatascrape ./internal/libraryimport -run 'TestImportPersistsHasheousEvidenceCandidateAndAsset|TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly|TestImportGroupsSingleArchiveMemberAndReportsEveryFile|TestSevenZipImportMaterializesSingleROMAndPreservesEvidence|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure' -count=1",
     ),
     "ACC-IMP-004": (
         180,
@@ -134,7 +134,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         180,
         "go test -tags=integration ./internal/libraryimport ./internal/metadatascrape -run 'TestUploadImportReviewPublishPipeline|TestImportPersistsHasheousEvidenceCandidateAndAsset' -count=1",
     ),
-    "ACC-IMP-008": (180, "go test ./internal/jobs -run '^TestCancelAndRetryEnforceVersionedState$' -count=1"),
+    "ACC-IMP-008": (
+        180,
+        "go test ./internal/jobs -run '^TestCancelAndRetryEnforceVersionedState$' -count=1 && go test ./internal/importing -run 'TestSevenZip' -count=1",
+    ),
     "ACC-DAT-001": (300, "go test -tags=integration ./internal/arcadedat ./internal/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-002": (
         180,
@@ -149,7 +152,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-BIOS-001": (120, "go test -tags=integration ./internal/firmware -run '^TestStaticBIOSHashMismatchIsInstalledAsWarning$' -count=1"),
     "ACC-BIOS-002": (
         180,
-        "go test -tags=integration ./internal/dependencies ./internal/launch ./internal/libraryimport ./internal/firmware -run 'TestBIOSActivationOptionsRejectConflictingSeed|TestPublishedGameLaunchLocksContentAndCredential|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestStaticBIOSHashMismatchIsInstalledAsWarning' -count=1",
+        "go test -tags=integration ./internal/dependencies ./internal/launch ./internal/libraryimport ./internal/firmware -run 'TestBIOSActivationOptionsRejectConflictingSeed|TestPublishedGameLaunchLocksContentAndCredential|TestMelonDSExternalBIOSIsLockedPerLaunch|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure|TestStaticBIOSHashMismatchIsInstalledAsWarning' -count=1",
     ),
     "ACC-RUN-001": (180, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
     "ACC-RUN-002": (180, "scripts/acceptance/ui-case.sh ACC-RUN-002 && node data/example/smoke-test.mjs mame2003"),
@@ -166,7 +169,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-SAVE-002": (180, "scripts/acceptance/ui-case.sh ACC-SAVE-002"),
     "ACC-SAVE-003": (
         180,
-        "go test -tags=integration ./internal/saves -run '^TestPersistentSaveLocksLaunchBaseAndEnforcesSequence$' -count=1 && make web-test",
+        "go test -tags=integration ./internal/saves -run 'TestPersistentSaveLocksLaunchBaseAndEnforcesSequence|TestPersistentSaveNoneRejectsGetAndPutWithoutCreatingRows' -count=1 && make web-test",
     ),
     "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
     "ACC-UI-001": (180, "scripts/acceptance/ui-case.sh ACC-UI-001"),
@@ -188,6 +191,26 @@ CORE_CASES = {
     "ACC-CORE-006": "mame2003",
     "ACC-CORE-007": "mame2003_plus",
     "ACC-CORE-008": "dosbox_pure",
+    "ACC-CORE-009": "nestopia",
+    "ACC-CORE-010": "melonds",
+    "ACC-CORE-011": "desmume2015",
+    "ACC-CORE-012": "desmume",
+    "ACC-CORE-013": "a5200",
+    "ACC-CORE-014": "pcsx_rearmed",
+    "ACC-CORE-015": "mednafen_psx_hw",
+    "ACC-CORE-016": "handy",
+    "ACC-CORE-017": "yabause",
+    "ACC-CORE-018": "genesis_plus_gx",
+    "ACC-CORE-019": "mupen64plus_next",
+    "ACC-CORE-020": "parallel_n64",
+    "ACC-CORE-021": "opera",
+    "ACC-CORE-022": "prosystem",
+    "ACC-CORE-023": "stella2014",
+    "ACC-CORE-024": "picodrive",
+    "ACC-CORE-025": "mednafen_pce",
+    "ACC-CORE-026": "mednafen_pcfx",
+    "ACC-CORE-027": "mednafen_ngp",
+    "ACC-CORE-028": "ppsspp",
 }
 
 CORE_EXPECTATIONS = {
@@ -199,6 +222,37 @@ CORE_EXPECTATIONS = {
     "mame2003": "Lode Runner 标题或 attract 画面",
     "mame2003_plus": "Lode Runner 标题或投币画面",
     "dosbox_pure": "DOOM II 标题画面",
+    "nestopia": "Family Computer/FDS 启动画面",
+    "melonds": "Zoo Keeper 标题菜单而非 FreeBIOS 空白双屏",
+    "desmume2015": "Zoo Keeper 标题菜单",
+    "desmume": "Zoo Keeper 标题菜单",
+    "a5200": "Super Breakout 游戏画面",
+    "pcsx_rearmed": "PlayStation/游戏启动画面",
+    "mednafen_psx_hw": "PlayStation/游戏启动画面",
+    "handy": "Lode Runner 标题/游戏画面",
+    "yabause": "Sega Saturn 游戏画面",
+    "genesis_plus_gx": "Felix the Cat 标题画面",
+    "mupen64plus_next": "Dr. Mario 64 标题画面",
+    "parallel_n64": "Dr. Mario 64 标题画面",
+    "opera": "Total Eclipse 游戏画面",
+    "prosystem": "Asteroids 标题画面",
+    "stella2014": "Freeway 游戏画面",
+    "picodrive": "Felix the Cat 标题画面",
+    "mednafen_pce": "Adventure Island 游戏画面",
+    "mednafen_pcfx": "光盘内游戏菜单",
+    "mednafen_ngp": "Pac-Man 游戏画面",
+    "ppsspp": "CSO 与 ISO 均到达 Sheep Defense 标题画面",
+}
+
+CORE_TIMEOUTS = {
+    "pcsx_rearmed": 240,
+    "mednafen_psx_hw": 240,
+    "yabause": 240,
+    "mupen64plus_next": 240,
+    "parallel_n64": 240,
+    "opera": 240,
+    "mednafen_pcfx": 240,
+    "ppsspp": 480,
 }
 
 
@@ -413,13 +467,15 @@ def execute_case(case_id: str) -> int:
             )
         else:
             command = f"node data/example/smoke-test.mjs {core}"
-            return_code, timed_out = run_command(command, 180, log_path)
+            return_code, timed_out = run_command(command, CORE_TIMEOUTS.get(core, 180), log_path)
             smoke_passed = return_code == 0 and not timed_out
             status = "BLOCKED" if smoke_passed else "FAIL"
             reason = "单核心机器断言通过；必须对本次截图执行视觉复核后才能通过" if smoke_passed else "单核心 smoke 失败"
-            source = ROOT / "data" / "example" / "results" / f"{core}.png"
-            if source.is_file():
-                shutil.copy2(source, case_dir / "screenshots" / f"{core}.png")
+            run_ids = ["ppsspp-cso", "ppsspp-iso"] if core == "ppsspp" else [core]
+            for run_id in run_ids:
+                source = ROOT / "data" / "example" / "results" / f"{run_id}.png"
+                if source.is_file():
+                    shutil.copy2(source, case_dir / "screenshots" / f"{run_id}.png")
             latest = ROOT / "data" / "example" / "results" / "latest.json"
             if latest.is_file():
                 shutil.copy2(latest, case_dir / "core-result.json")
@@ -485,17 +541,18 @@ def review_core(case_id: str, decision: str, observed: str) -> int:
     _, run_dir = current_run()
     case_dir = run_dir / "cases" / case_id.lower()
     result_path = case_dir / "result.json"
-    screenshot = case_dir / "screenshots" / f"{CORE_CASES[case_id]}.png"
+    core = CORE_CASES[case_id]
+    run_ids = ["ppsspp-cso", "ppsspp-iso"] if core == "ppsspp" else [core]
+    screenshots = [case_dir / "screenshots" / f"{run_id}.png" for run_id in run_ids]
     machine_result = case_dir / "core-result.json"
-    if not result_path.is_file() or not screenshot.is_file() or not machine_result.is_file():
+    if not result_path.is_file() or not all(path.is_file() for path in screenshots) or not machine_result.is_file():
         raise RuntimeError("CORE_REVIEW_EVIDENCE_MISSING：先运行对应 ACC-CORE Case")
     result = json.loads(result_path.read_text(encoding="utf-8"))
     if result.get("status") != "BLOCKED" or result.get("exitCode") != 0 or result.get("timedOut"):
         raise RuntimeError("CORE_MACHINE_ASSERTIONS_NOT_PASSED")
     payload = json.loads(machine_result.read_text(encoding="utf-8"))
-    core = CORE_CASES[case_id]
-    record = next((item for item in payload.get("results", []) if item.get("core") == core), None)
-    if not record or record.get("status") != "passed" or record.get("failure") is not None:
+    records = [next((item for item in payload.get("results", []) if item.get("core") == run_id), None) for run_id in run_ids]
+    if any(not record or record.get("status") != "passed" or record.get("failure") is not None for record in records):
         raise RuntimeError("CORE_MACHINE_RESULT_INVALID")
     reviewed_at = now_ms()
     passed = decision == "passed"
@@ -519,8 +576,10 @@ def review_core(case_id: str, decision: str, observed: str) -> int:
         "decision": decision,
         "expected": CORE_EXPECTATIONS[core],
         "observed": observed.strip(),
-        "screenshotSha256": sha256_file(screenshot),
-        "screenshot": relative(screenshot, run_dir),
+        "screenshots": [
+            {"runId": run_id, "sha256": sha256_file(screenshot), "path": relative(screenshot, run_dir)}
+            for run_id, screenshot in zip(run_ids, screenshots, strict=True)
+        ],
     }
     result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"{case_id}: {result['status']} (visual review recorded)")

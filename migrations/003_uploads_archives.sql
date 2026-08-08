@@ -58,7 +58,8 @@ CREATE TABLE archive_entries (
   original_relative_path TEXT NOT NULL,
   normalized_path TEXT NOT NULL,
   ascii_casefold_path TEXT NOT NULL,
-  compression_method INTEGER NOT NULL CHECK(compression_method IN (0,8)),
+  archive_format TEXT NOT NULL CHECK(archive_format IN ('ZIP','SEVEN_Z')),
+  compression_profile TEXT NOT NULL CHECK(compression_profile IN ('STORE','DEFLATE','SEVEN_Z_DECODER_VALIDATED')),
   uncompressed_size_bytes INTEGER NOT NULL CHECK(uncompressed_size_bytes >= 0),
   crc32 TEXT NOT NULL CHECK(length(crc32) = 8),
   md5 TEXT NOT NULL CHECK(length(md5) = 32),
@@ -68,7 +69,9 @@ CREATE TABLE archive_entries (
   created_at_ms INTEGER NOT NULL,
   PRIMARY KEY(archive_blob_id, ordinal),
   UNIQUE(archive_blob_id, normalized_path),
-  UNIQUE(archive_blob_id, ascii_casefold_path)
+  UNIQUE(archive_blob_id, ascii_casefold_path),
+  CHECK((archive_format='ZIP' AND compression_profile IN ('STORE','DEFLATE')) OR
+        (archive_format='SEVEN_Z' AND compression_profile='SEVEN_Z_DECODER_VALIDATED'))
 );
 
 CREATE TRIGGER archive_entries_immutable_update
@@ -80,7 +83,8 @@ WHEN OLD.materialized_blob_id IS NOT NULL
   OR NEW.original_relative_path != OLD.original_relative_path
   OR NEW.normalized_path != OLD.normalized_path
   OR NEW.ascii_casefold_path != OLD.ascii_casefold_path
-  OR NEW.compression_method != OLD.compression_method
+  OR NEW.archive_format != OLD.archive_format
+  OR NEW.compression_profile != OLD.compression_profile
   OR NEW.uncompressed_size_bytes != OLD.uncompressed_size_bytes
   OR NEW.crc32 != OLD.crc32 OR NEW.md5 != OLD.md5 OR NEW.sha1 != OLD.sha1 OR NEW.sha256 != OLD.sha256
 BEGIN

@@ -3,7 +3,24 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { resolveChromeBinary } from "./smoke-test.mjs";
+import { expandFixtureRuns, resolveChromeBinary } from "./smoke-test.mjs";
+
+test("PPSSPP expands to independent CSO and ISO runs", () => {
+  const fixtures = [{
+    core: "ppsspp",
+    game: { formatId: "cso" },
+    formatVariants: [{ formatId: "iso" }]
+  }, { core: "mgba" }];
+  assert.deepEqual(
+    expandFixtureRuns(fixtures, ["ppsspp"]).map(run => [run.runId, run.formatId, run.exampleQuery]),
+    [
+      ["ppsspp-cso", "cso", "?format=cso"],
+      ["ppsspp-iso", "iso", "?format=iso"]
+    ]
+  );
+  assert.equal(expandFixtureRuns(fixtures).length, 3);
+  assert.throws(() => expandFixtureRuns(fixtures, ["unknown"]), /Unknown core/);
+});
 
 test("explicit Chrome path is validated instead of silently falling back", async () => {
   const directory = await fs.mkdtemp(path.join(os.tmpdir(), "retrom-chrome-resolution-"));

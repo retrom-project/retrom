@@ -187,6 +187,63 @@ func (e HealthReadyStatus) Valid() bool {
 	}
 }
 
+// Defines values for JSONObjectArchiveFormat.
+const (
+	SEVENZ JSONObjectArchiveFormat = "SEVEN_Z"
+	ZIP    JSONObjectArchiveFormat = "ZIP"
+)
+
+// Valid indicates whether the value is a known member of the JSONObjectArchiveFormat enum.
+func (e JSONObjectArchiveFormat) Valid() bool {
+	switch e {
+	case SEVENZ:
+		return true
+	case ZIP:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LaunchConfigInputMode.
+const (
+	POINTER  LaunchConfigInputMode = "POINTER"
+	STANDARD LaunchConfigInputMode = "STANDARD"
+)
+
+// Valid indicates whether the value is a known member of the LaunchConfigInputMode enum.
+func (e LaunchConfigInputMode) Valid() bool {
+	switch e {
+	case POINTER:
+		return true
+	case STANDARD:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LaunchConfigPersistentSaveMode.
+const (
+	LaunchConfigPersistentSaveModeDOSOVERLAY LaunchConfigPersistentSaveMode = "DOS_OVERLAY"
+	LaunchConfigPersistentSaveModeNONE       LaunchConfigPersistentSaveMode = "NONE"
+	LaunchConfigPersistentSaveModeSINGLEFILE LaunchConfigPersistentSaveMode = "SINGLE_FILE"
+)
+
+// Valid indicates whether the value is a known member of the LaunchConfigPersistentSaveMode enum.
+func (e LaunchConfigPersistentSaveMode) Valid() bool {
+	switch e {
+	case LaunchConfigPersistentSaveModeDOSOVERLAY:
+		return true
+	case LaunchConfigPersistentSaveModeNONE:
+		return true
+	case LaunchConfigPersistentSaveModeSINGLEFILE:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for MetadataProviderRequestMetadataProvider.
 const (
 	MetadataProviderRequestMetadataProviderHASHEOUS MetadataProviderRequestMetadataProvider = "HASHEOUS"
@@ -214,6 +271,36 @@ const (
 func (e ReviewAssetRequestKind) Valid() bool {
 	switch e {
 	case ReviewAssetRequestKindCOVER:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartupActionEvent.
+const (
+	GAMESTART StartupActionEvent = "GAME_START"
+)
+
+// Valid indicates whether the value is a known member of the StartupActionEvent enum.
+func (e StartupActionEvent) Valid() bool {
+	switch e {
+	case GAMESTART:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StartupActionKind.
+const (
+	PRESSCONTROL StartupActionKind = "PRESS_CONTROL"
+)
+
+// Valid indicates whether the value is a known member of the StartupActionKind enum.
+func (e StartupActionKind) Valid() bool {
+	switch e {
+	case PRESSCONTROL:
 		return true
 	default:
 		return false
@@ -377,343 +464,388 @@ type InstallBIOSRequest struct {
 
 // JSONObject defines model for JSONObject.
 type JSONObject struct {
-	AcceptedDurationMs               interface{} `json:"acceptedDurationMs,omitempty"`
-	Action                           interface{} `json:"action,omitempty"`
-	ActivatedAtMs                    interface{} `json:"activatedAtMs,omitempty"`
-	Active                           interface{} `json:"active,omitempty"`
-	ActiveDurationMs                 interface{} `json:"activeDurationMs,omitempty"`
-	ActiveEmulatorjsVersion          interface{} `json:"activeEmulatorjsVersion,omitempty"`
-	ActiveInstallation               interface{} `json:"activeInstallation,omitempty"`
-	ActiveLaunchCount                interface{} `json:"activeLaunchCount,omitempty"`
-	Actor                            interface{} `json:"actor,omitempty"`
-	After                            interface{} `json:"after,omitempty"`
-	AssetId                          interface{} `json:"assetId,omitempty"`
-	AssetIds                         interface{} `json:"assetIds,omitempty"`
-	Assets                           interface{} `json:"assets,omitempty"`
-	Association                      interface{} `json:"association,omitempty"`
-	AttemptCount                     interface{} `json:"attemptCount,omitempty"`
-	AttributeRelationType            interface{} `json:"attributeRelationType,omitempty"`
-	AttributeType                    interface{} `json:"attributeType,omitempty"`
-	Attributes                       interface{} `json:"attributes,omitempty"`
-	Availability                     interface{} `json:"availability,omitempty"`
-	BackgroundCandidateAssetId       interface{} `json:"backgroundCandidateAssetId,omitempty"`
-	Base                             interface{} `json:"base,omitempty"`
-	BaseContentRevisionId            interface{} `json:"baseContentRevisionId,omitempty"`
-	BaseDatVersionId                 interface{} `json:"baseDatVersionId,omitempty"`
-	Binary                           interface{} `json:"binary,omitempty"`
-	Bios                             interface{} `json:"bios,omitempty"`
-	BiosSetCount                     interface{} `json:"biosSetCount,omitempty"`
-	BiosUrl                          interface{} `json:"biosUrl,omitempty"`
-	BlobCount                        interface{} `json:"blobCount,omitempty"`
-	Blocked                          interface{} `json:"blocked,omitempty"`
-	BlockedCount                     interface{} `json:"blockedCount,omitempty"`
-	BlockerCode                      interface{} `json:"blockerCode,omitempty"`
-	BlockerCodes                     interface{} `json:"blockerCodes,omitempty"`
-	Blockers                         interface{} `json:"blockers,omitempty"`
-	BootstrapExpiresAtMs             interface{} `json:"bootstrapExpiresAtMs,omitempty"`
-	BundleVersion                    interface{} `json:"bundleVersion,omitempty"`
-	CancelReason                     interface{} `json:"cancelReason,omitempty"`
-	Cancelled                        interface{} `json:"cancelled,omitempty"`
-	CandidateCount                   interface{} `json:"candidateCount,omitempty"`
-	CandidateId                      interface{} `json:"candidateId,omitempty"`
-	Candidates                       interface{} `json:"candidates,omitempty"`
-	Change                           interface{} `json:"change,omitempty"`
-	ChunkSizeBytes                   interface{} `json:"chunkSizeBytes,omitempty"`
-	Class                            interface{} `json:"class,omitempty"`
-	ClientCapabilities               interface{} `json:"clientCapabilities,omitempty"`
-	ClientFileId                     interface{} `json:"clientFileId,omitempty"`
-	ClientObservedAtMs               interface{} `json:"clientObservedAtMs,omitempty"`
-	ClientSequence                   interface{} `json:"clientSequence,omitempty"`
-	Cloneof                          interface{} `json:"cloneof,omitempty"`
-	Code                             interface{} `json:"code,omitempty"`
-	Column                           interface{} `json:"column,omitempty"`
-	Commit                           interface{} `json:"commit,omitempty"`
-	CompatibilityCode                interface{} `json:"compatibilityCode,omitempty"`
-	CompatibilityStatus              interface{} `json:"compatibilityStatus,omitempty"`
-	Completed                        interface{} `json:"completed,omitempty"`
-	CompletedAtMs                    interface{} `json:"completedAtMs,omitempty"`
-	ConditionCode                    interface{} `json:"conditionCode,omitempty"`
-	ConfigEvidence                   interface{} `json:"configEvidence,omitempty"`
-	ConfigSnapshot                   interface{} `json:"configSnapshot,omitempty"`
-	ConfigSnapshotDigest             interface{} `json:"configSnapshotDigest,omitempty"`
-	ConfiguredDependencyVersionCount interface{} `json:"configuredDependencyVersionCount,omitempty"`
-	ConfiguredEmulatorjsVersions     interface{} `json:"configuredEmulatorjsVersions,omitempty"`
-	ConfiguredVersion                interface{} `json:"configuredVersion,omitempty"`
-	ContentRevisionId                interface{} `json:"contentRevisionId,omitempty"`
-	Core                             interface{} `json:"core,omitempty"`
-	CoreArtifactId                   interface{} `json:"coreArtifactId,omitempty"`
-	CoreId                           interface{} `json:"coreId,omitempty"`
-	CoreName                         *string     `json:"coreName,omitempty"`
-	CoreOptions                      interface{} `json:"coreOptions,omitempty"`
-	Cores                            interface{} `json:"cores,omitempty"`
-	Counts                           interface{} `json:"counts,omitempty"`
-	CoverCandidateAssetId            interface{} `json:"coverCandidateAssetId,omitempty"`
-	CoverUrl                         interface{} `json:"coverUrl,omitempty"`
-	CreatedAtMs                      interface{} `json:"createdAtMs,omitempty"`
-	CrossOriginIsolated              interface{} `json:"crossOriginIsolated,omitempty"`
-	CsrfToken                        *string     `json:"csrfToken,omitempty"`
-	Current                          interface{} `json:"current,omitempty"`
-	CurrentContentRevisionId         interface{} `json:"currentContentRevisionId,omitempty"`
-	CurrentMetadataRevisionId        interface{} `json:"currentMetadataRevisionId,omitempty"`
-	CurrentVariantRevisionId         interface{} `json:"currentVariantRevisionId,omitempty"`
-	Dat                              interface{} `json:"dat,omitempty"`
-	DatEvidence                      interface{} `json:"datEvidence,omitempty"`
-	DatVersionId                     interface{} `json:"datVersionId,omitempty"`
-	DatabaseSchemaVersion            interface{} `json:"databaseSchemaVersion,omitempty"`
-	DatabaseSha256                   interface{} `json:"databaseSha256,omitempty"`
-	Decision                         interface{} `json:"decision,omitempty"`
-	Default                          interface{} `json:"default,omitempty"`
-	DefaultCoreId                    interface{} `json:"defaultCoreId,omitempty"`
-	DefaultCoreName                  interface{} `json:"defaultCoreName,omitempty"`
-	DefaultCoreOptions               interface{} `json:"defaultCoreOptions,omitempty"`
-	DefaultDosEntry                  interface{} `json:"defaultDosEntry,omitempty"`
-	DeleteImpact                     interface{} `json:"deleteImpact,omitempty"`
-	Deleted                          interface{} `json:"deleted,omitempty"`
-	DeletedAtMs                      interface{} `json:"deletedAtMs,omitempty"`
-	Dependencies                     interface{} `json:"dependencies,omitempty"`
-	DependencyManifests              interface{} `json:"dependencyManifests,omitempty"`
-	DependencyVersionCount           interface{} `json:"dependencyVersionCount,omitempty"`
-	DependencyVersions               interface{} `json:"dependencyVersions,omitempty"`
-	Description                      interface{} `json:"description,omitempty"`
-	Details                          interface{} `json:"details,omitempty"`
-	Developer                        interface{} `json:"developer,omitempty"`
-	Diff                             interface{} `json:"diff,omitempty"`
-	DirectLaunchSafe                 interface{} `json:"directLaunchSafe,omitempty"`
-	Discarded                        interface{} `json:"discarded,omitempty"`
-	Disk                             interface{} `json:"disk,omitempty"`
-	DiskEntryCount                   interface{} `json:"diskEntryCount,omitempty"`
-	DosEntries                       interface{} `json:"dosEntries,omitempty"`
-	DosEntry                         interface{} `json:"dosEntry,omitempty"`
-	Edges                            interface{} `json:"edges,omitempty"`
-	EmulatorGameId                   interface{} `json:"emulatorGameId,omitempty"`
-	Emulatorjs                       interface{} `json:"emulatorjs,omitempty"`
-	EmulatorjsVersion                interface{} `json:"emulatorjsVersion,omitempty"`
-	Enabled                          interface{} `json:"enabled,omitempty"`
-	Entries                          interface{} `json:"entries,omitempty"`
-	Error                            interface{} `json:"error,omitempty"`
-	ErrorCode                        interface{} `json:"errorCode,omitempty"`
-	EventType                        interface{} `json:"eventType,omitempty"`
-	Evidence                         interface{} `json:"evidence,omitempty"`
-	EvidenceCount                    interface{} `json:"evidenceCount,omitempty"`
-	ExecutionId                      interface{} `json:"executionId,omitempty"`
-	ExecutionNo                      interface{} `json:"executionNo,omitempty"`
-	ExpectedMd5                      interface{} `json:"expectedMd5,omitempty"`
-	ExpiresAtMs                      *int64      `json:"expiresAtMs,omitempty"`
-	Explicit                         interface{} `json:"explicit,omitempty"`
-	ExternalFiles                    interface{} `json:"externalFiles,omitempty"`
-	Failed                           interface{} `json:"failed,omitempty"`
-	FailedItemCount                  interface{} `json:"failedItemCount,omitempty"`
-	FileCount                        interface{} `json:"fileCount,omitempty"`
-	FileId                           interface{} `json:"fileId,omitempty"`
-	Files                            interface{} `json:"files,omitempty"`
-	FilterDigest                     interface{} `json:"filterDigest,omitempty"`
-	FinalizationNo                   interface{} `json:"finalizationNo,omitempty"`
-	FinalizeJobId                    interface{} `json:"finalizeJobId,omitempty"`
-	Flavor                           interface{} `json:"flavor,omitempty"`
-	Game                             interface{} `json:"game,omitempty"`
-	GameCount                        interface{} `json:"gameCount,omitempty"`
-	GameId                           interface{} `json:"gameId,omitempty"`
-	GameIds                          interface{} `json:"gameIds,omitempty"`
-	GameName                         interface{} `json:"gameName,omitempty"`
-	GameTitle                        *string     `json:"gameTitle,omitempty"`
-	GameUrl                          interface{} `json:"gameUrl,omitempty"`
-	GameVersion                      interface{} `json:"gameVersion,omitempty"`
-	Games                            interface{} `json:"games,omitempty"`
-	GeneratedAtMs                    *int64      `json:"generatedAtMs,omitempty"`
-	Genre                            interface{} `json:"genre,omitempty"`
-	HardExpiresAtMs                  interface{} `json:"hardExpiresAtMs,omitempty"`
-	HeightPx                         interface{} `json:"heightPx,omitempty"`
-	HitCount                         interface{} `json:"hitCount,omitempty"`
-	Id                               interface{} `json:"id,omitempty"`
-	IgnoredFiles                     interface{} `json:"ignoredFiles,omitempty"`
-	Impact                           interface{} `json:"impact,omitempty"`
-	ImpactDigest                     interface{} `json:"impactDigest,omitempty"`
-	ImportItemId                     interface{} `json:"importItemId,omitempty"`
-	ImportJobId                      interface{} `json:"importJobId,omitempty"`
-	Imports                          interface{} `json:"imports,omitempty"`
-	Inputs                           interface{} `json:"inputs,omitempty"`
-	InstallationId                   interface{} `json:"installationId,omitempty"`
-	IsDefault                        interface{} `json:"isDefault,omitempty"`
-	ItemCount                        interface{} `json:"itemCount,omitempty"`
-	ItemId                           interface{} `json:"itemId,omitempty"`
-	Items                            interface{} `json:"items,omitempty"`
-	JobId                            interface{} `json:"jobId,omitempty"`
-	JobState                         interface{} `json:"jobState,omitempty"`
-	Jobs                             interface{} `json:"jobs,omitempty"`
-	Kind                             interface{} `json:"kind,omitempty"`
-	LatestGames                      interface{} `json:"latestGames,omitempty"`
-	Level                            interface{} `json:"level,omitempty"`
-	Library                          interface{} `json:"library,omitempty"`
-	License                          interface{} `json:"license,omitempty"`
-	Loader                           interface{} `json:"loader,omitempty"`
-	LoaderUrl                        interface{} `json:"loaderUrl,omitempty"`
-	LogicalName                      interface{} `json:"logicalName,omitempty"`
-	Machine                          interface{} `json:"machine,omitempty"`
-	MachineCount                     interface{} `json:"machineCount,omitempty"`
-	ManifestPath                     interface{} `json:"manifestPath,omitempty"`
-	ManifestSha256                   interface{} `json:"manifestSha256,omitempty"`
-	MaxAttempts                      interface{} `json:"maxAttempts,omitempty"`
-	Md5                              interface{} `json:"md5,omitempty"`
-	MediaType                        interface{} `json:"mediaType,omitempty"`
-	Message                          interface{} `json:"message,omitempty"`
-	Metadata                         interface{} `json:"metadata,omitempty"`
-	MetadataProvider                 interface{} `json:"metadataProvider,omitempty"`
-	MetadataRevisionId               interface{} `json:"metadataRevisionId,omitempty"`
-	Mode                             interface{} `json:"mode,omitempty"`
-	Name                             interface{} `json:"name,omitempty"`
-	NeedsValidation                  interface{} `json:"needsValidation,omitempty"`
-	NextCursor                       interface{} `json:"nextCursor,omitempty"`
-	Non                              interface{} `json:"non,omitempty"`
-	OperationId                      interface{} `json:"operationId,omitempty"`
-	Ordinal                          interface{} `json:"ordinal,omitempty"`
-	OriginalPath                     interface{} `json:"originalPath,omitempty"`
-	Outcomes                         interface{} `json:"outcomes,omitempty"`
-	Output                           interface{} `json:"output,omitempty"`
-	ParentUrl                        interface{} `json:"parentUrl,omitempty"`
-	Parse                            interface{} `json:"parse,omitempty"`
-	ParseStatus                      interface{} `json:"parseStatus,omitempty"`
-	PartNo                           interface{} `json:"partNo,omitempty"`
-	Path                             interface{} `json:"path,omitempty"`
-	Paused                           interface{} `json:"paused,omitempty"`
-	PersistentSaveId                 interface{} `json:"persistentSaveId,omitempty"`
-	PersistentSaveUrl                interface{} `json:"persistentSaveUrl,omitempty"`
-	Platform                         interface{} `json:"platform,omitempty"`
-	PlatformId                       interface{} `json:"platformId,omitempty"`
-	PlatformInstance                 interface{} `json:"platformInstance,omitempty"`
-	PlatformInstanceId               interface{} `json:"platformInstanceId,omitempty"`
-	PlatformInstanceName             interface{} `json:"platformInstanceName,omitempty"`
-	PlatformInstanceVersion          interface{} `json:"platformInstanceVersion,omitempty"`
-	PlatformName                     *string     `json:"platformName,omitempty"`
-	PlaySessionId                    interface{} `json:"playSessionId,omitempty"`
-	PlayUrl                          interface{} `json:"playUrl,omitempty"`
-	Player                           interface{} `json:"player,omitempty"`
-	PlayerAdapterId                  interface{} `json:"playerAdapterId,omitempty"`
-	Players                          interface{} `json:"players,omitempty"`
-	PreviousInterval                 interface{} `json:"previousInterval,omitempty"`
-	Protected                        interface{} `json:"protected,omitempty"`
-	Provider                         interface{} `json:"provider,omitempty"`
-	ProviderAssetId                  interface{} `json:"providerAssetId,omitempty"`
-	ProviderEvidence                 interface{} `json:"providerEvidence,omitempty"`
-	ProviderGameId                   interface{} `json:"providerGameId,omitempty"`
-	Published                        interface{} `json:"published,omitempty"`
-	Publisher                        interface{} `json:"publisher,omitempty"`
-	Q                                interface{} `json:"q,omitempty"`
-	Queued                           interface{} `json:"queued,omitempty"`
-	Rank                             interface{} `json:"rank,omitempty"`
-	Ready                            interface{} `json:"ready,omitempty"`
-	Reason                           interface{} `json:"reason,omitempty"`
-	ReasonCode                       interface{} `json:"reasonCode,omitempty"`
-	Reasons                          interface{} `json:"reasons,omitempty"`
-	ReceivedParts                    interface{} `json:"receivedParts,omitempty"`
-	ReceivedSizeBytes                interface{} `json:"receivedSizeBytes,omitempty"`
-	RecentGames                      interface{} `json:"recentGames,omitempty"`
-	RecentSaves                      interface{} `json:"recentSaves,omitempty"`
-	RejectedFiles                    interface{} `json:"rejectedFiles,omitempty"`
-	ReleaseYear                      interface{} `json:"releaseYear,omitempty"`
-	Repository                       interface{} `json:"repository,omitempty"`
-	RequestId                        interface{} `json:"requestId,omitempty"`
-	RequestedArtifactBasename        interface{} `json:"requestedArtifactBasename,omitempty"`
-	RequirementId                    interface{} `json:"requirementId,omitempty"`
-	RequirementMode                  interface{} `json:"requirementMode,omitempty"`
-	Requires                         interface{} `json:"requires,omitempty"`
-	RequiresThreads                  interface{} `json:"requiresThreads,omitempty"`
-	Retained                         interface{} `json:"retained,omitempty"`
-	RetryAfterMs                     interface{} `json:"retryAfterMs,omitempty"`
-	Retryable                        interface{} `json:"retryable,omitempty"`
-	ReturnTo                         interface{} `json:"returnTo,omitempty"`
-	ReviewEventCount                 interface{} `json:"reviewEventCount,omitempty"`
-	ReviewEventId                    interface{} `json:"reviewEventId,omitempty"`
-	ReviewPending                    interface{} `json:"reviewPending,omitempty"`
-	ReviewPendingCount               interface{} `json:"reviewPendingCount,omitempty"`
-	ReviewPendingItemCount           interface{} `json:"reviewPendingItemCount,omitempty"`
-	ReviewVersion                    interface{} `json:"reviewVersion,omitempty"`
-	RevisionId                       interface{} `json:"revisionId,omitempty"`
-	Role                             interface{} `json:"role,omitempty"`
-	Rom                              interface{} `json:"rom,omitempty"`
-	RomEntryCount                    interface{} `json:"romEntryCount,omitempty"`
-	Romof                            interface{} `json:"romof,omitempty"`
-	Running                          interface{} `json:"running,omitempty"`
-	Runtime                          interface{} `json:"runtime,omitempty"`
-	RuntimeBaseUrl                   interface{} `json:"runtimeBaseUrl,omitempty"`
-	RuntimePath                      interface{} `json:"runtimePath,omitempty"`
-	RuntimePathOverrides             interface{} `json:"runtimePathOverrides,omitempty"`
-	Sample                           interface{} `json:"sample,omitempty"`
-	SaveStateCount                   interface{} `json:"saveStateCount,omitempty"`
-	SaveStateId                      interface{} `json:"saveStateId,omitempty"`
-	SaveStates                       interface{} `json:"saveStates,omitempty"`
-	Scheduled                        interface{} `json:"scheduled,omitempty"`
-	Schema                           interface{} `json:"schema,omitempty"`
-	SchemaVersion                    *int        `json:"schemaVersion,omitempty"`
-	Scope                            interface{} `json:"scope,omitempty"`
-	ScopeId                          interface{} `json:"scopeId,omitempty"`
-	ScopeType                        interface{} `json:"scopeType,omitempty"`
-	Score                            interface{} `json:"score,omitempty"`
-	ScrapeRunId                      interface{} `json:"scrapeRunId,omitempty"`
-	ScrapeRuns                       interface{} `json:"scrapeRuns,omitempty"`
-	Screenshot                       interface{} `json:"screenshot,omitempty"`
-	ScreenshotCandidateAssetIds      interface{} `json:"screenshotCandidateAssetIds,omitempty"`
-	Section                          interface{} `json:"section,omitempty"`
-	SecureContext                    interface{} `json:"secureContext,omitempty"`
-	Selected                         interface{} `json:"selected,omitempty"`
-	SelectedAssets                   interface{} `json:"selectedAssets,omitempty"`
-	SelectedCandidateId              interface{} `json:"selectedCandidateId,omitempty"`
-	SelectedValidationId             interface{} `json:"selectedValidationId,omitempty"`
-	Sequence                         interface{} `json:"sequence,omitempty"`
-	Sha1                             interface{} `json:"sha1,omitempty"`
-	Sha256                           interface{} `json:"sha256,omitempty"`
-	Sha256sumsPath                   interface{} `json:"sha256sumsPath,omitempty"`
-	Sha256sumsSha256                 interface{} `json:"sha256sumsSha256,omitempty"`
-	SharedArrayBuffer                interface{} `json:"sharedArrayBuffer,omitempty"`
-	Signature                        interface{} `json:"signature,omitempty"`
-	Size                             interface{} `json:"size,omitempty"`
-	SizeBytes                        interface{} `json:"sizeBytes,omitempty"`
-	Slug                             interface{} `json:"slug,omitempty"`
-	Sort                             interface{} `json:"sort,omitempty"`
-	SortCode                         interface{} `json:"sortCode,omitempty"`
-	SortOrder                        interface{} `json:"sortOrder,omitempty"`
-	SortValues                       interface{} `json:"sortValues,omitempty"`
-	Source                           interface{} `json:"source,omitempty"`
-	SourceDisplayName                interface{} `json:"sourceDisplayName,omitempty"`
-	SourceManifest                   interface{} `json:"sourceManifest,omitempty"`
-	SourcePlatformInstanceId         interface{} `json:"sourcePlatformInstanceId,omitempty"`
-	SourceType                       interface{} `json:"sourceType,omitempty"`
-	State                            interface{} `json:"state,omitempty"`
-	StateUrl                         interface{} `json:"stateUrl,omitempty"`
-	Status                           interface{} `json:"status,omitempty"`
-	Summary                          interface{} `json:"summary,omitempty"`
-	Table                            interface{} `json:"table,omitempty"`
-	Target                           interface{} `json:"target,omitempty"`
-	TargetCoreId                     interface{} `json:"targetCoreId,omitempty"`
-	TargetDatVersionId               interface{} `json:"targetDatVersionId,omitempty"`
-	TargetPlatformInstance           interface{} `json:"targetPlatformInstance,omitempty"`
-	TargetPlatformInstanceId         interface{} `json:"targetPlatformInstanceId,omitempty"`
-	Tested                           interface{} `json:"tested,omitempty"`
-	Third                            interface{} `json:"third,omitempty"`
-	Title                            interface{} `json:"title,omitempty"`
-	ToAtMs                           interface{} `json:"toAtMs,omitempty"`
-	Total                            interface{} `json:"total,omitempty"`
-	TotalBytes                       interface{} `json:"totalBytes,omitempty"`
-	TotalItemCount                   interface{} `json:"totalItemCount,omitempty"`
-	Trailing                         interface{} `json:"trailing,omitempty"`
-	Unresolved                       interface{} `json:"unresolved,omitempty"`
-	UpdatedAtMs                      interface{} `json:"updatedAtMs,omitempty"`
-	UploadFileId                     interface{} `json:"uploadFileId,omitempty"`
-	UploadId                         interface{} `json:"uploadId,omitempty"`
-	UploadPartCount                  interface{} `json:"uploadPartCount,omitempty"`
-	UploadSessionId                  interface{} `json:"uploadSessionId,omitempty"`
-	ValidatedRequirementVersion      interface{} `json:"validatedRequirementVersion,omitempty"`
-	Validation                       interface{} `json:"validation,omitempty"`
-	ValidationDetails                interface{} `json:"validationDetails,omitempty"`
-	ValidationJobId                  interface{} `json:"validationJobId,omitempty"`
-	ValidationStatus                 interface{} `json:"validationStatus,omitempty"`
-	Value                            interface{} `json:"value,omitempty"`
-	VariantStatus                    interface{} `json:"variantStatus,omitempty"`
-	Version                          interface{} `json:"version,omitempty"`
-	Visible                          interface{} `json:"visible,omitempty"`
-	Warnings                         interface{} `json:"warnings,omitempty"`
-	WidthPx                          interface{} `json:"widthPx,omitempty"`
-	Year                             interface{} `json:"year,omitempty"`
+	AcceptedDurationMs               interface{}              `json:"acceptedDurationMs,omitempty"`
+	Action                           interface{}              `json:"action,omitempty"`
+	ActivatedAtMs                    interface{}              `json:"activatedAtMs,omitempty"`
+	Active                           interface{}              `json:"active,omitempty"`
+	ActiveDurationMs                 interface{}              `json:"activeDurationMs,omitempty"`
+	ActiveEmulatorjsVersion          interface{}              `json:"activeEmulatorjsVersion,omitempty"`
+	ActiveInstallation               interface{}              `json:"activeInstallation,omitempty"`
+	ActiveLaunchCount                interface{}              `json:"activeLaunchCount,omitempty"`
+	Actor                            interface{}              `json:"actor,omitempty"`
+	After                            interface{}              `json:"after,omitempty"`
+	Archive                          *bool                    `json:"archive,omitempty"`
+	ArchiveEntries                   interface{}              `json:"archiveEntries,omitempty"`
+	ArchiveFormat                    *JSONObjectArchiveFormat `json:"archiveFormat,omitempty"`
+	AssetId                          interface{}              `json:"assetId,omitempty"`
+	AssetIds                         interface{}              `json:"assetIds,omitempty"`
+	Assets                           interface{}              `json:"assets,omitempty"`
+	Association                      interface{}              `json:"association,omitempty"`
+	AttemptCount                     interface{}              `json:"attemptCount,omitempty"`
+	AttributeRelationType            interface{}              `json:"attributeRelationType,omitempty"`
+	AttributeType                    interface{}              `json:"attributeType,omitempty"`
+	Attributes                       interface{}              `json:"attributes,omitempty"`
+	Availability                     interface{}              `json:"availability,omitempty"`
+	BackgroundCandidateAssetId       interface{}              `json:"backgroundCandidateAssetId,omitempty"`
+	Base                             interface{}              `json:"base,omitempty"`
+	BaseContentRevisionId            interface{}              `json:"baseContentRevisionId,omitempty"`
+	BaseDatVersionId                 interface{}              `json:"baseDatVersionId,omitempty"`
+	Binary                           interface{}              `json:"binary,omitempty"`
+	Bios                             interface{}              `json:"bios,omitempty"`
+	BiosSetCount                     interface{}              `json:"biosSetCount,omitempty"`
+	BiosUrl                          interface{}              `json:"biosUrl,omitempty"`
+	BlobCount                        interface{}              `json:"blobCount,omitempty"`
+	Blocked                          interface{}              `json:"blocked,omitempty"`
+	BlockedCount                     interface{}              `json:"blockedCount,omitempty"`
+	BlockerCode                      interface{}              `json:"blockerCode,omitempty"`
+	BlockerCodes                     interface{}              `json:"blockerCodes,omitempty"`
+	Blockers                         interface{}              `json:"blockers,omitempty"`
+	BootstrapExpiresAtMs             interface{}              `json:"bootstrapExpiresAtMs,omitempty"`
+	BundleVersion                    interface{}              `json:"bundleVersion,omitempty"`
+	CancelReason                     interface{}              `json:"cancelReason,omitempty"`
+	Cancelled                        interface{}              `json:"cancelled,omitempty"`
+	CandidateCount                   interface{}              `json:"candidateCount,omitempty"`
+	CandidateId                      interface{}              `json:"candidateId,omitempty"`
+	Candidates                       interface{}              `json:"candidates,omitempty"`
+	Change                           interface{}              `json:"change,omitempty"`
+	ChunkSizeBytes                   interface{}              `json:"chunkSizeBytes,omitempty"`
+	Class                            interface{}              `json:"class,omitempty"`
+	ClientCapabilities               interface{}              `json:"clientCapabilities,omitempty"`
+	ClientFileId                     interface{}              `json:"clientFileId,omitempty"`
+	ClientObservedAtMs               interface{}              `json:"clientObservedAtMs,omitempty"`
+	ClientSequence                   interface{}              `json:"clientSequence,omitempty"`
+	Cloneof                          interface{}              `json:"cloneof,omitempty"`
+	Code                             interface{}              `json:"code,omitempty"`
+	Column                           interface{}              `json:"column,omitempty"`
+	Commit                           interface{}              `json:"commit,omitempty"`
+	CompatibilityCode                interface{}              `json:"compatibilityCode,omitempty"`
+	CompatibilityStatus              interface{}              `json:"compatibilityStatus,omitempty"`
+	Completed                        interface{}              `json:"completed,omitempty"`
+	CompletedAtMs                    interface{}              `json:"completedAtMs,omitempty"`
+	ConditionCode                    interface{}              `json:"conditionCode,omitempty"`
+	ConfigEvidence                   interface{}              `json:"configEvidence,omitempty"`
+	ConfigSnapshot                   interface{}              `json:"configSnapshot,omitempty"`
+	ConfigSnapshotDigest             interface{}              `json:"configSnapshotDigest,omitempty"`
+	ConfiguredDependencyVersionCount interface{}              `json:"configuredDependencyVersionCount,omitempty"`
+	ConfiguredEmulatorjsVersions     interface{}              `json:"configuredEmulatorjsVersions,omitempty"`
+	ConfiguredVersion                interface{}              `json:"configuredVersion,omitempty"`
+	ContentRevisionId                interface{}              `json:"contentRevisionId,omitempty"`
+	Core                             interface{}              `json:"core,omitempty"`
+	CoreArtifactId                   interface{}              `json:"coreArtifactId,omitempty"`
+	CoreId                           interface{}              `json:"coreId,omitempty"`
+	CoreName                         *string                  `json:"coreName,omitempty"`
+	CoreOptions                      interface{}              `json:"coreOptions,omitempty"`
+	Cores                            interface{}              `json:"cores,omitempty"`
+	Counts                           interface{}              `json:"counts,omitempty"`
+	CoverCandidateAssetId            interface{}              `json:"coverCandidateAssetId,omitempty"`
+	CoverUrl                         interface{}              `json:"coverUrl,omitempty"`
+	CreatedAtMs                      interface{}              `json:"createdAtMs,omitempty"`
+	CrossOriginIsolated              interface{}              `json:"crossOriginIsolated,omitempty"`
+	CsrfToken                        *string                  `json:"csrfToken,omitempty"`
+	Current                          interface{}              `json:"current,omitempty"`
+	CurrentContentRevisionId         interface{}              `json:"currentContentRevisionId,omitempty"`
+	CurrentMetadataRevisionId        interface{}              `json:"currentMetadataRevisionId,omitempty"`
+	CurrentVariantRevisionId         interface{}              `json:"currentVariantRevisionId,omitempty"`
+	Dat                              interface{}              `json:"dat,omitempty"`
+	DatEvidence                      interface{}              `json:"datEvidence,omitempty"`
+	DatVersionId                     interface{}              `json:"datVersionId,omitempty"`
+	DatabaseSchemaVersion            interface{}              `json:"databaseSchemaVersion,omitempty"`
+	DatabaseSha256                   interface{}              `json:"databaseSha256,omitempty"`
+	Decision                         interface{}              `json:"decision,omitempty"`
+	Default                          interface{}              `json:"default,omitempty"`
+	DefaultCoreId                    interface{}              `json:"defaultCoreId,omitempty"`
+	DefaultCoreName                  interface{}              `json:"defaultCoreName,omitempty"`
+	DefaultCoreOptions               interface{}              `json:"defaultCoreOptions,omitempty"`
+	DefaultDosEntry                  interface{}              `json:"defaultDosEntry,omitempty"`
+	DeleteImpact                     interface{}              `json:"deleteImpact,omitempty"`
+	Deleted                          interface{}              `json:"deleted,omitempty"`
+	DeletedAtMs                      interface{}              `json:"deletedAtMs,omitempty"`
+	Dependencies                     interface{}              `json:"dependencies,omitempty"`
+	DependencyManifests              interface{}              `json:"dependencyManifests,omitempty"`
+	DependencyVersionCount           interface{}              `json:"dependencyVersionCount,omitempty"`
+	DependencyVersions               interface{}              `json:"dependencyVersions,omitempty"`
+	Description                      interface{}              `json:"description,omitempty"`
+	Details                          interface{}              `json:"details,omitempty"`
+	Developer                        interface{}              `json:"developer,omitempty"`
+	Diff                             interface{}              `json:"diff,omitempty"`
+	DirectLaunchSafe                 interface{}              `json:"directLaunchSafe,omitempty"`
+	Discarded                        interface{}              `json:"discarded,omitempty"`
+	Disk                             interface{}              `json:"disk,omitempty"`
+	DiskEntryCount                   interface{}              `json:"diskEntryCount,omitempty"`
+	DosEntries                       interface{}              `json:"dosEntries,omitempty"`
+	DosEntry                         interface{}              `json:"dosEntry,omitempty"`
+	Edges                            interface{}              `json:"edges,omitempty"`
+	EmulatorGameId                   interface{}              `json:"emulatorGameId,omitempty"`
+	Emulatorjs                       interface{}              `json:"emulatorjs,omitempty"`
+	EmulatorjsVersion                interface{}              `json:"emulatorjsVersion,omitempty"`
+	Enabled                          interface{}              `json:"enabled,omitempty"`
+	Entries                          interface{}              `json:"entries,omitempty"`
+	Error                            interface{}              `json:"error,omitempty"`
+	ErrorCode                        interface{}              `json:"errorCode,omitempty"`
+	EventType                        interface{}              `json:"eventType,omitempty"`
+	Evidence                         interface{}              `json:"evidence,omitempty"`
+	EvidenceCount                    interface{}              `json:"evidenceCount,omitempty"`
+	ExecutionId                      interface{}              `json:"executionId,omitempty"`
+	ExecutionNo                      interface{}              `json:"executionNo,omitempty"`
+	ExpectedMd5                      interface{}              `json:"expectedMd5,omitempty"`
+	ExpiresAtMs                      *int64                   `json:"expiresAtMs,omitempty"`
+	Explicit                         interface{}              `json:"explicit,omitempty"`
+	ExternalFiles                    interface{}              `json:"externalFiles,omitempty"`
+	Failed                           interface{}              `json:"failed,omitempty"`
+	FailedItemCount                  interface{}              `json:"failedItemCount,omitempty"`
+	FileCount                        interface{}              `json:"fileCount,omitempty"`
+	FileId                           interface{}              `json:"fileId,omitempty"`
+	Files                            interface{}              `json:"files,omitempty"`
+	FilterDigest                     interface{}              `json:"filterDigest,omitempty"`
+	FinalizationNo                   interface{}              `json:"finalizationNo,omitempty"`
+	FinalizeJobId                    interface{}              `json:"finalizeJobId,omitempty"`
+	Flavor                           interface{}              `json:"flavor,omitempty"`
+	Game                             interface{}              `json:"game,omitempty"`
+	GameCount                        interface{}              `json:"gameCount,omitempty"`
+	GameId                           interface{}              `json:"gameId,omitempty"`
+	GameIds                          interface{}              `json:"gameIds,omitempty"`
+	GameName                         interface{}              `json:"gameName,omitempty"`
+	GameTitle                        *string                  `json:"gameTitle,omitempty"`
+	GameUrl                          interface{}              `json:"gameUrl,omitempty"`
+	GameVersion                      interface{}              `json:"gameVersion,omitempty"`
+	Games                            interface{}              `json:"games,omitempty"`
+	GeneratedAtMs                    *int64                   `json:"generatedAtMs,omitempty"`
+	Genre                            interface{}              `json:"genre,omitempty"`
+	HardExpiresAtMs                  interface{}              `json:"hardExpiresAtMs,omitempty"`
+	HeightPx                         interface{}              `json:"heightPx,omitempty"`
+	HitCount                         interface{}              `json:"hitCount,omitempty"`
+	Id                               interface{}              `json:"id,omitempty"`
+	IgnoredFiles                     interface{}              `json:"ignoredFiles,omitempty"`
+	Impact                           interface{}              `json:"impact,omitempty"`
+	ImpactDigest                     interface{}              `json:"impactDigest,omitempty"`
+	ImportItemId                     interface{}              `json:"importItemId,omitempty"`
+	ImportJobId                      interface{}              `json:"importJobId,omitempty"`
+	Imports                          interface{}              `json:"imports,omitempty"`
+	Inputs                           interface{}              `json:"inputs,omitempty"`
+	InstallationId                   interface{}              `json:"installationId,omitempty"`
+	IsDefault                        interface{}              `json:"isDefault,omitempty"`
+	ItemCount                        interface{}              `json:"itemCount,omitempty"`
+	ItemId                           interface{}              `json:"itemId,omitempty"`
+	Items                            interface{}              `json:"items,omitempty"`
+	JobId                            interface{}              `json:"jobId,omitempty"`
+	JobState                         interface{}              `json:"jobState,omitempty"`
+	Jobs                             interface{}              `json:"jobs,omitempty"`
+	Kind                             interface{}              `json:"kind,omitempty"`
+	LatestGames                      interface{}              `json:"latestGames,omitempty"`
+	Level                            interface{}              `json:"level,omitempty"`
+	Library                          interface{}              `json:"library,omitempty"`
+	License                          interface{}              `json:"license,omitempty"`
+	Loader                           interface{}              `json:"loader,omitempty"`
+	LoaderUrl                        interface{}              `json:"loaderUrl,omitempty"`
+	LogicalName                      interface{}              `json:"logicalName,omitempty"`
+	Machine                          interface{}              `json:"machine,omitempty"`
+	MachineCount                     interface{}              `json:"machineCount,omitempty"`
+	ManifestPath                     interface{}              `json:"manifestPath,omitempty"`
+	ManifestSha256                   interface{}              `json:"manifestSha256,omitempty"`
+	MaxAttempts                      interface{}              `json:"maxAttempts,omitempty"`
+	Md5                              interface{}              `json:"md5,omitempty"`
+	MediaType                        interface{}              `json:"mediaType,omitempty"`
+	Message                          interface{}              `json:"message,omitempty"`
+	Metadata                         interface{}              `json:"metadata,omitempty"`
+	MetadataProvider                 interface{}              `json:"metadataProvider,omitempty"`
+	MetadataRevisionId               interface{}              `json:"metadataRevisionId,omitempty"`
+	Mode                             interface{}              `json:"mode,omitempty"`
+	Name                             interface{}              `json:"name,omitempty"`
+	NeedsValidation                  interface{}              `json:"needsValidation,omitempty"`
+	NextCursor                       interface{}              `json:"nextCursor,omitempty"`
+	Non                              interface{}              `json:"non,omitempty"`
+	OperationId                      interface{}              `json:"operationId,omitempty"`
+	Ordinal                          interface{}              `json:"ordinal,omitempty"`
+	OriginalPath                     interface{}              `json:"originalPath,omitempty"`
+	Outcomes                         interface{}              `json:"outcomes,omitempty"`
+	Output                           interface{}              `json:"output,omitempty"`
+	ParentUrl                        interface{}              `json:"parentUrl,omitempty"`
+	Parse                            interface{}              `json:"parse,omitempty"`
+	ParseStatus                      interface{}              `json:"parseStatus,omitempty"`
+	PartNo                           interface{}              `json:"partNo,omitempty"`
+	Path                             interface{}              `json:"path,omitempty"`
+	Paused                           interface{}              `json:"paused,omitempty"`
+	PersistentSaveId                 interface{}              `json:"persistentSaveId,omitempty"`
+	PersistentSaveUrl                interface{}              `json:"persistentSaveUrl,omitempty"`
+	Platform                         interface{}              `json:"platform,omitempty"`
+	PlatformId                       interface{}              `json:"platformId,omitempty"`
+	PlatformInstance                 interface{}              `json:"platformInstance,omitempty"`
+	PlatformInstanceId               interface{}              `json:"platformInstanceId,omitempty"`
+	PlatformInstanceName             interface{}              `json:"platformInstanceName,omitempty"`
+	PlatformInstanceVersion          interface{}              `json:"platformInstanceVersion,omitempty"`
+	PlatformName                     *string                  `json:"platformName,omitempty"`
+	PlaySessionId                    interface{}              `json:"playSessionId,omitempty"`
+	PlayUrl                          interface{}              `json:"playUrl,omitempty"`
+	Player                           interface{}              `json:"player,omitempty"`
+	PlayerAdapterId                  interface{}              `json:"playerAdapterId,omitempty"`
+	Players                          interface{}              `json:"players,omitempty"`
+	PreviousInterval                 interface{}              `json:"previousInterval,omitempty"`
+	Protected                        interface{}              `json:"protected,omitempty"`
+	Provider                         interface{}              `json:"provider,omitempty"`
+	ProviderAssetId                  interface{}              `json:"providerAssetId,omitempty"`
+	ProviderEvidence                 interface{}              `json:"providerEvidence,omitempty"`
+	ProviderGameId                   interface{}              `json:"providerGameId,omitempty"`
+	Published                        interface{}              `json:"published,omitempty"`
+	Publisher                        interface{}              `json:"publisher,omitempty"`
+	Q                                interface{}              `json:"q,omitempty"`
+	Queued                           interface{}              `json:"queued,omitempty"`
+	Rank                             interface{}              `json:"rank,omitempty"`
+	Ready                            interface{}              `json:"ready,omitempty"`
+	Reason                           interface{}              `json:"reason,omitempty"`
+	ReasonCode                       interface{}              `json:"reasonCode,omitempty"`
+	Reasons                          interface{}              `json:"reasons,omitempty"`
+	ReceivedParts                    interface{}              `json:"receivedParts,omitempty"`
+	ReceivedSizeBytes                interface{}              `json:"receivedSizeBytes,omitempty"`
+	RecentGames                      interface{}              `json:"recentGames,omitempty"`
+	RecentSaves                      interface{}              `json:"recentSaves,omitempty"`
+	RejectedFiles                    interface{}              `json:"rejectedFiles,omitempty"`
+	ReleaseYear                      interface{}              `json:"releaseYear,omitempty"`
+	Repository                       interface{}              `json:"repository,omitempty"`
+	RequestId                        interface{}              `json:"requestId,omitempty"`
+	RequestedArtifactBasename        interface{}              `json:"requestedArtifactBasename,omitempty"`
+	RequirementId                    interface{}              `json:"requirementId,omitempty"`
+	RequirementMode                  interface{}              `json:"requirementMode,omitempty"`
+	Requires                         interface{}              `json:"requires,omitempty"`
+	RequiresThreads                  interface{}              `json:"requiresThreads,omitempty"`
+	Retained                         interface{}              `json:"retained,omitempty"`
+	RetryAfterMs                     interface{}              `json:"retryAfterMs,omitempty"`
+	Retryable                        interface{}              `json:"retryable,omitempty"`
+	ReturnTo                         interface{}              `json:"returnTo,omitempty"`
+	ReviewEventCount                 interface{}              `json:"reviewEventCount,omitempty"`
+	ReviewEventId                    interface{}              `json:"reviewEventId,omitempty"`
+	ReviewPending                    interface{}              `json:"reviewPending,omitempty"`
+	ReviewPendingCount               interface{}              `json:"reviewPendingCount,omitempty"`
+	ReviewPendingItemCount           interface{}              `json:"reviewPendingItemCount,omitempty"`
+	ReviewVersion                    interface{}              `json:"reviewVersion,omitempty"`
+	RevisionId                       interface{}              `json:"revisionId,omitempty"`
+	Role                             interface{}              `json:"role,omitempty"`
+	Rom                              interface{}              `json:"rom,omitempty"`
+	RomEntryCount                    interface{}              `json:"romEntryCount,omitempty"`
+	Romof                            interface{}              `json:"romof,omitempty"`
+	Running                          interface{}              `json:"running,omitempty"`
+	Runtime                          interface{}              `json:"runtime,omitempty"`
+	RuntimeBaseUrl                   interface{}              `json:"runtimeBaseUrl,omitempty"`
+	RuntimePath                      interface{}              `json:"runtimePath,omitempty"`
+	RuntimePathOverrides             interface{}              `json:"runtimePathOverrides,omitempty"`
+	Sample                           interface{}              `json:"sample,omitempty"`
+	SaveStateCount                   interface{}              `json:"saveStateCount,omitempty"`
+	SaveStateId                      interface{}              `json:"saveStateId,omitempty"`
+	SaveStates                       interface{}              `json:"saveStates,omitempty"`
+	Scheduled                        interface{}              `json:"scheduled,omitempty"`
+	Schema                           interface{}              `json:"schema,omitempty"`
+	SchemaVersion                    *int                     `json:"schemaVersion,omitempty"`
+	Scope                            interface{}              `json:"scope,omitempty"`
+	ScopeId                          interface{}              `json:"scopeId,omitempty"`
+	ScopeType                        interface{}              `json:"scopeType,omitempty"`
+	Score                            interface{}              `json:"score,omitempty"`
+	ScrapeRunId                      interface{}              `json:"scrapeRunId,omitempty"`
+	ScrapeRuns                       interface{}              `json:"scrapeRuns,omitempty"`
+	Screenshot                       interface{}              `json:"screenshot,omitempty"`
+	ScreenshotCandidateAssetIds      interface{}              `json:"screenshotCandidateAssetIds,omitempty"`
+	Section                          interface{}              `json:"section,omitempty"`
+	SecureContext                    interface{}              `json:"secureContext,omitempty"`
+	Selected                         interface{}              `json:"selected,omitempty"`
+	SelectedAssets                   interface{}              `json:"selectedAssets,omitempty"`
+	SelectedCandidateId              interface{}              `json:"selectedCandidateId,omitempty"`
+	SelectedValidationId             interface{}              `json:"selectedValidationId,omitempty"`
+	Sequence                         interface{}              `json:"sequence,omitempty"`
+	Sha1                             interface{}              `json:"sha1,omitempty"`
+	Sha256                           interface{}              `json:"sha256,omitempty"`
+	Sha256sumsPath                   interface{}              `json:"sha256sumsPath,omitempty"`
+	Sha256sumsSha256                 interface{}              `json:"sha256sumsSha256,omitempty"`
+	SharedArrayBuffer                interface{}              `json:"sharedArrayBuffer,omitempty"`
+	Signature                        interface{}              `json:"signature,omitempty"`
+	Size                             interface{}              `json:"size,omitempty"`
+	SizeBytes                        interface{}              `json:"sizeBytes,omitempty"`
+	Slug                             interface{}              `json:"slug,omitempty"`
+	Sort                             interface{}              `json:"sort,omitempty"`
+	SortCode                         interface{}              `json:"sortCode,omitempty"`
+	SortOrder                        interface{}              `json:"sortOrder,omitempty"`
+	SortValues                       interface{}              `json:"sortValues,omitempty"`
+	Source                           interface{}              `json:"source,omitempty"`
+	SourceDisplayName                interface{}              `json:"sourceDisplayName,omitempty"`
+	SourceFiles                      interface{}              `json:"sourceFiles,omitempty"`
+	SourceManifest                   interface{}              `json:"sourceManifest,omitempty"`
+	SourcePlatformInstanceId         interface{}              `json:"sourcePlatformInstanceId,omitempty"`
+	SourceType                       interface{}              `json:"sourceType,omitempty"`
+	State                            interface{}              `json:"state,omitempty"`
+	StateUrl                         interface{}              `json:"stateUrl,omitempty"`
+	Status                           interface{}              `json:"status,omitempty"`
+	Summary                          interface{}              `json:"summary,omitempty"`
+	Table                            interface{}              `json:"table,omitempty"`
+	Target                           interface{}              `json:"target,omitempty"`
+	TargetCoreId                     interface{}              `json:"targetCoreId,omitempty"`
+	TargetDatVersionId               interface{}              `json:"targetDatVersionId,omitempty"`
+	TargetPlatformInstance           interface{}              `json:"targetPlatformInstance,omitempty"`
+	TargetPlatformInstanceId         interface{}              `json:"targetPlatformInstanceId,omitempty"`
+	Tested                           interface{}              `json:"tested,omitempty"`
+	Third                            interface{}              `json:"third,omitempty"`
+	Title                            interface{}              `json:"title,omitempty"`
+	ToAtMs                           interface{}              `json:"toAtMs,omitempty"`
+	Total                            interface{}              `json:"total,omitempty"`
+	TotalBytes                       interface{}              `json:"totalBytes,omitempty"`
+	TotalItemCount                   interface{}              `json:"totalItemCount,omitempty"`
+	Trailing                         interface{}              `json:"trailing,omitempty"`
+	Unresolved                       interface{}              `json:"unresolved,omitempty"`
+	UpdatedAtMs                      interface{}              `json:"updatedAtMs,omitempty"`
+	UploadFileId                     interface{}              `json:"uploadFileId,omitempty"`
+	UploadId                         interface{}              `json:"uploadId,omitempty"`
+	UploadPartCount                  interface{}              `json:"uploadPartCount,omitempty"`
+	UploadSessionId                  interface{}              `json:"uploadSessionId,omitempty"`
+	ValidatedRequirementVersion      interface{}              `json:"validatedRequirementVersion,omitempty"`
+	Validation                       interface{}              `json:"validation,omitempty"`
+	ValidationDetails                interface{}              `json:"validationDetails,omitempty"`
+	ValidationJobId                  interface{}              `json:"validationJobId,omitempty"`
+	ValidationStatus                 interface{}              `json:"validationStatus,omitempty"`
+	Value                            interface{}              `json:"value,omitempty"`
+	VariantStatus                    interface{}              `json:"variantStatus,omitempty"`
+	Version                          interface{}              `json:"version,omitempty"`
+	Visible                          interface{}              `json:"visible,omitempty"`
+	Warnings                         interface{}              `json:"warnings,omitempty"`
+	WidthPx                          interface{}              `json:"widthPx,omitempty"`
+	Year                             interface{}              `json:"year,omitempty"`
 }
+
+// JSONObjectArchiveFormat defines model for JSONObject.ArchiveFormat.
+type JSONObjectArchiveFormat string
+
+// LaunchConfig defines model for LaunchConfig.
+type LaunchConfig struct {
+	BiosUrl              *string                        `json:"biosUrl"`
+	Core                 string                         `json:"core"`
+	CoreArtifactId       openapi_types.UUID             `json:"coreArtifactId"`
+	CoreName             string                         `json:"coreName"`
+	DefaultCoreOptions   map[string]string              `json:"defaultCoreOptions"`
+	DosEntry             *string                        `json:"dosEntry"`
+	EmulatorGameId       int64                          `json:"emulatorGameId"`
+	EmulatorjsVersion    string                         `json:"emulatorjsVersion"`
+	ExternalFiles        map[string]string              `json:"externalFiles"`
+	GameName             string                         `json:"gameName"`
+	GameTitle            string                         `json:"gameTitle"`
+	GameUrl              string                         `json:"gameUrl"`
+	InputMode            LaunchConfigInputMode          `json:"inputMode"`
+	LaunchId             openapi_types.UUID             `json:"launchId"`
+	LoaderUrl            string                         `json:"loaderUrl"`
+	ParentUrl            *string                        `json:"parentUrl"`
+	PersistentSaveMode   LaunchConfigPersistentSaveMode `json:"persistentSaveMode"`
+	PersistentSaveUrl    *string                        `json:"persistentSaveUrl"`
+	PlatformName         string                         `json:"platformName"`
+	PlayerAdapterId      string                         `json:"playerAdapterId"`
+	RequiresThreads      bool                           `json:"requiresThreads"`
+	ReturnTo             string                         `json:"returnTo"`
+	RuntimeBaseUrl       string                         `json:"runtimeBaseUrl"`
+	RuntimeCore          string                         `json:"runtimeCore"`
+	RuntimePathOverrides map[string]string              `json:"runtimePathOverrides"`
+	StartupActions       []StartupAction                `json:"startupActions"`
+	StateUrl             *string                        `json:"stateUrl"`
+	Warnings             []string                       `json:"warnings"`
+}
+
+// LaunchConfigInputMode defines model for LaunchConfig.InputMode.
+type LaunchConfigInputMode string
+
+// LaunchConfigPersistentSaveMode defines model for LaunchConfig.PersistentSaveMode.
+type LaunchConfigPersistentSaveMode string
 
 // LaunchRequest defines model for LaunchRequest.
 type LaunchRequest struct {
@@ -839,6 +971,22 @@ type Session struct {
 	CsrfToken   string `json:"csrfToken"`
 	ExpiresAtMs int64  `json:"expiresAtMs"`
 }
+
+// StartupAction defines model for StartupAction.
+type StartupAction struct {
+	Control    int                `json:"control"`
+	DelayMs    int                `json:"delayMs"`
+	DurationMs int                `json:"durationMs"`
+	Event      StartupActionEvent `json:"event"`
+	Kind       StartupActionKind  `json:"kind"`
+	Player     int                `json:"player"`
+}
+
+// StartupActionEvent defines model for StartupAction.Event.
+type StartupActionEvent string
+
+// StartupActionKind defines model for StartupAction.Kind.
+type StartupActionKind string
 
 // UploadReferenceRequest defines model for UploadReferenceRequest.
 type UploadReferenceRequest struct {
@@ -991,6 +1139,9 @@ type HealthReadyResponse = HealthReady
 
 // JSONResponse defines model for JSONResponse.
 type JSONResponse = JSONObject
+
+// LaunchConfigResponse defines model for LaunchConfigResponse.
+type LaunchConfigResponse = LaunchConfig
 
 // SessionResponse defines model for SessionResponse.
 type SessionResponse = Session
@@ -1743,6 +1894,12 @@ type ServerInterface interface {
 
 	// (GET /runtime/launches/{launchId}/dos-config/game.conf)
 	GetRuntimeDOSConfig(w http.ResponseWriter, r *http.Request, launchId LaunchID)
+
+	// (GET /runtime/launches/{launchId}/external-files/{logicalName})
+	GetRuntimeExternalFile(w http.ResponseWriter, r *http.Request, launchId LaunchID, logicalName LogicalName)
+
+	// (HEAD /runtime/launches/{launchId}/external-files/{logicalName})
+	HeadRuntimeExternalFile(w http.ResponseWriter, r *http.Request, launchId LaunchID, logicalName LogicalName)
 
 	// (POST /runtime/launches/{launchId}/finish)
 	PostRuntimeLaunchFinish(w http.ResponseWriter, r *http.Request, launchId LaunchID)
@@ -6000,6 +6157,76 @@ func (siw *ServerInterfaceWrapper) GetRuntimeDOSConfig(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// GetRuntimeExternalFile operation middleware
+func (siw *ServerInterfaceWrapper) GetRuntimeExternalFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "launchId" -------------
+	var launchId LaunchID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "launchId", r.PathValue("launchId"), &launchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "launchId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "logicalName" -------------
+	var logicalName LogicalName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "logicalName", r.PathValue("logicalName"), &logicalName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "logicalName", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRuntimeExternalFile(w, r, launchId, logicalName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// HeadRuntimeExternalFile operation middleware
+func (siw *ServerInterfaceWrapper) HeadRuntimeExternalFile(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "launchId" -------------
+	var launchId LaunchID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "launchId", r.PathValue("launchId"), &launchId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "launchId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "logicalName" -------------
+	var logicalName LogicalName
+
+	err = runtime.BindStyledParameterWithOptions("simple", "logicalName", r.PathValue("logicalName"), &logicalName, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "logicalName", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.HeadRuntimeExternalFile(w, r, launchId, logicalName)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostRuntimeLaunchFinish operation middleware
 func (siw *ServerInterfaceWrapper) PostRuntimeLaunchFinish(w http.ResponseWriter, r *http.Request) {
 
@@ -6633,6 +6860,8 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/runtime/launches/{launchId}/persistent-save", wrapper.PutRuntimePersistentSave)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/runtime/launches/{launchId}/game/{logicalName}", wrapper.GetRuntimeGame)
 	m.HandleFunc(http.MethodHead+" "+options.BaseURL+"/runtime/launches/{launchId}/game/{logicalName}", wrapper.HeadRuntimeGame)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/runtime/launches/{launchId}/external-files/{logicalName}", wrapper.GetRuntimeExternalFile)
+	m.HandleFunc(http.MethodHead+" "+options.BaseURL+"/runtime/launches/{launchId}/external-files/{logicalName}", wrapper.HeadRuntimeExternalFile)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/runtime/launches/{launchId}/bios/bundle.zip", wrapper.GetRuntimeBIOSBundle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/runtime/launches/{launchId}/parent/bundle.zip", wrapper.GetRuntimeParentBundle)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/runtime/launches/{launchId}/state", wrapper.GetRuntimeState)
@@ -6661,6 +6890,8 @@ type HealthNotReadyResponseJSONResponse HealthNotReady
 type HealthReadyResponseJSONResponse HealthReady
 
 type JSONResponseJSONResponse JSONObject
+
+type LaunchConfigResponseJSONResponse LaunchConfig
 
 type SSEResponseTexteventStreamResponse struct {
 	Body io.Reader
@@ -8566,7 +8797,9 @@ type GetRuntimeLaunchConfigResponseObject interface {
 	VisitGetRuntimeLaunchConfigResponse(w http.ResponseWriter) error
 }
 
-type GetRuntimeLaunchConfig200JSONResponse struct{ JSONResponseJSONResponse }
+type GetRuntimeLaunchConfig200JSONResponse struct {
+	LaunchConfigResponseJSONResponse
+}
 
 func (response GetRuntimeLaunchConfig200JSONResponse) VisitGetRuntimeLaunchConfigResponse(w http.ResponseWriter) error {
 
@@ -8596,6 +8829,74 @@ func (response GetRuntimeDOSConfig200TextResponse) VisitGetRuntimeDOSConfigRespo
 	w.WriteHeader(200)
 
 	_, err := w.Write([]byte(fmt.Sprint(response)))
+	return err
+}
+
+type GetRuntimeExternalFileRequestObject struct {
+	LaunchId    LaunchID    `json:"launchId"`
+	LogicalName LogicalName `json:"logicalName"`
+}
+
+type GetRuntimeExternalFileResponseObject interface {
+	VisitGetRuntimeExternalFileResponse(w http.ResponseWriter) error
+}
+
+type GetRuntimeExternalFile200ApplicationoctetStreamResponse struct {
+	BinaryResponseApplicationoctetStreamResponse
+}
+
+func (response GetRuntimeExternalFile200ApplicationoctetStreamResponse) VisitGetRuntimeExternalFileResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.AcceptRanges != nil {
+		w.Header().Set("Accept-Ranges", fmt.Sprint(*response.Headers.AcceptRanges))
+	}
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type HeadRuntimeExternalFileRequestObject struct {
+	LaunchId    LaunchID    `json:"launchId"`
+	LogicalName LogicalName `json:"logicalName"`
+}
+
+type HeadRuntimeExternalFileResponseObject interface {
+	VisitHeadRuntimeExternalFileResponse(w http.ResponseWriter) error
+}
+
+type HeadRuntimeExternalFile200ApplicationoctetStreamResponse struct {
+	BinaryResponseApplicationoctetStreamResponse
+}
+
+func (response HeadRuntimeExternalFile200ApplicationoctetStreamResponse) VisitHeadRuntimeExternalFileResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/octet-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.AcceptRanges != nil {
+		w.Header().Set("Accept-Ranges", fmt.Sprint(*response.Headers.AcceptRanges))
+	}
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
 	return err
 }
 
@@ -9159,6 +9460,12 @@ type StrictServerInterface interface {
 
 	// (GET /runtime/launches/{launchId}/dos-config/game.conf)
 	GetRuntimeDOSConfig(ctx context.Context, request GetRuntimeDOSConfigRequestObject) (GetRuntimeDOSConfigResponseObject, error)
+
+	// (GET /runtime/launches/{launchId}/external-files/{logicalName})
+	GetRuntimeExternalFile(ctx context.Context, request GetRuntimeExternalFileRequestObject) (GetRuntimeExternalFileResponseObject, error)
+
+	// (HEAD /runtime/launches/{launchId}/external-files/{logicalName})
+	HeadRuntimeExternalFile(ctx context.Context, request HeadRuntimeExternalFileRequestObject) (HeadRuntimeExternalFileResponseObject, error)
 
 	// (POST /runtime/launches/{launchId}/finish)
 	PostRuntimeLaunchFinish(ctx context.Context, request PostRuntimeLaunchFinishRequestObject) (PostRuntimeLaunchFinishResponseObject, error)
@@ -11465,6 +11772,60 @@ func (sh *strictHandler) GetRuntimeDOSConfig(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// GetRuntimeExternalFile operation middleware
+func (sh *strictHandler) GetRuntimeExternalFile(w http.ResponseWriter, r *http.Request, launchId LaunchID, logicalName LogicalName) {
+	var request GetRuntimeExternalFileRequestObject
+
+	request.LaunchId = launchId
+	request.LogicalName = logicalName
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRuntimeExternalFile(ctx, request.(GetRuntimeExternalFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRuntimeExternalFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRuntimeExternalFileResponseObject); ok {
+		if err := validResponse.VisitGetRuntimeExternalFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// HeadRuntimeExternalFile operation middleware
+func (sh *strictHandler) HeadRuntimeExternalFile(w http.ResponseWriter, r *http.Request, launchId LaunchID, logicalName LogicalName) {
+	var request HeadRuntimeExternalFileRequestObject
+
+	request.LaunchId = launchId
+	request.LogicalName = logicalName
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.HeadRuntimeExternalFile(ctx, request.(HeadRuntimeExternalFileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "HeadRuntimeExternalFile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(HeadRuntimeExternalFileResponseObject); ok {
+		if err := validResponse.VisitHeadRuntimeExternalFileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostRuntimeLaunchFinish operation middleware
 func (sh *strictHandler) PostRuntimeLaunchFinish(w http.ResponseWriter, r *http.Request, launchId LaunchID) {
 	var request PostRuntimeLaunchFinishRequestObject
@@ -11790,136 +12151,146 @@ func (sh *strictHandler) HeadRuntimeState(w http.ResponseWriter, r *http.Request
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

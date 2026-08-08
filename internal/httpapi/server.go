@@ -222,6 +222,8 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /runtime/launches/{launchId}/dos-config/game.conf", server.launchDOSConfig)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/game/{logicalName}", server.launchGame)
 	mux.HandleFunc("HEAD /runtime/launches/{launchId}/game/{logicalName}", server.launchGame)
+	mux.HandleFunc("GET /runtime/launches/{launchId}/external-files/{logicalName}", server.launchExternalFile)
+	mux.HandleFunc("HEAD /runtime/launches/{launchId}/external-files/{logicalName}", server.launchExternalFile)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/bios/bundle.zip", server.launchBIOSBundle)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/parent/bundle.zip", server.launchParentBundle)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/start", server.launchStart)
@@ -642,6 +644,34 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	http.ServeContent(writer, request, request.PathValue("logicalName"), time.Unix(0, 0), file)
 }
 
+func (server *Server) launchExternalFile(writer http.ResponseWriter, request *http.Request) {
+	if rejectMultipleRanges(writer, request) {
+		return
+	}
+	digest, err := server.launcher.ExternalBlob(
+		request.Context(),
+		request.PathValue("launchId"),
+		server.launchCapability(request),
+		request.PathValue("logicalName"),
+	)
+	if err != nil {
+		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
+		return
+	}
+	file, err := server.blobs.OpenDigest(digest)
+	if err != nil {
+		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
+		return
+	}
+	defer func() { cleanup.Error("close", file.Close()) }()
+	writer.Header().Set("Content-Type", "application/octet-stream")
+	writer.Header().Set("Cache-Control", "private, no-store")
+	writer.Header().Set("Vary", "Cookie")
+	writer.Header().Set("ETag", `"sha256-`+digest+`"`)
+	writer.Header().Set("Accept-Ranges", "bytes")
+	http.ServeContent(writer, request, request.PathValue("logicalName"), time.Unix(0, 0), file)
+}
+
 func (server *Server) launchBIOSBundle(writer http.ResponseWriter, request *http.Request) {
 	server.launchBundle(writer, request, "BIOS_BUNDLE")
 }
@@ -864,6 +894,10 @@ func (server *Server) getPersistentSave(writer http.ResponseWriter, request *htt
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
 	}
+	if errors.Is(err, saves.ErrPersistentUnsupported) {
+		writeError(writer, request, http.StatusConflict, "PERSISTENT_SAVE_UNSUPPORTED", "当前核心不支持自动持久存档", map[string]any{})
+		return
+	}
 	if errors.Is(err, saves.ErrTooLarge) {
 		writeError(
 			writer,
@@ -923,6 +957,8 @@ func (server *Server) putPersistentSave(writer http.ResponseWriter, request *htt
 	switch {
 	case errors.Is(err, saves.ErrCredential):
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
+	case errors.Is(err, saves.ErrPersistentUnsupported):
+		writeError(writer, request, http.StatusConflict, "PERSISTENT_SAVE_UNSUPPORTED", "当前核心不支持自动持久存档", map[string]any{})
 	case errors.Is(err, saves.ErrTooLarge):
 		writeError(
 			writer,
@@ -3384,8 +3420,9 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 	result := make([]map[string]any, 0, len(records))
 	for _, record := range records {
 		var entries []map[string]any
+		var archiveFormat any
 		if record.archiveBlobID.Valid {
-			entries, err = server.reviewArchiveEntries(request.Context(), record.archiveBlobID.String)
+			entries, archiveFormat, err = server.reviewArchiveEntries(request.Context(), record.archiveBlobID.String)
 			if err != nil {
 				return nil, err
 			}
@@ -3395,36 +3432,38 @@ ORDER BY min(s.sort_order),f.relative_path,f.id
 		result = append(result, map[string]any{
 			"uploadFileId": record.id, "name": record.name, "sizeBytes": record.size,
 			"sha256": record.sha256, "md5": record.md5, "crc32": record.crc32,
-			"archive": record.archive == 1, "archiveEntries": entries,
+			"archive": record.archive == 1, "archiveFormat": archiveFormat, "archiveEntries": entries,
 		})
 	}
 	return result, nil
 }
 
-func (server *Server) reviewArchiveEntries(ctx context.Context, archiveBlobID string) ([]map[string]any, error) {
+func (server *Server) reviewArchiveEntries(ctx context.Context, archiveBlobID string) ([]map[string]any, any, error) {
 	rows, err := server.database.QueryContext(ctx, `
-SELECT original_relative_path,uncompressed_size_bytes,crc32
+SELECT original_relative_path,uncompressed_size_bytes,crc32,archive_format
 FROM archive_entries
 WHERE archive_blob_id=?
 ORDER BY ordinal
 `, archiveBlobID)
 	if err != nil {
-		return nil, fmt.Errorf("query review archive entries: %w", err)
+		return nil, nil, fmt.Errorf("query review archive entries: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	entries := make([]map[string]any, 0)
+	var archiveFormat any
 	for rows.Next() {
-		var name, crc32 string
+		var name, crc32, format string
 		var size int64
-		if err := rows.Scan(&name, &size, &crc32); err != nil {
-			return nil, fmt.Errorf("scan review archive entry: %w", err)
+		if err := rows.Scan(&name, &size, &crc32, &format); err != nil {
+			return nil, nil, fmt.Errorf("scan review archive entry: %w", err)
 		}
+		archiveFormat = format
 		entries = append(entries, map[string]any{"name": name, "sizeBytes": size, "crc32": crc32})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan review archive entries: %w", err)
+		return nil, nil, fmt.Errorf("scan review archive entries: %w", err)
 	}
-	return entries, nil
+	return entries, archiveFormat, nil
 }
 
 func (server *Server) reviewScrapeRuns(request *http.Request, itemID string) ([]map[string]any, error) {

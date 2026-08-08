@@ -6,32 +6,7 @@ temporary_root="$(mktemp -d "${TMPDIR:-/tmp}/retrom-quality-sentinels.XXXXXX")"
 trap 'rm -rf -- "$temporary_root"' EXIT
 
 worktree_hash() {
-  python3 - "$repository_root" <<'PY'
-import hashlib
-import subprocess
-import sys
-from pathlib import Path
-
-root = Path(sys.argv[1])
-listed = subprocess.run(
-    ["git", "ls-files", "-co", "--exclude-standard", "-z"],
-    cwd=root,
-    check=True,
-    stdout=subprocess.PIPE,
-).stdout.split(b"\0")
-digest = hashlib.sha256()
-for encoded in sorted(item for item in listed if item):
-    path = root / encoded.decode("utf-8", "surrogateescape")
-    digest.update(encoded)
-    digest.update(b"\0")
-    if path.is_symlink():
-        digest.update(b"SYMLINK\0")
-        digest.update(path.readlink().as_posix().encode())
-    else:
-        digest.update(path.read_bytes())
-    digest.update(b"\0")
-print(digest.hexdigest())
-PY
+  make --no-print-directory -C "$repository_root" release-input-digest
 }
 
 expect_failure() {
@@ -142,8 +117,8 @@ catalog = module.all_cases()
 missing = [case_id for case_id in module.CORE_CASES if case_id not in catalog]
 if missing:
     raise SystemExit(f"acceptance catalog omitted core cases: {missing}")
-if len(catalog) != 69:
-    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 69")
+if len(catalog) != 89:
+    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 89")
 print(f"acceptance_catalog={len(catalog)} core_cases={len(module.CORE_CASES)}")
 PY
 
