@@ -1,8 +1,10 @@
 "use client";
 
-import { useEffect, useRef, useState, useSyncExternalStore } from "react";
-import { AppIcon } from "@/components/app-icon";
+import Image from "next/image";
+import { useState, useSyncExternalStore } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/ui";
+import { formatSaveTime } from "@/features/saves/save-library";
 import { readPreferredCore, subscribePreferredCores, writePreferredCore } from "./core-preference";
 import { LaunchButton } from "./launch-button";
 
@@ -30,11 +32,13 @@ const coreStatusLabels: Record<CoreOption["status"], string> = {
   INCOMPATIBLE: "不兼容"
 };
 
-export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntry }: {
+export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntry, latestSave, nowMs }: {
   gameId: string;
   coreOptions: CoreOption[];
   dosEntries: DOSEntry[];
   defaultDosEntry: string | null;
+  latestSave?: { saveStateId: string; screenshotUrl: string; createdAtMs: number; coreName: string } | null;
+  nowMs?: number;
 }) {
   const initialCore = coreOptions.find((core) => core.isDefault) ?? coreOptions[0];
   const preferredCoreId = useSyncExternalStore(subscribePreferredCores, () => readPreferredCore(gameId), () => null);
@@ -43,28 +47,12 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   const coreId = coreOverride?.gameId === gameId ? coreOverride.coreId : storedCoreId ?? initialCore?.coreId ?? "";
   const [dosSelection, setDosSelection] = useState<{ gameId: string; value: string | null } | null>(null);
   const [advancedOpen, setAdvancedOpen] = useState(false);
-  const advancedRef = useRef<HTMLDetailsElement>(null);
+  const [stagedCoreId, setStagedCoreId] = useState(coreId);
   const selectedCore = coreOptions.find((core) => core.coreId === coreId);
   const blocked = !selectedCore || selectedCore.status === "DEPENDENCY_MISSING" || selectedCore.status === "INCOMPATIBLE";
   const isDOS = selectedCore?.coreId === "dosbox_pure";
   const dosEntry = dosSelection?.gameId === gameId ? dosSelection.value : isDOS ? defaultDosEntry : null;
   const usesOverride = Boolean(selectedCore && initialCore && selectedCore.coreId !== initialCore.coreId);
-
-  useEffect(() => {
-    if (!advancedOpen) return;
-    function closeOnOutsidePointer(event: PointerEvent) {
-      if (event.target instanceof Node && !advancedRef.current?.contains(event.target)) setAdvancedOpen(false);
-    }
-    function closeOnEscape(event: KeyboardEvent) {
-      if (event.key === "Escape") setAdvancedOpen(false);
-    }
-    document.addEventListener("pointerdown", closeOnOutsidePointer);
-    document.addEventListener("keydown", closeOnEscape);
-    return () => {
-      document.removeEventListener("pointerdown", closeOnOutsidePointer);
-      document.removeEventListener("keydown", closeOnEscape);
-    };
-  }, [advancedOpen]);
 
   function selectCore(value: string) {
     setCoreOverride({ gameId, coreId: value });
@@ -72,12 +60,19 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
     writePreferredCore(gameId, value, initialCore?.coreId);
   }
 
-  return <aside className="launch-panel">
-    <span className="launch-kicker">推荐配置</span>
-    <h2>准备开始游戏</h2>
-    {selectedCore?.status === "READY" ? <p><StatusBadge tone="good">可以直接开始</StatusBadge></p> : null}
-    {selectedCore?.status === "NEEDS_VALIDATION" ? <p><StatusBadge tone="info">开始时会自动检查</StatusBadge></p> : null}
-    {blocked ? <p><StatusBadge tone="bad">当前运行方式需要处理</StatusBadge></p> : null}
+  function openCorePicker() {
+    setStagedCoreId(coreId);
+    setAdvancedOpen(true);
+  }
+
+  return <aside className="launch-panel" aria-label="启动游戏">
+    <span className="launch-kicker">{latestSave ? "继续游戏" : "开始游戏"}</span>
+    <h2>{latestSave ? "接着最近的存档继续" : "从游戏开头开始"}</h2>
+    <div className="launch-runtime-status">
+      {selectedCore?.status === "READY" ? <StatusBadge tone="good">可以直接开始</StatusBadge> : null}
+      {selectedCore?.status === "NEEDS_VALIDATION" ? <StatusBadge tone="info">开始时会自动检查</StatusBadge> : null}
+      {blocked ? <StatusBadge tone="bad">当前运行方式需要处理</StatusBadge> : null}
+    </div>
     {isDOS ? <div className="field">
       <label htmlFor="dos-entry">启动程序</label>
       <select id="dos-entry" value={dosEntry ?? ""} onChange={(event) => setDosSelection({ gameId, value: event.target.value || null })}>
@@ -85,20 +80,28 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
         {dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled || !entry.directLaunchSafe}>{entry.originalPath}{entry.path === defaultDosEntry ? " · 审核默认" : ""}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}
       </select>
     </div> : null}
-    <p className={`launch-help${usesOverride ? " is-override" : ""}`}>{usesOverride ? `已记住你为这个游戏选择的 ${selectedCore?.name ?? "运行核心"}，后续启动将优先使用。` : "系统已选择适合这个目录的运行方式，开始前会自动检查所需文件。"}</p>
-    <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} disabled={blocked} />
-    <details className="launch-advanced" ref={advancedRef} open={advancedOpen} onToggle={(event) => setAdvancedOpen(event.currentTarget.open)}>
-      <summary>更换运行方式{usesOverride ? <span className="launch-core-override">（未采用默认核心）</span> : null}</summary>
-      <div className="launch-advanced-popover">
-        <button className="launch-popover-close" type="button" aria-label="关闭运行方式选择" title="关闭" onClick={() => setAdvancedOpen(false)}><AppIcon name="x" /></button>
-        <div className="field">
-          <label htmlFor="core">运行引擎</label>
-          <select id="core" name="core" value={coreId} onChange={(event) => selectCore(event.target.value)}>
-            {coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 推荐" : ""} · {coreStatusLabels[core.status]}</option>)}
-          </select>
-        </div>
-        <p className={usesOverride ? "is-override" : undefined}>{usesOverride ? "已为这个游戏保留当前选择；改回推荐核心可恢复目录默认设置。" : "只有遇到兼容问题或需要特定存档时才建议更改。"}</p>
-      </div>
-    </details>
+    {latestSave ? <div className="launch-quick-save">
+      <div><Image src={latestSave.screenshotUrl} alt="最近存档截图" fill sizes="126px" unoptimized /></div>
+      <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatSaveTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} label="从存档继续" /></div>
+    </div> : null}
+    {latestSave
+      ? <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} disabled={blocked} label="重新开始游戏" />
+      : <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} disabled={blocked} />}
+    <div className="launch-runtime-row">
+      <div><small>运行方式</small><strong>{selectedCore?.name ?? "尚未配置"}</strong>{usesOverride ? <span className="launch-core-override">（未采用默认核心）</span> : null}</div>
+      <button type="button" onClick={openCorePicker}>更换 ›</button>
+    </div>
+    <ConfirmDialog
+      open={advancedOpen}
+      title="更换运行方式"
+      description="重新开始时使用此运行方式；恢复某份存档时，仍采用该存档保存时的 Core。"
+      confirmLabel="应用"
+      onCancel={() => setAdvancedOpen(false)}
+      onConfirm={() => { selectCore(stagedCoreId); setAdvancedOpen(false); }}
+    >
+      <label className="launch-core-field" htmlFor="core"><span>运行引擎</span><select id="core" name="core" value={stagedCoreId} onChange={(event) => setStagedCoreId(event.target.value)}>
+        {coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 推荐" : ""} · {coreStatusLabels[core.status]}</option>)}
+      </select></label>
+    </ConfirmDialog>
   </aside>;
 }

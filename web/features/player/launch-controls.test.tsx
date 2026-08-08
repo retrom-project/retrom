@@ -39,9 +39,10 @@ describe("LaunchControls", () => {
     const user = userEvent.setup();
     render(<LaunchControls gameId="game-1" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
 
-    expect(screen.queryByLabelText("运行引擎")).not.toBeVisible();
-    await user.click(screen.getByText("更换运行方式"));
+    expect(screen.queryByLabelText("运行引擎")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /更换/ }));
     await user.selectOptions(screen.getByLabelText("运行引擎"), "gambatte");
+    await user.click(screen.getByRole("button", { name: "应用" }));
     expect(screen.getByText("开始时会自动检查")).toBeInTheDocument();
     expect(screen.getByText("（未采用默认核心）")).toBeInTheDocument();
     expect(window.localStorage.getItem("retrom:preferred-core:game-1")).toBe("gambatte");
@@ -55,31 +56,36 @@ describe("LaunchControls", () => {
     const user = userEvent.setup();
     const first = render(<LaunchControls gameId="remembered-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
 
-    await user.click(screen.getByText("更换运行方式"));
+    await user.click(screen.getByRole("button", { name: /更换/ }));
     await user.selectOptions(screen.getByLabelText("运行引擎"), "gambatte");
-    await user.click(document.body);
-    expect(screen.getByLabelText("运行引擎")).not.toBeVisible();
+    await user.click(screen.getByRole("button", { name: "应用" }));
+    await user.click(screen.getByRole("button", { name: /更换/ }));
+    await user.click(document.querySelector<HTMLElement>(".dialog-backdrop")!);
+    expect(screen.queryByLabelText("运行引擎")).not.toBeInTheDocument();
 
     first.unmount();
     render(<LaunchControls gameId="remembered-game" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
     await waitFor(() => expect(screen.getByText("（未采用默认核心）")).toBeInTheDocument());
-    await user.click(screen.getByText(/更换运行方式/));
+    await user.click(screen.getByRole("button", { name: /更换/ }));
     expect(screen.getByLabelText("运行引擎")).toHaveValue("gambatte");
     await user.selectOptions(screen.getByLabelText("运行引擎"), "mgba");
+    await user.click(screen.getByRole("button", { name: "应用" }));
     expect(window.localStorage.getItem("retrom:preferred-core:remembered-game")).toBeNull();
     expect(screen.queryByText("（未采用默认核心）")).not.toBeInTheDocument();
   });
 
-  it("closes the core picker with Escape or its close button", async () => {
+  it("closes the core picker with Escape or the cancel button without applying changes", async () => {
     const user = userEvent.setup();
     render(<LaunchControls gameId="game-1" coreOptions={cores} dosEntries={[]} defaultDosEntry={null} />);
 
-    await user.click(screen.getByText("更换运行方式"));
+    await user.click(screen.getByRole("button", { name: /更换/ }));
     await user.keyboard("{Escape}");
-    expect(screen.getByLabelText("运行引擎")).not.toBeVisible();
-    await user.click(screen.getByText("更换运行方式"));
-    await user.click(screen.getByRole("button", { name: "关闭运行方式选择" }));
-    expect(screen.getByLabelText("运行引擎")).not.toBeVisible();
+    expect(screen.queryByLabelText("运行引擎")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /更换/ }));
+    await user.selectOptions(screen.getByLabelText("运行引擎"), "gambatte");
+    await user.click(screen.getByRole("button", { name: "取消" }));
+    expect(screen.queryByLabelText("运行引擎")).not.toBeInTheDocument();
+    expect(window.localStorage.getItem("retrom:preferred-core:game-1")).toBeNull();
   });
 
   it("keeps the fullscreen document alive by using App Router navigation", async () => {

@@ -93,11 +93,12 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   await game.getByRole("link").first().click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
   await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible();
-  await expect(page.getByText("推荐配置", { exact: true })).toBeVisible();
-  const heroHeight = await page.locator(".hero").evaluate((element) => element.getBoundingClientRect().height);
-  await page.getByText("更换运行方式", { exact: true }).click();
+  await expect(page.getByRole("heading", { name: "从游戏开头开始" })).toBeVisible();
+  const heroHeight = await page.locator(".game-detail-hero").evaluate((element) => element.getBoundingClientRect().height);
+  await page.getByRole("button", { name: /更换/ }).click();
+  await expect(page.getByRole("alertdialog", { name: "更换运行方式" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "运行引擎" }).locator("option:checked")).toContainText("推荐");
-  expect(await page.locator(".hero").evaluate((element) => element.getBoundingClientRect().height)).toBe(heroHeight);
+  expect(await page.locator(".game-detail-hero").evaluate((element) => element.getBoundingClientRect().height)).toBe(heroHeight);
   await page.screenshot({ path: evidencePath(testInfo, "library-detail-flow.png"), fullPage: true });
 });
 
@@ -334,6 +335,21 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.setViewportSize({ width: 3840, height: 2160 });
   await expect(page.getByRole("heading", { name: "审核决定" })).toBeVisible();
   expect(await page.locator(".review-workflow-columns").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);
+  const reviewLayout = await page.locator(".review-workflow-columns").evaluate((element) => {
+    const left = element.querySelector<HTMLElement>(".review-workflow-left")!.getBoundingClientRect();
+    const metadata = element.querySelector<HTMLElement>(".review-workflow-metadata")!.getBoundingClientRect();
+    const fields = element.querySelector<HTMLElement>(".review-workflow-metadata-fields")!.getBoundingClientRect();
+    const cover = element.querySelector<HTMLElement>(".review-workflow-cover-side")!.getBoundingClientRect();
+    const coverImage = element.querySelector<HTMLElement>(".review-workflow-cover-side .review-cover-upload")!.getBoundingClientRect();
+    const coverStyle = getComputedStyle(element.querySelector<HTMLElement>(".review-workflow-cover-side")!);
+    return { leftHeight: left.height, metadataHeight: metadata.height, fieldsRight: fields.right, coverLeft: cover.left, coverWidth: cover.width, coverBottomGap: cover.bottom - coverImage.bottom - Number.parseFloat(coverStyle.paddingBottom) };
+  });
+  expect(Math.abs(reviewLayout.leftHeight - reviewLayout.metadataHeight)).toBeLessThanOrEqual(1);
+  expect(reviewLayout.coverLeft).toBeGreaterThanOrEqual(reviewLayout.fieldsRight);
+  expect(reviewLayout.coverWidth).toBeGreaterThanOrEqual(360);
+  expect(Math.abs(reviewLayout.coverBottomGap)).toBeLessThanOrEqual(1);
+  await expect(page.locator(".review-workflow-metadata").getByText("Hasheous 候选信息")).toHaveCount(0);
+  await expect(page.locator(".review-workflow-metadata").getByText("信息来源", { exact: true })).toHaveCount(0);
   await page.screenshot({ path: evidencePath(testInfo, "review-workbench-4k.png"), fullPage: true });
 
   await page.getByRole("textbox", { name: "标题" }).fill("实时保存的标题");
@@ -512,7 +528,7 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   const saved = await saveResponse.json() as { saveStateId: string };
 
   await page.goto(detailURL);
-  await page.getByRole("button", { name: "从此存档继续" }).click();
+  await page.getByRole("button", { name: "从存档继续" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
   await page.goto("/saves");
   await expect(page.getByRole("heading", { name: "最近保存" })).toBeVisible();

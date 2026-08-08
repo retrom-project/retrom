@@ -72,6 +72,18 @@ describe("ReviewActions", () => {
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   });
 
+  it("keeps the cover beside metadata without rendering provider summary cards", () => {
+    const { container } = render(<ReviewActions review={{ ...review, candidates: [{ candidateId: "candidate-layout", scrapeRunId: "run-layout", providerGameId: "42", metadata: { title: "Scraped title" }, evidence: {}, assets: [] }], selectedCandidateId: "candidate-layout" }} />);
+
+    const layout = container.querySelector(".review-workflow-publish-layout");
+    expect(layout).not.toBeNull();
+    expect(layout?.querySelector(".review-workflow-metadata-fields")).not.toBeNull();
+    expect(layout?.lastElementChild).toHaveClass("review-workflow-cover-side");
+    expect(screen.getByText("当前封面")).toBeInTheDocument();
+    expect(screen.queryByText("Hasheous 候选信息")).not.toBeInTheDocument();
+    expect(screen.queryByText("信息来源")).not.toBeInTheDocument();
+  });
+
   it("flushes a pending edit when the review page unmounts", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2 })));
     vi.stubGlobal("fetch", fetchMock);

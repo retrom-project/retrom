@@ -1,10 +1,10 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { StatusBadge } from "@/components/ui";
+import { GameDetailSaves } from "@/features/games/game-detail-saves";
 import { LaunchControls, type CoreOption, type DOSEntry } from "@/features/player/launch-controls";
-import { LaunchButton } from "@/features/player/launch-button";
-import { backendJSON, formatTime } from "@/lib/backend";
+import { collectSavePages, latestAvailableSave, type SavePage } from "@/features/saves/save-library";
+import { backendJSON, withQuery } from "@/lib/backend";
 
 type GameDetail = {
   gameId: string; title: string; description: string; developer: string; publisher: string; genre: string;
@@ -14,23 +14,71 @@ type GameDetail = {
   coreOptions: CoreOption[];
   dosEntries: DOSEntry[];
   defaultDosEntry: string | null;
-  saveStateCount: number;
-  saveStates: Array<{ saveStateId: string; name: string; createdAtMs: number; screenshotUrl: string; core: { id: string; name: string } }>;
 };
+
+function formatPlayTime(value: number) {
+  if (value < 60_000) return "少于 1 分钟";
+  const minutes = Math.floor(value / 60_000);
+  if (minutes < 60) return `${minutes} 分钟`;
+  const hours = Math.floor(minutes / 60);
+  const remainder = minutes % 60;
+  return remainder ? `${hours} 小时 ${remainder} 分钟` : `${hours} 小时`;
+}
+
+async function loadGameSaves(gameId: string) {
+  return collectSavePages((cursor) => backendJSON<SavePage>(withQuery("/api/v1/saves", {
+    gameId,
+    availability: "ALL",
+    limit: "100",
+    ...(cursor ? { cursor } : {}),
+  })));
+}
+
+function fact(label: string, value: string | number | null) {
+  const visible = value === null || value === "" ? "—" : value;
+  return <div className="game-detail-fact"><span>{label}</span><strong className={visible === "—" ? "is-missing" : undefined} title={String(visible)}>{visible}</strong></div>;
+}
 
 export default async function GamePage({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = await params;
   let game: GameDetail;
   try { game = await backendJSON<GameDetail>(`/api/v1/games/${gameId}`); } catch { notFound(); }
+  const saves = await loadGameSaves(gameId);
+  const latestSave = latestAvailableSave(saves.items);
   return (
-    <div className="page-layout page-layout-detail">
-      <nav className="detail-toolbar" aria-label="返回导航"><Link className="row-action" href="/library">← 返回游戏库</Link></nav>
-      <section className="panel hero">
-        {game.coverUrl ? <div className="hero-cover has-image"><Image className="hero-cover-image" src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="280px" priority /></div> : <div className="hero-cover" role="img" aria-label={`${game.title} 暂无封面`} />}
-        <div className="hero-info"><p className="eyebrow">{game.platform.name}</p><h1>{game.title}</h1><div className="game-meta"><span>{game.platformInstance.name}</span>{game.releaseYear ? <span>{game.releaseYear}</span> : null}</div><p>{game.description || "尚未填写游戏简介。"}</p><dl className="detail-list"><div><dt>开发 / 发行</dt><dd>{game.developer || "—"} / {game.publisher || "—"}</dd></div><div><dt>类型 / 玩家</dt><dd>{game.genre || "—"} / {game.players ?? "—"}</dd></div><div><dt>有效游玩</dt><dd>{Math.round(game.activeDurationMs / 60000)} 分钟</dd></div></dl></div>
-        <LaunchControls gameId={game.gameId} coreOptions={game.coreOptions} dosEntries={game.dosEntries} defaultDosEntry={game.defaultDosEntry} />
+    <div className="page-layout page-layout-detail game-detail-page">
+      <nav className="game-detail-breadcrumb" aria-label="返回导航"><Link href="/library">← 游戏库</Link></nav>
+      <section className="game-detail-hero">
+        <div className="game-detail-poster-shell">
+          {game.coverUrl ? <div className="game-detail-poster"><Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="240px" priority /></div> : <div className="game-detail-poster is-placeholder" role="img" aria-label={`${game.title} 暂无封面`}><span>{game.title}</span></div>}
+          <div className="game-detail-poster-caption"><span>{game.platform.name}</span><span>{game.releaseYear ?? "年份未知"}</span></div>
+        </div>
+        <div className="game-detail-main">
+          <p className="game-detail-eyebrow">{game.platform.name} · {game.platformInstance.name}</p>
+          <h1>{game.title}</h1>
+          <div className="game-detail-meta">{game.releaseYear ? <span>{game.releaseYear}</span> : null}{game.publisher ? <span>{game.publisher}</span> : null}{game.genre ? <span>{game.genre}</span> : null}</div>
+          <p className="game-detail-description">{game.description || "尚未填写游戏简介。"}</p>
+          <div className="game-detail-playtime"><strong>累计游玩</strong><span>{formatPlayTime(game.activeDurationMs)}</span></div>
+        </div>
+        <LaunchControls
+          gameId={game.gameId}
+          coreOptions={game.coreOptions}
+          dosEntries={game.dosEntries}
+          defaultDosEntry={game.defaultDosEntry}
+          latestSave={latestSave ? { saveStateId: latestSave.saveStateId, screenshotUrl: latestSave.screenshotUrl, createdAtMs: latestSave.createdAtMs, coreName: latestSave.core.name } : null}
+          nowMs={saves.generatedAtMs}
+        />
       </section>
-      <section className="panel save-strip"><div className="panel-head"><div><h2>手动存档</h2><p>从保存时的画面和运行环境继续</p></div>{game.saveStateCount > 8 ? <Link className="row-action" href={`/saves?gameId=${game.gameId}`}>查看更多</Link> : <StatusBadge tone={game.saveStateCount ? "good" : "neutral"}>{game.saveStateCount} 份</StatusBadge>}</div><div className="panel-body">{game.saveStates.length ? <div className="save-card-grid">{game.saveStates.map((save) => <article className="save-card compact" key={save.saveStateId}><div className="save-shot"><Image src={save.screenshotUrl} alt={`${game.title} 存档画面`} width={640} height={360} unoptimized /><div className="save-shot-action"><LaunchButton gameId={game.gameId} saveStateId={save.saveStateId} returnTo={`/games/${game.gameId}`} label="从此存档继续" /></div></div><div className="save-card-body"><strong className="save-core-name">{save.core.name}</strong><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatTime(save.createdAtMs)}</time></div></article>)}</div> : <p className="game-meta">游玩时使用工具栏保存进度后，可从这里一键恢复。</p>}</div></section>
+      <section className="game-detail-info-strip" aria-label="游戏信息">
+        {fact("游戏平台", game.platform.name)}
+        {fact("游戏目录", game.platformInstance.name)}
+        {fact("发行年份", game.releaseYear)}
+        {fact("开发商", game.developer)}
+        {fact("发行商", game.publisher)}
+        {fact("类型", game.genre)}
+        {fact("玩家数", game.players)}
+      </section>
+      <GameDetailSaves gameId={game.gameId} gameTitle={game.title} saves={saves.items} nowMs={saves.generatedAtMs} />
     </div>
   );
 }

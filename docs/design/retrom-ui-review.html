@@ -607,6 +607,89 @@
     #retrom-ui-review .rt-info-row { display: flex; justify-content: space-between; gap: 12px; font-size: 11px; }
     #retrom-ui-review .rt-info-row span:first-child { color: var(--retrom-muted); }
 
+    /* Game detail · one-screen source */
+    #retrom-ui-review .rt-page[data-page=&quot;detail&quot;] { max-width: 1760px; padding-top: 18px; padding-bottom: 18px; }
+    #retrom-ui-review .rt-detail-breadcrumb { width: fit-content; min-height: 28px; margin-bottom: 10px; padding: 0; color: var(--retrom-purple); border: 0; background: transparent; cursor: pointer; font-size: 12px; font-weight: 700; }
+    #retrom-ui-review .rt-detail-hero { position: relative; padding: 16px; display: grid; grid-template-columns: 232px minmax(0, 1fr) 390px; gap: 24px; align-items: center; overflow: visible; border: 1px solid var(--retrom-line); border-radius: 15px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-detail-hero::before { content: none; }
+    #retrom-ui-review .rt-detail-poster-shell { width: 232px; }
+    #retrom-ui-review .rt-detail-cover { width: 100%; aspect-ratio: 3 / 4; border-radius: 13px; box-shadow: 0 18px 34px rgb(28 31 59 / .16); }
+    #retrom-ui-review .rt-detail-poster-caption { margin-top: 7px; display: flex; justify-content: space-between; gap: 10px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-detail-copy { min-width: 0; max-width: 720px; padding: 0; }
+    #retrom-ui-review .rt-detail-kicker { color: var(--retrom-muted); font-size: 11px; font-weight: 700; letter-spacing: 0; text-transform: none; }
+    #retrom-ui-review .rt-detail-title { margin-top: 6px; font-size: 29px; font-weight: 700; line-height: 1.15; letter-spacing: -.03em; }
+    #retrom-ui-review .rt-detail-meta { margin-top: 7px; display: flex; align-items: center; gap: 7px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-detail-meta span { display: inline-flex; align-items: center; gap: 7px; }
+    #retrom-ui-review .rt-detail-meta span:not(:last-child)::after { width: 3px; height: 3px; margin-left: 2px; border-radius: 50%; background: color-mix(in srgb, var(--retrom-muted) 55%, transparent); content: &quot;&quot;; }
+    #retrom-ui-review .rt-detail-description { max-width: 670px; margin: 14px 0 0; overflow: hidden; display: -webkit-box; color: var(--retrom-muted); font-size: 12px; line-height: 1.62; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
+    #retrom-ui-review .rt-detail-playtime { margin-top: 14px; display: flex; align-items: center; gap: 8px; font-size: 11px; }
+    #retrom-ui-review .rt-detail-playtime span { color: var(--retrom-muted); }
+    #retrom-ui-review .rt-launch-panel { position: relative; align-self: center; padding: 14px; border: 1px solid color-mix(in srgb, var(--retrom-purple) 24%, var(--retrom-line)); border-radius: 12px; background: color-mix(in srgb, var(--retrom-purple-soft) 40%, var(--retrom-panel)); }
+    #retrom-ui-review .rt-launch-kicker { color: var(--retrom-purple); font-size: 9px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    #retrom-ui-review .rt-launch-panel h3 { margin: 4px 0 9px; font-size: 16px; }
+    #retrom-ui-review .rt-detail-launch-status { position: absolute; top: 12px; right: 12px; }
+    #retrom-ui-review .rt-detail-quick-save { padding: 9px; display: grid; grid-template-columns: 126px minmax(0, 1fr); gap: 10px; align-items: center; border: 1px solid var(--retrom-line); border-radius: 10px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-detail-quick-shot { width: 126px; aspect-ratio: 16 / 9; border-radius: 7px; background: linear-gradient(145deg, #06182f, #088ab5 58%, #d6a235 59%); }
+    #retrom-ui-review .rt-detail-quick-copy strong,
+    #retrom-ui-review .rt-detail-quick-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #retrom-ui-review .rt-detail-quick-copy strong { font-size: 11px; }
+    #retrom-ui-review .rt-detail-quick-copy small { margin-top: 1px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-detail-quick-copy .rt-button { width: 100%; min-height: 34px; margin-top: 7px; padding-inline: 8px; font-size: 10px; }
+    #retrom-ui-review .rt-detail-restart { width: 100%; min-height: 34px; margin-top: 7px; font-size: 10px; }
+    #retrom-ui-review .rt-detail-runtime-row { margin-top: 9px; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-detail-runtime-row small,
+    #retrom-ui-review .rt-detail-runtime-row strong { display: block; }
+    #retrom-ui-review .rt-detail-runtime-row small { color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-detail-runtime-row strong { margin-top: 1px; font-size: 10px; }
+    #retrom-ui-review .rt-detail-runtime-row .rt-text-link { padding: 4px; font-size: 9px; }
+    #retrom-ui-review .rt-core-override { display: block; margin-top: 2px; color: var(--retrom-red); font-size: 8px; font-weight: 700; }
+    #retrom-ui-review .rt-detail-info-strip { margin-top: 10px; padding: 10px 14px; display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 8px; border: 1px solid var(--retrom-line); border-radius: 12px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-detail-fact { min-width: 0; padding: 0 9px; border-right: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-detail-fact:last-child { border-right: 0; }
+    #retrom-ui-review .rt-detail-fact span,
+    #retrom-ui-review .rt-detail-fact strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #retrom-ui-review .rt-detail-fact span { color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-detail-fact strong { margin-top: 2px; font-size: 10px; }
+    #retrom-ui-review .rt-detail-fact strong.is-missing { color: color-mix(in srgb, var(--retrom-muted) 65%, transparent); }
+    #retrom-ui-review .rt-detail-saves { margin-top: 10px; overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 15px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-detail-saves-head { min-height: 55px; padding: 11px 15px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-detail-saves-head h3 { margin: 0; font-size: 14px; }
+    #retrom-ui-review .rt-detail-saves-head p { margin: 2px 0 0; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-detail-saves-actions { display: flex; align-items: center; gap: 9px; }
+    #retrom-ui-review .rt-detail-save-count { padding: 3px 8px; color: var(--retrom-cyan); border-radius: 999px; background: var(--retrom-cyan-soft); font-size: 9px; font-weight: 800; }
+    #retrom-ui-review .rt-detail-save-grid { padding: 12px 14px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
+    #retrom-ui-review .rt-detail-save-card { min-width: 0; min-height: 116px; overflow: hidden; display: grid; grid-template-columns: minmax(210px, 290px) minmax(0, 1fr); border: 1px solid var(--retrom-line); border-radius: 11px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-detail-save-media { position: relative; min-width: 0; aspect-ratio: 16 / 9; padding: 0; overflow: hidden; border: 0; background: #05060a; cursor: zoom-in; }
+    #retrom-ui-review .rt-detail-save-screen { position: absolute; inset: 0; background: linear-gradient(145deg, #06182f, #088ab5 58%, #d6a235 59%); }
+    #retrom-ui-review .rt-detail-save-screen.is-alt { background: radial-gradient(circle at 62% 58%, #ff9f25 0 5%, #e34b25 6% 10%, transparent 11%), linear-gradient(145deg, #0d315f, #098db5 55%, #b8d8db 56%); }
+    #retrom-ui-review .rt-detail-save-screen.is-third { background: radial-gradient(circle at 75% 35%, transparent 0 14%, #ff9d31 15% 17%, transparent 18%), linear-gradient(145deg, #0c305b, #067dab 65%, #94b4ad 66%); }
+    #retrom-ui-review .rt-detail-save-screen.is-fourth { background: linear-gradient(135deg, #202d54, #653b8b 55%, #d17846 56%); }
+    #retrom-ui-review .rt-detail-save-latest { position: absolute; z-index: 2; top: 7px; left: 7px; padding: 3px 7px; border-radius: 999px; color: white; background: rgb(20 27 40 / .88); font-size: 8px; font-weight: 800; }
+    #retrom-ui-review .rt-detail-save-body { min-width: 0; padding: 11px 12px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
+    #retrom-ui-review .rt-detail-save-body strong,
+    #retrom-ui-review .rt-detail-save-body small { display: block; }
+    #retrom-ui-review .rt-detail-save-body strong { font-size: 11px; }
+    #retrom-ui-review .rt-detail-save-body small { margin-top: 2px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-detail-save-note { color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-detail-save-body .rt-button { width: fit-content; min-height: 32px; padding-inline: 10px; font-size: 9px; }
+    #retrom-ui-review .rt-detail-save-drawer-backdrop { position: fixed; z-index: 70; inset: 0; background: rgb(17 23 39 / .42); }
+    #retrom-ui-review .rt-detail-save-drawer { position: fixed; z-index: 71; inset: 0 0 0 auto; width: 560px; display: flex; flex-direction: column; border-left: 1px solid var(--retrom-line); background: var(--retrom-panel); box-shadow: -22px 0 60px rgb(17 23 39 / .18); }
+    #retrom-ui-review .rt-detail-save-drawer &gt; header { padding: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-detail-save-drawer h2 { margin: 0; font-size: 20px; }
+    #retrom-ui-review .rt-detail-save-drawer header p { margin: 5px 0 0; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-detail-drawer-body { padding: 16px; overflow: auto; display: grid; align-content: start; gap: 10px; }
+    #retrom-ui-review .rt-detail-drawer-row { padding: 10px; display: grid; grid-template-columns: 128px minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 1px solid var(--retrom-line); border-radius: 11px; }
+    #retrom-ui-review .rt-detail-drawer-shot { position: relative; width: 128px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 8px; background: #05060a; }
+    #retrom-ui-review .rt-detail-drawer-row strong,
+    #retrom-ui-review .rt-detail-drawer-row small { display: block; }
+    #retrom-ui-review .rt-detail-drawer-row strong { font-size: 11px; }
+    #retrom-ui-review .rt-detail-drawer-row small { margin-top: 3px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-detail-runtime-dialog .rt-field { margin-top: 14px; }
+    #retrom-ui-review .rt-detail-runtime-dialog .rt-core-origin { margin-top: 8px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-detail-preview-dialog { width: min(920px, 90vw); padding: 14px; color: #b8c0cd; border-color: #343b49; background: #0a0d14; }
+    #retrom-ui-review .rt-detail-preview-screen { aspect-ratio: 16 / 9; background: linear-gradient(145deg, #06182f, #088ab5 58%, #d6a235 59%); }
+    #retrom-ui-review .rt-detail-preview-dialog footer { margin-top: 10px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 11px; }
+
     #retrom-ui-review .rt-admin-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 17px; }
     #retrom-ui-review .rt-admin-tab { padding: 7px 10px; border: 1px solid var(--retrom-line); border-radius: 8px; background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; }
     #retrom-ui-review .rt-admin-tab.is-active { border-color: color-mix(in srgb, var(--retrom-purple) 52%, var(--retrom-line)); background: var(--retrom-purple-soft); color: var(--retrom-purple); }
@@ -772,7 +855,7 @@
     #retrom-ui-review .rt-candidate { display: grid; grid-template-columns: 34px minmax(0, 1fr) auto; align-items: center; gap: 9px; width: 100%; padding: 8px; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel); color: var(--retrom-text); cursor: pointer; text-align: left; }
     #retrom-ui-review .rt-candidate.is-selected { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-candidate-thumb { width: 34px; aspect-ratio: 3 / 4; border-radius: 5px; background: var(--retrom-cover-c); }
-    #retrom-ui-review .rt-review-form { padding: 15px; }
+    #retrom-ui-review .rt-review-form { height: 100%; padding: 15px; display: flex; flex-direction: column; }
     #retrom-ui-review .rt-review-overview { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-bottom: 12px; }
     #retrom-ui-review .rt-review-overview &gt; section { padding: 12px; border: 1px solid var(--retrom-line); border-radius: 10px; background: var(--retrom-panel-raised); }
     #retrom-ui-review .rt-review-overview &gt; section { height: 178px; overflow: hidden; }
@@ -784,8 +867,12 @@
     #retrom-ui-review .rt-runtime-facts div { padding: 8px; border-radius: 7px; background: var(--retrom-panel); }
     #retrom-ui-review .rt-runtime-facts strong, #retrom-ui-review .rt-runtime-facts span { display: block; }
     #retrom-ui-review .rt-runtime-facts span { color: var(--retrom-muted); font-size: 9px; }
-    #retrom-ui-review .rt-review-metadata { display: grid; grid-template-columns: minmax(0, 1fr) 230px; gap: 12px; }
-    #retrom-ui-review .rt-review-cover-upload { min-height: 330px; display: grid; align-content: end; padding: 12px; border: 1px solid var(--retrom-line); border-radius: 10px; background: linear-gradient(155deg, var(--retrom-cover-b), #151927); color: #fff; text-align: center; }
+    #retrom-ui-review .rt-review-metadata { min-height: 0; flex: 1; display: grid; grid-template-columns: minmax(0, 1fr) 340px; align-items: stretch; gap: 12px; }
+    #retrom-ui-review .rt-review-metadata &gt; .rt-form-grid { grid-template-columns: repeat(6, minmax(0, 1fr)); align-content: start; }
+    #retrom-ui-review .rt-review-metadata .rt-field-half { grid-column: span 3; }
+    #retrom-ui-review .rt-review-metadata .rt-field-third { grid-column: span 2; }
+    #retrom-ui-review .rt-review-cover-side { min-width: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 7px; }
+    #retrom-ui-review .rt-review-cover-upload { min-height: 330px; height: 100%; display: grid; align-content: end; padding: 12px; border: 1px solid var(--retrom-line); border-radius: 10px; background: linear-gradient(155deg, var(--retrom-cover-b), #151927); color: #fff; text-align: center; }
     #retrom-ui-review .rt-review-cover-upload span { padding: 7px; border-radius: 7px; background: rgb(0 0 0 / .58); font-size: 10px; }
     #retrom-ui-review .rt-review-editor-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
     #retrom-ui-review .rt-review-editor-head .rt-button { flex: none; }
@@ -804,7 +891,7 @@
     #retrom-ui-review .rt-review-summary-status { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
     #retrom-ui-review .rt-review-save { display: flex; justify-content: space-between; margin: 12px 0; color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-review-save strong { color: var(--retrom-green); }
-    #retrom-ui-review .rt-review-detail-columns { display: grid; grid-template-columns: minmax(330px, .72fr) minmax(580px, 1.28fr); align-items: start; gap: 12px; }
+    #retrom-ui-review .rt-review-detail-columns { display: grid; grid-template-columns: minmax(330px, .72fr) minmax(580px, 1.28fr); align-items: stretch; gap: 12px; }
     #retrom-ui-review .rt-review-capability { display: grid; gap: 8px; margin-top: 12px; }
     #retrom-ui-review .rt-review-capability &gt; div { padding: 9px; border-radius: 8px; background: var(--retrom-panel-raised); }
     #retrom-ui-review .rt-review-capability strong, #retrom-ui-review .rt-review-capability span { display: block; }
@@ -1360,31 +1447,37 @@
       &lt;/section&gt;
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;detail&quot;&gt;
-        &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-text-link&quot; data-page-link=&quot;library&quot;&gt;← 返回游戏库&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;button type=&quot;button&quot; class=&quot;rt-detail-breadcrumb&quot; data-page-link=&quot;library&quot;&gt;← 游戏库&lt;/button&gt;
         &lt;div class=&quot;rt-detail-hero&quot;&gt;
-          &lt;div class=&quot;rt-cover rt-cover-b rt-detail-cover&quot; id=&quot;rt-detail-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot; id=&quot;rt-detail-cover-title&quot;&gt;METAL SLUG&lt;/span&gt;&lt;/div&gt;
+          &lt;div class=&quot;rt-detail-poster-shell&quot;&gt;&lt;div class=&quot;rt-cover rt-cover-b rt-detail-cover&quot; id=&quot;rt-detail-cover&quot;&gt;&lt;span class=&quot;rt-cover-title&quot; id=&quot;rt-detail-cover-title&quot;&gt;METAL SLUG&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-poster-caption&quot;&gt;&lt;span&gt;Arcade&lt;/span&gt;&lt;span&gt;1996&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-detail-copy&quot;&gt;
-            &lt;div class=&quot;rt-detail-kicker&quot; id=&quot;rt-detail-platform&quot;&gt;Arcade / FBNeo 游戏列表 · 1996&lt;/div&gt;
+            &lt;div class=&quot;rt-detail-kicker&quot; id=&quot;rt-detail-platform&quot;&gt;Arcade · FBNeo 游戏列表&lt;/div&gt;
             &lt;div class=&quot;rt-detail-title&quot; id=&quot;rt-detail-title&quot;&gt;Metal Slug&lt;/div&gt;
-            &lt;div class=&quot;rt-detail-meta&quot; id=&quot;rt-detail-meta&quot;&gt;&lt;span&gt;SNK&lt;/span&gt;&lt;span&gt;动作 / 射击&lt;/span&gt;&lt;span&gt;1–2 人&lt;/span&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-detail-meta&quot; id=&quot;rt-detail-meta&quot;&gt;&lt;span&gt;1996&lt;/span&gt;&lt;span&gt;SNK&lt;/span&gt;&lt;span&gt;动作 / 射击&lt;/span&gt;&lt;/div&gt;
             &lt;p class=&quot;rt-detail-description&quot; id=&quot;rt-detail-description&quot;&gt;驾驶载具、营救俘虏并一路突破敌军防线。你也可以在开始前选择其他可用核心。&lt;/p&gt;
-            &lt;div class=&quot;rt-detail-stats&quot;&gt;&lt;div class=&quot;rt-detail-stat&quot;&gt;&lt;strong id=&quot;rt-detail-hours&quot;&gt;2.4h&lt;/strong&gt;&lt;span&gt;总游玩时长&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-stat&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-text-link&quot; data-page-link=&quot;saves&quot;&gt;查看更多&lt;/button&gt;&lt;span&gt;手动存档超过 8 份&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-stat&quot;&gt;&lt;strong&gt;今天&lt;/strong&gt;&lt;span&gt;最近游玩&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-detail-playtime&quot;&gt;&lt;strong&gt;累计游玩&lt;/strong&gt;&lt;span id=&quot;rt-detail-hours&quot;&gt;2 小时 24 分钟&lt;/span&gt;&lt;/div&gt;
           &lt;/div&gt;
-          &lt;aside class=&quot;rt-launch-panel&quot; aria-label=&quot;启动配置&quot;&gt;
-            &lt;div class=&quot;rt-launch-kicker&quot;&gt;推荐配置&lt;/div&gt;
-            &lt;div class=&quot;rt-launch-head&quot;&gt;&lt;h3&gt;准备开始游戏&lt;/h3&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot; id=&quot;rt-launch-ready&quot;&gt;可以直接开始&lt;/span&gt;&lt;/div&gt;
+          &lt;aside class=&quot;rt-launch-panel&quot; aria-label=&quot;启动游戏&quot;&gt;
+            &lt;div class=&quot;rt-launch-kicker&quot;&gt;继续游戏&lt;/div&gt;
+            &lt;h3&gt;接着最近的存档继续&lt;/h3&gt;&lt;span class=&quot;rt-badge rt-badge-green rt-detail-launch-status&quot; id=&quot;rt-launch-ready&quot;&gt;可以直接开始&lt;/span&gt;
             &lt;label class=&quot;rt-field&quot; id=&quot;rt-dos-field&quot; hidden&gt;&lt;span class=&quot;rt-label&quot;&gt;启动程序&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;DOOM.EXE · 默认&lt;/option&gt;&lt;option&gt;SETUP.EXE&lt;/option&gt;&lt;option&gt;DEICE.EXE&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;
-            &lt;div class=&quot;rt-checkline&quot; id=&quot;rt-launch-check&quot;&gt;&lt;i data-lucide=&quot;circle-check&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span id=&quot;rt-launch-check-text&quot;&gt;系统已选好适合这个目录的运行方式&lt;/span&gt;&lt;/div&gt;
-            &lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary rt-launch-button&quot; data-start-game&gt;&lt;i data-lucide=&quot;play&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;开始游戏&lt;/button&gt;
-            &lt;div class=&quot;rt-launch-note&quot; id=&quot;rt-launch-note&quot;&gt;开始前会自动检查游戏文件和所需系统文件&lt;/div&gt;
-            &lt;details class=&quot;rt-advanced&quot; id=&quot;rt-core-details&quot;&gt;&lt;summary&gt;更换运行方式&lt;span class=&quot;rt-core-override&quot; id=&quot;rt-core-override&quot; hidden&gt;（未采用默认核心）&lt;/span&gt;&lt;/summary&gt;&lt;div class=&quot;rt-launch-popover&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-launch-popover-close&quot; data-close-core aria-label=&quot;关闭运行方式选择&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;运行引擎&lt;/span&gt;&lt;select class=&quot;rt-select&quot; id=&quot;rt-core-select&quot;&gt;&lt;option&gt;FBNeo · 推荐&lt;/option&gt;&lt;option&gt;MAME 2003 Plus · 可选&lt;/option&gt;&lt;option&gt;MAME 2003 · 开始时检查&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;div class=&quot;rt-table-sub rt-core-origin&quot; id=&quot;rt-core-origin&quot;&gt;只有遇到兼容问题或需要特定存档时才建议更改&lt;/div&gt;&lt;/div&gt;&lt;/details&gt;
+            &lt;span id=&quot;rt-launch-check&quot; hidden&gt;&lt;span id=&quot;rt-launch-check-text&quot;&gt;系统已选好适合这个目录的运行方式&lt;/span&gt;&lt;/span&gt;
+            &lt;div class=&quot;rt-detail-quick-save&quot;&gt;&lt;div class=&quot;rt-detail-quick-shot&quot;&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-quick-copy&quot;&gt;&lt;strong&gt;最近存档&lt;/strong&gt;&lt;small&gt;今天 22:14&lt;/small&gt;&lt;small&gt;FBNeo&lt;/small&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-start-current-save&gt;从存档继续&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;button type=&quot;button&quot; class=&quot;rt-button rt-detail-restart&quot; data-start-game&gt;重新开始游戏&lt;/button&gt;
+            &lt;div class=&quot;rt-detail-runtime-row&quot;&gt;&lt;div&gt;&lt;small&gt;运行方式&lt;/small&gt;&lt;strong id=&quot;rt-detail-runtime-name&quot;&gt;FBNeo&lt;/strong&gt;&lt;span class=&quot;rt-core-override&quot; id=&quot;rt-core-override&quot; hidden&gt;（未采用默认核心）&lt;/span&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-text-link&quot; data-open-detail-runtime&gt;更换 ›&lt;/button&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-launch-note&quot; id=&quot;rt-launch-note&quot; hidden&gt;开始前会自动检查游戏文件和所需系统文件&lt;/div&gt;
           &lt;/aside&gt;
         &lt;/div&gt;
-        &lt;div class=&quot;rt-tab-row&quot; role=&quot;tablist&quot; aria-label=&quot;详情内容&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-tab is-active&quot;&gt;存档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-tab&quot;&gt;游戏介绍&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-tab&quot;&gt;详细信息&lt;/button&gt;&lt;/div&gt;
-        &lt;div class=&quot;rt-detail-lower&quot;&gt;
-          &lt;div class=&quot;rt-panel rt-panel-pad&quot;&gt;&lt;div class=&quot;rt-section-head&quot; style=&quot;margin-top:0&quot;&gt;&lt;h3&gt;最近存档&lt;/h3&gt;&lt;button type=&quot;button&quot; class=&quot;rt-text-link&quot; data-page-link=&quot;saves&quot;&gt;查看更多&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-mini-save&quot;&gt;&lt;div class=&quot;rt-mini-shot&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-start-current-save&gt;&lt;i data-lucide=&quot;play&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;从此存档继续&lt;/button&gt;&lt;/div&gt;&lt;div&gt;&lt;h3 id=&quot;rt-detail-save-title&quot;&gt;Metal Slug&lt;/h3&gt;&lt;div class=&quot;rt-save-time&quot; id=&quot;rt-detail-save-meta&quot;&gt;FBNeo · 今天 22:14&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
-          &lt;div class=&quot;rt-panel rt-panel-pad&quot;&gt;&lt;h3&gt;游戏信息&lt;/h3&gt;&lt;div class=&quot;rt-info-list&quot;&gt;&lt;div class=&quot;rt-info-row&quot;&gt;&lt;span&gt;平台目录&lt;/span&gt;&lt;span id=&quot;rt-info-directory&quot;&gt;FBNeo 游戏列表&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-info-row&quot;&gt;&lt;span&gt;发行商&lt;/span&gt;&lt;span id=&quot;rt-info-publisher&quot;&gt;SNK&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-info-row&quot;&gt;&lt;span&gt;区域&lt;/span&gt;&lt;span&gt;World&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-info-row&quot;&gt;&lt;span&gt;游戏信息来源&lt;/span&gt;&lt;span&gt;在线匹配&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-info-row&quot;&gt;&lt;span&gt;运行状态&lt;/span&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;可以运行&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
-        &lt;/div&gt;
+        &lt;div class=&quot;rt-detail-info-strip&quot;&gt;&lt;div class=&quot;rt-detail-fact&quot;&gt;&lt;span&gt;游戏平台&lt;/span&gt;&lt;strong&gt;Arcade&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-fact&quot;&gt;&lt;span&gt;游戏目录&lt;/span&gt;&lt;strong id=&quot;rt-info-directory&quot;&gt;FBNeo 游戏列表&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-fact&quot;&gt;&lt;span&gt;发行年份&lt;/span&gt;&lt;strong&gt;1996&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-fact&quot;&gt;&lt;span&gt;开发商&lt;/span&gt;&lt;strong&gt;SNK&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-fact&quot;&gt;&lt;span&gt;发行商&lt;/span&gt;&lt;strong id=&quot;rt-info-publisher&quot;&gt;SNK&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-fact&quot;&gt;&lt;span&gt;类型&lt;/span&gt;&lt;strong&gt;动作 / 射击&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-fact&quot;&gt;&lt;span&gt;玩家数&lt;/span&gt;&lt;strong&gt;1–2 人&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;section class=&quot;rt-detail-saves&quot;&gt;&lt;div class=&quot;rt-detail-saves-head&quot;&gt;&lt;div&gt;&lt;h3&gt;你的存档&lt;/h3&gt;&lt;p&gt;最近 4 份直接在详情页浏览；截图保持完整比例。&lt;/p&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-saves-actions&quot;&gt;&lt;span class=&quot;rt-detail-save-count&quot;&gt;最近 4 份 · 共 12 份&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-text-link&quot; data-open-detail-saves&gt;查看全部 →&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-detail-save-grid&quot;&gt;
+          &lt;article class=&quot;rt-detail-save-card&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-detail-save-media&quot; data-open-detail-preview aria-label=&quot;预览最近存档截图&quot;&gt;&lt;span class=&quot;rt-detail-save-latest&quot;&gt;最近&lt;/span&gt;&lt;span class=&quot;rt-detail-save-screen&quot;&gt;&lt;/span&gt;&lt;/button&gt;&lt;div class=&quot;rt-detail-save-body&quot;&gt;&lt;div&gt;&lt;strong&gt;FBNeo&lt;/strong&gt;&lt;small&gt;今天 22:14&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;rt-detail-save-note&quot;&gt;最近保存&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-start-current-save&gt;从此继续 →&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;
+          &lt;article class=&quot;rt-detail-save-card&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-detail-save-media&quot; data-open-detail-preview aria-label=&quot;预览存档截图&quot;&gt;&lt;span class=&quot;rt-detail-save-screen is-alt&quot;&gt;&lt;/span&gt;&lt;/button&gt;&lt;div class=&quot;rt-detail-save-body&quot;&gt;&lt;div&gt;&lt;strong&gt;FBNeo&lt;/strong&gt;&lt;small&gt;昨天 23:46&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;rt-detail-save-note&quot;&gt;同一运行环境&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-start-current-save&gt;从此继续 →&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;
+          &lt;article class=&quot;rt-detail-save-card&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-detail-save-media&quot; data-open-detail-preview aria-label=&quot;预览存档截图&quot;&gt;&lt;span class=&quot;rt-detail-save-screen is-third&quot;&gt;&lt;/span&gt;&lt;/button&gt;&lt;div class=&quot;rt-detail-save-body&quot;&gt;&lt;div&gt;&lt;strong&gt;FBNeo&lt;/strong&gt;&lt;small&gt;8 月 6 日 21:14&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;rt-detail-save-note&quot;&gt;历史存档&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-start-current-save&gt;从此继续 →&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;
+          &lt;article class=&quot;rt-detail-save-card&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-detail-save-media&quot; data-open-detail-preview aria-label=&quot;预览存档截图&quot;&gt;&lt;span class=&quot;rt-detail-save-screen is-fourth&quot;&gt;&lt;/span&gt;&lt;/button&gt;&lt;div class=&quot;rt-detail-save-body&quot;&gt;&lt;div&gt;&lt;strong&gt;MAME 2003 Plus&lt;/strong&gt;&lt;small&gt;8 月 5 日 18:32&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;rt-detail-save-note&quot;&gt;恢复时使用原 Core&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-start-current-save&gt;从此继续 →&lt;/button&gt;&lt;/div&gt;&lt;/article&gt;
+        &lt;/div&gt;&lt;/section&gt;
+        &lt;div class=&quot;rt-detail-save-drawer-backdrop&quot; data-detail-saves-backdrop hidden&gt;&lt;/div&gt;&lt;aside class=&quot;rt-detail-save-drawer&quot; data-detail-saves-drawer hidden&gt;&lt;header&gt;&lt;div&gt;&lt;h2&gt;全部存档&lt;/h2&gt;&lt;p&gt;Metal Slug · 共 12 份&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-detail-saves aria-label=&quot;关闭全部存档&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/header&gt;&lt;div class=&quot;rt-detail-drawer-body&quot;&gt;&lt;article class=&quot;rt-detail-drawer-row&quot;&gt;&lt;div class=&quot;rt-detail-drawer-shot&quot;&gt;&lt;span class=&quot;rt-detail-save-screen&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;今天 22:14&lt;/strong&gt;&lt;small&gt;FBNeo · 最近&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;继续 →&lt;/button&gt;&lt;/article&gt;&lt;article class=&quot;rt-detail-drawer-row&quot;&gt;&lt;div class=&quot;rt-detail-drawer-shot&quot;&gt;&lt;span class=&quot;rt-detail-save-screen is-alt&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;昨天 23:46&lt;/strong&gt;&lt;small&gt;FBNeo&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;继续 →&lt;/button&gt;&lt;/article&gt;&lt;article class=&quot;rt-detail-drawer-row&quot;&gt;&lt;div class=&quot;rt-detail-drawer-shot&quot;&gt;&lt;span class=&quot;rt-detail-save-screen is-third&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;8 月 6 日 21:14&lt;/strong&gt;&lt;small&gt;FBNeo&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;继续 →&lt;/button&gt;&lt;/article&gt;&lt;article class=&quot;rt-detail-drawer-row&quot;&gt;&lt;div class=&quot;rt-detail-drawer-shot&quot;&gt;&lt;span class=&quot;rt-detail-save-screen is-fourth&quot;&gt;&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;8 月 5 日 18:32&lt;/strong&gt;&lt;small&gt;MAME 2003 Plus&lt;/small&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;继续 →&lt;/button&gt;&lt;/article&gt;&lt;/div&gt;&lt;/aside&gt;
+        &lt;div class=&quot;rt-dialog-backdrop&quot; data-detail-runtime-dialog hidden&gt;&lt;section class=&quot;rt-dialog rt-detail-runtime-dialog&quot; role=&quot;alertdialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-detail-runtime-title&quot;&gt;&lt;div&gt;&lt;h2 id=&quot;rt-detail-runtime-title&quot;&gt;更换运行方式&lt;/h2&gt;&lt;p class=&quot;rt-dialog-copy&quot;&gt;重新开始时使用此运行方式；恢复某份存档时，仍采用该存档保存时的 Core。&lt;/p&gt;&lt;/div&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;运行引擎&lt;/span&gt;&lt;select class=&quot;rt-select&quot; id=&quot;rt-core-select&quot;&gt;&lt;option&gt;FBNeo · 推荐&lt;/option&gt;&lt;option&gt;MAME 2003 Plus · 可选&lt;/option&gt;&lt;option&gt;MAME 2003 · 开始时检查&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;div class=&quot;rt-core-origin&quot; id=&quot;rt-core-origin&quot;&gt;只有遇到兼容问题或需要特定存档时才建议更改。&lt;/div&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-cancel-detail-runtime&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-apply-detail-runtime&gt;应用&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
+        &lt;div class=&quot;rt-dialog-backdrop&quot; data-detail-preview-dialog hidden&gt;&lt;section class=&quot;rt-dialog rt-detail-preview-dialog&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-detail-preview-title&quot;&gt;&lt;div class=&quot;rt-detail-preview-screen&quot;&gt;&lt;/div&gt;&lt;footer&gt;&lt;span id=&quot;rt-detail-preview-title&quot;&gt;完整截图 · 保持原始画面比例&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-detail-preview&gt;关闭&lt;/button&gt;&lt;/footer&gt;&lt;/section&gt;&lt;/div&gt;
       &lt;/section&gt;
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;play&quot;&gt;
@@ -1528,7 +1621,7 @@
                 &lt;section class=&quot;rt-panel rt-review-file&quot;&gt;&lt;div class=&quot;rt-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;① 能不能发布？&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;直接展示文件、运行方式和依赖检查结论。&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;运行检查通过&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-review-capability&quot;&gt;&lt;div&gt;&lt;strong&gt;游戏文件&lt;/strong&gt;&lt;span&gt;mslug3.zip · 28.4 MiB&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;运行检查&lt;/strong&gt;&lt;span&gt;识别为 mslug3 · FinalBurn Neo&lt;/span&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;依赖检查&lt;/strong&gt;&lt;span&gt;0 项异常，没有发现缺失依赖&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-validation-box&quot; data-review-validation-output&gt;✓ 当前目录的游戏文件和运行依赖均已就绪&lt;/div&gt;&lt;/section&gt;
                 &lt;section class=&quot;rt-panel rt-review-file&quot; style=&quot;margin-top:12px&quot;&gt;&lt;div class=&quot;rt-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;来源文件&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;用于核对这条游戏来自哪份内容。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;details class=&quot;rt-review-file-summary&quot; open&gt;&lt;summary&gt;&lt;strong&gt;mslug3.zip&lt;/strong&gt;&lt;span&gt;28.4 MiB / 7d2c1a4f…&lt;/span&gt;&lt;/summary&gt;&lt;div class=&quot;rt-archive-list&quot;&gt;&lt;div&gt;&lt;strong&gt;mslug3-p1.bin&lt;/strong&gt;&lt;span&gt;8.0 MiB&lt;/span&gt;&lt;code&gt;72d3a4c1&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;mslug3-s1.bin&lt;/strong&gt;&lt;span&gt;512 KiB&lt;/span&gt;&lt;code&gt;9bc3e12f&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;mslug3-c1.bin&lt;/strong&gt;&lt;span&gt;16 MiB&lt;/span&gt;&lt;code&gt;fe8a3d77&lt;/code&gt;&lt;/div&gt;&lt;div&gt;&lt;strong&gt;mslug3-m1.bin&lt;/strong&gt;&lt;span&gt;4.0 MiB&lt;/span&gt;&lt;code&gt;10b40c77&lt;/code&gt;&lt;/div&gt;&lt;/div&gt;&lt;/details&gt;&lt;/section&gt;
               &lt;/div&gt;
-              &lt;section class=&quot;rt-panel rt-review-form&quot;&gt;&lt;div class=&quot;rt-review-editor-head&quot;&gt;&lt;div&gt;&lt;h2&gt;② 发布成什么？&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;核对标题、简介和封面；修改会实时保存。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-compare&gt;&lt;i data-lucide=&quot;refresh-cw&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;重新查询游戏信息&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-review-metadata&quot;&gt;&lt;div class=&quot;rt-form-grid&quot;&gt;&lt;label class=&quot;rt-field rt-field-wide&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;游戏标题&lt;/span&gt;&lt;input class=&quot;rt-input&quot; data-review-field=&quot;title&quot; value=&quot;Metal Slug 3&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field rt-field-wide&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;简介&lt;/span&gt;&lt;textarea class=&quot;rt-textarea&quot; data-review-field=&quot;description&quot;&gt;阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。&lt;/textarea&gt;&lt;/label&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;开发商&lt;/span&gt;&lt;input class=&quot;rt-input&quot; data-review-field=&quot;developer&quot; value=&quot;SNK&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;发行商&lt;/span&gt;&lt;input class=&quot;rt-input&quot; value=&quot;SNK&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;玩家人数&lt;/span&gt;&lt;input class=&quot;rt-input&quot; data-review-field=&quot;players&quot; value=&quot;1–2&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;发行年份&lt;/span&gt;&lt;input class=&quot;rt-input&quot; data-review-field=&quot;year&quot; value=&quot;2000&quot;&gt;&lt;/label&gt;&lt;div class=&quot;rt-panel rt-import-settings&quot;&gt;&lt;span class=&quot;rt-badge&quot; data-review-candidate-badge&gt;精确&lt;/span&gt;&lt;h3 data-review-candidate-title&gt;Metal Slug 3&lt;/h3&gt;&lt;p class=&quot;rt-subtitle&quot; data-review-candidate-meta&gt;World · 2000 · SNK&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-review-cover-upload&quot;&gt;&lt;span&gt;&lt;i data-lucide=&quot;upload&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt; 点击封面上传替换&lt;/span&gt;&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;
+              &lt;section class=&quot;rt-panel rt-review-form&quot;&gt;&lt;div class=&quot;rt-review-editor-head&quot;&gt;&lt;div&gt;&lt;h2&gt;② 发布成什么？&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;核对标题、简介和封面；修改会实时保存。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-compare&gt;&lt;i data-lucide=&quot;refresh-cw&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;重新查询游戏信息&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-review-metadata&quot;&gt;&lt;div class=&quot;rt-form-grid&quot;&gt;&lt;label class=&quot;rt-field rt-field-wide&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;游戏标题&lt;/span&gt;&lt;input class=&quot;rt-input&quot; data-review-field=&quot;title&quot; value=&quot;Metal Slug 3&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field rt-field-wide&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;简介&lt;/span&gt;&lt;textarea class=&quot;rt-textarea&quot; data-review-field=&quot;description&quot;&gt;阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。&lt;/textarea&gt;&lt;/label&gt;&lt;label class=&quot;rt-field rt-field-half&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;开发商&lt;/span&gt;&lt;input class=&quot;rt-input&quot; data-review-field=&quot;developer&quot; value=&quot;SNK&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field rt-field-half&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;发行商&lt;/span&gt;&lt;input class=&quot;rt-input&quot; value=&quot;SNK&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field rt-field-third&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;类型&lt;/span&gt;&lt;input class=&quot;rt-input&quot; value=&quot;动作射击&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field rt-field-third&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;玩家人数&lt;/span&gt;&lt;input class=&quot;rt-input&quot; data-review-field=&quot;players&quot; value=&quot;1–2&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field rt-field-third&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;发行年份&lt;/span&gt;&lt;input class=&quot;rt-input&quot; data-review-field=&quot;year&quot; value=&quot;2000&quot;&gt;&lt;/label&gt;&lt;/div&gt;&lt;aside class=&quot;rt-review-cover-side&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;当前封面&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-review-cover-upload&quot;&gt;&lt;span&gt;&lt;i data-lucide=&quot;upload&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt; 点击封面上传替换&lt;/span&gt;&lt;/button&gt;&lt;/aside&gt;&lt;/div&gt;&lt;/section&gt;
             &lt;/div&gt;
           &lt;/div&gt;
         &lt;/div&gt;
@@ -1764,13 +1857,10 @@
         root.querySelector('#rt-detail-hours').textContent = game.hours;
         root.querySelector('#rt-info-directory').textContent = game.directory;
         root.querySelector('#rt-info-publisher').textContent = game.publisher;
-        root.querySelector('#rt-detail-save-title').textContent = game.title;
-        root.querySelector('#rt-detail-save-meta').textContent = game.save;
         root.querySelector('#rt-dos-field').hidden = !game.dos;
         const coreSelect = root.querySelector('#rt-core-select');
         coreSelect.innerHTML = game.cores.map((item) =&gt; `&lt;option&gt;${item}&lt;/option&gt;`).join('');
         if (corePreferences[currentGame] &amp;&amp; game.cores.includes(corePreferences[currentGame])) coreSelect.value = corePreferences[currentGame];
-        root.querySelector('#rt-core-details').removeAttribute('open');
         root.querySelector('#rt-launch-check-text').textContent = game.check;
         root.querySelector('#rt-launch-ready').textContent = game.ready ? '可以直接开始' : '当前不可用';
         root.querySelector('#rt-launch-ready').className = game.ready ? 'rt-badge rt-badge-green' : 'rt-badge rt-badge-red';
@@ -1830,6 +1920,7 @@
           else delete corePreferences[currentGame];
         }
         root.querySelector('#rt-core-override').hidden = !usesOverride;
+        root.querySelector('#rt-detail-runtime-name').textContent = label.split(' · ')[0];
         launchNote.classList.toggle('is-override', usesOverride);
         launchNote.textContent = usesOverride ? `已记住这个游戏使用 ${label.split(' · ')[0]}，后续启动将优先使用` : '开始前会自动检查游戏文件和所需系统文件';
         coreOrigin.classList.toggle('is-override', usesOverride);
@@ -1852,16 +1943,34 @@
         root.querySelectorAll('[data-start-game]').forEach((button) =&gt; { button.disabled = blocked; });
       }
 
-      root.querySelector('#rt-core-select').addEventListener('change', (event) =&gt; {
-        updateCoreSelection(event.target.value);
-      });
-      const coreDetails = root.querySelector('#rt-core-details');
-      root.querySelector('[data-close-core]').addEventListener('click', () =&gt; coreDetails.removeAttribute('open'));
-      document.addEventListener('pointerdown', (event) =&gt; {
-        if (coreDetails.open &amp;&amp; !coreDetails.contains(event.target)) coreDetails.removeAttribute('open');
-      });
+      const detailRuntimeDialog = root.querySelector('[data-detail-runtime-dialog]');
+      const detailCoreSelect = root.querySelector('#rt-core-select');
+      function closeDetailRuntime(apply) {
+        if (apply) updateCoreSelection(detailCoreSelect.value);
+        else detailCoreSelect.value = corePreferences[currentGame] || gameDetails[currentGame].cores[0];
+        detailRuntimeDialog.hidden = true;
+      }
+      root.querySelector('[data-open-detail-runtime]').addEventListener('click', () =&gt; { detailRuntimeDialog.hidden = false; });
+      root.querySelector('[data-cancel-detail-runtime]').addEventListener('click', () =&gt; closeDetailRuntime(false));
+      root.querySelector('[data-apply-detail-runtime]').addEventListener('click', () =&gt; closeDetailRuntime(true));
+      detailRuntimeDialog.addEventListener('click', (event) =&gt; { if (event.target === detailRuntimeDialog) closeDetailRuntime(false); });
+
+      const detailSavesDrawer = root.querySelector('[data-detail-saves-drawer]');
+      const detailSavesBackdrop = root.querySelector('[data-detail-saves-backdrop]');
+      function closeDetailSaves() { detailSavesDrawer.hidden = true; detailSavesBackdrop.hidden = true; }
+      root.querySelector('[data-open-detail-saves]').addEventListener('click', () =&gt; { detailSavesDrawer.hidden = false; detailSavesBackdrop.hidden = false; });
+      root.querySelector('[data-close-detail-saves]').addEventListener('click', closeDetailSaves);
+      detailSavesBackdrop.addEventListener('click', closeDetailSaves);
+
+      const detailPreviewDialog = root.querySelector('[data-detail-preview-dialog]');
+      root.querySelectorAll('[data-open-detail-preview]').forEach((button) =&gt; button.addEventListener('click', () =&gt; { detailPreviewDialog.hidden = false; }));
+      root.querySelector('[data-close-detail-preview]').addEventListener('click', () =&gt; { detailPreviewDialog.hidden = true; });
+      detailPreviewDialog.addEventListener('click', (event) =&gt; { if (event.target === detailPreviewDialog) detailPreviewDialog.hidden = true; });
       document.addEventListener('keydown', (event) =&gt; {
-        if (event.key === 'Escape') coreDetails.removeAttribute('open');
+        if (event.key !== 'Escape') return;
+        if (!detailPreviewDialog.hidden) detailPreviewDialog.hidden = true;
+        else if (!detailRuntimeDialog.hidden) closeDetailRuntime(false);
+        else closeDetailSaves();
       });
 
       let playerReturnPage = 'detail';
@@ -1997,11 +2106,6 @@
         root.querySelector('[data-review-field=&quot;developer&quot;]').value = button.dataset.reviewDeveloper;
         root.querySelector('[data-review-field=&quot;players&quot;]').value = button.dataset.reviewPlayers;
         root.querySelector('[data-review-field=&quot;description&quot;]').value = button.dataset.reviewDescription;
-        root.querySelector('[data-review-candidate-title]').textContent = button.dataset.reviewCandidate;
-        root.querySelector('[data-review-candidate-meta]').textContent = button.dataset.reviewCandidateMeta;
-        const candidateBadge = root.querySelector('[data-review-candidate-badge]');
-        candidateBadge.textContent = button.dataset.reviewCandidateBadge;
-        candidateBadge.className = button.dataset.reviewCandidateBadge === '精确' ? 'rt-badge rt-badge-green' : 'rt-badge rt-badge-amber';
         const validation = root.querySelector('[data-review-validation-output]');
         validation.textContent = button.dataset.reviewValidation;
         validation.classList.toggle('is-warning', button.dataset.reviewValidationStatus !== 'READY');

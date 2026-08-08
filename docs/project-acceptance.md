@@ -595,7 +595,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-SAVE-001`。
 - 流程：启动游戏后创建手动状态存档；读取存档记录与“我的存档”卡片。
-- 通过标准：状态 Blob 与非空截图 Blob 同时存在且在同一事务引用；记录 Profile、Game、CoreArtifact、GameVariantRevision、名称、整数时间和累计时长；缺截图或空 state 的创建请求被拒绝。
+- 通过标准：状态 Blob 与非空截图 Blob 同时存在且在同一事务引用；截图在暂停前从仍运行的帧取得、可解码且具有非零亮度分布，已暂停时复用进入暂停瞬间缓存的最后一帧，不能生成全黑 canvas 截图；记录 Profile、Game、CoreArtifact、GameVariantRevision、名称、整数时间和累计时长；缺截图或空 state 的创建请求被拒绝。
 - 证据：存档 API/数据库、CAS hash 和当前截图。
 
 ### ACC-SAVE-002：三个入口快速恢复与不兼容拒绝
@@ -678,8 +678,8 @@ python3 data/example/verify-fixtures.py
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-003`。
-- 流程：检查首页时长/最近游戏；在游戏库搜索并按平台/目录筛选；从卡片进入详情；查看封面、元信息、时长、存档、核心和 DOS 程序；从存档次要入口进入详情。
-- 通过标准：筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；存档主操作直接启动、标题/次要操作才进详情。
+- 流程：检查首页时长/最近游戏；在游戏库搜索并按平台/目录筛选；从卡片进入详情；查看封面、元信息、时长、最近 4 份存档、全量存档 Drawer、截图预览、核心和 DOS 程序；从存档次要入口进入详情。
+- 通过标准：筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；详情只内联最近 4 份存档且 Drawer 包含当前游戏全部存档；取消运行方式对话框不修改偏好，应用后才生效；存档主操作直接启动、标题/次要操作才进详情。
 - 证据：URL/query、可访问 DOM 断言和关键截图。
 
 ### ACC-UI-004：加载、空、错误、Warning 与 Blocker 状态
@@ -695,7 +695,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-005`。
 - 流程：在 `1280×800`、`2560×1440` CSS viewport，以及 3840×2160、100% scale viewport 分别打开首页、游戏库、详情、存档和 Player Shell。
-- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；三个 viewport 的游戏库分别为 4/6/8 列，内容分别不超过文档最大宽度。Player stage 为无边距的 100vw×100dvh；运行后 58px toolbar 自动移出画面且鼠标移动/键盘聚焦可恢复，标题/Core/平台和同步状态不挤压主操作。点击顶部 toolbar 的标题空白或任一操作都先暂停且保持暂停，只有点击游戏画面恢复；点击 EmulatorJS 设置控件不能误恢复。EmulatorJS 底部工具栏启动后及靠近底边时均保持隐藏，只有 Retrom 的“模拟器设置”能显示，且其中不存在 EmulatorJS 原生退出按钮。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式居中，未被裁切或拉伸。
+- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；三个 viewport 的游戏库分别为 4/6/8 列，内容分别不超过文档最大宽度。详情页在 `2560×1440` 与 `3840×2160` 下 Hero、信息条和最近 4 份存档均完整落在首屏，截图保持比例，Drawer/对话框不推动页面布局；`1280×800` 下关键启动操作和存档区仍在首屏可达。Player stage 为无边距的 100vw×100dvh；运行后 58px toolbar 自动移出画面且鼠标移动/键盘聚焦可恢复，标题/Core/平台和同步状态不挤压主操作。点击顶部 toolbar 的标题空白或任一操作都先暂停且保持暂停，只有点击游戏画面恢复；点击 EmulatorJS 设置控件不能误恢复。EmulatorJS 底部工具栏启动后及靠近底边时均保持隐藏，只有 Retrom 的“模拟器设置”能显示，且其中不存在 EmulatorJS 原生退出按钮。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式居中，未被裁切或拉伸。
 - 证据：三个 viewport 的布局测量、overflow 断言和页面截图。
 
 ### ACC-UI-006：管理侧 4K
@@ -719,7 +719,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-008`。
 - 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，加载第二页后选择第 57 项，修改标题并等待实时保存，再切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；最后 Approve 第 3 项并 Discard 第 58 项。分别在 1280×800 和 3840×2160 执行，并用键盘完成一次筛选和非顺序选中。
-- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。3840 下队列与详情同时可见，1280 下列表/详情路由明确分离；选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。页面没有批量 Approve/Discard，所有最终决策各自使用当前 ETag/Idempotency-Key/ReviewEvent，两个批次不会串项。
+- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。页面没有批量 Approve/Discard，所有最终决策各自使用当前 ETag/Idempotency-Key/ReviewEvent，两个批次不会串项。
 - 证据：API query/cursor、route 序列、键盘 trace、决策前后队列 DOM 及两个 viewport 的当前截图。
 
 ## 14. 缺陷处理与重验
