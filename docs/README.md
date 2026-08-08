@@ -15,7 +15,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 | 页面、直接启动、4K 与无障碍 | 已锁定 | [`ui-specification.md`](./ui-specification.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
 | 测试、CI、镜像与最终通过规则 | 已锁定 | [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)、[`project-acceptance.md`](./project-acceptance.md) |
 
-`api/openapi.yaml`、两端生成物、migration、Makefile 和应用代码是 M0 之后按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余条件仅是依赖首次物化需要公网、八核验收需要用户授权夹具、生产需要前置 NG，以及外部分发需要许可复核；它们的阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成一期产品决策缺口。
+`api/openapi.yaml`、两端生成物、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余外部条件仅是依赖首次物化需要公网、二十八核验收需要用户授权夹具、生产需要前置 NG，以及外部分发需要许可复核；它们的阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
 
 ## 从这里开始
 
@@ -31,7 +31,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核与历史回溯。
 - [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、核心专属 Arcade DAT、machine/parent/BIOS 依赖和管理能力。
 - [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、预检、EmulatorJS、DOS 启动程序、存档与游玩时长。
-- [`core-runtime-validation.md`](./core-runtime-validation.md)：8 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路与 MAME2003 兼容覆盖。
+- [`core-runtime-validation.md`](./core-runtime-validation.md)：28 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 双格式和 MAME2003 兼容覆盖。
 - [`storage-and-database.md`](./storage-and-database.md)：SQLite Unix 毫秒 `INTEGER` 时间规范、表目录、本地 SHA-256 CAS、GC 和备份。
 - [`data-model.md`](./data-model.md)：一期表字段、ID、枚举、不可变 revision、外键、索引和数据库级不变量的唯一数据字典。
 - [`http-api-contract.md`](./http-api-contract.md)：JSON/错误、受信内网写请求、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。

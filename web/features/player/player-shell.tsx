@@ -51,6 +51,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const finishing = useRef(false);
   const heartbeat = useRef<number | null>(null);
   const persistentSequence = useRef(0);
+  const persistentSaveMode = useRef<PlayerConfig["persistentSaveMode"]>("SINGLE_FILE");
   const persistentQueue = useRef(Promise.resolve());
   const persistentConflict = useRef<Uint8Array | null>(null);
   const [hasPersistentConflict, setHasPersistentConflict] = useState(false);
@@ -239,8 +240,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     finishing.current = true;
     try {
       const manager = emulator.current?.gameManager;
-      const path = manager?.getSaveFilePath?.();
-      if (!persistentConflict.current && path && manager?.FS?.analyzePath(path).exists) {
+      const path = persistentSaveMode.current === "NONE" ? undefined : manager?.getSaveFilePath?.();
+      if (persistentSaveMode.current !== "NONE" && !persistentConflict.current && path && manager?.FS?.analyzePath(path).exists) {
         const bytes = await manager.getSaveFile?.();
         if (bytes?.byteLength) uploadPersistent(bytes, "EXIT");
       }
@@ -280,13 +281,22 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         setGameTitle(config.gameTitle);
         setCoreName(config.coreName || config.core);
         setPlatformName(config.platformName);
+        persistentSaveMode.current = config.persistentSaveMode;
 
-        const persistentResponse = await fetch(config.persistentSaveUrl, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
-        if (!persistentResponse.ok && persistentResponse.status !== 204) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
-        const contentLength = Number(persistentResponse.headers.get("content-length") ?? "0");
-        if (contentLength > 64 * 1024 * 1024) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
-        const persistentBytes = persistentResponse.status === 204 ? null : new Uint8Array(await persistentResponse.arrayBuffer());
-        if (persistentBytes && persistentBytes.byteLength > 64 * 1024 * 1024) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
+        let persistentBytes: Uint8Array | null = null;
+        if (config.persistentSaveMode === "NONE") {
+          if (config.persistentSaveUrl !== null) throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
+          setSyncText("仅支持状态存档");
+          setSyncTone("warning");
+        } else {
+          if (!config.persistentSaveUrl) throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
+          const persistentResponse = await fetch(config.persistentSaveUrl, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
+          if (!persistentResponse.ok && persistentResponse.status !== 204) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
+          const contentLength = Number(persistentResponse.headers.get("content-length") ?? "0");
+          if (contentLength > 64 * 1024 * 1024) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
+          persistentBytes = persistentResponse.status === 204 ? null : new Uint8Array(await persistentResponse.arrayBuffer());
+          if (persistentBytes && persistentBytes.byteLength > 64 * 1024 * 1024) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
+        }
 
         if (!stage.current || !frameRef.current) return;
         const frame = frameRef.current;
@@ -322,11 +332,11 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         };
         frameDocument.addEventListener("pointermove", handleFramePointerMove, { passive: true });
         frameDocument.addEventListener("keydown", handleFrameKeyDown);
-        frameDocument.addEventListener("click", handleFrameClick);
+        if (config.inputMode === "STANDARD") frameDocument.addEventListener("click", handleFrameClick);
         cleanupFrameControls = () => {
           frameDocument.removeEventListener("pointermove", handleFramePointerMove);
           frameDocument.removeEventListener("keydown", handleFrameKeyDown);
-          frameDocument.removeEventListener("click", handleFrameClick);
+          if (config.inputMode === "STANDARD") frameDocument.removeEventListener("click", handleFrameClick);
         };
 
         let mountedSaveFS: NonNullable<NonNullable<EmulatorInstance["gameManager"]>["FS"]> | undefined;
@@ -347,36 +357,40 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
               nativeMenuObserver.observe(nativeMenu, { attributes: true, attributeFilter: ["class"] });
             }
             instance.on("saveState", () => undefined);
-            instance.on("saveDatabaseLoaded", () => {
-              const fs = instance.gameManager?.FS;
-              if (!fs) { setState("error"); setMessage("LAUNCH_PERSISTENT_SAVE_FS_UNAVAILABLE"); return; }
-              mountedSaveFS = fs;
-            });
-            instance.on("saveSaveFiles", (value: unknown) => {
-              if (value instanceof Uint8Array && value.byteLength) uploadPersistent(value, "AUTO_INTERVAL");
-            });
+            if (config.persistentSaveMode !== "NONE") {
+              instance.on("saveDatabaseLoaded", () => {
+                const fs = instance.gameManager?.FS;
+                if (!fs) { setState("error"); setMessage("LAUNCH_PERSISTENT_SAVE_FS_UNAVAILABLE"); return; }
+                mountedSaveFS = fs;
+              });
+              instance.on("saveSaveFiles", (value: unknown) => {
+                if (value instanceof Uint8Array && value.byteLength) uploadPersistent(value, "AUTO_INTERVAL");
+              });
+            }
             instance.on("exit", () => { void sendEvent("finish"); });
           },
           onGameStart: () => {
             frameDocument.documentElement.classList.add("retrom-native-menu-locked");
             emulator.current?.menu?.close?.();
             const manager = emulator.current?.gameManager;
-            const savePath = manager?.getSaveFilePath?.();
-            if (!manager || !mountedSaveFS || !savePath) { setState("error"); setMessage("LAUNCH_PERSISTENT_SAVE_PATH_UNAVAILABLE"); return; }
-            manager.toggleMainLoop?.(false);
-            ensureDirectory(mountedSaveFS, savePath);
-            if (persistentBytes) mountedSaveFS.writeFile(savePath, persistentBytes);
-            else if (mountedSaveFS.analyzePath(savePath).exists) mountedSaveFS.unlink(savePath);
-            manager.loadSaveFiles?.();
-            manager.toggleMainLoop?.(true);
+            if (config.persistentSaveMode !== "NONE") {
+              const savePath = manager?.getSaveFilePath?.();
+              if (!manager || !mountedSaveFS || !savePath) { setState("error"); setMessage("LAUNCH_PERSISTENT_SAVE_PATH_UNAVAILABLE"); return; }
+              manager.toggleMainLoop?.(false);
+              ensureDirectory(mountedSaveFS, savePath);
+              if (persistentBytes) mountedSaveFS.writeFile(savePath, persistentBytes);
+              else if (mountedSaveFS.analyzePath(savePath).exists) mountedSaveFS.unlink(savePath);
+              manager.loadSaveFiles?.();
+              manager.toggleMainLoop?.(true);
+            }
             if (emulator.current) emulator.current.paused = false;
             pausedRef.current = false;
             setPaused(false);
             frameWindow.requestAnimationFrame(() => canvasContain?.refresh());
             void sendEvent("start").then(() => {
               setState("running");
-              setSyncText("已同步");
-              setSyncTone("synced");
+              setSyncText(config.persistentSaveMode === "NONE" ? "仅支持状态存档" : "已同步");
+              setSyncTone(config.persistentSaveMode === "NONE" ? "warning" : "synced");
               heartbeat.current = window.setInterval(() => { void sendEvent("heartbeat"); }, 30_000);
             }).catch(() => {
               setState("error");
@@ -384,7 +398,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
             });
           },
           onSaveState: (payload) => { void uploadManualState(payload); },
-          onSaveSave: (payload) => { if (payload.save.byteLength) uploadPersistent(payload.save, "MANUAL_EXPORT"); }
+          onSaveSave: config.persistentSaveMode === "NONE" ? undefined : (payload) => { if (payload.save.byteLength) uploadPersistent(payload.save, "MANUAL_EXPORT"); }
         }, frameWindow);
       } catch (error) {
         if (controller.signal.aborted) return;

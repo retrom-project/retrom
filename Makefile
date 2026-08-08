@@ -90,6 +90,7 @@ web-e2e: prepare-node
 	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/acceptance/web-e2e.sh
 
 data-check:
+	@python3 scripts/test_dependencies.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 	@node --test data/example/smoke-test.test.mjs
 

@@ -9,9 +9,11 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -21,11 +23,165 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/importing"
 	"retrom/internal/store"
 	"retrom/internal/uploads"
 )
+
+func TestMain(m *testing.M) {
+	handled, err := importing.RunArchiveWorker(os.Args[1:])
+	if handled {
+		if err != nil {
+			os.Exit(1)
+		}
+		os.Exit(0)
+	}
+	os.Exit(m.Run())
+}
+
+func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	archiveBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "importing", "testdata", "sevenzip", "single.7z"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	payloadBytes, err := os.ReadFile(filepath.Join(repositoryRoot, "internal", "importing", "testdata", "sevenzip", "payload", "game.a26"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+		SourceType: "FILES",
+		Files: []uploads.FileDeclaration{{
+			ClientFileID: "archive", RelativePath: "fixture.7z", SizeBytes: int64(len(archiveBytes)),
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	archiveDigest := sha256.Sum256(archiveBytes)
+	if err := uploadService.PutPart(
+		ctx,
+		upload.ID,
+		upload.Files[0].ID,
+		0,
+		fmt.Sprintf("bytes 0-%d/%d", len(archiveBytes)-1, len(archiveBytes)),
+		"sha-256=:"+base64.StdEncoding.EncodeToString(archiveDigest[:])+":",
+		bytes.NewReader(archiveBytes),
+	); err != nil {
+		t.Fatal(err)
+	}
+	current, err := uploadService.Get(ctx, upload.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		var state string
+		if err := database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state == "SUCCEEDED" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("upload finalization = %s", state)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
+		UploadID: upload.ID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000011", MetadataProvider: "NONE",
+	})
+	if err != nil || created.ItemCount != 1 {
+		t.Fatalf("Create() = %#v, error=%v", created, err)
+	}
+	var itemID, sourceArchiveBlobID, contentBlobID, logicalName, archiveFormat, compressionProfile, contentSHA string
+	var sourceOrdinal int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT i.id,
+       source.source_archive_blob_id,
+       source.source_archive_entry_ordinal,
+       source.blob_id,
+       source.logical_name,
+       entry.archive_format,
+       entry.compression_profile,
+       content.sha256
+FROM import_items i
+JOIN import_item_source_files source ON source.import_item_id=i.id AND source.role='CONTENT'
+JOIN archive_entries entry ON entry.archive_blob_id=source.source_archive_blob_id
+ AND entry.ordinal=source.source_archive_entry_ordinal
+JOIN blobs content ON content.id=source.blob_id
+WHERE i.import_job_id=?
+`, created.ImportJobID).Scan(
+		&itemID,
+		&sourceArchiveBlobID,
+		&sourceOrdinal,
+		&contentBlobID,
+		&logicalName,
+		&archiveFormat,
+		&compressionProfile,
+		&contentSHA,
+	); err != nil {
+		t.Fatal(err)
+	}
+	payloadDigest := sha256.Sum256(payloadBytes)
+	if sourceArchiveBlobID == "" || contentBlobID == sourceArchiveBlobID || sourceOrdinal != 0 ||
+		logicalName != "game.a26" || archiveFormat != "SEVEN_Z" ||
+		compressionProfile != "SEVEN_Z_DECODER_VALIDATED" || contentSHA != hex.EncodeToString(payloadDigest[:]) {
+		t.Fatalf(
+			"materialized source = archive:%s ordinal:%d content:%s name:%s format:%s/%s sha:%s",
+			sourceArchiveBlobID,
+			sourceOrdinal,
+			contentBlobID,
+			logicalName,
+			archiveFormat,
+			compressionProfile,
+			contentSHA,
+		)
+	}
+	approved, err := New(database.SQL, time.Now).Approve(ctx, itemID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var publishedBlobID, publishedArchiveID string
+	var publishedOrdinal int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT file.blob_id,file.source_archive_blob_id,file.source_archive_entry_ordinal
+FROM games game
+JOIN game_content_files file ON file.game_content_revision_id=game.current_content_revision_id
+WHERE game.id=? AND file.role='CONTENT'
+`, approved.GameID).Scan(&publishedBlobID, &publishedArchiveID, &publishedOrdinal); err != nil {
+		t.Fatal(err)
+	}
+	if publishedBlobID != contentBlobID || publishedArchiveID != sourceArchiveBlobID || publishedOrdinal != 0 {
+		t.Fatalf("published source = %s/%s/%d", publishedBlobID, publishedArchiveID, publishedOrdinal)
+	}
+}
 
 func TestUploadImportReviewPublishPipeline(t *testing.T) {
 	t.Parallel()
@@ -187,22 +343,71 @@ WHERE d.import_item_id=?
 		!strings.Contains(importConfigSnapshot, `"platformInstanceVersion":1`) {
 		t.Fatalf("old/new validation snapshot = %s/%s v%d config=%s error=%v", oldValidationID, refreshedValidationID, refreshedPlatformVersion, importConfigSnapshot, err)
 	}
-	manualCoverID := "01990000-0000-7000-8000-000000000001"
 	var sourceBlobID string
 	if err := database.SQL.QueryRowContext(ctx, "SELECT final_blob_id FROM upload_files WHERE id=?", upload.Files[0].ID).Scan(&sourceBlobID); err != nil {
 		t.Fatal(err)
 	}
+	var requirementID, md5Value, sha1Value, sha256Value string
+	var requirementVersion, sourceSize int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT id,version
+FROM bios_requirements
+WHERE core_id='mgba' AND logical_name='gba_bios.bin' AND enabled=1
+`).Scan(&requirementID, &requirementVersion); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT size_bytes,md5,sha1,sha256
+FROM blobs
+WHERE id=?
+`, sourceBlobID).Scan(&sourceSize, &md5Value, &sha1Value, &sha256Value); err != nil {
+		t.Fatal(err)
+	}
+	const biosInstallationID = "01990000-0000-7000-8000-000000000010"
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
+`, biosInstallationID, requirementID, sourceBlobID, "gba_bios.bin", sourceSize, md5Value, sha1Value,
+		sha256Value, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	if err := json.Unmarshal([]byte(`{"metadata":{"description":"BIOS snapshot refreshed"}}`), &metadataPatch); err != nil {
+		t.Fatal(err)
+	}
+	biosRefreshed, err := importer.PatchDraft(ctx, itemID, 4, metadataPatch)
+	if err != nil || biosRefreshed.Version != 5 {
+		t.Fatalf("refresh BIOS validation = %#v, error=%v", biosRefreshed, err)
+	}
+	var biosValidationID, biosSnapshotJSON, validationBIOSBlobID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT d.selected_validation_id,v.dependency_snapshot_json,f.blob_id
+FROM review_drafts d
+JOIN import_item_core_validations v ON v.id=d.selected_validation_id
+JOIN import_item_validation_files f ON f.import_item_core_validation_id=v.id
+AND f.role='BIOS_BUNDLE' AND f.logical_name='gba_bios.bin'
+WHERE d.import_item_id=?
+`, itemID).Scan(&biosValidationID, &biosSnapshotJSON, &validationBIOSBlobID); err != nil {
+		t.Fatal(err)
+	}
+	biosSnapshot, err := corevalidation.ParseSnapshot(biosSnapshotJSON)
+	if err != nil || biosValidationID == refreshedValidationID || validationBIOSBlobID != sourceBlobID ||
+		len(biosSnapshot.BIOS) != 1 || biosSnapshot.BIOS[0].InstallationID == nil ||
+		*biosSnapshot.BIOS[0].InstallationID != biosInstallationID {
+		t.Fatalf("refreshed BIOS validation = %s snapshot=%s blob=%s error=%v", biosValidationID, biosSnapshotJSON, validationBIOSBlobID, err)
+	}
+	manualCoverID := "01990000-0000-7000-8000-000000000001"
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO review_uploaded_assets(id,import_item_id,upload_file_id,blob_id,kind,width_px,height_px,media_type,created_at_ms)
 VALUES(?,?,?,?,'COVER',600,900,'image/png',?)
 `, manualCoverID, itemID, upload.Files[0].ID, sourceBlobID, time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	selected, err := importer.PatchDraft(ctx, itemID, 4, DraftPatch{SelectedAssets: &SelectedAssets{CoverUploadedAssetID: &manualCoverID}})
-	if err != nil || selected.Version != 5 {
+	selected, err := importer.PatchDraft(ctx, itemID, 5, DraftPatch{SelectedAssets: &SelectedAssets{CoverUploadedAssetID: &manualCoverID}})
+	if err != nil || selected.Version != 6 {
 		t.Fatalf("select uploaded review cover = %#v, error=%v", selected, err)
 	}
-	approved, err := importer.Approve(ctx, itemID, 5)
+	approved, err := importer.Approve(ctx, itemID, 6)
 	if err != nil {
 		t.Fatalf("approve: %v", err)
 	}

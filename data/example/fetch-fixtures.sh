@@ -18,6 +18,7 @@ if [[ "$source_root" != /* || "$source_root" == *$'\n'* ]]; then
 fi
 command -v jq >/dev/null || { printf 'jq is required\n' >&2; exit 2; }
 command -v unzip >/dev/null || { printf 'unzip is required\n' >&2; exit 2; }
+command -v python3 >/dev/null || { printf 'python3 is required\n' >&2; exit 2; }
 
 umask 077
 stage_dir=$(mktemp -d /tmp/retrom-fixtures.XXXXXX)
@@ -111,5 +112,23 @@ for index in "${!target_files[@]}"; do
   mkdir -p -- "$(dirname -- "${target_files[$index]}")"
   install -m 0644 -- "${staged_files[$index]}" "${target_files[$index]}"
 done
+
+while IFS=$'\t' read -r source_path source_sha target_path target_size target_sha relationship_sha; do
+  if [[ "$source_sha" != "$relationship_sha" ]]; then
+    printf 'PPSSPP materializedFrom source hash does not match the CSO fixture\n' >&2
+    exit 2
+  fi
+  python3 "$script_dir/materialize-cso.py" \
+    "$repo_root/$source_path" \
+    "$repo_root/$target_path" \
+    --source-sha256 "$source_sha" \
+    --target-sha256 "$target_sha" \
+    --target-size "$target_size"
+done < <(jq -r '
+  .fixtures[] | select(.core == "ppsspp") as $fixture |
+  $fixture.formatVariants[] | select(.formatId == "iso") |
+  [$fixture.game.localPath, $fixture.game.sha256, .localPath, .size, .sha256,
+   .materializedFrom.sourceSha256] | @tsv
+' "$manifest_path")
 
 printf 'Installed verified fixtures under %s/data/game\n' "$repo_root"

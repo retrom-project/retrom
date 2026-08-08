@@ -273,6 +273,8 @@ data/
 
 ## 6. Archive 安全
 
+- ZIP 在服务进程内使用受限 reader；7z 必须由同一后端二进制的隐藏 worker 子进程读取，父进程只传只读 fd，不传用户路径，也不调用宿主 `7z/7zz`。Linux worker fail-closed 设置 Go 512 MiB memory limit、2 GiB `RLIMIT_AS`、8 GiB `RLIMIT_FSIZE`、64 个 fd、0 core dump、120 秒 CPU，上层 wall timeout 125 秒且 IPC JSON 最多 64 MiB；OS 无法建立限制时返回 `ARCHIVE_SANDBOX_UNAVAILABLE`。worker crash/signal/timeout/resource/超长 IPC 统一为 `ARCHIVE_RESOURCE_LIMIT`。
+- 7z 只接受首字节 magic `37 7a bc af 27 1c` 的未加密、单卷、非 SFX archive，并用 `NewReader(readerAt,size)` 禁止邻接分卷发现。最多 20,000 个 regular-file entry、单 entry 8 GiB、总展开 32 GiB、展开/原包比 200；扫描按自然 ordinal 顺序完整读取、校验 CRC/声明大小并计算四种 hash。父进程先 SCAN 再按唯一候选 ordinal MATERIALIZE，输出以 `expectedSize+1` 限流进入 CAS；任何半成品都不能成为 Blob 引用。
 - 上传 manifest 与 ZIP entry 共用 `SAFE_LOGICAL_PATH_V1`：输入必须是有效 UTF-8，使用 `/` 分隔，整体 1–1,024 UTF-8 bytes、每段 1–255 bytes；拒绝开头/结尾 `/`、空段、`.`/`..` 段、反斜杠、NUL、U+0001..U+001F、U+007F、Windows drive 前缀和 UNC/绝对路径。字符串不做 percent decode、Unicode NFC/NFD 或平台文件系统 canonicalization；存储的 `normalized_path` 只是把已验证段以单个 `/` 连接，因此相同原始 bytes 必须得到相同结果。UI 展示时仍按纯文本转义。
 - ZIP central directory 的每个 name 都先执行该算法。显式目录 entry 必须且只能以单个 `/` 结尾：分类为 directory 后先去掉这个终止符，再对剩余非空 path 执行 `SAFE_LOGICAL_PATH_V1`，通过后忽略该 entry；不能把“目录例外”用于接受 `//`、根目录、`.`/`..` 或反斜杠。任何 symlink、hardlink/device/FIFO/socket、加密 entry 或路径不安全都会阻断整个 archive。无 Unix mode 的非目录 entry 可按 regular file 处理；存在 mode 时只接受 regular file/directory。只支持 ZIP method 0（Store）和 8（Deflate）；ZIP64 只有在同一大小门禁内才允许，不注册额外 decompressor。
 - `archive_entries.original_relative_path` 保留安全原名，`normalized_path` 保留其大小写，另保存 `ascii_casefold_path`（只把 ASCII `A..Z` 映射为 `a..z`）。同一 archive 对 normalized path 和 ASCII-casefold path 都唯一；因此 `ROM.BIN/rom.bin` 稳定阻断而不会在 Arcade/DOS 虚拟文件系统中互相覆盖。DAT entry lookup、BIOS 重验证和依赖预览查询该已索引 key，不重读 archive。
@@ -282,7 +284,7 @@ data/
 - XML DAT 解析只允许 BIOS/DAT 专题定义的一个有界 DOCTYPE 声明并在 token stream 前安全移除；绝不解释 DTD/实体，也不允许外部实体或网络访问。不能把这条简写实现成“拒绝所有真实 DAT 的 DOCTYPE”。
 - 不信任扩展名、ZIP 声明 MIME 或 archive 内路径。
 - 读取 Arcade ZIP central directory 时不默认展开全部内容到磁盘。
-- 一期遇到运行必需 CHD 直接产生 `UNSUPPORTED_CHD` 审核 Blocker；解析 DAT disk 元素不等于支持上传或启动 CHD。
+- Arcade DAT 遇到运行必需 CHD 仍直接产生 `UNSUPPORTED_CHD` 审核 Blocker；PSX、Saturn、3DO、PC-FX 的平台 profile 则明确接受单个 raw CHD，两者不能混用。PSP 的 raw ISO/CSO 不作为 archive 扫描。
 
 ## 7. 垃圾回收
 

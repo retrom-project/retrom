@@ -60,7 +60,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 8. `launch_sessions/play_sessions/play_session_events/save_states/persistent_saves/persistent_save_revisions`；
 9. 全部 partial unique index、不可变/归属 trigger、搜索索引和 schema checksum 回归。
 
-创建全新库和从每个既有 migration 逐步升级必须得到同构 schema。循环 current pointer 使用数据模型规定的 deferred FK；不能用关闭 foreign keys、事后修补 NULL 或启动时 DDL 规避迁移顺序。
+测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立，014 只增加核心目录、BIOS delivery 与 Launch external-file 能力，不为未上线的历史 schema 引入表重建绕行。正式发布后再遵守只追加 migration 的升级纪律。
 
 ## 4. 里程碑
 
@@ -100,7 +100,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 范围：首页、游戏库、详情、存档列表空壳的真实 API；LaunchSession/HMAC capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202 `VARIANT_REVALIDATE`/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 原 bundle 加 Launch 受限旁置 config；Player Shell 通过 config 的显式 `playerAdapterId` 设置该锁定 EmulatorJS 版本的 globals、callback、locale、external files 与 artifact basename override，未知/错配 adapter 在加载 loader 前阻断，并在同一次 click 中请求全屏和自动开始。当前首个 adapter 对应 v4.2.3。
 
-退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`005` 与 `ACC-CORE-001`–`008`；若依赖版本发生变化另执行 `ACC-DAT-006`。核心 Case 与核心的映射以验收文档表格为准，使用本地授权夹具；夹具不可用时可以阻塞这些 Case，但不能以 mock 或历史截图判为通过。
+退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`005` 与 `ACC-CORE-001`–`028`；若依赖版本发生变化另执行 `ACC-DAT-006`。核心 Case 与核心的映射以验收文档表格为准，使用本地授权夹具；夹具不可用时可以阻塞这些 Case，但不能以 mock 或历史截图判为通过。PPSSPP 的一个 Case 内含 ISO、CSO 两个独立 run，两者必须同时通过。
 
 ### M6：存档、时长与完整 UI
 
@@ -135,7 +135,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 - 第一次 `make prepare-deps` 和镜像 dependency builder 需要访问 manifest 固定的公开 HTTPS runtime、DAT 与许可来源；正确缓存后校验与服务启动离线。
 - 默认构建契约只产生私有自托管镜像；若未来要 push、公开或商业分发，必须先完成 manifest 标记的受限制 core 人工许可审查。这是分发授权边界，不允许实现 Agent通过删 notice、换浮动 core 或绕过检查来处理。
-- 八个 core 的 ROM/BIOS 夹具由用户授权后保存在 Git 忽略目录；缺失只使对应 `ACC-CORE-*` 为 `BLOCKED`，不会授权提交 ROM/BIOS 或改用假游戏。
+- 二十八个 core 的 ROM/BIOS 夹具由用户授权后保存在 Git 忽略目录；缺失只使对应 `ACC-CORE-*` 为 `BLOCKED`，不会授权提交 ROM/BIOS 或改用假游戏。夹具获取只允许读取操作者明确给出的主机和根目录。
 - 生产需要前置 NG 提供同源 HTTPS、保留 nonce CSP/隔离头并挂载持久数据卷；Retrom 本身不实现 TLS。
 - Hasheous 可临时不可用；导入仍进入人工审核，自动测试不依赖实时命中。
 

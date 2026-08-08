@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.0 |
-| 日期 | 2026-08-06 |
+| 版本 | 1.1 |
+| 日期 | 2026-08-08 |
 | 适用范围 | Go 后端、Next.js 前端、SQLite 集成与 EmulatorJS 运行时验证 |
 | 质量原则 | 零 lint warning、关键路径有测试、每个已发现 bug 有回归用例、不设覆盖率百分比门槛 |
 
@@ -38,6 +38,8 @@
 脚手架必须从以下已审定基线开始，并以锁文件为最终事实源：Go `1.26.5`；`modernc.org/sqlite v1.52.0`；`github.com/google/uuid v1.6.0`；`oapi-codegen v2.8.0`；`github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其直接使用的 `github.com/getkin/kin-openapi v0.142.0`；`gofumpt v0.11.0`；`goimports` 来自 `golang.org/x/tools v0.48.0`；Node `24.18.0`（`.node-version`）；npm `11.16.0`（`packageManager`）；Next.js 与 `eslint-config-next` `16.3.0`；React/React DOM `19.2.7`；Tailwind CSS 与 `@tailwindcss/postcss` `4.3.0`；TypeScript `5.9.3`；ESLint `9.39.0`；Vitest `4.1.8` 与 Vite `8.2.0`；`@playwright/test 1.61.1`（它锁定同版本 `playwright` runtime）；`openapi-typescript 7.13.0`；`openapi-fetch 0.17.0`；golangci-lint `v2.11.4`。
 
 前端测试配套固定为 `@testing-library/react 16.3.2`、`@testing-library/dom 10.4.1`、`@testing-library/user-event 14.6.3`、`@testing-library/jest-dom 6.9.1`、`jsdom 29.1.1`、`@vitejs/plugin-react 6.0.2`、`postcss 8.5.26`、`@types/node 24.13.3`、`@types/react 19.2.18`、`@types/react-dom 19.2.4`。Vite 必须作为直接 devDependency，不能只依赖 Vitest 的传递依赖；`@testing-library/dom` 同理是 React Testing Library 的必需 peer。`package.json` 的全部直接依赖/devDependency 使用精确版本而非 `^`/`~`，`package-lock.json` 和 `go.sum` 必须提交；若首次 `npm ci` 证明某组合存在 peer incompatibility，必须作为独立工具链修订更新本节与锁文件，不能在功能 PR 中静默漂移到 `latest`。TypeScript 固定 5.9.3 是因为 `openapi-typescript 7.13.0` 的正式 peer range 为 `^5.x`；升级到 TypeScript 6 前必须先升级/验证生成器，不能使用 `--force` 或 `legacy-peer-deps` 绕过。
+
+`openapi-typescript 7.13.0` 的 Redocly 工具链间接依赖统一由 npm override 固定为 `js-yaml 4.3.1`，用于排除 4.3.0 的 `!!omap` 二次复杂度安全问题；`npm ci` 后完整 `npm audit` 必须为零。移除 override 前必须先证明上游依赖已采用不低于 4.3.1 的版本并更新锁文件，不能让同名的旧嵌套副本重新进入工具链。
 
 这些版本是一期起点，不是永不升级的承诺。若安全修复要求升级，必须在独立变更中更新版本文件/锁文件、兼容说明与完整门禁；Agent 不得在功能实现中自行改用 `latest`。
 
@@ -299,7 +301,7 @@ python3 data/example/verify-fixtures.py
 node data/example/smoke-test.mjs mgba mame2003
 ```
 
-核心参数应替换为全部受影响核心；共享 loader、Player Shell 或版本基线变化时不传参数并运行 8 核全量 smoke。
+核心参数应替换为全部受影响核心；共享 loader、Player Shell 或版本基线变化时不传参数并运行 28 核全量 smoke。PPSSPP 在全量模式下展开为 ISO、CSO 两个独立 run，任一失败均视为该核心失败。
 
 全量升级门禁和“进入游戏画面”的判定以 [`core-runtime-validation.md`](./core-runtime-validation.md) 为准。
 

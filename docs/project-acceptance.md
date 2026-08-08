@@ -3,10 +3,10 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期唯一验收基线 |
-| 版本 | 1.3 |
-| 日期 | 2026-08-06 |
+| 版本 | 1.4 |
+| 日期 | 2026-08-08 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
-| 范围 | 工程质量、镜像、本地开发、平台目录、导入审核、BIOS/DAT、存储、安全、运行时、8 核兼容性和 4K UI |
+| 范围 | 工程质量、镜像、本地开发、平台目录、导入审核、BIOS/DAT、存储、安全、运行时、28 核兼容性、PSP ISO/CSO 和 4K UI |
 
 ## 1. 文档职责
 
@@ -210,8 +210,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：900 秒。
 - 执行：`make build-backend-image`，随后 `docker image inspect retrom:latest`；用 `docker image save` 到验收临时目录检查最终 image layer 文件清单，不创建/启动容器。
-- 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、非 root User、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、九份许可原文、依赖 manifest allowlist 和三份 DAT；从 manifest 在验收临时目录重建 notice 并逐字节比较。
-- 通过标准：默认 target 为 `retrom:latest`，`io.retrom.release-input-sha256` 等于本次 helper 值；构建中所有 runtime/DAT/license artifact 命中固定 hash；notice 顺序、source commit URL、association status 与原始许可 bytes 符合 format v1，且受限制 core 没有被描述为可任意分发。最终文件包含八个 selected core、三份 DAT、九份许可原文和 notice，但不包含 303 MiB 下载 archive、非 allowlist core、`data/game`、本地 SQLite/CAS、source checkout/缓存、TLS 私钥或开发启动命令；Git index 没有被忽略的 DAT/runtime/license payload，也没有大于 5 MiB 的第三方数据文件；构建过程没有 registry push。
+- 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、非 root User、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、29 个许可 component 的原文、依赖 manifest allowlist 和三份 DAT；从 manifest 在验收临时目录重建 notice 并逐字节比较。
+- 通过标准：默认 target 为 `retrom:latest`，`io.retrom.release-input-sha256` 等于本次 helper 值；构建中所有 runtime/DAT/license artifact 命中固定 hash；notice 顺序、source commit URL、association status 与原始许可 bytes 符合 format v1，且受限制 core 没有被描述为可任意分发。最终文件包含 28 个 selected core、28 份 report、PPSSPP assets、三份 DAT、29 个许可 component 的原文和 notice，但不包含下载 archive、非 allowlist core、`data/game`、本地 SQLite/CAS、source checkout/缓存、TLS 私钥、宿主 `7z/7zz` 或开发启动命令；Git index 没有被忽略的 DAT/runtime/license payload；构建过程没有 registry push。
 - 证据：build log、image ID、RepoTags、User、Entrypoint/Cmd、最终 layer 文件/size 清单、Git tracked-file size 检查和 artifact 校验摘要；不启动容器。
 
 ### ACC-PKG-002：前端镜像构建
@@ -434,10 +434,10 @@ make acceptance-case CASE=<case-id>
 
 ### ACC-IMP-003：三种 Hash profile 不混用
 
-- 上限：120 秒。
+- 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-003`。
-- 流程：导入一个 raw ROM、唯一 ROM member 的 GBA ZIP 与 `ldrun.zip`；读取 Blob/archive entry 和 `content_hash_evidence`，执行 stub lookup，并构造有两个同优先级 ROM member 的非 Arcade ZIP。另以 Arcade 目标分别导入“NORMAL clone + NORMAL parent + 已引用 BIOS/base”和“单独未引用 BIOS/base”两个小批次。
-- 通过标准：CAS 始终使用原始 Blob SHA-256；raw 使用 `RAW_FILE_V1`，GBA member 使用 `SINGLE_ARCHIVE_MEMBER_V1`，且均对原始内容 bytes 计算四种 hash、不剥 header；主机 ZIP 发布后的 GameContentRevision 以唯一 `CONTENT` GameContentFile 指向物化 member，原 ZIP 只作为来源证据，VariantRevision 不复制第二份 CONTENT；Arcade 使用 `ARCADE_DAT_ENTRIES_V1`，不查询 ZIP hash，只选择 DAT 直接声明且在 primary CONTENT 中逐名/逐 hash 匹配的 entry，evidence 指向实际 ArchiveEntry，并按规定排序/去重且最多 8 次；零个符合项时无 provider 请求且不回退 parent/BIOS hash。NORMAL parent 同时是自身 Item 与 clone COMPANION；EXPLICIT_BIOS/ROMOF_INFERENCE 只作为 COMPANION，不产生可发布 Game，单独未引用时以 `REJECTED/ARCADE_UNUSED_DEPENDENCY_ARCHIVE` 可见拒绝。多 primary archive 不猜测，文件以 `REJECTED/AMBIGUOUS_PRIMARY_CONTENT` 出现在任务页且不创建无 canonical source 的 ImportItem；7z/RAR/TAR/nested archive 同样以稳定 file-level reason 拒绝；每次上游 body 只含精确 `mD5/shA1/shA256/crc`。
+- 流程：导入一个 raw ROM、内容相同的唯一 ROM member ZIP/7z 与 `ldrun.zip`；读取 Blob/archive entry、`archiveFormat` 和 `content_hash_evidence`，执行 stub lookup，并构造有两个同优先级 ROM member 的 archive。另以 Arcade 目标导入 NORMAL/parent/BIOS 依赖批次。
+- 通过标准：CAS 始终使用原始 Blob SHA-256；raw 使用 `RAW_FILE_V1`，ZIP/7z member 都使用 `SINGLE_ARCHIVE_MEMBER_V1` 且物化 bytes/hash 相同，但分别保留 `ZIP/SEVEN_Z` 来源；GameContentRevision 只指向物化 member，来源 archive 不作为运行 CONTENT。Arcade 仍使用 `ARCADE_DAT_ENTRIES_V1` 且不查询 ZIP 整体 hash。零/多 primary 不猜测；RAR/TAR、nested、加密/分卷/SFX 7z 以稳定 file-level reason 拒绝。每次上游 body 只含精确 `mD5/shA1/shA256/crc`。
 - 证据：数据库字段和发往 stub 的脱敏请求。
 
 ### ACC-IMP-004：ImportJob 配置快照不漂移
@@ -476,6 +476,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-008`。
+- 7z 子流程：覆盖 magic/SFX、加密、nested、路径与 casefold 冲突、CRC/size、entry/总量/压缩比、worker crash/signal/timeout 与 IPC 上限；只接受未加密单卷非 SFX 的唯一 ROM wrapper，子进程无可用资源隔离时 fail-closed，所有故障不留下半成品 Blob。
 - 流程：创建含 3 个 Item 的任务，对其中一个故障注入；让一个 Item 已发布、另一个进入 RUNNING、第三个进入 REVIEW_PENDING 后取消整个 Import，观察 ImportJob/运行 Job 的 CANCEL_REQUESTED，再由注入式 reader 的下一个检查点确认 CANCELLED；另建独立失败任务，分别在 IDENTIFYING 和 SCRAPING 注入 retryable 本地故障后调用 Item retry，记录 Job/Run/配置快照；并在另一个阶段终止 worker，使用 fake clock 令 lease 到期后重启。再让 CANCEL_REQUESTED worker lease 过期，验证恢复器只清理/确认取消；对确定性坏输入验证直接进入 FAILED_FINAL 而非虚假的 FAILED_RETRYABLE。
 - 通过标准：已发布 Item 不回滚，REVIEW_PENDING Item 在取消事务转 CANCELLED；RUNNING cancel 返回 202，ImportJob 在停止前保持 CANCEL_REQUESTED，最后一个 Worker 确认后才为 CANCELLED，且绝不因已有发布/取消混合计数聚合成 COMPLETED/PARTIAL_FAILURE。取消检查不超过规定 reader/token 边界并且不会发布；旧 worker 在取消/lease 转移后提交被 state+lease token 拒绝；取消中 lease 恢复不继续领域计算。IDENTIFYING retry 复用 pipeline Job并增加 execution，SCRAPING retry 新建 Run/Job且旧证据不变；两者都由 persisted failedStage 分派、保留原 Import 配置，不重复创建 Blob/候选/ReviewEvent。JobEvent 仍按每次真实转换追加；普通过期任务被重新领取并完成；确定性错误直接 FAILED_FINAL，attempt 用尽才从 FAILED_RETRYABLE 进入 FAILED_FINAL；没有长事务或真实等待，任务/审核时刻均为 INTEGER。
 - 证据：完整状态转换、引用计数、lease/attempt 和事务时长摘要。
@@ -487,8 +488,8 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
-- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证小型 manifest schema v3、`player_adapter` ID/runtime base/loader、前端 registry 与实现双向对应、runtime allowlist、八个 selected core、mame2003 override、九份许可来源/JSON Pointer、`SHA256SUMS`、三个已物化 DAT 的 size/hash 及 machine/ROM/merge/biosset/default/bios/nodump/baddump/缺失 hash/关系统计和 core artifact 绑定；离线重建 notice。再用全新临时 SQLite 和真实三份 DAT 断网启动服务，等待 ready，记录 DatVersion/Job/索引统计；重启同一数据根，确认复用结果而不重跑 parser。最后运行 seed/约束负向检查，并用 `git ls-files`/`git check-ignore` 检查 payload 边界。
-- 通过标准：离线命令成功，所有值与机器基线一致；基线 manifest 的 adapter 精确为 `ejs-4.2.3-v1 → 4.2.3`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；八个 enabled Core 各恰有一条 enabled CoreArtifact 且逐项等于 manifest `selected_core_artifacts`，尝试为同 core 启用第二条被数据库约束拒绝；历史 artifact 可 disabled 保留。冷库先 live/`DEPENDENCY_INDEXING`，三个不可取消 bootstrap Job 在事务外解析、每批至多 1,000 行，索引只在 READY 后可查询，最终三个 Arcade core 各有独立 READY active DAT；重启的 Job/DatVersion ID 与 parsedAtMs 不变且 parser 调用数为 0。可空 hash 精确保留为 NULL/NODUMP 而不伪造，未命中 manifest/未 enabled 的 artifact 不自动使用。许可输入逐项命中 size/hash，notice 可重复生成且 association status 不被升级为虚假精确证据；DAT、EJS archive/runtime、license/notice payload 均未被 Git 跟踪，manifest/SHA/配方被跟踪。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 对两镜像 `io.retrom.release-input-sha256` 的精确比较消除错配。
+- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证 manifest schema V4、artifact compatibility V2、`player_adapter` ID/runtime base/loader、前端 registry 与实现双向对应、runtime allowlist、28 个 selected core/report、PPSSPP assets、mame2003 override、29 个许可 component 来源/JSON Pointer、`SHA256SUMS`、三个已物化 DAT 的 size/hash 及解析统计和 core artifact 绑定；离线重建 notice。再用全新临时 SQLite 和真实三份 DAT 断网启动服务，等待 ready，记录 DatVersion/Job/索引统计；重启同一数据根，确认复用结果而不重跑 parser。最后运行 seed/约束负向检查，并用 `git ls-files`/`git check-ignore` 检查 payload 边界。
+- 通过标准：离线命令成功，所有值与机器基线一致；基线 manifest 的 adapter 精确为 `ejs-4.2.3-v1 → 4.2.3`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；28 个 enabled Core 各恰有一条 enabled CoreArtifact 且逐项等于 manifest，线程 basename 与实际 artifact 一致，未知版本不回退默认 adapter。冷库先 live/`DEPENDENCY_INDEXING`，三个不可取消 bootstrap Job 在事务外解析，最终三个 Arcade core 各有独立 READY active DAT；重启不重跑 parser。许可输入逐项命中 size/hash，notice 可重复生成；DAT、EJS archive/runtime、license/notice payload 均未被 Git 跟踪。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
 ### ACC-DAT-002：Core 隔离与依赖闭包
@@ -511,9 +512,9 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-002`。
-- 流程：移除 FDS 必需 BIOS 做预检；分别以 `.gb/.gbc/.gba` 小型真实 fixture 检查 Gambatte/mGBA 可选 BIOS 不存在、仅安装另一内容类型 BIOS，以及安装匹配内容类型的正确/`HASH_WARNING` BIOS；读取 Launch config/bundle。再以 entry 名齐全但 hash 不同的 Arcade BIOS/base archive 启动，并检查包含自身依赖的 Full Non-Merged Arcade fixture。
-- 通过标准：适用必需文件/entry 完全缺失阻断；不适用 requirement 不进入 digest/bundle，可选文件缺失只提示且不增加 activation option。匹配内容类型的 active `MATCHED/HASH_WARNING` BIOS 以 Requirement 逻辑名装入，Gambatte config 精确增加 `gambatte_gb_bootloader=enabled`、mGBA 增加 `mgba_use_bios=ON`；Arcade entry 名齐全但 size/hash 不同也形成 `HASH_WARNING` 依赖、进入 bundle 并允许启动。另一内容类型 BIOS 不误启用，冲突 option seed 被校验拒绝，浏览器不按 core 名补写。Full Non-Merged 已内含依赖时不要求重复上传；页面按平台/core 聚合而不按平台目录复制，`gamegenie.nes/sgb_bios.bin` 按一期条件明确标“未使用”而非缺失。
-- 证据：预检/digest、Launch config、BIOS bundle entry 清单和 BIOS 页面截图。
+- 流程：移除 FDS 必需 BIOS 做预检；分别以 `.gb/.gbc/.gba` 小型真实 fixture 检查 Gambatte/mGBA 可选 BIOS 不存在、仅安装另一内容类型 BIOS，以及安装匹配内容类型的正确/`HASH_WARNING` BIOS；读取 Launch config/bundle。为 MelonDS 安装 `bios7.bin/bios9.bin/firmware.bin` 后创建 Launch，切换其中一个 active installation，再创建第二个 Launch并读取两个会话的 external files。最后以 entry 名齐全但 hash 不同的 Arcade BIOS/base archive 启动，并检查包含自身依赖的 Full Non-Merged Arcade fixture。
+- 通过标准：适用必需文件/entry 完全缺失阻断；不适用 requirement 不进入 digest/bundle，可选文件缺失只提示且不增加 activation option。匹配内容类型的 active `MATCHED/HASH_WARNING` BIOS 以 Requirement 逻辑名装入，Gambatte config 精确增加 `gambatte_gb_bootloader=enabled`、mGBA 增加 `mgba_use_bios=ON`；MelonDS 的三个 BIOS 不进入根 bundle，而是精确映射到三个固定虚拟路径，旧 Launch 锁定旧 Blob、新 Launch 使用新 Blob，跨 Launch capability 访问失败。Arcade entry 名齐全但 size/hash 不同也形成 `HASH_WARNING` 依赖、进入 bundle 并允许启动。另一内容类型 BIOS 不误启用，冲突 option seed 被校验拒绝，浏览器不按 core 名补写。Full Non-Merged 已内含依赖时不要求重复上传；页面按平台/core 聚合而不按平台目录复制，`gamegenie.nes/sgb_bios.bin` 按一期条件明确标“未使用”而非缺失。
+- 证据：预检/digest、两份 Launch config、BIOS bundle/external file 清单、跨 Launch 负向响应和 BIOS 页面截图。
 
 ### ACC-DAT-003：用户 DAT 候选不自动生效
 
@@ -610,8 +611,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-SAVE-003`。
-- 流程：seed 一份服务端 PersistentSave；创建两个锁定相同 base 的 Launch，在第一条加载 loader 前预取，记录 `EJS_ready → saveDatabaseLoaded → start` 顺序并验证恢复；让第一条触发两次并发 `saveSaveFiles`、一次手动 export 和 `exit`，记录每个 request 的 sequence/event/hash，再让第二条用旧 base 保存。重放相同 sequence/body，并分别复用 sequence 改 event/bytes、制造跳号。另以无服务端保存但浏览器存在旧 IDBFS 文件、上传失败，以及 fake reader 报告超过 64 MiB 做负向测试。
-- 通过标准：保存按 `Profile + GameVariantRevision + kind` 隔离；Launch GET 始终返回其创建时锁定的 revision。最多 64 MiB 的服务端 bytes 在 loader 前形成一个有界 `Uint8Array`，超限不分配完整 body 并以 `LAUNCH_PERSISTENT_SAVE_TOO_LARGE` 阻断；在真实 v4.2.3 且 `EJS_disableDatabases=true` 时 `saveDatabaseLoaded` 仍于 start 前触发，同步覆盖/清除 IDBFS 目标并调用 `loadSaveFiles()`，不会复活旧浏览器数据；在 `saveState()` 前已注册至少一个 saveState listener，v4.2.3 以 listener 数而非 callback 返回值阻止 fallback 写独立 state DB，自动更新来自真实 `saveSaveFiles` event。revision 保存正确 LaunchSession、从 1 连续的 sequence 和 `AUTO_INTERVAL/MANUAL_EXPORT/EXIT`，并发 callback 被串行/合并到后续 sequence；相同重放返回原结果，改 event/bytes 与跳号返回稳定冲突。第一条按 base/上一项 CAS 连续提升；第二条以 `PERSISTENT_SAVE_CONFLICT` 拒绝且不创建 revision/不覆盖 current，页面保留 bytes、提供本地下载并不自动死循环。不同 CoreArtifact/VariantRevision 不串用；其他失败明确报告且不覆盖最后有效 Blob；实现没有不存在的 `EJS_onExit/EJS_onSaveUpdate`。
+- 流程：seed 一份服务端 PersistentSave；创建两个锁定相同 base 的 Launch，在第一条加载 loader 前预取，记录 `EJS_ready → saveDatabaseLoaded → start` 顺序并验证恢复；让第一条触发两次并发 `saveSaveFiles`、一次手动 export 和 `exit`，记录每个 request 的 sequence/event/hash，再让第二条用旧 base 保存。重放相同 sequence/body，并分别复用 sequence 改 event/bytes、制造跳号。另以无服务端保存但浏览器存在旧 IDBFS 文件、上传失败，以及 fake reader 报告超过 64 MiB 做负向测试；最后对 `persistentSaveMode=NONE` 的核心调用 PersistentSave GET/PUT。
+- 通过标准：保存按 `Profile + GameVariantRevision + kind` 隔离；Launch GET 始终返回其创建时锁定的 revision。最多 64 MiB 的服务端 bytes 在 loader 前形成一个有界 `Uint8Array`，超限不分配完整 body 并以 `LAUNCH_PERSISTENT_SAVE_TOO_LARGE` 阻断；在真实 v4.2.3 且 `EJS_disableDatabases=true` 时 `saveDatabaseLoaded` 仍于 start 前触发，同步覆盖/清除 IDBFS 目标并调用 `loadSaveFiles()`，不会复活旧浏览器数据；在 `saveState()` 前已注册至少一个 saveState listener，v4.2.3 以 listener 数而非 callback 返回值阻止 fallback 写独立 state DB，自动更新来自真实 `saveSaveFiles` event。revision 保存正确 LaunchSession、从 1 连续的 sequence 和 `AUTO_INTERVAL/MANUAL_EXPORT/EXIT`，并发 callback 被串行/合并到后续 sequence；相同重放返回原结果，改 event/bytes 与跳号返回稳定冲突。第一条按 base/上一项 CAS 连续提升；第二条以 `PERSISTENT_SAVE_CONFLICT` 拒绝且不创建 revision/不覆盖 current，页面保留 bytes、提供本地下载并不自动死循环。不同 CoreArtifact/VariantRevision 不串用；其他失败明确报告且不覆盖最后有效 Blob；NONE 模式的 GET/PUT 均返回 `PERSISTENT_SAVE_UNSUPPORTED` 且不创建 revision/current 行，Player 不请求该端点；实现没有不存在的 `EJS_onExit/EJS_onSaveUpdate`。
 - 证据：事件顺序、前后持久 Blob hash/revision、IDBFS 负向结果、网络请求和故障注入结果。
 
 ### ACC-PLAY-001：有效游玩时长
@@ -622,11 +623,11 @@ make acceptance-case CASE=<case-id>
 - 通过标准：加载阶段没有 PlaySession/idle 误过期，pre-start finish 撤销且不创建游玩记录；真实 start 后才启用 2 分钟 idle。三个事件端点都位于 `/runtime/launches/{launchId}/` 且校验 launch cookie，只有公开 launchId 没有 cookie 时为 401。只累计实际运行区间；隐藏/暂停/超出失联上限不累计；heartbeat/finish 幂等、跳号冲突，client time 只审计且越界拒绝；数据库全为整数毫秒，首页/详情汇总一致。
 - 证据：事件时间线、期望/实际 duration 和 API 汇总。
 
-## 12. 八个核心的真实运行画面
+## 12. 二十八个核心的真实运行画面
 
 ### 12.1 每个核心的统一执行流程
 
-每个 `ACC-CORE-*` 都是独立 Case，不允许把八核合成一个可能超时的长 Case。执行前先运行：
+每个 `ACC-CORE-*` 都是独立 Case，不允许把二十八核合成一个可能超时的长 Case。执行前先运行：
 
 ```bash
 python3 data/example/verify-fixtures.py
@@ -653,8 +654,28 @@ python3 data/example/verify-fixtures.py
 | `ACC-CORE-006` | 180 秒 | `node data/example/smoke-test.mjs mame2003` | MAME 0.78 DAT；固定 4.2.1 bundle override hash | Lode Runner 标题/attract；不得请求 4.2.3 坏 bundle 或 mame2003_plus |
 | `ACC-CORE-007` | 180 秒 | `node data/example/smoke-test.mjs mame2003_plus` | 本 core DAT 对 `ldrun` 为 20/20 | Lode Runner 标题/投币画面 |
 | `ACC-CORE-008` | 180 秒 | `node data/example/smoke-test.mjs dosbox_pure` | thread core、COOP/COEP/CORP | DOOM II 标题画面；已知非阻断 ErrnoError 仅在帧继续且被记录时允许 |
+| `ACC-CORE-009` | 180 秒 | `node data/example/smoke-test.mjs nestopia` | FDS 条件 BIOS | Family Computer/FDS 启动画面 |
+| `ACC-CORE-010` | 180 秒 | `node data/example/smoke-test.mjs melonds` | 三个逐文件外部 BIOS、pointer | Zoo Keeper 标题菜单而非 FreeBIOS 空白双屏 |
+| `ACC-CORE-011` | 180 秒 | `node data/example/smoke-test.mjs desmume2015` | pointer、无 BIOS | Zoo Keeper 标题菜单 |
+| `ACC-CORE-012` | 180 秒 | `node data/example/smoke-test.mjs desmume` | pointer、无 BIOS | Zoo Keeper 标题菜单 |
+| `ACC-CORE-013` | 180 秒 | `node data/example/smoke-test.mjs a5200` | 7z 来源、`.a52` 物化、5200 BIOS | Super Breakout 游戏画面 |
+| `ACC-CORE-014` | 240 秒 | `node data/example/smoke-test.mjs pcsx_rearmed` | 单文件 CHD、PSX BIOS | PlayStation/游戏启动画面 |
+| `ACC-CORE-015` | 240 秒 | `node data/example/smoke-test.mjs mednafen_psx_hw` | thread、software renderer、PSX BIOS | PlayStation/游戏启动画面 |
+| `ACC-CORE-016` | 180 秒 | `node data/example/smoke-test.mjs handy` | Lynx BIOS、PersistentSave NONE | Lode Runner 标题/游戏画面 |
+| `ACC-CORE-017` | 240 秒 | `node data/example/smoke-test.mjs yabause` | 单文件 CHD、Saturn BIOS | Sega Saturn 游戏画面 |
+| `ACC-CORE-018` | 180 秒 | `node data/example/smoke-test.mjs genesis_plus_gx` | ZIP 单成员 `.md` | Felix the Cat 标题画面 |
+| `ACC-CORE-019` | 240 秒 | `node data/example/smoke-test.mjs mupen64plus_next` | raw `.z64` | Dr. Mario 64 标题画面 |
+| `ACC-CORE-020` | 240 秒 | `node data/example/smoke-test.mjs parallel_n64` | 产品/runtime ID 均为 `parallel_n64` | Dr. Mario 64 标题画面 |
+| `ACC-CORE-021` | 240 秒 | `node data/example/smoke-test.mjs opera` | 单文件 CHD、3DO BIOS | Total Eclipse 游戏画面 |
+| `ACC-CORE-022` | 180 秒 | `node data/example/smoke-test.mjs prosystem` | 7z 来源、`.a78` 物化、BIOS、PersistentSave NONE | Asteroids 标题画面 |
+| `ACC-CORE-023` | 180 秒 | `node data/example/smoke-test.mjs stella2014` | 7z 来源、`.a26` 物化、PersistentSave NONE | Freeway 游戏画面 |
+| `ACC-CORE-024` | 180 秒 | `node data/example/smoke-test.mjs picodrive` | ZIP 单成员 `.md` | Felix the Cat 标题画面 |
+| `ACC-CORE-025` | 180 秒 | `node data/example/smoke-test.mjs mednafen_pce` | raw `.pce` | Adventure Island 游戏画面 |
+| `ACC-CORE-026` | 240 秒 | `node data/example/smoke-test.mjs mednafen_pcfx` | 单文件 CHD、PC-FX BIOS | 光盘内游戏菜单 |
+| `ACC-CORE-027` | 180 秒 | `node data/example/smoke-test.mjs mednafen_ngp` | raw `.ngp` | Pac-Man 游戏画面 |
+| `ACC-CORE-028` | 480 秒 | `node data/example/smoke-test.mjs ppsspp` | raw CSO 与 ISO 两个独立 run、thread、assets、启动动作、PersistentSave NONE | 两种格式均到达 Sheep Defense 标题画面 |
 
-任一核心失败只重跑该 Case 进行诊断；共享 loader/runtime 变化时仍逐个运行八个 Case，不使用一个无界全量 Case 代替。
+`ACC-CORE-028` 必须同时生成 `ppsspp-cso` 与 `ppsspp-iso` 两条机器结果和两张截图；任一格式失败即为整个 Case 失败。任一核心失败只重跑该 Case 进行诊断；共享 loader/runtime 变化时仍逐个运行二十八个 Case，不使用一个无界全量 Case 代替。
 
 ## 13. UI、4K 与无障碍
 
@@ -742,7 +763,7 @@ python3 data/example/verify-fixtures.py
 - 第 5–13 节所有 Required Case 为 PASS；
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
-- 本次生成的八核机器结果与画面复核全部通过；
+- 本次生成的二十八核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -762,7 +783,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`008` |
 | BIOS 与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`002` |
 | 启动、存档与游玩时长 | `ACC-RUN-001`–`005`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
-| EmulatorJS 八核心 | `ACC-CORE-001`–`008` |
+| EmulatorJS 二十八核心 | `ACC-CORE-001`–`028` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`008` |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。

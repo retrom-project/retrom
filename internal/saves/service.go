@@ -39,13 +39,14 @@ const (
 )
 
 var (
-	ErrCredential         = errors.New("LAUNCH_CREDENTIAL_INVALID")
-	ErrInvalid            = errors.New("SAVE_INVALID")
-	ErrTooLarge           = errors.New("SAVE_TOO_LARGE")
-	ErrIdempotencyReused  = errors.New("IDEMPOTENCY_KEY_REUSED")
-	ErrSequenceGap        = errors.New("SAVE_SEQUENCE_GAP")
-	ErrSequenceReused     = errors.New("SAVE_SEQUENCE_REUSED")
-	ErrPersistentConflict = errors.New("PERSISTENT_SAVE_CONFLICT")
+	ErrCredential            = errors.New("LAUNCH_CREDENTIAL_INVALID")
+	ErrInvalid               = errors.New("SAVE_INVALID")
+	ErrTooLarge              = errors.New("SAVE_TOO_LARGE")
+	ErrIdempotencyReused     = errors.New("IDEMPOTENCY_KEY_REUSED")
+	ErrSequenceGap           = errors.New("SAVE_SEQUENCE_GAP")
+	ErrSequenceReused        = errors.New("SAVE_SEQUENCE_REUSED")
+	ErrPersistentConflict    = errors.New("PERSISTENT_SAVE_CONFLICT")
+	ErrPersistentUnsupported = errors.New("PERSISTENT_SAVE_UNSUPPORTED")
 )
 
 type Service struct {
@@ -78,6 +79,7 @@ type manualMetadata struct {
 
 type launchSnapshot struct {
 	profileID, gameID, variantRevisionID, artifactID string
+	persistentSaveMode, persistentSaveKind           string
 	datVersionID, dosEntry                           sql.NullString
 	credentialHash                                   []byte
 	state                                            string
@@ -86,6 +88,7 @@ type launchSnapshot struct {
 
 func (service *Service) launch(ctx context.Context, launchID, capability string) (launchSnapshot, error) {
 	var result launchSnapshot
+	var compatibilityJSON string
 	err := service.database.QueryRowContext(ctx, `
 SELECT l.profile_id,
 l.game_id,
@@ -95,16 +98,30 @@ r.dat_version_id,
 l.dos_entry_path,
 l.credential_sha256,
 l.state,
-l.hard_expires_at_ms
+l.hard_expires_at_ms,
+a.compatibility_config_json
 FROM launch_sessions l
 JOIN game_variant_revisions r ON r.id=l.game_variant_revision_id
+JOIN core_artifacts a ON a.id=l.core_artifact_id
 WHERE l.id=?
 `, launchID).
 		Scan(&result.profileID, &result.gameID, &result.variantRevisionID, &result.artifactID, &result.datVersionID,
-			&result.dosEntry, &result.credentialHash, &result.state, &result.hardExpiresAtMS)
+			&result.dosEntry, &result.credentialHash, &result.state, &result.hardExpiresAtMS, &compatibilityJSON)
 	if err != nil || !retromruntime.MatchesCapability(capability, result.credentialHash) ||
 		result.state != "ACTIVE" || result.hardExpiresAtMS <= service.now().UnixMilli() {
 		return launchSnapshot{}, ErrCredential
+	}
+	var compatibility struct {
+		SchemaVersion      int     `json:"schemaVersion"`
+		PersistentSaveMode string  `json:"persistentSaveMode"`
+		PersistentSaveKind *string `json:"persistentSaveKind"`
+	}
+	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil || compatibility.SchemaVersion != 2 {
+		return launchSnapshot{}, ErrCredential
+	}
+	result.persistentSaveMode = compatibility.PersistentSaveMode
+	if compatibility.PersistentSaveKind != nil {
+		result.persistentSaveKind = *compatibility.PersistentSaveKind
 	}
 	return result, nil
 }
@@ -449,12 +466,16 @@ func (service *Service) GetPersistent(
 	ctx context.Context,
 	launchID, capability string,
 ) (blobstore.Metadata, bool, error) {
-	if _, err := service.launch(ctx, launchID, capability); err != nil {
+	launch, err := service.launch(ctx, launchID, capability)
+	if err != nil {
 		return blobstore.Metadata{}, false, err
+	}
+	if launch.persistentSaveMode == "NONE" {
+		return blobstore.Metadata{}, false, ErrPersistentUnsupported
 	}
 	var digest, mediaType string
 	var size int64
-	err := service.database.QueryRowContext(ctx, `
+	err = service.database.QueryRowContext(ctx, `
 SELECT b.sha256,
 b.size_bytes,
 b.media_type
@@ -497,6 +518,9 @@ func (service *Service) PutPersistent(
 	launch, err := service.launch(ctx, launchID, capability)
 	if err != nil {
 		return PersistentResult{}, false, err
+	}
+	if launch.persistentSaveMode == "NONE" {
+		return PersistentResult{}, false, ErrPersistentUnsupported
 	}
 	if sequence < 1 || event != "AUTO_INTERVAL" && event != "MANUAL_EXPORT" && event != "EXIT" {
 		return PersistentResult{}, false, ErrInvalid
@@ -595,17 +619,9 @@ WHERE source_launch_session_id=?
 	if sequence != lastSequence+1 {
 		return PersistentResult{}, false, ErrSequenceGap
 	}
-	kind := "CORE_SAVE"
-	var coreID string
-	if err := transaction.QueryRowContext(ctx, `
-SELECT core_id
-FROM core_artifacts
-WHERE id=?
-`, launch.artifactID).Scan(&coreID); err != nil {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-	}
-	if coreID == "dosbox_pure" {
-		kind = "DOS_OVERLAY"
+	kind := launch.persistentSaveKind
+	if kind != "CORE_SAVE" && kind != "DOS_OVERLAY" {
+		return PersistentResult{}, false, ErrPersistentUnsupported
 	}
 	var saveID, currentRevisionID string
 	err = transaction.QueryRowContext(ctx, `

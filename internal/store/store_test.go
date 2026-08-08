@@ -10,6 +10,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 	"testing"
@@ -61,8 +62,134 @@ func TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog(t *testing.T) {
 	); err != nil {
 		t.Fatalf("count seed: %v", err)
 	}
-	if platformCount != 7 || coreCount != 8 || directoryCount != 9 {
+	if platformCount != 21 || coreCount != 28 || directoryCount != 23 {
 		t.Fatalf("seed counts = %d/%d/%d", platformCount, coreCount, directoryCount)
+	}
+	platformIDs := queryStrings(t, database.SQL, "SELECT id FROM platforms ORDER BY id")
+	wantPlatforms := []string{"3do", "arcade", "atari2600", "atari5200", "atari7800", "dos", "fds", "gba", "gbc", "lynx", "megadrive", "n64", "nds", "nes", "ngpc", "pce", "pcfx", "psp", "psx", "saturn", "snes"}
+	if !slices.Equal(platformIDs, wantPlatforms) {
+		t.Fatalf("platform IDs = %#v", platformIDs)
+	}
+	coreIDs := queryStrings(t, database.SQL, "SELECT id FROM cores ORDER BY id")
+	wantCores := []string{"a5200", "desmume", "desmume2015", "dosbox_pure", "fbneo", "fceumm", "gambatte", "genesis_plus_gx", "handy", "mame2003", "mame2003_plus", "mednafen_ngp", "mednafen_pce", "mednafen_pcfx", "mednafen_psx_hw", "melonds", "mgba", "mupen64plus_next", "nestopia", "opera", "parallel_n64", "pcsx_rearmed", "picodrive", "ppsspp", "prosystem", "snes9x", "stella2014", "yabause"}
+	if !slices.Equal(coreIDs, wantCores) {
+		t.Fatalf("core IDs = %#v", coreIDs)
+	}
+	threadCores := queryStrings(t, database.SQL, "SELECT id FROM cores WHERE requires_threads=1 ORDER BY id")
+	if !slices.Equal(threadCores, []string{"dosbox_pure", "mednafen_psx_hw", "ppsspp"}) {
+		t.Fatalf("thread cores = %#v", threadCores)
+	}
+	var enabledRelations int
+	if err := database.SQL.QueryRow("SELECT count(*) FROM platform_cores WHERE enabled=1").Scan(&enabledRelations); err != nil || enabledRelations != 31 {
+		t.Fatalf("enabled platform/core relations = %d, error=%v", enabledRelations, err)
+	}
+	relations := queryStrings(t, database.SQL, `
+SELECT platform_id || ':' || core_id FROM platform_cores WHERE enabled=1 ORDER BY platform_id,core_id
+`)
+	wantRelations := []string{
+		"3do:opera", "arcade:fbneo", "arcade:mame2003", "arcade:mame2003_plus",
+		"atari2600:stella2014", "atari5200:a5200", "atari7800:prosystem", "dos:dosbox_pure",
+		"fds:fceumm", "fds:nestopia", "gba:mgba", "gbc:gambatte", "gbc:mgba", "lynx:handy",
+		"megadrive:genesis_plus_gx", "megadrive:picodrive", "n64:mupen64plus_next", "n64:parallel_n64",
+		"nds:desmume", "nds:desmume2015", "nds:melonds", "nes:fceumm", "nes:nestopia",
+		"ngpc:mednafen_ngp", "pce:mednafen_pce", "pcfx:mednafen_pcfx", "psp:ppsspp",
+		"psx:mednafen_psx_hw", "psx:pcsx_rearmed", "saturn:yabause", "snes:snes9x",
+	}
+	if !slices.Equal(relations, wantRelations) {
+		t.Fatalf("platform/core relations = %#v", relations)
+	}
+	instances := queryStrings(t, database.SQL, `
+SELECT id || ':' || platform_id || ':' || default_core_id || ':' || slug || ':' || sort_order
+FROM platform_instances ORDER BY id
+`)
+	wantInstances := []string{
+		"01980000-0000-7000-8000-000000000001:nes:fceumm:nes-games:10",
+		"01980000-0000-7000-8000-000000000002:fds:fceumm:fds-games:20",
+		"01980000-0000-7000-8000-000000000003:snes:snes9x:snes-games:30",
+		"01980000-0000-7000-8000-000000000004:gbc:gambatte:gbc-games:40",
+		"01980000-0000-7000-8000-000000000005:gba:mgba:gba-games:50",
+		"01980000-0000-7000-8000-000000000006:arcade:fbneo:fbneo-games:60",
+		"01980000-0000-7000-8000-000000000007:arcade:mame2003_plus:mame2003-plus-games:70",
+		"01980000-0000-7000-8000-000000000008:arcade:mame2003:mame2003-games:80",
+		"01980000-0000-7000-8000-000000000009:dos:dosbox_pure:dos-games:90",
+		"01980000-0000-7000-8000-000000000010:nds:desmume2015:nds-games:100",
+		"01980000-0000-7000-8000-000000000011:atari2600:stella2014:atari-2600-games:110",
+		"01980000-0000-7000-8000-000000000012:atari5200:a5200:atari-5200-games:120",
+		"01980000-0000-7000-8000-000000000013:atari7800:prosystem:atari-7800-games:130",
+		"01980000-0000-7000-8000-000000000014:lynx:handy:atari-lynx-games:140",
+		"01980000-0000-7000-8000-000000000015:megadrive:genesis_plus_gx:mega-drive-games:150",
+		"01980000-0000-7000-8000-000000000016:pce:mednafen_pce:pc-engine-games:160",
+		"01980000-0000-7000-8000-000000000017:ngpc:mednafen_ngp:neo-geo-pocket-games:170",
+		"01980000-0000-7000-8000-000000000018:n64:mupen64plus_next:nintendo-64-games:180",
+		"01980000-0000-7000-8000-000000000019:psx:pcsx_rearmed:playstation-games:190",
+		"01980000-0000-7000-8000-000000000020:saturn:yabause:sega-saturn-games:200",
+		"01980000-0000-7000-8000-000000000021:pcfx:mednafen_pcfx:pc-fx-games:210",
+		"01980000-0000-7000-8000-000000000022:3do:opera:3do-games:220",
+		"01980000-0000-7000-8000-000000000023:psp:ppsspp:psp-games:230",
+	}
+	if !slices.Equal(instances, wantInstances) {
+		t.Fatalf("platform instances = %#v", instances)
+	}
+}
+
+func queryStrings(t *testing.T, database *sql.DB, query string) []string {
+	t.Helper()
+	rows, err := database.Query(query)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	values := make([]string, 0)
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			t.Fatal(err)
+		}
+		values = append(values, value)
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return values
+}
+
+func applyMigrationRange(
+	ctx context.Context,
+	t *testing.T,
+	database *sql.DB,
+	repositoryRoot string,
+	minimumVersion int,
+	maximumVersion int,
+) {
+	t.Helper()
+	entries, err := os.ReadDir(filepath.Join(repositoryRoot, "migrations"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
+			continue
+		}
+		version, parseErr := strconv.Atoi(strings.SplitN(entry.Name(), "_", 2)[0])
+		if parseErr != nil || version < minimumVersion || version > maximumVersion {
+			continue
+		}
+		migration, readErr := migrations.Files.ReadFile(entry.Name())
+		if readErr != nil {
+			t.Fatal(readErr)
+		}
+		digest := sha256.Sum256(migration)
+		if err := runMigration(
+			ctx,
+			database,
+			version,
+			entry.Name(),
+			fmt.Sprintf("%x", digest),
+			migration,
+			time.Now,
+		); err != nil {
+			t.Fatal(err)
+		}
 	}
 }
 
@@ -133,27 +260,7 @@ func TestDOSExternalConfigMigrationRepointsLegacyLaunchContent(t *testing.T) {
 	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
 		t.Fatal(err)
 	}
-	entries, err := os.ReadDir(filepath.Join(repositoryRoot, "migrations"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	for _, entry := range entries {
-		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
-			continue
-		}
-		version, parseErr := strconv.Atoi(strings.SplitN(entry.Name(), "_", 2)[0])
-		if parseErr != nil || version > 10 {
-			continue
-		}
-		migration, readErr := migrations.Files.ReadFile(entry.Name())
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
-		digest := sha256.Sum256(migration)
-		if err := runMigration(ctx, legacy, version, entry.Name(), fmt.Sprintf("%x", digest), migration, time.Now); err != nil {
-			t.Fatal(err)
-		}
-	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 10)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "010_fixture.sql"))
 	if err != nil {
 		t.Fatal(err)
@@ -187,6 +294,126 @@ WHERE launch_session_id='dos-launch'
 SELECT count(*) FROM pragma_table_info('save_states') WHERE name='source_launch_session_id'
 `).Scan(&sourceLaunchColumnCount); err != nil || sourceLaunchColumnCount != 1 {
 		t.Fatalf("upgraded save source column count = %d, error=%v", sourceLaunchColumnCount, err)
+	}
+	if err := upgraded.IntegrityCheck(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestCoreExpansionMigrationPreservesArchiveReferences(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	databasePath := filepath.Join(t.TempDir(), "retrom.db")
+	legacy, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.SetMaxOpenConns(1)
+	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 10)
+	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "010_fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 11, 13)
+	if _, err := legacy.ExecContext(ctx, `
+INSERT INTO archive_entries(
+  archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+  archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms
+) VALUES(
+  'base-blob',0,'fixture.rom','fixture.rom','fixture.rom','ZIP','DEFLATE',1024,
+  'aaaaaaaa','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',
+  'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','derived-blob',1
+);
+INSERT INTO upload_sessions(
+  id,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms
+) VALUES(
+  'archive-upload','COMPLETE','FILES',1,1024,
+  'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',1000,1,1
+);
+INSERT INTO upload_files(
+  id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms
+) VALUES('archive-file','archive-upload','fixture.zip',1024,1024,'base-blob','COMPLETE',1,1);
+INSERT INTO import_jobs(
+  id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
+  core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,
+  review_pending_item_count,created_at_ms,updated_at_ms
+) VALUES(
+  'archive-import','archive-upload','01980000-0000-7000-8000-000000000009',1,'dos','dosbox_pure',
+  'dos-artifact','NONE','{}','ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+  'REVIEW_PENDING',1,1,1,1
+);
+INSERT INTO import_items(
+  id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms
+) VALUES(
+  'archive-item','archive-import','ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
+  'REVIEW_PENDING','{}','ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff','fixture',1,1
+);
+INSERT INTO import_item_source_files(
+  import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms
+) VALUES('archive-item','CONTENT','fixture.rom','archive-file','derived-blob','base-blob',0,0,1);
+INSERT INTO game_content_files(
+  game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+) VALUES('dos-content','CONTENT','fixture.rom','derived-blob','base-blob',0,0);
+INSERT INTO jobs(
+  id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,max_attempts,
+  available_at_ms,execution_started_at_ms,finished_at_ms,created_at_ms,updated_at_ms
+) VALUES(
+  'scrape-job','IMPORT_ITEM','archive-item','METADATA_SCRAPE',
+  'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',1,'{}',1,'SUCCEEDED',1,4,1,1,1,1,1
+);
+INSERT INTO metadata_scrape_runs(
+  id,import_item_id,job_id,provider,provider_config_version,state,created_at_ms,updated_at_ms,completed_at_ms
+) VALUES('scrape-run','archive-item','scrape-job','NONE',1,'COMPLETED',1,1,1);
+INSERT INTO content_hash_evidence(
+  id,scrape_run_id,profile,archive_blob_id,archive_entry_ordinal,crc32,query_order,created_at_ms
+) VALUES('archive-evidence','scrape-run','SINGLE_ARCHIVE_MEMBER_V1','base-blob',0,'aaaaaaaa',0,1);
+`); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	upgraded, err := Open(ctx, databasePath, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
+	var archiveFormat, compressionProfile string
+	if err := upgraded.SQL.QueryRowContext(ctx, `
+SELECT archive_format,compression_profile
+FROM archive_entries
+WHERE archive_blob_id='base-blob' AND ordinal=0
+`).Scan(&archiveFormat, &compressionProfile); err != nil ||
+		archiveFormat != "ZIP" || compressionProfile != "DEFLATE" {
+		t.Fatalf("upgraded archive = %s/%s, error=%v", archiveFormat, compressionProfile, err)
+	}
+	for table, predicate := range map[string]string{
+		"import_item_source_files": "source_archive_blob_id='base-blob' AND source_archive_entry_ordinal=0",
+		"game_content_files":       "source_archive_blob_id='base-blob' AND source_archive_entry_ordinal=0",
+		"content_hash_evidence":    "archive_blob_id='base-blob' AND archive_entry_ordinal=0",
+	} {
+		var count int
+		if err := upgraded.SQL.QueryRowContext(ctx, "SELECT count(*) FROM "+table+" WHERE "+predicate).Scan(&count); err != nil || count != 1 {
+			t.Fatalf("%s reference count = %d, error=%v", table, count, err)
+		}
+	}
+	if _, err := upgraded.SQL.ExecContext(ctx, `
+UPDATE archive_entries SET archive_format='SEVEN_Z',compression_profile='SEVEN_Z_DECODER_VALIDATED'
+WHERE archive_blob_id='base-blob' AND ordinal=0
+`); err == nil || !strings.Contains(err.Error(), "immutable") {
+		t.Fatalf("archive immutability after migration error = %v", err)
 	}
 	if err := upgraded.IntegrityCheck(ctx); err != nil {
 		t.Fatal(err)

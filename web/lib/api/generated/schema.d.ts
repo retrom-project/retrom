@@ -1192,6 +1192,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runtime/launches/{launchId}/external-files/{logicalName}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+                logicalName: components["parameters"]["LogicalName"];
+            };
+            cookie?: never;
+        };
+        get: operations["getRuntimeExternalFile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head: operations["headRuntimeExternalFile"];
+        patch?: never;
+        trace?: never;
+    };
     "/runtime/launches/{launchId}/bios/bundle.zip": {
         parameters: {
             query?: never;
@@ -1267,6 +1286,57 @@ export interface components {
                 crossOriginIsolated: boolean;
                 sharedArrayBuffer: boolean;
             };
+        };
+        StartupAction: {
+            /** @enum {string} */
+            event: "GAME_START";
+            /** @enum {string} */
+            kind: "PRESS_CONTROL";
+            delayMs: number;
+            player: number;
+            control: number;
+            durationMs: number;
+        };
+        LaunchConfig: {
+            /** Format: uuid */
+            launchId: string;
+            emulatorjsVersion: string;
+            playerAdapterId: string;
+            core: string;
+            runtimeCore: string;
+            coreName: string;
+            /** Format: uuid */
+            coreArtifactId: string;
+            /** Format: int64 */
+            emulatorGameId: number;
+            gameName: string;
+            gameTitle: string;
+            platformName: string;
+            runtimeBaseUrl: string;
+            loaderUrl: string;
+            gameUrl: string;
+            biosUrl: string | null;
+            parentUrl: string | null;
+            stateUrl: string | null;
+            /** @enum {string} */
+            persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "NONE";
+            persistentSaveUrl: string | null;
+            /** @enum {string} */
+            inputMode: "STANDARD" | "POINTER";
+            startupActions: components["schemas"]["StartupAction"][];
+            requiresThreads: boolean;
+            runtimePathOverrides: {
+                [key: string]: string;
+            };
+            defaultCoreOptions: {
+                [key: string]: string;
+            };
+            externalFiles: {
+                [key: string]: string;
+            };
+            dosEntry: string | null;
+            warnings: string[];
+            returnTo: string;
         };
         CreateUploadRequest: {
             /** @enum {string} */
@@ -1458,6 +1528,10 @@ export interface components {
             activeLaunchCount?: unknown;
             actor?: unknown;
             after?: unknown;
+            archive?: boolean;
+            archiveEntries?: unknown;
+            /** @enum {string|null} */
+            archiveFormat?: "ZIP" | "SEVEN_Z" | null;
             assetId?: unknown;
             assetIds?: unknown;
             assets?: unknown;
@@ -1747,6 +1821,7 @@ export interface components {
             sortValues?: unknown;
             source?: unknown;
             sourceDisplayName?: unknown;
+            sourceFiles?: unknown;
             sourceManifest?: unknown;
             sourcePlatformInstanceId?: unknown;
             sourceType?: unknown;
@@ -1843,6 +1918,15 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["JSONObject"];
+            };
+        };
+        /** @description Immutable launch configuration derived from the locked core artifact and dependencies */
+        LaunchConfigResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["LaunchConfig"];
             };
         };
         /** @description Server-sent events */
@@ -3284,7 +3368,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["LaunchConfigResponse"];
         };
     };
     getRuntimeDOSConfig: {
@@ -3429,6 +3513,36 @@ export interface operations {
         };
     };
     headRuntimeGame: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+                logicalName: components["parameters"]["LogicalName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
+    getRuntimeExternalFile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+                logicalName: components["parameters"]["LogicalName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
+    headRuntimeExternalFile: {
         parameters: {
             query?: never;
             header?: never;

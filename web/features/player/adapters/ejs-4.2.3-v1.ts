@@ -3,6 +3,7 @@ export type PlayerConfig = {
   emulatorjsVersion: string;
   playerAdapterId: string;
   core: string;
+  runtimeCore: string;
   coreName: string;
   emulatorGameId: number;
   gameName: string;
@@ -14,7 +15,10 @@ export type PlayerConfig = {
   biosUrl: string | null;
   parentUrl: string | null;
   stateUrl: string | null;
-  persistentSaveUrl: string;
+  persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "NONE";
+  persistentSaveUrl: string | null;
+  inputMode: "STANDARD" | "POINTER";
+  startupActions: StartupAction[];
   requiresThreads: boolean;
   runtimePathOverrides: Record<string, string>;
   defaultCoreOptions: Record<string, string>;
@@ -22,6 +26,15 @@ export type PlayerConfig = {
   dosEntry?: string | null;
   warnings?: string[];
   returnTo: string;
+};
+
+export type StartupAction = {
+  event: "GAME_START";
+  kind: "PRESS_CONTROL";
+  delayMs: number;
+  player: number;
+  control: number;
+  durationMs: number;
 };
 
 export type EmulatorInstance = {
@@ -45,6 +58,7 @@ export type EmulatorInstance = {
     getSaveFilePath?: () => string;
     getVideoDimensions?: (dimension: "aspect" | "width" | "height") => number | undefined;
     loadSaveFiles?: () => void;
+    simulateInput?: (player: number, control: number, value: 0 | 1) => void;
     toggleMainLoop?: (running: boolean) => void;
   };
 };
@@ -108,24 +122,85 @@ declare global {
 
 export const adapterID = "ejs-4.2.3-v1";
 
+function safeVirtualPath(value: string) {
+  if (!value.startsWith("/") || value.length > 512 || value.includes("\\") || value.includes("?") || value.includes("#") || value.includes("//")) return false;
+  return value.slice(1).split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
+}
+
 function validatedExternalFiles(config: PlayerConfig): Record<string, string> {
   const entries = Object.entries(config.externalFiles);
-  const expectedURL = `/runtime/launches/${config.launchId}/dos-config/game.conf`;
-  const expectsDOSConfig = config.core === "dosbox_pure" && config.dosEntry != null && config.defaultCoreOptions.dosbox_pure_conf === "outside";
-  if (entries.length === 0 && !expectsDOSConfig) return {};
-  if (entries.length !== 1 || entries[0][0] !== "/game.conf" || entries[0][1] !== expectedURL || !expectsDOSConfig) {
-    throw new Error("PLAYER_EXTERNAL_FILES_INVALID");
+  if (entries.length > 16) throw new Error("PLAYER_EXTERNAL_FILES_INVALID");
+  const result: Record<string, string> = {};
+  for (const [virtualPath, source] of entries) {
+    const dosURL = `/runtime/launches/${config.launchId}/dos-config/game.conf`;
+    const externalPrefix = `/runtime/launches/${config.launchId}/external-files/`;
+    const logicalName = source.startsWith(externalPrefix) ? source.slice(externalPrefix.length) : "";
+    if (!safeVirtualPath(virtualPath) || source.length > 1024 ||
+      source !== dosURL && (!source.startsWith(externalPrefix) || !/^[A-Za-z0-9_(). -]{1,255}$/.test(logicalName) ||
+        logicalName === "." || logicalName === "..")) {
+      throw new Error("PLAYER_EXTERNAL_FILES_INVALID");
+    }
+    result[virtualPath] = source;
   }
-  return { "/game.conf": expectedURL };
+  return result;
+}
+
+function validateConfig(config: PlayerConfig) {
+  if (!/^[a-z0-9_]{1,64}$/.test(config.runtimeCore)) throw new Error("PLAYER_RUNTIME_CORE_INVALID");
+  if (!config.runtimePathOverrides || Object.entries(config.runtimePathOverrides).length !== 1 || Object.entries(config.runtimePathOverrides).some(([name, source]) =>
+    !/^[A-Za-z0-9_.-]+-wasm\.data$/.test(name) || name.includes("..") ||
+    !source.startsWith(`/runtime/emulatorjs/${config.emulatorjsVersion}/`))) throw new Error("PLAYER_RUNTIME_PATHS_INVALID");
+  if (!["SINGLE_FILE", "DOS_OVERLAY", "NONE"].includes(config.persistentSaveMode) ||
+    (config.persistentSaveMode === "NONE") !== (config.persistentSaveUrl === null) ||
+    config.persistentSaveMode !== "NONE" && config.persistentSaveUrl !== `/runtime/launches/${config.launchId}/persistent-save`) {
+    throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
+  }
+  if (config.inputMode !== "STANDARD" && config.inputMode !== "POINTER") throw new Error("PLAYER_INPUT_MODE_INVALID");
+  if (!config.defaultCoreOptions || Object.entries(config.defaultCoreOptions).length > 32 ||
+    Object.entries(config.defaultCoreOptions).some(([name, value]) => ["__proto__", "constructor", "prototype"].includes(name) ||
+      !/^[\x20-\x7E]{1,128}$/.test(name) || !/^[\x20-\x7E]{0,128}$/.test(value))) throw new Error("PLAYER_CORE_OPTIONS_INVALID");
+  if (!Array.isArray(config.startupActions) || config.startupActions.length > 4 || config.startupActions.some((action) =>
+    action.event !== "GAME_START" || action.kind !== "PRESS_CONTROL" ||
+    !Number.isInteger(action.delayMs) || action.delayMs < 0 || action.delayMs > 10_000 ||
+    !Number.isInteger(action.player) || action.player < 0 || action.player > 3 ||
+    !Number.isInteger(action.control) || action.control < 0 || action.control > 255 ||
+    !Number.isInteger(action.durationMs) || action.durationMs < 1 || action.durationMs > 1_000)) {
+    throw new Error("PLAYER_STARTUP_ACTION_INVALID");
+  }
+}
+
+export function scheduleStartupActions(config: PlayerConfig, instance: EmulatorInstance, timerWindow: Window = window) {
+  const simulate = instance.gameManager?.simulateInput;
+  if (config.startupActions.length === 0) return () => undefined;
+  if (!simulate) throw new Error("PLAYER_STARTUP_ACTION_UNAVAILABLE");
+  const timers: number[] = [];
+  const pressed = new Map<string, { player: number; control: number }>();
+  for (const action of config.startupActions) {
+    timers.push(timerWindow.setTimeout(() => {
+      const key = `${action.player}:${action.control}`;
+      simulate(action.player, action.control, 1);
+      pressed.set(key, action);
+      timers.push(timerWindow.setTimeout(() => {
+        simulate(action.player, action.control, 0);
+        pressed.delete(key);
+      }, action.durationMs));
+    }, action.delayMs));
+  }
+  return () => {
+    for (const timer of timers) timerWindow.clearTimeout(timer);
+    for (const action of pressed.values()) simulate(action.player, action.control, 0);
+    pressed.clear();
+  };
 }
 
 export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callbacks: AdapterCallbacks = {}, playerWindow: Window = window) {
   if (config.playerAdapterId !== adapterID || config.emulatorjsVersion !== "4.2.3") throw new Error("PLAYER_ADAPTER_MISMATCH");
+  validateConfig(config);
   const externalFiles = validatedExternalFiles(config);
   target.id = "retrom-emulator";
   const runtimeWindow = playerWindow as typeof window;
   runtimeWindow.EJS_player = "#retrom-emulator";
-  runtimeWindow.EJS_core = config.core;
+  runtimeWindow.EJS_core = config.runtimeCore;
   runtimeWindow.EJS_gameUrl = config.gameUrl;
   runtimeWindow.EJS_gameName = config.gameName;
   runtimeWindow.EJS_gameID = config.emulatorGameId;
@@ -143,9 +218,17 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_CacheLimit = 0;
   runtimeWindow.EJS_Buttons = { exitEmulation: false };
   runtimeWindow.EJS_ready = () => runtimeWindow.EJS_emulator && callbacks.onReady?.(runtimeWindow.EJS_emulator);
-  runtimeWindow.EJS_onGameStart = callbacks.onGameStart;
+  let startupScheduled = false;
+  let cleanupStartup: () => void = () => undefined;
+  runtimeWindow.EJS_onGameStart = () => {
+    callbacks.onGameStart?.();
+    if (!startupScheduled && runtimeWindow.EJS_emulator) {
+      startupScheduled = true;
+      cleanupStartup = scheduleStartupActions(config, runtimeWindow.EJS_emulator, runtimeWindow);
+    }
+  };
   runtimeWindow.EJS_onSaveState = callbacks.onSaveState;
-  runtimeWindow.EJS_onSaveSave = callbacks.onSaveSave;
+  runtimeWindow.EJS_onSaveSave = config.persistentSaveMode === "NONE" ? undefined : callbacks.onSaveSave;
   runtimeWindow.EJS_defaultOptions = { ...config.defaultCoreOptions };
   runtimeWindow.EJS_paths = { ...config.runtimePathOverrides };
   runtimeWindow.EJS_externalFiles = externalFiles;
@@ -154,5 +237,5 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   script.async = true;
   script.dataset.retromLoader = "true";
   runtimeWindow.document.head.append(script);
-  return () => script.remove();
+  return () => { cleanupStartup(); script.remove(); };
 }

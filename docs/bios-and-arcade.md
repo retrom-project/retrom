@@ -75,7 +75,28 @@ MD5/CRC 只用于身份识别，不作为安全机制。
 
 来源：[Libretro mGBA](https://docs.libretro.com/library/mgba/)。
 
-### 3.5 Arcade Core
+### 3.5 扩展核心
+
+EmulatorJS 4.2.3 manifest 另声明下列 12 个静态 Requirement；精确 size、MD5、SHA-1/SHA-256 与来源版本以 manifest 为机器事实源，不能从本文反向生成 seed。
+
+| core | logical name | mode / condition | delivery |
+| --- | --- | --- | --- |
+| `nestopia` | `disksys.rom` | `CONDITIONAL / FDS_CONTENT` | `BIOS_BUNDLE` |
+| `melonds` | `bios7.bin` | `REQUIRED` | `EXTERNAL_FILE /retroarch/userdata/system/bios7.bin` |
+| `melonds` | `bios9.bin` | `REQUIRED` | `EXTERNAL_FILE /retroarch/userdata/system/bios9.bin` |
+| `melonds` | `firmware.bin` | `REQUIRED` | `EXTERNAL_FILE /retroarch/userdata/system/firmware.bin` |
+| `a5200` | `5200.rom` | `REQUIRED` | `BIOS_BUNDLE` |
+| `pcsx_rearmed` | `scph5500.bin` | `REQUIRED` | `BIOS_BUNDLE` |
+| `mednafen_psx_hw` | `scph5500.bin` | `REQUIRED` | `BIOS_BUNDLE` |
+| `handy` | `lynxboot.img` | `REQUIRED` | `BIOS_BUNDLE` |
+| `yabause` | `saturn_bios.bin` | `REQUIRED` | `BIOS_BUNDLE` |
+| `opera` | `panafz10.bin` | `REQUIRED` | `BIOS_BUNDLE` |
+| `prosystem` | `7800 BIOS (U).rom` | `REQUIRED` | `BIOS_BUNDLE` |
+| `mednafen_pcfx` | `pcfx.rom` | `REQUIRED` | `BIOS_BUNDLE` |
+
+MelonDS 三项必须全部存在才能得到 READY。它们不进入根 BIOS bundle：Variant dependency snapshot 锁定 installation/version/blob/delivery/path，Launch 创建事务复制到 `launch_external_files`，配置只生成三个受 capability 保护的同源 URL。切换 active installation 后，旧 Launch 继续读旧 Blob，新 Launch 使用新 Blob；外部文件不得因当前 BIOS 状态变化而漂移。
+
+### 3.6 Arcade Core
 
 不维护脱离 DAT 的手工固定表。当前 v4.2.3 FBNeo DAT 中实际存在 13 个 `isbios="yes"` machine：
 
@@ -83,15 +104,15 @@ MD5/CRC 只用于身份识别，不作为安全机制。
 
 MAME 2003 和 MAME 2003-Plus 的旧 List XML 没有显式 `isbios` 属性；当前真实基线各有 17 个由 `romof != cloneof` 推导的 base dependency target。名称、entry 和 hash 必须从活动 DAT 解析，不能复制 FBNeo 列表。
 
-数据库中的 BIOS Requirement 是 CoreArtifact 内的稳定逻辑安装槽，而不是把某份 DAT entry 复制成永不变化的手工表：静态固件 slot 的 `source_kind=STATIC`，condition/activation 按第 3.7 节；Arcade BIOS/base archive 的 slot 为 `DAT_MACHINE`，logical name 固定 `<machine>.zip`，`catalog_digest` 来自活动 DAT 的规范必需 entry 集，外层 ZIP 本身没有 DAT 规定的唯一 hash。切换 DAT 时按 logical slot upsert/disable 并递增发生变化的 requirement version，旧安装 Blob 不复制；随后针对新 catalog 重验证 active installation。
+数据库中的 BIOS Requirement 是 CoreArtifact 内的稳定逻辑安装槽，而不是把某份 DAT entry 复制成永不变化的手工表：静态固件 slot 的 `source_kind=STATIC`，condition/activation 按第 3.8 节；Arcade BIOS/base archive 的 slot 为 `DAT_MACHINE`，logical name 固定 `<machine>.zip`，`catalog_digest` 来自活动 DAT 的规范必需 entry 集，外层 ZIP 本身没有 DAT 规定的唯一 hash。切换 DAT 时按 logical slot upsert/disable 并递增发生变化的 requirement version，旧安装 Blob 不复制；随后针对新 catalog 重验证 active installation。
 
 CoreArtifact 升级会建立新的 Requirement 槽，不把旧 artifact 的 active installation 暗中复制成新安装；旧 VariantRevision/存档仍按其快照使用旧槽与 Blob，新 artifact 在 BIOS 页明确显示未安装。用户再次选择同一文件安装时 CAS 会按 SHA-256 去重，但会创建归属新 Requirement 的独立 Installation 并重新校验。这样不会把旧 core 的“已匹配”结论冒充新 core 的证据，也没有未建模的跨 artifact 自动迁移。
 
-### 3.6 dosbox_pure
+### 3.7 dosbox_pure
 
 普通 DOS 游戏没有统一固定 BIOS。可执行程序和目录内容属于 GameContentRevision，`dosbox.conf`/启动 ZIP 属于 GameVariantRevision 的派生文件；ISO/CUE/IMG/VHD 等磁盘镜像一期不接收，不能因 Core 未来可能支持而展示成已支持 BIOS/内容类型。
 
-### 3.7 条件与 core option 的精确规则
+### 3.8 条件与 core option 的精确规则
 
 静态目录不能只保存文件名/hash：Gambatte 和 mGBA 的上游都要求 core option 开启后才会使用可选启动 BIOS。每个 CoreArtifact 的 seed 因此还要写入下表的稳定 `condition_code` 与 canonical `activation_options_json`；它们属于 Requirement/catalog digest，不允许前端按 core display name 特判：
 

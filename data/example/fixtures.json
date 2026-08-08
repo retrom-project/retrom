@@ -210,7 +210,9 @@
         "sha256": "bcdfcea048580afc92f057395d45675df8737dac0a78192d6d9aeb906c51270d"
       },
       "bios": [],
-      "expectedExternalFiles": ["data/example/dosbox_pure/game.conf"],
+      "expectedExternalFiles": [
+        "data/example/dosbox_pure/game.conf"
+      ],
       "coreArtifact": {
         "path": "data/runtime/emulatorjs/4.2.3/data/cores/dosbox_pure-thread-wasm.data",
         "size": 1793257,
@@ -222,7 +224,7 @@
     {
       "core": "nestopia",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "nes",
       "title": "Famicom Disk System / Smash Ping Pong",
       "gameId": 2001,
@@ -254,7 +256,7 @@
     {
       "core": "melonds",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "nds",
       "title": "Nintendo DS / Zoo Keeper",
       "gameId": 2003,
@@ -305,7 +307,7 @@
     {
       "core": "desmume2015",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "nds",
       "title": "Nintendo DS / Zoo Keeper",
       "gameId": 2004,
@@ -328,7 +330,7 @@
     {
       "core": "desmume",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "nds",
       "title": "Nintendo DS / Zoo Keeper",
       "gameId": 2005,
@@ -351,7 +353,7 @@
     {
       "core": "a5200",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "atari5200",
       "title": "Atari 5200 / Super Breakout",
       "gameId": 2006,
@@ -360,7 +362,13 @@
         "localPath": "data/game/a5200/a5200-smoke.7z",
         "sourceRelativePath": "Roms/ATARI5200/Super Breakout (USA).7z",
         "size": 3228,
-        "sha256": "f3bff67d6cf3113c2c73a98c70547114ad792ec5683c0898d4ae3e7b9ff47e88"
+        "sha256": "f3bff67d6cf3113c2c73a98c70547114ad792ec5683c0898d4ae3e7b9ff47e88",
+        "expectedMaterializedMember": {
+          "name": "Super Breakout (USA).a52",
+          "size": 4096,
+          "crc32": "a0642110",
+          "sha256": "81d99c73080e57e4066138c44ca34ae9cf5f0fef1ca43f6b3136a36c7435e031"
+        }
       },
       "bios": [
         {
@@ -383,7 +391,7 @@
     {
       "core": "pcsx_rearmed",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "psx",
       "title": "PlayStation / Nekketsu Oyako",
       "gameId": 2007,
@@ -415,7 +423,7 @@
     {
       "core": "mednafen_psx_hw",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "psx",
       "title": "PlayStation / Nekketsu Oyako",
       "gameId": 2008,
@@ -448,7 +456,7 @@
     {
       "core": "handy",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "lynx",
       "title": "Atari Lynx / Lode Runner",
       "gameId": 2009,
@@ -480,7 +488,7 @@
     {
       "core": "yabause",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "saturn",
       "title": "Sega Saturn / Fixture 095",
       "gameId": 2010,
@@ -512,7 +520,7 @@
     {
       "core": "genesis_plus_gx",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "megadrive",
       "title": "Mega Drive / Felix the Cat",
       "gameId": 2011,
@@ -535,7 +543,7 @@
     {
       "core": "mupen64plus_next",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "n64",
       "title": "Nintendo 64 / Dr. Mario 64",
       "gameId": 2013,
@@ -556,16 +564,15 @@
       "timeoutMs": 180000
     },
     {
-      "core": "parallel-n64",
-      "emulatorCore": "parallel_n64",
+      "core": "parallel_n64",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "n64",
       "title": "Nintendo 64 / Dr. Mario 64",
       "gameId": 2014,
-      "examplePath": "data/example/parallel-n64/index.html",
+      "examplePath": "data/example/parallel_n64/index.html",
       "game": {
-        "localPath": "data/game/parallel-n64/n64-smoke.z64",
+        "localPath": "data/game/parallel_n64/n64-smoke.z64",
         "sourceRelativePath": "Roms/N64/马里奥医生64.z64",
         "size": 3358720,
         "sha256": "5c073ba986cdec96ee532d57c7786e41f71997d70146030b4897ab5eab01dc4a"
@@ -582,7 +589,7 @@
     {
       "core": "opera",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "3do",
       "title": "3DO / Total Eclipse",
       "gameId": 2015,
@@ -614,7 +621,7 @@
     {
       "core": "prosystem",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "atari7800",
       "title": "Atari 7800 / Asteroids",
       "gameId": 2016,
@@ -623,7 +630,13 @@
         "localPath": "data/game/prosystem/a7800-smoke.7z",
         "sourceRelativePath": "Roms/ATARI7800/Asteroids (USA).7z",
         "size": 9253,
-        "sha256": "e4d3323b9f26f9c96c1615d7e167c9ba28919c0d8532308e890f774a85ad95ca"
+        "sha256": "e4d3323b9f26f9c96c1615d7e167c9ba28919c0d8532308e890f774a85ad95ca",
+        "expectedMaterializedMember": {
+          "name": "Asteroids (USA).a78",
+          "size": 16512,
+          "crc32": "eac69cf0",
+          "sha256": "ec6ef6179644041a9fb77fc6b7c917387219fc388dd5a0fbf8236677f279402e"
+        }
       },
       "bios": [
         {
@@ -646,7 +659,7 @@
     {
       "core": "stella2014",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "atari2600",
       "title": "Atari 2600 / Freeway",
       "gameId": 2017,
@@ -655,7 +668,13 @@
         "localPath": "data/game/stella2014/a2600-smoke.7z",
         "sourceRelativePath": "Roms/ATARI2600/Freeway (USA).7z",
         "size": 1734,
-        "sha256": "352972c4e7d074457085ee58f618d01cb2a023e52a719c40751cbb132ff2777b"
+        "sha256": "352972c4e7d074457085ee58f618d01cb2a023e52a719c40751cbb132ff2777b",
+        "expectedMaterializedMember": {
+          "name": "Freeway (USA).a26",
+          "size": 2048,
+          "crc32": "b13ec413",
+          "sha256": "3ef620234b98f22bfd7c06d2467bac9d208e763c9f4309452384d59a741ba893"
+        }
       },
       "bios": [],
       "coreArtifact": {
@@ -669,7 +688,7 @@
     {
       "core": "picodrive",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "megadrive",
       "title": "Mega Drive / Felix the Cat",
       "gameId": 2018,
@@ -692,7 +711,7 @@
     {
       "core": "mednafen_pce",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "pce",
       "title": "PC Engine / Adventure Island",
       "gameId": 2019,
@@ -715,7 +734,7 @@
     {
       "core": "mednafen_pcfx",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "pcfx",
       "title": "PC-FX / PC Engine Fan Special CD-ROM Vol. 3",
       "gameId": 2020,
@@ -747,7 +766,7 @@
     {
       "core": "mednafen_ngp",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "ngpc",
       "title": "Neo Geo Pocket Color / Pac-Man",
       "gameId": 2021,
@@ -774,7 +793,7 @@
     {
       "core": "ppsspp",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
+      "supportStatus": "supported",
       "system": "psp",
       "title": "PlayStation Portable / Sheep Defense",
       "gameId": 2022,
@@ -783,7 +802,8 @@
         "localPath": "data/game/ppsspp/psp-smoke.cso",
         "sourceRelativePath": "Roms/psp/PSP Minis 绵羊防御 汉化版.cso",
         "size": 2678571,
-        "sha256": "8aa31ce3d24f67f9dab37257a4ec8e2ee968d5826ff2119918641ba1d115a110"
+        "sha256": "8aa31ce3d24f67f9dab37257a4ec8e2ee968d5826ff2119918641ba1d115a110",
+        "formatId": "cso"
       },
       "bios": [],
       "requiresThreads": true,
@@ -800,7 +820,19 @@
         "sha256": "cb46c33a3a8444b707f7a03fe00414d916ab55a41e85fbf0c59611aa643252da"
       },
       "settleMs": 15000,
-      "timeoutMs": 180000
+      "timeoutMs": 180000,
+      "formatVariants": [
+        {
+          "formatId": "iso",
+          "localPath": "data/game/ppsspp/psp-smoke.iso",
+          "size": 11024384,
+          "sha256": "081e200248ac13c279821023c8cd7bdb1fdd59205129d0d9b46f2814ea583dbf",
+          "materializedFrom": {
+            "format": "CISO_V1",
+            "sourceSha256": "8aa31ce3d24f67f9dab37257a4ec8e2ee968d5826ff2119918641ba1d115a110"
+          }
+        }
+      ]
     }
   ]
 }

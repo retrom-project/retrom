@@ -18,9 +18,9 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/corevalidation"
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
-	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 )
 
@@ -874,13 +874,14 @@ func (server *Server) calculateMoveImpact(
 	targetID string,
 	expected int64,
 ) (gameMoveImpact, error) {
-	var sourceID, sourcePlatform, contentID, targetPlatform, targetCore, artifactID string
+	var sourceID, sourcePlatform, contentID, contentLogicalName, targetPlatform, targetCore, artifactID string
 	var version, targetVersion int64
 	var datID sql.NullString
 	if err := server.database.QueryRowContext(request.Context(), `
 SELECT g.platform_instance_id,
 src.platform_id,
 g.current_content_revision_id,
+COALESCE(content.logical_name,''),
 g.version,
 target.platform_id,
 target.default_core_id,
@@ -892,6 +893,8 @@ WHERE core_artifact_id=a.id
 AND is_active=1)
 FROM games g
 JOIN platform_instances src ON src.id=g.platform_instance_id
+LEFT JOIN game_content_files content ON content.game_content_revision_id=g.current_content_revision_id
+AND content.role='CONTENT'
 JOIN platform_instances target ON target.id=?
 AND target.enabled=1
 AND target.deleted_at_ms IS NULL
@@ -903,6 +906,7 @@ AND g.status='PUBLISHED'
 		&sourceID,
 		&sourcePlatform,
 		&contentID,
+		&contentLogicalName,
 		&version,
 		&targetPlatform,
 		&targetCore,
@@ -916,9 +920,21 @@ AND g.status='PUBLISHED'
 		return gameMoveImpact{}, errStaleImpact
 	}
 	status, code := "NEEDS_VALIDATION", "VARIANT_VALIDATION_REQUIRED"
-	inputDigest := launch.ValidationInputDigest(artifactID, contentID, datID)
+	biosSnapshot, _, _, err := corevalidation.ResolveBIOS(
+		request.Context(),
+		server.database,
+		artifactID,
+		contentLogicalName,
+	)
+	if err != nil {
+		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
+	}
+	inputDigest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
+	if err != nil {
+		return gameMoveImpact{}, fmt.Errorf("httpapi/game_handlers: %w", err)
+	}
 	var storedStatus, storedCode string
-	err := server.database.QueryRowContext(request.Context(), `
+	err = server.database.QueryRowContext(request.Context(), `
 SELECT r.status,
 r.compatibility_code
 FROM game_variants v

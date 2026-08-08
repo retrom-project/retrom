@@ -19,7 +19,7 @@ type Review = ReviewWorkspace & {
   importJobId: string;
   platformInstance: { id: string; name: string };
   sourceManifest: { files: Array<{ logicalName: string; role: string; sizeBytes?: number; blobSha256?: string; sourceArchiveSha256?: string | null }> };
-  sourceFiles: Array<{ uploadFileId: string; name: string; sizeBytes: number; sha256: string; md5: string; crc32: string; archive: boolean; archiveEntries: Array<{ name: string; sizeBytes: number; crc32: string }> }>;
+  sourceFiles: Array<{ uploadFileId: string; name: string; sizeBytes: number; sha256: string; md5: string; crc32: string; archive: boolean; archiveFormat: "ZIP" | "SEVEN_Z" | null; archiveEntries: Array<{ name: string; sizeBytes: number; crc32: string }> }>;
   validation: (NonNullable<ReviewWorkspace["validation"]> & { dependencySnapshot?: DependencySnapshot }) | null;
 };
 
@@ -27,7 +27,7 @@ const validationLabels: Record<string, string> = { READY: "可以发布", BLOCKE
 const roleLabels: Record<string, string> = { CONTENT: "游戏文件", DOS_SOURCE: "DOS 游戏文件", COMPANION: "配套文件" };
 
 function GameFiles({ review }: { review: Review }) {
-  if (review.sourceFiles?.length) return <div className="review-source-packages">{review.sourceFiles.map((file) => <details className="review-source-package" open={file.archive} key={file.uploadFileId}><summary><span>{file.archive ? "压缩包" : "游戏文件"}</span><strong title={file.name}>{file.name}</strong><small title={`${formatBytes(file.sizeBytes)} / SHA-256 ${file.sha256}`}>{formatBytes(file.sizeBytes)} / {file.sha256.slice(0, 12)}…</small></summary>{file.archive ? <div className="review-archive-entries" aria-label={`${file.name} 文件列表`}>{file.archiveEntries.length ? file.archiveEntries.map((entry, index) => <div key={`${entry.name}-${index}`}><strong title={entry.name}>{entry.name}</strong><span>{formatBytes(entry.sizeBytes)}</span><code title={`CRC32 ${entry.crc32}`}>{entry.crc32}</code></div>) : <p>压缩包内没有可展示的文件记录。</p>}</div> : null}</details>)}</div>;
+  if (review.sourceFiles?.length) return <div className="review-source-packages">{review.sourceFiles.map((file) => <details className="review-source-package" open={file.archive} key={file.uploadFileId}><summary><span>{file.archive ? `${file.archiveFormat === "SEVEN_Z" ? "7z" : "ZIP"} 来源包` : "游戏文件"}</span><strong title={file.name}>{file.name}</strong><small title={`${formatBytes(file.sizeBytes)} / SHA-256 ${file.sha256}`}>{formatBytes(file.sizeBytes)} / {file.sha256.slice(0, 12)}…</small></summary>{file.archive ? <div className="review-archive-entries" aria-label={`${file.name} 文件列表`}><p>运行时使用下列唯一匹配成员物化后的原始内容，来源包仅保留为证据。</p>{file.archiveEntries.length ? file.archiveEntries.map((entry, index) => <div key={`${entry.name}-${index}`}><strong title={entry.name}>{entry.name}</strong><span>{formatBytes(entry.sizeBytes)}</span><code title={`CRC32 ${entry.crc32}`}>{entry.crc32}</code></div>) : <p>压缩包内没有可展示的文件记录。</p>}</div> : null}</details>)}</div>;
   return <div className="review-file-list">{review.sourceManifest.files.map((file, index) => <div key={`${file.role}-${file.logicalName}-${index}`}><span>{roleLabels[file.role] ?? "文件"}</span><strong title={file.logicalName}>{file.logicalName}</strong><small>{file.sizeBytes === undefined ? "大小未知" : formatBytes(file.sizeBytes)}</small></div>)}</div>;
 }
 

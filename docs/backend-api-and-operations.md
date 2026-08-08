@@ -160,7 +160,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 - 启停本地开发进程；
 - 读取或打包用户 ROM、BIOS、SQLite、CAS、测试截图或 TLS 私钥。
 
-两个 Dockerfile 使用多阶段构建和非 root 运行用户，最终层不保留编译工具、源码缓存或开发依赖。后端 dependency builder 必须读取构建参数中 `RETROM_DEPENDENCY_VERSIONS` 对应的小型 manifest 集，按固定来源逐版本物化/校验 EmulatorJS、core、DAT 与许可输入，确定性生成各版本 `THIRD_PARTY_NOTICES`，并只复制每份 manifest 的 allowlist、DAT、许可原文和 notice；一期默认列表仅 `4.2.3`，所以恰为三份 DAT 与九份许可输入。前端镜像携带经过 `data-check` 的 adapter registry/实现；两个镜像是同一项目发布单元，都必须携带依赖专题规定且完全相同的 `io.retrom.release-input-sha256` label，部署不得把 label 缺失/不同的构建物任意拼接。不能把下载 archive、本地依赖缓存、source checkout 或整个 `data/` 目录复制进镜像。运行数据只能在启动容器时由外部挂载或持久卷提供。镜像 target 只面向私有自托管构建；不得隐式 push，外部分发遵循依赖专题的人工许可门禁。
+两个 Dockerfile 使用多阶段构建和非 root 运行用户，最终层不保留编译工具、源码缓存或开发依赖。后端 dependency builder 必须读取构建参数中 `RETROM_DEPENDENCY_VERSIONS` 对应的小型 manifest 集，按固定来源逐版本物化/校验 EmulatorJS、core、DAT 与许可输入，确定性生成各版本 `THIRD_PARTY_NOTICES`，并只复制每份 manifest 的 allowlist、DAT、许可原文和 notice；当前默认列表仅 `4.2.3`，包含三份 DAT 与 29 个许可 component。前端镜像携带经过 `data-check` 的 adapter registry/实现；两个镜像是同一项目发布单元，都必须携带依赖专题规定且完全相同的 `io.retrom.release-input-sha256` label，部署不得把 label 缺失/不同的构建物任意拼接。不能把下载 archive、本地依赖缓存、source checkout 或整个 `data/` 目录复制进镜像；后端内置 pure-Go 7z reader，不依赖或复制宿主 `7z/7zz` 可执行文件。运行数据只能在启动容器时由外部挂载或持久卷提供。镜像 target 只面向私有自托管构建；不得隐式 push，外部分发遵循依赖专题的人工许可门禁。
 
 `make build-images` 不自动属于普通 `make ci`，但修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时必须同时执行二者；发布流水线也必须把二者作为独立门禁。
 

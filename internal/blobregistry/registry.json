@@ -15,6 +15,7 @@
     {"table":"import_item_source_files","column":"source_archive_blob_id","target":"ARCHIVE_ENTRY","class":"PROTECTIVE"},
     {"table":"import_item_validation_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
     {"table":"launch_content_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
+    {"table":"launch_external_files","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
     {"table":"metadata_provider_responses","column":"raw_response_blob_id","target":"BLOBS","class":"PROTECTIVE"},
     {"table":"persistent_save_revisions","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},
     {"table":"review_uploaded_assets","column":"blob_id","target":"BLOBS","class":"PROTECTIVE"},

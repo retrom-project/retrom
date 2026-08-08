@@ -518,7 +518,7 @@ paths:
     get:
       operationId: getRuntimeLaunchConfig
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/LaunchConfigResponse' }
   /runtime/launches/{launchId}/dos-config/game.conf:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     get:
@@ -604,6 +604,16 @@ paths:
       operationId: headRuntimeGame
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
+  /runtime/launches/{launchId}/external-files/{logicalName}:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }, { $ref: '#/components/parameters/LogicalName' }]
+    get:
+      operationId: getRuntimeExternalFile
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+    head:
+      operationId: headRuntimeExternalFile
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/launches/{launchId}/bios/bundle.zip:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     get:
@@ -655,6 +665,67 @@ components:
             secureContext: { type: boolean }
             crossOriginIsolated: { type: boolean }
             sharedArrayBuffer: { type: boolean }
+    StartupAction:
+      type: object
+      additionalProperties: false
+      required: [event, kind, delayMs, player, control, durationMs]
+      properties:
+        event: { type: string, enum: [GAME_START] }
+        kind: { type: string, enum: [PRESS_CONTROL] }
+        delayMs: { type: integer, minimum: 0, maximum: 10000 }
+        player: { type: integer, minimum: 0, maximum: 3 }
+        control: { type: integer, minimum: 0, maximum: 255 }
+        durationMs: { type: integer, minimum: 1, maximum: 1000 }
+    LaunchConfig:
+      type: object
+      additionalProperties: false
+      required: [launchId, emulatorjsVersion, playerAdapterId, core, runtimeCore, coreName,
+        coreArtifactId, emulatorGameId, gameName, gameTitle, platformName, runtimeBaseUrl,
+        loaderUrl, gameUrl, biosUrl, parentUrl, stateUrl, persistentSaveMode,
+        persistentSaveUrl, inputMode, startupActions, requiresThreads, runtimePathOverrides,
+        defaultCoreOptions, externalFiles, dosEntry, warnings, returnTo]
+      properties:
+        launchId: { type: string, format: uuid }
+        emulatorjsVersion: { type: string }
+        playerAdapterId: { type: string }
+        core: { type: string }
+        runtimeCore: { type: string, pattern: '^[a-z0-9_]{1,64}$' }
+        coreName: { type: string }
+        coreArtifactId: { type: string, format: uuid }
+        emulatorGameId: { type: integer, format: int64, minimum: 1, maximum: 9007199254740991 }
+        gameName: { type: string }
+        gameTitle: { type: string }
+        platformName: { type: string }
+        runtimeBaseUrl: { type: string }
+        loaderUrl: { type: string }
+        gameUrl: { type: string }
+        biosUrl: { type: string, nullable: true }
+        parentUrl: { type: string, nullable: true }
+        stateUrl: { type: string, nullable: true }
+        persistentSaveMode: { type: string, enum: [SINGLE_FILE, DOS_OVERLAY, NONE] }
+        persistentSaveUrl: { type: string, nullable: true }
+        inputMode: { type: string, enum: [STANDARD, POINTER] }
+        startupActions:
+          type: array
+          maxItems: 4
+          items: { $ref: '#/components/schemas/StartupAction' }
+        requiresThreads: { type: boolean }
+        runtimePathOverrides:
+          type: object
+          maxProperties: 8
+          additionalProperties: { type: string }
+        defaultCoreOptions:
+          type: object
+          maxProperties: 32
+          additionalProperties: { type: string }
+        externalFiles:
+          type: object
+          maxProperties: 16
+          propertyNames: { type: string, minLength: 1, maxLength: 512, pattern: '^/' }
+          additionalProperties: { type: string, minLength: 1, maxLength: 1024 }
+        dosEntry: { type: string, nullable: true }
+        warnings: { type: array, items: { type: string } }
+        returnTo: { type: string }
     CreateUploadRequest:
       type: object
       additionalProperties: false
@@ -911,6 +982,9 @@ components:
         activeLaunchCount: {}
         actor: {}
         after: {}
+        archive: { type: boolean }
+        archiveEntries: {}
+        archiveFormat: { type: string, enum: [ZIP, SEVEN_Z], nullable: true }
         assetId: {}
         assetIds: {}
         assets: {}
@@ -1198,6 +1272,7 @@ components:
         sortValues: {}
         source: {}
         sourceDisplayName: {}
+        sourceFiles: {}
         sourceManifest: {}
         sourcePlatformInstanceId: {}
         sourceType: {}
@@ -1297,6 +1372,11 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/JSONObject' }
+    LaunchConfigResponse:
+      description: Immutable launch configuration derived from the locked core artifact and dependencies
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/LaunchConfig' }
     SSEResponse:
       description: Server-sent events
       content:

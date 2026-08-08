@@ -20,6 +20,8 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentmanifest"
+	"retrom/internal/contentprofile"
+	"retrom/internal/corevalidation"
 	"retrom/internal/importing"
 	"retrom/internal/metadatascrape"
 )
@@ -91,14 +93,6 @@ type preparedDOSEntry struct {
 	safe       bool
 }
 
-var platformExtensions = map[string]map[string]struct{}{
-	"nes":  {".nes": {}, ".unf": {}, ".unif": {}},
-	"fds":  {".fds": {}},
-	"snes": {".sfc": {}, ".smc": {}, ".swc": {}, ".fig": {}},
-	"gbc":  {".gb": {}, ".gbc": {}, ".dmg": {}},
-	"gba":  {".gba": {}},
-}
-
 func knownSidecar(path string) bool {
 	base := filepath.Base(path)
 	return base == ".DS_Store" || base == "Thumbs.db" || strings.HasPrefix(base, "._")
@@ -108,6 +102,14 @@ func archiveReason(err error) string {
 	switch {
 	case errors.Is(err, importing.ErrArchiveLimitExceeded):
 		return "ARCHIVE_LIMIT_EXCEEDED"
+	case errors.Is(err, importing.ErrArchiveEncrypted):
+		return "ARCHIVE_ENCRYPTED_UNSUPPORTED"
+	case errors.Is(err, importing.ErrArchiveVolumeUnsupported):
+		return "ARCHIVE_VOLUME_UNSUPPORTED"
+	case errors.Is(err, importing.ErrArchiveResourceLimit):
+		return "ARCHIVE_RESOURCE_LIMIT"
+	case errors.Is(err, importing.ErrArchiveSandboxUnavailable):
+		return "ARCHIVE_SANDBOX_UNAVAILABLE"
 	case errors.Is(err, importing.ErrNestedArchiveUnsupported):
 		return "NESTED_ARCHIVE_UNSUPPORTED"
 	case errors.Is(err, importing.ErrArchiveMethodUnsupported):
@@ -127,20 +129,37 @@ func (service *Service) materializeArchiveEntry(
 	if err := ctx.Err(); err != nil {
 		return blobstore.Metadata{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	reader, err := zip.OpenReader(archivePath)
-	if err != nil {
+	var metadata blobstore.Metadata
+	var putErr, closeErr error
+	switch expected.ArchiveFormat {
+	case "ZIP":
+		reader, err := zip.OpenReader(archivePath)
+		if err != nil {
+			return blobstore.Metadata{}, importing.ErrArchiveUnsafe
+		}
+		defer func() { cleanup.Error("close", reader.Close()) }()
+		if expected.Ordinal < 0 || expected.Ordinal >= len(reader.File) {
+			return blobstore.Metadata{}, importing.ErrArchiveUnsafe
+		}
+		entry, err := reader.File[expected.Ordinal].Open()
+		if err != nil {
+			return blobstore.Metadata{}, importing.ErrArchiveUnsafe
+		}
+		metadata, putErr = service.blobs.Put(io.LimitReader(entry, expected.Size+1))
+		closeErr = entry.Close()
+	case "SEVEN_Z":
+		reader, writer := io.Pipe()
+		done := make(chan error, 1)
+		go func() {
+			extractErr := importing.ExtractSevenZip(ctx, archivePath, expected, writer)
+			_ = writer.CloseWithError(extractErr)
+			done <- extractErr
+		}()
+		metadata, putErr = service.blobs.Put(io.LimitReader(reader, expected.Size+1))
+		closeErr = errors.Join(reader.Close(), <-done)
+	default:
 		return blobstore.Metadata{}, importing.ErrArchiveUnsafe
 	}
-	defer func() { cleanup.Error("close", reader.Close()) }()
-	if expected.Ordinal < 0 || expected.Ordinal >= len(reader.File) {
-		return blobstore.Metadata{}, importing.ErrArchiveUnsafe
-	}
-	entry, err := reader.File[expected.Ordinal].Open()
-	if err != nil {
-		return blobstore.Metadata{}, importing.ErrArchiveUnsafe
-	}
-	metadata, putErr := service.blobs.Put(io.LimitReader(entry, expected.Size+1))
-	closeErr := entry.Close()
 	if putErr != nil || closeErr != nil || metadata.Size != expected.Size || metadata.CRC32 != expected.CRC32 ||
 		metadata.MD5 != expected.MD5 ||
 		metadata.SHA1 != expected.SHA1 ||
@@ -852,8 +871,8 @@ func (service *Service) prepareImportFiles(
 	if platformID == "arcade" {
 		return service.prepareArcadeFiles(ctx, files, datID)
 	}
-	extensions := platformExtensions[platformID]
-	if extensions == nil {
+	profile, profileExists := contentprofile.ByPlatform(platformID)
+	if !profileExists {
 		for _, file := range files {
 			if knownSidecar(file.path) {
 				dispositions = append(
@@ -891,7 +910,7 @@ func (service *Service) prepareImportFiles(
 			continue
 		}
 		extension := strings.ToLower(filepath.Ext(file.path))
-		if _, supported := extensions[extension]; supported {
+		if contentprofile.AcceptsRaw(platformID, file.path) {
 			dispositions = append(dispositions, preparedDisposition{file: file, disposition: "SOURCE"})
 			groups = append(
 				groups,
@@ -901,14 +920,39 @@ func (service *Service) prepareImportFiles(
 			)
 			continue
 		}
-		if extension != ".zip" || service.blobs == nil {
+		archiveFormat := contentprofile.ArchiveZIP
+		switch extension {
+		case ".zip":
+		case ".7z":
+			archiveFormat = contentprofile.ArchiveSevenZip
+		default:
+			if strings.HasSuffix(strings.ToLower(file.path), ".7z.001") {
+				dispositions = append(dispositions, preparedDisposition{
+					file: file, disposition: "REJECTED", reason: "ARCHIVE_VOLUME_UNSUPPORTED",
+				})
+				continue
+			}
 			dispositions = append(
 				dispositions,
 				preparedDisposition{file: file, disposition: "REJECTED", reason: "UNSUPPORTED_CONTENT_FORMAT"},
 			)
 			continue
 		}
-		entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.sha256), importing.DefaultArchiveLimits())
+		if service.blobs == nil || profile.ArchivePolicy != contentprofile.ArchiveSinglePrimary ||
+			!contentprofile.AcceptsArchive(platformID, archiveFormat) {
+			dispositions = append(
+				dispositions,
+				preparedDisposition{file: file, disposition: "REJECTED", reason: "UNSUPPORTED_CONTENT_FORMAT"},
+			)
+			continue
+		}
+		var entries []importing.ArchiveEntry
+		var err error
+		if archiveFormat == contentprofile.ArchiveZIP {
+			entries, err = importing.ScanZIP(ctx, service.blobs.Path(file.sha256), importing.DefaultArchiveLimits())
+		} else {
+			entries, err = importing.ScanSevenZip(ctx, service.blobs.Path(file.sha256), importing.DefaultArchiveLimits())
+		}
 		if err != nil {
 			dispositions = append(
 				dispositions,
@@ -916,27 +960,22 @@ func (service *Service) prepareImportFiles(
 			)
 			continue
 		}
-		candidates := make([]importing.ArchiveEntry, 0, 2)
-		for _, entry := range entries {
-			if _, supported := extensions[strings.ToLower(filepath.Ext(entry.NormalizedPath))]; supported {
-				candidates = append(candidates, entry)
-			}
-		}
-		if len(candidates) == 0 {
+		candidate, selectErr := contentprofile.SelectArchivePrimary(platformID, entries)
+		if errors.Is(selectErr, contentprofile.ErrNoSupportedContent) {
 			dispositions = append(
 				dispositions,
 				preparedDisposition{file: file, disposition: "REJECTED", reason: "NO_SUPPORTED_CONTENT"},
 			)
 			continue
 		}
-		if len(candidates) != 1 {
+		if errors.Is(selectErr, contentprofile.ErrAmbiguousPrimaryContent) {
 			dispositions = append(
 				dispositions,
 				preparedDisposition{file: file, disposition: "REJECTED", reason: "AMBIGUOUS_PRIMARY_CONTENT"},
 			)
 			continue
 		}
-		selected, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.sha256), candidates[0])
+		selected, err := service.materializeArchiveEntry(ctx, service.blobs.Path(file.sha256), candidate)
 		if err != nil {
 			dispositions = append(
 				dispositions,
@@ -944,7 +983,7 @@ func (service *Service) prepareImportFiles(
 			)
 			continue
 		}
-		ordinal := candidates[0].Ordinal
+		ordinal := candidate.Ordinal
 		dispositions = append(dispositions, preparedDisposition{file: file, disposition: "SOURCE"})
 		groups = append(
 			groups,
@@ -953,7 +992,7 @@ func (service *Service) prepareImportFiles(
 					{
 						file:           file,
 						role:           "CONTENT",
-						logicalName:    filepath.Base(candidates[0].NormalizedPath),
+						logicalName:    filepath.Base(candidate.NormalizedPath),
 						archiveBlobID:  file.blobID,
 						archiveOrdinal: &ordinal,
 					},
@@ -1110,6 +1149,13 @@ AND pi.deleted_at_ms IS NULL
 		lockedArtifactID != artifactID {
 		return Created{}, ErrInvalid
 	}
+	biosCatalog, err := corevalidation.Catalog(ctx, transaction, artifactID)
+	if err != nil {
+		return Created{}, fmt.Errorf("libraryimport/service: %w", err)
+	}
+	if err := prepareStaticBIOSDependencies(ctx, transaction, artifactID, platformID, groups); err != nil {
+		return Created{}, err
+	}
 	importID, _ := uuid.NewV7()
 	jobID, _ := uuid.NewV7()
 	consumptionID, _ := uuid.NewV7()
@@ -1124,6 +1170,7 @@ AND pi.deleted_at_ms IS NULL
 		"coreArtifactPath":              artifactPath,
 		"coreArtifactSha256":            artifactSHA,
 		"datVersionId":                  nullable(datID),
+		"biosRequirements":              biosCatalog,
 		"metadataProviderConfigVersion": 1,
 	}
 	configJSON, _ := json.Marshal(config)
@@ -1321,7 +1368,8 @@ ordinal,
 original_relative_path,
 normalized_path,
 ascii_casefold_path,
-compression_method,
+archive_format,
+compression_profile,
 uncompressed_size_bytes,
 crc32,
 md5,
@@ -1340,6 +1388,7 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
+?,
 ?)
 `,
 				archive.blobID,
@@ -1347,7 +1396,8 @@ created_at_ms) VALUES(?,
 				entry.OriginalPath,
 				entry.NormalizedPath,
 				entry.ASCIICasefoldPath,
-				entry.Method,
+				entry.ArchiveFormat,
+				entry.CompressionProfile,
 				entry.Size,
 				entry.CRC32,
 				entry.MD5,
@@ -1721,6 +1771,49 @@ created_at_ms) VALUES(?,
 	return Created{ImportJobID: importID.String(), JobID: jobID.String(), State: state, ItemCount: len(groups)}, nil
 }
 
+func prepareStaticBIOSDependencies(
+	ctx context.Context,
+	transaction *sql.Tx,
+	artifactID, platformID string,
+	groups []preparedGroup,
+) error {
+	if platformID == "arcade" {
+		return nil
+	}
+	for index := range groups {
+		logicalName := ""
+		for _, source := range groups[index].sources {
+			if source.role == "CONTENT" {
+				logicalName = source.logicalName
+				break
+			}
+		}
+		if logicalName == "" && platformID != "dos" {
+			return ErrInvalid
+		}
+		snapshot, status, code, err := corevalidation.ResolveBIOS(ctx, transaction, artifactID, logicalName)
+		if err != nil {
+			return fmt.Errorf("libraryimport/service: %w", err)
+		}
+		snapshotJSON, err := snapshot.JSON()
+		if err != nil {
+			return fmt.Errorf("libraryimport/service: %w", err)
+		}
+		groups[index].validationStatus = status
+		groups[index].compatibilityCode = code
+		groups[index].dependencySnapshot = string(snapshotJSON)
+		for _, dependency := range snapshot.BIOS {
+			if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
+				groups[index].validationFiles = append(groups[index].validationFiles, preparedValidationFile{
+					role: "BIOS_BUNDLE", logicalName: dependency.LogicalName,
+					blobID: *dependency.BlobID, sortOrder: len(groups[index].validationFiles),
+				})
+			}
+		}
+	}
+	return nil
+}
+
 func nullableText(value string) any {
 	if value == "" {
 		return nil
@@ -1844,6 +1937,30 @@ AND active.is_active=1)
 		)
 	if err != nil || state != "REVIEW_PENDING" || draftVersion != expectedVersion {
 		return Approved{}, ErrInvalid
+	}
+	validationSnapshot, snapshotErr := corevalidation.ParseSnapshot(dependencySnapshotJSON)
+	if snapshotErr == nil {
+		var contentLogicalName string
+		if err := transaction.QueryRowContext(ctx, `
+SELECT COALESCE(MAX(CASE WHEN role='CONTENT' THEN logical_name END),'')
+FROM import_item_source_files
+WHERE import_item_id=?
+`, itemID).Scan(&contentLogicalName); err != nil {
+			return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
+		}
+		currentSnapshot, validationStatus, _, resolveErr := corevalidation.ResolveBIOS(
+			ctx,
+			transaction,
+			artifactID,
+			contentLogicalName,
+		)
+		if resolveErr != nil || validationStatus != "READY" {
+			return Approved{}, ErrInvalid
+		}
+		currentJSON, marshalErr := currentSnapshot.JSON()
+		if marshalErr != nil || string(currentJSON) != dependencySnapshotJSON {
+			return Approved{}, ErrInvalid
+		}
 	}
 	var metadata struct {
 		Title, Description, Developer, Publisher, Genre string
@@ -2024,7 +2141,21 @@ FROM game_variant_revisions
 `).Scan(&emulatorGameID); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	validationDigest := sha256.Sum256([]byte(validationID))
+	validationInputDigest := ""
+	if snapshotErr == nil {
+		validationInputDigest, err = corevalidation.ValidationInputDigest(
+			artifactID,
+			contentID.String(),
+			datID,
+			validationSnapshot,
+		)
+		if err != nil {
+			return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
+		}
+	} else {
+		validationDigest := sha256.Sum256([]byte(validationID))
+		validationInputDigest = hex.EncodeToString(validationDigest[:])
+	}
 	defaultDOSEntry := validationDOSEntry
 	if draftDOSEntry.Valid {
 		defaultDOSEntry = draftDOSEntry
@@ -2076,7 +2207,7 @@ created_at_ms) VALUES(?,
 		contentID.String(),
 		artifactID,
 		nullable(datID),
-		hex.EncodeToString(validationDigest[:]),
+		validationInputDigest,
 		emulatorGameID,
 		dependencySnapshotJSON,
 		nullable(defaultDOSEntry),

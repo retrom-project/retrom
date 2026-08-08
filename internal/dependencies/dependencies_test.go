@@ -6,6 +6,7 @@ import (
 	"context"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -44,8 +45,8 @@ WHERE enabled = 1
 `).Scan(&activeArtifacts); err != nil {
 		t.Fatalf("count active artifacts: %v", err)
 	}
-	if activeArtifacts != 8 {
-		t.Fatalf("active artifacts = %d, want 8", activeArtifacts)
+	if activeArtifacts != 28 {
+		t.Fatalf("active artifacts = %d, want 28", activeArtifacts)
 	}
 
 	var pendingDATs, activeDATs int
@@ -70,8 +71,29 @@ AND enabled=1
 `).Scan(&staticBIOS, &matchedCatalog); err != nil {
 		t.Fatalf("count BIOS requirements: %v", err)
 	}
-	if staticBIOS != 10 || matchedCatalog != staticBIOS {
-		t.Fatalf("static BIOS catalog = %d/%d, want 10/10", staticBIOS, matchedCatalog)
+	if staticBIOS != 22 || matchedCatalog != staticBIOS {
+		t.Fatalf("static BIOS catalog = %d/%d, want 22/22", staticBIOS, matchedCatalog)
+	}
+	var externalBIOS int
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT count(*)
+FROM bios_requirements
+WHERE delivery_kind='EXTERNAL_FILE'
+AND core_id='melonds'
+AND emulator_path IN ('/retroarch/userdata/system/bios7.bin',
+'/retroarch/userdata/system/bios9.bin',
+'/retroarch/userdata/system/firmware.bin')
+`).Scan(&externalBIOS); err != nil || externalBIOS != 3 {
+		t.Fatalf("melonDS external BIOS = %d, error=%v", externalBIOS, err)
+	}
+	var compatibility string
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT compatibility_config_json
+FROM core_artifacts
+WHERE core_id='ppsspp' AND enabled=1
+`).Scan(&compatibility); err != nil || !strings.Contains(compatibility, `"persistentSaveMode":"NONE"`) ||
+		!strings.Contains(compatibility, `"requestedArtifactBasename":"ppsspp-thread-wasm.data"`) {
+		t.Fatalf("PPSSPP compatibility = %s, error=%v", compatibility, err)
 	}
 
 	// Bootstrap is intentionally idempotent; every process start verifies the
