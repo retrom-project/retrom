@@ -1,5 +1,5 @@
-import { afterEach, describe, expect, it } from "vitest";
-import { adapterID, captureManualState, mountEmulatorJS, type PlayerConfig } from "./ejs-4.2.3-v1";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { adapterID, captureManualScreenshot, captureManualState, mountEmulatorJS, type PlayerConfig } from "./ejs-4.2.3-v1";
 
 const config: PlayerConfig = {
   launchId: "01980000-0000-7000-8000-000000000001",
@@ -60,19 +60,30 @@ describe("EmulatorJS adapter", () => {
     expect(() => mountEmulatorJS({ ...dosConfig, externalFiles: { "/game.conf": "https://example.test/game.conf" } }, target)).toThrow("PLAYER_EXTERNAL_FILES_INVALID");
   });
 
-  it("normalizes the 4.2.3 state and screenshot APIs into a manual save payload", async () => {
+  it("captures the running canvas before normalizing the paused manual state", async () => {
     const screenshot = new Blob(["png"], { type: "image/png" });
     const state = Uint8Array.from([1, 2, 3]);
-    const payload = await captureManualState({
+    const takeScreenshot = vi.fn(async () => ({ blob: screenshot, format: "png" }));
+    const instance = {
       on: () => undefined,
       capture: { photo: { source: "canvas", format: "png", upscale: 2 } },
       gameManager: { getState: () => state },
-      takeScreenshot: async (source, format, upscale) => {
-        expect([source, format, upscale]).toEqual(["canvas", "png", 2]);
-        return { blob: screenshot, format: "png" };
-      }
-    });
-    expect(payload).toEqual({ screenshot, format: "png", state });
+      takeScreenshot
+    };
+    const capture = await captureManualScreenshot(instance);
+    const payload = captureManualState(instance, capture);
+    expect(takeScreenshot).toHaveBeenCalledWith("canvas", "png", 2);
+    expect(payload.format).toBe("png");
+    expect(payload.screenshot.type).toBe("image/png");
+    expect(payload.screenshot).toBe(screenshot);
+    expect(payload.state).toEqual(state);
     expect(payload.state).not.toBe(state);
+  });
+
+  it("rejects unavailable or empty screenshots", async () => {
+    const state = Uint8Array.from([1, 2, 3]);
+    await expect(captureManualScreenshot({ on: () => undefined, gameManager: { getState: () => state } })).rejects.toThrow("PLAYER_SCREENSHOT_UNAVAILABLE");
+    await expect(captureManualScreenshot({ on: () => undefined, gameManager: { getState: () => state }, takeScreenshot: async () => ({ blob: new Blob(), format: "png" }) })).rejects.toThrow("PLAYER_SCREENSHOT_EMPTY");
+    expect(() => captureManualState({ on: () => undefined, gameManager: { getState: () => state } }, { screenshot: new Blob(), format: "png" })).toThrow("PLAYER_SCREENSHOT_EMPTY");
   });
 });

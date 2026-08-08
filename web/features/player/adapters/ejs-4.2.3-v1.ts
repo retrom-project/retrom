@@ -42,16 +42,23 @@ export type EmulatorInstance = {
   };
 };
 
-export async function captureManualState(instance: EmulatorInstance) {
-  const state = instance.gameManager?.getState?.();
-  // The runtime lives in a same-origin iframe; realm-local instanceof checks
-  // reject its otherwise valid Uint8Array and Blob values.
-  if (!state || !ArrayBuffer.isView(state) || state.byteLength === 0) throw new Error("PLAYER_STATE_UNAVAILABLE");
+export type ManualScreenshot = { screenshot: Blob; format: string };
+
+export async function captureManualScreenshot(instance: EmulatorInstance): Promise<ManualScreenshot> {
   if (!instance.takeScreenshot) throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
   const photo = instance.capture?.photo;
   const result = await instance.takeScreenshot(photo?.source ?? "canvas", photo?.format ?? "png", photo?.upscale ?? 1);
   if (!result.blob || typeof result.blob.size !== "number" || result.blob.size === 0) throw new Error("PLAYER_SCREENSHOT_EMPTY");
-  return { screenshot: result.blob, format: result.format || "png", state: new Uint8Array(state) };
+  return { screenshot: result.blob, format: result.format || "png" };
+}
+
+export function captureManualState(instance: EmulatorInstance, capture: ManualScreenshot) {
+  const state = instance.gameManager?.getState?.();
+  // The runtime lives in a same-origin iframe; realm-local instanceof checks
+  // reject its otherwise valid Uint8Array and Blob values.
+  if (!state || !ArrayBuffer.isView(state) || state.byteLength === 0) throw new Error("PLAYER_STATE_UNAVAILABLE");
+  if (!capture.screenshot || typeof capture.screenshot.size !== "number" || capture.screenshot.size === 0) throw new Error("PLAYER_SCREENSHOT_EMPTY");
+  return { ...capture, state: new Uint8Array(state) };
 }
 
 export type AdapterCallbacks = {

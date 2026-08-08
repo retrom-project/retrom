@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { newUuid, sha256 } from "@/lib/crypto";
-import { captureManualState, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "./adapters/ejs-4.2.3-v1";
+import { captureManualScreenshot, captureManualState, mountEmulatorJS, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v1";
 import { installCanvasContain } from "./canvas-fit";
 import { setEmulatorPaused } from "./pause-control";
 import { PlayerChrome } from "./player-chrome";
@@ -54,6 +54,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const toastTimer = useRef<number | null>(null);
   const running = useRef(false);
   const pausedRef = useRef(false);
+  const pausePending = useRef(false);
+  const pauseCapture = useRef<Promise<ManualScreenshot | null>>(Promise.resolve(null));
+  const lastManualScreenshot = useRef<ManualScreenshot | null>(null);
   const chromePinned = useRef(false);
 
   const clearControlsTimer = useCallback(() => {
@@ -92,19 +95,36 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }, [showControls]);
 
   const pauseForToolbarInteraction = useCallback(() => {
-    if (!running.current || pausedRef.current) return;
-    if (!setEmulatorPaused(emulator.current, true)) return;
-    pausedRef.current = true;
-    setPaused(true);
-    showToast("游戏已暂停，点击游戏画面继续");
-    setControlsVisible(true);
-    clearControlsTimer();
+    if (!running.current || pausedRef.current || pausePending.current || !emulator.current) return;
+    const current = emulator.current;
+    pausePending.current = true;
+    let timeoutID: number | undefined;
+    const timeout = new Promise<null>((resolve) => {
+      timeoutID = window.setTimeout(() => resolve(null), 750);
+    });
+    pauseCapture.current = Promise.race([captureManualScreenshot(current), timeout])
+      .then((capture) => {
+        if (capture) lastManualScreenshot.current = capture;
+        return capture;
+      })
+      .catch(() => null)
+      .finally(() => {
+        if (timeoutID !== undefined) window.clearTimeout(timeoutID);
+        pausePending.current = false;
+        if (!running.current || pausedRef.current || !setEmulatorPaused(current, true)) return;
+        pausedRef.current = true;
+        setPaused(true);
+        showToast("游戏已暂停，点击游戏画面继续");
+        setControlsVisible(true);
+        clearControlsTimer();
+      });
   }, [clearControlsTimer, showToast]);
 
   const handleGameSurfaceInteraction = useCallback(() => {
     if (!running.current) return;
     if (!pausedRef.current || !setEmulatorPaused(emulator.current, false)) return;
     pausedRef.current = false;
+    lastManualScreenshot.current = null;
     setPaused(false);
     showToast("游戏已继续");
     showControls();
@@ -406,7 +426,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     setSyncTone("busy");
     showToast("正在创建存档…");
     try {
-      await uploadManualState(await captureManualState(current));
+      const capture = await pauseCapture.current ?? lastManualScreenshot.current;
+      if (!capture) throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
+      await uploadManualState(captureManualState(current, capture));
     } catch {
       setSyncText("保存失败");
       setSyncTone("warning");

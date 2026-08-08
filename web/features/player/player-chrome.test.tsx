@@ -54,7 +54,8 @@ describe("PlayerChrome", () => {
 
   it("keeps the toolbar paused until the user returns to the game surface", async () => {
     const user = userEvent.setup();
-    const values = props({ paused: true });
+    const calls: string[] = [];
+    const values = props({ paused: true, onPauseForToolbarInteraction: vi.fn(() => calls.push("pause")), onSave: vi.fn(() => calls.push("save")) });
     render(<PlayerChrome {...values} />);
 
     expect(screen.getByText("已暂停")).toBeVisible();
@@ -63,6 +64,7 @@ describe("PlayerChrome", () => {
     await user.click(screen.getByRole("button", { name: "创建存档" }));
     expect(values.onPauseForToolbarInteraction).toHaveBeenCalledOnce();
     expect(values.onSave).toHaveBeenCalledOnce();
+    expect(calls).toEqual(["pause", "save"]);
   });
 
   it("requires exit confirmation and preserves the local-save conflict actions", async () => {

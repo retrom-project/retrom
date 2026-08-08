@@ -88,8 +88,10 @@ try {
     if (variant === "review-compare") await frame.locator("[data-open-compare]").click();
     if (variant === "history-detail") await frame.locator("[data-open-history]").first().click();
     if (variant === "core-override") {
-      await frame.locator("#rt-core-details > summary").click();
+      await frame.locator("[data-open-detail-runtime]").click();
       await frame.locator("#rt-core-select").selectOption({ label: "MAME 2003 Plus · 可选" });
+      await frame.locator("[data-apply-detail-runtime]").click();
+      await frame.locator("[data-open-detail-runtime]").click();
     }
     if (view === "play") await page.waitForTimeout(1_400);
     await frame.locator("[data-lucide]").first().waitFor({ state: "attached" });
