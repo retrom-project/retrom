@@ -461,8 +461,7 @@ summary { cursor: pointer; }
 .platform-directory-search input { padding-left: 0; border: 0; background: transparent; }
 .platform-directory-quick { min-height: 48px; margin: 0 0 4px; display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .platform-directory-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.platform-directory-chips button, .platform-directory-chips span { min-height: 31px; padding: 7px 10px; color: #5f6b7d; border: 1px solid transparent; border-radius: 999px; background: #f4f6f8; font-size: 12px; font-weight: 700; }
-.platform-directory-chips button { cursor: pointer; }
+.platform-directory-chips button { min-height: 31px; padding: 7px 10px; color: #5f6b7d; border: 1px solid transparent; border-radius: 999px; background: #f4f6f8; cursor: pointer; font-size: 12px; font-weight: 700; }
 .platform-directory-chips button.active { color: var(--purple-dark); border-color: #d8cff7; background: #f3f0ff; }
 .platform-directory-quick p { margin: 0; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .platform-directory-quick p strong { color: var(--ink); }

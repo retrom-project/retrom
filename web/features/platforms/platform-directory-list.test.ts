@@ -31,8 +31,8 @@ const directories = [
 ];
 
 describe("platform directory list", () => {
-  it("summarizes enabled, disabled, empty, and arcade directories", () => {
-    expect(platformDirectorySummary(directories)).toEqual({ total: 3, enabled: 2, disabled: 1, empty: 2, arcade: 2 });
+  it("summarizes the three actionable status filters", () => {
+    expect(platformDirectorySummary(directories)).toEqual({ total: 3, enabled: 2, disabled: 1 });
   });
 
   it("searches user-facing directory, platform, and description text", () => {
