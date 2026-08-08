@@ -97,7 +97,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Published game summaries from enabled platform directories; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset. */
+        /** @description Published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL; generatedAtMs gives client-side filtering and relative-time labels a stable response clock. */
         get: operations["getGames"];
         put?: never;
         post?: never;
