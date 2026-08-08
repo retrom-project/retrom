@@ -1036,46 +1036,61 @@
 
     #retrom-ui-review .rt-empty-note { padding: 28px; color: var(--retrom-muted); text-align: center; }
 
-    #retrom-ui-review .rt-player-shell { min-height: 760px; background: #07080c; color: #f5f4ff; }
-    #retrom-ui-review .rt-player-top {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      gap: 12px;
-      padding: 13px 16px;
-      border-bottom: 1px solid #292b36;
-      background: #11121a;
-    }
-    #retrom-ui-review .rt-player-title { display: flex; align-items: center; gap: 10px; }
-    #retrom-ui-review .rt-player-title strong { font-weight: 500; }
-    #retrom-ui-review .rt-player-meta { color: #a7a8b7; font-size: 11px; }
-    #retrom-ui-review .rt-player-launch-state { display: inline-flex; align-items: center; gap: 6px; margin-top: 5px; color: #b9efcd; font-size: 10px; }
-    #retrom-ui-review .rt-player-launch-state::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: #5ad68a; box-shadow: 0 0 0 4px rgb(90 214 138 / 0.11); }
-    #retrom-ui-review .rt-player-launch-state.is-loading { color: #dac8ff; }
-    #retrom-ui-review .rt-player-launch-state.is-loading::before { background: #a781ff; box-shadow: 0 0 0 4px rgb(167 129 255 / 0.13); }
-    #retrom-ui-review .rt-player-actions { display: flex; flex-wrap: wrap; gap: 7px; }
-    #retrom-ui-review .rt-player-actions .rt-button { border-color: #30323f; background: #181a24; color: #f3f2fa; }
-    #retrom-ui-review .rt-player-stage { padding: 22px; }
+    #retrom-ui-review .rt-player-shell { position: relative; min-height: 760px; overflow: hidden; background: #000; color: #f5f4ff; }
+    #retrom-ui-review .rt-player-stage { position: absolute; inset: 0; display: grid; place-items: center; overflow: hidden; background: #000; }
     #retrom-ui-review .rt-player-screen {
       position: relative;
       display: grid;
       place-items: center;
-      width: min(100%, 960px);
+      width: min(100vw, 177.78vh);
+      height: min(100vh, 56.25vw);
       aspect-ratio: 16 / 9;
-      margin: 0 auto;
       overflow: hidden;
-      border: 1px solid #30323f;
       background:
         linear-gradient(180deg, transparent 0 48%, rgb(4 7 15 / 0.36) 49%),
         repeating-linear-gradient(90deg, transparent 0 39px, rgb(255 255 255 / 0.035) 40px),
         linear-gradient(160deg, #173c4a 0 46%, #0a202a 47% 62%, #07080c 63%);
-      box-shadow: 0 18px 70px rgb(0 0 0 / 0.45);
     }
     #retrom-ui-review .rt-player-screen::before { content: ""; position: absolute; width: 13%; aspect-ratio: 1; left: 18%; top: 23%; border-radius: 50%; background: rgb(247 214 127 / 0.72); box-shadow: 0 0 54px rgb(247 214 127 / 0.28); }
     #retrom-ui-review .rt-player-screen::after { content: ""; position: absolute; width: 28%; height: 8%; left: 34%; bottom: 18%; background: #345c57; box-shadow: -130px 28px 0 #283f49, 150px 16px 0 #2d4c4c; }
-    #retrom-ui-review .rt-player-screen.is-portrait { width: auto; height: calc(100vh - 150px); max-height: none; aspect-ratio: 3 / 4; }
+    #retrom-ui-review .rt-player-screen.is-portrait { width: 75vh; height: 100vh; aspect-ratio: 3 / 4; }
     #retrom-ui-review .rt-player-logo { position: relative; z-index: 1; padding: 10px 13px; border: 1px solid rgb(255 255 255 / 0.22); background: rgb(5 7 12 / 0.58); color: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.16em; }
-    #retrom-ui-review .rt-player-bottom { display: flex; justify-content: space-between; gap: 12px; width: min(100%, 960px); margin: 13px auto 0; color: #a7a8b7; font-size: 11px; }
+    #retrom-ui-review .rt-player-top { position: absolute; z-index: 5; inset: 0 0 auto; height: 58px; padding: 0 16px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid #343d4f; background: linear-gradient(180deg,rgb(17 23 34 / 98%),rgb(17 23 34 / 92%)); box-shadow: 0 10px 30px rgb(0 0 0 / 28%); backdrop-filter: blur(12px); }
+    #retrom-ui-review .rt-player-back, #retrom-ui-review .rt-player-control { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #343d4f; border-radius: 8px; color: #edf0f5; background: #171d29; font-size: 11px; font-weight: 650; }
+    #retrom-ui-review .rt-player-back { width: 34px; padding: 0; flex: none; }
+    #retrom-ui-review .rt-player-back svg, #retrom-ui-review .rt-player-control svg { width: 15px; height: 15px; }
+    #retrom-ui-review .rt-player-title { min-width: 0; max-width: 430px; display: flex; flex-direction: column; gap: 1px; }
+    #retrom-ui-review .rt-player-title strong, #retrom-ui-review .rt-player-meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #retrom-ui-review .rt-player-title strong { font-size: 13px; }
+    #retrom-ui-review .rt-player-meta { color: #7f8999; font-size: 10px; }
+    #retrom-ui-review .rt-player-launch-state { margin-left: auto; display: inline-flex; align-items: center; gap: 7px; color: #9eb2a8; font-size: 11px; }
+    #retrom-ui-review .rt-player-launch-state::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: #61c89b; box-shadow: 0 0 0 4px rgb(97 200 155 / 11%); }
+    #retrom-ui-review .rt-player-launch-state.is-loading { color: #b8aed5; }
+    #retrom-ui-review .rt-player-launch-state.is-loading::before { background: #9b87e7; box-shadow: 0 0 0 4px rgb(155 135 231 / 12%); }
+    #retrom-ui-review .rt-player-actions { display: flex; align-items: center; gap: 7px; }
+    #retrom-ui-review .rt-player-control.is-icon { width: 36px; padding: 0; }
+    #retrom-ui-review .rt-player-menu-wrap { position: relative; }
+    #retrom-ui-review .rt-player-menu { position: absolute; right: 0; top: 42px; width: 220px; padding: 7px; display: none; border: 1px solid #343d4f; border-radius: 10px; background: #171e2b; box-shadow: 0 18px 40px rgb(0 0 0 / 34%); }
+    #retrom-ui-review .rt-player-menu.is-open { display: grid; gap: 2px; }
+    #retrom-ui-review .rt-player-menu button { min-height: 35px; padding: 0 10px; color: #e7ebf2; border: 0; border-radius: 7px; background: transparent; text-align: left; }
+    #retrom-ui-review .rt-player-menu .is-danger { color: #ff9ca7; }
+    #retrom-ui-review .rt-player-menu hr { width: 100%; border: 0; border-top: 1px solid #30394a; }
+    #retrom-ui-review .rt-player-native-controls { position: absolute; z-index: 4; inset: auto 0 0; min-height: 54px; padding: 10px 14px; display: flex; align-items: center; gap: 7px; color: #dce2eb; background: linear-gradient(180deg, rgb(0 0 0 / 0%), rgb(0 0 0 / 86%)); opacity: 0; visibility: hidden; pointer-events: none; transform: translateY(100%); transition: opacity .2s ease, transform .2s ease; }
+    #retrom-ui-review .rt-player-native-controls.is-open { opacity: 1; visibility: visible; pointer-events: auto; transform: translateY(0); }
+    #retrom-ui-review .rt-player-native-controls button { min-height: 31px; padding: 0 9px; color: inherit; border: 0; border-radius: 6px; background: transparent; font-size: 9px; }
+    #retrom-ui-review .rt-player-native-controls button:hover { background: rgb(255 255 255 / 12%); }
+    #retrom-ui-review .rt-player-native-spacer { flex: 1; }
+    #retrom-ui-review .rt-player-pause-overlay { position: absolute; z-index: 3; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 22%); opacity: 0; visibility: hidden; pointer-events: none; transition: opacity .15s ease; }
+    #retrom-ui-review .rt-player-pause-overlay.is-open { opacity: 1; visibility: visible; }
+    #retrom-ui-review .rt-player-pause-pill { min-width: 150px; padding: 18px 24px; display: grid; justify-items: center; gap: 7px; border: 1px solid #343d4f; border-radius: 15px; background: rgb(17 23 34 / 88%); box-shadow: 0 18px 48px rgb(0 0 0 / 35%); }
+    #retrom-ui-review .rt-player-pause-pill strong { font-size: 13px; }
+    #retrom-ui-review .rt-player-pause-pill small { color: #929cad; font-size: 9px; }
+    #retrom-ui-review .rt-player-hint { position: absolute; z-index: 3; left: 14px; bottom: 14px; color: #6f7785; font-size: 10px; }
+    #retrom-ui-review .rt-player-stage-state { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); }
+    #retrom-ui-review .rt-player-exit-backdrop { background: rgb(0 0 0 / 58%); }
+    #retrom-ui-review .rt-player-exit-dialog { color: #f3f5f8; border-color: #343d4f; background: #151c28; }
+    #retrom-ui-review .rt-player-exit-dialog .rt-dialog-copy { color: #aeb7c7; }
+    #retrom-ui-review .rt-player-exit-dialog .rt-dialog-impact { color: #e8c8cc; border-color: #5b4147; background: #231f22; }
 
     @media (min-width: 1600px) {
       #retrom-ui-review { font-size: 15px; }
@@ -1087,8 +1102,6 @@
       #retrom-ui-review .rt-management-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 320px)); gap: 20px; }
       #retrom-ui-review .rt-detail-hero { grid-template-columns: 210px minmax(0, 1fr) 360px; gap: 28px; padding: 26px; }
       #retrom-ui-review .rt-detail-title { font-size: 31px; }
-      #retrom-ui-review .rt-player-screen,
-      #retrom-ui-review .rt-player-bottom { width: min(100%, 155vh, 2200px); }
     }
 
     @media (min-width: 2600px) {
@@ -1149,11 +1162,7 @@
       #retrom-ui-review .rt-game-grid { grid-template-columns: repeat(8, minmax(0, 1fr)); }
       #retrom-ui-review .rt-save-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); }
       #retrom-ui-review .rt-management-grid { grid-template-columns: repeat(auto-fill, minmax(270px, 320px)); }
-      #retrom-ui-review .rt-player-meta { font-size: 14px; }
-      #retrom-ui-review .rt-player-launch-state,
-      #retrom-ui-review .rt-player-bottom { font-size: 13px; }
-      #retrom-ui-review .rt-player-screen,
-      #retrom-ui-review .rt-player-bottom { width: min(100%, 160vh, 3000px); }
+      #retrom-ui-review .rt-player-meta { font-size: 11px; }
     }
 
     @media (max-width: 1400px) {
@@ -1357,11 +1366,17 @@
 
       <section class="rt-page" data-page="play">
         <div class="rt-player-shell">
+          <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div></div>
           <div class="rt-player-top">
-            <div class="rt-player-title"><span class="rt-brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><div><strong id="rt-player-game">Metal Slug</strong><div class="rt-player-meta" id="rt-player-core">FBNeo · 本次游玩 00:18:42</div><div class="rt-player-launch-state" id="rt-player-launch-state" role="status" aria-live="polite">运行中 · 自动启动 · 默认全屏</div></div></div>
-            <div class="rt-player-actions"><button type="button" class="rt-button"><i data-lucide="camera" aria-hidden="true"></i>保存游戏</button><button type="button" class="rt-button"><i data-lucide="pause" aria-hidden="true"></i>暂停</button><button type="button" class="rt-button"><i data-lucide="gamepad-2" aria-hidden="true"></i>控制器</button><button type="button" class="rt-button" id="rt-enter-fullscreen"><i data-lucide="maximize" aria-hidden="true"></i>全屏</button><button type="button" class="rt-button" id="rt-exit-player"><i data-lucide="log-out" aria-hidden="true"></i>退出</button></div>
+            <button type="button" class="rt-player-back" id="rt-exit-player" data-player-exit aria-label="返回并退出游戏"><i data-lucide="arrow-left" aria-hidden="true"></i></button>
+            <div class="rt-player-title"><strong id="rt-player-game">Metal Slug</strong><div class="rt-player-meta" id="rt-player-core">FinalBurn Neo · Arcade</div></div>
+            <div class="rt-player-launch-state" id="rt-player-launch-state" role="status" aria-live="polite">已同步</div>
+            <div class="rt-player-actions"><button type="button" class="rt-player-control"><i data-lucide="save" aria-hidden="true"></i>创建存档</button><button type="button" class="rt-player-control is-icon" aria-label="暂停"><i data-lucide="pause" aria-hidden="true"></i></button><button type="button" class="rt-player-control is-icon" id="rt-enter-fullscreen" aria-label="全屏"><i data-lucide="maximize" aria-hidden="true"></i></button><div class="rt-player-menu-wrap"><button type="button" class="rt-player-control is-icon" id="rt-player-more" aria-label="更多操作"><i data-lucide="ellipsis" aria-hidden="true"></i></button><div class="rt-player-menu" id="rt-player-menu"><button type="button" data-open-emulator-controls>模拟器设置</button><button type="button">查看快捷键</button><button type="button">查看运行提醒</button><hr><button type="button" class="is-danger" data-player-exit>退出游戏</button></div></div></div>
           </div>
-          <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div><div class="rt-player-bottom"><span id="rt-player-stage-state">一次点击后已自动运行 · 已连接控制器 1</span><span>Esc 退出全屏 · 使用工具栏保存进度</span></div></div>
+          <div class="rt-player-pause-overlay" id="rt-player-pause-overlay" aria-hidden="true"><div class="rt-player-pause-pill"><i data-lucide="pause" aria-hidden="true"></i><strong>已暂停</strong><small>点击游戏画面继续</small></div></div>
+          <div class="rt-player-native-controls" id="rt-player-native-controls" aria-hidden="true"><button type="button">重新开始</button><button type="button">暂停</button><button type="button">保存状态</button><button type="button">加载状态</button><button type="button">控制设置</button><span class="rt-player-native-spacer"></span><button type="button">静音</button><button type="button">设置</button><button type="button">全屏</button></div>
+          <div class="rt-player-hint">移动鼠标显示 Retrom 控制</div>
+          <span class="rt-player-stage-state" id="rt-player-stage-state">一次点击后已自动运行</span>
         </div>
       </section>
 
@@ -1602,6 +1617,8 @@
     </main>
   </div>
 
+  <div class="rt-dialog-backdrop rt-player-exit-backdrop" data-player-exit-dialog hidden><section class="rt-dialog rt-player-exit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-player-exit-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-player-exit-title">退出游戏？</h2><p class="rt-dialog-copy">游戏进度已同步，可以安全退出。</p></div></div><div class="rt-dialog-impact">退出时会刷新持久进度、结束本次游玩记录，并返回启动游戏前的页面。</div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-cancel-player-exit>取消</button><button type="button" class="rt-button rt-button-danger" data-confirm-player-exit>退出游戏</button></div></section></div>
+
   <div class="rt-runtime-drawer-backdrop" data-runtime-drawer-backdrop hidden></div>
   <aside class="rt-runtime-drawer" data-runtime-drawer hidden><header><div><span class="rt-badge rt-badge-purple">新候选</span><h2>上传街机数据目录</h2><p>上传后先安全解析，再查看差异，最后才允许启用。</p></div><button type="button" class="rt-button" data-close-runtime-drawer aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></header><div class="rt-runtime-drawer-body"><label>目标运行方式<select class="rt-select"><option>FinalBurn Neo · bundle 4.2.3</option><option>MAME 2003 · bundle 4.2.1</option><option>MAME 2003 Plus · bundle 4.2.3</option></select></label><label>DAT / XML 文件<input class="rt-input" placeholder="尚未选择文件" readonly></label><button type="button" class="rt-button">选择 DAT 或 XML 文件</button><ol class="rt-runtime-upload-flow"><li><span>1</span><strong>上传</strong></li><li><span>2</span><strong>解析</strong></li><li><span>3</span><strong>查看差异</strong></li><li><span>4</span><strong>启用</strong></li></ol></div><footer><button type="button" class="rt-button" data-close-runtime-drawer>取消</button><button type="button" class="rt-button rt-button-primary" disabled>开始上传</button></footer></aside>
 
@@ -1832,7 +1849,7 @@
         if (document.fullscreenElement || !fullscreenTarget.requestFullscreen) return;
         fullscreenTarget.requestFullscreen({ navigationUI: 'hide' }).catch(() => {
           const state = root.querySelector('#rt-player-launch-state');
-          state.textContent = '运行中 · 浏览器未允许全屏，可用右上角重试';
+          state.textContent = '已同步';
           state.classList.remove('is-loading');
         });
       }
@@ -1847,32 +1864,28 @@
         const needsValidation = !fromSave && selectedCore.includes('开始时检查');
         const state = root.querySelector('#rt-player-launch-state');
         const stageState = root.querySelector('#rt-player-stage-state');
+        const pauseOverlay = root.querySelector('#rt-player-pause-overlay');
+        const platformName = game.platform.split(' / ')[0];
+        const coreName = selectedCore.split(' · ')[0];
         root.querySelector('#rt-player-game').textContent = game.title;
-        root.querySelector('#rt-player-core').textContent = fromSave
-          ? `${selectedCore} · 正在恢复“${game.saveName}”`
-          : needsValidation
-            ? `${selectedCore.split(' · ')[0]} · 正在验证核心兼容性`
-            : `${selectedCore.split(' · ')[0]} · 正在创建新会话`;
-        state.textContent = needsValidation
-          ? '验证中 · 复用共享兼容性任务 · 退出等待不会取消任务'
-          : '启动中 · 自动预检并加载 EmulatorJS';
+        root.querySelector('#rt-player-core').textContent = `${coreName} · ${platformName}`;
+        state.textContent = needsValidation ? '正在验证…' : '正在连接…';
         stageState.textContent = needsValidation
           ? '正在验证核心兼容性 · 完成后自动继续，无第二个开始按钮'
           : '正在加载 EmulatorJS · 无第二个开始按钮';
         state.classList.add('is-loading');
+        pauseOverlay.classList.remove('is-open');
+        pauseOverlay.setAttribute('aria-hidden', 'true');
         showPage('play');
         requestPlayerFullscreen();
         if (needsValidation) window.setTimeout(() => {
           if (runToken !== playerRunToken) return;
-          state.textContent = '验证中 · 正在生成依赖包';
-          root.querySelector('#rt-player-core').textContent = `${selectedCore.split(' · ')[0]} · 兼容性检查通过`;
+          state.textContent = '正在准备运行环境…';
         }, 650);
         window.setTimeout(() => {
           if (runToken !== playerRunToken) return;
-          root.querySelector('#rt-player-core').textContent = `${selectedCore.split(' · ')[0]} · 本次游玩 00:00:01`;
-          state.textContent = document.fullscreenElement
-            ? '运行中 · 自动启动 · 已进入全屏'
-            : '运行中 · 自动启动 · 全屏请求未获允许';
+          root.querySelector('#rt-player-core').textContent = `${coreName} · ${platformName}`;
+          state.textContent = '已同步';
           stageState.textContent = '一次点击后已自动运行 · 已连接控制器 1';
           state.classList.remove('is-loading');
         }, needsValidation ? 1300 : 650);
@@ -1890,7 +1903,36 @@
         startGame(button.dataset.quickStart, { fromSave: true, returnPage: sourcePage });
       }));
       root.querySelector('#rt-enter-fullscreen').addEventListener('click', requestPlayerFullscreen);
-      root.querySelector('#rt-exit-player').addEventListener('click', () => {
+      const playerPauseOverlay = root.querySelector('#rt-player-pause-overlay');
+      root.querySelector('.rt-player-top').addEventListener('click', () => {
+        playerPauseOverlay.classList.add('is-open');
+        playerPauseOverlay.setAttribute('aria-hidden', 'false');
+      });
+      root.querySelector('.rt-player-screen').addEventListener('click', () => {
+        playerPauseOverlay.classList.remove('is-open');
+        playerPauseOverlay.setAttribute('aria-hidden', 'true');
+      });
+      root.querySelector('#rt-player-more').addEventListener('click', () => root.querySelector('#rt-player-menu').classList.toggle('is-open'));
+      let emulatorControlsTimer;
+      root.querySelector('[data-open-emulator-controls]').addEventListener('click', () => {
+        const controls = root.querySelector('#rt-player-native-controls');
+        root.querySelector('#rt-player-menu').classList.remove('is-open');
+        controls.classList.add('is-open');
+        controls.setAttribute('aria-hidden', 'false');
+        window.clearTimeout(emulatorControlsTimer);
+        emulatorControlsTimer = window.setTimeout(() => {
+          controls.classList.remove('is-open');
+          controls.setAttribute('aria-hidden', 'true');
+        }, 3000);
+      });
+      const playerExitDialog = root.querySelector('[data-player-exit-dialog]');
+      root.querySelectorAll('[data-player-exit]').forEach((button) => button.addEventListener('click', () => {
+        root.querySelector('#rt-player-menu').classList.remove('is-open');
+        playerExitDialog.hidden = false;
+      }));
+      root.querySelector('[data-cancel-player-exit]').addEventListener('click', () => { playerExitDialog.hidden = true; });
+      root.querySelector('[data-confirm-player-exit]').addEventListener('click', () => {
+        playerExitDialog.hidden = true;
         playerRunToken += 1;
         const returnToSource = () => showPage(playerReturnPage);
         if (document.fullscreenElement) document.exitFullscreen().then(returnToSource, returnToSource);

@@ -1,6 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type AppIconName = "home" | "library" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "chip" | "database" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad";
+export type AppIconName = "home" | "library" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "chip" | "database" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad" | "maximize" | "minimize" | "more" | "log-out" | "keyboard" | "warning";
 
 const paths: Record<AppIconName, ReactNode> = {
   home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></>,
@@ -24,7 +24,13 @@ const paths: Record<AppIconName, ReactNode> = {
   play: <><path d="m8 5 11 7-11 7Z" /></>,
   "eye-off": <><path d="m3 3 18 18" /><path d="M10.6 10.6a2 2 0 0 0 2.8 2.8M9.9 4.2A10.8 10.8 0 0 1 12 4c5 0 9 5.2 9 8a8.5 8.5 0 0 1-2 3.6M6.6 6.6C4.3 8.1 3 10.4 3 12c0 2.8 4 8 9 8 1.2 0 2.4-.3 3.4-.8" /></>,
   pin: <><path d="m9 3 6 6" /><path d="m10 8-4.5 4.5 6 1 1 6L17 15" /><path d="m13 5 6 6" /><path d="M5 19 19 5" /></>,
-  gamepad: <><path d="M8 8h8l4 4v5a3 3 0 0 1-5 2l-1-1h-4l-1 1a3 3 0 0 1-5-2v-5Z" /><path d="M8 13h4M10 11v4M16 12h.01M18 14h.01" /></>
+  gamepad: <><path d="M8 8h8l4 4v5a3 3 0 0 1-5 2l-1-1h-4l-1 1a3 3 0 0 1-5-2v-5Z" /><path d="M8 13h4M10 11v4M16 12h.01M18 14h.01" /></>,
+  maximize: <><path d="M8 3H3v5M16 3h5v5M21 16v5h-5M3 16v5h5" /><path d="m3 8 5-5m8 0 5 5m0 8-5 5M8 21l-5-5" /></>,
+  minimize: <><path d="M8 8H3M8 8V3M16 8h5M16 8V3M16 16h5M16 16v5M8 16H3M8 16v5" /><path d="m3 8 5-5m8 0 5 5m0 8-5 5M8 21l-5-5" /></>,
+  more: <><circle cx="5" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none" /><circle cx="19" cy="12" r="1.2" fill="currentColor" stroke="none" /></>,
+  "log-out": <><path d="M10 4H5v16h5M14 8l4 4-4 4M9 12h9" /></>,
+  keyboard: <><rect x="3" y="6" width="18" height="12" rx="2" /><path d="M7 10h.01M11 10h.01M15 10h.01M18 10h.01M7 14h.01M11 14h6" /></>,
+  warning: <><path d="M12 3 2.8 20h18.4Z" /><path d="M12 9v4M12 17h.01" /></>
 };
 
 export function AppIcon({ name, ...props }: { name: AppIconName } & SVGProps<SVGSVGElement>) {

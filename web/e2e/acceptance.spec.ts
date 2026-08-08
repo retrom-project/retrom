@@ -391,9 +391,12 @@ test("ACC-RUN-002 one click requests fullscreen before launch and auto-starts th
   const configResponse = page.waitForResponse((response) => /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
-  const configuration = await (await configResponse).json() as { emulatorGameId: number; gameName: string; gameUrl: string; loaderUrl: string; runtimePathOverrides: Record<string, string>; playerAdapterId: string; emulatorjsVersion: string };
+  const configuration = await (await configResponse).json() as { emulatorGameId: number; gameName: string; gameTitle: string; coreName: string; platformName: string; gameUrl: string; loaderUrl: string; runtimePathOverrides: Record<string, string>; playerAdapterId: string; emulatorjsVersion: string };
   expect(Number.isSafeInteger(configuration.emulatorGameId) && configuration.emulatorGameId > 0).toBe(true);
   expect(configuration.gameName).toBe(`retrom-${configuration.emulatorGameId}`);
+  expect(configuration.gameTitle).toBe("Sudoku");
+  expect(configuration.coreName).toBe("mGBA");
+  expect(configuration.platformName).toBe("Game Boy Advance");
   expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v1");
   expect(configuration.emulatorjsVersion).toBe("4.2.3");
   expect(configuration.gameUrl).not.toMatch(/(?:blob:|file:|\/home\/)/);
@@ -459,11 +462,16 @@ test("ACC-RUN-004 BIOS blockers stop launch while hash warnings auto-start", asy
   await page.locator(".library-game-card").filter({ hasText: "Sudoku" }).getByRole("link").first().click();
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
-  await expect(page.getByText("BIOS Hash 与目录期望不一致，已按 Warning 继续运行。", { exact: true })).toBeVisible();
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 30_000 });
   await expect(page.getByRole("button", { name: "开始游戏" })).toHaveCount(0);
+  await page.mouse.move(20, 20);
+  await page.getByRole("button", { name: "查看运行提醒" }).click();
+  await expect(page.getByText("BIOS 校验值与目录期望不同，但当前允许运行。", { exact: true })).toBeVisible();
   await page.screenshot({ path: evidencePath(testInfo, "bios-hash-warning-autostart.png"), fullPage: true });
-  await page.getByRole("button", { name: "退出游戏" }).click();
+  await page.getByRole("button", { name: "返回并退出游戏" }).click();
+  const exitDialog = page.getByRole("alertdialog", { name: "退出游戏？" });
+  await expect(exitDialog).toBeVisible();
+  await exitDialog.getByRole("button", { name: "退出游戏", exact: true }).click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
 
   await page.goto("/library");

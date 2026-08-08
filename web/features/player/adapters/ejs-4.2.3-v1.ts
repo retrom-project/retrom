@@ -3,8 +3,11 @@ export type PlayerConfig = {
   emulatorjsVersion: string;
   playerAdapterId: string;
   core: string;
+  coreName: string;
   emulatorGameId: number;
   gameName: string;
+  gameTitle: string;
+  platformName: string;
   runtimeBaseUrl: string;
   loaderUrl: string;
   gameUrl: string;
@@ -23,6 +26,7 @@ export type PlayerConfig = {
 
 export type EmulatorInstance = {
   paused?: boolean;
+  menu?: { close?: () => void; open?: (force?: boolean) => void; toggle?: () => void };
   on: (event: string, callback: (...args: unknown[]) => void) => void;
   capture?: { photo?: { source?: string; format?: string; upscale?: number } };
   takeScreenshot?: (source: string, format: string, upscale: number) => Promise<{ blob: Blob; format: string }>;
@@ -79,6 +83,7 @@ declare global {
     EJS_disableDatabases?: boolean;
     EJS_disableLocalStorage?: boolean;
     EJS_CacheLimit?: number;
+    EJS_Buttons?: Record<string, boolean | { visible?: boolean }>;
     EJS_onGameStart?: () => void;
     EJS_ready?: () => void;
     EJS_onSaveState?: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => void;
@@ -122,6 +127,7 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_disableDatabases = true;
   runtimeWindow.EJS_disableLocalStorage = true;
   runtimeWindow.EJS_CacheLimit = 0;
+  runtimeWindow.EJS_Buttons = { exitEmulation: false };
   runtimeWindow.EJS_ready = () => runtimeWindow.EJS_emulator && callbacks.onReady?.(runtimeWindow.EJS_emulator);
   runtimeWindow.EJS_onGameStart = callbacks.onGameStart;
   runtimeWindow.EJS_onSaveState = callbacks.onSaveState;

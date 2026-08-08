@@ -219,6 +219,7 @@ AND enabled=1
 		t.Fatalf("config: %v", err)
 	}
 	if configuration.Core != "mgba" || configuration.EmulatorJSVersion != "4.2.3" || configuration.GameURL == "" ||
+		configuration.CoreName != "mGBA" || configuration.GameTitle != "Launch" || configuration.PlatformName != "Game Boy Advance" ||
 		configuration.BIOSURL == nil || configuration.DefaultCoreOptions["mgba_use_bios"] != "ON" ||
 		len(configuration.Warnings) != 1 || configuration.Warnings[0] != "BIOS_HASH_WARNING" {
 		t.Fatalf("configuration = %#v", configuration)

@@ -1513,7 +1513,7 @@ export interface components {
             core?: unknown;
             coreArtifactId?: unknown;
             coreId?: unknown;
-            coreName?: unknown;
+            coreName?: string;
             coreOptions?: unknown;
             cores?: unknown;
             counts?: unknown;
@@ -1584,7 +1584,7 @@ export interface components {
             gameId?: unknown;
             gameIds?: unknown;
             gameName?: unknown;
-            gameTitle?: unknown;
+            gameTitle?: string;
             gameUrl?: unknown;
             gameVersion?: unknown;
             games?: unknown;
@@ -1651,7 +1651,7 @@ export interface components {
             platformInstanceId?: unknown;
             platformInstanceName?: unknown;
             platformInstanceVersion?: unknown;
-            platformName?: unknown;
+            platformName?: string;
             playSessionId?: unknown;
             playUrl?: unknown;
             player?: unknown;

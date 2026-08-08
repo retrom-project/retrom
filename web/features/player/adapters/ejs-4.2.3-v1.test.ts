@@ -6,8 +6,11 @@ const config: PlayerConfig = {
   emulatorjsVersion: "4.2.3",
   playerAdapterId: adapterID,
   core: "mgba",
+  coreName: "mGBA",
   emulatorGameId: 1004,
   gameName: "retrom-1",
+  gameTitle: "Sudoku",
+  platformName: "Game Boy Advance",
   runtimeBaseUrl: "/runtime/emulatorjs/4.2.3/data/",
   loaderUrl: "/runtime/emulatorjs/4.2.3/data/loader.js",
   gameUrl: "/runtime/launches/id/game/game.gba",
@@ -37,6 +40,7 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_core).toBe("mgba");
     expect(window.EJS_gameUrl).toBe(config.gameUrl);
     expect(window.EJS_externalFiles).toEqual({});
+    expect(window.EJS_Buttons).toEqual({ exitEmulation: false });
     expect(document.querySelector<HTMLScriptElement>("script[data-retrom-loader]")?.src).toContain(config.loaderUrl);
     cleanup();
   });
