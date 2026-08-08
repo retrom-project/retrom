@@ -15,7 +15,7 @@ vi.mock("@/lib/upload", async (importOriginal) => {
 const review: ReviewWorkspace = {
   itemId: "item-1", version: 1,
   metadata: { title: "Manual", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
-  validation: { id: "validation-1", status: "READY", compatibilityCode: "READY" },
+  validation: { id: "validation-1", status: "READY", current: true, compatibilityCode: "READY" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
   selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] },
   defaultDosEntry: null, dosEntries: [],
@@ -118,6 +118,48 @@ describe("ReviewActions", () => {
       expect(String(patchCall?.[1]?.body)).toContain('"coverUploadedAssetId":"asset-1"');
       expect(String(patchCall?.[1]?.body)).toContain('"coverCandidateAssetId":null');
     }, { timeout: 2_000 });
+  });
+
+  it("refreshes a stale ready validation before enabling publish", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2 })));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<ReviewActions review={{ ...review, validation: { ...review.validation!, current: false } }} />);
+
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
+    expect(screen.getByText("运行检查更新中")).toBeInTheDocument();
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringMatching(/reviews\/item-1$/),
+      expect.objectContaining({ method: "PATCH", body: expect.stringContaining('"title":"Manual"') }),
+    ));
+    await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
+  });
+
+  it("shows one short-lived notification with the server publish error", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ error: { code: "INVALID_REQUEST", message: "运行检查已经过期" } }, 422)));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const { container } = render(<ReviewActions review={review} />);
+
+    await user.click(screen.getByRole("button", { name: "通过并发布" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("运行检查已经过期");
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
+    expect(container.querySelector(".review-workflow-feedback")).toBeNull();
+  });
+
+  it("keeps scrape progress in the metadata header", async () => {
+    upload.waitForJob.mockImplementation(async (_jobId: string, onProgress?: (message: string) => void) => {
+      onProgress?.("RUNNING · SCRAPING");
+      await new Promise(() => undefined);
+    });
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2, state: "QUEUED", scrapeRunId: "run-1", jobId: "job-1" }, 202)));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={review} />);
+
+    await user.click(screen.getByRole("button", { name: "重新查询游戏信息" }));
+    const progress = await screen.findByRole("status", { name: "" });
+    expect(progress).toHaveTextContent("正在查询游戏信息：RUNNING · SCRAPING");
+    expect(progress.closest(".panel-head")).not.toBeNull();
   });
 
   it("publishes and discards without decision-reason fields", async () => {

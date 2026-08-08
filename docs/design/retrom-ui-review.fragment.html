@@ -305,6 +305,9 @@
     #retrom-ui-review .rt-home-featured-media::after { content: ""; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(13 18 31 / 55%), transparent 52%, rgb(13 18 31 / 38%)); }
     #retrom-ui-review .rt-home-featured-cover { position: absolute; z-index: 2; left: 28px; top: 23px; width: 168px; height: 224px; border: 1px solid rgb(255 255 255 / 20%); border-radius: 11px; box-shadow: 0 16px 42px rgb(0 0 0 / 38%); }
     #retrom-ui-review .rt-home-featured-copy { position: absolute; z-index: 3; left: 224px; right: 25px; top: 50%; transform: translateY(-50%); }
+    #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { right: 350px; }
+    #retrom-ui-review .rt-home-featured-save-preview { position: absolute; z-index: 3; right: 24px; top: 50%; width: 300px; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid rgb(255 255 255 / 24%); border-radius: 10px; background: #05060a; box-shadow: 0 15px 38px rgb(0 0 0 / 34%); transform: translateY(-50%); }
+    #retrom-ui-review .rt-home-featured-save-preview span { position: absolute; right: 8px; bottom: 8px; padding: 4px 8px; border-radius: 999px; color: white; background: rgb(12 17 28 / 78%); font-size: 9px; font-weight: 800; }
     #retrom-ui-review .rt-home-featured-copy .rt-overline { margin: 0 0 7px; color: #d7d0ff; font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; }
     #retrom-ui-review .rt-home-featured-copy h2 { margin: 0; overflow: hidden; font-size: 26px; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-home-featured-copy > p:not(.rt-overline) { margin: 7px 0 0; color: #d5d9e2; font-size: 11px; }
@@ -352,7 +355,9 @@
     #retrom-ui-review .rt-home-platform small { color: var(--retrom-muted); font-size: 8px; }
     #retrom-ui-review .rt-home-platform code { color: var(--retrom-purple-dark); font-size: 9px; }
     #retrom-ui-review .rt-home-pin { position: absolute; right: 7px; top: 50%; width: 29px; height: 29px; padding: 0; display: grid; place-items: center; border: 0; border-radius: 8px; color: var(--retrom-muted); background: transparent; transform: translateY(-50%); }
-    #retrom-ui-review .rt-home-pin svg { width: 14px!important; height: 14px!important; }
+    #retrom-ui-review .rt-home-pin svg { display: none; }
+    #retrom-ui-review .rt-home-pin::before { content: "📌"; font-size: 15px; filter: grayscale(1); opacity: .72; }
+    #retrom-ui-review .rt-home-pin:hover::before, #retrom-ui-review .rt-home-pin[aria-pressed="true"]::before { filter: none; opacity: 1; }
     #retrom-ui-review .rt-home-platform.is-pinned .rt-home-pin { color: var(--retrom-purple-dark); background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-home-summary { min-height: 54px; padding: 0 16px; display: flex; align-items: center; overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 12px; background: var(--retrom-panel); }
     #retrom-ui-review .rt-home-summary > strong { padding-right: 17px; margin-right: 17px; border-right: 1px solid var(--retrom-line); font-size: 11px; }
@@ -1369,7 +1374,7 @@
           <section class="rt-home-panel rt-home-featured">
             <div class="rt-home-panel-head"><div><div class="rt-launch-kicker">最近玩的游戏</div><h2>继续刚才的那一局</h2><p>上次游玩已经留下存档，可以接着进度继续</p></div><button type="button" class="rt-home-save-link" data-page-link="saves">查看存档</button></div>
             <div class="rt-home-featured-body">
-              <div class="rt-home-featured-media"><div class="rt-cover rt-cover-b rt-home-featured-cover"><span class="rt-cover-title">METAL SLUG</span></div><div class="rt-home-featured-copy"><p class="rt-overline">ARCADE · FBNEO 游戏列表</p><h2>Metal Slug</h2><p>最近一次游玩记录</p><div class="rt-home-facts"><span>上次游玩 <b>今天 22:14</b></span><span>累计游玩 <b>2 小时 24 分</b></span><span>游玩 <b>12 次</b></span></div><div class="rt-home-featured-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal" data-save-start="上次游玩存档"><i data-lucide="play" aria-hidden="true"></i>继续游玩</button><span>本次将从存档位置启动</span></div></div></div>
+              <div class="rt-home-featured-media has-session-save"><div class="rt-cover rt-cover-b rt-home-featured-cover"><span class="rt-cover-title">METAL SLUG</span></div><div class="rt-home-featured-copy"><p class="rt-overline">ARCADE · FBNEO 游戏列表</p><h2>Metal Slug</h2><p>最近一次游玩记录</p><div class="rt-home-facts"><span>上次游玩 <b>今天 22:14</b></span><span>累计游玩 <b>2 小时 24 分</b></span><span>游玩 <b>12 次</b></span></div><div class="rt-home-featured-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal" data-save-start="上次游玩存档"><i data-lucide="play" aria-hidden="true"></i>继续游玩</button><span>本次将从存档位置启动</span></div></div><div class="rt-home-featured-save-preview rt-save-screen-b"><span>将从这里继续</span></div></div>
               <div class="rt-home-featured-bottom"><div><strong>Metal Slug</strong><span>上次存档保存于今天 22:14，可以直接回到当时的进度。</span></div><button type="button" class="rt-text-link" data-open-game="metal">查看游戏详情 →</button></div>
             </div>
           </section>

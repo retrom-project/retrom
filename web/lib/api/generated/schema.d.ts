@@ -1523,6 +1523,7 @@ export interface components {
             crossOriginIsolated?: unknown;
             csrfToken?: string;
             currentContentRevisionId?: unknown;
+            current?: unknown;
             currentMetadataRevisionId?: unknown;
             currentVariantRevisionId?: unknown;
             dat?: unknown;

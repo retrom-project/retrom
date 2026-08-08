@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
+import { Toast } from "@/components/flash-toast";
 import { ButtonLink, PageHeader, StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
 import { newUuid } from "@/lib/crypto";
@@ -271,6 +272,6 @@ export function DATManager({ versions, artifacts, initialFilters }: { versions: 
 
     <ConfirmDialog wide open={diff !== null} title={diffIntent ? `${diffIntent.rollback ? "恢复" : "启用"} ${diffIntent.item.coreName} 数据目录？` : "数据目录差异与运行影响"} description="比较当前启用版本与目标版本；提交时会重新校验本次预览是否过期。" confirmLabel={diffIntent ? (diffIntent.rollback ? "恢复这个版本" : "启用这个版本") : "关闭"} hideCancel={!diffIntent} busy={busy !== null} onCancel={() => { setDiff(null); setDiffIntent(null); }} onConfirm={() => diffIntent ? void confirmChange() : (setDiff(null), setDiffIntent(null))}>{diff ? <DATDiffContent diff={diff} versions={versions} busy={busy !== null} section={diffSection} onSection={(section) => void loadDiffItems(section)} onMore={() => void loadDiffItems(diffSection, true)} /> : null}</ConfirmDialog>
     <ConfirmDialog open={deleteItem !== null} title="删除这个候选数据目录？" description="未启用的用户候选会从列表中移除。" confirmLabel="删除候选" tone="danger" busy={busy !== null} onCancel={() => setDeleteItem(null)} onConfirm={() => void remove()}><ul><li>正在使用或已经被游戏引用的版本仍受保护</li><li>系统内置版本不能删除</li></ul></ConfirmDialog>
-    {notice || error ? <div className={`app-toast ${error ? "bad" : "good"}`} role={error ? "alert" : "status"}><span>{error || notice}</span><button type="button" aria-label="关闭提示" onClick={() => { setNotice(""); setError(""); }}>×</button></div> : null}
+    <Toast toast={error ? { message: error, tone: "bad" } : notice ? { message: notice, tone: "good" } : null} onDismiss={() => { setNotice(""); setError(""); }} />
   </div>;
 }

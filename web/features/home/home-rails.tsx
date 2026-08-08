@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
-import { AppIcon } from "@/components/app-icon";
 
 const pinnedPlatformsKey = "retrom:pinned-home-platforms";
 
@@ -93,7 +92,7 @@ export function PlatformRail({ platforms }: { platforms: HomePlatform[] }) {
           <span><strong>{platform.name}</strong><small>{platform.gameCount} 款游戏</small></span>
           <code>{platformCode(platform.id)}</code>
         </Link>
-        <button type="button" className="home-platform-pin" aria-label={`${isPinned ? "取消置顶" : "置顶"}“${platform.name}”`} aria-pressed={isPinned} title={isPinned ? "取消置顶" : "置顶平台"} onClick={() => togglePinned(platform.id)}><AppIcon name="pin" /></button>
+        <button type="button" className="home-platform-pin" aria-label={`${isPinned ? "取消置顶" : "置顶"}“${platform.name}”`} aria-pressed={isPinned} title={isPinned ? "取消置顶" : "置顶平台"} onClick={() => togglePinned(platform.id)}><span aria-hidden="true">📌</span></button>
       </article>;
     })}
   </HorizontalRail>;

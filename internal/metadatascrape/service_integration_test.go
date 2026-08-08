@@ -101,8 +101,10 @@ WHERE id=?
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
 	)
 	var lookupCount atomic.Int64
+	lookupGate := make(chan struct{})
 	client := doerFunc(func(request *http.Request) (*http.Response, error) {
 		if request.URL.Path == "/api/v1/Lookup/ByHash" {
+			<-lookupGate
 			body, readErr := io.ReadAll(request.Body)
 			var hashes map[string]string
 			if readErr != nil || json.Unmarshal(body, &hashes) != nil || len(hashes) != 4 ||
@@ -143,6 +145,36 @@ WHERE id=?
 	if err != nil {
 		t.Fatal(err)
 	}
+	if created.State != "RUNNING" {
+		t.Fatalf("initial import state = %s", created.State)
+	}
+	var initialItemState, initialJobState string
+	var initialRunning, initialReviewPending int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT i.state,
+j.state,
+j.running_item_count,
+j.review_pending_item_count
+FROM import_items i
+JOIN import_jobs j ON j.id=i.import_job_id
+WHERE j.id=?
+`, created.ImportJobID).Scan(
+		&initialItemState,
+		&initialJobState,
+		&initialRunning,
+		&initialReviewPending,
+	); err != nil || initialItemState != "SCRAPING" || initialJobState != "RUNNING" ||
+		initialRunning != 1 || initialReviewPending != 0 {
+		t.Fatalf(
+			"initial item/job state = %s/%s running=%d review=%d, error=%v",
+			initialItemState,
+			initialJobState,
+			initialRunning,
+			initialReviewPending,
+			err,
+		)
+	}
+	close(lookupGate)
 	var scrapeJobID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT job_id
@@ -229,25 +261,46 @@ AND a.status='READY'
 `, created.ImportJobID).Scan(&firstItemID, &candidateID, &candidateAssetID); err != nil {
 		t.Fatal(err)
 	}
-	var draftPatch libraryimport.DraftPatch
-	patchJSON, _ := json.Marshal(
-		map[string]any{
-			"selectedCandidateId": candidateID,
-			"selectedAssets": map[string]any{
-				"coverCandidateAssetId":       candidateAssetID,
-				"backgroundCandidateAssetId":  nil,
-				"screenshotCandidateAssetIds": []string{},
-			},
-		},
-	)
-	if err := json.Unmarshal(patchJSON, &draftPatch); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := importer.PatchDraft(ctx, firstItemID, 1, draftPatch); err != nil {
-		t.Fatal(err)
+	var finalItemState, finalJobState, selectedCandidateID, selectedCoverID, metadataJSON string
+	var finalRunning, finalReviewPending int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT i.state,
+j.state,
+j.running_item_count,
+j.review_pending_item_count,
+d.selected_candidate_id,
+d.cover_candidate_asset_id,
+d.metadata_json
+FROM import_items i
+JOIN import_jobs j ON j.id=i.import_job_id
+JOIN review_drafts d ON d.import_item_id=i.id
+WHERE i.id=?
+`, firstItemID).Scan(
+		&finalItemState,
+		&finalJobState,
+		&finalRunning,
+		&finalReviewPending,
+		&selectedCandidateID,
+		&selectedCoverID,
+		&metadataJSON,
+	); err != nil || finalItemState != "REVIEW_PENDING" || finalJobState != "REVIEW_PENDING" ||
+		finalRunning != 0 || finalReviewPending != 1 || selectedCandidateID != candidateID ||
+		selectedCoverID != candidateAssetID || !strings.Contains(metadataJSON, `"title":"Metadata Result"`) ||
+		!strings.Contains(metadataJSON, `"description":"safe"`) || !strings.Contains(metadataJSON, `"releaseYear":2002`) {
+		t.Fatalf(
+			"completed initial review = item=%s job=%s running=%d review=%d candidate=%s cover=%s metadata=%s, error=%v",
+			finalItemState,
+			finalJobState,
+			finalRunning,
+			finalReviewPending,
+			selectedCandidateID,
+			selectedCoverID,
+			metadataJSON,
+			err,
+		)
 	}
 	reason := "已核对 Hasheous 候选与封面"
-	approved, err := importer.ApproveWithReason(ctx, firstItemID, 2, &reason)
+	approved, err := importer.ApproveWithReason(ctx, firstItemID, 1, &reason)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -365,6 +418,137 @@ WHERE provider='HASHEOUS')
 			networkAttempts,
 			cacheAttempts,
 			providerResponses,
+		)
+	}
+
+	failureContents := []byte("deterministic metadata failure fixture")
+	failureUpload, err := uploadService.Create(
+		ctx,
+		uploads.CreateRequest{
+			SourceType: "FILES",
+			Files: []uploads.FileDeclaration{
+				{ClientFileID: "game-failure", RelativePath: "Metadata-failure.gba", SizeBytes: int64(len(failureContents))},
+			},
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	failureDigest := sha256.Sum256(failureContents)
+	failureDigestHeader := "sha-256=:" + base64.StdEncoding.EncodeToString(failureDigest[:]) + ":"
+	if err := uploadService.PutPart(
+		ctx,
+		failureUpload.ID,
+		failureUpload.Files[0].ID,
+		0,
+		fmt.Sprintf("bytes 0-%d/%d", len(failureContents)-1, len(failureContents)),
+		failureDigestHeader,
+		bytes.NewReader(failureContents),
+	); err != nil {
+		t.Fatal(err)
+	}
+	failureCurrent, _ := uploadService.Get(ctx, failureUpload.ID)
+	failureFinalizeJob, _, err := uploadService.Complete(ctx, failureUpload.ID, failureCurrent.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForState(t, database.SQL.QueryRowContext, `
+SELECT state
+FROM jobs
+WHERE id=?
+`, failureFinalizeJob, "SUCCEEDED")
+	failureImport, err := importer.Create(
+		ctx,
+		libraryimport.CreateRequest{
+			UploadID:                 failureUpload.ID,
+			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005",
+			MetadataProvider:         "NONE",
+		},
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var failureItemID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT id
+FROM import_items
+WHERE import_job_id=?
+`, failureImport.ImportJobID).Scan(&failureItemID); err != nil {
+		t.Fatal(err)
+	}
+	failureTransaction, err := database.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(failureTransaction)
+	if _, err := failureTransaction.ExecContext(ctx, `
+UPDATE import_items
+SET state='SCRAPING'
+WHERE id=?
+`, failureItemID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := failureTransaction.ExecContext(ctx, `
+UPDATE import_jobs
+SET state='RUNNING',
+running_item_count=1,
+review_pending_item_count=0
+WHERE id=?
+`, failureImport.ImportJobID); err != nil {
+		t.Fatal(err)
+	}
+	failureScrape, err := scraper.ScheduleImport(ctx, failureTransaction, failureItemID, "HASHEOUS")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := failureTransaction.ExecContext(ctx, `
+UPDATE jobs
+SET payload_json='{'
+WHERE id=?
+`, failureScrape.JobID); err != nil {
+		t.Fatal(err)
+	}
+	if err := failureTransaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := scraper.Run(ctx, failureScrape.RunID); err == nil {
+		t.Fatal("invalid metadata task payload should fail")
+	}
+	waitForState(t, database.SQL.QueryRowContext, `
+SELECT state
+FROM jobs
+WHERE id=?
+`, failureScrape.JobID, "FAILED")
+	var failedItemState, failedImportState, failedCode string
+	var failedRunning, failedItems, failedReviewPending int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT i.state,
+j.state,
+j.running_item_count,
+j.failed_item_count,
+j.review_pending_item_count,
+i.last_error_code
+FROM import_items i
+JOIN import_jobs j ON j.id=i.import_job_id
+WHERE j.id=?
+`, failureImport.ImportJobID).Scan(
+		&failedItemState,
+		&failedImportState,
+		&failedRunning,
+		&failedItems,
+		&failedReviewPending,
+		&failedCode,
+	); err != nil || failedItemState != "FAILED_RETRYABLE" || failedImportState != "PARTIAL_FAILURE" ||
+		failedRunning != 0 || failedItems != 1 || failedReviewPending != 0 || failedCode == "" {
+		t.Fatalf(
+			"failed initial review = item=%s job=%s running=%d failed=%d review=%d code=%s, error=%v",
+			failedItemState,
+			failedImportState,
+			failedRunning,
+			failedItems,
+			failedReviewPending,
+			failedCode,
+			err,
 		)
 	}
 }
