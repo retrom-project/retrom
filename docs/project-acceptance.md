@@ -327,7 +327,7 @@ make acceptance-case CASE=<case-id>
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-SEC-004`。
 - 流程：使用本地 fake resolver/HTTP transport 模拟允许的 lookup 与 `/api/v1/images/<id>` PNG，以及 lookup 超过 4 MiB/20 candidates/每 candidate 媒体上限、媒体 run 累计超过 100 MiB、redirect 到 loopback/private/link-local/metadata 地址、非 443 端口、第四次 redirect、单项超过 10 MiB、40 MP、伪造 MIME、SVG/HTML；候选文本包含 HTML/script payload。
-- 通过标准：lookup 在 15 秒/4 MiB 和候选数量门禁内解析；超限 response 记为 INVALID_RESPONSE 而非截断成功。每个 QueryAttempt/Response/Candidate/Hit/Asset 有同 run 的可验证归属，MISS/错误 response 也能经 attempt 回放；只有 READY candidate asset 可被 ReviewDraft/MetadataRevision 采用。图片只有在 HTTPS `hasheous.org` allowlist、最多 3 次 redirect、≤10 MiB、run 合计≤100 MiB、≤40 MP 且魔数/解码均为 PNG/JPEG/WebP 时写入 CAS；每次 DNS/redirect 后都重检 IP，所有负向输入无外网/内网读取且不落 Blob。候选文本通过 JSON/React 作为纯文本呈现，无 `dangerouslySetInnerHTML`、脚本执行或 SVG 渲染。
+- 通过标准：lookup 在 15 秒/4 MiB 和候选数量门禁内解析；超限 response 记为 INVALID_RESPONSE 而非截断成功。每个 QueryAttempt/Response/Candidate/Hit/Asset 有同 run 的可验证归属，MISS/错误 response 也能经 attempt 回放；只有 READY candidate asset 可被 ReviewDraft/MetadataRevision 采用。图片只有在 HTTPS `hasheous.org` allowlist、最多 3 次 redirect、≤10 MiB、run 合计≤100 MiB、≤40 MP、声明为受支持图片且魔数/解码均为 PNG/JPEG/WebP 时写入 CAS；受支持图片子类型错标按解码出的真实格式保存，非图片声明、无效魔数和解码失败仍拒绝。每次 DNS/redirect 后都重检 IP，所有负向输入无外网/内网读取且不落 Blob。候选文本通过 JSON/React 作为纯文本呈现，无 `dangerouslySetInnerHTML`、脚本执行或 SVG 渲染。
 - 证据：fake transport 请求图、每个拒绝码、CAS 前后清单、DOM 文本与无脚本执行断言。
 
 ### ACC-API-001：API 通用契约

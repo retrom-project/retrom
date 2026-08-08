@@ -164,7 +164,7 @@ Retrom 不调用需要 App Key 的 MetadataProxy，也不调用需要 User Key �
 
 每个 ContentHashEvidence 的实际网络 attempt 或 cache reuse 都通过 MetadataScrapeQueryAttempt 关联到 ProviderResponse，MISS/错误也保留。规范 request digest、HIT/MISS TTL 与显式重刮削 bypass cache 的唯一规则见导入专题；HTTP handler 不得自行拼另一套 cache key。每个 run 都有持久 Job，provider=NONE 以同一事务完成 no-op Job/Run，不制造一次假网络请求。
 
-后端 lookup 使用 15 秒总 deadline、4 MiB body 上限和导入专题的 run/candidate 数量门禁。媒体获取必须：只接受 HTTPS 和配置的 `hasheous.org` host/固定相对 image ID；每次 DNS 解析及 redirect 后拒绝 loopback、private、link-local、multicast、metadata 地址与非允许端口；最多 3 次 redirect；限制单项 10 MiB、30 秒、PNG/JPEG/WebP，校验魔数和解码像素不超过 40 MP，并执行每 run 100 MiB 实际响应总预算；拒绝 SVG/HTML。文本始终按纯文本展示。常规测试使用本地 fake，不访问真实服务。
+后端 lookup 使用 15 秒总 deadline、4 MiB body 上限和导入专题的 run/candidate 数量门禁。媒体获取必须：只接受 HTTPS 和配置的 `hasheous.org` host/固定相对 image ID；每次 DNS 解析及 redirect 后拒绝 loopback、private、link-local、multicast、metadata 地址与非允许端口；最多 3 次 redirect；限制单项 10 MiB、30 秒、PNG/JPEG/WebP，校验魔数和解码像素不超过 40 MP，并执行每 run 100 MiB 实际响应总预算；拒绝 SVG/HTML。响应 `Content-Type` 必须声明为 PNG/JPEG/WebP 之一，实际类型以魔数与解码结果为准；仅受支持图片子类型之间的错标不拒绝，并按真实格式写入 CAS。文本始终按纯文本展示。常规测试使用本地 fake，不访问真实服务。
 
 ## 7. Launch 创建与凭据
 

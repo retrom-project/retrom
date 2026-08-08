@@ -648,7 +648,7 @@ func validateImage(contents []byte, headerType string) (AssetData, error) {
 	}
 	if headerType != "" {
 		mediaType := strings.TrimSpace(strings.Split(headerType, ";")[0])
-		if mediaType != detected {
+		if mediaType != "image/png" && mediaType != "image/jpeg" && mediaType != "image/webp" {
 			return AssetData{}, ErrAssetMediaTypeMismatch
 		}
 	}
