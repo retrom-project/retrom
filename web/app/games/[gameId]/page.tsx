@@ -65,7 +65,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
           coreOptions={game.coreOptions}
           dosEntries={game.dosEntries}
           defaultDosEntry={game.defaultDosEntry}
-          latestSave={latestSave ? { saveStateId: latestSave.saveStateId, screenshotUrl: latestSave.screenshotUrl, createdAtMs: latestSave.createdAtMs, coreName: latestSave.core.name } : null}
+          latestSave={latestSave ? { saveStateId: latestSave.saveStateId, screenshotUrl: latestSave.screenshotUrl, createdAtMs: latestSave.createdAtMs, coreId: latestSave.core.id, coreName: latestSave.core.name } : null}
           nowMs={saves.generatedAtMs}
         />
       </section>
@@ -78,7 +78,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
         {fact("类型", game.genre)}
         {fact("玩家数", game.players)}
       </section>
-      <GameDetailSaves gameId={game.gameId} gameTitle={game.title} saves={saves.items} nowMs={saves.generatedAtMs} />
+      <GameDetailSaves gameId={game.gameId} gameTitle={game.title} saves={saves.items} nowMs={saves.generatedAtMs} threadCoreIds={game.coreOptions.filter((core) => core.requiresThreads).map((core) => core.coreId)} />
     </div>
   );
 }

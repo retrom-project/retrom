@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -66,6 +67,15 @@ export type ReviewWorkspace = {
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
   defaultDosEntry: string | null;
   dosEntries: Array<{ path: string; originalPath: string; kind: string; enabled: boolean; directLaunchSafe: boolean }>;
+  duplicateGames?: DuplicateGame[];
+  contentIdentityDigest?: string;
+};
+
+export type DuplicateGame = {
+  gameId: string;
+  title: string;
+  platformInstanceId: string;
+  platformInstanceName: string;
 };
 
 type MetadataForm = { title: string; description: string; developer: string; publisher: string; genre: string; players: string; releaseYear: string };
@@ -154,6 +164,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const [jobProgress, setJobProgress] = useState("");
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [validationCurrent, setValidationCurrent] = useState(validationWasCurrent);
+  const [duplicateConfirmation, setDuplicateConfirmation] = useState<DuplicateGame[] | null>(null);
   const versionRef = useRef(review.version);
   const validationRefreshRequestedRef = useRef(false);
   const latestKeyRef = useRef("");
@@ -276,14 +287,37 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     sessionStorage.removeItem(`retrom:review-queue:${query}`);
   }
 
-  async function approve() {
-    if (!await flushDraft()) return;
+  async function publish(duplicateGames: DuplicateGame[] = []) {
     await run("发布", async () => {
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }, body: "{}" });
-      if (!response.ok) throw new Error(await responseError(response, "发布失败：请确认实时保存和运行检查均已完成"));
+      const body = duplicateGames.length ? { duplicatePolicy: "ALLOW_NEW", acknowledgedGameIds: duplicateGames.map((game) => game.gameId) } : {};
+      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }, body: JSON.stringify(body) });
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: { code?: string; message?: string; details?: { games?: DuplicateGame[] } } } | null;
+        if (payload?.error?.code === "DUPLICATE_GAME_CONFIRMATION_REQUIRED" && payload.error.details?.games?.length) {
+          setDuplicateConfirmation(payload.error.details.games);
+          return;
+        }
+        throw new Error(payload?.error?.message ?? "发布失败：请确认实时保存和运行检查均已完成");
+      }
+      setDuplicateConfirmation(null);
       clearQueueCache(); queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
       router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
     });
+  }
+
+  async function approve() {
+    if (!await flushDraft()) return;
+    const duplicates = review.duplicateGames ?? [];
+    if (duplicates.length) {
+      setDuplicateConfirmation(duplicates);
+      return;
+    }
+    await publish();
+  }
+
+  async function confirmDuplicatePublish() {
+    if (!duplicateConfirmation || !await flushDraft()) return;
+    await publish(duplicateConfirmation);
   }
 
   async function discard() {
@@ -309,6 +343,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       <aside className="review-workflow-decision"><h2>审核决定</h2><p>字段会实时保存；只有运行检查通过时才允许发布。</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
     </div>
     {notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{notice}</FeedbackBanner></div> : null}
+    {review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。仍可发布为新游戏，但发布时需要二次确认。</FeedbackBanner></div> : null}
     <div className="review-workflow-columns">
       <div className="review-workflow-left">{children}</div>
       <section className="panel review-workflow-metadata">
@@ -332,6 +367,9 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     </div>
     <ConfirmDialog open={comparison !== null} wide title="对比最新查询结果" description="左侧是当前信息，右侧是最新结果。红色表示内容不同，绿色表示一致；右侧可编辑并替换封面。" confirmLabel="应用" busy={busy !== null} onCancel={() => setComparison(null)} onConfirm={applyComparison}>
       {comparison ? <div className="metadata-compare"><div className="metadata-compare-head"><strong>当前信息（只读）</strong><strong>最新信息（可编辑）</strong></div>{compareFields.map((field) => { const same = comparison.current[field.key] === comparison.next[field.key]; return <div className="metadata-compare-row" key={field.key}><div className="compare-readonly"><span>{field.label}</span><p>{comparison.current[field.key] || "未填写"}</p></div><label className={`compare-field ${same ? "is-same" : "is-changed"}`}><span>{field.label}</span>{field.multiline ? <textarea aria-label={field.label} value={comparison.next[field.key]} onChange={(event) => setComparison((current) => current ? { ...current, next: { ...current.next, [field.key]: event.target.value } } : null)} /> : <input aria-label={field.label} type={field.type ?? "text"} value={comparison.next[field.key]} onChange={(event) => setComparison((current) => current ? { ...current, next: { ...current.next, [field.key]: event.target.value } } : null)} />}</label></div>; })}<div className="metadata-compare-row compare-cover-row"><div className="compare-readonly"><span>当前封面</span><AssetPreview asset={currentCompareCover} label="当前游戏封面" /></div><div className={`${comparison.currentCover.candidateId === comparison.nextCover.candidateId && comparison.currentCover.uploadedId === comparison.nextCover.uploadedId ? "is-same" : "is-changed"} compare-field`}><span>最新封面</span><label className="review-cover-upload"><AssetPreview asset={nextCompareCover} label="最新查询封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCover(file, "comparison"); event.currentTarget.value = ""; }} /></label>{comparison.nextCover.candidateId || comparison.nextCover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => setComparison((current) => current ? { ...current, nextCover: { candidateId: null, uploadedId: null } } : null)}>不使用新封面</button> : null}</div></div></div> : null}
+    </ConfirmDialog>
+    <ConfirmDialog open={duplicateConfirmation !== null} title="仍然发布为新游戏？" description="相同游戏文件已经存在。继续发布会创建另一个游戏条目，可能造成重复游戏。" confirmLabel="仍然发布为新游戏" tone="danger" busy={busy === "发布"} onCancel={() => setDuplicateConfirmation(null)} onConfirm={() => void confirmDuplicatePublish()}>
+      {duplicateConfirmation ? <ul>{duplicateConfirmation.map((game) => <li key={game.gameId}><Link href={`/games/${game.gameId}`}>{game.title}</Link><span> · {game.platformInstanceName}</span></li>)}</ul> : null}
     </ConfirmDialog>
     <Toast toast={toast} onDismiss={() => setToast(null)} />
   </div>;

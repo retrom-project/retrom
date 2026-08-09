@@ -6,17 +6,18 @@ import { AppIcon } from "@/components/app-icon";
 import { LaunchButton } from "@/features/player/launch-button";
 import { formatSaveTime, saveAvailable, type SaveItem } from "@/features/saves/save-library";
 
-function SaveResume({ gameId, save, label }: { gameId: string; save: SaveItem; label: string }) {
+function SaveResume({ gameId, save, label, requiresThreads }: { gameId: string; save: SaveItem; label: string; requiresThreads: boolean }) {
   return saveAvailable(save)
-    ? <LaunchButton gameId={gameId} saveStateId={save.saveStateId} returnTo={`/games/${gameId}`} label={label} />
+    ? <LaunchButton gameId={gameId} saveStateId={save.saveStateId} returnTo={`/games/${gameId}`} requiresThreads={requiresThreads} label={label} />
     : <button className="button" type="button" disabled>当前不可继续</button>;
 }
 
-export function GameDetailSaves({ gameId, gameTitle, saves, nowMs }: {
+export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds = [] }: {
   gameId: string;
   gameTitle: string;
   saves: SaveItem[];
   nowMs: number;
+  threadCoreIds?: string[];
 }) {
   const recentSaves = saves.slice(0, 4);
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -86,7 +87,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs }: {
           <div className="game-detail-save-body">
             <div><strong>{save.core.name}</strong><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatSaveTime(save.createdAtMs, nowMs)}</time></div>
             <small>{index === 0 ? "最近保存" : save.core.id === recentSaves[0]?.core.id ? "同一运行环境" : "恢复时使用原 Core"}</small>
-            <SaveResume gameId={gameId} save={save} label="从此继续 →" />
+            <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="从此继续 →" />
           </div>
         </article>)}
       </div> : <div className="game-detail-saves-empty"><strong>还没有手动存档</strong><span>游玩时创建存档后，可以从这里快速恢复。</span></div>}
@@ -121,7 +122,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs }: {
             <Image src={save.screenshotUrl} alt="" fill sizes="128px" unoptimized />
           </button>
           <div><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatSaveTime(save.createdAtMs, nowMs)}</time><small>{save.core.name}{index === 0 ? " · 最近" : ""}</small></div>
-          <SaveResume gameId={gameId} save={save} label="继续 →" />
+          <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="继续 →" />
         </article>)}
       </div>
     </aside>

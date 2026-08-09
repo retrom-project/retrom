@@ -170,7 +170,8 @@ function validateConfig(config: PlayerConfig) {
 }
 
 export function scheduleStartupActions(config: PlayerConfig, instance: EmulatorInstance, timerWindow: Window = window) {
-  const simulate = instance.gameManager?.simulateInput;
+  const gameManager = instance.gameManager;
+  const simulate = gameManager?.simulateInput?.bind(gameManager);
   if (config.startupActions.length === 0) return () => undefined;
   if (!simulate) throw new Error("PLAYER_STARTUP_ACTION_UNAVAILABLE");
   const timers: number[] = [];

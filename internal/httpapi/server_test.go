@@ -168,7 +168,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 15 ||
+		response.DatabaseSchemaVersion != 17 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -247,7 +247,10 @@ VALUES(?,?,'REJECTED','ARCHIVE_UNSAFE',?,?)
 	detailRequest.SetPathValue("importJobId", importID)
 	server.importDetail(detail, detailRequest)
 	if detail.Code != http.StatusOK ||
-		!strings.Contains(detail.Body.String(), `"fileOutcomes":[{"disposition":"REJECTED","name":"fc/8只眼.zip","reasonCode":"ARCHIVE_UNSAFE"}]`) {
+		!strings.Contains(detail.Body.String(), `"disposition":"REJECTED"`) ||
+		!strings.Contains(detail.Body.String(), `"name":"fc/8只眼.zip"`) ||
+		!strings.Contains(detail.Body.String(), `"reasonCode":"ARCHIVE_UNSAFE"`) ||
+		!strings.Contains(detail.Body.String(), `"unresolvedRejectedFiles":1`) {
 		t.Fatalf("import detail = %d %s", detail.Code, detail.Body.String())
 	}
 }

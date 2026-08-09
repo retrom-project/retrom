@@ -7,7 +7,7 @@ vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("UploadPicker", () => {
   it("groups the file and directory actions in the centered dropzone control row", () => {
@@ -33,5 +33,35 @@ describe("UploadPicker", () => {
 
     await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "arcade");
     expect(submit).toBeEnabled();
+  });
+
+  it("reuses rejected server files and submits a new platform without uploading bytes", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ importJobId: "replacement-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<UploadPicker directories={[
+      { id: "gba", name: "GBA 游戏", platformName: "Game Boy Advance", coreName: "mGBA" },
+      { id: "psp", name: "PSP 游戏", platformName: "PlayStation Portable", coreName: "PPSSPP" },
+    ]} reconfigureSource={{
+      importJobId: "source-import",
+      metadataProvider: "HASHEOUS",
+      targetPlatformInstance: { id: "gba", name: "GBA 游戏" },
+      version: 3,
+      fileOutcomes: [{ uploadFileId: "file-1", name: "game.iso", sizeBytes: 1024, disposition: "REJECTED", reasonCode: "UNSUPPORTED_CONTENT_FORMAT", resolution: null }],
+    }} />);
+
+    expect(screen.getByText("复用服务器中已上传的内容")).toBeVisible();
+    expect(screen.getByText(/不会再次上传文件内容/)).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "重新选择平台目录" }));
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "psp");
+    await user.click(screen.getByRole("button", { name: "按新配置重新识别" }));
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports/source-import/reconfigure", expect.objectContaining({
+      method: "POST",
+      headers: expect.objectContaining({ "If-Match": '"v3"' }),
+      body: JSON.stringify({ targetPlatformInstanceId: "psp", metadataProvider: "HASHEOUS" }),
+    }));
+    expect(await screen.findByText("导入任务已创建")).toBeVisible();
   });
 });

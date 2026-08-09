@@ -160,6 +160,14 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/Reason' }
       responses:
         '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/imports/{importJobId}/reconfigure:
+    parameters: [{ $ref: '#/components/parameters/ImportJobID' }]
+    post:
+      operationId: postAdminImportReconfigure
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ReconfigureImport' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/import-items/{importItemId}/retry:
     parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
     post:
@@ -238,7 +246,7 @@ paths:
     post:
       operationId: postAdminReviewApprove
       parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody: { $ref: '#/components/requestBodies/ApprovalReason' }
+      requestBody: { $ref: '#/components/requestBodies/Approval' }
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/reviews/{importItemId}/discard:
@@ -752,6 +760,13 @@ components:
         uploadId: { type: string, format: uuid }
         targetPlatformInstanceId: { type: string, format: uuid }
         metadataProvider: { type: string, enum: [HASHEOUS, NONE] }
+    ReconfigureImportRequest:
+      type: object
+      additionalProperties: false
+      required: [targetPlatformInstanceId, metadataProvider]
+      properties:
+        targetPlatformInstanceId: { type: string, format: uuid }
+        metadataProvider: { type: string, enum: [HASHEOUS, NONE] }
     ReasonRequest:
       type: object
       additionalProperties: false
@@ -761,6 +776,17 @@ components:
       type: object
       additionalProperties: false
       properties: { reason: { type: string, nullable: true, maxLength: 500 } }
+    ApprovalRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason: { type: string, nullable: true, maxLength: 500 }
+        duplicatePolicy: { type: string, enum: [ALLOW_NEW] }
+        acknowledgedGameIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
     MetadataFields:
       type: object
       additionalProperties: false
@@ -981,7 +1007,13 @@ components:
         activeInstallation: {}
         activeLaunchCount: {}
         actor: {}
+        acknowledgedGameIds: {}
         after: {}
+        alreadyImportedFileCount: {}
+        alreadyImportedFiles: {}
+        alreadyImportedItemCount: {}
+        alreadyImportedItems: {}
+        alreadyImportedMatches: {}
         archive: { type: boolean }
         archiveEntries: {}
         archiveFormat: { type: string, enum: [ZIP, SEVEN_Z], nullable: true }
@@ -1037,6 +1069,7 @@ components:
         configuredEmulatorjsVersions: {}
         configuredVersion: {}
         contentRevisionId: {}
+        contentIdentityDigest: {}
         core: {}
         coreArtifactId: {}
         coreId: {}
@@ -1082,6 +1115,8 @@ components:
         diskEntryCount: {}
         dosEntry: {}
         dosEntries: {}
+        duplicateGames: {}
+        duplicatePolicy: {}
         edges: {}
         emulatorGameId: {}
         emulatorjs: {}
@@ -1094,6 +1129,7 @@ components:
         evidence: {}
         executionId: {}
         executionNo: {}
+        existingGame: {}
         expectedMd5: {}
         expiresAtMs: { type: integer, format: int64 }
         explicit: {}
@@ -1206,7 +1242,11 @@ components:
         recentSaves: {}
         rejectedFiles: {}
         rejectedFileCount: { type: integer, format: int64 }
+        reconfiguredFromImportJobId: {}
+        replacementImportJobId: {}
         releaseYear: {}
+        resolution: {}
+        resolvedAtMs: { type: integer, format: int64 }
         repository: {}
         requestId: {}
         requestedArtifactBasename: {}
@@ -1298,6 +1338,8 @@ components:
         trailing: {}
         unresolved: {}
         updatedAtMs: {}
+        unresolvedRejectedFileCount: { type: integer, format: int64 }
+        unresolvedRejectedFiles: { type: integer, format: int64 }
         uploadFileId: {}
         uploadId: {}
         uploadPartCount: {}
@@ -1334,8 +1376,10 @@ components:
     Launch: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LaunchRequest' } } } }
     CreateUpload: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateUploadRequest' } } } }
     CreateImport: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateImportRequest' } } } }
+    ReconfigureImport: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReconfigureImportRequest' } } } }
     Reason: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonRequest' } } } }
     ApprovalReason: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApprovalReasonRequest' } } } }
+    Approval: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApprovalRequest' } } } }
     Empty: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyRequest' } } } }
     ReviewDraft: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewDraftRequest' } } } }
     MetadataProvider: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MetadataProviderRequest' } } } }

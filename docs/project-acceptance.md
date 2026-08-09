@@ -235,8 +235,8 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
 - 前置：验收准备已完成，`make deps-check` 离线通过。
-- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，同时将 `DOCKER` 指向该哨兵后启动未覆盖 `NEXT_DEV_HOST` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认它的 `prepare-deps` 命中本地缓存且不联网，然后依次等待 `127.0.0.1:8080/health/live`、`/health/ready` 与 `localhost:3000` 可访问。保持首个实例运行并再次执行相同 `make dev`，确认新 supervisor 主动识别、停止并等待旧 supervisor 后成功接管。随后读取已登记的 supervisor/Go/Next.js PID 与 start ticks，只向 supervisor 发送 `SIGKILL`，确认两个独立 process group 和数据根 lock 均仍存在；第三次启动必须用登记身份识别并停止两个孤儿 process group，等待 lock 释放后完成接管。通过前端 origin 请求 `/api/v1/home`，再携带该开发域名 Origin 对 `/_next/hmr` 完成 WebSocket upgrade；记录监听 socket 并向已验证的 supervisor 发送 `SIGTERM`。最后把当前验收 shell 的真实 PID/start ticks 写成伪造 dev 登记，确认 stop helper 只清理登记而不终止该进程。
-- 通过标准：正常接管和 supervisor `SIGKILL` 后的孤儿接管都不因数据锁、旧 Next lock 或端口失败；每次旧 supervisor 及其 Go/Next 子进程都已退出且只剩新实例；伪造、陈旧或非 `scripts/dev.sh` 身份的 PID 不被终止；Go 与 Next.js 均为宿主机子进程，Docker 哨兵无调用；Go 默认只监听 `127.0.0.1`，Next.js 默认监听 `0.0.0.0:3000`，没有把后端直接绑定到外部接口；前端 rewrite 同源成功，HMR 返回 `101 Switching Protocols` 而非跨源拒绝；退出码与信号处理正确，5 秒内不残留两个子进程。
+- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，同时将 `DOCKER` 指向该哨兵后启动未覆盖 `NEXT_DEV_HOST` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认它的 `prepare-deps` 命中本地缓存且不联网，然后依次等待 `127.0.0.1:8080/health/live`、`/health/ready` 与 `localhost:3000` 可访问。保持首个实例运行并再次执行相同 `make dev`，确认新 supervisor 主动识别、停止并等待旧 supervisor 后成功接管。随后读取已登记的 supervisor/Go/Next.js PID 与 start ticks，只向 supervisor 发送 `SIGKILL`，确认两个独立 process group 和数据根 lock 均仍存在；第三次启动必须用登记身份识别并停止两个孤儿 process group，等待 lock 释放后完成接管。通过前端 origin 请求 `/api/v1/home`，再携带一个未配置且不同于 public origin 的外部域名 Origin 对 `/_next/hmr` 完成 WebSocket upgrade；记录监听 socket 并向已验证的 supervisor 发送 `SIGTERM`。最后把当前验收 shell 的真实 PID/start ticks 写成伪造 dev 登记，确认 stop helper 只清理登记而不终止该进程。
+- 通过标准：正常接管和 supervisor `SIGKILL` 后的孤儿接管都不因数据锁、旧 Next lock 或端口失败；每次旧 supervisor 及其 Go/Next 子进程都已退出且只剩新实例；伪造、陈旧或非 `scripts/dev.sh` 身份的 PID 不被终止；Go 与 Next.js 均为宿主机子进程，Docker 哨兵无调用；Go 默认只监听 `127.0.0.1`，Next.js 默认监听 `0.0.0.0:3000`，没有把后端直接绑定到外部接口；前端 rewrite 同源成功，未配置的外部域名 Origin 访问 HMR 返回 `101 Switching Protocols` 而非跨源拒绝；退出码与信号处理正确，5 秒内不残留两个子进程。
 - 证据：进程树、三个 HTTP 结果和退出后的 PID 检查。
 
 ### ACC-NET-001：应用侧代理契约与同源隔离
@@ -464,21 +464,21 @@ make acceptance-case CASE=<case-id>
 - 通过标准：DAT 只决定 machine/parent/BIOS/entry；展示字段只来自选中的 Hasheous 候选或人工编辑；UI、数据库和 ReviewEvent 分开显示两条来源，DAT description 不覆盖标题。
 - 证据：审核截图、依赖快照、候选与发布字段。
 
-### ACC-IMP-007：Approve、Discard 与不可变历史
+### ACC-IMP-007：Approve、重复内容决策、Discard 与不可变历史
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-007`。
-- 流程：对两个 Item 分别编辑字段，选择 READY Validation、文本 Candidate 和来自同 Item 两个已完成 run 的 READY media 后 approve/discard；故障注入证明审批事务没有 archive/ZIP/网络调用；之后尝试修改旧 ReviewEvent，并从历史页回放。
-- 通过标准：只有匹配当前目录/config 的 READY Validation 可 Approve；审批只复制 source/ValidationFile refs 并原子发布到唯一平台目录，不做耗时计算。Discard 不发布且不立即删证据 Blob；历史可还原输入、validation、scrape run/candidate/media 混合来源、字段 diff、目录/DAT 快照和理由；旧事件不可更新。
-- 证据：游戏库结果、历史 API/页面截图和更新拒绝。
+- 流程：先用同一 GBA bytes、不同文件名创建两个 ImportJob，使二者在任一发布前都进入审核；发布第一项，普通 approve 第二项，再用响应给出的当前已有 Game 集合二次确认并发布。随后第三次以另一文件名上传相同 bytes。另对两个 Item 分别编辑字段，选择 READY Validation、文本 Candidate 和来自同 Item 两个已完成 run 的 READY media 后 approve/discard；故障注入证明审批事务没有 archive/ZIP/网络调用；之后尝试修改旧 ReviewEvent，并从历史页回放。
+- 通过标准：只有匹配当前目录/config 的 READY Validation 可 Approve；第二项首次 approve 返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 且不产生 Game/ReviewEvent，错误/过期/重复 acknowledged ID 不能越过；精确 `ALLOW_NEW` 确认后才发布，并在最终事件保留内容摘要、policy 和已有 Game IDs。第三次识别直接将 Item 置 `DISCARDED`、任务 `COMPLETED`，计数/文件投影为已导入跳过，保留指向前两个 Game/current ContentRevision 的不可变匹配，不创建 ReviewDraft、Validation、刮削或第三个 Game；改文件名/UploadSession 不影响身份，不同基础平台和已软删除 Game 不误阻断。审批只复制 source/ValidationFile refs 并原子发布到唯一平台目录，不做耗时计算。Discard 不发布且不立即删证据 Blob；历史可还原输入、validation、scrape run/candidate/media 混合来源、字段 diff、目录/DAT 快照和理由；旧事件不可更新。
+- 证据：三次任务/Item/文件计数与匹配表、两次发布响应、409 details、确认 ReviewEvent、游戏库结果、历史 API/页面截图和更新拒绝。
 
 ### ACC-IMP-008：有界失败、取消、重试和重启恢复
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-008`。
 - 7z 子流程：覆盖 magic/SFX、加密、nested、路径与 casefold 冲突、CRC/size、entry/总量/压缩比、worker crash/signal/timeout 与 IPC 上限；只接受未加密单卷非 SFX 的唯一 ROM wrapper，子进程无可用资源隔离时 fail-closed，所有故障不留下半成品 Blob。
-- 流程：创建含 3 个 Item 的任务，对其中一个故障注入；让一个 Item 已发布、另一个进入 RUNNING、第三个进入 REVIEW_PENDING 后取消整个 Import，观察 ImportJob/运行 Job 的 CANCEL_REQUESTED，再由注入式 reader 的下一个检查点确认 CANCELLED；另建独立失败任务，分别在 IDENTIFYING 和 SCRAPING 注入 retryable 本地故障后调用 Item retry，记录 Job/Run/配置快照；并在另一个阶段终止 worker，使用 fake clock 令 lease 到期后重启。再让 CANCEL_REQUESTED worker lease 过期，验证恢复器只清理/确认取消；对确定性坏输入验证直接进入 FAILED_FINAL 而非虚假的 FAILED_RETRYABLE。
-- 通过标准：已发布 Item 不回滚，REVIEW_PENDING Item 在取消事务转 CANCELLED；RUNNING cancel 返回 202，ImportJob 在停止前保持 CANCEL_REQUESTED，最后一个 Worker 确认后才为 CANCELLED，且绝不因已有发布/取消混合计数聚合成 COMPLETED/PARTIAL_FAILURE。取消检查不超过规定 reader/token 边界并且不会发布；旧 worker 在取消/lease 转移后提交被 state+lease token 拒绝；取消中 lease 恢复不继续领域计算。IDENTIFYING retry 复用 pipeline Job并增加 execution，SCRAPING retry 新建 Run/Job且旧证据不变；两者都由 persisted failedStage 分派、保留原 Import 配置，不重复创建 Blob/候选/ReviewEvent。JobEvent 仍按每次真实转换追加；普通过期任务被重新领取并完成；确定性错误直接 FAILED_FINAL，attempt 用尽才从 FAILED_RETRYABLE 进入 FAILED_FINAL；没有长事务或真实等待，任务/审核时刻均为 INTEGER。
+- 流程：创建含 3 个 Item 的任务，对其中一个故障注入；让一个 Item 已发布、另一个进入 RUNNING、第三个进入 REVIEW_PENDING 后取消整个 Import，观察 ImportJob/运行 Job 的 CANCEL_REQUESTED，再由注入式 reader 的下一个检查点确认 CANCELLED；另建独立失败任务，分别在 IDENTIFYING 和 SCRAPING 注入 retryable 本地故障后调用 Item retry，记录 Job/Run/配置快照；并在另一个阶段终止 worker，使用 fake clock 令 lease 到期后重启。再让 CANCEL_REQUESTED worker lease 过期，验证恢复器只清理/确认取消；对确定性坏输入验证直接进入 FAILED_FINAL 而非虚假的 FAILED_RETRYABLE。另创建“GBA 中一个合法 ZIP、一个误选平台的 raw PSP ISO、一个 sidecar”的任务，先发布合法 Item，再把尚未解决的 ISO 以 source 当前 ETag 重新配置到 PSP 目录。
+- 通过标准：已发布 Item 不回滚，REVIEW_PENDING Item 在取消事务转 CANCELLED；RUNNING cancel 返回 202，ImportJob 在停止前保持 CANCEL_REQUESTED，最后一个 Worker 确认后才为 CANCELLED，且绝不因已有发布/取消混合计数聚合成 COMPLETED/PARTIAL_FAILURE。取消检查不超过规定 reader/token 边界并且不会发布；旧 worker 在取消/lease 转移后提交被 state+lease token 拒绝；取消中 lease 恢复不继续领域计算。IDENTIFYING retry 复用 pipeline Job并增加 execution，SCRAPING retry 新建 Run/Job且旧证据不变；两者都由 persisted failedStage 分派、保留原 Import 配置，不重复创建 Blob/候选/ReviewEvent。重新配置不上传或复制 bytes，新 UploadFile 与旧文件引用相同 SHA-256 Blob，replacement 生成 raw ISO Item并回指 source；source 原 REJECTED reason 保留、resolution 指向 replacement、未解决计数归零并收口，陈旧 ETag/重复接管整体拒绝。JobEvent 仍按每次真实转换追加；普通过期任务被重新领取并完成；确定性错误直接 FAILED_FINAL，attempt 用尽才从 FAILED_RETRYABLE 进入 FAILED_FINAL；没有长事务或真实等待，任务/审核时刻均为 INTEGER。
 - 证据：完整状态转换、引用计数、lease/attempt 和事务时长摘要。
 
 ## 10. BIOS 与 Arcade DAT

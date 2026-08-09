@@ -38,6 +38,11 @@ type CreateRequest struct {
 	MetadataProvider         string `json:"metadataProvider"`
 }
 
+type ReconfigureRequest struct {
+	TargetPlatformInstanceID string `json:"targetPlatformInstanceId"`
+	MetadataProvider         string `json:"metadataProvider"`
+}
+
 type Created struct {
 	ImportJobID string `json:"importJobId"`
 	JobID       string `json:"jobId"`
@@ -120,6 +125,17 @@ type preparedDOSEntry struct {
 	path, kind string
 	rank       int
 	safe       bool
+}
+
+type reconfigurationInput struct {
+	sourceImportJobID string
+	sourceVersion     int64
+	sourceFileIDs     []string
+}
+
+type reusableUploadFile struct {
+	id, path, blobID string
+	size             int64
 }
 
 func knownSidecar(path string) bool {
@@ -1060,8 +1076,267 @@ func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Serv
 	return service
 }
 
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
+// Reconfigure reuses the unresolved rejected files from an existing import. The
+// cloned UploadSession owns new logical UploadFiles but points at the same CAS
+// blobs, so the browser never has to upload the bytes again.
+func (service *Service) Reconfigure(
+	ctx context.Context,
+	sourceImportJobID string,
+	expectedVersion int64,
+	request ReconfigureRequest,
+) (Created, error) {
+	if sourceImportJobID == "" || expectedVersion < 1 {
+		return Created{}, ErrInvalid
+	}
+	sourceType, files, err := service.reconfigurationSource(ctx, sourceImportJobID, expectedVersion)
+	if err != nil {
+		return Created{}, err
+	}
+	if len(files) == 0 {
+		return Created{}, ErrInvalid
+	}
+	uploadID, err := service.cloneUploadSession(ctx, sourceImportJobID, expectedVersion, sourceType, files)
+	if err != nil {
+		return Created{}, err
+	}
+	sourceFileIDs := make([]string, 0, len(files))
+	for _, file := range files {
+		sourceFileIDs = append(sourceFileIDs, file.id)
+	}
+	created, err := service.create(
+		ctx,
+		CreateRequest{
+			UploadID:                 uploadID,
+			TargetPlatformInstanceID: request.TargetPlatformInstanceID,
+			MetadataProvider:         request.MetadataProvider,
+		},
+		&reconfigurationInput{
+			sourceImportJobID: sourceImportJobID,
+			sourceVersion:     expectedVersion,
+			sourceFileIDs:     sourceFileIDs,
+		},
+	)
+	if err != nil {
+		service.removeUnusedClonedUpload(ctx, uploadID)
+		return Created{}, err
+	}
+	return created, nil
+}
+
+func (service *Service) reconfigurationSource(
+	ctx context.Context,
+	sourceImportJobID string,
+	expectedVersion int64,
+) (string, []reusableUploadFile, error) {
+	var sourceType, state string
+	var currentVersion int64
+	if err := service.database.QueryRowContext(ctx, `
+SELECT u.source_type,
+i.state,
+i.version
+FROM import_jobs i
+JOIN upload_sessions u ON u.id=i.upload_session_id
+WHERE i.id=?
+`, sourceImportJobID).Scan(&sourceType, &state, &currentVersion); err != nil ||
+		state != "PARTIAL_FAILURE" || currentVersion != expectedVersion {
+		return "", nil, ErrInvalid
+	}
+	rows, err := service.database.QueryContext(ctx, `
+SELECT u.id,
+u.relative_path,
+u.declared_size_bytes,
+u.final_blob_id
+FROM import_job_files f
+JOIN upload_files u ON u.id=f.upload_file_id
+LEFT JOIN import_job_file_resolutions resolution
+ON resolution.import_job_id=f.import_job_id
+AND resolution.upload_file_id=f.upload_file_id
+WHERE f.import_job_id=?
+AND f.disposition='REJECTED'
+AND resolution.upload_file_id IS NULL
+ORDER BY u.relative_path,
+u.id
+`, sourceImportJobID)
+	if err != nil {
+		return "", nil, fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	files := make([]reusableUploadFile, 0)
+	for rows.Next() {
+		var file reusableUploadFile
+		if err := rows.Scan(&file.id, &file.path, &file.size, &file.blobID); err != nil {
+			return "", nil, fmt.Errorf("libraryimport/reconfigure: %w", err)
+		}
+		files = append(files, file)
+	}
+	if err := rows.Err(); err != nil {
+		return "", nil, fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	if err := rows.Close(); err != nil {
+		return "", nil, fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	return sourceType, files, nil
+}
+
+func (service *Service) cloneUploadSession(
+	ctx context.Context,
+	sourceImportJobID string,
+	expectedVersion int64,
+	sourceType string,
+	files []reusableUploadFile,
+) (string, error) {
+	uploadID, err := uuid.NewV7()
+	if err != nil {
+		return "", fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	digest := reconfigurationManifestDigest(sourceImportJobID, expectedVersion, files)
+	now := service.now().UnixMilli()
+	var totalBytes int64
+	for _, file := range files {
+		totalBytes += file.size
+	}
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return "", fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	defer cleanup.Rollback(transaction)
+	var currentState string
+	var currentVersion int64
+	if err := transaction.QueryRowContext(ctx, `
+SELECT state,
+version
+FROM import_jobs
+WHERE id=?
+`, sourceImportJobID).Scan(&currentState, &currentVersion); err != nil ||
+		currentState != "PARTIAL_FAILURE" || currentVersion != expectedVersion {
+		return "", ErrInvalid
+	}
+	if err := insertClonedUpload(
+		ctx, transaction, uploadID.String(), sourceType, files, digest, now, totalBytes,
+	); err != nil {
+		return "", err
+	}
+	if err := transaction.Commit(); err != nil {
+		return "", fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	return uploadID.String(), nil
+}
+
+func reconfigurationManifestDigest(sourceImportJobID string, sourceVersion int64, files []reusableUploadFile) string {
+	manifestFiles := make([]map[string]any, 0, len(files))
+	for _, file := range files {
+		manifestFiles = append(manifestFiles, map[string]any{
+			"sourceUploadFileId": file.id,
+			"relativePath":       file.path,
+			"sizeBytes":          file.size,
+			"blobId":             file.blobID,
+		})
+	}
+	manifest, _ := json.Marshal(map[string]any{
+		"schemaVersion":     1,
+		"sourceImportJobId": sourceImportJobID,
+		"sourceVersion":     sourceVersion,
+		"files":             manifestFiles,
+	})
+	digest := sha256.Sum256(manifest)
+	return hex.EncodeToString(digest[:])
+}
+
+func insertClonedUpload(
+	ctx context.Context,
+	transaction *sql.Tx,
+	uploadID, sourceType string,
+	files []reusableUploadFile,
+	manifestDigest string,
+	now, totalBytes int64,
+) error {
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO upload_sessions(id,
+state,
+source_type,
+total_files,
+total_bytes,
+manifest_digest,
+version,
+expires_at_ms,
+created_at_ms,
+updated_at_ms) VALUES(?,
+'COMPLETE',
+?,
+?,
+?,
+?,
+1,
+?,
+?,
+?)
+`, uploadID, sourceType, len(files), totalBytes, manifestDigest,
+		now+int64(24*time.Hour/time.Millisecond), now, now); err != nil {
+		return fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	for _, file := range files {
+		fileID, idErr := uuid.NewV7()
+		if idErr != nil {
+			return fmt.Errorf("libraryimport/reconfigure: %w", idErr)
+		}
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO upload_files(id,
+upload_session_id,
+relative_path,
+declared_size_bytes,
+received_size_bytes,
+final_blob_id,
+state,
+created_at_ms,
+updated_at_ms) VALUES(?,
+?,
+?,
+?,
+?,
+?,
+'COMPLETE',
+?,
+?)
+`, fileID.String(), uploadID, file.path, file.size, file.size, file.blobID, now, now); err != nil {
+			return fmt.Errorf("libraryimport/reconfigure: %w", err)
+		}
+	}
+	return nil
+}
+
+func (service *Service) removeUnusedClonedUpload(ctx context.Context, uploadID string) {
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+	defer cleanup.Rollback(transaction)
+	var consumptionCount int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT count(*)
+FROM upload_consumptions
+WHERE upload_session_id=?
+`, uploadID).Scan(&consumptionCount); err != nil || consumptionCount != 0 {
+		return
+	}
+	if _, err := transaction.ExecContext(ctx, `DELETE FROM upload_files WHERE upload_session_id=?`, uploadID); err != nil {
+		return
+	}
+	if _, err := transaction.ExecContext(ctx, `DELETE FROM upload_sessions WHERE id=?`, uploadID); err != nil {
+		return
+	}
+	_ = transaction.Commit()
+}
+
 func (service *Service) Create(ctx context.Context, request CreateRequest) (Created, error) {
+	return service.create(ctx, request, nil)
+}
+
+//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
+func (service *Service) create(
+	ctx context.Context,
+	request CreateRequest,
+	reconfiguration *reconfigurationInput,
+) (Created, error) {
 	if request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS" {
 		return Created{}, ErrInvalid
 	}
@@ -1264,6 +1539,10 @@ created_at_ms) VALUES(?,
 		}
 	}
 	progress := newInitialImportProgress(request.MetadataProvider, len(groups), rejected)
+	resultState := progress.state
+	alreadyImportedItems := 0
+	sourceFileItemCounts := make(map[string]int)
+	duplicateFileItemCounts := make(map[string]int)
 	completedAt := any(nil)
 	if progress.completed {
 		completedAt = now
@@ -1588,6 +1867,58 @@ created_at_ms) VALUES(?,
 				return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 			}
 		}
+		groupUploadFileIDs := make(map[string]struct{})
+		for _, source := range group.sources {
+			groupUploadFileIDs[source.file.id] = struct{}{}
+		}
+		for uploadFileID := range groupUploadFileIDs {
+			sourceFileItemCounts[uploadFileID]++
+		}
+		contentIdentityDigest, err := importItemContentIdentity(ctx, transaction, itemID.String())
+		if err != nil {
+			return Created{}, err
+		}
+		duplicateGames, err := findDuplicateGames(ctx, transaction, itemID.String(), platformID)
+		if err != nil {
+			return Created{}, err
+		}
+		if len(duplicateGames) > 0 {
+			if err := claimContentIdentity(ctx, transaction, platformID, contentIdentityDigest, now); err != nil {
+				return Created{}, err
+			}
+			for _, game := range duplicateGames {
+				if _, err := transaction.ExecContext(ctx, `
+INSERT INTO import_item_duplicate_matches(import_item_id,
+existing_game_id,
+existing_game_content_revision_id,
+content_identity_digest,
+detected_stage,
+created_at_ms) VALUES(?,
+?,
+?,
+?,
+'IDENTIFICATION',
+?)
+`, itemID.String(), game.GameID, game.CurrentContentRevisionID, contentIdentityDigest, now); err != nil {
+					return Created{}, fmt.Errorf("libraryimport/service: %w", err)
+				}
+			}
+			if _, err := transaction.ExecContext(ctx, `
+UPDATE import_items
+SET state='DISCARDED',
+version=version+1,
+updated_at_ms=?,
+completed_at_ms=?
+WHERE id=?
+`, now, now, itemID.String()); err != nil {
+				return Created{}, fmt.Errorf("libraryimport/service: %w", err)
+			}
+			alreadyImportedItems++
+			for uploadFileID := range groupUploadFileIDs {
+				duplicateFileItemCounts[uploadFileID]++
+			}
+			continue
+		}
 		inputDigest := sha256.Sum256(append(manifestDigest[:], configDigest[:]...))
 		validationStatus := group.validationStatus
 		compatibilityCode := group.compatibilityCode
@@ -1774,6 +2105,59 @@ updated_at_ms) VALUES(?,
 			scheduledRuns = append(scheduledRuns, scheduled)
 		}
 	}
+	if alreadyImportedItems > 0 {
+		alreadyImportedFileCount := 0
+		for uploadFileID, duplicateItemCount := range duplicateFileItemCounts {
+			if duplicateItemCount == sourceFileItemCounts[uploadFileID] {
+				alreadyImportedFileCount++
+			}
+		}
+		remainingItems := len(groups) - alreadyImportedItems
+		runningItems := 0
+		reviewPendingItems := 0
+		completedAt = nil
+		switch {
+		case remainingItems == 0 && rejected > 0:
+			resultState = "PARTIAL_FAILURE"
+		case remainingItems == 0:
+			resultState = "COMPLETED"
+			completedAt = now
+		case request.MetadataProvider == "HASHEOUS":
+			resultState = "RUNNING"
+			runningItems = remainingItems
+		case rejected > 0:
+			resultState = "PARTIAL_FAILURE"
+			reviewPendingItems = remainingItems
+		default:
+			resultState = "REVIEW_PENDING"
+			reviewPendingItems = remainingItems
+		}
+		if _, err := transaction.ExecContext(ctx, `
+UPDATE import_jobs
+SET state=?,
+running_item_count=?,
+review_pending_item_count=?,
+discarded_item_count=?,
+already_imported_item_count=?,
+already_imported_file_count=?,
+version=version+1,
+updated_at_ms=?,
+completed_at_ms=?
+WHERE id=?
+`,
+			resultState,
+			runningItems,
+			reviewPendingItems,
+			alreadyImportedItems,
+			alreadyImportedItems,
+			alreadyImportedFileCount,
+			now,
+			completedAt,
+			importID.String(),
+		); err != nil {
+			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
+		}
+	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,
 scope_type,
@@ -1789,6 +2173,17 @@ created_at_ms) VALUES(?,
 `, jobID.String(), importID.String(), fmt.Sprintf(`{"itemCount":%d}`, len(files)), now); err != nil {
 		return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
+	if reconfiguration != nil {
+		if err := recordImportReconfiguration(
+			ctx,
+			transaction,
+			*reconfiguration,
+			importID.String(),
+			now,
+		); err != nil {
+			return Created{}, err
+		}
+	}
 	if err := transaction.Commit(); err != nil {
 		return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
@@ -1800,8 +2195,88 @@ created_at_ms) VALUES(?,
 		go func() { _ = service.scraper.Run(context.WithoutCancel(ctx), runID) }()
 	}
 	return Created{
-		ImportJobID: importID.String(), JobID: jobID.String(), State: progress.state, ItemCount: len(groups),
+		ImportJobID: importID.String(), JobID: jobID.String(), State: resultState, ItemCount: len(groups),
 	}, nil
+}
+
+func recordImportReconfiguration(
+	ctx context.Context,
+	transaction *sql.Tx,
+	input reconfigurationInput,
+	replacementImportJobID string,
+	now int64,
+) error {
+	for _, uploadFileID := range input.sourceFileIDs {
+		result, err := transaction.ExecContext(ctx, `
+INSERT INTO import_job_file_resolutions(import_job_id,
+upload_file_id,
+action,
+replacement_import_job_id,
+actor,
+created_at_ms)
+SELECT f.import_job_id,
+f.upload_file_id,
+'RECONFIGURED',
+?,
+'local',
+?
+FROM import_job_files f
+LEFT JOIN import_job_file_resolutions resolution
+ON resolution.import_job_id=f.import_job_id
+AND resolution.upload_file_id=f.upload_file_id
+WHERE f.import_job_id=?
+AND f.upload_file_id=?
+AND f.disposition='REJECTED'
+AND resolution.upload_file_id IS NULL
+`, replacementImportJobID, now, input.sourceImportJobID, uploadFileID)
+		if err != nil {
+			return fmt.Errorf("libraryimport/reconfigure: %w", err)
+		}
+		inserted, err := result.RowsAffected()
+		if err != nil || inserted != 1 {
+			return ErrInvalid
+		}
+	}
+	resolved := int64(len(input.sourceFileIDs))
+	result, err := transaction.ExecContext(ctx, `
+UPDATE import_jobs
+SET resolved_rejected_file_count=resolved_rejected_file_count+?,
+state=CASE
+  WHEN queued_item_count>0 OR running_item_count>0 THEN 'RUNNING'
+  WHEN failed_item_count>0 OR rejected_file_count>resolved_rejected_file_count+? THEN 'PARTIAL_FAILURE'
+  WHEN review_pending_item_count>0 THEN 'REVIEW_PENDING'
+  ELSE 'COMPLETED'
+END,
+completed_at_ms=CASE
+  WHEN queued_item_count=0
+   AND running_item_count=0
+   AND failed_item_count=0
+   AND rejected_file_count=resolved_rejected_file_count+?
+   AND review_pending_item_count=0 THEN ?
+  ELSE NULL
+END,
+version=version+1,
+updated_at_ms=?
+WHERE id=?
+AND version=?
+AND state='PARTIAL_FAILURE'
+AND resolved_rejected_file_count+?<=rejected_file_count
+`, resolved, resolved, resolved, now, now, input.sourceImportJobID, input.sourceVersion, resolved)
+	if err != nil {
+		return fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	updated, err := result.RowsAffected()
+	if err != nil || updated != 1 {
+		return ErrInvalid
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE import_jobs
+SET reconfigured_from_import_job_id=?
+WHERE id=?
+`, input.sourceImportJobID, replacementImportJobID); err != nil {
+		return fmt.Errorf("libraryimport/reconfigure: %w", err)
+	}
+	return nil
 }
 
 func prepareStaticBIOSDependencies(
@@ -1874,24 +2349,45 @@ type Approved struct {
 	Status  string `json:"status"`
 }
 
-func (service *Service) Approve(ctx context.Context, itemID string, expectedVersion int64) (Approved, error) {
-	return service.ApproveWithReason(ctx, itemID, expectedVersion, nil)
+type ApprovalDecision struct {
+	Reason              *string
+	DuplicatePolicy     string
+	AcknowledgedGameIDs []string
 }
 
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
+func (service *Service) Approve(ctx context.Context, itemID string, expectedVersion int64) (Approved, error) {
+	return service.ApproveWithDecision(ctx, itemID, expectedVersion, ApprovalDecision{})
+}
+
 func (service *Service) ApproveWithReason(
 	ctx context.Context,
 	itemID string,
 	expectedVersion int64,
 	reason *string,
 ) (Approved, error) {
+	return service.ApproveWithDecision(ctx, itemID, expectedVersion, ApprovalDecision{Reason: reason})
+}
+
+//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
+func (service *Service) ApproveWithDecision(
+	ctx context.Context,
+	itemID string,
+	expectedVersion int64,
+	decision ApprovalDecision,
+) (Approved, error) {
 	var decisionReason any
-	if reason != nil {
-		trimmed := strings.TrimSpace(*reason)
+	if decision.Reason != nil {
+		trimmed := strings.TrimSpace(*decision.Reason)
 		if trimmed == "" || !validField(trimmed, 500, true) {
 			return Approved{}, ErrInvalid
 		}
 		decisionReason = trimmed
+	}
+	if decision.DuplicatePolicy != "" && decision.DuplicatePolicy != "ALLOW_NEW" {
+		return Approved{}, ErrInvalid
+	}
+	if decision.DuplicatePolicy == "" && len(decision.AcknowledgedGameIDs) != 0 {
+		return Approved{}, ErrInvalid
 	}
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -1903,7 +2399,7 @@ PRAGMA defer_foreign_keys=ON
 `); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	var state, importID, configSnapshotJSON, platformInstanceID, validationID string
+	var state, importID, configSnapshotJSON, platformID, platformInstanceID, validationID string
 	var metadataJSON, sourceManifestJSON, sourceManifestDigest, dependencySnapshotJSON string
 	var coreID, artifactID string
 	var draftVersion int64
@@ -1912,6 +2408,7 @@ PRAGMA defer_foreign_keys=ON
 SELECT i.state,
 i.import_job_id,
 j.config_snapshot_json,
+p.platform_id,
 d.target_platform_instance_id,
 d.selected_validation_id,
 d.metadata_json,
@@ -1951,6 +2448,7 @@ AND active.is_active=1)
 			&state,
 			&importID,
 			&configSnapshotJSON,
+			&platformID,
 			&platformInstanceID,
 			&validationID,
 			&metadataJSON,
@@ -2002,13 +2500,35 @@ WHERE import_item_id=?
 	if err := json.Unmarshal([]byte(metadataJSON), &metadata); err != nil || strings.TrimSpace(metadata.Title) == "" {
 		return Approved{}, ErrInvalid
 	}
+	now := service.now().UnixMilli()
+	contentIdentityDigest, err := importItemContentIdentity(ctx, transaction, itemID)
+	if err != nil {
+		return Approved{}, err
+	}
+	if err := claimContentIdentity(ctx, transaction, platformID, contentIdentityDigest, now); err != nil {
+		return Approved{}, err
+	}
+	duplicateGames, err := findDuplicateGames(ctx, transaction, itemID, platformID)
+	if err != nil {
+		return Approved{}, err
+	}
+	if len(duplicateGames) > 0 &&
+		(decision.DuplicatePolicy != "ALLOW_NEW" ||
+			!sameDuplicateIDs(duplicateGames, decision.AcknowledgedGameIDs)) {
+		return Approved{}, &DuplicateConflict{
+			ContentIdentityDigest: contentIdentityDigest,
+			Games:                 duplicateGames,
+		}
+	}
+	if len(duplicateGames) == 0 && decision.DuplicatePolicy != "" {
+		return Approved{}, ErrInvalid
+	}
 	gameID, _ := uuid.NewV7()
 	metadataID, _ := uuid.NewV7()
 	contentID, _ := uuid.NewV7()
 	variantID, _ := uuid.NewV7()
 	variantRevisionID, _ := uuid.NewV7()
 	eventID, _ := uuid.NewV7()
-	now := service.now().UnixMilli()
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_metadata_revisions(id,
 game_id,
@@ -2359,7 +2879,16 @@ WHERE id=?
 			"variantRevisionId":  variantRevisionID.String(),
 		},
 	)
-	diffJSON, _ := json.Marshal(map[string]any{"schemaVersion": 1, "decision": "APPROVED"})
+	diff := map[string]any{
+		"schemaVersion":         1,
+		"decision":              "APPROVED",
+		"contentIdentityDigest": contentIdentityDigest,
+	}
+	if decision.DuplicatePolicy == "ALLOW_NEW" {
+		diff["duplicatePolicy"] = decision.DuplicatePolicy
+		diff["acknowledgedGameIds"] = duplicateIDs(duplicateGames)
+	}
+	diffJSON, _ := json.Marshal(diff)
 	configEvidenceJSON, _ := json.Marshal(
 		map[string]any{
 			"schemaVersion":  1,
@@ -2437,11 +2966,13 @@ UPDATE import_jobs
 SET review_pending_item_count=review_pending_item_count-1,
 published_item_count=published_item_count+1,
 state=CASE WHEN review_pending_item_count=1
-AND rejected_file_count=0 THEN 'COMPLETED' WHEN review_pending_item_count=1 THEN 'PARTIAL_FAILURE' ELSE state END,
+AND rejected_file_count=resolved_rejected_file_count THEN 'COMPLETED'
+WHEN review_pending_item_count=1 THEN 'PARTIAL_FAILURE'
+ELSE state END,
 version=version+1,
 updated_at_ms=?,
 completed_at_ms=CASE WHEN review_pending_item_count=1
-AND rejected_file_count=0 THEN ? ELSE NULL END
+AND rejected_file_count=resolved_rejected_file_count THEN ? ELSE NULL END
 WHERE id=?
 `, now, now, importID); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)

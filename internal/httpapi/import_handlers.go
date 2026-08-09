@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"database/sql"
 	"encoding/json"
 	"errors"
@@ -31,9 +32,10 @@ func requireVersion(writer http.ResponseWriter, request *http.Request) (int64, b
 //nolint:funlen // Aggregate and item projections are read together to preserve one import snapshot response.
 func (server *Server) importDetail(writer http.ResponseWriter, request *http.Request) {
 	var id, uploadID, targetID, targetName, platformID, coreID, artifactID, provider, state, configJSON string
-	var datID, errorCode, cancelReason sql.NullString
+	var datID, errorCode, cancelReason, reconfiguredFrom sql.NullString
 	var version, total, queued, running, pending, published, discarded int64
-	var failed, canceled, ignored, rejected, created, updated int64
+	var failed, canceled, ignored, rejected, resolvedRejected, alreadyImportedItems, alreadyImportedFiles int64
+	var created, updated int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT i.id,
 i.upload_session_id,
@@ -56,8 +58,12 @@ i.failed_item_count,
 i.cancelled_item_count,
 i.ignored_file_count,
 i.rejected_file_count,
+i.resolved_rejected_file_count,
+i.already_imported_item_count,
+i.already_imported_file_count,
 i.last_error_code,
 i.cancel_reason,
+i.reconfigured_from_import_job_id,
 i.version,
 i.created_at_ms,
 i.updated_at_ms
@@ -87,8 +93,12 @@ WHERE i.id=?
 			&canceled,
 			&ignored,
 			&rejected,
+			&resolvedRejected,
+			&alreadyImportedItems,
+			&alreadyImportedFiles,
 			&errorCode,
 			&cancelReason,
+			&reconfiguredFrom,
 			&version,
 			&created,
 			&updated,
@@ -104,11 +114,38 @@ WHERE i.id=?
 	var configValue any
 	_ = json.Unmarshal([]byte(configJSON), &configValue)
 	fileRows, err := server.database.QueryContext(request.Context(), `
-SELECT u.relative_path,
+SELECT u.id,
+u.relative_path,
+u.declared_size_bytes,
 f.disposition,
-f.reason_code
+f.reason_code,
+resolution.action,
+resolution.replacement_import_job_id,
+resolution.created_at_ms,
+EXISTS(
+  SELECT 1
+  FROM import_item_source_files source
+  JOIN import_items item ON item.id=source.import_item_id
+  JOIN import_item_duplicate_matches duplicate ON duplicate.import_item_id=item.id
+  WHERE item.import_job_id=f.import_job_id
+  AND source.upload_file_id=f.upload_file_id
+)
+AND NOT EXISTS(
+  SELECT 1
+  FROM import_item_source_files source
+  JOIN import_items item ON item.id=source.import_item_id
+  WHERE item.import_job_id=f.import_job_id
+  AND source.upload_file_id=f.upload_file_id
+  AND NOT EXISTS(
+    SELECT 1 FROM import_item_duplicate_matches duplicate
+    WHERE duplicate.import_item_id=item.id
+  )
+)
 FROM import_job_files f
 JOIN upload_files u ON u.id=f.upload_file_id
+LEFT JOIN import_job_file_resolutions resolution
+ON resolution.import_job_id=f.import_job_id
+AND resolution.upload_file_id=f.upload_file_id
 WHERE f.import_job_id=?
 ORDER BY u.relative_path,u.id
 `, id)
@@ -119,43 +156,87 @@ ORDER BY u.relative_path,u.id
 	defer func() { cleanup.Error("close", fileRows.Close()) }()
 	fileOutcomes := make([]map[string]any, 0)
 	for fileRows.Next() {
-		var name, disposition string
-		var reasonCode sql.NullString
-		if err := fileRows.Scan(&name, &disposition, &reasonCode); err != nil {
+		var uploadFileID, name, disposition string
+		var sizeBytes int64
+		var reasonCode, resolutionAction, replacementImportJobID sql.NullString
+		var resolvedAtMS sql.NullInt64
+		var alreadyImported int64
+		if err := fileRows.Scan(
+			&uploadFileID,
+			&name,
+			&sizeBytes,
+			&disposition,
+			&reasonCode,
+			&resolutionAction,
+			&replacementImportJobID,
+			&resolvedAtMS,
+			&alreadyImported,
+		); err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
-		fileOutcomes = append(fileOutcomes, map[string]any{
-			"name": name, "disposition": disposition, "reasonCode": nullableString(reasonCode),
-		})
+		outcome := map[string]any{
+			"uploadFileId": uploadFileID,
+			"name":         name,
+			"sizeBytes":    sizeBytes,
+			"disposition":  disposition,
+			"reasonCode":   nullableString(reasonCode),
+			"resolution":   nil,
+		}
+		if alreadyImported == 1 {
+			outcome["disposition"] = "ALREADY_IMPORTED"
+			outcome["reasonCode"] = "ALREADY_IMPORTED"
+		}
+		if resolutionAction.Valid && replacementImportJobID.Valid && resolvedAtMS.Valid {
+			outcome["resolution"] = map[string]any{
+				"action":                 resolutionAction.String,
+				"replacementImportJobId": replacementImportJobID.String,
+				"resolvedAtMs":           resolvedAtMS.Int64,
+			}
+		}
+		fileOutcomes = append(fileOutcomes, outcome)
 	}
 	if err := fileRows.Err(); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
+	if err := fileRows.Close(); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	alreadyImportedMatches, err := server.importDuplicateMatches(request.Context(), id)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	item := map[string]any{
-		"importJobId":            id,
-		"uploadId":               uploadID,
-		"targetPlatformInstance": map[string]any{"id": targetID, "name": targetName},
-		"platformId":             platformID,
-		"defaultCoreId":          coreID,
-		"coreArtifactId":         artifactID,
-		"datVersionId":           nullableString(datID),
-		"metadataProvider":       provider,
-		"configSnapshot":         configValue,
-		"fileOutcomes":           fileOutcomes,
-		"state":                  state,
+		"importJobId":                 id,
+		"uploadId":                    uploadID,
+		"targetPlatformInstance":      map[string]any{"id": targetID, "name": targetName},
+		"platformId":                  platformID,
+		"defaultCoreId":               coreID,
+		"coreArtifactId":              artifactID,
+		"datVersionId":                nullableString(datID),
+		"metadataProvider":            provider,
+		"reconfiguredFromImportJobId": nullableString(reconfiguredFrom),
+		"configSnapshot":              configValue,
+		"fileOutcomes":                fileOutcomes,
+		"alreadyImportedMatches":      alreadyImportedMatches,
+		"state":                       state,
 		"counts": map[string]any{
-			"total":         total,
-			"queued":        queued,
-			"running":       running,
-			"reviewPending": pending,
-			"published":     published,
-			"discarded":     discarded,
-			"failed":        failed,
-			"cancelled":     canceled,
-			"ignoredFiles":  ignored,
-			"rejectedFiles": rejected,
+			"total":                   total,
+			"queued":                  queued,
+			"running":                 running,
+			"reviewPending":           pending,
+			"published":               published,
+			"discarded":               discarded,
+			"failed":                  failed,
+			"cancelled":               canceled,
+			"ignoredFiles":            ignored,
+			"rejectedFiles":           rejected,
+			"unresolvedRejectedFiles": rejected - resolvedRejected,
+			"alreadyImportedItems":    alreadyImportedItems,
+			"alreadyImportedFiles":    alreadyImportedFiles,
 		},
 		"errorCode":    nullableString(errorCode),
 		"cancelReason": nullableString(cancelReason),
@@ -165,6 +246,89 @@ ORDER BY u.relative_path,u.id
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
 	writeJSON(writer, http.StatusOK, item)
+}
+
+func (server *Server) importDuplicateMatches(ctx context.Context, importJobID string) ([]map[string]any, error) {
+	duplicateRows, err := server.database.QueryContext(ctx, `
+SELECT match.import_item_id,
+match.content_identity_digest,
+game.id,
+metadata.title,
+instance.id,
+instance.name
+FROM import_item_duplicate_matches match
+JOIN import_items item ON item.id=match.import_item_id
+JOIN games game ON game.id=match.existing_game_id
+JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+JOIN platform_instances instance ON instance.id=game.platform_instance_id
+WHERE item.import_job_id=?
+ORDER BY item.created_at_ms,item.id,game.created_at_ms,game.id
+`, importJobID)
+	if err != nil {
+		return nil, fmt.Errorf("query import duplicate matches: %w", err)
+	}
+	defer func() { cleanup.Error("close", duplicateRows.Close()) }()
+	alreadyImportedMatches := make([]map[string]any, 0)
+	for duplicateRows.Next() {
+		var importItemID, contentIdentityDigest, gameID, title, instanceID, instanceName string
+		if err := duplicateRows.Scan(
+			&importItemID,
+			&contentIdentityDigest,
+			&gameID,
+			&title,
+			&instanceID,
+			&instanceName,
+		); err != nil {
+			return nil, fmt.Errorf("scan import duplicate match: %w", err)
+		}
+		alreadyImportedMatches = append(alreadyImportedMatches, map[string]any{
+			"importItemId":          importItemID,
+			"contentIdentityDigest": contentIdentityDigest,
+			"existingGame": map[string]any{
+				"id": gameID, "title": title,
+				"platformInstanceId": instanceID, "platformInstanceName": instanceName,
+			},
+		})
+	}
+	if err := duplicateRows.Err(); err != nil {
+		return nil, fmt.Errorf("scan import duplicate matches: %w", err)
+	}
+	return alreadyImportedMatches, nil
+}
+
+func (server *Server) reconfigureImport(writer http.ResponseWriter, request *http.Request) {
+	version, ok := requireVersion(writer, request)
+	if !ok {
+		return
+	}
+	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
+		return
+	}
+	var body libraryimport.ReconfigureRequest
+	if err := decodeJSON(writer, request, &body, 64<<10); err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "重新导入配置无效", map[string]any{})
+		return
+	}
+	created, err := server.importer.Reconfigure(
+		request.Context(),
+		request.PathValue("importJobId"),
+		version,
+		body,
+	)
+	if err != nil {
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"IMPORT_RECONFIGURE_CONFLICT",
+			"任务状态、版本或待处理文件已经变化",
+			map[string]any{},
+		)
+		return
+	}
+	writer.Header().Set("Location", "/api/v1/admin/imports/"+created.ImportJobID)
+	writeJSON(writer, http.StatusAccepted, created)
 }
 
 func (server *Server) importEvents(writer http.ResponseWriter, request *http.Request) {

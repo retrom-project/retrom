@@ -54,7 +54,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 2. `blobs/jobs/job_input_snapshots/job_events/idempotency_records/audit_events/blob_gc_candidates`；
 3. `upload_sessions/upload_files/upload_parts/upload_consumptions/archive_entries`；
 4. `bios_requirements/bios_installations/dat_versions/dat_machines/dat_bios_sets/dat_rom_entries/dat_disk_entries/dat_import_jobs`；
-5. `import_jobs/import_job_files/import_items/import_item_source_files/import_item_dos_entries/import_item_core_validations/import_item_validation_files`；
+5. `import_jobs/import_job_files/import_items/import_item_source_files/import_item_dos_entries/import_item_core_validations/import_item_validation_files/content_identity_claims/import_item_duplicate_matches`；
 6. `games/game_metadata_revisions/game_assets/game_content_revisions/game_content_files/game_variants/game_variant_revisions/variant_files/dos_entries/variant_dependencies`；这些循环 current FK 在同一 schema 边界声明 deferred；
 7. `metadata_scrape_runs/content_hash_evidence/metadata_provider_cache/metadata_provider_responses/metadata_scrape_query_attempts/scrape_candidates/scrape_candidate_hits/scrape_candidate_assets/review_uploaded_assets/review_drafts/review_draft_screenshot_assets/review_events`；Game owner 的 scrape run 因而不会引用尚未建立的 Game/ContentRevision；
 8. `launch_sessions/play_sessions/play_session_events/save_states/persistent_saves/persistent_save_revisions`；
@@ -86,7 +86,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 ### M3：依赖识别、刮削与审核
 
-范围：内置 DAT 安全解析/索引、BIOS catalog/installation、Arcade machine/parent/BIOS 识别；Hasheous adapter/cache/媒体安全；ImportItem 状态机、ReviewDraft/Event、审核工作台与历史。普通测试只用 fake Hasheous，外部 smoke 有界且不决定测试结果。
+范围：内置 DAT 安全解析/索引、BIOS catalog/installation、Arcade machine/parent/BIOS 识别；Hasheous adapter/cache/媒体安全；ImportItem 状态机、拒绝文件基于既有 CAS Blob 的重新配置导入与任务 lineage、ReviewDraft/Event、审核工作台与历史。普通测试只用 fake Hasheous，外部 smoke 有界且不决定测试结果。
 
 退出门禁：完整执行 `ACC-IMP-001`、`ACC-IMP-003`、`ACC-IMP-005`、`ACC-IMP-008`、`ACC-DAT-001`、`ACC-DAT-003`、`ACC-DAT-005`、`ACC-BIOS-001`、`ACC-SEC-001` 与 `ACC-SEC-004`；其余聚焦 unit/integration test 全通过。在 Approve 事务接入前先完成 M4 的 Game aggregate store；M3 与 M4 可以按垂直切片交替推进，但不得用另一套临时发布表。涉及 Approve、Game 移动/启动、DAT 对 Game 重校验或 BIOS Launch options 的 Case 明确留到 M4/M5，不能用半实现记录 PASS。
 

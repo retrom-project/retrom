@@ -170,11 +170,11 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 1. `go run ./cmd/retrom`，默认监听 `127.0.0.1:8080`；
 2. `cd web && npm run dev`，默认监听所有 IPv4 接口 `0.0.0.0:3000`，可用 `NEXT_DEV_HOST` 显式收窄；
-3. Next.js dev rewrite 将 `/api/`、`/content/`、`/runtime/` 和 `/health/` 转发到本地 Go 端口，使浏览器始终访问 `http://local.sendev.cc:3000` 的同一 origin；需要纯本机开发时可显式覆盖为 `RETROM_PUBLIC_ORIGIN=http://localhost:3000`。
+3. Next.js dev rewrite 将 `/api/`、`/content/`、`/runtime/` 和 `/health/` 转发到本地 Go 端口，使浏览器始终通过访问页面时使用的同一 origin 请求前后端资源。开发服务不规范化 Host，也不把远程请求重定向到 localhost。
 
 脚本必须转发 `SIGINT/SIGTERM`、在任一子进程异常退出时停止另一进程并返回非零状态，退出后不得残留后台进程。每次启动还必须在仓库 `.cache/retrom/dev.pid` 中原子登记 supervisor、Go 与 Next.js 三者的 PID 和 Linux process start ticks；子进程另以独立 process group/session 启动。正常接管先用 supervisor 的 PID/start ticks、工作目录和命令行确认身份，再发送 `SIGTERM` 并等待最多 15 秒；若 supervisor 已被 `SIGKILL` 等方式终止，新实例必须分别以登记的子进程 PID/start ticks、process group/session、工作目录和完整启动命令确认遗留 Go/Next.js 身份，只有两者各自通过确认后才向对应精确 process group 发送 `SIGTERM` 并等待数据锁释放。旧版仅登记 supervisor 的两字段文件继续支持正常接管，但不能据此猜测或扫描孤儿子进程。陈旧 PID、PID 复用、伪造登记或其他工作目录的同名进程不得被终止；登记无法证明身份但数据根仍被锁定时，新实例必须在启动子进程前明确失败，不得把错误推迟成后端 `DATA_ROOT_LOCKED`，也不得按端口或进程名批量杀进程。无法在期限内退出时同样失败。启动接管以 `.cache/retrom/dev-takeover.lock` 串行化，登记文件由 owner 在退出时清理。
 
-`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。前端的全接口监听只服务于受信开发局域网，后端仍保持回环监听；仓库默认浏览器 origin 为 `http://local.sendev.cc:3000`，使用其他域名或地址时必须把 `RETROM_PUBLIC_ORIGIN` 显式设置为浏览器实际使用的单一 origin。Next.js 配置从同一变量提取 hostname 写入开发资源/HMR 的 `allowedDevOrigins`，不维护第二份域名白名单。仅 `make dev` 注入 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true` 以支持这种明文开发 origin；普通服务进程默认拒绝非 localhost 的 HTTP origin。由于非 localhost 的 HTTP 不是浏览器 secure context，前端的幂等 UUID 与上传/存档 SHA-256 必须在缺少 `crypto.randomUUID`/`crypto.subtle` 时使用受测的 Web Crypto 兼容 fallback；安全随机数仍必须来自 `crypto.getRandomValues`。
+`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。前端固定监听 `0.0.0.0:3000`，后端仍保持回环监听；仓库默认浏览器 origin 为 `http://local.sendev.cc:3000`，便于从独立开发机访问测试服务器。Next.js 开发服务器不得把 `/_next` 静态资源或 HMR 绑定到该 origin，所有常规外部 DNS 域名、IPv4 地址和 opaque origin 均可访问开发资源；Retrom 不执行 Host 重定向。非 localhost 的明文域名不是浏览器安全上下文，PPSSPP、DOSBox Pure 和 Mednafen PSX HW 等线程核心仍受 Chrome 的 `SharedArrayBuffer` 能力限制；页面只报告能力不足，不跳转到客户端 localhost。仅 `make dev` 注入 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true` 以支持受信测试网中的明文 origin；普通服务进程默认拒绝非 localhost 的 HTTP origin。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
 
 ### 7.3 TLS 只在 NG 终结
 
@@ -219,7 +219,7 @@ RETROM_DATA_DIR/
 | 变量 | 开发默认 / 生产规则 |
 | --- | --- |
 | `RETROM_HTTP_ADDR` | `make dev` 注入 `127.0.0.1:8080`；容器部署显式设为 `0.0.0.0:8080`，没有 HTTPS 值。 |
-| `RETROM_PUBLIC_ORIGIN` | 当前仓库开发默认 `http://local.sendev.cc:3000`，可覆盖为 `http://localhost:3000` 或实际受信开发 origin；生产必填且必须是无 path/query/fragment 的单个 `https` origin，用于 cookie Secure 策略和开发 HMR host 派生，不作为写请求授权。 |
+| `RETROM_PUBLIC_ORIGIN` | 当前仓库开发默认 `http://local.sendev.cc:3000`，可显式覆盖为实际受信开发 origin；它用于后端 cookie Secure 策略和公开 origin 配置，不限制 Next.js 开发静态资源或 HMR 的请求来源，不触发 Host 重定向，也不作为写请求授权。非 localhost 主机名必须使用 HTTPS 才能运行线程核心。生产必填且必须是无 path/query/fragment 的单个 `https` origin。 |
 | `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN` | 服务默认 `false`/未设置，仅接受 `https` 或 `http://localhost`；`make dev` 固定注入 `true`，允许显式 `RETROM_PUBLIC_ORIGIN=http://<开发域名或局域网地址>:3000`。生产必须保持未设置或 `false`。 |
 | `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.cache/retrom/data`，生产为持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
 | `RETROM_DB_PATH` | 未设置时派生为数据根下 `retrom.db`；若设置必须是数据根内的绝对普通文件路径。 |

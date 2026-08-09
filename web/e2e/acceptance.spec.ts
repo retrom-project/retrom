@@ -141,8 +141,8 @@ test("ACC-UI-004 loading, empty, retryable error, warning, and blocker states ar
   const gbaRow = page.getByRole("row").filter({ hasText: "gba_bios.bin" });
   await gbaRow.locator('input[type="file"]').setInputFiles({ name: "gba_bios.bin", mimeType: "application/octet-stream", buffer: Buffer.from("retrom-invalid-bios\n") });
   await expect(gbaRow.getByText("校验值不一致", { exact: true })).toBeVisible();
-  await gbaRow.getByText("校验信息", { exact: true }).click();
   await expect(gbaRow.getByText("期望 MD5", { exact: true })).toBeVisible();
+  await expect(gbaRow.getByText("当前 MD5", { exact: true })).toBeVisible();
   await page.screenshot({ path: evidencePath(testInfo, "state-warning.png"), fullPage: true });
 
   const blockerRow = page.getByRole("row").filter({ hasText: "缺少文件" }).filter({ hasText: "必需" }).first();
@@ -460,6 +460,10 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   expect(await page.locator(".review-workflow-columns").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(1);
   await page.screenshot({ path: evidencePath(testInfo, "review-detail-1280.png"), fullPage: true });
   await page.getByRole("button", { name: "通过并发布" }).click();
+  const duplicateDialog = page.getByRole("alertdialog", { name: "仍然发布为新游戏？" });
+  await expect(duplicateDialog).toBeVisible();
+  await expect(duplicateDialog.getByRole("link")).toHaveCount(1);
+  await duplicateDialog.getByRole("button", { name: "仍然发布为新游戏" }).click();
   await expect(page).not.toHaveURL(new RegExp(`/admin/reviews/${itemId(3)}(?:\\?|$)`));
   await expect(page.locator(".app-toast")).toContainText("游戏已成功发布");
 

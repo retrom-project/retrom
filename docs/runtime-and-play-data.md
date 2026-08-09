@@ -233,7 +233,7 @@ Cross-Origin-Resource-Policy: same-origin
 X-Content-Type-Options: nosniff
 ```
 
-启动前检查 `window.isSecureContext`、`window.crossOriginIsolated` 和 `SharedArrayBuffer`。本机 `http://localhost` 可作为 Chrome 安全上下文，但仍须由 Next.js dev rewrite 保持同源并设置隔离头。Go/Next.js 只监听 NG 后方明文 HTTP，不终结 TLS。
+启动前检查 `window.isSecureContext`、`window.crossOriginIsolated` 和 `SharedArrayBuffer`。`make dev` 默认公开 origin 为可从独立开发机访问的 `http://local.sendev.cc:3000`，且不得把任何远程请求重定向到 localhost。若线程核心详情页从明文 HTTP 主机名打开，前端不发送一个注定被拒绝的 Launch，只明确报告浏览器线程能力不足；测试者可自行使用受信 HTTPS origin 或浏览器测试参数，本项目不替换请求 Host。Go/Next.js 只监听明文 HTTP，不终结 TLS。
 
 ## 12. 统一验收入口
 

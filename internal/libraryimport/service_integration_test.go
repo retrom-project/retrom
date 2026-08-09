@@ -461,6 +461,153 @@ WHERE id=?
 	}
 }
 
+func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploader := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	contents := []byte("duplicate-content-identity-fixture")
+	const platformInstanceID = "01980000-0000-7000-8000-000000000005"
+
+	createImport := func(name string) (Created, string) {
+		t.Helper()
+		upload, createErr := uploader.Create(ctx, uploads.CreateRequest{
+			SourceType: "FILES",
+			Files: []uploads.FileDeclaration{{
+				ClientFileID: "game", RelativePath: name, SizeBytes: int64(len(contents)),
+			}},
+		})
+		if createErr != nil {
+			t.Fatal(createErr)
+		}
+		digest := sha256.Sum256(contents)
+		if putErr := uploader.PutPart(
+			ctx,
+			upload.ID,
+			upload.Files[0].ID,
+			0,
+			fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)),
+			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
+			bytes.NewReader(contents),
+		); putErr != nil {
+			t.Fatal(putErr)
+		}
+		current, getErr := uploader.Get(ctx, upload.ID)
+		if getErr != nil {
+			t.Fatal(getErr)
+		}
+		jobID, _, completeErr := uploader.Complete(ctx, upload.ID, current.Version)
+		if completeErr != nil {
+			t.Fatal(completeErr)
+		}
+		waitForJob(t, database, jobID)
+		created, importErr := importer.Create(ctx, CreateRequest{
+			UploadID: upload.ID, TargetPlatformInstanceID: platformInstanceID, MetadataProvider: "NONE",
+		})
+		if importErr != nil {
+			t.Fatal(importErr)
+		}
+		var itemID string
+		if queryErr := database.SQL.QueryRowContext(ctx, `
+SELECT id FROM import_items WHERE import_job_id=?
+`, created.ImportJobID).Scan(&itemID); queryErr != nil {
+			t.Fatal(queryErr)
+		}
+		return created, itemID
+	}
+
+	firstImport, firstItemID := createImport("first-name.gba")
+	secondImport, secondItemID := createImport("renamed-copy.gba")
+	if firstImport.State != "REVIEW_PENDING" || secondImport.State != "REVIEW_PENDING" {
+		t.Fatalf("pre-publish import states = %s/%s", firstImport.State, secondImport.State)
+	}
+	firstGame, err := importer.Approve(ctx, firstItemID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	duplicates, identityDigest, err := importer.DuplicateGames(ctx, secondItemID)
+	if err != nil || len(duplicates) != 1 || duplicates[0].GameID != firstGame.GameID || len(identityDigest) != 64 {
+		t.Fatalf("review duplicates = %#v digest=%s error=%v", duplicates, identityDigest, err)
+	}
+	if _, err := importer.Approve(ctx, secondItemID, 1); err == nil {
+		t.Fatal("duplicate review published without confirmation")
+	} else {
+		var conflict *DuplicateConflict
+		if !errors.As(err, &conflict) || !errors.Is(err, ErrDuplicateContent) ||
+			len(conflict.Games) != 1 || conflict.Games[0].GameID != firstGame.GameID {
+			t.Fatalf("duplicate approval error = %#v", err)
+		}
+	}
+	secondGame, err := importer.ApproveWithDecision(ctx, secondItemID, 1, ApprovalDecision{
+		DuplicatePolicy: "ALLOW_NEW", AcknowledgedGameIDs: []string{firstGame.GameID},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var auditDiff string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT diff_json FROM review_events WHERE id=?
+`, secondGame.EventID).Scan(&auditDiff); err != nil ||
+		!strings.Contains(auditDiff, `"duplicatePolicy":"ALLOW_NEW"`) ||
+		!strings.Contains(auditDiff, firstGame.GameID) ||
+		!strings.Contains(auditDiff, identityDigest) {
+		t.Fatalf("duplicate audit diff = %s, error=%v", auditDiff, err)
+	}
+
+	thirdImport, thirdItemID := createImport("another-wrapper-name.gba")
+	if thirdImport.State != "COMPLETED" {
+		t.Fatalf("identification duplicate state = %s", thirdImport.State)
+	}
+	var jobState, itemState string
+	var alreadyItems, alreadyFiles, discarded, pending, draftCount, matchCount, gameCount int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT state,already_imported_item_count,already_imported_file_count,
+discarded_item_count,review_pending_item_count
+FROM import_jobs WHERE id=?
+`, thirdImport.ImportJobID).Scan(
+		&jobState, &alreadyItems, &alreadyFiles, &discarded, &pending,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT state,
+(SELECT count(*) FROM review_drafts WHERE import_item_id=import_items.id),
+(SELECT count(*) FROM import_item_duplicate_matches WHERE import_item_id=import_items.id)
+FROM import_items WHERE id=?
+`, thirdItemID).Scan(&itemState, &draftCount, &matchCount); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM games WHERE status='PUBLISHED'`).Scan(&gameCount); err != nil {
+		t.Fatal(err)
+	}
+	if jobState != "COMPLETED" || itemState != "DISCARDED" || alreadyItems != 1 || alreadyFiles != 1 ||
+		discarded != 1 || pending != 0 || draftCount != 0 || matchCount != 2 || gameCount != 2 {
+		t.Fatalf(
+			"identification projection = job:%s item:%s already:%d/%d discarded:%d pending:%d drafts:%d matches:%d games:%d",
+			jobState, itemState, alreadyItems, alreadyFiles, discarded, pending, draftCount, matchCount, gameCount,
+		)
+	}
+}
+
 func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -486,9 +633,9 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	rom := []byte("raw-gba-member")
 	archive := makeZIP(t, map[string][]byte{"folder/Wrapped.gba": rom, "README.txt": []byte("readme")})
 	files := map[string][]byte{
-		"Wrapped.zip": archive,
-		"notes.txt":   []byte("unsupported"),
-		".DS_Store":   []byte("sidecar"),
+		"Wrapped.zip":        archive,
+		"wrong-platform.iso": []byte("raw-psp-content"),
+		".DS_Store":          []byte("sidecar"),
 	}
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	declarations := make([]uploads.FileDeclaration, 0, len(files))
@@ -623,6 +770,63 @@ WHERE id=?
 		finalState != "PARTIAL_FAILURE" ||
 		completedAt.Valid {
 		t.Fatalf("import with rejected evidence finalized as %s/%v, error=%v", finalState, completedAt, err)
+	}
+	var sourceVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `SELECT version FROM import_jobs WHERE id=?`, created.ImportJobID).Scan(&sourceVersion); err != nil {
+		t.Fatal(err)
+	}
+	reconfigured, err := importer.Reconfigure(ctx, created.ImportJobID, sourceVersion, ReconfigureRequest{
+		TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000023",
+		MetadataProvider:         "NONE",
+	})
+	if err != nil || reconfigured.State != "REVIEW_PENDING" || reconfigured.ItemCount != 1 {
+		t.Fatalf("reconfigured import = %#v, error=%v", reconfigured, err)
+	}
+	var sourceState, replacementSource, replacementLogicalName, sourceBlobSHA, replacementBlobSHA string
+	var resolvedRejected int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT source.state,
+source.resolved_rejected_file_count,
+replacement.reconfigured_from_import_job_id,
+replacement_file.logical_name,
+source_blob.sha256,
+replacement_blob.sha256
+FROM import_jobs source
+JOIN import_jobs replacement ON replacement.id=?
+JOIN import_items replacement_item ON replacement_item.import_job_id=replacement.id
+JOIN import_item_source_files replacement_file ON replacement_file.import_item_id=replacement_item.id
+JOIN blobs replacement_blob ON replacement_blob.id=replacement_file.blob_id
+JOIN import_job_file_resolutions resolution ON resolution.import_job_id=source.id
+AND resolution.replacement_import_job_id=replacement.id
+JOIN upload_files source_file ON source_file.id=resolution.upload_file_id
+JOIN blobs source_blob ON source_blob.id=source_file.final_blob_id
+WHERE source.id=?
+`, reconfigured.ImportJobID, created.ImportJobID).Scan(
+		&sourceState,
+		&resolvedRejected,
+		&replacementSource,
+		&replacementLogicalName,
+		&sourceBlobSHA,
+		&replacementBlobSHA,
+	); err != nil || sourceState != "COMPLETED" || resolvedRejected != 1 ||
+		replacementSource != created.ImportJobID || replacementLogicalName != "wrong-platform.iso" ||
+		sourceBlobSHA != replacementBlobSHA {
+		t.Fatalf(
+			"reconfiguration evidence = %s/%d/%s/%s/%s/%s, error=%v",
+			sourceState,
+			resolvedRejected,
+			replacementSource,
+			replacementLogicalName,
+			sourceBlobSHA,
+			replacementBlobSHA,
+			err,
+		)
+	}
+	if _, err := importer.Reconfigure(ctx, created.ImportJobID, sourceVersion, ReconfigureRequest{
+		TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000023",
+		MetadataProvider:         "NONE",
+	}); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("stale reconfiguration error = %v", err)
 	}
 }
 

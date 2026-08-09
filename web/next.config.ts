@@ -1,10 +1,10 @@
 import type { NextConfig } from "next";
-import { allowedDevOriginsFromPublicOrigin } from "./lib/dev-origin";
+import { unrestrictedDevOrigins } from "./lib/dev-origin";
 
 const backend = process.env.NEXT_BACKEND_ORIGIN ?? "http://127.0.0.1:8080";
 
 const nextConfig: NextConfig = {
-  allowedDevOrigins: allowedDevOriginsFromPublicOrigin(process.env.RETROM_PUBLIC_ORIGIN),
+  allowedDevOrigins: unrestrictedDevOrigins(),
   distDir: process.env.NEXT_DIST_DIR ?? ".next",
   output: "standalone",
   poweredByHeader: false,

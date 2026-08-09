@@ -42,4 +42,16 @@ describe("BIOSManager", () => {
     expect(screen.getByText("warning.bin")).toBeInTheDocument();
     expect(screen.queryByText("missing.bin")).not.toBeInTheDocument();
   });
+
+  it("shows expected and current MD5 values without a disclosure control", () => {
+    render(<BIOSManager libraryItems={[item("gba_bios", {
+      expectedMd5: "a860e8c0b6d573d191e4ec7db1b1e4f6",
+      activeInstallation: { id: "installation", md5: "a860e8c0b6d573d191e4ec7db1b1e4f6", sha1: "b".repeat(40), sha256: "f".repeat(64), validatedRequirementVersion: 1, createdAtMs: 1 },
+    })]} catalogItems={[]} />);
+
+    expect(screen.getByText("期望 MD5")).toBeVisible();
+    expect(screen.getByText("当前 MD5")).toBeVisible();
+    expect(screen.getAllByText("a860e8c0b6d573d191e4ec7db1b1e4f6")).toHaveLength(2);
+    expect(screen.queryByText("校验信息")).not.toBeInTheDocument();
+  });
 });
