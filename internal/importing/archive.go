@@ -38,6 +38,7 @@ type ArchiveLimits struct {
 	MaxEntryBytes       int64
 	MaxExpandedBytes    int64
 	MaxCompressionRatio int64
+	AllowNestedArchives bool
 }
 
 func DefaultArchiveLimits() ArchiveLimits {
@@ -47,6 +48,12 @@ func DefaultArchiveLimits() ArchiveLimits {
 		MaxExpandedBytes:    32 << 30,
 		MaxCompressionRatio: 200,
 	}
+}
+
+func DOSArchiveLimits() ArchiveLimits {
+	limits := DefaultArchiveLimits()
+	limits.AllowNestedArchives = true
+	return limits
 }
 
 type ArchiveEntry struct {
@@ -122,7 +129,8 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 		// The signed ratio limit is proven nonnegative before conversion.
 		if item.CompressedSize64 == 0 && item.UncompressedSize64 > 0 ||
 			item.CompressedSize64 > 0 && (limits.MaxCompressionRatio < 0 ||
-				item.UncompressedSize64/item.CompressedSize64 > uint64(limits.MaxCompressionRatio)) {
+				item.UncompressedSize64/item.CompressedSize64 > uint64(limits.MaxCompressionRatio)) &&
+				item.UncompressedSize64 > 16<<20 {
 			return nil, ErrArchiveLimitExceeded
 		}
 		if item.UncompressedSize64 > ^uint64(0)>>1 ||
@@ -141,7 +149,9 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 		}
 		seenPath[pathValue] = struct{}{}
 		seenFold[folded] = struct{}{}
-		entry, err := readArchiveEntry(ctx, item, ordinal, pathValue, folded, limits.MaxEntryBytes)
+		entry, err := readArchiveEntry(
+			ctx, item, ordinal, pathValue, folded, limits.MaxEntryBytes, limits.AllowNestedArchives,
+		)
 		if err != nil {
 			return nil, err
 		}
@@ -186,6 +196,7 @@ func readArchiveEntry(
 	pathValue string,
 	folded string,
 	limit int64,
+	allowNestedArchives bool,
 ) (ArchiveEntry, error) {
 	reader, err := item.Open()
 	if err != nil {
@@ -227,7 +238,7 @@ func readArchiveEntry(
 		) {
 		return ArchiveEntry{}, ErrArchiveUnsafe
 	}
-	if nestedArchive(pathValue, prefix[:min(int64(len(prefix)), written)]) {
+	if !allowNestedArchives && nestedArchive(pathValue, prefix[:min(int64(len(prefix)), written)]) {
 		return ArchiveEntry{}, ErrNestedArchiveUnsupported
 	}
 	return ArchiveEntry{

@@ -448,6 +448,7 @@ AND current_revision_id<>?
 func (service *Service) ResumeQueuedValidationJobs() {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
+	service.recoverStaleValidationJobs(ctx)
 	rows, err := service.database.QueryContext(
 		ctx,
 		`
@@ -479,6 +480,39 @@ id
 	for _, jobID := range jobIDs {
 		go service.resumeValidationJob(context.Background(), jobID)
 	}
+}
+
+func (service *Service) recoverStaleValidationJobs(ctx context.Context) {
+	now := service.now().UnixMilli()
+	_, _ = service.database.ExecContext(ctx, `
+UPDATE jobs
+SET state='FAILED',
+error_code='LAUNCH_CORE_VALIDATION_UNAVAILABLE',
+error_retryable=1,
+finished_at_ms=?,
+leased_until_ms=NULL,
+version=version+1,
+updated_at_ms=?
+WHERE kind='VARIANT_REVALIDATE'
+AND state='RUNNING'
+AND leased_until_ms<?
+AND attempt_count>=max_attempts;
+
+UPDATE jobs
+SET state='QUEUED',
+available_at_ms=?,
+execution_started_at_ms=NULL,
+execution_deadline_at_ms=NULL,
+leased_until_ms=NULL,
+heartbeat_at_ms=NULL,
+worker_id=NULL,
+version=version+1,
+updated_at_ms=?
+WHERE kind='VARIANT_REVALIDATE'
+AND state='RUNNING'
+AND leased_until_ms<?
+AND attempt_count<max_attempts
+`, now, now, now, now, now, now)
 }
 
 func (service *Service) resumeValidationJob(parent context.Context, jobID string) {
@@ -514,7 +548,7 @@ AND j.kind='VARIANT_REVALIDATE'
 	)
 }
 
-//nolint:funlen,gocyclo // Core, artifact, DAT, BIOS, content, and launch-file checks form one readiness decision.
+//nolint:funlen,gocyclo,gocognit // One readiness decision spans every validation input.
 func (service *Service) validateVariant(
 	parent context.Context,
 	jobID, variantID, contentID, artifactID string,
@@ -524,6 +558,12 @@ func (service *Service) validateVariant(
 ) {
 	ctx, cancel := context.WithTimeout(parent, 30*time.Minute)
 	defer cancel()
+	completed := false
+	defer func() {
+		if !completed {
+			service.failValidationJob(parent, jobID, variantID)
+		}
+	}()
 	now := service.now().UnixMilli()
 	result, err := service.database.ExecContext(
 		ctx,
@@ -575,9 +615,12 @@ created_at_ms) VALUES(?,
 	)
 	var contentLogicalName string
 	if err := service.database.QueryRowContext(ctx, `
-SELECT logical_name FROM game_content_files
-WHERE game_content_revision_id=? AND role='CONTENT'
-ORDER BY sort_order,logical_name LIMIT 1
+SELECT COALESCE((SELECT logical_name
+FROM game_content_files
+WHERE game_content_revision_id=r.id AND role='CONTENT'
+ORDER BY sort_order,logical_name LIMIT 1),'')
+FROM game_content_revisions r
+WHERE r.id=?
 `, contentID).Scan(&contentLogicalName); err != nil {
 		return
 	}
@@ -613,6 +656,24 @@ ORDER BY sort_order,logical_name LIMIT 1
 	defer cleanup.Rollback(transaction)
 	revisionID := newUUID()
 	var emulatorGameID any
+	var defaultDOSEntry sql.NullString
+	if err := transaction.QueryRowContext(ctx, `
+SELECT COALESCE(
+  (SELECT r.default_dos_entry
+   FROM game_variants v
+   JOIN game_variant_revisions r ON r.id=v.current_revision_id
+   WHERE v.id=? AND r.game_content_revision_id=?),
+  (SELECT d.original_relative_path
+   FROM dos_entries d
+   WHERE d.game_content_revision_id=?
+   AND d.enabled=1
+   AND d.direct_launch_safe=1
+   ORDER BY d.rank,d.normalized_path
+   LIMIT 1)
+)
+`, variantID, contentID, contentID).Scan(&defaultDOSEntry); err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return
+	}
 	if status == "READY" {
 		var next int64
 		if err := transaction.QueryRowContext(ctx, `
@@ -635,7 +696,9 @@ emulator_game_id,
 status,
 compatibility_code,
 dependency_snapshot_json,
+default_dos_entry,
 created_at_ms) VALUES(?,
+?,
 ?,
 ?,
 ?,
@@ -657,8 +720,21 @@ created_at_ms) VALUES(?,
 		status,
 		code,
 		string(biosSnapshotJSON),
+		nullableSQL(defaultDOSEntry),
 		service.now().UnixMilli(),
 	); err != nil {
+		return
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
+SELECT ?,vf.role,vf.logical_name,vf.blob_id,vf.sort_order
+FROM game_variants v
+JOIN game_variant_revisions source ON source.id=v.current_revision_id
+AND source.game_content_revision_id=?
+JOIN variant_files vf ON vf.game_variant_revision_id=source.id
+AND vf.role='DOS_LAUNCH_BUNDLE'
+WHERE v.id=?
+`, revisionID, contentID, variantID); err != nil {
 		return
 	}
 	for sortOrder, dependency := range biosSnapshot.BIOS {
@@ -717,7 +793,34 @@ created_at_ms) VALUES(?,
 `, jobID, variantID, eventType, string(data), finished); err != nil {
 		return
 	}
-	_ = transaction.Commit()
+	if err := transaction.Commit(); err != nil {
+		return
+	}
+	completed = true
+}
+
+func (service *Service) failValidationJob(parent context.Context, jobID, variantID string) {
+	ctx, cancel := context.WithTimeout(context.WithoutCancel(parent), 5*time.Second)
+	defer cancel()
+	now := service.now().UnixMilli()
+	_, _ = service.database.ExecContext(ctx, `
+UPDATE jobs
+SET state='FAILED',
+error_code='LAUNCH_CORE_VALIDATION_UNAVAILABLE',
+error_retryable=1,
+finished_at_ms=?,
+leased_until_ms=NULL,
+version=version+1,
+updated_at_ms=?
+WHERE id=?
+AND state='RUNNING';
+INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
+SELECT id,'GAME_VARIANT',?,'FAILED',json_object('code','LAUNCH_CORE_VALIDATION_UNAVAILABLE'),?
+FROM jobs
+WHERE id=?
+AND state='FAILED'
+AND finished_at_ms=?
+`, now, now, jobID, variantID, now, jobID, now)
 }
 
 func (service *Service) validateContentForArtifact(
@@ -730,21 +833,22 @@ func (service *Service) validateContentForArtifact(
 	err := service.database.QueryRowContext(ctx, `
 SELECT a.core_id,
 pi.platform_id,
-f.logical_name,
+COALESCE((SELECT f.logical_name
+FROM game_content_files f
+WHERE f.game_content_revision_id=cr.id
+AND f.role='CONTENT'
+ORDER BY f.sort_order,f.logical_name
+LIMIT 1),''),
 EXISTS(SELECT 1
 FROM platform_cores pc
 WHERE pc.platform_id=pi.platform_id
 AND pc.core_id=a.core_id
 AND pc.enabled=1)
 FROM core_artifacts a
-JOIN game_content_files f ON f.game_content_revision_id=?
-AND f.role='CONTENT'
-JOIN game_content_revisions cr ON cr.id=f.game_content_revision_id
+JOIN game_content_revisions cr ON cr.id=?
 JOIN games g ON g.id=cr.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE a.id=?
-ORDER BY f.sort_order,
-f.logical_name LIMIT 1
 `, contentID, artifactID).
 		Scan(&coreID, &platformID, &logicalName, &relationshipEnabled)
 	if err != nil {

@@ -125,5 +125,29 @@ describe("LaunchControls", () => {
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(JSON.parse(requests[0])).toMatchObject({ coreId: "dosbox_pure", dosEntry: null });
+    expect(window.localStorage.getItem("retrom:preferred-dos-entry:dos-game")).toBeNull();
+  });
+
+  it("remembers only a successfully launched DOS entry, including the explicit program menu", async () => {
+    const user = userEvent.setup();
+    const dosCore: CoreOption[] = [{ coreId: "dosbox_pure", name: "DOSBox Pure", isDefault: true, status: "READY", reasons: [] }];
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ launchId: "launch-1", playUrl: "/play/launch-1" }), { status: 201, headers: { "Content-Type": "application/json" } })));
+    const first = render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />);
+
+    await user.selectOptions(screen.getByLabelText("启动程序"), "");
+    await user.click(screen.getByRole("button", { name: "开始游戏" }));
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/play/launch-1"));
+    expect(window.localStorage.getItem("retrom:preferred-dos-entry:dos-game")).toBe('{"version":1,"entry":null}');
+
+    first.unmount();
+    render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />);
+    expect(screen.getByLabelText("启动程序")).toHaveValue("");
+  });
+
+  it("falls back to the program menu when the reviewed DOS default is not direct-launch safe", () => {
+    const dosCore: CoreOption[] = [{ coreId: "dosbox_pure", name: "DOSBox Pure", isDefault: true, status: "READY", reasons: [] }];
+    render(<LaunchControls gameId="menu-only-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="SETUP%.EXE" />);
+
+    expect(screen.getByLabelText("启动程序")).toHaveValue("");
   });
 });

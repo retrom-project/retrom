@@ -28,16 +28,6 @@ import (
 	"retrom/internal/uploads"
 )
 
-func TestDOSConfigTemplateIsExactAndEphemeral(t *testing.T) {
-	t.Parallel()
-	if configuration := dosboxConfig("GAMES/DOOM.EXE"); configuration != "[autoexec]\r\n@ECHO OFF\r\nC:\r\nCD \"\\GAMES\"\r\n\"DOOM.EXE\"\r\n" {
-		t.Fatalf("dosbox.conf = %q", configuration)
-	}
-	if dosboxConfig("DOOM.EXE") != "[autoexec]\r\n@ECHO OFF\r\nC:\r\nCD \\\r\n\"DOOM.EXE\"\r\n" {
-		t.Fatalf("root dosbox.conf = %q", dosboxConfig("DOOM.EXE"))
-	}
-}
-
 func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
@@ -49,7 +39,9 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
-	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	dependencySet, err := dependencies.Load(
+		filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -796,7 +788,9 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
-	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	dependencySet, err := dependencies.Load(
+		filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3",
+	)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -893,6 +887,15 @@ WHERE d.import_item_id=?
 	if err != nil {
 		t.Fatal(err)
 	}
+	dependencySet, err = dependencies.Load(
+		filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	if err != nil {
 		t.Fatal(err)
@@ -916,18 +919,59 @@ WHERE d.import_item_id=?
 	if err != nil {
 		t.Fatal(err)
 	}
+	if direct.Status != "VALIDATION_PENDING" || direct.JobID == "" {
+		t.Fatalf("DOS runtime upgrade validation = %#v", direct)
+	}
+	for deadline := time.Now().Add(3 * time.Second); ; {
+		var state string
+		var errorCode sql.NullString
+		if err := database.SQL.QueryRowContext(ctx, `SELECT state,error_code FROM jobs WHERE id=?`, direct.JobID).
+			Scan(&state, &errorCode); err != nil {
+			t.Fatal(err)
+		}
+		if state == "SUCCEEDED" {
+			break
+		}
+		if state == "FAILED" || time.Now().After(deadline) {
+			t.Fatalf("DOS runtime upgrade validation = %s/%s", state, errorCode.String)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	direct, err = service.Create(
+		ctx,
+		CreateRequest{
+			GameID:             approved.GameID,
+			DOSEntry:           &selected,
+			ReturnTo:           "/games/" + approved.GameID,
+			ClientCapabilities: capabilities,
+		},
+	)
+	if err != nil {
+		var revisionID, artifactID, emulatorVersion, digest, contentID, logicalName string
+		var artifactEnabled int
+		diagnosticErr := database.SQL.QueryRowContext(ctx, `
+SELECT v.current_revision_id,a.id,a.emulatorjs_version,a.enabled,r.validation_input_digest,r.game_content_revision_id,
+COALESCE((SELECT logical_name FROM game_content_files WHERE game_content_revision_id=r.game_content_revision_id AND role='CONTENT' LIMIT 1),'')
+FROM game_variants v
+JOIN game_variant_revisions r ON r.id=v.current_revision_id
+JOIN core_artifacts a ON a.id=r.core_artifact_id
+WHERE v.game_id=?
+`, approved.GameID).Scan(&revisionID, &artifactID, &emulatorVersion, &artifactEnabled, &digest, &contentID, &logicalName)
+		snapshot, biosStatus, biosCode, biosErr := corevalidation.ResolveBIOS(ctx, database.SQL, artifactID, logicalName)
+		expectedDigest, digestErr := corevalidation.ValidationInputDigest(artifactID, contentID, sql.NullString{}, snapshot)
+		compatibility, compatibilityErr := service.loadArtifactCompatibility(ctx, artifactID)
+		var directSafe int
+		directErr := database.SQL.QueryRowContext(ctx, `SELECT direct_launch_safe FROM dos_entries WHERE game_content_revision_id=? AND normalized_path=?`, contentID, selected).Scan(&directSafe)
+		t.Fatalf("DOS launch after runtime upgrade: %v; revision=%s artifact=%s runtime=%s enabled=%d digest=%s expected=%s content=%q diagnostic=%v bios=%s/%s/%v digestErr=%v compatibility=%#v/%v direct=%d/%v", err, revisionID, artifactID, emulatorVersion, artifactEnabled, digest, expectedDigest, logicalName, diagnosticErr, biosStatus, biosCode, biosErr, digestErr, compatibility, compatibilityErr, directSafe, directErr)
+	}
 	configuration, err := service.Config(ctx, direct.LaunchID, direct.Capability)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expectedConfigURL := "/runtime/launches/" + direct.LaunchID + "/dos-config/game.conf"
-	if configuration.DOSEntry != selected || configuration.DefaultCoreOptions["dosbox_pure_conf"] != "outside" ||
-		configuration.ExternalFiles["/game.conf"] != expectedConfigURL {
+	if configuration.EmulatorJSVersion != "4.3.0-pre" || configuration.PlayerAdapterID != "ejs-4.3.0-pre-v1" ||
+		configuration.DOSEntry != selected || configuration.DefaultCoreOptions["dosbox_pure_conf"] != "" ||
+		len(configuration.ExternalFiles) != 0 {
 		t.Fatalf("DOS direct config = %#v", configuration)
-	}
-	generatedConfig, err := service.DOSConfig(ctx, direct.LaunchID, direct.Capability)
-	if err != nil || generatedConfig != dosboxConfig(selected) {
-		t.Fatalf("DOS ephemeral config = %q, error=%v", generatedConfig, err)
 	}
 	var directFormat, directLogicalName, directBlobID string
 	var blobCountAfter int
@@ -938,14 +982,16 @@ blob_id
 FROM launch_content_files
 WHERE launch_session_id=?
 `, direct.LaunchID).Scan(&directFormat, &directLogicalName, &directBlobID); err != nil ||
-		directFormat != "SOURCE_V1" || directLogicalName != "game.zip" {
+		directFormat != "RETROM_DOS_DIRECT_ZIP_V1" || directLogicalName != "game.zip" {
 		t.Fatalf("DOS direct lock = %s/%s/%s, error=%v", directFormat, directLogicalName, directBlobID, err)
 	}
 	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM blobs`).Scan(&blobCountAfter); err != nil ||
 		blobCountAfter != blobCountBefore {
 		t.Fatalf("DOS direct launch materialized blobs = %d -> %d, error=%v", blobCountBefore, blobCountAfter, err)
 	}
-	if _, err := service.ContentBlob(ctx, direct.LaunchID, direct.Capability, directLogicalName); err != nil {
+	locked, err := service.Content(ctx, direct.LaunchID, direct.Capability, directLogicalName)
+	if err != nil || locked.Format != "RETROM_DOS_DIRECT_ZIP_V1" || locked.CoreID != "dosbox_pure" ||
+		locked.DOSEntry == nil || *locked.DOSEntry != selected || locked.Digest == "" {
 		t.Fatalf("DOS direct content: %v", err)
 	}
 	menu, err := service.Create(
@@ -963,9 +1009,6 @@ WHERE launch_session_id=?
 		menuConfig.GameURL[len(menuConfig.GameURL)-len("game.zip"):] != "game.zip" {
 		t.Fatalf("DOS menu config = %#v", menuConfig)
 	}
-	if _, err := service.DOSConfig(ctx, menu.LaunchID, menu.Capability); !errors.Is(err, ErrCredential) {
-		t.Fatalf("DOS menu ephemeral config error = %v", err)
-	}
 	unsafe := "DOOM/SETUP%.BAT"
 	if _, err := service.Create(ctx, CreateRequest{GameID: approved.GameID, DOSEntry: &unsafe, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
 		err,
@@ -979,6 +1022,57 @@ WHERE launch_session_id=?
 		ErrDOSEntryMissing,
 	) {
 		t.Fatalf("missing DOS entry error = %v", err)
+	}
+	var variantID, artifactID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT v.id,r.core_artifact_id
+FROM game_variants v
+JOIN game_variant_revisions r ON r.id=v.current_revision_id
+WHERE v.game_id=?
+`, approved.GameID).Scan(&variantID, &artifactID); err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := database.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	invalidJobID, _, err := service.queueValidationJob(
+		ctx,
+		transaction,
+		variantID,
+		"missing-content-revision",
+		artifactID,
+		sql.NullString{},
+		strings.Repeat("0", 64),
+		strings.Repeat("0", 64),
+	)
+	if err != nil {
+		_ = transaction.Rollback()
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	service.ResumeValidationJob(ctx, invalidJobID)
+	var failedState string
+	var retryable int
+	if err := database.SQL.QueryRowContext(ctx, `SELECT state,error_retryable FROM jobs WHERE id=?`, invalidJobID).
+		Scan(&failedState, &retryable); err != nil || failedState != "FAILED" || retryable != 1 {
+		t.Fatalf("failed validation terminal state = %s/%d, error=%v", failedState, retryable, err)
+	}
+	now := time.Now().UnixMilli()
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE jobs
+SET state='RUNNING',attempt_count=1,finished_at_ms=NULL,error_code=NULL,error_retryable=NULL,
+leased_until_ms=?,updated_at_ms=?
+WHERE id=?
+`, now-1, now, invalidJobID); err != nil {
+		t.Fatal(err)
+	}
+	service.recoverStaleValidationJobs(ctx)
+	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, invalidJobID).
+		Scan(&failedState); err != nil || failedState != "QUEUED" {
+		t.Fatalf("stale validation recovery = %s, error=%v", failedState, err)
 	}
 }
 

@@ -28,13 +28,29 @@ describe("ImportTaskBoard", () => {
     expect(within(card!).getByText("7 异常")).toBeVisible();
     expect(within(card!).getByText("7 个文件未被接受")).toBeVisible();
 
-    await user.click(within(card!).getByRole("button", { name: "处理问题" }));
+    await user.click(within(card!).getByRole("button", { name: "查看 7 个异常" }));
     const detail = screen.getByRole("region", { name: "NES 游戏 阶段详情" });
     expect(within(detail).getByText(/7 个文件未被接受/)).toBeVisible();
     expect(within(detail).getByRole("link", { name: "重新配置并导入" })).toHaveAttribute("href", "/admin/imports/new?fromImportJobId=import-1");
     expect(await within(detail).findByText("fc/8只眼.zip")).toBeVisible();
     expect(within(detail).getByText("归档内容或文件名未通过安全检查")).toBeVisible();
     expect(within(detail).getByText("ARCHIVE_UNSAFE")).toBeVisible();
+  });
+
+  it("keeps rejected-file details available when the same batch also has reviews", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ fileOutcomes: [{ uploadFileId: "bad-1", name: "unexpected.txt", sizeBytes: 42, disposition: "REJECTED", reasonCode: "UNSUPPORTED_CONTENT_FORMAT", resolution: null }] }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    render(<ImportTaskBoard items={[{
+      id: "mixed-import", state: "PARTIAL_FAILURE", platformInstanceName: "MAME 2003 Plus 游戏", metadataProvider: "HASHEOUS",
+      totalItemCount: 1, reviewPendingItemCount: 1, failedItemCount: 0, rejectedFileCount: 5, unresolvedRejectedFileCount: 5,
+      version: 1, createdAtMs: 1, updatedAtMs: 2,
+    }]} />);
+
+    const card = screen.getByRole("heading", { name: /MAME 2003 Plus 游戏/ }).closest("article");
+    expect(within(card!).getByRole("link", { name: "查看待审核" })).toHaveAttribute("href", "/admin/reviews?importJobId=mixed-import");
+    await user.click(within(card!).getByRole("button", { name: "查看 5 个异常" }));
+    expect(await screen.findByText("unexpected.txt")).toBeVisible();
+    expect(screen.getByRole("link", { name: "重新配置并导入" })).toHaveAttribute("href", "/admin/imports/new?fromImportJobId=mixed-import");
   });
 
   it("shows files skipped because an active game already uses the same content", async () => {

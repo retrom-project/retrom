@@ -74,7 +74,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - 字段、状态机、API 和页面细节只在负责该领域的专题维护，总览仅链接和摘要。
 - 所有项目验收流程和通过标准只在 `project-acceptance.md` 维护；专题文档只按 Case ID 回链，不得复制验收清单。
 - `design/retrom-ui-review.fragment.html` 是 UI 源稿；`design/retrom-ui-review.html` 与 PNG 只从该源稿重新导出，禁止只改导出文件造成评审稿漂移。
-- `data/dat/emulatorjs/4.2.3/manifest.json` 与 `SHA256SUMS` 是 EmulatorJS/runtime、Player adapter 描述、真实 DAT 和许可输入的机器事实源；前端 adapter 实现索引固定为 `web/features/player/adapters/registry.json` 并由 `make data-check` 双向核对。runtime、DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
+- `data/dat/emulatorjs/<version>/manifest.json` 与 `SHA256SUMS` 是 EmulatorJS/runtime、Player adapter 描述、可选真实 DAT 和许可输入的机器事实源；当前 `4.2.3` 是基础集合，`4.3.0-pre` 是 DOSBox Pure 部分覆盖。前端 adapter registry 由 `make data-check` 双向核对；runtime、DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
 - `data/example/fixtures.json` 是用户本地核心启动夹具的相对来源/hash 事实源；它不得覆盖依赖 manifest。`results/latest.json` 与 `results/manual-review.json` 只记录既有验证，正式验收必须生成当次证据；ROM、BIOS 与截图只保存在本机。
 - 任何表示时刻的 SQLite 字段必须为 Unix 毫秒 `INTEGER` 并以 `*_at_ms` 命名。
 - 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。

@@ -134,6 +134,18 @@ describe("ReviewActions", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
   });
 
+  it("lets a blocked review explicitly rerun validation after fixing dependencies", async () => {
+    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2 })));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={{ ...review, validation: { ...review.validation!, status: "BLOCKED", current: false, compatibilityCode: "LAUNCH_BIOS_MISSING" } }} />);
+
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "重新运行检查" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/reviews\/item-1$/), expect.objectContaining({ method: "PATCH" })));
+    expect(router.refresh).toHaveBeenCalled();
+  });
+
   it("shows one short-lived notification with the server publish error", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ error: { code: "INVALID_REQUEST", message: "运行检查已经过期" } }, 422)));
     vi.stubGlobal("fetch", fetchMock);

@@ -915,7 +915,8 @@ export interface paths {
         };
         get: operations["getAdminArcadeDATDiff"];
         put?: never;
-        post?: never;
+        /** @description Queue or restart asynchronous materialization of the diff against the currently active DAT. */
+        post: operations["postAdminArcadeDATDiff"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1048,7 +1049,10 @@ export interface paths {
     };
     "/runtime/emulatorjs/{configuredVersion}/{runtimePath}": {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description EmulatorJS cache-buster; ignored for allowlist and file selection. */
+                v?: string;
+            };
             header?: never;
             path: {
                 configuredVersion: components["parameters"]["ConfiguredVersion"];
@@ -1075,24 +1079,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["getRuntimeLaunchConfig"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/runtime/launches/{launchId}/dos-config/game.conf": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getRuntimeDOSConfig"];
         put?: never;
         post?: never;
         delete?: never;
@@ -1664,6 +1650,10 @@ export interface components {
             discarded?: unknown;
             disk?: unknown;
             diskEntryCount?: unknown;
+            diffErrorCode?: unknown;
+            diffJobId?: unknown;
+            diffStatus?: unknown;
+            diffVersion?: unknown;
             dosEntry?: unknown;
             dosEntries?: unknown;
             duplicateGames?: unknown;
@@ -1999,15 +1989,6 @@ export interface components {
             };
             content: {
                 "application/octet-stream": string;
-            };
-        };
-        /** @description Ephemeral DOSBox Pure entry configuration */
-        DOSConfigResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "text/plain": string;
             };
         };
     };
@@ -3254,6 +3235,22 @@ export interface operations {
             200: components["responses"]["JSONResponse"];
         };
     };
+    postAdminArcadeDATDiff: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                datVersionId: components["parameters"]["DATVersionID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: components["responses"]["JSONResponse"];
+        };
+    };
     postAdminArcadeDATActivate: {
         parameters: {
             query?: never;
@@ -3408,7 +3405,10 @@ export interface operations {
     };
     getRuntimeEmulatorJS: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description EmulatorJS cache-buster; ignored for allowlist and file selection. */
+                v?: string;
+            };
             header?: never;
             path: {
                 configuredVersion: components["parameters"]["ConfiguredVersion"];
@@ -3423,7 +3423,10 @@ export interface operations {
     };
     headRuntimeEmulatorJS: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description EmulatorJS cache-buster; ignored for allowlist and file selection. */
+                v?: string;
+            };
             header?: never;
             path: {
                 configuredVersion: components["parameters"]["ConfiguredVersion"];
@@ -3448,20 +3451,6 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["LaunchConfigResponse"];
-        };
-    };
-    getRuntimeDOSConfig: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["DOSConfigResponse"];
         };
     };
     postRuntimeLaunchStart: {

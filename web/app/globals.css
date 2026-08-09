@@ -94,6 +94,7 @@ button, a, input, select, textarea { outline-offset: 3px; }
 .status.info { color: var(--purple-dark); background: var(--purple-soft); }
 .feedback-banner { min-height: 44px; padding: 10px 13px; display: flex; align-items: center; gap: 9px; border: 1px solid; border-radius: 10px; font-size: 13px; font-weight: 650; }
 .feedback-banner i { width: 8px; height: 8px; flex: 0 0 auto; border-radius: 50%; background: currentColor; }
+.feedback-banner-content { min-width: 0; }
 .feedback-banner.good { color: #0b6870; border-color: #9dd4d7; background: #eefafa; }
 .feedback-banner.bad { color: #a63745; border-color: #efb8bf; background: #fff4f5; }
 .feedback-banner.info { color: var(--purple-dark); border-color: #d6cff7; background: #f7f5ff; }

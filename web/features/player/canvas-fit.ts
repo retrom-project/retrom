@@ -24,6 +24,11 @@ export function fitCanvasToViewport(canvas: HTMLCanvasElement, viewportWidth: nu
   canvas.style.setProperty("height", `${size.height}px`, "important");
   canvas.style.setProperty("max-width", "none", "important");
   canvas.style.setProperty("max-height", "none", "important");
+  canvas.style.setProperty("justify-self", "center", "important");
+  canvas.style.setProperty("align-self", "center", "important");
+  canvas.style.setProperty("position", "absolute", "important");
+  canvas.style.setProperty("left", `${(viewportWidth - size.width) / 2}px`, "important");
+  canvas.style.setProperty("top", `${(viewportHeight - size.height) / 2}px`, "important");
   return true;
 }
 

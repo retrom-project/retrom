@@ -305,7 +305,7 @@ retrom backup --output /backup-volume/retrom-20260806
 
 # 恢复目标也必须是绝对且尚不存在；依赖已由部署方预物化，不会联网或覆盖现有数据根
 RETROM_DEPENDENCY_ROOT=/opt/retrom/dependencies \
-RETROM_DEPENDENCY_VERSIONS=4.2.3 \
+RETROM_DEPENDENCY_VERSIONS=4.2.3,4.3.0-pre \
 RETROM_ACTIVE_EMULATORJS_VERSION=4.2.3 \
 retrom restore --input /backup-volume/retrom-20260806 \
   --output-data-dir /srv/retrom-restored
@@ -341,13 +341,20 @@ retrom restore --input /backup-volume/retrom-20260806 \
   "databaseSchemaVersion": 1,
   "databaseSha256": "<64 lowercase hex>",
   "activeEmulatorjsVersion": "4.2.3",
-  "dependencyVersions": ["4.2.3"],
+  "dependencyVersions": ["4.2.3", "4.3.0-pre"],
   "dependencyManifests": [
     {
       "version": "4.2.3",
       "manifestPath": "dependencies/emulatorjs/4.2.3/manifest.json",
       "manifestSha256": "<64 lowercase hex>",
       "sha256sumsPath": "dependencies/emulatorjs/4.2.3/SHA256SUMS",
+      "sha256sumsSha256": "<64 lowercase hex>"
+    },
+    {
+      "version": "4.3.0-pre",
+      "manifestPath": "dependencies/emulatorjs/4.3.0-pre/manifest.json",
+      "manifestSha256": "<64 lowercase hex>",
+      "sha256sumsPath": "dependencies/emulatorjs/4.3.0-pre/SHA256SUMS",
       "sha256sumsSha256": "<64 lowercase hex>"
     }
   ],

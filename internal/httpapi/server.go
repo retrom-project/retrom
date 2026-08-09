@@ -35,6 +35,7 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
+	"retrom/internal/dosbundle"
 	"retrom/internal/firmware"
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
@@ -114,6 +115,7 @@ func New(
 		},
 	)
 	launcher.ResumeQueuedValidationJobs()
+	arcadeDAT.ResumeDiffJobs()
 	return &Server{
 		config:       config,
 		database:     database,
@@ -165,6 +167,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/admin/arcade-dats", server.arcadeDATs)
 	mux.HandleFunc("POST /api/v1/admin/arcade-dats", server.createArcadeDAT)
 	mux.HandleFunc("GET /api/v1/admin/arcade-dats/{datVersionId}/diff", server.arcadeDATDiff)
+	mux.HandleFunc("POST /api/v1/admin/arcade-dats/{datVersionId}/diff", server.createArcadeDATDiff)
 	mux.HandleFunc("POST /api/v1/admin/arcade-dats/{datVersionId}/activate", server.activateArcadeDAT)
 	mux.HandleFunc("POST /api/v1/admin/arcade-dats/{datVersionId}/rollback", server.rollbackArcadeDAT)
 	mux.HandleFunc("DELETE /api/v1/admin/arcade-dats/{datVersionId}", server.deleteArcadeDAT)
@@ -220,7 +223,6 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
 	mux.HandleFunc("HEAD /runtime/emulatorjs/{configuredVersion}/{runtimePath...}", server.runtimeFile)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/config", server.launchConfig)
-	mux.HandleFunc("GET /runtime/launches/{launchId}/dos-config/game.conf", server.launchDOSConfig)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/game/{logicalName}", server.launchGame)
 	mux.HandleFunc("HEAD /runtime/launches/{launchId}/game/{logicalName}", server.launchGame)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/external-files/{logicalName}", server.launchExternalFile)
@@ -285,6 +287,9 @@ func validateQuery(request *http.Request) error {
 	}
 	path := request.URL.Path
 	switch {
+	case (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
+		strings.HasPrefix(path, "/runtime/emulatorjs/"):
+		add("v")
 	case request.Method == http.MethodGet && path == "/api/v1/games":
 		add("q", "platformId", "platformInstanceId", "sort", "cursor", "limit")
 	case request.Method == http.MethodGet && path == "/api/v1/saves":
@@ -593,27 +598,11 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 	writeJSON(writer, http.StatusOK, configuration)
 }
 
-func (server *Server) launchDOSConfig(writer http.ResponseWriter, request *http.Request) {
-	configuration, err := server.launcher.DOSConfig(
-		request.Context(),
-		request.PathValue("launchId"),
-		server.launchCapability(request),
-	)
-	if err != nil {
-		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "DOS 启动配置不可用", map[string]any{})
-		return
-	}
-	writer.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	writer.Header().Set("Cache-Control", "private, no-store")
-	writer.Header().Set("Vary", "Cookie")
-	http.ServeContent(writer, request, "game.conf", time.Unix(0, 0), strings.NewReader(configuration))
-}
-
 func (server *Server) launchGame(writer http.ResponseWriter, request *http.Request) {
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	digest, err := server.launcher.ContentBlob(
+	content, err := server.launcher.Content(
 		request.Context(),
 		request.PathValue("launchId"),
 		server.launchCapability(request),
@@ -623,13 +612,14 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动内容不可用", map[string]any{})
 		return
 	}
-	file, err := server.blobs.OpenDigest(digest)
+	file, err := server.blobs.OpenDigest(content.Digest)
 	if err != nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
 		return
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()
-	if _, err := file.Stat(); err != nil {
+	stat, err := file.Stat()
+	if err != nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
 		return
 	}
@@ -640,9 +630,47 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	writer.Header().Set("Content-Type", mediaType)
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.Header().Set("Vary", "Cookie")
-	writer.Header().Set("ETag", `"sha256-`+digest+`"`)
+	body, etag, err := launchGameBody(file, stat.Size(), content)
+	if err != nil {
+		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
+		return
+	}
+	writer.Header().Set("ETag", `"sha256-`+etag+`"`)
 	writer.Header().Set("Accept-Ranges", "bytes")
-	http.ServeContent(writer, request, request.PathValue("logicalName"), time.Unix(0, 0), file)
+	http.ServeContent(writer, request, request.PathValue("logicalName"), time.Unix(0, 0), body)
+}
+
+func launchGameBody(file io.ReadSeeker, size int64, content launch.ContentView) (io.ReadSeeker, string, error) {
+	if content.Format != "RETROM_DOS_DIRECT_ZIP_V1" {
+		return file, content.Digest, nil
+	}
+	if content.CoreID != "dosbox_pure" {
+		return nil, "", fmt.Errorf("launch game body: %w", dosbundle.ErrInvalid)
+	}
+	var overlay *dosbundle.Overlay
+	var err error
+	readerAt, ok := file.(io.ReaderAt)
+	if !ok {
+		return nil, "", fmt.Errorf("launch game reader: %w", dosbundle.ErrInvalid)
+	}
+	if content.DOSEntry == nil {
+		overlay, err = dosbundle.NewMenu(readerAt, size)
+	} else {
+		overlay, err = dosbundle.New(readerAt, size, *content.DOSEntry)
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("build DOS overlay: %w", err)
+	}
+	digestInput := content.Format + "\x00" + content.Digest + "\x00" + nullableDOSEntry(content.DOSEntry)
+	digest := sha256.Sum256([]byte(digestInput))
+	return overlay, hex.EncodeToString(digest[:]), nil
+}
+
+func nullableDOSEntry(entry *string) string {
+	if entry == nil {
+		return "<menu>"
+	}
+	return *entry
 }
 
 func (server *Server) launchExternalFile(writer http.ResponseWriter, request *http.Request) {
@@ -2513,11 +2541,16 @@ d.version,
 d.updated_at_ms,
 j.id,
 j.state,
-j.version
+j.version,
+s.id,
+s.state,
+s.error_code,
+s.version
 FROM dat_versions d
 JOIN cores c ON c.id=d.core_id
 LEFT JOIN dat_import_jobs dj ON dj.dat_version_id=d.id
 LEFT JOIN jobs j ON j.id=dj.job_id
+LEFT JOIN dat_diff_snapshots s ON s.dat_version_id=d.id
 `,
 		conditions,
 		` ORDER BY c.name,d.created_at_ms DESC,d.id LIMIT 100`,
@@ -2536,6 +2569,8 @@ LEFT JOIN jobs j ON j.id=dj.job_id
 		var version, updatedAtMS int64
 		var jobID, jobState sql.NullString
 		var jobVersion sql.NullInt64
+		var diffJobID, diffState, diffError sql.NullString
+		var diffVersion sql.NullInt64
 		if err := rows.Scan(
 			&id,
 			&coreID,
@@ -2554,9 +2589,22 @@ LEFT JOIN jobs j ON j.id=dj.job_id
 			&jobID,
 			&jobState,
 			&jobVersion,
+			&diffJobID,
+			&diffState,
+			&diffError,
+			&diffVersion,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
+		}
+		projectedDiffState := "NOT_RUN"
+		switch {
+		case active == 1:
+			projectedDiffState = "NOT_APPLICABLE"
+		case status != "READY":
+			projectedDiffState = "NOT_READY"
+		case diffState.Valid:
+			projectedDiffState = diffState.String
 		}
 		items = append(items, map[string]any{
 			"id": id, "coreId": coreID, "coreName": coreName, "coreArtifactId": artifactID, "source": source,
@@ -2565,6 +2613,8 @@ LEFT JOIN jobs j ON j.id=dj.job_id
 			"diskEntryCount": nullableInteger(diskCount), "biosSetCount": nullableInteger(biosCount),
 			"version": version, "updatedAtMs": updatedAtMS, "jobId": nullableString(jobID),
 			"jobState": nullableString(jobState), "jobVersion": nullableInteger(jobVersion),
+			"diffJobId": nullableString(diffJobID), "diffStatus": projectedDiffState,
+			"diffErrorCode": nullableString(diffError), "diffVersion": nullableInteger(diffVersion),
 		})
 	}
 	if err := rows.Err(); err != nil {

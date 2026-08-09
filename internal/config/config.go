@@ -233,21 +233,13 @@ func parseVersions(raw string) ([]string, error) {
 		return nil, fmt.Errorf("%w: RETROM_DEPENDENCY_VERSIONS", errInvalidConfig)
 	}
 	seen := make(map[string]struct{}, len(values))
-	previous := [3]int{-1, -1, -1}
+	var previous parsedSemver
 	for _, value := range values {
-		parts := strings.Split(value, ".")
-		if value == "" || strings.TrimSpace(value) != value || len(parts) != 3 {
+		current, err := parseSemver(value)
+		if err != nil || strings.TrimSpace(value) != value {
 			return nil, fmt.Errorf("%w: RETROM_DEPENDENCY_VERSIONS", errInvalidConfig)
 		}
-		current := [3]int{}
-		for index, part := range parts {
-			number, err := strconv.Atoi(part)
-			if err != nil || number < 0 || (len(part) > 1 && part[0] == '0') {
-				return nil, fmt.Errorf("%w: RETROM_DEPENDENCY_VERSIONS", errInvalidConfig)
-			}
-			current[index] = number
-		}
-		if _, ok := seen[value]; ok || compareSemver(current, previous) <= 0 {
+		if _, ok := seen[value]; ok || len(seen) > 0 && compareSemver(current, previous) <= 0 {
 			return nil, fmt.Errorf("%w: RETROM_DEPENDENCY_VERSIONS", errInvalidConfig)
 		}
 		seen[value] = struct{}{}
@@ -256,16 +248,105 @@ func parseVersions(raw string) ([]string, error) {
 	return values, nil
 }
 
-func compareSemver(left, right [3]int) int {
-	for index := range left {
-		if left[index] < right[index] {
+type parsedSemver struct {
+	numbers    [3]int
+	prerelease string
+}
+
+func parseSemver(value string) (parsedSemver, error) {
+	version, prerelease, hasPrerelease := strings.Cut(value, "-")
+	parts := strings.Split(version, ".")
+	if value == "" || len(parts) != 3 || strings.Contains(prerelease, "+") ||
+		hasPrerelease && !validPrerelease(prerelease) {
+		return parsedSemver{}, errInvalidConfig
+	}
+	result := parsedSemver{prerelease: prerelease}
+	for index, part := range parts {
+		number, err := strconv.Atoi(part)
+		if err != nil || number < 0 || len(part) > 1 && part[0] == '0' {
+			return parsedSemver{}, errInvalidConfig
+		}
+		result.numbers[index] = number
+	}
+	return result, nil
+}
+
+func validPrerelease(value string) bool {
+	if value == "" {
+		return false
+	}
+	for _, identifier := range strings.Split(value, ".") {
+		if !validPrereleaseIdentifier(identifier) {
+			return false
+		}
+	}
+	return true
+}
+
+func validPrereleaseIdentifier(identifier string) bool {
+	if identifier == "" {
+		return false
+	}
+	numeric := true
+	for _, character := range identifier {
+		if character < '0' || character > '9' {
+			numeric = false
+		}
+		if character != '-' && (character < '0' || character > '9') &&
+			(character < 'A' || character > 'Z') && (character < 'a' || character > 'z') {
+			return false
+		}
+	}
+	return !numeric || len(identifier) == 1 || identifier[0] != '0'
+}
+
+func compareSemver(left, right parsedSemver) int {
+	for index := range left.numbers {
+		if left.numbers[index] < right.numbers[index] {
 			return -1
 		}
-		if left[index] > right[index] {
+		if left.numbers[index] > right.numbers[index] {
 			return 1
 		}
 	}
-	return 0
+	if left.prerelease == right.prerelease {
+		return 0
+	}
+	if left.prerelease == "" {
+		return 1
+	}
+	if right.prerelease == "" {
+		return -1
+	}
+	return comparePrerelease(left.prerelease, right.prerelease)
+}
+
+func comparePrerelease(left, right string) int {
+	leftParts, rightParts := strings.Split(left, "."), strings.Split(right, ".")
+	for index := 0; index < min(len(leftParts), len(rightParts)); index++ {
+		leftNumber, leftErr := strconv.Atoi(leftParts[index])
+		rightNumber, rightErr := strconv.Atoi(rightParts[index])
+		switch {
+		case leftErr == nil && rightErr == nil && leftNumber != rightNumber:
+			if leftNumber < rightNumber {
+				return -1
+			}
+			return 1
+		case leftErr == nil && rightErr != nil:
+			return -1
+		case leftErr != nil && rightErr == nil:
+			return 1
+		case leftParts[index] != rightParts[index]:
+			if leftParts[index] < rightParts[index] {
+				return -1
+			}
+			return 1
+		}
+	}
+	if len(leftParts) < len(rightParts) {
+		return -1
+	}
+	return 1
 }
 
 func parsePublicOrigin(raw string, allowInsecure bool) (*url.URL, error) {

@@ -5,6 +5,11 @@
       "id": "ejs-4.2.3-v1",
       "version": "4.2.3",
       "module": "ejs-4.2.3-v1.ts"
+    },
+    {
+      "id": "ejs-4.3.0-pre-v1",
+      "version": "4.3.0-pre",
+      "module": "ejs-4.3.0-pre-v1.ts"
     }
   ]
 }

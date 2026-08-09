@@ -64,6 +64,7 @@ sequenceDiagram
 - URL 只含非秘密 UUIDv7 `launchId`。32-byte capability 只在路径限定的 HttpOnly cookie 中，数据库只保存其 SHA-256；不把 token 放入 URL、JSON、日志、Referer 或诊断。
 - 已 READY 的预检成功返回 `201`；需新验证时返回 `202 VALIDATION_PENDING` 且不签发 credential，Player 在同一加载 overlay 等待 Worker，成功后以新幂等键自动重调。Blocker 返回 `422 LAUNCH_BLOCKED`。整个过程没有第二个 Start/确认页；Warning 不增加确认步骤。
 - `VARIANT_REVALIDATE` 按 gameVariant/input digest 跨请求去重且不可由单个 Player 取消；退出加载壳只终止本页订阅并退出全屏，后台任务继续，避免一个朋友中断另一个朋友正在等待的同一验证。
+- DOS 只有 `DOS_SOURCE`、没有主机平台的 `CONTENT` 行；重校验必须以 ContentRevision 本身作为内容输入，并在内容 revision 未变化时把既有 `DOS_LAUNCH_BUNDLE` 与审核默认入口复制到新 VariantRevision。Worker 任一步骤失败都必须把 Job 收口为可重试 FAILED，进程重启时重新领取 lease 已过期且尚有 attempt 的 RUNNING Job，不能让 Player 永久等待在 `VALIDATION_PENDING`。
 - 默认核心不可运行时不静默尝试其他核心。
 
 ## 4. 启动预检
@@ -121,17 +122,17 @@ if (config.stateUrl !== null) window.EJS_loadStateURL = config.stateUrl;
 
 `runtimeBaseUrl` 与 `loaderUrl` 必须锁定 Launch 所选 CoreArtifact 的精确 `emulatorjs_version`，不能固定取当前 active 版本。对基线 v4.2.3，它们分别是 `/runtime/emulatorjs/4.2.3/data/` 与 `/runtime/emulatorjs/4.2.3/data/loader.js`；通用派生规则是给该版本 manifest 的 `emulatorjs.player_adapter.runtime_base_path_in_release/loader_path_in_release` 加 `/runtime/emulatorjs/<exact-version>/` 前缀，并要求 loader 属于 runtime base 且两者都命中 allowlist。它们只由 config 返回，前端不得拼版本、猜目录或回退 active 版本。`gameName` 固定为 `retrom-<emulatorGameId>`，只使用 ASCII 字母、数字与连字符，使 EJS 的 save key 在元信息重命名后仍稳定。
 
-`runtimePathOverrides` 对每个已接受版本精确包含一个键：该版本 loader 对所选 artifact 实际请求的 basename；值是该 CoreArtifact 的固定同源 URL。这两个值只由 CoreArtifact 的已校验 `compatibility_config_json.requestedArtifactBasename`、`emulatorjs_version` 和 `relative_path` 派生。v4.2.3 的普通 artifact 例如 `{"mgba-wasm.data":"/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data"}`；`mame2003` 必须是 `{"mame2003-wasm.data":"/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"}`。key 不是 CoreArtifact ID，也不是 override 文件自身 basename。v4.2.3 的 `emulator.min.js` 会以 `requestedPath.split("/").pop()` 查 `EJS_paths`；这一映射是选择 4.2.1 override 而不误取 4.2.3 文件的必要条件。其余 loader、CSS、语言、archive helper 和 core report 都从本次 config 的 runtime base 读取，不增加浮动 URL。`defaultCoreOptions` 先放固定 `webgl2Enabled: "enabled"`，再按 Requirement ID 合并本次 VariantRevision 依赖快照中适用、已装入 BIOS bundle 的 `activation_options_json`；DOS 直接启动最后加入 `dosbox_pure_conf: "outside"`，并仅为该 Launch 返回 `externalFiles={"/game.conf":"/runtime/launches/<launchId>/dos-config/game.conf"}`。任何重复 key 异值在验证阶段失败，不能靠合并顺序覆盖。这样 Gambatte/mGBA 上传的启动 BIOS 会实际启用，而缺失可选 BIOS 不会被误升为 Blocker。这些 key/value 必须来自对应版本 loader、静态 BIOS catalog和锁定 artifact 的集成测试，不能由前端按显示名称猜测。`canvasResizePolicy` 也只从该配置读取；`ON_GAME_START_TO_CSS_PIXELS` 在 game-start callback 把 canvas backing `width/height` 设为正整数 `clientWidth/clientHeight`，v4.2.3 仅锁定的 `mame2003` override 使用。
+`runtimePathOverrides` 对每个已接受版本精确包含一个键：该版本 loader 对所选 artifact 实际请求的 basename；值是该 CoreArtifact 的固定同源 URL。这两个值只由 CoreArtifact 的已校验 `compatibility_config_json.requestedArtifactBasename`、`emulatorjs_version` 和 `relative_path` 派生。v4.2.3 的普通 artifact 例如 `{"mgba-wasm.data":"/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data"}`；`mame2003` 必须是 `{"mame2003-wasm.data":"/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"}`；DOSBox Pure 使用 `4.3.0-pre` 的 `dosbox_pure-thread-wasm.data`。其余 loader、CSS、语言、archive helper 和 core report 都从本次 config 的 runtime base 读取，不增加浮动 URL。`defaultCoreOptions` 先放固定 `webgl2Enabled: "enabled"`，再合并适用 BIOS Requirement；DOS 不再依赖旁置 config 或 core option。任何重复 key 异值在验证阶段失败，不能靠合并顺序覆盖。
 
-Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 registry，不允许默认分支把未知 ID/版本当成 v4.2.3。机器可读 registry 固定为 `web/features/player/adapters/registry.json`，当前只登记 `ejs-4.2.3-v1 → 4.2.3`；同目录 TypeScript 实现必须与 JSON 双向一一对应，`make data-check` 校验每份依赖 manifest 的 ID/版本均命中它。v4.2.3 adapter 的 globals、event 顺序、IDBFS 规则和 callback 以本文为准。未来版本若行为完全兼容也必须新增精确 ID 并跑版本升级门禁；若行为变化则新增独立 adapter。浏览器收到未知或版本不匹配的 ID 时必须在加载 loader 前终止为 `PLAYER_ADAPTER_UNSUPPORTED`，不得回退 active 版本或任意旧 adapter。后端和前端镜像必须来自通过同一次 `data-check` 的同一版本化项目发布；一期不声称两个独立进程能在启动时互相检查镜像内容。
+Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 registry，不允许默认分支把未知 ID/版本当成 v4.2.3。机器可读 registry 固定为 `web/features/player/adapters/registry.json`，当前登记 `ejs-4.2.3-v1 → 4.2.3` 与 DOS 专用 `ejs-4.3.0-pre-v1 → 4.3.0-pre`；同目录 TypeScript 实现必须与 JSON 双向一一对应。浏览器收到未知或版本不匹配的 ID 时必须在加载 loader 前终止，不得回退 active 版本或任意旧 adapter。
 
 Player Shell 创建同源 `about:blank` iframe，由父页面在 iframe document 中建立唯一 `#game` 容器、设置上述 globals、注册 callback，最后追加 `src=config.loaderUrl` 的 script；不使用 `srcdoc` inline script、跨源 frame 或 `document.write`。iframe 继承父页面 origin/CSP，所有内容请求会按 `/runtime/launches/<launchId>/` 路径自动携带 capability cookie。只有 config 校验与可选 PersistentSave 预读完成后才加载 loader。
 
-Player canvas contain 必须优先使用锁定运行时 `gameManager.getVideoDimensions("aspect")` 的正数结果，只有 game-start 前尚不可用时才回退 drawing-buffer `canvas.width/canvas.height`。这能处理 drawing buffer 仍为横向但核心实际输出为 3:4 等竖屏画面的情况：竖屏画面 CSS 高度贴满 `100dvh`，左右保留必要黑边，不能误在上下留下黑边。viewport、canvas 属性或核心比例变化时必须重新计算，不能拉伸或裁切。
+Player canvas contain 必须优先使用锁定运行时 `gameManager.getVideoDimensions("aspect")` 的正数结果，只有 game-start 前尚不可用时才回退 drawing-buffer `canvas.width/canvas.height`。这能处理 drawing buffer 仍为横向但核心实际输出为 3:4 等竖屏画面的情况：竖屏画面 CSS 高度贴满 `100dvh`，左右保留必要黑边，不能误在上下留下黑边。viewport、canvas 属性或核心比例变化时必须重新计算；canvas 在父 grid 的水平和垂直方向都显式居中，不能把 contain 后的余量全部留在右侧或底部，也不能拉伸或裁切。
 
 Player config 额外提供人类可读的 `gameTitle/coreName/platformName`，只用于 58px 顶部工具栏显示本次游戏、运行核心和基础平台；EJS 的稳定保存键仍只使用 `gameName=retrom-<emulatorGameId>`，前端不得把展示名称用于选择 artifact、URL 或 option。
 
-Retrom 顶部工具栏是运行中的暂停边界：点击工具栏任意区域或其中任一操作，都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，只有随后点击实际游戏画面才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近底边和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。
+Retrom 顶部工具栏是运行中的暂停边界：点击工具栏任意区域或其中任一操作，都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，只有随后点击实际游戏画面才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。运行后工具栏自动隐藏；只有指针进入 viewport 顶部 32 CSS px、键盘操作或焦点进入工具栏才重新显示，普通画面区域的 pointermove 不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近底边和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。
 
 映射：
 
@@ -145,7 +146,7 @@ Retrom 顶部工具栏是运行中的暂停边界：点击工具栏任意区域�
 | 自动开始 | `EJS_startOnLoaded = true` |
 | Host 管理全屏 | `EJS_fullscreenOnLoaded = false` |
 
-线程核心的 override key 必须使用 loader 实测 basename：`dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`。MelonDS 的 `externalFiles` 精确包含 `/retroarch/userdata/system/bios7.bin`、`bios9.bin`、`firmware.bin` 三个虚拟路径，URL 只能指向本 Launch 的 `/external-files/<logicalName>`；这些 Blob 在创建 Launch 时锁定，不能在 config GET 时重新选择 active BIOS。DOS `/game.conf` 与 BIOS external mapping 合并时，虚拟路径或 logical name 冲突必须阻断。
+线程核心的 override key 必须使用 loader 实测 basename：`dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`。MelonDS 的 `externalFiles` 精确包含 `/retroarch/userdata/system/bios7.bin`、`bios9.bin`、`firmware.bin` 三个虚拟路径，URL 只能指向本 Launch 的 `/external-files/<logicalName>`；这些 Blob 在创建 Launch 时锁定，不能在 config GET 时重新选择 active BIOS。DOS 的 `externalFiles` 为空。
 
 NDS 三核心的 `inputMode=POINTER`：Player 不向 iframe 合成额外的 `pointerdown/click`，真实浏览器事件直接到 EmulatorJS canvas。其他核心为 STANDARD。PPSSPP 的两条 `startupActions` 只在一次 `onGameStart` 后分别延迟 2,000/5,000ms 调用 `simulateInput(0,0,1)`，120ms 后释放；Strict Mode 重入不得重复调度，unmount/失败/退出必须取消 timer 并释放已按下控制，最后一次释放后不再自动输入。这是版本绑定的有限启动动作，不是通用宏功能。
 
@@ -177,29 +178,18 @@ v4.2.3 的实际 loader 对 Arcade `EJS_gameUrl` 保留整个 ROMset ZIP，并�
 
 ## 8. DOS 程序选择
 
-导入扫描 `.exe`、`.com`、`.bat`，排除控制字符/路径逃逸，对 setup/install/uninstall/配置工具降权，但不凭文件名删除候选。详情下拉默认选择审核确认的 `default_dos_entry`；用户可选择另一个 entry，或显式选择“显示 DOSBox Pure 程序菜单”。存档记录当次选择。
+导入扫描全部 `.exe`、`.com`、`.bat`，不按数量截断，也不凭文件名删除候选。排序固定为：`game/go/launch/play/run/start` 等明确入口优先，普通程序居中，setup/install/uninstall/config/readme、驱动和解包辅助程序降权；同层再按 EXE/COM/BAT、目录深度和规范路径排序。规则只影响推荐默认值，审核页仍展示全部候选。DOS ZIP 内的嵌套 archive 只作为不透明游戏数据保留、不递归展开；小于等于 16 MiB 的高压缩比空白存档允许通过，较大成员仍受压缩比、单成员、总展开量和成员数上限保护。
 
-DOSBox Pure 没有 EmulatorJS 的“启动某个可执行文件”参数，但支持读取与内容同 basename、位于内容旁的 `.conf`。正常直接启动使用 EmulatorJS 的虚拟文件注入与该 core 能力：
+详情下拉默认选择审核确认的 `default_dos_entry`。一次普通启动成功签发 Launch 后，浏览器才按 Game 记住这次入口或显式“程序菜单”选择；失败启动不覆盖偏好，候选失效时回退审核默认。存档恢复始终采用存档锁定入口且不改写该偏好。
 
-1. LaunchContent 始终锁定 VariantRevision 已有的规范 `DOS_LAUNCH_BUNDLE`，以原 `game.zip` 作为 `EJS_gameUrl`；选择多少个入口都不得复制 ROM bundle 或创建 Blob；
-2. LaunchSession 只保存审核过的 `dos_entry_path`；`GET /runtime/launches/{launchId}/dos-config/game.conf` 在通过该 Launch 的 HttpOnly cookie、状态与 hard expiry 校验后，按请求即时返回极小的确定性配置，不落 CAS/数据库/临时文件；
-3. config 设置 `EJS_externalFiles={"/game.conf":"/runtime/launches/<launchId>/dos-config/game.conf"}`，由 v4.2.3 loader 在下载 ROM 前写入同一虚拟文件系统；
-4. 通过 `EJS_defaultOptions` 设置 `dosbox_pure_conf: "outside"`，使 core 把 `game.conf` 作为 `game.zip` 的同名旁置配置读取；
-5. 配置中的 `[autoexec]` 只执行规范化后的所选相对程序，不生成 `DOSBOX.BAT`，也不改变原 ZIP。
+EmulatorJS 4.2.3 会先展开 ZIP，再把归档中的第一个普通成员误交给 DOSBox Pure；旁置 `.conf` 又在 core 初次启动之后才生效。因此 DOSBox Pure 的新启动固定使用已校验的 `4.3.0-pre` artifact，并采用下列通用装配：
 
-autoexec 不接受用户参数。直接启动只允许 `dos_entries` 中每个路径段为 1–255 个 ASCII byte、匹配 `^[A-Za-z0-9][A-Za-z0-9 ._-]{0,254}$`、末 byte 另须匹配 `[A-Za-z0-9_-]`、不为 `.`/`..`，且最后一段后缀为 `.EXE/.COM/.BAT`（ASCII case-insensitive）的精确成员；这会排除尾随空格/点及所有 shell 元字符。其他合法 DOS entry 仍可在 core 程序菜单中启动，但详情页把直接启动选项标为不可用。把路径分隔符 `/` 替换为单个 `0x5C` 反斜杠后，`dosbox.conf` 必须是 UTF-8 无 BOM、使用 CRLF。例如选中成员 `GAMES/DOOM2.EXE` 时，唯一模板实例为：
+1. LaunchContent 锁定 VariantRevision 的既有 `DOS_LAUNCH_BUNDLE` Blob，`format_version=RETROM_DOS_DIRECT_ZIP_V1`；选择多少入口都不复制游戏内容、不创建派生 Blob；
+2. `GET .../game/game.zip` 以 seekable 虚拟视图流式返回合法 ZIP：直接启动在原 local records 之前增加 DOSBox Pure 原生的根级 Store `AUTOBOOT.DBP`，程序菜单增加根级 Store `DOSBOX.BAT` 并运行 `Z:\PUREMENU`；两种视图都修正 central-directory offset/entry count，并保留其他成员压缩 bytes、顺序、名称和 archive comment；原包已有大小写任意的两个保留名时，其 central record 都被移除，不能覆盖受控引导或令显式菜单被自动启动劫持；
+3. 端点按 ZIP central-directory 顺序复现 DOSBox Pure 的 8.3 名称缩短和同目录冲突递增规则；`AUTOBOOT.DBP` 只含经校验 entry 映射后的 `C:\...` DOS 路径，由 core 自身切换目录并执行 EXE/COM/BAT。这样长文件名、空格和碰撞不依赖 DOS shell 对引号或 BAT `CALL` 的不一致支持；HEAD、完整 GET 和单 Range 使用同一强 ETag；
+4. Player adapter 设置 `EJS_startOnLoaded=false`、`EJS_disableBatchBootup=true`，在 `EJS_ready` 时把 `dosbox_pure` 加入该运行时实例的 `downloadType.rom.dontExtractIfCore`，等待 start button 实际创建后自动点击。这样 core 收到完整 ZIP 而非第一个 entry；未知运行时结构必须阻断，不能退回“猜第一个文件”。
 
-```ini
-[autoexec]
-@ECHO OFF
-C:
-CD "\GAMES"
-"DOOM2.EXE"
-```
-
-根目录程序的 `CD` 行固定为一个 `C`、`D`、空格和单个反斜杠（hex `43 44 20 5c`，即 `CD \`）；非根目录则取选中成员最后一段之前的目录段，用反斜杠连接并在引号内以单个反斜杠开头；程序行只写成员的最后一段。双引号内不会出现引号、百分号、shell 分隔符或转义字符，因为上述 allowlist 已拒绝它们；文件名保留 archive 中的原始大小写，不能添加参数。若选择“程序菜单”，使用原始/规范 bundle 且不注入 conf；这是用户主动选择的 core UI，不是 Retrom 的等待页。程序消失返回 `LAUNCH_DOS_ENTRY_MISSING`，路径不满足直接启动规则返回 `LAUNCH_DOS_ENTRY_UNSAFE`，均不猜替代项。
-
-依据：[DOSBox Pure 官方 README](https://github.com/schellingb/dosbox-pure#loading-a-dosboxconf-file)说明同名旁置 `.conf`；[EmulatorJS options](https://emulatorjs.org/docs/options/)说明 `EJS_externalFiles` 的虚拟路径到 URL 映射；`dosbox_pure_conf=outside` 同时由固定 core artifact 内的 option strings 与 smoke 锁定。
+直接启动只允许 `dos_entries` 中每个路径段为 1–255 个 ASCII byte、匹配 `^[A-Za-z0-9][A-Za-z0-9 ._-]{0,254}$`、末 byte 另须匹配 `[A-Za-z0-9_-]`、不为 `.`/`..`，且最后一段后缀为 `.EXE/.COM/.BAT`（ASCII case-insensitive）的精确成员；这会排除尾随空格/点及 shell 元字符。其他合法候选仍显示，但只能进入 core 程序菜单。程序消失返回 `LAUNCH_DOS_ENTRY_MISSING`，路径不满足直接启动规则返回 `LAUNCH_DOS_ENTRY_UNSAFE`，均不猜替代项。
 
 ## 9. 状态存档与持久存档
 

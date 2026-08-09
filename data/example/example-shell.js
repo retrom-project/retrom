@@ -23,9 +23,10 @@
     errors: []
   };
   window.__RETROM_SMOKE__ = smoke;
+  const runtimeVersion = config.runtimeVersion || "4.2.3";
 
   const statusText = {
-    configuring: "配置 EmulatorJS 4.2.3",
+    configuring: `配置 EmulatorJS ${runtimeVersion}`,
     ready: "运行时已就绪",
     started: "核心已启动，等待游戏帧",
     "frames-advancing": "游戏帧持续输出",
@@ -37,7 +38,7 @@
     const meta = document.getElementById("example-meta");
     const status = document.getElementById("example-status");
     if (title) title.textContent = config.title;
-    if (meta) meta.textContent = `${config.core} · EmulatorJS 4.2.3 · ${config.gameUrl.split("/").pop()}`;
+    if (meta) meta.textContent = `${config.core} · EmulatorJS ${runtimeVersion} · ${config.gameUrl.split("/").pop()}`;
     if (status) {
       status.dataset.phase = smoke.phase;
       status.textContent = statusText[smoke.phase] || smoke.phase;
@@ -80,8 +81,10 @@
   window.EJS_gameUrl = config.gameUrl;
   window.EJS_gameName = `retrom-smoke-${config.core}`;
   window.EJS_gameID = config.gameId;
-  window.EJS_pathtodata = "../../runtime/emulatorjs/4.2.3/data/";
-  window.EJS_startOnLoaded = true;
+  window.EJS_pathtodata = `/data/runtime/emulatorjs/${runtimeVersion}/data/`;
+  window.EJS_startOnLoaded = config.dosArchiveMode !== true;
+  window.EJS_dontExtractRom = config.dosArchiveMode === true;
+  window.EJS_disableBatchBootup = config.dosArchiveMode === true;
   window.EJS_fullscreenOnLoaded = false;
   window.EJS_threads = config.threads === true;
   window.EJS_volume = 0;
@@ -107,10 +110,29 @@
   if (config.parentUrl) window.EJS_gameParentUrl = config.parentUrl;
 
   window.EJS_ready = () => {
+    if (config.dosArchiveMode === true) {
+      const dontExtractIfCore = window.EJS_emulator?.downloadType?.rom?.dontExtractIfCore;
+      if (!Array.isArray(dontExtractIfCore)) throw new Error("DOS archive mode is unavailable");
+      if (!dontExtractIfCore.includes(config.core)) dontExtractIfCore.push(config.core);
+    }
     smoke.phase = "ready";
     smoke.readyAtMs = Date.now();
     if (config.workarounds?.resizeCanvasToCss) resizeCanvasToCss();
     renderStatus();
+    if (config.dosArchiveMode === true) {
+      const clickStart = () => {
+        const startButton = document.querySelector(".ejs_start_button");
+        if (!startButton) return false;
+        startButton.click();
+        return true;
+      };
+      if (!clickStart()) {
+        const observer = new MutationObserver(() => {
+          if (clickStart()) observer.disconnect();
+        });
+        observer.observe(document.documentElement, { childList: true, subtree: true });
+      }
+    }
   };
 
   window.EJS_onGameStart = () => {

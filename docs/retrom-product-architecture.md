@@ -6,7 +6,7 @@
 | 版本 | 1.0 |
 | 日期 | 2026-08-06 |
 | 适用范围 | Retrom 一期 |
-| 技术栈 | Go、Next.js、React、Tailwind CSS、SQLite、本地文件存储、EmulatorJS 4.2.3、OCI/Docker 镜像 |
+| 技术栈 | Go、Next.js、React、Tailwind CSS、SQLite、本地文件存储、版本锁定 EmulatorJS（4.2.3 + DOS 4.3.0-pre）、OCI/Docker 镜像 |
 
 ## 1. 文档职责
 
@@ -285,13 +285,13 @@ flowchart LR
 
 ### 8.3 直接启动与存档
 
-所有入口共用启动编排器。正常点击后立即进入全屏 Player Shell、显示加载状态并自动运行；详情页显式选择的核心由当前浏览器按游戏保留，并在后续普通启动中继续显式提交，不反向修改平台目录默认核心。DOS 详情多一个启动程序选择框。存档入口不重新询问核心或程序，也不采用该浏览器偏好，而是恢复存档绑定的运行环境。
+所有入口共用启动编排器。正常点击后立即进入全屏 Player Shell、显示加载状态并自动运行；详情页显式选择的核心由当前浏览器按游戏保留。DOS 详情多一个启动程序选择框，入口或程序菜单只在 Launch 成功签发后记住，失败不写；存档入口不重新询问、不采用或改写这些偏好，而是恢复存档绑定的运行环境。
 
 手动状态存档必须包含截图。有效游玩时长通过 PlaySession 心跳累计；页面后台、模拟器暂停和长时间失联不计入有效时长。
 
 ## 9. 数据与版本基线
 
-- EmulatorJS 一期前端运行时锁定 `4.2.3`；core 和 DAT 必须记录实际 artifact 标识与 SHA-256。`mame2003` 暂用已验证的官方 4.2.1 core bundle 覆盖，精确边界见[核心运行时验证基线](./core-runtime-validation.md)，不得概括成“所有 core 都来自 4.2.3”。
+- EmulatorJS 基础运行时锁定 `4.2.3`，DOSBox Pure 定向使用 `4.3.0-pre`；core 和 DAT 必须记录实际 artifact 标识与 SHA-256。`mame2003` 暂用已验证的官方 4.2.1 core bundle覆盖，精确边界见[核心运行时验证基线](./core-runtime-validation.md)，不得概括成“所有 core 都来自同一版本”。
 - 真实 Arcade DAT 在开发、验收和镜像构建前物化到 `data/dat/emulatorjs/4.2.3/`；Git 只保存机器可读 manifest、`SHA256SUMS` 与物化脚本，不提交 50+ MiB payload。同步启动阶段只校验本地依赖并登记解析任务，Worker 可建立数据库索引，但任何启动阶段都不联网下载。
 - SQLite schema 中业务时刻全部为 Unix 毫秒 `INTEGER`；禁止后续 migration 引入 TEXT 时刻字段。
 - 用户上传内容、下载媒体、存档和截图进入运行时 CAS，不提交到代码仓库。
@@ -304,11 +304,11 @@ flowchart LR
 
 ### Phase 0：兼容性闸门
 
-- 锁定 EmulatorJS 4.2.3 前端运行时与二十八个实际 core artifact（包括版本化覆盖），每个核心启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
+- 锁定基础 EmulatorJS 4.2.3、DOS 定向 4.3.0-pre 与二十八个实际 core artifact（包括版本化覆盖），每个核心启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
 - 验证直接启动、默认全屏、状态存档/截图、持久存档、有效时长心跳。
 - 验证 FBNeo/MAME Split 与 Full Non-Merged 的 parent/BIOS 加载，及三个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
-- 已有二十八核历史 smoke 确认固定运行时在 Chrome 中 `crossOriginIsolated`、核心帧推进并进入可辨识画面；它不是产品启动编排的替代。DOSBox Pure 的同名旁置 `.conf [autoexec]`、`dosbox_pure_conf=outside` 与 EmulatorJS `EJS_externalFiles` 能力来自官方契约，产品生成的精确模板、直接进入所选程序、原 bundle 不复制及不安全路径阻断仍必须执行 `ACC-RUN-005`。
+- 已有二十八核历史 smoke 确认固定运行时在 Chrome 中 `crossOriginIsolated`、核心帧推进并进入可辨识画面；它不是产品启动编排的替代。DOSBox Pure 另验证 4.3 whole-archive 启动、虚拟 ZIP 引导、程序菜单、原 bundle 不复制及不安全路径阻断，必须执行 `ACC-RUN-005`。
 
 Phase 0 未通过时，不进入大规模业务实现。
 

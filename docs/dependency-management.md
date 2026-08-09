@@ -15,7 +15,7 @@ Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256
 
 ## 2. 唯一事实源与目录
 
-一期机器事实源是 [`data/dat/emulatorjs/4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json)，`SHA256SUMS` 是最终 DAT payload 的简化校验表。`data/example/fixtures.json` 只描述本地兼容夹具，不得反向覆盖依赖版本。manifest 同时锁定：
+机器事实源由按 SemVer 升序配置的 manifest 集合组成：[`4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json) 提供基础 28 核/DAT，[`4.3.0-pre/manifest.json`](../data/dat/emulatorjs/4.3.0-pre/manifest.json) 只覆盖 DOSBox Pure。后出现的 manifest 只替换它明确列出的 core；不能要求部分覆盖重复全部核心/DAT。`data/example/fixtures.json` 只描述本地兼容夹具，不得反向覆盖依赖版本。manifest 同时锁定：
 
 - EmulatorJS release、tag、发布资产 URL/size/SHA-256；
 - 允许进入镜像/由 Go 静态服务的 EmulatorJS 文件 allowlist、28 个选定 core artifact 以及 PPSSPP auxiliary asset 的路径、size/SHA-256；
@@ -44,7 +44,7 @@ data/runtime/emulatorjs/4.2.3/  # prepare-deps 解包，Git 忽略
   THIRD_PARTY_NOTICES            # 从上列文件确定性生成
 ```
 
-不得在 Markdown、shell 默认值或 Dockerfile 中复制另一套 digest。脚本必须读取 manifest；升级时新增版本目录，不覆盖旧 manifest。`4.2.3` 是一期唯一默认版本，但路径和配置从第一天就按多版本寻址，避免后续升级时让锁定旧 CoreArtifact 的存档失效。
+不得在 Markdown、shell 默认值或 Dockerfile 中复制另一套 digest。脚本必须读取 manifest；升级时新增版本目录，不覆盖旧 manifest。默认配置为 `4.2.3,4.3.0-pre`，其中 `RETROM_ACTIVE_EMULATORJS_VERSION=4.2.3` 仍是基础/备份契约值；新验证对每个 core 选择配置顺序中最后一个声明它的 manifest，因此 DOS 使用 4.3.0-pre，其余核心使用 4.2.3。
 
 ## 3. 命令契约
 
@@ -53,8 +53,8 @@ data/runtime/emulatorjs/4.2.3/  # prepare-deps 解包，Git 忽略
 | 命令 | 确切行为 |
 | --- | --- |
 | `make data-check` | 只校验已提交的小文件：manifest schema V4、artifact compatibility V2、Player adapter ID/版本/路径与 `web/features/player/adapters/registry.json` 双向一致、JSON Pointer、固定 commit URL、size/SHA 格式、auxiliary/配方/许可字段、notice 顺序、`SHA256SUMS` 与 DAT entries 的一致性；adapter registry 不允许无实现登记项。无 payload、无网络时也必须通过。 |
-| `make prepare-deps` | 对 `RETROM_DEPENDENCY_VERSIONS` 中缺失/错误的 runtime、core、DAT 和许可 payload 执行固定来源下载、确定性转换、解包与原子发布，生成 notice；未设置时一期默认仅 `4.2.3`，最后隐式执行 `deps-check`。已有正确缓存时不访问网络。 |
-| `make deps-check` | 不联网，逐个校验 `RETROM_DEPENDENCY_VERSIONS` 的 manifest allowlist、选定 core、DAT、override、许可输入和确定性 notice，并重新计算 DAT parse stats；未设置时一期默认仅 `4.2.3`。缺少、额外发布或不匹配均失败。 |
+| `make prepare-deps` | 对 `RETROM_DEPENDENCY_VERSIONS` 中缺失/错误的 runtime、core、DAT 和许可 payload 执行固定来源下载、确定性转换、解包与原子发布，生成 notice；默认 `4.2.3,4.3.0-pre`，最后隐式执行 `deps-check`。已有正确缓存时不访问网络。 |
+| `make deps-check` | 不联网，逐个校验 manifest allowlist、选定 core、可选 DAT 集、override、许可输入和确定性 notice，并重新计算存在的 DAT parse stats；默认 `4.2.3,4.3.0-pre`。缺少、额外发布或不匹配均失败。 |
 | `make release-input-digest` | 不联网、不写工作树，按本节算法校验并只向 stdout 输出 64 位小写 `releaseInputDigest`；镜像 target 调用同一 helper，不复制 shell 算法。 |
 | `make dev` | 先依赖 `prepare-deps`，然后只启动宿主机 Go/Next.js 进程；依赖准备不改变“非 Docker”契约。 |
 
@@ -77,6 +77,11 @@ FBNeo 的快速物化配方不是 mock：它下载固定 commit 的公开上游 
       "version": "4.2.3",
       "manifestSha256": "<sha256-of-exact-manifest-bytes>",
       "playerAdapterId": "ejs-4.2.3-v1"
+    },
+    {
+      "version": "4.3.0-pre",
+      "manifestSha256": "<sha256-of-exact-manifest-bytes>",
+      "playerAdapterId": "ejs-4.3.0-pre-v1"
     }
   ],
   "activeEmulatorjsVersion": "4.2.3"
@@ -87,7 +92,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 
 ## 4. 服务启动与健康检查
 
-本地运行时通过三个只读配置确定依赖集合：`RETROM_DEPENDENCY_ROOT` 是包含 `dat/emulatorjs/<version>/` 与 `runtime/emulatorjs/<version>/` 的绝对根；`RETROM_DEPENDENCY_VERSIONS` 是无空白、无重复、按 SemVer 升序的逗号分隔版本列表，一期默认 `4.2.3`；`RETROM_ACTIVE_EMULATORJS_VERSION` 是其中恰好一个版本，一期为 `4.2.3`。开发值由 `make dev` 显式传入仓库 `data/` 的绝对路径，镜像值指向只读依赖层；应用不得依赖当前工作目录猜路径，也不得接受 `..`、空项、symlink 逃逸或版本目录缺失。
+本地运行时通过三个只读配置确定依赖集合：`RETROM_DEPENDENCY_ROOT` 是包含 `dat/emulatorjs/<version>/` 与 `runtime/emulatorjs/<version>/` 的绝对根；`RETROM_DEPENDENCY_VERSIONS` 是无空白、无重复、按 SemVer（含 prerelease）升序的逗号列表，默认 `4.2.3,4.3.0-pre`；`RETROM_ACTIVE_EMULATORJS_VERSION` 必须属于该列表，当前为 `4.2.3`。开发值由 `make dev` 显式传入仓库 `data/` 的绝对路径，镜像值指向只读依赖层。
 
 对每个配置版本 `v`，manifest 固定解析为 `<root>/dat/emulatorjs/<v>/manifest.json`，内置 DAT 根为同目录，release 根为 `<root>/runtime/emulatorjs/<v>`。数据库中 CoreArtifact 的 `relative_path` 相对它自己的 release 根解析，静态 URL 固定为 `/runtime/emulatorjs/<v>/<relative_path>`。当前版本的 28 个 manifest artifact 被设为 enabled；保留版本的 artifact 以 disabled 历史行存在，但被 SaveState/PersistentSave/历史 READY VariantRevision 精确引用时仍可启动。普通新验证只选择当前 enabled artifact，绝不能因旧文件仍在磁盘而自动选中它。
 
@@ -97,7 +102,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 2. 逐版本校验 allowlist、selected core、override、DAT、许可输入与 notice；
 3. 校验部署的 core artifact，包括 `mame2003` override，并建立仅含已验证版本/路径的静态路由表；
 4. 打开数据库并执行 migration；
-5. 在一个短事务中 upsert 全部已配置版本的 CoreArtifact 与版本化静态 BIOS Requirement，把 28 个 Core 的 enabled artifact 精确切到 active EmulatorJS version 的 manifest selection，再按 `core_artifact_id + dat_sha256 + parser_version` 创建或复用各版本的内置 DatVersion；缺少成功解析缓存时保持 `PENDING`，并以数据模型的唯一 dedupe 规则创建不可取消的 `DAT_PARSE` Job。此步只登记引用、seed 和任务，不读完整 XML、不写 machine 索引、不把未解析版本设为 active；
+5. 在一个短事务中 upsert 全部已配置版本的 CoreArtifact 与版本化静态 BIOS Requirement；逐 core 将 enabled artifact 切到配置顺序中最后一个声明它的 manifest，再按 `core_artifact_id + dat_sha256 + parser_version` 创建或复用实际存在的内置 DatVersion。部分 runtime overlay 可以不含 DAT/其他 core，不能因此删除基础版本 seed；
 6. 建立 allowlist 静态路由，启动 HTTP 与 worker。`/health/live` 此时可返回 200；只要当前 enabled Arcade CoreArtifact 还没有 `READY` 的 active DatVersion，`/health/ready` 就返回 `503 DEPENDENCY_INDEXING`，除 health 外的全部路由统一返回错误 envelope `503 SERVICE_NOT_READY`；
 7. Worker 在事务外通过受限 streaming parser 读取 DAT，以数据模型规定的短事务批次写入“尚未发布”的索引行；成功后以一个短事务把 DatVersion 转为 `READY`、发布这些行的可见性，并且仅在该 CoreArtifact 此刻仍无 active DatVersion 时激活此内置版本、物化 Requirement 和写 AuditEvent。管理员已经激活的用户 DAT 永远不会被启动任务覆盖。所有当前 enabled Arcade artifact 都有 `READY` active DatVersion 后，ready 才转为 200；非 Arcade 静态 BIOS seed 不依赖 DAT 解析。
 
@@ -107,7 +112,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 
 ## 5. 镜像构建
 
-根 Dockerfile 的 dependency builder stage 必须读取 `RETROM_DEPENDENCY_VERSIONS` 对应的同一组 manifest，下载并验证 allowlist payload；一期默认列表只有 `4.2.3`。升级镜像必须同时保留数据库中受 SaveState/PersistentSave/READY VariantRevision 保护的旧版本；两个镜像都使用第 3.1 节的发布输入 label。最终 `retrom` 镜像只复制：
+根 Dockerfile 的 dependency builder stage 必须读取同一组 manifest，当前默认列表为 `4.2.3,4.3.0-pre`。升级镜像必须同时保留数据库中受 SaveState/PersistentSave/READY VariantRevision 保护的旧版本；两个镜像都使用第 3.1 节的发布输入 label。最终 `retrom` 镜像只复制：
 
 - 后端二进制；
 - 每个配置 manifest `runtime_allowlist` 中的固定浏览器文件与 `selected_core_artifacts` 中的 core；

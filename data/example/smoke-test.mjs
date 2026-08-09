@@ -27,6 +27,19 @@ async function stopProcess(child) {
   }
 }
 
+async function materializeDOSFixtures() {
+  const child = spawn(
+    "/usr/bin/python3",
+    [path.join(SCRIPT_DIR, "materialize-dos-fixture.py")],
+    { cwd: REPO_ROOT, stdio: ["ignore", "inherit", "inherit"] }
+  );
+  const code = await new Promise((resolve, reject) => {
+    child.once("error", reject);
+    child.once("exit", resolve);
+  });
+  if (code !== 0) throw new Error(`DOS fixture materialization failed with code ${code}`);
+}
+
 class CdpPipe {
   constructor(process) {
     this.process = process;
@@ -572,6 +585,7 @@ async function main() {
   const requestedCores = process.argv.slice(2);
   const fixtures = expandFixtureRuns(manifest.fixtures, requestedCores);
   if (!fixtures.length) throw new Error("No core fixtures selected");
+  if (fixtures.some(fixture => fixture.core === "dosbox_pure")) await materializeDOSFixtures();
 
   await fs.mkdir(RESULTS_DIR, { recursive: true });
   const profileDirectory = await fs.mkdtemp(path.join(os.tmpdir(), "retrom-ejs-smoke-"));
@@ -615,6 +629,7 @@ async function main() {
       generatedAtMs,
       emulatorjs: {
         version: manifest.emulatorjs.version,
+        runtimeVersions: [...new Set(fixtures.map(fixture => fixture.runtimeVersion || manifest.emulatorjs.version))].sort(),
         archiveSha256: manifest.emulatorjs.archiveSha256
       },
       browser: {

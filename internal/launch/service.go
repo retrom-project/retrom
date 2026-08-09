@@ -143,6 +143,7 @@ JOIN game_variants v ON v.game_id=g.id
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
 AND r.game_content_revision_id=g.current_content_revision_id
 JOIN core_artifacts a ON a.id=r.core_artifact_id
+AND a.enabled=1
 JOIN cores c ON c.id=a.core_id
 LEFT JOIN game_content_files content ON content.game_content_revision_id=r.game_content_revision_id
 AND content.role='CONTENT'
@@ -590,17 +591,7 @@ AND vf.logical_name='game.zip'
 	if err != nil {
 		return "", "", "", ErrBlocked
 	}
-	return baseBlobID, "game.zip", "SOURCE_V1", nil
-}
-
-func dosboxConfig(selectedEntry string) string {
-	directory, executable := path.Split(selectedEntry)
-	directory = strings.TrimSuffix(directory, "/")
-	changeDirectory := `CD \`
-	if directory != "" {
-		changeDirectory = `CD "\` + strings.ReplaceAll(directory, "/", `\`) + `"`
-	}
-	return "[autoexec]\r\n@ECHO OFF\r\nC:\r\n" + changeDirectory + "\r\n\"" + executable + "\"\r\n"
+	return baseBlobID, "game.zip", "RETROM_DOS_DIRECT_ZIP_V1", nil
 }
 
 func validReturnTo(value, gameID string) bool {
@@ -811,7 +802,7 @@ ORDER BY virtual_path
 	if err := externalRows.Err(); err != nil {
 		return Config{}, fmt.Errorf("launch/service: %w", err)
 	}
-	if !configureDOSLaunch(coreID, contentFormat, launchID, dosEntry, externalFiles, coreOptions) {
+	if !configureDOSLaunch(coreID, contentFormat, dosEntry, externalFiles, coreOptions) {
 		return Config{}, ErrBlocked
 	}
 	var persistentSaveURL *string
@@ -857,51 +848,15 @@ ORDER BY virtual_path
 }
 
 func configureDOSLaunch(
-	coreID, contentFormat, launchID string,
+	coreID, contentFormat string,
 	dosEntry sql.NullString,
 	externalFiles, coreOptions map[string]string,
 ) bool {
 	if coreID != "dosbox_pure" || !dosEntry.Valid {
 		return true
 	}
-	configurationLocation := "inside"
-	if contentFormat != "RETROM_DOS_DIRECT_ZIP_V1" {
-		configurationLocation = "outside"
-		if _, exists := externalFiles["/game.conf"]; exists {
-			return false
-		}
-		externalFiles["/game.conf"] = "/runtime/launches/" + launchID + "/dos-config/game.conf"
-	}
-	if existing, ok := coreOptions["dosbox_pure_conf"]; ok && existing != configurationLocation {
-		return false
-	}
-	coreOptions["dosbox_pure_conf"] = configurationLocation
-	return true
-}
-
-func (service *Service) DOSConfig(ctx context.Context, launchID, capability string) (string, error) {
-	var credentialHash []byte
-	var state, coreID, selectedEntry string
-	var hardExpires int64
-	err := service.database.QueryRowContext(ctx, `
-SELECT l.credential_sha256,
-l.state,
-l.hard_expires_at_ms,
-a.core_id,
-l.dos_entry_path
-FROM launch_sessions l
-JOIN core_artifacts a ON a.id=l.core_artifact_id
-JOIN launch_content_files lc ON lc.launch_session_id=l.id
-WHERE l.id=?
-AND lc.format_version='SOURCE_V1'
-AND l.dos_entry_path IS NOT NULL
-`, launchID).Scan(&credentialHash, &state, &hardExpires, &coreID, &selectedEntry)
-	if err != nil || coreID != "dosbox_pure" ||
-		!retromruntime.MatchesCapability(capability, credentialHash) ||
-		hardExpires <= service.now().UnixMilli() || state != "ACTIVE" {
-		return "", ErrCredential
-	}
-	return dosboxConfig(selectedEntry), nil
+	return contentFormat == "RETROM_DOS_DIRECT_ZIP_V1" &&
+		externalFiles["/game.conf"] == "" && coreOptions["dosbox_pure_conf"] == ""
 }
 
 func (service *Service) BundleFiles(ctx context.Context, launchID, capability, kind string) ([]BundleFile, error) {
@@ -974,26 +929,47 @@ func nullableString(value sql.NullString) any {
 }
 
 func (service *Service) ContentBlob(ctx context.Context, launchID, capability, logicalName string) (string, error) {
+	content, err := service.Content(ctx, launchID, capability, logicalName)
+	return content.Digest, err
+}
+
+type ContentView struct {
+	Digest   string
+	Format   string
+	CoreID   string
+	DOSEntry *string
+}
+
+func (service *Service) Content(ctx context.Context, launchID, capability, logicalName string) (ContentView, error) {
 	var credentialHash []byte
-	var digest, state string
+	var digest, state, format, coreID string
+	var dosEntry sql.NullString
 	var hardExpires int64
 	err := service.database.QueryRowContext(ctx, `
 SELECT l.credential_sha256,
 l.state,
 l.hard_expires_at_ms,
-b.sha256
+b.sha256,
+lc.format_version,
+a.core_id,
+l.dos_entry_path
 FROM launch_sessions l
 JOIN launch_content_files lc ON lc.launch_session_id=l.id
 JOIN blobs b ON b.id=lc.blob_id
+JOIN core_artifacts a ON a.id=l.core_artifact_id
 WHERE l.id=?
 AND lc.logical_name=?
-`, launchID, logicalName).Scan(&credentialHash, &state, &hardExpires, &digest)
+`, launchID, logicalName).Scan(&credentialHash, &state, &hardExpires, &digest, &format, &coreID, &dosEntry)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) ||
 		hardExpires <= service.now().UnixMilli() ||
 		state != "ACTIVE" {
-		return "", ErrCredential
+		return ContentView{}, ErrCredential
 	}
-	return digest, nil
+	var selected *string
+	if dosEntry.Valid {
+		selected = &dosEntry.String
+	}
+	return ContentView{Digest: digest, Format: format, CoreID: coreID, DOSEntry: selected}, nil
 }
 
 func (service *Service) ExternalBlob(ctx context.Context, launchID, capability, logicalName string) (string, error) {

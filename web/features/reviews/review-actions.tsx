@@ -315,6 +315,14 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     await publish();
   }
 
+  async function revalidate() {
+    await run("重新运行检查", async () => {
+      if (!await enqueueSave(draftKey, draftPayload, true)) throw new Error("无法保存当前审核内容");
+      setNotice("运行检查已更新，正在读取最新结论…");
+      router.refresh();
+    });
+  }
+
   async function confirmDuplicatePublish() {
     if (!duplicateConfirmation || !await flushDraft()) return;
     await publish(duplicateConfirmation);
@@ -340,7 +348,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   return <div className="review-workflow-detail">
     <div className="review-workflow-top">
       <section className="review-workflow-summary-card"><StatusPill tone="info">来源：{sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><div><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{publishReady ? "运行检查通过" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : "未找到游戏信息"}</StatusPill></div></section>
-      <aside className="review-workflow-decision"><h2>审核决定</h2><p>字段会实时保存；只有运行检查通过时才允许发布。</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
+      <aside className="review-workflow-decision"><h2>审核决定</h2><p>{publishReady ? "运行检查已经通过，可以发布。" : "先按左侧提示处理问题，再重新运行检查。"}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div>{!publishReady ? <button type="button" className="button secondary review-revalidate" aria-busy={busy === "重新运行检查"} disabled={busy !== null || saveState === "error"} onClick={() => void revalidate()}>{busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button> : null}<div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
     </div>
     {notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{notice}</FeedbackBanner></div> : null}
     {review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。仍可发布为新游戏，但发布时需要二次确认。</FeedbackBanner></div> : null}

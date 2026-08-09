@@ -16,7 +16,7 @@ from typing import Any
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MANIFEST_PATH = Path(__file__).with_name("fixtures.json")
-DEPENDENCY_MANIFEST_PATH = REPO_ROOT / "data/dat/emulatorjs/4.2.3/manifest.json"
+DEPENDENCY_MANIFEST_ROOT = REPO_ROOT / "data/dat/emulatorjs"
 
 
 def digest(path: Path, algorithm: str) -> str:
@@ -176,7 +176,11 @@ def verify_format_variants(fixture: dict[str, Any], errors: list[str]) -> None:
 
 def main() -> int:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    dependency_manifest = json.loads(DEPENDENCY_MANIFEST_PATH.read_text(encoding="utf-8"))
+    dependency_manifests = {
+        version: json.loads((DEPENDENCY_MANIFEST_ROOT / version / "manifest.json").read_text(encoding="utf-8"))
+        for version in ("4.2.3", "4.3.0-pre")
+    }
+    dependency_manifest = dependency_manifests["4.2.3"]
     errors: list[str] = []
     notes: list[str] = []
 
@@ -188,8 +192,11 @@ def main() -> int:
         errors.append("fixtures.json: source host/root must be supplied through environment names")
 
     selected_artifacts = {
-        artifact["core_id"]: artifact
-        for artifact in dependency_manifest["emulatorjs"]["selected_core_artifacts"]
+        version: {
+            artifact["core_id"]: artifact
+            for artifact in version_manifest["emulatorjs"]["selected_core_artifacts"]
+        }
+        for version, version_manifest in dependency_manifests.items()
     }
 
     emulatorjs = manifest["emulatorjs"]
@@ -227,9 +234,11 @@ def main() -> int:
         require_file({"path": fixture["examplePath"]}, f"{core} example", errors)
         emulator_core = fixture.get("emulatorCore", core)
         runtime_version = fixture.get("runtimeVersion", emulatorjs["version"])
-        if runtime_version != emulatorjs["version"]:
-            errors.append(f"{core}: runtimeVersion must remain {emulatorjs['version']}")
-        expected_artifact = selected_artifacts.get(core)
+        if runtime_version not in dependency_manifests:
+            errors.append(f"{core}: unknown runtimeVersion {runtime_version}")
+            expected_artifact = None
+        else:
+            expected_artifact = selected_artifacts[runtime_version].get(core)
         actual_artifact = fixture["coreArtifact"]
         if fixture.get("supportStatus") != "candidate":
             expected_suffix = (expected_artifact or {}).get("path_in_release") or (
@@ -305,9 +314,17 @@ def main() -> int:
         print(f"Fixture verification failed with {len(errors)} error(s).", file=sys.stderr)
         return 1
 
+    runtime_versions = ", ".join(
+        sorted(
+            {
+                fixture.get("runtimeVersion", emulatorjs["version"])
+                for fixture in manifest["fixtures"]
+            }
+        )
+    )
     print(
         f"Verified {len(manifest['fixtures'])} core fixtures against EmulatorJS "
-        f"{emulatorjs['version']} and pinned DAT files."
+        f"{runtime_versions} and pinned DAT files."
     )
     return 0
 

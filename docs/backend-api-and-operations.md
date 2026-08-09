@@ -160,7 +160,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 - 启停本地开发进程；
 - 读取或打包用户 ROM、BIOS、SQLite、CAS、测试截图或 TLS 私钥。
 
-两个 Dockerfile 使用多阶段构建和非 root 运行用户，最终层不保留编译工具、源码缓存或开发依赖。后端 dependency builder 必须读取构建参数中 `RETROM_DEPENDENCY_VERSIONS` 对应的小型 manifest 集，按固定来源逐版本物化/校验 EmulatorJS、core、DAT 与许可输入，确定性生成各版本 `THIRD_PARTY_NOTICES`，并只复制每份 manifest 的 allowlist、DAT、许可原文和 notice；当前默认列表仅 `4.2.3`，包含三份 DAT 与 29 个许可 component。前端镜像携带经过 `data-check` 的 adapter registry/实现；两个镜像是同一项目发布单元，都必须携带依赖专题规定且完全相同的 `io.retrom.release-input-sha256` label，部署不得把 label 缺失/不同的构建物任意拼接。不能把下载 archive、本地依赖缓存、source checkout 或整个 `data/` 目录复制进镜像；后端内置 pure-Go 7z reader，不依赖或复制宿主 `7z/7zz` 可执行文件。运行数据只能在启动容器时由外部挂载或持久卷提供。镜像 target 只面向私有自托管构建；不得隐式 push，外部分发遵循依赖专题的人工许可门禁。
+两个 Dockerfile 使用多阶段构建和非 root 运行用户，最终层不保留编译工具、源码缓存或开发依赖。后端 dependency builder 必须读取构建参数中 `RETROM_DEPENDENCY_VERSIONS` 对应的小型 manifest 集，按固定来源逐版本物化/校验 EmulatorJS、core、可选 DAT 与许可输入；当前默认 `4.2.3,4.3.0-pre`，后者只提供 DOSBox Pure 定向覆盖。前端镜像携带经过 `data-check` 的 adapter registry/实现；两个镜像必须携带完全相同的 release-input label。不能把下载 archive、本地依赖缓存、source checkout 或整个 `data/` 目录复制进镜像。
 
 `make build-images` 不自动属于普通 `make ci`，但修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时必须同时执行二者；发布流水线也必须把二者作为独立门禁。
 
@@ -224,8 +224,8 @@ RETROM_DATA_DIR/
 | `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.cache/retrom/data`，生产为持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
 | `RETROM_DB_PATH` | 未设置时派生为数据根下 `retrom.db`；若设置必须是数据根内的绝对普通文件路径。 |
 | `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；其下按 `dat/emulatorjs/<version>` 与 `runtime/emulatorjs/<version>` 布局。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。 |
-| `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer 升序的逗号列表；一期为 `4.2.3`。每项都必须有完整 manifest/runtime/DAT/许可 payload，服务不会联网补齐。 |
-| `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；一期为 `4.2.3`。只决定新验证启用的 artifact，不覆盖历史 revision 锁定版本。 |
+| `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer（含 prerelease）升序；当前为 `4.2.3,4.3.0-pre`。每项必须有完整 manifest/runtime/许可 payload，DAT 只在该 manifest 声明时必需。 |
+| `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。新验证逐 core 使用版本列表中最后一个声明该 core 的 artifact，不覆盖历史 revision 锁定版本。 |
 | `RETROM_TRUSTED_PROXIES` | 逗号分隔 CIDR；默认空。生产必须精确列出 NG 网段，不能使用 `0.0.0.0/0` 或 `::/0`。 |
 | `RETROM_STARTUP_CHECK_TIMEOUT` | 默认 `60s`，范围 `10s..5m`；只约束配置、依赖字节、数据库/migration 与 bootstrap Job 登记等同步预检，不包含后台 `DAT_PARSE` execution。 |
 | `RETROM_LOG_LEVEL` | `debug/info/warn/error`，默认 `info`；生产禁止记录内容秘密。 |

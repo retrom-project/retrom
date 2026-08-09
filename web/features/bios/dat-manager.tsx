@@ -38,8 +38,17 @@ function sourceLabel(source: string) { return source === "BUILTIN" ? "系统内�
 
 function stateLabel(item: DATVersion) {
   if (item.active) return "当前启用";
-  if (item.source === "BUILTIN" && item.parseStatus === "READY") return "历史版本";
-  return ({ PENDING: "等待解析", PARSING: "正在解析", READY: "可以启用", FAILED: "解析失败", CANCELLED: "已取消" } as Record<string, string>)[item.parseStatus] ?? item.parseStatus;
+  if (item.parseStatus !== "READY") return ({ PENDING: "等待解析", PARSING: "正在解析", FAILED: "解析失败", CANCELLED: "已取消" } as Record<string, string>)[item.parseStatus] ?? item.parseStatus;
+  return ({
+    NOT_READY: "等待生成差异",
+    NOT_RUN: "尚未生成差异",
+    PENDING: "差异排队中",
+    RUNNING: "正在比对差异",
+    READY: item.source === "BUILTIN" ? "历史版本" : "可以启用",
+    STALE: "差异已失效",
+    FAILED: "差异比对失败",
+    NOT_APPLICABLE: "无需比对",
+  } as Record<string, string>)[item.diffStatus] ?? item.diffStatus;
 }
 
 function compatibilityLabel(status: string) {
@@ -104,11 +113,43 @@ export function DATManager({ versions, artifacts, initialFilters }: { versions: 
   const [diffSection, setDiffSection] = useState("MACHINES");
   const [diffIntent, setDiffIntent] = useState<DiffIntent>(null);
   const [deleteItem, setDeleteItem] = useState<DATVersion | null>(null);
+  const [diffOverrides, setDiffOverrides] = useState<Record<string, DATVersion["diffStatus"]>>({});
 
   const artifactById = useMemo(() => new Map(artifacts.map((artifact) => [artifact.id, artifact])), [artifacts]);
-  const activeVersions = versions.filter((item) => item.active);
-  const filteredVersions = filterDATVersions(versions, filters).filter((item) => !item.active);
-  const summary = summarizeDAT(versions);
+  const displayedVersions = useMemo(() => versions.map((item) => diffOverrides[item.id] ? { ...item, diffStatus: diffOverrides[item.id] } : item), [versions, diffOverrides]);
+  const activeVersions = displayedVersions.filter((item) => item.active);
+  const filteredVersions = filterDATVersions(displayedVersions, filters).filter((item) => !item.active);
+  const summary = summarizeDAT(displayedVersions);
+
+  const diffWorking = displayedVersions.some((item) => ["PENDING", "RUNNING"].includes(item.diffStatus));
+  const workingDiffIDs = displayedVersions.filter((item) => ["PENDING", "RUNNING"].includes(item.diffStatus)).map((item) => item.id).sort().join(",");
+  useEffect(() => {
+    if (!diffWorking) return;
+    const timer = window.setInterval(() => {
+      void (async () => {
+        try {
+          const response = await fetch("/api/v1/admin/arcade-dats", { cache: "no-store" });
+          if (!response.ok) return;
+          const result = await response.json() as { items?: DATVersion[] };
+          const statuses = new Map((result.items ?? []).map((item) => [item.id, item.diffStatus]));
+          const workingIDs = new Set(workingDiffIDs.split(",").filter(Boolean));
+          setDiffOverrides((current) => {
+            let changed = false;
+            const next = { ...current };
+            for (const id of workingIDs) {
+              const status = statuses.get(id);
+              if (!status || status === (current[id] ?? versions.find((item) => item.id === id)?.diffStatus)) continue;
+              next[id] = status;
+              changed = true;
+            }
+            return changed ? next : current;
+          });
+          if ([...statuses.entries()].some(([id, status]) => workingIDs.has(id) && ["READY", "STALE", "FAILED"].includes(status))) router.refresh();
+        } catch { /* A later poll or manual page refresh will retry. */ }
+      })();
+    }, 1_000);
+    return () => window.clearInterval(timer);
+  }, [diffWorking, router, versions, workingDiffIDs]);
 
   useEffect(() => {
     if (!drawerOpen) return;
@@ -135,7 +176,7 @@ export function DATManager({ versions, artifacts, initialFilters }: { versions: 
       const created = await response.json() as { datVersionId: string; jobId: string };
       setNotice("候选已创建，正在由后端安全解析…");
       await waitForJob(created.jobId, (state) => setNotice(`DAT 解析 · ${state}`));
-      setNotice("候选已解析，可在版本列表中查看差异后启用。");
+      setNotice("候选已解析，系统正在后台生成差异；完成后即可查看并启用。");
       setDrawerOpen(false); setSelectedFile(null); router.refresh();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "DAT 上传失败");
@@ -158,6 +199,21 @@ export function DATManager({ versions, artifacts, initialFilters }: { versions: 
     setBusy(item.id); setError("");
     try { await fetchDiff(item); setDiffIntent(null); }
     catch (caught) { setError(caught instanceof Error ? caught.message : "DAT 差异读取失败"); }
+    finally { setBusy(null); }
+  }
+
+  async function rerunDiff(item: DATVersion) {
+    setBusy(item.id); setError(""); setNotice("");
+    try {
+      const response = await fetch(`/api/v1/admin/arcade-dats/${item.id}/diff`, {
+        method: "POST", credentials: "same-origin",
+        headers: await writeHeaders({ "Idempotency-Key": newUuid() }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, "无法生成 DAT 差异"));
+      setDiffOverrides((current) => ({ ...current, [item.id]: "PENDING" }));
+      setNotice("差异比对已进入后台队列，完成前无需停留在本页。");
+      router.refresh();
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "DAT 差异任务创建失败"); }
     finally { setBusy(null); }
   }
 
@@ -242,12 +298,14 @@ export function DATManager({ versions, artifacts, initialFilters }: { versions: 
       {filteredVersions.length ? <div className="runtime-list" role="table" aria-label="DAT 候选与历史版本">{filteredVersions.map((item) => <article className="runtime-dat-row" role="row" key={item.id}>
         <div className="runtime-dat-main" role="cell"><h3>{item.coreName}</h3><small>{sourceLabel(item.source)} · 更新于 {formatDate(item.updatedAtMs)}</small></div>
         <div role="cell"><span className="runtime-source">{sourceLabel(item.source)}</span></div>
-        <div role="cell"><StatusBadge tone={item.source === "BUILTIN" && item.parseStatus === "READY" ? "info" : statusTone(item.parseStatus)}>{stateLabel(item)}</StatusBadge></div>
+        <div role="cell"><StatusBadge tone={item.diffStatus === "FAILED" || item.diffStatus === "STALE" ? "bad" : item.source === "BUILTIN" && item.parseStatus === "READY" ? "info" : statusTone(item.parseStatus)}>{stateLabel(item)}</StatusBadge></div>
         <div className="runtime-dat-content" role="cell"><strong>{item.machineCount === null ? "—" : `${item.machineCount.toLocaleString("zh-CN")} 个游戏`}</strong><small>{item.romEntryCount === null ? "解析完成后显示统计" : `${item.romEntryCount.toLocaleString("zh-CN")} 个 ROM 条目`}</small></div>
-        <div className="runtime-dat-content" role="cell"><strong>{compatibilityLabel(item.compatibilityStatus)}</strong><small>{item.parseStatus === "READY" ? "可在启用前查看实际变化" : "等待候选完成解析"}</small></div>
+        <div className="runtime-dat-content" role="cell"><strong>{compatibilityLabel(item.compatibilityStatus)}</strong><small>{item.diffStatus === "STALE" ? "启用版本或游戏引用已变化，请重新比对" : item.diffStatus === "FAILED" ? "可重新运行，不需要再次上传" : item.diffStatus === "READY" ? "可在启用前查看实际变化" : "等待候选完成解析和差异比对"}</small></div>
         <div className="runtime-row-actions" role="cell">
-          {item.parseStatus === "READY" && item.source === "USER" ? <><button type="button" className="button secondary compact" disabled={busy !== null} onClick={() => void preview(item)}>查看差异</button><button type="button" className="button compact" disabled={busy !== null} onClick={() => void requestChange(item, false)}>启用</button></> : null}
-          {item.parseStatus === "READY" && item.source === "BUILTIN" ? <button type="button" className="button secondary compact" disabled={busy !== null} onClick={() => void requestChange(item, true)}>预览回滚</button> : null}
+          {item.parseStatus === "READY" && ["PENDING", "RUNNING"].includes(item.diffStatus) ? <button type="button" className="button secondary compact" disabled>差异比对中…</button> : null}
+          {item.parseStatus === "READY" && item.diffStatus === "READY" && item.source === "USER" ? <><button type="button" className="button secondary compact" disabled={busy !== null} onClick={() => void preview(item)}>查看差异</button><button type="button" className="button compact" disabled={busy !== null} onClick={() => void requestChange(item, false)}>启用</button></> : null}
+          {item.parseStatus === "READY" && item.diffStatus === "READY" && item.source === "BUILTIN" ? <button type="button" className="button secondary compact" disabled={busy !== null} onClick={() => void requestChange(item, true)}>预览回滚</button> : null}
+          {item.parseStatus === "READY" && ["NOT_RUN", "STALE", "FAILED"].includes(item.diffStatus) ? <button type="button" className="button secondary compact" disabled={busy !== null} onClick={() => void rerunDiff(item)}>{item.diffStatus === "NOT_RUN" ? "生成差异" : "重新生成差异"}</button> : null}
           {["PENDING", "PARSING"].includes(item.parseStatus) && item.jobId ? <button type="button" className="button secondary compact" disabled={busy !== null} onClick={() => void cancel(item)}>取消解析</button> : null}
           {item.source === "USER" && !["PENDING", "PARSING"].includes(item.parseStatus) ? <button type="button" className="runtime-delete-button" aria-label={`删除 ${item.coreName} 候选`} disabled={busy !== null} onClick={() => setDeleteItem(item)}>删除</button> : null}
         </div>

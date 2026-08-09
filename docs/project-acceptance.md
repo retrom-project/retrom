@@ -520,16 +520,16 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DAT-003`。
-- 流程：把固定 seed 中真实的 `fbneo-arcade.dat` 作为用户文件上传给 `fbneo`；查看解析与 diff，但不点击启用；随后删除这个未活动、无业务引用的用户候选。
-- 通过标准：即使底层 Blob 因相同 SHA-256 去重，也创建来源、上传时刻和状态独立的 DatVersion；兼容状态和空 diff 可见；当前活动 DAT、已有 VariantRevision 诊断与启动结果完全不变；候选可删除但共享 Blob 和预置 DatVersion 不受影响。
+- 流程：把固定 seed 中真实的 `fbneo-arcade.dat` 作为用户文件上传给 `fbneo`；观察解析完成后自动进入异步差异队列，在任务完成前尝试 GET/启用，完成后查看 diff 但不点击启用；随后删除这个未活动、无业务引用的用户候选。
+- 通过标准：即使底层 Blob 因相同 SHA-256 去重，也创建来源、上传时刻和状态独立的 DatVersion；解析完成自动显示排队/比对状态，按钮禁用，GET 返回 `DAT_DIFF_NOT_READY` 且请求不执行 DAT 全量扫描；READY 后兼容状态和空 diff 可见。当前活动 DAT、已有 VariantRevision 诊断与启动结果完全不变；候选可删除但共享 Blob 和预置 DatVersion 不受影响。
 - 证据：上传前后 active ID、diff、删除响应、Blob 引用和旧快照 hash。
 
 ### ACC-DAT-004：启用、重校验与回滚
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-DAT-004`。
-- 流程：在本 Case 内按 `ACC-DAT-003` 的固定输入重新创建独立候选，显式启用并等待有界重校验任务完成；查看旧 GameVariant；回滚到预置 installation。
-- 通过标准：不依赖 `ACC-DAT-003` 遗留状态；启用有影响预览和审计；相同内容允许生成 no-op 重校验，但不得静默改写历史快照；回滚恢复活动 DatVersion，新旧版本均可追溯且被引用版本不可删除。
+- 流程：在本 Case 内按 `ACC-DAT-003` 的固定输入重新创建独立候选，等待差异 READY 后显式启用并等待有界重校验任务完成；查看同一 CoreArtifact 的其他历史/候选差异状态；为目标重新生成差异后回滚到预置 installation。
+- 通过标准：不依赖 `ACC-DAT-003` 遗留状态；启用有影响预览和审计；同 artifact 的其他 materialized diff 原子转为 STALE 且明细删除，页面只提供异步“重新生成差异”，旧 impact digest 不能提交；相同内容允许生成 no-op 重校验，但不得静默改写历史快照；回滚恢复活动 DatVersion，新旧版本均可追溯且被引用版本不可删除。
 - 证据：两个 active version 事件、重校验结果和快照引用。
 
 ### ACC-DAT-005：恶意/错误 DAT 拒绝
@@ -587,9 +587,9 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-005`。
-- 流程：在 DOS 详情加载可执行程序列表，选择非默认程序并启动；检查锁定内容、config 与按需 `game.conf`；再选择“显示 DOSBox Pure 程序菜单”，最后构造选中程序已不存在的 revision。
-- 通过标准：直接启动仍以原 `game.zip`/Blob 作为 `EJS_gameUrl`，选择入口前后 Blob 数不增加；`EJS_externalFiles` 只把 `/game.conf` 映射到本次 Launch 的受限 config URL，`EJS_defaultOptions.dosbox_pure_conf == "outside"`，端点逐字节返回运行时专题规定的 `[autoexec]` 且不落磁盘/数据库，安全路径可进入所选程序画面，没有伪造 `DOSBOX.BAT`，运行页不二次询问。程序菜单选项使用原 bundle 且无 external config；缺失 entry 以 `LAUNCH_DOS_ENTRY_MISSING`、含 `%`/引号/控制字符/尾随空格或点等不安全 entry 以 `LAUNCH_DOS_ENTRY_UNSAFE` 阻断直接启动，且都不猜替代程序。
-- 证据：程序列表、launch/config payload、原 Blob/引用计数、按需 config bytes、core option、运行画面与错误响应。
+- 流程：先用旧 DOS artifact 发布一个只有 `DOS_SOURCE` 的游戏，再启用 4.3 artifact 触发首次启动重校验；导入一个数据/图片排在程序之前且同时含安装器、实际入口、需缩短的长路径和两个会产生同一初始 8.3 名称的程序的 DOS ZIP；确认完整候选排序，选择非默认程序并启动；检查锁定内容与 game.zip 的 HEAD/Range/完整 GET；再选择“显示 DOSBox Pure 程序菜单”，重新进入详情并验证记忆选择，最后构造选中程序已不存在的 revision。
+- 通过标准：重校验不要求不存在的 CONTENT 行，保留相同 ContentRevision 的 bundle/default entry 并在有界时间进入终态；安装/配置工具只降权不消失；直接启动锁定原 bundle Blob、Blob 数不增加，响应 ZIP 的首项是受控 `AUTOBOOT.DBP`，程序菜单首项是受控 `DOSBOX.BAT`，其余成员 bytes/顺序不变，源包的两个同名保留文件都无法覆盖或劫持选择；config 的 `externalFiles/defaultCoreOptions` 不含 DOS 启动补丁，4.3 adapter 在 start 前把完整 ZIP 交给 core，安全路径进入所选程序画面。程序菜单通过 `Z:\PUREMENU` 进入 core 菜单。只有成功创建 Launch 后才按游戏记住入口或菜单，失败不改偏好，存档恢复不改偏好；缺失/不安全 entry 仍分别稳定阻断且不猜替代程序。
+- 证据：完整程序列表与排序、launch/config payload、原 Blob/引用计数、三种 game 响应、虚拟 ZIP central directory/引导 bytes、运行画面、浏览器偏好和错误响应；另以 `RETROM_DOS_CORPUS=<合法本地目录> go test ./internal/libraryimport -run TestLocalDOSCorpusCompatibility -count=1 -v` 验证多游戏结构矩阵。
 
 ### ACC-SAVE-001：手动状态存档与截图
 
@@ -716,7 +716,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-005`。
 - 流程：在 `1280×800`、`2560×1440` CSS viewport，以及 3840×2160、100% scale viewport 分别打开首页、游戏库、详情、存档和 Player Shell；首页另在物理 4K 高缩放的代表性 `1920×950` CSS viewport 复测。
-- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；3840×2160 与 `1920×950` 首页五层均完整落在首屏且 `documentElement.scrollHeight <= clientHeight`，不出现纵向滚动条，紧凑态仍保持正文和卡片信息清晰可读。3840×2160 首页宽度至少占应用内容区 95%，最末层底边距离 viewport 底部不超过 48px，避免内容聚集在屏幕上半部。三个基准 viewport 的游戏库分别为 4/6/8 列，内容分别不超过文档最大宽度。详情页在 `2560×1440` 与 `3840×2160` 下 Hero、信息条和最近 4 份存档均完整落在首屏，截图保持比例，Drawer/对话框不推动页面布局；`1280×800` 下关键启动操作和存档区仍在首屏可达。Player stage 为无边距的 100vw×100dvh；运行后 58px toolbar 自动移出画面且鼠标移动/键盘聚焦可恢复，标题/Core/平台和同步状态不挤压主操作。点击顶部 toolbar 的标题空白或任一操作都先暂停且保持暂停，只有点击游戏画面恢复；点击模拟器设置控件不能误恢复。EmulatorJS 原生底部工具栏启动后及靠近底边时始终隐藏；Retrom 的“模拟器设置”首次点击直接显示包含控制、显示、Core 设置、音量、静音和收起的自绘工具栏，桥接出来的原生设置面板与自绘栏均不存在 EmulatorJS 退出按钮。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式居中，未被裁切或拉伸。
+- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；3840×2160 与 `1920×950` 首页五层均完整落在首屏且 `documentElement.scrollHeight <= clientHeight`，不出现纵向滚动条，紧凑态仍保持正文和卡片信息清晰可读。3840×2160 首页宽度至少占应用内容区 95%，最末层底边距离 viewport 底部不超过 48px，避免内容聚集在屏幕上半部。三个基准 viewport 的游戏库分别为 4/6/8 列，内容分别不超过文档最大宽度。详情页在 `2560×1440` 与 `3840×2160` 下 Hero、信息条和最近 4 份存档均完整落在首屏，截图保持比例，Drawer/对话框不推动页面布局；`1280×800` 下关键启动操作和存档区仍在首屏可达。Player stage 为无边距的 100vw×100dvh；运行后 58px toolbar 自动移出画面，只有指针进入顶部 32px、键盘操作或工具栏获焦才恢复，画面中央 pointermove 不改变可见性，标题/Core/平台和同步状态不挤压主操作。点击顶部 toolbar 的标题空白或任一操作都先暂停且保持暂停，只有点击游戏画面恢复；点击模拟器设置控件不能误恢复。EmulatorJS 原生底部工具栏启动后及靠近底边时始终隐藏；Retrom 的“模拟器设置”首次点击直接显示包含控制、显示、Core 设置、音量、静音和收起的自绘工具栏，桥接出来的原生设置面板与自绘栏均不存在 EmulatorJS 退出按钮。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式在水平和垂直方向居中，未被裁切或拉伸。
 - 证据：三个 viewport 的布局测量、overflow 断言和页面截图。
 
 ### ACC-UI-006：管理侧 4K

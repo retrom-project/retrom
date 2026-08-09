@@ -227,6 +227,52 @@ func dosProgram(path string) (string, bool) {
 	}
 }
 
+func rankDOSEntries(entries []preparedDOSEntry) {
+	sort.SliceStable(entries, func(left, right int) bool {
+		leftCategory, leftExtension, leftDepth, leftPath := dosEntryPriority(entries[left])
+		rightCategory, rightExtension, rightDepth, rightPath := dosEntryPriority(entries[right])
+		if leftCategory != rightCategory {
+			return leftCategory < rightCategory
+		}
+		if leftExtension != rightExtension {
+			return leftExtension < rightExtension
+		}
+		if leftDepth != rightDepth {
+			return leftDepth < rightDepth
+		}
+		return leftPath < rightPath
+	})
+	for index := range entries {
+		entries[index].rank = index
+	}
+}
+
+func dosEntryPriority(entry preparedDOSEntry) (int, int, int, string) {
+	base := strings.TrimSuffix(strings.ToLower(filepath.Base(entry.path)), strings.ToLower(filepath.Ext(entry.path)))
+	name := strings.Map(func(character rune) rune {
+		if character >= 'a' && character <= 'z' || character >= '0' && character <= '9' {
+			return character
+		}
+		return -1
+	}, base)
+	category := 1
+	preferred := map[string]struct{}{
+		"game": {}, "go": {}, "launch": {}, "play": {}, "run": {}, "start": {},
+	}
+	helpers := map[string]struct{}{
+		"arj": {}, "backup": {}, "config": {}, "configure": {}, "dos32a": {}, "dos4gw": {},
+		"end": {}, "help": {}, "install": {}, "installer": {}, "pkunzip": {}, "readme": {},
+		"register": {}, "restore": {}, "setup": {}, "setsound": {}, "uninstall": {}, "update": {},
+	}
+	if _, matched := preferred[name]; matched {
+		category = 0
+	} else if _, matched := helpers[name]; matched {
+		category = 2
+	}
+	extension := map[string]int{"EXE": 0, "COM": 1, "BAT": 2}[entry.kind]
+	return category, extension, strings.Count(entry.path, "/"), strings.ToLower(entry.path)
+}
+
 func directDOSPathSafe(path string) bool {
 	if path == "" {
 		return false
@@ -349,7 +395,7 @@ func (service *Service) prepareDOSFiles(
 			return dispositions, nil, nil
 		}
 		file := candidates[0]
-		entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.sha256), importing.DefaultArchiveLimits())
+		entries, err := importing.ScanZIP(ctx, service.blobs.Path(file.sha256), importing.DOSArchiveLimits())
 		if err != nil {
 			dispositions = append(
 				dispositions,
@@ -400,6 +446,7 @@ func (service *Service) prepareDOSFiles(
 			)
 			return dispositions, nil, nil
 		}
+		rankDOSEntries(programs)
 		dispositions = append(dispositions, preparedDisposition{file: file, disposition: "SOURCE"})
 		return dispositions, []preparedGroup{
 				{
@@ -437,6 +484,7 @@ func (service *Service) prepareDOSFiles(
 		}
 		return dispositions, nil, nil
 	}
+	rankDOSEntries(programs)
 	bundle, err := service.bundleDOSDirectory(candidates)
 	if err != nil {
 		for index := range dispositions {

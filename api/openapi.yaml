@@ -447,6 +447,12 @@ paths:
       parameters: [{ $ref: '#/components/parameters/Section' }, { $ref: '#/components/parameters/Change' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
+    post:
+      operationId: postAdminArcadeDATDiff
+      description: Queue or restart asynchronous materialization of the diff against the currently active DAT.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/arcade-dats/{datVersionId}/activate:
     parameters: [{ $ref: '#/components/parameters/DATVersionID' }]
     post:
@@ -513,6 +519,11 @@ paths:
         in: path
         required: true
         schema: { type: string }
+      - name: v
+        in: query
+        required: false
+        description: EmulatorJS cache-buster; ignored for allowlist and file selection.
+        schema: { type: string, maxLength: 128 }
     get:
       operationId: getRuntimeEmulatorJS
       responses:
@@ -527,12 +538,6 @@ paths:
       operationId: getRuntimeLaunchConfig
       responses:
         '200': { $ref: '#/components/responses/LaunchConfigResponse' }
-  /runtime/launches/{launchId}/dos-config/game.conf:
-    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
-    get:
-      operationId: getRuntimeDOSConfig
-      responses:
-        '200': { $ref: '#/components/responses/DOSConfigResponse' }
   /runtime/launches/{launchId}/start:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     post:
@@ -1113,6 +1118,10 @@ components:
         discarded: {}
         disk: {}
         diskEntryCount: {}
+        diffErrorCode: {}
+        diffJobId: {}
+        diffStatus: {}
+        diffVersion: {}
         dosEntry: {}
         dosEntries: {}
         duplicateGames: {}
@@ -1436,11 +1445,6 @@ components:
       content:
         application/octet-stream:
           schema: { type: string, format: binary }
-    DOSConfigResponse:
-      description: Ephemeral DOSBox Pure entry configuration
-      content:
-        text/plain:
-          schema: { type: string }
   parameters:
     Q: { name: q, in: query, schema: { type: string, maxLength: 200 } }
     PlatformIDQuery: { name: platformId, in: query, schema: { type: string } }
@@ -1485,5 +1489,5 @@ components:
     DATVersionID: { name: datVersionId, in: path, required: true, schema: { type: string, format: uuid } }
     AssetID: { name: assetId, in: path, required: true, schema: { type: string, format: uuid } }
     LaunchID: { name: launchId, in: path, required: true, schema: { type: string, format: uuid } }
-    ConfiguredVersion: { name: configuredVersion, in: path, required: true, schema: { type: string, pattern: '^[0-9]+\.[0-9]+\.[0-9]+$' } }
+    ConfiguredVersion: { name: configuredVersion, in: path, required: true, schema: { type: string, pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$' } }
     LogicalName: { name: logicalName, in: path, required: true, schema: { type: string } }

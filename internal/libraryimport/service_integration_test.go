@@ -841,6 +841,7 @@ func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testi
 		path     string
 		contents []byte
 	}{
+		{"GAME/INSTALL.BAT", []byte("install")},
 		{"GAME/DOOM.EXE", []byte("exe")},
 		{"GAME/DATA.WAD", []byte("wad")},
 		{"BAD%NAME.BAT", []byte("bat")},
@@ -863,12 +864,13 @@ func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testi
 	}
 	service := (&Service{}).WithBlobStore(blobs)
 	dispositions, groups, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", files)
-	if len(dispositions) != 3 || len(groups) != 1 || len(groups[0].sources) != 3 || len(groups[0].dosEntries) != 2 ||
+	if len(dispositions) != 4 || len(groups) != 1 || len(groups[0].sources) != 4 || len(groups[0].dosEntries) != 3 ||
 		groups[0].defaultDOSEntry != "GAME/DOOM.EXE" ||
 		groups[0].bundle == nil {
 		t.Fatalf("DOS grouping = dispositions:%d groups:%#v", len(dispositions), groups)
 	}
-	if !groups[0].dosEntries[0].safe || groups[0].dosEntries[1].safe {
+	if !groups[0].dosEntries[0].safe || groups[0].dosEntries[1].safe ||
+		groups[0].dosEntries[2].path != "GAME/INSTALL.BAT" || groups[0].dosEntries[2].rank != 2 {
 		t.Fatalf("DOS direct safety = %#v", groups[0].dosEntries)
 	}
 	_, repeated, _ := service.prepareDOSFiles(context.Background(), "DIRECTORY", files)

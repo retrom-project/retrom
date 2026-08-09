@@ -108,7 +108,7 @@ EmulatorJS 4.2.3 发布包中的官方 `mame2003` bundle `2.0.2` 在本次 Chrom
 
 ## 7. DOS 与跨源隔离
 
-`dosbox_pure` 使用 `dosbox_pure-thread-wasm.data`。验证服务器返回：
+`dosbox_pure` 是当前唯一使用 EmulatorJS `4.3.0-pre` 定向运行时覆盖的核心，artifact 为 `dosbox_pure-thread-wasm.data`；其他核心继续使用 4.2.3 或其已记录覆盖。验证服务器返回：
 
 ~~~http
 Cross-Origin-Opener-Policy: same-origin
@@ -116,7 +116,7 @@ Cross-Origin-Embedder-Policy: require-corp
 Cross-Origin-Resource-Policy: same-origin
 ~~~
 
-测试同时断言 `window.crossOriginIsolated === true`。该 DOOM II bundle 保持原 ZIP，smoke 通过 `EJS_externalFiles` 成功请求旁置 `game.conf`，以 `dosbox_pure_conf=outside` 自动启动并进入标题画面。运行后出现一个非阻断 `ErrnoError`，但 frame counter 持续增长且标题序列继续播放；结果中保留该诊断，不将其隐藏。
+测试同时断言 `window.crossOriginIsolated === true`。smoke 从未跟踪的原 DOOM II ZIP 确定性生成带根级 `AUTOBOOT.DBP` 的临时派生包；adapter 在 `EJS_ready` 安装 whole-archive 模式后自动点击运行时 start button，帧持续推进且画面通过非空/非均匀检查。生产链路不物化该派生包，而由受限内容端点以 seekable 虚拟 ZIP 等价返回。用户本地 DOS corpus 另执行结构矩阵，覆盖安装器优先、数据首项、嵌套资源和高压缩比空白存档。
 
 ## 8. PSP ISO/CSO 与线程产物
 

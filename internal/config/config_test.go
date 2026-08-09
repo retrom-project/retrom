@@ -37,12 +37,14 @@ func TestParseVersionsRequiresStrictSortedSemver(t *testing.T) {
 		value   string
 		wantErr bool
 	}{
-		{name: "valid", value: "4.2.3,5.0.0"},
+		{name: "valid", value: "4.2.3,4.3.0-pre,5.0.0"},
+		{name: "valid prerelease order", value: "4.3.0-pre.2,4.3.0-pre.10,4.3.0"},
 		{name: "empty", value: "", wantErr: true},
 		{name: "duplicate", value: "4.2.3,4.2.3", wantErr: true},
 		{name: "unsorted", value: "5.0.0,4.2.3", wantErr: true},
 		{name: "whitespace", value: "4.2.3, 5.0.0", wantErr: true},
 		{name: "leading zero", value: "04.2.3", wantErr: true},
+		{name: "prerelease leading zero", value: "4.3.0-pre.01", wantErr: true},
 	}
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {

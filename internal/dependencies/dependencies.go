@@ -138,11 +138,12 @@ type Version struct {
 
 type Set struct {
 	Versions map[string]*Version
+	Order    []string
 	Active   *Version
 }
 
 func Load(root string, versions []string, active string) (*Set, error) {
-	result := &Set{Versions: make(map[string]*Version, len(versions))}
+	result := &Set{Versions: make(map[string]*Version, len(versions)), Order: append([]string(nil), versions...)}
 	for _, versionName := range versions {
 		version, err := loadVersion(root, versionName)
 		if err != nil {
@@ -391,7 +392,14 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 		return fmt.Errorf("begin dependency bootstrap: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	for versionName, version := range set.Versions {
+	preferredVersions := make(map[string]string)
+	for _, versionName := range set.Order {
+		for _, core := range set.Versions[versionName].Manifest.EmulatorJS.SelectedCores {
+			preferredVersions[core.CoreID] = versionName
+		}
+	}
+	for _, versionName := range set.Order {
+		version := set.Versions[versionName]
 		licenseComponents := make(map[string]struct {
 			Repository, SourceCommit, Association string
 		}, len(version.Manifest.Licenses.Components))
@@ -400,13 +408,15 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 				Repository, SourceCommit, Association string
 			}{component.Repository, component.SourceCommit, component.BinaryAssociationStatus}
 		}
+		selectedCoreIDs := make(map[string]struct{}, len(version.Manifest.EmulatorJS.SelectedCores))
 		for index, core := range version.Manifest.EmulatorJS.SelectedCores {
+			selectedCoreIDs[core.CoreID] = struct{}{}
 			if err := bootstrapCore(
 				ctx,
 				transaction,
 				versionName,
 				version,
-				version == set.Active,
+				preferredVersions[core.CoreID] == versionName,
 				index,
 				core,
 				licenseComponents[core.SourceComponentID],
@@ -415,7 +425,7 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 				return err
 			}
 		}
-		if err := bootstrapStaticBIOS(ctx, transaction, versionName, now); err != nil {
+		if err := bootstrapStaticBIOS(ctx, transaction, versionName, selectedCoreIDs, now); err != nil {
 			return err
 		}
 		for _, core := range version.Manifest.Cores {
@@ -437,7 +447,7 @@ func (set *Set) Bootstrap(ctx context.Context, database *sql.DB, now time.Time) 
 				core.ParseStats.ExplicitBIOSMachineCount,
 				core.ParseStats.BaseDependencyTargetCount,
 				core.ParseStats.UnresolvedCloneofCount+core.ParseStats.UnresolvedRomofCount,
-				version == set.Active,
+				preferredVersions[core.CoreID] == versionName,
 				now,
 			); err != nil {
 				return err
@@ -1263,11 +1273,20 @@ var staticBIOSCatalog = []staticBIOS{
 }
 
 //nolint:funlen // Static BIOS definitions are synchronized atomically with their aliases and version provenance.
-func bootstrapStaticBIOS(ctx context.Context, transaction *sql.Tx, versionName string, now time.Time) error {
+func bootstrapStaticBIOS(
+	ctx context.Context,
+	transaction *sql.Tx,
+	versionName string,
+	selectedCoreIDs map[string]struct{},
+	now time.Time,
+) error {
 	if err := validateBIOSActivationOptions(staticBIOSCatalog); err != nil {
 		return err
 	}
 	for _, requirement := range staticBIOSCatalog {
+		if _, selected := selectedCoreIDs[requirement.coreID]; !selected {
+			continue
+		}
 		delivery := requirement.delivery
 		if delivery == "" {
 			delivery = "BIOS_BUNDLE"

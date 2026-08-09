@@ -166,8 +166,8 @@ FBNeo 与 MAME2003-Plus source commit 按 EmulatorJS v4.2.3 官方 build report 
 3. 内置 DAT 只有 EmulatorJS version 和实际 Core artifact SHA-256 都匹配 manifest 时才可自动激活。
 4. 用户上传时必须选择目标 Core；流式保存为非活动候选并计算 SHA-256。
 5. 使用第 7.1 节的 streaming XML parser；用户 DAT 默认上限 64 MiB、500,000 元素、单字段 4 KiB，超限失败。
-6. 解析候选、物化 machine/entry/依赖并计算相对活动版本的 diff。
-7. 用户显式启用前，diff 端点以请求当时 active DAT 为 base，根据候选 DAT 计算 DAT_MACHINE requirement upsert/disable、影响游戏和 installation 重验证结果，生成 impact digest。BIOS/parent archive 在上传验证时已安全扫描为 ArchiveEntry，因而 preview 和 commit 只比较索引的 entry hash/size，不重读大 Blob。启用请求在事务前重算同一 canonical impact，短事务内再校验所有 version/pointer 与 digest，同时切换 DatVersion、应用 requirement/version/installation 状态结果、写审计并为受影响的稳定 GameVariant 投递可观察 revalidation job。不回写不可变 VariantRevision，也不引入未定义的临时状态。
+6. 候选解析成功后自动排队异步差异物化；页面显示排队/运行状态并禁用查看和启用，不让 HTTP GET 承担全量 DAT 扫描。后台以当时 active DAT 为 base，物化 machine/entry/依赖差异、影响摘要和 digest；失败或失效可直接重新生成，无需再次上传 DAT。
+7. 用户显式启用前，diff GET 只分页读取 READY 物化结果。BIOS/parent archive 在上传验证时已安全扫描为 ArchiveEntry，因而 preview 和 commit 只比较索引的 entry hash/size，不重读大 Blob。启用请求校验同一 canonical input/impact、CoreArtifact version 与活动指针，短事务内切换 DatVersion、应用 requirement/version/installation 状态结果、写审计并为受影响的稳定 GameVariant 投递可观察 revalidation job。不回写不可变 VariantRevision，也不引入未定义的临时状态。任一启用或回滚会使同 CoreArtifact 其他候选/历史版本的已物化差异全部失效并删除明细；其页面恢复为“重新生成差异”。
 8. 重校验完成前旧 current VariantRevision 与旧 DAT/依赖快照仍可启动；成功校验才创建新 VariantRevision 并原子切换 current，失败则旧 current 不变并显示 job blocker。
 9. 支持回滚到内置版本或之前成功解析的用户版本。
 

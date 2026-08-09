@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1.7
 FROM python:3.13-alpine AS dependencies
-ARG RETROM_DEPENDENCY_VERSIONS=4.2.3
+ARG RETROM_DEPENDENCY_VERSIONS=4.2.3,4.3.0-pre
 WORKDIR /work
 RUN apk add --no-cache p7zip xz
 COPY scripts/dependencies.py scripts/dependencies.py
@@ -35,7 +35,7 @@ ENV RETROM_HTTP_ADDR=0.0.0.0:8080 \
     RETROM_PUBLIC_ORIGIN=https://retrom.invalid \
     RETROM_DATA_DIR=/var/lib/retrom \
     RETROM_DEPENDENCY_ROOT=/opt/retrom/dependencies \
-    RETROM_DEPENDENCY_VERSIONS=4.2.3 \
+    RETROM_DEPENDENCY_VERSIONS=4.2.3,4.3.0-pre \
     RETROM_ACTIVE_EMULATORJS_VERSION=4.2.3
 EXPOSE 8080
 ENTRYPOINT ["/usr/local/bin/retrom"]
