@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { EmulatorSettingsPanel } from "./emulator-settings";
 
 type SyncTone = "synced" | "busy" | "warning";
+type ExitSaveState = "idle" | "saving" | "saved" | "error";
 
 export function PlayerChrome({
   controlsVisible,
@@ -53,7 +54,7 @@ export function PlayerChrome({
   emulatorMuted: boolean;
   onHoldControls: () => void;
   onReleaseControls: () => void;
-  onSave: () => void;
+  onSave: () => Promise<boolean>;
   onPauseForToolbarInteraction: () => void;
   onToggleFullscreen: () => void;
   onOpenEmulatorSettings: () => void;
@@ -66,12 +67,14 @@ export function PlayerChrome({
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
+  const [exitSaveState, setExitSaveState] = useState<ExitSaveState>("idle");
   const [conflictDismissed, setConflictDismissed] = useState(false);
   const [localToast, setLocalToast] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const toolbarRef = useRef<HTMLElement>(null);
   const toolbarHovered = useRef(false);
   const toolbarFocused = useRef(false);
+  const exitSavePending = useRef(false);
 
   useEffect(() => {
     if (!menuOpen) return;
@@ -107,8 +110,30 @@ export function PlayerChrome({
 
   function requestExit() {
     setMenuOpen(false);
+    exitSavePending.current = false;
+    setExitSaveState("idle");
     setExitOpen(true);
   }
+
+  async function createExitSave() {
+    if (!running || exitSavePending.current || exitSaveState === "saved") return;
+    exitSavePending.current = true;
+    onPauseForToolbarInteraction();
+    setExitSaveState("saving");
+    const saved = await onSave().catch(() => false);
+    exitSavePending.current = false;
+    setExitSaveState(saved ? "saved" : "error");
+  }
+
+  const exitDescription = exitSaveState === "saving"
+    ? "正在创建退出前存档…"
+    : exitSaveState === "saved"
+      ? "退出前存档已创建，可以安全退出。"
+      : exitSaveState === "error"
+        ? "创建存档失败，未生成不完整记录。可以重试或取消后继续游戏。"
+        : hasPersistentConflict
+          ? "检测到尚未同步的本地进度。"
+          : "游戏进度已同步，可以安全退出。";
 
   return <>
     <header
@@ -138,7 +163,7 @@ export function PlayerChrome({
         {warnings.length ? <button className="player-warning-dot" type="button" aria-label="查看运行提醒" title="查看运行提醒" onClick={() => setLocalToast(warningCopy)} /> : null}
       </div>
       <div className="player-actions">
-        <button className="player-control player-save-button" type="button" disabled={!running} onClick={onSave}><AppIcon name="save" />创建存档</button>
+        <button className="player-control player-save-button" type="button" disabled={!running} onClick={() => void onSave()}><AppIcon name="save" />创建存档</button>
         <button className="player-control is-icon" type="button" aria-label={paused ? "已暂停，点击游戏画面继续" : "暂停"} title={paused ? "点击游戏画面继续" : "暂停"} aria-pressed={paused} disabled={!running}><AppIcon name="pause" /></button>
         <button className="player-control is-icon" type="button" aria-label={fullscreen ? "退出全屏" : "全屏"} title={fullscreen ? "退出全屏" : "全屏"} onClick={onToggleFullscreen}><AppIcon name={fullscreen ? "minimize" : "maximize"} /></button>
         <div className="player-menu-wrap" ref={menuRef}>
@@ -206,10 +231,15 @@ export function PlayerChrome({
     <ConfirmDialog
       open={exitOpen}
       title="退出游戏？"
-      description={hasPersistentConflict ? "检测到尚未同步的本地进度。" : "游戏进度已同步，可以安全退出。"}
+      description={exitDescription}
+      leadingLabel={exitSaveState === "saved" ? "已创建存档" : exitSaveState === "error" ? "重试创建存档" : "创建存档"}
+      leadingBusy={exitSaveState === "saving"}
+      leadingBusyLabel="正在创建…"
+      leadingDisabled={!running || exitSaveState === "saved"}
       confirmLabel="退出游戏"
       secondaryLabel={hasPersistentConflict ? "下载本地存档并退出" : undefined}
       tone="danger"
+      onLeading={() => void createExitSave()}
       onCancel={() => setExitOpen(false)}
       onSecondary={hasPersistentConflict ? () => { onDownloadConflict(); setExitOpen(false); onExit(); } : undefined}
       onConfirm={() => { setExitOpen(false); onExit(); }}

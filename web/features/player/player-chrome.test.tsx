@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PlayerChrome } from "./player-chrome";
@@ -24,7 +24,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     emulatorMuted: false,
     onHoldControls: vi.fn(),
     onReleaseControls: vi.fn(),
-    onSave: vi.fn(),
+    onSave: vi.fn().mockResolvedValue(true),
     onPauseForToolbarInteraction: vi.fn(),
     onToggleFullscreen: vi.fn(),
     onOpenEmulatorSettings: vi.fn(),
@@ -62,7 +62,7 @@ describe("PlayerChrome", () => {
   it("keeps the toolbar paused until the user returns to the game surface", async () => {
     const user = userEvent.setup();
     const calls: string[] = [];
-    const values = props({ paused: true, onPauseForToolbarInteraction: vi.fn(() => calls.push("pause")), onSave: vi.fn(() => calls.push("save")) });
+    const values = props({ paused: true, onPauseForToolbarInteraction: vi.fn(() => { calls.push("pause"); }), onSave: vi.fn(async () => { calls.push("save"); return true; }) });
     render(<PlayerChrome {...values} />);
 
     expect(screen.getByText("已暂停")).toBeVisible();
@@ -109,6 +109,50 @@ describe("PlayerChrome", () => {
     await user.click(screen.getByRole("button", { name: "下载本地存档并退出" }));
     expect(values.onDownloadConflict).toHaveBeenCalledTimes(2);
     expect(values.onExit).toHaveBeenCalledOnce();
+  });
+
+  it("creates a save from the leftmost exit action and keeps the decision open", async () => {
+    const user = userEvent.setup();
+    let resolveSave: (saved: boolean) => void = () => undefined;
+    const values = props({ onSave: vi.fn(() => new Promise<boolean>((resolve) => { resolveSave = resolve; })) });
+    render(<PlayerChrome {...values} />);
+
+    await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
+    const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
+    expect(within(dialog).getAllByRole("button").map((button) => button.textContent)).toEqual(["创建存档", "取消", "退出游戏"]);
+
+    vi.mocked(values.onPauseForToolbarInteraction).mockClear();
+    await user.click(within(dialog).getByRole("button", { name: "创建存档" }));
+    expect(values.onPauseForToolbarInteraction).toHaveBeenCalledOnce();
+    expect(values.onSave).toHaveBeenCalledOnce();
+    expect(within(dialog).getByRole("button", { name: "正在创建…" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "取消" })).toBeDisabled();
+    expect(within(dialog).getByRole("button", { name: "退出游戏" })).toBeDisabled();
+    await user.keyboard("{Escape}");
+    expect(dialog).toBeVisible();
+
+    await act(async () => { resolveSave(true); });
+    expect(await within(dialog).findByRole("button", { name: "已创建存档" })).toBeDisabled();
+    expect(within(dialog).getByText("退出前存档已创建，可以安全退出。")).toBeVisible();
+    expect(values.onExit).not.toHaveBeenCalled();
+
+    await user.click(within(dialog).getByRole("button", { name: "退出游戏" }));
+    expect(values.onExit).toHaveBeenCalledOnce();
+  });
+
+  it("keeps the exit dialog actionable when creating a save fails", async () => {
+    const user = userEvent.setup();
+    const values = props({ onSave: vi.fn().mockResolvedValue(false) });
+    render(<PlayerChrome {...values} />);
+
+    await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
+    const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
+    await user.click(within(dialog).getByRole("button", { name: "创建存档" }));
+
+    expect(await within(dialog).findByRole("button", { name: "重试创建存档" })).toBeEnabled();
+    expect(within(dialog).getByText("创建存档失败，未生成不完整记录。可以重试或取消后继续游戏。")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "取消" })).toBeEnabled();
+    expect(values.onExit).not.toHaveBeenCalled();
   });
 
   it("closes the more menu with Escape without treating it as game exit", async () => {

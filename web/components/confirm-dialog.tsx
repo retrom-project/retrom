@@ -11,13 +11,18 @@ export function ConfirmDialog({
   children,
   confirmLabel = "确认",
   cancelLabel = "取消",
+  leadingLabel,
+  leadingBusyLabel = "处理中…",
   secondaryLabel,
   tone = "default",
   busy = false,
+  leadingBusy = false,
+  leadingDisabled = false,
   wide = false,
   hideCancel = false,
   onConfirm,
   onCancel,
+  onLeading,
   onSecondary,
 }: {
   open: boolean;
@@ -26,19 +31,25 @@ export function ConfirmDialog({
   children?: ReactNode;
   confirmLabel?: string;
   cancelLabel?: string;
+  leadingLabel?: string;
+  leadingBusyLabel?: string;
   secondaryLabel?: string;
   tone?: DialogTone;
   busy?: boolean;
+  leadingBusy?: boolean;
+  leadingDisabled?: boolean;
   wide?: boolean;
   hideCancel?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
+  onLeading?: () => void;
   onSecondary?: () => void;
 }) {
   const titleId = useId();
   const descriptionId = useId();
   const cancelRef = useRef<HTMLButtonElement>(null);
   const dialogRef = useRef<HTMLElement>(null);
+  const locked = busy || leadingBusy;
 
   useEffect(() => {
     if (!open) return;
@@ -53,7 +64,7 @@ export function ConfirmDialog({
     <div
       className="dialog-backdrop"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget && !busy) onCancel();
+        if (event.target === event.currentTarget && !locked) onCancel();
       }}
     >
       <section
@@ -64,7 +75,7 @@ export function ConfirmDialog({
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}
         onKeyDown={(event) => {
-          if (event.key === "Escape" && !busy) onCancel();
+          if (event.key === "Escape" && !locked) onCancel();
           if (event.key === "Tab") {
             const focusable = Array.from(dialogRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled), a[href], input:not(:disabled), select:not(:disabled), textarea:not(:disabled), [tabindex]:not([tabindex='-1'])") ?? []);
             if (!focusable.length) return;
@@ -84,9 +95,10 @@ export function ConfirmDialog({
         </div>
         {children ? <div className="dialog-impact">{children}</div> : null}
         <div className="dialog-actions">
-          {hideCancel ? null : <button ref={cancelRef} className="button secondary" type="button" disabled={busy} onClick={onCancel}>{cancelLabel}</button>}
-          {secondaryLabel && onSecondary ? <button className="button secondary" type="button" disabled={busy} onClick={onSecondary}>{secondaryLabel}</button> : null}
-          <button className={`button${tone === "danger" ? " danger" : ""}`} type="button" disabled={busy} onClick={onConfirm}>{busy ? "处理中…" : confirmLabel}</button>
+          {leadingLabel && onLeading ? <button className="button secondary dialog-leading-action" type="button" disabled={locked || leadingDisabled} onClick={onLeading}>{leadingBusy ? leadingBusyLabel : leadingLabel}</button> : null}
+          {hideCancel ? null : <button ref={cancelRef} className="button secondary" type="button" disabled={locked} onClick={onCancel}>{cancelLabel}</button>}
+          {secondaryLabel && onSecondary ? <button className="button secondary" type="button" disabled={locked} onClick={onSecondary}>{secondaryLabel}</button> : null}
+          <button className={`button${tone === "danger" ? " danger" : ""}`} type="button" disabled={locked} onClick={onConfirm}>{busy ? "处理中…" : confirmLabel}</button>
         </div>
       </section>
     </div>

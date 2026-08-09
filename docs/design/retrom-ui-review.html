@@ -1239,6 +1239,7 @@
     #retrom-ui-review .rt-player-exit-dialog { color: #f3f5f8; border-color: #343d4f; background: #151c28; }
     #retrom-ui-review .rt-player-exit-dialog .rt-dialog-copy { color: #aeb7c7; }
     #retrom-ui-review .rt-player-exit-dialog .rt-dialog-impact { color: #e8c8cc; border-color: #5b4147; background: #231f22; }
+    #retrom-ui-review .rt-player-exit-dialog .rt-player-exit-save { margin-right: auto; }
 
     @media (min-width: 1600px) {
       #retrom-ui-review { font-size: 15px; }
@@ -1931,7 +1932,7 @@
     &lt;/main&gt;
   &lt;/div&gt;
 
-  &lt;div class=&quot;rt-dialog-backdrop rt-player-exit-backdrop&quot; data-player-exit-dialog hidden&gt;&lt;section class=&quot;rt-dialog rt-player-exit-dialog&quot; role=&quot;alertdialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-player-exit-title&quot;&gt;&lt;div class=&quot;rt-dialog-head&quot;&gt;&lt;span class=&quot;rt-dialog-mark&quot; aria-hidden=&quot;true&quot;&gt;!&lt;/span&gt;&lt;div&gt;&lt;h2 id=&quot;rt-player-exit-title&quot;&gt;退出游戏？&lt;/h2&gt;&lt;p class=&quot;rt-dialog-copy&quot;&gt;游戏进度已同步，可以安全退出。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-dialog-impact&quot;&gt;退出时会刷新持久进度、结束本次游玩记录，并返回启动游戏前的页面。&lt;/div&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-cancel-player-exit&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-danger&quot; data-confirm-player-exit&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
+  &lt;div class=&quot;rt-dialog-backdrop rt-player-exit-backdrop&quot; data-player-exit-dialog hidden&gt;&lt;section class=&quot;rt-dialog rt-player-exit-dialog&quot; role=&quot;alertdialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-player-exit-title&quot;&gt;&lt;div class=&quot;rt-dialog-head&quot;&gt;&lt;span class=&quot;rt-dialog-mark&quot; aria-hidden=&quot;true&quot;&gt;!&lt;/span&gt;&lt;div&gt;&lt;h2 id=&quot;rt-player-exit-title&quot;&gt;退出游戏？&lt;/h2&gt;&lt;p class=&quot;rt-dialog-copy&quot; data-player-exit-copy&gt;游戏进度已同步，可以安全退出。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-dialog-impact&quot;&gt;退出时会刷新持久进度、结束本次游玩记录，并返回启动游戏前的页面。&lt;/div&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-player-exit-save&quot; data-save-before-player-exit&gt;&lt;i data-lucide=&quot;save&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;创建存档&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-cancel-player-exit&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-danger&quot; data-confirm-player-exit&gt;退出游戏&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
 
   &lt;div class=&quot;rt-dialog-backdrop&quot; data-bios-entries hidden&gt;&lt;section class=&quot;rt-dialog rt-bios-entry-dialog&quot; role=&quot;alertdialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-bios-entry-title&quot;&gt;&lt;div class=&quot;rt-panel-heading&quot;&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;DAT 条目对比&lt;/span&gt;&lt;h2 id=&quot;rt-bios-entry-title&quot; style=&quot;margin-top:7px&quot;&gt;stvbios.zip 内容对比&lt;/h2&gt;&lt;p class=&quot;rt-dialog-copy&quot;&gt;左侧为当前 DAT 要求列表，右侧为已安装 ZIP 内容列表；行背景表示状态，悬停可查看说明。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-bios-entries aria-label=&quot;关闭&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-bios-entry-columns&quot;&gt;&lt;section class=&quot;rt-bios-entry-column&quot;&gt;&lt;header&gt;&lt;strong&gt;DAT 要求&lt;/strong&gt;&lt;span&gt;1 项&lt;/span&gt;&lt;/header&gt;&lt;ul class=&quot;rt-bios-entry-field-head&quot;&gt;&lt;li&gt;name&lt;/li&gt;&lt;li&gt;size&lt;/li&gt;&lt;li&gt;crc&lt;/li&gt;&lt;/ul&gt;&lt;ul class=&quot;rt-bios-entry-list&quot;&gt;&lt;li class=&quot;rt-bios-entry-card is-aliased&quot; title=&quot;内容匹配 · 文件名不同&quot;&gt;&lt;ul class=&quot;rt-bios-entry-facts&quot;&gt;&lt;li&gt;&lt;code&gt;epr19730.ic8&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;strong&gt;524,288 bytes&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;d0e0889d&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/section&gt;&lt;section class=&quot;rt-bios-entry-column&quot;&gt;&lt;header&gt;&lt;strong&gt;当前 ZIP 内容&lt;/strong&gt;&lt;span&gt;2 项&lt;/span&gt;&lt;/header&gt;&lt;ul class=&quot;rt-bios-entry-field-head&quot;&gt;&lt;li&gt;name&lt;/li&gt;&lt;li&gt;size&lt;/li&gt;&lt;li&gt;crc&lt;/li&gt;&lt;/ul&gt;&lt;ul class=&quot;rt-bios-entry-list&quot;&gt;&lt;li class=&quot;rt-bios-entry-card is-aliased&quot; title=&quot;内容匹配 · 文件名不同&quot;&gt;&lt;ul class=&quot;rt-bios-entry-facts&quot;&gt;&lt;li&gt;&lt;code&gt;epr-19730.ic8&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;strong&gt;524,288 bytes&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;d0e0889d&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;li class=&quot;rt-bios-entry-card is-extra&quot; title=&quot;ZIP 内额外文件&quot;&gt;&lt;ul class=&quot;rt-bios-entry-facts&quot;&gt;&lt;li&gt;&lt;code&gt;epr-17740.ic8&lt;/code&gt;&lt;/li&gt;&lt;li&gt;&lt;strong&gt;524,288 bytes&lt;/strong&gt;&lt;/li&gt;&lt;li&gt;&lt;code&gt;5c5aa63d&lt;/code&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/li&gt;&lt;/ul&gt;&lt;/section&gt;&lt;/div&gt;&lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-close-bios-entries&gt;关闭&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;&lt;/div&gt;
 
@@ -2259,8 +2260,19 @@
       const playerExitDialog = root.querySelector('[data-player-exit-dialog]');
       root.querySelectorAll('[data-player-exit]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
         root.querySelector('#rt-player-menu').classList.remove('is-open');
+        const saveButton = root.querySelector('[data-save-before-player-exit]');
+        saveButton.disabled = false;
+        saveButton.innerHTML = '&lt;i data-lucide=&quot;save&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;创建存档';
+        root.querySelector('[data-player-exit-copy]').textContent = '游戏进度已同步，可以安全退出。';
+        if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
         playerExitDialog.hidden = false;
       }));
+      root.querySelector('[data-save-before-player-exit]').addEventListener('click', (event) =&gt; {
+        event.currentTarget.disabled = true;
+        event.currentTarget.innerHTML = '&lt;i data-lucide=&quot;check&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;已创建存档';
+        root.querySelector('[data-player-exit-copy]').textContent = '退出前存档已创建，可以安全退出。';
+        if (window.lucide) window.lucide.createIcons({ attrs: { width: 16, height: 16 } });
+      });
       root.querySelector('[data-cancel-player-exit]').addEventListener('click', () =&gt; { playerExitDialog.hidden = true; });
       root.querySelector('[data-confirm-player-exit]').addEventListener('click', () =&gt; {
         playerExitDialog.hidden = true;
