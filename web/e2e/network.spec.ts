@@ -39,7 +39,7 @@ test("same-origin proxy applies fresh nonce and isolation headers", async ({ pag
   }
 
   for (const path of [
-    "/api/v1/home",
+    "/api/v1/auth/context",
     "/runtime/emulatorjs/4.2.3/data/loader.js",
   ]) {
     const response = await request.get(path);

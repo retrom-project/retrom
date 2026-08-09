@@ -266,7 +266,7 @@ if [[ "$mode" == "--stop" ]]; then
 fi
 
 process_start_ticks="$(read_start_ticks "$$")"
-setsid go run ./cmd/retrom --mode="$auth_mode" &
+setsid env -u RETROM_MODE go run ./cmd/retrom --mode="$auth_mode" &
 backend_pid=$!
 setsid bash -c 'cd "$1" && exec npm exec -- next dev --hostname "$2" --port "$3"' \
   retrom-dev-web "$repository_root/web" "${NEXT_DEV_HOST:-0.0.0.0}" "${NEXT_DEV_PORT:-3000}" &
