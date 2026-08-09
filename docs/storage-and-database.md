@@ -13,7 +13,7 @@
 
 关联文档：
 
-- [平台目录领域设计](./platform-instance.md)
+- [游戏目录领域设计](./platform-instance.md)
 - [导入、刮削与审核](./import-and-review.md)
 - [EmulatorJS 运行时、快速启动与游玩数据](./runtime-and-play-data.md)
 - [BIOS 与 Arcade DAT](./bios-and-arcade.md)
@@ -126,11 +126,11 @@ PRAGMA busy_timeout = 5000;
 | `cores` | EmulatorJS/Core 配置 |
 | `core_artifacts` | 可执行 core artifact、实际版本/hash 和兼容配置 |
 | `platform_cores` | 平台与核心多对多关联 |
-| `platform_instances` | 用户维护的平台目录及默认核心 |
+| `platform_instances` | 用户维护的游戏目录及默认核心 |
 | `bios_requirements` | 固件要求 |
 | `bios_installations` | 已上传 BIOS |
 
-PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [平台目录领域设计](./platform-instance.md)。
+PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏目录领域设计](./platform-instance.md)。
 
 ### 4.2 文件、游戏与媒体
 
@@ -172,7 +172,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [平台�
 
 | 表 | 用途 |
 | --- | --- |
-| `import_jobs` | 一次导入任务及目标平台目录快照 |
+| `import_jobs` | 一次导入任务及目标游戏目录快照 |
 | `import_job_files` | UploadSession 每个文件的 SOURCE/IGNORED/REJECTED 分类与原因 |
 | `import_items` | 单个游戏候选 |
 | `import_item_source_files` | 候选的 CONTENT/DOS_SOURCE/COMPANION 发布前文件映射 |

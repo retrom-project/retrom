@@ -248,7 +248,7 @@ Idempotency-Key: <uuid>
 }
 ```
 
-`coreId` 可省略以使用平台目录默认核心；有 `saveStateId` 时服务端忽略默认核心并要求显式值（若给出）与存档一致。`returnTo` 只接受无 query、无 fragment、无 percent-encoding 的精确路径 `/`、`/library`、`/saves` 或 `/games/{gameId}`，且最后一种的 ID 必须等于 body 的 `gameId`；不接受 origin、反斜杠、协议相对或任意 URL。`clientCapabilities` 三个布尔字段必需，由点击时的 Chrome 环境读取；它们不是授权证据，但用于在签发 credential 前给 thread core 产生可理解 Blocker。Player 在加载 loader 前必须再次读取真实环境，任一值变差则终止为 `LAUNCH_THREADS_UNAVAILABLE`，不能只信请求快照。
+`coreId` 可省略以使用游戏目录默认核心；有 `saveStateId` 时服务端忽略默认核心并要求显式值（若给出）与存档一致。`returnTo` 只接受无 query、无 fragment、无 percent-encoding 的精确路径 `/`、`/library`、`/saves` 或 `/games/{gameId}`，且最后一种的 ID 必须等于 body 的 `gameId`；不接受 origin、反斜杠、协议相对或任意 URL。`clientCapabilities` 三个布尔字段必需，由点击时的 Chrome 环境读取；它们不是授权证据，但用于在签发 credential 前给 thread core 产生可理解 Blocker。Player 在加载 loader 前必须再次读取真实环境，任一值变差则终止为 `LAUNCH_THREADS_UNAVAILABLE`，不能只信请求快照。
 
 若所选 core 对 Game current ContentRevision 没有同 `validationInputDigest` 的完成结果，本端点在短事务创建/复用 `VARIANT_REVALIDATE` Job 并返回 `202`；此时不创建 LaunchSession、不设 cookie：
 
@@ -366,7 +366,7 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `putRuntimePersist
 
 ### 9.1 管理写入的最小请求契约
 
-以下字段名与语义是 OpenAPI 实施基线。未列字段一律未知字段拒绝；PATCH 中“未出现”表示保持不变，显式 `null` 只允许清空表中标为可空的字段。字符串先验证 UTF-8，再按字段执行 trim：游戏 title/平台目录 name/`confirmTitle` 为 1–200 Unicode code points，SaveState name 为 1–120，developer/publisher/genre 为 0–200，description 为 0–10,000，reason 为 1–500。平台目录 slug 不接受客户端输入，由服务端生成 1–80 ASCII chars 的领域合法值。年份为 `1950..当前 UTC 年+1`，players 为 `1..64`。所有引用 ID 必须存在、类型正确且处于该操作允许状态。
+以下字段名与语义是 OpenAPI 实施基线。未列字段一律未知字段拒绝；PATCH 中“未出现”表示保持不变，显式 `null` 只允许清空表中标为可空的字段。字符串先验证 UTF-8，再按字段执行 trim：游戏 title/游戏目录 name/`confirmTitle` 为 1–200 Unicode code points，SaveState name 为 1–120，developer/publisher/genre 为 0–200，description 为 0–10,000，reason 为 1–500。游戏目录 slug 不接受客户端输入，由服务端生成 1–80 ASCII chars 的领域合法值。年份为 `1950..当前 UTC 年+1`，players 为 `1..64`。所有引用 ID 必须存在、类型正确且处于该操作允许状态。
 
 | 操作 | JSON body / 必需 header | 成功语义 |
 | --- | --- | --- |
@@ -386,9 +386,9 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `putRuntimePersist
 `GET /admin/games/{gameId}/scrape-candidates` 的每个候选除 metadata/evidence/hitCount 外还返回 `assets[]`，字段与审核候选媒体投影一致，预览 URL 仍使用受保护的 `/api/v1/admin/review-assets/{candidateAssetId}`。管理页不得只凭“证据命中”提供一键文字覆盖；应用候选时未选择替换的当前封面、背景和截图必须复制到新 MetadataRevision，不能因只换文字或封面而丢失其他媒体。
 | 游戏移动预览 / 提交 | preview：`{"targetPlatformInstanceId":"..."}` + Game `If-Match` + `Idempotency-Key`；commit：`{"targetPlatformInstanceId":"...","impactDigest":"...","confirmBlocked":false}` + 同一 Game 当前 `If-Match` + 新 `Idempotency-Key` | 只允许同基础平台且目标不能等于当前目录。目标默认 CoreArtifact 对 Game current ContentRevision 缺少当前输入结果时，preview 创建/复用共享 `VARIANT_REVALIDATE` Job，返回 `202 {"status":"VALIDATION_PENDING","jobId":"...","retryAfterMs":1000}`，不返回 digest、不移动；Job 终态后客户端用新 key 重新 preview。已有当前 READY/BLOCKED/INCOMPATIBLE 结果时返回 `200` 影响与 digest，不写业务状态。commit 重算 digest/version/结果；有 blocker 仅在 `confirmBlocked=true` 时移动，否则 `422 MOVE_TARGET_CORE_BLOCKED`。移动只更新 Game 归属/version并写审计，不删除或改写 Variant/revision/save。 |
 | 游戏软删除 | `DELETE /admin/games/{gameId}`：`{"confirmTitle":"当前完整标题"}` + Game `If-Match` + `Idempotency-Key` | 管理详情必须先返回只读 `deleteImpact={saveStateCount,reviewEventCount,activeLaunchCount}` 供确认。提交只接受 PUBLISHED Game；trim 后的 `confirmTitle` 必须与当前 MetadataRevision 的已存 title 逐 code point 完全相等，否则 `422 GAME_DELETE_CONFIRMATION_MISMATCH`。同一短事务把 Game 置 DELETED、写 `deletedAtMs`、递增 version、撤销该 Game 的非终态 LaunchSession 并写 AuditEvent；返回 `204` 和新 ETag，不级联删除 metadata/content/variant/save/review/blob。相同 key 重放原 204；不同 key 再删已删除 Game 返回 `409 GAME_ALREADY_DELETED`。 |
-| 平台目录创建 | `{"platformId":"arcade","defaultCoreId":"fbneo","name":"...","description":"","sortOrder":0}` + `Idempotency-Key` | 创建 enabled/version=1 目录；服务端从 name 生成 slug，冲突时追加最小可用数字后缀，且软删除后永不复用。 |
-| 平台目录普通修改 | `PATCH /admin/platform-instances/{id}` + `If-Match`；仅可含 name/description/sortOrder/enabled | 不允许 platformId/slug/defaultCoreId；`enabled=false` 允许非空目录，用于从用户侧首页、游戏库、详情、存档与启动入口隐藏该目录游戏，管理端记录仍保留。删除仍要求目录为空。 |
-| 平台目录排序 | `PUT /admin/platform-instances/order`：`{"items":[{"id":"uuid","version":1},...]}` | `items` 必须恰好包含全部未删除目录且 ID 不重复；在同一短事务按数组顺序写 `sortOrder=100,200,...`、逐项校验 version 并递增 version/写审计。目录集合变化返回 `409 PLATFORM_INSTANCE_ORDER_STALE`，任一版本变化返回 `409 VERSION_CONFLICT`，不得部分排序。 |
+| 游戏目录创建 | `{"platformId":"arcade","defaultCoreId":"fbneo","name":"...","description":"","sortOrder":0}` + `Idempotency-Key` | 创建 enabled/version=1 目录；服务端从 name 生成 slug，冲突时追加最小可用数字后缀，且软删除后永不复用。 |
+| 游戏目录普通修改 | `PATCH /admin/platform-instances/{id}` + `If-Match`；仅可含 name/description/sortOrder/enabled | 不允许 platformId/slug/defaultCoreId；`enabled=false` 允许非空目录，用于从用户侧首页、游戏库、详情、存档与启动入口隐藏该目录游戏，管理端记录仍保留。删除仍要求目录为空。 |
+| 游戏目录排序 | `PUT /admin/platform-instances/order`：`{"items":[{"id":"uuid","version":1},...]}` | `items` 必须恰好包含全部未删除目录且 ID 不重复；在同一短事务按数组顺序写 `sortOrder=100,200,...`、逐项校验 version 并递增 version/写审计。目录集合变化返回 `409 PLATFORM_INSTANCE_ORDER_STALE`，任一版本变化返回 `409 VERSION_CONFLICT`，不得部分排序。 |
 | 默认核心预览 / 提交 | preview：`{"coreId":"...","cursor":null|string,"limit":100}` + `If-Match`；commit：`{"coreId":"...","impactDigest":"...","confirmBlocked":false}` + 当前 `If-Match` + `Idempotency-Key` | preview 不写状态且免 Idempotency-Key；commit 原子修改目录 version 并写 AuditEvent，不重写存档/revision。 |
 | BIOS 安装 | `POST /admin/bios/{requirementId}/installations`：`{"uploadFileId":"..."}` + `If-Match` + `Idempotency-Key` | 从 COMPLETE UploadFile 流式验证；新 installation 可为 MATCHED/HASH_WARNING/MISSING_ENTRY，原 active 同事务取消。静态文件 hash 不同，或 Arcade 必需 entry 名齐全但 size/hash 不同，均为可装入且不阻断的 HASH_WARNING；完全缺 entry 才是保存并 active 但阻断的 MISSING_ENTRY。损坏/不安全 archive 为 INVALID、只留审计且不可 active。 |
 | BIOS 归档条目对比 | `GET /admin/bios/{requirementId}/entries` | 只接受已安装且 active 的 `DAT_MACHINE` Requirement；响应为 `requirementId/logicalName/installationId/installationStatus/entries[]`，每项固定含 `status=MATCHED|ALIASED|MISMATCHED|MISSING|EXTRA`以及可空 `expected/actual={name,sizeBytes,crc32}`。期望条目必须来自 Requirement `sourceVersion` 指定的精确 DAT 版本，实际条目必须读安装阶段落库的 ArchiveEntry，GET 不重扫 Blob、不返回宿主路径；非 DAT/未安装返回 `404 BIOS_ARCHIVE_FACTS_NOT_FOUND`。 |
@@ -413,8 +413,8 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/session` | 旧客户端兼容 token；不参与授权，新前端不得调用。 |
 | `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
 | `GET /api/v1/recent-games` | 返回启用目录中全部有游玩记录的已发布游戏，不截断为固定 50 款；按最新 PlaySession 的 `started_at_ms` 降序聚合 `lastPlayedAtMs/activeDurationMs/sessionCount` 与可空封面 URL。每款游戏只占一行，接口不接受 `limit`；响应级 `generatedAtMs` 是页面分组与 7/30 天滚动窗口的统一时钟。 |
-| `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、平台目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`，响应级 `generatedAtMs` 作为客户端排序和相对时间的统一时钟。 |
-| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；列表项包含基础平台、平台目录、锁定 Core、`screenshotUrl=/content/save-states/{saveStateId}/screenshot` 与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
+| `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`，响应级 `generatedAtMs` 作为客户端排序和相对时间的统一时钟。 |
+| `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；列表项包含基础平台、游戏目录、锁定 Core、`screenshotUrl=/content/save-states/{saveStateId}/screenshot` 与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |
 | `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容、状态与 PersistentSave。 |
@@ -425,7 +425,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/admin/imports/summary` | 入库总览聚合。 |
 | `GET /api/v1/admin/imports`、`POST /api/v1/admin/imports`、`GET /api/v1/admin/imports/{importJobId}` | ImportJob 列表、创建与详情；详情包含原文件处置和可空 resolution。 |
 | `GET /api/v1/admin/imports/{importJobId}/events`、`POST /api/v1/admin/imports/{importJobId}/cancel` | SSE 进度与取消。 |
-| `POST /api/v1/admin/imports/{importJobId}/reconfigure` | 携带 `If-Match`/`Idempotency-Key`，复用未解决 REJECTED 文件的 CAS Blob，以新平台目录配置创建 replacement ImportJob。 |
+| `POST /api/v1/admin/imports/{importJobId}/reconfigure` | 携带 `If-Match`/`Idempotency-Key`，复用未解决 REJECTED 文件的 CAS Blob，以新游戏目录配置创建 replacement ImportJob。 |
 | `POST /api/v1/admin/import-items/{importItemId}/retry` | 仅重试 retryable item。 |
 | `GET /api/v1/admin/jobs/{jobId}`、`GET /api/v1/admin/jobs/{jobId}/events`、`POST /api/v1/admin/jobs/{jobId}/cancel`、`POST /api/v1/admin/jobs/{jobId}/retry` | Upload 终结、DAT/重校验/游戏内容 revision 等非 Import 长任务的快照、SSE、有界取消与显式 retryable 重试；Import 仍使用领域 route，`METADATA_SCRAPE` 人工重试使用 review/game 领域 route 新建批次。 |
 | `GET /api/v1/admin/reviews`、`GET /api/v1/admin/reviews/{importItemId}`、`PATCH /api/v1/admin/reviews/{importItemId}` | 待审核队列、详情（含 Validation、scrape run/candidate/asset）和草稿。 |
@@ -436,9 +436,9 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/games/{gameId}/assets` | 从已完成 UploadFile 创建新 Asset。 |
 | `POST /api/v1/admin/games/{gameId}/content-revisions` | 从已完成 UploadSession 创建游戏内容验证 Job；成功才创建 ContentRevision/VariantRevision 并切换两个 current。 |
 | `GET /api/v1/admin/games/{gameId}/scrape-candidates`、`POST /api/v1/admin/games/{gameId}/scrape-candidates`、`POST /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply` | 重刮削候选列表、创建批次与选择字段/媒体应用。 |
-| `POST /api/v1/admin/games/{gameId}/move-preview`、`POST /api/v1/admin/games/{gameId}/move` | 同基础平台目录移动影响预览与提交。 |
+| `POST /api/v1/admin/games/{gameId}/move-preview`、`POST /api/v1/admin/games/{gameId}/move` | 同基础游戏目录移动影响预览与提交。 |
 | `GET /api/v1/admin/platforms`、`GET /api/v1/admin/core-artifacts` | 平台/启用核心关系与 artifact/version 只读字典，供目录、BIOS、DAT 选择器使用。 |
-| `GET /api/v1/admin/platform-instances`、`POST /api/v1/admin/platform-instances`、`GET /api/v1/admin/platform-instances/{platformInstanceId}`、`PATCH /api/v1/admin/platform-instances/{platformInstanceId}` | 平台目录 CRUD；列表和详情投影 `gameCount`，PATCH 不允许改 platform/slug/default core。 |
+| `GET /api/v1/admin/platform-instances`、`POST /api/v1/admin/platform-instances`、`GET /api/v1/admin/platform-instances/{platformInstanceId}`、`PATCH /api/v1/admin/platform-instances/{platformInstanceId}` | 游戏目录 CRUD；列表和详情投影 `gameCount`，PATCH 不允许改 platform/slug/default core。 |
 | `PUT /api/v1/admin/platform-instances/order` | 以全部目录的 ID/version 原子替换显示顺序，供拖拽和键盘排序。 |
 | `POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview`、`POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core` | 默认核心影响 digest 与提交。 |
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |
@@ -447,7 +447,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/arcade-dats/{datVersionId}/activate`、`POST /api/v1/admin/arcade-dats/{datVersionId}/rollback`、`DELETE /api/v1/admin/arcade-dats/{datVersionId}` | DAT 激活、回滚和删除无引用候选。 |
 | `GET /api/v1/admin/diagnostics` | 下载不含内容标识与路径的封闭 JSON 诊断摘要；只读、无需 Idempotency-Key，但仍受全局 readiness 门禁。 |
 
-`GET /api/v1/games/{gameId}` 顶层返回非空 `currentContentRevisionId` 和全部未删除存档总数 `saveStateCount`，并在 `saveStates[]` 保留该游戏最近 8 份未删除手动存档的 `saveStateId/name/createdAtMs/core{id,name}` 轻量投影。详情页的一屏最近 4 份与全量 Drawer 统一通过 `GET /api/v1/saves?gameId=<id>&availability=ALL` 分页取全，避免把 8 份投影误当成全量。其 `coreOptions` 必须覆盖该基础平台全部 enabled Core，稳定按平台配置顺序返回：`coreId`、`name`、`isDefault`、`status=READY|NEEDS_VALIDATION|DEPENDENCY_MISSING|INCOMPATIBLE`、`revalidationStatus=NOT_REQUIRED|PENDING|FAILED`、可空 `currentVariantRevisionId/coreArtifactId/datVersionId/revalidationJobId`、`requiresThreads`、结构化 `reasons[]`。DEPENDENCY_MISSING 覆盖 BIOS/parent/base 的可修复缺失，具体标签由 reason code 决定，不得把 parent 缺失误称为 BIOS。主 status 以是否存在直接引用当前 ContentRevision 的 READY 结果及其锁定快照是否仍可部署计算；旧内容或相同 bytes 的另一 ContentRevision 曾验证成功不能冒充当前 READY，但活动 DAT 更新也不能让当前内容的旧锁定快照突然不可运行。`POST /api/v1/launches` 收到显式/默认 core 时按平台目录第 5.1 节执行同一 `EnsureVariant`，必要时先返回同一 `VARIANT_REVALIDATE` Job；前端预热不是正确性前提，也没有第二个启动 endpoint。
+`GET /api/v1/games/{gameId}` 顶层返回非空 `currentContentRevisionId` 和全部未删除存档总数 `saveStateCount`，并在 `saveStates[]` 保留该游戏最近 8 份未删除手动存档的 `saveStateId/name/createdAtMs/core{id,name}` 轻量投影。详情页的一屏最近 4 份与全量 Drawer 统一通过 `GET /api/v1/saves?gameId=<id>&availability=ALL` 分页取全，避免把 8 份投影误当成全量。其 `coreOptions` 必须覆盖该基础平台全部 enabled Core，稳定按平台配置顺序返回：`coreId`、`name`、`isDefault`、`status=READY|NEEDS_VALIDATION|DEPENDENCY_MISSING|INCOMPATIBLE`、`revalidationStatus=NOT_REQUIRED|PENDING|FAILED`、可空 `currentVariantRevisionId/coreArtifactId/datVersionId/revalidationJobId`、`requiresThreads`、结构化 `reasons[]`。DEPENDENCY_MISSING 覆盖 BIOS/parent/base 的可修复缺失，具体标签由 reason code 决定，不得把 parent 缺失误称为 BIOS。主 status 以是否存在直接引用当前 ContentRevision 的 READY 结果及其锁定快照是否仍可部署计算；旧内容或相同 bytes 的另一 ContentRevision 曾验证成功不能冒充当前 READY，但活动 DAT 更新也不能让当前内容的旧锁定快照突然不可运行。`POST /api/v1/launches` 收到显式/默认 core 时按游戏目录第 5.1 节执行同一 `EnsureVariant`，必要时先返回同一 `VARIANT_REVALIDATE` Job；前端预热不是正确性前提，也没有第二个启动 endpoint。
 
 诊断摘要成功响应固定为下列封闭 JSON，所有 count 为非负 int64，版本数组按 SemVer 升序；它从一个有界只读快照生成，不创建 Blob 或临时归档：
 

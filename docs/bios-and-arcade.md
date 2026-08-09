@@ -12,7 +12,7 @@
 - BIOS/Firmware Requirement 定义核心启动所需文件及期望 hash。
 - Arcade DAT 用于特定核心下的 machine、ROM entry、clone/parent 和 BIOS/base archive 识别。
 - DAT 不是展示元信息刮削源；Hasheous 的职责见 [导入、刮削与审核](./import-and-review.md)。
-- BIOS 与 DAT 按 Core/Core artifact 管理，不按 PlatformInstance 复制；平台目录只引用默认 Core。
+- BIOS 与 DAT 按 Core/Core artifact 管理，不按 PlatformInstance 复制；游戏目录只引用默认 Core。
 - 浏览器和 EmulatorJS 不解析原始 DAT。后端预解析并持久化，页面查询物化结果，启动查询依赖快照。
 
 精确来源、commit、artifact hash、DAT hash 和已知格式差异以 [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md)及 [`data/dat` manifest](../data/dat/emulatorjs/4.2.3/manifest.json) 为唯一事实源。
