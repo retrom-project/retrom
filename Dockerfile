@@ -5,6 +5,7 @@ WORKDIR /work
 RUN apk add --no-cache p7zip xz
 COPY scripts/dependencies.py scripts/dependencies.py
 COPY data/dat data/dat
+COPY data/auth data/auth
 COPY web/features/player/adapters web/features/player/adapters
 RUN python3 scripts/dependencies.py prepare --versions "$RETROM_DEPENDENCY_VERSIONS" \
   && find data/runtime/emulatorjs -type f -name '*.7z' -delete \
@@ -30,6 +31,7 @@ RUN addgroup -S -g 10001 retrom && adduser -S -D -H -u 10001 -G retrom retrom \
 COPY --from=build /out/retrom /usr/local/bin/retrom
 COPY --from=dependencies /work/data/dat/emulatorjs /opt/retrom/dependencies/dat/emulatorjs
 COPY --from=dependencies /work/data/runtime/emulatorjs /opt/retrom/dependencies/runtime/emulatorjs
+COPY --from=dependencies /work/data/auth/password-blocklists /opt/retrom/dependencies/auth/password-blocklists
 USER 10001:10001
 ENV RETROM_HTTP_ADDR=0.0.0.0:8080 \
     RETROM_PUBLIC_ORIGIN=https://retrom.invalid \

@@ -19,6 +19,8 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/accounts"
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
@@ -1505,15 +1507,7 @@ func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testin
 	t.Parallel()
 	server := newTestServer(t)
 	handler := server.Handler()
-	sessionRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(sessionRecorder, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
-	var sessionBody struct {
-		CSRFToken string `json:"csrfToken"`
-	}
-	if err := json.Unmarshal(sessionRecorder.Body.Bytes(), &sessionBody); err != nil {
-		t.Fatal(err)
-	}
-	cookie := sessionRecorder.Result().Cookies()[0]
+	cookie, csrfToken := testSessionCredentials()
 	request := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/launches",
@@ -1523,7 +1517,7 @@ func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testin
 	)
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", "01980000-0000-7000-8000-000000000099")
-	setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+	setCSRFCredentials(request, cookie, csrfToken)
 	recorder := httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusBadRequest || !strings.Contains(recorder.Body.String(), `"code":"INVALID_REQUEST"`) {
@@ -1536,7 +1530,7 @@ func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testin
 		strings.NewReader(`{"name":"slot"}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
-	setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+	setCSRFCredentials(request, cookie, csrfToken)
 	recorder = httptest.NewRecorder()
 	handler.ServeHTTP(recorder, request)
 	if recorder.Code != http.StatusPreconditionRequired ||
@@ -1570,22 +1564,14 @@ func TestGenericIdempotencySerializesConcurrentCreates(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	handler := server.Handler()
-	sessionRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(sessionRecorder, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
-	var sessionBody struct {
-		CSRFToken string `json:"csrfToken"`
-	}
-	if err := json.Unmarshal(sessionRecorder.Body.Bytes(), &sessionBody); err != nil {
-		t.Fatal(err)
-	}
-	cookie := sessionRecorder.Result().Cookies()[0]
+	cookie, csrfToken := testSessionCredentials()
 	key := "01980000-0000-7000-8000-000000000077"
 	body := `{"platformId":"nes","defaultCoreId":"fceumm","name":"Concurrent Directory","description":"","sortOrder":99}`
 	send := func(contents string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(contents))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("Idempotency-Key", key)
-		setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+		setCSRFCredentials(request, cookie, csrfToken)
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, request)
 		return recorder
@@ -1665,15 +1651,7 @@ NULL,
 		t.Fatal(err)
 	}
 	handler := server.Handler()
-	sessionRecorder := httptest.NewRecorder()
-	handler.ServeHTTP(sessionRecorder, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
-	var sessionBody struct {
-		CSRFToken string `json:"csrfToken"`
-	}
-	if err := json.Unmarshal(sessionRecorder.Body.Bytes(), &sessionBody); err != nil {
-		t.Fatal(err)
-	}
-	cookie := sessionRecorder.Result().Cookies()[0]
+	cookie, csrfToken := testSessionCredentials()
 	send := func(method, target, body string, headers map[string]string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(method, target, strings.NewReader(body))
 		if body != "" {
@@ -1682,7 +1660,7 @@ NULL,
 		for name, value := range headers {
 			request.Header.Set(name, value)
 		}
-		setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+		setCSRFCredentials(request, cookie, csrfToken)
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, request)
 		return recorder
@@ -2139,6 +2117,22 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','测试玩家
 		dependencySet,
 		blobs,
 		credentials,
+		testAuthenticator{},
+		nil,
 		time.Now,
 	)
+}
+
+type testAuthenticator struct{}
+
+func testSessionCredentials() (*http.Cookie, string) {
+	return &http.Cookie{Name: "retrom_test", Value: "test-only", Path: "/"}, "test-only"
+}
+
+func (testAuthenticator) Authenticate(context.Context, string) (accounts.Session, error) {
+	principal := authn.Principal{
+		UserID: "01980000-0000-7000-8000-000000009999", ProfileID: "local", Username: "test-admin",
+		DisplayName: "Test Admin", Role: "ADMIN", SessionID: "01980000-0000-7000-8000-000000009998",
+	}
+	return accounts.Session{Principal: principal, CookieToken: "test-only"}, nil
 }

@@ -10,6 +10,7 @@ web/features/player/*
 data/game
 data/example/results
 data/runtime
+data/auth/password-blocklists/*/payload
 data/dat/emulatorjs/*/licenses
 data/dat/emulatorjs/*/THIRD_PARTY_NOTICES.txt
 data/dat/emulatorjs/*/fbneo/*.dat

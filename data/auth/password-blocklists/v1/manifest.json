@@ -1,0 +1,23 @@
+{
+  "schema_version": 1,
+  "id": "PASSWORD_BLOCKLIST_V1",
+  "source": {
+    "repository": "https://github.com/danielmiessler/SecLists",
+    "tag": "2026.1",
+    "commit": "190c6f7bd58c847ceadfe57d9853592737f059e8"
+  },
+  "passwords": {
+    "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/190c6f7bd58c847ceadfe57d9853592737f059e8/Passwords/Common-Credentials/10k-most-common.txt",
+    "output_relative_path": "payload/10k-most-common.txt",
+    "line_count": 10000,
+    "size_bytes": 73017,
+    "sha256": "4adb3f0afb4a10cf19ebe48d8c69a46f934bbc8d77c694c210564f9583e7f4ba"
+  },
+  "license": {
+    "spdx": "MIT",
+    "url": "https://raw.githubusercontent.com/danielmiessler/SecLists/190c6f7bd58c847ceadfe57d9853592737f059e8/LICENSE",
+    "output_relative_path": "payload/LICENSE",
+    "size_bytes": 1072,
+    "sha256": "3dbdc93d5f8829de0941744841730a09c106d0732e5ae0e98ca1d77be7ded66c"
+  }
+}

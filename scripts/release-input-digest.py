@@ -87,6 +87,9 @@ def main() -> int:
         "sourceTreeSha256": sha256(canonical(source_entries())),
         "dependencyVersions": dependency_versions,
         "activeEmulatorjsVersion": args.active,
+        "passwordBlocklistManifestSha256": sha256(
+            (ROOT / "data/auth/password-blocklists/v1/manifest.json").read_bytes()
+        ),
     }
     print(sha256(canonical(release_input)))
     return 0

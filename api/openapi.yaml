@@ -16,13 +16,35 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/HealthReadyResponse' }
         '503': { $ref: '#/components/responses/HealthNotReadyResponse' }
-  /api/v1/session:
+  /api/v1/auth/context:
     get:
-      operationId: getSession
-      deprecated: true
-      description: Legacy compatibility token; it is not used for authorization.
+      operationId: getAuthContext
       responses:
-        '200': { $ref: '#/components/responses/SessionResponse' }
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/auth/initialize:
+    post:
+      operationId: postAuthInitialize
+      requestBody: { $ref: '#/components/requestBodies/AuthInitialize' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/auth/login:
+    post:
+      operationId: postAuthLogin
+      requestBody: { $ref: '#/components/requestBodies/AuthLogin' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/auth/logout:
+    post:
+      operationId: postAuthLogout
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '204': { description: Logged out }
+  /api/v1/auth/change-password:
+    post:
+      operationId: postAuthChangePassword
+      requestBody: { $ref: '#/components/requestBodies/AuthChangePassword' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/home:
     get:
       operationId: getHome
@@ -677,6 +699,31 @@ paths:
         '200': { $ref: '#/components/responses/BinaryResponse' }
 components:
   schemas:
+    AuthInitializeRequest:
+      type: object
+      additionalProperties: false
+      required: [setupCode, username, displayName, password, passwordConfirmation]
+      properties:
+        setupCode: { type: string, minLength: 43, maxLength: 43 }
+        username: { type: string, minLength: 3, maxLength: 32 }
+        displayName: { type: string, minLength: 1, maxLength: 320 }
+        password: { type: string, minLength: 1, maxLength: 512 }
+        passwordConfirmation: { type: string, minLength: 1, maxLength: 512 }
+    AuthLoginRequest:
+      type: object
+      additionalProperties: false
+      required: [username, password]
+      properties:
+        username: { type: string, minLength: 1, maxLength: 64 }
+        password: { type: string, minLength: 1, maxLength: 512 }
+    AuthChangePasswordRequest:
+      type: object
+      additionalProperties: false
+      required: [currentPassword, newPassword, newPasswordConfirmation]
+      properties:
+        currentPassword: { type: string, minLength: 1, maxLength: 512 }
+        newPassword: { type: string, minLength: 1, maxLength: 512 }
+        newPasswordConfirmation: { type: string, minLength: 1, maxLength: 512 }
     EmptyRequest:
       type: object
       additionalProperties: false
@@ -1420,6 +1467,9 @@ components:
             details: { type: object, additionalProperties: true }
             requestId: { type: string, format: uuid }
   requestBodies:
+    AuthInitialize: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AuthInitializeRequest' } } } }
+    AuthLogin: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AuthLoginRequest' } } } }
+    AuthChangePassword: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AuthChangePasswordRequest' } } } }
     RenameSave: { $ref: '#/components/requestBodies/FromRenameSave' }
     FromRenameSave: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RenameSaveRequest' } } } }
     Launch: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LaunchRequest' } } } }
@@ -1460,9 +1510,6 @@ components:
     HealthNotReadyResponse:
       description: Service is not ready
       content: { application/json: { schema: { $ref: '#/components/schemas/HealthNotReady' } } }
-    SessionResponse:
-      description: Legacy compatibility token response; not authorization
-      content: { application/json: { schema: { $ref: '#/components/schemas/Session' } } }
     JSONResponse:
       description: JSON response
       content:

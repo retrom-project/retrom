@@ -20,6 +20,7 @@ from typing import Any
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = REPOSITORY_ROOT / "data"
+AUTH_MANIFEST_PATH = DATA_ROOT / "auth/password-blocklists/v1/manifest.json"
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 PINNED_RAW = re.compile(
     r"^https://raw\.githubusercontent\.com/[^/]+/[^/]+/[0-9a-f]{40}/.+$"
@@ -141,6 +142,54 @@ def load_manifest(version: str) -> dict[str, Any]:
     if not isinstance(emulatorjs, dict) or emulatorjs.get("version") != version:
         raise CheckError(f"DEPENDENCY_VERSION_MISMATCH:{version}")
     return manifest
+
+
+def load_auth_manifest() -> dict[str, Any]:
+    manifest = load_json(AUTH_MANIFEST_PATH)
+    if manifest.get("schema_version") != 1 or manifest.get("id") != "PASSWORD_BLOCKLIST_V1":
+        raise CheckError("AUTH_BLOCKLIST_MANIFEST_INVALID")
+    source = manifest.get("source")
+    passwords = manifest.get("passwords")
+    license_entry = manifest.get("license")
+    if not isinstance(source, dict) or not isinstance(passwords, dict) or not isinstance(license_entry, dict):
+        raise CheckError("AUTH_BLOCKLIST_MANIFEST_INVALID")
+    commit = source.get("commit")
+    if not isinstance(commit, str) or re.fullmatch(r"[0-9a-f]{40}", commit) is None:
+        raise CheckError("AUTH_BLOCKLIST_SOURCE_INVALID")
+    for entry in (passwords, license_entry):
+        url = entry.get("url")
+        if not isinstance(url, str) or PINNED_RAW.fullmatch(url) is None or commit not in url:
+            raise CheckError("AUTH_BLOCKLIST_SOURCE_INVALID")
+        safe_relative_path(entry.get("output_relative_path"), "AUTH_BLOCKLIST_PATH_INVALID")
+        if not isinstance(entry.get("size_bytes"), int) or entry["size_bytes"] < 1:
+            raise CheckError("AUTH_BLOCKLIST_SIZE_INVALID")
+        expect_digest(entry.get("sha256"), "AUTH_BLOCKLIST_SHA256_INVALID")
+    if passwords.get("line_count") != 10_000 or license_entry.get("spdx") != "MIT":
+        raise CheckError("AUTH_BLOCKLIST_MANIFEST_INVALID")
+    return manifest
+
+
+def auth_payload_path(relative: str) -> Path:
+    return AUTH_MANIFEST_PATH.parent / relative
+
+
+def prepare_auth(manifest: dict[str, Any]) -> None:
+    for key in ("passwords", "license"):
+        entry = manifest[key]
+        target = auth_payload_path(entry["output_relative_path"])
+        try:
+            check_file(target, entry["size_bytes"], entry["sha256"])
+        except CheckError:
+            download(entry["url"], target, entry["size_bytes"], entry["sha256"])
+
+
+def check_auth_payload(manifest: dict[str, Any]) -> None:
+    for key in ("passwords", "license"):
+        entry = manifest[key]
+        check_file(auth_payload_path(entry["output_relative_path"]), entry["size_bytes"], entry["sha256"])
+    contents = auth_payload_path(manifest["passwords"]["output_relative_path"]).read_bytes()
+    if len(contents.splitlines()) != manifest["passwords"]["line_count"]:
+        raise CheckError("AUTH_BLOCKLIST_LINE_COUNT_MISMATCH")
 
 
 def validate_registry(manifests: list[dict[str, Any]]) -> None:
@@ -622,15 +671,18 @@ def main() -> int:
     try:
         versions = parse_versions(args.versions)
         manifests = [load_manifest(version) for version in versions]
+        auth_manifest = load_auth_manifest()
         for version, manifest in zip(versions, manifests, strict=True):
             validate_small_manifest(version, manifest)
         validate_registry(manifests)
         if args.action == "prepare":
             for version, manifest in zip(versions, manifests, strict=True):
                 prepare(version, manifest)
+            prepare_auth(auth_manifest)
         if args.action in ("prepare", "deps-check"):
             for version, manifest in zip(versions, manifests, strict=True):
                 check_payload(version, manifest)
+            check_auth_payload(auth_manifest)
         print(f"{args.action}: ok ({','.join(versions)})")
         return 0
     except (CheckError, OSError, KeyError, TypeError, ValueError, urllib.error.URLError) as exc:

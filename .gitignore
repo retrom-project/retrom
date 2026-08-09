@@ -31,6 +31,8 @@
 /data/*
 !/data/dat/
 !/data/dat/**
+!/data/auth/
+!/data/auth/**
 !/data/example/
 !/data/example/**
 /data/example/**/__pycache__/
@@ -40,6 +42,7 @@
 /data/dat/emulatorjs/*/fbneo/
 /data/dat/emulatorjs/*/mame2003/
 /data/dat/emulatorjs/*/mame2003_plus/
+/data/auth/password-blocklists/*/payload/
 
 # Test evidence is reproducible and may contain game imagery. Keep it local.
 /data/example/results/*

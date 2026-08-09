@@ -36,20 +36,80 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/session": {
+    "/api/v1/auth/context": {
         parameters: {
             query?: never;
             header?: never;
             path?: never;
             cookie?: never;
         };
-        /**
-         * @deprecated
-         * @description Legacy compatibility token; it is not used for authorization.
-         */
-        get: operations["getSession"];
+        get: operations["getAuthContext"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/initialize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAuthInitialize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAuthLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAuthLogout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/change-password": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAuthChangePassword"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1312,6 +1372,22 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        AuthInitializeRequest: {
+            setupCode: string;
+            username: string;
+            displayName: string;
+            password: string;
+            passwordConfirmation: string;
+        };
+        AuthLoginRequest: {
+            username: string;
+            password: string;
+        };
+        AuthChangePasswordRequest: {
+            currentPassword: string;
+            newPassword: string;
+            newPasswordConfirmation: string;
+        };
         EmptyRequest: Record<string, never>;
         RenameSaveRequest: {
             name: string;
@@ -1997,15 +2073,6 @@ export interface components {
                 "application/json": components["schemas"]["HealthNotReady"];
             };
         };
-        /** @description Legacy compatibility token response; not authorization */
-        SessionResponse: {
-            headers: {
-                [name: string]: unknown;
-            };
-            content: {
-                "application/json": components["schemas"]["Session"];
-            };
-        };
         /** @description JSON response */
         JSONResponse: {
             headers: {
@@ -2094,6 +2161,21 @@ export interface components {
         LogicalName: string;
     };
     requestBodies: {
+        AuthInitialize: {
+            content: {
+                "application/json": components["schemas"]["AuthInitializeRequest"];
+            };
+        };
+        AuthLogin: {
+            content: {
+                "application/json": components["schemas"]["AuthLoginRequest"];
+            };
+        };
+        AuthChangePassword: {
+            content: {
+                "application/json": components["schemas"]["AuthChangePasswordRequest"];
+            };
+        };
         RenameSave: {
             content: {
                 "*/*"?: never;
@@ -2275,7 +2357,7 @@ export interface operations {
             503: components["responses"]["HealthNotReadyResponse"];
         };
     };
-    getSession: {
+    getAuthContext: {
         parameters: {
             query?: never;
             header?: never;
@@ -2284,7 +2366,61 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["SessionResponse"];
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAuthInitialize: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["AuthInitialize"];
+        responses: {
+            201: components["responses"]["JSONResponse"];
+        };
+    };
+    postAuthLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["AuthLogin"];
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAuthLogout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            /** @description Logged out */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    postAuthChangePassword: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["AuthChangePassword"];
+        responses: {
+            200: components["responses"]["JSONResponse"];
         };
     };
     getHome: {
