@@ -516,6 +516,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/reviews/{importItemId}/arcade-parent-attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queues strict validation of one completed ZIP upload against a missing or mismatched Parent machine in the review draft's locked Arcade DAT closure. */
+        post: operations["postAdminReviewArcadeParentAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reviews/{importItemId}/approve": {
         parameters: {
             query?: never;
@@ -1456,6 +1475,15 @@ export interface components {
             /** @enum {string} */
             kind: "COVER";
         };
+        ReviewArcadeParentAttachmentRequest: {
+            /** Format: uuid */
+            validationId: string;
+            /** Format: uuid */
+            baseSourceSnapshotId: string;
+            dependencyMachine: string;
+            /** Format: uuid */
+            uploadFileId: string;
+        };
         UploadReferenceRequest: {
             /** Format: uuid */
             uploadId: string;
@@ -1574,6 +1602,9 @@ export interface components {
             archiveEntries?: unknown;
             /** @enum {string|null} */
             archiveFormat?: "ZIP" | "SEVEN_Z" | null;
+            arcadeDependencies?: unknown;
+            attachment?: unknown;
+            attachmentId?: unknown;
             assetId?: unknown;
             assetIds?: unknown;
             assets?: unknown;
@@ -1654,6 +1685,8 @@ export interface components {
             defaultCoreName?: unknown;
             defaultCoreOptions?: unknown;
             externalFiles?: unknown;
+            effectiveSourceSnapshotId?: unknown;
+            expectedLogicalName?: unknown;
             defaultDosEntry?: unknown;
             deleteImpact?: unknown;
             deleted?: unknown;
@@ -2139,6 +2172,11 @@ export interface components {
         ReviewAsset: {
             content: {
                 "application/json": components["schemas"]["ReviewAssetRequest"];
+            };
+        };
+        ReviewArcadeParentAttachment: {
+            content: {
+                "application/json": components["schemas"]["ReviewArcadeParentAttachmentRequest"];
             };
         };
         UploadReference: {
@@ -2750,6 +2788,23 @@ export interface operations {
         requestBody: components["requestBodies"]["ReviewAsset"];
         responses: {
             201: components["responses"]["JSONResponse"];
+        };
+    };
+    postAdminReviewArcadeParentAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["ReviewArcadeParentAttachment"];
+        responses: {
+            202: components["responses"]["JSONResponse"];
         };
     };
     postAdminReviewApprove: {

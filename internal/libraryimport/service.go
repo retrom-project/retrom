@@ -600,9 +600,13 @@ func matchArcadeRequirements(
 	entries map[string]importing.ArchiveEntry,
 	requirements []arcadeROMRequirement,
 ) ([]string, []string, []string) {
+	foldedEntries := make(map[string]importing.ArchiveEntry, len(entries))
+	for name, entry := range entries {
+		foldedEntries[importing.ASCIICaseFold(name)] = entry
+	}
 	var missing, mismatched, warnings []string
 	for _, requirement := range requirements {
-		entry, exists := entries[requirement.name]
+		entry, exists := foldedEntries[importing.ASCIICaseFold(requirement.name)]
 		if !exists {
 			missing = append(missing, requirement.name)
 			continue
@@ -622,65 +626,38 @@ func matchArcadeRequirements(
 func containsMergedArcadeEntries(entries map[string]importing.ArchiveEntry, requirements []arcadeROMRequirement) bool {
 	requiredNames := make(map[string]struct{}, len(requirements))
 	for _, requirement := range requirements {
-		requiredNames[requirement.name] = struct{}{}
+		requiredNames[importing.ASCIICaseFold(requirement.name)] = struct{}{}
 	}
 	for path := range entries {
 		if !strings.Contains(path, "/") {
 			continue
 		}
-		if _, required := requiredNames[filepath.Base(path)]; required {
+		if _, required := requiredNames[importing.ASCIICaseFold(filepath.Base(path))]; required {
 			return true
 		}
 	}
 	return false
 }
 
-func appendUnique(values []string, value string) []string {
-	if value == "" {
-		return values
-	}
-	for _, current := range values {
-		if current == value {
-			return values
-		}
-	}
-	return append(values, value)
-}
-
 func (service *Service) arcadeDependencyClosure(
 	ctx context.Context,
 	datID, machine string,
-) ([]string, []string, []string, bool, error) {
-	var parents, bases, all []string
-	current := machine
-	seen := map[string]struct{}{}
-	for current != "" {
-		if _, exists := seen[current]; exists || len(seen) >= 64 {
-			return nil, nil, nil, true, nil
-		}
-		seen[current] = struct{}{}
-		all = append(all, current)
-		var cloneOf, romOf sql.NullString
-		if err := service.database.QueryRowContext(ctx, `
-SELECT cloneof,
-romof
-FROM dat_machines
-WHERE dat_version_id=?
-AND machine_name=?
-`, datID, current).Scan(&cloneOf, &romOf); err != nil {
-			return nil, nil, nil, false, fmt.Errorf("libraryimport/service: %w", err)
-		}
-		if romOf.Valid && (!cloneOf.Valid || romOf.String != cloneOf.String) {
-			bases = appendUnique(bases, romOf.String)
-			all = appendUnique(all, romOf.String)
-		}
-		if !cloneOf.Valid {
-			break
-		}
-		parents = appendUnique(parents, cloneOf.String)
-		current = cloneOf.String
+) ([]string, []string, []arcadeClosureNode, bool, error) {
+	nodes, cyclic, err := service.loadArcadeDependencyClosure(ctx, datID, machine)
+	if err != nil {
+		return nil, nil, nil, false, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	return parents, bases, all, false, nil
+	parents := make([]string, 0)
+	bases := make([]string, 0)
+	for _, node := range nodes {
+		switch node.Kind {
+		case "PARENT":
+			parents = append(parents, node.Machine)
+		case "BIOS_OR_BASE":
+			bases = append(bases, node.Machine)
+		}
+	}
+	return parents, bases, nodes, cyclic, nil
 }
 
 //nolint:funlen,gocognit,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
@@ -736,11 +713,32 @@ AND machine_name=?
 			byMachine[prepared[index].machine] = &prepared[index]
 		}
 	}
+	dependencyCandidates := make(map[string]struct{})
+	if datID.Valid {
+		for index := range prepared {
+			candidate := &prepared[index]
+			if candidate.reason != "" || candidate.classification != "NORMAL" {
+				continue
+			}
+			parents, bases, _, cyclic, err := service.arcadeDependencyClosure(ctx, datID.String, candidate.machine)
+			if err != nil || cyclic {
+				continue
+			}
+			for _, machine := range append(parents, bases...) {
+				if _, uploaded := byMachine[machine]; uploaded {
+					dependencyCandidates[machine] = struct{}{}
+				}
+			}
+		}
+	}
 	referenced := make(map[string]struct{})
 	groups := make([]preparedGroup, 0)
 	for index := range prepared {
 		primary := &prepared[index]
 		if primary.reason != "" || primary.classification != "NORMAL" {
+			continue
+		}
+		if _, dependencyOnly := dependencyCandidates[primary.machine]; dependencyOnly {
 			continue
 		}
 		parents, bases, closure, cyclic, err := service.arcadeDependencyClosure(ctx, datID.String, primary.machine)
@@ -783,8 +781,13 @@ AND machine_name=?
 		}
 		sources := []preparedSource{{file: primary.file, role: "CONTENT", logicalName: primary.machine + ".zip"}}
 		validationFiles := make([]preparedValidationFile, 0)
+		closureByMachine := make(map[string]arcadeClosureNode, len(closure))
+		for _, node := range closure {
+			closureByMachine[node.Machine] = node
+		}
 		addDependencies := func(names []string, kind, role string) {
 			for _, name := range names {
+				node := closureByMachine[name]
 				requirements, dependencyHasDisk, loadErr := service.arcadeRequirements(ctx, datID.String, name)
 				requiredEntries := make([]string, 0, len(requirements))
 				for _, requirement := range requirements {
@@ -806,10 +809,9 @@ AND machine_name=?
 					dependencies = append(
 						dependencies,
 						map[string]any{
-							"kind":            kind,
-							"machine":         name,
-							"state":           "SATISFIED_BY_CONTENT",
-							"requiredEntries": requiredEntries,
+							"kind": kind, "machine": name, "requiredBy": node.RequiredBy, "depth": node.Depth,
+							"expectedLogicalName": name + ".zip", "state": "SATISFIED_BY_CONTENT",
+							"requiredEntryCount": len(requiredEntries), "requiredEntries": requiredEntries,
 						},
 					)
 					continue
@@ -828,10 +830,9 @@ AND machine_name=?
 					dependencies = append(
 						dependencies,
 						map[string]any{
-							"kind":            kind,
-							"machine":         name,
-							"state":           "MISSING",
-							"requiredEntries": requiredEntries,
+							"kind": kind, "machine": name, "requiredBy": node.RequiredBy, "depth": node.Depth,
+							"expectedLogicalName": name + ".zip", "state": "MISSING",
+							"requiredEntryCount": len(requiredEntries), "requiredEntries": requiredEntries,
 						},
 					)
 					continue
@@ -847,10 +848,9 @@ AND machine_name=?
 					dependencies = append(
 						dependencies,
 						map[string]any{
-							"kind":            kind,
-							"machine":         name,
-							"state":           "MISMATCH",
-							"requiredEntries": requiredEntries,
+							"kind": kind, "machine": name, "requiredBy": node.RequiredBy, "depth": node.Depth,
+							"expectedLogicalName": name + ".zip", "state": "MISMATCH",
+							"requiredEntryCount": len(requiredEntries), "requiredEntries": requiredEntries,
 						},
 					)
 					continue
@@ -878,10 +878,9 @@ AND machine_name=?
 				dependencies = append(
 					dependencies,
 					map[string]any{
-						"kind":            kind,
-						"machine":         name,
-						"state":           dependencyState,
-						"requiredEntries": requiredEntries,
+						"kind": kind, "machine": name, "requiredBy": node.RequiredBy, "depth": node.Depth,
+						"expectedLogicalName": name + ".zip", "state": dependencyState,
+						"requiredEntryCount": len(requiredEntries), "requiredEntries": requiredEntries,
 					},
 				)
 			}
@@ -896,9 +895,24 @@ AND machine_name=?
 		sort.Strings(missing)
 		sort.Strings(mismatched)
 		sort.Strings(warnings)
+		sort.Slice(dependencies, func(left, right int) bool {
+			leftKind, _ := dependencies[left]["kind"].(string)
+			rightKind, _ := dependencies[right]["kind"].(string)
+			if leftKind != rightKind {
+				return leftKind < rightKind
+			}
+			leftDepth, _ := dependencies[left]["depth"].(int)
+			rightDepth, _ := dependencies[right]["depth"].(int)
+			if leftDepth != rightDepth {
+				return leftDepth < rightDepth
+			}
+			leftMachine, _ := dependencies[left]["machine"].(string)
+			rightMachine, _ := dependencies[right]["machine"].(string)
+			return leftMachine < rightMachine
+		})
 		snapshot, _ := json.Marshal(
 			map[string]any{
-				"schemaVersion":     1,
+				"schemaVersion":     2,
 				"machine":           primary.machine,
 				"datVersionId":      datID.String,
 				"closure":           closure,
@@ -1781,6 +1795,7 @@ AND materialized_blob_id IS NULL
 	}
 	for _, group := range groups {
 		itemID, _ := uuid.NewV7()
+		sourceSnapshotID, _ := uuid.NewV7()
 		validationID, _ := uuid.NewV7()
 		draftID, _ := uuid.NewV7()
 		manifestFiles := make([]contentmanifest.File, 0, len(group.sources))
@@ -1915,6 +1930,34 @@ created_at_ms) VALUES(?,
 				return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 			}
 		}
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO import_item_source_snapshots(id,
+import_item_id,
+revision_no,
+source_manifest_json,
+source_manifest_digest,
+created_by,
+created_at_ms) VALUES(?,?,1,?,?,'IDENTIFICATION',?)
+`, sourceSnapshotID.String(), itemID.String(), string(manifestJSON), manifestDigestHex, now); err != nil {
+			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
+		}
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO import_item_source_snapshot_files(source_snapshot_id,
+role,
+logical_name,
+upload_file_id,
+blob_id,
+source_archive_blob_id,
+source_archive_entry_ordinal,
+sort_order,
+created_at_ms)
+SELECT ?,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,
+source_archive_entry_ordinal,sort_order,created_at_ms
+FROM import_item_source_files
+WHERE import_item_id=?
+`, sourceSnapshotID.String(), itemID.String()); err != nil {
+			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
+		}
 		groupUploadFileIDs := make(map[string]struct{})
 		for _, source := range group.sources {
 			groupUploadFileIDs[source.file.id] = struct{}{}
@@ -1967,7 +2010,10 @@ WHERE id=?
 			}
 			continue
 		}
-		inputDigest := sha256.Sum256(append(manifestDigest[:], configDigest[:]...))
+		validationInput := append([]byte("arcade-source-validator-v3\x00"), manifestDigest[:]...)
+		validationInput = append(validationInput, configDigest[:]...)
+		validationInput = append(validationInput, []byte(sourceSnapshotID.String())...)
+		inputDigest := sha256.Sum256(validationInput)
 		validationStatus := group.validationStatus
 		compatibilityCode := group.compatibilityCode
 		dependencySnapshot := group.dependencySnapshot
@@ -1984,11 +2030,13 @@ core_artifact_id,
 dat_version_id,
 default_dos_entry,
 source_manifest_digest,
+source_snapshot_id,
 prepublish_input_digest,
 status,
 compatibility_code,
 dependency_snapshot_json,
 created_at_ms) VALUES(?,
+?,
 ?,
 ?,
 ?,
@@ -2012,6 +2060,7 @@ created_at_ms) VALUES(?,
 			nullable(datID),
 			nullableText(group.defaultDOSEntry),
 			manifestDigestHex,
+			sourceSnapshotID.String(),
 			hex.EncodeToString(inputDigest[:]),
 			validationStatus,
 			compatibilityCode,
@@ -2115,11 +2164,13 @@ INSERT INTO review_drafts(id,
 import_item_id,
 target_platform_instance_id,
 selected_validation_id,
+effective_source_snapshot_id,
 default_dos_entry,
 metadata_json,
 version,
 created_at_ms,
 updated_at_ms) VALUES(?,
+?,
 ?,
 ?,
 ?,
@@ -2133,6 +2184,7 @@ updated_at_ms) VALUES(?,
 			itemID.String(),
 			request.TargetPlatformInstanceID,
 			selectedValidation,
+			sourceSnapshotID.String(),
 			nullableText(group.defaultDOSEntry),
 			string(metadataJSON),
 			now,
@@ -2448,7 +2500,7 @@ PRAGMA defer_foreign_keys=ON
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
 	var state, importID, configSnapshotJSON, platformID, platformInstanceID, validationID string
-	var metadataJSON, sourceManifestJSON, sourceManifestDigest, dependencySnapshotJSON string
+	var metadataJSON, sourceSnapshotID, sourceManifestJSON, sourceManifestDigest, dependencySnapshotJSON string
 	var coreID, artifactID string
 	var draftVersion int64
 	var datID, validationDOSEntry, draftDOSEntry, candidateID, coverID, uploadedCoverID, backgroundID sql.NullString
@@ -2460,8 +2512,9 @@ p.platform_id,
 d.target_platform_instance_id,
 d.selected_validation_id,
 d.metadata_json,
-i.source_manifest_json,
-i.source_manifest_digest,
+source_snapshot.id,
+source_snapshot.source_manifest_json,
+source_snapshot.source_manifest_digest,
 v.core_id,
 v.core_artifact_id,
 v.dat_version_id,
@@ -2476,7 +2529,9 @@ d.background_candidate_asset_id
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
 JOIN review_drafts d ON d.import_item_id=i.id
+JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN import_item_core_validations v ON v.id=d.selected_validation_id
+AND v.source_snapshot_id=d.effective_source_snapshot_id
 JOIN platform_instances p ON p.id=d.target_platform_instance_id
 AND p.enabled=1
 AND p.deleted_at_ms IS NULL
@@ -2500,6 +2555,7 @@ AND active.is_active=1)
 			&platformInstanceID,
 			&validationID,
 			&metadataJSON,
+			&sourceSnapshotID,
 			&sourceManifestJSON,
 			&sourceManifestDigest,
 			&coreID,
@@ -2522,9 +2578,9 @@ AND active.is_active=1)
 		var contentLogicalName string
 		if err := transaction.QueryRowContext(ctx, `
 SELECT COALESCE(MAX(CASE WHEN role='CONTENT' THEN logical_name END),'')
-FROM import_item_source_files
-WHERE import_item_id=?
-`, itemID).Scan(&contentLogicalName); err != nil {
+FROM import_item_source_snapshot_files
+WHERE source_snapshot_id=?
+`, sourceSnapshotID).Scan(&contentLogicalName); err != nil {
 			return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 		}
 		currentSnapshot, validationStatus, _, resolveErr := corevalidation.ResolveBIOS(
@@ -2685,13 +2741,13 @@ blob_id,
 source_archive_blob_id,
 source_archive_entry_ordinal,
 sort_order
-FROM import_item_source_files
-WHERE import_item_id=?
+FROM import_item_source_snapshot_files
+WHERE source_snapshot_id=?
 ORDER BY sort_order,
 role,
 logical_name
 `,
-		itemID,
+		sourceSnapshotID,
 	)
 	if err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
@@ -2905,10 +2961,11 @@ WHERE id=?
 	}
 	beforeJSON, _ := json.Marshal(
 		map[string]any{
-			"schemaVersion":        1,
-			"metadata":             json.RawMessage(metadataJSON),
-			"selectedValidationId": validationID,
-			"selectedCandidateId":  nullable(candidateID),
+			"schemaVersion":             1,
+			"effectiveSourceSnapshotId": sourceSnapshotID,
+			"metadata":                  json.RawMessage(metadataJSON),
+			"selectedValidationId":      validationID,
+			"selectedCandidateId":       nullable(candidateID),
 			"selectedAssets": map[string]any{
 				"coverCandidateAssetId":       nullable(coverID),
 				"coverUploadedAssetId":        nullable(uploadedCoverID),

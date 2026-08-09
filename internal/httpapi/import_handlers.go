@@ -29,6 +29,63 @@ func requireVersion(writer http.ResponseWriter, request *http.Request) (int64, b
 	return version, true
 }
 
+func (server *Server) createReviewArcadeParentAttachment(
+	writer http.ResponseWriter,
+	request *http.Request,
+) {
+	version, ok := requireVersion(writer, request)
+	if !ok {
+		return
+	}
+	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
+		return
+	}
+	var body libraryimport.ParentAttachmentRequest
+	if err := decodeJSON(writer, request, &body, 8<<10); err != nil {
+		writeError(
+			writer, request, http.StatusBadRequest, libraryimport.ParentErrorInvalid,
+			"Parent ROM 上传请求无效", map[string]any{},
+		)
+		return
+	}
+	created, err := server.importer.CreateArcadeParentAttachment(
+		request.Context(), request.PathValue("importItemId"), version, body,
+	)
+	if err != nil {
+		code := libraryimport.ParentAttachmentErrorCode(err)
+		status := http.StatusServiceUnavailable
+		message := "Parent ROM 校验服务暂时不可用"
+		switch code {
+		case libraryimport.ParentErrorInvalid:
+			status, message = http.StatusBadRequest, "Parent ROM 上传请求无效"
+		case libraryimport.ParentErrorNotFound:
+			status, message = http.StatusNotFound, "审核项不存在"
+		case libraryimport.ParentErrorVersion:
+			status, message = http.StatusConflict, "审核条目已发生变化"
+		case libraryimport.ParentErrorInProgress:
+			status, message = http.StatusConflict, "已有 Parent ROM 正在校验"
+		case libraryimport.ParentErrorInputStale:
+			status, message = http.StatusConflict, "运行验证输入已经变化"
+		case libraryimport.ParentErrorFinalized:
+			status, message = http.StatusConflict, "审核项已经完成决策"
+		case libraryimport.ParentErrorNotRequired:
+			status, message = http.StatusUnprocessableEntity, "当前依赖不需要此 Parent ROM"
+		case libraryimport.ParentErrorStructure:
+			status, message = http.StatusUnprocessableEntity, "当前 Arcade 结构不支持补充 Parent ROM"
+		case libraryimport.ParentErrorArchiveUnsafe:
+			status, message = http.StatusUnprocessableEntity, "Parent ROM 归档不安全"
+		case libraryimport.ParentErrorMismatch:
+			status, message = http.StatusUnprocessableEntity, "Parent ROM 内容与 DAT 不匹配"
+		}
+		writeError(writer, request, status, code, message, map[string]any{})
+		return
+	}
+	writer.Header().Set("Location", "/api/v1/admin/jobs/"+created.JobID)
+	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, created.Version))
+	writeJSON(writer, http.StatusAccepted, created)
+}
+
 //nolint:funlen // Aggregate and item projections are read together to preserve one import snapshot response.
 func (server *Server) importDetail(writer http.ResponseWriter, request *http.Request) {
 	var id, uploadID, targetID, targetName, platformID, coreID, artifactID, provider, state, configJSON string

@@ -244,6 +244,25 @@ type MetadataProvider interface {
 
 发布前校验平台目录仍启用且当前 version/default CoreArtifact/DAT/BIOS input 与 ReviewDraft.selectedValidation 完全一致。Approve 事务用已审核的 source manifest 创建 Game、GameContentRevision/GameContentFiles、默认核心 GameVariant/READY VariantRevision、复制 ValidationFiles、MetadataRevision/Asset 和 ReviewEvent，并同时闭合 Game 的 metadata/content current 与 Variant current；任一步失败全部回滚。事务不得读取大 archive、生成 ZIP 或访问网络；Validation 非 READY/过期时返回可修复冲突并投递新验证，不能发布。
 
+### 9.1 Arcade Parent 补充与来源快照
+
+每个 ImportItem 的初始来源在识别完成时固化为 revision 1 的 `ImportItemSourceSnapshot`；旧 `ImportItemSourceFile` 只作为初始导入证据，不再被审核补传原地改写。ReviewDraft 的 `effective_source_snapshot_id` 指向当前有效快照，CoreValidation 同时绑定 `source_snapshot_id`。补充 Parent、保存草稿、重复检查和 Approve 必须使用这一有效快照；READY Validation 只有与草稿同 Item、同有效快照时才能被选择。
+
+Arcade 审核允许对当前 V2 依赖闭包中状态为 `MISSING/MISMATCH` 的 `PARENT` 节点补充一个 ZIP。浏览器先走通用单文件分块上传并等待 UploadFile COMPLETE，再创建 `REVIEW_ARCADE_PARENT_VALIDATE` Job。Attachment 状态机固定为：
+
+```text
+QUEUED -> RUNNING -> ACCEPTED
+                  -> REJECTED
+                  -> FAILED_RETRYABLE -> RUNNING
+QUEUED/RUNNING/FAILED_RETRYABLE -> CANCELLED
+```
+
+同一 Item 同时最多一个 `QUEUED/RUNNING` Attachment。Worker 在事务外执行 flat ZIP 安全扫描、按锁定 DAT 做 entry/size/CRC/SHA-1 严格匹配并完整重跑 Arcade validator；浏览器文件名不参与 machine 判定。接受时在一个短事务内追加后继来源快照、Validation/ValidationFiles、UploadConsumption、ReviewEvent/JobEvent，更新草稿有效快照并递增版本；闭包仍缺其他 Parent 时 Attachment 仍为 ACCEPTED，但 Validation 保持 BLOCKED 且草稿不选择 Validation。拒绝或可重试失败不产生后继快照，旧有效快照不变。
+
+审核者可按 `a -> b -> c` 分步补齐：接受 b 后重新投影完整闭包并继续展示 c；全部依赖与 BIOS 满足后才自动选择 READY Validation。Merged、CHD、关系环、DAT/config/source 漂移不允许通过补传降级放行。Discard 会请求取消 active Job；离开页面不会取消，返回时由 Review GET 与 Job SSE 恢复。补传审计事件只保存 Attachment/Job/Validation/快照 ID、machine、原文件名、observed hash/size、状态和稳定错误码，不保存 ROM bytes 或宿主绝对路径。
+
+Parent 改变有效 source manifest 和 content identity。每次接受后重新计算重复内容证据；进入人工审核的 Item 即使命中已发布游戏也不自动丢弃，Approve 继续以新 digest 做事务内最终重复检查并要求显式确认。发布时 ContentFiles 来自有效来源快照，VariantFiles 的 PARENT/BIOS 来自同快照 READY Validation，不得沿用 child-only 证据。
+
 审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都写 `SCRAPE_REQUESTED` ReviewEvent，服务端不会自动覆盖持久化草稿。首次自动刮削已有候选且草稿尚未选择来源时，前端把首个候选基础信息与 READY 封面填入客户端状态，并通过当前 ETag 防抖、串行实时保存。之后显式查询原位等待 Job 终态，并以单个“当前信息 / 最新信息”左右两栏对比对话框呈现结果；每栏内部上方为短元信息与 3:4 封面，下方为完整简介。右栏可编辑且可上传人工封面，取消不采用，应用更新客户端状态并触发实时 PATCH；不得把历次候选卡不断追加到页面正文。来源 run/candidate/候选 asset 或人工上传 asset ID 必须完整进入草稿和最终审核事件。
 
 ## 10. 审核历史
@@ -287,7 +306,7 @@ Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选�
 
 ## 11. API
 
-上传 manifest、8 MiB 分块、完成/取消、Import 创建/重新配置、SSE resume、If-Match 和 Idempotency-Key 的精确 contract 统一见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。本领域只增加以下业务约束：ImportJob 只能引用状态为 `COMPLETE` 且不存在任何 `upload_consumptions` 的 UploadSession，创建事务同时写唯一 ImportJob consumption；重新配置只复用 source ImportJob 中尚未 resolution 的 REJECTED files，并携带 source ImportJob 当前 version；Approve/Discard/审核显式重刮削必须携带当前 review version；历史端点只读。
+上传 manifest、8 MiB 分块、完成/取消、Import 创建/重新配置、Parent Attachment、SSE resume、If-Match 和 Idempotency-Key 的精确 contract 统一见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。本领域只增加以下业务约束：ImportJob 只能引用状态为 `COMPLETE` 且不存在任何 `upload_consumptions` 的 UploadSession，创建事务同时写唯一 ImportJob consumption；重新配置只复用 source ImportJob 中尚未 resolution 的 REJECTED files，并携带 source ImportJob 当前 version；Parent Attachment 只可引用单个 COMPLETE `.zip` UploadFile 且不消费整个 UploadSession；Approve/Discard/审核显式重刮削必须携带当前 review version；历史端点只读。
 
 ## 12. Worker
 

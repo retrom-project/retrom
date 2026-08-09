@@ -122,7 +122,7 @@ func (service *Service) PatchDraft(
 		return DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var importJobID, targetID, validationID, metadataJSON string
+	var importJobID, targetID, validationID, effectiveSnapshotID, metadataJSON string
 	targetOrDOSChanged := false
 	var currentVersion int64
 	var candidateID, coverID, uploadedCoverID, backgroundID, dosEntry sql.NullString
@@ -131,6 +131,7 @@ SELECT i.import_job_id,
 d.target_platform_instance_id,
 COALESCE(d.selected_validation_id,
 ''),
+d.effective_source_snapshot_id,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
 d.cover_uploaded_asset_id,
@@ -147,6 +148,7 @@ AND i.state='REVIEW_PENDING'
 			&importJobID,
 			&targetID,
 			&validationID,
+			&effectiveSnapshotID,
 			&candidateID,
 			&coverID,
 			&uploadedCoverID,
@@ -234,15 +236,17 @@ AND deleted_at_ms IS NULL
 		targetID = *patch.TargetPlatformInstanceID
 	}
 	if patch.SelectedValidationID != nil {
-		var validationTarget, status string
+		var validationTarget, validationSnapshotID, status string
 		if err := transaction.QueryRowContext(ctx, `
 SELECT target_platform_instance_id,
+source_snapshot_id,
 status
 FROM import_item_core_validations
 WHERE id=?
 AND import_item_id=?
-`, *patch.SelectedValidationID, itemID).Scan(&validationTarget, &status); err != nil ||
+`, *patch.SelectedValidationID, itemID).Scan(&validationTarget, &validationSnapshotID, &status); err != nil ||
 			validationTarget != targetID ||
+			validationSnapshotID != effectiveSnapshotID ||
 			status != "READY" {
 			return DraftResult{}, ErrInvalid
 		}
@@ -360,9 +364,9 @@ WHERE import_item_id=?
 		ctx,
 		`
 SELECT u.relative_path
-FROM import_item_source_files s
+FROM import_item_source_snapshot_files s
 JOIN upload_files u ON u.id=s.upload_file_id
-WHERE s.import_item_id=?
+WHERE s.source_snapshot_id=?
 ORDER BY s.sort_order,
 s.role,
 s.logical_name
@@ -469,6 +473,15 @@ func (service *Service) ensureCompatibleDraftValidation(
 	itemID, targetID string,
 	dosEntry sql.NullString,
 ) (string, error) {
+	var effectiveSnapshotID, effectiveManifestDigest string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT snapshot.id,snapshot.source_manifest_digest
+FROM review_drafts draft
+JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
+WHERE draft.import_item_id=?
+`, itemID).Scan(&effectiveSnapshotID, &effectiveManifestDigest); err != nil {
+		return "", ErrInvalid
+	}
 	var platformVersion int64
 	var coreID, artifactID string
 	var datID sql.NullString
@@ -499,6 +512,7 @@ compatibility_code,
 dependency_snapshot_json
 FROM import_item_core_validations
 WHERE import_item_id=?
+AND source_snapshot_id=?
 AND target_platform_instance_id=?
 AND platform_instance_version=?
 AND core_id=?
@@ -507,11 +521,11 @@ AND dat_version_id IS ?
 AND default_dos_entry IS ?
 ORDER BY created_at_ms DESC,
 id DESC LIMIT 1
-`, itemID, targetID, platformVersion, coreID, artifactID, nullable(datID), nullable(dosEntry)).
+`, itemID, effectiveSnapshotID, targetID, platformVersion, coreID, artifactID, nullable(datID), nullable(dosEntry)).
 		Scan(&sourceID, &sourceManifestDigest, &sourceStatus, &compatibilityCode, &dependencySnapshot)
 	if err == nil {
 		biosState, stateErr := resolveDraftBIOSState(
-			ctx, transaction, itemID, artifactID, dependencySnapshot, sourceStatus, compatibilityCode,
+			ctx, transaction, effectiveSnapshotID, artifactID, dependencySnapshot, sourceStatus, compatibilityCode,
 		)
 		if stateErr != nil {
 			return "", stateErr
@@ -540,13 +554,14 @@ compatibility_code,
 dependency_snapshot_json
 FROM import_item_core_validations
 WHERE import_item_id=?
+AND source_snapshot_id=?
 AND core_id=?
 AND core_artifact_id=?
 AND dat_version_id IS ?
 AND status='READY'
 ORDER BY created_at_ms DESC,
 id DESC LIMIT 1
-`, itemID, coreID, artifactID, nullable(datID)).
+`, itemID, effectiveSnapshotID, coreID, artifactID, nullable(datID)).
 			Scan(&sourceID, &sourceManifestDigest, &sourceStatus, &compatibilityCode, &dependencySnapshot)
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil
@@ -556,7 +571,7 @@ id DESC LIMIT 1
 		}
 	}
 	biosState, err := resolveDraftBIOSState(
-		ctx, transaction, itemID, artifactID, dependencySnapshot, sourceStatus, compatibilityCode,
+		ctx, transaction, effectiveSnapshotID, artifactID, dependencySnapshot, sourceStatus, compatibilityCode,
 	)
 	if err != nil {
 		return "", err
@@ -569,8 +584,9 @@ id DESC LIMIT 1
 	input, _ := json.Marshal(
 		map[string]any{
 			"schemaVersion":            1,
-			"validatorVersion":         "review-compatible-v2",
-			"sourceManifestDigest":     sourceManifestDigest,
+			"validatorVersion":         "review-compatible-v3",
+			"sourceSnapshotId":         effectiveSnapshotID,
+			"sourceManifestDigest":     effectiveManifestDigest,
 			"targetPlatformInstanceId": targetID,
 			"platformInstanceVersion":  platformVersion,
 			"coreArtifactId":           artifactID,
@@ -593,11 +609,13 @@ core_artifact_id,
 dat_version_id,
 default_dos_entry,
 source_manifest_digest,
+source_snapshot_id,
 prepublish_input_digest,
 status,
 compatibility_code,
 dependency_snapshot_json,
 created_at_ms) VALUES(?,
+?,
 ?,
 ?,
 ?,
@@ -620,7 +638,8 @@ created_at_ms) VALUES(?,
 		artifactID,
 		nullable(datID),
 		nullable(dosEntry),
-		sourceManifestDigest,
+		effectiveManifestDigest,
+		effectiveSnapshotID,
 		hex.EncodeToString(digest[:]),
 		sourceStatus,
 		compatibilityCode,
@@ -691,7 +710,7 @@ type draftBIOSState struct {
 func resolveDraftBIOSState(
 	ctx context.Context,
 	transaction *sql.Tx,
-	itemID, artifactID, previousSnapshot, previousStatus, previousCode string,
+	sourceSnapshotID, artifactID, previousSnapshot, previousStatus, previousCode string,
 ) (draftBIOSState, error) {
 	if !isStaticBIOSSnapshot(previousSnapshot) {
 		return resolveArcadeDraftBIOSState(
@@ -701,11 +720,11 @@ func resolveDraftBIOSState(
 	var logicalName string
 	err := transaction.QueryRowContext(ctx, `
 SELECT logical_name
-FROM import_item_source_files
-WHERE import_item_id=? AND role='CONTENT'
+FROM import_item_source_snapshot_files
+WHERE source_snapshot_id=? AND role='CONTENT'
 ORDER BY sort_order,logical_name
 LIMIT 1
-`, itemID).Scan(&logicalName)
+`, sourceSnapshotID).Scan(&logicalName)
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
 		return draftBIOSState{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
@@ -728,17 +747,21 @@ LIMIT 1
 }
 
 type arcadeDraftDependency struct {
-	Kind            string   `json:"kind"`
-	Machine         string   `json:"machine"`
-	State           string   `json:"state"`
-	RequiredEntries []string `json:"requiredEntries"`
+	Kind                string   `json:"kind"`
+	Machine             string   `json:"machine"`
+	RequiredBy          *string  `json:"requiredBy,omitempty"`
+	Depth               int      `json:"depth,omitempty"`
+	ExpectedLogicalName string   `json:"expectedLogicalName,omitempty"`
+	State               string   `json:"state"`
+	RequiredEntryCount  int      `json:"requiredEntryCount,omitempty"`
+	RequiredEntries     []string `json:"requiredEntries"`
 }
 
 type arcadeDraftSnapshot struct {
 	SchemaVersion     int                     `json:"schemaVersion"`
 	Machine           string                  `json:"machine"`
 	DatVersionID      string                  `json:"datVersionId"`
-	Closure           []string                `json:"closure"`
+	Closure           json.RawMessage         `json:"closure"`
 	Dependencies      []arcadeDraftDependency `json:"dependencies"`
 	MissingEntries    []string                `json:"missingEntries"`
 	MismatchedEntries []string                `json:"mismatchedEntries"`
@@ -804,7 +827,8 @@ func resolveArcadeDraftBIOSState(
 
 func parseArcadeDraftSnapshot(raw string) (arcadeDraftSnapshot, bool) {
 	var snapshot arcadeDraftSnapshot
-	if json.Unmarshal([]byte(raw), &snapshot) != nil || snapshot.SchemaVersion != 1 || snapshot.Machine == "" ||
+	if json.Unmarshal([]byte(raw), &snapshot) != nil ||
+		(snapshot.SchemaVersion != 1 && snapshot.SchemaVersion != 2) || snapshot.Machine == "" ||
 		snapshot.DatVersionID == "" || snapshot.Dependencies == nil {
 		return arcadeDraftSnapshot{}, false
 	}
@@ -964,7 +988,7 @@ func (service *Service) Discard(
 SELECT i.import_job_id,
 d.metadata_json,
 d.version,
-i.source_manifest_json,
+source_snapshot.source_manifest_json,
 j.config_snapshot_json,
 d.selected_validation_id,
 v.dat_version_id,
@@ -976,6 +1000,7 @@ d.background_candidate_asset_id
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
 JOIN review_drafts d ON d.import_item_id=i.id
+JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 LEFT JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
@@ -1030,6 +1055,27 @@ AND i.state='REVIEW_PENDING'
 		"backgroundCandidateAssetId": nullable(backgroundID),
 	})
 	now := service.now().UnixMilli()
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE jobs
+SET state=CASE WHEN state='QUEUED' THEN 'CANCELLED' ELSE 'CANCEL_REQUESTED' END,
+cancel_requested_at_ms=?,cancel_reason='review discarded',
+finished_at_ms=CASE WHEN state='QUEUED' THEN ? ELSE NULL END,
+version=version+1,updated_at_ms=?
+WHERE id IN (SELECT job_id FROM review_arcade_parent_attachments
+WHERE import_item_id=? AND state IN ('QUEUED','RUNNING'))
+AND state IN ('QUEUED','RUNNING')
+`, now, now, now, itemID); err != nil {
+		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE review_arcade_parent_attachments
+SET state='CANCELLED',error_code='CANCELLED',
+diagnostics_json='{"errorCode":"CANCELLED","schemaVersion":1}',finished_at_ms=?,
+version=version+1,updated_at_ms=?
+WHERE import_item_id=? AND state IN ('QUEUED','RUNNING')
+`, now, now, itemID); err != nil {
+		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
+	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE import_items
 SET state='DISCARDED',

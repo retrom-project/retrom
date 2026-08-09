@@ -1,6 +1,7 @@
 package store
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -17,6 +18,7 @@ import (
 	_ "modernc.org/sqlite" // Register the modernc SQLite driver used by Open.
 
 	"retrom/internal/cleanup"
+	"retrom/internal/contentmanifest"
 	"retrom/migrations"
 )
 
@@ -36,6 +38,7 @@ var (
 	errForeignKeyCheck   = errors.New("sqlite foreign key check failed")
 	errDatabaseFilename  = errors.New("invalid database filename")
 	errMigrationFilename = errors.New("invalid migration name")
+	errMigrationRebuild  = errors.New("unsupported migration foreign-key rebuild directive")
 )
 
 type DB struct {
@@ -185,6 +188,21 @@ func runMigration(
 		return fmt.Errorf("get migration connection: %w", err)
 	}
 	defer func() { cleanup.Error("close", connection.Close()) }()
+	foreignKeysDisabled := bytes.HasPrefix(contents, []byte("-- retrom: rebuild-with-foreign-keys-off\n"))
+	if foreignKeysDisabled {
+		if version != 19 {
+			return fmt.Errorf("migration %s: %w", name, errMigrationRebuild)
+		}
+		if err := verifyImportItemSourceManifests(ctx, connection); err != nil {
+			return fmt.Errorf("preflight migration %s: %w", name, err)
+		}
+		if _, err := connection.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
+			return fmt.Errorf("disable foreign keys for migration %s: %w", name, err)
+		}
+		defer func() {
+			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "PRAGMA foreign_keys = ON")
+		}()
+	}
 	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
 		return fmt.Errorf("begin migration %s: %w", name, err)
 	}
@@ -197,6 +215,11 @@ func runMigration(
 	if _, err := connection.ExecContext(ctx, string(contents)); err != nil {
 		return fmt.Errorf("apply migration %s: %w", name, err)
 	}
+	if foreignKeysDisabled {
+		if err := verifyMigrationForeignKeys(ctx, connection); err != nil {
+			return fmt.Errorf("verify migration %s foreign keys: %w", name, err)
+		}
+	}
 	if _, err := connection.ExecContext(ctx,
 		"INSERT INTO schema_migrations(version, name, checksum, applied_at_ms) VALUES(?,?,?,?)",
 		version, name, checksum, now().UTC().UnixMilli()); err != nil {
@@ -207,4 +230,123 @@ func runMigration(
 	}
 	committed = true
 	return nil
+}
+
+func verifyMigrationForeignKeys(ctx context.Context, connection *sql.Conn) error {
+	rows, err := connection.QueryContext(ctx, "PRAGMA foreign_key_check")
+	if err != nil {
+		return fmt.Errorf("query foreign key check: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	if rows.Next() {
+		return errForeignKeyCheck
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("scan foreign key check: %w", err)
+	}
+	return nil
+}
+
+type migrationImportItem struct {
+	id       string
+	manifest string
+	digest   string
+}
+
+func verifyImportItemSourceManifests(ctx context.Context, connection *sql.Conn) error {
+	items, err := readMigrationImportItems(ctx, connection)
+	if err != nil {
+		return err
+	}
+	for _, item := range items {
+		files, loadErr := migrationManifestFiles(ctx, connection, item.id)
+		if loadErr != nil {
+			return loadErr
+		}
+		manifest, digest, buildErr := contentmanifest.Build(files)
+		if buildErr != nil {
+			return fmt.Errorf("build import source manifest %s: %w", item.id, buildErr)
+		}
+		if string(manifest) != item.manifest || digest != item.digest {
+			return fmt.Errorf("import source manifest %s: %w", item.id, ErrMigrationChecksum)
+		}
+	}
+	return nil
+}
+
+func readMigrationImportItems(ctx context.Context, connection *sql.Conn) ([]migrationImportItem, error) {
+	rows, err := connection.QueryContext(ctx, `
+SELECT id,source_manifest_json,source_manifest_digest
+FROM import_items
+ORDER BY id
+`)
+	if err != nil {
+		return nil, fmt.Errorf("query import source manifests: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]migrationImportItem, 0)
+	for rows.Next() {
+		var item migrationImportItem
+		if err := rows.Scan(&item.id, &item.manifest, &item.digest); err != nil {
+			return nil, fmt.Errorf("scan import source manifest: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan import source manifests: %w", err)
+	}
+	return items, nil
+}
+
+func migrationManifestFiles(
+	ctx context.Context,
+	connection *sql.Conn,
+	itemID string,
+) ([]contentmanifest.File, error) {
+	rows, err := connection.QueryContext(ctx, `
+SELECT source.role,
+source.logical_name,
+blob.sha256,
+blob.size_bytes,
+archive.sha256,
+source.source_archive_entry_ordinal
+FROM import_item_source_files source
+JOIN blobs blob ON blob.id=source.blob_id
+LEFT JOIN blobs archive ON archive.id=source.source_archive_blob_id
+WHERE source.import_item_id=?
+ORDER BY source.role,source.logical_name
+`, itemID)
+	if err != nil {
+		return nil, fmt.Errorf("query import source files %s: %w", itemID, err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	files := make([]contentmanifest.File, 0)
+	for rows.Next() {
+		var file contentmanifest.File
+		var archiveSHA sql.NullString
+		var archiveOrdinal sql.NullInt64
+		if err := rows.Scan(
+			&file.Role,
+			&file.LogicalName,
+			&file.BlobSHA256,
+			&file.SizeBytes,
+			&archiveSHA,
+			&archiveOrdinal,
+		); err != nil {
+			return nil, fmt.Errorf("scan import source file %s: %w", itemID, err)
+		}
+		if archiveSHA.Valid != archiveOrdinal.Valid {
+			return nil, fmt.Errorf("import source archive %s: %w", itemID, contentmanifest.ErrInvalid)
+		}
+		if archiveSHA.Valid {
+			ordinal := int(archiveOrdinal.Int64)
+			file.SourceArchiveSHA256 = &archiveSHA.String
+			file.SourceArchiveEntryOrdinal = &ordinal
+		}
+		files = append(files, file)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("scan import source files %s: %w", itemID, err)
+	}
+	return files, nil
 }
