@@ -1268,7 +1268,7 @@ export interface paths {
         post?: never;
         delete?: never;
         options?: never;
-        head?: never;
+        head: operations["headRuntimeBIOSBundle"];
         patch?: never;
         trace?: never;
     };
@@ -1286,7 +1286,7 @@ export interface paths {
         post?: never;
         delete?: never;
         options?: never;
-        head?: never;
+        head: operations["headRuntimeParentBundle"];
         patch?: never;
         trace?: never;
     };
@@ -3730,7 +3730,35 @@ export interface operations {
             200: components["responses"]["BinaryResponse"];
         };
     };
+    headRuntimeBIOSBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
     getRuntimeParentBundle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["BinaryResponse"];
+        };
+    };
+    headRuntimeParentBundle: {
         parameters: {
             query?: never;
             header?: never;
