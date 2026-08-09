@@ -128,7 +128,7 @@ func New(
 		importer:     libraryimport.New(database, now, scraper).WithBlobStore(blobs),
 		launcher:     launcher,
 		jobService:   jobs.New(database, now),
-		firmware:     firmware.New(database, now),
+		firmware:     firmware.New(database, now).WithBlobStore(blobs),
 		arcadeDAT:    arcadeDAT,
 		metadata:     scraper,
 		gameContent:  gamecontent.New(database, now),
