@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -48,7 +49,14 @@ func execute(arguments []string) error {
 		return nil
 	}
 	if len(arguments) == 0 {
-		return run()
+		return run(config.ModeRelease)
+	}
+	if arguments[0] == "--mode" || strings.HasPrefix(arguments[0], "--mode=") {
+		mode, parseErr := parseServeMode(arguments)
+		if parseErr != nil {
+			return parseErr
+		}
+		return run(mode)
 	}
 	switch arguments[0] {
 	case "backup":
@@ -106,8 +114,8 @@ func writeCommandResult(value any) error {
 }
 
 //nolint:funlen,gocyclo // Process bootstrap branches are independent fail-fast checks kept in startup order.
-func run() error {
-	configuration, err := config.Load()
+func run(mode config.Mode) error {
+	configuration, err := config.Load(mode)
 	if err != nil {
 		return fmt.Errorf("load configuration: %w", err)
 	}
@@ -207,4 +215,21 @@ func run() error {
 		return fmt.Errorf("shutdown HTTP: %w", err)
 	}
 	return nil
+}
+
+func parseServeMode(arguments []string) (config.Mode, error) {
+	var value string
+	switch {
+	case len(arguments) == 1 && strings.HasPrefix(arguments[0], "--mode="):
+		value = strings.TrimPrefix(arguments[0], "--mode=")
+	case len(arguments) == 2 && arguments[0] == "--mode":
+		value = arguments[1]
+	default:
+		return "", errCommand
+	}
+	mode, err := config.ParseMode(value)
+	if err != nil {
+		return "", errCommand
+	}
+	return mode, nil
 }
