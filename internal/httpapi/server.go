@@ -4,11 +4,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -29,7 +27,9 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/accounts"
 	"retrom/internal/arcadecatalog"
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
@@ -47,8 +47,6 @@ import (
 	"retrom/internal/saves"
 	"retrom/internal/uploads"
 )
-
-const csrfCookieName = "retrom_csrf"
 
 var (
 	errUnknownQuery         = errors.New("unknown or repeated query")
@@ -76,24 +74,30 @@ type contextKey string
 const requestIDKey contextKey = "request-id"
 
 type Server struct {
-	config       config.Config
-	database     *sql.DB
-	dependencies *dependencies.Set
-	blobs        *blobstore.Store
-	credentials  *retromruntime.Credentials
-	cursors      *cursor.Codec
-	uploads      *uploads.Service
-	importer     *libraryimport.Service
-	launcher     *launch.Service
-	jobService   *jobs.Service
-	firmware     *firmware.Service
-	arcadeDAT    *arcadecatalog.Service
-	metadata     *metadatascrape.Service
-	gameContent  *gamecontent.Service
-	saveService  *saves.Service
-	now          func() time.Time
-	sseHeartbeat time.Duration
-	idempotency  sync.Mutex
+	config        config.Config
+	database      *sql.DB
+	dependencies  *dependencies.Set
+	blobs         *blobstore.Store
+	credentials   *retromruntime.Credentials
+	cursors       *cursor.Codec
+	uploads       *uploads.Service
+	importer      *libraryimport.Service
+	launcher      *launch.Service
+	jobService    *jobs.Service
+	firmware      *firmware.Service
+	arcadeDAT     *arcadecatalog.Service
+	metadata      *metadatascrape.Service
+	gameContent   *gamecontent.Service
+	saveService   *saves.Service
+	now           func() time.Time
+	sseHeartbeat  time.Duration
+	idempotency   sync.Mutex
+	authenticator Authenticator
+	accounts      *accounts.Service
+}
+
+type Authenticator interface {
+	Authenticate(context.Context, string) (accounts.Session, error)
 }
 
 func New(
@@ -102,6 +106,8 @@ func New(
 	dependencySet *dependencies.Set,
 	blobs *blobstore.Store,
 	credentials *retromruntime.Credentials,
+	authenticator Authenticator,
+	accountService *accounts.Service,
 	now func() time.Time,
 ) *Server {
 	scraper := metadatascrape.New(database, blobs, hasheous.New(nil, nil, now), now)
@@ -120,23 +126,25 @@ func New(
 	importer := libraryimport.New(database, now, scraper).WithBlobStore(blobs)
 	importer.ResumeParentAttachmentJobs(context.Background())
 	return &Server{
-		config:       config,
-		database:     database,
-		dependencies: dependencySet,
-		blobs:        blobs,
-		credentials:  credentials,
-		cursors:      cursor.New(credentials.CursorKey(), now),
-		uploads:      uploads.New(database, blobs, config.DataDir, now),
-		importer:     importer,
-		launcher:     launcher,
-		jobService:   jobs.New(database, now),
-		firmware:     firmware.New(database, now).WithBlobStore(blobs),
-		arcadeDAT:    arcadeDAT,
-		metadata:     scraper,
-		gameContent:  gamecontent.New(database, now),
-		saveService:  saves.New(database, blobs, credentials, now),
-		now:          now,
-		sseHeartbeat: 15 * time.Second,
+		config:        config,
+		database:      database,
+		dependencies:  dependencySet,
+		blobs:         blobs,
+		credentials:   credentials,
+		authenticator: authenticator,
+		accounts:      accountService,
+		cursors:       cursor.New(credentials.CursorKey(), now),
+		uploads:       uploads.New(database, blobs, config.DataDir, now),
+		importer:      importer,
+		launcher:      launcher,
+		jobService:    jobs.New(database, now),
+		firmware:      firmware.New(database, now).WithBlobStore(blobs),
+		arcadeDAT:     arcadeDAT,
+		metadata:      scraper,
+		gameContent:   gamecontent.New(database, now),
+		saveService:   saves.New(database, blobs, credentials, now),
+		now:           now,
+		sseHeartbeat:  15 * time.Second,
 	}
 }
 
@@ -145,7 +153,11 @@ func (server *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health/live", server.healthLive)
 	mux.HandleFunc("GET /health/ready", server.healthReady)
-	mux.HandleFunc("GET /api/v1/session", server.session)
+	mux.HandleFunc("GET /api/v1/auth/context", server.authContext)
+	mux.HandleFunc("POST /api/v1/auth/initialize", server.authInitialize)
+	mux.HandleFunc("POST /api/v1/auth/login", server.authLogin)
+	mux.HandleFunc("POST /api/v1/auth/logout", server.authLogout)
+	mux.HandleFunc("POST /api/v1/auth/change-password", server.authChangePassword)
 	mux.HandleFunc("GET /api/v1/home", server.home)
 	mux.HandleFunc("GET /api/v1/recent-games", server.recentGames)
 	mux.HandleFunc("GET /api/v1/games", server.games)
@@ -262,7 +274,7 @@ func (server *Server) baseMiddleware(next http.Handler) http.Handler {
 		request = request.WithContext(requestContext)
 		writer.Header().Set("X-Request-ID", requestID.String())
 		writer.Header().Set("X-Content-Type-Options", "nosniff")
-		writer.Header().Set("Referrer-Policy", "same-origin")
+		writer.Header().Set("Referrer-Policy", "no-referrer")
 		writer.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
 		writer.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
 		if request.URL.Path != "/health/live" && request.URL.Path != "/health/ready" {
@@ -283,8 +295,77 @@ func (server *Server) baseMiddleware(next http.Handler) http.Handler {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "查询参数无效", map[string]any{})
 			return
 		}
+		if server.config.Mode == config.ModeRelease || server.config.Mode == config.ModeTest {
+			if unsafeMethod(request.Method) && !server.validRequestOrigin(request) {
+				writeError(writer, request, http.StatusForbidden, "REQUEST_ORIGIN_INVALID", "请求来源无效", map[string]any{})
+				return
+			}
+		}
+		if publicHTTPRoute(request) || launchHTTPRoute(request.URL.Path) {
+			next.ServeHTTP(writer, request)
+			return
+		}
+		if server.accounts != nil {
+			contextView, contextErr := server.accounts.Context(requestContext, server.authCookieToken(request))
+			if contextErr != nil {
+				server.databaseError(writer, request, contextErr)
+				return
+			}
+			if contextView.InstanceState == "INITIALIZATION_REQUIRED" {
+				writeError(writer, request, http.StatusPreconditionRequired, "INITIALIZATION_REQUIRED", "实例尚未初始化", map[string]any{})
+				return
+			}
+		}
+		if server.authenticator == nil {
+			writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "需要登录", map[string]any{})
+			return
+		}
+		session, authErr := server.authenticator.Authenticate(requestContext, server.authCookieToken(request))
+		if authErr != nil {
+			server.clearAuthCookies(writer)
+			writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "需要登录", map[string]any{})
+			return
+		}
+		if strings.HasPrefix(request.URL.Path, "/api/v1/admin/") && session.Principal.Role != "ADMIN" {
+			writeError(writer, request, http.StatusForbidden, "ADMIN_REQUIRED", "需要管理员权限", map[string]any{})
+			return
+		}
+		if (server.config.Mode == config.ModeRelease || server.config.Mode == config.ModeTest) &&
+			unsafeMethod(request.Method) &&
+			!accounts.MatchesCSRF(session.CookieToken, request.Header.Get("X-Retrom-CSRF")) {
+			writeError(writer, request, http.StatusForbidden, "CSRF_VALIDATION_FAILED", "请求验证失败", map[string]any{})
+			return
+		}
+		request = request.WithContext(authn.WithPrincipal(requestContext, session.Principal))
 		next.ServeHTTP(writer, request)
 	})
+}
+
+func unsafeMethod(method string) bool {
+	return method != http.MethodGet && method != http.MethodHead && method != http.MethodOptions
+}
+
+func publicHTTPRoute(request *http.Request) bool {
+	path := request.URL.Path
+	if path == "/health/live" || path == "/health/ready" || path == "/api/v1/auth/context" ||
+		path == "/api/v1/auth/initialize" || path == "/api/v1/auth/login" || path == "/api/v1/auth/logout" {
+		return true
+	}
+	return (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
+		strings.HasPrefix(path, "/runtime/emulatorjs/")
+}
+
+func launchHTTPRoute(path string) bool { return strings.HasPrefix(path, "/runtime/launches/") }
+
+func (server *Server) validRequestOrigin(request *http.Request) bool {
+	values := request.Header.Values("Origin")
+	if len(values) != 1 || values[0] != server.config.PublicOrigin.String() {
+		return false
+	}
+	if fetchSite := request.Header.Get("Sec-Fetch-Site"); fetchSite != "" && fetchSite != "same-origin" {
+		return false
+	}
+	return true
 }
 
 //nolint:gocognit,gocyclo // Query branches encode independent per-operation allowlists and stable lexical constraints.
@@ -413,36 +494,6 @@ AND failed.parse_status='FAILED')
 		return "DEPENDENCY_DAT_PARSE_FAILED"
 	}
 	return "DEPENDENCY_INDEXING"
-}
-
-func (server *Server) session(writer http.ResponseWriter, request *http.Request) {
-	token := ""
-	if cookie, err := request.Cookie(csrfCookieName); err == nil && validToken(cookie.Value) {
-		token = cookie.Value
-	}
-	if token == "" {
-		contents := make([]byte, 32)
-		if _, err := rand.Read(contents); err != nil {
-			writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "无法建立会话", map[string]any{})
-			return
-		}
-		token = base64.RawURLEncoding.EncodeToString(contents)
-	}
-	http.SetCookie(writer, &http.Cookie{
-		Name: csrfCookieName, Value: token, Path: "/", MaxAge: 86400,
-		SameSite: http.SameSiteStrictMode, Secure: server.config.PublicOrigin.Scheme == "https",
-	})
-	writer.Header().Set("Cache-Control", "private, no-store")
-	writeJSON(
-		writer,
-		http.StatusOK,
-		map[string]any{"csrfToken": token, "expiresAtMs": server.now().Add(24 * time.Hour).UnixMilli()},
-	)
-}
-
-func validToken(value string) bool {
-	decoded, err := base64.RawURLEncoding.DecodeString(value)
-	return err == nil && len(decoded) == 32 && base64.RawURLEncoding.EncodeToString(decoded) == value
 }
 
 func queryWithConditions(prefix string, conditions []string, suffix string) string {

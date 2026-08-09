@@ -118,6 +118,22 @@ func NormalizePassword(password string) (string, error) {
 	return password, nil
 }
 
+func NormalizeLoginPassword(password string) (string, error) {
+	if !utf8.ValidString(password) || len(password) == 0 || len(password) > 512 {
+		return "", ErrPasswordInvalid
+	}
+	password = norm.NFC.String(password)
+	if utf8.RuneCountInString(password) > 128 {
+		return "", ErrPasswordInvalid
+	}
+	for _, character := range password {
+		if unicode.IsControl(character) {
+			return "", ErrPasswordInvalid
+		}
+	}
+	return password, nil
+}
+
 func ValidatePassword(password, confirmation, username, displayName string, blocklist Blocklist) (string, error) {
 	normalized, err := NormalizePassword(password)
 	if err != nil {
@@ -214,4 +230,9 @@ func parsePHC(encoded string) ([]byte, []byte, error) {
 		return nil, nil, ErrCredential
 	}
 	return salt, hash, nil
+}
+
+func ValidatePHC(encoded string) error {
+	_, _, err := parsePHC(encoded)
+	return err
 }

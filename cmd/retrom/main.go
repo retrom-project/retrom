@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"retrom/internal/accounts"
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
@@ -164,6 +166,19 @@ func run(mode config.Mode) error {
 	if err != nil {
 		return fmt.Errorf("load launch credentials: %w", err)
 	}
+	blocklist, err := authn.LoadBlocklist(configuration.DependencyRoot)
+	if err != nil {
+		return fmt.Errorf("load password blocklist: %w", err)
+	}
+	accountService, err := accounts.New(
+		startupContext, database.SQL, credentials, configuration.Mode, blocklist, time.Now,
+	)
+	if err != nil {
+		return fmt.Errorf("initialize account service: %w", err)
+	}
+	if err := accountService.Start(startupContext); err != nil {
+		return fmt.Errorf("validate account state: %w", err)
+	}
 	catalogContext, cancelCatalogs := context.WithCancel(context.Background())
 	defer cancelCatalogs()
 	go func() {
@@ -176,7 +191,9 @@ func run(mode config.Mode) error {
 
 	server := &http.Server{
 		Addr: configuration.HTTPAddr,
-		Handler: httpapi.New(configuration, database.SQL, dependencySet, blobs, credentials, time.Now).
+		Handler: httpapi.New(
+			configuration, database.SQL, dependencySet, blobs, credentials, accountService, accountService, time.Now,
+		).
 			Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       2 * time.Minute,

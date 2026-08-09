@@ -62,22 +62,14 @@ updated_at_ms) VALUES(?,
 	}
 
 	handler := server.Handler()
-	session := httptest.NewRecorder()
-	handler.ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
-	var sessionBody struct {
-		CSRFToken string `json:"csrfToken"`
-	}
-	if err := json.Unmarshal(session.Body.Bytes(), &sessionBody); err != nil {
-		t.Fatal(err)
-	}
-	cookie := session.Result().Cookies()[0]
+	cookie, csrfToken := testSessionCredentials()
 	previewBody := fmt.Sprintf(`{"targetPlatformInstanceId":%q}`, targetID)
 	send := func(path, body, key, etag string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("Idempotency-Key", key)
 		request.Header.Set("If-Match", etag)
-		setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+		setCSRFCredentials(request, cookie, csrfToken)
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, request)
 		return recorder
@@ -186,22 +178,14 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	}
 	gameID, _ := seedMovableGame(t, server)
 	handler := server.Handler()
-	session := httptest.NewRecorder()
-	handler.ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
-	var sessionBody struct {
-		CSRFToken string `json:"csrfToken"`
-	}
-	if err := json.Unmarshal(session.Body.Bytes(), &sessionBody); err != nil {
-		t.Fatal(err)
-	}
-	cookie := session.Result().Cookies()[0]
+	cookie, csrfToken := testSessionCredentials()
 	send := func(method, path, body, version string) *httptest.ResponseRecorder {
 		request := httptest.NewRequest(method, path, strings.NewReader(body))
 		if body != "" {
 			request.Header.Set("Content-Type", "application/json")
 		}
 		request.Header.Set("If-Match", version)
-		setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+		setCSRFCredentials(request, cookie, csrfToken)
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, request)
 		return recorder
@@ -295,15 +279,7 @@ func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testin
 	cloneMovableGame(t, server, gameID, "186", "187", "188", "189", "190")
 
 	handler := server.Handler()
-	session := httptest.NewRecorder()
-	handler.ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
-	var sessionBody struct {
-		CSRFToken string `json:"csrfToken"`
-	}
-	if err := json.Unmarshal(session.Body.Bytes(), &sessionBody); err != nil {
-		t.Fatal(err)
-	}
-	cookie := session.Result().Cookies()[0]
+	cookie, csrfToken := testSessionCredentials()
 	instanceID := "01980000-0000-7000-8000-000000000004"
 	preview := func(cursorValue *string) *httptest.ResponseRecorder {
 		body, err := json.Marshal(map[string]any{"coreId": "mgba", "cursor": cursorValue, "limit": 1})
@@ -318,7 +294,7 @@ func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testin
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("If-Match", `"v1"`)
 		request.Header.Set("Idempotency-Key", uuid.NewString())
-		setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+		setCSRFCredentials(request, cookie, csrfToken)
 		recorder := httptest.NewRecorder()
 		handler.ServeHTTP(recorder, request)
 		return recorder
@@ -420,7 +396,7 @@ WHERE id=(SELECT current_metadata_revision_id FROM games WHERE id=?)
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("If-Match", `"v1"`)
 	request.Header.Set("Idempotency-Key", uuid.NewString())
-	setCSRFCredentials(request, cookie, sessionBody.CSRFToken)
+	setCSRFCredentials(request, cookie, csrfToken)
 	changed := httptest.NewRecorder()
 	handler.ServeHTTP(changed, request)
 	if changed.Code != http.StatusOK || changed.Header().Get("ETag") != `"v2"` {
@@ -726,20 +702,8 @@ func newReadyHTTPServer(t *testing.T) *Server {
 
 func httpSession(t *testing.T, server *Server) (http.Handler, *http.Cookie, string) {
 	t.Helper()
-	handler := server.Handler()
-	session := httptest.NewRecorder()
-	handler.ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/session", nil))
-	var body struct {
-		CSRFToken string `json:"csrfToken"`
-	}
-	if err := json.Unmarshal(session.Body.Bytes(), &body); err != nil {
-		t.Fatal(err)
-	}
-	cookies := session.Result().Cookies()
-	if session.Code != http.StatusOK || len(cookies) != 1 {
-		t.Fatalf("session = %d %s", session.Code, session.Body.String())
-	}
-	return handler, cookies[0], body.CSRFToken
+	cookie, token := testSessionCredentials()
+	return server.Handler(), cookie, token
 }
 
 func seedMovableGame(t *testing.T, server *Server) (string, string) {
