@@ -465,6 +465,12 @@ WHERE id=1 AND test_default_password_active=1
 	if err := insertPreparedSession(ctx, transaction, prepared, principal.UserID, version, now); err != nil {
 		return Session{}, err
 	}
+	if err := insertUserAudit(
+		ctx, transaction, principal, "PASSWORD_CHANGED", "USER", principal.UserID,
+		map[string]any{"sessionVersion": version - 1}, map[string]any{"sessionVersion": version}, now,
+	); err != nil {
+		return Session{}, err
+	}
 	if err := transaction.Commit(); err != nil {
 		return Session{}, fmt.Errorf("commit password change: %w", err)
 	}

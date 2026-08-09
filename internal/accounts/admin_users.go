@@ -345,12 +345,27 @@ WHERE id=? AND version=? AND status!='DELETED'
 	if err != nil {
 		return AdminUser{}, false, err
 	}
-	if err := insertUserAudit(
-		ctx, transaction, principal, "USER_UPDATED", "USER", targetUserID,
-		map[string]any{"role": before.Role, "status": before.Status, "version": before.Version},
-		map[string]any{"role": after.Role, "status": after.Status, "version": after.Version}, now,
-	); err != nil {
-		return AdminUser{}, false, err
+	if roleChange {
+		if err := insertUserAudit(
+			ctx, transaction, principal, "USER_ROLE_CHANGED", "USER", targetUserID,
+			map[string]any{"role": before.Role, "version": before.Version},
+			map[string]any{"role": after.Role, "version": after.Version}, now,
+		); err != nil {
+			return AdminUser{}, false, err
+		}
+	}
+	if before.Status != after.Status {
+		action := "USER_DISABLED"
+		if after.Status == "ENABLED" {
+			action = "USER_ENABLED"
+		}
+		if err := insertUserAudit(
+			ctx, transaction, principal, action, "USER", targetUserID,
+			map[string]any{"status": before.Status, "version": before.Version},
+			map[string]any{"status": after.Status, "version": after.Version}, now,
+		); err != nil {
+			return AdminUser{}, false, err
+		}
 	}
 	encoded, _ := json.Marshal(after)
 	if err := storeIdempotency(
