@@ -388,7 +388,7 @@ func parseTrustedProxies(raw string) ([]netip.Prefix, error) {
 	result := make([]netip.Prefix, 0, len(values))
 	for _, value := range values {
 		prefix, err := netip.ParsePrefix(value)
-		if err != nil || prefix.Bits() == 0 || value != strings.TrimSpace(value) {
+		if err != nil || prefix.Bits() == 0 || value != strings.TrimSpace(value) || value != prefix.Masked().String() {
 			return nil, fmt.Errorf("%w: RETROM_TRUSTED_PROXIES", errInvalidConfig)
 		}
 		result = append(result, prefix.Masked())

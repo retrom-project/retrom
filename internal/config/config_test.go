@@ -80,3 +80,18 @@ func TestParseModeIsClosed(t *testing.T) {
 		}
 	}
 }
+
+func TestParseTrustedProxiesRequiresCanonicalCIDRs(t *testing.T) {
+	t.Parallel()
+	valid, err := parseTrustedProxies("10.0.0.0/8,2001:db8::/32")
+	if err != nil || len(valid) != 2 {
+		t.Fatalf("valid trusted proxies = %#v, %v", valid, err)
+	}
+	for _, value := range []string{
+		"0.0.0.0/0", "10.0.0.1/8", "10.0.0.0/8, 192.0.2.0/24", "not-a-prefix",
+	} {
+		if _, err := parseTrustedProxies(value); err == nil {
+			t.Fatalf("non-canonical trusted proxy %q accepted", value)
+		}
+	}
+}

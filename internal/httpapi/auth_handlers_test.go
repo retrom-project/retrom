@@ -155,3 +155,27 @@ func TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin(t *testing.T) {
 		t.Fatalf("initialize = %d %s", initializeRecorder.Code, initializeRecorder.Body.String())
 	}
 }
+
+func TestAuthHTTPLoginRateLimitReturnsRetryAfter(t *testing.T) {
+	t.Parallel()
+	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	handler := server.Handler()
+	for attempt := 1; attempt <= 5; attempt++ {
+		request := httptest.NewRequest(
+			http.MethodPost, "/api/v1/auth/login",
+			strings.NewReader(`{"username":"test","password":"wrong"}`),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Origin", "http://localhost:3000")
+		recorder := httptest.NewRecorder()
+		handler.ServeHTTP(recorder, request)
+		if attempt < 5 && recorder.Code != http.StatusUnauthorized {
+			t.Fatalf("login failure %d = %d %s", attempt, recorder.Code, recorder.Body.String())
+		}
+		if attempt == 5 && (recorder.Code != http.StatusTooManyRequests ||
+			recorder.Header().Get("Retry-After") != "900" ||
+			!strings.Contains(recorder.Body.String(), "AUTH_RATE_LIMITED")) {
+			t.Fatalf("login threshold = %d headers=%v body=%s", recorder.Code, recorder.Header(), recorder.Body.String())
+		}
+	}
+}
