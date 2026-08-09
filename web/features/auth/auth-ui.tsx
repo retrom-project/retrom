@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { FeedbackBanner, StatusBadge } from "@/components/ui";
 import { safeReturnTo, useAuth } from "./auth-provider";
 import { readAPIError, type AuthContext } from "./types";
+import type { components } from "@/lib/api/generated/schema";
 
 export function AuthPanel({ title, eyebrow, description, width = "narrow", children }: { title: string; eyebrow: string; description?: string; width?: "narrow" | "wide"; children: ReactNode }) {
   return <main className="auth-canvas"><section className={`auth-panel ${width === "wide" ? "is-wide" : ""}`}>
@@ -110,7 +111,7 @@ export function LoginForm() {
   </AuthPanel>;
 }
 
-type LinkInspection = { kind: "INVITATION" | "PASSWORD_RESET"; role: "ADMIN" | "USER" | null; username: string | null; expiresAtMs: number };
+type LinkInspection = components["schemas"]["AccountLinkInspection"];
 
 function useCapability(fragmentName: "invite" | "reset", expectedKind: LinkInspection["kind"]) {
   const [result, setResult] = useState<{ state: "loading" | "invalid" | "ready"; token?: string; inspection?: LinkInspection }>({ state: "loading" });

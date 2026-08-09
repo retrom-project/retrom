@@ -2,9 +2,14 @@ import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
-test.beforeEach(({}, testInfo) => {
+test.beforeEach(async ({ page }, testInfo) => {
   const multiViewport = /^ACC-UI-00[56]\b/.test(testInfo.title);
   test.skip(!multiViewport && testInfo.project.name !== "chrome-1280", "此状态型 Case 只消费一次共享验收夹具");
+  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+  const response = await page.request.post("/api/v1/auth/login", {
+    data: { username: "test", password: "test" }, headers: { Origin: origin }
+  });
+  expect(response.ok()).toBe(true);
 });
 
 function evidencePath(testInfo: TestInfo, name: string) {
@@ -667,7 +672,7 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   const launchId = page.url().split("/").at(-1)!;
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
   const saveResponse = await page.request.post(`/runtime/launches/${launchId}/save-states`, {
-    headers: { "Idempotency-Key": crypto.randomUUID() },
+    headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000", "Idempotency-Key": crypto.randomUUID() },
     multipart: {
       metadata: { name: "metadata.json", mimeType: "application/json", buffer: Buffer.from('{"name":"Acceptance Save"}') },
       state: { name: "state.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
@@ -694,7 +699,7 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   const latestLaunchId = page.url().split("/").at(-1)!;
   const latestSaveResponse = await page.request.post(`/runtime/launches/${latestLaunchId}/save-states`, {
-    headers: { "Idempotency-Key": crypto.randomUUID() },
+    headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000", "Idempotency-Key": crypto.randomUUID() },
     multipart: {
       metadata: { name: "metadata.json", mimeType: "application/json", buffer: Buffer.from('{"name":"Latest Session Save"}') },
       state: { name: "state.bin", mimeType: "application/octet-stream", buffer: Buffer.from([5, 6, 7, 8]) },
@@ -715,8 +720,10 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   await page.getByRole("button", { name: "继续游玩" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
 
+  const authContext = await page.request.get("/api/v1/auth/context");
+  const csrfToken = (await authContext.json() as { csrfToken: string }).csrfToken;
   const mismatch = await page.request.post("/api/v1/launches", {
-    headers: { "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
+    headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000", "X-Retrom-Csrf": csrfToken, "Content-Type": "application/json", "Idempotency-Key": crypto.randomUUID() },
     data: { gameId, coreId: "gambatte", saveStateId: saved.saveStateId, dosEntry: null, returnTo: "/saves", clientCapabilities: { secureContext: true, crossOriginIsolated: true, sharedArrayBuffer: true } },
   });
   expect(mismatch.status()).toBe(422);

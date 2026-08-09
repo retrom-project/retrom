@@ -1,5 +1,13 @@
 import { expect, test } from "@playwright/test";
 
+test.beforeEach(async ({ page }) => {
+  const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
+  const response = await page.request.post("/api/v1/auth/login", {
+    data: { username: "test", password: "test" }, headers: { Origin: origin }
+  });
+  expect(response.ok()).toBe(true);
+});
+
 test("user and admin navigation remain usable without page overflow", async ({ page }) => {
   await page.goto("/");
   await expect(page.getByRole("link", { name: "Retrom 首页" })).toBeVisible();

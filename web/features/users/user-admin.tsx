@@ -7,20 +7,12 @@ import { EmptyState, FeedbackBanner, StatusBadge } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
 import { readAPIError, type AccountRole, type AccountStatus } from "@/features/auth/types";
 import { newUuid } from "@/lib/crypto";
+import type { components } from "@/lib/api/generated/schema";
 
-export type AdminUser = {
-  userId: string; username: string; displayName: string; role: AccountRole; status: AccountStatus;
-  version: number; createdAtMs: number; lastLoginAtMs: number | null; activeSessionCount: number;
-};
-
-export type AccountLink = {
-  accountLinkId: string; kind: "INVITATION" | "PASSWORD_RESET"; role: AccountRole | null; targetUserId: string | null;
-  createdBy: { userId: string; username: string } | null; state: "ACTIVE" | "CONSUMED" | "REVOKED" | "EXPIRED";
-  version: number; createdAtMs: number; expiresAtMs: number; consumedAtMs: number | null; revokedAtMs: number | null;
-};
-
-export type UserPage = { generatedAtMs: number; items: AdminUser[]; nextCursor: string | null };
-export type LinkPage = { generatedAtMs: number; items: AccountLink[]; nextCursor: string | null };
+export type AdminUser = components["schemas"]["AdminUser"];
+export type AccountLink = components["schemas"]["AccountLink"];
+export type UserPage = components["schemas"]["AdminUserList"];
+export type LinkPage = components["schemas"]["AccountLinkList"];
 
 type OneTimeResult = { kind: "INVITATION" | "PASSWORD_RESET"; url: string; role?: AccountRole; expiresAtMs: number };
 type ManageState = {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { safeReturnTo } from "./auth-provider";
+import { safeReturnTo } from "./routing";
 import { clearUserStorage, userStorageKey } from "./storage";
 import { configureAuthenticatedClient, handleAuthenticationResponse, writeHeaders } from "@/lib/api/client";
 

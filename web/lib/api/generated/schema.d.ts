@@ -1818,6 +1818,134 @@ export interface components {
             /** @enum {string} */
             reasonCode: "DATABASE_UNAVAILABLE" | "CAS_UNAVAILABLE" | "DEPENDENCY_INVALID" | "DEPENDENCY_DAT_PARSE_FAILED" | "DEPENDENCY_INDEXING";
         };
+        AuthUser: {
+            /** Format: uuid */
+            userId: string;
+            username: string;
+            displayName: string;
+            /** @enum {string} */
+            role: "ADMIN" | "USER";
+        };
+        AuthContext: {
+            /** @enum {string} */
+            instanceState: "INITIALIZATION_REQUIRED" | "READY";
+            /** @enum {string} */
+            mode: "release" | "test";
+            /** @enum {string} */
+            authenticationState: "NOT_APPLICABLE" | "UNAUTHENTICATED" | "AUTHENTICATED";
+            user: components["schemas"]["AuthUser"] | null;
+            csrfToken: string | null;
+            /** Format: int64 */
+            idleExpiresAtMs: number | null;
+            /** Format: int64 */
+            absoluteExpiresAtMs: number | null;
+            testDefaultAccountActive: boolean;
+        };
+        AccountLinkInspection: {
+            /** @enum {string} */
+            kind: "INVITATION" | "PASSWORD_RESET";
+            /** @enum {string|null} */
+            role: "ADMIN" | "USER" | null;
+            username: string | null;
+            /** Format: int64 */
+            expiresAtMs: number;
+        };
+        AdminUser: {
+            /** Format: uuid */
+            userId: string;
+            username: string;
+            displayName: string;
+            /** @enum {string} */
+            role: "ADMIN" | "USER";
+            /** @enum {string} */
+            status: "ENABLED" | "DISABLED" | "DELETED";
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            lastLoginAtMs: number | null;
+            /** Format: int64 */
+            activeSessionCount: number;
+        };
+        AdminUserList: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            items: components["schemas"]["AdminUser"][];
+            nextCursor: string | null;
+        };
+        AccountLinkCreator: {
+            /** Format: uuid */
+            userId: string;
+            username: string;
+        };
+        AccountLink: {
+            /** Format: uuid */
+            accountLinkId: string;
+            /** @enum {string} */
+            kind: "INVITATION" | "PASSWORD_RESET";
+            /** @enum {string|null} */
+            role: "ADMIN" | "USER" | null;
+            /** Format: uuid */
+            targetUserId: string | null;
+            createdBy: components["schemas"]["AccountLinkCreator"];
+            /** @enum {string} */
+            state: "ACTIVE" | "CONSUMED" | "REVOKED" | "EXPIRED";
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            expiresAtMs: number;
+            /** Format: int64 */
+            consumedAtMs: number | null;
+            /** Format: int64 */
+            revokedAtMs: number | null;
+        };
+        AccountLinkList: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            items: components["schemas"]["AccountLink"][];
+            nextCursor: string | null;
+        };
+        InvitationCreated: {
+            /** Format: uuid */
+            accountLinkId: string;
+            /** @enum {string} */
+            role: "ADMIN" | "USER";
+            /** @enum {string} */
+            state: "ACTIVE";
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            expiresAtMs: number;
+            /** Format: uri */
+            url: string;
+        };
+        PasswordResetCreated: {
+            /** Format: uuid */
+            accountLinkId: string;
+            /** Format: uuid */
+            targetUserId: string;
+            /** Format: int64 */
+            targetUserVersion: number;
+            /** @enum {string} */
+            state: "ACTIVE";
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            expiresAtMs: number;
+            /** Format: uri */
+            url: string;
+        };
+        PasswordChangedDisabled: {
+            /** @enum {string} */
+            status: "PASSWORD_CHANGED_ACCOUNT_DISABLED";
+        };
         Session: {
             csrfToken: string;
             /** Format: int64 */
@@ -2239,6 +2367,71 @@ export interface components {
                 "application/json": components["schemas"]["HealthNotReady"];
             };
         };
+        /** @description Instance and current authenticated-session context */
+        AuthContextResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AuthContext"];
+            };
+        };
+        /** @description Non-secret metadata visible to a valid account-link holder */
+        AccountLinkInspectionResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AccountLinkInspection"];
+            };
+        };
+        /** @description Account-security-only user list */
+        AdminUserListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AdminUserList"];
+            };
+        };
+        /** @description Account-security-only user detail */
+        AdminUserResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AdminUser"];
+            };
+        };
+        /** @description Secretless account-link metadata list */
+        AccountLinkListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["AccountLinkList"];
+            };
+        };
+        /** @description Invitation metadata and the one-time capability URL */
+        InvitationCreatedResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["InvitationCreated"];
+            };
+        };
+        /** @description Password-reset metadata and the one-time capability URL */
+        PasswordResetCreatedResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PasswordResetCreated"];
+            };
+        };
         /** @description JSON response */
         JSONResponse: {
             headers: {
@@ -2567,7 +2760,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AuthContextResponse"];
         };
     };
     postAuthInitialize: {
@@ -2579,7 +2772,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["AuthInitialize"];
         responses: {
-            201: components["responses"]["JSONResponse"];
+            201: components["responses"]["AuthContextResponse"];
         };
     };
     postAuthLogin: {
@@ -2591,7 +2784,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["AuthLogin"];
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AuthContextResponse"];
         };
     };
     postAuthLogout: {
@@ -2621,7 +2814,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["AuthChangePassword"];
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AuthContextResponse"];
         };
     };
     postAuthAccountLinkInspect: {
@@ -2633,7 +2826,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["AccountLinkInspect"];
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AccountLinkInspectionResponse"];
         };
     };
     postAuthInvitationAccept: {
@@ -2645,7 +2838,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["InvitationAccept"];
         responses: {
-            201: components["responses"]["JSONResponse"];
+            201: components["responses"]["AuthContextResponse"];
         };
     };
     postAuthPasswordResetComplete: {
@@ -2657,7 +2850,15 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["PasswordResetComplete"];
         responses: {
-            200: components["responses"]["JSONResponse"];
+            /** @description Authenticated context for an enabled account, or the disabled-account completion state */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthContext"] | components["schemas"]["PasswordChangedDisabled"];
+                };
+            };
         };
     };
     getAdminInvitations: {
@@ -2673,7 +2874,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AccountLinkListResponse"];
         };
     };
     postAdminInvitation: {
@@ -2688,7 +2889,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["CreateInvitation"];
         responses: {
-            201: components["responses"]["JSONResponse"];
+            201: components["responses"]["InvitationCreatedResponse"];
         };
     };
     getAdminUsers: {
@@ -2707,7 +2908,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AdminUserListResponse"];
         };
     };
     getAdminUser: {
@@ -2721,7 +2922,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AdminUserResponse"];
         };
     };
     deleteAdminUser: {
@@ -2763,7 +2964,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["PatchUser"];
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AdminUserResponse"];
         };
     };
     getAdminUserPasswordResetLinks: {
@@ -2781,7 +2982,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["AccountLinkListResponse"];
         };
     };
     postAdminUserPasswordResetLink: {
@@ -2799,7 +3000,7 @@ export interface operations {
         };
         requestBody: components["requestBodies"]["Empty"];
         responses: {
-            201: components["responses"]["JSONResponse"];
+            201: components["responses"]["PasswordResetCreatedResponse"];
         };
     };
     deleteAdminAccountLink: {

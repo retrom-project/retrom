@@ -25,21 +25,21 @@ paths:
       security: []
       operationId: getAuthContext
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/AuthContextResponse' }
   /api/v1/auth/initialize:
     post:
       security: []
       operationId: postAuthInitialize
       requestBody: { $ref: '#/components/requestBodies/AuthInitialize' }
       responses:
-        '201': { $ref: '#/components/responses/JSONResponse' }
+        '201': { $ref: '#/components/responses/AuthContextResponse' }
   /api/v1/auth/login:
     post:
       security: []
       operationId: postAuthLogin
       requestBody: { $ref: '#/components/requestBodies/AuthLogin' }
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/AuthContextResponse' }
   /api/v1/auth/logout:
     post:
       security: []
@@ -52,40 +52,47 @@ paths:
       operationId: postAuthChangePassword
       requestBody: { $ref: '#/components/requestBodies/AuthChangePassword' }
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/AuthContextResponse' }
   /api/v1/auth/account-links/inspect:
     post:
       security: []
       operationId: postAuthAccountLinkInspect
       requestBody: { $ref: '#/components/requestBodies/AccountLinkInspect' }
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/AccountLinkInspectionResponse' }
   /api/v1/auth/invitations/accept:
     post:
       security: []
       operationId: postAuthInvitationAccept
       requestBody: { $ref: '#/components/requestBodies/InvitationAccept' }
       responses:
-        '201': { $ref: '#/components/responses/JSONResponse' }
+        '201': { $ref: '#/components/responses/AuthContextResponse' }
   /api/v1/auth/password-resets/complete:
     post:
       security: []
       operationId: postAuthPasswordResetComplete
       requestBody: { $ref: '#/components/requestBodies/PasswordResetComplete' }
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200':
+          description: Authenticated context for an enabled account, or the disabled-account completion state
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - { $ref: '#/components/schemas/AuthContext' }
+                  - { $ref: '#/components/schemas/PasswordChangedDisabled' }
   /api/v1/admin/invitations:
     get:
       operationId: getAdminInvitations
       parameters: [{ $ref: '#/components/parameters/State' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/AccountLinkListResponse' }
     post:
       operationId: postAdminInvitation
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
       requestBody: { $ref: '#/components/requestBodies/CreateInvitation' }
       responses:
-        '201': { $ref: '#/components/responses/JSONResponse' }
+        '201': { $ref: '#/components/responses/InvitationCreatedResponse' }
   /api/v1/admin/users:
     get:
       operationId: getAdminUsers
@@ -97,13 +104,13 @@ paths:
         - { $ref: '#/components/parameters/Cursor' }
         - { $ref: '#/components/parameters/Limit' }
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/AdminUserListResponse' }
   /api/v1/admin/users/{userId}:
     parameters: [{ $ref: '#/components/parameters/UserID' }]
     get:
       operationId: getAdminUser
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/AdminUserResponse' }
     patch:
       operationId: patchAdminUser
       parameters:
@@ -112,7 +119,7 @@ paths:
         - { $ref: '#/components/parameters/CSRFToken' }
       requestBody: { $ref: '#/components/requestBodies/PatchUser' }
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/AdminUserResponse' }
     delete:
       operationId: deleteAdminUser
       parameters:
@@ -128,7 +135,7 @@ paths:
       operationId: getAdminUserPasswordResetLinks
       parameters: [{ $ref: '#/components/parameters/State' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/AccountLinkListResponse' }
     post:
       operationId: postAdminUserPasswordResetLink
       parameters:
@@ -137,7 +144,7 @@ paths:
         - { $ref: '#/components/parameters/CSRFToken' }
       requestBody: { $ref: '#/components/requestBodies/Empty' }
       responses:
-        '201': { $ref: '#/components/responses/JSONResponse' }
+        '201': { $ref: '#/components/responses/PasswordResetCreatedResponse' }
   /api/v1/admin/account-links/{accountLinkId}:
     parameters: [{ $ref: '#/components/parameters/AccountLinkID' }]
     delete:
@@ -1248,6 +1255,123 @@ components:
       properties:
         status: { type: string, enum: [not_ready] }
         reasonCode: { type: string, enum: [DATABASE_UNAVAILABLE, CAS_UNAVAILABLE, DEPENDENCY_INVALID, DEPENDENCY_DAT_PARSE_FAILED, DEPENDENCY_INDEXING] }
+    AuthUser:
+      type: object
+      additionalProperties: false
+      required: [userId, username, displayName, role]
+      properties:
+        userId: { type: string, format: uuid }
+        username: { type: string }
+        displayName: { type: string }
+        role: { type: string, enum: [ADMIN, USER] }
+    AuthContext:
+      type: object
+      additionalProperties: false
+      required: [instanceState, mode, authenticationState, user, csrfToken, idleExpiresAtMs, absoluteExpiresAtMs, testDefaultAccountActive]
+      properties:
+        instanceState: { type: string, enum: [INITIALIZATION_REQUIRED, READY] }
+        mode: { type: string, enum: [release, test] }
+        authenticationState: { type: string, enum: [NOT_APPLICABLE, UNAUTHENTICATED, AUTHENTICATED] }
+        user:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/AuthUser' }]
+        csrfToken: { type: string, minLength: 43, maxLength: 43, nullable: true }
+        idleExpiresAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+        absoluteExpiresAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+        testDefaultAccountActive: { type: boolean }
+    AccountLinkInspection:
+      type: object
+      additionalProperties: false
+      required: [kind, role, username, expiresAtMs]
+      properties:
+        kind: { type: string, enum: [INVITATION, PASSWORD_RESET] }
+        role: { type: string, enum: [ADMIN, USER], nullable: true }
+        username: { type: string, nullable: true }
+        expiresAtMs: { type: integer, format: int64, minimum: 0 }
+    AdminUser:
+      type: object
+      additionalProperties: false
+      required: [userId, username, displayName, role, status, version, createdAtMs, lastLoginAtMs, activeSessionCount]
+      properties:
+        userId: { type: string, format: uuid }
+        username: { type: string }
+        displayName: { type: string }
+        role: { type: string, enum: [ADMIN, USER] }
+        status: { type: string, enum: [ENABLED, DISABLED, DELETED] }
+        version: { type: integer, format: int64, minimum: 1 }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        lastLoginAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+        activeSessionCount: { type: integer, format: int64, minimum: 0 }
+    AdminUserList:
+      type: object
+      additionalProperties: false
+      required: [generatedAtMs, items, nextCursor]
+      properties:
+        generatedAtMs: { type: integer, format: int64, minimum: 0 }
+        items: { type: array, items: { $ref: '#/components/schemas/AdminUser' } }
+        nextCursor: { type: string, nullable: true }
+    AccountLinkCreator:
+      type: object
+      additionalProperties: false
+      required: [userId, username]
+      properties:
+        userId: { type: string, format: uuid }
+        username: { type: string }
+    AccountLink:
+      type: object
+      additionalProperties: false
+      required: [accountLinkId, kind, role, targetUserId, createdBy, state, version, createdAtMs, expiresAtMs, consumedAtMs, revokedAtMs]
+      properties:
+        accountLinkId: { type: string, format: uuid }
+        kind: { type: string, enum: [INVITATION, PASSWORD_RESET] }
+        role: { type: string, enum: [ADMIN, USER], nullable: true }
+        targetUserId: { type: string, format: uuid, nullable: true }
+        createdBy: { $ref: '#/components/schemas/AccountLinkCreator' }
+        state: { type: string, enum: [ACTIVE, CONSUMED, REVOKED, EXPIRED] }
+        version: { type: integer, format: int64, minimum: 1 }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        expiresAtMs: { type: integer, format: int64, minimum: 0 }
+        consumedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+        revokedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+    AccountLinkList:
+      type: object
+      additionalProperties: false
+      required: [generatedAtMs, items, nextCursor]
+      properties:
+        generatedAtMs: { type: integer, format: int64, minimum: 0 }
+        items: { type: array, items: { $ref: '#/components/schemas/AccountLink' } }
+        nextCursor: { type: string, nullable: true }
+    InvitationCreated:
+      type: object
+      additionalProperties: false
+      required: [accountLinkId, role, state, version, createdAtMs, expiresAtMs, url]
+      properties:
+        accountLinkId: { type: string, format: uuid }
+        role: { type: string, enum: [ADMIN, USER] }
+        state: { type: string, enum: [ACTIVE] }
+        version: { type: integer, format: int64, minimum: 1 }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        expiresAtMs: { type: integer, format: int64, minimum: 0 }
+        url: { type: string, format: uri }
+    PasswordResetCreated:
+      type: object
+      additionalProperties: false
+      required: [accountLinkId, targetUserId, targetUserVersion, state, version, createdAtMs, expiresAtMs, url]
+      properties:
+        accountLinkId: { type: string, format: uuid }
+        targetUserId: { type: string, format: uuid }
+        targetUserVersion: { type: integer, format: int64, minimum: 1 }
+        state: { type: string, enum: [ACTIVE] }
+        version: { type: integer, format: int64, minimum: 1 }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        expiresAtMs: { type: integer, format: int64, minimum: 0 }
+        url: { type: string, format: uri }
+    PasswordChangedDisabled:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status: { type: string, enum: [PASSWORD_CHANGED_ACCOUNT_DISABLED] }
     Session:
       type: object
       additionalProperties: false
@@ -1690,6 +1814,29 @@ components:
     HealthNotReadyResponse:
       description: Service is not ready
       content: { application/json: { schema: { $ref: '#/components/schemas/HealthNotReady' } } }
+    AuthContextResponse:
+      description: Instance and current authenticated-session context
+      content: { application/json: { schema: { $ref: '#/components/schemas/AuthContext' } } }
+    AccountLinkInspectionResponse:
+      description: Non-secret metadata visible to a valid account-link holder
+      content: { application/json: { schema: { $ref: '#/components/schemas/AccountLinkInspection' } } }
+    AdminUserListResponse:
+      description: Account-security-only user list
+      content: { application/json: { schema: { $ref: '#/components/schemas/AdminUserList' } } }
+    AdminUserResponse:
+      description: Account-security-only user detail
+      headers: { ETag: { schema: { type: string } } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/AdminUser' } } }
+    AccountLinkListResponse:
+      description: Secretless account-link metadata list
+      content: { application/json: { schema: { $ref: '#/components/schemas/AccountLinkList' } } }
+    InvitationCreatedResponse:
+      description: Invitation metadata and the one-time capability URL
+      content: { application/json: { schema: { $ref: '#/components/schemas/InvitationCreated' } } }
+    PasswordResetCreatedResponse:
+      description: Password-reset metadata and the one-time capability URL
+      headers: { ETag: { schema: { type: string } } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/PasswordResetCreated' } } }
     JSONResponse:
       description: JSON response
       content:

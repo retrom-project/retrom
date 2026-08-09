@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import { usePathname, useRouter } from "next/navigation";
 import { clearUserStorage } from "./storage";
 import type { AuthContext } from "./types";
+import { publicAuthRoutes, safeReturnTo } from "./routing";
 import { configureAuthenticatedClient, handleAuthenticationResponse, writeHeaders } from "@/lib/api/client";
 
 type AuthState = {
@@ -16,18 +17,7 @@ type AuthState = {
 
 const Context = createContext<AuthState | null>(null);
 
-const publicRoutes = new Set(["/setup", "/login", "/register", "/reset-password"]);
-
-export function safeReturnTo(value: string | null) {
-  if (!value || !value.startsWith("/") || value.startsWith("//")) return "/";
-  try {
-    const parsed = new URL(value, "http://retrom.local");
-    if (parsed.origin !== "http://retrom.local" || publicRoutes.has(parsed.pathname)) return "/";
-    return `${parsed.pathname}${parsed.search}${parsed.hash}`;
-  } catch {
-    return "/";
-  }
-}
+export { safeReturnTo } from "./routing";
 
 function currentReturnTo() {
   if (typeof window === "undefined") return "/";
@@ -86,7 +76,7 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
 
   useEffect(() => {
     if (pathname.startsWith("/play/")) return;
-    const publicRoute = publicRoutes.has(pathname);
+    const publicRoute = publicAuthRoutes.has(pathname);
     if (context.instanceState === "INITIALIZATION_REQUIRED") {
       if (pathname !== "/setup") router.replace("/setup");
       return;

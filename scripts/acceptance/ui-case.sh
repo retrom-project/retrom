@@ -34,6 +34,7 @@ done
 mkdir -p "$temporary_root/data"
 cd "$repository_root"
 setsid make dev \
+  RETROM_MODE="test" \
   RETROM_DATA_DIR="$temporary_root/data" \
   RETROM_HTTP_ADDR="127.0.0.1:${backend_port}" \
   RETROM_PUBLIC_ORIGIN="$web_origin" \
