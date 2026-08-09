@@ -1,11 +1,3 @@
-const backend = process.env.NEXT_BACKEND_ORIGIN ?? "http://127.0.0.1:8080";
-
-export async function backendJSON<T>(path: string): Promise<T> {
-  const response = await fetch(`${backend}${path}`, { cache: "no-store", headers: { Accept: "application/json" } });
-  if (!response.ok) throw new Error(`Retrom API ${path} returned ${response.status}`);
-  return response.json() as Promise<T>;
-}
-
 export type ListResponse<T> = { items: T[]; nextCursor: string | null };
 
 export function scalarSearchParams(values: Record<string, string | string[] | undefined>, allowed: string[]) {

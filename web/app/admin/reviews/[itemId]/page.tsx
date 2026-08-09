@@ -3,7 +3,8 @@ import { FlashToast } from "@/components/flash-toast";
 import { ReviewActions, type ReviewWorkspace } from "@/features/reviews/review-actions";
 import { type ReviewQueueItem } from "@/features/reviews/review-queue";
 import { ReviewValidationGuidance, reviewCompatibilityLabel, type ReviewDependencySnapshot } from "@/features/reviews/review-validation-guidance";
-import { backendJSON, formatBytes, type ListResponse } from "@/lib/backend";
+import { formatBytes, type ListResponse } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 import { statusTone } from "@/lib/status";
 
 type DependencySnapshot = ReviewDependencySnapshot & {

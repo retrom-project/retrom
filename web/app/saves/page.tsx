@@ -1,6 +1,7 @@
 import { SaveManager } from "@/features/saves/save-manager";
 import { collectSavePages, type SaveFilters, type SavePage } from "@/features/saves/save-library";
-import { backendJSON, scalarSearchParams, withQuery } from "@/lib/backend";
+import { scalarSearchParams, withQuery } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "我的存档" };
 

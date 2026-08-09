@@ -1,7 +1,9 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReviewQueue, type ReviewQueueItem } from "./review-queue";
+
+vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
 
 const item: ReviewQueueItem = {
   itemId: "item-1", reviewVersion: 1, importJobId: "job-secret-looking-id", sourceDisplayName: "1941.zip",

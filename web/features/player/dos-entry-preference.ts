@@ -1,4 +1,5 @@
-const preferencePrefix = "retrom:preferred-dos-entry:";
+import { userStorageKey } from "@/features/auth/storage";
+
 const preferenceEvent = "retrom:preferred-dos-entry-change";
 
 export function subscribePreferredDOSEntries(onStoreChange: () => void) {
@@ -10,9 +11,11 @@ export function subscribePreferredDOSEntries(onStoreChange: () => void) {
   };
 }
 
-export function readPreferredDOSEntry(gameId: string): string | null {
+export function readPreferredDOSEntry(userId: string | null | undefined, gameId: string): string | null {
   try {
-    const raw = window.localStorage.getItem(`${preferencePrefix}${gameId}`);
+    const key = userStorageKey(userId, "player", `preferred-dos-entry:${gameId}`);
+    if (!key) return null;
+    const raw = window.localStorage.getItem(key);
     if (raw === null) return null;
     const parsed = JSON.parse(raw) as { version?: unknown; entry?: unknown };
     if (parsed.version !== 1 || parsed.entry !== null && typeof parsed.entry !== "string") return null;
@@ -33,9 +36,11 @@ export function decodePreferredDOSEntry(raw: string | null): { present: boolean;
   }
 }
 
-export function writePreferredDOSEntry(gameId: string, entry: string | null) {
+export function writePreferredDOSEntry(userId: string | null | undefined, gameId: string, entry: string | null) {
   try {
-    window.localStorage.setItem(`${preferencePrefix}${gameId}`, JSON.stringify({ version: 1, entry }));
+    const key = userStorageKey(userId, "player", `preferred-dos-entry:${gameId}`);
+    if (!key) return;
+    window.localStorage.setItem(key, JSON.stringify({ version: 1, entry }));
     window.dispatchEvent(new Event(preferenceEvent));
   } catch {
     // Launching must remain available when browser storage is blocked.

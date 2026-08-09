@@ -4,7 +4,8 @@ import { AppIcon } from "@/components/app-icon";
 import { EmptyState, PageHeader } from "@/components/ui";
 import { HorizontalRail, PlatformRail, type HomePlatform } from "@/features/home/home-rails";
 import { LaunchButton } from "@/features/player/launch-button";
-import { backendJSON, formatTime } from "@/lib/backend";
+import { formatTime } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "首页" };
 

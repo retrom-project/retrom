@@ -1,7 +1,8 @@
 import { ButtonLink, PageHeader } from "@/components/ui";
 import { UploadPicker } from "@/features/imports/upload-picker";
 import type { ImportDetail } from "@/features/imports/import-workflow";
-import { backendJSON, scalarSearchParams, type ListResponse } from "@/lib/backend";
+import { scalarSearchParams, type ListResponse } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "导入游戏" };
 

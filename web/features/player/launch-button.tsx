@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { newUuid } from "@/lib/crypto";
+import { writeHeaders } from "@/lib/api/client";
 
 type LaunchResponse = { launchId: string; playUrl: string };
 type PendingResponse = { status: "VALIDATION_PENDING"; jobId: string; retryAfterMs: number };
@@ -67,7 +68,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
         const response = await fetch("/api/v1/launches", {
           method: "POST",
           credentials: "same-origin",
-          headers: { "Content-Type": "application/json", "Idempotency-Key": newUuid() },
+          headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
           body
         });
         if (!response.ok) {

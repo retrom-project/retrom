@@ -4,6 +4,7 @@ import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, type ReactNode } from "react";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
+import { useAuth } from "@/features/auth/auth-provider";
 
 type NavItem = { href: string; label: string; icon: AppIconName; exact?: boolean; child?: boolean };
 
@@ -22,6 +23,7 @@ const adminNavigation: NavItem[] = [
   { href: "/admin/reviews/history", label: "审核历史", icon: "history", child: true },
   { href: "/admin/games", label: "游戏管理", icon: "library" },
   { href: "/admin/platform-instances", label: "游戏目录", icon: "list" },
+  { href: "/admin/users", label: "用户管理", icon: "settings" },
   { href: "/admin/bios", label: "运行依赖", icon: "chip", exact: true },
   { href: "/admin/bios", label: "BIOS 文件", icon: "chip", exact: true, child: true },
   { href: "/admin/bios/dats", label: "街机数据目录", icon: "database", child: true }
@@ -85,8 +87,21 @@ function ServiceHealth() {
 
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
+  const { context, logout } = useAuth();
   if (pathname.startsWith("/play/")) return <>{children}</>;
+  const publicRoute = ["/setup", "/login", "/register", "/reset-password"].includes(pathname);
+  if (context.instanceState === "INITIALIZATION_REQUIRED") {
+    return pathname === "/setup" ? <>{children}</> : <FullScreenLoading />;
+  }
+  if (context.authenticationState !== "AUTHENTICATED") {
+    return publicRoute ? <>{children}</> : <FullScreenLoading />;
+  }
+  if (publicRoute) return <FullScreenLoading />;
+  if (pathname.startsWith("/admin") && context.user?.role !== "ADMIN") {
+    return <Forbidden />;
+  }
   const administrator = pathname.startsWith("/admin");
+  const user = context.user;
   return (
     <div className="app-frame">
       <aside className="sidebar">
@@ -96,10 +111,20 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Link>
         <Navigation items={administrator ? adminNavigation : userNavigation} pathname={pathname} />
         <div className="sidebar-foot">
-          <div className="sidebar-foot-row"><Link className="context-switch" href={administrator ? "/" : "/admin/imports"}>
-              <AppIcon className="nav-icon" name={administrator ? "arrow-left" : "settings"} />
-              {administrator ? "返回用户侧" : "管理后台"}
-            </Link><ServiceHealth /></div>
+          {administrator || user?.role === "ADMIN" ? <div className="sidebar-foot-row"><Link className="context-switch" href={administrator ? "/" : "/admin/imports"}>
+            <AppIcon className="nav-icon" name={administrator ? "arrow-left" : "settings"} />
+            {administrator ? "返回用户侧" : "管理后台"}
+          </Link><ServiceHealth /></div> : <div className="sidebar-foot-row service-only"><ServiceHealth /></div>}
+          <details className="account-menu">
+            <summary>
+              <span className="account-initial" aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span>
+              <span className="account-copy"><strong>{user?.displayName}</strong><small>@{user?.username}</small></span>
+            </summary>
+            <div className="account-menu-popover">
+              <Link href="/account">账户设置</Link>
+              <button type="button" onClick={() => void logout()}><AppIcon name="log-out" />退出登录</button>
+            </div>
+          </details>
         </div>
       </aside>
       <div className="app-body">
@@ -107,4 +132,12 @@ export function AppShell({ children }: { children: ReactNode }) {
       </div>
     </div>
   );
+}
+
+function FullScreenLoading() {
+  return <div className="auth-route-loading" role="status"><span className="button-spinner" />正在确认账号状态…</div>;
+}
+
+function Forbidden() {
+  return <main className="auth-route-message"><span aria-hidden="true">403</span><h1 tabIndex={-1}>没有管理权限</h1><p>用户管理仅包含账号与安全状态；游玩记录和存档保持私有。</p><Link className="button" href="/">返回首页</Link></main>;
 }

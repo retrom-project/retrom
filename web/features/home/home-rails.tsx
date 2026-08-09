@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useSyncExternalStore, type ReactNode } from "react";
-
-const pinnedPlatformsKey = "retrom:pinned-home-platforms";
+import { useAuth } from "@/features/auth/auth-provider";
+import { userStorageKey } from "@/features/auth/storage";
 
 export type HomePlatform = {
   id: string;
@@ -41,7 +41,7 @@ function readPinnedPlatforms(value: string) {
 
 function subscribeToPinnedPlatforms(onChange: () => void) {
   const storageChanged = (event: StorageEvent) => {
-    if (event.key === pinnedPlatformsKey) onChange();
+    if (event.key?.includes(":home:pinned-platforms")) onChange();
   };
   window.addEventListener("storage", storageChanged);
   window.addEventListener("retrom:pinned-platforms-change", onChange);
@@ -57,9 +57,11 @@ function platformCode(id: string) {
 }
 
 export function PlatformRail({ platforms }: { platforms: HomePlatform[] }) {
+  const { context } = useAuth();
+  const pinnedPlatformsKey = userStorageKey(context.user?.userId, "home", "pinned-platforms");
   const pinnedSnapshot = useSyncExternalStore(
     subscribeToPinnedPlatforms,
-    () => localStorage.getItem(pinnedPlatformsKey) ?? "[]",
+    () => pinnedPlatformsKey ? localStorage.getItem(pinnedPlatformsKey) ?? "[]" : "[]",
     () => "[]",
   );
   const pinned = useMemo(() => readPinnedPlatforms(pinnedSnapshot), [pinnedSnapshot]);
@@ -79,6 +81,7 @@ export function PlatformRail({ platforms }: { platforms: HomePlatform[] }) {
   }, [pinned, platforms]);
 
   function togglePinned(id: string) {
+    if (!pinnedPlatformsKey) return;
     const next = pinned.includes(id) ? pinned.filter((item) => item !== id) : [id, ...pinned];
     localStorage.setItem(pinnedPlatformsKey, JSON.stringify(next));
     window.dispatchEvent(new Event("retrom:pinned-platforms-change"));

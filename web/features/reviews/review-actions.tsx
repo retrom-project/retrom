@@ -8,6 +8,9 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { queueFlashToast, Toast, type ToastMessage } from "@/components/flash-toast";
 import { FeedbackBanner } from "@/components/ui";
 import { newUuid } from "@/lib/crypto";
+import { writeHeaders } from "@/lib/api/client";
+import { useAuth } from "@/features/auth/auth-provider";
+import { userStorageKey } from "@/features/auth/storage";
 import { responseError, uploadOne, waitForJob, waitForJobEvents } from "@/lib/upload";
 import { ArcadeDependencyCard } from "./arcade-dependencies";
 import { type ArcadeDependencies, type ArcadeDependencyNode, type ArcadeParentAttachment } from "./arcade-dependency-tree";
@@ -147,6 +150,7 @@ function scrapeResult(run: ReviewScrapeRun) {
 
 export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId = null, sourceDisplayName = "游戏文件", platformInstanceName = "游戏目录", children }: { review: ReviewWorkspace; returnTo?: string; nextItemId?: string | null; sourceDisplayName?: string; platformInstanceName?: string; children?: ReactNode }) {
   const router = useRouter();
+  const { context } = useAuth();
   const validationWasCurrent = review.validation?.current ?? false;
   const initialMetadata = metadataForm(review);
   const automaticCandidate = review.selectedCandidateId ? null : review.candidates[0] ?? null;
@@ -189,7 +193,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       if (!force && lastSavedKeyRef.current === key) return true;
       if (latestKeyRef.current === key) setSaveState("saving");
       try {
-        const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { method: "PATCH", credentials: "same-origin", keepalive: true, headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"` }, body: JSON.stringify(payload) });
+        const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { method: "PATCH", credentials: "same-origin", keepalive: true, headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"` }), body: JSON.stringify(payload) });
         if (!response.ok) throw new Error(await responseError(response, "实时保存失败：字段、来源或版本已经变化"));
         const result = await response.json() as { version: number };
         versionRef.current = result.version;
@@ -252,7 +256,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     const label = metadataProvider === "HASHEOUS" ? "重新查询 Hasheous" : "停用元信息源";
     if (!await flushDraft()) return;
     await run(label, async () => {
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/scrape-candidates`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }, body: JSON.stringify({ metadataProvider }) });
+      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/scrape-candidates`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify({ metadataProvider }) });
       if (!response.ok) throw new Error(await responseError(response, "重新查询失败：条目或版本已经变化"));
       const result = await response.json() as { version: number; state: string; scrapeRunId: string; jobId: string };
       versionRef.current = result.version;
@@ -274,7 +278,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   async function uploadCover(file: File, target: "current" | "comparison") {
     await run("上传封面", async () => {
       const uploaded = await uploadOne(file, setNotice);
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/assets`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind: "COVER" }) });
+      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/assets`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind: "COVER" }) });
       if (!response.ok) throw new Error(await responseError(response, "封面上传失败"));
       const asset = await response.json() as UploadedReviewAsset;
       setUploadedAssets((current) => current.some((entry) => entry.assetId === asset.assetId) ? current : [...current, asset]);
@@ -330,7 +334,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/arcade-parent-attachments`, {
         method: "POST",
         credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() },
+        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }),
         body: JSON.stringify({
           validationId: currentValidation?.id,
           baseSourceSnapshotId: effectiveSourceSnapshotId,
@@ -353,7 +357,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       const job = await snapshot.json() as { version: number };
       const response = await fetch(`/api/v1/admin/jobs/${attachment.jobId}/retry`, {
         method: "POST", credentials: "same-origin",
-        headers: { "Content-Type": "application/json", "If-Match": `"v${job.version}"`, "Idempotency-Key": newUuid() }, body: "{}",
+        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${job.version}"`, "Idempotency-Key": newUuid() }), body: "{}",
       });
       if (!response.ok) throw new Error(await responseError(response, "Parent ROM 校验无法重试"));
       await watchParentJob(attachment.jobId);
@@ -369,13 +373,14 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
 
   function clearQueueCache() {
     const query = new URL(returnTo, window.location.origin).searchParams.toString();
-    sessionStorage.removeItem(`retrom:review-queue:${query}`);
+    const key = userStorageKey(context.user?.userId, "reviews", `queue:${query}`);
+    if (key) sessionStorage.removeItem(key);
   }
 
   async function publish(duplicateGames: DuplicateGame[] = []) {
     await run("发布", async () => {
       const body = duplicateGames.length ? { duplicatePolicy: "ALLOW_NEW", acknowledgedGameIds: duplicateGames.map((game) => game.gameId) } : {};
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }, body: JSON.stringify(body) });
+      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
       if (!response.ok) {
         const payload = await response.json().catch(() => null) as { error?: { code?: string; message?: string; details?: { games?: DuplicateGame[] } } } | null;
         if (payload?.error?.code === "DUPLICATE_GAME_CONFIRMATION_REQUIRED" && payload.error.details?.games?.length) {
@@ -416,7 +421,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   async function discard() {
     if (!await flushDraft()) return;
     await run("丢弃", async () => {
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/discard`, { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }, body: "{}" });
+      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/discard`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: "{}" });
       if (!response.ok) throw new Error(await responseError(response, "丢弃失败：审核状态或版本已经变化"));
       clearQueueCache(); queueFlashToast({ message: "条目已丢弃，待审核队列已更新。", tone: "good" });
       router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
