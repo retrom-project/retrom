@@ -7,6 +7,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -71,6 +72,29 @@ func TestLookupNormalizesBoundedResponse(t *testing.T) {
 	}
 	if len(warnings) != 1 || warnings[0] != "DUPLICATE_ASSET_SLOT:COVER:0" {
 		t.Fatalf("warnings = %#v", warnings)
+	}
+}
+
+func TestLookupUsesAIDescriptionWhenSignatureDescriptionIsEmpty(t *testing.T) {
+	t.Parallel()
+	client := roundTripFunc(func(_ *http.Request) (*http.Response, error) {
+		return response(
+			http.StatusOK,
+			"application/json",
+			`{"id":602921,"name":"1941 - Counter Attack","signature":{"game":{"description":""}},"attributes":[{"attributeName":"AIDescription","attributeType":"LongString","attributeRelationType":"None","value":"First paragraph.\r\n\r\nSecond\tparagraph."}]}`,
+		), nil
+	})
+	provider := New(client, nil, func() time.Time { return time.Date(2026, time.August, 9, 0, 0, 0, 0, time.UTC) })
+	result, err := provider.LookupByHash(context.Background(), ContentHashes{SHA256: strings.Repeat("a", 64)})
+	if err != nil || result.Candidate == nil {
+		t.Fatalf("lookup result = %#v, error = %v", result, err)
+	}
+	if result.Candidate.Metadata["description"] != "First paragraph.\n\nSecond\tparagraph." {
+		t.Fatalf("description = %#v", result.Candidate.Metadata["description"])
+	}
+	warnings, ok := result.Candidate.Evidence["warnings"].([]string)
+	if !ok || !slices.Contains(warnings, "FIELD_FALLBACK:description:AIDescription") {
+		t.Fatalf("warnings = %#v", result.Candidate.Evidence["warnings"])
 	}
 }
 

@@ -669,6 +669,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Returns the latest candidate metadata, evidence, hit counts, and candidate media assets for the current content revision. */
         get: operations["getAdminGameScrapeCandidates"];
         put?: never;
         post: operations["postAdminGameScrapeCandidates"];
@@ -2016,6 +2017,7 @@ export interface components {
         ToAtMs: number;
         Cursor: string;
         Limit: number;
+        Limit20: number;
         IfMatch: string;
         IdempotencyKey: string;
         ContentRange: string;
@@ -2477,7 +2479,7 @@ export interface operations {
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
                 sort?: components["parameters"]["Sort"];
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: components["parameters"]["Limit20"];
             };
             header?: never;
             path?: never;
@@ -2656,7 +2658,7 @@ export interface operations {
                 blockerCode?: components["parameters"]["BlockerCode"];
                 sort?: components["parameters"]["Sort"];
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: components["parameters"]["Limit20"];
             };
             header?: never;
             path?: never;

@@ -233,14 +233,63 @@ VALUES(?,?,'REJECTED','ARCHIVE_UNSAFE',?,?)
 `, importID, uploadFileID, timestamp, timestamp); err != nil {
 		t.Fatal(err)
 	}
+	for index := 0; index < 20; index++ {
+		extraUploadID := fmt.Sprintf("01980000-0000-7000-8000-%012d", 200+index)
+		extraImportID := fmt.Sprintf("01980000-0000-7000-8001-%012d", 200+index)
+		extraTimestamp := timestamp - int64(index+1)
+		if _, err := transaction.Exec(`
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'COMPLETE','FILES',1,0,?,1,?,?,?)
+`, extraUploadID, digest, timestamp+60_000, extraTimestamp, extraTimestamp); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
+core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'01980000-0000-7000-8000-000000000001',1,'nes','fceumm',?,'HASHEOUS','{}',?,'COMPLETED',1,?,?)
+`, extraImportID, extraUploadID, artifactID, digest, extraTimestamp, extraTimestamp); err != nil {
+			t.Fatal(err)
+		}
+	}
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
 
 	list := httptest.NewRecorder()
-	server.imports(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports", nil))
+	server.imports(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports?limit=20", nil))
 	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"rejectedFileCount":1`) {
 		t.Fatalf("import list = %d %s", list.Code, list.Body.String())
+	}
+	var firstPage struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+		NextCursor *string `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(list.Body.Bytes(), &firstPage); err != nil || len(firstPage.Items) != 20 ||
+		firstPage.NextCursor == nil || firstPage.Items[0].ID != importID {
+		t.Fatalf("first import page = %#v, error=%v", firstPage, err)
+	}
+	second := httptest.NewRecorder()
+	server.imports(second, httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/admin/imports?limit=20&cursor="+url.QueryEscape(*firstPage.NextCursor),
+		nil,
+	))
+	var secondPage struct {
+		Items []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+		NextCursor *string `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(second.Body.Bytes(), &secondPage); err != nil || second.Code != http.StatusOK ||
+		len(secondPage.Items) != 1 || secondPage.NextCursor != nil {
+		t.Fatalf("second import page = %d %#v, error=%v", second.Code, secondPage, err)
+	}
+	overLimit := httptest.NewRecorder()
+	server.imports(overLimit, httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports?limit=21", nil))
+	if overLimit.Code != http.StatusBadRequest {
+		t.Fatalf("over-limit import page = %d %s", overLimit.Code, overLimit.Body.String())
 	}
 	detail := httptest.NewRecorder()
 	detailRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports/"+importID, nil)
@@ -659,6 +708,13 @@ UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
 		!strings.Contains(list.Body.String(), `"sourceMd5":"`+strings.Repeat("c", 32)+`"`) ||
 		!strings.Contains(list.Body.String(), `"coverUrl":"/api/v1/admin/review-assets/`+uploadedCoverResult.AssetID+`"`) {
 		t.Fatalf("review queue source projection = %d %s", list.Code, list.Body.String())
+	}
+	filteredList := httptest.NewRecorder()
+	server.reviews(
+		filteredList, httptest.NewRequest(http.MethodGet, "/api/v1/admin/reviews?importJobId="+importID, nil),
+	)
+	if filteredList.Code != http.StatusOK || !strings.Contains(filteredList.Body.String(), `"itemId":"`+itemID+`"`) {
+		t.Fatalf("review queue import filter = %d %s", filteredList.Code, filteredList.Body.String())
 	}
 	if _, err := server.database.Exec(`
 UPDATE import_items SET state='PUBLISHED' WHERE id=?;
@@ -1117,6 +1173,96 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,'本次游玩存档',240000,1,?,?,NULL)
 		!strings.Contains(deletedScreenshot.Body.String(), `"code":"SAVE_SCREENSHOT_NOT_FOUND"`) {
 		t.Fatalf("deleted save screenshot = %d: %s", deletedScreenshot.Code, deletedScreenshot.Body.String())
 	}
+	candidateID, candidateAssetID := seedCompletedGameScrape(t, server.database, gameID, contentID, coverBlobID, now)
+	candidates := httptest.NewRecorder()
+	server.Handler().ServeHTTP(
+		candidates,
+		httptest.NewRequest(http.MethodGet, "/api/v1/admin/games/"+gameID+"/scrape-candidates", nil),
+	)
+	if candidates.Code != http.StatusOK ||
+		!strings.Contains(candidates.Body.String(), `"candidateId":"`+candidateID+`"`) ||
+		!strings.Contains(candidates.Body.String(), `"candidateAssetId":"`+candidateAssetID+`"`) ||
+		!strings.Contains(candidates.Body.String(), `"kind":"COVER"`) {
+		t.Fatalf("game scrape candidates = %d: %s", candidates.Code, candidates.Body.String())
+	}
+	apply := httptest.NewRecorder()
+	applyRequest := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/admin/games/"+gameID+"/scrape-candidates/"+candidateID+"/apply",
+		strings.NewReader(
+			`{"fields":["title"],"selectedAssets":{"coverCandidateAssetId":null,`+
+				`"backgroundCandidateAssetId":null,"screenshotCandidateAssetIds":[]}}`,
+		),
+	)
+	applyRequest.Header.Set("Content-Type", "application/json")
+	applyRequest.Header.Set("If-Match", `"v1"`)
+	applyRequest.Header.Set("Idempotency-Key", uuid.NewString())
+	server.Handler().ServeHTTP(apply, applyRequest)
+	if apply.Code != http.StatusOK {
+		t.Fatalf("apply game scrape candidate = %d: %s", apply.Code, apply.Body.String())
+	}
+	var appliedTitle string
+	var preservedAssets int64
+	if err := server.database.QueryRow(`
+SELECT m.title,count(a.id)
+FROM games g
+JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+LEFT JOIN game_assets a ON a.game_id=g.id AND a.metadata_revision_id=m.id
+WHERE g.id=?
+GROUP BY m.title
+`, gameID).Scan(&appliedTitle, &preservedAssets); err != nil {
+		t.Fatal(err)
+	}
+	if appliedTitle != "Doom refreshed" || preservedAssets != 1 {
+		t.Fatalf("applied title/assets = %q/%d", appliedTitle, preservedAssets)
+	}
+}
+
+func seedCompletedGameScrape(
+	t *testing.T,
+	database *sql.DB,
+	gameID, contentID, coverBlobID string,
+	now int64,
+) (string, string) {
+	t.Helper()
+	jobID, runID := uuid.NewString(), uuid.NewString()
+	responseID, candidateID, candidateAssetID := uuid.NewString(), uuid.NewString(), uuid.NewString()
+	if _, err := database.Exec(`
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,
+max_attempts,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'GAME',?,'METADATA_SCRAPE',?,1,'{}',0,'SUCCEEDED',1,2,?,?,?,?)
+`, jobID, gameID, strings.Repeat("7", 64), now, now, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`
+INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,raw_response_blob_id,
+fetched_at_ms,expires_at_ms)
+VALUES(?,'HASHEOUS',?,200,'HIT',NULL,?,?)
+`, responseID, strings.Repeat("8", 64), now, now+60_000); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`
+INSERT INTO metadata_scrape_runs(id,import_item_id,game_id,game_content_revision_id,job_id,provider,
+provider_config_version,state,version,created_at_ms,updated_at_ms,completed_at_ms,error_code)
+VALUES(?,NULL,?,?,?,'HASHEOUS',1,'COMPLETED',1,?,?,?,NULL)
+`, runID, gameID, contentID, jobID, now, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`
+INSERT INTO scrape_candidates(id,scrape_run_id,primary_response_id,provider_game_id,normalized_metadata_json,
+evidence_json,created_at_ms)
+VALUES(?,?,?,'doom-refreshed','{"title":"Doom refreshed","description":"Updated"}','{}',?)
+`, candidateID, runID, responseID, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`
+INSERT INTO scrape_candidate_assets(id,scrape_candidate_id,provider_response_id,provider_asset_id,kind_hint,
+ordinal,source_path,status,blob_id,width_px,height_px,media_type,error_code,fetched_at_ms,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,'cover','COVER',0,'/cover','READY',?,600,800,'image/png',NULL,?,1,?,?)
+`, candidateAssetID, candidateID, responseID, coverBlobID, now, now, now); err != nil {
+		t.Fatal(err)
+	}
+	return candidateID, candidateAssetID
 }
 
 func seedRecentGameHistory(t *testing.T, database *sql.DB, coreArtifactID string, now int64, count int) {

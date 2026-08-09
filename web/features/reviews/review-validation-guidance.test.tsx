@@ -10,8 +10,16 @@ describe("review validation guidance", () => {
 
     expect(screen.getByText("缺少必需 BIOS 文件")).toBeVisible();
     expect(screen.getByText("panafz10.bin")).toBeVisible();
-    expect(screen.getByRole("link", { name: "前往 BIOS 文件安装" })).toHaveAttribute("href", "/admin/bios?scope=FULL_CATALOG&status=MISSING&q=panafz10.bin");
+    expect(screen.getByRole("link", { name: "安装所需 BIOS 文件" })).toHaveAttribute("href", "/admin/bios?scope=FULL_CATALOG&status=MISSING&q=panafz10.bin");
     expect(screen.getByText(/无需重新导入游戏/)).toBeVisible();
+  });
+
+  it("links an arcade BIOS blocker to the exact dependency archive", () => {
+    const { container } = render(<ReviewValidationGuidance status="BLOCKED" compatibilityCode="LAUNCH_BIOS_MISSING" snapshot={{ dependencies: [{ kind: "BIOS_OR_BASE", machine: "stvbios", state: "MISSING", requiredEntries: ["epr19730.ic8"] }], missingEntries: ["stvbios.zip"] }} />);
+
+    expect(screen.getByText("stvbios.zip")).toBeVisible();
+    expect(screen.getByRole("link", { name: "安装所需 BIOS 文件" })).toHaveAttribute("href", "/admin/bios?scope=FULL_CATALOG&status=MISSING&q=stvbios.zip");
+    expect(container.querySelector(".feedback-banner > i")).toBeNull();
   });
 
   it("keeps unknown blockers explicit instead of saying only needs inspection", () => {

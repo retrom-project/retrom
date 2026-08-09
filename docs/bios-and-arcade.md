@@ -149,6 +149,8 @@ BIOS 页面默认只统计当前游戏库各 GameVariant 当前 VariantRevision 
 
 `MISSING_ENTRY` installation 可以作为用户已上传文件保留并维持 active，方便展示实际缺项和直接替换，但绝不能装入 READY Variant 或 Launch bundle；`INVALID`（损坏、不安全或不可读 archive）在上传时保留审计记录但不能成为 active。静态文件 hash 不匹配，以及 DAT_MACHINE 中 entry 名齐全但 size/hash 不匹配，都统一为 `HASH_WARNING` 并可进入 Launch bundle。每次状态都记录 `validated_requirement_version`，页面若发现版本不一致显示“待重验证”，不能继续使用旧 MATCHED 标签。
 
+待审核条目点击“重新运行检查”时必须刷新两类 BIOS 快照：STATIC requirement 重新按当前安装集合求值；Arcade `DAT_MACHINE` 的 `BIOS_OR_BASE` 依赖按快照中的 machine 精确查找同 CoreArtifact 的 `<machine>.zip` active installation。命中 `MATCHED/HASH_WARNING` 后更新依赖状态、从 `missingEntries` 移除该 archive，并把实际 Blob 加入新的不可变 `BIOS_BUNDLE` ValidationFile；只在原阻断确为 `LAUNCH_BIOS_MISSING` 且全部缺项解除时转为 READY。已安装无关 BIOS 不能解除阻断，也不能要求用户重新导入游戏。
+
 ## 5. 真实 DAT 基线
 
 | Core | 绑定 source | 文件 | SHA-256 | 解析统计 |

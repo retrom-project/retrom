@@ -1278,32 +1278,56 @@ id
 		return
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0)
+	type candidateRecord struct {
+		id, providerID, metadataJSON, evidenceJSON string
+		createdAt, hitCount                        int64
+	}
+	records := make([]candidateRecord, 0)
 	for rows.Next() {
-		var id, providerID, metadataJSON, evidenceJSON string
-		var createdAt, hitCount int64
-		if err := rows.Scan(&id, &providerID, &metadataJSON, &evidenceJSON, &createdAt, &hitCount); err != nil {
+		var record candidateRecord
+		if err := rows.Scan(
+			&record.id,
+			&record.providerID,
+			&record.metadataJSON,
+			&record.evidenceJSON,
+			&record.createdAt,
+			&record.hitCount,
+		); err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
-		var metadata, evidence map[string]any
-		_ = json.Unmarshal([]byte(metadataJSON), &metadata)
-		_ = json.Unmarshal([]byte(evidenceJSON), &evidence)
-		items = append(
-			items,
-			map[string]any{
-				"candidateId":    id,
-				"providerGameId": providerID,
-				"metadata":       metadata,
-				"evidence":       evidence,
-				"hitCount":       hitCount,
-				"createdAtMs":    createdAt,
-			},
-		)
+		records = append(records, record)
 	}
 	if err := rows.Err(); err != nil {
 		server.databaseError(writer, request, err)
 		return
+	}
+	if err := rows.Close(); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	items := make([]map[string]any, 0, len(records))
+	for _, record := range records {
+		var metadata, evidence map[string]any
+		_ = json.Unmarshal([]byte(record.metadataJSON), &metadata)
+		_ = json.Unmarshal([]byte(record.evidenceJSON), &evidence)
+		assets, assetErr := server.reviewCandidateAssets(request, record.id)
+		if assetErr != nil {
+			server.databaseError(writer, request, assetErr)
+			return
+		}
+		items = append(
+			items,
+			map[string]any{
+				"candidateId":    record.id,
+				"providerGameId": record.providerID,
+				"metadata":       metadata,
+				"evidence":       evidence,
+				"assets":         assets,
+				"hitCount":       record.hitCount,
+				"createdAtMs":    record.createdAt,
+			},
+		)
 	}
 	writeJSON(
 		writer,
@@ -1519,7 +1543,6 @@ func applyMetadataFields(target *gameMetadata, candidate map[string]any, fields 
 	}
 }
 
-//nolint:funlen // Candidate evidence and nullable metadata fields are copied atomically into one immutable revision.
 func (server *Server) createCandidateMetadataRevision(
 	request *http.Request,
 	transaction *sql.Tx,
@@ -1571,35 +1594,148 @@ created_at_ms) VALUES(?,
 	if err != nil {
 		return "", nil, fmt.Errorf("httpapi/game_handlers: %w", err)
 	}
-	type selectedAsset struct {
-		id      string
-		kind    string
-		ordinal int64
+	if err := copyCurrentGameAssets(
+		request.Context(), transaction, gameID, previousMetadataID, revisionID.String(), selected, now,
+	); err != nil {
+		return "", nil, err
 	}
-	selectedAssets := make([]selectedAsset, 0, len(selected.ScreenshotCandidateAssetIDs)+2)
+	createdIDs, err := createSelectedCandidateAssets(
+		request.Context(), transaction, gameID, revisionID.String(), candidateID, selected, now,
+	)
+	if err != nil {
+		return "", nil, err
+	}
+	return revisionID.String(), createdIDs, nil
+}
+
+type currentGameAsset struct {
+	blobID, kind, mediaType string
+	ordinal, width, height  int64
+}
+
+func copyCurrentGameAssets(
+	ctx context.Context,
+	transaction *sql.Tx,
+	gameID, previousMetadataID, revisionID string,
+	selected libraryimport.SelectedAssets,
+	now int64,
+) error {
+	replaceCover := selected.CoverCandidateAssetID != nil
+	replaceBackground := selected.BackgroundCandidateAssetID != nil
+	replaceScreenshots := len(selected.ScreenshotCandidateAssetIDs) > 0
+	rows, err := transaction.QueryContext(ctx, `
+SELECT blob_id,kind,ordinal,width_px,height_px,media_type
+FROM game_assets
+WHERE game_id=?
+AND metadata_revision_id=?
+AND NOT (kind='COVER' AND ?)
+AND NOT (kind='BACKGROUND' AND ?)
+AND NOT (kind='SCREENSHOT' AND ?)
+ORDER BY kind,ordinal
+`, gameID, previousMetadataID, replaceCover, replaceBackground, replaceScreenshots)
+	if err != nil {
+		return fmt.Errorf("httpapi/game_handlers: query current assets: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	currentAssets := make([]currentGameAsset, 0)
+	for rows.Next() {
+		var asset currentGameAsset
+		if err := rows.Scan(
+			&asset.blobID,
+			&asset.kind,
+			&asset.ordinal,
+			&asset.width,
+			&asset.height,
+			&asset.mediaType,
+		); err != nil {
+			return fmt.Errorf("httpapi/game_handlers: scan current asset: %w", err)
+		}
+		currentAssets = append(currentAssets, asset)
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("httpapi/game_handlers: scan current assets: %w", err)
+	}
+	for _, asset := range currentAssets {
+		assetID, _ := uuid.NewV7()
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO game_assets(id,
+game_id,
+metadata_revision_id,
+blob_id,
+kind,
+ordinal,
+width_px,
+height_px,
+media_type,
+created_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?)
+`, assetID.String(), gameID, revisionID, asset.blobID, asset.kind, asset.ordinal, asset.width, asset.height,
+			asset.mediaType, now); err != nil {
+			return fmt.Errorf("httpapi/game_handlers: preserve current asset: %w", err)
+		}
+	}
+	return nil
+}
+
+type selectedCandidateAsset struct {
+	id      string
+	kind    string
+	ordinal int64
+}
+
+func createSelectedCandidateAssets(
+	ctx context.Context,
+	transaction *sql.Tx,
+	gameID, revisionID, candidateID string,
+	selected libraryimport.SelectedAssets,
+	now int64,
+) ([]string, error) {
+	selectedAssets := selectedCandidateAssets(selected)
+	createdIDs := make([]string, 0, len(selectedAssets))
+	for _, selectedAsset := range selectedAssets {
+		createdID, err := createSelectedCandidateAsset(
+			ctx, transaction, gameID, revisionID, candidateID, selectedAsset, now,
+		)
+		if err != nil {
+			return nil, err
+		}
+		createdIDs = append(createdIDs, createdID)
+	}
+	return createdIDs, nil
+}
+
+func selectedCandidateAssets(selected libraryimport.SelectedAssets) []selectedCandidateAsset {
+	assets := make([]selectedCandidateAsset, 0, len(selected.ScreenshotCandidateAssetIDs)+2)
 	if selected.CoverCandidateAssetID != nil {
-		selectedAssets = append(
-			selectedAssets,
-			selectedAsset{id: *selected.CoverCandidateAssetID, kind: "COVER", ordinal: 0},
+		assets = append(
+			assets,
+			selectedCandidateAsset{id: *selected.CoverCandidateAssetID, kind: "COVER", ordinal: 0},
 		)
 	}
 	if selected.BackgroundCandidateAssetID != nil {
-		selectedAssets = append(
-			selectedAssets,
-			selectedAsset{id: *selected.BackgroundCandidateAssetID, kind: "BACKGROUND", ordinal: 0},
+		assets = append(
+			assets,
+			selectedCandidateAsset{id: *selected.BackgroundCandidateAssetID, kind: "BACKGROUND", ordinal: 0},
 		)
 	}
 	for ordinal, selectedID := range selected.ScreenshotCandidateAssetIDs {
-		selectedAssets = append(
-			selectedAssets,
-			selectedAsset{id: selectedID, kind: "SCREENSHOT", ordinal: int64(ordinal)},
+		assets = append(
+			assets,
+			selectedCandidateAsset{id: selectedID, kind: "SCREENSHOT", ordinal: int64(ordinal)},
 		)
 	}
-	createdIDs := make([]string, 0, len(selectedAssets))
-	for _, selectedAsset := range selectedAssets {
-		var blobID, kind, mediaType string
-		var sourceOrdinal, width, height int64
-		err := transaction.QueryRowContext(request.Context(), `
+	return assets
+}
+
+func createSelectedCandidateAsset(
+	ctx context.Context,
+	transaction *sql.Tx,
+	gameID, revisionID, candidateID string,
+	selected selectedCandidateAsset,
+	now int64,
+) (string, error) {
+	var blobID, kind, mediaType string
+	var sourceOrdinal, width, height int64
+	err := transaction.QueryRowContext(ctx, `
 SELECT blob_id,
 kind_hint,
 ordinal,
@@ -1610,16 +1746,16 @@ FROM scrape_candidate_assets
 WHERE id=?
 AND scrape_candidate_id=?
 AND status='READY'
-`, selectedAsset.id, candidateID).
-			Scan(&blobID, &kind, &sourceOrdinal, &width, &height, &mediaType)
-		if err != nil {
-			return "", nil, fmt.Errorf("httpapi/game_handlers: %w", err)
-		}
-		if kind != selectedAsset.kind {
-			return "", nil, errCandidateAssetKind
-		}
-		assetID, _ := uuid.NewV7()
-		if _, err := transaction.ExecContext(request.Context(), `
+`, selected.id, candidateID).
+		Scan(&blobID, &kind, &sourceOrdinal, &width, &height, &mediaType)
+	if err != nil {
+		return "", fmt.Errorf("httpapi/game_handlers: %w", err)
+	}
+	if kind != selected.kind {
+		return "", errCandidateAssetKind
+	}
+	assetID, _ := uuid.NewV7()
+	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_assets(id,
 game_id,
 metadata_revision_id,
@@ -1640,23 +1776,20 @@ created_at_ms) VALUES(?,
 ?,
 ?)
 `,
-			assetID.String(),
-			gameID,
-			revisionID.String(),
-			blobID,
-			kind,
-			selectedAsset.ordinal,
-			width,
-			height,
-			mediaType,
-			now,
-		); err != nil {
-			return "", nil, fmt.Errorf("httpapi/game_handlers: %w", err)
-		}
-		createdIDs = append(createdIDs, assetID.String())
+		assetID.String(),
+		gameID,
+		revisionID,
+		blobID,
+		kind,
+		selected.ordinal,
+		width,
+		height,
+		mediaType,
+		now,
+	); err != nil {
+		return "", fmt.Errorf("httpapi/game_handlers: %w", err)
 	}
-	_ = previousMetadataID
-	return revisionID.String(), createdIDs, nil
+	return assetID.String(), nil
 }
 
 //nolint:funlen,gocyclo // Asset upload branches are independent media, ownership, and optimistic-lock contract checks.

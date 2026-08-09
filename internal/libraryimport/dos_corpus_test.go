@@ -20,7 +20,17 @@ func TestLocalDOSCorpusCompatibility(t *testing.T) {
 	if root == "" {
 		t.Skip("RETROM_DOS_CORPUS is not configured")
 	}
-	archives, err := filepath.Glob(filepath.Join(root, "*.zip"))
+	archives := make([]string, 0)
+	//nolint:gosec // The operator explicitly opts this test into traversing their local legal corpus root.
+	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		if entry.Type().IsRegular() && strings.EqualFold(filepath.Ext(entry.Name()), ".zip") {
+			archives = append(archives, path)
+		}
+		return nil
+	})
 	if err != nil || len(archives) == 0 {
 		t.Fatalf("DOS corpus contains no ZIP archives: count=%d error=%v", len(archives), err)
 	}

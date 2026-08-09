@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useState } from "react";
+import { type FormEvent, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -27,7 +27,8 @@ export type AdminGame = {
 };
 
 export type PlatformInstanceOption = { id: string; platformId: string; platformName: string; name: string; defaultCoreId: string; defaultCoreName: string; enabled: boolean };
-export type ScrapeCandidate = { candidateId: string; providerGameId: string; metadata: Record<string, unknown>; hitCount: number };
+type ScrapeCandidateAsset = { candidateAssetId: string; kind: string; status: string; widthPx: number | null; heightPx: number | null; mediaType: string | null };
+export type ScrapeCandidate = { candidateId: string; providerGameId: string; metadata: Record<string, unknown>; hitCount: number; assets: ScrapeCandidateAsset[] };
 type MoveImpact = { impactDigest: string; impact: { targetCoreId: string; variantStatus: string; blockerCodes: string[] } };
 type PendingMove = { targetPlatformInstanceId: string; targetName: string; result: MoveImpact };
 
@@ -40,6 +41,9 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const [error, setError] = useState("");
   const [pendingMove, setPendingMove] = useState<PendingMove | null>(null);
   const [moveTarget, setMoveTarget] = useState("");
+  const [scrapeCandidates, setScrapeCandidates] = useState(candidates);
+  const [comparison, setComparison] = useState<ScrapeCandidate | null>(null);
+  const versionRef = useRef(game.version);
 
   async function action(name: string, callback: () => Promise<string>) {
     setBusy(name); setNotice(""); setError("");
@@ -49,7 +53,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   }
 
   function versionedHeaders(json = true) {
-    return writeHeaders({ ...(json ? { "Content-Type": "application/json" } : {}), "If-Match": `"v${game.version}"` });
+    return writeHeaders({ ...(json ? { "Content-Type": "application/json" } : {}), "If-Match": `"v${versionRef.current}"` });
   }
 
   async function saveMetadata(event: FormEvent<HTMLFormElement>) {
@@ -91,19 +95,31 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
     await action("scrape", async () => {
       const response = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ metadataProvider: "HASHEOUS" }) });
       if (!response.ok) throw new Error(await responseError(response, "重新刮削任务创建失败"));
-      const result = await response.json() as { scrapeRunId: string; jobId: string };
+      const result = await response.json() as { scrapeRunId: string; jobId: string; version?: number };
+      if (result.version) versionRef.current = result.version;
       setNotice("正在查找新的游戏信息候选…");
       await waitForJob(result.jobId, () => setNotice("正在整理候选信息…"));
-      return result.scrapeRunId ? "候选已准备好，采用前不会覆盖当前信息。" : "候选查询已完成。";
+      const latestResponse = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates`, { cache: "no-store" });
+      if (!latestResponse.ok) throw new Error(await responseError(latestResponse, "候选查询完成，但无法读取结果"));
+      const latest = await latestResponse.json() as { items: ScrapeCandidate[] };
+      setScrapeCandidates(latest.items);
+      if (latest.items[0]) setComparison(latest.items[0]);
+      return latest.items.length ? "候选已准备好，请在对比窗口中确认。" : "查询完成，但没有找到可用候选。";
     });
   }
 
   async function applyCandidate(candidate: ScrapeCandidate) {
     await action("candidate", async () => {
-      const fields = metadataFields.filter((field) => Object.hasOwn(candidate.metadata, field));
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates/${candidate.candidateId}/apply`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ fields, selectedAssets: { coverCandidateAssetId: null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] } }) });
+      const fields = metadataFields.filter((field) => {
+        const value = candidate.metadata[field];
+        return typeof value === "number" || typeof value === "string" && value.trim() !== "";
+      });
+      const candidateCover = candidate.assets.find((asset) => asset.kind === "COVER" && asset.status === "READY");
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/scrape-candidates/${candidate.candidateId}/apply`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ fields, selectedAssets: { coverCandidateAssetId: candidateCover?.candidateAssetId ?? null, backgroundCandidateAssetId: null, screenshotCandidateAssetIds: [] } }) });
       if (!response.ok) throw new Error(await responseError(response, "候选采用失败"));
-      const result = await response.json() as { metadataRevisionId: string };
+      const result = await response.json() as { metadataRevisionId: string; version?: number };
+      if (result.version) versionRef.current = result.version;
+      setComparison(null);
       return result.metadataRevisionId ? "已采用候选并保存为新的信息版本。" : "已采用候选。";
     });
   }
@@ -166,6 +182,11 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const metadataComplete = Boolean(game.description.trim() && game.developer.trim() && game.publisher.trim() && game.genre.trim() && game.players && game.releaseYear);
   const moveTargets = platformInstances.filter((item) => item.enabled && item.platformId === game.platformId && item.id !== game.platformInstance.id);
   const disabled = busy !== null || game.status !== "PUBLISHED";
+  const comparisonCover = comparison?.assets.find((asset) => asset.kind === "COVER" && asset.status === "READY" && asset.widthPx && asset.heightPx) ?? null;
+  const comparisonFields: Array<{ key: "title" | "developer" | "publisher" | "genre" | "players" | "releaseYear"; label: string }> = [
+    { key: "title", label: "标题" }, { key: "developer", label: "开发商" }, { key: "publisher", label: "发行商" },
+    { key: "genre", label: "类型" }, { key: "players", label: "玩家数" }, { key: "releaseYear", label: "发行年份" },
+  ];
 
   return <div className="admin-game-detail">
     <Toast toast={error ? { message: error, tone: "bad" } : notice ? { message: notice, tone: "good" } : null} onDismiss={() => { setNotice(""); setError(""); }} />
@@ -174,8 +195,6 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
       <div className="admin-game-hero-copy"><h2>{game.title}</h2><p>{currentInstance?.platformName ?? game.platformId} · {game.platformInstance.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}{game.developer ? ` · ${game.developer}` : ""}</p><div><StatusBadge tone={game.status === "PUBLISHED" ? "good" : "bad"}>{game.status === "PUBLISHED" ? "用户可见" : "用户不可见"}</StatusBadge><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge><StatusBadge tone={metadataComplete ? "info" : "warn"}>{metadataComplete ? "资料完整" : "资料待补充"}</StatusBadge></div></div>
       <div className="admin-game-hero-update"><span>最近更新</span><strong>{formatAdminGameTime(game.updatedAtMs, game.generatedAtMs)}</strong><small>{game.metadataRevisions.length} 个信息版本 · {game.contentRevisions.length} 个内容版本</small></div>
     </section>
-
-    <nav className="admin-game-section-nav" aria-label="游戏管理详情分区"><a href="#admin-game-basic">基本信息</a><a href="#admin-game-media">媒体</a><a href="#admin-game-runtime">游戏文件与运行</a><a href="#admin-game-actions">管理操作</a></nav>
 
     <section className="admin-game-overview" aria-label="游戏概览">
       <div><span>所属目录</span><strong>{game.platformInstance.name}</strong></div><div><span>推荐运行方式</span><strong>{currentInstance?.defaultCoreName ?? currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>当前游戏文件</span><strong>{currentFile}</strong></div><div><span>最后运行验证</span><strong>{formatTime(currentRuntime?.createdAtMs)}</strong></div><div><span>关联存档</span><strong>{game.deleteImpact.saveStateCount} 份</strong></div>
@@ -204,11 +223,14 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
       <details className="admin-game-technical"><summary>技术详情</summary><div>{game.contentRevisions.map((revision) => <p key={revision.id}><strong>{revision.current ? "当前内容" : "历史内容"}</strong> · {formatTime(revision.createdAtMs)} · {revision.files.map((file) => file.logicalName).join("、")}<code>{revision.id}</code></p>)}{game.variants.map((variant) => <p key={variant.id}><strong>{variant.coreName}</strong> · {variant.revisions.map((revision) => `${revision.current ? "当前" : "历史"} ${revision.status}`).join(" / ")}<code>{variant.id}</code></p>)}</div></details>
     </div></section>
 
-    <section className="panel admin-game-actions" id="admin-game-actions"><div className="panel-head"><h2>管理操作</h2></div><div className="panel-body admin-game-action-grid"><article><h3>重新获取游戏资料</h3><p>重新查询标题、简介与媒体候选；确认后才会应用，不直接覆盖当前信息。</p><button className="button secondary" type="button" disabled={disabled} onClick={() => void rescrape()}>重新查找游戏信息</button>{candidates.length ? <div className="admin-game-candidates">{candidates.map((candidate) => <div key={candidate.candidateId}><strong>{String(candidate.metadata.title ?? candidate.providerGameId)}</strong><small>{candidate.hitCount} 条证据命中</small><button type="button" disabled={busy !== null} onClick={() => void applyCandidate(candidate)}>采用文字信息</button></div>)}</div> : null}</article>
+    <section className="panel admin-game-actions" id="admin-game-actions"><div className="panel-head"><h2>管理操作</h2></div><div className="panel-body admin-game-action-grid"><article><h3>重新获取游戏资料</h3><p>重新查询标题、简介与媒体候选；先并排比较基础信息、封面和完整说明，确认后才会应用。</p><button className="button secondary" type="button" disabled={disabled} onClick={() => void rescrape()}>重新查找游戏信息</button>{scrapeCandidates.length ? <div className="admin-game-candidates">{scrapeCandidates.map((candidate) => <button type="button" key={candidate.candidateId} disabled={busy !== null} onClick={() => setComparison(candidate)}><span><strong>{String(candidate.metadata.title ?? candidate.providerGameId)}</strong><small>{candidate.assets.some((asset) => asset.kind === "COVER" && asset.status === "READY") ? "包含封面候选" : "仅有文字候选"}</small></span><span>对比并选择</span></button>)}</div> : null}</article>
       <article><h3>移动到其他游戏目录</h3><p>移动前检查目标目录推荐运行方式与兼容性，不修改文件与存档。</p>{moveTargets.length ? <div><select aria-label="目标游戏目录" value={moveTarget} disabled={disabled} onChange={(event) => setMoveTarget(event.target.value)}><option value="">选择目标目录…</option>{moveTargets.map((item) => <option value={item.id} key={item.id}>{item.name} · 推荐 {item.defaultCoreName}</option>)}</select><button className="button secondary" type="button" disabled={disabled || !moveTarget} onClick={() => void previewMove(moveTarget)}>预览移动影响</button></div> : <small>没有其他同游戏平台目录可移动。</small>}</article></div></section>
 
-    <section className="panel admin-game-remove"><div className="panel-head"><h2>从游戏库移除</h2></div><form className="panel-body" onSubmit={(event) => { event.preventDefault(); void remove(String(new FormData(event.currentTarget).get("confirmTitle") ?? "")); }}><div><strong>游戏将不再对用户可见。</strong><p>已有 {game.deleteImpact.saveStateCount} 份存档、{game.deleteImpact.reviewEventCount} 条审核历史及历史版本会继续保留；当前 {game.deleteImpact.activeLaunchCount} 个活动游戏会话。</p></div><label>输入完整游戏标题确认<input name="confirmTitle" placeholder={game.title} autoComplete="off" disabled={disabled} /><button className="button danger" disabled={disabled}>移除游戏</button></label></form></section>
+    <details className="panel admin-game-remove"><summary className="panel-head"><h2>从游戏库移除</h2><span>展开危险操作</span></summary><form className="panel-body" onSubmit={(event) => { event.preventDefault(); void remove(String(new FormData(event.currentTarget).get("confirmTitle") ?? "")); }}><div><strong>游戏将不再对用户可见。</strong><p>已有 {game.deleteImpact.saveStateCount} 份存档、{game.deleteImpact.reviewEventCount} 条审核历史及历史版本会继续保留；当前 {game.deleteImpact.activeLaunchCount} 个活动游戏会话。</p></div><label>输入完整游戏标题确认<input name="confirmTitle" placeholder={game.title} autoComplete="off" disabled={disabled} /><button className="button danger" disabled={disabled}>移除游戏</button></label></form></details>
 
+    <ConfirmDialog open={comparison !== null} wide title="对比最新游戏信息" description="先核对上方基础信息和右侧封面，再阅读下方完整游戏说明；应用后会创建新的信息版本。" confirmLabel="应用这组信息" busy={busy === "candidate"} onCancel={() => setComparison(null)} onConfirm={() => { if (comparison) void applyCandidate(comparison); }}>
+      {comparison ? <div className="metadata-compare metadata-compare-game"><div className="metadata-compare-game-top"><div className="metadata-compare-short"><div className="metadata-compare-head"><strong>当前信息</strong><strong>最新候选</strong></div>{comparisonFields.map((field) => { const currentValue = game[field.key]; const nextValue = comparison.metadata[field.key]; const same = String(currentValue ?? "") === String(nextValue ?? ""); return <div className="metadata-compare-row" key={field.key}><div className="compare-readonly"><span>{field.label}</span><p>{String(currentValue ?? "") || "未填写"}</p></div><div className={`compare-readonly ${same ? "is-same" : "is-changed"}`}><span>{field.label}</span><p>{String(nextValue ?? "") || "候选未提供，将保留当前值"}</p></div></div>; })}</div><aside className="metadata-compare-cover-side"><strong>封面对比</strong><div><section><span>当前封面</span>{cover ? <Image src={cover.url} alt="当前游戏封面" width={cover.widthPx} height={cover.heightPx} unoptimized /> : <p>暂无封面</p>}</section><section className={comparisonCover?.candidateAssetId === cover?.assetId ? "is-same" : "is-changed"}><span>最新封面</span>{comparisonCover ? <Image src={`/api/v1/admin/review-assets/${comparisonCover.candidateAssetId}`} alt="最新候选封面" width={comparisonCover.widthPx ?? 1} height={comparisonCover.heightPx ?? 1} unoptimized /> : <p>候选未提供，将保留当前封面</p>}</section></div></aside></div><div className="metadata-compare-description"><div><span>当前游戏说明</span><p>{game.description || "未填写"}</p></div><div className={game.description === String(comparison.metadata.description ?? "") ? "is-same" : "is-changed"}><span>最新游戏说明</span><p>{String(comparison.metadata.description ?? "") || "候选未提供，将保留当前说明"}</p></div></div></div> : null}
+    </ConfirmDialog>
     <ConfirmDialog open={pendingMove !== null} title={`移动“${game.title}”到新目录？`} description={`目标目录：${pendingMove?.targetName ?? ""}`} confirmLabel="确认移动" tone={pendingMove?.result.impact.blockerCodes.length ? "danger" : "default"} busy={busy !== null} onCancel={() => setPendingMove(null)} onConfirm={() => void confirmMove()}><ul><li>新的推荐运行方式：{pendingMove?.result.impact.targetCoreId}</li><li>检查结果：{pendingMove?.result.impact.variantStatus}</li>{pendingMove?.result.impact.blockerCodes.length ? <li>{pendingMove.result.impact.blockerCodes.length} 项问题会暂时阻止运行</li> : <li>没有发现会阻止运行的问题</li>}<li>游戏文件、存档和历史版本不会移动或删除</li></ul></ConfirmDialog>
   </div>;
 }

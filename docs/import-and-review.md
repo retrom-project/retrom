@@ -194,7 +194,7 @@ type MetadataProvider interface {
 | `provider_game_id` | 顶层 `id` | 必须是正 JSON integer，转十进制字符串；缺失/类型错误使 response 为 INVALID_RESPONSE。 |
 | `title` | 顶层 `name`，为空再取 `signature.game.name` | trim 后必须非空；按 Unicode code point 截至 200 并写 normalization warning。 |
 | `publisher` | `publisher.name`，为空再取 `signature.game.publisher` | 可空，最多 200 code point。 |
-| `description` | `signature.game.description` | 可空，最多 10,000 code point；不自动采用 `attributes.AIDescription`。 |
+| `description` | `signature.game.description`，为空再取首个 `attributeName="AIDescription"`、`attributeType="LongString"`、`attributeRelationType="None"` 的字符串值 | 可空，最多 10,000 code point；CRLF/CR 统一为 LF，允许 LF 与制表符并拒绝其他控制字符；采用 fallback 时写 `FIELD_FALLBACK:description:AIDescription`，不从 Tags 推断。 |
 | `releaseYear` | `signature.game.year` | 只有 ASCII 四位数字且在 `1950..(run.created_at_ms 的 UTC 年+1)` 时转 integer，否则为 null 并告警。 |
 | `developer/genre/players` | 无 | 分别固定 `""/""/null`；一期不从异构或 AI-generated Tags 推断。 |
 | 平台证据 | `platform.name` | 只写 evidence 并在与目标基础平台不一致时展示 warning；绝不改写 PlatformInstance、hash profile 或 Core 验证。 |
@@ -207,7 +207,7 @@ type MetadataProvider interface {
 
 图片属性只从 primary response 的 `attributes[]` 读取，并同时要求：`attributeType="ImageId"`、`attributeName` 是支持的槽位名、`attributeRelationType="None"`、`value` 是 1..128 字符的 ASCII opaque ID、`link` 精确等于 `/api/v1/images/` + `value` 且没有 query/fragment。Hasheous 的属性 `value` 是异构字段（例如 `EmbeddedList/Tags` 为 object）；适配器只对 `ImageId` 解码字符串，未知属性保留在 raw evidence，不能因其为非字符串而拒绝整份合法 response。`Logo` 映射 `COVER/ordinal=0`；`Screenshot1..Screenshot4` 映射 `SCREENSHOT/ordinal=0..3`；`BY_HASH_V1` 不生成 BACKGROUND。重复 `(kind,ordinal)` 取 attributes 原数组中第一项并告警，其他/未知 ImageId 仅留 raw evidence、不下载。于是一期单 candidate 最多 1 个 cover 和 4 个 screenshot。
 
-若同一 run 的多个 HIT 使用相同 provider ID，先全部写 Hit，再按前述 primary 规则仅生成一份 Candidate/Asset；primary response 的 `id/name` 合法但可选字段异常时保留候选并告警，而不是用另一次响应暗中拼字段。`metadata[]`、`signatures`、`AIDescription`、`Tags` 和任何上游 source link 均不参与一期归一化。
+若同一 run 的多个 HIT 使用相同 provider ID，先全部写 Hit，再按前述 primary 规则仅生成一份 Candidate/Asset；primary response 的 `id/name` 合法但可选字段异常时保留候选并告警，而不是用另一次响应暗中拼字段。`metadata[]`、`signatures`、`Tags` 和任何上游 source link 均不参与一期归一化；`AIDescription` 只允许按上表作为空 description 的显式 fallback。
 
 上游依据：[Lookup ByHash](https://github.com/gaseous-project/hasheous/wiki/API%3A-Lookup-ByHash) 与 [Applications and API](https://github.com/gaseous-project/hasheous/wiki/Applications-and-API)。精确内部映射、网络安全和降级行为见 [HTTP API 契约](./http-api-contract.md)；外部临时字段不能直接成为 Retrom API。
 
@@ -275,7 +275,7 @@ Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选�
 
 总览的数据是聚合摘要，不复制完整任务管理能力。页首先展示待审核与异常任务两类优先事项，随后用运行中、等待审核、异常和历史完成四项 KPI，以及“上传与校验—识别—运行检查—游戏信息—人工审核—发布”六阶段流水线和最近任务摘要解释当前状态。界面只能组合现有聚合与 ImportJob 计数，不能为不可观测阶段伪造精确进度。
 
-“导入游戏”固定为选择内容、确认配置、上传并验证三步；目标游戏目录没有默认值，用户选择后才显示基础平台和推荐运行方式。上传、终结校验与创建 ImportJob 按顺序执行，成功后进入任务进度，不直接跳入尚未生成内容的待审核队列。任务进度用可筛选的卡片行展示阶段、条目分布、异常和下一步；异常数必须同时包含失败 Item 与尚未解决的 REJECTED 文件，并分别说明“条目失败”和“文件未被接受”，不能把仅含拒绝文件的任务显示为 0 异常。任务同时存在待审核条目和拒绝文件时，“审核 N 个条目”与“查看 N 个异常”必须同时可见，不能由前者遮住异常处理入口。展开区以普通语言说明六阶段和处理路径；REJECTED 文件提供“重新配置并导入”入口，不暴露内部 UUID。已导入并跳过不是异常：完成任务明确展示被跳过文件、`ALREADY_IMPORTED` 原因和已有游戏链接。
+“导入游戏”固定为选择内容、确认配置、上传并验证三步；目标游戏目录没有默认值，用户选择后才显示基础平台和推荐运行方式。上传、终结校验与创建 ImportJob 按顺序执行，成功后进入任务进度，不直接跳入尚未生成内容的待审核队列。任务进度按更新时间游标分页，每页最多 20 条；滚动到已加载列表末尾再取下一页。只对已加载且仍为 `QUEUED/RUNNING/CANCEL_REQUESTED` 的任务每秒读取一次详情，同页多批任务并行更新，全部进入终态后停止；尚未加载的运行任务不轮询。任务卡展示阶段、条目分布、异常和下一步；异常数必须同时包含失败 Item 与尚未解决的 REJECTED 文件，并分别说明“条目失败”和“文件未被接受”，不能把仅含拒绝文件的任务显示为 0 异常。任务同时存在待审核条目和拒绝文件时，“审核 N 个条目”与进度条下可点击的“N 异常”必须同时可见；异常数为零时只显示文本，不提供无效操作。展开区以普通语言说明六阶段和处理路径；每个稳定 reason code 可聚焦并以 tooltip 展示具体含义，REJECTED 文件提供“重新配置并导入”入口，不暴露内部 UUID。已导入并跳过不是异常：完成任务明确展示被跳过文件、`ALREADY_IMPORTED` 原因和已有游戏链接。
 
 “重新配置并导入”只处理原任务中尚未解决的 REJECTED UploadFile。页面读取原任务详情，展示只读文件清单与原平台/元信息源，允许重新选择平台目录后提交；浏览器不恢复或伪造 file input。服务端为这些文件创建新的 COMPLETE UploadSession/UploadFile，逐项引用原 final Blob，并以新配置创建 replacement ImportJob，所以网络不重新上传 bytes、原 session 也不会被二次消费。新任务创建、source file resolution、source 聚合计数和双向任务 lineage 在同一 Import 创建事务提交；失败时 source 仍保持待处理。原 REJECTED reason 永久保留，任务页改显示 replacement 链接且不再把已接管文件计入异常。重新处理仍执行当前归档安全和平台 profile 规则，绝不把 `ARCHIVE_UNSAFE` 当作用户可绕过的门禁。
 
@@ -283,7 +283,7 @@ Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选�
 
 任务进度只展示 Worker/阶段运行态；待审核只展示未决条目；审核历史只读且按 ReviewEvent 回放。这三个边界可避免“失败任务”“待业务决策”和“已决审计记录”在同一列表中混淆。
 
-待审核不是隐式的“下一条”游标。`/admin/reviews` 展示跨 ImportJob 的分页未决队列，并可按 `importJobId` 收窄到同一批导入；任务页进入审核时必须携带该筛选。用户可以查看各条目的来源、草稿标题、目录、Validation/Blocker、候选和更新时间后任意选择，详情路由保持队列上下文。Approve/Discard 仍是逐 ImportItem、逐 ETag 和逐 Idempotency-Key 的原子决策；一期没有批量决策 endpoint。
+待审核不是隐式的“下一条”游标。`/admin/reviews` 展示跨 ImportJob 的分页未决队列，每页最多 20 条并在滚动到底部后继续取页；可按 `importJobId` 收窄到同一批导入，任务页进入审核时必须携带该筛选。“当前已加载 / 可以发布 / 运行异常 / 未找到信息”是对已加载集合的真实即时筛选按钮，数量与筛选结果同步更新而不是装饰统计。用户可以查看各条目的来源、草稿标题、目录、Validation/Blocker、候选和更新时间后任意选择，详情路由保持队列上下文。Approve/Discard 仍是逐 ImportItem、逐 ETag 和逐 Idempotency-Key 的原子决策；一期没有批量决策 endpoint。
 
 ## 11. API
 

@@ -130,7 +130,7 @@ paths:
   /api/v1/admin/imports:
     get:
       operationId: getAdminImports
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/State' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/State' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit20' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
     post:
@@ -209,7 +209,7 @@ paths:
     get:
       operationId: getAdminReviews
       description: Pending review summaries including sourceTotalSizeBytes, sourceMd5, and a nullable coverUrl for compact queue previews.
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/ImportJobIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/BlockerCode' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/ImportJobIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/BlockerCode' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit20' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/reviews/{importItemId}:
@@ -317,6 +317,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     get:
       operationId: getAdminGameScrapeCandidates
+      description: Returns the latest candidate metadata, evidence, hit counts, and candidate media assets for the current content revision.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
     post:
@@ -1469,6 +1470,7 @@ components:
     ToAtMs: { name: toAtMs, in: query, schema: { type: integer, format: int64, minimum: 0 } }
     Cursor: { name: cursor, in: query, schema: { type: string, maxLength: 8192 } }
     Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    Limit20: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 20, default: 20 } }
     IfMatch: { name: If-Match, in: header, required: true, schema: { type: string } }
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, format: uuid } }
     ContentRange: { name: Content-Range, in: header, required: true, schema: { type: string } }

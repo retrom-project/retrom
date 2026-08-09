@@ -1,10 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { StatusBadge } from "@/components/ui";
-import { formatTime } from "@/lib/backend";
+import { formatTime, type ListResponse } from "@/lib/backend";
 import { statusTone } from "@/lib/status";
 import {
   filterImportTasks,
@@ -38,12 +38,57 @@ const rejectionLabels: Record<string, string> = {
   UNSUPPORTED_CONTENT_FORMAT: "该目录不支持这种文件格式",
   NO_SUPPORTED_CONTENT: "归档内没有该平台支持的游戏文件",
   AMBIGUOUS_PRIMARY_CONTENT: "归档内有多个候选游戏文件",
+  ARCADE_MACHINE_NOT_FOUND: "文件名无法在当前核心启用的街机数据目录中匹配到 machine",
+  ARCADE_UNUSED_DEPENDENCY_ARCHIVE: "这是未被同批游戏引用的街机依赖包，请改由 BIOS 文件页面安装",
 };
 
-export function ImportTaskBoard({ items, initialQuery = "", initialState = "" }: { items: ImportListItem[]; initialQuery?: string; initialState?: string }) {
+const rejectionDetails: Record<string, string> = {
+  ARCHIVE_UNSAFE: "归档包含不安全路径、符号链接或其他可能越出解包目录的内容。请检查归档结构后重新配置。",
+  ARCHIVE_LIMIT_EXCEEDED: "归档的文件数量、展开后总大小或压缩比超过安全上限，系统不会继续展开。",
+  ARCHIVE_ENCRYPTED_UNSUPPORTED: "归档已加密，服务器无法在不接收密码的情况下安全检查其内容。",
+  ARCHIVE_VOLUME_UNSUPPORTED: "检测到分卷归档；请先在本地合并为单个受支持归档。",
+  ARCHIVE_RESOURCE_LIMIT: "归档扫描消耗的时间或资源超过限制，未进入后续识别。",
+  ARCHIVE_SANDBOX_UNAVAILABLE: "安全归档处理环境暂时不可用，可以稍后重新配置重试。",
+  NESTED_ARCHIVE_UNSUPPORTED: "归档内部仍包含归档文件，系统不会递归展开。",
+  ARCHIVE_METHOD_UNSUPPORTED: "归档使用了当前 7z/ZIP 读取器不支持的压缩方法。",
+  ARCHIVE_CASEFOLD_COLLISION: "归档内存在仅大小写不同的同名路径，跨平台展开结果不确定。",
+  UNSUPPORTED_CONTENT_FORMAT: "目标游戏目录不接收该文件格式，请重新选择正确目录。",
+  NO_SUPPORTED_CONTENT: "归档中没有找到目标游戏目录支持的可运行内容。",
+  AMBIGUOUS_PRIMARY_CONTENT: "归档中存在多个可作为主游戏的文件，系统无法替用户决定。",
+  ARCADE_MACHINE_NOT_FOUND: "归档文件名去掉 .zip 后未命中当前核心启用 DAT 的 machine 名；可能选错了街机目录或 DAT 不包含该 ROMset。",
+  ARCADE_UNUSED_DEPENDENCY_ARCHIVE: "该街机 BIOS/父级包没有被本批次任何游戏引用，因此没有单独创建游戏。",
+};
+
+const activeImportStates = new Set(["QUEUED", "RUNNING", "CANCEL_REQUESTED"]);
+
+function refreshListItem(item: ImportListItem, detail: ImportDetail): ImportListItem {
+  return {
+    ...item,
+    state: detail.state,
+    platformInstanceName: detail.targetPlatformInstance.name,
+    metadataProvider: detail.metadataProvider,
+    totalItemCount: detail.counts.total,
+    reviewPendingItemCount: detail.counts.reviewPending,
+    failedItemCount: detail.counts.failed,
+    rejectedFileCount: detail.counts.rejectedFiles,
+    unresolvedRejectedFileCount: detail.counts.unresolvedRejectedFiles,
+    alreadyImportedItemCount: detail.counts.alreadyImportedItems,
+    alreadyImportedFileCount: detail.counts.alreadyImportedFiles,
+    version: detail.version,
+    createdAtMs: detail.createdAtMs,
+    updatedAtMs: detail.updatedAtMs,
+  };
+}
+
+export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" }: { initial: ListResponse<ImportListItem>; initialQuery?: string; initialState?: string }) {
+  const [items, setItems] = useState(initial.items);
+  const [nextCursor, setNextCursor] = useState(initial.nextCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadError, setLoadError] = useState("");
   const [filters, setFilters] = useState<ImportTaskFilters>({ query: initialQuery, directory: "", state: initialState });
   const [expandedId, setExpandedId] = useState<string | null>(null);
   const [details, setDetails] = useState<Record<string, DetailState>>({});
+  const loadMoreRef = useRef<HTMLDivElement>(null);
   const visible = useMemo(() => filterImportTasks(items, filters), [items, filters]);
   const summary = useMemo(() => importTaskSummary(items), [items]);
   const directories = useMemo(() => [...new Set(items.map((item) => item.platformInstanceName))].sort((left, right) => left.localeCompare(right, "zh-CN")), [items]);
@@ -51,6 +96,64 @@ export function ImportTaskBoard({ items, initialQuery = "", initialState = "" }:
   function selectState(state: string) {
     setFilters((current) => ({ ...current, state }));
   }
+
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true);
+    setLoadError("");
+    try {
+      const query = new URLSearchParams({ cursor: nextCursor, limit: "20" });
+      const response = await fetch(`/api/v1/admin/imports?${query}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("无法加载更多导入任务");
+      const page = await response.json() as ListResponse<ImportListItem>;
+      setItems((current) => {
+        const seen = new Set(current.map((item) => item.id));
+        return [...current, ...page.items.filter((item) => !seen.has(item.id))];
+      });
+      setNextCursor(page.nextCursor);
+    } catch (caught) {
+      setLoadError(caught instanceof Error ? caught.message : "无法加载更多导入任务");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [loadingMore, nextCursor]);
+
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !nextCursor || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+    }, { rootMargin: "320px 0px" });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loadMore, nextCursor]);
+
+  const pollingKey = useMemo(() => items.filter((item) => activeImportStates.has(item.state)).map((item) => item.id).join(","), [items]);
+  useEffect(() => {
+    const pollingIds = pollingKey ? pollingKey.split(",") : [];
+    if (!pollingIds.length) return;
+    let disposed = false;
+    let polling = false;
+    const poll = async () => {
+      if (polling || disposed) return;
+      polling = true;
+      try {
+        const results = await Promise.all(pollingIds.map(async (id) => {
+          const response = await fetch(`/api/v1/admin/imports/${id}`, { cache: "no-store", headers: { Accept: "application/json" } });
+          return response.ok ? await response.json() as ImportDetail : null;
+        }));
+        if (!disposed) {
+          const byId = new Map(results.filter((detail): detail is ImportDetail => detail !== null).map((detail) => [detail.importJobId, detail]));
+          setItems((current) => current.map((item) => byId.has(item.id) ? refreshListItem(item, byId.get(item.id)!) : item));
+        }
+      } finally {
+        polling = false;
+      }
+    };
+    void poll();
+    const timer = window.setInterval(() => void poll(), 1_000);
+    return () => { disposed = true; window.clearInterval(timer); };
+  }, [pollingKey]);
 
   async function toggleDetails(item: ImportListItem) {
     if (expandedId === item.id) {
@@ -93,13 +196,14 @@ export function ImportTaskBoard({ items, initialQuery = "", initialState = "" }:
         <article className={`import-task-card${attention ? " has-error" : ""}`}>
           <div className="import-task-main"><h3>{formatTime(item.createdAtMs)} · {item.platformInstanceName}</h3><p>{item.totalItemCount} 个条目 · {importProviderLabels[item.metadataProvider] ?? item.metadataProvider} · 更新于 {formatTime(item.updatedAtMs)}{item.alreadyImportedItemCount ? ` · 已跳过 ${item.alreadyImportedItemCount} 个已导入条目` : ""}</p></div>
           <StatusBadge tone={statusTone(item.state)}>{importStateLabels[item.state] ?? item.state}</StatusBadge>
-          <div className="import-task-progress"><div><strong>{importTaskPhase(item)}</strong><span>{progress}%</span></div><div className="import-task-track"><i style={{ width: `${progress}%` }} /></div><div className="import-task-distribution"><span className="good">{item.reviewPendingItemCount} 待审核</span><span className={issueCount ? "bad" : "neutral"}>{issueCount} 异常</span></div></div>
+          <div className="import-task-progress"><div><strong>{importTaskPhase(item)}</strong><span>{progress}%</span></div><div className="import-task-track"><i style={{ width: `${progress}%` }} /></div><div className="import-task-distribution"><span className="good">{item.reviewPendingItemCount} 待审核</span>{issueCount ? <button className="bad" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{issueCount} 异常</button> : <span className="neutral">0 异常</span>}</div></div>
           <div className="import-task-next"><strong>{attention ? "当前问题" : item.state === "COMPLETED" ? "结果" : "下一步"}</strong><small>{attention ? importTaskIssueSummary(item) : item.state === "REVIEW_PENDING" ? `${item.reviewPendingItemCount} 个条目等待确认` : item.state === "COMPLETED" && item.alreadyImportedItemCount ? `${item.alreadyImportedItemCount} 个条目因游戏文件已导入而跳过` : item.state === "COMPLETED" ? "已完成本次入库" : "后台会继续推进当前阶段"}</small></div>
-          <div className="import-task-actions">{item.reviewPendingItemCount ? <Link aria-label="查看待审核" className="button" href={`/admin/reviews?importJobId=${item.id}`}>审核 {item.reviewPendingItemCount} 个条目</Link> : null}{attention && issueCount ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起异常" : `查看 ${issueCount} 个异常`}</button> : !item.reviewPendingItemCount && item.state === "COMPLETED" && item.alreadyImportedItemCount ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起详情" : "查看已跳过"}</button> : !item.reviewPendingItemCount && item.state === "COMPLETED" ? <Link className="button secondary" href="/admin/reviews/history">查看结果</Link> : !item.reviewPendingItemCount ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起详情" : "查看进度"}</button> : null}</div>
+          <div className="import-task-actions">{item.reviewPendingItemCount ? <Link aria-label="查看待审核" className="button" href={`/admin/reviews?importJobId=${item.id}`}>审核 {item.reviewPendingItemCount} 个条目</Link> : null}{!issueCount && !item.reviewPendingItemCount && item.state === "COMPLETED" && item.alreadyImportedItemCount ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起详情" : "查看已跳过"}</button> : !issueCount && !item.reviewPendingItemCount && item.state === "COMPLETED" ? <Link className="button secondary" href="/admin/reviews/history">查看结果</Link> : !issueCount && !item.reviewPendingItemCount ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起详情" : "查看进度"}</button> : null}</div>
         </article>
-        {expanded ? <section className="import-task-detail" aria-label={`${item.platformInstanceName} 阶段详情`}><div className="import-task-stages">{stages.map((stage, index) => <div className={index < stageIndex ? "is-done" : index === stageIndex ? attention ? "has-error" : "is-current" : ""} key={stage}><small>{stage}</small><strong>{index < stageIndex ? "✓ 完成" : index === stageIndex ? attention ? `${issueCount} 异常` : "处理中" : "等待"}</strong></div>)}</div>{attention ? <><div className="import-task-problem"><p>{importTaskIssueSummary(item)}。可以复用服务器已经保存的文件，重新选择平台目录并再次识别，无需重新上传。</p><Link className="button secondary" href={`/admin/imports/new?fromImportJobId=${item.id}`}>重新配置并导入</Link></div>{(item.unresolvedRejectedFileCount ?? item.rejectedFileCount) ? <div className="import-task-rejections" aria-label="未被接受的文件">{details[item.id]?.status === "loading" || !details[item.id] ? <p>正在读取文件明细…</p> : details[item.id]?.status === "error" ? <p>文件明细读取失败，请稍后重试。</p> : details[item.id]?.value?.fileOutcomes.filter((file) => file.disposition === "REJECTED" && !file.resolution).map((file) => <div key={file.name}><strong title={file.name}>{file.name}</strong><span>{rejectionLabels[file.reasonCode ?? ""] ?? "文件未通过导入规则"}</span><code>{file.reasonCode ?? "REJECTED"}</code></div>)}</div> : null}</> : null}{item.alreadyImportedItemCount ? <div className="import-task-rejections" aria-label="已导入并跳过的文件">{details[item.id]?.status === "loading" || !details[item.id] ? <p>正在读取已导入文件…</p> : details[item.id]?.status === "error" ? <p>文件明细读取失败，请稍后重试。</p> : <><p>以下文件已关联到未删除的游戏，本次默认跳过，没有创建重复游戏。</p>{details[item.id]?.value?.fileOutcomes.filter((file) => file.disposition === "ALREADY_IMPORTED").map((file) => <div key={file.uploadFileId}><strong title={file.name}>{file.name}</strong><span>游戏文件已经导入</span><code>ALREADY_IMPORTED</code></div>)}{details[item.id]?.value?.alreadyImportedMatches?.map((match) => <div key={`${match.importItemId}:${match.existingGame.id}`}><strong>{match.existingGame.title}</strong><span>{match.existingGame.platformInstanceName}</span><Link href={`/games/${match.existingGame.id}`}>查看已有游戏</Link></div>)}</>}</div> : null}</section> : null}
+        {expanded ? <section className="import-task-detail" aria-label={`${item.platformInstanceName} 阶段详情`}><div className="import-task-stages">{stages.map((stage, index) => <div className={index < stageIndex ? "is-done" : index === stageIndex ? attention ? "has-error" : "is-current" : ""} key={stage}><small>{stage}</small><strong>{index < stageIndex ? "✓ 完成" : index === stageIndex ? attention ? `${issueCount} 异常` : "处理中" : "等待"}</strong></div>)}</div>{issueCount ? <><div className="import-task-problem"><p>{importTaskIssueSummary(item)}。可以复用服务器已经保存的文件，重新选择平台目录并再次识别，无需重新上传。</p><Link className="button secondary" href={`/admin/imports/new?fromImportJobId=${item.id}`}>重新配置并导入</Link></div>{(item.unresolvedRejectedFileCount ?? item.rejectedFileCount) ? <div className="import-task-rejections" aria-label="未被接受的文件">{details[item.id]?.status === "loading" || !details[item.id] ? <p>正在读取文件明细…</p> : details[item.id]?.status === "error" ? <p>文件明细读取失败，请稍后重试。</p> : details[item.id]?.value?.fileOutcomes.filter((file) => file.disposition === "REJECTED" && !file.resolution).map((file) => { const code = file.reasonCode ?? "REJECTED"; return <div key={file.name}><strong title={file.name}>{file.name}</strong><span>{rejectionLabels[code] ?? "文件未通过导入规则"}</span><code tabIndex={0} title={rejectionDetails[code] ?? "该稳定错误码暂无补充说明"}>{code}</code></div>; })}</div> : null}</> : null}{item.alreadyImportedItemCount ? <div className="import-task-rejections" aria-label="已导入并跳过的文件">{details[item.id]?.status === "loading" || !details[item.id] ? <p>正在读取已导入文件…</p> : details[item.id]?.status === "error" ? <p>文件明细读取失败，请稍后重试。</p> : <><p>以下文件已关联到未删除的游戏，本次默认跳过，没有创建重复游戏。</p>{details[item.id]?.value?.fileOutcomes.filter((file) => file.disposition === "ALREADY_IMPORTED").map((file) => <div key={file.uploadFileId}><strong title={file.name}>{file.name}</strong><span>游戏文件已经导入</span><code>ALREADY_IMPORTED</code></div>)}{details[item.id]?.value?.alreadyImportedMatches?.map((match) => <div key={`${match.importItemId}:${match.existingGame.id}`}><strong>{match.existingGame.title}</strong><span>{match.existingGame.platformInstanceName}</span><Link href={`/games/${match.existingGame.id}`}>查看已有游戏</Link></div>)}</>}</div> : null}</section> : null}
       </div>;
     })}</div> : <div className="import-workflow-empty"><h2>没有匹配的导入任务</h2><p>请调整搜索内容、目标目录或任务状态。</p></div>}
-    <footer className="import-workflow-footer">当前显示 {visible.length} / {items.length} 个任务</footer>
+    <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
+    <footer className="import-workflow-footer"><span>当前显示 {visible.length} / 已加载 {items.length} 个任务</span>{loadingMore ? <span role="status">正在加载下一页…</span> : nextCursor ? <button type="button" onClick={() => void loadMore()}>继续加载</button> : <span>已加载全部任务</span>}{loadError ? <button type="button" onClick={() => void loadMore()}>{loadError}，点击重试</button> : null}</footer>
   </div>;
 }

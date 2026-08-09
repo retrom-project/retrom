@@ -909,6 +909,84 @@ func TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms(t *testi
 	}
 }
 
+func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	var artifactID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT id FROM core_artifacts WHERE core_id='fbneo' AND enabled=1
+`).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	archive := makeZIP(t, map[string][]byte{"b.bin": []byte("bios")})
+	metadata, err := blobs.Put(bytes.NewReader(archive))
+	if err != nil {
+		t.Fatal(err)
+	}
+	blobID, err := blobstore.EnsureRecord(ctx, database.SQL, metadata, "application/zip", time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	const requirementID = "01990000-0000-7000-8000-000000000101"
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
+source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
+VALUES(?,'fbneo',?,'DAT_MACHINE','bios','bios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY','{}',?,
+NULL,NULL,NULL,NULL,'test://bios','test',1,1,?,?,'BIOS_BUNDLE',NULL)
+`, requirementID, artifactID, strings.Repeat("a", 64), time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
+VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,1,?,?)
+`, requirementID, blobID, "bios.zip", metadata.Size, metadata.MD5, metadata.SHA1, metadata.SHA256,
+		time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	previous := `{"schemaVersion":1,"machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
+	transaction, err := database.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Rollback(transaction) })
+	resolved, err := resolveArcadeDraftBIOSState(
+		ctx, transaction, artifactID, previous, "BLOCKED", "LAUNCH_BIOS_MISSING",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !resolved.tracked || resolved.replaceBundle || resolved.status != "READY" || resolved.code != "READY" ||
+		len(resolved.dependencies) != 1 || resolved.dependencies[0].BlobID == nil || *resolved.dependencies[0].BlobID != blobID {
+		t.Fatalf("resolved arcade BIOS state = %#v", resolved)
+	}
+	var snapshot arcadeDraftSnapshot
+	if err := json.Unmarshal([]byte(resolved.snapshotJSON), &snapshot); err != nil || len(snapshot.MissingEntries) != 0 ||
+		len(snapshot.Dependencies) != 1 || snapshot.Dependencies[0].State != "SATISFIED_EXTERNAL" {
+		t.Fatalf("resolved arcade snapshot = %#v, error=%v", snapshot, err)
+	}
+}
+
 func TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

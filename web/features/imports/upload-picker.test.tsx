@@ -44,9 +44,13 @@ describe("UploadPicker", () => {
       { id: "psp", name: "PSP 游戏", platformName: "PlayStation Portable", coreName: "PPSSPP" },
     ]} reconfigureSource={{
       importJobId: "source-import",
+      state: "PARTIAL_FAILURE",
       metadataProvider: "HASHEOUS",
       targetPlatformInstance: { id: "gba", name: "GBA 游戏" },
+      counts: { total: 0, reviewPending: 0, failed: 0, rejectedFiles: 1, unresolvedRejectedFiles: 1, alreadyImportedItems: 0, alreadyImportedFiles: 0 },
       version: 3,
+      createdAtMs: 1,
+      updatedAtMs: 2,
       fileOutcomes: [{ uploadFileId: "file-1", name: "game.iso", sizeBytes: 1024, disposition: "REJECTED", reasonCode: "UNSUPPORTED_CONTENT_FORMAT", resolution: null }],
     }} />);
 

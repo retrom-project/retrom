@@ -19,8 +19,8 @@ export function StatusBadge({ tone = "neutral", children }: { tone?: StatusTone;
   return <span className={`status ${tone}`}><i />{children}</span>;
 }
 
-export function FeedbackBanner({ tone, children }: { tone: "good" | "bad" | "info"; children: ReactNode }) {
-  return <div className={`feedback-banner ${tone}`} role={tone === "bad" ? "alert" : "status"}><i aria-hidden="true" /><div className="feedback-banner-content">{children}</div></div>;
+export function FeedbackBanner({ tone, children, marker = true }: { tone: "good" | "bad" | "info"; children: ReactNode; marker?: boolean }) {
+  return <div className={`feedback-banner ${tone}`} role={tone === "bad" ? "alert" : "status"}>{marker ? <i aria-hidden="true" /> : null}<div className="feedback-banner-content">{children}</div></div>;
 }
 
 export function EmptyState({ title, description, action }: { title: string; description: string; action?: ReactNode }) {
