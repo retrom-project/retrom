@@ -17,4 +17,29 @@ describe("ConfirmDialog", () => {
     await user.keyboard("{Escape}");
     expect(cancel).toHaveBeenCalledOnce();
   });
+
+  it("renders a leading action and locks every decision while it is busy", async () => {
+    const user = userEvent.setup();
+    const leading = vi.fn();
+    const cancel = vi.fn();
+    render(
+      <ConfirmDialog
+        open
+        title="退出游戏？"
+        leadingLabel="创建存档"
+        leadingBusy
+        leadingBusyLabel="正在创建…"
+        onLeading={leading}
+        onCancel={cancel}
+        onConfirm={() => undefined}
+      />,
+    );
+
+    const buttons = screen.getAllByRole("button");
+    expect(buttons.map((button) => button.textContent)).toEqual(["正在创建…", "取消", "确认"]);
+    expect(buttons.every((button) => button.hasAttribute("disabled"))).toBe(true);
+    await user.keyboard("{Escape}");
+    expect(cancel).not.toHaveBeenCalled();
+    expect(leading).not.toHaveBeenCalled();
+  });
 });

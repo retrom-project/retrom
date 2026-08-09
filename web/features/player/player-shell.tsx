@@ -218,7 +218,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       setSyncText("保存失败");
       setSyncTone("warning");
       showToast("状态或截图为空，未创建存档。", 4_000);
-      return;
+      return false;
     }
     const form = new FormData();
     form.append("metadata", new Blob([JSON.stringify({ name: `手动存档 ${new Date().toLocaleString("zh-CN")}` })], { type: "application/json" }));
@@ -233,10 +233,12 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       setSyncText("已同步");
       setSyncTone("synced");
       showToast("手动存档和截图已保存");
+      return true;
     } else {
       setSyncText("保存失败");
       setSyncTone("warning");
       showToast("手动存档失败，服务器未创建不完整记录", 4_000);
+      return false;
     }
   }, [launchId, showToast]);
 
@@ -460,18 +462,19 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
 
   async function saveManualState() {
     const current = emulator.current;
-    if (!current) return;
+    if (!current) return false;
     setSyncText("正在保存…");
     setSyncTone("busy");
     showToast("正在创建存档…");
     try {
       const capture = await pauseCapture.current ?? lastManualScreenshot.current;
       if (!capture) throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
-      await uploadManualState(captureManualState(current, capture));
+      return await uploadManualState(captureManualState(current, capture));
     } catch {
       setSyncText("保存失败");
       setSyncTone("warning");
       showToast("无法从模拟器读取完整状态和截图", 4_000);
+      return false;
     }
   }
 
@@ -554,7 +557,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         emulatorMuted={emulatorMuted}
         onHoldControls={holdControls}
         onReleaseControls={releaseControls}
-        onSave={() => void saveManualState()}
+        onSave={saveManualState}
         onPauseForToolbarInteraction={pauseForToolbarInteraction}
         onToggleFullscreen={() => void toggleFullscreen()}
         onOpenEmulatorSettings={openEmulatorSettings}

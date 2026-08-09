@@ -111,6 +111,7 @@ button, a, input, select, textarea { outline-offset: 3px; }
 .dialog-impact p { margin: 0; }
 .dialog-impact ul { margin: 0; padding-left: 20px; }
 .dialog-actions { margin-top: 22px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+.dialog-leading-action { margin-right: auto; }
 .panel { background: var(--surface); border: 1px solid var(--line); border-radius: 15px; box-shadow: 0 2px 4px rgb(24 32 51 / 2%); }
 .panel-head { padding: 19px 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
 .panel-head h2 { margin: 0; font-size: 16px; }
