@@ -4,37 +4,45 @@ info:
   version: 1.0.0
 servers:
   - url: /
+security:
+  - sessionCookie: []
 paths:
   /health/live:
     get:
+      security: []
       operationId: getHealthLive
       responses:
         '200': { $ref: '#/components/responses/HealthLiveResponse' }
   /health/ready:
     get:
+      security: []
       operationId: getHealthReady
       responses:
         '200': { $ref: '#/components/responses/HealthReadyResponse' }
         '503': { $ref: '#/components/responses/HealthNotReadyResponse' }
   /api/v1/auth/context:
     get:
+      security: []
       operationId: getAuthContext
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/auth/initialize:
     post:
+      security: []
       operationId: postAuthInitialize
       requestBody: { $ref: '#/components/requestBodies/AuthInitialize' }
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/auth/login:
     post:
+      security: []
       operationId: postAuthLogin
       requestBody: { $ref: '#/components/requestBodies/AuthLogin' }
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/auth/logout:
     post:
+      security: []
       operationId: postAuthLogout
       requestBody: { $ref: '#/components/requestBodies/Empty' }
       responses:
@@ -45,6 +53,102 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/AuthChangePassword' }
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/auth/account-links/inspect:
+    post:
+      security: []
+      operationId: postAuthAccountLinkInspect
+      requestBody: { $ref: '#/components/requestBodies/AccountLinkInspect' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/auth/invitations/accept:
+    post:
+      security: []
+      operationId: postAuthInvitationAccept
+      requestBody: { $ref: '#/components/requestBodies/InvitationAccept' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/auth/password-resets/complete:
+    post:
+      security: []
+      operationId: postAuthPasswordResetComplete
+      requestBody: { $ref: '#/components/requestBodies/PasswordResetComplete' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/invitations:
+    get:
+      operationId: getAdminInvitations
+      parameters: [{ $ref: '#/components/parameters/State' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    post:
+      operationId: postAdminInvitation
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/CreateInvitation' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/users:
+    get:
+      operationId: getAdminUsers
+      parameters:
+        - { $ref: '#/components/parameters/Q80' }
+        - { $ref: '#/components/parameters/Role' }
+        - { $ref: '#/components/parameters/Status' }
+        - { $ref: '#/components/parameters/Sort' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/users/{userId}:
+    parameters: [{ $ref: '#/components/parameters/UserID' }]
+    get:
+      operationId: getAdminUser
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    patch:
+      operationId: patchAdminUser
+      parameters:
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/CSRFToken' }
+      requestBody: { $ref: '#/components/requestBodies/PatchUser' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    delete:
+      operationId: deleteAdminUser
+      parameters:
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/CSRFToken' }
+      requestBody: { $ref: '#/components/requestBodies/DeleteUser' }
+      responses:
+        '204': { description: User soft-deleted }
+  /api/v1/admin/users/{userId}/password-reset-links:
+    parameters: [{ $ref: '#/components/parameters/UserID' }]
+    get:
+      operationId: getAdminUserPasswordResetLinks
+      parameters: [{ $ref: '#/components/parameters/State' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+    post:
+      operationId: postAdminUserPasswordResetLink
+      parameters:
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/CSRFToken' }
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/account-links/{accountLinkId}:
+    parameters: [{ $ref: '#/components/parameters/AccountLinkID' }]
+    delete:
+      operationId: deleteAdminAccountLink
+      parameters:
+        - { $ref: '#/components/parameters/IfMatch' }
+        - { $ref: '#/components/parameters/IdempotencyKey' }
+        - { $ref: '#/components/parameters/CSRFToken' }
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '204': { description: Account link revoked }
   /api/v1/home:
     get:
       operationId: getHome
@@ -565,22 +669,26 @@ paths:
         description: EmulatorJS cache-buster; ignored for allowlist and file selection.
         schema: { type: string, maxLength: 128 }
     get:
+      security: []
       operationId: getRuntimeEmulatorJS
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
+      security: []
       operationId: headRuntimeEmulatorJS
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/launches/{launchId}/config:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     get:
+      security: []
       operationId: getRuntimeLaunchConfig
       responses:
         '200': { $ref: '#/components/responses/LaunchConfigResponse' }
   /runtime/launches/{launchId}/start:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     post:
+      security: []
       operationId: postRuntimeLaunchStart
       requestBody: { $ref: '#/components/requestBodies/PlayEvent' }
       responses:
@@ -588,6 +696,7 @@ paths:
   /runtime/launches/{launchId}/heartbeat:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     post:
+      security: []
       operationId: postRuntimeLaunchHeartbeat
       requestBody: { $ref: '#/components/requestBodies/PlayEvent' }
       responses:
@@ -595,6 +704,7 @@ paths:
   /runtime/launches/{launchId}/finish:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     post:
+      security: []
       operationId: postRuntimeLaunchFinish
       requestBody: { $ref: '#/components/requestBodies/PlayEvent' }
       responses:
@@ -602,6 +712,7 @@ paths:
   /runtime/launches/{launchId}/save-states:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     post:
+      security: []
       operationId: postRuntimeSaveState
       x-retrom-streaming-body: true
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
@@ -622,11 +733,13 @@ paths:
   /runtime/launches/{launchId}/persistent-save:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     get:
+      security: []
       operationId: getRuntimePersistentSave
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
         '204': { description: No persistent save }
     put:
+      security: []
       operationId: putRuntimePersistentSave
       x-retrom-streaming-body: true
       parameters:
@@ -650,54 +763,69 @@ paths:
   /runtime/launches/{launchId}/game/{logicalName}:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }, { $ref: '#/components/parameters/LogicalName' }]
     get:
+      security: []
       operationId: getRuntimeGame
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
+      security: []
       operationId: headRuntimeGame
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/launches/{launchId}/external-files/{logicalName}:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }, { $ref: '#/components/parameters/LogicalName' }]
     get:
+      security: []
       operationId: getRuntimeExternalFile
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
+      security: []
       operationId: headRuntimeExternalFile
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/launches/{launchId}/bios/bundle.zip:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     get:
+      security: []
       operationId: getRuntimeBIOSBundle
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
+      security: []
       operationId: headRuntimeBIOSBundle
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/launches/{launchId}/parent/bundle.zip:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     get:
+      security: []
       operationId: getRuntimeParentBundle
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
+      security: []
       operationId: headRuntimeParentBundle
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/launches/{launchId}/state:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     get:
+      security: []
       operationId: getRuntimeState
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
+      security: []
       operationId: headRuntimeState
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
 components:
+  securitySchemes:
+    sessionCookie:
+      type: apiKey
+      in: cookie
+      name: retrom_session
   schemas:
     AuthInitializeRequest:
       type: object
@@ -724,6 +852,52 @@ components:
         currentPassword: { type: string, minLength: 1, maxLength: 512 }
         newPassword: { type: string, minLength: 1, maxLength: 512 }
         newPasswordConfirmation: { type: string, minLength: 1, maxLength: 512 }
+    AccountLinkInspectRequest:
+      type: object
+      additionalProperties: false
+      required: [expectedKind, token]
+      properties:
+        expectedKind: { type: string, enum: [INVITATION, PASSWORD_RESET] }
+        token: { type: string, minLength: 64, maxLength: 64 }
+    InvitationAcceptRequest:
+      type: object
+      additionalProperties: false
+      required: [token, username, displayName, password, passwordConfirmation]
+      properties:
+        token: { type: string, minLength: 64, maxLength: 64 }
+        username: { type: string, minLength: 3, maxLength: 32 }
+        displayName: { type: string, minLength: 1, maxLength: 320 }
+        password: { type: string, minLength: 1, maxLength: 512 }
+        passwordConfirmation: { type: string, minLength: 1, maxLength: 512 }
+    PasswordResetCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [token, password, passwordConfirmation]
+      properties:
+        token: { type: string, minLength: 64, maxLength: 64 }
+        password: { type: string, minLength: 1, maxLength: 512 }
+        passwordConfirmation: { type: string, minLength: 1, maxLength: 512 }
+    CreateInvitationRequest:
+      type: object
+      additionalProperties: false
+      required: [role, confirmAdminRole]
+      properties:
+        role: { type: string, enum: [ADMIN, USER] }
+        confirmAdminRole: { type: boolean }
+    PatchUserRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        role: { type: string, enum: [ADMIN, USER] }
+        status: { type: string, enum: [ENABLED, DISABLED] }
+        confirmAdminRole: { type: boolean }
+    DeleteUserRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmUsername]
+      properties:
+        confirmUsername: { type: string, minLength: 3, maxLength: 32 }
     EmptyRequest:
       type: object
       additionalProperties: false
@@ -1470,6 +1644,12 @@ components:
     AuthInitialize: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AuthInitializeRequest' } } } }
     AuthLogin: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AuthLoginRequest' } } } }
     AuthChangePassword: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AuthChangePasswordRequest' } } } }
+    AccountLinkInspect: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/AccountLinkInspectRequest' } } } }
+    InvitationAccept: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InvitationAcceptRequest' } } } }
+    PasswordResetComplete: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PasswordResetCompleteRequest' } } } }
+    CreateInvitation: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateInvitationRequest' } } } }
+    PatchUser: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PatchUserRequest' } } } }
+    DeleteUser: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeleteUserRequest' } } } }
     RenameSave: { $ref: '#/components/requestBodies/FromRenameSave' }
     FromRenameSave: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RenameSaveRequest' } } } }
     Launch: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LaunchRequest' } } } }
@@ -1535,6 +1715,8 @@ components:
           schema: { type: string, format: binary }
   parameters:
     Q: { name: q, in: query, schema: { type: string, maxLength: 200 } }
+    Q80: { name: q, in: query, schema: { type: string, maxLength: 80 } }
+    Role: { name: role, in: query, schema: { type: string, enum: [ADMIN, USER] } }
     PlatformIDQuery: { name: platformId, in: query, schema: { type: string } }
     GameIDQuery: { name: gameId, in: query, schema: { type: string, format: uuid } }
     PlatformInstanceIDQuery: { name: platformInstanceId, in: query, schema: { type: string, format: uuid } }
@@ -1560,6 +1742,7 @@ components:
     Limit20: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 20, default: 20 } }
     IfMatch: { name: If-Match, in: header, required: true, schema: { type: string } }
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, format: uuid } }
+    CSRFToken: { name: X-Retrom-Csrf, in: header, required: true, schema: { type: string } }
     ContentRange: { name: Content-Range, in: header, required: true, schema: { type: string } }
     ContentDigest: { name: Content-Digest, in: header, required: true, schema: { type: string } }
     LastEventID: { name: Last-Event-ID, in: header, schema: { type: string, pattern: '^[0-9]+$' } }
@@ -1578,5 +1761,7 @@ components:
     DATVersionID: { name: datVersionId, in: path, required: true, schema: { type: string, format: uuid } }
     AssetID: { name: assetId, in: path, required: true, schema: { type: string, format: uuid } }
     LaunchID: { name: launchId, in: path, required: true, schema: { type: string, format: uuid } }
+    UserID: { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+    AccountLinkID: { name: accountLinkId, in: path, required: true, schema: { type: string, format: uuid } }
     ConfiguredVersion: { name: configuredVersion, in: path, required: true, schema: { type: string, pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$' } }
     LogicalName: { name: logicalName, in: path, required: true, schema: { type: string } }

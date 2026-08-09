@@ -116,6 +116,140 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/account-links/inspect": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAuthAccountLinkInspect"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/invitations/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAuthInvitationAccept"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/password-resets/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAuthPasswordResetComplete"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/invitations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminInvitations"];
+        put?: never;
+        post: operations["postAdminInvitation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminUsers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminUser"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminUser"];
+        options?: never;
+        head?: never;
+        patch: operations["patchAdminUser"];
+        trace?: never;
+    };
+    "/api/v1/admin/users/{userId}/password-reset-links": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminUserPasswordResetLinks"];
+        put?: never;
+        post: operations["postAdminUserPasswordResetLink"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/account-links/{accountLinkId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                accountLinkId: components["parameters"]["AccountLinkID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminAccountLink"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/home": {
         parameters: {
             query?: never;
@@ -1388,6 +1522,38 @@ export interface components {
             newPassword: string;
             newPasswordConfirmation: string;
         };
+        AccountLinkInspectRequest: {
+            /** @enum {string} */
+            expectedKind: "INVITATION" | "PASSWORD_RESET";
+            token: string;
+        };
+        InvitationAcceptRequest: {
+            token: string;
+            username: string;
+            displayName: string;
+            password: string;
+            passwordConfirmation: string;
+        };
+        PasswordResetCompleteRequest: {
+            token: string;
+            password: string;
+            passwordConfirmation: string;
+        };
+        CreateInvitationRequest: {
+            /** @enum {string} */
+            role: "ADMIN" | "USER";
+            confirmAdminRole: boolean;
+        };
+        PatchUserRequest: {
+            /** @enum {string} */
+            role?: "ADMIN" | "USER";
+            /** @enum {string} */
+            status?: "ENABLED" | "DISABLED";
+            confirmAdminRole?: boolean;
+        };
+        DeleteUserRequest: {
+            confirmUsername: string;
+        };
         EmptyRequest: Record<string, never>;
         RenameSaveRequest: {
             name: string;
@@ -2114,6 +2280,8 @@ export interface components {
     };
     parameters: {
         Q: string;
+        Q80: string;
+        Role: "ADMIN" | "USER";
         PlatformIDQuery: string;
         GameIDQuery: string;
         PlatformInstanceIDQuery: string;
@@ -2139,6 +2307,7 @@ export interface components {
         Limit20: number;
         IfMatch: string;
         IdempotencyKey: string;
+        CSRFToken: string;
         ContentRange: string;
         ContentDigest: string;
         LastEventID: string;
@@ -2157,6 +2326,8 @@ export interface components {
         DATVersionID: string;
         AssetID: string;
         LaunchID: string;
+        UserID: string;
+        AccountLinkID: string;
         ConfiguredVersion: string;
         LogicalName: string;
     };
@@ -2174,6 +2345,36 @@ export interface components {
         AuthChangePassword: {
             content: {
                 "application/json": components["schemas"]["AuthChangePasswordRequest"];
+            };
+        };
+        AccountLinkInspect: {
+            content: {
+                "application/json": components["schemas"]["AccountLinkInspectRequest"];
+            };
+        };
+        InvitationAccept: {
+            content: {
+                "application/json": components["schemas"]["InvitationAcceptRequest"];
+            };
+        };
+        PasswordResetComplete: {
+            content: {
+                "application/json": components["schemas"]["PasswordResetCompleteRequest"];
+            };
+        };
+        CreateInvitation: {
+            content: {
+                "application/json": components["schemas"]["CreateInvitationRequest"];
+            };
+        };
+        PatchUser: {
+            content: {
+                "application/json": components["schemas"]["PatchUserRequest"];
+            };
+        };
+        DeleteUser: {
+            content: {
+                "application/json": components["schemas"]["DeleteUserRequest"];
             };
         };
         RenameSave: {
@@ -2421,6 +2622,208 @@ export interface operations {
         requestBody: components["requestBodies"]["AuthChangePassword"];
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAuthAccountLinkInspect: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["AccountLinkInspect"];
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAuthInvitationAccept: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["InvitationAccept"];
+        responses: {
+            201: components["responses"]["JSONResponse"];
+        };
+    };
+    postAuthPasswordResetComplete: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["PasswordResetComplete"];
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminInvitations: {
+        parameters: {
+            query?: {
+                state?: components["parameters"]["State"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAdminInvitation: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["CreateInvitation"];
+        responses: {
+            201: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminUsers: {
+        parameters: {
+            query?: {
+                q?: components["parameters"]["Q80"];
+                role?: components["parameters"]["Role"];
+                status?: components["parameters"]["Status"];
+                sort?: components["parameters"]["Sort"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminUser: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    deleteAdminUser: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                userId: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["DeleteUser"];
+        responses: {
+            /** @description User soft-deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patchAdminUser: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                userId: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["PatchUser"];
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminUserPasswordResetLinks: {
+        parameters: {
+            query?: {
+                state?: components["parameters"]["State"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path: {
+                userId: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAdminUserPasswordResetLink: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                userId: components["parameters"]["UserID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            201: components["responses"]["JSONResponse"];
+        };
+    };
+    deleteAdminAccountLink: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                accountLinkId: components["parameters"]["AccountLinkID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            /** @description Account link revoked */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     getHome: {

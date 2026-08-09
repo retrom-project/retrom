@@ -20,10 +20,15 @@ import (
 const operationIDContextKey contextKey = "openapi-operation-id"
 
 var domainIdempotencyOperations = map[string]struct{}{
-	"postLaunch":                   {},
-	"postRuntimeSaveState":         {},
-	"putRuntimePersistentSave":     {},
-	"postAdminGameContentRevision": {},
+	"deleteAdminAccountLink":         {},
+	"deleteAdminUser":                {},
+	"patchAdminUser":                 {},
+	"postAdminInvitation":            {},
+	"postAdminUserPasswordResetLink": {},
+	"postLaunch":                     {},
+	"postRuntimeSaveState":           {},
+	"putRuntimePersistentSave":       {},
+	"postAdminGameContentRevision":   {},
 }
 
 type bufferedResponse struct {

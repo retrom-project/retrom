@@ -58,13 +58,18 @@ func (server *Server) openAPIHandler(next http.Handler) http.Handler {
 	}
 	normalOptions := &nethttpmiddleware.Options{
 		Options: openapi3filter.Options{
-			MultiError: true,
+			// Authentication and authorization are enforced by accountAuthHandler. The
+			// schema validator only validates protocol shape, so it must not try to
+			// interpret the opaque session cookie a second time.
+			AuthenticationFunc: func(context.Context, *openapi3filter.AuthenticationInput) error { return nil },
+			MultiError:         true,
 		},
 		ErrorHandlerWithOpts: errorHandler,
 		DoNotValidateServers: true,
 	}
 	streamingOptions := &nethttpmiddleware.Options{
 		Options: openapi3filter.Options{
+			AuthenticationFunc: func(context.Context, *openapi3filter.AuthenticationInput) error { return nil },
 			ExcludeRequestBody: true,
 			MultiError:         true,
 		},
