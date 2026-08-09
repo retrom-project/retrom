@@ -2,17 +2,22 @@ package main
 
 import (
 	"context"
+	"database/sql"
 	"encoding/json"
 	"errors"
 	"flag"
 	"fmt"
 	"log/slog"
+	"math"
 	"net/http"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/term"
 
 	"retrom/internal/accounts"
 	"retrom/internal/authn"
@@ -31,7 +36,10 @@ import (
 var (
 	errBackupArgument  = errors.New("BACKUP_ARGUMENT_INVALID")
 	errRestoreArgument = errors.New("RESTORE_ARGUMENT_INVALID")
+	errSetupArgument   = errors.New("SETUP_CODE_ARGUMENT_INVALID")
+	errAdminArgument   = errors.New("ADMIN_RESET_ARGUMENT_INVALID")
 	errCommand         = errors.New("COMMAND_INVALID")
+	errTerminal        = errors.New("TERMINAL_DESCRIPTOR_INVALID")
 )
 
 func main() {
@@ -41,8 +49,12 @@ func main() {
 	}
 }
 
-//nolint:gocyclo // Each CLI command owns a small, explicit argument contract.
 func execute(arguments []string) error {
+	return executeWithPasswordReader(arguments, readPasswordFromTTY)
+}
+
+//nolint:funlen,gocyclo,gocognit // Each CLI command owns an explicit argument contract.
+func executeWithPasswordReader(arguments []string, readPassword func(string) (string, error)) error {
 	worker, err := importing.RunArchiveWorker(arguments)
 	if worker {
 		if err != nil {
@@ -61,6 +73,37 @@ func execute(arguments []string) error {
 		return run(mode)
 	}
 	switch arguments[0] {
+	case "setup-code":
+		flags := flag.NewFlagSet("retrom setup-code", flag.ContinueOnError)
+		if err := flags.Parse(arguments[1:]); err != nil || flags.NArg() != 0 {
+			return errSetupArgument
+		}
+		configuration, err := config.LoadBackupMaintenance()
+		if err != nil {
+			return fmt.Errorf("retrom/main: %w", err)
+		}
+		code, err := readSetupCode(context.Background(), configuration)
+		if err != nil {
+			return fmt.Errorf("retrom/main: %w", err)
+		}
+		if _, err := fmt.Fprintln(os.Stdout, code); err != nil {
+			return fmt.Errorf("write setup code: %w", err)
+		}
+		return nil
+	case "admin-reset":
+		flags := flag.NewFlagSet("retrom admin-reset", flag.ContinueOnError)
+		username := flags.String("username", "", "existing non-deleted administrator username")
+		if err := flags.Parse(arguments[1:]); err != nil || *username == "" || flags.NArg() != 0 {
+			return errAdminArgument
+		}
+		configuration, err := config.LoadBackupMaintenance()
+		if err != nil {
+			return fmt.Errorf("retrom/main: %w", err)
+		}
+		if err := resetOfflineAdmin(context.Background(), configuration, *username, readPassword); err != nil {
+			return fmt.Errorf("retrom/main: %w", err)
+		}
+		return writeCommandResult(map[string]any{"status": "admin_reset_complete", "username": *username})
 	case "backup":
 		flags := flag.NewFlagSet("retrom backup", flag.ContinueOnError)
 		output := flags.String("output", "", "absolute path for a new backup bundle")
@@ -104,6 +147,96 @@ func execute(arguments []string) error {
 	default:
 		return errCommand
 	}
+}
+
+func readSetupCode(ctx context.Context, configuration config.Maintenance) (string, error) {
+	database, err := sql.Open("sqlite", "file:"+filepath.ToSlash(configuration.DBPath)+"?mode=ro")
+	if err != nil {
+		return "", fmt.Errorf("open setup-code database: %w", err)
+	}
+	defer func() { cleanup.Error("close", database.Close()) }()
+	credentials, err := retromruntime.LoadCredentials(configuration.DataDir)
+	if err != nil {
+		return "", fmt.Errorf("load setup-code credentials: %w", err)
+	}
+	code, err := accounts.ReadSetupCode(ctx, database, credentials)
+	if err != nil {
+		return "", fmt.Errorf("derive setup code: %w", err)
+	}
+	return code, nil
+}
+
+func resetOfflineAdmin(
+	ctx context.Context,
+	configuration config.Maintenance,
+	username string,
+	readPassword func(string) (string, error),
+) error {
+	lock, err := processlock.Acquire(configuration.DataDir)
+	if err != nil {
+		return fmt.Errorf("acquire offline recovery lock: %w", err)
+	}
+	defer func() { cleanup.Error("close", lock.Close()) }()
+	password, err := readPassword("New password: ")
+	if err != nil {
+		return fmt.Errorf("read offline recovery password: %w", err)
+	}
+	confirmation, err := readPassword("Confirm new password: ")
+	if err != nil {
+		return fmt.Errorf("read offline recovery confirmation: %w", err)
+	}
+	database, err := store.Open(ctx, configuration.DBPath, time.Now)
+	if err != nil {
+		return fmt.Errorf("open offline recovery database: %w", err)
+	}
+	defer func() { cleanup.Error("close", database.Close()) }()
+	credentials, err := retromruntime.LoadCredentials(configuration.DataDir)
+	if err != nil {
+		return fmt.Errorf("load offline recovery credentials: %w", err)
+	}
+	blocklist, err := authn.LoadBlocklist(configuration.DependencyRoot)
+	if err != nil {
+		return fmt.Errorf("load offline recovery password blocklist: %w", err)
+	}
+	accountService, err := accounts.New(
+		ctx, database.SQL, credentials, config.ModeRelease, blocklist, time.Now,
+	)
+	if err != nil {
+		return fmt.Errorf("initialize offline account service: %w", err)
+	}
+	if err := accountService.OfflineAdminReset(ctx, username, password, confirmation); err != nil {
+		return fmt.Errorf("reset offline administrator: %w", err)
+	}
+	return nil
+}
+
+func readPasswordFromTTY(prompt string) (string, error) {
+	tty, err := os.OpenFile("/dev/tty", os.O_RDWR, 0)
+	if err != nil {
+		return "", fmt.Errorf("open controlling terminal: %w", err)
+	}
+	defer func() { cleanup.Error("close", tty.Close()) }()
+	if _, err := fmt.Fprint(tty, prompt); err != nil {
+		return "", fmt.Errorf("write password prompt: %w", err)
+	}
+	descriptor, err := terminalDescriptor(tty)
+	if err != nil {
+		return "", err
+	}
+	password, err := term.ReadPassword(descriptor)
+	_, _ = fmt.Fprintln(tty)
+	if err != nil {
+		return "", fmt.Errorf("read terminal password: %w", err)
+	}
+	return string(password), nil
+}
+
+func terminalDescriptor(file *os.File) (int, error) {
+	descriptor := file.Fd()
+	if uint64(descriptor) > uint64(math.MaxInt) {
+		return 0, errTerminal
+	}
+	return int(descriptor), nil
 }
 
 func writeCommandResult(value any) error {
