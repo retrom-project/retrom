@@ -11,7 +11,7 @@
 
 从游戏详情“开始游戏”、详情存档“继续”、“我的存档”或首页“继续游戏”发起时，一次点击完成“请求全屏 → 启动预检 → 加载运行时 → 自动开始”。正常路径没有 Retrom 的第二个 Start，也不显示 EmulatorJS `Play Now`。
 
-游戏库卡片仍进入详情；只有语义明确的开始/继续按钮直接启动。存档入口使用存档锁定的 Core、CoreArtifact、GameVariantRevision、DOS entry 和文件，不受平台目录当前默认核心覆盖。
+游戏库卡片仍进入详情；只有语义明确的开始/继续按钮直接启动。存档入口使用存档锁定的 Core、CoreArtifact、GameVariantRevision、DOS entry 和文件，不受游戏目录当前默认核心覆盖。
 
 ## 2. 一次点击与 Player Shell
 
@@ -74,7 +74,7 @@ sequenceDiagram
 1. Game 状态为 `PUBLISHED`，PlatformInstance 启用且关系有效；
 2. 解析存档锁定核心、显式核心或目录默认核心；
 3. PlatformCore 与 Core 启用；
-4. 存档路径解析锁定 revision；普通路径对所选 core 调用平台目录专题的幂等 `EnsureVariant`，取得直接引用 `Game.current_content_revision_id` 的 READY GameVariantRevision；
+4. 存档路径解析锁定 revision；普通路径对所选 core 调用游戏目录专题的幂等 `EnsureVariant`，取得直接引用 `Game.current_content_revision_id` 的 READY GameVariantRevision；
 5. 当前或存档锁定的 GameVariantRevision 可用，CoreArtifact 文件命中 manifest；
 6. 内容 Blob 可读且 size/hash 未漂移；
 7. Arcade Variant 锁定的 DatVersion 可用；

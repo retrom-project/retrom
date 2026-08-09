@@ -18,7 +18,7 @@
 | --- | --- |
 | [一期项目验收规范](./project-acceptance.md) | 全部可执行验收 Case、固定数据、证据格式、超时、缺陷回归和最终通过规则 |
 | [UI 与交互规范](./ui-specification.md) | 信息架构、页面规格、4K 布局、直接启动交互和设计稿入口 |
-| [平台目录领域设计](./platform-instance.md) | PlatformInstance 字段、唯一归属、默认核心、变更和迁移规则 |
+| [游戏目录领域设计](./platform-instance.md) | PlatformInstance 字段、唯一归属、默认核心、变更和迁移规则 |
 | [导入、刮削与审核](./import-and-review.md) | 文件/目录导入、Hasheous、任务状态机、审核与回溯 |
 | [BIOS 与 Arcade DAT](./bios-and-arcade.md) | BIOS 要求、哈希校验、核心专属 DAT、依赖解析和管理 UI |
 | [EmulatorJS 4.2.3 Arcade DAT 基线](./arcade-dat-baseline.md) | 真实 DAT 的来源、SHA-256、统计值、artifact 绑定与升级校验 |
@@ -35,17 +35,17 @@
 
 ## 2. 产品定位与一期范围
 
-Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。用户从桌面版 Chrome 浏览已发布游戏、选择存档快速继续；同一站点还提供游戏导入、审核、平台目录、BIOS/DAT 和游戏维护能力。
+Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。用户从桌面版 Chrome 浏览已发布游戏、选择存档快速继续；同一站点还提供游戏导入、审核、游戏目录、BIOS/DAT 和游戏维护能力。
 
 一期目标：
 
-- 支持浏览、搜索、按基础平台及平台目录筛选并启动已发布游戏。
+- 支持浏览、搜索、按基础平台及游戏目录筛选并启动已发布游戏。
 - 支持手动状态存档；每个存档必须有截图，并能一键恢复到对应进度。
 - 记录最近游玩、继续游玩和有效游玩时长。
 - 支持文件和目录导入、SHA-256 去重、元信息刮削、人工审核、发布与审核回溯。
 - 使用 Hasheous 的免登录哈希查询作为一期元信息候选源；不集成 ScreenScraper。
 - 使用与具体 EmulatorJS/core artifact 绑定的 DAT 识别 Arcade machine、parent ROM 和 BIOS 依赖；DAT 不承担元信息刮削。
-- 支持游戏元信息、文件 revision、平台目录、BIOS 和用户 DAT 的管理。
+- 支持游戏元信息、文件 revision、游戏目录、BIOS 和用户 DAT 的管理。
 - 支持 `fceumm`、`snes9x`、`gambatte`、`mgba`、`mame2003_plus`、`mame2003`、`fbneo`、`dosbox_pure`。
 
 一期不包含：
@@ -61,13 +61,13 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 
 ## 3. 关键产品与技术决策
 
-### 3.1 平台目录决定默认核心
+### 3.1 游戏目录决定默认核心
 
 领域关系不是“游戏直接属于平台”，而是：
 
 ~~~mermaid
 flowchart LR
-    P["Platform 基础平台"] -->|创建| PI["PlatformInstance 平台目录"]
+    P["Platform 基础平台"] -->|创建| PI["PlatformInstance 游戏目录"]
     P -->|关联 N 个| C["Core 核心"]
     PI -->|选择 1 个| DC["默认核心"]
     PI -->|唯一持有| G["Game 游戏"]
@@ -80,13 +80,13 @@ flowchart LR
 
 - Platform 表示 Arcade、NES、MS-DOS 等基础硬件/系统。
 - Platform 可关联多个 Core，但自身不保存默认核心。
-- PlatformInstance 在 UI 统一称为“平台目录”；它从 Platform 创建，并从该平台的启用核心中选择一个默认核心。
+- PlatformInstance 在 UI 统一称为“游戏目录”；它从 Platform 创建，并从该平台的启用核心中选择一个默认核心。
 - Game 只能且必须由一个 PlatformInstance 持有，基础平台由此间接推导。
-- Game 另以非空 current pointer 持有一个不可变 GameContentRevision，唯一决定普通启动的当前用户文件；改变平台目录默认核心不能改变内容版本。
+- Game 另以非空 current pointer 持有一个不可变 GameContentRevision，唯一决定普通启动的当前用户文件；改变游戏目录默认核心不能改变内容版本。
 - GameVariant 是 Game + Core 的稳定逻辑槽；某个 GameContentRevision 在具体 core artifact 上的兼容性、派生文件和依赖快照保存在不可变 GameVariantRevision。稳定槽有 READY 结果时只指向当前 READY revision；从未验证成功的备用核心槽允许 current 为空并保留失败诊断。
-- 详情页在没有浏览器本地偏好时选择平台目录的默认核心，同时保留该基础平台其他核心供用户显式切换；浏览器可按游戏记住非默认选择，选回推荐核心即清除。偏好不修改服务端平台目录，也不做失败后的静默回退。
+- 详情页在没有浏览器本地偏好时选择游戏目录的默认核心，同时保留该基础平台其他核心供用户显式切换；浏览器可按游戏记住非默认选择，选回推荐核心即清除。偏好不修改服务端游戏目录，也不做失败后的静默回退。
 
-因此 Arcade 可创建“FBNeo 游戏列表 → FBNeo”“MAME 游戏列表 → MAME 2003”“FBNeo 飞行游戏 → FBNeo”。用户导入时选择平台目录，而不是直接选择基础平台。
+因此 Arcade 可创建“FBNeo 游戏列表 → FBNeo”“MAME 游戏列表 → MAME 2003”“FBNeo 飞行游戏 → FBNeo”。用户导入时选择游戏目录，而不是直接选择基础平台。
 
 ### 3.2 DAT 与刮削是两条独立证据链
 
@@ -188,14 +188,14 @@ erDiagram
 - Game 的 `current_content_revision_id` 唯一决定普通启动内容；目录默认核心、CoreArtifact 或 DAT 变化不得反向改写它。
 - 存档同时绑定 GameVariantRevision 与 CoreArtifact；不匹配时不得静默加载。
 - BIOS 要求和 DAT 活动版本按 CoreArtifact 隔离；同一个 Blob 可以去重，但 Installation/校验状态不可跨 artifact 或核心串用。
-- ImportJob/ImportItem 记录创建时的平台目录、默认核心、core artifact、DAT 和刮削证据快照；在途结果不因后续配置变化而漂移。
-- 审核发布、平台目录移动、DAT 启用和文件 revision 切换必须可审计。
+- ImportJob/ImportItem 记录创建时的游戏目录、默认核心、core artifact、DAT 和刮削证据快照；在途结果不因后续配置变化而漂移。
+- 审核发布、游戏目录移动、DAT 启用和文件 revision 切换必须可审计。
 
-## 6. 平台、核心与初始平台目录
+## 6. 平台、核心与初始游戏目录
 
-空库 bootstrap 必须在同一 migration/seed 版本中写入下表的基础平台、启用关系和初始平台目录；重复执行按稳定 code/slug 幂等，不生成重复目录。管理员之后可以创建、重命名或软删除空目录，但不得修改基础平台 code。
+空库 bootstrap 必须在同一 migration/seed 版本中写入下表的基础平台、启用关系和初始游戏目录；重复执行按稳定 code/slug 幂等，不生成重复目录。管理员之后可以创建、重命名或软删除空目录，但不得修改基础平台 code。
 
-| 基础平台（稳定 code） | 启用核心 | 初始平台目录（slug）→ 默认核心 | 备注 |
+| 基础平台（稳定 code） | 启用核心 | 初始游戏目录（slug）→ 默认核心 | 备注 |
 | --- | --- | --- | --- |
 | NES / Famicom (`nes`) | `fceumm` | NES 游戏（`nes-games`）→ `fceumm` | 普通卡带不要求 BIOS |
 | Famicom Disk System (`fds`) | `fceumm` | FDS 游戏（`fds-games`）→ `fceumm` | 需要 `disksys.rom` |
@@ -219,14 +219,14 @@ erDiagram
 | 3DO (`3do`) | `opera` | 3DO 游戏（`3do-games`）→ `opera` | 单文件 CHD |
 | PlayStation Portable (`psp`) | `ppsspp` | PSP 游戏（`psp-games`）→ `ppsspp` | raw ISO/CSO；需要线程与固定辅助资产 |
 
-平台和核心是代码种子/版本化配置；平台目录是管理员可创建、重命名和调整默认核心的业务实体。平台目录不是标签或多对多收藏集。
+平台和核心是代码种子/版本化配置；游戏目录是管理员可创建、重命名和调整默认核心的业务实体。游戏目录不是标签或多对多收藏集。
 
 ## 7. 产品信息架构
 
 用户侧左侧导航：
 
 - 首页：有效游玩时长、继续游玩、最近游玩和最新添加游戏。
-- 游戏库：搜索、平台/平台目录筛选和已发布游戏卡片。
+- 游戏库：搜索、平台/游戏目录筛选和已发布游戏卡片。
 - 我的存档：带截图的手动存档及快速继续。
 - 管理后台：固定在底部，切换整套管理菜单。
 
@@ -265,17 +265,17 @@ erDiagram
 
 ~~~mermaid
 flowchart LR
-    A["选择平台目录"] --> B["上传文件 / 目录"]
+    A["选择游戏目录"] --> B["上传文件 / 目录"]
     B --> C["SHA-256 / CAS / 分组"]
     C --> D["Arcade DAT 依赖识别"]
     C --> E["Hasheous 元信息候选"]
     D --> F["人工审核"]
     E --> F
-    F -->|通过| G["发布到平台目录"]
+    F -->|通过| G["发布到游戏目录"]
     F -->|不通过| H["Discard + 保留历史"]
 ~~~
 
-上传完成不等于发布。任务可以部分失败、重试和重启恢复；审核人可换元信息候选、手工编辑字段、调整同基础平台内的平台目录，并查看 DAT 与 Hasheous 两类独立证据。审核结果和当时快照永久可回溯。
+上传完成不等于发布。任务可以部分失败、重试和重启恢复；审核人可换元信息候选、手工编辑字段、调整同基础平台内的游戏目录，并查看 DAT 与 Hasheous 两类独立证据。审核结果和当时快照永久可回溯。
 
 ### 8.2 BIOS 与 DAT
 
@@ -322,7 +322,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 ### Phase 2：导入与管理
 
 - 文件/目录导入、任务恢复、Hasheous 适配器、DAT 解析和审核历史。
-- 平台目录、游戏 revision、BIOS 和用户 DAT 管理。
+- 游戏目录、游戏 revision、BIOS 和用户 DAT 管理。
 - DAT 差异预览、启用、回滚和批量重校验。
 
 ### Phase 3：用户侧与运行时
@@ -345,7 +345,7 @@ Agent 不得根据本总览自行省略或合并 Case，尤其不得把二十八
 
 ## 12. 已锁定边界与后续议题
 
-以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于平台目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；所有访问者共享 `local` Profile 和管理权限；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
+以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；所有访问者共享 `local` Profile 和管理权限；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
 
 异地网络联机、账户/权限、CHD 和 Merged ROMset 只能作为未来版本提案，必须新增设计、威胁模型、迁移和验收 Case；一期 agent 不得预留半实现入口或用占位逻辑宣称支持。
 

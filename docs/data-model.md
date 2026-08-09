@@ -26,7 +26,7 @@
 | `platform_cores` | `(platform_id, core_id) PK`、`enabled`；默认核心和 Variant 的 core 必须引用 enabled 关系。 |
 | `platform_instances` | `id PK`、`platform_id`、`default_core_id`、`name`、规范化 `slug`、`description`、`sort_order`、`enabled`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；`UNIQUE(platform_id, slug)`。复合 FK 保证默认 core 存在于 PlatformCore，trigger/service 额外保证其 enabled。 |
 
-`slug` 由服务端创建时从展示名生成小写 ASCII 标识，冲突时追加数字后缀，必须匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$` 且不超过 80 byte；创建后不可改，软删除也不释放。展示名可改。平台目录的 `platform_id` 创建后不可改。
+`slug` 由服务端创建时从展示名生成小写 ASCII 标识，冲突时追加数字后缀，必须匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$` 且不超过 80 byte；创建后不可改，软删除也不释放。展示名可改。游戏目录的 `platform_id` 创建后不可改。
 
 `core_artifacts.provenance_json` 固定为 `{"schemaVersion":1,"dependencyManifestSha256":"<64 lowercase hex>","manifestEntryPointer":"/emulatorjs/selected_core_artifacts/<index>","sourceAssociationStatus":"EXACT_COMMIT|EMBEDDED_VERSION|INFERRED_BUILD_TIME|RELEASE_ONLY","sourceUrl":null|string,"notes":[]}`；notes 只存简短证据说明，不存宿主路径。`source_commit` 只在证据能锁定 40 位 Git commit 时填写，RELEASE_ONLY 必须为空。
 

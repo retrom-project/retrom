@@ -67,7 +67,7 @@ web/proxy.ts              HTML 每请求 nonce/CSP 与跨源隔离响应头
 web/features/library/     游戏库和游戏详情
 web/features/player/      持久 Player Shell、预检和 EmulatorJS
 web/features/saves/       存档列表及快速启动
-web/features/admin/       导入、审核、游戏、平台目录、BIOS/DAT
+web/features/admin/       导入、审核、游戏、游戏目录、BIOS/DAT
 web/lib/api/              类型化 API client 与错误映射
 web/components/           无业务状态的通用组件
 ```
@@ -277,7 +277,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 - [一期项目验收规范](./project-acceptance.md)
 - [工程质量、Lint 与测试规范](./engineering-quality-and-testing.md)
 - [存储与数据库](./storage-and-database.md)
-- [平台目录领域设计](./platform-instance.md)
+- [游戏目录领域设计](./platform-instance.md)
 - [导入、刮削与审核](./import-and-review.md)
 - [BIOS 与 Arcade DAT](./bios-and-arcade.md)
 - [运行时、启动与游玩数据](./runtime-and-play-data.md)
