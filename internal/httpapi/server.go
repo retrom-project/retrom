@@ -158,6 +158,9 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/login", server.authLogin)
 	mux.HandleFunc("POST /api/v1/auth/logout", server.authLogout)
 	mux.HandleFunc("POST /api/v1/auth/change-password", server.authChangePassword)
+	mux.HandleFunc("POST /api/v1/auth/account-links/inspect", server.authAccountLinkInspect)
+	mux.HandleFunc("POST /api/v1/auth/invitations/accept", server.authInvitationAccept)
+	mux.HandleFunc("POST /api/v1/auth/password-resets/complete", server.authPasswordResetComplete)
 	mux.HandleFunc("GET /api/v1/home", server.home)
 	mux.HandleFunc("GET /api/v1/recent-games", server.recentGames)
 	mux.HandleFunc("GET /api/v1/games", server.games)
@@ -166,6 +169,21 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/saves/{saveStateId}", server.patchSave)
 	mux.HandleFunc("DELETE /api/v1/saves/{saveStateId}", server.deleteSave)
 	mux.HandleFunc("POST /api/v1/launches", server.createLaunch)
+	mux.HandleFunc("GET /api/v1/admin/invitations", server.adminInvitations)
+	mux.HandleFunc("POST /api/v1/admin/invitations", server.adminCreateInvitation)
+	mux.HandleFunc("GET /api/v1/admin/users", server.adminUsers)
+	mux.HandleFunc("GET /api/v1/admin/users/{userId}", server.adminUser)
+	mux.HandleFunc("PATCH /api/v1/admin/users/{userId}", server.adminPatchUser)
+	mux.HandleFunc("DELETE /api/v1/admin/users/{userId}", server.adminDeleteUser)
+	mux.HandleFunc(
+		"GET /api/v1/admin/users/{userId}/password-reset-links",
+		server.adminPasswordResetLinks,
+	)
+	mux.HandleFunc(
+		"POST /api/v1/admin/users/{userId}/password-reset-links",
+		server.adminCreatePasswordReset,
+	)
+	mux.HandleFunc("DELETE /api/v1/admin/account-links/{accountLinkId}", server.adminRevokeAccountLink)
 	mux.HandleFunc("GET /api/v1/admin/platforms", server.platforms)
 	mux.HandleFunc("GET /api/v1/admin/core-artifacts", server.coreArtifacts)
 	mux.HandleFunc("GET /api/v1/admin/platform-instances", server.platformInstances)
@@ -349,7 +367,9 @@ func unsafeMethod(method string) bool {
 func publicHTTPRoute(request *http.Request) bool {
 	path := request.URL.Path
 	if path == "/health/live" || path == "/health/ready" || path == "/api/v1/auth/context" ||
-		path == "/api/v1/auth/initialize" || path == "/api/v1/auth/login" || path == "/api/v1/auth/logout" {
+		path == "/api/v1/auth/initialize" || path == "/api/v1/auth/login" || path == "/api/v1/auth/logout" ||
+		path == "/api/v1/auth/account-links/inspect" || path == "/api/v1/auth/invitations/accept" ||
+		path == "/api/v1/auth/password-resets/complete" {
 		return true
 	}
 	return (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
@@ -403,6 +423,13 @@ func validateQuery(request *http.Request) error {
 	case request.Method == http.MethodGet &&
 		strings.HasPrefix(path, "/api/v1/admin/arcade-dats/") && strings.HasSuffix(path, "/diff"):
 		add("section", "change", "cursor", "limit")
+	case request.Method == http.MethodGet && path == "/api/v1/admin/users":
+		add("q", "role", "status", "sort", "cursor", "limit")
+	case request.Method == http.MethodGet && path == "/api/v1/admin/invitations":
+		add("state", "cursor", "limit")
+	case request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/users/") &&
+		strings.HasSuffix(path, "/password-reset-links"):
+		add("state", "cursor", "limit")
 	}
 	values := request.URL.Query()
 	for name, entries := range values {

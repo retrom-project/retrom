@@ -25,6 +25,24 @@ import (
 	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
+// Defines values for AccountLinkInspectRequestExpectedKind.
+const (
+	INVITATION    AccountLinkInspectRequestExpectedKind = "INVITATION"
+	PASSWORDRESET AccountLinkInspectRequestExpectedKind = "PASSWORD_RESET"
+)
+
+// Valid indicates whether the value is a known member of the AccountLinkInspectRequestExpectedKind enum.
+func (e AccountLinkInspectRequestExpectedKind) Valid() bool {
+	switch e {
+	case INVITATION:
+		return true
+	case PASSWORDRESET:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ApplyCandidateRequestFields.
 const (
 	Description ApplyCandidateRequestFields = "description"
@@ -85,6 +103,24 @@ func (e CreateImportRequestMetadataProvider) Valid() bool {
 	case CreateImportRequestMetadataProviderHASHEOUS:
 		return true
 	case CreateImportRequestMetadataProviderNONE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CreateInvitationRequestRole.
+const (
+	CreateInvitationRequestRoleADMIN CreateInvitationRequestRole = "ADMIN"
+	CreateInvitationRequestRoleUSER  CreateInvitationRequestRole = "USER"
+)
+
+// Valid indicates whether the value is a known member of the CreateInvitationRequestRole enum.
+func (e CreateInvitationRequestRole) Valid() bool {
+	switch e {
+	case CreateInvitationRequestRoleADMIN:
+		return true
+	case CreateInvitationRequestRoleUSER:
 		return true
 	default:
 		return false
@@ -277,6 +313,42 @@ func (e MetadataProviderRequestMetadataProvider) Valid() bool {
 	}
 }
 
+// Defines values for PatchUserRequestRole.
+const (
+	PatchUserRequestRoleADMIN PatchUserRequestRole = "ADMIN"
+	PatchUserRequestRoleUSER  PatchUserRequestRole = "USER"
+)
+
+// Valid indicates whether the value is a known member of the PatchUserRequestRole enum.
+func (e PatchUserRequestRole) Valid() bool {
+	switch e {
+	case PatchUserRequestRoleADMIN:
+		return true
+	case PatchUserRequestRoleUSER:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PatchUserRequestStatus.
+const (
+	DISABLED PatchUserRequestStatus = "DISABLED"
+	ENABLED  PatchUserRequestStatus = "ENABLED"
+)
+
+// Valid indicates whether the value is a known member of the PatchUserRequestStatus enum.
+func (e PatchUserRequestStatus) Valid() bool {
+	switch e {
+	case DISABLED:
+		return true
+	case ENABLED:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReconfigureImportRequestMetadataProvider.
 const (
 	ReconfigureImportRequestMetadataProviderHASHEOUS ReconfigureImportRequestMetadataProvider = "HASHEOUS"
@@ -340,6 +412,42 @@ func (e StartupActionKind) Valid() bool {
 	}
 }
 
+// Defines values for Role.
+const (
+	RoleADMIN Role = "ADMIN"
+	RoleUSER  Role = "USER"
+)
+
+// Valid indicates whether the value is a known member of the Role enum.
+func (e Role) Valid() bool {
+	switch e {
+	case RoleADMIN:
+		return true
+	case RoleUSER:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetAdminUsersParamsRole.
+const (
+	GetAdminUsersParamsRoleADMIN GetAdminUsersParamsRole = "ADMIN"
+	GetAdminUsersParamsRoleUSER  GetAdminUsersParamsRole = "USER"
+)
+
+// Valid indicates whether the value is a known member of the GetAdminUsersParamsRole enum.
+func (e GetAdminUsersParamsRole) Valid() bool {
+	switch e {
+	case GetAdminUsersParamsRoleADMIN:
+		return true
+	case GetAdminUsersParamsRoleUSER:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PutRuntimePersistentSaveParamsXRetromSaveEvent.
 const (
 	AUTOINTERVAL PutRuntimePersistentSaveParamsXRetromSaveEvent = "AUTO_INTERVAL"
@@ -360,6 +468,15 @@ func (e PutRuntimePersistentSaveParamsXRetromSaveEvent) Valid() bool {
 		return false
 	}
 }
+
+// AccountLinkInspectRequest defines model for AccountLinkInspectRequest.
+type AccountLinkInspectRequest struct {
+	ExpectedKind AccountLinkInspectRequestExpectedKind `json:"expectedKind"`
+	Token        string                                `json:"token"`
+}
+
+// AccountLinkInspectRequestExpectedKind defines model for AccountLinkInspectRequest.ExpectedKind.
+type AccountLinkInspectRequestExpectedKind string
 
 // ActivateDATRequest defines model for ActivateDATRequest.
 type ActivateDATRequest struct {
@@ -430,6 +547,15 @@ type CreateImportRequest struct {
 // CreateImportRequestMetadataProvider defines model for CreateImportRequest.MetadataProvider.
 type CreateImportRequestMetadataProvider string
 
+// CreateInvitationRequest defines model for CreateInvitationRequest.
+type CreateInvitationRequest struct {
+	ConfirmAdminRole bool                        `json:"confirmAdminRole"`
+	Role             CreateInvitationRequestRole `json:"role"`
+}
+
+// CreateInvitationRequestRole defines model for CreateInvitationRequest.Role.
+type CreateInvitationRequestRole string
+
 // CreatePlatformInstanceRequest defines model for CreatePlatformInstanceRequest.
 type CreatePlatformInstanceRequest struct {
 	DefaultCoreId string `json:"defaultCoreId"`
@@ -469,6 +595,11 @@ type DefaultCoreRequest struct {
 // DeleteGameRequest defines model for DeleteGameRequest.
 type DeleteGameRequest struct {
 	ConfirmTitle string `json:"confirmTitle"`
+}
+
+// DeleteUserRequest defines model for DeleteUserRequest.
+type DeleteUserRequest struct {
+	ConfirmUsername string `json:"confirmUsername"`
 }
 
 // EmptyRequest defines model for EmptyRequest.
@@ -525,6 +656,15 @@ type HealthReadyStatus string
 // InstallBIOSRequest defines model for InstallBIOSRequest.
 type InstallBIOSRequest struct {
 	UploadFileId openapi_types.UUID `json:"uploadFileId"`
+}
+
+// InvitationAcceptRequest defines model for InvitationAcceptRequest.
+type InvitationAcceptRequest struct {
+	DisplayName          string `json:"displayName"`
+	Password             string `json:"password"`
+	PasswordConfirmation string `json:"passwordConfirmation"`
+	Token                string `json:"token"`
+	Username             string `json:"username"`
 }
 
 // JSONObject defines model for JSONObject.
@@ -984,6 +1124,13 @@ type MovePreviewRequest struct {
 	TargetPlatformInstanceId openapi_types.UUID `json:"targetPlatformInstanceId"`
 }
 
+// PasswordResetCompleteRequest defines model for PasswordResetCompleteRequest.
+type PasswordResetCompleteRequest struct {
+	Password             string `json:"password"`
+	PasswordConfirmation string `json:"passwordConfirmation"`
+	Token                string `json:"token"`
+}
+
 // PatchPlatformInstanceRequest defines model for PatchPlatformInstanceRequest.
 type PatchPlatformInstanceRequest struct {
 	Description *string `json:"description,omitempty"`
@@ -991,6 +1138,19 @@ type PatchPlatformInstanceRequest struct {
 	Name        *string `json:"name,omitempty"`
 	SortOrder   *int64  `json:"sortOrder,omitempty"`
 }
+
+// PatchUserRequest defines model for PatchUserRequest.
+type PatchUserRequest struct {
+	ConfirmAdminRole *bool                   `json:"confirmAdminRole,omitempty"`
+	Role             *PatchUserRequestRole   `json:"role,omitempty"`
+	Status           *PatchUserRequestStatus `json:"status,omitempty"`
+}
+
+// PatchUserRequestRole defines model for PatchUserRequest.Role.
+type PatchUserRequestRole string
+
+// PatchUserRequestStatus defines model for PatchUserRequest.Status.
+type PatchUserRequestStatus string
 
 // PlayEventRequest defines model for PlayEventRequest.
 type PlayEventRequest struct {
@@ -1102,6 +1262,9 @@ type UploadReferenceRequest struct {
 	UploadId openapi_types.UUID `json:"uploadId"`
 }
 
+// AccountLinkID defines model for AccountLinkID.
+type AccountLinkID = openapi_types.UUID
+
 // AssetID defines model for AssetID.
 type AssetID = openapi_types.UUID
 
@@ -1110,6 +1273,9 @@ type Availability = string
 
 // BlockerCode defines model for BlockerCode.
 type BlockerCode = string
+
+// CSRFToken defines model for CSRFToken.
+type CSRFToken = string
 
 // CandidateID defines model for CandidateID.
 type CandidateID = openapi_types.UUID
@@ -1207,11 +1373,17 @@ type PlatformInstanceIDQuery = openapi_types.UUID
 // Q defines model for Q.
 type Q = string
 
+// Q80 defines model for Q80.
+type Q80 = string
+
 // RequirementID defines model for RequirementID.
 type RequirementID = openapi_types.UUID
 
 // ReviewEventID defines model for ReviewEventID.
 type ReviewEventID = openapi_types.UUID
+
+// Role defines model for Role.
+type Role string
 
 // SaveStateID defines model for SaveStateID.
 type SaveStateID = openapi_types.UUID
@@ -1240,6 +1412,9 @@ type ToAtMs = int64
 // UploadID defines model for UploadID.
 type UploadID = openapi_types.UUID
 
+// UserID defines model for UserID.
+type UserID = openapi_types.UUID
+
 // HealthLiveResponse defines model for HealthLiveResponse.
 type HealthLiveResponse = HealthLive
 
@@ -1254,6 +1429,9 @@ type JSONResponse = JSONObject
 
 // LaunchConfigResponse defines model for LaunchConfigResponse.
 type LaunchConfigResponse = LaunchConfig
+
+// AccountLinkInspect defines model for AccountLinkInspect.
+type AccountLinkInspect = AccountLinkInspectRequest
 
 // ActivateDAT defines model for ActivateDAT.
 type ActivateDAT = ActivateDATRequest
@@ -1282,6 +1460,9 @@ type CreateDAT = CreateDATRequest
 // CreateImport defines model for CreateImport.
 type CreateImport = CreateImportRequest
 
+// CreateInvitation defines model for CreateInvitation.
+type CreateInvitation = CreateInvitationRequest
+
 // CreatePlatformInstance defines model for CreatePlatformInstance.
 type CreatePlatformInstance = CreatePlatformInstanceRequest
 
@@ -1297,6 +1478,9 @@ type DefaultCorePreview = DefaultCorePreviewRequest
 // DeleteGame defines model for DeleteGame.
 type DeleteGame = DeleteGameRequest
 
+// DeleteUser defines model for DeleteUser.
+type DeleteUser = DeleteUserRequest
+
 // Empty defines model for Empty.
 type Empty = EmptyRequest
 
@@ -1308,6 +1492,9 @@ type GameAsset = GameAssetRequest
 
 // InstallBIOS defines model for InstallBIOS.
 type InstallBIOS = InstallBIOSRequest
+
+// InvitationAccept defines model for InvitationAccept.
+type InvitationAccept = InvitationAcceptRequest
 
 // Launch defines model for Launch.
 type Launch = LaunchRequest
@@ -1321,8 +1508,14 @@ type MoveGame = MoveGameRequest
 // MovePreview defines model for MovePreview.
 type MovePreview = MovePreviewRequest
 
+// PasswordResetComplete defines model for PasswordResetComplete.
+type PasswordResetComplete = PasswordResetCompleteRequest
+
 // PatchPlatformInstance defines model for PatchPlatformInstance.
 type PatchPlatformInstance = PatchPlatformInstanceRequest
+
+// PatchUser defines model for PatchUser.
+type PatchUser = PatchUserRequest
 
 // PlayEvent defines model for PlayEvent.
 type PlayEvent = PlayEventRequest
@@ -1347,6 +1540,13 @@ type ReviewDraft = ReviewDraftRequest
 
 // UploadReference defines model for UploadReference.
 type UploadReference = UploadReferenceRequest
+
+// DeleteAdminAccountLinkParams defines parameters for DeleteAdminAccountLink.
+type DeleteAdminAccountLinkParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
 
 // GetAdminArcadeDATsParams defines parameters for GetAdminArcadeDATs.
 type GetAdminArcadeDATsParams struct {
@@ -1508,6 +1708,19 @@ type PostAdminImportReconfigureParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// GetAdminInvitationsParams defines parameters for GetAdminInvitations.
+type GetAdminInvitationsParams struct {
+	State  *State  `form:"state,omitempty" json:"state,omitempty"`
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// PostAdminInvitationParams defines parameters for PostAdminInvitation.
+type PostAdminInvitationParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
 // PostAdminJobCancelParams defines parameters for PostAdminJobCancel.
 type PostAdminJobCancelParams struct {
 	IfMatch        IfMatch        `json:"If-Match"`
@@ -1640,6 +1853,47 @@ type PutAdminUploadPartParams struct {
 	ContentDigest ContentDigest `json:"Content-Digest"`
 }
 
+// GetAdminUsersParams defines parameters for GetAdminUsers.
+type GetAdminUsersParams struct {
+	Q      *Q80                     `form:"q,omitempty" json:"q,omitempty"`
+	Role   *GetAdminUsersParamsRole `form:"role,omitempty" json:"role,omitempty"`
+	Status *Status                  `form:"status,omitempty" json:"status,omitempty"`
+	Sort   *Sort                    `form:"sort,omitempty" json:"sort,omitempty"`
+	Cursor *Cursor                  `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit                   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetAdminUsersParamsRole defines parameters for GetAdminUsers.
+type GetAdminUsersParamsRole string
+
+// DeleteAdminUserParams defines parameters for DeleteAdminUser.
+type DeleteAdminUserParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PatchAdminUserParams defines parameters for PatchAdminUser.
+type PatchAdminUserParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// GetAdminUserPasswordResetLinksParams defines parameters for GetAdminUserPasswordResetLinks.
+type GetAdminUserPasswordResetLinksParams struct {
+	State  *State  `form:"state,omitempty" json:"state,omitempty"`
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// PostAdminUserPasswordResetLinkParams defines parameters for PostAdminUserPasswordResetLink.
+type PostAdminUserPasswordResetLinkParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
 // GetGamesParams defines parameters for GetGames.
 type GetGamesParams struct {
 	Q                  *Q                       `form:"q,omitempty" json:"q,omitempty"`
@@ -1713,6 +1967,9 @@ type PostRuntimeSaveStateParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// DeleteAdminAccountLinkJSONRequestBody defines body for DeleteAdminAccountLink for application/json ContentType.
+type DeleteAdminAccountLinkJSONRequestBody = EmptyRequest
+
 // PostAdminArcadeDATJSONRequestBody defines body for PostAdminArcadeDAT for application/json ContentType.
 type PostAdminArcadeDATJSONRequestBody = CreateDATRequest
 
@@ -1761,6 +2018,9 @@ type PostAdminImportCancelJSONRequestBody = ReasonRequest
 // PostAdminImportReconfigureJSONRequestBody defines body for PostAdminImportReconfigure for application/json ContentType.
 type PostAdminImportReconfigureJSONRequestBody = ReconfigureImportRequest
 
+// PostAdminInvitationJSONRequestBody defines body for PostAdminInvitation for application/json ContentType.
+type PostAdminInvitationJSONRequestBody = CreateInvitationRequest
+
 // PostAdminJobCancelJSONRequestBody defines body for PostAdminJobCancel for application/json ContentType.
 type PostAdminJobCancelJSONRequestBody = ReasonRequest
 
@@ -1803,17 +2063,35 @@ type PostAdminReviewScrapeCandidatesJSONRequestBody = MetadataProviderRequest
 // PostAdminUploadJSONRequestBody defines body for PostAdminUpload for application/json ContentType.
 type PostAdminUploadJSONRequestBody = CreateUploadRequest
 
+// DeleteAdminUserJSONRequestBody defines body for DeleteAdminUser for application/json ContentType.
+type DeleteAdminUserJSONRequestBody = DeleteUserRequest
+
+// PatchAdminUserJSONRequestBody defines body for PatchAdminUser for application/json ContentType.
+type PatchAdminUserJSONRequestBody = PatchUserRequest
+
+// PostAdminUserPasswordResetLinkJSONRequestBody defines body for PostAdminUserPasswordResetLink for application/json ContentType.
+type PostAdminUserPasswordResetLinkJSONRequestBody = EmptyRequest
+
+// PostAuthAccountLinkInspectJSONRequestBody defines body for PostAuthAccountLinkInspect for application/json ContentType.
+type PostAuthAccountLinkInspectJSONRequestBody = AccountLinkInspectRequest
+
 // PostAuthChangePasswordJSONRequestBody defines body for PostAuthChangePassword for application/json ContentType.
 type PostAuthChangePasswordJSONRequestBody = AuthChangePasswordRequest
 
 // PostAuthInitializeJSONRequestBody defines body for PostAuthInitialize for application/json ContentType.
 type PostAuthInitializeJSONRequestBody = AuthInitializeRequest
 
+// PostAuthInvitationAcceptJSONRequestBody defines body for PostAuthInvitationAccept for application/json ContentType.
+type PostAuthInvitationAcceptJSONRequestBody = InvitationAcceptRequest
+
 // PostAuthLoginJSONRequestBody defines body for PostAuthLogin for application/json ContentType.
 type PostAuthLoginJSONRequestBody = AuthLoginRequest
 
 // PostAuthLogoutJSONRequestBody defines body for PostAuthLogout for application/json ContentType.
 type PostAuthLogoutJSONRequestBody = EmptyRequest
+
+// PostAuthPasswordResetCompleteJSONRequestBody defines body for PostAuthPasswordResetComplete for application/json ContentType.
+type PostAuthPasswordResetCompleteJSONRequestBody = PasswordResetCompleteRequest
 
 // PostLaunchJSONRequestBody defines body for PostLaunch for application/json ContentType.
 type PostLaunchJSONRequestBody = LaunchRequest
@@ -1835,6 +2113,9 @@ type PostRuntimeLaunchStartJSONRequestBody = PlayEventRequest
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+
+	// (DELETE /api/v1/admin/account-links/{accountLinkId})
+	DeleteAdminAccountLink(w http.ResponseWriter, r *http.Request, accountLinkId AccountLinkID, params DeleteAdminAccountLinkParams)
 
 	// (GET /api/v1/admin/arcade-dats)
 	GetAdminArcadeDATs(w http.ResponseWriter, r *http.Request, params GetAdminArcadeDATsParams)
@@ -1929,6 +2210,12 @@ type ServerInterface interface {
 	// (POST /api/v1/admin/imports/{importJobId}/reconfigure)
 	PostAdminImportReconfigure(w http.ResponseWriter, r *http.Request, importJobId ImportJobID, params PostAdminImportReconfigureParams)
 
+	// (GET /api/v1/admin/invitations)
+	GetAdminInvitations(w http.ResponseWriter, r *http.Request, params GetAdminInvitationsParams)
+
+	// (POST /api/v1/admin/invitations)
+	PostAdminInvitation(w http.ResponseWriter, r *http.Request, params PostAdminInvitationParams)
+
 	// (GET /api/v1/admin/jobs/{jobId})
 	GetAdminJob(w http.ResponseWriter, r *http.Request, jobId JobID)
 
@@ -2019,6 +2306,27 @@ type ServerInterface interface {
 	// (PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo})
 	PutAdminUploadPart(w http.ResponseWriter, r *http.Request, uploadId UploadID, fileId FileID, partNo PartNo, params PutAdminUploadPartParams)
 
+	// (GET /api/v1/admin/users)
+	GetAdminUsers(w http.ResponseWriter, r *http.Request, params GetAdminUsersParams)
+
+	// (DELETE /api/v1/admin/users/{userId})
+	DeleteAdminUser(w http.ResponseWriter, r *http.Request, userId UserID, params DeleteAdminUserParams)
+
+	// (GET /api/v1/admin/users/{userId})
+	GetAdminUser(w http.ResponseWriter, r *http.Request, userId UserID)
+
+	// (PATCH /api/v1/admin/users/{userId})
+	PatchAdminUser(w http.ResponseWriter, r *http.Request, userId UserID, params PatchAdminUserParams)
+
+	// (GET /api/v1/admin/users/{userId}/password-reset-links)
+	GetAdminUserPasswordResetLinks(w http.ResponseWriter, r *http.Request, userId UserID, params GetAdminUserPasswordResetLinksParams)
+
+	// (POST /api/v1/admin/users/{userId}/password-reset-links)
+	PostAdminUserPasswordResetLink(w http.ResponseWriter, r *http.Request, userId UserID, params PostAdminUserPasswordResetLinkParams)
+
+	// (POST /api/v1/auth/account-links/inspect)
+	PostAuthAccountLinkInspect(w http.ResponseWriter, r *http.Request)
+
 	// (POST /api/v1/auth/change-password)
 	PostAuthChangePassword(w http.ResponseWriter, r *http.Request)
 
@@ -2028,11 +2336,17 @@ type ServerInterface interface {
 	// (POST /api/v1/auth/initialize)
 	PostAuthInitialize(w http.ResponseWriter, r *http.Request)
 
+	// (POST /api/v1/auth/invitations/accept)
+	PostAuthInvitationAccept(w http.ResponseWriter, r *http.Request)
+
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(w http.ResponseWriter, r *http.Request)
 
 	// (POST /api/v1/auth/logout)
 	PostAuthLogout(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/v1/auth/password-resets/complete)
+	PostAuthPasswordResetComplete(w http.ResponseWriter, r *http.Request)
 
 	// (GET /api/v1/games)
 	GetGames(w http.ResponseWriter, r *http.Request, params GetGamesParams)
@@ -2142,6 +2456,106 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// DeleteAdminAccountLink operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminAccountLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "accountLinkId" -------------
+	var accountLinkId AccountLinkID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "accountLinkId", r.PathValue("accountLinkId"), &accountLinkId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "accountLinkId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteAdminAccountLinkParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminAccountLink(w, r, accountLinkId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetAdminArcadeDATs operation middleware
 func (siw *ServerInterfaceWrapper) GetAdminArcadeDATs(w http.ResponseWriter, r *http.Request) {
@@ -4126,6 +4540,133 @@ func (siw *ServerInterfaceWrapper) PostAdminImportReconfigure(w http.ResponseWri
 	handler.ServeHTTP(w, r)
 }
 
+// GetAdminInvitations operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminInvitations(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAdminInvitationsParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminInvitations(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminInvitation operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminInvitation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostAdminInvitationParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminInvitation(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetAdminJob operation middleware
 func (siw *ServerInterfaceWrapper) GetAdminJob(w http.ResponseWriter, r *http.Request) {
 
@@ -5854,6 +6395,512 @@ func (siw *ServerInterfaceWrapper) PutAdminUploadPart(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// GetAdminUsers operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminUsers(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAdminUsersParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "role" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "role", r.URL.Query(), &params.Role, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "role"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "role", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminUsers(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminUser operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteAdminUserParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminUser(w, r, userId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminUser operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminUser(w, r, userId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchAdminUser operation middleware
+func (siw *ServerInterfaceWrapper) PatchAdminUser(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PatchAdminUserParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchAdminUser(w, r, userId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminUserPasswordResetLinks operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminUserPasswordResetLinks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAdminUserPasswordResetLinksParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminUserPasswordResetLinks(w, r, userId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminUserPasswordResetLink operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminUserPasswordResetLink(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "userId" -------------
+	var userId UserID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "userId", r.PathValue("userId"), &userId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "userId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostAdminUserPasswordResetLinkParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminUserPasswordResetLink(w, r, userId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAuthAccountLinkInspect operation middleware
+func (siw *ServerInterfaceWrapper) PostAuthAccountLinkInspect(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAuthAccountLinkInspect(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostAuthChangePassword operation middleware
 func (siw *ServerInterfaceWrapper) PostAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 
@@ -5896,6 +6943,20 @@ func (siw *ServerInterfaceWrapper) PostAuthInitialize(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// PostAuthInvitationAccept operation middleware
+func (siw *ServerInterfaceWrapper) PostAuthInvitationAccept(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAuthInvitationAccept(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostAuthLogin operation middleware
 func (siw *ServerInterfaceWrapper) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
 
@@ -5915,6 +6976,20 @@ func (siw *ServerInterfaceWrapper) PostAuthLogout(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAuthLogout(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAuthPasswordResetComplete operation middleware
+func (siw *ServerInterfaceWrapper) PostAuthPasswordResetComplete(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAuthPasswordResetComplete(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7330,6 +8405,18 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/login", wrapper.PostAuthLogin)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/logout", wrapper.PostAuthLogout)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/change-password", wrapper.PostAuthChangePassword)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/account-links/inspect", wrapper.PostAuthAccountLinkInspect)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/invitations/accept", wrapper.PostAuthInvitationAccept)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/auth/password-resets/complete", wrapper.PostAuthPasswordResetComplete)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/invitations", wrapper.GetAdminInvitations)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/invitations", wrapper.PostAdminInvitation)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/users", wrapper.GetAdminUsers)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/admin/users/{userId}", wrapper.DeleteAdminUser)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/users/{userId}", wrapper.GetAdminUser)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/v1/admin/users/{userId}", wrapper.PatchAdminUser)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/users/{userId}/password-reset-links", wrapper.GetAdminUserPasswordResetLinks)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/users/{userId}/password-reset-links", wrapper.PostAdminUserPasswordResetLink)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/admin/account-links/{accountLinkId}", wrapper.DeleteAdminAccountLink)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/home", wrapper.GetHome)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/recent-games", wrapper.GetRecentGames)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/games", wrapper.GetGames)
@@ -7451,6 +8538,24 @@ type SSEResponseTexteventStreamResponse struct {
 	Body io.Reader
 
 	ContentLength int64
+}
+
+type DeleteAdminAccountLinkRequestObject struct {
+	AccountLinkId AccountLinkID `json:"accountLinkId"`
+	Params        DeleteAdminAccountLinkParams
+	Body          *DeleteAdminAccountLinkJSONRequestBody
+}
+
+type DeleteAdminAccountLinkResponseObject interface {
+	VisitDeleteAdminAccountLinkResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminAccountLink204Response struct {
+}
+
+func (response DeleteAdminAccountLink204Response) VisitDeleteAdminAccountLinkResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
 }
 
 type GetAdminArcadeDATsRequestObject struct {
@@ -8211,6 +9316,51 @@ func (response PostAdminImportReconfigure202JSONResponse) VisitPostAdminImportRe
 	return err
 }
 
+type GetAdminInvitationsRequestObject struct {
+	Params GetAdminInvitationsParams
+}
+
+type GetAdminInvitationsResponseObject interface {
+	VisitGetAdminInvitationsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminInvitations200JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response GetAdminInvitations200JSONResponse) VisitGetAdminInvitationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminInvitationRequestObject struct {
+	Params PostAdminInvitationParams
+	Body   *PostAdminInvitationJSONRequestBody
+}
+
+type PostAdminInvitationResponseObject interface {
+	VisitPostAdminInvitationResponse(w http.ResponseWriter) error
+}
+
+type PostAdminInvitation201JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response PostAdminInvitation201JSONResponse) VisitPostAdminInvitationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetAdminJobRequestObject struct {
 	JobId JobID `json:"jobId"`
 }
@@ -8948,6 +10098,161 @@ func (response PutAdminUploadPart204Response) VisitPutAdminUploadPartResponse(w 
 	return nil
 }
 
+type GetAdminUsersRequestObject struct {
+	Params GetAdminUsersParams
+}
+
+type GetAdminUsersResponseObject interface {
+	VisitGetAdminUsersResponse(w http.ResponseWriter) error
+}
+
+type GetAdminUsers200JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response GetAdminUsers200JSONResponse) VisitGetAdminUsersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminUserRequestObject struct {
+	UserId UserID `json:"userId"`
+	Params DeleteAdminUserParams
+	Body   *DeleteAdminUserJSONRequestBody
+}
+
+type DeleteAdminUserResponseObject interface {
+	VisitDeleteAdminUserResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminUser204Response struct {
+}
+
+func (response DeleteAdminUser204Response) VisitDeleteAdminUserResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type GetAdminUserRequestObject struct {
+	UserId UserID `json:"userId"`
+}
+
+type GetAdminUserResponseObject interface {
+	VisitGetAdminUserResponse(w http.ResponseWriter) error
+}
+
+type GetAdminUser200JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response GetAdminUser200JSONResponse) VisitGetAdminUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PatchAdminUserRequestObject struct {
+	UserId UserID `json:"userId"`
+	Params PatchAdminUserParams
+	Body   *PatchAdminUserJSONRequestBody
+}
+
+type PatchAdminUserResponseObject interface {
+	VisitPatchAdminUserResponse(w http.ResponseWriter) error
+}
+
+type PatchAdminUser200JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response PatchAdminUser200JSONResponse) VisitPatchAdminUserResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminUserPasswordResetLinksRequestObject struct {
+	UserId UserID `json:"userId"`
+	Params GetAdminUserPasswordResetLinksParams
+}
+
+type GetAdminUserPasswordResetLinksResponseObject interface {
+	VisitGetAdminUserPasswordResetLinksResponse(w http.ResponseWriter) error
+}
+
+type GetAdminUserPasswordResetLinks200JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response GetAdminUserPasswordResetLinks200JSONResponse) VisitGetAdminUserPasswordResetLinksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminUserPasswordResetLinkRequestObject struct {
+	UserId UserID `json:"userId"`
+	Params PostAdminUserPasswordResetLinkParams
+	Body   *PostAdminUserPasswordResetLinkJSONRequestBody
+}
+
+type PostAdminUserPasswordResetLinkResponseObject interface {
+	VisitPostAdminUserPasswordResetLinkResponse(w http.ResponseWriter) error
+}
+
+type PostAdminUserPasswordResetLink201JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response PostAdminUserPasswordResetLink201JSONResponse) VisitPostAdminUserPasswordResetLinkResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAuthAccountLinkInspectRequestObject struct {
+	Body *PostAuthAccountLinkInspectJSONRequestBody
+}
+
+type PostAuthAccountLinkInspectResponseObject interface {
+	VisitPostAuthAccountLinkInspectResponse(w http.ResponseWriter) error
+}
+
+type PostAuthAccountLinkInspect200JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response PostAuthAccountLinkInspect200JSONResponse) VisitPostAuthAccountLinkInspectResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostAuthChangePasswordRequestObject struct {
 	Body *PostAuthChangePasswordJSONRequestBody
 }
@@ -9013,6 +10318,28 @@ func (response PostAuthInitialize201JSONResponse) VisitPostAuthInitializeRespons
 	return err
 }
 
+type PostAuthInvitationAcceptRequestObject struct {
+	Body *PostAuthInvitationAcceptJSONRequestBody
+}
+
+type PostAuthInvitationAcceptResponseObject interface {
+	VisitPostAuthInvitationAcceptResponse(w http.ResponseWriter) error
+}
+
+type PostAuthInvitationAccept201JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response PostAuthInvitationAccept201JSONResponse) VisitPostAuthInvitationAcceptResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type PostAuthLoginRequestObject struct {
 	Body *PostAuthLoginJSONRequestBody
 }
@@ -9049,6 +10376,28 @@ type PostAuthLogout204Response struct {
 func (response PostAuthLogout204Response) VisitPostAuthLogoutResponse(w http.ResponseWriter) error {
 	w.WriteHeader(204)
 	return nil
+}
+
+type PostAuthPasswordResetCompleteRequestObject struct {
+	Body *PostAuthPasswordResetCompleteJSONRequestBody
+}
+
+type PostAuthPasswordResetCompleteResponseObject interface {
+	VisitPostAuthPasswordResetCompleteResponse(w http.ResponseWriter) error
+}
+
+type PostAuthPasswordResetComplete200JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response PostAuthPasswordResetComplete200JSONResponse) VisitPostAuthPasswordResetCompleteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type GetGamesRequestObject struct {
@@ -10018,6 +11367,9 @@ func (response HeadRuntimeState200ApplicationoctetStreamResponse) VisitHeadRunti
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
+	// (DELETE /api/v1/admin/account-links/{accountLinkId})
+	DeleteAdminAccountLink(ctx context.Context, request DeleteAdminAccountLinkRequestObject) (DeleteAdminAccountLinkResponseObject, error)
+
 	// (GET /api/v1/admin/arcade-dats)
 	GetAdminArcadeDATs(ctx context.Context, request GetAdminArcadeDATsRequestObject) (GetAdminArcadeDATsResponseObject, error)
 
@@ -10111,6 +11463,12 @@ type StrictServerInterface interface {
 	// (POST /api/v1/admin/imports/{importJobId}/reconfigure)
 	PostAdminImportReconfigure(ctx context.Context, request PostAdminImportReconfigureRequestObject) (PostAdminImportReconfigureResponseObject, error)
 
+	// (GET /api/v1/admin/invitations)
+	GetAdminInvitations(ctx context.Context, request GetAdminInvitationsRequestObject) (GetAdminInvitationsResponseObject, error)
+
+	// (POST /api/v1/admin/invitations)
+	PostAdminInvitation(ctx context.Context, request PostAdminInvitationRequestObject) (PostAdminInvitationResponseObject, error)
+
 	// (GET /api/v1/admin/jobs/{jobId})
 	GetAdminJob(ctx context.Context, request GetAdminJobRequestObject) (GetAdminJobResponseObject, error)
 
@@ -10201,6 +11559,27 @@ type StrictServerInterface interface {
 	// (PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo})
 	PutAdminUploadPart(ctx context.Context, request PutAdminUploadPartRequestObject) (PutAdminUploadPartResponseObject, error)
 
+	// (GET /api/v1/admin/users)
+	GetAdminUsers(ctx context.Context, request GetAdminUsersRequestObject) (GetAdminUsersResponseObject, error)
+
+	// (DELETE /api/v1/admin/users/{userId})
+	DeleteAdminUser(ctx context.Context, request DeleteAdminUserRequestObject) (DeleteAdminUserResponseObject, error)
+
+	// (GET /api/v1/admin/users/{userId})
+	GetAdminUser(ctx context.Context, request GetAdminUserRequestObject) (GetAdminUserResponseObject, error)
+
+	// (PATCH /api/v1/admin/users/{userId})
+	PatchAdminUser(ctx context.Context, request PatchAdminUserRequestObject) (PatchAdminUserResponseObject, error)
+
+	// (GET /api/v1/admin/users/{userId}/password-reset-links)
+	GetAdminUserPasswordResetLinks(ctx context.Context, request GetAdminUserPasswordResetLinksRequestObject) (GetAdminUserPasswordResetLinksResponseObject, error)
+
+	// (POST /api/v1/admin/users/{userId}/password-reset-links)
+	PostAdminUserPasswordResetLink(ctx context.Context, request PostAdminUserPasswordResetLinkRequestObject) (PostAdminUserPasswordResetLinkResponseObject, error)
+
+	// (POST /api/v1/auth/account-links/inspect)
+	PostAuthAccountLinkInspect(ctx context.Context, request PostAuthAccountLinkInspectRequestObject) (PostAuthAccountLinkInspectResponseObject, error)
+
 	// (POST /api/v1/auth/change-password)
 	PostAuthChangePassword(ctx context.Context, request PostAuthChangePasswordRequestObject) (PostAuthChangePasswordResponseObject, error)
 
@@ -10210,11 +11589,17 @@ type StrictServerInterface interface {
 	// (POST /api/v1/auth/initialize)
 	PostAuthInitialize(ctx context.Context, request PostAuthInitializeRequestObject) (PostAuthInitializeResponseObject, error)
 
+	// (POST /api/v1/auth/invitations/accept)
+	PostAuthInvitationAccept(ctx context.Context, request PostAuthInvitationAcceptRequestObject) (PostAuthInvitationAcceptResponseObject, error)
+
 	// (POST /api/v1/auth/login)
 	PostAuthLogin(ctx context.Context, request PostAuthLoginRequestObject) (PostAuthLoginResponseObject, error)
 
 	// (POST /api/v1/auth/logout)
 	PostAuthLogout(ctx context.Context, request PostAuthLogoutRequestObject) (PostAuthLogoutResponseObject, error)
+
+	// (POST /api/v1/auth/password-resets/complete)
+	PostAuthPasswordResetComplete(ctx context.Context, request PostAuthPasswordResetCompleteRequestObject) (PostAuthPasswordResetCompleteResponseObject, error)
 
 	// (GET /api/v1/games)
 	GetGames(ctx context.Context, request GetGamesRequestObject) (GetGamesResponseObject, error)
@@ -10353,6 +11738,40 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// DeleteAdminAccountLink operation middleware
+func (sh *strictHandler) DeleteAdminAccountLink(w http.ResponseWriter, r *http.Request, accountLinkId AccountLinkID, params DeleteAdminAccountLinkParams) {
+	var request DeleteAdminAccountLinkRequestObject
+
+	request.AccountLinkId = accountLinkId
+	request.Params = params
+
+	var body DeleteAdminAccountLinkJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminAccountLink(ctx, request.(DeleteAdminAccountLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminAccountLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminAccountLinkResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminAccountLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetAdminArcadeDATs operation middleware
@@ -11286,6 +12705,65 @@ func (sh *strictHandler) PostAdminImportReconfigure(w http.ResponseWriter, r *ht
 	}
 }
 
+// GetAdminInvitations operation middleware
+func (sh *strictHandler) GetAdminInvitations(w http.ResponseWriter, r *http.Request, params GetAdminInvitationsParams) {
+	var request GetAdminInvitationsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminInvitations(ctx, request.(GetAdminInvitationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminInvitations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminInvitationsResponseObject); ok {
+		if err := validResponse.VisitGetAdminInvitationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminInvitation operation middleware
+func (sh *strictHandler) PostAdminInvitation(w http.ResponseWriter, r *http.Request, params PostAdminInvitationParams) {
+	var request PostAdminInvitationRequestObject
+
+	request.Params = params
+
+	var body PostAdminInvitationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminInvitation(ctx, request.(PostAdminInvitationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminInvitation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminInvitationResponseObject); ok {
+		if err := validResponse.VisitPostAdminInvitationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetAdminJob operation middleware
 func (sh *strictHandler) GetAdminJob(w http.ResponseWriter, r *http.Request, jobId JobID) {
 	var request GetAdminJobRequestObject
@@ -12180,6 +13658,218 @@ func (sh *strictHandler) PutAdminUploadPart(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// GetAdminUsers operation middleware
+func (sh *strictHandler) GetAdminUsers(w http.ResponseWriter, r *http.Request, params GetAdminUsersParams) {
+	var request GetAdminUsersRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminUsers(ctx, request.(GetAdminUsersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminUsers")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminUsersResponseObject); ok {
+		if err := validResponse.VisitGetAdminUsersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminUser operation middleware
+func (sh *strictHandler) DeleteAdminUser(w http.ResponseWriter, r *http.Request, userId UserID, params DeleteAdminUserParams) {
+	var request DeleteAdminUserRequestObject
+
+	request.UserId = userId
+	request.Params = params
+
+	var body DeleteAdminUserJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminUser(ctx, request.(DeleteAdminUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminUserResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminUser operation middleware
+func (sh *strictHandler) GetAdminUser(w http.ResponseWriter, r *http.Request, userId UserID) {
+	var request GetAdminUserRequestObject
+
+	request.UserId = userId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminUser(ctx, request.(GetAdminUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminUserResponseObject); ok {
+		if err := validResponse.VisitGetAdminUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchAdminUser operation middleware
+func (sh *strictHandler) PatchAdminUser(w http.ResponseWriter, r *http.Request, userId UserID, params PatchAdminUserParams) {
+	var request PatchAdminUserRequestObject
+
+	request.UserId = userId
+	request.Params = params
+
+	var body PatchAdminUserJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchAdminUser(ctx, request.(PatchAdminUserRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchAdminUser")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchAdminUserResponseObject); ok {
+		if err := validResponse.VisitPatchAdminUserResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminUserPasswordResetLinks operation middleware
+func (sh *strictHandler) GetAdminUserPasswordResetLinks(w http.ResponseWriter, r *http.Request, userId UserID, params GetAdminUserPasswordResetLinksParams) {
+	var request GetAdminUserPasswordResetLinksRequestObject
+
+	request.UserId = userId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminUserPasswordResetLinks(ctx, request.(GetAdminUserPasswordResetLinksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminUserPasswordResetLinks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminUserPasswordResetLinksResponseObject); ok {
+		if err := validResponse.VisitGetAdminUserPasswordResetLinksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminUserPasswordResetLink operation middleware
+func (sh *strictHandler) PostAdminUserPasswordResetLink(w http.ResponseWriter, r *http.Request, userId UserID, params PostAdminUserPasswordResetLinkParams) {
+	var request PostAdminUserPasswordResetLinkRequestObject
+
+	request.UserId = userId
+	request.Params = params
+
+	var body PostAdminUserPasswordResetLinkJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminUserPasswordResetLink(ctx, request.(PostAdminUserPasswordResetLinkRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminUserPasswordResetLink")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminUserPasswordResetLinkResponseObject); ok {
+		if err := validResponse.VisitPostAdminUserPasswordResetLinkResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAuthAccountLinkInspect operation middleware
+func (sh *strictHandler) PostAuthAccountLinkInspect(w http.ResponseWriter, r *http.Request) {
+	var request PostAuthAccountLinkInspectRequestObject
+
+	var body PostAuthAccountLinkInspectJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthAccountLinkInspect(ctx, request.(PostAuthAccountLinkInspectRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthAccountLinkInspect")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAuthAccountLinkInspectResponseObject); ok {
+		if err := validResponse.VisitPostAuthAccountLinkInspectResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostAuthChangePassword operation middleware
 func (sh *strictHandler) PostAuthChangePassword(w http.ResponseWriter, r *http.Request) {
 	var request PostAuthChangePasswordRequestObject
@@ -12266,6 +13956,37 @@ func (sh *strictHandler) PostAuthInitialize(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// PostAuthInvitationAccept operation middleware
+func (sh *strictHandler) PostAuthInvitationAccept(w http.ResponseWriter, r *http.Request) {
+	var request PostAuthInvitationAcceptRequestObject
+
+	var body PostAuthInvitationAcceptJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthInvitationAccept(ctx, request.(PostAuthInvitationAcceptRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthInvitationAccept")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAuthInvitationAcceptResponseObject); ok {
+		if err := validResponse.VisitPostAuthInvitationAcceptResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostAuthLogin operation middleware
 func (sh *strictHandler) PostAuthLogin(w http.ResponseWriter, r *http.Request) {
 	var request PostAuthLoginRequestObject
@@ -12321,6 +14042,37 @@ func (sh *strictHandler) PostAuthLogout(w http.ResponseWriter, r *http.Request) 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostAuthLogoutResponseObject); ok {
 		if err := validResponse.VisitPostAuthLogoutResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAuthPasswordResetComplete operation middleware
+func (sh *strictHandler) PostAuthPasswordResetComplete(w http.ResponseWriter, r *http.Request) {
+	var request PostAuthPasswordResetCompleteRequestObject
+
+	var body PostAuthPasswordResetCompleteJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAuthPasswordResetComplete(ctx, request.(PostAuthPasswordResetCompleteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAuthPasswordResetComplete")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAuthPasswordResetCompleteResponseObject); ok {
+		if err := validResponse.VisitPostAuthPasswordResetCompleteResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -13239,160 +14991,172 @@ func (sh *strictHandler) HeadRuntimeState(w http.ResponseWriter, r *http.Request
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

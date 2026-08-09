@@ -9,6 +9,26 @@ import (
 	"retrom/internal/authn"
 )
 
+type newAccountCredentialRequest struct {
+	Username             string `json:"username"`
+	DisplayName          string `json:"displayName"`
+	Password             string `json:"password"`
+	PasswordConfirmation string `json:"passwordConfirmation"`
+}
+
+func decodeNewAccountCredential(
+	writer http.ResponseWriter,
+	request *http.Request,
+	target any,
+	message string,
+) bool {
+	if err := decodeJSON(writer, request, target, 32<<10); err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", message, map[string]any{})
+		return false
+	}
+	return true
+}
+
 func (server *Server) authContext(writer http.ResponseWriter, request *http.Request) {
 	if server.accounts == nil {
 		writeError(writer, request, http.StatusServiceUnavailable, "SERVICE_NOT_READY", "认证服务不可用", map[string]any{})
@@ -27,14 +47,10 @@ func (server *Server) authContext(writer http.ResponseWriter, request *http.Requ
 
 func (server *Server) authInitialize(writer http.ResponseWriter, request *http.Request) {
 	var body struct {
-		SetupCode            string `json:"setupCode"`
-		Username             string `json:"username"`
-		DisplayName          string `json:"displayName"`
-		Password             string `json:"password"`
-		PasswordConfirmation string `json:"passwordConfirmation"`
+		SetupCode string `json:"setupCode"`
+		newAccountCredentialRequest
 	}
-	if err := decodeJSON(writer, request, &body, 32<<10); err != nil {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "初始化请求无效", map[string]any{})
+	if !decodeNewAccountCredential(writer, request, &body, "初始化请求无效") {
 		return
 	}
 	session, err := server.accounts.Initialize(request.Context(), accounts.InitializeRequest{
@@ -45,8 +61,12 @@ func (server *Server) authInitialize(writer http.ResponseWriter, request *http.R
 		server.writeAccountError(writer, request, err)
 		return
 	}
+	server.writeAuthenticatedSession(writer, http.StatusCreated, session)
+}
+
+func (server *Server) writeAuthenticatedSession(writer http.ResponseWriter, status int, session accounts.Session) {
 	server.setAuthCookie(writer, session)
-	server.writeAuthContext(writer, http.StatusCreated, accounts.Context{
+	server.writeAuthContext(writer, status, accounts.Context{
 		InstanceState: "READY", Mode: server.config.Mode, Session: &session,
 	})
 }
@@ -154,6 +174,9 @@ func (server *Server) writeAuthContext(writer http.ResponseWriter, status int, c
 }
 
 func (server *Server) writeAccountError(writer http.ResponseWriter, request *http.Request, err error) {
+	if server.writeAdminAccountError(writer, request, err) {
+		return
+	}
 	var password *authn.PasswordError
 	switch {
 	case errors.Is(err, accounts.ErrAuthentication):
@@ -162,6 +185,14 @@ func (server *Server) writeAccountError(writer http.ResponseWriter, request *htt
 		writeError(writer, request, http.StatusUnauthorized, "INITIALIZATION_PROOF_INVALID", "初始化码无效", map[string]any{})
 	case errors.Is(err, accounts.ErrInitializationDone):
 		writeError(writer, request, http.StatusConflict, "INITIALIZATION_ALREADY_COMPLETED", "实例已完成初始化", map[string]any{})
+	case errors.Is(err, accounts.ErrAccountLinkUnavailable):
+		writeError(writer, request, http.StatusNotFound, "ACCOUNT_LINK_UNAVAILABLE", "账号链接不可用", map[string]any{})
+	case errors.Is(err, accounts.ErrUsernameUnavailable):
+		writeError(writer, request, http.StatusConflict, "USERNAME_UNAVAILABLE", "用户名不可用", map[string]any{})
+	case errors.Is(err, accounts.ErrUserNotFound):
+		writeError(writer, request, http.StatusNotFound, "USER_NOT_FOUND", "用户不存在", map[string]any{})
+	case errors.Is(err, accounts.ErrIdempotencyReused):
+		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
 	case errors.As(err, &password):
 		writeError(
 			writer, request, http.StatusUnprocessableEntity, "PASSWORD_POLICY_VIOLATION", "密码不符合要求",
