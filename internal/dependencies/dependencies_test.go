@@ -22,7 +22,7 @@ func TestBootstrapMaterializedDependencies(t *testing.T) {
 		t.Fatal("locate test file")
 	}
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
-	manifest, err := Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	manifest, err := Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3")
 	if err != nil {
 		t.Fatalf("load dependencies: %v", err)
 	}
@@ -47,6 +47,22 @@ WHERE enabled = 1
 	}
 	if activeArtifacts != 28 {
 		t.Fatalf("active artifacts = %d, want 28", activeArtifacts)
+	}
+	var dosVersion string
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT emulatorjs_version
+FROM core_artifacts
+WHERE core_id='dosbox_pure' AND enabled=1
+`).Scan(&dosVersion); err != nil || dosVersion != "4.3.0-pre" {
+		t.Fatalf("active DOS artifact = %q, error=%v", dosVersion, err)
+	}
+	var oldDOSActive int
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT count(*)
+FROM core_artifacts
+WHERE core_id='dosbox_pure' AND emulatorjs_version='4.2.3' AND enabled=1
+`).Scan(&oldDOSActive); err != nil || oldDOSActive != 0 {
+		t.Fatalf("old DOS artifact active = %d, error=%v", oldDOSActive, err)
 	}
 
 	var pendingDATs, activeDATs int

@@ -168,7 +168,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 17 ||
+		response.DatabaseSchemaVersion != 18 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -1202,23 +1202,26 @@ func TestOpenAPIValidationAllowsNestedRuntimePath(t *testing.T) {
 	if recorder.Code != http.StatusOK {
 		t.Fatalf("nested runtime path status = %d, body=%s", recorder.Code, recorder.Body.String())
 	}
+	cacheBusted := httptest.NewRecorder()
+	server.Handler().ServeHTTP(
+		cacheBusted,
+		httptest.NewRequest(http.MethodGet, "/runtime/emulatorjs/4.2.3/data/loader.js?v=496182", nil),
+	)
+	if cacheBusted.Code != http.StatusOK {
+		t.Fatalf("runtime cache-buster status = %d, body=%s", cacheBusted.Code, cacheBusted.Body.String())
+	}
 }
 
-func TestRuntimeDOSConfigRouteRequiresLaunchCredential(t *testing.T) {
+func TestOpenAPIValidationAllowsPrereleaseRuntimeVersion(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	recorder := httptest.NewRecorder()
 	server.Handler().ServeHTTP(
 		recorder,
-		httptest.NewRequest(
-			http.MethodGet,
-			"/runtime/launches/01980000-0000-7000-8000-000000000001/dos-config/game.conf",
-			nil,
-		),
+		httptest.NewRequest(http.MethodHead, "/runtime/emulatorjs/4.3.0-pre/data/loader.js", nil),
 	)
-	if recorder.Code != http.StatusUnauthorized ||
-		!strings.Contains(recorder.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
-		t.Fatalf("DOS config without credential = %d %s", recorder.Code, recorder.Body.String())
+	if recorder.Code != http.StatusNotFound {
+		t.Fatalf("unconfigured prerelease runtime status = %d, body=%s", recorder.Code, recorder.Body.String())
 	}
 }
 

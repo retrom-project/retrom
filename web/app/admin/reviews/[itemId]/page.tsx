@@ -2,10 +2,11 @@ import { ButtonLink, PageHeader, StatusBadge } from "@/components/ui";
 import { FlashToast } from "@/components/flash-toast";
 import { ReviewActions, type ReviewWorkspace } from "@/features/reviews/review-actions";
 import { type ReviewQueueItem } from "@/features/reviews/review-queue";
+import { ReviewValidationGuidance, reviewCompatibilityLabel, type ReviewDependencySnapshot } from "@/features/reviews/review-validation-guidance";
 import { backendJSON, formatBytes, type ListResponse } from "@/lib/backend";
 import { statusTone } from "@/lib/status";
 
-type DependencySnapshot = {
+type DependencySnapshot = ReviewDependencySnapshot & {
   machine?: string;
   datVersionId?: string;
   closure?: string[];
@@ -23,7 +24,6 @@ type Review = ReviewWorkspace & {
   validation: (NonNullable<ReviewWorkspace["validation"]> & { dependencySnapshot?: DependencySnapshot }) | null;
 };
 
-const validationLabels: Record<string, string> = { READY: "可以发布", BLOCKED: "缺少依赖", DEPENDENCY_MISSING: "缺少依赖", INCOMPATIBLE: "不兼容", NEEDS_VALIDATION: "等待检查", PENDING: "等待检查" };
 const roleLabels: Record<string, string> = { CONTENT: "游戏文件", DOS_SOURCE: "DOS 游戏文件", COMPANION: "配套文件" };
 
 function GameFiles({ review }: { review: Review }) {
@@ -53,15 +53,19 @@ export default async function ReviewDetailPage({ params, searchParams }: { param
   const selectedIndex = context.items.findIndex((item) => item.itemId === itemId);
   const nextItem = context.items[selectedIndex + 1] ?? context.items[selectedIndex - 1] ?? null;
   const sourceDisplayName = review.sourceFiles?.[0]?.name ?? review.sourceManifest.files[0]?.logicalName ?? "游戏文件";
-  const compatibilityLabel = validationLabels[review.validation?.compatibilityCode ?? validationStatus] ?? "需要检查";
+  const compatibilityCode = review.validation?.compatibilityCode ?? validationStatus;
+  const compatibilityLabel = reviewCompatibilityLabel(compatibilityCode, validationStatus);
   const dependencySnapshot = review.validation?.dependencySnapshot;
+  const missingRequiredBIOSCount = (dependencySnapshot?.bios ?? []).filter((item) => item.requirementMode !== "OPTIONAL" && !item.blobId).length;
   const dependencyIssueCount = (dependencySnapshot?.missingEntries?.length ?? 0)
     + (dependencySnapshot?.mismatchedEntries?.length ?? 0)
-    + (dependencySnapshot?.warnings?.length ?? 0);
+    + (dependencySnapshot?.warnings?.length ?? 0)
+    + missingRequiredBIOSCount;
+  const dependencyCount = (dependencySnapshot?.dependencies?.length ?? 0) + (dependencySnapshot?.bios?.length ?? 0);
   return <div className="import-workflow-page review-detail-prototype"><FlashToast />
     <PageHeader eyebrow="待审核 / 条目" title="审核条目" description="先判断能不能发布，再确认发布成什么。技术证据按需展开，不挤占主决策。" actions={<ButtonLink href={returnTo} secondary>← 返回待审核列表</ButtonLink>} />
     <ReviewActions review={review} returnTo={returnTo} nextItemId={nextItem?.itemId ?? null} sourceDisplayName={sourceDisplayName} platformInstanceName={review.platformInstance.name}>
-      <section className="panel review-workflow-capability"><div className="panel-head"><div><h2>① 能不能发布？</h2><p>直接展示文件、运行方式和依赖检查结论。</p></div><StatusBadge tone={statusTone(review.validation?.compatibilityCode ?? validationStatus)}>{compatibilityLabel}</StatusBadge></div><div className="panel-body review-capability-list"><div><strong>游戏文件</strong><span>{sourceDisplayName} · {review.sourceFiles?.[0] ? formatBytes(review.sourceFiles[0].sizeBytes) : `${review.sourceManifest.files.length} 个来源文件`}</span></div><div><strong>运行检查</strong><span>{dependencySnapshot?.machine ? `识别为 ${dependencySnapshot.machine} · ${compatibilityLabel}` : compatibilityLabel}</span></div><div><strong>依赖检查</strong><span>{dependencySnapshot ? `${dependencySnapshot.dependencies?.length ?? 0} 项外部依赖 · ${dependencyIssueCount ? `${dependencyIssueCount} 项需要处理` : "没有发现异常"}` : "检查结果尚未生成"}</span></div></div></section>
+      <section className="panel review-workflow-capability"><div className="panel-head"><div><h2>① 能不能发布？</h2><p>直接展示文件、运行方式和依赖检查结论。</p></div><StatusBadge tone={statusTone(compatibilityCode)}>{compatibilityLabel}</StatusBadge></div><div className="panel-body review-capability-list"><ReviewValidationGuidance status={validationStatus} compatibilityCode={compatibilityCode} snapshot={dependencySnapshot} /><div><strong>游戏文件</strong><span>{sourceDisplayName} · {review.sourceFiles?.[0] ? formatBytes(review.sourceFiles[0].sizeBytes) : `${review.sourceManifest.files.length} 个来源文件`}</span></div><div><strong>运行检查</strong><span>{dependencySnapshot?.machine ? `识别为 ${dependencySnapshot.machine} · ${compatibilityLabel}` : compatibilityLabel}</span></div><div><strong>依赖检查</strong><span>{dependencySnapshot ? `${dependencyCount} 项运行依赖 · ${dependencyIssueCount ? `${dependencyIssueCount} 项需要处理` : "没有发现异常"}` : "检查结果尚未生成"}</span></div></div></section>
       <section className="panel review-workflow-files"><div className="panel-head"><div><h2>来源文件</h2><p>用于核对这条游戏来自哪份内容。</p></div></div><div className="panel-body"><GameFiles review={review} /></div></section>
     </ReviewActions>
   </div>;

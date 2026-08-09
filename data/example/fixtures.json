@@ -199,6 +199,7 @@
     },
     {
       "core": "dosbox_pure",
+      "runtimeVersion": "4.3.0-pre",
       "system": "dos",
       "title": "MS-DOS / DOOM II",
       "gameId": 1008,
@@ -209,14 +210,14 @@
         "size": 6773842,
         "sha256": "bcdfcea048580afc92f057395d45675df8737dac0a78192d6d9aeb906c51270d"
       },
+      "dosEntry": "DOOM2/DOOM2.EXE",
+      "materializedGamePath": ".cache/retrom/example/dosbox_pure/doom2-direct.zip",
       "bios": [],
-      "expectedExternalFiles": [
-        "data/example/dosbox_pure/game.conf"
-      ],
+      "expectedExternalFiles": [],
       "coreArtifact": {
-        "path": "data/runtime/emulatorjs/4.2.3/data/cores/dosbox_pure-thread-wasm.data",
-        "size": 1793257,
-        "sha256": "d96b657d3f2be94fec41531575e2afafd1f3cceed046b73ca34d69564aa4cc11"
+        "path": "data/runtime/emulatorjs/4.3.0-pre/data/cores/dosbox_pure-thread-wasm.data",
+        "size": 1827779,
+        "sha256": "89b0e89b03ced9ba07c5fe27bc789fd0f42bd5378b399f93befa2edc3571a70a"
       },
       "settleMs": 12000,
       "timeoutMs": 180000

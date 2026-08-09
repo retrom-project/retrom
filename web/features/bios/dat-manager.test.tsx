@@ -11,7 +11,7 @@ const artifact: CoreArtifact = { id: "artifact", coreId: "fbneo", coreName: "Fin
 const item = (id: string, overrides: Partial<DATVersion> = {}): DATVersion => ({
   id, coreId: "fbneo", coreName: "FinalBurn Neo", coreArtifactId: "artifact", source: "BUILTIN",
   compatibilityStatus: "MATCHED", parseStatus: "READY", active: false, machineCount: 100,
-  romEntryCount: 500, diskEntryCount: 0, biosSetCount: 3, version: 1, updatedAtMs: 1_786_000_000_000, ...overrides,
+  romEntryCount: 500, diskEntryCount: 0, biosSetCount: 3, diffStatus: "READY", version: 1, updatedAtMs: 1_786_000_000_000, ...overrides,
 });
 
 describe("DATManager", () => {
@@ -72,5 +72,18 @@ describe("DATManager", () => {
     expect(screen.getByText("1 个游戏目录受到影响；6 个游戏运行版本需要重新检查；2 项解析警告。")).toBeInTheDocument();
     expect(screen.getByText("machine: 1943")).toBeInTheDocument();
     expect(screen.queryByText("技术详情", { exact: true })).not.toBeInTheDocument();
+  });
+
+  it("keeps actions disabled while diff is running and can regenerate a stale diff", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify({ jobId: "diff-job", status: "PENDING" }), { status: 202, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<DATManager versions={[item("running", { source: "USER", diffStatus: "RUNNING" }), item("stale", { source: "USER", diffStatus: "STALE" })]} artifacts={[artifact]} />);
+
+    expect(screen.getByRole("button", { name: "差异比对中…" })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "启用" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "重新生成差异" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/arcade-dats/stale/diff", expect.objectContaining({ method: "POST" })));
+    expect(screen.getAllByRole("button", { name: "差异比对中…" })).toHaveLength(2);
   });
 });

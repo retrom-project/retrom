@@ -126,6 +126,20 @@ class DependencyManifestValidationTests(unittest.TestCase):
         self.assert_invalid(invalid_none_kind, "DEPENDENCY_PERSISTENT_SAVE_INVALID")
 
 
+class DependencyVersionValidationTests(unittest.TestCase):
+    def test_accepts_ordered_prerelease_runtime_overlay(self) -> None:
+        self.assertEqual(
+            dependencies.parse_versions("4.2.3,4.3.0-pre"),
+            ["4.2.3", "4.3.0-pre"],
+        )
+
+    def test_rejects_prerelease_after_its_release_and_numeric_leading_zero(self) -> None:
+        with self.assertRaisesRegex(dependencies.CheckError, "DEPENDENCY_VERSION_LIST_NOT_SORTED"):
+            dependencies.parse_versions("4.3.0,4.3.0-pre")
+        with self.assertRaisesRegex(dependencies.CheckError, "DEPENDENCY_VERSION_INVALID"):
+            dependencies.parse_versions("4.3.0-pre.01")
+
+
 class ReleaseInputDigestTests(unittest.TestCase):
     def test_unstaged_delete_is_absent_and_untracked_rename_is_present(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -53,14 +53,14 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 1. `profiles/platforms/cores/core_artifacts/platform_cores/platform_instances` 与代码 seed；
 2. `blobs/jobs/job_input_snapshots/job_events/idempotency_records/audit_events/blob_gc_candidates`；
 3. `upload_sessions/upload_files/upload_parts/upload_consumptions/archive_entries`；
-4. `bios_requirements/bios_installations/dat_versions/dat_machines/dat_bios_sets/dat_rom_entries/dat_disk_entries/dat_import_jobs`；
+4. `bios_requirements/bios_installations/dat_versions/dat_machines/dat_bios_sets/dat_rom_entries/dat_disk_entries/dat_import_jobs/dat_diff_snapshots/dat_diff_items`；
 5. `import_jobs/import_job_files/import_items/import_item_source_files/import_item_dos_entries/import_item_core_validations/import_item_validation_files/content_identity_claims/import_item_duplicate_matches`；
 6. `games/game_metadata_revisions/game_assets/game_content_revisions/game_content_files/game_variants/game_variant_revisions/variant_files/dos_entries/variant_dependencies`；这些循环 current FK 在同一 schema 边界声明 deferred；
 7. `metadata_scrape_runs/content_hash_evidence/metadata_provider_cache/metadata_provider_responses/metadata_scrape_query_attempts/scrape_candidates/scrape_candidate_hits/scrape_candidate_assets/review_uploaded_assets/review_drafts/review_draft_screenshot_assets/review_events`；Game owner 的 scrape run 因而不会引用尚未建立的 Game/ContentRevision；
 8. `launch_sessions/play_sessions/play_session_events/save_states/persistent_saves/persistent_save_revisions`；
 9. 全部 partial unique index、不可变/归属 trigger、搜索索引和 schema checksum 回归。
 
-测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立，014 只增加核心目录、BIOS delivery 与 Launch external-file 能力；015 只把旧实现遗留的零 Item `RUNNING/REVIEW_PENDING` 导入收敛为 `PARTIAL_FAILURE/COMPLETED`，不做 schema 重建。正式发布后再遵守只追加 migration 的升级纪律。
+测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立；014 增加核心目录、BIOS delivery 与 Launch external-file 能力；015 收敛旧零 Item 导入；016 增加拒绝文件重新配置 lineage；017 增加重复内容识别证据；018 增加异步 DAT 差异快照与分页明细，不做既有表重建。正式发布后再遵守只追加 migration 的升级纪律。
 
 ## 4. 里程碑
 
@@ -98,7 +98,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 ### M5：用户目录与一键启动
 
-范围：首页、游戏库、详情、存档列表空壳的真实 API；LaunchSession/HMAC capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202 `VARIANT_REVALIDATE`/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 原 bundle 加 Launch 受限旁置 config；Player Shell 通过 config 的显式 `playerAdapterId` 设置该锁定 EmulatorJS 版本的 globals、callback、locale、external files 与 artifact basename override，未知/错配 adapter 在加载 loader 前阻断，并在同一次 click 中请求全屏和自动开始。当前首个 adapter 对应 v4.2.3。
+范围：首页、游戏库、详情、存档列表空壳的真实 API；LaunchSession/HMAC capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 锁定原 bundle 加 seekable 虚拟 ZIP 引导；Player Shell 通过显式 `playerAdapterId` 设置锁定版本 globals/callback/external files 与 artifact override，未知/错配 adapter 在加载 loader 前阻断。基础 adapter 对应 v4.2.3，DOS whole-archive adapter 对应 v4.3.0-pre。
 
 退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`005` 与 `ACC-CORE-001`–`028`；若依赖版本发生变化另执行 `ACC-DAT-006`。核心 Case 与核心的映射以验收文档表格为准，使用本地授权夹具；夹具不可用时可以阻塞这些 Case，但不能以 mock 或历史截图判为通过。PPSSPP 的一个 Case 内含 ISO、CSO 两个独立 run，两者必须同时通过。
 

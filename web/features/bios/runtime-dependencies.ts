@@ -80,6 +80,10 @@ export type DATVersion = {
   jobId?: string | null;
   jobState?: string | null;
   jobVersion?: number | null;
+  diffJobId?: string | null;
+  diffStatus: "NOT_READY" | "NOT_APPLICABLE" | "NOT_RUN" | "PENDING" | "RUNNING" | "READY" | "STALE" | "FAILED";
+  diffErrorCode?: string | null;
+  diffVersion?: number | null;
 };
 
 export type CoreArtifact = {
@@ -107,9 +111,9 @@ export function filterDATVersions(items: DATVersion[], filters: DATFilters) {
     if (query && !item.coreName.toLocaleLowerCase("zh-CN").includes(query)) return false;
     if (filters.source && item.source !== filters.source) return false;
     if (filters.parseStatus && item.parseStatus !== filters.parseStatus) return false;
-    if (filters.quick === "READY" && (item.active || item.parseStatus !== "READY")) return false;
-    if (filters.quick === "WORKING" && !["PENDING", "PARSING"].includes(item.parseStatus)) return false;
-    if (filters.quick === "ATTENTION" && !["FAILED", "CANCELLED"].includes(item.parseStatus)) return false;
+    if (filters.quick === "READY" && (item.active || item.parseStatus !== "READY" || item.diffStatus !== "READY")) return false;
+    if (filters.quick === "WORKING" && !["PENDING", "PARSING"].includes(item.parseStatus) && !["PENDING", "RUNNING"].includes(item.diffStatus)) return false;
+    if (filters.quick === "ATTENTION" && !["FAILED", "CANCELLED"].includes(item.parseStatus) && item.diffStatus !== "FAILED") return false;
     if (filters.quick === "HISTORY" && (item.active || item.parseStatus !== "READY" || item.source !== "BUILTIN")) return false;
     return true;
   });
@@ -119,9 +123,9 @@ export function summarizeDAT(items: DATVersion[]) {
   return {
     all: items.length,
     active: items.filter((item) => item.active).length,
-    ready: items.filter((item) => !item.active && item.parseStatus === "READY").length,
-    working: items.filter((item) => ["PENDING", "PARSING"].includes(item.parseStatus)).length,
-    attention: items.filter((item) => ["FAILED", "CANCELLED"].includes(item.parseStatus)).length,
+    ready: items.filter((item) => !item.active && item.parseStatus === "READY" && item.diffStatus === "READY").length,
+    working: items.filter((item) => ["PENDING", "PARSING"].includes(item.parseStatus) || ["PENDING", "RUNNING"].includes(item.diffStatus)).length,
+    attention: items.filter((item) => ["FAILED", "CANCELLED"].includes(item.parseStatus) || item.diffStatus === "FAILED").length,
     history: items.filter((item) => !item.active && item.parseStatus === "READY" && item.source === "BUILTIN").length,
   };
 }

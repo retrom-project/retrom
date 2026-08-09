@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -72,7 +73,15 @@ func (server *Server) arcadeDATDiff(writer http.ResponseWriter, request *http.Re
 		arcadecatalog.DiffOptions{Section: section, Change: change, After: after, Limit: limit},
 	)
 	if err != nil {
-		writeError(writer, request, http.StatusConflict, "DAT_NOT_READY", "DAT 尚未完成安全解析或差异参数无效", map[string]any{})
+		if errors.Is(err, arcadecatalog.ErrDiffNotReady) {
+			writeError(writer, request, http.StatusConflict, "DAT_DIFF_NOT_READY", "DAT 差异比对任务仍在运行", map[string]any{})
+			return
+		}
+		if errors.Is(err, arcadecatalog.ErrDiffStale) {
+			writeError(writer, request, http.StatusConflict, "DAT_DIFF_REQUIRED", "DAT 差异尚未生成或已经失效", map[string]any{})
+			return
+		}
+		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "DAT 差异分页参数无效", map[string]any{})
 		return
 	}
 	if diff.HasMore {
@@ -91,6 +100,20 @@ func (server *Server) arcadeDATDiff(writer http.ResponseWriter, request *http.Re
 		diff.NextCursor = token
 	}
 	writeJSON(writer, http.StatusOK, diff)
+}
+
+func (server *Server) createArcadeDATDiff(writer http.ResponseWriter, request *http.Request) {
+	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
+		return
+	}
+	job, err := server.arcadeDAT.ScheduleDiff(request.Context(), request.PathValue("datVersionId"))
+	if err != nil {
+		writeError(writer, request, http.StatusConflict, "DAT_DIFF_UNAVAILABLE", "只有解析完成且未启用的数据目录可以生成差异", map[string]any{})
+		return
+	}
+	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, job.Version))
+	writeJSON(writer, http.StatusAccepted, job)
 }
 
 func (server *Server) activateArcadeDAT(writer http.ResponseWriter, request *http.Request) {

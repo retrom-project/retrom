@@ -49,20 +49,36 @@ describe("EmulatorJS adapter", () => {
     cleanup();
   });
 
-  it("maps only the launch-scoped DOS configuration into the virtual filesystem", () => {
+  it("defers 4.3 DOS startup until the whole-archive mode is installed", async () => {
     const target = document.createElement("div");
     const dosConfig: PlayerConfig = {
       ...config,
+      emulatorjsVersion: "4.3.0-pre",
+      playerAdapterId: "ejs-4.3.0-pre-v1",
       core: "dosbox_pure",
       runtimeCore: "dosbox_pure",
       dosEntry: "GAMES/DOOM.EXE",
-      defaultCoreOptions: { dosbox_pure_conf: "outside" },
-      externalFiles: { "/game.conf": `/runtime/launches/${config.launchId}/dos-config/game.conf` }
+      runtimeBaseUrl: "/runtime/emulatorjs/4.3.0-pre/data/",
+      loaderUrl: "/runtime/emulatorjs/4.3.0-pre/data/loader.js",
+      runtimePathOverrides: { "dosbox_pure-thread-wasm.data": "/runtime/emulatorjs/4.3.0-pre/data/cores/dosbox_pure-thread-wasm.data" },
+      defaultCoreOptions: {},
+      externalFiles: {}
     };
     const cleanup = mountEmulatorJS(dosConfig, target);
-    expect(window.EJS_externalFiles).toEqual(dosConfig.externalFiles);
+    expect(window.EJS_startOnLoaded).toBe(false);
+    expect(window.EJS_dontExtractRom).toBe(true);
+    expect(window.EJS_disableBatchBootup).toBe(true);
+    const dontExtractIfCore: string[] = [];
+    window.EJS_emulator = { on: () => undefined, downloadType: { rom: { dontExtractIfCore } } };
+    window.EJS_ready?.();
+    const start = document.createElement("button");
+    start.className = "ejs_start_button";
+    const click = vi.spyOn(start, "click");
+    document.body.append(start);
+    expect(dontExtractIfCore).toEqual(["dosbox_pure"]);
+    await vi.waitFor(() => expect(click).toHaveBeenCalledOnce());
     cleanup();
-    expect(() => mountEmulatorJS({ ...dosConfig, externalFiles: { "/game.conf": "https://example.test/game.conf" } }, target)).toThrow("PLAYER_EXTERNAL_FILES_INVALID");
+    start.remove();
   });
 
   it("accepts only launch-scoped BIOS external files", () => {

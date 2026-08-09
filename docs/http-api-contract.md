@@ -253,7 +253,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 | 路径 | 授权与缓存 |
 | --- | --- |
-| `/runtime/emulatorjs/{configuredVersion}/...` | 固定公开运行时；初始配置列表只有 `4.2.3`，通过版本升级门禁后可同时保留多个版本。版本必须在后端启动时已验证的依赖列表内，路径/文件必须在该版本 manifest allowlist 内；manifest 与前端 Player adapter registry 的对应关系由两个镜像构建前共同执行的 `make data-check` 保证，浏览器仍按 config 中的 `playerAdapterId` 独立拒绝部署错配。`public, max-age=31536000, immutable`，强 ETag。CSP 禁止 CDN fallback。 |
+| `/runtime/emulatorjs/{configuredVersion}/...` | 固定公开运行时；当前配置 `4.2.3,4.3.0-pre`，后者只含 DOS 定向覆盖。版本参数接受规范 SemVer prerelease，且必须在后端启动时已验证的依赖列表内；路径必须命中该版本 manifest allowlist。允许 EmulatorJS 自身附加且仅附加一次的 `v` cache-buster 查询参数，该参数不参与文件选择；其他查询键仍拒绝。`public, max-age=31536000, immutable`，强 ETag。CSP 禁止 CDN fallback。 |
 | `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。内容 revision URL 不变更 bytes，`public, max-age=31536000, immutable`。 |
 | `/content/save-states/{saveStateId}/screenshot` | 只用于未删除、且所属游戏仍已发布的手动存档截图；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。响应固定为 `private, no-store`，存档删除或游戏下架后立即不可读取。 |
 | `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、最终 ReviewEvent 保留的候选媒体或人工上传审核媒体预览；响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器。 |
@@ -302,13 +302,11 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 }
 ```
 
-`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`gameTitle/coreName/platformName` 只用于 Player 工具栏的人类可读上下文，不参与 EJS 配置、运行选择或授权判断，其中标题取 Launch 对应游戏的当前元信息，Core 与平台名称来自受控目录关系。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止 `__proto__/prototype/constructor`；固定基线、适用 BIOS Requirement activation options 与 DOS option 按运行时专题合并，不能接受客户端输入或前端补写。`externalFiles` 通常为空；只在 DOS 直接启动时精确为 `{ "/game.conf": "/runtime/launches/<launchId>/dos-config/game.conf" }`，前端必须拒绝其他虚拟路径、跨 Launch 或跨源 URL。`emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；`runtimeBaseUrl/loaderUrl/runtimePathOverrides` 都来自该精确版本的已校验 manifest/compatibility config。`runtimePathOverrides` 只能有一个条目：key 是相应版本 loader 实际请求的 core artifact basename，value 必须命中本次 CoreArtifact 的 manifest URL；v4.2.3 的 `mame2003-wasm.data` 尤其指向固定 4.2.1 override。所有 URL 必须是以 `/` 开头的同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写的任意 URL。重复 config GET 返回相同运行快照；仅展示标题可能随管理员元信息修订更新，不影响已锁定运行内容。start 前只受 hard expiry，start 后由 heartbeat 刷新 idle；已撤销/过期统一返回 `401 LAUNCH_CREDENTIAL_INVALID`。
+`emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`gameTitle/coreName/platformName` 只用于 Player 工具栏的人类可读上下文，不参与 EJS 配置、运行选择或授权判断。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止危险 key；DOS 的该 map 和 `externalFiles` 均不包含启动入口，启动入口只由锁定内容的虚拟 ZIP 视图表达。其他核心的 `externalFiles` 只能指向同一 Launch 锁定的 `/external-files/<logicalName>`。`emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；DOSBox Pure 新 Launch 为 `4.3.0-pre/ejs-4.3.0-pre-v1`，其余核心保持各自选定版本。所有 URL 必须是同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写 URL。
 
 `gameUrl` 的 `logicalName` 保留实际运行文件后缀；host console ZIP 已在入库时物化为唯一可运行 member，Arcade 与 DOS 才向 EJS 提供规范 ZIP。BIOS/parent 外层 bundle 的结构见运行时专题。config response 先按严格 JSON schema 校验，再由 Player adapter 设置 globals；页面不得从 core 名称自行推导文件名、线程开关、option 或 URL。
 
-二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。受限 URL 不包含 Blob ID/hash，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
-
-`GET /runtime/launches/{launchId}/dos-config/game.conf` 只对 `ACTIVE`、未过 hard expiry、选择了安全 DOS entry 且锁定 `SOURCE_V1` bundle 的 DOSBox Pure Launch 开放。它使用同一 HttpOnly launch cookie，返回 `text/plain; charset=utf-8`、`Cache-Control: private, no-store` 的确定性 `[autoexec]`，不创建 Blob、临时文件或数据库记录；其他 Launch 与无效 cookie 统一返回 `401 LAUNCH_CREDENTIAL_INVALID`。
+二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。DOS 的 `game.zip` 是从锁定基础 Blob与 entry 确定性派生的 seekable 虚拟 ZIP，HEAD/Range/完整 GET 必须同 size/ETag 且不落盘。受限 URL 不包含 Blob ID/hash，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
 
 运行中写入要求正确 launch cookie：
 
@@ -319,7 +317,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `putRuntimePersistentSave` 三个 operation 必须且只能标记 `x-retrom-streaming-body: true`；生成物应分别暴露 `io.Reader`/`multipart.Reader`，不能生成 `[]byte` 或先 `ParseMultipartForm`。启动时基于同一份已加载 spec 构建两条不可变的 `nethttp-middleware` validator chain：普通链保持 `Options.Options.ExcludeRequestBody=false`，流式链设置 `Options.Options.ExcludeRequestBody=true`。前置 kin-openapi router 先匹配 operation 并读取该 extension，再把请求分派给对应链；请求处理中不得修改共享 options。流式链仍验证 method/path/query/header/content-type，领域 handler 的流式检查才是 body 的权威门禁；不得另维护 URL skip 清单，也不得用全局 `Skipper` 跳过完整验证。所有 `operationId` 使用唯一 lowerCamelCase，格式为 HTTP 动词加稳定领域动作；已经发布后改名视为生成代码破坏性变更。
 
-`core` 表示产品目录 ID，`runtimeCore` 表示 EmulatorJS runtime ID；Player 只能把后者写入 `EJS_core`。`persistentSaveMode` 只允许 `SINGLE_FILE|DOS_OVERLAY|NONE`，NONE 时 `persistentSaveUrl=null`；`inputMode` 只允许 `STANDARD|POINTER`；`startupActions` 只允许 OpenAPI 的有界 `PRESS_CONTROL` 结构。`externalFiles` 除 DOS `/game.conf` 外，还允许 Variant dependency snapshot 锁定的 MelonDS 三个绝对虚拟路径，其 URL 必须属于同一 Launch 的 external-files 前缀；最多 16 项，重复路径/逻辑名或跨 Launch URL 均阻断。主机/掌机 ZIP/7z 已在入库时物化为唯一可运行 member；PSP `.iso/.cso` 作为 raw CONTENT 返回，不做运行时转换。
+`core` 表示产品目录 ID，`runtimeCore` 表示 EmulatorJS runtime ID；Player 只能把后者写入 `EJS_core`。`persistentSaveMode` 只允许 `SINGLE_FILE|DOS_OVERLAY|NONE`；`inputMode` 只允许 `STANDARD|POINTER`。`externalFiles` 当前只用于 Variant dependency snapshot 锁定的 MelonDS 三个绝对虚拟路径，其 URL 必须属于同一 Launch 的 external-files 前缀；最多 16 项，重复路径/逻辑名或跨 Launch URL 均阻断。主机/掌机 ZIP/7z 已在入库时物化为唯一可运行 member；PSP `.iso/.cso` 作为 raw CONTENT 返回，不做运行时转换。
 
 ## 9. 核心 API 路由表
 
@@ -353,7 +351,9 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `putRuntimePersist
 | DAT 候选 | `POST /admin/arcade-dats`：`{"uploadFileId":"...","coreArtifactId":"..."}` + `Idempotency-Key` | 从 COMPLETE UploadFile 创建非活动 DatVersion 和解析 job；core 由 artifact 推导，不接受另一份 coreId。 |
 | DAT 激活 / 回滚 | 对目标 DatVersion 调用 activate/rollback，body 为 `{"impactDigest":"...","confirmBlocked":false,"confirmUnknownCompatibility":false}` + 目标 CoreArtifact 当前 `If-Match` + `Idempotency-Key` | activate 用于未曾活动候选，rollback 用于曾活动历史版本；两者都先校验最新 diff/digest。UNKNOWN 仅在 confirmUnknown=true 时转 USER_CONFIRMED；INCOMPATIBLE 永不允许。 |
 
-`GET /admin/arcade-dats/{datVersionId}/diff` 只接受 READY 目标，每次都以请求当时同 CoreArtifact 的 active DatVersion 为 base，不把候选刚上传时的历史 base 冒充当前影响。响应固定为 `baseDatVersionId/targetDatVersionId/summary/items/nextCursor/impact/impactDigest`；summary 使用数据模型的四类 added/removed/changed 计数，items 的通用外形为 `{"section":"...","change":"...","key":{...},"before":null|object,"after":null|object}`。key 分别是 machineName；machineName+ordinal+name；machineName+biosName；machineName，并以这些 UTF-8 byte 值加唯一 tie-breaker 签名分页。before/after 只含 DAT 规范化字段，不返回原 XML 或宿主路径。impact 至少含 requirement slot 变化、依赖该 artifact 的目录数、需重校验 Variant ID/当前 revision/version、预计 blocker code；数组按 ID 排序。BIOS archive 只对上传时已物化的 ArchiveEntry 索引做查询比较，preview/commit 不重读大 Blob。
+`POST /admin/arcade-dats/{datVersionId}/diff` 携带 `Idempotency-Key`，为解析完成且未启用的目标创建或重启异步差异物化，返回 `202` 和 `jobId/status/version`；相同 input 已在 PENDING/RUNNING 时幂等复用。用户 DAT 解析成功后服务端自动调用同一调度能力，进程重启恢复未完成任务。
+
+`GET /admin/arcade-dats/{datVersionId}/diff` 只分页读取 READY 物化结果，不在请求内扫描原始 DAT 索引。PENDING/RUNNING 返回 `409 DAT_DIFF_NOT_READY`，尚未生成、失败或因 active DAT/CoreArtifact/游戏引用改变而失效时返回 `409 DAT_DIFF_REQUIRED`。响应固定为 `baseDatVersionId/targetDatVersionId/summary/items/nextCursor/impact/impactDigest`；summary 使用数据模型的四类 added/removed/changed 计数，items 的通用外形为 `{"section":"...","change":"...","key":{...},"before":null|object,"after":null|object}`。key 分别是 machineName；machineName+ordinal+name；machineName+biosName；machineName，并以这些 UTF-8 byte 值加唯一 tie-breaker 签名分页。before/after 只含 DAT 规范化字段，不返回原 XML 或宿主路径。impact 至少含 requirement slot 变化、依赖该 artifact 的目录数、需重校验 Variant ID/当前 revision/version、预计 blocker code；数组按 ID 排序。BIOS archive 只对上传时已物化的 ArchiveEntry 索引做查询比较，preview/commit 不重读大 Blob。`GET /admin/arcade-dats` 同时投影 `diffJobId/diffStatus/diffErrorCode/diffVersion`；active 为 `NOT_APPLICABLE`、未解析为 `NOT_READY`、无 snapshot 为 `NOT_RUN`。
 
 `impactDigest` 固定为无 padding base64url(SHA-256(RFC 8785 canonical JSON))。被摘要的 preview 至少包含 action、actor=`local`、目标资源/version、目标 core/目录/DAT、受影响实体 ID + current revision/version、blocker code 和生成时配置版本；数组按 ID UTF-8 byte 升序。提交时重新计算并常量时间比较，任一变化返回 `409 IMPACT_PREVIEW_STALE`。普通 preview 不落业务状态，但游戏移动 preview 在缺少当前兼容性结果时允许且只允许按上一表投递共享验证 Job；它仍不移动 Game，也不提前生成 impact digest。其余 preview 只可写不含秘密的访问日志。
 
@@ -399,7 +399,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview`、`POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core` | 默认核心影响 digest 与提交。 |
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |
 | `GET /api/v1/admin/bios`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态与从已完成 UploadFile 新建 installation revision。替换只切换 active；一期没有删除 Installation API，旧安装与审计证据按 GC 引用规则保留。 |
-| `GET /api/v1/admin/arcade-dats`、`POST /api/v1/admin/arcade-dats`、`GET /api/v1/admin/arcade-dats/{datVersionId}/diff` | DAT 列表、从已完成 UploadFile 创建候选与 diff。 |
+| `GET /api/v1/admin/arcade-dats`、`POST /api/v1/admin/arcade-dats`、`POST /api/v1/admin/arcade-dats/{datVersionId}/diff`、`GET /api/v1/admin/arcade-dats/{datVersionId}/diff` | DAT 列表、从已完成 UploadFile 创建候选、异步生成差异与读取 READY 物化结果。 |
 | `POST /api/v1/admin/arcade-dats/{datVersionId}/activate`、`POST /api/v1/admin/arcade-dats/{datVersionId}/rollback`、`DELETE /api/v1/admin/arcade-dats/{datVersionId}` | DAT 激活、回滚和删除无引用候选。 |
 | `GET /api/v1/admin/diagnostics` | 下载不含内容标识与路径的封闭 JSON 诊断摘要；只读、无需 Idempotency-Key，但仍受全局 readiness 门禁。 |
 
@@ -413,7 +413,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
   "generatedAtMs": 1786000000000,
   "databaseSchemaVersion": 1,
   "dependencies": {
-    "configuredEmulatorjsVersions": ["4.2.3"],
+    "configuredEmulatorjsVersions": ["4.2.3", "4.3.0-pre"],
     "activeEmulatorjsVersion": "4.2.3"
   },
   "counts": {

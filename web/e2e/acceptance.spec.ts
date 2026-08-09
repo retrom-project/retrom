@@ -296,7 +296,11 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   expect(canvasBox!.y + canvasBox!.height).toBeLessThanOrEqual(dimensions.height + 1);
   expect(Math.abs(canvasBox!.width / canvasBox!.height - (drawingBuffer.runtimeAspect || drawingBuffer.width / drawingBuffer.height))).toBeLessThanOrEqual(0.01);
   expect(Math.min(Math.abs(canvasBox!.width - dimensions.width), Math.abs(canvasBox!.height - dimensions.height))).toBeLessThanOrEqual(2);
+  expect(Math.abs(canvasBox!.x - (dimensions.width - canvasBox!.width) / 2)).toBeLessThanOrEqual(2);
+  expect(Math.abs(canvasBox!.y - (dimensions.height - canvasBox!.height) / 2)).toBeLessThanOrEqual(2);
   await page.mouse.move(dimensions.width / 2, dimensions.height / 2);
+  await expect(toolbar).toHaveCSS("opacity", "0");
+  await page.mouse.move(dimensions.width / 2, 1);
   await expect(toolbar).toHaveCSS("opacity", "1");
   await noPageOverflow(page);
   await page.screenshot({ path: evidencePath(testInfo, "user-layout.png"), fullPage: true });

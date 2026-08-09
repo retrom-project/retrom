@@ -6,6 +6,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/ui";
 import { formatSaveTime } from "@/features/saves/save-library";
 import { readPreferredCore, subscribePreferredCores, writePreferredCore } from "./core-preference";
+import { decodePreferredDOSEntry, readPreferredDOSEntry, subscribePreferredDOSEntries, writePreferredDOSEntry } from "./dos-entry-preference";
 import { LaunchButton } from "./launch-button";
 
 export type CoreOption = {
@@ -43,6 +44,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
 }) {
   const initialCore = coreOptions.find((core) => core.isDefault) ?? coreOptions[0];
   const preferredCoreId = useSyncExternalStore(subscribePreferredCores, () => readPreferredCore(gameId), () => null);
+  const preferredDOSEntryRaw = useSyncExternalStore(subscribePreferredDOSEntries, () => readPreferredDOSEntry(gameId), () => null);
   const storedCoreId = coreOptions.some((core) => core.coreId === preferredCoreId) ? preferredCoreId : null;
   const [coreOverride, setCoreOverride] = useState<{ gameId: string; coreId: string } | null>(null);
   const coreId = coreOverride?.gameId === gameId ? coreOverride.coreId : storedCoreId ?? initialCore?.coreId ?? "";
@@ -52,13 +54,17 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   const selectedCore = coreOptions.find((core) => core.coreId === coreId);
   const blocked = !selectedCore || selectedCore.status === "DEPENDENCY_MISSING" || selectedCore.status === "INCOMPATIBLE";
   const isDOS = selectedCore?.coreId === "dosbox_pure";
-  const dosEntry = dosSelection?.gameId === gameId ? dosSelection.value : isDOS ? defaultDosEntry : null;
+  const preferredDOS = decodePreferredDOSEntry(preferredDOSEntryRaw);
+  const preferredDOSIsValid = preferredDOS.entry === null || dosEntries.some((entry) => entry.path === preferredDOS.entry && entry.enabled && entry.directLaunchSafe);
+  const safeDefaultDOSEntry = dosEntries.some((entry) => entry.path === defaultDosEntry && entry.enabled && entry.directLaunchSafe) ? defaultDosEntry : null;
+  const restoredDOSEntry = preferredDOS.present && preferredDOSIsValid ? preferredDOS.entry : safeDefaultDOSEntry;
+  const dosEntry = dosSelection?.gameId === gameId ? dosSelection.value : isDOS ? restoredDOSEntry : null;
   const usesOverride = Boolean(selectedCore && initialCore && selectedCore.coreId !== initialCore.coreId);
   const latestSaveRequiresThreads = coreOptions.find((core) => core.coreId === latestSave?.coreId)?.requiresThreads ?? false;
 
   function selectCore(value: string) {
     setCoreOverride({ gameId, coreId: value });
-    setDosSelection({ gameId, value: value === "dosbox_pure" ? defaultDosEntry : null });
+    setDosSelection({ gameId, value: value === "dosbox_pure" ? restoredDOSEntry : null });
     writePreferredCore(gameId, value, initialCore?.coreId);
   }
 
@@ -87,8 +93,8 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
       <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatSaveTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={latestSaveRequiresThreads} label="从存档继续" /></div>
     </div> : null}
     {latestSave
-      ? <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} label="重新开始游戏" />
-      : <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} />}
+      ? <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} label="重新开始游戏" onLaunchCreated={isDOS ? () => writePreferredDOSEntry(gameId, dosEntry) : undefined} />
+      : <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} onLaunchCreated={isDOS ? () => writePreferredDOSEntry(gameId, dosEntry) : undefined} />}
     <div className="launch-runtime-row">
       <div><small>运行方式</small><strong>{selectedCore?.name ?? "尚未配置"}</strong>{usesOverride ? <span className="launch-core-override">（未采用默认核心）</span> : null}</div>
       <button type="button" onClick={openCorePicker}>更换 ›</button>

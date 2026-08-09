@@ -1,0 +1,164 @@
+{
+  "schema_version": 4,
+  "purpose": "Targeted EmulatorJS 4.3.0 pre-release runtime lane for DOSBox Pure; other cores remain on their independently selected version",
+  "created_at": "2026-08-09T00:00:00Z",
+  "reviewed_at": "2026-08-09T00:00:00Z",
+  "repository_policy": {
+    "payloads_tracked_in_git": false,
+    "tracked_files": [
+      "manifest.json",
+      "SHA256SUMS"
+    ],
+    "materialization_command": "make prepare-deps",
+    "verification_command": "make deps-check",
+    "service_downloads_at_startup": false
+  },
+  "emulatorjs": {
+    "version": "4.3.0-pre",
+    "tag": "v4.3.0-pre",
+    "tag_commit": "5628818822054610a2f06e61a6dc802fd1a3681f",
+    "release_published_at": "2026-05-17T17:48:47Z",
+    "player_adapter": {
+      "id": "ejs-4.3.0-pre-v1",
+      "runtime_base_path_in_release": "data/",
+      "loader_path_in_release": "data/loader.js"
+    },
+    "release_asset": {
+      "name": "4.3.0-pre.7z",
+      "size_bytes": 272494929,
+      "sha256": "0949d75fa5cff05c47e0431443dad6b65e2ebc5f1517cbb09f3d671236d3effd",
+      "url": "https://github.com/EmulatorJS/EmulatorJS/releases/download/v4.3.0-pre/4.3.0-pre.7z"
+    },
+    "build_pipeline": {
+      "repository": "https://github.com/EmulatorJS/build",
+      "commit_at_build_time": "7f4d2d7354d7b25766bf5229f8a5c4b121515a68",
+      "source_resolution_note": "The official artifact report contains a build timestamp but no core source commit; the DOSBox Pure source association is therefore inferred from the fork commit available before that timestamp."
+    },
+    "runtime_allowlist": [
+      {
+        "path_in_release": "LICENSE",
+        "size_bytes": 35111,
+        "sha256": "bad9f6b3ad5c6f4f0e7ff9f70960676e2d1d8111325c64821190d854cb702fd8",
+        "role": "license"
+      },
+      {
+        "path_in_release": "data/loader.js",
+        "size_bytes": 8935,
+        "sha256": "b9c06630025602e0826e32d40d76336bfcee1a96a4cbddfc2e1d7551096bc8a1",
+        "role": "loader"
+      },
+      {
+        "path_in_release": "data/emulator.min.js",
+        "size_bytes": 483434,
+        "sha256": "b5f88bdfc57c11b76e20e7393c51e2257efde7637e48565be702e0d6590fb5ea",
+        "role": "loader"
+      },
+      {
+        "path_in_release": "data/emulator.min.css",
+        "size_bytes": 28854,
+        "sha256": "6c7b0ae656c00b8f5c2aabd662fa19c5fbf30119634a63782ad7567f9fb95627",
+        "role": "loader"
+      },
+      {
+        "path_in_release": "data/compression/extract7z.js",
+        "size_bytes": 280155,
+        "sha256": "4ac9933b995a516cb6b3ca4027db860278372a20c21c405d93ceb1998498853a",
+        "role": "archive_helper"
+      },
+      {
+        "path_in_release": "data/localization/en.json",
+        "size_bytes": 9857,
+        "sha256": "e241e358d229d9925adc8636cc4f9c060b1ae3e4efbf1f5d85cfeda1bf755f2e",
+        "role": "localization_fallback"
+      },
+      {
+        "path_in_release": "data/localization/zh.json",
+        "size_bytes": 10545,
+        "sha256": "eb7cecac255d0a539fc062448d97ae2002649338b3aff4351b5e60b1986107b9",
+        "role": "localization"
+      },
+      {
+        "path_in_release": "data/localization/retroarch.json",
+        "size_bytes": 30095,
+        "sha256": "31e0c9c1876402da54219ad6da5294eafe78e94d4663e7d2b02193d1b14925b7",
+        "role": "localization"
+      },
+      {
+        "path_in_release": "data/cores/reports/dosbox_pure.json",
+        "size_bytes": 193,
+        "sha256": "062138590f62c48934e79298784153a1dcb6377e7e1ffc8f96582cb67d9238e2",
+        "role": "core_report"
+      }
+    ],
+    "selected_core_artifacts": [
+      {
+        "core_id": "dosbox_pure",
+        "path_in_release": "data/cores/dosbox_pure-thread-wasm.data",
+        "size_bytes": 1827779,
+        "sha256": "89b0e89b03ced9ba07c5fe27bc789fd0f42bd5378b399f93befa2edc3571a70a",
+        "requires_threads": true,
+        "source_component_id": "dosbox_pure",
+        "runtime_core_id": "dosbox_pure",
+        "requested_artifact_basename": "dosbox_pure-thread-wasm.data",
+        "canvas_resize_policy": "NONE",
+        "default_options": {},
+        "persistent_save_mode": "DOS_OVERLAY",
+        "persistent_save_kind": "DOS_OVERLAY",
+        "input_mode": "STANDARD",
+        "startup_actions": [],
+        "report_path": "data/cores/reports/dosbox_pure.json",
+        "bundle_version": "4.3.0-pre",
+        "artifact_flavor": "THREAD_WASM"
+      }
+    ],
+    "auxiliary_files": []
+  },
+  "cores": [],
+  "license_materialization": {
+    "third_party_notices_relative_path": "THIRD_PARTY_NOTICES",
+    "notice_order": [
+      "emulatorjs",
+      "dosbox_pure"
+    ],
+    "components": [
+      {
+        "component_id": "emulatorjs",
+        "binary_artifact_ref": "/emulatorjs/release_asset",
+        "repository": "https://github.com/EmulatorJS/EmulatorJS",
+        "source_commit": "5628818822054610a2f06e61a6dc802fd1a3681f",
+        "binary_association_status": "EXACT_RELEASE",
+        "license_files": [
+          {
+            "declared_license_path": "LICENSE",
+            "materialization": {
+              "type": "RELEASE_ENTRY",
+              "path_in_release": "LICENSE"
+            },
+            "output_relative_path": "licenses/emulatorjs/LICENSE",
+            "size_bytes": 35111,
+            "sha256": "bad9f6b3ad5c6f4f0e7ff9f70960676e2d1d8111325c64821190d854cb702fd8"
+          }
+        ]
+      },
+      {
+        "component_id": "dosbox_pure",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/0",
+        "repository": "https://github.com/EmulatorJS/dosbox-pure",
+        "source_commit": "ef363f86d7ce7ff632064d969b891be2932dd767",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "license_files": [
+          {
+            "declared_license_path": "LICENSE",
+            "materialization": {
+              "type": "PINNED_RAW_FILE",
+              "url": "https://raw.githubusercontent.com/EmulatorJS/dosbox-pure/ef363f86d7ce7ff632064d969b891be2932dd767/LICENSE"
+            },
+            "output_relative_path": "licenses/dosbox_pure/LICENSE",
+            "size_bytes": 17995,
+            "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374"
+          }
+        ]
+      }
+    ]
+  }
+}

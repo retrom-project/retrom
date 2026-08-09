@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -21,7 +22,11 @@ import (
 	"retrom/internal/datindex"
 )
 
-var ErrInvalid = errors.New("DAT_VERSION_INVALID")
+var (
+	ErrInvalid      = errors.New("DAT_VERSION_INVALID")
+	ErrDiffNotReady = errors.New("DAT_DIFF_NOT_READY")
+	ErrDiffStale    = errors.New("DAT_DIFF_STALE")
+)
 
 type CreateRequest struct {
 	UploadFileID   string `json:"uploadFileId"`
@@ -40,6 +45,7 @@ type Service struct {
 	blobs    *blobstore.Store
 	now      func() time.Time
 	hooks    RevalidationHooks
+	diffMu   sync.Mutex
 }
 
 type RevalidationHooks struct {
@@ -371,25 +377,7 @@ json_object('machineCount',
 		service.failParse(ctx, datID, jobID, "DAT_INDEX_WRITE_FAILED")
 		return
 	}
-	diff, err := service.Diff(ctx, datID)
-	if err != nil {
-		return
-	}
-	summary, _ := json.Marshal(diff.Summary)
-	_, _ = service.database.ExecContext(
-		ctx,
-		`
-UPDATE dat_import_jobs
-SET diff_summary_json=?,
-diff_input_digest=?,
-updated_at_ms=?
-WHERE job_id=?
-`,
-		string(summary),
-		diff.ImpactDigest,
-		service.now().UnixMilli(),
-		jobID,
-	)
+	_, _ = service.ScheduleDiff(context.WithoutCancel(ctx), datID)
 }
 
 //nolint:funlen // Contract branches stay contiguous for a single auditable decision.
@@ -613,8 +601,138 @@ func (counts *changeCounts) add(change string) {
 	}
 }
 
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
-func (service *Service) Diff(ctx context.Context, datID string, requested ...DiffOptions) (Diff, error) {
+type DiffJob struct {
+	DATVersionID string `json:"datVersionId"`
+	JobID        string `json:"jobId"`
+	State        string `json:"state"`
+	Version      int64  `json:"version"`
+}
+
+type diffSnapshotContext struct {
+	inputDigest string
+	baseID      sql.NullString
+}
+
+func (service *Service) diffPlatformInputs(ctx context.Context, artifactID string) ([]map[string]any, error) {
+	rows, err := service.database.QueryContext(ctx, `
+SELECT p.id,
+p.version
+FROM platform_instances p
+JOIN core_artifacts a ON a.core_id=p.default_core_id
+WHERE a.id=?
+AND p.enabled=1
+AND p.deleted_at_ms IS NULL
+ORDER BY p.id
+`, artifactID)
+	if err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]map[string]any, 0)
+	for rows.Next() {
+		var id string
+		var version int64
+		if err := rows.Scan(&id, &version); err != nil {
+			return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+		}
+		items = append(items, map[string]any{"id": id, "version": version})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return items, nil
+}
+
+func (service *Service) diffVariantInputs(ctx context.Context, artifactID string) ([]map[string]any, error) {
+	rows, err := service.database.QueryContext(ctx, `
+SELECT v.id,
+v.current_revision_id,
+v.version,
+g.current_content_revision_id
+FROM game_variants v
+JOIN game_variant_revisions r ON r.id=v.current_revision_id
+JOIN games g ON g.id=v.game_id
+WHERE r.core_artifact_id=?
+AND g.status='PUBLISHED'
+ORDER BY v.id
+`, artifactID)
+	if err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]map[string]any, 0)
+	for rows.Next() {
+		var id, revisionID, contentID string
+		var version int64
+		if err := rows.Scan(&id, &revisionID, &version, &contentID); err != nil {
+			return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+		}
+		items = append(items, map[string]any{
+			"contentRevisionId": contentID,
+			"id":                id,
+			"revisionId":        revisionID,
+			"version":           version,
+		})
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return items, nil
+}
+
+type diffVariantImpactInput struct {
+	id                string
+	revisionID        string
+	status            string
+	compatibilityCode string
+	contentID         string
+	version           int64
+}
+
+func (service *Service) diffVariantImpactInputs(
+	ctx context.Context,
+	artifactID string,
+) ([]diffVariantImpactInput, error) {
+	rows, err := service.database.QueryContext(ctx, `
+SELECT v.id,
+v.current_revision_id,
+v.version,
+r.status,
+r.compatibility_code,
+g.current_content_revision_id
+FROM game_variants v
+JOIN game_variant_revisions r ON r.id=v.current_revision_id
+JOIN games g ON g.id=v.game_id
+WHERE r.core_artifact_id=?
+AND g.status='PUBLISHED'
+ORDER BY v.id
+`, artifactID)
+	if err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]diffVariantImpactInput, 0)
+	for rows.Next() {
+		var item diffVariantImpactInput
+		if err := rows.Scan(
+			&item.id,
+			&item.revisionID,
+			&item.version,
+			&item.status,
+			&item.compatibilityCode,
+			&item.contentID,
+		); err != nil {
+			return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return items, nil
+}
+
+func normalizedDiffOptions(requested []DiffOptions) (DiffOptions, error) {
 	options := DiffOptions{Section: "MACHINES", Change: "ALL", Limit: 50}
 	if len(requested) > 0 {
 		options = requested[0]
@@ -631,7 +749,685 @@ func (service *Service) Diff(ctx context.Context, datID string, requested ...Dif
 	if options.Limit < 1 || options.Limit > 100 ||
 		!validDiffValue(options.Section, "MACHINES", "ROM_ENTRIES", "BIOS_SETS", "DEPENDENCY_TARGETS") ||
 		!validDiffValue(options.Change, "ALL", "ADDED", "REMOVED", "CHANGED") {
-		return Diff{}, ErrInvalid
+		return DiffOptions{}, ErrInvalid
+	}
+	return options, nil
+}
+
+func (service *Service) currentDiffContext(ctx context.Context, datID string) (diffSnapshotContext, error) {
+	var artifactID, targetSHA, targetParser, parseStatus string
+	var active, artifactVersion int64
+	if err := service.database.QueryRowContext(ctx, `
+SELECT d.core_artifact_id,
+d.sha256,
+d.parser_version,
+d.parse_status,
+d.is_active,
+a.version
+FROM dat_versions d
+JOIN core_artifacts a ON a.id=d.core_artifact_id
+WHERE d.id=?
+`, datID).Scan(&artifactID, &targetSHA, &targetParser, &parseStatus, &active, &artifactVersion); err != nil ||
+		parseStatus != "READY" || active == 1 {
+		return diffSnapshotContext{}, ErrInvalid
+	}
+	var baseID, baseSHA, baseParser sql.NullString
+	err := service.database.QueryRowContext(ctx, `
+SELECT id,
+sha256,
+parser_version
+FROM dat_versions
+WHERE core_artifact_id=?
+AND is_active=1
+`, artifactID).Scan(&baseID, &baseSHA, &baseParser)
+	if err != nil && !errors.Is(err, sql.ErrNoRows) {
+		return diffSnapshotContext{}, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	platforms, err := service.diffPlatformInputs(ctx, artifactID)
+	if err != nil {
+		return diffSnapshotContext{}, err
+	}
+	variants, err := service.diffVariantInputs(ctx, artifactID)
+	if err != nil {
+		return diffSnapshotContext{}, err
+	}
+	encoded, _ := json.Marshal(map[string]any{
+		"baseDatVersionId":    nullable(baseID),
+		"baseParserVersion":   nullable(baseParser),
+		"baseSha256":          nullable(baseSHA),
+		"coreArtifactId":      artifactID,
+		"coreArtifactVersion": artifactVersion,
+		"platformInstances":   platforms,
+		"schemaVersion":       1,
+		"targetDatVersionId":  datID,
+		"targetParserVersion": targetParser,
+		"targetSha256":        targetSHA,
+		"variants":            variants,
+	})
+	digest := sha256.Sum256(encoded)
+	return diffSnapshotContext{inputDigest: hex.EncodeToString(digest[:]), baseID: baseID}, nil
+}
+
+// ScheduleDiff discards any previous materialization and queues a fresh comparison.
+func (service *Service) ScheduleDiff(ctx context.Context, datID string) (DiffJob, error) {
+	inputs, err := service.currentDiffContext(ctx, datID)
+	if err != nil {
+		return DiffJob{}, err
+	}
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return DiffJob{}, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer cleanup.Rollback(transaction)
+	var snapshotID, state, existingDigest string
+	var version int64
+	err = transaction.QueryRowContext(ctx, `
+SELECT id,
+state,
+input_digest,
+version
+FROM dat_diff_snapshots
+WHERE dat_version_id=?
+`, datID).Scan(&snapshotID, &state, &existingDigest, &version)
+	if err == nil && (state == "PENDING" || state == "RUNNING") && existingDigest == inputs.inputDigest {
+		if err := transaction.Commit(); err != nil {
+			return DiffJob{}, fmt.Errorf("arcadecatalog/service: %w", err)
+		}
+		return DiffJob{DATVersionID: datID, JobID: snapshotID, State: state, Version: version}, nil
+	}
+	now := service.now().UnixMilli()
+	switch {
+	case errors.Is(err, sql.ErrNoRows):
+		created, _ := uuid.NewV7()
+		snapshotID = created.String()
+		version = 1
+		if err := createDiffSnapshot(ctx, transaction, snapshotID, datID, inputs, now); err != nil {
+			return DiffJob{}, err
+		}
+	case err == nil:
+		version++
+		if err := resetDiffSnapshot(ctx, transaction, snapshotID, inputs, version, now); err != nil {
+			return DiffJob{}, err
+		}
+	default:
+		return DiffJob{}, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	if err := transaction.Commit(); err != nil {
+		return DiffJob{}, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	go service.runDiff(context.WithoutCancel(ctx), snapshotID, datID, inputs.inputDigest)
+	return DiffJob{DATVersionID: datID, JobID: snapshotID, State: "PENDING", Version: version}, nil
+}
+
+func createDiffSnapshot(
+	ctx context.Context,
+	transaction *sql.Tx,
+	snapshotID, datID string,
+	inputs diffSnapshotContext,
+	now int64,
+) error {
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO dat_diff_snapshots(id,
+dat_version_id,
+base_dat_version_id,
+state,
+input_digest,
+attempt_count,
+version,
+queued_at_ms,
+created_at_ms,
+updated_at_ms) VALUES(?,
+?,
+?,
+'PENDING',
+?,
+0,
+1,
+?,
+?,
+?)
+`, snapshotID, datID, nullable(inputs.baseID), inputs.inputDigest, now, now, now); err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return nil
+}
+
+func resetDiffSnapshot(
+	ctx context.Context,
+	transaction *sql.Tx,
+	snapshotID string,
+	inputs diffSnapshotContext,
+	version, now int64,
+) error {
+	if _, err := transaction.ExecContext(ctx, `
+DELETE
+FROM dat_diff_items
+WHERE snapshot_id=?
+`, snapshotID); err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE dat_diff_snapshots
+SET base_dat_version_id=?,
+state='PENDING',
+input_digest=?,
+summary_json=NULL,
+impact_json=NULL,
+impact_digest=NULL,
+error_code=NULL,
+attempt_count=0,
+version=?,
+queued_at_ms=?,
+started_at_ms=NULL,
+completed_at_ms=NULL,
+updated_at_ms=?
+WHERE id=?
+`, nullable(inputs.baseID), inputs.inputDigest, version, now, now, snapshotID); err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) ResumeDiffJobs() {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+	_ = service.recoverInterruptedDiffs(ctx)
+	missing, err := service.missingDiffSnapshotIDs(ctx)
+	if err == nil {
+		for _, datID := range missing {
+			_, _ = service.ScheduleDiff(ctx, datID)
+		}
+	}
+	pending, err := service.pendingDiffSnapshots(ctx)
+	if err != nil {
+		return
+	}
+	for _, item := range pending {
+		go service.runDiff(context.Background(), item[0], item[1], item[2])
+	}
+}
+
+func (service *Service) recoverInterruptedDiffs(ctx context.Context) error {
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.ExecContext(ctx, `
+DELETE FROM dat_diff_items
+WHERE snapshot_id IN (SELECT id FROM dat_diff_snapshots WHERE state='RUNNING')
+`); err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	now := service.now().UnixMilli()
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE dat_diff_snapshots
+SET state='PENDING',
+started_at_ms=NULL,
+version=version+1,
+queued_at_ms=?,
+updated_at_ms=?
+WHERE state='RUNNING'
+	`, now, now); err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) missingDiffSnapshotIDs(ctx context.Context) ([]string, error) {
+	rows, err := service.database.QueryContext(ctx, `
+SELECT d.id
+FROM dat_versions d
+LEFT JOIN dat_diff_snapshots s ON s.dat_version_id=d.id
+WHERE d.source='USER'
+AND d.parse_status='READY'
+AND d.is_active=0
+AND s.id IS NULL
+ORDER BY d.id
+`)
+	if err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]string, 0)
+	for rows.Next() {
+		var datID string
+		if err := rows.Scan(&datID); err != nil {
+			return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+		}
+		items = append(items, datID)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return items, nil
+}
+
+func (service *Service) pendingDiffSnapshots(ctx context.Context) ([][3]string, error) {
+	rows, err := service.database.QueryContext(ctx, `
+SELECT id,
+dat_version_id,
+input_digest
+FROM dat_diff_snapshots
+WHERE state='PENDING'
+ORDER BY queued_at_ms,
+id
+`)
+	if err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	pending := make([][3]string, 0)
+	for rows.Next() {
+		var item [3]string
+		if err := rows.Scan(&item[0], &item[1], &item[2]); err != nil {
+			return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+		}
+		pending = append(pending, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return pending, nil
+}
+
+func (service *Service) runDiff(parent context.Context, snapshotID, datID, inputDigest string) {
+	service.diffMu.Lock()
+	defer service.diffMu.Unlock()
+	ctx, cancel := context.WithTimeout(parent, 30*time.Minute)
+	defer cancel()
+	now := service.now().UnixMilli()
+	claimed, err := service.database.ExecContext(ctx, `
+UPDATE dat_diff_snapshots
+SET state='RUNNING',
+attempt_count=attempt_count+1,
+started_at_ms=?,
+version=version+1,
+updated_at_ms=?
+WHERE id=?
+AND dat_version_id=?
+AND input_digest=?
+AND state='PENDING'
+`, now, now, snapshotID, datID, inputDigest)
+	if err != nil {
+		return
+	}
+	if count, _ := claimed.RowsAffected(); count != 1 {
+		return
+	}
+	diff, err := service.computeDiff(ctx, datID)
+	if err != nil {
+		service.failDiff(ctx, snapshotID, inputDigest, "DAT_DIFF_COMPUTE_FAILED")
+		return
+	}
+	if err := service.materializeDiffSections(ctx, snapshotID, datID, inputDigest, diff); err != nil {
+		if !errors.Is(err, ErrDiffStale) {
+			service.failDiff(ctx, snapshotID, inputDigest, "DAT_DIFF_WRITE_FAILED")
+		}
+		return
+	}
+	latest, err := service.currentDiffContext(ctx, datID)
+	if err != nil || latest.inputDigest != inputDigest {
+		service.staleDiff(ctx, snapshotID, inputDigest)
+		return
+	}
+	if err := service.completeDiff(ctx, snapshotID, datID, inputDigest, diff); err != nil {
+		service.failDiff(ctx, snapshotID, inputDigest, "DAT_DIFF_WRITE_FAILED")
+	}
+}
+
+func (service *Service) materializeDiffSections(
+	ctx context.Context,
+	snapshotID, datID, inputDigest string,
+	diff Diff,
+) error {
+	sections := []string{"MACHINES", "ROM_ENTRIES", "BIOS_SETS", "DEPENDENCY_TARGETS"}
+	for _, section := range sections {
+		items := make([]DiffItem, 0)
+		if err := service.scanDiffSection(ctx, stringValue(diff.BaseDATVersionID), datID, section, func(item DiffItem) {
+			items = append(items, item)
+		}); err != nil {
+			return fmt.Errorf("arcadecatalog/service: %w", err)
+		}
+		if err := service.writeDiffItems(ctx, snapshotID, inputDigest, items); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (service *Service) completeDiff(
+	ctx context.Context,
+	snapshotID, datID, inputDigest string,
+	diff Diff,
+) error {
+	summary, _ := json.Marshal(diff.Summary)
+	impact, _ := json.Marshal(diff.Impact)
+	now := service.now().UnixMilli()
+	result, err := service.database.ExecContext(ctx, `
+UPDATE dat_diff_snapshots
+SET state='READY',
+summary_json=?,
+impact_json=?,
+impact_digest=?,
+error_code=NULL,
+completed_at_ms=?,
+version=version+1,
+updated_at_ms=?
+WHERE id=?
+AND input_digest=?
+AND state='RUNNING'
+`, string(summary), string(impact), diff.ImpactDigest, now, now, snapshotID, inputDigest)
+	if err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	if count, _ := result.RowsAffected(); count != 1 {
+		return ErrDiffStale
+	}
+	_, _ = service.database.ExecContext(ctx, `
+UPDATE dat_import_jobs
+SET diff_summary_json=?,
+diff_input_digest=?,
+updated_at_ms=?
+WHERE dat_version_id=?
+`, string(summary), inputDigest, now, datID)
+	return nil
+}
+
+func stringValue(value any) string {
+	result, _ := value.(string)
+	return result
+}
+
+func (service *Service) writeDiffItems(
+	ctx context.Context,
+	snapshotID, inputDigest string,
+	items []DiffItem,
+) error {
+	const batchSize = 1000
+	for start := 0; start < len(items); start += batchSize {
+		end := min(start+batchSize, len(items))
+		if err := service.writeDiffBatch(ctx, snapshotID, inputDigest, items[start:end]); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (service *Service) writeDiffBatch(
+	ctx context.Context,
+	snapshotID, inputDigest string,
+	items []DiffItem,
+) error {
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer cleanup.Rollback(transaction)
+	var state, currentDigest string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT state,
+input_digest
+FROM dat_diff_snapshots
+WHERE id=?
+`, snapshotID).Scan(&state, &currentDigest); err != nil || state != "RUNNING" || currentDigest != inputDigest {
+		return ErrDiffStale
+	}
+	statement, err := transaction.PrepareContext(ctx, `
+INSERT INTO dat_diff_items(snapshot_id,
+section,
+cursor_key,
+change_kind,
+key_json,
+before_json,
+after_json) VALUES(?,
+?,
+?,
+?,
+?,
+?,
+?)
+`)
+	if err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer func() { cleanup.Error("close", statement.Close()) }()
+	for _, item := range items {
+		keyJSON, _ := json.Marshal(item.Key)
+		beforeJSON, _ := json.Marshal(item.Before)
+		afterJSON, _ := json.Marshal(item.After)
+		if _, err := statement.ExecContext(
+			ctx,
+			snapshotID,
+			item.Section,
+			item.cursor,
+			item.Change,
+			string(keyJSON),
+			string(beforeJSON),
+			string(afterJSON),
+		); err != nil {
+			return fmt.Errorf("arcadecatalog/service: %w", err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) failDiff(ctx context.Context, snapshotID, inputDigest, code string) {
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.ExecContext(ctx, `
+DELETE FROM dat_diff_items
+WHERE snapshot_id=?
+`, snapshotID); err != nil {
+		return
+	}
+	now := service.now().UnixMilli()
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE dat_diff_snapshots
+SET state='FAILED',
+summary_json=NULL,
+impact_json=NULL,
+impact_digest=NULL,
+error_code=?,
+completed_at_ms=?,
+version=version+1,
+updated_at_ms=?
+WHERE id=?
+AND input_digest=?
+AND state='RUNNING'
+`, code, now, now, snapshotID, inputDigest); err != nil {
+		return
+	}
+	_ = transaction.Commit()
+}
+
+func (service *Service) staleDiff(ctx context.Context, snapshotID, inputDigest string) {
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.ExecContext(ctx, `
+DELETE
+FROM dat_diff_items
+WHERE snapshot_id=?
+`, snapshotID); err != nil {
+		return
+	}
+	now := service.now().UnixMilli()
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE dat_diff_snapshots
+SET state='STALE',
+summary_json=NULL,
+impact_json=NULL,
+impact_digest=NULL,
+error_code=NULL,
+completed_at_ms=NULL,
+version=version+1,
+updated_at_ms=?
+WHERE id=?
+AND input_digest=?
+`, now, snapshotID, inputDigest); err != nil {
+		return
+	}
+	_ = transaction.Commit()
+}
+
+type readyDiffSnapshot struct {
+	id           string
+	inputDigest  string
+	baseID       sql.NullString
+	summary      map[string]any
+	impact       map[string]any
+	impactDigest string
+}
+
+func (service *Service) loadReadyDiffSnapshot(ctx context.Context, datID string) (readyDiffSnapshot, error) {
+	var snapshot readyDiffSnapshot
+	var state string
+	var summaryJSON, impactJSON, impactDigest sql.NullString
+	err := service.database.QueryRowContext(ctx, `
+SELECT s.id,
+s.base_dat_version_id,
+s.state,
+s.input_digest,
+s.summary_json,
+s.impact_json,
+s.impact_digest
+FROM dat_diff_snapshots s
+JOIN dat_versions d ON d.id=s.dat_version_id
+WHERE s.dat_version_id=?
+AND d.parse_status='READY'
+`, datID).Scan(
+		&snapshot.id,
+		&snapshot.baseID,
+		&state,
+		&snapshot.inputDigest,
+		&summaryJSON,
+		&impactJSON,
+		&impactDigest,
+	)
+	if err != nil {
+		return readyDiffSnapshot{}, ErrDiffStale
+	}
+	if state == "PENDING" || state == "RUNNING" {
+		return readyDiffSnapshot{}, ErrDiffNotReady
+	}
+	if state != "READY" || !summaryJSON.Valid || !impactJSON.Valid || !impactDigest.Valid {
+		return readyDiffSnapshot{}, ErrDiffStale
+	}
+	latest, err := service.currentDiffContext(ctx, datID)
+	if err != nil || latest.inputDigest != snapshot.inputDigest {
+		return readyDiffSnapshot{}, ErrDiffStale
+	}
+	snapshot.summary = map[string]any{}
+	snapshot.impact = map[string]any{}
+	if json.Unmarshal([]byte(summaryJSON.String), &snapshot.summary) != nil ||
+		json.Unmarshal([]byte(impactJSON.String), &snapshot.impact) != nil {
+		return readyDiffSnapshot{}, ErrDiffStale
+	}
+	snapshot.impactDigest = impactDigest.String
+	return snapshot, nil
+}
+
+func (service *Service) readMaterializedDiffItems(
+	ctx context.Context,
+	snapshotID string,
+	options DiffOptions,
+) ([]DiffItem, error) {
+	arguments := []any{snapshotID, options.Section, options.After}
+	changeFilter := ""
+	if options.Change != "ALL" {
+		changeFilter = " AND change_kind=?"
+		arguments = append(arguments, options.Change)
+	}
+	arguments = append(arguments, options.Limit+1)
+	rows, err := service.database.QueryContext(ctx, `
+SELECT section,
+change_kind,
+cursor_key,
+key_json,
+before_json,
+after_json
+FROM dat_diff_items
+WHERE snapshot_id=?
+AND section=?
+AND cursor_key>?
+`+changeFilter+`
+ORDER BY cursor_key
+LIMIT ?
+`, arguments...)
+	if err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]DiffItem, 0, options.Limit+1)
+	for rows.Next() {
+		var item DiffItem
+		var keyJSON, beforeJSON, afterJSON string
+		if err := rows.Scan(&item.Section, &item.Change, &item.cursor, &keyJSON, &beforeJSON, &afterJSON); err != nil {
+			return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+		}
+		if json.Unmarshal([]byte(keyJSON), &item.Key) != nil ||
+			json.Unmarshal([]byte(beforeJSON), &item.Before) != nil ||
+			json.Unmarshal([]byte(afterJSON), &item.After) != nil {
+			return nil, ErrDiffStale
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	return items, nil
+}
+
+// Diff reads only a completed materialization; it never scans the raw DAT indexes on an HTTP request.
+func (service *Service) Diff(ctx context.Context, datID string, requested ...DiffOptions) (Diff, error) {
+	options, err := normalizedDiffOptions(requested)
+	if err != nil {
+		return Diff{}, err
+	}
+	snapshot, err := service.loadReadyDiffSnapshot(ctx, datID)
+	if err != nil {
+		return Diff{}, err
+	}
+	items, err := service.readMaterializedDiffItems(ctx, snapshot.id, options)
+	if err != nil {
+		return Diff{}, err
+	}
+	result := Diff{
+		BaseDATVersionID:   nullable(snapshot.baseID),
+		TargetDATVersionID: datID,
+		Summary:            snapshot.summary,
+		Items:              items,
+		NextCursor:         nil,
+		Impact:             snapshot.impact,
+		ImpactDigest:       snapshot.impactDigest,
+	}
+	if len(result.Items) > options.Limit {
+		result.Items = result.Items[:options.Limit]
+		result.HasMore = true
+	}
+	if len(result.Items) > 0 {
+		result.LastCursorKey = result.Items[len(result.Items)-1].cursor
+	}
+	return result, nil
+}
+
+//nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
+func (service *Service) computeDiff(ctx context.Context, datID string, requested ...DiffOptions) (Diff, error) {
+	options, err := normalizedDiffOptions(requested)
+	if err != nil {
+		return Diff{}, err
 	}
 	var artifactID, status, targetSHA, targetParser string
 	var unresolvedWarnings int64
@@ -650,7 +1446,7 @@ WHERE id=?
 	}
 	var baseID sql.NullString
 	var baseSHA, baseParser sql.NullString
-	err := service.database.QueryRowContext(ctx, `
+	err = service.database.QueryRowContext(ctx, `
 SELECT id,
 sha256,
 parser_version
@@ -703,48 +1499,18 @@ AND p.enabled=1
 AND p.deleted_at_ms IS NULL
 `, artifactID).
 		Scan(&directories)
-	variantRows, err := service.database.QueryContext(
-		ctx,
-		`
-SELECT v.id,
-v.current_revision_id,
-v.version,
-r.status,
-r.compatibility_code,
-g.current_content_revision_id
-FROM game_variants v
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-JOIN games g ON g.id=v.game_id
-WHERE r.core_artifact_id=?
-AND g.status='PUBLISHED'
-ORDER BY v.id
-`,
-		artifactID,
-	)
+	variantInputs, err := service.diffVariantImpactInputs(ctx, artifactID)
 	if err != nil {
-		return Diff{}, fmt.Errorf("arcadecatalog/service: %w", err)
+		return Diff{}, err
 	}
-	defer func() { cleanup.Error("close", variantRows.Close()) }()
-	variantItems := make([]map[string]any, 0)
+	variantItems := make([]map[string]any, 0, len(variantInputs))
 	blockedVariants := int64(0)
-	for variantRows.Next() {
-		var variantID, revisionID, variantStatus, compatibilityCode, contentID string
-		var version int64
-		if err := variantRows.Scan(
-			&variantID,
-			&revisionID,
-			&version,
-			&variantStatus,
-			&compatibilityCode,
-			&contentID,
-		); err != nil {
-			return Diff{}, fmt.Errorf("arcadecatalog/service: %w", err)
-		}
+	for _, variant := range variantInputs {
 		input, _ := json.Marshal(
 			map[string]any{
 				"coreArtifactId":        artifactID,
 				"datVersionId":          datID,
-				"gameContentRevisionId": contentID,
+				"gameContentRevisionId": variant.contentID,
 				"schemaVersion":         1,
 			},
 		)
@@ -758,7 +1524,7 @@ compatibility_code
 FROM game_variant_revisions
 WHERE game_variant_id=?
 AND validation_input_digest=?
-`, variantID, hex.EncodeToString(inputDigest[:])).Scan(&existingStatus, &existingCode); queryErr == nil {
+`, variant.id, hex.EncodeToString(inputDigest[:])).Scan(&existingStatus, &existingCode); queryErr == nil {
 			projectedStatus, projectedCode = existingStatus, existingCode
 			if existingStatus != "READY" {
 				blockedVariants++
@@ -769,19 +1535,16 @@ AND validation_input_digest=?
 		variantItems = append(
 			variantItems,
 			map[string]any{
-				"gameVariantId":              variantID,
-				"currentRevisionId":          revisionID,
-				"version":                    version,
-				"currentStatus":              variantStatus,
-				"currentCompatibilityCode":   compatibilityCode,
+				"gameVariantId":              variant.id,
+				"currentRevisionId":          variant.revisionID,
+				"version":                    variant.version,
+				"currentStatus":              variant.status,
+				"currentCompatibilityCode":   variant.compatibilityCode,
 				"projectedStatus":            projectedStatus,
 				"projectedCompatibilityCode": projectedCode,
 				"validationInputDigest":      hex.EncodeToString(inputDigest[:]),
 			},
 		)
-	}
-	if err := variantRows.Err(); err != nil {
-		return Diff{}, fmt.Errorf("arcadecatalog/service: %w", err)
 	}
 	requirementChanges := counts["DEPENDENCY_TARGETS"].Added +
 		counts["DEPENDENCY_TARGETS"].Removed +
@@ -884,22 +1647,62 @@ func (service *Service) scanDiffSection(
 	}
 }
 
-//nolint:funlen // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) scanMachineDiff(
 	ctx context.Context,
 	baseID, targetID string,
 	dependenciesOnly bool,
 	visit func(DiffItem),
 ) error {
+	after := ""
+	for {
+		count, last, err := service.scanMachineDiffBatch(ctx, baseID, targetID, after, dependenciesOnly, visit)
+		if err != nil {
+			return err
+		}
+		if count < diffScanBatchSize {
+			return nil
+		}
+		after = last
+		if err := yieldDiffScan(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+const diffScanBatchSize = 500
+
+func yieldDiffScan(ctx context.Context) error {
+	timer := time.NewTimer(time.Millisecond)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("arcadecatalog/service: %w", ctx.Err())
+	case <-timer.C:
+		return nil
+	}
+}
+
+//nolint:funlen // One row contains paired before/after machine projections and is decoded atomically.
+func (service *Service) scanMachineDiffBatch(
+	ctx context.Context,
+	baseID, targetID, after string,
+	dependenciesOnly bool,
+	visit func(DiffItem),
+) (int, string, error) {
 	rows, err := service.database.QueryContext(ctx, `
-WITH keys AS (
-SELECT machine_name
-FROM dat_machines
+WITH b AS (
+SELECT * FROM dat_machines
 WHERE dat_version_id=?
-UNION SELECT machine_name
-FROM dat_machines
+AND machine_name COLLATE BINARY>?
+ORDER BY machine_name COLLATE BINARY
+LIMIT ?
+), t AS (
+SELECT * FROM dat_machines
 WHERE dat_version_id=?
-) SELECT k.machine_name,
+AND machine_name COLLATE BINARY>?
+ORDER BY machine_name COLLATE BINARY
+LIMIT ?
+) SELECT COALESCE(b.machine_name,t.machine_name),
 b.machine_name,
 b.description,
 b.year,
@@ -916,17 +1719,17 @@ t.cloneof,
 t.romof,
 t.is_explicit_bios,
 t.classification
-FROM keys k
-LEFT JOIN dat_machines b ON b.dat_version_id=?
-AND b.machine_name=k.machine_name
-LEFT JOIN dat_machines t ON t.dat_version_id=?
-AND t.machine_name=k.machine_name
-ORDER BY k.machine_name COLLATE BINARY
-`, baseID, targetID, baseID, targetID)
+FROM b
+FULL OUTER JOIN t ON t.machine_name=b.machine_name
+ORDER BY COALESCE(b.machine_name,t.machine_name) COLLATE BINARY
+LIMIT ?
+`, baseID, after, diffScanBatchSize, targetID, after, diffScanBatchSize, diffScanBatchSize)
 	if err != nil {
-		return fmt.Errorf("arcadecatalog/service: %w", err)
+		return 0, "", fmt.Errorf("arcadecatalog/service: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
+	count := 0
+	last := after
 	for rows.Next() {
 		var key string
 		var values [16]sql.NullString
@@ -950,8 +1753,10 @@ ORDER BY k.machine_name COLLATE BINARY
 			&targetExplicit,
 			&values[13],
 		); err != nil {
-			return fmt.Errorf("arcadecatalog/service: %w", err)
+			return 0, "", fmt.Errorf("arcadecatalog/service: %w", err)
 		}
+		count++
+		last = key
 		before := machineObject(
 			values[0],
 			values[1],
@@ -996,9 +1801,9 @@ ORDER BY k.machine_name COLLATE BINARY
 		)
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("scan machine diff: %w", err)
+		return 0, "", fmt.Errorf("scan machine diff: %w", err)
 	}
-	return nil
+	return count, last, nil
 }
 
 func machineObject(
@@ -1031,20 +1836,53 @@ func dependencyObject(machine map[string]any) map[string]any {
 	}
 }
 
-//nolint:funlen // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) scanROMDiff(ctx context.Context, baseID, targetID string, visit func(DiffItem)) error {
+	afterMachine := ""
+	afterOrdinal := int64(-1)
+	for {
+		count, machine, ordinal, err := service.scanROMDiffBatch(
+			ctx,
+			baseID,
+			targetID,
+			afterMachine,
+			afterOrdinal,
+			visit,
+		)
+		if err != nil {
+			return err
+		}
+		if count < diffScanBatchSize {
+			return nil
+		}
+		afterMachine, afterOrdinal = machine, ordinal
+		if err := yieldDiffScan(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+//nolint:funlen // One row contains paired before/after ROM projections and is decoded atomically.
+func (service *Service) scanROMDiffBatch(
+	ctx context.Context,
+	baseID, targetID, afterMachine string,
+	afterOrdinal int64,
+	visit func(DiffItem),
+) (int, string, int64, error) {
 	rows, err := service.database.QueryContext(ctx, `
-WITH keys AS (
-SELECT machine_name,
-ordinal
-FROM dat_rom_entries
+WITH b AS (
+SELECT * FROM dat_rom_entries
 WHERE dat_version_id=?
-UNION SELECT machine_name,
-ordinal
-FROM dat_rom_entries
+AND (machine_name,ordinal)>(?,?)
+ORDER BY machine_name COLLATE BINARY,ordinal
+LIMIT ?
+), t AS (
+SELECT * FROM dat_rom_entries
 WHERE dat_version_id=?
-) SELECT k.machine_name,
-k.ordinal,
+AND (machine_name,ordinal)>(?,?)
+ORDER BY machine_name COLLATE BINARY,ordinal
+LIMIT ?
+) SELECT COALESCE(b.machine_name,t.machine_name),
+COALESCE(b.ordinal,t.ordinal),
 b.machine_name,
 b.name,
 b.size_bytes,
@@ -1061,20 +1899,24 @@ t.sha1,
 t.status,
 t.merge_name,
 t.bios_name
-FROM keys k
-LEFT JOIN dat_rom_entries b ON b.dat_version_id=?
-AND b.machine_name=k.machine_name
-AND b.ordinal=k.ordinal
-LEFT JOIN dat_rom_entries t ON t.dat_version_id=?
-AND t.machine_name=k.machine_name
-AND t.ordinal=k.ordinal
-ORDER BY k.machine_name COLLATE BINARY,
-k.ordinal
-`, baseID, targetID, baseID, targetID)
+FROM b
+FULL OUTER JOIN t ON t.machine_name=b.machine_name
+AND t.ordinal=b.ordinal
+ORDER BY COALESCE(b.machine_name,t.machine_name) COLLATE BINARY,
+COALESCE(b.ordinal,t.ordinal)
+LIMIT ?
+`,
+		baseID, afterMachine, afterOrdinal, diffScanBatchSize,
+		targetID, afterMachine, afterOrdinal, diffScanBatchSize,
+		diffScanBatchSize,
+	)
 	if err != nil {
-		return fmt.Errorf("arcadecatalog/service: %w", err)
+		return 0, "", 0, fmt.Errorf("arcadecatalog/service: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
+	count := 0
+	lastMachine := afterMachine
+	lastOrdinal := afterOrdinal
 	for rows.Next() {
 		var machine string
 		var ordinal int64
@@ -1101,8 +1943,10 @@ k.ordinal
 			&tMerge,
 			&tBIOS,
 		); err != nil {
-			return fmt.Errorf("arcadecatalog/service: %w", err)
+			return 0, "", 0, fmt.Errorf("arcadecatalog/service: %w", err)
 		}
+		count++
+		lastMachine, lastOrdinal = machine, ordinal
 		before := romObject(bExists, bName, bSize, bCRC, bSHA, bStatus, bMerge, bBIOS)
 		after := romObject(tExists, tName, tSize, tCRC, tSHA, tStatus, tMerge, tBIOS)
 		change := classifyDiff(before, after)
@@ -1126,9 +1970,9 @@ k.ordinal
 		)
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("scan ROM diff: %w", err)
+		return 0, "", 0, fmt.Errorf("scan ROM diff: %w", err)
 	}
-	return nil
+	return count, lastMachine, lastOrdinal, nil
 }
 
 func romObject(
@@ -1151,38 +1995,75 @@ func romObject(
 }
 
 func (service *Service) scanBIOSDiff(ctx context.Context, baseID, targetID string, visit func(DiffItem)) error {
+	afterMachine := ""
+	afterBIOS := ""
+	for {
+		count, machine, bios, err := service.scanBIOSDiffBatch(
+			ctx,
+			baseID,
+			targetID,
+			afterMachine,
+			afterBIOS,
+			visit,
+		)
+		if err != nil {
+			return err
+		}
+		if count < diffScanBatchSize {
+			return nil
+		}
+		afterMachine, afterBIOS = machine, bios
+		if err := yieldDiffScan(ctx); err != nil {
+			return err
+		}
+	}
+}
+
+//nolint:funlen // One row contains paired before/after BIOS projections and is decoded atomically.
+func (service *Service) scanBIOSDiffBatch(
+	ctx context.Context,
+	baseID, targetID, afterMachine, afterBIOS string,
+	visit func(DiffItem),
+) (int, string, string, error) {
 	rows, err := service.database.QueryContext(ctx, `
-WITH keys AS (
-SELECT machine_name,
-bios_name
-FROM dat_bios_sets
+WITH b AS (
+SELECT * FROM dat_bios_sets
 WHERE dat_version_id=?
-UNION SELECT machine_name,
-bios_name
-FROM dat_bios_sets
+AND (machine_name,bios_name)>(?,?)
+ORDER BY machine_name COLLATE BINARY,bios_name COLLATE BINARY
+LIMIT ?
+), t AS (
+SELECT * FROM dat_bios_sets
 WHERE dat_version_id=?
-) SELECT k.machine_name,
-k.bios_name,
+AND (machine_name,bios_name)>(?,?)
+ORDER BY machine_name COLLATE BINARY,bios_name COLLATE BINARY
+LIMIT ?
+) SELECT COALESCE(b.machine_name,t.machine_name),
+COALESCE(b.bios_name,t.bios_name),
 b.machine_name,
 b.description,
 b.is_default,
 t.machine_name,
 t.description,
 t.is_default
-FROM keys k
-LEFT JOIN dat_bios_sets b ON b.dat_version_id=?
-AND b.machine_name=k.machine_name
-AND b.bios_name=k.bios_name
-LEFT JOIN dat_bios_sets t ON t.dat_version_id=?
-AND t.machine_name=k.machine_name
-AND t.bios_name=k.bios_name
-ORDER BY k.machine_name COLLATE BINARY,
-k.bios_name COLLATE BINARY
-`, baseID, targetID, baseID, targetID)
+FROM b
+FULL OUTER JOIN t ON t.machine_name=b.machine_name
+AND t.bios_name=b.bios_name
+ORDER BY COALESCE(b.machine_name,t.machine_name) COLLATE BINARY,
+COALESCE(b.bios_name,t.bios_name) COLLATE BINARY
+LIMIT ?
+`,
+		baseID, afterMachine, afterBIOS, diffScanBatchSize,
+		targetID, afterMachine, afterBIOS, diffScanBatchSize,
+		diffScanBatchSize,
+	)
 	if err != nil {
-		return fmt.Errorf("arcadecatalog/service: %w", err)
+		return 0, "", "", fmt.Errorf("arcadecatalog/service: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
+	count := 0
+	lastMachine := afterMachine
+	lastBIOS := afterBIOS
 	for rows.Next() {
 		var machine, bios string
 		var bExists, bDescription, tExists, tDescription sql.NullString
@@ -1197,8 +2078,10 @@ k.bios_name COLLATE BINARY
 			&tDescription,
 			&tDefault,
 		); err != nil {
-			return fmt.Errorf("arcadecatalog/service: %w", err)
+			return 0, "", "", fmt.Errorf("arcadecatalog/service: %w", err)
 		}
+		count++
+		lastMachine, lastBIOS = machine, bios
 		before := biosObject(bExists, bDescription, bDefault)
 		after := biosObject(tExists, tDescription, tDefault)
 		change := classifyDiff(before, after)
@@ -1217,9 +2100,9 @@ k.bios_name COLLATE BINARY
 		)
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("scan BIOS diff: %w", err)
+		return 0, "", "", fmt.Errorf("scan BIOS diff: %w", err)
 	}
-	return nil
+	return count, lastMachine, lastBIOS, nil
 }
 
 func biosObject(exists, description sql.NullString, isDefault sql.NullInt64) map[string]any {
@@ -1254,7 +2137,7 @@ func (service *Service) Activate(
 	if err != nil || subtle.ConstantTimeCompare([]byte(diff.ImpactDigest), []byte(request.ImpactDigest)) != 1 {
 		return Activated{}, ErrInvalid
 	}
-	if blocked, ok := diff.Impact["blockedVariantCount"].(int64); ok && blocked > 0 && !request.ConfirmBlocked {
+	if blocked := numericInt64(diff.Impact["blockedVariantCount"]); blocked > 0 && !request.ConfirmBlocked {
 		return Activated{}, ErrInvalid
 	}
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -1328,7 +2211,33 @@ SET version=version+1,
 updated_at_ms=?
 WHERE id=?
 AND version=?
-`, now, artifactID, artifactVersion); err != nil {
+	`, now, artifactID, artifactVersion); err != nil {
+		return Activated{}, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+DELETE
+FROM dat_diff_items
+WHERE snapshot_id IN (SELECT s.id
+FROM dat_diff_snapshots s
+JOIN dat_versions d ON d.id=s.dat_version_id
+WHERE d.core_artifact_id=?)
+`, artifactID); err != nil {
+		return Activated{}, fmt.Errorf("arcadecatalog/service: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE dat_diff_snapshots
+SET state='STALE',
+summary_json=NULL,
+impact_json=NULL,
+impact_digest=NULL,
+error_code=NULL,
+completed_at_ms=NULL,
+version=version+1,
+updated_at_ms=?
+WHERE dat_version_id IN (SELECT id
+FROM dat_versions
+WHERE core_artifact_id=?)
+`, now, artifactID); err != nil {
 		return Activated{}, fmt.Errorf("arcadecatalog/service: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -1338,6 +2247,20 @@ AND version=?
 		service.hooks.Resume()
 	}
 	return Activated{DATVersionID: datID, Active: true, Version: datVersion + 1, ActivatedAtMS: now}, nil
+}
+
+func numericInt64(value any) int64 {
+	switch item := value.(type) {
+	case int64:
+		return item
+	case float64:
+		return int64(item)
+	case json.Number:
+		result, _ := item.Int64()
+		return result
+	default:
+		return 0
+	}
 }
 
 func (service *Service) Delete(ctx context.Context, datID string, expectedVersion int64) error {

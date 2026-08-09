@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/base64"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -94,34 +95,6 @@ AND source='BUILTIN'
 `, time.Now().UnixMilli(), time.Now().UnixMilli(), artifactID); err != nil {
 		t.Fatal(err)
 	}
-	service := New(database.SQL, blobs, time.Now)
-	created, err := service.Create(ctx, CreateRequest{UploadFileID: upload.Files[0].ID, CoreArtifactID: artifactID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	waitJob(t, database, created.JobID)
-	var machineCount, romCount int
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT (SELECT count(*)
-FROM dat_machines
-WHERE dat_version_id=?),
-(SELECT count(*)
-FROM dat_rom_entries
-WHERE dat_version_id=?)
-`, created.DATVersionID, created.DATVersionID).Scan(&machineCount, &romCount); err != nil ||
-		machineCount != 2 ||
-		romCount != 2 {
-		t.Fatalf("materialized catalog = %d/%d, error=%v", machineCount, romCount, err)
-	}
-	var active int
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT is_active
-FROM dat_versions
-WHERE id=?
-`, created.DATVersionID).Scan(&active); err != nil ||
-		active != 0 {
-		t.Fatalf("candidate active = %d, error=%v", active, err)
-	}
 	var baseDATVersionID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT id
@@ -189,17 +162,66 @@ NULL,
 'GOOD',
 NULL,
 NULL)
-`, baseDATVersionID, baseDATVersionID, baseDATVersionID, baseDATVersionID); err != nil {
+	`, baseDATVersionID, baseDATVersionID, baseDATVersionID, baseDATVersionID); err != nil {
 		t.Fatal(err)
+	}
+	service := New(database.SQL, blobs, time.Now)
+	created, err := service.Create(ctx, CreateRequest{UploadFileID: upload.Files[0].ID, CoreArtifactID: artifactID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitJob(t, database, created.JobID)
+	waitDiff(t, database, created.DATVersionID)
+	var machineCount, romCount int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT (SELECT count(*)
+FROM dat_machines
+WHERE dat_version_id=?),
+(SELECT count(*)
+FROM dat_rom_entries
+WHERE dat_version_id=?)
+`, created.DATVersionID, created.DATVersionID).Scan(&machineCount, &romCount); err != nil ||
+		machineCount != 2 ||
+		romCount != 2 {
+		t.Fatalf("materialized catalog = %d/%d, error=%v", machineCount, romCount, err)
+	}
+	var active int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT is_active
+FROM dat_versions
+WHERE id=?
+`, created.DATVersionID).Scan(&active); err != nil ||
+		active != 0 {
+		t.Fatalf("candidate active = %d, error=%v", active, err)
 	}
 	diff, err := service.Diff(ctx, created.DATVersionID)
 	if err != nil || diff.ImpactDigest == "" {
 		t.Fatalf("diff = %#v, error=%v", diff, err)
 	}
-	machineCounts, ok := diff.Summary["machines"].(*changeCounts)
-	if !ok || machineCounts.Added != 1 || machineCounts.Removed != 1 || machineCounts.Changed != 1 ||
+	machineCounts, ok := diff.Summary["machines"].(map[string]any)
+	if !ok || numericInt64(machineCounts["added"]) != 1 || numericInt64(machineCounts["removed"]) != 1 || numericInt64(machineCounts["changed"]) != 1 ||
 		len(diff.Items) != 3 {
 		t.Fatalf("machine summary/items = %#v / %#v", diff.Summary, diff.Items)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE dat_diff_snapshots
+SET state='RUNNING',
+summary_json=NULL,
+impact_json=NULL,
+impact_digest=NULL,
+completed_at_ms=NULL
+WHERE dat_version_id=?
+`, created.DATVersionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.Diff(ctx, created.DATVersionID); !errors.Is(err, ErrDiffNotReady) {
+		t.Fatalf("pending diff GET error = %v", err)
+	}
+	service.ResumeDiffJobs()
+	waitDiff(t, database, created.DATVersionID)
+	diff, err = service.Diff(ctx, created.DATVersionID)
+	if err != nil || diff.ImpactDigest == "" {
+		t.Fatalf("resumed diff = %#v, error=%v", diff, err)
 	}
 	firstPage, err := service.Diff(
 		ctx,
@@ -235,6 +257,19 @@ NULL)
 	if err != nil || !activated.Active {
 		t.Fatalf("activate = %#v, error=%v", activated, err)
 	}
+	var diffState string
+	var materializedItems int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT s.state,
+(SELECT count(*) FROM dat_diff_items i WHERE i.snapshot_id=s.id)
+FROM dat_diff_snapshots s
+WHERE s.dat_version_id=?
+`, created.DATVersionID).Scan(&diffState, &materializedItems); err != nil {
+		t.Fatal(err)
+	}
+	if diffState != "STALE" || materializedItems != 0 {
+		t.Fatalf("activated diff snapshot = %s with %d items", diffState, materializedItems)
+	}
 }
 
 func waitJob(t *testing.T, database *store.DB, jobID string) {
@@ -254,6 +289,26 @@ WHERE id=?
 		}
 		if state == "FAILED" || time.Now().After(deadline) {
 			t.Fatalf("job %s state = %s", jobID, state)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+}
+
+func waitDiff(t *testing.T, database *store.DB, datID string) {
+	t.Helper()
+	deadline := time.Now().Add(5 * time.Second)
+	for {
+		var state string
+		err := database.SQL.QueryRow(`
+SELECT state
+FROM dat_diff_snapshots
+WHERE dat_version_id=?
+`, datID).Scan(&state)
+		if err == nil && state == "READY" {
+			return
+		}
+		if err == nil && state == "FAILED" || time.Now().After(deadline) {
+			t.Fatalf("diff %s state = %s, error=%v", datID, state, err)
 		}
 		time.Sleep(10 * time.Millisecond)
 	}

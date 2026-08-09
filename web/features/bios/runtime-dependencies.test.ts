@@ -9,7 +9,7 @@ const bios = (id: string, overrides: Partial<BIOSRequirement> = {}): BIOSRequire
 const dat = (id: string, overrides: Partial<DATVersion> = {}): DATVersion => ({
   id, coreId: "fbneo", coreName: "FinalBurn Neo", coreArtifactId: "artifact", source: "BUILTIN",
   compatibilityStatus: "MATCHED", parseStatus: "READY", active: false, machineCount: 1,
-  romEntryCount: 2, diskEntryCount: 0, biosSetCount: 1, version: 1, updatedAtMs: 1, ...overrides,
+  romEntryCount: 2, diskEntryCount: 0, biosSetCount: 1, diffStatus: "READY", version: 1, updatedAtMs: 1, ...overrides,
 });
 
 describe("runtime dependency presentation", () => {

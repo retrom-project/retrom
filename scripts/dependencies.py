@@ -27,6 +27,9 @@ PINNED_RAW = re.compile(
 RUNTIME_CORE_ID = re.compile(r"^[a-z0-9_]{1,64}$")
 ARTIFACT_BASENAME = re.compile(r"^[A-Za-z0-9_.-]+-wasm\.data$")
 DANGEROUS_OPTION_KEYS = {"__proto__", "constructor", "prototype"}
+SEMVER = re.compile(
+    r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
+)
 
 
 class CheckError(RuntimeError):
@@ -39,15 +42,44 @@ def parse_versions(raw: str) -> list[str]:
         raise CheckError("DEPENDENCY_VERSION_LIST_INVALID")
     if len(set(versions)) != len(versions):
         raise CheckError("DEPENDENCY_VERSION_LIST_DUPLICATE")
-    key = lambda value: tuple(int(part) for part in value.split("."))
-    try:
-        if any(len(value.split(".")) != 3 for value in versions):
-            raise ValueError
-        if versions != sorted(versions, key=key):
-            raise CheckError("DEPENDENCY_VERSION_LIST_NOT_SORTED")
-    except ValueError as exc:
-        raise CheckError("DEPENDENCY_VERSION_INVALID") from exc
+    parsed = [parse_semver(value) for value in versions]
+    if any(compare_semver(parsed[index - 1], parsed[index]) >= 0 for index in range(1, len(parsed))):
+        raise CheckError("DEPENDENCY_VERSION_LIST_NOT_SORTED")
     return versions
+
+
+def parse_semver(value: str) -> tuple[tuple[int, int, int], tuple[tuple[int, int | str], ...] | None]:
+    matched = SEMVER.fullmatch(value)
+    if matched is None:
+        raise CheckError("DEPENDENCY_VERSION_INVALID")
+    prerelease = matched.group(4)
+    identifiers: tuple[tuple[int, int | str], ...] | None = None
+    if prerelease is not None:
+        parts: list[tuple[int, int | str]] = []
+        for identifier in prerelease.split("."):
+            if identifier.isdigit():
+                if len(identifier) > 1 and identifier.startswith("0"):
+                    raise CheckError("DEPENDENCY_VERSION_INVALID")
+                parts.append((0, int(identifier)))
+            else:
+                parts.append((1, identifier))
+        identifiers = tuple(parts)
+    return (int(matched.group(1)), int(matched.group(2)), int(matched.group(3))), identifiers
+
+
+def compare_semver(
+    left: tuple[tuple[int, int, int], tuple[tuple[int, int | str], ...] | None],
+    right: tuple[tuple[int, int, int], tuple[tuple[int, int | str], ...] | None],
+) -> int:
+    if left[0] != right[0]:
+        return -1 if left[0] < right[0] else 1
+    if left[1] == right[1]:
+        return 0
+    if left[1] is None:
+        return 1
+    if right[1] is None:
+        return -1
+    return -1 if left[1] < right[1] else 1
 
 
 def load_json(path: Path) -> dict[str, Any]:
@@ -296,7 +328,7 @@ def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
         expected_sums[local_path] = expect_digest(dat.get("sha256"), "DEPENDENCY_DAT_SHA256_INVALID")
     if sums != expected_sums:
         raise CheckError("DEPENDENCY_SHA256SUMS_DRIFT")
-    if len(expected_sums) != 3:
+    if len(expected_sums) not in (0, 3):
         raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
 
 

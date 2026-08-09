@@ -17,6 +17,10 @@ describe("player canvas contain sizing", () => {
     expect(fitCanvasToViewport(canvas, 1600, 900)).toBe(true);
     expect(Number.parseFloat(canvas.style.width)).toBeCloseTo(900 * 256 / 224);
     expect(canvas.style.height).toBe("900px");
+    expect(canvas.style.justifySelf).toBe("center");
+    expect(canvas.style.alignSelf).toBe("center");
+    expect(Number.parseFloat(canvas.style.left)).toBeCloseTo((1600 - 900 * 256 / 224) / 2);
+    expect(canvas.style.top).toBe("0px");
     expect(containSize(0, 900, 256, 224)).toBeNull();
   });
 

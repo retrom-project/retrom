@@ -8,6 +8,7 @@ import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
 import { setEmulatorPaused } from "./pause-control";
 import { PlayerChrome } from "./player-chrome";
+import { shouldRevealPlayerControls } from "./player-controls-visibility";
 
 type ShellState = "loading" | "running" | "error";
 
@@ -79,6 +80,10 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       }, 2_000);
     }
   }, [clearControlsTimer]);
+
+  const revealControlsAtTopEdge = useCallback((clientY: number) => {
+    if (shouldRevealPlayerControls(clientY)) showControls();
+  }, [showControls]);
 
   const showToast = useCallback((value: string, timeout = 2_400) => {
     if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
@@ -307,9 +312,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         frameDocument.documentElement.classList.add("retrom-native-menu-locked");
         const style = frameDocument.createElement("style");
         style.textContent = `
-html,body,#game,#retrom-emulator,.ejs_parent,.ejs_game,.ejs_canvas_parent{width:100%;height:100%;margin:0;overflow:hidden;background:#05060a}
+html,body,#game,#retrom-emulator,.ejs_parent,.ejs_game,.ejs_canvas_parent{width:100%!important;height:100%!important;margin:0!important;overflow:hidden;background:#05060a}
 .ejs_canvas_parent{display:grid!important;place-items:center!important}
-canvas{display:block;max-width:none!important;max-height:none!important}
+canvas{display:block;max-width:none!important;max-height:none!important;margin:auto!important}
 html.retrom-native-menu-locked:not(.retrom-native-settings-open) .ejs_menu_bar{visibility:hidden!important;opacity:0!important;pointer-events:none!important}
 html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar{border:0!important;background:transparent!important;box-shadow:none!important;pointer-events:none!important}
 html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar>*{visibility:hidden!important;pointer-events:none!important}
@@ -322,7 +327,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         target.id = "game";
         frameDocument.body.append(target);
         canvasContain = installCanvasContain(frameDocument, () => emulator.current?.gameManager?.getVideoDimensions?.("aspect"));
-        const handleFramePointerMove = () => showControls();
+        const handleFramePointerMove = (event: PointerEvent) => revealControlsAtTopEdge(event.clientY);
         const handleFrameKeyDown = () => showControls();
         const handleFrameClick = (event: MouseEvent) => {
           const target = event.target;
@@ -415,7 +420,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     };
-  }, [exit, launchId, sendEvent, showControls, uploadManualState, uploadPersistent]);
+  }, [exit, launchId, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState, uploadPersistent]);
 
   useEffect(() => {
     running.current = state === "running";
@@ -530,7 +535,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
   }
 
   return (
-    <main className={`player-shell${paused ? " is-paused" : ""}`} onKeyDown={showControls} onPointerMove={showControls}>
+    <main className={`player-shell${paused ? " is-paused" : ""}`} onKeyDown={showControls} onPointerMove={(event) => revealControlsAtTopEdge(event.clientY)}>
       <PlayerChrome
         controlsVisible={controlsVisible}
         running={state === "running"}

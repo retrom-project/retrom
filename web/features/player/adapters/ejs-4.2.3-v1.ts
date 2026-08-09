@@ -61,6 +61,7 @@ export type EmulatorInstance = {
     simulateInput?: (player: number, control: number, value: 0 | 1) => void;
     toggleMainLoop?: (running: boolean) => void;
   };
+  downloadType?: { rom?: { dontExtractIfCore?: string[] } };
 };
 
 export type ManualScreenshot = { screenshot: Blob; format: string };
@@ -100,6 +101,8 @@ declare global {
     EJS_biosUrl?: string;
     EJS_loadStateURL?: string;
     EJS_startOnLoaded?: boolean;
+    EJS_dontExtractRom?: boolean;
+    EJS_disableBatchBootup?: boolean;
     EJS_language?: string;
     EJS_disableAutoLang?: boolean;
     EJS_threads?: boolean;
@@ -122,6 +125,11 @@ declare global {
 
 export const adapterID = "ejs-4.2.3-v1";
 
+const supportedAdapters: Record<string, string> = {
+  "4.2.3": adapterID,
+  "4.3.0-pre": "ejs-4.3.0-pre-v1"
+};
+
 function safeVirtualPath(value: string) {
   if (!value.startsWith("/") || value.length > 512 || value.includes("\\") || value.includes("?") || value.includes("#") || value.includes("//")) return false;
   return value.slice(1).split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
@@ -132,12 +140,11 @@ function validatedExternalFiles(config: PlayerConfig): Record<string, string> {
   if (entries.length > 16) throw new Error("PLAYER_EXTERNAL_FILES_INVALID");
   const result: Record<string, string> = {};
   for (const [virtualPath, source] of entries) {
-    const dosURL = `/runtime/launches/${config.launchId}/dos-config/game.conf`;
     const externalPrefix = `/runtime/launches/${config.launchId}/external-files/`;
     const logicalName = source.startsWith(externalPrefix) ? source.slice(externalPrefix.length) : "";
     if (!safeVirtualPath(virtualPath) || source.length > 1024 ||
-      source !== dosURL && (!source.startsWith(externalPrefix) || !/^[A-Za-z0-9_(). -]{1,255}$/.test(logicalName) ||
-        logicalName === "." || logicalName === "..")) {
+      !source.startsWith(externalPrefix) || !/^[A-Za-z0-9_(). -]{1,255}$/.test(logicalName) ||
+      logicalName === "." || logicalName === "..") {
       throw new Error("PLAYER_EXTERNAL_FILES_INVALID");
     }
     result[virtualPath] = source;
@@ -169,6 +176,35 @@ function validateConfig(config: PlayerConfig) {
   }
 }
 
+function startWhenAvailable(runtimeWindow: Window) {
+  const immediate = runtimeWindow.document.querySelector<HTMLElement>(".ejs_start_button");
+  if (immediate) {
+    immediate.click();
+    return () => undefined;
+  }
+  const Observer = runtimeWindow.document.defaultView?.MutationObserver;
+  if (!Observer) {
+    runtimeWindow.dispatchEvent(new ErrorEvent("error", { error: new Error("PLAYER_DOS_START_UNAVAILABLE") }));
+    return () => undefined;
+  }
+  const observer = new Observer(() => {
+    const startButton = runtimeWindow.document.querySelector<HTMLElement>(".ejs_start_button");
+    if (!startButton) return;
+    observer.disconnect();
+    runtimeWindow.clearTimeout(timeout);
+    startButton.click();
+  });
+  observer.observe(runtimeWindow.document.documentElement, { childList: true, subtree: true });
+  const timeout = runtimeWindow.setTimeout(() => {
+    observer.disconnect();
+    runtimeWindow.dispatchEvent(new ErrorEvent("error", { error: new Error("PLAYER_DOS_START_UNAVAILABLE") }));
+  }, 30_000);
+  return () => {
+    observer.disconnect();
+    runtimeWindow.clearTimeout(timeout);
+  };
+}
+
 export function scheduleStartupActions(config: PlayerConfig, instance: EmulatorInstance, timerWindow: Window = window) {
   const gameManager = instance.gameManager;
   const simulate = gameManager?.simulateInput?.bind(gameManager);
@@ -195,7 +231,7 @@ export function scheduleStartupActions(config: PlayerConfig, instance: EmulatorI
 }
 
 export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callbacks: AdapterCallbacks = {}, playerWindow: Window = window) {
-  if (config.playerAdapterId !== adapterID || config.emulatorjsVersion !== "4.2.3") throw new Error("PLAYER_ADAPTER_MISMATCH");
+  if (supportedAdapters[config.emulatorjsVersion] !== config.playerAdapterId) throw new Error("PLAYER_ADAPTER_MISMATCH");
   validateConfig(config);
   const externalFiles = validatedExternalFiles(config);
   target.id = "retrom-emulator";
@@ -209,7 +245,10 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_biosUrl = config.biosUrl ?? undefined;
   runtimeWindow.EJS_gameParentUrl = config.parentUrl ?? undefined;
   runtimeWindow.EJS_loadStateURL = config.stateUrl ?? undefined;
-  runtimeWindow.EJS_startOnLoaded = true;
+  const deferredDOSStart = config.emulatorjsVersion === "4.3.0-pre" && config.runtimeCore === "dosbox_pure";
+  runtimeWindow.EJS_startOnLoaded = !deferredDOSStart;
+  runtimeWindow.EJS_dontExtractRom = deferredDOSStart;
+  runtimeWindow.EJS_disableBatchBootup = deferredDOSStart;
   runtimeWindow.EJS_language = "zh-CN";
   runtimeWindow.EJS_disableAutoLang = false;
   runtimeWindow.EJS_threads = config.requiresThreads;
@@ -218,7 +257,18 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_disableLocalStorage = true;
   runtimeWindow.EJS_CacheLimit = 0;
   runtimeWindow.EJS_Buttons = { exitEmulation: false };
-  runtimeWindow.EJS_ready = () => runtimeWindow.EJS_emulator && callbacks.onReady?.(runtimeWindow.EJS_emulator);
+  let cleanupDeferredStart: () => void = () => undefined;
+  runtimeWindow.EJS_ready = () => {
+    const instance = runtimeWindow.EJS_emulator;
+    if (!instance) return;
+    if (deferredDOSStart) {
+      const dontExtractIfCore = instance.downloadType?.rom?.dontExtractIfCore;
+      if (!Array.isArray(dontExtractIfCore)) throw new Error("PLAYER_DOS_ARCHIVE_MODE_UNAVAILABLE");
+      if (!dontExtractIfCore.includes(config.runtimeCore)) dontExtractIfCore.push(config.runtimeCore);
+    }
+    callbacks.onReady?.(instance);
+    if (deferredDOSStart) cleanupDeferredStart = startWhenAvailable(runtimeWindow);
+  };
   let startupScheduled = false;
   let cleanupStartup: () => void = () => undefined;
   runtimeWindow.EJS_onGameStart = () => {
@@ -238,5 +288,5 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   script.async = true;
   script.dataset.retromLoader = "true";
   runtimeWindow.document.head.append(script);
-  return () => { cleanupStartup(); script.remove(); };
+  return () => { cleanupDeferredStart(); cleanupStartup(); script.remove(); };
 }
