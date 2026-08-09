@@ -4,7 +4,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 实施就绪结论
 
-一期需求已经收敛到可实施阶段，实施从 [`implementation-plan.md`](./implementation-plan.md) 的 M0 开始。这里的“可实施”表示产品范围、领域归属、数据不变量、HTTP/安全边界、第三方版本、页面行为、质量门禁和最终验收均已有唯一事实源，不需要实现 Agent 再决定产品语义；不表示代码、migration、OpenAPI 或生成物已经存在或项目已经交付。
+一期基线与账户隔离升级已经落入代码、migration、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。本文档集描述当前实现契约，后续变更仍按 [`implementation-plan.md`](./implementation-plan.md) 的垂直切片与门禁推进。
 
 | 检查面 | 状态 | 实施事实源 |
 | --- | --- | --- |
@@ -34,7 +34,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`core-runtime-validation.md`](./core-runtime-validation.md)：28 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 双格式和 MAME2003 兼容覆盖。
 - [`storage-and-database.md`](./storage-and-database.md)：SQLite Unix 毫秒 `INTEGER` 时间规范、表目录、本地 SHA-256 CAS、GC 和备份。
 - [`data-model.md`](./data-model.md)：一期表字段、ID、枚举、不可变 revision、外键、索引和数据库级不变量的唯一数据字典。
-- [`http-api-contract.md`](./http-api-contract.md)：JSON/错误、受信内网写请求、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。
+- [`http-api-contract.md`](./http-api-contract.md)：认证/授权、Origin/CSRF、JSON/错误、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。
 - [`dependency-management.md`](./dependency-management.md)：EmulatorJS/core/DAT 的小型 manifest、构建前物化、离线校验、镜像 allowlist、许可与升级规则。
 - [`backend-api-and-operations.md`](./backend-api-and-operations.md)：Go 模块、HTTP/API、后台任务、文件端点、双镜像、`make dev`、NG/TLS 边界、安全和部署。
 - [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)：Go/Next.js lint、统一命令、镜像构建 targets、关键路径测试、bug 回归固化与 CI 落地规范。
@@ -68,6 +68,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`design/retrom-ui-bios-files.png`](./design/retrom-ui-bios-files.png)：BIOS 文件管理。
 - [`design/retrom-ui-bios-entry-compare.png`](./design/retrom-ui-bios-entry-compare.png)：Arcade BIOS 的 DAT/ZIP 条目对比。
 - [`design/retrom-ui-dat-versions.png`](./design/retrom-ui-dat-versions.png)：Arcade DAT 版本管理。
+- [`design/user-management-ui-review.html`](./design/user-management-ui-review.html)：首次设置、登录、邀请注册、密码重置、账户设置和用户管理的可交互评审源。
 
 ## 维护规则
 
@@ -76,6 +77,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - 所有项目验收流程和通过标准只在 `project-acceptance.md` 维护；专题文档只按 Case ID 回链，不得复制验收清单。
 - `design/retrom-ui-review.fragment.html` 是 UI 源稿；`design/retrom-ui-review.html` 与 PNG 只从该源稿重新导出，禁止只改导出文件造成评审稿漂移。
 - `data/dat/emulatorjs/<version>/manifest.json` 与 `SHA256SUMS` 是 EmulatorJS/runtime、Player adapter 描述、可选真实 DAT 和许可输入的机器事实源；当前 `4.2.3` 是基础集合，`4.3.0-pre` 是 DOSBox Pure 部分覆盖。前端 adapter registry 由 `make data-check` 双向核对；runtime、DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
+- `data/auth/password-blocklists/v1/manifest.json` 是 release 密码阻断列表及许可的机器事实源；10,000 行 payload 与许可原文由 `make prepare-deps` 校验物化并被 Git 忽略。
 - `data/example/fixtures.json` 是用户本地核心启动夹具的相对来源/hash 事实源；它不得覆盖依赖 manifest。`results/latest.json` 与 `results/manual-review.json` 只记录既有验证，正式验收必须生成当次证据；ROM、BIOS 与截图只保存在本机。
 - 任何表示时刻的 SQLite 字段必须为 Unix 毫秒 `INTEGER` 并以 `*_at_ms` 命名。
 - 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。

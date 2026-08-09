@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.0 |
-| 日期 | 2026-08-06 |
+| 版本 | 1.1 |
+| 日期 | 2026-08-10 |
 | 适用范围 | Retrom 一期 |
 
 ## 1. 文档边界
@@ -115,13 +115,21 @@ PRAGMA busy_timeout = 5000;
 - JSON 只用于不可变快照、低频配置和 provider raw payload；可查询关系必须规范化。
 - 代码种子 ID 使用稳定 code；其他业务实体使用规范小写 UUIDv7 文本。EmulatorJS 要求 number 类型 `EJS_gameID` 的 GameVariantRevision 另存稳定唯一 `INTEGER` surrogate key，范围固定 `1..9007199254740991`，API 不把它字符串化。
 
+### 3.1 账户版本的重建边界
+
+Migration 020 是账户版本边界。`store.Open` 在取得数据根独占锁后先用 SQLite `mode=ro` 探测既有 schema；001–019 旧库必须在执行 PRAGMA 写操作、DDL、DML 或 WAL checkpoint 前以 `DATABASE_REBUILD_REQUIRED` 失败，错误只给出旧/所需版本和“使用新数据根”提示。不存在的数据库或没有 Retrom 业务表的真正空 schema 可从 001 顺序建立到最新版本；已经包含 020 的库继续追加 migration。版本空洞、checksum 漂移、无 migration 记录却已有业务表或 020 结构不完整统一 `DATABASE_SCHEMA_INVALID`，不得动态修补。
+
+发布切换固定为：停止旧版本并归档整个旧数据根 → 保留归档用于旧版本回退 → 为新版本配置全新空数据根 → 以 release 启动并完成主机证明初始化。旧 `local` Profile、游戏或存档不迁移，也没有双写或“选择迁移数据”页面。仓库 `make dev` 的默认根为 `.cache/retrom/user-management-v1-data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。
+
 ## 4. 表目录
 
 ### 4.1 平台、核心与固件
 
 | 表 | 用途 |
 | --- | --- |
-| `profiles` | 一期唯一 `local` Profile |
+| `profiles` | 每个账号独立且不可变的 Profile；无 `local` seed |
+| `users` / `user_credentials` | 账号身份、角色/状态/version 与 Argon2id 凭据 |
+| `auth_sessions` / `account_links` / `instance_state` / `auth_rate_limits` | 登录 session、一次性邀请/重置、初始化状态和 HMAC 限流桶 |
 | `platforms` | 基础平台 |
 | `cores` | EmulatorJS/Core 配置 |
 | `core_artifacts` | 可执行 core artifact、实际版本/hash 和兼容配置 |
@@ -198,7 +206,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | 表 | 用途 |
 | --- | --- |
 | `jobs` / `job_input_snapshots` / `job_events` | 带 scope、不可变 execution 输入、lease、attempt、SSE resume ID 的持久 work-unit 与事件 |
-| `idempotency_records` | 写操作 24 小时请求/响应重放 |
+| `idempotency_records` | 按 USER/SYSTEM principal 隔离的写操作 24 小时请求/响应重放 |
 | `audit_events` | 管理操作 append-only 审计 |
 | `blob_gc_candidates` | 两阶段 Blob 回收与失败重试 |
 | `schema_migrations` | migration version、name、checksum 与整数应用时刻 |
@@ -236,7 +244,7 @@ data/
       licenses/             # manifest 锁定许可原文；不写入 Git
       THIRD_PARTY_NOTICES   # 确定性生成；不写入 Git
 
-.cache/retrom/data/        # 开发 RETROM_DATA_DIR，不进入版本控制
+.cache/retrom/user-management-v1-data/ # 开发 RETROM_DATA_DIR，不进入版本控制；旧 data 目录不自动删除
   retrom.lock
   retrom.db
   blobs/sha256/ab/cd/<64-char-sha256>
@@ -386,6 +394,8 @@ retrom restore --input /backup-volume/retrom-20260806 \
 
 验证完成后，在目标父目录创建 owner-only sibling staging 数据根，只把 DB/CAS/part/key 恢复到其数据根槽并统一权限；bundle 内 dependency 证据不复制进数据根。运行 `PRAGMA integrity_check`、`foreign_key_check`、Blob/UploadPart 引用和 DAT/依赖校验，全部通过才原子 rename 为 `--output-data-dir`。目标存在（即使为空）也拒绝，避免误覆盖；恢复失败不发布目标。成功输出只给出目标、`requiredDependencyVersions` 与 `requiredActiveEmulatorjsVersion`，不输出 key/hash/绝对源路径；操作者必须显式以该目标数据根和同一依赖配置启动服务。这样“额外已安装版本可忽略”和“服务使用 bundle 版本列表”之间没有隐式状态。
 
+恢复发布前还必须在 staging 数据库执行单一安全围栏事务：全部未撤销 AuthSession 以 `RESTORE` 撤销、全部 ACTIVE AccountLink 由 SYSTEM 撤销、全部 `CREATED/ACTIVE` LaunchSession 转为 `REVOKED`，并追加 `RESTORE_SECURITY_FENCE` SYSTEM 审计。备份内 User/Profile/私有数据保持逐项一致，但旧 session cookie、邀请/重置 capability 和 launch cookie 在恢复目标上全部失效；用户只能用现有密码重新登录。围栏失败则恢复不发布目标。
+
 ## 9. 统一验收入口
 
-SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002` 和 `ACC-BKP-001`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`。本文不再维护重复通过条件。
+SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-BKP-001`、`ACC-AUTH-001`–`002` 与 `ACC-ISO-*`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`。本文不再维护重复通过条件。

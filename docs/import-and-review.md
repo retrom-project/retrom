@@ -269,7 +269,7 @@ Parent 改变有效 source manifest 和 content identity。每次接受后重新
 
 ReviewEvent 只追加不覆盖，至少包含：
 
-- ImportItem ID、事件类型和 Actor（一期固定 `local`）。
+- ImportItem ID、事件类型和真实 `USER` actor；后台/离线系统事件使用封闭 `SYSTEM` actor label。
 - 输入、输出与字段 diff 快照。
 - 目标游戏目录和配置快照。
 - DAT 依赖证据。

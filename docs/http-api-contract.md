@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.2 |
-| 日期 | 2026-08-06 |
+| 版本 | 1.3 |
+| 日期 | 2026-08-10 |
 | 适用范围 | `/api/v1`、`/content`、`/runtime`、SSE 与同源安全 |
 
 ## 1. 协议基线
@@ -41,6 +41,8 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 | `/admin/review-history` | `q`、`decision=APPROVED|DISCARDED`、`platformInstanceId`、可空 `fromAtMs/toAtMs`、`sort=DECIDED_DESC|DECIDED_ASC`、`cursor/limit` |
 | `/admin/games` | `q`、`platformId`、`platformInstanceId`、`status=PUBLISHED|DELETED|ALL`、`sort=TITLE_ASC|UPDATED_DESC`、`cursor/limit`；列表项同时返回 `releaseYear`、`metadataComplete` 与目录默认核心当前 `runtimeStatus`，供管理列表健康摘要与筛选使用。 |
 | `/admin/platform-instances` | `platformId`、`enabled`、`sort=SORT_ORDER_ASC|NAME_ASC`、`cursor/limit` |
+| `/admin/users` | `q`（1..80 code point）、`role=ADMIN|USER`、`status=ENABLED|DISABLED|DELETED|ALL`、`sort=CREATED_DESC|USERNAME_ASC|LAST_LOGIN_DESC`、`cursor/limit` |
+| `/admin/invitations`、`/admin/users/{userId}/password-reset-links` | `state=ACTIVE|CONSUMED|REVOKED|EXPIRED|ALL`、`cursor/limit`；默认 ACTIVE |
 | `/admin/bios` | `platformId`、`coreId`、`coreArtifactId`、`scope=REQUIRED_BY_LIBRARY|FULL_CATALOG`、`status`、`cursor/limit` |
 | `/admin/bios/{requirementId}/entries` | 无 query；只读当前 active `DAT_MACHINE` installation 的持久化归档条目对比 |
 | `/admin/arcade-dats` | `coreId`、`coreArtifactId`、`source=BUILTIN|USER`、`parseStatus=PENDING|PARSING|READY|FAILED|CANCELLED`、`cursor/limit` |
@@ -73,11 +75,35 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 `sourceFiles[]` 对归档来源额外返回 `archiveFormat: ZIP|SEVEN_Z`；非归档为 null。审核 UI 必须明确区分“来源 ZIP/7z”与“物化后的运行 CONTENT”，不能根据文件扩展名猜测，也不能在详情 GET 时重新解析 archive。
 
-## 2. 受信内网写请求
+## 2. 认证、授权与同源写入
 
-一期没有账户，部署边界明确为受信内网。应用不执行 CSRF token、`Origin` 或 `Sec-Fetch-Site` 校验，所有 `POST`、`PUT`、`PATCH`、`DELETE` 在满足各自 schema、并发、幂等和领域约束后均可调用。`GET /api/v1/session` 仅为旧客户端兼容保留，返回值不参与授权，新前端不得请求或发送 `X-Retrom-CSRF`。
+`GET /api/v1/auth/context` 是页面 bootstrap 的唯一事实源且永不返回 401。它只返回 `instanceState=INITIALIZATION_REQUIRED|READY`、`mode=release|test`、`authenticationState=NOT_APPLICABLE|UNAUTHENTICATED|AUTHENTICATED`、可空 User、可空 CSRF/idle/absolute expiry 和 `testDefaultAccountActive`。合法组合只有：INITIALIZATION_REQUIRED+NOT_APPLICABLE+全空、READY+UNAUTHENTICATED+全空、READY+AUTHENTICATED+全非空。
 
-这一决定意味着浏览器访问恶意页面时可能被诱导向内网 Retrom 发起写请求；部署者接受该风险，并必须依靠受信网络、宿主机防火墙和前置 NG 限制访问。API 不返回宽松 CORS header，但 CORS 不是写请求授权机制。Player 的 launch capability/cookie 仍按第 7 节强制执行，不属于 CSRF。
+无需有效 AuthSession 的路径仅有 health、auth context、release initialize、login/logout、account-link inspect、Invitation accept、PasswordReset complete、固定 runtime allowlist 和已经由 launch cookie 限定的 `/runtime/launches/**`。其余 `/api/v1/home|recent-games|games*|saves*|launches` 及 `/content/**` 要求已登录；`/api/v1/admin/**` 另要求 `role=ADMIN`。普通 USER 访问管理 API统一 `403 ADMIN_REQUIRED`；任意账号访问他人的 SaveState、截图、Launch、PersistentSave 或私有 cursor 统一 404/不可用，管理员没有 owner bypass。
+
+AuthSession cookie 在 HTTP 开发环境名为 `retrom_session`，HTTPS 为 `__Host-retrom_session`，固定 `Path=/; HttpOnly; SameSite=Strict`，HTTPS 另有 `Secure`；idle 8h、absolute 24h。数据库只存 token SHA-256。登录失败和 DISABLED/DELETED 账号统一 `401 AUTHENTICATION_FAILED` 与文案“用户名或密码不正确”。logout 是幂等例外：无效/缺失 cookie 不要求 CSRF也返回 204；有效 session必须通过 CSRF，成功撤销并发送过期 cookie及 `Clear-Site-Data: "cache", "cookies", "storage"`。
+
+所有非安全方法先校验 `Origin` 精确等于 `RETROM_PUBLIC_ORIGIN`，拒绝缺失、`null`、多值和 Referer fallback；`Sec-Fetch-Site` 出现时只接受 `same-origin`，`cross-site/same-site/none` 均拒绝。除初始化/登录/链接消费等公开 capability 写入及 launch runtime 外，已登录写请求还必须携带当前 session context 给出的 `X-Retrom-CSRF`。CSRF 只保存在内存，不进入 cookie、URL、Web Storage 或日志。API 不返回宽松 CORS header，CORS 也不替代这些校验。
+
+登录按规范用户名和规范客户端 IP分别限 5/30 次，初始化 IP 5 次，链接检查/消费 IP 20 次；窗口和 block均 15 分钟，超限返回 429 与 `Retry-After`。subject 用实例 HMAC 后入库。直接 peer 只有命中 `RETROM_TRUSTED_PROXIES` 规范 CIDR时才读取单个 X-Forwarded-For，从右向左跳过受信代理并取首个不受信地址；超过 16 项、缺失或任一项非法回退 peer IP并只记录稳定诊断码，不读取 X-Real-IP/Forwarded，也不记录原链。
+
+release 密码分别做 NFC 但不 trim，最少 15 个字符且不超过 128 个 Unicode code point/512 bytes，拒绝控制字符，并拒绝固定 10,000 行常见密码列表以及与用户名、显示名称或 `retrom` 相同的 Unicode case-fold 值。存储使用严格 `ARGON2ID_V1` PHC：`$argon2id$v=19$m=19456,t=2,p=1$<16-byte-salt>$<32-byte-hash>`；最多并行执行 4 个 Argon2 计算。`--mode=test` 自动创建的 `test/test` 是唯一豁免，用户修改密码时必须立即满足 release 规则。
+
+### 2.1 初始化、邀请与密码重置
+
+- `POST /api/v1/auth/initialize` 只接受 release+PENDING、同源 Origin、43 字符 setup code、合法用户名/显示名称和确认后的 release 密码。成功原子创建唯一 ADMIN/Profile/Credential、完成 InstanceState、写审计并签发 session；错误证明零写入，重复/并发初始化冲突。
+- Invitation/PasswordReset capability 固定为 64 字符，由公开 link ID 与实例 key 的 domain-separated MAC组成，只通过 `/register#invite=...` 或 `/reset-password#reset=...` URL fragment传递。前端首个 effect读取后立即 `history.replaceState` 清 fragment，token只在组件内存存在。
+- `POST /api/v1/auth/account-links/inspect` 只向有效持有者返回 kind、邀请 role或重置目标 username、到期时刻；无效、过期、消费、撤销、kind错和 MAC错统一 404。
+- ADMIN 创建 Invitation必须有 `Idempotency-Key`，role为 USER时 `confirmAdminRole=false`，ADMIN时必须 true。创建/同 key replay可返回同一完整 URL；列表仅返回非秘密元数据。Invitation 与 PasswordReset创建后 1h、消费或撤销后失效，并发消费最多一次成功。
+- PasswordReset创建使用目标 User最新 ETag并递增其 version，同时撤销其他 ACTIVE reset。完成时撤销旧 session并更新密码；目标 ENABLED则签发新 session并返回 AuthContext，目标 DISABLED只返回 `{"status":"PASSWORD_CHANGED_ACCOUNT_DISABLED"}`，绝不重新启用。
+
+### 2.2 用户管理
+
+`GET /api/v1/admin/users` 支持 `q`、`role=ADMIN|USER`、`status=ENABLED|DISABLED|DELETED|ALL`、`sort=CREATED_DESC|USERNAME_ASC|LAST_LOGIN_DESC` 和 `cursor/limit`。User DTO只含 `userId/username/displayName/role/status/version/createdAtMs/lastLoginAtMs/activeSessionCount`；DELETED item 的 `displayName` 固定为“已删除用户”。不得返回 Profile ID、私有游戏/时长/存档、IP、hash、session ID或 Credential。detail 与 PATCH返回最新 ETag。
+
+PATCH 至少修改 role/status之一，升为 ADMIN需 `confirmAdminRole=true`；DELETE是要求输入完整 username的不可逆软删除。两者都需要当前 ETag、Idempotency-Key、Origin和 CSRF。当前登录管理员不能修改自身 role/status或删除自己；任一动作提交后必须保留一名启用 ADMIN。停用/删除在同一事务撤销 AuthSession、ACTIVE account link和待用/活动 Launch，但保留 Profile与私有数据且不向管理员开放。删除后 username不可复用。
+
+邀请列表与目标 User的 reset列表按 `(createdAtMs DESC,id DESC)` cursor分页，state只允许 `ACTIVE|CONSUMED|REVOKED|EXPIRED|ALL`，item不含 URL/token或前后缀。按 link ID撤销只接受当前 ACTIVE与最新 ETag；同 principal/operation/key replay仍成功，其他重复撤销统一 `409 ACCOUNT_LINK_NOT_ACTIVE`。
 
 HTML 响应使用逐响应随机 nonce，Next.js framework/bootstrap script 与 Retrom 自有 inline script（如有）必须携带该 nonce；不得退化为全局 `script-src 'unsafe-inline'`。实现必须使用 Next.js 16 根级 `web/proxy.ts`：为每个 HTML navigation 生成至少 128-bit CSPRNG nonce，把含相同 nonce 的 CSP 同时写入转发给 App Router 的 request header 和最终 response header，使 Next.js 能给 framework script 自动附 nonce。使用 nonce 的页面强制动态渲染，不使用 static export、ISR、PPR 或共享 HTML cache；静态 asset/API/runtime 不进入该 proxy matcher。NG 只能原样保留，不能生成第二个不一致 CSP。
 
@@ -96,8 +122,8 @@ img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 
 ## 3. 乐观并发与幂等
 
-- 可编辑资源响应包含 `version: integer` 和 `ETag: "v<version>"`。`PATCH`、状态转换和删除必须携带 `If-Match`；缺少为 `428 PRECONDITION_REQUIRED`，不匹配为 `409 VERSION_CONFLICT`。
-- 创建上传、上传终结、ImportJob、Launch、可能投递兼容性任务的游戏移动预览、游戏软删除、审核通过/Discard、DAT 激活/回滚等可能被重试的写操作必须携带规范小写 UUIDv4/UUIDv7 `Idempotency-Key`。服务端按 `operationId + key` 保存语义请求摘要和结果 24 小时；同 key/同语义请求返回原 status/body 及白名单响应头，不同请求返回 `409 IDEMPOTENCY_KEY_REUSED`。白名单只含 `Content-Type/Location/ETag/Retry-After`，绝不持久化 `Set-Cookie`、认证 header 或任意 capability；Launch 重放按第 7 节重新派生同一 cookie。
+- 可编辑资源响应包含 `version: integer` 和 `ETag: "v<version>"`。`PATCH`、状态转换和删除必须携带 `If-Match`；缺少为 `428 PRECONDITION_REQUIRED`，一般资源不匹配为 `409 VERSION_CONFLICT`。User 与 AccountLink 的管理写入是显式例外，不匹配返回 `412 RESOURCE_VERSION_CONFLICT`。
+- 创建上传、上传终结、ImportJob、Launch、账号管理、可能投递兼容性任务的游戏移动预览、游戏软删除、审核通过/Discard、DAT 激活/回滚等可能被重试的写操作必须携带规范小写 UUIDv4/UUIDv7 `Idempotency-Key`。服务端按 `principal + operationId + key` 保存语义请求摘要和结果 24 小时；同一账号同 key/同语义请求返回原 status/body 及白名单响应头，不同请求返回 `409 IDEMPOTENCY_KEY_REUSED`，跨账号使用同 key 是独立命名空间。白名单只含 `Content-Type/Location/ETag/Retry-After`，绝不持久化 `Set-Cookie`、认证 header、密码或任意 capability；Launch 与一次性链接 replay 按服务端 key/公开 ID重新派生同一 secret 响应。
 - 状态转换在单个短事务中同时写资源、不可变事件和 outbox/job 记录；重复请求不得重复发布、重复引用 Blob 或重复 ReviewEvent。
 
 语义请求摘要固定为 lowercase hex SHA-256(RFC 8785 canonical JSON)：object 包含 `operationId`、按 OpenAPI 名排序的规范 path/query 参数、可空 `If-Match`、规范 media type，以及 body 表示；不包含 cookie、`Idempotency-Key`、request ID 等非业务 header。普通 JSON body 在严格解析后以 canonical JSON 嵌入，空 body 为 `null`。需要 Idempotency-Key 的两个 runtime streaming operation 分别嵌入：SaveState 的 canonical metadata、两个 part 的 media type/length/SHA-256；PersistentSave 的 sequence/event/length/SHA-256。Upload part 不写 idempotency record，它按路径中的 upload/file/part、Content-Range 和声明/实际 digest 使用自身永久唯一规则。服务端必须先完成有界流式接收与摘要，再在一个 `BEGIN IMMEDIATE` 短事务中检查记录，并把领域变更、不可变事件和 COMPLETED idempotency record 一起提交；事务前产生但未引用的 CAS Blob 交给 GC。这样并发相同请求只有一份领域结果，不需要持有事务读取大 body，也不存在“已保存响应但领域事务回滚”的窗口。24 小时后相同 key 可视为新请求；永久唯一性仍由领域约束保证，不能依赖幂等记录充当数据库约束。
@@ -399,7 +425,7 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `putRuntimePersist
 
 `GET /admin/arcade-dats/{datVersionId}/diff` 只分页读取 READY 物化结果，不在请求内扫描原始 DAT 索引。PENDING/RUNNING 返回 `409 DAT_DIFF_NOT_READY`，尚未生成、失败或因 active DAT/CoreArtifact/游戏引用改变而失效时返回 `409 DAT_DIFF_REQUIRED`。响应固定为 `baseDatVersionId/targetDatVersionId/summary/items/nextCursor/impact/impactDigest`；summary 使用数据模型的四类 added/removed/changed 计数，items 的通用外形为 `{"section":"...","change":"...","key":{...},"before":null|object,"after":null|object}`。key 分别是 machineName；machineName+ordinal+name；machineName+biosName；machineName，并以这些 UTF-8 byte 值加唯一 tie-breaker 签名分页。before/after 只含 DAT 规范化字段，不返回原 XML 或宿主路径。impact 至少含 requirement slot 变化、依赖该 artifact 的目录数、需重校验 Variant ID/当前 revision/version、预计 blocker code；数组按 ID 排序。BIOS archive 只对上传时已物化的 ArchiveEntry 索引做查询比较，preview/commit 不重读大 Blob。`GET /admin/arcade-dats` 同时投影 `diffJobId/diffStatus/diffErrorCode/diffVersion`；active 为 `NOT_APPLICABLE`、未解析为 `NOT_READY`、无 snapshot 为 `NOT_RUN`。
 
-`impactDigest` 固定为无 padding base64url(SHA-256(RFC 8785 canonical JSON))。被摘要的 preview 至少包含 action、actor=`local`、目标资源/version、目标 core/目录/DAT、受影响实体 ID + current revision/version、blocker code 和生成时配置版本；数组按 ID UTF-8 byte 升序。提交时重新计算并常量时间比较，任一变化返回 `409 IMPACT_PREVIEW_STALE`。普通 preview 不落业务状态，但游戏移动 preview 在缺少当前兼容性结果时允许且只允许按上一表投递共享验证 Job；它仍不移动 Game，也不提前生成 impact digest。其余 preview 只可写不含秘密的访问日志。
+`impactDigest` 固定为无 padding base64url(SHA-256(RFC 8785 canonical JSON))。被摘要的 preview 至少包含 action、当前 actor User ID、目标资源/version、目标 core/目录/DAT、受影响实体 ID + current revision/version、blocker code 和生成时配置版本；数组按 ID UTF-8 byte 升序。提交时重新计算并常量时间比较，任一变化返回 `409 IMPACT_PREVIEW_STALE`。普通 preview 不落业务状态，但游戏移动 preview 在缺少当前兼容性结果时允许且只允许按上一表投递共享验证 Job；它仍不移动 Game，也不提前生成 impact digest。其余 preview 只可写不含秘密的访问日志。
 
 默认核心 preview 是一个有界 POST 分页特例：`limit` 默认 100、范围 `1..100`，首页 `cursor=null`，items 按 Game ID UTF-8 bytes 升序；响应固定为 `{"coreId":"...","platformInstanceVersion":1,"counts":{"ready":0,"needsValidation":0,"blocked":0},"items":[],"nextCursor":null,"impactDigest":"..."}`，counts 始终是全量计数而不是当页计数。cursor 的 filter canonical object 固定包含 `coreId/platformInstanceId/platformInstanceVersion/impactDigest`，sort code 为 `GAME_ID_ASC`；服务端每页先重算全部影响输入，再验证 cursor filter hash。目录版本、Game/current revision、artifact/DAT/BIOS 输入或诊断发生任一变化都返回 `409 IMPACT_PREVIEW_STALE`，客户端必须从首页重新收集；不得返回同 digest 的部分新快照。commit 不上传 cursor/items，以完整 digest 重算为唯一权威。
 
@@ -410,7 +436,8 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | 方法与路径 | 用途 |
 | --- | --- |
 | `GET /health/live`、`GET /health/ready` | 不需要 cookie。live 成功固定返回 `200 {"status":"ok"}`；ready 成功返回 `200 {"status":"ready"}`，失败返回 `503 {"status":"not_ready","reasonCode":"DATABASE_UNAVAILABLE|CAS_UNAVAILABLE|DEPENDENCY_INVALID|DEPENDENCY_DAT_PARSE_FAILED|DEPENDENCY_INDEXING"}`，多原因时按此枚举顺序选第一项。响应禁止暴露宿主路径、hash 或秘密，两条路径都进入 OpenAPI。 |
-| `GET /api/v1/session` | 旧客户端兼容 token；不参与授权，新前端不得调用。 |
+| `GET /api/v1/auth/context`、`POST /api/v1/auth/initialize`、`POST /api/v1/auth/login|logout|change-password` | 实例/会话 bootstrap、安全初始化、登录退出和密码轮换；精确 schema、错误码与安全 header 以 OpenAPI 和第 2 节为准。旧 `/api/v1/session` 不存在。 |
+| `POST /api/v1/auth/account-links/inspect`、`POST /api/v1/auth/invitations/accept`、`POST /api/v1/auth/password-resets/complete` | fragment capability检查、邀请注册与密码重置。 |
 | `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
 | `GET /api/v1/recent-games` | 返回启用目录中全部有游玩记录的已发布游戏，不截断为固定 50 款；按最新 PlaySession 的 `started_at_ms` 降序聚合 `lastPlayedAtMs/activeDurationMs/sessionCount` 与可空封面 URL。每款游戏只占一行，接口不接受 `limit`；响应级 `generatedAtMs` 是页面分组与 7/30 天滚动窗口的统一时钟。 |
 | `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`，响应级 `generatedAtMs` 作为客户端排序和相对时间的统一时钟。 |
@@ -423,6 +450,8 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/admin/uploads/{uploadId}`、`PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}` | 恢复状态与上传 part。 |
 | `POST /api/v1/admin/uploads/{uploadId}/complete`、`DELETE /api/v1/admin/uploads/{uploadId}` | 投递异步 UPLOAD_FINALIZE 或取消 upload；两者都使用当前 ETag，complete 另需 Idempotency-Key。 |
 | `GET /api/v1/admin/imports/summary` | 入库总览聚合。 |
+| `GET /api/v1/admin/users`、`GET|PATCH|DELETE /api/v1/admin/users/{userId}` | 只含账号与安全状态的用户列表/详情、角色状态变更和软删除。 |
+| `GET|POST /api/v1/admin/invitations`、`GET|POST /api/v1/admin/users/{userId}/password-reset-links`、`DELETE /api/v1/admin/account-links/{accountLinkId}` | 一次性链接的非秘密列表、创建和撤销；完整 URL只在 create/replay响应出现。 |
 | `GET /api/v1/admin/imports`、`POST /api/v1/admin/imports`、`GET /api/v1/admin/imports/{importJobId}` | ImportJob 列表、创建与详情；详情包含原文件处置和可空 resolution。 |
 | `GET /api/v1/admin/imports/{importJobId}/events`、`POST /api/v1/admin/imports/{importJobId}/cancel` | SSE 进度与取消。 |
 | `POST /api/v1/admin/imports/{importJobId}/reconfigure` | 携带 `If-Match`/`Idempotency-Key`，复用未解决 REJECTED 文件的 CAS Blob，以新游戏目录配置创建 replacement ImportJob。 |
@@ -474,4 +503,4 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 
 ## 10. 统一验收入口
 
-通用协议由 `ACC-API-001` 覆盖；受信内网写请求、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。
+通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。

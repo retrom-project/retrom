@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.0 |
-| 日期 | 2026-08-06 |
+| 版本 | 1.1 |
+| 日期 | 2026-08-10 |
 | EmulatorJS 基线 | v4.2.3 |
 
 ## 1. 用户可观察契约
@@ -62,6 +62,7 @@ sequenceDiagram
 - 普通启动省略 `coreId` 时使用 PlatformInstance 默认核心；显式核心只能来自基础平台启用集合。
 - 从存档启动时服务端解析精确 VariantRevision；客户端即使提交 core，也只能与存档相同。
 - URL 只含非秘密 UUIDv7 `launchId`。32-byte capability 只在路径限定的 HttpOnly cookie 中，数据库只保存其 SHA-256；不把 token 放入 URL、JSON、日志、Referer 或诊断。
+- 创建 Launch 的认证用户及其私有 Profile 在事务中锁定到 LaunchSession。launch capability 只授权该会话的受限内容路径，既不是普通用户登录凭据，也不能跨用户读取存档；禁用/软删除用户或执行 restore 安全栅栏时，未结束 Launch 立即失效。角色变化和用户自行改密会撤销认证会话，但不中断已经签发的 Launch。
 - 已 READY 的预检成功返回 `201`；需新验证时返回 `202 VALIDATION_PENDING` 且不签发 credential，Player 在同一加载 overlay 等待 Worker，成功后以新幂等键自动重调。Blocker 返回 `422 LAUNCH_BLOCKED`。整个过程没有第二个 Start/确认页；Warning 不增加确认步骤。
 - `VARIANT_REVALIDATE` 按 gameVariant/input digest 跨请求去重且不可由单个 Player 取消；退出加载壳只终止本页订阅并退出全屏，后台任务继续，避免一个朋友中断另一个朋友正在等待的同一验证。
 - DOS 只有 `DOS_SOURCE`、没有主机平台的 `CONTENT` 行；重校验必须以 ContentRevision 本身作为内容输入，并在内容 revision 未变化时把既有 `DOS_LAUNCH_BUNDLE` 与审核默认入口复制到新 VariantRevision。Worker 任一步骤失败都必须把 Job 收口为可重试 FAILED，进程重启时重新领取 lease 已过期且尚有 attempt 的 RUNNING Job，不能让 Player 永久等待在 `VALIDATION_PENDING`。
@@ -195,9 +196,13 @@ EmulatorJS 4.2.3 会先展开 ZIP，再把归档中的第一个普通成员误�
 
 SaveState 同时引用 Profile、Game、GameVariantRevision、CoreArtifact、可空 DatVersion、DOS entry、状态 Blob、截图 Blob、名称、累计有效时长和创建时刻。默认禁止跨 CoreArtifact 或 VariantRevision 恢复；未来若有显式迁移器，必须另建兼容结果，不能自动尝试。
 
+Profile 必须等于当前认证用户唯一绑定的私有 Profile。存档列表、详情、创建、恢复、软删除、最近游玩、累计时长和 PersistentSave current/revision 查询都先按该 Profile 限定；客户端提交另一个 Profile ID、SaveState ID 或 Launch ID 不能扩大授权。用于写操作重放的 Idempotency-Key 同样按认证用户主体分区。
+
 PersistentSave 用于 SRAM/NVRAM/DOS overlay 等，按 `Profile + VariantRevision + kind` 隔离。每次成功上传先创建带 `LaunchSession + 连续 client sequence + AUTO_INTERVAL/MANUAL_EXPORT/EXIT` 的不可变 revision，校验后以 current compare-and-swap 提升；同 sequence 只能重放相同 event/bytes，失败不覆盖最后有效版本。首项必须仍以 Launch 锁定的 base 为服务器 current，后续项必须以上一 sequence revision 为 current；若另一会话已推进则返回 `PERSISTENT_SAVE_CONFLICT`，当前页保留 bytes 并提供本地下载/退出重启，不把旧进度最后写入覆盖新进度。Player 仅在当前上传成功后递增 sequence，回调并发时把最新 bytes 排到下一 sequence，不能让重试 body 漂移。替换游戏文件后旧保存继续绑定旧 VariantRevision。
 
 PersistentSave 能力来自 artifact compatibility：`SINGLE_FILE` 沿用上述单文件流程，`DOS_OVERLAY` 使用 DOS overlay，`NONE` 则不请求 persistent URL、不要求 `getSaveFilePath()`、不监听或上传 `saveSaveFiles`，game-start 直接继续。`handy`、`prosystem`、`stella2014`、`ppsspp` 当前为 NONE；状态存档仍必须可创建/恢复，UI 明示“此核心不支持自动持久存档，可使用状态存档”。服务端对 NONE 的 persistent GET/PUT 返回 `409 PERSISTENT_SAVE_UNSUPPORTED`，Launch 的 persistent base 必须为空。
+
+浏览器中的 `/data/saves` IDBFS 不是跨账号事实源。每次 `EJS_onGameStart` 在恢复 main loop 前，都必须用本次 Launch 锁定的服务器 revision 覆盖目标路径；服务器没有保存时必须删除同路径残留，再调用 `loadSaveFiles()`。覆盖、删除或 reload 任一步失败都以 `LAUNCH_PERSISTENT_SAVE_LOAD_FAILED` 阻断，不能继续使用旧浏览器 bytes。账户切换 E2E 必须在同一 Chrome profile 中证明 B 用户既看不到 A 的 API 数据，也不会从 EJS IDBFS 复活 A 的保存。
 
 ## 10. PlaySession 与有效时长
 
@@ -227,4 +232,4 @@ X-Content-Type-Options: nosniff
 
 ## 12. 统一验收入口
 
-启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-005`；状态/持久存档执行 `ACC-SAVE-001`–`ACC-SAVE-003`；有效时长执行 `ACC-PLAY-001`；事件映射、八 core 画面与跨源隔离分别由 `ACC-CORE-*`、`ACC-NET-001` 和运行时回归测试覆盖。
+启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-005`；状态/持久存档执行 `ACC-SAVE-001`–`ACC-SAVE-003`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003`；有效时长执行 `ACC-PLAY-001`；事件映射、八 core 画面与跨源隔离分别由 `ACC-CORE-*`、`ACC-NET-001` 和运行时回归测试覆盖。

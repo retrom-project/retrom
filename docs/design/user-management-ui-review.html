@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Retrom 用户管理 · 设计评审</title>
+  <style>
+    * { box-sizing: border-box; }
+    :root {
+      color-scheme: light;
+      --review-bg: #e9e7e2;
+      --retrom-canvas: #f5f3ef;
+      --retrom-surface: #ffffff;
+      --retrom-nav: #171927;
+      --retrom-nav-soft: #24263a;
+      --retrom-ink: #182033;
+      --retrom-muted: #5f697b;
+      --retrom-border: #dedbd5;
+      --retrom-purple: #6250d2;
+      --retrom-purple-soft: #eeebff;
+      --retrom-teal: #0f737c;
+      --retrom-teal-soft: #e1f2f1;
+      --retrom-warn: #8a580c;
+      --retrom-warn-soft: #fff3d6;
+      --retrom-danger: #a53646;
+      --retrom-danger-soft: #fbe8eb;
+      --retrom-shadow: 0 18px 55px rgba(28, 32, 48, .12);
+    }
+    html, body { margin: 0; min-height: 100%; background: var(--review-bg); color: var(--retrom-ink); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    button, input, select { font: inherit; }
+    button { cursor: pointer; }
+    .review-bar { position: sticky; top: 0; z-index: 50; display: flex; align-items: center; gap: 18px; min-height: 62px; padding: 10px 22px; background: rgba(23, 25, 39, .98); color: #fff; box-shadow: 0 5px 22px rgba(20, 22, 35, .22); }
+    .review-title { min-width: 220px; }
+    .review-title strong { display: block; font-size: 14px; }
+    .review-title span { display: block; margin-top: 2px; color: #aeb3c9; font-size: 12px; }
+    .review-tabs { display: flex; gap: 6px; overflow-x: auto; padding: 2px; }
+    .review-tabs button { min-height: 38px; padding: 0 14px; border: 1px solid #42455c; border-radius: 8px; background: transparent; color: #d9dced; white-space: nowrap; }
+    .review-tabs button[aria-selected="true"] { border-color: #9d91ff; background: #6250d2; color: #fff; }
+    .review-stage { padding: 28px; }
+    .screen { display: none; width: min(100%, 1600px); min-height: 840px; margin: 0 auto; overflow: hidden; background: var(--retrom-canvas); border: 1px solid #d4d1cb; border-radius: 18px; box-shadow: var(--retrom-shadow); }
+    .screen.is-active { display: flex; }
+    .auth-screen { align-items: center; justify-content: center; padding: 54px 24px; background: radial-gradient(circle at 18% 15%, rgba(98,80,210,.10), transparent 34%), radial-gradient(circle at 85% 84%, rgba(15,115,124,.09), transparent 32%), var(--retrom-canvas); }
+    .auth-wrap { width: 100%; max-width: 560px; }
+    .brand { display: flex; align-items: center; justify-content: center; gap: 11px; margin-bottom: 28px; font-weight: 760; letter-spacing: .01em; }
+    .brand-mark { display: grid; place-items: center; width: 34px; height: 34px; border-radius: 9px; background: var(--retrom-purple); color: #fff; font-family: ui-monospace, monospace; font-size: 13px; }
+    .auth-panel { padding: 34px; border: 1px solid var(--retrom-border); border-radius: 16px; background: var(--retrom-surface); box-shadow: 0 14px 38px rgba(35,38,55,.08); }
+    h1, h2, h3, p { margin-top: 0; }
+    h1 { margin-bottom: 9px; font-size: 28px; line-height: 1.2; letter-spacing: -.02em; }
+    h2 { font-size: 22px; }
+    h3 { font-size: 16px; }
+    .lead { margin-bottom: 26px; color: var(--retrom-muted); line-height: 1.55; }
+    .field { margin-top: 18px; }
+    .field-row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+    label { display: block; margin-bottom: 7px; color: #343c50; font-size: 13px; font-weight: 700; }
+    input, select { width: 100%; height: 44px; padding: 0 12px; border: 1px solid #c9c7c2; border-radius: 9px; background: #fff; color: var(--retrom-ink); }
+    input:focus, select:focus, button:focus-visible { outline: 3px solid rgba(98,80,210,.24); outline-offset: 2px; border-color: var(--retrom-purple); }
+    .helper { margin: 7px 0 0; color: var(--retrom-muted); font-size: 12px; line-height: 1.45; }
+    .primary, .secondary, .danger-button, .quiet-button { min-height: 42px; padding: 0 16px; border-radius: 9px; font-weight: 720; }
+    .primary { border: 1px solid var(--retrom-purple); background: var(--retrom-purple); color: #fff; }
+    .secondary { border: 1px solid #cbc7e9; background: #fff; color: #493ab7; }
+    .danger-button { border: 1px solid var(--retrom-danger); background: var(--retrom-danger); color: #fff; }
+    .quiet-button { border: 1px solid var(--retrom-border); background: #fff; color: var(--retrom-ink); }
+    .wide { width: 100%; margin-top: 26px; }
+    .notice { margin: 0 0 20px; padding: 13px 14px; border-radius: 9px; font-size: 13px; line-height: 1.45; }
+    .notice.warning { border: 1px solid #ead39e; background: var(--retrom-warn-soft); color: #684207; }
+    .notice.info { border: 1px solid #cbc4ff; background: var(--retrom-purple-soft); color: #40319f; }
+    .notice.success { border: 1px solid #b6d9d8; background: var(--retrom-teal-soft); color: #07555c; }
+    .role-summary { display: flex; align-items: center; justify-content: space-between; gap: 14px; margin-bottom: 22px; padding: 14px; border: 1px solid var(--retrom-border); border-radius: 10px; background: #faf9f7; }
+    .role-summary span { color: var(--retrom-muted); font-size: 13px; }
+    .tag { display: inline-flex; align-items: center; min-height: 26px; padding: 0 9px; border-radius: 999px; font-size: 12px; font-weight: 750; white-space: nowrap; }
+    .tag.admin { background: var(--retrom-purple-soft); color: #493ab7; }
+    .tag.user { background: #eef0f4; color: #475166; }
+    .tag.enabled { background: var(--retrom-teal-soft); color: #07555c; }
+    .tag.disabled { background: #eceef1; color: #596274; }
+    .tag.active { background: var(--retrom-warn-soft); color: #714707; }
+    .auth-footer { margin: 20px 0 0; color: var(--retrom-muted); text-align: center; font-size: 13px; }
+    .shell { display: grid; grid-template-columns: 248px minmax(0,1fr); width: 100%; min-height: 840px; }
+    .sidebar { display: flex; flex-direction: column; padding: 24px 16px 18px; background: var(--retrom-nav); color: #fff; }
+    .sidebar .brand { justify-content: flex-start; margin: 0 10px 34px; }
+    .nav-caption { margin: 18px 10px 8px; color: #82889e; font-size: 11px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; }
+    .nav-link { display: flex; align-items: center; min-height: 42px; margin: 2px 0; padding: 0 12px; border-radius: 9px; color: #bfc3d5; font-size: 14px; }
+    .nav-link.active { background: var(--retrom-nav-soft); color: #fff; box-shadow: inset 3px 0 0 #8f82ff; }
+    .sidebar-spacer { flex: 1; }
+    .profile-button { padding: 13px 12px; border: 1px solid #383b50; border-radius: 10px; background: #202235; color: #fff; }
+    .profile-button strong, .profile-button span { display: block; text-align: left; }
+    .profile-button span { margin-top: 3px; color: #9da2b9; font-size: 12px; }
+    .main { min-width: 0; padding: 34px; }
+    .page-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 20px; margin-bottom: 28px; }
+    .page-head h1 { margin-bottom: 7px; }
+    .page-head p { margin: 0; color: var(--retrom-muted); }
+    .account-grid { display: grid; grid-template-columns: 1fr 1.1fr; gap: 22px; max-width: 1050px; }
+    .content-panel { padding: 24px; border: 1px solid var(--retrom-border); border-radius: 14px; background: var(--retrom-surface); }
+    .definition-list { display: grid; grid-template-columns: 130px 1fr; gap: 15px 18px; margin-top: 22px; font-size: 14px; }
+    .definition-list dt { color: var(--retrom-muted); }
+    .definition-list dd { margin: 0; font-weight: 680; }
+    .filters { display: grid; grid-template-columns: minmax(220px,1.4fr) repeat(3,minmax(150px,.8fr)) auto; gap: 12px; align-items: end; margin-bottom: 14px; padding: 18px; border: 1px solid var(--retrom-border); border-radius: 12px; background: var(--retrom-surface); }
+    .filters .field { margin: 0; }
+    .filter-summary { min-height: 38px; margin-bottom: 12px; padding: 9px 12px; border-radius: 8px; background: #ebe9e4; color: var(--retrom-muted); font-size: 13px; }
+    .table-panel { overflow-x: auto; border: 1px solid var(--retrom-border); border-radius: 12px; background: var(--retrom-surface); }
+    table { width: 100%; min-width: 930px; border-collapse: collapse; font-size: 13px; }
+    th { padding: 13px 15px; background: #f8f7f4; color: var(--retrom-muted); text-align: left; font-size: 12px; }
+    td { padding: 15px; border-top: 1px solid #ece9e4; vertical-align: middle; }
+    th:first-child, td:first-child { position: sticky; left: 0; background: inherit; }
+    td:first-child { background: #fff; }
+    th:last-child, td:last-child { position: sticky; right: 0; background: inherit; text-align: right; }
+    td:last-child { background: #fff; }
+    .user-cell { display: flex; align-items: center; gap: 10px; min-width: 180px; }
+    .avatar { display: grid; place-items: center; flex: 0 0 34px; height: 34px; border-radius: 9px; background: #e9e5ff; color: #4b3cba; font-weight: 800; }
+    .user-cell strong, .user-cell span { display: block; }
+    .user-cell span { margin-top: 2px; color: var(--retrom-muted); font-size: 12px; }
+    .table-action { min-height: 34px; padding: 0 12px; border: 1px solid #cfcbdc; border-radius: 8px; background: #fff; color: #4336a4; font-weight: 700; }
+    .subsection { margin-top: 24px; }
+    .subsection summary { cursor: pointer; color: #40349a; font-weight: 750; }
+    .drawer-layer, .modal-layer { position: absolute; inset: 0; z-index: 20; display: flex; background: rgba(19,21,33,.48); }
+    .with-overlay { position: relative; }
+    .drawer-layer { justify-content: flex-end; }
+    .drawer { width: min(460px, 92%); min-height: 100%; padding: 28px; overflow-y: auto; background: #fff; box-shadow: -18px 0 50px rgba(20,22,34,.22); }
+    .drawer-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; padding-bottom: 20px; border-bottom: 1px solid var(--retrom-border); }
+    .close { width: 36px; height: 36px; border: 1px solid var(--retrom-border); border-radius: 8px; background: #fff; color: var(--retrom-muted); }
+    .drawer-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 26px; }
+    .danger-zone { margin-top: 30px; padding-top: 22px; border-top: 1px solid #ead5d8; }
+    .danger-zone h3 { color: var(--retrom-danger); }
+    .danger-zone p { color: var(--retrom-muted); font-size: 13px; line-height: 1.5; }
+    .check-row { display: flex; align-items: flex-start; gap: 10px; margin-top: 18px; color: var(--retrom-ink); font-size: 13px; line-height: 1.5; }
+    .check-row input { flex: 0 0 18px; width: 18px; height: 18px; margin-top: 1px; }
+    .modal-layer { align-items: center; justify-content: center; padding: 24px; }
+    .modal { width: min(540px, 100%); padding: 28px; border-radius: 15px; background: #fff; box-shadow: 0 22px 70px rgba(16,18,29,.32); }
+    .modal-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+    .link-box { display: flex; gap: 8px; margin: 20px 0 12px; }
+    .link-box input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 12px; }
+    .link-meta { display: grid; grid-template-columns: 100px 1fr; gap: 10px; margin: 18px 0; font-size: 13px; }
+    .link-meta span { color: var(--retrom-muted); }
+    .modal-actions { display: flex; justify-content: flex-end; margin-top: 24px; }
+    .screen-note { position: absolute; right: 18px; bottom: 16px; z-index: 25; padding: 7px 9px; border-radius: 6px; background: rgba(23,25,39,.88); color: #fff; font-size: 11px; }
+    @media (max-width: 1100px) {
+      .review-stage { padding: 14px; }
+      .screen { min-height: 760px; border-radius: 10px; }
+      .shell { grid-template-columns: 210px minmax(0,1fr); }
+      .main { padding: 24px; }
+      .filters { grid-template-columns: 1fr 1fr; }
+      .account-grid { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 760px) {
+      .review-bar { align-items: flex-start; flex-direction: column; gap: 8px; }
+      .review-tabs { width: 100%; }
+      .review-stage { padding: 0; }
+      .screen { min-height: calc(100vh - 112px); border: 0; border-radius: 0; }
+      .shell { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+      .main { padding: 20px; }
+      .field-row, .filters { grid-template-columns: 1fr; }
+      .page-head { flex-direction: column; }
+      .auth-panel { padding: 24px; }
+    }
+  </style>
+</head>
+<body>
+  <header class="review-bar">
+    <div class="review-title"><strong>Retrom · 用户管理</strong><span>静态交互评审稿 · 示例数据</span></div>
+    <nav class="review-tabs" aria-label="选择设计页面" role="tablist">
+      <button type="button" role="tab" aria-selected="true" data-screen="setup">首次设置</button>
+      <button type="button" role="tab" aria-selected="false" data-screen="login">登录</button>
+      <button type="button" role="tab" aria-selected="false" data-screen="register">邀请注册</button>
+      <button type="button" role="tab" aria-selected="false" data-screen="reset">密码重置</button>
+      <button type="button" role="tab" aria-selected="false" data-screen="account">账户设置</button>
+      <button type="button" role="tab" aria-selected="false" data-screen="users">用户管理</button>
+      <button type="button" role="tab" aria-selected="false" data-screen="createinvite">创建邀请</button>
+      <button type="button" role="tab" aria-selected="false" data-screen="drawer">管理用户</button>
+      <button type="button" role="tab" aria-selected="false" data-screen="invite">邀请结果</button>
+    </nav>
+  </header>
+
+  <main class="review-stage">
+    <section class="screen auth-screen is-active" data-panel="setup" aria-label="首次设置设计稿">
+      <div class="auth-wrap">
+        <div class="brand"><span class="brand-mark">R</span><span>Retrom</span></div>
+        <div class="auth-panel">
+          <h1>创建首位管理员</h1>
+          <p class="lead">这是这台服务器的首次设置。初始化完成后，其他账号只能通过管理员邀请创建。</p>
+          <div class="field"><label for="setup-code">初始化码</label><input id="setup-code" type="password" value="••••••••••••••••"><p class="helper">在服务器主机执行 <code>retrom setup-code</code> 获取。</p></div>
+          <div class="field-row">
+            <div class="field"><label for="setup-user">管理员用户名</label><input id="setup-user" value="admin"></div>
+            <div class="field"><label for="setup-name">显示名称</label><input id="setup-name" value="站点管理员"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="setup-password">密码</label><input id="setup-password" type="password" value="correct horse battery"></div>
+            <div class="field"><label for="setup-confirm">确认密码</label><input id="setup-confirm" type="password" value="correct horse battery"></div>
+          </div>
+          <p class="helper">至少 15 个字符，可以使用空格；不要求特定字符组合。</p>
+          <button class="primary wide" type="button">创建管理员并进入 Retrom</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen auth-screen" data-panel="login" aria-label="登录设计稿">
+      <div class="auth-wrap" style="max-width:480px">
+        <div class="brand"><span class="brand-mark">R</span><span>Retrom</span></div>
+        <div class="auth-panel">
+          <h1>登录 Retrom</h1>
+          <p class="lead">使用服务器管理员为你创建的账号继续。</p>
+          <div class="notice warning"><strong>测试模式已启用</strong><br>默认管理员为 test / test。请勿将此服务器暴露到不受信网络。</div>
+          <div class="field"><label for="login-user">用户名</label><input id="login-user" value="test" autocomplete="username"></div>
+          <div class="field"><label for="login-password">密码</label><input id="login-password" type="password" value="test" autocomplete="current-password"></div>
+          <button class="primary wide" type="button">登录</button>
+          <p class="auth-footer">新账号需要管理员邀请</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen auth-screen" data-panel="register" aria-label="邀请注册设计稿">
+      <div class="auth-wrap">
+        <div class="brand"><span class="brand-mark">R</span><span>Retrom</span></div>
+        <div class="auth-panel">
+          <h1>接受邀请</h1>
+          <p class="lead">设置账号后即可访问这台 Retrom 服务器。链接将在注册完成后立即失效。</p>
+          <div class="role-summary"><div><strong>受邀角色</strong><br><span>链接有效至 2026-08-09 16:40</span></div><span class="tag user">普通用户</span></div>
+          <div class="field-row">
+            <div class="field"><label for="reg-user">用户名</label><input id="reg-user" value="alice"></div>
+            <div class="field"><label for="reg-name">显示名称</label><input id="reg-name" value="Alice"></div>
+          </div>
+          <div class="field-row">
+            <div class="field"><label for="reg-pass">密码</label><input id="reg-pass" type="password" value="this is a longer password"></div>
+            <div class="field"><label for="reg-confirm">确认密码</label><input id="reg-confirm" type="password" value="this is a longer password"></div>
+          </div>
+          <p class="helper">至少 15 个字符，可以使用空格；不要求特定字符组合。</p>
+          <button class="primary wide" type="button">创建账号</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen auth-screen" data-panel="reset" aria-label="密码重置设计稿">
+      <div class="auth-wrap" style="max-width:520px">
+        <div class="brand"><span class="brand-mark">R</span><span>Retrom</span></div>
+        <div class="auth-panel">
+          <h1>设置新密码</h1>
+          <p class="lead">正在为账号 <strong>@alice</strong> 重置密码。此链接有效至 2026-08-09 16:40。</p>
+          <div class="field"><label for="reset-pass">新密码</label><input id="reset-pass" type="password" value="this is a newer password"><p class="helper">至少 15 个字符，可以使用空格；不要求特定字符组合。</p></div>
+          <div class="field"><label for="reset-confirm">确认新密码</label><input id="reset-confirm" type="password" value="this is a newer password"></div>
+          <button class="primary wide" type="button">更新密码并登录</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" data-panel="account" aria-label="账户设置设计稿">
+      <div class="shell">
+        <aside class="sidebar">
+          <div class="brand"><span class="brand-mark">R</span><span>Retrom</span></div>
+          <div class="nav-link">首页</div><div class="nav-link">游戏库</div><div class="nav-link">我的存档</div>
+          <div class="sidebar-spacer"></div>
+          <button class="profile-button" type="button"><strong>站点管理员</strong><span>@admin · 管理员</span></button>
+        </aside>
+        <div class="main">
+          <div class="page-head"><div><h1>账户设置</h1><p>查看当前账号并更新登录密码。</p></div></div>
+          <div class="account-grid">
+            <section class="content-panel"><h2>账号资料</h2><dl class="definition-list"><dt>用户名</dt><dd>@admin</dd><dt>显示名称</dt><dd>站点管理员</dd><dt>角色</dt><dd><span class="tag admin">管理员</span></dd><dt>状态</dt><dd><span class="tag enabled">启用</span></dd></dl></section>
+            <section class="content-panel"><h2>修改密码</h2><div class="field"><label for="old-pass">当前密码</label><input id="old-pass" type="password"></div><div class="field"><label for="new-pass">新密码</label><input id="new-pass" type="password"><p class="helper">至少 15 个字符，可以使用空格。</p></div><div class="field"><label for="confirm-pass">确认新密码</label><input id="confirm-pass" type="password"></div><button class="primary" type="button" style="margin-top:22px">更新密码</button></section>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen" data-panel="users" aria-label="用户管理设计稿">
+      <div class="shell">
+        <aside class="sidebar">
+          <div class="brand"><span class="brand-mark">R</span><span>Retrom</span></div>
+          <div class="nav-caption">管理后台</div><div class="nav-link">游戏入库</div><div class="nav-link">游戏管理</div><div class="nav-link active">用户管理</div><div class="nav-link">游戏目录</div><div class="nav-link">运行依赖</div>
+          <div class="sidebar-spacer"></div><div class="nav-link">返回用户侧</div><button class="profile-button" type="button"><strong>站点管理员</strong><span>@admin · 管理员</span></button>
+        </aside>
+        <div class="main">
+          <div class="page-head"><div><h1>用户管理</h1><p>创建邀请并管理谁可以登录；游玩记录和存档始终保持私有。</p></div><button class="primary" type="button" data-jump="createinvite">创建邀请</button></div>
+          <div class="filters"><div class="field"><label for="search-users">搜索用户</label><input id="search-users" placeholder="用户名或显示名称"></div><div class="field"><label for="role-filter">角色</label><select id="role-filter"><option>全部角色</option></select></div><div class="field"><label for="status-filter">状态</label><select id="status-filter"><option>启用与停用</option></select></div><div class="field"><label for="sort-filter">排列顺序</label><select id="sort-filter"><option>最近创建</option></select></div><button class="secondary" type="button">应用筛选</button></div>
+          <div class="filter-summary">显示 3 个账号 · 未应用搜索条件</div>
+          <div class="table-panel"><table><thead><tr><th>用户</th><th>角色</th><th>状态</th><th>最近登录</th><th>创建时间</th><th>活跃会话</th><th>操作</th></tr></thead><tbody>
+            <tr><td><div class="user-cell"><span class="avatar">站</span><div><strong>站点管理员</strong><span>@admin · 当前账号</span></div></div></td><td><span class="tag admin">管理员</span></td><td><span class="tag enabled">启用</span></td><td>2026-08-09 15:42</td><td>2026-08-09 10:12</td><td>1</td><td><button class="table-action" type="button" data-jump="drawer">管理</button></td></tr>
+            <tr><td><div class="user-cell"><span class="avatar">A</span><div><strong>Alice</strong><span>@alice</span></div></div></td><td><span class="tag user">普通用户</span></td><td><span class="tag enabled">启用</span></td><td>2026-08-09 14:06</td><td>2026-08-08 17:20</td><td>2</td><td><button class="table-action" type="button" data-jump="drawer">管理</button></td></tr>
+            <tr><td><div class="user-cell"><span class="avatar">B</span><div><strong>Bob</strong><span>@bob</span></div></div></td><td><span class="tag user">普通用户</span></td><td><span class="tag disabled">停用</span></td><td>2026-08-07 21:18</td><td>2026-08-05 09:31</td><td>0</td><td><button class="table-action" type="button" data-jump="drawer">管理</button></td></tr>
+          </tbody></table></div>
+          <details class="subsection"><summary>待用邀请 · 1</summary><div class="content-panel" style="margin-top:12px"><span class="tag user">普通用户</span>　由 @admin 创建　·　2026-08-09 16:40 到期　 <span class="tag active">待使用</span></div></details>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen with-overlay" data-panel="createinvite" aria-label="创建邀请抽屉设计稿">
+      <div class="shell" aria-hidden="true">
+        <aside class="sidebar"><div class="brand"><span class="brand-mark">R</span><span>Retrom</span></div><div class="nav-caption">管理后台</div><div class="nav-link active">用户管理</div></aside>
+        <div class="main"><div class="page-head"><div><h1>用户管理</h1><p>账号与安全状态</p></div></div><div class="table-panel" style="height:360px"></div></div>
+      </div>
+      <div class="drawer-layer">
+        <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="create-invite-title">
+          <div class="drawer-head"><div><h2 id="create-invite-title">创建邀请</h2><p class="helper">链接创建后有效一小时，并在账号创建完成后立即失效。</p></div><button class="close" type="button" aria-label="关闭">×</button></div>
+          <div class="field"><label for="invite-role">受邀角色</label><select id="invite-role"><option>普通用户</option><option selected>管理员</option></select><p class="helper">管理员可以进入管理后台；游玩记录和存档仍只对本人可见。</p></div>
+          <div class="notice info" style="margin-top:22px"><strong>邀请管理员前请再次确认</strong><br>管理员可以管理共享游戏内容、服务器设置和其他账号，但仍不能查看其他用户的私有存档。</div>
+          <label class="check-row"><input type="checkbox" checked>我确认此邀请将创建管理员账号</label>
+          <div class="drawer-actions"><button class="quiet-button" type="button">取消</button><button class="primary" type="button" data-jump="invite">创建邀请</button></div>
+        </aside>
+      </div>
+      <div class="screen-note">Drawer · 管理员确认态</div>
+    </section>
+
+    <section class="screen with-overlay" data-panel="drawer" aria-label="管理用户抽屉设计稿">
+      <div class="shell" aria-hidden="true">
+        <aside class="sidebar"><div class="brand"><span class="brand-mark">R</span><span>Retrom</span></div><div class="nav-caption">管理后台</div><div class="nav-link">游戏入库</div><div class="nav-link">游戏管理</div><div class="nav-link active">用户管理</div></aside>
+        <div class="main"><div class="page-head"><div><h1>用户管理</h1><p>账号与安全状态</p></div></div><div class="table-panel" style="height:360px"></div></div>
+      </div>
+      <div class="drawer-layer">
+        <aside class="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+          <div class="drawer-head"><div><h2 id="drawer-title">管理 Alice</h2><p class="helper">@alice · 创建于 2026-08-08 17:20</p></div><button class="close" type="button" aria-label="关闭">×</button></div>
+          <div class="field"><label for="drawer-role">角色</label><select id="drawer-role"><option>普通用户</option><option>管理员</option></select></div>
+          <div class="field"><label for="drawer-status">账号状态</label><select id="drawer-status"><option>启用</option><option>停用</option></select><p class="helper">停用会立即退出所有设备并终止待用启动会话，但保留该用户的数据。</p></div>
+          <div class="notice info" style="margin-top:22px">用户管理仅包含账号与安全状态；Alice 的游玩记录和存档保持私有。</div>
+          <div class="drawer-actions"><button class="quiet-button" type="button">取消</button><button class="primary" type="button">保存更改</button></div>
+          <div class="danger-zone"><h3>账号恢复与删除</h3><p>密码重置链接只显示一次，并在一小时后或使用后失效。</p><button class="secondary" type="button">创建密码重置链接</button><p>删除后账号不可登录、不可恢复，用户名不可复用；私有数据保留但不向管理员开放。</p><button class="danger-button" type="button">删除账号</button></div>
+        </aside>
+      </div>
+      <div class="screen-note">Drawer · 用户 alice</div>
+    </section>
+
+    <section class="screen with-overlay" data-panel="invite" aria-label="邀请链接结果设计稿">
+      <div class="shell" aria-hidden="true"><aside class="sidebar"><div class="brand"><span class="brand-mark">R</span><span>Retrom</span></div><div class="nav-caption">管理后台</div><div class="nav-link active">用户管理</div></aside><div class="main"><div class="page-head"><div><h1>用户管理</h1></div></div><div class="table-panel" style="height:360px"></div></div></div>
+      <div class="modal-layer">
+        <section class="modal" role="dialog" aria-modal="true" aria-labelledby="invite-title">
+          <div class="modal-head"><div><h2 id="invite-title">邀请已创建</h2><p class="lead" style="margin-bottom:0">将此一次性链接安全地发送给受邀者。</p></div><button class="close" type="button" aria-label="关闭">×</button></div>
+          <div class="link-box"><input aria-label="邀请链接" readonly value="https://retrom.example/register#invite=••••••••••••••••••••"><button class="secondary" type="button" id="copy-link">复制链接</button></div>
+          <div class="link-meta"><span>受邀角色</span><strong>管理员</strong><span>到期时间</span><strong>2026-08-09 16:40</strong></div>
+          <div class="notice warning"><strong>关闭后无法再次查看完整链接。</strong><br>链接将在一小时后或注册完成后失效。</div>
+          <div class="modal-actions"><button class="primary" type="button">完成</button></div>
+        </section>
+      </div>
+      <div class="screen-note">一次性结果对话框</div>
+    </section>
+  </main>
+
+  <script>
+    (() => {
+      const tabs = Array.from(document.querySelectorAll('[data-screen]'));
+      const panels = Array.from(document.querySelectorAll('[data-panel]'));
+      const show = (name) => {
+        tabs.forEach((tab) => tab.setAttribute('aria-selected', String(tab.dataset.screen === name)));
+        panels.forEach((panel) => panel.classList.toggle('is-active', panel.dataset.panel === name));
+        const activeTab = tabs.find((tab) => tab.dataset.screen === name);
+        if (activeTab) activeTab.focus({preventScroll: true});
+      };
+      tabs.forEach((tab) => tab.addEventListener('click', () => show(tab.dataset.screen)));
+      document.querySelectorAll('[data-jump]').forEach((button) => button.addEventListener('click', () => show(button.dataset.jump)));
+      const copy = document.getElementById('copy-link');
+      if (copy) copy.addEventListener('click', () => {
+        copy.textContent = '已复制';
+        window.setTimeout(() => { copy.textContent = '复制链接'; }, 1600);
+      });
+    })();
+  </script>
+</body>
+</html>

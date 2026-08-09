@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.1 |
-| 日期 | 2026-08-06 |
+| 版本 | 1.2 |
+| 日期 | 2026-08-10 |
 | 适用范围 | Retrom 一期 |
 | 技术栈 | Go、SQLite、Next.js、EmulatorJS、本地内容寻址存储、OCI/Docker 镜像 |
 
@@ -94,7 +94,7 @@ web/components/           无业务状态的通用组件
 }
 ```
 
-状态码、受信内网写请求、幂等、分页、上传及全部 route 的唯一协议见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。后端以固定 `oapi-codegen` 的 strict `net/http` 接口实现 `api/openapi.yaml`，前端由同一文件生成 TypeScript schema 并用类型化 fetch client；`make api-check` 拒绝生成物漂移。不能维护另一组手写路径、DTO 或状态码。
+状态码、认证/CSRF、幂等、分页、上传及全部 route 的唯一协议见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。后端以固定 `oapi-codegen` 的 strict `net/http` 接口实现 `api/openapi.yaml`，前端由同一文件生成 TypeScript schema 并用类型化 fetch client；`make api-check` 拒绝生成物漂移。不能维护另一组手写路径、DTO 或状态码。
 
 `strict-server` 主要约束 handler/response type，并不自动完成全部请求验证。正式 handler 外层固定使用 `github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其锁定的 `github.com/getkin/kin-openapi v0.142.0` 加载同一 OpenAPI 3.0.3，验证 path/query/header/body schema；所有固定 object schema 必须 `additionalProperties:false`。在它之前的 JSON lexical middleware 对 `application/json` body 施加 route 上限（全局最高 16 MiB），先 `utf8.Valid`，再用 token stack 拒绝重复 object key、depth >64、多个顶层值和尾随非空白，最后恢复 body 给 validator/generated binder。query middleware 根据匹配 operation 的参数集合拒绝未知名、标量重复值与非法 percent encoding。
 
@@ -168,13 +168,13 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 `make dev` 是宿主机开发入口，不是容器入口，也不得依赖 Docker daemon。它先执行幂等 `make prepare-deps`，成功后以前台 supervisor 方式同时启动：
 
-1. `go run ./cmd/retrom`，默认监听 `127.0.0.1:8080`；
+1. `go run ./cmd/retrom --mode=test`，默认监听 `127.0.0.1:8080`；启动器只用 `RETROM_MODE` 选择并转换 CLI 参数，随后在执行 Go 前移除该工具变量；
 2. `cd web && npm run dev`，默认监听所有 IPv4 接口 `0.0.0.0:3000`，可用 `NEXT_DEV_HOST` 显式收窄；
 3. Next.js dev rewrite 将 `/api/`、`/content/`、`/runtime/` 和 `/health/` 转发到本地 Go 端口，使浏览器始终通过访问页面时使用的同一 origin 请求前后端资源。开发服务不规范化 Host，也不把远程请求重定向到 localhost。
 
 脚本必须转发 `SIGINT/SIGTERM`、在任一子进程异常退出时停止另一进程并返回非零状态，退出后不得残留后台进程。每次启动还必须在仓库 `.cache/retrom/dev.pid` 中原子登记 supervisor、Go 与 Next.js 三者的 PID 和 Linux process start ticks；子进程另以独立 process group/session 启动。正常接管先用 supervisor 的 PID/start ticks、工作目录和命令行确认身份，再发送 `SIGTERM` 并等待最多 15 秒；若 supervisor 已被 `SIGKILL` 等方式终止，新实例必须分别以登记的子进程 PID/start ticks、process group/session、工作目录和完整启动命令确认遗留 Go/Next.js 身份，只有两者各自通过确认后才向对应精确 process group 发送 `SIGTERM` 并等待数据锁释放。旧版仅登记 supervisor 的两字段文件继续支持正常接管，但不能据此猜测或扫描孤儿子进程。陈旧 PID、PID 复用、伪造登记或其他工作目录的同名进程不得被终止；登记无法证明身份但数据根仍被锁定时，新实例必须在启动子进程前明确失败，不得把错误推迟成后端 `DATA_ROOT_LOCKED`，也不得按端口或进程名批量杀进程。无法在期限内退出时同样失败。启动接管以 `.cache/retrom/dev-takeover.lock` 串行化，登记文件由 owner 在退出时清理。
 
-`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。前端固定监听 `0.0.0.0:3000`，后端仍保持回环监听；仓库默认浏览器 origin 为 `http://local.sendev.cc:3000`，便于从独立开发机访问测试服务器。Next.js 开发服务器不得把 `/_next` 静态资源或 HMR 绑定到该 origin，所有常规外部 DNS 域名、IPv4 地址和 opaque origin 均可访问开发资源；Retrom 不执行 Host 重定向。非 localhost 的明文域名不是浏览器安全上下文，PPSSPP、DOSBox Pure 和 Mednafen PSX HW 等线程核心仍受 Chrome 的 `SharedArrayBuffer` 能力限制；页面只报告能力不足，不跳转到客户端 localhost。仅 `make dev` 注入 `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true` 以支持受信测试网中的明文 origin；普通服务进程默认拒绝非 localhost 的 HTTP origin。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
+`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。它默认使用全新 `.cache/retrom/user-management-v1-data` 和显式 test 模式，空库创建 `test/test`；旧 `.cache/retrom/data` 保留且不自动迁移或删除。前端固定监听 `0.0.0.0:3000`，后端仍保持回环监听；仓库默认浏览器 origin 为 `http://local.sendev.cc:3000`。仅 test 模式且 insecure flag=true 时允许明文非 localhost origin；release 无条件要求 HTTPS。线程核心仍受 Chrome 安全上下文限制。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
 
 ### 7.3 TLS 只在 NG 终结
 
@@ -219,9 +219,9 @@ RETROM_DATA_DIR/
 | 变量 | 开发默认 / 生产规则 |
 | --- | --- |
 | `RETROM_HTTP_ADDR` | `make dev` 注入 `127.0.0.1:8080`；容器部署显式设为 `0.0.0.0:8080`，没有 HTTPS 值。 |
-| `RETROM_PUBLIC_ORIGIN` | 当前仓库开发默认 `http://local.sendev.cc:3000`，可显式覆盖为实际受信开发 origin；它用于后端 cookie Secure 策略和公开 origin 配置，不限制 Next.js 开发静态资源或 HMR 的请求来源，不触发 Host 重定向，也不作为写请求授权。非 localhost 主机名必须使用 HTTPS 才能运行线程核心。生产必填且必须是无 path/query/fragment 的单个 `https` origin。 |
-| `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN` | 服务默认 `false`/未设置，仅接受 `https` 或 `http://localhost`；`make dev` 固定注入 `true`，允许显式 `RETROM_PUBLIC_ORIGIN=http://<开发域名或局域网地址>:3000`。生产必须保持未设置或 `false`。 |
-| `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.cache/retrom/data`，生产为持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
+| `RETROM_PUBLIC_ORIGIN` | 当前仓库 test 开发默认 `http://local.sendev.cc:3000`；它是 Origin 精确比较和 Invitation/PasswordReset URL 的唯一公开基址，不从 Host/X-Forwarded-Host 推导。生产必填且必须是无 userinfo/path/query/fragment/trailing slash 的单个 `https` origin。 |
+| `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN` | 服务默认 `false`；只有 CLI `--mode=test` 且值为 true 时允许明文 origin。release 即使误设 true 也拒绝 HTTP。 |
+| `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.cache/retrom/user-management-v1-data`，生产为全新持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
 | `RETROM_DB_PATH` | 未设置时派生为数据根下 `retrom.db`；若设置必须是数据根内的绝对普通文件路径。 |
 | `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；其下按 `dat/emulatorjs/<version>` 与 `runtime/emulatorjs/<version>` 布局。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。 |
 | `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer（含 prerelease）升序；当前为 `4.2.3,4.3.0-pre`。每项必须有完整 manifest/runtime/许可 payload，DAT 只在该 manifest 声明时必需。 |
@@ -238,18 +238,11 @@ RETROM_DATA_DIR/
 
 SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本化迁移升级；启动时拒绝运行比二进制更新的 schema。数据库连接池需限制写并发，业务上的多表状态转换使用事务。
 
-## 9. 无账户模式的安全边界
+## 9. 账户模式与安全边界
 
-一期访问模型是“可信局域网内共享管理员”，不是公网匿名服务：
+无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，主机操作者再运行只读 `retrom setup-code` 取得证明并通过 `/setup` 创建首位管理员；该命令不取写锁、不修改数据库且不打印路径或其他状态。`retrom admin-reset --username <existing-admin>` 必须在服务停止并取得同一 data-root lock 后，从 `/dev/tty` 隐藏读取两次 release 合规密码；它只操作现有非 DELETED ADMIN，重新启用、撤销 session并写 SYSTEM 审计，密码不允许进入参数、环境或日志。
 
-- `make dev` 的 Go 后端默认只监听回环地址，Next.js 前端默认监听 `0.0.0.0:3000` 以供受信开发局域网访问；宿主机防火墙必须限制该端口，且不得把无账户管理界面直接暴露到公网。容器端口只能留在受信内部网络，由 NG 作为唯一生产入口。
-- 对外 HTTPS 必须由前置 NG 提供；Retrom 两个应用进程只监听内部 HTTP。线程模式和 Fullscreen API 的完整能力仍依赖 NG 暴露的安全上下文。
-- 所有改变状态的请求校验同源 `Origin`/`Sec-Fetch-Site`，Cookie 若存在必须为 `SameSite=Strict`。
-- 上传只接受白名单后缀只是提示层，服务端仍需检查大小、归档结构和文件魔数。
-- 展示第三方刮削文本时按纯文本处理；不执行外部 HTML/SVG/脚本。
-- 日志不记录 ROM/BIOS 内容、launch capability、cookie/header、完整宿主路径或上游敏感响应；非秘密 `launchId` 可以记录并应与 `request_id` 关联。
-
-未来加入账户时，应在现有 `/admin` 路由组和 Profile 外键上增加认证授权，不改变 Game、Variant、SaveState 的核心归属。
+已初始化实例必须登录。ADMIN 可以管理共享游戏内容、服务器配置和账号安全状态，但不能浏览其他用户的私有游戏历史、存档、截图或 PersistentSave；主机操作者因可读取 data root/backup/进程内存属于更高信任域，部署方必须用文件权限、磁盘加密和备份访问控制保护。上传仍执行大小、归档、路径和文件魔数安全；第三方文本按纯文本展示。日志/诊断不记录密码、session/CSRF、account-link capability、完整 IP/XFF、ROM/BIOS 内容或完整宿主路径，非秘密 `launchId` 可以与 `request_id` 关联。
 
 ## 10. 可观测性与故障诊断
 
@@ -263,9 +256,9 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 一致备份使用同一 `retrom` 二进制的离线 `backup`/`restore` 子命令；没有 HTTP Backup API，也不允许在 serve/worker 仍持有数据根 lock 时复制。bundle 包含离线 checkpoint、关闭全部 handle 后复制并二次校验的单文件 SQLite 快照、该快照全部 `blobs` 行对应的 CAS 文件、未完成 UploadPart、`secrets/launch-capability.key`、已配置版本的小型 dependency manifest/SHA256SUMS，以及 `backup.json` 中唯一的 active/有序版本配置；尚在 GC 宽限期的 Blob 仍有数据库行，不能从原样快照的 bundle 中裁掉。精确 v1 目录与封闭 JSON schema见存储专题；不存在第二份运行配置文件。内置大 DAT/runtime/许可 payload 由部署方在恢复服务启动前按 manifest 预先物化，用户 DAT 已在 CAS。该流程只依赖标准 SQL/文件 API，不要求 `modernc.org/sqlite` 暴露私有 Backup API。密钥按 secret 文件处理且不出现在日志或 manifest 明文。
 
-精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复后通过全部完整性/依赖检查，再由操作者显式以新数据根启动服务；命令本身不启动服务、不覆盖旧目录。
+精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复发布前还要在单一事务撤销全部旧 AuthSession、ACTIVE AccountLink和非终态 Launch，并写 SYSTEM安全围栏审计；因此恢复后的旧 cookie/capability全部无效。命令本身不启动服务、不覆盖旧目录。
 
-升级顺序：备份 → 在依赖版本列表追加并物化新版本 → 校验目标 EmulatorJS/DAT 兼容矩阵和旧存档 → 部署仍含受保护旧版本的二进制/前端镜像并切换 active 版本 → 执行向前迁移 → 重建派生索引 → 抽样普通启动与旧存档启动。升级不得静默改写已有 GameVariant 或存档绑定；回滚切回旧 active 版本而不覆盖目录或历史 revision。
+普通追加升级顺序：备份 → 在依赖版本列表追加并物化新版本 → 校验目标 EmulatorJS/DAT 兼容矩阵和旧存档 → 部署仍含受保护旧版本的二进制/前端镜像并切换 active 版本 → 执行向前迁移 → 重建派生索引 → 抽样普通启动与旧存档启动。账户版本 020 是显式例外：001–019 数据根不能迁移，必须归档后以空根 release初始化；回退只恢复旧二进制与其旧归档，不把新账号/内容合并回旧根。升级不得静默改写已有 GameVariant 或存档绑定。
 
 ## 12. 统一验收入口
 

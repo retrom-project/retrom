@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.0 |
-| 日期 | 2026-08-06 |
+| 版本 | 1.1 |
+| 日期 | 2026-08-10 |
 | 适用范围 | Retrom 一期 |
 | 技术栈 | Go、Next.js、React、Tailwind CSS、SQLite、本地文件存储、版本锁定 EmulatorJS（4.2.3 + DOS 4.3.0-pre）、OCI/Docker 镜像 |
 
@@ -26,7 +26,7 @@
 | [核心运行时验证基线](./core-runtime-validation.md) | 28 核真实夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 和兼容覆盖 |
 | [存储与数据库](./storage-and-database.md) | SQLite 时间戳规则、表目录、CAS、归档安全、GC 和备份 |
 | [一期数据库实体与不变量](./data-model.md) | 表字段、枚举、revision、外键、索引与数据库级保护 |
-| [HTTP API、上传与启动凭据契约](./http-api-contract.md) | JSON/错误协议、上传分块、受信内网写请求、launch cookie、内容缓存和路由 |
+| [HTTP API、上传与启动凭据契约](./http-api-contract.md) | JSON/错误协议、认证/CSRF、上传分块、launch cookie、内容缓存和路由 |
 | [第三方运行时与 DAT 依赖管理](./dependency-management.md) | 小型 manifest、构建前物化、完整性校验、镜像纳入与升级规则 |
 | [后端、API 与运行维护](./backend-api-and-operations.md) | Go 模块、API、任务队列、文件端点、安全、日志和部署 |
 | [工程质量、Lint 与测试规范](./engineering-quality-and-testing.md) | Go/Next.js lint、统一门禁、关键路径测试、bug 回归固化和 CI |
@@ -46,18 +46,20 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 使用 Hasheous 的免登录哈希查询作为一期元信息候选源；不集成 ScreenScraper。
 - 使用与具体 EmulatorJS/core artifact 绑定的 DAT 识别 Arcade machine、parent ROM 和 BIOS 依赖；DAT 不承担元信息刮削。
 - 支持游戏元信息、文件 revision、游戏目录、BIOS 和用户 DAT 的管理。
+- 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
+- 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
 - 支持 `fceumm`、`snes9x`、`gambatte`、`mgba`、`mame2003_plus`、`mame2003`、`fbneo`、`dosbox_pure`。
 
 一期不包含：
 
-- 注册、登录、权限隔离和独立用户账户。
+- 多因素认证、WebAuthn、自助邮件找回密码和外部身份提供商。
 - 移动端及 Chrome 之外的浏览器兼容性承诺。
-- 公网匿名开放。
+- 公网匿名开放或无需登录的管理入口。
 - 异地联机房间、匹配、聊天、信令或 TURN。
 - Arcade Merged ROMset。
 - 成就、评分、评论、推荐算法和社交关系。
 
-“和朋友一起玩”在一期指共享站点，以及 EmulatorJS/core 本身支持的本地多人输入；不等于互联网实时联机。所有人暂时共享一个内置 `local` Profile、存档和游玩数据。
+“和朋友一起玩”在一期指通过管理员邀请共享同一游戏目录，以及 EmulatorJS/core 本身支持的本地多人输入；不等于互联网实时联机。每个账号固定拥有一个不可复用的 Profile，游戏目录共享，最近游玩、Launch、存档和 PersistentSave 私有。
 
 ## 3. 关键产品与技术决策
 
@@ -129,6 +131,14 @@ flowchart LR
 
 SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.js + React + Tailwind CSS 位于仓库根目录 `web/`。
 
+### 3.7 账户边界与破坏性数据版本
+
+- 默认 `release` 模式的空实例进入 `PENDING`，只有持有主机侧 `retrom setup-code` 输出的人能创建首位启用管理员；初始化完成后不可重开。
+- `--mode=test` 只供明确的开发/验收数据根使用，会在空库创建 `test/test` 并显示警告；除此之外不放宽认证、授权、Origin、CSRF、cookie 或数据隔离。
+- 已初始化实例的普通 API 要求有效 AuthSession，`/api/v1/admin/**` 另要求 `ADMIN`。普通管理员只管理账号和共享内容，不能查看其他用户的存档名称、截图、游玩记录或保存内容。
+- 账户版本以 migration 020 为边界。任何 001–019 旧数据库在执行 DDL/DML 前以 `DATABASE_REBUILD_REQUIRED` 拒绝；发布时归档旧数据根并使用全新空根，不迁移旧 `local` 数据。
+- Session、Invitation、PasswordReset 和 Launch 都是服务端可撤销能力。停用/删除账号和恢复安全围栏会同步撤销相应凭据；密码变化撤销 AuthSession，但不扩大 Launch 权限。
+
 ## 4. 系统上下文
 
 ~~~mermaid
@@ -147,10 +157,11 @@ flowchart LR
 
 部署与安全边界：
 
-- 一期默认仅面向可信局域网；没有账户时，所有访问者都可使用管理功能。
+- 所有页面经同源认证入口；匿名用户只能访问初始化、登录、邀请注册和密码重置页面，普通用户不能访问管理 API。
 - 两个应用只监听明文 HTTP；生产环境只向受信容器/主机网络开放，由前置 NG 终结 TLS 并提供 HTTPS。
 - ROM、BIOS、存档等只通过短时 LaunchSession capability cookie 授权的同源端点提供；URL 只有非秘密 `launchId`，不暴露宿主路径或内容 hash。
 - NG 必须让页面、EmulatorJS 与受控内容端点保持同源，并保留/设置正确的 COOP/COEP/CORP 响应头；DOSBox Pure 等线程模式依赖该安全上下文。
+- 所有浏览器写入校验精确公开 `Origin`；已登录写入另校验内存中的 CSRF token。可信代理 CIDR 只用于规范化限流客户端 IP，不构成授权。
 - EmulatorJS、core artifact 和 DAT 均锁定版本，不依赖浮动 CDN。
 
 ## 5. 核心领域关系
@@ -228,6 +239,8 @@ erDiagram
 - 首页：有效游玩时长、继续游玩、最近游玩和最新添加游戏。
 - 游戏库：搜索、平台/游戏目录筛选和已发布游戏卡片。
 - 我的存档：带截图的手动存档及快速继续。
+- 最近游玩：只展示当前账号的启动历史。
+- 账户设置：只读账号资料和密码轮换。
 - 管理后台：固定在底部，切换整套管理菜单。
 
 管理后台左侧导航：
@@ -239,6 +252,7 @@ erDiagram
   - 审核历史
 - 游戏管理
 - 游戏目录
+- 用户管理
 - BIOS 管理（包含“BIOS 文件”和“Arcade DAT 版本”视图）
 
 “游戏入库”是可点击的父级总览；四个子项使用明确缩进并保持同级。进入子页时父项保留上下文高亮，当前子项使用强高亮。游戏详情不是左侧一级菜单。它只能从游戏库卡片、首页最近游戏或资源详情链接进入；进入时左侧仍保持“游戏库”上下文。存档的主按钮直接启动，标题/次要操作才进入游戏详情。
@@ -247,6 +261,8 @@ erDiagram
 
 | 页面 | 路由 |
 | --- | --- |
+| 首次设置 / 登录 / 邀请注册 / 密码重置 | `/setup`、`/login`、`/register`、`/reset-password` |
+| 当前账户 | `/account` |
 | 首页 / 游戏库 / 存档 | `/`、`/library`、`/saves` |
 | 游戏详情 | `/games/:gameId` |
 | 持久 Player Shell | `/play/:launchId` |
@@ -255,6 +271,7 @@ erDiagram
 | 待审核 / 审核详情 / 历史 | `/admin/reviews`、`/admin/reviews/:itemId`、`/admin/reviews/history` |
 | 游戏管理 / 详情 | `/admin/games`、`/admin/games/:gameId` |
 | 游戏目录 | `/admin/platform-instances` |
+| 用户管理 | `/admin/users` |
 | BIOS 与 DAT | `/admin/bios`、`/admin/bios/dats` |
 
 完整页面状态、4K 密度和响应式上限见 [UI 与交互规范](./ui-specification.md)。
@@ -345,13 +362,14 @@ Agent 不得根据本总览自行省略或合并 Case，尤其不得把二十八
 
 ## 12. 已锁定边界与后续议题
 
-以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；所有访问者共享 `local` Profile 和管理权限；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
+以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；必须登录且账号 Profile 私有；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
 
-异地网络联机、账户/权限、CHD 和 Merged ROMset 只能作为未来版本提案，必须新增设计、威胁模型、迁移和验收 Case；一期 agent 不得预留半实现入口或用占位逻辑宣称支持。
+异地网络联机、MFA/外部身份、CHD 和 Merged ROMset 只能作为未来版本提案，必须新增设计、威胁模型、迁移和验收 Case；一期 agent 不得预留半实现入口或用占位逻辑宣称支持。
 
 ## 13. 评审入口与参考
 
 - [打开可交互 UI 设计稿](./design/retrom-ui-review.html)
+- [打开账户与用户管理交互设计稿](./design/user-management-ui-review.html)
 - [EmulatorJS Options](https://emulatorjs.org/docs/options/)
 - [EmulatorJS Cores](https://emulatorjs.org/docs4devs/cores/)
 - [EmulatorJS v4.2.3](https://github.com/EmulatorJS/EmulatorJS/releases/tag/v4.2.3)
