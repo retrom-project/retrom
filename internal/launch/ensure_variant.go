@@ -52,6 +52,7 @@ func validationDedupeKey(variantID, digest string) string {
 //nolint:funlen,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) ensureVariant(
 	ctx context.Context,
+	profileID string,
 	request CreateRequest,
 	requestedCore string,
 	launchWhenReady bool,
@@ -174,7 +175,7 @@ AND current_revision_id IS NOT ?
 			return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 		}
 		if launchWhenReady {
-			return service.Create(ctx, request)
+			return service.Create(ctx, profileID, request)
 		}
 		return Created{Status: "READY"}, nil
 	}
@@ -215,6 +216,7 @@ func (service *Service) EnsureVariantForMove(ctx context.Context, gameID, coreID
 	selected := coreID
 	return service.ensureVariant(
 		ctx,
+		"",
 		CreateRequest{
 			GameID:             gameID,
 			CoreID:             &selected,
@@ -575,7 +577,7 @@ execution_started_at_ms=?,
 execution_deadline_at_ms=?,
 leased_until_ms=?,
 heartbeat_at_ms=?,
-worker_id='local',
+worker_id='in-process',
 version=version+1,
 updated_at_ms=?
 WHERE id=?

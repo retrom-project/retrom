@@ -215,7 +215,7 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 	if gameDetail.Code != http.StatusNotFound {
 		t.Fatalf("disabled platform game detail = %d %s", gameDetail.Code, gameDetail.Body.String())
 	}
-	if _, err := server.launcher.Create(context.Background(), launch.CreateRequest{
+	if _, err := server.launcher.Create(context.Background(), "local", launch.CreateRequest{
 		GameID: gameID, ReturnTo: "/games/" + gameID,
 		ClientCapabilities: launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true},
 	}); !errors.Is(err, launch.ErrBlocked) {
@@ -440,6 +440,7 @@ WHERE g.id=?
 	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	pending, err := server.launcher.Create(
 		ctx,
+		"local",
 		launch.CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities},
 	)
 	if err != nil || pending.Status != "VALIDATION_PENDING" || pending.JobID == "" {
@@ -447,6 +448,7 @@ WHERE g.id=?
 	}
 	saved, err := server.launcher.Create(
 		ctx,
+		"local",
 		launch.CreateRequest{
 			GameID: gameID, SaveStateID: &saveID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities,
 		},
@@ -546,6 +548,7 @@ func TestGameSoftDeleteIsIdempotentRevokesLaunchAndPreservesReferences(t *testin
 	ctx := context.Background()
 	created, err := server.launcher.Create(
 		ctx,
+		"local",
 		launch.CreateRequest{
 			GameID:   gameID,
 			ReturnTo: "/games/" + gameID,

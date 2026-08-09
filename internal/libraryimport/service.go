@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentmanifest"
@@ -1123,6 +1124,10 @@ type Service struct {
 	blobs    *blobstore.Store
 	now      func() time.Time
 	scraper  *metadatascrape.Service
+}
+
+func reviewActor(ctx context.Context) authn.Actor {
+	return authn.ActorFromContext(ctx, "release-setup")
 }
 
 func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
@@ -2299,6 +2304,7 @@ created_at_ms) VALUES(?,
 	}, nil
 }
 
+//nolint:funlen // Resolution rows and aggregate repair must commit as one auditable operation.
 func recordImportReconfiguration(
 	ctx context.Context,
 	transaction *sql.Tx,
@@ -2306,19 +2312,24 @@ func recordImportReconfiguration(
 	replacementImportJobID string,
 	now int64,
 ) error {
+	actor := reviewActor(ctx)
 	for _, uploadFileID := range input.sourceFileIDs {
 		result, err := transaction.ExecContext(ctx, `
 INSERT INTO import_job_file_resolutions(import_job_id,
 upload_file_id,
 action,
 replacement_import_job_id,
-actor,
+actor_kind,
+actor_user_id,
+actor_label,
 created_at_ms)
 SELECT f.import_job_id,
 f.upload_file_id,
 'RECONFIGURED',
 ?,
-'local',
+?,
+?,
+?,
 ?
 FROM import_job_files f
 LEFT JOIN import_job_file_resolutions resolution
@@ -2328,7 +2339,7 @@ WHERE f.import_job_id=?
 AND f.upload_file_id=?
 AND f.disposition='REJECTED'
 AND resolution.upload_file_id IS NULL
-`, replacementImportJobID, now, input.sourceImportJobID, uploadFileID)
+`, replacementImportJobID, actor.Kind, actor.UserID, actor.Label, now, input.sourceImportJobID, uploadFileID)
 		if err != nil {
 			return fmt.Errorf("libraryimport/reconfigure: %w", err)
 		}
@@ -3018,11 +3029,14 @@ WHERE id=?
 			"screenshotCandidateAssetIds": screenshotIDs,
 		},
 	)
+	actor := reviewActor(ctx)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,
 import_item_id,
 event_type,
-actor,
+actor_kind,
+actor_user_id,
+actor_label,
 before_json,
 after_json,
 diff_json,
@@ -3033,7 +3047,9 @@ reason,
 created_at_ms) VALUES(?,
 ?,
 'APPROVED',
-'local',
+?,
+?,
+?,
 ?,
 ?,
 ?,
@@ -3045,6 +3061,9 @@ created_at_ms) VALUES(?,
 `,
 		eventID.String(),
 		itemID,
+		actor.Kind,
+		actor.UserID,
+		actor.Label,
 		string(beforeJSON),
 		string(afterJSON),
 		string(diffJSON),

@@ -20,7 +20,7 @@ import (
 	"retrom/internal/store"
 )
 
-func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *accounts.Service, *retromruntime.Credentials) {
+func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *retromruntime.Credentials) {
 	t.Helper()
 	root := t.TempDir()
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000).UTC() }
@@ -58,12 +58,12 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *accounts.Servi
 		},
 		database.SQL, dependencySet, blobs, credentials, accountService, accountService, now,
 	)
-	return server, accountService, credentials
+	return server, credentials
 }
 
 func TestAuthHTTPTestLoginCookieCSRFAndLogout(t *testing.T) {
 	t.Parallel()
-	server, _, _ := newAuthHTTPServer(t, config.ModeTest)
+	server, _ := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
 	contextRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(contextRecorder, httptest.NewRequest(http.MethodGet, "/api/v1/auth/context", nil))
@@ -119,7 +119,7 @@ func TestAuthHTTPTestLoginCookieCSRFAndLogout(t *testing.T) {
 	logout := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout", strings.NewReader(`{}`))
 	logout.Header.Set("Content-Type", "application/json")
 	logout.Header.Set("Origin", "http://localhost:3000")
-	logout.Header.Set("X-Retrom-CSRF", csrfToken)
+	logout.Header.Set("X-Retrom-Csrf", csrfToken)
 	logout.AddCookie(cookies[0])
 	logoutRecorder := httptest.NewRecorder()
 	handler.ServeHTTP(logoutRecorder, logout)
@@ -130,7 +130,7 @@ func TestAuthHTTPTestLoginCookieCSRFAndLogout(t *testing.T) {
 
 func TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin(t *testing.T) {
 	t.Parallel()
-	server, _, credentials := newAuthHTTPServer(t, config.ModeRelease)
+	server, credentials := newAuthHTTPServer(t, config.ModeRelease)
 	handler := server.Handler()
 	ordinary := httptest.NewRecorder()
 	handler.ServeHTTP(ordinary, httptest.NewRequest(http.MethodGet, "/api/v1/home", nil))

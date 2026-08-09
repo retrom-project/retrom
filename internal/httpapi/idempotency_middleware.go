@@ -13,6 +13,8 @@ import (
 	"net/http"
 	"strings"
 	"time"
+
+	"retrom/internal/authn"
 )
 
 const operationIDContextKey contextKey = "openapi-operation-id"
@@ -63,6 +65,11 @@ func (server *Server) idempotencyHandler(next http.Handler) http.Handler {
 			next.ServeHTTP(writer, request)
 			return
 		}
+		principal, _ := authn.PrincipalFromContext(request.Context())
+		principalID := principal.UserID
+		if principalID == "" {
+			principalID = "SYSTEM"
+		}
 		contents, err := io.ReadAll(io.LimitReader(request.Body, (16<<20)+1))
 		if err != nil || len(contents) > 16<<20 {
 			writeError(
@@ -76,7 +83,7 @@ func (server *Server) idempotencyHandler(next http.Handler) http.Handler {
 			return
 		}
 		request.Body = io.NopCloser(bytes.NewReader(contents))
-		digest, ok := semanticRequestDigest(request, operationID, contents)
+		digest, ok := semanticRequestDigest(request, principalID, operationID, contents)
 		if !ok {
 			next.ServeHTTP(writer, request)
 			return
@@ -91,10 +98,12 @@ DELETE
 FROM idempotency_records
 WHERE operation_id=?
 AND key=?
+AND principal_id=?
 AND expires_at_ms<=?
 `,
 			operationID,
 			key,
+			principalID,
 			now,
 		)
 		var storedDigest, headersJSON string
@@ -108,7 +117,8 @@ response_body
 FROM idempotency_records
 WHERE operation_id=?
 AND key=?
-`, operationID, key).
+AND principal_id=?
+`, operationID, key, principalID).
 			Scan(&storedDigest, &storedStatus, &headersJSON, &storedBody)
 		if err == nil {
 			if storedDigest != digest {
@@ -149,7 +159,8 @@ AND key=?
 			_, err = server.database.ExecContext(
 				request.Context(),
 				`
-INSERT INTO idempotency_records(operation_id,
+INSERT INTO idempotency_records(principal_id,
+operation_id,
 key,
 request_digest,
 http_status,
@@ -163,8 +174,10 @@ expires_at_ms) VALUES(?,
 ?,
 ?,
 ?,
+?,
 ?)
 `,
+				principalID,
 				operationID,
 				key,
 				digest,
@@ -183,7 +196,7 @@ expires_at_ms) VALUES(?,
 	})
 }
 
-func semanticRequestDigest(request *http.Request, operationID string, contents []byte) (string, bool) {
+func semanticRequestDigest(request *http.Request, principalID, operationID string, contents []byte) (string, bool) {
 	var body any
 	mediaType := ""
 	if request.Header.Get("Content-Type") != "" {
@@ -200,7 +213,8 @@ func semanticRequestDigest(request *http.Request, operationID string, contents [
 	}
 	canonical, err := json.Marshal(map[string]any{
 		"body": body, "ifMatch": nullableHeader(request.Header.Get("If-Match")), "mediaType": mediaType,
-		"operationId": operationID, "path": request.URL.EscapedPath(), "query": request.URL.Query(),
+		"operationId": operationID, "path": request.URL.EscapedPath(), "principalId": principalID,
+		"query": request.URL.Query(),
 	})
 	if err != nil {
 		return "", false

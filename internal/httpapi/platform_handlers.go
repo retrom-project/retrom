@@ -15,6 +15,7 @@ import (
 	"unicode"
 	"unicode/utf8"
 
+	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/cursor"
 
@@ -284,11 +285,14 @@ func insertAudit(
 		value, _ := json.Marshal(after)
 		afterJSON = string(value)
 	}
+	actor := authn.ActorFromContext(request.Context(), "release-setup")
 	_, err = transaction.ExecContext(
 		request.Context(),
 		`
 INSERT INTO audit_events(id,
-actor,
+actor_kind,
+actor_user_id,
+actor_label,
 action,
 resource_type,
 resource_id,
@@ -297,7 +301,9 @@ after_json,
 diff_json,
 request_id,
 created_at_ms) VALUES(?,
-'local',
+?,
+?,
+?,
 ?,
 ?,
 ?,
@@ -308,6 +314,9 @@ created_at_ms) VALUES(?,
 ?)
 `,
 		id.String(),
+		actor.Kind,
+		actor.UserID,
+		actor.Label,
 		action,
 		resourceType,
 		resourceID,
@@ -936,6 +945,7 @@ func (server *Server) previewDefaultCore(writer http.ResponseWriter, request *ht
 	}
 	digest := impactDigest(impact)
 	page, nextCursor, err := server.paginateCoreImpact(
+		request.Context(),
 		request.PathValue("platformInstanceId"),
 		body.CoreID,
 		expected,
@@ -967,6 +977,7 @@ func (server *Server) previewDefaultCore(writer http.ResponseWriter, request *ht
 }
 
 func (server *Server) paginateCoreImpact(
+	ctx context.Context,
 	instanceID, coreID string,
 	expected int64,
 	digest string,
@@ -974,8 +985,10 @@ func (server *Server) paginateCoreImpact(
 	cursorToken *string,
 	limit int,
 ) ([]map[string]any, *string, error) {
+	principal, _ := authn.PrincipalFromContext(ctx)
 	filterDigest := cursor.FilterDigest(
 		map[string]any{
+			"principalId":             principal.UserID,
 			"platformInstanceId":      instanceID,
 			"platformInstanceVersion": expected,
 			"coreId":                  coreID,

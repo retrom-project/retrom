@@ -74,23 +74,29 @@ func (server *Server) authLogin(writer http.ResponseWriter, request *http.Reques
 
 func (server *Server) authLogout(writer http.ResponseWriter, request *http.Request) {
 	token := server.authCookieToken(request)
-	if token != "" {
-		session, err := server.accounts.Authenticate(request.Context(), token)
-		if err == nil {
-			if !accounts.MatchesCSRF(token, request.Header.Get("X-Retrom-CSRF")) {
-				writeError(writer, request, http.StatusForbidden, "CSRF_VALIDATION_FAILED", "请求验证失败", map[string]any{})
-				return
-			}
-			if err := server.accounts.Logout(request.Context(), session.Principal.SessionID); err != nil {
-				server.databaseError(writer, request, err)
-				return
-			}
-		}
+	if token != "" && !server.revokeLogoutSession(writer, request, token) {
+		return
 	}
 	server.clearAuthCookies(writer)
 	writer.Header().Set("Clear-Site-Data", `"cache", "cookies", "storage"`)
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.WriteHeader(http.StatusNoContent)
+}
+
+func (server *Server) revokeLogoutSession(writer http.ResponseWriter, request *http.Request, token string) bool {
+	session, err := server.accounts.Authenticate(request.Context(), token)
+	if err != nil {
+		return true
+	}
+	if !accounts.MatchesCSRF(token, request.Header.Get("X-Retrom-Csrf")) {
+		writeError(writer, request, http.StatusForbidden, "CSRF_VALIDATION_FAILED", "请求验证失败", map[string]any{})
+		return false
+	}
+	if err := server.accounts.Logout(request.Context(), session.Principal.SessionID); err != nil {
+		server.databaseError(writer, request, err)
+		return false
+	}
+	return true
 }
 
 func (server *Server) authChangePassword(writer http.ResponseWriter, request *http.Request) {
@@ -157,7 +163,10 @@ func (server *Server) writeAccountError(writer http.ResponseWriter, request *htt
 	case errors.Is(err, accounts.ErrInitializationDone):
 		writeError(writer, request, http.StatusConflict, "INITIALIZATION_ALREADY_COMPLETED", "实例已完成初始化", map[string]any{})
 	case errors.As(err, &password):
-		writeError(writer, request, http.StatusUnprocessableEntity, "PASSWORD_POLICY_VIOLATION", "密码不符合要求", map[string]any{"reasonCode": password.Reason})
+		writeError(
+			writer, request, http.StatusUnprocessableEntity, "PASSWORD_POLICY_VIOLATION", "密码不符合要求",
+			map[string]any{"reasonCode": password.Reason},
+		)
 	case errors.Is(err, authn.ErrUsernameInvalid), errors.Is(err, authn.ErrDisplayInvalid):
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "账号信息无效", map[string]any{})
 	default:

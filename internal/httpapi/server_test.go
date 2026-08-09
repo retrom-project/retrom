@@ -88,6 +88,50 @@ func TestWritesIgnoreBrowserOriginWithoutEnablingCORS(t *testing.T) {
 	}
 }
 
+func TestIdempotencyRecordsAreScopedToAuthenticatedUser(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	var calls int
+	handler := server.idempotencyHandler(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		calls++
+		principal, _ := authn.PrincipalFromContext(request.Context())
+		writeJSON(writer, http.StatusCreated, map[string]string{"userId": principal.UserID})
+	}))
+	key := uuid.NewString()
+	send := func(userID string) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(http.MethodPost, "/api/v1/test-principal-scope", strings.NewReader(`{"value":1}`))
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", key)
+		ctx := context.WithValue(request.Context(), operationIDContextKey, "PostPrincipalScopeFixture")
+		ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: userID, ProfileID: userID + "-profile"})
+		request = request.WithContext(ctx)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	const userA = "01980000-0000-7000-8000-000000009991"
+	const userB = "01980000-0000-7000-8000-000000009992"
+	firstA := send(userA)
+	firstB := send(userB)
+	replayA := send(userA)
+	if firstA.Code != http.StatusCreated || firstB.Code != http.StatusCreated || replayA.Code != http.StatusCreated ||
+		!strings.Contains(firstA.Body.String(), userA) || !strings.Contains(firstB.Body.String(), userB) ||
+		replayA.Header().Get("X-Retrom-Idempotent-Replay") != "true" || calls != 2 {
+		t.Fatalf(
+			"principal idempotency responses: A=%d %s B=%d %s replay=%d %s calls=%d",
+			firstA.Code, firstA.Body.String(), firstB.Code, firstB.Body.String(),
+			replayA.Code, replayA.Body.String(), calls,
+		)
+	}
+	var records int
+	if err := server.database.QueryRow(
+		`SELECT count(*) FROM idempotency_records WHERE operation_id='postPrincipalScopeFixture' AND key=?`,
+		key,
+	).Scan(&records); err != nil || records != 2 {
+		t.Fatalf("principal idempotency records = %d, error=%v", records, err)
+	}
+}
+
 func TestRuntimeAllowlistRejectsUnknownPath(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
@@ -281,7 +325,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 21 ||
+		response.DatabaseSchemaVersion != 23 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -850,9 +894,9 @@ UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
 	}
 	if _, err := server.database.Exec(`
 UPDATE import_items SET state='PUBLISHED' WHERE id=?;
-INSERT INTO review_events(id,import_item_id,event_type,actor,before_json,after_json,diff_json,
+INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,after_json,diff_json,
 config_evidence_json,dat_evidence_json,provider_evidence_json,reason,created_at_ms)
-VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','local',?,
+VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','SYSTEM',NULL,'release-setup',?,
 '{"schemaVersion":1,"decision":"APPROVED"}','{}','{}','{}','{}',NULL,?)
 `, itemID, itemID, `{"schemaVersion":1,"selectedAssets":{"coverCandidateAssetId":"`+readyCoverAssetID+`"}}`, timestamp); err != nil {
 		t.Fatal(err)
@@ -1293,6 +1337,99 @@ VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,'本次游玩存档',240000,1,?,?,NULL)
 		screenshotResponse.Header().Get("Content-Type") != "image/png" {
 		t.Fatalf("save screenshot = %d headers=%v body=%q", screenshotResponse.Code, screenshotResponse.Header(), screenshotResponse.Body.String())
 	}
+	localPage := httptest.NewRecorder()
+	server.Handler().ServeHTTP(localPage, httptest.NewRequest(http.MethodGet, "/api/v1/saves?limit=1", nil))
+	var localPageBody struct {
+		NextCursor *string `json:"nextCursor"`
+	}
+	if err := json.Unmarshal(localPage.Body.Bytes(), &localPageBody); err != nil || localPageBody.NextCursor == nil {
+		t.Fatalf("local save cursor = %d %s, error=%v", localPage.Code, localPage.Body.String(), err)
+	}
+	const otherProfileID = "01980000-0000-7000-8000-000000009997"
+	if _, err := server.database.Exec(
+		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Other Player',?)`,
+		otherProfileID,
+		now,
+	); err != nil {
+		t.Fatal(err)
+	}
+	server.authenticator = fixedAuthenticator{Principal: authn.Principal{
+		UserID: "01980000-0000-7000-8000-000000009996", ProfileID: otherProfileID, Username: "other-user",
+		DisplayName: "Other Player", Role: "ADMIN", SessionID: "01980000-0000-7000-8000-000000009995",
+	}}
+	otherDetail := httptest.NewRecorder()
+	server.Handler().ServeHTTP(otherDetail, httptest.NewRequest(http.MethodGet, "/api/v1/games/"+gameID, nil))
+	if otherDetail.Code != http.StatusOK || !strings.Contains(otherDetail.Body.String(), `"activeDurationMs":0`) ||
+		!strings.Contains(otherDetail.Body.String(), `"saveStateCount":0`) ||
+		!strings.Contains(otherDetail.Body.String(), `"saveStates":[]`) {
+		t.Fatalf("other profile game detail = %d: %s", otherDetail.Code, otherDetail.Body.String())
+	}
+	for path, expectedFragment := range map[string]string{
+		"/api/v1/saves":        `"items":[]`,
+		"/api/v1/recent-games": `"items":[]`,
+	} {
+		response := httptest.NewRecorder()
+		server.Handler().ServeHTTP(response, httptest.NewRequest(http.MethodGet, path, nil))
+		if response.Code != http.StatusOK || !strings.Contains(response.Body.String(), expectedFragment) {
+			t.Fatalf("other profile %s = %d: %s", path, response.Code, response.Body.String())
+		}
+	}
+	otherHome := httptest.NewRecorder()
+	server.Handler().ServeHTTP(otherHome, httptest.NewRequest(http.MethodGet, "/api/v1/home", nil))
+	if otherHome.Code != http.StatusOK || !strings.Contains(otherHome.Body.String(), `"recentSaves":[]`) ||
+		!strings.Contains(otherHome.Body.String(), `"recentGames":[]`) ||
+		!strings.Contains(otherHome.Body.String(), `"featuredGame":null`) ||
+		!strings.Contains(otherHome.Body.String(), `"latestGames":[`) {
+		t.Fatalf("other profile home = %d: %s", otherHome.Code, otherHome.Body.String())
+	}
+	foreignCursor := httptest.NewRecorder()
+	server.Handler().ServeHTTP(
+		foreignCursor,
+		httptest.NewRequest(http.MethodGet, "/api/v1/saves?limit=1&cursor="+url.QueryEscape(*localPageBody.NextCursor), nil),
+	)
+	if foreignCursor.Code != http.StatusBadRequest ||
+		!strings.Contains(foreignCursor.Body.String(), `"code":"INVALID_CURSOR"`) {
+		t.Fatalf("cross-profile cursor = %d: %s", foreignCursor.Code, foreignCursor.Body.String())
+	}
+	foreignScreenshot := httptest.NewRecorder()
+	server.Handler().ServeHTTP(
+		foreignScreenshot,
+		httptest.NewRequest(http.MethodGet, saveStateScreenshotURL(saveStateID), nil),
+	)
+	if foreignScreenshot.Code != http.StatusNotFound ||
+		!strings.Contains(foreignScreenshot.Body.String(), `"code":"SAVE_SCREENSHOT_NOT_FOUND"`) {
+		t.Fatalf("foreign screenshot = %d: %s", foreignScreenshot.Code, foreignScreenshot.Body.String())
+	}
+	foreignPatchRequest := httptest.NewRequest(
+		http.MethodPatch,
+		"/api/v1/saves/"+saveStateID,
+		strings.NewReader(`{"name":"Cross-account overwrite"}`),
+	)
+	foreignPatchRequest.Header.Set("Content-Type", "application/json")
+	foreignPatchRequest.Header.Set("If-Match", `"v1"`)
+	foreignPatch := httptest.NewRecorder()
+	server.Handler().ServeHTTP(foreignPatch, foreignPatchRequest)
+	if foreignPatch.Code != http.StatusNotFound ||
+		!strings.Contains(foreignPatch.Body.String(), `"code":"SAVE_STATE_NOT_FOUND"`) {
+		t.Fatalf("foreign save patch = %d: %s", foreignPatch.Code, foreignPatch.Body.String())
+	}
+	foreignDeleteRequest := httptest.NewRequest(http.MethodDelete, "/api/v1/saves/"+saveStateID, nil)
+	foreignDeleteRequest.Header.Set("If-Match", `"v1"`)
+	foreignDelete := httptest.NewRecorder()
+	server.Handler().ServeHTTP(foreignDelete, foreignDeleteRequest)
+	if foreignDelete.Code != http.StatusNotFound ||
+		!strings.Contains(foreignDelete.Body.String(), `"code":"SAVE_STATE_NOT_FOUND"`) {
+		t.Fatalf("foreign save delete = %d: %s", foreignDelete.Code, foreignDelete.Body.String())
+	}
+	var preservedName string
+	var preservedDeletedAt sql.NullInt64
+	if err := server.database.QueryRow(
+		`SELECT name,deleted_at_ms FROM save_states WHERE id=?`,
+		saveStateID,
+	).Scan(&preservedName, &preservedDeletedAt); err != nil || preservedName != "入口存档" || preservedDeletedAt.Valid {
+		t.Fatalf("foreign mutation changed save: name=%q deleted=%v error=%v", preservedName, preservedDeletedAt, err)
+	}
+	server.authenticator = testAuthenticator{}
 	if _, err := server.database.Exec("UPDATE save_states SET deleted_at_ms=? WHERE id=?", now+1, saveStateID); err != nil {
 		t.Fatal(err)
 	}
@@ -1759,15 +1896,16 @@ NULL,
 	if reusedSlug.Code != http.StatusCreated || !strings.Contains(reusedSlug.Body.String(), `"slug":"handheld-zone-3"`) {
 		t.Fatalf("deleted platform slug was reused = %d %s", reusedSlug.Code, reusedSlug.Body.String())
 	}
-	var actions int
+	var actions, distinctActors int
+	var actorKind string
 	if err := server.database.QueryRow(`
-SELECT count(*)
+SELECT count(*),count(DISTINCT actor_user_id),min(actor_kind)
 FROM audit_events
 WHERE resource_type='PLATFORM_INSTANCE'
 AND resource_id=?
-`, createdBody.ID).Scan(&actions); err != nil ||
-		actions != 4 {
-		t.Fatalf("platform audit actions = %d, error=%v", actions, err)
+`, createdBody.ID).Scan(&actions, &distinctActors, &actorKind); err != nil ||
+		actions != 4 || distinctActors != 1 || actorKind != "USER" {
+		t.Fatalf("platform audit actions = %d actors=%d/%s, error=%v", actions, distinctActors, actorKind, err)
 	}
 }
 
@@ -2097,6 +2235,12 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','测试玩家
 `); err != nil {
 		t.Fatalf("seed service fixture profile: %v", err)
 	}
+	if _, err := database.SQL.Exec(`
+INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
+VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin','ADMIN','ENABLED',0,0)
+`); err != nil {
+		t.Fatalf("seed service fixture user: %v", err)
+	}
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	if err != nil {
 		t.Fatalf("load dependencies: %v", err)
@@ -2125,6 +2269,10 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','测试玩家
 
 type testAuthenticator struct{}
 
+type fixedAuthenticator struct {
+	Principal authn.Principal
+}
+
 func testSessionCredentials() (*http.Cookie, string) {
 	return &http.Cookie{Name: "retrom_test", Value: "test-only", Path: "/"}, "test-only"
 }
@@ -2135,4 +2283,8 @@ func (testAuthenticator) Authenticate(context.Context, string) (accounts.Session
 		DisplayName: "Test Admin", Role: "ADMIN", SessionID: "01980000-0000-7000-8000-000000009998",
 	}
 	return accounts.Session{Principal: principal, CookieToken: "test-only"}, nil
+}
+
+func (authenticator fixedAuthenticator) Authenticate(context.Context, string) (accounts.Session, error) {
+	return accounts.Session{Principal: authenticator.Principal, CookieToken: "test-only"}, nil
 }

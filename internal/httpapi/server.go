@@ -263,6 +263,7 @@ func (server *Server) Handler() http.Handler {
 	return server.baseMiddleware(server.openAPIHandler(mux))
 }
 
+//nolint:gocognit,gocyclo // One boundary applies readiness, origin, authentication, role, and CSRF in fixed order.
 func (server *Server) baseMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		requestID, err := uuid.NewV7()
@@ -332,7 +333,7 @@ func (server *Server) baseMiddleware(next http.Handler) http.Handler {
 		}
 		if (server.config.Mode == config.ModeRelease || server.config.Mode == config.ModeTest) &&
 			unsafeMethod(request.Method) &&
-			!accounts.MatchesCSRF(session.CookieToken, request.Header.Get("X-Retrom-CSRF")) {
+			!accounts.MatchesCSRF(session.CookieToken, request.Header.Get("X-Retrom-Csrf")) {
 			writeError(writer, request, http.StatusForbidden, "CSRF_VALIDATION_FAILED", "请求验证失败", map[string]any{})
 			return
 		}
@@ -509,6 +510,7 @@ func queryWithConditions(prefix string, conditions []string, suffix string) stri
 
 //nolint:funlen,nestif // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) createLaunch(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	key := request.Header.Get("Idempotency-Key")
 	if !validIdempotencyKey(key) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
@@ -520,7 +522,7 @@ func (server *Server) createLaunch(writer http.ResponseWriter, request *http.Req
 		return
 	}
 	canonical, _ := json.Marshal(body)
-	digestBytes := sha256.Sum256(append([]byte("postLaunch\x00"), canonical...))
+	digestBytes := sha256.Sum256(append([]byte("postLaunch\x00"+principal.UserID+"\x00"), canonical...))
 	requestDigest := hex.EncodeToString(digestBytes[:])
 	server.idempotency.Lock()
 	defer server.idempotency.Unlock()
@@ -534,7 +536,8 @@ response_body
 FROM idempotency_records
 WHERE operation_id='postLaunch'
 AND key=?
-`, key).
+AND principal_id=?
+`, key, principal.UserID).
 		Scan(&storedDigest, &storedStatus, &storedBody)
 	if err == nil {
 		if subtle.ConstantTimeCompare([]byte(storedDigest), []byte(requestDigest)) != 1 {
@@ -559,7 +562,7 @@ AND key=?
 		server.databaseError(writer, request, err)
 		return
 	}
-	created, err := server.launcher.Create(request.Context(), body)
+	created, err := server.launcher.Create(request.Context(), principal.ProfileID, body)
 	if err != nil {
 		code := "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
 		if errors.Is(err, launch.ErrDOSEntryMissing) {
@@ -593,14 +596,16 @@ AND key=?
 	responseBody, _ := json.Marshal(responseValue)
 	now := server.now().UnixMilli()
 	if _, err := server.database.ExecContext(request.Context(), `
-INSERT INTO idempotency_records(operation_id,
+INSERT INTO idempotency_records(principal_id,
+operation_id,
 key,
 request_digest,
 http_status,
 response_headers_json,
 response_body,
 created_at_ms,
-expires_at_ms) VALUES('postLaunch',
+expires_at_ms) VALUES(?,
+'postLaunch',
 ?,
 ?,
 ?,
@@ -608,7 +613,15 @@ expires_at_ms) VALUES('postLaunch',
 ?,
 ?,
 ?)
-`, key, requestDigest, status, responseBody, now, now+int64(24*time.Hour/time.Millisecond)); err != nil {
+`,
+		principal.UserID,
+		key,
+		requestDigest,
+		status,
+		responseBody,
+		now,
+		now+int64(24*time.Hour/time.Millisecond),
+	); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -1198,6 +1211,7 @@ func scanLatestGame(scanner rowScanner) (latestGameProjection, error) {
 
 //nolint:funlen // The dashboard aggregates documented counters in one consistent response snapshot.
 func (server *Server) home(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	var gameCount, saveCount, reviewCount, activeDurationMS int64
 	if err := server.database.QueryRowContext(
 		request.Context(),
@@ -1219,8 +1233,10 @@ FROM save_states s
 JOIN games g ON g.id=s.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE s.deleted_at_ms IS NULL
+AND s.profile_id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1`,
+		principal.ProfileID,
 	).Scan(
 		&saveCount,
 	); err != nil {
@@ -1243,14 +1259,16 @@ FROM play_sessions ps
 JOIN games g ON g.id=ps.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE g.status='PUBLISHED'
-AND pi.enabled=1`,
+AND pi.enabled=1
+AND ps.profile_id=?`,
+		principal.ProfileID,
 	).Scan(
 		&activeDurationMS,
 	); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	recentGames, err := server.homeRecentGames(request.Context())
+	recentGames, err := server.homeRecentGames(request.Context(), principal.ProfileID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -1270,11 +1288,13 @@ JOIN games g ON g.id=s.game_id
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE s.deleted_at_ms IS NULL
+AND s.profile_id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 ORDER BY s.created_at_ms DESC,
 s.id DESC LIMIT 3
 `,
+		principal.ProfileID,
 	)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -1310,12 +1330,12 @@ s.id DESC LIMIT 3
 		server.databaseError(writer, request, err)
 		return
 	}
-	featuredGame, err := server.homeFeaturedGame(request.Context())
+	featuredGame, err := server.homeFeaturedGame(request.Context(), principal.ProfileID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	platforms, quickPlatforms, err := server.homePlatforms(request.Context())
+	platforms, quickPlatforms, err := server.homePlatforms(request.Context(), principal.ProfileID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -1333,7 +1353,7 @@ s.id DESC LIMIT 3
 	})
 }
 
-func (server *Server) homeRecentGames(ctx context.Context) ([]recentGameProjection, error) {
+func (server *Server) homeRecentGames(ctx context.Context, profileID string) ([]recentGameProjection, error) {
 	rows, err := server.database.QueryContext(ctx, `
 SELECT g.id,
 m.title,
@@ -1358,10 +1378,11 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED'
 AND pi.enabled=1
+AND ps.profile_id=?
 GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name
 ORDER BY max(ps.started_at_ms) DESC,g.id DESC
 LIMIT 10
-`)
+`, profileID)
 	if err != nil {
 		return nil, fmt.Errorf("home recent games: %w", err)
 	}
@@ -1427,7 +1448,7 @@ type homeFeaturedResult struct {
 	Value map[string]any
 }
 
-func (server *Server) homeFeaturedGame(ctx context.Context) (homeFeaturedResult, error) {
+func (server *Server) homeFeaturedGame(ctx context.Context, profileID string) (homeFeaturedResult, error) {
 	var launchID, gameID, title, platformID, platformName, instanceID, instanceName string
 	var lastPlayedAtMS, activeDurationMS, sessionCount int64
 	var coverAssetID sql.NullString
@@ -1442,8 +1463,8 @@ pi.name,
 ps.started_at_ms,
 (SELECT COALESCE(sum(all_sessions.active_duration_ms),0)
  FROM play_sessions all_sessions
- WHERE all_sessions.game_id=g.id),
-(SELECT count(*) FROM play_sessions all_sessions WHERE all_sessions.game_id=g.id),
+ WHERE all_sessions.game_id=g.id AND all_sessions.profile_id=?),
+(SELECT count(*) FROM play_sessions all_sessions WHERE all_sessions.game_id=g.id AND all_sessions.profile_id=?),
 (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
@@ -1458,10 +1479,13 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED'
 AND pi.enabled=1
+AND ps.profile_id=?
 ORDER BY ps.started_at_ms DESC,ps.id DESC
 LIMIT 1
-`).Scan(&launchID, &gameID, &title, &platformID, &platformName, &instanceID, &instanceName,
-		&lastPlayedAtMS, &activeDurationMS, &sessionCount, &coverAssetID)
+`, profileID, profileID, profileID).Scan(
+		&launchID, &gameID, &title, &platformID, &platformName, &instanceID, &instanceName,
+		&lastPlayedAtMS, &activeDurationMS, &sessionCount, &coverAssetID,
+	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return homeFeaturedResult{}, nil
 	}
@@ -1470,8 +1494,8 @@ LIMIT 1
 	}
 	var historicalSaveCount int64
 	if err := server.database.QueryRowContext(ctx, `
-SELECT count(*) FROM save_states WHERE game_id=? AND deleted_at_ms IS NULL
-`, gameID).Scan(&historicalSaveCount); err != nil {
+SELECT count(*) FROM save_states WHERE game_id=? AND profile_id=? AND deleted_at_ms IS NULL
+`, gameID, profileID).Scan(&historicalSaveCount); err != nil {
 		return homeFeaturedResult{}, fmt.Errorf("home featured save count: %w", err)
 	}
 	var saveID string
@@ -1480,10 +1504,11 @@ SELECT count(*) FROM save_states WHERE game_id=? AND deleted_at_ms IS NULL
 SELECT id,created_at_ms,active_duration_ms
 FROM save_states
 WHERE source_launch_session_id=?
+AND profile_id=?
 AND deleted_at_ms IS NULL
 ORDER BY created_at_ms DESC,id DESC
 LIMIT 1
-`, launchID).Scan(&saveID, &saveCreatedAtMS, &saveActiveDurationMS)
+`, launchID, profileID).Scan(&saveID, &saveCreatedAtMS, &saveActiveDurationMS)
 	var lastSessionSave any
 	if saveErr == nil {
 		lastSessionSave = map[string]any{
@@ -1510,17 +1535,17 @@ type homePlatform struct {
 	PlayCount int64  `json:"playCount"`
 }
 
-func (server *Server) homePlatforms(ctx context.Context) ([]homePlatform, []homePlatform, error) {
+func (server *Server) homePlatforms(ctx context.Context, profileID string) ([]homePlatform, []homePlatform, error) {
 	rows, err := server.database.QueryContext(ctx, `
 SELECT p.id,p.name,count(DISTINCT g.id),count(ps.id)
 FROM platforms p
 LEFT JOIN platform_instances pi ON pi.platform_id=p.id AND pi.enabled=1 AND pi.deleted_at_ms IS NULL
 LEFT JOIN games g ON g.platform_instance_id=pi.id AND g.status='PUBLISHED'
-LEFT JOIN play_sessions ps ON ps.game_id=g.id
+LEFT JOIN play_sessions ps ON ps.game_id=g.id AND ps.profile_id=?
 WHERE EXISTS (SELECT 1 FROM platform_cores pc WHERE pc.platform_id=p.id AND pc.enabled=1)
 GROUP BY p.id,p.name
 ORDER BY p.name COLLATE NOCASE,p.id
-`)
+`, profileID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("home platforms: %w", err)
 	}
@@ -1556,6 +1581,7 @@ ORDER BY p.name COLLATE NOCASE,p.id
 // most recently started play session. This is a game projection rather than a
 // session log, so one game always occupies one row regardless of play count.
 func (server *Server) recentGames(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	rows, err := server.database.QueryContext(request.Context(), `
 SELECT g.id,
 m.title,
@@ -1580,9 +1606,10 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED'
 AND pi.enabled=1
+AND ps.profile_id=?
 GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name
 ORDER BY max(ps.started_at_ms) DESC,g.id DESC
-`)
+`, principal.ProfileID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -1610,6 +1637,7 @@ func (server *Server) games(writer http.ResponseWriter, request *http.Request) {
 
 //nolint:funlen,gocyclo // Method dispatch and nullable detail projections stay at the route protocol boundary.
 func (server *Server) game(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	gameID := request.PathValue("gameId")
 	var title, description, developer, publisher, genre string
 	var platformID, platformName, instanceID, instanceName, contentRevisionID string
@@ -1641,7 +1669,8 @@ a.id
 LIMIT 1),
 COALESCE((SELECT SUM(active_duration_ms)
 FROM play_sessions ps
-WHERE ps.game_id=g.id),
+WHERE ps.game_id=g.id
+AND ps.profile_id=?),
 0)
 FROM games g
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
@@ -1650,7 +1679,7 @@ JOIN platforms p ON p.id=pi.platform_id
 WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
-`, gameID).
+`, principal.ProfileID, gameID).
 		Scan(&title, &description, &developer, &publisher, &genre, &players, &releaseYear,
 			&platformID, &platformName, &instanceID, &instanceName, &contentRevisionID,
 			&version, &updatedAtMS, &coverAssetID, &activeDurationMS,
@@ -1805,8 +1834,9 @@ WHERE g.id=?
 SELECT count(*)
 FROM save_states
 WHERE game_id=?
+AND profile_id=?
 AND deleted_at_ms IS NULL
-`, gameID).Scan(&saveStateCount); err != nil {
+`, gameID, principal.ProfileID).Scan(&saveStateCount); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -1820,11 +1850,12 @@ FROM save_states s
 JOIN core_artifacts a ON a.id=s.core_artifact_id
 JOIN cores c ON c.id=a.core_id
 WHERE s.game_id=?
+AND s.profile_id=?
 AND s.deleted_at_ms IS NULL
 ORDER BY s.created_at_ms DESC,
 s.id DESC
 LIMIT 8
-`, gameID)
+`, gameID, principal.ProfileID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -1915,6 +1946,7 @@ func scanGameListItem(scanner rowScanner, includeAdminProjection bool) (map[stri
 
 //nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) gameList(writer http.ResponseWriter, request *http.Request, includeDeleted bool) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	query := `
 SELECT g.id,
  m.title,
@@ -1928,7 +1960,7 @@ SELECT g.id,
  g.version,
  g.created_at_ms,
  g.updated_at_ms,
- (SELECT max(ps.started_at_ms) FROM play_sessions ps WHERE ps.game_id=g.id),
+ (SELECT max(ps.started_at_ms) FROM play_sessions ps WHERE ps.game_id=g.id AND ps.profile_id=?),
  m.release_year,
  CASE WHEN trim(m.description)<>''
  AND trim(m.developer)<>''
@@ -1957,7 +1989,7 @@ JOIN platforms p ON p.id=pi.platform_id
 JOIN cores dc ON dc.id=pi.default_core_id
 `
 	conditions := gameListVisibilityConditions(includeDeleted)
-	arguments := make([]any, 0)
+	arguments := []any{principal.ProfileID}
 	values := request.URL.Query()
 	if !includeDeleted || values.Get("status") == "PUBLISHED" {
 		conditions = append(conditions, "g.status='PUBLISHED'")
@@ -1986,6 +2018,7 @@ JOIN cores dc ON dc.id=pi.default_core_id
 	}
 	filterDigest := cursor.FilterDigest(
 		map[string]any{
+			"principalId":        principal.UserID,
 			"q":                  normalizedQ,
 			"platformId":         values.Get("platformId"),
 			"platformInstanceId": values.Get("platformInstanceId"),
@@ -2064,10 +2097,10 @@ type saveListFilters struct {
 	Digest       string
 }
 
-func parseSaveListFilters(values url.Values) (saveListFilters, error) {
+func parseSaveListFilters(values url.Values, principal authn.Principal) (saveListFilters, error) {
 	filters := saveListFilters{
-		Conditions:   []string{"s.deleted_at_ms IS NULL", "pi.enabled=1"},
-		Arguments:    make([]any, 0),
+		Conditions:   []string{"s.profile_id=?", "s.deleted_at_ms IS NULL", "pi.enabled=1"},
+		Arguments:    []any{principal.ProfileID},
 		NormalizedQ:  strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " ")),
 		Availability: values.Get("availability"),
 	}
@@ -2099,6 +2132,7 @@ func parseSaveListFilters(values url.Values) (saveListFilters, error) {
 		return saveListFilters{}, fmt.Errorf("%w: availability", errUnknownQuery)
 	}
 	filters.Digest = cursor.FilterDigest(map[string]any{
+		"principalId":        principal.UserID,
 		"q":                  filters.NormalizedQ,
 		"gameId":             values.Get("gameId"),
 		"platformId":         values.Get("platformId"),
@@ -2111,8 +2145,9 @@ func parseSaveListFilters(values url.Values) (saveListFilters, error) {
 
 //nolint:funlen // Query projection stays contiguous with pagination assembly.
 func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	values := request.URL.Query()
-	filters, err := parseSaveListFilters(values)
+	filters, err := parseSaveListFilters(values, principal)
 	if err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "存档可用性筛选无效", map[string]any{})
 		return
@@ -2243,6 +2278,7 @@ JOIN platforms p ON p.id=pi.platform_id
 }
 
 func (server *Server) patchSave(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	var body struct {
 		Name string `json:"name"`
 	}
@@ -2273,12 +2309,14 @@ SET name=?,
 version=version+1,
 updated_at_ms=?
 WHERE id=?
+AND profile_id=?
 AND version=?
 AND deleted_at_ms IS NULL
 `,
 		body.Name,
 		now,
 		request.PathValue("saveStateId"),
+		principal.ProfileID,
 		expected,
 	)
 	if err != nil {
@@ -2287,6 +2325,18 @@ AND deleted_at_ms IS NULL
 	}
 	changed, _ := result.RowsAffected()
 	if changed != 1 {
+		var exists int
+		lookupErr := server.database.QueryRowContext(request.Context(), `
+SELECT 1 FROM save_states WHERE id=? AND profile_id=? AND deleted_at_ms IS NULL
+`, request.PathValue("saveStateId"), principal.ProfileID).Scan(&exists)
+		if errors.Is(lookupErr, sql.ErrNoRows) {
+			writeError(writer, request, http.StatusNotFound, "SAVE_STATE_NOT_FOUND", "存档不存在", map[string]any{})
+			return
+		}
+		if lookupErr != nil {
+			server.databaseError(writer, request, lookupErr)
+			return
+		}
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "存档已被修改", map[string]any{})
 		return
 	}
@@ -2304,6 +2354,7 @@ AND deleted_at_ms IS NULL
 }
 
 func (server *Server) deleteSave(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	expected, err := ParseETag(request.Header.Get("If-Match"))
 	if err != nil {
 		writeError(
@@ -2325,12 +2376,14 @@ SET deleted_at_ms=?,
 version=version+1,
 updated_at_ms=?
 WHERE id=?
+AND profile_id=?
 AND version=?
 AND deleted_at_ms IS NULL
 `,
 		now,
 		now,
 		request.PathValue("saveStateId"),
+		principal.ProfileID,
 		expected,
 	)
 	if err != nil {
@@ -2339,6 +2392,18 @@ AND deleted_at_ms IS NULL
 	}
 	changed, _ := result.RowsAffected()
 	if changed != 1 {
+		var exists int
+		lookupErr := server.database.QueryRowContext(request.Context(), `
+SELECT 1 FROM save_states WHERE id=? AND profile_id=? AND deleted_at_ms IS NULL
+`, request.PathValue("saveStateId"), principal.ProfileID).Scan(&exists)
+		if errors.Is(lookupErr, sql.ErrNoRows) {
+			writeError(writer, request, http.StatusNotFound, "SAVE_STATE_NOT_FOUND", "存档不存在", map[string]any{})
+			return
+		}
+		if lookupErr != nil {
+			server.databaseError(writer, request, lookupErr)
+			return
+		}
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "存档已被修改", map[string]any{})
 		return
 	}
@@ -2904,7 +2969,7 @@ type importListFilters struct {
 	sortField   string
 }
 
-func parseImportListFilters(values url.Values) (importListFilters, error) {
+func parseImportListFilters(values url.Values, principalID string) (importListFilters, error) {
 	filters := importListFilters{
 		queryText:   strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " ")),
 		state:       values.Get("state"),
@@ -2936,7 +3001,8 @@ func parseImportListFilters(values url.Values) (importListFilters, error) {
 		filters.limit = parsed
 	}
 	filters.digest = cursor.FilterDigest(map[string]any{
-		"q": filters.queryText, "state": filters.state, "platformInstanceId": filters.platformID,
+		"principalId": principalID, "q": filters.queryText, "state": filters.state,
+		"platformInstanceId": filters.platformID,
 	})
 	return filters, nil
 }
@@ -3092,7 +3158,8 @@ func (server *Server) encodeImportListCursor(
 }
 
 func (server *Server) imports(writer http.ResponseWriter, request *http.Request) {
-	filters, err := parseImportListFilters(request.URL.Query())
+	principal, _ := authn.PrincipalFromContext(request.Context())
+	filters, err := parseImportListFilters(request.URL.Query(), principal.UserID)
 	if err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "导入任务筛选无效", map[string]any{})
 		return
@@ -3131,6 +3198,7 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 
 //nolint:funlen,gocognit,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) reviews(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	query := `
 SELECT i.id,
 d.version,
@@ -3241,6 +3309,7 @@ WHERE i.state='REVIEW_PENDING'
 	}
 	filterDigest := cursor.FilterDigest(
 		map[string]any{
+			"principalId":        principal.UserID,
 			"q":                  normalizedQ,
 			"importJobId":        values.Get("importJobId"),
 			"platformInstanceId": values.Get("platformInstanceId"),

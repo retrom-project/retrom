@@ -81,6 +81,7 @@ func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
 	return &DB{SQL: database}, nil
 }
 
+//nolint:gocyclo // Every read-only branch distinguishes a stable startup failure without touching the database.
 func preflightExistingDatabase(ctx context.Context, path string) error {
 	info, err := fsStat(path)
 	if errors.Is(err, fs.ErrNotExist) {

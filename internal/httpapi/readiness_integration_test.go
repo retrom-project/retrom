@@ -26,7 +26,7 @@ func TestReadinessGatesBusinessRoutesDuringDATIndexing(t *testing.T) {
 		t.Fatalf("indexing readiness = %d %s", ready.Code, ready.Body.String())
 	}
 	blocked := httptest.NewRecorder()
-	server.Handler().ServeHTTP(blocked, httptest.NewRequest(http.MethodGet, "/api/v1/auth/context", nil))
+	server.Handler().ServeHTTP(blocked, httptest.NewRequest(http.MethodGet, "/api/v1/games", nil))
 	if blocked.Code != http.StatusServiceUnavailable ||
 		!strings.Contains(blocked.Body.String(), `"code":"SERVICE_NOT_READY"`) ||
 		!strings.Contains(blocked.Body.String(), `"reasonCode":"DEPENDENCY_INDEXING"`) {
@@ -42,7 +42,7 @@ func TestReadinessGatesBusinessRoutesDuringDATIndexing(t *testing.T) {
 		t.Fatalf("published readiness = %d %s", ready.Code, ready.Body.String())
 	}
 	session := httptest.NewRecorder()
-	server.Handler().ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/auth/context", nil))
+	server.Handler().ServeHTTP(session, httptest.NewRequest(http.MethodGet, "/api/v1/games", nil))
 	if session.Code != http.StatusOK {
 		t.Fatalf("published business route = %d %s", session.Code, session.Body.String())
 	}

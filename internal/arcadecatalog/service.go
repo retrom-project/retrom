@@ -17,6 +17,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/arcadedat"
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/datindex"
@@ -1558,10 +1559,11 @@ AND validation_input_digest=?
 		"requirementSlotChangeCount":     requirementChanges,
 		"targetVersion":                  datID,
 	}
+	principal, _ := authn.PrincipalFromContext(ctx)
 	digestInput, _ := json.Marshal(
 		map[string]any{
 			"action":              "DAT_ACTIVATE",
-			"actor":               "local",
+			"principalId":         principal.UserID,
 			"baseDatVersionId":    nullable(baseID),
 			"baseSha256":          nullable(baseSHA),
 			"baseParserVersion":   nullable(baseParser),

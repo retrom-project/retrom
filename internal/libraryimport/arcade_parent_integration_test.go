@@ -36,6 +36,9 @@ func TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
+		t.Fatal(err)
+	}
 	blobs, err := blobstore.Open(dataDir)
 	if err != nil {
 		t.Fatal(err)
@@ -174,7 +177,7 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
-	pending, err := launcher.Create(ctx, launch.CreateRequest{
+	pending, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})
@@ -182,7 +185,7 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 		t.Fatalf("first launch revalidation = %#v, error=%v", pending, err)
 	}
 	waitParentJob(t, database.SQL, pending.JobID, "SUCCEEDED")
-	createdLaunch, err := launcher.Create(ctx, launch.CreateRequest{
+	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})

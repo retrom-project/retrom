@@ -56,6 +56,9 @@ func newSaveFixture(t *testing.T) *saveFixture {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
+		t.Fatal(err)
+	}
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
@@ -300,7 +303,7 @@ WHERE id=?
 
 func (fixture *saveFixture) createLaunch(t *testing.T) launch.Created {
 	t.Helper()
-	created, err := fixture.launches.Create(fixture.ctx, launch.CreateRequest{
+	created, err := fixture.launches.Create(fixture.ctx, "local", launch.CreateRequest{
 		GameID: fixture.gameID, ReturnTo: "/games/" + fixture.gameID,
 		ClientCapabilities: launch.Capabilities{
 			SecureContext:       true,

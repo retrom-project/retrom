@@ -19,6 +19,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/arcadedat"
+	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/datindex"
 )
@@ -738,9 +739,12 @@ WHERE id=?
 					continue
 				}
 				auditID, _ := uuid.NewV7()
+				actor := authn.ActorFromContext(ctx, "release-setup")
 				if _, err := transaction.ExecContext(ctx, `
 INSERT INTO audit_events(id,
-actor,
+actor_kind,
+actor_user_id,
+actor_label,
 action,
 resource_type,
 resource_id,
@@ -748,7 +752,9 @@ before_json,
 after_json,
 diff_json,
 created_at_ms) VALUES(?,
-'local',
+?,
+?,
+?,
 'BUILTIN_DAT_ACTIVATED',
 'DAT_VERSION',
 ?,
@@ -757,7 +763,7 @@ created_at_ms) VALUES(?,
 json_object('source',
 'startup-indexer'),
 ?)
-`, auditID.String(), datID, finishedAtMS); err != nil {
+`, auditID.String(), actor.Kind, actor.UserID, actor.Label, datID, finishedAtMS); err != nil {
 					cleanup.Rollback(transaction)
 					failBuiltInDAT(ctx, database, datID, jobID, "DEPENDENCY_DAT_INDEX_WRITE_FAILED", now)
 					if firstFailure == nil {

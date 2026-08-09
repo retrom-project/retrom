@@ -7,6 +7,7 @@ import (
 	"strconv"
 
 	"retrom/internal/arcadecatalog"
+	"retrom/internal/authn"
 	"retrom/internal/cursor"
 )
 
@@ -37,6 +38,7 @@ func (server *Server) createArcadeDAT(writer http.ResponseWriter, request *http.
 }
 
 func (server *Server) arcadeDATDiff(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	values := request.URL.Query()
 	section := values.Get("section")
 	if section == "" {
@@ -56,7 +58,10 @@ func (server *Server) arcadeDATDiff(writer http.ResponseWriter, request *http.Re
 		limit = parsed
 	}
 	filterDigest := cursor.FilterDigest(
-		map[string]any{"datVersionId": request.PathValue("datVersionId"), "section": section, "change": change},
+		map[string]any{
+			"principalId": principal.UserID, "datVersionId": request.PathValue("datVersionId"),
+			"section": section, "change": change,
+		},
 	)
 	after := ""
 	if token := values.Get("cursor"); token != "" {

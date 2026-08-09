@@ -290,35 +290,6 @@ func TestReviewArcadeParentMigrationUpgradesVersion18(t *testing.T) {
 	if upgraded != nil {
 		cleanup.Error("close", upgraded.Close())
 	}
-	return
-	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
-	var revision int
-	var snapshotID, draftSnapshotID, validationSnapshotID, manifestDigest string
-	if err := upgraded.SQL.QueryRowContext(ctx, `
-SELECT snapshot.id,snapshot.revision_no,snapshot.source_manifest_digest,
-draft.effective_source_snapshot_id,validation.source_snapshot_id
-FROM import_item_source_snapshots snapshot
-JOIN review_drafts draft ON draft.import_item_id=snapshot.import_item_id
-JOIN import_item_core_validations validation ON validation.import_item_id=snapshot.import_item_id
-WHERE snapshot.import_item_id='v18-item'
-`).Scan(&snapshotID, &revision, &manifestDigest, &draftSnapshotID, &validationSnapshotID); err != nil {
-		t.Fatal(err)
-	}
-	if snapshotID != "v18-item" || revision != 1 || draftSnapshotID != snapshotID ||
-		validationSnapshotID != snapshotID || manifestDigest != "0d33b3ade494963aac48ba52e5e86a9454504887c2a70740e0cc5ff37334478e" {
-		t.Fatalf("v18 backfill = %s/%d/%s/%s/%s", snapshotID, revision, manifestDigest, draftSnapshotID, validationSnapshotID)
-	}
-	if _, err := upgraded.SQL.ExecContext(ctx, `UPDATE import_item_source_snapshots SET revision_no=2 WHERE id='v18-item'`); err == nil ||
-		!strings.Contains(err.Error(), "immutable") {
-		t.Fatalf("snapshot update error = %v", err)
-	}
-	if _, err := upgraded.SQL.ExecContext(ctx, `UPDATE review_drafts SET selected_validation_id='v18-validation' WHERE id='v18-draft'`); err == nil ||
-		!strings.Contains(err.Error(), "invalid selected validation snapshot") {
-		t.Fatalf("blocked validation selection error = %v", err)
-	}
-	if err := upgraded.IntegrityCheck(ctx); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestReviewArcadeParentMigrationRejectsDriftedManifest(t *testing.T) {
@@ -395,29 +366,6 @@ func TestDOSExternalConfigMigrationRepointsLegacyLaunchContent(t *testing.T) {
 	}
 	if upgraded != nil {
 		cleanup.Error("close", upgraded.Close())
-	}
-	return
-	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
-	var logicalName, blobID, formatVersion string
-	if err := upgraded.SQL.QueryRowContext(ctx, `
-SELECT logical_name, blob_id, format_version
-FROM launch_content_files
-WHERE launch_session_id='dos-launch'
-`).Scan(&logicalName, &blobID, &formatVersion); err != nil ||
-		logicalName != "game.zip" || blobID != "base-blob" || formatVersion != "SOURCE_V1" {
-		t.Fatalf("upgraded launch content = %s/%s/%s, error=%v", logicalName, blobID, formatVersion, err)
-	}
-	if _, err := upgraded.SQL.ExecContext(ctx, `UPDATE launch_content_files SET logical_name='changed.zip' WHERE launch_session_id='dos-launch'`); err == nil || !strings.Contains(err.Error(), "immutable") {
-		t.Fatalf("launch content immutability after migration error = %v", err)
-	}
-	var sourceLaunchColumnCount int
-	if err := upgraded.SQL.QueryRowContext(ctx, `
-SELECT count(*) FROM pragma_table_info('save_states') WHERE name='source_launch_session_id'
-`).Scan(&sourceLaunchColumnCount); err != nil || sourceLaunchColumnCount != 1 {
-		t.Fatalf("upgraded save source column count = %d, error=%v", sourceLaunchColumnCount, err)
-	}
-	if err := upgraded.IntegrityCheck(ctx); err != nil {
-		t.Fatal(err)
 	}
 }
 
@@ -514,36 +462,6 @@ INSERT INTO content_hash_evidence(
 	if upgraded != nil {
 		cleanup.Error("close", upgraded.Close())
 	}
-	return
-	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
-	var archiveFormat, compressionProfile string
-	if err := upgraded.SQL.QueryRowContext(ctx, `
-SELECT archive_format,compression_profile
-FROM archive_entries
-WHERE archive_blob_id='base-blob' AND ordinal=0
-`).Scan(&archiveFormat, &compressionProfile); err != nil ||
-		archiveFormat != "ZIP" || compressionProfile != "DEFLATE" {
-		t.Fatalf("upgraded archive = %s/%s, error=%v", archiveFormat, compressionProfile, err)
-	}
-	for table, predicate := range map[string]string{
-		"import_item_source_files": "source_archive_blob_id='base-blob' AND source_archive_entry_ordinal=0",
-		"game_content_files":       "source_archive_blob_id='base-blob' AND source_archive_entry_ordinal=0",
-		"content_hash_evidence":    "archive_blob_id='base-blob' AND archive_entry_ordinal=0",
-	} {
-		var count int
-		if err := upgraded.SQL.QueryRowContext(ctx, "SELECT count(*) FROM "+table+" WHERE "+predicate).Scan(&count); err != nil || count != 1 {
-			t.Fatalf("%s reference count = %d, error=%v", table, count, err)
-		}
-	}
-	if _, err := upgraded.SQL.ExecContext(ctx, `
-UPDATE archive_entries SET archive_format='SEVEN_Z',compression_profile='SEVEN_Z_DECODER_VALIDATED'
-WHERE archive_blob_id='base-blob' AND ordinal=0
-`); err == nil || !strings.Contains(err.Error(), "immutable") {
-		t.Fatalf("archive immutability after migration error = %v", err)
-	}
-	if err := upgraded.IntegrityCheck(ctx); err != nil {
-		t.Fatal(err)
-	}
 }
 
 func TestImportProgressRepairMigrationFinalizesZeroItemJobs(t *testing.T) {
@@ -595,20 +513,6 @@ VALUES
 	}
 	if upgraded != nil {
 		cleanup.Error("close", upgraded.Close())
-	}
-	return
-	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
-	var rejectedState, ignoredState string
-	var rejectedCompleted, ignoredCompleted sql.NullInt64
-	if err := upgraded.SQL.QueryRowContext(ctx, `SELECT state,completed_at_ms FROM import_jobs WHERE id='rejected-import'`).Scan(&rejectedState, &rejectedCompleted); err != nil {
-		t.Fatal(err)
-	}
-	if err := upgraded.SQL.QueryRowContext(ctx, `SELECT state,completed_at_ms FROM import_jobs WHERE id='ignored-import'`).Scan(&ignoredState, &ignoredCompleted); err != nil {
-		t.Fatal(err)
-	}
-	if rejectedState != "PARTIAL_FAILURE" || rejectedCompleted.Valid || ignoredState != "COMPLETED" ||
-		!ignoredCompleted.Valid || ignoredCompleted.Int64 != 1 {
-		t.Fatalf("repaired states = %s/%v %s/%v", rejectedState, rejectedCompleted, ignoredState, ignoredCompleted)
 	}
 }
 
