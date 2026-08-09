@@ -300,8 +300,8 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、最终 ReviewEvent 保留的候选媒体或人工上传审核媒体预览；响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器。 |
 | `/runtime/launches/{launchId}/config` | 需要 launch cookie，返回逻辑 URL 和非秘密配置；`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/game/{logicalName}` | 只允许本会话清单内运行内容；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
-| `/runtime/launches/{launchId}/bios/bundle.zip` | 只允许预检 bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
-| `/runtime/launches/{launchId}/parent/bundle.zip` | 只允许预检确定性 parent bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
+| `/runtime/launches/{launchId}/bios/bundle.zip` | 支持 GET/HEAD，只允许预检 bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。HEAD 执行与 GET 相同的 capability、Launch 状态和 bundle 清单校验，返回相同的长度、ETag 与 Range 元数据但不返回 body。 |
+| `/runtime/launches/{launchId}/parent/bundle.zip` | 支持 GET/HEAD，只允许预检确定性 parent bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。HEAD 执行与 GET 相同的 capability、Launch 状态和 bundle 清单校验，返回相同的长度、ETag 与 Range 元数据但不返回 body。 |
 | `/runtime/launches/{launchId}/external-files/{logicalName}` | 只允许本 Launch 创建事务锁定的外部 BIOS 文件；需要 cookie；`private, no-store`、`Vary: Cookie`。未锁定名、跨 Launch、错误/过期 cookie 与 Blob 缺失不得泄露存在性。 |
 | `/runtime/launches/{launchId}/state` | 只允许选中状态存档；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/persistent-save` | 需要 cookie；返回创建 Launch 时锁定的可空 `CORE_SAVE/DOS_OVERLAY` revision bytes，不存在时 `204`；不会因另一会话稍后保存而漂移。`private, no-store`、`Vary: Cookie`。 |
