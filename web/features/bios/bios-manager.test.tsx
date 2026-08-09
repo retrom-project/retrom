@@ -96,8 +96,14 @@ describe("BIOSManager", () => {
     expect(within(expectedList).queryByText("readme.txt")).not.toBeInTheDocument();
     expect(within(actualList).getByText("epr-19730.ic8")).toBeVisible();
     expect(within(actualList).getByText("readme.txt")).toBeVisible();
-    expect(within(dialog).getAllByText("内容匹配·文件名不同")).toHaveLength(2);
-    expect(within(expectedList).getByText("ZIP 内缺失")).toBeVisible();
-    expect(within(actualList).getByText("ZIP 内额外文件")).toBeVisible();
+    const expectedRows = Array.from(expectedList.querySelectorAll<HTMLElement>(":scope > li"));
+    const actualRows = Array.from(actualList.querySelectorAll<HTMLElement>(":scope > li"));
+    expect(expectedRows[0]).toHaveAttribute("title", "内容匹配·文件名不同");
+    expect(expectedRows[0]).toHaveClass("is-aliased");
+    expect(expectedRows[1]).toHaveAttribute("title", "ZIP 内缺失");
+    expect(actualRows[1]).toHaveAttribute("title", "ZIP 内额外文件");
+    expect(actualRows[1]).toHaveClass("is-extra");
+    expect(dialog.querySelectorAll(".bios-entry-card .status-badge")).toHaveLength(0);
+    expect(within(dialog).getAllByText(/内容匹配·文件名不同/).every((label) => label.classList.contains("sr-only"))).toBe(true);
   });
 });
