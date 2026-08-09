@@ -16,6 +16,7 @@ export function ConfirmDialog({
   secondaryLabel,
   tone = "default",
   busy = false,
+  confirmDisabled = false,
   leadingBusy = false,
   leadingDisabled = false,
   wide = false,
@@ -36,6 +37,7 @@ export function ConfirmDialog({
   secondaryLabel?: string;
   tone?: DialogTone;
   busy?: boolean;
+  confirmDisabled?: boolean;
   leadingBusy?: boolean;
   leadingDisabled?: boolean;
   wide?: boolean;
@@ -98,7 +100,7 @@ export function ConfirmDialog({
           {leadingLabel && onLeading ? <button className="button secondary dialog-leading-action" type="button" disabled={locked || leadingDisabled} onClick={onLeading}>{leadingBusy ? leadingBusyLabel : leadingLabel}</button> : null}
           {hideCancel ? null : <button ref={cancelRef} className="button secondary" type="button" disabled={locked} onClick={onCancel}>{cancelLabel}</button>}
           {secondaryLabel && onSecondary ? <button className="button secondary" type="button" disabled={locked} onClick={onSecondary}>{secondaryLabel}</button> : null}
-          <button className={`button${tone === "danger" ? " danger" : ""}`} type="button" disabled={locked} onClick={onConfirm}>{busy ? "处理中…" : confirmLabel}</button>
+          <button className={`button${tone === "danger" ? " danger" : ""}`} type="button" disabled={locked || confirmDisabled} onClick={onConfirm}>{busy ? "处理中…" : confirmLabel}</button>
         </div>
       </section>
     </div>

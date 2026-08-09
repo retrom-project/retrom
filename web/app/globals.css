@@ -127,6 +127,68 @@ button, a, input, select, textarea { outline-offset: 3px; }
   .auth-canvas { padding: 24px 14px; place-items: start center; }
   .auth-panel { padding: 25px 20px; }
 }
+.user-admin-page > .feedback-banner { margin-bottom: 14px; }
+.user-filters input.select { width: 100%; }
+.user-table-panel { overflow: hidden; }
+.user-table-wrap { max-width: 100%; overflow: auto; }
+.user-table { min-width: 1060px; width: 100%; border-collapse: separate; border-spacing: 0; }
+.user-table th, .user-table td { padding: 13px 14px; border-bottom: 1px solid #ece9e3; text-align: left; white-space: nowrap; font-size: 13px; }
+.user-table th { color: #596477; background: var(--surface-subtle); font-size: 11px; letter-spacing: .04em; text-transform: uppercase; }
+.user-table td:first-child, .user-table th:first-child { position: sticky; left: 0; z-index: 2; background: white; }
+.user-table th:first-child { background: var(--surface-subtle); }
+.user-table td:last-child, .user-table th:last-child { position: sticky; right: 0; z-index: 2; background: white; box-shadow: -8px 0 12px rgb(24 32 51 / 3%); }
+.user-table th:last-child { background: var(--surface-subtle); }
+.user-table td:first-child strong, .user-table td:first-child small { display: block; max-width: 240px; overflow: hidden; text-overflow: ellipsis; }
+.user-table td:first-child small { margin-top: 2px; color: var(--muted); }
+.table-action { min-height: 33px; padding: 0 12px; font-size: 12px; }
+.load-more-row { padding: 14px; display: flex; justify-content: center; }
+.invitation-list { margin-top: 20px; overflow: hidden; }
+.invitation-list > summary { min-height: 62px; padding: 0 20px; display: flex; align-items: center; gap: 12px; cursor: pointer; font-weight: 800; }
+.invitation-list > summary small { color: var(--muted); font-size: 12px; font-weight: 500; }
+.invitation-toolbar { padding: 12px 18px; display: flex; justify-content: flex-end; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); background: var(--surface-subtle); }
+.invitation-toolbar label { display: flex; align-items: center; gap: 8px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.invitation-toolbar select, .drawer-form select { height: 39px; padding: 0 30px 0 10px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.invitation-list table { min-width: 880px; width: 100%; border-collapse: collapse; }
+.invitation-list th, .invitation-list td { padding: 12px 16px; border-bottom: 1px solid #ece9e3; text-align: left; font-size: 12px; white-space: nowrap; }
+.invitation-list th { color: var(--muted); background: #fcfbf8; }
+.compact-empty { padding: 34px; color: var(--muted); text-align: center; }
+.drawer-backdrop { position: fixed; z-index: 110; inset: 0; display: flex; justify-content: flex-end; background: rgb(17 23 39 / 46%); }
+.app-drawer { width: min(520px, calc(100% - 32px)); height: 100dvh; overflow: auto; background: white; box-shadow: -20px 0 60px rgb(17 23 39 / 22%); }
+.app-drawer > header { position: sticky; z-index: 3; top: 0; min-height: 86px; padding: 19px 22px; display: flex; align-items: flex-start; justify-content: space-between; gap: 18px; border-bottom: 1px solid var(--line); background: white; }
+.app-drawer > header h2 { margin: 0; font-size: 20px; }
+.app-drawer > header p { margin: 5px 0 0; color: var(--muted); font-size: 12px; }
+.app-drawer > header > button { width: 36px; height: 36px; border: 0; border-radius: 9px; color: var(--muted); background: var(--surface-subtle); cursor: pointer; font-size: 23px; }
+.drawer-body { padding: 22px; }
+.drawer-form { display: grid; gap: 17px; }
+.drawer-form .form-field > span { color: #3f495b; font-size: 13px; font-weight: 750; }
+.drawer-form .form-field select { width: 100%; height: 44px; }
+.drawer-actions { margin-top: 4px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 9px; }
+.admin-role-warning { padding: 14px; display: grid; gap: 12px; border: 1px solid #e5c9a1; border-radius: 10px; color: #71490e; background: var(--amber-soft); font-size: 13px; }
+.admin-role-warning label { display: flex; align-items: flex-start; gap: 8px; }
+.admin-role-warning input { margin-top: 3px; }
+.managed-identity { padding: 14px; display: flex; align-items: center; gap: 12px; border-radius: 11px; background: var(--surface-subtle); }
+.managed-identity > span { width: 44px; height: 44px; display: grid; place-items: center; border-radius: 50%; color: white; background: var(--purple); font-weight: 850; }
+.managed-identity strong, .managed-identity small { display: block; }
+.managed-identity small { color: var(--muted); }
+.danger-zone { margin-top: 10px; padding-top: 20px; border-top: 1px solid var(--line); }
+.danger-zone h3 { margin: 0; color: #a63745; font-size: 15px; }
+.danger-zone p { margin: 5px 0 12px; color: var(--muted); font-size: 12px; }
+.delete-confirm-field { margin-top: 14px; display: grid; gap: 6px; color: #455064; font-weight: 750; }
+.delete-confirm-field input { height: 41px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; }
+.one-time-dialog { width: 100%; }
+.one-time-body { margin-top: 20px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; align-items: end; }
+.one-time-body label { min-width: 0; display: grid; gap: 6px; color: var(--muted); font-size: 12px; font-weight: 700; }
+.one-time-body input { width: 100%; height: 42px; padding: 0 10px; border: 1px solid var(--line); border-radius: 8px; font-family: ui-monospace, monospace; font-size: 12px; }
+.one-time-dialog dl { margin: 15px 0 0; padding: 12px; display: grid; gap: 7px; border-radius: 9px; background: var(--surface-subtle); }
+.one-time-dialog dl div { display: grid; grid-template-columns: 100px minmax(0, 1fr); font-size: 12px; }
+.one-time-dialog dt { color: var(--muted); }
+.one-time-dialog dd { margin: 0; font-weight: 700; }
+.one-time-warning { margin: 15px 0 0; padding: 10px 12px; border-radius: 8px; color: #71490e; background: var(--amber-soft); font-size: 13px; font-weight: 750; }
+.copy-fallback { margin: 10px 0 0; color: var(--amber); font-size: 12px; }
+@media (min-width: 1600px) {
+  .user-admin-page .page-header { margin-bottom: 30px; }
+  .user-table th, .user-table td { padding-block: 15px; }
+}
 .app-body { min-width: 0; }
 .content { padding: 28px 24px 56px; width: 100%; max-width: 2160px; margin-inline: auto; }
 .page-layout { width: 100%; margin-inline: auto; }
