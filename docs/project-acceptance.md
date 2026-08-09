@@ -394,8 +394,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-GAME-001`。
-- 流程：在游戏管理按关键字、基础平台和平台目录找到固定游戏；检查发布信息/媒体/内容与运行版本/管理操作四区；记录当前 version，编辑标题、简介、年份与类型并替换固定 PNG；针对 current ContentRevision 触发 Hasheous stub 重新刮削，先不采用候选，再选择部分字段和 READY media 应用；构造一个旧 ContentRevision run 做负向 apply，最后用旧 ETag 提交一次并发编辑。
-- 通过标准：搜索/筛选结果正确；每次确认修改创建可追溯 MetadataRevision/Asset，ADMIN_EDIT revision 的 source ref 为 NULL 且同事务 AuditEvent 指向新 revision，RESCRAPE_APPLY ref 精确指向被采用 Candidate；游戏库、详情和管理页读取同一当前值。运行区分开显示当前/历史 ContentRevision、各 Core VariantRevision、CoreArtifact/DAT，而不暴露宿主路径/Blob 编辑；显式重新刮削绕过旧 cache，创建独立 MetadataScrapeRun/QueryAttempt/Candidate/Asset 且不自动覆盖，旧 content run 不能 apply；采用范围与字段 diff 一致；旧 ETag 写入以 409 拒绝；Game ID、current content 和平台目录不变。
+- 流程：在游戏管理按关键字、基础平台和平台目录找到固定游戏；检查发布信息/媒体/内容与运行版本/管理操作四区；在未修改时检查保存按钮，记录当前 version，编辑标题、简介、年份与类型并保存，再次检查按钮和版本；替换固定 PNG；针对 current ContentRevision 触发 Hasheous stub 重新刮削，先不采用候选，再选择部分字段和 READY media 应用；构造一个旧 ContentRevision run 做负向 apply，最后用旧 ETag 提交一次并发编辑。
+- 通过标准：搜索/筛选结果正确；没有字段变化和保存成功后“保存新版本”都禁用，不会创建空修订；每次确认修改创建可追溯 MetadataRevision/Asset，ADMIN_EDIT revision 的 source ref 为 NULL 且同事务 AuditEvent 指向新 revision，RESCRAPE_APPLY ref 精确指向被采用 Candidate；游戏库、详情和管理页读取同一当前值。运行区分开显示当前/历史 ContentRevision、各 Core VariantRevision、CoreArtifact/DAT，而不暴露宿主路径/Blob 编辑；显式重新刮削绕过旧 cache，创建独立 MetadataScrapeRun/QueryAttempt/Candidate/Asset 且不自动覆盖，旧 content run 不能 apply；采用范围与字段 diff 一致；旧 ETag 写入以 409 拒绝；Game ID、current content 和平台目录不变。
 - 证据：查询参数、修改前后 API、revision/diff、Blob SHA-256、冲突响应及三处当前 UI 截图。
 
 ### ACC-GAME-002：重新上传与不可变文件 revision
@@ -504,8 +504,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-001`。
-- 流程：上传 fixtures 中正确 `disksys.rom`，再上传临时生成的错误内容 `gba_bios.bin`，最后用 fixtures 中正确 `gba_bios.bin` 替换当前安装。对一个固定 Arcade Requirement 再分别上传“必需 entry 名齐全但一项 bytes/hash 不同”和“完全缺少一个必需 entry”的两个小型 ZIP。
-- 通过标准：正确文件显示 installed/matched；错误 hash 文件允许保存并明确显示期望/实际 hash Warning，不伪装成 matched，也不因 hash 不同强制拒绝上传；正确替换后活动安装变为 matched，旧 Blob/安装按引用规则保留而非原地改写。Arcade entry 名齐全但 size/hash 不同的 installation 为 active/HASH_WARNING，可装入 Launch bundle且不阻断；完全缺必需 entry 的 installation 可保留为 active/MISSING_ENTRY 供修复但 Launch 阻断；损坏/不安全 ZIP 为 INVALID 且不能 active。
+- 流程：上传 fixtures 中正确 `disksys.rom`，再上传临时生成的错误内容 `gba_bios.bin`，最后用 fixtures 中正确 `gba_bios.bin` 替换当前安装。对一个固定 Arcade Requirement 再分别上传“必需 entry 名齐全但一项 bytes/hash 不同”和“完全缺少一个必需 entry”的两个小型 ZIP，再为 ZIP 添加一个 DAT 未要求的文件。每次安装后点击 Arcade BIOS 文件名打开条目对比。
+- 通过标准：正确文件显示 installed/matched；错误 hash 文件允许保存并明确显示期望/实际 hash Warning，不伪装成 matched，也不因 hash 不同强制拒绝上传；正确替换后活动安装变为 matched，旧 Blob/安装按引用规则保留而非原地改写。Arcade entry 名齐全但 size/hash 不同的 installation 为 active/HASH_WARNING，可装入 Launch bundle且不阻断；完全缺必需 entry 的 installation 可保留为 active/MISSING_ENTRY 供修复但 Launch 阻断；损坏/不安全 ZIP 为 INVALID 且不能 active。弹窗仅使用左右两栏列表，左侧 DAT 要求与右侧 ZIP 实际内容的 name/size/CRC 均和安装时校验一致，各项正确区分内容别名、不匹配、缺失和额外文件，不把非默认 BIOS set 误列为必需项。
 - 证据：三次上传响应、实际/期望 hash、安装 revision、BIOS 状态与 UI 截图。
 
 ### ACC-BIOS-002：必需、可选与 Full Non-Merged
@@ -700,7 +700,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-003`。
 - 流程：检查首页时长、最近游玩和按添加时间倒序的最新 10 款游戏；在游戏库搜索并按平台/目录筛选；从卡片进入详情；查看封面、元信息、时长、最近 4 份存档、全量存档 Drawer、截图预览、核心和 DOS 程序；从存档次要入口进入详情。
-- 通过标准：首页五层顺序为最近玩的游戏/快速开始、最近游玩、最新添加、平台、资料库摘要；最新添加只含启用目录中的已发布游戏，最多 10 款且以创建时间和 Game ID 稳定倒序，入口进入游戏详情，“查看游戏库”恢复最近加入排序。筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；详情只内联最近 4 份存档且 Drawer 包含当前游戏全部存档；取消运行方式对话框不修改偏好，应用后才生效；存档主操作直接启动、标题/次要操作才进详情。
+- 通过标准：首页五层顺序为最近玩的游戏/快速开始、最近游玩、最新添加、平台、资料库摘要；最新添加只含启用目录中的已发布游戏，最多 10 款且以创建时间和 Game ID 稳定倒序，入口进入游戏详情，“查看游戏库”恢复最近加入排序。筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；存在简介时全文可见、不行数截断，在 3840px viewport 中简介占满 Hero 中栏可用宽度而不留固定空白；详情只内联最近 4 份存档且 Drawer 包含当前游戏全部存档；取消运行方式对话框不修改偏好，应用后才生效；存档主操作直接启动、标题/次要操作才进详情。
 - 证据：URL/query、可访问 DOM 断言和关键截图。
 
 ### ACC-UI-004：加载、空、错误、Warning 与 Blocker 状态
@@ -724,7 +724,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-006`。
 - 流程：在 `1280×800`、`2560×1440` 与 `3840×2160` 三个 viewport 打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、平台目录、`/admin/bios` 和 `/admin/bios/dats`。
-- 通过标准：表格/卡片密度可读，筛选和主操作可达；子菜单缩进清晰；2560/3840 下历史 diff、任务阶段、BIOS hash 和 DAT 版本不被截断或横向藏在视口外。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个 viewport 均可达。
+- 通过标准：表格/卡片密度可读，筛选和主操作可达；子菜单缩进清晰；2560/3840 下历史 diff、任务阶段、BIOS hash 和 DAT 版本不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个 viewport 均可达；封面容器保持 3:4 并在 3840px 双栏布局中等比延伸到媒体内容底边。
 - 证据：布局断言和每类页面当前截图。
 
 ### ACC-UI-007：键盘、标签与减少动画
@@ -740,7 +740,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-008`。
 - 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，加载第二页后选择第 57 项，修改标题并等待实时保存，再切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；最后 Approve 第 3 项并 Discard 第 58 项。分别在 1280×800 和 3840×2160 执行，并用键盘完成一次筛选和非顺序选中。
-- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。页面没有批量 Approve/Discard，所有最终决策各自使用当前 ETag/Idempotency-Key/ReviewEvent，两个批次不会串项。
+- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；简介标签与文本域间距不超过 8px，剩余栏高扩展文本域而不是标签空白；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。页面没有批量 Approve/Discard，所有最终决策各自使用当前 ETag/Idempotency-Key/ReviewEvent，两个批次不会串项。
 - 证据：API query/cursor、route 序列、键盘 trace、决策前后队列 DOM 及两个 viewport 的当前截图。
 
 ## 14. 缺陷处理与重验

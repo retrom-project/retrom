@@ -889,6 +889,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/bios/{requirementId}/entries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requirementId: components["parameters"]["RequirementID"];
+            };
+            cookie?: never;
+        };
+        /** @description Compare the active DAT-backed BIOS archive catalog with the exact DAT requirement version. */
+        get: operations["getAdminBIOSEntries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/arcade-dats": {
         parameters: {
             query?: never;
@@ -3182,6 +3201,21 @@ export interface operations {
         requestBody: components["requestBodies"]["InstallBIOS"];
         responses: {
             201: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminBIOSEntries: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                requirementId: components["parameters"]["RequirementID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["JSONResponse"];
+            404: components["responses"]["JSONResponse"];
         };
     };
     getAdminArcadeDATs: {

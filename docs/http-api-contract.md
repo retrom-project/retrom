@@ -42,6 +42,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 | `/admin/games` | `q`、`platformId`、`platformInstanceId`、`status=PUBLISHED|DELETED|ALL`、`sort=TITLE_ASC|UPDATED_DESC`、`cursor/limit`；列表项同时返回 `releaseYear`、`metadataComplete` 与目录默认核心当前 `runtimeStatus`，供管理列表健康摘要与筛选使用。 |
 | `/admin/platform-instances` | `platformId`、`enabled`、`sort=SORT_ORDER_ASC|NAME_ASC`、`cursor/limit` |
 | `/admin/bios` | `platformId`、`coreId`、`coreArtifactId`、`scope=REQUIRED_BY_LIBRARY|FULL_CATALOG`、`status`、`cursor/limit` |
+| `/admin/bios/{requirementId}/entries` | 无 query；只读当前 active `DAT_MACHINE` installation 的持久化归档条目对比 |
 | `/admin/arcade-dats` | `coreId`、`coreArtifactId`、`source=BUILTIN|USER`、`parseStatus=PENDING|PARSING|READY|FAILED|CANCELLED`、`cursor/limit` |
 | `/admin/arcade-dats/{datVersionId}/diff` | `section=MACHINES|ROM_ENTRIES|BIOS_SETS|DEPENDENCY_TARGETS`（默认 `MACHINES`）、`change=ADDED|REMOVED|CHANGED|ALL`（默认 `ALL`）、`cursor/limit` |
 
@@ -350,6 +351,7 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `putRuntimePersist
 | 平台目录排序 | `PUT /admin/platform-instances/order`：`{"items":[{"id":"uuid","version":1},...]}` | `items` 必须恰好包含全部未删除目录且 ID 不重复；在同一短事务按数组顺序写 `sortOrder=100,200,...`、逐项校验 version 并递增 version/写审计。目录集合变化返回 `409 PLATFORM_INSTANCE_ORDER_STALE`，任一版本变化返回 `409 VERSION_CONFLICT`，不得部分排序。 |
 | 默认核心预览 / 提交 | preview：`{"coreId":"...","cursor":null|string,"limit":100}` + `If-Match`；commit：`{"coreId":"...","impactDigest":"...","confirmBlocked":false}` + 当前 `If-Match` + `Idempotency-Key` | preview 不写状态且免 Idempotency-Key；commit 原子修改目录 version 并写 AuditEvent，不重写存档/revision。 |
 | BIOS 安装 | `POST /admin/bios/{requirementId}/installations`：`{"uploadFileId":"..."}` + `If-Match` + `Idempotency-Key` | 从 COMPLETE UploadFile 流式验证；新 installation 可为 MATCHED/HASH_WARNING/MISSING_ENTRY，原 active 同事务取消。静态文件 hash 不同，或 Arcade 必需 entry 名齐全但 size/hash 不同，均为可装入且不阻断的 HASH_WARNING；完全缺 entry 才是保存并 active 但阻断的 MISSING_ENTRY。损坏/不安全 archive 为 INVALID、只留审计且不可 active。 |
+| BIOS 归档条目对比 | `GET /admin/bios/{requirementId}/entries` | 只接受已安装且 active 的 `DAT_MACHINE` Requirement；响应为 `requirementId/logicalName/installationId/installationStatus/entries[]`，每项固定含 `status=MATCHED|ALIASED|MISMATCHED|MISSING|EXTRA`以及可空 `expected/actual={name,sizeBytes,crc32}`。期望条目必须来自 Requirement `sourceVersion` 指定的精确 DAT 版本，实际条目必须读安装阶段落库的 ArchiveEntry，GET 不重扫 Blob、不返回宿主路径；非 DAT/未安装返回 `404 BIOS_ARCHIVE_FACTS_NOT_FOUND`。 |
 | DAT 候选 | `POST /admin/arcade-dats`：`{"uploadFileId":"...","coreArtifactId":"..."}` + `Idempotency-Key` | 从 COMPLETE UploadFile 创建非活动 DatVersion 和解析 job；core 由 artifact 推导，不接受另一份 coreId。 |
 | DAT 激活 / 回滚 | 对目标 DatVersion 调用 activate/rollback，body 为 `{"impactDigest":"...","confirmBlocked":false,"confirmUnknownCompatibility":false}` + 目标 CoreArtifact 当前 `If-Match` + `Idempotency-Key` | activate 用于未曾活动候选，rollback 用于曾活动历史版本；两者都先校验最新 diff/digest。UNKNOWN 仅在 confirmUnknown=true 时转 USER_CONFIRMED；INCOMPATIBLE 永不允许。 |
 
@@ -400,7 +402,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `PUT /api/v1/admin/platform-instances/order` | 以全部目录的 ID/version 原子替换显示顺序，供拖拽和键盘排序。 |
 | `POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview`、`POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core` | 默认核心影响 digest 与提交。 |
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |
-| `GET /api/v1/admin/bios`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态与从已完成 UploadFile 新建 installation revision。替换只切换 active；一期没有删除 Installation API，旧安装与审计证据按 GC 引用规则保留。 |
+| `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 新建 installation revision。替换只切换 active；一期没有删除 Installation API，旧安装与审计证据按 GC 引用规则保留。 |
 | `GET /api/v1/admin/arcade-dats`、`POST /api/v1/admin/arcade-dats`、`POST /api/v1/admin/arcade-dats/{datVersionId}/diff`、`GET /api/v1/admin/arcade-dats/{datVersionId}/diff` | DAT 列表、从已完成 UploadFile 创建候选、异步生成差异与读取 READY 物化结果。 |
 | `POST /api/v1/admin/arcade-dats/{datVersionId}/activate`、`POST /api/v1/admin/arcade-dats/{datVersionId}/rollback`、`DELETE /api/v1/admin/arcade-dats/{datVersionId}` | DAT 激活、回滚和删除无引用候选。 |
 | `GET /api/v1/admin/diagnostics` | 下载不含内容标识与路径的封闭 JSON 诊断摘要；只读、无需 Idempotency-Key，但仍受全局 readiness 门禁。 |

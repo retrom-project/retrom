@@ -236,7 +236,8 @@ Full Non-Merged 已包含 parent/BIOS entry 时显示“由游戏文件满足”
 - “当前游戏库需要”与“完整 BIOS 目录”在客户端切换，不做整页导航；URL 保留范围、关键字、Core 和状态，便于从启动阻断处返回。
 - 页首摘要固定展示当前范围、缺失/阻断、需要核对和已就绪；可选文件未安装不计入阻断。
 - 先按“需要处理”和“已就绪与可选项”分区，再展示逻辑文件/ROMset、Core、状态和可证明的使用语义。当前列表接口没有使用数量时，不显示虚构计数。
-- 支持上传、替换；hash 不同明确警告但保留，并在折叠的校验信息内展示期望/实际 hash。
+- 支持上传、替换；STATIC 文件 hash 不同明确警告但保留，期望/实际 MD5 直接展示。Arcade `DAT_MACHINE` 没有可信的整个 ZIP 期望 MD5，它以条目级 name/size/CRC/SHA-1 校验为准。
+- 已安装的 `DAT_MACHINE` ZIP 文件名可点击；对比弹窗左右列出锁定 DAT 版本要求和安装时落库的实际归档条目 name/size/CRC，并区分 `MATCHED/ALIASED/MISMATCHED/MISSING/EXTRA`。`ALIASED` 只在 size 与 SHA-1（无 SHA-1 时 CRC32）同时命中时成立；弹窗读取持久化 ArchiveEntry，不重新打开或解压 Blob。
 
 ### Arcade DAT 版本
 

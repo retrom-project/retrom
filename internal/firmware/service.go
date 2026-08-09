@@ -16,7 +16,10 @@ import (
 	"github.com/google/uuid"
 )
 
-var ErrInvalid = errors.New("BIOS_INSTALLATION_INVALID")
+var (
+	ErrInvalid              = errors.New("BIOS_INSTALLATION_INVALID")
+	ErrArchiveFactsNotFound = errors.New("BIOS_ARCHIVE_FACTS_NOT_FOUND")
+)
 
 type InstallRequest struct {
 	UploadFileID string `json:"uploadFileId"`
@@ -30,6 +33,26 @@ type Installation struct {
 	ValidatedRequirementVersion int64          `json:"validatedRequirementVersion"`
 	ValidationDetails           map[string]any `json:"validationDetails"`
 	CreatedAtMS                 int64          `json:"createdAtMs"`
+}
+
+type ArchiveEntryFacts struct {
+	Name      string `json:"name"`
+	SizeBytes int64  `json:"sizeBytes"`
+	CRC32     string `json:"crc32,omitempty"`
+}
+
+type ArchiveEntryComparison struct {
+	Status   string             `json:"status"`
+	Expected *ArchiveEntryFacts `json:"expected"`
+	Actual   *ArchiveEntryFacts `json:"actual"`
+}
+
+type ArchiveInspection struct {
+	RequirementID      string                   `json:"requirementId"`
+	LogicalName        string                   `json:"logicalName"`
+	InstallationID     string                   `json:"installationId"`
+	InstallationStatus string                   `json:"installationStatus"`
+	Entries            []ArchiveEntryComparison `json:"entries"`
 }
 
 type Service struct {
@@ -287,6 +310,10 @@ type expectedArchiveEntry struct {
 	sha1  sql.NullString
 }
 
+type archiveQueryer interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+}
+
 func persistArchiveEntries(
 	ctx context.Context,
 	transaction *sql.Tx,
@@ -328,7 +355,32 @@ func validateDATMachineArchive(
 	requirementID string,
 	actual []importing.ArchiveEntry,
 ) (string, map[string]any, error) {
-	rows, err := transaction.QueryContext(ctx, `
+	expected, err := loadExpectedArchiveEntries(ctx, transaction, requirementID)
+	if err != nil {
+		return "", nil, err
+	}
+	comparisons, missing, mismatched, warnings := compareArchiveEntries(expected, actual)
+	details := map[string]any{
+		"schemaVersion":     1,
+		"missingEntries":    missing,
+		"mismatchedEntries": mismatched,
+		"warnings":          warnings,
+	}
+	if len(comparisons) == 0 || len(expected) == 0 || len(missing) > 0 {
+		return "MISSING_ENTRY", details, nil
+	}
+	if len(mismatched) > 0 {
+		return "HASH_WARNING", details, nil
+	}
+	return "MATCHED", details, nil
+}
+
+func loadExpectedArchiveEntries(
+	ctx context.Context,
+	queryer archiveQueryer,
+	requirementID string,
+) ([]expectedArchiveEntry, error) {
+	rows, err := queryer.QueryContext(ctx, `
 SELECT r.name,
 r.size_bytes,
 r.crc32,
@@ -337,6 +389,7 @@ FROM dat_rom_entries r
 JOIN dat_versions d ON d.id=r.dat_version_id
 JOIN bios_requirements q ON q.core_artifact_id=d.core_artifact_id
 AND q.dat_machine_name=r.machine_name
+AND q.source_version=r.dat_version_id
 WHERE q.id=?
 AND COALESCE(r.status,'GOOD')!='NODUMP'
 AND (r.bios_name IS NULL OR EXISTS(SELECT 1
@@ -348,20 +401,28 @@ AND b.is_default=1))
 ORDER BY r.name COLLATE BINARY,r.ordinal
 `, requirementID)
 	if err != nil {
-		return "", nil, fmt.Errorf("firmware/DAT entries: %w", err)
+		return nil, fmt.Errorf("firmware/DAT entries: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	expected := make([]expectedArchiveEntry, 0)
 	for rows.Next() {
 		var entry expectedArchiveEntry
 		if err := rows.Scan(&entry.name, &entry.size, &entry.crc32, &entry.sha1); err != nil {
-			return "", nil, fmt.Errorf("firmware/DAT entries: %w", err)
+			return nil, fmt.Errorf("firmware/DAT entries: %w", err)
 		}
 		expected = append(expected, entry)
 	}
 	if err := rows.Err(); err != nil {
-		return "", nil, fmt.Errorf("firmware/DAT entries: %w", err)
+		return nil, fmt.Errorf("firmware/DAT entries: %w", err)
 	}
+	return expected, nil
+}
+
+func compareArchiveEntries(
+	expected []expectedArchiveEntry,
+	actual []importing.ArchiveEntry,
+) ([]ArchiveEntryComparison, []map[string]any, []map[string]any, []string) {
+	comparisons := make([]ArchiveEntryComparison, 0, len(expected)+len(actual))
 	missing := make([]map[string]any, 0)
 	mismatched := make([]map[string]any, 0)
 	warnings := make([]string, 0)
@@ -372,6 +433,7 @@ ORDER BY r.name COLLATE BINARY,r.ordinal
 		})
 		if exact >= 0 && archiveEntryMatches(wanted, actual[exact]) {
 			used[exact] = struct{}{}
+			comparisons = append(comparisons, archiveComparison("MATCHED", wanted, &actual[exact]))
 			continue
 		}
 		alias := findArchiveEntry(actual, used, func(entry importing.ArchiveEntry) bool {
@@ -380,28 +442,137 @@ ORDER BY r.name COLLATE BINARY,r.ordinal
 		if alias >= 0 {
 			used[alias] = struct{}{}
 			warnings = append(warnings, fmt.Sprintf("%s 已按内容识别为 %s", wanted.name, actual[alias].NormalizedPath))
+			comparisons = append(comparisons, archiveComparison("ALIASED", wanted, &actual[alias]))
 			continue
 		}
 		if exact >= 0 {
 			used[exact] = struct{}{}
 			mismatched = append(mismatched, archiveEntryDifference(wanted, actual[exact]))
+			comparisons = append(comparisons, archiveComparison("MISMATCHED", wanted, &actual[exact]))
 			continue
 		}
 		missing = append(missing, map[string]any{"name": wanted.name, "expected": expectedEntryFacts(wanted)})
+		comparisons = append(comparisons, archiveComparison("MISSING", wanted, nil))
 	}
-	details := map[string]any{
-		"schemaVersion":     1,
-		"missingEntries":    missing,
-		"mismatchedEntries": mismatched,
-		"warnings":          warnings,
+	for index := range actual {
+		if _, exists := used[index]; exists {
+			continue
+		}
+		comparisons = append(comparisons, ArchiveEntryComparison{
+			Status: "EXTRA",
+			Actual: actualEntryFacts(actual[index]),
+		})
 	}
-	if len(expected) == 0 || len(missing) > 0 {
-		return "MISSING_ENTRY", details, nil
+	return comparisons, missing, mismatched, warnings
+}
+
+func archiveComparison(
+	status string,
+	expected expectedArchiveEntry,
+	actual *importing.ArchiveEntry,
+) ArchiveEntryComparison {
+	comparison := ArchiveEntryComparison{Status: status, Expected: expectedArchiveEntryFacts(expected)}
+	if actual != nil {
+		comparison.Actual = actualEntryFacts(*actual)
 	}
-	if len(mismatched) > 0 {
-		return "HASH_WARNING", details, nil
+	return comparison
+}
+
+func expectedArchiveEntryFacts(entry expectedArchiveEntry) *ArchiveEntryFacts {
+	crc32Value := ""
+	if entry.crc32.Valid {
+		crc32Value = entry.crc32.String
 	}
-	return "MATCHED", details, nil
+	return &ArchiveEntryFacts{Name: entry.name, SizeBytes: entry.size, CRC32: crc32Value}
+}
+
+func actualEntryFacts(entry importing.ArchiveEntry) *ArchiveEntryFacts {
+	return &ArchiveEntryFacts{Name: entry.NormalizedPath, SizeBytes: entry.Size, CRC32: entry.CRC32}
+}
+
+// InspectArchive compares an active DAT-backed BIOS installation with the
+// exact DAT version captured by its requirement. It reads the persisted safe
+// archive catalog and never reopens user content on an HTTP request.
+func (service *Service) InspectArchive(ctx context.Context, requirementID string) (ArchiveInspection, error) {
+	var inspection ArchiveInspection
+	var sourceKind, blobID string
+	if err := service.database.QueryRowContext(ctx, `
+SELECT q.id,
+q.logical_name,
+q.source_kind,
+i.id,
+i.status,
+i.blob_id
+FROM bios_requirements q
+JOIN bios_installations i ON i.requirement_id=q.id
+AND i.is_active=1
+WHERE q.id=?
+AND q.enabled=1
+`, requirementID).Scan(
+		&inspection.RequirementID,
+		&inspection.LogicalName,
+		&sourceKind,
+		&inspection.InstallationID,
+		&inspection.InstallationStatus,
+		&blobID,
+	); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return ArchiveInspection{}, ErrArchiveFactsNotFound
+		}
+		return ArchiveInspection{}, fmt.Errorf("firmware/archive inspection: %w", err)
+	}
+	if sourceKind != "DAT_MACHINE" {
+		return ArchiveInspection{}, ErrArchiveFactsNotFound
+	}
+	expected, err := loadExpectedArchiveEntries(ctx, service.database, requirementID)
+	if err != nil {
+		return ArchiveInspection{}, err
+	}
+	rows, err := service.database.QueryContext(ctx, `
+SELECT ordinal,
+original_relative_path,
+normalized_path,
+ascii_casefold_path,
+archive_format,
+compression_profile,
+uncompressed_size_bytes,
+crc32,
+md5,
+sha1,
+sha256
+FROM archive_entries
+WHERE archive_blob_id=?
+ORDER BY ordinal
+`, blobID)
+	if err != nil {
+		return ArchiveInspection{}, fmt.Errorf("firmware/archive inspection: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	actual := make([]importing.ArchiveEntry, 0)
+	for rows.Next() {
+		var entry importing.ArchiveEntry
+		if err := rows.Scan(
+			&entry.Ordinal,
+			&entry.OriginalPath,
+			&entry.NormalizedPath,
+			&entry.ASCIICasefoldPath,
+			&entry.ArchiveFormat,
+			&entry.CompressionProfile,
+			&entry.Size,
+			&entry.CRC32,
+			&entry.MD5,
+			&entry.SHA1,
+			&entry.SHA256,
+		); err != nil {
+			return ArchiveInspection{}, fmt.Errorf("firmware/archive inspection: %w", err)
+		}
+		actual = append(actual, entry)
+	}
+	if err := rows.Err(); err != nil {
+		return ArchiveInspection{}, fmt.Errorf("firmware/archive inspection: %w", err)
+	}
+	inspection.Entries, _, _, _ = compareArchiveEntries(expected, actual)
+	return inspection, nil
 }
 
 func findArchiveEntry(

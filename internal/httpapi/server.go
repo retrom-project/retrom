@@ -173,6 +173,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/admin/arcade-dats/{datVersionId}/rollback", server.rollbackArcadeDAT)
 	mux.HandleFunc("DELETE /api/v1/admin/arcade-dats/{datVersionId}", server.deleteArcadeDAT)
 	mux.HandleFunc("GET /api/v1/admin/bios", server.bios)
+	mux.HandleFunc("GET /api/v1/admin/bios/{requirementId}/entries", server.biosEntries)
 	mux.HandleFunc("POST /api/v1/admin/bios/{requirementId}/installations", server.installBIOS)
 	mux.HandleFunc("GET /api/v1/admin/imports/summary", server.importSummary)
 	mux.HandleFunc("GET /api/v1/admin/imports", server.imports)
@@ -2688,6 +2689,7 @@ b.core_id,
 c.name,
 b.core_artifact_id,
 b.logical_name,
+b.source_kind,
 b.requirement_mode,
 b.condition_code,
 b.md5,
@@ -2718,7 +2720,7 @@ AND i.is_active=1
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0)
 	for rows.Next() {
-		var id, coreID, coreName, artifactID, logicalName, mode, status string
+		var id, coreID, coreName, artifactID, logicalName, sourceKind, mode, status string
 		var condition, expectedMD5, installationID, installedMD5, installedSHA1, installedSHA256 sql.NullString
 		var validatedVersion, installedAt sql.NullInt64
 		var enabled int
@@ -2729,6 +2731,7 @@ AND i.is_active=1
 			&coreName,
 			&artifactID,
 			&logicalName,
+			&sourceKind,
 			&mode,
 			&condition,
 			&expectedMD5,
@@ -2753,6 +2756,7 @@ AND i.is_active=1
 				"coreName":        coreName,
 				"coreArtifactId":  artifactID,
 				"logicalName":     logicalName,
+				"sourceKind":      sourceKind,
 				"requirementMode": mode,
 				"conditionCode":   nullableString(condition),
 				"expectedMd5":     nullableString(expectedMD5),
