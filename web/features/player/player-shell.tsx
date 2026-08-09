@@ -254,7 +254,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       await sendEvent("finish");
     } catch { /* expiry is already a terminal server state */ }
     if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
-    window.location.assign(returnTo.current);
+    window.location.replace(returnTo.current);
   }, [sendEvent, uploadPersistent]);
 
   function downloadConflictingSave() {
