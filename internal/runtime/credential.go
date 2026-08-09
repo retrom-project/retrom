@@ -32,6 +32,14 @@ type Credentials struct {
 	key [32]byte
 }
 
+func LoadCredentials(dataDir string) (*Credentials, error) {
+	key, err := readKey(filepath.Join(dataDir, "secrets", "launch-capability.key"))
+	if err != nil {
+		return nil, err
+	}
+	return &Credentials{key: key}, nil
+}
+
 func (credentials *Credentials) SetupCode() string {
 	return EncodeCapability(credentials.derive(setupCodeDomain))
 }

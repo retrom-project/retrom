@@ -11,6 +11,10 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
+	"retrom/internal/accounts"
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
@@ -59,7 +63,26 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, "bytes 0-3/4", digest, bytes.NewReader(part)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := retromruntime.LoadOrCreateCredentials(dataDir); err != nil {
+	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	accountService, err := accounts.New(
+		ctx, database.SQL, credentials, config.ModeTest, authn.EmptyBlocklist{}, time.Now,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := accountService.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	admin, err := accountService.Login(ctx, "test", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := accountService.CreateInvitation(
+		ctx, admin.Principal, "USER", false, uuid.NewString(),
+	); err != nil {
 		t.Fatal(err)
 	}
 	if err := database.Close(); err != nil {
@@ -99,6 +122,25 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	}
 	if _, _, err := digestRegular(filepath.Join(restored, "tmp", "uploads", upload.ID, upload.Files[0].ID, "0")); err != nil {
 		t.Fatal(err)
+	}
+	restoredDatabase, err := openDatabase(ctx, filepath.Join(restored, "retrom.db"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer restoredDatabase.Close()
+	var fencedSessions, fencedLinks, fenceAudits int
+	if err := restoredDatabase.QueryRow(`
+SELECT
+  (SELECT count(*) FROM auth_sessions WHERE revoked_reason='RESTORE' AND revoked_at_ms IS NOT NULL),
+  (SELECT count(*) FROM account_links WHERE revoked_by_kind='SYSTEM' AND revoked_at_ms IS NOT NULL),
+  (SELECT count(*) FROM audit_events
+   WHERE actor_kind='SYSTEM' AND actor_label='restore-security-fence' AND action='RESTORE_SECURITY_FENCE')
+`).Scan(&fencedSessions, &fencedLinks, &fenceAudits); err != nil ||
+		fencedSessions < 1 || fencedLinks != 1 || fenceAudits != 1 {
+		t.Fatalf(
+			"restore fence = sessions=%d links=%d audits=%d error=%v",
+			fencedSessions, fencedLinks, fenceAudits, err,
+		)
 	}
 	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(
 		err,

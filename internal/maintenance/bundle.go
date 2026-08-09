@@ -308,7 +308,7 @@ ORDER BY p.storage_key
 	return manifest, nil
 }
 
-//nolint:gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
+//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func Restore(ctx context.Context, configuration config.Maintenance, input, output string) (Manifest, error) {
 	if !filepath.IsAbs(input) || !filepath.IsAbs(output) || filepath.Clean(input) != input ||
 		filepath.Clean(output) != output ||
@@ -375,6 +375,10 @@ func Restore(ctx context.Context, configuration config.Maintenance, input, outpu
 		cleanup.Error("close", database.Close())
 		return Manifest{}, err
 	}
+	if err := applyRestoreSecurityFence(ctx, database, time.Now().UTC()); err != nil {
+		cleanup.Error("close", database.Close())
+		return Manifest{}, err
+	}
 	if err := database.Close(); err != nil {
 		return Manifest{}, fmt.Errorf("maintenance/bundle: %w", err)
 	}
@@ -388,6 +392,56 @@ func Restore(ctx context.Context, configuration config.Maintenance, input, outpu
 		return Manifest{}, err
 	}
 	return manifest, nil
+}
+
+func applyRestoreSecurityFence(ctx context.Context, database *sql.DB, now time.Time) error {
+	nowMS := now.UnixMilli()
+	transaction, err := database.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("maintenance/bundle: begin restore security fence: %w", err)
+	}
+	defer cleanup.Rollback(transaction)
+	sessions, err := transaction.ExecContext(ctx, `
+UPDATE auth_sessions SET revoked_at_ms=?,revoked_reason='RESTORE' WHERE revoked_at_ms IS NULL
+`, nowMS)
+	if err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored sessions: %w", err)
+	}
+	links, err := transaction.ExecContext(ctx, `
+UPDATE account_links SET revoked_at_ms=?,revoked_by_kind='SYSTEM',version=version+1
+WHERE consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
+`, nowMS, nowMS)
+	if err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored account links: %w", err)
+	}
+	launches, err := transaction.ExecContext(ctx, `
+UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1
+WHERE state IN ('CREATED','ACTIVE')
+`, nowMS, nowMS)
+	if err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored launches: %w", err)
+	}
+	sessionCount, _ := sessions.RowsAffected()
+	linkCount, _ := links.RowsAffected()
+	launchCount, _ := launches.RowsAffected()
+	auditID, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("maintenance/bundle: create restore audit ID: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO audit_events(
+id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
+before_json,after_json,diff_json,request_id,created_at_ms)
+VALUES(?,'SYSTEM',NULL,'restore-security-fence','RESTORE_SECURITY_FENCE','INSTANCE','instance',
+NULL,json_object('revokedSessionCount',?,'revokedAccountLinkCount',?,'revokedLaunchCount',?),
+'{}',NULL,?)
+`, auditID.String(), sessionCount, linkCount, launchCount, nowMS); err != nil {
+		return fmt.Errorf("maintenance/bundle: audit restore security fence: %w", err)
+	}
+	if err := transaction.Commit(); err != nil {
+		return fmt.Errorf("maintenance/bundle: commit restore security fence: %w", err)
+	}
+	return nil
 }
 
 //nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
