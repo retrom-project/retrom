@@ -45,6 +45,35 @@ type Created struct {
 	ItemCount   int    `json:"itemCount"`
 }
 
+type initialImportProgress struct {
+	state              string
+	itemState          string
+	runningItems       int
+	reviewPendingItems int
+	completed          bool
+}
+
+func newInitialImportProgress(metadataProvider string, itemCount, rejectedFileCount int) initialImportProgress {
+	if itemCount == 0 {
+		if rejectedFileCount > 0 {
+			return initialImportProgress{state: "PARTIAL_FAILURE", itemState: "REVIEW_PENDING"}
+		}
+		return initialImportProgress{state: "COMPLETED", itemState: "REVIEW_PENDING", completed: true}
+	}
+	if metadataProvider == "HASHEOUS" {
+		return initialImportProgress{
+			state: "RUNNING", itemState: "SCRAPING", runningItems: itemCount,
+		}
+	}
+	state := "REVIEW_PENDING"
+	if rejectedFileCount > 0 {
+		state = "PARTIAL_FAILURE"
+	}
+	return initialImportProgress{
+		state: state, itemState: "REVIEW_PENDING", reviewPendingItems: itemCount,
+	}
+}
+
 type importSourceFile struct {
 	id, path, blobID, sha256 string
 }
@@ -1234,11 +1263,10 @@ created_at_ms) VALUES(?,
 			rejected++
 		}
 	}
-	state, itemState, runningItems, reviewPendingItems := "REVIEW_PENDING", "REVIEW_PENDING", 0, len(groups)
-	if request.MetadataProvider == "HASHEOUS" {
-		state, itemState, runningItems, reviewPendingItems = "RUNNING", "SCRAPING", len(groups), 0
-	} else if rejected > 0 {
-		state = "PARTIAL_FAILURE"
+	progress := newInitialImportProgress(request.MetadataProvider, len(groups), rejected)
+	completedAt := any(nil)
+	if progress.completed {
+		completedAt = now
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_jobs(id,
@@ -1260,7 +1288,8 @@ ignored_file_count,
 rejected_file_count,
 version,
 created_at_ms,
-updated_at_ms) VALUES(?,
+updated_at_ms,
+completed_at_ms) VALUES(?,
 ?,
 ?,
 ?,
@@ -1279,6 +1308,7 @@ updated_at_ms) VALUES(?,
 ?,
 1,
 ?,
+?,
 ?)
 `,
 		importID.String(),
@@ -1292,14 +1322,15 @@ updated_at_ms) VALUES(?,
 		request.MetadataProvider,
 		string(configJSON),
 		hex.EncodeToString(configDigest[:]),
-		state,
+		progress.state,
 		len(groups),
-		runningItems,
-		reviewPendingItems,
+		progress.runningItems,
+		progress.reviewPendingItems,
 		ignored,
 		rejected,
 		now,
 		now,
+		completedAt,
 	); err != nil {
 		return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
@@ -1511,7 +1542,7 @@ updated_at_ms) VALUES(?,
 			itemID.String(),
 			importID.String(),
 			hex.EncodeToString(groupDigest[:]),
-			itemState,
+			progress.itemState,
 			string(manifestJSON),
 			manifestDigestHex,
 			strings.ToLower(strings.Join(searchParts, " ")),
@@ -1768,7 +1799,9 @@ created_at_ms) VALUES(?,
 		runID := scheduled.ScrapeRunID()
 		go func() { _ = service.scraper.Run(context.WithoutCancel(ctx), runID) }()
 	}
-	return Created{ImportJobID: importID.String(), JobID: jobID.String(), State: state, ItemCount: len(groups)}, nil
+	return Created{
+		ImportJobID: importID.String(), JobID: jobID.String(), State: progress.state, ItemCount: len(groups),
+	}, nil
 }
 
 func prepareStaticBIOSDependencies(

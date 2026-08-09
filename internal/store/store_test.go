@@ -420,6 +420,68 @@ WHERE archive_blob_id='base-blob' AND ordinal=0
 	}
 }
 
+func TestImportProgressRepairMigrationFinalizesZeroItemJobs(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	databasePath := filepath.Join(t.TempDir(), "retrom.db")
+	legacy, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.SetMaxOpenConns(1)
+	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 10)
+	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "010_fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 11, 14)
+	if _, err := legacy.ExecContext(ctx, `
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,expires_at_ms,created_at_ms,updated_at_ms)
+VALUES
+  ('rejected-upload','COMPLETE','FILES',1,1,'ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',1000,1,1),
+  ('ignored-upload','COMPLETE','FILES',1,1,'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee',1000,1,1);
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
+core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,created_at_ms,updated_at_ms)
+VALUES
+  ('rejected-import','rejected-upload','01980000-0000-7000-8000-000000000009',1,'dos','dosbox_pure','dos-artifact','HASHEOUS','{}','ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff','RUNNING',0,1,1,1),
+  ('ignored-import','ignored-upload','01980000-0000-7000-8000-000000000009',1,'dos','dosbox_pure','dos-artifact','NONE','{}','eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee','REVIEW_PENDING',0,0,1,1);
+`); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	upgraded, err := Open(ctx, databasePath, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
+	var rejectedState, ignoredState string
+	var rejectedCompleted, ignoredCompleted sql.NullInt64
+	if err := upgraded.SQL.QueryRowContext(ctx, `SELECT state,completed_at_ms FROM import_jobs WHERE id='rejected-import'`).Scan(&rejectedState, &rejectedCompleted); err != nil {
+		t.Fatal(err)
+	}
+	if err := upgraded.SQL.QueryRowContext(ctx, `SELECT state,completed_at_ms FROM import_jobs WHERE id='ignored-import'`).Scan(&ignoredState, &ignoredCompleted); err != nil {
+		t.Fatal(err)
+	}
+	if rejectedState != "PARTIAL_FAILURE" || rejectedCompleted.Valid || ignoredState != "COMPLETED" ||
+		!ignoredCompleted.Valid || ignoredCompleted.Int64 != 1 {
+		t.Fatalf("repaired states = %s/%v %s/%v", rejectedState, rejectedCompleted, ignoredState, ignoredCompleted)
+	}
+}
+
 func assertIntegerTimeColumns(t *testing.T, database *sql.DB, table string) {
 	t.Helper()
 	rows, err := database.Query("PRAGMA table_info(" + table + ")")

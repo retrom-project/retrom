@@ -1100,6 +1100,7 @@ components:
         failed: {}
         failedItemCount: {}
         fileCount: {}
+        fileOutcomes: {}
         fileId: {}
         files: {}
         filterDigest: {}
@@ -1204,6 +1205,7 @@ components:
         recentGames: {}
         recentSaves: {}
         rejectedFiles: {}
+        rejectedFileCount: { type: integer, format: int64 }
         releaseYear: {}
         repository: {}
         requestId: {}
