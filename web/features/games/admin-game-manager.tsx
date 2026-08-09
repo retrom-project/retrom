@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -34,6 +34,28 @@ type PendingMove = { targetPlatformInstanceId: string; targetName: string; resul
 
 const metadataFields = ["title", "description", "developer", "publisher", "genre", "players", "releaseYear"];
 
+type MetadataDraft = {
+  title: string;
+  description: string;
+  developer: string;
+  publisher: string;
+  genre: string;
+  players: string;
+  releaseYear: string;
+};
+
+function metadataDraft(game: AdminGame): MetadataDraft {
+  return {
+    title: game.title,
+    description: game.description,
+    developer: game.developer,
+    publisher: game.publisher,
+    genre: game.genre,
+    players: game.players === null ? "" : String(game.players),
+    releaseYear: game.releaseYear === null ? "" : String(game.releaseYear),
+  };
+}
+
 export function AdminGameManager({ game, platformInstances, candidates }: { game: AdminGame; platformInstances: PlatformInstanceOption[]; candidates: ScrapeCandidate[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
@@ -43,7 +65,20 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const [moveTarget, setMoveTarget] = useState("");
   const [scrapeCandidates, setScrapeCandidates] = useState(candidates);
   const [comparison, setComparison] = useState<ScrapeCandidate | null>(null);
+  const [draft, setDraft] = useState<MetadataDraft>(() => metadataDraft(game));
+  const [savedDraft, setSavedDraft] = useState<MetadataDraft>(() => metadataDraft(game));
   const versionRef = useRef(game.version);
+  const metadataRevisionRef = useRef(game.currentMetadataRevisionId);
+
+  useEffect(() => {
+    versionRef.current = game.version;
+    if (metadataRevisionRef.current !== game.currentMetadataRevisionId) {
+      const current = metadataDraft(game);
+      metadataRevisionRef.current = game.currentMetadataRevisionId;
+      setDraft(current);
+      setSavedDraft(current);
+    }
+  }, [game]);
 
   async function action(name: string, callback: () => Promise<string>) {
     setBusy(name); setNotice(""); setError("");
@@ -58,13 +93,22 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
 
   async function saveMetadata(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const data = new FormData(event.currentTarget);
+    const submitted = { ...draft };
     await action("metadata", async () => {
-      const body: Record<string, string | number> = { title: String(data.get("title") ?? ""), description: String(data.get("description") ?? ""), developer: String(data.get("developer") ?? ""), publisher: String(data.get("publisher") ?? ""), genre: String(data.get("genre") ?? "") };
-      for (const name of ["players", "releaseYear"]) { const value = String(data.get(name) ?? ""); if (value) body[name] = Number(value); }
+      const body: Record<string, string | number | null> = {
+        title: submitted.title,
+        description: submitted.description,
+        developer: submitted.developer,
+        publisher: submitted.publisher,
+        genre: submitted.genre,
+        players: submitted.players ? Number(submitted.players) : null,
+        releaseYear: submitted.releaseYear ? Number(submitted.releaseYear) : null,
+      };
       const response = await fetch(`/api/v1/admin/games/${game.gameId}`, { method: "PATCH", credentials: "same-origin", headers: await versionedHeaders(), body: JSON.stringify(body) });
       if (!response.ok) throw new Error(await responseError(response, "发布信息保存失败"));
-      const result = await response.json() as { metadataRevisionId: string };
+      const result = await response.json() as { metadataRevisionId: string; version?: number };
+      if (result.version) versionRef.current = result.version;
+      setSavedDraft(submitted);
       return result.metadataRevisionId ? "发布信息已保存为新版本。" : "发布信息已保存。";
     });
   }
@@ -182,6 +226,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const metadataComplete = Boolean(game.description.trim() && game.developer.trim() && game.publisher.trim() && game.genre.trim() && game.players && game.releaseYear);
   const moveTargets = platformInstances.filter((item) => item.enabled && item.platformId === game.platformId && item.id !== game.platformInstance.id);
   const disabled = busy !== null || game.status !== "PUBLISHED";
+  const metadataDirty = JSON.stringify(draft) !== JSON.stringify(savedDraft);
   const comparisonCover = comparison?.assets.find((asset) => asset.kind === "COVER" && asset.status === "READY" && asset.widthPx && asset.heightPx) ?? null;
   const comparisonFields: Array<{ key: "title" | "developer" | "publisher" | "genre" | "players" | "releaseYear"; label: string }> = [
     { key: "title", label: "标题" }, { key: "developer", label: "开发商" }, { key: "publisher", label: "发行商" },
@@ -202,12 +247,12 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
 
     <div className="admin-game-primary-grid">
       <section className="panel admin-game-publish" id="admin-game-basic"><div className="panel-head"><h2>发布信息</h2></div><form className="panel-body admin-game-publish-form" onSubmit={(event) => void saveMetadata(event)}>
-        <label className="full">标题<input name="title" defaultValue={game.title} required maxLength={200} /></label>
-        <label className="full">简介<textarea name="description" defaultValue={game.description} maxLength={10000} /></label>
-        <label>开发商<input name="developer" defaultValue={game.developer} maxLength={200} /></label><label>发行商<input name="publisher" defaultValue={game.publisher} maxLength={200} /></label>
-        <label>类型<input name="genre" defaultValue={game.genre} maxLength={200} /></label><label>玩家数<input name="players" type="number" min={1} max={64} defaultValue={game.players ?? ""} /></label>
-        <label>发行年份<input name="releaseYear" type="number" min={1950} defaultValue={game.releaseYear ?? ""} /></label><label>平台<input value={currentInstance?.platformName ?? game.platformId} readOnly aria-readonly="true" /></label>
-        <div className="admin-game-savebar full"><span>上次保存：{formatAdminGameTime(game.updatedAtMs, game.generatedAtMs)}</span><div><details><summary>查看版本历史</summary><div>{game.metadataRevisions.map((revision) => <small key={revision.id}>{revision.current ? "● 当前" : "○ 历史"} · {formatTime(revision.createdAtMs)} · {revision.sourceKind}</small>)}</div></details><button className="button" disabled={disabled}>保存新版本</button></div></div>
+        <label className="full">标题<input name="title" value={draft.title} onChange={(event) => setDraft((current) => ({ ...current, title: event.target.value }))} required maxLength={200} /></label>
+        <label className="full">简介<textarea name="description" value={draft.description} onChange={(event) => setDraft((current) => ({ ...current, description: event.target.value }))} maxLength={10000} /></label>
+        <label>开发商<input name="developer" value={draft.developer} onChange={(event) => setDraft((current) => ({ ...current, developer: event.target.value }))} maxLength={200} /></label><label>发行商<input name="publisher" value={draft.publisher} onChange={(event) => setDraft((current) => ({ ...current, publisher: event.target.value }))} maxLength={200} /></label>
+        <label>类型<input name="genre" value={draft.genre} onChange={(event) => setDraft((current) => ({ ...current, genre: event.target.value }))} maxLength={200} /></label><label>玩家数<input name="players" type="number" min={1} max={64} value={draft.players} onChange={(event) => setDraft((current) => ({ ...current, players: event.target.value }))} /></label>
+        <label>发行年份<input name="releaseYear" type="number" min={1950} value={draft.releaseYear} onChange={(event) => setDraft((current) => ({ ...current, releaseYear: event.target.value }))} /></label><label>平台<input value={currentInstance?.platformName ?? game.platformId} readOnly aria-readonly="true" /></label>
+        <div className="admin-game-savebar full"><span>上次保存：{formatAdminGameTime(game.updatedAtMs, game.generatedAtMs)}</span><div><details><summary>查看版本历史</summary><div>{game.metadataRevisions.map((revision) => <small key={revision.id}>{revision.current ? "● 当前" : "○ 历史"} · {formatTime(revision.createdAtMs)} · {revision.sourceKind}</small>)}</div></details><button className="button" disabled={disabled || !metadataDirty}>保存新版本</button></div></div>
       </form></section>
 
       <section className="panel admin-game-media" id="admin-game-media"><div className="panel-head"><h2>媒体</h2></div><div className="panel-body admin-game-media-grid">

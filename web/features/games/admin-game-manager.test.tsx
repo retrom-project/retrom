@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminGameManager, type AdminGame, type PlatformInstanceOption } from "./admin-game-manager";
@@ -36,7 +36,7 @@ const directories: PlatformInstanceOption[] = [
 ];
 
 describe("AdminGameManager", () => {
-  afterEach(cleanup);
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
   it("renders the precise four-section workbench without the omitted section tags", () => {
     const { container } = render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
@@ -49,6 +49,32 @@ describe("AdminGameManager", () => {
     expect(screen.queryByRole("navigation", { name: "游戏管理详情分区" })).not.toBeInTheDocument();
     expect(screen.getByText("从游戏库移除").closest("details")).not.toHaveAttribute("open");
     expect(container.querySelector(".admin-game-cover-slot > .admin-game-cover-frame")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "保存新版本" })).toBeDisabled();
+  });
+
+  it("enables metadata save only for an unsaved change and disables it after success", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      metadataRevisionId: "metadata-2",
+      version: 4,
+      updatedAtMs: 600,
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
+    const save = screen.getByRole("button", { name: "保存新版本" });
+    const title = screen.getByRole("textbox", { name: "标题" });
+
+    expect(save).toBeDisabled();
+    await user.clear(title);
+    await user.type(title, "1943 Kai");
+    expect(save).toBeEnabled();
+    await user.click(save);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/games/game-1", expect.objectContaining({
+      method: "PATCH",
+      body: expect.stringContaining('"title":"1943 Kai"'),
+    })));
+    await waitFor(() => expect(save).toBeDisabled());
   });
 
   it("opens a metadata and cover comparison instead of applying text immediately", async () => {

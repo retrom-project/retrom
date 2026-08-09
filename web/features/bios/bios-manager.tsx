@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { AppIcon } from "@/components/app-icon";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Toast } from "@/components/flash-toast";
 import { StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
@@ -35,6 +36,28 @@ const statusLabels: Record<string, string> = {
 
 const requirementLabels: Record<string, string> = { REQUIRED: "必需", OPTIONAL: "可选", CONDITIONAL: "按需" };
 
+type ArchiveEntryFacts = { name: string; sizeBytes: number; crc32?: string };
+type ArchiveEntryComparison = {
+  status: "MATCHED" | "ALIASED" | "MISMATCHED" | "MISSING" | "EXTRA";
+  expected: ArchiveEntryFacts | null;
+  actual: ArchiveEntryFacts | null;
+};
+type ArchiveInspection = {
+  requirementId: string;
+  logicalName: string;
+  installationId: string;
+  installationStatus: string;
+  entries: ArchiveEntryComparison[];
+};
+
+const entryStatusLabels: Record<ArchiveEntryComparison["status"], string> = {
+  MATCHED: "匹配",
+  ALIASED: "内容匹配·文件名不同",
+  MISMATCHED: "校验不一致",
+  MISSING: "ZIP 内缺失",
+  EXTRA: "ZIP 内额外文件",
+};
+
 function tone(status: string): "good" | "warn" | "bad" {
   if (["MATCHED", "SATISFIED_BY_CONTENT"].includes(status)) return "good";
   if (["MISSING", "MISSING_ENTRY", "INVALID"].includes(status)) return "bad";
@@ -52,19 +75,20 @@ function updateURL(scope: Scope, filters: BIOSFilters) {
   window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
 }
 
-function BIOSRow({ item, currentLibrary, busy, inputRef, onInstall }: {
+function BIOSRow({ item, currentLibrary, busy, inputRef, onInstall, onInspect }: {
   item: BIOSRequirement;
   currentLibrary: boolean;
   busy: string | null;
   inputRef: (element: HTMLInputElement | null) => void;
   onInstall: (item: BIOSRequirement, file: File) => void;
+  onInspect: (item: BIOSRequirement) => void;
 }) {
   const installed = item.activeInstallation;
   const canUpload = item.status !== "SATISFIED_BY_CONTENT";
   return <article className="runtime-bios-row" role="row">
     <div className="runtime-bios-file" role="cell">
       <span className="runtime-file-mark" aria-hidden="true">{item.logicalName.toLowerCase().endsWith(".zip") ? "ZIP" : "BIOS"}</span>
-      <div><h3>{item.logicalName}</h3><p>{requirementLabels[item.requirementMode] ?? item.requirementMode}{item.conditionCode ? " · 按游戏内容决定是否需要" : ""}</p>
+      <div><h3>{item.sourceKind === "DAT_MACHINE" && installed ? <button className="runtime-bios-inspect" type="button" onClick={() => onInspect(item)}>{item.logicalName}</button> : item.logicalName}</h3><p>{requirementLabels[item.requirementMode] ?? item.requirementMode}{item.conditionCode ? " · 按游戏内容决定是否需要" : ""}</p>
         {(item.expectedMd5 || installed?.md5) ? <dl className="runtime-technical">
           {item.expectedMd5 ? <><dt>期望 MD5</dt><dd><code>{item.expectedMd5}</code></dd></> : null}
           {installed?.md5 ? <><dt>当前 MD5</dt><dd><code>{installed.md5}</code></dd></> : null}
@@ -93,6 +117,7 @@ export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIR
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
+  const [archiveDialog, setArchiveDialog] = useState<{ item: BIOSRequirement; loading: boolean; error: string; inspection: ArchiveInspection | null } | null>(null);
 
   const libraryIds = useMemo(() => new Set(libraryItems.map((item) => item.id)), [libraryItems]);
   const scopedItems = scope === "REQUIRED_BY_LIBRARY" ? libraryItems : catalogItems;
@@ -132,6 +157,19 @@ export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIR
     }
   }
 
+  async function inspectArchive(requirement: BIOSRequirement) {
+    setArchiveDialog({ item: requirement, loading: true, error: "", inspection: null });
+    try {
+      const response = await fetch(`/api/v1/admin/bios/${requirement.id}/entries`, { credentials: "same-origin" });
+      if (!response.ok) throw new Error(await responseError(response, "BIOS 条目读取失败"));
+      const inspection = await response.json() as ArchiveInspection;
+      setArchiveDialog((current) => current?.item.id === requirement.id ? { ...current, loading: false, inspection } : current);
+    } catch (caught) {
+      const message = caught instanceof Error ? caught.message : "BIOS 条目读取失败";
+      setArchiveDialog((current) => current?.item.id === requirement.id ? { ...current, loading: false, error: message } : current);
+    }
+  }
+
   const quickFilters: Array<[BIOSQuickFilter, string, number]> = [
     ["ALL", "全部", scopedItems.length],
     ["ATTENTION", "需要处理", scopedItems.filter(isBIOSAttention).length],
@@ -161,9 +199,52 @@ export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIR
     <div className="runtime-chips" aria-label="BIOS 快速筛选">{quickFilters.map(([value, label, count]) => <button type="button" className={filters.quick === value ? "is-active" : ""} aria-pressed={filters.quick === value} onClick={() => patchFilters({ quick: value })} key={value}>{label} {count}</button>)}</div>
 
     {filtered.length === 0 ? <section className="runtime-inline-empty"><h2>没有符合条件的 BIOS 文件</h2><p>调整查看范围或清除筛选条件后再试。</p><button type="button" className="button secondary compact" onClick={() => setFilters({ query: "", coreId: "", status: "", quick: "ALL" })}>清除筛选</button></section> : <>
-      {attention.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>{attention.length} 项</span></div><div className="runtime-list" role="table" aria-label="需要处理的 BIOS 文件">{attention.map((item) => <BIOSRow item={item} currentLibrary={libraryIds.has(item.id)} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} key={item.id} />)}</div></section> : null}
-      {ready.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>{ready.length} 项</span></div><div className="runtime-list" role="table" aria-label="已就绪的 BIOS 文件">{ready.map((item) => <BIOSRow item={item} currentLibrary={libraryIds.has(item.id)} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} key={item.id} />)}</div></section> : null}
+      {attention.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>{attention.length} 项</span></div><div className="runtime-list" role="table" aria-label="需要处理的 BIOS 文件">{attention.map((item) => <BIOSRow item={item} currentLibrary={libraryIds.has(item.id)} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} onInspect={(requirement) => void inspectArchive(requirement)} key={item.id} />)}</div></section> : null}
+      {ready.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>{ready.length} 项</span></div><div className="runtime-list" role="table" aria-label="已就绪的 BIOS 文件">{ready.map((item) => <BIOSRow item={item} currentLibrary={libraryIds.has(item.id)} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} onInspect={(requirement) => void inspectArchive(requirement)} key={item.id} />)}</div></section> : null}
     </>}
+    <ConfirmDialog
+      open={archiveDialog !== null}
+      title={`${archiveDialog?.item.logicalName ?? "BIOS"} 内容对比`}
+      description="左侧为当前 DAT 要求，右侧为已安装 ZIP 内容。额外文件不阻断启动，缺失或校验不一致需要处理。"
+      confirmLabel="关闭"
+      hideCancel
+      wide
+      onConfirm={() => setArchiveDialog(null)}
+      onCancel={() => setArchiveDialog(null)}
+    >
+      {archiveDialog?.loading ? <p className="bios-entry-message">正在读取已安装 BIOS 的安全扫描结果…</p> : archiveDialog?.error ? <p className="bios-entry-message is-error">{archiveDialog.error}</p> : archiveDialog?.inspection ? <ArchiveComparisonLists inspection={archiveDialog.inspection} /> : null}
+    </ConfirmDialog>
     <Toast toast={error ? { message: error, tone: "bad" } : notice ? { message: notice, tone: "good" } : null} onDismiss={() => { setNotice(""); setError(""); }} />
   </div>;
+}
+
+function ArchiveComparisonLists({ inspection }: { inspection: ArchiveInspection }) {
+  const expectedEntries = inspection.entries.filter((entry): entry is ArchiveEntryComparison & { expected: ArchiveEntryFacts } => entry.expected !== null);
+  const actualEntries = inspection.entries.filter((entry): entry is ArchiveEntryComparison & { actual: ArchiveEntryFacts } => entry.actual !== null);
+  return <div className="bios-entry-comparison">
+    <ArchiveEntryList title="DAT 要求" ariaLabel="DAT 要求列表" entries={expectedEntries.map((entry) => ({ facts: entry.expected, status: entry.status }))} />
+    <ArchiveEntryList title="当前 ZIP 内容" ariaLabel="当前 ZIP 内容列表" entries={actualEntries.map((entry) => ({ facts: entry.actual, status: entry.status }))} />
+  </div>;
+}
+
+function ArchiveEntryList({ title, ariaLabel, entries }: {
+  title: string;
+  ariaLabel: string;
+  entries: Array<{ facts: ArchiveEntryFacts; status: ArchiveEntryComparison["status"] }>;
+}) {
+  return <section className="bios-entry-column">
+    <header><strong>{title}</strong><span>{entries.length} 项</span></header>
+    <ul className="bios-entry-list" aria-label={ariaLabel}>{entries.map((entry, index) => <li className={`bios-entry-card is-${entry.status.toLowerCase()}`} key={`${entry.facts.name}-${index}`}>
+      <div className="bios-entry-card-head"><StatusBadge tone={entry.status === "MATCHED" || entry.status === "ALIASED" ? "good" : entry.status === "MISMATCHED" || entry.status === "EXTRA" ? "warn" : "bad"}>{entryStatusLabels[entry.status]}</StatusBadge></div>
+      <ArchiveFacts facts={entry.facts} />
+    </li>)}</ul>
+  </section>;
+}
+
+function ArchiveFacts({ facts }: { facts: ArchiveEntryFacts }) {
+  return <dl className="bios-entry-facts">
+    <div><dt>name</dt><dd><code>{facts.name}</code></dd></div>
+    <div><dt>size</dt><dd>{facts.sizeBytes.toLocaleString("zh-CN")} bytes</dd></div>
+    <div><dt>crc</dt><dd><code>{facts.crc32 || "—"}</code></dd></div>
+  </dl>;
 }

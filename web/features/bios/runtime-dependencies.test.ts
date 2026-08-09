@@ -3,7 +3,7 @@ import { filterBIOS, filterDATVersions, isBIOSBlocking, summarizeBIOS, summarize
 
 const bios = (id: string, overrides: Partial<BIOSRequirement> = {}): BIOSRequirement => ({
   id, coreId: "mgba", coreName: "mGBA", coreArtifactId: "artifact", logicalName: `${id}.bin`,
-  requirementMode: "REQUIRED", enabled: true, version: 1, status: "MATCHED", ...overrides,
+  sourceKind: "STATIC", requirementMode: "REQUIRED", enabled: true, version: 1, status: "MATCHED", ...overrides,
 });
 
 const dat = (id: string, overrides: Partial<DATVersion> = {}): DATVersion => ({

@@ -102,6 +102,16 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
   await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "从游戏开头开始" })).toBeVisible();
+  await page.setViewportSize({ width: 3840, height: 2160 });
+  const descriptionLayout = await page.locator(".game-detail-description").evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    const main = element.parentElement!.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    return { width: box.width, mainWidth: main.width, clientHeight: element.clientHeight, scrollHeight: element.scrollHeight, lineClamp: style.webkitLineClamp };
+  });
+  expect(descriptionLayout.width / descriptionLayout.mainWidth).toBeGreaterThanOrEqual(0.98);
+  expect(descriptionLayout.scrollHeight).toBeLessThanOrEqual(descriptionLayout.clientHeight + 1);
+  expect(["none", "0", ""]).toContain(descriptionLayout.lineClamp);
   const heroHeight = await page.locator(".game-detail-hero").evaluate((element) => element.getBoundingClientRect().height);
   await page.getByRole("button", { name: /更换/ }).click();
   await expect(page.getByRole("alertdialog", { name: "更换运行方式" })).toBeVisible();
@@ -375,6 +385,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   const games = await page.request.get("/api/v1/admin/games?limit=100");
   const payload = await games.json() as { items: Array<{ gameId: string }> };
   if (payload.items[0]) {
+    await page.setViewportSize({ width: 3840, height: 2160 });
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
     for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "从游戏库移除"]) {
       await expect(page.getByRole("heading", { name: heading })).toBeVisible();
@@ -387,6 +398,13 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
       return box.width / box.height;
     });
     expect(Math.abs(adminCoverRatio - 0.75)).toBeLessThanOrEqual(0.01);
+    const coverBottomGap = await page.locator(".admin-game-media-grid").evaluate((element) => {
+      const body = element.getBoundingClientRect();
+      const cover = element.querySelector<HTMLElement>(".admin-game-cover-frame")!.getBoundingClientRect();
+      return body.bottom - Number.parseFloat(getComputedStyle(element).paddingBottom) - cover.bottom;
+    });
+    expect(Math.abs(coverBottomGap)).toBeLessThanOrEqual(1);
+    await expect(page.getByRole("button", { name: "保存新版本" })).toBeDisabled();
     await noPageOverflow(page);
   }
   await page.screenshot({ path: evidencePath(testInfo, "admin-layout.png"), fullPage: true });
@@ -451,12 +469,18 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
     const cover = element.querySelector<HTMLElement>(".review-workflow-cover-side")!.getBoundingClientRect();
     const coverImage = element.querySelector<HTMLElement>(".review-workflow-cover-side .review-cover-upload")!.getBoundingClientRect();
     const coverStyle = getComputedStyle(element.querySelector<HTMLElement>(".review-workflow-cover-side")!);
-    return { leftHeight: left.height, metadataHeight: metadata.height, fieldsRight: fields.right, coverLeft: cover.left, coverWidth: cover.width, coverBottomGap: cover.bottom - coverImage.bottom - Number.parseFloat(coverStyle.paddingBottom) };
+    const description = element.querySelector<HTMLTextAreaElement>(".review-workflow-metadata-fields textarea")!;
+    const descriptionLabel = description.closest("label")!;
+    const descriptionText = document.createRange();
+    descriptionText.selectNodeContents(descriptionLabel.firstChild!);
+    const descriptionGap = description.getBoundingClientRect().top - descriptionText.getBoundingClientRect().bottom;
+    return { leftHeight: left.height, metadataHeight: metadata.height, fieldsRight: fields.right, coverLeft: cover.left, coverWidth: cover.width, coverBottomGap: cover.bottom - coverImage.bottom - Number.parseFloat(coverStyle.paddingBottom), descriptionGap };
   });
   expect(Math.abs(reviewLayout.leftHeight - reviewLayout.metadataHeight)).toBeLessThanOrEqual(1);
   expect(reviewLayout.coverLeft).toBeGreaterThanOrEqual(reviewLayout.fieldsRight);
   expect(reviewLayout.coverWidth).toBeGreaterThanOrEqual(360);
   expect(Math.abs(reviewLayout.coverBottomGap)).toBeLessThanOrEqual(1);
+  expect(reviewLayout.descriptionGap).toBeLessThanOrEqual(8);
   await expect(page.locator(".review-workflow-metadata").getByText("Hasheous 候选信息")).toHaveCount(0);
   await expect(page.locator(".review-workflow-metadata").getByText("信息来源", { exact: true })).toHaveCount(0);
   await page.screenshot({ path: evidencePath(testInfo, "review-workbench-4k.png"), fullPage: true });

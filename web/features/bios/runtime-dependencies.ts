@@ -13,6 +13,7 @@ export type BIOSRequirement = {
   coreName: string;
   coreArtifactId: string;
   logicalName: string;
+  sourceKind: string;
   requirementMode: string;
   conditionCode?: string | null;
   enabled: boolean;

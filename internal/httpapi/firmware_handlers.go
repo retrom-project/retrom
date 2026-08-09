@@ -1,11 +1,32 @@
 package httpapi
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 
 	"retrom/internal/firmware"
 )
+
+func (server *Server) biosEntries(writer http.ResponseWriter, request *http.Request) {
+	result, err := server.firmware.InspectArchive(request.Context(), request.PathValue("requirementId"))
+	if err != nil {
+		if errors.Is(err, firmware.ErrArchiveFactsNotFound) {
+			writeError(
+				writer,
+				request,
+				http.StatusNotFound,
+				"BIOS_ARCHIVE_FACTS_NOT_FOUND",
+				"当前 BIOS 没有可对比的归档条目信息",
+				map[string]any{},
+			)
+			return
+		}
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, result)
+}
 
 func (server *Server) installBIOS(writer http.ResponseWriter, request *http.Request) {
 	version, ok := requireVersion(writer, request)

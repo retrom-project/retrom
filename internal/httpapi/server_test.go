@@ -97,6 +97,101 @@ func TestRuntimeAllowlistRejectsUnknownPath(t *testing.T) {
 	}
 }
 
+func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	const (
+		artifactID     = "01980000-0000-7000-8000-000000000201"
+		datVersionID   = "01980000-0000-7000-8000-000000000202"
+		requirementID  = "01980000-0000-7000-8000-000000000203"
+		blobID         = "01980000-0000-7000-8000-000000000204"
+		installationID = "01980000-0000-7000-8000-000000000205"
+	)
+	const now = int64(1_786_269_147_906)
+	transaction, err := server.database.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.Exec(`
+INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
+source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
+VALUES(?,'mame2003_plus','4.2.3','test','WASM','data/cores/mame2003_plus-test.data',1,?,NULL,'{}','{}',1,1,?,?)
+`, artifactID, strings.Repeat("a", 64), now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+VALUES(?,?,1024,?,?,?,'application/zip',?)
+`, blobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,
+compatibility_status,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
+default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
+version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
+VALUES(?,'mame2003_plus',?,'BUILTIN','test.dat',?,'test','MATCHED','READY',1,1,1,0,0,0,1,0,0,1,?,?,?,?)
+`, datVersionID, artifactID, strings.Repeat("f", 64), now, now, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,is_explicit_bios,classification)
+VALUES(?,'stvbios','ST-V BIOS','','SEGA',1,'EXPLICIT_BIOS')
+`, datVersionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,crc32,sha1,status,bios_name)
+VALUES(?,'stvbios',0,'epr19730.ic8',524288,'d0e0889d',?,'GOOD',NULL)
+`, datVersionID, strings.Repeat("1", 40)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+requirement_mode,condition_code,catalog_digest,source_url,source_version,enabled,version,created_at_ms,updated_at_ms)
+VALUES(?,'mame2003_plus',?,'DAT_MACHINE','stvbios','stvbios.zip','REQUIRED','ARCADE_DAT_DEPENDENCY',?,
+'retrom:test',?,1,1,?,?)
+`, requirementID, artifactID, strings.Repeat("2", 64), datVersionID, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,'stvbios.zip',1024,?,?,?,1,'MATCHED','{}',1,1,?,?)
+`, installationID, requirementID, blobID, strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("b", 64), now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,
+archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
+VALUES(?,0,'epr-19730.ic8','epr-19730.ic8','epr-19730.ic8','ZIP','STORE',524288,'d0e0889d',?,?,?,NULL,?)
+`, blobID, strings.Repeat("3", 32), strings.Repeat("1", 40), strings.Repeat("4", 64), now); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	list := httptest.NewRecorder()
+	server.Handler().ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/bios?scope=FULL_CATALOG", nil))
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"sourceKind":"DAT_MACHINE"`) {
+		t.Fatalf("BIOS list = %d %s", list.Code, list.Body.String())
+	}
+	entries := httptest.NewRecorder()
+	server.Handler().ServeHTTP(entries, httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/admin/bios/"+requirementID+"/entries",
+		nil,
+	))
+	if entries.Code != http.StatusOK ||
+		!strings.Contains(entries.Body.String(), `"status":"ALIASED"`) ||
+		!strings.Contains(entries.Body.String(), `"name":"epr19730.ic8"`) ||
+		!strings.Contains(entries.Body.String(), `"name":"epr-19730.ic8"`) {
+		t.Fatalf("BIOS entries = %d %s", entries.Code, entries.Body.String())
+	}
+}
+
 func TestRestrictedBinaryEndpointsRejectMultipleRanges(t *testing.T) {
 	t.Parallel()
 	request := httptest.NewRequest(http.MethodGet, "/runtime/launches/id/game/game.zip", nil)

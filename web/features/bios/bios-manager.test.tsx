@@ -9,12 +9,12 @@ vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 
 const item = (id: string, overrides: Partial<BIOSRequirement> = {}): BIOSRequirement => ({
   id, coreId: "mgba", coreName: "mGBA", coreArtifactId: "artifact", logicalName: `${id}.bin`,
-  requirementMode: "REQUIRED", enabled: true, version: 1, status: "MATCHED", ...overrides,
+  sourceKind: "STATIC", requirementMode: "REQUIRED", enabled: true, version: 1, status: "MATCHED", ...overrides,
 });
 
 describe("BIOSManager", () => {
   beforeEach(() => window.history.replaceState({ marker: "keep" }, "", "/admin/bios"));
-  afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
   it("switches between library requirements and the full catalog without a document navigation", async () => {
     const user = userEvent.setup();
@@ -53,5 +53,44 @@ describe("BIOSManager", () => {
     expect(screen.getByText("当前 MD5")).toBeVisible();
     expect(screen.getAllByText("a860e8c0b6d573d191e4ec7db1b1e4f6")).toHaveLength(2);
     expect(screen.queryByText("校验信息")).not.toBeInTheDocument();
+  });
+
+  it("opens a DAT-to-ZIP entry comparison from an installed arcade BIOS filename", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      requirementId: "stvbios",
+      logicalName: "stvbios.zip",
+      installationId: "installation",
+      installationStatus: "MATCHED",
+      entries: [
+        { status: "ALIASED", expected: { name: "epr19730.ic8", sizeBytes: 524288, crc32: "d0e0889d" }, actual: { name: "epr-19730.ic8", sizeBytes: 524288, crc32: "d0e0889d" } },
+        { status: "MISSING", expected: { name: "mpr19754.ic14", sizeBytes: 524288, crc32: "f7722da3" }, actual: null },
+        { status: "EXTRA", expected: null, actual: { name: "readme.txt", sizeBytes: 12, crc32: "12345678" } },
+      ],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const bios = item("stvbios", {
+      coreId: "mame2003_plus",
+      coreName: "MAME 2003-Plus",
+      logicalName: "stvbios.zip",
+      sourceKind: "DAT_MACHINE",
+      activeInstallation: { id: "installation", md5: "a".repeat(32), sha1: "b".repeat(40), sha256: "f".repeat(64), validatedRequirementVersion: 1, createdAtMs: 1 },
+    });
+    render(<BIOSManager libraryItems={[bios]} catalogItems={[bios]} />);
+
+    await user.click(screen.getByRole("button", { name: "stvbios.zip" }));
+    const dialog = await screen.findByRole("alertdialog", { name: "stvbios.zip 内容对比" });
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/bios/stvbios/entries", { credentials: "same-origin" });
+    const expectedList = within(dialog).getByRole("list", { name: "DAT 要求列表" });
+    const actualList = within(dialog).getByRole("list", { name: "当前 ZIP 内容列表" });
+    expect(within(expectedList).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(actualList).getAllByRole("listitem")).toHaveLength(2);
+    expect(within(expectedList).getByText("epr19730.ic8")).toBeVisible();
+    expect(within(expectedList).queryByText("readme.txt")).not.toBeInTheDocument();
+    expect(within(actualList).getByText("epr-19730.ic8")).toBeVisible();
+    expect(within(actualList).getByText("readme.txt")).toBeVisible();
+    expect(within(dialog).getAllByText("内容匹配·文件名不同")).toHaveLength(2);
+    expect(within(expectedList).getByText("ZIP 内缺失")).toBeVisible();
+    expect(within(actualList).getByText("ZIP 内额外文件")).toBeVisible();
   });
 });

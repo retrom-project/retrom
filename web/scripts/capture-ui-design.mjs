@@ -32,6 +32,7 @@ const captures = [
   ["retrom-ui-platform-directory-create.png", "admin-platform-instances", 2560, 1440, "drawer"],
   ["retrom-ui-confirm-dialog.png", "admin-platform-instances", 2560, 1440, "dialog"],
   ["retrom-ui-bios-files.png", "admin-bios", 2560, 1440],
+  ["retrom-ui-bios-entry-compare.png", "admin-bios", 2560, 1440, "bios-entries"],
   ["retrom-ui-dat-versions.png", "admin-bios", 2560, 1440, "dats"],
   ["retrom-ui-dat-upload.png", "admin-bios", 2560, 1440, "dat-drawer"],
   ["retrom-ui-dat-diff.png", "admin-bios", 2560, 1440, "dat-diff"]
@@ -75,6 +76,7 @@ try {
     }
     await frame.locator(`[data-page="${view}"]`).waitFor({ state: "visible" });
     if (["dats", "dat-drawer", "dat-diff"].includes(variant)) await frame.locator('[data-bios-view="dats"]').first().click();
+    if (variant === "bios-entries") await frame.locator("[data-open-bios-entries]").click();
     if (variant === "dat-drawer") await frame.locator("[data-open-runtime-drawer]").click();
     if (variant === "dat-diff") await frame.locator("[data-open-runtime-diff]").first().click();
     if (variant === "drawer") await frame.locator("[data-open-platform-drawer]").click();

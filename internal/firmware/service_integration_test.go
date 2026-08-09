@@ -199,6 +199,13 @@ VALUES('requirement-test','mame2003_plus',?,'DAT_MACHINE','stvbios','stvbios.zip
 	if _, err := entry.Write(contents); err != nil {
 		t.Fatal(err)
 	}
+	extraEntry, err := writer.Create("notes/extra.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := extraEntry.Write([]byte("extra")); err != nil {
+		t.Fatal(err)
+	}
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -245,8 +252,26 @@ VALUES('requirement-test','mame2003_plus',?,'DAT_MACHINE','stvbios','stvbios.zip
 	if !ok || len(warnings) != 1 || !strings.Contains(warnings[0], "epr-19730.ic8") {
 		t.Fatalf("alias warnings = %#v", result.ValidationDetails["warnings"])
 	}
+	inspection, err := New(database.SQL, time.Now).InspectArchive(ctx, "requirement-test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if inspection.LogicalName != "stvbios.zip" || inspection.InstallationStatus != "MATCHED" ||
+		len(inspection.Entries) != 2 {
+		t.Fatalf("inspection = %#v", inspection)
+	}
+	if comparison := inspection.Entries[0]; comparison.Status != "ALIASED" ||
+		comparison.Expected == nil || comparison.Expected.Name != "epr19730.ic8" ||
+		comparison.Actual == nil || comparison.Actual.Name != "epr-19730.ic8" ||
+		comparison.Expected.SizeBytes != int64(len(contents)) || comparison.Expected.CRC32 != crc32Value {
+		t.Fatalf("required entry comparison = %#v", comparison)
+	}
+	if comparison := inspection.Entries[1]; comparison.Status != "EXTRA" ||
+		comparison.Expected != nil || comparison.Actual == nil || comparison.Actual.Name != "notes/extra.bin" {
+		t.Fatalf("extra entry comparison = %#v", comparison)
+	}
 	var indexed int64
-	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM archive_entries`).Scan(&indexed); err != nil || indexed != 1 {
+	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM archive_entries`).Scan(&indexed); err != nil || indexed != 2 {
 		t.Fatalf("archive entries = %d, error=%v", indexed, err)
 	}
 }

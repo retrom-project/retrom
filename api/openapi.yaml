@@ -429,6 +429,14 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/InstallBIOS' }
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/bios/{requirementId}/entries:
+    parameters: [{ $ref: '#/components/parameters/RequirementID' }]
+    get:
+      operationId: getAdminBIOSEntries
+      description: Compare the active DAT-backed BIOS archive catalog with the exact DAT requirement version.
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+        '404': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/arcade-dats:
     get:
       operationId: getAdminArcadeDATs
