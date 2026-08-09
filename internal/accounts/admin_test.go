@@ -298,4 +298,96 @@ func TestInvitationConcurrentConsumptionAndUserLifecycleRevocations(t *testing.T
 	}
 }
 
+func TestAccountSecurityAuditUsesClosedActions(t *testing.T) {
+	t.Parallel()
+	fixture := newAccountFixture(t, config.ModeTest)
+	admin := authenticatedTestAdmin(t, fixture)
+	alice := acceptFixtureInvitation(t, fixture, admin.Principal, "USER", "audit-alice", "Audit Alice")
+
+	reset, _, err := fixture.service.CreatePasswordReset(
+		context.Background(), admin.Principal, alice.User.UserID, 1, uuid.NewString(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.service.CompletePasswordReset(context.Background(), CompletePasswordResetRequest{
+		Token: reset.CapabilityToken, Password: "a replacement audit passphrase",
+		PasswordConfirmation: "a replacement audit passphrase",
+	}); err != nil {
+		t.Fatal(err)
+	}
+	current, err := fixture.service.GetUser(context.Background(), alice.User.UserID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, _, err := fixture.service.UpdateUser(
+		context.Background(), admin.Principal, alice.User.UserID, current.Version,
+		UserPatch{Role: stringPointer("ADMIN"), Status: stringPointer("DISABLED"), ConfirmAdminRole: true},
+		uuid.NewString(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	changed, _, err = fixture.service.UpdateUser(
+		context.Background(), admin.Principal, alice.User.UserID, changed.Version,
+		UserPatch{Status: stringPointer("ENABLED")}, uuid.NewString(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	revokedReset, _, err := fixture.service.CreatePasswordReset(
+		context.Background(), admin.Principal, alice.User.UserID, changed.Version, uuid.NewString(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.service.RevokeAccountLink(
+		context.Background(), admin.Principal, revokedReset.AccountLinkID, revokedReset.Version, uuid.NewString(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	invitation, _, err := fixture.service.CreateInvitation(
+		context.Background(), admin.Principal, "USER", false, uuid.NewString(),
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.service.RevokeAccountLink(
+		context.Background(), admin.Principal, invitation.AccountLinkID, invitation.Version, uuid.NewString(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.service.DeleteUser(
+		context.Background(), admin.Principal, alice.User.UserID, revokedReset.TargetVersion,
+		alice.User.Username, uuid.NewString(),
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.service.ChangePassword(
+		context.Background(), admin.Principal, "test", compliantTestPassword, compliantTestPassword,
+	); err != nil {
+		t.Fatal(err)
+	}
+
+	for _, action := range []string{
+		"INVITATION_CREATED", "INVITATION_ACCEPTED", "INVITATION_REVOKED", "PASSWORD_CHANGED",
+		"PASSWORD_RESET_CREATED", "PASSWORD_RESET_COMPLETED", "PASSWORD_RESET_REVOKED",
+		"USER_ROLE_CHANGED", "USER_ENABLED", "USER_DISABLED", "USER_DELETED",
+	} {
+		var count int
+		if err := fixture.database.SQL.QueryRow(
+			`SELECT count(*) FROM audit_events WHERE action=?`, action,
+		).Scan(&count); err != nil || count == 0 {
+			t.Fatalf("audit action %s count = %d, error=%v", action, count, err)
+		}
+	}
+	var legacy int
+	if err := fixture.database.SQL.QueryRow(`
+SELECT count(*) FROM audit_events
+WHERE action IN ('USER_UPDATED','USER_REGISTERED','PASSWORD_RESET_LINK_CREATED','ACCOUNT_LINK_REVOKED')
+`).Scan(&legacy); err != nil || legacy != 0 {
+		t.Fatalf("legacy account audit action count = %d, error=%v", legacy, err)
+	}
+}
+
 func stringPointer(value string) *string { return &value }

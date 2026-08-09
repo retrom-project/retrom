@@ -236,8 +236,8 @@ WHERE id=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_m
 	}
 	principal := authn.Principal{UserID: userID, Username: username}
 	if err := insertUserAudit(
-		ctx, transaction, principal, "USER_REGISTERED", "USER", userID,
-		nil, map[string]any{"role": role, "status": "ENABLED"}, now,
+		ctx, transaction, principal, "INVITATION_ACCEPTED", "ACCOUNT_LINK", linkID.String(),
+		nil, map[string]any{"role": role, "status": "CONSUMED", "userId": userID}, now,
 	); err != nil {
 		return Session{}, err
 	}
@@ -330,7 +330,7 @@ VALUES(?,'PASSWORD_RESET',NULL,?,?,?,?,1)
 		ConsumedAtMS: nil, RevokedAtMS: nil, TargetVersion: expectedVersion + 1,
 	}
 	if err := insertUserAudit(
-		ctx, transaction, principal, "PASSWORD_RESET_LINK_CREATED", "ACCOUNT_LINK", linkID,
+		ctx, transaction, principal, "PASSWORD_RESET_CREATED", "ACCOUNT_LINK", linkID,
 		nil, map[string]any{"targetUserId": targetUserID, "expiresAtMs": expires}, now,
 	); err != nil {
 		return AccountLink{}, false, err
@@ -483,10 +483,11 @@ func (service *Service) RevokeAccountLink(
 		return replayed, err
 	}
 	var expiresAt, version int64
+	var kind string
 	var consumedAt, revokedAt sql.NullInt64
 	if err := transaction.QueryRowContext(ctx, `
-SELECT expires_at_ms,consumed_at_ms,revoked_at_ms,version FROM account_links WHERE id=?
-`, linkID).Scan(&expiresAt, &consumedAt, &revokedAt, &version); errors.Is(err, sql.ErrNoRows) {
+SELECT kind,expires_at_ms,consumed_at_ms,revoked_at_ms,version FROM account_links WHERE id=?
+`, linkID).Scan(&kind, &expiresAt, &consumedAt, &revokedAt, &version); errors.Is(err, sql.ErrNoRows) {
 		return false, ErrAccountLinkNotActive
 	} else if err != nil {
 		return false, fmt.Errorf("read account link: %w", err)
@@ -508,8 +509,12 @@ WHERE id=? AND version=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AN
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return false, ErrAccountLinkNotActive
 	}
+	action := "PASSWORD_RESET_REVOKED"
+	if kind == "INVITATION" {
+		action = "INVITATION_REVOKED"
+	}
 	if err := insertUserAudit(
-		ctx, transaction, principal, "ACCOUNT_LINK_REVOKED", "ACCOUNT_LINK", linkID,
+		ctx, transaction, principal, action, "ACCOUNT_LINK", linkID,
 		map[string]any{"state": "ACTIVE"}, map[string]any{"state": "REVOKED"}, now,
 	); err != nil {
 		return false, err
