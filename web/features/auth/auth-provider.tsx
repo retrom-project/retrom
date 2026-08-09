@@ -1,10 +1,10 @@
 "use client";
 
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { clearUserStorage } from "./storage";
 import type { AuthContext } from "./types";
-import { publicAuthRoutes, safeReturnTo } from "./routing";
+import { safeReturnTo } from "./routing";
 import { configureAuthenticatedClient, handleAuthenticationResponse, writeHeaders } from "@/lib/api/client";
 
 type AuthState = {
@@ -27,7 +27,6 @@ function currentReturnTo() {
 export function AuthProvider({ initialContext, children }: { initialContext: AuthContext; children: ReactNode }) {
   const [context, setContext] = useState(initialContext);
   const contextRef = useRef(context);
-  const pathname = usePathname();
   const router = useRouter();
 
   const acceptContext = useCallback((next: AuthContext) => {
@@ -73,20 +72,6 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
     router.replace("/login");
     router.refresh();
   }, [acceptContext, authenticatedFetch, router]);
-
-  useEffect(() => {
-    if (pathname.startsWith("/play/")) return;
-    const publicRoute = publicAuthRoutes.has(pathname);
-    if (context.instanceState === "INITIALIZATION_REQUIRED") {
-      if (pathname !== "/setup") router.replace("/setup");
-      return;
-    }
-    if (context.authenticationState !== "AUTHENTICATED") {
-      if (!publicRoute) router.replace(`/login?returnTo=${encodeURIComponent(currentReturnTo())}`);
-      return;
-    }
-    if (publicRoute) router.replace("/");
-  }, [context.authenticationState, context.instanceState, pathname, router]);
 
   const value = useMemo(() => ({ context, refresh, acceptContext, authenticatedFetch, logout }), [acceptContext, authenticatedFetch, context, logout, refresh]);
   return <Context.Provider value={value}>{children}</Context.Provider>;

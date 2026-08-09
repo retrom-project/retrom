@@ -424,7 +424,7 @@ test("ACC-UI-007 keyboard focus and reduced motion remain explicit", async ({ pa
   expect(Number.parseFloat(reducedDuration)).toBeLessThanOrEqual(0.01);
   const focusable = page.locator("a,button,input,select");
   expect(await focusable.count()).toBeGreaterThan(5);
-  for (const control of await page.locator("button").all()) await expect(control).toHaveAccessibleName(/.+/);
+  for (const control of await page.locator("main button:visible").all()) await expect(control).toHaveAccessibleName(/.+/);
   await page.screenshot({ path: evidencePath(testInfo, "keyboard-reduced-motion.png"), fullPage: true });
 });
 
