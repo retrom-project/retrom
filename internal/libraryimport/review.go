@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -509,7 +510,9 @@ id DESC LIMIT 1
 `, itemID, targetID, platformVersion, coreID, artifactID, nullable(datID), nullable(dosEntry)).
 		Scan(&sourceID, &sourceManifestDigest, &sourceStatus, &compatibilityCode, &dependencySnapshot)
 	if err == nil {
-		biosState, stateErr := resolveDraftBIOSState(ctx, transaction, itemID, artifactID, dependencySnapshot)
+		biosState, stateErr := resolveDraftBIOSState(
+			ctx, transaction, itemID, artifactID, dependencySnapshot, sourceStatus, compatibilityCode,
+		)
 		if stateErr != nil {
 			return "", stateErr
 		}
@@ -552,7 +555,9 @@ id DESC LIMIT 1
 			return "", fmt.Errorf("libraryimport/review: %w", err)
 		}
 	}
-	biosState, err := resolveDraftBIOSState(ctx, transaction, itemID, artifactID, dependencySnapshot)
+	biosState, err := resolveDraftBIOSState(
+		ctx, transaction, itemID, artifactID, dependencySnapshot, sourceStatus, compatibilityCode,
+	)
 	if err != nil {
 		return "", err
 	}
@@ -639,7 +644,7 @@ sort_order,
 FROM import_item_validation_files
 WHERE import_item_core_validation_id=?
 AND (?=0 OR role<>'BIOS_BUNDLE')
-`, createdID.String(), now, sourceID, biosState.tracked); err != nil {
+	`, createdID.String(), now, sourceID, biosState.replaceBundle); err != nil {
 		return "", fmt.Errorf("libraryimport/review: %w", err)
 	}
 	if biosState.tracked {
@@ -675,20 +680,23 @@ created_at_ms) VALUES(?,'BIOS_BUNDLE',?,?,?,?)
 }
 
 type draftBIOSState struct {
-	tracked      bool
-	snapshotJSON string
-	status       string
-	code         string
-	dependencies []corevalidation.BIOSDependency
+	tracked       bool
+	replaceBundle bool
+	snapshotJSON  string
+	status        string
+	code          string
+	dependencies  []corevalidation.BIOSDependency
 }
 
 func resolveDraftBIOSState(
 	ctx context.Context,
 	transaction *sql.Tx,
-	itemID, artifactID, previousSnapshot string,
+	itemID, artifactID, previousSnapshot, previousStatus, previousCode string,
 ) (draftBIOSState, error) {
 	if !isStaticBIOSSnapshot(previousSnapshot) {
-		return draftBIOSState{}, nil
+		return resolveArcadeDraftBIOSState(
+			ctx, transaction, artifactID, previousSnapshot, previousStatus, previousCode,
+		)
 	}
 	var logicalName string
 	err := transaction.QueryRowContext(ctx, `
@@ -710,12 +718,174 @@ LIMIT 1
 		return draftBIOSState{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	return draftBIOSState{
-		tracked:      true,
-		snapshotJSON: string(encoded),
-		status:       status,
-		code:         code,
-		dependencies: snapshot.BIOS,
+		tracked:       true,
+		replaceBundle: true,
+		snapshotJSON:  string(encoded),
+		status:        status,
+		code:          code,
+		dependencies:  snapshot.BIOS,
 	}, nil
+}
+
+type arcadeDraftDependency struct {
+	Kind            string   `json:"kind"`
+	Machine         string   `json:"machine"`
+	State           string   `json:"state"`
+	RequiredEntries []string `json:"requiredEntries"`
+}
+
+type arcadeDraftSnapshot struct {
+	SchemaVersion     int                     `json:"schemaVersion"`
+	Machine           string                  `json:"machine"`
+	DatVersionID      string                  `json:"datVersionId"`
+	Closure           []string                `json:"closure"`
+	Dependencies      []arcadeDraftDependency `json:"dependencies"`
+	MissingEntries    []string                `json:"missingEntries"`
+	MismatchedEntries []string                `json:"mismatchedEntries"`
+	Warnings          []string                `json:"warnings"`
+}
+
+func resolveArcadeDraftBIOSState(
+	ctx context.Context,
+	transaction *sql.Tx,
+	artifactID, previousSnapshot, previousStatus, previousCode string,
+) (draftBIOSState, error) {
+	snapshot, valid := parseArcadeDraftSnapshot(previousSnapshot)
+	if !valid {
+		return draftBIOSState{}, nil
+	}
+	state := draftBIOSState{
+		tracked: true, replaceBundle: false, snapshotJSON: previousSnapshot, status: previousStatus, code: previousCode,
+		dependencies: make([]corevalidation.BIOSDependency, 0),
+	}
+	resolvedNames := make(map[string]struct{})
+	for index := range snapshot.Dependencies {
+		dependency := &snapshot.Dependencies[index]
+		if dependency.Kind != "BIOS_OR_BASE" || dependency.State != "MISSING" {
+			continue
+		}
+		resolved, dependencyState, err := resolveArcadeBIOSDependency(
+			ctx, transaction, artifactID, dependency.Machine+".zip",
+		)
+		if err != nil {
+			return draftBIOSState{}, err
+		}
+		if resolved == nil {
+			continue
+		}
+		dependency.State = dependencyState
+		if dependencyState == "HASH_WARNING" {
+			snapshot.Warnings = append(snapshot.Warnings, dependency.Machine+".zip:HASH_WARNING")
+		}
+		resolvedNames[dependency.Machine+".zip"] = struct{}{}
+		state.dependencies = append(state.dependencies, *resolved)
+	}
+	if len(resolvedNames) == 0 {
+		return state, nil
+	}
+	missing := snapshot.MissingEntries[:0]
+	for _, entry := range snapshot.MissingEntries {
+		if _, resolved := resolvedNames[entry]; !resolved {
+			missing = append(missing, entry)
+		}
+	}
+	snapshot.MissingEntries = missing
+	sort.Strings(snapshot.Warnings)
+	if previousCode == "LAUNCH_BIOS_MISSING" && len(snapshot.MissingEntries) == 0 {
+		state.status, state.code = "READY", "READY"
+	}
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		return draftBIOSState{}, fmt.Errorf("libraryimport/review: encode arcade BIOS snapshot: %w", err)
+	}
+	state.snapshotJSON = string(encoded)
+	return state, nil
+}
+
+func parseArcadeDraftSnapshot(raw string) (arcadeDraftSnapshot, bool) {
+	var snapshot arcadeDraftSnapshot
+	if json.Unmarshal([]byte(raw), &snapshot) != nil || snapshot.SchemaVersion != 1 || snapshot.Machine == "" ||
+		snapshot.DatVersionID == "" || snapshot.Dependencies == nil {
+		return arcadeDraftSnapshot{}, false
+	}
+	return snapshot, true
+}
+
+func resolveArcadeBIOSDependency(
+	ctx context.Context,
+	transaction *sql.Tx,
+	artifactID, logicalName string,
+) (*corevalidation.BIOSDependency, string, error) {
+	var resolved corevalidation.BIOSDependency
+	var condition, emulatorPath, installationID, blobID, installationStatus sql.NullString
+	var installationVersion sql.NullInt64
+	err := transaction.QueryRowContext(ctx, `
+SELECT q.id,
+q.version,
+q.catalog_digest,
+q.logical_name,
+q.requirement_mode,
+q.condition_code,
+q.delivery_kind,
+q.emulator_path,
+i.id,
+i.version,
+i.blob_id,
+i.status
+FROM bios_requirements q
+JOIN bios_installations i ON i.requirement_id=q.id
+AND i.is_active=1
+AND i.validated_requirement_version=q.version
+AND i.status IN ('MATCHED','HASH_WARNING')
+WHERE q.core_artifact_id=?
+AND q.source_kind='DAT_MACHINE'
+AND q.enabled=1
+AND q.logical_name=?
+`, artifactID, logicalName).Scan(
+		&resolved.RequirementID,
+		&resolved.RequirementVersion,
+		&resolved.CatalogDigest,
+		&resolved.LogicalName,
+		&resolved.RequirementMode,
+		&condition,
+		&resolved.DeliveryKind,
+		&emulatorPath,
+		&installationID,
+		&installationVersion,
+		&blobID,
+		&installationStatus,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, "", nil
+	}
+	if err != nil {
+		return nil, "", fmt.Errorf("libraryimport/review: resolve arcade BIOS: %w", err)
+	}
+	resolved.ConditionCode = nullableStringPointer(condition)
+	resolved.EmulatorPath = nullableStringPointer(emulatorPath)
+	resolved.ActivationOptions = map[string]string{}
+	resolved.InstallationID = nullableStringPointer(installationID)
+	resolved.InstallationVersion = nullableInt64Pointer(installationVersion)
+	resolved.BlobID = nullableStringPointer(blobID)
+	resolved.InstallationStatus = nullableStringPointer(installationStatus)
+	if installationStatus.String == "HASH_WARNING" {
+		return &resolved, "HASH_WARNING", nil
+	}
+	return &resolved, "SATISFIED_EXTERNAL", nil
+}
+
+func nullableStringPointer(value sql.NullString) *string {
+	if !value.Valid {
+		return nil
+	}
+	return &value.String
+}
+
+func nullableInt64Pointer(value sql.NullInt64) *int64 {
+	if !value.Valid {
+		return nil
+	}
+	return &value.Int64
 }
 
 func isStaticBIOSSnapshot(raw string) bool {

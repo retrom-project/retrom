@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AdminGameManager, type AdminGame, type PlatformInstanceOption } from "./admin-game-manager";
@@ -46,6 +46,23 @@ describe("AdminGameManager", () => {
     for (const omitted of ["媒体资源", "运行状态正常", "维护工具", "危险区域"]) {
       expect(screen.queryByText(omitted, { exact: true })).not.toBeInTheDocument();
     }
+    expect(screen.queryByRole("navigation", { name: "游戏管理详情分区" })).not.toBeInTheDocument();
+    expect(screen.getByText("从游戏库移除").closest("details")).not.toHaveAttribute("open");
+  });
+
+  it("opens a metadata and cover comparison instead of applying text immediately", async () => {
+    const user = userEvent.setup();
+    render(<AdminGameManager game={game} platformInstances={directories} candidates={[{
+      candidateId: "candidate-1", providerGameId: "602921", hitCount: 1,
+      metadata: { title: "1941 - Counter Attack", description: "Long provider description", publisher: "HUDSON", releaseYear: 1991 },
+      assets: [{ candidateAssetId: "cover-1", kind: "COVER", status: "READY", widthPx: 600, heightPx: 800, mediaType: "image/jpeg" }],
+    }]} />);
+
+    expect(screen.queryByRole("button", { name: "采用文字信息" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: /对比并选择/ }));
+    const dialog = await screen.findByRole("alertdialog", { name: "对比最新游戏信息" });
+    expect(within(dialog).getByText("Long provider description")).toBeVisible();
+    expect(within(dialog).getByAltText("最新候选封面")).toHaveAttribute("src", expect.stringContaining("cover-1"));
   });
 
   it("requires an explicit target directory before previewing a move", async () => {

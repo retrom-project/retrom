@@ -367,10 +367,8 @@ func normalizeCandidate(contents []byte, normalizationYear int) (Candidate, erro
 	if truncated {
 		warnings = append(warnings, "FIELD_TRUNCATED:title")
 	}
-	description, _, descriptionTruncated := normalizeText(source.Signature.Game.Description, 10_000, true)
-	if descriptionTruncated {
-		warnings = append(warnings, "FIELD_TRUNCATED:description")
-	}
+	description, descriptionWarnings := normalizeDescription(source)
+	warnings = append(warnings, descriptionWarnings...)
 	publisher := source.Publisher.Name
 	if strings.TrimSpace(publisher) == "" {
 		publisher = source.Signature.Game.Publisher
@@ -419,6 +417,49 @@ func normalizeCandidate(contents []byte, normalizationYear int) (Candidate, erro
 		Assets:           assets,
 		NormalizationUTC: normalizationYear,
 	}, nil
+}
+
+func normalizeDescription(source providerResponse) (string, []string) {
+	descriptionSource := source.Signature.Game.Description
+	warnings := make([]string, 0, 2)
+	if strings.TrimSpace(descriptionSource) == "" {
+		for _, attribute := range source.Attributes {
+			if attribute.Name != "AIDescription" || attribute.AttributeType != "LongString" ||
+				attribute.AttributeRelationType != "None" {
+				continue
+			}
+			var fallback string
+			if json.Unmarshal(attribute.Value, &fallback) == nil && strings.TrimSpace(fallback) != "" {
+				descriptionSource = fallback
+				warnings = append(warnings, "FIELD_FALLBACK:description:AIDescription")
+				break
+			}
+		}
+	}
+	description, truncated := normalizeDescriptionText(descriptionSource, 10_000)
+	if truncated {
+		warnings = append(warnings, "FIELD_TRUNCATED:description")
+	}
+	return description, warnings
+}
+
+func normalizeDescriptionText(value string, maximum int) (string, bool) {
+	value = strings.ReplaceAll(value, "\r\n", "\n")
+	value = strings.ReplaceAll(value, "\r", "\n")
+	value = strings.TrimSpace(value)
+	if !utf8.ValidString(value) {
+		return "", false
+	}
+	for _, character := range value {
+		if unicode.IsControl(character) && character != '\n' && character != '\t' {
+			return "", false
+		}
+	}
+	runes := []rune(value)
+	if len(runes) > maximum {
+		return string(runes[:maximum]), true
+	}
+	return value, false
 }
 
 func ensureJSONEOF(decoder *json.Decoder) error {

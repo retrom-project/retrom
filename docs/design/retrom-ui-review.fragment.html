@@ -747,8 +747,9 @@
 
     #retrom-ui-review .rt-task-layout { display: grid; gap: 12px; }
     #retrom-ui-review .rt-workflow-chips { display: flex; gap: 7px; margin: 10px 0 12px; }
-    #retrom-ui-review .rt-workflow-chips span { padding: 5px 10px; border: 1px solid var(--retrom-line); border-radius: 999px; color: var(--retrom-muted); background: var(--retrom-panel); font-size: 10px; }
-    #retrom-ui-review .rt-workflow-chips span.is-active { border-color: color-mix(in srgb, var(--retrom-purple) 42%, var(--retrom-line)); color: var(--retrom-purple); background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-workflow-chips :is(span, button) { padding: 5px 10px; border: 1px solid var(--retrom-line); border-radius: 999px; color: var(--retrom-muted); background: var(--retrom-panel); font-size: 10px; }
+    #retrom-ui-review .rt-workflow-chips button { cursor: pointer; }
+    #retrom-ui-review .rt-workflow-chips :is(span, button).is-active { border-color: color-mix(in srgb, var(--retrom-purple) 42%, var(--retrom-line)); color: var(--retrom-purple); background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-stage-strip { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--retrom-line); }
     #retrom-ui-review .rt-stage-strip span { padding: 7px; border-radius: 7px; color: var(--retrom-muted); background: var(--retrom-panel-raised); font-size: 9px; }
     #retrom-ui-review .rt-stage-strip span.is-done { color: var(--retrom-green); background: var(--retrom-green-soft); }
@@ -998,6 +999,13 @@
     #retrom-ui-review .rt-dialog.is-wide { width: min(1120px, 100%); }
     #retrom-ui-review .rt-compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
     #retrom-ui-review .rt-compare-panel { padding: 14px; border: 1px solid var(--retrom-line); border-radius: 11px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-compare-layout { display: grid; gap: 12px; margin-top: 16px; }
+    #retrom-ui-review .rt-compare-top { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 12px; align-items: start; }
+    #retrom-ui-review .rt-compare-short { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #retrom-ui-review .rt-compare-covers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    #retrom-ui-review .rt-compare-cover { min-height: 250px; display: grid; place-items: end center; padding: 10px; border-radius: 9px; color: #fff; background: linear-gradient(155deg, var(--retrom-cover-b), #151927); font-size: 9px; }
+    #retrom-ui-review .rt-compare-description { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #retrom-ui-review .rt-compare-description .rt-textarea { min-height: 120px; }
     #retrom-ui-review .rt-field.is-same .rt-input,
     #retrom-ui-review .rt-field.is-same .rt-textarea { border-color: var(--retrom-green); }
     #retrom-ui-review .rt-field.is-changed .rt-input,
@@ -1036,7 +1044,7 @@
     #retrom-ui-review .rt-admin-detail-media { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 9px; }
     #retrom-ui-review .rt-admin-media-slot { overflow: hidden; border: 1px solid var(--retrom-line); border-radius: 9px; background: var(--retrom-panel-raised); }
     #retrom-ui-review .rt-admin-media-slot h3 { margin: 0; padding: 7px 9px; border-bottom: 1px solid var(--retrom-line); font-size: 10px; }
-    #retrom-ui-review .rt-admin-media-cover { height: 190px; }
+    #retrom-ui-review .rt-admin-media-cover { width: 100%; height: auto; aspect-ratio: 3 / 4; }
     #retrom-ui-review .rt-admin-media-footer { padding: 7px 8px; display: flex; justify-content: space-between; color: var(--retrom-muted); font-size: 8px; }
     #retrom-ui-review .rt-admin-media-background { height: 92px; display: grid; place-items: center; color: var(--retrom-muted); font-size: 9px; text-align: center; }
     #retrom-ui-review .rt-admin-media-shots { margin-top: 9px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -1055,6 +1063,7 @@
     #retrom-ui-review .rt-admin-action-card p { margin: 0 0 8px; color: var(--retrom-muted); font-size: 8px; }
     #retrom-ui-review .rt-admin-action-card-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
     #retrom-ui-review .rt-admin-remove { border-color: color-mix(in srgb, var(--retrom-red) 36%, var(--retrom-line)); background: color-mix(in srgb, var(--retrom-red-soft) 28%, var(--retrom-panel)); }
+    #retrom-ui-review .rt-admin-remove summary { cursor: pointer; }
     #retrom-ui-review .rt-admin-remove .rt-admin-detail-panel-head { border-bottom-color: color-mix(in srgb, var(--retrom-red) 25%, var(--retrom-line)); }
     #retrom-ui-review .rt-admin-remove-row { display: grid; grid-template-columns: minmax(0, 1fr) 420px; align-items: end; gap: 20px; }
     #retrom-ui-review .rt-admin-remove-row p { margin: 4px 0 0; color: var(--retrom-red); font-size: 8px; }
@@ -1263,7 +1272,7 @@
     }
 
     @media (min-width: 1800px) and (max-height: 1399px) {
-      #retrom-ui-review .rt-page[data-page="home"] { max-width: 2320px; height: 100vh; padding-top: 12px; padding-bottom: 12px; display: grid; grid-template-rows: minmax(420px, 46fr) minmax(156px, 19fr) minmax(156px, 19fr) minmax(104px, 12fr) minmax(44px, 4fr); gap: 10px; }
+      #retrom-ui-review .rt-page[data-page="home"].is-active { max-width: 2320px; height: 100vh; padding-top: 12px; padding-bottom: 12px; display: grid; grid-template-rows: minmax(420px, 46fr) minmax(156px, 19fr) minmax(156px, 19fr) minmax(104px, 12fr) minmax(44px, 4fr); gap: 10px; }
       #retrom-ui-review .rt-home-hero-layer { min-height: 0; display: grid; grid-template-rows: 76px minmax(0, 1fr); }
       #retrom-ui-review .rt-page[data-page="home"] .rt-page-head { height: 68px; margin: 0; }
       #retrom-ui-review .rt-page[data-page="home"] .rt-page-head h1 { font-size: 32px; line-height: 1.12; }
@@ -1312,7 +1321,7 @@
 
     @media (min-width: 2600px) and (min-height: 1600px) {
       #retrom-ui-review .rt-app:has(.rt-page[data-page="home"].is-active) { height: 100vh; min-height: 0; }
-      #retrom-ui-review .rt-page[data-page="home"] { width: 100%; max-width: 2320px; height: 100%; padding: 36px 44px 32px; display: grid; grid-template-rows: minmax(0, 46fr) minmax(0, 19fr) minmax(0, 19fr) minmax(0, 12fr) minmax(0, 4fr); gap: 18px; }
+      #retrom-ui-review .rt-page[data-page="home"].is-active { width: 100%; max-width: 2320px; height: 100%; padding: 36px 44px 32px; display: grid; grid-template-rows: minmax(0, 46fr) minmax(0, 19fr) minmax(0, 19fr) minmax(0, 12fr) minmax(0, 4fr); gap: 18px; }
       #retrom-ui-review .rt-home-hero-layer { min-height: 0; display: grid; grid-template-rows: 110px minmax(0, 1fr); }
       #retrom-ui-review .rt-page[data-page="home"] .rt-page-head { height: 110px; margin: 0; align-items: flex-start; }
       #retrom-ui-review .rt-page[data-page="home"] .rt-page-head h1 { font-size: 44px; }
@@ -1476,6 +1485,9 @@
       #retrom-ui-review .rt-form-grid { grid-template-columns: 1fr; }
       #retrom-ui-review .rt-field-wide { grid-column: auto; }
       #retrom-ui-review .rt-compare-grid,
+      #retrom-ui-review .rt-compare-top,
+      #retrom-ui-review .rt-compare-short,
+      #retrom-ui-review .rt-compare-description,
       #retrom-ui-review .rt-snapshot { grid-template-columns: 1fr; }
     }
   </style>
@@ -1705,7 +1717,7 @@
           <select class="rt-select rt-filter-select" aria-label="目标目录"><option>所有目录</option><option>FBNeo 游戏</option><option>DOS 经典游戏</option><option>NES 游戏</option></select>
           <select class="rt-select rt-filter-select" aria-label="任务状态"><option>所有状态</option><option>运行中</option><option>排队中</option><option>需要处理</option><option>等待审核</option><option>已完成</option></select>
         </div>
-        <div class="rt-workflow-chips"><span class="is-active">全部 3</span><span>运行中 1</span><span>需要处理 1</span><span>等待审核 1</span><span>已完成 0</span></div>
+        <div class="rt-workflow-chips"><button type="button" class="is-active">全部 3</button><button type="button">运行中 1</button><button type="button">需要处理 1</button><button type="button">等待审核 1</button><button type="button">已完成 0</button></div>
         <div class="rt-task-layout">
           <div class="rt-panel rt-job-list">
             <article class="rt-job-row is-selected">
@@ -1722,7 +1734,7 @@
             <article class="rt-job-row">
               <div class="rt-job-head"><div><div class="rt-job-title"><i data-lucide="folder" aria-hidden="true"></i><div><div class="rt-table-title">昨天 23:18 · NES 游戏</div><div class="rt-table-sub">28 个条目 · 不刮削 · 更新于昨天 23:18</div></div></div></div><span class="rt-badge rt-badge-red">部分失败</span></div>
               <div class="rt-job-progress is-danger"><span style="width:93%"></span></div>
-              <div class="rt-job-footer"><div class="rt-job-counts"><span>运行检查 · 93%</span><span>0 待审核</span><span>2 异常</span><span>当前问题：2 个条目需要处理</span></div><div class="rt-job-actions"><button type="button" class="rt-button">处理问题</button></div></div>
+              <div class="rt-job-footer"><div class="rt-job-counts"><span>运行检查 · 93%</span><span>0 待审核</span><button type="button" class="rt-text-link" title="ARCHIVE_LIMIT_EXCEEDED：归档超过数量、大小或压缩比限制">2 异常</button><span>当前问题：2 个条目需要处理</span></div></div>
             </article>
           </div>
         </div>
@@ -1739,6 +1751,7 @@
               <select class="rt-select" aria-label="审核状态"><option>所有兼容性状态</option><option>可以发布</option><option>需要处理</option><option>无游戏信息候选</option></select>
             </div>
             <div class="rt-review-queue-context">从任务进度进入时会保留当前导入批次；清除筛选即可查看全部待审条目。最终发布仍逐条确认。</div>
+            <div class="rt-workflow-chips"><button type="button" class="is-active">当前已加载 4</button><button type="button">可以发布 2</button><button type="button">运行异常 1</button><button type="button">未找到信息 1</button></div>
             <div class="rt-review-queue-list">
               <button type="button" class="rt-review-item is-selected" aria-current="true" data-review-item data-review-position-value="已选 1 / 4" data-review-file="mslug3.zip" data-review-preview="METAL SLUG 3" data-review-title="Metal Slug 3" data-review-year="2000" data-review-developer="SNK" data-review-players="1–2" data-review-description="阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。" data-review-candidate="Metal Slug 3" data-review-candidate-meta="World · 2000 · SNK" data-review-candidate-badge="精确" data-review-validation-status="READY" data-review-validation="✓ 当前目录的游戏文件和运行依赖均已就绪，可以发布">
                 <span class="rt-review-thumb">MS3</span><span><span class="rt-review-item-title">Metal Slug 3</span><span class="rt-review-item-source">mslug3.zip</span><span class="rt-review-item-meta"><span>28.4 MiB · MD5 c8a4…91ef</span></span></span><span>FBNeo 游戏列表</span><span class="rt-badge rt-badge-green">可以发布</span><span>1 个候选</span><span>2 分钟前 →</span>
@@ -1812,15 +1825,14 @@
       <section class="rt-page" data-page="admin-game-detail">
         <div class="rt-page-head"><div><div class="rt-detail-kicker">游戏管理 / Arcade</div><h1>1943: The Battle of Midway</h1><p class="rt-subtitle">维护发布信息、媒体、游戏内容与运行环境；历史版本与存档引用都会保留。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-games">← 返回游戏管理</button><button type="button" class="rt-button">查看用户详情 ↗</button></div></div>
         <section class="rt-admin-detail-hero"><span class="rt-cover rt-cover-b rt-admin-detail-cover"><span class="rt-cover-title">1943</span></span><div class="rt-admin-detail-copy"><h2>1943: The Battle of Midway</h2><p>Arcade · FBNeo 游戏 · 1987 · Capcom</p><div class="rt-admin-detail-statuses"><span class="rt-badge rt-badge-green">用户可见</span><span class="rt-badge rt-badge-cyan">可以运行</span><span class="rt-badge">资料完整</span></div></div><div class="rt-admin-detail-update"><span>最近更新</span><strong>今天 09:42</strong><small>3 个信息版本 · 2 个内容版本</small></div></section>
-        <div class="rt-admin-detail-tabs"><span>基本信息</span><span>媒体</span><span>游戏文件与运行</span><span>管理操作</span></div>
         <div class="rt-admin-detail-overview"><div><span>所属目录</span><strong>FBNeo 游戏</strong></div><div><span>推荐运行方式</span><strong>FinalBurn Neo</strong></div><div><span>当前游戏文件</span><strong>1943.zip</strong></div><div><span>最后运行验证</span><strong>今天 01:11</strong></div><div><span>关联存档</span><strong>44 份</strong></div></div>
         <div class="rt-admin-detail-primary">
           <section class="rt-admin-detail-panel"><div class="rt-admin-detail-panel-head"><h2>发布信息</h2></div><div class="rt-admin-detail-panel-body rt-admin-detail-form"><label class="rt-field rt-field-wide"><span class="rt-label">标题</span><input class="rt-input" value="1943: The Battle of Midway"></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea">1943</textarea></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" value="Capcom"></label><label class="rt-field"><span class="rt-label">发行商</span><input class="rt-input" value="Capcom"></label><label class="rt-field"><span class="rt-label">类型</span><input class="rt-input" value="Shoot 'em up"></label><label class="rt-field"><span class="rt-label">玩家数</span><input class="rt-input" value="2"></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" value="1987"></label><label class="rt-field"><span class="rt-label">平台</span><input class="rt-input" value="Arcade" readonly></label><div class="rt-admin-detail-savebar"><span>上次保存：今天 09:42</span><div><button type="button" class="rt-button">查看版本历史</button> <button type="button" class="rt-button rt-button-primary">保存新版本</button></div></div></div></section>
           <section class="rt-admin-detail-panel"><div class="rt-admin-detail-panel-head"><h2>媒体</h2></div><div class="rt-admin-detail-panel-body rt-admin-detail-media"><div class="rt-admin-media-slot"><h3>封面</h3><div class="rt-cover rt-cover-b rt-admin-media-cover"><span class="rt-cover-title">1943</span></div><div class="rt-admin-media-footer"><span>828×1104</span><button type="button" class="rt-text-link">替换</button></div></div><div><div class="rt-admin-media-slot"><h3>背景图</h3><div class="rt-admin-media-background">暂无背景图<br>添加一张用于用户详情页</div></div><div class="rt-admin-media-shots"><div class="rt-admin-media-shot">截图 1</div><div class="rt-admin-media-shot">截图 2</div><div class="rt-admin-media-shot" style="color:var(--retrom-purple)">＋ 添加截图</div></div></div></div></section>
         </div>
         <section class="rt-admin-detail-panel rt-admin-detail-wide"><div class="rt-admin-detail-panel-head"><h2>游戏文件与运行环境</h2></div><div class="rt-admin-detail-panel-body"><div class="rt-admin-runtime-grid"><div><span>当前游戏文件</span><strong>1943.zip</strong></div><div><span>推荐运行方式</span><strong>FinalBurn Neo</strong></div><div><span>兼容状态</span><strong style="color:var(--retrom-cyan)">可以运行</strong></div><div><span>最后验证</span><strong>今天 01:11</strong></div></div><div class="rt-admin-runtime-note"><span>替换游戏文件后创建新的内容版本并执行兼容性验证；通过后才切换当前版本，历史内容与存档不会删除。</span><button type="button" class="rt-button">替换游戏文件</button></div><div class="rt-admin-technical">▸ 技术详情　Content Revision、Variant Revision、Core Artifact、DAT、文件 hash 等按需展开</div></div></section>
-        <section class="rt-admin-detail-panel rt-admin-detail-wide"><div class="rt-admin-detail-panel-head"><h2>管理操作</h2></div><div class="rt-admin-detail-panel-body rt-admin-actions-grid"><div class="rt-admin-action-card"><h3>重新获取游戏资料</h3><p>重新查询标题、简介与媒体候选；确认后才会应用，不直接覆盖当前信息。</p><button type="button" class="rt-button">重新查找游戏信息</button></div><div class="rt-admin-action-card"><h3>移动到其他游戏目录</h3><p>移动前检查目标目录推荐运行方式与兼容性，不修改文件与存档。</p><div class="rt-admin-action-card-row"><select class="rt-select"><option>选择目标目录…</option></select><button type="button" class="rt-button">预览移动影响</button></div></div></div></section>
-        <section class="rt-admin-detail-panel rt-admin-remove"><div class="rt-admin-detail-panel-head"><h2>从游戏库移除</h2></div><div class="rt-admin-detail-panel-body rt-admin-remove-row"><div><strong>游戏将不再对用户可见。</strong><p>已有 44 份存档、审核历史及历史版本会继续保留；当前 0 个活动游戏会话。</p></div><div class="rt-admin-remove-confirm"><input class="rt-input" placeholder="输入完整游戏标题确认"><button type="button" class="rt-button rt-button-danger">移除游戏</button></div></div></section>
+        <section class="rt-admin-detail-panel rt-admin-detail-wide"><div class="rt-admin-detail-panel-head"><h2>管理操作</h2></div><div class="rt-admin-detail-panel-body rt-admin-actions-grid"><div class="rt-admin-action-card"><h3>重新获取游戏资料</h3><p>查询完成后比较短元信息、当前/候选封面与完整简介；确认后才创建新版本。</p><button type="button" class="rt-button">重新查找游戏信息</button></div><div class="rt-admin-action-card"><h3>移动到其他游戏目录</h3><p>移动前检查目标目录推荐运行方式与兼容性，不修改文件与存档。</p><div class="rt-admin-action-card-row"><select class="rt-select"><option>选择目标目录…</option></select><button type="button" class="rt-button">预览移动影响</button></div></div></div></section>
+        <details class="rt-admin-detail-panel rt-admin-remove"><summary class="rt-admin-detail-panel-head"><h2>从游戏库移除</h2><span>展开危险操作</span></summary><div class="rt-admin-detail-panel-body rt-admin-remove-row"><div><strong>游戏将不再对用户可见。</strong><p>已有 44 份存档、审核历史及历史版本会继续保留；当前 0 个活动游戏会话。</p></div><div class="rt-admin-remove-confirm"><input class="rt-input" placeholder="输入完整游戏标题确认"><button type="button" class="rt-button rt-button-danger">移除游戏</button></div></div></details>
       </section>
 
       <section class="rt-page rt-directory-page" data-page="admin-platform-instances">
@@ -1896,9 +1908,9 @@
   <div class="rt-dialog-backdrop" data-compare-dialog hidden>
     <section class="rt-dialog is-wide" role="dialog" aria-modal="true" aria-labelledby="rt-compare-title">
       <div class="rt-panel-heading"><div><h2 id="rt-compare-title">对比最新查询结果</h2><p class="rt-dialog-copy">左侧是当前信息，右侧是本次查询结果。红色表示发生变化，绿色表示一致。</p></div><span class="rt-badge rt-badge-green">查询完成</span></div>
-      <div class="rt-compare-grid">
-        <section class="rt-compare-panel"><h3>当前信息 · 不可编辑</h3><div class="rt-form-grid"><label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" value="Metal Slug 3" readonly></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" value="2000" readonly></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" value="SNK" readonly></label><label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" value="1–2" readonly></label><label class="rt-field rt-field-wide"><span class="rt-label">简介</span><textarea class="rt-textarea" readonly>阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。</textarea></label></div></section>
-        <section class="rt-compare-panel"><h3>最新查询 · 可编辑</h3><div class="rt-form-grid"><label class="rt-field is-same"><span class="rt-label">游戏标题 · 一致</span><input class="rt-input" value="Metal Slug 3"></label><label class="rt-field is-same"><span class="rt-label">发行年份 · 一致</span><input class="rt-input" value="2000"></label><label class="rt-field is-changed"><span class="rt-label">开发商 · 已变化</span><input class="rt-input" value="SNK Corporation"></label><label class="rt-field is-same"><span class="rt-label">玩家人数 · 一致</span><input class="rt-input" value="1–2"></label><label class="rt-field rt-field-wide is-changed"><span class="rt-label">简介 · 已变化</span><textarea class="rt-textarea">莫丁元帅再度发动叛乱；小队将穿越战场并阻止外星势力。</textarea></label></div><button type="button" class="rt-review-cover-upload" style="min-height:180px;margin-top:12px"><span><i data-lucide="upload" aria-hidden="true"></i> 点击最新封面上传替换</span></button></section>
+      <div class="rt-compare-layout">
+        <div class="rt-compare-top"><div class="rt-compare-short"><section class="rt-compare-panel"><h3>当前信息 · 不可编辑</h3><div class="rt-form-grid"><label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" value="Metal Slug 3" readonly></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" value="2000" readonly></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" value="SNK" readonly></label><label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" value="1–2" readonly></label></div></section><section class="rt-compare-panel"><h3>最新查询 · 可编辑</h3><div class="rt-form-grid"><label class="rt-field is-same"><span class="rt-label">游戏标题 · 一致</span><input class="rt-input" value="Metal Slug 3"></label><label class="rt-field is-same"><span class="rt-label">发行年份 · 一致</span><input class="rt-input" value="2000"></label><label class="rt-field is-changed"><span class="rt-label">开发商 · 已变化</span><input class="rt-input" value="SNK Corporation"></label><label class="rt-field is-same"><span class="rt-label">玩家人数 · 一致</span><input class="rt-input" value="1–2"></label></div></section></div><aside class="rt-compare-panel"><h3>封面对比</h3><div class="rt-compare-covers"><div class="rt-compare-cover"><span>当前封面</span></div><button type="button" class="rt-compare-cover"><span>最新封面 · 点击上传替换</span></button></div></aside></div>
+        <div class="rt-compare-description"><section class="rt-compare-panel"><label class="rt-field"><span class="rt-label">当前简介 · 不可编辑</span><textarea class="rt-textarea" readonly>阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。</textarea></label></section><section class="rt-compare-panel"><label class="rt-field is-changed"><span class="rt-label">最新简介 · 已变化</span><textarea class="rt-textarea">莫丁元帅再度发动叛乱；小队将穿越战场并阻止外星势力。</textarea></label></section></div>
       </div>
       <div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-compare>取消</button><button type="button" class="rt-button rt-button-primary">应用</button></div>
     </section>

@@ -32,8 +32,18 @@ export type ImportFileOutcome = {
 
 export type ImportDetail = {
   importJobId: string;
+  state: string;
   metadataProvider: string;
   targetPlatformInstance: { id: string; name: string };
+  counts: {
+    total: number;
+    reviewPending: number;
+    failed: number;
+    rejectedFiles: number;
+    unresolvedRejectedFiles: number;
+    alreadyImportedItems: number;
+    alreadyImportedFiles: number;
+  };
   fileOutcomes: ImportFileOutcome[];
   alreadyImportedMatches?: Array<{
     importItemId: string;
@@ -41,6 +51,8 @@ export type ImportDetail = {
     existingGame: { id: string; title: string; platformInstanceId: string; platformInstanceName: string };
   }>;
   version: number;
+  createdAtMs: number;
+  updatedAtMs: number;
 };
 
 export const importStateLabels: Record<string, string> = {

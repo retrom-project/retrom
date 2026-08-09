@@ -1,4 +1,5 @@
 import { cleanup, render, screen } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it } from "vitest";
 import { ReviewQueue, type ReviewQueueItem } from "./review-queue";
 
@@ -19,5 +20,19 @@ describe("ReviewQueue", () => {
     expect(screen.getByText("MD5 0123…")).toHaveAttribute("title", `MD5 ${item.sourceMd5}`);
     expect(screen.queryByText("批次详情")).not.toBeInTheDocument();
     expect(screen.queryByText(item.importJobId)).not.toBeInTheDocument();
+  });
+
+  it("uses the summary chips as real filters over the loaded queue", async () => {
+    const user = userEvent.setup();
+    const blocked = { ...item, itemId: "item-2", draftTitle: "Blocked game", validationStatus: "BLOCKED", blockerCodes: ["LAUNCH_BIOS_MISSING"], candidateCount: 0 };
+    render(<ReviewQueue initial={{ items: [item, blocked], nextCursor: null }} values={{}} />);
+
+    await user.click(screen.getByRole("button", { name: "运行异常 1" }));
+    expect(screen.getByText("Blocked game")).toBeVisible();
+    expect(screen.queryByText(item.draftTitle)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "未找到信息 1" }));
+    expect(screen.getByText("Blocked game")).toBeVisible();
+    expect(screen.getByText("当前筛选显示 1 / 已加载 2 条")).toBeVisible();
   });
 });

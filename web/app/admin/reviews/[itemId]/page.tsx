@@ -47,11 +47,11 @@ export default async function ReviewDetailPage({ params, searchParams }: { param
   const listQuery = new URL(returnTo, "http://retrom.invalid").search;
   const [review, context] = await Promise.all([
     backendJSON<Review>(`/api/v1/admin/reviews/${itemId}`),
-    backendJSON<ListResponse<ReviewQueueItem>>(`/api/v1/admin/reviews${listQuery}${listQuery ? "&" : "?"}limit=100`),
+    backendJSON<ListResponse<ReviewQueueItem>>(`/api/v1/admin/reviews${listQuery}${listQuery ? "&" : "?"}limit=20`),
   ]);
   const validationStatus = review.validation?.status ?? "PENDING";
   const selectedIndex = context.items.findIndex((item) => item.itemId === itemId);
-  const nextItem = context.items[selectedIndex + 1] ?? context.items[selectedIndex - 1] ?? null;
+  const nextItem = selectedIndex < 0 ? null : context.items[selectedIndex + 1] ?? context.items[selectedIndex - 1] ?? null;
   const sourceDisplayName = review.sourceFiles?.[0]?.name ?? review.sourceManifest.files[0]?.logicalName ?? "游戏文件";
   const compatibilityCode = review.validation?.compatibilityCode ?? validationStatus;
   const compatibilityLabel = reviewCompatibilityLabel(compatibilityCode, validationStatus);

@@ -35,7 +35,7 @@ describe("ReviewActions", () => {
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
   it("opens one comparison dialog and autosaves the applied result", async () => {
-    const candidate = { candidateId: "candidate-1", scrapeRunId: "run-1", providerGameId: "50192", metadata: { title: "1941: Counter Attack", publisher: "Capcom" }, evidence: {}, assets: [{ candidateAssetId: "cover-1", kind: "COVER" as const, ordinal: 0, status: "READY", widthPx: 320, heightPx: 480, mediaType: "image/png", errorCode: null }] };
+    const candidate = { candidateId: "candidate-1", scrapeRunId: "run-1", providerGameId: "50192", metadata: { title: "1941: Counter Attack", description: "Long provider description", publisher: "Capcom" }, evidence: {}, assets: [{ candidateAssetId: "cover-1", kind: "COVER" as const, ordinal: 0, status: "READY", widthPx: 320, heightPx: 480, mediaType: "image/png", errorCode: null }] };
     const updated: ReviewWorkspace = { ...review, version: 2, candidates: [candidate], scrapeRuns: [{ scrapeRunId: "run-1", jobId: "job-1", provider: "HASHEOUS", state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 1, completedAtMs: 2, errorCode: null, evidenceCount: 1, attemptCount: 1, candidateCount: 1, outcomes: { hit: 1, miss: 0, rateLimited: 0, timeout: 0, invalidResponse: 0, networkError: 0 } }] };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
@@ -52,6 +52,8 @@ describe("ReviewActions", () => {
     const dialog = await screen.findByRole("alertdialog", { name: "对比最新查询结果" });
     expect(within(dialog).getByLabelText("标题")).toHaveValue("1941: Counter Attack");
     expect(within(dialog).getByLabelText("标题").closest("label")).toHaveClass("is-changed");
+    expect(within(dialog).getByLabelText("简介")).toHaveValue("Long provider description");
+    expect(within(dialog).getByLabelText("简介").closest(".metadata-compare-description")).not.toBeNull();
     await user.click(within(dialog).getByRole("button", { name: "应用" }));
 
     expect(screen.getByLabelText("标题")).toHaveValue("1941: Counter Attack");

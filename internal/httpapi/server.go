@@ -68,6 +68,7 @@ var (
 	errInvalidCore          = errors.New("invalid core")
 	errCandidateMetadata    = errors.New("candidate metadata invalid")
 	errCandidateAssetKind   = errors.New("candidate asset kind mismatch")
+	errInvalidCursorPayload = errors.New("invalid cursor payload")
 )
 
 type contextKey string
@@ -2829,24 +2830,92 @@ func (server *Server) importSummary(writer http.ResponseWriter, request *http.Re
 	writeJSON(writer, http.StatusOK, counts)
 }
 
-func importListQuery(request *http.Request) (string, []any) {
-	values := request.URL.Query()
-	conditions := []string{"1=1"}
-	arguments := make([]any, 0, 4)
-	if value := strings.TrimSpace(values.Get("q")); value != "" {
-		conditions = append(conditions, "(instr(lower(i.id),lower(?))>0 OR instr(lower(pi.name),lower(?))>0)")
-		arguments = append(arguments, value, value)
+type importListFilters struct {
+	queryText   string
+	state       string
+	platformID  string
+	digest      string
+	sortCode    string
+	cursorToken string
+	limit       int
+	sortField   string
+}
+
+func parseImportListFilters(values url.Values) (importListFilters, error) {
+	filters := importListFilters{
+		queryText:   strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " ")),
+		state:       values.Get("state"),
+		platformID:  values.Get("platformInstanceId"),
+		sortCode:    values.Get("sort"),
+		cursorToken: values.Get("cursor"),
+		limit:       20,
+		sortField:   "updatedAtMs",
 	}
-	if value := values.Get("state"); value != "" {
-		conditions = append(conditions, "i.state=?")
-		arguments = append(arguments, value)
+	if len([]rune(filters.queryText)) > 200 {
+		return importListFilters{}, errQueryTooLong
 	}
-	if value := values.Get("platformInstanceId"); value != "" {
-		conditions = append(conditions, "i.target_platform_instance_id=?")
-		arguments = append(arguments, value)
+	if filters.state != "" && !validImportListState(filters.state) {
+		return importListFilters{}, errUnknownQuery
 	}
-	return queryWithConditions(
-		`
+	if filters.sortCode == "" {
+		filters.sortCode = "UPDATED_DESC"
+	}
+	if filters.sortCode == "CREATED_DESC" {
+		filters.sortField = "createdAtMs"
+	} else if filters.sortCode != "UPDATED_DESC" {
+		return importListFilters{}, errUnknownQuery
+	}
+	if raw := values.Get("limit"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 20 {
+			return importListFilters{}, errInvalidLimit
+		}
+		filters.limit = parsed
+	}
+	filters.digest = cursor.FilterDigest(map[string]any{
+		"q": filters.queryText, "state": filters.state, "platformInstanceId": filters.platformID,
+	})
+	return filters, nil
+}
+
+func validImportListState(state string) bool {
+	switch state {
+	case "QUEUED", "RUNNING", "REVIEW_PENDING", "PARTIAL_FAILURE", "COMPLETED", "CANCEL_REQUESTED", "CANCELLED", "FAILED":
+		return true
+	default:
+		return false
+	}
+}
+
+func (server *Server) importListArguments(filters importListFilters) ([]any, error) {
+	cursorID := ""
+	cursorValue := int64(0)
+	if filters.cursorToken != "" {
+		payload, err := server.cursors.Decode(
+			filters.cursorToken, "getAdminImports", filters.digest, filters.sortCode,
+		)
+		if err != nil || len(payload.SortValues) != 1 {
+			return nil, errInvalidCursorPayload
+		}
+		parsed, err := strconv.ParseInt(payload.SortValues[0], 10, 64)
+		if err != nil {
+			return nil, errInvalidCursorPayload
+		}
+		cursorID, cursorValue = payload.ID, parsed
+	}
+	return []any{
+		filters.queryText, filters.queryText, filters.queryText,
+		filters.state, filters.state,
+		filters.platformID, filters.platformID,
+		cursorID,
+		filters.sortCode, cursorValue, cursorValue, cursorID,
+		filters.sortCode, cursorValue, cursorValue, cursorID,
+		filters.sortCode,
+		filters.limit + 1,
+	}, nil
+}
+
+const importListSQL = `
 SELECT i.id,
 i.state,
 pi.name,
@@ -2863,69 +2932,124 @@ i.created_at_ms,
 i.updated_at_ms
 FROM import_jobs i
 JOIN platform_instances pi ON pi.id=i.target_platform_instance_id
-`,
-		conditions,
-		` ORDER BY i.updated_at_ms DESC,i.id DESC LIMIT 100`,
-	), arguments
+WHERE (?='' OR instr(lower(i.id),lower(?))>0 OR instr(lower(pi.name),lower(?))>0)
+AND (?='' OR i.state=?)
+AND (?='' OR i.target_platform_instance_id=?)
+AND (?='' OR
+(?='UPDATED_DESC' AND (i.updated_at_ms<? OR (i.updated_at_ms=? AND i.id<?))) OR
+(?='CREATED_DESC' AND (i.created_at_ms<? OR (i.created_at_ms=? AND i.id<?))))
+ORDER BY CASE ? WHEN 'UPDATED_DESC' THEN i.updated_at_ms WHEN 'CREATED_DESC' THEN i.created_at_ms END DESC,
+i.id DESC
+LIMIT ?
+`
+
+type importListItem struct {
+	ID                          string `json:"id"`
+	State                       string `json:"state"`
+	PlatformInstanceName        string `json:"platformInstanceName"`
+	MetadataProvider            string `json:"metadataProvider"`
+	TotalItemCount              int64  `json:"totalItemCount"`
+	ReviewPendingItemCount      int64  `json:"reviewPendingItemCount"`
+	FailedItemCount             int64  `json:"failedItemCount"`
+	RejectedFileCount           int64  `json:"rejectedFileCount"`
+	UnresolvedRejectedFileCount int64  `json:"unresolvedRejectedFileCount"`
+	AlreadyImportedItemCount    int64  `json:"alreadyImportedItemCount"`
+	AlreadyImportedFileCount    int64  `json:"alreadyImportedFileCount"`
+	Version                     int64  `json:"version"`
+	CreatedAtMS                 int64  `json:"createdAtMs"`
+	UpdatedAtMS                 int64  `json:"updatedAtMs"`
+}
+
+func queryImportList(
+	ctx context.Context,
+	database *sql.DB,
+	arguments []any,
+	capacity int,
+) ([]importListItem, error) {
+	rows, err := database.QueryContext(ctx, importListSQL, arguments...)
+	if err != nil {
+		return nil, fmt.Errorf("httpapi: query imports: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]importListItem, 0, capacity)
+	for rows.Next() {
+		var item importListItem
+		var resolvedRejected int64
+		if err := rows.Scan(
+			&item.ID,
+			&item.State,
+			&item.PlatformInstanceName,
+			&item.MetadataProvider,
+			&item.TotalItemCount,
+			&item.ReviewPendingItemCount,
+			&item.FailedItemCount,
+			&item.RejectedFileCount,
+			&resolvedRejected,
+			&item.AlreadyImportedItemCount,
+			&item.AlreadyImportedFileCount,
+			&item.Version,
+			&item.CreatedAtMS,
+			&item.UpdatedAtMS,
+		); err != nil {
+			return nil, fmt.Errorf("httpapi: scan import: %w", err)
+		}
+		item.UnresolvedRejectedFileCount = item.RejectedFileCount - resolvedRejected
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("httpapi: scan imports: %w", err)
+	}
+	return items, nil
+}
+
+func (server *Server) encodeImportListCursor(
+	filters importListFilters,
+	items []importListItem,
+) ([]importListItem, any, error) {
+	if len(items) <= filters.limit {
+		return items, nil, nil
+	}
+	last := items[filters.limit-1]
+	items = items[:filters.limit]
+	sortValue := last.UpdatedAtMS
+	if filters.sortField == "createdAtMs" {
+		sortValue = last.CreatedAtMS
+	}
+	token, err := server.cursors.Encode(cursor.Payload{
+		OperationID:  "getAdminImports",
+		FilterDigest: filters.digest,
+		SortCode:     filters.sortCode,
+		SortValues:   []string{strconv.FormatInt(sortValue, 10)},
+		ID:           last.ID,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("httpapi: encode import cursor: %w", err)
+	}
+	return items, token, nil
 }
 
 func (server *Server) imports(writer http.ResponseWriter, request *http.Request) {
-	query, arguments := importListQuery(request)
-	rows, err := server.database.QueryContext(request.Context(), query, arguments...)
+	filters, err := parseImportListFilters(request.URL.Query())
+	if err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "导入任务筛选无效", map[string]any{})
+		return
+	}
+	arguments, err := server.importListArguments(filters)
+	if err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
+		return
+	}
+	items, err := queryImportList(request.Context(), server.database, arguments, filters.limit+1)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0)
-	for rows.Next() {
-		var id, state, platformName, provider string
-		var total, pending, failed, rejected, resolvedRejected, alreadyImportedItems, alreadyImportedFiles int64
-		var version, createdAtMS, updatedAtMS int64
-		if err := rows.Scan(
-			&id,
-			&state,
-			&platformName,
-			&provider,
-			&total,
-			&pending,
-			&failed,
-			&rejected,
-			&resolvedRejected,
-			&alreadyImportedItems,
-			&alreadyImportedFiles,
-			&version,
-			&createdAtMS,
-			&updatedAtMS,
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		items = append(
-			items,
-			map[string]any{
-				"id":                          id,
-				"state":                       state,
-				"platformInstanceName":        platformName,
-				"metadataProvider":            provider,
-				"totalItemCount":              total,
-				"reviewPendingItemCount":      pending,
-				"failedItemCount":             failed,
-				"rejectedFileCount":           rejected,
-				"unresolvedRejectedFileCount": rejected - resolvedRejected,
-				"alreadyImportedItemCount":    alreadyImportedItems,
-				"alreadyImportedFileCount":    alreadyImportedFiles,
-				"version":                     version,
-				"createdAtMs":                 createdAtMS,
-				"updatedAtMs":                 updatedAtMS,
-			},
-		)
-	}
-	if err := rows.Err(); err != nil {
+	items, nextCursor, err := server.encodeImportListCursor(filters, items)
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
+	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nextCursor})
 }
 
 func (server *Server) createImport(writer http.ResponseWriter, request *http.Request) {
@@ -3077,10 +3201,10 @@ WHERE i.state='REVIEW_PENDING'
 		}
 		arguments = append(arguments, updatedAt, updatedAt, payload.ID)
 	}
-	limit := 50
+	limit := 20
 	if raw := values.Get("limit"); raw != "" {
 		parsed, err := strconv.Atoi(raw)
-		if err != nil || parsed < 1 || parsed > 100 {
+		if err != nil || parsed < 1 || parsed > 20 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "分页大小无效", map[string]any{})
 			return
 		}
