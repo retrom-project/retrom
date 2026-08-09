@@ -30,7 +30,9 @@ func (server *Server) authAccountLinkInspect(writer http.ResponseWriter, request
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "链接请求无效", map[string]any{})
 		return
 	}
-	result, err := server.accounts.InspectAccountLink(request.Context(), body.ExpectedKind, body.Token)
+	result, err := server.accounts.InspectAccountLinkRateLimited(
+		request.Context(), body.ExpectedKind, body.Token, server.authenticationClientIP(request),
+	)
 	if err != nil {
 		server.writeAccountError(writer, request, err)
 		return
@@ -47,10 +49,10 @@ func (server *Server) authInvitationAccept(writer http.ResponseWriter, request *
 	if !decodeNewAccountCredential(writer, request, &body, "注册请求无效") {
 		return
 	}
-	session, err := server.accounts.AcceptInvitation(request.Context(), accounts.AcceptInvitationRequest{
+	session, err := server.accounts.AcceptInvitationRateLimited(request.Context(), accounts.AcceptInvitationRequest{
 		Token: body.Token, Username: body.Username, DisplayName: body.DisplayName,
 		Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
-	})
+	}, server.authenticationClientIP(request))
 	if err != nil {
 		server.writeAccountError(writer, request, err)
 		return
@@ -68,9 +70,10 @@ func (server *Server) authPasswordResetComplete(writer http.ResponseWriter, requ
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "密码重置请求无效", map[string]any{})
 		return
 	}
-	result, err := server.accounts.CompletePasswordReset(request.Context(), accounts.CompletePasswordResetRequest{
-		Token: body.Token, Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
-	})
+	result, err := server.accounts.CompletePasswordResetRateLimited(
+		request.Context(), accounts.CompletePasswordResetRequest{
+			Token: body.Token, Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
+		}, server.authenticationClientIP(request))
 	if err != nil {
 		server.writeAccountError(writer, request, err)
 		return

@@ -3,6 +3,7 @@ package httpapi
 import (
 	"errors"
 	"net/http"
+	"strconv"
 	"time"
 
 	"retrom/internal/accounts"
@@ -53,10 +54,10 @@ func (server *Server) authInitialize(writer http.ResponseWriter, request *http.R
 	if !decodeNewAccountCredential(writer, request, &body, "初始化请求无效") {
 		return
 	}
-	session, err := server.accounts.Initialize(request.Context(), accounts.InitializeRequest{
+	session, err := server.accounts.InitializeRateLimited(request.Context(), accounts.InitializeRequest{
 		SetupCode: body.SetupCode, Username: body.Username, DisplayName: body.DisplayName,
 		Password: body.Password, PasswordConfirmation: body.PasswordConfirmation,
-	})
+	}, server.authenticationClientIP(request))
 	if err != nil {
 		server.writeAccountError(writer, request, err)
 		return
@@ -80,7 +81,9 @@ func (server *Server) authLogin(writer http.ResponseWriter, request *http.Reques
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "登录请求无效", map[string]any{})
 		return
 	}
-	session, err := server.accounts.Login(request.Context(), body.Username, body.Password)
+	session, err := server.accounts.LoginRateLimited(
+		request.Context(), body.Username, body.Password, server.authenticationClientIP(request),
+	)
 	if err != nil {
 		server.writeAccountError(writer, request, err)
 		return
@@ -179,6 +182,9 @@ func (server *Server) writeAccountError(writer http.ResponseWriter, request *htt
 	}
 	var password *authn.PasswordError
 	switch {
+	case errors.Is(err, accounts.ErrRateLimited):
+		writer.Header().Set("Retry-After", strconv.Itoa(accounts.RateLimitRetryAfter(err)))
+		writeError(writer, request, http.StatusTooManyRequests, "AUTH_RATE_LIMITED", "认证请求过于频繁", map[string]any{})
 	case errors.Is(err, accounts.ErrAuthentication):
 		writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_FAILED", "用户名或密码不正确", map[string]any{})
 	case errors.Is(err, accounts.ErrInitializationProof):
