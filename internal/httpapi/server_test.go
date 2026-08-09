@@ -30,34 +30,51 @@ import (
 	"retrom/internal/store"
 )
 
-func TestHealthAndWritesDoNotRequireCSRF(t *testing.T) {
+func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 	t.Parallel()
-	server := newTestServer(t)
+	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	handler := server.Handler()
 
 	live := httptest.NewRecorder()
-	server.Handler().ServeHTTP(live, httptest.NewRequest(http.MethodGet, "/health/live", nil))
+	handler.ServeHTTP(live, httptest.NewRequest(http.MethodGet, "/health/live", nil))
 	if live.Code != http.StatusOK || live.Header().Get("X-Request-ID") == "" {
 		t.Fatalf("live status = %d, request id = %q", live.Code, live.Header().Get("X-Request-ID"))
 	}
 
-	request := httptest.NewRequest(
+	requestBody := `{"platformId":"gbc","defaultCoreId":"gambatte","name":"Protected","description":"","sortOrder":900}`
+	unauthenticated := httptest.NewRequest(
 		http.MethodPost,
 		"/api/v1/admin/platform-instances",
-		strings.NewReader(`{"platformId":"gbc","defaultCoreId":"gambatte","name":"No CSRF","description":"","sortOrder":900}`),
+		strings.NewReader(requestBody),
 	)
+	unauthenticated.Header.Set("Content-Type", "application/json")
+	unauthenticated.Header.Set("Idempotency-Key", uuid.NewString())
+	unauthenticated.Header.Set("Origin", "http://localhost:3000")
+	denied := httptest.NewRecorder()
+	handler.ServeHTTP(denied, unauthenticated)
+	if denied.Code != http.StatusUnauthorized || !strings.Contains(denied.Body.String(), "AUTHENTICATION_REQUIRED") {
+		t.Fatalf("anonymous write = %d %s", denied.Code, denied.Body.String())
+	}
+
+	auth := accountHTTPLogin(t, handler, "test", "test")
+	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(requestBody))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", uuid.NewString())
+	request.Header.Set("Origin", "http://localhost:3000")
+	request.Header.Set("X-Retrom-Csrf", auth.csrf)
+	request.AddCookie(auth.cookie)
 	created := httptest.NewRecorder()
-	server.Handler().ServeHTTP(created, request)
+	handler.ServeHTTP(created, request)
 	if created.Code != http.StatusCreated {
-		t.Fatalf("write without CSRF status = %d %s", created.Code, created.Body.String())
+		t.Fatalf("authenticated write status = %d %s", created.Code, created.Body.String())
 	}
 }
 
-func TestWritesIgnoreBrowserOriginWithoutEnablingCORS(t *testing.T) {
+func TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS(t *testing.T) {
 	t.Parallel()
-	server := newTestServer(t)
+	server, _ := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
+	auth := accountHTTPLogin(t, handler, "test", "test")
 	send := func(name string, headers map[string]string) *httptest.ResponseRecorder {
 		body := fmt.Sprintf(
 			`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"description":"","sortOrder":900}`,
@@ -66,6 +83,8 @@ func TestWritesIgnoreBrowserOriginWithoutEnablingCORS(t *testing.T) {
 		request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		request.Header.Set("Idempotency-Key", uuid.NewString())
+		request.Header.Set("X-Retrom-Csrf", auth.csrf)
+		request.AddCookie(auth.cookie)
 		for name, value := range headers {
 			request.Header.Set(name, value)
 		}
@@ -76,15 +95,22 @@ func TestWritesIgnoreBrowserOriginWithoutEnablingCORS(t *testing.T) {
 		}
 		return recorder
 	}
-	if response := send("no-origin", nil); response.Code != http.StatusCreated {
+	if response := send("no-origin", nil); response.Code != http.StatusForbidden {
 		t.Fatalf("request without origin = %d %s", response.Code, response.Body.String())
 	}
 	crossOrigin := send("cross-origin", map[string]string{
 		"Origin":         "https://external.example",
 		"Sec-Fetch-Site": "cross-site",
 	})
-	if crossOrigin.Code != http.StatusCreated {
-		t.Fatalf("cross-origin LAN write = %d %s", crossOrigin.Code, crossOrigin.Body.String())
+	if crossOrigin.Code != http.StatusForbidden {
+		t.Fatalf("cross-origin write = %d %s", crossOrigin.Code, crossOrigin.Body.String())
+	}
+	sameOrigin := send("same-origin", map[string]string{
+		"Origin":         "http://localhost:3000",
+		"Sec-Fetch-Site": "same-origin",
+	})
+	if sameOrigin.Code != http.StatusCreated {
+		t.Fatalf("same-origin write = %d %s", sameOrigin.Code, sameOrigin.Body.String())
 	}
 }
 

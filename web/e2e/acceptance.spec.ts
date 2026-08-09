@@ -24,7 +24,7 @@ async function noPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 }
 
-test("ACC-UI-001 user navigation and account-free access", async ({ page }, testInfo) => {
+test("ACC-UI-001 authenticated navigation exposes the administrator entry", async ({ page }, testInfo) => {
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "主要导航" });
   await expect(navigation.getByRole("link")).toHaveCount(4);
@@ -324,7 +324,7 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
 test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ page }, testInfo) => {
   const routes = [
     "/admin/imports", "/admin/imports/new", "/admin/imports/tasks", "/admin/reviews",
-    "/admin/reviews/history", "/admin/games", "/admin/platform-instances", "/admin/bios", "/admin/bios/dats",
+    "/admin/reviews/history", "/admin/games", "/admin/platform-instances", "/admin/users", "/admin/bios", "/admin/bios/dats",
   ];
   for (const route of routes) {
     await page.goto(route);

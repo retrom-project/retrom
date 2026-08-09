@@ -1,7 +1,17 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
 import { expect, test, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
 const userPassword = "a sufficiently long password";
+
+function evidencePath(testInfo: TestInfo, name: string) {
+  const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
+  if (!caseDirectory) return testInfo.outputPath(name);
+  const screenshots = path.join(caseDirectory, "screenshots");
+  mkdirSync(screenshots, { recursive: true });
+  return path.join(screenshots, `${testInfo.project.name}-${name}`);
+}
 
 type AuthContext = { csrfToken: string; user: { userId: string; role: "ADMIN" | "USER" } };
 type AdminUser = { userId: string; username: string; version: number };
@@ -77,7 +87,7 @@ async function completeReset(page: Page, url: string, password: string) {
   await page.getByRole("button", { name: "更新密码" }).click();
 }
 
-test("authentication entry routing and user management layout remain safe at every desktop viewport", async ({ page }, testInfo: TestInfo) => {
+test("ACC-UI-009 authentication entry routing and user management layout remain safe at every desktop viewport", async ({ page }, testInfo: TestInfo) => {
   await page.goto("/library?q=gba");
   await expect(page).toHaveURL(/\/login\?returnTo=%2Flibrary%3Fq%3Dgba$/);
   await expect(page.getByText("测试模式已启用，默认管理员为 test / test。")).toBeVisible();
@@ -100,10 +110,10 @@ test("authentication entry routing and user management layout remain safe at eve
   await expect(drawer).toContainText("服务器必须保留至少一名启用管理员");
   await expect(drawer.getByLabel("角色")).toBeDisabled();
   await expect(drawer.getByLabel("状态")).toBeDisabled();
-  await page.screenshot({ path: testInfo.outputPath("account-and-user-management.png"), fullPage: true });
+  await page.screenshot({ path: evidencePath(testInfo, "account-and-user-management.png"), fullPage: true });
 });
 
-test("an administrator can invite a user without retaining the capability in the UI", async ({ page, browser }, testInfo) => {
+test("ACC-UI-009 an administrator can invite a user without retaining the capability in the UI", async ({ page, browser }, testInfo) => {
   test.skip(testInfo.project.name !== "chrome-1280", "The stateful invitation flow runs once; the layout is covered in every project.");
   await login(page.request);
   await page.goto("/admin/users");
@@ -142,7 +152,7 @@ test("an administrator can invite a user without retaining the capability in the
   await userContext.close();
 });
 
-test("password reset revokes old sessions and does not enable a disabled account", async ({ page, browser }, testInfo) => {
+test("ACC-UI-009 password reset revokes old sessions and does not enable a disabled account", async ({ page, browser }, testInfo) => {
   test.setTimeout(60_000);
   test.skip(testInfo.project.name !== "chrome-1280", "The stateful reset flow runs once.");
   const admin = await login(page.request);
