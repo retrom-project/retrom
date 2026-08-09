@@ -205,7 +205,7 @@ export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIR
     <ConfirmDialog
       open={archiveDialog !== null}
       title={`${archiveDialog?.item.logicalName ?? "BIOS"} 内容对比`}
-      description="左侧为当前 DAT 要求，右侧为已安装 ZIP 内容。额外文件不阻断启动，缺失或校验不一致需要处理。"
+      description="左侧为当前 DAT 要求，右侧为已安装 ZIP 内容；每个文件固定展示 name、size、crc 三项。额外文件不阻断启动。"
       confirmLabel="关闭"
       hideCancel
       wide
@@ -242,9 +242,9 @@ function ArchiveEntryList({ title, ariaLabel, entries }: {
 }
 
 function ArchiveFacts({ facts }: { facts: ArchiveEntryFacts }) {
-  return <dl className="bios-entry-facts">
-    <div><dt>name</dt><dd><code>{facts.name}</code></dd></div>
-    <div><dt>size</dt><dd>{facts.sizeBytes.toLocaleString("zh-CN")} bytes</dd></div>
-    <div><dt>crc</dt><dd><code>{facts.crc32 || "—"}</code></dd></div>
-  </dl>;
+  return <ul className="bios-entry-facts" aria-label={`${facts.name} 文件信息`}>
+    <li><span>name</span><code>{facts.name}</code></li>
+    <li><span>size</span><strong>{facts.sizeBytes.toLocaleString("zh-CN")} bytes</strong></li>
+    <li><span>crc</span><code>{facts.crc32 || "—"}</code></li>
+  </ul>;
 }

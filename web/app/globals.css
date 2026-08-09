@@ -1334,10 +1334,10 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
 .bios-entry-card-head { min-height: 22px; display: flex; align-items: flex-start; justify-content: flex-end; }
 .bios-entry-card-head > .status-badge { max-width: 210px; white-space: normal; text-align: right; }
 .bios-entry-card.is-mismatched, .bios-entry-card.is-missing { border-color: #efc2c6; background: #fffafa; }
-.bios-entry-facts { min-width: 0; margin: 0; display: grid; gap: 5px; }
-.bios-entry-facts > div { min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 7px; }
-.bios-entry-facts dt { color: var(--muted); font-size: 10px; text-transform: uppercase; }
-.bios-entry-facts dd { min-width: 0; margin: 0; overflow-wrap: anywhere; font-size: 11px; }
+.bios-entry-facts { min-width: 0; margin: 0; padding: 0; display: grid; gap: 5px; list-style: none; }
+.bios-entry-facts > li { min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 7px; }
+.bios-entry-facts > li > span { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.bios-entry-facts > li > strong, .bios-entry-facts > li > code { min-width: 0; overflow-wrap: anywhere; font-size: 11px; font-weight: 400; }
 .bios-entry-facts code { font-size: 10px; }
 .bios-entry-message { min-height: 100px; display: grid; place-items: center; color: var(--muted); }
 .bios-entry-message.is-error { color: var(--danger); }
