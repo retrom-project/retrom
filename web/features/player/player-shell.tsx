@@ -7,6 +7,7 @@ import { captureManualScreenshot, captureManualState, mountEmulatorJS, type Emul
 import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
 import { setEmulatorPaused } from "./pause-control";
+import { restorePersistentSave } from "./persistent-save-restore";
 import { PlayerChrome } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
 
@@ -16,15 +17,6 @@ function base64(bytes: Uint8Array) {
   let value = "";
   for (const byte of bytes) value += String.fromCharCode(byte);
   return btoa(value);
-}
-
-function ensureDirectory(fs: NonNullable<NonNullable<EmulatorInstance["gameManager"]>["FS"]>, filePath: string) {
-  const segments = filePath.split("/").filter(Boolean);
-  let current = "";
-  for (const segment of segments.slice(0, -1)) {
-    current += `/${segment}`;
-    if (!fs.analyzePath(current).exists) fs.mkdir(current);
-  }
 }
 
 export function PlayerShell({ launchId }: { launchId: string }) {
@@ -382,13 +374,14 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
             const manager = emulator.current?.gameManager;
             if (config.persistentSaveMode !== "NONE") {
               const savePath = manager?.getSaveFilePath?.();
-              if (!manager || !mountedSaveFS || !savePath) { setState("error"); setMessage("LAUNCH_PERSISTENT_SAVE_PATH_UNAVAILABLE"); return; }
-              manager.toggleMainLoop?.(false);
-              ensureDirectory(mountedSaveFS, savePath);
-              if (persistentBytes) mountedSaveFS.writeFile(savePath, persistentBytes);
-              else if (mountedSaveFS.analyzePath(savePath).exists) mountedSaveFS.unlink(savePath);
-              manager.loadSaveFiles?.();
-              manager.toggleMainLoop?.(true);
+              if (!manager || !mountedSaveFS || !savePath) { setState("error"); setMessage("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED"); return; }
+              try {
+                restorePersistentSave(manager, mountedSaveFS, savePath, persistentBytes);
+              } catch {
+                setState("error");
+                setMessage("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
+                return;
+              }
             }
             if (emulator.current) emulator.current.paused = false;
             pausedRef.current = false;
