@@ -1648,6 +1648,7 @@ export interface components {
             failed?: unknown;
             failedItemCount?: unknown;
             fileCount?: unknown;
+            fileOutcomes?: unknown;
             fileId?: unknown;
             files?: unknown;
             filterDigest?: unknown;
@@ -1753,6 +1754,8 @@ export interface components {
             recentGames?: unknown;
             recentSaves?: unknown;
             rejectedFiles?: unknown;
+            /** Format: int64 */
+            rejectedFileCount?: number;
             releaseYear?: unknown;
             repository?: unknown;
             requestId?: unknown;

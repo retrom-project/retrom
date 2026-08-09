@@ -168,10 +168,87 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 14 ||
+		response.DatabaseSchemaVersion != 15 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
+	}
+}
+
+func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	now := time.Now()
+	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
+		t.Fatal(err)
+	}
+	var artifactID string
+	if err := server.database.QueryRow(`SELECT id FROM core_artifacts WHERE core_id='fceumm' AND enabled=1`).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	const (
+		importID     = "01980000-0000-7000-8000-000000000140"
+		uploadID     = "01980000-0000-7000-8000-000000000141"
+		uploadFileID = "01980000-0000-7000-8000-000000000142"
+		blobID       = "01980000-0000-7000-8000-000000000143"
+	)
+	digest := strings.Repeat("f", 64)
+	timestamp := now.UnixMilli()
+	transaction, err := server.database.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.Exec(`PRAGMA defer_foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+VALUES(?,?,1,?,?,?,'application/zip',?)
+`, blobID, digest, strings.Repeat("a", 32), strings.Repeat("b", 40), strings.Repeat("c", 8), timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'COMPLETE','FILES',1,1,?,1,?,?,?)
+`, uploadID, digest, timestamp+60_000, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
+VALUES(?,?,'fc/8只眼.zip',1,1,?,'COMPLETE',?,?)
+`, uploadFileID, uploadID, blobID, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
+core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'01980000-0000-7000-8000-000000000001',1,'nes','fceumm',?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
+`, importID, uploadID, artifactID, digest, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO import_job_files(import_job_id,upload_file_id,disposition,reason_code,created_at_ms,updated_at_ms)
+VALUES(?,?,'REJECTED','ARCHIVE_UNSAFE',?,?)
+`, importID, uploadFileID, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	list := httptest.NewRecorder()
+	server.imports(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports", nil))
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"rejectedFileCount":1`) {
+		t.Fatalf("import list = %d %s", list.Code, list.Body.String())
+	}
+	detail := httptest.NewRecorder()
+	detailRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports/"+importID, nil)
+	detailRequest.SetPathValue("importJobId", importID)
+	server.importDetail(detail, detailRequest)
+	if detail.Code != http.StatusOK ||
+		!strings.Contains(detail.Body.String(), `"fileOutcomes":[{"disposition":"REJECTED","name":"fc/8只眼.zip","reasonCode":"ARCHIVE_UNSAFE"}]`) {
+		t.Fatalf("import detail = %d %s", detail.Code, detail.Body.String())
 	}
 }
 

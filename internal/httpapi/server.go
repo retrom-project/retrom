@@ -2778,7 +2778,7 @@ func (server *Server) importSummary(writer http.ResponseWriter, request *http.Re
 	writeJSON(writer, http.StatusOK, counts)
 }
 
-func (server *Server) imports(writer http.ResponseWriter, request *http.Request) {
+func importListQuery(request *http.Request) (string, []any) {
 	values := request.URL.Query()
 	conditions := []string{"1=1"}
 	arguments := make([]any, 0, 4)
@@ -2794,7 +2794,7 @@ func (server *Server) imports(writer http.ResponseWriter, request *http.Request)
 		conditions = append(conditions, "i.target_platform_instance_id=?")
 		arguments = append(arguments, value)
 	}
-	query := queryWithConditions(
+	return queryWithConditions(
 		`
 SELECT i.id,
 i.state,
@@ -2803,6 +2803,7 @@ i.metadata_provider,
 i.total_item_count,
 i.review_pending_item_count,
 i.failed_item_count,
+i.rejected_file_count,
 i.version,
 i.created_at_ms,
 i.updated_at_ms
@@ -2811,7 +2812,11 @@ JOIN platform_instances pi ON pi.id=i.target_platform_instance_id
 `,
 		conditions,
 		` ORDER BY i.updated_at_ms DESC,i.id DESC LIMIT 100`,
-	)
+	), arguments
+}
+
+func (server *Server) imports(writer http.ResponseWriter, request *http.Request) {
+	query, arguments := importListQuery(request)
 	rows, err := server.database.QueryContext(request.Context(), query, arguments...)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -2821,7 +2826,7 @@ JOIN platform_instances pi ON pi.id=i.target_platform_instance_id
 	items := make([]map[string]any, 0)
 	for rows.Next() {
 		var id, state, platformName, provider string
-		var total, pending, failed, version, createdAtMS, updatedAtMS int64
+		var total, pending, failed, rejected, version, createdAtMS, updatedAtMS int64
 		if err := rows.Scan(
 			&id,
 			&state,
@@ -2830,6 +2835,7 @@ JOIN platform_instances pi ON pi.id=i.target_platform_instance_id
 			&total,
 			&pending,
 			&failed,
+			&rejected,
 			&version,
 			&createdAtMS,
 			&updatedAtMS,
@@ -2847,6 +2853,7 @@ JOIN platform_instances pi ON pi.id=i.target_platform_instance_id
 				"totalItemCount":         total,
 				"reviewPendingItemCount": pending,
 				"failedItemCount":        failed,
+				"rejectedFileCount":      rejected,
 				"version":                version,
 				"createdAtMs":            createdAtMS,
 				"updatedAtMs":            updatedAtMS,

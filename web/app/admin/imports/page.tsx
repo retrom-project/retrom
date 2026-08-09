@@ -1,5 +1,5 @@
 import { ButtonLink, Kpi, PageHeader, StatusBadge } from "@/components/ui";
-import { importProviderLabels, importStateLabels, importTaskPhase, type ImportListItem } from "@/features/imports/import-workflow";
+import { importProviderLabels, importStateLabels, importTaskIssueCount, importTaskPhase, type ImportListItem } from "@/features/imports/import-workflow";
 import { backendJSON, formatTime, type ListResponse } from "@/lib/backend";
 import { statusTone } from "@/lib/status";
 
@@ -14,7 +14,7 @@ export default async function ImportOverviewPage() {
   ]);
   const recent = imports.items.slice(0, 3);
   const totalItems = recent.reduce((total, item) => total + item.totalItemCount, 0);
-  const failedItems = recent.reduce((total, item) => total + item.failedItemCount, 0);
+  const failedItems = recent.reduce((total, item) => total + importTaskIssueCount(item), 0);
   return (
     <div className="import-workflow-page import-overview-page">
       <PageHeader eyebrow="内容管理" title="游戏入库" description="管理游戏从上传、识别、运行检查到人工审核发布的完整流程。优先处理会阻塞入库进度的事项。" actions={<><ButtonLink href="/admin/imports/tasks" secondary>任务进度</ButtonLink><ButtonLink href="/admin/imports/new">＋ 导入游戏</ButtonLink></>} />
@@ -39,7 +39,7 @@ export default async function ImportOverviewPage() {
           <div><i>6</i><strong>发布</strong><b>{summary.completed} 批已完成</b><span>进入用户游戏库</span></div>
         </div>
       </section>
-      <section className="panel import-recent-panel"><div className="panel-head"><div><h2>最近任务</h2><p>这里只显示摘要；完整运行态统一进入任务进度。</p></div><ButtonLink href="/admin/imports/tasks" secondary>查看全部</ButtonLink></div>{recent.length ? <div className="import-recent-list">{recent.map((item) => <article key={item.id}><div><h3>{formatTime(item.createdAtMs)} · {item.platformInstanceName}</h3><p>{item.totalItemCount} 个条目 · {importProviderLabels[item.metadataProvider] ?? item.metadataProvider}</p></div><StatusBadge tone={statusTone(item.state)}>{importStateLabels[item.state] ?? item.state}</StatusBadge><span>{importTaskPhase(item)}</span><span>{item.reviewPendingItemCount ? `${item.reviewPendingItemCount} 个待审核` : item.failedItemCount ? `${item.failedItemCount} 个异常` : "后台处理中"}</span>{item.reviewPendingItemCount ? <ButtonLink href={`/admin/reviews?importJobId=${item.id}`} secondary>审核</ButtonLink> : <ButtonLink href="/admin/imports/tasks" secondary>查看</ButtonLink>}</article>)}</div> : <div className="import-workflow-empty"><h2>还没有导入任务</h2><p>选择游戏文件或目录，创建第一批入库任务。</p></div>}</section>
+      <section className="panel import-recent-panel"><div className="panel-head"><div><h2>最近任务</h2><p>这里只显示摘要；完整运行态统一进入任务进度。</p></div><ButtonLink href="/admin/imports/tasks" secondary>查看全部</ButtonLink></div>{recent.length ? <div className="import-recent-list">{recent.map((item) => { const issueCount = importTaskIssueCount(item); return <article key={item.id}><div><h3>{formatTime(item.createdAtMs)} · {item.platformInstanceName}</h3><p>{item.totalItemCount} 个条目 · {importProviderLabels[item.metadataProvider] ?? item.metadataProvider}</p></div><StatusBadge tone={statusTone(item.state)}>{importStateLabels[item.state] ?? item.state}</StatusBadge><span>{importTaskPhase(item)}</span><span>{item.reviewPendingItemCount ? `${item.reviewPendingItemCount} 个待审核` : issueCount ? `${issueCount} 个异常` : "后台处理中"}</span>{item.reviewPendingItemCount ? <ButtonLink href={`/admin/reviews?importJobId=${item.id}`} secondary>审核</ButtonLink> : <ButtonLink href="/admin/imports/tasks" secondary>查看</ButtonLink>}</article>; })}</div> : <div className="import-workflow-empty"><h2>还没有导入任务</h2><p>选择游戏文件或目录，创建第一批入库任务。</p></div>}</section>
     </div>
   );
 }

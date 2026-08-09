@@ -103,6 +103,36 @@ WHERE i.id=?
 	}
 	var configValue any
 	_ = json.Unmarshal([]byte(configJSON), &configValue)
+	fileRows, err := server.database.QueryContext(request.Context(), `
+SELECT u.relative_path,
+f.disposition,
+f.reason_code
+FROM import_job_files f
+JOIN upload_files u ON u.id=f.upload_file_id
+WHERE f.import_job_id=?
+ORDER BY u.relative_path,u.id
+`, id)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	defer func() { cleanup.Error("close", fileRows.Close()) }()
+	fileOutcomes := make([]map[string]any, 0)
+	for fileRows.Next() {
+		var name, disposition string
+		var reasonCode sql.NullString
+		if err := fileRows.Scan(&name, &disposition, &reasonCode); err != nil {
+			server.databaseError(writer, request, err)
+			return
+		}
+		fileOutcomes = append(fileOutcomes, map[string]any{
+			"name": name, "disposition": disposition, "reasonCode": nullableString(reasonCode),
+		})
+	}
+	if err := fileRows.Err(); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	item := map[string]any{
 		"importJobId":            id,
 		"uploadId":               uploadID,
@@ -113,6 +143,7 @@ WHERE i.id=?
 		"datVersionId":           nullableString(datID),
 		"metadataProvider":       provider,
 		"configSnapshot":         configValue,
+		"fileOutcomes":           fileOutcomes,
 		"state":                  state,
 		"counts": map[string]any{
 			"total":         total,

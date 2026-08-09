@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { filterImportTasks, importTaskProgress, importTaskSummary, type ImportListItem } from "./import-workflow";
+import { filterImportTasks, importTaskIssueCount, importTaskIssueSummary, importTaskProgress, importTaskSummary, type ImportListItem } from "./import-workflow";
 
 function task(overrides: Partial<ImportListItem> & Pick<ImportListItem, "id" | "state">): ImportListItem {
   return {
@@ -8,6 +8,7 @@ function task(overrides: Partial<ImportListItem> & Pick<ImportListItem, "id" | "
     totalItemCount: 10,
     reviewPendingItemCount: 0,
     failedItemCount: 0,
+    rejectedFileCount: 0,
     version: 1,
     createdAtMs: 1,
     updatedAtMs: 1,
@@ -18,7 +19,7 @@ function task(overrides: Partial<ImportListItem> & Pick<ImportListItem, "id" | "
 const tasks = [
   task({ id: "running", state: "RUNNING" }),
   task({ id: "review", state: "REVIEW_PENDING", platformInstanceName: "GBA 游戏", totalItemCount: 8, reviewPendingItemCount: 8 }),
-  task({ id: "partial", state: "PARTIAL_FAILURE", failedItemCount: 3 }),
+  task({ id: "partial", state: "PARTIAL_FAILURE", failedItemCount: 3, rejectedFileCount: 7 }),
   task({ id: "done", state: "COMPLETED", metadataProvider: "NONE" }),
 ];
 
@@ -38,5 +39,10 @@ describe("import workflow presentation", () => {
     expect(importTaskProgress(tasks[0])).toBeLessThan(100);
     expect(importTaskProgress(tasks[1])).toBe(100);
     expect(importTaskProgress(tasks[3])).toBe(100);
+  });
+
+  it("counts rejected files as actionable exceptions", () => {
+    expect(importTaskIssueCount(tasks[2])).toBe(10);
+    expect(importTaskIssueSummary(tasks[2])).toBe("3 个条目失败；7 个文件未被接受");
   });
 });

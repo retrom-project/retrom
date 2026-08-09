@@ -14,6 +14,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"unicode/utf8"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 
 	"retrom/internal/cleanup"
 )
@@ -86,7 +89,11 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 		if err := ctx.Err(); err != nil {
 			return nil, fmt.Errorf("importing/archive: %w", err)
 		}
-		pathValue, directory, err := archivePath(item.Name)
+		entryName, err := zipEntryName(item)
+		if err != nil {
+			return nil, err
+		}
+		pathValue, directory, err := archivePath(entryName)
 		if err != nil {
 			return nil, err
 		}
@@ -141,6 +148,20 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 		result = append(result, entry)
 	}
 	return result, nil
+}
+
+func zipEntryName(item *zip.File) (string, error) {
+	if utf8.ValidString(item.Name) {
+		return item.Name, nil
+	}
+	if !item.NonUTF8 {
+		return "", ErrArchiveUnsafe
+	}
+	decoded, err := simplifiedchinese.GB18030.NewDecoder().String(item.Name)
+	if err != nil || !utf8.ValidString(decoded) || strings.ContainsRune(decoded, utf8.RuneError) {
+		return "", ErrArchiveUnsafe
+	}
+	return decoded, nil
 }
 
 func archivePath(value string) (string, bool, error) {

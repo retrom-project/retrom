@@ -784,7 +784,16 @@ summary { cursor: pointer; }
 .import-task-stages .has-error { color: #a93846; background: var(--danger-soft); }
 .import-task-stages small { opacity: .78; }
 .import-task-stages strong { font-size: 11px; }
-.import-task-problem { margin: 12px 0 0; color: #a93846; font-size: 12px; }
+.import-task-problem { margin: 12px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: #a93846; font-size: 12px; }
+.import-task-problem p { margin: 0; }
+.import-task-problem .button { flex: 0 0 auto; }
+.import-task-rejections { margin-top: 10px; overflow: hidden; border: 1px solid #efc9cd; border-radius: 9px; background: white; }
+.import-task-rejections > p { margin: 0; padding: 10px 12px; color: var(--muted); font-size: 12px; }
+.import-task-rejections > div { min-height: 38px; padding: 7px 10px; display: grid; grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid #f3e0e2; font-size: 11px; }
+.import-task-rejections > div:last-child { border-bottom: 0; }
+.import-task-rejections strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.import-task-rejections span { color: var(--muted); }
+.import-task-rejections code { color: #a93846; font-size: 10px; }
 .import-workflow-footer { min-height: 46px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 11px; }
 
 .review-workflow-row, .review-history-list > article { min-width: 1120px; min-height: 82px; padding: 12px 15px; display: grid; align-items: center; gap: 16px; border: 1px solid var(--line); border-radius: 12px; background: white; }

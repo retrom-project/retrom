@@ -60,7 +60,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 8. `launch_sessions/play_sessions/play_session_events/save_states/persistent_saves/persistent_save_revisions`；
 9. 全部 partial unique index、不可变/归属 trigger、搜索索引和 schema checksum 回归。
 
-测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立，014 只增加核心目录、BIOS delivery 与 Launch external-file 能力，不为未上线的历史 schema 引入表重建绕行。正式发布后再遵守只追加 migration 的升级纪律。
+测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立，014 只增加核心目录、BIOS delivery 与 Launch external-file 能力；015 只把旧实现遗留的零 Item `RUNNING/REVIEW_PENDING` 导入收敛为 `PARTIAL_FAILURE/COMPLETED`，不做 schema 重建。正式发布后再遵守只追加 migration 的升级纪律。
 
 ## 4. 里程碑
 

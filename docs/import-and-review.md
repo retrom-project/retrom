@@ -107,7 +107,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 
 分组与扩展名规则从目标平台目录的基础平台推导。默认核心是导入流水线唯一自动执行的兼容性目标；一期不得在导入后为其他核心自动投递后台验证。用户在详情页首次显式选择其他核心启动时，才按运行时专题的 `EnsureVariant` 流程按需验证。
 
-可接收格式固定如下；扩展名比较使用 ASCII case-insensitive，ZIP/7z entry 先执行本节与存储文档的路径、数量、展开大小和压缩比检查。表外格式、加密/损坏/不安全 archive、nested archive，以及 RAR/TAR、SFX/分卷/加密 7z 在分组前把对应 ImportJobFile 标为 `REJECTED`（稳定 reason 为具体安全码或 `UNSUPPORTED_CONTENT_FORMAT`），不创建无 canonical source 的 ImportItem；Upload/CAS 与文件处置证据仍保留，Job 聚合为 `PARTIAL_FAILURE`。7z 仅用于表中标为“ZIP/7z”的唯一 ROM wrapper；Arcade、DOS、CHD、ISO、CSO 均不接受 7z。`FAILED_FINAL` 只用于已经形成规范 Item 后发现的确定性领域错误。
+可接收格式固定如下；扩展名比较使用 ASCII case-insensitive，ZIP/7z entry 先执行本节与存储文档的路径、数量、展开大小和压缩比检查。ZIP entry 名优先采用标准 UTF-8；仅当 ZIP 明确标记名称为非 UTF-8 且原始字节不是合法 UTF-8 时，允许按 GB18030 严格解码一次，解码结果仍必须通过相同的 UTF-8、路径穿越、控制字符、重复路径和 ASCII casefold 碰撞检查。表外格式、加密/损坏/不安全 archive、nested archive，以及 RAR/TAR、SFX/分卷/加密 7z 在分组前把对应 ImportJobFile 标为 `REJECTED`（稳定 reason 为具体安全码或 `UNSUPPORTED_CONTENT_FORMAT`），不创建无 canonical source 的 ImportItem；Upload/CAS 与文件处置证据仍保留，Job 聚合为 `PARTIAL_FAILURE`。7z 仅用于表中标为“ZIP/7z”的唯一 ROM wrapper；Arcade、DOS、CHD、ISO、CSO 均不接受 7z。`FAILED_FINAL` 只用于已经形成规范 Item 后发现的确定性领域错误。
 
 单 ROM 主机/掌机的 ZIP/7z 在后端物化唯一 primary entry 到 CAS，发布后的 GameContentRevision 以一个 `CONTENT` GameContentFile 指向物化后的原始 entry bytes；原 archive Blob、ArchiveEntry、`archiveFormat` 与两者 hash 继续作为来源/审核证据。运行时不得再次把这类 wrapper archive 交给 EmulatorJS 猜 entry。Arcade ZIP 和 DOS bundle 是有意的多 entry 运行内容，不适用这一物化规则；Arcade 的 `CONTENT` 是 ROMset ZIP，DOS 的每个安全成员/目录文件是带规范相对逻辑名的 `DOS_SOURCE`。
 
@@ -270,7 +270,7 @@ Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选�
 
 总览的数据是聚合摘要，不复制完整任务管理能力。页首先展示待审核与异常任务两类优先事项，随后用运行中、等待审核、异常和历史完成四项 KPI，以及“上传与校验—识别—运行检查—游戏信息—人工审核—发布”六阶段流水线和最近任务摘要解释当前状态。界面只能组合现有聚合与 ImportJob 计数，不能为不可观测阶段伪造精确进度。
 
-“导入游戏”固定为选择内容、确认配置、上传并验证三步；目标游戏目录没有默认值，用户选择后才显示基础平台和推荐运行方式。上传、终结校验与创建 ImportJob 按顺序执行，成功后进入任务进度，不直接跳入尚未生成内容的待审核队列。任务进度用可筛选的卡片行展示阶段、条目分布、异常和下一步；展开区只展示六阶段普通语言摘要，不暴露内部 UUID。
+“导入游戏”固定为选择内容、确认配置、上传并验证三步；目标游戏目录没有默认值，用户选择后才显示基础平台和推荐运行方式。上传、终结校验与创建 ImportJob 按顺序执行，成功后进入任务进度，不直接跳入尚未生成内容的待审核队列。任务进度用可筛选的卡片行展示阶段、条目分布、异常和下一步；异常数必须同时包含失败 Item 与 REJECTED 文件，并分别说明“条目失败”和“文件未被接受”，不能把仅含拒绝文件的任务显示为 0 异常。展开区以普通语言说明六阶段和处理路径；REJECTED 文件提供“重新整理并导入”入口，不暴露内部 UUID。
 
 审核详情页首集中展示条目摘要和审核决定，丢弃/发布与实时保存状态在同一决策卡片；不再展示重复的“可以发布”信息。下方左栏回答“能不能发布”并展示来源文件，右栏回答“发布成什么”并承载实时保存的元信息与封面；窄桌面折叠为单栏。运行检查只呈现文件、兼容和依赖结论，不暴露 DAT/version 等内部技术 ID。
 

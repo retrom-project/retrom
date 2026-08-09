@@ -6,12 +6,21 @@ export type ImportListItem = {
   totalItemCount: number;
   reviewPendingItemCount: number;
   failedItemCount: number;
+  rejectedFileCount: number;
   version: number;
   createdAtMs: number;
   updatedAtMs: number;
 };
 
 export type ImportTaskFilters = { query: string; directory: string; state: string };
+
+export type ImportFileOutcome = {
+  name: string;
+  disposition: "SOURCE" | "IGNORED" | "REJECTED";
+  reasonCode: string | null;
+};
+
+export type ImportDetail = { fileOutcomes: ImportFileOutcome[] };
 
 export const importStateLabels: Record<string, string> = {
   QUEUED: "排队中",
@@ -59,6 +68,17 @@ export function importTaskProgress(item: ImportListItem) {
   if (item.state === "PARTIAL_FAILURE") return Math.max(72, measured);
   if (item.state === "CANCEL_REQUESTED") return Math.max(20, Math.min(95, measured || 60));
   return Math.max(18, Math.min(92, measured || 48));
+}
+
+export function importTaskIssueCount(item: ImportListItem) {
+  return item.failedItemCount + (item.rejectedFileCount ?? 0);
+}
+
+export function importTaskIssueSummary(item: ImportListItem) {
+  const parts = [];
+  if (item.failedItemCount) parts.push(`${item.failedItemCount} 个条目失败`);
+  if (item.rejectedFileCount) parts.push(`${item.rejectedFileCount} 个文件未被接受`);
+  return parts.length ? parts.join("；") : "没有可报告的异常";
 }
 
 export function importTaskPhase(item: ImportListItem) {
