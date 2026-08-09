@@ -1,23 +1,9 @@
-export type AccountRole = "ADMIN" | "USER";
-export type AccountStatus = "ENABLED" | "DISABLED" | "DELETED";
+import type { components } from "@/lib/api/generated/schema";
 
-export type AuthUser = {
-  userId: string;
-  username: string;
-  displayName: string;
-  role: AccountRole;
-};
-
-export type AuthContext = {
-  instanceState: "INITIALIZATION_REQUIRED" | "READY";
-  mode: "release" | "test";
-  authenticationState: "NOT_APPLICABLE" | "UNAUTHENTICATED" | "AUTHENTICATED";
-  user: AuthUser | null;
-  csrfToken: string | null;
-  idleExpiresAtMs: number | null;
-  absoluteExpiresAtMs: number | null;
-  testDefaultAccountActive: boolean;
-};
+export type AuthUser = components["schemas"]["AuthUser"];
+export type AuthContext = components["schemas"]["AuthContext"];
+export type AccountRole = AuthUser["role"];
+export type AccountStatus = components["schemas"]["AdminUser"]["status"];
 
 export type APIError = {
   error?: {

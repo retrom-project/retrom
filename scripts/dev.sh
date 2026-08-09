@@ -7,6 +7,7 @@ pid_file="$state_directory/dev.pid"
 takeover_lock="$state_directory/dev-takeover.lock"
 data_root="${RETROM_DATA_DIR:-$state_directory/data}"
 data_root_lock="$data_root/retrom.lock"
+auth_mode="${RETROM_MODE:-test}"
 backend_pid=""
 web_pid=""
 process_start_ticks=""
@@ -21,6 +22,10 @@ mode="${1:-start}"
 
 if [[ "$mode" != "start" && "$mode" != "--stop" ]]; then
   echo "usage: scripts/dev.sh [--stop]" >&2
+  exit 2
+fi
+if [[ "$auth_mode" != "release" && "$auth_mode" != "test" ]]; then
+  echo "RETROM_MODE must be release or test" >&2
   exit 2
 fi
 
@@ -261,7 +266,7 @@ if [[ "$mode" == "--stop" ]]; then
 fi
 
 process_start_ticks="$(read_start_ticks "$$")"
-setsid go run ./cmd/retrom &
+setsid go run ./cmd/retrom --mode="$auth_mode" &
 backend_pid=$!
 setsid bash -c 'cd "$1" && exec npm exec -- next dev --hostname "$2" --port "$3"' \
   retrom-dev-web "$repository_root/web" "${NEXT_DEV_HOST:-0.0.0.0}" "${NEXT_DEV_PORT:-3000}" &
