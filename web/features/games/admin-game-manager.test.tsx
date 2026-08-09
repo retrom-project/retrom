@@ -39,7 +39,7 @@ describe("AdminGameManager", () => {
   afterEach(cleanup);
 
   it("renders the precise four-section workbench without the omitted section tags", () => {
-    render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
+    const { container } = render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
     for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "从游戏库移除"]) {
       expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
     }
@@ -48,6 +48,7 @@ describe("AdminGameManager", () => {
     }
     expect(screen.queryByRole("navigation", { name: "游戏管理详情分区" })).not.toBeInTheDocument();
     expect(screen.getByText("从游戏库移除").closest("details")).not.toHaveAttribute("open");
+    expect(container.querySelector(".admin-game-cover-slot > .admin-game-cover-frame")).not.toBeNull();
   });
 
   it("opens a metadata and cover comparison instead of applying text immediately", async () => {
@@ -61,8 +62,11 @@ describe("AdminGameManager", () => {
     expect(screen.queryByRole("button", { name: "采用文字信息" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: /对比并选择/ }));
     const dialog = await screen.findByRole("alertdialog", { name: "对比最新游戏信息" });
-    expect(within(dialog).getByText("Long provider description")).toBeVisible();
-    expect(within(dialog).getByAltText("最新候选封面")).toHaveAttribute("src", expect.stringContaining("cover-1"));
+    const currentColumn = within(dialog).getByRole("region", { name: "当前信息" });
+    const latestColumn = within(dialog).getByRole("region", { name: "最新候选" });
+    expect(currentColumn).toHaveTextContent("Battle of Midway");
+    expect(within(latestColumn).getByText("Long provider description")).toBeVisible();
+    expect(within(latestColumn).getByAltText("最新候选封面")).toHaveAttribute("src", expect.stringContaining("cover-1"));
   });
 
   it("requires an explicit target directory before previewing a move", async () => {

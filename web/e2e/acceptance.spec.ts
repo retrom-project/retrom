@@ -382,6 +382,11 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
     for (const omittedTag of ["媒体资源", "运行状态正常", "维护工具", "危险区域"]) {
       await expect(page.getByText(omittedTag, { exact: true })).toHaveCount(0);
     }
+    const adminCoverRatio = await page.locator(".admin-game-cover-frame").evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return box.width / box.height;
+    });
+    expect(Math.abs(adminCoverRatio - 0.75)).toBeLessThanOrEqual(0.01);
     await noPageOverflow(page);
   }
   await page.screenshot({ path: evidencePath(testInfo, "admin-layout.png"), fullPage: true });

@@ -50,10 +50,13 @@ describe("ReviewActions", () => {
 
     await user.click(screen.getByRole("button", { name: "重新查询游戏信息" }));
     const dialog = await screen.findByRole("alertdialog", { name: "对比最新查询结果" });
-    expect(within(dialog).getByLabelText("标题")).toHaveValue("1941: Counter Attack");
-    expect(within(dialog).getByLabelText("标题").closest("label")).toHaveClass("is-changed");
-    expect(within(dialog).getByLabelText("简介")).toHaveValue("Long provider description");
-    expect(within(dialog).getByLabelText("简介").closest(".metadata-compare-description")).not.toBeNull();
+    const currentColumn = within(dialog).getByRole("region", { name: "当前信息" });
+    const latestColumn = within(dialog).getByRole("region", { name: "最新信息" });
+    expect(currentColumn).toHaveTextContent("Manual");
+    expect(within(latestColumn).getByLabelText("标题")).toHaveValue("1941: Counter Attack");
+    expect(within(latestColumn).getByLabelText("标题").closest("label")).toHaveClass("is-changed");
+    expect(within(latestColumn).getByLabelText("简介")).toHaveValue("Long provider description");
+    expect(within(latestColumn).getByLabelText("简介").closest(".metadata-compare-column-description")).not.toBeNull();
     await user.click(within(dialog).getByRole("button", { name: "应用" }));
 
     expect(screen.getByLabelText("标题")).toHaveValue("1941: Counter Attack");

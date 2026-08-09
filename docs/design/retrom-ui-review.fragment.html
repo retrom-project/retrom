@@ -999,12 +999,13 @@
     #retrom-ui-review .rt-dialog.is-wide { width: min(1120px, 100%); }
     #retrom-ui-review .rt-compare-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 16px; }
     #retrom-ui-review .rt-compare-panel { padding: 14px; border: 1px solid var(--retrom-line); border-radius: 11px; background: var(--retrom-panel-raised); }
-    #retrom-ui-review .rt-compare-layout { display: grid; gap: 12px; margin-top: 16px; }
-    #retrom-ui-review .rt-compare-top { display: grid; grid-template-columns: minmax(0, 1fr) 420px; gap: 12px; align-items: start; }
-    #retrom-ui-review .rt-compare-short { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
-    #retrom-ui-review .rt-compare-covers { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
-    #retrom-ui-review .rt-compare-cover { min-height: 250px; display: grid; place-items: end center; padding: 10px; border-radius: 9px; color: #fff; background: linear-gradient(155deg, var(--retrom-cover-b), #151927); font-size: 9px; }
-    #retrom-ui-review .rt-compare-description { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #retrom-ui-review .rt-compare-layout { margin-top: 16px; }
+    #retrom-ui-review .rt-compare-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; align-items: start; }
+    #retrom-ui-review .rt-compare-column { display: grid; gap: 12px; }
+    #retrom-ui-review .rt-compare-column > h3 { margin: 0; }
+    #retrom-ui-review .rt-compare-column-top { display: grid; grid-template-columns: minmax(0, 1fr) 158px; gap: 10px; align-items: start; }
+    #retrom-ui-review .rt-compare-fields .rt-form-grid { grid-template-columns: 1fr; }
+    #retrom-ui-review .rt-compare-cover { width: 100%; aspect-ratio: 3 / 4; display: grid; place-items: end center; padding: 10px; border-radius: 9px; color: #fff; background: linear-gradient(155deg, var(--retrom-cover-b), #151927); font-size: 9px; }
     #retrom-ui-review .rt-compare-description .rt-textarea { min-height: 120px; }
     #retrom-ui-review .rt-field.is-same .rt-input,
     #retrom-ui-review .rt-field.is-same .rt-textarea { border-color: var(--retrom-green); }
@@ -1485,9 +1486,8 @@
       #retrom-ui-review .rt-form-grid { grid-template-columns: 1fr; }
       #retrom-ui-review .rt-field-wide { grid-column: auto; }
       #retrom-ui-review .rt-compare-grid,
-      #retrom-ui-review .rt-compare-top,
-      #retrom-ui-review .rt-compare-short,
-      #retrom-ui-review .rt-compare-description,
+      #retrom-ui-review .rt-compare-columns,
+      #retrom-ui-review .rt-compare-column-top,
       #retrom-ui-review .rt-snapshot { grid-template-columns: 1fr; }
     }
   </style>
@@ -1907,11 +1907,11 @@
 
   <div class="rt-dialog-backdrop" data-compare-dialog hidden>
     <section class="rt-dialog is-wide" role="dialog" aria-modal="true" aria-labelledby="rt-compare-title">
-      <div class="rt-panel-heading"><div><h2 id="rt-compare-title">对比最新查询结果</h2><p class="rt-dialog-copy">左侧是当前信息，右侧是本次查询结果。红色表示发生变化，绿色表示一致。</p></div><span class="rt-badge rt-badge-green">查询完成</span></div>
-      <div class="rt-compare-layout">
-        <div class="rt-compare-top"><div class="rt-compare-short"><section class="rt-compare-panel"><h3>当前信息 · 不可编辑</h3><div class="rt-form-grid"><label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" value="Metal Slug 3" readonly></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" value="2000" readonly></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" value="SNK" readonly></label><label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" value="1–2" readonly></label></div></section><section class="rt-compare-panel"><h3>最新查询 · 可编辑</h3><div class="rt-form-grid"><label class="rt-field is-same"><span class="rt-label">游戏标题 · 一致</span><input class="rt-input" value="Metal Slug 3"></label><label class="rt-field is-same"><span class="rt-label">发行年份 · 一致</span><input class="rt-input" value="2000"></label><label class="rt-field is-changed"><span class="rt-label">开发商 · 已变化</span><input class="rt-input" value="SNK Corporation"></label><label class="rt-field is-same"><span class="rt-label">玩家人数 · 一致</span><input class="rt-input" value="1–2"></label></div></section></div><aside class="rt-compare-panel"><h3>封面对比</h3><div class="rt-compare-covers"><div class="rt-compare-cover"><span>当前封面</span></div><button type="button" class="rt-compare-cover"><span>最新封面 · 点击上传替换</span></button></div></aside></div>
-        <div class="rt-compare-description"><section class="rt-compare-panel"><label class="rt-field"><span class="rt-label">当前简介 · 不可编辑</span><textarea class="rt-textarea" readonly>阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。</textarea></label></section><section class="rt-compare-panel"><label class="rt-field is-changed"><span class="rt-label">最新简介 · 已变化</span><textarea class="rt-textarea">莫丁元帅再度发动叛乱；小队将穿越战场并阻止外星势力。</textarea></label></section></div>
-      </div>
+      <div class="rt-panel-heading"><div><h2 id="rt-compare-title">对比最新查询结果</h2><p class="rt-dialog-copy">左栏是当前信息，右栏是本次查询结果；每栏上方为基础信息与封面，下方为完整简介。</p></div><span class="rt-badge rt-badge-green">查询完成</span></div>
+      <div class="rt-compare-layout"><div class="rt-compare-columns">
+        <section class="rt-compare-panel rt-compare-column"><h3>当前信息 · 不可编辑</h3><div class="rt-compare-column-top"><div class="rt-compare-fields"><div class="rt-form-grid"><label class="rt-field"><span class="rt-label">游戏标题</span><input class="rt-input" value="Metal Slug 3" readonly></label><label class="rt-field"><span class="rt-label">发行年份</span><input class="rt-input" value="2000" readonly></label><label class="rt-field"><span class="rt-label">开发商</span><input class="rt-input" value="SNK" readonly></label><label class="rt-field"><span class="rt-label">玩家人数</span><input class="rt-input" value="1–2" readonly></label></div></div><div><span class="rt-label">封面</span><div class="rt-compare-cover"><span>当前封面</span></div></div></div><div class="rt-compare-description"><label class="rt-field"><span class="rt-label">完整简介</span><textarea class="rt-textarea" readonly>阻止莫丁元帅的叛乱，并揭开外星入侵背后的秘密。</textarea></label></div></section>
+        <section class="rt-compare-panel rt-compare-column"><h3>最新查询 · 可编辑</h3><div class="rt-compare-column-top"><div class="rt-compare-fields"><div class="rt-form-grid"><label class="rt-field is-same"><span class="rt-label">游戏标题 · 一致</span><input class="rt-input" value="Metal Slug 3"></label><label class="rt-field is-same"><span class="rt-label">发行年份 · 一致</span><input class="rt-input" value="2000"></label><label class="rt-field is-changed"><span class="rt-label">开发商 · 已变化</span><input class="rt-input" value="SNK Corporation"></label><label class="rt-field is-same"><span class="rt-label">玩家人数 · 一致</span><input class="rt-input" value="1–2"></label></div></div><div><span class="rt-label">封面</span><button type="button" class="rt-compare-cover"><span>最新封面 · 点击上传替换</span></button></div></div><div class="rt-compare-description"><label class="rt-field is-changed"><span class="rt-label">完整简介 · 已变化</span><textarea class="rt-textarea">莫丁元帅再度发动叛乱；小队将穿越战场并阻止外星势力。</textarea></label></div></section>
+      </div></div>
       <div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-compare>取消</button><button type="button" class="rt-button rt-button-primary">应用</button></div>
     </section>
   </div>
