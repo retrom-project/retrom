@@ -202,11 +202,12 @@ func TestSupportedMigrationVersionsIdempotencyAndFutureProtection(t *testing.T) 
 		t.Fatal(err)
 	}
 	var supported []int
-	if err := json.Unmarshal(contents, &supported); err != nil || len(supported) != 1 || supported[0] != 10 {
+	if err := json.Unmarshal(contents, &supported); err != nil || !slices.Equal(supported, []int{10, 18}) {
 		t.Fatalf("supported versions = %#v, error=%v", supported, err)
 	}
 	fixtures, err := filepath.Glob(filepath.Join(repositoryRoot, "migrations", "testdata", "*_fixture.sql"))
-	if err != nil || len(fixtures) != len(supported) || filepath.Base(fixtures[0]) != "010_fixture.sql" {
+	if err != nil || len(fixtures) != len(supported) ||
+		filepath.Base(fixtures[0]) != "010_fixture.sql" || filepath.Base(fixtures[1]) != "018_fixture.sql" {
 		t.Fatalf("migration fixtures = %#v, error=%v", fixtures, err)
 	}
 	path := filepath.Join(t.TempDir(), "retrom.db")
@@ -240,6 +241,108 @@ applied_at_ms) VALUES(999,
 			cleanup.Error("close", future.Close())
 		}
 		t.Fatalf("future schema error = %v", err)
+	}
+}
+
+func TestReviewArcadeParentMigrationUpgradesVersion18(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	databasePath := filepath.Join(t.TempDir(), "retrom.db")
+	legacy, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.SetMaxOpenConns(1)
+	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 18)
+	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "018_fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	upgraded, err := Open(ctx, databasePath, time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
+	var revision int
+	var snapshotID, draftSnapshotID, validationSnapshotID, manifestDigest string
+	if err := upgraded.SQL.QueryRowContext(ctx, `
+SELECT snapshot.id,snapshot.revision_no,snapshot.source_manifest_digest,
+draft.effective_source_snapshot_id,validation.source_snapshot_id
+FROM import_item_source_snapshots snapshot
+JOIN review_drafts draft ON draft.import_item_id=snapshot.import_item_id
+JOIN import_item_core_validations validation ON validation.import_item_id=snapshot.import_item_id
+WHERE snapshot.import_item_id='v18-item'
+`).Scan(&snapshotID, &revision, &manifestDigest, &draftSnapshotID, &validationSnapshotID); err != nil {
+		t.Fatal(err)
+	}
+	if snapshotID != "v18-item" || revision != 1 || draftSnapshotID != snapshotID ||
+		validationSnapshotID != snapshotID || manifestDigest != "0d33b3ade494963aac48ba52e5e86a9454504887c2a70740e0cc5ff37334478e" {
+		t.Fatalf("v18 backfill = %s/%d/%s/%s/%s", snapshotID, revision, manifestDigest, draftSnapshotID, validationSnapshotID)
+	}
+	if _, err := upgraded.SQL.ExecContext(ctx, `UPDATE import_item_source_snapshots SET revision_no=2 WHERE id='v18-item'`); err == nil ||
+		!strings.Contains(err.Error(), "immutable") {
+		t.Fatalf("snapshot update error = %v", err)
+	}
+	if _, err := upgraded.SQL.ExecContext(ctx, `UPDATE review_drafts SET selected_validation_id='v18-validation' WHERE id='v18-draft'`); err == nil ||
+		!strings.Contains(err.Error(), "invalid selected validation snapshot") {
+		t.Fatalf("blocked validation selection error = %v", err)
+	}
+	if err := upgraded.IntegrityCheck(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestReviewArcadeParentMigrationRejectsDriftedManifest(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	databasePath := filepath.Join(t.TempDir(), "retrom.db")
+	legacy, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.SetMaxOpenConns(1)
+	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 18)
+	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "018_fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, `UPDATE import_items SET source_manifest_json='[]' WHERE id='v18-item'`); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if upgraded, err := Open(ctx, databasePath, time.Now); !errors.Is(err, ErrMigrationChecksum) {
+		if upgraded != nil {
+			cleanup.Error("close", upgraded.Close())
+		}
+		t.Fatalf("drifted manifest error = %v", err)
 	}
 }
 
@@ -357,7 +460,8 @@ INSERT INTO import_items(
   id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,created_at_ms,updated_at_ms
 ) VALUES(
   'archive-item','archive-import','ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff',
-  'REVIEW_PENDING','{}','ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff','fixture',1,1
+  'REVIEW_PENDING','[{"blobSha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb","logicalName":"fixture.rom","role":"CONTENT","sizeBytes":1030,"sourceArchiveEntryOrdinal":0,"sourceArchiveSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}]',
+  'c3bde87793bbc3a4d8f41645317379954d23aa01589087321f04a449dfc7b1aa','fixture',1,1
 );
 INSERT INTO import_item_source_files(
   import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms

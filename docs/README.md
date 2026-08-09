@@ -28,8 +28,8 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 ## 领域与实现专题
 
 - [`platform-instance.md`](./platform-instance.md)：平台目录（PlatformInstance）的唯一归属、默认核心、导入快照、数据库约束和生命周期。
-- [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核与历史回溯。
-- [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、核心专属 Arcade DAT、machine/parent/BIOS 依赖和管理能力。
+- [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核、Arcade Parent 补充与历史回溯。
+- [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、核心专属 Arcade DAT、完整 machine/parent/BIOS 依赖闭包和 Parent ZIP 内容校验。
 - [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、预检、EmulatorJS、DOS 启动程序、存档与游玩时长。
 - [`core-runtime-validation.md`](./core-runtime-validation.md)：28 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 双格式和 MAME2003 兼容覆盖。
 - [`storage-and-database.md`](./storage-and-database.md)：SQLite Unix 毫秒 `INTEGER` 时间规范、表目录、本地 SHA-256 CAS、GC 和备份。

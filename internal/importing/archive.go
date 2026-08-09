@@ -160,6 +160,35 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 	return result, nil
 }
 
+// ScanFlatZIP applies the shared ZIP safety and resource limits and then
+// tightens the accepted structure to root-level files only. Arcade Parent
+// attachments intentionally do not accept directory entries or merged sets.
+func ScanFlatZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveEntry, error) {
+	entries, err := ScanZIP(ctx, path, limits)
+	if err != nil {
+		return nil, err
+	}
+	reader, err := zip.OpenReader(path)
+	if err != nil {
+		return nil, fmt.Errorf("%w: invalid zip", ErrArchiveUnsafe)
+	}
+	defer func() { cleanup.Error("close", reader.Close()) }()
+	for _, item := range reader.File {
+		name, nameErr := zipEntryName(item)
+		if nameErr != nil {
+			return nil, nameErr
+		}
+		normalized, directory, pathErr := archivePath(name)
+		if pathErr != nil {
+			return nil, pathErr
+		}
+		if directory || strings.Contains(normalized, "/") {
+			return nil, ErrNestedArchiveUnsupported
+		}
+	}
+	return entries, nil
+}
+
 func zipEntryName(item *zip.File) (string, error) {
 	if utf8.ValidString(item.Name) {
 		return item.Name, nil

@@ -42,12 +42,16 @@ func importItemContentIdentity(
 SELECT source.role,
 blob.sha256,
 count(*)
-FROM import_item_source_files source
+FROM import_item_source_snapshot_files source
 JOIN blobs blob ON blob.id=source.blob_id
-WHERE source.import_item_id=?
+WHERE source.source_snapshot_id=COALESCE(
+  (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
+  (SELECT snapshot.id FROM import_item_source_snapshots snapshot
+   WHERE snapshot.import_item_id=? AND snapshot.revision_no=1)
+)
 GROUP BY source.role,blob.sha256
 ORDER BY source.role,blob.sha256
-`, itemID)
+`, itemID, itemID)
 	if err != nil {
 		return "", fmt.Errorf("libraryimport/duplicate: %w", err)
 	}
@@ -97,16 +101,24 @@ AND NOT EXISTS (
     GROUP BY existing.role,existing.blob_id
     EXCEPT
     SELECT incoming.role,incoming.blob_id,count(*) AS file_count
-    FROM import_item_source_files incoming
-    WHERE incoming.import_item_id=?
+    FROM import_item_source_snapshot_files incoming
+    WHERE incoming.source_snapshot_id=COALESCE(
+      (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
+      (SELECT snapshot.id FROM import_item_source_snapshots snapshot
+       WHERE snapshot.import_item_id=? AND snapshot.revision_no=1)
+    )
     GROUP BY incoming.role,incoming.blob_id
   ) existing_difference
 )
 AND NOT EXISTS (
   SELECT 1 FROM (
     SELECT incoming.role,incoming.blob_id,count(*) AS file_count
-    FROM import_item_source_files incoming
-    WHERE incoming.import_item_id=?
+    FROM import_item_source_snapshot_files incoming
+    WHERE incoming.source_snapshot_id=COALESCE(
+      (SELECT draft.effective_source_snapshot_id FROM review_drafts draft WHERE draft.import_item_id=?),
+      (SELECT snapshot.id FROM import_item_source_snapshots snapshot
+       WHERE snapshot.import_item_id=? AND snapshot.revision_no=1)
+    )
     GROUP BY incoming.role,incoming.blob_id
     EXCEPT
     SELECT existing.role,existing.blob_id,count(*) AS file_count
@@ -116,7 +128,7 @@ AND NOT EXISTS (
   ) incoming_difference
 )
 ORDER BY game.created_at_ms,game.id
-`, platformID, itemID, itemID)
+`, platformID, itemID, itemID, itemID, itemID)
 	if err != nil {
 		return nil, fmt.Errorf("libraryimport/duplicate: %w", err)
 	}

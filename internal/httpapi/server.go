@@ -117,6 +117,8 @@ func New(
 	)
 	launcher.ResumeQueuedValidationJobs()
 	arcadeDAT.ResumeDiffJobs()
+	importer := libraryimport.New(database, now, scraper).WithBlobStore(blobs)
+	importer.ResumeParentAttachmentJobs(context.Background())
 	return &Server{
 		config:       config,
 		database:     database,
@@ -125,7 +127,7 @@ func New(
 		credentials:  credentials,
 		cursors:      cursor.New(credentials.CursorKey(), now),
 		uploads:      uploads.New(database, blobs, config.DataDir, now),
-		importer:     libraryimport.New(database, now, scraper).WithBlobStore(blobs),
+		importer:     importer,
 		launcher:     launcher,
 		jobService:   jobs.New(database, now),
 		firmware:     firmware.New(database, now).WithBlobStore(blobs),
@@ -197,6 +199,10 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/admin/reviews/{importItemId}", server.patchReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/scrape-candidates", server.scrapeReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/assets", server.createReviewAsset)
+	mux.HandleFunc(
+		"POST /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments",
+		server.createReviewArcadeParentAttachment,
+	)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/approve", server.approveReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/discard", server.discardReview)
 	mux.HandleFunc("GET /api/v1/admin/review-history", server.reviewHistory)
@@ -3095,13 +3101,13 @@ JOIN metadata_scrape_runs r ON r.id=c.scrape_run_id
 WHERE r.import_item_id=i.id
 AND r.state='COMPLETED'),
 (SELECT COALESCE(sum(b.size_bytes),0)
- FROM import_item_source_files source_file
+ FROM import_item_source_snapshot_files source_file
  JOIN blobs b ON b.id=source_file.blob_id
- WHERE source_file.import_item_id=i.id),
+ WHERE source_file.source_snapshot_id=d.effective_source_snapshot_id),
 (SELECT b.md5
- FROM import_item_source_files source_file
+ FROM import_item_source_snapshot_files source_file
  JOIN blobs b ON b.id=source_file.blob_id
- WHERE source_file.import_item_id=i.id
+ WHERE source_file.source_snapshot_id=d.effective_source_snapshot_id
  ORDER BY CASE source_file.role WHEN 'CONTENT' THEN 0 WHEN 'DOS_SOURCE' THEN 1 ELSE 2 END,
  source_file.sort_order,
  source_file.logical_name
@@ -3127,6 +3133,7 @@ JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,
 (SELECT candidate.id
 FROM import_item_core_validations candidate
 WHERE candidate.import_item_id=i.id
+AND candidate.source_snapshot_id=d.effective_source_snapshot_id
 AND candidate.target_platform_instance_id=d.target_platform_instance_id
 ORDER BY candidate.created_at_ms DESC,
 candidate.id DESC LIMIT 1))
@@ -3312,7 +3319,7 @@ WHERE i.state='REVIEW_PENDING'
 
 //nolint:funlen // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
-	var itemID, importJobID, metadata, platformID, platformName, sourceManifest string
+	var itemID, importJobID, metadata, platformID, platformName, sourceSnapshotID, sourceManifest string
 	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
 	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
 	var version, updatedAtMS int64
@@ -3328,7 +3335,8 @@ v.id,
 v.status,
 v.compatibility_code,
 v.dependency_snapshot_json,
-i.source_manifest_json,
+source_snapshot.id,
+source_snapshot.source_manifest_json,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
 d.cover_uploaded_asset_id,
@@ -3336,6 +3344,7 @@ d.background_candidate_asset_id,
 d.default_dos_entry
 FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
+JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
 LEFT
 JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,
@@ -3343,6 +3352,7 @@ JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,
   SELECT candidate.id
 FROM import_item_core_validations candidate
 WHERE candidate.import_item_id=i.id
+AND candidate.source_snapshot_id=d.effective_source_snapshot_id
 AND candidate.target_platform_instance_id=d.target_platform_instance_id
 ORDER BY candidate.created_at_ms DESC,
 candidate.id DESC LIMIT 1
@@ -3362,6 +3372,7 @@ AND i.state='REVIEW_PENDING'
 			&validationStatus,
 			&compatibilityCode,
 			&dependencySnapshot,
+			&sourceSnapshotID,
 			&sourceManifest,
 			&selectedCandidateID,
 			&coverID,
@@ -3396,7 +3407,7 @@ AND i.state='REVIEW_PENDING'
 		server.databaseError(writer, request, err)
 		return
 	}
-	sourceFiles, err := server.reviewSourceFiles(request, itemID)
+	sourceFiles, err := server.reviewSourceFiles(request, sourceSnapshotID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -3416,6 +3427,17 @@ AND i.state='REVIEW_PENDING'
 		server.databaseError(writer, request, err)
 		return
 	}
+	arcadeDependencies, hasArcadeDependencies, err := server.importer.ReviewArcadeDependencies(
+		request.Context(),
+		itemID,
+	)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if !hasArcadeDependencies {
+		arcadeDependencies = nil
+	}
 	validation := any(nil)
 	if validationID.Valid {
 		var validationCurrent int
@@ -3431,6 +3453,7 @@ JOIN core_artifacts a ON a.id=v.core_artifact_id
 AND a.core_id=p.default_core_id
 AND a.enabled=1
 WHERE v.id=?
+AND v.source_snapshot_id=?
 AND p.id=?
 AND v.status='READY'
 AND v.default_dos_entry IS ?
@@ -3438,7 +3461,8 @@ AND v.dat_version_id IS (SELECT active.id
 FROM dat_versions active
 WHERE active.core_artifact_id=a.id
 AND active.is_active=1))
-`, validationID.String, platformID, nullableString(defaultDOSEntry)).Scan(&validationCurrent); err != nil {
+`, validationID.String, sourceSnapshotID, platformID, nullableString(defaultDOSEntry)).
+			Scan(&validationCurrent); err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
@@ -3453,6 +3477,7 @@ AND active.is_active=1))
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"itemId": itemID, "importJobId": importJobID, "version": version, "updatedAtMs": updatedAtMS,
+		"effectiveSourceSnapshotId": sourceSnapshotID,
 		"platformInstance": map[string]any{
 			"id":   platformID,
 			"name": platformName,
@@ -3460,6 +3485,7 @@ AND active.is_active=1))
 		"validation": validation, "candidates": candidates, "scrapeRuns": scrapeRuns,
 		"uploadedAssets": uploadedAssets, "sourceFiles": sourceFiles,
 		"duplicateGames": duplicateGames, "contentIdentityDigest": contentIdentityDigest,
+		"arcadeDependencies":  arcadeDependencies,
 		"selectedCandidateId": nullableString(selectedCandidateID),
 		"defaultDosEntry":     nullableString(defaultDOSEntry),
 		"selectedAssets": map[string]any{
@@ -3575,7 +3601,7 @@ ORDER BY created_at_ms,id
 	return assets, nil
 }
 
-func (server *Server) reviewSourceFiles(request *http.Request, itemID string) ([]map[string]any, error) {
+func (server *Server) reviewSourceFiles(request *http.Request, sourceSnapshotID string) ([]map[string]any, error) {
 	rows, err := server.database.QueryContext(request.Context(), `
 SELECT f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32,
 MAX(CASE WHEN s.source_archive_blob_id IS NOT NULL OR EXISTS(
@@ -3587,13 +3613,13 @@ COALESCE(
     SELECT 1 FROM archive_entries ae WHERE ae.archive_blob_id=f.final_blob_id
   ) THEN f.final_blob_id END)
 )
-FROM import_item_source_files s
+FROM import_item_source_snapshot_files s
 JOIN upload_files f ON f.id=s.upload_file_id
 JOIN blobs b ON b.id=f.final_blob_id
-WHERE s.import_item_id=?
+WHERE s.source_snapshot_id=?
 GROUP BY f.id,f.relative_path,b.size_bytes,b.sha256,b.md5,b.crc32
 ORDER BY min(s.sort_order),f.relative_path,f.id
-`, itemID)
+`, sourceSnapshotID)
 	if err != nil {
 		return nil, fmt.Errorf("query review source files: %w", err)
 	}

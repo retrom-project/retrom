@@ -97,6 +97,22 @@ func TestRuntimeAllowlistRejectsUnknownPath(t *testing.T) {
 	}
 }
 
+func TestLaunchBundleHEADUsesCredentialProtectedHandler(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	for _, path := range []string{
+		"/runtime/launches/01980000-0000-7000-8000-000000000001/bios/bundle.zip",
+		"/runtime/launches/01980000-0000-7000-8000-000000000001/parent/bundle.zip",
+	} {
+		recorder := httptest.NewRecorder()
+		server.Handler().ServeHTTP(recorder, httptest.NewRequest(http.MethodHead, path, nil))
+		if recorder.Code != http.StatusUnauthorized ||
+			!strings.Contains(recorder.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
+			t.Fatalf("HEAD %s = %d: %s", path, recorder.Code, recorder.Body.String())
+		}
+	}
+}
+
 func TestBIOSArchiveEntriesProjectLockedDATAndPersistedZIPFacts(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
@@ -263,7 +279,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 18 ||
+		response.DatabaseSchemaVersion != 19 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -430,6 +446,7 @@ AND enabled=1
 	coverBlobID := "01980000-0000-7000-8000-000000000133"
 	uploadFileID := "01980000-0000-7000-8000-000000000134"
 	coverUploadFileID := "01980000-0000-7000-8000-000000000136"
+	sourceSnapshotID := "01980000-0000-7000-8000-000000000137"
 	digest := strings.Repeat("a", 64)
 	timestamp := now.UnixMilli()
 	coverPayload, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
@@ -557,6 +574,20 @@ VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`
+INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,source_manifest_json,
+source_manifest_digest,created_by,created_at_ms)
+VALUES(?,?,1,?,?,'IDENTIFICATION',?)
+	`, sourceSnapshotID, itemID, manifest, digest, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,
+blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
+VALUES(?,'CONTENT','blocked.zip',?,?,NULL,NULL,0,?)
+	`, sourceSnapshotID, uploadFileID, sourceBlobID, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
 INSERT INTO import_item_core_validations(id,
 import_item_id,
 target_platform_instance_id,
@@ -564,6 +595,7 @@ platform_instance_version,
 core_id,
 core_artifact_id,
 source_manifest_digest,
+source_snapshot_id,
 prepublish_input_digest,
 status,
 compatibility_code,
@@ -576,11 +608,12 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
+?,
 'BLOCKED',
 'DEPENDENCY_MISSING',
 '{"dependencies":[]}',
 ?)
-`, validationID, itemID, artifactID, digest, digest, timestamp); err != nil {
+`, validationID, itemID, artifactID, digest, sourceSnapshotID, digest, timestamp); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`
@@ -588,6 +621,7 @@ INSERT INTO review_drafts(id,
 import_item_id,
 target_platform_instance_id,
 selected_validation_id,
+effective_source_snapshot_id,
 metadata_json,
 version,
 created_at_ms,
@@ -595,11 +629,12 @@ updated_at_ms) VALUES(?,
 ?,
 '01980000-0000-7000-8000-000000000005',
 NULL,
+?,
 '{"title":"Blocked","description":"","developer":"","publisher":"","genre":"","players":null,"releaseYear":null}',
 1,
 ?,
 ?)
-`, draftID, itemID, timestamp, timestamp); err != nil {
+`, draftID, itemID, sourceSnapshotID, timestamp, timestamp); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`

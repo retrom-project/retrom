@@ -35,6 +35,7 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 		return
 	}
 	if !pending {
+		server.importer.SyncParentAttachmentCancellation(request.Context(), result.JobID)
 		_, _ = server.database.ExecContext(
 			request.Context(),
 			`
@@ -92,5 +93,6 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 		return
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
+	server.importer.ResumeParentAttachmentJobs(request.Context())
 	writeJSON(writer, http.StatusAccepted, result)
 }

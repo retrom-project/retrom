@@ -53,8 +53,23 @@ CROSS JOIN import_item_source_files s
 WHERE s.import_item_id=(SELECT item_id FROM acceptance_base)
 AND i.id LIKE '30000000-%';
 
-INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,core_artifact_id,dat_version_id,default_dos_entry,source_manifest_digest,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
-SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.platform_instance_version,v.core_id,v.core_artifact_id,v.dat_version_id,v.default_dos_entry,i.source_manifest_digest,v.prepublish_input_digest,'READY','READY',v.dependency_snapshot_json,i.created_at_ms
+INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,source_manifest_json,source_manifest_digest,created_by,created_at_ms)
+SELECT printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
+       i.id,1,i.source_manifest_json,i.source_manifest_digest,'IDENTIFICATION',i.created_at_ms
+FROM import_items i
+WHERE i.id LIKE '30000000-%';
+
+INSERT INTO import_item_source_snapshot_files(source_snapshot_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
+SELECT printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
+       s.role,s.logical_name,s.upload_file_id,s.blob_id,s.source_archive_blob_id,s.source_archive_entry_ordinal,s.sort_order,s.created_at_ms
+FROM import_items i
+JOIN import_item_source_files s ON s.import_item_id=i.id
+WHERE i.id LIKE '30000000-%';
+
+INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,platform_instance_version,core_id,core_artifact_id,dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,dependency_snapshot_json,created_at_ms)
+SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.platform_instance_version,v.core_id,v.core_artifact_id,v.dat_version_id,v.default_dos_entry,i.source_manifest_digest,
+       printf('35000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),
+       v.prepublish_input_digest,'READY','READY',v.dependency_snapshot_json,i.created_at_ms
 FROM import_items i
 CROSS JOIN import_item_core_validations v
 WHERE v.import_item_id=(SELECT item_id FROM acceptance_base)
@@ -68,8 +83,8 @@ CROSS JOIN import_item_validation_files f
 WHERE f.import_item_core_validation_id=(SELECT selected_validation_id FROM review_drafts WHERE import_item_id=(SELECT item_id FROM acceptance_base))
 AND i.id LIKE '30000000-%';
 
-INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,selected_validation_id,selected_candidate_id,cover_candidate_asset_id,background_candidate_asset_id,default_dos_entry,metadata_json,version,created_at_ms,updated_at_ms)
-SELECT printf('50000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.id,NULL,NULL,NULL,v.default_dos_entry,
+INSERT INTO review_drafts(id,import_item_id,target_platform_instance_id,effective_source_snapshot_id,selected_validation_id,selected_candidate_id,cover_candidate_asset_id,background_candidate_asset_id,default_dos_entry,metadata_json,version,created_at_ms,updated_at_ms)
+SELECT printf('50000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),i.id,v.target_platform_instance_id,v.source_snapshot_id,v.id,NULL,NULL,NULL,v.default_dos_entry,
        json_object('title',printf('Batch %d Game %02d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),'description','','developer','','publisher','','genre','','players',NULL,'releaseYear',NULL),1,i.created_at_ms,i.updated_at_ms
 FROM import_items i
 JOIN import_item_core_validations v ON v.import_item_id=i.id

@@ -60,7 +60,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 8. `launch_sessions/play_sessions/play_session_events/save_states/persistent_saves/persistent_save_revisions`；
 9. 全部 partial unique index、不可变/归属 trigger、搜索索引和 schema checksum 回归。
 
-测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立；014 增加核心目录、BIOS delivery 与 Launch external-file 能力；015 收敛旧零 Item 导入；016 增加拒绝文件重新配置 lineage；017 增加重复内容识别证据；018 增加异步 DAT 差异快照与分页明细，不做既有表重建。正式发布后再遵守只追加 migration 的升级纪律。
+测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能由运行时代码关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立；014 增加核心目录、BIOS delivery 与 Launch external-file 能力；015 收敛旧零 Item 导入；016 增加拒绝文件重新配置 lineage；017 增加重复内容识别证据；018 增加异步 DAT 差异快照与分页明细；019 增加审核来源快照、Validation/草稿快照归属、Arcade Parent Attachment、Job/ReviewEvent enum 和发布 digest 兜底。019 因 SQLite 无法原地改变 CHECK/非空列而使用带 `-- retrom: rebuild-with-foreign-keys-off` 的唯一受控重建：store 只识别 019，先复算旧 source manifest，事务外关闭外键，事务内重建/回填，提交前执行 `PRAGMA foreign_key_check`，随后无条件恢复外键；任何漂移或外键错误都使启动失败。正式发布后继续遵守只追加 migration 的升级纪律。
 
 ## 4. 里程碑
 
@@ -86,9 +86,9 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 ### M3：依赖识别、刮削与审核
 
-范围：内置 DAT 安全解析/索引、BIOS catalog/installation、Arcade machine/parent/BIOS 识别；Hasheous adapter/cache/媒体安全；ImportItem 状态机、拒绝文件基于既有 CAS Blob 的重新配置导入与任务 lineage、ReviewDraft/Event、审核工作台与历史。普通测试只用 fake Hasheous，外部 smoke 有界且不决定测试结果。
+范围：内置 DAT 安全解析/索引、BIOS catalog/installation、Arcade machine/多级 parent/逐级 romof V2 闭包与 Parent ZIP 审核补充；不可变 ImportItem 来源快照、Attachment Job/retry/cancel/cleanup；Hasheous adapter/cache/媒体安全；ImportItem 状态机、拒绝文件基于既有 CAS Blob 的重新配置导入与任务 lineage、ReviewDraft/Event、审核工作台与历史。普通测试只用 fake Hasheous，外部 smoke 有界且不决定测试结果。
 
-退出门禁：完整执行 `ACC-IMP-001`、`ACC-IMP-003`、`ACC-IMP-005`、`ACC-IMP-008`、`ACC-DAT-001`、`ACC-DAT-003`、`ACC-DAT-005`、`ACC-BIOS-001`、`ACC-SEC-001` 与 `ACC-SEC-004`；其余聚焦 unit/integration test 全通过。在 Approve 事务接入前先完成 M4 的 Game aggregate store；M3 与 M4 可以按垂直切片交替推进，但不得用另一套临时发布表。涉及 Approve、Game 移动/启动、DAT 对 Game 重校验或 BIOS Launch options 的 Case 明确留到 M4/M5，不能用半实现记录 PASS。
+退出门禁：完整执行 `ACC-IMP-001`、`ACC-IMP-003`、`ACC-IMP-005`、`ACC-IMP-008`、`ACC-DAT-001`、`ACC-DAT-003`、`ACC-DAT-005`、`ACC-BIOS-001`、`ACC-SEC-001` 与 `ACC-SEC-004`；Arcade Parent 补充分步链的纯逻辑、018→019 migration、service/HTTP 与前端聚焦测试必须通过。其余聚焦 unit/integration test 全通过。在 Approve 事务接入前先完成 M4 的 Game aggregate store；M3 与 M4 可以按垂直切片交替推进，但不得用另一套临时发布表。涉及补充后 Approve/Launch、Game 移动/启动、DAT 对 Game 重校验或 BIOS Launch options 的 Case 明确留到 M4/M5，不能用半实现记录 PASS。
 
 ### M4：目录与游戏聚合
 

@@ -241,6 +241,15 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/ReviewAsset' }
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments:
+    parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
+    post:
+      operationId: postAdminReviewArcadeParentAttachment
+      description: Queues strict validation of one completed ZIP upload against a missing or mismatched Parent machine in the review draft's locked Arcade DAT closure.
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ReviewArcadeParentAttachment' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/reviews/{importItemId}/approve:
     parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
     post:
@@ -642,10 +651,18 @@ paths:
       operationId: getRuntimeBIOSBundle
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
+    head:
+      operationId: headRuntimeBIOSBundle
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/launches/{launchId}/parent/bundle.zip:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     get:
       operationId: getRuntimeParentBundle
+      responses:
+        '200': { $ref: '#/components/responses/BinaryResponse' }
+    head:
+      operationId: headRuntimeParentBundle
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/launches/{launchId}/state:
@@ -865,6 +882,15 @@ components:
       properties:
         uploadFileId: { type: string, format: uuid }
         kind: { type: string, enum: [COVER] }
+    ReviewArcadeParentAttachmentRequest:
+      type: object
+      additionalProperties: false
+      required: [validationId, baseSourceSnapshotId, dependencyMachine, uploadFileId]
+      properties:
+        validationId: { type: string, format: uuid }
+        baseSourceSnapshotId: { type: string, format: uuid }
+        dependencyMachine: { type: string, minLength: 1, maxLength: 255 }
+        uploadFileId: { type: string, format: uuid }
     UploadReferenceRequest:
       type: object
       additionalProperties: false
@@ -1031,6 +1057,9 @@ components:
         archive: { type: boolean }
         archiveEntries: {}
         archiveFormat: { type: string, enum: [ZIP, SEVEN_Z], nullable: true }
+        arcadeDependencies: {}
+        attachment: {}
+        attachmentId: {}
         assetId: {}
         assetIds: {}
         assets: {}
@@ -1111,6 +1140,8 @@ components:
         defaultCoreName: {}
         defaultCoreOptions: {}
         externalFiles: {}
+        effectiveSourceSnapshotId: {}
+        expectedLogicalName: {}
         defaultDosEntry: {}
         deleteImpact: {}
         deleted: {}
@@ -1405,6 +1436,7 @@ components:
     DeleteGame: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeleteGameRequest' } } } }
     GameAsset: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GameAssetRequest' } } } }
     ReviewAsset: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewAssetRequest' } } } }
+    ReviewArcadeParentAttachment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewArcadeParentAttachmentRequest' } } } }
     UploadReference: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UploadReferenceRequest' } } } }
     ApplyCandidate: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApplyCandidateRequest' } } } }
     MovePreview: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MovePreviewRequest' } } } }

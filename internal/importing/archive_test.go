@@ -111,3 +111,22 @@ func TestZIPCompressionRatioStillRejectsLargeHighlyCompressedMembers(t *testing.
 		t.Fatalf("large high-ratio member error = %v", err)
 	}
 }
+
+func TestScanFlatZIPRejectsDirectoriesAndSubdirectories(t *testing.T) {
+	t.Parallel()
+	if entries, err := ScanFlatZIP(
+		context.Background(), writeZIP(t, "a.bin", []byte("a")), DefaultArchiveLimits(),
+	); err != nil || len(entries) != 1 {
+		t.Fatalf("flat entries = %d, error=%v", len(entries), err)
+	}
+	if _, err := ScanFlatZIP(
+		context.Background(), writeZIP(t, "dir/a.bin", []byte("a")), DefaultArchiveLimits(),
+	); !errors.Is(err, ErrNestedArchiveUnsupported) {
+		t.Fatalf("nested path error = %v", err)
+	}
+	if _, err := ScanFlatZIP(
+		context.Background(), writeZIP(t, "dir/", nil), DefaultArchiveLimits(),
+	); !errors.Is(err, ErrNestedArchiveUnsupported) {
+		t.Fatalf("directory error = %v", err)
+	}
+}

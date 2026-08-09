@@ -731,10 +731,31 @@ SELECT ?,vf.role,vf.logical_name,vf.blob_id,vf.sort_order
 FROM game_variants v
 JOIN game_variant_revisions source ON source.id=v.current_revision_id
 AND source.game_content_revision_id=?
+AND source.dat_version_id IS ?
 JOIN variant_files vf ON vf.game_variant_revision_id=source.id
-AND vf.role='DOS_LAUNCH_BUNDLE'
+AND vf.role IN ('DOS_LAUNCH_BUNDLE','PARENT')
 WHERE v.id=?
-`, revisionID, contentID, variantID); err != nil {
+`, revisionID, contentID, nullableSQL(datID), variantID); err != nil {
+		return
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO variant_dependencies(game_variant_revision_id,
+kind,
+logical_archive,
+dat_version_id,
+source_machine_name,
+required_entries_json,
+state,
+created_at_ms)
+SELECT ?,dependency.kind,dependency.logical_archive,dependency.dat_version_id,
+dependency.source_machine_name,dependency.required_entries_json,dependency.state,?
+FROM game_variants variant
+JOIN game_variant_revisions source ON source.id=variant.current_revision_id
+AND source.game_content_revision_id=?
+AND source.dat_version_id IS ?
+JOIN variant_dependencies dependency ON dependency.game_variant_revision_id=source.id
+WHERE variant.id=?
+`, revisionID, service.now().UnixMilli(), contentID, nullableSQL(datID), variantID); err != nil {
 		return
 	}
 	for sortOrder, dependency := range biosSnapshot.BIOS {

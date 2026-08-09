@@ -4,12 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReviewActions, type ReviewWorkspace } from "./review-actions";
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }));
-const upload = vi.hoisted(() => ({ uploadOne: vi.fn(), waitForJob: vi.fn() }));
+const upload = vi.hoisted(() => ({ uploadOne: vi.fn(), waitForJob: vi.fn(), waitForJobEvents: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/lib/upload", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/upload")>();
-  return { ...original, uploadOne: upload.uploadOne, waitForJob: upload.waitForJob };
+  return { ...original, uploadOne: upload.uploadOne, waitForJob: upload.waitForJob, waitForJobEvents: upload.waitForJobEvents };
 });
 
 const review: ReviewWorkspace = {
@@ -28,7 +28,7 @@ function jsonResponse(body: unknown, status = 200) {
 describe("ReviewActions", () => {
   beforeEach(() => {
     router.replace.mockReset(); router.refresh.mockReset(); router.push.mockReset();
-    upload.uploadOne.mockReset(); upload.waitForJob.mockReset().mockResolvedValue(undefined);
+    upload.uploadOne.mockReset(); upload.waitForJob.mockReset().mockResolvedValue(undefined); upload.waitForJobEvents.mockReset().mockResolvedValue(undefined);
     sessionStorage.clear();
   });
 
@@ -148,6 +148,51 @@ describe("ReviewActions", () => {
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "重新运行检查" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/reviews\/item-1$/), expect.objectContaining({ method: "PATCH" })));
+    expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it("flushes, uploads, validates over SSE, then enables publish from the refreshed review", async () => {
+    const parentReview: ReviewWorkspace = {
+      ...review,
+      version: 7,
+      effectiveSourceSnapshotId: "snapshot-1",
+      validation: { id: "validation-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_PARENT_MISSING" },
+      arcadeDependencies: {
+        machine: "a", status: "BLOCKED", compatibilityCode: "LAUNCH_PARENT_MISSING", activeAttachment: null,
+        nodes: [{ kind: "PARENT", machine: "b", requiredBy: "a", depth: 1, expectedLogicalName: "b.zip", state: "MISSING", requiredEntryCount: 1, canAttach: true, attachment: null }],
+      },
+    };
+    const refreshed: ReviewWorkspace = {
+      ...parentReview,
+      version: 9,
+      effectiveSourceSnapshotId: "snapshot-2",
+      validation: { id: "validation-2", status: "READY", current: true, compatibilityCode: "READY" },
+      arcadeDependencies: { machine: "a", status: "READY", compatibilityCode: "READY", activeAttachment: null, nodes: [{ ...parentReview.arcadeDependencies!.nodes[0], state: "SATISFIED_EXTERNAL", canAttach: false, attachment: null }] },
+    };
+    upload.uploadOne.mockResolvedValue({ uploadId: "upload-1", uploadFileId: "upload-file-1" });
+    upload.waitForJobEvents.mockImplementation(async (_jobId: string, onProgress?: (eventType: string) => void) => { onProgress?.("parent_matched"); });
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/arcade-parent-attachments")) return Promise.resolve(new Response(JSON.stringify({ attachmentId: "attachment-1", state: "QUEUED", jobId: "job-1" }), { status: 202, headers: { "Content-Type": "application/json", ETag: '"v8"' } }));
+      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(refreshed));
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={parentReview} />);
+
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "补充 Parent ROM" }));
+    const dialog = screen.getByRole("alertdialog", { name: "补充 b.zip" });
+    await user.upload(within(dialog).getByLabelText("选择一个 ZIP"), new File(["parent"], "anything.zip", { type: "application/zip" }));
+    await user.click(within(dialog).getByRole("button", { name: "开始上传并校验" }));
+
+    await waitFor(() => expect(upload.waitForJobEvents).toHaveBeenCalledWith("job-1", expect.any(Function)));
+    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/arcade-parent-attachments"));
+    expect(request?.[1]?.headers).toMatchObject({ "If-Match": '"v7"' });
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ validationId: "validation-1", baseSourceSnapshotId: "snapshot-1", dependencyMachine: "b", uploadFileId: "upload-file-1" });
+    await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
+    expect(screen.getByText("Parent ROM 已匹配，运行检查已通过")).toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalled();
   });
 

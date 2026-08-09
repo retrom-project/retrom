@@ -8,7 +8,9 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { queueFlashToast, Toast, type ToastMessage } from "@/components/flash-toast";
 import { FeedbackBanner } from "@/components/ui";
 import { newUuid } from "@/lib/crypto";
-import { responseError, uploadOne, waitForJob } from "@/lib/upload";
+import { responseError, uploadOne, waitForJob, waitForJobEvents } from "@/lib/upload";
+import { ArcadeDependencyCard } from "./arcade-dependencies";
+import { type ArcadeDependencies, type ArcadeDependencyNode, type ArcadeParentAttachment } from "./arcade-dependency-tree";
 
 export type ReviewAsset = {
   candidateAssetId: string;
@@ -58,6 +60,8 @@ export type ReviewScrapeRun = {
 export type ReviewWorkspace = {
   itemId: string;
   version: number;
+  effectiveSourceSnapshotId?: string;
+  arcadeDependencies?: ArcadeDependencies | null;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
   validation: { id: string; status: string; current: boolean; compatibilityCode: string } | null;
   candidates: ReviewCandidate[];
@@ -143,7 +147,6 @@ function scrapeResult(run: ReviewScrapeRun) {
 
 export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId = null, sourceDisplayName = "游戏文件", platformInstanceName = "游戏目录", children }: { review: ReviewWorkspace; returnTo?: string; nextItemId?: string | null; sourceDisplayName?: string; platformInstanceName?: string; children?: ReactNode }) {
   const router = useRouter();
-  const validationStatus = review.validation?.status ?? null;
   const validationWasCurrent = review.validation?.current ?? false;
   const initialMetadata = metadataForm(review);
   const automaticCandidate = review.selectedCandidateId ? null : review.candidates[0] ?? null;
@@ -164,8 +167,13 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const [jobProgress, setJobProgress] = useState("");
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [validationCurrent, setValidationCurrent] = useState(validationWasCurrent);
+  const [currentValidation, setCurrentValidation] = useState(review.validation);
+  const [effectiveSourceSnapshotId, setEffectiveSourceSnapshotId] = useState(review.effectiveSourceSnapshotId ?? "");
+  const [arcadeDependencies, setArcadeDependencies] = useState(review.arcadeDependencies ?? null);
+  const [parentProgress, setParentProgress] = useState("");
   const [duplicateConfirmation, setDuplicateConfirmation] = useState<DuplicateGame[] | null>(null);
   const versionRef = useRef(review.version);
+  const watchedParentJobRef = useRef("");
   const validationRefreshRequestedRef = useRef(false);
   const latestKeyRef = useRef("");
   const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
@@ -174,6 +182,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const draftPayload = useMemo(() => toPayload(form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry), [form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry]);
   const draftKey = useMemo(() => JSON.stringify(draftPayload), [draftPayload]);
   const latestPayloadRef = useRef(draftPayload);
+  const validationStatus = currentValidation?.status ?? null;
 
   const enqueueSave = useCallback((key: string, payload: DraftPayload, force = false) => {
     saveQueueRef.current = saveQueueRef.current.catch(() => false).then(async () => {
@@ -231,7 +240,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     setBusy(label); setNotice("");
     try { await operation(); return true; }
     catch (caught) { const message = caught instanceof Error ? caught.message : `${label}失败`; setToast({ message, tone: "bad" }); return false; }
-    finally { setBusy(null); setJobProgress(""); }
+    finally { setBusy(null); setJobProgress(""); setParentProgress(""); }
   }
 
   async function flushDraft() {
@@ -272,6 +281,82 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       if (target === "current") setCover({ candidateId: null, uploadedId: asset.assetId });
       else setComparison((current) => current ? { ...current, nextCover: { candidateId: null, uploadedId: asset.assetId } } : null);
       setNotice(target === "current" ? "新封面已上传，正在实时保存。" : "新封面已放入右侧对比结果，点击应用后生效。");
+    });
+  }
+
+  const refreshAfterParentAttachment = useCallback(async () => {
+    const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(await responseError(response, "校验完成，但无法读取最新审核状态"));
+    const updated = await response.json() as ReviewWorkspace;
+    versionRef.current = updated.version;
+    setCurrentValidation(updated.validation);
+    setValidationCurrent(updated.validation?.current ?? false);
+    setEffectiveSourceSnapshotId(updated.effectiveSourceSnapshotId ?? "");
+    setArcadeDependencies(updated.arcadeDependencies ?? null);
+    setCandidates(updated.candidates);
+    setUploadedAssets(updated.uploadedAssets ?? []);
+    router.refresh();
+    return updated;
+  }, [review.itemId, router]);
+
+  const watchParentJob = useCallback(async (jobId: string) => {
+    watchedParentJobRef.current = jobId;
+    let terminalError: Error | null = null;
+    try {
+      await waitForJobEvents(jobId, setParentProgress);
+    } catch (caught) {
+      terminalError = caught instanceof Error ? caught : new Error("Parent ROM 校验失败");
+    }
+    const updated = await refreshAfterParentAttachment();
+    if (terminalError) setToast({ message: terminalError.message, tone: "bad" });
+    else if (updated.validation?.status === "READY") setToast({ message: "Parent ROM 已匹配，运行检查已通过", tone: "good" });
+    else setToast({ message: "Parent ROM 已匹配，仍有依赖需要处理", tone: "warn" });
+  }, [refreshAfterParentAttachment]);
+
+  const activeParentJobId = arcadeDependencies?.activeAttachment?.jobId ?? "";
+  useEffect(() => {
+    if (!activeParentJobId || watchedParentJobRef.current === activeParentJobId) return;
+    setParentProgress("恢复 Parent ROM 校验进度…");
+    void watchParentJob(activeParentJobId).catch((caught: unknown) => {
+      setToast({ message: caught instanceof Error ? caught.message : "无法恢复 Parent ROM 校验状态", tone: "bad" });
+    }).finally(() => setParentProgress(""));
+  }, [activeParentJobId, watchParentJob]);
+
+  async function attachParent(node: ArcadeDependencyNode, file: File) {
+    if (!await flushDraft()) return false;
+    return run("补充 Parent ROM", async () => {
+      setParentProgress("正在上传 Parent ZIP…");
+      const uploaded = await uploadOne(file, setParentProgress);
+      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/arcade-parent-attachments`, {
+        method: "POST",
+        credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() },
+        body: JSON.stringify({
+          validationId: currentValidation?.id,
+          baseSourceSnapshotId: effectiveSourceSnapshotId,
+          dependencyMachine: node.machine,
+          uploadFileId: uploaded.uploadFileId,
+        }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, "无法创建 Parent ROM 校验任务"));
+      const result = await response.json() as { jobId: string };
+      const version = response.headers.get("ETag")?.match(/^"v(\d+)"$/)?.[1];
+      if (version) versionRef.current = Number(version);
+      await watchParentJob(result.jobId);
+    });
+  }
+
+  async function retryParent(attachment: ArcadeParentAttachment) {
+    await run("重试 Parent ROM 校验", async () => {
+      const snapshot = await fetch(`/api/v1/admin/jobs/${attachment.jobId}`, { cache: "no-store" });
+      if (!snapshot.ok) throw new Error(await responseError(snapshot, "无法读取待重试任务"));
+      const job = await snapshot.json() as { version: number };
+      const response = await fetch(`/api/v1/admin/jobs/${attachment.jobId}/retry`, {
+        method: "POST", credentials: "same-origin",
+        headers: { "Content-Type": "application/json", "If-Match": `"v${job.version}"`, "Idempotency-Key": newUuid() }, body: "{}",
+      });
+      if (!response.ok) throw new Error(await responseError(response, "Parent ROM 校验无法重试"));
+      await watchParentJob(attachment.jobId);
     });
   }
 
@@ -343,7 +428,8 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const nextCompareCover = comparison ? previewAsset(candidates, uploadedAssets, comparison.nextCover) : null;
   const saveLabel = saveState === "saving" ? "正在实时保存…" : saveState === "pending" ? "等待保存…" : saveState === "error" ? "实时保存失败" : "已实时保存";
 
-  const publishReady = validationStatus === "READY" && validationCurrent;
+  const parentAttachmentActive = Boolean(arcadeDependencies?.activeAttachment?.state === "QUEUED" || arcadeDependencies?.activeAttachment?.state === "RUNNING");
+  const publishReady = validationStatus === "READY" && validationCurrent && !parentAttachmentActive;
 
   return <div className="review-workflow-detail">
     <div className="review-workflow-top">
@@ -353,7 +439,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     {notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{notice}</FeedbackBanner></div> : null}
     {review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。仍可发布为新游戏，但发布时需要二次确认。</FeedbackBanner></div> : null}
     <div className="review-workflow-columns">
-      <div className="review-workflow-left">{children}</div>
+      <div className="review-workflow-left">{children}{arcadeDependencies ? <ArcadeDependencyCard value={arcadeDependencies} disabled={busy !== null || parentAttachmentActive} progress={parentProgress} onAttach={attachParent} onRetry={retryParent} /> : null}</div>
       <section className="panel review-workflow-metadata">
         <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介和封面；修改会实时保存。</p></div><div className="review-workflow-query-actions">{jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}<button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>
         <div className="panel-body review-workflow-editor">

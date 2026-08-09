@@ -1181,7 +1181,7 @@ status) VALUES(?,
 	service := (&Service{database: database.SQL}).WithBlobStore(blobs)
 	files := []importSourceFile{fixtures[0].file, fixtures[1].file, fixtures[2].file}
 	dispositions, groups, archives := service.prepareArcadeFiles(ctx, files, sql.NullString{String: datID, Valid: true})
-	if len(dispositions) != 3 || len(groups) != 2 || len(archives) != 3 {
+	if len(dispositions) != 3 || len(groups) != 1 || len(archives) != 3 {
 		t.Fatalf(
 			"arcade grouping counts = dispositions:%#v groups:%#v archives:%d",
 			dispositions,

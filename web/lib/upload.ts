@@ -41,6 +41,39 @@ export async function waitForJob(jobId: string, onProgress?: (message: string) =
   throw new Error("任务在五分钟内没有完成");
 }
 
+export async function waitForJobEvents(jobId: string, onProgress?: (eventType: string) => void) {
+  return new Promise<void>((resolve, reject) => {
+    const source = new EventSource(`/api/v1/admin/jobs/${encodeURIComponent(jobId)}/events`, { withCredentials: true });
+    let finished = false;
+    let timeout = 0;
+    const finish = (error?: Error) => {
+      if (finished) return;
+      finished = true;
+      window.clearTimeout(timeout);
+      source.close();
+      if (error) reject(error); else resolve();
+    };
+    timeout = window.setTimeout(() => finish(new Error("任务在五分钟内没有完成")), 300_000);
+    const phaseEvents = ["queued", "archive_scanned", "parent_matched", "parent_rejected", "source_snapshot_created", "core_validation_completed"];
+    for (const eventType of phaseEvents) source.addEventListener(eventType, () => onProgress?.(eventType));
+    source.addEventListener("snapshot", (event) => {
+      onProgress?.("snapshot");
+      const snapshot = JSON.parse((event as MessageEvent<string>).data) as { state?: string; errorCode?: string | null };
+      if (snapshot.state === "SUCCEEDED") finish();
+      if (snapshot.state === "FAILED" || snapshot.state === "CANCELLED") finish(new Error(snapshot.errorCode ?? `任务${snapshot.state === "FAILED" ? "失败" : "已取消"}`));
+    });
+    source.addEventListener("succeeded", () => { onProgress?.("succeeded"); finish(); });
+    source.addEventListener("failed", (event) => {
+      onProgress?.("failed");
+      const details = JSON.parse((event as MessageEvent<string>).data) as { errorCode?: string; code?: string };
+      finish(new Error(details.errorCode ?? details.code ?? "任务失败"));
+    });
+    source.addEventListener("cancelled", () => { onProgress?.("cancelled"); finish(new Error("任务已取消")); });
+    // EventSource reconnects automatically. Network errors are deliberately not
+    // treated as job cancellation; the bounded timeout is the terminal guard.
+  });
+}
+
 export async function uploadFiles(files: File[], onProgress?: (message: string) => void): Promise<{ uploadId: string; uploadFileIds: string[] }> {
   if (files.length === 0) throw new Error("至少选择一个文件");
   onProgress?.("正在创建安全上传会话…");

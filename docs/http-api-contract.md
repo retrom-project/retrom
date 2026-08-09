@@ -176,6 +176,46 @@ source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 re
 
 审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。Approve 普通 body 可为 `{}`；若当前有完全相同内容的未删除游戏则返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED`，`details={contentIdentityDigest,games}`。继续发布必须重交 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":["..."]}`，ID 集合与事务内重查的当前 games 完全一致才成功；新增、减少、重复或未知 ID 均不接受，确认写入 ReviewEvent。历史端点只读，不提供修改或删除事件 API。
 
+### 5.1 Arcade Parent Attachment
+
+Arcade Review GET 额外返回 `effectiveSourceSnapshotId` 和可空 `arcadeDependencies`。非 Arcade 为 null；Arcade object 固定含 `machine/status/compatibilityCode/nodes/activeAttachment`。每个 node 含 `kind/machine/requiredBy/depth/expectedLogicalName/state/requiredEntryCount/requiredEntries/canAttach/attachment`；BIOS/Base 另有站内 `managementUrl`。`canAttach=true` 仅限当前有效 Validation 的 Parent `MISSING/MISMATCH`，且 Item 可编辑、无 active Attachment、非 Merged/CHD/cycle/config stale。历史 V1 由服务端投影，客户端不得推断 Parent 层级。
+
+bytes 先使用第 4 节通用协议创建单文件 `sourceType=FILES` session、上传 parts、complete 并等待 UploadFile COMPLETE。随后创建业务 Attachment：
+
+```http
+POST /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments
+If-Match: "v7"
+Idempotency-Key: 0198...
+Content-Type: application/json
+
+{
+  "validationId": "0198...",
+  "baseSourceSnapshotId": "0198...",
+  "dependencyMachine": "b",
+  "uploadFileId": "0198..."
+}
+```
+
+服务端验证 Review/Item 状态、版本、Arcade 平台、Validation 对 Item/有效快照/目录版本/CoreArtifact/活动 DAT 的绑定、machine 是当前可修复 Parent、UploadSession/File 都 COMPLETE、文件为单个 `.zip`、不存在 whole-session consumption 且 CAS Blob 可读。成功返回 `202`、`Location: /api/v1/admin/jobs/{jobId}`、更新后的 Review ETag 和 `{attachmentId,state:"QUEUED",jobId}`。相同幂等键与完全相同请求返回同一结果；同键异 body 使用通用幂等冲突。每 Item 只有一个 active Attachment，服务端约束是最终防线。
+
+进度只订阅 `GET /api/v1/admin/jobs/{jobId}/events`，事件序列可含 `QUEUED/STARTED/ARCHIVE_SCANNED/PARENT_MATCHED|PARENT_REJECTED/SOURCE_SNAPSHOT_CREATED/CORE_VALIDATION_COMPLETED/SUCCEEDED|FAILED|CANCELLED`。SSE 断线自动按通用协议重连，不取消 Job；终态必须重新 GET Review。`FAILED_RETRYABLE` 使用通用 Job retry 并复用同一 UploadFile。Discard 使用通用 Job cancel 语义收口 Attachment；离开审核页不触发 cancel。
+
+稳定错误如下，前端按 code/state 分支，中文 message 只用于显示：
+
+| HTTP | code | 语义 |
+| --- | --- | --- |
+| 400 | `REVIEW_PARENT_UPLOAD_INVALID` | 请求、Upload/File 状态或 ZIP 类型无效 |
+| 404 | `REVIEW_NOT_FOUND` | 审核项不存在 |
+| 409 | `REVIEW_VERSION_CONFLICT` | Review ETag 已过期 |
+| 409 | `REVIEW_PARENT_ATTACHMENT_IN_PROGRESS` | 同 Item 已有 active Attachment |
+| 409 | `REVIEW_PARENT_INPUT_STALE` | Validation、来源快照、CoreArtifact 或 DAT 已漂移 |
+| 409 | `REVIEW_ALREADY_FINALIZED` | Item 已发布、丢弃或取消 |
+| 422 | `REVIEW_PARENT_NOT_REQUIRED` | machine 不是当前缺失/不匹配 Parent |
+| 422 | `REVIEW_PARENT_ARCHIVE_UNSAFE` | ZIP 安全扫描失败；details 可含底层稳定 archive code |
+| 422 | `REVIEW_PARENT_CONTENT_MISMATCH` | ZIP 安全但 entry/size/hash 不匹配 |
+| 422 | `REVIEW_PARENT_STRUCTURE_UNSUPPORTED` | Merged、CHD 或不可补传结构 |
+| 503 | `REVIEW_PARENT_VALIDATION_UNAVAILABLE` | 可重试的存储或 worker 故障 |
+
 ## 6. Hasheous 边界
 
 一期固定调用公开 `POST https://hasheous.org/api/v1/Lookup/ByHash`，body 字段沿用上游的 `mD5`、`shA1`、`shA256`、`crc`，至少一项非空；该 lookup 不需要用户或 App Key。只发送 hash，不发送 ROM bytes、本地路径、文件名或平台私有信息。

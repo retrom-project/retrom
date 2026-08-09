@@ -858,6 +858,26 @@ summary { cursor: pointer; }
 .review-capability-list > details summary { color: var(--purple-dark); cursor: pointer; font-size: 12px; }
 .review-capability-list > details > div { margin-top: 10px; }
 .review-workflow-files .panel-body { max-height: 330px; overflow-y: auto; }
+.arcade-dependency-card .panel-body { min-width: 0; }
+.arcade-dependency-root { padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid #ddd8f4; border-radius: 10px; background: #faf9ff; }
+.arcade-dependency-root strong, .arcade-dependency-copy strong { min-width: 0; overflow-wrap: anywhere; }
+.arcade-dependency-root span, .arcade-dependency-copy span, .arcade-dependency-copy small { color: var(--muted); font-size: 11px; }
+.arcade-dependency-tree { margin: 8px 0 0; padding: 0; display: grid; gap: 6px; list-style: none; }
+.arcade-dependency-tree > li { min-width: 0; padding: 9px 10px 9px calc(10px + (var(--dependency-level) - 1) * 18px); display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 9px; border: 1px solid var(--line); border-radius: 9px; }
+.arcade-dependency-branch { color: #9b93bc; font-family: ui-monospace, monospace; }
+.arcade-dependency-copy { min-width: 0; display: grid; gap: 2px; }
+.arcade-dependency-copy small { color: #a54a3f; overflow-wrap: anywhere; }
+.arcade-dependency-state { white-space: nowrap; font-size: 11px; font-weight: 750; }
+.arcade-dependency-state.needs-action { color: #a15b20; }
+.arcade-dependency-state.satisfied { color: #0f737c; }
+.arcade-dependency-action { display: flex; justify-content: flex-end; }
+.arcade-dependency-empty { margin: 10px 0 0; color: var(--muted); font-size: 12px; }
+.arcade-dependency-progress { margin: 10px 0 0; padding: 9px 10px; display: flex; align-items: center; gap: 7px; color: var(--purple-dark); border-radius: 8px; background: var(--purple-soft); font-size: 11px; }
+.arcade-parent-file { display: grid; gap: 8px; font-weight: 750; }
+.arcade-parent-file input { width: 100%; min-width: 0; padding: 9px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.arcade-parent-selection { margin: 10px 0 0 !important; display: flex; justify-content: space-between; gap: 12px; }
+.arcade-parent-selection strong { min-width: 0; overflow-wrap: anywhere; }
+.arcade-parent-selection span { flex: 0 0 auto; color: var(--muted); }
 .review-workflow-metadata { height: 100%; display: flex; flex-direction: column; }
 .review-workflow-metadata > .panel-body { min-height: 0; flex: 1; }
 .review-workflow-editor { display: block; }
