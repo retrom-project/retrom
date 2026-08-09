@@ -37,6 +37,7 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	seedLocalProfile(t, database.SQL)
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(
@@ -196,6 +197,7 @@ AND enabled=1
 	}
 	createdLaunch, err := service.Create(
 		ctx,
+		"local",
 		CreateRequest{
 			GameID:             approved.GameID,
 			ReturnTo:           "/games/" + approved.GameID,
@@ -224,6 +226,7 @@ SELECT state,error_code FROM jobs WHERE id=?
 		}
 		createdLaunch, err = service.Create(
 			ctx,
+			"local",
 			CreateRequest{
 				GameID:             approved.GameID,
 				ReturnTo:           "/games/" + approved.GameID,
@@ -381,6 +384,7 @@ WHERE id=?
 	}
 	quickLaunch, err := service.Create(
 		ctx,
+		"local",
 		CreateRequest{
 			GameID:             approved.GameID,
 			SaveStateID:        ptr(saveID.String()),
@@ -433,6 +437,7 @@ WHERE id=?
 	gambatte := "gambatte"
 	pending, err := service.Create(
 		ctx,
+		"local",
 		CreateRequest{
 			GameID:             approved.GameID,
 			CoreID:             &gambatte,
@@ -505,6 +510,7 @@ WHERE id=?
 	}
 	validatedLaunch, err := service.Create(
 		ctx,
+		"local",
 		CreateRequest{
 			GameID:             approved.GameID,
 			CoreID:             &gambatte,
@@ -546,7 +552,7 @@ sort_order) VALUES(?,
 	`, currentVariantRevisionID, contentBlobID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := service.Create(ctx, CreateRequest{GameID: approved.GameID, CoreID: &gambatte, ReturnTo: "/", ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}}); !errors.Is(
+	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, CoreID: &gambatte, ReturnTo: "/", ClientCapabilities: Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}}); !errors.Is(
 		err,
 		ErrBlocked,
 	) {
@@ -574,6 +580,7 @@ func TestMelonDSExternalBIOSIsLockedPerLaunch(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	seedLocalProfile(t, database.SQL)
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
@@ -704,7 +711,7 @@ VALUES(?,?,?,?,NULL,?,8100,'READY','READY',?,?)`, []any{revisionID, variantID, c
 	service := New(database.SQL, dependencySet, credentials, time.Now)
 	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	melonds := "melonds"
-	oldLaunch, err := service.Create(ctx, CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
+	oldLaunch, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	if err != nil || oldLaunch.LaunchID == "" {
 		t.Fatalf("old MelonDS launch = %#v, error=%v", oldLaunch, err)
 	}
@@ -716,7 +723,7 @@ VALUES(?,?,?,?,NULL,?,8100,'READY','READY',?,?)`, []any{revisionID, variantID, c
 		requirements[index].newDigest = install(&requirements[index], "new", 1)
 	}
 	assertMelonDSLaunch(t, ctx, service, oldLaunch, requirements, false)
-	pending, err := service.Create(ctx, CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
+	pending, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	if err != nil || pending.Status != "VALIDATION_PENDING" || pending.JobID == "" {
 		t.Fatalf("new BIOS validation = %#v, error=%v", pending, err)
 	}
@@ -733,7 +740,7 @@ VALUES(?,?,?,?,NULL,?,8100,'READY','READY',?,?)`, []any{revisionID, variantID, c
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	newLaunch, err := service.Create(ctx, CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
+	newLaunch, err := service.Create(ctx, "local", CreateRequest{GameID: gameID, CoreID: &melonds, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities})
 	if err != nil || newLaunch.LaunchID == "" {
 		t.Fatalf("new MelonDS launch = %#v, error=%v", newLaunch, err)
 	}
@@ -786,6 +793,7 @@ func TestDOSLaunchLocksMenuOrSelectedDeterministicBundle(t *testing.T) {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	seedLocalProfile(t, database.SQL)
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(
@@ -909,6 +917,7 @@ WHERE d.import_item_id=?
 	}
 	direct, err := service.Create(
 		ctx,
+		"local",
 		CreateRequest{
 			GameID:             approved.GameID,
 			DOSEntry:           &selected,
@@ -939,6 +948,7 @@ WHERE d.import_item_id=?
 	}
 	direct, err = service.Create(
 		ctx,
+		"local",
 		CreateRequest{
 			GameID:             approved.GameID,
 			DOSEntry:           &selected,
@@ -996,6 +1006,7 @@ WHERE launch_session_id=?
 	}
 	menu, err := service.Create(
 		ctx,
+		"local",
 		CreateRequest{GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID, ClientCapabilities: capabilities},
 	)
 	if err != nil {
@@ -1010,14 +1021,14 @@ WHERE launch_session_id=?
 		t.Fatalf("DOS menu config = %#v", menuConfig)
 	}
 	unsafe := "DOOM/SETUP%.BAT"
-	if _, err := service.Create(ctx, CreateRequest{GameID: approved.GameID, DOSEntry: &unsafe, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
+	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, DOSEntry: &unsafe, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
 		err,
 		ErrDOSEntryUnsafe,
 	) {
 		t.Fatalf("unsafe DOS entry error = %v", err)
 	}
 	missing := "DOOM/MISSING.EXE"
-	if _, err := service.Create(ctx, CreateRequest{GameID: approved.GameID, DOSEntry: &missing, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
+	if _, err := service.Create(ctx, "local", CreateRequest{GameID: approved.GameID, DOSEntry: &missing, ReturnTo: "/", ClientCapabilities: capabilities}); !errors.Is(
 		err,
 		ErrDOSEntryMissing,
 	) {
@@ -1073,6 +1084,13 @@ WHERE id=?
 	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, invalidJobID).
 		Scan(&failedState); err != nil || failedState != "QUEUED" {
 		t.Fatalf("stale validation recovery = %s, error=%v", failedState, err)
+	}
+}
+
+func seedLocalProfile(t *testing.T, database *sql.DB) {
+	t.Helper()
+	if _, err := database.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
+		t.Fatal(err)
 	}
 }
 

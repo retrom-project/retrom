@@ -435,11 +435,14 @@ WHERE id=?
 		return DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	eventID, _ := uuid.NewV7()
+	actor := reviewActor(ctx)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,
 import_item_id,
 event_type,
-actor,
+actor_kind,
+actor_user_id,
+actor_label,
 before_json,
 after_json,
 diff_json,
@@ -449,7 +452,9 @@ provider_evidence_json,
 created_at_ms) VALUES(?,
 ?,
 'DRAFT_SAVED',
-'local',
+?,
+?,
+?,
 ?,
 ?,
 ?,
@@ -457,7 +462,10 @@ created_at_ms) VALUES(?,
 '{}',
 '{}',
 ?)
-`, eventID.String(), itemID, metadataJSON, string(encoded), string(encoded), now); err != nil {
+`,
+		eventID.String(), itemID, actor.Kind, actor.UserID, actor.Label,
+		metadataJSON, string(encoded), string(encoded), now,
+	); err != nil {
 		return DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -1100,11 +1108,14 @@ WHERE id=?
 		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	eventID, _ := uuid.NewV7()
+	actor := reviewActor(ctx)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,
 import_item_id,
 event_type,
-actor,
+actor_kind,
+actor_user_id,
+actor_label,
 before_json,
 after_json,
 diff_json,
@@ -1115,7 +1126,9 @@ reason,
 created_at_ms) VALUES(?,
 ?,
 'DISCARDED',
-'local',
+?,
+?,
+?,
 ?,
 '{"schemaVersion":1,"decision":"DISCARDED"}',
 '{"schemaVersion":1,"decision":"DISCARDED"}',
@@ -1127,6 +1140,9 @@ created_at_ms) VALUES(?,
 `,
 		eventID.String(),
 		itemID,
+		actor.Kind,
+		actor.UserID,
+		actor.Label,
 		string(beforeJSON),
 		string(configEvidenceJSON),
 		string(datEvidenceJSON),

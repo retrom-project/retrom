@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
@@ -63,6 +64,14 @@ FROM instance_state WHERE id=1
 	if users != 1 || profiles != 1 || credentials != 1 || kind != "TEST_DEFAULT" || active != 1 {
 		t.Fatalf("bootstrap = %d/%d/%d %s/%d", users, profiles, credentials, kind, active)
 	}
+	var actorKind, actorLabel string
+	var actorUserID any
+	if err := fixture.database.SQL.QueryRow(`
+SELECT actor_kind,actor_user_id,actor_label FROM audit_events WHERE action='INSTANCE_INITIALIZED'
+`).Scan(&actorKind, &actorUserID, &actorLabel); err != nil || actorKind != "SYSTEM" || actorUserID != nil ||
+		actorLabel != "startup-test-bootstrap" {
+		t.Fatalf("bootstrap actor = %s/%v/%s, error=%v", actorKind, actorUserID, actorLabel, err)
+	}
 	loggedIn, err := fixture.service.Login(context.Background(), "test", "test")
 	if err != nil || loggedIn.User.Username != "test" || loggedIn.User.Role != "ADMIN" {
 		t.Fatalf("test login = %#v, %v", loggedIn.User, err)
@@ -105,9 +114,10 @@ func TestReleaseInitializationLoginExpiryAndPasswordRotation(t *testing.T) {
 	if initialized.User.Role != "ADMIN" || initialized.CSRFToken == "" || initialized.CookieToken == "" {
 		t.Fatalf("initialized session = %#v", initialized)
 	}
+	otherPassword := strings.Repeat("other phrase ", 2)
 	if _, err := fixture.service.Initialize(context.Background(), InitializeRequest{
 		SetupCode: fixture.credentials.SetupCode(), Username: "other", DisplayName: "Other Admin",
-		Password: "another sufficiently long phrase", PasswordConfirmation: "another sufficiently long phrase",
+		Password: otherPassword, PasswordConfirmation: otherPassword,
 	}); !errors.Is(err, ErrInitializationDone) {
 		t.Fatalf("reinitialize = %v", err)
 	}

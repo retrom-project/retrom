@@ -275,11 +275,16 @@ WHERE id=? AND version=?
 		"originalFilename": filepath.Base(originalName), "baseSourceSnapshotId": effectiveSnapshotID,
 		"validationId": request.ValidationID, "state": "QUEUED",
 	})
+	actor := reviewActor(ctx)
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO review_events(id,import_item_id,event_type,actor,before_json,after_json,diff_json,
+INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
+before_json,after_json,diff_json,
 config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'PARENT_UPLOAD_REQUESTED','local','{}',?,?,'{}',?,'{}',?)
-`, eventID.String(), itemID, string(evidence), string(evidence), string(evidence), now); err != nil {
+VALUES(?,?,'PARENT_UPLOAD_REQUESTED',?,?,?,'{}',?,?,'{}',?,'{}',?)
+`,
+		eventID.String(), itemID, actor.Kind, actor.UserID, actor.Label,
+		string(evidence), string(evidence), string(evidence), now,
+	); err != nil {
 		return ParentAttachmentCreated{}, parentError(ParentErrorUnavailable, err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -787,10 +792,12 @@ UPDATE import_items SET version=version+1,updated_at_ms=? WHERE id=? AND state='
 		return parentStoreError("advance import item", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO review_events(id,import_item_id,event_type,actor,before_json,after_json,diff_json,
+INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
+before_json,after_json,diff_json,
 config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'PARENT_ATTACHMENT_ACCEPTED','local','{}',?,?,'{}',?,'{}',?)
-	`, eventID.String(), candidate.itemID, string(evidence), string(evidence), string(evidence), now); err != nil {
+VALUES(?,?,'PARENT_ATTACHMENT_ACCEPTED',?,?,?,'{}',?,?,'{}',?,'{}',?)
+`, eventID.String(), candidate.itemID, reviewActor(ctx).Kind, reviewActor(ctx).UserID, reviewActor(ctx).Label,
+		string(evidence), string(evidence), string(evidence), now); err != nil {
 		return parentStoreError("record parent review event", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -869,10 +876,12 @@ VALUES(?,'IMPORT_ITEM',?,'PARENT_REJECTED',?,?),(?,'IMPORT_ITEM',?,'FAILED',?,?)
 		return
 	}
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO review_events(id,import_item_id,event_type,actor,before_json,after_json,diff_json,
+INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
+before_json,after_json,diff_json,
 config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'PARENT_ATTACHMENT_REJECTED','local','{}',?,?,'{}',?,'{}',?)
-`, eventID.String(), candidate.itemID, string(evidence), string(evidence), string(evidence), now); err != nil {
+VALUES(?,?,'PARENT_ATTACHMENT_REJECTED',?,?,?,'{}',?,?,'{}',?,'{}',?)
+`, eventID.String(), candidate.itemID, reviewActor(ctx).Kind, reviewActor(ctx).UserID, reviewActor(ctx).Label,
+		string(evidence), string(evidence), string(evidence), now); err != nil {
 		return
 	}
 	_ = transaction.Commit()

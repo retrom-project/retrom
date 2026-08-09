@@ -203,13 +203,7 @@ func run(mode config.Mode) error {
 	}
 	serveErrors := make(chan error, 1)
 	go func() {
-		slog.Info(
-			"retrom HTTP listening",
-			"address",
-			configuration.HTTPAddr,
-			"emulatorjsVersion",
-			configuration.ActiveEJSVersion,
-		)
+		slog.Info("retrom HTTP listening")
 		serveErrors <- server.ListenAndServe()
 	}()
 

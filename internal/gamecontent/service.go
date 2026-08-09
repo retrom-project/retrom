@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentmanifest"
 )
@@ -101,14 +102,20 @@ func (service *Service) schedule(
 	}
 	defer cleanup.Rollback(transaction)
 	now := service.now().UnixMilli()
+	principal, _ := authn.PrincipalFromContext(ctx)
+	principalID := principal.UserID
+	if principalID == "" {
+		principalID = "SYSTEM"
+	}
 	if key != "" {
 		if _, err := transaction.ExecContext(ctx, `
 DELETE
 FROM idempotency_records
 WHERE operation_id='postAdminGameContentRevision'
 AND key=?
+AND principal_id=?
 AND expires_at_ms<=?
-`, key, now); err != nil {
+`, key, principalID, now); err != nil {
 			return Scheduled{}, false, fmt.Errorf("gamecontent/service: %w", err)
 		}
 		var storedDigest string
@@ -119,7 +126,8 @@ response_body
 FROM idempotency_records
 WHERE operation_id='postAdminGameContentRevision'
 AND key=?
-`, key).
+AND principal_id=?
+`, key, principalID).
 			Scan(&storedDigest, &storedBody)
 		if err == nil {
 			if storedDigest != requestDigest {
@@ -298,14 +306,16 @@ created_at_ms) VALUES(?,
 			},
 		)
 		if _, err := transaction.ExecContext(ctx, `
-INSERT INTO idempotency_records(operation_id,
+INSERT INTO idempotency_records(principal_id,
+operation_id,
 key,
 request_digest,
 http_status,
 response_headers_json,
 response_body,
 created_at_ms,
-expires_at_ms) VALUES('postAdminGameContentRevision',
+expires_at_ms) VALUES(?,
+'postAdminGameContentRevision',
 ?,
 ?,
 202,
@@ -313,7 +323,15 @@ expires_at_ms) VALUES('postAdminGameContentRevision',
 ?,
 ?,
 ?)
-`, key, requestDigest, string(headers), responseBody, now, now+int64(24*time.Hour/time.Millisecond)); err != nil {
+`,
+			principalID,
+			key,
+			requestDigest,
+			string(headers),
+			responseBody,
+			now,
+			now+int64(24*time.Hour/time.Millisecond),
+		); err != nil {
 			return Scheduled{}, false, fmt.Errorf("gamecontent/service: %w", err)
 		}
 	}
@@ -339,7 +357,7 @@ execution_started_at_ms=?,
 execution_deadline_at_ms=?,
 leased_until_ms=?,
 heartbeat_at_ms=?,
-worker_id='local',
+worker_id='in-process',
 version=version+1,
 updated_at_ms=?
 WHERE id=?
@@ -631,7 +649,7 @@ version=version+1,
 updated_at_ms=?
 WHERE id=?
 AND state='RUNNING'
-AND worker_id='local'
+AND worker_id='in-process'
 `,
 		finished,
 		finished,

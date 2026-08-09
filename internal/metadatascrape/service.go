@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/hasheous"
@@ -615,11 +616,14 @@ AND version=?
 	after, _ := json.Marshal(
 		map[string]any{"metadataProvider": providerName, "scrapeRunId": scheduled.RunID, "jobId": scheduled.JobID},
 	)
+	actor := authn.ActorFromContext(ctx, "release-setup")
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,
 import_item_id,
 event_type,
-actor,
+actor_kind,
+actor_user_id,
+actor_label,
 before_json,
 after_json,
 diff_json,
@@ -629,7 +633,9 @@ provider_evidence_json,
 created_at_ms) VALUES(?,
 ?,
 'SCRAPE_REQUESTED',
-'local',
+?,
+?,
+?,
 ?,
 ?,
 ?,
@@ -637,7 +643,10 @@ created_at_ms) VALUES(?,
 '{}',
 ? ,
 ?)
-`, newID(), itemID, before, string(after), string(after), string(after), now); err != nil {
+`,
+		newID(), itemID, actor.Kind, actor.UserID, actor.Label,
+		before, string(after), string(after), string(after), now,
+	); err != nil {
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -922,7 +931,7 @@ execution_started_at_ms=?,
 execution_deadline_at_ms=?,
 leased_until_ms=?,
 heartbeat_at_ms=?,
-worker_id='local',
+worker_id='in-process',
 version=version+1,
 updated_at_ms=?
 WHERE id=?

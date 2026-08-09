@@ -17,6 +17,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/gamecontent"
@@ -2306,6 +2307,7 @@ AND g.status='PUBLISHED'
 }
 
 func (server *Server) saveStateScreenshot(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
 	var digest, mediaType string
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT b.sha256,
@@ -2314,9 +2316,10 @@ FROM save_states s
 JOIN blobs b ON b.id=s.screenshot_blob_id
 JOIN games g ON g.id=s.game_id
 WHERE s.id=?
+AND s.profile_id=?
 AND s.deleted_at_ms IS NULL
 AND g.status='PUBLISHED'
-`, request.PathValue("saveStateId")).Scan(&digest, &mediaType)
+`, request.PathValue("saveStateId"), principal.ProfileID).Scan(&digest, &mediaType)
 	if err != nil {
 		writeError(
 			writer,

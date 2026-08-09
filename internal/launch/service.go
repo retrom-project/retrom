@@ -83,8 +83,8 @@ func New(
 }
 
 //nolint:funlen,gocognit,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
-func (service *Service) Create(ctx context.Context, request CreateRequest) (Created, error) {
-	if request.GameID == "" || !validReturnTo(request.ReturnTo, request.GameID) {
+func (service *Service) Create(ctx context.Context, profileID string, request CreateRequest) (Created, error) {
+	if profileID == "" || request.GameID == "" || !validReturnTo(request.ReturnTo, request.GameID) {
 		return Created{}, ErrBlocked
 	}
 	coreID := ""
@@ -116,12 +116,12 @@ JOIN core_artifacts a ON a.id=s.core_artifact_id
 JOIN cores c ON c.id=a.core_id
 WHERE s.id=?
 AND s.game_id=?
-AND s.profile_id='local'
+AND s.profile_id=?
 AND s.deleted_at_ms IS NULL
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
-`, *request.SaveStateID, request.GameID).
+`, *request.SaveStateID, request.GameID, profileID).
 			Scan(&variantRevisionID, &artifactID, &selectedCore, &emulatorVersion, &requiresThreads, &savedDOSEntry)
 		if err != nil || request.CoreID != nil && coreID != selectedCore {
 			return Created{}, ErrBlocked
@@ -167,7 +167,7 @@ LIMIT 1
 			&contentLogicalName,
 		); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
-				return service.ensureVariant(ctx, request, coreID, true)
+				return service.ensureVariant(ctx, profileID, request, coreID, true)
 			}
 			return Created{}, ErrBlocked
 		}
@@ -190,7 +190,7 @@ LIMIT 1
 			return Created{}, ErrBlocked
 		}
 		if validationInputDigest != expectedDigest {
-			return service.ensureVariant(ctx, request, coreID, true)
+			return service.ensureVariant(ctx, profileID, request, coreID, true)
 		}
 	}
 	if requiresThreads == 1 &&
@@ -247,10 +247,10 @@ AND d.enabled=1
 		baseErr := service.database.QueryRowContext(ctx, `
 SELECT current_revision_id
 FROM persistent_saves
-WHERE profile_id='local'
+WHERE profile_id=?
 AND game_variant_revision_id=?
 AND kind=?
-	`, variantRevisionID, *compatibility.PersistentSaveKind).
+	`, profileID, variantRevisionID, *compatibility.PersistentSaveKind).
 			Scan(&persistentBase)
 		if baseErr != nil && !errors.Is(baseErr, sql.ErrNoRows) {
 			return Created{}, fmt.Errorf("launch/service: %w", baseErr)
@@ -288,7 +288,7 @@ bootstrap_expires_at_ms,
 hard_expires_at_ms,
 created_at_ms,
 updated_at_ms) VALUES(?,
-'local',
+?,
 ?,
 ?,
 ?,
@@ -304,6 +304,7 @@ updated_at_ms) VALUES(?,
 ?)
 `,
 		launchID.String(),
+		profileID,
 		request.GameID,
 		variantRevisionID,
 		artifactID,

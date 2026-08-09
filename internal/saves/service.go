@@ -78,19 +78,20 @@ type manualMetadata struct {
 }
 
 type launchSnapshot struct {
-	profileID, gameID, variantRevisionID, artifactID string
-	persistentSaveMode, persistentSaveKind           string
-	datVersionID, dosEntry                           sql.NullString
-	credentialHash                                   []byte
-	state                                            string
-	hardExpiresAtMS                                  int64
+	principalID, profileID, gameID, variantRevisionID, artifactID string
+	persistentSaveMode, persistentSaveKind                        string
+	datVersionID, dosEntry                                        sql.NullString
+	credentialHash                                                []byte
+	state                                                         string
+	hardExpiresAtMS                                               int64
 }
 
 func (service *Service) launch(ctx context.Context, launchID, capability string) (launchSnapshot, error) {
 	var result launchSnapshot
 	var compatibilityJSON string
 	err := service.database.QueryRowContext(ctx, `
-SELECT l.profile_id,
+SELECT COALESCE(u.id,l.profile_id),
+l.profile_id,
 l.game_id,
 l.game_variant_revision_id,
 l.core_artifact_id,
@@ -103,10 +104,14 @@ a.compatibility_config_json
 FROM launch_sessions l
 JOIN game_variant_revisions r ON r.id=l.game_variant_revision_id
 JOIN core_artifacts a ON a.id=l.core_artifact_id
+LEFT JOIN users u ON u.profile_id=l.profile_id
 WHERE l.id=?
 `, launchID).
-		Scan(&result.profileID, &result.gameID, &result.variantRevisionID, &result.artifactID, &result.datVersionID,
-			&result.dosEntry, &result.credentialHash, &result.state, &result.hardExpiresAtMS, &compatibilityJSON)
+		Scan(
+			&result.principalID, &result.profileID, &result.gameID, &result.variantRevisionID, &result.artifactID,
+			&result.datVersionID, &result.dosEntry, &result.credentialHash, &result.state, &result.hardExpiresAtMS,
+			&compatibilityJSON,
+		)
 	if err != nil || !retromruntime.MatchesCapability(capability, result.credentialHash) ||
 		result.state != "ACTIVE" || result.hardExpiresAtMS <= service.now().UnixMilli() {
 		return launchSnapshot{}, ErrCredential
@@ -315,8 +320,9 @@ response_body
 FROM idempotency_records
 WHERE operation_id='postRuntimeSaveState'
 AND key=?
+AND principal_id=?
 AND expires_at_ms>?
-`, idempotencyKey, service.now().UnixMilli()).
+`, idempotencyKey, launch.principalID, service.now().UnixMilli()).
 		Scan(&storedDigest, &storedBody)
 	if lookupErr == nil {
 		if subtle.ConstantTimeCompare([]byte(storedDigest), []byte(requestDigest)) != 1 {
@@ -416,7 +422,8 @@ VALUES(?,
 	_, err = transaction.ExecContext(
 		ctx,
 		`
-INSERT INTO idempotency_records(operation_id,
+INSERT INTO idempotency_records(principal_id,
+operation_id,
 key,
 request_digest,
 http_status,
@@ -424,7 +431,8 @@ response_headers_json,
 response_body,
 created_at_ms,
 expires_at_ms)
-VALUES('postRuntimeSaveState',
+VALUES(?,
+'postRuntimeSaveState',
 ?,
 ?,
 201,
@@ -433,6 +441,7 @@ VALUES('postRuntimeSaveState',
 ?,
 ?)
 `,
+		launch.principalID,
 		idempotencyKey,
 		requestDigest,
 		body,
@@ -554,8 +563,9 @@ response_body
 FROM idempotency_records
 WHERE operation_id='putRuntimePersistentSave'
 AND key=?
+AND principal_id=?
 AND expires_at_ms>?
-`, idempotencyKey, now).
+`, idempotencyKey, launch.principalID, now).
 		Scan(&storedDigest, &storedBody)
 	if lookupErr == nil {
 		if subtle.ConstantTimeCompare([]byte(storedDigest), []byte(requestDigest)) != 1 {
@@ -597,7 +607,9 @@ AND r.client_sequence=?
 		if existingEvent != event || subtle.ConstantTimeCompare([]byte(existingDigest), []byte(metadata.SHA256)) != 1 {
 			return PersistentResult{}, false, ErrSequenceReused
 		}
-		if err := storePersistentIdempotency(ctx, transaction, idempotencyKey, requestDigest, existing, now); err != nil {
+		if err := storePersistentIdempotency(
+			ctx, transaction, launch.principalID, idempotencyKey, requestDigest, existing, now,
+		); err != nil {
 			return PersistentResult{}, false, err
 		}
 		if err := transaction.Commit(); err != nil {
@@ -763,7 +775,9 @@ AND current_revision_id=?
 		Sequence:         sequence,
 		CreatedAtMS:      now,
 	}
-	if err := storePersistentIdempotency(ctx, transaction, idempotencyKey, requestDigest, result, now); err != nil {
+	if err := storePersistentIdempotency(
+		ctx, transaction, launch.principalID, idempotencyKey, requestDigest, result, now,
+	); err != nil {
 		return PersistentResult{}, false, err
 	}
 	if err := transaction.Commit(); err != nil {
@@ -775,6 +789,7 @@ AND current_revision_id=?
 func storePersistentIdempotency(
 	ctx context.Context,
 	transaction *sql.Tx,
+	principalID string,
 	key string,
 	requestDigest string,
 	result PersistentResult,
@@ -787,7 +802,8 @@ func storePersistentIdempotency(
 	_, err = transaction.ExecContext(
 		ctx,
 		`
-INSERT INTO idempotency_records(operation_id,
+INSERT INTO idempotency_records(principal_id,
+operation_id,
 key,
 request_digest,
 http_status,
@@ -795,7 +811,8 @@ response_headers_json,
 response_body,
 created_at_ms,
 expires_at_ms)
-VALUES('putRuntimePersistentSave',
+VALUES(?,
+'putRuntimePersistentSave',
 ?,
 ?,
 201,
@@ -804,6 +821,7 @@ VALUES('putRuntimePersistentSave',
 ?,
 ?)
 `,
+		principalID,
 		key,
 		requestDigest,
 		body,

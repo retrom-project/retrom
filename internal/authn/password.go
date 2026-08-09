@@ -172,12 +172,12 @@ func (hasher *PasswordHasher) Hash(ctx context.Context, normalized string) (stri
 		return "", fmt.Errorf("generate password salt: %w", err)
 	}
 	if err := hasher.acquire(ctx); err != nil {
-		return "", err
+		return "", fmt.Errorf("acquire password hash worker: %w", err)
 	}
 	hash := argon2.IDKey([]byte(normalized), salt, argonIterations, argonMemory, argonParallelism, argonHashBytes)
 	<-hasher.semaphore
 	if err := ctx.Err(); err != nil {
-		return "", err
+		return "", fmt.Errorf("hash password: %w", err)
 	}
 	return encodePHC(salt, hash), nil
 }
@@ -188,12 +188,12 @@ func (hasher *PasswordHasher) Verify(ctx context.Context, normalized, encoded st
 		return false, err
 	}
 	if err := hasher.acquire(ctx); err != nil {
-		return false, err
+		return false, fmt.Errorf("acquire password verification worker: %w", err)
 	}
 	actual := argon2.IDKey([]byte(normalized), salt, argonIterations, argonMemory, argonParallelism, argonHashBytes)
 	<-hasher.semaphore
 	if err := ctx.Err(); err != nil {
-		return false, err
+		return false, fmt.Errorf("verify password: %w", err)
 	}
 	return subtle.ConstantTimeCompare(actual, expected) == 1, nil
 }
@@ -203,7 +203,7 @@ func (hasher *PasswordHasher) acquire(ctx context.Context) error {
 	case hasher.semaphore <- struct{}{}:
 		return nil
 	case <-ctx.Done():
-		return ctx.Err()
+		return fmt.Errorf("wait for password worker: %w", ctx.Err())
 	}
 }
 
