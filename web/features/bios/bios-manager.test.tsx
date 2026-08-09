@@ -85,11 +85,13 @@ describe("BIOSManager", () => {
     const actualList = within(dialog).getByRole("list", { name: "当前 ZIP 内容列表" });
     expect(expectedList.querySelectorAll(":scope > li")).toHaveLength(2);
     expect(actualList.querySelectorAll(":scope > li")).toHaveLength(2);
+    const expectedHeader = within(dialog).getByRole("list", { name: "DAT 要求字段表头" });
+    expect(within(expectedHeader).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(expectedHeader).getAllByRole("listitem").map((field) => field.textContent)).toEqual(["name", "size", "crc"]);
     const expectedFacts = within(expectedList).getByRole("list", { name: "epr19730.ic8 文件信息" });
     expect(within(expectedFacts).getAllByRole("listitem")).toHaveLength(3);
-    expect(within(expectedFacts).getByText("name")).toBeVisible();
-    expect(within(expectedFacts).getByText("size")).toBeVisible();
-    expect(within(expectedFacts).getByText("crc")).toBeVisible();
+    expect(within(expectedFacts).queryByText("name")).not.toBeInTheDocument();
+    expect(within(expectedFacts).getByText("524,288 bytes")).toBeVisible();
     expect(within(expectedList).getByText("epr19730.ic8")).toBeVisible();
     expect(within(expectedList).queryByText("readme.txt")).not.toBeInTheDocument();
     expect(within(actualList).getByText("epr-19730.ic8")).toBeVisible();

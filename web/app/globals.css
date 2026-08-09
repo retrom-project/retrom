@@ -1329,14 +1329,15 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
 .bios-entry-column > header { position: sticky; z-index: 1; top: 0; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid var(--line); background: var(--surface-raised); }
 .bios-entry-column > header strong { font-size: 12px; }
 .bios-entry-column > header span { color: var(--muted); font-size: 10px; }
+.bios-entry-field-head, .bios-entry-facts { grid-template-columns: minmax(0, 1.5fr) minmax(105px, .9fr) minmax(84px, .75fr); }
+.bios-entry-field-head { margin: 0; padding: 8px 20px; display: grid; gap: 12px; color: var(--muted); border-bottom: 1px solid var(--line); background: #fbfbfc; font-size: 10px; font-weight: 750; list-style: none; text-transform: uppercase; }
 .bios-entry-list { margin: 0; padding: 9px; display: grid; gap: 8px; list-style: none; }
 .bios-entry-card { min-width: 0; min-height: 112px; padding: 10px; display: grid; align-content: start; gap: 8px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-raised); }
 .bios-entry-card-head { min-height: 22px; display: flex; align-items: flex-start; justify-content: flex-end; }
 .bios-entry-card-head > .status-badge { max-width: 210px; white-space: normal; text-align: right; }
 .bios-entry-card.is-mismatched, .bios-entry-card.is-missing { border-color: #efc2c6; background: #fffafa; }
-.bios-entry-facts { min-width: 0; margin: 0; padding: 0; display: grid; gap: 5px; list-style: none; }
-.bios-entry-facts > li { min-width: 0; display: grid; grid-template-columns: 42px minmax(0, 1fr); gap: 7px; }
-.bios-entry-facts > li > span { color: var(--muted); font-size: 10px; text-transform: uppercase; }
+.bios-entry-facts { min-width: 0; margin: 0; padding: 0; display: grid; gap: 12px; align-items: start; list-style: none; }
+.bios-entry-facts > li { min-width: 0; }
 .bios-entry-facts > li > strong, .bios-entry-facts > li > code { min-width: 0; overflow-wrap: anywhere; font-size: 11px; font-weight: 400; }
 .bios-entry-facts code { font-size: 10px; }
 .bios-entry-message { min-height: 100px; display: grid; place-items: center; color: var(--muted); }
