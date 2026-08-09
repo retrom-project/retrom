@@ -18,14 +18,72 @@ import (
 )
 
 const (
-	launchDomain    = "retrom-launch-v1\x00"
-	cursorKeyDomain = "retrom-cursor-key-v1"
+	launchDomain       = "retrom-launch-v1\x00"
+	cursorKeyDomain    = "retrom-cursor-key-v1"
+	setupCodeDomain    = "retrom-setup-v1"
+	accountKeyDomain   = "retrom-account-link-key-v1"
+	accountLinkDomain  = "retrom-account-link-v1\x00"
+	rateLimitKeyDomain = "retrom-rate-limit-key-v1"
 )
 
 var ErrLaunchKeyInvalid = errors.New("LAUNCH_KEY_INVALID")
 
 type Credentials struct {
 	key [32]byte
+}
+
+func (credentials *Credentials) SetupCode() string {
+	return EncodeCapability(credentials.derive(setupCodeDomain))
+}
+
+func (credentials *Credentials) MatchesSetupCode(value string) bool {
+	expected := credentials.SetupCode()
+	return subtle.ConstantTimeCompare([]byte(value), []byte(expected)) == 1
+}
+
+func (credentials *Credentials) AccountLinkToken(kind string, linkID uuid.UUID) string {
+	key := credentials.derive(accountKeyDomain)
+	mac := hmac.New(sha256.New, key[:])
+	_, _ = mac.Write([]byte(accountLinkDomain))
+	_, _ = mac.Write([]byte(kind))
+	_, _ = mac.Write([]byte{0})
+	_, _ = mac.Write(linkID[:])
+	result := make([]byte, 0, 48)
+	result = append(result, linkID[:]...)
+	result = append(result, mac.Sum(nil)...)
+	return base64.RawURLEncoding.EncodeToString(result)
+}
+
+func (credentials *Credentials) ParseAccountLinkToken(kind, encoded string) (uuid.UUID, bool) {
+	decoded, err := base64.RawURLEncoding.DecodeString(encoded)
+	if err != nil || len(decoded) != 48 || base64.RawURLEncoding.EncodeToString(decoded) != encoded {
+		return uuid.Nil, false
+	}
+	linkID, err := uuid.FromBytes(decoded[:16])
+	if err != nil || linkID.Version() != 7 {
+		return uuid.Nil, false
+	}
+	expected := credentials.AccountLinkToken(kind, linkID)
+	return linkID, subtle.ConstantTimeCompare([]byte(encoded), []byte(expected)) == 1
+}
+
+func (credentials *Credentials) RateLimitSubject(scope, subject string) [32]byte {
+	key := credentials.derive(rateLimitKeyDomain)
+	mac := hmac.New(sha256.New, key[:])
+	_, _ = mac.Write([]byte(scope))
+	_, _ = mac.Write([]byte{0})
+	_, _ = mac.Write([]byte(subject))
+	var result [32]byte
+	copy(result[:], mac.Sum(nil))
+	return result
+}
+
+func (credentials *Credentials) derive(domain string) [32]byte {
+	mac := hmac.New(sha256.New, credentials.key[:])
+	_, _ = mac.Write([]byte(domain))
+	var result [32]byte
+	copy(result[:], mac.Sum(nil))
+	return result
 }
 
 func LoadOrCreateCredentials(dataDir string) (*Credentials, error) {

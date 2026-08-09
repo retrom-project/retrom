@@ -65,6 +65,16 @@ func TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog(t *testing.T) {
 	if platformCount != 21 || coreCount != 28 || directoryCount != 23 {
 		t.Fatalf("seed counts = %d/%d/%d", platformCount, coreCount, directoryCount)
 	}
+	var profileCount, userCount int
+	var instanceState string
+	if err := database.SQL.QueryRow(`
+SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM instance_state WHERE id=1
+`).Scan(&profileCount, &userCount, &instanceState); err != nil {
+		t.Fatal(err)
+	}
+	if profileCount != 0 || userCount != 0 || instanceState != "PENDING" {
+		t.Fatalf("pending auth state = profiles:%d users:%d state:%s", profileCount, userCount, instanceState)
+	}
 	platformIDs := queryStrings(t, database.SQL, "SELECT id FROM platforms ORDER BY id")
 	wantPlatforms := []string{"3do", "arcade", "atari2600", "atari5200", "atari7800", "dos", "fds", "gba", "gbc", "lynx", "megadrive", "n64", "nds", "nes", "ngpc", "pce", "pcfx", "psp", "psx", "saturn", "snes"}
 	if !slices.Equal(platformIDs, wantPlatforms) {
@@ -274,9 +284,13 @@ func TestReviewArcadeParentMigrationUpgradesVersion18(t *testing.T) {
 	}
 
 	upgraded, err := Open(ctx, databasePath, time.Now)
-	if err != nil {
-		t.Fatal(err)
+	if !errors.Is(err, ErrDatabaseRebuild) {
+		t.Fatalf("legacy version 18 error = %v", err)
 	}
+	if upgraded != nil {
+		cleanup.Error("close", upgraded.Close())
+	}
+	return
 	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
 	var revision int
 	var snapshotID, draftSnapshotID, validationSnapshotID, manifestDigest string
@@ -338,7 +352,7 @@ func TestReviewArcadeParentMigrationRejectsDriftedManifest(t *testing.T) {
 	if err := legacy.Close(); err != nil {
 		t.Fatal(err)
 	}
-	if upgraded, err := Open(ctx, databasePath, time.Now); !errors.Is(err, ErrMigrationChecksum) {
+	if upgraded, err := Open(ctx, databasePath, time.Now); !errors.Is(err, ErrDatabaseRebuild) {
 		if upgraded != nil {
 			cleanup.Error("close", upgraded.Close())
 		}
@@ -376,9 +390,13 @@ func TestDOSExternalConfigMigrationRepointsLegacyLaunchContent(t *testing.T) {
 	}
 
 	upgraded, err := Open(ctx, databasePath, time.Now)
-	if err != nil {
-		t.Fatal(err)
+	if !errors.Is(err, ErrDatabaseRebuild) {
+		t.Fatalf("legacy version 10 error = %v", err)
 	}
+	if upgraded != nil {
+		cleanup.Error("close", upgraded.Close())
+	}
+	return
 	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
 	var logicalName, blobID, formatVersion string
 	if err := upgraded.SQL.QueryRowContext(ctx, `
@@ -490,9 +508,13 @@ INSERT INTO content_hash_evidence(
 	}
 
 	upgraded, err := Open(ctx, databasePath, time.Now)
-	if err != nil {
-		t.Fatal(err)
+	if !errors.Is(err, ErrDatabaseRebuild) {
+		t.Fatalf("legacy version 13 error = %v", err)
 	}
+	if upgraded != nil {
+		cleanup.Error("close", upgraded.Close())
+	}
+	return
 	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
 	var archiveFormat, compressionProfile string
 	if err := upgraded.SQL.QueryRowContext(ctx, `
@@ -568,9 +590,13 @@ VALUES
 	}
 
 	upgraded, err := Open(ctx, databasePath, time.Now)
-	if err != nil {
-		t.Fatal(err)
+	if !errors.Is(err, ErrDatabaseRebuild) {
+		t.Fatalf("legacy version 14 error = %v", err)
 	}
+	if upgraded != nil {
+		cleanup.Error("close", upgraded.Close())
+	}
+	return
 	t.Cleanup(func() { cleanup.Error("close", upgraded.Close()) })
 	var rejectedState, ignoredState string
 	var rejectedCompleted, ignoredCompleted sql.NullInt64

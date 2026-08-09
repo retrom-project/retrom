@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"sort"
 	"strconv"
@@ -34,6 +35,8 @@ CREATE TABLE IF NOT EXISTS schema_migrations (
 var (
 	ErrMigrationChecksum = errors.New("MIGRATION_CHECKSUM_MISMATCH")
 	ErrFutureSchema      = errors.New("DATABASE_SCHEMA_TOO_NEW")
+	ErrDatabaseRebuild   = errors.New("DATABASE_REBUILD_REQUIRED")
+	ErrSchemaInvalid     = errors.New("DATABASE_SCHEMA_INVALID")
 	errIntegrityCheck    = errors.New("sqlite integrity check failed")
 	errForeignKeyCheck   = errors.New("sqlite foreign key check failed")
 	errDatabaseFilename  = errors.New("invalid database filename")
@@ -46,6 +49,9 @@ type DB struct {
 }
 
 func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
+	if err := preflightExistingDatabase(ctx, path); err != nil {
+		return nil, err
+	}
 	if err := ensureParent(path); err != nil {
 		return nil, err
 	}
@@ -73,6 +79,92 @@ func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
 		return nil, err
 	}
 	return &DB{SQL: database}, nil
+}
+
+func preflightExistingDatabase(ctx context.Context, path string) error {
+	info, err := fsStat(path)
+	if errors.Is(err, fs.ErrNotExist) {
+		return nil
+	}
+	if err != nil {
+		return fmt.Errorf("inspect database: %w", err)
+	}
+	if !info.Mode().IsRegular() || info.Size() == 0 {
+		if info.Mode().IsRegular() && info.Size() == 0 {
+			return nil
+		}
+		return errDatabaseFilename
+	}
+	uri := "file:" + filepath.ToSlash(path) + "?mode=ro&immutable=1"
+	database, err := sql.Open("sqlite", uri)
+	if err != nil {
+		return fmt.Errorf("probe sqlite: %w", err)
+	}
+	defer func() { cleanup.Error("close", database.Close()) }()
+	var tableCount int
+	if err := database.QueryRowContext(ctx, `
+SELECT count(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_%'
+`).Scan(&tableCount); err != nil {
+		return fmt.Errorf("%w: unreadable schema", ErrSchemaInvalid)
+	}
+	var migrationTableCount int
+	if err := database.QueryRowContext(ctx, `
+SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'
+`).Scan(&migrationTableCount); err != nil {
+		return fmt.Errorf("%w: migration catalog", ErrSchemaInvalid)
+	}
+	if migrationTableCount == 0 {
+		if tableCount == 0 {
+			return nil
+		}
+		return fmt.Errorf("%w: migration catalog missing", ErrSchemaInvalid)
+	}
+	var count int
+	var minimum, maximum sql.NullInt64
+	if err := database.QueryRowContext(ctx, `
+SELECT count(*),min(version),max(version) FROM schema_migrations
+`).Scan(&count, &minimum, &maximum); err != nil {
+		return fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+	}
+	if count == 0 {
+		if tableCount == 1 {
+			return nil
+		}
+		return fmt.Errorf("%w: empty migration history with business tables", ErrSchemaInvalid)
+	}
+	latest, err := latestMigrationVersion()
+	if err != nil {
+		return err
+	}
+	if maximum.Int64 > int64(latest) {
+		return fmt.Errorf("%w: %d", ErrFutureSchema, maximum.Int64)
+	}
+	if !minimum.Valid || !maximum.Valid || minimum.Int64 != 1 || maximum.Int64 != int64(count) {
+		return fmt.Errorf("%w: migration history has gaps", ErrSchemaInvalid)
+	}
+	if maximum.Int64 < 20 {
+		return fmt.Errorf("%w: found=%d required=20; use a new data root", ErrDatabaseRebuild, maximum.Int64)
+	}
+	return nil
+}
+
+func latestMigrationVersion() (int, error) {
+	entries, err := fs.ReadDir(migrations.Files, ".")
+	if err != nil {
+		return 0, fmt.Errorf("read migrations: %w", err)
+	}
+	latest := 0
+	for _, entry := range entries {
+		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+			continue
+		}
+		version, parseErr := strconv.Atoi(strings.SplitN(entry.Name(), "_", 2)[0])
+		if parseErr != nil || version <= latest {
+			return 0, fmt.Errorf("%w: %s", errMigrationFilename, entry.Name())
+		}
+		latest = version
+	}
+	return latest, nil
 }
 
 func (database *DB) Close() error {
@@ -120,7 +212,10 @@ func mkdirAllOwnerOnly(path string) error {
 	return fsMkdirAll(path, 0o700)
 }
 
-var fsMkdirAll = mkdirAll
+var (
+	fsMkdirAll = mkdirAll
+	fsStat     = os.Stat
+)
 
 //nolint:gocyclo // Contract branches stay contiguous for a single auditable decision.
 func applyMigrations(ctx context.Context, database *sql.DB, now func() time.Time) error {

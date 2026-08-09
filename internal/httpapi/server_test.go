@@ -279,7 +279,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 19 ||
+		response.DatabaseSchemaVersion != 20 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -2114,6 +2114,11 @@ func newTestServer(t *testing.T) *Server {
 		t.Fatalf("open database: %v", err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	if _, err := database.SQL.Exec(`
+INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','测试玩家',0)
+`); err != nil {
+		t.Fatalf("seed service fixture profile: %v", err)
+	}
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
 	if err != nil {
 		t.Fatalf("load dependencies: %v", err)

@@ -33,6 +33,7 @@ var ignoredPrefixes = []string{
 }
 
 type Config struct {
+	Mode                Mode
 	HTTPAddr            string
 	PublicOrigin        *url.URL
 	DataDir             string
@@ -43,6 +44,21 @@ type Config struct {
 	TrustedProxies      []netip.Prefix
 	StartupCheckTimeout time.Duration
 	LogLevel            string
+}
+
+type Mode string
+
+const (
+	ModeRelease Mode = "release"
+	ModeTest    Mode = "test"
+)
+
+func ParseMode(value string) (Mode, error) {
+	mode := Mode(value)
+	if mode != ModeRelease && mode != ModeTest {
+		return "", fmt.Errorf("%w: mode", errInvalidConfig)
+	}
+	return mode, nil
 }
 
 type Maintenance struct {
@@ -96,7 +112,10 @@ func LoadRestoreMaintenance() (Maintenance, error) {
 }
 
 //nolint:gocyclo // Environment branches are independent fail-fast contract checks in a single configuration source.
-func Load() (Config, error) {
+func Load(mode Mode) (Config, error) {
+	if mode != ModeRelease && mode != ModeTest {
+		return Config{}, fmt.Errorf("%w: mode", errInvalidConfig)
+	}
 	if err := rejectUnknownVariables(os.Environ()); err != nil {
 		return Config{}, err
 	}
@@ -123,7 +142,7 @@ func Load() (Config, error) {
 	}
 	publicOrigin, err := parsePublicOrigin(
 		os.Getenv("RETROM_PUBLIC_ORIGIN"),
-		allowInsecurePublicOrigin == "true",
+		mode == ModeTest && allowInsecurePublicOrigin == "true",
 	)
 	if err != nil {
 		return Config{}, err
@@ -161,7 +180,7 @@ func Load() (Config, error) {
 		return Config{}, fmt.Errorf("%w: RETROM_LOG_LEVEL", errInvalidConfig)
 	}
 	return Config{
-		HTTPAddr: httpAddr, PublicOrigin: publicOrigin, DataDir: dataDir, DBPath: dbPath,
+		Mode: mode, HTTPAddr: httpAddr, PublicOrigin: publicOrigin, DataDir: dataDir, DBPath: dbPath,
 		DependencyRoot: dependencyRoot, DependencyVersions: versions, ActiveEJSVersion: active,
 		TrustedProxies: proxies, StartupCheckTimeout: startupTimeout, LogLevel: logLevel,
 	}, nil

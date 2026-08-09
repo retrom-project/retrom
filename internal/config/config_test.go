@@ -66,3 +66,17 @@ func TestRejectUnknownVariablesAllowsToolPrefixesOnly(t *testing.T) {
 		t.Fatal("unknown RETROM variable was accepted")
 	}
 }
+
+func TestParseModeIsClosed(t *testing.T) {
+	t.Parallel()
+	for _, value := range []string{"release", "test"} {
+		if mode, err := ParseMode(value); err != nil || string(mode) != value {
+			t.Fatalf("ParseMode(%q) = %q, %v", value, mode, err)
+		}
+	}
+	for _, value := range []string{"", "Test", "development"} {
+		if _, err := ParseMode(value); err == nil {
+			t.Fatalf("ParseMode(%q) succeeded", value)
+		}
+	}
+}

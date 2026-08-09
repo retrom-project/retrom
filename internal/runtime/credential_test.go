@@ -54,3 +54,27 @@ func TestCredentialsRejectSymlink(t *testing.T) {
 		t.Fatal("symlink launch key was accepted")
 	}
 }
+
+func TestCredentialPurposeSeparationAndAccountLinkValidation(t *testing.T) {
+	t.Parallel()
+	credentials, err := LoadOrCreateCredentials(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if code := credentials.SetupCode(); len(code) != 43 || !credentials.MatchesSetupCode(code) || credentials.MatchesSetupCode(code+"x") {
+		t.Fatalf("setup code validation failed: length=%d", len(code))
+	}
+	linkID := uuid.MustParse("01980000-0000-7000-8000-000000000001")
+	token := credentials.AccountLinkToken("INVITATION", linkID)
+	if parsed, ok := credentials.ParseAccountLinkToken("INVITATION", token); !ok || parsed != linkID {
+		t.Fatalf("invitation token = %s, %v", parsed, ok)
+	}
+	if _, ok := credentials.ParseAccountLinkToken("PASSWORD_RESET", token); ok {
+		t.Fatal("invitation token accepted as password reset")
+	}
+	login := credentials.RateLimitSubject("LOGIN_ACCOUNT", "alice")
+	setup := credentials.RateLimitSubject("SETUP_IP", "alice")
+	if bytes.Equal(login[:], setup[:]) {
+		t.Fatal("rate-limit scopes were not separated")
+	}
+}
