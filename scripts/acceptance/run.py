@@ -76,12 +76,51 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         120,
         "go test ./internal/runtime ./internal/httpapi -run 'TestCredentialsConcurrentCreationConverges|TestCredentialsRejectSymlink|TestRestrictedBinaryEndpointsRejectMultipleRanges' -count=1 && go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1",
     ),
-    "ACC-SEC-003": (120, "go test ./internal/httpapi -run '^TestWritesIgnoreBrowserOriginWithoutEnablingCORS$' -count=1"),
+    "ACC-SEC-003": (
+        120,
+        "go test ./internal/httpapi -run 'TestHealthIsPublicAndProtectedWritesRequireAuthentication|TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS|TestAuthHTTPTestLoginCookieCSRFAndLogout|TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin' -count=1",
+    ),
     "ACC-SEC-004": (120, "go test ./internal/hasheous -run 'TestLookupNormalizesBoundedResponse|TestLookupClassifiesMissAndOversize|TestFetchAssetValidatesImageAndEveryRedirect' -count=1"),
     "ACC-API-001": (120, "go test ./internal/httpapi ./internal/cursor -count=1"),
     "ACC-OPS-001": (
         120,
         "go test ./internal/config ./internal/httpapi -run 'TestRejectUnknownVariablesAllowsToolPrefixesOnly|TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders' -count=1 && go test -tags=integration ./internal/httpapi -run '^TestReadinessGatesBusinessRoutesDuringDATIndexing$' -count=1",
+    ),
+    "ACC-AUTH-001": (
+        120,
+        "go test ./internal/accounts ./internal/httpapi -run 'TestReadSetupCodeIsReadOnlyAndPendingOnly|TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin|TestReleaseInitializationLoginExpiryAndPasswordRotation' -count=1",
+    ),
+    "ACC-AUTH-002": (
+        120,
+        "go test ./internal/accounts ./internal/store -run 'TestTestModeBootstrapsExactlyOnceAndReleaseRejectsDefaultCredential|TestSupportedMigrationVersionsIdempotencyAndFutureProtection' -count=1",
+    ),
+    "ACC-AUTH-003": (
+        120,
+        "make data-check && make deps-check && go test ./internal/accounts ./internal/httpapi -run 'TestReleaseInitializationLoginExpiryAndPasswordRotation|TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock|TestSetupAndLinkRateLimitsUseIndependentIPBuckets|TestAuthHTTPTestLoginCookieCSRFAndLogout|TestAuthHTTPLoginRateLimitReturnsRetryAfter|TestCanonicalClientIPTrustsOnlyConfiguredProxyChain' -count=1",
+    ),
+    "ACC-AUTH-004": (
+        120,
+        "go test ./internal/accounts ./internal/httpapi -run 'TestInvitationAndPasswordResetCapabilitiesAreSingleUseAndSecretless|TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestAccountAdministrationHTTPInvitationAndAuthorization' -count=1",
+    ),
+    "ACC-AUTH-005": (
+        120,
+        "go test ./internal/accounts -run 'TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestOfflineAdminResetRotatesCredentialAndSecurityState|TestAccountSecurityAuditUsesClosedActions' -count=1",
+    ),
+    "ACC-AUTH-006": (
+        120,
+        "go test ./internal/httpapi -run '^TestAccountAdministrationHTTPInvitationAndAuthorization$' -count=1",
+    ),
+    "ACC-ISO-001": (
+        120,
+        "go test ./internal/httpapi -run '^TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms$' -count=1",
+    ),
+    "ACC-ISO-002": (
+        120,
+        "go test ./internal/httpapi -run 'TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms|TestIdempotencyRecordsAreScopedToAuthenticatedUser' -count=1",
+    ),
+    "ACC-ISO-003": (
+        180,
+        "go test ./internal/accounts -run '^TestInvitationConcurrentConsumptionAndUserLifecycleRevocations$' -count=1 && make web-test",
     ),
     "ACC-PLAT-001": (
         120,
@@ -180,6 +219,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-UI-006": (180, "scripts/acceptance/ui-case.sh ACC-UI-006"),
     "ACC-UI-007": (180, "scripts/acceptance/ui-case.sh ACC-UI-007"),
     "ACC-UI-008": (180, "scripts/acceptance/ui-case.sh ACC-UI-008"),
+    "ACC-UI-009": (180, "scripts/acceptance/ui-case.sh ACC-UI-009"),
 }
 
 CORE_CASES = {
@@ -321,8 +361,27 @@ def prepare() -> int:
     fixture_manifest = ROOT / "data" / "example" / "fixtures.json"
     fixture_hash = sha256_file(fixture_manifest)
     fixed_seed = {
-        "schemaVersion": 1,
-        "profile": "local",
+        "schemaVersion": 2,
+        "accounts": [
+            {
+                "username": "test",
+                "role": "ADMIN",
+                "status": "ENABLED",
+                "profileId": "01980000-0000-7000-8000-000000009991",
+            },
+            {
+                "username": "alice",
+                "role": "USER",
+                "status": "ENABLED",
+                "profileId": "01980000-0000-7000-8000-000000009992",
+            },
+            {
+                "username": "disabled",
+                "role": "USER",
+                "status": "DISABLED",
+                "profileId": "01980000-0000-7000-8000-000000009993",
+            },
+        ],
         "nowMs": 1786000000000,
         "fixtureManifestSha256": fixture_hash,
         "platformInstances": [

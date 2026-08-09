@@ -2,7 +2,7 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-00[1-8]|ACC-RUN-00[234]|ACC-SAVE-002)$ ]]; then
+if [[ ! "$case_id" =~ ^(ACC-UI-00[1-9]|ACC-RUN-00[234]|ACC-SAVE-002)$ ]]; then
   echo "usage: ui-case.sh ACC-UI-00N|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-SAVE-002" >&2
   exit 2
 fi
@@ -70,8 +70,12 @@ if [[ "$case_id" == "ACC-RUN-004" ]]; then
   scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 fi
 
-playwright_args=(playwright test e2e/acceptance.spec.ts --grep "$case_id")
-if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" ]]; then
+specification="e2e/acceptance.spec.ts"
+if [[ "$case_id" == "ACC-UI-009" ]]; then
+  specification="e2e/auth.spec.ts"
+fi
+playwright_args=(playwright test "$specification" --grep "$case_id")
+if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" ]]; then
   playwright_args+=(--project=chrome-1280)
 else
   playwright_args+=(--workers=1)
