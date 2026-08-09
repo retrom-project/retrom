@@ -612,6 +612,9 @@ test("ACC-RUN-004 BIOS blockers stop launch while hash warnings auto-start", asy
   await expect(exitDialog).toBeVisible();
   await exitDialog.getByRole("button", { name: "退出游戏", exact: true }).click();
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
+  await page.goBack();
+  await expect(page).toHaveURL(/\/library$/);
+  await expect(page.locator(".player-shell")).toHaveCount(0);
 
   await page.goto("/library");
   await page.locator(".library-game-card").filter({ hasText: "Acceptance Missing FDS BIOS" }).getByRole("link").first().click();
