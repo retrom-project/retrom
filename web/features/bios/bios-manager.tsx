@@ -205,7 +205,7 @@ export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIR
     <ConfirmDialog
       open={archiveDialog !== null}
       title={`${archiveDialog?.item.logicalName ?? "BIOS"} 内容对比`}
-      description="左侧为当前 DAT 要求，右侧为已安装 ZIP 内容；每个文件固定展示 name、size、crc 三项。额外文件不阻断启动。"
+      description="左侧为当前 DAT 要求，右侧为已安装 ZIP 内容；name、size、crc 表头统一位于列表上方。额外文件不阻断启动。"
       confirmLabel="关闭"
       hideCancel
       wide
@@ -234,6 +234,7 @@ function ArchiveEntryList({ title, ariaLabel, entries }: {
 }) {
   return <section className="bios-entry-column">
     <header><strong>{title}</strong><span>{entries.length} 项</span></header>
+    <ul className="bios-entry-field-head" aria-label={`${title}字段表头`}><li>name</li><li>size</li><li>crc</li></ul>
     <ul className="bios-entry-list" aria-label={ariaLabel}>{entries.map((entry, index) => <li className={`bios-entry-card is-${entry.status.toLowerCase()}`} key={`${entry.facts.name}-${index}`}>
       <div className="bios-entry-card-head"><StatusBadge tone={entry.status === "MATCHED" || entry.status === "ALIASED" ? "good" : entry.status === "MISMATCHED" || entry.status === "EXTRA" ? "warn" : "bad"}>{entryStatusLabels[entry.status]}</StatusBadge></div>
       <ArchiveFacts facts={entry.facts} />
@@ -243,8 +244,8 @@ function ArchiveEntryList({ title, ariaLabel, entries }: {
 
 function ArchiveFacts({ facts }: { facts: ArchiveEntryFacts }) {
   return <ul className="bios-entry-facts" aria-label={`${facts.name} 文件信息`}>
-    <li><span>name</span><code>{facts.name}</code></li>
-    <li><span>size</span><strong>{facts.sizeBytes.toLocaleString("zh-CN")} bytes</strong></li>
-    <li><span>crc</span><code>{facts.crc32 || "—"}</code></li>
+    <li><code>{facts.name}</code></li>
+    <li><strong>{facts.sizeBytes.toLocaleString("zh-CN")} bytes</strong></li>
+    <li><code>{facts.crc32 || "—"}</code></li>
   </ul>;
 }
