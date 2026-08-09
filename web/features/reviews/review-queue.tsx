@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui";
 import { formatTime, type ListResponse } from "@/lib/backend";
 import { statusTone } from "@/lib/status";
+import { useAuth } from "@/features/auth/auth-provider";
+import { userStorageKey } from "@/features/auth/storage";
 
 export type ReviewQueueItem = {
   itemId: string;
@@ -38,9 +40,10 @@ function formatBytes(value: number) {
 }
 
 export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQueueItem>; values: Record<string, string> }) {
+  const { context } = useAuth();
   const listQuery = useMemo(() => queryString(values), [values]);
   const listURL = `/admin/reviews${listQuery ? `?${listQuery}` : ""}`;
-  const storageKey = `retrom:review-queue:${listQuery}`;
+  const storageKey = userStorageKey(context.user?.userId, "reviews", `queue:${listQuery}`);
   const [items, setItems] = useState(initial.items);
   const [nextCursor, setNextCursor] = useState(initial.nextCursor);
   const [loading, setLoading] = useState(false);
@@ -61,6 +64,7 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
   }), [items, summaryFilter]);
 
   useEffect(() => {
+    if (!storageKey) { persistenceReady.current = true; return; }
     const raw = sessionStorage.getItem(storageKey);
     if (!raw) { persistenceReady.current = true; return; }
     try {
@@ -81,11 +85,12 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
   }, [initial.items.length, storageKey]);
 
   useEffect(() => {
-    if (!persistenceReady.current) return;
+    if (!persistenceReady.current || !storageKey) return;
     sessionStorage.setItem(storageKey, JSON.stringify({ items, nextCursor, scrollY: window.scrollY }));
   }, [items, nextCursor, storageKey]);
 
   function remember() {
+    if (!storageKey) return;
     sessionStorage.setItem(storageKey, JSON.stringify({ items, nextCursor, scrollY: window.scrollY }));
   }
 

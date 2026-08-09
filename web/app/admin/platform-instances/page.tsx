@@ -1,5 +1,6 @@
 import { PlatformManager, type Platform, type PlatformInstance } from "@/features/platforms/platform-manager";
-import { backendJSON, type ListResponse } from "@/lib/backend";
+import type { ListResponse } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "游戏目录" };
 

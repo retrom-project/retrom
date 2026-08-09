@@ -5,6 +5,9 @@ import { LaunchControls, type CoreOption, type DOSEntry } from "./launch-control
 
 const navigation = vi.hoisted(() => ({ replace: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
+vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
+
+const storagePrefix = "retrom:v2:user:user-1:player:";
 
 const cores: CoreOption[] = [
   { coreId: "mgba", name: "mGBA", isDefault: true, status: "READY", reasons: [] },
@@ -45,7 +48,7 @@ describe("LaunchControls", () => {
     await user.click(screen.getByRole("button", { name: "应用" }));
     expect(screen.getByText("开始时会自动检查")).toBeInTheDocument();
     expect(screen.getByText("（未采用默认核心）")).toBeInTheDocument();
-    expect(window.localStorage.getItem("retrom:preferred-core:game-1")).toBe("gambatte");
+    expect(window.localStorage.getItem(`${storagePrefix}preferred-core:game-1`)).toBe("gambatte");
     await user.click(screen.getByRole("button", { name: "开始游戏" }));
 
     await waitFor(() => expect(requests).toHaveLength(1));
@@ -70,7 +73,7 @@ describe("LaunchControls", () => {
     expect(screen.getByLabelText("运行引擎")).toHaveValue("gambatte");
     await user.selectOptions(screen.getByLabelText("运行引擎"), "mgba");
     await user.click(screen.getByRole("button", { name: "应用" }));
-    expect(window.localStorage.getItem("retrom:preferred-core:remembered-game")).toBeNull();
+    expect(window.localStorage.getItem(`${storagePrefix}preferred-core:remembered-game`)).toBeNull();
     expect(screen.queryByText("（未采用默认核心）")).not.toBeInTheDocument();
   });
 
@@ -85,7 +88,7 @@ describe("LaunchControls", () => {
     await user.selectOptions(screen.getByLabelText("运行引擎"), "gambatte");
     await user.click(screen.getByRole("button", { name: "取消" }));
     expect(screen.queryByLabelText("运行引擎")).not.toBeInTheDocument();
-    expect(window.localStorage.getItem("retrom:preferred-core:game-1")).toBeNull();
+    expect(window.localStorage.getItem(`${storagePrefix}preferred-core:game-1`)).toBeNull();
   });
 
   it("keeps the fullscreen document alive by using App Router navigation", async () => {
@@ -125,7 +128,7 @@ describe("LaunchControls", () => {
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(JSON.parse(requests[0])).toMatchObject({ coreId: "dosbox_pure", dosEntry: null });
-    expect(window.localStorage.getItem("retrom:preferred-dos-entry:dos-game")).toBeNull();
+    expect(window.localStorage.getItem(`${storagePrefix}preferred-dos-entry:dos-game`)).toBeNull();
   });
 
   it("remembers only a successfully launched DOS entry, including the explicit program menu", async () => {
@@ -137,7 +140,7 @@ describe("LaunchControls", () => {
     await user.selectOptions(screen.getByLabelText("启动程序"), "");
     await user.click(screen.getByRole("button", { name: "开始游戏" }));
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/play/launch-1"));
-    expect(window.localStorage.getItem("retrom:preferred-dos-entry:dos-game")).toBe('{"version":1,"entry":null}');
+    expect(window.localStorage.getItem(`${storagePrefix}preferred-dos-entry:dos-game`)).toBe('{"version":1,"entry":null}');
 
     first.unmount();
     render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />);

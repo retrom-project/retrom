@@ -1,4 +1,5 @@
-const preferencePrefix = "retrom:preferred-core:";
+import { userStorageKey } from "@/features/auth/storage";
+
 const preferenceEvent = "retrom:preferred-core-change";
 
 export function subscribePreferredCores(onStoreChange: () => void) {
@@ -10,17 +11,19 @@ export function subscribePreferredCores(onStoreChange: () => void) {
   };
 }
 
-export function readPreferredCore(gameId: string): string | null {
+export function readPreferredCore(userId: string | null | undefined, gameId: string): string | null {
   try {
-    return window.localStorage.getItem(`${preferencePrefix}${gameId}`);
+    const key = userStorageKey(userId, "player", `preferred-core:${gameId}`);
+    return key ? window.localStorage.getItem(key) : null;
   } catch {
     return null;
   }
 }
 
-export function writePreferredCore(gameId: string, coreId: string, defaultCoreId: string | undefined) {
+export function writePreferredCore(userId: string | null | undefined, gameId: string, coreId: string, defaultCoreId: string | undefined) {
   try {
-    const key = `${preferencePrefix}${gameId}`;
+    const key = userStorageKey(userId, "player", `preferred-core:${gameId}`);
+    if (!key) return;
     if (!coreId || coreId === defaultCoreId) window.localStorage.removeItem(key);
     else window.localStorage.setItem(key, coreId);
     window.dispatchEvent(new Event(preferenceEvent));

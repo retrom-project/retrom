@@ -1,7 +1,7 @@
 import { EmptyState, PageHeader } from "@/components/ui";
 import { RecentHistory } from "@/features/recent/recent-history";
 import type { RecentGame } from "@/features/recent/recent-games";
-import { backendJSON } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "最近游玩" };
 

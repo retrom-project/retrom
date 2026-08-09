@@ -1,6 +1,7 @@
 import { ButtonLink, Kpi, PageHeader, StatusBadge } from "@/components/ui";
 import { importProviderLabels, importStateLabels, importTaskIssueCount, importTaskPhase, type ImportListItem } from "@/features/imports/import-workflow";
-import { backendJSON, formatTime, type ListResponse } from "@/lib/backend";
+import { formatTime, type ListResponse } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 import { statusTone } from "@/lib/status";
 
 type Summary = { running: number; reviewPending: number; completed: number; failed: number };

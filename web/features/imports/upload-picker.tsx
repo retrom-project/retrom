@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { newUuid } from "@/lib/crypto";
 import { uploadFiles } from "@/lib/upload";
 import { formatBytes } from "@/lib/backend";
+import { writeHeaders } from "@/lib/api/client";
 import type { ImportDetail } from "./import-workflow";
 
 type ChosenFile = { id: string; file: File; name: string; size: number; path: string };
@@ -44,13 +45,13 @@ export function UploadPicker({ directories, reconfigureSource = null }: { direct
         imported = await fetch(`/api/v1/admin/imports/${reconfigureSource.importJobId}/reconfigure`, {
           method: "POST",
           credentials: "same-origin",
-          headers: { "Content-Type": "application/json", "If-Match": `"v${reconfigureSource.version}"`, "Idempotency-Key": newUuid() },
+          headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${reconfigureSource.version}"`, "Idempotency-Key": newUuid() }),
           body: JSON.stringify({ targetPlatformInstanceId: target, metadataProvider: provider }),
         });
       } else {
         const uploaded = await uploadFiles(files.map((chosen) => chosen.file), setProgress);
         setProgress("正在创建导入任务…");
-        imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json", "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: provider }) });
+        imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: provider }) });
       }
       if (!imported.ok) throw new Error(reconfigureSource ? "无法按新配置创建导入任务，请刷新任务后重试" : "上传完成，但无法创建导入任务");
       const result = await imported.json() as { importJobId: string };

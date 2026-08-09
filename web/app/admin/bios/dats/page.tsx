@@ -1,5 +1,6 @@
 import { DATManager, type CoreArtifact, type DATVersion } from "@/features/bios/dat-manager";
-import { backendJSON, scalarSearchParams, type ListResponse } from "@/lib/backend";
+import { scalarSearchParams, type ListResponse } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "街机数据目录" };
 

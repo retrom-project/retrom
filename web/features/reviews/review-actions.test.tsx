@@ -7,6 +7,7 @@ const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.
 const upload = vi.hoisted(() => ({ uploadOne: vi.fn(), waitForJob: vi.fn(), waitForJobEvents: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
 vi.mock("@/lib/upload", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/upload")>();
   return { ...original, uploadOne: upload.uploadOne, waitForJob: upload.waitForJob, waitForJobEvents: upload.waitForJobEvents };

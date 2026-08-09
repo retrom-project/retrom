@@ -1,6 +1,7 @@
 import { ListFilters } from "@/components/list-filters";
 import { ButtonLink, EmptyState, PageHeader } from "@/components/ui";
-import { backendJSON, scalarSearchParams, withQuery, type ListResponse } from "@/lib/backend";
+import { scalarSearchParams, withQuery, type ListResponse } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 import { ReviewQueue, type ReviewQueueItem } from "@/features/reviews/review-queue";
 import { FlashToast } from "@/components/flash-toast";
 

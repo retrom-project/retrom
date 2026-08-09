@@ -1,6 +1,7 @@
 import { ButtonLink, PageHeader } from "@/components/ui";
 import { BIOSManager, type BIOSRequirement } from "@/features/bios/bios-manager";
-import { backendJSON, scalarSearchParams, type ListResponse } from "@/lib/backend";
+import { scalarSearchParams, type ListResponse } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "BIOS 文件" };
 

@@ -1,7 +1,10 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { HorizontalRail, PlatformRail, type HomePlatform } from "./home-rails";
+
+vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
+const storageKey = "retrom:v2:user:user-1:home:pinned-platforms";
 
 const platforms: HomePlatform[] = [
   { id: "arcade", name: "街机", gameCount: 3, playCount: 4 },
@@ -35,8 +38,8 @@ describe("home rails", () => {
     ]);
     await user.click(screen.getByRole("button", { name: "置顶“Game Boy Advance”" }));
     expect(screen.getAllByRole("article")[0]).toHaveTextContent("Game Boy Advance");
-    expect(localStorage.getItem("retrom:pinned-home-platforms")).toBe('["gba"]');
+    expect(localStorage.getItem(storageKey)).toBe('["gba"]');
     fireEvent.click(screen.getByRole("button", { name: "取消置顶“Game Boy Advance”" }));
-    await waitFor(() => expect(localStorage.getItem("retrom:pinned-home-platforms")).toBe("[]"));
+    await waitFor(() => expect(localStorage.getItem(storageKey)).toBe("[]"));
   });
 });

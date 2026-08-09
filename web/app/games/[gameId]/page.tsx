@@ -4,7 +4,8 @@ import Link from "next/link";
 import { GameDetailSaves } from "@/features/games/game-detail-saves";
 import { LaunchControls, type CoreOption, type DOSEntry } from "@/features/player/launch-controls";
 import { collectSavePages, latestAvailableSave, type SavePage } from "@/features/saves/save-library";
-import { backendJSON, withQuery } from "@/lib/backend";
+import { withQuery } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 type GameDetail = {
   gameId: string; title: string; description: string; developer: string; publisher: string; genre: string;

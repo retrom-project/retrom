@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { AppShell } from "@/components/app-shell";
+import { AuthProvider } from "@/features/auth/auth-provider";
+import { loadAuthContext } from "@/features/auth/server";
 import "./globals.css";
 
 export const metadata: Metadata = {
@@ -9,11 +11,14 @@ export const metadata: Metadata = {
 
 export const dynamic = "force-dynamic";
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  const initialContext = await loadAuthContext();
   return (
     <html lang="zh-CN">
       <body>
-        <AppShell>{children}</AppShell>
+        <AuthProvider initialContext={initialContext}>
+          <AppShell>{children}</AppShell>
+        </AuthProvider>
       </body>
     </html>
   );

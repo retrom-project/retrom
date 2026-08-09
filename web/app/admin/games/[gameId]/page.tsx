@@ -1,6 +1,7 @@
 import { ButtonLink, PageHeader } from "@/components/ui";
 import { AdminGameManager, type AdminGame, type PlatformInstanceOption, type ScrapeCandidate } from "@/features/games/admin-game-manager";
-import { backendJSON, type ListResponse } from "@/lib/backend";
+import type { ListResponse } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export default async function AdminGameDetail({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = await params;

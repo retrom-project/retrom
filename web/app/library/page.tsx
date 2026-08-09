@@ -1,6 +1,7 @@
 import { LibraryBrowser } from "@/features/library/library-browser";
 import { collectGamePages, type GamePage, type LibraryFilters } from "@/features/library/game-library";
-import { backendJSON, scalarSearchParams, withQuery } from "@/lib/backend";
+import { scalarSearchParams, withQuery } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "游戏库" };
 

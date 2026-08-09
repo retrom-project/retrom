@@ -1,7 +1,8 @@
 import { PageHeader } from "@/components/ui";
 import { AdminGameBrowser } from "@/features/games/admin-game-browser";
 import { collectAdminGamePages, type AdminGameFilters, type AdminGamePage } from "@/features/games/admin-game-library";
-import { backendJSON, scalarSearchParams, withQuery } from "@/lib/backend";
+import { scalarSearchParams, withQuery } from "@/lib/backend";
+import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "游戏管理" };
 

@@ -5,6 +5,7 @@ import { useState, useSyncExternalStore } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { StatusBadge } from "@/components/ui";
 import { formatSaveTime } from "@/features/saves/save-library";
+import { useAuth } from "@/features/auth/auth-provider";
 import { readPreferredCore, subscribePreferredCores, writePreferredCore } from "./core-preference";
 import { decodePreferredDOSEntry, readPreferredDOSEntry, subscribePreferredDOSEntries, writePreferredDOSEntry } from "./dos-entry-preference";
 import { LaunchButton } from "./launch-button";
@@ -42,9 +43,11 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   latestSave?: { saveStateId: string; screenshotUrl: string; createdAtMs: number; coreId: string; coreName: string } | null;
   nowMs?: number;
 }) {
+  const { context } = useAuth();
+  const userId = context.user?.userId;
   const initialCore = coreOptions.find((core) => core.isDefault) ?? coreOptions[0];
-  const preferredCoreId = useSyncExternalStore(subscribePreferredCores, () => readPreferredCore(gameId), () => null);
-  const preferredDOSEntryRaw = useSyncExternalStore(subscribePreferredDOSEntries, () => readPreferredDOSEntry(gameId), () => null);
+  const preferredCoreId = useSyncExternalStore(subscribePreferredCores, () => readPreferredCore(userId, gameId), () => null);
+  const preferredDOSEntryRaw = useSyncExternalStore(subscribePreferredDOSEntries, () => readPreferredDOSEntry(userId, gameId), () => null);
   const storedCoreId = coreOptions.some((core) => core.coreId === preferredCoreId) ? preferredCoreId : null;
   const [coreOverride, setCoreOverride] = useState<{ gameId: string; coreId: string } | null>(null);
   const coreId = coreOverride?.gameId === gameId ? coreOverride.coreId : storedCoreId ?? initialCore?.coreId ?? "";
@@ -65,7 +68,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   function selectCore(value: string) {
     setCoreOverride({ gameId, coreId: value });
     setDosSelection({ gameId, value: value === "dosbox_pure" ? restoredDOSEntry : null });
-    writePreferredCore(gameId, value, initialCore?.coreId);
+    writePreferredCore(userId, gameId, value, initialCore?.coreId);
   }
 
   function openCorePicker() {
@@ -93,8 +96,8 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
       <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatSaveTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={latestSaveRequiresThreads} label="从存档继续" /></div>
     </div> : null}
     {latestSave
-      ? <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} label="重新开始游戏" onLaunchCreated={isDOS ? () => writePreferredDOSEntry(gameId, dosEntry) : undefined} />
-      : <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} onLaunchCreated={isDOS ? () => writePreferredDOSEntry(gameId, dosEntry) : undefined} />}
+      ? <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} label="重新开始游戏" onLaunchCreated={isDOS ? () => writePreferredDOSEntry(userId, gameId, dosEntry) : undefined} />
+      : <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} onLaunchCreated={isDOS ? () => writePreferredDOSEntry(userId, gameId, dosEntry) : undefined} />}
     <div className="launch-runtime-row">
       <div><small>运行方式</small><strong>{selectedCore?.name ?? "尚未配置"}</strong>{usesOverride ? <span className="launch-core-override">（未采用默认核心）</span> : null}</div>
       <button type="button" onClick={openCorePicker}>更换 ›</button>
