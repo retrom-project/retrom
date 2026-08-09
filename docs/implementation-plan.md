@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.2 |
-| 日期 | 2026-08-06 |
+| 版本 | 1.3 |
+| 日期 | 2026-08-10 |
 | 用途 | 规定实现顺序、依赖和里程碑退出条件，不复制领域规格 |
 
 ## 1. 使用方式
@@ -25,7 +25,8 @@
 flowchart LR
     D["版本化依赖 manifest"] --> F["工程脚手架与门禁"]
     F --> S["迁移、种子、CAS、任务"]
-    S --> U["上传协议"]
+    S --> A0["账户、授权与 Profile 隔离"]
+    A0 --> U["上传协议"]
     U --> I["识别、刮削、审核"]
     S --> B["BIOS / DAT"]
     I --> G["Game / Metadata / Variant"]
@@ -60,6 +61,8 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 8. `launch_sessions/play_sessions/play_session_events/save_states/persistent_saves/persistent_save_revisions`；
 9. 全部 partial unique index、不可变/归属 trigger、搜索索引和 schema checksum 回归。
 
+账户版本追加的 migration 顺序固定为：020 建立 User/Credential/AuthSession/AccountLink/InstanceState/RateLimit 并移除 `local` Profile；021 修正 test bootstrap 从 PENDING 首次完成时的默认密码状态 trigger；022 将幂等记录主键绑定 `principal_id`；023 把 AuditEvent、ReviewEvent 和 ImportJobFileResolution 重建为真实 USER/SYSTEM actor。私有数据与 cursor 的 principal 隔离由同一版本的 service/query 实现和测试保证，不伪装成额外 schema migration。020 是破坏性重建边界：既有 001–019 数据库在任何写入前拒绝，只有不存在的数据库、真正空的 schema 或已经包含 020 的库可以继续。
+
 测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能由运行时代码关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立；014 增加核心目录、BIOS delivery 与 Launch external-file 能力；015 收敛旧零 Item 导入；016 增加拒绝文件重新配置 lineage；017 增加重复内容识别证据；018 增加异步 DAT 差异快照与分页明细；019 增加审核来源快照、Validation/草稿快照归属、Arcade Parent Attachment、Job/ReviewEvent enum 和发布 digest 兜底。019 因 SQLite 无法原地改变 CHECK/非空列而使用带 `-- retrom: rebuild-with-foreign-keys-off` 的唯一受控重建：store 只识别 019，先复算旧 source manifest，事务外关闭外键，事务内重建/回填，提交前执行 `PRAGMA foreign_key_check`，随后无条件恢复外键；任何漂移或外键错误都使启动失败。正式发布后继续遵守只追加 migration 的升级纪律。
 
 ## 4. 里程碑
@@ -77,6 +80,12 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 范围：配置一次性加载、launch key 安全生成、按第 3 节建立数据字典的完整首版 migration/checksum/trigger（领域 service 可后续实现）、SQLite PRAGMA、seed、CAS 原子发布/GC、任务租约、统一错误/日志、session/health/封闭诊断摘要 OpenAPI 与同源代理/CSP。
 
 退出门禁：完整执行 `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-SEC-003`、`ACC-OPS-001`、`ACC-NET-001`，以及条件满足时的 `ACC-NET-002`。此时不需要把硬编码游戏暴露给 UI；Case/集成测试直接在临时库建立最小领域 fixture。`ACC-SEC-001/002` 与 `ACC-API-001` 分别等待 DAT/Archive、Launch 和完整 route 集后执行。
+
+### M1A：账户与数据隔离边界
+
+范围：020–023 migration、release 初始化与显式 test 模式、Argon2id 密码和阻断列表、AuthSession/CSRF/Origin/限流、Invitation/PasswordReset、账号生命周期、principal-scoped 幂等/cursor、所有私有数据 SQL owner predicate、主机只读 `setup-code`、离线 `admin-reset` 与恢复安全围栏；前端完成 server-side 入口守卫、账户页和用户管理页。
+
+退出门禁：`ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003`、`ACC-DB-002`、`ACC-BKP-001` 和 `ACC-UI-009`。任一既有共享 `local`、匿名写入或恢复旧 cookie 的断言必须同时移除，不能保留两套运行模式。
 
 ### M2：上传与持久任务
 
@@ -106,7 +115,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 范围：状态存档+截图、PersistentSave revision/恢复竞态、PlaySession 连续 heartbeat、退出保存；完成全部用户/管理页面状态、1280 最小桌面/2560/4K 视觉与键盘可访问性。首页和“我的存档”的快速入口直接创建 Launch，不跳详情。
 
-退出门禁：`ACC-SAVE-001`–`003`、`ACC-PLAY-001`、`ACC-UI-001`–`008`。
+退出门禁：`ACC-SAVE-001`–`003`、`ACC-PLAY-001`、`ACC-UI-001`–`009`。
 
 ### M7：恢复、打包与最终验收
 

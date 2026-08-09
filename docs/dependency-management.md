@@ -1,21 +1,21 @@
-# 第三方运行时与 DAT 依赖管理
+# 第三方运行时、DAT 与账户安全依赖管理
 
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.0 |
-| 日期 | 2026-08-06 |
-| 适用范围 | EmulatorJS、core artifact、兼容覆盖与预置 Arcade DAT |
+| 版本 | 1.1 |
+| 日期 | 2026-08-10 |
+| 适用范围 | EmulatorJS、core artifact、兼容覆盖、预置 Arcade DAT 与密码 blocklist |
 
 ## 1. 结论
 
-Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、ROM、BIOS、许可 payload 或约 53 MiB 的三份 Arcade DAT payload。真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
+Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、ROM、BIOS、许可 payload、约 53 MiB 的三份 Arcade DAT payload 或密码 blocklist payload。真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
 
 应用进程启动期间禁止联网下载或自动升级依赖。依赖缺失、大小或 SHA-256 不符时，后端必须拒绝进入 ready 状态并输出 `make prepare-deps` 这一条可操作命令；不能回退到 CDN、最新版本或另一个 core。
 
 ## 2. 唯一事实源与目录
 
-机器事实源由按 SemVer 升序配置的 manifest 集合组成：[`4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json) 提供基础 28 核/DAT，[`4.3.0-pre/manifest.json`](../data/dat/emulatorjs/4.3.0-pre/manifest.json) 只覆盖 DOSBox Pure。后出现的 manifest 只替换它明确列出的 core；不能要求部分覆盖重复全部核心/DAT。`data/example/fixtures.json` 只描述本地兼容夹具，不得反向覆盖依赖版本。manifest 同时锁定：
+运行时机器事实源由按 SemVer 升序配置的 manifest 集合组成：[`4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json) 提供基础 28 核/DAT，[`4.3.0-pre/manifest.json`](../data/dat/emulatorjs/4.3.0-pre/manifest.json) 只覆盖 DOSBox Pure。账户密码拒绝列表由 [`password-blocklists/v1/manifest.json`](../data/auth/password-blocklists/v1/manifest.json) 独立锁定 SecLists tag、40 位 commit、10,000 行 payload、MIT 许可及各自 size/SHA-256。后出现的运行时 manifest 只替换它明确列出的 core；不能要求部分覆盖重复全部核心/DAT。`data/example/fixtures.json` 只描述本地兼容夹具，不得反向覆盖依赖版本。运行时 manifest 同时锁定：
 
 - EmulatorJS release、tag、发布资产 URL/size/SHA-256；
 - 允许进入镜像/由 Go 静态服务的 EmulatorJS 文件 allowlist、28 个选定 core artifact 以及 PPSSPP auxiliary asset 的路径、size/SHA-256；
@@ -42,6 +42,11 @@ data/runtime/emulatorjs/4.2.3/  # prepare-deps 解包，Git 忽略
   overrides/
   licenses/<component>/...      # manifest 锁定的小型许可 payload
   THIRD_PARTY_NOTICES            # 从上列文件确定性生成
+
+data/auth/password-blocklists/v1/
+  manifest.json                  # Git 跟踪，账户安全依赖唯一事实源
+  payload/10k-most-common.txt    # prepare-deps 下载，Git 忽略
+  payload/LICENSE                # prepare-deps 下载，Git 忽略
 ```
 
 不得在 Markdown、shell 默认值或 Dockerfile 中复制另一套 digest。脚本必须读取 manifest；升级时新增版本目录，不覆盖旧 manifest。默认配置为 `4.2.3,4.3.0-pre`，其中 `RETROM_ACTIVE_EMULATORJS_VERSION=4.2.3` 仍是基础/备份契约值；新验证对每个 core 选择配置顺序中最后一个声明它的 manifest，因此 DOS 使用 4.3.0-pre，其余核心使用 4.2.3。
@@ -52,9 +57,9 @@ data/runtime/emulatorjs/4.2.3/  # prepare-deps 解包，Git 忽略
 
 | 命令 | 确切行为 |
 | --- | --- |
-| `make data-check` | 只校验已提交的小文件：manifest schema V4、artifact compatibility V2、Player adapter ID/版本/路径与 `web/features/player/adapters/registry.json` 双向一致、JSON Pointer、固定 commit URL、size/SHA 格式、auxiliary/配方/许可字段、notice 顺序、`SHA256SUMS` 与 DAT entries 的一致性；adapter registry 不允许无实现登记项。无 payload、无网络时也必须通过。 |
-| `make prepare-deps` | 对 `RETROM_DEPENDENCY_VERSIONS` 中缺失/错误的 runtime、core、DAT 和许可 payload 执行固定来源下载、确定性转换、解包与原子发布，生成 notice；默认 `4.2.3,4.3.0-pre`，最后隐式执行 `deps-check`。已有正确缓存时不访问网络。 |
-| `make deps-check` | 不联网，逐个校验 manifest allowlist、选定 core、可选 DAT 集、override、许可输入和确定性 notice，并重新计算存在的 DAT parse stats；默认 `4.2.3,4.3.0-pre`。缺少、额外发布或不匹配均失败。 |
+| `make data-check` | 只校验已提交的小文件：运行时 manifest schema V4、artifact compatibility V2、Player adapter registry 双向一致、DAT/许可字段与 `SHA256SUMS`，以及密码 blocklist manifest 的固定 tag/commit、URL、行数、size/SHA 和 MIT 许可。无 payload、无网络时也必须通过。 |
+| `make prepare-deps` | 对 `RETROM_DEPENDENCY_VERSIONS` 中缺失/错误的 runtime、core、DAT、许可 payload 以及账户密码 blocklist/许可执行固定来源下载、确定性转换、解包与原子发布，生成 notice；默认 `4.2.3,4.3.0-pre`，最后隐式执行 `deps-check`。已有正确缓存时不访问网络。 |
+| `make deps-check` | 不联网，逐个校验运行时 allowlist、选定 core、可选 DAT、override、许可输入、确定性 notice，以及密码 blocklist 的 size/SHA/10,000 行和许可。缺少、额外发布或不匹配均失败。 |
 | `make release-input-digest` | 不联网、不写工作树，按本节算法校验并只向 stdout 输出 64 位小写 `releaseInputDigest`；镜像 target 调用同一 helper，不复制 shell 算法。 |
 | `make dev` | 先依赖 `prepare-deps`，然后只启动宿主机 Go/Next.js 进程；依赖准备不改变“非 Docker”契约。 |
 
@@ -84,11 +89,12 @@ FBNeo 的快速物化配方不是 mock：它下载固定 commit 的公开上游 
       "playerAdapterId": "ejs-4.3.0-pre-v1"
     }
   ],
-  "activeEmulatorjsVersion": "4.2.3"
+  "activeEmulatorjsVersion": "4.2.3",
+  "passwordBlocklistManifestSha256": "<sha256-of-exact-password-blocklist-manifest-bytes>"
 }
 ```
 
-dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、按 SemVer 升序，active 必须属于其中；manifest SHA 对完整原始 bytes 计算，adapter ID 从该 manifest 读取。两个镜像都设置 OCI label `io.retrom.release-input-sha256=<releaseInputDigest>`。每个镜像 target 在 Docker build 前后重算并比较，工作树或选定版本中途改变必须返回非零，该产物不得被宣称可部署。`make build-images` 只计算一份预期 digest，两个子 target 仍各自复核当前值，最后用 image inspect 确认两个 label 与预期值完全相同。直接绕过 Makefile 的 Docker build 不是受支持的发布路径；部署时 label 缺失或不同的两个镜像必须被编排/人工门禁拒绝。
+dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、按 SemVer 升序，active 必须属于其中；各 manifest SHA 对完整原始 bytes 计算，adapter ID 从运行时 manifest 读取。两个镜像都设置 OCI label `io.retrom.release-input-sha256=<releaseInputDigest>`。每个镜像 target 在 Docker build 前后重算并比较，工作树、选定版本或密码 blocklist manifest 中途改变必须返回非零，该产物不得被宣称可部署。`make build-images` 只计算一份预期 digest，两个子 target 仍各自复核当前值，最后用 image inspect 确认两个 label 与预期值完全相同。直接绕过 Makefile 的 Docker build 不是受支持的发布路径；部署时 label 缺失或不同的两个镜像必须被编排/人工门禁拒绝。
 
 ## 4. 服务启动与健康检查
 
@@ -98,8 +104,8 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 
 后端启动顺序固定为：
 
-1. 规范化版本列表，并逐版本读取约定位置的 manifest，验证 schema、目录名、manifest 版本、Player adapter 描述和 runtime base/loader allowlist 一致；前后端 adapter 对齐已在构建期 `data-check` 完成，Go 进程不假装读取另一镜像的代码；
-2. 逐版本校验 allowlist、selected core、override、DAT、许可输入与 notice；
+1. 规范化版本列表，并逐版本读取约定位置的 manifest，验证 schema、目录名、manifest 版本、Player adapter 描述和 runtime base/loader allowlist 一致；同时读取密码 blocklist manifest 与 payload，逐字节校验并构建密码拒绝集合；前后端 adapter 对齐已在构建期 `data-check` 完成，Go 进程不假装读取另一镜像的代码；
+2. 逐版本校验 allowlist、selected core、override、DAT、许可输入与 notice，并校验 blocklist 许可 payload；
 3. 校验部署的 core artifact，包括 `mame2003` override，并建立仅含已验证版本/路径的静态路由表；
 4. 打开数据库并执行 migration；
 5. 在一个短事务中 upsert 全部已配置版本的 CoreArtifact 与版本化静态 BIOS Requirement；逐 core 将 enabled artifact 切到配置顺序中最后一个声明它的 manifest，再按 `core_artifact_id + dat_sha256 + parser_version` 创建或复用实际存在的内置 DatVersion。部分 runtime overlay 可以不含 DAT/其他 core，不能因此删除基础版本 seed；
@@ -118,6 +124,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 - 每个配置 manifest `runtime_allowlist` 中的固定浏览器文件与 `selected_core_artifacts` 中的 core；
 - 每个配置版本声明的兼容 override；
 - 每个配置版本的 manifest、物化 DAT、逐字节校验的许可文件与确定性 `THIRD_PARTY_NOTICES`；
+- 密码 blocklist manifest、逐字节校验的 10,000 行 payload 与 MIT 许可；
 - CA 根证书和运行所需的最小系统文件。
 
 镜像不得复制 `data/game/`、`data/example/results/`、本地 SQLite/CAS、上传缓存、下载缓存、源码树或整个 7z 发布包。构建完成只产生镜像，不启动容器。运行镜像时依赖已在镜像内，启动不需要 GitHub/CDN 网络。
@@ -134,4 +141,4 @@ EmulatorJS 与各 libretro core 的许可证不同。manifest schema V4 的 `lic
 
 ## 7. 统一验收入口
 
-小型 manifest 结构由 `ACC-QA-001` 的 `make data-check` 覆盖；完整 payload 准备与校验由 `ACC-DAT-001` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。
+小型 manifest 结构由 `ACC-QA-001` 的 `make data-check` 覆盖；完整 payload 准备与校验由 `ACC-DAT-001` 覆盖；密码 blocklist 的启动期校验与拒绝行为由 `ACC-AUTH-003` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。

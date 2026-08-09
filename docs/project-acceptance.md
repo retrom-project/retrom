@@ -3,10 +3,10 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期唯一验收基线 |
-| 版本 | 1.4 |
-| 日期 | 2026-08-08 |
+| 版本 | 1.5 |
+| 日期 | 2026-08-10 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
-| 范围 | 工程质量、镜像、本地开发、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、28 核兼容性、PSP ISO/CSO 和 4K UI |
+| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、28 核兼容性、PSP ISO/CSO 和 4K UI |
 
 ## 1. 文档职责
 
@@ -95,7 +95,7 @@ make acceptance-report
 
 | 类型 | 固定值 |
 | --- | --- |
-| Profile | `local` |
+| 账户/Profile | `test`：`ADMIN/ENABLED`；`alice`：`USER/ENABLED`；`disabled`：`USER/DISABLED`；三者各绑定不同固定 UUIDv7 Profile，不存在 `local` Profile |
 | Fake clock | 初始 `now_ms = 1786000000000`，所有等待、过期、lease 与时长只由 runner 显式推进 |
 | Arcade 游戏目录 | `acc-arcade-fbneo` → `fbneo`；`acc-arcade-mame` → `mame2003` |
 | 普通游戏目录 | `acc-nes-fceumm`、`acc-snes-snes9x`、`acc-gb-gambatte`、`acc-gba-mgba`、`acc-dos-pure` |
@@ -168,11 +168,12 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 1. `ACC-QA-*`：静态质量和回归纪律；
 2. `ACC-PKG-*`、`ACC-DEV-*`、`ACC-NET-*`：构建、进程与代理边界；
 3. `ACC-DB-*`、`ACC-CAS-*`、`ACC-SEC-*`、`ACC-API-*`、`ACC-OPS-*`：基础设施；
-4. `ACC-PLAT-*`、`ACC-GAME-*`、`ACC-IMP-*`、`ACC-DAT-*`、`ACC-BIOS-*`：管理与入库；
-5. `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-PLAY-*`：产品主路径；
-6. `ACC-CORE-*`：逐核心真实画面；
-7. `ACC-UI-*`：信息架构、4K 和无障碍；
-8. 缺陷回归审计与最终报告。
+4. `ACC-AUTH-*`、`ACC-ISO-*`：账户生命周期、权限与私有数据隔离；
+5. `ACC-PLAT-*`、`ACC-GAME-*`、`ACC-IMP-*`、`ACC-DAT-*`、`ACC-BIOS-*`：管理与入库；
+6. `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-PLAY-*`：产品主路径；
+7. `ACC-CORE-*`：逐核心真实画面；
+8. `ACC-UI-*`：信息架构、4K 和无障碍；
+9. 缺陷回归审计与最终报告。
 
 除明确写明直接命令的 Case 外，执行命令统一为：
 
@@ -210,8 +211,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：900 秒。
 - 执行：`make build-backend-image`，随后 `docker image inspect retrom:latest`；用 `docker image save` 到验收临时目录检查最终 image layer 文件清单，不创建/启动容器。
-- 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、非 root User、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、29 个许可 component 的原文、依赖 manifest allowlist 和三份 DAT；从 manifest 在验收临时目录重建 notice 并逐字节比较。
-- 通过标准：默认 target 为 `retrom:latest`，`io.retrom.release-input-sha256` 等于本次 helper 值；构建中所有 runtime/DAT/license artifact 命中固定 hash；notice 顺序、source commit URL、association status 与原始许可 bytes 符合 format v1，且受限制 core 没有被描述为可任意分发。最终文件包含 28 个 selected core、28 份 report、PPSSPP assets、三份 DAT、29 个许可 component 的原文和 notice，但不包含下载 archive、非 allowlist core、`data/game`、本地 SQLite/CAS、source checkout/缓存、TLS 私钥、宿主 `7z/7zz` 或开发启动命令；Git index 没有被忽略的 DAT/runtime/license payload；构建过程没有 registry push。
+- 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、非 root User、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、29 个运行时许可 component、依赖 manifest allowlist、三份 DAT 以及密码 blocklist/许可；从 manifest 在验收临时目录重建 notice 并逐字节比较。
+- 通过标准：默认 target 为 `retrom:latest`，`io.retrom.release-input-sha256` 等于包含密码 manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中固定 hash。最终文件包含 28 个 selected core/report、PPSSPP assets、三份 DAT、29 个运行时许可 component、10,000 行密码 blocklist及 MIT 许可，但不包含下载 archive、非 allowlist core、用户数据、源码/缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。
 - 证据：build log、image ID、RepoTags、User、Entrypoint/Cmd、最终 layer 文件/size 清单、Git tracked-file size 检查和 artifact 校验摘要；不启动容器。
 
 ### ACC-PKG-002：前端镜像构建
@@ -235,15 +236,15 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
 - 前置：验收准备已完成，`make deps-check` 离线通过。
-- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，同时将 `DOCKER` 指向该哨兵后启动未覆盖 `NEXT_DEV_HOST` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认它的 `prepare-deps` 命中本地缓存且不联网，然后依次等待 `127.0.0.1:8080/health/live`、`/health/ready` 与 `localhost:3000` 可访问。保持首个实例运行并再次执行相同 `make dev`，确认新 supervisor 主动识别、停止并等待旧 supervisor 后成功接管。随后读取已登记的 supervisor/Go/Next.js PID 与 start ticks，只向 supervisor 发送 `SIGKILL`，确认两个独立 process group 和数据根 lock 均仍存在；第三次启动必须用登记身份识别并停止两个孤儿 process group，等待 lock 释放后完成接管。通过前端 origin 请求 `/api/v1/home`，再携带一个未配置且不同于 public origin 的外部域名 Origin 对 `/_next/hmr` 完成 WebSocket upgrade；记录监听 socket 并向已验证的 supervisor 发送 `SIGTERM`。最后把当前验收 shell 的真实 PID/start ticks 写成伪造 dev 登记，确认 stop helper 只清理登记而不终止该进程。
-- 通过标准：正常接管和 supervisor `SIGKILL` 后的孤儿接管都不因数据锁、旧 Next lock 或端口失败；每次旧 supervisor 及其 Go/Next 子进程都已退出且只剩新实例；伪造、陈旧或非 `scripts/dev.sh` 身份的 PID 不被终止；Go 与 Next.js 均为宿主机子进程，Docker 哨兵无调用；Go 默认只监听 `127.0.0.1`，Next.js 默认监听 `0.0.0.0:3000`，没有把后端直接绑定到外部接口；前端 rewrite 同源成功，未配置的外部域名 Origin 访问 HMR 返回 `101 Switching Protocols` 而非跨源拒绝；退出码与信号处理正确，5 秒内不残留两个子进程。
+- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `NEXT_DEV_HOST` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录并通过前端 origin 请求 `/api/v1/home`。随后执行既有 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管、HMR 外部 origin 和伪造登记身份矩阵，最后安全停止。
+- 通过标准：test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；其余进程接管、监听、HMR、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
 - 证据：进程树、三个 HTTP 结果和退出后的 PID 检查。
 
 ### ACC-NET-001：应用侧代理契约与同源隔离
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-NET-001`。
-- 流程：以正常 `make dev` 的 `http://localhost:3000` 同源入口运行 Chrome，连续两次完整 navigation 并采集页面、`/_next`、`/api/v1/home`、`/runtime/emulatorjs/4.2.3/data/loader.js` 和一个 seed Asset；比较两次 CSP/DOM nonce；检查 Next/Go 只监听 HTTP；从非受信来源伪造转发头，再从测试 allowlist 中的受信代理地址提交固定 `X-Forwarded-Proto/Host`。另以 production build 启动短时前端，采集一次 HTML CSP。扫描后端/前端配置、CLI help 与镜像 metadata 是否出现 HTTPS listener、证书或私钥参数。
+- 流程：以正常 `make dev` 的 `http://localhost:3000` 同源入口运行 Chrome，先登录，再连续两次完整 navigation 并采集页面、`/_next`、`/api/v1/home`、`/runtime/emulatorjs/4.2.3/data/loader.js` 和一个 seed Asset；同时执行既有 nonce、监听、可信/不可信转发头、production CSP 与 TLS 能力扫描。
 - 通过标准：localhost 单一 origin 下 `window.isSecureContext === true`、`window.crossOriginIsolated === true`、`SharedArrayBuffer` 可用；每次 HTML response 的 nonce 均非空且彼此不同，CSP、转发 request nonce 和 Next framework script nonce 一致；开发 CSP 只额外允许 `unsafe-eval`，production CSP 不含它并只开放文档锁定的 self/blob/wasm 能力；页面没有共享静态 HTML/ISR/PPR，控制台没有 CSP 回退/CDN 请求；COOP/COEP/CORP/`nosniff` 覆盖页面、iframe 和 runtime。应用只提供内部明文 HTTP 且没有 TLS 管理能力；非受信转发头无效，受信代理值只在精确 allowlist/公开 origin 校验后生效；内部地址未进入 browser bundle。
 - 证据：network trace、CSP/隔离头、浏览器断言、监听 socket、代理请求矩阵和应用配置摘要。
 
@@ -270,8 +271,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-002`。
-- 流程：读取 `migrations/testdata/supported_versions.json` 的有序整数版本清单，对每个登记的真实旧版本 fixture 逐级迁移到当前版本；再次启动当前 schema 验证幂等；构造比二进制更新的 schema version。绿地首版的清单固定为空数组 `[]`，此时不能伪造旧 schema，仍必须执行当前 schema 二次启动与未来版本拒绝两部分；以后每发布一个新 migration，必须在同一变更把仍受支持的真实旧版本及 fixture 加入清单。
-- 通过标准：清单与 fixture 一一对应、无未登记 fixture；有旧版本时数据/外键保留且最终 schema 与全新库同构，所有路径 `PRAGMA foreign_key_check` 无结果。空清单只表示没有历史兼容输入，不跳过幂等和未来版本负向断言；重复启动不重复变更，未来 schema 被快速拒绝且不会写库。
+- 流程：读取 `migrations/testdata/supported_versions.json` 的有序整数版本清单，对每个仍受支持的真实旧版本 fixture 逐级迁移到当前版本；再次启动当前 schema 验证幂等；构造 migration 020 之前的匿名 `local` 数据库和比二进制更新的 schema version。账户版本明确使用全新数据根，前账户数据库只执行只读识别。
+- 通过标准：清单与 fixture 一一对应、无未登记 fixture；受支持版本升级后 schema 与全新库同构且 `foreign_key_check` 无结果。前账户数据库以 `DATABASE_REBUILD_REQUIRED` 拒绝，文件 hash、WAL/SHM、schema version 和业务行逐字节/逐项不变；重复启动不重复变更，未来 schema 被快速拒绝且不会写库。
 - 证据：支持版本清单、各实际起始/最终 schema 摘要、行数/hash、二次启动结果与未来版本拒绝日志。
 
 ### ACC-CAS-001：SHA-256 去重与原子写入
@@ -294,8 +295,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-BKP-001`。
-- 流程：在验收库写入游戏、Blob、用户 DatVersion、存档、一条未完成 UploadPart 和一条 ACTIVE LaunchSession；另建一条仍在 GC 宽限期、无业务保护边但仍有 `blobs` 行/candidate 的 Blob，以及一个只有物理文件而没有数据库行的 crash orphan；包含一份受保护 archive 及其已物化 entry Blob。保持服务运行调用一次 `retrom backup` 验证拒绝，再正常停止服务，备份到不存在的临时输出路径。检查 v1 目录与 `backup.json` 封闭 schema，注入未知字段、case-fold 冲突路径、错误 mode/count/hash 各做一次负向 restore；尝试向既有路径备份/恢复均验证拒绝。分别用错误 active/list、缺依赖 payload 和根中仅多一个未配置物理版本验证依赖边界，最后用精确 bundle 配置恢复到第二个不存在的数据根，显式启动恢复服务并用原 cookie 访问同一 launch logical path。输入不超过 16 个 Blob/2 个 part。
-- 通过标准：在线备份以 `BACKUP_REQUIRES_OFFLINE` 失败且不发布目录；离线 bundle 目录只含规范槽，普通文件 `0600`/目录 `0700`，`files`（不含 manifest 自身）排序且逐项 size/hash/kind/mode 正确，DATABASE/LAUNCH_KEY 唯一，database hash/count/版本证据互相一致。它包含 staging DB 每一条 `blobs` 行对应的 CAS，包括 GC 宽限期 Blob、受保护 archive 与已物化 entry Blob；同时包含 UploadPart、owner-only key、active/有序 dependency version 列表及每份小型 manifest/SHA256SUMS。只有无数据库行的物理 crash orphan被忽略；bundle 不包含 job scratch、内置 DAT/runtime/许可 payload、绝对路径或额外配置快照。registry 校验证明所有保护/ownership/bookkeeping 边都命中 Blob 行；未知/冲突/错误清单、缺少任一 Blob 行对应文件和已存在目标均拒绝，半成品不以最终名可见。错误 active/list 或缺 payload 以 `RESTORE_DEPENDENCY_CONFIG_MISMATCH` 拒绝；依赖根仅多未配置物理版本不影响恢复且不会加入输出配置。恢复命令不联网、不编辑部署配置，只输出要求的版本/active；使用这些精确值启动后 `integrity_check`、`foreign_key_check`、每条 Blob 行的物理文件、part 引用和逐版本依赖校验全通过，记录数、关键 SHA-256 与原环境一致。launch key byte equality 只报告布尔结果，原 cookie 仍通过 hash/session 校验；清单/日志不含 key/capability 明文且不依赖原 WAL/SHM。
+- 流程：在验收库写入三个 User/Profile、游戏、Blob、用户 DatVersion、私有存档、一条未完成 UploadPart、ACTIVE AuthSession/AccountLink/LaunchSession；另建 GC 宽限期 Blob、crash orphan 和受保护 archive。保持服务运行调用一次 `retrom backup` 验证拒绝，再正常停止服务，备份到不存在的临时输出路径。完成既有 manifest/依赖负向矩阵后恢复到第二个不存在的数据根，启动恢复服务，分别用旧认证 cookie、账号链接与 launch capability访问，再用原密码重新登录并核对三个 Profile 的私有数据。
+- 通过标准：既有 bundle 结构、mode/hash、CAS/registry、依赖和负向恢复约束全部满足；User/Profile/credential 与私有数据的非围栏行数和摘要一致。restore 在开放 HTTP 前用单事务撤销全部非终态 AuthSession、未使用 AccountLink 和非终态 LaunchSession，写一条不含 ID/secret 的 `RESTORE_SECURITY_FENCE` 审计；旧 cookie/link/capability 全部失败，启用用户可用原密码重新登录并只能看到自己的原数据。清单/日志不含密码 hash、session/link/capability/key 明文或完整宿主路径。
 - 证据：脱敏 canonical `backup.json`、bundle tree/mode、负向错误矩阵、恢复检查、key equality boolean、cookie 请求结果和前后摘要 hash。
 
 ### ACC-SEC-001：Archive 与 XML 输入安全
@@ -310,16 +311,16 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-SEC-002`。
-- 流程：在临时数据根首次启动并检查 key 权限；以同一 Idempotency-Key/body 并发重放，创建只授权一个 VariantRevision 的 LaunchSession；记录 response/body/Set-Cookie、idempotency record 和数据库行；分别用正确 cookie、无 cookie、错误 cookie、fake clock bootstrap/hard/已 start idle 过期、pre-start finish 与正常 finish 后撤销、其他游戏 logical path、编码 traversal 和 Range 请求访问 game/BIOS/parent/state；在全新 browser context 只复制 `/play/{launchId}`。另读取固定 runtime 与已发布 Asset，并以 symlink/错误长度 key 做启动负向测试。
-- 通过标准：key 为原子生成的 owner-only 32 bytes，symlink/错误长度使启动失败；body/URL 只有非秘密 UUIDv7 `launchId`。并发幂等响应的 launchId/capability 相同且 cookie 都有效；32-byte capability 仅以无 padding base64url 出现在 `retrom_launch_<launchId>` HttpOnly/SameSite=Strict/`Max-Age=86400`/限定 Path/无 Domain cookie（生产另有 Secure），数据库 LaunchSession 只有对原始 bytes 的 SHA-256，idempotency record 无 Set-Cookie/secret；finish 尝试清除同 name/path cookie。config/start/heartbeat/finish/save 写入都在限定 Path 内并要求 cookie；无 cookie 但有公开 launchId 也不能更新 PlaySession。config 前 5 分钟 bootstrap TTL、config 后/start 前仅 hard expiry、start 后 2 分钟 idle 均由 fake clock 精确生效，耗时加载不会被未发生的 heartbeat 误杀；pre-start finish 不创建 PlaySession。正确 cookie 只取得清单内内容；缺失/错误/过期/撤销 credential 为稳定 `401`，越界 logical path 为不泄露存在性的 `404`；复制 URL 无 cookie 不能取得 config。受限内容为 `private, no-store` + `Vary: Cookie`，runtime/Asset 为版本化 `public immutable`；单 Range/ETag/MIME/`nosniff` 正确。日志、Referer、诊断、JSON 和路由均无 capability、ROM/BIOS bytes、key 或宿主绝对路径。
+- 流程：用 `alice` 登录后，在临时数据根首次启动并检查 key 权限；以同一主体的 Idempotency-Key/body 并发重放，创建只授权其 Profile/VariantRevision 的 LaunchSession；执行既有 cookie、时钟、finish、路径、Range、新浏览器 context 和 key 负向矩阵。再由 `test` 管理员探测同一 launch/save logical path，并在停用 `alice` 与 restore 围栏后重试原 capability。
+- 通过标准：既有 capability 生成、cookie、TTL、范围、缓存、Range 与脱敏约束全部满足；LaunchSession 不可变绑定 `alice` Profile，普通管理员身份不能替代 capability 或读取其私有内容。停用/删除创建者或 restore 围栏立即撤销未结束 Launch，原 capability 后续 config/heartbeat/save 全部失败且不新增私有数据。
 - 证据：cookie/数据库摘要（capability 只记录不可逆 hash）、请求矩阵、缓存/Range 响应头、新 context trace 和脱敏扫描。
 
-### ACC-SEC-003：受信内网写请求
+### ACC-SEC-003：认证写请求的同源与 CSRF 边界
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-SEC-003`。
-- 流程：分别发送不带 `Origin`/session/cookie/header 的写请求和带跨站 `Origin`、`Sec-Fetch-Site: cross-site` 的写请求。
-- 通过标准：两种请求都进入相同的 schema、幂等和领域校验并可成功写入；API 不读取或要求 CSRF token，也不返回宽松 CORS 响应。测试明确记录这是受信内网部署决策，不把 CORS 误作写请求授权。
+- 流程：对同一受保护写路由发送匿名、只有 cookie、缺/错 Origin、`Sec-Fetch-Site: cross-site`、缺/错 `X-Retrom-CSRF`、完全合法六组请求；再从不可信来源伪造 `X-Forwarded-*`，从精确可信代理发送正确公开 origin。另覆盖无需 cookie 的 setup/link capability 写入与跨站负向请求。
+- 通过标准：匿名为 401，已登录写入必须同时命中精确公开 Origin、非 cross-site Fetch Metadata、session 对应 CSRF header；失败均在读取业务 body/写状态前拒绝。可信代理仅按 allowlist 解析；setup/link capability 不要求 CSRF token但仍执行 Origin/Fetch 门禁。无宽松 CORS，登录和 secret response 均 `private, no-store`。
 - 证据：请求矩阵、数据库结果和响应头。
 
 ### ACC-SEC-004：Hasheous 媒体 SSRF 与不可信展示数据
@@ -346,7 +347,81 @@ make acceptance-case CASE=<case-id>
 - 通过标准：后端只有一个 Go 进程并只写配置的数据根，Next.js 不保存业务状态。阻塞时 live=200、ready=`503 DEPENDENCY_INDEXING`，任一非 health 路由（包括 diagnostics）在读取 body/写状态前返回标准 envelope `503 SERVICE_NOT_READY`；释放后 DatVersion 先 READY/active 再 ready=200。确定性失败保持 live=200、ready=`503 DEPENDENCY_DAT_PARSE_FAILED`，重启不清空失败证据或误激活。多个动态故障按 `DATABASE_UNAVAILABLE→CAS_UNAVAILABLE→DEPENDENCY_INVALID→DEPENDENCY_DAT_PARSE_FAILED→DEPENDENCY_INDEXING` 选择首个 reason。可静态发现的坏配置在 10 秒内非零退出且从未开放 HTTP，并给出稳定可操作错误；未知非工具变量以 `CONFIG_UNKNOWN_VARIABLE` 失败；六类已声明工具前缀可继承但不改变服务配置且值不进日志。慢同步校验在配置的 60 秒 fake deadline 退出，后台 DAT_PARSE 不受这 60 秒误杀；启动不联网下载或 fallback。ready 后诊断响应为 schemaVersion 1 的严格 JSON、字段/计数/版本排序与数据库快照一致，带 `private, no-store`、固定 attachment filename 和 `nosniff`，且不创建 Blob/归档。结构化日志按契约关联 `requestId`、非秘密 `launchId` 和必要的类型化资源 ID，但没有内容 hash、capability/cookie/key、ROM/BIOS bytes、完整宿主路径、工具变量值或上游敏感响应；诊断摘要在此基础上还不得包含任何资源 ID。
 - 证据：健康响应、退出码、耗时和脱敏扫描结果。
 
-## 7. 游戏目录
+## 7. 账户认证、用户管理与私有数据隔离
+
+### ACC-AUTH-001：release 空实例安全初始化
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-AUTH-001`。
+- 流程：以 release 和全新数据根启动到 PENDING，读取匿名 auth context；运行主机只读 `retrom setup-code`，分别提交错误 code、两个并发正确 initialize 和初始化后的重复请求；扫描命令/API/日志与数据库。
+- 通过标准：启动时为 `PENDING` 且无 User/Profile；错误 code 零写入；并发最多一个 `201`，同事务只创建一名 `ADMIN/ENABLED` User、Profile、Argon2id credential、AuthSession 与初始化审计，另一个和重复请求为稳定冲突。setup code 不进数据库/日志，初始化响应只在安全 cookie/封闭 DTO 中返回会话材料。
+- 证据：context/HTTP 记录、User/Profile/credential 行数、审计摘要和敏感模式扫描。
+
+### ACC-AUTH-002：release/test 模式隔离与旧库拒绝
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-AUTH-002`。
+- 流程：用三个独立数据根分别默认 release、显式 `--mode=test` 和 release 含弱默认账号启动；并发启动两次 test 空库，再尝试 `test/test` 登录；另以 pre-account 数据库启动。
+- 通过标准：默认 release 不创建或接受 `test/test`；test 空库无论并发只创建一个 `test` ADMIN/Profile，密码仅存 Argon2id hash且页面/context 标记 test；release 遇测试默认凭据 fail-fast。旧库以 `DATABASE_REBUILD_REQUIRED` 零写入拒绝。
+- 证据：三个数据根的启动/登录结果、行数、文件 hash 和模式 UI 截图。
+
+### ACC-AUTH-003：登录、会话、密码与请求防护
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-AUTH-003`。
+- 流程：覆盖正确/错误/停用登录、logout、idle 8h、absolute 24h、并发改密、当前/其他 session rotation、Argon2 参数、10,000 项 blocklist、Origin/Fetch Metadata/CSRF 和 username+IP 双维限流；用 fake clock 和可信/不可信代理矩阵，不真实等待。
+- 通过标准：登录错误通用且等时路径不泄露账号状态；session cookie/CSRF/缓存属性符合契约，过期和撤销立即生效；改密要求当前密码并只保留轮换后的当前会话。release 密码策略与物化 blocklist fail-closed，限流只信任 allowlist 代理并返回稳定 `429/Retry-After`。
+- 证据：cookie 属性、受控时钟、密码校验与请求负向矩阵、blocklist hash。
+
+### ACC-AUTH-004：邀请与密码重置 capability
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-AUTH-004`。
+- 流程：管理员创建 USER/ADMIN invitation 和 password reset，分别在创建后 1 小时边界、撤销后、使用后和两个并发消费者下校验；完成邀请注册和停用用户重置；扫描 URL fragment 处理、数据库、日志和浏览器存储。
+- 通过标准：只在创建或同幂等键重放响应显示 fragment URL；数据库只保存公开 link ID 与非秘密元数据，不保存 secret/hash，响应时由实例 key 重新派生。`now >= expiresAtMs`、撤销、已使用和错误 kind 均统一 unavailable，并发最多一次成功且事务不留半个账号。重置撤销全部旧认证会话但不启用停用账号；secret 被页面立即从地址清除且不进入 Referer/日志/DOM 终态或任何浏览器持久存储。
+- 证据：link 状态、并发结果、浏览器 history/storage/network 和敏感数据扫描。
+
+### ACC-AUTH-005：管理员用户生命周期与离线恢复
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-AUTH-005`。
+- 流程：管理员以当前 ETag 修改角色/状态、停用/启用/软删除目标用户，提交陈旧 ETag，并证明 username/displayName/Profile/密码没有管理修改入口；再尝试停用/降级/删除自己及最后一名 enabled ADMIN，对另一副本运行离线 `retrom admin-reset`。
+- 通过标准：合法变化原子更新 User、session version、AuthSession、未使用 AccountLink、必要的 Launch 与审计；陈旧 ETag 为 412 且不写入。self/last-admin 全部拒绝；DELETED 不恢复、username 不复用且私有 Profile/历史保留。`admin-reset` 只接受离线服务，从 `/dev/tty` 隐藏读取两次合规新密码，重新启用现有 ADMIN并撤销旧安全状态；密码不进入参数、环境、输出或日志，只留下无 secret 审计。
+- 证据：API/UI 记录、会话/link/launch/User/Profile/审计前后摘要及 CLI 脱敏输出。
+
+### ACC-AUTH-006：管理员授权与响应最小化
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-AUTH-006`。
+- 流程：匿名、USER、ADMIN 遍历全部 `/api/v1/admin/**` 和 `/admin/*`；读取用户列表/详情、diagnostics 与影响摘要并按 allowlist 校验字段，同时从数据库抽样账户 AuditEvent 的 actor。
+- 通过标准：匿名 401，USER 的每个 admin API 为 403且页面为应用级 403，只有 ADMIN 成功；新增路由若未显式分类必须 fail-closed。用户管理响应不含 Profile ID、游戏/存档/时长、密码参数、hash、session/link/capability、IP 或完整宿主路径；审计 actor 使用真实 User ID 或封闭 SYSTEM label，软删除不破坏 actor 外键。
+- 证据：route 矩阵、页面截图、OpenAPI/response allowlist 与敏感字段扫描。
+
+### ACC-ISO-001：两个账号共享目录但隔离游玩数据
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-ISO-001`。
+- 流程：`test` 与 `alice` 对同一已发布游戏分别创建 PlaySession、SaveState 和 PersistentSave，再读取 home、library/detail、recent、saves、launch config；在同一 Chrome profile 依次登录两个账号。
+- 通过标准：两人看到相同公共游戏目录/元信息，只看到各自 Profile 的首页聚合、最近游玩、时长、存档和 persistent current；账户切换清理前一用户的查询缓存、平台图钉、DOS 偏好和内存状态。
+- 证据：双账号固定 fixture、API 响应、浏览器存储 namespace 与切换前后 DOM。
+
+### ACC-ISO-002：跨账号 ID、cursor 与幂等探测
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-ISO-002`。
+- 流程：由另一账号直接使用 SaveState、截图、私有 Asset、Launch、PersistentSave、cursor 和 Idempotency-Key；对相同 key/body 在两主体下并发提交，并尝试从别人的存档启动。
+- 通过标准：跨账号资源统一按契约 404/401，不泄露存在、字段或 bytes；cursor 绑定 route/filter/principal，幂等记录按主体分区，同 key 不串响应；客户端提交 owner/Profile ID 无法扩大授权。
+- 证据：每类交叉 ID 的状态/body/timing 摘要、数据库 owner 与幂等记录。
+
+### ACC-ISO-003：停用、删除与 Player 残留隔离
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-ISO-003`。
+- 流程：两个并发 Chrome context 让目标用户保持页面与 Player 活跃，管理员分别停用、重新启用和软删除；在每个边界继续请求 context、heartbeat、状态/持久保存。使用同一 Chrome profile 令 A 留下 EJS IDBFS bytes，再以无服务器保存的 B 启动同一游戏。
+- 通过标准：停用/删除立即阻止新认证请求并撤销未结束 Launch，Player 写入不新增数据；重新启用仅恢复原 Profile 私有数据并需重新登录，删除不可恢复。B 启动前删除相同 EJS 路径残留并调用 `loadSaveFiles()`，失败则阻断，绝不运行 A 的 bytes。
+- 证据：并发浏览器 trace、heartbeat/save 响应、IDBFS 操作序列和数据行前后摘要。
+
+## 8. 游戏目录
 
 ### ACC-PLAT-001：创建游戏目录与默认核心约束
 
@@ -388,7 +463,7 @@ make acceptance-case CASE=<case-id>
 - 通过标准：非空目录可停用且 Game/存档/revision 不改写；停用后关联游戏从用户首页统计与最近记录、游戏库、详情和存档列表消失，新启动被拒绝，管理端仍可见，重新启用后原记录恢复展示。非空目录仍不可软删除；空目录可软删除，但没有硬删除 API 且旧 slug 不释放；操作写入不可变审计记录；作为默认核心的关联不可被直接禁用。
 - 证据：启停/删除响应、用户与管理端查询、Launch 拒绝、目录状态和审计事件。
 
-## 8. 游戏管理
+## 9. 游戏管理
 
 ### ACC-GAME-001：元信息、媒体与重新刮削
 
@@ -414,7 +489,7 @@ make acceptance-case CASE=<case-id>
 - 通过标准：影响摘要的存档/历史/活动 Launch 计数正确；旧 version 以 409 拒绝，错误标题以 `422 GAME_DELETE_CONFIRMATION_MISMATCH` 拒绝且不改变状态。成功删除原子递增 Game version、设置整数 `deletedAtMs`、撤销活动 Launch 并写 AuditEvent；同 key 稳定重放原 204，不同 key 再删以 `409 GAME_ALREADY_DELETED` 拒绝。游戏不再出现在已发布游戏库/搜索中，普通启动被拒绝；管理详情明确显示已删除状态；存档、审核历史、metadata/file revisions 和审计事件仍可查看，存档操作明确标为不可用；仍被引用的 Blob 不被 GC，且没有物理级联删除。
 - 证据：影响摘要、四类 DELETE 响应/幂等记录、Launch 撤销、各入口查询、审计事件、GC 决策和当前 UI 截图。
 
-## 9. 导入、刮削与审核
+## 10. 导入、刮削与审核
 
 ### ACC-IMP-001：单文件导入与发布前隔离
 
@@ -481,14 +556,14 @@ make acceptance-case CASE=<case-id>
 - 通过标准：已发布 Item 不回滚，REVIEW_PENDING Item 在取消事务转 CANCELLED；RUNNING cancel 返回 202，ImportJob 在停止前保持 CANCEL_REQUESTED，最后一个 Worker 确认后才为 CANCELLED，且绝不因已有发布/取消混合计数聚合成 COMPLETED/PARTIAL_FAILURE。取消检查不超过规定 reader/token 边界并且不会发布；旧 worker 在取消/lease 转移后提交被 state+lease token 拒绝；取消中 lease 恢复不继续领域计算。IDENTIFYING retry 复用 pipeline Job并增加 execution，SCRAPING retry 新建 Run/Job且旧证据不变；两者都由 persisted failedStage 分派、保留原 Import 配置，不重复创建 Blob/候选/ReviewEvent。重新配置不上传或复制 bytes，新 UploadFile 与旧文件引用相同 SHA-256 Blob，replacement 生成 raw ISO Item并回指 source；source 原 REJECTED reason 保留、resolution 指向 replacement、未解决计数归零并收口，陈旧 ETag/重复接管整体拒绝。JobEvent 仍按每次真实转换追加；普通过期任务被重新领取并完成；确定性错误直接 FAILED_FINAL，attempt 用尽才从 FAILED_RETRYABLE 进入 FAILED_FINAL；没有长事务或真实等待，任务/审核时刻均为 INTEGER。
 - 证据：完整状态转换、引用计数、lease/attempt 和事务时长摘要。
 
-## 10. BIOS 与 Arcade DAT
+## 11. BIOS 与 Arcade DAT
 
 ### ACC-DAT-001：真实 DAT 基线完整性
 
 - 上限：300 秒。
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
-- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证 manifest schema V4、artifact compatibility V2、`player_adapter` ID/runtime base/loader、前端 registry 与实现双向对应、runtime allowlist、28 个 selected core/report、PPSSPP assets、mame2003 override、29 个许可 component 来源/JSON Pointer、`SHA256SUMS`、三个已物化 DAT 的 size/hash 及解析统计和 core artifact 绑定；离线重建 notice。再用全新临时 SQLite 和真实三份 DAT 断网启动服务，等待 ready，记录 DatVersion/Job/索引统计；重启同一数据根，确认复用结果而不重跑 parser。最后运行 seed/约束负向检查，并用 `git ls-files`/`git check-ignore` 检查 payload 边界。
+- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证运行时 manifest/adapter/allowlist、28 个 selected core/report、PPSSPP assets、mame2003 override、29 个许可 component、三份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建 notice。再用全新临时 SQLite 和真实三份 DAT 断网启动服务，等待 ready并重启复用；最后运行 seed/约束负向与 Git payload 边界检查。
 - 通过标准：离线命令成功，所有值与机器基线一致；基线 manifest 的 adapter 精确为 `ejs-4.2.3-v1 → 4.2.3`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；28 个 enabled Core 各恰有一条 enabled CoreArtifact 且逐项等于 manifest，线程 basename 与实际 artifact 一致，未知版本不回退默认 adapter。冷库先 live/`DEPENDENCY_INDEXING`，三个不可取消 bootstrap Job 在事务外解析，最终三个 Arcade core 各有独立 READY active DAT；重启不重跑 parser。许可输入逐项命中 size/hash，notice 可重复生成；DAT、EJS archive/runtime、license/notice payload 均未被 Git 跟踪。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
@@ -549,7 +624,7 @@ make acceptance-case CASE=<case-id>
 - 通过标准：不覆盖旧版本；`UNIQUE(emulatorjs_version, relative_path)` 允许版本间同路径而不碰撞，静态路由只暴露每份 manifest allowlist。未登记/版本不符 adapter 使 `data-check` 失败，浏览器 guard 以 `PLAYER_ADAPTER_UNSUPPORTED` 在 loader 前拒绝且不套用 v4.2.3 默认；全部证据和适用 Case 已通过后才能启用。config 中 `emulatorjsVersion/playerAdapterId/runtimeBaseUrl/loaderUrl/path override` 始终来自锁定 artifact 的精确 manifest；切换后普通启动使用新 enabled artifact，旧存档仍从旧版本 URL 和对应 adapter 加载锁定 artifact，回滚恢复旧 enabled artifact/DAT 且不改历史 revision。仍有保护引用的旧版本不可从配置列表、adapter registry 或镜像移除；缺任一证据即失败。
 - 证据：升级 manifest、Case 引用和切换/回滚记录。
 
-## 11. 启动、存档与游玩数据
+## 12. 启动、存档与游玩数据
 
 ### ACC-RUN-001：默认核心与单次核心切换
 
@@ -623,9 +698,9 @@ make acceptance-case CASE=<case-id>
 - 通过标准：加载阶段没有 PlaySession/idle 误过期，pre-start finish 撤销且不创建游玩记录；真实 start 后才启用 2 分钟 idle。三个事件端点都位于 `/runtime/launches/{launchId}/` 且校验 launch cookie，只有公开 launchId 没有 cookie 时为 401。只累计实际运行区间；隐藏/暂停/超出失联上限不累计；heartbeat/finish 幂等、跳号冲突，client time 只审计且越界拒绝；数据库全为整数毫秒，首页/详情汇总一致。
 - 证据：事件时间线、期望/实际 duration 和 API 汇总。
 
-## 12. 二十八个核心的真实运行画面
+## 13. 二十八个核心的真实运行画面
 
-### 12.1 每个核心的统一执行流程
+### 13.1 每个核心的统一执行流程
 
 每个 `ACC-CORE-*` 都是独立 Case，不允许把二十八核合成一个可能超时的长 Case。执行前先运行：
 
@@ -677,14 +752,14 @@ python3 data/example/verify-fixtures.py
 
 `ACC-CORE-028` 必须同时生成 `ppsspp-cso` 与 `ppsspp-iso` 两条机器结果和两张截图；任一格式失败即为整个 Case 失败。任一核心失败只重跑该 Case 进行诊断；共享 loader/runtime 变化时仍逐个运行二十八个 Case，不使用一个无界全量 Case 代替。
 
-## 13. UI、4K 与无障碍
+## 14. UI、4K 与无障碍
 
-### ACC-UI-001：用户导航与无登录访问
+### ACC-UI-001：认证入口、用户导航与权限入口
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-001`。
-- 流程：从全新浏览器 context 访问首页、游戏库、我的存档、最近游玩和管理后台；从游戏卡片进入详情。
-- 通过标准：无需登录；用户侧仅首页、游戏库、我的存档、最近游玩四个主菜单，管理后台固定底部；游戏详情不出现在侧栏且保持游戏库上下文；无移动端验收分支。
+- 流程：从全新浏览器 context 分别访问 PENDING 实例、READY 实例的首页、带 query 的游戏库和管理后台；依次以 USER、ADMIN 登录并从游戏卡片进入详情，再访问认证页和退出。
+- 通过标准：PENDING 只进入 `/setup`；READY 匿名重定向 `/login?returnTo=...` 且登录后恢复站内 path/query；已登录访问认证页回首页。用户侧仅首页、游戏库、我的存档、最近游玩四个主菜单并有账户菜单；只有 ADMIN 显示底部管理入口，USER 直达后台显示 403。游戏详情不出现在侧栏且保持游戏库上下文；退出清除会话并回登录，无移动端验收分支。
 - 证据：导航可访问名称、route 序列和截图。
 
 ### ACC-UI-002：游戏入库父子导航
@@ -723,7 +798,7 @@ python3 data/example/verify-fixtures.py
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-006`。
-- 流程：在 `1280×800`、`2560×1440` 与 `3840×2160` 三个 viewport 打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、`/admin/bios` 和 `/admin/bios/dats`。
+- 流程：在 `1280×800`、`2560×1440` 与 `3840×2160` 三个 viewport 打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理、`/admin/bios` 和 `/admin/bios/dats`。
 - 通过标准：表格/卡片密度可读，筛选和主操作可达；子菜单缩进清晰；2560/3840 下历史 diff、任务阶段、BIOS hash 和 DAT 版本不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个 viewport 均可达；封面容器保持 3:4 并在 3840px 双栏布局中等比延伸到媒体内容底边。
 - 证据：布局断言和每类页面当前截图。
 
@@ -743,7 +818,15 @@ python3 data/example/verify-fixtures.py
 - 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；简介标签与文本域间距不超过 8px，剩余栏高扩展文本域而不是标签空白；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。页面没有批量 Approve/Discard，所有最终决策各自使用当前 ETag/Idempotency-Key/ReviewEvent，两个批次不会串项。
 - 证据：API query/cursor、route 序列、键盘 trace、决策前后队列 DOM 及两个 viewport 的当前截图。
 
-## 14. 缺陷处理与重验
+### ACC-UI-009：账户与用户管理全流程
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-UI-009`。
+- 流程：在 `1280×800`、`2560×1440` 和 `3840×2160` viewport 完成 setup、test login、邀请复制/注册、logout/login、忘记密码、重置、账户改密及管理员用户筛选/Drawer/角色/状态/删除；确认账户资料只读且管理员不能代改 displayName/密码。覆盖空、loading、通用错误、429、ETag 冲突、本人和最后管理员状态；只用键盘重复邀请与 Drawer 流程并运行 axe。
+- 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身/最后管理员控件禁用并解释原因，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
+- 证据：三 viewport 当前截图、route/network/storage trace、axe/键盘结果与后端生命周期摘要。
+
+## 15. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
 
@@ -756,11 +839,11 @@ python3 data/example/verify-fixtures.py
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧对应 `ACC-CORE-*` 或 UI runner 断言。不得用“只能人工复现”免除固化。
 
-## 15. 最终通过标准
+## 16. 最终通过标准
 
 一期项目只有同时满足以下条件才可标记 `PASS`：
 
-- 第 5–13 节所有 Required Case 为 PASS；
+- 第 5–14 节所有 Required Case 为 PASS；
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 本次生成的二十八核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；
@@ -771,7 +854,7 @@ python3 data/example/verify-fixtures.py
 
 AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID、实际执行命令、证据目录、本次新增回归测试，以及任何 `NOT_APPLICABLE` 原因。不得仅回复“验收通过”。
 
-## 16. 专题覆盖映射
+## 17. 专题覆盖映射
 
 | 专题 | 统一 Case |
 | --- | --- |
@@ -784,6 +867,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | BIOS 与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`002` |
 | 启动、存档与游玩时长 | `ACC-RUN-001`–`005`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
 | EmulatorJS 二十八核心 | `ACC-CORE-001`–`028` |
-| UI、4K、待审队列与无障碍 | `ACC-UI-001`–`008` |
+| 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
+| UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。
