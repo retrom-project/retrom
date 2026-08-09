@@ -83,8 +83,13 @@ describe("BIOSManager", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/bios/stvbios/entries", { credentials: "same-origin" });
     const expectedList = within(dialog).getByRole("list", { name: "DAT 要求列表" });
     const actualList = within(dialog).getByRole("list", { name: "当前 ZIP 内容列表" });
-    expect(within(expectedList).getAllByRole("listitem")).toHaveLength(2);
-    expect(within(actualList).getAllByRole("listitem")).toHaveLength(2);
+    expect(expectedList.querySelectorAll(":scope > li")).toHaveLength(2);
+    expect(actualList.querySelectorAll(":scope > li")).toHaveLength(2);
+    const expectedFacts = within(expectedList).getByRole("list", { name: "epr19730.ic8 文件信息" });
+    expect(within(expectedFacts).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(expectedFacts).getByText("name")).toBeVisible();
+    expect(within(expectedFacts).getByText("size")).toBeVisible();
+    expect(within(expectedFacts).getByText("crc")).toBeVisible();
     expect(within(expectedList).getByText("epr19730.ic8")).toBeVisible();
     expect(within(expectedList).queryByText("readme.txt")).not.toBeInTheDocument();
     expect(within(actualList).getByText("epr-19730.ic8")).toBeVisible();
