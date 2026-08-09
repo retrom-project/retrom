@@ -299,36 +299,6 @@ WHERE i.id=?
 			err,
 		)
 	}
-	reason := "已核对 Hasheous 候选与封面"
-	approved, err := importer.ApproveWithReason(ctx, firstItemID, 1, &reason)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var publishedAssets int
-	var providerEvidence, storedReason string
-	if err := database.SQL.QueryRowContext(ctx, `
-SELECT (SELECT count(*)
-FROM game_assets
-WHERE game_id=?
-AND kind='COVER'),
-provider_evidence_json,
-reason
-FROM review_events
-WHERE import_item_id=?
-AND event_type='APPROVED'
-`, approved.GameID, firstItemID).Scan(&publishedAssets, &providerEvidence, &storedReason); err != nil ||
-		publishedAssets != 1 ||
-		storedReason != reason ||
-		!strings.Contains(providerEvidence, candidateAssetID) {
-		t.Fatalf(
-			"published review assets/evidence = %d %s %q, error=%v",
-			publishedAssets,
-			providerEvidence,
-			storedReason,
-			err,
-		)
-	}
-
 	archiveContents := makeDeterministicZIP(t, map[string][]byte{"folder/Metadata-copy.gba": contents})
 	secondUpload, err := uploadService.Create(
 		ctx,
@@ -418,6 +388,35 @@ WHERE provider='HASHEOUS')
 			networkAttempts,
 			cacheAttempts,
 			providerResponses,
+		)
+	}
+	reason := "已核对 Hasheous 候选与封面"
+	approved, err := importer.ApproveWithReason(ctx, firstItemID, 1, &reason)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var publishedAssets int
+	var providerEvidence, storedReason string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT (SELECT count(*)
+FROM game_assets
+WHERE game_id=?
+AND kind='COVER'),
+provider_evidence_json,
+reason
+FROM review_events
+WHERE import_item_id=?
+AND event_type='APPROVED'
+`, approved.GameID, firstItemID).Scan(&publishedAssets, &providerEvidence, &storedReason); err != nil ||
+		publishedAssets != 1 ||
+		storedReason != reason ||
+		!strings.Contains(providerEvidence, candidateAssetID) {
+		t.Fatalf(
+			"published review assets/evidence = %d %s %q, error=%v",
+			publishedAssets,
+			providerEvidence,
+			storedReason,
+			err,
 		)
 	}
 

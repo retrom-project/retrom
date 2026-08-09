@@ -34,13 +34,23 @@ function waitForValidation(jobId: string) {
   });
 }
 
-export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEntry = null, returnTo = `/games/${gameId}`, disabled = false, label = "开始游戏" }: { gameId: string; coreId?: string | null; saveStateId?: string | null; dosEntry?: string | null; returnTo?: string; disabled?: boolean; label?: string }) {
+export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEntry = null, returnTo = `/games/${gameId}`, requiresThreads = false, disabled = false, label = "开始游戏" }: { gameId: string; coreId?: string | null; saveStateId?: string | null; dosEntry?: string | null; returnTo?: string; requiresThreads?: boolean; disabled?: boolean; label?: string }) {
   const router = useRouter();
   const [state, setState] = useState<"idle" | "starting" | "blocked">("idle");
   const [message, setMessage] = useState("");
 
   async function launch() {
     setState("starting");
+    const clientCapabilities = {
+      secureContext: window.isSecureContext,
+      crossOriginIsolated: window.crossOriginIsolated,
+      sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined"
+    };
+    if (requiresThreads && (!clientCapabilities.secureContext || !clientCapabilities.crossOriginIsolated || !clientCapabilities.sharedArrayBuffer)) {
+      setMessage("当前浏览器环境不提供该运行方式所需的线程能力；远程明文 HTTP 无法提供 SharedArrayBuffer。");
+      setState("blocked");
+      return;
+    }
     // Fullscreen must be requested directly from the trusted click; waiting for
     // the API response would lose browser user activation.
     void document.documentElement.requestFullscreen().catch(() => undefined);
@@ -51,11 +61,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
         saveStateId,
         dosEntry,
         returnTo,
-        clientCapabilities: {
-          secureContext: window.isSecureContext,
-          crossOriginIsolated: window.crossOriginIsolated,
-          sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined"
-        }
+        clientCapabilities
       });
       for (let attempt = 0; attempt < 2; attempt += 1) {
         const response = await fetch("/api/v1/launches", {

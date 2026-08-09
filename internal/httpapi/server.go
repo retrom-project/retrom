@@ -176,6 +176,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/admin/imports/{importJobId}", server.importDetail)
 	mux.HandleFunc("GET /api/v1/admin/imports/{importJobId}/events", server.importEvents)
 	mux.HandleFunc("POST /api/v1/admin/imports/{importJobId}/cancel", server.cancelImport)
+	mux.HandleFunc("POST /api/v1/admin/imports/{importJobId}/reconfigure", server.reconfigureImport)
 	mux.HandleFunc("POST /api/v1/admin/import-items/{importItemId}/retry", server.retryImportItem)
 	mux.HandleFunc("POST /api/v1/admin/uploads", server.createUpload)
 	mux.HandleFunc("GET /api/v1/admin/uploads/{uploadId}", server.getUpload)
@@ -2804,6 +2805,9 @@ i.total_item_count,
 i.review_pending_item_count,
 i.failed_item_count,
 i.rejected_file_count,
+i.resolved_rejected_file_count,
+i.already_imported_item_count,
+i.already_imported_file_count,
 i.version,
 i.created_at_ms,
 i.updated_at_ms
@@ -2826,7 +2830,8 @@ func (server *Server) imports(writer http.ResponseWriter, request *http.Request)
 	items := make([]map[string]any, 0)
 	for rows.Next() {
 		var id, state, platformName, provider string
-		var total, pending, failed, rejected, version, createdAtMS, updatedAtMS int64
+		var total, pending, failed, rejected, resolvedRejected, alreadyImportedItems, alreadyImportedFiles int64
+		var version, createdAtMS, updatedAtMS int64
 		if err := rows.Scan(
 			&id,
 			&state,
@@ -2836,6 +2841,9 @@ func (server *Server) imports(writer http.ResponseWriter, request *http.Request)
 			&pending,
 			&failed,
 			&rejected,
+			&resolvedRejected,
+			&alreadyImportedItems,
+			&alreadyImportedFiles,
 			&version,
 			&createdAtMS,
 			&updatedAtMS,
@@ -2846,17 +2854,20 @@ func (server *Server) imports(writer http.ResponseWriter, request *http.Request)
 		items = append(
 			items,
 			map[string]any{
-				"id":                     id,
-				"state":                  state,
-				"platformInstanceName":   platformName,
-				"metadataProvider":       provider,
-				"totalItemCount":         total,
-				"reviewPendingItemCount": pending,
-				"failedItemCount":        failed,
-				"rejectedFileCount":      rejected,
-				"version":                version,
-				"createdAtMs":            createdAtMS,
-				"updatedAtMs":            updatedAtMS,
+				"id":                          id,
+				"state":                       state,
+				"platformInstanceName":        platformName,
+				"metadataProvider":            provider,
+				"totalItemCount":              total,
+				"reviewPendingItemCount":      pending,
+				"failedItemCount":             failed,
+				"rejectedFileCount":           rejected,
+				"unresolvedRejectedFileCount": rejected - resolvedRejected,
+				"alreadyImportedItemCount":    alreadyImportedItems,
+				"alreadyImportedFileCount":    alreadyImportedFiles,
+				"version":                     version,
+				"createdAtMs":                 createdAtMS,
+				"updatedAtMs":                 updatedAtMS,
 			},
 		)
 	}
@@ -3222,6 +3233,11 @@ AND i.state='REVIEW_PENDING'
 		server.databaseError(writer, request, err)
 		return
 	}
+	duplicateGames, contentIdentityDigest, err := server.importer.DuplicateGames(request.Context(), itemID)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	validation := any(nil)
 	if validationID.Valid {
 		var validationCurrent int
@@ -3265,6 +3281,7 @@ AND active.is_active=1))
 		}, "metadata": metadataValue, "sourceManifest": sourceValue,
 		"validation": validation, "candidates": candidates, "scrapeRuns": scrapeRuns,
 		"uploadedAssets": uploadedAssets, "sourceFiles": sourceFiles,
+		"duplicateGames": duplicateGames, "contentIdentityDigest": contentIdentityDigest,
 		"selectedCandidateId": nullableString(selectedCandidateID),
 		"defaultDosEntry":     nullableString(defaultDOSEntry),
 		"selectedAssets": map[string]any{
@@ -3754,19 +3771,40 @@ func (server *Server) approveReview(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	var body struct {
-		Reason *string `json:"reason"`
+		Reason              *string  `json:"reason"`
+		DuplicatePolicy     string   `json:"duplicatePolicy"`
+		AcknowledgedGameIDs []string `json:"acknowledgedGameIds"`
 	}
 	if err := decodeJSON(writer, request, &body, 8<<10); err != nil {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核决定无效", map[string]any{})
 		return
 	}
-	approved, err := server.importer.ApproveWithReason(
+	approved, err := server.importer.ApproveWithDecision(
 		request.Context(),
 		request.PathValue("importItemId"),
 		version,
-		body.Reason,
+		libraryimport.ApprovalDecision{
+			Reason:              body.Reason,
+			DuplicatePolicy:     body.DuplicatePolicy,
+			AcknowledgedGameIDs: body.AcknowledgedGameIDs,
+		},
 	)
 	if err != nil {
+		var duplicateConflict *libraryimport.DuplicateConflict
+		if errors.As(err, &duplicateConflict) {
+			writeError(
+				writer,
+				request,
+				http.StatusConflict,
+				"DUPLICATE_GAME_CONFIRMATION_REQUIRED",
+				"相同游戏文件已关联到已发布游戏；继续发布可能产生重复游戏",
+				map[string]any{
+					"contentIdentityDigest": duplicateConflict.ContentIdentityDigest,
+					"games":                 duplicateConflict.Games,
+				},
+			)
+			return
+		}
 		writeError(writer, request, http.StatusConflict, "REVIEW_VALIDATION_STALE", "审核输入或验证结果已经变化", map[string]any{})
 		return
 	}

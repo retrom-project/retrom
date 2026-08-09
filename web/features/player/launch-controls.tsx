@@ -14,6 +14,7 @@ export type CoreOption = {
   isDefault: boolean;
   status: "READY" | "NEEDS_VALIDATION" | "DEPENDENCY_MISSING" | "INCOMPATIBLE";
   reasons: Array<{ code: string; level: string }>;
+  requiresThreads?: boolean;
 };
 
 export type DOSEntry = {
@@ -37,7 +38,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   coreOptions: CoreOption[];
   dosEntries: DOSEntry[];
   defaultDosEntry: string | null;
-  latestSave?: { saveStateId: string; screenshotUrl: string; createdAtMs: number; coreName: string } | null;
+  latestSave?: { saveStateId: string; screenshotUrl: string; createdAtMs: number; coreId: string; coreName: string } | null;
   nowMs?: number;
 }) {
   const initialCore = coreOptions.find((core) => core.isDefault) ?? coreOptions[0];
@@ -53,6 +54,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   const isDOS = selectedCore?.coreId === "dosbox_pure";
   const dosEntry = dosSelection?.gameId === gameId ? dosSelection.value : isDOS ? defaultDosEntry : null;
   const usesOverride = Boolean(selectedCore && initialCore && selectedCore.coreId !== initialCore.coreId);
+  const latestSaveRequiresThreads = coreOptions.find((core) => core.coreId === latestSave?.coreId)?.requiresThreads ?? false;
 
   function selectCore(value: string) {
     setCoreOverride({ gameId, coreId: value });
@@ -82,11 +84,11 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
     </div> : null}
     {latestSave ? <div className="launch-quick-save">
       <div><Image src={latestSave.screenshotUrl} alt="最近存档截图" fill sizes="126px" unoptimized /></div>
-      <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatSaveTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} label="从存档继续" /></div>
+      <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatSaveTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={latestSaveRequiresThreads} label="从存档继续" /></div>
     </div> : null}
     {latestSave
-      ? <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} disabled={blocked} label="重新开始游戏" />
-      : <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} disabled={blocked} />}
+      ? <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} label="重新开始游戏" />
+      : <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} />}
     <div className="launch-runtime-row">
       <div><small>运行方式</small><strong>{selectedCore?.name ?? "尚未配置"}</strong>{usesOverride ? <span className="launch-core-override">（未采用默认核心）</span> : null}</div>
       <button type="button" onClick={openCorePicker}>更换 ›</button>

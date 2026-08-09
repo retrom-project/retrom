@@ -96,16 +96,19 @@ describe("EmulatorJS adapter", () => {
 
   it("presses and releases bounded startup controls exactly once", () => {
     vi.useFakeTimers();
-    const simulateInput = vi.fn();
+    const receivers: unknown[] = [];
+    const simulateInput = vi.fn(function (this: unknown) { receivers.push(this); });
+    const gameManager = { simulateInput };
     const startupConfig: PlayerConfig = {
       ...config,
       startupActions: [{ event: "GAME_START", kind: "PRESS_CONTROL", delayMs: 2000, player: 0, control: 0, durationMs: 120 }]
     };
-    const cleanup = scheduleStartupActions(startupConfig, { on: () => undefined, gameManager: { simulateInput } });
+    const cleanup = scheduleStartupActions(startupConfig, { on: () => undefined, gameManager });
     vi.advanceTimersByTime(1999);
     expect(simulateInput).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
     expect(simulateInput).toHaveBeenLastCalledWith(0, 0, 1);
+    expect(receivers.at(-1)).toBe(gameManager);
     vi.advanceTimersByTime(120);
     expect(simulateInput).toHaveBeenLastCalledWith(0, 0, 0);
     cleanup();

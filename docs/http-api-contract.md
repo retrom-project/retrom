@@ -47,11 +47,11 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 `platformInstanceId` 与 `platformId` 同时出现时必须验证目录属于该平台；`fromAtMs <= toAtMs`。`q` 使用数据模型定义的 `strings.ToLower + unicode.IsSpace` 折叠算法并以 SQLite `instr(search_text, :q)` 匹配；不使用仅 ASCII 的 `NOCASE`，也不把用户输入当 LIKE pattern。排序和 cursor 均以数据库值加 ID 完成，不能先分页再在 Go 内存二次筛选。
 
-`GET /api/v1/admin/imports` 的每个列表项同时返回 `failedItemCount` 与 `rejectedFileCount`；前者只统计已形成 ImportItem 后的失败，后者统计分组前未被接受的 UploadFile。任务页异常总数必须为两者之和，并保留两类问题的可读拆分。零 Item 且存在拒绝文件的 ImportJob 必须直接聚合为 `PARTIAL_FAILURE`，不得停留在 `RUNNING`；零 Item 且全部文件均为可忽略系统边车时直接为 `COMPLETED`。
+`GET /api/v1/admin/imports` 的每个列表项同时返回 `failedItemCount`、`rejectedFileCount`、`unresolvedRejectedFileCount`、`alreadyImportedItemCount` 与 `alreadyImportedFileCount`；前三项分别表示 Item 失败、分组前未被接受的 UploadFile 总证据和其中尚未通过重新配置任务接管的数量，后两项表示识别阶段因已有未删除游戏使用完全相同内容而跳过的 Item/不同 UploadFile。任务页当前异常总数必须为 `failedItemCount + unresolvedRejectedFileCount`，已导入跳过不计异常并单独解释。Import 详情把参与跳过的 `fileOutcomes[].disposition/reasonCode` 投影为 `ALREADY_IMPORTED`，同时返回 `alreadyImportedMatches[{importItemId,contentIdentityDigest,existingGame{id,title,platformInstanceId,platformInstanceName}}]`；数据库原始 ImportJobFile 仍保留 `SOURCE`。零 Item 且存在未解决拒绝文件的 ImportJob 必须直接聚合为 `PARTIAL_FAILURE`，不得停留在 `RUNNING`；零 Item 且全部文件均为可忽略系统边车，或全部拒绝文件已成功转入 replacement ImportJob 时直接为 `COMPLETED`。所有识别出的 Item 都因已导入而跳过且没有拒绝文件时也直接 `COMPLETED`。
 
 `GET /api/v1/admin/reviews` 只返回 state=`REVIEW_PENDING` 的 ImportItem；`importJobId` 精确绑定同一导入批次并进入 cursor filter canonical object，不存在的批次返回空列表而不回退到全局队列。每个 `items[]` 固定包含 `itemId/reviewVersion/importJobId/sourceDisplayName/draftTitle/platformInstance{id,name}/validationStatus/validationJobId/blockerCodes/candidateCount/sourceTotalSizeBytes/sourceMd5/coverUrl/updatedAtMs`。`sourceTotalSizeBytes` 是 Item 全部 source file Blob size 的非负总和；`sourceMd5` 优先取 CONTENT、再取 DOS_SOURCE/COMPANION 的首个文件，无法取得时为 null；`coverUrl` 优先取草稿已选人工封面、再取已选 READY 候选封面，否则取最近完成 Run 的 READY 封面，值为 `/api/v1/admin/review-assets/{assetId}`，没有时为 null。`validationStatus` 是队列投影枚举 `READY|BLOCKED|INCOMPATIBLE|NEEDS_VALIDATION`；`candidateCount` 只统计本 Item 已完成 Run 的候选。列表不内嵌完整候选、媒体或 source manifest。
 
-`GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 按 `createdAtMs,id` 倒序返回最近 10 个独立批次；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。`candidates` 仍只返回 COMPLETED run 的候选及媒体；`uploadedAssets` 返回该 Item 的不可变人工审核媒体。`sourceFiles` 按 UploadFile 投影 name/size/SHA-256/MD5/CRC32；若来源是已支持归档则 `archive=true` 并返回有界导入时已解析的 `archiveEntries[{name,sizeBytes,crc32}]`，不会在 GET 时重新解压。识别同时覆盖“从归档中物化单成员”的来源和直接作为运行内容的完整 Arcade/DOS ZIP；后者依据 UploadFile 最终 Blob 已存在的 `archive_entries` 返回成员列表，不能因 `source_archive_blob_id` 为空而漏报。
+`GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 按 `createdAtMs,id` 倒序返回最近 10 个独立批次；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。`candidates` 仍只返回 COMPLETED run 的候选及媒体；`uploadedAssets` 返回该 Item 的不可变人工审核媒体。`sourceFiles` 按 UploadFile 投影 name/size/SHA-256/MD5/CRC32；若来源是已支持归档则 `archive=true` 并返回有界导入时已解析的 `archiveEntries[{name,sizeBytes,crc32}]`，不会在 GET 时重新解压。识别同时覆盖“从归档中物化单成员”的来源和直接作为运行内容的完整 Arcade/DOS ZIP；后者依据 UploadFile 最终 Blob 已存在的 `archive_entries` 返回成员列表，不能因 `source_archive_blob_id` 为空而漏报。详情还必须返回当前 `contentIdentityDigest` 与 `duplicateGames[{gameId,title,platformInstanceId,platformInstanceName}]`；后者只含同基础平台、当前 `PUBLISHED` 且 current ContentRevision 文件集合完全相同的 Game，空集合返回 `[]`。
 
 错误统一为：
 
@@ -152,13 +152,28 @@ POST /api/v1/admin/imports
 
 `metadataProvider` 仅允许 `HASHEOUS | NONE`；Arcade DAT 不是 provider。服务端在事务中锁定平台/Core/artifact/DAT/provider 配置快照。
 
+重新配置导入：
+
+```http
+POST /api/v1/admin/imports/{importJobId}/reconfigure
+If-Match: "v3"
+Idempotency-Key: 0198...
+
+{
+  "targetPlatformInstanceId": "0198...",
+  "metadataProvider": "HASHEOUS"
+}
+```
+
+source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 resolution 的 REJECTED ImportJobFile。服务端只克隆这些待处理文件的逻辑 UploadFile 行并复用相同 final Blob，创建新的 COMPLETE UploadSession 后按请求配置执行普通 Import 创建；不能复制 CAS bytes、消费原 UploadSession 或把旧 disposition 改成 SOURCE。replacement ImportJob 返回 `202` 与 `Location`，并以 `reconfiguredFromImportJobId` 回指 source；source 详情的对应 `fileOutcomes[].resolution` 返回 `action=RECONFIGURED/replacementImportJobId/resolvedAtMs`。replacement 创建、全部 resolution、source `resolvedRejectedFileCount/version/state` 与 lineage 必须在同一短事务提交；任何版本漂移或文件已被接管均返回 `409 IMPORT_RECONFIGURE_CONFLICT`，不得留下部分 resolution。重新配置仍执行完整 archive/platform 校验，不提供安全检查 override。
+
 进度端点为 `GET /api/v1/admin/imports/{id}/events`，`Content-Type: text/event-stream`。它按全局 JobEvent ID 合并该 ImportJob 的 IMPORT_GROUP 事件，以及经 `ImportItem.import_job_id` 归属的全部 IMPORT_ITEM_PIPELINE/METADATA_SCRAPE/MEDIA_FETCH 事件；不把其他 Import 的事件混入。每个持久事件使用递增数据库 event ID、`event:` 类型和 JSON `data`；客户端重连携带 `Last-Event-ID`。首次连接没有该 header 时，服务端先发一个 `event: snapshot`，其 `id` 是事务内读取任务快照时看到的全局最大 JobEvent ID（空库为 `0`），`data` 是与 `GET ImportJob` 相同的当前摘要，随后只推送更大 ID 的归属事件，避免 snapshot/subscribe 竞态。`Last-Event-ID` 只接受 `0..当前全局最大 ID` 的十进制整数，其他值返回 `400 INVALID_EVENT_CURSOR`；它可以对应其他 scope，过滤仍按 `id > cursor` 执行。服务端每 15 秒发送无 `id` 的 comment heartbeat。
 
 一期 JobEvent 与 JobInputSnapshot 一样永久保留，不实现后台裁剪，因此不存在一边声明 append-only、一边删除事件的隐藏特权路径，也不返回 `EVENT_CURSOR_EXPIRED`。将来若数据库增长需要保留窗口，必须先增加显式 prune watermark/migration、API 过期语义和恢复测试，不能直接 `DELETE` 后让全局 ID/cursor 失真。SSE 断开不取消任务。
 
 通用 Job 的 `GET /api/v1/admin/jobs/{jobId}/events` 使用同一套全局 JobEvent cursor 规则，但只过滤 `job_id` 精确等于路径资源的事件。无 `Last-Event-ID` 时，服务端在一个只读事务中取得与 `GET /api/v1/admin/jobs/{jobId}` 相同的 Job 快照和当时全局最大 JobEvent ID，先发送 `event: snapshot`，其 `id` 为该全局水位、`data` 为 Job 快照；随后只发送 ID 更大且属于该 Job 的持久事件。重连时可使用属于其他 scope/job 的合法全局 ID 作为水位，仍只按 `id > cursor AND job_id = :jobId` 过滤；负数、非十进制整数或超过当前全局最大值统一为 `400 INVALID_EVENT_CURSOR`。事件 JSON、无 ID 的 15 秒 comment heartbeat、永久保留和“断开不取消”语义与 Import SSE 完全相同。Launch、游戏移动和其他等待共享 `VARIANT_REVALIDATE` 的前端必须使用这条协议，不能轮询一套含不同终态或取消语义的本地状态机。
 
-审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。历史端点只读，不提供修改或删除事件 API。
+审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。Approve 普通 body 可为 `{}`；若当前有完全相同内容的未删除游戏则返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED`，`details={contentIdentityDigest,games}`。继续发布必须重交 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":["..."]}`，ID 集合与事务内重查的当前 games 完全一致才成功；新增、减少、重复或未知 ID 均不接受，确认写入 ReviewEvent。历史端点只读，不提供修改或删除事件 API。
 
 ## 6. Hasheous 边界
 
@@ -322,7 +337,7 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `putRuntimePersist
 | Review 草稿 | `PATCH /admin/reviews/{itemId}` + `If-Match`；body 可含 `targetPlatformInstanceId`、`metadata`（title/description/developer/publisher/genre/players/releaseYear）、`selectedValidationId`、`selectedCandidateId`、`selectedAssets`（`coverCandidateAssetId` 与 `coverUploadedAssetId` 互斥且可空，`backgroundCandidateAssetId` 可空，`screenshotCandidateAssetIds` 最多 32 个且不重复）、`defaultDosEntry` | 同事务把 metadata partial 合并为完整 draft object；验证 Validation READY 且匹配目录/config，candidate 属于本 Item COMPLETED run，候选 asset 属于本 Item 任意 COMPLETED run 且 READY，人工封面属于本 Item，DOS entry 属于 Item；规范化截图顺序并追加 ReviewEvent。页面以 450ms 防抖串行 PATCH，决定前必须冲刷最新状态。把 selectedCandidateId 设为 null 只改变来源，不暗中回滚 metadata。只能改到同一基础平台的另一目录，跨平台返回 `422 REIMPORT_REQUIRED_FOR_PLATFORM_CHANGE`。 |
 | Review 人工封面 | `POST /admin/reviews/{itemId}/assets`：`{"uploadFileId":"...","kind":"COVER"}` + `If-Match` + `Idempotency-Key` | UploadFile 必须 COMPLETE 且为 ≤10 MiB、≤40 MP 的 PNG/JPEG/WebP；创建不可变 `review_uploaded_assets` 和 `REVIEW_ASSET` consumption，不改变草稿版本。响应返回审核资源逻辑 URL；采用仍通过 Review 草稿 PATCH 完成，从而对比弹窗上传不会在“应用”前覆盖当前封面。 |
 | Review 显式重刮削 | `POST /admin/reviews/{itemId}/scrape-candidates`：`{"metadataProvider":"HASHEOUS|NONE"}` + `If-Match` + `Idempotency-Key` | Item 必须 REVIEW_PENDING；HASHEOUS bypass cache 创建新 Run/Job 并返回 `202`，NONE 同事务创建 COMPLETED Run/SUCCEEDED Job 并返回 `201`；两者追加 SCRAPE_REQUESTED，不自动改 draft selection。 |
-| Review 通过 / Discard | approve/discard body 均可为 `{}`；服务端为旧客户端继续接受可空 `reason`，新 UI 不采集发布说明或丢弃原因；`If-Match` + `Idempotency-Key` | approve 只接受当前匹配的 READY selected Validation，且 title trim 后为 1–200 Unicode code points、无控制字符；原子创建发布实体、复制 ValidationFiles 与候选/人工上传封面并写事件，不得在事务内重扫/打包。discard 不删除证据。 |
+| Review 通过 / Discard | discard 与无重复的 approve body 可为 `{}`；服务端为旧客户端继续接受可空 `reason`，新 UI 不采集发布说明或丢弃原因。重复内容确认的 approve body 为 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":[uuid...]}`；`If-Match` + `Idempotency-Key` | approve 只接受当前匹配的 READY selected Validation，且 title trim 后为 1–200 Unicode code points、无控制字符；在同一写事务 claim 内容身份并重查同平台 current published contents。命中且未精确确认时返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 和当前 games；确认后原子创建发布实体、复制 ValidationFiles 与候选/人工上传封面并把确认写入事件，不得在事务内重扫/打包。discard 不删除证据。 |
 | 游戏元信息 | `PATCH /admin/games/{gameId}` + `If-Match`；body 直接包含 title/description/developer/publisher/genre/players/releaseYear 中至少一个字段，例如 `{"title":"..."}`，不再包一层 metadata | 复制未变文本和当前完整 asset 清单，创建 MetadataRevision/Asset refs、更新 `games.search_text` 后切换 current。 |
 | 游戏媒体 | `POST /admin/games/{gameId}/assets`：`{"uploadFileId":"...","kind":"COVER|BACKGROUND|SCREENSHOT","ordinal":0}` + `If-Match` + `Idempotency-Key` | UploadFile 必须 COMPLETE 且为受支持图片；复制文本/未变媒体，创建完整新 MetadataRevision 清单并切换 current。COVER/BACKGROUND 的 ordinal 只能 0，SCREENSHOT 为 `0..31`。 |
 | 游戏内容 revision | `POST /admin/games/{gameId}/content-revisions`：`{"uploadId":"..."}` + Game `If-Match` + `Idempotency-Key` | UploadSession 必须 COMPLETE、未消费，且按游戏基础平台恰好组成一个内容项。事务快照 Game current content、目录/version、默认 core/artifact/DAT，创建 `GAME_FILE_REVISION` Job 和 whole-session consumption，返回 `202`。Worker 在事务外安全扫描/物化/验证；只有 READY 且快照仍一致时才原子创建 GameContentRevision/ContentFiles/VariantRevision、切换 Game content 与目标 Variant current。失败保留 Job/Upload 证据但不创建 revision、不改 current；配置/内容竞态及可修复依赖错误标为 retryable。 |
@@ -364,8 +379,9 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/admin/uploads/{uploadId}`、`PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}` | 恢复状态与上传 part。 |
 | `POST /api/v1/admin/uploads/{uploadId}/complete`、`DELETE /api/v1/admin/uploads/{uploadId}` | 投递异步 UPLOAD_FINALIZE 或取消 upload；两者都使用当前 ETag，complete 另需 Idempotency-Key。 |
 | `GET /api/v1/admin/imports/summary` | 入库总览聚合。 |
-| `GET /api/v1/admin/imports`、`POST /api/v1/admin/imports`、`GET /api/v1/admin/imports/{importJobId}` | ImportJob 列表、创建与详情。 |
+| `GET /api/v1/admin/imports`、`POST /api/v1/admin/imports`、`GET /api/v1/admin/imports/{importJobId}` | ImportJob 列表、创建与详情；详情包含原文件处置和可空 resolution。 |
 | `GET /api/v1/admin/imports/{importJobId}/events`、`POST /api/v1/admin/imports/{importJobId}/cancel` | SSE 进度与取消。 |
+| `POST /api/v1/admin/imports/{importJobId}/reconfigure` | 携带 `If-Match`/`Idempotency-Key`，复用未解决 REJECTED 文件的 CAS Blob，以新平台目录配置创建 replacement ImportJob。 |
 | `POST /api/v1/admin/import-items/{importItemId}/retry` | 仅重试 retryable item。 |
 | `GET /api/v1/admin/jobs/{jobId}`、`GET /api/v1/admin/jobs/{jobId}/events`、`POST /api/v1/admin/jobs/{jobId}/cancel`、`POST /api/v1/admin/jobs/{jobId}/retry` | Upload 终结、DAT/重校验/游戏内容 revision 等非 Import 长任务的快照、SSE、有界取消与显式 retryable 重试；Import 仍使用领域 route，`METADATA_SCRAPE` 人工重试使用 review/game 领域 route 新建批次。 |
 | `GET /api/v1/admin/reviews`、`GET /api/v1/admin/reviews/{importItemId}`、`PATCH /api/v1/admin/reviews/{importItemId}` | 待审核队列、详情（含 Validation、scrape run/candidate/asset）和草稿。 |

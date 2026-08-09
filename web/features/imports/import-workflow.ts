@@ -7,6 +7,9 @@ export type ImportListItem = {
   reviewPendingItemCount: number;
   failedItemCount: number;
   rejectedFileCount: number;
+  unresolvedRejectedFileCount?: number;
+  alreadyImportedItemCount?: number;
+  alreadyImportedFileCount?: number;
   version: number;
   createdAtMs: number;
   updatedAtMs: number;
@@ -15,12 +18,30 @@ export type ImportListItem = {
 export type ImportTaskFilters = { query: string; directory: string; state: string };
 
 export type ImportFileOutcome = {
+  uploadFileId: string;
   name: string;
-  disposition: "SOURCE" | "IGNORED" | "REJECTED";
+  sizeBytes: number;
+  disposition: "SOURCE" | "IGNORED" | "REJECTED" | "ALREADY_IMPORTED";
   reasonCode: string | null;
+  resolution: null | {
+    action: "RECONFIGURED";
+    replacementImportJobId: string;
+    resolvedAtMs: number;
+  };
 };
 
-export type ImportDetail = { fileOutcomes: ImportFileOutcome[] };
+export type ImportDetail = {
+  importJobId: string;
+  metadataProvider: string;
+  targetPlatformInstance: { id: string; name: string };
+  fileOutcomes: ImportFileOutcome[];
+  alreadyImportedMatches?: Array<{
+    importItemId: string;
+    contentIdentityDigest: string;
+    existingGame: { id: string; title: string; platformInstanceId: string; platformInstanceName: string };
+  }>;
+  version: number;
+};
 
 export const importStateLabels: Record<string, string> = {
   QUEUED: "排队中",
@@ -71,13 +92,14 @@ export function importTaskProgress(item: ImportListItem) {
 }
 
 export function importTaskIssueCount(item: ImportListItem) {
-  return item.failedItemCount + (item.rejectedFileCount ?? 0);
+  return item.failedItemCount + (item.unresolvedRejectedFileCount ?? item.rejectedFileCount ?? 0);
 }
 
 export function importTaskIssueSummary(item: ImportListItem) {
   const parts = [];
   if (item.failedItemCount) parts.push(`${item.failedItemCount} 个条目失败`);
-  if (item.rejectedFileCount) parts.push(`${item.rejectedFileCount} 个文件未被接受`);
+  const rejected = item.unresolvedRejectedFileCount ?? item.rejectedFileCount ?? 0;
+  if (rejected) parts.push(`${rejected} 个文件未被接受`);
   return parts.length ? parts.join("；") : "没有可报告的异常";
 }
 

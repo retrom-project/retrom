@@ -65,11 +65,10 @@ function BIOSRow({ item, currentLibrary, busy, inputRef, onInstall }: {
     <div className="runtime-bios-file" role="cell">
       <span className="runtime-file-mark" aria-hidden="true">{item.logicalName.toLowerCase().endsWith(".zip") ? "ZIP" : "BIOS"}</span>
       <div><h3>{item.logicalName}</h3><p>{requirementLabels[item.requirementMode] ?? item.requirementMode}{item.conditionCode ? " · 按游戏内容决定是否需要" : ""}</p>
-        {(item.expectedMd5 || installed) ? <details className="runtime-technical"><summary>校验信息</summary><dl>
+        {(item.expectedMd5 || installed?.md5) ? <dl className="runtime-technical">
           {item.expectedMd5 ? <><dt>期望 MD5</dt><dd><code>{item.expectedMd5}</code></dd></> : null}
           {installed?.md5 ? <><dt>当前 MD5</dt><dd><code>{installed.md5}</code></dd></> : null}
-          {installed?.sha256 ? <><dt>当前 SHA-256</dt><dd title={installed.sha256}><code>{installed.sha256}</code></dd></> : null}
-        </dl></details> : null}
+        </dl> : null}
       </div>
     </div>
     <div className="runtime-core" role="cell"><strong>{item.coreName}</strong><small>{item.coreId}</small></div>

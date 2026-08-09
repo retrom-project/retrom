@@ -336,6 +336,24 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/imports/{importJobId}/reconfigure": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importJobId: components["parameters"]["ImportJobID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAdminImportReconfigure"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/import-items/{importItemId}/retry": {
         parameters: {
             query?: never;
@@ -1356,11 +1374,23 @@ export interface components {
             /** @enum {string} */
             metadataProvider: "HASHEOUS" | "NONE";
         };
+        ReconfigureImportRequest: {
+            /** Format: uuid */
+            targetPlatformInstanceId: string;
+            /** @enum {string} */
+            metadataProvider: "HASHEOUS" | "NONE";
+        };
         ReasonRequest: {
             reason: string;
         };
         ApprovalReasonRequest: {
             reason?: string | null;
+        };
+        ApprovalRequest: {
+            reason?: string | null;
+            /** @enum {string} */
+            duplicatePolicy?: "ALLOW_NEW";
+            acknowledgedGameIds?: string[];
         };
         MetadataFields: {
             title?: string;
@@ -1527,7 +1557,13 @@ export interface components {
             activeInstallation?: unknown;
             activeLaunchCount?: unknown;
             actor?: unknown;
+            acknowledgedGameIds?: unknown;
             after?: unknown;
+            alreadyImportedFileCount?: unknown;
+            alreadyImportedFiles?: unknown;
+            alreadyImportedItemCount?: unknown;
+            alreadyImportedItems?: unknown;
+            alreadyImportedMatches?: unknown;
             archive?: boolean;
             archiveEntries?: unknown;
             /** @enum {string|null} */
@@ -1584,6 +1620,7 @@ export interface components {
             configuredEmulatorjsVersions?: unknown;
             configuredVersion?: unknown;
             contentRevisionId?: unknown;
+            contentIdentityDigest?: unknown;
             core?: unknown;
             coreArtifactId?: unknown;
             coreId?: unknown;
@@ -1629,6 +1666,8 @@ export interface components {
             diskEntryCount?: unknown;
             dosEntry?: unknown;
             dosEntries?: unknown;
+            duplicateGames?: unknown;
+            duplicatePolicy?: unknown;
             edges?: unknown;
             emulatorGameId?: unknown;
             emulatorjs?: unknown;
@@ -1641,6 +1680,7 @@ export interface components {
             evidence?: unknown;
             executionId?: unknown;
             executionNo?: unknown;
+            existingGame?: unknown;
             expectedMd5?: unknown;
             /** Format: int64 */
             expiresAtMs?: number;
@@ -1756,7 +1796,12 @@ export interface components {
             rejectedFiles?: unknown;
             /** Format: int64 */
             rejectedFileCount?: number;
+            reconfiguredFromImportJobId?: unknown;
+            replacementImportJobId?: unknown;
             releaseYear?: unknown;
+            resolution?: unknown;
+            /** Format: int64 */
+            resolvedAtMs?: number;
             repository?: unknown;
             requestId?: unknown;
             requestedArtifactBasename?: unknown;
@@ -1848,6 +1893,10 @@ export interface components {
             trailing?: unknown;
             unresolved?: unknown;
             updatedAtMs?: unknown;
+            /** Format: int64 */
+            unresolvedRejectedFileCount?: number;
+            /** Format: int64 */
+            unresolvedRejectedFiles?: number;
             uploadFileId?: unknown;
             uploadId?: unknown;
             uploadPartCount?: unknown;
@@ -2035,6 +2084,11 @@ export interface components {
                 "application/json": components["schemas"]["CreateImportRequest"];
             };
         };
+        ReconfigureImport: {
+            content: {
+                "application/json": components["schemas"]["ReconfigureImportRequest"];
+            };
+        };
         Reason: {
             content: {
                 "application/json": components["schemas"]["ReasonRequest"];
@@ -2043,6 +2097,11 @@ export interface components {
         ApprovalReason: {
             content: {
                 "application/json": components["schemas"]["ApprovalReasonRequest"];
+            };
+        };
+        Approval: {
+            content: {
+                "application/json": components["schemas"]["ApprovalRequest"];
             };
         };
         Empty: {
@@ -2509,6 +2568,23 @@ export interface operations {
             202: components["responses"]["JSONResponse"];
         };
     };
+    postAdminImportReconfigure: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                importJobId: components["parameters"]["ImportJobID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["ReconfigureImport"];
+        responses: {
+            202: components["responses"]["JSONResponse"];
+        };
+    };
     postAdminImportItemRetry: {
         parameters: {
             query?: never;
@@ -2686,7 +2762,7 @@ export interface operations {
             };
             cookie?: never;
         };
-        requestBody: components["requestBodies"]["ApprovalReason"];
+        requestBody: components["requestBodies"]["Approval"];
         responses: {
             201: components["responses"]["JSONResponse"];
         };

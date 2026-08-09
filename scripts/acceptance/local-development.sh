@@ -8,6 +8,7 @@ web_port=13000
 backend_origin="http://127.0.0.1:${backend_port}"
 web_origin="http://localhost:${web_port}"
 browser_origin="http://local.retrom.test:${web_port}"
+unconfigured_hmr_origin="https://unconfigured.retrom.example"
 process_id=""
 previous_process_id=""
 orphan_backend_pid=""
@@ -213,7 +214,7 @@ if process_matches_start_ticks "$orphan_backend_pid" "$orphan_backend_start_tick
 fi
 
 home="$(curl --fail --silent --show-error "$web_origin/api/v1/home")"
-hmr_status="$(python3 - "$web_port" "$browser_origin" <<'PY'
+hmr_status="$(python3 - "$web_port" "$unconfigured_hmr_origin" <<'PY'
 import base64
 import os
 import socket

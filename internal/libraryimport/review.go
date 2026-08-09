@@ -872,11 +872,13 @@ AND state='REVIEW_PENDING';
 SET review_pending_item_count=review_pending_item_count-1,
 discarded_item_count=discarded_item_count+1,
 state=CASE WHEN review_pending_item_count=1
-AND rejected_file_count=0 THEN 'COMPLETED' WHEN review_pending_item_count=1 THEN 'PARTIAL_FAILURE' ELSE state END,
+AND rejected_file_count=resolved_rejected_file_count THEN 'COMPLETED'
+WHEN review_pending_item_count=1 THEN 'PARTIAL_FAILURE'
+ELSE state END,
 version=version+1,
 updated_at_ms=?,
 completed_at_ms=CASE WHEN review_pending_item_count=1
-AND rejected_file_count=0 THEN ? ELSE NULL END
+AND rejected_file_count=resolved_rejected_file_count THEN ? ELSE NULL END
 WHERE id=?
 `, now, now, itemID, now, now, importID); err != nil {
 		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)

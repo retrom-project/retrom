@@ -1292,9 +1292,7 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
 .runtime-file-mark { width: 42px; height: 42px; display: grid; place-items: center; color: #6556c4; border-radius: 10px; background: var(--purple-soft); font: 800 8px/1 ui-monospace, monospace; letter-spacing: .05em; }
 .runtime-bios-file h3, .runtime-dat-main h3 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 13px; }
 .runtime-bios-file p { margin: 3px 0 0; color: var(--muted); font-size: 10px; }
-.runtime-technical { margin-top: 4px; }
-.runtime-technical summary { width: fit-content; color: var(--purple-dark); cursor: pointer; font-size: 10px; }
-.runtime-technical dl { max-width: 520px; margin: 6px 0 0; padding: 8px; display: grid; grid-template-columns: 84px minmax(0, 1fr); gap: 4px 8px; border-radius: 8px; color: #616b7d; background: #f8f7f4; font-size: 9px; }
+.runtime-technical { max-width: 520px; margin: 5px 0 0; display: grid; grid-template-columns: 62px minmax(0, 1fr); gap: 2px 7px; color: #616b7d; font-size: 9px; }
 .runtime-technical dt { color: #7c8595; }
 .runtime-technical dd { min-width: 0; margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .runtime-core strong, .runtime-core small, .runtime-usage strong, .runtime-usage small, .runtime-dat-content strong, .runtime-dat-content small { display: block; }
