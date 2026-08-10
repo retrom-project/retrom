@@ -255,7 +255,7 @@ INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,r
 sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
 VALUES('attachment-artifact','fbneo','4.2.3','fixture','WASM','data/cores/attachment.data',1,
 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','{}',
-'{"schemaVersion":2,"runtimeCoreId":"fbneo","requestedArtifactBasename":"fbneo-wasm.data","canvasResizePolicy":"NONE","defaultOptions":{},"persistentSaveMode":"NONE","persistentSaveKind":null,"inputMode":"STANDARD","startupActions":[]}',1,1,?,?);
+'{"schemaVersion":3,"runtimeCoreId":"fbneo","requestedArtifactBasename":"fbneo-wasm.data","canvasResizePolicy":"NONE","defaultOptions":{},"persistentSaveMode":"NONE","persistentSaveKind":null,"inputMode":"STANDARD","startupActions":[],"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}',1,1,?,?);
 INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,
 compatibility_status,parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
 VALUES('attachment-dat','fbneo','attachment-artifact','BUILTIN','data/dat/attachment.xml',

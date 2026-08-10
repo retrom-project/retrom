@@ -481,22 +481,24 @@ func (service *Service) ensureCompatibleDraftValidation(
 	itemID, targetID string,
 	dosEntry sql.NullString,
 ) (string, error) {
-	var effectiveSnapshotID, effectiveManifestDigest string
+	var effectiveSnapshotID, effectiveManifestDigest, contentKind string
 	if err := transaction.QueryRowContext(ctx, `
-SELECT snapshot.id,snapshot.source_manifest_digest
+SELECT snapshot.id,snapshot.source_manifest_digest,snapshot.content_kind
 FROM review_drafts draft
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
 WHERE draft.import_item_id=?
-`, itemID).Scan(&effectiveSnapshotID, &effectiveManifestDigest); err != nil {
+`, itemID).Scan(&effectiveSnapshotID, &effectiveManifestDigest, &contentKind); err != nil {
 		return "", ErrInvalid
 	}
-	var platformVersion int64
-	var coreID, artifactID string
+	var platformVersion, artifactVersion int64
+	var coreID, artifactID, compatibilityConfig string
 	var datID sql.NullString
 	if err := transaction.QueryRowContext(ctx, `
 SELECT p.version,
 p.default_core_id,
 a.id,
+a.version,
+a.compatibility_config_json,
 (SELECT id
 FROM dat_versions
 WHERE core_artifact_id=a.id
@@ -507,7 +509,9 @@ AND a.enabled=1
 WHERE p.id=?
 AND p.enabled=1
 AND p.deleted_at_ms IS NULL
-`, targetID).Scan(&platformVersion, &coreID, &artifactID, &datID); err != nil {
+`, targetID).Scan(
+		&platformVersion, &coreID, &artifactID, &artifactVersion, &compatibilityConfig, &datID,
+	); err != nil {
 		return "", ErrInvalid
 	}
 	var sourceID, sourceManifestDigest, sourceStatus, compatibilityCode, dependencySnapshot string
@@ -525,11 +529,14 @@ AND target_platform_instance_id=?
 AND platform_instance_version=?
 AND core_id=?
 AND core_artifact_id=?
+AND core_artifact_version=?
+AND prepublish_generation=4
 AND dat_version_id IS ?
 AND default_dos_entry IS ?
 ORDER BY created_at_ms DESC,
 id DESC LIMIT 1
-`, itemID, effectiveSnapshotID, targetID, platformVersion, coreID, artifactID, nullable(datID), nullable(dosEntry)).
+`, itemID, effectiveSnapshotID, targetID, platformVersion, coreID, artifactID, artifactVersion,
+		nullable(datID), nullable(dosEntry)).
 		Scan(&sourceID, &sourceManifestDigest, &sourceStatus, &compatibilityCode, &dependencySnapshot)
 	if err == nil {
 		biosState, stateErr := resolveDraftBIOSState(
@@ -589,22 +596,23 @@ id DESC LIMIT 1
 		compatibilityCode = biosState.code
 		dependencySnapshot = biosState.snapshotJSON
 	}
-	input, _ := json.Marshal(
-		map[string]any{
-			"schemaVersion":            1,
-			"validatorVersion":         "review-compatible-v3",
-			"sourceSnapshotId":         effectiveSnapshotID,
-			"sourceManifestDigest":     effectiveManifestDigest,
-			"targetPlatformInstanceId": targetID,
-			"platformInstanceVersion":  platformVersion,
-			"coreArtifactId":           artifactID,
-			"datVersionId":             nullable(datID),
-			"defaultDosEntry":          nullable(dosEntry),
-			"dependencySnapshot":       dependencySnapshot,
-			"status":                   sourceStatus,
-		},
-	)
-	digest := sha256.Sum256(input)
+	digest := prepublishDigest(prepublishDigestInput{
+		SchemaVersion:             1,
+		ValidatorVersion:          validatorReviewV4,
+		SourceSnapshotID:          effectiveSnapshotID,
+		SourceManifestDigest:      effectiveManifestDigest,
+		ContentKind:               contentKind,
+		TargetPlatformInstanceID:  targetID,
+		PlatformInstanceVersion:   platformVersion,
+		CoreArtifactID:            artifactID,
+		CoreArtifactVersion:       artifactVersion,
+		CompatibilityConfigDigest: compatibilityConfigDigest(compatibilityConfig),
+		DATVersionID:              nullStringPointer(datID),
+		DefaultDOSEntry:           nullStringPointer(dosEntry),
+		DependencySnapshot:        json.RawMessage(dependencySnapshot),
+		Status:                    sourceStatus,
+		CompatibilityCode:         compatibilityCode,
+	})
 	createdID, _ := uuid.NewV7()
 	now := service.now().UnixMilli()
 	if _, err := transaction.ExecContext(ctx, `
@@ -614,6 +622,8 @@ target_platform_instance_id,
 platform_instance_version,
 core_id,
 core_artifact_id,
+core_artifact_version,
+prepublish_generation,
 dat_version_id,
 default_dos_entry,
 source_manifest_digest,
@@ -622,21 +632,7 @@ prepublish_input_digest,
 status,
 compatibility_code,
 dependency_snapshot_json,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?)
+created_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `,
 		createdID.String(),
 		itemID,
@@ -644,11 +640,13 @@ created_at_ms) VALUES(?,
 		platformVersion,
 		coreID,
 		artifactID,
+		artifactVersion,
+		prepublishGeneration,
 		nullable(datID),
 		nullable(dosEntry),
 		effectiveManifestDigest,
 		effectiveSnapshotID,
-		hex.EncodeToString(digest[:]),
+		digest,
 		sourceStatus,
 		compatibilityCode,
 		dependencySnapshot,

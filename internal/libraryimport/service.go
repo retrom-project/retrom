@@ -20,6 +20,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
+	"retrom/internal/contentcapability"
 	"retrom/internal/contentmanifest"
 	"retrom/internal/contentprofile"
 	"retrom/internal/corevalidation"
@@ -1420,8 +1421,8 @@ WHERE id=?
 		uploadState != "COMPLETE" {
 		return Created{}, ErrInvalid
 	}
-	var platformID, coreID, artifactID, emulatorVersion, artifactPath, artifactSHA string
-	var instanceVersion int64
+	var platformID, coreID, artifactID, emulatorVersion, artifactPath, artifactSHA, compatibilityConfig string
+	var instanceVersion, artifactVersion int64
 	if err := service.database.QueryRowContext(ctx, `
 SELECT pi.platform_id,
 pi.default_core_id,
@@ -1429,7 +1430,9 @@ pi.version,
 a.id,
 a.emulatorjs_version,
 a.relative_path,
-a.sha256
+a.sha256,
+a.version,
+a.compatibility_config_json
 FROM platform_instances pi
 JOIN core_artifacts a ON a.core_id=pi.default_core_id
 AND a.enabled=1
@@ -1444,6 +1447,8 @@ AND pi.deleted_at_ms IS NULL
 		&emulatorVersion,
 		&artifactPath,
 		&artifactSHA,
+		&artifactVersion,
+		&compatibilityConfig,
 	); err != nil {
 		return Created{}, ErrInvalid
 	}
@@ -1504,20 +1509,25 @@ WHERE id=?
 		lockedUploadState != "COMPLETE" {
 		return Created{}, ErrInvalid
 	}
-	var lockedVersion int64
-	var lockedArtifactID string
+	var lockedVersion, lockedArtifactVersion int64
+	var lockedArtifactID, lockedCompatibilityConfig string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT pi.version,
-a.id
+a.id,
+a.version,
+a.compatibility_config_json
 FROM platform_instances pi
 JOIN core_artifacts a ON a.core_id=pi.default_core_id
 AND a.enabled=1
 WHERE pi.id=?
 AND pi.enabled=1
 AND pi.deleted_at_ms IS NULL
-`, request.TargetPlatformInstanceID).Scan(&lockedVersion, &lockedArtifactID); err != nil ||
+`, request.TargetPlatformInstanceID).Scan(
+		&lockedVersion, &lockedArtifactID, &lockedArtifactVersion, &lockedCompatibilityConfig,
+	); err != nil ||
 		lockedVersion != instanceVersion ||
-		lockedArtifactID != artifactID {
+		lockedArtifactID != artifactID || lockedArtifactVersion != artifactVersion ||
+		compatibilityConfigDigest(lockedCompatibilityConfig) != compatibilityConfigDigest(compatibilityConfig) {
 		return Created{}, ErrInvalid
 	}
 	biosCatalog, err := corevalidation.Catalog(ctx, transaction, artifactID)
@@ -1532,6 +1542,8 @@ AND pi.deleted_at_ms IS NULL
 	consumptionID, _ := uuid.NewV7()
 	now := service.now().UnixMilli()
 	config := map[string]any{
+		"schemaVersion":                 2,
+		"contentMode":                   "STANDARD",
 		"platformInstanceId":            request.TargetPlatformInstanceID,
 		"platformInstanceVersion":       instanceVersion,
 		"platformId":                    platformID,
@@ -1540,6 +1552,8 @@ AND pi.deleted_at_ms IS NULL
 		"emulatorjsVersion":             emulatorVersion,
 		"coreArtifactPath":              artifactPath,
 		"coreArtifactSha256":            artifactSHA,
+		"coreArtifactVersion":           artifactVersion,
+		"compatibilityConfigDigest":     compatibilityConfigDigest(compatibilityConfig),
 		"datVersionId":                  nullable(datID),
 		"biosRequirements":              biosCatalog,
 		"metadataProviderConfigVersion": 1,
@@ -1847,7 +1861,7 @@ WHERE id=?
 		if err != nil {
 			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 		}
-		manifestDigest := sha256.Sum256(manifestJSON)
+		contentKind := preparedGroupContentKind(group)
 		groupIdentity := make([]map[string]any, 0, len(group.sources))
 		searchParts := make([]string, 0, len(group.sources))
 		for _, source := range group.sources {
@@ -1939,11 +1953,12 @@ created_at_ms) VALUES(?,
 INSERT INTO import_item_source_snapshots(id,
 import_item_id,
 revision_no,
+content_kind,
 source_manifest_json,
 source_manifest_digest,
 created_by,
-created_at_ms) VALUES(?,?,1,?,?,'IDENTIFICATION',?)
-`, sourceSnapshotID.String(), itemID.String(), string(manifestJSON), manifestDigestHex, now); err != nil {
+created_at_ms) VALUES(?,?,1,?,?,?,'IDENTIFICATION',?)
+`, sourceSnapshotID.String(), itemID.String(), contentKind, string(manifestJSON), manifestDigestHex, now); err != nil {
 			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 		}
 		if _, err := transaction.ExecContext(ctx, `
@@ -2015,16 +2030,29 @@ WHERE id=?
 			}
 			continue
 		}
-		validationInput := append([]byte("arcade-source-validator-v3\x00"), manifestDigest[:]...)
-		validationInput = append(validationInput, configDigest[:]...)
-		validationInput = append(validationInput, []byte(sourceSnapshotID.String())...)
-		inputDigest := sha256.Sum256(validationInput)
 		validationStatus := group.validationStatus
 		compatibilityCode := group.compatibilityCode
 		dependencySnapshot := group.dependencySnapshot
 		if validationStatus == "" {
 			validationStatus, compatibilityCode, dependencySnapshot = "READY", "READY", "{}"
 		}
+		inputDigest := prepublishDigest(prepublishDigestInput{
+			SchemaVersion:             1,
+			ValidatorVersion:          validatorImportV4,
+			SourceSnapshotID:          sourceSnapshotID.String(),
+			SourceManifestDigest:      manifestDigestHex,
+			ContentKind:               contentKind,
+			TargetPlatformInstanceID:  request.TargetPlatformInstanceID,
+			PlatformInstanceVersion:   instanceVersion,
+			CoreArtifactID:            artifactID,
+			CoreArtifactVersion:       artifactVersion,
+			CompatibilityConfigDigest: compatibilityConfigDigest(compatibilityConfig),
+			DATVersionID:              nullStringPointer(datID),
+			DefaultDOSEntry:           stringPointer(group.defaultDOSEntry),
+			DependencySnapshot:        json.RawMessage(dependencySnapshot),
+			Status:                    validationStatus,
+			CompatibilityCode:         compatibilityCode,
+		})
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(id,
 import_item_id,
@@ -2032,6 +2060,8 @@ target_platform_instance_id,
 platform_instance_version,
 core_id,
 core_artifact_id,
+core_artifact_version,
+prepublish_generation,
 dat_version_id,
 default_dos_entry,
 source_manifest_digest,
@@ -2040,21 +2070,7 @@ prepublish_input_digest,
 status,
 compatibility_code,
 dependency_snapshot_json,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?,
-?)
+created_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
 `,
 			validationID.String(),
 			itemID.String(),
@@ -2062,11 +2078,13 @@ created_at_ms) VALUES(?,
 			instanceVersion,
 			coreID,
 			artifactID,
+			artifactVersion,
+			prepublishGeneration,
 			nullable(datID),
 			nullableText(group.defaultDOSEntry),
 			manifestDigestHex,
 			sourceSnapshotID.String(),
-			hex.EncodeToString(inputDigest[:]),
+			inputDigest,
 			validationStatus,
 			compatibilityCode,
 			dependencySnapshot,
@@ -2511,8 +2529,9 @@ PRAGMA defer_foreign_keys=ON
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
 	var state, importID, configSnapshotJSON, platformID, platformInstanceID, validationID string
-	var metadataJSON, sourceSnapshotID, sourceManifestJSON, sourceManifestDigest, dependencySnapshotJSON string
-	var coreID, artifactID string
+	var metadataJSON, sourceSnapshotID, sourceManifestJSON, sourceManifestDigest string
+	var contentKind, dependencySnapshotJSON string
+	var coreID, artifactID, artifactCompatibility string
 	var draftVersion int64
 	var datID, validationDOSEntry, draftDOSEntry, candidateID, coverID, uploadedCoverID, backgroundID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
@@ -2526,8 +2545,10 @@ d.metadata_json,
 source_snapshot.id,
 source_snapshot.source_manifest_json,
 source_snapshot.source_manifest_digest,
+source_snapshot.content_kind,
 v.core_id,
 v.core_artifact_id,
+a.compatibility_config_json,
 v.dat_version_id,
 v.default_dos_entry,
 d.default_dos_entry,
@@ -2550,8 +2571,10 @@ AND p.version=v.platform_instance_version
 JOIN core_artifacts a ON a.id=v.core_artifact_id
 AND a.core_id=p.default_core_id
 AND a.enabled=1
+AND a.version=v.core_artifact_version
 WHERE i.id=?
 AND v.status='READY'
+AND v.prepublish_generation=4
 AND v.default_dos_entry IS d.default_dos_entry
 AND v.dat_version_id IS (SELECT active.id
 FROM dat_versions active
@@ -2569,8 +2592,10 @@ AND active.is_active=1)
 			&sourceSnapshotID,
 			&sourceManifestJSON,
 			&sourceManifestDigest,
+			&contentKind,
 			&coreID,
 			&artifactID,
+			&artifactCompatibility,
 			&datID,
 			&validationDOSEntry,
 			&draftDOSEntry,
@@ -2582,6 +2607,9 @@ AND active.is_active=1)
 			&backgroundID,
 		)
 	if err != nil || state != "REVIEW_PENDING" || draftVersion != expectedVersion {
+		return Approved{}, ErrInvalid
+	}
+	if !contentcapability.SupportsContentKind(artifactCompatibility, contentKind) {
 		return Approved{}, ErrInvalid
 	}
 	validationSnapshot, snapshotErr := corevalidation.ParseSnapshot(dependencySnapshotJSON)
@@ -2686,18 +2714,21 @@ created_at_ms) VALUES(?,
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_content_revisions(id,
 game_id,
+content_kind,
 source_kind,
 source_ref_id,
 source_manifest_json,
 source_manifest_digest,
 created_at_ms) VALUES(?,
 ?,
+?,
 'IMPORT_REVIEW',
 ?,
 ?,
 ?,
 ?)
-`, contentID.String(), gameID.String(), itemID, sourceManifestJSON, sourceManifestDigest, now); err != nil {
+`, contentID.String(), gameID.String(), contentKind, itemID,
+		sourceManifestJSON, sourceManifestDigest, now); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
