@@ -12,6 +12,9 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"mime/multipart"
+	"net/http"
+	"net/textproto"
 	"path/filepath"
 	"runtime"
 	"testing"
@@ -21,6 +24,9 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/launch"
+	retromruntime "retrom/internal/runtime"
+	"retrom/internal/saves"
 	"retrom/internal/store"
 	"retrom/internal/uploads"
 )
@@ -156,6 +162,48 @@ func fakeCHD(payload string) []byte {
 	return append([]byte("MComprHD"), []byte(payload)...)
 }
 
+func multiDiscSaveRequest(t *testing.T, discIndex int) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	metadata, err := writer.CreatePart(textproto.MIMEHeader{
+		"Content-Disposition": {`form-data; name="metadata"; filename="metadata.json"`},
+		"Content-Type":        {"application/json"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = fmt.Fprintf(metadata, `{"name":"跨盘存档","discIndex":%d}`, discIndex)
+	state, err := writer.CreateFormFile("state", "state.bin")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = state.Write([]byte("multi-disc-state"))
+	screenshot, err := writer.CreatePart(textproto.MIMEHeader{
+		"Content-Disposition": {`form-data; name="screenshot"; filename="screenshot.png"`},
+		"Content-Type":        {"image/png"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	pngFixture, err := base64.StdEncoding.DecodeString(
+		"iVBORw0KGgoAAAANSUhEUgAAAAIAAAACCAIAAAD91JpzAAAAFElEQVR4nGP4z8DAwMDAxMDAwMAAAAwBAQDJ/pLvAAAAAElFTkSuQmCC",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, _ = screenshot.Write(pngFixture)
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+	request, err := http.NewRequest(http.MethodPost, "/", &body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	request.Header.Set("Content-Type", writer.FormDataContentType())
+	return request
+}
+
 func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *testing.T) {
 	t.Parallel()
 	ctx, dataDir, database, blobs, importer := newMultiDiscImportFixture(t)
@@ -249,6 +297,69 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 `, approved.GameID)
 	if len(published) != 3 {
 		t.Fatalf("published content = %v", published)
+	}
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs)
+	createdLaunch, err := launcher.Create(ctx, "multi-disc-profile", launch.CreateRequest{
+		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
+		ClientCapabilities: launch.Capabilities{
+			SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	configuration, err := launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
+	if err != nil || configuration.DiscSet == nil || configuration.DiscSet.Count != 2 ||
+		configuration.DiscSet.InitialDiscIndex != 0 ||
+		configuration.GameURL != "/runtime/launches/"+createdLaunch.LaunchID+"/game/playlist.m3u" {
+		t.Fatalf("multi-disc launch config = %#v, error=%v", configuration, err)
+	}
+	for index, entry := range configuration.DiscSet.Entries {
+		expectedName := fmt.Sprintf("disc-%03d.chd", index+1)
+		if entry.Index != index || entry.VirtualPath != "/"+expectedName ||
+			configuration.ExternalFiles[entry.VirtualPath] !=
+				"/runtime/launches/"+createdLaunch.LaunchID+"/external-files/"+expectedName {
+			t.Fatalf("disc entry %d = %#v / %#v", index, entry, configuration.ExternalFiles)
+		}
+		if _, err := launcher.ExternalBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, expectedName); err != nil {
+			t.Fatalf("locked disc %d: %v", index, err)
+		}
+	}
+	if _, err := launcher.ExternalBlob(
+		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Disc One.CHD",
+	); !errors.Is(err, launch.ErrCredential) {
+		t.Fatalf("original disc name error = %v", err)
+	}
+	saveService := saves.New(database.SQL, blobs, credentials, time.Now)
+	saved, replayed, err := saveService.CreateManual(
+		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "multi-disc-save-1",
+		multiDiscSaveRequest(t, 1),
+	)
+	if err != nil || replayed || saved.DiscIndex == nil || *saved.DiscIndex != 1 {
+		t.Fatalf("multi-disc save = %#v replayed=%t error=%v", saved, replayed, err)
+	}
+	restoredLaunch, err := launcher.Create(ctx, "multi-disc-profile", launch.CreateRequest{
+		GameID: approved.GameID, SaveStateID: &saved.SaveStateID, ReturnTo: "/games/" + approved.GameID,
+		ClientCapabilities: launch.Capabilities{
+			SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	restoredConfig, err := launcher.Config(ctx, restoredLaunch.LaunchID, restoredLaunch.Capability)
+	if err != nil || restoredConfig.DiscSet == nil || restoredConfig.DiscSet.InitialDiscIndex != 1 {
+		t.Fatalf("restored multi-disc config = %#v, error=%v", restoredConfig, err)
 	}
 }
 

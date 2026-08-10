@@ -1290,6 +1290,18 @@ func preparedMultiDiscGroup(
 	group.multiDependency = &corevalidation.MultiDiscSnapshot{
 		DiscCount: len(parsed.Entries), MissingEntries: missing,
 	}
+	if len(missing) == 0 {
+		group.multiDependency.ContentKind = corevalidation.MultiDiscContentKind
+		group.multiDependency.ParserVersion = corevalidation.MultiDiscParserVersion
+		group.multiDependency.Delivery = corevalidation.MultiDiscDelivery
+		group.multiDependency.CanonicalPlaylistSHA256 = canonical.SHA256
+		group.multiDependency.OrderedDiscSHA256 = make([]string, 0, len(parsed.Entries))
+		for _, entry := range parsed.Entries {
+			group.multiDependency.OrderedDiscSHA256 = append(
+				group.multiDependency.OrderedDiscSHA256, entry.File.BlobSHA256,
+			)
+		}
+	}
 	return group, dispositions, nil
 }
 
@@ -2934,6 +2946,51 @@ WHERE source_snapshot_id=?
 	)
 }
 
+type approvalValidationDigestInput struct {
+	VariantID, ContentID, ContentKind, ArtifactID, ArtifactCompatibility string
+	ArtifactVersion                                                      int64
+	DATID                                                                sql.NullString
+	ValidationID                                                         string
+	Snapshot                                                             corevalidation.Snapshot
+	SnapshotValid                                                        bool
+}
+
+func approvalValidationInputDigest(input approvalValidationDigestInput) (string, error) {
+	if !input.SnapshotValid {
+		validationDigest := sha256.Sum256([]byte(input.ValidationID))
+		return hex.EncodeToString(validationDigest[:]), nil
+	}
+	if input.ContentKind != multidisc.ContentKind {
+		digest, err := corevalidation.ValidationInputDigest(
+			input.ArtifactID, input.ContentID, input.DATID, input.Snapshot,
+		)
+		if err != nil {
+			return "", fmt.Errorf("libraryimport/service: %w", err)
+		}
+		return digest, nil
+	}
+	if input.Snapshot.MultiDisc == nil {
+		return "", ErrInvalid
+	}
+	biosDigest, err := corevalidation.BIOSDependencyDigest(input.Snapshot)
+	if err != nil {
+		return "", ErrInvalid
+	}
+	digest, err := corevalidation.MultiDiscValidationInputDigest(corevalidation.MultiDiscValidationInput{
+		GameVariantID: input.VariantID, GameContentRevisionID: input.ContentID,
+		ContentKind: input.ContentKind, CoreArtifactID: input.ArtifactID,
+		CoreArtifactVersion:       input.ArtifactVersion,
+		CompatibilityConfigSHA256: corevalidation.CompatibilityConfigDigest(input.ArtifactCompatibility),
+		DATVersionID:              input.DATID, BIOSDependencySHA256: biosDigest,
+		OrderedDiscSHA256:       input.Snapshot.MultiDisc.OrderedDiscSHA256,
+		CanonicalPlaylistSHA256: input.Snapshot.MultiDisc.CanonicalPlaylistSHA256,
+	})
+	if err != nil {
+		return "", fmt.Errorf("libraryimport/service: %w", err)
+	}
+	return digest, nil
+}
+
 func (service *Service) Approve(ctx context.Context, itemID string, expectedVersion int64) (Approved, error) {
 	return service.ApproveWithDecision(ctx, itemID, expectedVersion, ApprovalDecision{})
 }
@@ -2982,7 +3039,7 @@ PRAGMA defer_foreign_keys=ON
 	var metadataJSON, sourceSnapshotID, sourceManifestJSON, sourceManifestDigest string
 	var contentKind, dependencySnapshotJSON string
 	var coreID, artifactID, artifactCompatibility string
-	var draftVersion int64
+	var draftVersion, artifactVersion int64
 	var datID, validationDOSEntry, draftDOSEntry, candidateID, coverID, uploadedCoverID, backgroundID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
 SELECT i.state,
@@ -2999,6 +3056,7 @@ source_snapshot.content_kind,
 v.core_id,
 v.core_artifact_id,
 a.compatibility_config_json,
+v.core_artifact_version,
 v.dat_version_id,
 v.default_dos_entry,
 d.default_dos_entry,
@@ -3046,6 +3104,7 @@ AND active.is_active=1)
 			&coreID,
 			&artifactID,
 			&artifactCompatibility,
+			&artifactVersion,
 			&datID,
 			&validationDOSEntry,
 			&draftDOSEntry,
@@ -3278,20 +3337,13 @@ FROM game_variant_revisions
 `).Scan(&emulatorGameID); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	validationInputDigest := ""
-	if snapshotErr == nil {
-		validationInputDigest, err = corevalidation.ValidationInputDigest(
-			artifactID,
-			contentID.String(),
-			datID,
-			validationSnapshot,
-		)
-		if err != nil {
-			return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
-		}
-	} else {
-		validationDigest := sha256.Sum256([]byte(validationID))
-		validationInputDigest = hex.EncodeToString(validationDigest[:])
+	validationInputDigest, err := approvalValidationInputDigest(approvalValidationDigestInput{
+		VariantID: variantID.String(), ContentID: contentID.String(), ContentKind: contentKind,
+		ArtifactID: artifactID, ArtifactVersion: artifactVersion, ArtifactCompatibility: artifactCompatibility,
+		DATID: datID, ValidationID: validationID, Snapshot: validationSnapshot, SnapshotValid: snapshotErr == nil,
+	})
+	if err != nil {
+		return Approved{}, err
 	}
 	defaultDOSEntry := validationDOSEntry
 	if draftDOSEntry.Valid {

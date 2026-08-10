@@ -9,11 +9,15 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -22,6 +26,41 @@ import (
 	"retrom/internal/store"
 	"retrom/internal/uploads"
 )
+
+func installSaturnBIOS(
+	t *testing.T,
+	ctx context.Context,
+	database *sql.DB,
+	blobs *blobstore.Store,
+) {
+	t.Helper()
+	metadata, err := blobs.Put(bytes.NewReader([]byte("replacement Saturn BIOS fixture")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	blobID, err := blobstore.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var requirementID string
+	var requirementVersion int64
+	if err := database.QueryRowContext(ctx, `
+SELECT id,version FROM bios_requirements
+WHERE core_id='yabause' AND logical_name='saturn_bios.bin' AND enabled=1
+`).Scan(&requirementID, &requirementVersion); err != nil {
+		t.Fatal(err)
+	}
+	installationID, _ := uuid.NewV7()
+	if _, err := database.ExecContext(ctx, `
+INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
+`, installationID.String(), requirementID, blobID, "saturn_bios.bin", metadata.Size,
+		metadata.MD5, metadata.SHA1, metadata.SHA256, requirementVersion,
+		time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	t.Parallel()
@@ -172,6 +211,169 @@ WHERE source_ref_id=?
 		failedRevisionCount != 0 {
 		t.Fatalf("failed revision count = %d, error=%v", failedRevisionCount, err)
 	}
+}
+
+func TestMultiDiscReplacementPublishesCompleteRevisionAndRejectsMissingDisc(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	installSaturnBIOS(t, ctx, database.SQL, blobs)
+	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.chd", fakeReplacementCHD("original"))
+	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	createdImport, err := importer.Create(ctx, libraryimport.CreateRequest{
+		UploadID: initialUpload, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		MetadataProvider: "NONE",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var itemID string
+	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`,
+		createdImport.ImportJobID).Scan(&itemID); err != nil {
+		t.Fatal(err)
+	}
+	published, err := importer.Approve(ctx, itemID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var originalContentID string
+	var gameVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT current_content_revision_id,version FROM games WHERE id=?
+`, published.GameID).Scan(&originalContentID, &gameVersion); err != nil {
+		t.Fatal(err)
+	}
+	replacementUpload := completeDirectoryUpload(t, ctx, database.SQL, uploadService, map[string][]byte{
+		"replacement/game.m3u":   []byte("one.chd\ntwo.chd\n"),
+		"replacement/one.chd":    fakeReplacementCHD("one"),
+		"replacement/two.chd":    fakeReplacementCHD("two"),
+		"replacement/readme.txt": []byte("ignored"),
+	})
+	service := New(database.SQL, time.Now).WithBlobStore(blobs).WithMultiDiscImportEnabled(true)
+	scheduled, err := service.ScheduleMode(
+		ctx, published.GameID, replacementUpload, "MULTI_DISC_M3U_V1", gameVersion,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForJob(t, ctx, database.SQL, scheduled.JobID, "SUCCEEDED")
+	var currentContentID, contentKind string
+	var replacedVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT game.current_content_revision_id,game.version,content.content_kind
+FROM games game JOIN game_content_revisions content ON content.id=game.current_content_revision_id
+WHERE game.id=?
+`, published.GameID).Scan(&currentContentID, &replacedVersion, &contentKind); err != nil {
+		t.Fatal(err)
+	}
+	if currentContentID == originalContentID || replacedVersion != gameVersion+1 || contentKind != "MULTI_DISC_M3U_V1" {
+		t.Fatalf("replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
+	}
+	var discCount, playlistCount int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=? AND role='DISC'),
+       (SELECT count(*) FROM game_variants variant
+        JOIN variant_files file ON file.game_variant_revision_id=variant.current_revision_id
+        WHERE variant.game_id=? AND file.role='MULTI_DISC_PLAYLIST')
+`, currentContentID, published.GameID).Scan(&discCount, &playlistCount); err != nil ||
+		discCount != 2 || playlistCount != 1 {
+		t.Fatalf("published multi evidence = discs=%d playlists=%d error=%v", discCount, playlistCount, err)
+	}
+	missingUpload := completeDirectoryUpload(t, ctx, database.SQL, uploadService, map[string][]byte{
+		"broken/game.m3u": []byte("one.chd\ntwo.chd\n"),
+		"broken/one.chd":  fakeReplacementCHD("one-new"),
+	})
+	failed, err := service.ScheduleMode(
+		ctx, published.GameID, missingUpload, "MULTI_DISC_M3U_V1", replacedVersion,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
+	var errorCode, afterFailure string
+	if err := database.SQL.QueryRowContext(ctx, `SELECT error_code FROM jobs WHERE id=?`, failed.JobID).
+		Scan(&errorCode); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRowContext(ctx, `SELECT current_content_revision_id FROM games WHERE id=?`,
+		published.GameID).Scan(&afterFailure); err != nil {
+		t.Fatal(err)
+	}
+	if errorCode != "MULTI_DISC_FILE_MISSING" || afterFailure != currentContentID {
+		t.Fatalf("failed replacement = code=%s content=%s", errorCode, afterFailure)
+	}
+}
+
+func fakeReplacementCHD(payload string) []byte {
+	return append([]byte("MComprHD"), []byte(payload)...)
+}
+
+func completeDirectoryUpload(
+	t *testing.T,
+	ctx context.Context,
+	database interface {
+		QueryRowContext(context.Context, string, ...any) *sql.Row
+	},
+	service *uploads.Service,
+	contents map[string][]byte,
+) string {
+	t.Helper()
+	paths := make([]string, 0, len(contents))
+	for name := range contents {
+		paths = append(paths, name)
+	}
+	slices.Sort(paths)
+	declarations := make([]uploads.FileDeclaration, 0, len(paths))
+	for index, name := range paths {
+		declarations = append(declarations, uploads.FileDeclaration{
+			ClientFileID: fmt.Sprintf("file-%d", index), RelativePath: name,
+			SizeBytes: int64(len(contents[name])),
+		})
+	}
+	session, err := service.Create(ctx, uploads.CreateRequest{SourceType: "DIRECTORY", Files: declarations})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index, name := range paths {
+		value := contents[name]
+		digest := sha256.Sum256(value)
+		contentRange := fmt.Sprintf("bytes 0-%d/%d", len(value)-1, len(value))
+		if err := service.PutPart(
+			ctx, session.ID, session.Files[index].ID, 0, contentRange,
+			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(value),
+		); err != nil {
+			t.Fatal(err)
+		}
+	}
+	current, err := service.Get(ctx, session.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobID, _, err := service.Complete(ctx, session.ID, current.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitForJob(t, ctx, database, jobID, "SUCCEEDED")
+	return session.ID
 }
 
 func completeUpload(t *testing.T, ctx context.Context, database interface {

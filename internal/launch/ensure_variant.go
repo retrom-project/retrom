@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/contentcapability"
 	"retrom/internal/contentprofile"
 	"retrom/internal/corevalidation"
 
@@ -49,6 +50,63 @@ func validationDedupeKey(variantID, digest string) string {
 	return hex.EncodeToString(value.Sum(nil))
 }
 
+func (service *Service) validationDigests(
+	ctx context.Context,
+	transaction *sql.Tx,
+	variantID, contentID, contentLogicalName, contentKind, artifactID string,
+	datID sql.NullString,
+) (string, string, error) {
+	biosSnapshot, _, _, err := corevalidation.ResolveBIOS(ctx, transaction, artifactID, contentLogicalName)
+	if err != nil {
+		return "", "", ErrBlocked
+	}
+	if contentKind == corevalidation.MultiDiscContentKind {
+		digest, biosDigest, _, digestErr := service.multiDiscRevalidationInputs(
+			ctx, variantID, contentID, artifactID, datID, biosSnapshot,
+		)
+		return digest, biosDigest, digestErr
+	}
+	digest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
+	if err != nil {
+		return "", "", fmt.Errorf("launch validation digest: %w", err)
+	}
+	biosSnapshotJSON, err := biosSnapshot.JSON()
+	if err != nil {
+		return "", "", fmt.Errorf("launch validation snapshot: %w", err)
+	}
+	biosSnapshotDigest := sha256.Sum256(biosSnapshotJSON)
+	return digest, hex.EncodeToString(biosSnapshotDigest[:]), nil
+}
+
+func (service *Service) currentValidationEvidence(
+	ctx context.Context,
+	variantID, contentID, contentLogicalName, contentKind, artifactID string,
+	datID sql.NullString,
+) (string, string, corevalidation.Snapshot, string, string, error) {
+	biosSnapshot, biosStatus, biosCode, err := corevalidation.ResolveBIOS(
+		ctx, service.database, artifactID, contentLogicalName,
+	)
+	if err != nil {
+		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation BIOS: %w", err)
+	}
+	if contentKind == corevalidation.MultiDiscContentKind {
+		digest, biosDigest, snapshot, digestErr := service.multiDiscRevalidationInputs(
+			ctx, variantID, contentID, artifactID, datID, biosSnapshot,
+		)
+		return digest, biosDigest, snapshot, biosStatus, biosCode, digestErr
+	}
+	digest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
+	if err != nil {
+		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation digest: %w", err)
+	}
+	biosSnapshotJSON, err := biosSnapshot.JSON()
+	if err != nil {
+		return "", "", corevalidation.Snapshot{}, "", "", fmt.Errorf("launch validation snapshot: %w", err)
+	}
+	biosDigest := sha256.Sum256(biosSnapshotJSON)
+	return digest, hex.EncodeToString(biosDigest[:]), biosSnapshot, biosStatus, biosCode, nil
+}
+
 //nolint:funlen,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) ensureVariant(
 	ctx context.Context,
@@ -62,12 +120,13 @@ func (service *Service) ensureVariant(
 		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var contentID, contentLogicalName, coreID, artifactID string
+	var contentID, contentLogicalName, contentKind, coreID, artifactID string
 	var requiresThreads int
 	var datID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
 SELECT g.current_content_revision_id,
 COALESCE(f.logical_name,''),
+content.content_kind,
 c.id,
 a.id,
 c.requires_threads,
@@ -77,7 +136,9 @@ WHERE core_artifact_id=a.id
 AND is_active=1)
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
-LEFT JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id AND f.role='CONTENT'
+JOIN game_content_revisions content ON content.id=g.current_content_revision_id
+LEFT JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id
+AND f.role IN ('CONTENT','DISC')
 JOIN platform_cores pc ON pc.platform_id=pi.platform_id
 AND pc.enabled=1
 JOIN cores c ON c.id=pc.core_id
@@ -88,10 +149,10 @@ WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND c.id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
-ORDER BY f.sort_order,f.logical_name
+ORDER BY CASE f.role WHEN 'CONTENT' THEN 0 ELSE 1 END,f.sort_order,f.logical_name
 LIMIT 1
 `, request.GameID, requestedCore, requestedCore).
-		Scan(&contentID, &contentLogicalName, &coreID, &artifactID, &requiresThreads, &datID)
+		Scan(&contentID, &contentLogicalName, &contentKind, &coreID, &artifactID, &requiresThreads, &datID)
 	if err != nil ||
 		requiresThreads == 1 &&
 			(!request.ClientCapabilities.SecureContext ||
@@ -133,21 +194,12 @@ NULL,
 	} else if err != nil {
 		return Created{}, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
-	biosSnapshot, _, _, err := corevalidation.ResolveBIOS(
-		ctx,
-		transaction,
-		artifactID,
-		contentLogicalName,
+	digest, biosDependencyDigest, err := service.validationDigests(
+		ctx, transaction, variantID, contentID, contentLogicalName, contentKind, artifactID, datID,
 	)
 	if err != nil {
 		return Created{}, ErrBlocked
 	}
-	digest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
-	if err != nil {
-		return Created{}, ErrBlocked
-	}
-	biosSnapshotJSON, _ := biosSnapshot.JSON()
-	biosSnapshotDigest := sha256.Sum256(biosSnapshotJSON)
 	var existingRevisionID, existingStatus string
 	err = transaction.QueryRowContext(ctx, `
 SELECT id,
@@ -190,7 +242,7 @@ AND current_revision_id IS NOT ?
 		artifactID,
 		datID,
 		digest,
-		hex.EncodeToString(biosSnapshotDigest[:]),
+		biosDependencyDigest,
 	)
 	if err != nil {
 		return Created{}, err
@@ -615,22 +667,20 @@ created_at_ms) VALUES(?,
 		variantID,
 		now,
 	)
-	var contentLogicalName string
+	var contentLogicalName, contentKind string
 	if err := service.database.QueryRowContext(ctx, `
 SELECT COALESCE((SELECT logical_name
 FROM game_content_files
-WHERE game_content_revision_id=r.id AND role='CONTENT'
-ORDER BY sort_order,logical_name LIMIT 1),'')
+WHERE game_content_revision_id=r.id AND role IN ('CONTENT','DISC')
+ORDER BY CASE role WHEN 'CONTENT' THEN 0 ELSE 1 END,sort_order,logical_name LIMIT 1),''),
+r.content_kind
 FROM game_content_revisions r
 WHERE r.id=?
-`, contentID).Scan(&contentLogicalName); err != nil {
+`, contentID).Scan(&contentLogicalName, &contentKind); err != nil {
 		return
 	}
-	biosSnapshot, biosStatus, biosCode, err := corevalidation.ResolveBIOS(
-		ctx,
-		service.database,
-		artifactID,
-		contentLogicalName,
+	currentDigest, currentBIOSDigest, biosSnapshot, biosStatus, biosCode, err := service.currentValidationEvidence(
+		ctx, variantID, contentID, contentLogicalName, contentKind, artifactID, datID,
 	)
 	if err != nil {
 		return
@@ -639,16 +689,11 @@ WHERE r.id=?
 	if err != nil {
 		return
 	}
-	biosDigest := sha256.Sum256(biosSnapshotJSON)
-	currentDigest, err := corevalidation.ValidationInputDigest(artifactID, contentID, datID, biosSnapshot)
-	if err != nil {
-		return
-	}
 	status, code := service.validateContentForArtifact(ctx, contentID, artifactID, datID)
 	if biosStatus != "READY" {
 		status, code = biosStatus, biosCode
 	}
-	if currentDigest != digest || hex.EncodeToString(biosDigest[:]) != biosDependencyDigest {
+	if currentDigest != digest || currentBIOSDigest != biosDependencyDigest {
 		status, code = "BLOCKED", "LAUNCH_VALIDATION_INPUT_STALE"
 	}
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -735,7 +780,7 @@ JOIN game_variant_revisions source ON source.id=v.current_revision_id
 AND source.game_content_revision_id=?
 AND source.dat_version_id IS ?
 JOIN variant_files vf ON vf.game_variant_revision_id=source.id
-AND vf.role IN ('DOS_LAUNCH_BUNDLE','PARENT')
+AND vf.role IN ('DOS_LAUNCH_BUNDLE','PARENT','MULTI_DISC_PLAYLIST')
 WHERE v.id=?
 `, revisionID, contentID, nullableSQL(datID), variantID); err != nil {
 		return
@@ -851,7 +896,7 @@ func (service *Service) validateContentForArtifact(
 	contentID, artifactID string,
 	datID sql.NullString,
 ) (string, string) {
-	var coreID, platformID, logicalName string
+	var coreID, platformID, logicalName, contentKind, compatibilityJSON string
 	var relationshipEnabled int
 	err := service.database.QueryRowContext(ctx, `
 SELECT a.core_id,
@@ -862,6 +907,8 @@ WHERE f.game_content_revision_id=cr.id
 AND f.role='CONTENT'
 ORDER BY f.sort_order,f.logical_name
 LIMIT 1),''),
+cr.content_kind,
+a.compatibility_config_json,
 EXISTS(SELECT 1
 FROM platform_cores pc
 WHERE pc.platform_id=pi.platform_id
@@ -873,38 +920,61 @@ JOIN games g ON g.id=cr.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 WHERE a.id=?
 `, contentID, artifactID).
-		Scan(&coreID, &platformID, &logicalName, &relationshipEnabled)
+		Scan(&coreID, &platformID, &logicalName, &contentKind, &compatibilityJSON, &relationshipEnabled)
 	if err != nil {
 		return "BLOCKED", "LAUNCH_CORE_VALIDATION_UNAVAILABLE"
 	}
 	if relationshipEnabled != 1 {
 		return "INCOMPATIBLE", "CORE_PLATFORM_UNSUPPORTED"
 	}
-	if _, exists := contentprofile.ByPlatform(platformID); exists {
-		if !contentprofile.AcceptsRaw(platformID, logicalName) {
-			return "INCOMPATIBLE", "CORE_CONTENT_FORMAT_UNSUPPORTED"
-		}
-	} else if platformID != "arcade" && platformID != "dos" {
-		return "BLOCKED", "CORE_CONTENT_PROFILE_MISSING"
+	if status, code := validateContentProfile(platformID, logicalName, contentKind, compatibilityJSON); status != "READY" {
+		return status, code
 	}
 	if status, code := service.validateStaticBIOSForContent(ctx, artifactID, logicalName); status != "READY" {
 		return status, code
 	}
 	if coreID == "fbneo" || coreID == "mame2003" || coreID == "mame2003_plus" {
-		if !datID.Valid || !strings.EqualFold(filepath.Ext(logicalName), ".zip") {
-			return "INCOMPATIBLE", "ARCADE_CONTENT_NOT_ROMSET"
+		return service.validateArcadeContent(ctx, datID, logicalName)
+	}
+	return "READY", "READY"
+}
+
+func validateContentProfile(platformID, logicalName, contentKind, compatibilityJSON string) (string, string) {
+	if contentKind == corevalidation.MultiDiscContentKind &&
+		(!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDiscM3UV1) ||
+			!contentcapability.SupportsContentKind(compatibilityJSON, contentKind)) {
+		return "INCOMPATIBLE", "CORE_CONTENT_FORMAT_UNSUPPORTED"
+	}
+	if _, exists := contentprofile.ByPlatform(platformID); exists {
+		if !contentprofile.AcceptsRaw(platformID, logicalName) {
+			return "INCOMPATIBLE", "CORE_CONTENT_FORMAT_UNSUPPORTED"
 		}
-		machine := strings.TrimSuffix(filepath.Base(logicalName), filepath.Ext(logicalName))
-		var classification string
-		if err := service.database.QueryRowContext(ctx, `
+		return "READY", "READY"
+	}
+	if platformID != "arcade" && platformID != "dos" {
+		return "BLOCKED", "CORE_CONTENT_PROFILE_MISSING"
+	}
+	return "READY", "READY"
+}
+
+func (service *Service) validateArcadeContent(
+	ctx context.Context,
+	datID sql.NullString,
+	logicalName string,
+) (string, string) {
+	if !datID.Valid || !strings.EqualFold(filepath.Ext(logicalName), ".zip") {
+		return "INCOMPATIBLE", "ARCADE_CONTENT_NOT_ROMSET"
+	}
+	machine := strings.TrimSuffix(filepath.Base(logicalName), filepath.Ext(logicalName))
+	var classification string
+	if err := service.database.QueryRowContext(ctx, `
 SELECT classification
 FROM dat_machines
 WHERE dat_version_id=?
 AND lower(machine_name)=lower(?)
 `, datID.String, machine).Scan(&classification); err != nil ||
-			classification != "NORMAL" {
-			return "INCOMPATIBLE", "ARCADE_MACHINE_NOT_FOUND"
-		}
+		classification != "NORMAL" {
+		return "INCOMPATIBLE", "ARCADE_MACHINE_NOT_FOUND"
 	}
 	return "READY", "READY"
 }

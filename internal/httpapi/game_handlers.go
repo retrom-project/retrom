@@ -50,6 +50,13 @@ type optionalNullableInt64 struct {
 	Value   *int64
 }
 
+func resolvedContentMode(value string) string {
+	if value == "" {
+		return "STANDARD"
+	}
+	return value
+}
+
 func (value *optionalNullableInt64) UnmarshalJSON(contents []byte) error {
 	value.Present = true
 	if string(contents) == "null" {
@@ -74,7 +81,8 @@ func (server *Server) createGameContentRevision(writer http.ResponseWriter, requ
 		return
 	}
 	var body struct {
-		UploadID string `json:"uploadId"`
+		UploadID    string `json:"uploadId"`
+		ContentMode string `json:"contentMode"`
 	}
 	if err := decodeJSON(writer, request, &body, 4096); err != nil || strings.TrimSpace(body.UploadID) == "" {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "内容替换上传无效", map[string]any{})
@@ -86,18 +94,21 @@ func (server *Server) createGameContentRevision(writer http.ResponseWriter, requ
 		IfMatch     int64  `json:"ifMatch"`
 		MediaType   string `json:"mediaType"`
 		UploadID    string `json:"uploadId"`
+		ContentMode string `json:"contentMode"`
 	}{
 		OperationID: "postAdminGameContentRevision",
 		GameID:      request.PathValue("gameId"),
 		IfMatch:     expected,
 		MediaType:   "application/json",
 		UploadID:    body.UploadID,
+		ContentMode: resolvedContentMode(body.ContentMode),
 	})
 	digest := sha256.Sum256(canonical)
-	scheduled, replayed, err := server.gameContent.ScheduleIdempotent(
+	scheduled, replayed, err := server.gameContent.ScheduleIdempotentMode(
 		request.Context(),
 		request.PathValue("gameId"),
 		body.UploadID,
+		resolvedContentMode(body.ContentMode),
 		expected,
 		request.Header.Get("Idempotency-Key"),
 		hex.EncodeToString(digest[:]),
@@ -308,16 +319,22 @@ id
 SELECT cr.id,
 cr.source_kind,
 cr.source_ref_id,
+cr.content_kind,
 cr.created_at_ms,
 COALESCE((SELECT json_group_array(json_object(
 'role', ordered.role,
 'logicalName', ordered.logical_name,
-'sortOrder', ordered.sort_order))
+'sortOrder', ordered.sort_order,
+'sizeBytes', ordered.size_bytes,
+'sha256', ordered.sha256))
 FROM (SELECT role,
 logical_name,
-sort_order
-FROM game_content_files
-WHERE game_content_revision_id=cr.id
+sort_order,
+blob.size_bytes,
+blob.sha256
+FROM game_content_files file
+JOIN blobs blob ON blob.id=file.blob_id
+WHERE file.game_content_revision_id=cr.id
 ORDER BY sort_order,
 role,
 logical_name) ordered), '[]')
@@ -334,9 +351,9 @@ cr.id DESC
 	}
 	defer func() { cleanup.Error("close", contentRows.Close()) }()
 	for contentRows.Next() {
-		var id, sourceKind, sourceRef, filesJSON string
+		var id, sourceKind, sourceRef, contentKind, filesJSON string
 		var createdAtMS int64
-		if err := contentRows.Scan(&id, &sourceKind, &sourceRef, &createdAtMS, &filesJSON); err != nil {
+		if err := contentRows.Scan(&id, &sourceKind, &sourceRef, &contentKind, &createdAtMS, &filesJSON); err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
@@ -351,6 +368,7 @@ cr.id DESC
 				"id":          id,
 				"sourceKind":  sourceKind,
 				"sourceRefId": sourceRef,
+				"contentKind": contentKind,
 				"current":     id == contentID,
 				"files":       files,
 				"createdAtMs": createdAtMS,
