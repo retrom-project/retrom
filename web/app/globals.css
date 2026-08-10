@@ -958,7 +958,7 @@ summary { cursor: pointer; }
 .import-task-next { min-width: 0; display: grid; gap: 3px; }
 .import-task-next strong { font-size: 11px; }
 .import-task-next small { color: var(--muted); overflow-wrap: anywhere; }
-.import-task-actions { display: flex; justify-content: flex-end; }
+.import-task-actions { display: flex; justify-content: flex-end; gap: 8px; }
 .import-task-actions .button { min-width: 112px; }
 .import-task-detail { padding: 14px 16px 16px; border-top: 1px solid var(--line); background: #fbfaf8; }
 .import-task-stages { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
@@ -971,6 +971,18 @@ summary { cursor: pointer; }
 .import-task-problem { margin: 12px 0 0; display: flex; align-items: center; justify-content: space-between; gap: 16px; color: #a93846; font-size: 12px; }
 .import-task-problem p { margin: 0; }
 .import-task-problem .button { flex: 0 0 auto; }
+.import-task-detail-message { margin: 12px 0 0; color: var(--muted); font-size: 12px; }
+.import-task-detail-message.bad { color: #a93846; }
+.import-task-multidisc { margin-top: 12px; display: grid; gap: 8px; }
+.import-task-multidisc > article { min-height: 58px; padding: 10px 12px; display: grid; grid-template-columns: minmax(240px, 1fr) minmax(210px, .7fr) minmax(240px, .8fr); align-items: center; gap: 14px; border: 1px solid #d8d3ea; border-radius: 9px; background: white; }
+.import-task-multidisc > article > div { min-width: 0; display: grid; gap: 3px; }
+.import-task-multidisc strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 12px; }
+.import-task-multidisc span, .import-task-multidisc summary, .import-task-multidisc li, .import-task-multidisc p { color: var(--muted); font-size: 11px; }
+.import-task-multidisc details { min-width: 0; }
+.import-task-multidisc summary { cursor: pointer; font-weight: 700; }
+.import-task-multidisc ul { margin: 7px 0 0; padding-left: 18px; }
+.import-task-multidisc p { margin: 6px 0 0; }
+.import-task-no-ignored { justify-self: end; }
 .import-task-rejections { margin-top: 10px; overflow: hidden; border: 1px solid #efc9cd; border-radius: 9px; background: white; }
 .import-task-rejections > p { margin: 0; padding: 10px 12px; color: var(--muted); font-size: 12px; }
 .import-task-rejections > div { min-height: 38px; padding: 7px 10px; display: grid; grid-template-columns: minmax(240px, 1fr) minmax(260px, 1fr) auto; align-items: center; gap: 12px; border-bottom: 1px solid #f3e0e2; font-size: 11px; }

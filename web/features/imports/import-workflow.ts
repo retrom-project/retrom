@@ -3,6 +3,7 @@ export type ImportListItem = {
   state: string;
   platformInstanceName: string;
   metadataProvider: string;
+  contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1";
   totalItemCount: number;
   reviewPendingItemCount: number;
   failedItemCount: number;
@@ -35,6 +36,7 @@ export type ImportDetail = {
   state: string;
   metadataProvider: string;
   targetPlatformInstance: { id: string; name: string };
+  configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" };
   counts: {
     total: number;
     reviewPending: number;
@@ -45,6 +47,17 @@ export type ImportDetail = {
     alreadyImportedFiles: number;
   };
   fileOutcomes: ImportFileOutcome[];
+  itemSummaries?: Array<{
+    itemId: string;
+    state: string;
+    contentKind: "MULTI_DISC_M3U_V1";
+    playlist: string;
+    discCount: number;
+    presentDiscCount: number;
+    missingDiscCount: number;
+    ignoredFileCount: number;
+    ignoredFiles: string[];
+  }>;
   alreadyImportedMatches?: Array<{
     importItemId: string;
     contentIdentityDigest: string;

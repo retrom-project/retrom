@@ -2195,6 +2195,7 @@ export interface components {
             isDefault?: unknown;
             itemCount?: unknown;
             itemId?: unknown;
+            itemSummaries?: unknown;
             items?: unknown;
             jobId?: unknown;
             jobState?: unknown;

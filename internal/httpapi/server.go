@@ -3129,6 +3129,7 @@ SELECT i.id,
 i.state,
 pi.name,
 i.metadata_provider,
+coalesce(json_extract(i.config_snapshot_json,'$.contentMode'),'STANDARD'),
 i.total_item_count,
 i.review_pending_item_count,
 i.failed_item_count,
@@ -3157,6 +3158,7 @@ type importListItem struct {
 	State                       string `json:"state"`
 	PlatformInstanceName        string `json:"platformInstanceName"`
 	MetadataProvider            string `json:"metadataProvider"`
+	ContentMode                 string `json:"contentMode"`
 	TotalItemCount              int64  `json:"totalItemCount"`
 	ReviewPendingItemCount      int64  `json:"reviewPendingItemCount"`
 	FailedItemCount             int64  `json:"failedItemCount"`
@@ -3189,6 +3191,7 @@ func queryImportList(
 			&item.State,
 			&item.PlatformInstanceName,
 			&item.MetadataProvider,
+			&item.ContentMode,
 			&item.TotalItemCount,
 			&item.ReviewPendingItemCount,
 			&item.FailedItemCount,

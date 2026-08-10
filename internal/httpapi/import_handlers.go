@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"path"
 	"strings"
 
 	"retrom/internal/cleanup"
@@ -147,6 +148,99 @@ func (server *Server) createReviewMultiDiscAttachment(writer http.ResponseWriter
 			}, nil
 		},
 	)
+}
+
+type importMultiDiscItemSummary struct {
+	ItemID           string   `json:"itemId"`
+	State            string   `json:"state"`
+	ContentKind      string   `json:"contentKind"`
+	Playlist         string   `json:"playlist"`
+	DiscCount        int64    `json:"discCount"`
+	PresentDiscCount int64    `json:"presentDiscCount"`
+	MissingDiscCount int64    `json:"missingDiscCount"`
+	IgnoredFileCount int      `json:"ignoredFileCount"`
+	IgnoredFiles     []string `json:"ignoredFiles"`
+	playlistPath     string
+}
+
+func (server *Server) importMultiDiscItemSummaries(
+	ctx context.Context,
+	importJobID string,
+) ([]importMultiDiscItemSummary, error) {
+	rows, err := server.database.QueryContext(ctx, `
+SELECT item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path,
+count(entry.ordinal),coalesce(sum(entry.state='PRESENT'),0),coalesce(sum(entry.state='MISSING'),0)
+FROM import_items item
+JOIN import_item_source_snapshots snapshot ON snapshot.import_item_id=item.id
+AND snapshot.revision_no=(
+  SELECT max(candidate.revision_no) FROM import_item_source_snapshots candidate
+  WHERE candidate.import_item_id=item.id
+)
+JOIN import_item_source_snapshot_files playlist ON playlist.source_snapshot_id=snapshot.id
+AND playlist.role='PLAYLIST_SOURCE'
+JOIN upload_files upload ON upload.id=playlist.upload_file_id
+LEFT JOIN import_item_multidisc_entries entry ON entry.source_snapshot_id=snapshot.id
+WHERE item.import_job_id=? AND snapshot.content_kind='MULTI_DISC_M3U_V1'
+GROUP BY item.id,item.state,snapshot.content_kind,playlist.logical_name,upload.relative_path
+ORDER BY upload.relative_path,item.id
+`, importJobID)
+	if err != nil {
+		return nil, fmt.Errorf("query multi-disc item summaries: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	summaries := make([]importMultiDiscItemSummary, 0)
+	for rows.Next() {
+		var summary importMultiDiscItemSummary
+		if err := rows.Scan(
+			&summary.ItemID,
+			&summary.State,
+			&summary.ContentKind,
+			&summary.Playlist,
+			&summary.playlistPath,
+			&summary.DiscCount,
+			&summary.PresentDiscCount,
+			&summary.MissingDiscCount,
+		); err != nil {
+			return nil, fmt.Errorf("scan multi-disc item summary: %w", err)
+		}
+		summary.IgnoredFiles = make([]string, 0)
+		summaries = append(summaries, summary)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate multi-disc item summaries: %w", err)
+	}
+	ignoredRows, err := server.database.QueryContext(ctx, `
+SELECT upload.relative_path
+FROM import_job_files outcome
+JOIN upload_files upload ON upload.id=outcome.upload_file_id
+WHERE outcome.import_job_id=? AND outcome.disposition='IGNORED'
+ORDER BY upload.relative_path,upload.id
+`, importJobID)
+	if err != nil {
+		return nil, fmt.Errorf("query multi-disc ignored files: %w", err)
+	}
+	defer func() { cleanup.Error("close", ignoredRows.Close()) }()
+	ignoredByDirectory := make(map[string][]string)
+	for ignoredRows.Next() {
+		var relativePath string
+		if err := ignoredRows.Scan(&relativePath); err != nil {
+			return nil, fmt.Errorf("scan multi-disc ignored file: %w", err)
+		}
+		directory := path.Dir(relativePath)
+		ignoredByDirectory[directory] = append(ignoredByDirectory[directory], path.Base(relativePath))
+	}
+	if err := ignoredRows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate multi-disc ignored files: %w", err)
+	}
+	for index := range summaries {
+		ignored := ignoredByDirectory[path.Dir(summaries[index].playlistPath)]
+		summaries[index].IgnoredFileCount = len(ignored)
+		if len(ignored) > 20 {
+			ignored = ignored[:20]
+		}
+		summaries[index].IgnoredFiles = ignored
+	}
+	return summaries, nil
 }
 
 //nolint:funlen // Aggregate and item projections are read together to preserve one import snapshot response.
@@ -329,6 +423,11 @@ ORDER BY u.relative_path,u.id
 		server.databaseError(writer, request, err)
 		return
 	}
+	itemSummaries, err := server.importMultiDiscItemSummaries(request.Context(), id)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	item := map[string]any{
 		"importJobId":                 id,
 		"uploadId":                    uploadID,
@@ -342,6 +441,7 @@ ORDER BY u.relative_path,u.id
 		"configSnapshot":              configValue,
 		"fileOutcomes":                fileOutcomes,
 		"alreadyImportedMatches":      alreadyImportedMatches,
+		"itemSummaries":               itemSummaries,
 		"state":                       state,
 		"counts": map[string]any{
 			"total":                   total,

@@ -1621,6 +1621,7 @@ components:
         isDefault: {}
         itemCount: {}
         itemId: {}
+        itemSummaries: {}
         items: {}
         jobId: {}
         jobState: {}

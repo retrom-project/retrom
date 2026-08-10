@@ -40,6 +40,10 @@ const rejectionLabels: Record<string, string> = {
   AMBIGUOUS_PRIMARY_CONTENT: "归档内有多个候选游戏文件",
   ARCADE_MACHINE_NOT_FOUND: "文件名无法在当前核心启用的街机数据目录中匹配到 machine",
   ARCADE_UNUSED_DEPENDENCY_ARCHIVE: "这是未被同批游戏引用的街机依赖包，请改由 BIOS 文件页面安装",
+  MULTI_DISC_CHD_INVALID: "光盘文件不是有效的 CHD",
+  MULTI_DISC_LIMIT_EXCEEDED: "多盘目录超过光盘数量或总大小限制",
+  MULTI_DISC_PLAYLIST_INVALID: "M3U 播放列表内容无效",
+  MULTI_DISC_REFERENCE_UNSAFE: "M3U 包含不安全或不受支持的引用",
 };
 
 const rejectionDetails: Record<string, string> = {
@@ -57,6 +61,10 @@ const rejectionDetails: Record<string, string> = {
   AMBIGUOUS_PRIMARY_CONTENT: "归档中存在多个可作为主游戏的文件，系统无法替用户决定。",
   ARCADE_MACHINE_NOT_FOUND: "归档文件名去掉 .zip 后未命中当前核心启用 DAT 的 machine 名；可能选错了街机目录或 DAT 不包含该 ROMset。",
   ARCADE_UNUSED_DEPENDENCY_ARCHIVE: "该街机 BIOS/父级包没有被本批次任何游戏引用，因此没有单独创建游戏。",
+  MULTI_DISC_CHD_INVALID: "至少一个被引用文件缺少 CHD 文件头；请重新选择包含完整有效 CHD 的目录。",
+  MULTI_DISC_LIMIT_EXCEEDED: "该目录超过当前核心声明的 2–8 张光盘或 1 GiB 总大小限制。",
+  MULTI_DISC_PLAYLIST_INVALID: "播放列表必须是 UTF-8 文本，并按顺序包含 2–8 个安全 CHD 文件名。",
+  MULTI_DISC_REFERENCE_UNSAFE: "播放列表只能引用同目录的 CHD basename，不能包含路径、URI 或边界空白。",
 };
 
 const activeImportStates = new Set(["QUEUED", "RUNNING", "CANCEL_REQUESTED"]);
@@ -67,6 +75,7 @@ function refreshListItem(item: ImportListItem, detail: ImportDetail): ImportList
     state: detail.state,
     platformInstanceName: detail.targetPlatformInstance.name,
     metadataProvider: detail.metadataProvider,
+    contentMode: detail.configSnapshot?.contentMode ?? item.contentMode,
     totalItemCount: detail.counts.total,
     reviewPendingItemCount: detail.counts.reviewPending,
     failedItemCount: detail.counts.failed,
@@ -78,6 +87,27 @@ function refreshListItem(item: ImportListItem, detail: ImportDetail): ImportList
     createdAtMs: detail.createdAtMs,
     updatedAtMs: detail.updatedAtMs,
   };
+}
+
+function MultiDiscTaskDetail({ detail }: { detail?: DetailState }) {
+  if (!detail || detail.status === "loading") return <p className="import-task-detail-message">正在读取多盘目录明细…</p>;
+  if (detail.status === "error") return <p className="import-task-detail-message bad">多盘目录明细读取失败，请稍后重试。</p>;
+  const summaries = detail.value?.itemSummaries ?? [];
+  if (!summaries.length) return <p className="import-task-detail-message">这个任务没有可显示的多盘目录。</p>;
+  const stateLabel = (state: string, missingDiscCount: number) => {
+    if (missingDiscCount) return `待审核 · 缺 ${missingDiscCount} 张`;
+    if (state === "PUBLISHED") return "已发布 · 目录完整";
+    if (state === "DISCARDED") return "已丢弃 · 目录完整";
+    if (state === "FAILED_RETRYABLE" || state === "FAILED_FINAL") return "处理失败 · 目录完整";
+    return "待审核 · 目录完整";
+  };
+  return <div className="import-task-multidisc" aria-label="多盘目录明细">
+    {summaries.map((summary) => <article key={summary.itemId}>
+      <div><strong>{summary.playlist}</strong><span>多盘 · {summary.discCount} 张</span></div>
+      <div><strong>{stateLabel(summary.state, summary.missingDiscCount)}</strong><span>已找到 {summary.presentDiscCount} / {summary.discCount} 张</span></div>
+      {summary.ignoredFileCount ? <details><summary>已忽略 {summary.ignoredFileCount} 个未引用文件</summary><ul>{summary.ignoredFiles.map((name) => <li key={name}>{name}</li>)}</ul>{summary.ignoredFileCount > summary.ignoredFiles.length ? <p>只显示前 {summary.ignoredFiles.length} 个文件名。</p> : null}</details> : <span className="import-task-no-ignored">没有未引用文件</span>}
+    </article>)}
+  </div>;
 }
 
 export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" }: { initial: ListResponse<ImportListItem>; initialQuery?: string; initialState?: string }) {
@@ -161,7 +191,8 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
       return;
     }
     setExpandedId(item.id);
-    if ((!(item.unresolvedRejectedFileCount ?? item.rejectedFileCount) && !item.alreadyImportedItemCount) || details[item.id]) return;
+    const isMultiDisc = item.contentMode === "MULTI_DISC_M3U_V1";
+    if ((!(item.unresolvedRejectedFileCount ?? item.rejectedFileCount) && !item.alreadyImportedItemCount && !isMultiDisc) || details[item.id]) return;
     setDetails((current) => ({ ...current, [item.id]: { status: "loading" } }));
     try {
       const response = await fetch(`/api/v1/admin/imports/${item.id}`, { headers: { Accept: "application/json" } });
@@ -192,15 +223,16 @@ export function ImportTaskBoard({ initial, initialQuery = "", initialState = "" 
       const stageIndex = importStageIndex(item);
       const attention = item.state === "PARTIAL_FAILURE" || item.state === "FAILED";
       const issueCount = importTaskIssueCount(item);
+      const isMultiDisc = item.contentMode === "MULTI_DISC_M3U_V1";
       return <div className="import-task-entry" key={item.id}>
         <article className={`import-task-card${attention ? " has-error" : ""}`}>
-          <div className="import-task-main"><h3>{formatTime(item.createdAtMs)} · {item.platformInstanceName}</h3><p>{item.totalItemCount} 个条目 · {importProviderLabels[item.metadataProvider] ?? item.metadataProvider} · 更新于 {formatTime(item.updatedAtMs)}{item.alreadyImportedItemCount ? ` · 已跳过 ${item.alreadyImportedItemCount} 个已导入条目` : ""}</p></div>
+          <div className="import-task-main"><h3>{formatTime(item.createdAtMs)} · {item.platformInstanceName}</h3><p>{item.totalItemCount} 个条目{isMultiDisc ? " · 多盘" : ""} · {importProviderLabels[item.metadataProvider] ?? item.metadataProvider} · 更新于 {formatTime(item.updatedAtMs)}{item.alreadyImportedItemCount ? ` · 已跳过 ${item.alreadyImportedItemCount} 个已导入条目` : ""}</p></div>
           <StatusBadge tone={statusTone(item.state)}>{importStateLabels[item.state] ?? item.state}</StatusBadge>
           <div className="import-task-progress"><div><strong>{importTaskPhase(item)}</strong><span>{progress}%</span></div><div className="import-task-track"><i style={{ width: `${progress}%` }} /></div><div className="import-task-distribution"><span className="good">{item.reviewPendingItemCount} 待审核</span>{issueCount ? <button className="bad" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{issueCount} 异常</button> : <span className="neutral">0 异常</span>}</div></div>
           <div className="import-task-next"><strong>{attention ? "当前问题" : item.state === "COMPLETED" ? "结果" : "下一步"}</strong><small>{attention ? importTaskIssueSummary(item) : item.state === "REVIEW_PENDING" ? `${item.reviewPendingItemCount} 个条目等待确认` : item.state === "COMPLETED" && item.alreadyImportedItemCount ? `${item.alreadyImportedItemCount} 个条目因游戏文件已导入而跳过` : item.state === "COMPLETED" ? "已完成本次入库" : "后台会继续推进当前阶段"}</small></div>
-          <div className="import-task-actions">{item.reviewPendingItemCount ? <Link aria-label="查看待审核" className="button" href={`/admin/reviews?importJobId=${item.id}`}>审核 {item.reviewPendingItemCount} 个条目</Link> : null}{!issueCount && !item.reviewPendingItemCount && item.state === "COMPLETED" && item.alreadyImportedItemCount ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起详情" : "查看已跳过"}</button> : !issueCount && !item.reviewPendingItemCount && item.state === "COMPLETED" ? <Link className="button secondary" href="/admin/reviews/history">查看结果</Link> : !issueCount && !item.reviewPendingItemCount ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起详情" : "查看进度"}</button> : null}</div>
+          <div className="import-task-actions">{item.reviewPendingItemCount ? <Link aria-label="查看待审核" className="button" href={`/admin/reviews?importJobId=${item.id}`}>审核 {item.reviewPendingItemCount} 个条目</Link> : null}{isMultiDisc ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起多盘详情" : "查看多盘详情"}</button> : !issueCount && !item.reviewPendingItemCount && item.state === "COMPLETED" && item.alreadyImportedItemCount ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起详情" : "查看已跳过"}</button> : !issueCount && !item.reviewPendingItemCount && item.state === "COMPLETED" ? <Link className="button secondary" href="/admin/reviews/history">查看结果</Link> : !issueCount && !item.reviewPendingItemCount ? <button className="button secondary" type="button" aria-expanded={expanded} onClick={() => void toggleDetails(item)}>{expanded ? "收起详情" : "查看进度"}</button> : null}</div>
         </article>
-        {expanded ? <section className="import-task-detail" aria-label={`${item.platformInstanceName} 阶段详情`}><div className="import-task-stages">{stages.map((stage, index) => <div className={index < stageIndex ? "is-done" : index === stageIndex ? attention ? "has-error" : "is-current" : ""} key={stage}><small>{stage}</small><strong>{index < stageIndex ? "✓ 完成" : index === stageIndex ? attention ? `${issueCount} 异常` : "处理中" : "等待"}</strong></div>)}</div>{issueCount ? <><div className="import-task-problem"><p>{importTaskIssueSummary(item)}。可以复用服务器已经保存的文件，重新选择平台目录并再次识别，无需重新上传。</p><Link className="button secondary" href={`/admin/imports/new?fromImportJobId=${item.id}`}>重新配置并导入</Link></div>{(item.unresolvedRejectedFileCount ?? item.rejectedFileCount) ? <div className="import-task-rejections" aria-label="未被接受的文件">{details[item.id]?.status === "loading" || !details[item.id] ? <p>正在读取文件明细…</p> : details[item.id]?.status === "error" ? <p>文件明细读取失败，请稍后重试。</p> : details[item.id]?.value?.fileOutcomes.filter((file) => file.disposition === "REJECTED" && !file.resolution).map((file) => { const code = file.reasonCode ?? "REJECTED"; return <div key={file.name}><strong title={file.name}>{file.name}</strong><span>{rejectionLabels[code] ?? "文件未通过导入规则"}</span><code tabIndex={0} title={rejectionDetails[code] ?? "该稳定错误码暂无补充说明"}>{code}</code></div>; })}</div> : null}</> : null}{item.alreadyImportedItemCount ? <div className="import-task-rejections" aria-label="已导入并跳过的文件">{details[item.id]?.status === "loading" || !details[item.id] ? <p>正在读取已导入文件…</p> : details[item.id]?.status === "error" ? <p>文件明细读取失败，请稍后重试。</p> : <><p>以下文件已关联到未删除的游戏，本次默认跳过，没有创建重复游戏。</p>{details[item.id]?.value?.fileOutcomes.filter((file) => file.disposition === "ALREADY_IMPORTED").map((file) => <div key={file.uploadFileId}><strong title={file.name}>{file.name}</strong><span>游戏文件已经导入</span><code>ALREADY_IMPORTED</code></div>)}{details[item.id]?.value?.alreadyImportedMatches?.map((match) => <div key={`${match.importItemId}:${match.existingGame.id}`}><strong>{match.existingGame.title}</strong><span>{match.existingGame.platformInstanceName}</span><Link href={`/games/${match.existingGame.id}`}>查看已有游戏</Link></div>)}</>}</div> : null}</section> : null}
+        {expanded ? <section className="import-task-detail" aria-label={`${item.platformInstanceName} 阶段详情`}><div className="import-task-stages">{stages.map((stage, index) => <div className={index < stageIndex ? "is-done" : index === stageIndex ? attention ? "has-error" : "is-current" : ""} key={stage}><small>{stage}</small><strong>{index < stageIndex ? "✓ 完成" : index === stageIndex ? attention ? `${issueCount} 异常` : "处理中" : "等待"}</strong></div>)}</div>{isMultiDisc ? <MultiDiscTaskDetail detail={details[item.id]} /> : null}{issueCount ? <><div className="import-task-problem"><p>{isMultiDisc ? `${importTaskIssueSummary(item)}。多盘目录必须重新选择完整 DIRECTORY，不能只复用原任务中被拒绝的文件。` : `${importTaskIssueSummary(item)}。可以复用服务器已经保存的文件，重新选择平台目录并再次识别，无需重新上传。`}</p><Link className="button secondary" href={isMultiDisc ? "/admin/imports/new" : `/admin/imports/new?fromImportJobId=${item.id}`}>{isMultiDisc ? "重新选择完整目录" : "重新配置并导入"}</Link></div>{(item.unresolvedRejectedFileCount ?? item.rejectedFileCount) ? <div className="import-task-rejections" aria-label="未被接受的文件">{details[item.id]?.status === "loading" || !details[item.id] ? <p>正在读取文件明细…</p> : details[item.id]?.status === "error" ? <p>文件明细读取失败，请稍后重试。</p> : details[item.id]?.value?.fileOutcomes.filter((file) => file.disposition === "REJECTED" && !file.resolution).map((file) => { const code = file.reasonCode ?? "REJECTED"; return <div key={file.name}><strong title={file.name}>{file.name}</strong><span>{rejectionLabels[code] ?? "文件未通过导入规则"}</span><code tabIndex={0} title={rejectionDetails[code] ?? "该稳定错误码暂无补充说明"}>{code}</code></div>; })}</div> : null}</> : null}{item.alreadyImportedItemCount ? <div className="import-task-rejections" aria-label="已导入并跳过的文件">{details[item.id]?.status === "loading" || !details[item.id] ? <p>正在读取已导入文件…</p> : details[item.id]?.status === "error" ? <p>文件明细读取失败，请稍后重试。</p> : <><p>以下文件已关联到未删除的游戏，本次默认跳过，没有创建重复游戏。</p>{details[item.id]?.value?.fileOutcomes.filter((file) => file.disposition === "ALREADY_IMPORTED").map((file) => <div key={file.uploadFileId}><strong title={file.name}>{file.name}</strong><span>游戏文件已经导入</span><code>ALREADY_IMPORTED</code></div>)}{details[item.id]?.value?.alreadyImportedMatches?.map((match) => <div key={`${match.importItemId}:${match.existingGame.id}`}><strong>{match.existingGame.title}</strong><span>{match.existingGame.platformInstanceName}</span><Link href={`/games/${match.existingGame.id}`}>查看已有游戏</Link></div>)}</>}</div> : null}</section> : null}
       </div>;
     })}</div> : <div className="import-workflow-empty"><h2>没有匹配的导入任务</h2><p>请调整搜索内容、目标目录或任务状态。</p></div>}
     <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
