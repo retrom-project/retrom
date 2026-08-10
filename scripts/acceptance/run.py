@@ -569,7 +569,7 @@ def execute_case(case_id: str) -> int:
         product_command = MULTIDISC_PRODUCT_COMMANDS[case_id]
         log_path.write_text("[deterministic product contract]\n", encoding="utf-8")
         product_code, product_timeout = run_command(product_command, 300, log_path, append=True)
-        verify = "python3 data/example/verify-fixtures.py"
+        verify = f"python3 data/example/verify-fixtures.py {run_id}"
         if product_code != 0 or product_timeout:
             status, reason, command, timed_out, return_code = (
                 "FAIL", "多盘产品契约回归测试失败", product_command, product_timeout, product_code
@@ -601,7 +601,7 @@ def execute_case(case_id: str) -> int:
                 shutil.copy2(latest, case_dir / "runtime-result.json")
     elif case_id in CORE_CASES:
         core = CORE_CASES[case_id]
-        verify = "python3 data/example/verify-fixtures.py"
+        verify = f"python3 data/example/verify-fixtures.py {core}"
         verify_code, verify_timeout = run_command(verify, 120, log_path)
         if verify_code != 0 or verify_timeout:
             status, reason, command, timed_out, return_code = (
