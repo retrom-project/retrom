@@ -113,13 +113,15 @@ func TestAccountAdministrationHTTPInvitationAndAuthorization(t *testing.T) {
 		nil,
 	)
 	var acceptedBody struct {
-		CSRF string `json:"csrfToken"`
+		CSRF                     string `json:"csrfToken"`
+		TestDefaultAccountActive bool   `json:"testDefaultAccountActive"`
 	}
 	if err := json.Unmarshal(accepted.Body.Bytes(), &acceptedBody); err != nil {
 		t.Fatal(err)
 	}
 	acceptedCookies := accepted.Result().Cookies()
-	if accepted.Code != http.StatusCreated || len(acceptedCookies) != 1 || acceptedBody.CSRF == "" {
+	if accepted.Code != http.StatusCreated || len(acceptedCookies) != 1 || acceptedBody.CSRF == "" ||
+		!acceptedBody.TestDefaultAccountActive {
 		t.Fatalf("accept invitation = %d cookies=%#v body=%s", accepted.Code, acceptedCookies, accepted.Body.String())
 	}
 	member := accountHTTPAuth{cookie: acceptedCookies[0], csrf: acceptedBody.CSRF}

@@ -17,6 +17,8 @@ type newAccountCredentialRequest struct {
 	PasswordConfirmation string `json:"passwordConfirmation"`
 }
 
+var errNewAuthenticatedSessionUnavailable = errors.New("new authenticated session is unavailable")
+
 func decodeNewAccountCredential(
 	writer http.ResponseWriter,
 	request *http.Request,
@@ -62,14 +64,26 @@ func (server *Server) authInitialize(writer http.ResponseWriter, request *http.R
 		server.writeAccountError(writer, request, err)
 		return
 	}
-	server.writeAuthenticatedSession(writer, http.StatusCreated, session)
+	server.writeAuthenticatedSession(writer, request, http.StatusCreated, session)
 }
 
-func (server *Server) writeAuthenticatedSession(writer http.ResponseWriter, status int, session accounts.Session) {
+func (server *Server) writeAuthenticatedSession(
+	writer http.ResponseWriter,
+	request *http.Request,
+	status int,
+	session accounts.Session,
+) {
+	contextView, err := server.accounts.Context(request.Context(), session.CookieToken)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if contextView.Session == nil {
+		server.databaseError(writer, request, errNewAuthenticatedSessionUnavailable)
+		return
+	}
 	server.setAuthCookie(writer, session)
-	server.writeAuthContext(writer, status, accounts.Context{
-		InstanceState: "READY", Mode: server.config.Mode, Session: &session,
-	})
+	server.writeAuthContext(writer, status, contextView)
 }
 
 func (server *Server) authLogin(writer http.ResponseWriter, request *http.Request) {
@@ -88,11 +102,7 @@ func (server *Server) authLogin(writer http.ResponseWriter, request *http.Reques
 		server.writeAccountError(writer, request, err)
 		return
 	}
-	server.setAuthCookie(writer, session)
-	server.writeAuthContext(writer, http.StatusOK, accounts.Context{
-		InstanceState: "READY", Mode: server.config.Mode, Session: &session,
-		TestDefaultAccountActive: server.config.Mode == "test" && body.Username == "test" && body.Password == "test",
-	})
+	server.writeAuthenticatedSession(writer, request, http.StatusOK, session)
 }
 
 func (server *Server) authLogout(writer http.ResponseWriter, request *http.Request) {
@@ -144,10 +154,7 @@ func (server *Server) authChangePassword(writer http.ResponseWriter, request *ht
 		server.writeAccountError(writer, request, err)
 		return
 	}
-	server.setAuthCookie(writer, session)
-	server.writeAuthContext(writer, http.StatusOK, accounts.Context{
-		InstanceState: "READY", Mode: server.config.Mode, Session: &session,
-	})
+	server.writeAuthenticatedSession(writer, request, http.StatusOK, session)
 }
 
 func (server *Server) writeAuthContext(writer http.ResponseWriter, status int, contextView accounts.Context) {

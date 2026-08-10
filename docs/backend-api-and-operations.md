@@ -109,7 +109,7 @@ web/components/           无业务状态的通用组件
 - 管理写入：upload、import、review、game revision、platform instance、BIOS installation、Arcade DAT installation。
 - 管理读取：入库总览/任务/SSE、待审核/历史、游戏管理、BIOS/DAT 状态、审计事件和脱敏诊断摘要。
 
-详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。管理 API 一期不做账户鉴权或 CSRF 校验，但所有写请求仍执行乐观并发与幂等校验。浏览器目录上传只传相对路径，服务端不提供任意宿主目录扫描端点。
+详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。所有普通 API 必须先完成账户认证，管理 API 还要求 `ADMIN`；所有已认证写请求同时执行 Origin、Fetch Metadata、CSRF、乐观并发与幂等校验。浏览器目录上传只传相对路径，服务端不提供任意宿主目录扫描端点。
 
 ## 5. 内容端点与 LaunchSession capability
 

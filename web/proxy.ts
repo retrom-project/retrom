@@ -7,7 +7,7 @@ const backend = process.env.NEXT_BACKEND_ORIGIN ?? "http://127.0.0.1:8080";
 
 function secure(response: NextResponse, policy: string) {
   response.headers.set("Content-Security-Policy", policy);
-  response.headers.set("Referrer-Policy", "same-origin");
+  response.headers.set("Referrer-Policy", "no-referrer");
   response.headers.set("X-Content-Type-Options", "nosniff");
   response.headers.set("Cross-Origin-Opener-Policy", "same-origin");
   response.headers.set("Cross-Origin-Embedder-Policy", "require-corp");

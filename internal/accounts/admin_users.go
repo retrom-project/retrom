@@ -248,6 +248,26 @@ WHERE profile_id=? AND state IN ('CREATED','ACTIVE')
 	return nil
 }
 
+func requireAnotherEnabledAdmin(
+	ctx context.Context,
+	transaction *sql.Tx,
+	targetUserID string,
+) error {
+	var exists int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT EXISTS(
+  SELECT 1 FROM users
+  WHERE id!=? AND role='ADMIN' AND status='ENABLED'
+)
+`, targetUserID).Scan(&exists); err != nil {
+		return fmt.Errorf("check remaining enabled administrator: %w", err)
+	}
+	if exists == 0 {
+		return ErrLastAdmin
+	}
+	return nil
+}
+
 //nolint:funlen,gocyclo,gocognit // User update, security revocation, audit, and idempotency commit atomically.
 func (service *Service) UpdateUser(
 	ctx context.Context,
@@ -315,6 +335,12 @@ func (service *Service) UpdateUser(
 	if targetUserID == principal.UserID && (downgrade || disable) {
 		return AdminUser{}, false, ErrUserSelfChange
 	}
+	if before.Role == "ADMIN" && before.Status == "ENABLED" &&
+		(role != "ADMIN" || status != "ENABLED") {
+		if err := requireAnotherEnabledAdmin(ctx, transaction, targetUserID); err != nil {
+			return AdminUser{}, false, err
+		}
+	}
 	securityChange := roleChange || disable
 	result, err := transaction.ExecContext(ctx, `
 UPDATE users SET role=?,status=?,session_version=session_version+?,version=version+1,updated_at_ms=?,
@@ -322,9 +348,6 @@ disabled_at_ms=CASE WHEN ?='DISABLED' THEN COALESCE(disabled_at_ms,?) ELSE NULL 
 WHERE id=? AND version=? AND status!='DELETED'
 `, role, status, map[bool]int{true: 1, false: 0}[securityChange], now, status, now, targetUserID, expectedVersion)
 	if err != nil {
-		if strings.Contains(err.Error(), "last enabled admin") {
-			return AdminUser{}, false, ErrLastAdmin
-		}
 		return AdminUser{}, false, fmt.Errorf("update user: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
@@ -419,15 +442,17 @@ func (service *Service) DeleteUser(
 	if strings.TrimSpace(confirmUsername) != before.Username || confirmUsername != strings.TrimSpace(confirmUsername) {
 		return false, ErrConfirmation
 	}
+	if before.Role == "ADMIN" && before.Status == "ENABLED" {
+		if err := requireAnotherEnabledAdmin(ctx, transaction, targetUserID); err != nil {
+			return false, err
+		}
+	}
 	result, err := transaction.ExecContext(ctx, `
 UPDATE users SET status='DELETED',session_version=session_version+1,version=version+1,
 updated_at_ms=?,disabled_at_ms=NULL,deleted_at_ms=?
 WHERE id=? AND version=? AND status!='DELETED'
 `, now, now, targetUserID, expectedVersion)
 	if err != nil {
-		if strings.Contains(err.Error(), "last enabled admin") {
-			return false, ErrLastAdmin
-		}
 		return false, fmt.Errorf("soft-delete user: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {

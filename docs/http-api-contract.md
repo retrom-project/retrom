@@ -83,7 +83,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 AuthSession cookie 在 HTTP 开发环境名为 `retrom_session`，HTTPS 为 `__Host-retrom_session`，固定 `Path=/; HttpOnly; SameSite=Strict`，HTTPS 另有 `Secure`；idle 8h、absolute 24h。数据库只存 token SHA-256。登录失败和 DISABLED/DELETED 账号统一 `401 AUTHENTICATION_FAILED` 与文案“用户名或密码不正确”。logout 是幂等例外：无效/缺失 cookie 不要求 CSRF也返回 204；有效 session必须通过 CSRF，成功撤销并发送过期 cookie及 `Clear-Site-Data: "cache", "cookies", "storage"`。
 
-所有非安全方法先校验 `Origin` 精确等于 `RETROM_PUBLIC_ORIGIN`，拒绝缺失、`null`、多值和 Referer fallback；`Sec-Fetch-Site` 出现时只接受 `same-origin`，`cross-site/same-site/none` 均拒绝。除初始化/登录/链接消费等公开 capability 写入及 launch runtime 外，已登录写请求还必须携带当前 session context 给出的 `X-Retrom-CSRF`。CSRF 只保存在内存，不进入 cookie、URL、Web Storage 或日志。API 不返回宽松 CORS header，CORS 也不替代这些校验。
+所有非安全方法先校验 `Origin` 精确等于 `RETROM_PUBLIC_ORIGIN`，拒绝缺失、`null`、多值和 Referer fallback；`Sec-Fetch-Site` 出现时只接受 `same-origin`，`cross-site/same-site/none` 均拒绝。除初始化/登录/链接消费等公开 capability 写入及 launch runtime 外，已登录写请求还必须携带当前 session context 给出的 `X-Retrom-CSRF`。CSRF 只保存在内存，不进入 cookie、URL、Web Storage 或日志。Go API 与 Next.js 动态 HTML 都必须发送 `Referrer-Policy: no-referrer`；API 不返回宽松 CORS header，CORS 也不替代这些校验。
 
 登录按规范用户名和规范客户端 IP分别限 5/30 次，初始化 IP 5 次，链接检查/消费 IP 20 次；窗口和 block均 15 分钟，超限返回 429 与 `Retry-After`。subject 用实例 HMAC 后入库。直接 peer 只有命中 `RETROM_TRUSTED_PROXIES` 规范 CIDR时才读取单个 X-Forwarded-For，从右向左跳过受信代理并取首个不受信地址；超过 16 项、缺失或任一项非法回退 peer IP并只记录稳定诊断码，不读取 X-Real-IP/Forwarded，也不记录原链。
 

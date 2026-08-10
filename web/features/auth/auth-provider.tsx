@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { clearUserStorage } from "./storage";
 import type { AuthContext } from "./types";
 import { safeReturnTo } from "./routing";
-import { configureAuthenticatedClient, handleAuthenticationResponse, writeHeaders } from "@/lib/api/client";
+import { configureAuthenticatedClient, handleAuthenticationResponse } from "@/lib/api/client";
 
 type AuthState = {
   context: AuthContext;
@@ -57,15 +57,16 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
   const authenticatedFetch = useCallback(async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const method = (init.method ?? "GET").toUpperCase();
     const headers = new Headers(init.headers);
-    if (!["GET", "HEAD", "OPTIONS"].includes(method)) {
-      for (const [name, value] of Object.entries(writeHeaders())) headers.set(name, value);
-    }
+    const currentCSRF = contextRef.current.csrfToken;
+    if (currentCSRF && !["GET", "HEAD", "OPTIONS"].includes(method)) headers.set("X-Retrom-Csrf", currentCSRF);
     const response = await fetch(input, { ...init, headers, credentials: "same-origin" });
     return handleAuthenticationResponse(response);
   }, []);
 
   const logout = useCallback(async () => {
-    const response = await authenticatedFetch("/api/v1/auth/logout", { method: "POST" });
+    const response = await authenticatedFetch("/api/v1/auth/logout", {
+      method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
+    });
     if (!response.ok && response.status !== 401) throw new Error("退出登录失败，请刷新后重试");
     clearUserStorage(contextRef.current.user?.userId);
     acceptContext({ ...contextRef.current, authenticationState: "UNAUTHENTICATED", user: null, csrfToken: null });

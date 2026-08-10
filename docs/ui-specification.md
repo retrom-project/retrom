@@ -2,16 +2,16 @@
 
 | 属性 | 内容 |
 | --- | --- |
-| 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 2.1 |
+| 文档状态 | 已审定 / 账户与数据隔离实施基线 |
+| 版本 | 2.2 |
 | 日期 | 2026-08-10 |
 | 目标环境 | Chrome Desktop，CSS viewport 宽度 1280px 及以上 |
 
 ## 1. 设计稿
 
-[打开 Retrom 可交互设计稿](./design/retrom-ui-review.html)
+[打开 Retrom 最终可交互设计稿](./design/retrom-ui-review.html)
 
-[打开账户与用户管理可交互设计稿](./design/user-management-ui-review.html)
+账户入口、账户设置与用户管理已经合入同一设计源和交互稿；评审稿右上角的“评审场景”可在认证、用户侧与管理后台之间切换，不再维护独立的账户设计稿。
 
 静态评审快照：
 
@@ -21,6 +21,14 @@
 - [游戏详情 · 非默认核心对话框 · 2560×1440](./design/retrom-ui-game-detail-core-override.png)
 - [我的存档 · 2560×1440](./design/retrom-ui-saves.png)
 - [最近游玩 · 3840×2160](./design/retrom-ui-recent-4k.png)
+- [首次设置 · 1280×800](./design/retrom-ui-setup.png)
+- [登录 · 1280×800](./design/retrom-ui-login.png)
+- [邀请注册 · 1280×800](./design/retrom-ui-register.png)
+- [密码重置 · 1280×800](./design/retrom-ui-reset-password.png)
+- [账户设置 · 2560×1440](./design/retrom-ui-account.png)
+- [用户管理 · 3840×2160](./design/retrom-ui-admin-users-4k.png)
+- [管理用户 Drawer · 2560×1440](./design/retrom-ui-admin-user-drawer.png)
+- [一次性邀请结果 · 2560×1440](./design/retrom-ui-admin-invitation-result.png)
 - [自动启动 Player Shell · 2560×1440](./design/retrom-ui-play.png)
 - [竖屏 Player Shell · 2560×1440](./design/retrom-ui-play-portrait.png)
 - [自动启动 Player Shell · 3840×2160](./design/retrom-ui-play-4k.png)

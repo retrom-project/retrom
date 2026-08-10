@@ -369,7 +369,6 @@ Agent 不得根据本总览自行省略或合并 Case，尤其不得把二十八
 ## 13. 评审入口与参考
 
 - [打开可交互 UI 设计稿](./design/retrom-ui-review.html)
-- [打开账户与用户管理交互设计稿](./design/user-management-ui-review.html)
 - [EmulatorJS Options](https://emulatorjs.org/docs/options/)
 - [EmulatorJS Cores](https://emulatorjs.org/docs4devs/cores/)
 - [EmulatorJS v4.2.3](https://github.com/EmulatorJS/EmulatorJS/releases/tag/v4.2.3)

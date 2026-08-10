@@ -125,10 +125,17 @@ SELECT (SELECT count(*) FROM users),(SELECT count(*) FROM profiles)
 	if state != "COMPLETED" {
 		return ErrInitializationState
 	}
-	var admins int
+	var admins, orphanProfiles int
 	if err := service.database.QueryRowContext(ctx, `
-SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'
-`).Scan(&admins); err != nil || admins == 0 {
+SELECT
+  (SELECT count(*) FROM users WHERE role='ADMIN' AND status='ENABLED'),
+  (SELECT count(*) FROM profiles profile
+   LEFT JOIN users user ON user.profile_id=profile.id
+   WHERE user.id IS NULL)
+`).Scan(&admins, &orphanProfiles); err != nil {
+		return fmt.Errorf("read completed initialization invariants: %w", err)
+	}
+	if admins == 0 || orphanProfiles != 0 {
 		return ErrInitializationState
 	}
 	if service.mode == config.ModeRelease && testDefault {

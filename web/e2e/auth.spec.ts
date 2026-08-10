@@ -1,6 +1,7 @@
 import { mkdirSync } from "node:fs";
 import path from "node:path";
 import { expect, test, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
+import axe from "axe-core";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
 const userPassword = "a sufficiently long password";
@@ -87,6 +88,17 @@ async function completeReset(page: Page, url: string, password: string) {
   await page.getByRole("button", { name: "更新密码" }).click();
 }
 
+async function expectNoSeriousAccessibilityViolations(page: Page) {
+  await page.evaluate(axe.source);
+  const violations = await page.evaluate(async () => {
+    const axeAPI = (window as typeof window & { axe: { run: (root: Document, options: object) => Promise<{ violations: Array<{ id: string; impact: string | null; nodes: unknown[] }> }> } }).axe;
+    const result = await axeAPI.run(document, { runOnly: { type: "tag", values: ["wcag2a", "wcag2aa"] } });
+    return result.violations.filter((item) => item.impact === "critical" || item.impact === "serious")
+      .map((item) => ({ id: item.id, impact: item.impact, nodes: item.nodes.length }));
+  });
+  expect(violations, `axe serious/critical violations: ${JSON.stringify(violations)}`).toEqual([]);
+}
+
 test("ACC-UI-009 authentication entry routing and user management layout remain safe at every desktop viewport", async ({ page }, testInfo: TestInfo) => {
   await page.goto("/library?q=gba");
   await expect(page).toHaveURL(/\/login\?returnTo=%2Flibrary%3Fq%3Dgba$/);
@@ -110,6 +122,7 @@ test("ACC-UI-009 authentication entry routing and user management layout remain 
   await expect(drawer).toContainText("服务器必须保留至少一名启用管理员");
   await expect(drawer.getByLabel("角色")).toBeDisabled();
   await expect(drawer.getByLabel("状态")).toBeDisabled();
+  await expectNoSeriousAccessibilityViolations(page);
   await page.screenshot({ path: evidencePath(testInfo, "account-and-user-management.png"), fullPage: true });
 });
 
@@ -144,12 +157,78 @@ test("ACC-UI-009 an administrator can invite a user without retaining the capabi
   await expect(userPage).toHaveURL(/\/admin\/users$/);
   await expect(userPage.getByRole("heading", { name: "没有管理权限" })).toBeVisible();
 
+  await userPage.goto("/account");
+  await expect(userPage.getByRole("main").getByText("@invited-user")).toBeVisible();
+  await expect(userPage.getByRole("main").getByText("Invited User", { exact: true })).toBeVisible();
+  await userPage.getByLabel("当前密码", { exact: true }).fill(userPassword);
+  const changedPassword = "a different sufficiently long password";
+  await userPage.getByLabel("新密码", { exact: true }).fill(changedPassword);
+  await userPage.getByLabel("确认密码", { exact: true }).fill(changedPassword);
+  await userPage.getByRole("button", { name: "更新密码" }).click();
+  await expect(userPage.getByText("密码已更新，其他设备已退出登录")).toBeVisible();
+  await userPage.locator("details.account-menu summary").click();
+  await userPage.getByRole("button", { name: "退出登录" }).click();
+  await expect(userPage).toHaveURL(/\/login$/);
+  await userPage.getByLabel("用户名").fill("invited-user");
+  await userPage.getByLabel("密码").fill(changedPassword);
+  await userPage.getByRole("button", { name: "登录" }).click();
+  await expect(userPage.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
+
   const reusedContext = await browser.newContext({ baseURL: origin });
   const reusedPage = await reusedContext.newPage();
   await reusedPage.goto(invitationURL);
   await expect(reusedPage.getByRole("heading", { name: "邀请链接不可用" })).toBeVisible();
   await reusedContext.close();
   await userContext.close();
+});
+
+test("ACC-UI-009 filtering, keyboard drawer focus, concurrency refresh, role, status, and deletion stay explicit", async ({ page, browser }, testInfo) => {
+  test.setTimeout(60_000);
+  test.skip(testInfo.project.name !== "chrome-1280", "The stateful administration flow runs once.");
+  const admin = await login(page.request);
+  const invitationURL = await createInvitation(page.request, admin.csrfToken);
+  const managedContext = await browser.newContext({ baseURL: origin });
+  await acceptInvitation(managedContext, invitationURL, "managed-user");
+  await managedContext.close();
+
+  await page.goto("/admin/users");
+  await page.getByLabel("搜索").fill("managed-user");
+  await page.getByRole("button", { name: "应用筛选" }).click();
+  await expect(page).toHaveURL(/q=managed-user/);
+  const managedRow = page.getByRole("row").filter({ hasText: "@managed-user" });
+  const manageButton = managedRow.getByRole("button", { name: "管理" });
+  await manageButton.focus();
+  await page.keyboard.press("Enter");
+  let drawer = page.getByRole("dialog", { name: "管理用户" });
+  await expect(drawer).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(drawer).toHaveCount(0);
+  await expect(manageButton).toBeFocused();
+
+  await manageButton.click();
+  drawer = page.getByRole("dialog", { name: "管理用户" });
+  const target = await findUser(page.request, "managed-user");
+  const detail = await getUser(page.request, target.userId);
+  await patchUser(page.request, admin.csrfToken, detail.user, detail.etag, "DISABLED");
+  await drawer.getByLabel("角色").selectOption("ADMIN");
+  await drawer.getByRole("button", { name: "保存更改" }).click();
+  await page.getByRole("alertdialog", { name: "确认授予管理员权限" }).getByRole("button", { name: "确认升级" }).click();
+  await expect(drawer).toContainText("账号已被其他管理员修改，请确认最新状态后重试");
+
+  await drawer.getByLabel("状态").selectOption("ENABLED");
+  await drawer.getByRole("button", { name: "保存更改" }).click();
+  await expect(page.getByText("账号安全状态已更新")).toBeVisible();
+  await drawer.getByLabel("角色").selectOption("ADMIN");
+  await drawer.getByRole("button", { name: "保存更改" }).click();
+  await page.getByRole("alertdialog", { name: "确认授予管理员权限" }).getByRole("button", { name: "确认升级" }).click();
+  await expect(page.getByText("账号安全状态已更新")).toBeVisible();
+
+  await drawer.getByRole("button", { name: "删除账号" }).click();
+  const deletion = page.getByRole("alertdialog", { name: "永久删除账号" });
+  await deletion.getByLabel("确认用户名").fill("managed-user");
+  await deletion.getByRole("button", { name: "删除账号" }).click();
+  await expect(page.getByText("账号已删除")).toBeVisible();
+  await expect(page.getByRole("row").filter({ hasText: "@managed-user" })).toHaveCount(0);
 });
 
 test("ACC-UI-009 password reset revokes old sessions and does not enable a disabled account", async ({ page, browser }, testInfo) => {

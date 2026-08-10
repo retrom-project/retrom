@@ -10,6 +10,7 @@ async function navigationEvidence(page: Page) {
   const response = await page.goto("/", { waitUntil: "load" });
   await expect(page.getByRole("main")).toBeVisible();
   expect(response?.ok()).toBe(true);
+  expect(response?.headers()["referrer-policy"]).toBe("no-referrer");
   const csp = response?.headers()["content-security-policy"] ?? "";
   const nonce = csp.match(noncePattern)?.[1] ?? "";
   expect(nonce.length).toBeGreaterThanOrEqual(22);
@@ -47,6 +48,7 @@ test("same-origin proxy applies fresh nonce and isolation headers", async ({ pag
     expect(response.headers()["cross-origin-opener-policy"]).toBe("same-origin");
     expect(response.headers()["cross-origin-embedder-policy"]).toBe("require-corp");
     expect(response.headers()["x-content-type-options"]).toBe("nosniff");
+    expect(response.headers()["referrer-policy"]).toBe("no-referrer");
   }
   const runtime = await request.get("/runtime/emulatorjs/4.2.3/data/loader.js");
   expect(runtime.headers()["cross-origin-resource-policy"]).toBe("same-origin");
