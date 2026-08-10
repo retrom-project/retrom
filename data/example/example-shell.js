@@ -19,6 +19,8 @@
     frameNow: null,
     frameDelta: null,
     canvas: null,
+    discCount: null,
+    discTransitions: [],
     crossOriginIsolated: window.crossOriginIsolated,
     errors: []
   };
@@ -29,6 +31,7 @@
     configuring: `配置 EmulatorJS ${runtimeVersion}`,
     ready: "运行时已就绪",
     started: "核心已启动，等待游戏帧",
+    "validating-discs": "游戏已启动，正在验证换盘",
     "frames-advancing": "游戏帧持续输出",
     error: "启动失败"
   };
@@ -75,6 +78,32 @@
     canvas.height = Math.max(1, Math.round(height * devicePixelRatio));
   }
 
+  async function validateDiscSequence() {
+    const manager = window.EJS_emulator?.gameManager;
+    const expectedCount = config.expectedDiscCount;
+    if (!manager || !Number.isInteger(expectedCount)) throw new Error("Multi-disc game manager is unavailable");
+    const count = manager.getDiskCount?.();
+    let current = manager.getCurrentDisk?.();
+    if (count !== expectedCount || !Number.isInteger(current) || current < 0 || current >= count) {
+      throw new Error(`Unexpected disc state count=${count} current=${current}`);
+    }
+    smoke.discCount = count;
+    const sequence = [...Array(count).keys()].filter(index => index !== current);
+    if (current !== 0) sequence.push(0);
+    else if (sequence.at(-1) !== 0) sequence.push(0);
+    for (const target of sequence) {
+      const frameBefore = manager.getFrameNum();
+      manager.setCurrentDisk?.(target);
+      await new Promise(resolve => window.setTimeout(resolve, 1000));
+      const observed = manager.getCurrentDisk?.();
+      const frameAfter = manager.getFrameNum();
+      smoke.discTransitions.push({ from: current, target, observed, frameBefore, frameAfter });
+      if (observed !== target) throw new Error(`Disc switch did not reach index ${target}: observed ${observed}`);
+      if (!(frameAfter > frameBefore)) throw new Error(`Frames did not advance after switching to disc ${target}`);
+      current = observed;
+    }
+  }
+
   window.EJS_player = "#game";
   window.EJS_DEBUG_XX = config.debug === true;
   window.EJS_core = config.core;
@@ -110,6 +139,14 @@
   if (config.parentUrl) window.EJS_gameParentUrl = config.parentUrl;
 
   window.EJS_ready = () => {
+    if (config.expectedDiscCount) {
+      const instance = window.EJS_emulator;
+      if (!instance) throw new Error("Multi-disc emulator instance is unavailable");
+      if (instance.allSettings === undefined) instance.allSettings = {};
+      if (Object.prototype.toString.call(instance.allSettings) !== "[object Object]") {
+        throw new Error("Multi-disc settings initialization failed");
+      }
+    }
     if (config.dosArchiveMode === true) {
       const dontExtractIfCore = window.EJS_emulator?.downloadType?.rom?.dontExtractIfCore;
       if (!Array.isArray(dontExtractIfCore)) throw new Error("DOS archive mode is unavailable");
@@ -190,10 +227,24 @@
           && smoke.canvas.cssWidth >= 100
           && smoke.canvas.cssHeight >= 100;
         if (canvasReady && smoke.frameDelta >= 120) {
-          smoke.phase = "frames-advancing";
-          smoke.framesAdvancingAtMs = Date.now();
           window.clearInterval(timer);
-          renderStatus();
+          if (config.expectedDiscCount) {
+            smoke.phase = "validating-discs";
+            renderStatus();
+            validateDiscSequence().then(() => {
+              smoke.phase = "frames-advancing";
+              smoke.framesAdvancingAtMs = Date.now();
+              renderStatus();
+            }).catch(error => {
+              smoke.phase = "error";
+              fail(error);
+              renderStatus();
+            });
+          } else {
+            smoke.phase = "frames-advancing";
+            smoke.framesAdvancingAtMs = Date.now();
+            renderStatus();
+          }
         }
       } catch (error) {
         smoke.errors.push(`Frame monitor: ${error.message}`);

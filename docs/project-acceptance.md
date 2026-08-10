@@ -159,7 +159,7 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 4. 视觉 Case 必须查看本次时间戳生成的截图；不得沿用设计稿或历史 PASS 图。
 5. 每个 Case 结束立即记录状态和证据，运行中超过 60 秒应向用户提供简短进度。
 6. 发现 bug 立即登记 defect，先增加能在旧实现失败的回归测试，再修复和重跑；未经授权不得通过改规范规避。
-7. 全部完成后运行 `make acceptance-report`，按第 15 节判定项目结论。
+7. 全部完成后运行 `make acceptance-report`，按第 17 节判定项目结论。
 
 ## 4. 执行顺序
 
@@ -172,8 +172,9 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 5. `ACC-PLAT-*`、`ACC-GAME-*`、`ACC-IMP-*`、`ACC-DAT-*`、`ACC-BIOS-*`：管理与入库；
 6. `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-PLAY-*`：产品主路径；
 7. `ACC-CORE-*`：逐核心真实画面；
-8. `ACC-UI-*`：信息架构、4K 和无障碍；
-9. 缺陷回归审计与最终报告。
+8. `ACC-MDISC-*`：多盘导入、运行、回归与隔离；
+9. `ACC-UI-*`：信息架构、4K 和无障碍；
+10. 缺陷回归审计与最终报告。
 
 除明确写明直接命令的 Case 外，执行命令统一为：
 
@@ -220,7 +221,7 @@ make acceptance-case CASE=<case-id>
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PKG-002`。
 - 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查 manifest 的 `player_adapter` 与 `web/features/player/adapters/registry.json` 双向一致且每个登记项有实现，再检查 standalone production 产物、非 root User 和内部 HTTP 入口。最后在临时工作树副本把 manifest adapter ID 改为未知值，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
-- 通过标准：默认目标 tag 为 `retrom-web:latest`，`io.retrom.release-input-sha256` 等于本次 helper 值；基线 `ejs-4.2.3-v1` 精确映射版本 `4.2.3`，runtime base/loader 路径命中 manifest allowlist，未知或无实现登记项使临时副本的校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
+- 通过标准：默认目标 tag 为 `retrom-web:latest`，`io.retrom.release-input-sha256` 等于本次 helper 值；基线 `ejs-4.2.3-v2` 精确映射版本 `4.2.3`，runtime base/loader 路径命中 manifest allowlist，未知或无实现登记项使临时副本的校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
 - 证据：build log、image inspect/digest 摘要与负向 `data-check` 错误；不启动容器。
 
 ### ACC-PKG-003：镜像 Target 只构建不运行
@@ -564,7 +565,7 @@ make acceptance-case CASE=<case-id>
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
 - 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证运行时 manifest/adapter/allowlist、28 个 selected core/report、PPSSPP assets、mame2003 override、29 个许可 component、三份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建 notice。再用全新临时 SQLite 和真实三份 DAT 断网启动服务，等待 ready并重启复用；最后运行 seed/约束负向与 Git payload 边界检查。
-- 通过标准：离线命令成功，所有值与机器基线一致；基线 manifest 的 adapter 精确为 `ejs-4.2.3-v1 → 4.2.3`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；28 个 enabled Core 各恰有一条 enabled CoreArtifact 且逐项等于 manifest，线程 basename 与实际 artifact 一致，未知版本不回退默认 adapter。冷库先 live/`DEPENDENCY_INDEXING`，三个不可取消 bootstrap Job 在事务外解析，最终三个 Arcade core 各有独立 READY active DAT；重启不重跑 parser。许可输入逐项命中 size/hash，notice 可重复生成；DAT、EJS archive/runtime、license/notice payload 均未被 Git 跟踪。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
+- 通过标准：离线命令成功，所有值与机器基线一致；基线 manifest 的 adapter 精确为 `ejs-4.2.3-v2 → 4.2.3`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；28 个 enabled Core 各恰有一条 enabled CoreArtifact 且逐项等于 manifest，线程 basename 与实际 artifact 一致，未知版本不回退默认 adapter。冷库先 live/`DEPENDENCY_INDEXING`，三个不可取消 bootstrap Job 在事务外解析，最终三个 Arcade core 各有独立 READY active DAT；重启不重跑 parser。许可输入逐项命中 size/hash，notice 可重复生成；DAT、EJS archive/runtime、license/notice payload 均未被 Git 跟踪。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
 ### ACC-DAT-002：Core 隔离与依赖闭包
@@ -826,7 +827,75 @@ python3 data/example/verify-fixtures.py
 - 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身/最后管理员控件禁用并解释原因，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
 - 证据：三 viewport 当前截图、route/network/storage trace、axe/键盘结果与后端生命周期摘要。
 
-## 15. 缺陷处理与重验
+## 15. 多盘系统
+
+### ACC-MDISC-001：递归目录中的完整多盘导入
+
+- 上限：600 秒。
+- 执行：`make acceptance-case CASE=ACC-MDISC-001`。
+- 流程：以启用多盘的 Saturn/yabause 目录选择一棵包含两个合法 M3U 子目录和未引用文件的 DIRECTORY；确认 Web 自动识别后显式提交 `MULTI_DISC_M3U_V1`，等待两个 Item 进入审核并发布。
+- 通过标准：两个不同 M3U 父目录形成两个 Item；盘序、PRESENT 状态、canonical name 与来源引用正确，未引用文件为 `IGNORED/NOT_REFERENCED_BY_PLAYLIST`；完整组 generation 4 validation READY、可审核发布，STANDARD 缺省语义未改变。
+- 证据：capability/预检截图、Upload/Import 配置快照、Item/entry/file outcome、validation 与发布实体。
+
+### ACC-MDISC-002：三盘缺盘与精确补传
+
+- 上限：600 秒。
+- 执行：`make acceptance-case CASE=ACC-MDISC-002`。
+- 流程：导入缺 Disc 3 的三盘目录；记录 BLOCKED Review 后分别提交错误集合与精确缺失集合，等待 Attachment Job，重新读取 Review 并发布。
+- 通过标准：缺盘 entry 不引用假 Blob且 Approve 禁用；错误/意外 basename 不推进 effective snapshot；精确补传创建新不可变 snapshot 与 generation 4 READY validation，旧 snapshot/entry 保持不变，随后才可发布。网络重放不重复 Attachment，retryable failure 只能重试同一 Job。
+- 证据：前后 Review/ETag、Attachment/Job/event、两份 snapshot/entry、Blob 引用与发布结果。
+
+### ACC-MDISC-003：解析、安全与容量负向
+
+- 上限：600 秒。
+- 执行：`make acceptance-case CASE=ACC-MDISC-003`。
+- 流程：依次覆盖整树零 M3U、同目录多个 M3U、非法 UTF-8/entry、traversal、绝对/跨目录/URI 引用、重复/case-fold 歧义、坏 CHD、1/9 盘和总量超过 1 GiB；另在同一目录树保留一个合法分组。
+- 通过标准：每项在规定 create/worker 边界以稳定 code 拒绝，无宿主路径访问、越权 Blob、无界读取或半成品发布；局部非法 dirname 只产生 rejected outcome，其他合法目录仍形成可处理 Item。parser fuzz seed 无 panic、越权 I/O 或无界分配。
+- 证据：逐向量请求/任务结果、file outcomes、资源上限与数据库/CAS 无副作用断言。
+
+### ACC-MDISC-004：发布、Launch 与内容锁定
+
+- 上限：600 秒。
+- 执行：`make acceptance-case CASE=ACC-MDISC-004`。
+- 流程：发布固定多盘组并创建 Launch；读取 config、playlist 以及每张盘的 HEAD、完整 GET 和单 Range，再尝试原始 basename、未锁定 index、复制 launchId 无 cookie、另一 Launch cookie 和过期 cookie。
+- 通过标准：content identity、canonical playlist、ordered Disc hashes、Variant V3 digest 和 Launch 锁定值一致；`gameUrl/externalFiles/discSet` 完整且连续；合法内容的 ETag/长度/Range 正确，所有跨范围读取失败且不泄露 Blob ID、原始路径或 capability。
+- 证据：发布 revision/validation snapshot、Launch/config、内容响应摘要、授权负向和 CAS hash 对照。
+
+### ACC-MDISC-005：Saturn 双盘真实运行
+
+- 上限：600 秒。
+- 执行：`make acceptance-case CASE=ACC-MDISC-005`。
+- 画面复核：机器断言通过后执行 `scripts/acceptance/run.sh review-multidisc ACC-MDISC-005 passed|failed '<本次画面观察>'`；未复核保持 BLOCKED。
+- 流程：使用 `fixtures.json` 锁定的受控 Saturn 双盘 fixture 走真实发布/Launch/Player，等待有效画面后执行 `0 → 1 → 0`。
+- 通过标准：进入游戏而非运行时菜单；真实 `diskCount=2`，每次切盘都回读正确且换盘后帧继续推进；Player 当前盘、busy、成功/失败状态与 runtime 一致。
+- 证据：fixture/hash、artifact/adapter、config、事件/帧 delta、当前截图和机器断言 JSON；不保存 ROM bytes 或绝对来源路径。
+
+### ACC-MDISC-006：Saturn 三盘与跨盘存档
+
+- 上限：900 秒。
+- 执行：`make acceptance-case CASE=ACC-MDISC-006`。
+- 画面复核：机器断言通过后执行 `scripts/acceptance/run.sh review-multidisc ACC-MDISC-006 passed|failed '<本次画面观察>'`；未复核保持 BLOCKED。
+- 流程：使用受控三盘 fixture 启动，往返全部 index；在光盘 2 创建手动状态存档，退出后从该存档重新启动并记录 adapter 事件顺序，同时验证 PersistentSave。
+- 通过标准：真实 `diskCount=3` 且全部 index 可切；SaveState `discIndex=1`，重启严格先完成 PersistentSave 注入、切到光盘 2 并回读，再显式 load state，之后才恢复 main loop/start；单盘和 PersistentSave 行为无回归。
+- 证据：fixture/hash、盘切换/帧事件、SaveState/Launch 锁定、adapter 调用顺序、PersistentSave 前后 hash 与当前截图。
+
+### ACC-MDISC-007：能力、替换与共享 adapter 回归
+
+- 上限：600 秒，不在本 Case 内重跑二十八核心。
+- 执行：`make acceptance-case CASE=ACC-MDISC-007`。
+- 流程：检查 Saturn/yabause 与 PSX/3DO/PC-FX capability；验证省略 `contentMode`、默认核心影响、完整目录替换成功/失败、V2→V3→V3 bootstrap、关闭/重开 flag 对新建与既有任务/内容的影响；最后读取同一 run ID、commit 的 `ACC-CORE-001`–`028` 独立结果。
+- 通过标准：只有能力交集暴露 MULTI；缺省始终 STANDARD；替换创建新不可变 revision且失败保留旧 current；artifact ID 不变、version 只递增一次、重放不改 updated time，既有 Variant/PersistentSave 绑定不变；flag 关闭只阻止新建/替换，不偷换冻结任务且已发布内容仍可运行。二十八核心结果必须全部为本次 PASS，缺失、旧 commit 或合并结果均失败。
+- 证据：capability/flag 矩阵、替换前后 revision、bootstrap 行、在途/已发布行为和二十八份 Case 引用。
+
+### ACC-MDISC-008：授权、审计与私有数据隔离
+
+- 上限：600 秒。
+- 执行：`make acceptance-case CASE=ACC-MDISC-008`。
+- 流程：匿名、普通 USER 和两个 ADMIN 探测全部新增管理 route；两个管理员复用同一幂等键提交不同主体请求。再让两个普通账号运行同一个多盘 Game，分别创建 SaveState/PersistentSave并尝试交叉 ID、cursor、幂等和 Launch 访问，最后停用其中一个账号。
+- 通过标准：匿名为 401、USER 为 `ADMIN_REQUIRED`，ADMIN 写入保存真实 User actor，同 key 不跨 principal 串响应；两个 Profile 的盘号存档和持久保存互不可见/不可写，跨账号探测不泄露存在性；停用只撤销目标账号 Launch，不影响另一账号。结果同时满足本次 `ACC-AUTH-006` 与 `ACC-ISO-001`–`003` route/owner inventory。
+- 证据：非秘密 User/username、route 状态矩阵、actor/idempotency/owner 断言、Launch 撤销与通用 Case 引用；截图/API DTO 不暴露 Profile ID 或内容秘密。
+
+## 16. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
 
@@ -839,14 +908,14 @@ python3 data/example/verify-fixtures.py
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧对应 `ACC-CORE-*` 或 UI runner 断言。不得用“只能人工复现”免除固化。
 
-## 16. 最终通过标准
+## 17. 最终通过标准
 
 一期项目只有同时满足以下条件才可标记 `PASS`：
 
-- 第 5–14 节所有 Required Case 为 PASS；
+- 第 5–15 节所有 Required Case 为 PASS；
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
-- 本次生成的二十八核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；
+- 本次生成的二十八核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；Saturn 双盘、三盘各自的机器结果与画面复核通过；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -854,7 +923,7 @@ python3 data/example/verify-fixtures.py
 
 AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID、实际执行命令、证据目录、本次新增回归测试，以及任何 `NOT_APPLICABLE` 原因。不得仅回复“验收通过”。
 
-## 17. 专题覆盖映射
+## 18. 专题覆盖映射
 
 | 专题 | 统一 Case |
 | --- | --- |
@@ -864,6 +933,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 游戏目录 | `ACC-PLAT-001`–`005` |
 | 游戏管理 | `ACC-GAME-001`–`003` |
 | 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`008` |
+| 多盘导入、运行、回归与隔离 | `ACC-MDISC-001`–`008` |
 | BIOS 与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`002` |
 | 启动、存档与游玩时长 | `ACC-RUN-001`–`005`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
 | EmulatorJS 二十八核心 | `ACC-CORE-001`–`028` |

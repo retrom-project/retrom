@@ -3,7 +3,7 @@ import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import test from "node:test";
-import { expandFixtureRuns, resolveChromeBinary } from "./smoke-test.mjs";
+import { expandFixtureRuns, expandMultiDiscFixtures, resolveChromeBinary } from "./smoke-test.mjs";
 
 test("PPSSPP expands to independent CSO and ISO runs", () => {
   const fixtures = [{
@@ -20,6 +20,20 @@ test("PPSSPP expands to independent CSO and ISO runs", () => {
   );
   assert.equal(expandFixtureRuns(fixtures).length, 3);
   assert.throws(() => expandFixtureRuns(fixtures, ["unknown"]), /Unknown core/);
+});
+
+test("multi-disc fixtures reuse the pinned yabause runtime without joining the yabause selector", () => {
+  const manifest = {
+    fixtures: [{ core: "yabause", bios: [{ localPath: "bios.bin" }], coreArtifact: { path: "yabause.data" } }],
+    multiDiscFixtures: [{
+      id: "multidisc-saturn-2", kind: "RUNTIME_POSITIVE", core: "yabause",
+      discs: [{ localPath: "disc-001.chd" }, { localPath: "disc-002.chd" }]
+    }]
+  };
+  const runs = [...manifest.fixtures, ...expandMultiDiscFixtures(manifest)];
+  assert.deepEqual(expandFixtureRuns(runs, ["yabause"]).map(run => run.runId || run.core), ["yabause"]);
+  assert.deepEqual(expandFixtureRuns(runs, ["multidisc-saturn-2"]).map(run => run.runId), ["multidisc-saturn-2"]);
+  assert.deepEqual(runs[1].expectedExternalFiles, ["disc-001.chd", "disc-002.chd"]);
 });
 
 test("explicit Chrome path is validated instead of silently falling back", async () => {
