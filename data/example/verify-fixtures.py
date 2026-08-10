@@ -175,8 +175,25 @@ def verify_format_variants(fixture: dict[str, Any], errors: list[str]) -> None:
                 errors.append("ppsspp: ISO sector 16 does not contain CD001")
 
 
+def selected_fixtures(manifest: dict, selectors: set[str]) -> tuple[list[dict], list[dict], set[str]]:
+    core_fixtures = manifest.get("fixtures", [])
+    multi_disc_fixtures = manifest.get("multiDiscFixtures", [])
+    known = {fixture.get("core") for fixture in core_fixtures}
+    known.update(fixture.get("id") for fixture in multi_disc_fixtures)
+    unknown = selectors - known
+    if not selectors:
+        return core_fixtures, multi_disc_fixtures, unknown
+    return (
+        [fixture for fixture in core_fixtures if fixture.get("core") in selectors],
+        [fixture for fixture in multi_disc_fixtures if fixture.get("id") in selectors],
+        unknown,
+    )
+
+
 def main() -> int:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
+    selectors = set(sys.argv[1:])
+    core_fixtures, multi_disc_fixtures, unknown_selectors = selected_fixtures(manifest, selectors)
     dependency_manifests = {
         version: json.loads((DEPENDENCY_MANIFEST_ROOT / version / "manifest.json").read_text(encoding="utf-8"))
         for version in ("4.2.3", "4.3.0-pre")
@@ -187,6 +204,8 @@ def main() -> int:
 
     if manifest.get("schemaVersion") != 3:
         errors.append("fixtures.json: expected schemaVersion 3")
+    for selector in sorted(unknown_selectors):
+        errors.append(f"fixtures.json: unknown fixture selector {selector!r}")
 
     source = manifest.get("source", {})
     if "host" in source or "root" in source:
@@ -227,7 +246,7 @@ def main() -> int:
 
     seen_games: set[str] = set()
     seen_cores: set[str] = set()
-    for fixture in manifest["fixtures"]:
+    for fixture in core_fixtures:
         core = fixture["core"]
         if core in seen_cores:
             errors.append(f"fixtures.json: duplicate core {core!r}")
@@ -309,7 +328,7 @@ def main() -> int:
 
     seen_multidisc_ids: set[str] = set()
     sha256_pattern = re.compile(r"^[0-9a-f]{64}$")
-    for fixture in manifest.get("multiDiscFixtures", []):
+    for fixture in multi_disc_fixtures:
         fixture_id = fixture.get("id", "")
         kind = fixture.get("kind")
         if not fixture_id or fixture_id in seen_multidisc_ids:
@@ -372,13 +391,13 @@ def main() -> int:
         sorted(
             {
                 fixture.get("runtimeVersion", emulatorjs["version"])
-                for fixture in manifest["fixtures"]
+                for fixture in core_fixtures
             }
         )
     )
     print(
-        f"Verified {len(manifest['fixtures'])} core fixtures against EmulatorJS "
-        f"{runtime_versions}, {len(manifest.get('multiDiscFixtures', []))} multi-disc fixtures, "
+        f"Verified {len(core_fixtures)} core fixtures against EmulatorJS "
+        f"{runtime_versions or emulatorjs['version']}, {len(multi_disc_fixtures)} multi-disc fixtures, "
         "and pinned DAT files."
     )
     return 0

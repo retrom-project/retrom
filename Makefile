@@ -93,6 +93,7 @@ web-e2e: prepare-node
 
 data-check:
 	@python3 scripts/test_dependencies.py
+	@python3 data/example/verify_fixtures_test.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
 	@node --test data/example/smoke-test.test.mjs
 
