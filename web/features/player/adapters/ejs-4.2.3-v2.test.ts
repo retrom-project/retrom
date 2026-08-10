@@ -105,6 +105,7 @@ describe("EmulatorJS adapter", () => {
       core: "yabause",
       runtimeCore: "yabause",
       gameUrl: `/runtime/launches/${config.launchId}/game/playlist.m3u`,
+      stateUrl: `/runtime/launches/${config.launchId}/state`,
       runtimePathOverrides: { "yabause-wasm.data": "/runtime/emulatorjs/4.2.3/data/cores/yabause-wasm.data" },
       externalFiles: {
         "/disc-001.chd": `/runtime/launches/${config.launchId}/external-files/disc-001.chd`,
@@ -122,6 +123,7 @@ describe("EmulatorJS adapter", () => {
     };
     const onReady = vi.fn((instance) => expect(instance.allSettings).toEqual({}));
     const cleanup = mountEmulatorJS(multiDiscConfig, target, { onReady });
+    expect(window.EJS_loadStateURL).toBeUndefined();
     window.EJS_emulator = {
       on: () => undefined,
       gameManager: { getDiskCount: () => 2, getCurrentDisk: () => 0, setCurrentDisk: () => undefined }
@@ -159,6 +161,19 @@ describe("EmulatorJS adapter", () => {
     expect(switchDisc(instance, 1, 3)).toEqual({ count: 3, currentIndex: 1 });
     expect(setCurrentDisk).toHaveBeenCalledOnce();
     expect(() => switchDisc({ ...instance, gameManager: { ...instance.gameManager, getDiskCount: () => -1 } }, 0, 3)).toThrow("PLAYER_DISC_SET_INVALID");
+  });
+
+  it("does not schedule startup input when the restore boundary fails closed", () => {
+    vi.useFakeTimers();
+    const target = document.createElement("div");
+    const simulateInput = vi.fn();
+    const cleanup = mountEmulatorJS({ ...config, startupActions: [{ event: "GAME_START", kind: "PRESS_CONTROL", delayMs: 1, player: 0, control: 0, durationMs: 1 }] }, target, { onGameStart: () => false });
+    window.EJS_emulator = { on: () => undefined, gameManager: { simulateInput } };
+    window.EJS_onGameStart?.();
+    vi.runAllTimers();
+    expect(simulateInput).not.toHaveBeenCalled();
+    cleanup();
+    vi.useRealTimers();
   });
 
   it("treats NONE persistent saves as an explicit capability while keeping state callbacks", () => {

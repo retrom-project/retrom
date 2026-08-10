@@ -40,7 +40,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
   coreOptions: CoreOption[];
   dosEntries: DOSEntry[];
   defaultDosEntry: string | null;
-  latestSave?: { saveStateId: string; screenshotUrl: string; createdAtMs: number; coreId: string; coreName: string } | null;
+  latestSave?: { saveStateId: string; screenshotUrl: string; createdAtMs: number; coreId: string; coreName: string; discIndex?: number | null; discLabel?: string | null } | null;
   nowMs?: number;
 }) {
   const { context } = useAuth();
@@ -93,7 +93,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
     </div> : null}
     {latestSave ? <div className="launch-quick-save">
       <div><Image src={latestSave.screenshotUrl} alt="最近存档截图" fill sizes="126px" unoptimized /></div>
-      <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatSaveTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={latestSaveRequiresThreads} label="从存档继续" /></div>
+      <div><strong>最近存档</strong><time dateTime={new Date(latestSave.createdAtMs).toISOString()}>{formatSaveTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs)}</time><small>{latestSave.coreName}{latestSave.discLabel ? ` · ${latestSave.discLabel}` : ""}</small><LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={latestSaveRequiresThreads} label="从存档继续" /></div>
     </div> : null}
     {latestSave
       ? <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} label="重新开始游戏" onLaunchCreated={isDOS ? () => writePreferredDOSEntry(userId, gameId, dosEntry) : undefined} />

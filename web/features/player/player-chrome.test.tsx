@@ -22,6 +22,8 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     emulatorToolbarOpen: false,
     emulatorVolume: 0.72,
     emulatorMuted: false,
+    discSet: null,
+    discState: null,
     onHoldControls: vi.fn(),
     onReleaseControls: vi.fn(),
     onSave: vi.fn().mockResolvedValue(true),
@@ -32,6 +34,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     onOpenEmulatorPanel: vi.fn(),
     onChangeEmulatorVolume: vi.fn(),
     onToggleEmulatorMute: vi.fn(),
+    onSelectDisc: vi.fn().mockResolvedValue(true),
     onExit: vi.fn(),
     onDownloadConflict: vi.fn(),
     ...overrides,
@@ -39,6 +42,29 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
 }
 
 describe("PlayerChrome", () => {
+  it("shows the locked disc set and changes discs without exposing server paths", async () => {
+    const user = userEvent.setup();
+    const values = props({
+      paused: true,
+      discSet: {
+        contentKind: "MULTI_DISC_M3U_V1", count: 2, initialDiscIndex: 0,
+        entries: [
+          { index: 0, label: "光盘 1", virtualPath: "/disc-001.chd" },
+          { index: 1, label: "光盘 2", virtualPath: "/disc-002.chd" },
+        ]
+      },
+      discState: { count: 2, currentIndex: 0 },
+    });
+    render(<PlayerChrome {...values} />);
+
+    await user.click(screen.getByRole("button", { name: "光盘 1 / 2" }));
+    expect(screen.getByRole("menu", { name: "选择光盘" })).toBeVisible();
+    expect(screen.getByRole("menuitemradio", { name: "光盘 1 · 当前" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.queryByText("/disc-001.chd")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("menuitemradio", { name: "光盘 2" }));
+    expect(values.onSelectDisc).toHaveBeenCalledWith(1);
+  });
+
   it("renders compact game context and routes secondary controls through the more menu", async () => {
     const user = userEvent.setup();
     const values = props();

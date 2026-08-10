@@ -75,6 +75,7 @@ export type EmulatorInstance = {
     getSaveFilePath?: () => string;
     getVideoDimensions?: (dimension: "aspect" | "width" | "height") => number | undefined;
     loadSaveFiles?: () => void;
+    loadState?: (bytes: Uint8Array) => void;
     setCurrentDisk?: (index: number) => void;
     simulateInput?: (player: number, control: number, value: 0 | 1) => void;
     toggleMainLoop?: (running: boolean) => void;
@@ -103,7 +104,7 @@ export function captureManualState(instance: EmulatorInstance, capture: ManualSc
 
 export type AdapterCallbacks = {
   onReady?: (emulator: EmulatorInstance) => void;
-  onGameStart?: () => void;
+  onGameStart?: () => void | boolean;
   onSaveState?: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => void;
   onSaveSave?: (payload: { screenshot: Blob; format: string; save: Uint8Array }) => void;
 };
@@ -320,7 +321,7 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_pathtodata = config.runtimeBaseUrl;
   runtimeWindow.EJS_biosUrl = config.biosUrl ?? undefined;
   runtimeWindow.EJS_gameParentUrl = config.parentUrl ?? undefined;
-  runtimeWindow.EJS_loadStateURL = config.stateUrl ?? undefined;
+  runtimeWindow.EJS_loadStateURL = config.discSet ? undefined : config.stateUrl ?? undefined;
   const deferredDOSStart = config.emulatorjsVersion === "4.3.0-pre" && config.runtimeCore === "dosbox_pure";
   runtimeWindow.EJS_startOnLoaded = !deferredDOSStart;
   runtimeWindow.EJS_dontExtractRom = deferredDOSStart;
@@ -352,7 +353,7 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   let startupScheduled = false;
   let cleanupStartup: () => void = () => undefined;
   runtimeWindow.EJS_onGameStart = () => {
-    callbacks.onGameStart?.();
+    if (callbacks.onGameStart?.() === false) return;
     if (!startupScheduled && runtimeWindow.EJS_emulator) {
       startupScheduled = true;
       cleanupStartup = scheduleStartupActions(config, runtimeWindow.EJS_emulator, runtimeWindow);

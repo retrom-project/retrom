@@ -35,6 +35,30 @@ describe("UploadPicker", () => {
     expect(submit).toBeEnabled();
   });
 
+  it("preflights a directory and blocks multi-disc mode on an unsupported target", async () => {
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[
+      { id: "gba", name: "GBA 游戏", platformName: "Game Boy Advance", coreName: "mGBA", importCapabilities: { contentModes: ["STANDARD"], multiDisc: null } },
+      { id: "saturn", name: "Saturn 游戏", platformName: "Sega Saturn", coreName: "Yabause", importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC_M3U_V1"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } } },
+    ]} />);
+    const playlist = new File(["one.chd\ntwo.chd\n"], "game.m3u");
+    const firstDisc = new File(["disc"], "one.chd");
+    Object.defineProperty(playlist, "webkitRelativePath", { value: "game/game.m3u" });
+    Object.defineProperty(firstDisc, "webkitRelativePath", { value: "game/one.chd" });
+
+    await user.upload(screen.getByLabelText("选择导入目录"), [playlist, firstDisc]);
+    expect(await screen.findByText("目录缺少 1 张光盘")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "下一步" }));
+    expect(screen.getByRole("radio", { name: "多盘 M3U + CHD" })).toBeChecked();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "gba");
+    expect(screen.getByText(/不支持多盘导入/)).toBeVisible();
+    expect(screen.getByRole("button", { name: "继续上传并在审核补齐" })).toBeDisabled();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "saturn");
+    expect(screen.getByRole("button", { name: "继续上传并在审核补齐" })).toBeEnabled();
+  });
+
   it("reuses rejected server files and submits a new platform without uploading bytes", async () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn(async () => new Response(JSON.stringify({ importJobId: "replacement-import" }), { status: 202, headers: { "Content-Type": "application/json" } }));

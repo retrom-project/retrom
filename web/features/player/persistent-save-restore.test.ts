@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { restorePersistentSave, type PersistentSaveFileSystem, type PersistentSaveManager } from "./persistent-save-restore";
+import { injectPersistentSave, restorePersistentSave, type PersistentSaveFileSystem, type PersistentSaveManager } from "./persistent-save-restore";
 
 function fixture(existingPaths: string[] = []) {
   const paths = new Set(existingPaths);
@@ -50,5 +50,12 @@ describe("restorePersistentSave", () => {
       .toThrow("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
     expect(manager.toggleMainLoop).toHaveBeenCalledTimes(1);
     expect(manager.toggleMainLoop).toHaveBeenLastCalledWith(false);
+  });
+
+  it("injects persistent bytes without changing a caller-owned pause boundary", () => {
+    const { calls, fileSystem, manager } = fixture(["/data", "/data/saves"]);
+    injectPersistentSave(manager, fileSystem, "/data/saves/game.srm", Uint8Array.of(7));
+    expect(calls).toEqual(["write:/data/saves/game.srm", "reload"]);
+    expect(manager.toggleMainLoop).not.toHaveBeenCalled();
   });
 });

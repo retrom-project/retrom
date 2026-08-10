@@ -867,6 +867,10 @@ summary { cursor: pointer; }
 .import-config-grid .field { grid-template-rows: auto 44px; align-content: start; }
 .import-config-grid .field small { grid-row: 3; }
 .import-config-grid small { color: var(--muted); font-size: 11px; }
+.import-content-mode { margin: 18px 0 0; padding: 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; border: 1px solid var(--line); border-radius: 10px; }
+.import-content-mode legend { padding: 0 5px; font-size: 12px; font-weight: 800; }
+.import-content-mode label { display: inline-flex; align-items: center; gap: 7px; font-size: 13px; font-weight: 700; }
+.import-content-mode small { flex-basis: 100%; color: var(--muted); }
 .import-config-summary { margin-top: 18px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
 .import-config-summary > div { min-width: 0; padding: 13px 14px; display: grid; gap: 4px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-subtle); }
 .import-config-summary small { color: var(--muted); }
@@ -972,6 +976,13 @@ summary { cursor: pointer; }
 .review-workflow-feedback { position: fixed; z-index: 80; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); display: grid; gap: 8px; filter: drop-shadow(0 14px 30px rgb(24 32 51 / 16%)); }
 .review-workflow-columns { display: grid; grid-template-columns: minmax(380px, .72fr) minmax(620px, 1.28fr); align-items: stretch; gap: 16px; }
 .review-workflow-left { min-width: 0; display: grid; gap: 16px; }
+.review-multidisc-list { margin: 0; padding: 0; display: grid; gap: 7px; list-style: none; }
+.review-multidisc-list li { min-width: 0; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 9px; }
+.review-multidisc-list li > span:first-child { min-width: 0; display: grid; gap: 2px; }
+.review-multidisc-list small { overflow: hidden; color: var(--muted); font: 11px/1.4 ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
+.review-multidisc-upload { width: fit-content; margin-top: 12px; cursor: pointer; }
+.review-multidisc-upload input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.review-multidisc-upload.is-disabled { cursor: not-allowed; opacity: .55; }
 .review-workflow-capability, .review-workflow-files, .review-workflow-metadata { min-width: 0; overflow: hidden; }
 .review-capability-list { display: grid; gap: 9px; }
 .review-capability-list > div { padding: 11px 12px; display: grid; gap: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-subtle); }
@@ -1211,6 +1222,7 @@ summary { cursor: pointer; }
 .save-library-menu svg { width: 14px; height: 14px; }
 .save-library-card-meta { margin-top: 3px; display: flex; align-items: center; justify-content: space-between; gap: 8px; color: var(--muted); font-size: 10px; }
 .save-library-card-meta span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.save-library-card-meta .save-disc-badge { flex: 0 0 auto; padding: 2px 6px; color: var(--purple-dark); border-radius: 999px; background: var(--purple-soft); font-weight: 750; }
 .save-library-custom-name { margin: 7px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #465065; font-size: 10px; }
 .save-library-reason { margin: 6px 0 0; color: #ad3947; font-size: 10px; }
 .save-library-editor { height: 27px; display: grid; grid-template-columns: minmax(0, 1fr) 27px 27px; gap: 4px; }
@@ -1389,10 +1401,20 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
 .admin-game-runtime-grid strong.good { color: var(--cyan); }
 .admin-game-runtime-grid strong.warn { color: var(--amber); }
 .admin-game-runtime-grid strong.bad { color: var(--danger); }
+.admin-game-disc-evidence { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-subtle); }
+.admin-game-disc-evidence > div { display: flex; justify-content: space-between; gap: 12px; }
+.admin-game-disc-evidence code { max-width: 60%; overflow: hidden; color: var(--muted); font-size: 10px; text-overflow: ellipsis; white-space: nowrap; }
+.admin-game-disc-evidence ol { margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 7px; list-style: none; }
+.admin-game-disc-evidence li { min-width: 0; padding: 9px; display: grid; gap: 2px; border: 1px solid var(--line); border-radius: 8px; background: white; }
+.admin-game-disc-evidence li span, .admin-game-disc-evidence li small { color: var(--muted); font-size: 9px; }
+.admin-game-disc-evidence li strong { overflow: hidden; font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
 .admin-game-runtime-note { min-height: 58px; margin-top: 12px; padding-top: 12px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-top: 1px solid var(--line); }
 .admin-game-runtime-note p { margin: 0; color: var(--muted); font-size: 10px; }
 .admin-game-runtime-note label { min-height: 36px; white-space: nowrap; cursor: pointer; font-size: 12px; }
 .admin-game-runtime-note label[aria-disabled="true"] { color: #8d94a1; cursor: not-allowed; background: #eceef2; }
+.admin-game-content-mode { margin: 0; padding: 6px 9px; display: flex; gap: 10px; border: 1px solid var(--line); border-radius: 8px; }
+.admin-game-content-mode legend { padding-inline: 3px; color: var(--muted); font-size: 9px; }
+.admin-game-content-mode label { min-height: auto; display: inline-flex; align-items: center; gap: 4px; font-size: 10px; }
 .admin-game-technical { margin-top: 10px; padding: 9px 11px; color: #5c52a8; border-radius: 8px; background: #f7f5ff; font-size: 10px; }
 .admin-game-technical summary { cursor: pointer; font-weight: 760; }
 .admin-game-technical > div { margin-top: 9px; display: grid; gap: 7px; }
@@ -1609,6 +1631,11 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
 .player-menu button.is-danger { color: #ff9ca7; }
 .player-menu button svg { width: 15px; height: 15px; }
 .player-menu hr { width: 100%; margin: 5px 0; border: 0; border-top: 1px solid #30394a; }
+.player-disc-menu { width: 250px; }
+.player-disc-menu > strong { padding: 7px 10px 5px; font-size: 13px; color: #fff; }
+.player-disc-menu > small { padding: 7px 10px; border-top: 1px solid #30394a; color: #aeb7c6; line-height: 1.45; }
+.player-disc-menu button[aria-checked="true"] { background: #2a3350; color: #dcd7ff; }
+.player-disc-menu button:disabled { cursor: wait; opacity: .65; }
 .player-stage { position: absolute; inset: 0; min-width: 0; min-height: 0; display: grid; place-items: center; overflow: hidden; background: #000; }
 .player-frame { grid-area: 1 / 1; width: 100%; height: 100%; border: 0; background: #000; }
 .player-pause-overlay { position: absolute; z-index: 14; inset: 0; display: grid; place-items: center; background: rgb(0 0 0 / 22%); opacity: 0; pointer-events: none; transition: opacity 150ms ease; }
@@ -1655,6 +1682,8 @@ td select, td input:not([type="checkbox"]), td button { min-height: 42px; }
   .player-sync-status span, .player-game-meta span { display: none; }
   .player-game-meta { max-width: 30vw; }
   .player-save-button { width: 36px; padding: 0; font-size: 0; }
+  .player-disc-button { width: 52px; padding: 0; font-size: 0; }
+  .player-disc-button::after { content: attr(aria-label); font-size: 11px; }
   .player-conflict { grid-template-columns: 28px minmax(0, 1fr); }
   .player-conflict-actions { grid-column: 2; }
 }

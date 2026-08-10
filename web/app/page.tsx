@@ -27,6 +27,8 @@ type FeaturedGame = RecentGame & {
     createdAtMs: number;
     activeDurationMs: number;
     screenshotUrl: string;
+    discIndex: number | null;
+    discLabel: string | null;
   };
 };
 
@@ -76,7 +78,7 @@ function FeaturedGamePanel({ game }: { game: FeaturedGame | null }) {
     <div className="home-featured-body">
       <div className={`home-featured-media${sessionSave ? " has-session-save" : ""}`}>
         {game.coverUrl ? <><Image className="home-featured-backdrop" src={game.coverUrl} alt="" fill sizes="(min-width: 1280px) 900px, 70vw" aria-hidden="true" /><span className="home-featured-cover"><Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="190px" /></span></> : <><span className="home-featured-backdrop home-cover-placeholder" aria-hidden="true" /><span className="home-featured-cover home-cover-placeholder" role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span></>}
-        {sessionSave ? <div className="home-featured-save-preview"><Image src={sessionSave.screenshotUrl} alt={`${game.title} 上次存档截图`} fill sizes="310px" unoptimized /><span>将从这里继续</span></div> : null}
+        {sessionSave ? <div className="home-featured-save-preview"><Image src={sessionSave.screenshotUrl} alt={`${game.title} 上次存档截图`} fill sizes="310px" unoptimized /><span>将从{sessionSave.discLabel ?? "这里"}继续</span></div> : null}
         <div className="home-featured-copy">
           <div className="home-featured-details"><p className="home-featured-overline">{game.platform.name} · {game.platformInstance.name}</p><h2>{game.title}</h2><p className="home-featured-description">最近一次游玩记录</p><div className="home-featured-facts"><span>上次游玩 <strong>{formatTime(game.lastPlayedAtMs)}</strong></span><span>累计游玩 <strong>{duration(game.activeDurationMs)}</strong></span><span>游玩 <strong>{game.sessionCount} 次</strong></span></div></div>
           <div className="home-featured-actions">
@@ -85,7 +87,7 @@ function FeaturedGamePanel({ game }: { game: FeaturedGame | null }) {
           </div>
         </div>
       </div>
-      <div className="home-featured-bottom"><div><h3>{game.title}</h3><p>{sessionSave ? `上次存档保存于 ${formatTime(sessionSave.createdAtMs)}，可以直接回到当时的进度。` : "你最近玩过这款游戏；本次会使用当前运行配置从头开始。"}</p></div><Link href={`/games/${game.gameId}`}>查看游戏详情 →</Link></div>
+      <div className="home-featured-bottom"><div><h3>{game.title}</h3><p>{sessionSave ? `上次存档保存于 ${formatTime(sessionSave.createdAtMs)}${sessionSave.discLabel ? `（${sessionSave.discLabel}）` : ""}，可以直接回到当时的进度。` : "你最近玩过这款游戏；本次会使用当前运行配置从头开始。"}</p></div><Link href={`/games/${game.gameId}`}>查看游戏详情 →</Link></div>
     </div>
   </article>;
 }

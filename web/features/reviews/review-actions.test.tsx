@@ -4,13 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReviewActions, type ReviewWorkspace } from "./review-actions";
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }));
-const upload = vi.hoisted(() => ({ uploadOne: vi.fn(), waitForJob: vi.fn(), waitForJobEvents: vi.fn() }));
+const upload = vi.hoisted(() => ({ uploadFiles: vi.fn(), uploadOne: vi.fn(), waitForJob: vi.fn(), waitForJobEvents: vi.fn() }));
 
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
 vi.mock("@/lib/upload", async (importOriginal) => {
   const original = await importOriginal<typeof import("@/lib/upload")>();
-  return { ...original, uploadOne: upload.uploadOne, waitForJob: upload.waitForJob, waitForJobEvents: upload.waitForJobEvents };
+  return { ...original, uploadFiles: upload.uploadFiles, uploadOne: upload.uploadOne, waitForJob: upload.waitForJob, waitForJobEvents: upload.waitForJobEvents };
 });
 
 const review: ReviewWorkspace = {
@@ -29,7 +29,7 @@ function jsonResponse(body: unknown, status = 200) {
 describe("ReviewActions", () => {
   beforeEach(() => {
     router.replace.mockReset(); router.refresh.mockReset(); router.push.mockReset();
-    upload.uploadOne.mockReset(); upload.waitForJob.mockReset().mockResolvedValue(undefined); upload.waitForJobEvents.mockReset().mockResolvedValue(undefined);
+    upload.uploadFiles.mockReset(); upload.uploadOne.mockReset(); upload.waitForJob.mockReset().mockResolvedValue(undefined); upload.waitForJobEvents.mockReset().mockResolvedValue(undefined);
     sessionStorage.clear();
   });
 
@@ -195,6 +195,55 @@ describe("ReviewActions", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
     expect(screen.getByText("Parent ROM 已匹配，运行检查已通过")).toBeInTheDocument();
     expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it("shows ordered multi-disc evidence and uploads exactly the missing CHD set", async () => {
+    const blocked: ReviewWorkspace = {
+      ...review,
+      version: 4,
+      validation: { id: "validation-multi-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
+      multiDisc: {
+        contentKind: "MULTI_DISC_M3U_V1",
+        playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
+        discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4,
+        entries: [
+          { index: 0, discIndex: 0, label: "光盘 1", sourceReference: "one.chd", canonicalName: "disc-001.chd", state: "PRESENT", logicalName: "one.chd", sizeBytes: 4, sha256: "b".repeat(64) },
+          { index: 1, discIndex: 1, label: "光盘 2", sourceReference: "two.chd", canonicalName: "disc-002.chd", state: "MISSING", logicalName: null, sizeBytes: null, sha256: null },
+        ],
+        missingReferences: ["two.chd"], canAttachMissingDiscs: true, latestAttachment: null, activeAttachment: null,
+      },
+    };
+    const refreshed: ReviewWorkspace = {
+      ...blocked,
+      version: 5,
+      validation: { id: "validation-multi-2", status: "READY", current: true, compatibilityCode: "READY" },
+      multiDisc: {
+        ...blocked.multiDisc!, presentDiscCount: 2, missingDiscCount: 0, missingReferences: [], canAttachMissingDiscs: false,
+        entries: blocked.multiDisc!.entries.map((entry) => entry.discIndex === 1 ? { ...entry, state: "PRESENT", logicalName: "two.chd", sizeBytes: 4, sha256: "c".repeat(64) } : entry),
+      },
+    };
+    upload.uploadFiles.mockResolvedValue({ uploadId: "upload-multi", uploadFileIds: ["file-two"] });
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/multi-disc-attachments")) return Promise.resolve(new Response(JSON.stringify({ jobId: "job-multi", reviewVersion: 5 }), { status: 202, headers: { "Content-Type": "application/json", ETag: '"v5"' } }));
+      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(refreshed));
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={blocked} />);
+
+    expect(screen.getByText("game.m3u · 2 张光盘 · 已接收 4 B")).toBeVisible();
+    expect(screen.getByText("one.chd")).toBeVisible();
+    expect(screen.getByText("two.chd")).toBeVisible();
+    await user.upload(screen.getByLabelText("选择全部缺失 CHD"), new File(["disc"], "two.chd"));
+
+    await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledTimes(1));
+    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/multi-disc-attachments"));
+    expect(request?.[1]?.headers).toMatchObject({ "If-Match": '"v4"' });
+    expect(request?.[1]?.body).toBe(JSON.stringify({ uploadId: "upload-multi" }));
+    expect(await screen.findByText("盘序完整")).toBeVisible();
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   });
 
   it("shows one short-lived notification with the server publish error", async () => {
