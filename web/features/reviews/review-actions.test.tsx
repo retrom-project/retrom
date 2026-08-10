@@ -127,9 +127,10 @@ describe("ReviewActions", () => {
   });
 
   it("refreshes a stale ready validation before enabling publish", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2 })));
+    const refreshed = { ...review, version: 2, canApprove: true, validationStale: false, validation: { ...review.validation!, current: true } };
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => Promise.resolve(jsonResponse(init?.method === "PATCH" ? { version: 2 } : refreshed)));
     vi.stubGlobal("fetch", fetchMock);
-    render(<ReviewActions review={{ ...review, validation: { ...review.validation!, current: false } }} />);
+    render(<ReviewActions review={{ ...review, canApprove: false, validationStale: true, validation: { ...review.validation!, current: false } }} />);
 
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
     expect(screen.getByText("运行检查更新中")).toBeInTheDocument();
@@ -138,6 +139,7 @@ describe("ReviewActions", () => {
       expect.objectContaining({ method: "PATCH", body: expect.stringContaining('"title":"Manual"') }),
     ));
     await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
   });
 
   it("lets a blocked review explicitly rerun validation after fixing dependencies", async () => {
@@ -206,6 +208,7 @@ describe("ReviewActions", () => {
         contentKind: "MULTI_DISC_M3U_V1",
         playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
         discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4,
+        maxDiscs: 8, maxTotalBytes: 1024,
         entries: [
           { index: 0, discIndex: 0, label: "光盘 1", sourceReference: "one.chd", canonicalName: "disc-001.chd", state: "PRESENT", logicalName: "one.chd", sizeBytes: 4, sha256: "b".repeat(64) },
           { index: 1, discIndex: 1, label: "光盘 2", sourceReference: "two.chd", canonicalName: "disc-002.chd", state: "MISSING", logicalName: null, sizeBytes: null, sha256: null },
@@ -233,15 +236,102 @@ describe("ReviewActions", () => {
     const user = userEvent.setup();
     render(<ReviewActions review={blocked} />);
 
-    expect(screen.getByText("game.m3u · 2 张光盘 · 已接收 4 B")).toBeVisible();
-    expect(screen.getByText("one.chd")).toBeVisible();
-    expect(screen.getByText("two.chd")).toBeVisible();
-    await user.upload(screen.getByLabelText("选择全部缺失 CHD"), new File(["disc"], "two.chd"));
+    expect(screen.getByText(/game\.m3u · 18 B · SHA-256/)).toBeVisible();
+    expect(screen.getByText("光盘 1 · one.chd")).toBeVisible();
+    expect(screen.getByText("光盘 2 · two.chd")).toBeVisible();
+    const trigger = screen.getByRole("button", { name: "上传全部缺失光盘" });
+    await user.click(trigger);
+    const drawer = screen.getByRole("dialog", { name: "上传全部缺失光盘" });
+    expect(within(drawer).getByRole("heading", { name: "上传全部缺失光盘" })).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveFocus();
+    await user.click(trigger);
+    await user.upload(within(screen.getByRole("dialog", { name: "上传全部缺失光盘" })).getByLabelText("选择当前全部缺失 CHD"), new File(["disc"], "two.chd"));
+    await user.click(within(screen.getByRole("dialog", { name: "上传全部缺失光盘" })).getByRole("button", { name: "上传并校验" }));
 
     await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledTimes(1));
     const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/multi-disc-attachments"));
     expect(request?.[1]?.headers).toMatchObject({ "If-Match": '"v4"' });
     expect(request?.[1]?.body).toBe(JSON.stringify({ uploadId: "upload-multi" }));
+    expect(await screen.findByText("盘序完整")).toBeVisible();
+    expect(screen.getByText("缺失光盘已补齐，正在更新审核结果")).toBeVisible();
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
+  });
+
+  it("keeps the exact-set drawer selection after a review version conflict", async () => {
+    const blocked: ReviewWorkspace = {
+      ...review, version: 4, canApprove: false,
+      validation: { id: "validation-multi-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
+      multiDisc: {
+        contentKind: "MULTI_DISC_M3U_V1", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
+        discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4, maxDiscs: 8, maxTotalBytes: 1024,
+        entries: [
+          { index: 0, discIndex: 0, label: "光盘 1", sourceReference: "one.chd", canonicalName: "disc-001.chd", state: "PRESENT", logicalName: "one.chd", sizeBytes: 4, sha256: "b".repeat(64) },
+          { index: 1, discIndex: 1, label: "光盘 2", sourceReference: "two.chd", canonicalName: "disc-002.chd", state: "MISSING", logicalName: null, sizeBytes: null, sha256: null },
+        ],
+        missingReferences: ["two.chd"], canAttachMissingDiscs: true, latestAttachment: null, activeAttachment: null,
+      },
+    };
+    upload.uploadFiles.mockResolvedValue({ uploadId: "upload-multi", uploadFileIds: ["file-two"] });
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/multi-disc-attachments")) return Promise.resolve(jsonResponse({ error: { code: "REVIEW_VERSION_CONFLICT", message: "审核条目已发生变化" } }, 409));
+      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse({ ...blocked, version: 5 }));
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={blocked} />);
+
+    await user.click(screen.getByRole("button", { name: "上传全部缺失光盘" }));
+    const drawer = screen.getByRole("dialog", { name: "上传全部缺失光盘" });
+    await user.upload(within(drawer).getByLabelText("选择当前全部缺失 CHD"), new File(["disc"], "two.chd"));
+    await user.click(within(drawer).getByRole("button", { name: "上传并校验" }));
+
+    expect(await screen.findByText("审核条目已发生变化")).toBeVisible();
+    expect(screen.getByRole("dialog", { name: "上传全部缺失光盘" })).toBeVisible();
+    expect(within(screen.getByRole("dialog", { name: "上传全部缺失光盘" })).getByText("已选择")).toBeVisible();
+  });
+
+  it("retries a retryable multi-disc validation without uploading the files again", async () => {
+    const failedAttachment = { attachmentId: "attachment-retry", state: "FAILED_RETRYABLE", errorCode: "REVIEW_MULTI_DISC_VALIDATION_UNAVAILABLE", jobId: "job-retry", jobState: "FAILED", version: 2, jobVersion: 3, canRetry: true };
+    const blocked: ReviewWorkspace = {
+      ...review, version: 6, canApprove: false,
+      validation: { id: "validation-multi-1", status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_MULTI_DISC_INCOMPLETE" },
+      multiDisc: {
+        contentKind: "MULTI_DISC_M3U_V1", playlist: { name: "game.m3u", sizeBytes: 18, sha256: "a".repeat(64) },
+        discCount: 2, presentDiscCount: 1, missingDiscCount: 1, totalPresentBytes: 4, maxDiscs: 8, maxTotalBytes: 1024,
+        entries: [
+          { index: 0, discIndex: 0, label: "光盘 1", sourceReference: "one.chd", canonicalName: "disc-001.chd", state: "PRESENT", logicalName: "one.chd", sizeBytes: 4, sha256: "b".repeat(64) },
+          { index: 1, discIndex: 1, label: "光盘 2", sourceReference: "two.chd", canonicalName: "disc-002.chd", state: "MISSING", logicalName: null, sizeBytes: null, sha256: null },
+        ],
+        missingReferences: ["two.chd"], canAttachMissingDiscs: false, latestAttachment: failedAttachment, activeAttachment: null,
+      },
+    };
+    const refreshed: ReviewWorkspace = {
+      ...blocked, version: 7, canApprove: true,
+      validation: { id: "validation-multi-2", status: "READY", current: true, compatibilityCode: "READY" },
+      multiDisc: {
+        ...blocked.multiDisc!, presentDiscCount: 2, missingDiscCount: 0, missingReferences: [], latestAttachment: { ...failedAttachment, state: "ACCEPTED", errorCode: null, jobState: "SUCCEEDED", canRetry: false },
+        entries: blocked.multiDisc!.entries.map((entry) => entry.discIndex === 1 ? { ...entry, state: "PRESENT", logicalName: "two.chd", sizeBytes: 4, sha256: "c".repeat(64) } : entry),
+      },
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/jobs/job-retry") && !init?.method) return Promise.resolve(jsonResponse({ version: 3 }));
+      if (url.endsWith("/jobs/job-retry/retry")) return Promise.resolve(jsonResponse({ state: "QUEUED" }, 202));
+      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(refreshed));
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={blocked} />);
+
+    await user.click(screen.getByRole("button", { name: "重试校验" }));
+    await waitFor(() => expect(upload.waitForJob).toHaveBeenCalledWith("job-retry", expect.any(Function)));
+    const retryRequest = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/jobs/job-retry/retry"));
+    expect(retryRequest?.[1]?.headers).toMatchObject({ "If-Match": '"v3"' });
+    expect(upload.uploadFiles).not.toHaveBeenCalled();
     expect(await screen.findByText("盘序完整")).toBeVisible();
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   });

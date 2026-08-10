@@ -15,6 +15,7 @@ import { userStorageKey } from "@/features/auth/storage";
 import { responseError, uploadFiles, uploadOne, waitForJob, waitForJobEvents } from "@/lib/upload";
 import { ArcadeDependencyCard } from "./arcade-dependencies";
 import { type ArcadeDependencies, type ArcadeDependencyNode, type ArcadeParentAttachment } from "./arcade-dependency-tree";
+import { MultiDiscAttachmentDrawer } from "./multi-disc-attachment-drawer";
 
 export type ReviewAsset = {
   candidateAssetId: string;
@@ -61,6 +62,18 @@ export type ReviewScrapeRun = {
   outcomes: { hit: number; miss: number; rateLimited: number; timeout: number; invalidResponse: number; networkError: number };
 };
 
+export type ReviewMultiDiscAttachment = {
+  attachmentId: string;
+  state: string;
+  errorCode: string | null;
+  diagnostics?: unknown;
+  jobId: string;
+  jobState: string;
+  version?: number;
+  jobVersion?: number;
+  canRetry?: boolean;
+};
+
 export type ReviewMultiDisc = {
   contentKind: "MULTI_DISC_M3U_V1";
   playlist: { name: string; sizeBytes: number; sha256: string };
@@ -68,6 +81,8 @@ export type ReviewMultiDisc = {
   presentDiscCount: number;
   missingDiscCount: number;
   totalPresentBytes: number;
+  maxDiscs?: number;
+  maxTotalBytes?: number;
   entries: Array<{
     index: number; discIndex: number; label: string; sourceReference: string;
     canonicalName: string; state: "PRESENT" | "MISSING"; logicalName: string | null;
@@ -75,14 +90,16 @@ export type ReviewMultiDisc = {
   }>;
   missingReferences: string[];
   canAttachMissingDiscs: boolean;
-  latestAttachment: { state: string; errorCode: string | null; jobId: string; jobState: string } | null;
-  activeAttachment: { state: string; errorCode: string | null; jobId: string; jobState: string } | null;
+  latestAttachment: ReviewMultiDiscAttachment | null;
+  activeAttachment: ReviewMultiDiscAttachment | null;
 };
 
 export type ReviewWorkspace = {
   itemId: string;
   version: number;
   effectiveSourceSnapshotId?: string;
+  canApprove?: boolean;
+  validationStale?: boolean;
   arcadeDependencies?: ArcadeDependencies | null;
   multiDisc?: ReviewMultiDisc | null;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
@@ -195,6 +212,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const [effectiveSourceSnapshotId, setEffectiveSourceSnapshotId] = useState(review.effectiveSourceSnapshotId ?? "");
   const [arcadeDependencies, setArcadeDependencies] = useState(review.arcadeDependencies ?? null);
   const [multiDisc, setMultiDisc] = useState(review.multiDisc ?? null);
+  const [serverCanApprove, setServerCanApprove] = useState(review.canApprove ?? (validationWasCurrent && review.validation?.status === "READY"));
   const [parentProgress, setParentProgress] = useState("");
   const [multiDiscProgress, setMultiDiscProgress] = useState("");
   const [duplicateConfirmation, setDuplicateConfirmation] = useState<DuplicateGame[] | null>(null);
@@ -211,6 +229,23 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const latestPayloadRef = useRef(draftPayload);
   const validationStatus = currentValidation?.status ?? null;
 
+  const refreshReview = useCallback(async () => {
+    const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(await responseError(response, "校验完成，但无法读取最新审核状态"));
+    const updated = await response.json() as ReviewWorkspace;
+    versionRef.current = updated.version;
+    setCurrentValidation(updated.validation);
+    setValidationCurrent(updated.validation?.current ?? false);
+    setEffectiveSourceSnapshotId(updated.effectiveSourceSnapshotId ?? "");
+    setArcadeDependencies(updated.arcadeDependencies ?? null);
+    setMultiDisc(updated.multiDisc ?? null);
+    setServerCanApprove(updated.canApprove ?? (updated.validation?.current === true && updated.validation.status === "READY"));
+    setCandidates(updated.candidates);
+    setUploadedAssets(updated.uploadedAssets ?? []);
+    router.refresh();
+    return updated;
+  }, [review.itemId, router]);
+
   const enqueueSave = useCallback((key: string, payload: DraftPayload, force = false) => {
     saveQueueRef.current = saveQueueRef.current.catch(() => false).then(async () => {
       if (!force && lastSavedKeyRef.current === key) return true;
@@ -221,7 +256,6 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
         const result = await response.json() as { version: number };
         versionRef.current = result.version;
         lastSavedKeyRef.current = key;
-        if (validationStatus === "READY") setValidationCurrent(true);
         if (latestKeyRef.current === key) setSaveState("saved");
         return true;
       } catch (caught) {
@@ -231,7 +265,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       }
     });
     return saveQueueRef.current;
-  }, [review.itemId, validationStatus]);
+  }, [review.itemId]);
 
   useEffect(() => {
     latestKeyRef.current = draftKey;
@@ -252,8 +286,12 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     if (validationStatus !== "READY" || validationWasCurrent || validationRefreshRequestedRef.current) return;
     validationRefreshRequestedRef.current = true;
     setSaveState("pending");
-    void enqueueSave(draftKey, draftPayload, true);
-  }, [draftKey, draftPayload, enqueueSave, validationStatus, validationWasCurrent]);
+    void enqueueSave(draftKey, draftPayload, true).then(async (saved) => {
+      if (!saved) return;
+      try { await refreshReview(); }
+      catch (caught) { setToast({ message: caught instanceof Error ? caught.message : "无法读取更新后的运行检查", tone: "bad" }); }
+    });
+  }, [draftKey, draftPayload, enqueueSave, refreshReview, validationStatus, validationWasCurrent]);
 
   useEffect(() => {
     if (!notice) return;
@@ -311,22 +349,6 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     });
   }
 
-  const refreshAfterParentAttachment = useCallback(async () => {
-    const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { cache: "no-store" });
-    if (!response.ok) throw new Error(await responseError(response, "校验完成，但无法读取最新审核状态"));
-    const updated = await response.json() as ReviewWorkspace;
-    versionRef.current = updated.version;
-    setCurrentValidation(updated.validation);
-    setValidationCurrent(updated.validation?.current ?? false);
-    setEffectiveSourceSnapshotId(updated.effectiveSourceSnapshotId ?? "");
-    setArcadeDependencies(updated.arcadeDependencies ?? null);
-    setMultiDisc(updated.multiDisc ?? null);
-    setCandidates(updated.candidates);
-    setUploadedAssets(updated.uploadedAssets ?? []);
-    router.refresh();
-    return updated;
-  }, [review.itemId, router]);
-
   const watchParentJob = useCallback(async (jobId: string) => {
     watchedParentJobRef.current = jobId;
     let terminalError: Error | null = null;
@@ -335,11 +357,11 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     } catch (caught) {
       terminalError = caught instanceof Error ? caught : new Error("Parent ROM 校验失败");
     }
-    const updated = await refreshAfterParentAttachment();
+    const updated = await refreshReview();
     if (terminalError) setToast({ message: terminalError.message, tone: "bad" });
     else if (updated.validation?.status === "READY") setToast({ message: "Parent ROM 已匹配，运行检查已通过", tone: "good" });
     else setToast({ message: "Parent ROM 已匹配，仍有依赖需要处理", tone: "warn" });
-  }, [refreshAfterParentAttachment]);
+  }, [refreshReview]);
 
   const activeParentJobId = arcadeDependencies?.activeAttachment?.jobId ?? "";
   useEffect(() => {
@@ -396,11 +418,11 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     } catch (caught) {
       terminalError = caught instanceof Error ? caught : new Error("补盘校验失败");
     }
-    const updated = await refreshAfterParentAttachment();
+    const updated = await refreshReview();
     if (terminalError) throw terminalError;
     if (updated.multiDisc?.missingDiscCount) throw new Error("补盘未通过：所选文件与当前缺失盘不一致");
-    setToast({ message: "缺失光盘已补齐，运行检查已通过", tone: "good" });
-  }, [refreshAfterParentAttachment]);
+    setToast({ message: "缺失光盘已补齐，正在更新审核结果", tone: "good" });
+  }, [refreshReview]);
 
   const activeMultiDiscJobId = multiDisc?.activeAttachment?.jobId ?? "";
   useEffect(() => {
@@ -411,27 +433,47 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     }).finally(() => setMultiDiscProgress(""));
   }, [activeMultiDiscJobId, watchMultiDiscJob]);
 
-  async function attachMissingDiscs(files: File[]) {
+  async function attachMissingDiscs(files: File[], onQueued: () => void) {
     if (!multiDisc || !await flushDraft()) return;
     await run("补充缺失光盘", async () => {
-      const selected = files.map((file) => file.name.toLowerCase()).sort();
-      const expected = multiDisc.missingReferences.map((name) => name.toLowerCase()).sort();
-      if (new Set(selected).size !== selected.length || selected.length !== expected.length ||
-        selected.some((name, index) => name !== expected[index])) {
-        throw new Error(`请选择且只选择：${multiDisc.missingReferences.join("、")}`);
-      }
       const uploaded = await uploadFiles(files, setMultiDiscProgress);
       const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/multi-disc-attachments`, {
         method: "POST", credentials: "same-origin",
         headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }),
         body: JSON.stringify({ uploadId: uploaded.uploadId }),
       });
-      if (!response.ok) throw new Error(await responseError(response, "无法创建补盘校验任务"));
-      const result = await response.json() as { jobId: string; reviewVersion?: number };
+      if (!response.ok) {
+        const payload = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
+        const code = payload?.error?.code ?? "";
+        if (["REVIEW_VERSION_CONFLICT", "REVIEW_MULTI_DISC_INPUT_STALE", "REVIEW_MULTI_DISC_ATTACHMENT_SET_MISMATCH", "REVIEW_MULTI_DISC_CONTENT_INVALID", "REVIEW_MULTI_DISC_ATTACHMENT_IN_PROGRESS", "REVIEW_MULTI_DISC_ATTACHMENT_RETRY_REQUIRED"].includes(code)) {
+          await refreshReview();
+        }
+        throw new Error(payload?.error?.message ?? "无法创建补盘校验任务");
+      }
+      const result = await response.json() as { attachmentId: string; state: string; jobId: string; reviewVersion?: number };
       const responseVersion = response.headers.get("ETag")?.match(/^"v(\d+)"$/)?.[1];
       if (responseVersion) versionRef.current = Number(responseVersion);
       else if (result.reviewVersion) versionRef.current = result.reviewVersion;
+      const queuedAttachment: ReviewMultiDiscAttachment = { attachmentId: result.attachmentId, state: result.state, errorCode: null, jobId: result.jobId, jobState: "QUEUED", canRetry: false };
+      setMultiDisc((current) => current ? { ...current, canAttachMissingDiscs: false, latestAttachment: queuedAttachment, activeAttachment: queuedAttachment } : current);
+      setMultiDiscProgress(`正在校验补充光盘 · Job ${result.jobId.slice(0, 8)}…`);
+      onQueued();
       await watchMultiDiscJob(result.jobId);
+    });
+  }
+
+  async function retryMultiDisc(attachment: ReviewMultiDiscAttachment) {
+    await run("重试补盘校验", async () => {
+      const snapshot = await fetch(`/api/v1/admin/jobs/${attachment.jobId}`, { cache: "no-store" });
+      if (!snapshot.ok) throw new Error(await responseError(snapshot, "无法读取待重试补盘任务"));
+      const job = await snapshot.json() as { version: number };
+      const response = await fetch(`/api/v1/admin/jobs/${attachment.jobId}/retry`, {
+        method: "POST", credentials: "same-origin",
+        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${job.version}"`, "Idempotency-Key": newUuid() }), body: "{}",
+      });
+      if (!response.ok) throw new Error(await responseError(response, "补盘校验无法重试"));
+      setMultiDiscProgress(`正在重试补盘校验 · Job ${attachment.jobId.slice(0, 8)}…`);
+      await watchMultiDiscJob(attachment.jobId);
     });
   }
 
@@ -506,7 +548,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
 
   const parentAttachmentActive = Boolean(arcadeDependencies?.activeAttachment?.state === "QUEUED" || arcadeDependencies?.activeAttachment?.state === "RUNNING");
   const multiDiscAttachmentActive = Boolean(multiDisc?.activeAttachment?.state === "QUEUED" || multiDisc?.activeAttachment?.state === "RUNNING");
-  const publishReady = validationStatus === "READY" && validationCurrent && !parentAttachmentActive && !multiDiscAttachmentActive && !multiDisc?.missingDiscCount;
+  const publishReady = serverCanApprove && validationStatus === "READY" && validationCurrent && !parentAttachmentActive && !multiDiscAttachmentActive && !multiDisc?.missingDiscCount;
 
   return <div className="review-workflow-detail">
     <div className="review-workflow-top">
@@ -516,7 +558,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     {notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{notice}</FeedbackBanner></div> : null}
     {review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。仍可发布为新游戏，但发布时需要二次确认。</FeedbackBanner></div> : null}
     <div className="review-workflow-columns">
-      <div className="review-workflow-left">{children}{multiDisc ? <MultiDiscReviewCard value={multiDisc} disabled={busy !== null || multiDiscAttachmentActive} progress={multiDiscProgress} onAttach={attachMissingDiscs} /> : null}{arcadeDependencies ? <ArcadeDependencyCard value={arcadeDependencies} disabled={busy !== null || parentAttachmentActive} progress={parentProgress} onAttach={attachParent} onRetry={retryParent} /> : null}</div>
+      <div className="review-workflow-left">{children}{multiDisc ? <MultiDiscReviewCard value={multiDisc} disabled={busy !== null || multiDiscAttachmentActive} progress={multiDiscProgress} onAttach={attachMissingDiscs} onRetry={retryMultiDisc} /> : null}{arcadeDependencies ? <ArcadeDependencyCard value={arcadeDependencies} disabled={busy !== null || parentAttachmentActive} progress={parentProgress} onAttach={attachParent} onRetry={retryParent} /> : null}</div>
       <section className="panel review-workflow-metadata">
         <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介和封面；修改会实时保存。</p></div><div className="review-workflow-query-actions">{jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}<button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>
         <div className="panel-body review-workflow-editor">
@@ -553,14 +595,20 @@ function StatusPill({ tone, children }: { tone: "good" | "warn" | "info"; childr
   return <span className={`status ${tone}`}><i />{children}</span>;
 }
 
-function MultiDiscReviewCard({ value, disabled, progress, onAttach }: { value: ReviewMultiDisc; disabled: boolean; progress: string; onAttach: (files: File[]) => Promise<void> }) {
-  return <section className="panel review-multidisc-card">
-    <div className="panel-head"><div><h2>多盘内容</h2><p>{value.playlist.name} · {value.discCount} 张光盘 · 已接收 {formatBytes(value.totalPresentBytes)}</p></div><StatusPill tone={value.missingDiscCount ? "warn" : "good"}>{value.missingDiscCount ? `缺少 ${value.missingDiscCount} 张` : "盘序完整"}</StatusPill></div>
+function MultiDiscReviewCard({ value, disabled, progress, onAttach, onRetry }: { value: ReviewMultiDisc; disabled: boolean; progress: string; onAttach: (files: File[], onQueued: () => void) => Promise<void>; onRetry: (attachment: ReviewMultiDiscAttachment) => Promise<void> }) {
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const maxDiscs = value.maxDiscs ?? 8;
+  const maxTotalBytes = value.maxTotalBytes ?? 1_073_741_824;
+  const latest = value.latestAttachment;
+  const validating = Boolean(progress || value.activeAttachment);
+  return <section className="panel review-multidisc-card" aria-labelledby="review-multidisc-title">
+    <div className="panel-head"><div><h2 id="review-multidisc-title">多盘内容</h2><p>{value.playlist.name} · {formatBytes(value.playlist.sizeBytes)} · SHA-256 {value.playlist.sha256.slice(0, 12)}…</p><small>{value.discCount} / {maxDiscs} 张光盘 · 已接收 {formatBytes(value.totalPresentBytes)} / 上限 {formatBytes(maxTotalBytes)}</small></div><StatusPill tone={value.missingDiscCount ? "warn" : "good"}>{value.missingDiscCount ? `缺少 ${value.missingDiscCount} 张` : "盘序完整"}</StatusPill></div>
     <div className="panel-body">
-      <ol className="review-multidisc-list">{value.entries.map((entry) => <li key={entry.discIndex}><span><strong>{entry.label}</strong><small>{entry.sourceReference}</small></span><span className={`status ${entry.state === "PRESENT" ? "good" : "warn"}`}><i />{entry.state === "PRESENT" ? entry.sizeBytes === null ? "已接收" : formatBytes(entry.sizeBytes) : "待补齐"}</span></li>)}</ol>
-      {value.latestAttachment?.errorCode ? <FeedbackBanner tone="bad">上次补盘未通过：{value.latestAttachment.errorCode}</FeedbackBanner> : null}
-      {progress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在校验缺失光盘：{progress}</p> : null}
-      {value.missingDiscCount ? <label className={`button secondary review-multidisc-upload${disabled || !value.canAttachMissingDiscs ? " is-disabled" : ""}`}>选择全部缺失 CHD<input aria-label="选择全部缺失 CHD" type="file" accept=".chd" multiple disabled={disabled || !value.canAttachMissingDiscs} onChange={(event) => { const files = Array.from(event.currentTarget.files ?? []); if (files.length) void onAttach(files); event.currentTarget.value = ""; }} /></label> : null}
+      <ol className="review-multidisc-list">{value.entries.map((entry) => <li key={entry.discIndex}><span><strong>{entry.label} · {entry.sourceReference}</strong><small>规范文件名：{entry.canonicalName}</small>{entry.sha256 ? <small>SHA-256 {entry.sha256.slice(0, 12)}…</small> : null}</span><span className={`status ${entry.state === "PRESENT" ? "good" : "warn"}`}><i />{entry.state === "PRESENT" ? entry.sizeBytes === null ? "已接收" : formatBytes(entry.sizeBytes) : "待补齐"}</span></li>)}</ol>
+      {validating ? <FeedbackBanner tone="info">正在校验补充光盘。{value.activeAttachment?.jobId ? `Job ${value.activeAttachment.jobId}` : progress}</FeedbackBanner> : value.missingDiscCount ? latest?.state === "FAILED_RETRYABLE" ? <FeedbackBanner tone="bad">补盘校验服务暂时不可用；可以复用已上传文件重试。错误码：{latest.errorCode ?? "REVIEW_MULTI_DISC_VALIDATION_UNAVAILABLE"}</FeedbackBanner> : latest?.state === "REJECTED" ? <FeedbackBanner tone="bad">上次补盘未通过：{latest.errorCode ?? "REVIEW_MULTI_DISC_CONTENT_INVALID"}</FeedbackBanner> : <FeedbackBanner tone="bad">多盘内容不完整，发布已阻止。请一次上传当前全部缺失光盘。</FeedbackBanner> : <FeedbackBanner tone="good">多盘内容完整，运行检查结果已更新。</FeedbackBanner>}
+      {progress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在校验补充光盘：{progress}</p> : null}
+      {value.missingDiscCount ? <div className="review-multidisc-actions">{latest?.state === "FAILED_RETRYABLE" && latest.canRetry ? <button className="button secondary" type="button" disabled={disabled} onClick={() => void onRetry(latest)}>重试校验</button> : null}<button className="button secondary" type="button" disabled={disabled || !value.canAttachMissingDiscs} onClick={() => setDrawerOpen(true)}>{latest?.state === "REJECTED" ? "重新上传全部缺失光盘" : "上传全部缺失光盘"}</button></div> : null}
     </div>
+    <MultiDiscAttachmentDrawer open={drawerOpen} missingReferences={value.missingReferences} presentBytes={value.totalPresentBytes} maxTotalBytes={maxTotalBytes} busy={disabled} progress={progress} onClose={() => setDrawerOpen(false)} onSubmit={onAttach} />
   </section>;
 }
