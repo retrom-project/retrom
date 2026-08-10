@@ -726,6 +726,15 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/PlayEvent' }
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
+  /runtime/launches/{launchId}/player-events:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    post:
+      security: []
+      operationId: postRuntimeMultiDiscPlayerEvent
+      description: Records a closed, low-cardinality multi-disc Player result after validating the Launch cookie. Names, paths, hashes, and capabilities are not accepted.
+      requestBody: { $ref: '#/components/requestBodies/MultiDiscPlayerEvent' }
+      responses:
+        '204': { description: Event accepted }
   /runtime/launches/{launchId}/save-states:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }]
     post:
@@ -1284,6 +1293,19 @@ components:
                 running: { type: boolean }
                 visible: { type: boolean }
                 paused: { type: boolean }
+    MultiDiscPlayerEventRequest:
+      type: object
+      additionalProperties: false
+      required: [eventType, resultCode, discCount, observedDiscCount]
+      properties:
+        eventType:
+          type: string
+          enum: [START, DISK_COUNT_MISMATCH, SWITCH_SUCCESS, SWITCH_FAILURE, SAVE_RESTORE_SUCCESS, SAVE_RESTORE_FAILURE]
+        resultCode:
+          type: string
+          enum: [OK, PLAYER_DISC_SET_INVALID, PLAYER_DISC_API_UNAVAILABLE, PLAYER_DISC_SWITCH_UNAVAILABLE, PLAYER_DISC_SWITCH_FAILED, PLAYER_SAVE_STATE_UNAVAILABLE, PLAYER_SAVE_STATE_RESTORE_FAILED, LAUNCH_PERSISTENT_SAVE_LOAD_FAILED]
+        discCount: { type: integer, minimum: 2, maximum: 8 }
+        observedDiscCount: { type: integer, minimum: -1, maximum: 64, nullable: true }
     HealthLive:
       type: object
       additionalProperties: false
@@ -1880,6 +1902,7 @@ components:
     CreateDAT: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateDATRequest' } } } }
     ActivateDAT: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ActivateDATRequest' } } } }
     PlayEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PlayEventRequest' } } } }
+    MultiDiscPlayerEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MultiDiscPlayerEventRequest' } } } }
   responses:
     HealthLiveResponse:
       description: Process is live

@@ -17,6 +17,7 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -224,6 +225,15 @@ func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *te
 	if err != nil || created.ItemCount != 2 {
 		t.Fatalf("Create() = %#v, error=%v", created, err)
 	}
+	var importEventData string
+	if err := database.SQL.QueryRow(`
+SELECT data_json FROM job_events
+WHERE job_id=? AND scope_type='IMPORT_GROUP' AND event_type='SUCCEEDED'
+`, created.JobID).Scan(&importEventData); err != nil ||
+		!strings.Contains(importEventData, `"contentMode":"MULTI_DISC_M3U_V1"`) ||
+		!strings.Contains(importEventData, `"parserResultCode":"MATCHED"`) {
+		t.Fatalf("multi-disc import event = %q, error=%v", importEventData, err)
+	}
 	items := queryAttachmentStrings(t, database.SQL, `
 SELECT item.id||':'||snapshot.content_kind||':'||validation.prepublish_generation
 FROM import_items item
@@ -324,6 +334,11 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 		configuration.GameURL != "/runtime/launches/"+createdLaunch.LaunchID+"/game/playlist.m3u" {
 		t.Fatalf("multi-disc launch config = %#v, error=%v", configuration, err)
 	}
+	dimensions, err := launcher.MultiDiscTelemetryDimensions(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
+	if err != nil || dimensions.PlatformKey != "saturn" || dimensions.CoreKey != "yabause" ||
+		dimensions.ArtifactVersion < 1 || dimensions.DiscCount != 2 {
+		t.Fatalf("multi-disc telemetry dimensions = %#v, error=%v", dimensions, err)
+	}
 	for index, entry := range configuration.DiscSet.Entries {
 		expectedName := fmt.Sprintf("disc-%03d.chd", index+1)
 		if entry.Index != index || entry.VirtualPath != "/"+expectedName ||
@@ -333,6 +348,11 @@ WHERE game.id=? ORDER BY file.role,file.sort_order
 		}
 		if _, err := launcher.ExternalBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, expectedName); err != nil {
 			t.Fatalf("locked disc %d: %v", index, err)
+		}
+		view, err := launcher.External(ctx, createdLaunch.LaunchID, createdLaunch.Capability, expectedName)
+		if err != nil || view.Kind != "DISC" || view.PlatformKey != "saturn" || view.CoreKey != "yabause" ||
+			view.DiscCount != 2 || view.ArtifactVersion != dimensions.ArtifactVersion {
+			t.Fatalf("observable disc %d = %#v, error=%v", index, view, err)
 		}
 	}
 	if _, err := launcher.ExternalBlob(
@@ -431,6 +451,16 @@ SELECT effective_source_snapshot_id FROM review_drafts WHERE import_item_id=?
 		t.Fatalf("CreateMultiDiscAttachment() = %#v, error=%v", attachment, err)
 	}
 	waitParentJob(t, database.SQL, attachment.JobID, "SUCCEEDED")
+	var terminalEventData string
+	if err := database.SQL.QueryRow(`
+SELECT data_json FROM job_events WHERE job_id=? AND event_type='SUCCEEDED'
+ORDER BY id DESC LIMIT 1
+`, attachment.JobID).Scan(&terminalEventData); err != nil ||
+		!strings.Contains(terminalEventData, `"state":"ACCEPTED"`) ||
+		!strings.Contains(terminalEventData, `"validationStatus":"READY"`) ||
+		!strings.Contains(terminalEventData, `"durationMs":`) {
+		t.Fatalf("attachment terminal event = %q, error=%v", terminalEventData, err)
+	}
 	var resultSnapshotID, selectedID string
 	var version int64
 	if err := database.SQL.QueryRow(`

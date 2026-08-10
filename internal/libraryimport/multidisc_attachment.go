@@ -108,6 +108,7 @@ type multiDiscAttachmentInput struct {
 type multiDiscAttachmentCandidate struct {
 	input                    multiDiscAttachmentInput
 	jobID, workerID          string
+	executionStartedAtMS     int64
 	expectedMissing          []multidisc.Entry
 	baseFiles                []attachedMultiDiscFile
 	baseEntries              []multidisc.Entry
@@ -294,7 +295,7 @@ WHERE NOT EXISTS(
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'IMPORT_ITEM',?,'QUEUED','{}',?)
+VALUES(?,'IMPORT_ITEM',?,'QUEUED','{"schemaVersion":1,"state":"QUEUED"}',?)
 `, jobID.String(), input.ImportItemID, now); err != nil {
 		return MultiDiscAttachmentCreated{}, multiDiscAttachmentError(MultiDiscAttachmentErrorUnavailable, err)
 	}
@@ -587,7 +588,7 @@ WHERE job_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-	SELECT id,scope_type,scope_id,'STARTED','{}',? FROM jobs WHERE id=?
+	SELECT id,scope_type,scope_id,'STARTED','{"schemaVersion":1,"state":"RUNNING"}',? FROM jobs WHERE id=?
 	`, now, jobID); err != nil {
 		return multiDiscAttachmentStoreError("record start", err)
 	}
@@ -599,16 +600,16 @@ func readClaimedMultiDiscAttachment(
 	transaction *sql.Tx,
 	jobID string,
 ) (multiDiscAttachmentCandidate, error) {
+	var candidate multiDiscAttachmentCandidate
 	var inputJSON string
 	if err := transaction.QueryRowContext(ctx, `
-SELECT input.input_json
+SELECT input.input_json,job.execution_started_at_ms
 FROM job_input_snapshots input
 JOIN jobs job ON job.id=input.job_id AND job.execution_no=input.execution_no
 WHERE input.job_id=?
-	`, jobID).Scan(&inputJSON); err != nil {
+	`, jobID).Scan(&inputJSON, &candidate.executionStartedAtMS); err != nil {
 		return multiDiscAttachmentCandidate{}, multiDiscAttachmentStoreError("read frozen input", err)
 	}
-	var candidate multiDiscAttachmentCandidate
 	if err := json.Unmarshal([]byte(inputJSON), &candidate.input); err != nil ||
 		!validMultiDiscAttachmentInput(candidate.input) {
 		return multiDiscAttachmentCandidate{}, ErrInvalid
@@ -632,6 +633,13 @@ FROM review_multidisc_attachments WHERE job_id=?
 		return multiDiscAttachmentCandidate{}, ErrInvalid
 	}
 	return candidate, nil
+}
+
+func multiDiscAttachmentDurationMS(candidate multiDiscAttachmentCandidate, now int64) int64 {
+	if candidate.executionStartedAtMS <= 0 || now <= candidate.executionStartedAtMS {
+		return 0
+	}
+	return now - candidate.executionStartedAtMS
 }
 
 func validMultiDiscAttachmentInput(input multiDiscAttachmentInput) bool {
@@ -1265,6 +1273,7 @@ version=version+1,updated_at_ms=? WHERE id=? AND effective_source_snapshot_id=?
 	diagnostics, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "discCount": len(candidate.resultEntries),
 		"attachedFileCount": len(candidate.uploadFiles), "validationStatus": candidate.validationStatus,
+		"durationMs": multiDiscAttachmentDurationMS(*candidate, evidence.now),
 	})
 	if err := expectOneRow(transaction.ExecContext(ctx, `
 UPDATE review_multidisc_attachments SET state='ACCEPTED',result_source_snapshot_id=?,
@@ -1320,20 +1329,27 @@ func completeAcceptedMultiDiscJob(
 	candidate multiDiscAttachmentCandidate,
 	evidence acceptedMultiDiscEvidence,
 ) error {
+	parserData, _ := json.Marshal(map[string]any{
+		"schemaVersion": 1, "parserResultCode": "MATCHED", "discCount": len(candidate.resultEntries),
+	})
+	terminalData, _ := json.Marshal(map[string]any{
+		"schemaVersion": 1, "state": "ACCEPTED", "validationStatus": candidate.validationStatus,
+		"durationMs": multiDiscAttachmentDurationMS(candidate, evidence.now),
+	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms) VALUES
-(?,'IMPORT_ITEM',?,'PLAYLIST_PARSED','{}',?),
-(?,'IMPORT_ITEM',?,'DISC_SET_MATCHED','{}',?),
+(?,'IMPORT_ITEM',?,'PLAYLIST_PARSED',?,?),
+(?,'IMPORT_ITEM',?,'DISC_SET_MATCHED',?,?),
 (?,'IMPORT_ITEM',?,'SOURCE_SNAPSHOT_CREATED',?,?),
 (?,'IMPORT_ITEM',?,'CORE_VALIDATION_COMPLETED',?,?),
-(?,'IMPORT_ITEM',?,'SUCCEEDED','{}',?)
-`, candidate.jobID, candidate.input.ImportItemID, evidence.now,
-		candidate.jobID, candidate.input.ImportItemID, evidence.now,
+(?,'IMPORT_ITEM',?,'SUCCEEDED',?,?)
+`, candidate.jobID, candidate.input.ImportItemID, string(parserData), evidence.now,
+		candidate.jobID, candidate.input.ImportItemID, string(parserData), evidence.now,
 		candidate.jobID, candidate.input.ImportItemID,
 		fmt.Sprintf(`{"sourceSnapshotId":%q}`, evidence.sourceSnapshotID), evidence.now,
 		candidate.jobID, candidate.input.ImportItemID,
 		fmt.Sprintf(`{"validationId":%q,"status":%q}`, evidence.validationID, candidate.validationStatus), evidence.now,
-		candidate.jobID, candidate.input.ImportItemID, evidence.now); err != nil {
+		candidate.jobID, candidate.input.ImportItemID, string(terminalData), evidence.now); err != nil {
 		return multiDiscAttachmentStoreError("record job events", err)
 	}
 	if err := expectOneRow(transaction.ExecContext(ctx, `
@@ -1428,6 +1444,7 @@ func (service *Service) finishRejectedMultiDiscAttachment(
 	now := service.now().UnixMilli()
 	diagnostics, _ := json.Marshal(map[string]any{
 		"schemaVersion": 1, "errorCode": code, "causeCode": MultiDiscAttachmentErrorCode(cause),
+		"durationMs": multiDiscAttachmentDurationMS(candidate, now),
 	})
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -1490,7 +1507,11 @@ func (service *Service) finishRetryableMultiDiscAttachment(
 		return
 	}
 	now := service.now().UnixMilli()
-	diagnostics := fmt.Sprintf(`{"errorCode":%q,"schemaVersion":1}`, code)
+	diagnosticsJSON, _ := json.Marshal(map[string]any{
+		"schemaVersion": 1, "errorCode": code,
+		"durationMs": multiDiscAttachmentDurationMS(candidate, now),
+	})
+	diagnostics := string(diagnosticsJSON)
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return
@@ -1571,7 +1592,11 @@ WHERE id=? AND state='RUNNING' AND worker_id=?
 `, availableAt, now, candidate.jobID, candidate.workerID)); err != nil {
 		return false
 	}
-	event := fmt.Sprintf(`{"attempt":%d,"retryAtMs":%d}`, attemptCount, availableAt)
+	eventJSON, _ := json.Marshal(map[string]any{
+		"schemaVersion": 1, "attempt": attemptCount, "retryAtMs": availableAt,
+		"durationMs": multiDiscAttachmentDurationMS(candidate, now), "errorCode": code,
+	})
+	event := string(eventJSON)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
 VALUES(?,'IMPORT_ITEM',?,'RETRY_SCHEDULED',?,?)
@@ -1633,10 +1658,14 @@ version=version+1,updated_at_ms=? WHERE id=? AND state='CANCEL_REQUESTED' AND wo
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return false
 	}
+	cancelledData, _ := json.Marshal(map[string]any{
+		"schemaVersion": 1, "state": "CANCELLED",
+		"durationMs": multiDiscAttachmentDurationMS(candidate, now),
+	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
-VALUES(?,'IMPORT_ITEM',?,'CANCELLED','{}',?)
-`, candidate.jobID, candidate.input.ImportItemID, now); err != nil {
+VALUES(?,'IMPORT_ITEM',?,'CANCELLED',?,?)
+`, candidate.jobID, candidate.input.ImportItemID, string(cancelledData), now); err != nil {
 		return false
 	}
 	return transaction.Commit() == nil

@@ -7,6 +7,7 @@ import { captureManualScreenshot, captureManualState, mountEmulatorJS, readDiscS
 import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
 import { restoreMultiDiscLaunch } from "./multi-disc-restore";
+import { multiDiscPlayerResultCode, reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
 import { setEmulatorPaused } from "./pause-control";
 import { restorePersistentSave } from "./persistent-save-restore";
 import { PlayerChrome } from "./player-chrome";
@@ -53,6 +54,11 @@ function formatPlayerBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
+function observedRuntimeDiscCount(instance: EmulatorInstance | undefined) {
+  const value = instance?.gameManager?.getDiskCount?.();
+  return typeof value === "number" && Number.isInteger(value) && value >= -1 && value <= 64 ? value : null;
+}
+
 export function PlayerShell({ launchId }: { launchId: string }) {
   const stage = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
@@ -94,6 +100,10 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const chromePinned = useRef(false);
   const lastAudibleVolume = useRef(0.5);
   const discSetRef = useRef<DiscSet | null>(null);
+
+  const reportPlayerEvent = useCallback((event: MultiDiscPlayerEvent) => {
+    void reportMultiDiscPlayerEvent(launchId, event).catch(() => undefined);
+  }, [launchId]);
 
   const clearControlsTimer = useCallback(() => {
     if (controlsTimer.current !== null) window.clearTimeout(controlsTimer.current);
@@ -459,12 +469,37 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
                 if (!emulator.current) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
                 const selected = restoreMultiDiscLaunch(emulator.current, config.discSet, persistentRestore, stateBytes);
                 setDiscState(selected);
+                reportPlayerEvent({
+                  eventType: "START", resultCode: "OK", discCount: config.discSet.count,
+                  observedDiscCount: selected.count,
+                });
+                if (stateBytes) reportPlayerEvent({
+                  eventType: "SAVE_RESTORE_SUCCESS", resultCode: "OK", discCount: config.discSet.count,
+                  observedDiscCount: selected.count,
+                });
               } else if (config.persistentSaveMode !== "NONE") {
                 const savePath = manager?.getSaveFilePath?.();
                 if (!manager || !mountedSaveFS || !savePath) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
                 restorePersistentSave(manager, mountedSaveFS, savePath, persistentBytes);
               }
             } catch (caught) {
+              if (config.discSet) {
+                const observedDiscCount = observedRuntimeDiscCount(emulator.current);
+                const resultCode = multiDiscPlayerResultCode(
+                  caught, stateBytes ? "PLAYER_SAVE_STATE_RESTORE_FAILED" : "PLAYER_DISC_API_UNAVAILABLE",
+                );
+                if (resultCode === "PLAYER_DISC_SET_INVALID" && observedDiscCount !== null &&
+                  observedDiscCount !== config.discSet.count) {
+                  reportPlayerEvent({
+                    eventType: "DISK_COUNT_MISMATCH", resultCode, discCount: config.discSet.count,
+                    observedDiscCount,
+                  });
+                }
+                if (stateBytes) reportPlayerEvent({
+                  eventType: "SAVE_RESTORE_FAILURE", resultCode, discCount: config.discSet.count,
+                  observedDiscCount,
+                });
+              }
               setState("error");
               setMessage(caught instanceof Error ? caught.message : "PLAYER_DISC_SET_INVALID");
               return false;
@@ -502,7 +537,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     };
-  }, [exit, launchId, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState, uploadPersistent]);
+  }, [exit, launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState, uploadPersistent]);
 
   useEffect(() => {
     running.current = state === "running";
@@ -568,9 +603,19 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
     try {
       const selected = switchDisc(current, index, locked.count);
       setDiscState(selected);
+      reportPlayerEvent({
+        eventType: "SWITCH_SUCCESS", resultCode: "OK", discCount: locked.count,
+        observedDiscCount: selected.count,
+      });
       showToast(`已切换到光盘 ${selected.currentIndex + 1}`);
       return true;
-    } catch {
+    } catch (caught) {
+      reportPlayerEvent({
+        eventType: "SWITCH_FAILURE",
+        resultCode: multiDiscPlayerResultCode(caught, "PLAYER_DISC_SWITCH_FAILED"),
+        discCount: locked.count,
+        observedDiscCount: observedRuntimeDiscCount(current),
+      });
       showToast(`无法切换光盘，游戏仍停留在光盘 ${discState.currentIndex + 1}`, 4_000);
       return false;
     }

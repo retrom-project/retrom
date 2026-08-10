@@ -2541,6 +2541,27 @@ updated_at_ms) VALUES(?,
 		); err != nil {
 			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 		}
+		if contentKind == multidisc.ContentKind {
+			parserResultCode := "MATCHED"
+			if validationStatus != "READY" {
+				parserResultCode = "MISSING_DISC"
+			}
+			parserData, _ := json.Marshal(map[string]any{
+				"schemaVersion": 1, "contentMode": contentMode,
+				"parserResultCode": parserResultCode, "discCount": len(group.multiEntries),
+			})
+			validationData, _ := json.Marshal(map[string]any{
+				"schemaVersion": 1, "status": validationStatus, "compatibilityCode": compatibilityCode,
+			})
+			if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms) VALUES
+(?,'IMPORT_ITEM',?,'PLAYLIST_PARSED',?,?),
+(?,'IMPORT_ITEM',?,'CORE_VALIDATION_COMPLETED',?,?)
+`, jobID.String(), itemID.String(), string(parserData), now,
+				jobID.String(), itemID.String(), string(validationData), now); err != nil {
+				return Created{}, fmt.Errorf("libraryimport/service: %w", err)
+			}
+		}
 		if service.scraper != nil {
 			scheduled, scheduleErr := service.scraper.ScheduleImport(
 				ctx,
@@ -2607,6 +2628,21 @@ WHERE id=?
 			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 		}
 	}
+	parserResultCode := "NOT_APPLICABLE"
+	if contentMode == multidisc.ContentKind {
+		switch {
+		case len(groups) == 0:
+			parserResultCode = "REJECTED"
+		case rejected > 0:
+			parserResultCode = "PARTIAL_REJECTED"
+		default:
+			parserResultCode = "MATCHED"
+		}
+	}
+	jobEventData, _ := json.Marshal(map[string]any{
+		"schemaVersion": 1, "contentMode": contentMode, "parserResultCode": parserResultCode,
+		"itemCount": len(groups), "rejectedFileCount": rejected,
+	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,
 scope_type,
@@ -2619,7 +2655,7 @@ created_at_ms) VALUES(?,
 'SUCCEEDED',
 ?,
 ?)
-`, jobID.String(), importID.String(), fmt.Sprintf(`{"itemCount":%d}`, len(files)), now); err != nil {
+`, jobID.String(), importID.String(), string(jobEventData), now); err != nil {
 		return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
 	if reconfiguration != nil {

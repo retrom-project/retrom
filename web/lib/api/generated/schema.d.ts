@@ -1394,6 +1394,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runtime/launches/{launchId}/player-events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Records a closed, low-cardinality multi-disc Player result after validating the Launch cookie. Names, paths, hashes, and capabilities are not accepted. */
+        post: operations["postRuntimeMultiDiscPlayerEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/runtime/launches/{launchId}/save-states": {
         parameters: {
             query?: never;
@@ -1853,6 +1872,14 @@ export interface components {
                 visible: boolean;
                 paused: boolean;
             } | null;
+        };
+        MultiDiscPlayerEventRequest: {
+            /** @enum {string} */
+            eventType: "START" | "DISK_COUNT_MISMATCH" | "SWITCH_SUCCESS" | "SWITCH_FAILURE" | "SAVE_RESTORE_SUCCESS" | "SAVE_RESTORE_FAILURE";
+            /** @enum {string} */
+            resultCode: "OK" | "PLAYER_DISC_SET_INVALID" | "PLAYER_DISC_API_UNAVAILABLE" | "PLAYER_DISC_SWITCH_UNAVAILABLE" | "PLAYER_DISC_SWITCH_FAILED" | "PLAYER_SAVE_STATE_UNAVAILABLE" | "PLAYER_SAVE_STATE_RESTORE_FAILED" | "LAUNCH_PERSISTENT_SAVE_LOAD_FAILED";
+            discCount: number;
+            observedDiscCount: number | null;
         };
         HealthLive: {
             /** @enum {string} */
@@ -2801,6 +2828,11 @@ export interface components {
         PlayEvent: {
             content: {
                 "application/json": components["schemas"]["PlayEventRequest"];
+            };
+        };
+        MultiDiscPlayerEvent: {
+            content: {
+                "application/json": components["schemas"]["MultiDiscPlayerEventRequest"];
             };
         };
     };
@@ -4424,6 +4456,26 @@ export interface operations {
         requestBody: components["requestBodies"]["PlayEvent"];
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    postRuntimeMultiDiscPlayerEvent: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["MultiDiscPlayerEvent"];
+        responses: {
+            /** @description Event accepted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     postRuntimeSaveState: {

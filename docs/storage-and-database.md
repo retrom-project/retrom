@@ -292,7 +292,7 @@ data/
 - XML DAT 解析只允许 BIOS/DAT 专题定义的一个有界 DOCTYPE 声明并在 token stream 前安全移除；绝不解释 DTD/实体，也不允许外部实体或网络访问。不能把这条简写实现成“拒绝所有真实 DAT 的 DOCTYPE”。
 - 不信任扩展名、ZIP 声明 MIME 或 archive 内路径。
 - 读取 Arcade ZIP central directory 时不默认展开全部内容到磁盘。
-- Arcade DAT 遇到运行必需 CHD 仍直接产生 `UNSUPPORTED_CHD` 审核 Blocker；PSX、Saturn、3DO、PC-FX 的平台 profile 则明确接受单个 raw CHD，两者不能混用。PSP 的 raw ISO/CSO 不作为 archive 扫描。
+- Arcade DAT 遇到运行必需 CHD 仍直接产生 `UNSUPPORTED_CHD` 审核 Blocker；PSX、Saturn、3DO、PC-FX 的 STANDARD profile 接受单个 raw CHD，Saturn 另可在 capability 明确允许时使用 `MULTI_DISC_M3U_V1`，这些规则不能与 Arcade CHD 混用。PSP 的 raw ISO/CSO 不作为 archive 扫描。
 
 ## 7. 垃圾回收
 
