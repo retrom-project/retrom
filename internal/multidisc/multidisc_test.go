@@ -120,6 +120,25 @@ func TestParseMatchesExactlyThenUniqueASCIIFoldAndAllowsMissing(t *testing.T) {
 	}
 }
 
+func TestParseExactMatchWinsOverASCIIFoldCollision(t *testing.T) {
+	t.Parallel()
+	result, err := Parse([]byte("Exact.chd\ntwo.chd\n"), []File{
+		{Basename: "Exact.chd", SizeBytes: 8, Header: []byte("MComprHD")},
+		{Basename: "exact.chd", SizeBytes: 8, Header: []byte("MComprHD")},
+	}, DefaultLimits())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Entries[0].State != EntryPresent || result.Entries[0].File.Basename != "Exact.chd" {
+		t.Fatalf("exact entry = %#v", result.Entries[0])
+	}
+	if _, err := Parse([]byte("EXACT.CHD\ntwo.chd\n"), []File{
+		{Basename: "Exact.chd"}, {Basename: "exact.chd"},
+	}, DefaultLimits()); !ErrorHasCode(err, CodePlaylistInvalid) {
+		t.Fatalf("ambiguous fallback error = %v", err)
+	}
+}
+
 func TestParseRejectsInvalidCHDAndDirectoryConflicts(t *testing.T) {
 	t.Parallel()
 	for name, file := range map[string]File{
@@ -131,7 +150,7 @@ func TestParseRejectsInvalidCHDAndDirectoryConflicts(t *testing.T) {
 			t.Fatalf("%s error = %v", name, err)
 		}
 	}
-	if _, err := Parse([]byte("one.chd\ntwo.chd\n"), []File{
+	if _, err := Parse([]byte("OnE.chd\ntwo.chd\n"), []File{
 		{Basename: "ONE.chd"}, {Basename: "one.chd"},
 	}, DefaultLimits()); !ErrorHasCode(err, CodePlaylistInvalid) {
 		t.Fatalf("ambiguous directory error = %v", err)

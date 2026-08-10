@@ -1640,6 +1640,11 @@ export interface components {
             targetPlatformInstanceId: string;
             /** @enum {string} */
             metadataProvider: "HASHEOUS" | "NONE";
+            /**
+             * @description Omitted requests use STANDARD.
+             * @enum {string}
+             */
+            contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1";
         };
         ReconfigureImportRequest: {
             /** Format: uuid */

@@ -2,6 +2,7 @@ package libraryimport
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -10,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"path"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -26,11 +28,14 @@ import (
 	"retrom/internal/corevalidation"
 	"retrom/internal/importing"
 	"retrom/internal/metadatascrape"
+	"retrom/internal/multidisc"
 )
 
 var (
 	ErrInvalid                        = errors.New("IMPORT_INVALID")
 	ErrReimportRequiredPlatformChange = errors.New("REIMPORT_REQUIRED_FOR_PLATFORM_CHANGE")
+	ErrMultiDiscModeUnavailable       = errors.New("MULTI_DISC_MODE_UNAVAILABLE")
+	ErrMultiDiscPlaylistMissing       = errors.New("MULTI_DISC_PLAYLIST_MISSING")
 	errMetadataScraperNotConfigured   = errors.New("metadata scraper is not configured")
 )
 
@@ -38,6 +43,7 @@ type CreateRequest struct {
 	UploadID                 string `json:"uploadId"`
 	TargetPlatformInstanceID string `json:"targetPlatformInstanceId"`
 	MetadataProvider         string `json:"metadataProvider"`
+	ContentMode              string `json:"contentMode,omitempty"`
 }
 
 type ReconfigureRequest struct {
@@ -83,6 +89,7 @@ func newInitialImportProgress(metadataProvider string, itemCount, rejectedFileCo
 
 type importSourceFile struct {
 	id, path, blobID, sha256 string
+	size                     int64
 }
 
 type preparedDisposition struct {
@@ -97,6 +104,7 @@ type preparedSource struct {
 	logicalName    string
 	archiveBlobID  string
 	archiveOrdinal *int
+	sortOrder      *int
 }
 
 type preparedArchive struct {
@@ -116,6 +124,18 @@ type preparedGroup struct {
 	dependencySnapshot string
 	titleSource        string
 	validationFiles    []preparedValidationFile
+	contentKind        string
+	groupKey           string
+	multiEntries       []preparedMultiDiscEntry
+	multiDependency    *corevalidation.MultiDiscSnapshot
+	canonicalPlaylist  *blobstore.Metadata
+}
+
+type preparedMultiDiscEntry struct {
+	ordinal                                             int
+	state                                               string
+	sourceReference, normalizedReference, canonicalName string
+	uploadFileID, blobID, sourceLogicalName             string
 }
 
 type preparedValidationFile struct {
@@ -1120,11 +1140,244 @@ func (service *Service) prepareImportFiles(
 	return dispositions, groups, archives
 }
 
+func (service *Service) readMultiDiscBlob(file importSourceFile, maximum int64) ([]byte, error) {
+	if service.blobs == nil || file.size > maximum {
+		return nil, ErrInvalid
+	}
+	reader, err := service.blobs.OpenDigest(file.sha256)
+	if err != nil {
+		return nil, fmt.Errorf("libraryimport/multidisc: %w", err)
+	}
+	defer func() { cleanup.Error("close", reader.Close()) }()
+	contents, err := io.ReadAll(io.LimitReader(reader, maximum+1))
+	if err != nil || int64(len(contents)) != file.size || int64(len(contents)) > maximum {
+		return nil, ErrInvalid
+	}
+	return contents, nil
+}
+
+func (service *Service) readMultiDiscHeader(file importSourceFile) ([]byte, error) {
+	if service.blobs == nil || file.size < 8 {
+		return nil, ErrInvalid
+	}
+	reader, err := service.blobs.OpenDigest(file.sha256)
+	if err != nil {
+		return nil, fmt.Errorf("libraryimport/multidisc: %w", err)
+	}
+	defer func() { cleanup.Error("close", reader.Close()) }()
+	header := make([]byte, 8)
+	if _, err := io.ReadFull(reader, header); err != nil {
+		return nil, ErrInvalid
+	}
+	return header, nil
+}
+
+func multiDiscFileBuckets(
+	files []importSourceFile,
+) (map[string][]importSourceFile, map[string][]importSourceFile, int) {
+	playlistsByDirectory := make(map[string][]importSourceFile)
+	filesByDirectory := make(map[string][]importSourceFile)
+	playlistCount := 0
+	for _, file := range files {
+		directory := path.Dir(file.path)
+		filesByDirectory[directory] = append(filesByDirectory[directory], file)
+		if !knownSidecar(file.path) && multidisc.ASCIIFold(path.Ext(file.path)) == ".m3u" {
+			playlistsByDirectory[directory] = append(playlistsByDirectory[directory], file)
+			playlistCount++
+		}
+	}
+	return playlistsByDirectory, filesByDirectory, playlistCount
+}
+
+func initialMultiDiscDispositions(files []importSourceFile) map[string]preparedDisposition {
+	dispositionByID := make(map[string]preparedDisposition, len(files))
+	for _, file := range files {
+		reason := "NOT_REFERENCED_BY_PLAYLIST"
+		if knownSidecar(file.path) {
+			reason = "IGNORED_SYSTEM_SIDECAR"
+		}
+		dispositionByID[file.id] = preparedDisposition{file: file, disposition: "IGNORED", reason: reason}
+	}
+	return dispositionByID
+}
+
+func (service *Service) multiDiscCandidates(
+	files []importSourceFile,
+	playlistID string,
+) ([]multidisc.File, error) {
+	candidates := make([]multidisc.File, 0, len(files))
+	for _, file := range files {
+		if file.id == playlistID || knownSidecar(file.path) {
+			continue
+		}
+		var header []byte
+		var err error
+		if multidisc.ASCIIFold(path.Ext(file.path)) == ".chd" && file.size >= 8 {
+			header, err = service.readMultiDiscHeader(file)
+			if err != nil {
+				return nil, err
+			}
+		}
+		candidates = append(candidates, multidisc.File{
+			Basename: path.Base(file.path), LogicalName: path.Base(file.path),
+			UploadFileID: file.id, BlobID: file.blobID, BlobSHA256: file.sha256,
+			SizeBytes: file.size, Header: header,
+		})
+	}
+	return candidates, nil
+}
+
+func multiDiscParseReason(err error) string {
+	var validationError *multidisc.ValidationError
+	if errors.As(err, &validationError) {
+		return string(validationError.Code)
+	}
+	return "MULTI_DISC_PLAYLIST_INVALID"
+}
+
+func preparedMultiDiscGroup(
+	directory string,
+	playlist importSourceFile,
+	parsed multidisc.Result,
+	canonical blobstore.Metadata,
+) (preparedGroup, []preparedDisposition, error) {
+	playlistOrder := 0
+	group := preparedGroup{
+		contentKind: multidisc.ContentKind, titleSource: path.Base(playlist.path),
+		sources: []preparedSource{{
+			file: playlist, role: "PLAYLIST_SOURCE", logicalName: path.Base(playlist.path),
+			sortOrder: &playlistOrder,
+		}},
+		canonicalPlaylist: &canonical,
+	}
+	var err error
+	group.groupKey, err = multidisc.GroupKey(directory, playlist.sha256)
+	if err != nil {
+		return preparedGroup{}, nil, ErrInvalid
+	}
+	missing := make([]corevalidation.MultiDiscMissingEntry, 0)
+	dispositions := []preparedDisposition{{file: playlist, disposition: "SOURCE"}}
+	for _, entry := range parsed.Entries {
+		preparedEntry := preparedMultiDiscEntry{
+			ordinal: entry.Ordinal, state: string(entry.State), sourceReference: entry.SourceReference,
+			normalizedReference: entry.NormalizedReference, canonicalName: entry.CanonicalName,
+		}
+		if entry.State == multidisc.EntryPresent {
+			discOrder := entry.Ordinal
+			preparedEntry.uploadFileID = entry.File.UploadFileID
+			preparedEntry.blobID = entry.File.BlobID
+			preparedEntry.sourceLogicalName = entry.File.LogicalName
+			sourceFile := importSourceFile{
+				id: entry.File.UploadFileID, path: path.Join(directory, entry.File.Basename),
+				blobID: entry.File.BlobID, sha256: entry.File.BlobSHA256, size: entry.File.SizeBytes,
+			}
+			group.sources = append(group.sources, preparedSource{
+				file: sourceFile, role: "DISC", logicalName: entry.File.LogicalName, sortOrder: &discOrder,
+			})
+			dispositions = append(dispositions, preparedDisposition{file: sourceFile, disposition: "SOURCE"})
+		} else {
+			missing = append(missing, corevalidation.MultiDiscMissingEntry{
+				Ordinal: entry.Ordinal, SourceReference: entry.SourceReference,
+				NormalizedReference: entry.NormalizedReference,
+			})
+		}
+		group.multiEntries = append(group.multiEntries, preparedEntry)
+	}
+	group.validationStatus, group.compatibilityCode = "READY", "READY"
+	if len(missing) > 0 {
+		group.validationStatus, group.compatibilityCode = "BLOCKED", "MULTI_DISC_FILE_MISSING"
+	}
+	group.multiDependency = &corevalidation.MultiDiscSnapshot{
+		DiscCount: len(parsed.Entries), MissingEntries: missing,
+	}
+	return group, dispositions, nil
+}
+
+func (service *Service) prepareMultiDiscDirectory(
+	directory string,
+	files []importSourceFile,
+	playlist importSourceFile,
+	limits contentcapability.MultiDiscLimits,
+) (preparedGroup, []preparedDisposition, error) {
+	playlistBytes, err := service.readMultiDiscBlob(playlist, multidisc.MaxPlaylistBytes)
+	if err != nil {
+		return preparedGroup{}, nil, err
+	}
+	candidates, err := service.multiDiscCandidates(files, playlist.id)
+	if err != nil {
+		return preparedGroup{}, nil, err
+	}
+	parsed, err := multidisc.Parse(playlistBytes, candidates, multidisc.Limits{
+		MaxDiscs: limits.MaxDiscs, MaxTotalBytes: limits.MaxTotalBytes,
+	})
+	if err != nil {
+		return preparedGroup{}, []preparedDisposition{{
+			file: playlist, disposition: "REJECTED", reason: multiDiscParseReason(err),
+		}}, nil
+	}
+	canonical, err := service.blobs.Put(bytes.NewReader(parsed.CanonicalPlaylist))
+	if err != nil {
+		return preparedGroup{}, nil, fmt.Errorf("libraryimport/multidisc: %w", err)
+	}
+	return preparedMultiDiscGroup(directory, playlist, parsed, canonical)
+}
+
+func (service *Service) prepareMultiDiscFiles(
+	files []importSourceFile,
+	limits contentcapability.MultiDiscLimits,
+) ([]preparedDisposition, []preparedGroup, error) {
+	playlistsByDirectory, filesByDirectory, playlistCount := multiDiscFileBuckets(files)
+	if playlistCount == 0 {
+		return nil, nil, ErrMultiDiscPlaylistMissing
+	}
+	directories := make([]string, 0, len(playlistsByDirectory))
+	for directory := range playlistsByDirectory {
+		directories = append(directories, directory)
+	}
+	sort.Strings(directories)
+	dispositionByID := initialMultiDiscDispositions(files)
+	groups := make([]preparedGroup, 0, len(directories))
+	for _, directory := range directories {
+		playlists := playlistsByDirectory[directory]
+		if len(playlists) > 1 {
+			for _, playlist := range playlists {
+				dispositionByID[playlist.id] = preparedDisposition{
+					file: playlist, disposition: "REJECTED", reason: "MULTI_DISC_PLAYLIST_AMBIGUOUS",
+				}
+			}
+			continue
+		}
+		group, resolved, err := service.prepareMultiDiscDirectory(
+			directory, filesByDirectory[directory], playlists[0], limits,
+		)
+		if err != nil {
+			return nil, nil, err
+		}
+		for _, disposition := range resolved {
+			dispositionByID[disposition.file.id] = disposition
+		}
+		if len(group.sources) > 0 {
+			groups = append(groups, group)
+		}
+	}
+	dispositions := make([]preparedDisposition, 0, len(files))
+	for _, file := range files {
+		dispositions = append(dispositions, dispositionByID[file.id])
+	}
+	return dispositions, groups, nil
+}
+
 type Service struct {
-	database *sql.DB
-	blobs    *blobstore.Store
-	now      func() time.Time
-	scraper  *metadatascrape.Service
+	database               *sql.DB
+	blobs                  *blobstore.Store
+	now                    func() time.Time
+	scraper                *metadatascrape.Service
+	multiDiscImportEnabled bool
+}
+
+func (service *Service) WithMultiDiscImportEnabled(enabled bool) *Service {
+	service.multiDiscImportEnabled = enabled
+	return service
 }
 
 func reviewActor(ctx context.Context) authn.Actor {
@@ -1405,6 +1658,13 @@ func (service *Service) create(
 	request CreateRequest,
 	reconfiguration *reconfigurationInput,
 ) (Created, error) {
+	contentMode := request.ContentMode
+	if contentMode == "" {
+		contentMode = contentcapability.ModeStandard
+	}
+	if contentMode != contentcapability.ModeStandard && contentMode != contentcapability.ModeMultiDiscM3UV1 {
+		return Created{}, ErrInvalid
+	}
 	if request.MetadataProvider != "NONE" && request.MetadataProvider != "HASHEOUS" {
 		return Created{}, ErrInvalid
 	}
@@ -1420,6 +1680,9 @@ WHERE id=?
 `, request.UploadID).Scan(&uploadState, &sourceType); err != nil ||
 		uploadState != "COMPLETE" {
 		return Created{}, ErrInvalid
+	}
+	if contentMode == contentcapability.ModeMultiDiscM3UV1 && sourceType != "DIRECTORY" {
+		return Created{}, ErrMultiDiscModeUnavailable
 	}
 	var platformID, coreID, artifactID, emulatorVersion, artifactPath, artifactSHA, compatibilityConfig string
 	var instanceVersion, artifactVersion int64
@@ -1452,6 +1715,10 @@ AND pi.deleted_at_ms IS NULL
 	); err != nil {
 		return Created{}, ErrInvalid
 	}
+	capabilities := contentcapability.Resolve(platformID, true, service.multiDiscImportEnabled, compatibilityConfig)
+	if contentMode == contentcapability.ModeMultiDiscM3UV1 && capabilities.MultiDisc == nil {
+		return Created{}, ErrMultiDiscModeUnavailable
+	}
 	var datID sql.NullString
 	_ = service.database.QueryRowContext(ctx, `
 SELECT id
@@ -1466,7 +1733,8 @@ AND is_active=1
 SELECT f.id,
 f.relative_path,
 f.final_blob_id,
-b.sha256
+b.sha256,
+b.size_bytes
 FROM upload_files f
 JOIN blobs b ON b.id=f.final_blob_id
 WHERE f.upload_session_id=?
@@ -1483,7 +1751,7 @@ f.id
 	var files []importSourceFile
 	for fileRows.Next() {
 		var file importSourceFile
-		if err := fileRows.Scan(&file.id, &file.path, &file.blobID, &file.sha256); err != nil {
+		if err := fileRows.Scan(&file.id, &file.path, &file.blobID, &file.sha256, &file.size); err != nil {
 			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 		}
 		files = append(files, file)
@@ -1494,7 +1762,17 @@ f.id
 	if len(files) == 0 {
 		return Created{}, ErrInvalid
 	}
-	dispositions, groups, archives := service.prepareImportFiles(ctx, platformID, sourceType, files, datID)
+	var dispositions []preparedDisposition
+	var groups []preparedGroup
+	var archives []preparedArchive
+	if contentMode == contentcapability.ModeMultiDiscM3UV1 {
+		dispositions, groups, err = service.prepareMultiDiscFiles(files, *capabilities.MultiDisc)
+		if err != nil {
+			return Created{}, err
+		}
+	} else {
+		dispositions, groups, archives = service.prepareImportFiles(ctx, platformID, sourceType, files, datID)
+	}
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return Created{}, fmt.Errorf("libraryimport/service: %w", err)
@@ -1543,7 +1821,7 @@ AND pi.deleted_at_ms IS NULL
 	now := service.now().UnixMilli()
 	config := map[string]any{
 		"schemaVersion":                 2,
-		"contentMode":                   "STANDARD",
+		"contentMode":                   contentMode,
 		"platformInstanceId":            request.TargetPlatformInstanceID,
 		"platformInstanceVersion":       instanceVersion,
 		"platformId":                    platformID,
@@ -1557,6 +1835,9 @@ AND pi.deleted_at_ms IS NULL
 		"datVersionId":                  nullable(datID),
 		"biosRequirements":              biosCatalog,
 		"metadataProviderConfigVersion": 1,
+	}
+	if capabilities.MultiDisc != nil && contentMode == contentcapability.ModeMultiDiscM3UV1 {
+		config["multiDisc"] = capabilities.MultiDisc
 	}
 	configJSON, _ := json.Marshal(config)
 	configDigest := sha256.Sum256(configJSON)
@@ -1879,6 +2160,10 @@ WHERE id=?
 		}
 		groupInput, _ := json.Marshal(groupIdentity)
 		groupDigest := sha256.Sum256(groupInput)
+		groupKey := group.groupKey
+		if groupKey == "" {
+			groupKey = hex.EncodeToString(groupDigest[:])
+		}
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_items(id,
 import_job_id,
@@ -1902,7 +2187,7 @@ updated_at_ms) VALUES(?,
 `,
 			itemID.String(),
 			importID.String(),
-			hex.EncodeToString(groupDigest[:]),
+			groupKey,
 			progress.itemState,
 			string(manifestJSON),
 			manifestDigestHex,
@@ -1916,6 +2201,9 @@ updated_at_ms) VALUES(?,
 			blobID := source.file.blobID
 			if source.archiveOrdinal != nil {
 				blobID = materialized[fmt.Sprintf("%s:%d", source.archiveBlobID, *source.archiveOrdinal)]
+			}
+			if source.sortOrder != nil {
+				sortOrder = *source.sortOrder
 			}
 			if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_source_files(import_item_id,
@@ -1978,6 +2266,29 @@ WHERE import_item_id=?
 `, sourceSnapshotID.String(), itemID.String()); err != nil {
 			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 		}
+		for _, entry := range group.multiEntries {
+			if _, err := transaction.ExecContext(ctx, `
+INSERT INTO import_item_multidisc_entries(
+source_snapshot_id,ordinal,source_reference,normalized_reference,canonical_name,state,
+upload_file_id,blob_id,source_logical_name,created_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?,?)
+`, sourceSnapshotID.String(), entry.ordinal, entry.sourceReference, entry.normalizedReference,
+				entry.canonicalName, entry.state, nullableText(entry.uploadFileID), nullableText(entry.blobID),
+				nullableText(entry.sourceLogicalName), now); err != nil {
+				return Created{}, fmt.Errorf("libraryimport/service: %w", err)
+			}
+		}
+		if group.canonicalPlaylist != nil {
+			canonicalBlobID, ensureErr := blobstore.EnsureRecord(
+				ctx, transaction, *group.canonicalPlaylist, "application/vnd.retrom.m3u", now,
+			)
+			if ensureErr != nil {
+				return Created{}, fmt.Errorf("libraryimport/service: %w", ensureErr)
+			}
+			group.validationFiles = append(group.validationFiles, preparedValidationFile{
+				role: "MULTI_DISC_PLAYLIST", logicalName: "playlist.m3u", blobID: canonicalBlobID, sortOrder: 0,
+			})
+		}
 		groupUploadFileIDs := make(map[string]struct{})
 		for _, source := range group.sources {
 			groupUploadFileIDs[source.file.id] = struct{}{}
@@ -1986,12 +2297,15 @@ WHERE import_item_id=?
 			sourceFileItemCounts[uploadFileID]++
 		}
 		contentIdentityDigest, err := importItemContentIdentity(ctx, transaction, itemID.String())
-		if err != nil {
+		if err != nil && !errors.Is(err, errMultiDiscIncomplete) {
 			return Created{}, err
 		}
-		duplicateGames, err := findDuplicateGames(ctx, transaction, itemID.String(), platformID)
-		if err != nil {
-			return Created{}, err
+		var duplicateGames []DuplicateGame
+		if contentIdentityDigest != "" {
+			duplicateGames, err = findDuplicateGames(ctx, transaction, itemID.String(), platformID)
+			if err != nil {
+				return Created{}, err
+			}
 		}
 		if len(duplicateGames) > 0 {
 			if err := claimContentIdentity(ctx, transaction, platformID, contentIdentityDigest, now); err != nil {
@@ -2420,7 +2734,7 @@ func prepareStaticBIOSDependencies(
 	for index := range groups {
 		logicalName := ""
 		for _, source := range groups[index].sources {
-			if source.role == "CONTENT" {
+			if source.role == "CONTENT" || source.role == "DISC" {
 				logicalName = source.logicalName
 				break
 			}
@@ -2432,12 +2746,15 @@ func prepareStaticBIOSDependencies(
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}
+		snapshot.MultiDisc = groups[index].multiDependency
 		snapshotJSON, err := snapshot.JSON()
 		if err != nil {
 			return fmt.Errorf("libraryimport/service: %w", err)
 		}
-		groups[index].validationStatus = status
-		groups[index].compatibilityCode = code
+		if groups[index].compatibilityCode != "MULTI_DISC_FILE_MISSING" {
+			groups[index].validationStatus = status
+			groups[index].compatibilityCode = code
+		}
 		groups[index].dependencySnapshot = string(snapshotJSON)
 		for _, dependency := range snapshot.BIOS {
 			if dependency.DeliveryKind == "BIOS_BUNDLE" && dependency.BlobID != nil {
@@ -2482,6 +2799,139 @@ type ApprovalDecision struct {
 	Reason              *string
 	DuplicatePolicy     string
 	AcknowledgedGameIDs []string
+}
+
+func multiDiscApprovalEvidence(
+	ctx context.Context,
+	transaction *sql.Tx,
+	sourceSnapshotID string,
+) (int, int64, error) {
+	rows, err := transaction.QueryContext(ctx, `
+SELECT entry.ordinal,entry.state,entry.blob_id,entry.source_logical_name,
+       file.blob_id,file.logical_name,file.sort_order,blob.size_bytes
+FROM import_item_multidisc_entries entry
+LEFT JOIN import_item_source_snapshot_files file
+  ON file.source_snapshot_id=entry.source_snapshot_id
+ AND file.role='DISC' AND file.sort_order=entry.ordinal
+LEFT JOIN blobs blob ON blob.id=entry.blob_id
+WHERE entry.source_snapshot_id=?
+ORDER BY entry.ordinal
+`, sourceSnapshotID)
+	if err != nil {
+		return 0, 0, fmt.Errorf("libraryimport/approve multi-disc: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	discCount := 0
+	var totalSize int64
+	for rows.Next() {
+		var ordinal, sortOrder int
+		var state, entryBlobID, entryLogicalName, fileBlobID, fileLogicalName string
+		var size int64
+		if err := rows.Scan(
+			&ordinal, &state, &entryBlobID, &entryLogicalName,
+			&fileBlobID, &fileLogicalName, &sortOrder, &size,
+		); err != nil {
+			return 0, 0, ErrInvalid
+		}
+		if ordinal != discCount || sortOrder != ordinal || state != "PRESENT" ||
+			entryBlobID != fileBlobID || entryLogicalName != fileLogicalName || size < 8 {
+			return 0, 0, ErrInvalid
+		}
+		totalSize += size
+		discCount++
+	}
+	if err := rows.Err(); err != nil {
+		return 0, 0, fmt.Errorf("libraryimport/approve multi-disc: %w", err)
+	}
+	return discCount, totalSize, nil
+}
+
+func validateMultiDiscSourceCounts(
+	ctx context.Context,
+	transaction *sql.Tx,
+	sourceSnapshotID string,
+	discCount int,
+) error {
+	var playlistCount, sourceDiscCount, sourceCount int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT count(*) FILTER(WHERE role='PLAYLIST_SOURCE'),
+       count(*) FILTER(WHERE role='DISC'),count(*)
+FROM import_item_source_snapshot_files WHERE source_snapshot_id=?
+`, sourceSnapshotID).Scan(&playlistCount, &sourceDiscCount, &sourceCount); err != nil ||
+		playlistCount != 1 || sourceDiscCount != discCount || sourceCount != discCount+1 {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func validateMultiDiscApproval(
+	ctx context.Context,
+	transaction *sql.Tx,
+	sourceSnapshotID, validationID, platformID, compatibility string,
+	snapshot corevalidation.Snapshot,
+) error {
+	capabilities := contentcapability.Resolve(platformID, true, true, compatibility)
+	if capabilities.MultiDisc == nil || snapshot.MultiDisc == nil ||
+		len(snapshot.MultiDisc.MissingEntries) != 0 {
+		return ErrInvalid
+	}
+	discCount, totalSize, err := multiDiscApprovalEvidence(ctx, transaction, sourceSnapshotID)
+	if err != nil {
+		return err
+	}
+	if discCount < 2 || discCount > capabilities.MultiDisc.MaxDiscs ||
+		discCount != snapshot.MultiDisc.DiscCount || totalSize > capabilities.MultiDisc.MaxTotalBytes {
+		return ErrInvalid
+	}
+	if err := validateMultiDiscSourceCounts(ctx, transaction, sourceSnapshotID, discCount); err != nil {
+		return err
+	}
+	var canonicalCount int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT count(*) FROM import_item_validation_files
+WHERE import_item_core_validation_id=? AND role='MULTI_DISC_PLAYLIST'
+`, validationID).Scan(&canonicalCount); err != nil || canonicalCount != 1 {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func validateCurrentApprovalSnapshot(
+	ctx context.Context,
+	transaction *sql.Tx,
+	sourceSnapshotID, validationID, platformID, artifactID, compatibility, contentKind string,
+	validationSnapshot corevalidation.Snapshot,
+	frozenJSON string,
+) error {
+	var contentLogicalName string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT COALESCE(
+  MAX(CASE WHEN role='CONTENT' THEN logical_name END),
+  MAX(CASE WHEN role='DISC' AND sort_order=0 THEN logical_name END),
+  ''
+)
+FROM import_item_source_snapshot_files
+WHERE source_snapshot_id=?
+`, sourceSnapshotID).Scan(&contentLogicalName); err != nil {
+		return fmt.Errorf("libraryimport/service: %w", err)
+	}
+	currentSnapshot, validationStatus, _, err := corevalidation.ResolveBIOS(
+		ctx, transaction, artifactID, contentLogicalName,
+	)
+	if err != nil || validationStatus != "READY" {
+		return ErrInvalid
+	}
+	currentSnapshot.MultiDisc = validationSnapshot.MultiDisc
+	currentJSON, err := currentSnapshot.JSON()
+	if err != nil || string(currentJSON) != frozenJSON {
+		return ErrInvalid
+	}
+	if contentKind != multidisc.ContentKind {
+		return nil
+	}
+	return validateMultiDiscApproval(
+		ctx, transaction, sourceSnapshotID, validationID, platformID, compatibility, validationSnapshot,
+	)
 }
 
 func (service *Service) Approve(ctx context.Context, itemID string, expectedVersion int64) (Approved, error) {
@@ -2613,27 +3063,15 @@ AND active.is_active=1)
 		return Approved{}, ErrInvalid
 	}
 	validationSnapshot, snapshotErr := corevalidation.ParseSnapshot(dependencySnapshotJSON)
+	if snapshotErr != nil && contentKind == multidisc.ContentKind {
+		return Approved{}, ErrInvalid
+	}
 	if snapshotErr == nil {
-		var contentLogicalName string
-		if err := transaction.QueryRowContext(ctx, `
-SELECT COALESCE(MAX(CASE WHEN role='CONTENT' THEN logical_name END),'')
-FROM import_item_source_snapshot_files
-WHERE source_snapshot_id=?
-`, sourceSnapshotID).Scan(&contentLogicalName); err != nil {
-			return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
-		}
-		currentSnapshot, validationStatus, _, resolveErr := corevalidation.ResolveBIOS(
-			ctx,
-			transaction,
-			artifactID,
-			contentLogicalName,
-		)
-		if resolveErr != nil || validationStatus != "READY" {
-			return Approved{}, ErrInvalid
-		}
-		currentJSON, marshalErr := currentSnapshot.JSON()
-		if marshalErr != nil || string(currentJSON) != dependencySnapshotJSON {
-			return Approved{}, ErrInvalid
+		if err := validateCurrentApprovalSnapshot(
+			ctx, transaction, sourceSnapshotID, validationID, platformID, artifactID,
+			artifactCompatibility, contentKind, validationSnapshot, dependencySnapshotJSON,
+		); err != nil {
+			return Approved{}, err
 		}
 	}
 	var metadata struct {

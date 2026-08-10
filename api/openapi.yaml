@@ -1019,6 +1019,10 @@ components:
         uploadId: { type: string, format: uuid }
         targetPlatformInstanceId: { type: string, format: uuid }
         metadataProvider: { type: string, enum: [HASHEOUS, NONE] }
+        contentMode:
+          type: string
+          enum: [STANDARD, MULTI_DISC_M3U_V1]
+          description: Omitted requests use STANDARD.
     ReconfigureImportRequest:
       type: object
       additionalProperties: false

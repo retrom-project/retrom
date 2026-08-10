@@ -234,11 +234,6 @@ func indexFiles(files []File) (map[string]*File, map[string][]*File, error) {
 		normalized := ASCIIFold(file.Basename)
 		folded[normalized] = append(folded[normalized], file)
 	}
-	for _, matches := range folded {
-		if len(matches) > 1 {
-			return nil, nil, invalid(CodePlaylistInvalid, "upload directory contains an ASCII case-fold conflict")
-		}
-	}
 	return exact, folded, nil
 }
 
