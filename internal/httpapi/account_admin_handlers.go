@@ -57,7 +57,7 @@ func (server *Server) authInvitationAccept(writer http.ResponseWriter, request *
 		server.writeAccountError(writer, request, err)
 		return
 	}
-	server.writeAuthenticatedSession(writer, http.StatusCreated, session)
+	server.writeAuthenticatedSession(writer, request, http.StatusCreated, session)
 }
 
 func (server *Server) authPasswordResetComplete(writer http.ResponseWriter, request *http.Request) {
@@ -83,10 +83,7 @@ func (server *Server) authPasswordResetComplete(writer http.ResponseWriter, requ
 		writeJSON(writer, http.StatusOK, map[string]string{"status": result.Status})
 		return
 	}
-	server.setAuthCookie(writer, *result.Session)
-	server.writeAuthContext(writer, http.StatusOK, accounts.Context{
-		InstanceState: "READY", Mode: server.config.Mode, Session: result.Session,
-	})
+	server.writeAuthenticatedSession(writer, request, http.StatusOK, *result.Session)
 }
 
 func (server *Server) adminCreateInvitation(writer http.ResponseWriter, request *http.Request) {

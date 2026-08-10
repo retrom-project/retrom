@@ -173,3 +173,20 @@ UPDATE user_credentials SET password_hash='$argon2id$v=19$m=999999,t=2,p=1$bad$b
 		t.Fatalf("corrupt credential Start() = %v", err)
 	}
 }
+
+func TestStartRejectsCompletedInstanceWithOrphanProfile(t *testing.T) {
+	t.Parallel()
+	fixture := newAccountFixture(t, config.ModeTest)
+	if err := fixture.service.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.database.SQL.Exec(`
+INSERT INTO profiles(id,display_name,created_at_ms)
+VALUES('01980000-0000-7000-8000-000000000999','Orphan',1786000000000)
+`); err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.service.Start(context.Background()); !errors.Is(err, ErrInitializationState) {
+		t.Fatalf("orphan profile Start() = %v", err)
+	}
+}

@@ -82,7 +82,7 @@ function ServiceHealth() {
     return () => controller.abort();
   }, []);
   const label = state === "checking" ? "正在检查服务" : state === "ready" ? "服务正常" : "服务存在异常";
-  return <span className={`connection ${state}`} aria-label={`${label}：${detail}`} aria-live="polite" tabIndex={0}><i aria-hidden="true" /><span className="connection-tooltip" role="tooltip"><strong>{label}</strong><small>{detail}</small></span></span>;
+  return <span className={`connection ${state}`} aria-live="polite" tabIndex={0}><i aria-hidden="true" /><span className="connection-tooltip" role="tooltip"><strong>{label}</strong><small>{detail}</small></span></span>;
 }
 
 export function AppShell({ children }: { children: ReactNode }) {

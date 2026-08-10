@@ -1475,6 +1475,102 @@
       #retrom-ui-review .rt-home-featured-actions span { font-size: clamp(11px, .57cqw, 13px); }
     }
 
+    /* Account and authentication scenes share the same tokens, shell, and review controls. */
+    #retrom-ui-review .rt-review-scenes {
+      position: fixed;
+      z-index: 60;
+      top: 18px;
+      right: 18px;
+      width: min(520px, calc(100vw - 36px));
+      padding: 7px;
+      border: 1px solid var(--retrom-line);
+      border-radius: 12px;
+      background: color-mix(in srgb, var(--retrom-panel) 94%, transparent);
+      box-shadow: 0 18px 50px rgb(0 0 0 / 0.2);
+      backdrop-filter: blur(12px);
+    }
+    #retrom-ui-review .rt-review-scenes summary { padding: 5px 7px; color: var(--retrom-muted); cursor: pointer; font-size: 11px; }
+    #retrom-ui-review .rt-review-scene-list { display: flex; flex-wrap: wrap; gap: 5px; padding-top: 6px; }
+    #retrom-ui-review .rt-review-scene-list button { min-height: 30px; padding: 5px 8px; border: 1px solid var(--retrom-line); border-radius: 7px; background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; font-size: 10px; }
+    #retrom-ui-review .rt-review-scene-list button.is-active { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); color: var(--retrom-purple); }
+
+    #retrom-ui-review .rt-auth-scene {
+      min-height: max(760px, calc(100vh - 32px));
+      padding: 54px 24px;
+      border: 1px solid var(--retrom-line);
+      border-radius: 18px;
+      background:
+        radial-gradient(circle at 12% 8%, rgb(96 69 217 / 0.18), transparent 27%),
+        radial-gradient(circle at 88% 92%, rgb(8 126 136 / 0.15), transparent 25%),
+        var(--retrom-bg);
+    }
+    #retrom-ui-review .rt-auth-layout { width: min(480px, 100%); margin: 0 auto; }
+    #retrom-ui-review [data-auth-page=&quot;setup&quot;] .rt-auth-layout { width: min(560px, 100%); }
+    #retrom-ui-review .rt-auth-brand { display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 24px; font-weight: 600; letter-spacing: .08em; }
+    #retrom-ui-review .rt-auth-card { padding: 28px; border: 1px solid var(--retrom-line); border-radius: 17px; background: var(--retrom-panel); box-shadow: 0 24px 70px rgb(0 0 0 / .13); }
+    #retrom-ui-review .rt-auth-card h1 { font-size: 26px; }
+    #retrom-ui-review .rt-auth-card .rt-subtitle { margin: 8px 0 22px; line-height: 1.55; }
+    #retrom-ui-review .rt-auth-card .rt-button-primary { width: 100%; margin-top: 18px; }
+    #retrom-ui-review .rt-auth-note { margin-top: 18px; color: var(--retrom-muted); font-size: 11px; line-height: 1.55; text-align: center; }
+    #retrom-ui-review .rt-notice { margin: 14px 0; padding: 11px 12px; border-radius: 10px; background: var(--retrom-cyan-soft); color: var(--retrom-cyan); font-size: 11px; line-height: 1.55; }
+    #retrom-ui-review .rt-notice.is-warning { background: var(--retrom-amber-soft); color: var(--retrom-amber); }
+    #retrom-ui-review .rt-auth-expiry { display: flex; justify-content: space-between; gap: 12px; margin: 14px 0; padding: 10px 12px; border: 1px solid var(--retrom-line); border-radius: 9px; color: var(--retrom-muted); font-size: 11px; }
+
+    #retrom-ui-review .rt-account-menu { position: relative; }
+    #retrom-ui-review .rt-account-menu &gt; summary { list-style: none; }
+    #retrom-ui-review .rt-account-menu &gt; summary::-webkit-details-marker { display: none; }
+    #retrom-ui-review .rt-account-card { display: flex; align-items: center; gap: 9px; width: 100%; padding: 9px; border: 1px solid rgb(255 255 255 / .1); border-radius: 10px; background: rgb(255 255 255 / .035); color: #fff; cursor: pointer; text-align: left; }
+    #retrom-ui-review .rt-account-avatar, #retrom-ui-review .rt-user-avatar { display: grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: 9px; background: rgb(155 134 255 / .2); color: #c9bcff; font-weight: 700; }
+    #retrom-ui-review .rt-account-card span:last-child { min-width: 0; display: grid; gap: 2px; }
+    #retrom-ui-review .rt-account-card strong, #retrom-ui-review .rt-account-card small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    #retrom-ui-review .rt-account-card strong { font-size: 11px; }
+    #retrom-ui-review .rt-account-card small { color: var(--retrom-sidebar-muted); font-size: 9px; }
+    #retrom-ui-review .rt-account-popover { position: absolute; z-index: 15; right: 0; bottom: calc(100% + 7px); left: 0; display: grid; gap: 4px; padding: 6px; border: 1px solid #30323f; border-radius: 10px; background: #181a24; box-shadow: 0 16px 40px rgb(0 0 0 / .4); }
+    #retrom-ui-review .rt-account-popover button { width: 100%; min-height: 34px; padding: 7px 9px; border: 0; border-radius: 7px; background: transparent; color: #d9d6e8; cursor: pointer; text-align: left; }
+    #retrom-ui-review .rt-account-popover button:hover { background: rgb(255 255 255 / .07); color: #fff; }
+    #retrom-ui-review .rt-account-settings-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(360px, 1.2fr); gap: 14px; max-width: 1120px; }
+    #retrom-ui-review .rt-account-section { padding: 20px; }
+    #retrom-ui-review .rt-account-facts { display: grid; gap: 0; margin-top: 17px; }
+    #retrom-ui-review .rt-account-facts div { display: flex; justify-content: space-between; gap: 18px; padding: 12px 0; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-account-facts div:first-child { border-top: 0; }
+    #retrom-ui-review .rt-account-facts dt { color: var(--retrom-muted); }
+    #retrom-ui-review .rt-account-facts dd { margin: 0; text-align: right; }
+
+    #retrom-ui-review .rt-user-kpis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; margin-bottom: 14px; }
+    #retrom-ui-review .rt-user-kpis article { padding: 14px; border: 1px solid var(--retrom-line); border-radius: 12px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-user-kpis span, #retrom-ui-review .rt-user-kpis small { display: block; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-user-kpis strong { display: block; margin: 6px 0 2px; font-size: 22px; font-weight: 500; }
+    #retrom-ui-review .rt-user-filters { display: grid; grid-template-columns: minmax(240px, 1fr) 170px 170px; gap: 9px; margin-bottom: 12px; }
+    #retrom-ui-review .rt-user-table-panel { overflow: hidden; }
+    #retrom-ui-review .rt-user-table { min-width: 980px; }
+    #retrom-ui-review .rt-user-table th:first-child, #retrom-ui-review .rt-user-table td:first-child { position: sticky; left: 0; z-index: 2; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-user-table th:last-child, #retrom-ui-review .rt-user-table td:last-child { position: sticky; right: 0; z-index: 2; background: var(--retrom-panel); text-align: right; }
+    #retrom-ui-review .rt-user-identity { display: flex; align-items: center; gap: 9px; min-width: 210px; }
+    #retrom-ui-review .rt-user-avatar { color: var(--retrom-purple); background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-user-identity span:last-child { display: grid; gap: 2px; }
+    #retrom-ui-review .rt-user-identity small { color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-invitation-list { margin-top: 14px; padding: 15px; }
+    #retrom-ui-review .rt-invitation-row { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 12px; margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--retrom-line); font-size: 11px; }
+    #retrom-ui-review .rt-invitation-row span { color: var(--retrom-muted); }
+
+    #retrom-ui-review .rt-user-drawer-backdrop { position: fixed; z-index: 40; inset: 0; background: rgb(17 18 27 / .5); backdrop-filter: blur(3px); }
+    #retrom-ui-review .rt-user-drawer { position: fixed; z-index: 41; top: 0; right: 0; bottom: 0; display: flex; flex-direction: column; width: min(490px, 100vw); border-left: 1px solid var(--retrom-line); background: var(--retrom-panel); box-shadow: -24px 0 70px rgb(0 0 0 / .25); }
+    #retrom-ui-review .rt-user-drawer header { display: flex; justify-content: space-between; gap: 12px; padding: 22px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-user-drawer header p { margin-top: 5px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-user-drawer-body { flex: 1; overflow-y: auto; padding: 22px; }
+    #retrom-ui-review .rt-user-drawer footer { display: flex; justify-content: flex-end; gap: 8px; padding: 16px 22px; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-danger-zone { margin-top: 24px; padding-top: 18px; border-top: 1px solid color-mix(in srgb, var(--retrom-red) 28%, var(--retrom-line)); }
+    #retrom-ui-review .rt-danger-zone p { margin: 6px 0 12px; color: var(--retrom-muted); font-size: 11px; line-height: 1.55; }
+    #retrom-ui-review .rt-confirm-row { display: flex; align-items: flex-start; gap: 8px; margin-top: 14px; color: var(--retrom-muted); font-size: 11px; line-height: 1.45; }
+    #retrom-ui-review .rt-one-time-dialog { width: min(620px, 100%); }
+    #retrom-ui-review .rt-one-time-link { display: flex; gap: 8px; margin-top: 16px; }
+    #retrom-ui-review .rt-one-time-link .rt-input { min-width: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    #retrom-ui-review .rt-link-facts { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 12px; }
+    #retrom-ui-review .rt-link-facts div { padding: 10px; border-radius: 9px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-link-facts span, #retrom-ui-review .rt-link-facts strong { display: block; }
+    #retrom-ui-review .rt-link-facts span { color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-link-facts strong { margin-top: 4px; font-size: 11px; }
+
     @media (max-width: 1400px) {
       #retrom-ui-review .rt-review-item { grid-template-columns: 54px minmax(220px, 1.2fr) minmax(130px, .8fr) 150px 94px; }
       #retrom-ui-review .rt-review-item &gt; :nth-child(5) { display: none; }
@@ -1484,6 +1580,10 @@
     }
 
     @media (max-width: 820px) {
+      #retrom-ui-review .rt-account-settings-grid { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-user-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-user-filters { grid-template-columns: 1fr 1fr; }
+      #retrom-ui-review .rt-user-filters .rt-search { grid-column: 1 / -1; }
       #retrom-ui-review .rt-ingest-stat-grid,
       #retrom-ui-review .rt-preflight-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
       #retrom-ui-review .rt-overview-grid,
@@ -1504,6 +1604,14 @@
     }
 
     @media (max-width: 620px) {
+      #retrom-ui-review .rt-review-scenes { top: 8px; right: 8px; width: calc(100vw - 16px); }
+      #retrom-ui-review .rt-auth-scene { min-height: 100vh; padding: 76px 14px 24px; border: 0; border-radius: 0; }
+      #retrom-ui-review .rt-auth-card { padding: 20px; }
+      #retrom-ui-review .rt-user-kpis, #retrom-ui-review .rt-user-filters { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-user-filters .rt-search { grid-column: auto; }
+      #retrom-ui-review .rt-invitation-row { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-one-time-link { display: grid; }
+      #retrom-ui-review .rt-link-facts { grid-template-columns: 1fr; }
       #retrom-ui-review .rt-app { grid-template-columns: 1fr; }
       #retrom-ui-review .rt-sidebar { gap: 10px; }
       #retrom-ui-review .rt-nav-group { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1541,6 +1649,90 @@
     }
   &lt;/style&gt;
 
+  &lt;details class=&quot;rt-review-scenes&quot; open&gt;
+    &lt;summary&gt;设计评审场景 · 示例数据&lt;/summary&gt;
+    &lt;div class=&quot;rt-review-scene-list&quot; aria-label=&quot;设计评审场景&quot;&gt;
+      &lt;button type=&quot;button&quot; class=&quot;is-active&quot; data-review-scene=&quot;home&quot;&gt;用户首页&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;setup&quot;&gt;首次设置&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;login&quot;&gt;登录&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;register&quot;&gt;邀请注册&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;reset&quot;&gt;密码重置&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;account&quot;&gt;账户设置&lt;/button&gt;
+      &lt;button type=&quot;button&quot; data-review-scene=&quot;admin-users&quot;&gt;用户管理&lt;/button&gt;
+    &lt;/div&gt;
+  &lt;/details&gt;
+
+  &lt;section class=&quot;rt-auth-scene&quot; data-auth-page=&quot;setup&quot; aria-label=&quot;首次设置&quot; hidden&gt;
+    &lt;div class=&quot;rt-auth-layout&quot;&gt;
+      &lt;div class=&quot;rt-auth-brand&quot;&gt;&lt;span class=&quot;rt-brand-mark&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;RETROM&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-auth-card&quot;&gt;
+        &lt;span class=&quot;rt-badge&quot;&gt;首次设置&lt;/span&gt;
+        &lt;h1 style=&quot;margin-top:10px&quot;&gt;创建首位管理员&lt;/h1&gt;
+        &lt;p class=&quot;rt-subtitle&quot;&gt;这是这台服务器的首次设置。完成后，其他账号只能通过管理员邀请创建。&lt;/p&gt;
+        &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;初始化码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; value=&quot;retrom-initialization-code&quot; autocomplete=&quot;off&quot;&gt;&lt;small class=&quot;rt-subtitle&quot;&gt;在服务器主机执行 &lt;code&gt;retrom setup-code&lt;/code&gt; 获取。&lt;/small&gt;&lt;/label&gt;
+        &lt;div class=&quot;rt-form-grid&quot; style=&quot;margin-top:12px&quot;&gt;
+          &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;管理员用户名&lt;/span&gt;&lt;input class=&quot;rt-input&quot; value=&quot;admin&quot; autocomplete=&quot;username&quot;&gt;&lt;/label&gt;
+          &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;显示名称&lt;/span&gt;&lt;input class=&quot;rt-input&quot; value=&quot;站点管理员&quot;&gt;&lt;/label&gt;
+          &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; value=&quot;correct horse battery&quot; autocomplete=&quot;new-password&quot;&gt;&lt;/label&gt;
+          &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;确认密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; value=&quot;correct horse battery&quot; autocomplete=&quot;new-password&quot;&gt;&lt;/label&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;rt-notice&quot;&gt;管理员可以维护共享游戏内容和账号安全状态，但不能查看其他用户的私有存档与游玩记录。&lt;/div&gt;
+        &lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;创建管理员并进入 Retrom&lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;rt-auth-scene&quot; data-auth-page=&quot;login&quot; aria-label=&quot;登录&quot; hidden&gt;
+    &lt;div class=&quot;rt-auth-layout&quot;&gt;
+      &lt;div class=&quot;rt-auth-brand&quot;&gt;&lt;span class=&quot;rt-brand-mark&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;RETROM&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-auth-card&quot;&gt;
+        &lt;h1&gt;登录 Retrom&lt;/h1&gt;
+        &lt;p class=&quot;rt-subtitle&quot;&gt;使用服务器管理员为你创建的账号继续。&lt;/p&gt;
+        &lt;div class=&quot;rt-notice is-warning&quot;&gt;&lt;strong&gt;测试模式已启用&lt;/strong&gt;&lt;br&gt;默认管理员为 test / test。请勿将此服务器暴露到不受信网络。&lt;/div&gt;
+        &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;用户名&lt;/span&gt;&lt;input class=&quot;rt-input&quot; value=&quot;test&quot; autocomplete=&quot;username&quot;&gt;&lt;/label&gt;
+        &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; value=&quot;test&quot; autocomplete=&quot;current-password&quot;&gt;&lt;/label&gt;
+        &lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;登录&lt;/button&gt;
+        &lt;p class=&quot;rt-auth-note&quot;&gt;新账号需要管理员邀请；登录后会回到原先访问的页面。&lt;/p&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;rt-auth-scene&quot; data-auth-page=&quot;register&quot; aria-label=&quot;邀请注册&quot; hidden&gt;
+    &lt;div class=&quot;rt-auth-layout&quot;&gt;
+      &lt;div class=&quot;rt-auth-brand&quot;&gt;&lt;span class=&quot;rt-brand-mark&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;RETROM&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-auth-card&quot;&gt;
+        &lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;邀请有效&lt;/span&gt;
+        &lt;h1 style=&quot;margin-top:10px&quot;&gt;接受邀请&lt;/h1&gt;
+        &lt;p class=&quot;rt-subtitle&quot;&gt;设置账号后即可访问这台 Retrom 服务器。链接在注册完成后立即失效。&lt;/p&gt;
+        &lt;div class=&quot;rt-auth-expiry&quot;&gt;&lt;span&gt;受邀角色&lt;/span&gt;&lt;strong&gt;普通用户&lt;/strong&gt;&lt;span&gt;有效至&lt;/span&gt;&lt;strong&gt;今天 16:40&lt;/strong&gt;&lt;/div&gt;
+        &lt;div class=&quot;rt-form-grid&quot;&gt;
+          &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;用户名&lt;/span&gt;&lt;input class=&quot;rt-input&quot; value=&quot;alice&quot; autocomplete=&quot;username&quot;&gt;&lt;/label&gt;
+          &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;显示名称&lt;/span&gt;&lt;input class=&quot;rt-input&quot; value=&quot;Alice&quot;&gt;&lt;/label&gt;
+          &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; value=&quot;this is a longer password&quot; autocomplete=&quot;new-password&quot;&gt;&lt;/label&gt;
+          &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;确认密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; value=&quot;this is a longer password&quot; autocomplete=&quot;new-password&quot;&gt;&lt;/label&gt;
+        &lt;/div&gt;
+        &lt;p class=&quot;rt-subtitle&quot; style=&quot;margin:10px 0 0&quot;&gt;密码至少 15 个字符，可以使用空格；不要求特定字符组合。&lt;/p&gt;
+        &lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;创建账号并进入 Retrom&lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
+  &lt;section class=&quot;rt-auth-scene&quot; data-auth-page=&quot;reset&quot; aria-label=&quot;密码重置&quot; hidden&gt;
+    &lt;div class=&quot;rt-auth-layout&quot;&gt;
+      &lt;div class=&quot;rt-auth-brand&quot;&gt;&lt;span class=&quot;rt-brand-mark&quot; aria-hidden=&quot;true&quot;&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span&gt;RETROM&lt;/span&gt;&lt;/div&gt;
+      &lt;div class=&quot;rt-auth-card&quot;&gt;
+        &lt;span class=&quot;rt-badge rt-badge-cyan&quot;&gt;一次性链接&lt;/span&gt;
+        &lt;h1 style=&quot;margin-top:10px&quot;&gt;设置新密码&lt;/h1&gt;
+        &lt;p class=&quot;rt-subtitle&quot;&gt;正在为账号 &lt;strong&gt;@alice&lt;/strong&gt; 重置密码。提交成功后，该账号的其他会话会立即失效。&lt;/p&gt;
+        &lt;div class=&quot;rt-auth-expiry&quot;&gt;&lt;span&gt;链接状态&lt;/span&gt;&lt;strong&gt;可用&lt;/strong&gt;&lt;span&gt;有效至&lt;/span&gt;&lt;strong&gt;今天 16:40&lt;/strong&gt;&lt;/div&gt;
+        &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;新密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; value=&quot;this is a newer password&quot; autocomplete=&quot;new-password&quot;&gt;&lt;/label&gt;
+        &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;确认新密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; value=&quot;this is a newer password&quot; autocomplete=&quot;new-password&quot;&gt;&lt;/label&gt;
+        &lt;p class=&quot;rt-subtitle&quot; style=&quot;margin:10px 0 0&quot;&gt;至少 15 个字符，可以使用空格。&lt;/p&gt;
+        &lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;更新密码并登录&lt;/button&gt;
+      &lt;/div&gt;
+    &lt;/div&gt;
+  &lt;/section&gt;
+
   &lt;div class=&quot;rt-app&quot;&gt;
     &lt;aside class=&quot;rt-sidebar&quot; aria-label=&quot;主导航&quot;&gt;
       &lt;div class=&quot;rt-brand&quot;&gt;
@@ -1568,6 +1760,7 @@
           &lt;/div&gt;
           &lt;button type=&quot;button&quot; class=&quot;rt-nav-button&quot; data-page-target=&quot;admin-games&quot;&gt;&lt;i data-lucide=&quot;settings-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;游戏管理&lt;/span&gt;&lt;/button&gt;
           &lt;button type=&quot;button&quot; class=&quot;rt-nav-button&quot; data-page-target=&quot;admin-platform-instances&quot;&gt;&lt;i data-lucide=&quot;folders&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;游戏目录&lt;/span&gt;&lt;/button&gt;
+          &lt;button type=&quot;button&quot; class=&quot;rt-nav-button&quot; data-page-target=&quot;admin-users&quot;&gt;&lt;i data-lucide=&quot;users&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;用户管理&lt;/span&gt;&lt;/button&gt;
           &lt;div class=&quot;rt-nav-section&quot;&gt;
             &lt;button type=&quot;button&quot; class=&quot;rt-nav-button rt-nav-parent&quot; data-page-target=&quot;admin-bios&quot; data-runtime-parent&gt;&lt;i data-lucide=&quot;microchip&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span class=&quot;rt-nav-label&quot;&gt;运行依赖&lt;/span&gt;&lt;/button&gt;
             &lt;div class=&quot;rt-nav-children&quot; aria-label=&quot;运行依赖子菜单&quot;&gt;
@@ -1579,6 +1772,10 @@
       &lt;/nav&gt;
 
       &lt;div class=&quot;rt-nav-spacer&quot;&gt;&lt;/div&gt;
+      &lt;details class=&quot;rt-account-menu&quot;&gt;
+        &lt;summary class=&quot;rt-account-card&quot;&gt;&lt;span class=&quot;rt-account-avatar&quot; aria-hidden=&quot;true&quot;&gt;站&lt;/span&gt;&lt;span&gt;&lt;strong&gt;站点管理员&lt;/strong&gt;&lt;small&gt;@admin · 管理员&lt;/small&gt;&lt;/span&gt;&lt;/summary&gt;
+        &lt;div class=&quot;rt-account-popover&quot;&gt;&lt;button type=&quot;button&quot; data-page-link=&quot;account&quot;&gt;账户设置&lt;/button&gt;&lt;button type=&quot;button&quot; data-logout-scene&gt;退出登录&lt;/button&gt;&lt;/div&gt;
+      &lt;/details&gt;
       &lt;div class=&quot;rt-sidebar-footer&quot;&gt;
         &lt;button type=&quot;button&quot; class=&quot;rt-mode-button&quot; id=&quot;rt-mode-button&quot;&gt;&lt;i data-lucide=&quot;shield-check&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;管理后台&lt;/span&gt;&lt;/button&gt;
         &lt;button type=&quot;button&quot; class=&quot;rt-health&quot; aria-label=&quot;服务状态：正常&quot;&gt;&lt;span class=&quot;rt-status-dot&quot; aria-hidden=&quot;true&quot;&gt;&lt;/span&gt;&lt;span class=&quot;rt-health-tip&quot; role=&quot;tooltip&quot;&gt;&lt;strong&gt;服务正常&lt;/strong&gt;&lt;br&gt;数据库、依赖索引和后台任务均可用。&lt;/span&gt;&lt;/button&gt;
@@ -1650,6 +1847,29 @@
         &lt;div class=&quot;rt-recent-filters&quot; aria-label=&quot;筛选最近游玩&quot;&gt;&lt;label class=&quot;rt-recent-filter&quot;&gt;&lt;span&gt;搜索游戏&lt;/span&gt;&lt;span&gt;&lt;i data-lucide=&quot;search&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;input class=&quot;rt-input&quot; type=&quot;search&quot; placeholder=&quot;输入游戏名称&quot;&gt;&lt;/span&gt;&lt;/label&gt;&lt;label class=&quot;rt-recent-filter&quot;&gt;&lt;span&gt;游戏平台&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;所有平台&lt;/option&gt;&lt;option&gt;Arcade&lt;/option&gt;&lt;option&gt;MS-DOS&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;label class=&quot;rt-recent-filter&quot;&gt;&lt;span&gt;排列顺序&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;按最近游玩排序&lt;/option&gt;&lt;option&gt;按累计时长排序&lt;/option&gt;&lt;option&gt;按游玩次数排序&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;label class=&quot;rt-recent-filter&quot;&gt;&lt;span&gt;时间范围&lt;/span&gt;&lt;span class=&quot;rt-recent-ranges&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;is-active&quot;&gt;全部&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;7 天&lt;/button&gt;&lt;button type=&quot;button&quot;&gt;30 天&lt;/button&gt;&lt;/span&gt;&lt;/label&gt;&lt;p class=&quot;rt-recent-count&quot;&gt;共 3 款&lt;/p&gt;&lt;/div&gt;
         &lt;div class=&quot;rt-recent-group&quot;&gt;&lt;h2&gt;今天&lt;/h2&gt;&lt;div class=&quot;rt-recent-list&quot;&gt;&lt;article class=&quot;rt-recent-row&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-cover rt-cover-b rt-recent-cover&quot; data-open-game=&quot;metal&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;1943&lt;/span&gt;&lt;/button&gt;&lt;span class=&quot;rt-recent-content&quot;&gt;&lt;span class=&quot;rt-recent-main&quot;&gt;&lt;strong&gt;1943: The Battle of Midway&lt;/strong&gt;&lt;span&gt;Arcade · FBNeo 游戏&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-facts&quot;&gt;&lt;span class=&quot;rt-recent-fact&quot;&gt;&lt;span&gt;最近游玩&lt;/span&gt;&lt;strong&gt;2026年8月8日 01:20&lt;/strong&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-fact&quot;&gt;&lt;span&gt;累计时长&lt;/span&gt;&lt;strong&gt;少于 1 分钟&lt;/strong&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-fact&quot;&gt;&lt;span&gt;游玩次数&lt;/span&gt;&lt;strong&gt;1 次&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-quick-start=&quot;metal&quot;&gt;&lt;i data-lucide=&quot;play&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;再玩一次&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-recent-detail&quot; data-open-game=&quot;metal&quot;&gt;查看详情　›&lt;/button&gt;&lt;/span&gt;&lt;/article&gt;&lt;/div&gt;&lt;/div&gt;
         &lt;div class=&quot;rt-recent-group&quot;&gt;&lt;h2&gt;更早&lt;/h2&gt;&lt;div class=&quot;rt-recent-list&quot;&gt;&lt;article class=&quot;rt-recent-row&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-cover rt-cover-c rt-recent-cover&quot; data-open-game=&quot;doom&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;1941&lt;/span&gt;&lt;/button&gt;&lt;span class=&quot;rt-recent-content&quot;&gt;&lt;span class=&quot;rt-recent-main&quot;&gt;&lt;strong&gt;1941&lt;/strong&gt;&lt;span&gt;Arcade · FBNeo 游戏&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-facts&quot;&gt;&lt;span class=&quot;rt-recent-fact&quot;&gt;&lt;span&gt;最近游玩&lt;/span&gt;&lt;strong&gt;2026年8月7日 21:10&lt;/strong&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-fact&quot;&gt;&lt;span&gt;累计时长&lt;/span&gt;&lt;strong&gt;4 分钟&lt;/strong&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-fact&quot;&gt;&lt;span&gt;游玩次数&lt;/span&gt;&lt;strong&gt;8 次&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-quick-start=&quot;doom&quot;&gt;&lt;i data-lucide=&quot;play&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;再玩一次&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-recent-detail&quot; data-open-game=&quot;doom&quot;&gt;查看详情　›&lt;/button&gt;&lt;/span&gt;&lt;/article&gt;&lt;article class=&quot;rt-recent-row&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-cover rt-cover-f rt-recent-cover&quot; data-open-game=&quot;zelda&quot;&gt;&lt;span class=&quot;rt-cover-title&quot;&gt;1945 KIII&lt;/span&gt;&lt;/button&gt;&lt;span class=&quot;rt-recent-content&quot;&gt;&lt;span class=&quot;rt-recent-main&quot;&gt;&lt;strong&gt;1945kiii&lt;/strong&gt;&lt;span&gt;Arcade · FBNeo 游戏&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-facts&quot;&gt;&lt;span class=&quot;rt-recent-fact&quot;&gt;&lt;span&gt;最近游玩&lt;/span&gt;&lt;strong&gt;2026年8月7日 21:02&lt;/strong&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-fact&quot;&gt;&lt;span&gt;累计时长&lt;/span&gt;&lt;strong&gt;1 分钟&lt;/strong&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-fact&quot;&gt;&lt;span&gt;游玩次数&lt;/span&gt;&lt;strong&gt;1 次&lt;/strong&gt;&lt;/span&gt;&lt;/span&gt;&lt;/span&gt;&lt;span class=&quot;rt-recent-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-quick-start=&quot;zelda&quot;&gt;&lt;i data-lucide=&quot;play&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;再玩一次&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-recent-detail&quot; data-open-game=&quot;zelda&quot;&gt;查看详情　›&lt;/button&gt;&lt;/span&gt;&lt;/article&gt;&lt;/div&gt;&lt;/div&gt;
+      &lt;/section&gt;
+
+      &lt;section class=&quot;rt-page&quot; data-page=&quot;account&quot;&gt;
+        &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;当前账号&lt;/div&gt;&lt;h1&gt;账户设置&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;查看当前账号并更新登录密码。资料与角色由管理员维护。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;
+        &lt;div class=&quot;rt-account-settings-grid&quot;&gt;
+          &lt;section class=&quot;rt-panel rt-account-section&quot;&gt;
+            &lt;div class=&quot;rt-panel-heading&quot;&gt;&lt;div&gt;&lt;h2&gt;账号资料&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;这些信息会用于界面身份标识。&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;已启用&lt;/span&gt;&lt;/div&gt;
+            &lt;dl class=&quot;rt-account-facts&quot;&gt;
+              &lt;div&gt;&lt;dt&gt;用户名&lt;/dt&gt;&lt;dd&gt;&lt;strong&gt;@admin&lt;/strong&gt;&lt;/dd&gt;&lt;/div&gt;
+              &lt;div&gt;&lt;dt&gt;显示名称&lt;/dt&gt;&lt;dd&gt;站点管理员&lt;/dd&gt;&lt;/div&gt;
+              &lt;div&gt;&lt;dt&gt;角色&lt;/dt&gt;&lt;dd&gt;&lt;span class=&quot;rt-badge&quot;&gt;管理员&lt;/span&gt;&lt;/dd&gt;&lt;/div&gt;
+              &lt;div&gt;&lt;dt&gt;最近登录&lt;/dt&gt;&lt;dd&gt;今天 15:42&lt;/dd&gt;&lt;/div&gt;
+            &lt;/dl&gt;
+            &lt;div class=&quot;rt-notice&quot;&gt;即使拥有管理员角色，你的游玩记录、存档与截图仍只对本人可见。&lt;/div&gt;
+          &lt;/section&gt;
+          &lt;section class=&quot;rt-panel rt-account-section&quot;&gt;
+            &lt;div&gt;&lt;h2&gt;修改密码&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;修改成功后，其他浏览器和设备上的会话会立即退出。&lt;/p&gt;&lt;/div&gt;
+            &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;当前密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; autocomplete=&quot;current-password&quot;&gt;&lt;/label&gt;
+            &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;新密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; autocomplete=&quot;new-password&quot;&gt;&lt;small class=&quot;rt-subtitle&quot;&gt;至少 15 个字符，可以使用空格。&lt;/small&gt;&lt;/label&gt;
+            &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;确认新密码&lt;/span&gt;&lt;input class=&quot;rt-input&quot; type=&quot;password&quot; autocomplete=&quot;new-password&quot;&gt;&lt;/label&gt;
+            &lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;更新密码&lt;/button&gt;&lt;/div&gt;
+          &lt;/section&gt;
+        &lt;/div&gt;
       &lt;/section&gt;
 
       &lt;section class=&quot;rt-page&quot; data-page=&quot;detail&quot;&gt;
@@ -1901,6 +2121,63 @@
         &lt;div class=&quot;rt-directory-drawer-backdrop&quot; data-platform-drawer-backdrop hidden&gt;&lt;/div&gt;&lt;aside class=&quot;rt-directory-drawer&quot; data-platform-drawer hidden&gt;&lt;div class=&quot;rt-directory-drawer-head&quot;&gt;&lt;div&gt;&lt;h2&gt;新建游戏目录&lt;/h2&gt;&lt;p&gt;仅在需要新增游戏平台或新的游戏集合时创建。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-directory-drawer-close&quot; data-close-platform-drawer aria-label=&quot;关闭&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-directory-drawer-body&quot;&gt;&lt;div class=&quot;rt-directory-step&quot;&gt;&lt;span class=&quot;rt-directory-step-number&quot;&gt;1&lt;/span&gt;&lt;div&gt;&lt;h3&gt;选择游戏平台&lt;/h3&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;游戏平台&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;Arcade&lt;/option&gt;&lt;option&gt;NES / Famicom&lt;/option&gt;&lt;option&gt;SNES&lt;/option&gt;&lt;option&gt;Game Boy Advance&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-directory-step&quot;&gt;&lt;span class=&quot;rt-directory-step-number&quot;&gt;2&lt;/span&gt;&lt;div&gt;&lt;h3&gt;定义目录信息&lt;/h3&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;目录名称&lt;/span&gt;&lt;input class=&quot;rt-input&quot; value=&quot;FBNeo 游戏&quot;&gt;&lt;/label&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;给用户看的说明&lt;/span&gt;&lt;textarea class=&quot;rt-textarea&quot;&gt;收录兼容 FBNeo 的街机游戏。&lt;/textarea&gt;&lt;/label&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-directory-step&quot;&gt;&lt;span class=&quot;rt-directory-step-number&quot;&gt;3&lt;/span&gt;&lt;div&gt;&lt;h3&gt;选择推荐运行方式&lt;/h3&gt;&lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;推荐运行方式&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;FinalBurn Neo&lt;/option&gt;&lt;option&gt;MAME 2003 Plus&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-directory-preview&quot;&gt;&lt;small&gt;创建预览&lt;/small&gt;&lt;strong&gt;Arcade · FBNeo 游戏&lt;/strong&gt;&lt;ul&gt;&lt;li&gt;默认使用 &lt;b&gt;FinalBurn Neo&lt;/b&gt; 启动&lt;/li&gt;&lt;li&gt;创建后默认 &lt;b&gt;已启用&lt;/b&gt;&lt;/li&gt;&lt;li&gt;会追加到目录列表末尾，可随后拖动排序&lt;/li&gt;&lt;/ul&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-directory-drawer-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-platform-drawer&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;创建目录&lt;/button&gt;&lt;/div&gt;&lt;/aside&gt;
       &lt;/section&gt;
 
+      &lt;section class=&quot;rt-page&quot; data-page=&quot;admin-users&quot;&gt;
+        &lt;div class=&quot;rt-page-head&quot;&gt;
+          &lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;管理后台&lt;/div&gt;&lt;h1&gt;用户管理&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;创建邀请并管理谁可以登录；游玩记录、存档和截图始终保持私有。&lt;/p&gt;&lt;/div&gt;
+          &lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-open-invite-drawer&gt;&lt;i data-lucide=&quot;user-plus&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;创建邀请&lt;/button&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;rt-user-kpis&quot;&gt;&lt;article&gt;&lt;span&gt;全部账号&lt;/span&gt;&lt;strong&gt;3&lt;/strong&gt;&lt;small&gt;2 位用户 · 1 位管理员&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;已启用&lt;/span&gt;&lt;strong&gt;2&lt;/strong&gt;&lt;small&gt;可以登录&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;已停用&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;small&gt;会话已经撤销&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;待用邀请&lt;/span&gt;&lt;strong&gt;1&lt;/strong&gt;&lt;small&gt;1 小时内到期&lt;/small&gt;&lt;/article&gt;&lt;/div&gt;
+        &lt;div class=&quot;rt-user-filters&quot;&gt;
+          &lt;label class=&quot;rt-search&quot;&gt;&lt;i data-lucide=&quot;search&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;input class=&quot;rt-input&quot; placeholder=&quot;搜索用户名或显示名称&quot;&gt;&lt;/label&gt;
+          &lt;select class=&quot;rt-select&quot; aria-label=&quot;按角色筛选&quot;&gt;&lt;option&gt;全部角色&lt;/option&gt;&lt;option&gt;管理员&lt;/option&gt;&lt;option&gt;普通用户&lt;/option&gt;&lt;/select&gt;
+          &lt;select class=&quot;rt-select&quot; aria-label=&quot;按状态筛选&quot;&gt;&lt;option&gt;全部状态&lt;/option&gt;&lt;option&gt;已启用&lt;/option&gt;&lt;option&gt;已停用&lt;/option&gt;&lt;option&gt;已删除&lt;/option&gt;&lt;/select&gt;
+        &lt;/div&gt;
+        &lt;div class=&quot;rt-panel rt-table-wrap rt-user-table-panel&quot;&gt;
+          &lt;table class=&quot;rt-table rt-user-table&quot;&gt;
+            &lt;thead&gt;&lt;tr&gt;&lt;th&gt;用户&lt;/th&gt;&lt;th&gt;角色&lt;/th&gt;&lt;th&gt;状态&lt;/th&gt;&lt;th&gt;最近登录&lt;/th&gt;&lt;th&gt;创建时间&lt;/th&gt;&lt;th&gt;活跃会话&lt;/th&gt;&lt;th&gt;操作&lt;/th&gt;&lt;/tr&gt;&lt;/thead&gt;
+            &lt;tbody&gt;
+              &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;rt-user-identity&quot;&gt;&lt;span class=&quot;rt-user-avatar&quot;&gt;站&lt;/span&gt;&lt;span&gt;&lt;strong&gt;站点管理员&lt;/strong&gt;&lt;small&gt;@admin · 当前账号&lt;/small&gt;&lt;/span&gt;&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;rt-badge&quot;&gt;管理员&lt;/span&gt;&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;已启用&lt;/span&gt;&lt;/td&gt;&lt;td&gt;今天 15:42&lt;/td&gt;&lt;td&gt;今天 10:12&lt;/td&gt;&lt;td&gt;1&lt;/td&gt;&lt;td&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-user-drawer&gt;管理&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;
+              &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;rt-user-identity&quot;&gt;&lt;span class=&quot;rt-user-avatar&quot;&gt;A&lt;/span&gt;&lt;span&gt;&lt;strong&gt;Alice&lt;/strong&gt;&lt;small&gt;@alice&lt;/small&gt;&lt;/span&gt;&lt;/span&gt;&lt;/td&gt;&lt;td&gt;普通用户&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;已启用&lt;/span&gt;&lt;/td&gt;&lt;td&gt;今天 14:18&lt;/td&gt;&lt;td&gt;昨天 18:20&lt;/td&gt;&lt;td&gt;2&lt;/td&gt;&lt;td&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-user-drawer&gt;管理&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;
+              &lt;tr&gt;&lt;td&gt;&lt;span class=&quot;rt-user-identity&quot;&gt;&lt;span class=&quot;rt-user-avatar&quot;&gt;B&lt;/span&gt;&lt;span&gt;&lt;strong&gt;Bob&lt;/strong&gt;&lt;small&gt;@bob&lt;/small&gt;&lt;/span&gt;&lt;/span&gt;&lt;/td&gt;&lt;td&gt;普通用户&lt;/td&gt;&lt;td&gt;&lt;span class=&quot;rt-badge rt-badge-amber&quot;&gt;已停用&lt;/span&gt;&lt;/td&gt;&lt;td&gt;8 月 7 日 21:03&lt;/td&gt;&lt;td&gt;8 月 3 日 09:36&lt;/td&gt;&lt;td&gt;0&lt;/td&gt;&lt;td&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-open-user-drawer&gt;管理&lt;/button&gt;&lt;/td&gt;&lt;/tr&gt;
+            &lt;/tbody&gt;
+          &lt;/table&gt;
+        &lt;/div&gt;
+        &lt;section class=&quot;rt-panel rt-invitation-list&quot;&gt;&lt;div class=&quot;rt-panel-heading&quot;&gt;&lt;div&gt;&lt;h2&gt;待用邀请&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;完整邀请链接只在创建成功时显示一次；这里仅保留安全元数据。&lt;/p&gt;&lt;/div&gt;&lt;span class=&quot;rt-badge rt-badge-cyan&quot;&gt;1 个待使用&lt;/span&gt;&lt;/div&gt;&lt;div class=&quot;rt-invitation-row&quot;&gt;&lt;strong&gt;普通用户邀请&lt;/strong&gt;&lt;span&gt;由 @admin 创建&lt;/span&gt;&lt;span&gt;今天 16:40 到期&lt;/span&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-danger&quot;&gt;撤销&lt;/button&gt;&lt;/div&gt;&lt;/section&gt;
+
+        &lt;div class=&quot;rt-user-drawer-backdrop&quot; data-user-drawer-backdrop hidden&gt;&lt;/div&gt;
+        &lt;aside class=&quot;rt-user-drawer&quot; data-user-drawer hidden&gt;
+          &lt;header&gt;&lt;div&gt;&lt;h2&gt;管理 Alice&lt;/h2&gt;&lt;p&gt;@alice · 创建于昨天 18:20&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-user-drawer aria-label=&quot;关闭&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/header&gt;
+          &lt;div class=&quot;rt-user-drawer-body&quot;&gt;
+            &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;角色&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option selected&gt;普通用户&lt;/option&gt;&lt;option&gt;管理员&lt;/option&gt;&lt;/select&gt;&lt;/label&gt;
+            &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;账号状态&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option selected&gt;启用&lt;/option&gt;&lt;option&gt;停用&lt;/option&gt;&lt;/select&gt;&lt;small class=&quot;rt-subtitle&quot;&gt;停用会立即退出所有设备并终止待用启动会话，但保留该用户的数据。&lt;/small&gt;&lt;/label&gt;
+            &lt;div class=&quot;rt-notice&quot;&gt;用户管理只包含账号与安全状态；Alice 的游玩记录、存档和截图保持私有。&lt;/div&gt;
+            &lt;div class=&quot;rt-danger-zone&quot;&gt;&lt;h3&gt;账号恢复与删除&lt;/h3&gt;&lt;p&gt;密码重置链接只显示一次，并在一小时后或使用后失效。&lt;/p&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;创建密码重置链接&lt;/button&gt;&lt;p&gt;删除后账号不可登录、不可恢复，用户名不可复用；私有数据保留但不向管理员开放。&lt;/p&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-danger&quot;&gt;删除账号&lt;/button&gt;&lt;/div&gt;
+          &lt;/div&gt;
+          &lt;footer&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-user-drawer&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot;&gt;保存更改&lt;/button&gt;&lt;/footer&gt;
+        &lt;/aside&gt;
+
+        &lt;div class=&quot;rt-user-drawer-backdrop&quot; data-invite-drawer-backdrop hidden&gt;&lt;/div&gt;
+        &lt;aside class=&quot;rt-user-drawer&quot; data-invite-drawer hidden&gt;
+          &lt;header&gt;&lt;div&gt;&lt;h2&gt;创建邀请&lt;/h2&gt;&lt;p&gt;链接有效一小时，并在账号创建后立即失效。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-invite-drawer aria-label=&quot;关闭&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/header&gt;
+          &lt;div class=&quot;rt-user-drawer-body&quot;&gt;
+            &lt;label class=&quot;rt-field&quot;&gt;&lt;span class=&quot;rt-label&quot;&gt;受邀角色&lt;/span&gt;&lt;select class=&quot;rt-select&quot;&gt;&lt;option&gt;普通用户&lt;/option&gt;&lt;option selected&gt;管理员&lt;/option&gt;&lt;/select&gt;&lt;small class=&quot;rt-subtitle&quot;&gt;管理员可以进入管理后台；游玩记录和存档仍只对本人可见。&lt;/small&gt;&lt;/label&gt;
+            &lt;div class=&quot;rt-notice is-warning&quot;&gt;&lt;strong&gt;邀请管理员前请再次确认&lt;/strong&gt;&lt;br&gt;管理员可以管理共享游戏内容、服务器设置和其他账号。&lt;/div&gt;
+            &lt;label class=&quot;rt-confirm-row&quot;&gt;&lt;input type=&quot;checkbox&quot; checked&gt;&lt;span&gt;我确认此邀请将创建管理员账号&lt;/span&gt;&lt;/label&gt;
+          &lt;/div&gt;
+          &lt;footer&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-invite-drawer&gt;取消&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-create-invitation&gt;创建邀请&lt;/button&gt;&lt;/footer&gt;
+        &lt;/aside&gt;
+
+        &lt;div class=&quot;rt-dialog-backdrop&quot; data-invitation-result hidden&gt;
+          &lt;section class=&quot;rt-dialog rt-one-time-dialog&quot; role=&quot;dialog&quot; aria-modal=&quot;true&quot; aria-labelledby=&quot;rt-invitation-title&quot;&gt;
+            &lt;div class=&quot;rt-panel-heading&quot;&gt;&lt;div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;创建成功&lt;/span&gt;&lt;h2 id=&quot;rt-invitation-title&quot; style=&quot;margin-top:9px&quot;&gt;邀请已创建&lt;/h2&gt;&lt;p class=&quot;rt-dialog-copy&quot;&gt;将此一次性链接安全地发送给受邀者。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-close-invitation-result aria-label=&quot;关闭&quot;&gt;&lt;i data-lucide=&quot;x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;/button&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-one-time-link&quot;&gt;&lt;input class=&quot;rt-input&quot; aria-label=&quot;邀请链接&quot; readonly value=&quot;https://retrom.example/register#invite=••••••••••••••••••••&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-copy-invitation&gt;复制链接&lt;/button&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-link-facts&quot;&gt;&lt;div&gt;&lt;span&gt;受邀角色&lt;/span&gt;&lt;strong&gt;管理员&lt;/strong&gt;&lt;/div&gt;&lt;div&gt;&lt;span&gt;到期时间&lt;/span&gt;&lt;strong&gt;今天 16:40&lt;/strong&gt;&lt;/div&gt;&lt;/div&gt;
+            &lt;div class=&quot;rt-notice is-warning&quot;&gt;&lt;strong&gt;关闭后无法再次查看完整链接。&lt;/strong&gt;&lt;br&gt;链接将在一小时后或注册完成后失效。&lt;/div&gt;
+            &lt;div class=&quot;rt-dialog-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-close-invitation-result&gt;完成&lt;/button&gt;&lt;/div&gt;
+          &lt;/section&gt;
+        &lt;/div&gt;
+      &lt;/section&gt;
+
       &lt;section class=&quot;rt-page&quot; data-page=&quot;admin-bios&quot;&gt;
         &lt;div data-bios-panel=&quot;files&quot;&gt;
           &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;运行依赖&lt;/div&gt;&lt;h1&gt;BIOS 文件&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;管理游戏运行所需的系统文件。默认只关注当前游戏库实际用到的依赖，也可切换到完整核心目录。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot; data-bios-view=&quot;dats&quot;&gt;街机数据目录 →&lt;/button&gt;&lt;/div&gt;
@@ -1979,20 +2256,33 @@
   &lt;script&gt;
     (() =&gt; {
       const root = document.getElementById('retrom-ui-review');
+      const app = root.querySelector('.rt-app');
       const modeButton = root.querySelector('#rt-mode-button');
       const modeLabel = root.querySelector('#rt-mode-label');
       let mode = 'user';
 
       const pageNames = {
-        home: '首页', library: '游戏库', saves: '我的存档', recent: '最近游玩', detail: '游戏详情', play: '游玩',
+        home: '首页', library: '游戏库', saves: '我的存档', recent: '最近游玩', account: '账户设置', detail: '游戏详情', play: '游玩',
         'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
-        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-platform-instances': '游戏目录', 'admin-bios': '运行依赖'
+        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖'
       };
+      const authPageNames = new Set(['setup', 'login', 'register', 'reset']);
+      function selectReviewScene(scene) {
+        root.querySelectorAll('[data-review-scene]').forEach((button) =&gt; button.classList.toggle('is-active', button.dataset.reviewScene === scene));
+      }
+      function showAuthPage(page) {
+        app.hidden = true;
+        root.querySelectorAll('[data-auth-page]').forEach((element) =&gt; { element.hidden = element.dataset.authPage !== page; });
+        selectReviewScene(page);
+      }
       function showPage(page) {
         const activeNavigationTarget = page === 'detail' ? 'library' : page === 'admin-game-detail' ? 'admin-games' : page;
-        root.querySelector('.rt-app').classList.toggle('is-playing', page === 'play');
+        app.hidden = false;
+        root.querySelectorAll('[data-auth-page]').forEach((element) =&gt; { element.hidden = true; });
+        app.classList.toggle('is-playing', page === 'play');
         root.querySelectorAll('.rt-page').forEach((element) =&gt; element.classList.toggle('is-active', element.dataset.page === page));
         root.querySelectorAll('.rt-nav-button').forEach((button) =&gt; button.classList.toggle('is-active', button.dataset.pageTarget === activeNavigationTarget));
+        selectReviewScene(page);
         root.querySelector('[data-ingest-parent]').classList.toggle('is-context', ['admin-import-new', 'admin-import-tasks', 'admin-review', 'admin-review-history'].includes(page));
         const runtimeParent = root.querySelector('[data-runtime-parent]');
         runtimeParent.classList.toggle('is-context', page === 'admin-bios');
@@ -2011,6 +2301,7 @@
 
       root.querySelectorAll('[data-page-target]').forEach((button) =&gt; button.addEventListener('click', () =&gt; showPage(button.dataset.pageTarget)));
       root.querySelectorAll('[data-page-link]').forEach((button) =&gt; button.addEventListener('click', () =&gt; showPage(button.dataset.pageLink)));
+      root.querySelector('[data-logout-scene]').addEventListener('click', () =&gt; { root.querySelector('.rt-account-menu').open = false; showAuthPage('login'); });
       const platformDrawer = root.querySelector('[data-platform-drawer]');
       const platformDrawerBackdrop = root.querySelector('[data-platform-drawer-backdrop]');
       root.querySelectorAll('[data-open-platform-drawer]').forEach((button) =&gt; button.addEventListener('click', () =&gt; { platformDrawer.hidden = false; platformDrawerBackdrop.hidden = false; }));
@@ -2029,6 +2320,30 @@
       }
 
       modeButton.addEventListener('click', () =&gt; setMode(mode === 'user' ? 'admin' : 'user'));
+      root.querySelectorAll('[data-review-scene]').forEach((button) =&gt; button.addEventListener('click', () =&gt; {
+        const scene = button.dataset.reviewScene;
+        if (authPageNames.has(scene)) showAuthPage(scene);
+        else if (scene === 'admin-users') { setMode('admin'); showPage(scene); }
+        else { setMode('user'); showPage(scene); }
+      }));
+
+      const userDrawer = root.querySelector('[data-user-drawer]');
+      const userDrawerBackdrop = root.querySelector('[data-user-drawer-backdrop]');
+      const closeUserDrawer = () =&gt; { userDrawer.hidden = true; userDrawerBackdrop.hidden = true; };
+      root.querySelectorAll('[data-open-user-drawer]').forEach((button) =&gt; button.addEventListener('click', () =&gt; { userDrawer.hidden = false; userDrawerBackdrop.hidden = false; }));
+      root.querySelectorAll('[data-close-user-drawer]').forEach((button) =&gt; button.addEventListener('click', closeUserDrawer));
+      userDrawerBackdrop.addEventListener('click', closeUserDrawer);
+
+      const inviteDrawer = root.querySelector('[data-invite-drawer]');
+      const inviteDrawerBackdrop = root.querySelector('[data-invite-drawer-backdrop]');
+      const invitationResult = root.querySelector('[data-invitation-result]');
+      const closeInviteDrawer = () =&gt; { inviteDrawer.hidden = true; inviteDrawerBackdrop.hidden = true; };
+      root.querySelectorAll('[data-open-invite-drawer]').forEach((button) =&gt; button.addEventListener('click', () =&gt; { inviteDrawer.hidden = false; inviteDrawerBackdrop.hidden = false; }));
+      root.querySelectorAll('[data-close-invite-drawer]').forEach((button) =&gt; button.addEventListener('click', closeInviteDrawer));
+      inviteDrawerBackdrop.addEventListener('click', closeInviteDrawer);
+      root.querySelector('[data-create-invitation]').addEventListener('click', () =&gt; { closeInviteDrawer(); invitationResult.hidden = false; });
+      root.querySelectorAll('[data-close-invitation-result]').forEach((button) =&gt; button.addEventListener('click', () =&gt; { invitationResult.hidden = true; }));
+      root.querySelector('[data-copy-invitation]').addEventListener('click', (event) =&gt; { event.currentTarget.textContent = '已复制'; });
 
       let currentGame = 'metal';
       const gameDetails = {
@@ -2377,7 +2692,9 @@
       }));
 
       const applyRequestedView = (requestedView) =&gt; {
-        if (requestedView.startsWith('game-')) {
+        if (authPageNames.has(requestedView)) {
+          showAuthPage(requestedView);
+        } else if (requestedView.startsWith('game-')) {
           setMode('user');
           openGame(requestedView.slice(5));
         } else if (requestedView === 'admin-bios-dats') {
@@ -2388,7 +2705,7 @@
           setMode('admin');
           showPage(requestedView);
         } else if (pageNames[requestedView]) {
-          if (['home', 'library', 'saves'].includes(requestedView)) setMode('user');
+          if (['home', 'library', 'saves', 'recent', 'account', 'detail'].includes(requestedView)) setMode('user');
           showPage(requestedView);
         }
       };

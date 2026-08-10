@@ -42,12 +42,15 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## UI 评审
 
-- [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)：可交互的桌面端 UI 评审稿。
+- [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)：包含认证、账户、用户管理、用户侧与管理后台的最终可交互桌面端 UI 评审稿。
 - [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)：可交互评审稿的可维护源文件；修改页面结构时先更新此文件，再重新导出 HTML 与快照。
 - [`design/retrom-ui-library-4k.png`](./design/retrom-ui-library-4k.png)：4K 游戏库。
 - [`design/retrom-ui-game-detail.png`](./design/retrom-ui-game-detail.png)：从游戏库卡片进入的游戏详情。
 - [`design/retrom-ui-saves.png`](./design/retrom-ui-saves.png)：存档列表与直接继续入口。
 - [`design/retrom-ui-recent-4k.png`](./design/retrom-ui-recent-4k.png)：4K 最近游玩列表。
+- [`design/retrom-ui-setup.png`](./design/retrom-ui-setup.png)、[`design/retrom-ui-login.png`](./design/retrom-ui-login.png)、[`design/retrom-ui-register.png`](./design/retrom-ui-register.png)、[`design/retrom-ui-reset-password.png`](./design/retrom-ui-reset-password.png)：账户公开入口的 1280×800 最小桌面快照。
+- [`design/retrom-ui-account.png`](./design/retrom-ui-account.png)：账户设置。
+- [`design/retrom-ui-admin-users-4k.png`](./design/retrom-ui-admin-users-4k.png)、[`design/retrom-ui-admin-user-drawer.png`](./design/retrom-ui-admin-user-drawer.png)、[`design/retrom-ui-admin-invitation-result.png`](./design/retrom-ui-admin-invitation-result.png)：用户管理、管理 Drawer 与一次性链接结果。
 - [`design/retrom-ui-play.png`](./design/retrom-ui-play.png)：点击后自动启动的全屏 Player Shell。
 - [`design/retrom-ui-play-portrait.png`](./design/retrom-ui-play-portrait.png)：竖屏内容按可用高度铺满的 Player Shell。
 - [`design/retrom-ui-play-4k.png`](./design/retrom-ui-play-4k.png)：4K 下按视口高度放大的 Player Shell。
@@ -68,7 +71,6 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`design/retrom-ui-bios-files.png`](./design/retrom-ui-bios-files.png)：BIOS 文件管理。
 - [`design/retrom-ui-bios-entry-compare.png`](./design/retrom-ui-bios-entry-compare.png)：Arcade BIOS 的 DAT/ZIP 条目对比。
 - [`design/retrom-ui-dat-versions.png`](./design/retrom-ui-dat-versions.png)：Arcade DAT 版本管理。
-- [`design/user-management-ui-review.html`](./design/user-management-ui-review.html)：首次设置、登录、邀请注册、密码重置、账户设置和用户管理的可交互评审源。
 
 ## 维护规则
 

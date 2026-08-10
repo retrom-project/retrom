@@ -7,7 +7,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -201,19 +200,32 @@ FROM account_links WHERE id=? AND kind='INVITATION'
 		accountLinkState(consumedAt, revokedAt, expiresAt, now) != "ACTIVE" {
 		return Session{}, ErrAccountLinkUnavailable
 	}
+	var usernameExists int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT EXISTS(SELECT 1 FROM users WHERE username=?)
+`, username).Scan(&usernameExists); err != nil {
+		return Session{}, fmt.Errorf("check invited username: %w", err)
+	}
+	if usernameExists != 0 {
+		return Session{}, ErrUsernameUnavailable
+	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)
 `, profileID, displayName, now); err != nil {
 		return Session{}, fmt.Errorf("create invited profile: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	result, err := transaction.ExecContext(ctx, `
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,'ENABLED',?,?)
-`, userID, profileID, username, displayName, role, now, now); err != nil {
-		if strings.Contains(err.Error(), "UNIQUE constraint failed: users.username") {
-			return Session{}, ErrUsernameUnavailable
-		}
+ON CONFLICT(username) DO NOTHING
+`, userID, profileID, username, displayName, role, now, now)
+	if err != nil {
 		return Session{}, fmt.Errorf("create invited user: %w", err)
+	}
+	if changed, rowsErr := result.RowsAffected(); rowsErr != nil {
+		return Session{}, fmt.Errorf("read invited user insert result: %w", rowsErr)
+	} else if changed != 1 {
+		return Session{}, ErrUsernameUnavailable
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO user_credentials(user_id,password_hash,password_scheme,password_changed_at_ms,created_at_ms)
@@ -221,7 +233,7 @@ VALUES(?,?,'ARGON2ID_V1',?,?)
 `, userID, encoded, now, now); err != nil {
 		return Session{}, fmt.Errorf("create invited credential: %w", err)
 	}
-	result, err := transaction.ExecContext(ctx, `
+	result, err = transaction.ExecContext(ctx, `
 UPDATE account_links SET consumed_at_ms=?,consumed_by_user_id=?,version=version+1
 WHERE id=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
 `, now, userID, linkID.String(), now)

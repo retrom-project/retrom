@@ -822,7 +822,7 @@ python3 data/example/verify-fixtures.py
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-009`。
-- 流程：在 `1280×800`、`2560×1440` 和 `3840×2160` viewport 完成 setup、test login、邀请复制/注册、logout/login、忘记密码、重置、账户改密及管理员用户筛选/Drawer/角色/状态/删除；确认账户资料只读且管理员不能代改 displayName/密码。覆盖空、loading、通用错误、429、ETag 冲突、本人和最后管理员状态；只用键盘重复邀请与 Drawer 流程并运行 axe。
+- 流程：在 `1280×800`、`2560×1440` 和 `3840×2160` viewport 完成 setup、test login、邀请复制/注册、logout/login、管理员创建密码重置链接、重置、账户改密及管理员用户筛选/Drawer/角色/状态/删除；确认登录页不提供自助找回密码，账户资料只读且管理员不能代改 displayName/密码。覆盖空、loading、通用错误、429、ETag 冲突、本人和最后管理员状态；只用键盘重复邀请与 Drawer 流程并运行 axe。
 - 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身/最后管理员控件禁用并解释原因，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
 - 证据：三 viewport 当前截图、route/network/storage trace、axe/键盘结果与后端生命周期摘要。
 

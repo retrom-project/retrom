@@ -2,7 +2,7 @@ import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider } from "./auth-provider";
-import { LoginForm, RegisterForm } from "./auth-ui";
+import { AccountSettings, LoginForm, RegisterForm, SetupForm } from "./auth-ui";
 import type { AuthContext } from "./types";
 
 const navigation = vi.hoisted(() => ({ pathname: "/login", replace: vi.fn(), refresh: vi.fn() }));
@@ -16,8 +16,8 @@ const registered: AuthContext = {
   ...anonymous, authenticationState: "AUTHENTICATED", csrfToken: "csrf", user: { userId: "user-1", username: "alice", displayName: "Alice", role: "USER" }
 };
 
-function wrapped(node: React.ReactNode) {
-  return render(<AuthProvider initialContext={anonymous}>{node}</AuthProvider>);
+function wrapped(node: React.ReactNode, initialContext = anonymous) {
+  return render(<AuthProvider initialContext={initialContext}>{node}</AuthProvider>);
 }
 
 beforeEach(() => {
@@ -27,6 +27,25 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("authentication UI", () => {
+  it("submits every setup credential and enters the authenticated context", async () => {
+    navigation.pathname = "/setup";
+    window.history.replaceState(null, "", "/setup");
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(registered), { status: 201, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    wrapped(<SetupForm />, { ...anonymous, instanceState: "INITIALIZATION_REQUIRED", mode: "release", authenticationState: "NOT_APPLICABLE" });
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("初始化码", { selector: "input" }), "setup-proof");
+    await user.type(screen.getByLabelText("管理员用户名"), "admin");
+    await user.type(screen.getByLabelText("显示名称"), "Server Admin");
+    await user.type(screen.getByLabelText("密码", { selector: "input" }), "a sufficiently long password");
+    await user.type(screen.getByLabelText("确认密码", { selector: "input" }), "a sufficiently long password");
+    await user.click(screen.getByRole("button", { name: "创建管理员并进入 Retrom" }));
+    await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/"));
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/initialize", expect.objectContaining({
+      method: "POST", body: expect.stringContaining('"setupCode":"setup-proof"')
+    }));
+  });
+
   it("shows the test credential warning and normalizes login failures", async () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { code: "AUTHENTICATION_FAILED", message: "internal detail" } }), { status: 401, headers: { "Content-Type": "application/json" } })));
     wrapped(<LoginForm />);
@@ -74,5 +93,25 @@ describe("authentication UI", () => {
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/"));
     const acceptCall = fetchMock.mock.calls.find(([input]) => String(input).endsWith("/accept"));
     expect(acceptCall?.[1]?.body).toContain("secret-capability");
+  });
+
+  it("keeps account identity read-only and rotates the password session", async () => {
+    navigation.pathname = "/account";
+    window.history.replaceState(null, "", "/account");
+    const fetchMock = vi.fn(async () => new Response(JSON.stringify(registered), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    wrapped(<AccountSettings />, registered);
+    expect(screen.getByText("@alice")).toBeInTheDocument();
+    expect(screen.getByText("Alice")).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /用户名|显示名称/ })).not.toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.type(screen.getByLabelText("当前密码", { selector: "input" }), "current password");
+    await user.type(screen.getByLabelText("新密码", { selector: "input" }), "a different sufficiently long password");
+    await user.type(screen.getByLabelText("确认密码", { selector: "input" }), "a different sufficiently long password");
+    await user.click(screen.getByRole("button", { name: "更新密码" }));
+    expect(await screen.findByText("密码已更新，其他设备已退出登录")).toBeInTheDocument();
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/change-password", expect.objectContaining({
+      method: "POST", body: expect.stringContaining('"currentPassword":"current password"')
+    }));
   });
 });
