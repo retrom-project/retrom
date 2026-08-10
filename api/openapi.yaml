@@ -383,6 +383,15 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/ReviewArcadeParentAttachment' }
       responses:
         '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/reviews/{importItemId}/multi-disc-attachments:
+    parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
+    post:
+      operationId: postAdminReviewMultiDiscAttachment
+      description: Queues validation of one completed FILES upload containing exactly every currently missing CHD.
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ReviewMultiDiscAttachment' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/reviews/{importItemId}/approve:
     parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
     post:
@@ -1123,6 +1132,12 @@ components:
         baseSourceSnapshotId: { type: string, format: uuid }
         dependencyMachine: { type: string, minLength: 1, maxLength: 255 }
         uploadFileId: { type: string, format: uuid }
+    ReviewMultiDiscAttachmentRequest:
+      type: object
+      additionalProperties: false
+      required: [uploadId]
+      properties:
+        uploadId: { type: string, format: uuid }
     UploadReferenceRequest:
       type: object
       additionalProperties: false
@@ -1391,6 +1406,7 @@ components:
         action: {}
         activatedAtMs: {}
         active: {}
+        activeAttachment: {}
         activeDurationMs: {}
         activeEmulatorjsVersion: {}
         activeInstallation: {}
@@ -1442,6 +1458,9 @@ components:
         change: {}
         chunkSizeBytes: {}
         class: {}
+        canApprove: {}
+        canAttachMissingDiscs: {}
+        canRetry: {}
         clientCapabilities: {}
         clientFileId: {}
         clientObservedAtMs: {}
@@ -1450,6 +1469,7 @@ components:
         code: {}
         column: {}
         commit: {}
+        canonicalName: {}
         compatibilityCode: {}
         compatibilityStatus: {}
         completed: {}
@@ -1460,6 +1480,7 @@ components:
         configuredDependencyVersionCount: {}
         configuredEmulatorjsVersions: {}
         configuredVersion: {}
+        contentKind: {}
         contentRevisionId: {}
         contentIdentityDigest: {}
         core: {}
@@ -1504,6 +1525,8 @@ components:
         developer: {}
         diff: {}
         directLaunchSafe: {}
+        discCount: {}
+        discIndex: {}
         discarded: {}
         disk: {}
         diskEntryCount: {}
@@ -1563,6 +1586,7 @@ components:
         importJobId: {}
         importCapabilities: {}
         imports: {}
+        index: {}
         inputs: {}
         installationId: {}
         isDefault: {}
@@ -1571,11 +1595,14 @@ components:
         items: {}
         jobId: {}
         jobState: {}
+        jobVersion: {}
         jobs: {}
         kind: {}
+        label: {}
         level: {}
         library: {}
         latestGames: {}
+        latestAttachment: {}
         license: {}
         loader: {}
         loaderUrl: {}
@@ -1593,6 +1620,8 @@ components:
         metadata: {}
         metadataProvider: {}
         metadataRevisionId: {}
+        missingDiscCount: {}
+        missingReferences: {}
         mode: {}
         contentModes: {}
         multiDisc: {}
@@ -1610,6 +1639,7 @@ components:
         partNo: {}
         path: {}
         paused: {}
+        playlist: {}
         persistentSaveId: {}
         persistentSaveUrl: {}
         platform: {}
@@ -1625,6 +1655,7 @@ components:
         playerAdapterId: {}
         players: {}
         previousInterval: {}
+        presentDiscCount: {}
         protected: {}
         provider: {}
         providerAssetId: {}
@@ -1701,6 +1732,7 @@ components:
         selectedAssets: {}
         selectedCandidateId: {}
         selectedValidationId: {}
+        selectedValidationGeneration: {}
         sequence: {}
         sha1: {}
         sha256: {}
@@ -1719,6 +1751,8 @@ components:
         sourceDisplayName: {}
         sourceFiles: {}
         sourceManifest: {}
+        sourceReference: {}
+        sourceTotalSizeBytes: {}
         sourcePlatformInstanceId: {}
         sourceType: {}
         state: {}
@@ -1737,6 +1771,7 @@ components:
         toAtMs: {}
         total: {}
         totalBytes: {}
+        totalPresentBytes: {}
         totalItemCount: {}
         trailing: {}
         unresolved: {}
@@ -1749,6 +1784,7 @@ components:
         uploadSessionId: {}
         validatedRequirementVersion: {}
         validation: {}
+        validationStale: {}
         validationDetails: {}
         validationJobId: {}
         validationStatus: {}
@@ -1800,6 +1836,7 @@ components:
     GameAsset: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/GameAssetRequest' } } } }
     ReviewAsset: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewAssetRequest' } } } }
     ReviewArcadeParentAttachment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewArcadeParentAttachmentRequest' } } } }
+    ReviewMultiDiscAttachment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewMultiDiscAttachmentRequest' } } } }
     UploadReference: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UploadReferenceRequest' } } } }
     ApplyCandidate: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApplyCandidateRequest' } } } }
     MovePreview: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MovePreviewRequest' } } } }

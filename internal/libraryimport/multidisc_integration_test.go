@@ -6,7 +6,9 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
+	"database/sql"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -15,6 +17,7 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
@@ -27,12 +30,13 @@ type multiDiscUploadFile struct {
 	contents []byte
 }
 
-func completeMultiDiscDirectory(
+func completeMultiDiscUpload(
 	t *testing.T,
 	ctx context.Context,
 	database *store.DB,
 	blobs *blobstore.Store,
 	dataDir string,
+	sourceType string,
 	files []multiDiscUploadFile,
 ) string {
 	t.Helper()
@@ -43,7 +47,7 @@ func completeMultiDiscDirectory(
 		})
 	}
 	service := uploads.New(database.SQL, blobs, dataDir, time.Now)
-	upload, err := service.Create(ctx, uploads.CreateRequest{SourceType: "DIRECTORY", Files: declarations})
+	upload, err := service.Create(ctx, uploads.CreateRequest{SourceType: sourceType, Files: declarations})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -73,6 +77,18 @@ func completeMultiDiscDirectory(
 	return upload.ID
 }
 
+func completeMultiDiscDirectory(
+	t *testing.T,
+	ctx context.Context,
+	database *store.DB,
+	blobs *blobstore.Store,
+	dataDir string,
+	files []multiDiscUploadFile,
+) string {
+	t.Helper()
+	return completeMultiDiscUpload(t, ctx, database, blobs, dataDir, "DIRECTORY", files)
+}
+
 func newMultiDiscImportFixture(t *testing.T) (context.Context, string, *store.DB, *blobstore.Store, *Service) {
 	t.Helper()
 	ctx := context.Background()
@@ -82,6 +98,18 @@ func newMultiDiscImportFixture(t *testing.T) (context.Context, string, *store.DB
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO profiles(id,display_name,created_at_ms) VALUES('multi-disc-profile','Multi Disc Admin',0);
+INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
+VALUES('01980000-0000-7000-8000-000000009991','multi-disc-profile','multi-disc-admin',
+'Multi Disc Admin','ADMIN','ENABLED',0,0);
+`); err != nil {
+		t.Fatal(err)
+	}
+	ctx = authn.WithPrincipal(ctx, authn.Principal{
+		UserID: "01980000-0000-7000-8000-000000009991", ProfileID: "multi-disc-profile",
+		Username: "multi-disc-admin", DisplayName: "Multi Disc Admin", Role: "ADMIN",
+	})
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
@@ -263,6 +291,153 @@ WHERE item.import_job_id=?
 	}
 	if _, err := importer.Approve(ctx, itemID, 1); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("blocked approve error = %v", err)
+	}
+	baseSnapshotID := ""
+	if err := database.SQL.QueryRow(`
+SELECT effective_source_snapshot_id FROM review_drafts WHERE import_item_id=?
+	`, itemID).Scan(&baseSnapshotID); err != nil {
+		t.Fatal(err)
+	}
+	initialReview, hasMultiDisc, err := importer.ReviewMultiDisc(ctx, itemID)
+	initialProjection, projectionOK := initialReview.(map[string]any)
+	if err != nil || !hasMultiDisc || !projectionOK || initialProjection["discCount"] != 3 ||
+		initialProjection["presentDiscCount"] != 2 || initialProjection["missingDiscCount"] != 1 ||
+		initialProjection["canAttachMissingDiscs"] != true {
+		t.Fatalf("initial multi-disc review = %#v, present=%v, error=%v", initialReview, hasMultiDisc, err)
+	}
+	encodedReview, _ := json.Marshal(initialReview)
+	if bytes.Contains(encodedReview, []byte("blobId")) || !bytes.Contains(encodedReview, []byte("playlist")) {
+		t.Fatalf("initial review leaked storage identity or omitted playlist: %s", encodedReview)
+	}
+	attachmentUploadID := completeMultiDiscUpload(
+		t, ctx, database, blobs, dataDir, "FILES",
+		[]multiDiscUploadFile{{path: "three.chd", contents: fakeCHD("three")}},
+	)
+	attachment, err := importer.CreateMultiDiscAttachment(ctx, itemID, 1, MultiDiscAttachmentRequest{
+		UploadID: attachmentUploadID,
+	})
+	if err != nil || attachment.State != "QUEUED" || attachment.ReviewVersion != 2 {
+		t.Fatalf("CreateMultiDiscAttachment() = %#v, error=%v", attachment, err)
+	}
+	waitParentJob(t, database.SQL, attachment.JobID, "SUCCEEDED")
+	var resultSnapshotID, selectedID string
+	var version int64
+	if err := database.SQL.QueryRow(`
+SELECT effective_source_snapshot_id,selected_validation_id,version
+FROM review_drafts WHERE import_item_id=?
+`, itemID).Scan(&resultSnapshotID, &selectedID, &version); err != nil {
+		t.Fatal(err)
+	}
+	if resultSnapshotID == baseSnapshotID || selectedID == "" || version != 3 {
+		t.Fatalf("accepted draft snapshot=%s selected=%s version=%d", resultSnapshotID, selectedID, version)
+	}
+	oldEntries := queryAttachmentStrings(t, database.SQL, `
+SELECT state FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
+`, baseSnapshotID)
+	newEntries := queryAttachmentStrings(t, database.SQL, `
+SELECT state FROM import_item_multidisc_entries WHERE source_snapshot_id=? ORDER BY ordinal
+`, resultSnapshotID)
+	if fmt.Sprint(oldEntries) != "[PRESENT PRESENT MISSING]" ||
+		fmt.Sprint(newEntries) != "[PRESENT PRESENT PRESENT]" {
+		t.Fatalf("old/new entries = %v / %v", oldEntries, newEntries)
+	}
+	var requestedBy, eventActor, attachmentState string
+	if err := database.SQL.QueryRow(`
+SELECT attachment.requested_by_user_id,attachment.state,event.actor_user_id
+FROM review_multidisc_attachments attachment
+JOIN review_events event ON event.import_item_id=attachment.import_item_id
+AND event.event_type='DISC_ATTACHMENT_ACCEPTED'
+WHERE attachment.id=?
+`, attachment.AttachmentID).Scan(&requestedBy, &attachmentState, &eventActor); err != nil {
+		t.Fatal(err)
+	}
+	if requestedBy != "01980000-0000-7000-8000-000000009991" ||
+		eventActor != requestedBy || attachmentState != "ACCEPTED" {
+		t.Fatalf("attachment actor/state = %s/%s/%s", requestedBy, eventActor, attachmentState)
+	}
+	acceptedReview, hasMultiDisc, err := importer.ReviewMultiDisc(ctx, itemID)
+	acceptedProjection, projectionOK := acceptedReview.(map[string]any)
+	latest, latestOK := acceptedProjection["latestAttachment"].(map[string]any)
+	if err != nil || !hasMultiDisc || !projectionOK || !latestOK || latest["state"] != "ACCEPTED" ||
+		acceptedProjection["presentDiscCount"] != 3 || acceptedProjection["missingDiscCount"] != 0 ||
+		acceptedProjection["canAttachMissingDiscs"] != false {
+		t.Fatalf("accepted multi-disc review = %#v, present=%v, error=%v", acceptedReview, hasMultiDisc, err)
+	}
+	if _, err := importer.Approve(ctx, itemID, version); err != nil {
+		t.Fatalf("Approve() after attachment: %v", err)
+	}
+}
+
+func TestMultiDiscAttachmentRejectsNonExactSetWithoutAdvancingDraft(t *testing.T) {
+	t.Parallel()
+	ctx, dataDir, database, blobs, importer := newMultiDiscImportFixture(t)
+	baseUploadID := completeMultiDiscDirectory(t, ctx, database, blobs, dataDir, []multiDiscUploadFile{
+		{path: "game/game.m3u", contents: []byte("one.chd\ntwo.chd\nthree.chd\n")},
+		{path: "game/one.chd", contents: fakeCHD("one")},
+		{path: "game/two.chd", contents: fakeCHD("two")},
+	})
+	created, err := importer.Create(ctx, CreateRequest{
+		UploadID: baseUploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var itemID, baseSnapshotID string
+	if err := database.SQL.QueryRow(`
+SELECT item.id,draft.effective_source_snapshot_id
+FROM import_items item JOIN review_drafts draft ON draft.import_item_id=item.id
+WHERE item.import_job_id=?
+`, created.ImportJobID).Scan(&itemID, &baseSnapshotID); err != nil {
+		t.Fatal(err)
+	}
+	attachmentUploadID := completeMultiDiscUpload(
+		t, ctx, database, blobs, dataDir, "FILES", []multiDiscUploadFile{
+			{path: "wrong.chd", contents: fakeCHD("wrong")},
+		},
+	)
+	attachment, err := importer.CreateMultiDiscAttachment(ctx, itemID, 1, MultiDiscAttachmentRequest{
+		UploadID: attachmentUploadID,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitParentJob(t, database.SQL, attachment.JobID, "FAILED")
+	var state, errorCode, currentSnapshotID string
+	var selectedID sql.NullString
+	if err := database.SQL.QueryRow(`
+SELECT attachment.state,attachment.error_code,draft.effective_source_snapshot_id,draft.selected_validation_id
+FROM review_multidisc_attachments attachment
+JOIN review_drafts draft ON draft.id=attachment.review_draft_id
+WHERE attachment.id=?
+`, attachment.AttachmentID).Scan(&state, &errorCode, &currentSnapshotID, &selectedID); err != nil {
+		t.Fatal(err)
+	}
+	if state != "REJECTED" || errorCode != MultiDiscAttachmentErrorSetMismatch ||
+		currentSnapshotID != baseSnapshotID || selectedID.Valid {
+		t.Fatalf("rejected attachment = %s/%s snapshot=%s selected=%v", state, errorCode, currentSnapshotID, selectedID)
+	}
+	var consumptions int
+	if err := database.SQL.QueryRow(`
+SELECT count(*) FROM upload_consumptions WHERE upload_session_id=?
+`, attachmentUploadID).Scan(&consumptions); err != nil || consumptions != 0 {
+		t.Fatalf("rejected upload consumptions = %d, error=%v", consumptions, err)
+	}
+	badUploadID := completeMultiDiscUpload(
+		t, ctx, database, blobs, dataDir, "FILES", []multiDiscUploadFile{
+			{path: "three.chd", contents: []byte("not-a-valid-chd")},
+		},
+	)
+	bad, err := importer.CreateMultiDiscAttachment(ctx, itemID, 2, MultiDiscAttachmentRequest{UploadID: badUploadID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	waitParentJob(t, database.SQL, bad.JobID, "FAILED")
+	if err := database.SQL.QueryRow(`
+SELECT state,error_code FROM review_multidisc_attachments WHERE id=?
+`, bad.AttachmentID).Scan(&state, &errorCode); err != nil ||
+		state != "REJECTED" || errorCode != MultiDiscAttachmentErrorContentInvalid {
+		t.Fatalf("bad CHD attachment = %s/%s, error=%v", state, errorCode, err)
 	}
 }
 

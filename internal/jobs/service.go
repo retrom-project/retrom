@@ -39,6 +39,11 @@ func validReason(value string) bool {
 	return value != "" && len([]rune(value)) <= 500
 }
 
+func cancellableJobState(state string, retryable sql.NullInt64) bool {
+	return state == "QUEUED" || state == "RUNNING" ||
+		state == "FAILED" && retryable.Valid && retryable.Int64 == 1
+}
+
 func (service *Service) Cancel(
 	ctx context.Context,
 	jobID string,
@@ -55,17 +60,19 @@ func (service *Service) Cancel(
 	defer cleanup.Rollback(transaction)
 	var state string
 	var cancellable, executionNo, version int64
+	var retryable sql.NullInt64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT state,
 cancellable,
+error_retryable,
 execution_no,
 version
 FROM jobs
 WHERE id=?
-`, jobID).Scan(&state, &cancellable, &executionNo, &version); err != nil ||
+	`, jobID).Scan(&state, &cancellable, &retryable, &executionNo, &version); err != nil ||
 		version != expectedVersion ||
 		cancellable != 1 ||
-		state != "QUEUED" && state != "RUNNING" {
+		!cancellableJobState(state, retryable) {
 		return Result{}, false, ErrConflict
 	}
 	now := service.now().UnixMilli()

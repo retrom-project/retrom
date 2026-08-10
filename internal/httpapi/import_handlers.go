@@ -29,61 +29,124 @@ func requireVersion(writer http.ResponseWriter, request *http.Request) (int64, b
 	return version, true
 }
 
-func (server *Server) createReviewArcadeParentAttachment(
-	writer http.ResponseWriter,
-	request *http.Request,
-) {
+func requireReviewAttachmentWrite(writer http.ResponseWriter, request *http.Request) (int64, bool) {
 	version, ok := requireVersion(writer, request)
 	if !ok {
-		return
+		return 0, false
 	}
 	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
+		return 0, false
+	}
+	return version, true
+}
+
+type reviewAttachmentCreated struct {
+	jobID, responseVersion string
+	response               any
+}
+
+type attachmentHTTPError struct {
+	status  int
+	message string
+}
+
+func handleReviewAttachment[Request any](
+	writer http.ResponseWriter,
+	request *http.Request,
+	invalidCode, invalidMessage, unavailableMessage string,
+	errorCode func(error) string,
+	errorMappings map[string]attachmentHTTPError,
+	create func(context.Context, string, int64, Request) (reviewAttachmentCreated, error),
+) {
+	version, ok := requireReviewAttachmentWrite(writer, request)
+	if !ok {
 		return
 	}
-	var body libraryimport.ParentAttachmentRequest
+	var body Request
 	if err := decodeJSON(writer, request, &body, 8<<10); err != nil {
-		writeError(
-			writer, request, http.StatusBadRequest, libraryimport.ParentErrorInvalid,
-			"Parent ROM 上传请求无效", map[string]any{},
-		)
+		writeError(writer, request, http.StatusBadRequest, invalidCode, invalidMessage, map[string]any{})
 		return
 	}
-	created, err := server.importer.CreateArcadeParentAttachment(
-		request.Context(), request.PathValue("importItemId"), version, body,
-	)
+	created, err := create(request.Context(), request.PathValue("importItemId"), version, body)
 	if err != nil {
-		code := libraryimport.ParentAttachmentErrorCode(err)
-		status := http.StatusServiceUnavailable
-		message := "Parent ROM 校验服务暂时不可用"
-		switch code {
-		case libraryimport.ParentErrorInvalid:
-			status, message = http.StatusBadRequest, "Parent ROM 上传请求无效"
-		case libraryimport.ParentErrorNotFound:
-			status, message = http.StatusNotFound, "审核项不存在"
-		case libraryimport.ParentErrorVersion:
-			status, message = http.StatusConflict, "审核条目已发生变化"
-		case libraryimport.ParentErrorInProgress:
-			status, message = http.StatusConflict, "已有 Parent ROM 正在校验"
-		case libraryimport.ParentErrorInputStale:
-			status, message = http.StatusConflict, "运行验证输入已经变化"
-		case libraryimport.ParentErrorFinalized:
-			status, message = http.StatusConflict, "审核项已经完成决策"
-		case libraryimport.ParentErrorNotRequired:
-			status, message = http.StatusUnprocessableEntity, "当前依赖不需要此 Parent ROM"
-		case libraryimport.ParentErrorStructure:
-			status, message = http.StatusUnprocessableEntity, "当前 Arcade 结构不支持补充 Parent ROM"
-		case libraryimport.ParentErrorArchiveUnsafe:
-			status, message = http.StatusUnprocessableEntity, "Parent ROM 归档不安全"
-		case libraryimport.ParentErrorMismatch:
-			status, message = http.StatusUnprocessableEntity, "Parent ROM 内容与 DAT 不匹配"
+		code := errorCode(err)
+		mapped, exists := errorMappings[code]
+		if !exists {
+			mapped = attachmentHTTPError{status: http.StatusServiceUnavailable, message: unavailableMessage}
 		}
-		writeError(writer, request, status, code, message, map[string]any{})
+		writeError(writer, request, mapped.status, code, mapped.message, map[string]any{})
 		return
 	}
-	writer.Header().Set("Location", "/api/v1/admin/jobs/"+created.JobID)
-	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, created.Version))
-	writeJSON(writer, http.StatusAccepted, created)
+	writer.Header().Set("Location", "/api/v1/admin/jobs/"+created.jobID)
+	writer.Header().Set("ETag", created.responseVersion)
+	writeJSON(writer, http.StatusAccepted, created.response)
+}
+
+var arcadeParentAttachmentErrors = map[string]attachmentHTTPError{
+	libraryimport.ParentErrorInvalid:       {http.StatusBadRequest, "Parent ROM 上传请求无效"},
+	libraryimport.ParentErrorNotFound:      {http.StatusNotFound, "审核项不存在"},
+	libraryimport.ParentErrorVersion:       {http.StatusConflict, "审核条目已发生变化"},
+	libraryimport.ParentErrorInProgress:    {http.StatusConflict, "已有 Parent ROM 正在校验"},
+	libraryimport.ParentErrorInputStale:    {http.StatusConflict, "运行验证输入已经变化"},
+	libraryimport.ParentErrorFinalized:     {http.StatusConflict, "审核项已经完成决策"},
+	libraryimport.ParentErrorNotRequired:   {http.StatusUnprocessableEntity, "当前依赖不需要此 Parent ROM"},
+	libraryimport.ParentErrorStructure:     {http.StatusUnprocessableEntity, "当前 Arcade 结构不支持补充 Parent ROM"},
+	libraryimport.ParentErrorArchiveUnsafe: {http.StatusUnprocessableEntity, "Parent ROM 归档不安全"},
+	libraryimport.ParentErrorMismatch:      {http.StatusUnprocessableEntity, "Parent ROM 内容与 DAT 不匹配"},
+}
+
+var multiDiscAttachmentErrors = map[string]attachmentHTTPError{
+	libraryimport.MultiDiscAttachmentErrorInvalid:         {http.StatusBadRequest, "缺失光盘上传请求无效"},
+	libraryimport.MultiDiscAttachmentErrorNotFound:        {http.StatusNotFound, "审核项不存在"},
+	libraryimport.MultiDiscAttachmentErrorVersion:         {http.StatusConflict, "审核条目已发生变化"},
+	libraryimport.MultiDiscAttachmentErrorInProgress:      {http.StatusConflict, "已有缺失光盘正在校验"},
+	libraryimport.MultiDiscAttachmentErrorRetryRequired:   {http.StatusConflict, "请先重试或取消失败的校验任务"},
+	libraryimport.MultiDiscAttachmentErrorInputStale:      {http.StatusConflict, "多盘验证输入已经变化"},
+	libraryimport.MultiDiscAttachmentErrorFinalized:       {http.StatusConflict, "审核项已经完成决策"},
+	libraryimport.MultiDiscAttachmentErrorContentInvalid:  {http.StatusUnprocessableEntity, "多盘内容无效或当前无需补传"},
+	libraryimport.MultiDiscAttachmentErrorSetMismatch:     {http.StatusUnprocessableEntity, "上传文件与全部缺失光盘不一致"},
+	libraryimport.MultiDiscAttachmentErrorModeUnavailable: {http.StatusUnprocessableEntity, "当前平台或核心不支持多盘内容"},
+}
+
+func (server *Server) createReviewArcadeParentAttachment(writer http.ResponseWriter, request *http.Request) {
+	handleReviewAttachment(
+		writer, request, libraryimport.ParentErrorInvalid, "Parent ROM 上传请求无效",
+		"Parent ROM 校验服务暂时不可用", libraryimport.ParentAttachmentErrorCode,
+		arcadeParentAttachmentErrors,
+		func(ctx context.Context, itemID string, version int64, body libraryimport.ParentAttachmentRequest) (
+			reviewAttachmentCreated, error,
+		) {
+			created, err := server.importer.CreateArcadeParentAttachment(ctx, itemID, version, body)
+			if err != nil {
+				return reviewAttachmentCreated{}, fmt.Errorf("create arcade parent attachment: %w", err)
+			}
+			return reviewAttachmentCreated{
+				jobID: created.JobID, responseVersion: fmt.Sprintf(`"v%d"`, created.Version), response: created,
+			}, nil
+		},
+	)
+}
+
+func (server *Server) createReviewMultiDiscAttachment(writer http.ResponseWriter, request *http.Request) {
+	handleReviewAttachment(
+		writer, request, libraryimport.MultiDiscAttachmentErrorInvalid, "缺失光盘上传请求无效",
+		"多盘校验服务暂时不可用", libraryimport.MultiDiscAttachmentErrorCode,
+		multiDiscAttachmentErrors,
+		func(ctx context.Context, itemID string, version int64, body libraryimport.MultiDiscAttachmentRequest) (
+			reviewAttachmentCreated, error,
+		) {
+			created, err := server.importer.CreateMultiDiscAttachment(ctx, itemID, version, body)
+			if err != nil {
+				return reviewAttachmentCreated{}, fmt.Errorf("create multi-disc attachment: %w", err)
+			}
+			return reviewAttachmentCreated{
+				jobID:           created.JobID,
+				responseVersion: fmt.Sprintf(`"v%d"`, created.ReviewVersion),
+				response:        created,
+			}, nil
+		},
+	)
 }
 
 //nolint:funlen // Aggregate and item projections are read together to preserve one import snapshot response.
