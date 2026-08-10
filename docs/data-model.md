@@ -166,7 +166,7 @@ Upload 清理规则固定为：未完成 session 在 24 小时后进入 EXPIRED�
 | `launch_external_files` | `(launch_session_id, virtual_path) PK`、`logical_name`、`blob_id`、`created_at_ms`，并对 `(launch_session_id, logical_name)` 唯一；append-only。只保存 Variant 依赖快照中 `EXTERNAL_FILE` 的已验证 Blob，当前用于 MelonDS 三个 BIOS；活动安装切换不能改变已创建 Launch。 |
 | `play_sessions` | `id PK`、`launch_session_id UNIQUE`、profile/game/variant revision、`started_at_ms/last_heartbeat_at_ms`、可空 `ended_at_ms`、`active_duration_ms`、`last_client_sequence`、`state ACTIVE/FINISHED/ABANDONED`、`version`、`created_at_ms/updated_at_ms`。 |
 | `play_session_events` | `(play_session_id, client_sequence) PK`、`event_kind START/HEARTBEAT/FINISH`、`client_observed_at_ms/server_received_at_ms`、`running/visible/paused` 布尔、`accepted_duration_ms`、`created_at_ms`；append-only，用于幂等与审计。START 固定 sequence 0/accepted 0；其余必须连续。 |
-| `save_states` | `id PK`、`profile_id/game_id/game_variant_revision_id/core_artifact_id`、可空 `dat_version_id/dos_entry_path`、`state_blob_id`、非空 `screenshot_blob_id`、可空 `source_launch_session_id`、`name`、`active_duration_ms`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；状态与截图同事务创建。新建手动存档必须记录来源 LaunchSession，且 trigger 校验 Profile/Game/VariantRevision/CoreArtifact/DAT/DOS entry 与来源启动一致；历史迁移前存档允许来源为空，不能据此推断它属于某次游玩。软删除后保留引用 7 天，随后 GC 可物理删除该行并按引用规则回收 Blob；审核历史不依赖 SaveState 行。DOS entry 必须属于该 revision，DatVersion 必须等于 revision 快照。 |
+| `save_states` | `id PK`、`profile_id/game_id/game_variant_revision_id/core_artifact_id`、可空 `dat_version_id/dos_entry_path/disc_index`、`state_blob_id`、非空 `screenshot_blob_id`、可空 `source_launch_session_id`、`name`、`active_duration_ms`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；状态与截图同事务创建。新建手动存档必须记录来源 LaunchSession，且 trigger 校验 Profile/Game/VariantRevision/CoreArtifact/DAT/DOS entry/盘号与来源启动一致；多盘必须记录范围内盘号，SINGLE/DOS 必须为空。历史迁移前存档允许来源为空，不能据此推断它属于某次游玩。软删除后保留引用 7 天，随后 GC 可物理删除该行并按引用规则回收 Blob；审核历史不依赖 SaveState 行。DOS entry 必须属于该 revision，DatVersion 必须等于 revision 快照。 |
 | `persistent_saves` | `id PK`、`profile_id/game_variant_revision_id`、`kind CORE_SAVE/DOS_OVERLAY`、非空 `current_revision_id`、`version`、`created_at_ms/updated_at_ms`；`UNIQUE(profile_id, game_variant_revision_id, kind)`。kind 从锁定 artifact compatibility 推导；`dosbox_pure` 为 DOS_OVERLAY，`handy/prosystem/stella2014/ppsspp` 的模式为 NONE，不能创建 PersistentSave，其余当前核心为 CORE_SAVE。 |
 | `persistent_save_revisions` | `id PK`、`persistent_save_id/blob_id/source_launch_session_id`、`client_sequence`、`source_event AUTO_INTERVAL/MANUAL_EXPORT/EXIT`、`created_at_ms`；`UNIQUE(source_launch_session_id, client_sequence)`，append-only，成功写新 Blob 后才切换 current。launch 必须与 PersistentSave 指向相同 Profile/VariantRevision；每个 launch 的 sequence 从 1 连续递增，重复 sequence 只能命中相同 Blob/event。首个 revision 只在 PersistentSave current 仍等于 Launch 的可空 base 时提升；后续 revision 只在 current 仍等于该 launch 上一 sequence revision 时提升，防止并发会话丢失更新。 |
 
@@ -231,6 +231,12 @@ Migration 必须建立并测试：
 
 业务服务仍需在事务前返回可理解错误，trigger 是并发和遗漏的最后防线，不能以 trigger 错误字符串作为 HTTP 契约。
 
-## 9. 统一验收入口
+## 9. Migration 024：多盘证据与运行锁定
+
+`content_kind`/`content_mode` 增加 `MULTI_DISC_M3U_V1`；Import source 与 GameContent file role 增加 `PLAYLIST_SOURCE`/`DISC`，VariantFile role 增加 `MULTI_DISC_PLAYLIST`。`import_item_multidisc_entries` 以 `(source_snapshot_id, ordinal)` 保存连续盘序、source reference、canonical name、PRESENT/MISSING 与可空 Blob；`review_multidisc_attachments` 关联 ImportItem、base/effective snapshot、Upload、Job、真实 User actor、状态、错误和诊断，并以局部唯一索引保证一个 active attachment。
+
+`launch_external_files.kind=DISC` 锁定每张盘的规范虚拟路径，`launch_sessions.initial_disc_index` 锁定普通启动或 SaveState 恢复盘号。完整多盘 revision 的依赖快照必须包含 content kind、parser/delivery 版本、盘数、ordered disc SHA-256 与 canonical playlist SHA-256；多盘 Variant validation 使用独立 V3 canonical digest，包含 Variant/Content/Artifact ID、artifact version、compatibility digest、DAT、BIOS、盘序和 playlist。SINGLE/DOS 保留 V2，不改写历史 identity。历史 prepublish evidence 回填 generation 3 并强制 stale；只有 generation 4 当前证据可发布。
+
+## 10. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

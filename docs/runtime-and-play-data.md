@@ -117,7 +117,7 @@ if (config.parentUrl !== null) window.EJS_gameParentUrl = config.parentUrl;
 if (config.stateUrl !== null) window.EJS_loadStateURL = config.stateUrl;
 ```
 
-`core` 是产品/数据库 core ID，只用于展示与审计；`runtimeCore` 是锁定 artifact compatibility V2 的 EmulatorJS core ID，只有它可以写入 `EJS_core`。`persistentSaveMode`、`inputMode`、`startupActions` 和 `externalFiles` 同样由该配置返回，Player 只做封闭 schema 校验，不按 `ppsspp`、`melonds` 或显示名推导行为。
+`core` 是产品/数据库 core ID，只用于展示与审计；`runtimeCore` 是锁定 artifact compatibility V3 的 EmulatorJS core ID，只有它可以写入 `EJS_core`。`persistentSaveMode`、`inputMode`、`startupActions`、`externalFiles` 与按内容种类派生的可空 `discSet` 同样由该配置返回，Player 只做封闭 schema 校验，不按 `ppsspp`、`melonds` 或显示名推导行为。
 
 `EJS_fullscreenOnLoaded` 必须为 `false`：全屏由 Retrom host 在用户手势中唯一管理，避免 loader 稍后重复请求。`EJS_Buttons.exitEmulation=false` 从运行时配置移除 EmulatorJS 自带退出按钮，退出只能经过 Retrom 的确认、持久存档刷新和 PlaySession 结束流程。语言固定 `zh-CN`。v4.2.3 `loader.js` 对 `EJS_disableAutoLang` 的判断是 `!== false`，因此这里必须显式设为 `false` 才会禁用 system locale 分支；不能凭变量名改成 `true`。这样只请求 manifest 中的 `zh-CN.json`。`EJS_disableDatabases=true` 在 v4.2.3 只把 ROM/BIOS/core asset cache 换成 dummy storage，`EJS_disableLocalStorage=true` 关闭设置持久化，`EJS_CacheLimit=0` 防止 ROM cache；它们并不会关闭 `/data/saves` 的 IDBFS，也不会阻止 `saveDatabaseLoaded`。Retrom 必须按第 6 节显式覆盖/清理该 IDBFS 路径，才能让服务端 PersistentSave 成为事实源；不得把开关名称误解为“所有 IndexedDB 均已禁用”。`EJS_gameID` 来自精确 GameVariantRevision 的稳定数字 surrogate，而不是 Game ID。
 
@@ -125,7 +125,7 @@ if (config.stateUrl !== null) window.EJS_loadStateURL = config.stateUrl;
 
 `runtimePathOverrides` 对每个已接受版本精确包含一个键：该版本 loader 对所选 artifact 实际请求的 basename；值是该 CoreArtifact 的固定同源 URL。这两个值只由 CoreArtifact 的已校验 `compatibility_config_json.requestedArtifactBasename`、`emulatorjs_version` 和 `relative_path` 派生。v4.2.3 的普通 artifact 例如 `{"mgba-wasm.data":"/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data"}`；`mame2003` 必须是 `{"mame2003-wasm.data":"/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data"}`；DOSBox Pure 使用 `4.3.0-pre` 的 `dosbox_pure-thread-wasm.data`。其余 loader、CSS、语言、archive helper 和 core report 都从本次 config 的 runtime base 读取，不增加浮动 URL。`defaultCoreOptions` 先放固定 `webgl2Enabled: "enabled"`，再合并适用 BIOS Requirement；DOS 不再依赖旁置 config 或 core option。任何重复 key 异值在验证阶段失败，不能靠合并顺序覆盖。
 
-Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 registry，不允许默认分支把未知 ID/版本当成 v4.2.3。机器可读 registry 固定为 `web/features/player/adapters/registry.json`，当前登记 `ejs-4.2.3-v1 → 4.2.3` 与 DOS 专用 `ejs-4.3.0-pre-v1 → 4.3.0-pre`；同目录 TypeScript 实现必须与 JSON 双向一一对应。浏览器收到未知或版本不匹配的 ID 时必须在加载 loader 前终止，不得回退 active 版本或任意旧 adapter。
+Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 registry，不允许默认分支把未知 ID/版本当成 v4.2.3。机器可读 registry 固定为 `web/features/player/adapters/registry.json`，当前登记 `ejs-4.2.3-v2 → 4.2.3` 与 DOS 专用 `ejs-4.3.0-pre-v1 → 4.3.0-pre`；同目录 TypeScript 实现必须与 JSON 双向一一对应。浏览器收到未知或版本不匹配的 ID 时必须在加载 loader 前终止，不得回退 active 版本或任意旧 adapter。
 
 Player Shell 创建同源 `about:blank` iframe，由父页面在 iframe document 中建立唯一 `#game` 容器、设置上述 globals、注册 callback，最后追加 `src=config.loaderUrl` 的 script；不使用 `srcdoc` inline script、跨源 frame 或 `document.write`。iframe 继承父页面 origin/CSP，所有内容请求会按 `/runtime/launches/<launchId>/` 路径自动携带 capability cookie。只有 config 校验与可选 PersistentSave 预读完成后才加载 loader。
 
@@ -192,7 +192,15 @@ EmulatorJS 4.2.3 会先展开 ZIP，再把归档中的第一个普通成员误�
 
 直接启动只允许 `dos_entries` 中每个路径段为 1–255 个 ASCII byte、匹配 `^[A-Za-z0-9][A-Za-z0-9 ._-]{0,254}$`、末 byte 另须匹配 `[A-Za-z0-9_-]`、不为 `.`/`..`，且最后一段后缀为 `.EXE/.COM/.BAT`（ASCII case-insensitive）的精确成员；这会排除尾随空格/点及 shell 元字符。其他合法候选仍显示，但只能进入 core 程序菜单。程序消失返回 `LAUNCH_DOS_ENTRY_MISSING`，路径不满足直接启动规则返回 `LAUNCH_DOS_ENTRY_UNSAFE`，均不猜替代项。
 
-## 9. 状态存档与持久存档
+## 9. 多盘启动、换盘与存档恢复
+
+`MULTI_DISC_M3U_V1` Launch 把 canonical playlist、全部 2–8 个 DISC Blob、连续 index、规范 `disc-NNN.chd` virtual path、CoreArtifact 和初始盘号一次锁定。`gameUrl` 只指向服务端生成的 `playlist.m3u`，`externalFiles` 包含每张盘的本 Launch 受限 URL；来源 M3U 名、原始 CHD 名和跨 Launch URL 都不可用于读取内容。Player 在加载 loader 前严格校验 `discSet`，对全部盘执行 HEAD 并显示盘数/总大小；任一盘缺失、长度无效或响应不在 capability 范围内都以 `PLAYER_DISC_SET_INVALID` 阻断，不能降级成单盘运行。
+
+EmulatorJS 4.2.3 使用 `ejs-4.2.3-v2` adapter。它在 `EJS_ready` 初始化运行时光盘设置，并要求 `getDiskCount/getCurrentDisk/setCurrentDisk` 全部存在。`EJS_onGameStart` 在同一暂停边界内先完成 PersistentSave 注入，再核对真实盘数，切到 Launch 锁定的 `initialDiscIndex` 并回读；从 SaveState 启动时，Player 预先以 64 MiB 硬上限读取 state bytes，盘号确认后才显式 `loadState`，多盘不设置 `EJS_loadStateURL`，从而避免运行时异步加载与换盘竞态。任一步失败都不恢复 main loop，也不提交 PlaySession start。
+
+盘数匹配后工具栏在“创建存档”之前显示 `光盘 N / M`。菜单按 canonical 顺序列出全部盘，当前项带选中状态；选择其他盘时游戏保持暂停，调用 `setCurrentDisk` 后必须回读一致才更新界面并宣告成功，失败则保持原盘号。当前项只关闭菜单；Escape 关闭并把焦点还给触发器。手动存档从 runtime 回读当前盘号并写入 `disc_index`；恢复要求存档锁定的 VariantRevision、CoreArtifact、盘数和盘号全部兼容，绝不改用其他盘尝试加载。
+
+## 10. 状态存档与持久存档
 
 SaveState 同时引用 Profile、Game、GameVariantRevision、CoreArtifact、可空 DatVersion、DOS entry、状态 Blob、截图 Blob、名称、累计有效时长和创建时刻。默认禁止跨 CoreArtifact 或 VariantRevision 恢复；未来若有显式迁移器，必须另建兼容结果，不能自动尝试。
 
@@ -204,7 +212,7 @@ PersistentSave 能力来自 artifact compatibility：`SINGLE_FILE` 沿用上述�
 
 浏览器中的 `/data/saves` IDBFS 不是跨账号事实源。每次 `EJS_onGameStart` 在恢复 main loop 前，都必须用本次 Launch 锁定的服务器 revision 覆盖目标路径；服务器没有保存时必须删除同路径残留，再调用 `loadSaveFiles()`。覆盖、删除或 reload 任一步失败都以 `LAUNCH_PERSISTENT_SAVE_LOAD_FAILED` 阻断，不能继续使用旧浏览器 bytes。账户切换 E2E 必须在同一 Chrome profile 中证明 B 用户既看不到 A 的 API 数据，也不会从 EJS IDBFS 复活 A 的保存。
 
-## 10. PlaySession 与有效时长
+## 11. PlaySession 与有效时长
 
 `EJS_onGameStart`（必然发生在 `saveDatabaseLoaded` handler 成功之后）立即提交 sequence 0 的 start。前端每 30 秒发送 heartbeat，包含连续 sequence 以及上一区间的 `running/visible/paused`。`paused` 读取固定适配器中的 `EJS_emulator.paused`；可见性来自 `document.visibilityState`。
 
@@ -217,7 +225,7 @@ config bootstrap 后到 `EJS_onGameStart` 前尚无 PlaySession，只受 LaunchS
 - `exit`/显式退出 finish，`pagehide` 只尽力上报；异常关闭按最后已确认 heartbeat 截断；
 - active duration 由服务端整数毫秒累计，客户端只报告状态，不直接提交总时长。
 
-## 11. Chrome、线程与代理边界
+## 12. Chrome、线程与代理边界
 
 `dosbox_pure` 使用 thread artifact。生产访问必须是 NG 提供的 HTTPS，同源页面/iframe/runtime 内容均设置：
 
@@ -230,6 +238,6 @@ X-Content-Type-Options: nosniff
 
 启动前检查 `window.isSecureContext`、`window.crossOriginIsolated` 和 `SharedArrayBuffer`。`make dev` 默认公开 origin 为可从独立开发机访问的 `http://local.sendev.cc:3000`，且不得把任何远程请求重定向到 localhost。若线程核心详情页从明文 HTTP 主机名打开，前端不发送一个注定被拒绝的 Launch，只明确报告浏览器线程能力不足；测试者可自行使用受信 HTTPS origin 或浏览器测试参数，本项目不替换请求 Host。Go/Next.js 只监听明文 HTTP，不终结 TLS。
 
-## 12. 统一验收入口
+## 13. 统一验收入口
 
-启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-005`；状态/持久存档执行 `ACC-SAVE-001`–`ACC-SAVE-003`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003`；有效时长执行 `ACC-PLAY-001`；事件映射、八 core 画面与跨源隔离分别由 `ACC-CORE-*`、`ACC-NET-001` 和运行时回归测试覆盖。
+启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-005`；状态/持久存档执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；事件映射、二十八 core 画面与跨源隔离分别由 `ACC-CORE-*`、`ACC-NET-001` 和运行时回归测试覆盖。

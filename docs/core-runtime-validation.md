@@ -51,6 +51,12 @@
 
 Arcade 的 `ldrun.zip` 分别使用三个核心自己的 DAT 验证；三者均匹配 20/20 个必需 ROM entry。ZIP 内另有 3 个不属于 `ldrun` 父集要求的成员，不构成缺失或 hash mismatch。DAT 只用于兼容与依赖判断，不参与元信息刮削。
 
+### 3.1 Saturn 多盘基线与负向能力
+
+机器清单另登记受控的 `multidisc-saturn-2`、`multidisc-saturn-3` 与 `multidisc-psx-negative-2` fixture；每个 playlist/disc 的 size、SHA-256、运行 artifact 与 adapter ID 只在 [`fixtures.json`](../data/example/fixtures.json) 维护。Saturn 双盘与三盘基线使用 `yabause`、EmulatorJS 4.2.3 和 `ejs-4.2.3-v2`：必须进入游戏画面、回报精确盘数，全部 index 往返后帧继续推进；三盘还要证明在光盘 2 创建的状态存档按“先切盘、后 load state”恢复且 PersistentSave 无回归。这些历史兼容事实不能替代当前 commit 的 `ACC-MDISC-005`–`006` 证据。
+
+PSX fixture 只作为能力负向对照，不要求执行专有内容：`pcsx_rearmed` 与 `mednafen_psx_hw` 不得投影多盘；3DO `opera` 与 PC-FX `mednafen_pcfx` 因没有受控真实兼容证据同样禁用。确定性 parser/安全测试使用生成的小型 CHD header，不把它宣称为 EmulatorJS 运行证明。
+
 ## 4. 可执行验证链路
 
 ~~~mermaid
@@ -69,9 +75,10 @@ flowchart LR
 ~~~bash
 python3 data/example/verify-fixtures.py
 node data/example/smoke-test.mjs
+node data/example/smoke-test.mjs multidisc-saturn-2 multidisc-saturn-3
 ~~~
 
-机器结果使用整数毫秒字段并写入 [`latest.json`](../data/example/results/latest.json)；人工复核写入 [`manual-review.json`](../data/example/results/manual-review.json)。28 个正式核心对应 `ACC-CORE-001`–`ACC-CORE-028`；PPSSPP 展开为 `ppsspp-cso`、`ppsspp-iso` 两个 run。截图包含游戏内容，默认只保存在本机，不提交仓库。
+机器结果使用整数毫秒字段并写入 [`latest.json`](../data/example/results/latest.json)；人工复核写入 [`manual-review.json`](../data/example/results/manual-review.json)。28 个正式核心对应 `ACC-CORE-001`–`ACC-CORE-028`；PPSSPP 展开为 `ppsspp-cso`、`ppsspp-iso` 两个 run，多盘 Saturn 对应 `ACC-MDISC-005`–`006`。截图包含游戏内容，默认只保存在本机，不提交仓库。
 
 ## 5. MAME2003 版本覆盖
 

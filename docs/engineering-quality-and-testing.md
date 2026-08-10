@@ -243,6 +243,7 @@
 | --- | --- |
 | 上传、SHA-256 与 CAS 去重 | 流式哈希、相同内容只建一个 Blob、并发写入、临时文件失败清理、原子发布、大小/哈希不一致拒绝 |
 | 目录与归档导入 | 多文件分组、单 ROM/多文件游戏、Unicode 文件名、路径穿越、绝对路径、symlink、条目/展开大小/压缩比上限 |
+| 多盘解析、导入与审核 | M3U UTF-8/BOM/LF/CRLF、basename/case-fold/重复/歧义、2–8 盘和总量、坏 CHD、递归多组/局部失败、缺盘占位、精确补传、snapshot 不可变、generation 4 证据；parser 保留 `FuzzParse` seed 且 fuzz 不得越权 I/O、panic 或无界分配 |
 | 游戏目录与默认核心 | 默认核心必须属于基础平台；Game 只能有一个非空游戏目录；导入快照不随配置变化；非法跨平台移动拒绝 |
 | 游戏维护 | 元信息/媒体 revision、重新刮削候选不自动覆盖、乐观版本冲突、文件替换不可变、失败替换回滚、软删除与引用保护 |
 | 导入任务与审核 | 状态转换、幂等重试、租约到期恢复、部分失败、取消竞争、重复发布防护、审核快照与历史不可变 |
@@ -250,6 +251,7 @@
 | Arcade DAT | 对三个核心分别解析 machine/clone/parent/BIOS、依赖闭包、循环/缺失引用、活动版本隔离，并对固定真实 DAT 运行集成校验 |
 | BIOS 安装与诊断 | 文件名/哈希匹配；哈希不符保存并警告；必需项缺失阻断；可选项缺失不阻断；不同核心状态不串用 |
 | 启动预检与 capability | 默认核心与单次覆盖、必需依赖、DOS 程序、cookie capability hash/过期/范围/一次启动绑定、复制 launchId 无 cookie 拒绝、未授权 Blob 与路径逃逸拒绝、日志脱敏 |
+| 多盘发布、Launch 与存档 | canonical playlist/ordered identity、artifact V3 digest、config discSet、playlist/Disc GET/HEAD/单 Range、跨 Launch/原名拒绝、当前盘存档与先切盘后恢复、替换失败保留旧 revision |
 | 账户初始化与认证 | 数据库 `PENDING/COMPLETED` 及 context 映射、release setup code、test bootstrap、Argon2 参数、密码 blocklist、通用登录错误、session 轮换/过期/撤销、Origin/Fetch Metadata/CSRF、限流与可信代理 |
 | 用户管理 | 邀请/重置 secret 单次显示且数据库不保存 secret/hash、角色和状态转换、ETag、本人保护、最后管理员保护、停用/删除级联撤销、离线 admin-reset 与 restore 安全栅栏 |
 | 私有数据隔离 | 所有 Profile 派生列表/详情/写入按认证主体限定；跨用户 ID、cursor、Idempotency-Key、SaveState、PersistentSave 和 Launch 探测均不泄露也不串写 |
@@ -267,17 +269,21 @@
 | 详情启动 | 默认选中游戏目录核心；用户可作单次切换；一次点击创建 launch 并自动运行；正常路径无第二个 Start 按钮 |
 | 默认全屏 | Fullscreen 请求发生在原始用户激活链；拒绝/刷新深链有恢复入口；阻断失败退出全屏并返回可修复错误 |
 | 存档快速启动 | 首页、存档页和详情存档都直接启动；使用存档绑定环境，不重新询问核心或 DOS 程序 |
+| 多盘导入与审核 | capability 隐藏/自动 mode/退回 STANDARD、递归目录预检、完整/缺盘/非法/ignored 计数、精确缺盘上传、Job resume/retry、审核刷新、管理详情和完整目录替换 |
 | DOS 启动 | 程序列表、默认项、缺失选择校验和 launch payload；不能在浏览器端猜测可执行文件 |
 | 管理侧信息架构 | “游戏入库”为父级总览；导入、任务、待审核、历史同级缩进；父/子高亮和直接路由一致 |
 | 认证与路由守卫 | 初始化、登录、邀请注册、重置、账户设置；匿名 returnTo、已登录认证页重定向、USER 后台 403、401 清除内存状态；secret fragment 立即清除且不进任何浏览器存储 |
 | 用户管理 | 1280/2560/3840 表格、筛选、Drawer/焦点、本人/最后管理员禁用态、ETag 冲突、邀请/重置一次性 secret 对话框和确认流程 |
 | 账户切换与 Player | 同一 Chrome profile 中 A 的平台图钉、DOS 偏好、查询缓存和 EJS IDBFS bytes 不得被 B 读取；无服务器保存时清除旧 IDBFS 路径 |
+| Player 换盘 | loader 前盘组/大小校验、真实 diskCount 不匹配阻断、初始盘/当前盘回读、no-op/失败保持、busy/live region、菜单键盘与焦点、光盘 2 SaveState 恢复、两个账号保存隔离 |
 | 导入与审核 | 必须选择游戏目录；上传进度、失败重试、候选切换、人工编辑、approve/discard 与历史回放 |
 | BIOS/DAT 管理 | 按平台/core 展示状态；哈希 warning 与缺失 blocking 视觉语义不同；DAT 上传、差异预览和启用确认 |
 | NG 同源部署 | 通过测试 NG 访问时页面、API、content、runtime 均为同一公开 origin；内部地址不进入 bundle；`isSecureContext` 与 `crossOriginIsolated` 为真 |
 | 4K 与桌面体验 | 1280×800 最小桌面、2560×1440 与 3840×2160 viewport 的关键页面无失控拉伸、遮挡和不可达操作；Player 保持正确比例 |
 
 4K 视觉回归不能只依赖像素快照：E2E 还应断言内容最大宽度、关键控件可见、无横向溢出、Player canvas 在视口内以及导航层级可达。截图用于评审证据，不取代语义断言。
+
+影响多盘 parser、Launch content、Player adapter 或换盘时，除受影响单元/集成/Web 测试外还必须执行 `make web-e2e`、`python3 data/example/verify-fixtures.py`、受控 Saturn 双/三盘 smoke，以及共享 adapter 变更对应的全部独立 `ACC-CORE-*`。缺少仓库外授权 ROM/BIOS 时只能把真实 smoke/acceptance 报告为未执行，不能用伪 CHD 或历史结果替代；最近确定性边界的自动化测试仍必须通过。
 
 ## 8. Bug 回归固化流程
 

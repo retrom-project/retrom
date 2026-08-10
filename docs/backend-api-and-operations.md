@@ -226,6 +226,7 @@ RETROM_DATA_DIR/
 | `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；其下按 `dat/emulatorjs/<version>` 与 `runtime/emulatorjs/<version>` 布局。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。 |
 | `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer（含 prerelease）升序；当前为 `4.2.3,4.3.0-pre`。每项必须有完整 manifest/runtime/许可 payload，DAT 只在该 manifest 声明时必需。 |
 | `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。新验证逐 core 使用版本列表中最后一个声明该 core 的 artifact，不覆盖历史 revision 锁定版本。 |
+| `RETROM_MULTI_DISC_IMPORT_ENABLED` | 严格 `true|false`，默认 `false`；控制新建多盘 Import、capability 投影和多盘内容替换。非法值启动失败，生产启用必须显式设为 `true`。 |
 | `RETROM_TRUSTED_PROXIES` | 逗号分隔 CIDR；默认空。生产必须精确列出 NG 网段，不能使用 `0.0.0.0/0` 或 `::/0`。 |
 | `RETROM_STARTUP_CHECK_TIMEOUT` | 默认 `60s`，范围 `10s..5m`；只约束配置、依赖字节、数据库/migration 与 bootstrap Job 登记等同步预检，不包含后台 `DAT_PARSE` execution。 |
 | `RETROM_LOG_LEVEL` | `debug/info/warn/error`，默认 `info`；生产禁止记录内容秘密。 |
@@ -233,6 +234,8 @@ RETROM_DATA_DIR/
 `RETROM_DATA_DIR/secrets/launch-capability.key` 没有环境变量覆盖。首次启动用系统 CSPRNG 生成 32 bytes，在同目录新建唯一 `0600` 临时文件、完整写入并 fsync；随后以 `os.Link(temp, target)` 发布目标名，利用 hard-link 的 `EEXIST` 语义保证绝不覆盖另一进程已发布的 key，再 unlink 临时文件并 fsync `secrets/` 目录。若发布时目标已存在，丢弃本次候选并重新打开目标；不能使用会覆盖目标的普通 rename。数据根必须位于支持同目录 hard link 与 fsync 的本地文件系统，否则启动失败。`secrets/` 为 `0700`；已存在目标必须经 `Lstat`/无跟随打开确认为非 symlink、owner-only regular file 且恰好 32 bytes，否则拒绝启动。两个并发首次启动因此收敛到同一 key；一期本就只允许单个后端写进程。密钥只用于 HTTP 契约定义的 HMAC domain，不输出、不进数据库/日志/diagnostic，也不 baked 进镜像。删除或轮换会使最长 24 小时内的活动 launch cookie 失效，必须作为显式维护操作；一期不提供 UI 轮换入口。
 
 上传、archive、worker 和网络边界使用 [HTTP API](./http-api-contract.md) 与 [数据模型](./data-model.md) 的安全默认值；允许部署配置调低，调高必须同步威胁评审与验收。Hasheous production base URL 固定为 `https://hasheous.org`，只通过依赖注入在测试替换，不能由不受控运行环境指向任意 host。
+
+多盘 capability 是 `RETROM_MULTI_DISC_IMPORT_ENABLED`、Platform content profile 与当前 enabled CoreArtifact compatibility 的交集，flag 不是校验旁路。关闭时新建 MULTI Import 与 MULTI 内容替换 fail closed，但不删除证据、不取消已冻结的 Import/Attachment/Job，也不阻止既有多盘 Game 的 Launch、换盘、存档和恢复；需要阻止在途审批时必须显式 cancel/discard。既有 rejected-file reconfigure 始终保持 STANDARD。flag 值不进入日志或诊断。
 
 环境变量解析使用封闭规则：上表列出的名称是服务配置；仅供仓库工具使用、可能被父进程继承的 `RETROM_ACCEPTANCE_*`、`RETROM_CHROME_*`、`RETROM_EJS_DEP_*`、`RETROM_EXAMPLE_*`、`RETROM_FIXTURE_*`、`RETROM_SMOKE_*` 由服务配置加载器明确忽略且不记录值；任何其他未知 `RETROM_*`（例如拼错的 `RETROM_DATA_DI`）都以 `CONFIG_UNKNOWN_VARIABLE` 快速失败。维护子命令只校验自身所需的已知服务变量，但使用同一 unknown/工具前缀规则。缺失配置、目录不可写或路径越界同样非零退出并给出变量名和稳定错误码，但不回显变量值、秘密或完整用户路径。应用配置中不存在 TLS 证书、私钥或 ACME 参数。
 
@@ -262,7 +265,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 12. 统一验收入口
 
-工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
+工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
 
 ## 13. 关联文档
 

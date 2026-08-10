@@ -24,7 +24,9 @@ Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256
 - 每份 DAT 的 core source 证据、物化配方、最终 size/SHA-256 和解析统计。
 - EmulatorJS 与 28 个选定 core 的许可文件路径、固定来源、size/SHA-256、二进制关联证据等级和 notice 顺序（共 29 个 component）。
 
-当前 manifest 使用 schema V4。每个 `selected_core_artifacts` 项都显式给出 `runtime_core_id`、loader 实际请求的 `requested_artifact_basename`、canvas policy、默认 option、PersistentSave mode/kind、input mode、启动动作与 report；校验器不再根据 core ID 推导这些值。`dosbox_pure`、`mednafen_psx_hw`、`ppsspp` 的 loader basename 分别为 `dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`，并与实际 THREAD_WASM 路径逐字匹配。`auxiliary_files` 当前只登记 `data/cores/ppsspp-assets.zip`，它和 28 份 core report 都必须在 runtime allowlist 中。
+当前 4.2.3 manifest 使用 schema V5，CoreArtifact compatibility 使用 schema V3。每个 `selected_core_artifacts` 项都显式给出 `runtime_core_id`、loader 实际请求的 `requested_artifact_basename`、canvas policy、默认 option、PersistentSave mode/kind、input mode、启动动作、`supported_content_kinds` 与 report；校验器不再根据 core ID 推导这些值。只有 `yabause` 同时声明 `MULTI_DISC_M3U_V1` 与 `multi_disc={max_discs:8,max_total_bytes:1073741824,delivery:EAGER_EXTERNAL_FILES}`，没有该对象、来自旧 schema 或 kind 不匹配都等价于不支持。`dosbox_pure`、`mednafen_psx_hw`、`ppsspp` 的 loader basename 分别为 `dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`，并与实际 THREAD_WASM 路径逐字匹配。`auxiliary_files` 当前只登记 `data/cores/ppsspp-assets.zip`，它和 28 份 core report 都必须在 runtime allowlist 中。
+
+4.2.3 的 Player adapter 固定为 `ejs-4.2.3-v2`，registry 不保留无法由当前 manifest 解释的 v1 fallback。dependency bootstrap 对同一 `(core_id, emulatorjs_version, sha256)` 保留 CoreArtifact ID；bundle/flavor/path/size/compatibility/enabled 等运行语义变化时原子递增 artifact version，逐字节等价的重复 bootstrap 连 `updated_at_ms` 也不改。历史 VariantRevision、SaveState 与 PersistentSave 继续绑定原 artifact ID，但未发布的 generation 3 validation 全部 stale，必须由 compatibility V3 重新验证后才能发布。
 
 仓库与本地缓存边界固定为：
 
@@ -57,7 +59,7 @@ data/auth/password-blocklists/v1/
 
 | 命令 | 确切行为 |
 | --- | --- |
-| `make data-check` | 只校验已提交的小文件：运行时 manifest schema V4、artifact compatibility V2、Player adapter registry 双向一致、DAT/许可字段与 `SHA256SUMS`，以及密码 blocklist manifest 的固定 tag/commit、URL、行数、size/SHA 和 MIT 许可。无 payload、无网络时也必须通过。 |
+| `make data-check` | 只校验已提交的小文件：4.2.3 manifest schema V5、artifact compatibility V3、多盘 kind/limits、Player adapter registry 双向一致、DAT/许可字段与 `SHA256SUMS`，以及密码 blocklist manifest 的固定 tag/commit、URL、行数、size/SHA 和 MIT 许可。无 payload、无网络时也必须通过。 |
 | `make prepare-deps` | 对 `RETROM_DEPENDENCY_VERSIONS` 中缺失/错误的 runtime、core、DAT、许可 payload 以及账户密码 blocklist/许可执行固定来源下载、确定性转换、解包与原子发布，生成 notice；默认 `4.2.3,4.3.0-pre`，最后隐式执行 `deps-check`。已有正确缓存时不访问网络。 |
 | `make deps-check` | 不联网，逐个校验运行时 allowlist、选定 core、可选 DAT、override、许可输入、确定性 notice，以及密码 blocklist 的 size/SHA/10,000 行和许可。缺少、额外发布或不匹配均失败。 |
 | `make release-input-digest` | 不联网、不写工作树，按本节算法校验并只向 stdout 输出 64 位小写 `releaseInputDigest`；镜像 target 调用同一 helper，不复制 shell 算法。 |
@@ -81,7 +83,7 @@ FBNeo 的快速物化配方不是 mock：它下载固定 commit 的公开上游 
     {
       "version": "4.2.3",
       "manifestSha256": "<sha256-of-exact-manifest-bytes>",
-      "playerAdapterId": "ejs-4.2.3-v1"
+      "playerAdapterId": "ejs-4.2.3-v2"
     },
     {
       "version": "4.3.0-pre",
@@ -133,7 +135,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 
 升级 EmulatorJS/core/DAT 必须作为独立变更：新增 manifest 版本目录，记录上游证据和 digest，重新物化与统计，并先新增/登记该精确版本的 Player adapter（即使代码与旧 adapter 相同也不能走默认分支）；再把新版本追加到 `RETROM_DEPENDENCY_VERSIONS` 并逐核心执行兼容、存档和 Arcade 依赖验收，最后切换 `RETROM_ACTIVE_EMULATORJS_VERSION`。`data-check` 必须在任何一个镜像 build 前证明 manifest/registry 对齐，两个镜像作为同一个项目版本部署。进程在 migration 后用短事务切换每个 core 的 enabled artifact；新 artifact 的内置 DAT 仍按第 4 节先解析为 READY，只有该 artifact 没有 active DAT 时才能激活，切换期间 readiness gate 阻止业务请求。旧 artifact 自己的 active DAT 和全部历史引用不变。回滚只切回旧 enabled artifact 并复用该 artifact 原有 READY active DAT，不修改历史 revision。旧版本只有在数据库已无 SaveState、PersistentSave、GameVariantRevision 或其他保护引用且有审计记录后，才可从后续镜像、adapter registry 和版本列表一并移除。不得只改版本字符串、覆盖目录、激活 PENDING DAT 或沿用旧 DAT。
 
-EmulatorJS 与各 libretro core 的许可证不同。manifest schema V4 的 `license_materialization.entries` 是唯一许可输入清单：entry 以 `component_id` 显式关联 artifact，不能依赖数组位置；EmulatorJS 的文本来自已校验 release entry，各 core 使用官方 `cores.json` 声明的 license path，并从记录的固定 commit 下载。PPSSPP auxiliary asset 归属同一个 `ppsspp` component，不另造许可 component。`binary_association_status` 必须如实区分 `EXACT_RELEASE`、运行时日志给出的 `EMBEDDED_GIT_VERSION` 和仅按官方 build timestamp 推断的 `INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP`；后两者绝不能在 notice 中统一写成“已证明可复现源码”。
+EmulatorJS 与各 libretro core 的许可证不同。manifest schema V5 的 `license_materialization.entries` 是唯一许可输入清单：entry 以 `component_id` 显式关联 artifact，不能依赖数组位置；EmulatorJS 的文本来自已校验 release entry，各 core 使用官方 `cores.json` 声明的 license path，并从记录的固定 commit 下载。PPSSPP auxiliary asset 归属同一个 `ppsspp` component，不另造许可 component。`binary_association_status` 必须如实区分 `EXACT_RELEASE`、运行时日志给出的 `EMBEDDED_GIT_VERSION` 和仅按官方 build timestamp 推断的 `INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP`；后两者绝不能在 notice 中统一写成“已证明可复现源码”。
 
 `THIRD_PARTY_NOTICES` 的生成算法固定为 `notice_format_version=1`：按 `notice_order`，为每项写 ASCII 分隔头、component ID、repository 的 `/tree/<source_commit>` URL、association status、declared license path，然后逐字节附加已校验许可文件；若源 bytes 最后不是 LF，只在分隔项之间追加一个 LF。禁止写生成时间、宿主路径或浮动 URL，因而相同 manifest/payload 必须产生相同 notice bytes。`deps-check` 重新生成到临时文件并逐字节比较；最终镜像同时保留 notice 和各原始许可文件。
 
