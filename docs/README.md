@@ -61,6 +61,9 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`design/retrom-ui-admin-import-tasks-4k.png`](./design/retrom-ui-admin-import-tasks-4k.png)：4K ImportJob 运行态与异常处置。
 - [`design/retrom-ui-admin-review-4k.png`](./design/retrom-ui-admin-review-4k.png)：4K 待审核列表及封面、文件摘要。
 - [`design/retrom-ui-admin-review-detail-4k.png`](./design/retrom-ui-admin-review-detail-4k.png)：4K 审核详情合并工作台。
+- [`design/retrom-ui-admin-review-attachment-4k.png`](./design/retrom-ui-admin-review-attachment-4k.png)：4K 缺失光盘完整集合上传 Drawer。
+- [`design/retrom-ui-admin-review-validating-4k.png`](./design/retrom-ui-admin-review-validating-4k.png)：4K 补盘上传后的服务端校验中状态。
+- [`design/retrom-ui-admin-review-ready-4k.png`](./design/retrom-ui-admin-review-ready-4k.png)：4K 多盘内容补齐并恢复发布能力的状态。
 - [`design/retrom-ui-admin-review-compare-4k.png`](./design/retrom-ui-admin-review-compare-4k.png)：4K 最新刮削结果对比窗。
 - [`design/retrom-ui-admin-review-history-4k.png`](./design/retrom-ui-admin-review-history-4k.png)：4K 不可变审核历史列表。
 - [`design/retrom-ui-admin-review-history-detail-4k.png`](./design/retrom-ui-admin-review-history-detail-4k.png)：4K 审核完成瞬间的元信息快照。
