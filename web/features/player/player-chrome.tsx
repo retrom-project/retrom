@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type KeyboardEvent as ReactKeyboardEvent } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { EmulatorSettingsPanel } from "./emulator-settings";
@@ -105,6 +105,8 @@ export function PlayerChrome({
 
   useEffect(() => {
     if (!discMenuOpen) return;
+    const items = Array.from(discMenuRef.current?.querySelectorAll<HTMLButtonElement>("[role=\"menuitemradio\"]") ?? []);
+    (items.find((item) => item.getAttribute("aria-checked") === "true") ?? items[0])?.focus();
     const close = (focusButton = false) => {
       setDiscMenuOpen(false);
       if (focusButton) discButtonRef.current?.focus();
@@ -172,6 +174,22 @@ export function PlayerChrome({
     }
   }
 
+  function moveDiscMenuFocus(event: ReactKeyboardEvent<HTMLDivElement>) {
+    if (!["ArrowDown", "ArrowRight", "ArrowUp", "ArrowLeft", "Home", "End"].includes(event.key)) return;
+    const items = Array.from(event.currentTarget.querySelectorAll<HTMLButtonElement>("[role=\"menuitemradio\"]:not(:disabled)"));
+    if (!items.length) return;
+    event.preventDefault();
+    const current = items.indexOf(document.activeElement as HTMLButtonElement);
+    const target = event.key === "Home"
+      ? 0
+      : event.key === "End"
+        ? items.length - 1
+        : event.key === "ArrowDown" || event.key === "ArrowRight"
+          ? (current + 1 + items.length) % items.length
+          : (current - 1 + items.length) % items.length;
+    items[target]?.focus();
+  }
+
   const exitDescription = exitSaveState === "saving"
     ? "正在创建退出前存档…"
     : exitSaveState === "saved"
@@ -223,7 +241,7 @@ export function PlayerChrome({
           >
             <span aria-hidden="true">◉</span>光盘 {discState.currentIndex + 1} / {discSet.count}
           </button>
-          {discMenuOpen ? <div className="player-menu player-disc-menu" role="menu" aria-label="选择光盘">
+          {discMenuOpen ? <div className="player-menu player-disc-menu" role="menu" aria-label="选择光盘" onKeyDown={moveDiscMenuFocus}>
             <strong>选择光盘</strong>
             {discSet.entries.map((entry) => <button
               key={entry.index}

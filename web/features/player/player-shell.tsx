@@ -6,8 +6,9 @@ import { newUuid, sha256 } from "@/lib/crypto";
 import { captureManualScreenshot, captureManualState, mountEmulatorJS, readDiscState, switchDisc, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
+import { restoreMultiDiscLaunch } from "./multi-disc-restore";
 import { setEmulatorPaused } from "./pause-control";
-import { injectPersistentSave, restorePersistentSave } from "./persistent-save-restore";
+import { restorePersistentSave } from "./persistent-save-restore";
 import { PlayerChrome } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
 
@@ -448,21 +449,15 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
             const manager = emulator.current?.gameManager;
             try {
               if (config.discSet) {
-                if (!manager?.toggleMainLoop) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
-                manager.toggleMainLoop(false);
+                let persistentRestore = null;
                 if (config.persistentSaveMode !== "NONE") {
-                  const savePath = manager.getSaveFilePath?.();
+                  const savePath = manager?.getSaveFilePath?.();
                   if (!mountedSaveFS || !savePath) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
-                  injectPersistentSave(manager, mountedSaveFS, savePath, persistentBytes);
+                  persistentRestore = { fileSystem: mountedSaveFS, savePath, bytes: persistentBytes };
                 }
                 setMessage(`正在切换到光盘 ${config.discSet.initialDiscIndex + 1}`);
                 if (!emulator.current) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
-                const selected = switchDisc(emulator.current, config.discSet.initialDiscIndex, config.discSet.count);
-                if (stateBytes) {
-                  if (!manager.loadState) throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");
-                  manager.loadState(stateBytes);
-                }
-                manager.toggleMainLoop(true);
+                const selected = restoreMultiDiscLaunch(emulator.current, config.discSet, persistentRestore, stateBytes);
                 setDiscState(selected);
               } else if (config.persistentSaveMode !== "NONE") {
                 const savePath = manager?.getSaveFilePath?.();
