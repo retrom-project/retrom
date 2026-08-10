@@ -10,7 +10,12 @@ import { fileURLToPath } from "node:url";
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 const REPO_ROOT = path.resolve(SCRIPT_DIR, "../..");
 const MANIFEST_PATH = path.join(SCRIPT_DIR, "fixtures.json");
-const RESULTS_DIR = path.join(SCRIPT_DIR, "results");
+export function resolveResultsDirectory(environment = process.env) {
+  const configured = environment.RETROM_EXAMPLE_RESULTS_DIR?.trim();
+  return configured ? path.resolve(REPO_ROOT, configured) : path.join(SCRIPT_DIR, "results");
+}
+
+const RESULTS_DIR = resolveResultsDirectory();
 const PORT = Number.parseInt(process.env.RETROM_EXAMPLE_PORT || "4173", 10);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
 
