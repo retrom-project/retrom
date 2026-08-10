@@ -521,8 +521,10 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   async function revalidate() {
     await run("重新运行检查", async () => {
       if (!await enqueueSave(draftKey, draftPayload, true)) throw new Error("无法保存当前审核内容");
-      setNotice("运行检查已更新，正在读取最新结论…");
-      router.refresh();
+      validationRefreshRequestedRef.current = true;
+      const updated = await refreshReview();
+      const ready = updated.canApprove ?? (updated.validation?.current === true && updated.validation.status === "READY");
+      setNotice(ready ? "运行检查已通过，可以发布。" : "运行检查已更新，请按最新提示继续处理。");
     });
   }
 

@@ -329,7 +329,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | 路径 | 授权与缓存 |
 | --- | --- |
 | `/runtime/emulatorjs/{configuredVersion}/...` | 固定公开运行时；当前配置 `4.2.3,4.3.0-pre`，后者只含 DOS 定向覆盖。版本参数接受规范 SemVer prerelease，且必须在后端启动时已验证的依赖列表内；路径必须命中该版本 manifest allowlist。允许 EmulatorJS 自身附加且仅附加一次的 `v` cache-buster 查询参数，该参数不参与文件选择；其他查询键仍拒绝。`public, max-age=31536000, immutable`，强 ETag。CSP 禁止 CDN fallback。 |
-| `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。内容 revision URL 不变更 bytes，`public, max-age=31536000, immutable`。 |
+| `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。内容 revision URL 不变更 bytes，`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
 | `/content/save-states/{saveStateId}/screenshot` | 只用于未删除、且所属游戏仍已发布的手动存档截图；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。响应固定为 `private, no-store`，存档删除或游戏下架后立即不可读取。 |
 | `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、最终 ReviewEvent 保留的候选媒体或人工上传审核媒体预览；响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器。 |
 | `/runtime/launches/{launchId}/config` | 需要 launch cookie，返回逻辑 URL 和非秘密配置；`private, no-store`、`Vary: Cookie`。 |

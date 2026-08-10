@@ -19,12 +19,35 @@ test("user and admin navigation remain usable without page overflow", async ({ p
   expect(overflow).toBe(false);
 });
 
+test("account menu closes after clicking elsewhere on the page", async ({ page }) => {
+  await page.goto("/");
+  const accountMenu = page.locator(".account-menu");
+
+  await accountMenu.locator("summary").click();
+  await expect(accountMenu).toHaveAttribute("open", "");
+
+  await page.getByRole("heading", { name: "今天想玩什么？" }).click();
+  await expect(accountMenu).not.toHaveAttribute("open", "");
+});
+
 test("library exposes its filters and empty state", async ({ page }) => {
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库", exact: true })).toBeVisible();
   await expect(page.getByRole("searchbox", { name: "搜索游戏" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "游戏集合" })).toBeVisible();
   await expect(page.getByRole("combobox", { name: "排列顺序" })).toBeVisible();
+});
+
+test("protected cover images bypass the unauthenticated Next.js optimizer", async ({ page }) => {
+  const response = await page.request.get("/api/v1/games?limit=100");
+  const payload = await response.json() as { items: Array<{ title: string; coverUrl: string | null }> };
+  const coveredGame = payload.items.find((game) => game.coverUrl);
+  test.skip(!coveredGame, "The current fixture has no published cover image.");
+
+  await page.goto("/library");
+  const cover = page.getByRole("img", { name: `${coveredGame!.title} 封面` }).first();
+  await expect(cover).toHaveAttribute("src", coveredGame!.coverUrl!);
+  await expect.poll(() => cover.evaluate((image: HTMLImageElement) => image.naturalWidth)).toBeGreaterThan(0);
 });
 
 test("HTML CSP uses a fresh nonce and only development enables unsafe-eval", async ({ page }) => {

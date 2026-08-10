@@ -10,7 +10,7 @@ import { formatLibraryPlayedAt, type GameSummary } from "./game-library";
 export type { GameSummary } from "./game-library";
 
 function GamePoster({ game }: { game: GameSummary }) {
-  if (game.coverUrl) return <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="(min-width: 2600px) 280px, 270px" />;
+  if (game.coverUrl) return <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="(min-width: 2600px) 280px, 270px" unoptimized />;
   return <span className="library-poster" role="img" aria-label={`${game.title} 暂无封面`}><small>RETROM CLASSICS</small><strong>{game.title}</strong><span>{game.defaultCore.name}</span></span>;
 }
 
