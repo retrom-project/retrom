@@ -7,12 +7,17 @@ import {
   expandFixtureRuns,
   expandMultiDiscFixtures,
   resolveChromeBinary,
+  resolveResultPath,
   resolveResultsDirectory
 } from "./smoke-test.mjs";
 
 test("smoke results can be isolated from the tracked historical baseline", () => {
   const isolated = path.join(os.tmpdir(), "retrom-smoke-results");
   assert.equal(resolveResultsDirectory({ RETROM_EXAMPLE_RESULTS_DIR: isolated }), isolated);
+  assert.equal(
+    resolveResultPath("mgba.png", { RETROM_EXAMPLE_RESULTS_DIR: isolated }),
+    path.join(isolated, "mgba.png")
+  );
   assert.equal(
     resolveResultsDirectory({ RETROM_EXAMPLE_RESULTS_DIR: "  " }),
     path.join(path.dirname(new URL(import.meta.url).pathname), "results")
