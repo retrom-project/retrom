@@ -65,6 +65,39 @@ describe("PlayerChrome", () => {
     expect(values.onSelectDisc).toHaveBeenCalledWith(1);
   });
 
+  it("supports arrow, Home, End, and Escape keyboard navigation in the disc menu", async () => {
+    const user = userEvent.setup();
+    const values = props({
+      paused: true,
+      discSet: {
+        contentKind: "MULTI_DISC_M3U_V1", count: 3, initialDiscIndex: 1,
+        entries: [
+          { index: 0, label: "光盘 1", virtualPath: "/disc-001.chd" },
+          { index: 1, label: "光盘 2", virtualPath: "/disc-002.chd" },
+          { index: 2, label: "光盘 3", virtualPath: "/disc-003.chd" },
+        ]
+      },
+      discState: { count: 3, currentIndex: 1 },
+    });
+    render(<PlayerChrome {...values} />);
+
+    const trigger = screen.getByRole("button", { name: "光盘 2 / 3" });
+    await user.click(trigger);
+    const first = screen.getByRole("menuitemradio", { name: "光盘 1" });
+    const current = screen.getByRole("menuitemradio", { name: "光盘 2 · 当前" });
+    const last = screen.getByRole("menuitemradio", { name: "光盘 3" });
+    expect(current).toHaveFocus();
+    await user.keyboard("{End}");
+    expect(last).toHaveFocus();
+    await user.keyboard("{ArrowUp}");
+    expect(current).toHaveFocus();
+    await user.keyboard("{Home}");
+    expect(first).toHaveFocus();
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveFocus();
+    expect(screen.queryByRole("menu", { name: "选择光盘" })).not.toBeInTheDocument();
+  });
+
   it("renders compact game context and routes secondary controls through the more menu", async () => {
     const user = userEvent.setup();
     const values = props();
