@@ -587,16 +587,23 @@ def execute_case(case_id: str) -> int:
             smoke_command = f"node data/example/smoke-test.mjs {run_id}"
             command = f"{product_command} && {verify} && {smoke_command}"
             timeout = 600 if case_id == "ACC-MDISC-005" else 900
+            smoke_output = case_dir / "smoke-output"
             with log_path.open("a", encoding="utf-8") as log:
                 log.write("\n[real EmulatorJS multi-disc smoke]\n")
-            return_code, timed_out = run_command(smoke_command, timeout, log_path, append=True)
+            return_code, timed_out = run_command(
+                smoke_command,
+                timeout,
+                log_path,
+                {"RETROM_EXAMPLE_RESULTS_DIR": str(smoke_output)},
+                append=True,
+            )
             smoke_passed = return_code == 0 and not timed_out
             status = "BLOCKED" if smoke_passed else "FAIL"
             reason = "多盘机器断言通过；必须复核本次截图后才能通过" if smoke_passed else "多盘 Saturn smoke 失败"
-            source = ROOT / "data" / "example" / "results" / f"{run_id}.png"
+            source = smoke_output / f"{run_id}.png"
             if source.is_file():
                 shutil.copy2(source, case_dir / "screenshots" / f"{run_id}.png")
-            latest = ROOT / "data" / "example" / "results" / "latest.json"
+            latest = smoke_output / "latest.json"
             if latest.is_file():
                 shutil.copy2(latest, case_dir / "runtime-result.json")
     elif case_id in CORE_CASES:
@@ -609,16 +616,22 @@ def execute_case(case_id: str) -> int:
             )
         else:
             command = f"node data/example/smoke-test.mjs {core}"
-            return_code, timed_out = run_command(command, CORE_TIMEOUTS.get(core, 180), log_path)
+            smoke_output = case_dir / "smoke-output"
+            return_code, timed_out = run_command(
+                command,
+                CORE_TIMEOUTS.get(core, 180),
+                log_path,
+                {"RETROM_EXAMPLE_RESULTS_DIR": str(smoke_output)},
+            )
             smoke_passed = return_code == 0 and not timed_out
             status = "BLOCKED" if smoke_passed else "FAIL"
             reason = "单核心机器断言通过；必须对本次截图执行视觉复核后才能通过" if smoke_passed else "单核心 smoke 失败"
             run_ids = ["ppsspp-cso", "ppsspp-iso"] if core == "ppsspp" else [core]
             for run_id in run_ids:
-                source = ROOT / "data" / "example" / "results" / f"{run_id}.png"
+                source = smoke_output / f"{run_id}.png"
                 if source.is_file():
                     shutil.copy2(source, case_dir / "screenshots" / f"{run_id}.png")
-            latest = ROOT / "data" / "example" / "results" / "latest.json"
+            latest = smoke_output / "latest.json"
             if latest.is_file():
                 shutil.copy2(latest, case_dir / "core-result.json")
     elif case_id == "ACC-QA-003":
