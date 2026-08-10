@@ -33,6 +33,7 @@ describe("EmulatorJS adapter", () => {
   afterEach(() => {
     document.querySelectorAll("script[data-retrom-loader]").forEach((node) => node.remove());
     window.EJS_emulator = undefined;
+    Reflect.deleteProperty(window, "EJS_GameManager");
   });
 
   it("rejects an unregistered runtime without mutating the document", () => {
@@ -96,6 +97,34 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_externalFiles).toEqual(biosConfig.externalFiles);
     cleanup();
     expect(() => mountEmulatorJS({ ...biosConfig, externalFiles: { "/../bios7.bin": biosConfig.externalFiles["/retroarch/userdata/system/bios7.bin"] } }, target)).toThrow("PLAYER_EXTERNAL_FILES_INVALID");
+  });
+
+  it("normalizes 4.2.3 external ArrayBuffer writes before the runtime starts", () => {
+    const target = document.createElement("div");
+    const multiDiscConfig: PlayerConfig = {
+      ...config,
+      externalFiles: {
+        "/disc-001.chd": `/runtime/launches/${config.launchId}/external-files/disc-001.chd`
+      }
+    };
+    const cleanup = mountEmulatorJS(multiDiscConfig, target);
+    const writes: Array<{ path: string; data: unknown }> = [];
+    class GameManager {
+      writeFile(path: string, data: unknown) {
+        writes.push({ path, data });
+      }
+    }
+    window.EJS_GameManager = GameManager;
+    const manager = new GameManager();
+    const arrayBuffer = Uint8Array.from([1, 2, 3]).buffer;
+    const typedBytes = Uint8Array.from([4, 5]);
+    manager.writeFile("/disc-001.chd", arrayBuffer);
+    manager.writeFile("/already-typed.bin", typedBytes);
+    expect(writes[0]).toEqual({ path: "/disc-001.chd", data: Uint8Array.from([1, 2, 3]) });
+    expect(writes[0].data).toBeInstanceOf(Uint8Array);
+    expect(writes[1]).toEqual({ path: "/already-typed.bin", data: typedBytes });
+    expect(writes[1].data).toBe(typedBytes);
+    cleanup();
   });
 
   it("initializes the EmulatorJS settings object before exposing a validated disc runtime", () => {

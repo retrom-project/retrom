@@ -600,9 +600,12 @@ def execute_case(case_id: str) -> int:
             smoke_passed = return_code == 0 and not timed_out
             status = "BLOCKED" if smoke_passed else "FAIL"
             reason = "多盘机器断言通过；必须复核本次截图后才能通过" if smoke_passed else "多盘 Saturn smoke 失败"
-            source = smoke_output / f"{run_id}.png"
-            if source.is_file():
-                shutil.copy2(source, case_dir / "screenshots" / f"{run_id}.png")
+            initial_source = smoke_output / f"{run_id}-initial.png"
+            post_switch_source = smoke_output / f"{run_id}.png"
+            if initial_source.is_file():
+                shutil.copy2(initial_source, case_dir / "screenshots" / f"{run_id}.png")
+            if post_switch_source.is_file():
+                shutil.copy2(post_switch_source, case_dir / "screenshots" / f"{run_id}-post-switch.png")
             latest = smoke_output / "latest.json"
             if latest.is_file():
                 shutil.copy2(latest, case_dir / "runtime-result.json")
@@ -754,8 +757,9 @@ def review_multidisc(case_id: str, decision: str, observed: str) -> int:
     case_dir = run_dir / "cases" / case_id.lower()
     result_path = case_dir / "result.json"
     screenshot = case_dir / "screenshots" / f"{run_id}.png"
+    post_switch_screenshot = case_dir / "screenshots" / f"{run_id}-post-switch.png"
     machine_result = case_dir / "runtime-result.json"
-    if not result_path.is_file() or not screenshot.is_file() or not machine_result.is_file():
+    if not result_path.is_file() or not screenshot.is_file() or not post_switch_screenshot.is_file() or not machine_result.is_file():
         raise RuntimeError("MULTIDISC_REVIEW_EVIDENCE_MISSING：先运行对应 ACC-MDISC Case")
     result = json.loads(result_path.read_text(encoding="utf-8"))
     if result.get("status") != "BLOCKED" or result.get("exitCode") != 0 or result.get("timedOut"):
@@ -771,14 +775,17 @@ def review_multidisc(case_id: str, decision: str, observed: str) -> int:
     result["durationMs"] = reviewed_at - result["startedAtMs"]
     result["assertions"] = [
         {"name": "machine-multidisc-contract", "passed": True, "details": "盘数、换盘回读、帧推进、artifact 与隔离断言通过"},
-        {"name": "current-screenshot-visual-review", "passed": passed, "details": observed.strip()},
+        {"name": "game-and-post-switch-screenshot-visual-review", "passed": passed, "details": observed.strip()},
     ]
     result["visualReview"] = {
         "reviewedAtMs": reviewed_at,
         "decision": decision,
         "expected": expectation,
         "observed": observed.strip(),
-        "screenshots": [{"runId": run_id, "sha256": sha256_file(screenshot), "path": relative(screenshot, run_dir)}],
+        "screenshots": [
+            {"runId": run_id, "phase": "game-before-switch", "sha256": sha256_file(screenshot), "path": relative(screenshot, run_dir)},
+            {"runId": run_id, "phase": "post-switch", "sha256": sha256_file(post_switch_screenshot), "path": relative(post_switch_screenshot, run_dir)},
+        ],
     }
     result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"{case_id}: {result['status']} (visual review recorded)")

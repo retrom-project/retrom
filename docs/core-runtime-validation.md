@@ -53,7 +53,7 @@ Arcade 的 `ldrun.zip` 分别使用三个核心自己的 DAT 验证；三者均�
 
 ### 3.1 Saturn 多盘基线与负向能力
 
-机器清单另登记受控的 `multidisc-saturn-2`、`multidisc-saturn-3` 与 `multidisc-psx-negative-2` fixture；每个 playlist/disc 的 size、SHA-256、运行 artifact 与 adapter ID 只在 [`fixtures.json`](../data/example/fixtures.json) 维护。Saturn 双盘与三盘基线使用 `yabause`、EmulatorJS 4.2.3 和 `ejs-4.2.3-v2`：必须进入游戏画面、回报精确盘数，全部 index 往返后帧继续推进；三盘还要证明在光盘 2 创建的状态存档按“先切盘、后 load state”恢复且 PersistentSave 无回归。这些历史兼容事实不能替代当前 commit 的 `ACC-MDISC-005`–`006` 证据。
+机器清单另登记受控的 `multidisc-saturn-2`、`multidisc-saturn-3` 与 `multidisc-psx-negative-2` fixture；每个 playlist/disc 的 size、SHA-256、运行 artifact 与 adapter ID 只在 [`fixtures.json`](../data/example/fixtures.json) 维护。Saturn 双盘与三盘基线使用 `yabause`、EmulatorJS 4.2.3 和 `ejs-4.2.3-v2`：必须进入游戏画面、证明 MEMFS 中每张 CHD 均为非零完整下载、回报精确盘数，全部 index 往返后帧继续推进；三盘还要证明在光盘 2 创建的状态存档按“先切盘、后 load state”恢复且 PersistentSave 无回归。机器结果分别保存换盘前的可辨识游戏画面和换盘后当前画面；最终帧恰处内容黑场时仍须保留该截图，并由逐次盘号回读与帧增量判定换盘，不得把黑场当作游戏启动证据。这些历史兼容事实不能替代当前 commit 的 `ACC-MDISC-005`–`006` 证据。
 
 PSX fixture 只作为能力负向对照，不要求执行专有内容：`pcsx_rearmed` 与 `mednafen_psx_hw` 不得投影多盘；3DO `opera` 与 PC-FX `mednafen_pcfx` 因没有受控真实兼容证据同样禁用。确定性 parser/安全测试使用生成的小型 CHD header，不把它宣称为 EmulatorJS 运行证明。
 

@@ -393,7 +393,7 @@ async function waitForPage(cdp, sessionId, timeoutMs) {
       if (lastState?.bodyText?.includes("Failed to start game")) {
         throw new Error("EmulatorJS displayed 'Failed to start game'");
       }
-      if (lastState?.smoke?.phase === "frames-advancing") return lastState;
+      if (["awaiting-disc-validation", "frames-advancing"].includes(lastState?.smoke?.phase)) return lastState;
     } catch (error) {
       if (
         String(error.message).startsWith("Example reported an error:")
@@ -412,6 +412,8 @@ async function runFixture(cdp, fixture) {
   const runId = fixture.runId || fixture.core;
   const screenshotPath = path.join(RESULTS_DIR, `${runId}.png`);
   const screenshotRelative = path.relative(REPO_ROOT, screenshotPath).split(path.sep).join("/");
+  const initialScreenshotPath = path.join(RESULTS_DIR, `${runId}-initial.png`);
+  const initialScreenshotRelative = path.relative(REPO_ROOT, initialScreenshotPath).split(path.sep).join("/");
   const pageUrl = `${BASE_URL}/${fixture.examplePath}${fixture.exampleQuery || ""}`;
   const coreRequests = [];
   const externalFileRequests = [];
@@ -426,6 +428,8 @@ async function runFixture(cdp, fixture) {
   let sessionId;
   let state;
   let visual;
+  let initialVisual;
+  let postSwitchVisual;
   let failure;
 
   try {
@@ -517,13 +521,30 @@ async function runFixture(cdp, fixture) {
         throw new Error(`Expected external file was not loaded: ${expectedURL}`);
       }
     }
+    if (Array.isArray(fixture.discs)) {
+      const expectedDiscSizes = [...fixture.discs]
+        .sort((left, right) => left.index - right.index)
+        .map(disc => disc.size);
+      const mountedDiscSizes = state.smoke.externalFileSizes;
+      if (JSON.stringify(mountedDiscSizes) !== JSON.stringify(expectedDiscSizes)) {
+        throw new Error(`Mounted external file sizes did not match the fixture: expected=${expectedDiscSizes.join(",")} observed=${(mountedDiscSizes || []).join(",")}`);
+      }
+      await sleep(fixture.settleMs);
+      initialVisual = await takeScreenshot(cdp, sessionId, initialScreenshotPath, 4);
+      if (!visualLooksRendered(initialVisual)) {
+        throw new Error(`Canvas did not contain a non-uniform game image before disc switching: ${JSON.stringify(initialVisual)}`);
+      }
+      await evaluate(cdp, sessionId, "window.__RETROM_VALIDATE_DISCS__()", { userGesture: true });
+      state = await waitForPage(cdp, sessionId, fixture.timeoutMs);
+    }
     await sleep(fixture.settleMs);
     state = await evaluate(cdp, sessionId, `(() => ({
       smoke: JSON.parse(JSON.stringify(window.__RETROM_SMOKE__)),
       crossOriginIsolated: window.crossOriginIsolated
     }))()`);
     visual = await takeScreenshot(cdp, sessionId, screenshotPath, 4);
-    if (!visualLooksRendered(visual)) {
+    if (Array.isArray(fixture.discs)) postSwitchVisual = visual;
+    if (!Array.isArray(fixture.discs) && !visualLooksRendered(visual)) {
       throw new Error(`Canvas did not contain a non-uniform game image: ${JSON.stringify(visual)}`);
     }
   } catch (error) {
@@ -557,10 +578,14 @@ async function runFixture(cdp, fixture) {
     finishedAtMs,
     durationMs: finishedAtMs - startedAtMs,
     pageUrl,
-    screenshotPath: visual ? screenshotRelative : null,
+    initialScreenshotPath: initialVisual ? initialScreenshotRelative : null,
+    screenshotPath: initialVisual ? initialScreenshotRelative : visual ? screenshotRelative : null,
+    postSwitchScreenshotPath: postSwitchVisual ? screenshotRelative : null,
     smoke: state?.smoke || null,
     crossOriginIsolated: state?.crossOriginIsolated ?? null,
-    visual: visual || null,
+    visual: initialVisual || visual || null,
+    initialVisual: initialVisual || null,
+    postSwitchVisual: postSwitchVisual || null,
     expectedCoreArtifact: fixture.coreArtifact,
     requestedCoreAssets: [...new Map(coreRequests.map(item => [item.url, item])).values()],
     requestedExternalFiles: [...new Map(externalFileRequests.map(item => [item.url, item])).values()],

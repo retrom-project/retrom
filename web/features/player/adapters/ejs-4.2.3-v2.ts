@@ -109,6 +109,12 @@ export type AdapterCallbacks = {
   onSaveSave?: (payload: { screenshot: Blob; format: string; save: Uint8Array }) => void;
 };
 
+type EJSGameManagerConstructor = {
+  prototype?: {
+    writeFile?: (path: string, data: unknown) => unknown;
+  };
+};
+
 declare global {
   interface Window {
     EJS_player?: string;
@@ -139,6 +145,7 @@ declare global {
     EJS_onSaveState?: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => void;
     EJS_onSaveSave?: (payload: { screenshot: Blob; format: string; save: Uint8Array }) => void;
     EJS_emulator?: EmulatorInstance;
+    EJS_GameManager?: EJSGameManagerConstructor;
   }
 }
 
@@ -148,6 +155,58 @@ const supportedAdapters: Record<string, string> = {
   "4.2.3": adapterID,
   "4.3.0-pre": "ejs-4.3.0-pre-v1"
 };
+
+const normalizedExternalFileWriters = new WeakSet<(...args: never[]) => unknown>();
+
+function normalizeExternalFileWrites(constructor: EJSGameManagerConstructor | undefined) {
+  const prototype = constructor?.prototype;
+  const original = prototype?.writeFile;
+  if (!prototype || typeof original !== "function") throw new Error("PLAYER_EXTERNAL_FILES_COMPATIBILITY_UNAVAILABLE");
+  if (normalizedExternalFileWriters.has(original as (...args: never[]) => unknown)) return;
+  const normalizedWriteFile = function (this: unknown, path: string, data: unknown) {
+    const bytes = Object.prototype.toString.call(data) === "[object ArrayBuffer]"
+      ? new Uint8Array(data as ArrayBuffer)
+      : data;
+    return original.call(this, path, bytes);
+  };
+  normalizedExternalFileWriters.add(normalizedWriteFile as (...args: never[]) => unknown);
+  prototype.writeFile = normalizedWriteFile;
+}
+
+function installExternalFileCompatibility(runtimeWindow: typeof window) {
+  const previous = Object.getOwnPropertyDescriptor(runtimeWindow, "EJS_GameManager");
+  if (previous && !previous.configurable) {
+    normalizeExternalFileWrites(runtimeWindow.EJS_GameManager);
+    return () => undefined;
+  }
+
+  let current = runtimeWindow.EJS_GameManager;
+  if (current) normalizeExternalFileWrites(current);
+  Object.defineProperty(runtimeWindow, "EJS_GameManager", {
+    configurable: true,
+    enumerable: previous?.enumerable ?? true,
+    get: () => current,
+    set: (value: EJSGameManagerConstructor | undefined) => {
+      normalizeExternalFileWrites(value);
+      current = value;
+    }
+  });
+
+  return () => {
+    if (current) {
+      Object.defineProperty(runtimeWindow, "EJS_GameManager", {
+        configurable: true,
+        enumerable: previous?.enumerable ?? true,
+        writable: true,
+        value: current
+      });
+    } else if (previous) {
+      Object.defineProperty(runtimeWindow, "EJS_GameManager", previous);
+    } else {
+      Reflect.deleteProperty(runtimeWindow, "EJS_GameManager");
+    }
+  };
+}
 
 function safeVirtualPath(value: string) {
   if (!value.startsWith("/") || value.length > 512 || value.includes("\\") || value.includes("?") || value.includes("#") || value.includes("//")) return false;
@@ -364,10 +423,13 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_defaultOptions = { ...config.defaultCoreOptions };
   runtimeWindow.EJS_paths = { ...config.runtimePathOverrides };
   runtimeWindow.EJS_externalFiles = externalFiles;
+  const cleanupExternalFileCompatibility = config.emulatorjsVersion === "4.2.3" && Object.keys(externalFiles).length > 0
+    ? installExternalFileCompatibility(runtimeWindow)
+    : () => undefined;
   const script = runtimeWindow.document.createElement("script");
   script.src = config.loaderUrl;
   script.async = true;
   script.dataset.retromLoader = "true";
   runtimeWindow.document.head.append(script);
-  return () => { cleanupDeferredStart(); cleanupStartup(); script.remove(); };
+  return () => { cleanupDeferredStart(); cleanupStartup(); script.remove(); cleanupExternalFileCompatibility(); };
 }
