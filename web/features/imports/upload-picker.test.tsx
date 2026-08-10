@@ -42,21 +42,50 @@ describe("UploadPicker", () => {
       { id: "saturn", name: "Saturn 游戏", platformName: "Sega Saturn", coreName: "Yabause", importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC_M3U_V1"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } } },
     ]} />);
     const playlist = new File(["one.chd\ntwo.chd\n"], "game.m3u");
-    const firstDisc = new File(["disc"], "one.chd");
+    const firstDisc = new File(["MComprHDone"], "one.chd");
     Object.defineProperty(playlist, "webkitRelativePath", { value: "game/game.m3u" });
     Object.defineProperty(firstDisc, "webkitRelativePath", { value: "game/one.chd" });
 
     await user.upload(screen.getByLabelText("选择导入目录"), [playlist, firstDisc]);
-    expect(await screen.findByText("目录缺少 1 张光盘")).toBeVisible();
+    expect(await screen.findByText("可以继续，审核会阻断")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "下一步" }));
-    expect(screen.getByRole("radio", { name: "多盘 M3U + CHD" })).toBeChecked();
+    expect(screen.queryByRole("checkbox", { name: /多盘游戏/ })).not.toBeInTheDocument();
 
     await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "gba");
-    expect(screen.getByText(/不支持多盘导入/)).toBeVisible();
-    expect(screen.getByRole("button", { name: "继续上传并在审核补齐" })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("当前平台核心不支持多盘游戏");
+    expect(screen.getByRole("button", { name: "开始上传并验证" })).toBeEnabled();
 
     await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "saturn");
+    expect(await screen.findByRole("checkbox", { name: /多盘游戏/ })).toBeChecked();
     expect(screen.getByRole("button", { name: "继续上传并在审核补齐" })).toBeEnabled();
+
+    await user.click(screen.getByRole("checkbox", { name: /多盘游戏/ }));
+    expect(screen.getByRole("checkbox", { name: /多盘游戏/ })).not.toBeChecked();
+    expect(screen.getByRole("button", { name: "开始上传并验证" })).toBeEnabled();
+  });
+
+  it("lists recursive groups, expands the first incomplete group and counts only processable games", async () => {
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[]} />);
+    const files = [
+      new File(["a.chd\nb.chd\n"], "game.m3u"),
+      new File(["MComprHDa"], "a.chd"),
+      new File(["MComprHDb"], "b.chd"),
+      new File(["x.chd\ny.chd\n"], "game.m3u"),
+      new File(["MComprHDx"], "x.chd"),
+      new File(["one.chd\ntwo.chd\n"], "one.m3u"),
+      new File(["one.chd\ntwo.chd\n"], "two.m3u"),
+    ];
+    for (const [file, path] of files.map((file, index) => [file, ["complete/game.m3u", "complete/a.chd", "complete/b.chd", "blocked/game.m3u", "blocked/x.chd", "invalid/one.m3u", "invalid/two.m3u"][index]] as const)) {
+      Object.defineProperty(file, "webkitRelativePath", { value: path });
+    }
+    await user.upload(screen.getByLabelText("选择导入目录"), files);
+
+    expect(await screen.findByText("发现多盘游戏")).toBeVisible();
+    expect(screen.getByText("2", { selector: ".multi-disc-preflight-summary strong" })).toBeVisible();
+    expect(screen.getByRole("button", { name: /blocked.*game\.m3u.*1 \/ 2 张.*缺少光盘/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /complete.*game\.m3u.*2 \/ 2 张.*目录完整/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /invalid.*多个 M3U.*不可处理/ })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("reuses rejected server files and submits a new platform without uploading bytes", async () => {
