@@ -971,7 +971,17 @@ func (service *Service) resolveMultiDiscAttachmentValidation(
 		return nil, "", multiDiscAttachmentStoreError("resolve BIOS", err)
 	}
 	snapshot.MultiDisc = &corevalidation.MultiDiscSnapshot{
-		DiscCount: len(candidate.resultEntries), MissingEntries: []corevalidation.MultiDiscMissingEntry{},
+		ContentKind:   corevalidation.MultiDiscContentKind,
+		ParserVersion: corevalidation.MultiDiscParserVersion,
+		DiscCount:     len(candidate.resultEntries), MissingEntries: []corevalidation.MultiDiscMissingEntry{},
+		OrderedDiscSHA256:       make([]string, 0, len(candidate.resultEntries)),
+		CanonicalPlaylistSHA256: candidate.canonicalPlaylist.SHA256,
+		Delivery:                corevalidation.MultiDiscDelivery,
+	}
+	for _, entry := range candidate.resultEntries {
+		snapshot.MultiDisc.OrderedDiscSHA256 = append(
+			snapshot.MultiDisc.OrderedDiscSHA256, entry.File.BlobSHA256,
+		)
 	}
 	encoded, err := snapshot.JSON()
 	if err != nil {

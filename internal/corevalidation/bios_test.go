@@ -1,6 +1,7 @@
 package corevalidation
 
 import (
+	"database/sql"
 	"errors"
 	"testing"
 )
@@ -24,6 +25,35 @@ func TestBIOSAppliesUsesOnlyCanonicalContentSuffix(t *testing.T) {
 			t.Errorf("BIOSApplies(%q, %q) = %t", test.condition, test.name, actual)
 		}
 	}
+}
+
+func TestMultiDiscValidationInputDigestIsOrderedAndIncludesSemanticInputs(t *testing.T) {
+	t.Parallel()
+	input := MultiDiscValidationInput{
+		GameVariantID: "variant", GameContentRevisionID: "content",
+		ContentKind: MultiDiscContentKind, CoreArtifactID: "artifact", CoreArtifactVersion: 3,
+		CompatibilityConfigSHA256: strings64("a"), DATVersionID: sql.NullString{},
+		BIOSDependencySHA256:    strings64("b"),
+		OrderedDiscSHA256:       []string{strings64("c"), strings64("d")},
+		CanonicalPlaylistSHA256: strings64("e"),
+	}
+	first, err := MultiDiscValidationInputDigest(input)
+	if err != nil || len(first) != 64 {
+		t.Fatalf("MultiDiscValidationInputDigest() = %q, %v", first, err)
+	}
+	input.OrderedDiscSHA256[0], input.OrderedDiscSHA256[1] = input.OrderedDiscSHA256[1], input.OrderedDiscSHA256[0]
+	second, err := MultiDiscValidationInputDigest(input)
+	if err != nil || first == second {
+		t.Fatalf("ordered digest did not change: first=%q second=%q err=%v", first, second, err)
+	}
+}
+
+func strings64(value string) string {
+	result := ""
+	for range 64 {
+		result += value
+	}
+	return result
 }
 
 func TestMultiDiscSnapshotRoundTripsAndRejectsInvalidEvidence(t *testing.T) {

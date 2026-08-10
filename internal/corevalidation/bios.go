@@ -16,6 +16,12 @@ import (
 
 const SnapshotSchemaVersion = 1
 
+const (
+	MultiDiscContentKind   = "MULTI_DISC_M3U_V1"
+	MultiDiscParserVersion = "RETROM_MULTIDISC_M3U_V1"
+	MultiDiscDelivery      = "EAGER_EXTERNAL_FILES"
+)
+
 var ErrInvalidSnapshot = errors.New("CORE_VALIDATION_SNAPSHOT_INVALID")
 
 type Queryer interface {
@@ -49,8 +55,13 @@ type MultiDiscMissingEntry struct {
 }
 
 type MultiDiscSnapshot struct {
-	DiscCount      int                     `json:"discCount"`
-	MissingEntries []MultiDiscMissingEntry `json:"missingEntries"`
+	ContentKind             string                  `json:"contentKind,omitempty"`
+	ParserVersion           string                  `json:"parserVersion,omitempty"`
+	DiscCount               int                     `json:"discCount"`
+	MissingEntries          []MultiDiscMissingEntry `json:"missingEntries"`
+	OrderedDiscSHA256       []string                `json:"orderedDiscSha256,omitempty"`
+	CanonicalPlaylistSHA256 string                  `json:"canonicalPlaylistSha256,omitempty"`
+	Delivery                string                  `json:"delivery,omitempty"`
 }
 
 type Snapshot struct {
@@ -196,14 +207,27 @@ func validSnapshot(snapshot Snapshot) bool {
 	if snapshot.MultiDisc == nil {
 		return true
 	}
-	if snapshot.MultiDisc.DiscCount < 2 || snapshot.MultiDisc.DiscCount > 8 ||
-		snapshot.MultiDisc.MissingEntries == nil ||
-		len(snapshot.MultiDisc.MissingEntries) > snapshot.MultiDisc.DiscCount {
+	return validMultiDiscSnapshot(*snapshot.MultiDisc)
+}
+
+func validMultiDiscSnapshot(snapshot MultiDiscSnapshot) bool {
+	if snapshot.DiscCount < 2 || snapshot.DiscCount > 8 || snapshot.MissingEntries == nil ||
+		len(snapshot.MissingEntries) > snapshot.DiscCount {
 		return false
 	}
-	seen := make(map[int]struct{}, len(snapshot.MultiDisc.MissingEntries))
-	for _, entry := range snapshot.MultiDisc.MissingEntries {
-		if entry.Ordinal < 0 || entry.Ordinal >= snapshot.MultiDisc.DiscCount ||
+	if !validMultiDiscMissingEntries(snapshot) {
+		return false
+	}
+	if len(snapshot.MissingEntries) > 0 {
+		return true
+	}
+	return validCompleteMultiDiscSnapshot(snapshot)
+}
+
+func validMultiDiscMissingEntries(snapshot MultiDiscSnapshot) bool {
+	seen := make(map[int]struct{}, len(snapshot.MissingEntries))
+	for _, entry := range snapshot.MissingEntries {
+		if entry.Ordinal < 0 || entry.Ordinal >= snapshot.DiscCount ||
 			entry.SourceReference == "" || entry.NormalizedReference == "" {
 			return false
 		}
@@ -211,6 +235,20 @@ func validSnapshot(snapshot Snapshot) bool {
 			return false
 		}
 		seen[entry.Ordinal] = struct{}{}
+	}
+	return true
+}
+
+func validCompleteMultiDiscSnapshot(snapshot MultiDiscSnapshot) bool {
+	if snapshot.ContentKind != MultiDiscContentKind || snapshot.ParserVersion != MultiDiscParserVersion ||
+		snapshot.Delivery != MultiDiscDelivery || len(snapshot.OrderedDiscSHA256) != snapshot.DiscCount ||
+		!validSHA256(snapshot.CanonicalPlaylistSHA256) {
+		return false
+	}
+	for _, digest := range snapshot.OrderedDiscSHA256 {
+		if !validSHA256(digest) {
+			return false
+		}
 	}
 	return true
 }
@@ -237,6 +275,88 @@ func ValidationInputDigest(
 	}
 	digest := sha256.Sum256(input)
 	return hex.EncodeToString(digest[:]), nil
+}
+
+const MultiDiscValidationSchema = "RETROM_VARIANT_VALIDATION_INPUT_V3"
+
+type MultiDiscValidationInput struct {
+	GameVariantID             string
+	GameContentRevisionID     string
+	ContentKind               string
+	CoreArtifactID            string
+	CoreArtifactVersion       int64
+	CompatibilityConfigSHA256 string
+	DATVersionID              sql.NullString
+	BIOSDependencySHA256      string
+	OrderedDiscSHA256         []string
+	CanonicalPlaylistSHA256   string
+}
+
+func CompatibilityConfigDigest(raw string) string {
+	digest := sha256.Sum256([]byte(raw))
+	return hex.EncodeToString(digest[:])
+}
+
+func BIOSDependencyDigest(snapshot Snapshot) (string, error) {
+	encoded, err := json.Marshal(Snapshot{SchemaVersion: SnapshotSchemaVersion, BIOS: snapshot.BIOS})
+	if err != nil {
+		return "", fmt.Errorf("corevalidation/bios digest: %w", err)
+	}
+	digest := sha256.Sum256(encoded)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func MultiDiscValidationInputDigest(input MultiDiscValidationInput) (string, error) {
+	if input.GameVariantID == "" || input.GameContentRevisionID == "" || input.ContentKind == "" ||
+		input.CoreArtifactID == "" || input.CoreArtifactVersion < 1 ||
+		!validSHA256(input.CompatibilityConfigSHA256) || !validSHA256(input.BIOSDependencySHA256) ||
+		len(input.OrderedDiscSHA256) < 2 || len(input.OrderedDiscSHA256) > 8 ||
+		!validSHA256(input.CanonicalPlaylistSHA256) {
+		return "", fmt.Errorf("corevalidation/multi-disc digest: %w", ErrInvalidSnapshot)
+	}
+	ordered := make([]string, len(input.OrderedDiscSHA256))
+	for index, value := range input.OrderedDiscSHA256 {
+		if !validSHA256(value) {
+			return "", fmt.Errorf("corevalidation/multi-disc digest: %w", ErrInvalidSnapshot)
+		}
+		ordered[index] = value
+	}
+	canonical, err := json.Marshal(struct {
+		SchemaVersion             string   `json:"schemaVersion"`
+		GameVariantID             string   `json:"gameVariantId"`
+		GameContentRevisionID     string   `json:"gameContentRevisionId"`
+		ContentKind               string   `json:"contentKind"`
+		CoreArtifactID            string   `json:"coreArtifactId"`
+		CoreArtifactVersion       int64    `json:"coreArtifactVersion"`
+		CompatibilityConfigSHA256 string   `json:"compatibilityConfigSha256"`
+		DATVersionID              any      `json:"datVersionId"`
+		BIOSDependencySHA256      string   `json:"biosDependencySha256"`
+		OrderedDiscSHA256         []string `json:"orderedDiscSha256"`
+		CanonicalPlaylistSHA256   string   `json:"canonicalPlaylistSha256"`
+	}{
+		SchemaVersion: MultiDiscValidationSchema,
+		GameVariantID: input.GameVariantID, GameContentRevisionID: input.GameContentRevisionID,
+		ContentKind: input.ContentKind, CoreArtifactID: input.CoreArtifactID,
+		CoreArtifactVersion:       input.CoreArtifactVersion,
+		CompatibilityConfigSHA256: input.CompatibilityConfigSHA256,
+		DATVersionID:              nullableSQLString(input.DATVersionID),
+		BIOSDependencySHA256:      input.BIOSDependencySHA256,
+		OrderedDiscSHA256:         ordered,
+		CanonicalPlaylistSHA256:   input.CanonicalPlaylistSHA256,
+	})
+	if err != nil {
+		return "", fmt.Errorf("corevalidation/multi-disc digest input: %w", err)
+	}
+	digest := sha256.Sum256(canonical)
+	return hex.EncodeToString(digest[:]), nil
+}
+
+func validSHA256(value string) bool {
+	if len(value) != 64 || strings.ToLower(value) != value {
+		return false
+	}
+	_, err := hex.DecodeString(value)
+	return err == nil
 }
 
 func BIOSApplies(condition, contentName string) bool {

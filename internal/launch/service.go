@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
@@ -76,6 +77,7 @@ type Service struct {
 	database     *sql.DB
 	dependencies *dependencies.Set
 	credentials  *retromruntime.Credentials
+	blobs        *blobstore.Store
 	now          func() time.Time
 }
 
@@ -88,6 +90,11 @@ func New(
 	return &Service{database: database, dependencies: dependencySet, credentials: credentials, now: now}
 }
 
+func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
+	service.blobs = blobs
+	return service
+}
+
 //nolint:funlen,gocognit,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) Create(ctx context.Context, profileID string, request CreateRequest) (Created, error) {
 	if profileID == "" || request.GameID == "" || !validReturnTo(request.ReturnTo, request.GameID) {
@@ -98,10 +105,11 @@ func (service *Service) Create(ctx context.Context, profileID string, request Cr
 		coreID = *request.CoreID
 	}
 	var variantRevisionID, artifactID, selectedCore, emulatorVersion string
-	var validationInputDigest, contentRevisionID, contentLogicalName string
+	var validationInputDigest, contentRevisionID, contentLogicalName, contentKind string
 	var revisionDATID sql.NullString
 	var requiresThreads int
 	var savedDOSEntry sql.NullString
+	var savedDiscIndex sql.NullInt64
 	if request.SaveStateID != nil {
 		if request.DOSEntry != nil {
 			return Created{}, ErrBlocked
@@ -112,12 +120,20 @@ s.core_artifact_id,
 a.core_id,
 a.emulatorjs_version,
 c.requires_threads,
-s.dos_entry_path
+s.dos_entry_path,
+s.disc_index,
+r.game_content_revision_id,
+content.content_kind,
+COALESCE((SELECT file.logical_name FROM game_content_files file
+WHERE file.game_content_revision_id=r.game_content_revision_id
+AND file.role IN ('CONTENT','DISC') ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 ELSE 1 END,
+file.sort_order,file.logical_name LIMIT 1),'')
 FROM save_states s
 JOIN games g ON g.id=s.game_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN game_variant_revisions r ON r.id=s.game_variant_revision_id
 AND r.core_artifact_id=s.core_artifact_id
+JOIN game_content_revisions content ON content.id=r.game_content_revision_id
 JOIN core_artifacts a ON a.id=s.core_artifact_id
 JOIN cores c ON c.id=a.core_id
 WHERE s.id=?
@@ -128,7 +144,10 @@ AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
 `, *request.SaveStateID, request.GameID, profileID).
-			Scan(&variantRevisionID, &artifactID, &selectedCore, &emulatorVersion, &requiresThreads, &savedDOSEntry)
+			Scan(
+				&variantRevisionID, &artifactID, &selectedCore, &emulatorVersion, &requiresThreads,
+				&savedDOSEntry, &savedDiscIndex, &contentRevisionID, &contentKind, &contentLogicalName,
+			)
 		if err != nil || request.CoreID != nil && coreID != selectedCore {
 			return Created{}, ErrBlocked
 		}
@@ -142,6 +161,7 @@ c.requires_threads,
 r.validation_input_digest,
 r.game_content_revision_id,
 r.dat_version_id,
+content_revision.content_kind,
 COALESCE(content.logical_name,'')
 FROM games g
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
@@ -151,14 +171,15 @@ AND r.game_content_revision_id=g.current_content_revision_id
 JOIN core_artifacts a ON a.id=r.core_artifact_id
 AND a.enabled=1
 JOIN cores c ON c.id=a.core_id
+JOIN game_content_revisions content_revision ON content_revision.id=r.game_content_revision_id
 LEFT JOIN game_content_files content ON content.game_content_revision_id=r.game_content_revision_id
-AND content.role='CONTENT'
+AND content.role IN ('CONTENT','DISC')
 WHERE g.id=?
 AND g.status='PUBLISHED'
 AND pi.enabled=1
 AND r.status='READY'
 AND v.core_id=CASE WHEN ?='' THEN pi.default_core_id ELSE ? END
-ORDER BY content.sort_order,content.logical_name
+ORDER BY CASE content.role WHEN 'CONTENT' THEN 0 ELSE 1 END,content.sort_order,content.logical_name
 LIMIT 1
 `
 		if err := service.database.QueryRowContext(ctx, query, request.GameID, coreID, coreID).Scan(
@@ -170,6 +191,7 @@ LIMIT 1
 			&validationInputDigest,
 			&contentRevisionID,
 			&revisionDATID,
+			&contentKind,
 			&contentLogicalName,
 		); err != nil {
 			if errors.Is(err, sql.ErrNoRows) {
@@ -186,12 +208,20 @@ LIMIT 1
 		if resolveErr != nil || biosStatus != "READY" {
 			return Created{}, ErrBlocked
 		}
-		expectedDigest, digestErr := corevalidation.ValidationInputDigest(
-			artifactID,
-			contentRevisionID,
-			revisionDATID,
-			biosSnapshot,
-		)
+		expectedDigest := ""
+		var digestErr error
+		if contentKind == corevalidation.MultiDiscContentKind {
+			expectedDigest, digestErr = service.expectedMultiDiscDigest(
+				ctx, variantRevisionID, contentRevisionID, artifactID, revisionDATID, biosSnapshot,
+			)
+		} else {
+			expectedDigest, digestErr = corevalidation.ValidationInputDigest(
+				artifactID,
+				contentRevisionID,
+				revisionDATID,
+				biosSnapshot,
+			)
+		}
 		if digestErr != nil {
 			return Created{}, ErrBlocked
 		}
@@ -237,16 +267,28 @@ AND d.enabled=1
 			return Created{}, ErrDOSEntryUnsafe
 		}
 	}
-	contentBlobID, contentLogicalName, contentFormat, err := service.lockLaunchContent(
-		ctx,
-		variantRevisionID,
-		selectedCore,
-	)
+	contentPlan, err := service.buildLaunchContentPlan(ctx, variantRevisionID, selectedCore, compatibility)
 	if err != nil {
 		return Created{}, err
 	}
-	if err := service.validateLaunchLogicalNames(ctx, variantRevisionID, contentLogicalName); err != nil {
+	if contentPlan.ContentKind != contentKind {
+		return Created{}, ErrBlocked
+	}
+	if err := service.validateLaunchLogicalNames(ctx, variantRevisionID, contentPlan.LogicalName); err != nil {
 		return Created{}, err
+	}
+	initialDiscIndex := int64(0)
+	if contentKind == corevalidation.MultiDiscContentKind {
+		if request.SaveStateID != nil {
+			if !savedDiscIndex.Valid || savedDiscIndex.Int64 < 0 || savedDiscIndex.Int64 >= int64(len(contentPlan.Discs)) {
+				return Created{}, ErrBlocked
+			}
+			initialDiscIndex = savedDiscIndex.Int64
+		} else if savedDiscIndex.Valid {
+			return Created{}, ErrBlocked
+		}
+	} else if savedDiscIndex.Valid {
+		return Created{}, ErrBlocked
 	}
 	var persistentBase sql.NullString
 	if compatibility.PersistentSaveMode != "NONE" {
@@ -287,6 +329,7 @@ core_artifact_id,
 save_state_id,
 dos_entry_path,
 persistent_save_base_revision_id,
+initial_disc_index,
 return_to,
 credential_sha256,
 state,
@@ -294,6 +337,7 @@ bootstrap_expires_at_ms,
 hard_expires_at_ms,
 created_at_ms,
 updated_at_ms) VALUES(?,
+?,
 ?,
 ?,
 ?,
@@ -317,6 +361,7 @@ updated_at_ms) VALUES(?,
 		request.SaveStateID,
 		selectedDOSEntry,
 		persistentBase,
+		initialDiscIndex,
 		request.ReturnTo,
 		capabilityHash[:],
 		bootstrapExpires,
@@ -337,8 +382,16 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?)
-`, launchID.String(), contentLogicalName, contentBlobID, contentFormat, now); err != nil {
+`, launchID.String(), contentPlan.LogicalName, contentPlan.BlobID, contentPlan.Format, now); err != nil {
 		return Created{}, fmt.Errorf("lock launch content: %w", err)
+	}
+	for _, disc := range contentPlan.Discs {
+		if _, err := transaction.ExecContext(ctx, `
+INSERT INTO launch_external_files(launch_session_id,virtual_path,logical_name,blob_id,created_at_ms,kind)
+VALUES(?,?,?,?,?,'DISC')
+`, launchID.String(), disc.VirtualPath, disc.LogicalName, disc.BlobID, now); err != nil {
+			return Created{}, fmt.Errorf("lock launch disc: %w", err)
+		}
 	}
 	if err := service.lockExternalBIOS(
 		ctx, transaction, launchID.String(), variantRevisionID, now,
@@ -516,9 +569,12 @@ WHERE revision.id=?
 	if err != nil {
 		return ErrBlocked
 	}
-	seenLogicalNames := map[string]struct{}{strings.ToLower(contentLogicalName): {}}
-	seenVirtualPaths := make(map[string]struct{})
-	count := 0
+	seenLogicalNames, seenVirtualPaths, count, err := lockedExternalNames(
+		ctx, transaction, launchID, contentLogicalName,
+	)
+	if err != nil {
+		return err
+	}
 	for _, dependency := range snapshot.BIOS {
 		if dependency.DeliveryKind != "EXTERNAL_FILE" {
 			continue
@@ -545,12 +601,53 @@ INSERT INTO launch_external_files(launch_session_id,
 virtual_path,
 logical_name,
 blob_id,
-created_at_ms) VALUES(?,?,?,?,?)
+created_at_ms,
+kind) VALUES(?,?,?,?,?,'BIOS')
 `, launchID, *dependency.EmulatorPath, dependency.LogicalName, *dependency.BlobID, now); err != nil {
 			return fmt.Errorf("lock launch external BIOS: %w", err)
 		}
 	}
 	return nil
+}
+
+func lockedExternalNames(
+	ctx context.Context,
+	transaction *sql.Tx,
+	launchID, contentLogicalName string,
+) (map[string]struct{}, map[string]struct{}, int, error) {
+	seenLogicalNames := map[string]struct{}{strings.ToLower(contentLogicalName): {}}
+	seenVirtualPaths := make(map[string]struct{})
+	existingRows, err := transaction.QueryContext(ctx, `
+SELECT virtual_path,logical_name
+FROM launch_external_files
+WHERE launch_session_id=?
+ORDER BY virtual_path
+`, launchID)
+	if err != nil {
+		return nil, nil, 0, fmt.Errorf("lock launch external files: %w", err)
+	}
+	defer func() { cleanup.Error("close", existingRows.Close()) }()
+	count := 0
+	for existingRows.Next() {
+		var virtualPath, logicalName string
+		if err := existingRows.Scan(&virtualPath, &logicalName); err != nil {
+			return nil, nil, 0, fmt.Errorf("lock launch external files: %w", err)
+		}
+		logicalKey := strings.ToLower(logicalName)
+		if _, duplicate := seenLogicalNames[logicalKey]; duplicate {
+			return nil, nil, 0, ErrBlocked
+		}
+		if _, duplicate := seenVirtualPaths[virtualPath]; duplicate {
+			return nil, nil, 0, ErrBlocked
+		}
+		seenLogicalNames[logicalKey] = struct{}{}
+		seenVirtualPaths[virtualPath] = struct{}{}
+		count++
+	}
+	if err := existingRows.Err(); err != nil {
+		return nil, nil, 0, fmt.Errorf("lock launch external files: %w", err)
+	}
+	return seenLogicalNames, seenVirtualPaths, count, nil
 }
 
 func (service *Service) validateLaunchLogicalNames(
@@ -664,9 +761,23 @@ type Config struct {
 	RuntimePathOverrides map[string]string            `json:"runtimePathOverrides"`
 	DefaultCoreOptions   map[string]string            `json:"defaultCoreOptions"`
 	ExternalFiles        map[string]string            `json:"externalFiles"`
+	DiscSet              *DiscSet                     `json:"discSet"`
 	DOSEntry             any                          `json:"dosEntry"`
 	Warnings             []string                     `json:"warnings"`
 	ReturnTo             string                       `json:"returnTo"`
+}
+
+type DiscSet struct {
+	ContentKind      string      `json:"contentKind"`
+	Count            int         `json:"count"`
+	InitialDiscIndex int         `json:"initialDiscIndex"`
+	Entries          []DiscEntry `json:"entries"`
+}
+
+type DiscEntry struct {
+	Index       int    `json:"index"`
+	Label       string `json:"label"`
+	VirtualPath string `json:"virtualPath"`
 }
 
 type BundleFile struct {
@@ -681,7 +792,7 @@ func (service *Service) Config(ctx context.Context, launchID, capability string)
 	var dependencySnapshotJSON string
 	var gameTitle, platformName string
 	var logicalName, contentFormat, returnTo string
-	var bootstrapExpires, hardExpires, emulatorGameID int64
+	var bootstrapExpires, hardExpires, emulatorGameID, initialDiscIndex int64
 	var requiresThreads int
 	var saveStateID, dosEntry sql.NullString
 	var idleExpires sql.NullInt64
@@ -706,7 +817,8 @@ lc.logical_name,
 lc.format_version,
 l.return_to,
 l.save_state_id,
-l.dos_entry_path
+l.dos_entry_path,
+l.initial_disc_index
 FROM launch_sessions l
 JOIN core_artifacts a ON a.id=l.core_artifact_id
 JOIN cores c ON c.id=a.core_id
@@ -740,6 +852,7 @@ WHERE l.id=?
 			&returnTo,
 			&saveStateID,
 			&dosEntry,
+			&initialDiscIndex,
 		)
 	if err != nil || !retromruntime.MatchesCapability(capability, credentialHash) {
 		return Config{}, ErrCredential
@@ -820,18 +933,35 @@ AND state='CREATED'
 	externalFiles := make(map[string]string)
 	externalRows, externalErr := service.database.QueryContext(ctx, `
 SELECT virtual_path,
-logical_name
+logical_name,
+kind
 FROM launch_external_files
 WHERE launch_session_id=?
-ORDER BY virtual_path
+ORDER BY CASE kind WHEN 'DISC' THEN 0 ELSE 1 END,virtual_path
 `, launchID)
 	if externalErr != nil {
 		return Config{}, fmt.Errorf("launch/service: %w", externalErr)
 	}
 	defer func() { cleanup.Error("close", externalRows.Close()) }()
+	discEntries := make([]DiscEntry, 0, 8)
 	for externalRows.Next() {
-		var virtualPath, externalName string
-		if err := externalRows.Scan(&virtualPath, &externalName); err != nil || len(externalFiles) >= 16 {
+		var virtualPath, externalName, kind string
+		if err := externalRows.Scan(&virtualPath, &externalName, &kind); err != nil || len(externalFiles) >= 16 {
+			return Config{}, ErrBlocked
+		}
+		if _, duplicate := externalFiles[virtualPath]; duplicate {
+			return Config{}, ErrBlocked
+		}
+		if kind == "DISC" {
+			index := len(discEntries)
+			expectedName := fmt.Sprintf("disc-%03d.chd", index+1)
+			if externalName != expectedName || virtualPath != "/"+expectedName {
+				return Config{}, ErrBlocked
+			}
+			discEntries = append(discEntries, DiscEntry{
+				Index: index, Label: fmt.Sprintf("光盘 %d", index+1), VirtualPath: virtualPath,
+			})
+		} else if kind != "BIOS" {
 			return Config{}, ErrBlocked
 		}
 		externalFiles[virtualPath] = "/runtime/launches/" + launchID + "/external-files/" + url.PathEscape(externalName)
@@ -840,6 +970,19 @@ ORDER BY virtual_path
 		return Config{}, fmt.Errorf("launch/service: %w", err)
 	}
 	if !configureDOSLaunch(coreID, contentFormat, dosEntry, externalFiles, coreOptions) {
+		return Config{}, ErrBlocked
+	}
+	var discSet *DiscSet
+	if contentFormat == "RETROM_MULTIDISC_M3U_V1" {
+		if len(discEntries) < 2 || initialDiscIndex < 0 || initialDiscIndex >= int64(len(discEntries)) ||
+			logicalName != "playlist.m3u" {
+			return Config{}, ErrBlocked
+		}
+		discSet = &DiscSet{
+			ContentKind: corevalidation.MultiDiscContentKind, Count: len(discEntries),
+			InitialDiscIndex: int(initialDiscIndex), Entries: discEntries,
+		}
+	} else if len(discEntries) != 0 || initialDiscIndex != 0 {
 		return Config{}, ErrBlocked
 	}
 	var persistentSaveURL *string
@@ -878,6 +1021,7 @@ ORDER BY virtual_path
 		RuntimePathOverrides: overrides,
 		DefaultCoreOptions:   coreOptions,
 		ExternalFiles:        externalFiles,
+		DiscSet:              discSet,
 		DOSEntry:             nullableString(dosEntry),
 		Warnings:             warnings,
 		ReturnTo:             returnTo,

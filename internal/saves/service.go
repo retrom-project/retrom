@@ -68,13 +68,15 @@ func New(
 type ManualResult struct {
 	SaveStateID      string `json:"saveStateId"`
 	Name             string `json:"name"`
+	DiscIndex        *int   `json:"discIndex"`
 	Version          int64  `json:"version"`
 	CreatedAtMS      int64  `json:"createdAtMs"`
 	ActiveDurationMS int64  `json:"activeDurationMs"`
 }
 
 type manualMetadata struct {
-	Name string `json:"name"`
+	Name      string `json:"name"`
+	DiscIndex *int   `json:"discIndex"`
 }
 
 type launchSnapshot struct {
@@ -84,6 +86,8 @@ type launchSnapshot struct {
 	credentialHash                                                []byte
 	state                                                         string
 	hardExpiresAtMS                                               int64
+	contentFormat                                                 string
+	discCount, initialDiscIndex                                   int
 }
 
 func (service *Service) launch(ctx context.Context, launchID, capability string) (launchSnapshot, error) {
@@ -101,9 +105,15 @@ l.credential_sha256,
 l.state,
 l.hard_expires_at_ms,
 a.compatibility_config_json
+,
+content.format_version,
+(SELECT count(*) FROM launch_external_files external
+ WHERE external.launch_session_id=l.id AND external.kind='DISC'),
+l.initial_disc_index
 FROM launch_sessions l
 JOIN game_variant_revisions r ON r.id=l.game_variant_revision_id
 JOIN core_artifacts a ON a.id=l.core_artifact_id
+JOIN launch_content_files content ON content.launch_session_id=l.id
 LEFT JOIN users u ON u.profile_id=l.profile_id
 WHERE l.id=?
 `, launchID).
@@ -111,6 +121,7 @@ WHERE l.id=?
 			&result.principalID, &result.profileID, &result.gameID, &result.variantRevisionID, &result.artifactID,
 			&result.datVersionID, &result.dosEntry, &result.credentialHash, &result.state, &result.hardExpiresAtMS,
 			&compatibilityJSON,
+			&result.contentFormat, &result.discCount, &result.initialDiscIndex,
 		)
 	if err != nil || !retromruntime.MatchesCapability(capability, result.credentialHash) ||
 		result.state != "ACTIVE" || result.hardExpiresAtMS <= service.now().UnixMilli() {
@@ -128,6 +139,13 @@ WHERE l.id=?
 	result.persistentSaveMode = compatibility.PersistentSaveMode
 	if compatibility.PersistentSaveKind != nil {
 		result.persistentSaveKind = *compatibility.PersistentSaveKind
+	}
+	if result.contentFormat == "RETROM_MULTIDISC_M3U_V1" {
+		if result.discCount < 2 || result.initialDiscIndex < 0 || result.initialDiscIndex >= result.discCount {
+			return launchSnapshot{}, ErrCredential
+		}
+	} else if result.discCount != 0 || result.initialDiscIndex != 0 {
+		return launchSnapshot{}, ErrCredential
 	}
 	return result, nil
 }
@@ -266,6 +284,45 @@ func validateScreenshot(path string) (string, error) {
 // These seams permit deterministic read-failure tests without changing the CAS contract.
 var osOpen = os.Open
 
+func validManualDiscIndex(launch launchSnapshot, discIndex *int) bool {
+	if launch.contentFormat != "RETROM_MULTIDISC_M3U_V1" {
+		return discIndex == nil
+	}
+	return discIndex != nil && *discIndex >= 0 && *discIndex < launch.discCount
+}
+
+func (service *Service) replayManualSave(
+	ctx context.Context,
+	transaction *sql.Tx,
+	principalID, idempotencyKey, requestDigest string,
+) (ManualResult, bool, error) {
+	var storedDigest string
+	var storedBody []byte
+	err := transaction.QueryRowContext(ctx, `
+SELECT request_digest,
+response_body
+FROM idempotency_records
+WHERE operation_id='postRuntimeSaveState'
+AND key=?
+AND principal_id=?
+AND expires_at_ms>?
+`, idempotencyKey, principalID, service.now().UnixMilli()).Scan(&storedDigest, &storedBody)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ManualResult{}, false, nil
+	}
+	if err != nil {
+		return ManualResult{}, false, fmt.Errorf("saves/service: %w", err)
+	}
+	if subtle.ConstantTimeCompare([]byte(storedDigest), []byte(requestDigest)) != 1 {
+		return ManualResult{}, false, ErrSequenceReused
+	}
+	var previous ManualResult
+	if err := json.Unmarshal(storedBody, &previous); err != nil {
+		return ManualResult{}, false, fmt.Errorf("saves/service: %w", err)
+	}
+	return previous, true, nil
+}
+
 func validWebPDimensions(path string) bool {
 	file, err := os.Open(path) //nolint:gosec // The default implementation receives a digest-derived CAS path.
 	if err != nil {
@@ -304,8 +361,12 @@ func (service *Service) CreateManual(
 	if err != nil {
 		return ManualResult{}, false, err
 	}
+	if !validManualDiscIndex(launch, parsed.metadata.DiscIndex) {
+		return ManualResult{}, false, ErrInvalid
+	}
+	metadataDigest, _ := json.Marshal(parsed.metadata)
 	digest := sha256.Sum256(
-		[]byte(parsed.metadata.Name + "\x00" + parsed.state.SHA256 + "\x00" + parsed.screenshot.SHA256),
+		[]byte(string(metadataDigest) + "\x00" + parsed.state.SHA256 + "\x00" + parsed.screenshot.SHA256),
 	)
 	requestDigest := hex.EncodeToString(digest[:])
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -313,30 +374,10 @@ func (service *Service) CreateManual(
 		return ManualResult{}, false, fmt.Errorf("saves/service: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var storedDigest string
-	var storedBody []byte
-	lookupErr := transaction.QueryRowContext(ctx, `
-SELECT request_digest,
-response_body
-FROM idempotency_records
-WHERE operation_id='postRuntimeSaveState'
-AND key=?
-AND principal_id=?
-AND expires_at_ms>?
-`, idempotencyKey, launch.principalID, service.now().UnixMilli()).
-		Scan(&storedDigest, &storedBody)
-	if lookupErr == nil {
-		if subtle.ConstantTimeCompare([]byte(storedDigest), []byte(requestDigest)) != 1 {
-			return ManualResult{}, false, ErrSequenceReused
-		}
-		var previous ManualResult
-		if err := json.Unmarshal(storedBody, &previous); err != nil {
-			return ManualResult{}, false, fmt.Errorf("saves/service: %w", err)
-		}
-		return previous, true, nil
-	}
-	if !errors.Is(lookupErr, sql.ErrNoRows) {
-		return ManualResult{}, false, fmt.Errorf("saves/service: %w", lookupErr)
+	if previous, replayed, err := service.replayManualSave(
+		ctx, transaction, launch.principalID, idempotencyKey, requestDigest,
+	); err != nil || replayed {
+		return previous, replayed, err
 	}
 	now := service.now().UnixMilli()
 	stateID, err := blobstore.EnsureRecord(ctx, transaction, parsed.state, "application/octet-stream", now)
@@ -361,6 +402,7 @@ WHERE launch_session_id=?
 	result := ManualResult{
 		SaveStateID:      generated.String(),
 		Name:             parsed.metadata.Name,
+		DiscIndex:        parsed.metadata.DiscIndex,
 		Version:          1,
 		CreatedAtMS:      now,
 		ActiveDurationMS: activeDuration,
@@ -375,6 +417,7 @@ game_variant_revision_id,
 core_artifact_id,
 dat_version_id,
 dos_entry_path,
+disc_index,
 state_blob_id,
 screenshot_blob_id,
 source_launch_session_id,
@@ -384,6 +427,7 @@ version,
 created_at_ms,
 updated_at_ms)
 VALUES(?,
+?,
 ?,
 ?,
 ?,
@@ -408,6 +452,7 @@ VALUES(?,
 			launch.datVersionID,
 		),
 		nullable(launch.dosEntry),
+		parsed.metadata.DiscIndex,
 		stateID,
 		screenshotID,
 		launchID,

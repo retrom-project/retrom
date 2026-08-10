@@ -112,7 +112,7 @@ func New(
 	now func() time.Time,
 ) *Server {
 	scraper := metadatascrape.New(database, blobs, hasheous.New(nil, nil, now), now)
-	launcher := launch.New(database, dependencySet, credentials, now)
+	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs)
 	arcadeDAT := arcadecatalog.New(
 		database,
 		blobs,
@@ -145,10 +145,11 @@ func New(
 		firmware:      firmware.New(database, now).WithBlobStore(blobs),
 		arcadeDAT:     arcadeDAT,
 		metadata:      scraper,
-		gameContent:   gamecontent.New(database, now),
-		saveService:   saves.New(database, blobs, credentials, now),
-		now:           now,
-		sseHeartbeat:  15 * time.Second,
+		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
+			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
+		saveService:  saves.New(database, blobs, credentials, now),
+		now:          now,
+		sseHeartbeat: 15 * time.Second,
 	}
 }
 
@@ -733,6 +734,9 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 		return
 	}
 	mediaType := mime.TypeByExtension(filepath.Ext(request.PathValue("logicalName")))
+	if content.Format == "RETROM_MULTIDISC_M3U_V1" {
+		mediaType = "audio/x-mpegurl; charset=utf-8"
+	}
 	if mediaType == "" {
 		mediaType = "application/octet-stream"
 	}
@@ -1317,7 +1321,8 @@ s.game_id,
 m.title,
 s.name,
 s.created_at_ms,
-s.active_duration_ms
+s.active_duration_ms,
+s.disc_index
 FROM save_states s
 JOIN games g ON g.id=s.game_id
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
@@ -1339,7 +1344,10 @@ s.id DESC LIMIT 3
 	for saveRows.Next() {
 		var saveID, gameID, title, name string
 		var createdAtMS, activeDurationMS int64
-		if err := saveRows.Scan(&saveID, &gameID, &title, &name, &createdAtMS, &activeDurationMS); err != nil {
+		var discIndex sql.NullInt64
+		if err := saveRows.Scan(
+			&saveID, &gameID, &title, &name, &createdAtMS, &activeDurationMS, &discIndex,
+		); err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
@@ -1352,6 +1360,8 @@ s.id DESC LIMIT 3
 				"name":             name,
 				"createdAtMs":      createdAtMS,
 				"activeDurationMs": activeDurationMS,
+				"discIndex":        nullableInteger(discIndex),
+				"discLabel":        discLabel(discIndex),
 				"screenshotUrl":    saveStateScreenshotURL(saveID),
 			},
 		)
@@ -1535,19 +1545,22 @@ SELECT count(*) FROM save_states WHERE game_id=? AND profile_id=? AND deleted_at
 	}
 	var saveID string
 	var saveCreatedAtMS, saveActiveDurationMS int64
+	var saveDiscIndex sql.NullInt64
 	saveErr := server.database.QueryRowContext(ctx, `
 SELECT id,created_at_ms,active_duration_ms
+      ,disc_index
 FROM save_states
 WHERE source_launch_session_id=?
 AND profile_id=?
 AND deleted_at_ms IS NULL
 ORDER BY created_at_ms DESC,id DESC
 LIMIT 1
-`, launchID, profileID).Scan(&saveID, &saveCreatedAtMS, &saveActiveDurationMS)
+`, launchID, profileID).Scan(&saveID, &saveCreatedAtMS, &saveActiveDurationMS, &saveDiscIndex)
 	var lastSessionSave any
 	if saveErr == nil {
 		lastSessionSave = map[string]any{
 			"saveStateId": saveID, "createdAtMs": saveCreatedAtMS, "activeDurationMs": saveActiveDurationMS,
+			"discIndex": nullableInteger(saveDiscIndex), "discLabel": discLabel(saveDiscIndex),
 			"screenshotUrl": saveStateScreenshotURL(saveID),
 		}
 	} else if !errors.Is(saveErr, sql.ErrNoRows) {
@@ -1880,7 +1893,8 @@ SELECT s.id,
 s.name,
 s.created_at_ms,
 a.core_id,
-c.name
+c.name,
+s.disc_index
 FROM save_states s
 JOIN core_artifacts a ON a.id=s.core_artifact_id
 JOIN cores c ON c.id=a.core_id
@@ -1900,12 +1914,14 @@ LIMIT 8
 	for saveRows.Next() {
 		var saveID, saveName, coreID, coreName string
 		var createdAtMS int64
-		if err := saveRows.Scan(&saveID, &saveName, &createdAtMS, &coreID, &coreName); err != nil {
+		var discIndex sql.NullInt64
+		if err := saveRows.Scan(&saveID, &saveName, &createdAtMS, &coreID, &coreName, &discIndex); err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
 		saveStates = append(saveStates, map[string]any{
 			"saveStateId": saveID, "name": saveName, "createdAtMs": createdAtMS,
+			"discIndex": nullableInteger(discIndex), "discLabel": discLabel(discIndex),
 			"screenshotUrl": saveStateScreenshotURL(saveID),
 			"core":          map[string]any{"id": coreID, "name": coreName},
 		})
@@ -2220,7 +2236,8 @@ g.status,
 p.id,
 p.name,
 pi.id,
-pi.name
+pi.name,
+s.disc_index
 FROM save_states s
 JOIN games g ON g.id=s.game_id
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
@@ -2244,6 +2261,7 @@ JOIN platforms p ON p.id=pi.platform_id
 		var id, gameID, gameTitle, name, coreID, coreName, gameStatus string
 		var platformID, platformName, instanceID, instanceName string
 		var version, createdAtMS, activeDurationMS int64
+		var discIndex sql.NullInt64
 		if err := rows.Scan(
 			&id,
 			&gameID,
@@ -2259,6 +2277,7 @@ JOIN platforms p ON p.id=pi.platform_id
 			&platformName,
 			&instanceID,
 			&instanceName,
+			&discIndex,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -2266,6 +2285,7 @@ JOIN platforms p ON p.id=pi.platform_id
 		items = append(items, map[string]any{
 			"saveStateId": id, "gameId": gameID, "gameTitle": gameTitle,
 			"name": name, "version": version, "createdAtMs": createdAtMS,
+			"discIndex": nullableInteger(discIndex), "discLabel": discLabel(discIndex),
 			"activeDurationMs": activeDurationMS, "screenshotUrl": saveStateScreenshotURL(id),
 			"core": map[string]any{
 				"id":   coreID,
@@ -2806,6 +2826,13 @@ LEFT JOIN dat_diff_snapshots s ON s.dat_version_id=d.id
 func nullableInteger(value sql.NullInt64) any {
 	if value.Valid {
 		return value.Int64
+	}
+	return nil
+}
+
+func discLabel(value sql.NullInt64) any {
+	if value.Valid {
+		return fmt.Sprintf("光盘 %d", value.Int64+1)
 	}
 	return nil
 }

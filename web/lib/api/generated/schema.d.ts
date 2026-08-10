@@ -310,7 +310,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Published game detail from an enabled platform directory; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset, saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest entries. */
+        /** @description Published game detail from an enabled platform directory; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset, saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel. */
         get: operations["getGame"];
         put?: never;
         post?: never;
@@ -327,7 +327,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Save states whose games belong to enabled platform directories. Each item includes its base platform, platform directory, locked core, availability and screenshot URL; generatedAtMs gives grouped save views a stable response clock. */
+        /** @description Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock. */
         get: operations["getSaves"];
         put?: never;
         post?: never;
@@ -885,6 +885,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Schedules a complete immutable content replacement. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair. */
         post: operations["postAdminGameContentRevision"];
         delete?: never;
         options?: never;
@@ -1404,6 +1405,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description The metadata part is strict JSON `{name,discIndex}`. discIndex is required and in range for a multi-disc launch, and must be null or omitted for single-file/DOS launches. */
         post: operations["postRuntimeSaveState"];
         delete?: never;
         options?: never;
@@ -1439,6 +1441,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Streams only the Launch-locked game object. Multi-disc playlist.m3u uses audio/x-mpegurl with the common single-Range contract. */
         get: operations["getRuntimeGame"];
         put?: never;
         post?: never;
@@ -1458,6 +1461,7 @@ export interface paths {
             };
             cookie?: never;
         };
+        /** @description Streams only a Launch-locked BIOS or canonical disc-NNN.chd external file with the common single-Range contract. */
         get: operations["getRuntimeExternalFile"];
         put?: never;
         post?: never;
@@ -1601,6 +1605,18 @@ export interface components {
             control: number;
             durationMs: number;
         };
+        DiscEntry: {
+            index: number;
+            label: string;
+            virtualPath: string;
+        };
+        DiscSet: {
+            /** @enum {string} */
+            contentKind: "MULTI_DISC_M3U_V1";
+            count: number;
+            initialDiscIndex: number;
+            entries: components["schemas"]["DiscEntry"][];
+        } | null;
         LaunchConfig: {
             /** Format: uuid */
             launchId: string;
@@ -1638,6 +1654,7 @@ export interface components {
             externalFiles: {
                 [key: string]: string;
             };
+            discSet: components["schemas"]["DiscSet"];
             dosEntry: string | null;
             warnings: string[];
             returnTo: string;
@@ -1757,6 +1774,11 @@ export interface components {
         UploadReferenceRequest: {
             /** Format: uuid */
             uploadId: string;
+            /**
+             * @default STANDARD
+             * @enum {string}
+             */
+            contentMode: "STANDARD" | "MULTI_DISC_M3U_V1";
         };
         ApplyCandidateRequest: {
             fields: ("title" | "description" | "developer" | "publisher" | "genre" | "players" | "releaseYear")[];

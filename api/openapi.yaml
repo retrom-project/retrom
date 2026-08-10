@@ -179,13 +179,13 @@ paths:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     get:
       operationId: getGame
-      description: Published game detail from an enabled platform directory; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset, saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest entries.
+      description: Published game detail from an enabled platform directory; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset, saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/saves:
     get:
       operationId: getSaves
-      description: Save states whose games belong to enabled platform directories. Each item includes its base platform, platform directory, locked core, availability and screenshot URL; generatedAtMs gives grouped save views a stable response clock.
+      description: Save states whose games belong to enabled platform directories. Each owner-filtered item includes its base platform, platform directory, locked core, availability, screenshot URL and nullable discIndex/discLabel; generatedAtMs gives grouped save views a stable response clock.
       parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/GameIDQuery' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/Availability' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
@@ -460,6 +460,7 @@ paths:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     post:
       operationId: postAdminGameContentRevision
+      description: Schedules a complete immutable content replacement. contentMode defaults strictly to STANDARD; MULTI_DISC_M3U_V1 requires a complete DIRECTORY upload and never uses review attachment repair.
       parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody: { $ref: '#/components/requestBodies/UploadReference' }
       responses:
@@ -731,6 +732,7 @@ paths:
       security: []
       operationId: postRuntimeSaveState
       x-retrom-streaming-body: true
+      description: The metadata part is strict JSON `{name,discIndex}`. discIndex is required and in range for a multi-disc launch, and must be null or omitted for single-file/DOS launches.
       parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
       requestBody:
         required: true
@@ -781,6 +783,7 @@ paths:
     get:
       security: []
       operationId: getRuntimeGame
+      description: Streams only the Launch-locked game object. Multi-disc playlist.m3u uses audio/x-mpegurl with the common single-Range contract.
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
@@ -793,6 +796,7 @@ paths:
     get:
       security: []
       operationId: getRuntimeExternalFile
+      description: Streams only a Launch-locked BIOS or canonical disc-NNN.chd external file with the common single-Range contract.
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
@@ -952,6 +956,28 @@ components:
         player: { type: integer, minimum: 0, maximum: 3 }
         control: { type: integer, minimum: 0, maximum: 255 }
         durationMs: { type: integer, minimum: 1, maximum: 1000 }
+    DiscEntry:
+      type: object
+      additionalProperties: false
+      required: [index, label, virtualPath]
+      properties:
+        index: { type: integer, minimum: 0, maximum: 7 }
+        label: { type: string, minLength: 1, maxLength: 32 }
+        virtualPath: { type: string, pattern: '^/disc-[0-9]{3}\.chd$' }
+    DiscSet:
+      type: object
+      nullable: true
+      additionalProperties: false
+      required: [contentKind, count, initialDiscIndex, entries]
+      properties:
+        contentKind: { type: string, enum: [MULTI_DISC_M3U_V1] }
+        count: { type: integer, minimum: 2, maximum: 8 }
+        initialDiscIndex: { type: integer, minimum: 0, maximum: 7 }
+        entries:
+          type: array
+          minItems: 2
+          maxItems: 8
+          items: { $ref: '#/components/schemas/DiscEntry' }
     LaunchConfig:
       type: object
       additionalProperties: false
@@ -959,7 +985,7 @@ components:
         coreArtifactId, emulatorGameId, gameName, gameTitle, platformName, runtimeBaseUrl,
         loaderUrl, gameUrl, biosUrl, parentUrl, stateUrl, persistentSaveMode,
         persistentSaveUrl, inputMode, startupActions, requiresThreads, runtimePathOverrides,
-        defaultCoreOptions, externalFiles, dosEntry, warnings, returnTo]
+        defaultCoreOptions, externalFiles, discSet, dosEntry, warnings, returnTo]
       properties:
         launchId: { type: string, format: uuid }
         emulatorjsVersion: { type: string }
@@ -999,6 +1025,7 @@ components:
           maxProperties: 16
           propertyNames: { type: string, minLength: 1, maxLength: 512, pattern: '^/' }
           additionalProperties: { type: string, minLength: 1, maxLength: 1024 }
+        discSet: { $ref: '#/components/schemas/DiscSet' }
         dosEntry: { type: string, nullable: true }
         warnings: { type: array, items: { type: string } }
         returnTo: { type: string }
@@ -1142,7 +1169,9 @@ components:
       type: object
       additionalProperties: false
       required: [uploadId]
-      properties: { uploadId: { type: string, format: uuid } }
+      properties:
+        uploadId: { type: string, format: uuid }
+        contentMode: { type: string, enum: [STANDARD, MULTI_DISC_M3U_V1], default: STANDARD }
     ApplyCandidateRequest:
       type: object
       additionalProperties: false
