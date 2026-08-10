@@ -42,9 +42,21 @@ type BIOSDependency struct {
 	InstallationStatus  *string           `json:"installationStatus"`
 }
 
+type MultiDiscMissingEntry struct {
+	Ordinal             int    `json:"ordinal"`
+	SourceReference     string `json:"sourceReference"`
+	NormalizedReference string `json:"normalizedReference"`
+}
+
+type MultiDiscSnapshot struct {
+	DiscCount      int                     `json:"discCount"`
+	MissingEntries []MultiDiscMissingEntry `json:"missingEntries"`
+}
+
 type Snapshot struct {
-	SchemaVersion int              `json:"schemaVersion"`
-	BIOS          []BIOSDependency `json:"bios"`
+	SchemaVersion int                `json:"schemaVersion"`
+	BIOS          []BIOSDependency   `json:"bios"`
+	MultiDisc     *MultiDiscSnapshot `json:"multiDisc,omitempty"`
 }
 
 func Catalog(ctx context.Context, database Queryer, artifactID string) ([]BIOSCatalogEntry, error) {
@@ -157,7 +169,7 @@ ORDER BY q.logical_name,q.id
 }
 
 func (snapshot Snapshot) JSON() ([]byte, error) {
-	if snapshot.SchemaVersion != SnapshotSchemaVersion || snapshot.BIOS == nil {
+	if !validSnapshot(snapshot) {
 		return nil, ErrInvalidSnapshot
 	}
 	encoded, err := json.Marshal(snapshot)
@@ -171,11 +183,36 @@ func ParseSnapshot(raw string) (Snapshot, error) {
 	var snapshot Snapshot
 	decoder := json.NewDecoder(strings.NewReader(raw))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&snapshot); err != nil || snapshot.SchemaVersion != SnapshotSchemaVersion ||
-		snapshot.BIOS == nil {
+	if err := decoder.Decode(&snapshot); err != nil || !validSnapshot(snapshot) {
 		return Snapshot{}, ErrInvalidSnapshot
 	}
 	return snapshot, nil
+}
+
+func validSnapshot(snapshot Snapshot) bool {
+	if snapshot.SchemaVersion != SnapshotSchemaVersion || snapshot.BIOS == nil {
+		return false
+	}
+	if snapshot.MultiDisc == nil {
+		return true
+	}
+	if snapshot.MultiDisc.DiscCount < 2 || snapshot.MultiDisc.DiscCount > 8 ||
+		snapshot.MultiDisc.MissingEntries == nil ||
+		len(snapshot.MultiDisc.MissingEntries) > snapshot.MultiDisc.DiscCount {
+		return false
+	}
+	seen := make(map[int]struct{}, len(snapshot.MultiDisc.MissingEntries))
+	for _, entry := range snapshot.MultiDisc.MissingEntries {
+		if entry.Ordinal < 0 || entry.Ordinal >= snapshot.MultiDisc.DiscCount ||
+			entry.SourceReference == "" || entry.NormalizedReference == "" {
+			return false
+		}
+		if _, duplicate := seen[entry.Ordinal]; duplicate {
+			return false
+		}
+		seen[entry.Ordinal] = struct{}{}
+	}
+	return true
 }
 
 func ValidationInputDigest(

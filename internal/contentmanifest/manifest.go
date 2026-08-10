@@ -66,5 +66,6 @@ func Build(files []File) ([]byte, string, error) {
 }
 
 func validRole(value string) bool {
-	return value == "CONTENT" || value == "DOS_SOURCE" || value == "COMPANION"
+	return value == "CONTENT" || value == "DOS_SOURCE" || value == "COMPANION" ||
+		value == "PLAYLIST_SOURCE" || value == "DISC"
 }

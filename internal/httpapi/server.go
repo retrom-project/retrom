@@ -124,7 +124,9 @@ func New(
 	)
 	launcher.ResumeQueuedValidationJobs()
 	arcadeDAT.ResumeDiffJobs()
-	importer := libraryimport.New(database, now, scraper).WithBlobStore(blobs)
+	importer := libraryimport.New(database, now, scraper).
+		WithBlobStore(blobs).
+		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
 	importer.ResumeParentAttachmentJobs(context.Background())
 	return &Server{
 		config:        config,
@@ -3235,7 +3237,20 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 		return
 	}
 	created, err := server.importer.Create(request.Context(), body)
-	if err != nil {
+	switch {
+	case errors.Is(err, libraryimport.ErrMultiDiscModeUnavailable):
+		writeError(
+			writer, request, http.StatusUnprocessableEntity,
+			"MULTI_DISC_MODE_UNAVAILABLE", "目标目录不支持多盘导入", map[string]any{},
+		)
+		return
+	case errors.Is(err, libraryimport.ErrMultiDiscPlaylistMissing):
+		writeError(
+			writer, request, http.StatusUnprocessableEntity,
+			"MULTI_DISC_PLAYLIST_MISSING", "所选目录中没有 M3U 播放列表", map[string]any{},
+		)
+		return
+	case err != nil:
 		writeError(writer, request, http.StatusConflict, "IMPORT_INPUT_INVALID", "上传或目标目录不可用于导入", map[string]any{})
 		return
 	}
