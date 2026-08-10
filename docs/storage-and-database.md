@@ -396,6 +396,12 @@ retrom restore --input /backup-volume/retrom-20260806 \
 
 恢复发布前还必须在 staging 数据库执行单一安全围栏事务：全部未撤销 AuthSession 以 `RESTORE` 撤销、全部 ACTIVE AccountLink 由 SYSTEM 撤销、全部 `CREATED/ACTIVE` LaunchSession 转为 `REVOKED`，并追加 `RESTORE_SECURITY_FENCE` SYSTEM 审计。备份内 User/Profile/私有数据保持逐项一致，但旧 session cookie、邀请/重置 capability 和 launch cookie 在恢复目标上全部失效；用户只能用现有密码重新登录。围栏失败则恢复不发布目标。
 
-## 9. 统一验收入口
+## 9. 多盘存储与升级边界
+
+`024_multidisc.sql` 只支持 fresh schema 与 023 账户库顺序升级；001–019 仍在任何写入前返回 `DATABASE_REBUILD_REQUIRED`。migration rebuild 必须逐列保留 User/Profile owner、USER/SYSTEM actor 和 principal-scoped idempotency，完成后 `foreign_key_check` 为零。新表为 `import_item_multidisc_entries` 与 `review_multidisc_attachments`；既有 source/content/variant/launch/save 表按数据模型专题增加受约束 enum/列与 trigger。
+
+GC 把初始和 effective SourceSnapshot、accepted/retryable Attachment、GameContent DISC/playlist、Variant canonical playlist、Launch 锁定 DISC、SaveState 锁定 Variant 视为 Blob 引用根。缺盘 entry 没有 Blob，拒绝补传不推进 effective snapshot；未引用上传文件只受既有 Upload/Job 保留期保护，不能因 entry 占位永久保活。统一执行 `ACC-DB-001`–`002`、`ACC-CAS-001`–`002` 与 `ACC-MDISC-002`–`004`。
+
+## 10. 统一验收入口
 
 SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-BKP-001`、`ACC-AUTH-001`–`002` 与 `ACC-ISO-*`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`。本文不再维护重复通过条件。

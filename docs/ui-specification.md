@@ -385,7 +385,15 @@ BIOS 文件页默认展示当前游戏库实际所需项，并可在页面内无
 
 “创建邀请”和“生成重置链接”成功后使用阻断式一次性 secret 对话框：只显示一次完整 URL，复制按钮有明确反馈，关闭时从 React 状态和 DOM 清除。邀请列表展示角色、创建者、过期时间和已使用/已撤销状态，并支持显式撤销；管理员不查看或代填用户密码。只读 `setup-code`、离线 `admin-reset` 和 restore 安全栅栏只由主机 CLI 提供，不在 Web 后台提供绕过入口。视觉和交互基线见本章顶部的账户与用户管理设计稿。
 
-## 8. 无障碍与键盘
+## 8. 多盘界面闭环
+
+多盘不增加新的一级导航，复用“导入游戏、待审核、游戏管理、游玩页”四条现有路径。新建导入先读取平台 capability；只有服务端返回 `MULTI_DISC_M3U_V1` 时才显示“多盘游戏（M3U + CHD）”。目录树含 M3U 时可自动选择该模式，但必须允许退回 STANDARD，并在提交前显示可处理组、完整组、待补齐组、非法目录和未关联文件的真实数量。每个分组按 M3U 父目录展示 ordered disc、PRESENT/MISSING、忽略文件和稳定错误；按钮数量只计算会形成 ImportItem 的合法完整/缺盘组。平台或默认核心变化使能力消失时立即清除预检并回退 STANDARD，不保留已失效的提交状态。
+
+审核详情在来源文件上方显示只读“多盘内容”卡，按盘序列出 source basename、canonical label、大小/hash 和缺失状态。缺盘时 Approve 禁用，只允许一次选择当前全部缺失 basename；补传沿用通用 Upload/Job SSE、支持断线恢复和 retryable Job retry，终态重新获取 Review。新 snapshot 生效后原卡就地刷新，旧 snapshot 不可编辑。游戏管理详情显示当前 content kind、ordered canonical discs 与 playlist hash；替换入口必须选择完整目录并复用同一预检，失败不改变 current revision。
+
+Player 在 loader 启动前显示“正在准备多盘内容 · N 张光盘 · 总大小”，盘组校验完成后在“创建存档”前显示 `光盘 N / M`。换盘菜单按顺序列出全部盘，支持 Tab、方向键、Home/End、Enter/Space 和 Escape，当前盘有文本/图标双重状态；换盘期间使用 `aria-live=polite`，失败用 alert 并保持原盘号。存档卡和启动入口显示保存时的“光盘 N”；从存档继续不要求用户重新选盘，若锁定盘组不兼容则原位阻断。
+
+## 9. 无障碍与键盘
 
 - 所有图标按钮有可读 label；状态不能只靠颜色。
 - `Tab` 顺序与视觉顺序一致，焦点样式清晰。
@@ -397,6 +405,6 @@ BIOS 文件页默认展示当前游戏库实际所需项，并可在页面内无
 - 启动后保留 `Escape` 的浏览器全屏语义，并提供明确的退出游戏按钮。
 - 动画尊重 `prefers-reduced-motion`。
 
-## 9. 统一验收入口
+## 10. 统一验收入口
 
-UI、导航、4K、键盘、待审队列与状态呈现统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-UI-001`–`ACC-UI-009`；账户和用户管理生命周期执行 `ACC-AUTH-*` 与 `ACC-ISO-*`；游戏管理执行 `ACC-GAME-001`–`ACC-GAME-003`；一次点击启动、默认全屏、存档快速恢复与 DOS 程序选择分别由 `ACC-RUN-*` 和 `ACC-SAVE-*` 联合覆盖。本文不再复制验收清单。
+UI、导航、4K、键盘、待审队列与状态呈现统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-UI-001`–`ACC-UI-009`；多盘目录预检、缺盘补传、Player 换盘与存档盘号执行 `ACC-MDISC-001`–`ACC-MDISC-008`；账户和用户管理生命周期执行 `ACC-AUTH-*` 与 `ACC-ISO-*`；游戏管理执行 `ACC-GAME-001`–`ACC-GAME-003`；一次点击启动、默认全屏、存档快速恢复与 DOS 程序选择分别由 `ACC-RUN-*` 和 `ACC-SAVE-*` 联合覆盖。本文不再复制验收清单。

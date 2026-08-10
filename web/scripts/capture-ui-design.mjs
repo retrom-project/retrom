@@ -118,7 +118,11 @@ try {
       await frame.locator("[data-apply-detail-runtime]").click();
       await frame.locator("[data-open-detail-runtime]").click();
     }
-    if (view === "play") await page.waitForTimeout(1_400);
+    if (view === "play") {
+      await page.waitForTimeout(1_400);
+      await frame.locator("#rt-player-game").evaluate((element) => { element.textContent = "NOeL 3"; });
+      await frame.locator("#rt-player-core").evaluate((element) => { element.textContent = "Yabause · Saturn"; });
+    }
     await frame.locator("[data-lucide]").first().waitFor({ state: "attached" });
     await page.screenshot({ path: path.join(designRoot, filename) });
     await page.close();

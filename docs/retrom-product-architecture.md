@@ -139,6 +139,10 @@ SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.j
 - 账户版本以 migration 020 为边界。任何 001–019 旧数据库在执行 DDL/DML 前以 `DATABASE_REBUILD_REQUIRED` 拒绝；发布时归档旧数据根并使用全新空根，不迁移旧 `local` 数据。
 - Session、Invitation、PasswordReset 和 Launch 都是服务端可撤销能力。停用/删除账号和恢复安全围栏会同步撤销相应凭据；密码变化撤销 AuthSession，但不扩大 Launch 权限。
 
+### 3.8 多盘内容是一个不可拆分 revision
+
+Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个来源 M3U 与按其顺序引用的 2–8 个 CHD 组成。ImportItem、SourceSnapshot、GameContentRevision、GameVariantRevision、Launch 和 SaveState 都以整组盘序为边界；缺盘只形成审核依赖，不创建占位 Blob。发布后运行时仅暴露服务端规范化的 `playlist.m3u` 与 `disc-NNN.chd`，不暴露原始路径。该能力由 feature flag、Platform content profile 与当前 enabled CoreArtifact compatibility 三者取交集，首发只有 Saturn/yabause 可用；关闭新导入能力不破坏已发布多盘内容的运行和存档。
+
 ## 4. 系统上下文
 
 ~~~mermaid

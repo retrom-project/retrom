@@ -242,6 +242,12 @@ Content-Type: application/json
 | 422 | `REVIEW_PARENT_STRUCTURE_UNSUPPORTED` | Merged、CHD 或不可补传结构 |
 | 503 | `REVIEW_PARENT_VALIDATION_UNAVAILABLE` | 可重试的存储或 worker 故障 |
 
+### 5.2 多盘 Import 与 Review Attachment
+
+`POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1`，缺省严格为 STANDARD；MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 enabled artifact 共同决定。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用与 attachment 状态，不返回 Blob ID、宿主路径或 capability。
+
+`POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments` 要求 ADMIN、同源/CSRF、`If-Match`、User-scoped `Idempotency-Key` 与 `{uploadId}`，只接受包含当前全部缺盘的 COMPLETE FILES upload。成功为 202，返回 Job/Attachment、`Location`、新 Review ETag；版本、active/retry、能力漂移、集合不符与内容无效使用 OpenAPI 中稳定错误码。关闭新 Import flag 不取消已冻结的 Attachment/Job，也不影响已发布读取。
+
 ## 6. Hasheous 边界
 
 一期固定调用公开 `POST https://hasheous.org/api/v1/Lookup/ByHash`，body 字段沿用上游的 `mD5`、`shA1`、`shA256`、`crc`，至少一项非空；该 lookup 不需要用户或 App Key。只发送 hash，不发送 ROM bytes、本地路径、文件名或平台私有信息。
@@ -338,7 +344,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 {
   "launchId": "0198...",
   "emulatorjsVersion": "4.2.3",
-  "playerAdapterId": "ejs-4.2.3-v1",
+  "playerAdapterId": "ejs-4.2.3-v2",
   "core": "mame2003",
   "runtimeCore": "mame2003",
   "coreName": "MAME 2003",
@@ -371,13 +377,13 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 `emulatorGameId` 是 `1..9007199254740991` 的 JSON integer；`gameName` 必须精确为 ASCII `retrom-` 加它的十进制表示。`gameTitle/coreName/platformName` 只用于 Player 工具栏的人类可读上下文，不参与 EJS 配置、运行选择或授权判断。`biosUrl`、`parentUrl`、`stateUrl` 与 `dosEntry` 可为 `null`；其他字段必需。`defaultCoreOptions` 是最多 32 项的 ASCII string→string map，禁止危险 key；DOS 的该 map 和 `externalFiles` 均不包含启动入口，启动入口只由锁定内容的虚拟 ZIP 视图表达。其他核心的 `externalFiles` 只能指向同一 Launch 锁定的 `/external-files/<logicalName>`。`emulatorjsVersion/playerAdapterId` 必须等于锁定 CoreArtifact 所属 manifest 的版本/adapter ID；DOSBox Pure 新 Launch 为 `4.3.0-pre/ejs-4.3.0-pre-v1`，其余核心保持各自选定版本。所有 URL 必须是同源站内路径，响应不得含 capability、Blob ID/hash、宿主路径或客户端可改写 URL。
 
-`gameUrl` 的 `logicalName` 保留实际运行文件后缀；host console ZIP 已在入库时物化为唯一可运行 member，Arcade 与 DOS 才向 EJS 提供规范 ZIP。BIOS/parent 外层 bundle 的结构见运行时专题。config response 先按严格 JSON schema 校验，再由 Player adapter 设置 globals；页面不得从 core 名称自行推导文件名、线程开关、option 或 URL。
+`gameUrl` 的 `logicalName` 保留实际运行文件后缀；host console ZIP 已在入库时物化为唯一可运行 member，Arcade 与 DOS 才向 EJS 提供规范 ZIP。多盘 `gameUrl` 固定为本 Launch 的 `game/playlist.m3u`，`discSet` 包含 2–8 个连续 index、中文 label、规范 `/disc-NNN.chd` virtualPath 和锁定的 initial index；同一组 DISC URL 必须逐项出现在 `externalFiles`。BIOS/parent 外层 bundle 的结构见运行时专题。config response 先按严格 JSON schema 校验，再由 Player adapter 设置 globals；页面不得从 core 名称自行推导文件名、线程开关、option 或 URL。
 
 二进制端点支持 `GET`、`HEAD` 和单 Range；多 Range 返回 `416`。所有响应设置正确 MIME、`X-Content-Type-Options: nosniff`、`Accept-Ranges: bytes` 和强 ETag。DOS 的 `game.zip` 是从锁定基础 Blob与 entry 确定性派生的 seekable 虚拟 ZIP，HEAD/Range/完整 GET 必须同 size/ETag 且不落盘。受限 URL 不包含 Blob ID/hash，不设置 `public`，错误响应也不得泄露资源是否属于其他游戏。
 
 运行中写入要求正确 launch cookie：
 
-- `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，且只允许三个 part：`metadata`（`application/json`，仅 `{ "name": string }`，trim 后 1–120 Unicode code points）、`state`（1 byte–64 MiB）和 `screenshot`（1 byte–10 MiB PNG/JPEG/WebP、解码 ≤40 MP）。服务端从 LaunchSession 推导 Profile/Game/VariantRevision/CoreArtifact/时长，并把该 LaunchSession 记录为 SaveState 的来源；三个 Blob/引用与 SaveState 必须全成或全不成，返回 `201`；网络重放不得重复创建存档。
+- `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，且只允许三个 part：`metadata`（`application/json`，严格 `{ "name": string, "discIndex"?: integer|null }`，name trim 后 1–120 Unicode code points）、`state`（1 byte–64 MiB）和 `screenshot`（1 byte–10 MiB PNG/JPEG/WebP、解码 ≤40 MP）。多盘 Launch 必须提交当前范围内盘号，SINGLE/DOS 必须省略或为 null。服务端从 LaunchSession 推导 Profile/Game/VariantRevision/CoreArtifact/时长，并把该 LaunchSession 记录为 SaveState 的来源；三个 Blob/引用与 SaveState 必须全成或全不成，返回 `201`；网络重放不得重复创建存档。
 - `PUT /runtime/launches/{launchId}/persistent-save` body 是 1 byte–64 MiB 的单个二进制保存，必须带 RFC 9530 `Content-Digest`、UUID `Idempotency-Key`、`X-Retrom-Save-Sequence` 和 `X-Retrom-Save-Event: AUTO_INTERVAL|MANUAL_EXPORT|EXIT`。sequence 是每个 LaunchSession 独立、从 1 开始且无跳号的正十进制 int64；同 sequence/同 event/digest 返回原结果，复用 sequence 但任一不同返回 `409 SAVE_SEQUENCE_REUSED`，跳号返回 `409 SAVE_SEQUENCE_GAP`。Player 只在当前 sequence 成功后递增；进行中再次收到 callback 时保留最新 bytes 作为下一 sequence，不能换掉正在重试的 body。该上限同时保证 Player 能在 `saveDatabaseLoaded` 同步注入前有界预取；一期不可配置调高。kind 由 core 决定（DOSBox Pure 为 `DOS_OVERLAY`，其他一期 core 为 `CORE_SAVE`）；服务端流式写 CAS、校验后创建带 launch/sequence/event 的不可变 revision，再以 compare-and-swap 原子切换 current：首项期望 current 等于 Launch 创建时锁定的可空 base，后续项期望等于本 launch 前一项。另一会话已推进 current 时返回 `409 PERSISTENT_SAVE_CONFLICT`，不创建 revision、不覆盖服务器 current；Player 必须保留当前 bytes，提供本地下载并要求退出后重新启动，不能无限自动重试。其他失败也保留最后有效 revision。
 
 这两个写端点在验证 launch cookie 后才读取 body；有 `Content-Length` 时先校验上限，没有时允许 HTTP/2/chunked 并在流式读取超过上限的第一个 byte 立即终止为 `413`。NG 必须关闭请求 buffering 或使用足够的临时空间，且自身限制不得低于应用上限；应用仍独立流式计数、校验 digest 并清理临时文件。`pagehide` 不尝试发送大 save body；显式退出等待最后一次有界 PUT，超时后提示保存失败并允许重试/强制退出。
@@ -503,4 +509,4 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 
 ## 10. 统一验收入口
 
-通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。
+通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。
