@@ -28,6 +28,9 @@ const captures = [
   ["retrom-ui-admin-import-tasks-4k.png", "admin-import-tasks", 3840, 2160],
   ["retrom-ui-admin-review-4k.png", "admin-review", 3840, 2160],
   ["retrom-ui-admin-review-detail-4k.png", "admin-review", 3840, 2160, "review-detail"],
+  ["retrom-ui-admin-review-attachment-4k.png", "admin-review", 3840, 2160, "review-attachment"],
+  ["retrom-ui-admin-review-validating-4k.png", "admin-review", 3840, 2160, "review-validating"],
+  ["retrom-ui-admin-review-ready-4k.png", "admin-review", 3840, 2160, "review-ready"],
   ["retrom-ui-admin-review-compare-4k.png", "admin-review", 3840, 2160, "review-compare"],
   ["retrom-ui-admin-review-history-4k.png", "admin-review-history", 3840, 2160],
   ["retrom-ui-admin-review-history-detail-4k.png", "admin-review-history", 3840, 2160, "history-detail"],
@@ -109,7 +112,13 @@ try {
       await frame.locator("#rt-player-more").click();
       await frame.locator("[data-open-emulator-controls]").click();
     }
-    if (variant === "review-detail" || variant === "review-compare") await frame.locator("[data-review-item]").first().click();
+    if (["review-detail", "review-attachment", "review-validating", "review-ready", "review-compare"].includes(variant)) await frame.locator("[data-review-item]").first().click();
+    if (variant === "review-attachment") await frame.locator("[data-open-disc-drawer]").click();
+    if (variant === "review-validating") {
+      await frame.locator("[data-open-disc-drawer]").click();
+      await frame.locator("[data-queue-disc-validation]").click();
+    }
+    if (variant === "review-ready") await frame.locator("#retrom-ui-review").evaluate((element) => element.dispatchEvent(new CustomEvent("retrom:set-disc-state", { detail: "ready" })));
     if (variant === "review-compare") await frame.locator("[data-open-compare]").click();
     if (variant === "history-detail") await frame.locator("[data-open-history]").first().click();
     if (variant === "core-override") {
