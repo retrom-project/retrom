@@ -320,6 +320,8 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 - `POST /runtime/launches/{launchId}/heartbeat` body 为 `{ "clientSequence": n, "clientObservedAtMs": int64, "previousInterval": { "running": bool, "visible": bool, "paused": bool } }`，`n` 从 1 连续递增。
 - `POST /runtime/launches/{launchId}/finish`：已经 start 时使用下一个连续 sequence 和同样的 interval body，提交最后区间并撤销 launch；尚未 start 时只接受 `{ "clientSequence": 0, "clientObservedAtMs": int64, "previousInterval": null }`，不创建 PlaySession、直接撤销。两种重复请求都幂等。
 
+多盘 Player 另使用 `POST /runtime/launches/{launchId}/player-events` 上报封闭的低基数运行结果。它同样要求正确的 launch cookie 和 Origin，只接受 `eventType=START/DISK_COUNT_MISMATCH/SWITCH_SUCCESS/SWITCH_FAILURE/SAVE_RESTORE_SUCCESS/SAVE_RESTORE_FAILURE`、稳定 `resultCode`、锁定的 `discCount` 与可空 `observedDiscCount`；服务端必须重新读取 Launch 锁定的 platform/core/artifact/disc count 并拒绝盘数不一致的 body。成功返回 `204`，失败不改变 Launch、PlaySession、存档或换盘结果。body、日志与指标都不得包含标题、basename、路径、hash 或 capability；该 best-effort 观测请求失败不能阻断 Player 主链路。
+
 服务端以接收时刻计算 interval，单次最多 45 秒；client time 只审计且必须是 `0..253402300799999` 的 JSON integer，绝不能参与授权、顺序或计时。重复序号返回原 accepted delta，跳号为 `409 PLAY_SEQUENCE_GAP`。未 start、`running=false`、`visible=false`、`paused=true` 或超出上限的部分计 0。
 
 ## 8. 内容端点与缓存

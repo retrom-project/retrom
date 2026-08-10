@@ -18,6 +18,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/uploads"
 )
@@ -223,5 +224,94 @@ WHERE core_id='yabause' AND enabled=1
 	if stale.Code != http.StatusOK || !strings.Contains(stale.Body.String(), `"validationStale":true`) ||
 		!strings.Contains(stale.Body.String(), `"canApprove":false`) {
 		t.Fatalf("compatibility-stale review = %d %s", stale.Code, stale.Body.String())
+	}
+}
+
+func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
+	server := newTestServer(t)
+	ctx := context.Background()
+	if err := server.dependencies.Bootstrap(ctx, server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	if err := server.dependencies.BootstrapCatalogs(ctx, server.database, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	server.importer.WithMultiDiscImportEnabled(true)
+	seedMultiDiscHTTPBIOS(t, server)
+	uploadID := completeMultiDiscHTTPUpload(t, server, "DIRECTORY", []multiDiscHTTPFile{
+		{path: "game/game.m3u", contents: []byte("one.chd\ntwo.chd\n")},
+		{path: "game/one.chd", contents: multiDiscHTTPCHD("one")},
+		{path: "game/two.chd", contents: multiDiscHTTPCHD("two")},
+	})
+	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
+		UploadID: uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var itemID string
+	if err := server.database.QueryRowContext(
+		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
+	).Scan(&itemID); err != nil {
+		t.Fatal(err)
+	}
+	approved, err := server.importer.Approve(ctx, itemID, 1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	createdLaunch, err := server.launcher.Create(ctx, "local", launch.CreateRequest{
+		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
+		ClientCapabilities: launch.Capabilities{
+			SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
+		},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability); err != nil {
+		t.Fatal(err)
+	}
+	handler := server.Handler()
+	launchCookie := &http.Cookie{
+		Name: "retrom_launch_" + createdLaunch.LaunchID, Value: createdLaunch.Capability,
+		Path: "/runtime/launches/" + createdLaunch.LaunchID + "/",
+	}
+	send := func(body string, cookie *http.Cookie) *httptest.ResponseRecorder {
+		request := httptest.NewRequest(
+			http.MethodPost, "/runtime/launches/"+createdLaunch.LaunchID+"/player-events", strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Origin", "http://localhost:3000")
+		request.Header.Set("Sec-Fetch-Site", "same-origin")
+		if cookie != nil {
+			request.AddCookie(cookie)
+		}
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	accepted := send(
+		`{"eventType":"START","resultCode":"OK","discCount":2,"observedDiscCount":2}`,
+		launchCookie,
+	)
+	if accepted.Code != http.StatusNoContent || accepted.Body.Len() != 0 {
+		t.Fatalf("accepted event = %d %s", accepted.Code, accepted.Body.String())
+	}
+	mismatched := send(
+		`{"eventType":"START","resultCode":"OK","discCount":3,"observedDiscCount":3}`,
+		launchCookie,
+	)
+	if mismatched.Code != http.StatusUnprocessableEntity ||
+		!strings.Contains(mismatched.Body.String(), `"code":"PLAYER_EVENT_INVALID"`) {
+		t.Fatalf("mismatched event = %d %s", mismatched.Code, mismatched.Body.String())
+	}
+	unauthorized := send(
+		`{"eventType":"START","resultCode":"OK","discCount":2,"observedDiscCount":2}`,
+		nil,
+	)
+	if unauthorized.Code != http.StatusUnauthorized ||
+		!strings.Contains(unauthorized.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
+		t.Fatalf("unauthorized event = %d %s", unauthorized.Code, unauthorized.Body.String())
 	}
 }

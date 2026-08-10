@@ -281,6 +281,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /runtime/launches/{launchId}/start", server.launchStart)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/heartbeat", server.launchHeartbeat)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/finish", server.launchFinish)
+	mux.HandleFunc("POST /runtime/launches/{launchId}/player-events", server.multiDiscPlayerEvent)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/save-states", server.createSaveState)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/persistent-save", server.getPersistentSave)
 	mux.HandleFunc("PUT /runtime/launches/{launchId}/persistent-save", server.putPersistentSave)
@@ -695,14 +696,26 @@ func (server *Server) launchCapability(request *http.Request) string {
 }
 
 func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Request) {
+	capability := server.launchCapability(request)
 	configuration, err := server.launcher.Config(
 		request.Context(),
 		request.PathValue("launchId"),
-		server.launchCapability(request),
+		capability,
 	)
 	if err != nil {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
+	}
+	if configuration.DiscSet != nil {
+		if dimensions, dimensionErr := server.launcher.MultiDiscTelemetryDimensions(
+			request.Context(), request.PathValue("launchId"), capability,
+		); dimensionErr == nil {
+			logMultiDiscRuntime(
+				request.Context(), request.PathValue("launchId"), dimensions.PlatformKey,
+				dimensions.CoreKey, dimensions.ArtifactVersion, dimensions.DiscCount,
+				"kind", "launch", "resultCode", "OK",
+			)
+		}
 	}
 	writer.Header().Set("Vary", "Cookie")
 	writeJSON(writer, http.StatusOK, configuration)
@@ -722,14 +735,29 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动内容不可用", map[string]any{})
 		return
 	}
+	isMultiDisc := content.Format == "RETROM_MULTIDISC_M3U_V1" && content.DiscCount >= 2
 	file, err := server.blobs.OpenDigest(content.Digest)
 	if err != nil {
+		if isMultiDisc {
+			logMultiDiscContentResponse(
+				request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreID,
+				content.ArtifactVersion, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
+				"CAS_UNAVAILABLE",
+			)
+		}
 		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
 		return
 	}
 	defer func() { cleanup.Error("close", file.Close()) }()
 	stat, err := file.Stat()
 	if err != nil {
+		if isMultiDisc {
+			logMultiDiscContentResponse(
+				request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreID,
+				content.ArtifactVersion, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
+				"CAS_UNAVAILABLE",
+			)
+		}
 		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
 		return
 	}
@@ -745,12 +773,34 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	writer.Header().Set("Vary", "Cookie")
 	body, etag, err := launchGameBody(file, stat.Size(), content)
 	if err != nil {
+		if isMultiDisc {
+			logMultiDiscContentResponse(
+				request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreID,
+				content.ArtifactVersion, content.DiscCount, "PLAYLIST", http.StatusServiceUnavailable, 0,
+				"CAS_UNAVAILABLE",
+			)
+		}
 		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "游戏内容不可用", map[string]any{})
 		return
 	}
 	writer.Header().Set("ETag", `"sha256-`+etag+`"`)
 	writer.Header().Set("Accept-Ranges", "bytes")
-	http.ServeContent(writer, request, request.PathValue("logicalName"), time.Unix(0, 0), body)
+	metricsWriter := &multiDiscResponseWriter{ResponseWriter: writer}
+	http.ServeContent(metricsWriter, request, request.PathValue("logicalName"), time.Unix(0, 0), body)
+	if isMultiDisc {
+		status := metricsWriter.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		resultCode := "OK"
+		if status >= http.StatusBadRequest {
+			resultCode = "HTTP_ERROR"
+		}
+		logMultiDiscContentResponse(
+			request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreID,
+			content.ArtifactVersion, content.DiscCount, "PLAYLIST", status, metricsWriter.bytes, resultCode,
+		)
+	}
 }
 
 func launchGameBody(file io.ReadSeeker, size int64, content launch.ContentView) (io.ReadSeeker, string, error) {
@@ -790,7 +840,7 @@ func (server *Server) launchExternalFile(writer http.ResponseWriter, request *ht
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	digest, err := server.launcher.ExternalBlob(
+	content, err := server.launcher.External(
 		request.Context(),
 		request.PathValue("launchId"),
 		server.launchCapability(request),
@@ -800,8 +850,15 @@ func (server *Server) launchExternalFile(writer http.ResponseWriter, request *ht
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
 		return
 	}
-	file, err := server.blobs.OpenDigest(digest)
+	file, err := server.blobs.OpenDigest(content.Digest)
 	if err != nil {
+		if content.Kind == "DISC" {
+			logMultiDiscContentResponse(
+				request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreKey,
+				content.ArtifactVersion, content.DiscCount, "DISC", http.StatusUnauthorized, 0,
+				"LAUNCH_CREDENTIAL_INVALID",
+			)
+		}
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
 		return
 	}
@@ -809,9 +866,24 @@ func (server *Server) launchExternalFile(writer http.ResponseWriter, request *ht
 	writer.Header().Set("Content-Type", "application/octet-stream")
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writer.Header().Set("Vary", "Cookie")
-	writer.Header().Set("ETag", `"sha256-`+digest+`"`)
+	writer.Header().Set("ETag", `"sha256-`+content.Digest+`"`)
 	writer.Header().Set("Accept-Ranges", "bytes")
-	http.ServeContent(writer, request, request.PathValue("logicalName"), time.Unix(0, 0), file)
+	metricsWriter := &multiDiscResponseWriter{ResponseWriter: writer}
+	http.ServeContent(metricsWriter, request, request.PathValue("logicalName"), time.Unix(0, 0), file)
+	if content.Kind == "DISC" {
+		status := metricsWriter.status
+		if status == 0 {
+			status = http.StatusOK
+		}
+		resultCode := "OK"
+		if status >= http.StatusBadRequest {
+			resultCode = "HTTP_ERROR"
+		}
+		logMultiDiscContentResponse(
+			request.Context(), request.PathValue("launchId"), content.PlatformKey, content.CoreKey,
+			content.ArtifactVersion, content.DiscCount, "DISC", status, metricsWriter.bytes, resultCode,
+		)
+	}
 }
 
 func (server *Server) launchBIOSBundle(writer http.ResponseWriter, request *http.Request) {

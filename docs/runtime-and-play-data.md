@@ -198,6 +198,8 @@ EmulatorJS 4.2.3 会先展开 ZIP，再把归档中的第一个普通成员误�
 
 EmulatorJS 4.2.3 使用 `ejs-4.2.3-v2` adapter。它在 `EJS_ready` 初始化运行时光盘设置，并要求 `getDiskCount/getCurrentDisk/setCurrentDisk` 全部存在。`EJS_onGameStart` 在同一暂停边界内先完成 PersistentSave 注入，再核对真实盘数，切到 Launch 锁定的 `initialDiscIndex` 并回读；从 SaveState 启动时，Player 预先以 64 MiB 硬上限读取 state bytes，盘号确认后才显式 `loadState`，多盘不设置 `EJS_loadStateURL`，从而避免运行时异步加载与换盘竞态。任一步失败都不恢复 main loop，也不提交 PlaySession start。
 
+Player 在开始、盘数不一致、换盘成功/失败和跨盘状态恢复成功/失败时 best-effort 上报封闭运行事件；请求只含固定事件类型、稳定结果码以及期望/实际盘数。后端以 Launch 锁定的 platform/core/artifact version 和盘数 bucket 记录结构化事件，不接受游戏标题、文件名、路径、hash 或 capability。观测失败不改变上述暂停、换盘、存档恢复和 PlaySession 状态机。
+
 盘数匹配后工具栏在“创建存档”之前显示 `光盘 N / M`。菜单按 canonical 顺序列出全部盘，当前项带选中状态；选择其他盘时游戏保持暂停，调用 `setCurrentDisk` 后必须回读一致才更新界面并宣告成功，失败则保持原盘号。当前项只关闭菜单；Escape 关闭并把焦点还给触发器。手动存档从 runtime 回读当前盘号并写入 `disc_index`；恢复要求存档锁定的 VariantRevision、CoreArtifact、盘数和盘号全部兼容，绝不改用其他盘尝试加载。
 
 ## 10. 状态存档与持久存档
