@@ -61,3 +61,22 @@ func Resolve(
 	}
 	return result
 }
+
+// SupportsContentKind is the publication-time capability check. Unlike import
+// admission it intentionally does not consult the feature flag, so a frozen
+// in-flight review can be completed after admission is closed.
+func SupportsContentKind(compatibilityJSON, contentKind string) bool {
+	var compatibility compatibilityV3
+	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil || compatibility.SchemaVersion != 3 ||
+		!slices.Contains(compatibility.SupportedContentKinds, contentKind) {
+		return false
+	}
+	if contentKind != string(contentprofile.ContentKindMultiDiscM3UV1) {
+		return contentKind == string(contentprofile.ContentKindSingleFile) ||
+			contentKind == string(contentprofile.ContentKindDOSBundle)
+	}
+	return compatibility.MultiDisc != nil &&
+		compatibility.MultiDisc.MaxDiscs >= 2 && compatibility.MultiDisc.MaxDiscs <= MaximumMultiDiscCount &&
+		compatibility.MultiDisc.MaxTotalBytes >= 1 && compatibility.MultiDisc.MaxTotalBytes <= MaximumMultiDiscBytes &&
+		compatibility.MultiDisc.Delivery == DeliveryEagerExternal
+}

@@ -88,6 +88,8 @@ type parentAttachmentInput struct {
 	BaseSourceSnapshotID string `json:"baseSourceSnapshotId"`
 	DependencyMachine    string `json:"dependencyMachine"`
 	CoreArtifactID       string `json:"coreArtifactId"`
+	CoreArtifactVersion  int64  `json:"coreArtifactVersion"`
+	CompatibilityDigest  string `json:"compatibilityConfigDigest"`
 	DATVersionID         string `json:"datVersionId"`
 	UploadFileID         string `json:"uploadFileId"`
 }
@@ -98,6 +100,8 @@ type parentAttachmentCandidate struct {
 	uploadFileID, uploadSessionID, originalName   string
 	blobID, blobSHA                               string
 	blobSize                                      int64
+	artifactVersion                               int64
+	compatibilityDigest                           string
 	depth                                         int
 }
 
@@ -118,12 +122,15 @@ func (service *Service) CreateArcadeParentAttachment(
 	}
 	defer cleanup.Rollback(transaction)
 	var draftID, itemState, targetID, effectiveSnapshotID, platformID, coreID, artifactID string
+	var compatibilityConfig string
 	var activeDATID sql.NullString
-	var draftVersion, platformVersion int64
+	var draftVersion, platformVersion, artifactVersion int64
 	err = transaction.QueryRowContext(ctx, `
 SELECT draft.id,item.state,draft.version,draft.target_platform_instance_id,
 draft.effective_source_snapshot_id,platform.platform_id,platform.version,
 platform.default_core_id,artifact.id,
+artifact.version,
+artifact.compatibility_config_json,
 (SELECT dat.id FROM dat_versions dat WHERE dat.core_artifact_id=artifact.id AND dat.is_active=1)
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
@@ -133,7 +140,7 @@ JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND ar
 WHERE item.id=?
 `, itemID).Scan(
 		&draftID, &itemState, &draftVersion, &targetID, &effectiveSnapshotID, &platformID,
-		&platformVersion, &coreID, &artifactID, &activeDATID,
+		&platformVersion, &coreID, &artifactID, &artifactVersion, &compatibilityConfig, &activeDATID,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return ParentAttachmentCreated{}, parentError(ParentErrorNotFound, err)
@@ -152,21 +159,22 @@ WHERE item.id=?
 	}
 	var validationTargetID, validationSnapshotID, validationCoreID, validationArtifactID string
 	var validationDATID sql.NullString
-	var validationPlatformVersion int64
+	var validationPlatformVersion, validationArtifactVersion, validationGeneration int64
 	var dependencyJSON string
 	if err := transaction.QueryRowContext(ctx, `
 SELECT target_platform_instance_id,platform_instance_version,core_id,core_artifact_id,
-dat_version_id,source_snapshot_id,dependency_snapshot_json
+core_artifact_version,prepublish_generation,dat_version_id,source_snapshot_id,dependency_snapshot_json
 FROM import_item_core_validations
 WHERE id=? AND import_item_id=?
 `, request.ValidationID, itemID).Scan(
 		&validationTargetID, &validationPlatformVersion, &validationCoreID, &validationArtifactID,
-		&validationDATID, &validationSnapshotID, &dependencyJSON,
+		&validationArtifactVersion, &validationGeneration, &validationDATID, &validationSnapshotID, &dependencyJSON,
 	); err != nil {
 		return ParentAttachmentCreated{}, parentError(ParentErrorInputStale, err)
 	}
 	if validationTargetID != targetID || validationPlatformVersion != platformVersion || validationCoreID != coreID ||
 		validationArtifactID != artifactID || validationSnapshotID != effectiveSnapshotID ||
+		validationArtifactVersion != artifactVersion || validationGeneration != prepublishGeneration ||
 		!validationDATID.Valid || validationDATID.String != activeDATID.String {
 		return ParentAttachmentCreated{}, parentError(ParentErrorInputStale, ErrInvalid)
 	}
@@ -218,7 +226,9 @@ WHERE import_item_id=? AND state IN ('QUEUED','RUNNING')
 	input := parentAttachmentInput{
 		SchemaVersion: 1, AttachmentID: attachmentID.String(), ImportItemID: itemID, ReviewDraftID: draftID,
 		BaseSourceSnapshotID: effectiveSnapshotID, DependencyMachine: dependency.Machine,
-		CoreArtifactID: artifactID, DATVersionID: activeDATID.String, UploadFileID: request.UploadFileID,
+		CoreArtifactID: artifactID, CoreArtifactVersion: artifactVersion,
+		CompatibilityDigest: compatibilityConfigDigest(compatibilityConfig),
+		DATVersionID:        activeDATID.String, UploadFileID: request.UploadFileID,
 	}
 	inputJSON, _ := json.Marshal(input)
 	inputDigest := sha256.Sum256(inputJSON)
@@ -546,6 +556,23 @@ WHERE attachment.job_id=? AND attachment.state='RUNNING'
 	); err != nil {
 		return parentAttachmentCandidate{}, "", parentStoreError("read claimed attachment", err)
 	}
+	var frozenInputJSON string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT input.input_json
+FROM job_input_snapshots input
+JOIN jobs job ON job.id=input.job_id AND job.execution_no=input.execution_no
+WHERE input.job_id=?
+`, jobID).Scan(&frozenInputJSON); err != nil {
+		return parentAttachmentCandidate{}, "", parentStoreError("read attachment input", err)
+	}
+	var frozenInput parentAttachmentInput
+	if err := json.Unmarshal([]byte(frozenInputJSON), &frozenInput); err != nil ||
+		frozenInput.CoreArtifactID != candidate.artifactID || frozenInput.CoreArtifactVersion < 1 ||
+		len(frozenInput.CompatibilityDigest) != 64 {
+		return parentAttachmentCandidate{}, "", ErrInvalid
+	}
+	candidate.artifactVersion = frozenInput.CoreArtifactVersion
+	candidate.compatibilityDigest = frozenInput.CompatibilityDigest
 	if err := transaction.Commit(); err != nil {
 		return parentAttachmentCandidate{}, "", parentStoreError("commit claim", err)
 	}
@@ -653,23 +680,28 @@ func (service *Service) commitAcceptedParentAttachment(
 		return parentStoreError("begin accepted commit", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var itemState, currentSnapshotID, targetID, coreID, artifactID string
+	var itemState, currentSnapshotID, contentKind, targetID, coreID, artifactID, compatibilityConfig string
 	var activeDATID sql.NullString
-	var platformVersion int64
+	var platformVersion, artifactVersion int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT item.state,draft.effective_source_snapshot_id,draft.target_platform_instance_id,
-platform.version,platform.default_core_id,artifact.id,
+source_snapshot.content_kind,platform.version,platform.default_core_id,artifact.id,
+artifact.version,artifact.compatibility_config_json,
 (SELECT dat.id FROM dat_versions dat WHERE dat.core_artifact_id=artifact.id AND dat.is_active=1)
 FROM import_items item
 JOIN review_drafts draft ON draft.id=? AND draft.import_item_id=item.id
+JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=draft.effective_source_snapshot_id
 JOIN platform_instances platform ON platform.id=draft.target_platform_instance_id
 AND platform.enabled=1 AND platform.deleted_at_ms IS NULL
 JOIN core_artifacts artifact ON artifact.core_id=platform.default_core_id AND artifact.enabled=1
 WHERE item.id=?
 `, candidate.draftID, candidate.itemID).Scan(
-		&itemState, &currentSnapshotID, &targetID, &platformVersion, &coreID, &artifactID, &activeDATID,
+		&itemState, &currentSnapshotID, &targetID, &contentKind, &platformVersion, &coreID, &artifactID,
+		&artifactVersion, &compatibilityConfig, &activeDATID,
 	); err != nil || itemState != "REVIEW_PENDING" || currentSnapshotID != candidate.baseSnapshotID ||
-		artifactID != candidate.artifactID || !activeDATID.Valid || activeDATID.String != candidate.datID {
+		artifactID != candidate.artifactID || artifactVersion != candidate.artifactVersion ||
+		compatibilityConfigDigest(compatibilityConfig) != candidate.compatibilityDigest ||
+		!activeDATID.Valid || activeDATID.String != candidate.datID {
 		return ErrInvalid
 	}
 	var jobState, currentWorker string
@@ -688,9 +720,9 @@ SELECT COALESCE(MAX(revision_no),0)+1 FROM import_item_source_snapshots WHERE im
 	now := service.now().UnixMilli()
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_source_snapshots(id,import_item_id,revision_no,source_manifest_json,
-source_manifest_digest,created_by,created_at_ms)
-VALUES(?,?,?,?,?,'ARCADE_PARENT_ATTACHMENT',?)
-	`, newSnapshotID.String(), candidate.itemID, revision, manifestJSON, manifestDigest, now); err != nil {
+source_manifest_digest,content_kind,created_by,created_at_ms)
+VALUES(?,?,?,?,?,?,'ARCADE_PARENT_ATTACHMENT',?)
+	`, newSnapshotID.String(), candidate.itemID, revision, manifestJSON, manifestDigest, contentKind, now); err != nil {
 		return parentStoreError("insert source snapshot", err)
 	}
 	for _, file := range files {
@@ -715,22 +747,32 @@ VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL,?)
 			return parentStoreError("insert source archive entry", err)
 		}
 	}
-	validationInput, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "validatorVersion": "arcade-source-validator-v3",
-		"sourceSnapshotId": newSnapshotID.String(), "sourceManifestDigest": manifestDigest,
-		"targetPlatformInstanceId": targetID, "platformInstanceVersion": platformVersion,
-		"coreArtifactId": artifactID, "datVersionId": candidate.datID,
-		"dependencySnapshot": json.RawMessage(validation.dependencySnapshot), "status": validation.validationStatus,
+	validationDigest := prepublishDigest(prepublishDigestInput{
+		SchemaVersion:             1,
+		ValidatorVersion:          validatorArcadeV4,
+		SourceSnapshotID:          newSnapshotID.String(),
+		SourceManifestDigest:      manifestDigest,
+		ContentKind:               contentKind,
+		TargetPlatformInstanceID:  targetID,
+		PlatformInstanceVersion:   platformVersion,
+		CoreArtifactID:            artifactID,
+		CoreArtifactVersion:       artifactVersion,
+		CompatibilityConfigDigest: compatibilityConfigDigest(compatibilityConfig),
+		DATVersionID:              stringPointer(candidate.datID),
+		DependencySnapshot:        json.RawMessage(validation.dependencySnapshot),
+		Status:                    validation.validationStatus,
+		CompatibilityCode:         validation.compatibilityCode,
 	})
-	validationDigest := sha256.Sum256(validationInput)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
 platform_instance_version,core_id,core_artifact_id,dat_version_id,default_dos_entry,
-source_manifest_digest,source_snapshot_id,prepublish_input_digest,status,compatibility_code,
+core_artifact_version,prepublish_generation,source_manifest_digest,source_snapshot_id,
+prepublish_input_digest,status,compatibility_code,
 dependency_snapshot_json,created_at_ms)
-VALUES(?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?)
+VALUES(?,?,?,?,?,?,?,NULL,?,?,?,?,?,?,?,?,?)
 `, validationID.String(), candidate.itemID, targetID, platformVersion, coreID, artifactID, candidate.datID,
-		manifestDigest, newSnapshotID.String(), hex.EncodeToString(validationDigest[:]), validation.validationStatus,
+		artifactVersion, prepublishGeneration, manifestDigest, newSnapshotID.String(), validationDigest,
+		validation.validationStatus,
 		validation.compatibilityCode, validation.dependencySnapshot, now); err != nil {
 		return parentStoreError("insert source validation", err)
 	}

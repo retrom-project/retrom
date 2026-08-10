@@ -46,3 +46,14 @@ func TestResolveRequiresFeaturePlatformInstanceAndArtifactIntersection(t *testin
 		})
 	}
 }
+
+func TestSupportsContentKindRequiresExplicitCompatibilityV3(t *testing.T) {
+	t.Parallel()
+	standard := `{"schemaVersion":3,"supportedContentKinds":["SINGLE_FILE"]}`
+	if !SupportsContentKind(standard, "SINGLE_FILE") || SupportsContentKind(standard, "MULTI_DISC_M3U_V1") ||
+		!SupportsContentKind(saturnCompatibility, "MULTI_DISC_M3U_V1") ||
+		SupportsContentKind(`{"schemaVersion":2}`, "SINGLE_FILE") ||
+		SupportsContentKind(saturnCompatibility, "UNKNOWN") {
+		t.Fatal("publication capability did not fail closed")
+	}
+}

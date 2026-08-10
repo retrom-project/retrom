@@ -163,6 +163,33 @@ func queryStrings(t *testing.T, database *sql.DB, query string) []string {
 	return values
 }
 
+func assertColumns(t *testing.T, database *sql.DB, table string, expected ...string) {
+	t.Helper()
+	rows, err := database.Query(`PRAGMA table_info(` + table + `)`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	found := make(map[string]bool, len(expected))
+	for rows.Next() {
+		var id, notNull, primaryKey int
+		var name, dataType string
+		var defaultValue any
+		if err := rows.Scan(&id, &name, &dataType, &notNull, &defaultValue, &primaryKey); err != nil {
+			t.Fatal(err)
+		}
+		found[name] = true
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	for _, name := range expected {
+		if !found[name] {
+			t.Errorf("%s.%s is missing", table, name)
+		}
+	}
+}
+
 func applyMigrationRange(
 	ctx context.Context,
 	t *testing.T,
@@ -212,13 +239,12 @@ func TestSupportedMigrationVersionsIdempotencyAndFutureProtection(t *testing.T) 
 		t.Fatal(err)
 	}
 	var supported []int
-	if err := json.Unmarshal(contents, &supported); err != nil || !slices.Equal(supported, []int{10, 18}) {
+	if err := json.Unmarshal(contents, &supported); err != nil || !slices.Equal(supported, []int{23}) {
 		t.Fatalf("supported versions = %#v, error=%v", supported, err)
 	}
-	fixtures, err := filepath.Glob(filepath.Join(repositoryRoot, "migrations", "testdata", "*_fixture.sql"))
-	if err != nil || len(fixtures) != len(supported) ||
-		filepath.Base(fixtures[0]) != "010_fixture.sql" || filepath.Base(fixtures[1]) != "018_fixture.sql" {
-		t.Fatalf("migration fixtures = %#v, error=%v", fixtures, err)
+	fixture := filepath.Join(repositoryRoot, "migrations", "testdata", "023_fixture.sql")
+	if _, err := os.Stat(fixture); err != nil {
+		t.Fatalf("migration fixture = %s, error=%v", fixture, err)
 	}
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	database, err := Open(context.Background(), path, time.Now)
@@ -251,6 +277,296 @@ applied_at_ms) VALUES(999,
 			cleanup.Error("close", future.Close())
 		}
 		t.Fatalf("future schema error = %v", err)
+	}
+}
+
+func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	databasePath := filepath.Join(t.TempDir(), "retrom.db")
+	legacy, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.SetMaxOpenConns(1)
+	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 23)
+	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "023_fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	upgraded, err := Open(ctx, databasePath, func() time.Time { return time.UnixMilli(2000) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", upgraded.Close()) }()
+	if err := upgraded.IntegrityCheck(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var version int
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 24 {
+		t.Fatalf("schema version = %d, error=%v", version, err)
+	}
+	var actorKind, actorUserID string
+	if err := upgraded.SQL.QueryRow(`
+SELECT actor_kind,actor_user_id FROM review_events
+WHERE id='01980000-0000-7000-8000-00000000f006'
+`).Scan(&actorKind, &actorUserID); err != nil || actorKind != "USER" ||
+		actorUserID != "01980000-0000-7000-8000-00000000b001" {
+		t.Fatalf("review actor = %s/%s, error=%v", actorKind, actorUserID, err)
+	}
+	var artifactVersion, generation int
+	var validationDigest string
+	if err := upgraded.SQL.QueryRow(`
+SELECT core_artifact_version,prepublish_generation,prepublish_input_digest
+FROM import_item_core_validations WHERE id='01980000-0000-7000-8000-00000000f004'
+`).Scan(&artifactVersion, &generation, &validationDigest); err != nil || artifactVersion != 5 || generation != 3 ||
+		validationDigest != strings.Repeat("3", 64) {
+		t.Fatalf("historical validation = version:%d generation:%d digest:%s error=%v",
+			artifactVersion, generation, validationDigest, err)
+	}
+	contentKinds := queryStrings(t, upgraded.SQL, `
+SELECT id||':'||content_kind FROM import_item_source_snapshots
+WHERE id IN ('01980000-0000-7000-8000-00000000f003','01980000-0000-7000-8000-00000000f030')
+ORDER BY id
+`)
+	if !slices.Equal(contentKinds, []string{
+		"01980000-0000-7000-8000-00000000f003:SINGLE_FILE",
+		"01980000-0000-7000-8000-00000000f030:DOS_BUNDLE",
+	}) {
+		t.Fatalf("snapshot content kinds = %#v", contentKinds)
+	}
+	revisionKinds := queryStrings(t, upgraded.SQL, `
+SELECT id||':'||content_kind FROM game_content_revisions
+WHERE id IN ('01980000-0000-7000-8000-00000000f012','01980000-0000-7000-8000-00000000f015')
+ORDER BY id
+`)
+	if !slices.Equal(revisionKinds, []string{
+		"01980000-0000-7000-8000-00000000f012:SINGLE_FILE",
+		"01980000-0000-7000-8000-00000000f015:DOS_BUNDLE",
+	}) {
+		t.Fatalf("revision content kinds = %#v", revisionKinds)
+	}
+	var userCount, saveOwnerCount, persistentOwnerCount, principalCount, parentAttachmentCount, multiAttachmentCount int
+	if err := upgraded.SQL.QueryRow(`
+SELECT
+  (SELECT count(*) FROM users WHERE id IN (
+    '01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000b002'
+  )),
+  (SELECT count(DISTINCT profile_id) FROM save_states WHERE disc_index IS NULL),
+  (SELECT count(DISTINCT profile_id) FROM persistent_saves),
+  (SELECT count(*) FROM idempotency_records WHERE principal_id='01980000-0000-7000-8000-00000000b001'),
+  (SELECT count(*) FROM review_arcade_parent_attachments WHERE id='01980000-0000-7000-8000-00000000f008'),
+  (SELECT count(*) FROM review_multidisc_attachments)
+`).Scan(
+		&userCount, &saveOwnerCount, &persistentOwnerCount, &principalCount, &parentAttachmentCount, &multiAttachmentCount,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if userCount != 2 || saveOwnerCount != 2 || persistentOwnerCount != 2 || principalCount != 1 ||
+		parentAttachmentCount != 1 || multiAttachmentCount != 0 {
+		t.Fatalf(
+			"preserved counts = users:%d saves:%d persistent:%d principal:%d parent:%d multi:%d",
+			userCount, saveOwnerCount, persistentOwnerCount, principalCount, parentAttachmentCount, multiAttachmentCount,
+		)
+	}
+	assertColumns(t, upgraded.SQL, "import_item_core_validations", "core_artifact_version", "prepublish_generation")
+	assertColumns(t, upgraded.SQL, "launch_external_files", "kind")
+	assertColumns(t, upgraded.SQL, "launch_sessions", "initial_disc_index")
+	assertColumns(t, upgraded.SQL, "save_states", "disc_index")
+	if _, err := upgraded.SQL.Exec(`
+INSERT INTO import_item_source_snapshots(
+id,import_item_id,revision_no,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms
+) VALUES(
+'01980000-0000-7000-8000-00000000f031','01980000-0000-7000-8000-00000000f002',3,
+'MULTI_DISC_M3U_V1','[]','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa1',
+'IDENTIFICATION',2000
+);
+INSERT INTO import_item_source_snapshot_files(
+source_snapshot_id,role,logical_name,upload_file_id,blob_id,sort_order,created_at_ms
+) VALUES
+('01980000-0000-7000-8000-00000000f031','PLAYLIST_SOURCE','playlist.m3u',
+ '01980000-0000-7000-8000-00000000e002','01980000-0000-7000-8000-00000000d001',0,2000),
+('01980000-0000-7000-8000-00000000f031','DISC','disc-a.chd',
+ '01980000-0000-7000-8000-00000000e002','01980000-0000-7000-8000-00000000d001',0,2000);
+INSERT INTO import_item_multidisc_entries(
+source_snapshot_id,ordinal,source_reference,normalized_reference,canonical_name,state,
+upload_file_id,blob_id,source_logical_name,created_at_ms
+) VALUES
+('01980000-0000-7000-8000-00000000f031',0,'Disc-A.CHD','disc-a.chd','disc-001.chd','PRESENT',
+ '01980000-0000-7000-8000-00000000e002','01980000-0000-7000-8000-00000000d001','disc-a.chd',2000),
+('01980000-0000-7000-8000-00000000f031',1,'Disc-B.CHD','disc-b.chd','disc-002.chd','MISSING',
+ NULL,NULL,NULL,2000);
+UPDATE review_drafts SET effective_source_snapshot_id='01980000-0000-7000-8000-00000000f031',
+selected_validation_id=NULL,version=version+1,updated_at_ms=2000
+WHERE id='01980000-0000-7000-8000-00000000f005';
+INSERT INTO upload_sessions(
+id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms
+) VALUES(
+'01980000-0000-7000-8000-00000000f032','COMPLETE','FILES',1,8,
+'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb1',1,100000,2000,2000
+);
+INSERT INTO jobs(
+id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,
+max_attempts,version,available_at_ms,created_at_ms,updated_at_ms
+) VALUES(
+'01980000-0000-7000-8000-00000000f033','IMPORT_ITEM','01980000-0000-7000-8000-00000000f002',
+'REVIEW_MULTI_DISC_VALIDATE','ccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc1',
+1,'{}',1,'QUEUED',0,4,1,2000,2000,2000
+);
+INSERT INTO review_multidisc_attachments(
+id,import_item_id,review_draft_id,requested_by_user_id,base_source_snapshot_id,upload_session_id,
+expected_set_digest,state,diagnostics_json,job_id,version,created_at_ms,updated_at_ms
+) VALUES(
+'01980000-0000-7000-8000-00000000f034','01980000-0000-7000-8000-00000000f002',
+'01980000-0000-7000-8000-00000000f005','01980000-0000-7000-8000-00000000b001',
+'01980000-0000-7000-8000-00000000f031','01980000-0000-7000-8000-00000000f032',
+'ddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd1','QUEUED','{}',
+'01980000-0000-7000-8000-00000000f033',1,2000,2000
+)
+`); err != nil {
+		t.Fatalf("insert multi-disc schema fixture: %v", err)
+	}
+	invalidStatements := []string{
+		`INSERT INTO import_item_multidisc_entries(
+source_snapshot_id,ordinal,source_reference,normalized_reference,canonical_name,state,created_at_ms
+) VALUES(
+'01980000-0000-7000-8000-00000000f031',1,'Other.CHD','other.chd','disc-002.chd','MISSING',2000
+)`,
+		`INSERT INTO review_multidisc_attachments(
+id,import_item_id,review_draft_id,requested_by_user_id,base_source_snapshot_id,upload_session_id,
+expected_set_digest,state,diagnostics_json,job_id,version,created_at_ms,updated_at_ms
+) VALUES(
+'01980000-0000-7000-8000-00000000f035','01980000-0000-7000-8000-00000000f002',
+'01980000-0000-7000-8000-00000000f005','01980000-0000-7000-8000-00000000b001',
+'01980000-0000-7000-8000-00000000f031','01980000-0000-7000-8000-00000000f032',
+'eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee1','QUEUED','{}',
+'01980000-0000-7000-8000-00000000f033',1,2000,2000
+)`,
+		`UPDATE review_multidisc_attachments SET requested_by_user_id='01980000-0000-7000-8000-00000000b002'
+WHERE id='01980000-0000-7000-8000-00000000f034'`,
+		`UPDATE review_multidisc_attachments SET state='ACCEPTED',version=2,updated_at_ms=2001
+WHERE id='01980000-0000-7000-8000-00000000f034'`,
+		`DELETE FROM import_item_multidisc_entries
+WHERE source_snapshot_id='01980000-0000-7000-8000-00000000f031' AND ordinal=0`,
+	}
+	for _, statement := range invalidStatements {
+		if _, err := upgraded.SQL.Exec(statement); err == nil {
+			t.Fatalf("invalid multi-disc statement succeeded: %s", statement)
+		}
+	}
+}
+
+func TestMultiDiscMigrationRejectsMixedHistoricalLayoutWithoutWriting(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	databasePath := filepath.Join(t.TempDir(), "retrom.db")
+	legacy, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.SetMaxOpenConns(1)
+	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 23)
+	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "023_fixture.sql"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, `
+INSERT INTO import_item_source_snapshot_files(
+source_snapshot_id,role,logical_name,upload_file_id,blob_id,sort_order,created_at_ms
+) VALUES(
+'01980000-0000-7000-8000-00000000f030','COMPANION','mixed.bin',
+'01980000-0000-7000-8000-00000000e002','01980000-0000-7000-8000-00000000d001',1,1000
+)
+`); err != nil {
+		t.Fatal(err)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if database, err := Open(ctx, databasePath, time.Now); err == nil {
+		cleanup.Error("close", database.Close())
+		t.Fatal("mixed schema upgrade unexpectedly succeeded")
+	}
+	readonly, err := sql.Open("sqlite", "file:"+filepath.ToSlash(databasePath)+"?mode=ro&immutable=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", readonly.Close()) }()
+	var maximum int
+	if err := readonly.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&maximum); err != nil || maximum != 23 {
+		t.Fatalf("schema version after rejected migration = %d, error=%v", maximum, err)
+	}
+	var newColumnCount int
+	if err := readonly.QueryRow(`
+SELECT count(*) FROM pragma_table_info('import_item_source_snapshots') WHERE name='content_kind'
+`).Scan(&newColumnCount); err != nil || newColumnCount != 0 {
+		t.Fatalf("new column after rejected migration = %d, error=%v", newColumnCount, err)
+	}
+}
+
+func TestVersion19DatabaseIsRejectedBeforeAccountOrMultiDiscWrites(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	databasePath := filepath.Join(t.TempDir(), "retrom.db")
+	legacy, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.SetMaxOpenConns(1)
+	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 19)
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if database, err := Open(ctx, databasePath, time.Now); !errors.Is(err, ErrDatabaseRebuild) {
+		if database != nil {
+			cleanup.Error("close", database.Close())
+		}
+		t.Fatalf("version 19 startup error = %v", err)
+	}
+	readonly, err := sql.Open("sqlite", "file:"+filepath.ToSlash(databasePath)+"?mode=ro&immutable=1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", readonly.Close()) }()
+	var maximum, userTables, multiTables int
+	if err := readonly.QueryRow(`
+SELECT
+  (SELECT max(version) FROM schema_migrations),
+  (SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='users'),
+  (SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='review_multidisc_attachments')
+`).Scan(&maximum, &userTables, &multiTables); err != nil {
+		t.Fatal(err)
+	}
+	if maximum != 19 || userTables != 0 || multiTables != 0 {
+		t.Fatalf("version 19 changed = max:%d users:%d multi:%d", maximum, userTables, multiTables)
 	}
 }
 

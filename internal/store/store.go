@@ -143,8 +143,8 @@ SELECT count(*),min(version),max(version) FROM schema_migrations
 	if !minimum.Valid || !maximum.Valid || minimum.Int64 != 1 || maximum.Int64 != int64(count) {
 		return fmt.Errorf("%w: migration history has gaps", ErrSchemaInvalid)
 	}
-	if maximum.Int64 < 20 {
-		return fmt.Errorf("%w: found=%d required=20; use a new data root", ErrDatabaseRebuild, maximum.Int64)
+	if maximum.Int64 < 23 {
+		return fmt.Errorf("%w: found=%d required=23; use a new data root", ErrDatabaseRebuild, maximum.Int64)
 	}
 	return nil
 }
@@ -286,14 +286,8 @@ func runMigration(
 	defer func() { cleanup.Error("close", connection.Close()) }()
 	foreignKeysDisabled := bytes.HasPrefix(contents, []byte("-- retrom: rebuild-with-foreign-keys-off\n"))
 	if foreignKeysDisabled {
-		if version != 19 {
-			return fmt.Errorf("migration %s: %w", name, errMigrationRebuild)
-		}
-		if err := verifyImportItemSourceManifests(ctx, connection); err != nil {
-			return fmt.Errorf("preflight migration %s: %w", name, err)
-		}
-		if _, err := connection.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
-			return fmt.Errorf("disable foreign keys for migration %s: %w", name, err)
+		if err := prepareForeignKeyRebuild(ctx, connection, version, name); err != nil {
+			return err
 		}
 		defer func() {
 			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "PRAGMA foreign_keys = ON")
@@ -325,6 +319,21 @@ func runMigration(
 		return fmt.Errorf("commit migration %s: %w", name, err)
 	}
 	committed = true
+	return nil
+}
+
+func prepareForeignKeyRebuild(ctx context.Context, connection *sql.Conn, version int, name string) error {
+	if version != 19 && version != 24 {
+		return fmt.Errorf("migration %s: %w", name, errMigrationRebuild)
+	}
+	if version == 19 {
+		if err := verifyImportItemSourceManifests(ctx, connection); err != nil {
+			return fmt.Errorf("preflight migration %s: %w", name, err)
+		}
+	}
+	if _, err := connection.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
+		return fmt.Errorf("disable foreign keys for migration %s: %w", name, err)
+	}
 	return nil
 }
 
