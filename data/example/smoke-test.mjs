@@ -15,6 +15,10 @@ export function resolveResultsDirectory(environment = process.env) {
   return configured ? path.resolve(REPO_ROOT, configured) : path.join(SCRIPT_DIR, "results");
 }
 
+export function resolveResultPath(filename, environment = process.env) {
+  return path.join(resolveResultsDirectory(environment), filename);
+}
+
 const RESULTS_DIR = resolveResultsDirectory();
 const PORT = Number.parseInt(process.env.RETROM_EXAMPLE_PORT || "4173", 10);
 const BASE_URL = `http://127.0.0.1:${PORT}`;
@@ -406,8 +410,8 @@ async function waitForPage(cdp, sessionId, timeoutMs) {
 async function runFixture(cdp, fixture) {
   const startedAtMs = Date.now();
   const runId = fixture.runId || fixture.core;
-  const screenshotRelative = `data/example/results/${runId}.png`;
-  const screenshotPath = path.join(REPO_ROOT, screenshotRelative);
+  const screenshotPath = path.join(RESULTS_DIR, `${runId}.png`);
+  const screenshotRelative = path.relative(REPO_ROOT, screenshotPath).split(path.sep).join("/");
   const pageUrl = `${BASE_URL}/${fixture.examplePath}${fixture.exampleQuery || ""}`;
   const coreRequests = [];
   const externalFileRequests = [];
