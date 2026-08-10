@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "emulatorjs": {
     "version": "4.2.3",
     "releaseUrl": "https://github.com/EmulatorJS/EmulatorJS/releases/download/v4.2.3/4.2.3.7z",
@@ -832,6 +832,109 @@
             "format": "CISO_V1",
             "sourceSha256": "8aa31ce3d24f67f9dab37257a4ec8e2ee968d5826ff2119918641ba1d115a110"
           }
+        }
+      ]
+    }
+  ],
+  "multiDiscFixtures": [
+    {
+      "id": "multidisc-saturn-2",
+      "kind": "RUNTIME_POSITIVE",
+      "core": "yabause",
+      "runtimeVersion": "4.2.3",
+      "playerAdapterId": "ejs-4.2.3-v2",
+      "system": "saturn",
+      "title": "Sega Saturn / Multi-disc 2",
+      "gameId": 2101,
+      "examplePath": "data/example/yabause/multidisc.html",
+      "sourcePlaylist": {
+        "size": 78,
+        "sha256": "92e9e082c38634a72ddaa494e0576aca3a9646dc9a50fdb0131d88bd90c3d4c7"
+      },
+      "runtimePlaylist": {
+        "path": "data/example/multidisc/saturn-2/playlist.m3u",
+        "size": 26,
+        "sha256": "0a064f7c2550fd9eaf55a7464577261272074f9cc6d6ad452df484c7d5e06049"
+      },
+      "discs": [
+        {
+          "index": 0,
+          "localPath": "data/game/yabause/multidisc-saturn-2/disc-001.chd",
+          "size": 222321068,
+          "sha256": "26a73601e38d8756801d43785bd419327e025a99e9a980ad0459616dd995f357"
+        },
+        {
+          "index": 1,
+          "localPath": "data/game/yabause/multidisc-saturn-2/disc-002.chd",
+          "size": 101253599,
+          "sha256": "cf6853d42f693109c10e2a6485d635af501523ff2f44ec20248dfcb6b6f3e74c"
+        }
+      ],
+      "settleMs": 8000,
+      "timeoutMs": 180000
+    },
+    {
+      "id": "multidisc-saturn-3",
+      "kind": "RUNTIME_POSITIVE",
+      "core": "yabause",
+      "runtimeVersion": "4.2.3",
+      "playerAdapterId": "ejs-4.2.3-v2",
+      "system": "saturn",
+      "title": "Sega Saturn / Multi-disc 3",
+      "gameId": 2102,
+      "examplePath": "data/example/yabause/multidisc.html",
+      "sourcePlaylist": {
+        "size": 127,
+        "sha256": "29a78ff855a247a45000e5c8a9a5f4767527259997402a08e2f1653e7acfc822"
+      },
+      "runtimePlaylist": {
+        "path": "data/example/multidisc/saturn-3/playlist.m3u",
+        "size": 39,
+        "sha256": "ae5a2f7850472786a34670d3de55e61d1f8570f433c67c072e5e90d020423e90"
+      },
+      "discs": [
+        {
+          "index": 0,
+          "localPath": "data/game/yabause/multidisc-saturn-3/disc-001.chd",
+          "size": 330054122,
+          "sha256": "51e03bbed155ec66a923d8bb81d1da80d0c9a3908eaa42a9d3b248f08dfba8fa"
+        },
+        {
+          "index": 1,
+          "localPath": "data/game/yabause/multidisc-saturn-3/disc-002.chd",
+          "size": 224048708,
+          "sha256": "ef77f3f9dfdaee55f8b84aaac8841a0b57a2dad4c93a828950b2e36e37ca0154"
+        },
+        {
+          "index": 2,
+          "localPath": "data/game/yabause/multidisc-saturn-3/disc-003.chd",
+          "size": 220792093,
+          "sha256": "84095bf788460d2701662ab1efbaee40bd6782295717a89d11f12c08eca8790f"
+        }
+      ],
+      "settleMs": 8000,
+      "timeoutMs": 180000
+    },
+    {
+      "id": "multidisc-psx-negative-2",
+      "kind": "CAPABILITY_NEGATIVE",
+      "cores": ["pcsx_rearmed", "mednafen_psx_hw"],
+      "runtimeVersion": "4.2.3",
+      "system": "psx",
+      "sourcePlaylist": {
+        "size": 136,
+        "sha256": "327eda212aa0ba6f6518b5a1a17760032c861d26f8f85f047200aefc63da242d"
+      },
+      "discs": [
+        {
+          "index": 0,
+          "size": 395594565,
+          "sha256": "9af8d22512d48bc16876e3a6c5db8a7adc4070da5a5a51897062d30f164ac643"
+        },
+        {
+          "index": 1,
+          "size": 476061378,
+          "sha256": "0004089240ab5ee1d1a6e78b322cb74d4652cdcb8fd5985d2cebaa410f1dfd8c"
         }
       ]
     }

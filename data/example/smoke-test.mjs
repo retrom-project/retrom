@@ -541,6 +541,7 @@ async function runFixture(cdp, fixture) {
     core: runId,
     productCore: fixture.core,
     formatId: fixture.formatId || null,
+    playerAdapterId: fixture.playerAdapterId || null,
     status: failure ? "failed" : "passed",
     failure: failure || null,
     startedAtMs,
@@ -561,10 +562,10 @@ async function runFixture(cdp, fixture) {
 
 export function expandFixtureRuns(allFixtures, requestedCores = []) {
   const fixtures = requestedCores.length
-    ? allFixtures.filter(fixture => requestedCores.includes(fixture.core))
+    ? allFixtures.filter(fixture => requestedCores.includes(fixture.selector || fixture.core))
     : allFixtures;
   const unknown = requestedCores.filter(
-    core => !allFixtures.some(fixture => fixture.core === core)
+    core => !allFixtures.some(fixture => (fixture.selector || fixture.core) === core)
   );
   if (unknown.length) throw new Error(`Unknown core(s): ${unknown.join(", ")}`);
   return fixtures.flatMap(fixture => {
@@ -580,10 +581,29 @@ export function expandFixtureRuns(allFixtures, requestedCores = []) {
   });
 }
 
+export function expandMultiDiscFixtures(manifest) {
+  const yabause = manifest.fixtures.find(fixture => fixture.core === "yabause");
+  if (!yabause) throw new Error("The yabause baseline fixture is required for multi-disc smoke");
+  return (manifest.multiDiscFixtures || [])
+    .filter(fixture => fixture.kind === "RUNTIME_POSITIVE")
+    .map(fixture => ({
+      ...fixture,
+      selector: fixture.id,
+      runId: fixture.id,
+      exampleQuery: `?fixture=${encodeURIComponent(fixture.id)}`,
+      bios: yabause.bios,
+      coreArtifact: yabause.coreArtifact,
+      expectedExternalFiles: fixture.discs.map(disc => disc.localPath)
+    }));
+}
+
 async function main() {
   const manifest = JSON.parse(await fs.readFile(MANIFEST_PATH, "utf8"));
   const requestedCores = process.argv.slice(2);
-  const fixtures = expandFixtureRuns(manifest.fixtures, requestedCores);
+  const fixtures = expandFixtureRuns(
+    [...manifest.fixtures, ...expandMultiDiscFixtures(manifest)],
+    requestedCores
+  );
   if (!fixtures.length) throw new Error("No core fixtures selected");
   if (fixtures.some(fixture => fixture.core === "dosbox_pure")) await materializeDOSFixtures();
 

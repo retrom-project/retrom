@@ -211,6 +211,27 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "go test -tags=integration ./internal/saves -run 'TestPersistentSaveLocksLaunchBaseAndEnforcesSequence|TestPersistentSaveNoneRejectsGetAndPutWithoutCreatingRows' -count=1 && make web-test",
     ),
     "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
+    "ACC-MDISC-001": (
+        600,
+        "go test -tags=integration ./internal/libraryimport -run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=60s && make web-test",
+    ),
+    "ACC-MDISC-002": (
+        600,
+        "go test -tags=integration ./internal/libraryimport ./internal/httpapi -run 'TestMultiDiscMissingDiscIsBlockedWithoutPlaceholderBlob|TestMultiDiscAttachmentRejectsNonExactSetWithoutAdvancingDraft|TestMultiDiscAttachmentHTTPContractAndReviewProjection' -count=1 -timeout=60s",
+    ),
+    "ACC-MDISC-003": (
+        600,
+        "go test ./internal/multidisc -count=1 && go test -tags=integration ./internal/libraryimport -run '^TestMultiDiscAdmissionRejectsMissingPlaylistAndUnsupportedTargetWithoutConsumption$' -count=1 -timeout=60s",
+    ),
+    "ACC-MDISC-004": (
+        600,
+        "go test -tags=integration ./internal/libraryimport -run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=60s && go test ./internal/httpapi -run '^TestRestrictedBinaryEndpointsRejectMultipleRanges$' -count=1",
+    ),
+    "ACC-MDISC-007": (600, "scripts/acceptance/multidisc-regression.sh"),
+    "ACC-MDISC-008": (
+        600,
+        "go test -tags=integration ./internal/httpapi ./internal/libraryimport -run 'TestMultiDiscAttachmentHTTPContractAndReviewProjection|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent' -count=1 -timeout=60s && go test ./internal/accounts ./internal/httpapi -run 'TestInvitationConcurrentConsumptionAndUserLifecycleRevocations|TestIdempotencyRecordsAreScopedToAuthenticatedUser|TestAccountAdministrationHTTPInvitationAndAuthorization' -count=1",
+    ),
     "ACC-UI-001": (180, "scripts/acceptance/ui-case.sh ACC-UI-001"),
     "ACC-UI-002": (180, "scripts/acceptance/ui-case.sh ACC-UI-002"),
     "ACC-UI-003": (180, "scripts/acceptance/ui-case.sh ACC-UI-003"),
@@ -251,6 +272,22 @@ CORE_CASES = {
     "ACC-CORE-026": "mednafen_pcfx",
     "ACC-CORE-027": "mednafen_ngp",
     "ACC-CORE-028": "ppsspp",
+}
+
+MULTIDISC_RUNTIME_CASES = {
+    "ACC-MDISC-005": ("multidisc-saturn-2", "Saturn 双盘游戏画面；换盘 0→1→0 后继续推进"),
+    "ACC-MDISC-006": ("multidisc-saturn-3", "Saturn 三盘游戏画面；全部盘可切换且跨盘恢复顺序正确"),
+}
+
+MULTIDISC_PRODUCT_COMMANDS = {
+    "ACC-MDISC-005": "make web-test",
+    "ACC-MDISC-006": (
+        "go test -tags=integration ./internal/libraryimport "
+        "-run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=120s && "
+        "go test -tags=integration ./internal/saves "
+        "-run '^TestPersistentSaveLocksLaunchBaseAndEnforcesSequence$' -count=1 -timeout=120s && "
+        "make web-test"
+    ),
 }
 
 CORE_EXPECTATIONS = {
@@ -331,7 +368,13 @@ def all_cases() -> list[str]:
     if core_cases != list(CORE_CASES):
         raise RuntimeError("ACCEPTANCE_CORE_CASE_CATALOG_INVALID")
     ui_start = heading_cases.index("ACC-UI-001")
-    cases = heading_cases[:ui_start] + core_cases + heading_cases[ui_start:]
+    multidisc_start = heading_cases.index("ACC-MDISC-001")
+    cases = (
+        heading_cases[:ui_start]
+        + core_cases
+        + heading_cases[multidisc_start:]
+        + heading_cases[ui_start:multidisc_start]
+    )
     if len(cases) != len(set(cases)) or not cases:
         raise RuntimeError("ACCEPTANCE_CASE_CATALOG_INVALID")
     return cases
@@ -443,7 +486,7 @@ def archive_previous(case_dir: Path) -> None:
         number += 1
     target = attempts / f"{number:03d}"
     target.mkdir()
-    for name in ("result.json", "stdout.log", "network.json", "core-result.json"):
+    for name in ("result.json", "stdout.log", "network.json", "core-result.json", "runtime-result.json"):
         source = case_dir / name
         if source.exists():
             shutil.move(source, target / name)
@@ -457,6 +500,7 @@ def run_command(
     timeout_seconds: int,
     log_path: Path,
     extra_environment: dict[str, str] | None = None,
+    append: bool = False,
 ) -> tuple[int, bool]:
     environment = os.environ.copy()
     if extra_environment:
@@ -477,7 +521,11 @@ def run_command(
         except subprocess.TimeoutExpired:
             os.killpg(process.pid, signal.SIGKILL)
             output, _ = process.communicate()
-    log_path.write_text(output, encoding="utf-8")
+    if append:
+        with log_path.open("a", encoding="utf-8") as log:
+            log.write(output)
+    else:
+        log_path.write_text(output, encoding="utf-8")
     return process.returncode if process.returncode is not None else 1, timed_out
 
 
@@ -516,6 +564,41 @@ def execute_case(case_id: str) -> int:
         status, reason = conditional
         log_path.write_text(reason + "\n", encoding="utf-8")
         return_code = 0
+    elif case_id in MULTIDISC_RUNTIME_CASES:
+        run_id, _expectation = MULTIDISC_RUNTIME_CASES[case_id]
+        product_command = MULTIDISC_PRODUCT_COMMANDS[case_id]
+        log_path.write_text("[deterministic product contract]\n", encoding="utf-8")
+        product_code, product_timeout = run_command(product_command, 300, log_path, append=True)
+        verify = "python3 data/example/verify-fixtures.py"
+        if product_code != 0 or product_timeout:
+            status, reason, command, timed_out, return_code = (
+                "FAIL", "多盘产品契约回归测试失败", product_command, product_timeout, product_code
+            )
+        else:
+            with log_path.open("a", encoding="utf-8") as log:
+                log.write("\n[controlled runtime fixture verification]\n")
+            verify_code, verify_timeout = run_command(verify, 120, log_path, append=True)
+        if product_code == 0 and not product_timeout and (verify_code != 0 or verify_timeout):
+            status, reason, command, timed_out, return_code = (
+                "BLOCKED", "用户授权 Saturn 多盘 ROM/BIOS 夹具缺失或校验失败",
+                f"{product_command} && {verify}", verify_timeout, verify_code
+            )
+        elif product_code == 0 and not product_timeout:
+            smoke_command = f"node data/example/smoke-test.mjs {run_id}"
+            command = f"{product_command} && {verify} && {smoke_command}"
+            timeout = 600 if case_id == "ACC-MDISC-005" else 900
+            with log_path.open("a", encoding="utf-8") as log:
+                log.write("\n[real EmulatorJS multi-disc smoke]\n")
+            return_code, timed_out = run_command(smoke_command, timeout, log_path, append=True)
+            smoke_passed = return_code == 0 and not timed_out
+            status = "BLOCKED" if smoke_passed else "FAIL"
+            reason = "多盘机器断言通过；必须复核本次截图后才能通过" if smoke_passed else "多盘 Saturn smoke 失败"
+            source = ROOT / "data" / "example" / "results" / f"{run_id}.png"
+            if source.is_file():
+                shutil.copy2(source, case_dir / "screenshots" / f"{run_id}.png")
+            latest = ROOT / "data" / "example" / "results" / "latest.json"
+            if latest.is_file():
+                shutil.copy2(latest, case_dir / "runtime-result.json")
     elif case_id in CORE_CASES:
         core = CORE_CASES[case_id]
         verify = "python3 data/example/verify-fixtures.py"
@@ -572,6 +655,9 @@ def execute_case(case_id: str) -> int:
     core_result = case_dir / "core-result.json"
     if core_result.is_file():
         evidence.append(relative(core_result, run_dir))
+    runtime_result = case_dir / "runtime-result.json"
+    if runtime_result.is_file():
+        evidence.append(relative(runtime_result, run_dir))
     result = {
         "caseId": case_id,
         "status": status,
@@ -646,6 +732,47 @@ def review_core(case_id: str, decision: str, observed: str) -> int:
     return 0 if passed else 1
 
 
+def review_multidisc(case_id: str, decision: str, observed: str) -> int:
+    if case_id not in MULTIDISC_RUNTIME_CASES or decision not in {"passed", "failed"} or not observed.strip():
+        print("usage: run.py review-multidisc ACC-MDISC-005|006 passed|failed OBSERVED", file=sys.stderr)
+        return 2
+    _, run_dir = current_run()
+    run_id, expectation = MULTIDISC_RUNTIME_CASES[case_id]
+    case_dir = run_dir / "cases" / case_id.lower()
+    result_path = case_dir / "result.json"
+    screenshot = case_dir / "screenshots" / f"{run_id}.png"
+    machine_result = case_dir / "runtime-result.json"
+    if not result_path.is_file() or not screenshot.is_file() or not machine_result.is_file():
+        raise RuntimeError("MULTIDISC_REVIEW_EVIDENCE_MISSING：先运行对应 ACC-MDISC Case")
+    result = json.loads(result_path.read_text(encoding="utf-8"))
+    if result.get("status") != "BLOCKED" or result.get("exitCode") != 0 or result.get("timedOut"):
+        raise RuntimeError("MULTIDISC_MACHINE_ASSERTIONS_NOT_PASSED")
+    payload = json.loads(machine_result.read_text(encoding="utf-8"))
+    record = next((item for item in payload.get("results", []) if item.get("core") == run_id), None)
+    if not record or record.get("status") != "passed" or record.get("failure") is not None:
+        raise RuntimeError("MULTIDISC_MACHINE_RESULT_INVALID")
+    reviewed_at = now_ms()
+    passed = decision == "passed"
+    result["status"] = "PASS" if passed else "FAIL"
+    result["finishedAtMs"] = reviewed_at
+    result["durationMs"] = reviewed_at - result["startedAtMs"]
+    result["assertions"] = [
+        {"name": "machine-multidisc-contract", "passed": True, "details": "盘数、换盘回读、帧推进、artifact 与隔离断言通过"},
+        {"name": "current-screenshot-visual-review", "passed": passed, "details": observed.strip()},
+    ]
+    result["visualReview"] = {
+        "reviewedAtMs": reviewed_at,
+        "decision": decision,
+        "expected": expectation,
+        "observed": observed.strip(),
+        "screenshots": [{"runId": run_id, "sha256": sha256_file(screenshot), "path": relative(screenshot, run_dir)}],
+    }
+    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    print(f"{case_id}: {result['status']} (visual review recorded)")
+    print(f"evidence=.artifacts/acceptance/{run_dir.name}/cases/{case_id.lower()}")
+    return 0 if passed else 1
+
+
 def report() -> int:
     _, run_dir = current_run()
     catalog = all_cases()
@@ -690,7 +817,7 @@ def report() -> int:
 def main() -> int:
     os.chdir(ROOT)
     if len(sys.argv) < 2:
-        print("usage: run.py prepare | case CASE_ID | review-core CASE_ID passed|failed OBSERVED | report", file=sys.stderr)
+        print("usage: run.py prepare | case CASE_ID | review-core CASE_ID passed|failed OBSERVED | review-multidisc CASE_ID passed|failed OBSERVED | report", file=sys.stderr)
         return 2
     try:
         if sys.argv[1] == "prepare" and len(sys.argv) == 2:
@@ -701,10 +828,12 @@ def main() -> int:
             return report()
         if sys.argv[1] == "review-core" and len(sys.argv) == 5:
             return review_core(sys.argv[2], sys.argv[3], sys.argv[4])
+        if sys.argv[1] == "review-multidisc" and len(sys.argv) == 5:
+            return review_multidisc(sys.argv[2], sys.argv[3], sys.argv[4])
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError, subprocess.TimeoutExpired) as error:
         print(str(error), file=sys.stderr)
         return 1
-    print("usage: run.py prepare | case CASE_ID | review-core CASE_ID passed|failed OBSERVED | report", file=sys.stderr)
+    print("usage: run.py prepare | case CASE_ID | review-core CASE_ID passed|failed OBSERVED | review-multidisc CASE_ID passed|failed OBSERVED | report", file=sys.stderr)
     return 2
 
 

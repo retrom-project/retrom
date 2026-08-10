@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 import subprocess
 import sys
 import xml.etree.ElementTree as ET
@@ -184,8 +185,8 @@ def main() -> int:
     errors: list[str] = []
     notes: list[str] = []
 
-    if manifest.get("schemaVersion") != 2:
-        errors.append("fixtures.json: expected schemaVersion 2")
+    if manifest.get("schemaVersion") != 3:
+        errors.append("fixtures.json: expected schemaVersion 3")
 
     source = manifest.get("source", {})
     if "host" in source or "root" in source:
@@ -306,6 +307,59 @@ def main() -> int:
             notes.append(f"{core} ({runtime_version}): fixture hash and size matched")
         seen_games.add(game_key)
 
+    seen_multidisc_ids: set[str] = set()
+    sha256_pattern = re.compile(r"^[0-9a-f]{64}$")
+    for fixture in manifest.get("multiDiscFixtures", []):
+        fixture_id = fixture.get("id", "")
+        kind = fixture.get("kind")
+        if not fixture_id or fixture_id in seen_multidisc_ids:
+            errors.append(f"fixtures.json: duplicate or missing multi-disc fixture ID {fixture_id!r}")
+        seen_multidisc_ids.add(fixture_id)
+        if kind not in {"RUNTIME_POSITIVE", "CAPABILITY_NEGATIVE"}:
+            errors.append(f"{fixture_id}: unsupported multi-disc fixture kind {kind!r}")
+        source_playlist = fixture.get("sourcePlaylist", {})
+        if not isinstance(source_playlist.get("size"), int) or source_playlist.get("size", 0) <= 0 \
+                or not sha256_pattern.fullmatch(source_playlist.get("sha256", "")):
+            errors.append(f"{fixture_id}: invalid source playlist evidence")
+        discs = fixture.get("discs", [])
+        if not 2 <= len(discs) <= 8 or [disc.get("index") for disc in discs] != list(range(len(discs))):
+            errors.append(f"{fixture_id}: disc indexes must be contiguous with a count from 2 to 8")
+        total_bytes = 0
+        for disc in discs:
+            size = disc.get("size")
+            sha256 = disc.get("sha256", "")
+            if not isinstance(size, int) or size <= 0 or not sha256_pattern.fullmatch(sha256):
+                errors.append(f"{fixture_id}: invalid disc evidence at index {disc.get('index')!r}")
+                continue
+            total_bytes += size
+            if kind == "RUNTIME_POSITIVE":
+                require_file(disc, f"{fixture_id} disc {disc['index'] + 1}", errors)
+            elif "localPath" in disc:
+                errors.append(f"{fixture_id}: capability-only fixture must not require proprietary local bytes")
+        if total_bytes > 1_073_741_824:
+            errors.append(f"{fixture_id}: disc bytes exceed the product multi-disc limit")
+
+        if kind == "RUNTIME_POSITIVE":
+            core = fixture.get("core")
+            runtime_version = fixture.get("runtimeVersion")
+            selected = selected_artifacts.get(runtime_version, {}).get(core)
+            adapter = dependency_manifests.get(runtime_version, {}).get("emulatorjs", {}).get("player_adapter", {})
+            multi_disc = (selected or {}).get("multi_disc")
+            supported = (selected or {}).get("supported_content_kinds", [])
+            if core != "yabause" or fixture.get("system") != "saturn" \
+                    or fixture.get("playerAdapterId") != adapter.get("id") \
+                    or "MULTI_DISC_M3U_V1" not in supported or not multi_disc:
+                errors.append(f"{fixture_id}: runtime capability does not match the pinned Saturn artifact")
+            require_file({"path": fixture.get("examplePath")}, f"{fixture_id} example", errors)
+            require_file(fixture.get("runtimePlaylist", {}), f"{fixture_id} canonical playlist", errors)
+            notes.append(f"{fixture_id}: registered canonical playlist and {len(discs)} ordered discs")
+        else:
+            for core in fixture.get("cores", []):
+                selected = selected_artifacts.get(fixture.get("runtimeVersion"), {}).get(core, {})
+                if "MULTI_DISC_M3U_V1" in selected.get("supported_content_kinds", []) or selected.get("multi_disc"):
+                    errors.append(f"{fixture_id}: negative core {core} unexpectedly advertises multi-disc")
+            notes.append(f"{fixture_id}: capability remains disabled without requiring proprietary bytes")
+
     for note in notes:
         print(f"OK  {note}")
     if errors:
@@ -324,7 +378,8 @@ def main() -> int:
     )
     print(
         f"Verified {len(manifest['fixtures'])} core fixtures against EmulatorJS "
-        f"{runtime_versions} and pinned DAT files."
+        f"{runtime_versions}, {len(manifest.get('multiDiscFixtures', []))} multi-disc fixtures, "
+        "and pinned DAT files."
     )
     return 0
 

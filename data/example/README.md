@@ -59,6 +59,8 @@
 
 来源相对路径、文件大小、SHA-256、BIOS MD5、core artifact 和超时值以 [`fixtures.json`](./fixtures.json) 为唯一事实源。远端 host/root 由操作者分别通过 `RETROM_FIXTURE_HOST`、`RETROM_FIXTURE_ROOT` 提供，不写入仓库。GBA 与 NGP 原始 ZIP 被保留作来源证据；示例使用其中逐字节解出的 ROM，因为 4.2.3 直接传入这些 ZIP 会进入 RetroArch `Load Content`，不满足自动启动要求。
 
+schema v3 的 `multiDiscFixtures` 另锁定 Saturn 双盘、三盘和 PSX capability 负向证据。Saturn CHD 必须由有权使用内容的操作者放到清单给出的 `data/game/yabause/multidisc-saturn-{2,3}/disc-NNN.chd`；清单不保存来源主机路径，通用 `fetch-fixtures.sh` 也不猜测本地目录结构。仓库只提交 canonical M3U，小文件与每张盘都由 `verify-fixtures.py` 按 size/SHA-256 校验。PSX 负向只检查 manifest capability，不要求放置或运行专有 bytes。
+
 PPSSPP 的 `game` 是固定 CSO，`formatVariants` 中的 ISO 由 `materialize-cso.py` 以 CISO v1 块流确定性派生。脚本只接受清单固定源 hash，校验 index/offset/块长度、目标 size/hash 与 ISO sector 16 的 `CD001`，写同目录临时文件后原子替换；生产导入和 Player 从不调用它。`smoke-test.mjs ppsspp` 自动展开两个独立 run。
 
 三个 Atari fixture 保持 7z 来源，`expectedMaterializedMember` 固定运行时 raw member 的 name/size/CRC32/SHA-256。standalone 页可保留原有核心启动证据；正式产品导入必须证明 Launch 返回的是物化 raw bytes，而不是来源 7z。
@@ -99,6 +101,7 @@ python3 data/example/verify-fixtures.py
 ~~~bash
 node data/example/smoke-test.mjs
 node data/example/smoke-test.mjs mgba mame2003
+node data/example/smoke-test.mjs multidisc-saturn-2 multidisc-saturn-3
 ~~~
 
 脚本会启动带 COOP/COEP/CORP 头的本地服务，通过 Chrome DevTools Protocol 驱动真实 Chrome，保存 canvas 截图，并覆盖 `results/latest.json`。可用环境变量：
