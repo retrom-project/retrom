@@ -7,14 +7,15 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Toast } from "@/components/flash-toast";
 import { StatusBadge } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
-import { formatTime } from "@/lib/backend";
+import { formatBytes, formatTime } from "@/lib/backend";
 import { newUuid } from "@/lib/crypto";
 import { responseError, uploadFiles, uploadOne, waitForJob } from "@/lib/upload";
 import { formatAdminGameTime, runtimePresentation } from "./admin-game-library";
+import { preflightMultiDisc } from "@/features/imports/multidisc-preflight";
 
 type Revision = { id: string; sourceKind: string; sourceRefId: string | null; current: boolean; createdAtMs: number };
-type ContentRevision = Revision & { files: Array<{ role: string; logicalName: string; sortOrder: number }> };
-type VariantRevision = { id: string; contentRevisionId: string; coreArtifactId: string; datVersionId: string | null; status: string; compatibilityCode: string; current: boolean; createdAtMs: number };
+type ContentRevision = Revision & { contentKind: string; files: Array<{ role: string; logicalName: string; sortOrder: number; sizeBytes: number; sha256: string }> };
+type VariantRevision = { id: string; contentRevisionId: string; coreArtifactId: string; datVersionId: string | null; status: string; compatibilityCode: string; dependencySnapshot?: { multiDisc?: { canonicalPlaylistSha256?: string } }; current: boolean; createdAtMs: number };
 type Variant = { id: string; coreId: string; coreName: string; currentRevisionId: string | null; version: number; revisions: VariantRevision[] };
 type Asset = { assetId: string; kind: string; ordinal: number; widthPx: number; heightPx: number; mediaType: string; url: string };
 
@@ -65,6 +66,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const [moveTarget, setMoveTarget] = useState("");
   const [scrapeCandidates, setScrapeCandidates] = useState(candidates);
   const [comparison, setComparison] = useState<ScrapeCandidate | null>(null);
+  const [contentMode, setContentMode] = useState<"STANDARD" | "MULTI_DISC_M3U_V1">(() => game.contentRevisions.find((revision) => revision.current)?.contentKind === "MULTI_DISC_M3U_V1" ? "MULTI_DISC_M3U_V1" : "STANDARD");
   const [draft, setDraft] = useState<MetadataDraft>(() => metadataDraft(game));
   const [savedDraft, setSavedDraft] = useState<MetadataDraft>(() => metadataDraft(game));
   const versionRef = useRef(game.version);
@@ -123,10 +125,16 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
     });
   }
 
-  async function replaceContent(files: File[]) {
+  async function replaceContent(files: File[], mode: "STANDARD" | "MULTI_DISC_M3U_V1") {
     await action("content", async () => {
+      if (mode === "MULTI_DISC_M3U_V1") {
+        const preflight = await preflightMultiDisc(files.map((file) => ({ path: file.webkitRelativePath || file.name, file })));
+        if (!preflight.detected || preflight.groups.length !== 1 || preflight.completeGroupCount !== 1 || preflight.blockedGroupCount || preflight.rejectedGroupCount) {
+          throw new Error(preflight.missingDiscCount ? `替换目录缺少 ${preflight.missingDiscCount} 张光盘` : "多盘替换目录必须只包含一组完整的 M3U + CHD");
+        }
+      }
       const uploaded = await uploadFiles(files, setNotice);
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}/content-revisions`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId }) });
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/content-revisions`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadId: uploaded.uploadId, contentMode: mode }) });
       if (!response.ok) throw new Error(await responseError(response, "内容替换任务创建失败"));
       const result = await response.json() as { jobId: string };
       setNotice("正在安全校验新游戏文件…");
@@ -218,6 +226,8 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const currentFile = currentContent?.files[0]?.logicalName ?? "尚无游戏文件";
   const currentVariant = game.variants.find((variant) => variant.coreId === currentInstance?.defaultCoreId) ?? game.variants[0];
   const currentRuntime = currentVariant?.revisions.find((revision) => revision.current) ?? currentVariant?.revisions[0];
+  const currentDiscs = currentContent?.contentKind === "MULTI_DISC_M3U_V1" ? currentContent.files.filter((file) => file.role === "DISC").sort((left, right) => left.sortOrder - right.sortOrder) : [];
+  const canonicalPlaylistSHA256 = currentRuntime?.dependencySnapshot?.multiDisc?.canonicalPlaylistSha256 ?? "";
   const runtime = runtimePresentation(currentRuntime?.status ?? null);
   const cover = game.assets.find((asset) => asset.kind === "COVER");
   const background = game.assets.find((asset) => asset.kind === "BACKGROUND");
@@ -263,9 +273,10 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
       </div></section>
     </div>
 
-    <section className="panel admin-game-runtime" id="admin-game-runtime"><div className="panel-head"><h2>游戏文件与运行环境</h2></div><div className="panel-body"><div className="admin-game-runtime-grid"><div><span>当前游戏文件</span><strong>{currentFile}</strong></div><div><span>推荐运行方式</span><strong>{currentInstance?.defaultCoreName ?? currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>兼容状态</span><strong className={runtime.tone}>{runtime.label}</strong></div><div><span>最后验证</span><strong>{formatTime(currentRuntime?.createdAtMs)}</strong></div></div>
-      <div className="admin-game-runtime-note"><p>替换游戏文件后会创建新的内容版本并执行兼容性验证；验证通过后才切换当前版本。原文件、历史版本和已有存档不会删除。</p><input id="admin-game-content-upload" hidden type="file" multiple disabled={disabled} onChange={(event) => { const files = Array.from(event.target.files ?? []); if (files.length) void replaceContent(files); }} /><label className="button secondary" aria-disabled={disabled} htmlFor="admin-game-content-upload">替换游戏文件</label></div>
-      <details className="admin-game-technical"><summary>技术详情</summary><div>{game.contentRevisions.map((revision) => <p key={revision.id}><strong>{revision.current ? "当前内容" : "历史内容"}</strong> · {formatTime(revision.createdAtMs)} · {revision.files.map((file) => file.logicalName).join("、")}<code>{revision.id}</code></p>)}{game.variants.map((variant) => <p key={variant.id}><strong>{variant.coreName}</strong> · {variant.revisions.map((revision) => `${revision.current ? "当前" : "历史"} ${revision.status}`).join(" / ")}<code>{variant.id}</code></p>)}</div></details>
+    <section className="panel admin-game-runtime" id="admin-game-runtime"><div className="panel-head"><h2>游戏文件与运行环境</h2></div><div className="panel-body"><div className="admin-game-runtime-grid"><div><span>当前游戏文件</span><strong>{currentFile}</strong></div><div><span>内容类型</span><strong>{currentContent?.contentKind === "MULTI_DISC_M3U_V1" ? "多盘 M3U" : "普通内容"}</strong></div><div><span>推荐运行方式</span><strong>{currentInstance?.defaultCoreName ?? currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>兼容状态</span><strong className={runtime.tone}>{runtime.label}</strong></div><div><span>最后验证</span><strong>{formatTime(currentRuntime?.createdAtMs)}</strong></div></div>
+      {currentDiscs.length ? <div className="admin-game-disc-evidence"><div><strong>当前盘序</strong><code title={canonicalPlaylistSHA256}>playlist SHA-256 · {canonicalPlaylistSHA256 || "不可用"}</code></div><ol>{currentDiscs.map((disc, index) => <li key={disc.sha256}><span>光盘 {index + 1}</span><strong>{disc.logicalName}</strong><small>{formatBytes(disc.sizeBytes)} · {disc.sha256.slice(0, 12)}…</small></li>)}</ol></div> : null}
+      <div className="admin-game-runtime-note"><p>替换游戏文件后会创建新的内容版本并执行兼容性验证；验证通过后才切换当前版本。原文件、历史版本和已有存档不会删除。</p><fieldset className="admin-game-content-mode"><legend>替换布局</legend><label><input type="radio" name="replacement-content-mode" checked={contentMode === "STANDARD"} onChange={() => setContentMode("STANDARD")} />普通内容</label><label><input type="radio" name="replacement-content-mode" checked={contentMode === "MULTI_DISC_M3U_V1"} onChange={() => setContentMode("MULTI_DISC_M3U_V1")} />多盘 M3U + CHD</label></fieldset><input id="admin-game-content-upload" hidden type="file" multiple disabled={disabled} {...(contentMode === "MULTI_DISC_M3U_V1" ? { webkitdirectory: "" } : {})} onChange={(event) => { const files = Array.from(event.target.files ?? []); if (files.length) void replaceContent(files, contentMode); event.currentTarget.value = ""; }} /><label className="button secondary" aria-disabled={disabled} htmlFor="admin-game-content-upload">{contentMode === "MULTI_DISC_M3U_V1" ? "选择完整多盘目录" : "替换游戏文件"}</label></div>
+      <details className="admin-game-technical"><summary>技术详情</summary><div>{game.contentRevisions.map((revision) => <p key={revision.id}><strong>{revision.current ? "当前内容" : "历史内容"}</strong> · {revision.contentKind} · {formatTime(revision.createdAtMs)} · {revision.files.map((file) => file.logicalName).join("、")}<code>{revision.id}</code></p>)}{game.variants.map((variant) => <p key={variant.id}><strong>{variant.coreName}</strong> · {variant.revisions.map((revision) => `${revision.current ? "当前" : "历史"} ${revision.status}`).join(" / ")}<code>{variant.id}</code></p>)}</div></details>
     </div></section>
 
     <section className="panel admin-game-actions" id="admin-game-actions"><div className="panel-head"><h2>管理操作</h2></div><div className="panel-body admin-game-action-grid"><article><h3>重新获取游戏资料</h3><p>重新查询标题、简介与媒体候选；先并排比较基础信息、封面和完整说明，确认后才会应用。</p><button className="button secondary" type="button" disabled={disabled} onClick={() => void rescrape()}>重新查找游戏信息</button>{scrapeCandidates.length ? <div className="admin-game-candidates">{scrapeCandidates.map((candidate) => <button type="button" key={candidate.candidateId} disabled={busy !== null} onClick={() => setComparison(candidate)}><span><strong>{String(candidate.metadata.title ?? candidate.providerGameId)}</strong><small>{candidate.assets.some((asset) => asset.kind === "COVER" && asset.status === "READY") ? "包含封面候选" : "仅有文字候选"}</small></span><span>对比并选择</span></button>)}</div> : null}</article>

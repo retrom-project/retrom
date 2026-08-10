@@ -85,7 +85,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
             <Image src={save.screenshotUrl} alt="" fill sizes="(min-width: 1600px) 290px, 220px" unoptimized />
           </button>
           <div className="game-detail-save-body">
-            <div><strong>{save.core.name}</strong><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatSaveTime(save.createdAtMs, nowMs)}</time></div>
+            <div><strong>{save.core.name}{save.discLabel ? ` · ${save.discLabel}` : ""}</strong><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatSaveTime(save.createdAtMs, nowMs)}</time></div>
             <small>{index === 0 ? "最近保存" : save.core.id === recentSaves[0]?.core.id ? "同一运行环境" : "恢复时使用原 Core"}</small>
             <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="从此继续 →" />
           </div>
@@ -121,7 +121,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
           <button className="game-detail-drawer-shot" type="button" aria-label={`预览 ${formatSaveTime(save.createdAtMs, nowMs)} 的存档截图`} onClick={() => openPreview(save)}>
             <Image src={save.screenshotUrl} alt="" fill sizes="128px" unoptimized />
           </button>
-          <div><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatSaveTime(save.createdAtMs, nowMs)}</time><small>{save.core.name}{index === 0 ? " · 最近" : ""}</small></div>
+          <div><time dateTime={new Date(save.createdAtMs).toISOString()}>{formatSaveTime(save.createdAtMs, nowMs)}</time><small>{save.core.name}{save.discLabel ? ` · ${save.discLabel}` : ""}{index === 0 ? " · 最近" : ""}</small></div>
           <SaveResume gameId={gameId} save={save} requiresThreads={threadCoreIds.includes(save.core.id)} label="继续 →" />
         </article>)}
       </div>

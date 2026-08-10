@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { EmulatorSettingsPanel } from "./emulator-settings";
+import type { DiscSet, DiscState } from "./adapters/ejs-4.2.3-v2";
 
 type SyncTone = "synced" | "busy" | "warning";
 type ExitSaveState = "idle" | "saving" | "saved" | "error";
@@ -24,6 +25,8 @@ export function PlayerChrome({
   emulatorToolbarOpen,
   emulatorVolume,
   emulatorMuted,
+  discSet,
+  discState,
   onHoldControls,
   onReleaseControls,
   onSave,
@@ -34,6 +37,7 @@ export function PlayerChrome({
   onOpenEmulatorPanel,
   onChangeEmulatorVolume,
   onToggleEmulatorMute,
+  onSelectDisc,
   onExit,
   onDownloadConflict,
 }: {
@@ -52,6 +56,8 @@ export function PlayerChrome({
   emulatorToolbarOpen: boolean;
   emulatorVolume: number;
   emulatorMuted: boolean;
+  discSet: DiscSet | null;
+  discState: DiscState | null;
   onHoldControls: () => void;
   onReleaseControls: () => void;
   onSave: () => Promise<boolean>;
@@ -62,15 +68,20 @@ export function PlayerChrome({
   onOpenEmulatorPanel: (panel: EmulatorSettingsPanel) => void;
   onChangeEmulatorVolume: (volume: number) => void;
   onToggleEmulatorMute: () => void;
+  onSelectDisc: (index: number) => Promise<boolean>;
   onExit: () => void;
   onDownloadConflict: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [discMenuOpen, setDiscMenuOpen] = useState(false);
+  const [discBusy, setDiscBusy] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [exitSaveState, setExitSaveState] = useState<ExitSaveState>("idle");
   const [conflictDismissed, setConflictDismissed] = useState(false);
   const [localToast, setLocalToast] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+  const discMenuRef = useRef<HTMLDivElement>(null);
+  const discButtonRef = useRef<HTMLButtonElement>(null);
   const toolbarRef = useRef<HTMLElement>(null);
   const toolbarHovered = useRef(false);
   const toolbarFocused = useRef(false);
@@ -93,9 +104,29 @@ export function PlayerChrome({
   }, [menuOpen]);
 
   useEffect(() => {
-    if (menuOpen || exitOpen || emulatorToolbarOpen) onHoldControls();
+    if (!discMenuOpen) return;
+    const close = (focusButton = false) => {
+      setDiscMenuOpen(false);
+      if (focusButton) discButtonRef.current?.focus();
+    };
+    const closeOnOutside = (event: PointerEvent) => {
+      if (event.target instanceof Node && !discMenuRef.current?.contains(event.target)) close();
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") close(true);
+    };
+    document.addEventListener("pointerdown", closeOnOutside);
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.removeEventListener("pointerdown", closeOnOutside);
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [discMenuOpen]);
+
+  useEffect(() => {
+    if (menuOpen || discMenuOpen || exitOpen || emulatorToolbarOpen) onHoldControls();
     else if (!toolbarHovered.current && !toolbarFocused.current) onReleaseControls();
-  }, [emulatorToolbarOpen, exitOpen, menuOpen, onHoldControls, onReleaseControls]);
+  }, [discMenuOpen, emulatorToolbarOpen, exitOpen, menuOpen, onHoldControls, onReleaseControls]);
 
   useEffect(() => {
     if (!localToast) return;
@@ -125,6 +156,22 @@ export function PlayerChrome({
     setExitSaveState(saved ? "saved" : "error");
   }
 
+  async function chooseDisc(index: number) {
+    if (!discState || discBusy) return;
+    if (index === discState.currentIndex) {
+      setDiscMenuOpen(false);
+      discButtonRef.current?.focus();
+      return;
+    }
+    setDiscBusy(true);
+    const changed = await onSelectDisc(index).catch(() => false);
+    setDiscBusy(false);
+    if (changed) {
+      setDiscMenuOpen(false);
+      discButtonRef.current?.focus();
+    }
+  }
+
   const exitDescription = exitSaveState === "saving"
     ? "正在创建退出前存档…"
     : exitSaveState === "saved"
@@ -143,11 +190,11 @@ export function PlayerChrome({
       onBlurCapture={(event) => {
         if (event.relatedTarget instanceof Node && toolbarRef.current?.contains(event.relatedTarget)) return;
         toolbarFocused.current = false;
-        if (!menuOpen && !exitOpen && !emulatorToolbarOpen) onReleaseControls();
+        if (!menuOpen && !discMenuOpen && !exitOpen && !emulatorToolbarOpen) onReleaseControls();
       }}
       onFocusCapture={() => { toolbarFocused.current = true; onHoldControls(); }}
       onPointerEnter={() => { toolbarHovered.current = true; onHoldControls(); }}
-      onPointerLeave={() => { toolbarHovered.current = false; if (!menuOpen && !exitOpen && !emulatorToolbarOpen) onReleaseControls(); }}
+      onPointerLeave={() => { toolbarHovered.current = false; if (!menuOpen && !discMenuOpen && !exitOpen && !emulatorToolbarOpen) onReleaseControls(); }}
       onPointerMove={(event) => event.stopPropagation()}
     >
       <button className="player-back" type="button" aria-label="返回并退出游戏" title="返回并退出游戏" onClick={requestExit}>
@@ -163,6 +210,35 @@ export function PlayerChrome({
         {warnings.length ? <button className="player-warning-dot" type="button" aria-label="查看运行提醒" title="查看运行提醒" onClick={() => setLocalToast(warningCopy)} /> : null}
       </div>
       <div className="player-actions">
+        {discSet && discState ? <div className="player-menu-wrap player-disc-wrap" ref={discMenuRef}>
+          <button
+            ref={discButtonRef}
+            className="player-control player-disc-button"
+            type="button"
+            disabled={!running || discBusy}
+            aria-label={`光盘 ${discState.currentIndex + 1} / ${discSet.count}`}
+            aria-expanded={discMenuOpen}
+            aria-haspopup="menu"
+            onClick={() => setDiscMenuOpen((open) => !open)}
+          >
+            <span aria-hidden="true">◉</span>光盘 {discState.currentIndex + 1} / {discSet.count}
+          </button>
+          {discMenuOpen ? <div className="player-menu player-disc-menu" role="menu" aria-label="选择光盘">
+            <strong>选择光盘</strong>
+            {discSet.entries.map((entry) => <button
+              key={entry.index}
+              type="button"
+              role="menuitemradio"
+              aria-checked={entry.index === discState.currentIndex}
+              disabled={discBusy}
+              onClick={() => void chooseDisc(entry.index)}
+            >
+              <span aria-hidden="true">{entry.index === discState.currentIndex ? "✓" : "○"}</span>
+              {entry.label}{entry.index === discState.currentIndex ? " · 当前" : ""}
+            </button>)}
+            <small>切换后游戏保持暂停，返回游戏即可继续。</small>
+          </div> : null}
+        </div> : null}
         <button className="player-control player-save-button" type="button" disabled={!running} onClick={() => void onSave()}><AppIcon name="save" />创建存档</button>
         <button className="player-control is-icon" type="button" aria-label={paused ? "已暂停，点击游戏画面继续" : "暂停"} title={paused ? "点击游戏画面继续" : "暂停"} aria-pressed={paused} disabled={!running}><AppIcon name="pause" /></button>
         <button className="player-control is-icon" type="button" aria-label={fullscreen ? "退出全屏" : "全屏"} title={fullscreen ? "退出全屏" : "全屏"} onClick={onToggleFullscreen}><AppIcon name={fullscreen ? "minimize" : "maximize"} /></button>

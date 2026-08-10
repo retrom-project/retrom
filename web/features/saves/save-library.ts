@@ -6,6 +6,8 @@ export type SaveItem = {
   version: number;
   createdAtMs: number;
   activeDurationMs: number;
+  discIndex?: number | null;
+  discLabel?: string | null;
   screenshotUrl: string;
   core: { id: string; name: string };
   platform: { id: string; name: string };

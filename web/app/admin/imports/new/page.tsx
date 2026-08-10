@@ -6,12 +6,21 @@ import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "导入游戏" };
 
-type Instance = { id: string; name: string; platformName: string; defaultCoreName: string };
+type Instance = {
+  id: string; name: string; platformName: string; defaultCoreName: string;
+  importCapabilities?: { contentModes?: string[]; multiDisc?: { maxDiscs: number; maxTotalBytes: number } | null };
+};
 
 export default async function NewImportPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const query = scalarSearchParams(await searchParams, ["fromImportJobId"]);
   const result = await backendJSON<ListResponse<Instance>>("/api/v1/admin/platform-instances");
-  const directories = result.items.map((item) => ({ id: item.id, name: item.name, platformName: item.platformName, coreName: item.defaultCoreName }));
+  const directories = result.items.map((item) => ({
+    id: item.id, name: item.name, platformName: item.platformName, coreName: item.defaultCoreName,
+    importCapabilities: {
+      contentModes: item.importCapabilities?.contentModes ?? ["STANDARD"],
+      multiDisc: item.importCapabilities?.multiDisc ?? null,
+    },
+  }));
   let reconfigureSource: ImportDetail | null = null;
   if (query.fromImportJobId) {
     try {

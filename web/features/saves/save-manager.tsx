@@ -78,7 +78,7 @@ function SaveCard({
           <button className="danger" type="button" role="menuitem" onClick={onDelete}><AppIcon name="x" />删除存档</button>
         </div> : null}
       </div>}
-      <div className="save-library-card-meta"><span>当时已游玩 {formatSaveDuration(save.activeDurationMs)}</span><span>{formatSaveTime(save.createdAtMs, nowMs, false).split(" ")[0]}</span></div>
+      <div className="save-library-card-meta"><span>当时已游玩 {formatSaveDuration(save.activeDurationMs)}</span>{save.discLabel ? <span className="save-disc-badge">{save.discLabel}</span> : null}<span>{formatSaveTime(save.createdAtMs, nowMs, false).split(" ")[0]}</span></div>
       {customName ? <p className="save-library-custom-name" title={customName}>{customName}</p> : null}
       {!available ? <p className="save-library-reason" role="alert">{availabilityMessage(save)}</p> : null}
     </div>
@@ -230,7 +230,7 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
       <div className="save-section-label"><div><h2 id="save-latest-heading">最近保存</h2><p>最近创建的一份可用手动存档</p></div></div>
       {latest ? <div className="save-latest-card">
         <div className="save-latest-shot"><Image src={latest.screenshotUrl} alt={`${latest.gameTitle} 最近存档画面`} fill sizes="360px" unoptimized /></div>
-        <div className="save-latest-copy"><div className="save-latest-kicker"><i />最近保存</div><Link href={`/games/${latest.gameId}`}><h3>{latest.gameTitle}</h3></Link><p>{latest.platform.name} · {latest.core.name}</p><div className="save-latest-facts"><div><span>保存时间</span><strong>{formatSaveTime(latest.createdAtMs, nowMs)}</strong></div><div><span>当时已游玩</span><strong>{formatSaveDuration(latest.activeDurationMs)}</strong></div><div><span>存档状态</span><strong>可以继续</strong></div></div></div>
+        <div className="save-latest-copy"><div className="save-latest-kicker"><i />最近保存</div><Link href={`/games/${latest.gameId}`}><h3>{latest.gameTitle}</h3></Link><p>{latest.platform.name} · {latest.core.name}{latest.discLabel ? ` · ${latest.discLabel}` : ""}</p><div className="save-latest-facts"><div><span>保存时间</span><strong>{formatSaveTime(latest.createdAtMs, nowMs)}</strong></div><div><span>当时已游玩</span><strong>{formatSaveDuration(latest.activeDurationMs)}</strong></div><div><span>{latest.discLabel ? "保存位置" : "存档状态"}</span><strong>{latest.discLabel ?? "可以继续"}</strong></div></div></div>
         <div className="save-latest-actions"><LaunchButton gameId={latest.gameId} saveStateId={latest.saveStateId} returnTo="/saves" label="从这里继续" /><Link className="button secondary" href={`/games/${latest.gameId}`}>查看游戏详情</Link><small>直接恢复这份手动存档</small></div>
       </div> : <div className="save-latest-unavailable">当前没有可以直接恢复的存档，请在下方查看异常原因。</div>}
     </section> : null}

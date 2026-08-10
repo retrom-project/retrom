@@ -3,11 +3,11 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { newUuid, sha256 } from "@/lib/crypto";
-import { captureManualScreenshot, captureManualState, mountEmulatorJS, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import { captureManualScreenshot, captureManualState, mountEmulatorJS, readDiscState, switchDisc, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
 import { setEmulatorPaused } from "./pause-control";
-import { restorePersistentSave } from "./persistent-save-restore";
+import { injectPersistentSave, restorePersistentSave } from "./persistent-save-restore";
 import { PlayerChrome } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
 
@@ -17,6 +17,39 @@ function base64(bytes: Uint8Array) {
   let value = "";
   for (const byte of bytes) value += String.fromCharCode(byte);
   return btoa(value);
+}
+
+export async function readBoundedResponse(response: Response, maximumBytes: number) {
+  const declared = Number(response.headers.get("content-length") ?? "0");
+  if (Number.isFinite(declared) && declared > maximumBytes) throw new Error("PLAYER_SAVE_STATE_TOO_LARGE");
+  if (!response.body) {
+    const bytes = new Uint8Array(await response.arrayBuffer());
+    if (bytes.byteLength > maximumBytes) throw new Error("PLAYER_SAVE_STATE_TOO_LARGE");
+    return bytes;
+  }
+  const reader = response.body.getReader();
+  const chunks: Uint8Array[] = [];
+  let length = 0;
+  try {
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      length += value.byteLength;
+      if (length > maximumBytes) throw new Error("PLAYER_SAVE_STATE_TOO_LARGE");
+      chunks.push(value);
+    }
+  } finally {
+    reader.releaseLock();
+  }
+  const result = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
+  return result;
+}
+
+function formatPlayerBytes(bytes: number) {
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
 export function PlayerShell({ launchId }: { launchId: string }) {
@@ -38,6 +71,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [emulatorToolbarOpen, setEmulatorToolbarOpen] = useState(false);
   const [emulatorVolume, setEmulatorVolume] = useState(0.5);
   const [emulatorMuted, setEmulatorMuted] = useState(false);
+  const [discSet, setDiscSet] = useState<DiscSet | null>(null);
+  const [discState, setDiscState] = useState<DiscState | null>(null);
   const returnTo = useRef("/library");
   const sequence = useRef(0);
   const started = useRef(false);
@@ -57,6 +92,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const lastManualScreenshot = useRef<ManualScreenshot | null>(null);
   const chromePinned = useRef(false);
   const lastAudibleVolume = useRef(0.5);
+  const discSetRef = useRef<DiscSet | null>(null);
 
   const clearControlsTimer = useCallback(() => {
     if (controlsTimer.current !== null) window.clearTimeout(controlsTimer.current);
@@ -212,8 +248,23 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       showToast("状态或截图为空，未创建存档。", 4_000);
       return false;
     }
+    let discIndex: number | undefined;
+    if (discSetRef.current) {
+      try {
+        if (!emulator.current) throw new Error("PLAYER_DISC_STATE_UNAVAILABLE");
+        discIndex = readDiscState(emulator.current, discSetRef.current.count).currentIndex;
+      } catch {
+        setSyncText("保存失败");
+        setSyncTone("warning");
+        showToast("无法读取当前光盘，未创建存档。", 4_000);
+        return false;
+      }
+    }
     const form = new FormData();
-    form.append("metadata", new Blob([JSON.stringify({ name: `手动存档 ${new Date().toLocaleString("zh-CN")}` })], { type: "application/json" }));
+    form.append("metadata", new Blob([JSON.stringify({
+      name: `手动存档 ${new Date().toLocaleString("zh-CN")}`,
+      ...(discIndex === undefined ? {} : { discIndex })
+    })], { type: "application/json" }));
     const stateBytes = new Uint8Array(payload.state).slice().buffer;
     form.append("state", new Blob([stateBytes], { type: "application/octet-stream" }), `state.${payload.format || "bin"}`);
     form.append("screenshot", payload.screenshot, `screenshot.${payload.format || "png"}`);
@@ -281,6 +332,21 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         setCoreName(config.coreName || config.core);
         setPlatformName(config.platformName);
         persistentSaveMode.current = config.persistentSaveMode;
+        discSetRef.current = config.discSet ?? null;
+        setDiscSet(config.discSet ?? null);
+        setDiscState(null);
+
+        if (config.discSet) {
+          const sizes = await Promise.all(config.discSet.entries.map(async (entry) => {
+            const source = config.externalFiles[entry.virtualPath];
+            const head = await fetch(source, { method: "HEAD", credentials: "same-origin", cache: "no-store", signal: controller.signal });
+            if (!head.ok) throw new Error("PLAYER_DISC_SET_INVALID");
+            const size = Number(head.headers.get("content-length") ?? "NaN");
+            if (!Number.isSafeInteger(size) || size < 8) throw new Error("PLAYER_DISC_SET_INVALID");
+            return size;
+          }));
+          setMessage(`正在准备多盘内容 · ${config.discSet.count} 张光盘 · ${formatPlayerBytes(sizes.reduce((total, size) => total + size, 0))}`);
+        }
 
         let persistentBytes: Uint8Array | null = null;
         if (config.persistentSaveMode === "NONE") {
@@ -295,6 +361,14 @@ export function PlayerShell({ launchId }: { launchId: string }) {
           if (contentLength > 64 * 1024 * 1024) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
           persistentBytes = persistentResponse.status === 204 ? null : new Uint8Array(await persistentResponse.arrayBuffer());
           if (persistentBytes && persistentBytes.byteLength > 64 * 1024 * 1024) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
+        }
+
+        let stateBytes: Uint8Array | null = null;
+        if (config.discSet && config.stateUrl) {
+          const stateResponse = await fetch(config.stateUrl, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
+          if (!stateResponse.ok) throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");
+          stateBytes = await readBoundedResponse(stateResponse, 64 * 1024 * 1024);
+          if (stateBytes.byteLength === 0) throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");
         }
 
         if (!stage.current || !frameRef.current) return;
@@ -372,16 +446,33 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
             frameDocument.documentElement.classList.add("retrom-native-menu-locked");
             emulator.current?.menu?.close?.();
             const manager = emulator.current?.gameManager;
-            if (config.persistentSaveMode !== "NONE") {
-              const savePath = manager?.getSaveFilePath?.();
-              if (!manager || !mountedSaveFS || !savePath) { setState("error"); setMessage("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED"); return; }
-              try {
+            try {
+              if (config.discSet) {
+                if (!manager?.toggleMainLoop) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
+                manager.toggleMainLoop(false);
+                if (config.persistentSaveMode !== "NONE") {
+                  const savePath = manager.getSaveFilePath?.();
+                  if (!mountedSaveFS || !savePath) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
+                  injectPersistentSave(manager, mountedSaveFS, savePath, persistentBytes);
+                }
+                setMessage(`正在切换到光盘 ${config.discSet.initialDiscIndex + 1}`);
+                if (!emulator.current) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
+                const selected = switchDisc(emulator.current, config.discSet.initialDiscIndex, config.discSet.count);
+                if (stateBytes) {
+                  if (!manager.loadState) throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");
+                  manager.loadState(stateBytes);
+                }
+                manager.toggleMainLoop(true);
+                setDiscState(selected);
+              } else if (config.persistentSaveMode !== "NONE") {
+                const savePath = manager?.getSaveFilePath?.();
+                if (!manager || !mountedSaveFS || !savePath) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
                 restorePersistentSave(manager, mountedSaveFS, savePath, persistentBytes);
-              } catch {
-                setState("error");
-                setMessage("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
-                return;
               }
+            } catch (caught) {
+              setState("error");
+              setMessage(caught instanceof Error ? caught.message : "PLAYER_DISC_SET_INVALID");
+              return false;
             }
             if (emulator.current) emulator.current.paused = false;
             pausedRef.current = false;
@@ -396,6 +487,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
               setState("error");
               setMessage("PLAY_SESSION_EVENT_FAILED");
             });
+            return true;
           },
           onSaveState: (payload) => { void uploadManualState(payload); },
           onSaveSave: config.persistentSaveMode === "NONE" ? undefined : (payload) => { if (payload.save.byteLength) uploadPersistent(payload.save, "MANUAL_EXPORT"); }
@@ -467,6 +559,24 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
       setSyncText("保存失败");
       setSyncTone("warning");
       showToast("无法从模拟器读取完整状态和截图", 4_000);
+      return false;
+    }
+  }
+
+  async function selectDisc(index: number) {
+    const current = emulator.current;
+    const locked = discSetRef.current;
+    if (!current || !locked || !discState) return false;
+    if (index === discState.currentIndex) return true;
+    pauseForToolbarInteraction();
+    await pauseCapture.current;
+    try {
+      const selected = switchDisc(current, index, locked.count);
+      setDiscState(selected);
+      showToast(`已切换到光盘 ${selected.currentIndex + 1}`);
+      return true;
+    } catch {
+      showToast(`无法切换光盘，游戏仍停留在光盘 ${discState.currentIndex + 1}`, 4_000);
       return false;
     }
   }
@@ -548,6 +658,8 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         emulatorToolbarOpen={emulatorToolbarOpen}
         emulatorVolume={emulatorVolume}
         emulatorMuted={emulatorMuted}
+        discSet={discSet}
+        discState={discState}
         onHoldControls={holdControls}
         onReleaseControls={releaseControls}
         onSave={saveManualState}
@@ -558,6 +670,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         onOpenEmulatorPanel={openEmulatorPanel}
         onChangeEmulatorVolume={changeEmulatorVolume}
         onToggleEmulatorMute={toggleEmulatorMute}
+        onSelectDisc={selectDisc}
         onExit={() => void exit()}
         onDownloadConflict={downloadConflictingSave}
       />
