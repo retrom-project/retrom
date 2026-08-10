@@ -118,6 +118,7 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 		{path: "game/game.m3u", contents: []byte("one.chd\ntwo.chd\nthree.chd\n")},
 		{path: "game/one.chd", contents: multiDiscHTTPCHD("one")},
 		{path: "game/two.chd", contents: multiDiscHTTPCHD("two")},
+		{path: "game/notes.txt", contents: []byte("not referenced")},
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
 		UploadID: baseUploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
@@ -131,6 +132,30 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
+	}
+	importDetailRequest := httptest.NewRequest(
+		http.MethodGet, "/api/v1/admin/imports/"+createdImport.ImportJobID, nil,
+	)
+	importDetailRequest.SetPathValue("importJobId", createdImport.ImportJobID)
+	importDetail := httptest.NewRecorder()
+	server.importDetail(importDetail, importDetailRequest)
+	for _, expected := range []string{
+		`"contentMode":"MULTI_DISC_M3U_V1"`,
+		`"itemSummaries":[`,
+		`"contentKind":"MULTI_DISC_M3U_V1"`,
+		`"playlist":"game.m3u"`,
+		`"discCount":3`,
+		`"presentDiscCount":2`,
+		`"missingDiscCount":1`,
+		`"ignoredFileCount":1`,
+		`"ignoredFiles":["notes.txt"]`,
+	} {
+		if importDetail.Code != http.StatusOK || !strings.Contains(importDetail.Body.String(), expected) {
+			t.Fatalf("import detail missing %s = %d %s", expected, importDetail.Code, importDetail.Body.String())
+		}
+	}
+	if strings.Contains(importDetail.Body.String(), `"blobId"`) {
+		t.Fatalf("import detail exposes blob id = %s", importDetail.Body.String())
 	}
 	attachmentUploadID := completeMultiDiscHTTPUpload(t, server, "FILES", []multiDiscHTTPFile{
 		{path: "three.chd", contents: multiDiscHTTPCHD("three")},

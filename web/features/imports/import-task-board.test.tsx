@@ -85,6 +85,55 @@ describe("ImportTaskBoard", () => {
     expect(within(detail).getByRole("link", { name: "查看已有游戏" })).toHaveAttribute("href", "/games/game-1");
   });
 
+  it("loads multi-disc item summaries even when the task is waiting for review", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      itemSummaries: [{
+        itemId: "item-1", state: "REVIEW_PENDING", contentKind: "MULTI_DISC_M3U_V1", playlist: "Panzer Dragoon Saga.m3u",
+        discCount: 3, presentDiscCount: 2, missingDiscCount: 1, ignoredFileCount: 22, ignoredFiles: ["notes.txt", "cover.jpg"],
+      }],
+      fileOutcomes: [],
+    }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    render(<ImportTaskBoard initial={{ items: [{
+      id: "multi-import", state: "REVIEW_PENDING", platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC_M3U_V1",
+      totalItemCount: 1, reviewPendingItemCount: 1, failedItemCount: 0, rejectedFileCount: 0,
+      version: 1, createdAtMs: 1, updatedAtMs: 2,
+    }], nextCursor: null }} />);
+
+    const card = screen.getByRole("heading", { name: /Saturn 游戏/ }).closest("article");
+    expect(within(card!).getByText(/1 个条目 · 多盘/)).toBeVisible();
+    expect(within(card!).getByRole("link", { name: "查看待审核" })).toHaveAttribute("href", "/admin/reviews?importJobId=multi-import");
+    await user.click(within(card!).getByRole("button", { name: "查看多盘详情" }));
+    const detail = screen.getByRole("region", { name: "Saturn 游戏 阶段详情" });
+    expect(await within(detail).findByText("Panzer Dragoon Saga.m3u")).toBeVisible();
+    expect(within(detail).getByText("多盘 · 3 张")).toBeVisible();
+    expect(within(detail).getByText("待审核 · 缺 1 张")).toBeVisible();
+    await user.click(within(detail).getByText("已忽略 22 个未引用文件"));
+    expect(within(detail).getByText("notes.txt")).toBeVisible();
+    expect(within(detail).getByText("只显示前 2 个文件名。")).toBeVisible();
+  });
+
+  it("requires a fresh complete directory for a rejected multi-disc group", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({
+      itemSummaries: [],
+      fileOutcomes: [{ uploadFileId: "playlist-1", name: "game/game.m3u", sizeBytes: 42, disposition: "REJECTED", reasonCode: "MULTI_DISC_PLAYLIST_INVALID", resolution: null }],
+    }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    render(<ImportTaskBoard initial={{ items: [{
+      id: "multi-rejected", state: "PARTIAL_FAILURE", platformInstanceName: "Saturn 游戏", metadataProvider: "NONE", contentMode: "MULTI_DISC_M3U_V1",
+      totalItemCount: 0, reviewPendingItemCount: 0, failedItemCount: 0, rejectedFileCount: 1,
+      version: 1, createdAtMs: 1, updatedAtMs: 2,
+    }], nextCursor: null }} />);
+
+    const card = screen.getByRole("heading", { name: /Saturn 游戏/ }).closest("article");
+    await user.click(within(card!).getByRole("button", { name: "1 异常" }));
+    const detail = screen.getByRole("region", { name: "Saturn 游戏 阶段详情" });
+    const restart = within(detail).getByRole("link", { name: "重新选择完整目录" });
+    expect(restart).toHaveAttribute("href", "/admin/imports/new");
+    expect(within(detail).queryByRole("link", { name: "重新配置并导入" })).not.toBeInTheDocument();
+    expect(await within(detail).findByText("M3U 播放列表内容无效")).toBeVisible();
+  });
+
   it("polls every loaded non-terminal task and stops after their terminal updates", async () => {
     const fetchMock = vi.fn(async (input: RequestInfo | URL) => {
       const id = String(input).split("/").at(-1) ?? "";

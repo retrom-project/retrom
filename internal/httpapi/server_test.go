@@ -440,7 +440,8 @@ VALUES(?,?,'01980000-0000-7000-8000-000000000001',1,'nes','fceumm',?,'HASHEOUS',
 
 	list := httptest.NewRecorder()
 	server.imports(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports?limit=20", nil))
-	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"rejectedFileCount":1`) {
+	if list.Code != http.StatusOK || !strings.Contains(list.Body.String(), `"rejectedFileCount":1`) ||
+		!strings.Contains(list.Body.String(), `"contentMode":"STANDARD"`) {
 		t.Fatalf("import list = %d %s", list.Code, list.Body.String())
 	}
 	var firstPage struct {
