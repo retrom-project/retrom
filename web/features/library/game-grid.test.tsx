@@ -32,7 +32,7 @@ describe("GameGrid", () => {
   it("links the cover and title to detail without repeating normal status", () => {
     render(<GameGrid games={[game]} nowMs={new Date(2026, 7, 8, 12).getTime()} />);
     expect(screen.getAllByRole("link", { name: /Metroid/ })).toHaveLength(2);
-    expect(screen.getByRole("img", { name: "Metroid 封面" }).getAttribute("src")).toContain("cover");
+    expect(screen.getByRole("img", { name: "Metroid 封面" })).toHaveAttribute("src", "/content/assets/cover");
     expect(screen.getByText("今天 01:20")).toBeInTheDocument();
     expect(screen.queryByText("可运行")).not.toBeInTheDocument();
   });

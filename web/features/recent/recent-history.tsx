@@ -25,7 +25,7 @@ const periodOptions = [
 function RecentGameRow({ game }: { game: RecentGame }) {
   return <article className="recent-history-row">
     <Link className="recent-history-cover" href={`/games/${game.gameId}`} aria-label={`查看 ${game.title} 详情`}>
-      {game.coverUrl ? <Image src={game.coverUrl} alt="" fill sizes="180px" /> : <span aria-hidden="true">RETROM</span>}
+      {game.coverUrl ? <Image src={game.coverUrl} alt="" fill sizes="180px" unoptimized /> : <span aria-hidden="true">RETROM</span>}
     </Link>
     <div className="recent-history-content">
       <div className="recent-history-main">

@@ -2,7 +2,7 @@
 
 import Link, { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { useAuth } from "@/features/auth/auth-provider";
 
@@ -88,6 +88,17 @@ function ServiceHealth() {
 export function AppShell({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   const { context, logout } = useAuth();
+  const accountMenuRef = useRef<HTMLDetailsElement>(null);
+  useEffect(() => {
+    const closeAccountMenu = (event: PointerEvent) => {
+      const menu = accountMenuRef.current;
+      if (menu?.open && event.target instanceof Node && !menu.contains(event.target)) {
+        menu.open = false;
+      }
+    };
+    document.addEventListener("pointerdown", closeAccountMenu);
+    return () => document.removeEventListener("pointerdown", closeAccountMenu);
+  }, []);
   if (pathname.startsWith("/play/")) return <>{children}</>;
   const publicRoute = ["/setup", "/login", "/register", "/reset-password"].includes(pathname);
   if (context.instanceState === "INITIALIZATION_REQUIRED") {
@@ -115,7 +126,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             <AppIcon className="nav-icon" name={administrator ? "arrow-left" : "settings"} />
             {administrator ? "返回用户侧" : "管理后台"}
           </Link><ServiceHealth /></div> : <div className="sidebar-foot-row service-only"><ServiceHealth /></div>}
-          <details className="account-menu">
+          <details className="account-menu" ref={accountMenuRef}>
             <summary>
               <span className="account-initial" aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span>
               <span className="account-copy"><strong>{user?.displayName}</strong><small>@{user?.username}</small></span>

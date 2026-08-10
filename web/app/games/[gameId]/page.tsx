@@ -51,7 +51,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
       <nav className="game-detail-breadcrumb" aria-label="返回导航"><Link href="/library">← 游戏库</Link></nav>
       <section className="game-detail-hero">
         <div className="game-detail-poster-shell">
-          {game.coverUrl ? <div className="game-detail-poster"><Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="240px" priority /></div> : <div className="game-detail-poster is-placeholder" role="img" aria-label={`${game.title} 暂无封面`}><span>{game.title}</span></div>}
+          {game.coverUrl ? <div className="game-detail-poster"><Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="240px" priority unoptimized /></div> : <div className="game-detail-poster is-placeholder" role="img" aria-label={`${game.title} 暂无封面`}><span>{game.title}</span></div>}
           <div className="game-detail-poster-caption"><span>{game.platform.name}</span><span>{game.releaseYear ?? "年份未知"}</span></div>
         </div>
         <div className="game-detail-main">

@@ -113,7 +113,7 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
         <tbody>{visibleGames.map((game) => {
           const runtime = runtimePresentation(game.runtimeStatus);
           return <tr key={game.gameId}>
-            <td><div className="admin-game-thumb">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="70px" /> : <span role="img" aria-label={`${game.title} 暂无封面`}><strong>{game.title}</strong><small>{game.platform.name}</small></span>}</div></td>
+            <td><div className="admin-game-thumb">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="70px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}><strong>{game.title}</strong><small>{game.platform.name}</small></span>}</div></td>
             <td><div className="admin-game-identity"><Link href={`/admin/games/${game.gameId}`}>{game.title}</Link><p>{game.platform.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}</p><span>{game.platformInstance.name}</span></div></td>
             <td className="admin-game-visibility"><StatusBadge tone={game.status === "PUBLISHED" ? "good" : "bad"}>{game.status === "PUBLISHED" ? "用户可见" : "用户不可见"}</StatusBadge></td>
             <td><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge></td>

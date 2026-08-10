@@ -143,7 +143,16 @@ describe("ReviewActions", () => {
   });
 
   it("lets a blocked review explicitly rerun validation after fixing dependencies", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2 })));
+    const refreshed = {
+      ...review,
+      version: 2,
+      canApprove: true,
+      validationStale: false,
+      validation: { ...review.validation!, id: "validation-2", status: "READY", current: true, compatibilityCode: "READY" },
+    };
+    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => Promise.resolve(
+      jsonResponse(init?.method === "PATCH" ? { version: 2 } : refreshed),
+    ));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<ReviewActions review={{ ...review, validation: { ...review.validation!, status: "BLOCKED", current: false, compatibilityCode: "LAUNCH_BIOS_MISSING" } }} />);
@@ -151,6 +160,8 @@ describe("ReviewActions", () => {
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeDisabled();
     await user.click(screen.getByRole("button", { name: "重新运行检查" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/reviews\/item-1$/), expect.objectContaining({ method: "PATCH" })));
+    await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
     expect(router.refresh).toHaveBeenCalled();
   });
 
