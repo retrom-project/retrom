@@ -12,6 +12,8 @@ type ArchiveFormat string
 
 type ArchivePolicy string
 
+type ContentKind string
+
 const (
 	ArchiveZIP      ArchiveFormat = "ZIP"
 	ArchiveSevenZip ArchiveFormat = "SEVEN_Z"
@@ -21,6 +23,10 @@ const (
 
 	RawFileFormat             = "RAW_FILE_V1"
 	SingleArchiveMemberFormat = "SINGLE_ARCHIVE_MEMBER_V1"
+
+	ContentKindSingleFile     ContentKind = "SINGLE_FILE"
+	ContentKindDOSBundle      ContentKind = "DOS_BUNDLE"
+	ContentKindMultiDiscM3UV1 ContentKind = "MULTI_DISC_M3U_V1"
 )
 
 var (
@@ -34,6 +40,7 @@ type Profile struct {
 	ArchivePolicy  ArchivePolicy
 	ArchiveFormats []ArchiveFormat
 	FormatCode     string
+	ContentKinds   []ContentKind
 }
 
 var registry = map[string]Profile{
@@ -46,7 +53,7 @@ var registry = map[string]Profile{
 	"atari5200": single("atari5200", ".a52"),
 	"psx":       raw("psx", ".chd"),
 	"lynx":      single("lynx", ".lnx"),
-	"saturn":    raw("saturn", ".chd"),
+	"saturn":    withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDiscM3UV1),
 	"megadrive": single("megadrive", ".md"),
 	"n64":       single("n64", ".z64"),
 	"3do":       raw("3do", ".chd"),
@@ -62,14 +69,20 @@ func single(platformID string, extensions ...string) Profile {
 	return Profile{
 		PlatformID: platformID, Extensions: extensions, ArchivePolicy: ArchiveSinglePrimary,
 		ArchiveFormats: []ArchiveFormat{ArchiveZIP, ArchiveSevenZip}, FormatCode: RawFileFormat,
+		ContentKinds: []ContentKind{ContentKindSingleFile},
 	}
 }
 
 func raw(platformID string, extensions ...string) Profile {
 	return Profile{
 		PlatformID: platformID, Extensions: extensions, ArchivePolicy: ArchiveNone,
-		ArchiveFormats: nil, FormatCode: RawFileFormat,
+		ArchiveFormats: nil, FormatCode: RawFileFormat, ContentKinds: []ContentKind{ContentKindSingleFile},
 	}
+}
+
+func withContentKinds(profile Profile, kinds ...ContentKind) Profile {
+	profile.ContentKinds = append([]ContentKind(nil), kinds...)
+	return profile
 }
 
 func ByPlatform(platformID string) (Profile, bool) {
@@ -79,7 +92,21 @@ func ByPlatform(platformID string) (Profile, bool) {
 	}
 	profile.Extensions = append([]string(nil), profile.Extensions...)
 	profile.ArchiveFormats = append([]ArchiveFormat(nil), profile.ArchiveFormats...)
+	profile.ContentKinds = append([]ContentKind(nil), profile.ContentKinds...)
 	return profile, true
+}
+
+func AllowsContentKind(platformID string, kind ContentKind) bool {
+	profile, ok := registry[platformID]
+	if !ok {
+		return false
+	}
+	for _, allowed := range profile.ContentKinds {
+		if kind == allowed {
+			return true
+		}
+	}
+	return false
 }
 
 func AcceptsRaw(platformID, logicalName string) bool {

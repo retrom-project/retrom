@@ -1,5 +1,5 @@
 {
-  "schema_version": 4,
+  "schema_version": 5,
   "created_at": "2026-08-05T17:07:36Z",
   "reviewed_at": "2026-08-08T00:00:00Z",
   "purpose": "Version-bound EmulatorJS runtime selection for 28 Retrom cores, real Arcade DAT baseline, and reproducible license notice inputs; not mock or scrape metadata",
@@ -681,7 +681,7 @@
     "tag_commit": "e150dc0491ae747028919fb82d6598954976ede6",
     "release_published_at": "2025-07-05T19:41:36Z",
     "player_adapter": {
-      "id": "ejs-4.2.3-v1",
+      "id": "ejs-4.2.3-v2",
       "runtime_base_path_in_release": "data/",
       "loader_path_in_release": "data/loader.js"
     },
@@ -950,7 +950,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/fceumm.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "snes9x",
@@ -969,7 +972,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/snes9x.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "gambatte",
@@ -988,7 +994,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/gambatte.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "mgba",
@@ -1007,7 +1016,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/mgba.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "fbneo",
@@ -1026,7 +1038,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/fbneo.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "mame2003",
@@ -1047,7 +1062,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/mame2003.json",
         "bundle_version": "4.2.1",
-        "artifact_flavor": "OVERRIDE"
+        "artifact_flavor": "OVERRIDE",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "mame2003_plus",
@@ -1066,7 +1084,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/mame2003_plus.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "dosbox_pure",
@@ -1085,7 +1106,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/dosbox_pure.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "THREAD_WASM"
+        "artifact_flavor": "THREAD_WASM",
+        "supported_content_kinds": [
+          "DOS_BUNDLE"
+        ]
       },
       {
         "core_id": "nestopia",
@@ -1104,7 +1128,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/nestopia.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "melonds",
@@ -1123,7 +1150,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/melonds.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "desmume2015",
@@ -1142,7 +1172,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/desmume2015.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "desmume",
@@ -1161,7 +1194,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/desmume.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "a5200",
@@ -1180,7 +1216,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/a5200.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "pcsx_rearmed",
@@ -1199,7 +1238,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/pcsx_rearmed.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "mednafen_psx_hw",
@@ -1220,7 +1262,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/mednafen_psx_hw.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "THREAD_WASM"
+        "artifact_flavor": "THREAD_WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "handy",
@@ -1239,7 +1284,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/handy.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "yabause",
@@ -1258,7 +1306,16 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/yabause.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE",
+          "MULTI_DISC_M3U_V1"
+        ],
+        "multi_disc": {
+          "max_discs": 8,
+          "max_total_bytes": 1073741824,
+          "delivery": "EAGER_EXTERNAL_FILES"
+        }
       },
       {
         "core_id": "genesis_plus_gx",
@@ -1277,7 +1334,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/genesis_plus_gx.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "mupen64plus_next",
@@ -1296,7 +1356,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/mupen64plus_next.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "parallel_n64",
@@ -1315,7 +1378,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/parallel_n64.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "opera",
@@ -1334,7 +1400,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/opera.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "prosystem",
@@ -1353,7 +1422,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/prosystem.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "stella2014",
@@ -1372,7 +1444,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/stella2014.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "picodrive",
@@ -1391,7 +1466,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/picodrive.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "mednafen_pce",
@@ -1410,7 +1488,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/mednafen_pce.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "mednafen_pcfx",
@@ -1429,7 +1510,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/mednafen_pcfx.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "mednafen_ngp",
@@ -1448,7 +1532,10 @@
         "startup_actions": [],
         "report_path": "data/cores/reports/mednafen_ngp.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "WASM"
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       },
       {
         "core_id": "ppsspp",
@@ -1484,7 +1571,10 @@
         ],
         "report_path": "data/cores/reports/ppsspp.json",
         "bundle_version": "4.2.3",
-        "artifact_flavor": "THREAD_WASM"
+        "artifact_flavor": "THREAD_WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       }
     ],
     "auxiliary_files": [

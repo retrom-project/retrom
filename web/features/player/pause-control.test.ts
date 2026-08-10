@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v1";
+import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
 import { setEmulatorPaused } from "./pause-control";
 
 describe("player pause control", () => {

@@ -2129,6 +2129,7 @@ export interface components {
             impactDigest?: unknown;
             importItemId?: unknown;
             importJobId?: unknown;
+            importCapabilities?: unknown;
             imports?: unknown;
             inputs?: unknown;
             installationId?: unknown;
@@ -2152,6 +2153,9 @@ export interface components {
             manifestPath?: unknown;
             manifestSha256?: unknown;
             maxAttempts?: unknown;
+            maxDiscs?: number;
+            /** Format: int64 */
+            maxTotalBytes?: number;
             md5?: unknown;
             mediaType?: unknown;
             message?: unknown;
@@ -2159,6 +2163,8 @@ export interface components {
             metadataProvider?: unknown;
             metadataRevisionId?: unknown;
             mode?: unknown;
+            contentModes?: unknown;
+            multiDisc?: unknown;
             name?: unknown;
             needsValidation?: unknown;
             nextCursor?: unknown;

@@ -1,4 +1,4 @@
-import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v1";
+import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
 
 export type EmulatorSettingsPanel = "controls" | "display" | "core";
 

@@ -121,7 +121,8 @@ WHERE l.id=?
 		PersistentSaveMode string  `json:"persistentSaveMode"`
 		PersistentSaveKind *string `json:"persistentSaveKind"`
 	}
-	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil || compatibility.SchemaVersion != 2 {
+	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil ||
+		compatibility.SchemaVersion != 2 && compatibility.SchemaVersion != 3 {
 		return launchSnapshot{}, ErrCredential
 	}
 	result.persistentSaveMode = compatibility.PersistentSaveMode

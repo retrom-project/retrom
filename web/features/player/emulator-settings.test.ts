@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v1";
+import type { EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel } from "./emulator-settings";
 
 afterEach(() => document.documentElement.classList.remove("retrom-native-settings-open"));

@@ -23,9 +23,23 @@ export type PlayerConfig = {
   runtimePathOverrides: Record<string, string>;
   defaultCoreOptions: Record<string, string>;
   externalFiles: Record<string, string>;
+  discSet?: DiscSet | null;
   dosEntry?: string | null;
   warnings?: string[];
   returnTo: string;
+};
+
+export type DiscSet = {
+  contentKind: "MULTI_DISC_M3U_V1";
+  count: number;
+  initialDiscIndex: number;
+  entries: DiscSetEntry[];
+};
+
+export type DiscSetEntry = {
+  index: number;
+  label: string;
+  virtualPath: string;
 };
 
 export type StartupAction = {
@@ -38,6 +52,7 @@ export type StartupAction = {
 };
 
 export type EmulatorInstance = {
+  allSettings?: Record<string, unknown>;
   paused?: boolean;
   volume?: number;
   muted?: boolean;
@@ -53,11 +68,14 @@ export type EmulatorInstance = {
   gameManager?: {
     FS?: { analyzePath: (path: string) => { exists: boolean }; mkdir: (path: string) => void; writeFile: (path: string, bytes: Uint8Array) => void; unlink: (path: string) => void };
     getFrameNum?: () => number;
+    getDiskCount?: () => number;
+    getCurrentDisk?: () => number;
     getState?: () => Uint8Array;
     getSaveFile?: () => Promise<Uint8Array>;
     getSaveFilePath?: () => string;
     getVideoDimensions?: (dimension: "aspect" | "width" | "height") => number | undefined;
     loadSaveFiles?: () => void;
+    setCurrentDisk?: (index: number) => void;
     simulateInput?: (player: number, control: number, value: 0 | 1) => void;
     toggleMainLoop?: (running: boolean) => void;
   };
@@ -123,7 +141,7 @@ declare global {
   }
 }
 
-export const adapterID = "ejs-4.2.3-v1";
+export const adapterID = "ejs-4.2.3-v2";
 
 const supportedAdapters: Record<string, string> = {
   "4.2.3": adapterID,
@@ -152,6 +170,63 @@ function validatedExternalFiles(config: PlayerConfig): Record<string, string> {
   return result;
 }
 
+function validateDiscSet(config: PlayerConfig, externalFiles: Record<string, string>) {
+  const discSet = config.discSet;
+  if (discSet === undefined || discSet === null) return;
+  if (discSet.contentKind !== "MULTI_DISC_M3U_V1" || !Number.isInteger(discSet.count) ||
+    discSet.count < 2 || discSet.count > 8 || !Array.isArray(discSet.entries) || discSet.entries.length !== discSet.count ||
+    !Number.isInteger(discSet.initialDiscIndex) || discSet.initialDiscIndex < 0 ||
+    discSet.initialDiscIndex >= discSet.count ||
+    config.gameUrl !== `/runtime/launches/${config.launchId}/game/playlist.m3u`) {
+    throw new Error("PLAYER_DISC_SET_INVALID");
+  }
+  for (let index = 0; index < discSet.count; index += 1) {
+    const entry = discSet.entries[index];
+    const canonicalName = `disc-${String(index + 1).padStart(3, "0")}.chd`;
+    if (!entry || entry.index !== index || entry.label !== `光盘 ${index + 1}` ||
+      entry.virtualPath !== `/${canonicalName}` ||
+      externalFiles[entry.virtualPath] !== `/runtime/launches/${config.launchId}/external-files/${canonicalName}`) {
+      throw new Error("PLAYER_DISC_SET_INVALID");
+    }
+  }
+}
+
+export type DiscState = { count: number; currentIndex: number };
+
+export function readDiscState(instance: EmulatorInstance, expectedCount?: number): DiscState {
+  const count = instance.gameManager?.getDiskCount?.();
+  const currentIndex = instance.gameManager?.getCurrentDisk?.();
+  if (!Number.isInteger(count) || !Number.isInteger(currentIndex) || count === undefined || currentIndex === undefined ||
+    count < 2 || count > 8 || currentIndex < 0 || currentIndex >= count ||
+    expectedCount !== undefined && count !== expectedCount) {
+    throw new Error("PLAYER_DISC_SET_INVALID");
+  }
+  return { count, currentIndex };
+}
+
+export function switchDisc(instance: EmulatorInstance, targetIndex: number, expectedCount: number): DiscState {
+  if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= expectedCount) {
+    throw new Error("PLAYER_DISC_INDEX_INVALID");
+  }
+  const before = readDiscState(instance, expectedCount);
+  if (targetIndex === before.currentIndex) return before;
+  const setCurrentDisk = instance.gameManager?.setCurrentDisk?.bind(instance.gameManager);
+  if (!setCurrentDisk) throw new Error("PLAYER_DISC_SWITCH_UNAVAILABLE");
+  setCurrentDisk(targetIndex);
+  const after = readDiscState(instance, expectedCount);
+  if (after.currentIndex !== targetIndex) throw new Error("PLAYER_DISC_SWITCH_FAILED");
+  return after;
+}
+
+function initializeMultiDiscSettings(instance: EmulatorInstance) {
+  if (instance.allSettings === undefined) {
+    instance.allSettings = {};
+    return;
+  }
+  if (Object.prototype.toString.call(instance.allSettings) !== "[object Object]") {
+    throw new Error("PLAYER_DISC_SETTINGS_INVALID");
+  }
+}
 function validateConfig(config: PlayerConfig) {
   if (!/^[a-z0-9_]{1,64}$/.test(config.runtimeCore)) throw new Error("PLAYER_RUNTIME_CORE_INVALID");
   if (!config.runtimePathOverrides || Object.entries(config.runtimePathOverrides).length !== 1 || Object.entries(config.runtimePathOverrides).some(([name, source]) =>
@@ -234,6 +309,7 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   if (supportedAdapters[config.emulatorjsVersion] !== config.playerAdapterId) throw new Error("PLAYER_ADAPTER_MISMATCH");
   validateConfig(config);
   const externalFiles = validatedExternalFiles(config);
+  validateDiscSet(config, externalFiles);
   target.id = "retrom-emulator";
   const runtimeWindow = playerWindow as typeof window;
   runtimeWindow.EJS_player = "#retrom-emulator";
@@ -260,7 +336,11 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   let cleanupDeferredStart: () => void = () => undefined;
   runtimeWindow.EJS_ready = () => {
     const instance = runtimeWindow.EJS_emulator;
-    if (!instance) return;
+    if (!instance) {
+      if (config.discSet) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
+      return;
+    }
+    if (config.discSet) initializeMultiDiscSettings(instance);
     if (deferredDOSStart) {
       const dontExtractIfCore = instance.downloadType?.rom?.dontExtractIfCore;
       if (!Array.isArray(dontExtractIfCore)) throw new Error("PLAYER_DOS_ARCHIVE_MODE_UNAVAILABLE");

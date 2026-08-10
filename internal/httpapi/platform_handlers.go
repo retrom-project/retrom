@@ -17,6 +17,7 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
+	"retrom/internal/contentcapability"
 	"retrom/internal/cursor"
 
 	"github.com/google/uuid"
@@ -351,7 +352,7 @@ func (server *Server) platformInstance(writer http.ResponseWriter, request *http
 }
 
 func (server *Server) readPlatformInstance(request *http.Request, id string) (map[string]any, error) {
-	var platformID, platformName, defaultCoreID, defaultCoreName, name, slug, description string
+	var platformID, platformName, defaultCoreID, defaultCoreName, name, slug, description, compatibility string
 	var sortOrder, enabled, version, createdAtMS, updatedAtMS, gameCount int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT pi.platform_id,
@@ -367,6 +368,12 @@ pi.version,
 pi.created_at_ms,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
+,
+COALESCE((SELECT a.compatibility_config_json
+ FROM core_artifacts a
+ WHERE a.core_id=pi.default_core_id
+ AND a.enabled=1
+ LIMIT 1),'{}')
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores c ON c.id=pi.default_core_id
@@ -387,6 +394,7 @@ AND pi.deleted_at_ms IS NULL
 			&createdAtMS,
 			&updatedAtMS,
 			&gameCount,
+			&compatibility,
 		)
 	if err != nil {
 		return nil, fmt.Errorf("httpapi/platform_handlers: %w", err)
@@ -406,6 +414,9 @@ AND pi.deleted_at_ms IS NULL
 		"createdAtMs":     createdAtMS,
 		"updatedAtMs":     updatedAtMS,
 		"gameCount":       gameCount,
+		"importCapabilities": contentcapability.Resolve(
+			platformID, enabled == 1, server.config.MultiDiscImportEnabled, compatibility,
+		),
 	}, nil
 }
 
