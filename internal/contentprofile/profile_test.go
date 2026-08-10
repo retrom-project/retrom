@@ -48,6 +48,7 @@ func TestArchivePoliciesAreExplicitAndReturnedByValue(t *testing.T) {
 	}
 	profile.Extensions[0] = ".changed"
 	profile.ArchiveFormats[0] = "CHANGED"
+	profile.ContentKinds[0] = "CHANGED"
 	if !AcceptsRaw("nds", "game.nds") || !AcceptsArchive("nds", ArchiveZIP) {
 		t.Fatal("ByPlatform exposed mutable registry storage")
 	}
@@ -57,6 +58,22 @@ func TestArchivePoliciesAreExplicitAndReturnedByValue(t *testing.T) {
 			AcceptsArchive(platformID, ArchiveSevenZip) {
 			t.Errorf("raw-only profile %q = %#v", platformID, profile)
 		}
+	}
+}
+
+func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
+	t.Parallel()
+	for platformID := range registry {
+		got := AllowsContentKind(platformID, ContentKindMultiDiscM3UV1)
+		if got != (platformID == "saturn") {
+			t.Errorf("AllowsContentKind(%q, MULTI_DISC_M3U_V1) = %t", platformID, got)
+		}
+		if !AllowsContentKind(platformID, ContentKindSingleFile) {
+			t.Errorf("platform %q lost SINGLE_FILE support", platformID)
+		}
+	}
+	if AllowsContentKind("unknown", ContentKindMultiDiscM3UV1) {
+		t.Fatal("unknown platform accepted multi-disc content")
 	}
 }
 

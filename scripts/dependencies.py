@@ -136,7 +136,7 @@ def manifest_path(version: str) -> Path:
 
 def load_manifest(version: str) -> dict[str, Any]:
     manifest = load_json(manifest_path(version))
-    if manifest.get("schema_version") != 4:
+    if manifest.get("schema_version") not in (4, 5):
         raise CheckError(f"DEPENDENCY_SCHEMA_UNSUPPORTED:{version}")
     emulatorjs = manifest.get("emulatorjs")
     if not isinstance(emulatorjs, dict) or emulatorjs.get("version") != version:
@@ -287,7 +287,7 @@ def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
         if not isinstance(item.get("size_bytes"), int):
             raise CheckError("DEPENDENCY_CORE_SIZE_INVALID")
         expect_digest(item.get("sha256"), "DEPENDENCY_CORE_SHA256_INVALID")
-        validate_artifact_capability(item, paths)
+        validate_artifact_capability(item, paths, manifest.get("schema_version"))
 
     auxiliary = emulatorjs.get("auxiliary_files")
     if not isinstance(auxiliary, list):
@@ -381,7 +381,9 @@ def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
         raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
 
 
-def validate_artifact_capability(item: dict[str, Any], allowlist_paths: set[str]) -> None:
+def validate_artifact_capability(
+    item: dict[str, Any], allowlist_paths: set[str], manifest_schema: object
+) -> None:
     basename = item.get("requested_artifact_basename")
     if not isinstance(basename, str) or ARTIFACT_BASENAME.fullmatch(basename) is None or ".." in basename:
         raise CheckError("DEPENDENCY_ARTIFACT_BASENAME_INVALID")
@@ -429,6 +431,29 @@ def validate_artifact_capability(item: dict[str, Any], allowlist_paths: set[str]
             raise CheckError("DEPENDENCY_STARTUP_ACTION_INVALID")
         if not 0 <= values[0] <= 10_000 or not 0 <= values[1] <= 3 or not 0 <= values[2] <= 255 or not 1 <= values[3] <= 1_000:
             raise CheckError("DEPENDENCY_STARTUP_ACTION_INVALID")
+    content_kinds = item.get("supported_content_kinds")
+    multi_disc = item.get("multi_disc")
+    if manifest_schema == 4:
+        if content_kinds is not None or multi_disc is not None:
+            raise CheckError("DEPENDENCY_LEGACY_CONTENT_CAPABILITY_INVALID")
+        return
+    expected_primary = "DOS_BUNDLE" if item.get("core_id") == "dosbox_pure" else "SINGLE_FILE"
+    if content_kinds not in ([expected_primary], [expected_primary, "MULTI_DISC_M3U_V1"]):
+        raise CheckError("DEPENDENCY_CONTENT_CAPABILITY_INVALID")
+    if multi_disc is None:
+        if len(content_kinds) != 1:
+            raise CheckError("DEPENDENCY_MULTI_DISC_CAPABILITY_INVALID")
+        return
+    if (
+        item.get("core_id") != "yabause"
+        or content_kinds != ["SINGLE_FILE", "MULTI_DISC_M3U_V1"]
+        or not isinstance(multi_disc, dict)
+        or set(multi_disc) != {"max_discs", "max_total_bytes", "delivery"}
+        or multi_disc.get("max_discs") != 8
+        or multi_disc.get("max_total_bytes") != 1_073_741_824
+        or multi_disc.get("delivery") != "EAGER_EXTERNAL_FILES"
+    ):
+        raise CheckError("DEPENDENCY_MULTI_DISC_CAPABILITY_INVALID")
 
 
 def runtime_path(version: str, relative: str) -> Path:

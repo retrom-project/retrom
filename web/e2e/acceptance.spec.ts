@@ -565,7 +565,7 @@ test("ACC-RUN-002 one click requests fullscreen before launch and auto-starts th
   expect(configuration.gameTitle).toBe("Sudoku");
   expect(configuration.coreName).toBe("mGBA");
   expect(configuration.platformName).toBe("Game Boy Advance");
-  expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v1");
+  expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v2");
   expect(configuration.emulatorjsVersion).toBe("4.2.3");
   expect(configuration.gameUrl).not.toMatch(/(?:blob:|file:|\/home\/)/);
   await expect(page.locator(".player-shell")).toBeVisible();

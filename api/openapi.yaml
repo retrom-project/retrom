@@ -1557,6 +1557,7 @@ components:
         impactDigest: {}
         importItemId: {}
         importJobId: {}
+        importCapabilities: {}
         imports: {}
         inputs: {}
         installationId: {}
@@ -1580,6 +1581,8 @@ components:
         manifestPath: {}
         manifestSha256: {}
         maxAttempts: {}
+        maxDiscs: { type: integer }
+        maxTotalBytes: { type: integer, format: int64 }
         md5: {}
         mediaType: {}
         message: {}
@@ -1587,6 +1590,8 @@ components:
         metadataProvider: {}
         metadataRevisionId: {}
         mode: {}
+        contentModes: {}
+        multiDisc: {}
         name: {}
         needsValidation: {}
         nextCursor: {}

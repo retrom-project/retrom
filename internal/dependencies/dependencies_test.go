@@ -33,7 +33,8 @@ func TestBootstrapMaterializedDependencies(t *testing.T) {
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 
-	if err := manifest.Bootstrap(context.Background(), database.SQL, time.Now()); err != nil {
+	bootstrapTime := time.Now().Truncate(time.Millisecond)
+	if err := manifest.Bootstrap(context.Background(), database.SQL, bootstrapTime); err != nil {
 		t.Fatalf("bootstrap dependencies: %v", err)
 	}
 
@@ -111,10 +112,57 @@ WHERE core_id='ppsspp' AND enabled=1
 		!strings.Contains(compatibility, `"requestedArtifactBasename":"ppsspp-thread-wasm.data"`) {
 		t.Fatalf("PPSSPP compatibility = %s, error=%v", compatibility, err)
 	}
+	if !strings.Contains(compatibility, `"schemaVersion":3`) ||
+		!strings.Contains(compatibility, `"supportedContentKinds":["SINGLE_FILE"]`) ||
+		strings.Contains(compatibility, `"MULTI_DISC_M3U_V1"`) {
+		t.Fatalf("PPSSPP V3 capability = %s", compatibility)
+	}
+	var yabauseID string
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT id,compatibility_config_json
+FROM core_artifacts
+WHERE core_id='yabause' AND enabled=1
+`).Scan(&yabauseID, &compatibility); err != nil ||
+		!strings.Contains(compatibility, `"supportedContentKinds":["SINGLE_FILE","MULTI_DISC_M3U_V1"]`) ||
+		!strings.Contains(compatibility, `"maxTotalBytes":1073741824`) {
+		t.Fatalf("yabause compatibility = %s, error=%v", compatibility, err)
+	}
+
+	// Simulate the deployed V2 row, then prove V3 changes runtime validation
+	// semantics exactly once without replacing the artifact identity.
+	if _, err := database.SQL.ExecContext(context.Background(), `
+UPDATE core_artifacts
+SET compatibility_config_json='{"schemaVersion":2}',version=7
+WHERE id=?
+`, yabauseID); err != nil {
+		t.Fatal(err)
+	}
+	v3Time := bootstrapTime.Add(time.Second)
+	if err := manifest.Bootstrap(context.Background(), database.SQL, v3Time); err != nil {
+		t.Fatalf("V2 to V3 bootstrap: %v", err)
+	}
+	var versionNumber, updatedAtMS int64
+	var currentID string
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT id,version,updated_at_ms,compatibility_config_json
+FROM core_artifacts
+WHERE core_id='yabause' AND enabled=1
+`).Scan(&currentID, &versionNumber, &updatedAtMS, &compatibility); err != nil || currentID != yabauseID ||
+		versionNumber != 8 || updatedAtMS != v3Time.UnixMilli() || !strings.Contains(compatibility, `"schemaVersion":3`) {
+		t.Fatalf("V2 to V3 artifact = id:%s version:%d updated:%d compatibility:%s error:%v", currentID, versionNumber, updatedAtMS, compatibility, err)
+	}
+	if err := manifest.Bootstrap(context.Background(), database.SQL, v3Time.Add(time.Hour)); err != nil {
+		t.Fatalf("repeat V3 bootstrap: %v", err)
+	}
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT version,updated_at_ms FROM core_artifacts WHERE id=?
+`, yabauseID).Scan(&versionNumber, &updatedAtMS); err != nil || versionNumber != 8 || updatedAtMS != v3Time.UnixMilli() {
+		t.Fatalf("idempotent V3 artifact = version:%d updated:%d error:%v", versionNumber, updatedAtMS, err)
+	}
 
 	// Bootstrap is intentionally idempotent; every process start verifies the
 	// same selected release without creating duplicate rows.
-	if err := manifest.Bootstrap(context.Background(), database.SQL, time.Now()); err != nil {
+	if err := manifest.Bootstrap(context.Background(), database.SQL, v3Time.Add(2*time.Hour)); err != nil {
 		t.Fatalf("repeat bootstrap: %v", err)
 	}
 	var advanced int

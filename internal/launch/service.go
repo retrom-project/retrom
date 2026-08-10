@@ -64,6 +64,12 @@ type artifactCompatibility struct {
 	PersistentSaveKind        *string                      `json:"persistentSaveKind"`
 	InputMode                 string                       `json:"inputMode"`
 	StartupActions            []dependencies.StartupAction `json:"startupActions"`
+	SupportedContentKinds     []string                     `json:"supportedContentKinds,omitempty"`
+	MultiDisc                 *struct {
+		MaxDiscs      int    `json:"maxDiscs"`
+		MaxTotalBytes int64  `json:"maxTotalBytes"`
+		Delivery      string `json:"delivery"`
+	} `json:"multiDisc,omitempty"`
 }
 
 type Service struct {
@@ -374,7 +380,7 @@ WHERE id=?
 }
 
 func validArtifactCompatibility(compatibility artifactCompatibility) bool {
-	if compatibility.SchemaVersion != 2 || compatibility.DefaultOptions == nil ||
+	if !validArtifactCompatibilitySchema(compatibility) || compatibility.DefaultOptions == nil ||
 		compatibility.StartupActions == nil {
 		return false
 	}
@@ -395,6 +401,36 @@ func validArtifactCompatibility(compatibility artifactCompatibility) bool {
 	return validPersistentCapability(compatibility) &&
 		validDefaultOptions(compatibility.DefaultOptions) &&
 		validStartupActions(compatibility.StartupActions)
+}
+
+func validArtifactCompatibilitySchema(compatibility artifactCompatibility) bool {
+	switch compatibility.SchemaVersion {
+	case 2:
+		return len(compatibility.SupportedContentKinds) == 0 && compatibility.MultiDisc == nil
+	case 3:
+		return validContentCapabilities(compatibility)
+	default:
+		return false
+	}
+}
+
+func validContentCapabilities(compatibility artifactCompatibility) bool {
+	if len(compatibility.SupportedContentKinds) != 1 && len(compatibility.SupportedContentKinds) != 2 {
+		return false
+	}
+	for index, kind := range compatibility.SupportedContentKinds {
+		if kind != "SINGLE_FILE" && kind != "DOS_BUNDLE" && kind != "MULTI_DISC_M3U_V1" ||
+			index > 0 && kind == compatibility.SupportedContentKinds[index-1] {
+			return false
+		}
+	}
+	if compatibility.MultiDisc == nil {
+		return !slices.Contains(compatibility.SupportedContentKinds, "MULTI_DISC_M3U_V1")
+	}
+	return slices.Contains(compatibility.SupportedContentKinds, "MULTI_DISC_M3U_V1") &&
+		compatibility.MultiDisc.MaxDiscs >= 2 && compatibility.MultiDisc.MaxDiscs <= 8 &&
+		compatibility.MultiDisc.MaxTotalBytes >= 1 && compatibility.MultiDisc.MaxTotalBytes <= 1_073_741_824 &&
+		compatibility.MultiDisc.Delivery == "EAGER_EXTERNAL_FILES"
 }
 
 func validRuntimeCoreID(value string) bool {

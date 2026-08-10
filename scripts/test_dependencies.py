@@ -125,6 +125,33 @@ class DependencyManifestValidationTests(unittest.TestCase):
 
         self.assert_invalid(invalid_none_kind, "DEPENDENCY_PERSISTENT_SAVE_INVALID")
 
+    def test_rejects_implicit_or_unverified_multi_disc_capabilities(self) -> None:
+        def missing_content_kinds(manifest: dict[str, object]) -> None:
+            manifest["emulatorjs"]["selected_core_artifacts"][0].pop("supported_content_kinds")
+
+        self.assert_invalid(missing_content_kinds, "DEPENDENCY_CONTENT_CAPABILITY_INVALID")
+
+        def unsupported_core(manifest: dict[str, object]) -> None:
+            artifact = manifest["emulatorjs"]["selected_core_artifacts"][0]
+            artifact["supported_content_kinds"].append("MULTI_DISC_M3U_V1")
+            artifact["multi_disc"] = {
+                "max_discs": 8,
+                "max_total_bytes": 1_073_741_824,
+                "delivery": "EAGER_EXTERNAL_FILES",
+            }
+
+        self.assert_invalid(unsupported_core, "DEPENDENCY_MULTI_DISC_CAPABILITY_INVALID")
+
+        def invalid_limit(manifest: dict[str, object]) -> None:
+            artifact = next(
+                item
+                for item in manifest["emulatorjs"]["selected_core_artifacts"]
+                if item["core_id"] == "yabause"
+            )
+            artifact["multi_disc"]["max_discs"] = 9
+
+        self.assert_invalid(invalid_limit, "DEPENDENCY_MULTI_DISC_CAPABILITY_INVALID")
+
 
 class DependencyVersionValidationTests(unittest.TestCase):
     def test_accepts_ordered_prerelease_runtime_overlay(self) -> None:

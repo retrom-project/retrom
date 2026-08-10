@@ -111,6 +111,14 @@ type SelectedCore struct {
 	InputMode                 string            `json:"input_mode"`
 	StartupActions            []StartupAction   `json:"startup_actions"`
 	ReportPath                string            `json:"report_path"`
+	SupportedContentKinds     []string          `json:"supported_content_kinds"`
+	MultiDisc                 *MultiDisc        `json:"multi_disc"`
+}
+
+type MultiDisc struct {
+	MaxDiscs      int    `json:"max_discs"`
+	MaxTotalBytes int64  `json:"max_total_bytes"`
+	Delivery      string `json:"delivery"`
 }
 
 type StartupAction struct {
@@ -173,7 +181,7 @@ func loadVersion(root, versionName string) (*Version, error) {
 	if err := decoder.Decode(&manifest); err != nil {
 		return nil, fmt.Errorf("%w: manifest schema", ErrInvalid)
 	}
-	if manifest.SchemaVersion != 4 || manifest.EmulatorJS.Version != versionName {
+	if manifest.SchemaVersion != 4 && manifest.SchemaVersion != 5 || manifest.EmulatorJS.Version != versionName {
 		return nil, fmt.Errorf("%w: manifest version", ErrInvalid)
 	}
 	manifestDigest := sha256.Sum256(contents)
@@ -274,7 +282,7 @@ func validateManifestCapabilities(manifest Manifest, allowlist map[string]File) 
 		}
 		coreIDs[core.CoreID] = struct{}{}
 		runtimeIDs[core.RuntimeCoreID] = struct{}{}
-		if err := validateSelectedCore(core, allowlist); err != nil {
+		if err := validateSelectedCore(core, allowlist, manifest.SchemaVersion); err != nil {
 			return err
 		}
 	}
@@ -291,7 +299,7 @@ func validateManifestCapabilities(manifest Manifest, allowlist map[string]File) 
 }
 
 //nolint:gocyclo // Each branch enforces one independent core capability invariant.
-func validateSelectedCore(core SelectedCore, allowlist map[string]File) error {
+func validateSelectedCore(core SelectedCore, allowlist map[string]File, manifestSchemaVersion int) error {
 	path := core.LocalPath
 	if core.PathInRelease != nil {
 		path = *core.PathInRelease
@@ -343,7 +351,49 @@ func validateSelectedCore(core SelectedCore, allowlist map[string]File) error {
 	if _, exists := allowlist[core.ReportPath]; !exists {
 		return fmt.Errorf("%w: core report allowlist", ErrInvalid)
 	}
+	return validateContentCapabilities(core, manifestSchemaVersion)
+}
+
+func validateContentCapabilities(core SelectedCore, manifestSchemaVersion int) error {
+	if manifestSchemaVersion == 4 {
+		if len(core.SupportedContentKinds) != 0 || core.MultiDisc != nil {
+			return fmt.Errorf("%w: legacy content capability", ErrInvalid)
+		}
+		return nil
+	}
+	if !validSupportedContentKinds(core) {
+		return fmt.Errorf("%w: content capability", ErrInvalid)
+	}
+	if core.MultiDisc == nil {
+		if len(core.SupportedContentKinds) != 1 {
+			return fmt.Errorf("%w: multi-disc capability", ErrInvalid)
+		}
+		return nil
+	}
+	if core.CoreID != "yabause" || len(core.SupportedContentKinds) != 2 || core.MultiDisc.MaxDiscs != 8 ||
+		core.MultiDisc.MaxTotalBytes != 1_073_741_824 || core.MultiDisc.Delivery != "EAGER_EXTERNAL_FILES" {
+		return fmt.Errorf("%w: multi-disc capability", ErrInvalid)
+	}
 	return nil
+}
+
+func validSupportedContentKinds(core SelectedCore) bool {
+	switch len(core.SupportedContentKinds) {
+	case 1:
+		return core.SupportedContentKinds[0] == expectedContentKind(core.CoreID)
+	case 2:
+		return core.SupportedContentKinds[0] == expectedContentKind(core.CoreID) &&
+			core.SupportedContentKinds[1] == "MULTI_DISC_M3U_V1"
+	default:
+		return false
+	}
+}
+
+func expectedContentKind(coreID string) string {
+	if coreID == "dosbox_pure" {
+		return "DOS_BUNDLE"
+	}
+	return "SINGLE_FILE"
 }
 
 func pointerTo(value string) *string { return &value }
@@ -1685,8 +1735,12 @@ func bootstrapCore(
 	if core.PathInRelease != nil {
 		path = *core.PathInRelease
 	}
+	compatibilitySchema := 2
+	if version.Manifest.SchemaVersion == 5 {
+		compatibilitySchema = 3
+	}
 	compatibility := map[string]any{
-		"schemaVersion": 2, "runtimeCoreId": core.RuntimeCoreID,
+		"schemaVersion": compatibilitySchema, "runtimeCoreId": core.RuntimeCoreID,
 		"requestedArtifactBasename": core.RequestedArtifactBasename,
 		"canvasResizePolicy":        core.CanvasResizePolicy,
 		"defaultOptions":            core.DefaultOptions,
@@ -1694,6 +1748,17 @@ func bootstrapCore(
 		"persistentSaveKind":        core.PersistentSaveKind,
 		"inputMode":                 core.InputMode,
 		"startupActions":            core.StartupActions,
+	}
+	if compatibilitySchema == 3 {
+		compatibility["supportedContentKinds"] = core.SupportedContentKinds
+		compatibility["multiDisc"] = nil
+		if core.MultiDisc != nil {
+			compatibility["multiDisc"] = map[string]any{
+				"maxDiscs":      core.MultiDisc.MaxDiscs,
+				"maxTotalBytes": core.MultiDisc.MaxTotalBytes,
+				"delivery":      core.MultiDisc.Delivery,
+			}
+		}
 	}
 	association := "INFERRED_BUILD_TIME"
 	if component.Association == "EMBEDDED_GIT_VERSION" || component.Association == "EXACT_COMMIT" ||
@@ -1779,10 +1844,27 @@ ON CONFLICT(core_id,
  flavor=excluded.flavor,
  relative_path=excluded.relative_path,
   size_bytes=excluded.size_bytes,
+ source_commit=excluded.source_commit,
  provenance_json=excluded.provenance_json,
   compatibility_config_json=excluded.compatibility_config_json,
  enabled=excluded.enabled,
+ version=core_artifacts.version + CASE WHEN
+  core_artifacts.bundle_version IS NOT excluded.bundle_version OR
+  core_artifacts.flavor IS NOT excluded.flavor OR
+  core_artifacts.relative_path IS NOT excluded.relative_path OR
+  core_artifacts.size_bytes IS NOT excluded.size_bytes OR
+  core_artifacts.compatibility_config_json IS NOT excluded.compatibility_config_json OR
+  core_artifacts.enabled IS NOT excluded.enabled
+ THEN 1 ELSE 0 END,
   updated_at_ms=excluded.updated_at_ms
+WHERE core_artifacts.bundle_version IS NOT excluded.bundle_version
+ OR core_artifacts.flavor IS NOT excluded.flavor
+ OR core_artifacts.relative_path IS NOT excluded.relative_path
+ OR core_artifacts.size_bytes IS NOT excluded.size_bytes
+ OR core_artifacts.source_commit IS NOT excluded.source_commit
+ OR core_artifacts.provenance_json IS NOT excluded.provenance_json
+ OR core_artifacts.compatibility_config_json IS NOT excluded.compatibility_config_json
+ OR core_artifacts.enabled IS NOT excluded.enabled
 `,
 		id,
 		core.CoreID,

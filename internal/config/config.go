@@ -25,6 +25,7 @@ var knownVariables = map[string]struct{}{
 	"RETROM_DB_PATH":                      {}, "RETROM_DEPENDENCY_ROOT": {}, "RETROM_DEPENDENCY_VERSIONS": {},
 	"RETROM_ACTIVE_EMULATORJS_VERSION": {}, "RETROM_TRUSTED_PROXIES": {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
+	"RETROM_MULTI_DISC_IMPORT_ENABLED": {},
 }
 
 var ignoredPrefixes = []string{
@@ -33,17 +34,18 @@ var ignoredPrefixes = []string{
 }
 
 type Config struct {
-	Mode                Mode
-	HTTPAddr            string
-	PublicOrigin        *url.URL
-	DataDir             string
-	DBPath              string
-	DependencyRoot      string
-	DependencyVersions  []string
-	ActiveEJSVersion    string
-	TrustedProxies      []netip.Prefix
-	StartupCheckTimeout time.Duration
-	LogLevel            string
+	Mode                   Mode
+	HTTPAddr               string
+	PublicOrigin           *url.URL
+	DataDir                string
+	DBPath                 string
+	DependencyRoot         string
+	DependencyVersions     []string
+	ActiveEJSVersion       string
+	TrustedProxies         []netip.Prefix
+	StartupCheckTimeout    time.Duration
+	LogLevel               string
+	MultiDiscImportEnabled bool
 }
 
 type Mode string
@@ -179,11 +181,34 @@ func Load(mode Mode) (Config, error) {
 	if !slices.Contains([]string{"debug", "info", "warn", "error"}, logLevel) {
 		return Config{}, fmt.Errorf("%w: RETROM_LOG_LEVEL", errInvalidConfig)
 	}
+	multiDiscImportEnabled, err := parseStrictBoolean(
+		"RETROM_MULTI_DISC_IMPORT_ENABLED",
+		os.Getenv("RETROM_MULTI_DISC_IMPORT_ENABLED"),
+		false,
+	)
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		Mode: mode, HTTPAddr: httpAddr, PublicOrigin: publicOrigin, DataDir: dataDir, DBPath: dbPath,
 		DependencyRoot: dependencyRoot, DependencyVersions: versions, ActiveEJSVersion: active,
 		TrustedProxies: proxies, StartupCheckTimeout: startupTimeout, LogLevel: logLevel,
+		MultiDiscImportEnabled: multiDiscImportEnabled,
 	}, nil
+}
+
+func parseStrictBoolean(name, value string, defaultValue bool) (bool, error) {
+	if value == "" {
+		return defaultValue, nil
+	}
+	switch value {
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, fmt.Errorf("%w: %s", errInvalidConfig, name)
+	}
 }
 
 func rejectUnknownVariables(environment []string) error {

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adapterID, captureManualScreenshot, captureManualState, mountEmulatorJS, scheduleStartupActions, type PlayerConfig } from "./ejs-4.2.3-v1";
+import { adapterID, captureManualScreenshot, captureManualState, mountEmulatorJS, scheduleStartupActions, switchDisc, type PlayerConfig } from "./ejs-4.2.3-v2";
 
 const config: PlayerConfig = {
   launchId: "01980000-0000-7000-8000-000000000001",
@@ -30,7 +30,10 @@ const config: PlayerConfig = {
 };
 
 describe("EmulatorJS adapter", () => {
-  afterEach(() => document.querySelectorAll("script[data-retrom-loader]").forEach((node) => node.remove()));
+  afterEach(() => {
+    document.querySelectorAll("script[data-retrom-loader]").forEach((node) => node.remove());
+    window.EJS_emulator = undefined;
+  });
 
   it("rejects an unregistered runtime without mutating the document", () => {
     const target = document.createElement("div");
@@ -93,6 +96,69 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_externalFiles).toEqual(biosConfig.externalFiles);
     cleanup();
     expect(() => mountEmulatorJS({ ...biosConfig, externalFiles: { "/../bios7.bin": biosConfig.externalFiles["/retroarch/userdata/system/bios7.bin"] } }, target)).toThrow("PLAYER_EXTERNAL_FILES_INVALID");
+  });
+
+  it("initializes the EmulatorJS settings object before exposing a validated disc runtime", () => {
+    const target = document.createElement("div");
+    const multiDiscConfig: PlayerConfig = {
+      ...config,
+      core: "yabause",
+      runtimeCore: "yabause",
+      gameUrl: `/runtime/launches/${config.launchId}/game/playlist.m3u`,
+      runtimePathOverrides: { "yabause-wasm.data": "/runtime/emulatorjs/4.2.3/data/cores/yabause-wasm.data" },
+      externalFiles: {
+        "/disc-001.chd": `/runtime/launches/${config.launchId}/external-files/disc-001.chd`,
+        "/disc-002.chd": `/runtime/launches/${config.launchId}/external-files/disc-002.chd`
+      },
+      discSet: {
+        contentKind: "MULTI_DISC_M3U_V1",
+        count: 2,
+        initialDiscIndex: 0,
+        entries: [
+          { index: 0, label: "光盘 1", virtualPath: "/disc-001.chd" },
+          { index: 1, label: "光盘 2", virtualPath: "/disc-002.chd" }
+        ]
+      }
+    };
+    const onReady = vi.fn((instance) => expect(instance.allSettings).toEqual({}));
+    const cleanup = mountEmulatorJS(multiDiscConfig, target, { onReady });
+    window.EJS_emulator = {
+      on: () => undefined,
+      gameManager: { getDiskCount: () => 2, getCurrentDisk: () => 0, setCurrentDisk: () => undefined }
+    };
+    window.EJS_ready?.();
+    expect(onReady).toHaveBeenCalledOnce();
+    cleanup();
+
+    const invalidSettings = {
+      on: () => undefined,
+      gameManager: { getDiskCount: () => 2, getCurrentDisk: () => 0, setCurrentDisk: () => undefined }
+    };
+    Reflect.set(invalidSettings, "allSettings", []);
+    window.EJS_emulator = invalidSettings;
+    expect(() => window.EJS_ready?.()).toThrow("PLAYER_DISC_SETTINGS_INVALID");
+
+    expect(() => mountEmulatorJS({
+      ...multiDiscConfig,
+      discSet: { ...multiDiscConfig.discSet!, entries: [
+        { index: 0, label: "光盘 2", virtualPath: "/disc-001.chd" },
+        { index: 1, label: "光盘 1", virtualPath: "/disc-002.chd" }
+      ] }
+    }, target)).toThrow("PLAYER_DISC_SET_INVALID");
+  });
+
+  it("switches a disc only after a successful runtime readback", () => {
+    let current = 0;
+    const setCurrentDisk = vi.fn((index: number) => { current = index; });
+    const instance = {
+      on: () => undefined,
+      gameManager: { getDiskCount: () => 3, getCurrentDisk: () => current, setCurrentDisk }
+    };
+    expect(switchDisc(instance, 1, 3)).toEqual({ count: 3, currentIndex: 1 });
+    expect(setCurrentDisk).toHaveBeenCalledOnce();
+    expect(switchDisc(instance, 1, 3)).toEqual({ count: 3, currentIndex: 1 });
+    expect(setCurrentDisk).toHaveBeenCalledOnce();
+    expect(() => switchDisc({ ...instance, gameManager: { ...instance.gameManager, getDiskCount: () => -1 } }, 0, 3)).toThrow("PLAYER_DISC_SET_INVALID");
   });
 
   it("treats NONE persistent saves as an explicit capability while keeping state callbacks", () => {

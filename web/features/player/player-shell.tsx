@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { newUuid, sha256 } from "@/lib/crypto";
-import { captureManualScreenshot, captureManualState, mountEmulatorJS, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v1";
+import { captureManualScreenshot, captureManualState, mountEmulatorJS, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
 import { setEmulatorPaused } from "./pause-control";

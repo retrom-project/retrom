@@ -59,11 +59,35 @@ func TestParseVersionsRequiresStrictSortedSemver(t *testing.T) {
 
 func TestRejectUnknownVariablesAllowsToolPrefixesOnly(t *testing.T) {
 	t.Parallel()
-	if err := rejectUnknownVariables([]string{"RETROM_FIXTURE_ROOT=secret", "RETROM_HTTP_ADDR=x", "RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true"}); err != nil {
+	if err := rejectUnknownVariables([]string{"RETROM_FIXTURE_ROOT=secret", "RETROM_HTTP_ADDR=x", "RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true", "RETROM_MULTI_DISC_IMPORT_ENABLED=false"}); err != nil {
 		t.Fatalf("known variables rejected: %v", err)
 	}
 	if err := rejectUnknownVariables([]string{"RETROM_DATA_DI=typo"}); err == nil {
 		t.Fatal("unknown RETROM variable was accepted")
+	}
+}
+
+func TestParseStrictBooleanRejectsImplicitOrMisspelledValues(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		value        string
+		defaultValue bool
+		want         bool
+		wantErr      bool
+	}{
+		{value: "", want: false},
+		{value: "", defaultValue: true, want: true},
+		{value: "true", want: true},
+		{value: "false", defaultValue: true, want: false},
+		{value: "TRUE", wantErr: true},
+		{value: "1", wantErr: true},
+		{value: " true", wantErr: true},
+	}
+	for _, test := range tests {
+		result, err := parseStrictBoolean("RETROM_MULTI_DISC_IMPORT_ENABLED", test.value, test.defaultValue)
+		if (err != nil) != test.wantErr || !test.wantErr && result != test.want {
+			t.Errorf("parseStrictBoolean(%q, %t) = %t, %v", test.value, test.defaultValue, result, err)
+		}
 	}
 }
 

@@ -33,6 +33,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
+	"retrom/internal/contentcapability"
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
 	"retrom/internal/dosbundle"
@@ -2576,8 +2577,7 @@ a.id
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
 }
 
-func (server *Server) platformInstances(writer http.ResponseWriter, request *http.Request) {
-	values := request.URL.Query()
+func platformInstanceFilters(values url.Values) ([]string, []any, bool) {
 	conditions := []string{"pi.deleted_at_ms IS NULL"}
 	arguments := make([]any, 0, 2)
 	if value := values.Get("platformId"); value != "" {
@@ -2586,11 +2586,20 @@ func (server *Server) platformInstances(writer http.ResponseWriter, request *htt
 	}
 	if value := values.Get("enabled"); value != "" {
 		if value != "true" && value != "false" {
-			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "目录启用状态无效", map[string]any{})
-			return
+			return nil, nil, false
 		}
 		conditions = append(conditions, "pi.enabled=?")
 		arguments = append(arguments, map[string]int{"true": 1, "false": 0}[value])
+	}
+	return conditions, arguments, true
+}
+
+func (server *Server) platformInstances(writer http.ResponseWriter, request *http.Request) {
+	values := request.URL.Query()
+	conditions, arguments, ok := platformInstanceFilters(values)
+	if !ok {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "目录启用状态无效", map[string]any{})
+		return
 	}
 	query := queryWithConditions(
 		`
@@ -2607,6 +2616,12 @@ pi.enabled,
 pi.version,
 pi.updated_at_ms,
 (SELECT count(*) FROM games g WHERE g.platform_instance_id=pi.id)
+,
+COALESCE((SELECT a.compatibility_config_json
+ FROM core_artifacts a
+ WHERE a.core_id=pi.default_core_id
+ AND a.enabled=1
+ LIMIT 1),'{}')
 FROM platform_instances pi
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores c ON c.id=pi.default_core_id
@@ -2622,7 +2637,7 @@ JOIN cores c ON c.id=pi.default_core_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items := make([]map[string]any, 0)
 	for rows.Next() {
-		var id, platformID, platformName, coreID, coreName, name, slug, description string
+		var id, platformID, platformName, coreID, coreName, name, slug, description, compatibility string
 		var sortOrder, enabled int
 		var version, updatedAtMS, gameCount int64
 		if err := rows.Scan(
@@ -2639,6 +2654,7 @@ JOIN cores c ON c.id=pi.default_core_id
 			&version,
 			&updatedAtMS,
 			&gameCount,
+			&compatibility,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -2648,6 +2664,9 @@ JOIN cores c ON c.id=pi.default_core_id
 			"defaultCoreName": coreName, "name": name, "slug": slug, "description": description,
 			"sortOrder": sortOrder, "enabled": enabled == 1, "version": version, "updatedAtMs": updatedAtMS,
 			"gameCount": gameCount,
+			"importCapabilities": contentcapability.Resolve(
+				platformID, enabled == 1, server.config.MultiDiscImportEnabled, compatibility,
+			),
 		})
 	}
 	if err := rows.Err(); err != nil {
