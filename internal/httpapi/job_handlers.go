@@ -36,6 +36,7 @@ func (server *Server) cancelJob(writer http.ResponseWriter, request *http.Reques
 	}
 	if !pending {
 		server.importer.SyncParentAttachmentCancellation(request.Context(), result.JobID)
+		server.importer.SyncMultiDiscAttachmentCancellation(request.Context(), result.JobID)
 		_, _ = server.database.ExecContext(
 			request.Context(),
 			`
@@ -94,5 +95,6 @@ func (server *Server) retryJob(writer http.ResponseWriter, request *http.Request
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	server.importer.ResumeParentAttachmentJobs(request.Context())
+	server.importer.ResumeMultiDiscAttachmentJobs(request.Context())
 	writeJSON(writer, http.StatusAccepted, result)
 }

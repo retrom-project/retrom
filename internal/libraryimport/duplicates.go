@@ -340,6 +340,9 @@ WHERE item.id=? AND item.state='REVIEW_PENDING'
 		return nil, "", fmt.Errorf("libraryimport/duplicate: %w", err)
 	}
 	digest, err := importItemContentIdentity(ctx, service.database, itemID)
+	if errors.Is(err, errMultiDiscIncomplete) {
+		return []DuplicateGame{}, "", nil
+	}
 	if err != nil {
 		return nil, "", err
 	}

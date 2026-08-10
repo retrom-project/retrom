@@ -128,6 +128,7 @@ func New(
 		WithBlobStore(blobs).
 		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
 	importer.ResumeParentAttachmentJobs(context.Background())
+	importer.ResumeMultiDiscAttachmentJobs(context.Background())
 	return &Server{
 		config:        config,
 		database:      database,
@@ -235,6 +236,10 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc(
 		"POST /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments",
 		server.createReviewArcadeParentAttachment,
+	)
+	mux.HandleFunc(
+		"POST /api/v1/admin/reviews/{importItemId}/multi-disc-attachments",
+		server.createReviewMultiDiscAttachment,
 	)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/approve", server.approveReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/discard", server.discardReview)
@@ -3503,7 +3508,10 @@ WHERE i.state='REVIEW_PENDING'
 //nolint:funlen // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) review(writer http.ResponseWriter, request *http.Request) {
 	var itemID, importJobID, metadata, platformID, platformName, sourceSnapshotID, sourceManifest string
+	var sourceContentKind, currentArtifactCompatibility string
 	var validationID, validationStatus, compatibilityCode, dependencySnapshot sql.NullString
+	var selectedValidationID sql.NullString
+	var validationGeneration sql.NullInt64
 	var selectedCandidateID, coverID, uploadedCoverID, backgroundID, defaultDOSEntry sql.NullString
 	var version, updatedAtMS int64
 	err := server.database.QueryRowContext(request.Context(), `
@@ -3514,12 +3522,16 @@ d.version,
 d.updated_at_ms,
 pi.id,
 pi.name,
+current_artifact.compatibility_config_json,
 v.id,
 v.status,
 v.compatibility_code,
 v.dependency_snapshot_json,
+d.selected_validation_id,
 source_snapshot.id,
 source_snapshot.source_manifest_json,
+source_snapshot.content_kind,
+v.prepublish_generation,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
 d.cover_uploaded_asset_id,
@@ -3529,6 +3541,8 @@ FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
+JOIN core_artifacts current_artifact ON current_artifact.core_id=pi.default_core_id
+AND current_artifact.enabled=1
 LEFT
 JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,
 (
@@ -3551,12 +3565,16 @@ AND i.state='REVIEW_PENDING'
 			&updatedAtMS,
 			&platformID,
 			&platformName,
+			&currentArtifactCompatibility,
 			&validationID,
 			&validationStatus,
 			&compatibilityCode,
 			&dependencySnapshot,
+			&selectedValidationID,
 			&sourceSnapshotID,
 			&sourceManifest,
+			&sourceContentKind,
+			&validationGeneration,
 			&selectedCandidateID,
 			&coverID,
 			&uploadedCoverID,
@@ -3610,53 +3628,22 @@ AND i.state='REVIEW_PENDING'
 		server.databaseError(writer, request, err)
 		return
 	}
-	arcadeDependencies, hasArcadeDependencies, err := server.importer.ReviewArcadeDependencies(
-		request.Context(),
-		itemID,
-	)
+	arcadeDependencies, multiDisc, err := server.reviewContentDependencies(request.Context(), itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	if !hasArcadeDependencies {
-		arcadeDependencies = nil
+	validationProjection, err := server.reviewValidationProjection(request.Context(), reviewValidationInput{
+		validationID: validationID, validationStatus: validationStatus,
+		compatibilityCode: compatibilityCode, dependencyValue: dependencyValue,
+		validationGeneration: validationGeneration, selectedValidationID: selectedValidationID,
+		artifactCompatibility: currentArtifactCompatibility, sourceContentKind: sourceContentKind,
+	})
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
 	}
-	validation := any(nil)
-	if validationID.Valid {
-		var validationCurrent int
-		if err := server.database.QueryRowContext(request.Context(), `
-SELECT EXISTS(
-SELECT 1
-FROM import_item_core_validations v
-JOIN platform_instances p ON p.id=v.target_platform_instance_id
-AND p.enabled=1
-AND p.deleted_at_ms IS NULL
-AND p.version=v.platform_instance_version
-JOIN core_artifacts a ON a.id=v.core_artifact_id
-AND a.core_id=p.default_core_id
-AND a.enabled=1
-WHERE v.id=?
-AND v.source_snapshot_id=?
-AND p.id=?
-AND v.status='READY'
-AND v.default_dos_entry IS ?
-AND v.dat_version_id IS (SELECT active.id
-FROM dat_versions active
-WHERE active.core_artifact_id=a.id
-AND active.is_active=1))
-`, validationID.String, sourceSnapshotID, platformID, nullableString(defaultDOSEntry)).
-			Scan(&validationCurrent); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		validation = map[string]any{
-			"id":                 validationID.String,
-			"status":             validationStatus.String,
-			"current":            validationCurrent == 1,
-			"compatibilityCode":  compatibilityCode.String,
-			"dependencySnapshot": dependencyValue,
-		}
-	}
+	gateReviewMultiDiscAttachment(multiDisc, validationProjection.stale)
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"itemId": itemID, "importJobId": importJobID, "version": version, "updatedAtMs": updatedAtMS,
@@ -3665,10 +3652,14 @@ AND active.is_active=1))
 			"id":   platformID,
 			"name": platformName,
 		}, "metadata": metadataValue, "sourceManifest": sourceValue,
-		"validation": validation, "candidates": candidates, "scrapeRuns": scrapeRuns,
-		"uploadedAssets": uploadedAssets, "sourceFiles": sourceFiles,
+		"validation": validationProjection.value, "candidates": candidates, "scrapeRuns": scrapeRuns,
+		"validationStale":              validationProjection.stale,
+		"selectedValidationGeneration": validationProjection.selectedGeneration,
+		"canApprove":                   validationProjection.canApprove,
+		"uploadedAssets":               uploadedAssets, "sourceFiles": sourceFiles,
 		"duplicateGames": duplicateGames, "contentIdentityDigest": contentIdentityDigest,
 		"arcadeDependencies":  arcadeDependencies,
+		"multiDisc":           multiDisc,
 		"selectedCandidateId": nullableString(selectedCandidateID),
 		"defaultDosEntry":     nullableString(defaultDOSEntry),
 		"selectedAssets": map[string]any{
@@ -3678,6 +3669,79 @@ AND active.is_active=1))
 			"screenshotCandidateAssetIds": screenshotIDs,
 		}, "dosEntries": dosEntries,
 	})
+}
+
+type reviewValidationInput struct {
+	validationID, validationStatus, compatibilityCode, selectedValidationID sql.NullString
+	validationGeneration                                                    sql.NullInt64
+	dependencyValue                                                         any
+	artifactCompatibility, sourceContentKind                                string
+}
+
+type reviewValidationResult struct {
+	value, selectedGeneration any
+	stale, canApprove         bool
+}
+
+func (server *Server) reviewValidationProjection(
+	ctx context.Context,
+	input reviewValidationInput,
+) (reviewValidationResult, error) {
+	if !input.validationID.Valid {
+		return reviewValidationResult{}, nil
+	}
+	evidenceCurrent, err := server.importer.ReviewValidationCurrent(ctx, input.validationID.String)
+	if err != nil {
+		return reviewValidationResult{}, fmt.Errorf("review validation projection: %w", err)
+	}
+	selectedGeneration := any(nil)
+	if input.selectedValidationID.Valid {
+		selectedGeneration = nullableInt64(input.validationGeneration)
+	}
+	return reviewValidationResult{
+		value: map[string]any{
+			"id": input.validationID.String, "status": input.validationStatus.String,
+			"current":            evidenceCurrent && input.validationStatus.String == "READY",
+			"generation":         nullableInt64(input.validationGeneration),
+			"compatibilityCode":  input.compatibilityCode.String,
+			"dependencySnapshot": input.dependencyValue,
+		},
+		selectedGeneration: selectedGeneration,
+		stale:              !evidenceCurrent,
+		canApprove: input.selectedValidationID.Valid && evidenceCurrent && input.validationStatus.String == "READY" &&
+			contentcapability.SupportsContentKind(input.artifactCompatibility, input.sourceContentKind),
+	}, nil
+}
+
+func (server *Server) reviewContentDependencies(ctx context.Context, itemID string) (any, any, error) {
+	arcadeDependencies, hasArcadeDependencies, err := server.importer.ReviewArcadeDependencies(ctx, itemID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("review arcade dependencies: %w", err)
+	}
+	if !hasArcadeDependencies {
+		arcadeDependencies = nil
+	}
+	multiDisc, hasMultiDisc, err := server.importer.ReviewMultiDisc(ctx, itemID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("review multi-disc dependencies: %w", err)
+	}
+	if !hasMultiDisc {
+		multiDisc = nil
+	}
+	return arcadeDependencies, multiDisc, nil
+}
+
+func gateReviewMultiDiscAttachment(value any, validationStale bool) {
+	projection, ok := value.(map[string]any)
+	if !ok {
+		return
+	}
+	canAttach, ok := projection["canAttachMissingDiscs"].(bool)
+	if !ok {
+		projection["canAttachMissingDiscs"] = false
+		return
+	}
+	projection["canAttachMissingDiscs"] = canAttach && !validationStale
 }
 
 func (server *Server) reviewMetadataEvidence(

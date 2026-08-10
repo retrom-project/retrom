@@ -729,6 +729,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/reviews/{importItemId}/multi-disc-attachments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Queues validation of one completed FILES upload containing exactly every currently missing CHD. */
+        post: operations["postAdminReviewMultiDiscAttachment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reviews/{importItemId}/approve": {
         parameters: {
             query?: never;
@@ -1731,6 +1750,10 @@ export interface components {
             /** Format: uuid */
             uploadFileId: string;
         };
+        ReviewMultiDiscAttachmentRequest: {
+            /** Format: uuid */
+            uploadId: string;
+        };
         UploadReferenceRequest: {
             /** Format: uuid */
             uploadId: string;
@@ -1961,6 +1984,7 @@ export interface components {
             action?: unknown;
             activatedAtMs?: unknown;
             active?: unknown;
+            activeAttachment?: unknown;
             activeDurationMs?: unknown;
             activeEmulatorjsVersion?: unknown;
             activeInstallation?: unknown;
@@ -2013,6 +2037,9 @@ export interface components {
             change?: unknown;
             chunkSizeBytes?: unknown;
             class?: unknown;
+            canApprove?: unknown;
+            canAttachMissingDiscs?: unknown;
+            canRetry?: unknown;
             clientCapabilities?: unknown;
             clientFileId?: unknown;
             clientObservedAtMs?: unknown;
@@ -2021,6 +2048,7 @@ export interface components {
             code?: unknown;
             column?: unknown;
             commit?: unknown;
+            canonicalName?: unknown;
             compatibilityCode?: unknown;
             compatibilityStatus?: unknown;
             completed?: unknown;
@@ -2031,6 +2059,7 @@ export interface components {
             configuredDependencyVersionCount?: unknown;
             configuredEmulatorjsVersions?: unknown;
             configuredVersion?: unknown;
+            contentKind?: unknown;
             contentRevisionId?: unknown;
             contentIdentityDigest?: unknown;
             core?: unknown;
@@ -2075,6 +2104,8 @@ export interface components {
             developer?: unknown;
             diff?: unknown;
             directLaunchSafe?: unknown;
+            discCount?: unknown;
+            discIndex?: unknown;
             discarded?: unknown;
             disk?: unknown;
             diskEntryCount?: unknown;
@@ -2136,6 +2167,7 @@ export interface components {
             importJobId?: unknown;
             importCapabilities?: unknown;
             imports?: unknown;
+            index?: unknown;
             inputs?: unknown;
             installationId?: unknown;
             isDefault?: unknown;
@@ -2144,11 +2176,14 @@ export interface components {
             items?: unknown;
             jobId?: unknown;
             jobState?: unknown;
+            jobVersion?: unknown;
             jobs?: unknown;
             kind?: unknown;
+            label?: unknown;
             level?: unknown;
             library?: unknown;
             latestGames?: unknown;
+            latestAttachment?: unknown;
             license?: unknown;
             loader?: unknown;
             loaderUrl?: unknown;
@@ -2167,6 +2202,8 @@ export interface components {
             metadata?: unknown;
             metadataProvider?: unknown;
             metadataRevisionId?: unknown;
+            missingDiscCount?: unknown;
+            missingReferences?: unknown;
             mode?: unknown;
             contentModes?: unknown;
             multiDisc?: unknown;
@@ -2184,6 +2221,7 @@ export interface components {
             partNo?: unknown;
             path?: unknown;
             paused?: unknown;
+            playlist?: unknown;
             persistentSaveId?: unknown;
             persistentSaveUrl?: unknown;
             platform?: unknown;
@@ -2199,6 +2237,7 @@ export interface components {
             playerAdapterId?: unknown;
             players?: unknown;
             previousInterval?: unknown;
+            presentDiscCount?: unknown;
             protected?: unknown;
             provider?: unknown;
             providerAssetId?: unknown;
@@ -2277,6 +2316,7 @@ export interface components {
             selectedAssets?: unknown;
             selectedCandidateId?: unknown;
             selectedValidationId?: unknown;
+            selectedValidationGeneration?: unknown;
             sequence?: unknown;
             sha1?: unknown;
             sha256?: unknown;
@@ -2295,6 +2335,8 @@ export interface components {
             sourceDisplayName?: unknown;
             sourceFiles?: unknown;
             sourceManifest?: unknown;
+            sourceReference?: unknown;
+            sourceTotalSizeBytes?: unknown;
             sourcePlatformInstanceId?: unknown;
             sourceType?: unknown;
             state?: unknown;
@@ -2313,6 +2355,7 @@ export interface components {
             toAtMs?: unknown;
             total?: unknown;
             totalBytes?: unknown;
+            totalPresentBytes?: unknown;
             totalItemCount?: unknown;
             trailing?: unknown;
             unresolved?: unknown;
@@ -2327,6 +2370,7 @@ export interface components {
             uploadSessionId?: unknown;
             validatedRequirementVersion?: unknown;
             validation?: unknown;
+            validationStale?: unknown;
             validationDetails?: unknown;
             validationJobId?: unknown;
             validationStatus?: unknown;
@@ -2664,6 +2708,11 @@ export interface components {
         ReviewArcadeParentAttachment: {
             content: {
                 "application/json": components["schemas"]["ReviewArcadeParentAttachmentRequest"];
+            };
+        };
+        ReviewMultiDiscAttachment: {
+            content: {
+                "application/json": components["schemas"]["ReviewMultiDiscAttachmentRequest"];
             };
         };
         UploadReference: {
@@ -3554,6 +3603,23 @@ export interface operations {
             cookie?: never;
         };
         requestBody: components["requestBodies"]["ReviewArcadeParentAttachment"];
+        responses: {
+            202: components["responses"]["JSONResponse"];
+        };
+    };
+    postAdminReviewMultiDiscAttachment: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["ReviewMultiDiscAttachment"];
         responses: {
             202: components["responses"]["JSONResponse"];
         };

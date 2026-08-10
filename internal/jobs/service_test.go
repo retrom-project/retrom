@@ -92,6 +92,11 @@ func TestCancelAndRetryEnforceVersionedState(t *testing.T) {
 	if _, _, err := service.Cancel(ctx, "cancel-job", 2, "again"); !errors.Is(err, ErrConflict) {
 		t.Fatalf("terminal cancellation = %v", err)
 	}
+	insertJob(t, database, "failed-cancel-job", "BLOB_GC", "FAILED", int64(1), now.UnixMilli())
+	failedCanceled, pending, err := service.Cancel(ctx, "failed-cancel-job", 1, "discard retryable attachment")
+	if err != nil || pending || failedCanceled.State != "CANCELLED" || failedCanceled.Version != 2 {
+		t.Fatalf("failed cancel = %#v, pending=%v, error=%v", failedCanceled, pending, err)
+	}
 
 	insertJob(t, database, "retry-job", "GAME_FILE_REVISION", "FAILED", int64(1), now.UnixMilli())
 	retried, err := service.Retry(ctx, "retry-job", 1)
