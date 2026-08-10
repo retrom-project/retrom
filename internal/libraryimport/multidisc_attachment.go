@@ -1682,13 +1682,21 @@ func (service *Service) reviewMultiDiscSourceProjection(
 	snapshotID string,
 ) (map[string]any, int, error) {
 	var playlistName, playlistSHA string
-	var playlistSize int64
+	var playlistSize, maxTotalBytes int64
+	var maxDiscs int
 	if err := service.database.QueryRowContext(ctx, `
-SELECT file.logical_name,blob.size_bytes,blob.sha256
+SELECT file.logical_name,blob.size_bytes,blob.sha256,
+coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxDiscs'),?),
+coalesce(json_extract(job.config_snapshot_json,'$.multiDisc.maxTotalBytes'),?)
 FROM import_item_source_snapshot_files file
 JOIN blobs blob ON blob.id=file.blob_id
+JOIN import_item_source_snapshots snapshot ON snapshot.id=file.source_snapshot_id
+JOIN import_items item ON item.id=snapshot.import_item_id
+JOIN import_jobs job ON job.id=item.import_job_id
 WHERE file.source_snapshot_id=? AND file.role='PLAYLIST_SOURCE'
-	`, snapshotID).Scan(&playlistName, &playlistSize, &playlistSHA); err != nil {
+	`, multidisc.MaxDiscs, multidisc.MaxTotalBytes, snapshotID).Scan(
+		&playlistName, &playlistSize, &playlistSHA, &maxDiscs, &maxTotalBytes,
+	); err != nil {
 		return nil, 0, multiDiscAttachmentStoreError("read review playlist", err)
 	}
 	rows, err := service.database.QueryContext(ctx, `
@@ -1738,7 +1746,8 @@ WHERE entry.source_snapshot_id=? ORDER BY entry.ordinal
 			"name": playlistName, "sizeBytes": playlistSize, "sha256": playlistSHA,
 		},
 		"discCount": len(entries), "presentDiscCount": presentCount, "missingDiscCount": len(missing),
-		"totalPresentBytes": totalSize, "entries": entries, "missingReferences": missing,
+		"totalPresentBytes": totalSize, "maxDiscs": maxDiscs, "maxTotalBytes": maxTotalBytes,
+		"entries": entries, "missingReferences": missing,
 	}, len(missing), nil
 }
 

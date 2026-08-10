@@ -204,6 +204,8 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 	}
 	if err := json.Unmarshal(review.Body.Bytes(), &reviewProjection); err != nil || review.Code != http.StatusOK ||
 		!reviewProjection.CanApprove || !bytes.Contains(reviewProjection.MultiDisc, []byte(`"missingDiscCount":0`)) ||
+		!bytes.Contains(reviewProjection.MultiDisc, []byte(`"maxDiscs":8`)) ||
+		!bytes.Contains(reviewProjection.MultiDisc, []byte(`"maxTotalBytes":1073741824`)) ||
 		bytes.Contains(reviewProjection.MultiDisc, []byte(`"blobId"`)) {
 		t.Fatalf("accepted review = %d %s", review.Code, review.Body.String())
 	}

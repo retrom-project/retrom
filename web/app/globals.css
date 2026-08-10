@@ -1028,13 +1028,27 @@ summary { cursor: pointer; }
 .review-workflow-feedback { position: fixed; z-index: 80; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); display: grid; gap: 8px; filter: drop-shadow(0 14px 30px rgb(24 32 51 / 16%)); }
 .review-workflow-columns { display: grid; grid-template-columns: minmax(380px, .72fr) minmax(620px, 1.28fr); align-items: stretch; gap: 16px; }
 .review-workflow-left { min-width: 0; display: grid; gap: 16px; }
+.review-multidisc-card .panel-head small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
 .review-multidisc-list { margin: 0; padding: 0; display: grid; gap: 7px; list-style: none; }
 .review-multidisc-list li { min-width: 0; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 9px; }
 .review-multidisc-list li > span:first-child { min-width: 0; display: grid; gap: 2px; }
 .review-multidisc-list small { overflow: hidden; color: var(--muted); font: 11px/1.4 ui-monospace, monospace; text-overflow: ellipsis; white-space: nowrap; }
-.review-multidisc-upload { width: fit-content; margin-top: 12px; cursor: pointer; }
-.review-multidisc-upload input { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
-.review-multidisc-upload.is-disabled { cursor: not-allowed; opacity: .55; }
+.review-multidisc-actions { margin-top: 12px; display: flex; flex-wrap: wrap; gap: 8px; }
+.review-multidisc-drawer-backdrop { position: fixed; z-index: 140; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; background: rgb(17 23 39 / 42%); cursor: default; }
+.review-multidisc-drawer { position: fixed; z-index: 141; inset: 0 0 0 auto; width: min(560px, calc(100vw - 24px)); height: 100dvh; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: white; box-shadow: -22px 0 60px rgb(17 23 39 / 18%); }
+.review-multidisc-drawer > header { padding: 22px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
+.review-multidisc-drawer h2 { margin: 5px 0 0; font-size: 22px; }
+.review-multidisc-drawer header p { margin: 6px 0 0; color: var(--muted); font-size: 12px; }
+.review-multidisc-drawer-close { width: 36px; height: 36px; flex: 0 0 auto; padding: 0; color: #657083; border: 1px solid var(--line); border-radius: 10px; background: white; cursor: pointer; font-size: 21px; }
+.review-multidisc-drawer-body { padding: 20px 22px; overflow: auto; display: grid; align-content: start; gap: 14px; }
+.review-multidisc-drawer-body h3 { margin: 0 0 9px; font-size: 14px; }
+.review-multidisc-drawer-body ol { margin: 0; padding: 0; display: grid; gap: 7px; list-style: none; }
+.review-multidisc-drawer-body li { min-height: 42px; padding: 8px 10px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border: 1px solid var(--line); border-radius: 9px; font-size: 12px; }
+.review-multidisc-drawer-picker { min-height: 92px; padding: 16px; display: grid; place-items: center; gap: 8px; color: var(--purple-dark); border: 1px dashed #bfb4ef; border-radius: 11px; background: #f8f7ff; cursor: pointer; font-size: 12px; font-weight: 800; }
+.review-multidisc-drawer-picker input { width: 100%; color: var(--muted); font-size: 11px; }
+.review-multidisc-drawer-summary { padding: 11px 12px; display: grid; gap: 4px; color: var(--muted); border-radius: 9px; background: var(--surface-subtle); font-size: 11px; }
+.review-multidisc-drawer-progress { margin: 0; padding: 11px; display: flex; align-items: center; gap: 8px; color: var(--purple-dark); border-radius: 9px; background: var(--purple-soft); font-size: 11px; }
+.review-multidisc-drawer > footer { margin-top: auto; padding: 16px 22px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); background: white; }
 .review-workflow-capability, .review-workflow-files, .review-workflow-metadata { min-width: 0; overflow: hidden; }
 .review-capability-list { display: grid; gap: 9px; }
 .review-capability-list > div { padding: 11px 12px; display: grid; gap: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-subtle); }
