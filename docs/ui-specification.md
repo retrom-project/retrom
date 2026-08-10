@@ -389,7 +389,7 @@ BIOS 文件页默认展示当前游戏库实际所需项，并可在页面内无
 
 多盘不增加新的一级导航，复用“导入游戏、待审核、游戏管理、游玩页”四条现有路径。新建导入先读取平台 capability；只有服务端返回 `MULTI_DISC_M3U_V1` 时才显示“多盘游戏（M3U + CHD）”。目录树含 M3U 时可自动选择该模式，但必须允许退回 STANDARD，并在提交前显示可处理组、完整组、待补齐组、非法目录和未关联文件的真实数量。每个分组按 M3U 父目录展示 ordered disc、PRESENT/MISSING、忽略文件和稳定错误；按钮数量只计算会形成 ImportItem 的合法完整/缺盘组。平台或默认核心变化使能力消失时立即清除预检并回退 STANDARD，不保留已失效的提交状态。
 
-审核详情在来源文件上方显示只读“多盘内容”卡，按盘序列出 source basename、canonical label、大小/hash 和缺失状态。缺盘时 Approve 禁用，只允许一次选择当前全部缺失 basename；补传沿用通用 Upload/Job SSE、支持断线恢复和 retryable Job retry，终态重新获取 Review。新 snapshot 生效后原卡就地刷新，旧 snapshot 不可编辑。游戏管理详情显示当前 content kind、ordered canonical discs 与 playlist hash；替换入口必须选择完整目录并复用同一预检，失败不改变 current revision。
+审核详情在来源文件上方显示只读“多盘内容”卡，按盘序列出 source basename、canonical label、大小/hash 和缺失状态。缺盘时 Approve 禁用，只允许一次选择当前全部缺失 basename；补传沿用通用 Upload/Job SSE、支持断线恢复和 retryable Job retry，终态重新获取 Review。新 snapshot 生效后原卡就地刷新，旧 snapshot 不可编辑。游戏管理详情显示当前 content kind、ordered canonical discs 与 playlist hash；“替换游戏文件”先打开保留原管理页上下文的对话框，MULTI 选项只在当前目录 capability 允许时显示。多盘替换必须选择完整目录并复用导入预检，但只允许恰好一个完整盘组，缺盘组不能像导入一样继续；失败不改变 current revision。
 
 Player 在 loader 启动前显示“正在准备多盘内容 · N 张光盘 · 总大小”，盘组校验完成后在“创建存档”前显示 `光盘 N / M`。换盘菜单按顺序列出全部盘，支持 Tab、方向键、Home/End、Enter/Space 和 Escape，当前盘有文本/图标双重状态；换盘期间使用 `aria-live=polite`，失败用 alert 并保持原盘号。存档卡和启动入口显示保存时的“光盘 N”；从存档继续不要求用户重新选盘，若锁定盘组不兼容则原位阻断。
 

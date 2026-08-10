@@ -35,7 +35,7 @@ function GroupDetails({ group }: { group: MultiDiscGroupPreview }) {
   </div>;
 }
 
-function MultiDiscPreflightState({ result }: { result: MultiDiscPreflightResult }) {
+function MultiDiscPreflightState({ result, allowIncomplete }: { result: MultiDiscPreflightResult; allowIncomplete: boolean }) {
   const [expanded, setExpanded] = useState(() => initialExpanded(result));
 
   function toggle(directory: string) {
@@ -49,7 +49,7 @@ function MultiDiscPreflightState({ result }: { result: MultiDiscPreflightResult 
   return <section className="multi-disc-preflight" aria-labelledby="multi-disc-preflight-title">
     <header>
       <div><h3 id="multi-disc-preflight-title">多盘目录预检</h3><p>本地结果用于即时反馈；上传后仍由服务器按冻结目录重新校验。</p></div>
-      <span className={`status ${result.rejectedGroupCount ? "bad" : result.blockedGroupCount ? "warn" : "good"}`}><i />{result.rejectedGroupCount ? "包含不可处理目录" : result.blockedGroupCount ? "可以继续，审核会阻断" : "目录完整，可以上传"}</span>
+      <span className={`status ${result.rejectedGroupCount || result.blockedGroupCount && !allowIncomplete ? "bad" : result.blockedGroupCount ? "warn" : "good"}`}><i />{result.rejectedGroupCount ? "包含不可处理目录" : result.blockedGroupCount ? allowIncomplete ? "可以继续，审核会阻断" : "目录不完整，不能替换" : "目录完整，可以上传"}</span>
     </header>
     <div className="multi-disc-preflight-summary">
       <div><span>发现多盘游戏</span><strong>{result.processableGroupCount}</strong></div>
@@ -74,11 +74,11 @@ function MultiDiscPreflightState({ result }: { result: MultiDiscPreflightResult 
       })}
     </div>
     {result.unassociatedFiles.length ? <details className="multi-disc-preflight-unassociated"><summary>未关联目录文件，将忽略（{result.unassociatedFiles.length}）</summary><p>{result.unassociatedFiles.slice(0, 20).join("、")}{result.unassociatedFiles.length > 20 ? ` 等 ${result.unassociatedFiles.length} 个` : ""}</p></details> : null}
-    {result.blockedGroupCount ? <div className="feedback warn" role="status"><strong>可以继续导入。</strong><p>审核页面会保留缺失光盘的位置；补齐全部缺失光盘前不能发布。</p></div> : null}
+    {result.blockedGroupCount ? <div className={`feedback ${allowIncomplete ? "warn" : "bad"}`} role="status"><strong>{allowIncomplete ? "可以继续导入。" : "不能替换当前内容。"}</strong><p>{allowIncomplete ? "审核页面会保留缺失光盘的位置；补齐全部缺失光盘前不能发布。" : "内容替换必须选择同一目录中完整的一组 M3U 与全部引用 CHD。"}</p></div> : null}
   </section>;
 }
 
-export function MultiDiscPreflight({ result }: { result: MultiDiscPreflightResult }) {
+export function MultiDiscPreflight({ result, allowIncomplete = true }: { result: MultiDiscPreflightResult; allowIncomplete?: boolean }) {
   const resetKey = result.groups.map((group) => `${group.directory}:${group.state}:${group.presentDiscCount}`).join("|");
-  return <MultiDiscPreflightState key={resetKey} result={result} />;
+  return <MultiDiscPreflightState key={resetKey} result={result} allowIncomplete={allowIncomplete} />;
 }

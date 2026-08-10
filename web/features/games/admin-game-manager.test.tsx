@@ -1,9 +1,14 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AdminGameManager, type AdminGame, type PlatformInstanceOption } from "./admin-game-manager";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+const upload = vi.hoisted(() => ({ uploadFiles: vi.fn(), waitForJob: vi.fn() }));
+vi.mock("@/lib/upload", async (importOriginal) => {
+  const original = await importOriginal<typeof import("@/lib/upload")>();
+  return { ...original, uploadFiles: upload.uploadFiles, waitForJob: upload.waitForJob };
+});
 
 const game: AdminGame = {
   gameId: "game-1",
@@ -31,11 +36,21 @@ const game: AdminGame = {
 };
 
 const directories: PlatformInstanceOption[] = [
-  { id: "fbneo-games", platformId: "arcade", platformName: "Arcade", name: "FBNeo 游戏", defaultCoreId: "fbneo", defaultCoreName: "FinalBurn Neo", enabled: true },
-  { id: "neo-geo", platformId: "arcade", platformName: "Arcade", name: "Neo Geo", defaultCoreId: "fbneo", defaultCoreName: "FinalBurn Neo", enabled: true },
+  { id: "fbneo-games", platformId: "arcade", platformName: "Arcade", name: "FBNeo 游戏", defaultCoreId: "fbneo", defaultCoreName: "FinalBurn Neo", enabled: true, importCapabilities: { contentModes: ["STANDARD"], multiDisc: null } },
+  { id: "neo-geo", platformId: "arcade", platformName: "Arcade", name: "Neo Geo", defaultCoreId: "fbneo", defaultCoreName: "FinalBurn Neo", enabled: true, importCapabilities: { contentModes: ["STANDARD"], multiDisc: null } },
 ];
 
+function directoryFile(path: string, contents: string) {
+  const file = new File([contents], path.split("/").at(-1) ?? path);
+  Object.defineProperty(file, "webkitRelativePath", { value: path });
+  return file;
+}
+
 describe("AdminGameManager", () => {
+  beforeEach(() => {
+    upload.uploadFiles.mockReset();
+    upload.waitForJob.mockReset().mockResolvedValue(undefined);
+  });
   afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
   it("renders the precise four-section workbench without the omitted section tags", () => {
@@ -102,5 +117,70 @@ describe("AdminGameManager", () => {
     expect(preview).toBeDisabled();
     await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "neo-geo");
     expect(preview).toBeEnabled();
+  });
+
+  it("hides multi-disc replacement when the current directory lacks the capability", async () => {
+    const user = userEvent.setup();
+    render(<AdminGameManager game={game} platformInstances={directories} candidates={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
+    const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
+    expect(within(dialog).queryByRole("checkbox", { name: /多盘游戏/ })).not.toBeInTheDocument();
+    expect(within(dialog).getByText(/当前游戏目录只允许替换普通内容/)).toBeVisible();
+  });
+
+  it("preflights one complete multi-disc directory before creating a replacement job", async () => {
+    const capableDirectories: PlatformInstanceOption[] = directories.map((directory) => directory.id === "fbneo-games" ? {
+      ...directory,
+      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC_M3U_V1"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
+    } : directory);
+    upload.uploadFiles.mockResolvedValue({ uploadId: "upload-multi", uploadFileIds: ["playlist", "one", "two"] });
+    const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>(() => Promise.resolve(new Response(JSON.stringify({ jobId: "job-content" }), { status: 202, headers: { "Content-Type": "application/json" } })));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<AdminGameManager game={game} platformInstances={capableDirectories} candidates={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
+    const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
+    await user.click(within(dialog).getByRole("checkbox", { name: /多盘游戏/ }));
+    const files = [
+      directoryFile("game/game.m3u", "one.chd\ntwo.chd\n"),
+      directoryFile("game/one.chd", "MComprHDone"),
+      directoryFile("game/two.chd", "MComprHDtwo"),
+    ];
+    await user.upload(within(dialog).getByLabelText("选择一份完整多盘目录"), files);
+
+    expect(await within(dialog).findByText("目录完整，可以上传")).toBeVisible();
+    const confirm = within(dialog).getByRole("button", { name: "上传并创建内容版本" });
+    expect(confirm).toBeEnabled();
+    await user.click(confirm);
+
+    await waitFor(() => expect(upload.uploadFiles).toHaveBeenCalledWith(files, expect.any(Function)));
+    const request = fetchMock.mock.calls.find(([url]) => String(url).endsWith("/content-revisions"));
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({ uploadId: "upload-multi", contentMode: "MULTI_DISC_M3U_V1" });
+    expect(upload.waitForJob).toHaveBeenCalledWith("job-content", expect.any(Function));
+    await waitFor(() => expect(screen.queryByRole("alertdialog", { name: "替换游戏内容" })).not.toBeInTheDocument());
+  });
+
+  it("does not allow a missing-disc directory to replace published content", async () => {
+    const capableDirectories: PlatformInstanceOption[] = directories.map((directory) => directory.id === "fbneo-games" ? {
+      ...directory,
+      importCapabilities: { contentModes: ["STANDARD", "MULTI_DISC_M3U_V1"], multiDisc: { maxDiscs: 8, maxTotalBytes: 1024 } },
+    } : directory);
+    const user = userEvent.setup();
+    render(<AdminGameManager game={game} platformInstances={capableDirectories} candidates={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "替换游戏文件" }));
+    const dialog = screen.getByRole("alertdialog", { name: "替换游戏内容" });
+    await user.click(within(dialog).getByRole("checkbox", { name: /多盘游戏/ }));
+    await user.upload(within(dialog).getByLabelText("选择一份完整多盘目录"), [
+      directoryFile("game/game.m3u", "one.chd\ntwo.chd\n"),
+      directoryFile("game/one.chd", "MComprHDone"),
+    ]);
+
+    expect(await within(dialog).findByText("目录不完整，不能替换")).toBeVisible();
+    expect(within(dialog).getByText("不能替换当前内容。")).toBeVisible();
+    expect(within(dialog).getByRole("button", { name: "上传并创建内容版本" })).toBeDisabled();
+    expect(upload.uploadFiles).not.toHaveBeenCalled();
   });
 });
