@@ -868,7 +868,7 @@ python3 data/example/verify-fixtures.py
 - 画面复核：机器断言通过后执行 `scripts/acceptance/run.sh review-multidisc ACC-MDISC-005 passed|failed '<本次画面观察>'`；未复核保持 BLOCKED。
 - 流程：使用 `fixtures.json` 锁定的受控 Saturn 双盘 fixture 走真实发布/Launch/Player，等待有效画面后执行 `0 → 1 → 0`。
 - 通过标准：进入游戏而非运行时菜单；真实 `diskCount=2`，每次切盘都回读正确且换盘后帧继续推进；Player 当前盘、busy、成功/失败状态与 runtime 一致。
-- 证据：fixture/hash、artifact/adapter、config、事件/帧 delta、当前截图和机器断言 JSON；不保存 ROM bytes 或绝对来源路径。
+- 证据：fixture/hash、artifact/adapter、config、external file 非零长度、事件/帧 delta、换盘前游戏画面、换盘后当前截图和机器断言 JSON；不保存 ROM bytes 或绝对来源路径。内容在换盘后自身处于黑场时仍保留原图，不用该单帧替代盘号回读与帧推进断言。
 
 ### ACC-MDISC-006：Saturn 三盘与跨盘存档
 
@@ -877,7 +877,7 @@ python3 data/example/verify-fixtures.py
 - 画面复核：机器断言通过后执行 `scripts/acceptance/run.sh review-multidisc ACC-MDISC-006 passed|failed '<本次画面观察>'`；未复核保持 BLOCKED。
 - 流程：使用受控三盘 fixture 启动，往返全部 index；在光盘 2 创建手动状态存档，退出后从该存档重新启动并记录 adapter 事件顺序，同时验证 PersistentSave。
 - 通过标准：真实 `diskCount=3` 且全部 index 可切；SaveState `discIndex=1`，重启严格先完成 PersistentSave 注入、切到光盘 2 并回读，再显式 load state，之后才恢复 main loop/start；单盘和 PersistentSave 行为无回归。
-- 证据：fixture/hash、盘切换/帧事件、SaveState/Launch 锁定、adapter 调用顺序、PersistentSave 前后 hash 与当前截图。
+- 证据：fixture/hash、external file 非零长度、盘切换/帧事件、SaveState/Launch 锁定、adapter 调用顺序、PersistentSave 前后 hash、换盘前游戏画面与换盘后当前截图。
 
 ### ACC-MDISC-007：能力、替换与共享 adapter 回归
 

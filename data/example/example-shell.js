@@ -21,6 +21,7 @@
     canvas: null,
     discCount: null,
     discTransitions: [],
+    externalFileSizes: [],
     crossOriginIsolated: window.crossOriginIsolated,
     errors: []
   };
@@ -31,6 +32,7 @@
     configuring: `配置 EmulatorJS ${runtimeVersion}`,
     ready: "运行时已就绪",
     started: "核心已启动，等待游戏帧",
+    "awaiting-disc-validation": "游戏画面已输出，等待换盘验证",
     "validating-discs": "游戏已启动，正在验证换盘",
     "frames-advancing": "游戏帧持续输出",
     error: "启动失败"
@@ -61,6 +63,35 @@
     smoke.errors.push(message);
     if (!smoke.startedAtMs) smoke.phase = "error";
     renderStatus();
+  }
+
+  function installExternalFileCompatibility() {
+    if (runtimeVersion !== "4.2.3" || Object.keys(config.externalFiles || {}).length === 0) return;
+    let constructor = window.EJS_GameManager;
+    const patch = value => {
+      const prototype = value?.prototype;
+      const original = prototype?.writeFile;
+      if (!prototype || typeof original !== "function") throw new Error("External file compatibility is unavailable");
+      if (original.retromNormalizesArrayBuffer === true) return;
+      const normalizedWriteFile = function(path, data) {
+        const bytes = Object.prototype.toString.call(data) === "[object ArrayBuffer]"
+          ? new Uint8Array(data)
+          : data;
+        return original.call(this, path, bytes);
+      };
+      Object.defineProperty(normalizedWriteFile, "retromNormalizesArrayBuffer", { value: true });
+      prototype.writeFile = normalizedWriteFile;
+    };
+    if (constructor) patch(constructor);
+    Object.defineProperty(window, "EJS_GameManager", {
+      configurable: true,
+      enumerable: true,
+      get: () => constructor,
+      set: value => {
+        patch(value);
+        constructor = value;
+      }
+    });
   }
 
   window.addEventListener("error", event => fail(event.error || event.message));
@@ -103,6 +134,28 @@
       current = observed;
     }
   }
+
+  installExternalFileCompatibility();
+  let discValidationStarted = false;
+  window.__RETROM_VALIDATE_DISCS__ = async () => {
+    if (!config.expectedDiscCount || smoke.phase !== "awaiting-disc-validation" || discValidationStarted) {
+      throw new Error("Multi-disc validation is not ready");
+    }
+    discValidationStarted = true;
+    smoke.phase = "validating-discs";
+    renderStatus();
+    try {
+      await validateDiscSequence();
+      smoke.phase = "frames-advancing";
+      smoke.framesAdvancingAtMs = Date.now();
+      renderStatus();
+    } catch (error) {
+      smoke.phase = "error";
+      fail(error);
+      renderStatus();
+      throw error;
+    }
+  };
 
   window.EJS_player = "#game";
   window.EJS_DEBUG_XX = config.debug === true;
@@ -177,8 +230,17 @@
     smoke.startedAtMs = Date.now();
     try {
       smoke.frameStart = window.EJS_emulator.gameManager.getFrameNum();
+      if (config.expectedDiscCount) {
+        const fs = window.EJS_emulator.gameManager.FS;
+        smoke.externalFileSizes = Object.keys(config.externalFiles || {}).sort().map(path => fs.stat(path).size);
+        if (smoke.externalFileSizes.length !== config.expectedDiscCount || smoke.externalFileSizes.some(size => size <= 0)) {
+          throw new Error(`Unexpected external file sizes: ${smoke.externalFileSizes.join(",")}`);
+        }
+      }
     } catch (error) {
-      smoke.errors.push(`Unable to read initial frame counter: ${error.message}`);
+      smoke.phase = "error";
+      fail(new Error(`Unable to validate the initial runtime: ${error.message}`));
+      return;
     }
     renderStatus();
 
@@ -229,17 +291,8 @@
         if (canvasReady && smoke.frameDelta >= 120) {
           window.clearInterval(timer);
           if (config.expectedDiscCount) {
-            smoke.phase = "validating-discs";
+            smoke.phase = "awaiting-disc-validation";
             renderStatus();
-            validateDiscSequence().then(() => {
-              smoke.phase = "frames-advancing";
-              smoke.framesAdvancingAtMs = Date.now();
-              renderStatus();
-            }).catch(error => {
-              smoke.phase = "error";
-              fail(error);
-              renderStatus();
-            });
           } else {
             smoke.phase = "frames-advancing";
             smoke.framesAdvancingAtMs = Date.now();
