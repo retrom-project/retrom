@@ -43,11 +43,14 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## UI 评审
 
-- [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)：包含认证、账户、用户管理、用户侧与管理后台的最终可交互桌面端 UI 评审稿。
+- [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)：包含认证、账户、用户管理、收藏、其他用户侧页面与管理后台的最终可交互桌面端 UI 评审稿。
 - [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)：可交互评审稿的可维护源文件；修改页面结构时先更新此文件，再重新导出 HTML 与快照。
 - [`design/retrom-ui-library-4k.png`](./design/retrom-ui-library-4k.png)：4K 游戏库。
 - [`design/retrom-ui-game-detail.png`](./design/retrom-ui-game-detail.png)：从游戏库卡片进入的游戏详情。
 - [`design/retrom-ui-saves.png`](./design/retrom-ui-saves.png)：存档列表与直接继续入口。
+- [`design/retrom-ui-favorites.png`](./design/retrom-ui-favorites.png)：收藏页、左侧 Rail、筛选与卡片布局。
+- [`design/retrom-ui-favorites-folder-manager.png`](./design/retrom-ui-favorites-folder-manager.png)：单游戏 Folder 管理的稳定宽版弹层。
+- [`design/retrom-ui-favorites-unfavorite-dialog.png`](./design/retrom-ui-favorites-unfavorite-dialog.png)：取消收藏的宽版影响确认框。
 - [`design/retrom-ui-recent-4k.png`](./design/retrom-ui-recent-4k.png)：4K 最近游玩列表。
 - [`design/retrom-ui-setup.png`](./design/retrom-ui-setup.png)、[`design/retrom-ui-login.png`](./design/retrom-ui-login.png)、[`design/retrom-ui-register.png`](./design/retrom-ui-register.png)、[`design/retrom-ui-reset-password.png`](./design/retrom-ui-reset-password.png)：账户公开入口的 1280×800 最小桌面快照。
 - [`design/retrom-ui-account.png`](./design/retrom-ui-account.png)：账户设置。
@@ -78,6 +81,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 维护规则
 
+- `td/` 是临时工作目录，不是正式事实源；`docs/` 不得链接或依赖其中任何文件。临时方案合入时必须按领域职责拆入正式文档，并把视觉内容合并到统一设计源，而不是保留平行稿。
 - 跨领域产品决策先更新总览，再更新受影响专题。
 - 字段、状态机、API 和页面细节只在负责该领域的专题维护，总览仅链接和摘要。
 - 所有项目验收流程和通过标准只在 `project-acceptance.md` 维护；专题文档只按 Case ID 回链，不得复制验收清单。
