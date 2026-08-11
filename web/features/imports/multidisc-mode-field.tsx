@@ -18,6 +18,7 @@ export function MultiDiscModeField({
     <legend>内容布局</legend>
     <label className="multi-disc-mode-choice">
       <input
+        className="multi-disc-mode-checkbox"
         type="checkbox"
         checked={selected}
         aria-describedby={helpID}

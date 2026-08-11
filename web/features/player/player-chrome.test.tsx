@@ -63,6 +63,7 @@ describe("PlayerChrome", () => {
     expect(screen.queryByText("/disc-001.chd")).not.toBeInTheDocument();
     await user.click(screen.getByRole("menuitemradio", { name: "光盘 2" }));
     expect(values.onSelectDisc).toHaveBeenCalledWith(1);
+    expect(values.onPauseForToolbarInteraction).not.toHaveBeenCalled();
   });
 
   it("supports arrow, Home, End, and Escape keyboard navigation in the disc menu", async () => {

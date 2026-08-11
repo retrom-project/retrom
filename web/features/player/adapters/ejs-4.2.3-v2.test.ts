@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adapterID, captureManualScreenshot, captureManualState, mountEmulatorJS, scheduleStartupActions, switchDisc, type PlayerConfig } from "./ejs-4.2.3-v2";
+import { adapterID, captureManualScreenshot, captureManualState, mountEmulatorJS, scheduleStartupActions, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
 
 const config: PlayerConfig = {
   launchId: "01980000-0000-7000-8000-000000000001",
@@ -190,6 +190,31 @@ describe("EmulatorJS adapter", () => {
     expect(switchDisc(instance, 1, 3)).toEqual({ count: 3, currentIndex: 1 });
     expect(setCurrentDisk).toHaveBeenCalledOnce();
     expect(() => switchDisc({ ...instance, gameManager: { ...instance.gameManager, getDiskCount: () => -1 } }, 0, 3)).toThrow("PLAYER_DISC_SET_INVALID");
+  });
+
+  it("resumes a running core after switching discs and preserves an existing pause", () => {
+    const calls: string[] = [];
+    let current = 0;
+    const instance = {
+      paused: false,
+      on: () => undefined,
+      gameManager: {
+        getDiskCount: () => 2,
+        getCurrentDisk: () => current,
+        setCurrentDisk: (index: number) => { calls.push(`disc:${index}`); current = index; },
+        toggleMainLoop: (running: boolean) => { calls.push(`loop:${running}`); },
+      },
+    };
+
+    expect(switchDiscPreservingPause(instance, 1, 2)).toEqual({ count: 2, currentIndex: 1 });
+    expect(calls).toEqual(["loop:false", "disc:1", "loop:true"]);
+    expect(instance.paused).toBe(false);
+
+    calls.length = 0;
+    instance.paused = true;
+    expect(switchDiscPreservingPause(instance, 0, 2)).toEqual({ count: 2, currentIndex: 0 });
+    expect(calls).toEqual(["loop:false", "disc:0", "loop:false"]);
+    expect(instance.paused).toBe(true);
   });
 
   it("does not schedule startup input when the restore boundary fails closed", () => {

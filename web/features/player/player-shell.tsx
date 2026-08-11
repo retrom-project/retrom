@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { newUuid, sha256 } from "@/lib/crypto";
-import { captureManualScreenshot, captureManualState, mountEmulatorJS, readDiscState, switchDisc, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import { captureManualScreenshot, captureManualState, mountEmulatorJS, readDiscState, switchDiscPreservingPause, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
 import { restoreMultiDiscLaunch } from "./multi-disc-restore";
@@ -598,10 +598,8 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
     const locked = discSetRef.current;
     if (!current || !locked || !discState) return false;
     if (index === discState.currentIndex) return true;
-    pauseForToolbarInteraction();
-    await pauseCapture.current;
     try {
-      const selected = switchDisc(current, index, locked.count);
+      const selected = switchDiscPreservingPause(current, index, locked.count);
       setDiscState(selected);
       reportPlayerEvent({
         eventType: "SWITCH_SUCCESS", resultCode: "OK", discCount: locked.count,
