@@ -394,6 +394,7 @@ func Restore(ctx context.Context, configuration config.Maintenance, input, outpu
 	return manifest, nil
 }
 
+//nolint:funlen,lll // Restore revocations and external-source task fencing are one atomic security boundary.
 func applyRestoreSecurityFence(ctx context.Context, database *sql.DB, now time.Time) error {
 	nowMS := now.UnixMilli()
 	transaction, err := database.BeginTx(ctx, nil)
@@ -421,9 +422,44 @@ WHERE state IN ('CREATED','ACTIVE')
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored launches: %w", err)
 	}
+	serverJobs, err := transaction.ExecContext(ctx, `
+UPDATE jobs SET state='FAILED',error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',error_retryable=0,
+finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,
+cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
+WHERE kind='SERVER_BIOS_IMPORT' AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+`, nowMS, nowMS)
+	if err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored server import jobs: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE server_bios_import_items SET state='COMMIT_FAILED',outcome_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
+completed_at_ms=?,updated_at_ms=? WHERE server_import_id IN (
+  SELECT id FROM server_imports WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+) AND state IN ('PENDING','EVALUATING')
+`, nowMS, nowMS); err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored server import items: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE server_imports SET state='FAILED',last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
+cancel_requested_at_ms=NULL,cancel_reason=NULL,
+imported_matched_count=(SELECT count(*) FROM server_bios_import_items item WHERE item.server_import_id=server_imports.id AND item.state='IMPORTED_MATCHED'),
+imported_warning_count=(SELECT count(*) FROM server_bios_import_items item WHERE item.server_import_id=server_imports.id AND item.state='IMPORTED_WARNING'),
+imported_missing_entry_count=(SELECT count(*) FROM server_bios_import_items item WHERE item.server_import_id=server_imports.id AND item.state='IMPORTED_MISSING_ENTRY'),
+not_found_count=(SELECT count(*) FROM server_bios_import_items item WHERE item.server_import_id=server_imports.id AND item.state='NOT_FOUND'),
+skipped_existing_count=(SELECT count(*) FROM server_bios_import_items item WHERE item.server_import_id=server_imports.id AND item.state='SKIPPED_EXISTING'),
+skipped_not_better_count=(SELECT count(*) FROM server_bios_import_items item WHERE item.server_import_id=server_imports.id AND item.state='SKIPPED_NOT_BETTER'),
+same_bytes_count=(SELECT count(*) FROM server_bios_import_items item WHERE item.server_import_id=server_imports.id AND item.state='ALREADY_SAME_BYTES'),
+failed_item_count=(SELECT count(*) FROM server_bios_import_items item WHERE item.server_import_id=server_imports.id AND item.state IN ('SOURCE_CHANGED','CATALOG_CHANGED','READ_FAILED','COMMIT_FAILED')),
+cancelled_item_count=(SELECT count(*) FROM server_bios_import_items item WHERE item.server_import_id=server_imports.id AND item.state='CANCELLED'),
+completed_at_ms=?,version=version+1,updated_at_ms=?
+WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+`, nowMS, nowMS); err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored server imports: %w", err)
+	}
 	sessionCount, _ := sessions.RowsAffected()
 	linkCount, _ := links.RowsAffected()
 	launchCount, _ := launches.RowsAffected()
+	serverJobCount, _ := serverJobs.RowsAffected()
 	auditID, err := uuid.NewV7()
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: create restore audit ID: %w", err)
@@ -433,9 +469,9 @@ INSERT INTO audit_events(
 id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
 before_json,after_json,diff_json,request_id,created_at_ms)
 VALUES(?,'SYSTEM',NULL,'restore-security-fence','RESTORE_SECURITY_FENCE','INSTANCE','instance',
-NULL,json_object('revokedSessionCount',?,'revokedAccountLinkCount',?,'revokedLaunchCount',?),
+NULL,json_object('revokedSessionCount',?,'revokedAccountLinkCount',?,'revokedLaunchCount',?,'failedServerImportCount',?),
 '{}',NULL,?)
-`, auditID.String(), sessionCount, linkCount, launchCount, nowMS); err != nil {
+`, auditID.String(), sessionCount, linkCount, launchCount, serverJobCount, nowMS); err != nil {
 		return fmt.Errorf("maintenance/bundle: audit restore security fence: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {

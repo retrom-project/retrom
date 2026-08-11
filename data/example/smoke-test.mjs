@@ -631,11 +631,17 @@ export function expandMultiDiscFixtures(manifest) {
     }));
 }
 
+export function selectableFixtures(manifest, requestedCores = []) {
+  const formal = [...manifest.fixtures, ...expandMultiDiscFixtures(manifest)];
+  if (!requestedCores.length) return formal;
+  return [...formal, ...(manifest.candidateFixtures || [])];
+}
+
 async function main() {
   const manifest = JSON.parse(await fs.readFile(MANIFEST_PATH, "utf8"));
   const requestedCores = process.argv.slice(2);
   const fixtures = expandFixtureRuns(
-    [...manifest.fixtures, ...expandMultiDiscFixtures(manifest)],
+    selectableFixtures(manifest, requestedCores),
     requestedCores
   );
   if (!fixtures.length) throw new Error("No core fixtures selected");

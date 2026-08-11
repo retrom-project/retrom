@@ -27,7 +27,9 @@ for port in "$backend_port" "$web_port"; do
 done
 
 mkdir -p "$temporary_root/data"
+mkdir -p "$temporary_root/source/BIOS"
 cd "$repository_root"
+RETROM_SERVER_IMPORT_ROOTS="[{\"id\":\"pegasus-bios\",\"label\":\"Pegasus BIOS\",\"path\":\"$temporary_root/source\"}]" \
 setsid make dev \
   RETROM_MODE="test" \
   RETROM_DATA_DIR="$temporary_root/data" \
@@ -64,6 +66,7 @@ scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 (cd web && \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
+  E2E_SERVER_IMPORT_SEED="1" \
   npm run test:e2e)
 
 RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop

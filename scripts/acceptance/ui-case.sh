@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-00[1-9]|ACC-RUN-00[234]|ACC-SAVE-002|ACC-FAV-00[34])$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-00N|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-00[1-9]|ACC-RUN-00[234]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-BIOS-00[67])$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-00N|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-BIOS-006|ACC-BIOS-007" >&2
   exit 2
 fi
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -32,7 +32,9 @@ for port in "$backend_port" "$web_port"; do
   fi
 done
 mkdir -p "$temporary_root/data"
+mkdir -p "$temporary_root/source/BIOS"
 cd "$repository_root"
+RETROM_SERVER_IMPORT_ROOTS="[{\"id\":\"pegasus-bios\",\"label\":\"Pegasus BIOS\",\"path\":\"$temporary_root/source\"}]" \
 setsid make dev \
   RETROM_MODE="test" \
   RETROM_DATA_DIR="$temporary_root/data" \
@@ -63,6 +65,10 @@ RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/http-flow.sh
 
+if [[ "$case_id" == "ACC-BIOS-007" ]]; then
+  python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286
+fi
+
 if [[ "$case_id" == "ACC-UI-008" ]]; then
   scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 fi
@@ -80,8 +86,11 @@ fi
 if [[ "$case_id" == "ACC-FAV-003" || "$case_id" == "ACC-FAV-004" ]]; then
   specification="e2e/favorites.spec.ts"
 fi
+if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" ]]; then
+  specification="e2e/server-import.spec.ts"
+fi
 playwright_args=(playwright test "$specification" --grep "$case_id")
-if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" ]]; then
+if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" ]]; then
   playwright_args+=(--project=chrome-1280)
 else
   playwright_args+=(--workers=1)

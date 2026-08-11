@@ -594,6 +594,24 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 
 精确机器 schema 以 [`../api/openapi.yaml`](../api/openapi.yaml) 为准；人类可读契约与 schema 发生漂移时必须在同一变更修正，验收见 `ACC-FAV-002`。
 
-## 11. 统一验收入口
+## 11. 服务器 BIOS 导入 API
+
+所有下列 route 都要求 ADMIN；匿名返回 401，USER 返回 403。写请求继续执行 Origin/Fetch Metadata/CSRF、Idempotency-Key 与 `If-Match` 规则。DTO 永不包含宿主绝对路径、root digest、CAS path 或 source inode。
+
+| Route | 契约 |
+| --- | --- |
+| `GET /api/v1/admin/server-import-roots` | 返回配置 root 的 `id/label/status`。 |
+| `GET /api/v1/admin/server-import-roots/{rootId}/directories` | `path` 为规范相对目录，`limit<=100`；cursor 绑定 root/path/operation，仅列直接子目录。 |
+| `POST /api/v1/admin/server-imports` | 封闭 body：`kind=BIOS_DIRECTORY`、`rootId`、`sourceRelativePath`、`replaceIfBetter`；成功 201/Location/ETag，重放同 body 返回同资源。 |
+| `GET /api/v1/admin/server-imports` | 按 `createdAtMs DESC,id DESC` cursor 分页，`limit<=20`。 |
+| `GET /api/v1/admin/server-imports/{id}` | 结果按稳定 key cursor 分页，`limit<=50`，支持 `q/outcome/matchMethod`。 |
+| `GET .../{id}/bios-items/{requirementId}/candidates` | 按 rank/id cursor 分页，`limit<=50`，返回证据与未选原因。 |
+| `POST .../{id}/cancel` / `retry` | 使用 ETag；cancel 保留已提交 Item，retry 只允许明确 retryable 的领域失败且重验 root/catalog digest。 |
+
+稳定错误至少包括配置/root/path/cursor/active-conflict/source-or-catalog-change/scan-limit/retry-not-allowed 等 OpenAPI 枚举；详细字段和 response 是 [`../api/openapi.yaml`](../api/openapi.yaml) 的唯一机器契约。
+
+`GET /api/v1/admin/bios` 的 FULL_CATALOG 以及所有服务端筛选固定 `limit<=100`、cursor 绑定 scope 与完整 query。每页 items 不影响 `scopeCounts/summary/filteredCount`，这些值始终基于服务端全集；客户端不得把首批 100 条当成完整目录。
+
+## 12. 统一验收入口
 
 通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。

@@ -305,6 +305,6 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
   await expect(page.locator(".favorite-game-card")).toHaveCount(50);
   await page.screenshot({ path: evidencePath(testInfo, "favorite-layout.png") });
   await page.goto("/favorites?scope=FOLDER&folderId=79900000-0000-7000-8000-000000000001");
-  await expect(page.getByRole("alert")).toContainText("收藏夹不存在");
+  await expect(page.locator(".favorite-error[role='alert']")).toContainText("收藏夹不存在");
   await expect(page.getByRole("button", { name: "返回全部收藏" })).toBeVisible();
 });

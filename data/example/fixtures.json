@@ -15,6 +15,10 @@
     "credentialMode": "ssh-agent-or-user-ssh-config",
     "copiedAtMs": 1785952444276
   },
+  "candidateSource": {
+    "kind": "operator-provided-local",
+    "rootEnv": "RETROM_CANDIDATE_FIXTURE_ROOT"
+  },
   "fixtures": [
     {
       "core": "fceumm",
@@ -834,6 +838,206 @@
           }
         }
       ]
+    }
+  ],
+  "candidateFixtures": [
+    {
+      "core": "beetle_vb",
+      "runtimeVersion": "4.2.3",
+      "supportStatus": "candidate",
+      "system": "virtualboy",
+      "title": "Virtual Boy / Panic Bomber",
+      "gameId": 3001,
+      "examplePath": "data/example/beetle_vb/index.html",
+      "game": {
+        "localPath": "data/example/local-fixtures/beetle_vb/panic-bomber.vb",
+        "sourceRelativePath": "Roms/Virtual Boy/Panic Bomber (USA).vb",
+        "size": 524288,
+        "sha256": "e75e98add227ea9c2168ff13b131e3c72faa789e1ef4b9fdbae13d746ad9b3e3"
+      },
+      "bios": [],
+      "coreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/beetle_vb-wasm.data",
+        "size": 858313,
+        "sha256": "3db727a78b6a6551a4024c273069eb39c8e8f33aa78ef16a073ed7460f6ce692"
+      },
+      "settleMs": 40000,
+      "timeoutMs": 120000
+    },
+    {
+      "core": "mednafen_wswan",
+      "runtimeVersion": "4.2.3",
+      "supportStatus": "candidate",
+      "system": "wonderswan",
+      "title": "WonderSwan / Mingle Magnet",
+      "gameId": 3002,
+      "examplePath": "data/example/mednafen_wswan/index.html",
+      "game": {
+        "localPath": "data/example/local-fixtures/mednafen_wswan/mingle-magnet.ws",
+        "sourceRelativePath": "Roms/WS/磁力方块.zip",
+        "sourceArchiveLocalPath": "data/example/local-fixtures/mednafen_wswan/source.zip",
+        "sourceArchiveSize": 21747,
+        "sourceArchiveSha256": "ea2c496134cc096c01225d6fd284dfbe9f3bb96ec57e23ca29691b76a291fb42",
+        "singleMemberArchive": true,
+        "size": 524288,
+        "sha256": "7d25e0fd3060b9597abd9d91f3c88dcca17b6ad229448387c09935b6879747cd"
+      },
+      "bios": [],
+      "coreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/mednafen_wswan-wasm.data",
+        "size": 879301,
+        "sha256": "234397276e4a8ff01485e0135ea8e89e78e60fc156120e41bd0a4dd3b4c71626"
+      },
+      "settleMs": 5000,
+      "timeoutMs": 120000
+    },
+    {
+      "core": "smsplus",
+      "runtimeVersion": "4.2.3",
+      "supportStatus": "candidate",
+      "system": "mastersystem",
+      "title": "Master System / Bank Panic",
+      "gameId": 3003,
+      "examplePath": "data/example/smsplus/index.html",
+      "game": {
+        "localPath": "data/example/local-fixtures/smsplus/bank-panic.sms",
+        "sourceRelativePath": "Roms/SMS/银行危机.sms",
+        "size": 32768,
+        "sha256": "e7bd28d9184bfc911ce321dddfa2181c9f192032871d7c7b3d630e85efb1a7f8"
+      },
+      "bios": [],
+      "coreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/smsplus-wasm.data",
+        "size": 855876,
+        "sha256": "0f197c5e0000f17b2d072122a72b3f8fc1693514c4014fcd9694eec78584aa08"
+      },
+      "settleMs": 5000,
+      "timeoutMs": 120000
+    },
+    {
+      "core": "fbalpha2012_cps1",
+      "runtimeVersion": "4.2.3",
+      "supportStatus": "candidate",
+      "system": "arcade-cps1",
+      "title": "Arcade CPS-1 / 1941",
+      "gameId": 3004,
+      "examplePath": "data/example/fbalpha2012_cps1/index.html",
+      "game": {
+        "localPath": "data/example/local-fixtures/fbalpha2012_cps1/1941.zip",
+        "sourceRelativePath": "Roms/FBNEO FLY V/1941.zip",
+        "size": 3042127,
+        "sha256": "8e562cacceea51597e1e05eb5af4abdd75c880ce1b171b0f61180b673d2f52cc"
+      },
+      "bios": [],
+      "coreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/fbalpha2012_cps1-wasm.data",
+        "size": 1031240,
+        "sha256": "15b47667eb3c3746649c79e997b9f8c463f83bed9f61f51322cbe4db3d6e078e"
+      },
+      "settleMs": 20000,
+      "timeoutMs": 120000
+    },
+    {
+      "core": "fbalpha2012_cps2",
+      "runtimeVersion": "4.2.3",
+      "supportStatus": "candidate",
+      "system": "arcade-cps2",
+      "title": "Arcade CPS-2 / Pocket Fighter",
+      "gameId": 3005,
+      "examplePath": "data/example/fbalpha2012_cps2/index.html",
+      "game": {
+        "localPath": "data/example/local-fixtures/fbalpha2012_cps2/sgemf.zip",
+        "sourceRelativePath": "Roms/FBNEO FTG/sgemf.zip",
+        "size": 17995675,
+        "sha256": "840fcbcfa3fe8bdcd30836e17349c48b628925245c4b8008723743367b44113e"
+      },
+      "bios": [],
+      "coreArtifact": {
+        "path": "data/runtime/emulatorjs/4.2.3/data/cores/fbalpha2012_cps2-wasm.data",
+        "size": 992866,
+        "sha256": "432c2dd513603b04ccbf4e81f282f012763d2435311805443e2bd0cc9021d8d1"
+      },
+      "settleMs": 35000,
+      "timeoutMs": 120000
+    },
+    {
+      "core": "bsnes",
+      "runtimeVersion": "4.3.0-pre",
+      "supportStatus": "candidate",
+      "system": "snes",
+      "title": "Super Famicom / Super Bomberman",
+      "gameId": 3006,
+      "examplePath": "data/example/bsnes/index.html",
+      "game": {
+        "localPath": "data/example/local-fixtures/bsnes/super-bomberman.sfc",
+        "sourceRelativePath": "Roms/SFC/超级炸弹人1.zip",
+        "sourceArchiveLocalPath": "data/example/local-fixtures/bsnes/source.zip",
+        "sourceArchiveSize": 299651,
+        "sourceArchiveSha256": "2903771f2081e6c328867fa550b86ef48a2f9af3353abecb1ed602063221341b",
+        "singleMemberArchive": true,
+        "size": 524288,
+        "sha256": "4efab3f49cbe91ec77b6cba747ddfedfdc0b080c755a8b6ba51234f0676c000f"
+      },
+      "bios": [],
+      "coreArtifact": {
+        "path": "data/runtime/emulatorjs/4.3.0-pre/data/cores/bsnes-thread-wasm.data",
+        "size": 1016988,
+        "sha256": "07be511481846cb7f5c91003ce867cd70273591f6e6237aec04ad0150a7ccbff"
+      },
+      "requiresThreads": true,
+      "settleMs": 5000,
+      "timeoutMs": 120000
+    },
+    {
+      "core": "genesis_plus_gx_wide",
+      "runtimeVersion": "4.3.0-pre",
+      "supportStatus": "candidate",
+      "system": "megadrive",
+      "title": "Mega Drive / Fix-It Felix Jr.",
+      "gameId": 3007,
+      "examplePath": "data/example/genesis_plus_gx_wide/index.html",
+      "game": {
+        "localPath": "data/example/local-fixtures/genesis_plus_gx_wide/fix-it-felix-jr.md",
+        "sourceRelativePath": "Roms/MD/★修理工小菲力.zip",
+        "sourceArchiveLocalPath": "data/example/local-fixtures/genesis_plus_gx_wide/source.zip",
+        "sourceArchiveSize": 16933,
+        "sourceArchiveSha256": "0db65bb4203aa25ed7e9eb2b6200d867a500c0ce40ec5916db6f167cc9c1894e",
+        "singleMemberArchive": true,
+        "size": 131072,
+        "sha256": "fa64d43711cf5b16f145699de704217a7f1560f4b26577af802a04643d97fe94"
+      },
+      "bios": [],
+      "coreArtifact": {
+        "path": "data/runtime/emulatorjs/4.3.0-pre/data/cores/genesis_plus_gx_wide-wasm.data",
+        "size": 1007775,
+        "sha256": "653b59f5b4c3147c6786313ecd60c6657b1bc0d465814919d363728afa93b2e0"
+      },
+      "settleMs": 5000,
+      "timeoutMs": 120000
+    },
+    {
+      "core": "azahar",
+      "runtimeVersion": "4.3.0-pre",
+      "supportStatus": "candidate",
+      "system": "nintendo3ds",
+      "title": "Nintendo 3DS / Cave Story 2D",
+      "gameId": 3008,
+      "examplePath": "data/example/azahar/index.html",
+      "game": {
+        "localPath": "data/example/local-fixtures/azahar/cave-story-2d.cci",
+        "sourceRelativePath": "Roms/3DS/洞窟物语2D 汉化版.cci",
+        "size": 24424960,
+        "sha256": "3f2077f5a16a8eddc47566d22163a1ce3fb32ae8ff515b90fa4b2151e1de9318"
+      },
+      "bios": [],
+      "requiresThreads": true,
+      "coreArtifact": {
+        "path": "data/runtime/emulatorjs/4.3.0-pre/data/cores/azahar-thread-wasm.data",
+        "size": 3985011,
+        "sha256": "d90696e6ea68c4fc00ef147411ad399962777f07b6c7e73d5537da0eaffc2e3b"
+      },
+      "settleMs": 60000,
+      "timeoutMs": 180000
     }
   ],
   "multiDiscFixtures": [

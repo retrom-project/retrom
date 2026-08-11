@@ -644,9 +644,64 @@ paths:
   /api/v1/admin/bios:
     get:
       operationId: getAdminBIOS
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/CoreArtifactIDQuery' }, { $ref: '#/components/parameters/Scope' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/CoreArtifactIDQuery' }, { $ref: '#/components/parameters/Scope' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/BIOSQuick' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit100' }]
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/BIOSListResponse' }
+  /api/v1/admin/server-import-roots:
+    get:
+      operationId: getAdminServerImportRoots
+      responses:
+        '200': { $ref: '#/components/responses/ServerImportRootListResponse' }
+  /api/v1/admin/server-import-roots/{rootId}/directories:
+    parameters: [{ $ref: '#/components/parameters/ServerImportRootID' }]
+    get:
+      operationId: getAdminServerImportRootDirectories
+      parameters: [{ $ref: '#/components/parameters/ServerRelativePath' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit100' }]
+      responses:
+        '200': { $ref: '#/components/responses/ServerImportDirectoryListResponse' }
+  /api/v1/admin/server-imports:
+    get:
+      operationId: getAdminServerImports
+      parameters: [{ $ref: '#/components/parameters/ServerImportKind' }, { $ref: '#/components/parameters/State' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit20' }]
+      responses:
+        '200': { $ref: '#/components/responses/ServerImportListResponse' }
+    post:
+      operationId: postAdminServerImport
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/CreateServerImport' }
+      responses:
+        '202': { $ref: '#/components/responses/ServerImportResponse' }
+  /api/v1/admin/server-imports/{serverImportId}:
+    parameters: [{ $ref: '#/components/parameters/ServerImportID' }]
+    get:
+      operationId: getAdminServerImport
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/Outcome' }, { $ref: '#/components/parameters/MatchMethod' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit50' }]
+      responses:
+        '200': { $ref: '#/components/responses/ServerImportDetailResponse' }
+  /api/v1/admin/server-imports/{serverImportId}/bios-items/{requirementId}/candidates:
+    parameters: [{ $ref: '#/components/parameters/ServerImportID' }, { $ref: '#/components/parameters/RequirementID' }]
+    get:
+      operationId: getAdminServerImportBIOSCandidates
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit50' }]
+      responses:
+        '200': { $ref: '#/components/responses/ServerImportCandidateListResponse' }
+  /api/v1/admin/server-imports/{serverImportId}/cancel:
+    parameters: [{ $ref: '#/components/parameters/ServerImportID' }]
+    post:
+      operationId: postAdminServerImportCancel
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Reason' }
+      responses:
+        '200': { $ref: '#/components/responses/ServerImportResponse' }
+        '202': { $ref: '#/components/responses/ServerImportResponse' }
+  /api/v1/admin/server-imports/{serverImportId}/retry:
+    parameters: [{ $ref: '#/components/parameters/ServerImportID' }]
+    post:
+      operationId: postAdminServerImportRetry
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { $ref: '#/components/responses/ServerImportResponse' }
   /api/v1/admin/bios/{requirementId}/installations:
     parameters: [{ $ref: '#/components/parameters/RequirementID' }]
     post:
@@ -1556,6 +1611,206 @@ components:
       additionalProperties: false
       required: [uploadFileId]
       properties: { uploadFileId: { type: string, format: uuid } }
+    CreateServerImportRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, rootId, sourceRelativePath, replaceIfBetter]
+      properties:
+        kind: { type: string, enum: [BIOS_DIRECTORY] }
+        rootId: { type: string, pattern: '^[a-z][a-z0-9-]{0,31}$' }
+        sourceRelativePath: { type: string, maxLength: 4096 }
+        replaceIfBetter: { type: boolean, default: false }
+    ServerImportRoot:
+      type: object
+      additionalProperties: false
+      required: [id, label, status]
+      properties:
+        id: { type: string, pattern: '^[a-z][a-z0-9-]{0,31}$' }
+        label: { type: string, minLength: 1, maxLength: 40 }
+        status: { type: string, enum: [AVAILABLE, UNAVAILABLE] }
+    ServerImportRootList:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items: { type: array, maxItems: 8, items: { $ref: '#/components/schemas/ServerImportRoot' } }
+    ServerImportDirectory:
+      type: object
+      additionalProperties: false
+      required: [name, relativePath]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 255 }
+        relativePath: { type: string, minLength: 1, maxLength: 4096 }
+    ServerImportDirectoryList:
+      type: object
+      additionalProperties: false
+      required: [rootId, path, items, nextCursor]
+      properties:
+        rootId: { type: string }
+        path: { type: string }
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/ServerImportDirectory' } }
+        nextCursor: { type: string, nullable: true }
+    ServerImportCounts:
+      type: object
+      additionalProperties: false
+      required: [catalogItems, candidates, evaluatedItems, imported, matched, warnings, notFound, skipped, conflicts, failed, cancelled]
+      properties:
+        catalogItems: { type: integer, format: int64, minimum: 0 }
+        candidates: { type: integer, format: int64, minimum: 0 }
+        evaluatedItems: { type: integer, format: int64, minimum: 0 }
+        imported: { type: integer, format: int64, minimum: 0 }
+        matched: { type: integer, format: int64, minimum: 0 }
+        warnings: { type: integer, format: int64, minimum: 0 }
+        notFound: { type: integer, format: int64, minimum: 0 }
+        skipped: { type: integer, format: int64, minimum: 0 }
+        conflicts: { type: integer, format: int64, minimum: 0 }
+        failed: { type: integer, format: int64, minimum: 0 }
+        cancelled: { type: integer, format: int64, minimum: 0 }
+    ServerImportSummary:
+      type: object
+      additionalProperties: false
+      required: [id, kind, root, sourceRelativePath, replaceIfBetter, state, phase, counts, jobId, createdBy, lastErrorCode, version, createdAtMs, updatedAtMs, completedAtMs]
+      properties:
+        id: { type: string, format: uuid }
+        kind: { type: string, enum: [BIOS_DIRECTORY] }
+        root:
+          type: object
+          additionalProperties: false
+          required: [id, label]
+          properties: { id: { type: string }, label: { type: string } }
+        sourceRelativePath: { type: string, maxLength: 4096 }
+        replaceIfBetter: { type: boolean }
+        state: { type: string, enum: [QUEUED, RUNNING, COMPLETED, PARTIAL_FAILURE, CANCEL_REQUESTED, CANCELLED, FAILED] }
+        phase: { type: string, nullable: true, enum: [PREPARING_ROOT, DISCOVERING, HASHING, VALIDATING_ARCHIVES, DISCOVERY_COMPLETED, RANKING, INSTALLING, QUEUEING_REVALIDATION] }
+        counts: { $ref: '#/components/schemas/ServerImportCounts' }
+        jobId: { type: string, format: uuid }
+        createdBy:
+          type: object
+          additionalProperties: false
+          required: [id, displayName]
+          properties: { id: { type: string, format: uuid }, displayName: { type: string } }
+        lastErrorCode: { type: string, nullable: true }
+        version: { type: integer, format: int64, minimum: 1 }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        updatedAtMs: { type: integer, format: int64, minimum: 0 }
+        completedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+    ServerImportList:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/ServerImportSummary' } }
+        nextCursor: { type: string, nullable: true }
+    ServerBIOSImportItem:
+      type: object
+      additionalProperties: false
+      required: [requirementId, coreId, coreName, coreArtifactId, logicalName, requirementMode, sourceKind, state, candidateCount, matchMethod, outcomeCode, selectedRelativePath, previousInstallationStatus, newInstallationStatus, replaced]
+      properties:
+        requirementId: { type: string }
+        coreId: { type: string }
+        coreName: { type: string }
+        coreArtifactId: { type: string }
+        logicalName: { type: string }
+        requirementMode: { type: string, enum: [REQUIRED, OPTIONAL, CONDITIONAL] }
+        sourceKind: { type: string, enum: [STATIC, DAT_MACHINE] }
+        state: { type: string, enum: [PENDING, EVALUATING, IMPORTED_MATCHED, IMPORTED_WARNING, IMPORTED_MISSING_ENTRY, NOT_FOUND, SKIPPED_EXISTING, SKIPPED_NOT_BETTER, ALREADY_SAME_BYTES, SOURCE_CHANGED, CATALOG_CHANGED, READ_FAILED, COMMIT_FAILED, CANCELLED] }
+        candidateCount: { type: integer, format: int64, minimum: 0 }
+        matchMethod: { type: string, nullable: true, enum: [EXACT_HASH, EXPECTED_SIZE_FALLBACK, LARGEST_SIZE_FALLBACK, DAT_ENTRY_MATCH, DAT_ENTRY_WARNING, DAT_PARTIAL_FALLBACK] }
+        outcomeCode: { type: string, nullable: true }
+        selectedRelativePath: { type: string, nullable: true, maxLength: 4096 }
+        previousInstallationStatus: { type: string, nullable: true, enum: [MATCHED, HASH_WARNING, MISSING_ENTRY, INVALID] }
+        newInstallationStatus: { type: string, nullable: true, enum: [MATCHED, HASH_WARNING, MISSING_ENTRY, INVALID] }
+        replaced: { type: boolean }
+        selectionDetails: { type: object, additionalProperties: true }
+    ServerImportDetail:
+      type: object
+      additionalProperties: false
+      required: [summary, items, nextCursor]
+      properties:
+        summary: { $ref: '#/components/schemas/ServerImportSummary' }
+        items: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/ServerBIOSImportItem' } }
+        nextCursor: { type: string, nullable: true }
+    ServerBIOSImportCandidate:
+      type: object
+      additionalProperties: false
+      required: [id, relativePath, basename, associationKind, sizeBytes, md5, sha1, sha256, crc32, state, rankOrdinal, notSelectedReason]
+      properties:
+        id: { type: string, format: uuid }
+        relativePath: { type: string, minLength: 1, maxLength: 4096 }
+        basename: { type: string, minLength: 1, maxLength: 255 }
+        associationKind: { type: string, enum: [EXACT_NAME, CASEFOLD_NAME, RENAMED_HASH_MATCH] }
+        sizeBytes: { type: integer, format: int64, minimum: 0 }
+        md5: { type: string, nullable: true }
+        sha1: { type: string, nullable: true }
+        sha256: { type: string, nullable: true }
+        crc32: { type: string, nullable: true }
+        state: { type: string, enum: [DISCOVERED, EVALUATING, ELIGIBLE, INELIGIBLE, SELECTED, SOURCE_CHANGED, READ_FAILED, ARCHIVE_UNSAFE, DUPLICATE_BYTES] }
+        rankOrdinal: { type: integer, format: int64, minimum: 1, nullable: true }
+        notSelectedReason: { type: string, nullable: true }
+        evaluationDetails: { type: object, additionalProperties: true }
+    ServerImportCandidateList:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, maxItems: 50, items: { $ref: '#/components/schemas/ServerBIOSImportCandidate' } }
+        nextCursor: { type: string, nullable: true }
+    BIOSInstallationSummary:
+      type: object
+      additionalProperties: false
+      required: [id, md5, sha1, sha256, validatedRequirementVersion, createdAtMs]
+      properties:
+        id: { type: string }
+        md5: { type: string }
+        sha1: { type: string }
+        sha256: { type: string }
+        validatedRequirementVersion: { type: integer, format: int64, minimum: 1 }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+    BIOSRequirementSummary:
+      type: object
+      additionalProperties: false
+      required: [id, coreId, coreName, coreArtifactId, logicalName, sourceKind, requirementMode, conditionCode, expectedMd5, enabled, version, status, activeInstallation]
+      properties:
+        id: { type: string }
+        coreId: { type: string }
+        coreName: { type: string }
+        coreArtifactId: { type: string }
+        logicalName: { type: string }
+        sourceKind: { type: string, enum: [STATIC, DAT_MACHINE] }
+        requirementMode: { type: string, enum: [REQUIRED, OPTIONAL, CONDITIONAL] }
+        conditionCode: { type: string, nullable: true }
+        expectedMd5: { type: string, nullable: true }
+        enabled: { type: boolean }
+        version: { type: integer, format: int64, minimum: 1 }
+        status: { type: string, enum: [MATCHED, MISSING, HASH_WARNING, MISSING_ENTRY, OPTIONAL_MISSING, INVALID] }
+        activeInstallation: { nullable: true, allOf: [{ $ref: '#/components/schemas/BIOSInstallationSummary' }] }
+    BIOSListResponseBody:
+      type: object
+      additionalProperties: false
+      required: [generatedAtMs, scope, scopeCounts, summary, filteredCount, items, nextCursor]
+      properties:
+        generatedAtMs: { type: integer, format: int64, minimum: 0 }
+        scope: { type: string, enum: [REQUIRED_BY_LIBRARY, FULL_CATALOG] }
+        scopeCounts:
+          type: object
+          additionalProperties: false
+          required: [requiredByLibrary, fullCatalog]
+          properties: { requiredByLibrary: { type: integer, format: int64, minimum: 0 }, fullCatalog: { type: integer, format: int64, minimum: 0 } }
+        summary:
+          type: object
+          additionalProperties: false
+          required: [totalCount, blockingCount, warningCount, readyCount, attentionCount, requiredCount, optionalCount]
+          properties:
+            totalCount: { type: integer, format: int64, minimum: 0 }
+            blockingCount: { type: integer, format: int64, minimum: 0 }
+            warningCount: { type: integer, format: int64, minimum: 0 }
+            readyCount: { type: integer, format: int64, minimum: 0 }
+            attentionCount: { type: integer, format: int64, minimum: 0 }
+            requiredCount: { type: integer, format: int64, minimum: 0 }
+            optionalCount: { type: integer, format: int64, minimum: 0 }
+        filteredCount: { type: integer, format: int64, minimum: 0 }
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/BIOSRequirementSummary' } }
+        nextCursor: { type: string, nullable: true }
     CreateDATRequest:
       type: object
       additionalProperties: false
@@ -2200,11 +2455,35 @@ components:
     DefaultCorePreview: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DefaultCorePreviewRequest' } } } }
     DefaultCore: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DefaultCoreRequest' } } } }
     InstallBIOS: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/InstallBIOSRequest' } } } }
+    CreateServerImport: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateServerImportRequest' } } } }
     CreateDAT: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateDATRequest' } } } }
     ActivateDAT: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ActivateDATRequest' } } } }
     PlayEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PlayEventRequest' } } } }
     MultiDiscPlayerEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MultiDiscPlayerEventRequest' } } } }
   responses:
+    BIOSListResponse:
+      description: Cursor-paged BIOS catalog with scope-wide aggregates
+      content: { application/json: { schema: { $ref: '#/components/schemas/BIOSListResponseBody' } } }
+    ServerImportRootListResponse:
+      description: Configured safe server roots
+      content: { application/json: { schema: { $ref: '#/components/schemas/ServerImportRootList' } } }
+    ServerImportDirectoryListResponse:
+      description: Direct child directories below one configured root
+      content: { application/json: { schema: { $ref: '#/components/schemas/ServerImportDirectoryList' } } }
+    ServerImportResponse:
+      description: Server import summary
+      headers: { ETag: { schema: { type: string } } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ServerImportSummary' } } }
+    ServerImportListResponse:
+      description: Server import history
+      content: { application/json: { schema: { $ref: '#/components/schemas/ServerImportList' } } }
+    ServerImportDetailResponse:
+      description: Server import summary and BIOS item page
+      headers: { ETag: { schema: { type: string } } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/ServerImportDetail' } } }
+    ServerImportCandidateListResponse:
+      description: Ranked candidates for one frozen BIOS requirement
+      content: { application/json: { schema: { $ref: '#/components/schemas/ServerImportCandidateList' } } }
     HealthLiveResponse:
       description: Process is live
       content: { application/json: { schema: { $ref: '#/components/schemas/HealthLive' } } }
@@ -2298,6 +2577,11 @@ components:
     Decision: { name: decision, in: query, schema: { type: string } }
     Enabled: { name: enabled, in: query, schema: { type: boolean } }
     Scope: { name: scope, in: query, schema: { type: string } }
+    BIOSQuick: { name: quick, in: query, schema: { type: string, enum: [ALL, ATTENTION, REQUIRED, OPTIONAL], default: ALL } }
+    Outcome: { name: outcome, in: query, schema: { type: string } }
+    MatchMethod: { name: matchMethod, in: query, schema: { type: string } }
+    ServerImportKind: { name: kind, in: query, schema: { type: string, enum: [BIOS_DIRECTORY], default: BIOS_DIRECTORY } }
+    ServerRelativePath: { name: path, in: query, schema: { type: string, maxLength: 4096, default: '' } }
     FavoriteScope: { name: scope, in: query, schema: { type: string, enum: [ALL, UNCATEGORIZED, FOLDER], default: ALL } }
     FavoriteFolderIDQuery: { name: folderId, in: query, schema: { type: string, format: uuid } }
     FavoriteSort: { name: sort, in: query, schema: { type: string, enum: [FAVORITED_DESC, RECENTLY_PLAYED_DESC, TITLE_ASC, RELEASE_YEAR_DESC], default: FAVORITED_DESC } }
@@ -2310,7 +2594,9 @@ components:
     ToAtMs: { name: toAtMs, in: query, schema: { type: integer, format: int64, minimum: 0 } }
     Cursor: { name: cursor, in: query, schema: { type: string, maxLength: 8192 } }
     Limit: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 50 } }
+    Limit50: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 50, default: 50 } }
     Limit20: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 20, default: 20 } }
+    Limit100: { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 100 } }
     IfMatch: { name: If-Match, in: header, required: true, schema: { type: string } }
     IdempotencyKey: { name: Idempotency-Key, in: header, required: true, schema: { type: string, format: uuid } }
     CSRFToken: { name: X-Retrom-Csrf, in: header, required: true, schema: { type: string } }
@@ -2330,6 +2616,8 @@ components:
     CandidateID: { name: candidateId, in: path, required: true, schema: { type: string, format: uuid } }
     PlatformInstanceID: { name: platformInstanceId, in: path, required: true, schema: { type: string, format: uuid } }
     RequirementID: { name: requirementId, in: path, required: true, schema: { type: string, format: uuid } }
+    ServerImportRootID: { name: rootId, in: path, required: true, schema: { type: string, pattern: '^[a-z][a-z0-9-]{0,31}$' } }
+    ServerImportID: { name: serverImportId, in: path, required: true, schema: { type: string, format: uuid } }
     DATVersionID: { name: datVersionId, in: path, required: true, schema: { type: string, format: uuid } }
     AssetID: { name: assetId, in: path, required: true, schema: { type: string, format: uuid } }
     LaunchID: { name: launchId, in: path, required: true, schema: { type: string, format: uuid } }

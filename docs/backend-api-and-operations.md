@@ -268,7 +268,15 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
 
-## 13. 关联文档
+## 13. 服务器导入运维
+
+`RETROM_SERVER_IMPORT_ROOTS` 缺省或 `[]` 时能力为空但服务正常；非空值必须是最多 8 项的封闭 JSON 数组，每项为 `id/label/path`。ID、label 必须唯一且满足长度/字符约束；path 必须是已存在的 clean absolute 普通目录且 root 本身不是 symlink。拒绝 `/`、home、Retrom data root、dependency root、这些目录任一方向的重叠，以及各配置 root 的相同/祖先关系。非法值启动失败，只记录变量名。生产部署仅以只读 volume 映射 source，不改变双镜像或 TLS 契约。
+
+服务从现有 credential root key 目的分离派生 HMAC，任务保存 `rootId + canonical real path` 的不可逆 digest；同 ID 被重定向后 retry 以 `SERVER_IMPORT_ROOT_CHANGED` 失败。单实例只运行一个 ServerImport，hash worker 固定 2、archive scanner 固定 1；深度/目录/file/候选/单 Item 候选/hash bytes/deadline 固定为 64、250000、2000000、100000、10000、2 TiB、8 小时，HTTP 不能放宽。
+
+Worker lease 为 60 秒、每 15 秒 heartbeat，并每读取 8 MiB 检查 cancel/deadline。进程恢复复用完整发现结果和终态 Item；root 暂不可用或内部瞬时错误只在零终态 Item 时按 1/5/30/120 秒有界自动重试，最多 4 attempt。日志、JobEvent 和 diagnostics 仅记录 root ID、相对路径的必要脱敏投影和稳定错误码，不记录绝对路径、basename/hash 或底层 `os.PathError`。
+
+## 14. 关联文档
 
 - [产品与架构总览](./retrom-product-architecture.md)
 - [一期项目验收规范](./project-acceptance.md)

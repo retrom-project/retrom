@@ -40,6 +40,22 @@ class FixtureSelectorTests(unittest.TestCase):
         self.assertEqual(multi_disc, [{"id": "multidisc-saturn-3"}])
         self.assertEqual(unknown, {"unknown"})
 
+    def test_candidates_are_explicit_only(self) -> None:
+        manifest = {
+            "fixtures": [{"core": "mgba"}],
+            "candidateFixtures": [{"core": "bsnes", "supportStatus": "candidate"}],
+            "multiDiscFixtures": [],
+        }
+        cores, _multi_disc, unknown = MODULE.selected_fixtures(manifest, set())
+        self.assertEqual(cores, [{"core": "mgba"}])
+        self.assertEqual(unknown, set())
+
+        cores, _multi_disc, unknown = MODULE.selected_fixtures(manifest, {"bsnes"})
+        self.assertEqual(
+            cores, [{"core": "bsnes", "supportStatus": "candidate"}]
+        )
+        self.assertEqual(unknown, set())
+
 
 if __name__ == "__main__":
     unittest.main()

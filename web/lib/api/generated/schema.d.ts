@@ -1241,6 +1241,129 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/server-import-roots": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminServerImportRoots"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/server-import-roots/{rootId}/directories": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rootId: components["parameters"]["ServerImportRootID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminServerImportRootDirectories"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/server-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminServerImports"];
+        put?: never;
+        post: operations["postAdminServerImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/server-imports/{serverImportId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serverImportId: components["parameters"]["ServerImportID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminServerImport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/server-imports/{serverImportId}/bios-items/{requirementId}/candidates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serverImportId: components["parameters"]["ServerImportID"];
+                requirementId: components["parameters"]["RequirementID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminServerImportBIOSCandidates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/server-imports/{serverImportId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serverImportId: components["parameters"]["ServerImportID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAdminServerImportCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/server-imports/{serverImportId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                serverImportId: components["parameters"]["ServerImportID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAdminServerImportRetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/bios/{requirementId}/installations": {
         parameters: {
             query?: never;
@@ -2099,6 +2222,213 @@ export interface components {
             /** Format: uuid */
             uploadFileId: string;
         };
+        CreateServerImportRequest: {
+            /** @enum {string} */
+            kind: "BIOS_DIRECTORY";
+            rootId: string;
+            sourceRelativePath: string;
+            /** @default false */
+            replaceIfBetter: boolean;
+        };
+        ServerImportRoot: {
+            id: string;
+            label: string;
+            /** @enum {string} */
+            status: "AVAILABLE" | "UNAVAILABLE";
+        };
+        ServerImportRootList: {
+            items: components["schemas"]["ServerImportRoot"][];
+        };
+        ServerImportDirectory: {
+            name: string;
+            relativePath: string;
+        };
+        ServerImportDirectoryList: {
+            rootId: string;
+            path: string;
+            items: components["schemas"]["ServerImportDirectory"][];
+            nextCursor: string | null;
+        };
+        ServerImportCounts: {
+            /** Format: int64 */
+            catalogItems: number;
+            /** Format: int64 */
+            candidates: number;
+            /** Format: int64 */
+            evaluatedItems: number;
+            /** Format: int64 */
+            imported: number;
+            /** Format: int64 */
+            matched: number;
+            /** Format: int64 */
+            warnings: number;
+            /** Format: int64 */
+            notFound: number;
+            /** Format: int64 */
+            skipped: number;
+            /** Format: int64 */
+            conflicts: number;
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            cancelled: number;
+        };
+        ServerImportSummary: {
+            /** Format: uuid */
+            id: string;
+            /** @enum {string} */
+            kind: "BIOS_DIRECTORY";
+            root: {
+                id: string;
+                label: string;
+            };
+            sourceRelativePath: string;
+            replaceIfBetter: boolean;
+            /** @enum {string} */
+            state: "QUEUED" | "RUNNING" | "COMPLETED" | "PARTIAL_FAILURE" | "CANCEL_REQUESTED" | "CANCELLED" | "FAILED";
+            /** @enum {string|null} */
+            phase: "PREPARING_ROOT" | "DISCOVERING" | "HASHING" | "VALIDATING_ARCHIVES" | "DISCOVERY_COMPLETED" | "RANKING" | "INSTALLING" | "QUEUEING_REVALIDATION" | null;
+            counts: components["schemas"]["ServerImportCounts"];
+            /** Format: uuid */
+            jobId: string;
+            createdBy: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            lastErrorCode: string | null;
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+            /** Format: int64 */
+            completedAtMs: number | null;
+        };
+        ServerImportList: {
+            items: components["schemas"]["ServerImportSummary"][];
+            nextCursor: string | null;
+        };
+        ServerBIOSImportItem: {
+            requirementId: string;
+            coreId: string;
+            coreName: string;
+            coreArtifactId: string;
+            logicalName: string;
+            /** @enum {string} */
+            requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
+            /** @enum {string} */
+            sourceKind: "STATIC" | "DAT_MACHINE";
+            /** @enum {string} */
+            state: "PENDING" | "EVALUATING" | "IMPORTED_MATCHED" | "IMPORTED_WARNING" | "IMPORTED_MISSING_ENTRY" | "NOT_FOUND" | "SKIPPED_EXISTING" | "SKIPPED_NOT_BETTER" | "ALREADY_SAME_BYTES" | "SOURCE_CHANGED" | "CATALOG_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
+            /** Format: int64 */
+            candidateCount: number;
+            /** @enum {string|null} */
+            matchMethod: "EXACT_HASH" | "EXPECTED_SIZE_FALLBACK" | "LARGEST_SIZE_FALLBACK" | "DAT_ENTRY_MATCH" | "DAT_ENTRY_WARNING" | "DAT_PARTIAL_FALLBACK" | null;
+            outcomeCode: string | null;
+            selectedRelativePath: string | null;
+            /** @enum {string|null} */
+            previousInstallationStatus: "MATCHED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
+            /** @enum {string|null} */
+            newInstallationStatus: "MATCHED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
+            replaced: boolean;
+            selectionDetails?: {
+                [key: string]: unknown;
+            };
+        };
+        ServerImportDetail: {
+            summary: components["schemas"]["ServerImportSummary"];
+            items: components["schemas"]["ServerBIOSImportItem"][];
+            nextCursor: string | null;
+        };
+        ServerBIOSImportCandidate: {
+            /** Format: uuid */
+            id: string;
+            relativePath: string;
+            basename: string;
+            /** @enum {string} */
+            associationKind: "EXACT_NAME" | "CASEFOLD_NAME" | "RENAMED_HASH_MATCH";
+            /** Format: int64 */
+            sizeBytes: number;
+            md5: string | null;
+            sha1: string | null;
+            sha256: string | null;
+            crc32: string | null;
+            /** @enum {string} */
+            state: "DISCOVERED" | "EVALUATING" | "ELIGIBLE" | "INELIGIBLE" | "SELECTED" | "SOURCE_CHANGED" | "READ_FAILED" | "ARCHIVE_UNSAFE" | "DUPLICATE_BYTES";
+            /** Format: int64 */
+            rankOrdinal: number | null;
+            notSelectedReason: string | null;
+            evaluationDetails?: {
+                [key: string]: unknown;
+            };
+        };
+        ServerImportCandidateList: {
+            items: components["schemas"]["ServerBIOSImportCandidate"][];
+            nextCursor: string | null;
+        };
+        BIOSInstallationSummary: {
+            id: string;
+            md5: string;
+            sha1: string;
+            sha256: string;
+            /** Format: int64 */
+            validatedRequirementVersion: number;
+            /** Format: int64 */
+            createdAtMs: number;
+        };
+        BIOSRequirementSummary: {
+            id: string;
+            coreId: string;
+            coreName: string;
+            coreArtifactId: string;
+            logicalName: string;
+            /** @enum {string} */
+            sourceKind: "STATIC" | "DAT_MACHINE";
+            /** @enum {string} */
+            requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
+            conditionCode: string | null;
+            expectedMd5: string | null;
+            enabled: boolean;
+            /** Format: int64 */
+            version: number;
+            /** @enum {string} */
+            status: "MATCHED" | "MISSING" | "HASH_WARNING" | "MISSING_ENTRY" | "OPTIONAL_MISSING" | "INVALID";
+            activeInstallation: components["schemas"]["BIOSInstallationSummary"] | null;
+        };
+        BIOSListResponseBody: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            /** @enum {string} */
+            scope: "REQUIRED_BY_LIBRARY" | "FULL_CATALOG";
+            scopeCounts: {
+                /** Format: int64 */
+                requiredByLibrary: number;
+                /** Format: int64 */
+                fullCatalog: number;
+            };
+            summary: {
+                /** Format: int64 */
+                totalCount: number;
+                /** Format: int64 */
+                blockingCount: number;
+                /** Format: int64 */
+                warningCount: number;
+                /** Format: int64 */
+                readyCount: number;
+                /** Format: int64 */
+                attentionCount: number;
+                /** Format: int64 */
+                requiredCount: number;
+                /** Format: int64 */
+                optionalCount: number;
+            };
+            /** Format: int64 */
+            filteredCount: number;
+            items: components["schemas"]["BIOSRequirementSummary"][];
+            nextCursor: string | null;
+        };
         CreateDATRequest: {
             /** Format: uuid */
             uploadFileId: string;
@@ -2693,6 +3023,71 @@ export interface components {
         };
     };
     responses: {
+        /** @description Cursor-paged BIOS catalog with scope-wide aggregates */
+        BIOSListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["BIOSListResponseBody"];
+            };
+        };
+        /** @description Configured safe server roots */
+        ServerImportRootListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ServerImportRootList"];
+            };
+        };
+        /** @description Direct child directories below one configured root */
+        ServerImportDirectoryListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ServerImportDirectoryList"];
+            };
+        };
+        /** @description Server import summary */
+        ServerImportResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ServerImportSummary"];
+            };
+        };
+        /** @description Server import history */
+        ServerImportListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ServerImportList"];
+            };
+        };
+        /** @description Server import summary and BIOS item page */
+        ServerImportDetailResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ServerImportDetail"];
+            };
+        };
+        /** @description Ranked candidates for one frozen BIOS requirement */
+        ServerImportCandidateListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ServerImportCandidateList"];
+            };
+        };
         /** @description Process is live */
         HealthLiveResponse: {
             headers: {
@@ -2897,6 +3292,11 @@ export interface components {
         Decision: string;
         Enabled: boolean;
         Scope: string;
+        BIOSQuick: "ALL" | "ATTENTION" | "REQUIRED" | "OPTIONAL";
+        Outcome: string;
+        MatchMethod: string;
+        ServerImportKind: "BIOS_DIRECTORY";
+        ServerRelativePath: string;
         FavoriteScope: "ALL" | "UNCATEGORIZED" | "FOLDER";
         FavoriteFolderIDQuery: string;
         FavoriteSort: "FAVORITED_DESC" | "RECENTLY_PLAYED_DESC" | "TITLE_ASC" | "RELEASE_YEAR_DESC";
@@ -2909,7 +3309,9 @@ export interface components {
         ToAtMs: number;
         Cursor: string;
         Limit: number;
+        Limit50: number;
         Limit20: number;
+        Limit100: number;
         IfMatch: string;
         IdempotencyKey: string;
         CSRFToken: string;
@@ -2929,6 +3331,8 @@ export interface components {
         CandidateID: string;
         PlatformInstanceID: string;
         RequirementID: string;
+        ServerImportRootID: string;
+        ServerImportID: string;
         DATVersionID: string;
         AssetID: string;
         LaunchID: string;
@@ -3151,6 +3555,11 @@ export interface components {
         InstallBIOS: {
             content: {
                 "application/json": components["schemas"]["InstallBIOSRequest"];
+            };
+        };
+        CreateServerImport: {
+            content: {
+                "application/json": components["schemas"]["CreateServerImportRequest"];
             };
         };
         CreateDAT: {
@@ -4593,8 +5002,9 @@ export interface operations {
                 coreArtifactId?: components["parameters"]["CoreArtifactIDQuery"];
                 scope?: components["parameters"]["Scope"];
                 status?: components["parameters"]["Status"];
+                quick?: components["parameters"]["BIOSQuick"];
                 cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
+                limit?: components["parameters"]["Limit100"];
             };
             header?: never;
             path?: never;
@@ -4602,7 +5012,144 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["BIOSListResponse"];
+        };
+    };
+    getAdminServerImportRoots: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ServerImportRootListResponse"];
+        };
+    };
+    getAdminServerImportRootDirectories: {
+        parameters: {
+            query?: {
+                path?: components["parameters"]["ServerRelativePath"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit100"];
+            };
+            header?: never;
+            path: {
+                rootId: components["parameters"]["ServerImportRootID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ServerImportDirectoryListResponse"];
+        };
+    };
+    getAdminServerImports: {
+        parameters: {
+            query?: {
+                kind?: components["parameters"]["ServerImportKind"];
+                state?: components["parameters"]["State"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit20"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ServerImportListResponse"];
+        };
+    };
+    postAdminServerImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["CreateServerImport"];
+        responses: {
+            202: components["responses"]["ServerImportResponse"];
+        };
+    };
+    getAdminServerImport: {
+        parameters: {
+            query?: {
+                q?: components["parameters"]["Q"];
+                outcome?: components["parameters"]["Outcome"];
+                matchMethod?: components["parameters"]["MatchMethod"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit50"];
+            };
+            header?: never;
+            path: {
+                serverImportId: components["parameters"]["ServerImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ServerImportDetailResponse"];
+        };
+    };
+    getAdminServerImportBIOSCandidates: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit50"];
+            };
+            header?: never;
+            path: {
+                serverImportId: components["parameters"]["ServerImportID"];
+                requirementId: components["parameters"]["RequirementID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["ServerImportCandidateListResponse"];
+        };
+    };
+    postAdminServerImportCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                serverImportId: components["parameters"]["ServerImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Reason"];
+        responses: {
+            200: components["responses"]["ServerImportResponse"];
+            202: components["responses"]["ServerImportResponse"];
+        };
+    };
+    postAdminServerImportRetry: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                serverImportId: components["parameters"]["ServerImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            202: components["responses"]["ServerImportResponse"];
         };
     };
     postAdminBIOSInstallation: {

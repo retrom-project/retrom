@@ -1,24 +1,19 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Toast } from "@/components/flash-toast";
 import { StatusBadge } from "@/components/ui";
-import { writeHeaders } from "@/lib/api/client";
+import { api, writeHeaders } from "@/lib/api/client";
+import type { components } from "@/lib/api/generated/schema";
 import { newUuid } from "@/lib/crypto";
 import { responseError, uploadOne } from "@/lib/upload";
-import {
-  filterBIOS,
-  isBIOSAttention,
-  summarizeBIOS,
-  type BIOSFilters,
-  type BIOSQuickFilter,
-  type BIOSRequirement,
-} from "./runtime-dependencies";
+import { isBIOSAttention, type BIOSFilters, type BIOSQuickFilter } from "./runtime-dependencies";
 
-export type { BIOSRequirement } from "./runtime-dependencies";
+export type BIOSRequirement = components["schemas"]["BIOSRequirementSummary"];
+export type BIOSListResponse = components["schemas"]["BIOSListResponseBody"];
 
 type Scope = "REQUIRED_BY_LIBRARY" | "FULL_CATALOG";
 
@@ -66,13 +61,31 @@ function tone(status: string): "good" | "warn" | "bad" {
 
 function updateURL(scope: Scope, filters: BIOSFilters) {
   const params = new URLSearchParams(window.location.search);
-  const values: Record<string, string> = { scope, q: filters.query.trim(), coreId: filters.coreId, status: filters.status };
+  const values: Record<string, string> = { scope, q: filters.query.trim(), coreId: filters.coreId, status: filters.status, quick: filters.quick === "ALL" ? "" : filters.quick };
   for (const [name, value] of Object.entries(values)) {
     if (value) params.set(name, value);
     else params.delete(name);
   }
   const query = params.toString();
   window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
+}
+
+function queryKey(scope: Scope, filters: BIOSFilters) {
+  return JSON.stringify([scope, filters.query.trim(), filters.coreId, filters.status, filters.quick]);
+}
+
+function filtersFromLocation(): { scope: Scope; filters: BIOSFilters } {
+  const params = new URLSearchParams(window.location.search);
+  const quick = params.get("quick");
+  return {
+    scope: params.get("scope") === "FULL_CATALOG" ? "FULL_CATALOG" : "REQUIRED_BY_LIBRARY",
+    filters: {
+      query: params.get("q") ?? "",
+      coreId: params.get("coreId") ?? "",
+      status: params.get("status") ?? "",
+      quick: quick === "ATTENTION" || quick === "REQUIRED" || quick === "OPTIONAL" ? quick : "ALL",
+    },
+  };
 }
 
 function BIOSRow({ item, currentLibrary, busy, inputRef, onInstall, onInspect }: {
@@ -84,7 +97,7 @@ function BIOSRow({ item, currentLibrary, busy, inputRef, onInstall, onInspect }:
   onInspect: (item: BIOSRequirement) => void;
 }) {
   const installed = item.activeInstallation;
-  const canUpload = item.status !== "SATISFIED_BY_CONTENT";
+  const canUpload = true;
   return <article className="runtime-bios-row" role="row">
     <div className="runtime-bios-file" role="cell">
       <span className="runtime-file-mark" aria-hidden="true">{item.logicalName.toLowerCase().endsWith(".zip") ? "ZIP" : "BIOS"}</span>
@@ -104,30 +117,118 @@ function BIOSRow({ item, currentLibrary, busy, inputRef, onInstall, onInspect }:
   </article>;
 }
 
-export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIRED_BY_LIBRARY", initialFilters }: {
-  libraryItems: BIOSRequirement[];
-  catalogItems: BIOSRequirement[];
+export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRARY", initialFilters }: {
+  initialResponse: BIOSListResponse;
   initialScope?: Scope;
   initialFilters?: Partial<BIOSFilters>;
 }) {
-  const router = useRouter();
   const inputs = useRef<Record<string, HTMLInputElement | null>>({});
+  const sentinel = useRef<HTMLDivElement | null>(null);
+  const sequence = useRef(0);
+  const nextRequest = useRef(false);
   const [scope, setScope] = useState<Scope>(initialScope);
   const [filters, setFilters] = useState<BIOSFilters>({ query: "", coreId: "", status: "", quick: "ALL", ...initialFilters });
+  const [response, setResponse] = useState(initialResponse);
+  const [loadedKey, setLoadedKey] = useState(() => queryKey(initialScope, { query: "", coreId: "", status: "", quick: "ALL", ...initialFilters }));
+  const [firstLoading, setFirstLoading] = useState(false);
+  const [firstError, setFirstError] = useState("");
+  const [nextLoading, setNextLoading] = useState(false);
+  const [nextError, setNextError] = useState("");
+  const [announcement, setAnnouncement] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
   const [error, setError] = useState("");
   const [archiveDialog, setArchiveDialog] = useState<{ item: BIOSRequirement; loading: boolean; error: string; inspection: ArchiveInspection | null } | null>(null);
 
-  const libraryIds = useMemo(() => new Set(libraryItems.map((item) => item.id)), [libraryItems]);
-  const scopedItems = scope === "REQUIRED_BY_LIBRARY" ? libraryItems : catalogItems;
-  const summary = summarizeBIOS(scopedItems);
-  const filtered = filterBIOS(scopedItems, filters);
-  const attention = filtered.filter(isBIOSAttention);
-  const ready = filtered.filter((item) => !isBIOSAttention(item));
-  const cores = useMemo(() => [...new Map(catalogItems.map((item) => [item.coreId, item.coreName])).entries()].sort((left, right) => left[1].localeCompare(right[1], "zh-CN")), [catalogItems]);
+  const attention = response.items.filter(isBIOSAttention);
+  const ready = response.items.filter((item) => !isBIOSAttention(item));
+  const cores = useMemo(() => [...new Map(response.items.map((item) => [item.coreId, item.coreName])).entries()].sort((left, right) => left[1].localeCompare(right[1], "zh-CN")), [response.items]);
 
   useEffect(() => updateURL(scope, filters), [scope, filters]);
+
+  useEffect(() => {
+    const restore = () => {
+      const next = filtersFromLocation();
+      setScope(next.scope);
+      setFilters(next.filters);
+    };
+    window.addEventListener("popstate", restore);
+    return () => window.removeEventListener("popstate", restore);
+  }, []);
+
+  const requestPage = useCallback(async (cursor: string | null, signal?: AbortSignal) => {
+    const { data, response: raw } = await api.GET("/api/v1/admin/bios", { params: { query: {
+      scope, q: filters.query.trim() || undefined, coreId: filters.coreId || undefined,
+      status: filters.status || undefined, quick: filters.quick, cursor: cursor ?? undefined, limit: 100,
+    } }, signal });
+    if (!data) throw new Error(await responseError(raw, "BIOS 列表读取失败"));
+    return data;
+  }, [filters, scope]);
+
+  const reloadFirst = useCallback(async () => {
+    const current = ++sequence.current;
+    setFirstLoading(true); setFirstError(""); setNextError("");
+    try {
+      const data = await requestPage(null);
+      if (current !== sequence.current) return;
+      setResponse(data); setLoadedKey(queryKey(scope, filters));
+    } catch (caught) {
+      if (current !== sequence.current || caught instanceof DOMException && caught.name === "AbortError") return;
+      setFirstError(caught instanceof Error ? caught.message : "BIOS 列表读取失败");
+    } finally {
+      if (current === sequence.current) setFirstLoading(false);
+    }
+  }, [filters, requestPage, scope]);
+
+  useEffect(() => {
+    const key = queryKey(scope, filters);
+    if (key === loadedKey) return;
+    const controller = new AbortController();
+    const current = ++sequence.current;
+    const load = async () => {
+      setFirstLoading(true); setFirstError(""); setNextError("");
+      try {
+        const data = await requestPage(null, controller.signal);
+        if (current !== sequence.current) return;
+        setResponse(data); setLoadedKey(key);
+      } catch (caught) {
+        if (current !== sequence.current || caught instanceof DOMException && caught.name === "AbortError") return;
+        setFirstError(caught instanceof Error ? caught.message : "BIOS 列表读取失败");
+      } finally {
+        if (current === sequence.current) setFirstLoading(false);
+      }
+    };
+    void load();
+    return () => controller.abort();
+  }, [filters, loadedKey, requestPage, scope]);
+
+  const loadMore = useCallback(async () => {
+    const cursor = response.nextCursor;
+    if (!cursor || nextRequest.current) return;
+    nextRequest.current = true; setNextLoading(true); setNextError("");
+    const current = sequence.current;
+    try {
+      const page = await requestPage(cursor);
+      if (current !== sequence.current) return;
+      setResponse((previous) => {
+        const ids = new Set(previous.items.map((item) => item.id));
+        const appended = page.items.filter((item) => !ids.has(item.id));
+        setAnnouncement(`新增 ${appended.length} 项，已加载 ${previous.items.length + appended.length} / ${page.filteredCount} 项`);
+        return { ...page, items: [...previous.items, ...appended] };
+      });
+    } catch (caught) {
+      if (current === sequence.current) setNextError(caught instanceof Error ? caught.message : "下一页读取失败");
+    } finally {
+      nextRequest.current = false; setNextLoading(false);
+    }
+  }, [requestPage, response.nextCursor]);
+
+  useEffect(() => {
+    if (!response.nextCursor || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => { if (entries.some((entry) => entry.isIntersecting)) void loadMore(); }, { rootMargin: "600px 0px" });
+    if (sentinel.current) observer.observe(sentinel.current);
+    return () => observer.disconnect();
+  }, [loadMore, response.nextCursor]);
 
   function patchFilters(patch: Partial<BIOSFilters>) {
     setFilters((current) => ({ ...current, ...patch }));
@@ -147,7 +248,7 @@ export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIR
       if (!response.ok) throw new Error(await responseError(response, "BIOS 安装失败"));
       const installed = await response.json() as { status: string };
       setNotice(`BIOS 已安装：${statusLabels[installed.status] ?? "验证完成"}`);
-      router.refresh();
+      await reloadFirst();
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "BIOS 安装失败");
     } finally {
@@ -171,23 +272,23 @@ export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIR
   }
 
   const quickFilters: Array<[BIOSQuickFilter, string, number]> = [
-    ["ALL", "全部", scopedItems.length],
-    ["ATTENTION", "需要处理", scopedItems.filter(isBIOSAttention).length],
-    ["REQUIRED", "必需", scopedItems.filter((item) => item.requirementMode === "REQUIRED").length],
-    ["OPTIONAL", "可选", scopedItems.filter((item) => item.requirementMode === "OPTIONAL").length],
+    ["ALL", "全部", response.summary.totalCount],
+    ["ATTENTION", "需要处理", response.summary.attentionCount],
+    ["REQUIRED", "必需", response.summary.requiredCount],
+    ["OPTIONAL", "可选", response.summary.optionalCount],
   ];
 
   return <div className="runtime-dependency-page">
     <div className="runtime-segment" role="group" aria-label="BIOS 查看范围">
-      <button type="button" className={scope === "REQUIRED_BY_LIBRARY" ? "is-active" : ""} aria-pressed={scope === "REQUIRED_BY_LIBRARY"} onClick={() => setScope("REQUIRED_BY_LIBRARY")}>当前游戏库需要 <strong>{libraryItems.length}</strong></button>
-      <button type="button" className={scope === "FULL_CATALOG" ? "is-active" : ""} aria-pressed={scope === "FULL_CATALOG"} onClick={() => setScope("FULL_CATALOG")}>完整 BIOS 目录 <strong>{catalogItems.length}</strong></button>
+      <button type="button" className={scope === "REQUIRED_BY_LIBRARY" ? "is-active" : ""} aria-pressed={scope === "REQUIRED_BY_LIBRARY"} onClick={() => setScope("REQUIRED_BY_LIBRARY")}>当前游戏库需要 <strong>{response.scopeCounts.requiredByLibrary}</strong></button>
+      <button type="button" className={scope === "FULL_CATALOG" ? "is-active" : ""} aria-pressed={scope === "FULL_CATALOG"} onClick={() => setScope("FULL_CATALOG")}>完整 BIOS 目录 <strong>{response.scopeCounts.fullCatalog}</strong></button>
     </div>
 
     <section className="runtime-kpis" aria-label="BIOS 依赖摘要">
-      <article><small>当前范围</small><strong>{summary.total}</strong><p>{scope === "REQUIRED_BY_LIBRARY" ? "游戏库实际引用的依赖" : "全部已支持核心的目录"}</p></article>
-      <article className={summary.blocking ? "has-danger" : ""}><small>缺失 / 阻断</small><strong>{summary.blocking}</strong><p>必需文件缺失会阻断相关游戏</p></article>
-      <article className={summary.warnings ? "has-warning" : ""}><small>需要核对</small><strong>{summary.warnings}</strong><p>哈希不同仍可启动，建议替换</p></article>
-      <article className="has-success"><small>已就绪</small><strong>{summary.ready}</strong><p>已经安装并通过当前校验</p></article>
+      <article><small>当前范围</small><strong>{response.summary.totalCount}</strong><p>{scope === "REQUIRED_BY_LIBRARY" ? "游戏库实际引用的依赖" : "全部已支持核心的目录"}</p></article>
+      <article className={response.summary.blockingCount ? "has-danger" : ""}><small>缺失 / 阻断</small><strong>{response.summary.blockingCount}</strong><p>必需文件缺失会阻断相关游戏</p></article>
+      <article className={response.summary.warningCount ? "has-warning" : ""}><small>需要核对</small><strong>{response.summary.warningCount}</strong><p>哈希不同仍可启动，建议替换</p></article>
+      <article className="has-success"><small>已就绪</small><strong>{response.summary.readyCount}</strong><p>已经安装并通过当前校验</p></article>
     </section>
 
     <section className="runtime-toolbar panel" aria-label="筛选 BIOS 文件">
@@ -198,10 +299,17 @@ export function BIOSManager({ libraryItems, catalogItems, initialScope = "REQUIR
 
     <div className="runtime-chips" aria-label="BIOS 快速筛选">{quickFilters.map(([value, label, count]) => <button type="button" className={filters.quick === value ? "is-active" : ""} aria-pressed={filters.quick === value} onClick={() => patchFilters({ quick: value })} key={value}>{label} {count}</button>)}</div>
 
-    {filtered.length === 0 ? <section className="runtime-inline-empty"><h2>没有符合条件的 BIOS 文件</h2><p>调整查看范围或清除筛选条件后再试。</p><button type="button" className="button secondary compact" onClick={() => setFilters({ query: "", coreId: "", status: "", quick: "ALL" })}>清除筛选</button></section> : <>
-      {attention.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>{attention.length} 项</span></div><div className="runtime-list" role="table" aria-label="需要处理的 BIOS 文件">{attention.map((item) => <BIOSRow item={item} currentLibrary={libraryIds.has(item.id)} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} onInspect={(requirement) => void inspectArchive(requirement)} key={item.id} />)}</div></section> : null}
-      {ready.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>{ready.length} 项</span></div><div className="runtime-list" role="table" aria-label="已就绪的 BIOS 文件">{ready.map((item) => <BIOSRow item={item} currentLibrary={libraryIds.has(item.id)} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} onInspect={(requirement) => void inspectArchive(requirement)} key={item.id} />)}</div></section> : null}
+    {firstLoading ? <section className="runtime-inline-empty" role="status"><span className="button-spinner" /><h2>正在加载 BIOS 目录</h2></section> : firstError ? <section className="runtime-inline-empty"><h2>BIOS 列表加载失败</h2><p>{firstError}</p><button type="button" className="button secondary compact" onClick={() => void reloadFirst()}>重试</button></section> : response.items.length === 0 ? <section className="runtime-inline-empty"><h2>没有符合条件的 BIOS 文件</h2><p>调整查看范围或清除筛选条件后再试。</p><button type="button" className="button secondary compact" onClick={() => setFilters({ query: "", coreId: "", status: "", quick: "ALL" })}>清除筛选</button></section> : <>
+      {attention.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>{attention.length} 项已加载</span></div><div className="runtime-list" role="table" aria-label="需要处理的 BIOS 文件">{attention.map((item) => <BIOSRow item={item} currentLibrary={scope === "REQUIRED_BY_LIBRARY"} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} onInspect={(requirement) => void inspectArchive(requirement)} key={item.id} />)}</div></section> : null}
+      {ready.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>{ready.length} 项已加载</span></div><div className="runtime-list" role="table" aria-label="已就绪的 BIOS 文件">{ready.map((item) => <BIOSRow item={item} currentLibrary={scope === "REQUIRED_BY_LIBRARY"} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} onInspect={(requirement) => void inspectArchive(requirement)} key={item.id} />)}</div></section> : null}
+      <div className="runtime-pagination" ref={sentinel}>
+        <p>{response.nextCursor ? `已加载 ${response.items.length} / ${response.filteredCount} 项` : `已加载全部 ${response.filteredCount} 项`}</p>
+        {nextError ? <p className="runtime-pagination-error">{nextError}</p> : null}
+        {response.nextCursor ? <button type="button" className="button secondary compact" disabled={nextLoading} onClick={() => void loadMore()}>{nextLoading ? "正在加载下一批…" : nextError ? "重试加载下一页" : "加载更多"}</button> : null}
+      </div>
+      <p className="sr-only" aria-live="polite">{announcement}</p>
     </>}
+    <p className="runtime-server-import-link"><Link href="/admin/imports/server?action=bios">从服务器目录批量导入 BIOS →</Link></p>
     <ConfirmDialog
       open={archiveDialog !== null}
       title={`${archiveDialog?.item.logicalName ?? "BIOS"} 内容对比`}

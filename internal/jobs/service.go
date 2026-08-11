@@ -44,6 +44,7 @@ func cancellableJobState(state string, retryable sql.NullInt64) bool {
 		state == "FAILED" && retryable.Valid && retryable.Int64 == 1
 }
 
+//nolint:funlen,gocyclo,lll,nestif // Generic and ServerImport cancellation retain distinct atomic transitions.
 func (service *Service) Cancel(
 	ctx context.Context,
 	jobID string,
@@ -58,18 +59,19 @@ func (service *Service) Cancel(
 		return Result{}, false, fmt.Errorf("jobs/service: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var state string
+	var kind, state string
 	var cancellable, executionNo, version int64
 	var retryable sql.NullInt64
 	if err := transaction.QueryRowContext(ctx, `
-SELECT state,
+SELECT kind,
+state,
 cancellable,
 error_retryable,
 execution_no,
 version
 FROM jobs
 WHERE id=?
-	`, jobID).Scan(&state, &cancellable, &retryable, &executionNo, &version); err != nil ||
+	`, jobID).Scan(&kind, &state, &cancellable, &retryable, &executionNo, &version); err != nil ||
 		version != expectedVersion ||
 		cancellable != 1 ||
 		!cancellableJobState(state, retryable) {
@@ -121,6 +123,34 @@ WHERE id=?
 	); err != nil {
 		return Result{}, false, fmt.Errorf("jobs/service: %w", err)
 	}
+	if kind == "SERVER_BIOS_IMPORT" {
+		if pending {
+			if _, err := transaction.ExecContext(ctx, `
+UPDATE server_imports SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,
+version=version+1,updated_at_ms=? WHERE job_id=? AND state='RUNNING'
+`, now, strings.TrimSpace(reason), now, jobID); err != nil {
+				return Result{}, false, fmt.Errorf("jobs/server import cancel: %w", err)
+			}
+		} else {
+			var importID string
+			if err := transaction.QueryRowContext(ctx, `SELECT id FROM server_imports WHERE job_id=?`, jobID).Scan(&importID); err != nil {
+				return Result{}, false, fmt.Errorf("jobs/server import: %w", err)
+			}
+			if _, err := transaction.ExecContext(ctx, `
+UPDATE server_bios_import_items SET state='CANCELLED',outcome_code='CANCELLED',completed_at_ms=?,updated_at_ms=?
+WHERE server_import_id=? AND state IN ('PENDING','EVALUATING')
+`, now, now, importID); err != nil {
+				return Result{}, false, fmt.Errorf("jobs/server import items: %w", err)
+			}
+			if _, err := transaction.ExecContext(ctx, `
+UPDATE server_imports SET state='CANCELLED',cancel_requested_at_ms=?,cancel_reason=?,
+cancelled_item_count=catalog_item_count,completed_at_ms=?,version=version+1,updated_at_ms=?
+WHERE id=? AND state='QUEUED'
+`, now, strings.TrimSpace(reason), now, now, importID); err != nil {
+				return Result{}, false, fmt.Errorf("jobs/server import cancel: %w", err)
+			}
+		}
+	}
 	if err := transaction.Commit(); err != nil {
 		return Result{}, false, fmt.Errorf("jobs/service: %w", err)
 	}
@@ -153,7 +183,7 @@ WHERE id=?
 		retryable.Int64 != 1 {
 		return Result{}, ErrConflict
 	}
-	if kind == "METADATA_SCRAPE" {
+	if kind == "METADATA_SCRAPE" || kind == "SERVER_BIOS_IMPORT" {
 		return Result{}, ErrRetryViaDomain
 	}
 	executionNo++

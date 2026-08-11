@@ -678,6 +678,7 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   const gameId = detailURL.split("/").at(-1)!;
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+  await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   const launchId = page.url().split("/").at(-1)!;
   const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
   const saveResponse = await page.request.post(`/runtime/launches/${launchId}/save-states`, {

@@ -47,6 +47,7 @@ import (
 	"retrom/internal/metadatascrape"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
+	"retrom/internal/serverimport"
 	"retrom/internal/uploads"
 )
 
@@ -92,6 +93,7 @@ type Server struct {
 	gameContent     *gamecontent.Service
 	saveService     *saves.Service
 	favoriteService *favorites.Service
+	serverImports   *serverimport.Service
 	now             func() time.Time
 	sseHeartbeat    time.Duration
 	idempotency     sync.Mutex
@@ -131,6 +133,9 @@ func New(
 		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
+	firmwareService := firmware.New(database, now).WithBlobStore(blobs)
+	serverImportService := serverimport.New(database, blobs, firmwareService, credentials, config.ServerImportRoots, now)
+	serverImportService.Start()
 	return &Server{
 		config:        config,
 		database:      database,
@@ -144,7 +149,8 @@ func New(
 		importer:      importer,
 		launcher:      launcher,
 		jobService:    jobs.New(database, now),
-		firmware:      firmware.New(database, now).WithBlobStore(blobs),
+		firmware:      firmwareService,
+		serverImports: serverImportService,
 		arcadeDAT:     arcadeDAT,
 		metadata:      scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
@@ -224,6 +230,17 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/admin/bios", server.bios)
 	mux.HandleFunc("GET /api/v1/admin/bios/{requirementId}/entries", server.biosEntries)
 	mux.HandleFunc("POST /api/v1/admin/bios/{requirementId}/installations", server.installBIOS)
+	mux.HandleFunc("GET /api/v1/admin/server-import-roots", server.serverImportRoots)
+	mux.HandleFunc("GET /api/v1/admin/server-import-roots/{rootId}/directories", server.serverImportDirectories)
+	mux.HandleFunc("POST /api/v1/admin/server-imports", server.createServerImport)
+	mux.HandleFunc("GET /api/v1/admin/server-imports", server.serverImportList)
+	mux.HandleFunc("GET /api/v1/admin/server-imports/{serverImportId}", server.serverImportDetail)
+	mux.HandleFunc(
+		"GET /api/v1/admin/server-imports/{serverImportId}/bios-items/{requirementId}/candidates",
+		server.serverImportCandidates,
+	)
+	mux.HandleFunc("POST /api/v1/admin/server-imports/{serverImportId}/cancel", server.cancelServerImport)
+	mux.HandleFunc("POST /api/v1/admin/server-imports/{serverImportId}/retry", server.retryServerImport)
 	mux.HandleFunc("GET /api/v1/admin/imports/summary", server.importSummary)
 	mux.HandleFunc("GET /api/v1/admin/imports", server.imports)
 	mux.HandleFunc("POST /api/v1/admin/imports", server.createImport)
@@ -427,13 +444,16 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/admin/games":              {"q", "platformId", "platformInstanceId", "status", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/platform-instances": {"platformId", "enabled", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/bios": {
-		"q", "platformId", "coreId", "coreArtifactId", "scope", "status", "cursor", "limit",
+		"q", "platformId", "coreId", "coreArtifactId", "scope", "status", "quick", "cursor", "limit",
 	},
-	"GET /api/v1/admin/arcade-dats": {"q", "coreId", "coreArtifactId", "source", "parseStatus", "cursor", "limit"},
-	"GET /api/v1/admin/users":       {"q", "role", "status", "sort", "cursor", "limit"},
-	"GET /api/v1/admin/invitations": {"state", "cursor", "limit"},
+	"GET /api/v1/admin/server-import-roots": {},
+	"GET /api/v1/admin/server-imports":      {"kind", "state", "cursor", "limit"},
+	"GET /api/v1/admin/arcade-dats":         {"q", "coreId", "coreArtifactId", "source", "parseStatus", "cursor", "limit"},
+	"GET /api/v1/admin/users":               {"q", "role", "status", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/invitations":         {"state", "cursor", "limit"},
 }
 
+//nolint:gocyclo // The lexical query parser handles independent escaping and separator states.
 func queryParameterNames(request *http.Request) []string {
 	path := request.URL.Path
 	if (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
@@ -450,6 +470,16 @@ func queryParameterNames(request *http.Request) []string {
 	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/users/") &&
 		strings.HasSuffix(path, "/password-reset-links") {
 		return []string{"state", "cursor", "limit"}
+	}
+	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/server-import-roots/") &&
+		strings.HasSuffix(path, "/directories") {
+		return []string{"path", "cursor", "limit"}
+	}
+	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/server-imports/") {
+		if strings.Contains(path, "/bios-items/") && strings.HasSuffix(path, "/candidates") {
+			return []string{"cursor", "limit"}
+		}
+		return []string{"q", "outcome", "matchMethod", "cursor", "limit"}
 	}
 	return nil
 }
@@ -2988,154 +3018,6 @@ func discLabel(value sql.NullInt64) any {
 		return fmt.Sprintf("光盘 %d", value.Int64+1)
 	}
 	return nil
-}
-
-//nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
-func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
-	values := request.URL.Query()
-	conditions := []string{"b.enabled=1"}
-	arguments := make([]any, 0, 8)
-	if value := strings.TrimSpace(values.Get("q")); value != "" {
-		conditions = append(conditions, "(instr(lower(b.logical_name),lower(?))>0 OR instr(lower(c.name),lower(?))>0)")
-		arguments = append(arguments, value, value)
-	}
-	filters := map[string]string{
-		"coreId": "b.core_id", "coreArtifactId": "b.core_artifact_id", "platformId": "a.platform_id",
-	}
-	for name, column := range filters {
-		if value := values.Get(name); value != "" {
-			conditions = append(conditions, column+"=?")
-			arguments = append(arguments, value)
-		}
-	}
-	scope := values.Get("scope")
-	if scope == "" {
-		scope = "REQUIRED_BY_LIBRARY"
-	}
-	if scope != "FULL_CATALOG" && scope != "REQUIRED_BY_LIBRARY" {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "BIOS 需求范围无效", map[string]any{})
-		return
-	}
-	if scope == "REQUIRED_BY_LIBRARY" {
-		conditions = append(
-			conditions,
-			`EXISTS(
-SELECT 1 FROM game_variants v
-JOIN game_variant_revisions r ON r.id=v.current_revision_id
-JOIN games g ON g.id=v.game_id
-WHERE r.core_artifact_id=b.core_artifact_id AND g.status='PUBLISHED'
-)`,
-		)
-	}
-	if status := values.Get("status"); status != "" {
-		if status != "MATCHED" && status != "MISSING" && status != "HASH_WARNING" && status != "MISSING_ENTRY" &&
-			status != "OPTIONAL_MISSING" {
-			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "BIOS 状态无效", map[string]any{})
-			return
-		}
-		conditions = append(
-			conditions,
-			"COALESCE(i.status,CASE WHEN b.requirement_mode='OPTIONAL' THEN 'OPTIONAL_MISSING' ELSE 'MISSING' END)=?",
-		)
-		arguments = append(arguments, status)
-	}
-	query := queryWithConditions(
-		`
-SELECT b.id,
-b.core_id,
-c.name,
-b.core_artifact_id,
-b.logical_name,
-b.source_kind,
-b.requirement_mode,
-b.condition_code,
-b.md5,
-b.enabled,
-b.version,
-COALESCE(i.status,
-CASE WHEN b.requirement_mode='OPTIONAL' THEN 'OPTIONAL_MISSING' ELSE 'MISSING' END),
-i.id,
-i.md5,
-i.sha1,
-i.sha256,
-i.validated_requirement_version,
-i.created_at_ms
-FROM bios_requirements b
-JOIN cores c ON c.id=b.core_id
-JOIN core_artifacts a ON a.id=b.core_artifact_id
-LEFT JOIN bios_installations i ON i.requirement_id=b.id
-AND i.is_active=1
-`,
-		conditions,
-		` ORDER BY c.name,b.logical_name,b.id LIMIT 100`,
-	)
-	rows, err := server.database.QueryContext(request.Context(), query, arguments...)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0)
-	for rows.Next() {
-		var id, coreID, coreName, artifactID, logicalName, sourceKind, mode, status string
-		var condition, expectedMD5, installationID, installedMD5, installedSHA1, installedSHA256 sql.NullString
-		var validatedVersion, installedAt sql.NullInt64
-		var enabled int
-		var version int64
-		if err := rows.Scan(
-			&id,
-			&coreID,
-			&coreName,
-			&artifactID,
-			&logicalName,
-			&sourceKind,
-			&mode,
-			&condition,
-			&expectedMD5,
-			&enabled,
-			&version,
-			&status,
-			&installationID,
-			&installedMD5,
-			&installedSHA1,
-			&installedSHA256,
-			&validatedVersion,
-			&installedAt,
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		items = append(
-			items,
-			map[string]any{
-				"id":              id,
-				"coreId":          coreID,
-				"coreName":        coreName,
-				"coreArtifactId":  artifactID,
-				"logicalName":     logicalName,
-				"sourceKind":      sourceKind,
-				"requirementMode": mode,
-				"conditionCode":   nullableString(condition),
-				"expectedMd5":     nullableString(expectedMD5),
-				"enabled":         enabled == 1,
-				"version":         version,
-				"status":          status,
-				"activeInstallation": nullableBIOSInstallation(
-					installationID,
-					installedMD5,
-					installedSHA1,
-					installedSHA256,
-					validatedVersion,
-					installedAt,
-				),
-			},
-		)
-	}
-	if err := rows.Err(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
 }
 
 func nullableBIOSInstallation(

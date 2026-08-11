@@ -1624,6 +1624,50 @@
       #retrom-ui-review .rt-home-featured-actions span { font-size: clamp(11px, .57cqw, 13px); }
     }
 
+    #retrom-ui-review .rt-server-capability { min-height: 170px; padding: 24px; display: flex; align-items: center; justify-content: space-between; gap: 28px; background: linear-gradient(115deg, #fff, #f6f2ff); }
+    #retrom-ui-review .rt-server-capability > div { max-width: 820px; }
+    #retrom-ui-review .rt-server-capability h2 { margin: 8px 0 0; font-size: 24px; }
+    #retrom-ui-review .rt-server-capability p { margin: 7px 0 0; color: var(--retrom-muted); font-size: 11px; line-height: 1.65; }
+    #retrom-ui-review .rt-server-capability-stats, #retrom-ui-review .rt-server-kpis { margin-top: 14px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+    #retrom-ui-review .rt-server-capability-stats div, #retrom-ui-review .rt-server-kpis div { padding: 10px 12px; border: 1px solid var(--retrom-line); border-radius: 10px; background: rgb(255 255 255 / 75%); }
+    #retrom-ui-review .rt-server-capability-stats span, #retrom-ui-review .rt-server-kpis span { display: block; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-server-capability-stats strong, #retrom-ui-review .rt-server-kpis strong { display: block; margin-top: 4px; font-size: 18px; }
+    #retrom-ui-review .rt-server-roots { margin: 14px 0 20px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+    #retrom-ui-review .rt-server-root { padding: 14px; display: flex; align-items: center; justify-content: space-between; }
+    #retrom-ui-review .rt-server-root h3 { font-size: 13px; }
+    #retrom-ui-review .rt-server-root p { margin: 3px 0 0; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-server-history { display: grid; gap: 8px; }
+    #retrom-ui-review .rt-server-history article { padding: 13px 15px; display: grid; grid-template-columns: minmax(250px, 1fr) repeat(4, 100px) auto; align-items: center; gap: 12px; }
+    #retrom-ui-review .rt-server-history h3 { margin: 6px 0 0; font-size: 12px; }
+    #retrom-ui-review .rt-server-history p { margin: 3px 0 0; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-server-history dl { display: contents; }
+    #retrom-ui-review .rt-server-history dl div { padding: 7px; border-radius: 8px; background: var(--retrom-bg); }
+    #retrom-ui-review .rt-server-history dt { color: var(--retrom-muted); font-size: 8px; }
+    #retrom-ui-review .rt-server-history dd { margin: 2px 0 0; font-size: 13px; font-weight: 700; }
+    #retrom-ui-review .rt-server-drawer { width: 620px; }
+    #retrom-ui-review .rt-server-root-choice, #retrom-ui-review .rt-server-overwrite { padding: 12px; display: flex; align-items: flex-start; gap: 9px; border: 1px solid var(--retrom-line); border-radius: 10px; }
+    #retrom-ui-review .rt-server-root-choice span, #retrom-ui-review .rt-server-overwrite span { display: grid; gap: 3px; }
+    #retrom-ui-review .rt-server-root-choice small, #retrom-ui-review .rt-server-overwrite small { color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-server-browser { min-height: 210px; padding: 12px; border: 1px solid var(--retrom-line); border-radius: 10px; }
+    #retrom-ui-review .rt-server-breadcrumbs { display: flex; gap: 6px; padding-bottom: 9px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-server-folder { width: 100%; margin-top: 9px; padding: 10px; display: flex; justify-content: space-between; border: 0; border-radius: 8px; background: var(--retrom-bg); text-align: left; }
+    #retrom-ui-review .rt-server-selection { padding: 11px; border-radius: 9px; background: var(--retrom-cyan-soft); font-size: 10px; }
+    #retrom-ui-review .rt-server-detail-head { padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; }
+    #retrom-ui-review .rt-server-detail-head h1 { margin-top: 8px; }
+    #retrom-ui-review .rt-server-result-filter { margin: 14px 0 9px; padding: 11px; display: grid; grid-template-columns: minmax(240px, 1fr) 180px 180px auto; align-items: end; gap: 9px; }
+    #retrom-ui-review .rt-server-result-filter label { display: grid; gap: 5px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-server-result-table { overflow-x: auto; }
+    #retrom-ui-review .rt-server-result-row { min-width: 900px; padding: 12px; display: grid; grid-template-columns: minmax(260px, 1fr) 170px minmax(260px, 1fr) 130px; align-items: center; gap: 12px; border-bottom: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-server-result-row strong, #retrom-ui-review .rt-server-result-row small { display: block; }
+    #retrom-ui-review .rt-server-result-row small { margin-top: 3px; color: var(--retrom-muted); font-size: 9px; }
+    @media (max-width: 1000px) {
+      #retrom-ui-review .rt-server-capability { align-items: flex-start; flex-direction: column; }
+      #retrom-ui-review .rt-server-roots, #retrom-ui-review .rt-server-capability-stats, #retrom-ui-review .rt-server-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-server-history article { grid-template-columns: minmax(0, 1fr); }
+      #retrom-ui-review .rt-server-history dl { display: grid; grid-template-columns: repeat(4, minmax(90px, 1fr)); overflow-x: auto; }
+      #retrom-ui-review .rt-server-result-filter { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
     /* Account and authentication scenes share the same tokens, shell, and review controls. */
     #retrom-ui-review .rt-review-scenes {
       position: fixed;
@@ -1903,6 +1947,7 @@
             <button type="button" class="rt-nav-button rt-nav-parent is-active" data-page-target="admin-import" data-ingest-parent><i data-lucide="package-plus" aria-hidden="true"></i><span class="rt-nav-label">游戏入库</span><i class="rt-nav-chevron" data-lucide="chevron-down" aria-hidden="true"></i></button>
             <div class="rt-nav-children" aria-label="游戏入库子菜单">
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-import-new"><span class="rt-nav-label">导入游戏</span></button>
+              <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-server-import"><span class="rt-nav-label">服务器导入</span></button>
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-import-tasks"><span class="rt-nav-label">任务进度</span><span class="rt-nav-count">2</span></button>
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-review"><span class="rt-nav-label">待审核</span><span class="rt-nav-count">4</span></button>
               <button type="button" class="rt-nav-button rt-nav-child" data-page-target="admin-review-history"><span class="rt-nav-label">审核历史</span></button>
@@ -2163,6 +2208,23 @@
           <div class="rt-dropzone"><div><div class="rt-drop-icon"><i data-lucide="upload-cloud" aria-hidden="true"></i></div><h2>将游戏文件或目录拖到这里</h2><p class="rt-drop-copy">支持普通 ROM、Arcade ZIP 与 DOS 内容目录；相对路径会完整保留。</p><div class="rt-drop-actions"><button type="button" class="rt-button rt-button-primary">选择文件</button><button type="button" class="rt-button">选择目录</button></div><p class="rt-drop-copy">选择内容后进入配置步骤，目标游戏目录不会默认选中。</p></div></div>
           <section class="rt-panel rt-multidisc-mode"><div class="rt-multidisc-mode-head"><div class="rt-multidisc-mode-copy"><span class="rt-badge rt-badge-purple">Saturn · Yabause 支持</span><h2>多盘游戏（M3U + CHD）</h2><p>目录中检测到 M3U，已自动选择多盘模式。每个 M3U 的直接父目录形成一款游戏；提交时仍由服务端重新校验。</p></div><label class="rt-confirm-row"><input type="checkbox" checked><span>使用多盘模式</span></label></div><div class="rt-multidisc-summary"><div><span>发现多盘游戏</span><strong>2</strong></div><div><span>内容完整</span><strong>1</strong></div><div><span>待补齐</span><strong>1</strong></div><div><span>不可处理目录</span><strong>0</strong></div><div><span>未关联文件</span><strong>3</strong></div></div><div class="rt-disc-list"><div class="rt-disc-row"><strong>游戏 1</strong><span>Panzer Dragoon Saga / game.m3u</span><code>4 / 4 张</code><span class="rt-badge rt-badge-green">完整</span></div><div class="rt-disc-row"><strong>游戏 2</strong><span>NOeL 3 / NOeL 3.m3u</span><code>2 / 3 张</code><span class="rt-badge rt-badge-amber">缺光盘 3</span></div></div><div class="rt-dialog-actions"><button type="button" class="rt-button">返回重选目录</button><button type="button" class="rt-button rt-button-primary">继续上传 2 个多盘游戏</button></div></section>
         </div>
+      </section>
+
+      <section class="rt-page" data-page="admin-server-import">
+        <div class="rt-page-head"><div><h1>从服务器目录导入</h1><p class="rt-subtitle">从部署管理员明确允许的只读位置异步发现内容；浏览器不会接触宿主绝对路径。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-bios">BIOS 文件</button></div></div>
+        <section class="rt-panel rt-server-capability"><div><span class="rt-badge rt-badge-purple">BIOS DIRECTORY</span><h2>扫描并导入 BIOS</h2><p>完整发现和候选排序结束后才逐项安装；默认保留已有 BIOS，开启替换也只允许严格更优候选。</p><div class="rt-server-capability-stats"><div><span>完整目录</span><strong>286</strong></div><div><span>需要处理</span><strong>43</strong></div><div><span>最近任务</span><strong style="font-size:13px">已完成</strong></div><div><span>扫描来源</span><strong style="font-size:13px">只读</strong></div></div></div><button type="button" class="rt-button rt-button-primary" data-open-server-import-drawer>选择目录并开始</button></section>
+        <div class="rt-server-roots"><article class="rt-panel rt-server-root"><div><h3>Pegasus BIOS</h3><p>pegasus-bios · 只显示配置别名</p></div><span class="rt-badge rt-badge-green">可用</span></article><article class="rt-panel rt-server-root"><div><h3>归档盘</h3><p>archive · 历史仍可查看</p></div><span class="rt-badge rt-badge-red">不可用</span></article></div>
+        <div class="rt-section-head"><div><h2>导入历史</h2><p class="rt-subtitle">任务离开页面后继续，详情可恢复实时进度。</p></div><button type="button" class="rt-text-link">查看全部历史</button></div>
+        <div class="rt-server-history"><article class="rt-panel"><div><span class="rt-badge rt-badge-green">已完成</span><h3>Pegasus BIOS / BIOS</h3><p>今天 11:42 · 站点管理员</p></div><dl><div><dt>候选</dt><dd>17</dd></div><div><dt>已评估</dt><dd>286</dd></div><div><dt>已导入</dt><dd>6</dd></div><div><dt>失败</dt><dd>1</dd></div></dl><button type="button" class="rt-button" data-page-link="admin-server-import-detail">查看 →</button></article><article class="rt-panel"><div><span class="rt-badge rt-badge-amber">部分失败</span><h3>Pegasus BIOS / Arcade</h3><p>昨天 21:18 · 站点管理员</p></div><dl><div><dt>候选</dt><dd>9</dd></div><div><dt>已评估</dt><dd>286</dd></div><div><dt>已导入</dt><dd>3</dd></div><div><dt>失败</dt><dd>2</dd></div></dl><button type="button" class="rt-button" data-page-link="admin-server-import-detail">查看 →</button></article></div>
+        <div class="rt-runtime-drawer-backdrop" data-server-import-backdrop hidden></div><aside class="rt-runtime-drawer rt-server-drawer" data-server-import-drawer hidden><header><div><span class="rt-badge rt-badge-purple">服务器导入</span><h2>选择 BIOS 所在目录</h2><p>只浏览允许位置的规范相对目录。</p></div><button type="button" class="rt-button" data-close-server-import-drawer aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></header><div class="rt-runtime-drawer-body"><label class="rt-server-root-choice"><input type="radio" checked><span><strong>Pegasus BIOS</strong><small>可用 · pegasus-bios</small></span></label><div class="rt-server-browser"><div class="rt-server-breadcrumbs"><button type="button" class="rt-button">根目录</button><button type="button" class="rt-button">/ BIOS</button></div><button type="button" class="rt-server-folder"><span>Arcade</span><span>→</span></button><button type="button" class="rt-server-folder"><span>Console</span><span>→</span></button></div><label class="rt-server-overwrite"><input type="checkbox"><span><strong>允许使用更优候选替换已有 BIOS</strong><small>不会用同分或更差文件替换现有安装。</small></span></label><div class="rt-server-selection"><strong>Pegasus BIOS / BIOS</strong><br>将检查完整 BIOS 目录 286 项，包含可选和按需 BIOS。</div></div><footer><button type="button" class="rt-button" data-close-server-import-drawer>取消</button><button type="button" class="rt-button rt-button-primary">开始异步导入</button></footer></aside>
+      </section>
+
+      <section class="rt-page" data-page="admin-server-import-detail">
+        <section class="rt-panel rt-server-detail-head"><div><span class="rt-badge rt-badge-amber">部分失败</span><h1>Pegasus BIOS / BIOS</h1><p class="rt-subtitle">安排运行检查 · 任务已结束</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-server-import">返回历史</button><button type="button" class="rt-button rt-button-primary" data-page-link="admin-server-import">新建导入</button></div></section>
+        <div class="rt-server-kpis"><div><span>完整目录项</span><strong>286</strong></div><div><span>候选</span><strong>17</strong></div><div><span>已导入</span><strong>6</strong></div><div><span>失败 / 冲突</span><strong>1</strong></div></div>
+        <div class="rt-section-head" style="margin-top:22px"><div><h2>BIOS 处理结果</h2><p class="rt-subtitle">候选和安装始终按 Requirement / CoreArtifact 隔离。</p></div><span class="rt-badge">50 / 286 项</span></div>
+        <form class="rt-panel rt-server-result-filter"><label>搜索 BIOS 或 Core<input class="rt-input" value="bios"></label><label>结果<select class="rt-select"><option>全部结果</option><option>已导入·匹配</option></select></label><label>匹配方式<select class="rt-select"><option>全部方式</option><option>精确 Hash</option></select></label><button type="button" class="rt-button">应用筛选</button></form>
+        <div class="rt-panel rt-server-result-table"><article class="rt-server-result-row"><div><strong>gba_bios.bin</strong><small>mGBA · bundle 4.2.3 · REQUIRED</small><small>候选：Console/GBA/gba_bios.bin</small></div><div><span class="rt-badge rt-badge-green">已导入·匹配</span><small>未替换现有安装</small></div><div><strong>EXACT_HASH</strong><small>无旧安装 → MATCHED</small></div><button type="button" class="rt-button">查看候选（2）</button></article><article class="rt-server-result-row"><div><strong>neogeo.zip</strong><small>FinalBurn Neo · bundle 4.2.3 · REQUIRED</small><small>候选：Arcade/neogeo.zip</small></div><div><span class="rt-badge rt-badge-amber">已导入·警告</span><small>已替换现有安装</small></div><div><strong>DAT_ENTRY_WARNING</strong><small>HASH_WARNING → HASH_WARNING</small></div><button type="button" class="rt-button">查看候选（4）</button></article><article class="rt-server-result-row"><div><strong>stvbios.zip</strong><small>MAME 2003 Plus · bundle 4.2.3 · CONDITIONAL</small></div><div><span class="rt-badge rt-badge-red">源文件已变化</span><small>未替换现有安装</small></div><div><strong>DAT_ENTRY_MATCH</strong><small>SERVER_IMPORT_SOURCE_CHANGED</small></div><button type="button" class="rt-button">查看候选（3）</button></article></div>
       </section>
 
       <section class="rt-page" data-page="admin-import-tasks">
@@ -2970,6 +3032,13 @@
       const runtimeDiff = root.querySelector('[data-runtime-diff]');
       root.querySelectorAll('[data-open-runtime-diff]').forEach((button) => button.addEventListener('click', () => { runtimeDiff.hidden = false; }));
       root.querySelectorAll('[data-close-runtime-diff]').forEach((button) => button.addEventListener('click', () => { runtimeDiff.hidden = true; }));
+
+      const serverImportDrawer = root.querySelector('[data-server-import-drawer]');
+      const serverImportBackdrop = root.querySelector('[data-server-import-backdrop]');
+      const closeServerImportDrawer = () => { serverImportDrawer.hidden = true; serverImportBackdrop.hidden = true; };
+      root.querySelectorAll('[data-open-server-import-drawer]').forEach((button) => button.addEventListener('click', () => { serverImportDrawer.hidden = false; serverImportBackdrop.hidden = false; }));
+      root.querySelectorAll('[data-close-server-import-drawer]').forEach((button) => button.addEventListener('click', closeServerImportDrawer));
+      serverImportBackdrop.addEventListener('click', closeServerImportDrawer);
 
       root.querySelectorAll('.rt-candidate').forEach((button) => button.addEventListener('click', () => {
         root.querySelectorAll('.rt-candidate').forEach((peer) => peer.classList.toggle('is-selected', peer === button));

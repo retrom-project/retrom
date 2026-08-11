@@ -77,4 +77,12 @@ func TestCredentialPurposeSeparationAndAccountLinkValidation(t *testing.T) {
 	if bytes.Equal(login[:], setup[:]) {
 		t.Fatal("rate-limit scopes were not separated")
 	}
+	root := credentials.ServerImportRootDigest("bios-root", "/srv/bios")
+	same := credentials.ServerImportRootDigest("bios-root", "/srv/bios")
+	changedID := credentials.ServerImportRootDigest("other-root", "/srv/bios")
+	changedPath := credentials.ServerImportRootDigest("bios-root", "/srv/other")
+	if !bytes.Equal(root[:], same[:]) || bytes.Equal(root[:], changedID[:]) || bytes.Equal(root[:], changedPath[:]) ||
+		bytes.Equal(root[:], login[:]) {
+		t.Fatal("server import root digest is not deterministic and purpose separated")
+	}
 }

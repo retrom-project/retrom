@@ -290,6 +290,16 @@ Game `DELETED`、PlatformInstance 停用或 User 停用不删除三张表中的�
 
 `025_favorites.sql` 是纯增量 migration：不重建旧表、不关闭 foreign keys、不回填推断收藏，也不改变 Blob reference registry。空库执行 001→025；023 fixture 执行 024→025；024 fixture 直接执行 025。checksum 发布后不可改写，所有表、索引、trigger、升级路径、非法 SQL 和两个 Profile 隔离统一由 `ACC-FAV-001` 验证。
 
-## 11. 统一验收入口
+## 11. Migration 026：服务器 BIOS 导入
+
+`server_imports` 是一次 `BIOS_DIRECTORY` 导入聚合，保存 root ID/label 快照、不可逆 root 配置 digest、规范相对目录、完整 catalog digest、覆盖授权、阶段、计数、Job/创建者、乐观版本和 Unix 毫秒时刻。partial unique index 保证全实例同一时刻至多一个非终态 BIOS ServerImport；终态行的各 Item 分类计数必须恰好覆盖冻结 catalog。
+
+`server_bios_import_items` 以 `(server_import_id, requirement_id)` 为主键，冻结 Requirement/CoreArtifact/DAT/期望 hash、激活选项、交付位置和创建时 active Installation 证据。trigger 阻止修改冻结输入；状态只记录该 Requirement 的选择和提交结论，previous/new Installation 必须属于同一 Requirement。
+
+`server_bios_import_candidates` 保存 root-relative path、关联原因、内容 hash、archive 评估、rank 和未选原因；同一 Item 的 path/rank 唯一且至多一条 `SELECTED`。绝对 root、CAS path、root digest 不进入候选投影。
+
+`jobs.kind` 增加 `SERVER_BIOS_IMPORT`，且强制 `scope_type=SERVER_IMPORT`。`bios_installations` 增加不可变的 `source_kind=BROWSER_UPLOAD|SERVER_DIRECTORY` 和可空候选外键；服务器来源必须引用所属 Requirement 的 selected Candidate。每个 Requirement 的 Installation、Item 终态、聚合计数与 `PROGRESS` 事件在同一短事务提交，进程恢复以终态 Item 为幂等边界。
+
+## 12. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。
