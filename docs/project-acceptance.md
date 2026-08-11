@@ -895,7 +895,37 @@ python3 data/example/verify-fixtures.py
 - 通过标准：匿名为 401、USER 为 `ADMIN_REQUIRED`，ADMIN 写入保存真实 User actor，同 key 不跨 principal 串响应；两个 Profile 的盘号存档和持久保存互不可见/不可写，跨账号探测不泄露存在性；停用只撤销目标账号 Launch，不影响另一账号。结果同时满足本次 `ACC-AUTH-006` 与 `ACC-ISO-001`–`003` route/owner inventory。
 - 证据：非秘密 User/username、route 状态矩阵、actor/idempotency/owner 断言、Launch 撤销与通用 Case 引用；截图/API DTO 不暴露 Profile ID 或内容秘密。
 
-## 16. 缺陷处理与重验
+## 16. 收藏与收藏夹
+
+### ACC-FAV-001：Migration、关系不变量与备份保留
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-FAV-001`。
+- 流程：空库、023 fixture、024 fixture 升级到 025；两个 Profile 对同 Game 建独立关系；执行跨 owner、未收藏 Membership、重名、非法 UPDATE/version 负向 SQL；隐藏 Game/目录后备份恢复。
+- 通过：schema/checksum/FK/index/trigger 正确，负向 SQL 全部拒绝，隐藏关系保留而投影为零，恢复逐项一致且认证安全围栏仍生效。
+- 证据：起止版本、schema 摘要、负向矩阵、owner 行数与恢复前后 hash。
+
+### ACC-FAV-002：API、幂等、并发与隔离
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-FAV-002`。
+- 流程：覆盖全部收藏 route、四种分页排序、非法 query/body、CSRF/Origin/If-Match、同 key 重放/异 body、两个账号跨 Folder/cursor/key 探测及并发收藏/Folder 修改。
+- 通过：OpenAPI 响应与稳定错误一致，owner 不泄漏，幂等按 principal 隔离，并发最终状态唯一，失败零部分写入。
+- 证据：请求矩阵、contract snapshot、cursor/ETag/idempotency 摘要与 owner SQL。
+
+### ACC-FAV-003：用户主流程与跨页面一致性
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-FAV-003`。
+- 流程：从游戏库收藏，详情加入两个 Folder，收藏页切换/筛选/排序，创建/重命名/删除和批量操作，取消/undo、刷新与前进后退，再切换另一账号。
+- 通过：URL、计数、标签和三页状态一致；自动收藏、未分类、删除保留、取消清成员、undo 跳过已删 Folder 语义正确；另一账号为空。
+- 证据：route/network/storage trace、关键 DOM、两个账号 API 摘要和截图。
+
+### ACC-FAV-004：状态、键盘与多尺寸布局
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-FAV-004`。
+- 流程：1280×800、2560×1440、3840×2160 覆盖 loading/全空/Folder 空/筛选空/错误/冲突、50 项批量和 100 Folder；键盘创建/管理/取消，reduced motion 与 axe。
+- 通过：无横向溢出/遮挡，卡宽 270–320px，Rail 头部和新建入口固定且只有中间列表自滚动，批量栏不盖末行，4K 字号/控件达标，dialog 焦点与 Escape 正确，axe 无 serious/critical。
+- 证据：三 viewport 测量/截图、键盘 trace、焦点/ARIA/axe/reduced-motion 结果。
+
+## 17. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
 
@@ -908,11 +938,11 @@ python3 data/example/verify-fixtures.py
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧对应 `ACC-CORE-*` 或 UI runner 断言。不得用“只能人工复现”免除固化。
 
-## 17. 最终通过标准
+## 18. 最终通过标准
 
 一期项目只有同时满足以下条件才可标记 `PASS`：
 
-- 第 5–15 节所有 Required Case 为 PASS；
+- 第 5–16 节所有 Required Case 为 PASS；
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 本次生成的二十八核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；Saturn 双盘、三盘各自的机器结果与画面复核通过；
@@ -923,7 +953,7 @@ python3 data/example/verify-fixtures.py
 
 AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID、实际执行命令、证据目录、本次新增回归测试，以及任何 `NOT_APPLICABLE` 原因。不得仅回复“验收通过”。
 
-## 18. 专题覆盖映射
+## 19. 专题覆盖映射
 
 | 专题 | 统一 Case |
 | --- | --- |
@@ -939,5 +969,6 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | EmulatorJS 二十八核心 | `ACC-CORE-001`–`028` |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
+| 收藏与收藏夹 | `ACC-FAV-001`–`004` |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。

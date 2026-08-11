@@ -31,6 +31,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核、Arcade Parent 与多盘缺盘补充、历史回溯。
 - [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、核心专属 Arcade DAT、完整 machine/parent/BIOS 依赖闭包和 Parent ZIP 内容校验。
 - [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、预检、EmulatorJS、DOS 启动程序、存档与游玩时长。
+- [`favorites-and-collections.md`](./favorites-and-collections.md)：Profile 私有收藏、可重复加入的收藏夹、跨页面接入与统一验收入口。
 - [`core-runtime-validation.md`](./core-runtime-validation.md)：28 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 双格式和 MAME2003 兼容覆盖。
 - [`storage-and-database.md`](./storage-and-database.md)：SQLite Unix 毫秒 `INTEGER` 时间规范、表目录、本地 SHA-256 CAS、GC 和备份。
 - [`data-model.md`](./data-model.md)：一期表字段、ID、枚举、不可变 revision、外键、索引和数据库级不变量的唯一数据字典。

@@ -320,6 +320,143 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/favorites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns the authenticated Profile's visible favorites, derived counts, folders and platform summary from one read transaction. */
+        get: operations["getFavorites"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorites/{gameId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: components["parameters"]["GameID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Idempotently favorites one currently visible game without changing an existing favoritedAtMs. */
+        put: operations["putFavorite"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorites/{gameId}/folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: components["parameters"]["GameID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /** @description Atomically replaces the complete favorite-folder set for one visible game and favorites it when necessary. */
+        put: operations["putFavoriteFolders"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorites/organize": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postFavoriteOrganize"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorites/unfavorite": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postFavoriteUnfavorite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorites/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postFavoriteRestore"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorite-folders": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postFavoriteFolder"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/favorite-folders/{folderId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                folderId: components["parameters"]["FavoriteFolderID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteFavoriteFolder"];
+        options?: never;
+        head?: never;
+        patch: operations["patchFavoriteFolder"];
+        trace?: never;
+    };
     "/api/v1/saves": {
         parameters: {
             query?: never;
@@ -1597,6 +1734,117 @@ export interface components {
             confirmUsername: string;
         };
         EmptyRequest: Record<string, never>;
+        ReplaceFavoriteFoldersRequest: {
+            folderIds: string[];
+        };
+        OrganizeFavoritesRequest: {
+            gameIds: string[];
+            addFolderIds: string[];
+            removeFolderIds: string[];
+        };
+        UnfavoriteRequest: {
+            gameIds: string[];
+        };
+        FavoriteRestoreItemRequest: {
+            /** Format: uuid */
+            gameId: string;
+            folderIds: string[];
+        };
+        RestoreFavoritesRequest: {
+            items: components["schemas"]["FavoriteRestoreItemRequest"][];
+        };
+        CreateFavoriteFolderRequest: {
+            name: string;
+            initialGameIds: string[];
+        };
+        PatchFavoriteFolderRequest: {
+            name: string;
+        };
+        FavoriteReference: {
+            /** Format: int64 */
+            favoritedAtMs: number;
+            folderIds: string[];
+        };
+        FavoriteState: {
+            /** Format: uuid */
+            gameId: string;
+            /** Format: int64 */
+            favoritedAtMs: number;
+            folderIds: string[];
+        };
+        FavoriteFolder: {
+            /** Format: uuid */
+            folderId: string;
+            name: string;
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            visibleGameCount: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+        };
+        FavoriteSummary: {
+            /** Format: int64 */
+            favoriteCount: number;
+            /** Format: int64 */
+            uncategorizedCount: number;
+            /** Format: int64 */
+            folderCount: number;
+        };
+        FavoritePlatformSummary: {
+            id: string;
+            name: string;
+            /** Format: int64 */
+            count: number;
+        };
+        FavoriteNamedResource: {
+            id: string;
+            name: string;
+        };
+        FavoriteGameItem: {
+            /** Format: uuid */
+            gameId: string;
+            title: string;
+            platform: components["schemas"]["FavoriteNamedResource"];
+            platformInstance: components["schemas"]["FavoriteNamedResource"];
+            defaultCore: components["schemas"]["FavoriteNamedResource"];
+            coverUrl: string | null;
+            releaseYear: number | null;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            lastPlayedAtMs: number | null;
+            favorite: components["schemas"]["FavoriteReference"];
+        };
+        FavoriteListResponse: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            summary: components["schemas"]["FavoriteSummary"];
+            folders: components["schemas"]["FavoriteFolder"][];
+            platforms: components["schemas"]["FavoritePlatformSummary"][];
+            /** Format: int64 */
+            totalCount: number;
+            items: components["schemas"]["FavoriteGameItem"][];
+            nextCursor: string | null;
+        };
+        FavoriteBatchResult: {
+            items: components["schemas"]["FavoriteState"][];
+        };
+        UnfavoriteItem: {
+            /** Format: uuid */
+            gameId: string;
+            folderIds: string[];
+        };
+        UnfavoriteResult: {
+            items: components["schemas"]["UnfavoriteItem"][];
+        };
+        FavoriteRestoreResult: {
+            restoredGameIds: string[];
+            skippedGameIds: string[];
+            skippedFolderIds: string[];
+        };
         RenameSaveRequest: {
             name: string;
         };
@@ -2546,6 +2794,62 @@ export interface components {
                 "application/json": components["schemas"]["JSONObject"];
             };
         };
+        /** @description Current Profile's favorite list and derived summaries */
+        FavoriteListJSONResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["FavoriteListResponse"];
+            };
+        };
+        /** @description Current state of one favorite */
+        FavoriteStateJSONResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["FavoriteState"];
+            };
+        };
+        /** @description Current state of each organized favorite */
+        FavoriteBatchJSONResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["FavoriteBatchResult"];
+            };
+        };
+        /** @description Deleted favorite membership snapshot for bounded undo */
+        UnfavoriteJSONResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["UnfavoriteResult"];
+            };
+        };
+        /** @description Restore result including skipped games and folders */
+        FavoriteRestoreJSONResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["FavoriteRestoreResult"];
+            };
+        };
+        /** @description Current favorite folder */
+        FavoriteFolderJSONResponse: {
+            headers: {
+                ETag?: string;
+                Location?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["FavoriteFolder"];
+            };
+        };
         /** @description Immutable launch configuration derived from the locked core artifact and dependencies */
         LaunchConfigResponse: {
             headers: {
@@ -2593,6 +2897,9 @@ export interface components {
         Decision: string;
         Enabled: boolean;
         Scope: string;
+        FavoriteScope: "ALL" | "UNCATEGORIZED" | "FOLDER";
+        FavoriteFolderIDQuery: string;
+        FavoriteSort: "FAVORITED_DESC" | "RECENTLY_PLAYED_DESC" | "TITLE_ASC" | "RELEASE_YEAR_DESC";
         Source: string;
         ParseStatus: string;
         Section: string;
@@ -2610,6 +2917,7 @@ export interface components {
         ContentDigest: string;
         LastEventID: string;
         GameID: string;
+        FavoriteFolderID: string;
         SaveStateID: string;
         UploadID: string;
         FileID: string;
@@ -2723,6 +3031,36 @@ export interface components {
         Empty: {
             content: {
                 "application/json": components["schemas"]["EmptyRequest"];
+            };
+        };
+        ReplaceFavoriteFolders: {
+            content: {
+                "application/json": components["schemas"]["ReplaceFavoriteFoldersRequest"];
+            };
+        };
+        OrganizeFavorites: {
+            content: {
+                "application/json": components["schemas"]["OrganizeFavoritesRequest"];
+            };
+        };
+        Unfavorite: {
+            content: {
+                "application/json": components["schemas"]["UnfavoriteRequest"];
+            };
+        };
+        RestoreFavorites: {
+            content: {
+                "application/json": components["schemas"]["RestoreFavoritesRequest"];
+            };
+        };
+        CreateFavoriteFolder: {
+            content: {
+                "application/json": components["schemas"]["CreateFavoriteFolderRequest"];
+            };
+        };
+        PatchFavoriteFolder: {
+            content: {
+                "application/json": components["schemas"]["PatchFavoriteFolderRequest"];
             };
         };
         ReviewDraft: {
@@ -3197,6 +3535,160 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    getFavorites: {
+        parameters: {
+            query?: {
+                scope?: components["parameters"]["FavoriteScope"];
+                folderId?: components["parameters"]["FavoriteFolderIDQuery"];
+                q?: components["parameters"]["Q"];
+                platformId?: components["parameters"]["PlatformIDQuery"];
+                sort?: components["parameters"]["FavoriteSort"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["FavoriteListJSONResponse"];
+        };
+    };
+    putFavorite: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                gameId: components["parameters"]["GameID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            200: components["responses"]["FavoriteStateJSONResponse"];
+        };
+    };
+    putFavoriteFolders: {
+        parameters: {
+            query?: never;
+            header: {
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                gameId: components["parameters"]["GameID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["ReplaceFavoriteFolders"];
+        responses: {
+            200: components["responses"]["FavoriteStateJSONResponse"];
+        };
+    };
+    postFavoriteOrganize: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["OrganizeFavorites"];
+        responses: {
+            200: components["responses"]["FavoriteBatchJSONResponse"];
+        };
+    };
+    postFavoriteUnfavorite: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Unfavorite"];
+        responses: {
+            200: components["responses"]["UnfavoriteJSONResponse"];
+        };
+    };
+    postFavoriteRestore: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RestoreFavorites"];
+        responses: {
+            200: components["responses"]["FavoriteRestoreJSONResponse"];
+        };
+    };
+    postFavoriteFolder: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["CreateFavoriteFolder"];
+        responses: {
+            201: components["responses"]["FavoriteFolderJSONResponse"];
+        };
+    };
+    deleteFavoriteFolder: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                folderId: components["parameters"]["FavoriteFolderID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            /** @description Favorite folder deleted; favorites are retained */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patchFavoriteFolder: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                folderId: components["parameters"]["FavoriteFolderID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["PatchFavoriteFolder"];
+        responses: {
+            200: components["responses"]["FavoriteFolderJSONResponse"];
         };
     };
     getSaves: {

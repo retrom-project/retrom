@@ -182,6 +182,80 @@ paths:
       description: Published game detail from an enabled platform directory; coverUrl is the nullable logical URL of the current metadata revision's primary COVER asset, saveStateCount is the total non-deleted save count, and saveStates contains at most the eight newest owner-filtered entries with nullable discIndex/discLabel.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/favorites:
+    get:
+      operationId: getFavorites
+      description: Returns the authenticated Profile's visible favorites, derived counts, folders and platform summary from one read transaction.
+      parameters:
+        - { $ref: '#/components/parameters/FavoriteScope' }
+        - { $ref: '#/components/parameters/FavoriteFolderIDQuery' }
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/PlatformIDQuery' }
+        - { $ref: '#/components/parameters/FavoriteSort' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200': { $ref: '#/components/responses/FavoriteListJSONResponse' }
+  /api/v1/favorites/{gameId}:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    put:
+      operationId: putFavorite
+      description: Idempotently favorites one currently visible game without changing an existing favoritedAtMs.
+      parameters: [{ $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '200': { $ref: '#/components/responses/FavoriteStateJSONResponse' }
+  /api/v1/favorites/{gameId}/folders:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    put:
+      operationId: putFavoriteFolders
+      description: Atomically replaces the complete favorite-folder set for one visible game and favorites it when necessary.
+      parameters: [{ $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/ReplaceFavoriteFolders' }
+      responses:
+        '200': { $ref: '#/components/responses/FavoriteStateJSONResponse' }
+  /api/v1/favorites/organize:
+    post:
+      operationId: postFavoriteOrganize
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/OrganizeFavorites' }
+      responses:
+        '200': { $ref: '#/components/responses/FavoriteBatchJSONResponse' }
+  /api/v1/favorites/unfavorite:
+    post:
+      operationId: postFavoriteUnfavorite
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Unfavorite' }
+      responses:
+        '200': { $ref: '#/components/responses/UnfavoriteJSONResponse' }
+  /api/v1/favorites/restore:
+    post:
+      operationId: postFavoriteRestore
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/RestoreFavorites' }
+      responses:
+        '200': { $ref: '#/components/responses/FavoriteRestoreJSONResponse' }
+  /api/v1/favorite-folders:
+    post:
+      operationId: postFavoriteFolder
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/CreateFavoriteFolder' }
+      responses:
+        '201': { $ref: '#/components/responses/FavoriteFolderJSONResponse' }
+  /api/v1/favorite-folders/{folderId}:
+    parameters: [{ $ref: '#/components/parameters/FavoriteFolderID' }]
+    patch:
+      operationId: patchFavoriteFolder
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/PatchFavoriteFolder' }
+      responses:
+        '200': { $ref: '#/components/responses/FavoriteFolderJSONResponse' }
+    delete:
+      operationId: deleteFavoriteFolder
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '204': { description: Favorite folder deleted; favorites are retained }
   /api/v1/saves:
     get:
       operationId: getSaves
@@ -930,6 +1004,227 @@ components:
     EmptyRequest:
       type: object
       additionalProperties: false
+    ReplaceFavoriteFoldersRequest:
+      type: object
+      additionalProperties: false
+      required: [folderIds]
+      properties:
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    OrganizeFavoritesRequest:
+      type: object
+      additionalProperties: false
+      required: [gameIds, addFolderIds, removeFolderIds]
+      properties:
+        gameIds:
+          type: array
+          minItems: 1
+          maxItems: 50
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        addFolderIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        removeFolderIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    UnfavoriteRequest:
+      type: object
+      additionalProperties: false
+      required: [gameIds]
+      properties:
+        gameIds:
+          type: array
+          minItems: 1
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    FavoriteRestoreItemRequest:
+      type: object
+      additionalProperties: false
+      required: [gameId, folderIds]
+      properties:
+        gameId: { type: string, format: uuid }
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    RestoreFavoritesRequest:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          minItems: 1
+          maxItems: 100
+          items: { $ref: '#/components/schemas/FavoriteRestoreItemRequest' }
+    CreateFavoriteFolderRequest:
+      type: object
+      additionalProperties: false
+      required: [name, initialGameIds]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+        initialGameIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    PatchFavoriteFolderRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+    FavoriteReference:
+      type: object
+      additionalProperties: false
+      required: [favoritedAtMs, folderIds]
+      properties:
+        favoritedAtMs: { type: integer, format: int64, minimum: 0 }
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    FavoriteState:
+      type: object
+      additionalProperties: false
+      required: [gameId, favoritedAtMs, folderIds]
+      properties:
+        gameId: { type: string, format: uuid }
+        favoritedAtMs: { type: integer, format: int64, minimum: 0 }
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    FavoriteFolder:
+      type: object
+      additionalProperties: false
+      required: [folderId, name, version, visibleGameCount, createdAtMs, updatedAtMs]
+      properties:
+        folderId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 160 }
+        version: { type: integer, format: int64, minimum: 1 }
+        visibleGameCount: { type: integer, format: int64, minimum: 0 }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        updatedAtMs: { type: integer, format: int64, minimum: 0 }
+    FavoriteSummary:
+      type: object
+      additionalProperties: false
+      required: [favoriteCount, uncategorizedCount, folderCount]
+      properties:
+        favoriteCount: { type: integer, format: int64, minimum: 0 }
+        uncategorizedCount: { type: integer, format: int64, minimum: 0 }
+        folderCount: { type: integer, format: int64, minimum: 0 }
+    FavoritePlatformSummary:
+      type: object
+      additionalProperties: false
+      required: [id, name, count]
+      properties:
+        id: { type: string }
+        name: { type: string }
+        count: { type: integer, format: int64, minimum: 0 }
+    FavoriteNamedResource:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+    FavoriteGameItem:
+      type: object
+      additionalProperties: false
+      required: [gameId, title, platform, platformInstance, defaultCore, coverUrl, releaseYear, createdAtMs, lastPlayedAtMs, favorite]
+      properties:
+        gameId: { type: string, format: uuid }
+        title: { type: string }
+        platform: { $ref: '#/components/schemas/FavoriteNamedResource' }
+        platformInstance: { $ref: '#/components/schemas/FavoriteNamedResource' }
+        defaultCore: { $ref: '#/components/schemas/FavoriteNamedResource' }
+        coverUrl: { type: string, nullable: true }
+        releaseYear: { type: integer, nullable: true }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        lastPlayedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+        favorite: { $ref: '#/components/schemas/FavoriteReference' }
+    FavoriteListResponse:
+      type: object
+      additionalProperties: false
+      required: [generatedAtMs, summary, folders, platforms, totalCount, items, nextCursor]
+      properties:
+        generatedAtMs: { type: integer, format: int64, minimum: 0 }
+        summary: { $ref: '#/components/schemas/FavoriteSummary' }
+        folders:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/FavoriteFolder' }
+        platforms:
+          type: array
+          items: { $ref: '#/components/schemas/FavoritePlatformSummary' }
+        totalCount: { type: integer, format: int64, minimum: 0 }
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/FavoriteGameItem' }
+        nextCursor: { type: string, nullable: true }
+    FavoriteBatchResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 50
+          items: { $ref: '#/components/schemas/FavoriteState' }
+    UnfavoriteItem:
+      type: object
+      additionalProperties: false
+      required: [gameId, folderIds]
+      properties:
+        gameId: { type: string, format: uuid }
+        folderIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    UnfavoriteResult:
+      type: object
+      additionalProperties: false
+      required: [items]
+      properties:
+        items:
+          type: array
+          maxItems: 100
+          items: { $ref: '#/components/schemas/UnfavoriteItem' }
+    FavoriteRestoreResult:
+      type: object
+      additionalProperties: false
+      required: [restoredGameIds, skippedGameIds, skippedFolderIds]
+      properties:
+        restoredGameIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        skippedGameIds:
+          type: array
+          maxItems: 100
+          uniqueItems: true
+          items: { type: string, format: uuid }
+        skippedFolderIds:
+          type: array
+          maxItems: 1000
+          uniqueItems: true
+          items: { type: string, format: uuid }
     RenameSaveRequest:
       type: object
       additionalProperties: false
@@ -1881,6 +2176,12 @@ components:
     ApprovalReason: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApprovalReasonRequest' } } } }
     Approval: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApprovalRequest' } } } }
     Empty: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyRequest' } } } }
+    ReplaceFavoriteFolders: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReplaceFavoriteFoldersRequest' } } } }
+    OrganizeFavorites: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrganizeFavoritesRequest' } } } }
+    Unfavorite: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UnfavoriteRequest' } } } }
+    RestoreFavorites: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RestoreFavoritesRequest' } } } }
+    CreateFavoriteFolder: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateFavoriteFolderRequest' } } } }
+    PatchFavoriteFolder: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PatchFavoriteFolderRequest' } } } }
     ReviewDraft: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewDraftRequest' } } } }
     MetadataProvider: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MetadataProviderRequest' } } } }
     MetadataFields: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MetadataFields' } } } }
@@ -1941,6 +2242,27 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/JSONObject' }
+    FavoriteListJSONResponse:
+      description: Current Profile's favorite list and derived summaries
+      content: { application/json: { schema: { $ref: '#/components/schemas/FavoriteListResponse' } } }
+    FavoriteStateJSONResponse:
+      description: Current state of one favorite
+      content: { application/json: { schema: { $ref: '#/components/schemas/FavoriteState' } } }
+    FavoriteBatchJSONResponse:
+      description: Current state of each organized favorite
+      content: { application/json: { schema: { $ref: '#/components/schemas/FavoriteBatchResult' } } }
+    UnfavoriteJSONResponse:
+      description: Deleted favorite membership snapshot for bounded undo
+      content: { application/json: { schema: { $ref: '#/components/schemas/UnfavoriteResult' } } }
+    FavoriteRestoreJSONResponse:
+      description: Restore result including skipped games and folders
+      content: { application/json: { schema: { $ref: '#/components/schemas/FavoriteRestoreResult' } } }
+    FavoriteFolderJSONResponse:
+      description: Current favorite folder
+      headers:
+        ETag: { schema: { type: string } }
+        Location: { schema: { type: string } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/FavoriteFolder' } } }
     LaunchConfigResponse:
       description: Immutable launch configuration derived from the locked core artifact and dependencies
       content:
@@ -1976,6 +2298,9 @@ components:
     Decision: { name: decision, in: query, schema: { type: string } }
     Enabled: { name: enabled, in: query, schema: { type: boolean } }
     Scope: { name: scope, in: query, schema: { type: string } }
+    FavoriteScope: { name: scope, in: query, schema: { type: string, enum: [ALL, UNCATEGORIZED, FOLDER], default: ALL } }
+    FavoriteFolderIDQuery: { name: folderId, in: query, schema: { type: string, format: uuid } }
+    FavoriteSort: { name: sort, in: query, schema: { type: string, enum: [FAVORITED_DESC, RECENTLY_PLAYED_DESC, TITLE_ASC, RELEASE_YEAR_DESC], default: FAVORITED_DESC } }
     Source: { name: source, in: query, schema: { type: string } }
     ParseStatus: { name: parseStatus, in: query, schema: { type: string } }
     Section: { name: section, in: query, schema: { type: string } }
@@ -1993,6 +2318,7 @@ components:
     ContentDigest: { name: Content-Digest, in: header, required: true, schema: { type: string } }
     LastEventID: { name: Last-Event-ID, in: header, schema: { type: string, pattern: '^[0-9]+$' } }
     GameID: { name: gameId, in: path, required: true, schema: { type: string, format: uuid } }
+    FavoriteFolderID: { name: folderId, in: path, required: true, schema: { type: string, format: uuid } }
     SaveStateID: { name: saveStateId, in: path, required: true, schema: { type: string, format: uuid } }
     UploadID: { name: uploadId, in: path, required: true, schema: { type: string, format: uuid } }
     FileID: { name: fileId, in: path, required: true, schema: { type: string, format: uuid } }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useId, useRef, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 
 type DialogTone = "default" | "danger";
 
@@ -21,6 +22,7 @@ export function ConfirmDialog({
   leadingDisabled = false,
   wide = false,
   hideCancel = false,
+  portalToBody = false,
   onConfirm,
   onCancel,
   onLeading,
@@ -42,6 +44,7 @@ export function ConfirmDialog({
   leadingDisabled?: boolean;
   wide?: boolean;
   hideCancel?: boolean;
+  portalToBody?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   onLeading?: () => void;
@@ -62,7 +65,7 @@ export function ConfirmDialog({
 
   if (!open) return null;
 
-  return (
+  const layer = (
     <div
       className="dialog-backdrop"
       onMouseDown={(event) => {
@@ -105,4 +108,5 @@ export function ConfirmDialog({
       </section>
     </div>
   );
+  return portalToBody ? createPortal(layer, document.body) : layer;
 }

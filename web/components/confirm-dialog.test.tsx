@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ConfirmDialog } from "./confirm-dialog";
@@ -41,5 +41,17 @@ describe("ConfirmDialog", () => {
     await user.keyboard("{Escape}");
     expect(cancel).not.toHaveBeenCalled();
     expect(leading).not.toHaveBeenCalled();
+  });
+
+  it("can portal the viewport layer out of a transformed card", () => {
+    render(<article data-testid="card" style={{ transform: "translateY(-3px)" }}>
+      <ConfirmDialog open portalToBody title="取消收藏？" onCancel={() => undefined} onConfirm={() => undefined} />
+    </article>);
+
+    const card = screen.getByTestId("card");
+    const dialog = screen.getByRole("alertdialog", { name: "取消收藏？" });
+    expect(within(card).queryByRole("alertdialog")).not.toBeInTheDocument();
+    expect(dialog.parentElement).toHaveClass("dialog-backdrop");
+    expect(dialog.parentElement?.parentElement).toBe(document.body);
   });
 });

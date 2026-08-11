@@ -402,6 +402,12 @@ retrom restore --input /backup-volume/retrom-20260806 \
 
 GC 把初始和 effective SourceSnapshot、accepted/retryable Attachment、GameContent DISC/playlist、Variant canonical playlist、Launch 锁定 DISC、SaveState 锁定 Variant 视为 Blob 引用根。缺盘 entry 没有 Blob，拒绝补传不推进 effective snapshot；未引用上传文件只受既有 Upload/Job 保留期保护，不能因 entry 占位永久保活。统一执行 `ACC-DB-001`–`002`、`ACC-CAS-001`–`002` 与 `ACC-MDISC-002`–`004`。
 
-## 10. 统一验收入口
+## 10. 收藏数据、升级与恢复
+
+Migration 025 新增三张无 Blob 引用的关系表：Favorite、FavoriteFolder 和 FolderMembership。它不重建旧表、不关闭 foreign keys、不回填推断收藏；`migrations/testdata/supported_versions.json` 同时列出 23、24，并分别验证顺序升级。三张表随 SQLite 离线 backup 自然进入快照；restore 的 session/link/launch 安全围栏不得删除收藏关系。
+
+回滚旧应用必须停止服务并恢复部署前完整数据根，不允许删除 025 表、手工降低 `schema_migrations` 或让旧二进制继续写新 schema。Blob reference registry 保持不变。完整字段和索引见 [`data-model.md`](./data-model.md)，恢复证据由 `ACC-FAV-001` 维护。
+
+## 11. 统一验收入口
 
 SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-BKP-001`、`ACC-AUTH-001`–`002` 与 `ACC-ISO-*`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`。本文不再维护重复通过条件。

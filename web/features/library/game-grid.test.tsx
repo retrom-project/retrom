@@ -1,7 +1,9 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { GameGrid, type GameSummary } from "./game-grid";
+
+vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticatedFetch: vi.fn() }) }));
 
 afterEach(cleanup);
 
@@ -15,6 +17,7 @@ const game: GameSummary = {
   coverUrl: "/content/assets/cover",
   createdAtMs: new Date(2026, 7, 7).getTime(),
   lastPlayedAtMs: new Date(2026, 7, 8, 1, 20).getTime(),
+  favorite: null,
 };
 
 describe("GameGrid", () => {
@@ -46,9 +49,11 @@ describe("GameGrid", () => {
   it("offers useful card actions from the compact menu", async () => {
     const user = userEvent.setup();
     render(<GameGrid games={[game]} nowMs={new Date(2026, 7, 8, 12).getTime()} />);
+    expect(screen.queryByRole("button", { name: "管理“Metroid”的收藏夹" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "游戏“Metroid”的更多操作" }));
     expect(screen.getByRole("menuitem", { name: "查看游戏详情" })).toHaveAttribute("href", `/games/${game.gameId}`);
     expect(screen.getByRole("menuitem", { name: "查看相关存档" })).toHaveAttribute("href", `/saves?gameId=${game.gameId}`);
+    expect(screen.getByRole("menuitem", { name: "管理收藏夹" })).toBeInTheDocument();
   });
 
   it("only shows a semantic status when a game needs attention", () => {

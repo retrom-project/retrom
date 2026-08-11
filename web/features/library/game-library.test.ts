@@ -3,7 +3,7 @@ import {
   collectGamePages,
   filterLibraryGames,
   formatLibraryPlayedAt,
-  libraryCollections,
+  libraryPlatformInstances,
   libraryPlatforms,
   type GameSummary,
 } from "./game-library";
@@ -19,6 +19,7 @@ function game(overrides: Partial<GameSummary> & Pick<GameSummary, "gameId" | "ti
     coverUrl: null,
     createdAtMs: nowMs - 10_000,
     lastPlayedAtMs: null,
+    favorite: null,
     ...overrides,
   };
 }
@@ -38,7 +39,7 @@ describe("game library projection", () => {
 
   it("builds deterministic platform counts and dependent collections", () => {
     expect(libraryPlatforms(games)).toEqual([{ id: "arcade", name: "Arcade", count: 2 }, { id: "dos", name: "MS-DOS", count: 1 }]);
-    expect(libraryCollections(games, "arcade")).toEqual([{ id: "fbneo", name: "FBNeo 游戏", platformId: "arcade" }]);
+    expect(libraryPlatformInstances(games, "arcade")).toEqual([{ id: "fbneo", name: "FBNeo 游戏", platformId: "arcade" }]);
   });
 
   it("formats never-played and relative play times", () => {

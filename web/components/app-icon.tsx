@@ -1,10 +1,11 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type AppIconName = "home" | "library" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "chip" | "database" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad" | "maximize" | "minimize" | "more" | "log-out" | "keyboard" | "warning";
+export type AppIconName = "home" | "library" | "heart" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "chip" | "database" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad" | "maximize" | "minimize" | "more" | "log-out" | "keyboard" | "warning";
 
 const paths: Record<AppIconName, ReactNode> = {
   home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></>,
   library: <><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M8 4v16M16 4v16M3 10h18" /></>,
+  heart: <path d="M20.8 5.8a5.2 5.2 0 0 0-7.4 0L12 7.2l-1.4-1.4a5.2 5.2 0 1 0-7.4 7.4L12 22l8.8-8.8a5.2 5.2 0 0 0 0-7.4Z" />,
   save: <><path d="M5 4h12l2 2v14H5z" /><path d="M8 4v6h8V4M8 20v-6h8v6" /></>,
   download: <><path d="M12 3v12m-5-5 5 5 5-5" /><path d="M4 19h16" /></>,
   plus: <><path d="M12 5v14M5 12h14" /></>,

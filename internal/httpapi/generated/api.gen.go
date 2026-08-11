@@ -802,6 +802,51 @@ func (e UploadReferenceRequestContentMode) Valid() bool {
 	}
 }
 
+// Defines values for FavoriteScope.
+const (
+	FavoriteScopeALL           FavoriteScope = "ALL"
+	FavoriteScopeFOLDER        FavoriteScope = "FOLDER"
+	FavoriteScopeUNCATEGORIZED FavoriteScope = "UNCATEGORIZED"
+)
+
+// Valid indicates whether the value is a known member of the FavoriteScope enum.
+func (e FavoriteScope) Valid() bool {
+	switch e {
+	case FavoriteScopeALL:
+		return true
+	case FavoriteScopeFOLDER:
+		return true
+	case FavoriteScopeUNCATEGORIZED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for FavoriteSort.
+const (
+	FavoriteSortFAVORITEDDESC      FavoriteSort = "FAVORITED_DESC"
+	FavoriteSortRECENTLYPLAYEDDESC FavoriteSort = "RECENTLY_PLAYED_DESC"
+	FavoriteSortRELEASEYEARDESC    FavoriteSort = "RELEASE_YEAR_DESC"
+	FavoriteSortTITLEASC           FavoriteSort = "TITLE_ASC"
+)
+
+// Valid indicates whether the value is a known member of the FavoriteSort enum.
+func (e FavoriteSort) Valid() bool {
+	switch e {
+	case FavoriteSortFAVORITEDDESC:
+		return true
+	case FavoriteSortRECENTLYPLAYEDDESC:
+		return true
+	case FavoriteSortRELEASEYEARDESC:
+		return true
+	case FavoriteSortTITLEASC:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	RoleADMIN Role = "ADMIN"
@@ -832,6 +877,51 @@ func (e GetAdminUsersParamsRole) Valid() bool {
 	case GetAdminUsersParamsRoleADMIN:
 		return true
 	case GetAdminUsersParamsRoleUSER:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetFavoritesParamsScope.
+const (
+	GetFavoritesParamsScopeALL           GetFavoritesParamsScope = "ALL"
+	GetFavoritesParamsScopeFOLDER        GetFavoritesParamsScope = "FOLDER"
+	GetFavoritesParamsScopeUNCATEGORIZED GetFavoritesParamsScope = "UNCATEGORIZED"
+)
+
+// Valid indicates whether the value is a known member of the GetFavoritesParamsScope enum.
+func (e GetFavoritesParamsScope) Valid() bool {
+	switch e {
+	case GetFavoritesParamsScopeALL:
+		return true
+	case GetFavoritesParamsScopeFOLDER:
+		return true
+	case GetFavoritesParamsScopeUNCATEGORIZED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetFavoritesParamsSort.
+const (
+	GetFavoritesParamsSortFAVORITEDDESC      GetFavoritesParamsSort = "FAVORITED_DESC"
+	GetFavoritesParamsSortRECENTLYPLAYEDDESC GetFavoritesParamsSort = "RECENTLY_PLAYED_DESC"
+	GetFavoritesParamsSortRELEASEYEARDESC    GetFavoritesParamsSort = "RELEASE_YEAR_DESC"
+	GetFavoritesParamsSortTITLEASC           GetFavoritesParamsSort = "TITLE_ASC"
+)
+
+// Valid indicates whether the value is a known member of the GetFavoritesParamsSort enum.
+func (e GetFavoritesParamsSort) Valid() bool {
+	switch e {
+	case GetFavoritesParamsSortFAVORITEDDESC:
+		return true
+	case GetFavoritesParamsSortRECENTLYPLAYEDDESC:
+		return true
+	case GetFavoritesParamsSortRELEASEYEARDESC:
+		return true
+	case GetFavoritesParamsSortTITLEASC:
 		return true
 	default:
 		return false
@@ -1036,6 +1126,12 @@ type CreateDATRequest struct {
 	UploadFileId   openapi_types.UUID `json:"uploadFileId"`
 }
 
+// CreateFavoriteFolderRequest defines model for CreateFavoriteFolderRequest.
+type CreateFavoriteFolderRequest struct {
+	InitialGameIds []openapi_types.UUID `json:"initialGameIds"`
+	Name           string               `json:"name"`
+}
+
 // CreateImportRequest defines model for CreateImportRequest.
 type CreateImportRequest struct {
 	// ContentMode Omitted requests use STANDARD.
@@ -1135,6 +1231,92 @@ type ErrorEnvelope struct {
 		Message   string                 `json:"message"`
 		RequestId openapi_types.UUID     `json:"requestId"`
 	} `json:"error"`
+}
+
+// FavoriteBatchResult defines model for FavoriteBatchResult.
+type FavoriteBatchResult struct {
+	Items []FavoriteState `json:"items"`
+}
+
+// FavoriteFolder defines model for FavoriteFolder.
+type FavoriteFolder struct {
+	CreatedAtMs      int64              `json:"createdAtMs"`
+	FolderId         openapi_types.UUID `json:"folderId"`
+	Name             string             `json:"name"`
+	UpdatedAtMs      int64              `json:"updatedAtMs"`
+	Version          int64              `json:"version"`
+	VisibleGameCount int64              `json:"visibleGameCount"`
+}
+
+// FavoriteGameItem defines model for FavoriteGameItem.
+type FavoriteGameItem struct {
+	CoverUrl         *string               `json:"coverUrl"`
+	CreatedAtMs      int64                 `json:"createdAtMs"`
+	DefaultCore      FavoriteNamedResource `json:"defaultCore"`
+	Favorite         FavoriteReference     `json:"favorite"`
+	GameId           openapi_types.UUID    `json:"gameId"`
+	LastPlayedAtMs   *int64                `json:"lastPlayedAtMs"`
+	Platform         FavoriteNamedResource `json:"platform"`
+	PlatformInstance FavoriteNamedResource `json:"platformInstance"`
+	ReleaseYear      *int                  `json:"releaseYear"`
+	Title            string                `json:"title"`
+}
+
+// FavoriteListResponse defines model for FavoriteListResponse.
+type FavoriteListResponse struct {
+	Folders       []FavoriteFolder          `json:"folders"`
+	GeneratedAtMs int64                     `json:"generatedAtMs"`
+	Items         []FavoriteGameItem        `json:"items"`
+	NextCursor    *string                   `json:"nextCursor"`
+	Platforms     []FavoritePlatformSummary `json:"platforms"`
+	Summary       FavoriteSummary           `json:"summary"`
+	TotalCount    int64                     `json:"totalCount"`
+}
+
+// FavoriteNamedResource defines model for FavoriteNamedResource.
+type FavoriteNamedResource struct {
+	Id   string `json:"id"`
+	Name string `json:"name"`
+}
+
+// FavoritePlatformSummary defines model for FavoritePlatformSummary.
+type FavoritePlatformSummary struct {
+	Count int64  `json:"count"`
+	Id    string `json:"id"`
+	Name  string `json:"name"`
+}
+
+// FavoriteReference defines model for FavoriteReference.
+type FavoriteReference struct {
+	FavoritedAtMs int64                `json:"favoritedAtMs"`
+	FolderIds     []openapi_types.UUID `json:"folderIds"`
+}
+
+// FavoriteRestoreItemRequest defines model for FavoriteRestoreItemRequest.
+type FavoriteRestoreItemRequest struct {
+	FolderIds []openapi_types.UUID `json:"folderIds"`
+	GameId    openapi_types.UUID   `json:"gameId"`
+}
+
+// FavoriteRestoreResult defines model for FavoriteRestoreResult.
+type FavoriteRestoreResult struct {
+	RestoredGameIds  []openapi_types.UUID `json:"restoredGameIds"`
+	SkippedFolderIds []openapi_types.UUID `json:"skippedFolderIds"`
+	SkippedGameIds   []openapi_types.UUID `json:"skippedGameIds"`
+}
+
+// FavoriteState defines model for FavoriteState.
+type FavoriteState struct {
+	FavoritedAtMs int64                `json:"favoritedAtMs"`
+	FolderIds     []openapi_types.UUID `json:"folderIds"`
+	GameId        openapi_types.UUID   `json:"gameId"`
+}
+
+// FavoriteSummary defines model for FavoriteSummary.
+type FavoriteSummary struct {
+	FavoriteCount      int64 `json:"favoriteCount"`
+	FolderCount        int64 `json:"folderCount"`
+	UncategorizedCount int64 `json:"uncategorizedCount"`
 }
 
 // GameAssetRequest defines model for GameAssetRequest.
@@ -1705,6 +1887,13 @@ type MultiDiscPlayerEventRequestEventType string
 // MultiDiscPlayerEventRequestResultCode defines model for MultiDiscPlayerEventRequest.ResultCode.
 type MultiDiscPlayerEventRequestResultCode string
 
+// OrganizeFavoritesRequest defines model for OrganizeFavoritesRequest.
+type OrganizeFavoritesRequest struct {
+	AddFolderIds    []openapi_types.UUID `json:"addFolderIds"`
+	GameIds         []openapi_types.UUID `json:"gameIds"`
+	RemoveFolderIds []openapi_types.UUID `json:"removeFolderIds"`
+}
+
 // PasswordChangedDisabled defines model for PasswordChangedDisabled.
 type PasswordChangedDisabled struct {
 	Status PasswordChangedDisabledStatus `json:"status"`
@@ -1734,6 +1923,11 @@ type PasswordResetCreated struct {
 
 // PasswordResetCreatedState defines model for PasswordResetCreated.State.
 type PasswordResetCreatedState string
+
+// PatchFavoriteFolderRequest defines model for PatchFavoriteFolderRequest.
+type PatchFavoriteFolderRequest struct {
+	Name string `json:"name"`
+}
 
 // PatchPlatformInstanceRequest defines model for PatchPlatformInstanceRequest.
 type PatchPlatformInstanceRequest struct {
@@ -1795,6 +1989,16 @@ type ReorderPlatformInstanceItem struct {
 // ReorderPlatformInstancesRequest defines model for ReorderPlatformInstancesRequest.
 type ReorderPlatformInstancesRequest struct {
 	Items []ReorderPlatformInstanceItem `json:"items"`
+}
+
+// ReplaceFavoriteFoldersRequest defines model for ReplaceFavoriteFoldersRequest.
+type ReplaceFavoriteFoldersRequest struct {
+	FolderIds []openapi_types.UUID `json:"folderIds"`
+}
+
+// RestoreFavoritesRequest defines model for RestoreFavoritesRequest.
+type RestoreFavoritesRequest struct {
+	Items []FavoriteRestoreItemRequest `json:"items"`
 }
 
 // ReviewArcadeParentAttachmentRequest defines model for ReviewArcadeParentAttachmentRequest.
@@ -1866,6 +2070,22 @@ type StartupActionEvent string
 // StartupActionKind defines model for StartupAction.Kind.
 type StartupActionKind string
 
+// UnfavoriteItem defines model for UnfavoriteItem.
+type UnfavoriteItem struct {
+	FolderIds []openapi_types.UUID `json:"folderIds"`
+	GameId    openapi_types.UUID   `json:"gameId"`
+}
+
+// UnfavoriteRequest defines model for UnfavoriteRequest.
+type UnfavoriteRequest struct {
+	GameIds []openapi_types.UUID `json:"gameIds"`
+}
+
+// UnfavoriteResult defines model for UnfavoriteResult.
+type UnfavoriteResult struct {
+	Items []UnfavoriteItem `json:"items"`
+}
+
 // UploadReferenceRequest defines model for UploadReferenceRequest.
 type UploadReferenceRequest struct {
 	ContentMode *UploadReferenceRequestContentMode `json:"contentMode,omitempty"`
@@ -1922,6 +2142,18 @@ type Decision = string
 
 // Enabled defines model for Enabled.
 type Enabled = bool
+
+// FavoriteFolderID defines model for FavoriteFolderID.
+type FavoriteFolderID = openapi_types.UUID
+
+// FavoriteFolderIDQuery defines model for FavoriteFolderIDQuery.
+type FavoriteFolderIDQuery = openapi_types.UUID
+
+// FavoriteScope defines model for FavoriteScope.
+type FavoriteScope string
+
+// FavoriteSort defines model for FavoriteSort.
+type FavoriteSort string
 
 // FileID defines model for FileID.
 type FileID = openapi_types.UUID
@@ -2043,6 +2275,21 @@ type AdminUserResponse = AdminUser
 // AuthContextResponse defines model for AuthContextResponse.
 type AuthContextResponse = AuthContext
 
+// FavoriteBatchJSONResponse defines model for FavoriteBatchJSONResponse.
+type FavoriteBatchJSONResponse = FavoriteBatchResult
+
+// FavoriteFolderJSONResponse defines model for FavoriteFolderJSONResponse.
+type FavoriteFolderJSONResponse = FavoriteFolder
+
+// FavoriteListJSONResponse defines model for FavoriteListJSONResponse.
+type FavoriteListJSONResponse = FavoriteListResponse
+
+// FavoriteRestoreJSONResponse defines model for FavoriteRestoreJSONResponse.
+type FavoriteRestoreJSONResponse = FavoriteRestoreResult
+
+// FavoriteStateJSONResponse defines model for FavoriteStateJSONResponse.
+type FavoriteStateJSONResponse = FavoriteState
+
 // HealthLiveResponse defines model for HealthLiveResponse.
 type HealthLiveResponse = HealthLive
 
@@ -2063,6 +2310,9 @@ type LaunchConfigResponse = LaunchConfig
 
 // PasswordResetCreatedResponse defines model for PasswordResetCreatedResponse.
 type PasswordResetCreatedResponse = PasswordResetCreated
+
+// UnfavoriteJSONResponse defines model for UnfavoriteJSONResponse.
+type UnfavoriteJSONResponse = UnfavoriteResult
 
 // AccountLinkInspect defines model for AccountLinkInspect.
 type AccountLinkInspect = AccountLinkInspectRequest
@@ -2090,6 +2340,9 @@ type AuthLogin = AuthLoginRequest
 
 // CreateDAT defines model for CreateDAT.
 type CreateDAT = CreateDATRequest
+
+// CreateFavoriteFolder defines model for CreateFavoriteFolder.
+type CreateFavoriteFolder = CreateFavoriteFolderRequest
 
 // CreateImport defines model for CreateImport.
 type CreateImport = CreateImportRequest
@@ -2145,8 +2398,14 @@ type MovePreview = MovePreviewRequest
 // MultiDiscPlayerEvent defines model for MultiDiscPlayerEvent.
 type MultiDiscPlayerEvent = MultiDiscPlayerEventRequest
 
+// OrganizeFavorites defines model for OrganizeFavorites.
+type OrganizeFavorites = OrganizeFavoritesRequest
+
 // PasswordResetComplete defines model for PasswordResetComplete.
 type PasswordResetComplete = PasswordResetCompleteRequest
+
+// PatchFavoriteFolder defines model for PatchFavoriteFolder.
+type PatchFavoriteFolder = PatchFavoriteFolderRequest
 
 // PatchPlatformInstance defines model for PatchPlatformInstance.
 type PatchPlatformInstance = PatchPlatformInstanceRequest
@@ -2166,6 +2425,12 @@ type ReconfigureImport = ReconfigureImportRequest
 // ReorderPlatformInstances defines model for ReorderPlatformInstances.
 type ReorderPlatformInstances = ReorderPlatformInstancesRequest
 
+// ReplaceFavoriteFolders defines model for ReplaceFavoriteFolders.
+type ReplaceFavoriteFolders = ReplaceFavoriteFoldersRequest
+
+// RestoreFavorites defines model for RestoreFavorites.
+type RestoreFavorites = RestoreFavoritesRequest
+
 // ReviewArcadeParentAttachment defines model for ReviewArcadeParentAttachment.
 type ReviewArcadeParentAttachment = ReviewArcadeParentAttachmentRequest
 
@@ -2177,6 +2442,9 @@ type ReviewDraft = ReviewDraftRequest
 
 // ReviewMultiDiscAttachment defines model for ReviewMultiDiscAttachment.
 type ReviewMultiDiscAttachment = ReviewMultiDiscAttachmentRequest
+
+// Unfavorite defines model for Unfavorite.
+type Unfavorite = UnfavoriteRequest
 
 // UploadReference defines model for UploadReference.
 type UploadReference = UploadReferenceRequest
@@ -2545,6 +2813,71 @@ type PostAuthPasswordResetComplete200JSONResponseBody struct {
 	union json.RawMessage
 }
 
+// PostFavoriteFolderParams defines parameters for PostFavoriteFolder.
+type PostFavoriteFolderParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// DeleteFavoriteFolderParams defines parameters for DeleteFavoriteFolder.
+type DeleteFavoriteFolderParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PatchFavoriteFolderParams defines parameters for PatchFavoriteFolder.
+type PatchFavoriteFolderParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// GetFavoritesParams defines parameters for GetFavorites.
+type GetFavoritesParams struct {
+	Scope      *GetFavoritesParamsScope `form:"scope,omitempty" json:"scope,omitempty"`
+	FolderId   *FavoriteFolderIDQuery   `form:"folderId,omitempty" json:"folderId,omitempty"`
+	Q          *Q                       `form:"q,omitempty" json:"q,omitempty"`
+	PlatformId *PlatformIDQuery         `form:"platformId,omitempty" json:"platformId,omitempty"`
+	Sort       *GetFavoritesParamsSort  `form:"sort,omitempty" json:"sort,omitempty"`
+	Cursor     *Cursor                  `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit      *Limit                   `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetFavoritesParamsScope defines parameters for GetFavorites.
+type GetFavoritesParamsScope string
+
+// GetFavoritesParamsSort defines parameters for GetFavorites.
+type GetFavoritesParamsSort string
+
+// PostFavoriteOrganizeParams defines parameters for PostFavoriteOrganize.
+type PostFavoriteOrganizeParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PostFavoriteRestoreParams defines parameters for PostFavoriteRestore.
+type PostFavoriteRestoreParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PostFavoriteUnfavoriteParams defines parameters for PostFavoriteUnfavorite.
+type PostFavoriteUnfavoriteParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PutFavoriteParams defines parameters for PutFavorite.
+type PutFavoriteParams struct {
+	XRetromCsrf CSRFToken `json:"X-Retrom-Csrf"`
+}
+
+// PutFavoriteFoldersParams defines parameters for PutFavoriteFolders.
+type PutFavoriteFoldersParams struct {
+	XRetromCsrf CSRFToken `json:"X-Retrom-Csrf"`
+}
+
 // GetGamesParams defines parameters for GetGames.
 type GetGamesParams struct {
 	Q                  *Q                       `form:"q,omitempty" json:"q,omitempty"`
@@ -2746,6 +3079,30 @@ type PostAuthLogoutJSONRequestBody = EmptyRequest
 
 // PostAuthPasswordResetCompleteJSONRequestBody defines body for PostAuthPasswordResetComplete for application/json ContentType.
 type PostAuthPasswordResetCompleteJSONRequestBody = PasswordResetCompleteRequest
+
+// PostFavoriteFolderJSONRequestBody defines body for PostFavoriteFolder for application/json ContentType.
+type PostFavoriteFolderJSONRequestBody = CreateFavoriteFolderRequest
+
+// DeleteFavoriteFolderJSONRequestBody defines body for DeleteFavoriteFolder for application/json ContentType.
+type DeleteFavoriteFolderJSONRequestBody = EmptyRequest
+
+// PatchFavoriteFolderJSONRequestBody defines body for PatchFavoriteFolder for application/json ContentType.
+type PatchFavoriteFolderJSONRequestBody = PatchFavoriteFolderRequest
+
+// PostFavoriteOrganizeJSONRequestBody defines body for PostFavoriteOrganize for application/json ContentType.
+type PostFavoriteOrganizeJSONRequestBody = OrganizeFavoritesRequest
+
+// PostFavoriteRestoreJSONRequestBody defines body for PostFavoriteRestore for application/json ContentType.
+type PostFavoriteRestoreJSONRequestBody = RestoreFavoritesRequest
+
+// PostFavoriteUnfavoriteJSONRequestBody defines body for PostFavoriteUnfavorite for application/json ContentType.
+type PostFavoriteUnfavoriteJSONRequestBody = UnfavoriteRequest
+
+// PutFavoriteJSONRequestBody defines body for PutFavorite for application/json ContentType.
+type PutFavoriteJSONRequestBody = EmptyRequest
+
+// PutFavoriteFoldersJSONRequestBody defines body for PutFavoriteFolders for application/json ContentType.
+type PutFavoriteFoldersJSONRequestBody = ReplaceFavoriteFoldersRequest
 
 // PostLaunchJSONRequestBody defines body for PostLaunch for application/json ContentType.
 type PostLaunchJSONRequestBody = LaunchRequest
@@ -3069,6 +3426,33 @@ type ServerInterface interface {
 
 	// (POST /api/v1/auth/password-resets/complete)
 	PostAuthPasswordResetComplete(w http.ResponseWriter, r *http.Request)
+
+	// (POST /api/v1/favorite-folders)
+	PostFavoriteFolder(w http.ResponseWriter, r *http.Request, params PostFavoriteFolderParams)
+
+	// (DELETE /api/v1/favorite-folders/{folderId})
+	DeleteFavoriteFolder(w http.ResponseWriter, r *http.Request, folderId FavoriteFolderID, params DeleteFavoriteFolderParams)
+
+	// (PATCH /api/v1/favorite-folders/{folderId})
+	PatchFavoriteFolder(w http.ResponseWriter, r *http.Request, folderId FavoriteFolderID, params PatchFavoriteFolderParams)
+
+	// (GET /api/v1/favorites)
+	GetFavorites(w http.ResponseWriter, r *http.Request, params GetFavoritesParams)
+
+	// (POST /api/v1/favorites/organize)
+	PostFavoriteOrganize(w http.ResponseWriter, r *http.Request, params PostFavoriteOrganizeParams)
+
+	// (POST /api/v1/favorites/restore)
+	PostFavoriteRestore(w http.ResponseWriter, r *http.Request, params PostFavoriteRestoreParams)
+
+	// (POST /api/v1/favorites/unfavorite)
+	PostFavoriteUnfavorite(w http.ResponseWriter, r *http.Request, params PostFavoriteUnfavoriteParams)
+
+	// (PUT /api/v1/favorites/{gameId})
+	PutFavorite(w http.ResponseWriter, r *http.Request, gameId GameID, params PutFavoriteParams)
+
+	// (PUT /api/v1/favorites/{gameId}/folders)
+	PutFavoriteFolders(w http.ResponseWriter, r *http.Request, gameId GameID, params PutFavoriteFoldersParams)
 
 	// (GET /api/v1/games)
 	GetGames(w http.ResponseWriter, r *http.Request, params GetGamesParams)
@@ -7801,6 +8185,697 @@ func (siw *ServerInterfaceWrapper) PostAuthPasswordResetComplete(w http.Response
 	handler.ServeHTTP(w, r)
 }
 
+// PostFavoriteFolder operation middleware
+func (siw *ServerInterfaceWrapper) PostFavoriteFolder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostFavoriteFolderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostFavoriteFolder(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteFavoriteFolder operation middleware
+func (siw *ServerInterfaceWrapper) DeleteFavoriteFolder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "folderId" -------------
+	var folderId FavoriteFolderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "folderId", r.PathValue("folderId"), &folderId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "folderId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteFavoriteFolderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteFavoriteFolder(w, r, folderId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PatchFavoriteFolder operation middleware
+func (siw *ServerInterfaceWrapper) PatchFavoriteFolder(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "folderId" -------------
+	var folderId FavoriteFolderID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "folderId", r.PathValue("folderId"), &folderId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "folderId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PatchFavoriteFolderParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PatchFavoriteFolder(w, r, folderId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetFavorites operation middleware
+func (siw *ServerInterfaceWrapper) GetFavorites(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetFavoritesParams
+
+	// ------------- Optional query parameter "scope" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "scope", r.URL.Query(), &params.Scope, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "scope"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "scope", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "folderId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "folderId", r.URL.Query(), &params.FolderId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "folderId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "folderId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "platformId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "platformId", r.URL.Query(), &params.PlatformId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "platformId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "platformId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "sort" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "sort", r.URL.Query(), &params.Sort, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "sort"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sort", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetFavorites(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostFavoriteOrganize operation middleware
+func (siw *ServerInterfaceWrapper) PostFavoriteOrganize(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostFavoriteOrganizeParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostFavoriteOrganize(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostFavoriteRestore operation middleware
+func (siw *ServerInterfaceWrapper) PostFavoriteRestore(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostFavoriteRestoreParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostFavoriteRestore(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostFavoriteUnfavorite operation middleware
+func (siw *ServerInterfaceWrapper) PostFavoriteUnfavorite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostFavoriteUnfavoriteParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostFavoriteUnfavorite(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutFavorite operation middleware
+func (siw *ServerInterfaceWrapper) PutFavorite(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId GameID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", r.PathValue("gameId"), &gameId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "gameId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutFavoriteParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutFavorite(w, r, gameId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutFavoriteFolders operation middleware
+func (siw *ServerInterfaceWrapper) PutFavoriteFolders(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId GameID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", r.PathValue("gameId"), &gameId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "gameId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutFavoriteFoldersParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutFavoriteFolders(w, r, gameId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetGames operation middleware
 func (siw *ServerInterfaceWrapper) GetGames(w http.ResponseWriter, r *http.Request) {
 
@@ -9249,6 +10324,15 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/recent-games", wrapper.GetRecentGames)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/games", wrapper.GetGames)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/games/{gameId}", wrapper.GetGame)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/favorites", wrapper.GetFavorites)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/favorites/{gameId}", wrapper.PutFavorite)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/favorites/{gameId}/folders", wrapper.PutFavoriteFolders)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/favorites/organize", wrapper.PostFavoriteOrganize)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/favorites/unfavorite", wrapper.PostFavoriteUnfavorite)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/favorites/restore", wrapper.PostFavoriteRestore)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/favorite-folders", wrapper.PostFavoriteFolder)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/favorite-folders/{folderId}", wrapper.DeleteFavoriteFolder)
+	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/v1/favorite-folders/{folderId}", wrapper.PatchFavoriteFolder)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/saves", wrapper.GetSaves)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/saves/{saveStateId}", wrapper.DeleteSave)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/v1/saves/{saveStateId}", wrapper.PatchSave)
@@ -9371,6 +10455,24 @@ type BinaryResponseApplicationoctetStreamResponse struct {
 	ContentLength int64
 }
 
+type FavoriteBatchJSONResponseJSONResponse FavoriteBatchResult
+
+type FavoriteFolderJSONResponseResponseHeaders struct {
+	ETag     *string
+	Location *string
+}
+type FavoriteFolderJSONResponseJSONResponse struct {
+	Body FavoriteFolder
+
+	Headers FavoriteFolderJSONResponseResponseHeaders
+}
+
+type FavoriteListJSONResponseJSONResponse FavoriteListResponse
+
+type FavoriteRestoreJSONResponseJSONResponse FavoriteRestoreResult
+
+type FavoriteStateJSONResponseJSONResponse FavoriteState
+
 type HealthLiveResponseJSONResponse HealthLive
 
 type HealthNotReadyResponseJSONResponse HealthNotReady
@@ -9397,6 +10499,8 @@ type SSEResponseTexteventStreamResponse struct {
 
 	ContentLength int64
 }
+
+type UnfavoriteJSONResponseJSONResponse UnfavoriteResult
 
 type DeleteAdminAccountLinkRequestObject struct {
 	AccountLinkId AccountLinkID `json:"accountLinkId"`
@@ -11313,6 +12417,238 @@ func (response PostAuthPasswordResetComplete200JSONResponse) VisitPostAuthPasswo
 	return err
 }
 
+type PostFavoriteFolderRequestObject struct {
+	Params PostFavoriteFolderParams
+	Body   *PostFavoriteFolderJSONRequestBody
+}
+
+type PostFavoriteFolderResponseObject interface {
+	VisitPostFavoriteFolderResponse(w http.ResponseWriter) error
+}
+
+type PostFavoriteFolder201JSONResponse struct {
+	FavoriteFolderJSONResponseJSONResponse
+}
+
+func (response PostFavoriteFolder201JSONResponse) VisitPostFavoriteFolderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteFavoriteFolderRequestObject struct {
+	FolderId FavoriteFolderID `json:"folderId"`
+	Params   DeleteFavoriteFolderParams
+	Body     *DeleteFavoriteFolderJSONRequestBody
+}
+
+type DeleteFavoriteFolderResponseObject interface {
+	VisitDeleteFavoriteFolderResponse(w http.ResponseWriter) error
+}
+
+type DeleteFavoriteFolder204Response struct {
+}
+
+func (response DeleteFavoriteFolder204Response) VisitDeleteFavoriteFolderResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PatchFavoriteFolderRequestObject struct {
+	FolderId FavoriteFolderID `json:"folderId"`
+	Params   PatchFavoriteFolderParams
+	Body     *PatchFavoriteFolderJSONRequestBody
+}
+
+type PatchFavoriteFolderResponseObject interface {
+	VisitPatchFavoriteFolderResponse(w http.ResponseWriter) error
+}
+
+type PatchFavoriteFolder200JSONResponse struct {
+	FavoriteFolderJSONResponseJSONResponse
+}
+
+func (response PatchFavoriteFolder200JSONResponse) VisitPatchFavoriteFolderResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	if response.Headers.Location != nil {
+		w.Header().Set("Location", fmt.Sprint(*response.Headers.Location))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetFavoritesRequestObject struct {
+	Params GetFavoritesParams
+}
+
+type GetFavoritesResponseObject interface {
+	VisitGetFavoritesResponse(w http.ResponseWriter) error
+}
+
+type GetFavorites200JSONResponse struct {
+	FavoriteListJSONResponseJSONResponse
+}
+
+func (response GetFavorites200JSONResponse) VisitGetFavoritesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostFavoriteOrganizeRequestObject struct {
+	Params PostFavoriteOrganizeParams
+	Body   *PostFavoriteOrganizeJSONRequestBody
+}
+
+type PostFavoriteOrganizeResponseObject interface {
+	VisitPostFavoriteOrganizeResponse(w http.ResponseWriter) error
+}
+
+type PostFavoriteOrganize200JSONResponse struct {
+	FavoriteBatchJSONResponseJSONResponse
+}
+
+func (response PostFavoriteOrganize200JSONResponse) VisitPostFavoriteOrganizeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostFavoriteRestoreRequestObject struct {
+	Params PostFavoriteRestoreParams
+	Body   *PostFavoriteRestoreJSONRequestBody
+}
+
+type PostFavoriteRestoreResponseObject interface {
+	VisitPostFavoriteRestoreResponse(w http.ResponseWriter) error
+}
+
+type PostFavoriteRestore200JSONResponse struct {
+	FavoriteRestoreJSONResponseJSONResponse
+}
+
+func (response PostFavoriteRestore200JSONResponse) VisitPostFavoriteRestoreResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostFavoriteUnfavoriteRequestObject struct {
+	Params PostFavoriteUnfavoriteParams
+	Body   *PostFavoriteUnfavoriteJSONRequestBody
+}
+
+type PostFavoriteUnfavoriteResponseObject interface {
+	VisitPostFavoriteUnfavoriteResponse(w http.ResponseWriter) error
+}
+
+type PostFavoriteUnfavorite200JSONResponse struct {
+	UnfavoriteJSONResponseJSONResponse
+}
+
+func (response PostFavoriteUnfavorite200JSONResponse) VisitPostFavoriteUnfavoriteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFavoriteRequestObject struct {
+	GameId GameID `json:"gameId"`
+	Params PutFavoriteParams
+	Body   *PutFavoriteJSONRequestBody
+}
+
+type PutFavoriteResponseObject interface {
+	VisitPutFavoriteResponse(w http.ResponseWriter) error
+}
+
+type PutFavorite200JSONResponse struct {
+	FavoriteStateJSONResponseJSONResponse
+}
+
+func (response PutFavorite200JSONResponse) VisitPutFavoriteResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutFavoriteFoldersRequestObject struct {
+	GameId GameID `json:"gameId"`
+	Params PutFavoriteFoldersParams
+	Body   *PutFavoriteFoldersJSONRequestBody
+}
+
+type PutFavoriteFoldersResponseObject interface {
+	VisitPutFavoriteFoldersResponse(w http.ResponseWriter) error
+}
+
+type PutFavoriteFolders200JSONResponse struct {
+	FavoriteStateJSONResponseJSONResponse
+}
+
+func (response PutFavoriteFolders200JSONResponse) VisitPutFavoriteFoldersResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetGamesRequestObject struct {
 	Params GetGamesParams
 }
@@ -12533,6 +13869,33 @@ type StrictServerInterface interface {
 
 	// (POST /api/v1/auth/password-resets/complete)
 	PostAuthPasswordResetComplete(ctx context.Context, request PostAuthPasswordResetCompleteRequestObject) (PostAuthPasswordResetCompleteResponseObject, error)
+
+	// (POST /api/v1/favorite-folders)
+	PostFavoriteFolder(ctx context.Context, request PostFavoriteFolderRequestObject) (PostFavoriteFolderResponseObject, error)
+
+	// (DELETE /api/v1/favorite-folders/{folderId})
+	DeleteFavoriteFolder(ctx context.Context, request DeleteFavoriteFolderRequestObject) (DeleteFavoriteFolderResponseObject, error)
+
+	// (PATCH /api/v1/favorite-folders/{folderId})
+	PatchFavoriteFolder(ctx context.Context, request PatchFavoriteFolderRequestObject) (PatchFavoriteFolderResponseObject, error)
+
+	// (GET /api/v1/favorites)
+	GetFavorites(ctx context.Context, request GetFavoritesRequestObject) (GetFavoritesResponseObject, error)
+
+	// (POST /api/v1/favorites/organize)
+	PostFavoriteOrganize(ctx context.Context, request PostFavoriteOrganizeRequestObject) (PostFavoriteOrganizeResponseObject, error)
+
+	// (POST /api/v1/favorites/restore)
+	PostFavoriteRestore(ctx context.Context, request PostFavoriteRestoreRequestObject) (PostFavoriteRestoreResponseObject, error)
+
+	// (POST /api/v1/favorites/unfavorite)
+	PostFavoriteUnfavorite(ctx context.Context, request PostFavoriteUnfavoriteRequestObject) (PostFavoriteUnfavoriteResponseObject, error)
+
+	// (PUT /api/v1/favorites/{gameId})
+	PutFavorite(ctx context.Context, request PutFavoriteRequestObject) (PutFavoriteResponseObject, error)
+
+	// (PUT /api/v1/favorites/{gameId}/folders)
+	PutFavoriteFolders(ctx context.Context, request PutFavoriteFoldersRequestObject) (PutFavoriteFoldersResponseObject, error)
 
 	// (GET /api/v1/games)
 	GetGames(ctx context.Context, request GetGamesRequestObject) (GetGamesResponseObject, error)
@@ -15050,6 +16413,300 @@ func (sh *strictHandler) PostAuthPasswordResetComplete(w http.ResponseWriter, r 
 	}
 }
 
+// PostFavoriteFolder operation middleware
+func (sh *strictHandler) PostFavoriteFolder(w http.ResponseWriter, r *http.Request, params PostFavoriteFolderParams) {
+	var request PostFavoriteFolderRequestObject
+
+	request.Params = params
+
+	var body PostFavoriteFolderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostFavoriteFolder(ctx, request.(PostFavoriteFolderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostFavoriteFolder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostFavoriteFolderResponseObject); ok {
+		if err := validResponse.VisitPostFavoriteFolderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteFavoriteFolder operation middleware
+func (sh *strictHandler) DeleteFavoriteFolder(w http.ResponseWriter, r *http.Request, folderId FavoriteFolderID, params DeleteFavoriteFolderParams) {
+	var request DeleteFavoriteFolderRequestObject
+
+	request.FolderId = folderId
+	request.Params = params
+
+	var body DeleteFavoriteFolderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteFavoriteFolder(ctx, request.(DeleteFavoriteFolderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteFavoriteFolder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteFavoriteFolderResponseObject); ok {
+		if err := validResponse.VisitDeleteFavoriteFolderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PatchFavoriteFolder operation middleware
+func (sh *strictHandler) PatchFavoriteFolder(w http.ResponseWriter, r *http.Request, folderId FavoriteFolderID, params PatchFavoriteFolderParams) {
+	var request PatchFavoriteFolderRequestObject
+
+	request.FolderId = folderId
+	request.Params = params
+
+	var body PatchFavoriteFolderJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PatchFavoriteFolder(ctx, request.(PatchFavoriteFolderRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PatchFavoriteFolder")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PatchFavoriteFolderResponseObject); ok {
+		if err := validResponse.VisitPatchFavoriteFolderResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetFavorites operation middleware
+func (sh *strictHandler) GetFavorites(w http.ResponseWriter, r *http.Request, params GetFavoritesParams) {
+	var request GetFavoritesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetFavorites(ctx, request.(GetFavoritesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetFavorites")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetFavoritesResponseObject); ok {
+		if err := validResponse.VisitGetFavoritesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostFavoriteOrganize operation middleware
+func (sh *strictHandler) PostFavoriteOrganize(w http.ResponseWriter, r *http.Request, params PostFavoriteOrganizeParams) {
+	var request PostFavoriteOrganizeRequestObject
+
+	request.Params = params
+
+	var body PostFavoriteOrganizeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostFavoriteOrganize(ctx, request.(PostFavoriteOrganizeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostFavoriteOrganize")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostFavoriteOrganizeResponseObject); ok {
+		if err := validResponse.VisitPostFavoriteOrganizeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostFavoriteRestore operation middleware
+func (sh *strictHandler) PostFavoriteRestore(w http.ResponseWriter, r *http.Request, params PostFavoriteRestoreParams) {
+	var request PostFavoriteRestoreRequestObject
+
+	request.Params = params
+
+	var body PostFavoriteRestoreJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostFavoriteRestore(ctx, request.(PostFavoriteRestoreRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostFavoriteRestore")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostFavoriteRestoreResponseObject); ok {
+		if err := validResponse.VisitPostFavoriteRestoreResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostFavoriteUnfavorite operation middleware
+func (sh *strictHandler) PostFavoriteUnfavorite(w http.ResponseWriter, r *http.Request, params PostFavoriteUnfavoriteParams) {
+	var request PostFavoriteUnfavoriteRequestObject
+
+	request.Params = params
+
+	var body PostFavoriteUnfavoriteJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostFavoriteUnfavorite(ctx, request.(PostFavoriteUnfavoriteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostFavoriteUnfavorite")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostFavoriteUnfavoriteResponseObject); ok {
+		if err := validResponse.VisitPostFavoriteUnfavoriteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutFavorite operation middleware
+func (sh *strictHandler) PutFavorite(w http.ResponseWriter, r *http.Request, gameId GameID, params PutFavoriteParams) {
+	var request PutFavoriteRequestObject
+
+	request.GameId = gameId
+	request.Params = params
+
+	var body PutFavoriteJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutFavorite(ctx, request.(PutFavoriteRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutFavorite")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutFavoriteResponseObject); ok {
+		if err := validResponse.VisitPutFavoriteResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutFavoriteFolders operation middleware
+func (sh *strictHandler) PutFavoriteFolders(w http.ResponseWriter, r *http.Request, gameId GameID, params PutFavoriteFoldersParams) {
+	var request PutFavoriteFoldersRequestObject
+
+	request.GameId = gameId
+	request.Params = params
+
+	var body PutFavoriteFoldersJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutFavoriteFolders(ctx, request.(PutFavoriteFoldersRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutFavoriteFolders")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutFavoriteFoldersResponseObject); ok {
+		if err := validResponse.VisitPutFavoriteFoldersResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetGames operation middleware
 func (sh *strictHandler) GetGames(w http.ResponseWriter, r *http.Request, params GetGamesParams) {
 	var request GetGamesRequestObject
@@ -15994,206 +17651,229 @@ func (sh *strictHandler) HeadRuntimeState(w http.ResponseWriter, r *http.Request
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"a5Ctbjsjkf/MH/Fv/38AAAD//w==",
+	"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",
+	"AP//",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

@@ -1,6 +1,8 @@
 import Image from "next/image";
 import { notFound } from "next/navigation";
 import Link from "next/link";
+import { FavoriteActions } from "@/features/favorites/favorite-actions";
+import type { FavoriteReference } from "@/features/favorites/favorite-api";
 import { GameDetailSaves } from "@/features/games/game-detail-saves";
 import { LaunchControls, type CoreOption, type DOSEntry } from "@/features/player/launch-controls";
 import { collectSavePages, latestAvailableSave, type SavePage } from "@/features/saves/save-library";
@@ -15,6 +17,7 @@ type GameDetail = {
   coreOptions: CoreOption[];
   dosEntries: DOSEntry[];
   defaultDosEntry: string | null;
+  favorite: FavoriteReference | null;
 };
 
 function formatPlayTime(value: number) {
@@ -57,6 +60,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
         <div className="game-detail-main">
           <p className="game-detail-eyebrow">{game.platform.name} · {game.platformInstance.name}</p>
           <h1>{game.title}</h1>
+          <FavoriteActions gameId={game.gameId} title={game.title} initialFavorite={game.favorite} variant="detail" />
           <div className="game-detail-meta">{game.releaseYear ? <span>{game.releaseYear}</span> : null}{game.publisher ? <span>{game.publisher}</span> : null}{game.genre ? <span>{game.genre}</span> : null}</div>
           <p className="game-detail-description">{game.description || "尚未填写游戏简介。"}</p>
           <div className="game-detail-playtime"><strong>累计游玩</strong><span>{formatPlayTime(game.activeDurationMs)}</span></div>

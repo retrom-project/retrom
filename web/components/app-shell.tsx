@@ -12,6 +12,7 @@ const userNavigation: NavItem[] = [
   { href: "/", label: "首页", icon: "home", exact: true },
   { href: "/library", label: "游戏库", icon: "library" },
   { href: "/saves", label: "我的存档", icon: "save" },
+  { href: "/favorites", label: "我的收藏", icon: "heart" },
   { href: "/recent", label: "最近游玩", icon: "history" }
 ];
 

@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/ui";
 import { GameGrid } from "./game-grid";
 import {
   filterLibraryGames,
-  libraryCollections,
+  libraryPlatformInstances,
   libraryPlatforms,
   type GameSummary,
   type LibraryFilters,
@@ -19,7 +19,7 @@ export function LibraryBrowser({ games, nowMs, initialFilters }: { games: GameSu
   const [sort, setSort] = useState<LibraryFilters["sort"]>(initialFilters.sort);
   const searchRef = useRef<HTMLInputElement>(null);
   const platforms = useMemo(() => libraryPlatforms(games), [games]);
-  const collections = useMemo(() => libraryCollections(games, platformId), [games, platformId]);
+  const platformInstances = useMemo(() => libraryPlatformInstances(games, platformId), [games, platformId]);
   const filteredGames = useMemo(() => filterLibraryGames(games, { query, platformId, platformInstanceId, sort }), [games, platformId, platformInstanceId, query, sort]);
   const hasFilters = Boolean(query.trim() || platformId || platformInstanceId);
 
@@ -58,7 +58,7 @@ export function LibraryBrowser({ games, nowMs, initialFilters }: { games: GameSu
     <section className="library-toolbar" aria-label="游戏筛选">
       <div className="library-tool-row">
         <label className="library-search" htmlFor="library-search"><span className="sr-only">搜索游戏</span><AppIcon name="search" /><input ref={searchRef} id="library-search" type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索游戏" /></label>
-        <label><span className="sr-only">游戏集合</span><select aria-label="游戏集合" value={platformInstanceId} onChange={(event) => setPlatformInstanceId(event.target.value)}><option value="">所有游戏集合</option>{collections.map((collection) => <option value={collection.id} key={collection.id}>{collection.name}</option>)}</select></label>
+        <label><span className="sr-only">游戏集合</span><select aria-label="游戏集合" value={platformInstanceId} onChange={(event) => setPlatformInstanceId(event.target.value)}><option value="">所有游戏集合</option>{platformInstances.map((instance) => <option value={instance.id} key={instance.id}>{instance.name}</option>)}</select></label>
         <label><span className="sr-only">排列顺序</span><select aria-label="排列顺序" value={sort} onChange={(event) => setSort(event.target.value as LibraryFilters["sort"])}><option value="RECENT_DESC">最近游玩</option><option value="ADDED_DESC">最近加入</option><option value="TITLE_ASC">名称 A–Z</option></select></label>
       </div>
       <div className="library-platform-row">
