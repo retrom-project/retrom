@@ -17,6 +17,8 @@ import urllib.request
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+import fbalpha2012_dat
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = REPOSITORY_ROOT / "data"
@@ -28,6 +30,44 @@ PINNED_RAW = re.compile(
 RUNTIME_CORE_ID = re.compile(r"^[a-z0-9_]{1,64}$")
 ARTIFACT_BASENAME = re.compile(r"^[A-Za-z0-9_.-]+-wasm\.data$")
 DANGEROUS_OPTION_KEYS = {"__proto__", "constructor", "prototype"}
+EXPECTED_DAT_CORE_IDS = {
+    "4.2.3": {
+        "fbneo",
+        "fbalpha2012_cps1",
+        "fbalpha2012_cps2",
+        "mame2003",
+        "mame2003_plus",
+    },
+    "4.3.0-pre": set(),
+}
+FBA2012_GENERATION_GATES = {
+    "fbalpha2012_cps1": (227, []),
+    "fbalpha2012_cps2": (284, ["mmancp2u->megaman"]),
+}
+PARSE_STAT_KEYS = {
+    "machine_count",
+    "rom_entry_count",
+    "rom_entry_with_merge_count",
+    "rom_entry_with_bios_count",
+    "rom_nodump_count",
+    "rom_baddump_count",
+    "rom_missing_crc32_count",
+    "rom_missing_sha1_count",
+    "rom_missing_all_hash_count",
+    "non_nodump_rom_missing_all_hash_count",
+    "bios_set_count",
+    "default_bios_set_count",
+    "disk_entry_count",
+    "disk_missing_sha1_count",
+    "sample_entry_count",
+    "cloneof_relation_count",
+    "romof_relation_count",
+    "explicit_bios_machine_count",
+    "base_dependency_target_count",
+    "unresolved_cloneof_target_count",
+    "unresolved_romof_target_count",
+}
+PARSE_STAT_DETAIL_KEYS = {"unresolved_cloneof_targets", "unresolved_romof_targets"}
 SEMVER = re.compile(
     r"^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-([0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*))?$"
 )
@@ -365,6 +405,7 @@ def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
     if not isinstance(cores, list):
         raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
     expected_sums: dict[str, str] = {}
+    dat_core_ids: set[str] = set()
     for core in cores:
         if not isinstance(core, dict):
             raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
@@ -373,12 +414,71 @@ def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
         if not isinstance(core.get("dat"), dict):
             raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
         dat = core["dat"]
+        core_id = core.get("core_id")
+        if not isinstance(core_id, str) or core_id in dat_core_ids:
+            raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
+        dat_core_ids.add(core_id)
         local_path = safe_relative_path(dat.get("local_path"), "DEPENDENCY_DAT_PATH_INVALID")
         expected_sums[local_path] = expect_digest(dat.get("sha256"), "DEPENDENCY_DAT_SHA256_INVALID")
+        validate_dat_definition(core_id, core, dat)
     if sums != expected_sums:
         raise CheckError("DEPENDENCY_SHA256SUMS_DRIFT")
-    if len(expected_sums) not in (0, 3):
+    if dat_core_ids != EXPECTED_DAT_CORE_IDS.get(version):
         raise CheckError("DEPENDENCY_DAT_MANIFEST_INVALID")
+
+
+def validate_dat_definition(core_id: str, core: dict[str, Any], dat: dict[str, Any]) -> None:
+    stats = core.get("parse_stats")
+    if (
+        not isinstance(stats, dict)
+        or not PARSE_STAT_KEYS.issubset(stats)
+        or not set(stats).issubset(PARSE_STAT_KEYS | PARSE_STAT_DETAIL_KEYS)
+        or any(
+            not isinstance(stats[key], int) or isinstance(stats[key], bool) or stats[key] < 0
+            for key in PARSE_STAT_KEYS
+        )
+        or any(
+            not isinstance(stats[key], list) or any(not isinstance(item, str) for item in stats[key])
+            for key in set(stats) & PARSE_STAT_DETAIL_KEYS
+        )
+    ):
+        raise CheckError("DEPENDENCY_DAT_STATS_INVALID")
+    materialization = dat.get("materialization")
+    if not isinstance(materialization, dict):
+        raise CheckError("DEPENDENCY_DAT_MATERIALIZATION_INVALID")
+    if core_id not in FBA2012_GENERATION_GATES:
+        return
+    expected_machine_count, expected_parents = FBA2012_GENERATION_GATES[core_id]
+    expected_keys = {
+        "strategy",
+        "source_archive_url",
+        "source_archive_root",
+        "source_archive_size_bytes",
+        "source_archive_sha256",
+        "expected_normalized_external_parent_count",
+        "expected_normalized_external_parents",
+    }
+    source_url = materialization.get("source_archive_url")
+    source_root = materialization.get("source_archive_root")
+    commit = core.get("core_source", {}).get("commit")
+    if (
+        set(materialization) != expected_keys
+        or materialization.get("strategy") != "build_fbalpha2012_native_dat"
+        or not isinstance(source_url, str)
+        or source_url != f"https://codeload.github.com/EmulatorJS/{core_id}/tar.gz/{commit}"
+        or source_root != f"{core_id}-{commit}"
+        or not isinstance(materialization.get("source_archive_size_bytes"), int)
+        or materialization["source_archive_size_bytes"] <= 0
+        or not HEX_64.fullmatch(str(materialization.get("source_archive_sha256", "")))
+        or stats["machine_count"] != expected_machine_count
+        or materialization.get("expected_normalized_external_parent_count") != len(expected_parents)
+        or materialization.get("expected_normalized_external_parents") != expected_parents
+        or stats["explicit_bios_machine_count"] != 0
+        or stats["base_dependency_target_count"] != 0
+        or stats["unresolved_cloneof_target_count"] != 0
+        or stats["unresolved_romof_target_count"] != 0
+    ):
+        raise CheckError("DEPENDENCY_FBA2012_DAT_GATE_INVALID")
 
 
 def validate_artifact_capability(
@@ -429,7 +529,7 @@ def validate_artifact_capability(
         values = [action.get(name) for name in ("delayMs", "player", "control", "durationMs")]
         if any(not isinstance(value, int) or isinstance(value, bool) for value in values):
             raise CheckError("DEPENDENCY_STARTUP_ACTION_INVALID")
-        if not 0 <= values[0] <= 10_000 or not 0 <= values[1] <= 3 or not 0 <= values[2] <= 255 or not 1 <= values[3] <= 1_000:
+        if not 0 <= values[0] <= 30_000 or not 0 <= values[1] <= 3 or not 0 <= values[2] <= 255 or not 1 <= values[3] <= 1_000:
             raise CheckError("DEPENDENCY_STARTUP_ACTION_INVALID")
     content_kinds = item.get("supported_content_kinds")
     multi_disc = item.get("multi_disc")
@@ -570,6 +670,35 @@ def ensure_dat(version: str, manifest: dict[str, Any]) -> None:
         materialization = dat["materialization"]
         if materialization["strategy"] == "download_exact_file":
             download(materialization["url"], target, dat["size_bytes"], dat["sha256"])
+            continue
+        if materialization["strategy"] == "build_fbalpha2012_native_dat":
+            temp_dir = Path(tempfile.mkdtemp(prefix="retrom-fbalpha2012-dat-", dir=dat_root))
+            try:
+                source_archive = temp_dir / "source.tar.gz"
+                download(
+                    materialization["source_archive_url"],
+                    source_archive,
+                    materialization["source_archive_size_bytes"],
+                    materialization["source_archive_sha256"],
+                )
+                config = {
+                    "archive_root": materialization["source_archive_root"],
+                    "archive_size_bytes": materialization["source_archive_size_bytes"],
+                    "archive_sha256": materialization["source_archive_sha256"],
+                    "expected_machine_count": core["parse_stats"]["machine_count"],
+                    "expected_normalized_external_parents": materialization[
+                        "expected_normalized_external_parents"
+                    ],
+                }
+                try:
+                    report = fbalpha2012_dat.materialize(source_archive, core["core_id"], target, config)
+                except fbalpha2012_dat.GenerationError as error:
+                    raise CheckError(str(error)) from error
+                if report["sizeBytes"] != dat["size_bytes"] or report["sha256"] != dat["sha256"]:
+                    raise CheckError("DEPENDENCY_FBA2012_DAT_OUTPUT_MISMATCH")
+                check_file(target, dat["size_bytes"], dat["sha256"])
+            finally:
+                shutil.rmtree(temp_dir, ignore_errors=True)
             continue
         if materialization["strategy"] != "download_pinned_snapshot_then_replace_exact_bytes":
             raise CheckError("DEPENDENCY_DAT_STRATEGY_UNSUPPORTED")

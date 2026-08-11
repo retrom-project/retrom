@@ -39,10 +39,12 @@
 /data/example/**/__pycache__/
 /data/example/**/*.py[cod]
 
-# Git stores DAT provenance, recipes and checksums, not the 53 MiB XML payload.
+# Git stores DAT provenance, recipes and checksums, not the five XML payloads.
 /data/dat/emulatorjs/*/fbneo/
 /data/dat/emulatorjs/*/mame2003/
 /data/dat/emulatorjs/*/mame2003_plus/
+/data/dat/emulatorjs/*/fbalpha2012_cps1/
+/data/dat/emulatorjs/*/fbalpha2012_cps2/
 /data/auth/password-blocklists/*/payload/
 
 # Test evidence is reproducible and may contain game imagery. Keep it local.

@@ -316,7 +316,7 @@ function validateConfig(config: PlayerConfig) {
       !/^[\x20-\x7E]{1,128}$/.test(name) || !/^[\x20-\x7E]{0,128}$/.test(value))) throw new Error("PLAYER_CORE_OPTIONS_INVALID");
   if (!Array.isArray(config.startupActions) || config.startupActions.length > 4 || config.startupActions.some((action) =>
     action.event !== "GAME_START" || action.kind !== "PRESS_CONTROL" ||
-    !Number.isInteger(action.delayMs) || action.delayMs < 0 || action.delayMs > 10_000 ||
+    !Number.isInteger(action.delayMs) || action.delayMs < 0 || action.delayMs > 30_000 ||
     !Number.isInteger(action.player) || action.player < 0 || action.player > 3 ||
     !Number.isInteger(action.control) || action.control < 0 || action.control > 255 ||
     !Number.isInteger(action.durationMs) || action.durationMs < 1 || action.durationMs > 1_000)) {

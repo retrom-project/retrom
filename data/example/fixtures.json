@@ -15,10 +15,6 @@
     "credentialMode": "ssh-agent-or-user-ssh-config",
     "copiedAtMs": 1785952444276
   },
-  "candidateSource": {
-    "kind": "operator-provided-local",
-    "rootEnv": "RETROM_CANDIDATE_FIXTURE_ROOT"
-  },
   "fixtures": [
     {
       "core": "fceumm",
@@ -838,13 +834,10 @@
           }
         }
       ]
-    }
-  ],
-  "candidateFixtures": [
+    },
     {
       "core": "beetle_vb",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
       "system": "virtualboy",
       "title": "Virtual Boy / Panic Bomber",
       "gameId": 3001,
@@ -862,12 +855,11 @@
         "sha256": "3db727a78b6a6551a4024c273069eb39c8e8f33aa78ef16a073ed7460f6ce692"
       },
       "settleMs": 40000,
-      "timeoutMs": 120000
+      "timeoutMs": 180000
     },
     {
       "core": "mednafen_wswan",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
       "system": "wonderswan",
       "title": "WonderSwan / Mingle Magnet",
       "gameId": 3002,
@@ -889,12 +881,11 @@
         "sha256": "234397276e4a8ff01485e0135ea8e89e78e60fc156120e41bd0a4dd3b4c71626"
       },
       "settleMs": 5000,
-      "timeoutMs": 120000
+      "timeoutMs": 180000
     },
     {
       "core": "smsplus",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
       "system": "mastersystem",
       "title": "Master System / Bank Panic",
       "gameId": 3003,
@@ -912,12 +903,11 @@
         "sha256": "0f197c5e0000f17b2d072122a72b3f8fc1693514c4014fcd9694eec78584aa08"
       },
       "settleMs": 5000,
-      "timeoutMs": 120000
+      "timeoutMs": 180000
     },
     {
       "core": "fbalpha2012_cps1",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
       "system": "arcade-cps1",
       "title": "Arcade CPS-1 / 1941",
       "gameId": 3004,
@@ -935,12 +925,12 @@
         "sha256": "15b47667eb3c3746649c79e997b9f8c463f83bed9f61f51322cbe4db3d6e078e"
       },
       "settleMs": 20000,
-      "timeoutMs": 120000
+      "timeoutMs": 180000,
+      "datPath": "data/dat/emulatorjs/4.2.3/fbalpha2012_cps1/fbalpha2012-cps1.dat"
     },
     {
       "core": "fbalpha2012_cps2",
       "runtimeVersion": "4.2.3",
-      "supportStatus": "candidate",
       "system": "arcade-cps2",
       "title": "Arcade CPS-2 / Pocket Fighter",
       "gameId": 3005,
@@ -958,40 +948,12 @@
         "sha256": "432c2dd513603b04ccbf4e81f282f012763d2435311805443e2bd0cc9021d8d1"
       },
       "settleMs": 35000,
-      "timeoutMs": 120000
-    },
-    {
-      "core": "bsnes",
-      "runtimeVersion": "4.3.0-pre",
-      "supportStatus": "candidate",
-      "system": "snes",
-      "title": "Super Famicom / Super Bomberman",
-      "gameId": 3006,
-      "examplePath": "data/example/bsnes/index.html",
-      "game": {
-        "localPath": "data/example/local-fixtures/bsnes/super-bomberman.sfc",
-        "sourceRelativePath": "Roms/SFC/超级炸弹人1.zip",
-        "sourceArchiveLocalPath": "data/example/local-fixtures/bsnes/source.zip",
-        "sourceArchiveSize": 299651,
-        "sourceArchiveSha256": "2903771f2081e6c328867fa550b86ef48a2f9af3353abecb1ed602063221341b",
-        "singleMemberArchive": true,
-        "size": 524288,
-        "sha256": "4efab3f49cbe91ec77b6cba747ddfedfdc0b080c755a8b6ba51234f0676c000f"
-      },
-      "bios": [],
-      "coreArtifact": {
-        "path": "data/runtime/emulatorjs/4.3.0-pre/data/cores/bsnes-thread-wasm.data",
-        "size": 1016988,
-        "sha256": "07be511481846cb7f5c91003ce867cd70273591f6e6237aec04ad0150a7ccbff"
-      },
-      "requiresThreads": true,
-      "settleMs": 5000,
-      "timeoutMs": 120000
+      "timeoutMs": 180000,
+      "datPath": "data/dat/emulatorjs/4.2.3/fbalpha2012_cps2/fbalpha2012-cps2.dat"
     },
     {
       "core": "genesis_plus_gx_wide",
       "runtimeVersion": "4.3.0-pre",
-      "supportStatus": "candidate",
       "system": "megadrive",
       "title": "Mega Drive / Fix-It Felix Jr.",
       "gameId": 3007,
@@ -1013,12 +975,11 @@
         "sha256": "653b59f5b4c3147c6786313ecd60c6657b1bc0d465814919d363728afa93b2e0"
       },
       "settleMs": 5000,
-      "timeoutMs": 120000
+      "timeoutMs": 180000
     },
     {
       "core": "azahar",
       "runtimeVersion": "4.3.0-pre",
-      "supportStatus": "candidate",
       "system": "nintendo3ds",
       "title": "Nintendo 3DS / Cave Story 2D",
       "gameId": 3008,
@@ -1037,7 +998,7 @@
         "sha256": "d90696e6ea68c4fc00ef147411ad399962777f07b6c7e73d5537da0eaffc2e3b"
       },
       "settleMs": 60000,
-      "timeoutMs": 180000
+      "timeoutMs": 240000
     }
   ],
   "multiDiscFixtures": [
@@ -1122,7 +1083,10 @@
     {
       "id": "multidisc-psx-negative-2",
       "kind": "CAPABILITY_NEGATIVE",
-      "cores": ["pcsx_rearmed", "mednafen_psx_hw"],
+      "cores": [
+        "pcsx_rearmed",
+        "mednafen_psx_hw"
+      ],
       "runtimeVersion": "4.2.3",
       "system": "psx",
       "sourcePlaylist": {

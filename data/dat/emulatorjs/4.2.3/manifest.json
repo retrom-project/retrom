@@ -2,7 +2,7 @@
   "schema_version": 5,
   "created_at": "2026-08-05T17:07:36Z",
   "reviewed_at": "2026-08-08T00:00:00Z",
-  "purpose": "Version-bound EmulatorJS runtime selection for 28 Retrom cores, real Arcade DAT baseline, and reproducible license notice inputs; not mock or scrape metadata",
+  "purpose": "Version-bound EmulatorJS runtime selection for 33 Retrom cores, five real Arcade DAT baselines, and reproducible license notice inputs; not mock or scrape metadata",
   "repository_policy": {
     "payloads_tracked_in_git": false,
     "tracked_files": [
@@ -46,7 +46,12 @@
       "mednafen_pce",
       "mednafen_pcfx",
       "mednafen_ngp",
-      "ppsspp"
+      "ppsspp",
+      "beetle_vb",
+      "mednafen_wswan",
+      "smsplus",
+      "fbalpha2012_cps1",
+      "fbalpha2012_cps2"
     ],
     "redistribution_policy": {
       "intended_use": "private_self_hosted_build",
@@ -57,7 +62,9 @@
         "mame2003",
         "mame2003_plus",
         "opera",
-        "prosystem"
+        "prosystem",
+        "fbalpha2012_cps1",
+        "fbalpha2012_cps2"
       ],
       "note": "This manifest records reproducible notice inputs and source provenance; it is not a legal opinion or a grant of redistribution rights."
     },
@@ -672,6 +679,101 @@
             "sha256": "ff265754cbb2e0d3b674f90a79ef5bbaa1f7f1075aec9f5e241524520e5049fa"
           }
         ]
+      },
+      {
+        "component_id": "beetle_vb",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/28",
+        "repository": "https://github.com/EmulatorJS/beetle-vb-libretro",
+        "source_commit": "f94d3e8f285a5ba1d011b224655f113c96a55235",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "license_files": [
+          {
+            "declared_license_path": "COPYING",
+            "materialization": {
+              "type": "PINNED_RAW_FILE",
+              "url": "https://raw.githubusercontent.com/EmulatorJS/beetle-vb-libretro/f94d3e8f285a5ba1d011b224655f113c96a55235/COPYING"
+            },
+            "output_relative_path": "licenses/beetle_vb/COPYING",
+            "size_bytes": 18010,
+            "sha256": "a6996dcf0c334281f734560926e079b2dbbd5b78e81c0ca00a413ec01e1cd2fb"
+          }
+        ]
+      },
+      {
+        "component_id": "mednafen_wswan",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/29",
+        "repository": "https://github.com/EmulatorJS/beetle-wswan-libretro",
+        "source_commit": "fbc945dc10f2ff730c739509fe414dfb2eb5c6ce",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "license_files": [
+          {
+            "declared_license_path": "COPYING",
+            "materialization": {
+              "type": "PINNED_RAW_FILE",
+              "url": "https://raw.githubusercontent.com/EmulatorJS/beetle-wswan-libretro/fbc945dc10f2ff730c739509fe414dfb2eb5c6ce/COPYING"
+            },
+            "output_relative_path": "licenses/mednafen_wswan/COPYING",
+            "size_bytes": 18010,
+            "sha256": "a6996dcf0c334281f734560926e079b2dbbd5b78e81c0ca00a413ec01e1cd2fb"
+          }
+        ]
+      },
+      {
+        "component_id": "smsplus",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/30",
+        "repository": "https://github.com/EmulatorJS/smsplus-gx",
+        "source_commit": "c642bbd0680b5959180a420036108893d0aec961",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "license_files": [
+          {
+            "declared_license_path": "docs/license",
+            "materialization": {
+              "type": "PINNED_RAW_FILE",
+              "url": "https://raw.githubusercontent.com/EmulatorJS/smsplus-gx/c642bbd0680b5959180a420036108893d0aec961/docs/license"
+            },
+            "output_relative_path": "licenses/smsplus/docs/license",
+            "size_bytes": 18007,
+            "sha256": "dcc100d4161cc0b7177545ab6e47216f84857cda3843847c792a25289852dcaa"
+          }
+        ]
+      },
+      {
+        "component_id": "fbalpha2012_cps1",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/31",
+        "repository": "https://github.com/EmulatorJS/fbalpha2012_cps1",
+        "source_commit": "d6f5267a3abe8b079ed31d2ab3521911e6498372",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "license_files": [
+          {
+            "declared_license_path": "src/license.txt",
+            "materialization": {
+              "type": "PINNED_RAW_FILE",
+              "url": "https://raw.githubusercontent.com/EmulatorJS/fbalpha2012_cps1/d6f5267a3abe8b079ed31d2ab3521911e6498372/src/license.txt"
+            },
+            "output_relative_path": "licenses/fbalpha2012_cps1/src/license.txt",
+            "size_bytes": 4152,
+            "sha256": "d964fc5260c2ed8b3114b4cb451b48bbb2b6df3141e3b8122d2d222fea585eb0"
+          }
+        ]
+      },
+      {
+        "component_id": "fbalpha2012_cps2",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/32",
+        "repository": "https://github.com/EmulatorJS/fbalpha2012_cps2",
+        "source_commit": "3fb5b89d2ab719e45e814e1ad0b5ff721bffdff2",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "license_files": [
+          {
+            "declared_license_path": "src/license.txt",
+            "materialization": {
+              "type": "PINNED_RAW_FILE",
+              "url": "https://raw.githubusercontent.com/EmulatorJS/fbalpha2012_cps2/3fb5b89d2ab719e45e814e1ad0b5ff721bffdff2/src/license.txt"
+            },
+            "output_relative_path": "licenses/fbalpha2012_cps2/src/license.txt",
+            "size_bytes": 4152,
+            "sha256": "d964fc5260c2ed8b3114b4cb451b48bbb2b6df3141e3b8122d2d222fea585eb0"
+          }
+        ]
       }
     ]
   },
@@ -930,6 +1032,36 @@
         "size_bytes": 10873836,
         "sha256": "046f52792a06e3b6d07c8ff3961f11271102080760be4b2c38b1a3260054bad4",
         "role": "core_auxiliary"
+      },
+      {
+        "path_in_release": "data/cores/reports/beetle_vb.json",
+        "size_bytes": 123,
+        "sha256": "7e7255fc5e211029d533ccec19458fd8a123a7a87319a2ae4d5c554622e50515",
+        "role": "core_report"
+      },
+      {
+        "path_in_release": "data/cores/reports/mednafen_wswan.json",
+        "size_bytes": 128,
+        "sha256": "47abb197c89d5af5a1cbbf998e902db3f71f065303f7a2af29f78a9af4695b45",
+        "role": "core_report"
+      },
+      {
+        "path_in_release": "data/cores/reports/smsplus.json",
+        "size_bytes": 121,
+        "sha256": "1a3fc4e4ead90eb7f394b2498e63833ee5c35b7c8fa8e45445057b8bd9b81590",
+        "role": "core_report"
+      },
+      {
+        "path_in_release": "data/cores/reports/fbalpha2012_cps1.json",
+        "size_bytes": 130,
+        "sha256": "8b7ed7aef4912969ac80ae73962c8a7fd3503c4bfcce33117087a6ebabf25162",
+        "role": "core_report"
+      },
+      {
+        "path_in_release": "data/cores/reports/fbalpha2012_cps2.json",
+        "size_bytes": 130,
+        "sha256": "46aef58004a9a34bc05440d4833f79dddc5c1a63db38dc3beed41209318a1d48",
+        "role": "core_report"
       }
     ],
     "selected_core_artifacts": [
@@ -1572,6 +1704,149 @@
         "report_path": "data/cores/reports/ppsspp.json",
         "bundle_version": "4.2.3",
         "artifact_flavor": "THREAD_WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
+      },
+      {
+        "core_id": "beetle_vb",
+        "path_in_release": "data/cores/beetle_vb-wasm.data",
+        "size_bytes": 858313,
+        "sha256": "3db727a78b6a6551a4024c273069eb39c8e8f33aa78ef16a073ed7460f6ce692",
+        "source_component_id": "beetle_vb",
+        "runtime_core_id": "beetle_vb",
+        "requires_threads": false,
+        "requested_artifact_basename": "beetle_vb-wasm.data",
+        "canvas_resize_policy": "NONE",
+        "default_options": {},
+        "persistent_save_mode": "SINGLE_FILE",
+        "persistent_save_kind": "CORE_SAVE",
+        "input_mode": "STANDARD",
+        "startup_actions": [
+          {
+            "event": "GAME_START",
+            "kind": "PRESS_CONTROL",
+            "delayMs": 2000,
+            "player": 0,
+            "control": 0,
+            "durationMs": 120
+          },
+          {
+            "event": "GAME_START",
+            "kind": "PRESS_CONTROL",
+            "delayMs": 4000,
+            "player": 0,
+            "control": 3,
+            "durationMs": 120
+          },
+          {
+            "event": "GAME_START",
+            "kind": "PRESS_CONTROL",
+            "delayMs": 15000,
+            "player": 0,
+            "control": 3,
+            "durationMs": 120
+          },
+          {
+            "event": "GAME_START",
+            "kind": "PRESS_CONTROL",
+            "delayMs": 25000,
+            "player": 0,
+            "control": 3,
+            "durationMs": 120
+          }
+        ],
+        "report_path": "data/cores/reports/beetle_vb.json",
+        "bundle_version": "4.2.3",
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
+      },
+      {
+        "core_id": "mednafen_wswan",
+        "path_in_release": "data/cores/mednafen_wswan-wasm.data",
+        "size_bytes": 879301,
+        "sha256": "234397276e4a8ff01485e0135ea8e89e78e60fc156120e41bd0a4dd3b4c71626",
+        "source_component_id": "mednafen_wswan",
+        "runtime_core_id": "mednafen_wswan",
+        "requires_threads": false,
+        "requested_artifact_basename": "mednafen_wswan-wasm.data",
+        "canvas_resize_policy": "NONE",
+        "default_options": {},
+        "persistent_save_mode": "SINGLE_FILE",
+        "persistent_save_kind": "CORE_SAVE",
+        "input_mode": "STANDARD",
+        "startup_actions": [],
+        "report_path": "data/cores/reports/mednafen_wswan.json",
+        "bundle_version": "4.2.3",
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
+      },
+      {
+        "core_id": "smsplus",
+        "path_in_release": "data/cores/smsplus-wasm.data",
+        "size_bytes": 855876,
+        "sha256": "0f197c5e0000f17b2d072122a72b3f8fc1693514c4014fcd9694eec78584aa08",
+        "source_component_id": "smsplus",
+        "runtime_core_id": "smsplus",
+        "requires_threads": false,
+        "requested_artifact_basename": "smsplus-wasm.data",
+        "canvas_resize_policy": "NONE",
+        "default_options": {},
+        "persistent_save_mode": "SINGLE_FILE",
+        "persistent_save_kind": "CORE_SAVE",
+        "input_mode": "STANDARD",
+        "startup_actions": [],
+        "report_path": "data/cores/reports/smsplus.json",
+        "bundle_version": "4.2.3",
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
+      },
+      {
+        "core_id": "fbalpha2012_cps1",
+        "path_in_release": "data/cores/fbalpha2012_cps1-wasm.data",
+        "size_bytes": 1031240,
+        "sha256": "15b47667eb3c3746649c79e997b9f8c463f83bed9f61f51322cbe4db3d6e078e",
+        "source_component_id": "fbalpha2012_cps1",
+        "runtime_core_id": "fbalpha2012_cps1",
+        "requires_threads": false,
+        "requested_artifact_basename": "fbalpha2012_cps1-wasm.data",
+        "canvas_resize_policy": "NONE",
+        "default_options": {},
+        "persistent_save_mode": "NONE",
+        "persistent_save_kind": null,
+        "input_mode": "STANDARD",
+        "startup_actions": [],
+        "report_path": "data/cores/reports/fbalpha2012_cps1.json",
+        "bundle_version": "4.2.3",
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
+      },
+      {
+        "core_id": "fbalpha2012_cps2",
+        "path_in_release": "data/cores/fbalpha2012_cps2-wasm.data",
+        "size_bytes": 992866,
+        "sha256": "432c2dd513603b04ccbf4e81f282f012763d2435311805443e2bd0cc9021d8d1",
+        "source_component_id": "fbalpha2012_cps2",
+        "runtime_core_id": "fbalpha2012_cps2",
+        "requires_threads": false,
+        "requested_artifact_basename": "fbalpha2012_cps2-wasm.data",
+        "canvas_resize_policy": "NONE",
+        "default_options": {},
+        "persistent_save_mode": "NONE",
+        "persistent_save_kind": null,
+        "input_mode": "STANDARD",
+        "startup_actions": [],
+        "report_path": "data/cores/reports/fbalpha2012_cps2.json",
+        "bundle_version": "4.2.3",
+        "artifact_flavor": "WASM",
         "supported_content_kinds": [
           "SINGLE_FILE"
         ]
@@ -2280,6 +2555,203 @@
           "sha256": "cb46c33a3a8444b707f7a03fe00414d916ab55a41e85fbf0c59611aa643252da"
         }
       ]
+    },
+    {
+      "core_id": "beetle_vb",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.2.3/data/cores/reports/beetle_vb.json",
+        "build_start": "2025-06-14T18:11:47+00:00",
+        "build_end": "2025-06-14T18:12:53+00:00"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/beetle-vb-libretro",
+        "commit": "f94d3e8f285a5ba1d011b224655f113c96a55235",
+        "commit_time": "2024-12-10T04:50:24Z",
+        "association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/beetle_vb-wasm.data",
+          "size_bytes": 858313,
+          "sha256": "3db727a78b6a6551a4024c273069eb39c8e8f33aa78ef16a073ed7460f6ce692"
+        }
+      ]
+    },
+    {
+      "core_id": "mednafen_wswan",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.2.3/data/cores/reports/mednafen_wswan.json",
+        "build_start": "2025-06-14T19:02:59+00:00",
+        "build_end": "2025-06-14T19:04:07+00:00"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/beetle-wswan-libretro",
+        "commit": "fbc945dc10f2ff730c739509fe414dfb2eb5c6ce",
+        "commit_time": "2024-12-10T04:49:54Z",
+        "association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/mednafen_wswan-wasm.data",
+          "size_bytes": 879301,
+          "sha256": "234397276e4a8ff01485e0135ea8e89e78e60fc156120e41bd0a4dd3b4c71626"
+        }
+      ]
+    },
+    {
+      "core_id": "smsplus",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.2.3/data/cores/reports/smsplus.json",
+        "build_start": "2025-06-14T19:21:40+00:00",
+        "build_end": "2025-06-14T19:22:47+00:00"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/smsplus-gx",
+        "commit": "c642bbd0680b5959180a420036108893d0aec961",
+        "commit_time": "2024-10-21T21:47:29Z",
+        "association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/smsplus-wasm.data",
+          "size_bytes": 855876,
+          "sha256": "0f197c5e0000f17b2d072122a72b3f8fc1693514c4014fcd9694eec78584aa08"
+        }
+      ]
+    },
+    {
+      "core_id": "fbalpha2012_cps1",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.2.3/data/cores/reports/fbalpha2012_cps1.json",
+        "build_start": "2025-06-14T18:23:15+00:00",
+        "build_end": "2025-06-14T18:24:26+00:00"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/fbalpha2012_cps1",
+        "commit": "d6f5267a3abe8b079ed31d2ab3521911e6498372",
+        "commit_time": "2024-12-10T04:50:40Z",
+        "association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/fbalpha2012_cps1-wasm.data",
+          "size_bytes": 1031240,
+          "sha256": "15b47667eb3c3746649c79e997b9f8c463f83bed9f61f51322cbe4db3d6e078e"
+        }
+      ],
+      "dat": {
+        "local_path": "fbalpha2012_cps1/fbalpha2012-cps1.dat",
+        "format": "logiqx-datafile-xml",
+        "root_element": "datafile",
+        "declared_name": "fbalpha2012_cps1",
+        "declared_version": "0.2.97.29",
+        "source_type": "generated_from_matching_core_source",
+        "source_url": "https://github.com/EmulatorJS/fbalpha2012_cps1/tree/d6f5267a3abe8b079ed31d2ab3521911e6498372",
+        "generator_source": "scripts/fbalpha2012_dat.py",
+        "generation": "build the pinned source archive as a native static core, enumerate BurnLibInit/nBurnDrvCount twice in clean temporary directories, and require byte-identical Logiqx XML",
+        "materialization": {
+          "strategy": "build_fbalpha2012_native_dat",
+          "source_archive_url": "https://codeload.github.com/EmulatorJS/fbalpha2012_cps1/tar.gz/d6f5267a3abe8b079ed31d2ab3521911e6498372",
+          "source_archive_root": "fbalpha2012_cps1-d6f5267a3abe8b079ed31d2ab3521911e6498372",
+          "source_archive_size_bytes": 762341,
+          "source_archive_sha256": "72cb3159206c5a6192cdcc7878c5dd8b6ffd2699c897ec869d1a99b3628f95c9",
+          "expected_normalized_external_parent_count": 0,
+          "expected_normalized_external_parents": []
+        },
+        "size_bytes": 370682,
+        "sha256": "54a95deb406fefbf4522498ee55a4d644724c3abc017d744538678204015b789"
+      },
+      "parse_stats": {
+        "machine_count": 227,
+        "rom_entry_count": 5355,
+        "rom_entry_with_merge_count": 1554,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 56,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 56,
+        "rom_missing_sha1_count": 5355,
+        "rom_missing_all_hash_count": 56,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 190,
+        "romof_relation_count": 190,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      }
+    },
+    {
+      "core_id": "fbalpha2012_cps2",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.2.3/data/cores/reports/fbalpha2012_cps2.json",
+        "build_start": "2025-06-14T18:24:26+00:00",
+        "build_end": "2025-06-14T18:25:39+00:00"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/fbalpha2012_cps2",
+        "commit": "3fb5b89d2ab719e45e814e1ad0b5ff721bffdff2",
+        "commit_time": "2024-12-10T04:50:56Z",
+        "association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/fbalpha2012_cps2-wasm.data",
+          "size_bytes": 992866,
+          "sha256": "432c2dd513603b04ccbf4e81f282f012763d2435311805443e2bd0cc9021d8d1"
+        }
+      ],
+      "dat": {
+        "local_path": "fbalpha2012_cps2/fbalpha2012-cps2.dat",
+        "format": "logiqx-datafile-xml",
+        "root_element": "datafile",
+        "declared_name": "fbalpha2012_cps2",
+        "declared_version": "0.2.97.29",
+        "source_type": "generated_from_matching_core_source",
+        "source_url": "https://github.com/EmulatorJS/fbalpha2012_cps2/tree/3fb5b89d2ab719e45e814e1ad0b5ff721bffdff2",
+        "generator_source": "scripts/fbalpha2012_dat.py",
+        "generation": "build the pinned source archive as a native static core, enumerate BurnLibInit/nBurnDrvCount twice in clean temporary directories, and require byte-identical Logiqx XML",
+        "materialization": {
+          "strategy": "build_fbalpha2012_native_dat",
+          "source_archive_url": "https://codeload.github.com/EmulatorJS/fbalpha2012_cps2/tar.gz/3fb5b89d2ab719e45e814e1ad0b5ff721bffdff2",
+          "source_archive_root": "fbalpha2012_cps2-3fb5b89d2ab719e45e814e1ad0b5ff721bffdff2",
+          "source_archive_size_bytes": 742522,
+          "source_archive_sha256": "54aaccc7a806ee781c6a76777af57bdaa575ce7feeabcf488ba538a1674718d6",
+          "expected_normalized_external_parent_count": 1,
+          "expected_normalized_external_parents": [
+            "mmancp2u->megaman"
+          ]
+        },
+        "size_bytes": 392280,
+        "sha256": "f59166dbd123d998ae874910275e5a0ab09b7aca83dde621f2c5a53af0407f99"
+      },
+      "parse_stats": {
+        "machine_count": 284,
+        "rom_entry_count": 5047,
+        "rom_entry_with_merge_count": 3275,
+        "rom_entry_with_bios_count": 0,
+        "rom_nodump_count": 1,
+        "rom_baddump_count": 0,
+        "rom_missing_crc32_count": 1,
+        "rom_missing_sha1_count": 5047,
+        "rom_missing_all_hash_count": 1,
+        "non_nodump_rom_missing_all_hash_count": 0,
+        "bios_set_count": 0,
+        "default_bios_set_count": 0,
+        "disk_entry_count": 0,
+        "disk_missing_sha1_count": 0,
+        "sample_entry_count": 0,
+        "cloneof_relation_count": 243,
+        "romof_relation_count": 243,
+        "explicit_bios_machine_count": 0,
+        "base_dependency_target_count": 0,
+        "unresolved_cloneof_target_count": 0,
+        "unresolved_romof_target_count": 0
+      }
     }
   ]
 }

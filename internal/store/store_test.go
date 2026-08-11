@@ -62,7 +62,7 @@ func TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog(t *testing.T) {
 	); err != nil {
 		t.Fatalf("count seed: %v", err)
 	}
-	if platformCount != 21 || coreCount != 28 || directoryCount != 23 {
+	if platformCount != 25 || coreCount != 35 || directoryCount != 29 {
 		t.Fatalf("seed counts = %d/%d/%d", platformCount, coreCount, directoryCount)
 	}
 	var profileCount, userCount int
@@ -76,34 +76,35 @@ SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM i
 		t.Fatalf("pending auth state = profiles:%d users:%d state:%s", profileCount, userCount, instanceState)
 	}
 	platformIDs := queryStrings(t, database.SQL, "SELECT id FROM platforms ORDER BY id")
-	wantPlatforms := []string{"3do", "arcade", "atari2600", "atari5200", "atari7800", "dos", "fds", "gba", "gbc", "lynx", "megadrive", "n64", "nds", "nes", "ngpc", "pce", "pcfx", "psp", "psx", "saturn", "snes"}
+	wantPlatforms := []string{"3do", "arcade", "atari2600", "atari5200", "atari7800", "dos", "fds", "gba", "gbc", "lynx", "mastersystem", "megadrive", "n64", "nds", "nes", "ngpc", "nintendo3ds", "pce", "pcfx", "psp", "psx", "saturn", "snes", "virtualboy", "wonderswan"}
 	if !slices.Equal(platformIDs, wantPlatforms) {
 		t.Fatalf("platform IDs = %#v", platformIDs)
 	}
 	coreIDs := queryStrings(t, database.SQL, "SELECT id FROM cores ORDER BY id")
-	wantCores := []string{"a5200", "desmume", "desmume2015", "dosbox_pure", "fbneo", "fceumm", "gambatte", "genesis_plus_gx", "handy", "mame2003", "mame2003_plus", "mednafen_ngp", "mednafen_pce", "mednafen_pcfx", "mednafen_psx_hw", "melonds", "mgba", "mupen64plus_next", "nestopia", "opera", "parallel_n64", "pcsx_rearmed", "picodrive", "ppsspp", "prosystem", "snes9x", "stella2014", "yabause"}
+	wantCores := []string{"a5200", "azahar", "beetle_vb", "desmume", "desmume2015", "dosbox_pure", "fbalpha2012_cps1", "fbalpha2012_cps2", "fbneo", "fceumm", "gambatte", "genesis_plus_gx", "genesis_plus_gx_wide", "handy", "mame2003", "mame2003_plus", "mednafen_ngp", "mednafen_pce", "mednafen_pcfx", "mednafen_psx_hw", "mednafen_wswan", "melonds", "mgba", "mupen64plus_next", "nestopia", "opera", "parallel_n64", "pcsx_rearmed", "picodrive", "ppsspp", "prosystem", "smsplus", "snes9x", "stella2014", "yabause"}
 	if !slices.Equal(coreIDs, wantCores) {
 		t.Fatalf("core IDs = %#v", coreIDs)
 	}
 	threadCores := queryStrings(t, database.SQL, "SELECT id FROM cores WHERE requires_threads=1 ORDER BY id")
-	if !slices.Equal(threadCores, []string{"dosbox_pure", "mednafen_psx_hw", "ppsspp"}) {
+	if !slices.Equal(threadCores, []string{"azahar", "dosbox_pure", "mednafen_psx_hw", "ppsspp"}) {
 		t.Fatalf("thread cores = %#v", threadCores)
 	}
 	var enabledRelations int
-	if err := database.SQL.QueryRow("SELECT count(*) FROM platform_cores WHERE enabled=1").Scan(&enabledRelations); err != nil || enabledRelations != 31 {
+	if err := database.SQL.QueryRow("SELECT count(*) FROM platform_cores WHERE enabled=1").Scan(&enabledRelations); err != nil || enabledRelations != 38 {
 		t.Fatalf("enabled platform/core relations = %d, error=%v", enabledRelations, err)
 	}
 	relations := queryStrings(t, database.SQL, `
 SELECT platform_id || ':' || core_id FROM platform_cores WHERE enabled=1 ORDER BY platform_id,core_id
 `)
 	wantRelations := []string{
-		"3do:opera", "arcade:fbneo", "arcade:mame2003", "arcade:mame2003_plus",
+		"3do:opera", "arcade:fbalpha2012_cps1", "arcade:fbalpha2012_cps2", "arcade:fbneo", "arcade:mame2003", "arcade:mame2003_plus",
 		"atari2600:stella2014", "atari5200:a5200", "atari7800:prosystem", "dos:dosbox_pure",
 		"fds:fceumm", "fds:nestopia", "gba:mgba", "gbc:gambatte", "gbc:mgba", "lynx:handy",
-		"megadrive:genesis_plus_gx", "megadrive:picodrive", "n64:mupen64plus_next", "n64:parallel_n64",
+		"mastersystem:smsplus", "megadrive:genesis_plus_gx", "megadrive:genesis_plus_gx_wide", "megadrive:picodrive", "n64:mupen64plus_next", "n64:parallel_n64",
 		"nds:desmume", "nds:desmume2015", "nds:melonds", "nes:fceumm", "nes:nestopia",
-		"ngpc:mednafen_ngp", "pce:mednafen_pce", "pcfx:mednafen_pcfx", "psp:ppsspp",
+		"ngpc:mednafen_ngp", "nintendo3ds:azahar", "pce:mednafen_pce", "pcfx:mednafen_pcfx", "psp:ppsspp",
 		"psx:mednafen_psx_hw", "psx:pcsx_rearmed", "saturn:yabause", "snes:snes9x",
+		"virtualboy:beetle_vb", "wonderswan:mednafen_wswan",
 	}
 	if !slices.Equal(relations, wantRelations) {
 		t.Fatalf("platform/core relations = %#v", relations)
@@ -136,6 +137,12 @@ FROM platform_instances ORDER BY id
 		"01980000-0000-7000-8000-000000000021:pcfx:mednafen_pcfx:pc-fx-games:210",
 		"01980000-0000-7000-8000-000000000022:3do:opera:3do-games:220",
 		"01980000-0000-7000-8000-000000000023:psp:ppsspp:psp-games:230",
+		"01980000-0000-7000-8000-000000000024:virtualboy:beetle_vb:virtual-boy-games:240",
+		"01980000-0000-7000-8000-000000000025:wonderswan:mednafen_wswan:wonderswan-games:250",
+		"01980000-0000-7000-8000-000000000026:mastersystem:smsplus:master-system-games:260",
+		"01980000-0000-7000-8000-000000000027:arcade:fbalpha2012_cps1:fbalpha2012-cps1-games:270",
+		"01980000-0000-7000-8000-000000000028:arcade:fbalpha2012_cps2:fbalpha2012-cps2-games:280",
+		"01980000-0000-7000-8000-000000000029:nintendo3ds:azahar:nintendo-3ds-games:290",
 	}
 	if !slices.Equal(instances, wantInstances) {
 		t.Fatalf("platform instances = %#v", instances)
@@ -318,7 +325,7 @@ func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) 
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 26 {
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 27 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	var actorKind, actorUserID string

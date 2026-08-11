@@ -46,8 +46,8 @@ WHERE enabled = 1
 `).Scan(&activeArtifacts); err != nil {
 		t.Fatalf("count active artifacts: %v", err)
 	}
-	if activeArtifacts != 28 {
-		t.Fatalf("active artifacts = %d, want 28", activeArtifacts)
+	if activeArtifacts != 35 {
+		t.Fatalf("active artifacts = %d, want 35", activeArtifacts)
 	}
 	var dosVersion string
 	if err := database.SQL.QueryRowContext(context.Background(), `
@@ -65,6 +65,22 @@ WHERE core_id='dosbox_pure' AND emulatorjs_version='4.2.3' AND enabled=1
 `).Scan(&oldDOSActive); err != nil || oldDOSActive != 0 {
 		t.Fatalf("old DOS artifact active = %d, error=%v", oldDOSActive, err)
 	}
+	var overlayArtifacts int
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT count(*) FROM core_artifacts
+WHERE enabled=1 AND emulatorjs_version='4.3.0-pre'
+AND core_id IN ('dosbox_pure','genesis_plus_gx_wide','azahar')
+`).Scan(&overlayArtifacts); err != nil || overlayArtifacts != 3 {
+		t.Fatalf("4.3 overlay artifacts = %d, error=%v", overlayArtifacts, err)
+	}
+	var baseArtifacts int
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT count(*) FROM core_artifacts
+WHERE enabled=1 AND emulatorjs_version='4.2.3'
+AND core_id IN ('beetle_vb','mednafen_wswan','smsplus','fbalpha2012_cps1','fbalpha2012_cps2')
+`).Scan(&baseArtifacts); err != nil || baseArtifacts != 5 {
+		t.Fatalf("4.2 expansion artifacts = %d, error=%v", baseArtifacts, err)
+	}
 
 	var pendingDATs, activeDATs int
 	if err := database.SQL.QueryRowContext(context.Background(), `
@@ -75,8 +91,8 @@ WHERE source='BUILTIN'
 `).Scan(&pendingDATs, &activeDATs); err != nil {
 		t.Fatalf("count pending DATs: %v", err)
 	}
-	if pendingDATs != 3 || activeDATs != 0 {
-		t.Fatalf("pre-index DATs pending/active = %d/%d, want 3/0", pendingDATs, activeDATs)
+	if pendingDATs != 5 || activeDATs != 0 {
+		t.Fatalf("pre-index DATs pending/active = %d/%d, want 5/0", pendingDATs, activeDATs)
 	}
 	var staticBIOS, matchedCatalog int
 	if err := database.SQL.QueryRowContext(context.Background(), `
@@ -116,6 +132,20 @@ WHERE core_id='ppsspp' AND enabled=1
 		!strings.Contains(compatibility, `"supportedContentKinds":["SINGLE_FILE"]`) ||
 		strings.Contains(compatibility, `"MULTI_DISC_M3U_V1"`) {
 		t.Fatalf("PPSSPP V3 capability = %s", compatibility)
+	}
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT compatibility_config_json FROM core_artifacts
+WHERE core_id='beetle_vb' AND enabled=1
+`).Scan(&compatibility); err != nil || !strings.Contains(compatibility, `"delayMs":25000`) ||
+		strings.Count(compatibility, `"kind":"PRESS_CONTROL"`) != 4 {
+		t.Fatalf("Beetle VB startup actions = %s, error=%v", compatibility, err)
+	}
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT compatibility_config_json FROM core_artifacts
+WHERE core_id='azahar' AND enabled=1
+`).Scan(&compatibility); err != nil || !strings.Contains(compatibility, `"inputMode":"POINTER"`) ||
+		!strings.Contains(compatibility, `"webgl2Enabled":"enabled"`) {
+		t.Fatalf("Azahar compatibility = %s, error=%v", compatibility, err)
 	}
 	var yabauseID string
 	if err := database.SQL.QueryRowContext(context.Background(), `

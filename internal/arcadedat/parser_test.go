@@ -47,3 +47,27 @@ func TestParseCatalogRejectsAmbiguousBIOS(t *testing.T) {
 		t.Fatalf("invalid catalog accepted: %s", document)
 	}
 }
+
+func TestParseFBA2012UsesLogiqxDatafileFamily(t *testing.T) {
+	t.Parallel()
+	document := `<datafile><machine name="1941"><description>1941</description><rom name="41em_30.11f" size="131072" crc="9deb1e75"/></machine></datafile>`
+	for _, coreID := range []string{"fbalpha2012_cps1", "fbalpha2012_cps2"} {
+		stats, err := Parse(context.Background(), strings.NewReader(document), coreID)
+		if err != nil {
+			t.Fatalf("Parse(%s): %v", coreID, err)
+		}
+		if stats.MachineCount != 1 || stats.ROMEntryCount != 1 {
+			t.Fatalf("Parse(%s) stats = %#v", coreID, stats)
+		}
+	}
+}
+
+func TestParseRejectsRootFromAnotherDATFamily(t *testing.T) {
+	t.Parallel()
+	if _, err := Parse(context.Background(), strings.NewReader(`<mame><machine name="1941"/></mame>`), "fbalpha2012_cps1"); err == nil {
+		t.Fatal("expected FBA2012 to reject a MAME listxml root")
+	}
+	if _, err := Parse(context.Background(), strings.NewReader(`<datafile><machine name="1941"/></datafile>`), "mame2003"); err == nil {
+		t.Fatal("expected MAME 2003 to reject a Logiqx datafile root")
+	}
+}

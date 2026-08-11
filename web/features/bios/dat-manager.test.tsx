@@ -1,7 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { DATManager } from "./dat-manager";
+import { DATManager, supportsArcadeDATCore } from "./dat-manager";
 import type { CoreArtifact, DATVersion } from "./runtime-dependencies";
 
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
@@ -31,6 +31,33 @@ describe("DATManager", () => {
     expect(screen.getByRole("button", { name: "开始上传" })).toBeEnabled();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "上传街机数据目录" })).not.toBeInTheDocument();
+  });
+
+  it("keeps the DAT-capable core set closed and exposes both FBA2012 targets", async () => {
+    expect([
+      "fbneo", "mame2003", "mame2003_plus", "fbalpha2012_cps1", "fbalpha2012_cps2",
+    ].filter(supportsArcadeDATCore)).toHaveLength(5);
+    expect(supportsArcadeDATCore("azahar")).toBe(false);
+
+    const user = userEvent.setup();
+    const artifacts: CoreArtifact[] = [
+      artifact,
+      { ...artifact, id: "mame", coreId: "mame2003", coreName: "MAME 2003" },
+      { ...artifact, id: "mame-plus", coreId: "mame2003_plus", coreName: "MAME 2003 Plus" },
+      { ...artifact, id: "cps1", coreId: "fbalpha2012_cps1", coreName: "FB Alpha 2012 CPS-1" },
+      { ...artifact, id: "cps2", coreId: "fbalpha2012_cps2", coreName: "FB Alpha 2012 CPS-2" },
+      { ...artifact, id: "azahar", coreId: "azahar", coreName: "Azahar" },
+    ];
+    render(<DATManager versions={[]} artifacts={artifacts} />);
+    await user.click(screen.getByRole("button", { name: "上传新目录" }));
+    const options = within(screen.getByLabelText("目标运行方式")).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual([
+      "FinalBurn Neo · bundle 4.2.3",
+      "MAME 2003 · bundle 4.2.3",
+      "MAME 2003 Plus · bundle 4.2.3",
+      "FB Alpha 2012 CPS-1 · bundle 4.2.3",
+      "FB Alpha 2012 CPS-2 · bundle 4.2.3",
+    ]);
   });
 
   it("filters candidate history in place and only exposes problem states on demand", async () => {

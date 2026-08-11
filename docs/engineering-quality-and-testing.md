@@ -68,7 +68,7 @@
 | `make api-check` | 在临时目录用固定生成器重建并逐字节比较，OpenAPI 无效或 generated 漂移即失败 | 否 |
 | `make web-e2e` | 运行关键 Chrome/Playwright 场景 | 会产生本地报告 |
 | `make data-check` | 离线校验已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
-| `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/三份 DAT/许可文件并生成 notice；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
+| `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/五份 DAT/许可文件并生成 notice；两个 FBA2012 DAT 从锁定源码确定性原生生成两次；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
 | `make deps-check` | 完全离线校验本地 allowlist、core、DAT、override、许可输入/notice 及 DAT 统计 | 否 |
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
 | `make ci` | `api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物 |
@@ -316,7 +316,7 @@ python3 data/example/verify-fixtures.py
 node data/example/smoke-test.mjs mgba mame2003
 ```
 
-核心参数应替换为全部受影响核心；共享 loader、Player Shell 或版本基线变化时不传参数并运行 28 核全量 smoke。PPSSPP 在全量模式下展开为 ISO、CSO 两个独立 run，任一失败均视为该核心失败。
+核心参数应替换为全部受影响核心；共享 loader、Player Shell 或版本基线变化时不传参数并运行 35 核全量 smoke。PPSSPP 在全量模式下展开为 ISO、CSO 两个独立 run，任一失败均视为该核心失败。
 
 全量升级门禁和“进入游戏画面”的判定以 [`core-runtime-validation.md`](./core-runtime-validation.md) 为准。
 
@@ -357,7 +357,7 @@ node data/example/smoke-test.mjs mgba mame2003
 4. 新增 `web/eslint.config.mjs`、严格 `tsconfig.json`、Vitest config/setup、package scripts、`web/next.config.ts` 和 `web/proxy.ts`。`next.config.ts` 负责 standalone、开发 rewrite 与固定隔离头；`proxy.ts` 按 HTTP 契约为动态 HTML 生成逐响应 nonce CSP 并把同一 header 传入 App Router，不得改用静态 nonce 或旧 `middleware.ts`。
 5. 新增 `api/openapi.yaml` 与两端生成配置/产物，先覆盖通用 envelope、session/health 与一条代表性 CRUD；实现 `api-generate/api-check`，后续每个 route 必须先扩 schema 再写 handler/UI。
 6. 新增根 Makefile，实现第 3 节所有命令；golangci-lint 安装到仓库本地并固定版本。
-7. 更新 `.gitignore`：忽略 `bin/`、`.cache/`、`web/node_modules/`、`web/.next/`、coverage/E2E 报告和三份 DAT payload；继续跟踪真实来源 manifest、SHA256SUMS、物化配方与可提交验证清单。
+7. 更新 `.gitignore`：忽略 `bin/`、`.cache/`、`web/node_modules/`、`web/.next/`、coverage/E2E 报告和五份 DAT payload；继续跟踪真实来源 manifest、SHA256SUMS、物化配方与可提交验证清单。
 
 ### Phase Q1：基础测试
 

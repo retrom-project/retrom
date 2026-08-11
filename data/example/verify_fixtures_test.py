@@ -40,19 +40,14 @@ class FixtureSelectorTests(unittest.TestCase):
         self.assertEqual(multi_disc, [{"id": "multidisc-saturn-3"}])
         self.assertEqual(unknown, {"unknown"})
 
-    def test_candidates_are_explicit_only(self) -> None:
+    def test_all_formal_core_fixtures_participate_by_default(self) -> None:
         manifest = {
-            "fixtures": [{"core": "mgba"}],
-            "candidateFixtures": [{"core": "bsnes", "supportStatus": "candidate"}],
+            "fixtures": [{"core": "mgba"}, {"core": "beetle_vb"}],
             "multiDiscFixtures": [],
         }
         cores, _multi_disc, unknown = MODULE.selected_fixtures(manifest, set())
-        self.assertEqual(cores, [{"core": "mgba"}])
-        self.assertEqual(unknown, set())
-
-        cores, _multi_disc, unknown = MODULE.selected_fixtures(manifest, {"bsnes"})
         self.assertEqual(
-            cores, [{"core": "bsnes", "supportStatus": "candidate"}]
+            cores, [{"core": "mgba"}, {"core": "beetle_vb"}]
         )
         self.assertEqual(unknown, set())
 

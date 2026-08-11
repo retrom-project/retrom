@@ -39,7 +39,7 @@ FROM dat_machines
 `).Scan(&machines); err != nil {
 		t.Fatal(err)
 	}
-	if machines != 7_980+4_727+5_257 {
+	if machines != 7_980+4_727+5_257+227+284 {
 		t.Fatalf("machine rows = %d", machines)
 	}
 	var activeDATs, succeededJobs, nonCancellableJobs, snapshots int64
@@ -65,7 +65,7 @@ WHERE j.kind='DAT_PARSE')
 `).Scan(&activeDATs, &succeededJobs, &nonCancellableJobs, &snapshots); err != nil {
 		t.Fatal(err)
 	}
-	if activeDATs != 3 || succeededJobs != 3 || nonCancellableJobs != 3 || snapshots != 3 {
+	if activeDATs != 5 || succeededJobs != 5 || nonCancellableJobs != 5 || snapshots != 5 {
 		t.Fatalf(
 			"published DAT/job/snapshot contract = %d/%d/%d/%d",
 			activeDATs,
@@ -83,6 +83,14 @@ AND enabled=1
 `).Scan(&requirements); err != nil ||
 		requirements != 47 {
 		t.Fatalf("active DAT requirements = %d, error=%v", requirements, err)
+	}
+	var expansionRequirements int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT count(*) FROM bios_requirements
+WHERE source_kind='DAT_MACHINE' AND enabled=1
+AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
+`).Scan(&expansionRequirements); err != nil || expansionRequirements != 0 {
+		t.Fatalf("FBA2012 DAT requirements = %d, error=%v", expansionRequirements, err)
 	}
 	if err := set.BootstrapCatalogs(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatalf("idempotent bootstrap: %v", err)

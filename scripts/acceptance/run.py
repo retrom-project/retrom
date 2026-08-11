@@ -198,6 +198,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "go test -tags=integration ./internal/arcadecatalog -run '^TestUserDATRequiresParseDiffAndExplicitActivation$' -count=1",
     ),
     "ACC-DAT-005": (120, "go test ./internal/arcadedat -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective' -count=1"),
+    "ACC-DAT-006": (300, "scripts/acceptance/dependency-upgrade.sh"),
     "ACC-BIOS-001": (120, "go test -tags=integration ./internal/firmware -run '^TestStaticBIOSHashMismatchIsInstalledAsWarning$' -count=1"),
     "ACC-BIOS-002": (
         180,
@@ -302,6 +303,13 @@ CORE_CASES = {
     "ACC-CORE-026": "mednafen_pcfx",
     "ACC-CORE-027": "mednafen_ngp",
     "ACC-CORE-028": "ppsspp",
+    "ACC-CORE-029": "beetle_vb",
+    "ACC-CORE-030": "mednafen_wswan",
+    "ACC-CORE-031": "smsplus",
+    "ACC-CORE-032": "fbalpha2012_cps1",
+    "ACC-CORE-033": "fbalpha2012_cps2",
+    "ACC-CORE-034": "genesis_plus_gx_wide",
+    "ACC-CORE-035": "azahar",
 }
 
 MULTIDISC_RUNTIME_CASES = {
@@ -349,6 +357,13 @@ CORE_EXPECTATIONS = {
     "mednafen_pcfx": "光盘内游戏菜单",
     "mednafen_ngp": "Pac-Man 游戏画面",
     "ppsspp": "CSO 与 ISO 均到达 Sheep Defense 标题画面",
+    "beetle_vb": "Panic Bomber 动画开场",
+    "mednafen_wswan": "Mingle Magnet 标题画面",
+    "smsplus": "Bank Panic 标题画面",
+    "fbalpha2012_cps1": "1941 attract 或游戏画面",
+    "fbalpha2012_cps2": "Pocket Fighter 动画开场",
+    "genesis_plus_gx_wide": "Fix-It Felix Jr. high-score 或 attract 画面",
+    "azahar": "Cave Story 2D 中文标题和菜单",
 }
 
 CORE_TIMEOUTS = {
@@ -360,6 +375,12 @@ CORE_TIMEOUTS = {
     "opera": 240,
     "mednafen_pcfx": 240,
     "ppsspp": 480,
+    "azahar": 240,
+}
+
+CORE_PRODUCT_COMMANDS = {
+    "fbalpha2012_cps1": "go test -tags=integration ./internal/libraryimport -run '^TestFBA2012RealDATImportVariantAndLaunchIsolation$/^CPS1$' -count=1 -timeout=120s",
+    "fbalpha2012_cps2": "go test -tags=integration ./internal/libraryimport -run '^TestFBA2012RealDATImportVariantAndLaunchIsolation$/^CPS2$' -count=1 -timeout=120s",
 }
 
 
@@ -648,25 +669,39 @@ def execute_case(case_id: str) -> int:
                 "BLOCKED", "用户授权 ROM/BIOS 夹具缺失或校验失败", verify, verify_timeout, verify_code
             )
         else:
-            command = f"node data/example/smoke-test.mjs {core}"
-            smoke_output = case_dir / "smoke-output"
-            return_code, timed_out = run_command(
-                command,
-                CORE_TIMEOUTS.get(core, 180),
-                log_path,
-                {"RETROM_EXAMPLE_RESULTS_DIR": str(smoke_output)},
-            )
-            smoke_passed = return_code == 0 and not timed_out
-            status = "BLOCKED" if smoke_passed else "FAIL"
-            reason = "单核心机器断言通过；必须对本次截图执行视觉复核后才能通过" if smoke_passed else "单核心 smoke 失败"
-            run_ids = ["ppsspp-cso", "ppsspp-iso"] if core == "ppsspp" else [core]
-            for run_id in run_ids:
-                source = smoke_output / f"{run_id}.png"
-                if source.is_file():
-                    shutil.copy2(source, case_dir / "screenshots" / f"{run_id}.png")
-            latest = smoke_output / "latest.json"
-            if latest.is_file():
-                shutil.copy2(latest, case_dir / "core-result.json")
+            product_command = CORE_PRODUCT_COMMANDS.get(core)
+            product_failed = False
+            if product_command:
+                product_code, product_timeout = run_command(
+                    product_command, 120, log_path, append=True
+                )
+                if product_code != 0 or product_timeout:
+                    status, reason, command, timed_out, return_code = (
+                        "FAIL", "专属 Arcade DAT 产品链路失败", product_command,
+                        product_timeout, product_code,
+                    )
+                    product_failed = True
+            if not product_failed:
+                smoke_command = f"node data/example/smoke-test.mjs {core}"
+                command = " && ".join(filter(None, [verify, product_command, smoke_command]))
+                smoke_output = case_dir / "smoke-output"
+                return_code, timed_out = run_command(
+                    smoke_command,
+                    CORE_TIMEOUTS.get(core, 180),
+                    log_path,
+                    {"RETROM_EXAMPLE_RESULTS_DIR": str(smoke_output)},
+                )
+                smoke_passed = return_code == 0 and not timed_out
+                status = "BLOCKED" if smoke_passed else "FAIL"
+                reason = "单核心机器断言通过；必须对本次截图执行视觉复核后才能通过" if smoke_passed else "单核心 smoke 失败"
+                run_ids = ["ppsspp-cso", "ppsspp-iso"] if core == "ppsspp" else [core]
+                for run_id in run_ids:
+                    source = smoke_output / f"{run_id}.png"
+                    if source.is_file():
+                        shutil.copy2(source, case_dir / "screenshots" / f"{run_id}.png")
+                latest = smoke_output / "latest.json"
+                if latest.is_file():
+                    shutil.copy2(latest, case_dir / "core-result.json")
     elif case_id == "ACC-QA-003":
         command = "validate defects.json regression mappings"
         defects = json.loads((run_dir / "defects.json").read_text(encoding="utf-8"))

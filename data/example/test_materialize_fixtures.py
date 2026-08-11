@@ -9,31 +9,31 @@ import zipfile
 from pathlib import Path
 
 
-SCRIPT = Path(__file__).with_name("materialize-candidate-fixtures.py")
-SPEC = importlib.util.spec_from_file_location("retrom_candidate_fixtures", SCRIPT)
+SCRIPT = Path(__file__).with_name("materialize-fixtures.py")
+SPEC = importlib.util.spec_from_file_location("retrom_fixtures", SCRIPT)
 if SPEC is None or SPEC.loader is None:
-    raise RuntimeError("unable to load candidate fixture materializer")
+    raise RuntimeError("unable to load fixture materializer")
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
 
 
-class CandidateFixtureMaterializationTests(unittest.TestCase):
+class FixtureMaterializationTests(unittest.TestCase):
     def test_materializes_a_single_member_archive_with_fixed_hashes(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
             source_root = root / "source"
             repo_root = root / "repo"
             source_root.mkdir()
-            payload = b"candidate-rom"
+            payload = b"fixture-rom"
             archive_path = source_root / "fixture.zip"
             with zipfile.ZipFile(archive_path, "w") as archive:
                 archive.writestr("game.rom", payload)
             fixture = {
-                "core": "candidate",
+                "core": "fixture",
                 "game": {
-                    "localPath": "data/example/local-fixtures/candidate/game.rom",
+                    "localPath": "data/example/local-fixtures/fixture/game.rom",
                     "sourceRelativePath": "fixture.zip",
-                    "sourceArchiveLocalPath": "data/example/local-fixtures/candidate/source.zip",
+                    "sourceArchiveLocalPath": "data/example/local-fixtures/fixture/source.zip",
                     "sourceArchiveSize": archive_path.stat().st_size,
                     "sourceArchiveSha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
                     "singleMemberArchive": True,
@@ -46,7 +46,7 @@ class CandidateFixtureMaterializationTests(unittest.TestCase):
 
             self.assertEqual(len(written), 2)
             self.assertEqual(
-                (repo_root / "data/example/local-fixtures/candidate/game.rom").read_bytes(),
+                (repo_root / "data/example/local-fixtures/fixture/game.rom").read_bytes(),
                 payload,
             )
 
@@ -67,11 +67,11 @@ class CandidateFixtureMaterializationTests(unittest.TestCase):
                 archive.writestr("one.rom", b"one")
                 archive.writestr("two.rom", b"two")
             fixture = {
-                "core": "candidate",
+                "core": "fixture",
                 "game": {
-                    "localPath": "data/example/local-fixtures/candidate/game.rom",
+                    "localPath": "data/example/local-fixtures/fixture/game.rom",
                     "sourceRelativePath": "fixture.zip",
-                    "sourceArchiveLocalPath": "data/example/local-fixtures/candidate/source.zip",
+                    "sourceArchiveLocalPath": "data/example/local-fixtures/fixture/source.zip",
                     "sourceArchiveSize": archive_path.stat().st_size,
                     "sourceArchiveSha256": hashlib.sha256(archive_path.read_bytes()).hexdigest(),
                     "singleMemberArchive": True,
@@ -92,7 +92,7 @@ class CandidateFixtureMaterializationTests(unittest.TestCase):
             (source_root / "parent.zip").write_bytes(payload)
             fixture = {
                 "parent": {
-                    "localPath": "data/example/local-fixtures/candidate/parent.zip",
+                    "localPath": "data/example/local-fixtures/fixture/parent.zip",
                     "sourceRelativePath": "parent.zip",
                     "size": len(payload),
                     "sha256": hashlib.sha256(payload).hexdigest(),

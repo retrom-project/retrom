@@ -339,7 +339,7 @@ func validateSelectedCore(core SelectedCore, allowlist map[string]File, manifest
 		return fmt.Errorf("%w: artifact runtime capability", ErrInvalid)
 	}
 	for _, action := range core.StartupActions {
-		if action.Event != "GAME_START" || action.Kind != "PRESS_CONTROL" || action.DelayMS < 0 || action.DelayMS > 10_000 ||
+		if action.Event != "GAME_START" || action.Kind != "PRESS_CONTROL" || action.DelayMS < 0 || action.DelayMS > 30_000 ||
 			action.Player < 0 || action.Player > 3 || action.Control < 0 || action.Control > 255 ||
 			action.DurationMS < 1 || action.DurationMS > 1_000 {
 			return fmt.Errorf("%w: startup action", ErrInvalid)
