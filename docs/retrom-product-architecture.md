@@ -198,6 +198,11 @@ erDiagram
     GAME_VARIANT_REVISION ||--o{ SAVE_STATE : creates
     PROFILE ||--o{ PLAY_SESSION : owns
     GAME_VARIANT_REVISION ||--o{ PLAY_SESSION : runs
+    PROFILE ||--o{ FAVORITE_GAME : owns
+    GAME ||--o{ FAVORITE_GAME : is_saved_as
+    PROFILE ||--o{ FAVORITE_FOLDER : owns
+    FAVORITE_GAME ||--o{ FAVORITE_FOLDER_GAME : is_grouped_by
+    FAVORITE_FOLDER ||--o{ FAVORITE_FOLDER_GAME : contains
 ~~~
 
 关键不变量：
@@ -209,6 +214,7 @@ erDiagram
 - BIOS 要求和 DAT 活动版本按 CoreArtifact 隔离；同一个 Blob 可以去重，但 Installation/校验状态不可跨 artifact 或核心串用。
 - ImportJob/ImportItem 记录创建时的游戏目录、默认核心、core artifact、DAT 和刮削证据快照；在途结果不因后续配置变化而漂移。
 - 审核发布、游戏目录移动、DAT 启用和文件 revision 切换必须可审计。
+- Favorite 与 FavoriteFolder 都由认证 Profile 私有拥有；FolderMembership 必须同时引用同一 Profile 的 Favorite 与 Folder。收藏关系不改变 Game 的 PlatformInstance 唯一归属，管理员也没有跨 Profile 查询旁路。
 
 ## 6. 平台、核心与初始游戏目录
 

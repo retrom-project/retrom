@@ -511,22 +511,88 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 
 ## 10. 收藏与收藏夹 API
 
-所有收藏路由要求有效 AuthSession，ADMIN 与 USER 都只能使用 Principal 的 `profile_id`；请求和 DTO 不接受/返回 owner。写入要求精确 Origin、Fetch Metadata 与 `X-Retrom-Csrf`，响应固定 `Cache-Control: private, no-store`。JSON 封闭且拒绝重复字段、未知字段、重复或非规范 UUID。PUT 为自然幂等；所有 POST 以及 Folder create/PATCH/DELETE 要求 UUID `Idempotency-Key`，Folder PATCH/DELETE 另要求 `If-Match: "v<version>"`。幂等 namespace 与 cursor digest 都绑定 principal User ID。
+### 10.1 通用协议
 
-| 方法 | 路径 | 核心契约 |
+所有路由要求有效 AuthSession，ADMIN 与 USER 都只能使用 Principal 的 `profile_id`；请求 path/query/body 和响应 DTO 均不接受或返回 owner。写请求执行全局精确 Origin、Fetch Metadata 与 `X-Retrom-Csrf` 检查；所有响应固定 `Cache-Control: private, no-store`。JSON schema 封闭，拒绝重复字段、未知字段、重复 ID 和非规范 UUID。
+
+集合式 PUT 自然幂等，不要求 `Idempotency-Key`。所有批量 POST 与 Folder create/PATCH/DELETE 要求规范 UUID `Idempotency-Key`；同 principal、operation、key 重放原响应并返回 `X-Retrom-Idempotent-Replay: true`，同 key 异语义为 `409 IDEMPOTENCY_KEY_REUSED`。Folder PATCH/DELETE 还要求 `If-Match: "v<version>"`。幂等 namespace 和 cursor digest 都绑定 Principal User ID，不能跨账号复用结果。
+
+### 10.2 Route 与写入上限
+
+| 方法与路径 | 请求 | 成功响应与语义 |
 | --- | --- | --- |
-| GET | `/api/v1/favorites` | `scope=ALL|UNCATEGORIZED|FOLDER`、可空 `folderId/q/platformId`、四种稳定 sort、签名 cursor、limit 1–100；同一只读事务返回 summary/folders/platforms/total/items。 |
-| PUT | `/api/v1/favorites/{gameId}` | `{}`；当前可见 Game 幂等收藏，不刷新既有 `favoritedAtMs`。 |
-| PUT | `/api/v1/favorites/{gameId}/folders` | `folderIds` 精确替换且自动收藏。 |
-| POST | `/api/v1/favorites/organize` | 1–50 Game、add/remove 各 0–20 Folder、边数不超过 1000；两集合互斥且整批原子。 |
-| POST | `/api/v1/favorites/unfavorite` | 1–100 Game；返回不含名称的 Membership 快照。 |
-| POST | `/api/v1/favorites/restore` | 恢复至多 100 Game/1000 Folder 引用并返回排序后的 restored/skipped IDs。 |
-| POST | `/api/v1/favorite-folders` | `name` 与显式 `initialGameIds`；原子创建、收藏并分类，返回 201/Location/ETag。 |
-| PATCH/DELETE | `/api/v1/favorite-folders/{folderId}` | 乐观版本；重命名或删除 Folder，删除不取消 Favorite。 |
+| `GET /api/v1/favorites` | 第 10.3 节 query | `200 FavoriteListResponse`；同一只读事务返回 scope 结果、精确计数、Folder 与平台摘要。 |
+| `PUT /api/v1/favorites/{gameId}` | `{}` | `200 FavoriteState`；Game 必须当前可见，不存在则创建，已存在原样返回且不刷新 `favoritedAtMs`。 |
+| `PUT /api/v1/favorites/{gameId}/folders` | `folderIds` 必填、唯一、0–100 | `200 FavoriteState`；精确替换完整 Folder 集合并在需要时自动收藏。 |
+| `POST /api/v1/favorites/organize` | 1–50 `gameIds`；`addFolderIds/removeFolderIds` 各 0–20，互斥且总边数不超过 1000 | `200 FavoriteBatchResult`；整批原子执行，add 自动收藏，空动作或重复 ID 拒绝。 |
+| `POST /api/v1/favorites/unfavorite` | 1–100 `gameIds` | `200 UnfavoriteResult`；按稳定顺序返回删除前的 `gameId/folderIds` 快照，不返回 Folder 名称；不存在的 Favorite 不泄漏并产生空项结果。 |
+| `POST /api/v1/favorites/restore` | 1–100 个 `{gameId,folderIds}`，总 Folder 引用不超过 1000 | `200 FavoriteRestoreResult`；只恢复仍可见 Game 和仍属于 Principal 的 Folder，返回排序且去重的 restored/skipped IDs。 |
+| `POST /api/v1/favorite-folders` | `name` 与必填 `initialGameIds` 0–100 | `201 FavoriteFolder` + `Location` + `ETag`；原子创建 Folder，并收藏、分类显式给出的 Game；`[]` 表示创建空 Folder。 |
+| `PATCH /api/v1/favorite-folders/{folderId}` | `name` + `If-Match` + `Idempotency-Key` | `200 FavoriteFolder` + 新 `ETag`；只重命名并把版本精确加一。 |
+| `DELETE /api/v1/favorite-folders/{folderId}` | `{}` + `If-Match` + `Idempotency-Key` | `204`；删除 Membership 和 Folder，保留 Favorite。 |
 
-列表排序 tuple 分别为 `(favorited_at DESC,game_id DESC)`、有游玩项优先的 `(last_played DESC,title,game_id)`、`(title,game_id)` 和非空年份优先的 `(release_year DESC,title,game_id)`。`summary.favoriteCount`/`uncategorizedCount` 只统计可见关系，`folderCount` 包含空 Folder，Folder visible count 不受当前筛选影响，platform summary 在当前 scope 内且应用 q/platform 前生成。用户 `/games` 列表和详情增加可空 `favorite:{favoritedAtMs,folderIds}`；管理投影不增加该字段。
+所有 ID 数组必须唯一；服务端不静默去重。任一资源、owner、可见性、版本或上限校验失败都使整个请求零写入。
 
-稳定错误新增 `FAVORITE_FOLDER_NOT_FOUND`、`FAVORITE_FOLDER_NAME_CONFLICT`、`FAVORITE_BATCH_TOO_LARGE`、`FAVORITE_FOLDER_LIMIT_REACHED`、`RESOURCE_VERSION_CONFLICT`；继续使用 `INVALID_QUERY`、`INVALID_REQUEST`、`INVALID_CURSOR`、`GAME_NOT_FOUND`、`IDEMPOTENCY_KEY_REUSED` 和 `PRECONDITION_REQUIRED`。精确 schema 以 [`../api/openapi.yaml`](../api/openapi.yaml) 为机器事实源，验收见 `ACC-FAV-002`。
+### 10.3 列表 query、排序与计数
+
+`GET /api/v1/favorites` 只接受以下 query：
+
+| Query | 规则 |
+| --- | --- |
+| `scope` | `ALL|UNCATEGORIZED|FOLDER`，默认 `ALL`。 |
+| `folderId` | 仅 `scope=FOLDER` 时必填；其他 scope 携带该字段非法，且 ID 必须属于当前 Profile。 |
+| `q` | 复用 Game `search_text` 规范化，最多 200 code point。 |
+| `platformId` | 稳定平台 code；不存在时返回空结果，不报错。 |
+| `sort` | 默认 `FAVORITED_DESC`；另有 `RECENTLY_PLAYED_DESC|TITLE_ASC|RELEASE_YEAR_DESC`。 |
+| `cursor/limit` | `limit` 默认 50、范围 1–100；签名 cursor 24 小时到期，绑定 User、scope、folderId、q、platformId 和 sort。 |
+
+稳定排序 tuple 为：
+
+- `FAVORITED_DESC`：`favorite_games.created_at_ms DESC, game_id DESC`；
+- `RECENTLY_PLAYED_DESC`：有 PlaySession 的项优先，`last_played_at_ms DESC, title ASC, game_id ASC`，未游玩项随后按标题和 ID；
+- `TITLE_ASC`：`title ASC, game_id ASC`；
+- `RELEASE_YEAR_DESC`：非空年份优先，`release_year DESC, title ASC, game_id ASC`，空年份随后按标题和 ID。
+
+`summary.favoriteCount` 是所有可见 Favorite 数，`uncategorizedCount` 是其中无 Membership 的可见数，`folderCount` 包含空 Folder。`folders[].visibleGameCount` 独立于当前 q/platform/scope；`platforms[]` 在当前 scope 内、应用 q/platform 前生成；`totalCount` 是应用 scope+q+platform 后的完整结果数，不是当前页长度。上述数据和 `items` 来自同一 SQLite 只读事务。
+
+Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。任一收藏写入成功后，客户端必须丢弃旧 cursor 并从首页刷新，不能拼接写入前后的页。
+
+### 10.4 DTO 投影
+
+`FavoriteState` 固定为 `gameId/favoritedAtMs/folderIds`。`FavoriteFolder` 固定为 `folderId/name/version/visibleGameCount/createdAtMs/updatedAtMs`。`FavoriteListResponse` 固定包含 `generatedAtMs/summary/folders/platforms/totalCount/items/nextCursor`；每个 item 提供 Game、platform、PlatformInstance、defaultCore、封面、发行年份、最近游玩时间和非空 Favorite 投影。Folder ID 按 Folder `created_at_ms,id` 排序。
+
+`UnfavoriteResult.items[]` 只返回删除前的 `gameId/folderIds`，按请求 Game ID 的 UTF-8 bytes 排序。`FavoriteRestoreResult` 返回 `restoredGameIds/skippedGameIds/skippedFolderIds`，每个数组排序且不重复。
+
+用户侧 `/api/v1/games` 列表和详情增加可空字段：
+
+```json
+"favorite": {
+  "favoritedAtMs": 1786000000000,
+  "folderIds": ["01980000-0000-7000-8000-000000000101"]
+}
+```
+
+未收藏时为 `null`。管理侧 `/api/v1/admin/games*` 不返回 Favorite 字段、逐用户计数或 Folder 信息。
+
+### 10.5 稳定错误
+
+| HTTP | code | 条件 |
+| ---: | --- | --- |
+| 400 | `INVALID_QUERY` | scope/folderId 组合、sort、limit 或未知 query 非法。 |
+| 400 | `INVALID_REQUEST` | 重复 ID、add/remove 相交、空 organize、未知字段或 Folder 名称非法。 |
+| 400 | `INVALID_CURSOR` | cursor 签名、主体、筛选、排序、版本或到期不匹配。 |
+| 400 | `INVALID_IDEMPOTENCY_KEY` | 要求幂等的写入缺失或携带非规范 UUID key。 |
+| 401 | `AUTHENTICATION_REQUIRED` | 没有有效 AuthSession。 |
+| 404 | `GAME_NOT_FOUND` | 写入要求的 Game 不存在、已删除或所属目录停用。 |
+| 404 | `FAVORITE_FOLDER_NOT_FOUND` | Folder 不存在或不属于当前 Profile，两种情况不区分。 |
+| 409 | `FAVORITE_FOLDER_NAME_CONFLICT` | 当前 Profile 已有相同 `name_key`。 |
+| 409 | `IDEMPOTENCY_KEY_REUSED` | 同 operation/key 已绑定不同语义请求。 |
+| 412 | `RESOURCE_VERSION_CONFLICT` | Folder `If-Match` 已过期。 |
+| 413 | `FAVORITE_BATCH_TOO_LARGE` | 超过 Game、Folder 或总边数任一上限。 |
+| 422 | `FAVORITE_FOLDER_LIMIT_REACHED` | 当前 Profile 已有 100 个 Folder。 |
+| 428 | `PRECONDITION_REQUIRED` | Folder PATCH/DELETE 缺少或携带非法 `If-Match`。 |
+
+精确机器 schema 以 [`../api/openapi.yaml`](../api/openapi.yaml) 为准；人类可读契约与 schema 发生漂移时必须在同一变更修正，验收见 `ACC-FAV-002`。
 
 ## 11. 统一验收入口
 

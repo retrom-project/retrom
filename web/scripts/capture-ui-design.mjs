@@ -16,6 +16,9 @@ const captures = [
   ["retrom-ui-game-detail.png", "detail", 2560, 1440],
   ["retrom-ui-game-detail-core-override.png", "detail", 2560, 1440, "core-override"],
   ["retrom-ui-saves.png", "saves", 2560, 1440],
+  ["retrom-ui-favorites.png", "favorites", 2560, 1440],
+  ["retrom-ui-favorites-folder-manager.png", "favorites", 1280, 800, "folder-manager"],
+  ["retrom-ui-favorites-unfavorite-dialog.png", "favorites", 1280, 800, "unfavorite-dialog"],
   ["retrom-ui-recent-4k.png", "recent", 3840, 2160],
   ["retrom-ui-account.png", "account", 2560, 1440],
   ["retrom-ui-play.png", "play", 2560, 1440],
@@ -127,6 +130,8 @@ try {
       await frame.locator("[data-apply-detail-runtime]").click();
       await frame.locator("[data-open-detail-runtime]").click();
     }
+    if (variant === "folder-manager") await frame.locator("[data-favorite-manage]").first().click();
+    if (variant === "unfavorite-dialog") await frame.locator("[data-favorite-heart]").first().click();
     if (view === "play") {
       await page.waitForTimeout(1_400);
       await frame.locator("#rt-player-game").evaluate((element) => { element.textContent = "NOeL 3"; });

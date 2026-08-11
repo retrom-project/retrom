@@ -242,13 +242,52 @@ Next.js 入口代理必须在受保护页面开始服务端渲染前读取 `GET 
 
 ### 6.4 我的收藏
 
-一级导航顺序为首页、游戏库、我的存档、我的收藏、最近游玩；路由固定 `/favorites`。页面由页头、左侧 Rail、当前视图标题、搜索/平台/排序、270–320px 游戏卡和有界批量栏组成。Rail 固定显示全部收藏、未分类，再按创建时刻/ID显示最多 100 个自定义 Folder；Rail 头部和“新建收藏夹”入口固定，只有中间列表在自身超高时滚动。
+一级导航顺序固定为首页、游戏库、我的存档、我的收藏、最近游玩，“我的收藏”必须紧邻“我的存档”下方；路由固定为 `/favorites`，不出现在管理后台导航。匿名访问沿用 `/login?returnTo=/favorites`，USER 与 ADMIN 都只呈现当前 Profile 的数据。
 
-URL 使用 `scope/folderId/q/platformId/sort` 恢复同一视图；非法或越权 Folder 显示可恢复错误，不静默回退。页面必须区分首次 loading、完全空、Folder 空、筛选空、读取错误、写回滚、版本冲突和游戏变为不可见。单游戏管理使用含搜索/checkbox/创建入口的非模态 dialog；创建、重命名、删除、取消收藏分别使用 dialog/alertdialog、焦点圈定、Escape 和触发器焦点返回。
+URL 状态为：
 
-加入 Folder 自动收藏；移除/删除 Folder 保留 Favorite；取消收藏确认明确 Membership 影响并提供两秒内存 undo。批量选择最多 50 项并支持加入、仅 Folder scope 移出当前 Folder、取消收藏和取消选择。1280×800 至 4K 不得页面横向溢出，卡宽固定 270–320px，4K 控件至少 42px；Rail、toast 和 dialog 按第 9 节满足键盘、ARIA、reduced-motion 与非颜色单一语义。设计层级参考 [`../td/004-favorites-and-collections/collection-design.html`](../td/004-favorites-and-collections/collection-design.html)，模拟图片/数量不得进入生产。
+```text
+/favorites?scope=ALL|UNCATEGORIZED|FOLDER&folderId=<uuid>&q=<text>&platformId=<code>&sort=FAVORITED_DESC|RECENTLY_PLAYED_DESC|TITLE_ASC|RELEASE_YEAR_DESC
+```
 
-游戏库卡片与详情按钮使用包含标题的 accessible name 和 `aria-pressed`；未收藏点击后原位收藏并用 toast 提供“加入收藏夹”，已收藏点击先确认。首页、最近游玩、存档页和 Player 本期不增加入口。
+`scope` 默认 `ALL`；`scope=FOLDER` 时 `folderId` 必填，其他 scope 禁止携带。空 `q/platformId` 和默认 sort 从 URL 省略。切换 Rail、搜索、平台或排序使用客户端路由更新，不整页刷新；浏览器前进、后退和刷新恢复同一视图。已删除、非法或越权 Folder 显示“收藏夹不存在”及“返回全部收藏”，不得静默回退或泄漏 owner。
+
+页面结构从上到下固定为：
+
+1. 页头：标题“我的收藏”、用途说明、当前可见收藏总数和 Folder 总数。
+2. 左侧 Rail：固定的“全部收藏”“未分类”，再按创建时刻/ID展示最多 100 个自定义 Folder；Rail 头部和唯一的“新建收藏夹”入口固定，只有中间列表在自身超高时滚动。
+3. 内容页头：当前 scope 名称、真实数量，以及只在自定义 Folder scope 显示的“编辑收藏夹”。
+4. 筛选区：带可见 label 的搜索、排序和“批量整理”；平台胶囊、结果数，以及仅在 ALL scope 出现的“整理未分类游戏”。
+5. 游戏网格：卡宽 270–320px，不因行内卡片较少而无限拉伸。卡片使用 3:4 封面、标题、平台、年份和最多两个 Folder 标签；更多 Folder 用 `+N` 汇总。
+6. 卡片操作：封面与标题进入详情；封面右上角只放圆形爱心收藏按钮，正文右下角放始终可发现的省略号 Folder 管理按钮。卡片右上角不得再放方形收藏夹图标，也不得把“管理收藏夹”藏成仅 hover 可见。
+7. 批量栏：选择数、加入收藏夹、只在 FOLDER scope 出现的“从当前收藏夹移除”、取消收藏和取消选择；最多选择 50 项，栏宽不超过 720px且不得遮挡末行。
+
+单游戏 Folder 管理使用锚定触发器、固定尺寸的非模态 `role=dialog`，包含标题、搜索、原生 checkbox、创建入口和“完成”；打开时从 DTO 初始化完整选择集合，保存使用精确替换语义。它不得根据 hover 改变宽高或定位参考，触发器、dialog 与卡片 hover 也不得相互改变布局，从而避免弹层在两种尺寸间反复切换或页面抖动。Folder 管理弹层采用统一设计稿中的宽版布局；窄视口只允许受容器约束，不切换为另一套卡片式弹窗。
+
+从管理框新建 Folder 时携带当前游戏或批量选择作为 `initialGameIds`，成功后回到原上下文并刷新选中状态；从 Rail 创建时使用空数组并进入新 Folder 空状态。重命名、删除只在自定义 Folder scope 可用。版本冲突保留用户输入，刷新真实名称/version 后要求再次提交，不自动覆盖其他标签页。
+
+搜索输入使用 150ms debounce，Rail、平台和排序即时请求；新 query key 发出后取消旧请求，即使旧响应更晚返回也不得覆盖新结果。mutation pending 只禁用相关卡片或 Folder，批量提交期间锁定选择集合；写成功后丢弃分页 cursor 并从首屏刷新 summary/folders/items，失败则恢复提交前状态。401 复用全局认证失效路径，403/5xx 显示明确且可恢复的应用状态。
+
+未收藏爱心点击后原位收藏，并用两秒 toast 提供“加入收藏夹”；已收藏爱心先打开 `alertdialog`，默认焦点在“保留收藏”，文案明确会移除的 Folder 数量且不会删除游戏文件或存档。确认后提供两秒内存 undo。加入 Folder 自动收藏；从最后一个 Folder 移除或删除 Folder 仍保留 Favorite。
+
+页面必须区分并保持稳定尺寸：
+
+| 状态 | 呈现与恢复操作 |
+| --- | --- |
+| 首次 loading | 保留页头、Rail、筛选区和卡片骨架，不展示上一个账号数据。 |
+| 完全没有收藏 | “还没有收藏游戏”，主操作进入 `/library`。 |
+| 当前 Folder 为空 | 保留 Folder 名称，提供返回全部收藏或去游戏库添加。 |
+| 筛选无结果 | 说明当前条件无匹配并提供“清除筛选”，不暗示收藏为空。 |
+| 列表读取失败 | 清空旧结果，显示稳定错误和“重试”，不伪装成空列表。 |
+| 写入失败 | 回滚本次乐观 UI，保持触发焦点并显示稳定错误映射。 |
+| Folder 冲突 | 保留表单，刷新 version/名称并要求重新确认。 |
+| Game 变为不可见 | 从结果与可见计数移除，不宣称用户已取消收藏。 |
+
+游戏库卡片和详情 Hero 使用同一爱心语义、包含游戏标题的 accessible name 与 `aria-pressed`；详情另提供“管理收藏夹”，但不能挤占或改变“一次点击开始游戏”的主操作。首页、最近游玩、存档页和 Player 本期不增加入口。
+
+1280×800 至 4K 不得出现页面横向溢出。1280–1599 的收藏 Rail 为 210px；1600–2599 为 220–250px；2600+ 为 250px，正文至少 16px、辅助文字至少 12px、按钮和输入至少 42px。所有爱心、关闭、更多和选择按钮都要有上下文名称；checkbox 使用原生控件，批量栏/toast 使用 `aria-live=polite`，错误使用 alert。Folder 管理使用不带 `aria-modal` 的非模态 `dialog`，打开时焦点进入但不圈定 Tab，Escape 或离开弹层关闭并返回触发器；创建/重命名使用模态 `dialog`，删除 Folder/取消收藏使用模态 `alertdialog`，后两者圈定焦点。所有弹层关闭时不提交未确认内容，并支持 `prefers-reduced-motion` 和非颜色单一语义。
+
+可维护设计源为 [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)，生成评审页为 [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)，收藏主页面、Folder 管理与取消收藏确认快照分别为 [`design/retrom-ui-favorites.png`](./design/retrom-ui-favorites.png)、[`design/retrom-ui-favorites-folder-manager.png`](./design/retrom-ui-favorites-folder-manager.png) 和 [`design/retrom-ui-favorites-unfavorite-dialog.png`](./design/retrom-ui-favorites-unfavorite-dialog.png)。设计中的图片、标题和数量仅用于评审，不进入生产 seed、fixture 或默认值。
 
 ### 6.5 我的存档
 
