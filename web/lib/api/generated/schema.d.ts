@@ -1143,7 +1143,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Platform directory summaries ordered by sortOrder; each item includes gameCount so destructive and disable actions can be guarded in the UI. */
+        /** @description Platform directory summaries ordered by sortOrder; each item includes gameCount and the platform-scoped supportedExtensions so destructive actions and import format guidance can be rendered without inferring from the default core. */
         get: operations["getAdminPlatformInstances"];
         put?: never;
         post: operations["postAdminPlatformInstance"];
@@ -2616,7 +2616,13 @@ export interface components {
             activeEmulatorjsVersion?: unknown;
             activeInstallation?: unknown;
             activeLaunchCount?: unknown;
-            actor?: unknown;
+            actor?: {
+                /** @enum {string} */
+                kind: "USER" | "SYSTEM";
+                /** Format: uuid */
+                userId: string | null;
+                label: string | null;
+            };
             acknowledgedGameIds?: unknown;
             after?: unknown;
             alreadyImportedFileCount?: unknown;
@@ -2960,6 +2966,7 @@ export interface components {
             sortOrder?: unknown;
             sortValues?: unknown;
             source?: unknown;
+            supportedExtensions?: string[];
             sourceDisplayName?: unknown;
             sourceFiles?: unknown;
             sourceManifest?: unknown;

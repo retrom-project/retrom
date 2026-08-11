@@ -590,7 +590,7 @@ paths:
   /api/v1/admin/platform-instances:
     get:
       operationId: getAdminPlatformInstances
-      description: Platform directory summaries ordered by sortOrder; each item includes gameCount so destructive and disable actions can be guarded in the UI.
+      description: Platform directory summaries ordered by sortOrder; each item includes gameCount and the platform-scoped supportedExtensions so destructive actions and import format guidance can be rendered without inferring from the default core.
       parameters: [{ $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/Enabled' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
@@ -2012,7 +2012,14 @@ components:
         activeEmulatorjsVersion: {}
         activeInstallation: {}
         activeLaunchCount: {}
-        actor: {}
+        actor:
+          type: object
+          additionalProperties: false
+          required: [kind, userId, label]
+          properties:
+            kind: { type: string, enum: [USER, SYSTEM] }
+            userId: { type: string, format: uuid, nullable: true }
+            label: { type: string, nullable: true }
         acknowledgedGameIds: {}
         after: {}
         alreadyImportedFileCount: {}
@@ -2350,6 +2357,9 @@ components:
         sortOrder: {}
         sortValues: {}
         source: {}
+        supportedExtensions:
+          type: array
+          items: { type: string, pattern: '^\.[a-z0-9]+$' }
         sourceDisplayName: {}
         sourceFiles: {}
         sourceManifest: {}

@@ -18,6 +18,7 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
+	"retrom/internal/contentprofile"
 	"retrom/internal/cursor"
 
 	"github.com/google/uuid"
@@ -250,18 +251,19 @@ VALUES(?,
 		writer,
 		http.StatusCreated,
 		map[string]any{
-			"id":            id.String(),
-			"platformId":    body.PlatformID,
-			"defaultCoreId": body.DefaultCoreID,
-			"name":          body.Name,
-			"slug":          slug,
-			"description":   body.Description,
-			"sortOrder":     body.SortOrder,
-			"enabled":       true,
-			"gameCount":     0,
-			"version":       1,
-			"createdAtMs":   now,
-			"updatedAtMs":   now,
+			"id":                  id.String(),
+			"platformId":          body.PlatformID,
+			"defaultCoreId":       body.DefaultCoreID,
+			"name":                body.Name,
+			"slug":                slug,
+			"description":         body.Description,
+			"sortOrder":           body.SortOrder,
+			"enabled":             true,
+			"gameCount":           0,
+			"supportedExtensions": contentprofile.SupportedExtensions(body.PlatformID),
+			"version":             1,
+			"createdAtMs":         now,
+			"updatedAtMs":         now,
 		},
 	)
 }
@@ -400,20 +402,21 @@ AND pi.deleted_at_ms IS NULL
 		return nil, fmt.Errorf("httpapi/platform_handlers: %w", err)
 	}
 	return map[string]any{
-		"id":              id,
-		"platformId":      platformID,
-		"platformName":    platformName,
-		"defaultCoreId":   defaultCoreID,
-		"defaultCoreName": defaultCoreName,
-		"name":            name,
-		"slug":            slug,
-		"description":     description,
-		"sortOrder":       sortOrder,
-		"enabled":         enabled == 1,
-		"version":         version,
-		"createdAtMs":     createdAtMS,
-		"updatedAtMs":     updatedAtMS,
-		"gameCount":       gameCount,
+		"id":                  id,
+		"platformId":          platformID,
+		"platformName":        platformName,
+		"defaultCoreId":       defaultCoreID,
+		"defaultCoreName":     defaultCoreName,
+		"name":                name,
+		"slug":                slug,
+		"description":         description,
+		"sortOrder":           sortOrder,
+		"enabled":             enabled == 1,
+		"version":             version,
+		"createdAtMs":         createdAtMS,
+		"updatedAtMs":         updatedAtMS,
+		"gameCount":           gameCount,
+		"supportedExtensions": contentprofile.SupportedExtensions(platformID),
 		"importCapabilities": contentcapability.Resolve(
 			platformID, enabled == 1, server.config.MultiDiscImportEnabled, compatibility,
 		),

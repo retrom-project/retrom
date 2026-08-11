@@ -243,10 +243,10 @@ erDiagram
 | PC-FX (`pcfx`) | `mednafen_pcfx` | PC-FX 游戏（`pc-fx-games`）→ `mednafen_pcfx` | 单文件 CHD |
 | 3DO (`3do`) | `opera` | 3DO 游戏（`3do-games`）→ `opera` | 单文件 CHD |
 | PlayStation Portable (`psp`) | `ppsspp` | PSP 游戏（`psp-games`）→ `ppsspp` | raw ISO/CSO；需要线程与固定辅助资产 |
-| Virtual Boy (`virtualboy`) | `beetle_vb` | Virtual Boy 游戏（`virtual-boy-games`）→ `beetle_vb` | 四条锁定启动动作，最大延迟 25 秒 |
+| Virtual Boy (`virtualboy`) | `beetle_vb` | Virtual Boy 游戏（`virtual-boy-games`）→ `beetle_vb` | `.vb`；四条锁定启动动作，最大延迟 25 秒 |
 | WonderSwan / Color (`wonderswan`) | `mednafen_wswan` | WonderSwan 游戏（`wonderswan-games`）→ `mednafen_wswan` | `.ws` / `.wsc` 单文件 |
-| Master System (`mastersystem`) | `smsplus` | Master System 游戏（`master-system-games`）→ `smsplus` | 本期只建立 Master System 映射 |
-| Nintendo 3DS (`nintendo3ds`) | `azahar` | Nintendo 3DS 游戏（`nintendo-3ds-games`）→ `azahar` | 4.3.0-pre thread、pointer、WebGL2 |
+| Master System (`mastersystem`) | `smsplus` | Master System 游戏（`master-system-games`）→ `smsplus` | `.sms`；本期只建立 Master System 映射 |
+| Nintendo 3DS (`nintendo3ds`) | `azahar` | Nintendo 3DS 游戏（`nintendo-3ds-games`）→ `azahar` | `.3ds` / `.cci`；4.3.0-pre thread、pointer、WebGL2 |
 
 平台和核心是代码种子/版本化配置；游戏目录是管理员可创建、重命名和调整默认核心的业务实体。游戏目录不是标签或多对多收藏集。
 

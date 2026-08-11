@@ -13,6 +13,7 @@ export type PlatformInstance = {
   enabled: boolean;
   version: number;
   gameCount: number;
+  supportedExtensions: string[];
 };
 
 export type PlatformDirectoryFilters = {

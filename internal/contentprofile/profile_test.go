@@ -16,7 +16,9 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		"saturn": {"game.chd"}, "megadrive": {"game.md"}, "n64": {"game.z64"},
 		"3do": {"game.chd"}, "atari7800": {"game.a78"}, "atari2600": {"game.a26"},
 		"pce": {"game.pce"}, "pcfx": {"game.chd"}, "ngpc": {"game.ngp"},
-		"psp": {"game.iso", "game.CSO"},
+		"psp": {"game.iso", "game.CSO"}, "virtualboy": {"game.vb"},
+		"wonderswan": {"game.ws", "game.WSC"}, "mastersystem": {"game.sms"},
+		"nintendo3ds": {"game.3ds", "game.CCI"},
 	}
 	for platformID, names := range tests {
 		for _, name := range names {
@@ -36,6 +38,34 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		if AcceptsRaw(rejected.platform, rejected.name) {
 			t.Errorf("AcceptsRaw(%q, %q) = true", rejected.platform, rejected.name)
 		}
+	}
+}
+
+func TestSupportedExtensionsCoverEverySeededPlatformWithoutExposingWrappers(t *testing.T) {
+	t.Parallel()
+	tests := map[string][]string{
+		"virtualboy": {".vb"}, "wonderswan": {".ws", ".wsc"},
+		"mastersystem": {".sms"}, "nintendo3ds": {".3ds", ".cci"},
+		"arcade": {".zip"}, "dos": {".exe", ".com", ".bat"},
+		"nes": {".nes", ".unf", ".unif"},
+	}
+	for platformID, want := range tests {
+		got := SupportedExtensions(platformID)
+		if len(got) != len(want) {
+			t.Fatalf("SupportedExtensions(%q) = %#v, want %#v", platformID, got, want)
+		}
+		for index := range want {
+			if got[index] != want[index] {
+				t.Fatalf("SupportedExtensions(%q) = %#v, want %#v", platformID, got, want)
+			}
+		}
+		got[0] = ".changed"
+		if SupportedExtensions(platformID)[0] != want[0] {
+			t.Fatalf("SupportedExtensions(%q) exposed mutable registry storage", platformID)
+		}
+	}
+	if got := SupportedExtensions("unknown"); len(got) != 0 {
+		t.Fatalf("unknown platform extensions = %#v", got)
 	}
 }
 

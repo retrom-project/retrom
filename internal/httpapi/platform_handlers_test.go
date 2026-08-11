@@ -122,8 +122,9 @@ func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *
 		t.Fatal(err)
 	}
 	type platform struct {
-		PlatformID         string                               `json:"platformId"`
-		ImportCapabilities contentcapability.ImportCapabilities `json:"importCapabilities"`
+		PlatformID          string                               `json:"platformId"`
+		SupportedExtensions []string                             `json:"supportedExtensions"`
+		ImportCapabilities  contentcapability.ImportCapabilities `json:"importCapabilities"`
 	}
 	read := func() map[string]platform {
 		t.Helper()
@@ -149,6 +150,27 @@ func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *
 	}
 	server.config.MultiDiscImportEnabled = true
 	items := read()
+	for platformID, item := range items {
+		if len(item.SupportedExtensions) == 0 {
+			t.Fatalf("%s has no supported extensions", platformID)
+		}
+	}
+	wantExtensions := map[string][]string{
+		"virtualboy": {".vb"}, "wonderswan": {".ws", ".wsc"},
+		"mastersystem": {".sms"}, "nintendo3ds": {".3ds", ".cci"},
+		"arcade": {".zip"}, "dos": {".exe", ".com", ".bat"},
+	}
+	for platformID, want := range wantExtensions {
+		got := items[platformID].SupportedExtensions
+		if len(got) != len(want) {
+			t.Fatalf("%s extensions = %#v, want %#v", platformID, got, want)
+		}
+		for index := range want {
+			if got[index] != want[index] {
+				t.Fatalf("%s extensions = %#v, want %#v", platformID, got, want)
+			}
+		}
+	}
 	if saturn := items["saturn"].ImportCapabilities; len(saturn.ContentModes) != 2 ||
 		saturn.ContentModes[1] != contentcapability.ModeMultiDiscM3UV1 || saturn.MultiDisc == nil {
 		t.Fatalf("Saturn capabilities = %#v", saturn)
