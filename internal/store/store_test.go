@@ -239,7 +239,7 @@ func TestSupportedMigrationVersionsIdempotencyAndFutureProtection(t *testing.T) 
 		t.Fatal(err)
 	}
 	var supported []int
-	if err := json.Unmarshal(contents, &supported); err != nil || !slices.Equal(supported, []int{23, 24}) {
+	if err := json.Unmarshal(contents, &supported); err != nil || !slices.Equal(supported, []int{23, 24, 25}) {
 		t.Fatalf("supported versions = %#v, error=%v", supported, err)
 	}
 	fixture := filepath.Join(repositoryRoot, "migrations", "testdata", "023_fixture.sql")
@@ -318,7 +318,7 @@ func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) 
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 25 {
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 26 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	var actorKind, actorUserID string

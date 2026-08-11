@@ -1,0 +1,89 @@
+package httpapi
+
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+	"testing"
+)
+
+func TestBIOSFullCatalogCursorTraverses286Items(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	if _, err := server.database.Exec(`
+INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
+source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
+VALUES('bios-page-artifact','mgba','4.2.3','paging','WASM','data/paging.js',1,lower(hex(zeroblob(32))),
+NULL,'{}','{}',1,1,1,1)
+`); err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := server.database.BeginTx(context.Background(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index < 286; index++ {
+		if _, err := transaction.Exec(`
+INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
+source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
+VALUES(?, 'mgba','bios-page-artifact','STATIC',NULL,?,'REQUIRED',NULL,NULL,lower(hex(zeroblob(32))),
+1,lower(hex(randomblob(16))),NULL,NULL,'https://example.invalid/bios','paging-v1',1,1,1,1,'BIOS_BUNDLE',NULL)
+`, fmt.Sprintf("paging-requirement-%03d", index), fmt.Sprintf("bios-%03d.bin", index)); err != nil {
+			_ = transaction.Rollback()
+			t.Fatal(err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	type page struct {
+		FilteredCount int64 `json:"filteredCount"`
+		Items         []struct {
+			ID string `json:"id"`
+		} `json:"items"`
+		NextCursor *string `json:"nextCursor"`
+	}
+	var cursorValue string
+	seen := map[string]struct{}{}
+	sizes := []int{}
+	for {
+		url := "/api/v1/admin/bios?scope=FULL_CATALOG&limit=100"
+		if cursorValue != "" {
+			url += "&cursor=" + cursorValue
+		}
+		response := httptest.NewRecorder()
+		server.bios(response, httptest.NewRequest(http.MethodGet, url, nil))
+		if response.Code != http.StatusOK {
+			t.Fatalf("page = %d %s", response.Code, response.Body.String())
+		}
+		var body page
+		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
+			t.Fatal(err)
+		}
+		if body.FilteredCount != 286 {
+			t.Fatalf("filtered = %d", body.FilteredCount)
+		}
+		sizes = append(sizes, len(body.Items))
+		for _, item := range body.Items {
+			if _, exists := seen[item.ID]; exists {
+				t.Fatalf("duplicate %s", item.ID)
+			}
+			seen[item.ID] = struct{}{}
+		}
+		if body.NextCursor == nil {
+			break
+		}
+		cursorValue = *body.NextCursor
+	}
+	if fmt.Sprint(sizes) != "[100 100 86]" || len(seen) != 286 {
+		t.Fatalf("pages=%v seen=%d", sizes, len(seen))
+	}
+	invalid := httptest.NewRecorder()
+	server.bios(invalid, httptest.NewRequest(http.MethodGet, "/api/v1/admin/bios?scope=FULL_CATALOG&quick=OPTIONAL&limit=100&cursor="+cursorValue, nil))
+	if invalid.Code != http.StatusBadRequest {
+		t.Fatalf("cross-filter cursor = %d %s", invalid.Code, invalid.Body.String())
+	}
+}

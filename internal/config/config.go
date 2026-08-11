@@ -1,8 +1,10 @@
 package config
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/netip"
 	"net/url"
@@ -26,6 +28,7 @@ var knownVariables = map[string]struct{}{
 	"RETROM_ACTIVE_EMULATORJS_VERSION": {}, "RETROM_TRUSTED_PROXIES": {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
 	"RETROM_MULTI_DISC_IMPORT_ENABLED": {},
+	"RETROM_SERVER_IMPORT_ROOTS":       {},
 }
 
 var ignoredPrefixes = []string{
@@ -46,6 +49,14 @@ type Config struct {
 	StartupCheckTimeout    time.Duration
 	LogLevel               string
 	MultiDiscImportEnabled bool
+	ServerImportRoots      []ServerImportRoot
+}
+
+type ServerImportRoot struct {
+	ID            string `json:"id"`
+	Label         string `json:"label"`
+	Path          string `json:"path"`
+	CanonicalPath string `json:"-"`
 }
 
 type Mode string
@@ -113,7 +124,7 @@ func LoadRestoreMaintenance() (Maintenance, error) {
 	return loadDependencyMaintenance()
 }
 
-//nolint:gocyclo // Environment branches are independent fail-fast contract checks in a single configuration source.
+//nolint:gocyclo,funlen // Independent environment checks stay in one ordered fail-fast startup boundary.
 func Load(mode Mode) (Config, error) {
 	if mode != ModeRelease && mode != ModeTest {
 		return Config{}, fmt.Errorf("%w: mode", errInvalidConfig)
@@ -189,12 +200,108 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
+	serverImportRoots, err := parseServerImportRoots(
+		os.Getenv("RETROM_SERVER_IMPORT_ROOTS"), dataDir, dependencyRoot,
+	)
+	if err != nil {
+		return Config{}, err
+	}
 	return Config{
 		Mode: mode, HTTPAddr: httpAddr, PublicOrigin: publicOrigin, DataDir: dataDir, DBPath: dbPath,
 		DependencyRoot: dependencyRoot, DependencyVersions: versions, ActiveEJSVersion: active,
 		TrustedProxies: proxies, StartupCheckTimeout: startupTimeout, LogLevel: logLevel,
 		MultiDiscImportEnabled: multiDiscImportEnabled,
+		ServerImportRoots:      serverImportRoots,
 	}, nil
+}
+
+//nolint:gocognit,gocyclo // Each branch enforces an independent closed-schema or filesystem boundary invariant.
+func parseServerImportRoots(raw, dataDir, dependencyRoot string) ([]ServerImportRoot, error) {
+	if raw == "" {
+		return []ServerImportRoot{}, nil
+	}
+	decoder := json.NewDecoder(strings.NewReader(raw))
+	decoder.DisallowUnknownFields()
+	var roots []ServerImportRoot
+	if err := decoder.Decode(&roots); err != nil || roots == nil || decoder.More() || len(roots) > 8 {
+		return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+	}
+	var trailing any
+	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
+		return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+	}
+	ids := make(map[string]struct{}, len(roots))
+	labels := make(map[string]struct{}, len(roots))
+	home, _ := os.UserHomeDir()
+	for index := range roots {
+		root := &roots[index]
+		invalidLabel := root.Label != strings.TrimSpace(root.Label) || len([]rune(root.Label)) < 1 ||
+			len([]rune(root.Label)) > 40 || len([]byte(root.Label)) > 160 || containsControl(root.Label)
+		invalidPath := root.Path == "" || !filepath.IsAbs(root.Path) || filepath.Clean(root.Path) != root.Path
+		if !validServerImportRootID(root.ID) || invalidLabel || invalidPath {
+			return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+		}
+		if _, exists := ids[root.ID]; exists {
+			return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+		}
+		if _, exists := labels[root.Label]; exists {
+			return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+		}
+		ids[root.ID], labels[root.Label] = struct{}{}, struct{}{}
+		canonical, err := canonicalDirectoryWithoutSymlinks(root.Path)
+		if err != nil || canonical == string(filepath.Separator) || canonical == home {
+			return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+		}
+		for _, protected := range []string{dataDir, dependencyRoot} {
+			if pathsOverlap(canonical, protected) {
+				return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+			}
+		}
+		for previous := range index {
+			if pathsOverlap(canonical, roots[previous].CanonicalPath) {
+				return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+			}
+		}
+		root.CanonicalPath = canonical
+	}
+	return roots, nil
+}
+
+func validServerImportRootID(value string) bool {
+	if len(value) < 1 || len(value) > 32 || value[0] < 'a' || value[0] > 'z' {
+		return false
+	}
+	for _, character := range value[1:] {
+		if character != '-' && (character < 'a' || character > 'z') && (character < '0' || character > '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func containsControl(value string) bool {
+	for _, character := range value {
+		if character < 0x20 || character >= 0x7f && character <= 0x9f {
+			return true
+		}
+	}
+	return false
+}
+
+func canonicalDirectoryWithoutSymlinks(path string) (string, error) {
+	info, err := os.Lstat(path)
+	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
+		return "", errInvalidConfig
+	}
+	canonical, err := filepath.EvalSymlinks(path)
+	if err != nil || canonical != path {
+		return "", errInvalidConfig
+	}
+	return canonical, nil
+}
+
+func pathsOverlap(left, right string) bool {
+	return pathWithin(left, right) || pathWithin(right, left)
 }
 
 func parseStrictBoolean(name, value string, defaultValue bool) (bool, error) {

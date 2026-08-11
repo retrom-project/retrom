@@ -4,7 +4,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 实施就绪结论
 
-一期基线、账户隔离升级与 Saturn/yabause 多盘系统已经落入代码、migration、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。多盘内容以一个 M3U 和按序 2–8 个 CHD 形成不可拆分 revision，正式细节分别由导入、数据、HTTP、运行时和 UI 专题维护。本文档集描述当前实现契约，后续变更仍按 [`implementation-plan.md`](./implementation-plan.md) 的垂直切片与门禁推进。
+一期基线、账户隔离升级、Saturn/yabause 多盘系统和 Migration 026 服务器 BIOS 导入已经落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。多盘内容以一个 M3U 和按序 2–8 个 CHD 形成不可拆分 revision；服务器 BIOS 导入只读取部署者配置的只读 root，并按完整启用 catalog 异步发现、排序和逐项安装。正式细节分别由数据、BIOS、HTTP、运维和 UI 专题维护。
 
 | 检查面 | 状态 | 实施事实源 |
 | --- | --- | --- |
@@ -29,7 +29,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 - [`platform-instance.md`](./platform-instance.md)：游戏目录（PlatformInstance）的唯一归属、默认核心、导入快照、数据库约束和生命周期。
 - [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核、Arcade Parent 与多盘缺盘补充、历史回溯。
-- [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、核心专属 Arcade DAT、完整 machine/parent/BIOS 依赖闭包和 Parent ZIP 内容校验。
+- [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、服务器目录批量导入、核心专属 Arcade DAT、完整 machine/parent/BIOS 依赖闭包和 Parent ZIP 内容校验。
 - [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、预检、EmulatorJS、DOS 启动程序、存档与游玩时长。
 - [`favorites-and-collections.md`](./favorites-and-collections.md)：Profile 私有收藏、可重复加入的收藏夹、跨页面接入与统一验收入口。
 - [`core-runtime-validation.md`](./core-runtime-validation.md)：28 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 双格式和 MAME2003 兼容覆盖。
@@ -77,6 +77,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`design/retrom-ui-platform-directory-create.png`](./design/retrom-ui-platform-directory-create.png)：新建游戏目录 Drawer。
 - [`design/retrom-ui-bios-files.png`](./design/retrom-ui-bios-files.png)：BIOS 文件管理。
 - [`design/retrom-ui-bios-entry-compare.png`](./design/retrom-ui-bios-entry-compare.png)：Arcade BIOS 的 DAT/ZIP 条目对比。
+- [`design/retrom-ui-server-import.png`](./design/retrom-ui-server-import.png)、[`design/retrom-ui-server-import-drawer.png`](./design/retrom-ui-server-import-drawer.png)、[`design/retrom-ui-server-import-detail-4k.png`](./design/retrom-ui-server-import-detail-4k.png)：服务器 BIOS 导入首页、目录选择 Drawer 与 4K 结果解释。
 - [`design/retrom-ui-dat-versions.png`](./design/retrom-ui-dat-versions.png)：Arcade DAT 版本管理。
 
 ## 维护规则

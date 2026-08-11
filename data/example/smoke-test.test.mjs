@@ -8,7 +8,8 @@ import {
   expandMultiDiscFixtures,
   resolveChromeBinary,
   resolveResultPath,
-  resolveResultsDirectory
+  resolveResultsDirectory,
+  selectableFixtures
 } from "./smoke-test.mjs";
 
 test("smoke results can be isolated from the tracked historical baseline", () => {
@@ -53,6 +54,19 @@ test("multi-disc fixtures reuse the pinned yabause runtime without joining the y
   assert.deepEqual(expandFixtureRuns(runs, ["yabause"]).map(run => run.runId || run.core), ["yabause"]);
   assert.deepEqual(expandFixtureRuns(runs, ["multidisc-saturn-2"]).map(run => run.runId), ["multidisc-saturn-2"]);
   assert.deepEqual(runs[1].expectedExternalFiles, ["disc-001.chd", "disc-002.chd"]);
+});
+
+test("candidate fixtures require an explicit selector", () => {
+  const manifest = {
+    fixtures: [{ core: "yabause", bios: [], coreArtifact: { path: "yabause.data" } }],
+    candidateFixtures: [{ core: "bsnes", supportStatus: "candidate" }],
+    multiDiscFixtures: []
+  };
+  assert.deepEqual(selectableFixtures(manifest).map(fixture => fixture.core), ["yabause"]);
+  assert.deepEqual(
+    selectableFixtures(manifest, ["bsnes"]).map(fixture => fixture.core),
+    ["yabause", "bsnes"]
+  );
 });
 
 test("explicit Chrome path is validated instead of silently falling back", async () => {

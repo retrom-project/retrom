@@ -310,6 +310,8 @@ flowchart LR
 
 ### 8.2 BIOS 与 DAT
 
+服务器 BIOS 导入是一期管理能力：部署者用 `RETROM_SERVER_IMPORT_ROOTS` 建立只读宿主目录信任边界，浏览器只提交 root ID 与规范相对目录。每次任务冻结全部 enabled CoreArtifact 的完整 BIOS catalog（含可选与条件项），先完整发现和评估，再逐 Requirement 短事务安装；历史 Launch/VariantRevision 继续引用既有不可变依赖快照。外部 source 不属于 Retrom 数据根、CAS 或 backup，恢复时不得自动续跑依赖该 source 的任务。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
+
 普通核心的 BIOS 需求来自版本化静态目录；Arcade 核心的 machine/parent/BIOS 依赖从该核心活动 DAT 解析。管理页按平台和核心展示逻辑文件名、期望哈希、已安装 Blob 的实际哈希、来源和受影响游戏。
 
 哈希不一致只警告，不禁止用户保存 BIOS；启动是否阻断由该固件对当前 content 是否适用、Requirement 的必需/可选模式和 installation 状态共同决定。Gambatte/mGBA 的可选启动 BIOS 还会从版本化 Requirement 合并上游要求的 core option，不能只挂载文件却忘记启用。Arcade 默认只把当前游戏库实际引用的缺失依赖标为阻断，完整核心目录中未被任何游戏使用的 BIOS 不标红。

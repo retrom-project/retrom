@@ -176,15 +176,20 @@ def verify_format_variants(fixture: dict[str, Any], errors: list[str]) -> None:
 
 
 def selected_fixtures(manifest: dict, selectors: set[str]) -> tuple[list[dict], list[dict], set[str]]:
-    core_fixtures = manifest.get("fixtures", [])
+    formal_fixtures = manifest.get("fixtures", [])
+    candidate_fixtures = manifest.get("candidateFixtures", [])
     multi_disc_fixtures = manifest.get("multiDiscFixtures", [])
-    known = {fixture.get("core") for fixture in core_fixtures}
+    known = {fixture.get("core") for fixture in formal_fixtures + candidate_fixtures}
     known.update(fixture.get("id") for fixture in multi_disc_fixtures)
     unknown = selectors - known
     if not selectors:
-        return core_fixtures, multi_disc_fixtures, unknown
+        return formal_fixtures, multi_disc_fixtures, unknown
     return (
-        [fixture for fixture in core_fixtures if fixture.get("core") in selectors],
+        [
+            fixture
+            for fixture in formal_fixtures + candidate_fixtures
+            if fixture.get("core") in selectors
+        ],
         [fixture for fixture in multi_disc_fixtures if fixture.get("id") in selectors],
         unknown,
     )
@@ -243,6 +248,7 @@ def main() -> int:
     except (OSError, json.JSONDecodeError) as error:
         errors.append(f"unable to read EmulatorJS core catalog: {error}")
         core_catalog = []
+    core_catalogs = {emulatorjs["version"]: core_catalog}
 
     seen_games: set[str] = set()
     seen_cores: set[str] = set()
@@ -271,11 +277,30 @@ def main() -> int:
             ):
                 errors.append(f"{core}: core artifact does not match dependency manifest selection")
         else:
-            if not any(record.get("name") == emulator_core for record in core_catalog):
+            if runtime_version not in core_catalogs:
+                version_catalog_path = (
+                    REPO_ROOT
+                    / f"data/runtime/emulatorjs/{runtime_version}/data/cores/cores.json"
+                )
+                try:
+                    core_catalogs[runtime_version] = json.loads(
+                        version_catalog_path.read_text(encoding="utf-8")
+                    )
+                except (OSError, json.JSONDecodeError) as error:
+                    errors.append(
+                        f"{core}: unable to read EmulatorJS {runtime_version} core catalog: {error}"
+                    )
+                    core_catalogs[runtime_version] = []
+            if not any(
+                record.get("name") == emulator_core
+                for record in core_catalogs[runtime_version]
+            ):
                 errors.append(
                     f"{core}: EmulatorJS core {emulator_core!r} is absent from {runtime_version}"
                 )
-            expected_prefix = f"{emulatorjs['dataPath']}/cores/{emulator_core}-"
+            expected_prefix = (
+                f"data/runtime/emulatorjs/{runtime_version}/data/cores/{emulator_core}-"
+            )
             if not actual_artifact["path"].startswith(expected_prefix):
                 errors.append(
                     f"{core}: candidate artifact is outside the pinned core path"
@@ -299,10 +324,20 @@ def main() -> int:
                 errors,
             )
             member = fixture["game"].get("extractedMember")
-            if archive_path.is_file() and game_path.is_file() and member:
+            single_member = fixture["game"].get("singleMemberArchive") is True
+            if archive_path.is_file() and game_path.is_file() and (member or single_member):
                 try:
-                    with zipfile.ZipFile(archive_path) as archive, archive.open(member) as content:
-                        extracted_sha256 = digest_reader(content, "sha256")
+                    with zipfile.ZipFile(archive_path) as archive:
+                        if single_member:
+                            members = [entry for entry in archive.infolist() if not entry.is_dir()]
+                            if len(members) != 1:
+                                errors.append(
+                                    f"{core}: expected one source archive member, found {len(members)}"
+                                )
+                                continue
+                            member = members[0]
+                        with archive.open(member) as content:
+                            extracted_sha256 = digest_reader(content, "sha256")
                     if extracted_sha256 != fixture["game"]["sha256"]:
                         errors.append(
                             f"{core}: extracted member {member!r} hashes to {extracted_sha256}, "
@@ -315,6 +350,12 @@ def main() -> int:
             if not bios_source or Path(bios_source).is_absolute() or ".." in Path(bios_source).parts:
                 errors.append(f"{core}: unsafe or missing BIOS sourceRelativePath")
             require_file(bios, f"{core} BIOS {bios['filename']}", errors)
+        parent = fixture.get("parent")
+        if parent:
+            parent_source = parent.get("sourceRelativePath", "")
+            if not parent_source or Path(parent_source).is_absolute() or ".." in Path(parent_source).parts:
+                errors.append(f"{core}: unsafe or missing parent sourceRelativePath")
+            require_file(parent, f"{core} parent archive", errors)
         require_file(fixture["coreArtifact"], f"{core} core artifact", errors)
         for runtime_file in fixture.get("runtimeFiles", []):
             require_file(runtime_file, f"{core} runtime file", errors)

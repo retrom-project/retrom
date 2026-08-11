@@ -1,6 +1,10 @@
 package config
 
 import (
+	"fmt"
+	"os"
+	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -27,6 +31,77 @@ func TestParsePublicOriginRequiresExplicitDevelopmentOptInForHTTPHosts(t *testin
 				t.Fatalf("parsePublicOrigin(%q, %t) error = %v", test.value, test.allowInsecure, err)
 			}
 		})
+	}
+}
+
+func TestParseServerImportRootsStrictSchemaAndOverlap(t *testing.T) {
+	t.Parallel()
+	base := t.TempDir()
+	dataDir := filepath.Join(base, "data")
+	dependencyRoot := filepath.Join(base, "deps")
+	rootA := filepath.Join(base, "source-a")
+	rootB := filepath.Join(base, "source-b")
+	for _, path := range []string{dataDir, dependencyRoot, rootA, rootB} {
+		if err := os.MkdirAll(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+	}
+	valid := `[{"id":"rom-library","label":"ROM 仓库","path":"` + rootA + `"},{"id":"archive","label":"归档盘","path":"` + rootB + `"}]`
+	roots, err := parseServerImportRoots(valid, dataDir, dependencyRoot)
+	if err != nil || len(roots) != 2 || roots[0].CanonicalPath != rootA {
+		t.Fatalf("valid roots = %#v, %v", roots, err)
+	}
+	invalid := []string{
+		`null`,
+		`[] {}`,
+		`[{"id":"a","label":"A","path":"` + rootA + `"}] trailing`,
+		`[{"id":"Bad","label":"bad","path":"` + rootA + `"}]`,
+		`[{"id":"a","label":"A\u0000B","path":"` + rootA + `"}]`,
+		`[{"id":"a","label":" same ","path":"` + rootA + `"}]`,
+		`[{"id":"a","label":"same","path":"` + rootA + `","extra":true}]`,
+		`[{"id":"a","label":"same","path":"` + dataDir + `"}]`,
+		`[{"id":"a","label":"same","path":"/"}]`,
+		`[{"id":"a","label":"same","path":"relative"}]`,
+		`[{"id":"a","label":"same","path":"` + rootA + `"},{"id":"a","label":"other","path":"` + rootB + `"}]`,
+		`[{"id":"a","label":"same","path":"` + rootA + `"},{"id":"b","label":"same","path":"` + rootB + `"}]`,
+	}
+	for _, value := range invalid {
+		if _, parseErr := parseServerImportRoots(value, dataDir, dependencyRoot); parseErr == nil {
+			t.Errorf("invalid roots accepted: %s", value)
+		}
+	}
+	nested := filepath.Join(rootA, "nested")
+	if err := os.Mkdir(nested, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	overlap := `[{"id":"a","label":"A","path":"` + rootA + `"},{"id":"b","label":"B","path":"` + nested + `"}]`
+	if _, err := parseServerImportRoots(overlap, dataDir, dependencyRoot); err == nil {
+		t.Fatal("overlapping roots accepted")
+	}
+	symlink := filepath.Join(base, "source-link")
+	if err := os.Symlink(rootA, symlink); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseServerImportRoots(`[{"id":"link","label":"Link","path":"`+symlink+`"}]`, dataDir, dependencyRoot); err == nil {
+		t.Fatal("symlink root accepted")
+	}
+	filePath := filepath.Join(base, "not-a-directory")
+	if err := os.WriteFile(filePath, []byte("fixture"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := parseServerImportRoots(`[{"id":"file","label":"File","path":"`+filePath+`"}]`, dataDir, dependencyRoot); err == nil {
+		t.Fatal("regular file root accepted")
+	}
+	entries := make([]string, 0, 9)
+	for index := range 9 {
+		path := filepath.Join(base, fmt.Sprintf("root-%d", index))
+		if err := os.Mkdir(path, 0o700); err != nil {
+			t.Fatal(err)
+		}
+		entries = append(entries, fmt.Sprintf(`{"id":"r%d","label":"Root %d","path":%q}`, index, index, path))
+	}
+	if _, err := parseServerImportRoots("["+strings.Join(entries, ",")+"]", dataDir, dependencyRoot); err == nil {
+		t.Fatal("nine roots accepted")
 	}
 }
 

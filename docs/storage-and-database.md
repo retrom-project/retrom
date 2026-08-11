@@ -408,6 +408,12 @@ Migration 025 新增三张无 Blob 引用的关系表：Favorite、FavoriteFolde
 
 回滚旧应用必须停止服务并恢复部署前完整数据根，不允许删除 025 表、手工降低 `schema_migrations` 或让旧二进制继续写新 schema。Blob reference registry 保持不变。完整字段和索引见 [`data-model.md`](./data-model.md)，恢复证据由 `ACC-FAV-001` 维护。
 
-## 11. 统一验收入口
+## 11. 外部服务器 source 与恢复边界
+
+服务器导入 root 是 Retrom 数据根之外的只读 source，不进入 backup、CAS 引用根或依赖物化目录。目录浏览、递归扫描和最终复制都逐段使用 Linux `openat`/`O_NOFOLLOW` 与 `fstat`；只接受规范 UTF-8 相对路径，跳过 special file，并防止 symlink/rename 逃逸。发现完成前不创建 Installation；选中候选进入 CAS 前重新打开、重新哈希并重验 archive，变化的 source 以 `SOURCE_CHANGED` 收口。
+
+候选 bytes 可由 SHA-256 CAS 去重；只有 Installation 等业务引用保护 Blob，无引用候选由统一 GC 回收。backup 保留 ServerImport/Item/Candidate 审计和已经导入的 CAS bytes，但不打包外部目录。restore 在开放 HTTP 前把所有非终态 `SERVER_BIOS_IMPORT` Job 与 ServerImport 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，即使恢复主机存在同名 root 也不得自动继续。
+
+## 12. 统一验收入口
 
 SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-BKP-001`、`ACC-AUTH-001`–`002` 与 `ACC-ISO-*`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`。本文不再维护重复通过条件。

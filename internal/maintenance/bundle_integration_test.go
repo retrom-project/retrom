@@ -11,6 +11,7 @@ import (
 	"errors"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -181,6 +182,24 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedBackupFavorites(t, database.SQL, admin.Principal.ProfileID)
+	const serverImportID = "01980000-0000-7000-8000-00000000f601"
+	const serverImportJobID = "01980000-0000-7000-8000-00000000f602"
+	if _, err := database.SQL.Exec(`
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,leased_until_ms,heartbeat_at_ms,worker_id,created_at_ms,updated_at_ms)
+VALUES(?,'SERVER_IMPORT',?,'SERVER_BIOS_IMPORT',?,1,'{"inputExecutionNo":1}',1,'RUNNING',1,4,1,1,60000,1,
+'server-import-worker',1,1)
+`, serverImportJobID, serverImportID, strings.Repeat("a", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.Exec(`
+INSERT INTO server_imports(id,kind,root_id,root_label_snapshot,source_relative_path,root_config_digest,
+catalog_snapshot_digest,replace_if_better,state,phase,catalog_item_count,job_id,created_by_user_id,version,
+created_at_ms,updated_at_ms)
+VALUES(?,'BIOS_DIRECTORY','backup-root','Backup root','bios',?,?,0,'RUNNING','DISCOVERING',0,?,?,1,1,1)
+`, serverImportID, strings.Repeat("b", 64), strings.Repeat("c", 64), serverImportJobID, admin.Principal.UserID); err != nil {
+		t.Fatal(err)
+	}
 	favoriteHash, favoriteRows := favoriteBackupSnapshot(t, database.SQL)
 	if favoriteRows != 3 {
 		t.Fatalf("seed favorite rows = %d", favoriteRows)
@@ -235,18 +254,21 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 			favoriteRows, favoriteHash, restoredFavoriteRows, restoredFavoriteHash,
 		)
 	}
-	var fencedSessions, fencedLinks, fenceAudits int
+	var fencedSessions, fencedLinks, fenceAudits, fencedServerImports int
 	if err := restoredDatabase.QueryRow(`
 SELECT
   (SELECT count(*) FROM auth_sessions WHERE revoked_reason='RESTORE' AND revoked_at_ms IS NOT NULL),
   (SELECT count(*) FROM account_links WHERE revoked_by_kind='SYSTEM' AND revoked_at_ms IS NOT NULL),
   (SELECT count(*) FROM audit_events
-   WHERE actor_kind='SYSTEM' AND actor_label='restore-security-fence' AND action='RESTORE_SECURITY_FENCE')
-`).Scan(&fencedSessions, &fencedLinks, &fenceAudits); err != nil ||
-		fencedSessions < 1 || fencedLinks != 1 || fenceAudits != 1 {
+   WHERE actor_kind='SYSTEM' AND actor_label='restore-security-fence' AND action='RESTORE_SECURITY_FENCE'),
+  (SELECT count(*) FROM server_imports import JOIN jobs job ON job.id=import.job_id
+   WHERE import.id=? AND import.state='FAILED' AND import.last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED'
+   AND job.state='FAILED' AND job.error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND job.error_retryable=0)
+`, serverImportID).Scan(&fencedSessions, &fencedLinks, &fenceAudits, &fencedServerImports); err != nil ||
+		fencedSessions < 1 || fencedLinks != 1 || fenceAudits != 1 || fencedServerImports != 1 {
 		t.Fatalf(
-			"restore fence = sessions=%d links=%d audits=%d error=%v",
-			fencedSessions, fencedLinks, fenceAudits, err,
+			"restore fence = sessions=%d links=%d audits=%d serverImports=%d error=%v",
+			fencedSessions, fencedLinks, fenceAudits, fencedServerImports, err,
 		)
 	}
 	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(

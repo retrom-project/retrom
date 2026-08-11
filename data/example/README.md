@@ -50,12 +50,34 @@
 
 `melonds` 的 BIOS 必须放到 4.2.3 RetroArch system 目录 `/retroarch/userdata/system/`；写到虚拟文件系统根目录会回退到 FreeBIOS 并停在空白双屏。`mednafen_psx_hw` 在本机无 GPU 的 Chrome/SwiftShader 硬件渲染路径会于启动阶段失败，因此候选示例显式选择同一 core 的 software renderer；本记录不声称硬件渲染路径已验证。
 
-原请求中未生成示例的核心：
+## 候选核心探测
 
-| 核心 | 原因 |
+`candidateFixtures` 与正式 28 核基线隔离：不带 selector 的 `verify-fixtures.py` 和 `smoke-test.mjs` 仍只处理正式夹具，候选核心必须显式指定。候选示例只证明固定 runtime、core artifact 与本地验证内容的当前组合，不能据此宣称已经进入产品 manifest、adapter registry 或正式验收。
+
+| 候选核心 | Runtime | 固定验证内容 | BIOS/父集 |
+| --- | --- | --- | --- |
+| `beetle_vb` | `4.2.3` | Virtual Boy / Panic Bomber | — |
+| `mednafen_wswan` | `4.2.3` | WonderSwan / Mingle Magnet | — |
+| `smsplus` | `4.2.3` | Master System / Bank Panic | — |
+| `fbalpha2012_cps1` | `4.2.3` | CPS-1 / 1941 | 此 machine 无额外 BIOS |
+| `fbalpha2012_cps2` | `4.2.3` | CPS-2 / Pocket Fighter (`sgemf`) | 独立父集，此 machine 无额外 BIOS |
+| `bsnes` | `4.3.0-pre` | Super Famicom / Super Bomberman | thread artifact，无 BIOS |
+| `genesis_plus_gx_wide` | `4.3.0-pre` | Mega Drive / Fix-It Felix Jr. | — |
+| `azahar` | `4.3.0-pre` | Nintendo 3DS / Cave Story 2D | thread artifact，无 BIOS |
+
+另有 16 个未接入核心未生成运行示例，因为授权来源中缺少对应游戏内容；仅有 BIOS 或支持文件不算可运行验证内容：
+
+| 核心 | 来源盘点结果 |
 | --- | --- |
-| `bsnes`、`genesis_plus_gx_wide`、`azahar` | EmulatorJS `4.2.3` 的 `cores.json` 中不存在 |
-| `virtualjaguar`、`vice_x64sc` | 操作者提供的夹具根目录中没有对应 Jaguar/C64 ROM 目录，无法按要求取得合法验证内容 |
+| `81`、`fuse` | 有部分 Spectrum/Fuse 系统文件，但无 Spectrum 游戏 |
+| `cap32`、`crocods` | 无 Amstrad CPC 游戏 |
+| `gearcoleco` | 有 ColecoVision BIOS，但无 ColecoVision 游戏 |
+| `puae` | 有 Amiga Kickstart/BIOS，但无 Amiga 游戏磁盘 |
+| `same_cdi` | 有 CD-i BIOS 包，但无 CD-i 游戏媒体 |
+| `freeintv` | 有 Intellivision BIOS，但无 Intellivision 游戏 |
+| `vice_x64`、`vice_x64sc`、`vice_x128`、`vice_xpet`、`vice_xplus4`、`vice_xvic` | VICE 系统文件不完整，且无对应 Commodore 游戏 |
+| `virtualjaguar` | 无 Jaguar 游戏 |
+| `prboom` | 只有 `prboom.wad` 支持文件，无可启动的 Doom IWAD/PWAD |
 
 来源相对路径、文件大小、SHA-256、BIOS MD5、core artifact 和超时值以 [`fixtures.json`](./fixtures.json) 为唯一事实源。远端 host/root 由操作者分别通过 `RETROM_FIXTURE_HOST`、`RETROM_FIXTURE_ROOT` 提供，不写入仓库。GBA 与 NGP 原始 ZIP 被保留作来源证据；示例使用其中逐字节解出的 ROM，因为 4.2.3 直接传入这些 ZIP 会进入 RetroArch `Load Content`，不满足自动启动要求。
 
@@ -103,6 +125,18 @@ node data/example/smoke-test.mjs
 node data/example/smoke-test.mjs mgba mame2003
 node data/example/smoke-test.mjs multidisc-saturn-2 multidisc-saturn-3
 ~~~
+
+从操作者授权的本地目录物化并运行候选核心时，使用独立的被忽略目录；脚本只读取 `fixtures.json` 锁定的相对路径，并在原子写入前校验 size/SHA-256：
+
+~~~bash
+export RETROM_CANDIDATE_FIXTURE_ROOT='<operator-provided-absolute-root>'
+python3 data/example/materialize-candidate-fixtures.py beetle_vb mednafen_wswan smsplus
+python3 data/example/verify-fixtures.py beetle_vb mednafen_wswan smsplus
+RETROM_EXAMPLE_RESULTS_DIR=data/example/results/candidates \
+  node data/example/smoke-test.mjs beetle_vb mednafen_wswan smsplus
+~~~
+
+省略 materializer selector 会物化全部候选夹具；验证与 smoke 不允许省略 candidate selector，以免候选结果混入正式 28 核默认结果。候选二进制写入 `data/example/local-fixtures/`，独立机器结果和截图写入 `RETROM_EXAMPLE_RESULTS_DIR`，两者均不进入 Git。机器 `PASS` 仍必须人工确认截图确为指定游戏标题或游戏画面，而不是系统 Logo、启动提示、菜单或错误页。
 
 验收 runner 可用同名 selector 只校验当前 Case 的受控 bytes，例如 `python3 data/example/verify-fixtures.py mgba` 或 `python3 data/example/verify-fixtures.py multidisc-saturn-2`。不传 selector 仍校验完整清单；某个尚未物化的专有多盘 fixture 不得阻断无关核心的独立验收，也不能被无关核心的通过结果掩盖。
 

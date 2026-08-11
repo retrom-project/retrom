@@ -20,7 +20,7 @@ import { FolderNameDialog, FolderPickerDialog } from "./folder-dialogs";
 type Notice = { message: string; undo?: UnfavoriteResult["items"]; offerManage?: boolean };
 
 export type FavoriteActionsHandle = {
-  openFolderPicker: (anchor: HTMLElement) => void;
+  openFolderPicker: (anchor: HTMLElement, resolveReturnTarget?: () => HTMLElement | null) => void;
 };
 
 type FavoriteActionsProps = {
@@ -56,6 +56,7 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
   const [notice, setNotice] = useState<Notice | null>(null);
   const heartButton = useRef<HTMLButtonElement>(null);
   const internalManageButton = useRef<HTMLButtonElement>(null);
+  const pickerReturnTarget = useRef<(() => HTMLElement | null) | null>(null);
   useEffect(() => {
     if (!notice) return;
     const timer = window.setTimeout(() => setNotice(null), 2_000);
@@ -100,9 +101,13 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
     finally { setBusy(false); }
   }
 
-  const openPicker = useCallback(async (anchor?: HTMLElement | null) => {
+  const openPicker = useCallback(async (
+    anchor?: HTMLElement | null,
+    resolveReturnTarget?: () => HTMLElement | null,
+  ) => {
     setBusy(true);
     setPickerAnchor(anchor ?? internalManageButton.current ?? heartButton.current);
+    pickerReturnTarget.current = resolveReturnTarget ?? null;
     try {
       const { data } = await loadFavorites(authenticatedFetch, "limit=1");
       setFolders(data.folders);
@@ -112,13 +117,24 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
   }, [authenticatedFetch]);
 
   useImperativeHandle(ref, () => ({
-    openFolderPicker: (anchor) => { void openPicker(anchor); },
+    openFolderPicker: (anchor, resolveReturnTarget) => { void openPicker(anchor, resolveReturnTarget); },
   }), [openPicker]);
 
   function closePicker() {
+    const fallbackTarget = pickerAnchor?.isConnected
+      ? pickerAnchor
+      : internalManageButton.current ?? heartButton.current;
+    const restoreFocus = () => {
+      const target = pickerReturnTarget.current?.() ?? fallbackTarget;
+      if (target?.isConnected) target.focus({ preventScroll: true });
+    };
+    restoreFocus();
     setPicker(false);
     setPickerAnchor(null);
-    window.requestAnimationFrame(() => internalManageButton.current?.focus());
+    window.requestAnimationFrame(() => {
+      restoreFocus();
+      pickerReturnTarget.current = null;
+    });
   }
 
   async function saveFolders(folderIds: string[]) {

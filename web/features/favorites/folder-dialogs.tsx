@@ -36,7 +36,7 @@ function DialogFrame({
     return () => {
       window.cancelAnimationFrame(frame);
       const returnTarget = anchor?.isConnected ? anchor : previous;
-      returnTarget?.focus();
+      window.requestAnimationFrame(() => returnTarget?.focus());
     };
   }, [anchor, modal, open]);
   useEffect(() => {
@@ -57,7 +57,7 @@ function DialogFrame({
       aria-labelledby={titleId}
       aria-describedby={description ? descriptionId : undefined}
       onKeyDown={(event) => {
-        if (event.key === "Escape") { event.preventDefault(); onClose(); return; }
+        if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); return; }
         if (!modal || event.key !== "Tab") return;
         const focusable = Array.from(panel.current?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), [href], [tabindex]:not([tabindex='-1'])") ?? []);
         if (!focusable.length) return;

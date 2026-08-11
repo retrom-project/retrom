@@ -24,6 +24,7 @@ const (
 	accountKeyDomain   = "retrom-account-link-key-v1"
 	accountLinkDomain  = "retrom-account-link-v1\x00"
 	rateLimitKeyDomain = "retrom-rate-limit-key-v1"
+	serverImportDomain = "server-import-root-key-v1"
 )
 
 var ErrLaunchKeyInvalid = errors.New("LAUNCH_KEY_INVALID")
@@ -191,6 +192,19 @@ func (credentials *Credentials) Capability(launchID uuid.UUID) [32]byte {
 func (credentials *Credentials) CursorKey() [32]byte {
 	mac := hmac.New(sha256.New, credentials.key[:])
 	_, _ = mac.Write([]byte(cursorKeyDomain))
+	var result [32]byte
+	copy(result[:], mac.Sum(nil))
+	return result
+}
+
+// ServerImportRootDigest binds a configured ID to a canonical host path while
+// keeping both the launch key and host path out of persisted task input.
+func (credentials *Credentials) ServerImportRootDigest(rootID, canonicalPath string) [32]byte {
+	key := credentials.derive(serverImportDomain)
+	mac := hmac.New(sha256.New, key[:])
+	_, _ = mac.Write([]byte(rootID))
+	_, _ = mac.Write([]byte{0})
+	_, _ = mac.Write([]byte(canonicalPath))
 	var result [32]byte
 	copy(result[:], mac.Sum(nil))
 	return result

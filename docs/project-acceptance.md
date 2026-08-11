@@ -296,16 +296,16 @@ make acceptance-case CASE=<case-id>
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-BKP-001`。
-- 流程：在验收库写入三个 User/Profile、游戏、Blob、用户 DatVersion、私有存档、一条未完成 UploadPart、ACTIVE AuthSession/AccountLink/LaunchSession；另建 GC 宽限期 Blob、crash orphan 和受保护 archive。保持服务运行调用一次 `retrom backup` 验证拒绝，再正常停止服务，备份到不存在的临时输出路径。完成既有 manifest/依赖负向矩阵后恢复到第二个不存在的数据根，启动恢复服务，分别用旧认证 cookie、账号链接与 launch capability访问，再用原密码重新登录并核对三个 Profile 的私有数据。
-- 通过标准：既有 bundle 结构、mode/hash、CAS/registry、依赖和负向恢复约束全部满足；User/Profile/credential 与私有数据的非围栏行数和摘要一致。restore 在开放 HTTP 前用单事务撤销全部非终态 AuthSession、未使用 AccountLink 和非终态 LaunchSession，写一条不含 ID/secret 的 `RESTORE_SECURITY_FENCE` 审计；旧 cookie/link/capability 全部失败，启用用户可用原密码重新登录并只能看到自己的原数据。清单/日志不含密码 hash、session/link/capability/key 明文或完整宿主路径。
+- 流程：在验收库写入三个 User/Profile、游戏、Blob、用户 DatVersion、私有存档、一条未完成 UploadPart、ACTIVE AuthSession/AccountLink/LaunchSession，以及一条 RUNNING `SERVER_BIOS_IMPORT` Job/ServerImport；另建 GC 宽限期 Blob、crash orphan 和受保护 archive。保持服务运行调用一次 `retrom backup` 验证拒绝，再正常停止服务，备份到不存在的临时输出路径。完成既有 manifest/依赖负向矩阵后恢复到第二个不存在的数据根，启动恢复服务，分别用旧认证 cookie、账号链接与 launch capability访问，再用原密码重新登录并核对三个 Profile 的私有数据。
+- 通过标准：既有 bundle 结构、mode/hash、CAS/registry、依赖和负向恢复约束全部满足；外部 source bytes/root 不进入 bundle。User/Profile/credential 与私有数据的非围栏行数和摘要一致。restore 在开放 HTTP 前用单事务撤销全部非终态 AuthSession、未使用 AccountLink 和非终态 LaunchSession，并把外部 source Job/ServerImport 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，写一条不含 ID/secret 的 `RESTORE_SECURITY_FENCE` 审计；旧 cookie/link/capability 全部失败，启用用户可用原密码重新登录并只能看到自己的原数据。清单/日志不含密码 hash、session/link/capability/key 明文、BIOS 内容或完整宿主路径。
 - 证据：脱敏 canonical `backup.json`、bundle tree/mode、负向错误矩阵、恢复检查、key equality boolean、cookie 请求结果和前后摘要 hash。
 
 ### ACC-SEC-001：Archive 与 XML 输入安全
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-SEC-001`。
-- 流程：分别提交固定的小型 `../`、编码 traversal、绝对路径、symlink、条目数/压缩比超限，以及外部实体、内部/参数实体、未闭合/超限/重复 DOCTYPE XML 夹具；另让三份真实基线经过同一 parser。
-- 通过标准：恶意输入在写出授权目录前以稳定 code 拒绝；没有外部实体访问、DNS、宿主文件读取或目标外文件，返回稳定 4xx 而非进程崩溃。真实 FBNeo PUBLIC DOCTYPE 和 MAME 内部 DTD 均被安全 scanner 跳过且统计命中 manifest；实现没有联网 DTD parser、正则删 DTD 或预置专用解析旁路。
+- 流程：分别提交固定的小型 `../`、编码 traversal、绝对路径、symlink、条目数/压缩比超限，以及外部实体、内部/参数实体、未闭合/超限/重复 DOCTYPE XML 夹具；另让三份真实基线经过同一 parser。对服务器 root 再覆盖相对路径 traversal、途中/末端 symlink、special file、目录/文件/候选/hash bytes/depth 门禁和最终复制前 source 替换。
+- 通过标准：恶意输入在写出授权目录或创建 BIOS Installation 前以稳定 code 拒绝；服务器扫描命中任一门禁时零安装，API/日志不含绝对 root、basename、hash 或底层 `os.PathError`。没有外部实体访问、DNS、宿主文件读取或目标外文件，返回稳定 4xx 而非进程崩溃。真实 FBNeo PUBLIC DOCTYPE 和 MAME 内部 DTD 均被安全 scanner 跳过且统计命中 manifest；实现没有联网 DTD parser、正则删 DTD 或预置专用解析旁路。
 - 证据：每个夹具的错误码、临时目录前后清单和无外连记录。
 
 ### ACC-SEC-002：Launch capability、内容范围与缓存
@@ -591,6 +591,46 @@ make acceptance-case CASE=<case-id>
 - 流程：移除 FDS 必需 BIOS 做预检；分别以 `.gb/.gbc/.gba` 小型真实 fixture 检查 Gambatte/mGBA 可选 BIOS 不存在、仅安装另一内容类型 BIOS，以及安装匹配内容类型的正确/`HASH_WARNING` BIOS；读取 Launch config/bundle。为 MelonDS 安装 `bios7.bin/bios9.bin/firmware.bin` 后创建 Launch，切换其中一个 active installation，再创建第二个 Launch并读取两个会话的 external files。最后以 entry 名齐全但 hash 不同的 Arcade BIOS/base archive 启动，并检查包含自身依赖的 Full Non-Merged Arcade fixture。
 - 通过标准：适用必需文件/entry 完全缺失阻断；不适用 requirement 不进入 digest/bundle，可选文件缺失只提示且不增加 activation option。匹配内容类型的 active `MATCHED/HASH_WARNING` BIOS 以 Requirement 逻辑名装入，Gambatte config 精确增加 `gambatte_gb_bootloader=enabled`、mGBA 增加 `mgba_use_bios=ON`；MelonDS 的三个 BIOS 不进入根 bundle，而是精确映射到三个固定虚拟路径，旧 Launch 锁定旧 Blob、新 Launch 使用新 Blob，跨 Launch capability 访问失败。Arcade entry 名齐全但 size/hash 不同也形成 `HASH_WARNING` 依赖、进入 bundle 并允许启动。另一内容类型 BIOS 不误启用，冲突 option seed 被校验拒绝，浏览器不按 core 名补写。Full Non-Merged 已内含依赖时不要求重复上传；页面按平台/core 聚合而不按游戏目录复制，`gamegenie.nes/sgb_bios.bin` 按一期条件明确标“未使用”而非缺失。
 - 证据：预检/digest、两份 Launch config、BIOS bundle/external file 清单、跨 Launch 负向响应和 BIOS 页面截图。
+
+### ACC-BIOS-003：服务器 root、目录浏览与授权边界
+
+- 上限：120 秒。
+- 执行：`make acceptance-case CASE=ACC-BIOS-003`。
+- 流程：配置两个只读 root，覆盖封闭 JSON、上限、ID/label、受保护目录与 root 重叠负向；ADMIN 浏览根和多页直接子目录，并提交绝对、`..`、反斜杠、跨目录 cursor、途中/末端 symlink、special file 和暂时卸载 root。匿名与 USER 执行相同 route 矩阵；create 覆盖严格 body、幂等重放/异 body、同时活动冲突和 queued cancel。
+- 通过标准：浏览器和 API 只见 root ID/label/status 与规范相对路径；未知/不可用/越界均不泄漏宿主存在性。非法配置启动失败且只记录变量名；匿名 401、USER 403、ADMIN 成功，目录 cursor 绑定 root/path，幂等与 ETag 语义稳定。
+- 证据：配置矩阵、HTTP 响应、cursor 负向和 API/log 脱敏扫描。
+
+### ACC-BIOS-004：STATIC、DAT 候选与隔离排序
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-BIOS-004`。
+- 流程：固定 source 覆盖 STATIC exact、大小相同重命名、同名错误 hash、大文件 fallback，以及两个 Arcade Core 的同名 ZIP、完整/不一致/缺 entry；同一 bytes 同时关联两个 Requirement。执行完整发现、排序、最终复验和安装。
+- 通过标准：完整 hash 永远优先于 size/name，fallback 固定为 warning；DAT 安全且 launchable、matched/aliased 更优者获胜，非逻辑 ZIP 不被展开。CAS 按 SHA-256 去重，但 Installation、Candidate、ArchiveEntry 与结果按 Requirement/CoreArtifact 隔离；选择和未选原因稳定。
+- 证据：候选 rank、hash/DAT count、CAS/Installation 查询和结果投影。
+
+### ACC-BIOS-005：覆盖防降级、漂移与原子审计
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-BIOS-005`。
+- 流程：依次覆盖 overwrite 关闭/开启、已有 MATCHED、相同 bytes、同分、较差候选、Requirement 版本变化、catalog/source 漂移和崩溃点恢复；与单文件安装并发竞争同一 Requirement。
+- 通过标准：关闭时不替换，开启也只接受严格更优；同 bytes/同版本不创建 revision，版本变化重新验证可创建 revision，任何降级都保留旧 active。最终 source 或 catalog 变化以条目错误收口；Installation、Item 终态、聚合计数和 PROGRESS 事件同事务，崩溃恢复不重复 revision。
+- 证据：前后 active ID/status/version、revision 数、竞态结果、JobEvent 与恢复查询。
+
+### ACC-BIOS-006：异步恢复、取消、详情与多尺寸访问
+
+- 上限：300 秒。
+- 执行：`make acceptance-case CASE=ACC-BIOS-006`。
+- 流程：用确定性门禁 fixture 验证大目录发现、2 个 hash worker、全局 1 个 archive scanner、进度、lease/heartbeat/deadline、瞬时 root 退避、cancel、崩溃恢复和 restore fence；再由 Chrome 在 1280×800、2560×1440、3840×2160 创建空候选任务并查看终态详情、筛选和候选入口。
+- 通过标准：完整发现前零安装，cancel 保留已完成 Item 并终止其余项；零终态 Item 的瞬时错误按固定有界退避，恢复不重复结果，restore 不自动继续外部 source。Drawer 的 radio/目录/checkbox、Escape/focus trap/焦点返回可用；详情无页面横向溢出、状态不只靠颜色，axe 无 serious/critical 结果。
+- 证据：Worker 计数/事件/事务、恢复前后摘要、三尺寸截图、键盘与 axe 结果。
+
+### ACC-BIOS-007：FULL_CATALOG 286 条 cursor 分页
+
+- 上限：240 秒。
+- 执行：`make acceptance-case CASE=ACC-BIOS-007`。
+- 流程：以固定 286 条 catalog 依次请求首页与 cursor 后续页；Chrome 首屏只加载 100 条，故障注入第一次续页 500，保留旧行并以同 cursor 重试，再通过“加载更多”到终点。
+- 通过标准：API 页长精确为 100/100/86，ID 无重复遗漏且末页 cursor 为 null；每页 `summary/filteredCount` 恒为 286。UI 依次显示 100/286、200/286、全部 286；失败不清空旧页、重试 cursor 不变、终点不再请求，纯键盘可完成且页面无横向溢出。
+- 证据：三页 request/response 摘要、唯一 ID 数、失败/重试 URL、最终 DOM 行数和截图。
 
 ### ACC-DAT-003：用户 DAT 候选不自动生效
 
@@ -964,7 +1004,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 游戏管理 | `ACC-GAME-001`–`003` |
 | 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`008` |
 | 多盘导入、运行、回归与隔离 | `ACC-MDISC-001`–`008` |
-| BIOS 与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`002` |
+| BIOS、服务器导入与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`007` |
 | 启动、存档与游玩时长 | `ACC-RUN-001`–`005`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
 | EmulatorJS 二十八核心 | `ACC-CORE-001`–`028` |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |

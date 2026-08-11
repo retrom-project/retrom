@@ -1,7 +1,8 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { createRef } from "react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { FavoriteActions } from "./favorite-actions";
+import { FavoriteActions, type FavoriteActionsHandle } from "./favorite-actions";
 import { FolderEditDialog, FolderNameDialog, FolderPickerDialog } from "./folder-dialogs";
 
 const auth = vi.hoisted(() => ({ fetch: vi.fn() }));
@@ -88,6 +89,21 @@ describe("FavoriteActions", () => {
     expect(onChange).not.toHaveBeenCalled();
   });
 
+  it("returns focus to an external card-menu anchor after Escape", async () => {
+    auth.fetch.mockResolvedValue(json(page()));
+    const anchor = document.createElement("button");
+    anchor.textContent = "更多操作";
+    document.body.append(anchor);
+    const actions = createRef<FavoriteActionsHandle>();
+    render(<FavoriteActions ref={actions} gameId={gameId} title="Metroid" initialFavorite={null} showManageButton={false} />);
+
+    await act(async () => actions.current?.openFolderPicker(anchor));
+    await screen.findByRole("dialog", { name: "管理“Metroid”的收藏夹" });
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(anchor).toHaveFocus());
+    anchor.remove();
+  });
+
   it("creates a folder inside the picker with the current game as initial membership", async () => {
     auth.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       const path = String(input);
@@ -123,7 +139,7 @@ describe("favorite dialogs", () => {
     fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
     expect(close).toHaveBeenCalledOnce();
     rerender(<><button type="button">打开</button><FolderNameDialog open={false} title="新建收藏夹" busy={false} onSubmit={vi.fn()} onClose={close} /></>);
-    expect(trigger).toHaveFocus();
+    await waitFor(() => expect(trigger).toHaveFocus());
   });
 
   it("uses native multi-select checkboxes and returns an exact selection", async () => {

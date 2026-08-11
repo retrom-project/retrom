@@ -273,4 +273,12 @@ Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insens
 
 ## 11. 统一验收入口
 
-真实 DAT、core 隔离、用户 DAT 生命周期与升级证据统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DAT-001`–`ACC-DAT-006`；BIOS 上传、哈希提示和依赖阻断执行 `ACC-BIOS-001`–`ACC-BIOS-002`。本文不再维护重复通过条件。
+真实 DAT、core 隔离、用户 DAT 生命周期与升级证据统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DAT-001`–`ACC-DAT-006`；BIOS 上传、哈希提示和依赖阻断执行 `ACC-BIOS-001`–`ACC-BIOS-002`，服务器导入执行 `ACC-BIOS-003`–`ACC-BIOS-007`。本文不再维护重复通过条件。
+
+## 12. 服务器目录批量导入
+
+任务创建时直接从数据库冻结所有 enabled CoreArtifact 的 enabled Requirement：STATIC 与活动 DAT 的 DAT_MACHINE 均包含，REQUIRED/OPTIONAL/CONDITIONAL 均包含；禁用 artifact、历史 DAT slot 和当前游戏库范围不参与。一个 Blob 可分别满足多个 Requirement，但 Installation 不跨 Requirement 共享。
+
+STATIC 的可信 exact 要求全部已声明 size/hash 同时一致；否则依次按期望 size、精确 basename、较大 size 作低置信度选择，结果保持 `HASH_WARNING`。DAT_MACHINE 只把逻辑 `.zip` 交给全局串行 archive scanner，并优先安全、可启动、matched/aliased 更多且 mismatched/missing 更少的候选；最后以规范相对路径和确定性 ID 稳定排序。只以质量证据比较是否覆盖，身份、文件名或新扫描本身不增加质量。
+
+`replaceIfBetter=false` 保留任何 active Installation；开启后也只允许严格更优，禁止同分、证据不完整或降级替换。相同 bytes 且 Requirement version/catalog 未变时不创建 revision；Requirement 版本改变时相同 bytes 仍重验并可形成新 revision。提交前重新检查完整 catalog digest、Requirement/CoreArtifact/DAT 版本和 source bytes；漂移分别以稳定条目结果收口。完成后只对受影响的稳定 Variant 安排既有异步重校验，历史 Launch 快照不改写。

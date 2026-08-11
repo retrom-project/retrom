@@ -2,16 +2,16 @@
 
 | 属性 | 内容 |
 | --- | --- |
-| 文档状态 | 已审定 / 账户与数据隔离实施基线 |
-| 版本 | 2.2 |
-| 日期 | 2026-08-10 |
+| 文档状态 | 已审定 / 统一管理端实施基线 |
+| 版本 | 2.3 |
+| 日期 | 2026-08-11 |
 | 目标环境 | Chrome Desktop，CSS viewport 宽度 1280px 及以上 |
 
 ## 1. 设计稿
 
 [打开 Retrom 最终可交互设计稿](./design/retrom-ui-review.html)
 
-账户入口、账户设置与用户管理已经合入同一设计源和交互稿；评审稿右上角的“评审场景”可在认证、用户侧与管理后台之间切换，不再维护独立的账户设计稿。
+账户入口、账户设置、用户管理与服务器 BIOS 导入已经合入同一设计源和交互稿；评审稿右上角的“评审场景”可在认证、用户侧与管理后台之间切换，不再维护平行的专题设计稿。
 
 静态评审快照：
 
@@ -52,6 +52,9 @@
 - [统一影响确认对话框 · 2560×1440](./design/retrom-ui-confirm-dialog.png)
 - [BIOS 文件 · 2560×1440](./design/retrom-ui-bios-files.png)
 - [Arcade BIOS 条目对比 · 2560×1440](./design/retrom-ui-bios-entry-compare.png)
+- [服务器 BIOS 导入 · 2560×1440](./design/retrom-ui-server-import.png)
+- [服务器 BIOS 导入 Drawer · 1280×800](./design/retrom-ui-server-import-drawer.png)
+- [服务器 BIOS 导入详情 · 3840×2160](./design/retrom-ui-server-import-detail-4k.png)
 - [街机数据目录 · 2560×1440](./design/retrom-ui-dat-versions.png)
 - [上传街机数据目录 Drawer · 2560×1440](./design/retrom-ui-dat-upload.png)
 - [DAT 差异与运行影响 · 2560×1440](./design/retrom-ui-dat-diff.png)
@@ -434,12 +437,21 @@ BIOS 文件页默认展示当前游戏库实际所需项，并可在页面内无
 查看差异、启用和预览回滚使用同一个宽对话框，展示当前与目标版本、四组真实增删改摘要、目录/Variant 重校验影响、解析警告和分页差异明细；只有带启用/回滚意图时才显示提交动作，普通查看仅关闭。页面不展示只包含内部版本 ID 或原始 JSON 的“技术详情”，用户通过来源、处理状态、收录内容、匹配情况和可读差异完成判断。浏览器只读取后端物化结果，不现场解析原始 DAT。完整规则见 [BIOS 与 Arcade DAT](./bios-and-arcade.md)。
 
 ### 7.6 用户管理
-
 `/admin/users` 以用户名、显示名、角色、状态和创建时间展示账号，不返回密码参数、会话 token hash、邀请/reset secret 或私有资料摘要。页首提供用户名/显示名即时搜索以及角色、状态筛选；宽表的身份列与操作列 sticky，1280、2560 与 3840 CSS px 下均不能产生页面级横向滚动。
 
 点击用户行打开有焦点陷阱和返回焦点的右侧 Drawer。管理员只可修改角色和启停状态，不能修改 username、displayName、Profile 或密码；改变角色、停用、启用和删除都使用带用户名与影响摘要的应用确认对话框，并提交列表返回的 ETag。服务端 `412` 时保留编辑内容、刷新真实状态后要求重新确认。当前用户不能停用、降级或删除自己；最后一个可登录管理员不能被降级、停用或删除；删除采用软删除并立即撤销该用户认证会话、账户链接和未结束 Launch。
 
 “创建邀请”和“生成重置链接”成功后使用阻断式一次性 secret 对话框：只显示一次完整 URL，复制按钮有明确反馈，关闭时从 React 状态和 DOM 清除。邀请列表展示角色、创建者、过期时间和已使用/已撤销状态，并支持显式撤销；管理员不查看或代填用户密码。只读 `setup-code`、离线 `admin-reset` 和 restore 安全栅栏只由主机 CLI 提供，不在 Web 后台提供绕过入口。视觉和交互基线见本章顶部的账户与用户管理设计稿。
+
+### 7.7 服务器 BIOS 导入
+
+“游戏入库”子菜单固定为“导入游戏、服务器导入、任务进度、待审核、审核历史”。`/admin/imports/server` 只有“扫描并导入 BIOS”能力卡，展示服务端完整 catalog、需处理数和最近任务；无 root 时只显示部署说明，不提供绝对路径输入。`/admin/bios` 的“从服务器目录批量导入”跳到 `?action=bios` 并只打开创建 Drawer。
+
+创建 Drawer 使用 root radio、面包屑和直接子目录分页浏览，展示 `<root label> / <relative path>` 与完整 catalog 范围；“允许使用更优候选替换”默认关闭并说明同分/更差不会替换。pending 时锁定选择；Drawer 有 focus trap、Escape 和关闭后焦点恢复。
+
+`/admin/imports/server/:id` 通过 Job SSE 展示真实阶段/计数，断线保留内容并重连，离页不取消。详情摘要区分导入、无需变更、未找到、需核对和失败；结果及候选每页最多 50 条，服务端筛选写入 URL，候选弹层展示相对路径、hash/DAT entry 证据、rank 与未选原因。取消确认明确不回滚已提交 Installation，retry 只在服务端声明可用时出现。
+
+BIOS FULL_CATALOG 首屏和续页固定 100 条；距底部 600px 自动拉取，Set 去重且同时只有一个请求。切换 scope/query/filter 时 abort 旧请求并清空 cursor；追加失败保留旧页并可用相同 cursor 重试。IntersectionObserver 不可用和纯键盘场景必须可用“加载更多”，`aria-live` 播报新增/完成。1280×800 只允许结果表自身横向滚动，页面不得溢出；2560×1440 与 3840×2160 遵循统一后台画布，且减少动画模式关闭非必要过渡。
 
 ## 8. 多盘界面闭环
 

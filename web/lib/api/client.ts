@@ -1,7 +1,18 @@
 import createClient from "openapi-fetch";
 import type { paths } from "./generated/schema";
 
-export const api = createClient<paths>({ baseUrl: "", credentials: "same-origin" });
+// openapi-fetch builds a Request object before invoking fetch. Browsers resolve
+// relative URLs against the current document, while Node (used by Vitest and
+// server-side module evaluation) requires an absolute base URL.
+const apiBaseUrl = typeof window === "undefined" ? "http://127.0.0.1" : window.location.origin;
+
+export const api = createClient<paths>({
+  baseUrl: apiBaseUrl,
+  credentials: "same-origin",
+  // Resolve fetch at call time so browser polyfills and the Vitest transport
+  // stub are both honored instead of capturing a process-global implementation.
+  fetch: (request) => globalThis.fetch(request),
+});
 
 let csrfToken: string | null = null;
 let authenticationFailure: (() => void) | null = null;

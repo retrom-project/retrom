@@ -133,6 +133,12 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 退出门禁：`ACC-FAV-001`–`004`、第 3 节的 023/024 升级路径、`make api-check`、`make ci` 与 `make web-e2e`。
 
+### M10：服务器 BIOS 导入垂直切片
+
+范围：先同步正式契约与 OpenAPI，再落 Migration 026、root 配置和 no-follow 浏览、`ServerImport` 聚合、`SERVER_BIOS_IMPORT` Worker、STATIC/DAT 候选排序与防降级安装；最后接通 `/admin/imports/server`、任务详情、候选解释和 BIOS FULL_CATALOG cursor 分页。发现阶段必须完整闭合且命中扫描门禁时零安装；逐项 Installation、Item 结果和 JobEvent 同事务提交；重启恢复不得重复 revision，restore 必须终止外部 source 任务。
+
+退出门禁：`ACC-BIOS-003`–`007`，并回归 `ACC-BIOS-001/002`、`ACC-SEC-001`、`ACC-BKP-001`；运行 `make api-check`、`make ci`、`make web-e2e`、全量核心 smoke。026 的受支持升级路径和全新库 schema 必须同构；正式 UI 源、导出稿和 1280/2560/4K 快照同步后才可删除临时设计目录。
+
 ## 5. 垂直切片提交规则
 
 每个可合并切片必须闭合以下链条，不允许把长期不工作的半成品推给后续 Agent：

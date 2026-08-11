@@ -28,6 +28,9 @@ const captures = [
   ["retrom-ui-admin-import-overview-4k.png", "admin-import", 3840, 2160],
   ["retrom-ui-admin-import.png", "admin-import-new", 2560, 1440],
   ["retrom-ui-admin-import-new-4k.png", "admin-import-new", 3840, 2160],
+  ["retrom-ui-server-import.png", "admin-server-import", 2560, 1440],
+  ["retrom-ui-server-import-drawer.png", "admin-server-import", 1280, 800, "server-import-drawer"],
+  ["retrom-ui-server-import-detail-4k.png", "admin-server-import-detail", 3840, 2160],
   ["retrom-ui-admin-import-tasks-4k.png", "admin-import-tasks", 3840, 2160],
   ["retrom-ui-admin-review-4k.png", "admin-review", 3840, 2160],
   ["retrom-ui-admin-review-detail-4k.png", "admin-review", 3840, 2160, "review-detail"],
@@ -91,6 +94,9 @@ try {
     } else if (view === "admin-game-detail") {
       await clickVisible('[data-page-target="admin-games"]');
       await clickVisible('[data-page-link="admin-game-detail"]');
+    } else if (view === "admin-server-import-detail") {
+      await clickVisible('[data-page-target="admin-server-import"]');
+      await clickVisible('[data-page-link="admin-server-import-detail"]');
     } else if (!["home", "setup", "login", "register", "reset"].includes(view)) {
       await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);
     }
@@ -103,6 +109,7 @@ try {
     if (variant === "bios-entries") await frame.locator("[data-open-bios-entries]").click();
     if (variant === "dat-drawer") await frame.locator("[data-open-runtime-drawer]").click();
     if (variant === "dat-diff") await frame.locator("[data-open-runtime-diff]").first().click();
+    if (variant === "server-import-drawer") await frame.locator("[data-open-server-import-drawer]").click();
     if (variant === "drawer") await frame.locator("[data-open-platform-drawer]").click();
     if (variant === "dialog") await frame.locator("[data-preview-core]").first().click();
     if (variant === "user-drawer") await frame.locator("[data-open-user-drawer]").nth(1).click();
