@@ -1,0 +1,30 @@
+.continue-card { display: grid; gap: 16px; }
+.continue-card h2 { margin: 0; font-size: 19px; }
+.continue-card-copy p { margin: 7px 0 0; display: flex; flex-wrap: wrap; gap: 6px 16px; color: var(--muted); font-size: 12px; }
+.metric-line { display: flex; justify-content: space-between; align-items: center; gap: 10px; padding-top: 13px; border-top: 1px solid var(--line); }
+.metric-line strong { font-size: 23px; }
+.pipeline { display: grid; grid-template-columns: repeat(5, 1fr); gap: 0; padding: 28px 20px; }
+.pipeline-step { position: relative; text-align: center; }
+.pipeline-step:not(:last-child)::after { content: ""; position: absolute; left: 58%; right: -42%; top: 18px; border-top: 2px solid #e3dff8; }
+.pipeline-step i { position: relative; z-index: 1; width: 36px; height: 36px; margin: 0 auto 10px; border-radius: 50%; display: grid; place-items: center; font-style: normal; color: var(--purple); background: var(--purple-soft); font-weight: 800; }
+.pipeline-step strong, .pipeline-step span { display: block; }
+.pipeline-step strong { font-size: 13px; }
+.pipeline-step span { color: var(--muted); font-size: 11px; }
+.form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.field { display: grid; gap: 7px; }
+.field.full { grid-column: 1 / -1; }
+.field label { color: #4d586c; font-size: 12px; font-weight: 750; }
+.field-label { color: #4d586c; font-size: 12px; font-weight: 750; }
+.field input, .field select, .field textarea { width: 100%; min-height: 44px; border: 1px solid var(--line); border-radius: 9px; padding: 10px 12px; color: var(--ink); background: white; }
+.field textarea { min-height: 104px; resize: vertical; }
+.field small { color: var(--muted); font-size: 12px; }
+.advanced-form-options { padding: 12px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--surface-subtle); }
+.advanced-form-options > summary { width: fit-content; color: var(--purple-dark); font-size: 13px; font-weight: 750; }
+.advanced-form-options > .form-grid, .advanced-form-options > .stack { margin-top: 12px; }
+.stack { display: grid; gap: 16px; }
+summary { cursor: pointer; }
+.panel > summary.panel-head { list-style: none; }
+.panel > summary.panel-head::-webkit-details-marker { display: none; }
+.inline-editor { width: min(520px, 70vw); margin-top: 12px; padding: 18px; display: grid; gap: 12px; border: 1px solid var(--line); border-radius: 12px; background: #faf9f6; }
+.inline-editor label { display: grid; gap: 5px; color: var(--muted); font-size: 12px; }
+.inline-editor input:not([type="checkbox"]), .inline-editor select, .inline-editor textarea { width: 100%; min-height: 42px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; background: white; }
