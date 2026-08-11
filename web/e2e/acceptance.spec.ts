@@ -55,6 +55,7 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
   const routes = [
     ["/admin/imports", "游戏入库"],
     ["/admin/imports/new", "导入游戏"],
+    ["/admin/imports/server", "本地扫描"],
     ["/admin/imports/tasks", "任务进度"],
     ["/admin/reviews", "待审核"],
     ["/admin/reviews/history", "审核历史"],
@@ -62,6 +63,9 @@ test("ACC-UI-002 import parent and child routes preserve browser history", async
   for (const [index, [route, label]] of routes.entries()) {
     await page.goto(route);
     const navigation = page.getByRole("navigation", { name: "主要导航" });
+    await expect(navigation.getByRole("link").nth(1)).toHaveText("导入游戏");
+    await expect(navigation.getByRole("link").nth(2)).toHaveText("本地扫描");
+    await expect(navigation.getByRole("link").nth(3)).toHaveText("任务进度");
     await expect(navigation.getByRole("link", { name: "游戏入库", exact: true })).toHaveClass(index === 0 ? /is-active/ : /is-context/);
     await expect(navigation.getByRole("link", { name: label, exact: true })).toHaveClass(/is-active/);
     if (index > 0) await expect(navigation.getByRole("link", { name: label, exact: true })).toHaveClass(/nav-child/);

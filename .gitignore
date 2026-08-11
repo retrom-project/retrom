@@ -4,6 +4,7 @@
 
 /.artifacts/
 /.cache/
+/.dev-data/
 /bin/
 /retrom
 /coverage/

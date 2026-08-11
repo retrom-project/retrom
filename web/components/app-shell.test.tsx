@@ -4,21 +4,21 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell";
 
-const authState = vi.hoisted(() => ({ role: "ADMIN" as "ADMIN" | "USER" }));
+const shellState = vi.hoisted(() => ({ pathname: "/", role: "ADMIN" as "ADMIN" | "USER" }));
 
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: ReactNode; href: string }) => <a href={href} {...props}>{children}</a>,
   useLinkStatus: () => ({ pending: false })
 }));
 
-vi.mock("next/navigation", () => ({ usePathname: () => "/" }));
+vi.mock("next/navigation", () => ({ usePathname: () => shellState.pathname }));
 
 vi.mock("@/features/auth/auth-provider", () => ({
   useAuth: () => ({
     context: {
       instanceState: "READY",
       authenticationState: "AUTHENTICATED",
-      user: { userId: "user-1", username: "test", displayName: "Test", role: authState.role }
+      user: { userId: "user-1", username: "test", displayName: "Test", role: shellState.role }
     },
     logout: vi.fn()
   })
@@ -27,7 +27,8 @@ vi.mock("@/features/auth/auth-provider", () => ({
 afterEach(() => {
   cleanup();
   vi.unstubAllGlobals();
-  authState.role = "ADMIN";
+  shellState.pathname = "/";
+  shellState.role = "ADMIN";
 });
 
 describe("AppShell", () => {
@@ -61,7 +62,7 @@ describe("AppShell", () => {
   });
 
   it("shows service health beside personal information for a regular account", () => {
-    authState.role = "USER";
+    shellState.role = "USER";
     vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
     const { container } = render(<AppShell><div>页面内容</div></AppShell>);
 
@@ -70,5 +71,15 @@ describe("AppShell", () => {
     expect(accountRow?.querySelector(".connection")).not.toBeNull();
     expect(screen.queryByRole("link", { name: "管理后台" })).not.toBeInTheDocument();
     expect(container.querySelector(".sidebar-foot")?.children).toHaveLength(1);
+  });
+
+  it("places local scanning between game import and task progress", () => {
+    shellState.pathname = "/admin/imports";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
+    render(<AppShell><div>页面内容</div></AppShell>);
+
+    const links = screen.getByRole("navigation", { name: "主要导航" }).querySelectorAll("a");
+    expect(Array.from(links, (link) => link.textContent).slice(0, 4))
+      .toEqual(["游戏入库", "导入游戏", "本地扫描", "任务进度"]);
   });
 });
