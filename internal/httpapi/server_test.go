@@ -925,8 +925,21 @@ INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,
 config_evidence_json,dat_evidence_json,provider_evidence_json,reason,created_at_ms)
 VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','SYSTEM',NULL,'release-setup',?,
 '{"schemaVersion":1,"decision":"APPROVED"}','{}','{}','{}','{}',NULL,?)
-`, itemID, itemID, `{"schemaVersion":1,"selectedAssets":{"coverCandidateAssetId":"`+readyCoverAssetID+`"}}`, timestamp); err != nil {
+`, itemID, `{"schemaVersion":1,"selectedAssets":{"coverCandidateAssetId":"`+readyCoverAssetID+`"}}`, timestamp); err != nil {
 		t.Fatal(err)
+	}
+	historyDetail := httptest.NewRecorder()
+	historyRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/admin/review-history/01980000-0000-7000-8000-000000000135",
+		nil,
+	)
+	historyRequest.SetPathValue("reviewEventId", "01980000-0000-7000-8000-000000000135")
+	server.reviewHistoryEvent(historyDetail, historyRequest)
+	if historyDetail.Code != http.StatusOK ||
+		!strings.Contains(historyDetail.Body.String(), `"actor":{"kind":"SYSTEM","label":"release-setup","userId":null}`) ||
+		!strings.Contains(historyDetail.Body.String(), `"before":{"schemaVersion":1,"selectedAssets"`) {
+		t.Fatalf("review history detail = %d %s", historyDetail.Code, historyDetail.Body.String())
 	}
 	historicalCover := httptest.NewRecorder()
 	historicalRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/review-assets/"+readyCoverAssetID, nil)

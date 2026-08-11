@@ -19,6 +19,7 @@ function directory(overrides: Partial<PlatformInstance> & Pick<PlatformInstance,
     enabled: true,
     version: 1,
     gameCount: 0,
+    supportedExtensions: [".zip"],
     ...overrides,
   };
 }

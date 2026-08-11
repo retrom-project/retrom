@@ -44,25 +44,34 @@ type Profile struct {
 }
 
 var registry = map[string]Profile{
-	"nes":       single("nes", ".nes", ".unf", ".unif"),
-	"fds":       single("fds", ".fds"),
-	"snes":      single("snes", ".sfc", ".smc", ".swc", ".fig"),
-	"gbc":       single("gbc", ".gb", ".gbc", ".dmg"),
-	"gba":       single("gba", ".gba"),
-	"nds":       single("nds", ".nds"),
-	"atari5200": single("atari5200", ".a52"),
-	"psx":       raw("psx", ".chd"),
-	"lynx":      single("lynx", ".lnx"),
-	"saturn":    withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDiscM3UV1),
-	"megadrive": single("megadrive", ".md"),
-	"n64":       single("n64", ".z64"),
-	"3do":       raw("3do", ".chd"),
-	"atari7800": single("atari7800", ".a78"),
-	"atari2600": single("atari2600", ".a26"),
-	"pce":       single("pce", ".pce"),
-	"pcfx":      raw("pcfx", ".chd"),
-	"ngpc":      single("ngpc", ".ngp"),
-	"psp":       raw("psp", ".iso", ".cso"),
+	"nes":          single("nes", ".nes", ".unf", ".unif"),
+	"fds":          single("fds", ".fds"),
+	"snes":         single("snes", ".sfc", ".smc", ".swc", ".fig"),
+	"gbc":          single("gbc", ".gb", ".gbc", ".dmg"),
+	"gba":          single("gba", ".gba"),
+	"nds":          single("nds", ".nds"),
+	"atari5200":    single("atari5200", ".a52"),
+	"psx":          raw("psx", ".chd"),
+	"lynx":         single("lynx", ".lnx"),
+	"saturn":       withContentKinds(raw("saturn", ".chd"), ContentKindSingleFile, ContentKindMultiDiscM3UV1),
+	"megadrive":    single("megadrive", ".md"),
+	"n64":          single("n64", ".z64"),
+	"3do":          raw("3do", ".chd"),
+	"atari7800":    single("atari7800", ".a78"),
+	"atari2600":    single("atari2600", ".a26"),
+	"pce":          single("pce", ".pce"),
+	"pcfx":         raw("pcfx", ".chd"),
+	"ngpc":         single("ngpc", ".ngp"),
+	"psp":          raw("psp", ".iso", ".cso"),
+	"virtualboy":   single("virtualboy", ".vb"),
+	"wonderswan":   single("wonderswan", ".ws", ".wsc"),
+	"mastersystem": single("mastersystem", ".sms"),
+	"nintendo3ds":  raw("nintendo3ds", ".3ds", ".cci"),
+}
+
+var specialPlatformExtensions = map[string][]string{
+	"arcade": {".zip"},
+	"dos":    {".exe", ".com", ".bat"},
 }
 
 func single(platformID string, extensions ...string) Profile {
@@ -94,6 +103,16 @@ func ByPlatform(platformID string) (Profile, bool) {
 	profile.ArchiveFormats = append([]ArchiveFormat(nil), profile.ArchiveFormats...)
 	profile.ContentKinds = append([]ContentKind(nil), profile.ContentKinds...)
 	return profile, true
+}
+
+// SupportedExtensions returns the game payload extensions presented to users.
+// Archive wrappers for single-ROM platforms are import transports and are not
+// included; Arcade ZIP and DOS executable entries are the payload themselves.
+func SupportedExtensions(platformID string) []string {
+	if profile, ok := registry[platformID]; ok {
+		return append([]string(nil), profile.Extensions...)
+	}
+	return append([]string(nil), specialPlatformExtensions[platformID]...)
 }
 
 func AllowsContentKind(platformID string, kind ContentKind) bool {

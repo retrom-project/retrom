@@ -12,7 +12,8 @@ const platforms: Platform[] = [{ id: "gba", name: "Game Boy Advance", enabled: t
 ] }];
 const instances: PlatformInstance[] = [{
   id: "instance-1", platformId: "gba", platformName: "Game Boy Advance", defaultCoreId: "mgba",
-  defaultCoreName: "mGBA", name: "掌机游戏", slug: "handheld", description: "", sortOrder: 10, enabled: true, version: 1, gameCount: 0
+  defaultCoreName: "mGBA", name: "掌机游戏", slug: "handheld", description: "", sortOrder: 10, enabled: true, version: 1, gameCount: 0,
+  supportedExtensions: [".gba"]
 }];
 
 describe("PlatformManager", () => {
@@ -31,6 +32,13 @@ describe("PlatformManager", () => {
   });
 
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
+
+  it("places the platform extension column between platform and game count", () => {
+    render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
+    const headers = screen.getAllByRole("columnheader").map((header) => header.textContent?.trim());
+    expect(headers.slice(1, 6)).toEqual(["游戏目录", "游戏平台", "扩展名", "游戏数", expect.stringContaining("推荐运行方式")]);
+    expect(screen.getByRole("cell", { name: "Game Boy Advance 支持的扩展名" })).toHaveTextContent(".gba");
+  });
 
   it("previews impact and only commits after the application dialog is confirmed", async () => {
     const user = userEvent.setup();

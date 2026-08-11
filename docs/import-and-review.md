@@ -112,7 +112,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 
 分组与扩展名规则从目标游戏目录的基础平台推导。默认核心是导入流水线唯一自动执行的兼容性目标；一期不得在导入后为其他核心自动投递后台验证。用户在详情页首次显式选择其他核心启动时，才按运行时专题的 `EnsureVariant` 流程按需验证。
 
-可接收格式固定如下；扩展名比较使用 ASCII case-insensitive，ZIP/7z entry 先执行本节与存储文档的路径、数量、展开大小和压缩比检查。ZIP entry 名优先采用标准 UTF-8；仅当 ZIP 明确标记名称为非 UTF-8 且原始字节不是合法 UTF-8 时，允许按 GB18030 严格解码一次，解码结果仍必须通过相同的 UTF-8、路径穿越、控制字符、重复路径和 ASCII casefold 碰撞检查。表外格式、加密/损坏/不安全 archive，以及 RAR/TAR、SFX/分卷/加密 7z 在分组前标为 `REJECTED`。普通 ROM wrapper 的 nested archive 仍拒绝；DOS ZIP 内的 archive 只作为不透明游戏文件保留且绝不递归展开，因此允许存在。压缩比门禁对超过 16 MiB 的单成员生效，小型空白存档即使高度可压缩也仍受总展开量和成员数上限约束。7z 仅用于表中标为“ZIP/7z”的唯一 ROM wrapper；Arcade、DOS、CHD、ISO、CSO 均不接受 7z。
+可接收格式固定如下；这里列出 Retrom 已验证并承诺接收的产品子集，不直接照搬某个核心声明的全部 `valid_extensions`。扩展名比较使用 ASCII case-insensitive，ZIP/7z entry 先执行本节与存储文档的路径、数量、展开大小和压缩比检查。ZIP entry 名优先采用标准 UTF-8；仅当 ZIP 明确标记名称为非 UTF-8 且原始字节不是合法 UTF-8 时，允许按 GB18030 严格解码一次，解码结果仍必须通过相同的 UTF-8、路径穿越、控制字符、重复路径和 ASCII casefold 碰撞检查。表外格式、加密/损坏/不安全 archive，以及 RAR/TAR、SFX/分卷/加密 7z 在分组前标为 `REJECTED`。普通 ROM wrapper 的 nested archive 仍拒绝；DOS ZIP 内的 archive 只作为不透明游戏文件保留且绝不递归展开，因此允许存在。压缩比门禁对超过 16 MiB 的单成员生效，小型空白存档即使高度可压缩也仍受总展开量和成员数上限约束。7z 仅用于表中标为“ZIP/7z”的唯一 ROM wrapper；Arcade、DOS、CHD、ISO、CSO、3DS、CCI 均不接受 7z。
 
 单 ROM 主机/掌机的 ZIP/7z 在后端物化唯一 primary entry 到 CAS，发布后的 GameContentRevision 以一个 `CONTENT` GameContentFile 指向物化后的原始 entry bytes；原 archive Blob、ArchiveEntry、`archiveFormat` 与两者 hash 继续作为来源/审核证据。运行时不得再次把这类 wrapper archive 交给 EmulatorJS 猜 entry。Arcade ZIP 和 DOS bundle 是有意的多 entry 运行内容，不适用这一物化规则；Arcade 的 `CONTENT` 是 ROMset ZIP，DOS 的每个安全成员/目录文件是带规范相对逻辑名的 `DOS_SOURCE`。
 
@@ -130,9 +130,13 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 | PC Engine (`pce`) | 原始 `.pce`；或一个 ZIP/7z | archive 必须恰有一个 `.pce` entry。 |
 | Neo Geo Pocket (`ngpc`) | 原始 `.ngp`；或一个 ZIP/7z | archive 必须恰有一个 `.ngp` entry。 |
 | Nintendo 64 (`n64`) | 原始 `.z64`；或一个 ZIP/7z | archive 必须恰有一个 `.z64` entry。 |
+| Virtual Boy (`virtualboy`) | 原始 `.vb`；或一个 ZIP/7z | archive 必须恰有一个 `.vb` entry。 |
+| WonderSwan / Color (`wonderswan`) | 原始 `.ws`、`.wsc`；或一个 ZIP/7z | archive 必须恰有一个支持 entry。 |
+| Master System (`mastersystem`) | 原始 `.sms`；或一个 ZIP/7z | archive 必须恰有一个 `.sms` entry；本期不借用 SMS Plus 的其他平台格式扩展产品范围。 |
 | PlayStation / 3DO / PC-FX | 对应目录中的单个原始 `.chd` | 不展开、不接受 archive wrapper；不支持 CUE/BIN、M3U、多盘或伴随音轨。 |
 | Saturn | STANDARD 为单个原始 `.chd`；显式 `MULTI_DISC_M3U_V1` 为同目录一个 M3U 与其引用的 2–8 个 CHD | 多盘仅对 capability 返回支持的 yabause artifact 开放；不接受跨目录引用、archive wrapper、CUE/BIN 或非 CHD entry。 |
 | PSP (`psp`) | 单个原始 `.iso` 或 `.cso` | 两者均为 `RAW_FILE_V1` CONTENT，直接交给 PPSSPP；服务端不转码，也不接受 `.iso.7z/.cso.7z`。 |
+| Nintendo 3DS (`nintendo3ds`) | 单个原始 `.3ds` 或 `.cci` | 作为 `RAW_FILE_V1` CONTENT 直接交给 Azahar；本期不接受 archive wrapper 或其他 3DS 容器/可执行格式。 |
 | Arcade (`arcade`) | 一个未加密 `.zip` ROMset archive | 顶层 ZIP 必须精确命中活动 DAT machine；ZIP 本身不是 Hasheous hash 来源。只有 NORMAL machine 是 primary 候选。相同 UploadSession 中经 DAT 闭包明确采用的其他顶层 ZIP 作为该 Item 的 COMPANION parent/BIOS/base；NORMAL parent 也可形成自己的 Item，而 EXPLICIT_BIOS/ROMOF_INFERENCE 只能作为依赖。不能把无关全局 Blob 猜成依赖。 |
 | MS-DOS (`dos`) | 一个目录树，或一个未加密 `.zip` | 整棵目录/整个 ZIP 是一项，必须至少有一个 `.exe/.com/.bat` entry，全部候选均保留。`game/go/launch/play/run/start` 优先，setup/install/config/uninstall/readme/驱动/解包工具降权，再按扩展名、深度和路径稳定排序；这只决定审核默认值。目录输入会生成确定性 ZIP。ISO/CUE/IMG/VHD/M3U 和安装介质流程不在一期范围。 |
 

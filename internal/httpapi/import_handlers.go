@@ -782,14 +782,16 @@ WHERE e.event_type IN ('APPROVED',
 }
 
 func (server *Server) reviewHistoryEvent(writer http.ResponseWriter, request *http.Request) {
-	var id, itemID, eventType, actor, before, after, diff, config, dat, provider string
-	var reason sql.NullString
+	var id, itemID, eventType, actorKind, before, after, diff, config, dat, provider string
+	var actorUserID, actorLabel, reason sql.NullString
 	var created int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT id,
 import_item_id,
 event_type,
-actor,
+actor_kind,
+actor_user_id,
+actor_label,
 before_json,
 after_json,
 diff_json,
@@ -803,7 +805,22 @@ WHERE id=?
 AND event_type IN ('APPROVED',
 'DISCARDED')
 `, request.PathValue("reviewEventId")).
-		Scan(&id, &itemID, &eventType, &actor, &before, &after, &diff, &config, &dat, &provider, &reason, &created)
+		Scan(
+			&id,
+			&itemID,
+			&eventType,
+			&actorKind,
+			&actorUserID,
+			&actorLabel,
+			&before,
+			&after,
+			&diff,
+			&config,
+			&dat,
+			&provider,
+			&reason,
+			&created,
+		)
 	if errors.Is(err, sql.ErrNoRows) {
 		server.notFound(writer, request)
 		return
@@ -817,10 +834,14 @@ AND event_type IN ('APPROVED',
 		writer,
 		http.StatusOK,
 		map[string]any{
-			"reviewEventId":    id,
-			"importItemId":     itemID,
-			"eventType":        eventType,
-			"actor":            actor,
+			"reviewEventId": id,
+			"importItemId":  itemID,
+			"eventType":     eventType,
+			"actor": map[string]any{
+				"kind":   actorKind,
+				"userId": nullableString(actorUserID),
+				"label":  nullableString(actorLabel),
+			},
 			"before":           decode(before),
 			"after":            decode(after),
 			"diff":             decode(diff),

@@ -34,6 +34,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	"retrom/internal/contentcapability"
+	"retrom/internal/contentprofile"
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
 	"retrom/internal/dosbundle"
@@ -2873,7 +2874,7 @@ JOIN cores c ON c.id=pi.default_core_id
 			"id": id, "platformId": platformID, "platformName": platformName, "defaultCoreId": coreID,
 			"defaultCoreName": coreName, "name": name, "slug": slug, "description": description,
 			"sortOrder": sortOrder, "enabled": enabled == 1, "version": version, "updatedAtMs": updatedAtMS,
-			"gameCount": gameCount,
+			"gameCount": gameCount, "supportedExtensions": contentprofile.SupportedExtensions(platformID),
 			"importCapabilities": contentcapability.Resolve(
 				platformID, enabled == 1, server.config.MultiDiscImportEnabled, compatibility,
 			),
