@@ -1,0 +1,40 @@
+@media (min-width: 1600px) {
+  .app-frame { grid-template-columns: 248px minmax(0, 1fr); }
+  .content { padding-inline: 32px; }
+  .admin-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .save-card-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .review-detail-workbench { grid-template-columns: minmax(260px, .42fr) minmax(0, 1.58fr); }
+  .review-context-queue { display: block; }
+}
+@media (min-width: 2600px) {
+  .app-frame { grid-template-columns: 280px minmax(0, 1fr); }
+  .sidebar { padding-inline: 20px; }
+  .content { max-width: 2560px; padding: 42px 44px 80px; }
+  .page-header p { font-size: 16px; }
+  .panel-head h2 { font-size: 18px; }
+  .panel-head p, .game-meta, .filter-label, .filter-hint, .filter-result, .technical-details, .field small { font-size: 13px; }
+  .status, th { font-size: 12px; }
+  th, td { padding: 16px 18px; }
+  td { font-size: 14px; }
+  .admin-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
+  .save-card-grid { grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 24px; }
+  .kpi-grid { gap: 22px; }
+}
+@media (max-width: 1399px) {
+  .review-workflow-columns { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 1279px) {
+  .app-frame { min-width: 1080px; }
+  .admin-workbench { grid-template-columns: minmax(0, 1fr); }
+  .home-primary-grid { grid-template-columns: minmax(320px, .8fr) minmax(0, 1.2fr); }
+  .review-overview-grid { grid-template-columns: minmax(0, 1fr); }
+  .import-priority-grid { grid-template-columns: minmax(0, 1fr); }
+  .import-kpi-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .import-pipeline { min-width: 930px; }
+  .import-pipeline-panel { overflow-x: auto; }
+  .import-recent-list article { min-width: 960px; }
+  .import-recent-panel { overflow-x: auto; }
+  .review-workflow-columns { grid-template-columns: minmax(0, 1fr); }
+  .review-workflow-top { grid-template-columns: minmax(0, 1fr) 340px; }
+}
+

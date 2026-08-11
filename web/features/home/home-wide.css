@@ -1,0 +1,188 @@
+/* Wide home layouts are five proportional height tracks. Minimums preserve
+   legibility; the fractional maxima consume the rest of the first viewport. */
+@media (min-width: 1800px) and (min-height: 950px) {
+  .content:has(> .home-page) { height: 100dvh; }
+  .page-layout-home { width: 100%; max-width: var(--content-library); margin-inline: auto; }
+  .home-page { height: 100%; display: grid; grid-template-rows: minmax(547px, 46fr) minmax(203px, 19fr) minmax(203px, 19fr) minmax(122px, 12fr) minmax(54px, 4fr); gap: clamp(10px, .85vh, 18px); }
+  .home-layer + .home-layer { margin-top: 0; }
+  .home-hero-layer { min-height: 0; display: grid; grid-template-rows: 112px minmax(0, 1fr); }
+  .home-hero-layer .page-header { height: 112px; min-height: 0; margin: 0; }
+  .home-first-layer { min-height: 0; height: auto; }
+  .home-first-layer > .panel { height: 100%; }
+  .home-featured-body { height: calc(100% - 70px); display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+  .home-featured-media { height: auto; min-height: 0; container-type: inline-size; }
+  .home-quick-panel { height: 100%; }
+  .home-recent-section, .home-latest-section { min-height: 0; display: grid; grid-template-rows: 51px minmax(0, 1fr); }
+  .home-recent-section .home-section-head, .home-latest-section .home-section-head { min-height: 51px; margin: 0; }
+  .home-recent-rail { min-height: 0; height: 100%; }
+  .home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(144px, 34%, 240px) minmax(0, 1fr); }
+  .home-platform-section { min-height: 0; display: grid; grid-template-rows: 35px minmax(0, 1fr); }
+  .home-platform-section .home-section-head { min-height: 35px; margin: 0; }
+  .home-platform-rail { min-height: 0; height: 100%; }
+  .home-platform-card, .home-platform-card > a { height: 100%; min-height: 0; }
+  .home-summary { height: 100%; min-height: 0; }
+}
+
+/* Keep the complete home dashboard visible on physically 4K displays whose
+   browser viewport is reduced by OS scaling. */
+@media (min-width: 1800px) and (max-height: 1399px) {
+  .content:has(> .home-page) { padding-top: 12px; padding-bottom: 12px; }
+  .home-page { grid-template-rows: minmax(420px, 46fr) minmax(156px, 19fr) minmax(156px, 19fr) minmax(104px, 12fr) minmax(44px, 4fr); gap: 10px; }
+  .home-hero-layer { grid-template-rows: 76px minmax(0, 1fr); }
+  .home-page .page-header { height: 68px; min-height: 0; margin: 0; }
+  .home-page .page-header .eyebrow { margin-bottom: 2px; font-size: 10px; line-height: 1.2; }
+  .home-page .page-header h1 { font-size: 32px; line-height: 1.12; }
+  .home-page .page-header p:not(.eyebrow) { margin-top: 2px; font-size: 12px; line-height: 1.35; }
+  .home-layer + .home-layer { margin-top: 0; }
+  .home-first-layer { height: auto; }
+  .home-panel-head { min-height: 52px; padding: 9px 15px; }
+  .home-featured-body { height: calc(100% - 52px); padding: 9px; }
+  .home-featured-media { height: auto; min-height: 0; }
+  .home-featured-bottom { padding-top: 8px; }
+  .home-featured-bottom h3 { font-size: 16px; line-height: 1.35; }
+  .home-featured-bottom p { margin-top: 2px; font-size: 11px; line-height: 1.4; }
+  .home-featured-bottom a { font-size: 11px; }
+  .home-quick-panel { display: grid; grid-template-rows: 52px minmax(147px, .9fr) minmax(130px, 1.1fr); }
+  .home-quick-links { min-height: 0; padding: 5px 11px; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); }
+  .home-quick-link { min-height: 49px; padding: 5px 9px; grid-template-columns: 35px minmax(0, 1fr) 15px; gap: 9px; }
+  .home-quick-icon { width: 35px; height: 35px; border-radius: 9px; }
+  .home-quick-icon svg { width: 18px; height: 18px; }
+  .home-quick-platforms { min-height: 0; height: auto; margin-top: 0; padding: 9px 11px; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+  .home-quick-platform-head { margin-bottom: 6px; }
+  .home-quick-platform-grid { gap: 6px; }
+  .home-quick-platform-grid a { min-height: 42px; padding: 5px 8px; }
+  .home-section-head { min-height: 30px; margin-bottom: 4px; align-items: center; }
+  .home-section-head h2 { font-size: 16px; }
+  .home-recent-rail { padding-bottom: 4px; }
+  .home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(118px, 34%, 180px) minmax(0, 1fr); }
+  .home-recent-copy { padding: 10px; }
+  .home-recent-copy > strong { font-size: 13px; }
+  .home-recent-copy > small { margin-top: 3px; font-size: 9px; line-height: 1.45; }
+  .home-recent-copy > span { padding-top: 7px; }
+  .home-platform-section { padding: 7px 12px 6px; }
+  .home-platform-section .home-section-head { min-height: 26px; margin-bottom: 3px; }
+  .home-platform-rail { padding-bottom: 4px; }
+  .home-platform-card, .home-platform-card > a { height: 100%; min-height: 0; }
+  .home-platform-card > a { padding-block: 5px; }
+  .home-summary { height: 100%; min-height: 0; }
+}
+
+/* Use the available 4K canvas instead of leaving the dashboard clustered in
+   the upper middle of the screen. */
+@media (min-width: 2600px) and (min-height: 1600px) {
+  .content:has(> .home-page) { height: 100dvh; padding: 36px 44px 32px; }
+  .home-page { height: 100%; display: grid; grid-template-rows: minmax(0, 46fr) minmax(0, 19fr) minmax(0, 19fr) minmax(0, 12fr) minmax(0, 4fr); gap: 18px; padding: 0; }
+  .home-hero-layer { min-height: 0; display: grid; grid-template-rows: 110px minmax(0, 1fr); }
+  .home-page .page-header { height: 110px; min-height: 0; margin: 0; }
+  .home-page .page-header .eyebrow { font-size: 12px; }
+  .home-page .page-header h1 { font-size: 44px; }
+  .home-page .page-header p:not(.eyebrow) { font-size: 16px; }
+  .home-layer + .home-layer { margin-top: 0; }
+  .home-first-layer { min-height: 0; height: auto; gap: 22px; }
+  .home-first-layer > .panel { height: 100%; }
+  .home-panel-head { min-height: 86px; padding: 18px 24px; }
+  .home-panel-head h2 { font-size: 22px; }
+  .home-panel-head .eyebrow { font-size: 12px; }
+  .home-featured-body { height: calc(100% - 86px); padding: 20px; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
+  .home-featured-media { height: auto; min-height: 0; }
+  .home-featured-bottom { min-height: 66px; padding: 14px 4px 0; align-items: flex-start; }
+  .home-featured-bottom h3 { font-size: 21px; }
+  .home-featured-bottom p { font-size: 14px; }
+  .home-featured-bottom a { font-size: 14px; }
+  .home-quick-panel { display: grid; grid-template-rows: 86px minmax(0, 1fr) 330px; }
+  .home-quick-links { min-height: 0; padding: 12px 18px; display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); }
+  .home-quick-link { min-height: 0; padding: 12px 14px; grid-template-columns: 52px minmax(0, 1fr) 20px; gap: 15px; }
+  .home-quick-icon { width: 52px; height: 52px; border-radius: 13px; }
+  .home-quick-icon svg { width: 25px; height: 25px; }
+  .home-quick-link strong { font-size: 16px; }
+  .home-quick-link small { font-size: 12px; }
+  .home-quick-platforms { height: auto; margin-top: 0; padding: 18px; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+  .home-quick-platform-head { margin-bottom: 12px; }
+  .home-quick-platform-head strong { font-size: 15px; }
+  .home-quick-platform-head span { font-size: 11px; }
+  .home-quick-platform-grid { min-height: 0; gap: 10px; }
+  .home-quick-platform-grid a { min-height: 0; padding: 12px 14px; }
+  .home-quick-platform-grid strong { font-size: 14px; }
+  .home-quick-platform-grid small, .home-quick-platform-grid code { font-size: 11px; }
+  .home-recent-section, .home-latest-section { min-height: 0; display: grid; grid-template-rows: 54px minmax(0, 1fr); }
+  .home-section-head { min-height: 54px; margin: 0; align-items: center; }
+  .home-section-head h2 { font-size: 22px; }
+  .home-section-head > a { font-size: 15px; }
+  .home-recent-rail { min-height: 0; height: 100%; grid-auto-columns: minmax(480px, 1fr); gap: 16px; padding-bottom: 10px; }
+  .home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(240px, 34%, 340px) minmax(0, 1fr); }
+  .home-recent-copy { padding: 20px; }
+  .home-recent-copy > strong { font-size: 17px; }
+  .home-recent-copy > small { margin-top: 8px; font-size: 12px; line-height: 1.6; }
+  .home-recent-copy > span { padding-top: 14px; }
+  .home-recent-copy > span small { font-size: 12px; }
+  .home-recent-copy > span b { font-size: 14px; }
+  .home-platform-section { min-height: 0; padding: 10px 20px 12px; display: grid; grid-template-rows: 44px minmax(0, 1fr); }
+  .home-platform-section .home-section-head { min-height: 44px; margin: 0; }
+  .home-platform-rail { min-height: 0; height: 100%; padding-bottom: 8px; }
+  .home-platform-card, .home-platform-card > a { height: 100%; min-height: 0; }
+  .home-platform-card > a { padding: 14px 52px 14px 17px; }
+  .home-platform-card strong { font-size: 16px; }
+  .home-platform-card small { font-size: 11px; }
+  .home-platform-card code { font-size: 12px; }
+  .home-summary { min-height: 0; height: 72px; padding-inline: 24px; }
+  .home-summary > strong { font-size: 15px; }
+  .home-summary > span { font-size: 13px; }
+  .home-summary b { font-size: 24px; }
+}
+
+/* Scale the featured game's contents continuously with its own canvas. The
+   height cap keeps the 3:4 cover inside the first layer; cqw avoids a visible
+   size jump when a wide browser crosses a viewport breakpoint. */
+@media (min-width: 1800px) and (min-height: 950px) {
+  .home-featured-media { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); column-gap: clamp(24px, .8vw, 32px); align-items: stretch; }
+  .home-featured-media:not(.has-session-save) { grid-template-columns: auto minmax(0, 1fr); }
+  .home-featured-cover {
+    position: relative;
+    grid-column: 1;
+    grid-row: 1;
+    align-self: end;
+    left: auto;
+    top: auto;
+    bottom: auto;
+    width: auto;
+    height: min(calc(100% - clamp(16px, 1.67vh, 36px) - clamp(16px, 1.67vh, 36px)), clamp(224px, 36cqw, 516px));
+    margin-left: clamp(20px, 1.85cqw, 42px);
+    margin-bottom: clamp(16px, 1.67vh, 36px);
+    aspect-ratio: 3 / 4;
+    transform: none;
+  }
+  .home-featured-copy {
+    position: relative;
+    grid-column: 2;
+    grid-row: 1;
+    align-self: stretch;
+    left: auto;
+    right: auto;
+    top: auto;
+    bottom: auto;
+    padding-block: clamp(16px, 1.67vh, 36px);
+    display: flex;
+    flex-direction: column;
+    transform: none;
+  }
+  .home-featured-media.has-session-save .home-featured-copy { right: auto; }
+  .home-featured-details { margin-block: auto; }
+  .home-featured-save-preview {
+    position: relative;
+    grid-column: 3;
+    grid-row: 1;
+    align-self: center;
+    right: auto;
+    top: auto;
+    width: clamp(210px, 30cqw, 560px);
+    margin-right: clamp(16px, 1.7cqw, 38px);
+    transform: none;
+  }
+  .home-featured-overline { margin-bottom: clamp(5px, .4cqw, 9px); font-size: clamp(11px, .57cqw, 13px); }
+  .home-featured-copy h2 { font-size: clamp(27px, 1.67cqw, 38px); }
+  .home-featured-description { margin-top: clamp(5px, .44cqw, 10px); font-size: clamp(12px, .7cqw, 16px); }
+  .home-featured-facts { margin-top: clamp(12px, .96cqw, 22px); gap: clamp(14px, 1.05cqw, 24px); font-size: clamp(11px, .62cqw, 14px); }
+  .home-featured-actions { margin-top: 0; gap: clamp(12px, .7cqw, 16px); }
+  .home-featured-actions .button { min-height: clamp(40px, 2.32vh, 50px); padding-inline: clamp(15px, .96cqw, 22px); font-size: clamp(13px, .66cqw, 15px); }
+  .home-launch-note { font-size: clamp(11px, .57cqw, 13px); }
+}

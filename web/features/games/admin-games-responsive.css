@@ -1,0 +1,17 @@
+@media (max-width: 1399px) {
+  .admin-game-toolbar { grid-template-columns: minmax(260px, 38fr) repeat(5, minmax(105px, 12.4fr)); }
+  .admin-game-primary-grid { grid-template-columns: minmax(0, 1fr); }
+  .admin-game-media-grid { min-height: 330px; grid-template-columns: 190px minmax(0, 1fr); }
+}
+@media (max-width: 1099px) {
+  .admin-game-summary { grid-template-columns: repeat(5, minmax(120px, 1fr)); overflow-x: auto; }
+  .admin-game-toolbar { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .admin-game-search { grid-column: span 2; }
+  .admin-game-hero { grid-template-columns: 112px minmax(0, 1fr); }
+  .admin-game-hero-update { grid-column: 2; text-align: left; }
+  .admin-game-overview { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .admin-game-runtime-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .admin-game-action-grid { grid-template-columns: minmax(0, 1fr); }
+  .admin-game-remove form { grid-template-columns: minmax(0, 1fr); }
+}
+
