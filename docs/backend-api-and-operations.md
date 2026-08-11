@@ -176,6 +176,8 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 `make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。它默认使用全新 `.cache/retrom/user-management-v1-data` 和显式 test 模式，空库创建 `test/test`；旧 `.cache/retrom/data` 保留且不自动迁移或删除。测试服务器基线的浏览器 origin 为 `https://dev.sendev.cc`，前端固定监听 `0.0.0.0:3000`，后端仍保持回环监听；调用者可显式覆盖 origin 运行隔离的本地开发实例。仅 test 模式且 insecure flag=true 时允许明文非 localhost origin；release 无条件要求 HTTPS。线程核心仍受 Chrome 安全上下文限制。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
 
+未显式设置 `RETROM_SERVER_IMPORT_ROOTS` 时，`make dev` 在真正启动进程前幂等创建被 Git 忽略的仓库目录 `.dev-data/bios`，并把它作为 ID `local-bios`、标签“本地 BIOS”的唯一默认只读扫描 root。调用者可以显式提供 JSON 数组替换该默认值，也可以传 `[]` 关闭本地扫描；`scripts/dev.sh --stop` 不创建目录。该目录用于开发者自行放置不得提交的 BIOS 测试文件，不属于 Retrom 数据根、依赖物化目录或镜像输入。
+
 ### 7.3 TLS 只在 NG 终结
 
 生产拓扑中，浏览器只连接 NG 的 HTTPS 地址；`retrom-web:3000` 和 `retrom:8080` 只接受来自受信网络的明文 HTTP。Retrom 不提供证书/私钥配置、不监听 HTTPS、不申请证书、不执行 HTTP→HTTPS 跳转，也不管理 HSTS。对应职责全部属于前置 NG，且本项目的镜像构建 target 不构建或启动 NG。
@@ -227,6 +229,7 @@ RETROM_DATA_DIR/
 | `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer（含 prerelease）升序；当前为 `4.2.3,4.3.0-pre`。每项必须有完整 manifest/runtime/许可 payload，DAT 只在该 manifest 声明时必需。 |
 | `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。新验证逐 core 使用版本列表中最后一个声明该 core 的 artifact，不覆盖历史 revision 锁定版本。 |
 | `RETROM_MULTI_DISC_IMPORT_ENABLED` | 严格 `true|false`；服务配置缺省为 `false`，仓库 `make dev` 的测试服务器基线显式传入 `true`；控制新建多盘 Import、capability 投影和多盘内容替换。非法值启动失败，生产启用必须显式设为 `true`。 |
+| `RETROM_SERVER_IMPORT_ROOTS` | 服务配置缺省为 `[]`；仓库 `make dev` 在变量完全未设置时注入 `.dev-data/bios` 对应的单项 JSON 数组，显式值（包括 `[]`）优先。生产只能显式配置已挂载的只读目录。 |
 | `RETROM_TRUSTED_PROXIES` | 逗号分隔 CIDR；默认空。生产必须精确列出 NG 网段，不能使用 `0.0.0.0/0` 或 `::/0`。 |
 | `RETROM_STARTUP_CHECK_TIMEOUT` | 默认 `60s`，范围 `10s..5m`；只约束配置、依赖字节、数据库/migration 与 bootstrap Job 登记等同步预检，不包含后台 `DAT_PARSE` execution。 |
 | `RETROM_LOG_LEVEL` | `debug/info/warn/error`，默认 `info`；生产禁止记录内容秘密。 |

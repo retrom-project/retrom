@@ -261,6 +261,7 @@ erDiagram
 
 - 游戏入库
   - 导入游戏
+  - 本地扫描
   - 任务进度
   - 待审核
   - 审核历史
@@ -269,7 +270,7 @@ erDiagram
 - 用户管理
 - BIOS 管理（包含“BIOS 文件”和“Arcade DAT 版本”视图）
 
-“游戏入库”是可点击的父级总览；四个子项使用明确缩进并保持同级。进入子页时父项保留上下文高亮，当前子项使用强高亮。游戏详情不是左侧一级菜单。它只能从游戏库卡片、首页最近游戏或资源详情链接进入；进入时左侧仍保持“游戏库”上下文。存档的主按钮直接启动，标题/次要操作才进入游戏详情。
+“游戏入库”是可点击的父级总览；五个子项使用明确缩进并保持同级，其中“本地扫描”位于“导入游戏”之后、“任务进度”之前并进入服务器 BIOS 导入能力。进入子页时父项保留上下文高亮，当前子项使用强高亮。游戏详情不是左侧一级菜单。它只能从游戏库卡片、首页最近游戏或资源详情链接进入；进入时左侧仍保持“游戏库”上下文。存档的主按钮直接启动，标题/次要操作才进入游戏详情。
 
 一期路由固定为：
 
@@ -281,7 +282,7 @@ erDiagram
 | 游戏详情 | `/games/:gameId` |
 | 持久 Player Shell | `/play/:launchId` |
 | 游戏入库总览 | `/admin/imports` |
-| 新建导入 / 任务进度 | `/admin/imports/new`、`/admin/imports/tasks` |
+| 新建导入 / 本地扫描 / 任务进度 | `/admin/imports/new`、`/admin/imports/server`、`/admin/imports/tasks` |
 | 待审核 / 审核详情 / 历史 | `/admin/reviews`、`/admin/reviews/:itemId`、`/admin/reviews/history` |
 | 游戏管理 / 详情 | `/admin/games`、`/admin/games/:gameId` |
 | 游戏目录 | `/admin/platform-instances` |

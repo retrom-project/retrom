@@ -88,7 +88,7 @@ chmod +x "$temporary_root/bin/docker"
 : >"$temporary_root/docker-calls.log"
 
 start_dev() {
-  setsid env \
+  setsid env -u RETROM_SERVER_IMPORT_ROOTS \
     PATH="$temporary_root/bin:$PATH" \
     DOCKER="$temporary_root/bin/docker" \
     make dev \
@@ -213,7 +213,30 @@ if process_matches_start_ticks "$orphan_backend_pid" "$orphan_backend_start_tick
   exit 1
 fi
 
-home="$(curl --fail --silent --show-error "$web_origin/api/v1/home")"
+cookie_jar="$temporary_root/cookies"
+curl --fail --silent --show-error -c "$cookie_jar" \
+  -H "Origin: $browser_origin" -H 'Content-Type: application/json' \
+  -d '{"username":"test","password":"test"}' "$web_origin/api/v1/auth/login" \
+  >"$temporary_root/login.json"
+home="$(curl --fail --silent --show-error -b "$cookie_jar" "$web_origin/api/v1/home")"
+server_import_roots="$(curl --fail --silent --show-error -b "$cookie_jar" \
+  "$web_origin/api/v1/admin/server-import-roots")"
+python3 - "$server_import_roots" "$repository_root/.dev-data/bios" <<'PY'
+import json
+import os
+import sys
+
+raw = sys.argv[1]
+expected_path = sys.argv[2]
+payload = json.loads(raw)
+expected = {"items": [{"id": "local-bios", "label": "本地 BIOS", "status": "AVAILABLE"}]}
+if payload != expected:
+    raise SystemExit(f"unexpected default server import roots: {payload!r}")
+if expected_path in raw:
+    raise SystemExit("server import root response exposed the absolute host path")
+if not os.path.isdir(expected_path):
+    raise SystemExit("default local BIOS directory was not created")
+PY
 hmr_status="$(python3 - "$web_port" "$unconfigured_hmr_origin" <<'PY'
 import base64
 import os
@@ -288,7 +311,8 @@ if ! grep -q "go run ./cmd/retrom" <<<"$process_tree" || ! grep -q "next dev" <<
   exit 1
 fi
 
-printf 'live=%s\nready=%s\nfront_end_home=%s\nhmr_status=%s\n' "$live" "$ready" "$home" "$hmr_status"
+printf 'live=%s\nready=%s\nfront_end_home=%s\nserver_import_roots=%s\nhmr_status=%s\n' \
+  "$live" "$ready" "$home" "$server_import_roots" "$hmr_status"
 printf 'process_tree:\n%s\nlisteners:\n%s\n' "$process_tree" "$listeners"
 
 read -r _registration_version supervisor_pid _supervisor_start_ticks \
