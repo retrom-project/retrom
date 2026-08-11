@@ -76,7 +76,7 @@ FROM core_artifacts
 WHERE id=?
 AND enabled=1
 `, request.CoreArtifactID).Scan(&coreID); err != nil ||
-		coreID != "fbneo" && coreID != "mame2003" && coreID != "mame2003_plus" {
+		!arcadedat.SupportsCore(coreID) {
 		return Created{}, ErrInvalid
 	}
 	var uploadID, blobID, digest string

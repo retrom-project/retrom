@@ -59,7 +59,8 @@ type machineInfo struct {
 
 //nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func Parse(ctx context.Context, source io.Reader, coreID string) (Stats, error) {
-	if coreID != "fbneo" && coreID != "mame2003" && coreID != "mame2003_plus" {
+	family, supported := FamilyForCore(coreID)
+	if !supported {
 		return Stats{}, fmt.Errorf("%w: unsupported core", ErrInvalidDocument)
 	}
 	limited := &io.LimitedReader{R: source, N: maxDATBytes + 1}
@@ -108,7 +109,7 @@ func Parse(ctx context.Context, source io.Reader, coreID string) (Stats, error) 
 			}
 			if !rootSeen {
 				expected := "mame"
-				if coreID == "fbneo" {
+				if family == FamilyLogiqxDatafile {
 					expected = "datafile"
 				}
 				if value.Name.Local != expected || value.Name.Space != "" {

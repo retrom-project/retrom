@@ -633,8 +633,7 @@ export function expandMultiDiscFixtures(manifest) {
 
 export function selectableFixtures(manifest, requestedCores = []) {
   const formal = [...manifest.fixtures, ...expandMultiDiscFixtures(manifest)];
-  if (!requestedCores.length) return formal;
-  return [...formal, ...(manifest.candidateFixtures || [])];
+  return formal;
 }
 
 async function main() {

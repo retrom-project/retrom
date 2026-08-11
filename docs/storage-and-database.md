@@ -238,6 +238,8 @@ data/
         fbneo/fbneo-arcade.dat
         mame2003/mame2003.xml
         mame2003_plus/mame2003-plus.xml
+        fbalpha2012_cps1/fbalpha2012-cps1.dat
+        fbalpha2012_cps2/fbalpha2012-cps2.dat
   runtime/                 # EmulatorJS 依赖缓存，不进入版本控制，不保存业务数据
     emulatorjs/4.2.3/
       data/
@@ -253,7 +255,7 @@ data/
   tmp/jobs/
 ~~~
 
-项目 ignore 规则必须忽略 `.cache/`、`data/runtime/**` 和三个 DAT payload 目录，只允许 manifest、`SHA256SUMS`、文档和脚本进入 Git；许可原文与生成 notice 也属于 runtime payload，不能因体积小而提交成第二份事实源。生产 `RETROM_DATA_DIR` 使用独立持久卷；不得把只读依赖目录挂成业务数据根。`make prepare-deps` 在服务启动前物化并校验 payload；应用同步预检只校验、不下载，随后 Worker 可从已校验只读 DAT 建立数据库索引。用户上传 DAT 作为 Blob 写入 CAS，由 `dat_versions.blob_id` 引用；不得改写内置 DAT 基线。完整契约见 [第三方依赖管理](./dependency-management.md)。
+项目 ignore 规则必须忽略 `.cache/`、`data/runtime/**` 和五个 DAT payload 目录，只允许 manifest、`SHA256SUMS`、文档和脚本进入 Git；许可原文与生成 notice 也属于 runtime payload，不能因体积小而提交成第二份事实源。生产 `RETROM_DATA_DIR` 使用独立持久卷；不得把只读依赖目录挂成业务数据根。`make prepare-deps` 在服务启动前物化并校验 payload；应用同步预检只校验、不下载，随后 Worker 可从已校验只读 DAT 建立数据库索引。用户上传 DAT 作为 Blob 写入 CAS，由 `dat_versions.blob_id` 引用；不得改写内置 DAT 基线。完整契约见 [第三方依赖管理](./dependency-management.md)。
 
 ### 5.2 Blob 写入
 

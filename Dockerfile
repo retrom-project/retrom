@@ -2,8 +2,10 @@
 FROM python:3.13-alpine AS dependencies
 ARG RETROM_DEPENDENCY_VERSIONS=4.2.3,4.3.0-pre
 WORKDIR /work
-RUN apk add --no-cache p7zip xz
+RUN apk add --no-cache build-base p7zip xz
 COPY scripts/dependencies.py scripts/dependencies.py
+COPY scripts/fbalpha2012_dat.py scripts/fbalpha2012_dat.py
+COPY scripts/fbalpha2012-dat-enumerator.cpp scripts/fbalpha2012-dat-enumerator.cpp
 COPY data/dat data/dat
 COPY data/auth data/auth
 COPY web/features/player/adapters web/features/player/adapters

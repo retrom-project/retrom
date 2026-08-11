@@ -158,15 +158,17 @@ BIOS 页面默认只统计当前游戏库各 GameVariant 当前 VariantRevision 
 | fbneo | `c8c70ba…` | `fbneo/fbneo-arcade.dat` | `99605be7…d73637` | 7,980 machines；13 explicit BIOS |
 | mame2003 | `0ee1c0e…` | `mame2003/mame2003.xml` | `dacf9d57…6da147` | 4,727 machines；17 base targets；4.2.1 运行覆盖的 DAT 字节相同 |
 | mame2003_plus | `09e84fe…` | `mame2003_plus/mame2003-plus.xml` | `e1107634…d7303c` | 5,257 machines；17 base targets |
+| fbalpha2012_cps1 | `d6f5267…` | `fbalpha2012_cps1/fbalpha2012-cps1.dat` | `54a95deb…15b789` | 227 machines；无 BIOS/base target |
+| fbalpha2012_cps2 | `3fb5b89…` | `fbalpha2012_cps2/fbalpha2012-cps2.dat` | `f59166db…07f99` | 284 machines；无 BIOS/base target |
 
-FBNeo 与 MAME2003-Plus source commit 按 EmulatorJS v4.2.3 官方 build report 时间推定；MAME2003 commit 来自 core 运行日志内嵌 Git version。manifest 分别记录证据等级，不能把任何一种证据改写成 build report 明示。
+FBNeo、MAME2003-Plus 与两个 FBA2012 source commit 按 EmulatorJS v4.2.3 官方 build report 时间推定；MAME2003 commit 来自 core 运行日志内嵌 Git version。manifest 分别记录证据等级，不能把任何一种证据改写成 build report 明示。两个 FBA2012 DAT 从各自锁定源码的生产 driver registry 原生生成两次并要求逐字节相同；CPS-1 的真实 machine 数是 227，CPS-2 仅允许 manifest 明列的一个集合外 parent 规范化。
 
 ## 6. DAT 生命周期
 
 1. 仓库只保存 `data/dat/emulatorjs/<version>/manifest.json` 和 `SHA256SUMS`；真实 DAT payload 由 `make prepare-deps` 按固定配方预下载/生成到同一被 Git 忽略的版本目录。
 2. 服务同步启动阶段只校验、不下载；比较 manifest 与 `dat_versions`，并为缺少缓存的内置版本持久化唯一、不可取消的 `DAT_PARSE` Job。首次数据库或 parser version 变化时由 Worker 在事务外安全解析；当前 enabled Arcade artifact 完成前服务 live 但以 `DEPENDENCY_INDEXING` 不 ready，解析成功并短事务发布索引后才允许该内置版本成为 active。
 3. 内置 DAT 只有 EmulatorJS version 和实际 Core artifact SHA-256 都匹配 manifest 时才可自动激活。
-4. 用户上传时必须选择目标 Core；流式保存为非活动候选并计算 SHA-256。
+4. 用户上传时必须从封闭的五个 DAT-capable Core（`fbneo`、`mame2003`、`mame2003_plus`、`fbalpha2012_cps1`、`fbalpha2012_cps2`）中选择目标；流式保存为非活动候选并计算 SHA-256。其他 core（包括 `azahar`）不得出现在目标选择器中。
 5. 使用第 7.1 节的 streaming XML parser；用户 DAT 默认上限 64 MiB、500,000 元素、单字段 4 KiB，超限失败。
 6. 候选解析成功后自动排队异步差异物化；页面显示排队/运行状态并禁用查看和启用，不让 HTTP GET 承担全量 DAT 扫描。后台以当时 active DAT 为 base，物化 machine/entry/依赖差异、影响摘要和 digest；失败或失效可直接重新生成，无需再次上传 DAT。
 7. 用户显式启用前，diff GET 只分页读取 READY 物化结果。BIOS/parent archive 在上传验证时已安全扫描为 ArchiveEntry，因而 preview 和 commit 只比较索引的 entry hash/size，不重读大 Blob。启用请求校验同一 canonical input/impact、CoreArtifact version 与活动指针，短事务内切换 DatVersion、应用 requirement/version/installation 状态结果、写审计并为受影响的稳定 GameVariant 投递可观察 revalidation job。不回写不可变 VariantRevision，也不引入未定义的临时状态。任一启用或回滚会使同 CoreArtifact 其他候选/历史版本的已物化差异全部失效并删除明细；其页面恢复为“重新生成差异”。
@@ -192,7 +194,7 @@ DAT 与任务时间字段使用数据模型中唯一命名的 `created_at_ms`、
 
 格式差异：
 
-- FBNeo：`isbios="yes"` 可直接识别 BIOS machine。
+- FBNeo 与两个 FBA2012 family：`isbios="yes"` 可直接识别 BIOS machine；当前两份 FBA2012 基线均没有此标记或 base target，但仍必须按独立 family 校验声明名，不能复用 FBNeo DAT。
 - MAME 2003 / Plus：`cloneof` 表示 parent；`romof != cloneof` 的目标表示 BIOS/base archive，依赖沿 parent 链传递。
 - MAME 2003 / Plus 的真实基线分别有 1,427/3,462 个 `biosset`、213/268 个 default，以及 1,408/3,435 条带 `bios` 的 ROM。某 machine 声明 biosset 时，一期固定选择且只选择唯一 `default="yes"`：无 bios 归属的 ROM 与该 default bios 的 ROM 才进入必需闭包；非默认选项在完整目录显示为可选但不阻断启动。一期不提供 BIOS region/option 选择 UI。缺少 default、存在多个 default 或 ROM 引用未知 bios name 是 parse failure。
 - FBNeo 未写 `status` 的 ROM 视为 `GOOD`；三个格式的 `nodump` 都不要求用户提供，`baddump` 按 DAT hash 校验并显示 Warning，而不是静默当成 GOOD。

@@ -160,7 +160,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 - 启停本地开发进程；
 - 读取或打包用户 ROM、BIOS、SQLite、CAS、测试截图或 TLS 私钥。
 
-两个 Dockerfile 使用多阶段构建和非 root 运行用户，最终层不保留编译工具、源码缓存或开发依赖。后端 dependency builder 必须读取构建参数中 `RETROM_DEPENDENCY_VERSIONS` 对应的小型 manifest 集，按固定来源逐版本物化/校验 EmulatorJS、core、可选 DAT 与许可输入；当前默认 `4.2.3,4.3.0-pre`，后者只提供 DOSBox Pure 定向覆盖。前端镜像携带经过 `data-check` 的 adapter registry/实现；两个镜像必须携带完全相同的 release-input label。不能把下载 archive、本地依赖缓存、source checkout 或整个 `data/` 目录复制进镜像。
+两个 Dockerfile 使用多阶段构建和非 root 运行用户，最终层不保留编译工具、源码缓存或开发依赖。后端 dependency builder 必须读取构建参数中 `RETROM_DEPENDENCY_VERSIONS` 对应的小型 manifest 集，按固定来源逐版本物化/校验 EmulatorJS、core、可选 DAT 与许可输入；当前默认 `4.2.3,4.3.0-pre`，后者提供 DOSBox Pure、Genesis Plus GX Wide 与 Azahar 定向覆盖。前端镜像携带经过 `data-check` 的 adapter registry/实现；两个镜像必须携带完全相同的 release-input label。不能把下载 archive、本地依赖缓存、source checkout 或整个 `data/` 目录复制进镜像。
 
 `make build-images` 不自动属于普通 `make ci`，但修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时必须同时执行二者；发布流水线也必须把二者作为独立门禁。
 

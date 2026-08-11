@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/arcadedat"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/contentprofile"
@@ -933,7 +934,7 @@ WHERE a.id=?
 	if status, code := service.validateStaticBIOSForContent(ctx, artifactID, logicalName); status != "READY" {
 		return status, code
 	}
-	if coreID == "fbneo" || coreID == "mame2003" || coreID == "mame2003_plus" {
+	if arcadedat.SupportsCore(coreID) {
 		return service.validateArcadeContent(ctx, datID, logicalName)
 	}
 	return "READY", "READY"

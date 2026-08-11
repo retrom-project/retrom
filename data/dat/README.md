@@ -1,6 +1,6 @@
 # Arcade DAT 基线
 
-本目录随代码维护真实 Arcade DAT 的小型来源 manifest、物化配方、SHA-256 和统计，不提交约 53 MiB DAT payload，也不包含 ROM/BIOS。当前基线只对应 EmulatorJS `v4.2.3` 与 manifest 选定的实际 core artifact；升级 EmulatorJS 或替换核心文件时，必须重新确认绑定关系，不能沿用“最新版 DAT”。
+本目录随代码维护五份真实 Arcade DAT 的小型来源 manifest、物化配方、SHA-256 和统计，不提交 DAT payload，也不包含 ROM/BIOS。当前基线只对应 EmulatorJS `v4.2.3` 与 manifest 选定的实际 core artifact；升级 EmulatorJS 或替换核心文件时，必须重新确认绑定关系，不能沿用“最新版 DAT”。
 
 ## 文件映射
 
@@ -9,6 +9,8 @@
 | `v4.2.3` | `fbneo` | `emulatorjs/4.2.3/fbneo/fbneo-arcade.dat` | 权威来源是绑定提交的 release build + `fbneo -dat`；日常物化按 manifest 下载固定快照并执行两项计数替换，最终 bytes 与权威生成结果相同 |
 | `v4.2.3` | `mame2003` | `emulatorjs/4.2.3/mame2003/mame2003.xml` | 构建时点对应的 EmulatorJS/mame2003-libretro 提交内置 XML |
 | `v4.2.3` | `mame2003_plus` | `emulatorjs/4.2.3/mame2003_plus/mame2003-plus.xml` | 构建时点对应的 EmulatorJS/mame2003-plus-libretro 提交内置 XML |
+| `v4.2.3` | `fbalpha2012_cps1` | `emulatorjs/4.2.3/fbalpha2012_cps1/fbalpha2012-cps1.dat` | 校验锁定源码 archive 后原生构建并枚举 227 个生产 driver；两次干净生成必须逐字节相同 |
+| `v4.2.3` | `fbalpha2012_cps2` | `emulatorjs/4.2.3/fbalpha2012_cps2/fbalpha2012-cps2.dat` | 校验锁定源码 archive 后原生构建并枚举 284 个生产 driver；仅规范化 manifest 明列的一个集合外 parent |
 
 精确的 Player adapter ID、runtime base/loader、发布包、runtime allowlist、核心文件、源码提交、生成方式、文件大小、SHA-256 和解析统计位于 `emulatorjs/4.2.3/manifest.json`。adapter 的前端实现索引固定为 `web/features/player/adapters/registry.json`，由 `make data-check` 与 manifest 双向核对；版本目录是绑定关系的一部分，以后升级 EmulatorJS 时新增目录与精确 adapter，不覆盖旧基线。命令边界：
 
@@ -26,7 +28,8 @@ make deps-check     # 完全离线校验本地 bytes 与解析统计
 - MAME 2003 与 MAME 2003-Plus 使用旧式 MAME List XML，根结构为 `mame`，没有 `isbios` 属性。不能把“没有 `isbios`”解释为“不需要 BIOS”。解析器应把 `cloneof` 作为 parent 关系，把 `romof != cloneof` 的目标作为 BIOS/base archive 依赖，并沿 parent 链继续解析。
 - 两份 MAME XML 还真实包含 `biosset default` 与 ROM `bios` 属性；解析器只能把每个 machine 的唯一 default bios option 纳入必需闭包，不能要求所有地区/版本 BIOS。manifest 同时锁定 merge/biosset/bios/nodump/baddump 统计，避免只核对 machine 总数却漏掉依赖语义。
 - 两份 MAME XML 都真实包含两个指向未定义 `psarc95` 的 `romof` 关系。这是上游数据特征，应记录为可诊断的 unresolved dependency，不能伪造一个 machine，也不应导致整份 DAT 导入失败。
-- 三份文件都声明 DOCTYPE：FBNeo 是外部 PUBLIC DTD，MAME 是内部结构声明。运行时按 BIOS/DAT 专题的有界 scanner 跳过声明，绝不解析 DTD、实体或访问网络；本目录校验也只读取 XML 元素，不获取任何 DTD URL。
+- 三份既有文件声明 DOCTYPE：FBNeo 是外部 PUBLIC DTD，MAME 是内部结构声明；两份原生生成的 FBA2012 Logiqx XML 不依赖外部 DTD。运行时按 BIOS/DAT 专题的有界 scanner 跳过允许的声明，绝不解析 DTD、实体或访问网络；本目录校验也只读取 XML 元素，不获取任何 DTD URL。
+- FBA2012 CPS-1/CPS-2 均没有显式 BIOS machine、biosset 或 base dependency target，解析统计分别为 227/284 machines、5,355/5,047 ROM entries；不能因为同属 FBA 系列而复用 FBNeo family 或 DAT。
 - DAT 只用于 machine、ROM entry、parent 与 BIOS/base 依赖识别，不是游戏展示元信息刮削源。
 
 ## 更新规则

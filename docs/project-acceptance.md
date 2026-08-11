@@ -6,7 +6,7 @@
 | 版本 | 1.5 |
 | 日期 | 2026-08-10 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
-| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、28 核兼容性、PSP ISO/CSO 和 4K UI |
+| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、35 核兼容性、PSP ISO/CSO 和 4K UI |
 
 ## 1. 文档职责
 
@@ -212,8 +212,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：900 秒。
 - 执行：`make build-backend-image`，随后 `docker image inspect retrom:latest`；用 `docker image save` 到验收临时目录检查最终 image layer 文件清单，不创建/启动容器。
-- 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、非 root User、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、29 个运行时许可 component、依赖 manifest allowlist、三份 DAT 以及密码 blocklist/许可；从 manifest 在验收临时目录重建 notice 并逐字节比较。
-- 通过标准：默认 target 为 `retrom:latest`，`io.retrom.release-input-sha256` 等于包含密码 manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中固定 hash。最终文件包含 28 个 selected core/report、PPSSPP assets、三份 DAT、29 个运行时许可 component、10,000 行密码 blocklist及 MIT 许可，但不包含下载 archive、非 allowlist core、用户数据、源码/缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。
+- 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、非 root User、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、两个运行时 manifest 共 38 个许可 component、依赖 manifest allowlist、五份 DAT 以及密码 blocklist/许可；从 manifest 在验收临时目录重建 notice 并逐字节比较。
+- 通过标准：默认 target 为 `retrom:latest`，`io.retrom.release-input-sha256` 等于包含密码 manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中固定 hash。最终文件包含 36 个跨版本 selected core/report 条目（合并为 35 个 enabled core）、PPSSPP assets、五份 DAT、38 个运行时许可 component、10,000 行密码 blocklist及 MIT 许可，但不包含下载 archive、非 allowlist core、用户数据、源码/缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。
 - 证据：build log、image ID、RepoTags、User、Entrypoint/Cmd、最终 layer 文件/size 清单、Git tracked-file size 检查和 artifact 校验摘要；不启动容器。
 
 ### ACC-PKG-002：前端镜像构建
@@ -564,8 +564,8 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 前置：计时前已执行一次 `make prepare-deps`，本 Case 期间断网。
 - 执行：`make acceptance-case CASE=ACC-DAT-001`。
-- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证运行时 manifest/adapter/allowlist、28 个 selected core/report、PPSSPP assets、mame2003 override、29 个许可 component、三份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建 notice。再用全新临时 SQLite 和真实三份 DAT 断网启动服务，等待 ready并重启复用；最后运行 seed/约束负向与 Git payload 边界检查。
-- 通过标准：离线命令成功，所有值与机器基线一致；基线 manifest 的 adapter 精确为 `ejs-4.2.3-v2 → 4.2.3`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；28 个 enabled Core 各恰有一条 enabled CoreArtifact 且逐项等于 manifest，线程 basename 与实际 artifact 一致，未知版本不回退默认 adapter。冷库先 live/`DEPENDENCY_INDEXING`，三个不可取消 bootstrap Job 在事务外解析，最终三个 Arcade core 各有独立 READY active DAT；重启不重跑 parser。许可输入逐项命中 size/hash，notice 可重复生成；DAT、EJS archive/runtime、license/notice payload 均未被 Git 跟踪。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
+- 流程：runner 先执行 `make data-check` 与 `make deps-check`，验证运行时 manifest/adapter/allowlist、36 个跨版本 selected core/report 条目、PPSSPP assets、mame2003 override、38 个许可 component、五份 DAT，以及密码 blocklist manifest、10,000 行 payload 和 MIT 许可；离线重建 notice。再用全新临时 SQLite 和真实五份 DAT 断网启动服务，等待 ready并重启复用；最后运行 seed/约束负向与 Git payload 边界检查。
+- 通过标准：离线命令成功，所有值与机器基线一致；两份 manifest 的 adapter 精确为 `ejs-4.2.3-v2 → 4.2.3`、`ejs-4.3.0-pre-v1 → 4.3.0-pre`，base/loader 命中 allowlist，缺失、未知、版本错配或无实现 adapter 均使 `data-check` 失败；35 个 enabled Core 各恰有一条 enabled CoreArtifact 且逐项等于合并后的 manifest，线程 basename 与实际 artifact 一致，未知版本不回退默认 adapter。冷库先 live/`DEPENDENCY_INDEXING`，五个不可取消 bootstrap Job 在事务外解析，最终五个 Arcade core 各有独立 READY active DAT；重启不重跑 parser。两个 FBA2012 DAT 必须从锁定源码分别完成双生成且 bytes 相同。许可输入逐项命中 size/hash，notice 可重复生成；DAT、EJS archive/runtime、license/notice payload 均未被 Git 跟踪。整个 Case 断网且启动/解析不尝试 CDN；部署前由 `ACC-PKG-001`–`003` 比较两镜像 release-input digest。
 - 证据：逐文件校验/统计、DatVersion/Job 状态序列与 parser 调用计数、事务批次摘要、Git 跟踪边界和断网 network log。
 
 ### ACC-DAT-002：Core 隔离与依赖闭包
@@ -739,11 +739,11 @@ make acceptance-case CASE=<case-id>
 - 通过标准：加载阶段没有 PlaySession/idle 误过期，pre-start finish 撤销且不创建游玩记录；真实 start 后才启用 2 分钟 idle。三个事件端点都位于 `/runtime/launches/{launchId}/` 且校验 launch cookie，只有公开 launchId 没有 cookie 时为 401。只累计实际运行区间；隐藏/暂停/超出失联上限不累计；heartbeat/finish 幂等、跳号冲突，client time 只审计且越界拒绝；数据库全为整数毫秒，首页/详情汇总一致。
 - 证据：事件时间线、期望/实际 duration 和 API 汇总。
 
-## 13. 二十八个核心的真实运行画面
+## 13. 三十五个核心的真实运行画面
 
 ### 13.1 每个核心的统一执行流程
 
-每个 `ACC-CORE-*` 都是独立 Case，不允许把二十八核合成一个可能超时的长 Case。执行前先运行：
+每个 `ACC-CORE-*` 都是独立 Case，不允许把三十五核合成一个可能超时的长 Case。执行前先运行：
 
 ```bash
 python3 data/example/verify-fixtures.py
@@ -790,8 +790,15 @@ python3 data/example/verify-fixtures.py
 | `ACC-CORE-026` | 240 秒 | `node data/example/smoke-test.mjs mednafen_pcfx` | 单文件 CHD、PC-FX BIOS | 光盘内游戏菜单 |
 | `ACC-CORE-027` | 180 秒 | `node data/example/smoke-test.mjs mednafen_ngp` | raw `.ngp` | Pac-Man 游戏画面 |
 | `ACC-CORE-028` | 480 秒 | `node data/example/smoke-test.mjs ppsspp` | raw CSO 与 ISO 两个独立 run、thread、assets、启动动作、PersistentSave NONE | 两种格式均到达 Sheep Defense 标题画面 |
+| `ACC-CORE-029` | 180 秒 | `node data/example/smoke-test.mjs beetle_vb` | 无 BIOS；4 条固定启动动作；artifact hash 命中 | Panic Bomber 动画开场 |
+| `ACC-CORE-030` | 180 秒 | `node data/example/smoke-test.mjs mednafen_wswan` | 解包后的 raw `.ws`；无 BIOS | Mingle Magnet 标题画面 |
+| `ACC-CORE-031` | 180 秒 | `node data/example/smoke-test.mjs smsplus` | raw `.sms`；无 BIOS | Bank Panic 标题画面 |
+| `ACC-CORE-032` | 180 秒 | `node data/example/smoke-test.mjs fbalpha2012_cps1` | 专属 DAT 命中 `1941`；无 DAT_MACHINE 缺项 | 1941 attract/游戏画面 |
+| `ACC-CORE-033` | 180 秒 | `node data/example/smoke-test.mjs fbalpha2012_cps2` | 专属 DAT 命中 `sgemf`；无 DAT_MACHINE 缺项 | Pocket Fighter 动画开场 |
+| `ACC-CORE-034` | 180 秒 | `node data/example/smoke-test.mjs genesis_plus_gx_wide` | `4.3.0-pre` artifact；raw `.md` | Fix-It Felix Jr. attract 画面 |
+| `ACC-CORE-035` | 240 秒 | `node data/example/smoke-test.mjs azahar` | thread、COOP/COEP/CORP、WebGL2、raw `.cci` | Cave Story 2D 中文标题/菜单 |
 
-`ACC-CORE-028` 必须同时生成 `ppsspp-cso` 与 `ppsspp-iso` 两条机器结果和两张截图；任一格式失败即为整个 Case 失败。任一核心失败只重跑该 Case 进行诊断；共享 loader/runtime 变化时仍逐个运行二十八个 Case，不使用一个无界全量 Case 代替。
+`ACC-CORE-028` 必须同时生成 `ppsspp-cso` 与 `ppsspp-iso` 两条机器结果和两张截图；任一格式失败即为整个 Case 失败。`ACC-CORE-032` 与 `033` 还必须通过专属 DAT 的产品导入、READY Variant、Launch 和跨核 DAT 拒绝集成结果。任一核心失败只重跑该 Case 进行诊断；共享 loader/runtime 变化时仍逐个运行三十五个 Case，不使用一个无界全量 Case 代替。
 
 ## 14. UI、4K 与无障碍
 
@@ -921,11 +928,11 @@ python3 data/example/verify-fixtures.py
 
 ### ACC-MDISC-007：能力、替换与共享 adapter 回归
 
-- 上限：600 秒，不在本 Case 内重跑二十八核心。
+- 上限：600 秒，不在本 Case 内重跑三十五核心。
 - 执行：`make acceptance-case CASE=ACC-MDISC-007`。
-- 流程：检查 Saturn/yabause 与 PSX/3DO/PC-FX capability；验证省略 `contentMode`、默认核心影响、完整目录替换成功/失败、V2→V3→V3 bootstrap、关闭/重开 flag 对新建与既有任务/内容的影响；最后读取同一 run ID、commit 的 `ACC-CORE-001`–`028` 独立结果。
-- 通过标准：只有能力交集暴露 MULTI；缺省始终 STANDARD；替换创建新不可变 revision且失败保留旧 current；artifact ID 不变、version 只递增一次、重放不改 updated time，既有 Variant/PersistentSave 绑定不变；flag 关闭只阻止新建/替换，不偷换冻结任务且已发布内容仍可运行。二十八核心结果必须全部为本次 PASS，缺失、旧 commit 或合并结果均失败。
-- 证据：capability/flag 矩阵、替换前后 revision、bootstrap 行、在途/已发布行为和二十八份 Case 引用。
+- 流程：检查 Saturn/yabause 与 PSX/3DO/PC-FX capability；验证省略 `contentMode`、默认核心影响、完整目录替换成功/失败、V2→V3→V3 bootstrap、关闭/重开 flag 对新建与既有任务/内容的影响；最后读取同一 run ID、commit 的 `ACC-CORE-001`–`035` 独立结果。
+- 通过标准：只有能力交集暴露 MULTI；缺省始终 STANDARD；替换创建新不可变 revision且失败保留旧 current；artifact ID 不变、version 只递增一次、重放不改 updated time，既有 Variant/PersistentSave 绑定不变；flag 关闭只阻止新建/替换，不偷换冻结任务且已发布内容仍可运行。三十五核心结果必须全部为本次 PASS，缺失、旧 commit 或合并结果均失败。
+- 证据：capability/flag 矩阵、替换前后 revision、bootstrap 行、在途/已发布行为和三十五份 Case 引用。
 
 ### ACC-MDISC-008：授权、审计与私有数据隔离
 
@@ -985,7 +992,7 @@ python3 data/example/verify-fixtures.py
 - 第 5–16 节所有 Required Case 为 PASS；
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
-- 本次生成的二十八核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；Saturn 双盘、三盘各自的机器结果与画面复核通过；
+- 本次生成的三十五核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；Saturn 双盘、三盘各自的机器结果与画面复核通过；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -1006,7 +1013,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 多盘导入、运行、回归与隔离 | `ACC-MDISC-001`–`008` |
 | BIOS、服务器导入与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`007` |
 | 启动、存档与游玩时长 | `ACC-RUN-001`–`005`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
-| EmulatorJS 二十八核心 | `ACC-CORE-001`–`028` |
+| EmulatorJS 三十五核心 | `ACC-CORE-001`–`035` |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
 | 收藏与收藏夹 | `ACC-FAV-001`–`004` |

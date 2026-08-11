@@ -27,7 +27,12 @@ type Diff = {
 };
 type DiffIntent = { item: DATVersion; rollback: boolean } | null;
 
-const arcadeCores = new Set(["fbneo", "mame2003", "mame2003_plus"]);
+const arcadeDATCoreIDs = ["fbneo", "mame2003", "mame2003_plus", "fbalpha2012_cps1", "fbalpha2012_cps2"] as const;
+const arcadeDATCores = new Set<string>(arcadeDATCoreIDs);
+
+export function supportsArcadeDATCore(coreID: string) {
+  return arcadeDATCores.has(coreID);
+}
 const diffLabels: Array<[keyof Pick<Diff["summary"], "machines" | "romEntries" | "biosSets" | "dependencyTargets">, string]> = [
   ["machines", "游戏条目"], ["romEntries", "ROM 文件"], ["biosSets", "BIOS 集合"], ["dependencyTargets", "依赖目标"],
 ];
@@ -101,7 +106,7 @@ export function DATManager({ versions, artifacts, initialFilters }: { versions: 
   const fileInput = useRef<HTMLInputElement>(null);
   const drawerClose = useRef<HTMLButtonElement>(null);
   const drawer = useRef<HTMLElement>(null);
-  const availableArtifacts = useMemo(() => artifacts.filter((item) => item.enabled && arcadeCores.has(item.coreId)), [artifacts]);
+  const availableArtifacts = useMemo(() => artifacts.filter((item) => item.enabled && supportsArcadeDATCore(item.coreId)), [artifacts]);
   const [artifactId, setArtifactId] = useState(availableArtifacts[0]?.id ?? "");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [drawerOpen, setDrawerOpen] = useState(false);

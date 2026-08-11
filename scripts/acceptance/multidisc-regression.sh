@@ -17,7 +17,7 @@ import sys
 run_dir = pathlib.Path(sys.argv[1])
 missing = []
 invalid = []
-for number in range(1, 29):
+for number in range(1, 36):
     case_id = f"ACC-CORE-{number:03d}"
     result_path = run_dir / "cases" / case_id.lower() / "result.json"
     if not result_path.is_file():
@@ -28,5 +28,5 @@ for number in range(1, 29):
         invalid.append(f"{case_id}:{result.get('status')}")
 if missing or invalid:
     raise SystemExit(f"ACC-MDISC-007 requires current-run core PASS evidence; missing={missing}, invalid={invalid}")
-print("All ACC-CORE-001..028 results are PASS in the current acceptance run.")
+print("All ACC-CORE-001..035 results are PASS in the current acceptance run.")
 PY

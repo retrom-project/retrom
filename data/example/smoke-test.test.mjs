@@ -56,16 +56,18 @@ test("multi-disc fixtures reuse the pinned yabause runtime without joining the y
   assert.deepEqual(runs[1].expectedExternalFiles, ["disc-001.chd", "disc-002.chd"]);
 });
 
-test("candidate fixtures require an explicit selector", () => {
+test("all promoted core fixtures are selectable formal fixtures", () => {
   const manifest = {
-    fixtures: [{ core: "yabause", bios: [], coreArtifact: { path: "yabause.data" } }],
-    candidateFixtures: [{ core: "bsnes", supportStatus: "candidate" }],
+    fixtures: [
+      { core: "yabause", bios: [], coreArtifact: { path: "yabause.data" } },
+      { core: "beetle_vb", bios: [], coreArtifact: { path: "beetle_vb.data" } }
+    ],
     multiDiscFixtures: []
   };
-  assert.deepEqual(selectableFixtures(manifest).map(fixture => fixture.core), ["yabause"]);
+  assert.deepEqual(selectableFixtures(manifest).map(fixture => fixture.core), ["yabause", "beetle_vb"]);
   assert.deepEqual(
-    selectableFixtures(manifest, ["bsnes"]).map(fixture => fixture.core),
-    ["yabause", "bsnes"]
+    expandFixtureRuns(selectableFixtures(manifest), ["beetle_vb"]).map(fixture => fixture.core),
+    ["beetle_vb"]
   );
 });
 

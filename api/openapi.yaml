@@ -1311,7 +1311,7 @@ components:
       properties:
         event: { type: string, enum: [GAME_START] }
         kind: { type: string, enum: [PRESS_CONTROL] }
-        delayMs: { type: integer, minimum: 0, maximum: 10000 }
+        delayMs: { type: integer, minimum: 0, maximum: 30000 }
         player: { type: integer, minimum: 0, maximum: 3 }
         control: { type: integer, minimum: 0, maximum: 255 }
         durationMs: { type: integer, minimum: 1, maximum: 1000 }

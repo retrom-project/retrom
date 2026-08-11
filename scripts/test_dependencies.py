@@ -125,6 +125,38 @@ class DependencyManifestValidationTests(unittest.TestCase):
 
         self.assert_invalid(invalid_none_kind, "DEPENDENCY_PERSISTENT_SAVE_INVALID")
 
+    def test_startup_action_delay_accepts_30_seconds_and_rejects_one_more_ms(self) -> None:
+        def set_delay(manifest: dict[str, object], delay_ms: int) -> None:
+            artifact = next(
+                item
+                for item in manifest["emulatorjs"]["selected_core_artifacts"]
+                if item["core_id"] == "ppsspp"
+            )
+            artifact["startup_actions"][0]["delayMs"] = delay_ms
+
+        accepted = copy.deepcopy(self.baseline)
+        set_delay(accepted, 30_000)
+        dependencies.validate_small_manifest("4.2.3", accepted)
+        self.assert_invalid(
+            lambda manifest: set_delay(manifest, 30_001),
+            "DEPENDENCY_STARTUP_ACTION_INVALID",
+        )
+
+    def test_rejects_fbalpha_generation_gate_drift(self) -> None:
+        def invalid_machine_count(manifest: dict[str, object]) -> None:
+            core = next(item for item in manifest["cores"] if item["core_id"] == "fbalpha2012_cps1")
+            core["parse_stats"]["machine_count"] = 226
+
+        self.assert_invalid(invalid_machine_count, "DEPENDENCY_FBA2012_DAT_GATE_INVALID")
+
+        def invalid_parent_mapping(manifest: dict[str, object]) -> None:
+            core = next(item for item in manifest["cores"] if item["core_id"] == "fbalpha2012_cps2")
+            core["dat"]["materialization"]["expected_normalized_external_parents"] = [
+                "other->megaman"
+            ]
+
+        self.assert_invalid(invalid_parent_mapping, "DEPENDENCY_FBA2012_DAT_GATE_INVALID")
+
     def test_rejects_implicit_or_unverified_multi_disc_capabilities(self) -> None:
         def missing_content_kinds(manifest: dict[str, object]) -> None:
             manifest["emulatorjs"]["selected_core_artifacts"][0].pop("supported_content_kinds")

@@ -1,12 +1,12 @@
 # EmulatorJS 核心验证夹具
 
-本目录提供 Retrom 28 个 EmulatorJS `4.2.3` 正式核心的可重复启动示例和 Chrome 冒烟测试。ROM、BIOS、EmulatorJS 发布包和截图留在本机并由 `.gitignore` 排除，清单、示例、脚本及 JSON 结果可提交。
+本目录提供 Retrom 35 个正式 EmulatorJS 核心的可重复启动示例和 Chrome 冒烟测试；33 个核心使用 `4.2.3`，`dosbox_pure`、`genesis_plus_gx_wide` 和 `azahar` 由 `4.3.0-pre` 定向覆盖。ROM、BIOS、EmulatorJS 发布包和截图留在本机并由 `.gitignore` 排除，清单、示例和脚本可提交。
 
 ## 已记录基线
 
-历史基线曾在 Chrome `149.0.7827.114` 验证原 8 核，在 Chrome `149.0.7827.55` 验证扩展后的 28 核。当前机器结果见 [`results/latest.json`](./results/latest.json)，逐图复核记录见 [`results/manual-review.json`](./results/manual-review.json)；历史结果只说明夹具已知状态，不能作为未来版本的当次验收证据。
+历史基线曾在 Chrome `149.0.7827.114` 验证原 8 核，在 Chrome `149.0.7827.55` 验证扩展后的 28 核；2026-08-11 又将 7 个完成同等真实画面验证的核心提升为正式清单，当前总数为 35。当前机器结果见 [`results/latest.json`](./results/latest.json)，逐图复核记录见 [`results/manual-review.json`](./results/manual-review.json)；历史结果只说明夹具已知状态，不能作为未来版本的当次验收证据。
 
-正式验收必须分别执行 [`project-acceptance.md`](../../docs/project-acceptance.md) 的 `ACC-CORE-001`–`ACC-CORE-028`，使用当次新生成的机器结果和截图，并遵守其中的画面阈值、人工复核与单 Case 超时。PPSSPP 会生成 `ppsspp-cso.png` 与 `ppsspp-iso.png`；其他截图为 `data/example/results/<core>.png`，均不进入 Git。
+正式验收必须分别执行 [`project-acceptance.md`](../../docs/project-acceptance.md) 的 `ACC-CORE-001`–`ACC-CORE-035`，使用当次新生成的机器结果和截图，并遵守其中的画面阈值、人工复核与单 Case 超时。PPSSPP 会生成 `ppsspp-cso.png` 与 `ppsspp-iso.png`；其他截图为 `data/example/results/<core>.png`，均不进入 Git。
 
 ## 夹具矩阵
 
@@ -50,18 +50,17 @@
 
 `melonds` 的 BIOS 必须放到 4.2.3 RetroArch system 目录 `/retroarch/userdata/system/`；写到虚拟文件系统根目录会回退到 FreeBIOS 并停在空白双屏。`mednafen_psx_hw` 在本机无 GPU 的 Chrome/SwiftShader 硬件渲染路径会于启动阶段失败，因此候选示例显式选择同一 core 的 software renderer；本记录不声称硬件渲染路径已验证。
 
-## 候选核心探测
+## 新增 7 个正式核心
 
-`candidateFixtures` 与正式 28 核基线隔离：不带 selector 的 `verify-fixtures.py` 和 `smoke-test.mjs` 仍只处理正式夹具，候选核心必须显式指定。候选示例只证明固定 runtime、core artifact 与本地验证内容的当前组合，不能据此宣称已经进入产品 manifest、adapter registry 或正式验收。
+以下夹具已进入产品 manifest、平台目录和 `ACC-CORE-029`–`035`；不再使用候选语义。
 
-| 候选核心 | Runtime | 固定验证内容 | BIOS/父集 |
+| 核心 | Runtime | 固定验证内容 | BIOS/父集 |
 | --- | --- | --- | --- |
 | `beetle_vb` | `4.2.3` | Virtual Boy / Panic Bomber | — |
 | `mednafen_wswan` | `4.2.3` | WonderSwan / Mingle Magnet | — |
 | `smsplus` | `4.2.3` | Master System / Bank Panic | — |
 | `fbalpha2012_cps1` | `4.2.3` | CPS-1 / 1941 | 此 machine 无额外 BIOS |
 | `fbalpha2012_cps2` | `4.2.3` | CPS-2 / Pocket Fighter (`sgemf`) | 独立父集，此 machine 无额外 BIOS |
-| `bsnes` | `4.3.0-pre` | Super Famicom / Super Bomberman | thread artifact，无 BIOS |
 | `genesis_plus_gx_wide` | `4.3.0-pre` | Mega Drive / Fix-It Felix Jr. | — |
 | `azahar` | `4.3.0-pre` | Nintendo 3DS / Cave Story 2D | thread artifact，无 BIOS |
 
@@ -126,17 +125,16 @@ node data/example/smoke-test.mjs mgba mame2003
 node data/example/smoke-test.mjs multidisc-saturn-2 multidisc-saturn-3
 ~~~
 
-从操作者授权的本地目录物化并运行候选核心时，使用独立的被忽略目录；脚本只读取 `fixtures.json` 锁定的相对路径，并在原子写入前校验 size/SHA-256：
+新增 7 核的专有内容只从操作者明确指定的本地根目录物化到被忽略目录；脚本只读取 `fixtures.json` 锁定的相对路径，并在原子写入前校验 size/SHA-256：
 
 ~~~bash
-export RETROM_CANDIDATE_FIXTURE_ROOT='<operator-provided-absolute-root>'
-python3 data/example/materialize-candidate-fixtures.py beetle_vb mednafen_wswan smsplus
+python3 data/example/materialize-fixtures.py --source-root '<operator-provided-absolute-root>' beetle_vb mednafen_wswan smsplus
 python3 data/example/verify-fixtures.py beetle_vb mednafen_wswan smsplus
-RETROM_EXAMPLE_RESULTS_DIR=data/example/results/candidates \
+RETROM_EXAMPLE_RESULTS_DIR=.artifacts/core-smoke \
   node data/example/smoke-test.mjs beetle_vb mednafen_wswan smsplus
 ~~~
 
-省略 materializer selector 会物化全部候选夹具；验证与 smoke 不允许省略 candidate selector，以免候选结果混入正式 28 核默认结果。候选二进制写入 `data/example/local-fixtures/`，独立机器结果和截图写入 `RETROM_EXAMPLE_RESULTS_DIR`，两者均不进入 Git。机器 `PASS` 仍必须人工确认截图确为指定游戏标题或游戏画面，而不是系统 Logo、启动提示、菜单或错误页。
+省略 materializer selector 会物化全部 7 个本地夹具。二进制写入 `data/example/local-fixtures/`，当次机器结果和截图写入 `RETROM_EXAMPLE_RESULTS_DIR`，两者均不进入 Git。机器 `PASS` 仍必须人工确认截图确为指定游戏标题或游戏画面，而不是系统 Logo、启动提示、菜单或错误页。
 
 验收 runner 可用同名 selector 只校验当前 Case 的受控 bytes，例如 `python3 data/example/verify-fixtures.py mgba` 或 `python3 data/example/verify-fixtures.py multidisc-saturn-2`。不传 selector 仍校验完整清单；某个尚未物化的专有多盘 fixture 不得阻断无关核心的独立验收，也不能被无关核心的通过结果掩盖。
 

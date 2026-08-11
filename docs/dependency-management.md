@@ -4,27 +4,27 @@
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
 | 版本 | 1.1 |
-| 日期 | 2026-08-10 |
+| 日期 | 2026-08-11 |
 | 适用范围 | EmulatorJS、core artifact、兼容覆盖、预置 Arcade DAT 与密码 blocklist |
 
 ## 1. 结论
 
-Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、ROM、BIOS、许可 payload、约 53 MiB 的三份 Arcade DAT payload 或密码 blocklist payload。真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
+Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得或从锁定源码确定性生成，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
 
 应用进程启动期间禁止联网下载或自动升级依赖。依赖缺失、大小或 SHA-256 不符时，后端必须拒绝进入 ready 状态并输出 `make prepare-deps` 这一条可操作命令；不能回退到 CDN、最新版本或另一个 core。
 
 ## 2. 唯一事实源与目录
 
-运行时机器事实源由按 SemVer 升序配置的 manifest 集合组成：[`4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json) 提供基础 28 核/DAT，[`4.3.0-pre/manifest.json`](../data/dat/emulatorjs/4.3.0-pre/manifest.json) 只覆盖 DOSBox Pure。账户密码拒绝列表由 [`password-blocklists/v1/manifest.json`](../data/auth/password-blocklists/v1/manifest.json) 独立锁定 SecLists tag、40 位 commit、10,000 行 payload、MIT 许可及各自 size/SHA-256。后出现的运行时 manifest 只替换它明确列出的 core；不能要求部分覆盖重复全部核心/DAT。`data/example/fixtures.json` 只描述本地兼容夹具，不得反向覆盖依赖版本。运行时 manifest 同时锁定：
+运行时机器事实源由按 SemVer 升序配置的 manifest 集合组成：[`4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json) 提供 33 个基础 artifact 与五份 DAT，[`4.3.0-pre/manifest.json`](../data/dat/emulatorjs/4.3.0-pre/manifest.json) 覆盖 DOSBox Pure、Genesis Plus GX Wide 与 Azahar；按“后声明覆盖同 core”合并后共有 35 个 enabled core artifact。账户密码拒绝列表由 [`password-blocklists/v1/manifest.json`](../data/auth/password-blocklists/v1/manifest.json) 独立锁定 SecLists tag、40 位 commit、10,000 行 payload、MIT 许可及各自 size/SHA-256。后出现的运行时 manifest 只替换它明确列出的 core；不能要求部分覆盖重复全部核心/DAT。`data/example/fixtures.json` 只描述本地兼容夹具，不得反向覆盖依赖版本。运行时 manifest 同时锁定：
 
 - EmulatorJS release、tag、发布资产 URL/size/SHA-256；
-- 允许进入镜像/由 Go 静态服务的 EmulatorJS 文件 allowlist、28 个选定 core artifact 以及 PPSSPP auxiliary asset 的路径、size/SHA-256；
+- 允许进入镜像/由 Go 静态服务的 EmulatorJS 文件 allowlist、36 个跨版本 selected artifact 条目（合并为 35 个 enabled core artifact）以及 PPSSPP auxiliary asset 的路径、size/SHA-256；
 - Player adapter ID、runtime base 与 loader 的精确 release 相对路径；前端机器 registry 以 `web/features/player/adapters/registry.json` 为单一可读索引；
 - `mame2003` 的显式兼容覆盖；
 - 每份 DAT 的 core source 证据、物化配方、最终 size/SHA-256 和解析统计。
-- EmulatorJS 与 28 个选定 core 的许可文件路径、固定来源、size/SHA-256、二进制关联证据等级和 notice 顺序（共 29 个 component）。
+- 两个 EmulatorJS 版本与所有 selected core 的许可文件路径、固定来源、size/SHA-256、二进制关联证据等级和 notice 顺序（两个 manifest 共 38 个 component）。
 
-当前 4.2.3 manifest 使用 schema V5，CoreArtifact compatibility 使用 schema V3。每个 `selected_core_artifacts` 项都显式给出 `runtime_core_id`、loader 实际请求的 `requested_artifact_basename`、canvas policy、默认 option、PersistentSave mode/kind、input mode、启动动作、`supported_content_kinds` 与 report；校验器不再根据 core ID 推导这些值。只有 `yabause` 同时声明 `MULTI_DISC_M3U_V1` 与 `multi_disc={max_discs:8,max_total_bytes:1073741824,delivery:EAGER_EXTERNAL_FILES}`，没有该对象、来自旧 schema 或 kind 不匹配都等价于不支持。`dosbox_pure`、`mednafen_psx_hw`、`ppsspp` 的 loader basename 分别为 `dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`，并与实际 THREAD_WASM 路径逐字匹配。`auxiliary_files` 当前只登记 `data/cores/ppsspp-assets.zip`，它和 28 份 core report 都必须在 runtime allowlist 中。
+当前 4.2.3 manifest 使用 schema V5，CoreArtifact compatibility 使用 schema V3。每个 `selected_core_artifacts` 项都显式给出 `runtime_core_id`、loader 实际请求的 `requested_artifact_basename`、canvas policy、默认 option、PersistentSave mode/kind、input mode、启动动作、`supported_content_kinds` 与 report；校验器不再根据 core ID 推导这些值。只有 `yabause` 同时声明 `MULTI_DISC_M3U_V1` 与 `multi_disc={max_discs:8,max_total_bytes:1073741824,delivery:EAGER_EXTERNAL_FILES}`，没有该对象、来自旧 schema 或 kind 不匹配都等价于不支持。`dosbox_pure`、`mednafen_psx_hw`、`ppsspp`、`azahar` 的 loader basename 分别为 `dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`、`azahar-thread-wasm.data`，并与实际 THREAD_WASM 路径逐字匹配。`auxiliary_files` 当前只登记 `data/cores/ppsspp-assets.zip`，它和 36 份跨版本 core report 都必须在各自 runtime allowlist 中。
 
 4.2.3 的 Player adapter 固定为 `ejs-4.2.3-v2`，registry 不保留无法由当前 manifest 解释的 v1 fallback。dependency bootstrap 对同一 `(core_id, emulatorjs_version, sha256)` 保留 CoreArtifact ID；bundle/flavor/path/size/compatibility/enabled 等运行语义变化时原子递增 artifact version，逐字节等价的重复 bootstrap 连 `updated_at_ms` 也不改。历史 VariantRevision、SaveState 与 PersistentSave 继续绑定原 artifact ID，但未发布的 generation 3 validation 全部 stale，必须由 compatibility V3 重新验证后才能发布。
 
@@ -37,6 +37,8 @@ data/dat/emulatorjs/4.2.3/
   fbneo/fbneo-arcade.dat        # prepare-deps 生成，Git 忽略
   mame2003/mame2003.xml         # prepare-deps 下载，Git 忽略
   mame2003_plus/mame2003-plus.xml # prepare-deps 下载，Git 忽略
+  fbalpha2012_cps1/fbalpha2012-cps1.dat # prepare-deps 从锁定源码原生生成，Git 忽略
+  fbalpha2012_cps2/fbalpha2012-cps2.dat # prepare-deps 从锁定源码原生生成，Git 忽略
 
 data/runtime/emulatorjs/4.2.3/  # prepare-deps 解包，Git 忽略
   4.2.3.7z                      # 仅依赖缓存；不进入最终镜像
@@ -51,7 +53,7 @@ data/auth/password-blocklists/v1/
   payload/LICENSE                # prepare-deps 下载，Git 忽略
 ```
 
-不得在 Markdown、shell 默认值或 Dockerfile 中复制另一套 digest。脚本必须读取 manifest；升级时新增版本目录，不覆盖旧 manifest。默认配置为 `4.2.3,4.3.0-pre`，其中 `RETROM_ACTIVE_EMULATORJS_VERSION=4.2.3` 仍是基础/备份契约值；新验证对每个 core 选择配置顺序中最后一个声明它的 manifest，因此 DOS 使用 4.3.0-pre，其余核心使用 4.2.3。
+不得在 Markdown、shell 默认值或 Dockerfile 中复制另一套 digest。脚本必须读取 manifest；升级时新增版本目录，不覆盖旧 manifest。默认配置为 `4.2.3,4.3.0-pre`，其中 `RETROM_ACTIVE_EMULATORJS_VERSION=4.2.3` 仍是基础/备份契约值；新验证对每个 core 选择配置顺序中最后一个声明它的 manifest，因此 `dosbox_pure`、`genesis_plus_gx_wide`、`azahar` 使用 4.3.0-pre，其余核心使用 4.2.3。
 
 ## 3. 命令契约
 
@@ -68,6 +70,8 @@ data/auth/password-blocklists/v1/
 下载规则：连接、首字节和总请求分别有界；最多跟随 3 次 HTTPS redirect；拒绝 scheme 降级；先写同文件系统的 `0600` 临时文件，再校验 size/SHA，最后原子 rename。失败不得覆盖已有正确文件，也不得留下会被 `deps-check` 误认的目标文件。脚本不使用 `latest`、分支名、浮动 CDN 目录或未校验镜像。`PINNED_RAW_FILE` 只能命中 manifest 中与 40 位 commit 对应的 `raw.githubusercontent.com` URL；`RELEASE_ENTRY` 只能从已校验 release archive 的 allowlist 路径复制，不能再联网取“相似”文本。
 
 FBNeo 的快速物化配方不是 mock：它下载固定 commit 的公开上游 DAT 快照，执行 manifest 中带 `expected_count` 的两项精确字节替换，并验证最终 SHA-256 与从绑定 EmulatorJS/FBNeo 源码直接运行 `fbneo -dat` 的结果完全一致。任一替换计数不符必须失败；直接源码构建仍是升级审计的独立复核路径。
+
+FB Alpha 2012 CPS-1/CPS-2 没有可直接复用的绑定 DAT。`make prepare-deps` 必须下载各自 manifest 锁定的源码 archive，校验 archive size/SHA-256、安全展开，在全新临时目录构建原生静态枚举器，并分别执行两次干净生成；两次 Logiqx XML 必须逐字节相同且命中 manifest 的最终 size、SHA-256、声明名/版本与完整解析统计。CPS-2 仅允许 manifest 明列的 `mmancp2u -> megaman` 核心集合外 parent 规范化；任何新增、缺失或不同的外部关系都必须失败。生成器不接受浮动 branch/tag，也不能以手写游戏列表或 FBNeo DAT 替代。
 
 ### 3.1 发布输入指纹
 
@@ -102,7 +106,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 
 本地运行时通过三个只读配置确定依赖集合：`RETROM_DEPENDENCY_ROOT` 是包含 `dat/emulatorjs/<version>/` 与 `runtime/emulatorjs/<version>/` 的绝对根；`RETROM_DEPENDENCY_VERSIONS` 是无空白、无重复、按 SemVer（含 prerelease）升序的逗号列表，默认 `4.2.3,4.3.0-pre`；`RETROM_ACTIVE_EMULATORJS_VERSION` 必须属于该列表，当前为 `4.2.3`。开发值由 `make dev` 显式传入仓库 `data/` 的绝对路径，镜像值指向只读依赖层。
 
-对每个配置版本 `v`，manifest 固定解析为 `<root>/dat/emulatorjs/<v>/manifest.json`，内置 DAT 根为同目录，release 根为 `<root>/runtime/emulatorjs/<v>`。数据库中 CoreArtifact 的 `relative_path` 相对它自己的 release 根解析，静态 URL 固定为 `/runtime/emulatorjs/<v>/<relative_path>`。当前版本的 28 个 manifest artifact 被设为 enabled；保留版本的 artifact 以 disabled 历史行存在，但被 SaveState/PersistentSave/历史 READY VariantRevision 精确引用时仍可启动。普通新验证只选择当前 enabled artifact，绝不能因旧文件仍在磁盘而自动选中它。
+对每个配置版本 `v`，manifest 固定解析为 `<root>/dat/emulatorjs/<v>/manifest.json`，内置 DAT 根为同目录，release 根为 `<root>/runtime/emulatorjs/<v>`。数据库中 CoreArtifact 的 `relative_path` 相对它自己的 release 根解析，静态 URL 固定为 `/runtime/emulatorjs/<v>/<relative_path>`。当前合并后的 35 个 manifest artifact 被设为 enabled；保留版本的 artifact 以 disabled 历史行存在，但被 SaveState/PersistentSave/历史 READY VariantRevision 精确引用时仍可启动。普通新验证只选择当前 enabled artifact，绝不能因旧文件仍在磁盘而自动选中它。
 
 后端启动顺序固定为：
 
@@ -120,7 +124,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 
 ## 5. 镜像构建
 
-根 Dockerfile 的 dependency builder stage 必须读取同一组 manifest，当前默认列表为 `4.2.3,4.3.0-pre`。升级镜像必须同时保留数据库中受 SaveState/PersistentSave/READY VariantRevision 保护的旧版本；两个镜像都使用第 3.1 节的发布输入 label。最终 `retrom` 镜像只复制：
+根 Dockerfile 的 dependency builder stage 必须读取同一组 manifest，当前默认列表为 `4.2.3,4.3.0-pre`；该 stage 包含 FBA2012 锁定源码生成器及临时原生编译工具链，生成结束后只把校验通过的依赖 payload 复制到最终镜像，生成器、源码和编译工具不得进入最终层。升级镜像必须同时保留数据库中受 SaveState/PersistentSave/READY VariantRevision 保护的旧版本；两个镜像都使用第 3.1 节的发布输入 label。最终 `retrom` 镜像只复制：
 
 - 后端二进制；
 - 每个配置 manifest `runtime_allowlist` 中的固定浏览器文件与 `selected_core_artifacts` 中的 core；

@@ -177,9 +177,8 @@ def verify_format_variants(fixture: dict[str, Any], errors: list[str]) -> None:
 
 def selected_fixtures(manifest: dict, selectors: set[str]) -> tuple[list[dict], list[dict], set[str]]:
     formal_fixtures = manifest.get("fixtures", [])
-    candidate_fixtures = manifest.get("candidateFixtures", [])
     multi_disc_fixtures = manifest.get("multiDiscFixtures", [])
-    known = {fixture.get("core") for fixture in formal_fixtures + candidate_fixtures}
+    known = {fixture.get("core") for fixture in formal_fixtures}
     known.update(fixture.get("id") for fixture in multi_disc_fixtures)
     unknown = selectors - known
     if not selectors:
@@ -187,7 +186,7 @@ def selected_fixtures(manifest: dict, selectors: set[str]) -> tuple[list[dict], 
     return (
         [
             fixture
-            for fixture in formal_fixtures + candidate_fixtures
+            for fixture in formal_fixtures
             if fixture.get("core") in selectors
         ],
         [fixture for fixture in multi_disc_fixtures if fixture.get("id") in selectors],

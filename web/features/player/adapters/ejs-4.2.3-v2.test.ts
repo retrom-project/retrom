@@ -252,17 +252,39 @@ describe("EmulatorJS adapter", () => {
     const gameManager = { simulateInput };
     const startupConfig: PlayerConfig = {
       ...config,
-      startupActions: [{ event: "GAME_START", kind: "PRESS_CONTROL", delayMs: 2000, player: 0, control: 0, durationMs: 120 }]
+      startupActions: [{ event: "GAME_START", kind: "PRESS_CONTROL", delayMs: 25_000, player: 0, control: 3, durationMs: 120 }]
     };
     const cleanup = scheduleStartupActions(startupConfig, { on: () => undefined, gameManager });
-    vi.advanceTimersByTime(1999);
+    vi.advanceTimersByTime(24_999);
     expect(simulateInput).not.toHaveBeenCalled();
     vi.advanceTimersByTime(1);
-    expect(simulateInput).toHaveBeenLastCalledWith(0, 0, 1);
+    expect(simulateInput).toHaveBeenLastCalledWith(0, 3, 1);
     expect(receivers.at(-1)).toBe(gameManager);
     vi.advanceTimersByTime(120);
-    expect(simulateInput).toHaveBeenLastCalledWith(0, 0, 0);
+    expect(simulateInput).toHaveBeenLastCalledWith(0, 3, 0);
     cleanup();
+    expect(simulateInput).toHaveBeenCalledTimes(2);
+    vi.useRealTimers();
+  });
+
+  it("accepts 30 seconds, rejects 30 seconds plus one ms, and cleanup releases held input", () => {
+    vi.useFakeTimers();
+    const target = document.createElement("div");
+    const atBoundary = { event: "GAME_START" as const, kind: "PRESS_CONTROL" as const, delayMs: 30_000, player: 0, control: 3, durationMs: 120 };
+    const mountedCleanup = mountEmulatorJS({ ...config, startupActions: [atBoundary] }, target);
+    mountedCleanup();
+    expect(() => mountEmulatorJS({ ...config, startupActions: [{ ...atBoundary, delayMs: 30_001 }] }, target)).toThrow("PLAYER_STARTUP_ACTION_INVALID");
+
+    const simulateInput = vi.fn();
+    const cleanup = scheduleStartupActions(
+      { ...config, startupActions: [{ ...atBoundary, delayMs: 0 }] },
+      { on: () => undefined, gameManager: { simulateInput } }
+    );
+    vi.advanceTimersByTime(0);
+    expect(simulateInput).toHaveBeenLastCalledWith(0, 3, 1);
+    cleanup();
+    expect(simulateInput).toHaveBeenLastCalledWith(0, 3, 0);
+    vi.runAllTimers();
     expect(simulateInput).toHaveBeenCalledTimes(2);
     vi.useRealTimers();
   });

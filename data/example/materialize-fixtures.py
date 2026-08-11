@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
-"""Materialize operator-authorized candidate core fixtures inside data/example."""
+"""Materialize operator-authorized formal fixtures inside data/example."""
 
 from __future__ import annotations
 
 import hashlib
 import json
 import os
+import argparse
 import sys
 import tempfile
 import zipfile
@@ -31,7 +32,7 @@ def source_path(source_root: Path, relative: str) -> Path:
     try:
         path.relative_to(source_root)
     except ValueError as error:
-        raise ValueError("sourceRelativePath escapes the candidate fixture root") from error
+        raise ValueError("sourceRelativePath escapes the fixture root") from error
     if not path.is_file():
         raise ValueError(f"candidate source is not a regular file: {relative}")
     return path
@@ -43,14 +44,14 @@ def target_path(repo_root: Path, relative: str) -> Path:
     try:
         path.relative_to(required_prefix)
     except ValueError as error:
-        raise ValueError("candidate targets must remain under data/example/local-fixtures") from error
+        raise ValueError("fixture targets must remain under data/example/local-fixtures") from error
     destination = repo_root.joinpath(*path.parts)
     local_root = (repo_root / required_prefix).resolve()
     resolved = destination.resolve(strict=False)
     try:
         resolved.relative_to(local_root)
     except ValueError as error:
-        raise ValueError("candidate target escapes data/example/local-fixtures") from error
+        raise ValueError("fixture target escapes data/example/local-fixtures") from error
     return destination
 
 
@@ -150,27 +151,30 @@ def materialize_parent(fixture: dict, source_root: Path, repo_root: Path) -> lis
 
 
 def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--source-root", type=Path, required=True)
+    parser.add_argument("cores", nargs="*")
+    args = parser.parse_args()
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
-    candidates = manifest.get("candidateFixtures", [])
-    requested = set(sys.argv[1:])
-    known = {fixture["core"] for fixture in candidates}
+    fixtures = [
+        fixture
+        for fixture in manifest.get("fixtures", [])
+        if fixture["game"]["localPath"].startswith("data/example/local-fixtures/")
+    ]
+    requested = set(args.cores)
+    known = {fixture["core"] for fixture in fixtures}
     unknown = requested - known
     if unknown:
-        raise ValueError(f"unknown candidate core(s): {', '.join(sorted(unknown))}")
+        raise ValueError(f"unknown local fixture core(s): {', '.join(sorted(unknown))}")
     selected = [
-        fixture for fixture in candidates if not requested or fixture["core"] in requested
+        fixture for fixture in fixtures if not requested or fixture["core"] in requested
     ]
     if not selected:
-        raise ValueError("no candidate fixtures selected")
+        raise ValueError("no local fixtures selected")
 
-    source_config = manifest.get("candidateSource", {})
-    root_environment = source_config.get("rootEnv")
-    root_value = os.environ.get(root_environment or "", "").strip()
-    if not root_environment or not root_value:
-        raise ValueError("set the candidate fixture root environment variable")
-    source_root = Path(root_value)
+    source_root = args.source_root
     if not source_root.is_absolute():
-        raise ValueError(f"{root_environment} must be an absolute path")
+        raise ValueError("--source-root must be an absolute path")
     source_root = source_root.resolve(strict=True)
 
     written: list[Path] = []
@@ -178,8 +182,8 @@ def main() -> int:
         written.extend(materialize_game(fixture, source_root, REPO_ROOT))
         written.extend(materialize_parent(fixture, source_root, REPO_ROOT))
         written.extend(materialize_bios(fixture, source_root, REPO_ROOT))
-        print(f"OK  {fixture['core']}: materialized verified candidate fixture")
-    print(f"Materialized {len(selected)} candidate core fixture(s), {len(written)} file(s).")
+        print(f"OK  {fixture['core']}: materialized verified fixture")
+    print(f"Materialized {len(selected)} core fixture(s), {len(written)} file(s).")
     return 0
 
 

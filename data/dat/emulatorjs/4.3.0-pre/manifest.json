@@ -1,6 +1,6 @@
 {
   "schema_version": 5,
-  "purpose": "Targeted EmulatorJS 4.3.0 pre-release runtime lane for DOSBox Pure; other cores remain on their independently selected version",
+  "purpose": "Targeted EmulatorJS 4.3.0 pre-release runtime lane for DOSBox Pure, Genesis Plus GX Wide, and Azahar; other cores remain on their independently selected version",
   "created_at": "2026-08-09T00:00:00Z",
   "reviewed_at": "2026-08-09T00:00:00Z",
   "repository_policy": {
@@ -88,6 +88,18 @@
         "size_bytes": 193,
         "sha256": "062138590f62c48934e79298784153a1dcb6377e7e1ffc8f96582cb67d9238e2",
         "role": "core_report"
+      },
+      {
+        "path_in_release": "data/cores/reports/genesis_plus_gx_wide.json",
+        "size_bytes": 134,
+        "sha256": "d575fa5ea067fb55bbe9d8b7bb92328678ec544d367866be183e7b8c959ff184",
+        "role": "core_report"
+      },
+      {
+        "path_in_release": "data/cores/reports/azahar.json",
+        "size_bytes": 212,
+        "sha256": "ae7e1038a2d98910c8bc12accf6f6aa7823233697da9e0bf47cde17e18a48d40",
+        "role": "core_report"
       }
     ],
     "selected_core_artifacts": [
@@ -112,16 +124,107 @@
         "supported_content_kinds": [
           "DOS_BUNDLE"
         ]
+      },
+      {
+        "core_id": "genesis_plus_gx_wide",
+        "path_in_release": "data/cores/genesis_plus_gx_wide-wasm.data",
+        "size_bytes": 1007775,
+        "sha256": "653b59f5b4c3147c6786313ecd60c6657b1bc0d465814919d363728afa93b2e0",
+        "source_component_id": "genesis_plus_gx_wide",
+        "runtime_core_id": "genesis_plus_gx_wide",
+        "requires_threads": false,
+        "requested_artifact_basename": "genesis_plus_gx_wide-wasm.data",
+        "canvas_resize_policy": "NONE",
+        "default_options": {},
+        "persistent_save_mode": "SINGLE_FILE",
+        "persistent_save_kind": "CORE_SAVE",
+        "input_mode": "STANDARD",
+        "startup_actions": [],
+        "report_path": "data/cores/reports/genesis_plus_gx_wide.json",
+        "bundle_version": "4.3.0-pre",
+        "artifact_flavor": "WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
+      },
+      {
+        "core_id": "azahar",
+        "path_in_release": "data/cores/azahar-thread-wasm.data",
+        "size_bytes": 3985011,
+        "sha256": "d90696e6ea68c4fc00ef147411ad399962777f07b6c7e73d5537da0eaffc2e3b",
+        "source_component_id": "azahar",
+        "runtime_core_id": "azahar",
+        "requires_threads": true,
+        "requested_artifact_basename": "azahar-thread-wasm.data",
+        "canvas_resize_policy": "NONE",
+        "default_options": {
+          "webgl2Enabled": "enabled"
+        },
+        "persistent_save_mode": "NONE",
+        "persistent_save_kind": null,
+        "input_mode": "POINTER",
+        "startup_actions": [],
+        "report_path": "data/cores/reports/azahar.json",
+        "bundle_version": "4.3.0-pre",
+        "artifact_flavor": "THREAD_WASM",
+        "supported_content_kinds": [
+          "SINGLE_FILE"
+        ]
       }
     ],
     "auxiliary_files": []
   },
-  "cores": [],
+  "cores": [
+    {
+      "core_id": "genesis_plus_gx_wide",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.3.0-pre/data/cores/reports/genesis_plus_gx_wide.json",
+        "build_start": "2026-05-17T17:10:06+00:00",
+        "build_end": "2026-05-17T17:10:35+00:00"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/Genesis-Plus-GX-Wide",
+        "commit": "275b7425d27e1a84deccfe74a1e278b96c6efcf6",
+        "commit_time": "2025-10-19T21:31:21Z",
+        "association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/genesis_plus_gx_wide-wasm.data",
+          "size_bytes": 1007775,
+          "sha256": "653b59f5b4c3147c6786313ecd60c6657b1bc0d465814919d363728afa93b2e0"
+        }
+      ]
+    },
+    {
+      "core_id": "azahar",
+      "build_report": {
+        "url": "https://cdn.emulatorjs.org/4.3.0-pre/data/cores/reports/azahar.json",
+        "build_start": "2026-05-17T17:40:04+00:00",
+        "build_end": "2026-05-17T17:41:54+00:00"
+      },
+      "core_source": {
+        "repository": "https://github.com/EmulatorJS/azahar",
+        "commit": "62cfcfb5e488f158f5f7ba83b725bb0ddd04da44",
+        "commit_time": "2026-05-12T01:54:16Z",
+        "association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP"
+      },
+      "core_artifacts": [
+        {
+          "path_in_release": "data/cores/azahar-thread-wasm.data",
+          "size_bytes": 3985011,
+          "sha256": "d90696e6ea68c4fc00ef147411ad399962777f07b6c7e73d5537da0eaffc2e3b"
+        }
+      ]
+    }
+  ],
   "license_materialization": {
     "third_party_notices_relative_path": "THIRD_PARTY_NOTICES",
     "notice_order": [
       "emulatorjs",
-      "dosbox_pure"
+      "dosbox_pure",
+      "genesis_plus_gx_wide",
+      "azahar"
     ],
     "components": [
       {
@@ -159,6 +262,44 @@
             "output_relative_path": "licenses/dosbox_pure/LICENSE",
             "size_bytes": 17995,
             "sha256": "61e0922747762a12e88a47ab66ef4ed026148361900440086b4863145973a374"
+          }
+        ]
+      },
+      {
+        "component_id": "genesis_plus_gx_wide",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/1",
+        "repository": "https://github.com/EmulatorJS/Genesis-Plus-GX-Wide",
+        "source_commit": "275b7425d27e1a84deccfe74a1e278b96c6efcf6",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "license_files": [
+          {
+            "declared_license_path": "LICENSE.txt",
+            "materialization": {
+              "type": "PINNED_RAW_FILE",
+              "url": "https://raw.githubusercontent.com/EmulatorJS/Genesis-Plus-GX-Wide/275b7425d27e1a84deccfe74a1e278b96c6efcf6/LICENSE.txt"
+            },
+            "output_relative_path": "licenses/genesis_plus_gx_wide/LICENSE.txt",
+            "size_bytes": 44729,
+            "sha256": "c38ff8ea57f501f63a8e4a9e22a67be12eb006345ce2059f0419b69d8f7734cd"
+          }
+        ]
+      },
+      {
+        "component_id": "azahar",
+        "binary_artifact_ref": "/emulatorjs/selected_core_artifacts/2",
+        "repository": "https://github.com/EmulatorJS/azahar",
+        "source_commit": "62cfcfb5e488f158f5f7ba83b725bb0ddd04da44",
+        "binary_association_status": "INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP",
+        "license_files": [
+          {
+            "declared_license_path": "license.txt",
+            "materialization": {
+              "type": "PINNED_RAW_FILE",
+              "url": "https://raw.githubusercontent.com/EmulatorJS/azahar/62cfcfb5e488f158f5f7ba83b725bb0ddd04da44/license.txt"
+            },
+            "output_relative_path": "licenses/azahar/license.txt",
+            "size_bytes": 19281,
+            "sha256": "a77e81713ddfe05f9f7f3a3c46de4147f82b5fe9d6e5e24af96e36a6de53f613"
           }
         ]
       }

@@ -530,7 +530,7 @@ func validDefaultOptions(options map[string]string) bool {
 func validStartupActions(actions []dependencies.StartupAction) bool {
 	for _, action := range actions {
 		if action.Event != "GAME_START" || action.Kind != "PRESS_CONTROL" ||
-			action.DelayMS < 0 || action.DelayMS > 10_000 || action.Player < 0 || action.Player > 3 ||
+			action.DelayMS < 0 || action.DelayMS > 30_000 || action.Player < 0 || action.Player > 3 ||
 			action.Control < 0 || action.Control > 255 || action.DurationMS < 1 || action.DurationMS > 1_000 {
 			return false
 		}
