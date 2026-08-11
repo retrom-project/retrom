@@ -37,6 +37,7 @@ import (
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
 	"retrom/internal/dosbundle"
+	"retrom/internal/favorites"
 	"retrom/internal/firmware"
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
@@ -75,26 +76,27 @@ type contextKey string
 const requestIDKey contextKey = "request-id"
 
 type Server struct {
-	config        config.Config
-	database      *sql.DB
-	dependencies  *dependencies.Set
-	blobs         *blobstore.Store
-	credentials   *retromruntime.Credentials
-	cursors       *cursor.Codec
-	uploads       *uploads.Service
-	importer      *libraryimport.Service
-	launcher      *launch.Service
-	jobService    *jobs.Service
-	firmware      *firmware.Service
-	arcadeDAT     *arcadecatalog.Service
-	metadata      *metadatascrape.Service
-	gameContent   *gamecontent.Service
-	saveService   *saves.Service
-	now           func() time.Time
-	sseHeartbeat  time.Duration
-	idempotency   sync.Mutex
-	authenticator Authenticator
-	accounts      *accounts.Service
+	config          config.Config
+	database        *sql.DB
+	dependencies    *dependencies.Set
+	blobs           *blobstore.Store
+	credentials     *retromruntime.Credentials
+	cursors         *cursor.Codec
+	uploads         *uploads.Service
+	importer        *libraryimport.Service
+	launcher        *launch.Service
+	jobService      *jobs.Service
+	firmware        *firmware.Service
+	arcadeDAT       *arcadecatalog.Service
+	metadata        *metadatascrape.Service
+	gameContent     *gamecontent.Service
+	saveService     *saves.Service
+	favoriteService *favorites.Service
+	now             func() time.Time
+	sseHeartbeat    time.Duration
+	idempotency     sync.Mutex
+	authenticator   Authenticator
+	accounts        *accounts.Service
 }
 
 type Authenticator interface {
@@ -147,9 +149,10 @@ func New(
 		metadata:      scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
-		saveService:  saves.New(database, blobs, credentials, now),
-		now:          now,
-		sseHeartbeat: 15 * time.Second,
+		saveService:     saves.New(database, blobs, credentials, now),
+		favoriteService: favorites.New(database, now),
+		now:             now,
+		sseHeartbeat:    15 * time.Second,
 	}
 }
 
@@ -170,6 +173,15 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/recent-games", server.recentGames)
 	mux.HandleFunc("GET /api/v1/games", server.games)
 	mux.HandleFunc("GET /api/v1/games/{gameId}", server.game)
+	mux.HandleFunc("GET /api/v1/favorites", server.favoritesList)
+	mux.HandleFunc("PUT /api/v1/favorites/{gameId}", server.putFavorite)
+	mux.HandleFunc("PUT /api/v1/favorites/{gameId}/folders", server.putFavoriteFolders)
+	mux.HandleFunc("POST /api/v1/favorites/organize", server.organizeFavorites)
+	mux.HandleFunc("POST /api/v1/favorites/unfavorite", server.unfavorite)
+	mux.HandleFunc("POST /api/v1/favorites/restore", server.restoreFavorites)
+	mux.HandleFunc("POST /api/v1/favorite-folders", server.createFavoriteFolder)
+	mux.HandleFunc("PATCH /api/v1/favorite-folders/{folderId}", server.patchFavoriteFolder)
+	mux.HandleFunc("DELETE /api/v1/favorite-folders/{folderId}", server.deleteFavoriteFolder)
 	mux.HandleFunc("GET /api/v1/saves", server.saves)
 	mux.HandleFunc("PATCH /api/v1/saves/{saveStateId}", server.patchSave)
 	mux.HandleFunc("DELETE /api/v1/saves/{saveStateId}", server.deleteSave)
@@ -399,71 +411,96 @@ func (server *Server) validRequestOrigin(request *http.Request) bool {
 	return true
 }
 
-//nolint:gocognit,gocyclo // Query branches encode independent per-operation allowlists and stable lexical constraints.
-func validateQuery(request *http.Request) error {
-	allowed := map[string]struct{}{}
-	add := func(names ...string) {
-		for _, name := range names {
-			allowed[name] = struct{}{}
-		}
-	}
+var exactQueryAllowlists = map[string][]string{
+	"GET /api/v1/games":     {"q", "platformId", "platformInstanceId", "sort", "cursor", "limit"},
+	"GET /api/v1/favorites": {"scope", "folderId", "q", "platformId", "sort", "cursor", "limit"},
+	"GET /api/v1/saves": {
+		"q", "gameId", "platformId", "platformInstanceId", "coreId", "availability", "sort", "cursor", "limit",
+	},
+	"GET /api/v1/admin/imports": {"q", "state", "platformInstanceId", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/reviews": {
+		"q", "importJobId", "platformInstanceId", "blockerCode", "sort", "cursor", "limit",
+	},
+	"GET /api/v1/admin/review-history": {
+		"q", "decision", "platformInstanceId", "fromAtMs", "toAtMs", "sort", "cursor", "limit",
+	},
+	"GET /api/v1/admin/games":              {"q", "platformId", "platformInstanceId", "status", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/platform-instances": {"platformId", "enabled", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/bios": {
+		"q", "platformId", "coreId", "coreArtifactId", "scope", "status", "cursor", "limit",
+	},
+	"GET /api/v1/admin/arcade-dats": {"q", "coreId", "coreArtifactId", "source", "parseStatus", "cursor", "limit"},
+	"GET /api/v1/admin/users":       {"q", "role", "status", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/invitations": {"state", "cursor", "limit"},
+}
+
+func queryParameterNames(request *http.Request) []string {
 	path := request.URL.Path
-	switch {
-	case (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
-		strings.HasPrefix(path, "/runtime/emulatorjs/"):
-		add("v")
-	case request.Method == http.MethodGet && path == "/api/v1/games":
-		add("q", "platformId", "platformInstanceId", "sort", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/saves":
-		add("q", "gameId", "platformId", "platformInstanceId", "coreId", "availability", "sort", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/admin/imports":
-		add("q", "state", "platformInstanceId", "sort", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/admin/reviews":
-		add("q", "importJobId", "platformInstanceId", "blockerCode", "sort", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/admin/review-history":
-		add("q", "decision", "platformInstanceId", "fromAtMs", "toAtMs", "sort", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/admin/games":
-		add("q", "platformId", "platformInstanceId", "status", "sort", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/admin/platform-instances":
-		add("platformId", "enabled", "sort", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/admin/bios":
-		add("q", "platformId", "coreId", "coreArtifactId", "scope", "status", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/admin/arcade-dats":
-		add("q", "coreId", "coreArtifactId", "source", "parseStatus", "cursor", "limit")
-	case request.Method == http.MethodGet &&
-		strings.HasPrefix(path, "/api/v1/admin/arcade-dats/") && strings.HasSuffix(path, "/diff"):
-		add("section", "change", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/admin/users":
-		add("q", "role", "status", "sort", "cursor", "limit")
-	case request.Method == http.MethodGet && path == "/api/v1/admin/invitations":
-		add("state", "cursor", "limit")
-	case request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/users/") &&
-		strings.HasSuffix(path, "/password-reset-links"):
-		add("state", "cursor", "limit")
+	if (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
+		strings.HasPrefix(path, "/runtime/emulatorjs/") {
+		return []string{"v"}
 	}
-	values := request.URL.Query()
-	for name, entries := range values {
-		if _, ok := allowed[name]; !ok || len(entries) != 1 {
-			return errUnknownQuery
-		}
+	if names := exactQueryAllowlists[request.Method+" "+path]; names != nil {
+		return names
 	}
+	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/arcade-dats/") &&
+		strings.HasSuffix(path, "/diff") {
+		return []string{"section", "change", "cursor", "limit"}
+	}
+	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/users/") &&
+		strings.HasSuffix(path, "/password-reset-links") {
+		return []string{"state", "cursor", "limit"}
+	}
+	return nil
+}
+
+func queryAllowlist(request *http.Request) map[string]struct{} {
+	allowed := map[string]struct{}{}
+	for _, name := range queryParameterNames(request) {
+		allowed[name] = struct{}{}
+	}
+	return allowed
+}
+
+func validateQueryLimit(values url.Values) error {
 	if value := values.Get("limit"); value != "" {
 		parsed, err := strconv.Atoi(value)
 		if err != nil || parsed < 1 || parsed > 100 || strconv.Itoa(parsed) != value {
 			return errInvalidLimit
 		}
 	}
+	return nil
+}
+
+func validateQueryTimeRange(values url.Values) error {
+	if !values.Has("fromAtMs") || !values.Has("toAtMs") {
+		return nil
+	}
+	from, fromErr := strconv.ParseInt(values.Get("fromAtMs"), 10, 64)
+	to, toErr := strconv.ParseInt(values.Get("toAtMs"), 10, 64)
+	if fromErr != nil || toErr != nil || from > to {
+		return errInvalidTimeRange
+	}
+	return nil
+}
+
+func validateQueryValues(values url.Values, allowed map[string]struct{}) error {
+	for name, entries := range values {
+		if _, ok := allowed[name]; !ok || len(entries) != 1 {
+			return errUnknownQuery
+		}
+	}
+	if err := validateQueryLimit(values); err != nil {
+		return err
+	}
 	if len(values.Get("cursor")) > 8192 || len([]rune(strings.TrimSpace(values.Get("q")))) > 200 {
 		return errQueryTooLong
 	}
-	if values.Has("fromAtMs") && values.Has("toAtMs") {
-		from, fromErr := strconv.ParseInt(values.Get("fromAtMs"), 10, 64)
-		to, toErr := strconv.ParseInt(values.Get("toAtMs"), 10, 64)
-		if fromErr != nil || toErr != nil || from > to {
-			return errInvalidTimeRange
-		}
-	}
-	return nil
+	return validateQueryTimeRange(values)
+}
+
+func validateQuery(request *http.Request) error {
+	return validateQueryValues(request.URL.Query(), queryAllowlist(request))
 }
 
 func (server *Server) healthLive(writer http.ResponseWriter, _ *http.Request) {
@@ -2002,6 +2039,11 @@ LIMIT 8
 		server.databaseError(writer, request, err)
 		return
 	}
+	favorite, err := server.favoriteService.Reference(request.Context(), principal.ProfileID, gameID)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"gameId": gameID, "title": title, "description": description, "developer": developer, "publisher": publisher,
 		"genre": genre, "players": nullableInteger(players), "releaseYear": nullableInteger(releaseYear),
@@ -2011,6 +2053,7 @@ LIMIT 8
 		"coverUrl": gameCoverURL(coverAssetID), "activeDurationMs": activeDurationMS, "coreOptions": coreOptions,
 		"dosEntries": dosEntries, "defaultDosEntry": nullableString(defaultDOSEntry),
 		"saveStateCount": saveStateCount, "saveStates": saveStates,
+		"favorite": favorite,
 	})
 }
 
@@ -2065,6 +2108,46 @@ func scanGameListItem(scanner rowScanner, includeAdminProjection bool) (map[stri
 		item["runtimeStatus"] = nullableString(runtimeStatus)
 	}
 	return item, nil
+}
+
+func (server *Server) projectGameListFavorites(
+	ctx context.Context,
+	profileID string,
+	items []map[string]any,
+) error {
+	gameIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		gameID, _ := item["gameId"].(string)
+		gameIDs = append(gameIDs, gameID)
+	}
+	references, err := server.favoriteService.References(ctx, profileID, gameIDs)
+	if err != nil {
+		return fmt.Errorf("project game list favorites: %w", err)
+	}
+	for _, item := range items {
+		gameID, _ := item["gameId"].(string)
+		if favorite, exists := references[gameID]; exists {
+			item["favorite"] = favorite
+		} else {
+			item["favorite"] = nil
+		}
+	}
+	return nil
+}
+
+func scanGameListRows(rows *sql.Rows, includeDeleted bool, capacity int) ([]map[string]any, error) {
+	items := make([]map[string]any, 0, capacity)
+	for rows.Next() {
+		item, err := scanGameListItem(rows, includeDeleted)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate game list: %w", err)
+	}
+	return items, nil
 }
 
 //nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
@@ -2169,18 +2252,16 @@ JOIN cores dc ON dc.id=pi.default_core_id
 		return
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0, limit+1)
-	for rows.Next() {
-		item, scanErr := scanGameListItem(rows, includeDeleted)
-		if scanErr != nil {
-			server.databaseError(writer, request, scanErr)
-			return
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
+	items, err := scanGameListRows(rows, includeDeleted, limit+1)
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
+	}
+	if !includeDeleted {
+		if err := server.projectGameListFavorites(request.Context(), principal.ProfileID, items); err != nil {
+			server.databaseError(writer, request, err)
+			return
+		}
 	}
 	var nextCursor any
 	if len(items) > limit {

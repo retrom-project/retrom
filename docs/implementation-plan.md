@@ -127,6 +127,12 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 范围：024 migration、manifest V5/compatibility V3、`ejs-4.2.3-v2`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
 
+### M9：收藏与收藏夹垂直切片
+
+范围：先同步正式契约和 OpenAPI；再落 Migration 025、`internal/favorites`、owner-scoped API 与游戏投影；最后接通游戏库、详情、`/favorites`、批量整理和两秒撤销。Folder 名称、批量上限、幂等、cursor、ETag、可见性和两个 Profile 隔离均按正式专题闭合，不引入 Job、Blob 或运行时变化。
+
+退出门禁：`ACC-FAV-001`–`004`、第 3 节的 023/024 升级路径、`make api-check`、`make ci` 与 `make web-e2e`。
+
 ## 5. 垂直切片提交规则
 
 每个可合并切片必须闭合以下链条，不允许把长期不工作的半成品推给后续 Agent：

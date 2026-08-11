@@ -12,7 +12,44 @@ import (
 	"retrom/internal/httpapi/generated"
 )
 
-//nolint:gocyclo // Each branch maps a distinct OpenAPI validation category to the documented stable error code.
+func handleOpenAPIValidationError(
+	_ context.Context,
+	_ error,
+	writer http.ResponseWriter,
+	request *http.Request,
+	options nethttpmiddleware.ErrorHandlerOpts,
+) {
+	if options.MatchedRoute == nil && options.StatusCode == http.StatusNotFound {
+		writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "请求的资源不存在", map[string]any{})
+		return
+	}
+	if options.MatchedRoute != nil && request.Header.Get("If-Match") == "" &&
+		operationRequiresHeader(options.MatchedRoute.Route.Operation, "If-Match") {
+		writeError(
+			writer,
+			request,
+			http.StatusPreconditionRequired,
+			"PRECONDITION_REQUIRED",
+			"需要当前资源版本",
+			map[string]any{},
+		)
+		return
+	}
+	if options.MatchedRoute != nil && request.Header.Get("Idempotency-Key") == "" &&
+		operationRequiresHeader(options.MatchedRoute.Route.Operation, "Idempotency-Key") {
+		writeError(
+			writer,
+			request,
+			http.StatusBadRequest,
+			"INVALID_IDEMPOTENCY_KEY",
+			"需要有效的幂等键",
+			map[string]any{},
+		)
+		return
+	}
+	writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "请求不符合 API 契约", map[string]any{})
+}
+
 func (server *Server) openAPIHandler(next http.Handler) http.Handler {
 	specification, err := generated.GetSpec()
 	if err != nil {
@@ -31,31 +68,6 @@ func (server *Server) openAPIHandler(next http.Handler) http.Handler {
 	if err != nil {
 		panic("build OpenAPI operation router: " + err.Error())
 	}
-	errorHandler := func(
-		_ context.Context,
-		_ error,
-		writer http.ResponseWriter,
-		request *http.Request,
-		options nethttpmiddleware.ErrorHandlerOpts,
-	) {
-		if options.MatchedRoute == nil && options.StatusCode == http.StatusNotFound {
-			writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "请求的资源不存在", map[string]any{})
-			return
-		}
-		if options.MatchedRoute != nil && request.Header.Get("If-Match") == "" &&
-			operationRequiresHeader(options.MatchedRoute.Route.Operation, "If-Match") {
-			writeError(
-				writer,
-				request,
-				http.StatusPreconditionRequired,
-				"PRECONDITION_REQUIRED",
-				"需要当前资源版本",
-				map[string]any{},
-			)
-			return
-		}
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "请求不符合 API 契约", map[string]any{})
-	}
 	normalOptions := &nethttpmiddleware.Options{
 		Options: openapi3filter.Options{
 			// Authentication and authorization are enforced by accountAuthHandler. The
@@ -64,7 +76,7 @@ func (server *Server) openAPIHandler(next http.Handler) http.Handler {
 			AuthenticationFunc: func(context.Context, *openapi3filter.AuthenticationInput) error { return nil },
 			MultiError:         true,
 		},
-		ErrorHandlerWithOpts: errorHandler,
+		ErrorHandlerWithOpts: handleOpenAPIValidationError,
 		DoNotValidateServers: true,
 	}
 	streamingOptions := &nethttpmiddleware.Options{
@@ -73,7 +85,7 @@ func (server *Server) openAPIHandler(next http.Handler) http.Handler {
 			ExcludeRequestBody: true,
 			MultiError:         true,
 		},
-		ErrorHandlerWithOpts: errorHandler,
+		ErrorHandlerWithOpts: handleOpenAPIValidationError,
 		DoNotValidateServers: true,
 	}
 	validatedNext := server.idempotencyHandler(next)

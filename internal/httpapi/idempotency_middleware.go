@@ -29,6 +29,12 @@ var domainIdempotencyOperations = map[string]struct{}{
 	"postRuntimeSaveState":           {},
 	"putRuntimePersistentSave":       {},
 	"postAdminGameContentRevision":   {},
+	"postFavoriteOrganize":           {},
+	"postFavoriteUnfavorite":         {},
+	"postFavoriteRestore":            {},
+	"postFavoriteFolder":             {},
+	"patchFavoriteFolder":            {},
+	"deleteFavoriteFolder":           {},
 }
 
 type bufferedResponse struct {

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-00[1-9]|ACC-RUN-00[234]|ACC-SAVE-002)$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-00N|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-SAVE-002" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-00[1-9]|ACC-RUN-00[234]|ACC-SAVE-002|ACC-FAV-00[34])$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-00N|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004" >&2
   exit 2
 fi
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -69,19 +69,26 @@ fi
 if [[ "$case_id" == "ACC-RUN-004" ]]; then
   scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 fi
+if [[ "$case_id" == "ACC-FAV-003" ]]; then
+  scripts/acceptance/seed-favorites-user-flow.sh "$temporary_root/data/retrom.db"
+fi
 
 specification="e2e/acceptance.spec.ts"
 if [[ "$case_id" == "ACC-UI-009" ]]; then
   specification="e2e/auth.spec.ts"
 fi
+if [[ "$case_id" == "ACC-FAV-003" || "$case_id" == "ACC-FAV-004" ]]; then
+  specification="e2e/favorites.spec.ts"
+fi
 playwright_args=(playwright test "$specification" --grep "$case_id")
-if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" ]]; then
+if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" ]]; then
   playwright_args+=(--project=chrome-1280)
 else
   playwright_args+=(--workers=1)
 fi
 (cd web && \
   RETROM_WEB_ORIGIN="$web_origin" \
+  RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
   RETROM_ACCEPTANCE_CASE_DIR="${RETROM_ACCEPTANCE_CASE_DIR:-}" \
   npm exec -- "${playwright_args[@]}")
 

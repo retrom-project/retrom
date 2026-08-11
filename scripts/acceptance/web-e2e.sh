@@ -61,7 +61,10 @@ RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
 scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 
-(cd web && RETROM_WEB_ORIGIN="$web_origin" npm run test:e2e)
+(cd web && \
+  RETROM_WEB_ORIGIN="$web_origin" \
+  RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
+  npm run test:e2e)
 
 RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop
 set +e

@@ -27,8 +27,8 @@ async function noPageOverflow(page: Page) {
 test("ACC-UI-001 authenticated navigation exposes the administrator entry", async ({ page }, testInfo) => {
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "主要导航" });
-  await expect(navigation.getByRole("link")).toHaveCount(4);
-  for (const label of ["首页", "游戏库", "我的存档", "最近游玩"]) await expect(navigation.getByRole("link", { name: label })).toBeVisible();
+  await expect(navigation.getByRole("link")).toHaveCount(5);
+  await expect(navigation.getByRole("link")).toHaveText(["首页", "游戏库", "我的存档", "我的收藏", "最近游玩"]);
   await navigation.getByRole("link", { name: "最近游玩" }).click();
   await expect(page).toHaveURL(/\/recent$/);
   await navigation.getByRole("link", { name: "游戏库" }).click();
@@ -37,7 +37,7 @@ test("ACC-UI-001 authenticated navigation exposes the administrator entry", asyn
   if (await firstGame.count()) {
     await firstGame.getByRole("link").first().click();
     await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
-    await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(4);
+    await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(5);
   }
   const userSidebarFoot = page.locator(".sidebar-foot");
   await expect(userSidebarFoot.locator(".sidebar-account-row .connection")).toHaveCount(1);

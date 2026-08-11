@@ -509,6 +509,25 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 
 响应固定为 `application/json; charset=utf-8`、`Cache-Control: private, no-store`、`Content-Disposition: attachment; filename="retrom-diagnostics.json"` 与 `X-Content-Type-Options: nosniff`。不得增加自由文本日志、资源 ID、游戏/文件名、Blob/DAT/core hash、上传/provider 原文、环境变量值、cookie/capability/key、内部地址或宿主路径；需要新增诊断字段时先升级 schemaVersion、OpenAPI 和 `ACC-OPS-001`，不能把任意 map 当作后门。
 
-## 10. 统一验收入口
+## 10. 收藏与收藏夹 API
+
+所有收藏路由要求有效 AuthSession，ADMIN 与 USER 都只能使用 Principal 的 `profile_id`；请求和 DTO 不接受/返回 owner。写入要求精确 Origin、Fetch Metadata 与 `X-Retrom-Csrf`，响应固定 `Cache-Control: private, no-store`。JSON 封闭且拒绝重复字段、未知字段、重复或非规范 UUID。PUT 为自然幂等；所有 POST 以及 Folder create/PATCH/DELETE 要求 UUID `Idempotency-Key`，Folder PATCH/DELETE 另要求 `If-Match: "v<version>"`。幂等 namespace 与 cursor digest 都绑定 principal User ID。
+
+| 方法 | 路径 | 核心契约 |
+| --- | --- | --- |
+| GET | `/api/v1/favorites` | `scope=ALL|UNCATEGORIZED|FOLDER`、可空 `folderId/q/platformId`、四种稳定 sort、签名 cursor、limit 1–100；同一只读事务返回 summary/folders/platforms/total/items。 |
+| PUT | `/api/v1/favorites/{gameId}` | `{}`；当前可见 Game 幂等收藏，不刷新既有 `favoritedAtMs`。 |
+| PUT | `/api/v1/favorites/{gameId}/folders` | `folderIds` 精确替换且自动收藏。 |
+| POST | `/api/v1/favorites/organize` | 1–50 Game、add/remove 各 0–20 Folder、边数不超过 1000；两集合互斥且整批原子。 |
+| POST | `/api/v1/favorites/unfavorite` | 1–100 Game；返回不含名称的 Membership 快照。 |
+| POST | `/api/v1/favorites/restore` | 恢复至多 100 Game/1000 Folder 引用并返回排序后的 restored/skipped IDs。 |
+| POST | `/api/v1/favorite-folders` | `name` 与显式 `initialGameIds`；原子创建、收藏并分类，返回 201/Location/ETag。 |
+| PATCH/DELETE | `/api/v1/favorite-folders/{folderId}` | 乐观版本；重命名或删除 Folder，删除不取消 Favorite。 |
+
+列表排序 tuple 分别为 `(favorited_at DESC,game_id DESC)`、有游玩项优先的 `(last_played DESC,title,game_id)`、`(title,game_id)` 和非空年份优先的 `(release_year DESC,title,game_id)`。`summary.favoriteCount`/`uncategorizedCount` 只统计可见关系，`folderCount` 包含空 Folder，Folder visible count 不受当前筛选影响，platform summary 在当前 scope 内且应用 q/platform 前生成。用户 `/games` 列表和详情增加可空 `favorite:{favoritedAtMs,folderIds}`；管理投影不增加该字段。
+
+稳定错误新增 `FAVORITE_FOLDER_NOT_FOUND`、`FAVORITE_FOLDER_NAME_CONFLICT`、`FAVORITE_BATCH_TOO_LARGE`、`FAVORITE_FOLDER_LIMIT_REACHED`、`RESOURCE_VERSION_CONFLICT`；继续使用 `INVALID_QUERY`、`INVALID_REQUEST`、`INVALID_CURSOR`、`GAME_NOT_FOUND`、`IDEMPOTENCY_KEY_REUSED` 和 `PRECONDITION_REQUIRED`。精确 schema 以 [`../api/openapi.yaml`](../api/openapi.yaml) 为机器事实源，验收见 `ACC-FAV-002`。
+
+## 11. 统一验收入口
 
 通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。

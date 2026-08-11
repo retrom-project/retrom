@@ -143,6 +143,10 @@ SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.j
 
 Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个来源 M3U 与按其顺序引用的 2–8 个 CHD 组成。ImportItem、SourceSnapshot、GameContentRevision、GameVariantRevision、Launch 和 SaveState 都以整组盘序为边界；缺盘只形成审核依赖，不创建占位 Blob。发布后运行时仅暴露服务端规范化的 `playlist.m3u` 与 `disc-NNN.chd`，不暴露原始路径。该能力由 feature flag、Platform content profile 与当前 enabled CoreArtifact compatibility 三者取交集，首发只有 Saturn/yabause 可用；关闭新导入能力不破坏已发布多盘内容的运行和存档。
 
+### 3.9 收藏是 Profile 私有的独立多对多能力
+
+收藏不改变 Game 对 PlatformInstance 的唯一归属。Favorite 绑定认证 Profile 与共享 Game；FavoriteFolder 只组织已收藏游戏，一款 Game 可进入多个 Folder。加入 Folder 自动收藏，移除或删除 Folder 保留 Favorite，取消 Favorite 才原子删除全部 Membership。管理员没有跨 Profile 查看或维护入口，游戏不可见只隐藏投影而不删除关系。完整边界见 [收藏与收藏夹](./favorites-and-collections.md)。
+
 ## 4. 系统上下文
 
 ~~~mermaid
@@ -357,6 +361,12 @@ Phase 0 未通过时，不进入大规模业务实现。
 - 状态存档、截图、持久存档和 PlaySession。
 - Blob GC、备份恢复、诊断导出和 Chrome E2E。
 - 1280×800 最小桌面、2560×1440 与 4K 视觉回归。
+
+### Phase 5：收藏与收藏夹垂直切片
+
+- Migration 025、Profile 私有 Favorite/Folder/Membership、owner-scoped API 与签名 cursor。
+- 游戏库、详情和 `/favorites` 的收藏、分类、批量整理、两秒撤销、键盘与多尺寸闭环。
+- 以 `ACC-FAV-001`–`004` 和 `make ci` 为退出门禁。
 
 ## 11. 统一验收入口
 

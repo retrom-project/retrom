@@ -17,6 +17,7 @@ function game(overrides: Partial<AdminGameSummary> & Pick<AdminGameSummary, "gam
     coverUrl: "/cover.png",
     createdAtMs: 100,
     lastPlayedAtMs: null,
+    favorite: null,
     version: 1,
     updatedAtMs: 100,
     releaseYear: 1990,

@@ -17,6 +17,7 @@ function game(index: number, overrides: Partial<AdminGameSummary> = {}): AdminGa
     coverUrl: null,
     createdAtMs: index,
     lastPlayedAtMs: null,
+    favorite: null,
     version: 1,
     updatedAtMs: index,
     releaseYear: 1990 + index,

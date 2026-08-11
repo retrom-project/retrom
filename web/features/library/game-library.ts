@@ -8,6 +8,7 @@ export type GameSummary = {
   coverUrl: string | null;
   createdAtMs: number;
   lastPlayedAtMs: number | null;
+  favorite: import("@/features/favorites/favorite-api").FavoriteReference | null;
 };
 
 export type LibraryFilters = {
@@ -71,7 +72,7 @@ export function libraryPlatforms(games: GameSummary[]) {
     left.name.localeCompare(right.name, "zh-CN") || left.id.localeCompare(right.id));
 }
 
-export function libraryCollections(games: GameSummary[], platformId: string) {
+export function libraryPlatformInstances(games: GameSummary[], platformId: string) {
   const collections = new Map<string, { id: string; name: string; platformId: string }>();
   for (const game of games) {
     if (platformId && game.platform.id !== platformId) continue;

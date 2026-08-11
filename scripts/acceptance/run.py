@@ -82,6 +82,16 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-SEC-004": (120, "go test ./internal/hasheous -run 'TestLookupNormalizesBoundedResponse|TestLookupClassifiesMissAndOversize|TestFetchAssetValidatesImageAndEveryRedirect' -count=1"),
     "ACC-API-001": (120, "go test ./internal/httpapi ./internal/cursor -count=1"),
+    "ACC-FAV-001": (
+        120,
+        "go test ./internal/store -run 'TestFavoritesMigrationConstraintsAndIndexes|TestFavoritesMigrationUpgradesVersion24AndPreservesFixture|TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift' -count=1 && go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
+    ),
+    "ACC-FAV-002": (
+        120,
+        "go test ./internal/favorites ./internal/httpapi -run 'TestNormalizeFolderName|TestServiceFolderLifecycleUndoAndOwnerIsolation|TestServiceListPaginationScopesAndVisibility|TestFavoriteHTTPContractLifecycleReplayIsolationAndProjection|TestFavoriteHTTPRejectsAnonymousUnsafeAndNonStrictRequests' -count=1",
+    ),
+    "ACC-FAV-003": (180, "scripts/acceptance/ui-case.sh ACC-FAV-003"),
+    "ACC-FAV-004": (180, "scripts/acceptance/ui-case.sh ACC-FAV-004"),
     "ACC-OPS-001": (
         120,
         "go test ./internal/config ./internal/httpapi -run 'TestRejectUnknownVariablesAllowsToolPrefixesOnly|TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders' -count=1 && go test -tags=integration ./internal/httpapi -run '^TestReadinessGatesBusinessRoutesDuringDATIndexing$' -count=1",

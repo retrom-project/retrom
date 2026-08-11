@@ -255,6 +255,7 @@
 | 账户初始化与认证 | 数据库 `PENDING/COMPLETED` 及 context 映射、release setup code、test bootstrap、Argon2 参数、密码 blocklist、通用登录错误、session 轮换/过期/撤销、Origin/Fetch Metadata/CSRF、限流与可信代理 |
 | 用户管理 | 邀请/重置 secret 单次显示且数据库不保存 secret/hash、角色和状态转换、ETag、本人保护、最后管理员保护、停用/删除级联撤销、离线 admin-reset 与 restore 安全栅栏 |
 | 私有数据隔离 | 所有 Profile 派生列表/详情/写入按认证主体限定；跨用户 ID、cursor、Idempotency-Key、SaveState、PersistentSave 和 Launch 探测均不泄露也不串写 |
+| 收藏与收藏夹 | 名称 NFC/空白/case-fold 边界、收藏状态机、Folder 上限/version、批量边界和原子失败；023/024→025、复合 owner FK、隐藏投影；每条 route 的 strict JSON/query、CSRF、cursor、ETag、幂等与两个 Profile 隔离 |
 | NG/代理边界 | 只信任 allowlist 代理的转发头、公开 origin 校验、伪造 `X-Forwarded-*` 拒绝、应用仅绑定 HTTP 且没有证书配置路径 |
 | 存档与恢复 | 截图必需、存档绑定 CoreArtifact 与 GameVariantRevision、兼容恢复、不匹配拒绝、旧 revision 被引用时 GC 保护 |
 | 游玩时长 | 心跳幂等、页面不可见/暂停不累计、失联上限、重复 finish、异常时钟、整数毫秒持久化 |
@@ -266,6 +267,7 @@
 | 关键路径 | 最低自动化要求 |
 | --- | --- |
 | 游戏库到详情 | 卡片进入 `/games/:id`；详情不是一级菜单；筛选/搜索可恢复；加载、空、错误状态 |
+| 收藏跨页面闭环 | 游戏库/详情/收藏页状态一致；全部/未分类/Folder URL 恢复；创建/重命名/删除、精确分类、批量与两秒 undo；两个账号隔离；1280/2560/3840、键盘/focus/ARIA/axe/reduced-motion |
 | 详情启动 | 默认选中游戏目录核心；用户可作单次切换；一次点击创建 launch 并自动运行；正常路径无第二个 Start 按钮 |
 | 默认全屏 | Fullscreen 请求发生在原始用户激活链；拒绝/刷新深链有恢复入口；阻断失败退出全屏并返回可修复错误 |
 | 存档快速启动 | 首页、存档页和详情存档都直接启动；使用存档绑定环境，不重新询问核心或 DOS 程序 |

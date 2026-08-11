@@ -1,14 +1,16 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameSummary, LibraryFilters } from "./game-library";
 import { LibraryBrowser } from "./library-browser";
+
+vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticatedFetch: vi.fn() }) }));
 
 const nowMs = new Date(2026, 7, 8, 12).getTime();
 const initialFilters: LibraryFilters = { query: "", platformId: "", platformInstanceId: "", sort: "RECENT_DESC" };
 const games: GameSummary[] = [
-  { gameId: "1943", title: "1943", platform: { id: "arcade", name: "Arcade" }, platformInstance: { id: "fbneo", name: "FBNeo 游戏" }, defaultCore: { id: "fbneo", name: "FinalBurn Neo" }, status: "PUBLISHED", coverUrl: null, createdAtMs: nowMs - 2_000, lastPlayedAtMs: nowMs - 1_000 },
-  { gameId: "doom", title: "DOOM", platform: { id: "dos", name: "MS-DOS" }, platformInstance: { id: "dos-classics", name: "DOS 经典" }, defaultCore: { id: "dosbox_pure", name: "DOSBox Pure" }, status: "PUBLISHED", coverUrl: null, createdAtMs: nowMs - 1_000, lastPlayedAtMs: null },
+  { gameId: "1943", title: "1943", platform: { id: "arcade", name: "Arcade" }, platformInstance: { id: "fbneo", name: "FBNeo 游戏" }, defaultCore: { id: "fbneo", name: "FinalBurn Neo" }, status: "PUBLISHED", coverUrl: null, createdAtMs: nowMs - 2_000, lastPlayedAtMs: nowMs - 1_000, favorite: null },
+  { gameId: "doom", title: "DOOM", platform: { id: "dos", name: "MS-DOS" }, platformInstance: { id: "dos-classics", name: "DOS 经典" }, defaultCore: { id: "dosbox_pure", name: "DOSBox Pure" }, status: "PUBLISHED", coverUrl: null, createdAtMs: nowMs - 1_000, lastPlayedAtMs: null, favorite: null },
 ];
 
 describe("LibraryBrowser", () => {

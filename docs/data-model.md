@@ -237,6 +237,14 @@ Migration 必须建立并测试：
 
 `launch_external_files.kind=DISC` 锁定每张盘的规范虚拟路径，`launch_sessions.initial_disc_index` 锁定普通启动或 SaveState 恢复盘号。完整多盘 revision 的依赖快照必须包含 content kind、parser/delivery 版本、盘数、ordered disc SHA-256 与 canonical playlist SHA-256；多盘 Variant validation 使用独立 V3 canonical digest，包含 Variant/Content/Artifact ID、artifact version、compatibility digest、DAT、BIOS、盘序和 playlist。SINGLE/DOS 保留 V2，不改写历史 identity。历史 prepublish evidence 回填 generation 3 并强制 stale；只有 generation 4 当前证据可发布。
 
-## 10. 统一验收入口
+## 10. Migration 025：收藏与收藏夹
+
+`favorite_games(profile_id,game_id,created_at_ms)` 以 `(profile_id,game_id)` 为主键；关系行不可 UPDATE。`favorite_folders(id,profile_id,name,name_key,version,created_at_ms,updated_at_ms)` 以 `(profile_id,name_key)` 唯一，并提供 `(profile_id,id)` 复合候选键；只允许名称更新时 version 精确加一。`favorite_folder_games(profile_id,folder_id,game_id,created_at_ms)` 以三列为主键，并用 `(profile_id,folder_id)` 和 `(profile_id,game_id)` 两个复合外键分别引用 Folder 与 Favorite，数据库因此拒绝跨 Profile Folder、未收藏 Membership 和隐藏级联删除。
+
+名称由服务端统一执行 Unicode trim、NFC、内部空白折叠和 case-fold；展示名为 1–40 code point 且 UTF-8 不超过 160 bytes，控制字符拒绝。每个 Profile 最多 100 Folder。Game `DELETED`、目录停用和 User 停用不删除关系；所有用户投影和计数只查询 PUBLISHED Game 与 enabled PlatformInstance。取消收藏按 Membership→Favorite、删除 Folder 按 Membership→Folder 的顺序在同一事务显式完成。
+
+索引固定覆盖 Profile+收藏时间、Game 反查、Profile+Folder 创建顺序、Folder 成员和 Game 所属 Folder。025 为纯增量 migration；空库、023→024→025 和 024→025 都必须通过 `ACC-FAV-001`。
+
+## 11. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。
