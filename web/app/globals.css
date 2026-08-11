@@ -53,8 +53,8 @@ button, a, input, select, textarea { outline-offset: 3px; }
 .nav-child::before { content: ""; position: absolute; left: 2px; top: -8px; bottom: -8px; border-left: 1px solid #343d53; }
 .nav-child::after { content: ""; position: absolute; left: 2px; top: 50%; width: 8px; border-top: 1px solid #343d53; }
 .sidebar-foot { margin-top: auto; display: grid; gap: 14px; }
-.sidebar-foot-row { display: flex; align-items: center; gap: 9px; }
-.sidebar-foot-row.service-only { justify-content: flex-end; }
+.sidebar-account-row { min-width: 0; display: flex; align-items: center; gap: 9px; }
+.sidebar-account-row .account-menu { min-width: 0; flex: 1; }
 .context-switch { min-width: 0; flex: 1; min-height: 43px; padding: 0 12px; border: 1px solid #333c52; border-radius: 10px; display: flex; align-items: center; gap: 10px; color: #d9deea; font-size: 13px; font-weight: 650; }
 .context-switch:hover { border-color: #6254b8; background: rgb(104 85 217 / 12%); }
 .connection { position: relative; width: 28px; height: 43px; flex: 0 0 28px; display: grid; place-items: center; color: #72d4c1; border-radius: 9px; cursor: help; }
@@ -873,7 +873,7 @@ summary { cursor: pointer; }
 .import-content-mode small { flex-basis: 100%; color: var(--muted); }
 .multi-disc-mode-field { align-items: stretch; }
 .multi-disc-mode-field .multi-disc-mode-choice { min-width: 0; flex: 1 1 100%; align-items: flex-start; }
-.multi-disc-mode-choice input { margin-top: 3px; }
+.field .multi-disc-mode-choice .multi-disc-mode-checkbox { width: 16px; min-width: 16px; height: 16px; min-height: 16px; margin: 3px 0 0; padding: 0; flex: 0 0 16px; border-radius: 4px; accent-color: var(--purple); }
 .multi-disc-mode-choice > span { min-width: 0; display: grid; gap: 3px; }
 .multi-disc-mode-choice strong, .multi-disc-mode-choice small { display: block; }
 .multi-disc-mode-choice small { color: var(--purple-dark); font-size: 10px; }
@@ -943,11 +943,14 @@ summary { cursor: pointer; }
 .import-workflow-chips .is-active { color: var(--purple-dark); border-color: #c9bff4; background: var(--purple-soft); }
 .import-task-list, .review-workflow-list, .review-history-list { overflow-x: auto; display: grid; gap: 10px; }
 .import-task-entry { min-width: 1120px; overflow: hidden; border: 1px solid var(--line); border-radius: 13px; background: white; }
-.import-task-card { min-height: 92px; padding: 14px 16px; display: grid; grid-template-columns: minmax(260px, 1.4fr) auto minmax(230px, .95fr) minmax(160px, .65fr) auto; align-items: center; gap: 18px; }
+.import-task-card { min-height: 92px; padding: 14px 16px; display: grid; grid-template-columns: minmax(260px, 1.4fr) 92px minmax(230px, .95fr) minmax(160px, .65fr) 144px; align-items: center; gap: 18px; }
 .import-task-card.has-error { box-shadow: inset 4px 0 #d75562; }
+.import-task-card > .status { justify-self: center; }
 .import-task-main { min-width: 0; }
 .import-task-main h3 { margin: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .import-task-main p { margin: 4px 0 0; color: var(--muted); font-size: 11px; }
+.import-task-inline-detail { padding: 0; color: var(--purple-dark); border: 0; background: transparent; cursor: pointer; font: inherit; font-weight: 750; text-decoration: underline; text-underline-offset: 3px; }
+.import-task-inline-detail:hover, .import-task-inline-detail:focus-visible { color: var(--purple); }
 .import-task-progress { min-width: 0; display: grid; gap: 6px; }
 .import-task-progress > div:first-child, .import-task-distribution { display: flex; justify-content: space-between; gap: 9px; font-size: 11px; }
 .import-task-progress > div:first-child span, .import-task-distribution { color: var(--muted); }
@@ -958,7 +961,7 @@ summary { cursor: pointer; }
 .import-task-next { min-width: 0; display: grid; gap: 3px; }
 .import-task-next strong { font-size: 11px; }
 .import-task-next small { color: var(--muted); overflow-wrap: anywhere; }
-.import-task-actions { display: flex; justify-content: flex-end; gap: 8px; }
+.import-task-actions { min-width: 0; display: flex; justify-content: flex-end; gap: 8px; }
 .import-task-actions .button { min-width: 112px; }
 .import-task-detail { padding: 14px 16px 16px; border-top: 1px solid var(--line); background: #fbfaf8; }
 .import-task-stages { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }

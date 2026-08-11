@@ -204,7 +204,11 @@ export function PlayerChrome({
     <header
       ref={toolbarRef}
       className={`player-toolbar${controlsVisible || paused ? " is-visible" : ""}`}
-      onClickCapture={onPauseForToolbarInteraction}
+      onClickCapture={(event) => {
+        const target = event.target;
+        if (target instanceof Element && target.closest(".player-disc-wrap")) return;
+        onPauseForToolbarInteraction();
+      }}
       onBlurCapture={(event) => {
         if (event.relatedTarget instanceof Node && toolbarRef.current?.contains(event.relatedTarget)) return;
         toolbarFocused.current = false;

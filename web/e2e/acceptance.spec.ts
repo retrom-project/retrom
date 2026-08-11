@@ -39,9 +39,15 @@ test("ACC-UI-001 authenticated navigation exposes the administrator entry", asyn
     await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
     await expect(page.getByRole("navigation", { name: "主要导航" }).getByRole("link")).toHaveCount(4);
   }
+  const userSidebarFoot = page.locator(".sidebar-foot");
+  await expect(userSidebarFoot.locator(".sidebar-account-row .connection")).toHaveCount(1);
+  expect(await userSidebarFoot.locator(":scope > *").evaluateAll((elements) => elements.map((element) => element.className))).toEqual(["sidebar-account-row", "context-switch"]);
   await page.getByRole("link", { name: "管理后台" }).click();
   await expect(page).toHaveURL(/\/admin\/imports$/);
   await expect(page.getByRole("link", { name: "返回用户侧" })).toBeVisible();
+  const adminSidebarFoot = page.locator(".sidebar-foot");
+  await expect(adminSidebarFoot.locator(".sidebar-account-row .connection")).toHaveCount(1);
+  expect(await adminSidebarFoot.locator(":scope > *").evaluateAll((elements) => elements.map((element) => element.className))).toEqual(["sidebar-account-row", "context-switch"]);
   await page.screenshot({ path: evidencePath(testInfo, "user-navigation.png"), fullPage: true });
 });
 
@@ -343,6 +349,9 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await page.goto("/admin/imports/tasks");
   await expect(page.getByRole("heading", { name: "任务进度", exact: true })).toBeVisible();
   await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "查看多盘详情" })).toHaveCount(0);
+  const taskGridColumns = await page.locator(".import-task-card").evaluateAll((cards) => cards.map((card) => getComputedStyle(card).gridTemplateColumns));
+  expect(new Set(taskGridColumns).size).toBeLessThanOrEqual(1);
   await page.goto("/admin/games");
   await expect(page.getByRole("heading", { name: "游戏管理", exact: true })).toBeVisible();
   await expect(page.getByText("信息版本", { exact: true })).toHaveCount(0);

@@ -278,6 +278,19 @@ export function switchDisc(instance: EmulatorInstance, targetIndex: number, expe
   return after;
 }
 
+export function switchDiscPreservingPause(instance: EmulatorInstance, targetIndex: number, expectedCount: number): DiscState {
+  const manager = instance.gameManager;
+  if (!manager?.toggleMainLoop) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
+  const wasPaused = instance.paused === true;
+  manager.toggleMainLoop(false);
+  try {
+    return switchDisc(instance, targetIndex, expectedCount);
+  } finally {
+    manager.toggleMainLoop(!wasPaused);
+    instance.paused = wasPaused;
+  }
+}
+
 function initializeMultiDiscSettings(instance: EmulatorInstance) {
   if (instance.allSettings === undefined) {
     instance.allSettings = {};

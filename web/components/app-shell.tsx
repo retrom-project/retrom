@@ -122,20 +122,23 @@ export function AppShell({ children }: { children: ReactNode }) {
         </Link>
         <Navigation items={administrator ? adminNavigation : userNavigation} pathname={pathname} />
         <div className="sidebar-foot">
-          {administrator || user?.role === "ADMIN" ? <div className="sidebar-foot-row"><Link className="context-switch" href={administrator ? "/" : "/admin/imports"}>
+          <div className="sidebar-account-row">
+            <details className="account-menu" ref={accountMenuRef}>
+              <summary>
+                <span className="account-initial" aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span>
+                <span className="account-copy"><strong>{user?.displayName}</strong><small>@{user?.username}</small></span>
+              </summary>
+              <div className="account-menu-popover">
+                <Link href="/account">账户设置</Link>
+                <button type="button" onClick={() => void logout()}><AppIcon name="log-out" />退出登录</button>
+              </div>
+            </details>
+            <ServiceHealth />
+          </div>
+          {administrator || user?.role === "ADMIN" ? <Link className="context-switch" href={administrator ? "/" : "/admin/imports"}>
             <AppIcon className="nav-icon" name={administrator ? "arrow-left" : "settings"} />
             {administrator ? "返回用户侧" : "管理后台"}
-          </Link><ServiceHealth /></div> : <div className="sidebar-foot-row service-only"><ServiceHealth /></div>}
-          <details className="account-menu" ref={accountMenuRef}>
-            <summary>
-              <span className="account-initial" aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span>
-              <span className="account-copy"><strong>{user?.displayName}</strong><small>@{user?.username}</small></span>
-            </summary>
-            <div className="account-menu-popover">
-              <Link href="/account">账户设置</Link>
-              <button type="button" onClick={() => void logout()}><AppIcon name="log-out" />退出登录</button>
-            </div>
-          </details>
+          </Link> : null}
         </div>
       </aside>
       <div className="app-body">

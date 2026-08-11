@@ -101,9 +101,10 @@ describe("ImportTaskBoard", () => {
     }], nextCursor: null }} />);
 
     const card = screen.getByRole("heading", { name: /Saturn 游戏/ }).closest("article");
-    expect(within(card!).getByText(/1 个条目 · 多盘/)).toBeVisible();
+    expect(card?.querySelector(".import-task-main p")).toHaveTextContent(/1 个条目 · 多盘/);
     expect(within(card!).getByRole("link", { name: "查看待审核" })).toHaveAttribute("href", "/admin/reviews?importJobId=multi-import");
-    await user.click(within(card!).getByRole("button", { name: "查看多盘详情" }));
+    expect(within(card!).queryByRole("button", { name: "查看多盘详情" })).not.toBeInTheDocument();
+    await user.click(within(card!).getByRole("button", { name: "查看多盘目录" }));
     const detail = screen.getByRole("region", { name: "Saturn 游戏 阶段详情" });
     expect(await within(detail).findByText("Panzer Dragoon Saga.m3u")).toBeVisible();
     expect(within(detail).getByText("多盘 · 3 张")).toBeVisible();

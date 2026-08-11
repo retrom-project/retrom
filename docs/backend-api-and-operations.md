@@ -174,7 +174,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 脚本必须转发 `SIGINT/SIGTERM`、在任一子进程异常退出时停止另一进程并返回非零状态，退出后不得残留后台进程。每次启动还必须在仓库 `.cache/retrom/dev.pid` 中原子登记 supervisor、Go 与 Next.js 三者的 PID 和 Linux process start ticks；子进程另以独立 process group/session 启动。正常接管先用 supervisor 的 PID/start ticks、工作目录和命令行确认身份，再发送 `SIGTERM` 并等待最多 15 秒；若 supervisor 已被 `SIGKILL` 等方式终止，新实例必须分别以登记的子进程 PID/start ticks、process group/session、工作目录和完整启动命令确认遗留 Go/Next.js 身份，只有两者各自通过确认后才向对应精确 process group 发送 `SIGTERM` 并等待数据锁释放。旧版仅登记 supervisor 的两字段文件继续支持正常接管，但不能据此猜测或扫描孤儿子进程。陈旧 PID、PID 复用、伪造登记或其他工作目录的同名进程不得被终止；登记无法证明身份但数据根仍被锁定时，新实例必须在启动子进程前明确失败，不得把错误推迟成后端 `DATA_ROOT_LOCKED`，也不得按端口或进程名批量杀进程。无法在期限内退出时同样失败。启动接管以 `.cache/retrom/dev-takeover.lock` 串行化，登记文件由 owner 在退出时清理。
 
-`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。它默认使用全新 `.cache/retrom/user-management-v1-data` 和显式 test 模式，空库创建 `test/test`；旧 `.cache/retrom/data` 保留且不自动迁移或删除。前端固定监听 `0.0.0.0:3000`，后端仍保持回环监听；仓库默认浏览器 origin 为 `http://local.sendev.cc:3000`。仅 test 模式且 insecure flag=true 时允许明文非 localhost origin；release 无条件要求 HTTPS。线程核心仍受 Chrome 安全上下文限制。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
+`make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。它默认使用全新 `.cache/retrom/user-management-v1-data` 和显式 test 模式，空库创建 `test/test`；旧 `.cache/retrom/data` 保留且不自动迁移或删除。测试服务器基线的浏览器 origin 为 `https://dev.sendev.cc`，前端固定监听 `0.0.0.0:3000`，后端仍保持回环监听；调用者可显式覆盖 origin 运行隔离的本地开发实例。仅 test 模式且 insecure flag=true 时允许明文非 localhost origin；release 无条件要求 HTTPS。线程核心仍受 Chrome 安全上下文限制。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
 
 ### 7.3 TLS 只在 NG 终结
 
@@ -219,14 +219,14 @@ RETROM_DATA_DIR/
 | 变量 | 开发默认 / 生产规则 |
 | --- | --- |
 | `RETROM_HTTP_ADDR` | `make dev` 注入 `127.0.0.1:8080`；容器部署显式设为 `0.0.0.0:8080`，没有 HTTPS 值。 |
-| `RETROM_PUBLIC_ORIGIN` | 当前仓库 test 开发默认 `http://local.sendev.cc:3000`；它是 Origin 精确比较和 Invitation/PasswordReset URL 的唯一公开基址，不从 Host/X-Forwarded-Host 推导。生产必填且必须是无 userinfo/path/query/fragment/trailing slash 的单个 `https` origin。 |
+| `RETROM_PUBLIC_ORIGIN` | 当前仓库 `make dev` 测试服务器基线为 `https://dev.sendev.cc`，隔离的本地实例可显式覆盖；它是 Origin 精确比较和 Invitation/PasswordReset URL 的唯一公开基址，不从 Host/X-Forwarded-Host 推导。生产必填且必须是无 userinfo/path/query/fragment/trailing slash 的单个 `https` origin。 |
 | `RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN` | 服务默认 `false`；只有 CLI `--mode=test` 且值为 true 时允许明文 origin。release 即使误设 true 也拒绝 HTTP。 |
 | `RETROM_DATA_DIR` | 必须是已解析绝对路径；开发由 Makefile 设为仓库 `.cache/retrom/user-management-v1-data`，生产为全新持久卷。它与只读 `RETROM_DEPENDENCY_ROOT` 严格分离；应用创建子目录但拒绝文件系统根、用户 home 和 symlink 数据根。 |
 | `RETROM_DB_PATH` | 未设置时派生为数据根下 `retrom.db`；若设置必须是数据根内的绝对普通文件路径。 |
 | `RETROM_DEPENDENCY_ROOT` | 必填绝对只读目录；其下按 `dat/emulatorjs/<version>` 与 `runtime/emulatorjs/<version>` 布局。开发固定为仓库 `data/` 的绝对路径，镜像内固定为只读依赖层；拒绝 root/home/symlink 逃逸。 |
 | `RETROM_DEPENDENCY_VERSIONS` | 必填、无空白/重复且按 SemVer（含 prerelease）升序；当前为 `4.2.3,4.3.0-pre`。每项必须有完整 manifest/runtime/许可 payload，DAT 只在该 manifest 声明时必需。 |
 | `RETROM_ACTIVE_EMULATORJS_VERSION` | 必填且必须属于上列；当前为 `4.2.3`。新验证逐 core 使用版本列表中最后一个声明该 core 的 artifact，不覆盖历史 revision 锁定版本。 |
-| `RETROM_MULTI_DISC_IMPORT_ENABLED` | 严格 `true|false`，默认 `false`；控制新建多盘 Import、capability 投影和多盘内容替换。非法值启动失败，生产启用必须显式设为 `true`。 |
+| `RETROM_MULTI_DISC_IMPORT_ENABLED` | 严格 `true|false`；服务配置缺省为 `false`，仓库 `make dev` 的测试服务器基线显式传入 `true`；控制新建多盘 Import、capability 投影和多盘内容替换。非法值启动失败，生产启用必须显式设为 `true`。 |
 | `RETROM_TRUSTED_PROXIES` | 逗号分隔 CIDR；默认空。生产必须精确列出 NG 网段，不能使用 `0.0.0.0/0` 或 `::/0`。 |
 | `RETROM_STARTUP_CHECK_TIMEOUT` | 默认 `60s`，范围 `10s..5m`；只约束配置、依赖字节、数据库/migration 与 bootstrap Job 登记等同步预检，不包含后台 `DAT_PARSE` execution。 |
 | `RETROM_LOG_LEVEL` | `debug/info/warn/error`，默认 `info`；生产禁止记录内容秘密。 |
