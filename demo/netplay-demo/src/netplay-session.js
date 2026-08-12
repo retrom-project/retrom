@@ -30,6 +30,7 @@ export class NetplaySession {
     inputDelay,
     latencyMs,
     hashEvery,
+    lateJoin = null,
     targetFrame,
     relay = new LocalRelay({ latencyMs }),
     transport = "local",
@@ -51,6 +52,11 @@ export class NetplaySession {
       latencyMs,
       hashEvery,
       targetFrame,
+      lateJoin: lateJoin ? structuredClone({
+        ...lateJoin,
+        epoch: 1,
+        epochStartsAtNetFrame: 0
+      }) : null,
       profileDigest: null,
       profile: null,
       initialStateDigest: null,
@@ -94,9 +100,14 @@ export class NetplaySession {
       this.#report.profileDigest = await sha256Bytes(new TextEncoder().encode(fingerprints[0]));
       await this.#relay.initialize(this.#report.profileDigest);
 
-      await Promise.all(this.#bridges.map((bridge) => bridge.waitForFrames(120)));
-      const alignmentFrame = Math.max(...this.#bridges.map((bridge) => bridge.getFrame())) + 30;
-      await Promise.all(this.#bridges.map((bridge) => bridge.pauseAtFrame(alignmentFrame)));
+      // The authority can already be hours into a running game. Freeze it at
+      // its current native boundary while the late peer proves that its core
+      // is alive independently; raw frontend frame counters need not match
+      // because the transferred RASTATE establishes a fresh logical epoch.
+      this.#bridges[0].pause();
+      await this.#bridges[0].waitForPause();
+      await this.#bridges[1].waitForFrames(120);
+      await this.#bridges[1].pauseAtFrame(this.#bridges[1].getFrame() + 30);
       this.#bridges.forEach((bridge) => bridge.resetInputs());
 
       for (let slot = 0; slot < this.#clients.length; slot += 1) {
@@ -114,21 +125,29 @@ export class NetplaySession {
       const captureStartedAt = performance.now();
       const authorityState = this.#bridges[0].captureState();
       this.#report.stateCaptureMs = [performance.now() - captureStartedAt];
-      this.#bridges[1].injectUntrackedInput(0, 3, 1);
-      await this.#bridges[1].runExactFrame();
-      await this.#bridges[1].waitForPause();
-      this.#bridges[1].injectUntrackedInput(0, 3, 0);
-      const divergentState = this.#bridges[1].captureState();
-      this.#report.stateCaptureMs.push(performance.now() - captureStartedAt - this.#report.stateCaptureMs[0]);
-      this.#report.preSyncStateDigests = await Promise.all([
+      const peerCaptureStartedAt = performance.now();
+      let divergentState = this.#bridges[1].captureState();
+      this.#report.stateCaptureMs.push(performance.now() - peerCaptureStartedAt);
+      let preSyncStateDigests = await Promise.all([
         sha256Bytes(authorityState),
         sha256Bytes(divergentState)
       ]);
-      if (this.#report.preSyncStateDigests[0] === this.#report.preSyncStateDigests[1]) {
+      if (preSyncStateDigests[0] === preSyncStateDigests[1]) {
+        this.#bridges[1].injectUntrackedInput(0, 3, 1);
+        await this.#bridges[1].runExactFrame({ suppressHook: true });
+        await this.#bridges[1].waitForPause();
+        this.#bridges[1].injectUntrackedInput(0, 3, 0);
+        divergentState = this.#bridges[1].captureState();
+        preSyncStateDigests = [preSyncStateDigests[0], await sha256Bytes(divergentState)];
+      }
+      this.#report.preSyncStateDigests = preSyncStateDigests;
+      if (preSyncStateDigests[0] === preSyncStateDigests[1]) {
         throw new Error("State-load proof could not create a divergent receiver state");
       }
 
-      this.#report.stateSeedMode = "savestate-transfer-from-divergent-state";
+      this.#report.stateSeedMode = this.#report.lateJoin?.enabled
+        ? "late-join-authority-state-transfer"
+        : "savestate-transfer-from-divergent-state";
       this.#report.initialStateBytes = authorityState.byteLength;
       this.#report.initialStateDigest = this.#report.preSyncStateDigests[0];
       const transferStartedAt = performance.now();

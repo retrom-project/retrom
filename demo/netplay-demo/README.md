@@ -10,6 +10,7 @@ savestate 和房间控制消息，不传输 canvas、音频或视频。
 - 迟到输入触发 state rewind 与逐帧 replay；
 - replay 期间静音、fast-forward，并冻结展示画面；
 - 从真实不同 state 开始的建房同步，以及 hash mismatch 后的 authority resync；
+- A 先单机运行、B 延迟加载后从 A 的当前 state 建立新 netplay epoch 的 late join；
 - 带 join token、profile 校验、TTL 和容量限制的 room API；
 - 十秒 resume lease、指数退避重连，以及 canonical/hash history replay；
 - FCEUmm/NES 与 FBNeo 两个真实 core 的浏览器 fault-injection smoke。
@@ -94,7 +95,8 @@ make test
 ```
 
 它依次运行 Node 协议/模拟测试、22 个资产校验，以及两个真实 core 的 Chrome smoke。
-smoke 默认各运行 3000 帧、注入 100 ms RTT、双端按键、一次 WebSocket 断线和一次
+smoke 默认先让 A 单独运行 10 秒，再加载 B；加入后各运行 3000 个 netplay
+帧、注入 100 ms RTT、双端按键、一次 WebSocket 断线和一次
 接收端额外 core frame，并验证 rollback/replay 静音、resume、真实 state resync 与
 最终 checkpoint。
 当次机器可读证据会写入被 Git 忽略的
@@ -104,6 +106,9 @@ smoke 默认各运行 3000 帧、注入 100 ms RTT、双端按键、一次 WebSo
 ```bash
 make test SMOKE_TARGET=600
 ```
+
+可用 `SMOKE_JOIN_DELAY=0|3000|10000` 覆盖浏览器验证的加入延迟。交互页面
+另提供立即、3 秒、10 秒、1 分钟和 1 小时选项。
 
 全部测试通过后继续保留人工页面：
 
@@ -125,11 +130,25 @@ make test-and-start
 
 4.2.3 的原始 `loadState()` 仍立即返回。adapter 在静音/隐藏输出边界内临时恢复
 main loop，让 RetroArch blocking task queue 前进；一旦原生 callback 返回便立即
-暂停。启动 smoke 会故意让接收端先执行不同输入，再经 WebSocket 传入 authority
-state；只有 `changed=true`、`nativeCompletion=true` 且加载后完整字节一致才继续。
+暂停。启动 smoke 会让 A 先单机运行并接受输入，之后才创建处于独立冷启动
+state 的 B，再经 WebSocket 传入 authority state；只有 `changed=true`、
+`nativeCompletion=true` 且加载后完整字节一致才继续。
 
 checkpoint hash 只覆盖 RASTATE 的 `MEM ` core payload，避免把非确定性的前端
 metadata 当成 core desync；传输与完整性校验仍覆盖整个 RASTATE。
+
+## Late join 边界
+
+在 `hosting` 阶段只创建 A 的 EmulatorJS 实例，A 不提交 netplay frame，而是按
+普通单机模式持续运行。B 加入时，demo 在原生帧边界暂停 A，再加载并
+预热 B。两端 profile 一致后，A 当前的完整 savestate 以 frame 0 传给 B；B
+完成原生加载、完整 state digest 和 core digest 确认后，两端清空输入并从
+epoch 1 / net frame 0 同时恢复。
+
+因此 B 不需要重放 A 过去一小时的输入；加入成本只取决于当前 state
+大小和加载时间。当前自动化为同页延迟创建 B 的验证，并在 B 出现前对 A
+注入真实输入；把 A/B 拆到两个设备后仍需要产品的邀请、账户权限和跨设备
+时序验证。
 
 ## 产品边界
 
@@ -137,8 +156,8 @@ metadata 当成 core desync；传输与完整性校验仍覆盖整个 RASTATE。
 并提供可拆出的前后端参考实现。进入正式产品实现时仍必须保留 core allowlist 和
 版本指纹，不能把结论外推到其他 ROM、core 或 EmulatorJS 版本。
 
-仍未覆盖的能力包括：RetroArch 协议互通、spectator/join-in-progress、主机迁移、
-跨设备/后台 tab 的长时间测试、共享多实例 room registry、账户授权、反滥用、
+仍未覆盖的能力包括：RetroArch 协议互通、spectator、主机迁移、真实跨设备 late
+join、跨设备/后台 tab 的长时间测试、共享多实例 room registry、账户授权、反滥用、
 可观测性与公网运维。FCEUmm/FDS `Smash Ping Pong` 被排除在 allowlist 外：它在
 组合 fault smoke 后发生周期性 state 漂移；这不应被“自动恢复成功”掩盖。
 详见 `EXPLORATION.md` 与 `RESULTS.md`。

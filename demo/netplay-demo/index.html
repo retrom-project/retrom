@@ -56,6 +56,16 @@
         </select>
       </label>
       <label>
+        <span>Peer joins after</span>
+        <select data-join-delay>
+          <option value="0">Immediately</option>
+          <option value="3000">3 seconds</option>
+          <option value="10000" selected>10 seconds</option>
+          <option value="60000">1 minute</option>
+          <option value="3600000">1 hour</option>
+        </select>
+      </label>
+      <label>
         <span>Stop at</span>
         <select data-target>
           <option value="600">600 frames</option>
@@ -72,6 +82,7 @@
       <div><span>Transport</span><strong data-transport-label>WebSocket authoritative relay</strong></div>
       <div><span>Sync model</span><strong>Prediction + rollback</strong></div>
       <div><span>State seed</span><strong data-initial-hash>—</strong></div>
+      <div><span>Late join</span><strong data-late-join>Waiting for host</strong></div>
       <div><span>Checkpoints</span><strong data-checkpoints>0 / 0 desync</strong></div>
     </section>
 

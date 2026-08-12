@@ -13,6 +13,10 @@ const targetFrame = Number.parseInt(process.env.NETPLAY_SMOKE_TARGET ?? "3000", 
 if (![600, 1200, 3000].includes(targetFrame)) {
   throw new Error("NETPLAY_SMOKE_TARGET must be 600, 1200, or 3000");
 }
+const joinDelayMs = Number.parseInt(process.env.NETPLAY_SMOKE_JOIN_DELAY ?? "10000", 10);
+if (![0, 3000, 10000].includes(joinDelayMs)) {
+  throw new Error("NETPLAY_SMOKE_JOIN_DELAY must be 0, 3000, or 10000");
+}
 
 const { server, origin } = await startServer({ port: 0 });
 const browser = await chromium.launch({
@@ -42,8 +46,36 @@ try {
     url.searchParams.set("target", String(targetFrame));
     url.searchParams.set("hashEvery", "120");
     url.searchParams.set("latency", "100");
+    url.searchParams.set("joinAfter", String(joinDelayMs));
     url.searchParams.set("autostart", "1");
     await page.goto(url.href, { waitUntil: "domcontentloaded" });
+    if (joinDelayMs > 0) {
+      await page.waitForFunction(() => {
+        const phase = window.__NETPLAY_DEMO_STATUS__?.phase;
+        return phase === "hosting" || phase === "failed";
+      }, null, { timeout: 180000 });
+      let hosting = await page.evaluate(() => ({
+        status: window.__NETPLAY_DEMO__.getStatus(),
+        authorityFrame: document.querySelector('iframe[data-player="0"]')
+          ?.contentWindow?.EJS_emulator?.gameManager?.getFrameNum?.(),
+        peerSource: document.querySelector('iframe[data-player="1"]')?.getAttribute("src")
+      }));
+      assert.notEqual(hosting.status.phase, "failed", hosting.status.report.error);
+      assert.equal(hosting.status.report.lateJoin.peerMounted, false);
+      assert.equal(hosting.peerSource, "about:blank");
+      await page.evaluate(() => window.__NETPLAY_DEMO__.press(0, 3, 300));
+      await page.waitForTimeout(Math.min(2000, joinDelayMs / 2));
+      const progressed = await page.evaluate(() => ({
+        status: window.__NETPLAY_DEMO__.getStatus(),
+        authorityFrame: document.querySelector('iframe[data-player="0"]')
+          ?.contentWindow?.EJS_emulator?.gameManager?.getFrameNum?.(),
+        peerSource: document.querySelector('iframe[data-player="1"]')?.getAttribute("src")
+      }));
+      assert.equal(progressed.status.phase, "hosting");
+      assert.ok(progressed.authorityFrame > hosting.authorityFrame + 30, "authority did not run before peer join");
+      assert.equal(progressed.peerSource, "about:blank");
+      hosting = progressed;
+    }
     await page.waitForFunction(() => {
       const phase = window.__NETPLAY_DEMO_STATUS__?.phase;
       return phase === "running" || phase === "failed";
@@ -56,6 +88,14 @@ try {
       nativeCompletion: true,
       stateBytes: status.report.initialStateBytes
     });
+    assert.equal(status.report.stateSeedMode, joinDelayMs > 0
+      ? "late-join-authority-state-transfer"
+      : "savestate-transfer-from-divergent-state");
+    assert.equal(status.report.lateJoin.configuredDelayMs, joinDelayMs);
+    assert.ok(status.report.lateJoin.actualSoloDurationMs >= joinDelayMs - 100);
+    assert.ok(status.report.lateJoin.authoritySoloFrames >= Math.floor(joinDelayMs * 30 / 1000));
+    assert.ok(status.report.lateJoin.authoritySoloInputEvents >= (joinDelayMs > 0 ? 2 : 0));
+    assert.ok(status.report.lateJoin.peerReadyAtMs >= status.report.lateJoin.peerMountStartedAtMs);
 
     await page.evaluate(() => {
       window.__NETPLAY_DEMO__.press(0, 3, 300);
@@ -130,6 +170,7 @@ try {
       stateTransfers: report.relay.stateTransfers,
       replayMutedRuns: report.clients.map((client) => client.replay.mutedRuns),
       stateLoadEvidence: report.stateLoadEvidence,
+      lateJoin: report.lateJoin,
       transport: report.transport
     });
     await page.evaluate(() => window.__NETPLAY_DEMO__.cleanup());
@@ -147,6 +188,7 @@ const evidence = {
   browser: browserVersion,
   emulatorjsVersion: manifest.emulatorjsVersion,
   targetFrame,
+  joinDelayMs,
   results
 };
 const evidencePath = path.join(demoRoot, "test-results", "netplay-smoke.json");

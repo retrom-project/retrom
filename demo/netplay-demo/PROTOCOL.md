@@ -54,6 +54,24 @@ GET /netplay?room=…&slot=0&token=…&profile=…&resume=…&after=…&hafter=�
 future window、WebSocket/message 大小、room 数量和租约时间。WebSocket 依赖 TCP
 的可靠、有序传输；这里没有在应用层实现 UDP 丢包补偿。
 
+## Late-join epoch
+
+late join 不重放 authority 的全部历史。demo 使用 stop-the-world 边界：
+
+1. `hosting`：只有 slot 0 的 core 存在，按单机模式运行，尚未产生 canonical
+   netplay frame；
+2. `joining`：在原生帧边界暂停 slot 0，记录 authority native frame，再创建和
+   预热 slot 1；
+3. `synchronizing`：校验两端 profile，连接 room，将 authority 当前 RASTATE 作为
+   epoch 1 的 frame 0 传输给 slot 1；
+4. slot 1 只有在原生 load callback 完成、完整 payload byte-exact 且 core digest
+   匹配后才发送 `state-applied`；
+5. 两端重置输入、prediction 和 rollback ring，从新 epoch 的 net frame 1 开始。
+
+这一过程的网络成本与 A 已运行的时长无关，但仍受 1 MiB state 上限、core
+确定性和外部磁盘/RTC 状态的约束。当前浏览器验证在同一页延迟挂载 slot 1；
+真实跨设备邀请与持久房间发现不在本 example 内。
+
 ## Simulation invariants
 
 每个客户端维护独立的逻辑 `netFrame`，不使用 EmulatorJS 的原始 RAF frame 作为
