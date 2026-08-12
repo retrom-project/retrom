@@ -120,6 +120,39 @@
 .pegasus-result-table p, .pegasus-result-table small { display: block; margin: 4px 0 0; color: var(--muted); font-size: 9px; line-height: 1.4; }
 .pegasus-result-table a { color: var(--purple-dark); font-size: 10px; font-weight: 760; }
 .pegasus-result-media { display: flex; flex-wrap: wrap; gap: 5px; }
+.pegasus-runtime-diagnostic-cell { min-width: 0; grid-column: 1 / -1; }
+.pegasus-runtime-diagnostic { width: 100%; border: 1px solid #ead7da; border-radius: 9px; background: #fffafb; }
+.pegasus-runtime-diagnostic > summary { min-height: 34px; padding: 0 10px; display: flex; align-items: center; color: #8f3c47; cursor: pointer; font-size: 10px; font-weight: 780; }
+.pegasus-runtime-diagnostic[open] > summary { border-bottom: 1px solid #f0dfe2; }
+.pegasus-runtime-diagnostic-body { padding: 12px; display: grid; gap: 11px; }
+.pegasus-runtime-diagnostic-body > header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.pegasus-runtime-diagnostic-body > header strong { font-size: 12px; }
+.pegasus-runtime-diagnostic-body > header p { max-width: 760px; margin-top: 4px; font-size: 10px; }
+.pegasus-runtime-diagnostic code { padding: 2px 5px; overflow-wrap: anywhere; color: #68434a; border-radius: 4px; background: #f8ecee; font-family: var(--font-mono), monospace; font-size: 9px; }
+.pegasus-runtime-diagnostic-body > dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.pegasus-runtime-diagnostic-body > dl > div { min-width: 0; padding: 8px 9px; border: 1px solid #eee8e4; border-radius: 7px; background: white; }
+.pegasus-runtime-diagnostic dt { color: var(--muted); font-size: 8px; font-weight: 760; }
+.pegasus-runtime-diagnostic dd { margin: 5px 0 0; display: flex; flex-wrap: wrap; gap: 4px; color: var(--ink); font-size: 10px; }
+.pegasus-internal-diagnostic { padding: 10px; display: grid; gap: 8px; border: 1px solid #e3dce9; border-radius: 8px; background: #fbf9ff; }
+.pegasus-internal-diagnostic h4 { margin: 0; color: #493f63; font-size: 10px; }
+.pegasus-internal-diagnostic dl { margin: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.pegasus-internal-diagnostic dl > div { min-width: 0; padding: 7px 8px; border: 1px solid #e8e3ed; border-radius: 6px; background: white; }
+.pegasus-internal-diagnostic dt { color: var(--muted); font-size: 8px; font-weight: 760; }
+.pegasus-internal-diagnostic dd { margin: 4px 0 0; }
+.pegasus-technical-detail { min-width: 0; padding: 8px; display: grid; gap: 5px; border-left: 3px solid #7d6aa8; background: #f3effa; }
+.pegasus-technical-detail strong { color: #493f63; font-size: 9px; }
+.pegasus-technical-detail code { display: block; white-space: normal; line-height: 1.55; }
+.pegasus-runtime-dependencies { display: grid; gap: 6px; }
+.pegasus-runtime-dependencies h4 { margin: 0; font-size: 10px; }
+.pegasus-runtime-dependencies > article { padding: 8px 9px; border: 1px solid #eee8e4; border-radius: 7px; background: white; }
+.pegasus-runtime-dependencies > article > p { margin: 0; display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.pegasus-runtime-dependencies > article > p span { color: #8f3c47; font-size: 9px; font-weight: 760; }
+.pegasus-runtime-dependencies > article > small { margin-top: 5px; }
+.pegasus-runtime-dependencies details { margin-top: 6px; }
+.pegasus-runtime-dependencies summary { color: var(--purple-dark); cursor: pointer; font-size: 9px; font-weight: 720; }
+.pegasus-runtime-dependencies details > code { margin-top: 6px; display: block; line-height: 1.6; }
+.pegasus-runtime-action { margin: 0; padding: 9px 10px; display: flex; align-items: center; flex-wrap: wrap; gap: 7px; color: #5f5154; border-left: 3px solid #be6a77; background: #fff4f6; font-size: 10px; }
+.pegasus-runtime-action strong { color: #8f3c47; }
 
 @media (max-width: 1399px) {
   .runtime-active-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -141,6 +174,8 @@
   .server-root-options, .pegasus-scan-summary { grid-template-columns: minmax(0, 1fr); }
   .pegasus-stepper { padding-inline: 12px; }
   .pegasus-stepper li { font-size: 8px; }
+  .pegasus-runtime-diagnostic-body > dl { grid-template-columns: minmax(0, 1fr); }
+  .pegasus-internal-diagnostic dl { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (prefers-reduced-motion: reduce) {

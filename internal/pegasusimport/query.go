@@ -24,7 +24,14 @@ import.game_count,import.estimated_source_bytes,import.mapped_collection_count,i
 import.processable_item_count,import.blocked_item_count,import.published_item_count,import.existing_item_count,
 import.failed_item_count,import.cancelled_item_count,import.media_warning_count,import.discovered_cover_count,
 import.discovered_video_count,import.mapping_version,import.version,import.created_by_user_id,user.display_name,
-import.last_error_code,import.retryable,import.created_at_ms,import.updated_at_ms,import.expires_at_ms,import.completed_at_ms
+import.last_error_code,
+CASE WHEN import.retryable=1 OR EXISTS(
+ SELECT 1 FROM pegasus_import_items legacy
+ WHERE legacy.import_id=import.id
+ AND legacy.execution_state='BLOCKED_VALIDATION'
+ AND legacy.error_code='PEGASUS_RUNTIME_BLOCKED'
+) THEN 1 ELSE 0 END,
+import.created_at_ms,import.updated_at_ms,import.expires_at_ms,import.completed_at_ms
 FROM pegasus_imports import JOIN users user ON user.id=import.created_by_user_id`
 
 type rowScanner interface{ Scan(...any) error }
@@ -177,13 +184,25 @@ func (service *Service) Items(
 SELECT item.id,item.title,item.collection_id,collection.name,
 collection.target_platform_instance_id,platform.name,
 item.metadata_relative_path,item.execution_state,item.content_kind,
-item.warnings_json,item.discovery_code,item.error_code,item.retryable,
+item.warnings_json,item.discovery_code,item.error_code,item.error_details_json,item.retryable,
 item.published_game_id,item.existing_game_id,item.existing_matches_json,item.updated_at_ms,
+validation.status,validation.compatibility_code,validation.core_id,core.name,
+validation.dependency_snapshot_json,
 EXISTS(SELECT 1 FROM pegasus_import_item_assets asset WHERE asset.item_id=item.id AND asset.kind='COVER'),
 EXISTS(SELECT 1 FROM pegasus_import_item_assets asset WHERE asset.item_id=item.id AND asset.kind='VIDEO')
 FROM pegasus_import_items item
 LEFT JOIN pegasus_import_collections collection ON collection.id=item.collection_id
 LEFT JOIN platform_instances platform ON platform.id=collection.target_platform_instance_id
+LEFT JOIN review_drafts draft ON draft.import_item_id=item.library_import_item_id
+LEFT JOIN import_item_core_validations validation ON validation.id=COALESCE(
+ draft.selected_validation_id,
+ (SELECT candidate.id FROM import_item_core_validations candidate
+  WHERE candidate.import_item_id=item.library_import_item_id
+  AND candidate.source_snapshot_id=draft.effective_source_snapshot_id
+  AND candidate.target_platform_instance_id=draft.target_platform_instance_id
+  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1)
+)
+LEFT JOIN cores core ON core.id=validation.core_id
 WHERE item.import_id=?
 AND (?='' OR instr(lower(item.title),lower(?))>0)
 AND (?='' OR item.execution_state=?)
@@ -225,13 +244,16 @@ LIMIT ?`,
 func scanItem(row rowScanner) (Item, error) {
 	var value Item
 	var collection, collectionName, target, targetName, kind sql.NullString
-	var discovery, itemError, published, existing sql.NullString
+	var discovery, itemError, failureDetails, published, existing sql.NullString
+	var validationStatus, compatibilityCode, coreID, coreName, dependencySnapshot sql.NullString
 	var warnings, existingMatches string
 	var retryable, hasCover, hasVideo int
 	if err := row.Scan(
 		&value.ID, &value.Title, &collection, &collectionName, &target, &targetName,
-		&value.MetadataRelativePath, &value.ExecutionState, &kind, &warnings, &discovery, &itemError,
-		&retryable, &published, &existing, &existingMatches, &value.UpdatedAtMS, &hasCover, &hasVideo,
+		&value.MetadataRelativePath, &value.ExecutionState, &kind, &warnings, &discovery, &itemError, &failureDetails,
+		&retryable, &published, &existing, &existingMatches, &value.UpdatedAtMS,
+		&validationStatus, &compatibilityCode, &coreID, &coreName, &dependencySnapshot,
+		&hasCover, &hasVideo,
 	); err != nil {
 		return Item{}, fmt.Errorf("pegasusimport/scan item: %w", err)
 	}
@@ -240,6 +262,15 @@ func scanItem(row rowScanner) (Item, error) {
 	value.TargetPlatformInstanceName = nullableString(targetName)
 	value.ContentKind, value.DiscoveryCode = nullableString(kind), nullableString(discovery)
 	value.ErrorCode = nullableString(itemError)
+	if failureDetails.Valid {
+		var details FailureDetails
+		if json.Unmarshal([]byte(failureDetails.String), &details) == nil {
+			value.FailureDetails = &details
+		}
+	}
+	value.RuntimeCheck = projectRuntimeCheck(
+		validationStatus, compatibilityCode, coreID, coreName, dependencySnapshot,
+	)
 	value.PublishedGameID, value.ExistingGameID = nullableString(published), nullableString(existing)
 	value.Retryable = retryable == 1
 	_ = json.Unmarshal([]byte(warnings), &value.Warnings)
@@ -249,6 +280,78 @@ func scanItem(row rowScanner) (Item, error) {
 		Video: mediaProjection(hasVideo == 1, value.Warnings, "video"),
 	}
 	return value, nil
+}
+
+func projectRuntimeCheck(
+	status, code, coreID, coreName, dependencySnapshot sql.NullString,
+) *RuntimeCheck {
+	if !status.Valid || !code.Valid {
+		return nil
+	}
+	result := &RuntimeCheck{
+		Status: status.String, Code: code.String, CoreID: coreID.String, CoreName: coreName.String,
+		MissingEntries: make([]string, 0), MismatchedEntries: make([]string, 0),
+		Dependencies: make([]RuntimeDependency, 0), BIOS: make([]RuntimeBIOS, 0),
+		MissingDiscs: make([]RuntimeMissingDisc, 0),
+	}
+	if !dependencySnapshot.Valid || dependencySnapshot.String == "" {
+		return result
+	}
+	var snapshot struct {
+		Machine           *string  `json:"machine"`
+		MissingEntries    []string `json:"missingEntries"`
+		MismatchedEntries []string `json:"mismatchedEntries"`
+		Dependencies      []struct {
+			Kind                string   `json:"kind"`
+			Machine             string   `json:"machine"`
+			RequiredBy          *string  `json:"requiredBy"`
+			ExpectedLogicalName string   `json:"expectedLogicalName"`
+			State               string   `json:"state"`
+			RequiredEntries     []string `json:"requiredEntries"`
+		} `json:"dependencies"`
+		BIOS []struct {
+			LogicalName        string  `json:"logicalName"`
+			RequirementMode    string  `json:"requirementMode"`
+			ConditionCode      *string `json:"conditionCode"`
+			InstallationStatus *string `json:"installationStatus"`
+		} `json:"bios"`
+		MultiDisc *struct {
+			MissingEntries []struct {
+				Ordinal         int64  `json:"ordinal"`
+				SourceReference string `json:"sourceReference"`
+			} `json:"missingEntries"`
+		} `json:"multiDisc"`
+	}
+	if err := json.Unmarshal([]byte(dependencySnapshot.String), &snapshot); err != nil {
+		return result
+	}
+	result.Machine = snapshot.Machine
+	result.MissingEntries = append(result.MissingEntries, snapshot.MissingEntries...)
+	result.MismatchedEntries = append(result.MismatchedEntries, snapshot.MismatchedEntries...)
+	for _, dependency := range snapshot.Dependencies {
+		result.Dependencies = append(result.Dependencies, RuntimeDependency{
+			Kind: dependency.Kind, Machine: dependency.Machine, RequiredBy: dependency.RequiredBy,
+			ExpectedLogicalName: dependency.ExpectedLogicalName, State: dependency.State,
+			RequiredEntries: append([]string(nil), dependency.RequiredEntries...),
+		})
+		if result.Dependencies[len(result.Dependencies)-1].RequiredEntries == nil {
+			result.Dependencies[len(result.Dependencies)-1].RequiredEntries = []string{}
+		}
+	}
+	for _, dependency := range snapshot.BIOS {
+		result.BIOS = append(result.BIOS, RuntimeBIOS{
+			LogicalName: dependency.LogicalName, RequirementMode: dependency.RequirementMode,
+			ConditionCode: dependency.ConditionCode, InstallationStatus: dependency.InstallationStatus,
+		})
+	}
+	if snapshot.MultiDisc != nil {
+		for _, missing := range snapshot.MultiDisc.MissingEntries {
+			result.MissingDiscs = append(result.MissingDiscs, RuntimeMissingDisc{
+				Ordinal: missing.Ordinal, SourceReference: missing.SourceReference,
+			})
+		}
+	}
+	return result
 }
 
 func mediaProjection(present bool, warnings []map[string]any, field string) string {
@@ -807,11 +910,13 @@ func (service *Service) Retry(ctx context.Context, importID string, version int6
 	now := service.now().UnixMilli()
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_items
-SET execution_state='PENDING',error_code=NULL,retryable=0,
+SET execution_state='PENDING',error_code=NULL,error_details_json=NULL,retryable=0,
 completed_at_ms=NULL,updated_at_ms=?
 WHERE import_id=?
-AND retryable=1
-AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')`, now, importID); err != nil {
+AND (
+ (retryable=1 AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED'))
+ OR (execution_state='BLOCKED_VALIDATION' AND error_code='PEGASUS_RUNTIME_BLOCKED')
+)`, now, importID); err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/reset retryable items: %w", err)
 	}
 	inputID, _ := uuid.NewV7()

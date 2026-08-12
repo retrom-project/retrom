@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { PegasusImportDrawer, type PegasusImportSummary, type PegasusPlatformInstance } from "./pegasus-import-manager";
+import { PegasusImportDetailManager, PegasusImportDrawer, type PegasusImportSummary, type PegasusItem, type PegasusPlatformInstance } from "./pegasus-import-manager";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -67,5 +67,102 @@ describe("PegasusImportDrawer", () => {
     expect(await mappingRequest.clone().json()).toEqual({ mappings: [{ collectionId: collection.id, action: "IMPORT", platformInstanceId: platform.id }] });
     const startRequest = fetchMock.mock.calls[5]?.[0] as Request;
     expect(await startRequest.clone().json()).toEqual({ version: 3 });
+  });
+
+  it("returns a fully saved mapping directly to the import confirmation step", async () => {
+    const mapped = summary("AWAITING_MAPPING", 3, { counts: { ...summary("AWAITING_MAPPING", 2).counts, mappedCollections: 1 } });
+    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: "IMPORT" as const, targetPlatformInstanceId: platform.id, targetPlatformInstanceName: platform.name, targetDefaultCoreId: platform.defaultCoreId, targetDefaultCoreName: platform.defaultCoreName, ignoredRules: [], warningFields: [] };
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(json(mapped))
+      .mockResolvedValueOnce(json({ items: [collection], nextCursor: null })));
+
+    render(<PegasusImportDrawer open roots={[root]} platformInstances={[platform]} resumablePlan={mapped} onClose={vi.fn()} onStarted={vi.fn()} />);
+
+    expect(await screen.findByText("1 个导入 · 0 个跳过")).toBeVisible();
+    expect(screen.getByRole("button", { name: "开始异步导入" })).toBeEnabled();
+    expect(screen.queryByRole("button", { name: "确认映射" })).not.toBeInTheDocument();
+  });
+});
+
+describe("PegasusImportDetailManager", () => {
+  it("reopens the exact awaiting plan for mapping without rescanning the directory", async () => {
+    const awaiting = summary("AWAITING_MAPPING", 2);
+    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, ignoredRules: [], warningFields: [] };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(json(awaiting))
+      .mockResolvedValueOnce(json({ items: [collection], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+
+    render(<PegasusImportDetailManager initialSummary={awaiting} initialItems={{ items: [], nextCursor: null }} collections={[collection]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+
+    expect(screen.queryByRole("link", { name: "新建 Pegasus 导入" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "继续映射" }));
+    const mapping = await screen.findByRole("combobox", { name: "FC 处理方式" });
+    expect(screen.queryByRole("button", { name: "扫描此目录" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "确认映射" })).toBeDisabled();
+    await user.selectOptions(mapping, `IMPORT:${platform.id}`);
+    expect(screen.getByRole("button", { name: "确认映射" })).toBeEnabled();
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect((fetchMock.mock.calls[0]?.[0] as Request).url).toContain(`/api/v1/admin/pegasus-imports/${awaiting.id}`);
+  });
+
+  it("shows the exact runtime blocker, evidence, and remediation to administrators", async () => {
+    const blocked: PegasusItem = {
+      id: "77777777-7777-4777-8777-777777777777", title: "1944 循环的征服者",
+      collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
+      targetPlatformInstanceId: platform.id, targetPlatformInstanceName: "FBNeo 游戏",
+      metadataRelativePath: "metadata.pegasus.txt", executionState: "BLOCKED_VALIDATION", contentKind: "SINGLE_FILE",
+      media: { cover: "READY", video: "MISSING" }, warnings: [], discoveryCode: null,
+      errorCode: "LAUNCH_PARENT_MISSING", retryable: false, publishedGameId: null, existingGameId: null,
+      failureDetails: null, existingMatches: [], updatedAtMs: 2,
+      runtimeCheck: {
+        status: "BLOCKED", code: "LAUNCH_PARENT_MISSING", coreId: "fbneo", coreName: "FinalBurn Neo",
+        machine: "1944j", missingEntries: ["1944.zip"], mismatchedEntries: [], bios: [], missingDiscs: [],
+        dependencies: [{ kind: "PARENT", machine: "1944", requiredBy: "1944j", expectedLogicalName: "1944.zip", state: "MISSING", requiredEntries: ["nffe.03"] }],
+      },
+    };
+    const result = summary("PARTIAL_FAILURE", 4, { importJobId: "44444444-4444-4444-8444-444444444444", retryable: true, completedAtMs: 3 });
+    const user = userEvent.setup();
+
+    render(<PegasusImportDetailManager initialSummary={result} initialItems={{ items: [blocked], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+
+    expect(screen.getByRole("button", { name: "重新运行检查" })).toBeVisible();
+    expect(screen.getAllByText("缺少父 ROM")[0]).toBeVisible();
+    await user.click(screen.getByText("查看具体原因与处理建议"));
+    expect(screen.getByText("LAUNCH_PARENT_MISSING")).toBeVisible();
+    expect(screen.getAllByText("1944.zip")[0]).toBeVisible();
+    expect(screen.getByText(/把缺失的父 ROM ZIP 放入同一 Pegasus 来源/)).toBeVisible();
+  });
+
+  it("shows structured internal failure context instead of only the aggregate error code", async () => {
+    const failed: PegasusItem = {
+      id: "88888888-8888-4888-8888-888888888888", title: "1944 循环的征服者",
+      collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
+      targetPlatformInstanceId: platform.id, targetPlatformInstanceName: "FBNeo 游戏",
+      metadataRelativePath: "metadata.pegasus.txt", executionState: "COMMIT_FAILED", contentKind: "SINGLE_FILE",
+      media: { cover: "READY", video: "READY" }, warnings: [], discoveryCode: null,
+      errorCode: "PEGASUS_LIBRARY_IMPORT_FAILED", retryable: true, publishedGameId: null, existingGameId: null,
+      existingMatches: [], updatedAtMs: 2, runtimeCheck: null,
+      failureDetails: {
+        schemaVersion: 1, stage: "LIBRARY_IMPORT", operation: "CREATE_SERVER_SOURCE",
+        causeCode: "SOURCE_FILE_LIMIT_EXCEEDED",
+        technicalDetail: "Pegasus assembled 109 source files for one Arcade item; library import accepts at most 64.",
+        relativePath: "1944j.zip", observedFileCount: 109, allowedFileCount: 64,
+        libraryImportJobId: null, libraryImportItemId: null,
+      },
+    };
+    const result = summary("PARTIAL_FAILURE", 4, { retryable: true, completedAtMs: 3 });
+    const user = userEvent.setup();
+
+    render(<PegasusImportDetailManager initialSummary={result} initialItems={{ items: [failed], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+
+    expect(screen.getAllByText("Arcade companion 候选数量超过内部上限")[0]).toBeVisible();
+    await user.click(screen.getByText("查看具体原因与处理建议"));
+    expect(screen.getByText("SOURCE_FILE_LIMIT_EXCEEDED")).toBeVisible();
+    expect(screen.getByText("CREATE_SERVER_SOURCE")).toBeVisible();
+    expect(screen.getByText("109 / 上限 64")).toBeVisible();
+    expect(screen.getByText("1944j.zip")).toBeVisible();
+    expect(screen.getByText(/Pegasus assembled 109 source files/)).toBeVisible();
   });
 });

@@ -136,13 +136,22 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await expect(drawer.getByRole("list", { name: "导入步骤" })).toContainText("选择目录");
   await drawer.getByRole("button", { name: /^Games/ }).click();
   await expect(drawer).toContainText("Pegasus BIOS / Games");
+  const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/pegasus-imports" && response.request().method() === "POST");
   await drawer.getByRole("button", { name: "扫描此目录" }).click();
+  const createdPlan = await (await scanResponse).json() as { id: string };
   const footerClose = drawer.locator("footer").getByRole("button", { name: "关闭", exact: true });
   await expect(footerClose).toBeEnabled();
   await footerClose.click();
   await expect(drawer).toHaveCount(0);
 
-  await page.getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ }).click();
+  await expect.poll(async () => {
+    const response = await page.request.get(`/api/v1/admin/pegasus-imports/${createdPlan.id}`);
+    const payload = await response.json() as { state: string };
+    return payload.state;
+  }, { timeout: 30_000 }).toBe("AWAITING_MAPPING");
+  await page.goto(`/admin/imports/server/pegasus/${createdPlan.id}`);
+  await expect(page.getByText("等待映射", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "继续映射" }).click();
   drawer = page.getByRole("dialog", { name: "从 Pegasus 目录导入游戏" });
   const mapping = drawer.getByRole("combobox", { name: "NES 处理方式" });
   await expect(mapping).toBeVisible({ timeout: 30_000 });
@@ -162,6 +171,54 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await page.getByRole("searchbox", { name: "搜索标题" }).fill("Acceptance");
   await page.getByRole("button", { name: "应用筛选" }).click();
   await expect(page).toHaveURL(/q=Acceptance/);
+  await page.route(`**/api/v1/admin/pegasus-imports/${createdPlan.id}/items?**`, async (route) => {
+    await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({
+      items: [{
+        id: "77777777-7777-4777-8777-777777777777", title: "1944 循环的征服者",
+        collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
+        targetPlatformInstanceId: "01980000-0000-7000-8000-000000000006", targetPlatformInstanceName: "FBNeo 游戏",
+        metadataRelativePath: "metadata.pegasus.txt", executionState: "BLOCKED_VALIDATION", contentKind: "SINGLE_FILE",
+        media: { cover: "READY", video: "MISSING" }, warnings: [], discoveryCode: null,
+        errorCode: "LAUNCH_PARENT_MISSING", retryable: false, publishedGameId: null, existingGameId: null,
+        failureDetails: null, existingMatches: [], updatedAtMs: Date.now(),
+        runtimeCheck: {
+          status: "BLOCKED", code: "LAUNCH_PARENT_MISSING", coreId: "fbneo", coreName: "FinalBurn Neo",
+          machine: "1944j", missingEntries: ["1944.zip"], mismatchedEntries: [], bios: [], missingDiscs: [],
+          dependencies: [{ kind: "PARENT", machine: "1944", requiredBy: "1944j", expectedLogicalName: "1944.zip", state: "MISSING", requiredEntries: ["nffe.03"] }],
+        },
+      }, {
+        id: "88888888-8888-4888-8888-888888888888", title: "1944 内部组装失败",
+        collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
+        targetPlatformInstanceId: "01980000-0000-7000-8000-000000000006", targetPlatformInstanceName: "FBNeo 游戏",
+        metadataRelativePath: "metadata.pegasus.txt", executionState: "COMMIT_FAILED", contentKind: "SINGLE_FILE",
+        media: { cover: "READY", video: "READY" }, warnings: [], discoveryCode: null,
+        errorCode: "PEGASUS_LIBRARY_IMPORT_FAILED", retryable: true, publishedGameId: null, existingGameId: null,
+        existingMatches: [], updatedAtMs: Date.now(), runtimeCheck: null,
+        failureDetails: {
+          schemaVersion: 1, stage: "LIBRARY_IMPORT", operation: "CREATE_SERVER_SOURCE",
+          causeCode: "SOURCE_FILE_LIMIT_EXCEEDED",
+          technicalDetail: "Pegasus assembled 109 source files for one Arcade item; library import accepts at most 64.",
+          relativePath: "1944j.zip", observedFileCount: 109, allowedFileCount: 64,
+          libraryImportJobId: null, libraryImportItemId: null,
+        },
+      }], nextCursor: null,
+    }) });
+  });
+  await page.getByRole("searchbox", { name: "搜索标题" }).fill("1944");
+  await page.getByRole("button", { name: "应用筛选" }).click();
+  await expect(resultTable).toContainText("缺少父 ROM");
+  const runtimeRow = resultTable.getByRole("row").filter({ hasText: "1944 循环的征服者" });
+  await runtimeRow.getByText("查看具体原因与处理建议").click();
+  await expect(runtimeRow).toContainText("LAUNCH_PARENT_MISSING");
+  await expect(runtimeRow).toContainText("1944.zip");
+  await expect(runtimeRow).toContainText("把缺失的父 ROM ZIP 放入同一 Pegasus 来源");
+  const internalFailureRow = resultTable.getByRole("row").filter({ hasText: "1944 内部组装失败" });
+  await expect(internalFailureRow).toContainText("Arcade companion 候选数量超过内部上限");
+  await internalFailureRow.getByText("查看具体原因与处理建议").click();
+  await expect(internalFailureRow).toContainText("SOURCE_FILE_LIMIT_EXCEEDED");
+  await expect(internalFailureRow).toContainText("CREATE_SERVER_SOURCE");
+  await expect(internalFailureRow).toContainText("109 / 上限 64");
+  await expect(internalFailureRow).toContainText("1944j.zip");
   await expectNoPageOverflow(page);
   await expectNoSeriousAxeViolations(page);
   await page.screenshot({ path: evidencePath(testInfo, "pegasus-import-detail.png"), fullPage: true });
@@ -196,30 +253,52 @@ test("ACC-MEDIA-001 video upload is explicit in admin and absent from library re
     const cover = element.querySelector<HTMLElement>(".admin-game-cover-slot")!.getBoundingClientRect();
     const video = element.querySelector<HTMLElement>(".admin-game-video-slot")!.getBoundingClientRect();
     const preview = element.querySelector<HTMLVideoElement>("video")!;
+    const previewFrame = preview.parentElement!.getBoundingClientRect();
+    const previewRect = preview.getBoundingClientRect();
+    const previewStyle = getComputedStyle(preview);
     return {
       rightGap: body.right - Number.parseFloat(style.paddingRight) - video.right,
       topGap: video.top - body.top - Number.parseFloat(style.paddingTop),
       bottomGap: body.bottom - Number.parseFloat(style.paddingBottom) - video.bottom,
       coverWidth: cover.width,
       videoWidth: video.width,
-      objectFit: getComputedStyle(preview).objectFit,
+      previewHorizontalOffset: (previewRect.left + previewRect.right - previewFrame.left - previewFrame.right) / 2,
+      previewVerticalOffset: (previewRect.top + previewRect.bottom - previewFrame.top - previewFrame.bottom) / 2,
+      display: previewStyle.display,
+      placeSelf: previewStyle.placeSelf,
+      objectFit: previewStyle.objectFit,
+      objectPosition: previewStyle.objectPosition,
     };
   });
   expect(Math.abs(mediaLayout.rightGap)).toBeLessThanOrEqual(1);
   expect(Math.abs(mediaLayout.topGap)).toBeLessThanOrEqual(1);
   expect(Math.abs(mediaLayout.bottomGap)).toBeLessThanOrEqual(1);
   expect(mediaLayout.videoWidth).toBeGreaterThan(mediaLayout.coverWidth);
+  expect(Math.abs(mediaLayout.previewHorizontalOffset)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mediaLayout.previewVerticalOffset)).toBeLessThanOrEqual(1);
+  expect(mediaLayout.display).toBe("block");
+  expect(mediaLayout.placeSelf).toBe("center");
   expect(mediaLayout.objectFit).toBe("contain");
+  expect(mediaLayout.objectPosition).toBe("50% 50%");
+  if ((page.viewportSize()?.width ?? 0) >= 1400) {
+    const panelHeights = await page.locator(".admin-game-primary-grid").evaluate((element) => ({
+      publish: element.querySelector<HTMLElement>(".admin-game-publish")!.getBoundingClientRect().height,
+      media: element.querySelector<HTMLElement>(".admin-game-media")!.getBoundingClientRect().height,
+    }));
+    expect(Math.abs(panelHeights.publish - panelHeights.media)).toBeLessThanOrEqual(1);
+  }
 
   const detailResponse = await page.request.get(`/api/v1/games/${gameId}`);
   expect(detailResponse.ok()).toBe(true);
   const detail = await detailResponse.json() as { videoUrl: string | null };
   expect(detail.videoUrl).toBeTruthy();
+  await page.goto("/library");
+  await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
   let videoRequests = 0;
   page.on("request", (request) => {
     if (new URL(request.url()).pathname === detail.videoUrl) videoRequests += 1;
   });
-  await page.goto("/library");
+  await page.reload();
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
   expect(videoRequests).toBe(0);
 

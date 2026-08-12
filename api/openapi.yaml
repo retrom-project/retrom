@@ -1948,7 +1948,7 @@ components:
     PegasusItem:
       type: object
       additionalProperties: false
-      required: [id, title, collectionId, collectionName, targetPlatformInstanceId, targetPlatformInstanceName, metadataRelativePath, executionState, contentKind, media, warnings, discoveryCode, errorCode, retryable, publishedGameId, existingGameId, existingMatches, updatedAtMs]
+      required: [id, title, collectionId, collectionName, targetPlatformInstanceId, targetPlatformInstanceName, metadataRelativePath, executionState, contentKind, media, warnings, discoveryCode, errorCode, failureDetails, runtimeCheck, retryable, publishedGameId, existingGameId, existingMatches, updatedAtMs]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -1969,6 +1969,8 @@ components:
         warnings: { type: array, items: { $ref: '#/components/schemas/PegasusWarningValue' } }
         discoveryCode: { type: string, nullable: true }
         errorCode: { type: string, nullable: true }
+        failureDetails: { nullable: true, allOf: [{ $ref: '#/components/schemas/PegasusItemFailureDetails' }] }
+        runtimeCheck: { nullable: true, allOf: [{ $ref: '#/components/schemas/PegasusRuntimeCheck' }] }
         retryable: { type: boolean }
         publishedGameId: { type: string, format: uuid, nullable: true }
         existingGameId: { type: string, format: uuid, nullable: true }
@@ -1989,6 +1991,63 @@ components:
       properties:
         code: { type: string }
         field: { type: string }
+    PegasusItemFailureDetails:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, stage, operation, causeCode, technicalDetail, relativePath, observedFileCount, allowedFileCount, libraryImportJobId, libraryImportItemId]
+      properties:
+        schemaVersion: { type: integer, format: int64, enum: [1] }
+        stage: { type: string, enum: [SOURCE_COPY, SOURCE_ASSEMBLY, LIBRARY_IMPORT, RESULT_ATTACHMENT, METADATA, PUBLICATION, STORAGE] }
+        operation: { type: string, maxLength: 80 }
+        causeCode: { type: string, maxLength: 120 }
+        technicalDetail: { type: string, maxLength: 2048 }
+        relativePath: { type: string, maxLength: 4096, nullable: true }
+        observedFileCount: { type: integer, format: int64, minimum: 0, nullable: true }
+        allowedFileCount: { type: integer, format: int64, minimum: 1, nullable: true }
+        libraryImportJobId: { type: string, format: uuid, nullable: true }
+        libraryImportItemId: { type: string, format: uuid, nullable: true }
+    PegasusRuntimeDependency:
+      type: object
+      additionalProperties: false
+      required: [kind, machine, requiredBy, expectedLogicalName, state, requiredEntries]
+      properties:
+        kind: { type: string, enum: [PARENT, BIOS_OR_BASE] }
+        machine: { type: string }
+        requiredBy: { type: string, nullable: true }
+        expectedLogicalName: { type: string }
+        state: { type: string, enum: [SATISFIED_BY_CONTENT, SATISFIED_EXTERNAL, HASH_WARNING, MISSING, MISMATCH, UNSUPPORTED] }
+        requiredEntries: { type: array, items: { type: string } }
+    PegasusRuntimeBIOS:
+      type: object
+      additionalProperties: false
+      required: [logicalName, requirementMode, conditionCode, installationStatus]
+      properties:
+        logicalName: { type: string }
+        requirementMode: { type: string, enum: [REQUIRED, OPTIONAL, CONDITIONAL] }
+        conditionCode: { type: string, nullable: true }
+        installationStatus: { type: string, nullable: true, enum: [MATCHED, HASH_WARNING, MISSING_ENTRY, INVALID] }
+    PegasusRuntimeMissingDisc:
+      type: object
+      additionalProperties: false
+      required: [ordinal, sourceReference]
+      properties:
+        ordinal: { type: integer, format: int64, minimum: 0 }
+        sourceReference: { type: string }
+    PegasusRuntimeCheck:
+      type: object
+      additionalProperties: false
+      required: [status, code, coreId, coreName, machine, missingEntries, mismatchedEntries, dependencies, bios, missingDiscs]
+      properties:
+        status: { type: string, enum: [READY, BLOCKED, INCOMPATIBLE] }
+        code: { type: string }
+        coreId: { type: string }
+        coreName: { type: string }
+        machine: { type: string, nullable: true }
+        missingEntries: { type: array, items: { type: string } }
+        mismatchedEntries: { type: array, items: { type: string } }
+        dependencies: { type: array, items: { $ref: '#/components/schemas/PegasusRuntimeDependency' } }
+        bios: { type: array, items: { $ref: '#/components/schemas/PegasusRuntimeBIOS' } }
+        missingDiscs: { type: array, items: { $ref: '#/components/schemas/PegasusRuntimeMissingDisc' } }
     PegasusItemList:
       type: object
       additionalProperties: false

@@ -135,11 +135,60 @@ type Item struct {
 	Warnings                   []map[string]any `json:"warnings"`
 	DiscoveryCode              *string          `json:"discoveryCode"`
 	ErrorCode                  *string          `json:"errorCode"`
+	FailureDetails             *FailureDetails  `json:"failureDetails"`
+	RuntimeCheck               *RuntimeCheck    `json:"runtimeCheck"`
 	Retryable                  bool             `json:"retryable"`
 	PublishedGameID            *string          `json:"publishedGameId"`
 	ExistingGameID             *string          `json:"existingGameId"`
 	ExistingMatches            []ExistingMatch  `json:"existingMatches"`
 	UpdatedAtMS                int64            `json:"updatedAtMs"`
+}
+
+type FailureDetails struct {
+	SchemaVersion       int64   `json:"schemaVersion"`
+	Stage               string  `json:"stage"`
+	Operation           string  `json:"operation"`
+	CauseCode           string  `json:"causeCode"`
+	TechnicalDetail     string  `json:"technicalDetail"`
+	RelativePath        *string `json:"relativePath"`
+	ObservedFileCount   *int64  `json:"observedFileCount"`
+	AllowedFileCount    *int64  `json:"allowedFileCount"`
+	LibraryImportJobID  *string `json:"libraryImportJobId"`
+	LibraryImportItemID *string `json:"libraryImportItemId"`
+}
+
+type RuntimeCheck struct {
+	Status            string               `json:"status"`
+	Code              string               `json:"code"`
+	CoreID            string               `json:"coreId"`
+	CoreName          string               `json:"coreName"`
+	Machine           *string              `json:"machine"`
+	MissingEntries    []string             `json:"missingEntries"`
+	MismatchedEntries []string             `json:"mismatchedEntries"`
+	Dependencies      []RuntimeDependency  `json:"dependencies"`
+	BIOS              []RuntimeBIOS        `json:"bios"`
+	MissingDiscs      []RuntimeMissingDisc `json:"missingDiscs"`
+}
+
+type RuntimeDependency struct {
+	Kind                string   `json:"kind"`
+	Machine             string   `json:"machine"`
+	RequiredBy          *string  `json:"requiredBy"`
+	ExpectedLogicalName string   `json:"expectedLogicalName"`
+	State               string   `json:"state"`
+	RequiredEntries     []string `json:"requiredEntries"`
+}
+
+type RuntimeBIOS struct {
+	LogicalName        string  `json:"logicalName"`
+	RequirementMode    string  `json:"requirementMode"`
+	ConditionCode      *string `json:"conditionCode"`
+	InstallationStatus *string `json:"installationStatus"`
+}
+
+type RuntimeMissingDisc struct {
+	Ordinal         int64  `json:"ordinal"`
+	SourceReference string `json:"sourceReference"`
 }
 
 type ItemMedia struct {

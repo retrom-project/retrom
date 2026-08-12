@@ -7,8 +7,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"path"
 	"strings"
+
+	"modernc.org/sqlite"
+	sqlite3 "modernc.org/sqlite/lib"
 
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -19,9 +23,9 @@ import (
 )
 
 type executionItem struct {
-	ID, TargetPlatformID, TargetPlatformKind, MetadataJSON string
-	Files                                                  []executionFile
-	Assets                                                 []executionAsset
+	ID, TargetPlatformID, TargetPlatformKind, TargetDATVersionID, MetadataJSON string
+	Files                                                                      []executionFile
+	Assets                                                                     []executionAsset
 }
 
 type executionFile struct {
@@ -95,11 +99,15 @@ func (service *Service) nextItem(ctx context.Context, importID string) (executio
 	defer cleanup.Rollback(transaction)
 	var item executionItem
 	err = transaction.QueryRowContext(ctx, `
-SELECT item.id,collection.target_platform_instance_id,collection.target_platform_id,item.metadata_json
+SELECT item.id,collection.target_platform_instance_id,collection.target_platform_id,
+COALESCE(collection.target_dat_version_id,''),item.metadata_json
 FROM pegasus_import_items item JOIN pegasus_import_collections collection ON collection.id=item.collection_id
 WHERE item.import_id=? AND item.execution_state='PENDING' AND collection.mapping_action='IMPORT'
 ORDER BY item.metadata_relative_path,item.game_ordinal,item.id LIMIT 1`, importID).
-		Scan(&item.ID, &item.TargetPlatformID, &item.TargetPlatformKind, &item.MetadataJSON)
+		Scan(
+			&item.ID, &item.TargetPlatformID, &item.TargetPlatformKind,
+			&item.TargetDATVersionID, &item.MetadataJSON,
+		)
 	if errors.Is(err, sql.ErrNoRows) {
 		return executionItem{}, false, nil
 	}
@@ -260,7 +268,10 @@ func (service *Service) importCancelled(ctx context.Context, importID string) bo
 func (service *Service) publishExecutionItem(ctx context.Context, unit work, root Root, item executionItem) {
 	files, err := service.executionSourceFiles(ctx, unit, root, item)
 	if err != nil {
-		service.closeItem(ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "")
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			service.itemFailure("SOURCE_ASSEMBLY", "ASSEMBLE_SOURCE_FILES", err, firstSourcePath(item)),
+		)
 		return
 	}
 	mode := contentcapability.ModeStandard
@@ -269,7 +280,10 @@ func (service *Service) publishExecutionItem(ctx context.Context, unit work, roo
 	}
 	result, err := service.importer.CreateServerSource(ctx, item.TargetPlatformID, mode, files)
 	if err != nil {
-		service.closeItem(ctx, item.ID, "BLOCKED_VALIDATION", "PEGASUS_RUNTIME_BLOCKED", false, "")
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "PEGASUS_LIBRARY_IMPORT_FAILED", true, "",
+			service.libraryImportFailure(err, files),
+		)
 		return
 	}
 	imported, found := selectServerImportItem(result.Items, item.Files)
@@ -280,7 +294,14 @@ func (service *Service) publishExecutionItem(ctx context.Context, unit work, roo
 		return
 	}
 	if err := service.attachLibraryResult(ctx, item.ID, result.Created.ImportJobID, imported); err != nil {
-		service.closeItem(ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "")
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			withLibraryImportIdentity(
+				service.itemFailure("RESULT_ATTACHMENT", "ATTACH_LIBRARY_RESULT", err, firstSourcePath(item)),
+				result.Created.ImportJobID,
+				imported.ItemID,
+			),
+		)
 		return
 	}
 	if imported.ExistingGameID != "" {
@@ -296,24 +317,71 @@ func (service *Service) publishExecutionItem(ctx context.Context, unit work, roo
 		return
 	}
 	if imported.State != "REVIEW_PENDING" || imported.ValidationStatus != "READY" {
-		service.closeItem(ctx, item.ID, "BLOCKED_VALIDATION", "PEGASUS_RUNTIME_BLOCKED", false, "")
+		service.closeItem(ctx, item.ID, "BLOCKED_VALIDATION", runtimeBlockCode(imported), false, "")
 		return
 	}
+	service.publishValidatedLibraryItem(ctx, unit, item, result.Created.ImportJobID, imported)
+}
+
+func (service *Service) publishValidatedLibraryItem(
+	ctx context.Context,
+	unit work,
+	item executionItem,
+	importJobID string,
+	imported libraryimport.ServerImportItem,
+) {
 	var metadata libraryimport.ServerMetadata
 	if err := json.Unmarshal([]byte(item.MetadataJSON), &metadata); err != nil {
-		service.closeItem(ctx, item.ID, "BLOCKED_CONTENT", "PEGASUS_METADATA_SYNTAX_INVALID", false, "")
+		service.closeItemWithFailure(
+			ctx, item.ID, "BLOCKED_CONTENT", "PEGASUS_METADATA_SYNTAX_INVALID", false, "",
+			withLibraryImportIdentity(
+				service.itemFailure("METADATA", "DECODE_FROZEN_METADATA", err, firstSourcePath(item)),
+				importJobID,
+				imported.ItemID,
+			),
+		)
 		return
 	}
 	externalAssets := projectExternalAssets(item.Assets)
 	approved, err := service.importer.PublishServerItem(ctx, imported.ItemID, item.ID, metadata, externalAssets)
 	if err != nil {
-		service.closeItem(ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "")
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			withLibraryImportIdentity(
+				service.itemFailure("PUBLICATION", "PUBLISH_SERVER_ITEM", err, firstSourcePath(item)),
+				importJobID,
+				imported.ItemID,
+			),
+		)
 		return
 	}
+	service.finalizePublication(
+		ctx,
+		unit,
+		item,
+		approved.GameID,
+		importJobID,
+		imported.ItemID,
+	)
+}
+
+func (service *Service) finalizePublication(
+	ctx context.Context,
+	unit work,
+	item executionItem,
+	gameID, importJobID, importItemID string,
+) {
 	now := service.now().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
-		service.closeItem(ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "")
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			withLibraryImportIdentity(
+				service.itemFailure("STORAGE", "START_PUBLICATION_TRANSACTION", err, firstSourcePath(item)),
+				importJobID,
+				importItemID,
+			),
+		)
 		return
 	}
 	defer cleanup.Rollback(transaction)
@@ -321,14 +389,167 @@ func (service *Service) publishExecutionItem(ctx context.Context, unit work, roo
 UPDATE pegasus_import_items
 SET execution_state='PUBLISHED',published_game_id=?,error_code=NULL,retryable=0,
 completed_at_ms=?,updated_at_ms=?
-WHERE id=? AND execution_state='PUBLISHING'`, approved.GameID, now, now, item.ID); err != nil {
-		service.closeItem(ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "")
+WHERE id=? AND execution_state='PUBLISHING'`, gameID, now, now, item.ID); err != nil {
+		cleanup.Rollback(transaction)
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			withLibraryImportIdentity(
+				service.itemFailure("STORAGE", "MARK_ITEM_PUBLISHED", err, firstSourcePath(item)),
+				importJobID,
+				importItemID,
+			),
+		)
 		return
 	}
-	if err := service.refreshCountsAndEvent(ctx, transaction, unit, item.ID, "PUBLISHED", now); err != nil ||
-		transaction.Commit() != nil {
-		service.closeItem(ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "")
+	if err := service.refreshCountsAndEvent(ctx, transaction, unit, item.ID, "PUBLISHED", now); err != nil {
+		cleanup.Rollback(transaction)
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			withLibraryImportIdentity(
+				service.itemFailure("STORAGE", "REFRESH_IMPORT_COUNTS", err, firstSourcePath(item)),
+				importJobID,
+				importItemID,
+			),
+		)
+		return
 	}
+	if err := transaction.Commit(); err != nil {
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			withLibraryImportIdentity(
+				service.itemFailure("STORAGE", "COMMIT_PUBLICATION_TRANSACTION", err, firstSourcePath(item)),
+				importJobID,
+				importItemID,
+			),
+		)
+	}
+}
+
+func runtimeBlockCode(item libraryimport.ServerImportItem) string {
+	if item.CompatibilityCode != "" {
+		return item.CompatibilityCode
+	}
+	return "PEGASUS_RUNTIME_BLOCKED"
+}
+
+func firstSourcePath(item executionItem) string {
+	if len(item.Files) == 0 {
+		return ""
+	}
+	return item.Files[0].Path
+}
+
+func withLibraryImportIdentity(details *FailureDetails, importJobID, importItemID string) *FailureDetails {
+	if importJobID != "" {
+		details.LibraryImportJobID = &importJobID
+	}
+	if importItemID != "" {
+		details.LibraryImportItemID = &importItemID
+	}
+	return details
+}
+
+func (service *Service) itemFailure(
+	stage, operation string,
+	err error,
+	relativePath string,
+) *FailureDetails {
+	details := &FailureDetails{
+		SchemaVersion:   1,
+		Stage:           stage,
+		Operation:       operation,
+		CauseCode:       "INTERNAL_OPERATION_FAILED",
+		TechnicalDetail: service.sanitizeTechnicalDetail(err),
+	}
+	if relativePath != "" {
+		details.RelativePath = &relativePath
+	}
+	sqliteCause := sqliteFailureCause(err)
+	switch {
+	case errors.Is(err, context.DeadlineExceeded):
+		details.CauseCode = "OPERATION_TIMEOUT"
+	case errors.Is(err, context.Canceled):
+		details.CauseCode = "OPERATION_CANCELLED"
+	case errors.Is(err, libraryimport.ErrMultiDiscModeUnavailable):
+		details.CauseCode = "MULTI_DISC_MODE_UNAVAILABLE"
+	case errors.Is(err, libraryimport.ErrInvalid):
+		details.CauseCode = "LIBRARY_IMPORT_INPUT_INVALID"
+	case func() bool {
+		var syntaxError *json.SyntaxError
+		return errors.As(err, &syntaxError)
+	}():
+		details.CauseCode = "METADATA_JSON_INVALID"
+	case sqliteCause != "":
+		details.CauseCode = sqliteCause
+	}
+	return details
+}
+
+func sqliteFailureCause(err error) string {
+	var sqliteError *sqlite.Error
+	if !errors.As(err, &sqliteError) {
+		return ""
+	}
+	switch sqliteError.Code() & 0xff {
+	case sqlite3.SQLITE_BUSY, sqlite3.SQLITE_LOCKED:
+		return "DATABASE_BUSY"
+	case sqlite3.SQLITE_CONSTRAINT:
+		return "DATABASE_CONSTRAINT_FAILED"
+	default:
+		return ""
+	}
+}
+
+func (service *Service) libraryImportFailure(
+	err error,
+	files []libraryimport.ServerSourceFile,
+) *FailureDetails {
+	relativePath := ""
+	if len(files) > 0 {
+		relativePath = files[0].RelativePath
+	}
+	details := service.itemFailure("LIBRARY_IMPORT", "CREATE_SERVER_SOURCE", err, relativePath)
+	observed, allowed := int64(len(files)), int64(libraryimport.ServerSourceFileLimit)
+	details.ObservedFileCount = &observed
+	details.AllowedFileCount = &allowed
+	if errors.Is(err, libraryimport.ErrInvalid) && len(files) > libraryimport.ServerSourceFileLimit {
+		details.CauseCode = "SOURCE_FILE_LIMIT_EXCEEDED"
+		details.TechnicalDetail = fmt.Sprintf(
+			"Pegasus assembled %d source files for one item; library import accepts at most %d.",
+			len(files), libraryimport.ServerSourceFileLimit,
+		)
+	}
+	return details
+}
+
+func (service *Service) sanitizeTechnicalDetail(err error) string {
+	if err == nil {
+		return ""
+	}
+	detail := err.Error()
+	var pathError *os.PathError
+	if errors.As(err, &pathError) && pathError.Path != "" {
+		detail = strings.ReplaceAll(detail, pathError.Path, "[path]")
+	}
+	var linkError *os.LinkError
+	if errors.As(err, &linkError) {
+		if linkError.Old != "" {
+			detail = strings.ReplaceAll(detail, linkError.Old, "[path]")
+		}
+		if linkError.New != "" {
+			detail = strings.ReplaceAll(detail, linkError.New, "[path]")
+		}
+	}
+	for _, root := range service.roots {
+		if root.path != "" {
+			detail = strings.ReplaceAll(detail, root.path, "[server-root]")
+		}
+	}
+	detail = strings.Join(strings.Fields(detail), " ")
+	if len(detail) > 2048 {
+		detail = detail[:2048]
+	}
+	return detail
 }
 
 func (service *Service) executionSourceFiles(
@@ -507,6 +728,17 @@ func (service *Service) arcadeCompanionCandidates(
 	importID string,
 	item executionItem,
 ) ([]executionFile, error) {
+	if item.TargetDATVersionID == "" || len(item.Files) != 1 {
+		return []executionFile{}, nil
+	}
+	machine := strings.TrimSuffix(path.Base(item.Files[0].Path), path.Ext(item.Files[0].Path))
+	dependencies, err := service.arcadeDependencyMachines(ctx, item.TargetDATVersionID, machine)
+	if err != nil {
+		return nil, err
+	}
+	if len(dependencies) == 0 {
+		return []executionFile{}, nil
+	}
 	rows, err := service.database.QueryContext(ctx, `
 SELECT file.relative_path,file.size_bytes,file.source_facts_digest
 FROM pegasus_import_items candidate
@@ -514,8 +746,9 @@ JOIN pegasus_import_collections collection ON collection.id=candidate.collection
 JOIN pegasus_import_item_files file ON file.item_id=candidate.id
 WHERE candidate.import_id=? AND candidate.id<>? AND candidate.discovery_state='READY'
 AND collection.mapping_action='IMPORT' AND collection.target_platform_instance_id=?
+AND collection.target_dat_version_id=?
 AND (SELECT count(*) FROM pegasus_import_item_files own WHERE own.item_id=candidate.id)=1
-ORDER BY file.relative_path`, importID, item.ID, item.TargetPlatformID)
+ORDER BY file.relative_path`, importID, item.ID, item.TargetPlatformID, item.TargetDATVersionID)
 	if err != nil {
 		return nil, fmt.Errorf("pegasusimport/query arcade companions: %w", err)
 	}
@@ -529,10 +762,55 @@ ORDER BY file.relative_path`, importID, item.ID, item.TargetPlatformID)
 		if !strings.EqualFold(path.Ext(file.Path), ".zip") {
 			continue
 		}
+		candidateMachine := strings.TrimSuffix(path.Base(file.Path), path.Ext(file.Path))
+		if _, required := dependencies[candidateMachine]; !required {
+			continue
+		}
 		result = append(result, file)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("pegasusimport/iterate arcade companions: %w", err)
+	}
+	return result, nil
+}
+
+func (service *Service) arcadeDependencyMachines(
+	ctx context.Context,
+	datVersionID, machine string,
+) (map[string]struct{}, error) {
+	rows, err := service.database.QueryContext(ctx, `
+WITH RECURSIVE dependency(machine) AS (
+ SELECT cloneof FROM dat_machines
+ WHERE dat_version_id=? AND machine_name=? AND cloneof IS NOT NULL
+ UNION
+ SELECT romof FROM dat_machines
+ WHERE dat_version_id=? AND machine_name=? AND romof IS NOT NULL
+ UNION
+ SELECT relation.cloneof FROM dat_machines relation
+ JOIN dependency current ON relation.machine_name=current.machine
+ WHERE relation.dat_version_id=? AND relation.cloneof IS NOT NULL
+ UNION
+ SELECT relation.romof FROM dat_machines relation
+ JOIN dependency current ON relation.machine_name=current.machine
+ WHERE relation.dat_version_id=? AND relation.romof IS NOT NULL
+)
+SELECT machine FROM dependency WHERE machine<>? ORDER BY machine`,
+		datVersionID, machine, datVersionID, machine, datVersionID, datVersionID, machine,
+	)
+	if err != nil {
+		return nil, fmt.Errorf("pegasusimport/query arcade dependency closure: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	result := make(map[string]struct{})
+	for rows.Next() {
+		var dependency string
+		if err := rows.Scan(&dependency); err != nil {
+			return nil, fmt.Errorf("pegasusimport/scan arcade dependency closure: %w", err)
+		}
+		result[dependency] = struct{}{}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("pegasusimport/iterate arcade dependency closure: %w", err)
 	}
 	return result, nil
 }
@@ -664,7 +942,23 @@ func (service *Service) closeItem(
 	retryable bool,
 	existingGameID string,
 ) {
+	service.closeItemWithFailure(ctx, itemID, state, code, retryable, existingGameID, nil)
+}
+
+func (service *Service) closeItemWithFailure(
+	ctx context.Context,
+	itemID, state, code string,
+	retryable bool,
+	existingGameID string,
+	failure *FailureDetails,
+) {
 	now := service.now().UnixMilli()
+	var encodedFailure any
+	if failure != nil {
+		if encoded, err := json.Marshal(failure); err == nil {
+			encodedFailure = string(encoded)
+		}
+	}
 	setExisting := any(nil)
 	var revision any
 	if existingGameID != "" {
@@ -680,6 +974,7 @@ func (service *Service) closeItem(
 		ctx,
 		`UPDATE pegasus_import_items
 SET execution_state=?,error_code=?,retryable=?,
+error_details_json=?,
 existing_game_id=COALESCE(?,existing_game_id),
 existing_content_revision_id=COALESCE(?,existing_content_revision_id),
 completed_at_ms=?,updated_at_ms=?
@@ -687,6 +982,7 @@ WHERE id=? AND execution_state IN ('COPYING','VALIDATING','PUBLISHING')`,
 		state,
 		nullIfEmpty(code),
 		boolInt(retryable),
+		encodedFailure,
 		setExisting,
 		revision,
 		now,
