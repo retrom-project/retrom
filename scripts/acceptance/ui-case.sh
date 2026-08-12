@@ -16,10 +16,11 @@ backend_origin="http://127.0.0.1:${backend_port}"
 web_origin="http://localhost:${web_port}"
 process_id=""
 acceptance_dist_dir=".next-acceptance-${case_id,,}"
+dev_state="$temporary_root/dev-state"
 
 cleanup() {
   if [[ -n "$process_id" ]]; then
-    "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
+    RETROM_DEV_STATE_DIR="$dev_state" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
     wait "$process_id" 2>/dev/null || true
   fi
   rm -rf -- "$temporary_root"
@@ -43,6 +44,7 @@ cd "$repository_root"
 RETROM_SERVER_IMPORT_ROOTS="[{\"id\":\"pegasus-bios\",\"label\":\"Pegasus BIOS\",\"path\":\"$temporary_root/source\"}]" \
 setsid make dev \
   RETROM_MODE="test" \
+  RETROM_DEV_STATE_DIR="$dev_state" \
   RETROM_DATA_DIR="$temporary_root/data" \
   RETROM_HTTP_ADDR="127.0.0.1:${backend_port}" \
   RETROM_PUBLIC_ORIGIN="$web_origin" \
@@ -108,7 +110,7 @@ fi
   RETROM_ACCEPTANCE_CASE_DIR="${RETROM_ACCEPTANCE_CASE_DIR:-}" \
   npm exec -- "${playwright_args[@]}")
 
-"$repository_root/scripts/dev.sh" --stop
+RETROM_DEV_STATE_DIR="$dev_state" "$repository_root/scripts/dev.sh" --stop
 set +e
 wait "$process_id"
 set -e

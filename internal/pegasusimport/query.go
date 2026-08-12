@@ -21,7 +21,8 @@ const summaryQuery = `
 SELECT import.id,import.root_id,import.root_label_snapshot,import.source_relative_path,import.state,import.phase,
 import.scan_job_id,import.import_job_id,import.metadata_count,import.invalid_metadata_count,import.collection_count,
 import.game_count,import.estimated_source_bytes,import.mapped_collection_count,import.skipped_collection_count,
-import.processable_item_count,import.blocked_item_count,import.published_item_count,import.existing_item_count,
+import.processable_item_count,import.blocked_item_count,import.review_pending_item_count,
+import.published_item_count,import.review_discarded_item_count,import.existing_item_count,
 import.failed_item_count,import.cancelled_item_count,import.media_warning_count,import.discovered_cover_count,
 import.discovered_video_count,import.mapping_version,import.version,import.created_by_user_id,user.display_name,
 import.last_error_code,
@@ -45,7 +46,8 @@ func scanSummary(row rowScanner) (Summary, error) {
 		&result.ScanJobID, &importJobID, &result.Counts.Metadata, &result.Counts.InvalidMetadata,
 		&result.Counts.Collections, &result.Counts.Games, &result.Counts.EstimatedSourceBytes,
 		&result.Counts.MappedCollections, &result.Counts.SkippedCollections, &result.Counts.Processable,
-		&result.Counts.Blocked, &result.Counts.Published, &result.Counts.Existing, &result.Counts.Failed,
+		&result.Counts.Blocked, &result.Counts.ReviewPending, &result.Counts.Published,
+		&result.Counts.ReviewDiscarded, &result.Counts.Existing, &result.Counts.Failed,
 		&result.Counts.Cancelled, &result.Counts.MediaWarnings, &result.Counts.Covers, &result.Counts.Videos,
 		&result.MappingVersion, &result.Version, &result.CreatedBy.ID, &result.CreatedBy.DisplayName,
 		&errorCode, &retryable, &result.CreatedAtMS, &result.UpdatedAtMS, &result.ExpiresAtMS, &result.CompletedAtMS,
@@ -185,6 +187,7 @@ SELECT item.id,item.title,item.collection_id,collection.name,
 collection.target_platform_instance_id,platform.name,
 item.metadata_relative_path,item.execution_state,item.content_kind,
 item.warnings_json,item.discovery_code,item.error_code,item.error_details_json,item.retryable,
+item.library_import_item_id,
 item.published_game_id,item.existing_game_id,item.existing_matches_json,item.updated_at_ms,
 validation.status,validation.compatibility_code,validation.core_id,core.name,
 validation.dependency_snapshot_json,
@@ -244,14 +247,14 @@ LIMIT ?`,
 func scanItem(row rowScanner) (Item, error) {
 	var value Item
 	var collection, collectionName, target, targetName, kind sql.NullString
-	var discovery, itemError, failureDetails, published, existing sql.NullString
+	var discovery, itemError, failureDetails, reviewItem, published, existing sql.NullString
 	var validationStatus, compatibilityCode, coreID, coreName, dependencySnapshot sql.NullString
 	var warnings, existingMatches string
 	var retryable, hasCover, hasVideo int
 	if err := row.Scan(
 		&value.ID, &value.Title, &collection, &collectionName, &target, &targetName,
 		&value.MetadataRelativePath, &value.ExecutionState, &kind, &warnings, &discovery, &itemError, &failureDetails,
-		&retryable, &published, &existing, &existingMatches, &value.UpdatedAtMS,
+		&retryable, &reviewItem, &published, &existing, &existingMatches, &value.UpdatedAtMS,
 		&validationStatus, &compatibilityCode, &coreID, &coreName, &dependencySnapshot,
 		&hasCover, &hasVideo,
 	); err != nil {
@@ -271,6 +274,7 @@ func scanItem(row rowScanner) (Item, error) {
 	value.RuntimeCheck = projectRuntimeCheck(
 		validationStatus, compatibilityCode, coreID, coreName, dependencySnapshot,
 	)
+	value.ReviewItemID = nullableString(reviewItem)
 	value.PublishedGameID, value.ExistingGameID = nullableString(published), nullableString(existing)
 	value.Retryable = retryable == 1
 	_ = json.Unmarshal([]byte(warnings), &value.Warnings)

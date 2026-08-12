@@ -3177,6 +3177,19 @@ AND active.is_active=1)
 	if err != nil || state != "REVIEW_PENDING" || draftVersion != expectedVersion {
 		return Approved{}, ErrInvalid
 	}
+	if decision.SourceKind == "" {
+		origin, found, originErr := loadServerReviewOrigin(
+			ctx, transaction, itemID, coverID.Valid || uploadedCoverID.Valid,
+		)
+		if originErr != nil {
+			return Approved{}, originErr
+		}
+		if found {
+			metadataSourceKind = "SERVER_PEGASUS_IMPORT"
+			metadataSourceRefID = origin.SourceRefID
+			decision.ExternalAssets = origin.Assets
+		}
+	}
 	if !contentcapability.SupportsContentKind(artifactCompatibility, contentKind) {
 		return Approved{}, ErrInvalid
 	}
@@ -3679,6 +3692,11 @@ AND rejected_file_count=resolved_rejected_file_count THEN ? ELSE NULL END
 WHERE id=?
 `, now, now, importID); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
+	}
+	if err := transitionServerReview(
+		ctx, transaction, itemID, "PUBLISHED", gameID.String(), now,
+	); err != nil {
+		return Approved{}, err
 	}
 	if err := transaction.Commit(); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)

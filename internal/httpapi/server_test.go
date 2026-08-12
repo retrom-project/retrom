@@ -352,7 +352,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 29 ||
+		response.DatabaseSchemaVersion != 30 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -486,6 +486,32 @@ VALUES(?,?,'01980000-0000-7000-8000-000000000001',1,'nes','fceumm',?,'HASHEOUS',
 		!strings.Contains(detail.Body.String(), `"reasonCode":"ARCHIVE_UNSAFE"`) ||
 		!strings.Contains(detail.Body.String(), `"unresolvedRejectedFiles":1`) {
 		t.Fatalf("import detail = %d %s", detail.Code, detail.Body.String())
+	}
+}
+
+func TestPegasusReviewBatchQueryIsAllowed(t *testing.T) {
+	t.Parallel()
+	requests := []*http.Request{
+		httptest.NewRequest(
+			http.MethodGet,
+			"/api/v1/admin/reviews?pegasusImportId=01980000-0000-7000-8000-000000000001&limit=20",
+			nil,
+		),
+		httptest.NewRequest(
+			http.MethodGet,
+			"/api/v1/admin/review-assets/01980000-0000-7000-8000-000000000002?kind=VIDEO",
+			nil,
+		),
+		httptest.NewRequest(
+			http.MethodHead,
+			"/api/v1/admin/review-assets/01980000-0000-7000-8000-000000000002?kind=VIDEO",
+			nil,
+		),
+	}
+	for _, request := range requests {
+		if err := validateQueryValues(request.URL.Query(), queryAllowlist(request)); err != nil {
+			t.Fatalf("Pegasus review query %s %s rejected: %v", request.Method, request.URL, err)
+		}
 	}
 }
 
@@ -919,6 +945,149 @@ UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
 	)
 	if filteredList.Code != http.StatusOK || !strings.Contains(filteredList.Body.String(), `"itemId":"`+itemID+`"`) {
 		t.Fatalf("review queue import filter = %d %s", filteredList.Code, filteredList.Body.String())
+	}
+	pegasusImportID := "01980000-0000-7000-8000-000000000138"
+	pegasusScanJobID := "01980000-0000-7000-8000-000000000139"
+	pegasusWorkJobID := "01980000-0000-7000-8000-000000000140"
+	pegasusCollectionID := "01980000-0000-7000-8000-000000000141"
+	pegasusItemID := "01980000-0000-7000-8000-000000000142"
+	pegasusVideoBlobID := "01980000-0000-7000-8000-000000000143"
+	videoPayload := []byte("pegasus review video fixture")
+	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?),
+      (?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_IMPORT',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?)
+`, pegasusScanJobID, pegasusImportID, strings.Repeat("1", 64), timestamp, timestamp, timestamp, timestamp,
+		pegasusWorkJobID, pegasusImportID, strings.Repeat("2", 64), timestamp, timestamp, timestamp, timestamp,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO pegasus_imports(
+ id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,scan_job_id,
+ import_job_id,collection_count,game_count,mapped_collection_count,processable_item_count,
+ review_pending_item_count,created_by_user_id,created_at_ms,updated_at_ms,scan_completed_at_ms,
+ started_at_ms,completed_at_ms,expires_at_ms
+) VALUES(?,'games','Games','FC',?,'COMPLETED','PREPARING_REVIEWS',?,?,1,1,1,1,1,
+ '01980000-0000-7000-8000-000000009999',?,?,?,?,?,?)
+`, pegasusImportID, strings.Repeat("3", 64), pegasusScanJobID, pegasusWorkJobID,
+		timestamp, timestamp, timestamp, timestamp, timestamp, timestamp+60_000,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO pegasus_import_collections(
+ id,import_id,metadata_relative_path,segment_ordinal,name,game_count,mapping_action,
+ target_platform_instance_id,target_platform_instance_version,target_platform_id,target_default_core_id,
+ target_core_artifact_id,target_core_artifact_version,created_at_ms,updated_at_ms
+) VALUES(?,?,'FC/metadata.pegasus.txt',0,'FC',1,'IMPORT',
+ '01980000-0000-7000-8000-000000000005',1,'gba','mgba',?,1,?,?)
+`, pegasusCollectionID, pegasusImportID, artifactID, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO pegasus_import_items(
+ id,import_id,collection_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,
+ execution_state,content_kind,metadata_json,source_manifest_json,source_manifest_digest,
+ library_import_job_id,library_import_item_id,created_at_ms,updated_at_ms,completed_at_ms
+) VALUES(?,?,?,'FC/metadata.pegasus.txt',0,?,'Pegasus source title','READY','REVIEW_PENDING',
+ 'SINGLE_FILE','{"title":"Pegasus source title"}',?,?,?,?,?,?,?)
+`, pegasusItemID, pegasusImportID, pegasusCollectionID, strings.Repeat("4", 64), manifest, digest,
+		importID, itemID, timestamp, timestamp, timestamp,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+VALUES(?,?,?,?,?,?,'video/mp4',?)
+`, pegasusVideoBlobID, videoMetadata.SHA256, videoMetadata.Size, videoMetadata.MD5,
+		videoMetadata.SHA1, videoMetadata.CRC32, timestamp,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO pegasus_import_item_assets(
+ item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,blob_id,media_type,
+ width_px,height_px,state,created_at_ms,updated_at_ms
+) VALUES(?,'COVER','EXPLICIT_GAME','FC/media/cover.png',?,?,?,'image/png',1,1,'COPIED',?,?),
+        (?,'VIDEO','EXPLICIT_GAME','FC/media/video.mp4',?,?,?,'video/mp4',NULL,NULL,'COPIED',?,?)
+`, pegasusItemID, coverMetadata.Size, strings.Repeat("5", 64), coverBlobID, timestamp, timestamp,
+		pegasusItemID, videoMetadata.Size, strings.Repeat("6", 64), pegasusVideoBlobID, timestamp, timestamp,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+UPDATE pegasus_import_items
+SET execution_state='VALIDATING',completed_at_ms=NULL
+WHERE id=?
+`, pegasusItemID); err != nil {
+		t.Fatal(err)
+	}
+	hiddenPegasusList := httptest.NewRecorder()
+	server.reviews(
+		hiddenPegasusList,
+		httptest.NewRequest(http.MethodGet, "/api/v1/admin/reviews?pegasusImportId="+pegasusImportID, nil),
+	)
+	if hiddenPegasusList.Code != http.StatusOK || strings.Contains(hiddenPegasusList.Body.String(), itemID) {
+		t.Fatalf("incomplete Pegasus handoff leaked into review queue = %d %s", hiddenPegasusList.Code, hiddenPegasusList.Body.String())
+	}
+	hiddenPegasusDetail := httptest.NewRecorder()
+	hiddenPegasusDetailRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
+	hiddenPegasusDetailRequest.SetPathValue("importItemId", itemID)
+	server.review(hiddenPegasusDetail, hiddenPegasusDetailRequest)
+	if hiddenPegasusDetail.Code != http.StatusNotFound {
+		t.Fatalf("incomplete Pegasus handoff detail = %d %s", hiddenPegasusDetail.Code, hiddenPegasusDetail.Body.String())
+	}
+	if _, err := server.database.Exec(`
+UPDATE pegasus_import_items
+SET execution_state='REVIEW_PENDING',completed_at_ms=?
+WHERE id=?
+`, timestamp, pegasusItemID); err != nil {
+		t.Fatal(err)
+	}
+	pegasusList := httptest.NewRecorder()
+	server.reviews(
+		pegasusList,
+		httptest.NewRequest(http.MethodGet, "/api/v1/admin/reviews?pegasusImportId="+pegasusImportID, nil),
+	)
+	if pegasusList.Code != http.StatusOK ||
+		!strings.Contains(pegasusList.Body.String(), `"itemId":"`+itemID+`"`) ||
+		!strings.Contains(pegasusList.Body.String(), `"sourceKind":"PEGASUS"`) ||
+		!strings.Contains(pegasusList.Body.String(), `"sourceLabel":"FC"`) ||
+		!strings.Contains(pegasusList.Body.String(), `"pegasusImportId":"`+pegasusImportID+`"`) {
+		t.Fatalf("Pegasus review queue filter = %d %s", pegasusList.Code, pegasusList.Body.String())
+	}
+	pegasusDetail := httptest.NewRecorder()
+	pegasusDetailRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
+	pegasusDetailRequest.SetPathValue("importItemId", itemID)
+	server.review(pegasusDetail, pegasusDetailRequest)
+	if pegasusDetail.Code != http.StatusOK ||
+		!strings.Contains(pegasusDetail.Body.String(), `"sourceKind":"PEGASUS"`) ||
+		!strings.Contains(pegasusDetail.Body.String(), `"coverUrl":"/api/v1/admin/review-assets/`+pegasusItemID+`?kind=COVER"`) ||
+		!strings.Contains(pegasusDetail.Body.String(), `"videoUrl":"/api/v1/admin/review-assets/`+pegasusItemID+`?kind=VIDEO"`) {
+		t.Fatalf("Pegasus review source media = %d %s", pegasusDetail.Code, pegasusDetail.Body.String())
+	}
+	pegasusVideo := httptest.NewRecorder()
+	pegasusVideoRequest := httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/admin/review-assets/"+pegasusItemID+"?kind=VIDEO",
+		nil,
+	)
+	pegasusVideoRequest.SetPathValue("assetId", pegasusItemID)
+	server.reviewCandidateAsset(pegasusVideo, pegasusVideoRequest)
+	if pegasusVideo.Code != http.StatusOK || !bytes.Equal(pegasusVideo.Body.Bytes(), videoPayload) ||
+		pegasusVideo.Header().Get("Content-Type") != "video/mp4" {
+		t.Fatalf(
+			"Pegasus review video = %d/%s %q",
+			pegasusVideo.Code,
+			pegasusVideo.Header().Get("Content-Type"),
+			pegasusVideo.Body.Bytes(),
+		)
 	}
 	if _, err := server.database.Exec(`
 UPDATE import_items SET state='PUBLISHED' WHERE id=?;

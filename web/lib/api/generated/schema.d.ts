@@ -2569,7 +2569,11 @@ export interface components {
             /** Format: int64 */
             blocked: number;
             /** Format: int64 */
+            reviewPending: number;
+            /** Format: int64 */
             published: number;
+            /** Format: int64 */
+            reviewDiscarded: number;
             /** Format: int64 */
             existing: number;
             /** Format: int64 */
@@ -2594,7 +2598,7 @@ export interface components {
             /** @enum {string} */
             state: "SCANNING" | "AWAITING_MAPPING" | "QUEUED" | "RUNNING" | "PARTIAL_FAILURE" | "COMPLETED" | "CANCEL_REQUESTED" | "CANCELLED" | "FAILED" | "EXPIRED";
             /** @enum {string|null} */
-            phase: "DISCOVERING_METADATA" | "PARSING_METADATA" | "RESOLVING_SOURCES" | "COPYING_CONTENT" | "VALIDATING" | "PUBLISHING" | null;
+            phase: "DISCOVERING_METADATA" | "PARSING_METADATA" | "RESOLVING_SOURCES" | "COPYING_CONTENT" | "VALIDATING" | "PREPARING_REVIEWS" | "PUBLISHING" | null;
             /** Format: uuid */
             scanJobId: string;
             /** Format: uuid */
@@ -2663,7 +2667,7 @@ export interface components {
             targetPlatformInstanceName: string | null;
             metadataRelativePath: string;
             /** @enum {string} */
-            executionState: "PENDING" | "COPYING" | "VALIDATING" | "PUBLISHING" | "PUBLISHED" | "SKIPPED_EXISTING" | "SKIPPED_MAPPING" | "BLOCKED_SOURCE" | "BLOCKED_CONTENT" | "BLOCKED_VALIDATION" | "SOURCE_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
+            executionState: "PENDING" | "COPYING" | "VALIDATING" | "PUBLISHING" | "REVIEW_PENDING" | "PUBLISHED" | "REVIEW_DISCARDED" | "SKIPPED_EXISTING" | "SKIPPED_MAPPING" | "BLOCKED_SOURCE" | "BLOCKED_CONTENT" | "BLOCKED_VALIDATION" | "SOURCE_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
             /** @enum {string|null} */
             contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC_M3U_V1" | null;
             media: {
@@ -2678,6 +2682,8 @@ export interface components {
             failureDetails: components["schemas"]["PegasusItemFailureDetails"] | null;
             runtimeCheck: components["schemas"]["PegasusRuntimeCheck"] | null;
             retryable: boolean;
+            /** Format: uuid */
+            reviewItemId: string | null;
             /** Format: uuid */
             publishedGameId: string | null;
             /** Format: uuid */
@@ -3717,6 +3723,7 @@ export interface components {
         CoreIDQuery: string;
         CoreArtifactIDQuery: string;
         ImportJobIDQuery: string;
+        PegasusImportIDQuery: string;
         Availability: string;
         State: string;
         Status: string;
@@ -3728,6 +3735,7 @@ export interface components {
         Outcome: string;
         MatchMethod: string;
         PegasusWarning: string;
+        ReviewSourceMediaKind: "COVER" | "VIDEO";
         PegasusCollectionIDQuery: string;
         ServerImportKind: "BIOS_DIRECTORY";
         ServerRelativePath: string;
@@ -4918,6 +4926,7 @@ export interface operations {
             query?: {
                 q?: components["parameters"]["Q"];
                 importJobId?: components["parameters"]["ImportJobIDQuery"];
+                pegasusImportId?: components["parameters"]["PegasusImportIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
                 blockerCode?: components["parameters"]["BlockerCode"];
                 sort?: components["parameters"]["Sort"];
@@ -6034,7 +6043,9 @@ export interface operations {
     };
     getAdminReviewAsset: {
         parameters: {
-            query?: never;
+            query?: {
+                kind?: components["parameters"]["ReviewSourceMediaKind"];
+            };
             header?: never;
             path: {
                 assetId: components["parameters"]["AssetID"];
@@ -6048,7 +6059,9 @@ export interface operations {
     };
     headAdminReviewAsset: {
         parameters: {
-            query?: never;
+            query?: {
+                kind?: components["parameters"]["ReviewSourceMediaKind"];
+            };
             header?: never;
             path: {
                 assetId: components["parameters"]["AssetID"];

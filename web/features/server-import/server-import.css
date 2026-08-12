@@ -91,6 +91,12 @@
 .server-import-detail-head h2 { margin: 8px 0 0; font-size: 20px; }
 .server-import-detail-head p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
 .server-import-detail-head > div:last-child { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 7px; }
+.pegasus-review-callout { padding: 18px 20px; display: flex; align-items: center; justify-content: space-between; gap: 28px; border-color: #d8d0f5; background: linear-gradient(110deg, #fff 0%, #faf8ff 70%, #f2efff 100%); }
+.pegasus-review-callout > div { max-width: 850px; }
+.pegasus-review-callout span { color: #6657bc; font-size: 9px; font-weight: 850; letter-spacing: .08em; text-transform: uppercase; }
+.pegasus-review-callout h2 { margin: 6px 0 0; font-size: 17px; }
+.pegasus-review-callout p { margin: 6px 0 0; color: var(--muted); font-size: 10px; line-height: 1.65; }
+.pegasus-review-callout > .button { flex: 0 0 auto; }
 .server-import-error { margin: 0; padding: 12px 14px; display: flex; align-items: center; gap: 12px; color: #8f3c47; border-color: #efc7cc; background: #fff6f7; font-size: 11px; }
 .server-import-error span { color: #7b5960; }
 .server-import-result-filters { margin-bottom: 10px; padding: 11px; display: grid; grid-template-columns: minmax(230px, 1fr) repeat(2, minmax(160px, .55fr)) auto; align-items: end; gap: 9px; }
@@ -163,6 +169,7 @@
   .runtime-active-grid { grid-template-columns: minmax(0, 1fr); }
   .server-import-result-filters { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .server-import-hero, .server-import-detail-head { align-items: flex-start; flex-direction: column; }
+  .pegasus-review-callout { align-items: flex-start; flex-direction: column; }
   .server-import-task { grid-template-columns: minmax(0, 1fr); }
   .server-import-task dl { grid-template-columns: repeat(4, minmax(100px, 1fr)); overflow-x: auto; }
   .server-import-capabilities { grid-template-columns: minmax(0, 1fr); }

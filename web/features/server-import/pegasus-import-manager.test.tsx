@@ -14,7 +14,7 @@ function summary(state: PegasusImportSummary["state"], version: number, override
     id: "22222222-2222-4222-8222-222222222222", root: { id: root.id, label: root.label }, sourceRelativePath: "Roms/FC", state,
     phase: state === "SCANNING" ? "DISCOVERING_METADATA" : null,
     scanJobId: "33333333-3333-4333-8333-333333333333", importJobId: state === "QUEUED" ? "44444444-4444-4444-8444-444444444444" : null,
-    counts: { metadata: 1, invalidMetadata: 0, collections: 1, games: 3, estimatedSourceBytes: 1024, mappedCollections: state === "QUEUED" ? 1 : 0, skippedCollections: 0, processable: 2, blocked: 1, published: 0, existing: 0, failed: 0, cancelled: 0, mediaWarnings: 1, covers: 3, videos: 2 },
+    counts: { metadata: 1, invalidMetadata: 0, collections: 1, games: 3, estimatedSourceBytes: 1024, mappedCollections: state === "QUEUED" ? 1 : 0, skippedCollections: 0, processable: 2, blocked: 1, reviewPending: 0, published: 0, reviewDiscarded: 0, existing: 0, failed: 0, cancelled: 0, mediaWarnings: 1, covers: 3, videos: 2 },
     mappingVersion: version, version, createdBy: { id: "55555555-5555-4555-8555-555555555555", displayName: "Admin" }, lastErrorCode: null, retryable: false,
     createdAtMs: 1, updatedAtMs: 2, expiresAtMs: 9999999999999, completedAtMs: null, ...overrides,
   };
@@ -59,8 +59,8 @@ describe("PegasusImportDrawer", () => {
     expect(screen.getByRole("button", { name: "确认映射" })).toBeDisabled();
     await user.selectOptions(screen.getByRole("combobox", { name: "FC 处理方式" }), `IMPORT:${platform.id}`);
     await user.click(screen.getByRole("button", { name: "确认映射" }));
-    expect(await screen.findByText("1 个导入 · 0 个跳过")).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "开始异步导入" }));
+    expect(await screen.findByText("1 个处理 · 0 个跳过")).toBeVisible();
+    await user.click(screen.getByRole("button", { name: "开始准备审核事项" }));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/admin/imports/server/pegasus/${queued.id}`));
     const mappingRequest = fetchMock.mock.calls[4]?.[0] as Request;
@@ -78,8 +78,8 @@ describe("PegasusImportDrawer", () => {
 
     render(<PegasusImportDrawer open roots={[root]} platformInstances={[platform]} resumablePlan={mapped} onClose={vi.fn()} onStarted={vi.fn()} />);
 
-    expect(await screen.findByText("1 个导入 · 0 个跳过")).toBeVisible();
-    expect(screen.getByRole("button", { name: "开始异步导入" })).toBeEnabled();
+    expect(await screen.findByText("1 个处理 · 0 个跳过")).toBeVisible();
+    expect(screen.getByRole("button", { name: "开始准备审核事项" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "确认映射" })).not.toBeInTheDocument();
   });
 });
@@ -115,6 +115,7 @@ describe("PegasusImportDetailManager", () => {
       metadataRelativePath: "metadata.pegasus.txt", executionState: "BLOCKED_VALIDATION", contentKind: "SINGLE_FILE",
       media: { cover: "READY", video: "MISSING" }, warnings: [], discoveryCode: null,
       errorCode: "LAUNCH_PARENT_MISSING", retryable: false, publishedGameId: null, existingGameId: null,
+      reviewItemId: null,
       failureDetails: null, existingMatches: [], updatedAtMs: 2,
       runtimeCheck: {
         status: "BLOCKED", code: "LAUNCH_PARENT_MISSING", coreId: "fbneo", coreName: "FinalBurn Neo",
@@ -127,7 +128,7 @@ describe("PegasusImportDetailManager", () => {
 
     render(<PegasusImportDetailManager initialSummary={result} initialItems={{ items: [blocked], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
 
-    expect(screen.getByRole("button", { name: "重新运行检查" })).toBeVisible();
+    expect(screen.getByRole("button", { name: "重试失败条目" })).toBeVisible();
     expect(screen.getAllByText("缺少父 ROM")[0]).toBeVisible();
     await user.click(screen.getByText("查看具体原因与处理建议"));
     expect(screen.getByText("LAUNCH_PARENT_MISSING")).toBeVisible();
@@ -143,6 +144,7 @@ describe("PegasusImportDetailManager", () => {
       metadataRelativePath: "metadata.pegasus.txt", executionState: "COMMIT_FAILED", contentKind: "SINGLE_FILE",
       media: { cover: "READY", video: "READY" }, warnings: [], discoveryCode: null,
       errorCode: "PEGASUS_LIBRARY_IMPORT_FAILED", retryable: true, publishedGameId: null, existingGameId: null,
+      reviewItemId: null,
       existingMatches: [], updatedAtMs: 2, runtimeCheck: null,
       failureDetails: {
         schemaVersion: 1, stage: "LIBRARY_IMPORT", operation: "CREATE_SERVER_SOURCE",
@@ -164,5 +166,26 @@ describe("PegasusImportDetailManager", () => {
     expect(screen.getByText("109 / 上限 64")).toBeVisible();
     expect(screen.getByText("1944j.zip")).toBeVisible();
     expect(screen.getByText(/Pegasus assembled 109 source files/)).toBeVisible();
+  });
+
+  it("routes a prepared item into the scoped review queue without a bulk approval action", () => {
+    const reviewItem: PegasusItem = {
+      id: "99999999-9999-4999-8999-999999999999", title: "Review Fixture",
+      collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "FC",
+      targetPlatformInstanceId: platform.id, targetPlatformInstanceName: platform.name,
+      metadataRelativePath: "metadata.pegasus.txt", executionState: "REVIEW_PENDING", contentKind: "SINGLE_FILE",
+      media: { cover: "READY", video: "READY" }, warnings: [], discoveryCode: null, errorCode: null,
+      failureDetails: null, runtimeCheck: { status: "READY", code: "READY", coreId: "fceumm", coreName: "FCEUmm", machine: null, missingEntries: [], mismatchedEntries: [], dependencies: [], bios: [], missingDiscs: [] },
+      retryable: false, reviewItemId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", publishedGameId: null,
+      existingGameId: null, existingMatches: [], updatedAtMs: 2,
+    };
+    const result = summary("COMPLETED", 5, { completedAtMs: 3, counts: { ...summary("COMPLETED", 5).counts, reviewPending: 1 } });
+
+    render(<PegasusImportDetailManager initialSummary={result} initialItems={{ items: [reviewItem], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
+
+    expect(screen.getByRole("link", { name: "逐项审核 1 个游戏" })).toHaveAttribute("href", `/admin/reviews?pegasusImportId=${result.id}`);
+    expect(screen.getByRole("link", { name: "审核并决定" })).toHaveAttribute("href", expect.stringContaining(`/admin/reviews/${reviewItem.reviewItemId}`));
+    expect(screen.queryByRole("button", { name: /批量/ })).not.toBeInTheDocument();
+    expect(screen.getByText("内容已准备好，但尚未进入游戏库")).toBeVisible();
   });
 });

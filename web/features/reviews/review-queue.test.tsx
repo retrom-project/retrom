@@ -37,4 +37,13 @@ describe("ReviewQueue", () => {
     expect(screen.getByText("Blocked game")).toBeVisible();
     expect(screen.getByText("当前筛选显示 1 / 已加载 2 条")).toBeVisible();
   });
+
+  it("treats Pegasus metadata as reviewable source information instead of a scrape miss", () => {
+    const pegasus = { ...item, sourceKind: "PEGASUS" as const, sourceLabel: "FC", candidateCount: 0 };
+    render(<ReviewQueue initial={{ items: [pegasus], nextCursor: null }} values={{ pegasusImportId: "batch-1" }} />);
+
+    expect(screen.getByText("已读取 Pegasus 信息")).toBeVisible();
+    expect(screen.getByText("等待管理员核对")).toBeVisible();
+    expect(screen.getByRole("button", { name: "未找到信息 0" })).toBeVisible();
+  });
 });

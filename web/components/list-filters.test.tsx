@@ -49,6 +49,12 @@ describe("ListFilters", () => {
     expect(screen.getByRole("link", { name: "清除全部" })).toHaveAttribute("href", "/saves");
   });
 
+  it("can clear editable filters while preserving a scoped batch context", () => {
+    render(<ListFilters action="/admin/reviews" placeholder="search" values={{ pegasusImportId: "batch-1", blockerCode: "READY" }} fixedFilters={[{ name: "pegasusImportId", value: "batch-1" }]} preserveFixedFiltersOnReset filters={[{ name: "blockerCode", label: "运行检查", options: [{ value: "READY", label: "可以发布" }] }]} />);
+
+    expect(screen.getByRole("link", { name: "清除全部" })).toHaveAttribute("href", "/admin/reviews?pegasusImportId=batch-1");
+  });
+
   it("updates the routed results without a native document submission", async () => {
     const user = userEvent.setup();
     render(<ListFilters action="/admin/games" placeholder="search" values={{}} filters={[

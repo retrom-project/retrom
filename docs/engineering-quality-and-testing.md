@@ -61,7 +61,7 @@
 | `make web-lint` | ESLint 扫描全部受控 TS/TSX/JS，warning 视为失败 | 否 |
 | `make web-typecheck` | `tsc --noEmit` | 否 |
 | `make web-test` | `vitest run` | 否 |
-| `make web-build` | 干净执行 Next.js production build | 会重建 `.next/` |
+| `make web-build` | 干净执行 Next.js production build；运行中的本地开发服务需要保留 `.next/` 时可显式设置 `NEXT_DIST_DIR=.next-build` | 只允许重建 `.next/` 或被忽略的 `.next-build/` |
 | `make web-check` | `web-install + web-lint + web-typecheck + web-test + web-build` | 仅依赖/构建产物 |
 | `make integration-test` | Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 否 |
 | `make api-generate` | 从 `api/openapi.yaml` 生成 Go strict stdlib server types 与前端 TypeScript schema | 是，只改两个 generated 文件 |
@@ -423,10 +423,10 @@ node data/example/smoke-test.mjs mgba mame2003
 ## 12. Pegasus 目录导入与视频测试矩阵
 
 - parser/scanner：UTF-8 BOM、LF/CRLF、续行与 flowing text、字段别名、同一 metadata 多 game、目录内多个 metadata、大小/条目/深度门禁、非法命令值、路径穿越、symlink/special file、来源中途变化和稳定 `sourceKey`。
-- 映射/持久化：Migration 029 的新建库与 028 升级同构并回填可证明的旧失败诊断；Collection 显式映射、ETag、版本冻结；最大 64 文件的投影、全部声明文件参与确定性 key、M3U+CHD 有序分组、Arcade 当前 ZIP 与冻结 DAT 依赖闭包内的同目标显式 companion 集。
-- 发布/重复：单文件和多盘沿用既有 library import/validation/publish 事务；同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不回滚已经提交的游戏，重试不重复 Game/Revision/Blob。
+- 映射/持久化：Migration 030 的新建库与 029 升级同构并保留旧状态/诊断；Collection 显式映射、ETag、版本冻结；最大 64 文件的投影、全部声明文件参与确定性 key、M3U+CHD 有序分组、Arcade 当前 ZIP 与冻结 DAT 依赖闭包内的同目标显式 companion 集。
+- 审核/发布/重复：单文件和多盘沿用既有 library import/validation/review/publish 事务；Worker 完成后只产生 `REVIEW_PENDING` 且零 Game，READY 与 blocker 都可在统一队列逐项处理；Approve/Discard 原子推进普通与 Pegasus 两组状态/计数，来源 COVER/VIDEO 正确保留，用户封面选择优先；无批量通过。交接崩溃恢复复用已有内部 ImportItem 且不重复系统草稿事件；未完成交接的 Item 不出现在队列/详情且不能发布。同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不删除审核事项或回滚已经提交的游戏，重试不重复 Game/Revision/Blob。
 - Worker/存储：BIOS 与 Pegasus 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、restore fence、外部 root 变更、媒体告警、保护边 GC 和 backup/restore 均有确定性测试。
-- HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；双能力卡、三步 Drawer、无默认映射、关闭恢复、详情分页与多尺寸/键盘/reduced-motion。
+- HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；`pegasusImportId` 精确队列筛选、来源媒体 GET/HEAD 与 COVER/VIDEO kind；双能力卡、三步 Drawer、无默认映射、关闭恢复、详情审核行动区、逐行审核入口、零批量入口与多尺寸/键盘/reduced-motion。
 - VIDEO：MP4/WebM magic 与限额、nullable dimensions、Range/HEAD/MIME、不可变 revision、元信息编辑保留、删除保留历史；详情 2 秒累计可见自动播放、后台页不计时、5 秒/拒绝/错误回退、用户暂停和 reduced-motion 手动模式，以及列表零视频请求。
 
 该切片除聚焦用例外必须运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-PEG-001`–`005`、`ACC-MEDIA-001` 与 `make ci`。使用操作者授权的真实 Pegasus 目录时只记录相对统计和结果，不把 ROM、完整宿主路径或媒体内容写入报告。

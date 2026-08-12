@@ -2,7 +2,7 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-state_directory="$repository_root/.cache/retrom"
+state_directory="${RETROM_DEV_STATE_DIR:-$repository_root/.cache/retrom}"
 pid_file="$state_directory/dev.pid"
 takeover_lock="$state_directory/dev-takeover.lock"
 data_root="${RETROM_DATA_DIR:-$state_directory/data}"
@@ -274,9 +274,9 @@ if [[ ! -v RETROM_SERVER_IMPORT_ROOTS ]]; then
 fi
 
 process_start_ticks="$(read_start_ticks "$$")"
-setsid env -u RETROM_MODE go run ./cmd/retrom --mode="$auth_mode" &
+setsid env -u RETROM_MODE -u RETROM_DEV_STATE_DIR go run ./cmd/retrom --mode="$auth_mode" &
 backend_pid=$!
-setsid bash -c 'cd "$1" && exec npm exec -- next dev --hostname "$2" --port "$3"' \
+setsid env -u RETROM_DEV_STATE_DIR bash -c 'cd "$1" && exec npm exec -- next dev --hostname "$2" --port "$3"' \
   retrom-dev-web "$repository_root/web" "${NEXT_DEV_HOST:-0.0.0.0}" "${NEXT_DEV_PORT:-3000}" &
 web_pid=$!
 backend_start_ticks="$(read_start_ticks "$backend_pid")"

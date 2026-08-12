@@ -73,8 +73,11 @@ web-typecheck: prepare-node
 web-test: prepare-node
 	@cd web && $(NPM) run test:ci
 
+NEXT_DIST_DIR ?= .next
+
 web-build: prepare-node
-	@cd web && rm -rf .next && $(NPM) run build
+	@test "$(NEXT_DIST_DIR)" = ".next" || test "$(NEXT_DIST_DIR)" = ".next-build"
+	@cd web && rm -rf "$(NEXT_DIST_DIR)" && NEXT_DIST_DIR="$(NEXT_DIST_DIR)" $(NPM) run build
 
 web-check: web-install web-lint web-typecheck web-test web-build
 

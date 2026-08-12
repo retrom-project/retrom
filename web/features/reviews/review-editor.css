@@ -20,6 +20,7 @@
 .review-thumb img { width: 100%; height: 100%; object-fit: cover; }
 .review-source > div:last-child { min-width: 0; }
 .review-source-name { display: block; margin-top: 3px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-source-tag { margin-left: 7px; padding: 3px 6px; display: inline-flex; vertical-align: middle; color: #2b7376; border: 1px solid #bfe3e3; border-radius: 999px; background: #edfafa; font-size: 8px; font-weight: 820; }
 .review-file-facts { margin-top: 6px; display: flex; gap: 10px; min-width: 0; }
 .review-file-facts code { min-width: 0; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #697488; }
 .review-main-workbench { min-width: 0; }
@@ -47,6 +48,8 @@
 .review-cover-panel { display: grid; gap: 9px; padding: 13px; border: 1px solid var(--line); border-radius: 11px; background: #fafbfc; }
 .review-cover-panel img, .review-cover-panel .asset-placeholder { width: 100%; aspect-ratio: 2 / 3; object-fit: contain; background: #eef0f4; }
 .review-cover-panel small { color: var(--muted); font-size: 11px; }
+.review-source-video { padding-top: 10px; display: grid; gap: 7px; border-top: 1px solid var(--line); }
+.review-source-video video { width: 100%; aspect-ratio: 16 / 9; display: block; object-fit: contain; object-position: 50% 50%; border-radius: 9px; background: #111622; }
 .review-cover-upload { position: relative; overflow: hidden; display: block; border-radius: 10px; cursor: pointer; }
 .review-cover-upload > input { position: absolute; width: 1px; height: 1px; opacity: 0; }
 .review-cover-upload > span { position: absolute; inset: auto 8px 8px; padding: 7px 9px; opacity: 0; color: white; border-radius: 7px; background: rgb(22 27 43 / 82%); text-align: center; font-size: 11px; transition: opacity .15s ease; }
@@ -140,4 +143,3 @@
 .step.is-active i { color: white; background: var(--purple); }
 .step.is-complete { color: #0f737c; }
 .step.is-complete i { color: white; background: #15919b; }
-
