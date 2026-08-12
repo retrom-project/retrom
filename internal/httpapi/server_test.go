@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -352,7 +353,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 30 ||
+		response.DatabaseSchemaVersion != 31 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -1961,13 +1962,13 @@ func TestOpenAPIValidationRejectsUnknownJSONAndMapsMissingPrecondition(t *testin
 	}
 }
 
-func TestOpenAPIHasExactlyThreeStreamingOperations(t *testing.T) {
+func TestOpenAPIHasExactlyFourStreamingOperations(t *testing.T) {
 	t.Parallel()
 	specification, err := generated.GetSpec()
 	if err != nil {
 		t.Fatal(err)
 	}
-	operationIDs := make([]string, 0, 3)
+	operationIDs := make([]string, 0, 4)
 	for _, pathItem := range specification.Paths.Map() {
 		for _, operation := range pathItem.Operations() {
 			if enabled, ok := operation.Extensions["x-retrom-streaming-body"].(bool); ok && enabled {
@@ -1976,10 +1977,43 @@ func TestOpenAPIHasExactlyThreeStreamingOperations(t *testing.T) {
 		}
 	}
 	slices.Sort(operationIDs)
-	wanted := []string{"PostRuntimeSaveState", "PutAdminUploadPart", "PutRuntimePersistentSave"}
+	wanted := []string{"PostRuntimeReviewScreenshot", "PostRuntimeSaveState", "PutAdminUploadPart", "PutRuntimePersistentSave"}
 	if !slices.Equal(operationIDs, wanted) {
 		t.Fatalf("streaming operations = %v", operationIDs)
 	}
+}
+
+func TestReviewScreenshotValidatesMediaTypeAndCredentialBeforeReadingBody(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+
+	invalidType := httptest.NewRequest(http.MethodPost, "/runtime/launches/preview/review-screenshot", strings.NewReader("not png"))
+	invalidType.SetPathValue("launchId", "01980000-0000-7000-8000-000000000099")
+	invalidType.Header.Set("Content-Type", "application/octet-stream")
+	response := httptest.NewRecorder()
+	server.storeReviewScreenshot(response, invalidType)
+	if response.Code != http.StatusBadRequest || !strings.Contains(response.Body.String(), `"code":"REVIEW_SCREENSHOT_INVALID"`) {
+		t.Fatalf("invalid review screenshot media type = %d %s", response.Code, response.Body.String())
+	}
+
+	unauthorized := httptest.NewRequest(
+		http.MethodPost,
+		"/runtime/launches/preview/review-screenshot",
+		io.NopCloser(panicReader{}),
+	)
+	unauthorized.SetPathValue("launchId", "01980000-0000-7000-8000-000000000099")
+	unauthorized.Header.Set("Content-Type", "image/png")
+	response = httptest.NewRecorder()
+	server.storeReviewScreenshot(response, unauthorized)
+	if response.Code != http.StatusUnauthorized || !strings.Contains(response.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
+		t.Fatalf("unauthorized review screenshot = %d %s", response.Code, response.Body.String())
+	}
+}
+
+type panicReader struct{}
+
+func (panicReader) Read([]byte) (int, error) {
+	panic("review screenshot body was read before credential validation")
 }
 
 func TestGenericIdempotencySerializesConcurrentCreates(t *testing.T) {

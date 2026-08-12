@@ -912,12 +912,24 @@
     #retrom-ui-review .rt-review-context-item { display: grid; gap: 3px; width: 100%; padding: 9px; border: 1px solid var(--retrom-line); border-radius: 8px; color: var(--retrom-text); background: var(--retrom-panel); text-align: left; }
     #retrom-ui-review .rt-review-context-item span { color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-review-context-item.is-active { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
-    #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; }
-    #retrom-ui-review .rt-review-summary, #retrom-ui-review .rt-review-decision { min-height: 142px; padding: 15px; }
+    #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 12px; }
+    #retrom-ui-review .rt-review-summary, #retrom-ui-review .rt-review-decision { min-height: 178px; padding: 15px; }
+    #retrom-ui-review .rt-review-summary { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 250px; align-items: stretch; gap: 14px; }
+    #retrom-ui-review .rt-review-summary-copy { min-width: 0; align-self: center; }
     #retrom-ui-review .rt-review-summary h2, #retrom-ui-review .rt-review-decision h2 { margin: 8px 0 3px; }
     #retrom-ui-review .rt-review-summary-status { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
-    #retrom-ui-review .rt-review-save { display: flex; justify-content: space-between; margin: 12px 0; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-review-runtime-shot { min-width: 0; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--retrom-line); border-radius: 9px; background: #0a0d14; }
+    #retrom-ui-review .rt-review-runtime-shot &gt; span { padding: 7px 9px; color: var(--retrom-muted); background: var(--retrom-panel-raised); font-size: 9px; font-weight: 750; }
+    #retrom-ui-review .rt-review-runtime-shot &gt; div { min-height: 112px; padding: 12px; display: grid; place-content: center; gap: 4px; color: #dce2ee; background: radial-gradient(circle at 50% 30%, #2c3344, #0a0d14 72%); text-align: center; }
+    #retrom-ui-review .rt-review-runtime-shot &gt; div.is-ready { background: linear-gradient(145deg, #171a2c, #313759 48%, #0a0d14); }
+    #retrom-ui-review .rt-review-runtime-shot strong { font-size: 10px; }
+    #retrom-ui-review .rt-review-runtime-shot small { color: #949dad; font-size: 8px; line-height: 1.45; }
+    #retrom-ui-review .rt-review-decision { display: grid; align-content: start; gap: 7px; }
+    #retrom-ui-review .rt-review-save { display: flex; justify-content: space-between; margin: 3px 0; color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-review-save strong { color: var(--retrom-green); }
+    #retrom-ui-review .rt-review-decision-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    #retrom-ui-review .rt-review-decision-actions .rt-button { width: 100%; min-width: 0; justify-content: center; }
+    #retrom-ui-review .rt-review-run { color: var(--retrom-purple); border-color: color-mix(in srgb, var(--retrom-purple) 32%, var(--retrom-line)); background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-review-detail-columns { display: grid; grid-template-columns: minmax(330px, .72fr) minmax(580px, 1.28fr); align-items: stretch; gap: 12px; }
     #retrom-ui-review .rt-review-capability { display: grid; gap: 8px; margin-top: 12px; }
     #retrom-ui-review .rt-review-capability &gt; div { padding: 9px; border-radius: 8px; background: var(--retrom-panel-raised); }
@@ -2383,8 +2395,8 @@
           &lt;div class=&quot;rt-review-layout&quot; data-review-view=&quot;detail&quot; hidden&gt;
             &lt;button type=&quot;button&quot; class=&quot;rt-button rt-review-back&quot; data-review-back&gt;&lt;i data-lucide=&quot;arrow-left&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;返回待审列表&lt;/button&gt;
             &lt;div class=&quot;rt-review-detail-top&quot;&gt;
-              &lt;section class=&quot;rt-panel rt-review-summary&quot;&gt;&lt;span class=&quot;rt-badge&quot;&gt;来源：&lt;span data-review-file-output&gt;NOeL 3/game.m3u&lt;/span&gt;&lt;/span&gt;&lt;h2 data-review-preview-output&gt;NOeL 3&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;目标目录：Saturn 游戏&lt;/p&gt;&lt;div class=&quot;rt-review-summary-status&quot;&gt;&lt;span class=&quot;rt-badge&quot; data-review-disc-received&gt;已接收 M3U 与 2 张光盘&lt;/span&gt;&lt;span class=&quot;rt-badge rt-badge-amber&quot; data-review-disc-summary-state&gt;缺少光盘 3&lt;/span&gt;&lt;span class=&quot;rt-badge rt-badge-cyan&quot;&gt;盘序已锁定&lt;/span&gt;&lt;/div&gt;&lt;/section&gt;
-              &lt;aside class=&quot;rt-panel rt-review-decision&quot;&gt;&lt;h2&gt;审核决定&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot; data-review-decision-copy&gt;先一次补齐左侧列出的全部缺失光盘，再发布。&lt;/p&gt;&lt;div class=&quot;rt-review-save&quot;&gt;&lt;span&gt;实时保存&lt;/span&gt;&lt;strong&gt;● 已实时保存&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;rt-review-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-danger&quot;&gt;&lt;i data-lucide=&quot;archive-x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;丢弃条目&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-review-approve disabled&gt;&lt;i data-lucide=&quot;check&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;通过并发布&lt;/button&gt;&lt;/div&gt;&lt;/aside&gt;
+              &lt;section class=&quot;rt-panel rt-review-summary&quot;&gt;&lt;div class=&quot;rt-review-summary-copy&quot;&gt;&lt;span class=&quot;rt-badge&quot;&gt;来源：&lt;span data-review-file-output&gt;NOeL 3/game.m3u&lt;/span&gt;&lt;/span&gt;&lt;h2 data-review-preview-output&gt;NOeL 3&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;目标目录：Saturn 游戏&lt;/p&gt;&lt;div class=&quot;rt-review-summary-status&quot;&gt;&lt;span class=&quot;rt-badge&quot; data-review-disc-received&gt;已接收 M3U 与 2 张光盘&lt;/span&gt;&lt;span class=&quot;rt-badge rt-badge-amber&quot; data-review-disc-summary-state&gt;缺少光盘 3&lt;/span&gt;&lt;span class=&quot;rt-badge rt-badge-cyan&quot;&gt;盘序已锁定&lt;/span&gt;&lt;/div&gt;&lt;/div&gt;&lt;aside class=&quot;rt-review-runtime-shot&quot;&gt;&lt;span&gt;第 5 秒运行截图&lt;/span&gt;&lt;div data-review-runtime-shot&gt;&lt;strong&gt;依赖检查未通过&lt;/strong&gt;&lt;small&gt;仍可尽最大可能运行；仅 READY 条目自动生成截图&lt;/small&gt;&lt;/div&gt;&lt;/aside&gt;&lt;/section&gt;
+              &lt;aside class=&quot;rt-panel rt-review-decision&quot;&gt;&lt;h2&gt;审核决定&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot; data-review-decision-copy&gt;先一次补齐左侧列出的全部缺失光盘，再发布。&lt;/p&gt;&lt;div class=&quot;rt-review-save&quot;&gt;&lt;span&gt;实时保存&lt;/span&gt;&lt;strong&gt;● 已实时保存&lt;/strong&gt;&lt;/div&gt;&lt;div class=&quot;rt-review-decision-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;&lt;i data-lucide=&quot;refresh-cw&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;重新运行检查&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-review-run&quot;&gt;&lt;i data-lucide=&quot;gamepad-2&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;运行游戏&lt;/button&gt;&lt;/div&gt;&lt;div class=&quot;rt-review-decision-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-danger&quot;&gt;&lt;i data-lucide=&quot;archive-x&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;丢弃条目&lt;/button&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button rt-button-primary&quot; data-review-approve disabled&gt;&lt;i data-lucide=&quot;check&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;通过并发布&lt;/button&gt;&lt;/div&gt;&lt;/aside&gt;
             &lt;/div&gt;
             &lt;div class=&quot;rt-review-detail-columns&quot;&gt;
               &lt;div&gt;
@@ -3193,6 +3205,7 @@
         const progress = root.querySelector('[data-review-disc-progress]');
         const actions = root.querySelector('[data-review-disc-actions]');
         const toast = root.querySelector('[data-review-disc-toast]');
+        const runtimeShot = root.querySelector('[data-review-runtime-shot]');
         card.classList.toggle('is-validating', state === 'validating');
         card.classList.toggle('is-ready', state === 'ready');
         progress.hidden = state !== 'validating';
@@ -3216,6 +3229,8 @@
           validation.textContent = '… 正在校验补充光盘；完成前继续阻止发布';
           root.querySelector('[data-review-decision-copy]').textContent = '补充文件正在校验；结果返回前不能发布。';
           root.querySelector('[data-review-approve]').disabled = true;
+          runtimeShot.classList.remove('is-ready');
+          runtimeShot.innerHTML = '&lt;strong&gt;等待运行检查&lt;/strong&gt;&lt;small&gt;校验完成后才会执行真实运行截图&lt;/small&gt;';
         } else if (state === 'ready') {
           count.className = 'rt-badge rt-badge-green';
           count.textContent = '3 / 3 张光盘';
@@ -3235,6 +3250,8 @@
           root.querySelector('[data-review-decision-copy]').textContent = '运行检查已经通过，可以发布。';
           root.querySelector('[data-review-source-disc-3]').hidden = false;
           root.querySelector('[data-review-approve]').disabled = false;
+          runtimeShot.classList.add('is-ready');
+          runtimeShot.innerHTML = '&lt;strong&gt;截图已生成 · 5.0s&lt;/strong&gt;&lt;small&gt;Saturn · Yabause 实际运行画面&lt;/small&gt;';
         }
       }
       root.querySelector('[data-queue-disc-validation]').addEventListener('click', () =&gt; {
@@ -3265,6 +3282,12 @@
         validation.classList.toggle('is-warning', button.dataset.reviewValidationStatus !== 'READY');
         validation.classList.remove('is-validating');
         root.querySelector('[data-review-approve]').disabled = button.dataset.reviewValidationStatus !== 'READY';
+        const runtimeShot = root.querySelector('[data-review-runtime-shot]');
+        const ready = button.dataset.reviewValidationStatus === 'READY';
+        runtimeShot.classList.toggle('is-ready', ready);
+        runtimeShot.innerHTML = ready
+          ? '&lt;strong&gt;截图已生成 · 5.0s&lt;/strong&gt;&lt;small&gt;当前平台默认核心实际运行画面&lt;/small&gt;'
+          : '&lt;strong&gt;依赖检查未通过&lt;/strong&gt;&lt;small&gt;仍可尽最大可能运行；仅 READY 条目自动生成截图&lt;/small&gt;';
       }));
       root.querySelector('[data-review-back]').addEventListener('click', () =&gt; {
         root.querySelector('[data-review-workspace]').classList.remove('is-detail-open');

@@ -889,12 +889,24 @@
     #retrom-ui-review .rt-review-context-item { display: grid; gap: 3px; width: 100%; padding: 9px; border: 1px solid var(--retrom-line); border-radius: 8px; color: var(--retrom-text); background: var(--retrom-panel); text-align: left; }
     #retrom-ui-review .rt-review-context-item span { color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-review-context-item.is-active { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
-    #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 360px; gap: 12px; }
-    #retrom-ui-review .rt-review-summary, #retrom-ui-review .rt-review-decision { min-height: 142px; padding: 15px; }
+    #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 12px; }
+    #retrom-ui-review .rt-review-summary, #retrom-ui-review .rt-review-decision { min-height: 178px; padding: 15px; }
+    #retrom-ui-review .rt-review-summary { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 250px; align-items: stretch; gap: 14px; }
+    #retrom-ui-review .rt-review-summary-copy { min-width: 0; align-self: center; }
     #retrom-ui-review .rt-review-summary h2, #retrom-ui-review .rt-review-decision h2 { margin: 8px 0 3px; }
     #retrom-ui-review .rt-review-summary-status { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
-    #retrom-ui-review .rt-review-save { display: flex; justify-content: space-between; margin: 12px 0; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-review-runtime-shot { min-width: 0; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--retrom-line); border-radius: 9px; background: #0a0d14; }
+    #retrom-ui-review .rt-review-runtime-shot > span { padding: 7px 9px; color: var(--retrom-muted); background: var(--retrom-panel-raised); font-size: 9px; font-weight: 750; }
+    #retrom-ui-review .rt-review-runtime-shot > div { min-height: 112px; padding: 12px; display: grid; place-content: center; gap: 4px; color: #dce2ee; background: radial-gradient(circle at 50% 30%, #2c3344, #0a0d14 72%); text-align: center; }
+    #retrom-ui-review .rt-review-runtime-shot > div.is-ready { background: linear-gradient(145deg, #171a2c, #313759 48%, #0a0d14); }
+    #retrom-ui-review .rt-review-runtime-shot strong { font-size: 10px; }
+    #retrom-ui-review .rt-review-runtime-shot small { color: #949dad; font-size: 8px; line-height: 1.45; }
+    #retrom-ui-review .rt-review-decision { display: grid; align-content: start; gap: 7px; }
+    #retrom-ui-review .rt-review-save { display: flex; justify-content: space-between; margin: 3px 0; color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-review-save strong { color: var(--retrom-green); }
+    #retrom-ui-review .rt-review-decision-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    #retrom-ui-review .rt-review-decision-actions .rt-button { width: 100%; min-width: 0; justify-content: center; }
+    #retrom-ui-review .rt-review-run { color: var(--retrom-purple); border-color: color-mix(in srgb, var(--retrom-purple) 32%, var(--retrom-line)); background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-review-detail-columns { display: grid; grid-template-columns: minmax(330px, .72fr) minmax(580px, 1.28fr); align-items: stretch; gap: 12px; }
     #retrom-ui-review .rt-review-capability { display: grid; gap: 8px; margin-top: 12px; }
     #retrom-ui-review .rt-review-capability > div { padding: 9px; border-radius: 8px; background: var(--retrom-panel-raised); }
@@ -2360,8 +2372,8 @@
           <div class="rt-review-layout" data-review-view="detail" hidden>
             <button type="button" class="rt-button rt-review-back" data-review-back><i data-lucide="arrow-left" aria-hidden="true"></i>返回待审列表</button>
             <div class="rt-review-detail-top">
-              <section class="rt-panel rt-review-summary"><span class="rt-badge">来源：<span data-review-file-output>NOeL 3/game.m3u</span></span><h2 data-review-preview-output>NOeL 3</h2><p class="rt-subtitle">目标目录：Saturn 游戏</p><div class="rt-review-summary-status"><span class="rt-badge" data-review-disc-received>已接收 M3U 与 2 张光盘</span><span class="rt-badge rt-badge-amber" data-review-disc-summary-state>缺少光盘 3</span><span class="rt-badge rt-badge-cyan">盘序已锁定</span></div></section>
-              <aside class="rt-panel rt-review-decision"><h2>审核决定</h2><p class="rt-subtitle" data-review-decision-copy>先一次补齐左侧列出的全部缺失光盘，再发布。</p><div class="rt-review-save"><span>实时保存</span><strong>● 已实时保存</strong></div><div class="rt-review-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>丢弃条目</button><button type="button" class="rt-button rt-button-primary" data-review-approve disabled><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></aside>
+              <section class="rt-panel rt-review-summary"><div class="rt-review-summary-copy"><span class="rt-badge">来源：<span data-review-file-output>NOeL 3/game.m3u</span></span><h2 data-review-preview-output>NOeL 3</h2><p class="rt-subtitle">目标目录：Saturn 游戏</p><div class="rt-review-summary-status"><span class="rt-badge" data-review-disc-received>已接收 M3U 与 2 张光盘</span><span class="rt-badge rt-badge-amber" data-review-disc-summary-state>缺少光盘 3</span><span class="rt-badge rt-badge-cyan">盘序已锁定</span></div></div><aside class="rt-review-runtime-shot"><span>第 5 秒运行截图</span><div data-review-runtime-shot><strong>依赖检查未通过</strong><small>仍可尽最大可能运行；仅 READY 条目自动生成截图</small></div></aside></section>
+              <aside class="rt-panel rt-review-decision"><h2>审核决定</h2><p class="rt-subtitle" data-review-decision-copy>先一次补齐左侧列出的全部缺失光盘，再发布。</p><div class="rt-review-save"><span>实时保存</span><strong>● 已实时保存</strong></div><div class="rt-review-decision-actions"><button type="button" class="rt-button"><i data-lucide="refresh-cw" aria-hidden="true"></i>重新运行检查</button><button type="button" class="rt-button rt-review-run"><i data-lucide="gamepad-2" aria-hidden="true"></i>运行游戏</button></div><div class="rt-review-decision-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>丢弃条目</button><button type="button" class="rt-button rt-button-primary" data-review-approve disabled><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></aside>
             </div>
             <div class="rt-review-detail-columns">
               <div>
@@ -3170,6 +3182,7 @@
         const progress = root.querySelector('[data-review-disc-progress]');
         const actions = root.querySelector('[data-review-disc-actions]');
         const toast = root.querySelector('[data-review-disc-toast]');
+        const runtimeShot = root.querySelector('[data-review-runtime-shot]');
         card.classList.toggle('is-validating', state === 'validating');
         card.classList.toggle('is-ready', state === 'ready');
         progress.hidden = state !== 'validating';
@@ -3193,6 +3206,8 @@
           validation.textContent = '… 正在校验补充光盘；完成前继续阻止发布';
           root.querySelector('[data-review-decision-copy]').textContent = '补充文件正在校验；结果返回前不能发布。';
           root.querySelector('[data-review-approve]').disabled = true;
+          runtimeShot.classList.remove('is-ready');
+          runtimeShot.innerHTML = '<strong>等待运行检查</strong><small>校验完成后才会执行真实运行截图</small>';
         } else if (state === 'ready') {
           count.className = 'rt-badge rt-badge-green';
           count.textContent = '3 / 3 张光盘';
@@ -3212,6 +3227,8 @@
           root.querySelector('[data-review-decision-copy]').textContent = '运行检查已经通过，可以发布。';
           root.querySelector('[data-review-source-disc-3]').hidden = false;
           root.querySelector('[data-review-approve]').disabled = false;
+          runtimeShot.classList.add('is-ready');
+          runtimeShot.innerHTML = '<strong>截图已生成 · 5.0s</strong><small>Saturn · Yabause 实际运行画面</small>';
         }
       }
       root.querySelector('[data-queue-disc-validation]').addEventListener('click', () => {
@@ -3242,6 +3259,12 @@
         validation.classList.toggle('is-warning', button.dataset.reviewValidationStatus !== 'READY');
         validation.classList.remove('is-validating');
         root.querySelector('[data-review-approve]').disabled = button.dataset.reviewValidationStatus !== 'READY';
+        const runtimeShot = root.querySelector('[data-review-runtime-shot]');
+        const ready = button.dataset.reviewValidationStatus === 'READY';
+        runtimeShot.classList.toggle('is-ready', ready);
+        runtimeShot.innerHTML = ready
+          ? '<strong>截图已生成 · 5.0s</strong><small>当前平台默认核心实际运行画面</small>'
+          : '<strong>依赖检查未通过</strong><small>仍可尽最大可能运行；仅 READY 条目自动生成截图</small>';
       }));
       root.querySelector('[data-review-back]').addEventListener('click', () => {
         root.querySelector('[data-review-workspace]').classList.remove('is-detail-open');

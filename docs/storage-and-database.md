@@ -199,6 +199,8 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `metadata_provider_responses` | 每次查询的不可变状态、原始响应 Blob 与有效期 |
 | `review_drafts` | 待审核条目的可编辑草稿与 version |
 | `review_draft_screenshot_assets` | 草稿截图选择的规范顺序与外键 |
+| `review_preview_sessions` / `review_preview_files` | 审核子窗体的短时不可变运行快照与实际可交付依赖 |
+| `review_runtime_screenshots` | 当前 READY Validation 在核心启动后第 5 秒生成的审核截图 |
 | `review_events` | 追加式审核历史 |
 
 ### 4.5 通用任务、幂等与审计
@@ -419,6 +421,12 @@ Migration 025 新增三张无 Blob 引用的关系表：Favorite、FavoriteFolde
 
 候选 bytes 可由 SHA-256 CAS 去重；只有 Installation 等业务引用保护 Blob，无引用候选由统一 GC 回收。backup 保留 ServerImport/Item/Candidate 审计和已经导入的 CAS bytes，但不打包外部目录。restore 在开放 HTTP 前把所有非终态 `SERVER_BIOS_IMPORT` Job 与 ServerImport 置为不可重试 `FAILED/SERVER_IMPORT_SOURCE_NOT_RESTORED`，即使恢复主机存在同名 root 也不得自动继续。
 
-## 12. 统一验收入口
+## 12. 审核运行预览的存储边界
+
+Migration 031 追加 `review_preview_sessions`、`review_preview_files` 与 `review_runtime_screenshots`。预览行保留创建时的不可变来源/Validation/CoreArtifact 证据和短时 capability hash；运行内容仍引用既有 CAS Blob，不复制 ROM/BIOS。预览不是正式 Launch 或 PlaySession，因此 restore 安全围栏无需把它转换为业务游玩历史；capability 的硬过期时间仍使旧子窗体不可继续读取内容。
+
+预览内容、现有依赖和运行截图三类 Blob 边均登记为 protective reference。截图只对仍被草稿选中的当前 READY Validation 投影；阻断条目可以尽最大可能运行但不能写截图。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
+
+## 13. 统一验收入口
 
 SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-BKP-001`、`ACC-AUTH-001`–`002` 与 `ACC-ISO-*`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`。本文不再维护重复通过条件。

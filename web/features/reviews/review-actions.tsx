@@ -116,6 +116,16 @@ export type ReviewWorkspace = {
     coverHeightPx: number | null;
     videoUrl: string | null;
   } | null;
+  runtimeScreenshot?: {
+    screenshotId: string;
+    validationId: string;
+    coreArtifactId: string;
+    widthPx: number;
+    heightPx: number;
+    capturedAfterMs: 5000;
+    capturedAtMs: number;
+    url: string;
+  } | null;
   scrapeRuns?: ReviewScrapeRun[];
   selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
@@ -226,6 +236,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const [parentProgress, setParentProgress] = useState("");
   const [multiDiscProgress, setMultiDiscProgress] = useState("");
   const [duplicateConfirmation, setDuplicateConfirmation] = useState<DuplicateGame[] | null>(null);
+  const [runtimeScreenshot, setRuntimeScreenshot] = useState(review.runtimeScreenshot ?? null);
   const versionRef = useRef(review.version);
   const watchedParentJobRef = useRef("");
   const watchedMultiDiscJobRef = useRef("");
@@ -252,9 +263,25 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     setServerCanApprove(updated.canApprove ?? (updated.validation?.current === true && updated.validation.status === "READY"));
     setCandidates(updated.candidates);
     setUploadedAssets(updated.uploadedAssets ?? []);
+    setRuntimeScreenshot(updated.runtimeScreenshot ?? null);
     router.refresh();
     return updated;
   }, [review.itemId, router]);
+
+  useEffect(() => {
+    const onPreviewMessage = (event: MessageEvent<unknown>) => {
+      if (event.origin !== window.location.origin || !event.data || typeof event.data !== "object") return;
+      const message = event.data as { type?: string; importItemId?: string };
+      if (message.type !== "retrom-review-screenshot" || message.importItemId !== review.itemId) return;
+      void refreshReview().then(() => {
+        setToast({ message: "已更新第 5 秒运行截图", tone: "good" });
+      }).catch((error: unknown) => {
+        setToast({ message: error instanceof Error ? error.message : "截图已生成，但审核页刷新失败", tone: "warn" });
+      });
+    };
+    window.addEventListener("message", onPreviewMessage);
+    return () => window.removeEventListener("message", onPreviewMessage);
+  }, [refreshReview, review.itemId]);
 
   const enqueueSave = useCallback((key: string, payload: DraftPayload, force = false) => {
     saveQueueRef.current = saveQueueRef.current.catch(() => false).then(async () => {
@@ -528,13 +555,63 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     await publish();
   }
 
-  async function revalidate() {
-    await run("重新运行检查", async () => {
+  function openPreviewWindow() {
+    const popup = window.open("about:blank", "_blank", "popup=yes,width=1280,height=820,resizable=yes,scrollbars=no");
+    if (!popup) {
+      setToast({ message: "浏览器阻止了游戏子窗体，请允许本站弹出窗口后重试", tone: "warn" });
+      return null;
+    }
+    popup.document.title = "正在准备审核游戏预览";
+    popup.document.body.style.cssText = "margin:0;display:grid;place-items:center;min-height:100vh;background:#0b0d12;color:#d9dce5;font:14px system-ui";
+    popup.document.body.textContent = "正在准备审核游戏预览…";
+    return popup;
+  }
+
+  async function createPreview(popup: Window) {
+    const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/previews`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
+      body: JSON.stringify({
+        clientCapabilities: {
+          secureContext: window.isSecureContext,
+          crossOriginIsolated: window.crossOriginIsolated,
+          sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
+        },
+      }),
+    });
+    if (!response.ok) throw new Error(await responseError(response, "当前审核来源无法组成游戏预览"));
+    const result = await response.json() as { playUrl: string };
+    if (popup.closed) throw new Error("游戏子窗体已关闭");
+    popup.location.replace(result.playUrl);
+  }
+
+  async function launchPreview() {
+    const popup = openPreviewWindow();
+    if (!popup) return;
+    const succeeded = await run("运行游戏", async () => {
+      if (!await enqueueSave(draftKey, draftPayload, true)) throw new Error("无法保存当前审核内容");
+      await createPreview(popup);
+    });
+    if (!succeeded && !popup.closed) popup.close();
+  }
+
+  async function revalidate(popup: Window | null = null) {
+    return run("重新运行检查", async () => {
       if (!await enqueueSave(draftKey, draftPayload, true)) throw new Error("无法保存当前审核内容");
       validationRefreshRequestedRef.current = true;
       const updated = await refreshReview();
       const ready = updated.canApprove ?? (updated.validation?.current === true && updated.validation.status === "READY");
       setNotice(ready ? "运行检查已通过，可以发布。" : "运行检查已更新，请按最新提示继续处理。");
+      if (ready && popup) await createPreview(popup);
+      else if (popup && !popup.closed) popup.close();
+    });
+  }
+
+  function revalidateAndCapture() {
+    const popup = openPreviewWindow();
+    void revalidate(popup).then((succeeded) => {
+      if (!succeeded && popup && !popup.closed) popup.close();
     });
   }
 
@@ -570,8 +647,11 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
 
   return <div className="review-workflow-detail">
     <div className="review-workflow-top">
-      <section className="review-workflow-summary-card"><StatusPill tone="info">来源：{review.sourceMedia ? `Pegasus · ${review.sourceMedia.sourceLabel ?? sourceDisplayName}` : sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><div><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{publishReady ? "运行检查通过" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId || review.sourceMedia ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : review.sourceMedia ? "已读取 Pegasus 信息" : "未找到游戏信息"}</StatusPill></div></section>
-      <aside className="review-workflow-decision"><h2>审核决定</h2><p>{publishReady ? "运行检查已经通过，可以发布。" : "先按左侧提示处理问题，再重新运行检查。"}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div>{!publishReady ? <button type="button" className="button secondary review-revalidate" aria-busy={busy === "重新运行检查"} disabled={busy !== null || saveState === "error"} onClick={() => void revalidate()}>{busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button> : null}<div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
+      <section className="review-workflow-summary-card">
+        <div className="review-workflow-summary-copy"><StatusPill tone="info">来源：{review.sourceMedia ? `Pegasus · ${review.sourceMedia.sourceLabel ?? sourceDisplayName}` : sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><div className="review-workflow-summary-pills"><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{publishReady ? "运行检查通过" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId || review.sourceMedia ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : review.sourceMedia ? "已读取 Pegasus 信息" : "未找到游戏信息"}</StatusPill></div></div>
+        <aside className="review-runtime-screenshot" aria-label="第 5 秒运行截图"><span>第 5 秒运行截图</span>{runtimeScreenshot ? <Image src={runtimeScreenshot.url} alt={`${form.title || sourceDisplayName} 的第 5 秒运行截图`} width={runtimeScreenshot.widthPx} height={runtimeScreenshot.heightPx} unoptimized /> : <div><strong>{publishReady ? "等待生成" : "依赖检查未通过"}</strong><small>{publishReady ? "运行游戏或重新检查后自动截取" : "仅 READY 条目执行真实运行截图"}</small></div>}</aside>
+      </section>
+      <aside className="review-workflow-decision"><h2>审核决定</h2><p>{publishReady ? "运行检查已经通过，可以发布。" : "先按左侧提示处理问题，再重新运行检查。"}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div><div className="review-workflow-preview-actions"><button type="button" className="button secondary review-revalidate" aria-busy={busy === "重新运行检查"} disabled={busy !== null || saveState === "error"} onClick={revalidateAndCapture}>{busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button><button type="button" className="button secondary review-launch-preview" aria-busy={busy === "运行游戏"} disabled={busy !== null || saveState === "error"} onClick={() => void launchPreview()}>{busy === "运行游戏" ? "正在准备…" : "运行游戏"}</button></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
     </div>
     {notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{notice}</FeedbackBanner></div> : null}
     {review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。仍可发布为新游戏，但发布时需要二次确认。</FeedbackBanner></div> : null}

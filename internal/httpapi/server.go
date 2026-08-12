@@ -45,6 +45,7 @@ import (
 	"retrom/internal/jobs"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
+	"retrom/internal/mediaasset"
 	"retrom/internal/metadatascrape"
 	"retrom/internal/pegasusimport"
 	retromruntime "retrom/internal/runtime"
@@ -294,6 +295,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/admin/reviews/{importItemId}", server.patchReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/scrape-candidates", server.scrapeReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/assets", server.createReviewAsset)
+	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/previews", server.createReviewPreview)
 	mux.HandleFunc(
 		"POST /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments",
 		server.createReviewArcadeParentAttachment,
@@ -348,6 +350,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /runtime/launches/{launchId}/persistent-save", server.putPersistentSave)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/state", server.launchState)
 	mux.HandleFunc("HEAD /runtime/launches/{launchId}/state", server.launchState)
+	mux.HandleFunc("POST /runtime/launches/{launchId}/review-screenshot", server.storeReviewScreenshot)
 	mux.HandleFunc("/", server.notFound)
 	return server.baseMiddleware(server.openAPIHandler(mux))
 }
@@ -839,12 +842,85 @@ func (server *Server) setLaunchCookie(writer http.ResponseWriter, launchID strin
 	)
 }
 
+func (server *Server) createReviewPreview(writer http.ResponseWriter, request *http.Request) {
+	key := request.Header.Get("Idempotency-Key")
+	if !validIdempotencyKey(key) {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
+		return
+	}
+	var body struct {
+		ClientCapabilities launch.Capabilities `json:"clientCapabilities"`
+	}
+	if err := decodeJSON(writer, request, &body, 16<<10); err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核预览请求无效", map[string]any{})
+		return
+	}
+	principal, _ := authn.PrincipalFromContext(request.Context())
+	created, err := server.launcher.CreateReviewPreview(request.Context(), launch.ReviewPreviewRequest{
+		ImportItemID: request.PathValue("importItemId"), ActorUserID: principal.UserID,
+		IdempotencyKey: key, ClientCapabilities: body.ClientCapabilities,
+	})
+	if err != nil {
+		code, message := "REVIEW_PREVIEW_UNAVAILABLE", "当前审核来源无法组成可运行预览"
+		if errors.Is(err, launch.ErrBlocked) {
+			code, message = "REVIEW_PREVIEW_CLIENT_UNSUPPORTED", "当前浏览器不满足该核心的运行要求"
+		}
+		writeError(writer, request, http.StatusUnprocessableEntity, code, message, map[string]any{
+			"bestEffort": true,
+		})
+		return
+	}
+	server.setLaunchCookie(writer, created.PreviewID)
+	writeJSON(writer, http.StatusCreated, created)
+}
+
 func (server *Server) launchCapability(request *http.Request) string {
 	cookie, err := request.Cookie("retrom_launch_" + request.PathValue("launchId"))
 	if err != nil {
 		return ""
 	}
 	return cookie.Value
+}
+
+func (server *Server) storeReviewScreenshot(writer http.ResponseWriter, request *http.Request) {
+	mediaType, _, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
+	if err != nil || mediaType != "image/png" {
+		writeError(writer, request, http.StatusBadRequest, "REVIEW_SCREENSHOT_INVALID", "运行截图必须是 PNG", map[string]any{})
+		return
+	}
+	body := http.MaxBytesReader(writer, request.Body, mediaasset.MaxImageBytes+1)
+	result, err := server.launcher.StoreReviewScreenshot(
+		request.Context(), request.PathValue("launchId"), server.launchCapability(request), body,
+	)
+	if err != nil {
+		if errors.Is(err, launch.ErrCredential) {
+			writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "审核预览会话不可用", map[string]any{})
+			return
+		}
+		if errors.Is(err, launch.ErrReviewCaptureNotAllowed) {
+			writeError(
+				writer, request, http.StatusConflict, "REVIEW_CAPTURE_NOT_ALLOWED",
+				"只有运行检查通过的条目才能保存五秒截图", map[string]any{},
+			)
+			return
+		}
+		if errors.Is(err, launch.ErrReviewScreenshotInvalid) {
+			writeError(writer, request, http.StatusBadRequest, "REVIEW_SCREENSHOT_INVALID", "运行截图无效或超过大小限制", map[string]any{})
+			return
+		}
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusCreated, map[string]any{
+		"screenshotId":   result.ID,
+		"importItemId":   result.ImportItemID,
+		"validationId":   result.ValidationID,
+		"coreArtifactId": result.CoreArtifactID,
+		"widthPx":        result.WidthPX,
+		"heightPx":       result.HeightPX,
+		"capturedAtMs":   result.CapturedAtMS,
+		"url":            "/api/v1/admin/review-assets/" + result.ID,
+	})
 }
 
 func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Request) {
@@ -854,6 +930,11 @@ func (server *Server) launchConfig(writer http.ResponseWriter, request *http.Req
 		request.PathValue("launchId"),
 		capability,
 	)
+	if err != nil {
+		configuration, err = server.launcher.ReviewPreviewConfig(
+			request.Context(), request.PathValue("launchId"), capability,
+		)
+	}
 	if err != nil {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
@@ -877,12 +958,7 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	if rejectMultipleRanges(writer, request) {
 		return
 	}
-	content, err := server.launcher.Content(
-		request.Context(),
-		request.PathValue("launchId"),
-		server.launchCapability(request),
-		request.PathValue("logicalName"),
-	)
+	content, err := server.runtimeContent(request)
 	if err != nil {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动内容不可用", map[string]any{})
 		return
@@ -955,6 +1031,21 @@ func (server *Server) launchGame(writer http.ResponseWriter, request *http.Reque
 	}
 }
 
+func (server *Server) runtimeContent(request *http.Request) (launch.ContentView, error) {
+	launchID := request.PathValue("launchId")
+	capability := server.launchCapability(request)
+	logicalName := request.PathValue("logicalName")
+	content, err := server.launcher.Content(request.Context(), launchID, capability, logicalName)
+	if err == nil {
+		return content, nil
+	}
+	content, err = server.launcher.ReviewPreviewContent(request.Context(), launchID, capability, logicalName)
+	if err != nil {
+		return launch.ContentView{}, fmt.Errorf("review preview content: %w", err)
+	}
+	return content, nil
+}
+
 func launchGameBody(file io.ReadSeeker, size int64, content launch.ContentView) (io.ReadSeeker, string, error) {
 	if content.Format != "RETROM_DOS_DIRECT_ZIP_V1" {
 		return file, content.Digest, nil
@@ -998,6 +1089,12 @@ func (server *Server) launchExternalFile(writer http.ResponseWriter, request *ht
 		server.launchCapability(request),
 		request.PathValue("logicalName"),
 	)
+	if err != nil {
+		content, err = server.launcher.ReviewPreviewExternal(
+			request.Context(), request.PathValue("launchId"), server.launchCapability(request),
+			request.PathValue("logicalName"),
+		)
+	}
 	if err != nil {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动外部文件不可用", map[string]any{})
 		return
@@ -1057,6 +1154,11 @@ func (server *Server) launchBundle(writer http.ResponseWriter, request *http.Req
 		server.launchCapability(request),
 		kind,
 	)
+	if err != nil {
+		files, err = server.launcher.ReviewPreviewBundleFiles(
+			request.Context(), request.PathValue("launchId"), server.launchCapability(request), kind,
+		)
+	}
 	if errors.Is(err, launch.ErrCredential) {
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 		return
@@ -3825,13 +3927,10 @@ AND NOT EXISTS(
 		server.databaseError(writer, request, err)
 		return
 	}
-	sourceMedia, sourceMediaFound, err := server.reviewServerSourceMedia(request.Context(), itemID)
+	sourceMedia, err := server.optionalReviewServerSourceMedia(request.Context(), itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
-	}
-	if !sourceMediaFound {
-		sourceMedia = nil
 	}
 	sourceFiles, err := server.reviewSourceFiles(request, sourceSnapshotID)
 	if err != nil {
@@ -3868,6 +3967,13 @@ AND NOT EXISTS(
 		server.databaseError(writer, request, err)
 		return
 	}
+	runtimeScreenshot, err := server.reviewRuntimeScreenshot(
+		request.Context(), itemID, validationID, validationProjection.canApprove,
+	)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	gateReviewMultiDiscAttachment(multiDisc, validationProjection.stale)
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
 	writeJSON(writer, http.StatusOK, map[string]any{
@@ -3882,8 +3988,9 @@ AND NOT EXISTS(
 		"selectedValidationGeneration": validationProjection.selectedGeneration,
 		"canApprove":                   validationProjection.canApprove,
 		"uploadedAssets":               uploadedAssets, "sourceFiles": sourceFiles,
-		"sourceMedia":    sourceMedia,
-		"duplicateGames": duplicateGames, "contentIdentityDigest": contentIdentityDigest,
+		"sourceMedia":       sourceMedia.value,
+		"runtimeScreenshot": runtimeScreenshot.value,
+		"duplicateGames":    duplicateGames, "contentIdentityDigest": contentIdentityDigest,
 		"arcadeDependencies":  arcadeDependencies,
 		"multiDisc":           multiDisc,
 		"selectedCandidateId": nullableString(selectedCandidateID),
@@ -3895,6 +4002,55 @@ AND NOT EXISTS(
 			"screenshotCandidateAssetIds": screenshotIDs,
 		}, "dosEntries": dosEntries,
 	})
+}
+
+type optionalReviewProjection struct {
+	value any
+}
+
+func (server *Server) reviewRuntimeScreenshot(
+	ctx context.Context,
+	itemID string,
+	validationID sql.NullString,
+	canApprove bool,
+) (optionalReviewProjection, error) {
+	if !canApprove || !validationID.Valid {
+		return optionalReviewProjection{}, nil
+	}
+	var id, coreArtifactID string
+	var width, height, capturedAtMS int64
+	err := server.database.QueryRowContext(ctx, `
+SELECT screenshot.id,screenshot.core_artifact_id,screenshot.width_px,screenshot.height_px,screenshot.captured_at_ms
+FROM review_runtime_screenshots screenshot
+JOIN review_drafts draft ON draft.import_item_id=screenshot.import_item_id
+WHERE screenshot.import_item_id=? AND screenshot.validation_id=?
+AND screenshot.source_snapshot_id=draft.effective_source_snapshot_id
+`, itemID, validationID.String).Scan(&id, &coreArtifactID, &width, &height, &capturedAtMS)
+	if errors.Is(err, sql.ErrNoRows) {
+		return optionalReviewProjection{}, nil
+	}
+	if err != nil {
+		return optionalReviewProjection{}, fmt.Errorf("review runtime screenshot: %w", err)
+	}
+	return optionalReviewProjection{value: map[string]any{
+		"screenshotId": id, "validationId": validationID.String, "coreArtifactId": coreArtifactID,
+		"widthPx": width, "heightPx": height, "capturedAfterMs": int64(5_000),
+		"capturedAtMs": capturedAtMS, "url": "/api/v1/admin/review-assets/" + id,
+	}}, nil
+}
+
+func (server *Server) optionalReviewServerSourceMedia(
+	ctx context.Context,
+	itemID string,
+) (optionalReviewProjection, error) {
+	value, found, err := server.reviewServerSourceMedia(ctx, itemID)
+	if err != nil {
+		return optionalReviewProjection{}, err
+	}
+	if !found {
+		return optionalReviewProjection{}, nil
+	}
+	return optionalReviewProjection{value: value}, nil
 }
 
 func (server *Server) reviewServerSourceMedia(ctx context.Context, itemID string) (any, bool, error) {
@@ -4878,8 +5034,17 @@ SELECT digest,media_type FROM (
   AND (i.state='REVIEW_PENDING' OR EXISTS (
     SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
   ))
+  UNION ALL
+  SELECT b.sha256 AS digest,screenshot.media_type AS media_type
+  FROM review_runtime_screenshots screenshot
+  JOIN blobs b ON b.id=screenshot.blob_id
+  JOIN import_items i ON i.id=screenshot.import_item_id
+  WHERE screenshot.id=?
+  AND (i.state='REVIEW_PENDING' OR EXISTS (
+    SELECT 1 FROM review_events e WHERE e.import_item_id=i.id AND e.event_type IN ('APPROVED','DISCARDED')
+  ))
 ) LIMIT 1
-`, request.PathValue("assetId"), request.PathValue("assetId")).Scan(&digest, &mediaType)
+`, request.PathValue("assetId"), request.PathValue("assetId"), request.PathValue("assetId")).Scan(&digest, &mediaType)
 	if errors.Is(err, sql.ErrNoRows) {
 		kind := request.URL.Query().Get("kind")
 		if kind == "" {

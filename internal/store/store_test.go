@@ -54,6 +54,12 @@ func TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog(t *testing.T) {
 	for _, table := range tables {
 		assertIntegerTimeColumns(t, database.SQL, table)
 	}
+	assertColumns(t, database.SQL, "review_preview_sessions",
+		"import_item_id", "source_snapshot_id", "validation_id", "capture_allowed", "credential_sha256",
+		"bootstrap_expires_at_ms", "hard_expires_at_ms")
+	assertColumns(t, database.SQL, "review_preview_files", "preview_session_id", "role", "blob_id", "virtual_path")
+	assertColumns(t, database.SQL, "review_runtime_screenshots",
+		"import_item_id", "preview_session_id", "validation_id", "blob_id", "captured_after_ms", "captured_at_ms")
 	var platformCount, coreCount, directoryCount int
 	if err := database.SQL.QueryRow("SELECT (SELECT COUNT(*) FROM platforms), (SELECT COUNT(*) FROM cores), (SELECT COUNT(*) FROM platform_instances)").Scan(
 		&platformCount,
@@ -325,7 +331,7 @@ func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) 
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 30 {
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 31 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	var actorKind, actorUserID string

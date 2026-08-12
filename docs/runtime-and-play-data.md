@@ -68,6 +68,12 @@ sequenceDiagram
 - DOS 只有 `DOS_SOURCE`、没有主机平台的 `CONTENT` 行；重校验必须以 ContentRevision 本身作为内容输入，并在内容 revision 未变化时把既有 `DOS_LAUNCH_BUNDLE` 与审核默认入口复制到新 VariantRevision。Worker 任一步骤失败都必须把 Job 收口为可重试 FAILED，进程重启时重新领取 lease 已过期且尚有 attempt 的 RUNNING Job，不能让 Player 永久等待在 `VALIDATION_PENDING`。
 - 默认核心不可运行时不静默尝试其他核心。
 
+### 3.1 管理审核预览
+
+审核页的“运行游戏”不是普通用户 Launch。`POST /api/v1/admin/reviews/{itemId}/previews` 为当前 `REVIEW_PENDING` Item 创建短时、capability-scoped 的审核快照并打开 `/admin/review-previews/{previewId}` 子窗体；它锁定当前有效 source snapshot、目标目录默认 CoreArtifact、最新 Validation 和实际存在的依赖。主 ROM 必须存在，已有 Parent、BIOS bundle、external file 与完整多盘内容按普通 Player 协议交付，缺失依赖被省略。预览不创建 Game、LaunchSession、PlaySession，不调用 start/heartbeat/finish，不加载或写入 SaveState/PersistentSave，也绝不把“看起来可运行”升级成 READY。
+
+子窗体复用版本锁定的 Player adapter 与 canvas contain 规则。只有创建时草稿选择的 Validation 仍为当前 READY，config 才返回 `reviewPreview.captureAllowed=true`；在真实 `EJS_onGameStart` 回调发生后启动一次 5,000ms timer，通过 adapter 取得 PNG 并上传到同一 preview capability 下的 `review-screenshot`。阻断预览不调度截图，过期/变更后的 Validation 也不能写入；重新运行检查只有得到新 READY 后才在用户点击同步打开的子窗体中重跑并替换当前截图。由于 EmulatorJS/WASM、用户激活和自动播放策略属于浏览器边界，后端不能脱离浏览器伪造这一画面；弹窗或播放被浏览器阻止时，审核页明确提示重试。
+
 ## 4. 启动预检
 
 服务端按固定顺序，在创建 credential 前完成：

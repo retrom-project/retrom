@@ -234,7 +234,7 @@ Full Non-Merged 已包含 parent/BIOS entry 时显示“由游戏文件满足”
 
 Arcade 识别从 CONTENT machine 开始，沿每一级 `cloneof` 继续到根 parent，并在每一级把 `romof != cloneof` 的目标加入 `BIOS_OR_BASE`；闭包最大 64 个节点。每个节点显式记录 `kind/machine/requiredBy/depth/expectedLogicalName/state/requiredEntryCount/requiredEntries`，并按 depth、kind、machine 形成 canonical V2 dependency snapshot。自环、`a -> b -> a`、超限或关系目标缺失产生稳定的不兼容结果；历史 V1 snapshot 保持原 bytes，由读取层结合其锁定 DAT 投影为 V2，首次重验证才写 V2。
 
-Full Non-Merged 可以由 CONTENT 满足闭包；Split 的独立 Parent 使用来源快照中的 COMPANION。审核补充只允许 V2 闭包中可修复的 Parent `MISSING/MISMATCH` 节点，BIOS/Base 仍由 BIOS 管理页安装，Merged/CHD/cycle/DAT stale 不生成 `canAttach`。补传 ZIP 必须是单个安全 flat archive：拒绝加密、损坏、路径穿越、绝对路径、控制字符、symlink、目录/子目录 entry、ASCII case-insensitive 名称碰撞和超出统一 ArchiveLimits 的展开量/压缩比。客户端文件名不用于识别；请求 machine 与锁定 DAT 唯一决定期望逻辑名。
+Full Non-Merged 可以由 CONTENT 满足闭包；Split 的独立 Parent 使用来源快照中的 COMPANION。审核补充只允许 V2 闭包中可修复的 Parent `MISSING/MISMATCH` 节点，BIOS/Base 仍由 BIOS 管理页安装，Merged/CHD/cycle/DAT stale 不生成 `canAttach`。补传 ZIP 必须是单个安全 archive：拒绝加密、损坏、路径穿越、绝对路径、控制字符、symlink、ASCII case-insensitive 路径碰撞、真正嵌套的 archive 和超出统一 ArchiveLimits 的展开量/压缩比。Parent DAT 只匹配根级 regular-file entry；像 `1944.zip` 这样同时携带根级 parent ROM 与安全 clone 子目录的归档可以保留子目录 bytes 作为原始证据，但子目录 entry 只作为 diagnostics 中的 ignored extra，不能满足缺失的根 entry、参与 Parent 判定或放开 Merged 主 ROMset。客户端文件名不用于识别；请求 machine 与锁定 DAT 唯一决定期望逻辑名。
 
 Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insensitive entry name 精确匹配，size 必须相等；DAT 提供 CRC32/SHA-1 时全部校验。正确 bytes 即使名为 `anything.zip` 也在新快照中绑定为 `<machine>.zip`；同名错误、缺项或 hash 不符为 `REVIEW_PARENT_CONTENT_MISMATCH`。额外不冲突 entry 只进 diagnostics，不能替代缺项。每次接受后必须从 CONTENT 重建并重验完整闭包；补 b 后仍缺 c 时保持 BLOCKED，补齐且 BIOS 满足后才 READY。Launch 继续只使用 selected READY ValidationFiles 生成确定性根级 Parent bundle，补传不改变 Player bundle 协议。
 

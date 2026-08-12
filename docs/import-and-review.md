@@ -262,7 +262,7 @@ QUEUED -> RUNNING -> ACCEPTED
 QUEUED/RUNNING/FAILED_RETRYABLE -> CANCELLED
 ```
 
-同一 Item 同时最多一个 `QUEUED/RUNNING` Attachment。Worker 在事务外执行 flat ZIP 安全扫描、按锁定 DAT 做 entry/size/CRC/SHA-1 严格匹配并完整重跑 Arcade validator；浏览器文件名不参与 machine 判定。接受时在一个短事务内追加后继来源快照、Validation/ValidationFiles、UploadConsumption、ReviewEvent/JobEvent，更新草稿有效快照并递增版本；闭包仍缺其他 Parent 时 Attachment 仍为 ACCEPTED，但 Validation 保持 BLOCKED 且草稿不选择 Validation。拒绝或可重试失败不产生后继快照，旧有效快照不变。
+同一 Item 同时最多一个 `QUEUED/RUNNING` Attachment。Worker 在事务外执行安全 ZIP 扫描，只以根级 regular-file entry 对锁定 DAT 做 name/size/CRC/SHA-1 严格匹配并完整重跑 Arcade validator；浏览器文件名不参与 machine 判定。ZIP 可以同时保留不冲突的安全子目录 clone 文件作为原始归档证据，但这些子目录 entry 只计入 diagnostics，不能满足 Parent DAT、替代缺失根 entry 或让 Merged 主 ROMset 获得支持；真正的嵌套 archive、路径穿越、碰撞和统一 ArchiveLimits 超限仍拒绝。接受时在一个短事务内追加后继来源快照、Validation/ValidationFiles、UploadConsumption、ReviewEvent/JobEvent，更新草稿有效快照并递增版本；闭包仍缺其他 Parent 时 Attachment 仍为 ACCEPTED，但 Validation 保持 BLOCKED 且草稿不选择 Validation。拒绝或可重试失败不产生后继快照，旧有效快照不变。
 
 审核者可按 `a -> b -> c` 分步补齐：接受 b 后重新投影完整闭包并继续展示 c；全部依赖与 BIOS 满足后才自动选择 READY Validation。Merged、CHD、关系环、DAT/config/source 漂移不允许通过补传降级放行。Discard 会请求取消 active Job；离开页面不会取消，返回时由 Review GET 与 Job SSE 恢复。补传审计事件只保存 Attachment/Job/Validation/快照 ID、machine、原文件名、observed hash/size、状态和稳定错误码，不保存 ROM bytes 或宿主绝对路径。
 
@@ -304,7 +304,9 @@ Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选�
 
 “重新配置并导入”只处理 STANDARD 原任务中尚未解决的 REJECTED UploadFile。页面读取原任务详情，展示只读文件清单与原平台/元信息源，允许重新选择游戏目录后提交；浏览器不恢复或伪造 file input。服务端为这些文件创建新的 COMPLETE UploadSession/UploadFile，逐项引用原 final Blob，并以新配置创建 replacement ImportJob，所以网络不重新上传 bytes、原 session 也不会被二次消费。新任务创建、source file resolution、source 聚合计数和双向任务 lineage 在同一 Import 创建事务提交；失败时 source 仍保持待处理。原 REJECTED reason 永久保留，任务页改显示 replacement 链接且不再把已接管文件计入异常。重新处理仍执行当前归档安全和平台 profile 规则，绝不把 `ARCHIVE_UNSAFE` 当作用户可绕过的门禁。MULTI 的拒绝目录必须重新选择完整 DIRECTORY 并重新预检，不能把 M3U 或 CHD 子集送入此复用流程。
 
-审核详情页首集中展示条目摘要和审核决定，丢弃/发布与实时保存状态在同一决策卡片；不再展示重复的“可以发布”信息。下方左栏回答“能不能发布”并展示来源文件，右栏回答“发布成什么”并承载实时保存的元信息与封面；窄桌面折叠为单栏。运行检查必须把稳定 compatibility code 映射为可操作说明：缺必需 BIOS 时列出逻辑文件名并链接到完整 BIOS 目录，DAT 缺失时链接到街机数据目录；修复后可点击“重新运行检查”，READY 结果必须在原页面立即启用发布，不得要求刷新页面、只显示“需要检查”或要求重新导入。依赖计数必须包含 BIOS，不能在存在缺失 BIOS 时显示“没有发现异常”。未知 code 至少展示原 code，不能吞掉原因。若当前内容已关联到未删除游戏，页面常驻展示已有游戏链接；点击发布后用危险确认框明确说明会创建重复游戏，用户选择“仍然发布为新游戏”后才提交确认集合。服务端在点击间出现的新重复项必须返回新集合并再次显示同一确认框。
+审核详情页首集中展示条目摘要和审核决定，四个等宽操作按“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”两行排列，实时保存状态位于同一决策卡片；不再展示重复的“可以发布”信息。下方左栏回答“能不能发布”并展示来源文件，右栏回答“发布成什么”并承载实时保存的元信息与封面；窄桌面折叠为单栏。运行检查必须把稳定 compatibility code 映射为可操作说明：缺必需 BIOS 时列出逻辑文件名并链接到完整 BIOS 目录，DAT 缺失时链接到街机数据目录；修复后可点击“重新运行检查”，READY 结果必须在原页面立即启用发布，不得要求刷新页面、只显示“需要检查”或要求重新导入。依赖计数必须包含 BIOS，不能在存在缺失 BIOS 时显示“没有发现异常”。未知 code 至少展示原 code，不能吞掉原因。若当前内容已关联到未删除游戏，页面常驻展示已有游戏链接；点击发布后用危险确认框明确说明会创建重复游戏，用户选择“仍然发布为新游戏”后才提交确认集合。服务端在点击间出现的新重复项必须返回新集合并再次显示同一确认框。
+
+“运行游戏”在同步冲刷草稿后立即打开独立子窗体，并由服务端冻结审核专用运行快照。主 ROM 始终交付；当前 Validation 已具备的 Parent、BIOS 和 external file 一并交付，缺失依赖直接省略，尽最大可能让核心启动。该预览不创建 Game/正式 Launch/PlaySession，不提供状态或持久存档，也不能改变 `canApprove`；运行成功不能代替 READY 证据。只有草稿仍选择当前 READY Validation 时才允许截图：子窗体收到当前平台默认核心的真实 `EJS_onGameStart` 后启动 5,000ms 计时，随后保存 PNG 并通知审核页刷新；截图展示在页首条目摘要最右侧。点击“重新运行检查”会先生成最新 Validation，只有新结果 READY 才在同一用户触发的子窗体中重新运行并覆盖该 Validation 的第 5 秒截图；阻断结果只更新原因并关闭预留子窗体。浏览器阻止弹窗或自动播放时不能伪造截图，页面必须明确提示管理员允许弹窗后重试。
 
 任务进度只展示 Worker/阶段运行态；待审核只展示未决条目；审核历史只读且按 ReviewEvent 回放。这三个边界可避免“失败任务”“待业务决策”和“已决审计记录”在同一列表中混淆。
 

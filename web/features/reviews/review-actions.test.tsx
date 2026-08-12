@@ -33,7 +33,7 @@ describe("ReviewActions", () => {
     sessionStorage.clear();
   });
 
-  afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+  afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
   it("opens one comparison dialog and autosaves the applied result", async () => {
     const candidate = { candidateId: "candidate-1", scrapeRunId: "run-1", providerGameId: "50192", metadata: { title: "1941: Counter Attack", description: "Long provider description", publisher: "Capcom" }, evidence: {}, assets: [{ candidateAssetId: "cover-1", kind: "COVER" as const, ordinal: 0, status: "READY", widthPx: 320, heightPx: 480, mediaType: "image/png", errorCode: null }] };
@@ -174,9 +174,14 @@ describe("ReviewActions", () => {
       validationStale: false,
       validation: { ...review.validation!, id: "validation-2", status: "READY", current: true, compatibilityCode: "READY" },
     };
-    const fetchMock = vi.fn((_input: RequestInfo | URL, init?: RequestInit) => Promise.resolve(
-      jsonResponse(init?.method === "PATCH" ? { version: 2 } : refreshed),
-    ));
+    const replace = vi.fn();
+    const popup = { closed: false, close: vi.fn(), location: { replace }, document: { title: "", body: { style: { cssText: "" }, textContent: "" } } } as unknown as Window;
+    vi.spyOn(window, "open").mockReturnValue(popup);
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/previews")) return Promise.resolve(jsonResponse({ previewId: "preview-1", playUrl: "/admin/review-previews/preview-1", captureAllowed: true, captureAfterMs: 5000 }, 201));
+      return Promise.resolve(jsonResponse(init?.method === "PATCH" ? { version: 2 } : refreshed));
+    });
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup();
     render(<ReviewActions review={{ ...review, validation: { ...review.validation!, status: "BLOCKED", current: false, compatibilityCode: "LAUNCH_BIOS_MISSING" } }} />);
@@ -186,7 +191,40 @@ describe("ReviewActions", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/reviews\/item-1$/), expect.objectContaining({ method: "PATCH" })));
     await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/review-previews/preview-1"));
     expect(router.refresh).toHaveBeenCalled();
+  });
+
+  it("opens a best-effort game preview without requiring publish-ready validation", async () => {
+    const replace = vi.fn();
+    const popup = { closed: false, close: vi.fn(), location: { replace }, document: { title: "", body: { style: { cssText: "" }, textContent: "" } } } as unknown as Window;
+    vi.spyOn(window, "open").mockReturnValue(popup);
+    const blocked = { ...review, canApprove: false, validation: { ...review.validation!, status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_PARENT_MISSING" } };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/previews")) return Promise.resolve(jsonResponse({ previewId: "preview-best-effort", playUrl: "/admin/review-previews/preview-best-effort", captureAllowed: false, captureAfterMs: 5000 }, 201));
+      if (init?.method === "PATCH") return Promise.resolve(jsonResponse({ version: 2 }));
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={blocked} />);
+
+    await user.click(screen.getByRole("button", { name: "运行游戏" }));
+    await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/review-previews/preview-best-effort"));
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1/previews", expect.objectContaining({ method: "POST" }));
+    expect(screen.getByText("依赖检查未通过")).toBeVisible();
+  });
+
+  it("shows the current five-second runtime screenshot", () => {
+    render(<ReviewActions review={{ ...review, runtimeScreenshot: {
+      screenshotId: "shot-1", validationId: "validation-1", coreArtifactId: "artifact-1",
+      widthPx: 640, heightPx: 480, capturedAfterMs: 5000, capturedAtMs: 123,
+      url: "/api/v1/admin/review-assets/shot-1",
+    } }} />);
+
+    expect(screen.getByAltText("Manual 的第 5 秒运行截图")).toHaveAttribute("src", expect.stringContaining("shot-1"));
+    expect(screen.getByRole("button", { name: "运行游戏" })).toBeVisible();
   });
 
   it("flushes, uploads, validates over SSE, then enables publish from the refreshed review", async () => {

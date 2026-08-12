@@ -765,6 +765,7 @@ type Config struct {
 	DOSEntry             any                          `json:"dosEntry"`
 	Warnings             []string                     `json:"warnings"`
 	ReturnTo             string                       `json:"returnTo"`
+	ReviewPreview        *ReviewPreviewConfig         `json:"reviewPreview,omitempty"`
 }
 
 type DiscSet struct {

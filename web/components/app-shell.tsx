@@ -110,6 +110,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     return publicRoute ? <>{children}</> : <FullScreenLoading />;
   }
   if (publicRoute) return <FullScreenLoading />;
+  if (pathname.startsWith("/admin/review-previews/") && context.user?.role === "ADMIN") return <>{children}</>;
   if (pathname.startsWith("/admin") && context.user?.role !== "ADMIN") {
     return <Forbidden />;
   }
