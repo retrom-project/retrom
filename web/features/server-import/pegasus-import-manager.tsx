@@ -132,6 +132,8 @@ export function PegasusImportDrawer({ open, roots, platformInstances, resumableP
   const router = useRouter();
   const drawer = useRef<HTMLElement>(null);
   const closeButton = useRef<HTMLButtonElement>(null);
+  const hydratedPlanId = useRef("");
+  const refreshRequest = useRef<{ planId: string; promise: Promise<PegasusImportSummary> } | null>(null);
   const [step, setStep] = useState<1 | 2 | 3>(resumablePlan ? 2 : 1);
   const [rootId, setRootId] = useState(resumablePlan?.root.id ?? roots.find((root) => root.status === "AVAILABLE")?.id ?? "");
   const [path, setPath] = useState(resumablePlan?.sourceRelativePath ?? "");
@@ -167,30 +169,64 @@ export function PegasusImportDrawer({ open, roots, platformInstances, resumableP
     return all;
   }, []);
 
-  const refreshPlan = useCallback(async (planId: string) => {
-    const { data, response } = await api.GET("/api/v1/admin/pegasus-imports/{pegasusImportId}", { params: { path: { pegasusImportId: planId } } });
-    if (!data) throw new Error(await message(response, "Pegasus 计划读取失败"));
-    setPlan(data);
-    if (data.state === "AWAITING_MAPPING") {
-      const loaded = await loadCollections(data.id);
-      const complete = loaded.length > 0 && loaded.every((collection) => collection.mappingAction === "SKIP" || collection.mappingAction === "IMPORT" && Boolean(collection.targetPlatformInstanceId));
-      setStep(complete ? 3 : 2);
-    }
-    return data;
+  const refreshPlan = useCallback((planId: string) => {
+    if (refreshRequest.current?.planId === planId) return refreshRequest.current.promise;
+    const promise = (async () => {
+      const { data, response } = await api.GET("/api/v1/admin/pegasus-imports/{pegasusImportId}", { params: { path: { pegasusImportId: planId } } });
+      if (!data) throw new Error(await message(response, "Pegasus 计划读取失败"));
+      setPlan(data);
+      if (data.state === "AWAITING_MAPPING") {
+        const loaded = await loadCollections(data.id);
+        const complete = loaded.length > 0 && loaded.every((collection) => collection.mappingAction === "SKIP" || collection.mappingAction === "IMPORT" && Boolean(collection.targetPlatformInstanceId));
+        setStep(complete ? 3 : 2);
+      }
+      return data;
+    })();
+    refreshRequest.current = { planId, promise };
+    void promise.then(
+      () => { if (refreshRequest.current?.promise === promise) refreshRequest.current = null; },
+      () => { if (refreshRequest.current?.promise === promise) refreshRequest.current = null; },
+    );
+    return promise;
   }, [loadCollections]);
 
   useEffect(() => {
     if (!open) return;
-    let active = true;
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
-    closeButton.current?.focus();
-    if (resumablePlan) {
-      queueMicrotask(() => {
-        if (active) void refreshPlan(resumablePlan.id).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Pegasus 计划读取失败"));
-      });
+    const root = document.documentElement;
+    const body = document.body;
+    const previousRootOverflow = root.style.overflow;
+    const previousBodyOverflow = body.style.overflow;
+    const previousBodyPaddingRight = body.style.paddingRight;
+    const scrollbarWidth = root.clientWidth > 0 ? Math.max(0, window.innerWidth - root.clientWidth) : 0;
+    const bodyPaddingRight = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;
+    root.style.overflow = "hidden";
+    body.style.overflow = "hidden";
+    if (scrollbarWidth > 0) body.style.paddingRight = `${bodyPaddingRight + scrollbarWidth}px`;
+    closeButton.current?.focus({ preventScroll: true });
+    return () => {
+      root.style.overflow = previousRootOverflow;
+      body.style.overflow = previousBodyOverflow;
+      body.style.paddingRight = previousBodyPaddingRight;
+      if (previous?.isConnected) previous.focus({ preventScroll: true });
+    };
+  }, [open]);
+
+  const resumablePlanId = resumablePlan?.id ?? "";
+  useEffect(() => {
+    if (!open) {
+      hydratedPlanId.current = "";
+      return;
     }
-    return () => { active = false; previous?.focus(); };
-  }, [open, refreshPlan, resumablePlan]);
+    if (!resumablePlanId || hydratedPlanId.current === resumablePlanId) return;
+    let active = true;
+    queueMicrotask(() => {
+      if (!active) return;
+      hydratedPlanId.current = resumablePlanId;
+      void refreshPlan(resumablePlanId).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "Pegasus 计划读取失败"));
+    });
+    return () => { active = false; };
+  }, [open, refreshPlan, resumablePlanId]);
 
   useEffect(() => {
     if (!open || step !== 1 || !rootId) return;
@@ -239,6 +275,7 @@ export function PegasusImportDrawer({ open, roots, platformInstances, resumableP
         body: { rootId, sourceRelativePath: path },
       });
       if (!data) throw new Error(await message(response, "Pegasus 扫描创建失败"));
+      hydratedPlanId.current = data.id;
       setPlan(data); setStep(2); onStarted(data);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "Pegasus 扫描创建失败"); }
     finally { setBusy(false); }

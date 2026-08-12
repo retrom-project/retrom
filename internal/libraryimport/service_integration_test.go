@@ -987,6 +987,202 @@ VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 	}
 }
 
+func TestArcadeImportUsesInstalledBIOSBeforeCreatingReview(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var artifactID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT id FROM core_artifacts WHERE core_id='fbneo' AND enabled=1
+`).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	now := time.Now().UnixMilli()
+	dummy, err := blobs.Put(bytes.NewReader([]byte("synthetic DAT")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	dummyID, err := blobstore.EnsureRecord(ctx, database.SQL, dummy, "application/xml", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE dat_versions SET is_active=0,version=version+1,updated_at_ms=?
+WHERE core_artifact_id=? AND is_active=1
+`, now, artifactID); err != nil {
+		t.Fatal(err)
+	}
+	const datID = "01990000-0000-7000-8000-000000000201"
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO dat_versions(id,core_id,core_artifact_id,source,blob_id,sha256,parser_version,
+compatibility_status,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
+bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
+unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
+VALUES(?,'fbneo',?,'USER',?,?,'test','MATCHED','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
+`, datID, artifactID, dummyID, dummy.SHA256, now, now, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,cloneof,romof,
+is_explicit_bios,classification) VALUES
+(?,'codexchild','Child','','',NULL,'codexbios',0,'NORMAL'),
+(?,'codexbios','BIOS','','',NULL,NULL,1,'EXPLICIT_BIOS')
+`, datID, datID); err != nil {
+		t.Fatal(err)
+	}
+	childArchive := makeZIP(t, map[string][]byte{"c.bin": []byte("child")})
+	biosArchive := makeZIP(t, map[string][]byte{"b.bin": []byte("bios")})
+	type archiveRecord struct {
+		machine string
+		entry   string
+		body    []byte
+		bytes   []byte
+	}
+	for _, fixture := range []archiveRecord{
+		{machine: "codexchild", entry: "c.bin", body: []byte("child"), bytes: childArchive},
+		{machine: "codexbios", entry: "b.bin", body: []byte("bios"), bytes: biosArchive},
+	} {
+		metadata, putErr := blobs.Put(bytes.NewReader(fixture.bytes))
+		if putErr != nil {
+			t.Fatal(putErr)
+		}
+		entries, scanErr := importing.ScanZIP(ctx, blobs.Path(metadata.SHA256), importing.DefaultArchiveLimits())
+		if scanErr != nil || len(entries) != 1 {
+			t.Fatalf("scan %s = %#v, error=%v", fixture.machine, entries, scanErr)
+		}
+		if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,crc32,sha1,status)
+VALUES(?,?,0,?,?,?,?,'GOOD')
+`, datID, fixture.machine, fixture.entry, len(fixture.body), entries[0].CRC32, entries[0].SHA1); err != nil {
+			t.Fatal(err)
+		}
+	}
+	biosMetadata, err := blobs.Put(bytes.NewReader(biosArchive))
+	if err != nil {
+		t.Fatal(err)
+	}
+	biosBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, biosMetadata, "application/zip", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	const requirementID = "01990000-0000-7000-8000-000000000202"
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
+requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
+source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
+VALUES(?,'fbneo',?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
+'ARCADE_DAT_DEPENDENCY','{}',?,NULL,NULL,NULL,NULL,'test://bios','test',1,1,?,?,'BIOS_BUNDLE',NULL)
+`, requirementID, artifactID, strings.Repeat("a", 64), now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
+VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,1,?,?)
+`, requirementID, biosBlobID, "codexbios.zip", biosMetadata.Size, biosMetadata.MD5, biosMetadata.SHA1,
+		biosMetadata.SHA256, now, now); err != nil {
+		t.Fatal(err)
+	}
+	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	upload, err := uploadService.Create(ctx, uploads.CreateRequest{
+		SourceType: "FILES",
+		Files: []uploads.FileDeclaration{{
+			ClientFileID: "child", RelativePath: "codexchild.zip", SizeBytes: int64(len(childArchive)),
+		}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	digest := sha256.Sum256(childArchive)
+	if err := uploadService.PutPart(
+		ctx,
+		upload.ID,
+		upload.Files[0].ID,
+		0,
+		fmt.Sprintf("bytes 0-%d/%d", len(childArchive)-1, len(childArchive)),
+		"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":",
+		bytes.NewReader(childArchive),
+	); err != nil {
+		t.Fatal(err)
+	}
+	current, err := uploadService.Get(ctx, upload.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(3 * time.Second)
+	for {
+		var state string
+		if err := database.SQL.QueryRowContext(ctx, "SELECT state FROM jobs WHERE id=?", jobID).Scan(&state); err != nil {
+			t.Fatal(err)
+		}
+		if state == "SUCCEEDED" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("upload finalization = %s", state)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
+		UploadID: upload.ID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
+		MetadataProvider: "NONE",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	var validationID, status, code, snapshotJSON string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT draft.selected_validation_id,validation.status,validation.compatibility_code,
+validation.dependency_snapshot_json
+FROM import_items item
+JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN import_item_core_validations validation ON validation.id=draft.selected_validation_id
+WHERE item.import_job_id=?
+`, created.ImportJobID).Scan(&validationID, &status, &code, &snapshotJSON); err != nil {
+		t.Fatal(err)
+	}
+	if status != "READY" || code != "READY" {
+		t.Fatalf("initial validation = %s/%s", status, code)
+	}
+	var snapshot arcadeDraftSnapshot
+	if err := json.Unmarshal([]byte(snapshotJSON), &snapshot); err != nil || len(snapshot.MissingEntries) != 0 ||
+		len(snapshot.Dependencies) != 1 || snapshot.Dependencies[0].State != "SATISFIED_EXTERNAL" {
+		t.Fatalf("initial snapshot = %#v, error=%v", snapshot, err)
+	}
+	var validationBlobID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT blob_id FROM import_item_validation_files
+WHERE import_item_core_validation_id=? AND role='BIOS_BUNDLE' AND logical_name='codexbios.zip'
+`, validationID).Scan(&validationBlobID); err != nil {
+		t.Fatal(err)
+	}
+	if validationBlobID != biosBlobID {
+		t.Fatalf("initial BIOS blob = %s, want %s", validationBlobID, biosBlobID)
+	}
+}
+
 func TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
