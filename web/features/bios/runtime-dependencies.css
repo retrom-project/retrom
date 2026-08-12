@@ -94,7 +94,7 @@
 .runtime-drawer header p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
 .runtime-drawer-close { width: 36px; height: 36px; flex: 0 0 auto; display: grid; place-items: center; color: #657083; border: 1px solid var(--line); border-radius: 10px; background: white; cursor: pointer; }
 .runtime-drawer-close svg { width: 17px; height: 17px; }
-.runtime-drawer-body { padding: 20px 22px; overflow-y: auto; }
+.runtime-drawer-body { min-height: 0; padding: 20px 22px; overflow-y: auto; flex: 1 1 auto; }
 .runtime-drawer-body > label { margin-bottom: 13px; display: grid; gap: 6px; color: #596477; font-size: 11px; font-weight: 760; }
 .runtime-drawer-body .select, .runtime-file-name { width: 100%; min-width: 0; height: 42px; padding: 0 11px; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; background: white; }
 .runtime-file-name[readonly] { color: #687386; background: #f8f9fb; }
@@ -129,4 +129,3 @@
 .runtime-pagination-error { color: var(--danger); }
 .runtime-server-import-link { margin: 16px 0 0; text-align: right; font-size: 11px; font-weight: 760; }
 .runtime-server-import-link a { color: var(--purple-dark); }
-

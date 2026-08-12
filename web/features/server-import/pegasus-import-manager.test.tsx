@@ -1,5 +1,6 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { StrictMode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { PegasusImportDetailManager, PegasusImportDrawer, type PegasusImportSummary, type PegasusItem, type PegasusPlatformInstance } from "./pegasus-import-manager";
 
@@ -81,6 +82,34 @@ describe("PegasusImportDrawer", () => {
     expect(await screen.findByText("1 个处理 · 0 个跳过")).toBeVisible();
     expect(screen.getByRole("button", { name: "开始准备审核事项" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "确认映射" })).not.toBeInTheDocument();
+  });
+
+  it("keeps focus, scroll lock, and mapping drafts stable when the parent refreshes the same plan", async () => {
+    const awaiting = summary("AWAITING_MAPPING", 2);
+    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, ignoredRules: [], warningFields: [] };
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(json(awaiting))
+      .mockResolvedValueOnce(json({ items: [collection], nextCursor: null }));
+    vi.stubGlobal("fetch", fetchMock);
+    document.body.style.overflow = "auto";
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onStarted = vi.fn();
+    const view = render(<StrictMode><PegasusImportDrawer open roots={[root]} platformInstances={[platform]} resumablePlan={awaiting} onClose={onClose} onStarted={onStarted} /></StrictMode>);
+
+    const mapping = await screen.findByRole("combobox", { name: "FC 处理方式" });
+    expect(document.body.style.overflow).toBe("hidden");
+    await user.selectOptions(mapping, `IMPORT:${platform.id}`);
+    mapping.focus();
+    view.rerender(<StrictMode><PegasusImportDrawer open roots={[root]} platformInstances={[platform]} resumablePlan={{ ...awaiting, version: 3, updatedAtMs: 3 }} onClose={onClose} onStarted={onStarted} /></StrictMode>);
+
+    await act(async () => { await Promise.resolve(); });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(mapping).toHaveValue(`IMPORT:${platform.id}`);
+    expect(mapping).toHaveFocus();
+
+    view.rerender(<StrictMode><PegasusImportDrawer open={false} roots={[root]} platformInstances={[platform]} resumablePlan={{ ...awaiting, version: 3, updatedAtMs: 3 }} onClose={onClose} onStarted={onStarted} /></StrictMode>);
+    expect(document.body.style.overflow).toBe("auto");
   });
 });
 

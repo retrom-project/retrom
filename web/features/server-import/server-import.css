@@ -124,7 +124,8 @@
 .pegasus-result-table > article:last-child { border-bottom: 0; }
 .pegasus-result-table h3 { margin: 0; font-size: 12px; }
 .pegasus-result-table p, .pegasus-result-table small { display: block; margin: 4px 0 0; color: var(--muted); font-size: 9px; line-height: 1.4; }
-.pegasus-result-table a { color: var(--purple-dark); font-size: 10px; font-weight: 760; }
+.pegasus-result-table a:not(.button) { color: var(--purple-dark); font-size: 10px; font-weight: 760; }
+.pegasus-result-table a.button { color: white; font-size: 10px; font-weight: 760; }
 .pegasus-result-media { display: flex; flex-wrap: wrap; gap: 5px; }
 .pegasus-runtime-diagnostic-cell { min-width: 0; grid-column: 1 / -1; }
 .pegasus-runtime-diagnostic { width: 100%; border: 1px solid #ead7da; border-radius: 9px; background: #fffafb; }

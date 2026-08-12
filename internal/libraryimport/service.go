@@ -1664,6 +1664,37 @@ func (service *Service) Create(ctx context.Context, request CreateRequest) (Crea
 	return service.create(ctx, request, nil)
 }
 
+func resolveInitialArcadeBIOSState(
+	ctx context.Context,
+	transaction *sql.Tx,
+	platformID, artifactID string,
+	group *preparedGroup,
+	status, code, snapshotJSON string,
+) (string, string, string, error) {
+	if platformID != "arcade" {
+		return status, code, snapshotJSON, nil
+	}
+	biosState, err := resolveArcadeDraftBIOSState(ctx, transaction, artifactID, snapshotJSON, status, code)
+	if err != nil {
+		return "", "", "", err
+	}
+	if !biosState.tracked {
+		return status, code, snapshotJSON, nil
+	}
+	for _, dependency := range biosState.dependencies {
+		if dependency.DeliveryKind != "BIOS_BUNDLE" || dependency.BlobID == nil {
+			continue
+		}
+		group.validationFiles = append(group.validationFiles, preparedValidationFile{
+			role:        "BIOS_BUNDLE",
+			logicalName: dependency.LogicalName,
+			blobID:      *dependency.BlobID,
+			sortOrder:   len(group.validationFiles),
+		})
+	}
+	return biosState.status, biosState.code, biosState.snapshotJSON, nil
+}
+
 //nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) create(
 	ctx context.Context,
@@ -2361,6 +2392,19 @@ WHERE id=?
 		dependencySnapshot := group.dependencySnapshot
 		if validationStatus == "" {
 			validationStatus, compatibilityCode, dependencySnapshot = "READY", "READY", "{}"
+		}
+		validationStatus, compatibilityCode, dependencySnapshot, err = resolveInitialArcadeBIOSState(
+			ctx,
+			transaction,
+			platformID,
+			artifactID,
+			&group,
+			validationStatus,
+			compatibilityCode,
+			dependencySnapshot,
+		)
+		if err != nil {
+			return Created{}, err
 		}
 		inputDigest := prepublishDigest(prepublishDigestInput{
 			SchemaVersion:             1,
