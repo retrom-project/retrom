@@ -221,21 +221,27 @@ curl --fail --silent --show-error -c "$cookie_jar" \
 home="$(curl --fail --silent --show-error -b "$cookie_jar" "$web_origin/api/v1/home")"
 server_import_roots="$(curl --fail --silent --show-error -b "$cookie_jar" \
   "$web_origin/api/v1/admin/server-import-roots")"
-python3 - "$server_import_roots" "$repository_root/.dev-data/bios" <<'PY'
+python3 - "$server_import_roots" \
+  "$repository_root/.dev-data/bios" \
+  "$repository_root/.dev-data/roms" <<'PY'
 import json
 import os
 import sys
 
 raw = sys.argv[1]
-expected_path = sys.argv[2]
+expected_paths = sys.argv[2:]
 payload = json.loads(raw)
-expected = {"items": [{"id": "local-bios", "label": "本地 BIOS", "status": "AVAILABLE"}]}
+expected = {"items": [
+    {"id": "local-bios", "label": "本地 BIOS", "status": "AVAILABLE"},
+    {"id": "local-roms", "label": "本地 ROM", "status": "AVAILABLE"},
+]}
 if payload != expected:
     raise SystemExit(f"unexpected default server import roots: {payload!r}")
-if expected_path in raw:
-    raise SystemExit("server import root response exposed the absolute host path")
-if not os.path.isdir(expected_path):
-    raise SystemExit("default local BIOS directory was not created")
+for expected_path in expected_paths:
+    if expected_path in raw:
+        raise SystemExit("server import root response exposed an absolute host path")
+    if not os.path.isdir(expected_path):
+        raise SystemExit(f"default local import directory was not created: {expected_path!r}")
 PY
 hmr_status="$(python3 - "$web_port" "$unconfigured_hmr_origin" <<'PY'
 import base64
