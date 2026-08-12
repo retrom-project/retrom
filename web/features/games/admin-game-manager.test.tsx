@@ -64,6 +64,10 @@ describe("AdminGameManager", () => {
     expect(screen.queryByRole("navigation", { name: "游戏管理详情分区" })).not.toBeInTheDocument();
     expect(screen.getByText("从游戏库移除").closest("details")).not.toHaveAttribute("open");
     expect(container.querySelector(".admin-game-cover-slot > .admin-game-cover-frame")).not.toBeNull();
+    expect(screen.getByRole("heading", { name: "封面" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "视频预览" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "背景图" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "游戏截图" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "保存新版本" })).toBeDisabled();
   });
 
@@ -133,11 +137,17 @@ describe("AdminGameManager", () => {
     const user = userEvent.setup();
     const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204, headers: { ETag: '"v4"' } }));
     vi.stubGlobal("fetch", fetchMock);
-    render(<AdminGameManager game={{ ...game, assets: [{ assetId: "video-1", kind: "VIDEO", ordinal: 0, widthPx: null, heightPx: null, mediaType: "video/mp4", url: "/content/assets/video-1" }] }} platformInstances={directories} candidates={[]} />);
+    render(<AdminGameManager game={{ ...game, assets: [
+      { assetId: "video-1", kind: "VIDEO", ordinal: 0, widthPx: null, heightPx: null, mediaType: "video/mp4", url: "/content/assets/video-1" },
+      { assetId: "background-1", kind: "BACKGROUND", ordinal: 0, widthPx: 1280, heightPx: 720, mediaType: "image/jpeg", url: "/content/assets/background-1" },
+      { assetId: "screenshot-1", kind: "SCREENSHOT", ordinal: 0, widthPx: 640, heightPx: 480, mediaType: "image/png", url: "/content/assets/screenshot-1" },
+    ] }} platformInstances={directories} candidates={[]} />);
 
     const video = screen.getByLabelText("1943 管理视频预览");
     expect(video).toHaveAttribute("preload", "metadata");
     expect(video).not.toHaveAttribute("autoplay");
+    expect(screen.queryByRole("heading", { name: "背景图" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "游戏截图" })).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "移除" }));
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/games/game-1/assets/VIDEO", expect.objectContaining({ method: "DELETE" })));
   });

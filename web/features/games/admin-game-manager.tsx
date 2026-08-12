@@ -118,7 +118,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
     });
   }
 
-  async function replaceAsset(file: File, kind: string, ordinal: number) {
+  async function replaceAsset(file: File, kind: "COVER" | "VIDEO", ordinal: number) {
     await action("asset", async () => {
       const uploaded = await uploadOne(file, setNotice);
       const response = await fetch(`/api/v1/admin/games/${game.gameId}/assets`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind, ordinal }) });
@@ -238,10 +238,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const canonicalPlaylistSHA256 = currentRuntime?.dependencySnapshot?.multiDisc?.canonicalPlaylistSha256 ?? "";
   const runtime = runtimePresentation(currentRuntime?.status ?? null);
   const cover = game.assets.find((asset) => asset.kind === "COVER");
-  const background = game.assets.find((asset) => asset.kind === "BACKGROUND");
   const video = game.assets.find((asset) => asset.kind === "VIDEO");
-  const screenshots = game.assets.filter((asset) => asset.kind === "SCREENSHOT").sort((left, right) => left.ordinal - right.ordinal);
-  const nextScreenshotOrdinal = Math.min(31, Math.max(-1, ...screenshots.map((asset) => asset.ordinal)) + 1);
   const metadataComplete = Boolean(game.description.trim() && game.developer.trim() && game.publisher.trim() && game.genre.trim() && game.players && game.releaseYear);
   const moveTargets = platformInstances.filter((item) => item.enabled && item.platformId === game.platformId && item.id !== game.platformInstance.id);
   const disabled = busy !== null || game.status !== "PUBLISHED";
@@ -276,10 +273,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
 
       <section className="panel admin-game-media" id="admin-game-media"><div className="panel-head"><h2>媒体</h2></div><div className="panel-body admin-game-media-grid">
         <article className="admin-game-cover-slot"><h3>封面</h3><div className="admin-game-cover-frame">{cover ? <Image src={cover.url} alt={`${game.title} 封面`} fill sizes="180px" unoptimized /> : <span>暂无封面</span>}</div><footer>{cover ? `${cover.widthPx}×${cover.heightPx}` : "建议使用 3:4 图片"}<input id="admin-cover-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "COVER", 0); }} /><label aria-disabled={disabled} htmlFor="admin-cover-upload">{cover ? "替换" : "添加"}</label></footer></article>
-        <div className="admin-game-other-media"><div className="admin-game-feature-media"><article className="admin-game-background-slot"><h3>背景图</h3><div>{background ? <Image src={background.url} alt={`${game.title} 背景图`} fill sizes="220px" unoptimized /> : <span><strong>暂无背景图</strong><small>添加一张用于用户详情页</small></span>}</div><input id="admin-background-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "BACKGROUND", 0); }} /><label aria-disabled={disabled} htmlFor="admin-background-upload">{background ? "替换背景" : "＋ 添加背景"}</label></article>
-          <article className="admin-game-video-slot"><h3>视频预览</h3><div>{video ? <video src={video.url} controls playsInline preload="metadata" aria-label={`${game.title} 管理视频预览`} /> : <span><strong>暂无视频</strong><small>支持 MP4 / WebM，最大 256 MiB</small></span>}</div><footer><input id="admin-video-upload" hidden type="file" accept="video/mp4,video/webm" disabled={disabled || !clientReady} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "VIDEO", 0); }} /><label aria-disabled={disabled || !clientReady} htmlFor="admin-video-upload">{video ? "替换" : "＋ 添加"}</label>{video ? <button type="button" disabled={disabled} onClick={() => void removeVideo()}>移除</button> : null}</footer></article></div>
-          <div className="admin-game-screenshots"><h3>游戏截图</h3><div>{screenshots.slice(0, 2).map((asset) => <article key={asset.assetId}><Image src={asset.url} alt={`${game.title} 游戏截图 ${asset.ordinal + 1}`} fill sizes="130px" unoptimized /><input id={`admin-shot-${asset.ordinal}`} hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "SCREENSHOT", asset.ordinal); }} /><label aria-disabled={disabled} htmlFor={`admin-shot-${asset.ordinal}`}>替换截图 {asset.ordinal + 1}</label></article>)}<article className="add"><input id="admin-screenshot-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled || screenshots.length >= 32} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "SCREENSHOT", nextScreenshotOrdinal); }} /><label aria-disabled={disabled || screenshots.length >= 32} htmlFor="admin-screenshot-upload">＋ 添加截图</label></article></div></div>
-        </div>
+        <article className="admin-game-video-slot"><h3>视频预览</h3><div>{video ? <video src={video.url} controls playsInline preload="metadata" aria-label={`${game.title} 管理视频预览`} /> : <span><strong>暂无视频</strong><small>支持 MP4 / WebM，最大 256 MiB</small></span>}</div><footer><input id="admin-video-upload" hidden type="file" accept="video/mp4,video/webm" disabled={disabled || !clientReady} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "VIDEO", 0); }} /><label aria-disabled={disabled || !clientReady} htmlFor="admin-video-upload">{video ? "替换" : "＋ 添加"}</label>{video ? <button type="button" disabled={disabled} onClick={() => void removeVideo()}>移除</button> : null}</footer></article>
       </div></section>
     </div>
 

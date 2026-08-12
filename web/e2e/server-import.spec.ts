@@ -177,6 +177,8 @@ test("ACC-MEDIA-001 video upload is explicit in admin and absent from library re
   const gameId = game.gameId;
 
   await page.goto(`/admin/games/${gameId}`);
+  await expect(page.getByRole("heading", { name: "背景图" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "游戏截图" })).toHaveCount(0);
   const upload = page.locator("#admin-video-upload");
   await expect(upload).toBeEnabled();
   await upload.setInputFiles({
@@ -188,6 +190,26 @@ test("ACC-MEDIA-001 video upload is explicit in admin and absent from library re
   await expect(adminVideo).toBeVisible();
   await expect(adminVideo).toHaveAttribute("controls", "");
   await expect(adminVideo).not.toHaveAttribute("autoplay", "");
+  const mediaLayout = await page.locator(".admin-game-media-grid").evaluate((element) => {
+    const body = element.getBoundingClientRect();
+    const style = getComputedStyle(element);
+    const cover = element.querySelector<HTMLElement>(".admin-game-cover-slot")!.getBoundingClientRect();
+    const video = element.querySelector<HTMLElement>(".admin-game-video-slot")!.getBoundingClientRect();
+    const preview = element.querySelector<HTMLVideoElement>("video")!;
+    return {
+      rightGap: body.right - Number.parseFloat(style.paddingRight) - video.right,
+      topGap: video.top - body.top - Number.parseFloat(style.paddingTop),
+      bottomGap: body.bottom - Number.parseFloat(style.paddingBottom) - video.bottom,
+      coverWidth: cover.width,
+      videoWidth: video.width,
+      objectFit: getComputedStyle(preview).objectFit,
+    };
+  });
+  expect(Math.abs(mediaLayout.rightGap)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mediaLayout.topGap)).toBeLessThanOrEqual(1);
+  expect(Math.abs(mediaLayout.bottomGap)).toBeLessThanOrEqual(1);
+  expect(mediaLayout.videoWidth).toBeGreaterThan(mediaLayout.coverWidth);
+  expect(mediaLayout.objectFit).toBe("contain");
 
   const detailResponse = await page.request.get(`/api/v1/games/${gameId}`);
   expect(detailResponse.ok()).toBe(true);
