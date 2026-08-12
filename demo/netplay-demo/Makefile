@@ -5,6 +5,7 @@ NPM := corepack npm
 HOST ?= 127.0.0.1
 PORT ?= 4174
 SMOKE_TARGET ?= 3000
+SMOKE_JOIN_DELAY ?= 10000
 PEGASUS_ROOT ?= $(RETROM_PEGASUS_ROOT)
 
 .PHONY: help install prepare assets unit smoke test check-port start test-and-start
@@ -17,7 +18,7 @@ help:
 	@echo "  make test-and-start  Run all tests, then start the interactive demo"
 	@echo "  make prepare         Materialize pinned runtime/core/ROM assets"
 	@echo
-	@echo "Defaults: HOST=$(HOST) PORT=$(PORT) SMOKE_TARGET=$(SMOKE_TARGET)"
+	@echo "Defaults: HOST=$(HOST) PORT=$(PORT) SMOKE_TARGET=$(SMOKE_TARGET) SMOKE_JOIN_DELAY=$(SMOKE_JOIN_DELAY)"
 	@echo "Ports 3000 and 8080 are reserved for the main Retrom applications."
 	@echo "Set PUBLIC_ORIGIN=https://example.test when running behind a reverse proxy."
 
@@ -41,7 +42,7 @@ unit: install
 	@$(NPM) test
 
 smoke: install assets
-	@NETPLAY_SMOKE_TARGET="$(SMOKE_TARGET)" $(NPM) run smoke
+	@NETPLAY_SMOKE_TARGET="$(SMOKE_TARGET)" NETPLAY_SMOKE_JOIN_DELAY="$(SMOKE_JOIN_DELAY)" $(NPM) run smoke
 
 test: unit assets smoke
 

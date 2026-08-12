@@ -19,6 +19,7 @@ protocol。
 | replay 输出抑制 | PASS | 每次 replay 都记录 mute run；中间 canvas 由冻结帧覆盖，结束后恢复音量/画面 |
 | waitable state load | PASS（adapter） | 从真实不同 state 加载；原生 callback 完成、完整 state byte-exact 后才 resolve |
 | state resync | PASS（受限） | mismatch 后经 WS 转发 authority RASTATE、校验 payload/core digest 并确认后恢复 |
+| late join | PASS（同页） | A 单机运行 10 秒且接受输入；B 之后才挂载，从 A 当前 state 建立新 epoch |
 | WebSocket reconnect | PASS | slot 租约、opaque resume token、指数退避、canonical/hash replay 后完成 session |
 | room service | PASS（单进程参考） | 同源建房、双 slot token、TTL、容量、profile、payload/origin 校验 |
 | deterministic execution | PASS（allowlist） | FCEUmm/F-1 Race 与 FBNeo/Lode Runner 各 3000 帧；除注入故障外无额外 resync |
@@ -89,6 +90,18 @@ room 保留 slot 十秒，客户端指数退避重连并声明最后收到的 ca
 容量和 TTL 已在 example 中实现。正式公网产品仍需要 TLS 反代、账户/邀请模型、
 共享 registry、跨实例 affinity、分布式限流、审计、指标和告警。
 
+## Late join
+
+late join 不尝试保留或重放 A 进房前的输入。A 在 `hosting` 阶段与普通
+单机游戏一样运行；B 加入时 A 短暂暂停，B 先独立启动相同 core/content，再加载 A
+在 join boundary 捕获的 RASTATE。该 state 是新逻辑 epoch 的 frame-before-1，旧的
+native frame counter 不参与网络时钟。
+
+浏览器 smoke 明确断言：B iframe 在倒计时内为 `about:blank`；A 原生帧和单机
+输入在此期间持续推进；10 秒后 B 才创建；B 对 A 的当前 state 完成真实
+native load；加入后仍继续验证 rollback、一次真实 resync 和 reconnect。“运行
+10 秒”只是可执行门禁；协议不依赖这个时长，页面可配置到 1 小时。
+
 ## 独立依赖与可复现性
 
 demo 的 npm 锁文件只安装 Playwright。EmulatorJS/core 不作为 npm runtime
@@ -104,8 +117,9 @@ SHA-256 相同。core source/license 关联来自固定 commit，但二进制与
 
 ## 尚未覆盖
 
-- 两个客户端仍位于同一页面/浏览器进程，未做跨设备、后台节流、移动网络切换；
-- 无 spectator、join-in-progress、host migration 或多玩家扩展；
+- 两个客户端仍位于同一页面/浏览器进程；late join 已验证延迟挂载和
+  state epoch，但未做真实跨设备、后台节流、移动网络切换；
+- 无 spectator、host migration 或多玩家扩展；
 - room 内存态不能跨 server replica，进程退出即失效；
 - 没有账号、好友邀请、ban/rate-limit backend、持久审计或生产 telemetry；
 - NES 只验证 FCEUmm 的 `F-1 Race`。旧式 GBK ZIP entry 会被 EmulatorJS 4.2.3
