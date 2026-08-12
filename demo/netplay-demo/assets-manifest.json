@@ -1,0 +1,125 @@
+{
+  "schemaVersion": 1,
+  "emulatorjsVersion": "4.2.3",
+  "assets": [
+    {
+      "kind": "runtime",
+      "source": "data/loader.js",
+      "target": "vendor/emulatorjs-4.2.3/data/loader.js",
+      "size": 7594,
+      "sha256": "69e0903bf1e2f62ced78895e7e511fa26e11316f7eb734925c35e919ba1287b2"
+    },
+    {
+      "kind": "runtime",
+      "source": "data/emulator.min.js",
+      "target": "vendor/emulatorjs-4.2.3/data/emulator.min.js",
+      "size": 426343,
+      "sha256": "6aec3fd7bb2721255801b0a6af02e47e78b05e28a1822b1f213aacbd348abaee"
+    },
+    {
+      "kind": "runtime",
+      "source": "data/emulator.min.css",
+      "target": "vendor/emulatorjs-4.2.3/data/emulator.min.css",
+      "size": 25630,
+      "sha256": "16406c60b2dc3b04ae9b115e308613e6f567a0cc7068e21d9d0c1e5030fb395e"
+    },
+    {
+      "kind": "runtime",
+      "source": "data/version.json",
+      "target": "vendor/emulatorjs-4.2.3/data/version.json",
+      "size": 126,
+      "sha256": "d8991427000a96fb97daefdb62178071e9bbff911760706148e584ae8d69f9e7"
+    },
+    {
+      "kind": "runtime",
+      "source": "data/compression/extract7z.js",
+      "target": "vendor/emulatorjs-4.2.3/data/compression/extract7z.js",
+      "size": 280155,
+      "sha256": "4ac9933b995a516cb6b3ca4027db860278372a20c21c405d93ceb1998498853a"
+    },
+    {
+      "kind": "runtime",
+      "source": "data/compression/extractzip.js",
+      "target": "vendor/emulatorjs-4.2.3/data/compression/extractzip.js",
+      "size": 196199,
+      "sha256": "3cc825428724213acd43d30552a78008e0869b2326de17dee240dbff9ee2f629"
+    },
+    {
+      "kind": "runtime",
+      "source": "data/cores/reports/fceumm.json",
+      "target": "vendor/emulatorjs-4.2.3/data/cores/reports/fceumm.json",
+      "size": 120,
+      "sha256": "13dbbfba0ea1bea087c97c38f47dd49c3fb8f16c3f5ed5678dd75d352b737132"
+    },
+    {
+      "kind": "runtime",
+      "source": "data/cores/reports/fbneo.json",
+      "target": "vendor/emulatorjs-4.2.3/data/cores/reports/fbneo.json",
+      "size": 119,
+      "sha256": "d2c5e07c2afc2b53937f14b721d7d025ad599d111e9627fc77e9b3fd17450e70"
+    },
+    {
+      "kind": "runtime",
+      "source": "data/cores/fceumm-wasm.data",
+      "target": "vendor/emulatorjs-4.2.3/data/cores/fceumm-wasm.data",
+      "size": 1054015,
+      "sha256": "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493"
+    },
+    {
+      "kind": "runtime",
+      "source": "data/cores/fbneo-wasm.data",
+      "target": "vendor/emulatorjs-4.2.3/data/cores/fbneo-wasm.data",
+      "size": 8273551,
+      "sha256": "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c"
+    },
+    {
+      "kind": "runtime",
+      "source": "LICENSE",
+      "target": "vendor/emulatorjs-4.2.3/LICENSE",
+      "size": 35111,
+      "sha256": "a617fab6d251b3302b1cb2c1c94f52d1c584f6fcb2fc218ec1a475bc08053a61"
+    },
+    {
+      "kind": "runtime",
+      "source": "THIRD_PARTY_NOTICES",
+      "target": "vendor/emulatorjs-4.2.3/THIRD_PARTY_NOTICES",
+      "size": 576308,
+      "sha256": "967a315b53b08c95701490cfddde4815394c517f44a704b3a941a6e7b04a2ca3"
+    },
+    {
+      "kind": "runtime",
+      "source": "licenses/fceumm/Copying",
+      "target": "vendor/emulatorjs-4.2.3/licenses/fceumm/Copying",
+      "size": 18010,
+      "sha256": "a6996dcf0c334281f734560926e079b2dbbd5b78e81c0ca00a413ec01e1cd2fb"
+    },
+    {
+      "kind": "runtime",
+      "source": "licenses/fbneo/license.txt",
+      "target": "vendor/emulatorjs-4.2.3/licenses/fbneo/license.txt",
+      "size": 11086,
+      "sha256": "957b7bc8ef1e269eecf090022739e5444df2bad6add8ce4f04379ddbe30d88da"
+    },
+    {
+      "kind": "rom",
+      "source": "Roms/FC/乒乓球.zip",
+      "target": "assets/roms/nes-smash-ping-pong.zip",
+      "size": 26421,
+      "sha256": "7e036a8df5bb73b71d0af8a4bca2904bf154e1e3b95faed70d526c27bd21440f"
+    },
+    {
+      "kind": "rom",
+      "source": "bios/disksys.rom",
+      "target": "assets/roms/disksys.rom",
+      "size": 8192,
+      "sha256": "99c18490ed9002d9c6d999b9d8d15be5c051bdfa7cc7e73318053c9a994b0178"
+    },
+    {
+      "kind": "rom",
+      "source": "Roms/FBNEO ETC/ldrun.zip",
+      "target": "assets/roms/ldrun.zip",
+      "size": 59720,
+      "sha256": "b45507a74f739e27a5486d79901016b78e061c4db2025435d4df37702553e8d9"
+    }
+  ]
+}
