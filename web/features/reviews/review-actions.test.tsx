@@ -90,6 +90,30 @@ describe("ReviewActions", () => {
     expect(screen.queryByText("信息来源")).not.toBeInTheDocument();
   });
 
+  it("uses Pegasus cover and a manual centered video preview as review source media", () => {
+    const { container } = render(<ReviewActions review={{
+      ...review,
+      sourceMedia: {
+        sourceKind: "PEGASUS",
+        sourceRefId: "pegasus-item-1",
+        pegasusImportId: "pegasus-import-1",
+        sourceLabel: "FC",
+        coverUrl: "/api/v1/admin/review-assets/pegasus-item-1?kind=COVER",
+        coverWidthPx: 320,
+        coverHeightPx: 480,
+        videoUrl: "/api/v1/admin/review-assets/pegasus-item-1?kind=VIDEO",
+      },
+    }} />);
+
+    expect(screen.getByText("来源：Pegasus · FC")).toBeVisible();
+    expect(screen.getByText("已读取 Pegasus 信息")).toBeVisible();
+    expect(screen.getByAltText("当前选择的游戏封面")).toHaveAttribute("src", expect.stringContaining("kind=COVER"));
+    const video = container.querySelector<HTMLVideoElement>(".review-source-video video");
+    expect(video).toHaveAttribute("src", "/api/v1/admin/review-assets/pegasus-item-1?kind=VIDEO");
+    expect(video).toHaveAttribute("controls");
+    expect(video?.autoplay).toBe(false);
+  });
+
   it("flushes a pending edit when the review page unmounts", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2 })));
     vi.stubGlobal("fetch", fetchMock);

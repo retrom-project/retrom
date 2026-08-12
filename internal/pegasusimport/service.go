@@ -24,17 +24,18 @@ import (
 )
 
 var (
-	ErrNotFound       = errors.New("PEGASUS_IMPORT_NOT_FOUND")
-	ErrMetadataAbsent = errors.New("PEGASUS_METADATA_NOT_FOUND")
-	ErrScanLimit      = errors.New("PEGASUS_SCAN_LIMIT_EXCEEDED")
-	ErrMapping        = errors.New("PEGASUS_MAPPING_INCOMPLETE")
-	ErrNoSelection    = errors.New("PEGASUS_NO_COLLECTION_SELECTED")
-	ErrSourceChanged  = errors.New("PEGASUS_SOURCE_CHANGED")
-	ErrExpired        = errors.New("PEGASUS_PLAN_EXPIRED")
-	ErrActive         = errors.New("PEGASUS_IMPORT_ACTIVE")
-	ErrInvalid        = errors.New("PEGASUS_IMPORT_INVALID")
-	ErrNotCancellable = errors.New("PEGASUS_IMPORT_NOT_CANCELLABLE")
-	ErrNotRetryable   = errors.New("PEGASUS_IMPORT_NOT_RETRYABLE")
+	ErrNotFound         = errors.New("PEGASUS_IMPORT_NOT_FOUND")
+	ErrMetadataAbsent   = errors.New("PEGASUS_METADATA_NOT_FOUND")
+	ErrScanLimit        = errors.New("PEGASUS_SCAN_LIMIT_EXCEEDED")
+	ErrMapping          = errors.New("PEGASUS_MAPPING_INCOMPLETE")
+	ErrNoSelection      = errors.New("PEGASUS_NO_COLLECTION_SELECTED")
+	ErrSourceChanged    = errors.New("PEGASUS_SOURCE_CHANGED")
+	ErrExpired          = errors.New("PEGASUS_PLAN_EXPIRED")
+	ErrActive           = errors.New("PEGASUS_IMPORT_ACTIVE")
+	ErrInvalid          = errors.New("PEGASUS_IMPORT_INVALID")
+	ErrNotCancellable   = errors.New("PEGASUS_IMPORT_NOT_CANCELLABLE")
+	ErrNotRetryable     = errors.New("PEGASUS_IMPORT_NOT_RETRYABLE")
+	errItemStateChanged = errors.New("item state changed")
 )
 
 type Root struct {
@@ -68,7 +69,9 @@ type Counts struct {
 	SkippedCollections   int64 `json:"skippedCollections"`
 	Processable          int64 `json:"processable"`
 	Blocked              int64 `json:"blocked"`
+	ReviewPending        int64 `json:"reviewPending"`
 	Published            int64 `json:"published"`
+	ReviewDiscarded      int64 `json:"reviewDiscarded"`
 	Existing             int64 `json:"existing"`
 	Failed               int64 `json:"failed"`
 	Cancelled            int64 `json:"cancelled"`
@@ -138,6 +141,7 @@ type Item struct {
 	FailureDetails             *FailureDetails  `json:"failureDetails"`
 	RuntimeCheck               *RuntimeCheck    `json:"runtimeCheck"`
 	Retryable                  bool             `json:"retryable"`
+	ReviewItemID               *string          `json:"reviewItemId"`
 	PublishedGameID            *string          `json:"publishedGameId"`
 	ExistingGameID             *string          `json:"existingGameId"`
 	ExistingMatches            []ExistingMatch  `json:"existingMatches"`

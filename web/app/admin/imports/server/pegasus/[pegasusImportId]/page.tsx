@@ -45,5 +45,5 @@ export default async function PegasusImportDetailPage({ params, searchParams }: 
     throw error;
   }
   const [summary, items, collections, roots, platformInstances] = loaded;
-  return <div className="page-layout page-layout-admin"><PageHeader eyebrow="服务器导入 / Pegasus ROM" title="Pegasus 导入详情" description="查看映射、逐项发布、阻断与媒体警告；刷新或重新进入后会恢复当前任务进度。" actions={<ButtonLink href="/admin/imports/server" secondary>← 返回导入历史</ButtonLink>} /><PegasusImportDetailManager initialSummary={summary} initialItems={items} collections={collections} roots={roots.items} platformInstances={platformInstances.items} initialFilters={{ query: filters.q ?? "", outcome: filters.outcome ?? "", warning: filters.warning ?? "", collectionId: filters.collectionId ?? "" }} /></div>;
+  return <div className="page-layout page-layout-admin"><PageHeader eyebrow="服务器导入 / Pegasus ROM" title="Pegasus 准备任务" description="查看来源准备、运行检查与审核进度。后台不会自动发布游戏，所有候选都由管理员逐项决定。" actions={<ButtonLink href="/admin/imports/server" secondary>← 返回导入历史</ButtonLink>} /><PegasusImportDetailManager initialSummary={summary} initialItems={items} collections={collections} roots={roots.items} platformInstances={platformInstances.items} initialFilters={{ query: filters.q ?? "", outcome: filters.outcome ?? "", warning: filters.warning ?? "", collectionId: filters.collectionId ?? "" }} /></div>;
 }

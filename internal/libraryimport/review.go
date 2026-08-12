@@ -1126,6 +1126,11 @@ WHERE id=?
 `, now, now, itemID, now, now, importID); err != nil {
 		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
+	if err := transitionServerReview(
+		ctx, transaction, itemID, "REVIEW_DISCARDED", nil, now,
+	); err != nil {
+		return DecisionResult{}, err
+	}
 	eventID, _ := uuid.NewV7()
 	actor := reviewActor(ctx)
 	if _, err := transaction.ExecContext(ctx, `

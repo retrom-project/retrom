@@ -24,6 +24,7 @@ import (
 
 type executionItem struct {
 	ID, TargetPlatformID, TargetPlatformKind, TargetDATVersionID, MetadataJSON string
+	LibraryImportJobID, LibraryImportItemID                                    string
 	Files                                                                      []executionFile
 	Assets                                                                     []executionAsset
 }
@@ -100,13 +101,15 @@ func (service *Service) nextItem(ctx context.Context, importID string) (executio
 	var item executionItem
 	err = transaction.QueryRowContext(ctx, `
 SELECT item.id,collection.target_platform_instance_id,collection.target_platform_id,
-COALESCE(collection.target_dat_version_id,''),item.metadata_json
+COALESCE(collection.target_dat_version_id,''),item.metadata_json,
+COALESCE(item.library_import_job_id,''),COALESCE(item.library_import_item_id,'')
 FROM pegasus_import_items item JOIN pegasus_import_collections collection ON collection.id=item.collection_id
 WHERE item.import_id=? AND item.execution_state='PENDING' AND collection.mapping_action='IMPORT'
 ORDER BY item.metadata_relative_path,item.game_ordinal,item.id LIMIT 1`, importID).
 		Scan(
 			&item.ID, &item.TargetPlatformID, &item.TargetPlatformKind,
 			&item.TargetDATVersionID, &item.MetadataJSON,
+			&item.LibraryImportJobID, &item.LibraryImportItemID,
 		)
 	if errors.Is(err, sql.ErrNoRows) {
 		return executionItem{}, false, nil
@@ -190,6 +193,39 @@ ORDER BY kind`, itemID)
 }
 
 func (service *Service) processItem(ctx context.Context, unit work, root Root, item executionItem) {
+	if err := service.updateExecutionPhase(ctx, unit.ImportID, "COPYING_CONTENT"); err != nil {
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)),
+		)
+		return
+	}
+	if item.LibraryImportJobID != "" && item.LibraryImportItemID != "" {
+		result, err := service.database.ExecContext(ctx, `
+UPDATE pegasus_import_items SET execution_state='VALIDATING',updated_at_ms=?
+WHERE id=? AND execution_state='COPYING'
+AND library_import_job_id=? AND library_import_item_id=?
+`, service.now().UnixMilli(), item.ID, item.LibraryImportJobID, item.LibraryImportItemID)
+		if err != nil || rowsAffected(result) != 1 {
+			service.closeItemWithFailure(
+				ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+				withLibraryImportIdentity(
+					service.itemFailure("STORAGE", "RESUME_REVIEW_HANDOFF", err, firstSourcePath(item)),
+					item.LibraryImportJobID,
+					item.LibraryImportItemID,
+				),
+			)
+			return
+		}
+		service.prepareLibraryReview(
+			ctx,
+			unit,
+			item,
+			item.LibraryImportJobID,
+			libraryimport.ServerImportItem{ItemID: item.LibraryImportItemID},
+		)
+		return
+	}
 	if !service.copyExecutionFiles(ctx, unit, root, &item) {
 		return
 	}
@@ -198,7 +234,19 @@ func (service *Service) processItem(ctx context.Context, unit work, root Root, i
 		service.closeItem(ctx, item.ID, "CANCELLED", "CANCELLED", false, "")
 		return
 	}
-	service.publishExecutionItem(ctx, unit, root, item)
+	service.prepareReviewItem(ctx, unit, root, item)
+}
+
+func (service *Service) updateExecutionPhase(ctx context.Context, importID, phase string) error {
+	now := service.now().UnixMilli()
+	if _, err := service.database.ExecContext(ctx, `
+UPDATE pegasus_imports
+SET phase=?,version=version+1,updated_at_ms=?
+WHERE id=? AND state='RUNNING' AND phase IS NOT ?
+`, phase, now, importID, phase); err != nil {
+		return fmt.Errorf("pegasusimport/update execution phase: %w", err)
+	}
+	return nil
 }
 
 func (service *Service) copyExecutionFiles(
@@ -265,12 +313,19 @@ func (service *Service) importCancelled(ctx context.Context, importID string) bo
 	return err != nil || aggregateState == "CANCEL_REQUESTED"
 }
 
-func (service *Service) publishExecutionItem(ctx context.Context, unit work, root Root, item executionItem) {
+func (service *Service) prepareReviewItem(ctx context.Context, unit work, root Root, item executionItem) {
 	files, err := service.executionSourceFiles(ctx, unit, root, item)
 	if err != nil {
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
 			service.itemFailure("SOURCE_ASSEMBLY", "ASSEMBLE_SOURCE_FILES", err, firstSourcePath(item)),
+		)
+		return
+	}
+	if err := service.updateExecutionPhase(ctx, unit.ImportID, "VALIDATING"); err != nil {
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)),
 		)
 		return
 	}
@@ -316,14 +371,14 @@ func (service *Service) publishExecutionItem(ctx context.Context, unit work, roo
 		service.closeItem(ctx, item.ID, "SKIPPED_EXISTING", "", false, imported.ExistingGameID)
 		return
 	}
-	if imported.State != "REVIEW_PENDING" || imported.ValidationStatus != "READY" {
-		service.closeItem(ctx, item.ID, "BLOCKED_VALIDATION", runtimeBlockCode(imported), false, "")
+	if imported.State != "REVIEW_PENDING" {
+		service.closeItem(ctx, item.ID, "BLOCKED_CONTENT", "PEGASUS_CONTENT_FORMAT_UNSUPPORTED", false, "")
 		return
 	}
-	service.publishValidatedLibraryItem(ctx, unit, item, result.Created.ImportJobID, imported)
+	service.prepareLibraryReview(ctx, unit, item, result.Created.ImportJobID, imported)
 }
 
-func (service *Service) publishValidatedLibraryItem(
+func (service *Service) prepareLibraryReview(
 	ctx context.Context,
 	unit work,
 	item executionItem,
@@ -342,34 +397,36 @@ func (service *Service) publishValidatedLibraryItem(
 		)
 		return
 	}
-	externalAssets := projectExternalAssets(item.Assets)
-	approved, err := service.importer.PublishServerItem(ctx, imported.ItemID, item.ID, metadata, externalAssets)
-	if err != nil {
+	if err := service.updateExecutionPhase(ctx, unit.ImportID, "PREPARING_REVIEWS"); err != nil {
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
 			withLibraryImportIdentity(
-				service.itemFailure("PUBLICATION", "PUBLISH_SERVER_ITEM", err, firstSourcePath(item)),
+				service.itemFailure("STORAGE", "UPDATE_IMPORT_PHASE", err, firstSourcePath(item)),
 				importJobID,
 				imported.ItemID,
 			),
 		)
 		return
 	}
-	service.finalizePublication(
-		ctx,
-		unit,
-		item,
-		approved.GameID,
-		importJobID,
-		imported.ItemID,
-	)
+	if _, err := service.importer.SeedServerReviewMetadata(ctx, imported.ItemID, metadata); err != nil {
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			withLibraryImportIdentity(
+				service.itemFailure("METADATA", "SEED_SERVER_REVIEW", err, firstSourcePath(item)),
+				importJobID,
+				imported.ItemID,
+			),
+		)
+		return
+	}
+	service.finalizeReviewHandoff(ctx, unit, item, importJobID, imported.ItemID)
 }
 
-func (service *Service) finalizePublication(
+func (service *Service) finalizeReviewHandoff(
 	ctx context.Context,
 	unit work,
 	item executionItem,
-	gameID, importJobID, importItemID string,
+	importJobID, importItemID string,
 ) {
 	now := service.now().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -377,7 +434,7 @@ func (service *Service) finalizePublication(
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
 			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "START_PUBLICATION_TRANSACTION", err, firstSourcePath(item)),
+				service.itemFailure("STORAGE", "START_REVIEW_HANDOFF_TRANSACTION", err, firstSourcePath(item)),
 				importJobID,
 				importItemID,
 			),
@@ -385,23 +442,24 @@ func (service *Service) finalizePublication(
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, `
+	result, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_items
-SET execution_state='PUBLISHED',published_game_id=?,error_code=NULL,retryable=0,
+SET execution_state='REVIEW_PENDING',error_code=NULL,retryable=0,
 completed_at_ms=?,updated_at_ms=?
-WHERE id=? AND execution_state='PUBLISHING'`, gameID, now, now, item.ID); err != nil {
+WHERE id=? AND execution_state='VALIDATING'`, now, now, item.ID)
+	if err != nil || rowsAffected(result) != 1 {
 		cleanup.Rollback(transaction)
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
 			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "MARK_ITEM_PUBLISHED", err, firstSourcePath(item)),
+				service.itemFailure("STORAGE", "MARK_REVIEW_PENDING", err, firstSourcePath(item)),
 				importJobID,
 				importItemID,
 			),
 		)
 		return
 	}
-	if err := service.refreshCountsAndEvent(ctx, transaction, unit, item.ID, "PUBLISHED", now); err != nil {
+	if err := service.refreshCountsAndEvent(ctx, transaction, unit, item.ID, "REVIEW_PENDING", now); err != nil {
 		cleanup.Rollback(transaction)
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
@@ -417,7 +475,7 @@ WHERE id=? AND execution_state='PUBLISHING'`, gameID, now, now, item.ID); err !=
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
 			withLibraryImportIdentity(
-				service.itemFailure("STORAGE", "COMMIT_PUBLICATION_TRANSACTION", err, firstSourcePath(item)),
+				service.itemFailure("STORAGE", "COMMIT_REVIEW_HANDOFF_TRANSACTION", err, firstSourcePath(item)),
 				importJobID,
 				importItemID,
 			),
@@ -575,27 +633,6 @@ func (service *Service) executionSourceFiles(
 		return nil, err
 	}
 	return append(files, companions...), nil
-}
-
-func projectExternalAssets(assets []executionAsset) []libraryimport.ExternalAsset {
-	result := make([]libraryimport.ExternalAsset, 0, len(assets))
-	for _, asset := range assets {
-		if asset.BlobID == "" {
-			continue
-		}
-		var width, height *int64
-		if asset.Width.Valid {
-			width = int64Pointer(asset.Width.Int64)
-		}
-		if asset.Height.Valid {
-			height = int64Pointer(asset.Height.Int64)
-		}
-		result = append(result, libraryimport.ExternalAsset{
-			Kind: asset.Kind, BlobID: asset.BlobID, MediaType: asset.MediaType,
-			WidthPX: width, HeightPX: height,
-		})
-	}
-	return result
 }
 
 func (service *Service) recordCopiedFile(
@@ -911,17 +948,12 @@ func (service *Service) attachLibraryResult(
 	imported libraryimport.ServerImportItem,
 ) error {
 	now := service.now().UnixMilli()
-	state := "VALIDATING"
-	if imported.ExistingGameID == "" && imported.State == "REVIEW_PENDING" && imported.ValidationStatus == "READY" {
-		state = "PUBLISHING"
-	}
-	_, err := service.database.ExecContext(
+	result, err := service.database.ExecContext(
 		ctx,
 		`UPDATE pegasus_import_items
-SET execution_state=?,content_kind=?,source_manifest_json=?,source_manifest_digest=?,
+SET execution_state='VALIDATING',content_kind=?,source_manifest_json=?,source_manifest_digest=?,
 library_import_job_id=?,library_import_item_id=?,updated_at_ms=?
 WHERE id=? AND execution_state='COPYING'`,
-		state,
 		imported.ContentKind,
 		imported.SourceManifestJSON,
 		imported.SourceManifestDigest,
@@ -932,6 +964,9 @@ WHERE id=? AND execution_state='COPYING'`,
 	)
 	if err != nil {
 		return fmt.Errorf("pegasusimport/attach library result: %w", err)
+	}
+	if rowsAffected(result) != 1 {
+		return fmt.Errorf("pegasusimport/attach library result: %w", errItemStateChanged)
 	}
 	return nil
 }
@@ -1044,9 +1079,17 @@ func (service *Service) refreshCountsAndEvent(
 ) error {
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_imports
-SET published_item_count=(
+SET review_pending_item_count=(
+  SELECT count(*) FROM pegasus_import_items
+  WHERE import_id=? AND execution_state='REVIEW_PENDING'
+),
+published_item_count=(
   SELECT count(*) FROM pegasus_import_items
   WHERE import_id=? AND execution_state='PUBLISHED'
+),
+review_discarded_item_count=(
+  SELECT count(*) FROM pegasus_import_items
+  WHERE import_id=? AND execution_state='REVIEW_DISCARDED'
 ),
 existing_item_count=(
   SELECT count(*) FROM pegasus_import_items
@@ -1074,8 +1117,8 @@ media_warning_count=(
   )
 ),
 version=version+1,updated_at_ms=?
-WHERE id=?`, unit.ImportID, unit.ImportID, unit.ImportID, unit.ImportID,
-		unit.ImportID, unit.ImportID, now, unit.ImportID); err != nil {
+WHERE id=?`, unit.ImportID, unit.ImportID, unit.ImportID, unit.ImportID, unit.ImportID,
+		unit.ImportID, unit.ImportID, unit.ImportID, now, unit.ImportID); err != nil {
 		return fmt.Errorf("pegasusimport/refresh aggregate counts: %w", err)
 	}
 	data, _ := json.Marshal(map[string]any{"schemaVersion": 1, "itemId": itemID, "outcome": outcome})
@@ -1154,7 +1197,7 @@ func (service *Service) finishImport(ctx context.Context, unit work) error {
 		return fmt.Errorf("pegasusimport/start finish transaction: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var blocked, failed, published, existing, cancelled int64
+	var blocked, failed, reviewPending, published, reviewDiscarded, existing, cancelled int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT count(*) FILTER(
   WHERE execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT','BLOCKED_VALIDATION')
@@ -1162,12 +1205,14 @@ SELECT count(*) FILTER(
 count(*) FILTER(
   WHERE execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
 ),
+count(*) FILTER(WHERE execution_state='REVIEW_PENDING'),
 count(*) FILTER(WHERE execution_state='PUBLISHED'),
+count(*) FILTER(WHERE execution_state='REVIEW_DISCARDED'),
 count(*) FILTER(WHERE execution_state='SKIPPED_EXISTING'),
 count(*) FILTER(WHERE execution_state='CANCELLED')
 FROM pegasus_import_items
 WHERE import_id=?`, unit.ImportID).
-		Scan(&blocked, &failed, &published, &existing, &cancelled); err != nil {
+		Scan(&blocked, &failed, &reviewPending, &published, &reviewDiscarded, &existing, &cancelled); err != nil {
 		return fmt.Errorf("pegasusimport/read final counts: %w", err)
 	}
 	state := "COMPLETED"
@@ -1176,10 +1221,11 @@ WHERE import_id=?`, unit.ImportID).
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_imports
-SET state=?,phase=NULL,published_item_count=?,existing_item_count=?,
+SET state=?,phase=NULL,review_pending_item_count=?,published_item_count=?,
+review_discarded_item_count=?,existing_item_count=?,
 blocked_item_count=?,failed_item_count=?,cancelled_item_count=?,retryable=?,
 completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=?`, state, published, existing, blocked, failed, cancelled,
+WHERE id=?`, state, reviewPending, published, reviewDiscarded, existing, blocked, failed, cancelled,
 		boolInt(failed > 0), now, now, unit.ImportID); err != nil {
 		return fmt.Errorf("pegasusimport/finish import: %w", err)
 	}
@@ -1192,12 +1238,14 @@ WHERE id=?`, now, now, unit.JobID); err != nil {
 	}
 	data, _ := json.Marshal(
 		map[string]any{
-			"schemaVersion": 1,
-			"state":         state,
-			"published":     published,
-			"existing":      existing,
-			"blocked":       blocked,
-			"failed":        failed,
+			"schemaVersion":   1,
+			"state":           state,
+			"reviewPending":   reviewPending,
+			"published":       published,
+			"reviewDiscarded": reviewDiscarded,
+			"existing":        existing,
+			"blocked":         blocked,
+			"failed":          failed,
 		},
 	)
 	if _, err := transaction.ExecContext(ctx, `

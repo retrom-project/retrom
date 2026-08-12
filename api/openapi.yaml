@@ -416,7 +416,7 @@ paths:
     get:
       operationId: getAdminReviews
       description: Pending review summaries including sourceTotalSizeBytes, sourceMd5, and a nullable coverUrl for compact queue previews.
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/ImportJobIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/BlockerCode' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit20' }]
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/ImportJobIDQuery' }, { $ref: '#/components/parameters/PegasusImportIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/BlockerCode' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit20' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/reviews/{importItemId}:
@@ -873,10 +873,12 @@ paths:
     parameters: [{ $ref: '#/components/parameters/AssetID' }]
     get:
       operationId: getAdminReviewAsset
+      parameters: [{ $ref: '#/components/parameters/ReviewSourceMediaKind' }]
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
     head:
       operationId: headAdminReviewAsset
+      parameters: [{ $ref: '#/components/parameters/ReviewSourceMediaKind' }]
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
   /runtime/emulatorjs/{configuredVersion}/{runtimePath}:
@@ -1863,7 +1865,7 @@ components:
     PegasusImportCounts:
       type: object
       additionalProperties: false
-      required: [metadata, invalidMetadata, collections, games, estimatedSourceBytes, mappedCollections, skippedCollections, processable, blocked, published, existing, failed, cancelled, mediaWarnings, covers, videos]
+      required: [metadata, invalidMetadata, collections, games, estimatedSourceBytes, mappedCollections, skippedCollections, processable, blocked, reviewPending, published, reviewDiscarded, existing, failed, cancelled, mediaWarnings, covers, videos]
       properties:
         metadata: { type: integer, format: int64, minimum: 0 }
         invalidMetadata: { type: integer, format: int64, minimum: 0 }
@@ -1874,7 +1876,9 @@ components:
         skippedCollections: { type: integer, format: int64, minimum: 0 }
         processable: { type: integer, format: int64, minimum: 0 }
         blocked: { type: integer, format: int64, minimum: 0 }
+        reviewPending: { type: integer, format: int64, minimum: 0 }
         published: { type: integer, format: int64, minimum: 0 }
+        reviewDiscarded: { type: integer, format: int64, minimum: 0 }
         existing: { type: integer, format: int64, minimum: 0 }
         failed: { type: integer, format: int64, minimum: 0 }
         cancelled: { type: integer, format: int64, minimum: 0 }
@@ -1894,7 +1898,7 @@ components:
           properties: { id: { type: string }, label: { type: string } }
         sourceRelativePath: { type: string, maxLength: 4096 }
         state: { type: string, enum: [SCANNING, AWAITING_MAPPING, QUEUED, RUNNING, PARTIAL_FAILURE, COMPLETED, CANCEL_REQUESTED, CANCELLED, FAILED, EXPIRED] }
-        phase: { type: string, nullable: true, enum: [DISCOVERING_METADATA, PARSING_METADATA, RESOLVING_SOURCES, COPYING_CONTENT, VALIDATING, PUBLISHING] }
+        phase: { type: string, nullable: true, enum: [DISCOVERING_METADATA, PARSING_METADATA, RESOLVING_SOURCES, COPYING_CONTENT, VALIDATING, PREPARING_REVIEWS, PUBLISHING] }
         scanJobId: { type: string, format: uuid }
         importJobId: { type: string, format: uuid, nullable: true }
         counts: { $ref: '#/components/schemas/PegasusImportCounts' }
@@ -1948,7 +1952,7 @@ components:
     PegasusItem:
       type: object
       additionalProperties: false
-      required: [id, title, collectionId, collectionName, targetPlatformInstanceId, targetPlatformInstanceName, metadataRelativePath, executionState, contentKind, media, warnings, discoveryCode, errorCode, failureDetails, runtimeCheck, retryable, publishedGameId, existingGameId, existingMatches, updatedAtMs]
+      required: [id, title, collectionId, collectionName, targetPlatformInstanceId, targetPlatformInstanceName, metadataRelativePath, executionState, contentKind, media, warnings, discoveryCode, errorCode, failureDetails, runtimeCheck, retryable, reviewItemId, publishedGameId, existingGameId, existingMatches, updatedAtMs]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -1957,7 +1961,7 @@ components:
         targetPlatformInstanceId: { type: string, format: uuid, nullable: true }
         targetPlatformInstanceName: { type: string, nullable: true }
         metadataRelativePath: { type: string, maxLength: 4096 }
-        executionState: { type: string, enum: [PENDING, COPYING, VALIDATING, PUBLISHING, PUBLISHED, SKIPPED_EXISTING, SKIPPED_MAPPING, BLOCKED_SOURCE, BLOCKED_CONTENT, BLOCKED_VALIDATION, SOURCE_CHANGED, READ_FAILED, COMMIT_FAILED, CANCELLED] }
+        executionState: { type: string, enum: [PENDING, COPYING, VALIDATING, PUBLISHING, REVIEW_PENDING, PUBLISHED, REVIEW_DISCARDED, SKIPPED_EXISTING, SKIPPED_MAPPING, BLOCKED_SOURCE, BLOCKED_CONTENT, BLOCKED_VALIDATION, SOURCE_CHANGED, READ_FAILED, COMMIT_FAILED, CANCELLED] }
         contentKind: { type: string, nullable: true, enum: [SINGLE_FILE, DOS_BUNDLE, MULTI_DISC_M3U_V1] }
         media:
           type: object
@@ -1972,6 +1976,7 @@ components:
         failureDetails: { nullable: true, allOf: [{ $ref: '#/components/schemas/PegasusItemFailureDetails' }] }
         runtimeCheck: { nullable: true, allOf: [{ $ref: '#/components/schemas/PegasusRuntimeCheck' }] }
         retryable: { type: boolean }
+        reviewItemId: { type: string, format: uuid, nullable: true }
         publishedGameId: { type: string, format: uuid, nullable: true }
         existingGameId: { type: string, format: uuid, nullable: true }
         existingMatches:
@@ -2896,6 +2901,7 @@ components:
     CoreIDQuery: { name: coreId, in: query, schema: { type: string } }
     CoreArtifactIDQuery: { name: coreArtifactId, in: query, schema: { type: string, format: uuid } }
     ImportJobIDQuery: { name: importJobId, in: query, schema: { type: string, format: uuid } }
+    PegasusImportIDQuery: { name: pegasusImportId, in: query, schema: { type: string, format: uuid } }
     Availability: { name: availability, in: query, schema: { type: string } }
     State: { name: state, in: query, schema: { type: string } }
     Status: { name: status, in: query, schema: { type: string } }
@@ -2907,6 +2913,7 @@ components:
     Outcome: { name: outcome, in: query, schema: { type: string } }
     MatchMethod: { name: matchMethod, in: query, schema: { type: string } }
     PegasusWarning: { name: warning, in: query, schema: { type: string } }
+    ReviewSourceMediaKind: { name: kind, in: query, schema: { type: string, enum: [COVER, VIDEO] } }
     PegasusCollectionIDQuery: { name: collectionId, in: query, schema: { type: string, format: uuid } }
     ServerImportKind: { name: kind, in: query, schema: { type: string, enum: [BIOS_DIRECTORY], default: BIOS_DIRECTORY } }
     ServerRelativePath: { name: path, in: query, schema: { type: string, maxLength: 4096, default: '' } }

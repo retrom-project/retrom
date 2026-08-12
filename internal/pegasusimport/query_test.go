@@ -41,7 +41,8 @@ CREATE TABLE pegasus_imports(
  id TEXT PRIMARY KEY,root_id TEXT,root_label_snapshot TEXT,source_relative_path TEXT,state TEXT,phase TEXT,
  scan_job_id TEXT,import_job_id TEXT,metadata_count INTEGER,invalid_metadata_count INTEGER,collection_count INTEGER,
  game_count INTEGER,estimated_source_bytes INTEGER,mapped_collection_count INTEGER,skipped_collection_count INTEGER,
- processable_item_count INTEGER,blocked_item_count INTEGER,published_item_count INTEGER,existing_item_count INTEGER,
+ processable_item_count INTEGER,blocked_item_count INTEGER,review_pending_item_count INTEGER,
+ published_item_count INTEGER,review_discarded_item_count INTEGER,existing_item_count INTEGER,
  failed_item_count INTEGER,cancelled_item_count INTEGER,media_warning_count INTEGER,discovered_cover_count INTEGER,
  discovered_video_count INTEGER,mapping_version INTEGER,version INTEGER,created_by_user_id TEXT,last_error_code TEXT,
  retryable INTEGER,created_at_ms INTEGER,updated_at_ms INTEGER,expires_at_ms INTEGER,completed_at_ms INTEGER
@@ -56,8 +57,17 @@ CREATE TABLE jobs(
 CREATE TABLE job_input_snapshots(job_id TEXT,execution_no INTEGER,input_json TEXT,input_digest TEXT,created_at_ms INTEGER);
 CREATE TABLE job_events(job_id TEXT,scope_type TEXT,scope_id TEXT,event_type TEXT,data_json TEXT,created_at_ms INTEGER);
 INSERT INTO users VALUES('user','Admin');
-INSERT INTO pegasus_imports VALUES(
- 'import','games','Games','Roms','PARTIAL_FAILURE',NULL,'scan','work',1,0,1,1,1,1,0,1,1,0,0,0,0,0,0,0,1,4,'user',NULL,0,1,2,9999999999999,2
+INSERT INTO pegasus_imports(
+ id,root_id,root_label_snapshot,source_relative_path,state,phase,scan_job_id,import_job_id,
+ metadata_count,invalid_metadata_count,collection_count,game_count,estimated_source_bytes,
+ mapped_collection_count,skipped_collection_count,processable_item_count,blocked_item_count,
+ review_pending_item_count,published_item_count,review_discarded_item_count,existing_item_count,
+ failed_item_count,cancelled_item_count,media_warning_count,discovered_cover_count,discovered_video_count,
+ mapping_version,version,created_by_user_id,last_error_code,retryable,created_at_ms,updated_at_ms,
+ expires_at_ms,completed_at_ms
+) VALUES(
+ 'import','games','Games','Roms','PARTIAL_FAILURE',NULL,'scan','work',1,0,1,1,1,1,0,1,1,
+ 0,0,0,0,0,0,0,0,0,1,4,'user',NULL,0,1,2,9999999999999,2
 );
 INSERT INTO pegasus_import_items VALUES(
  'item','import','BLOCKED_VALIDATION','PEGASUS_RUNTIME_BLOCKED',

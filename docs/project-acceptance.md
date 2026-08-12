@@ -683,12 +683,12 @@ make acceptance-case CASE=<case-id>
 - 通过标准：客户端只看到 root label/相对路径；逐段 no-follow 阻止越界且响应/日志不泄露完整宿主路径；权限和严格协议按 OpenAPI 拒绝；来源漂移终止计划且不会创建 Game、Revision 或 Blob 引用。
 - 证据：路径和 HTTP 聚焦测试输出、稳定错误码摘要。
 
-### ACC-PEG-003：映射、自动发布、重复、多盘与 Arcade
+### ACC-PEG-003：映射、审核交接、重复、多盘与 Arcade
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-003`。
-- 流程：扫描含两个 Collection 的固定目录，不设置默认映射并按 ETag 提交显式映射；导入普通单文件、M3U+CHD 和 Arcade ZIP+同目标 companion，并在 Arcade Collection 中放入超过 64 个无关 ZIP；再次导入相同来源与相同内容的另一来源。
-- 通过标准：未映射时不能开始；计划冻结游戏平台目录/核心版本；三种内容均复用既有验证和原子发布管线，M3U 顺序与 Arcade primary source 正确；Arcade 只装配冻结 DAT parent/romof 闭包中的显式 ZIP，无关 ZIP 不进入单 Item 来源且不会触发 64 文件上限；library validation 未通过时原样保留 status、compatibility code、Core 与封闭依赖证据，不得统一覆盖为 `PEGASUS_RUNTIME_BLOCKED`；library import 内部错误收口为可重试失败，并持久化 stage/operation/cause/受限技术详情/数量上限和可用关联 ID；重复结果列出全部既有匹配并不重复创建 Game/Revision/Blob，条目仍有稳定结果和链接。
+- 流程：扫描含两个 Collection 的固定目录，不设置默认映射并按 ETag 提交显式映射；准备普通单文件、M3U+CHD 和 Arcade ZIP+同目标 companion，并在 Arcade Collection 中放入超过 64 个无关 ZIP；在审核前查询 Game，再对 READY 条目逐项 Approve、对另一条目 Discard、对 blocker 条目修复依赖后 Approve；再次导入相同来源与相同内容的另一来源；在审核交接中点模拟进程退出并恢复。
+- 通过标准：未映射时不能开始；计划冻结游戏平台目录/核心版本；三种内容均复用既有验证与普通审核管线，M3U 顺序与 Arcade primary source 正确；Arcade 只装配冻结 DAT parent/romof 闭包中的显式 ZIP，无关 ZIP 不进入单 Item 来源且不会触发 64 文件上限。Worker 完成后 READY 与 blocker 都为普通 `REVIEW_PENDING`，Game 数仍为零且没有批量通过入口；Approve 才原子创建带 `SERVER_PEGASUS_IMPORT` 来源的 Game/Revision/媒体并同步两组计数，Discard 保留 ReviewEvent 并同步为 `REVIEW_DISCARDED`。交接中点恢复复用同一个内部 ImportItem，不重复草稿事件，未交接条目不可见且不可发布。library validation 未通过时原样保留 status、compatibility code、Core 与封闭依赖证据，不得统一覆盖为 `PEGASUS_RUNTIME_BLOCKED`；library import 内部错误收口为可重试失败，并持久化 stage/operation/cause/受限技术详情/数量上限和可用关联 ID；重复结果列出全部既有匹配，不生成审核事项或重复创建 Game/Revision/Blob，条目仍有稳定结果和链接。
 - 证据：Migration/服务集成测试、发布与重复摘要。
 
 ### ACC-PEG-004：取消、重试、恢复、GC 与 restore fence
@@ -696,15 +696,15 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-004`。
 - 流程：在扫描和导入阶段分别取消；注入 retryable 失败、过期 lease、deadline/attempt 耗尽和进程重启；备份恢复含 Pegasus 历史的数据库，并在恢复后运行单轮 Blob GC。
-- 通过标准：取消/失败不回滚已提交游戏；retry/recovery 不重复 revision；耗尽任务收敛到稳定 FAILED；BIOS/Pegasus 总内容读取并发不超过 2；restore 终止外部 source 工作且历史可读、不可恢复执行；受保护 Blob 不被 GC，终态可删除计划不会保留悬空保护边。
+- 通过标准：取消/失败不删除已生成审核事项或回滚已提交游戏；retry/recovery 不重复内部 ImportItem 或 revision；耗尽任务收敛到稳定 FAILED；BIOS/Pegasus 总内容读取并发不超过 2；restore 终止外部 source 工作且历史、已交接审核事项可读，不可恢复执行；受保护 Blob 不被 GC，终态可删除计划不会保留悬空保护边。
 - 证据：worker、maintenance、blob registry/GC 聚焦测试输出。
 
 ### ACC-PEG-005：三步 UI、详情恢复与桌面布局
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-005`。
-- 流程：在 1280×800、2560×1440、3840×2160 打开服务器导入页，只用键盘完成 root/目录选择与扫描；扫描后关闭 Drawer，直接进入该计划详情并从“继续映射”恢复全部 Collection 显式映射、确认和启动；另覆盖已完整保存映射后关闭并恢复第三步。在详情注入 BIOS 缺失、parent 缺失、内容 entry 缺失、merged set 不支持、结构化 library import 内部失败和历史通用 runtime blocker，展开诊断、触发原计划重检，再使用 URL 筛选、分页、取消/retry 并模拟 SSE 断线。
-- 通过标准：两张能力卡等权且共用 root 说明；760px Drawer 三步可达、无默认映射；`AWAITING_MAPPING` 详情能恢复指定计划且不重新选目录/扫描，未保存映射重新选择、已完整保存映射直接进入第三步；详情显示真实阶段、计数、映射、media READY/MISSING/WARNING 与已有/新游戏链接；阻断行展示具体原因，展开后可见稳定 code、Core/machine、缺失条目、依赖和处理建议；内部失败展开后可见 stage、operation、cause code、Pegasus Item ID、相对路径、观察数量/上限、可用内部关联 ID 与受限技术详情，不得只显示 `PEGASUS_LIBRARY_IMPORT_FAILED`；历史 `PEGASUS_RUNTIME_BLOCKED` 可在原任务重检且重检后不再保留通用原因；断线不清空内容；三个 viewport 无页面级横向溢出，焦点、Escape、reduced-motion 和状态文本符合 UI 契约。
+- 流程：在 1280×800、2560×1440、3840×2160 打开服务器导入页，只用键盘完成 root/目录选择与扫描；扫描后关闭 Drawer，直接进入该计划详情并从“继续映射”恢复全部 Collection 显式映射、确认审核计划和启动；另覆盖已完整保存映射后关闭并恢复第三步。任务准备完成后从批次行动区进入限定审核队列，打开 READY 与 blocker 各一项并返回；检查来源 COVER/VIDEO 和无批量入口。在详情注入 BIOS 缺失、parent 缺失、内容 entry 缺失、merged set 不支持、结构化 library import 内部失败和历史通用 runtime blocker，展开诊断、触发原计划重检，再使用 URL 筛选、分页、取消/retry 并模拟 SSE 断线。
+- 通过标准：两张能力卡等权且共用 root 说明，Pegasus 卡明确不会自动发布并显示待审核总数；760px Drawer 三步可达、无默认映射，第三步明确“全部进入待审核”；`AWAITING_MAPPING` 详情能恢复指定计划且不重新选目录/扫描，未保存映射重新选择、已完整保存映射直接进入第三步。详情以扫描范围/待审核/已发布·丢弃·已有/阻断·失败分组，显示 media READY/MISSING/WARNING、逐项审核入口与已有/新游戏链接；批次入口保留 `pegasusImportId`，清除其他筛选不丢批次，Pegasus metadata 不计作“未找到信息”；审核媒体中 VIDEO 等比居中且不自动播放，页面无任何批量通过按钮。阻断行展示具体原因，展开后可见稳定 code、Core/machine、缺失条目、依赖和处理建议；内部失败展开后可见 stage、operation、cause code、Pegasus Item ID、相对路径、观察数量/上限、可用内部关联 ID 与受限技术详情，不得只显示 `PEGASUS_LIBRARY_IMPORT_FAILED`；历史 `PEGASUS_RUNTIME_BLOCKED` 可在原任务重检且重检后不再保留通用原因；断线不清空内容；三个 viewport 无页面级横向溢出，焦点、Escape、reduced-motion 和状态文本符合 UI 契约。
 - 证据：Playwright DOM/网络/布局断言和三尺寸当前截图。
 
 ### ACC-MEDIA-001：VIDEO 上传、服务与详情播放策略

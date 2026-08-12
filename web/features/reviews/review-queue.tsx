@@ -23,6 +23,9 @@ export type ReviewQueueItem = {
   sourceTotalSizeBytes: number;
   sourceMd5: string | null;
   coverUrl: string | null;
+  sourceKind?: "STANDARD" | "PEGASUS";
+  sourceLabel?: string | null;
+  pegasusImportId?: string | null;
   updatedAtMs: number;
 };
 
@@ -31,6 +34,10 @@ function queryString(values: Record<string, string>) {
 }
 
 const validationLabels: Record<string, string> = { READY: "可以发布", BLOCKED: "缺少依赖", DEPENDENCY_MISSING: "缺少依赖", INCOMPATIBLE: "不兼容", NEEDS_VALIDATION: "等待检查" };
+
+function hasReviewMetadata(item: ReviewQueueItem) {
+  return item.candidateCount > 0 || item.sourceKind === "PEGASUS";
+}
 
 function formatBytes(value: number) {
   if (value < 1024) return `${value} B`;
@@ -54,12 +61,12 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
   const counts = useMemo(() => ({
     ready: items.filter((item) => item.validationStatus === "READY" && item.blockerCodes.length === 0).length,
     abnormal: items.filter((item) => item.validationStatus !== "READY" || item.blockerCodes.length > 0).length,
-    missing: items.filter((item) => item.candidateCount === 0).length,
+    missing: items.filter((item) => !hasReviewMetadata(item)).length,
   }), [items]);
   const visibleItems = useMemo(() => items.filter((item) => {
     if (summaryFilter === "READY") return item.validationStatus === "READY" && item.blockerCodes.length === 0;
     if (summaryFilter === "ABNORMAL") return item.validationStatus !== "READY" || item.blockerCodes.length > 0;
-    if (summaryFilter === "MISSING") return item.candidateCount === 0;
+    if (summaryFilter === "MISSING") return !hasReviewMetadata(item);
     return true;
   }), [items, summaryFilter]);
 
@@ -135,10 +142,10 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
       <button type="button" className={summaryFilter === "MISSING" ? "is-active" : ""} onClick={() => setSummaryFilter("MISSING")}>未找到信息 {counts.missing}</button>
     </div>
     <div className="review-workflow-list">{visibleItems.map((item) => <article className="review-workflow-row" key={item.itemId} data-review-item={item.itemId}>
-      <div className="review-workflow-game"><div className="review-workflow-thumb">{item.coverUrl ? <Image src={item.coverUrl} alt={`${item.draftTitle} 封面缩略图`} width={56} height={56} unoptimized /> : <span role="img" aria-label={`${item.draftTitle} 暂无封面`}>{item.draftTitle.slice(0, 2).toUpperCase() || "R"}</span>}</div><div><h3>{item.draftTitle}</h3><p title={item.sourceDisplayName}><span>{item.sourceDisplayName}</span> · <span>{formatBytes(item.sourceTotalSizeBytes)}</span> · <code title={item.sourceMd5 ? `MD5 ${item.sourceMd5}` : "MD5 暂不可用"}>{item.sourceMd5 ? `MD5 ${item.sourceMd5.slice(0, 4)}…` : "MD5 暂不可用"}</code></p></div></div>
+      <div className="review-workflow-game"><div className="review-workflow-thumb">{item.coverUrl ? <Image src={item.coverUrl} alt={`${item.draftTitle} 封面缩略图`} width={56} height={56} unoptimized /> : <span role="img" aria-label={`${item.draftTitle} 暂无封面`}>{item.draftTitle.slice(0, 2).toUpperCase() || "R"}</span>}</div><div><h3>{item.draftTitle}{item.sourceKind === "PEGASUS" ? <span className="review-source-tag">Pegasus{item.sourceLabel ? ` · ${item.sourceLabel}` : ""}</span> : null}</h3><p title={item.sourceDisplayName}><span>{item.sourceDisplayName}</span> · <span>{formatBytes(item.sourceTotalSizeBytes)}</span> · <code title={item.sourceMd5 ? `MD5 ${item.sourceMd5}` : "MD5 暂不可用"}>{item.sourceMd5 ? `MD5 ${item.sourceMd5.slice(0, 4)}…` : "MD5 暂不可用"}</code></p></div></div>
       <div className="review-workflow-directory">{item.platformInstance.name}</div>
       <StatusBadge tone={statusTone(item.blockerCodes[0] ?? item.validationStatus)}>{validationLabels[item.validationStatus] ?? item.validationStatus}{item.blockerCodes.length ? " · 需要处理" : ""}</StatusBadge>
-      <div className="review-workflow-candidate"><strong>{item.candidateCount ? "已找到游戏信息" : "未找到游戏信息"}</strong><small>{item.candidateCount ? `${item.candidateCount} 个候选` : "需要手动填写"}</small></div>
+      <div className="review-workflow-candidate"><strong>{item.sourceKind === "PEGASUS" ? "已读取 Pegasus 信息" : item.candidateCount ? "已找到游戏信息" : "未找到游戏信息"}</strong><small>{item.sourceKind === "PEGASUS" ? "等待管理员核对" : item.candidateCount ? `${item.candidateCount} 个候选` : "需要手动填写"}</small></div>
       <div className="review-workflow-wait"><strong>{formatTime(item.updatedAtMs)}</strong><small>更新时间</small></div>
       <Link aria-label={item.validationStatus === "READY" && !item.blockerCodes.length ? "审核条目" : "处理条目"} className={item.validationStatus === "READY" && !item.blockerCodes.length ? "button" : "button secondary"} onClick={remember} href={`/admin/reviews/${item.itemId}?returnTo=${encodeURIComponent(listURL)}`}>{item.validationStatus === "READY" && !item.blockerCodes.length ? "审核" : "处理"}</Link>
     </article>)}</div>

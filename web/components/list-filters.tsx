@@ -10,7 +10,7 @@ export type FilterDefinition = { dependsOn?: string; label: string; name: string
 export type TextFilterDefinition = { label: string; name: string; placeholder: string };
 export type FixedFilterDefinition = { name: string; value: string };
 
-export function ListFilters({ action, placeholder, values, filters = [], textFilters = [], fixedFilters = [], resultCount }: { action: string; placeholder: string; values: Record<string, string>; filters?: FilterDefinition[]; textFilters?: TextFilterDefinition[]; fixedFilters?: FixedFilterDefinition[]; resultCount?: number }) {
+export function ListFilters({ action, placeholder, values, filters = [], textFilters = [], fixedFilters = [], preserveFixedFiltersOnReset = false, resultCount }: { action: string; placeholder: string; values: Record<string, string>; filters?: FilterDefinition[]; textFilters?: TextFilterDefinition[]; fixedFilters?: FixedFilterDefinition[]; preserveFixedFiltersOnReset?: boolean; resultCount?: number }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const selectionKey = JSON.stringify(filters.map((filter) => [filter.name, values[filter.name] ?? ""]));
@@ -50,7 +50,12 @@ export function ListFilters({ action, placeholder, values, filters = [], textFil
     });
   }
 
-  const hasActiveFilters = Object.values(values).some((value) => Boolean(value));
+  const fixedFilterNames = new Set(fixedFilters.map((filter) => filter.name));
+  const hasActiveFilters = Object.entries(values).some(([name, value]) => !fixedFilterNames.has(name) && Boolean(value));
+  const fixedParameters = new URLSearchParams();
+  for (const filter of fixedFilters) fixedParameters.set(filter.name, filter.value);
+  const fixedQuery = fixedParameters.toString();
+  const resetHref = preserveFixedFiltersOnReset && fixedQuery ? `${action}?${fixedQuery}` : action;
 
   return <form className="filter-bar" action={action} method="get" onSubmit={search} aria-busy={pending}>
     {fixedFilters.map((filter) => <input key={filter.name} type="hidden" name={filter.name} value={filter.value} />)}
@@ -66,7 +71,7 @@ export function ListFilters({ action, placeholder, values, filters = [], textFil
     </div>
     <div className="filter-summary">
       <span className="filter-hint">{hasActiveFilters ? "筛选条件已应用" : "未设置筛选条件"}</span>
-      <div className="filter-result">{resultCount === undefined ? null : <span>当前显示 <strong>{resultCount}</strong> 项</span>}{hasActiveFilters ? <Link className="row-action filter-reset" href={action}>清除全部</Link> : null}</div>
+      <div className="filter-result">{resultCount === undefined ? null : <span>当前显示 <strong>{resultCount}</strong> 项</span>}{hasActiveFilters ? <Link className="row-action filter-reset" href={resetHref}>清除全部</Link> : null}</div>
     </div>
   </form>;
 }

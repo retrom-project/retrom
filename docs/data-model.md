@@ -52,9 +52,9 @@ User 状态变更、Credential/Session/Link 撤销、待用 Launch 终止与安�
 | --- | --- |
 | `blobs` | `id UUIDv7 PK`、唯一小写 `sha256`、`size_bytes`、实际 bytes 的非空小写 `md5/sha1/crc32`、检测后的 `media_type`、`created_at_ms`；物理路径只由 SHA-256 推导。 |
 | `games` | `id PK`、非空 `platform_instance_id`、`status PUBLISHED/DELETED`、非空 `current_metadata_revision_id`、非空 `current_content_revision_id`、非空 `search_text`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；不得另存 `platform_id` 或 `default_core_id`。search_text 与 current metadata 必须同事务更新；改变目录默认 core 不改变 current content。 |
-| `game_metadata_revisions` | `id PK`、`game_id`、非空 title、非空但可为空串的 description/developer/publisher/genre、可空 players/release_year、`source_kind IMPORT_REVIEW/ADMIN_EDIT/RESCRAPE_APPLY`、可空 `source_ref_id`、`created_at_ms`；创建后 append-only。IMPORT_REVIEW 的 ref 必须是发布该 Game 的 ImportItem；RESCRAPE_APPLY 必须是被应用且属于该 Game/current ContentRevision 有效 run 的 ScrapeCandidate；ADMIN_EDIT 的 ref 必须为 NULL，精确修改另由同事务 AuditEvent 关联 Game/revision ID。 |
+| `game_metadata_revisions` | `id PK`、`game_id`、非空 title、非空但可为空串的 description/developer/publisher/genre、可空 players/release_year、`source_kind IMPORT_REVIEW/ADMIN_EDIT/RESCRAPE_APPLY/SERVER_PEGASUS_IMPORT`、可空 `source_ref_id`、`created_at_ms`；创建后 append-only。IMPORT_REVIEW 的 ref 必须是发布该 Game 的 ImportItem；SERVER_PEGASUS_IMPORT 的 ref 必须是已交接到该 ImportItem、正处于审核发布边界的 Pegasus Item；RESCRAPE_APPLY 必须是被应用且属于该 Game/current ContentRevision 有效 run 的 ScrapeCandidate；ADMIN_EDIT 的 ref 必须为 NULL，精确修改另由同事务 AuditEvent 关联 Game/revision ID。 |
 | `game_assets` | `id PK`、`game_id`、`metadata_revision_id`、`blob_id`、`kind COVER/BACKGROUND/SCREENSHOT/VIDEO`、`ordinal`、`width_px/height_px/media_type`、`created_at_ms`；`UNIQUE(metadata_revision_id, kind, ordinal)`。图片尺寸为正且 MIME 限 `image/png|image/jpeg|image/webp`；VIDEO 只允许 ordinal 0、`video/mp4|video/webm` 且尺寸为 null。每个 MetadataRevision 拥有完整媒体清单，未改媒体时复制旧 Blob 引用为新 Asset；URL 使用不可变 asset ID。 |
-| `game_content_revisions` | `id PK`、`game_id`、`source_kind IMPORT_REVIEW/ADMIN_REPLACE`、非空 `source_ref_id`、`source_manifest_json`、`source_manifest_digest`、`created_at_ms`；append-only。IMPORT_REVIEW ref 指向被 Approve 的 ImportItem，ADMIN_REPLACE ref 指向 `GAME_FILE_REVISION` Job。它只表示一次已接受的用户内容版本，不包含 core、DAT 或派生启动包；同一 bytes 再次替换仍可形成新 revision，CAS Blob 仍去重。 |
+| `game_content_revisions` | `id PK`、`game_id`、`source_kind IMPORT_REVIEW/ADMIN_REPLACE/SERVER_PEGASUS_IMPORT`、非空 `source_ref_id`、`source_manifest_json`、`source_manifest_digest`、`created_at_ms`；append-only。IMPORT_REVIEW ref 指向被 Approve 的 ImportItem，SERVER_PEGASUS_IMPORT ref 指向与该 ImportItem 一一关联的 Pegasus Item，ADMIN_REPLACE ref 指向 `GAME_FILE_REVISION` Job。它只表示一次已接受的用户内容版本，不包含 core、DAT 或派生启动包；同一 bytes 再次替换仍可形成新 revision，CAS Blob 仍去重。 |
 | `game_content_files` | `(game_content_revision_id, role, logical_name) PK`、`blob_id`、可空 `source_archive_blob_id/source_archive_entry_ordinal`、`sort_order`；两个 source archive 字段同时空或同时非空，并复合引用对应 ArchiveEntry，其 `materialized_blob_id` 必须等于 `blob_id`。role 仅 `CONTENT/DOS_SOURCE/COMPANION`。逻辑名是安全规范相对路径；主机/掌机平台只允许一个 CONTENT，DOS 使用 DOS_SOURCE，Arcade CONTENT 是本机 ROMset ZIP，审核确认与其同属 bundle 的 parent/BIOS/base 源 archive 以 COMPANION 保留。 |
 | `game_variants` | `id PK`、`game_id`、`core_id`、可空 `current_revision_id`、`version`、`created_at_ms/updated_at_ms`；`UNIQUE(game_id, core_id)`，表示稳定逻辑槽，不承载可变文件。只有从未产生 READY 结果、仅保存失败验证证据的备用 core 槽允许 current 为空；发布所用默认 core 槽必须非空。 |
 | `game_variant_revisions` | `id PK`、`game_variant_id`、非空 `game_content_revision_id`、`core_artifact_id`、可空 `dat_version_id`、`validation_input_digest`、可空 `emulator_game_id INTEGER UNIQUE`、`status READY/BLOCKED/INCOMPATIBLE`、`compatibility_code`、`dependency_snapshot_json`、可空 `default_dos_entry`、`created_at_ms`；`UNIQUE(game_variant_id, validation_input_digest)`，完成后 append-only。content revision 必须属于同一 Game。只有 READY revision 可被 current 指向且必须有正 `emulator_game_id`；非 READY 必须没有该 ID，且永不成为 current。旧 READY 是否已被替代由 `game_variants.current_revision_id` 推导，不回写状态。 |
@@ -306,7 +306,7 @@ Game `DELETED`、PlatformInstance 停用或 User 停用不删除三张表中的�
 
 `pegasus_import_collections` 以 `(import_id,metadata_relative_path,segment_ordinal)` 唯一，冻结展示投影；`IMPORT` 映射必须同时冻结 PlatformInstance/version、Platform、默认 Core、CoreArtifact/version 和可空 active DAT，`SKIP` 不得携带目标。`pegasus_import_items` 以确定性 source key 唯一，冻结标题、允许的 metadata、声明文件引用和 discovery 结论，并关联后续内部 ImportItem、发布 Game 或所有 existing match。`pegasus_import_item_files/assets` 保存 no-follow source facts、CAS 复制结果和媒体 warning；它们的 Blob 边全部登记为 protective reference。
 
-`jobs.kind` 增加 `SERVER_PEGASUS_SCAN|SERVER_PEGASUS_IMPORT` 并强制 `scope_type=PEGASUS_IMPORT`。scan 与 import 是不同 Job；retry 在原 import Job 增加 execution/input snapshot，不复活旧事件。发布来源扩展为 `game_metadata_revisions.source_kind` 与 `game_content_revisions.source_kind` 的 `SERVER_PEGASUS_IMPORT`，且 source_ref 必须指向处于发布边界的 Pegasus Item。
+`jobs.kind` 增加 `SERVER_PEGASUS_SCAN|SERVER_PEGASUS_IMPORT` 并强制 `scope_type=PEGASUS_IMPORT`。scan 与 import 是不同 Job；retry 在原 import Job 增加 execution/input snapshot，不复活旧事件。发布来源扩展为 `game_metadata_revisions.source_kind` 与 `game_content_revisions.source_kind` 的 `SERVER_PEGASUS_IMPORT`，且 source_ref 必须指向处于审核发布边界的 Pegasus Item。
 
 `game_assets.kind` 增加 ordinal 0 的 `VIDEO`：只允许 `video/mp4|video/webm` 且 `width_px/height_px` 必须为 null；图片仍必须具有正尺寸和受限图片 MIME。每个 MetadataRevision 仍拥有完整媒体清单，管理替换/移除 VIDEO 或修改文字时复制未修改的 Asset 引用，历史 Asset 永不原地修改。Migration 028 重建受 enum 影响的表与触发器，026/027→028 与 fresh 001→028 必须同构并通过 foreign-key/integrity 检查。
 
@@ -316,6 +316,16 @@ Game `DELETED`、PlatformInstance 停用或 User 停用不删除三张表中的�
 
 029 对 028 已产生且可确定为 Arcade companion 文件数超过 64 的 `PEGASUS_LIBRARY_IMPORT_FAILED` 进行一次性回填，记录实际组装数量和内部上限。其他无法从持久状态证明根因的历史失败不得猜测或伪造技术详情。
 
-## 14. 统一验收入口
+## 14. Migration 030：Pegasus 审核交接
+
+`pegasus_imports` 增加 `review_pending_item_count/review_discarded_item_count`，phase 增加 `PREPARING_REVIEWS`；总量约束把待审核、已发布和审核丢弃计入互斥结果。`pegasus_import_items.execution_state` 增加 `REVIEW_PENDING/REVIEW_DISCARDED`，`library_import_item_id` 建立非空唯一索引，使一个普通 ImportItem 至多归属一个 Pegasus Item。`REVIEW_PENDING` 必须引用同一内部 ImportJob 中仍为 `REVIEW_PENDING` 的 ImportItem；`REVIEW_DISCARDED` 必须对应内部 Item 的 `DISCARDED`。
+
+Pegasus Worker 在复制、普通 content pipeline 与 CoreValidation 后只冻结 metadata、COVER/VIDEO 和内部 ImportItem 关联，再把 Pegasus Item 交接为 `REVIEW_PENDING`；此时普通审核队列才允许展示。交接未完成的关联 Item 不得出现在队列/详情，也不得被 Approve/Discard。崩溃恢复复用既有 `library_import_job_id/library_import_item_id` 并幂等补齐 metadata，不得创建第二个内部 ImportItem 或重复系统草稿事件。
+
+管理员 Approve 在普通审核发布事务内创建 `SERVER_PEGASUS_IMPORT` metadata/content revision、复制未被人工封面覆盖的来源 COVER 与来源 VIDEO，并把 Pegasus Item 原子转为 `PUBLISHED`；Discard 在普通审核事务内原子转为 `REVIEW_DISCARDED`。两种决策都同步重算 Pegasus 聚合计数。没有审核决策时不得创建 Game；一期没有批量决策状态或表。
+
+Migration 030 受控重建两个 Pegasus 主表和受影响 trigger，保留 029 的状态、诊断、映射、媒体与历史发布行，并把新增计数初始化为零。029→030 与 fresh 001→030 必须同构并通过 foreign-key/integrity 检查。
+
+## 15. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

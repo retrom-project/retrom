@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -55,6 +56,11 @@ type ServerImportResult struct {
 type ServerMetadata struct {
 	Title, Description, Developer, Publisher, Genre string
 	Players, ReleaseYear                            *int
+}
+
+type serverReviewOrigin struct {
+	SourceRefID string
+	Assets      []ExternalAsset
 }
 
 // CreateServerSource adopts already verified CAS blobs into the established
@@ -292,6 +298,9 @@ WHERE draft.import_item_id=? AND item.state='REVIEW_PENDING'
 `, itemID).Scan(&before, &version); err != nil {
 		return 0, ErrInvalid
 	}
+	if before == string(encoded) {
+		return version, nil
+	}
 	now := service.now().UnixMilli()
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE review_drafts SET metadata_json=?,version=version+1,updated_at_ms=?
@@ -347,19 +356,14 @@ func validServerMetadata(metadata ServerMetadata) bool {
 	return metadata.ReleaseYear == nil || *metadata.ReleaseYear >= 1000 && *metadata.ReleaseYear <= 9999
 }
 
-func (service *Service) PublishServerItem(
+// SeedServerReviewMetadata applies the trusted, frozen Pegasus text fields to
+// the ordinary review draft. Publication remains an explicit review decision.
+func (service *Service) SeedServerReviewMetadata(
 	ctx context.Context,
-	importItemID, sourceRefID string,
+	importItemID string,
 	metadata ServerMetadata,
-	assets []ExternalAsset,
-) (Approved, error) {
-	version, err := service.patchServerMetadata(ctx, importItemID, metadata)
-	if err != nil {
-		return Approved{}, err
-	}
-	return service.ApproveWithDecision(ctx, importItemID, version, ApprovalDecision{
-		SourceKind: "SERVER_PEGASUS_IMPORT", SourceRefID: sourceRefID, ExternalAssets: assets,
-	})
+) (int64, error) {
+	return service.patchServerMetadata(ctx, importItemID, metadata)
 }
 
 func validExternalAssets(assets []ExternalAsset) bool {
@@ -390,6 +394,115 @@ func validExternalAsset(asset ExternalAsset) bool {
 	default:
 		return false
 	}
+}
+
+func loadServerReviewOrigin(
+	ctx context.Context,
+	transaction *sql.Tx,
+	importItemID string,
+	coverOverridden bool,
+) (serverReviewOrigin, bool, error) {
+	var origin serverReviewOrigin
+	if err := transaction.QueryRowContext(ctx, `
+SELECT id
+FROM pegasus_import_items
+WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
+`, importItemID).Scan(&origin.SourceRefID); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return serverReviewOrigin{}, false, nil
+		}
+		return serverReviewOrigin{}, false, fmt.Errorf("libraryimport/server review origin: %w", err)
+	}
+	rows, err := transaction.QueryContext(ctx, `
+SELECT kind,blob_id,media_type,width_px,height_px
+FROM pegasus_import_item_assets
+WHERE item_id=? AND state='COPIED' AND blob_id IS NOT NULL AND media_type IS NOT NULL
+ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END
+`, origin.SourceRefID)
+	if err != nil {
+		return serverReviewOrigin{}, false, fmt.Errorf("libraryimport/server review assets: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	for rows.Next() {
+		var asset ExternalAsset
+		var width, height sql.NullInt64
+		if err := rows.Scan(&asset.Kind, &asset.BlobID, &asset.MediaType, &width, &height); err != nil {
+			return serverReviewOrigin{}, false, fmt.Errorf("libraryimport/server review assets: %w", err)
+		}
+		if asset.Kind == "COVER" && coverOverridden {
+			continue
+		}
+		if width.Valid {
+			asset.WidthPX = &width.Int64
+		}
+		if height.Valid {
+			asset.HeightPX = &height.Int64
+		}
+		if !validExternalAsset(asset) {
+			return serverReviewOrigin{}, false, ErrInvalid
+		}
+		origin.Assets = append(origin.Assets, asset)
+	}
+	if err := rows.Err(); err != nil {
+		return serverReviewOrigin{}, false, fmt.Errorf("libraryimport/server review assets: %w", err)
+	}
+	return origin, true, nil
+}
+
+func transitionServerReview(
+	ctx context.Context,
+	transaction *sql.Tx,
+	importItemID, state string,
+	gameID any,
+	now int64,
+) error {
+	if state != "PUBLISHED" && state != "REVIEW_DISCARDED" {
+		return ErrInvalid
+	}
+	result, err := transaction.ExecContext(ctx, `
+UPDATE pegasus_import_items
+SET execution_state=?,published_game_id=?,updated_at_ms=?
+WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
+`, state, gameID, now, importItemID)
+	if err != nil {
+		return fmt.Errorf("libraryimport/server review transition: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("libraryimport/server review rows affected: %w", err)
+	}
+	if affected == 0 {
+		var linked int
+		if err := transaction.QueryRowContext(ctx, `
+SELECT count(*) FROM pegasus_import_items WHERE library_import_item_id=?
+`, importItemID).Scan(&linked); err != nil {
+			return fmt.Errorf("libraryimport/server review link: %w", err)
+		}
+		if linked > 0 {
+			return ErrInvalid
+		}
+		return nil
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE pegasus_imports
+SET review_pending_item_count=(
+  SELECT count(*) FROM pegasus_import_items item
+  WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_PENDING'
+),
+published_item_count=(
+  SELECT count(*) FROM pegasus_import_items item
+  WHERE item.import_id=pegasus_imports.id AND item.execution_state='PUBLISHED'
+),
+review_discarded_item_count=(
+  SELECT count(*) FROM pegasus_import_items item
+  WHERE item.import_id=pegasus_imports.id AND item.execution_state='REVIEW_DISCARDED'
+),
+version=version+1,updated_at_ms=?
+WHERE id=(SELECT import_id FROM pegasus_import_items WHERE library_import_item_id=? LIMIT 1)
+`, now, importItemID); err != nil {
+		return fmt.Errorf("libraryimport/server review aggregate: %w", err)
+	}
+	return nil
 }
 
 func (service *Service) copyExternalAssets(

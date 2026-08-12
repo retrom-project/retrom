@@ -491,7 +491,7 @@ var exactQueryAllowlists = map[string][]string{
 	},
 	"GET /api/v1/admin/imports": {"q", "state", "platformInstanceId", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/reviews": {
-		"q", "importJobId", "platformInstanceId", "blockerCode", "sort", "cursor", "limit",
+		"q", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode", "sort", "cursor", "limit",
 	},
 	"GET /api/v1/admin/review-history": {
 		"q", "decision", "platformInstanceId", "fromAtMs", "toAtMs", "sort", "cursor", "limit",
@@ -531,6 +531,10 @@ func queryParameterNames(request *http.Request) []string {
 	if (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
 		strings.HasPrefix(path, "/runtime/emulatorjs/") {
 		return []string{"v"}
+	}
+	if (request.Method == http.MethodGet || request.Method == http.MethodHead) &&
+		strings.HasPrefix(path, "/api/v1/admin/review-assets/") {
+		return []string{"kind"}
 	}
 	if names := exactQueryAllowlists[request.Method+" "+path]; names != nil {
 		return names
@@ -3489,9 +3493,17 @@ COALESCE(d.cover_uploaded_asset_id,(SELECT asset.id
  asset.ordinal,
  asset.id
  LIMIT 1))
+,pegasus.id,pegasus.import_id,pegasus_collection.name,
+EXISTS(
+ SELECT 1 FROM pegasus_import_item_assets pegasus_asset
+ WHERE pegasus_asset.item_id=pegasus.id AND pegasus_asset.kind='COVER'
+ AND pegasus_asset.state='COPIED' AND pegasus_asset.blob_id IS NOT NULL
+)
 FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
+	LEFT JOIN pegasus_import_items pegasus ON pegasus.library_import_item_id=i.id
+	LEFT JOIN pegasus_import_collections pegasus_collection ON pegasus_collection.id=pegasus.collection_id
 	LEFT
 JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,
 (SELECT candidate.id
@@ -3502,12 +3514,14 @@ AND candidate.target_platform_instance_id=d.target_platform_instance_id
 ORDER BY candidate.created_at_ms DESC,
 candidate.id DESC LIMIT 1))
 WHERE i.state='REVIEW_PENDING'
+AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
 `
 	arguments := []any{}
 	values := request.URL.Query()
 	allowed := map[string]struct{}{
 		"q":                  {},
 		"importJobId":        {},
+		"pegasusImportId":    {},
 		"platformInstanceId": {},
 		"blockerCode":        {},
 		"sort":               {},
@@ -3523,6 +3537,10 @@ WHERE i.state='REVIEW_PENDING'
 	if importJobID := values.Get("importJobId"); importJobID != "" {
 		query += " AND i.import_job_id=?"
 		arguments = append(arguments, importJobID)
+	}
+	if pegasusImportID := values.Get("pegasusImportId"); pegasusImportID != "" {
+		query += " AND pegasus.import_id=?"
+		arguments = append(arguments, pegasusImportID)
 	}
 	normalizedQ := strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " "))
 	if len([]rune(normalizedQ)) > 200 {
@@ -3555,6 +3573,7 @@ WHERE i.state='REVIEW_PENDING'
 			"principalId":        principal.UserID,
 			"q":                  normalizedQ,
 			"importJobId":        values.Get("importJobId"),
+			"pegasusImportId":    values.Get("pegasusImportId"),
 			"platformInstanceId": values.Get("platformInstanceId"),
 			"blockerCode":        values.Get("blockerCode"),
 		},
@@ -3603,6 +3622,8 @@ WHERE i.state='REVIEW_PENDING'
 		var itemID, importJobID, title, sourceName, platformID, platformName string
 		var reviewVersion, updatedAtMS, candidateCount, sourceTotalSizeBytes int64
 		var validationStatus, compatibilityCode, sourceMD5, coverAssetID sql.NullString
+		var pegasusItemID, pegasusImportID, pegasusCollectionName sql.NullString
+		var hasPegasusCover int
 		if err := rows.Scan(
 			&itemID,
 			&reviewVersion,
@@ -3618,6 +3639,10 @@ WHERE i.state='REVIEW_PENDING'
 			&sourceTotalSizeBytes,
 			&sourceMD5,
 			&coverAssetID,
+			&pegasusItemID,
+			&pegasusImportID,
+			&pegasusCollectionName,
+			&hasPegasusCover,
 		); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -3629,6 +3654,14 @@ WHERE i.state='REVIEW_PENDING'
 		status := validationStatus.String
 		if status == "" {
 			status = "NEEDS_VALIDATION"
+		}
+		coverURL := reviewAssetURL(coverAssetID)
+		if coverURL == nil && pegasusItemID.Valid && hasPegasusCover == 1 {
+			coverURL = "/api/v1/admin/review-assets/" + pegasusItemID.String + "?kind=COVER"
+		}
+		sourceKind := "STANDARD"
+		if pegasusImportID.Valid {
+			sourceKind = "PEGASUS"
 		}
 		items = append(
 			items,
@@ -3645,7 +3678,10 @@ WHERE i.state='REVIEW_PENDING'
 				"candidateCount":       candidateCount,
 				"sourceTotalSizeBytes": sourceTotalSizeBytes,
 				"sourceMd5":            nullableString(sourceMD5),
-				"coverUrl":             reviewAssetURL(coverAssetID),
+				"coverUrl":             coverURL,
+				"sourceKind":           sourceKind,
+				"sourceLabel":          nullableString(pegasusCollectionName),
+				"pegasusImportId":      nullableString(pegasusImportID),
 				"updatedAtMs":          updatedAtMS,
 			},
 		)
@@ -3733,6 +3769,10 @@ candidate.id DESC LIMIT 1
 ))
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
+AND NOT EXISTS(
+  SELECT 1 FROM pegasus_import_items pegasus
+  WHERE pegasus.library_import_item_id=i.id AND pegasus.execution_state<>'REVIEW_PENDING'
+)
 `, request.PathValue("importItemId")).
 		Scan(
 			&itemID,
@@ -3785,6 +3825,14 @@ AND i.state='REVIEW_PENDING'
 		server.databaseError(writer, request, err)
 		return
 	}
+	sourceMedia, sourceMediaFound, err := server.reviewServerSourceMedia(request.Context(), itemID)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if !sourceMediaFound {
+		sourceMedia = nil
+	}
 	sourceFiles, err := server.reviewSourceFiles(request, sourceSnapshotID)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -3834,6 +3882,7 @@ AND i.state='REVIEW_PENDING'
 		"selectedValidationGeneration": validationProjection.selectedGeneration,
 		"canApprove":                   validationProjection.canApprove,
 		"uploadedAssets":               uploadedAssets, "sourceFiles": sourceFiles,
+		"sourceMedia":    sourceMedia,
 		"duplicateGames": duplicateGames, "contentIdentityDigest": contentIdentityDigest,
 		"arcadeDependencies":  arcadeDependencies,
 		"multiDisc":           multiDisc,
@@ -3846,6 +3895,63 @@ AND i.state='REVIEW_PENDING'
 			"screenshotCandidateAssetIds": screenshotIDs,
 		}, "dosEntries": dosEntries,
 	})
+}
+
+func (server *Server) reviewServerSourceMedia(ctx context.Context, itemID string) (any, bool, error) {
+	var sourceRefID, importID, collectionName string
+	var hasCover, hasVideo int
+	var coverWidth, coverHeight sql.NullInt64
+	err := server.database.QueryRowContext(ctx, `
+SELECT pegasus.id,pegasus.import_id,COALESCE(collection.name,''),
+EXISTS(
+ SELECT 1 FROM pegasus_import_item_assets asset
+ WHERE asset.item_id=pegasus.id AND asset.kind='COVER' AND asset.state='COPIED'
+AND asset.blob_id IS NOT NULL
+),
+(
+ SELECT asset.width_px FROM pegasus_import_item_assets asset
+ WHERE asset.item_id=pegasus.id AND asset.kind='COVER' AND asset.state='COPIED'
+),
+(
+ SELECT asset.height_px FROM pegasus_import_item_assets asset
+ WHERE asset.item_id=pegasus.id AND asset.kind='COVER' AND asset.state='COPIED'
+),
+EXISTS(
+ SELECT 1 FROM pegasus_import_item_assets asset
+ WHERE asset.item_id=pegasus.id AND asset.kind='VIDEO' AND asset.state='COPIED'
+ AND asset.blob_id IS NOT NULL
+)
+FROM pegasus_import_items pegasus
+LEFT JOIN pegasus_import_collections collection ON collection.id=pegasus.collection_id
+WHERE pegasus.library_import_item_id=?
+`, itemID).Scan(
+		&sourceRefID, &importID, &collectionName, &hasCover, &coverWidth, &coverHeight, &hasVideo,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return nil, false, nil
+	}
+	if err != nil {
+		return nil, false, fmt.Errorf("review source media: %w", err)
+	}
+	sourceLabel := any(nil)
+	if collectionName != "" {
+		sourceLabel = collectionName
+	}
+	result := map[string]any{
+		"sourceKind": "PEGASUS", "sourceRefId": sourceRefID, "pegasusImportId": importID,
+		"sourceLabel": sourceLabel, "coverUrl": nil, "coverWidthPx": nil, "coverHeightPx": nil,
+		"videoUrl": nil,
+	}
+	baseURL := "/api/v1/admin/review-assets/" + sourceRefID
+	if hasCover == 1 {
+		result["coverUrl"] = baseURL + "?kind=COVER"
+		result["coverWidthPx"] = nullableInt64(coverWidth)
+		result["coverHeightPx"] = nullableInt64(coverHeight)
+	}
+	if hasVideo == 1 {
+		result["videoUrl"] = baseURL + "?kind=VIDEO"
+	}
+	return result, true, nil
 }
 
 type reviewValidationInput struct {
@@ -4774,6 +4880,28 @@ SELECT digest,media_type FROM (
   ))
 ) LIMIT 1
 `, request.PathValue("assetId"), request.PathValue("assetId")).Scan(&digest, &mediaType)
+	if errors.Is(err, sql.ErrNoRows) {
+		kind := request.URL.Query().Get("kind")
+		if kind == "" {
+			kind = "COVER"
+		}
+		if kind != "COVER" && kind != "VIDEO" {
+			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "审核来源媒体类型无效", map[string]any{})
+			return
+		}
+		err = server.database.QueryRowContext(request.Context(), `
+SELECT blob.sha256,asset.media_type
+FROM pegasus_import_item_assets asset
+JOIN blobs blob ON blob.id=asset.blob_id
+JOIN pegasus_import_items pegasus ON pegasus.id=asset.item_id
+JOIN import_items item ON item.id=pegasus.library_import_item_id
+WHERE pegasus.id=? AND asset.kind=? AND asset.state='COPIED'
+AND (item.state='REVIEW_PENDING' OR EXISTS(
+  SELECT 1 FROM review_events event
+  WHERE event.import_item_id=item.id AND event.event_type IN ('APPROVED','DISCARDED')
+))
+`, request.PathValue("assetId"), kind).Scan(&digest, &mediaType)
+	}
 	if err != nil {
 		writeError(writer, request, http.StatusNotFound, "REVIEW_ASSET_NOT_FOUND", "候选媒体不存在", map[string]any{})
 		return

@@ -106,6 +106,16 @@ export type ReviewWorkspace = {
   validation: { id: string; status: string; current: boolean; compatibilityCode: string } | null;
   candidates: ReviewCandidate[];
   uploadedAssets?: UploadedReviewAsset[];
+  sourceMedia?: {
+    sourceKind: "PEGASUS";
+    sourceRefId: string;
+    pegasusImportId: string;
+    sourceLabel: string | null;
+    coverUrl: string | null;
+    coverWidthPx: number | null;
+    coverHeightPx: number | null;
+    videoUrl: string | null;
+  } | null;
   scrapeRuns?: ReviewScrapeRun[];
   selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
@@ -543,9 +553,15 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     });
   }
 
-  const selectedCover = previewAsset(candidates, uploadedAssets, cover);
-  const currentCompareCover = comparison ? previewAsset(candidates, uploadedAssets, comparison.currentCover) : null;
-  const nextCompareCover = comparison ? previewAsset(candidates, uploadedAssets, comparison.nextCover) : null;
+  const sourceCover = review.sourceMedia?.coverUrl ? {
+    id: review.sourceMedia.sourceRefId,
+    url: review.sourceMedia.coverUrl,
+    width: review.sourceMedia.coverWidthPx ?? 600,
+    height: review.sourceMedia.coverHeightPx ?? 800,
+  } : null;
+  const selectedCover = previewAsset(candidates, uploadedAssets, cover) ?? sourceCover;
+  const currentCompareCover = comparison ? previewAsset(candidates, uploadedAssets, comparison.currentCover) ?? sourceCover : null;
+  const nextCompareCover = comparison ? previewAsset(candidates, uploadedAssets, comparison.nextCover) ?? sourceCover : null;
   const saveLabel = saveState === "saving" ? "正在实时保存…" : saveState === "pending" ? "等待保存…" : saveState === "error" ? "实时保存失败" : "已实时保存";
 
   const parentAttachmentActive = Boolean(arcadeDependencies?.activeAttachment?.state === "QUEUED" || arcadeDependencies?.activeAttachment?.state === "RUNNING");
@@ -554,7 +570,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
 
   return <div className="review-workflow-detail">
     <div className="review-workflow-top">
-      <section className="review-workflow-summary-card"><StatusPill tone="info">来源：{sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><div><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{publishReady ? "运行检查通过" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : "未找到游戏信息"}</StatusPill></div></section>
+      <section className="review-workflow-summary-card"><StatusPill tone="info">来源：{review.sourceMedia ? `Pegasus · ${review.sourceMedia.sourceLabel ?? sourceDisplayName}` : sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><div><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{publishReady ? "运行检查通过" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId || review.sourceMedia ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : review.sourceMedia ? "已读取 Pegasus 信息" : "未找到游戏信息"}</StatusPill></div></section>
       <aside className="review-workflow-decision"><h2>审核决定</h2><p>{publishReady ? "运行检查已经通过，可以发布。" : "先按左侧提示处理问题，再重新运行检查。"}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div>{!publishReady ? <button type="button" className="button secondary review-revalidate" aria-busy={busy === "重新运行检查"} disabled={busy !== null || saveState === "error"} onClick={() => void revalidate()}>{busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button> : null}<div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
     </div>
     {notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{notice}</FeedbackBanner></div> : null}
@@ -575,7 +591,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
               <label className="field review-workflow-field-third">发行年份<input type="number" min={1950} value={form.releaseYear} onChange={(event) => updateField("releaseYear", event.target.value)} /></label>
               {review.dosEntries.length ? <label className="field full">DOS 默认程序<select value={defaultDosEntry ?? ""} onChange={(event) => setDefaultDosEntry(event.target.value || null)}><option value="">打开 DOSBox 程序菜单</option>{review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}
             </div>
-            <aside className="review-cover-panel review-workflow-cover-side"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCover(file, "current"); event.currentTarget.value = ""; }} /></label>{cover.candidateId || cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => setCover({ candidateId: null, uploadedId: null })}>移除封面</button> : null}</aside>
+            <aside className="review-cover-panel review-workflow-cover-side"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCover(file, "current"); event.currentTarget.value = ""; }} /></label>{cover.candidateId || cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => setCover({ candidateId: null, uploadedId: null })}>{sourceCover ? "恢复 Pegasus 封面" : "移除封面"}</button> : null}{review.sourceMedia?.videoUrl ? <div className="review-source-video"><span className="field-label">Pegasus 视频预览</span><video controls preload="metadata" src={review.sourceMedia.videoUrl}>浏览器无法播放这段视频。</video><small>通过审核后会随游戏一并发布。</small></div> : null}</aside>
           </div>
         </div>
       </section>
