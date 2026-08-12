@@ -4,18 +4,14 @@ function wait(delayMs) {
   return new Promise((resolve) => setTimeout(resolve, delayMs));
 }
 
-function equalBytes(left, right) {
-  if (left.byteLength !== right.byteLength) return false;
-  for (let index = 0; index < left.byteLength; index += 1) {
-    if (left[index] !== right[index]) return false;
-  }
-  return true;
-}
-
 export class EmulatorBridge {
   #frameWindow;
+  #internalStepping = false;
   #lastApplied = Array.from({ length: PLAYER_COUNT }, () => Array.from({ length: CONTROL_COUNT }, () => 0));
+  #lastObservedFrame = 0;
   #playing = true;
+  #replay = null;
+  #replayMetrics = { runs: 0, frames: 0, mutedRuns: 0, totalMs: 0 };
   #side;
 
   constructor(frameWindow, side) {
@@ -82,7 +78,9 @@ export class EmulatorBridge {
         if (this.#frameWindow.__RETROM_POST_MAIN_LOOP__ === wrapper) {
           this.#frameWindow.__RETROM_POST_MAIN_LOOP__ = original;
         }
-        if (frame === targetFrame) resolve(frame);
+        if (frame === targetFrame) {
+          void this.waitForPause(frame).then(() => resolve(frame), reject);
+        }
         else reject(new Error(`${this.#side} skipped alignment frame ${targetFrame}`));
       };
       this.#frameWindow.__RETROM_POST_MAIN_LOOP__ = wrapper;
@@ -98,21 +96,101 @@ export class EmulatorBridge {
   }
 
   async loadStateAndWait(state, timeoutMs = 5000) {
-    const expected = new Uint8Array(state);
-    this.loadState(expected);
-    const deadline = performance.now() + timeoutMs;
-    let consecutiveMatches = 0;
-    // EmulatorJS 4.2.3 queues load_state work and returns immediately. Let at
-    // least one paused main-loop tick drain that queue before observing it.
-    await wait(34);
-    while (performance.now() < deadline) {
-      consecutiveMatches = equalBytes(this.captureState(), expected)
-        ? consecutiveMatches + 1
-        : 0;
-      if (consecutiveMatches >= 2) return;
-      await wait(17);
+    const load = this.#manager().loadStateAndWait;
+    if (typeof load !== "function") throw new Error(`${this.#side} waitable state-load patch is unavailable`);
+    await this.waitForPause();
+    const ownsSuppression = this.#replay === null;
+    if (ownsSuppression) this.beginReplay();
+    this.#internalStepping = true;
+    try {
+      const result = await load.call(this.#manager(), new Uint8Array(state), timeoutMs);
+      // A savestate may rewind the native RetroArch frame counter. Reset the
+      // observer epoch as part of the same completion boundary; otherwise the
+      // frame hook suppresses post-load frames until the old counter is passed.
+      this.#lastObservedFrame = this.getFrame();
+      return result;
+    } finally {
+      this.#internalStepping = false;
+      if (ownsSuppression) this.endReplay(0);
     }
-    throw new Error(`${this.#side} savestate load did not settle`);
+  }
+
+  async runExactFrame({ suppressHook = false } = {}) {
+    const run = this.#manager().runNetplayFrame;
+    if (typeof run !== "function") throw new Error(`${this.#side} exact frame-step patch is unavailable`);
+    const previousStepping = this.#internalStepping;
+    if (suppressHook) this.#internalStepping = true;
+    try {
+      return await run.call(this.#manager());
+    } finally {
+      this.#internalStepping = previousStepping;
+    }
+  }
+
+  async waitForPause(expectedFrame = this.getFrame(), timeoutMs = 1000) {
+    const deadline = performance.now() + timeoutMs;
+    let previous = expectedFrame;
+    let stableSamples = 0;
+    while (performance.now() < deadline) {
+      await wait(12);
+      const current = this.getFrame();
+      if (current === previous) stableSamples += 1;
+      else {
+        previous = current;
+        stableSamples = 0;
+        this.#manager().toggleMainLoop(0);
+      }
+      if (stableSamples >= 3) return current;
+    }
+    throw new Error(`${this.#side} main loop did not settle in the paused state`);
+  }
+
+  beginReplay() {
+    if (this.#replay) throw new Error(`${this.#side} replay is already active`);
+    this.pause();
+    const emulator = this.#emulator();
+    const startedAt = performance.now();
+    const volume = Number.isFinite(emulator.volume) ? emulator.volume : 0;
+    const muted = emulator.muted === true;
+    const sourceCanvas = this.#frameWindow.document.querySelector("#game canvas");
+    let overlay = null;
+    if (sourceCanvas) {
+      overlay = this.#frameWindow.document.createElement("canvas");
+      overlay.className = "netplay-replay-frame";
+      overlay.width = sourceCanvas.width;
+      overlay.height = sourceCanvas.height;
+      try {
+        overlay.getContext("2d").drawImage(sourceCanvas, 0, 0);
+        this.#frameWindow.document.body.appendChild(overlay);
+      } catch {
+        overlay = null;
+      }
+    }
+    if (typeof emulator.setVolume === "function") emulator.setVolume(0);
+    this.#manager().toggleFastForward(1);
+    this.#frameWindow.document.documentElement.dataset.netplayReplay = "true";
+    this.#replay = { muted, overlay, startedAt, volume };
+    this.#replayMetrics.runs += 1;
+    this.#replayMetrics.mutedRuns += 1;
+  }
+
+  endReplay(frames) {
+    if (!this.#replay) return;
+    const emulator = this.#emulator();
+    this.#manager().toggleFastForward(0);
+    this.#frameWindow.document.documentElement.removeAttribute("data-netplay-replay");
+    this.#replay.overlay?.remove();
+    emulator.muted = this.#replay.muted;
+    if (typeof emulator.setVolume === "function") {
+      emulator.setVolume(this.#replay.muted ? 0 : this.#replay.volume);
+    }
+    this.#replayMetrics.frames += frames;
+    this.#replayMetrics.totalMs += performance.now() - this.#replay.startedAt;
+    this.#replay = null;
+  }
+
+  getReplayMetrics() {
+    return { ...this.#replayMetrics, active: this.#replay !== null };
   }
 
   pause() {
@@ -137,16 +215,20 @@ export class EmulatorBridge {
     }
   }
 
-  applyInputs(players) {
+  applyInputs(players, { force = false } = {}) {
     const rawInput = this.#rawInput();
     for (let player = 0; player < PLAYER_COUNT; player += 1) {
       for (let control = 0; control < CONTROL_COUNT; control += 1) {
         const value = players[player][control];
-        if (value === this.#lastApplied[player][control]) continue;
+        if (!force && value === this.#lastApplied[player][control]) continue;
         rawInput(player, control, value);
         this.#lastApplied[player][control] = value;
       }
     }
+  }
+
+  injectUntrackedInput(player, control, value) {
+    this.#rawInput()(player, control, value);
   }
 
   simulateLocalInput(control, value) {
@@ -169,9 +251,13 @@ export class EmulatorBridge {
 
   installFrameHook(onFrameEnd) {
     const original = this.#frameWindow.__RETROM_POST_MAIN_LOOP__;
+    this.#lastObservedFrame = this.getFrame();
     const wrapper = function retromNetplayPostMainLoop() {
       if (original) original();
-      onFrameEnd(thisBridge.getFrame());
+      const frame = thisBridge.getFrame();
+      if (frame <= thisBridge.#lastObservedFrame) return;
+      thisBridge.#lastObservedFrame = frame;
+      if (!thisBridge.#internalStepping) onFrameEnd(frame);
     };
     const thisBridge = this;
     this.#frameWindow.__RETROM_POST_MAIN_LOOP__ = wrapper;

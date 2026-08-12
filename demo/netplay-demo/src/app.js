@@ -66,7 +66,9 @@ function setSessionState(state, report) {
     idle: "Idle",
     loading: "Loading cores",
     synchronizing: "Seeding state",
-    running: "In sync",
+    running: "Rollback sync",
+    resynchronizing: "Resynchronizing",
+    reconnecting: "Reconnecting",
     paused: "Paused",
     complete: "Proof passed",
     failed: "Desync / error",
@@ -74,12 +76,12 @@ function setSessionState(state, report) {
   };
   elements.state.dataset.sessionState = state;
   elements.stateLabel.textContent = labels[state] ?? state;
-  elements.start.disabled = ["loading", "synchronizing", "running", "paused"].includes(state);
+  elements.start.disabled = ["loading", "synchronizing", "running", "paused", "resynchronizing", "reconnecting"].includes(state);
   elements.pause.disabled = !["running", "paused"].includes(state);
   elements.hash.disabled = state !== "running";
   elements.pause.textContent = state === "paused" ? "Resume" : "Pause";
   for (const control of [elements.core, elements.transport, elements.inputDelay, elements.target]) {
-    control.disabled = ["loading", "synchronizing", "running", "paused"].includes(state);
+    control.disabled = ["loading", "synchronizing", "running", "paused", "resynchronizing", "reconnecting"].includes(state);
   }
   if (state === "complete") appendLog(`PASS · ${report.targetFrame} frames · ${report.desyncs} desync`);
   if (state === "failed") appendLog(`FAIL · ${report.error ?? "unknown error"}`);
@@ -90,7 +92,7 @@ function renderReport(report) {
   latestReport = report;
   const clients = report.clients ?? [];
   clients.forEach((metrics, slot) => {
-    for (const name of ["emulatorFrame", "netFrame", "bufferDepth", "stallCount"]) {
+    for (const name of ["emulatorFrame", "netFrame", "predictionDepth", "rollbackCount"]) {
       const output = document.querySelector(`[data-metric="${slot}:${name}"]`);
       if (output) output.textContent = String(metrics[name] ?? "—");
     }
@@ -102,10 +104,11 @@ function renderReport(report) {
     }
     const badge = document.querySelector(`[data-sync="${slot}"]`);
     if (badge) {
-      const stalled = metrics.blockers?.includes("waiting-input");
+      const stalled = metrics.blockers?.includes("prediction-window");
       const failed = metrics.failed || report.state === "failed";
+      const replaying = metrics.replay?.active;
       badge.dataset.phase = failed ? "failed" : stalled ? "stalled" : "sync";
-      badge.textContent = failed ? "Failed" : stalled ? `Stall @ ${metrics.waitingFrame}` : "Synchronized";
+      badge.textContent = failed ? "Failed" : replaying ? "Replaying" : stalled ? `Bound @ ${metrics.waitingFrame}` : "Predicting";
     }
   });
   if (clients.length === 2) {
@@ -114,7 +117,7 @@ function renderReport(report) {
   elements.initialHash.textContent = report.initialStateDigest
     ? `${report.initialStateDigest.slice(0, 12)}… / ${report.initialStateBytes} B`
     : "—";
-  elements.checkpoints.textContent = `${report.hashCheckpoints?.length ?? 0} / ${report.desyncs ?? 0} desync`;
+  elements.checkpoints.textContent = `${report.hashCheckpoints?.length ?? 0} / ${report.resyncs ?? 0} resync`;
   elements.transportLabel.textContent = report.transport === "websocket"
     ? "WebSocket authoritative relay"
     : "In-page canonical relay";
@@ -160,7 +163,7 @@ async function start() {
   try {
     getGameConfig(elements.core.value);
     const bridges = await mountPlayers(elements.core.value);
-    appendLog("Both real cores started; pausing at frame boundaries.");
+    appendLog("Both real cores started; proving waitable state transfer.");
     const transport = elements.transport.value;
     const relay = transport === "websocket"
       ? new WebSocketRelay({ latencyMs: Number.parseInt(elements.latency.value, 10) })
@@ -177,7 +180,9 @@ async function start() {
       onState: ({ state, report }) => {
         setSessionState(state, report);
         if (state === "synchronizing") appendLog("Aligning deterministic initial state at a frame boundary…");
-        if (state === "running") appendLog("Canonical frame 1 ready; lockstep resumed.");
+        if (state === "running") appendLog("Bounded prediction and rollback are active.");
+        if (state === "resynchronizing") appendLog("Hash mismatch detected; transferring authority savestate…");
+        if (state === "reconnecting") appendLog("Transport lease held; waiting for WebSocket resume…");
       }
     });
     await session.start();
@@ -227,9 +232,18 @@ for (const button of document.querySelectorAll("[data-input]")) {
 
 window.__NETPLAY_DEMO__ = {
   start,
-  getStatus: () => structuredClone(window.__NETPLAY_DEMO_STATUS__),
+  getStatus: () => {
+    const status = structuredClone(window.__NETPLAY_DEMO_STATUS__);
+    if (session) {
+      status.report = session.getReport();
+      status.phase = status.report.state;
+    }
+    return status;
+  },
   press: (slot, control, durationMs) => session?.press(slot, control, durationMs),
   hashNow: () => session?.hashNow(),
+  injectDesync: (slot, control, durationMs) => session?.injectDesync(slot, control, durationMs),
+  dropConnection: (slot) => session?.dropConnection(slot),
   cleanup
 };
 setGlobalStatus();

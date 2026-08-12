@@ -35,7 +35,9 @@ test("publishes one immutable canonical frame after both slots contribute", asyn
     nonNeutralFrames: 1,
     inputTransitions: 1,
     pendingFrames: 0,
-    retainedCanonicalFrames: 1
+    retainedCanonicalFrames: 1,
+    stateTransfers: 0,
+    reconnects: 0
   });
   await relay.sendContribution({ slot: 0, frame: 1, values: pressed });
   await assert.rejects(
@@ -44,6 +46,30 @@ test("publishes one immutable canonical frame after both slots contribute", asyn
   );
 
   disconnect.forEach((close) => close());
+  relay.close();
+});
+
+test("transfers a bounded savestate to the other logical client", async () => {
+  const relay = new LocalRelay();
+  const received = [];
+  [0, 1].forEach((slot) => relay.connect(slot, {
+    onFrame: () => {},
+    onHashResult: () => {},
+    onState: async (event) => received.push({ slot, event })
+  }));
+  const state = new Uint8Array([4, 2, 3]);
+  await relay.sendState({
+    slot: 0,
+    frame: 0,
+    state,
+    digest: "d".repeat(64),
+    coreDigest: "e".repeat(64)
+  });
+  assert.equal(received.length, 1);
+  assert.equal(received[0].slot, 1);
+  assert.deepEqual(received[0].event.state, state);
+  assert.equal(received[0].event.coreDigest, "e".repeat(64));
+  assert.equal(relay.getMetrics().stateTransfers, 1);
   relay.close();
 });
 

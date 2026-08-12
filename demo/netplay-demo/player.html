@@ -14,6 +14,11 @@
       background: #05070bcc; font: 600 11px/1.2 ui-monospace, monospace;
     }
     html[data-phase="started"] [data-player-status] { opacity: 0; pointer-events: none; }
+    html[data-netplay-replay="true"] #game canvas { visibility: hidden !important; }
+    .netplay-replay-frame {
+      position: absolute; inset: 0; z-index: 1; width: 100%; height: 100%; object-fit: contain;
+      background: #05070b; pointer-events: none;
+    }
     .ejs_parent { min-height: 100% !important; }
   </style>
 </head>

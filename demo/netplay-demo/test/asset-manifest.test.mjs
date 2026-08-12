@@ -16,5 +16,15 @@ test("asset manifest has unique relative sources and targets", async () => {
     targets.add(asset.target);
     kinds.add(asset.kind);
   }
-  assert.deepEqual([...kinds].sort(), ["rom", "runtime"]);
+  assert.deepEqual([...kinds].sort(), ["core", "license", "rom", "runtime"]);
+  assert.deepEqual(Object.keys(manifest.packages).sort(), [
+    "@emulatorjs/core-fbneo",
+    "@emulatorjs/core-fceumm",
+    "@emulatorjs/emulatorjs"
+  ]);
+  for (const [packageName, descriptor] of Object.entries(manifest.packages)) {
+    assert.equal(descriptor.version, "4.2.3", packageName);
+    assert.match(descriptor.integrity, /^sha512-[A-Za-z0-9+/]+=*$/);
+    assert.match(descriptor.tarball, /^https:\/\/registry\.npmjs\.org\//);
+  }
 });

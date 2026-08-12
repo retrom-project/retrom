@@ -2,15 +2,13 @@ export const RUNTIME_VERSION = "4.2.3";
 
 export const gameCatalog = Object.freeze({
   nes: Object.freeze({
-    id: "nes-smash-ping-pong",
-    label: "NES/FDS · Smash Ping Pong",
+    id: "nes-f1-race",
+    label: "NES · F-1 Race",
     core: "fceumm",
     system: "nes",
     gameId: 4101,
-    gameUrl: "./assets/roms/nes-smash-ping-pong.zip",
-    biosUrl: "./assets/roms/disksys.rom",
-    gameSha256: "7e036a8df5bb73b71d0af8a4bca2904bf154e1e3b95faed70d526c27bd21440f",
-    biosSha256: "99c18490ed9002d9c6d999b9d8d15be5c051bdfa7cc7e73318053c9a994b0178",
+    gameUrl: "./assets/roms/nes-f1-race.zip",
+    gameSha256: "aa9a4e5959851440c507aaa551a66eab6fe8623179a8086cb2ec8606cb830393",
     coreSha256: "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493"
   }),
   fbneo: Object.freeze({

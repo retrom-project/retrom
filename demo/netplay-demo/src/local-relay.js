@@ -16,6 +16,7 @@ export class LocalRelay {
   #canonical = new Map();
   #clients = new Map();
   #hashes = new Map();
+  #hashResults = new Map();
   #latencyMs;
   #maxFutureFrames;
   #pending = new Map();
@@ -26,6 +27,7 @@ export class LocalRelay {
   #lastContributionBySlot = Array.from({ length: PLAYER_COUNT }, () => 0);
   #lastPlayers = null;
   #nonNeutralFrames = 0;
+  #stateTransfers = 0;
 
   constructor({ latencyMs = 0, maxFutureFrames = 120 } = {}) {
     this.setLatency(latencyMs);
@@ -57,6 +59,8 @@ export class LocalRelay {
     return this.#latencyMs;
   }
 
+  async initialize() {}
+
   async sendContribution({ slot, frame, values }) {
     assertSlot(slot);
     assertFrame(frame);
@@ -69,6 +73,38 @@ export class LocalRelay {
     assertFrame(frame);
     if (!/^[0-9a-f]{64}$/.test(digest)) throw new TypeError("Invalid SHA-256 digest");
     await this.#schedule(() => this.#acceptHash(slot, frame, digest));
+  }
+
+  async replay(slot, { afterFrame = 0, afterHashFrame = 0 } = {}) {
+    assertSlot(slot);
+    const handlers = this.#clients.get(slot);
+    if (!handlers) throw new Error(`Slot ${slot} is not connected`);
+    for (const [frame, canonical] of this.#canonical) {
+      if (frame > afterFrame) await this.#schedule(() => handlers.onFrame(canonical));
+    }
+    for (const [frame, result] of this.#hashResults) {
+      if (frame > afterHashFrame) await this.#schedule(() => handlers.onHashResult(result));
+    }
+  }
+
+  async sendState({ slot, frame, state, digest, coreDigest }) {
+    assertSlot(slot);
+    if (!Number.isSafeInteger(frame) || frame < 0) throw new TypeError("Invalid state frame");
+    if (!(state instanceof Uint8Array) || state.byteLength === 0 || state.byteLength > 1024 * 1024) {
+      throw new TypeError("Savestate must be a non-empty Uint8Array of at most 1 MiB");
+    }
+    if (!/^[0-9a-f]{64}$/.test(digest)) throw new TypeError("Invalid savestate digest");
+    if (!/^[0-9a-f]{64}$/.test(coreDigest)) throw new TypeError("Invalid core state digest");
+    const receiver = this.#clients.get(1 - slot);
+    if (typeof receiver?.onState !== "function") throw new Error("Savestate receiver is unavailable");
+    const result = await this.#schedule(() => receiver.onState({
+      frame,
+      state: new Uint8Array(state),
+      digest,
+      coreDigest
+    }));
+    this.#stateTransfers += 1;
+    return result;
   }
 
   disconnect(slot) {
@@ -85,6 +121,7 @@ export class LocalRelay {
     this.#clients.clear();
     this.#pending.clear();
     this.#hashes.clear();
+    this.#hashResults.clear();
   }
 
   getMetrics() {
@@ -93,7 +130,9 @@ export class LocalRelay {
       nonNeutralFrames: this.#nonNeutralFrames,
       inputTransitions: this.#inputTransitions,
       pendingFrames: this.#pending.size,
-      retainedCanonicalFrames: this.#canonical.size
+      retainedCanonicalFrames: this.#canonical.size,
+      stateTransfers: this.#stateTransfers,
+      reconnects: 0
     };
   }
 
@@ -162,6 +201,12 @@ export class LocalRelay {
 
   #acceptHash(slot, frame, digest) {
     if (!this.#clients.has(slot)) throw new Error(`Slot ${slot} is not connected`);
+    const published = this.#hashResults.get(frame);
+    if (published) {
+      if (published.digests[slot] !== digest) throw new Error(`Published hash ${frame} is immutable`);
+      void this.#schedule(() => this.#clients.get(slot)?.onHashResult(published));
+      return;
+    }
     const hashes = this.#hashes.get(frame) ?? Array.from({ length: PLAYER_COUNT });
     if (hashes[slot] && hashes[slot] !== digest) {
       throw new Error(`Slot ${slot} changed its hash for frame ${frame}`);
@@ -177,6 +222,7 @@ export class LocalRelay {
       digests: Object.freeze([...hashes])
     });
     this.#hashes.delete(frame);
+    this.#hashResults.set(frame, result);
     for (const handlers of this.#clients.values()) {
       void this.#schedule(() => handlers.onHashResult(result));
     }
@@ -186,6 +232,9 @@ export class LocalRelay {
     const cutoff = this.#lastCanonicalFrame - 600;
     for (const frame of this.#canonical.keys()) {
       if (frame < cutoff) this.#canonical.delete(frame);
+    }
+    for (const frame of this.#hashResults.keys()) {
+      if (frame < cutoff) this.#hashResults.delete(frame);
     }
   }
 

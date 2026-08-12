@@ -9,7 +9,7 @@ const status = {
   phase: "configuring",
   profile: {
     emulatorjsVersion: RUNTIME_VERSION,
-    adapterId: "ejs-4.2.3-netplay-poc-v1",
+    adapterId: "ejs-4.2.3-rollback-v2",
     core: config.core,
     system: config.system,
     gameSha256: config.gameSha256,
@@ -49,6 +49,9 @@ function detectCapabilities() {
     pauseResume: typeof manager?.toggleMainLoop === "function",
     stateCapture: typeof manager?.getState === "function",
     stateLoad: typeof manager?.loadState === "function",
+    waitableStateLoad: typeof manager?.loadStateAndWait === "function",
+    exactFrameStep: typeof manager?.runNetplayFrame === "function",
+    replayAudioControl: typeof emulator?.setVolume === "function",
     patch
   };
 }
@@ -59,7 +62,10 @@ document.addEventListener("DOMContentLoaded", render);
 
 installEmulatorJs423NetplayPatch(window);
 window.EJS_player = "#game";
-window.EJS_DEBUG_XX = false;
+// The pinned npm package intentionally ships the auditable source files, not
+// generated minified bundles. This also lets the 4.2.3 adapter patch the
+// GameManager constructor before any instance is created.
+window.EJS_DEBUG_XX = true;
 window.EJS_EXPERIMENTAL_NETPLAY = false;
 window.EJS_core = config.core;
 window.EJS_gameUrl = config.gameUrl;
@@ -69,7 +75,7 @@ window.EJS_pathtodata = "./vendor/emulatorjs-4.2.3/data/";
 window.EJS_startOnLoaded = true;
 window.EJS_fullscreenOnLoaded = false;
 window.EJS_threads = false;
-window.EJS_volume = 0;
+window.EJS_volume = side === "left" ? 0.2 : 0;
 window.EJS_language = "en-US";
 window.EJS_disableAutoLang = false;
 window.EJS_disableDatabases = true;
