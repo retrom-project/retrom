@@ -431,6 +431,15 @@ WHERE kind='SERVER_BIOS_IMPORT' AND state IN ('QUEUED','RUNNING','CANCEL_REQUEST
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored server import jobs: %w", err)
 	}
+	pegasusJobs, err := transaction.ExecContext(ctx, `
+UPDATE jobs SET state='FAILED',error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',error_retryable=0,
+finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,
+cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
+WHERE kind IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT') AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+`, nowMS, nowMS)
+	if err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored Pegasus jobs: %w", err)
+	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE server_bios_import_items SET state='COMMIT_FAILED',outcome_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
 completed_at_ms=?,updated_at_ms=? WHERE server_import_id IN (
@@ -456,10 +465,32 @@ WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 `, nowMS, nowMS); err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored server imports: %w", err)
 	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE pegasus_import_items SET execution_state='COMMIT_FAILED',error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
+retryable=0,completed_at_ms=?,updated_at_ms=? WHERE import_id IN (
+  SELECT id FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
+) AND execution_state IN ('PENDING','COPYING','VALIDATING','PUBLISHING')
+`, nowMS, nowMS); err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored Pegasus items: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE pegasus_imports SET state='FAILED',phase=NULL,last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
+retryable=0,cancel_reason=NULL,
+published_item_count=(SELECT count(*) FROM pegasus_import_items item WHERE item.import_id=pegasus_imports.id AND item.execution_state='PUBLISHED'),
+existing_item_count=(SELECT count(*) FROM pegasus_import_items item WHERE item.import_id=pegasus_imports.id AND item.execution_state='SKIPPED_EXISTING'),
+blocked_item_count=(SELECT count(*) FROM pegasus_import_items item WHERE item.import_id=pegasus_imports.id AND item.execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT','BLOCKED_VALIDATION')),
+failed_item_count=(SELECT count(*) FROM pegasus_import_items item WHERE item.import_id=pegasus_imports.id AND item.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),
+cancelled_item_count=(SELECT count(*) FROM pegasus_import_items item WHERE item.import_id=pegasus_imports.id AND item.execution_state='CANCELLED'),
+completed_at_ms=?,version=version+1,updated_at_ms=?
+WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
+`, nowMS, nowMS); err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored Pegasus imports: %w", err)
+	}
 	sessionCount, _ := sessions.RowsAffected()
 	linkCount, _ := links.RowsAffected()
 	launchCount, _ := launches.RowsAffected()
 	serverJobCount, _ := serverJobs.RowsAffected()
+	pegasusJobCount, _ := pegasusJobs.RowsAffected()
 	auditID, err := uuid.NewV7()
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: create restore audit ID: %w", err)
@@ -469,9 +500,9 @@ INSERT INTO audit_events(
 id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
 before_json,after_json,diff_json,request_id,created_at_ms)
 VALUES(?,'SYSTEM',NULL,'restore-security-fence','RESTORE_SECURITY_FENCE','INSTANCE','instance',
-NULL,json_object('revokedSessionCount',?,'revokedAccountLinkCount',?,'revokedLaunchCount',?,'failedServerImportCount',?),
+NULL,json_object('revokedSessionCount',?,'revokedAccountLinkCount',?,'revokedLaunchCount',?,'failedServerImportCount',?,'failedPegasusJobCount',?),
 '{}',NULL,?)
-`, auditID.String(), sessionCount, linkCount, launchCount, serverJobCount, nowMS); err != nil {
+`, auditID.String(), sessionCount, linkCount, launchCount, serverJobCount, pegasusJobCount, nowMS); err != nil {
 		return fmt.Errorf("maintenance/bundle: audit restore security fence: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {

@@ -2847,6 +2847,17 @@ type ApprovalDecision struct {
 	Reason              *string
 	DuplicatePolicy     string
 	AcknowledgedGameIDs []string
+	SourceKind          string
+	SourceRefID         string
+	ExternalAssets      []ExternalAsset
+}
+
+type ExternalAsset struct {
+	Kind      string
+	BlobID    string
+	MediaType string
+	WidthPX   *int64
+	HeightPX  *int64
 }
 
 func multiDiscApprovalEvidence(
@@ -3061,6 +3072,18 @@ func (service *Service) ApproveWithDecision(
 	if decision.DuplicatePolicy == "" && len(decision.AcknowledgedGameIDs) != 0 {
 		return Approved{}, ErrInvalid
 	}
+	metadataSourceKind, metadataSourceRefID := "IMPORT_REVIEW", itemID
+	if decision.SourceKind != "" {
+		if decision.SourceKind != "SERVER_PEGASUS_IMPORT" || decision.SourceRefID == "" {
+			return Approved{}, ErrInvalid
+		}
+		metadataSourceKind, metadataSourceRefID = decision.SourceKind, decision.SourceRefID
+	} else if decision.SourceRefID != "" || len(decision.ExternalAssets) != 0 {
+		return Approved{}, ErrInvalid
+	}
+	if !validExternalAssets(decision.ExternalAssets) {
+		return Approved{}, ErrInvalid
+	}
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
@@ -3226,7 +3249,7 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
-'IMPORT_REVIEW',
+?,
 ?,
 ?)
 `,
@@ -3239,7 +3262,8 @@ created_at_ms) VALUES(?,
 		metadata.Genre,
 		metadata.Players,
 		metadata.ReleaseYear,
-		itemID,
+		metadataSourceKind,
+		metadataSourceRefID,
 		now,
 	); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
@@ -3252,15 +3276,8 @@ source_kind,
 source_ref_id,
 source_manifest_json,
 source_manifest_digest,
-created_at_ms) VALUES(?,
-?,
-?,
-'IMPORT_REVIEW',
-?,
-?,
-?,
-?)
-`, contentID.String(), gameID.String(), contentKind, itemID,
+created_at_ms) VALUES(?,?,?,?,?,?,?,?)
+`, contentID.String(), gameID.String(), contentKind, metadataSourceKind, metadataSourceRefID,
 		sourceManifestJSON, sourceManifestDigest, now); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
@@ -3305,6 +3322,11 @@ updated_at_ms) VALUES(?,
 		now,
 	)
 	if err != nil {
+		return Approved{}, err
+	}
+	if err := service.copyExternalAssets(
+		ctx, transaction, gameID.String(), metadataID.String(), decision.ExternalAssets, now,
+	); err != nil {
 		return Approved{}, err
 	}
 	rows, err := transaction.QueryContext(

@@ -94,10 +94,10 @@
 .admin-game-savebar summary::-webkit-details-marker { display: none; }
 .admin-game-savebar details > div { position: absolute; z-index: 8; right: 0; bottom: 48px; width: 320px; max-height: 220px; padding: 10px; overflow: auto; display: grid; gap: 5px; color: var(--muted); border: 1px solid var(--line); border-radius: 10px; background: white; box-shadow: var(--shadow); }
 .admin-game-media-grid { height: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 10px; }
-.admin-game-cover-slot, .admin-game-background-slot { overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: #faf9f6; }
+.admin-game-cover-slot, .admin-game-background-slot, .admin-game-video-slot { overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: #faf9f6; }
 .admin-game-cover-slot { position: relative; min-width: 164px; min-height: 0; height: 100%; align-self: stretch; display: grid; grid-template-rows: auto minmax(0, 1fr); }
-.admin-game-cover-slot h3, .admin-game-background-slot h3, .admin-game-screenshots h3 { margin: 0; font-size: 11px; }
-.admin-game-cover-slot > h3, .admin-game-background-slot > h3 { padding: 9px 10px; border-bottom: 1px solid var(--line); }
+.admin-game-cover-slot h3, .admin-game-background-slot h3, .admin-game-video-slot h3, .admin-game-screenshots h3 { margin: 0; font-size: 11px; }
+.admin-game-cover-slot > h3, .admin-game-background-slot > h3, .admin-game-video-slot > h3 { padding: 7px 9px; border-bottom: 1px solid var(--line); }
 .admin-game-cover-frame { position: relative; width: auto; height: 100%; aspect-ratio: 3 / 4; min-height: 0; overflow: hidden; display: grid; place-items: center; color: #8a93a4; background: #eef0f4; }
 .admin-game-cover-slot img { object-fit: cover; object-position: center; }
 .admin-game-background-slot img, .admin-game-screenshots img { object-fit: cover; }
@@ -106,11 +106,20 @@
 .admin-game-media label { color: var(--purple-dark); cursor: pointer; font-size: 10px; font-weight: 760; }
 .admin-game-media label[aria-disabled="true"] { color: #a3a9b4; cursor: not-allowed; }
 .admin-game-other-media { min-width: 0; min-height: 0; display: grid; grid-template-rows: 142px minmax(0, 1fr); gap: 10px; }
+.admin-game-feature-media { min-width: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .admin-game-background-slot { position: relative; }
 .admin-game-background-slot > div { position: relative; height: 108px; display: grid; place-items: center; color: #818b9d; text-align: center; }
 .admin-game-background-slot > div span { display: grid; gap: 2px; }
 .admin-game-background-slot > div small { display: block; font-size: 10px; }
 .admin-game-background-slot > label { position: absolute; left: 50%; bottom: 7px; min-height: 28px; padding: 0 11px; display: flex; align-items: center; justify-content: center; border: 1px solid #d8d1f6; border-radius: 8px; background: #f9f7ff; transform: translateX(-50%); white-space: nowrap; }
+.admin-game-video-slot { position: relative; display: grid; grid-template-rows: auto minmax(0, 1fr); }
+.admin-game-video-slot > div { min-height: 0; display: grid; place-items: center; color: #818b9d; background: #111623; text-align: center; }
+.admin-game-video-slot > div span { display: grid; gap: 2px; padding: 8px; }
+.admin-game-video-slot > div small { font-size: 9px; }
+.admin-game-video-slot video { width: 100%; height: 100%; object-fit: contain; }
+.admin-game-video-slot footer { position: absolute; z-index: 2; right: 5px; bottom: 5px; display: flex; gap: 5px; }
+.admin-game-video-slot footer label, .admin-game-video-slot footer button { min-height: 25px; padding: 0 8px; display: flex; align-items: center; color: var(--purple-dark); border: 1px solid #d8d1f6; border-radius: 7px; background: #f9f7ff; cursor: pointer; font: inherit; font-size: 9px; font-weight: 760; }
+.admin-game-video-slot footer button:disabled { color: #a3a9b4; cursor: not-allowed; }
 .admin-game-screenshots { min-width: 0; min-height: 0; display: flex; flex-direction: column; }
 .admin-game-screenshots > div { min-height: 0; flex: 1; margin-top: 7px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 7px; }
 .admin-game-screenshots article { position: relative; min-height: 60px; overflow: hidden; display: grid; place-items: center; color: #8a93a4; border: 1px dashed #d5d9e0; border-radius: 8px; background: #fafbfc; }
@@ -172,4 +181,3 @@
 .admin-game-remove label { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 8px; color: #7c4a50; font-size: 10px; font-weight: 760; }
 .admin-game-remove input { grid-column: 1; height: 38px; min-width: 0; padding: 0 9px; border: 1px solid #e1aeb5; border-radius: 8px; background: white; }
 .admin-game-remove button { grid-column: 2; grid-row: 1 / 3; align-self: end; min-height: 38px; }
-

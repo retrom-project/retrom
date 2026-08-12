@@ -249,16 +249,16 @@ func (e AuthContextAuthenticationState) Valid() bool {
 
 // Defines values for AuthContextInstanceState.
 const (
-	INITIALIZATIONREQUIRED AuthContextInstanceState = "INITIALIZATION_REQUIRED"
-	READY                  AuthContextInstanceState = "READY"
+	AuthContextInstanceStateINITIALIZATIONREQUIRED AuthContextInstanceState = "INITIALIZATION_REQUIRED"
+	AuthContextInstanceStateREADY                  AuthContextInstanceState = "READY"
 )
 
 // Valid indicates whether the value is a known member of the AuthContextInstanceState enum.
 func (e AuthContextInstanceState) Valid() bool {
 	switch e {
-	case INITIALIZATIONREQUIRED:
+	case AuthContextInstanceStateINITIALIZATIONREQUIRED:
 		return true
-	case READY:
+	case AuthContextInstanceStateREADY:
 		return true
 	default:
 		return false
@@ -495,6 +495,7 @@ const (
 	GameAssetRequestKindBACKGROUND GameAssetRequestKind = "BACKGROUND"
 	GameAssetRequestKindCOVER      GameAssetRequestKind = "COVER"
 	GameAssetRequestKindSCREENSHOT GameAssetRequestKind = "SCREENSHOT"
+	GameAssetRequestKindVIDEO      GameAssetRequestKind = "VIDEO"
 )
 
 // Valid indicates whether the value is a known member of the GameAssetRequestKind enum.
@@ -505,6 +506,8 @@ func (e GameAssetRequestKind) Valid() bool {
 	case GameAssetRequestKindCOVER:
 		return true
 	case GameAssetRequestKindSCREENSHOT:
+		return true
+	case GameAssetRequestKindVIDEO:
 		return true
 	default:
 		return false
@@ -835,6 +838,231 @@ func (e PatchUserRequestStatus) Valid() bool {
 	case PatchUserRequestStatusDISABLED:
 		return true
 	case PatchUserRequestStatusENABLED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PegasusCollectionMappingAction.
+const (
+	PegasusCollectionMappingActionIMPORT PegasusCollectionMappingAction = "IMPORT"
+	PegasusCollectionMappingActionSKIP   PegasusCollectionMappingAction = "SKIP"
+)
+
+// Valid indicates whether the value is a known member of the PegasusCollectionMappingAction enum.
+func (e PegasusCollectionMappingAction) Valid() bool {
+	switch e {
+	case PegasusCollectionMappingActionIMPORT:
+		return true
+	case PegasusCollectionMappingActionSKIP:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PegasusImportSummaryPhase.
+const (
+	PegasusImportSummaryPhaseCOPYINGCONTENT      PegasusImportSummaryPhase = "COPYING_CONTENT"
+	PegasusImportSummaryPhaseDISCOVERINGMETADATA PegasusImportSummaryPhase = "DISCOVERING_METADATA"
+	PegasusImportSummaryPhasePARSINGMETADATA     PegasusImportSummaryPhase = "PARSING_METADATA"
+	PegasusImportSummaryPhasePUBLISHING          PegasusImportSummaryPhase = "PUBLISHING"
+	PegasusImportSummaryPhaseRESOLVINGSOURCES    PegasusImportSummaryPhase = "RESOLVING_SOURCES"
+	PegasusImportSummaryPhaseVALIDATING          PegasusImportSummaryPhase = "VALIDATING"
+)
+
+// Valid indicates whether the value is a known member of the PegasusImportSummaryPhase enum.
+func (e PegasusImportSummaryPhase) Valid() bool {
+	switch e {
+	case PegasusImportSummaryPhaseCOPYINGCONTENT:
+		return true
+	case PegasusImportSummaryPhaseDISCOVERINGMETADATA:
+		return true
+	case PegasusImportSummaryPhasePARSINGMETADATA:
+		return true
+	case PegasusImportSummaryPhasePUBLISHING:
+		return true
+	case PegasusImportSummaryPhaseRESOLVINGSOURCES:
+		return true
+	case PegasusImportSummaryPhaseVALIDATING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PegasusImportSummaryState.
+const (
+	PegasusImportSummaryStateAWAITINGMAPPING PegasusImportSummaryState = "AWAITING_MAPPING"
+	PegasusImportSummaryStateCANCELLED       PegasusImportSummaryState = "CANCELLED"
+	PegasusImportSummaryStateCANCELREQUESTED PegasusImportSummaryState = "CANCEL_REQUESTED"
+	PegasusImportSummaryStateCOMPLETED       PegasusImportSummaryState = "COMPLETED"
+	PegasusImportSummaryStateEXPIRED         PegasusImportSummaryState = "EXPIRED"
+	PegasusImportSummaryStateFAILED          PegasusImportSummaryState = "FAILED"
+	PegasusImportSummaryStatePARTIALFAILURE  PegasusImportSummaryState = "PARTIAL_FAILURE"
+	PegasusImportSummaryStateQUEUED          PegasusImportSummaryState = "QUEUED"
+	PegasusImportSummaryStateRUNNING         PegasusImportSummaryState = "RUNNING"
+	PegasusImportSummaryStateSCANNING        PegasusImportSummaryState = "SCANNING"
+)
+
+// Valid indicates whether the value is a known member of the PegasusImportSummaryState enum.
+func (e PegasusImportSummaryState) Valid() bool {
+	switch e {
+	case PegasusImportSummaryStateAWAITINGMAPPING:
+		return true
+	case PegasusImportSummaryStateCANCELLED:
+		return true
+	case PegasusImportSummaryStateCANCELREQUESTED:
+		return true
+	case PegasusImportSummaryStateCOMPLETED:
+		return true
+	case PegasusImportSummaryStateEXPIRED:
+		return true
+	case PegasusImportSummaryStateFAILED:
+		return true
+	case PegasusImportSummaryStatePARTIALFAILURE:
+		return true
+	case PegasusImportSummaryStateQUEUED:
+		return true
+	case PegasusImportSummaryStateRUNNING:
+		return true
+	case PegasusImportSummaryStateSCANNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PegasusItemContentKind.
+const (
+	PegasusItemContentKindDOSBUNDLE      PegasusItemContentKind = "DOS_BUNDLE"
+	PegasusItemContentKindMULTIDISCM3UV1 PegasusItemContentKind = "MULTI_DISC_M3U_V1"
+	PegasusItemContentKindSINGLEFILE     PegasusItemContentKind = "SINGLE_FILE"
+)
+
+// Valid indicates whether the value is a known member of the PegasusItemContentKind enum.
+func (e PegasusItemContentKind) Valid() bool {
+	switch e {
+	case PegasusItemContentKindDOSBUNDLE:
+		return true
+	case PegasusItemContentKindMULTIDISCM3UV1:
+		return true
+	case PegasusItemContentKindSINGLEFILE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PegasusItemExecutionState.
+const (
+	PegasusItemExecutionStateBLOCKEDCONTENT    PegasusItemExecutionState = "BLOCKED_CONTENT"
+	PegasusItemExecutionStateBLOCKEDSOURCE     PegasusItemExecutionState = "BLOCKED_SOURCE"
+	PegasusItemExecutionStateBLOCKEDVALIDATION PegasusItemExecutionState = "BLOCKED_VALIDATION"
+	PegasusItemExecutionStateCANCELLED         PegasusItemExecutionState = "CANCELLED"
+	PegasusItemExecutionStateCOMMITFAILED      PegasusItemExecutionState = "COMMIT_FAILED"
+	PegasusItemExecutionStateCOPYING           PegasusItemExecutionState = "COPYING"
+	PegasusItemExecutionStatePENDING           PegasusItemExecutionState = "PENDING"
+	PegasusItemExecutionStatePUBLISHED         PegasusItemExecutionState = "PUBLISHED"
+	PegasusItemExecutionStatePUBLISHING        PegasusItemExecutionState = "PUBLISHING"
+	PegasusItemExecutionStateREADFAILED        PegasusItemExecutionState = "READ_FAILED"
+	PegasusItemExecutionStateSKIPPEDEXISTING   PegasusItemExecutionState = "SKIPPED_EXISTING"
+	PegasusItemExecutionStateSKIPPEDMAPPING    PegasusItemExecutionState = "SKIPPED_MAPPING"
+	PegasusItemExecutionStateSOURCECHANGED     PegasusItemExecutionState = "SOURCE_CHANGED"
+	PegasusItemExecutionStateVALIDATING        PegasusItemExecutionState = "VALIDATING"
+)
+
+// Valid indicates whether the value is a known member of the PegasusItemExecutionState enum.
+func (e PegasusItemExecutionState) Valid() bool {
+	switch e {
+	case PegasusItemExecutionStateBLOCKEDCONTENT:
+		return true
+	case PegasusItemExecutionStateBLOCKEDSOURCE:
+		return true
+	case PegasusItemExecutionStateBLOCKEDVALIDATION:
+		return true
+	case PegasusItemExecutionStateCANCELLED:
+		return true
+	case PegasusItemExecutionStateCOMMITFAILED:
+		return true
+	case PegasusItemExecutionStateCOPYING:
+		return true
+	case PegasusItemExecutionStatePENDING:
+		return true
+	case PegasusItemExecutionStatePUBLISHED:
+		return true
+	case PegasusItemExecutionStatePUBLISHING:
+		return true
+	case PegasusItemExecutionStateREADFAILED:
+		return true
+	case PegasusItemExecutionStateSKIPPEDEXISTING:
+		return true
+	case PegasusItemExecutionStateSKIPPEDMAPPING:
+		return true
+	case PegasusItemExecutionStateSOURCECHANGED:
+		return true
+	case PegasusItemExecutionStateVALIDATING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PegasusItemMediaCover.
+const (
+	PegasusItemMediaCoverMISSING PegasusItemMediaCover = "MISSING"
+	PegasusItemMediaCoverREADY   PegasusItemMediaCover = "READY"
+	PegasusItemMediaCoverWARNING PegasusItemMediaCover = "WARNING"
+)
+
+// Valid indicates whether the value is a known member of the PegasusItemMediaCover enum.
+func (e PegasusItemMediaCover) Valid() bool {
+	switch e {
+	case PegasusItemMediaCoverMISSING:
+		return true
+	case PegasusItemMediaCoverREADY:
+		return true
+	case PegasusItemMediaCoverWARNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PegasusItemMediaVideo.
+const (
+	PegasusItemMediaVideoMISSING PegasusItemMediaVideo = "MISSING"
+	PegasusItemMediaVideoREADY   PegasusItemMediaVideo = "READY"
+	PegasusItemMediaVideoWARNING PegasusItemMediaVideo = "WARNING"
+)
+
+// Valid indicates whether the value is a known member of the PegasusItemMediaVideo enum.
+func (e PegasusItemMediaVideo) Valid() bool {
+	switch e {
+	case PegasusItemMediaVideoMISSING:
+		return true
+	case PegasusItemMediaVideoREADY:
+		return true
+	case PegasusItemMediaVideoWARNING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PegasusSourceCollectionMappingAction.
+const (
+	PegasusSourceCollectionMappingActionIMPORT PegasusSourceCollectionMappingAction = "IMPORT"
+	PegasusSourceCollectionMappingActionSKIP   PegasusSourceCollectionMappingAction = "SKIP"
+)
+
+// Valid indicates whether the value is a known member of the PegasusSourceCollectionMappingAction enum.
+func (e PegasusSourceCollectionMappingAction) Valid() bool {
+	switch e {
+	case PegasusSourceCollectionMappingActionIMPORT:
+		return true
+	case PegasusSourceCollectionMappingActionSKIP:
 		return true
 	default:
 		return false
@@ -1324,6 +1552,21 @@ func (e FavoriteSort) Valid() bool {
 	}
 }
 
+// Defines values for GameAssetKind.
+const (
+	GameAssetKindVIDEO GameAssetKind = "VIDEO"
+)
+
+// Valid indicates whether the value is a known member of the GameAssetKind enum.
+func (e GameAssetKind) Valid() bool {
+	switch e {
+	case GameAssetKindVIDEO:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Role.
 const (
 	RoleADMIN Role = "ADMIN"
@@ -1747,6 +1990,12 @@ type CreateInvitationRequest struct {
 
 // CreateInvitationRequestRole defines model for CreateInvitationRequest.Role.
 type CreateInvitationRequestRole string
+
+// CreatePegasusImportRequest defines model for CreatePegasusImportRequest.
+type CreatePegasusImportRequest struct {
+	RootId             string `json:"rootId"`
+	SourceRelativePath string `json:"sourceRelativePath"`
+}
 
 // CreatePlatformInstanceRequest defines model for CreatePlatformInstanceRequest.
 type CreatePlatformInstanceRequest struct {
@@ -2561,6 +2810,165 @@ type PatchUserRequestRole string
 // PatchUserRequestStatus defines model for PatchUserRequest.Status.
 type PatchUserRequestStatus string
 
+// PegasusCollectionList defines model for PegasusCollectionList.
+type PegasusCollectionList struct {
+	Items      []PegasusSourceCollection `json:"items"`
+	NextCursor *string                   `json:"nextCursor"`
+}
+
+// PegasusCollectionMapping defines model for PegasusCollectionMapping.
+type PegasusCollectionMapping struct {
+	Action             PegasusCollectionMappingAction `json:"action"`
+	CollectionId       openapi_types.UUID             `json:"collectionId"`
+	PlatformInstanceId *openapi_types.UUID            `json:"platformInstanceId,omitempty"`
+}
+
+// PegasusCollectionMappingAction defines model for PegasusCollectionMapping.Action.
+type PegasusCollectionMappingAction string
+
+// PegasusCollectionMappingsRequest defines model for PegasusCollectionMappingsRequest.
+type PegasusCollectionMappingsRequest struct {
+	Mappings []PegasusCollectionMapping `json:"mappings"`
+}
+
+// PegasusImportCounts defines model for PegasusImportCounts.
+type PegasusImportCounts struct {
+	Blocked              int64 `json:"blocked"`
+	Cancelled            int64 `json:"cancelled"`
+	Collections          int64 `json:"collections"`
+	Covers               int64 `json:"covers"`
+	EstimatedSourceBytes int64 `json:"estimatedSourceBytes"`
+	Existing             int64 `json:"existing"`
+	Failed               int64 `json:"failed"`
+	Games                int64 `json:"games"`
+	InvalidMetadata      int64 `json:"invalidMetadata"`
+	MappedCollections    int64 `json:"mappedCollections"`
+	MediaWarnings        int64 `json:"mediaWarnings"`
+	Metadata             int64 `json:"metadata"`
+	Processable          int64 `json:"processable"`
+	Published            int64 `json:"published"`
+	SkippedCollections   int64 `json:"skippedCollections"`
+	Videos               int64 `json:"videos"`
+}
+
+// PegasusImportList defines model for PegasusImportList.
+type PegasusImportList struct {
+	Items      []PegasusImportSummary `json:"items"`
+	NextCursor *string                `json:"nextCursor"`
+}
+
+// PegasusImportStartRequest defines model for PegasusImportStartRequest.
+type PegasusImportStartRequest struct {
+	Version int64 `json:"version"`
+}
+
+// PegasusImportSummary defines model for PegasusImportSummary.
+type PegasusImportSummary struct {
+	CompletedAtMs *int64              `json:"completedAtMs"`
+	Counts        PegasusImportCounts `json:"counts"`
+	CreatedAtMs   int64               `json:"createdAtMs"`
+	CreatedBy     struct {
+		DisplayName string             `json:"displayName"`
+		Id          openapi_types.UUID `json:"id"`
+	} `json:"createdBy"`
+	ExpiresAtMs    int64                      `json:"expiresAtMs"`
+	Id             openapi_types.UUID         `json:"id"`
+	ImportJobId    *openapi_types.UUID        `json:"importJobId"`
+	LastErrorCode  *string                    `json:"lastErrorCode"`
+	MappingVersion int64                      `json:"mappingVersion"`
+	Phase          *PegasusImportSummaryPhase `json:"phase"`
+	Retryable      bool                       `json:"retryable"`
+	Root           struct {
+		Id    string `json:"id"`
+		Label string `json:"label"`
+	} `json:"root"`
+	ScanJobId          openapi_types.UUID        `json:"scanJobId"`
+	SourceRelativePath string                    `json:"sourceRelativePath"`
+	State              PegasusImportSummaryState `json:"state"`
+	UpdatedAtMs        int64                     `json:"updatedAtMs"`
+	Version            int64                     `json:"version"`
+}
+
+// PegasusImportSummaryPhase defines model for PegasusImportSummary.Phase.
+type PegasusImportSummaryPhase string
+
+// PegasusImportSummaryState defines model for PegasusImportSummary.State.
+type PegasusImportSummaryState string
+
+// PegasusItem defines model for PegasusItem.
+type PegasusItem struct {
+	CollectionId    *openapi_types.UUID       `json:"collectionId"`
+	CollectionName  *string                   `json:"collectionName"`
+	ContentKind     *PegasusItemContentKind   `json:"contentKind"`
+	DiscoveryCode   *string                   `json:"discoveryCode"`
+	ErrorCode       *string                   `json:"errorCode"`
+	ExecutionState  PegasusItemExecutionState `json:"executionState"`
+	ExistingGameId  *openapi_types.UUID       `json:"existingGameId"`
+	ExistingMatches []struct {
+		ContentRevisionId openapi_types.UUID `json:"contentRevisionId"`
+		GameId            openapi_types.UUID `json:"gameId"`
+	} `json:"existingMatches"`
+	Id    openapi_types.UUID `json:"id"`
+	Media struct {
+		Cover PegasusItemMediaCover `json:"cover"`
+		Video PegasusItemMediaVideo `json:"video"`
+	} `json:"media"`
+	MetadataRelativePath       string                `json:"metadataRelativePath"`
+	PublishedGameId            *openapi_types.UUID   `json:"publishedGameId"`
+	Retryable                  bool                  `json:"retryable"`
+	TargetPlatformInstanceId   *openapi_types.UUID   `json:"targetPlatformInstanceId"`
+	TargetPlatformInstanceName *string               `json:"targetPlatformInstanceName"`
+	Title                      string                `json:"title"`
+	UpdatedAtMs                int64                 `json:"updatedAtMs"`
+	Warnings                   []PegasusWarningValue `json:"warnings"`
+}
+
+// PegasusItemContentKind defines model for PegasusItem.ContentKind.
+type PegasusItemContentKind string
+
+// PegasusItemExecutionState defines model for PegasusItem.ExecutionState.
+type PegasusItemExecutionState string
+
+// PegasusItemMediaCover defines model for PegasusItem.Media.Cover.
+type PegasusItemMediaCover string
+
+// PegasusItemMediaVideo defines model for PegasusItem.Media.Video.
+type PegasusItemMediaVideo string
+
+// PegasusItemList defines model for PegasusItemList.
+type PegasusItemList struct {
+	Items      []PegasusItem `json:"items"`
+	NextCursor *string       `json:"nextCursor"`
+}
+
+// PegasusSourceCollection defines model for PegasusSourceCollection.
+type PegasusSourceCollection struct {
+	Description                string                                `json:"description"`
+	GameCount                  int64                                 `json:"gameCount"`
+	Id                         openapi_types.UUID                    `json:"id"`
+	IgnoredRules               []string                              `json:"ignoredRules"`
+	IssueCount                 int64                                 `json:"issueCount"`
+	MappingAction              *PegasusSourceCollectionMappingAction `json:"mappingAction"`
+	MetadataRelativePath       string                                `json:"metadataRelativePath"`
+	Name                       string                                `json:"name"`
+	SegmentOrdinal             int64                                 `json:"segmentOrdinal"`
+	ShortName                  *string                               `json:"shortName"`
+	TargetDefaultCoreId        *string                               `json:"targetDefaultCoreId"`
+	TargetDefaultCoreName      *string                               `json:"targetDefaultCoreName"`
+	TargetPlatformInstanceId   *openapi_types.UUID                   `json:"targetPlatformInstanceId"`
+	TargetPlatformInstanceName *string                               `json:"targetPlatformInstanceName"`
+	WarningFields              []string                              `json:"warningFields"`
+}
+
+// PegasusSourceCollectionMappingAction defines model for PegasusSourceCollection.MappingAction.
+type PegasusSourceCollectionMappingAction string
+
+// PegasusWarningValue defines model for PegasusWarningValue.
+type PegasusWarningValue struct {
+	Code  string  `json:"code"`
+	Field *string `json:"field,omitempty"`
+}
+
 // PlayEventRequest defines model for PlayEventRequest.
 type PlayEventRequest struct {
 	ClientObservedAtMs int64 `json:"clientObservedAtMs"`
@@ -2933,6 +3341,9 @@ type FileID = openapi_types.UUID
 // FromAtMs defines model for FromAtMs.
 type FromAtMs = int64
 
+// GameAssetKind defines model for GameAssetKind.
+type GameAssetKind string
+
 // GameID defines model for GameID.
 type GameID = openapi_types.UUID
 
@@ -2989,6 +3400,15 @@ type ParseStatus = string
 
 // PartNo defines model for PartNo.
 type PartNo = int
+
+// PegasusCollectionIDQuery defines model for PegasusCollectionIDQuery.
+type PegasusCollectionIDQuery = openapi_types.UUID
+
+// PegasusImportID defines model for PegasusImportID.
+type PegasusImportID = openapi_types.UUID
+
+// PegasusWarning defines model for PegasusWarning.
+type PegasusWarning = string
 
 // PlatformIDQuery defines model for PlatformIDQuery.
 type PlatformIDQuery = string
@@ -3110,6 +3530,18 @@ type LaunchConfigResponse = LaunchConfig
 // PasswordResetCreatedResponse defines model for PasswordResetCreatedResponse.
 type PasswordResetCreatedResponse = PasswordResetCreated
 
+// PegasusCollectionListResponse defines model for PegasusCollectionListResponse.
+type PegasusCollectionListResponse = PegasusCollectionList
+
+// PegasusImportListResponse defines model for PegasusImportListResponse.
+type PegasusImportListResponse = PegasusImportList
+
+// PegasusImportResponse defines model for PegasusImportResponse.
+type PegasusImportResponse = PegasusImportSummary
+
+// PegasusItemListResponse defines model for PegasusItemListResponse.
+type PegasusItemListResponse = PegasusItemList
+
 // ServerImportCandidateListResponse defines model for ServerImportCandidateListResponse.
 type ServerImportCandidateListResponse = ServerImportCandidateList
 
@@ -3166,6 +3598,9 @@ type CreateImport = CreateImportRequest
 
 // CreateInvitation defines model for CreateInvitation.
 type CreateInvitation = CreateInvitationRequest
+
+// CreatePegasusImport defines model for CreatePegasusImport.
+type CreatePegasusImport = CreatePegasusImportRequest
 
 // CreatePlatformInstance defines model for CreatePlatformInstance.
 type CreatePlatformInstance = CreatePlatformInstanceRequest
@@ -3232,6 +3667,12 @@ type PatchPlatformInstance = PatchPlatformInstanceRequest
 
 // PatchUser defines model for PatchUser.
 type PatchUser = PatchUserRequest
+
+// PegasusCollectionMappings defines model for PegasusCollectionMappings.
+type PegasusCollectionMappings = PegasusCollectionMappingsRequest
+
+// PegasusImportStart defines model for PegasusImportStart.
+type PegasusImportStart = PegasusImportStartRequest
 
 // PlayEvent defines model for PlayEvent.
 type PlayEvent = PlayEventRequest
@@ -3372,6 +3813,12 @@ type PostAdminGameAssetParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// DeleteAdminGameAssetParams defines parameters for DeleteAdminGameAsset.
+type DeleteAdminGameAssetParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
 // PostAdminGameContentRevisionParams defines parameters for PostAdminGameContentRevision.
 type PostAdminGameContentRevisionParams struct {
 	IfMatch        IfMatch        `json:"If-Match"`
@@ -3468,6 +3915,70 @@ type GetAdminJobEventsParams struct {
 type PostAdminJobRetryParams struct {
 	IfMatch        IfMatch        `json:"If-Match"`
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+}
+
+// GetAdminPegasusImportsParams defines parameters for GetAdminPegasusImports.
+type GetAdminPegasusImportsParams struct {
+	State  *State   `form:"state,omitempty" json:"state,omitempty"`
+	Cursor *Cursor  `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit20 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// PostAdminPegasusImportParams defines parameters for PostAdminPegasusImport.
+type PostAdminPegasusImportParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// DeleteAdminPegasusImportParams defines parameters for DeleteAdminPegasusImport.
+type DeleteAdminPegasusImportParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PostAdminPegasusImportCancelParams defines parameters for PostAdminPegasusImportCancel.
+type PostAdminPegasusImportCancelParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PutAdminPegasusImportCollectionMappingsParams defines parameters for PutAdminPegasusImportCollectionMappings.
+type PutAdminPegasusImportCollectionMappingsParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// GetAdminPegasusImportCollectionsParams defines parameters for GetAdminPegasusImportCollections.
+type GetAdminPegasusImportCollectionsParams struct {
+	Cursor *Cursor   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit100 `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetAdminPegasusImportItemsParams defines parameters for GetAdminPegasusImportItems.
+type GetAdminPegasusImportItemsParams struct {
+	Q            *Q                        `form:"q,omitempty" json:"q,omitempty"`
+	Outcome      *Outcome                  `form:"outcome,omitempty" json:"outcome,omitempty"`
+	Warning      *PegasusWarning           `form:"warning,omitempty" json:"warning,omitempty"`
+	CollectionId *PegasusCollectionIDQuery `form:"collectionId,omitempty" json:"collectionId,omitempty"`
+	Cursor       *Cursor                   `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit        *Limit50                  `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// PostAdminPegasusImportRetryParams defines parameters for PostAdminPegasusImportRetry.
+type PostAdminPegasusImportRetryParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PostAdminPegasusImportStartParams defines parameters for PostAdminPegasusImportStart.
+type PostAdminPegasusImportStartParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
 }
 
 // GetAdminPlatformInstancesParams defines parameters for GetAdminPlatformInstances.
@@ -3888,6 +4399,21 @@ type PostAdminJobCancelJSONRequestBody = ReasonRequest
 // PostAdminJobRetryJSONRequestBody defines body for PostAdminJobRetry for application/json ContentType.
 type PostAdminJobRetryJSONRequestBody = EmptyRequest
 
+// PostAdminPegasusImportJSONRequestBody defines body for PostAdminPegasusImport for application/json ContentType.
+type PostAdminPegasusImportJSONRequestBody = CreatePegasusImportRequest
+
+// PostAdminPegasusImportCancelJSONRequestBody defines body for PostAdminPegasusImportCancel for application/json ContentType.
+type PostAdminPegasusImportCancelJSONRequestBody = ReasonRequest
+
+// PutAdminPegasusImportCollectionMappingsJSONRequestBody defines body for PutAdminPegasusImportCollectionMappings for application/json ContentType.
+type PutAdminPegasusImportCollectionMappingsJSONRequestBody = PegasusCollectionMappingsRequest
+
+// PostAdminPegasusImportRetryJSONRequestBody defines body for PostAdminPegasusImportRetry for application/json ContentType.
+type PostAdminPegasusImportRetryJSONRequestBody = EmptyRequest
+
+// PostAdminPegasusImportStartJSONRequestBody defines body for PostAdminPegasusImportStart for application/json ContentType.
+type PostAdminPegasusImportStartJSONRequestBody = PegasusImportStartRequest
+
 // PostAdminPlatformInstanceJSONRequestBody defines body for PostAdminPlatformInstance for application/json ContentType.
 type PostAdminPlatformInstanceJSONRequestBody = CreatePlatformInstanceRequest
 
@@ -4130,6 +4656,9 @@ type ServerInterface interface {
 	// (POST /api/v1/admin/games/{gameId}/assets)
 	PostAdminGameAsset(w http.ResponseWriter, r *http.Request, gameId GameID, params PostAdminGameAssetParams)
 
+	// (DELETE /api/v1/admin/games/{gameId}/assets/{assetKind})
+	DeleteAdminGameAsset(w http.ResponseWriter, r *http.Request, gameId GameID, assetKind GameAssetKind, params DeleteAdminGameAssetParams)
+
 	// (POST /api/v1/admin/games/{gameId}/content-revisions)
 	PostAdminGameContentRevision(w http.ResponseWriter, r *http.Request, gameId GameID, params PostAdminGameContentRevisionParams)
 
@@ -4189,6 +4718,36 @@ type ServerInterface interface {
 
 	// (POST /api/v1/admin/jobs/{jobId}/retry)
 	PostAdminJobRetry(w http.ResponseWriter, r *http.Request, jobId JobID, params PostAdminJobRetryParams)
+
+	// (GET /api/v1/admin/pegasus-imports)
+	GetAdminPegasusImports(w http.ResponseWriter, r *http.Request, params GetAdminPegasusImportsParams)
+
+	// (POST /api/v1/admin/pegasus-imports)
+	PostAdminPegasusImport(w http.ResponseWriter, r *http.Request, params PostAdminPegasusImportParams)
+
+	// (DELETE /api/v1/admin/pegasus-imports/{pegasusImportId})
+	DeleteAdminPegasusImport(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params DeleteAdminPegasusImportParams)
+
+	// (GET /api/v1/admin/pegasus-imports/{pegasusImportId})
+	GetAdminPegasusImport(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID)
+
+	// (POST /api/v1/admin/pegasus-imports/{pegasusImportId}/cancel)
+	PostAdminPegasusImportCancel(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params PostAdminPegasusImportCancelParams)
+
+	// (PUT /api/v1/admin/pegasus-imports/{pegasusImportId}/collection-mappings)
+	PutAdminPegasusImportCollectionMappings(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params PutAdminPegasusImportCollectionMappingsParams)
+
+	// (GET /api/v1/admin/pegasus-imports/{pegasusImportId}/collections)
+	GetAdminPegasusImportCollections(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params GetAdminPegasusImportCollectionsParams)
+
+	// (GET /api/v1/admin/pegasus-imports/{pegasusImportId}/items)
+	GetAdminPegasusImportItems(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params GetAdminPegasusImportItemsParams)
+
+	// (POST /api/v1/admin/pegasus-imports/{pegasusImportId}/retry)
+	PostAdminPegasusImportRetry(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params PostAdminPegasusImportRetryParams)
+
+	// (POST /api/v1/admin/pegasus-imports/{pegasusImportId}/start)
+	PostAdminPegasusImportStart(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params PostAdminPegasusImportStartParams)
 
 	// (GET /api/v1/admin/platform-instances)
 	GetAdminPlatformInstances(w http.ResponseWriter, r *http.Request, params GetAdminPlatformInstancesParams)
@@ -5688,6 +6247,92 @@ func (siw *ServerInterfaceWrapper) PostAdminGameAsset(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// DeleteAdminGameAsset operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminGameAsset(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "gameId" -------------
+	var gameId GameID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gameId", r.PathValue("gameId"), &gameId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "gameId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "assetKind" -------------
+	var assetKind GameAssetKind
+
+	err = runtime.BindStyledParameterWithOptions("simple", "assetKind", r.PathValue("assetKind"), &assetKind, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "assetKind", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteAdminGameAssetParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminGameAsset(w, r, gameId, assetKind, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // PostAdminGameContentRevision operation middleware
 func (siw *ServerInterfaceWrapper) PostAdminGameContentRevision(w http.ResponseWriter, r *http.Request) {
 
@@ -6920,6 +7565,821 @@ func (siw *ServerInterfaceWrapper) PostAdminJobRetry(w http.ResponseWriter, r *h
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.PostAdminJobRetry(w, r, jobId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminPegasusImports operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminPegasusImports(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAdminPegasusImportsParams
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminPegasusImports(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminPegasusImport operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminPegasusImport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostAdminPegasusImportParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminPegasusImport(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteAdminPegasusImport operation middleware
+func (siw *ServerInterfaceWrapper) DeleteAdminPegasusImport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pegasusImportId" -------------
+	var pegasusImportId PegasusImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pegasusImportId", r.PathValue("pegasusImportId"), &pegasusImportId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pegasusImportId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteAdminPegasusImportParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteAdminPegasusImport(w, r, pegasusImportId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminPegasusImport operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminPegasusImport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pegasusImportId" -------------
+	var pegasusImportId PegasusImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pegasusImportId", r.PathValue("pegasusImportId"), &pegasusImportId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pegasusImportId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminPegasusImport(w, r, pegasusImportId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminPegasusImportCancel operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminPegasusImportCancel(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pegasusImportId" -------------
+	var pegasusImportId PegasusImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pegasusImportId", r.PathValue("pegasusImportId"), &pegasusImportId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pegasusImportId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostAdminPegasusImportCancelParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminPegasusImportCancel(w, r, pegasusImportId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutAdminPegasusImportCollectionMappings operation middleware
+func (siw *ServerInterfaceWrapper) PutAdminPegasusImportCollectionMappings(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pegasusImportId" -------------
+	var pegasusImportId PegasusImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pegasusImportId", r.PathValue("pegasusImportId"), &pegasusImportId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pegasusImportId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutAdminPegasusImportCollectionMappingsParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutAdminPegasusImportCollectionMappings(w, r, pegasusImportId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminPegasusImportCollections operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminPegasusImportCollections(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pegasusImportId" -------------
+	var pegasusImportId PegasusImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pegasusImportId", r.PathValue("pegasusImportId"), &pegasusImportId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pegasusImportId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAdminPegasusImportCollectionsParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminPegasusImportCollections(w, r, pegasusImportId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminPegasusImportItems operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminPegasusImportItems(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pegasusImportId" -------------
+	var pegasusImportId PegasusImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pegasusImportId", r.PathValue("pegasusImportId"), &pegasusImportId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pegasusImportId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetAdminPegasusImportItemsParams
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "outcome" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "outcome", r.URL.Query(), &params.Outcome, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "outcome"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "outcome", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "warning" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "warning", r.URL.Query(), &params.Warning, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "warning"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "warning", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "collectionId" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "collectionId", r.URL.Query(), &params.CollectionId, runtime.BindQueryParameterOptions{Type: "string", Format: "uuid"})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "collectionId"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "collectionId", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminPegasusImportItems(w, r, pegasusImportId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminPegasusImportRetry operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminPegasusImportRetry(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pegasusImportId" -------------
+	var pegasusImportId PegasusImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pegasusImportId", r.PathValue("pegasusImportId"), &pegasusImportId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pegasusImportId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostAdminPegasusImportRetryParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminPegasusImportRetry(w, r, pegasusImportId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostAdminPegasusImportStart operation middleware
+func (siw *ServerInterfaceWrapper) PostAdminPegasusImportStart(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "pegasusImportId" -------------
+	var pegasusImportId PegasusImportID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "pegasusImportId", r.PathValue("pegasusImportId"), &pegasusImportId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "pegasusImportId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostAdminPegasusImportStartParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostAdminPegasusImportStart(w, r, pegasusImportId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -11873,6 +13333,7 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/games/{gameId}", wrapper.GetAdminGame)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/v1/admin/games/{gameId}", wrapper.PatchAdminGame)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/games/{gameId}/assets", wrapper.PostAdminGameAsset)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/admin/games/{gameId}/assets/{assetKind}", wrapper.DeleteAdminGameAsset)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/games/{gameId}/content-revisions", wrapper.PostAdminGameContentRevision)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/games/{gameId}/scrape-candidates", wrapper.GetAdminGameScrapeCandidates)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/games/{gameId}/scrape-candidates", wrapper.PostAdminGameScrapeCandidates)
@@ -11898,6 +13359,16 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/server-imports/{serverImportId}/bios-items/{requirementId}/candidates", wrapper.GetAdminServerImportBIOSCandidates)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/server-imports/{serverImportId}/cancel", wrapper.PostAdminServerImportCancel)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/server-imports/{serverImportId}/retry", wrapper.PostAdminServerImportRetry)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/pegasus-imports", wrapper.GetAdminPegasusImports)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/pegasus-imports", wrapper.PostAdminPegasusImport)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/admin/pegasus-imports/{pegasusImportId}", wrapper.DeleteAdminPegasusImport)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/pegasus-imports/{pegasusImportId}", wrapper.GetAdminPegasusImport)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/pegasus-imports/{pegasusImportId}/collections", wrapper.GetAdminPegasusImportCollections)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/admin/pegasus-imports/{pegasusImportId}/collection-mappings", wrapper.PutAdminPegasusImportCollectionMappings)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/pegasus-imports/{pegasusImportId}/start", wrapper.PostAdminPegasusImportStart)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/pegasus-imports/{pegasusImportId}/items", wrapper.GetAdminPegasusImportItems)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/pegasus-imports/{pegasusImportId}/cancel", wrapper.PostAdminPegasusImportCancel)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/pegasus-imports/{pegasusImportId}/retry", wrapper.PostAdminPegasusImportRetry)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/bios/{requirementId}/installations", wrapper.PostAdminBIOSInstallation)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/bios/{requirementId}/entries", wrapper.GetAdminBIOSEntries)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/arcade-dats", wrapper.GetAdminArcadeDATs)
@@ -12006,6 +13477,21 @@ type PasswordResetCreatedResponseJSONResponse struct {
 
 	Headers PasswordResetCreatedResponseResponseHeaders
 }
+
+type PegasusCollectionListResponseJSONResponse PegasusCollectionList
+
+type PegasusImportListResponseJSONResponse PegasusImportList
+
+type PegasusImportResponseResponseHeaders struct {
+	ETag *string
+}
+type PegasusImportResponseJSONResponse struct {
+	Body PegasusImportSummary
+
+	Headers PegasusImportResponseResponseHeaders
+}
+
+type PegasusItemListResponseJSONResponse PegasusItemList
 
 type SSEResponseTexteventStreamResponse struct {
 	Body io.Reader
@@ -12447,6 +13933,24 @@ func (response PostAdminGameAsset201JSONResponse) VisitPostAdminGameAssetRespons
 	w.WriteHeader(201)
 	_, err := buf.WriteTo(w)
 	return err
+}
+
+type DeleteAdminGameAssetRequestObject struct {
+	GameId    GameID        `json:"gameId"`
+	AssetKind GameAssetKind `json:"assetKind"`
+	Params    DeleteAdminGameAssetParams
+}
+
+type DeleteAdminGameAssetResponseObject interface {
+	VisitDeleteAdminGameAssetResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminGameAsset204Response struct {
+}
+
+func (response DeleteAdminGameAsset204Response) VisitDeleteAdminGameAssetResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
 }
 
 type PostAdminGameContentRevisionRequestObject struct {
@@ -12982,6 +14486,292 @@ func (response PostAdminJobRetry202JSONResponse) VisitPostAdminJobRetryResponse(
 		return err
 	}
 	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminPegasusImportsRequestObject struct {
+	Params GetAdminPegasusImportsParams
+}
+
+type GetAdminPegasusImportsResponseObject interface {
+	VisitGetAdminPegasusImportsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminPegasusImports200JSONResponse struct {
+	PegasusImportListResponseJSONResponse
+}
+
+func (response GetAdminPegasusImports200JSONResponse) VisitGetAdminPegasusImportsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminPegasusImportRequestObject struct {
+	Params PostAdminPegasusImportParams
+	Body   *PostAdminPegasusImportJSONRequestBody
+}
+
+type PostAdminPegasusImportResponseObject interface {
+	VisitPostAdminPegasusImportResponse(w http.ResponseWriter) error
+}
+
+type PostAdminPegasusImport202JSONResponse struct {
+	PegasusImportResponseJSONResponse
+}
+
+func (response PostAdminPegasusImport202JSONResponse) VisitPostAdminPegasusImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteAdminPegasusImportRequestObject struct {
+	PegasusImportId PegasusImportID `json:"pegasusImportId"`
+	Params          DeleteAdminPegasusImportParams
+}
+
+type DeleteAdminPegasusImportResponseObject interface {
+	VisitDeleteAdminPegasusImportResponse(w http.ResponseWriter) error
+}
+
+type DeleteAdminPegasusImport204Response struct {
+}
+
+func (response DeleteAdminPegasusImport204Response) VisitDeleteAdminPegasusImportResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type GetAdminPegasusImportRequestObject struct {
+	PegasusImportId PegasusImportID `json:"pegasusImportId"`
+}
+
+type GetAdminPegasusImportResponseObject interface {
+	VisitGetAdminPegasusImportResponse(w http.ResponseWriter) error
+}
+
+type GetAdminPegasusImport200JSONResponse struct {
+	PegasusImportResponseJSONResponse
+}
+
+func (response GetAdminPegasusImport200JSONResponse) VisitGetAdminPegasusImportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminPegasusImportCancelRequestObject struct {
+	PegasusImportId PegasusImportID `json:"pegasusImportId"`
+	Params          PostAdminPegasusImportCancelParams
+	Body            *PostAdminPegasusImportCancelJSONRequestBody
+}
+
+type PostAdminPegasusImportCancelResponseObject interface {
+	VisitPostAdminPegasusImportCancelResponse(w http.ResponseWriter) error
+}
+
+type PostAdminPegasusImportCancel200JSONResponse struct {
+	PegasusImportResponseJSONResponse
+}
+
+func (response PostAdminPegasusImportCancel200JSONResponse) VisitPostAdminPegasusImportCancelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminPegasusImportCancel202ResponseHeaders struct {
+	ETag *string
+}
+
+type PostAdminPegasusImportCancel202JSONResponse struct {
+	Body    PegasusImportSummary
+	Headers PostAdminPegasusImportCancel202ResponseHeaders
+}
+
+func (response PostAdminPegasusImportCancel202JSONResponse) VisitPostAdminPegasusImportCancelResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutAdminPegasusImportCollectionMappingsRequestObject struct {
+	PegasusImportId PegasusImportID `json:"pegasusImportId"`
+	Params          PutAdminPegasusImportCollectionMappingsParams
+	Body            *PutAdminPegasusImportCollectionMappingsJSONRequestBody
+}
+
+type PutAdminPegasusImportCollectionMappingsResponseObject interface {
+	VisitPutAdminPegasusImportCollectionMappingsResponse(w http.ResponseWriter) error
+}
+
+type PutAdminPegasusImportCollectionMappings200JSONResponse struct {
+	PegasusImportResponseJSONResponse
+}
+
+func (response PutAdminPegasusImportCollectionMappings200JSONResponse) VisitPutAdminPegasusImportCollectionMappingsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminPegasusImportCollectionsRequestObject struct {
+	PegasusImportId PegasusImportID `json:"pegasusImportId"`
+	Params          GetAdminPegasusImportCollectionsParams
+}
+
+type GetAdminPegasusImportCollectionsResponseObject interface {
+	VisitGetAdminPegasusImportCollectionsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminPegasusImportCollections200JSONResponse struct {
+	PegasusCollectionListResponseJSONResponse
+}
+
+func (response GetAdminPegasusImportCollections200JSONResponse) VisitGetAdminPegasusImportCollectionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminPegasusImportItemsRequestObject struct {
+	PegasusImportId PegasusImportID `json:"pegasusImportId"`
+	Params          GetAdminPegasusImportItemsParams
+}
+
+type GetAdminPegasusImportItemsResponseObject interface {
+	VisitGetAdminPegasusImportItemsResponse(w http.ResponseWriter) error
+}
+
+type GetAdminPegasusImportItems200JSONResponse struct {
+	PegasusItemListResponseJSONResponse
+}
+
+func (response GetAdminPegasusImportItems200JSONResponse) VisitGetAdminPegasusImportItemsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminPegasusImportRetryRequestObject struct {
+	PegasusImportId PegasusImportID `json:"pegasusImportId"`
+	Params          PostAdminPegasusImportRetryParams
+	Body            *PostAdminPegasusImportRetryJSONRequestBody
+}
+
+type PostAdminPegasusImportRetryResponseObject interface {
+	VisitPostAdminPegasusImportRetryResponse(w http.ResponseWriter) error
+}
+
+type PostAdminPegasusImportRetry202JSONResponse struct {
+	PegasusImportResponseJSONResponse
+}
+
+func (response PostAdminPegasusImportRetry202JSONResponse) VisitPostAdminPegasusImportRetryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostAdminPegasusImportStartRequestObject struct {
+	PegasusImportId PegasusImportID `json:"pegasusImportId"`
+	Params          PostAdminPegasusImportStartParams
+	Body            *PostAdminPegasusImportStartJSONRequestBody
+}
+
+type PostAdminPegasusImportStartResponseObject interface {
+	VisitPostAdminPegasusImportStartResponse(w http.ResponseWriter) error
+}
+
+type PostAdminPegasusImportStart202JSONResponse struct {
+	PegasusImportResponseJSONResponse
+}
+
+func (response PostAdminPegasusImportStart202JSONResponse) VisitPostAdminPegasusImportStartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
 	w.WriteHeader(202)
 	_, err := buf.WriteTo(w)
 	return err
@@ -15462,6 +17252,9 @@ type StrictServerInterface interface {
 	// (POST /api/v1/admin/games/{gameId}/assets)
 	PostAdminGameAsset(ctx context.Context, request PostAdminGameAssetRequestObject) (PostAdminGameAssetResponseObject, error)
 
+	// (DELETE /api/v1/admin/games/{gameId}/assets/{assetKind})
+	DeleteAdminGameAsset(ctx context.Context, request DeleteAdminGameAssetRequestObject) (DeleteAdminGameAssetResponseObject, error)
+
 	// (POST /api/v1/admin/games/{gameId}/content-revisions)
 	PostAdminGameContentRevision(ctx context.Context, request PostAdminGameContentRevisionRequestObject) (PostAdminGameContentRevisionResponseObject, error)
 
@@ -15521,6 +17314,36 @@ type StrictServerInterface interface {
 
 	// (POST /api/v1/admin/jobs/{jobId}/retry)
 	PostAdminJobRetry(ctx context.Context, request PostAdminJobRetryRequestObject) (PostAdminJobRetryResponseObject, error)
+
+	// (GET /api/v1/admin/pegasus-imports)
+	GetAdminPegasusImports(ctx context.Context, request GetAdminPegasusImportsRequestObject) (GetAdminPegasusImportsResponseObject, error)
+
+	// (POST /api/v1/admin/pegasus-imports)
+	PostAdminPegasusImport(ctx context.Context, request PostAdminPegasusImportRequestObject) (PostAdminPegasusImportResponseObject, error)
+
+	// (DELETE /api/v1/admin/pegasus-imports/{pegasusImportId})
+	DeleteAdminPegasusImport(ctx context.Context, request DeleteAdminPegasusImportRequestObject) (DeleteAdminPegasusImportResponseObject, error)
+
+	// (GET /api/v1/admin/pegasus-imports/{pegasusImportId})
+	GetAdminPegasusImport(ctx context.Context, request GetAdminPegasusImportRequestObject) (GetAdminPegasusImportResponseObject, error)
+
+	// (POST /api/v1/admin/pegasus-imports/{pegasusImportId}/cancel)
+	PostAdminPegasusImportCancel(ctx context.Context, request PostAdminPegasusImportCancelRequestObject) (PostAdminPegasusImportCancelResponseObject, error)
+
+	// (PUT /api/v1/admin/pegasus-imports/{pegasusImportId}/collection-mappings)
+	PutAdminPegasusImportCollectionMappings(ctx context.Context, request PutAdminPegasusImportCollectionMappingsRequestObject) (PutAdminPegasusImportCollectionMappingsResponseObject, error)
+
+	// (GET /api/v1/admin/pegasus-imports/{pegasusImportId}/collections)
+	GetAdminPegasusImportCollections(ctx context.Context, request GetAdminPegasusImportCollectionsRequestObject) (GetAdminPegasusImportCollectionsResponseObject, error)
+
+	// (GET /api/v1/admin/pegasus-imports/{pegasusImportId}/items)
+	GetAdminPegasusImportItems(ctx context.Context, request GetAdminPegasusImportItemsRequestObject) (GetAdminPegasusImportItemsResponseObject, error)
+
+	// (POST /api/v1/admin/pegasus-imports/{pegasusImportId}/retry)
+	PostAdminPegasusImportRetry(ctx context.Context, request PostAdminPegasusImportRetryRequestObject) (PostAdminPegasusImportRetryResponseObject, error)
+
+	// (POST /api/v1/admin/pegasus-imports/{pegasusImportId}/start)
+	PostAdminPegasusImportStart(ctx context.Context, request PostAdminPegasusImportStartRequestObject) (PostAdminPegasusImportStartResponseObject, error)
 
 	// (GET /api/v1/admin/platform-instances)
 	GetAdminPlatformInstances(ctx context.Context, request GetAdminPlatformInstancesRequestObject) (GetAdminPlatformInstancesResponseObject, error)
@@ -16368,6 +18191,34 @@ func (sh *strictHandler) PostAdminGameAsset(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// DeleteAdminGameAsset operation middleware
+func (sh *strictHandler) DeleteAdminGameAsset(w http.ResponseWriter, r *http.Request, gameId GameID, assetKind GameAssetKind, params DeleteAdminGameAssetParams) {
+	var request DeleteAdminGameAssetRequestObject
+
+	request.GameId = gameId
+	request.AssetKind = assetKind
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminGameAsset(ctx, request.(DeleteAdminGameAssetRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminGameAsset")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminGameAssetResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminGameAssetResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // PostAdminGameContentRevision operation middleware
 func (sh *strictHandler) PostAdminGameContentRevision(w http.ResponseWriter, r *http.Request, gameId GameID, params PostAdminGameContentRevisionParams) {
 	var request PostAdminGameContentRevisionRequestObject
@@ -16976,6 +18827,308 @@ func (sh *strictHandler) PostAdminJobRetry(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(PostAdminJobRetryResponseObject); ok {
 		if err := validResponse.VisitPostAdminJobRetryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminPegasusImports operation middleware
+func (sh *strictHandler) GetAdminPegasusImports(w http.ResponseWriter, r *http.Request, params GetAdminPegasusImportsParams) {
+	var request GetAdminPegasusImportsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminPegasusImports(ctx, request.(GetAdminPegasusImportsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminPegasusImports")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminPegasusImportsResponseObject); ok {
+		if err := validResponse.VisitGetAdminPegasusImportsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminPegasusImport operation middleware
+func (sh *strictHandler) PostAdminPegasusImport(w http.ResponseWriter, r *http.Request, params PostAdminPegasusImportParams) {
+	var request PostAdminPegasusImportRequestObject
+
+	request.Params = params
+
+	var body PostAdminPegasusImportJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminPegasusImport(ctx, request.(PostAdminPegasusImportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminPegasusImport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminPegasusImportResponseObject); ok {
+		if err := validResponse.VisitPostAdminPegasusImportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteAdminPegasusImport operation middleware
+func (sh *strictHandler) DeleteAdminPegasusImport(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params DeleteAdminPegasusImportParams) {
+	var request DeleteAdminPegasusImportRequestObject
+
+	request.PegasusImportId = pegasusImportId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteAdminPegasusImport(ctx, request.(DeleteAdminPegasusImportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteAdminPegasusImport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteAdminPegasusImportResponseObject); ok {
+		if err := validResponse.VisitDeleteAdminPegasusImportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminPegasusImport operation middleware
+func (sh *strictHandler) GetAdminPegasusImport(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID) {
+	var request GetAdminPegasusImportRequestObject
+
+	request.PegasusImportId = pegasusImportId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminPegasusImport(ctx, request.(GetAdminPegasusImportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminPegasusImport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminPegasusImportResponseObject); ok {
+		if err := validResponse.VisitGetAdminPegasusImportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminPegasusImportCancel operation middleware
+func (sh *strictHandler) PostAdminPegasusImportCancel(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params PostAdminPegasusImportCancelParams) {
+	var request PostAdminPegasusImportCancelRequestObject
+
+	request.PegasusImportId = pegasusImportId
+	request.Params = params
+
+	var body PostAdminPegasusImportCancelJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminPegasusImportCancel(ctx, request.(PostAdminPegasusImportCancelRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminPegasusImportCancel")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminPegasusImportCancelResponseObject); ok {
+		if err := validResponse.VisitPostAdminPegasusImportCancelResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutAdminPegasusImportCollectionMappings operation middleware
+func (sh *strictHandler) PutAdminPegasusImportCollectionMappings(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params PutAdminPegasusImportCollectionMappingsParams) {
+	var request PutAdminPegasusImportCollectionMappingsRequestObject
+
+	request.PegasusImportId = pegasusImportId
+	request.Params = params
+
+	var body PutAdminPegasusImportCollectionMappingsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutAdminPegasusImportCollectionMappings(ctx, request.(PutAdminPegasusImportCollectionMappingsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutAdminPegasusImportCollectionMappings")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutAdminPegasusImportCollectionMappingsResponseObject); ok {
+		if err := validResponse.VisitPutAdminPegasusImportCollectionMappingsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminPegasusImportCollections operation middleware
+func (sh *strictHandler) GetAdminPegasusImportCollections(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params GetAdminPegasusImportCollectionsParams) {
+	var request GetAdminPegasusImportCollectionsRequestObject
+
+	request.PegasusImportId = pegasusImportId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminPegasusImportCollections(ctx, request.(GetAdminPegasusImportCollectionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminPegasusImportCollections")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminPegasusImportCollectionsResponseObject); ok {
+		if err := validResponse.VisitGetAdminPegasusImportCollectionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminPegasusImportItems operation middleware
+func (sh *strictHandler) GetAdminPegasusImportItems(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params GetAdminPegasusImportItemsParams) {
+	var request GetAdminPegasusImportItemsRequestObject
+
+	request.PegasusImportId = pegasusImportId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminPegasusImportItems(ctx, request.(GetAdminPegasusImportItemsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminPegasusImportItems")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminPegasusImportItemsResponseObject); ok {
+		if err := validResponse.VisitGetAdminPegasusImportItemsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminPegasusImportRetry operation middleware
+func (sh *strictHandler) PostAdminPegasusImportRetry(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params PostAdminPegasusImportRetryParams) {
+	var request PostAdminPegasusImportRetryRequestObject
+
+	request.PegasusImportId = pegasusImportId
+	request.Params = params
+
+	var body PostAdminPegasusImportRetryJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminPegasusImportRetry(ctx, request.(PostAdminPegasusImportRetryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminPegasusImportRetry")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminPegasusImportRetryResponseObject); ok {
+		if err := validResponse.VisitPostAdminPegasusImportRetryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostAdminPegasusImportStart operation middleware
+func (sh *strictHandler) PostAdminPegasusImportStart(w http.ResponseWriter, r *http.Request, pegasusImportId PegasusImportID, params PostAdminPegasusImportStartParams) {
+	var request PostAdminPegasusImportStartRequestObject
+
+	request.PegasusImportId = pegasusImportId
+	request.Params = params
+
+	var body PostAdminPegasusImportStartJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostAdminPegasusImportStart(ctx, request.(PostAdminPegasusImportStartRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostAdminPegasusImportStart")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostAdminPegasusImportStartResponseObject); ok {
+		if err := validResponse.VisitPostAdminPegasusImportStartResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -19683,267 +21836,293 @@ func (sh *strictHandler) HeadRuntimeState(w http.ResponseWriter, r *http.Request
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"zutOn3/7/wcAAP//",
+	"7L17d9u2sjj6Vbh091r7nN+RIidp9mmz/zhLluRErSypkpw2u831DyYhCQlFqgCoxPX1d78LT4Ik+NQj",
+	"Tvf5xxZBEBjMDAYDYB4PLTfc7sIABpS0Xj+0dgCDLaQQ86ee64ZRQMco+DQasAIUtF63doBuWu1WALaw",
+	"9boFjDpeq93C8I8IYei1XlMcwXaLuBu4BezjVYi3gLZet6IIsZr0fscaIBSjYN16fGy3eoRAmt8Tf3tw",
+	"H3uAfHCHfETvdUd/RBDfGz2Zdczms81djqaLnyPkfspr6w/+0mzEgysQ+QzI3njcardgEG1br3+TT73l",
+	"cjhZjqaTVrs1H/58M5oPB612azpjZb1x64NtUJd+6H6CuB96MA+OO6NK8ZD6i/nVMvwEA93UBgIP4rit",
+	"XztzSHG47fQJXhXSw9I6CDzkAQpz6ezqGofSur8BwToXI654WwJuGKzQOsLQewcxQWGQB3SmXhHoO0Ap",
+	"xKyV//c/Lv6/3553fvjw20Xnhw//5z9///1Zacl//M/rDvvZ6/wLdP7sfPiv//if17///ixR9J//5z//",
+	"5292pIQBhQEdoDUkNJfEslZHVqtJY/HxPIH9vB7mkgr1OsCwhylaAZeOBj9zuuZR2azqtWoyUIhhhfZT",
+	"7VraiTAJcW4T4q3ZxBZ8GcNgTTet198//+GFDbZBbylZLXcmeYCqKodOpQF0UYL9U2Pw1PtiRAwDcOcz",
+	"COytQPna0shdGPoQBLyVK7APMaLwKvQ9iHOHvxKvDx16urdCdjD6bNLHwg13uQKL8JfVl5KbSb+3HL6Z",
+	"zkf/4mvI1XQ8GM7tK4gGIMQ0t3/2zt79Ve/ddD5aDge3g+Gib0CSeTEf9oeT5fj97Wzcex8XL0fL8fC2",
+	"J6uMh73F8Pb9sDcX7+0gIz9/EVmxlwdTHofbHr0mucRW763NooD+47tWu7VFAdoybFzoPlBA4Rpi3skb",
+	"sIVc8fkJBV6R6sPfFw1I4fzdaDCc2nHGOsvF2Zq9PBRnoofCOaL7qdPuyIPbXUhh4N7/BO9zVxWjWofV",
+	"O2wwo9U1oO4mv7dVR1Sot3yNtrsQ0xGF21xaoLjKoRQRvf0Y3pV0xmocsa9CFkj2WKeHonF8PMIIxoDQ",
+	"4R4G5j4kTXZWp8MrdUaDVo5ix5W1//pbTidR4G5yx+GL1wcPBW1RrjD3+UurNH910WYKiBBazy8uDBH2",
+	"3CrCeEfPLy4a9CWar93ZiyZ9vTC7elGxp1cXh2LwVYWewjVygT/hDdtZwqhRT9hwAXUN6SbMVbu2RpXi",
+	"xqYRdcNtroYSytfFjcwAJnBBAY1yV9adUaW0MToJc7C2Ey+LEFayOs/gGpCI9EPfhy7lynbJdkBXrCvZ",
+	"ZFdycciTDbtErUNFhOzzF4ADVpQzqM/ydQklfEBZjyUY2qlqXtX2AkJB4ObrLbt0xYOxkum52ojM/uv0",
+	"93Pu4VHepvDFxYW1oe8vajf1vbWluUDfNrkQJvGOjTqHonwO9wh+Ti+86f7iOgf3F/q5UgyzdzbFuje4",
+	"Hk3YxmqRt41agD0XW/nMSnSNQ4dQc69oaUAIqtwm5OuyRvAe4hKhRcxKB4/baCyxZ0rB/0nsl2zb1cvR",
+	"dHE7GM2H/eV0/t7YrqZefCjrfx6GBfzKXnpVDwJ/A50/P7A/F50fOh8eLtovnz/+rQABc+gDivZwxvrM",
+	"XUY5PDYUtNqmEPju4od/WLuqcxxg+zzCbj6PirclTbC5ktsCf1neQL6iQaroGMuw6BSAhgefAdzs/BB4",
+	"uYwUideHTpwbUnBYFpGDj8oexceQ0MvQQzBzhRSQHXQ5O7ni7Jf9BLudj1zAJE33IxHSKO7ybxiuWq9b",
+	"/083vqbqirekm216LnqPQYnH8dhu9VyK9oDCQW95RBh0myWd73b+vb77OF7/iWZLQcDhHvjH7Jw3WK3b",
+	"OQSy9SN3zpotASGiG3EXNAOEfA6xdzwwMk2XgzIKEEXAR3/Co4IRN1sOAttwBkftnbdY3HEfwyNPP91i",
+	"lY6T5/hHhiHZeBVwhAJxZDCkVlKl+2CPKFD63zFB0A1XASOx6T0yJIm2KwGT2sgdG55U81VAMpXNI4OT",
+	"0GMrgCKUlCMDIRot7n4glNZ+iI9HEaPNyp3PxAb0FDDIpstA8SGFb+Qh4ZFAUE1W6ZopkEfumjVZ3PVw",
+	"uxOWOkfplbdW3OEVDrdzyNRitps/Ws9xk8Xd6/vAo/WsWyzumIsl32db4KN1bbRZ1rlaNXquC3f0iBAk",
+	"Gy4GQ1zMHK1z0Vxxl9eQAg9QcIWg75GjdZ1qtrjvGQ736JhKUbrhEhSE++OKNdVgebfHlulGmyWdRz5F",
+	"A0TcmQ/uIeanmseDwtJ4MThTvAYB+lPrscdjxEzLxYDE2ygCaT/c7tgqcTRgrK2XAUTdzYn2Dpa2KwBz",
+	"MjXV2noFgI6qF+gWSzpOX8xdg90OBevjMW5uD5UAE3r1goIj6u3ZpktA8cH9cQWLbrG44yOf9VQ545lD",
+	"bYJ75N1SpuUyQL6a6jiHIfYgTs9gckRA7B2UgbXzgZs6IjkmULbmy0AiNMQnWO3SDZeBwRSFHnaBB2cA",
+	"w4D2KAXuZnvMOVvUSSXwjroZMdqs0vkAg9WxO+dtVulcq1Eno4qlh2LAboKVZK2jQRI3WdK1PKpZQQyP",
+	"qXWk2i0CgpeQXRiQvNslfuwoapzwogmFgYDPg8TFaCeOUVuTMOgQ6GJIna3cADl7RNCdDx0aOsDZAx95",
+	"jnSZ6vgo+ORshEbJ76d0N2NE6CmHwdq3DWDBgfchIUkg9Wh8/mG71fO2KGBK2mkgNVu3wSmHwpAdYUTv",
+	"O2Hg3zsRgTgL4emgqwmZBylAfqstzUk5Aw+XYJ3sOXOpqu6vGOhfToDruG3beNQS74DAc9wIs+XDARHd",
+	"wICyDqHXIZAQFAaOq1oRXnEn4Yx0w5ehd28DWzjcdHZgDT2HfeS4gAI/XDufEd043Dqm8xl50AHrNYZr",
+	"wHQABjgKAL6vAHboUkg7hGIItknw9S35HW/Lfk+ehFb06qiuEhwiTq2ElxQpZpV2RXZSyskl22n9uJhO",
+	"jk6mRA9zSCKf5lCJ8xM343DClQOBu3FCeWDgOXqpy3jhnBRquckvAFgB5gh3n7pzut0ah66+e6tGLMb1",
+	"Jx11Yr4WjH2GwxXy4d9JjAUmc7mA8CBGe+g5JNpuAUZiTl1p7YKrxicdhOwjn+VkBQfzGg4KXD/yULB2",
+	"yCe020HPWYMtJHwwK7lPMb2jGKOedADC3KnKXAkDmJggbyHw6WaM2CbxyMDFTdsgm+HQZRoDIo7PqyhY",
+	"JiGdQ+Ddnwge1bxdkcF75EIGUxBSB4t6CrBTQlUFJA1OfDkhbkO9owOV6cG+yKtKsabHZgDdQMZmHYq2",
+	"0HHBTrrEOzfzMYP+JBOBNTq9+whd6/Rlbx2spZS6sBFe2keHxWzcirftNqKAaffCY8dRB0UCl0oarnC4",
+	"5bjkLvie4zIBBKRPspSbOxh4MHClyEweU5+INWydWOe3rNfBrGJ1Dmmg6GaOXE+iRFp7sU5ZbqDqxD4d",
+	"zlYcATtMsWylD3tPCWzcg5VEopJDXBB0hW+ds0FspbvPQHlaCBd85b+vCqTWvg/glhGF25OiXrZfNCZE",
+	"4VbpFIo3FothDkhsm9SF3H/QtoMo3S8Iy50OYfoAb4YLDdOeR5uEngQxuT1ZNS4QcKGn6hFnFWKhveDw",
+	"TxiI7ZnhS5Iey4Dvm086CNFFPqodya5Cr73noo+DzenOCd6AfxMQIAxdNl9PTrBET7YhiwqOu0G+53iy",
+	"NoLEuYN++JlTLo524uAwzFDs5GPIP78yqWVIwKSt2wkhK5B/VlY6lG/mYXh6dKtOrPuSmBUIWEFHuPpw",
+	"tuBSKT5dPom6aB5e5+35hKVZfJzgbOH2DmKyQTuHBGBHNiHlQukujAIPek4UeCHfpsteUkfNHGLPQ6x5",
+	"4M9wuIOYcn+HFfAJbLd2RtFDKkJWuR9Fm2GGRFvoKa+TQneSIPJ9poMqf420e0m75QrdrlJruV9f3tc4",
+	"X+baZMg/h192CEPSsPNP0r9L+WeNJu9Gy54MjzXrLRa/TOeD2/lwMVxanLXaLQz34aejIRJLp8E8f8Cc",
+	"FmJwiHJm0i30l6N3w1a71Z9OFjfXPEzLfPhu+hP/Nfx1xsN/2UZGAV5DeiO8dixMVQrLPo5nlY8Wu7t6",
+	"fCvzWyb+m/S6kz6UCShNXmpr3629jpdl8mmScVJTIknXGDuh3Dcm7lIUL9abtFEuYjOIZFUDab2WPekz",
+	"caV9rPQnJbCn/JrqDQF+Yd9C76cD5xBVseAMf8F/fMeZxHwsHnoCGNVmtdFLJq038q8pcw6VEiZDlVRO",
+	"YTk5+XQ7yclUgnW+0NfD9xoGEB+wxDAtWrhXqh8V1xnOnqI5gDHgql4Av9A43lo9/CUHogBLtGnHXsYL",
+	"sB4CuT6NtyKMo2eLetZWdW6CT0H4OeiH2x2gKI5jmf0AbXfANeL8FQ89Ubudhqi4eytO9C1pXW2Joj1c",
+	"iDvFPiN0c52lITt6iOx8cD+xy/R2yweEcne3M6kVVjVCuDSrT4aT3uWY6wyD0UL/HI6Hyxz14Tjr29G0",
+	"iOzKmCSDlmnaXztPbUgSp23jp0J2ffriLzY/eBrCz+qCXA+DK+37oFGgOJsiyglvbunY0x76rIVWu7WL",
+	"7nxENvz3GgaY1d5xu3ehKfoQEPgeAmzXbkwMtltRgP6I4EhAIQ2fCPS57sKN1kj5xtmsHVszJZEtR5xp",
+	"PAfDFlfnehjG2iLX0OJeXVy0KzBJAUBNQAEuW0J86K2hx6MFpihfKpC24Isk0HMjDE4RBb1InC/AWegj",
+	"9z4hbMfj6S+3k+EvOfvHY6It11e8prYgroJNX3YTuucvErr5c8uwAvj5OF/3hVagbRlqtZSaEulhJcHM",
+	"7/ZDHqqlPVJN7rwjoR9ROKyxhyhf4g2LKRQGi/QxwGS6vO3NZuNRn63dPHRr72b5djhZjvq9JV/Mk882",
+	"XnUJXi0te7XvXibowB5LtyDI84+MASQNyTJjH01Gy1FvPPoX32LdGjHP58Pe4L11qFsZ6Fy1IYU8ExZs",
+	"OlnlPCRUOtzKDQTX2qFdd46U4ur701Xr9W/lNnRiRc5s7zJqdgINciR2/pBQmITNEqZtZdiC4ebNlmz0",
+	"iHrzJqU0G/z3UoZaLBIpu+bSaHcMUcTWYRrtVAD94tlTqCEnBp749GWZAIxBKNCDd7FA3NWRhon4HPVI",
+	"ewBxcjCTOj4qXRoMbGhg8gbaYM9ZtuGrvUE70+mhdY9kw8vlaLqQrthCwMjLp5p6x0G7auRZcbv1XlnL",
+	"yQY8z3vx4tU/7JtR4PNNiGdEL3x3nA0qJx6DVUKm4SjuNbk7zSNNxqK57u7JpxBDr+lpyXn3ryoWgMSU",
+	"vjAt1uvr7m3bMgKiMWuVZnF7+f52PLqc93jkv6ub8fi231v2xtM39sMW1g5HLalLl8j3+8LsvAFWFfdd",
+	"3o/RHZaztW5gOZOFsw22EyDauJM0EhSAUqbMND+/48lqULBu+n24E5A2/Z4baDb/WOC56fc0pM0hl6F6",
+	"m32eYhgDkDRJUh0lMNZO0z+NkjR9soxXcjIVBzeNp2bMq+2UQKx8kpUjmZqcX5uLbfV9RN4ybdlW8AN5",
+	"AZRSWkslYioVjm0Fldls8l7lakgwzuuS3Uypu79rsdRX2Hzaj92TQdItZzWadNep/aEtkRa/cx+MctNq",
+	"tWV80vT16WLZW476LZ6A5/a61387mgwrntJf95b9txyK69FiMZq8abVbb3uLt7e/9OYT8Shf3A4nS748",
+	"KXBv4y9Gk3e98ch+BrA/orajMxtpyrez2ZSScekNjGXpkWbZJGO0jeQ/8dm+Pu63TCvbFM4EBKx7D5ee",
+	"IeX6O/devRLpZiqFYU3o9ObXGfTmj9AeM6TeYJHY8Z/pCNayC3z+j4t620C56UkBno+lZLiG2ley1JAk",
+	"SYuy6RZRCj1HhrslTkSgs1j2JoPefPDMiCetytjMvhkvR7eD0aJ/e/3y5vbdc/vJliUik2qMiYrh9GbR",
+	"arcm0xyhIwxuZtmI9NV5uTkfcx7OhcAyuALSZaJINrpR55dlKtZ7dmWqubFPK9TiSjLTVf6orBEpa17k",
+	"iKDijWKHKwGdDh1eIRB4ctwyrrmltYKx58QVqnlUE8dMzNFTEjM1KW8uLixpE6yi6cVFhTPLOJGF9Zwi",
+	"xHSK5RTOLMYlC3AiSUZyzG0lBpM3onF3+SSwRfysh/60bVRpvHw2LB6eZbS6hIxfE1HoZR+2ifnVuVzb",
+	"UuUze3Zw+bhPBjqtfcADkwt0HUnoIxjQWEEpySLCb8xr4a3dIuhPeHkvw+gcsuNMwJqCxOzGhuaESiKn",
+	"ryrIHiYJai7vk0dEV6PxcMGNaAozQCQO7eOG2pJQNujyY73W11DzNmj6bCyTPbR0y+WrVGG1UnElSCcA",
+	"Kxn7Kc3jchFTzxBOb3uKLeLsA01H0200ziU3eam7IGWGYbSVD6wZaK8RsDfHuftKt2aFGBF3GNDaRzIo",
+	"8OCXBHP/d9kxmg/uoF88JJtKsEeYRsBXktNYu7oeIi7P2vzh4eXj778/czfe30rVagG5AifZfh6GFrCc",
+	"kml5YN36pA8+qm1gXHXyqJH9vYHsFzZkw4BiBKvfIMR8kBD735si/0VW5MttI/t6VJcjstyqMaSGbOkg",
+	"HpqNWIlQ1GUUy36NcYiHgTCDq2sfz76tPd09mKNvU4D8Aq0kseQY6zUkBKzzj/IgoU12oq44WlKtx/CZ",
+	"rZaeOAsM2ahmC21TUxzVui5LBQYxGf5V5pIsLT54vaJRxPFsz3YPrDNkVzmRaHRq1G5FO+8ACJseojL5",
+	"zIO9MQ3gKDcwRjZxuemLj0YzfaUtoU0kFPEAP0ejcFtbIOwhvsF+tauHwwzykwkgqkyXCdjykBkixRhj",
+	"OyNsYrVIQirO4WNbZayuwrE+IJRH3T6W06E6Cmg88p0lXHSjhkxT6nyimzeZSpEtMTxX+cCVrbcesgX4",
+	"JDe0YzZMwmdzCzDIYvBD0dRIe1bX2bPHUW5ryfkrHQ+yxBzivFYbGWFxdHsNRen6MKmTRcOUJLPdj+9y",
+	"Ky22RkvNb+PLbrHj+2rJKyYS2snr94pX2Pa5W1M/se+iqxmpIb1WFYGXpljdlaeZbcSRBqYU/qIBJqLk",
+	"1pEa8vtDlasTX+el1ZQE1CYUxTjiofhYuw2PRc8z2BrLf97CVgshjTYVWHx7LocaGS3x6ggUqNXhWYaX",
+	"sZtLojYDjAUdRWTWHhB/PblwjKnSSJY0W0hUX02N7QRsTb+OAhdQuA4x+rOpsWCOHFZKg6WHJNA2lGay",
+	"hR12Q9ifvhvOW+3WZa//05v59GYyaLVbi/58OJws3k6XrXbr3WgwnFrPEkPsoQD4iYO6l89L8XpMixx5",
+	"C6ggsSHMiI5aD1VZA7HwU4ULJ/FVPiQ6LmoTD9F+ynJu0Fv2LnuL4e3NpPeuNxpL/7R+b5EqGQxnw8lg",
+	"OOm/v1UGaonCQW95O+vNF8Pbq95I+acbnwyGv44mbyoa0gUhvRVBVKuiq22OLx93TRCXBa8eaDZoLHnz",
+	"asavOd4ksMNnz6r37+Uz1iwyztH8xaj0CTyqr1g2YPDJo50ddDZ4WKyfRqE3bBG8rF5g4nA0RgBGrfMF",
+	"4jICZlQPs8VAtnGFEZW5NjvAHYXeQAZF5lR6bOcEAXgUhr4cGfL33uANVQTN34ncPLo02x8rHW4jH9AQ",
+	"fySxW9hj226zr8tVFOjI6KH29VlaLeIM1m4t3i+Ww2sr9+gr6ErxohoFgbNbPGk/QwGBjR3ASlhysZ8+",
+	"X+2EURnka4aJquxbYn3DdhH538k9huXNNaDuRrfJc1wNzGDaqnyT6+otXw71JXRcdiXRGZPtX6MZo9rw",
+	"3XBy+69KwbwAU6U5deIHYjzFv0MXmbyXZmv9rBujFG531MQapRjdRVRaqYWBtG8yX1mKFAh7gHygI0o9",
+	"tlt3wP20xmEUeDq+S88czh0gMP7VF5fic7hHbGqZlQZAeUTqUpEcRf4OSfxrAc0hsRJxySTcwu7Md9oe",
+	"KH7IvMZSo00WkESJegpDSigGu2TkA/YmCjwfJmSGCwIRBgXGz5xE14gQFKwHiLhEv5pDqkbrgsCFvs6Q",
+	"qEt8NRIdKdkYiy4bpSvFfYSB4R7DinioEfU7Cj4tDDM9VuYDon8iGNC+it+OYKJca5G6ZHrHw7waclmU",
+	"L5gaKE49eVkYwHAlHzQZ3NCPtmro4VYYnonfcUyxvlHdKF4oXVu+4IFdU48GUCkXKRVFbT3cI8+Ak5ct",
+	"ZCRYW5m2HdNvIgw9LWjuJWeYBNO1MmsOSddI8pWYRSMPBhTR+1TPhl1OXHAdM7Rrn4OuuDm1+YCZpnNl",
+	"Xl7s5ZQbHJO4tv4pPWQf5Z2cXWQYt8YZ1Y8XhIRMMVqjYERCH8TUNYOb2EwfsZaU8iFHHMm3KkF1zut3",
+	"ACOQ/dgDVP9I8pCXkXCsdSb7FvxuKUFj/Uq5svM7bhcZNZSF9MNjO2PzniyKJ7xRmKCSLB+ERFnP8UI2",
+	"WUbcxtEs8RIPMWW8zKqqS+6vQYBWkNDMi+y8yLzT35hW+wmzokcz3Jd4RKtV/ItbQsUznBX9GN5pTKHV",
+	"ypQa7DlJDB7hXCh5C7DSrRDXBNswGpOPAHsaWYh8in9xJJvfCrzHeEvSQYWmYlowSZXpcFVso+Ot1Xu4",
+	"WkER1o7f7ykppYYMpcR5o85ijbKPJP2cQEbsx5mwy2MP0mZM/YwRzjMQxGoFTMwL9WTgA36BbkSNmaIL",
+	"JqEqQISiYP1Gs7byFBwnfEAzvqUV9oPWHaSPXKSho2w37Ruq6gogjRPxO6WtrpJK78pYL9nvaUTdUBN3",
+	"ZTTM/ZRNEb9CAfDRn8DEhiyDBlOvfLBX1FhrXKwNsyPzKF7/JvHDJPHVMsdQQ7zV4po9JNhlHfNsuTmC",
+	"NfCEWpc2AHsZtWsD0XpDZ3LSbZCpGCI5MrQOQpzYWSBDpqVMv0UJz1qRVnVEOSOswpkoMbAuClT9WBqg",
+	"YBfFxfEmUn9HBqY4R0nmQWaXFMo78RiueOvzMQblY3inrpHEU4IsH8M7+cknrSuo7ST/SSGh6X2zKDWk",
+	"kM+ErvypI1DwBxcGSvH3Q+ApsSx+a27x03N1C9wNCpIPBiK2chWR1tNGiblObsGXntj4EF2gdG0Li23B",
+	"l2VIgZ/vnmL5RsmSLfQQiCVbbLFqOGomnwy3TaM0rUZs4y2COX5Rqk0H1Pi0oN2qZMHiMdCIDSD0yDsR",
+	"hkYzQcL8hj2rF2wdTfBnfM3CH5jypW3YWUlCfIUR3UUS4h3PJq0JvgNYsQX/aS67O4CpEmg73fQORERJ",
+	"1h3jYMJUtgXYa8GVLI27io3i0p54dos3S2le7Zhh028Sk0y9zNWWdz64l3Fnja7uzTHcK04Rv3se2FF5",
+	"lvMYBzHVDz5SUmyHIYEBTXHQDsM9CiMyCijEe0XRHQ4pXyP1o8Gi6imhpKvCpIqrSk21QsVeTT3Kxv+Q",
+	"/yIYqRoYBFJVwvKqxYyy+dhOXkPpZ6IeXIj20JsBLYdVUWpzy4oDU5qJAsZEcYHegV3hcDtKi3sMP3K0",
+	"mUdaVcSH+Z3uy7ScjJ0i+XFOtt9dSBDPXCOfY2P4+BF6aht3CQiMZYERdcH8IhkYIy4kyaflhpFFF/LI",
+	"gigmDQn9fa0VHjMtPtDEhxTf91YU4mtilIjzM/kY4WAZqqc9gp+He76Z00xulMYDZEUzGHhs6mWLMl/L",
+	"8pQaJ94lJjlOSW55X8B/bfWPtMaPw6069sBREMRARQFFmlDigVFPiwRZFsteo2C6hxgjvdMnYLtTsBCw",
+	"F1YlBgy6TIGuC1QD7gZ6kVZsdbod/duInJYlrIqupX7qXthDvGSS+OSBuBjs4DwK4qqyQAOEIQziI5j4",
+	"OX2UoD6Axl0BT7gN45ivRtzm5FPPOHVVZf308Zp6ES+qb4R+a/SXrhF/ax6CyTh2ZuA6/ZtEWxLTOi5b",
+	"JGtiNtcxuL+MVislWglaB4BGGrnoT+OXIQeJH0nmIyGm8a9YwJp+6vLxHfAj3YAyIdW/B4lbW11siDtR",
+	"oE4FzLJZzhqsnKtjq8nYR5epbynpnvDeNW7l1E89oYihgsQ2wPxhJy4Qhl8oDNRBRGwaZbju/f77M+l0",
+	"/uG/rO7maWNjGgs0EQzD/G2e4oiS7OG4PYRG0Tv9JV8Z5O8Nwuqn3N/xO+t4f8UtjI2fBob5c0o+8rKZ",
+	"0DzMqhggX8u4KFDLRPp53nA9tbdQdQVKugJlzYOSYU/0E9MwjKGLwpQ2VxxuMq5geR6Yp1txsaEFxIUL",
+	"ChTxEoWasfdsuqqf/Nwy8TYBkXAaEg8yhJus9xl5dKP22vdSU7GFMU9kxa13Cxrf5lSLVpZ7Cl0zSFPh",
+	"qbb12DRnVA9WG0mzxssXFpR5sV9umWMrq5Y8JCxHVebAz2JIoOznfri4+O/nP/zw4tV3//3dxQ8/PC9z",
+	"abMdFFogSJ2a5aIvEY7lxXelJjYp7D7/h2YpvgCRcqsd0wm7QHrHxDKOx+znYVVOyyxRCIJdlAlMZ8SH",
+	"mk1Hk2WO1YlIL13VA804hrGZPsV79gpOOYntdwb60eTNeHh7NRIWgNPF7fTdcD7uvS+KUGXb0Vf3Dirc",
+	"bSd30LkRAo1dji30TLwHsbSQVtpzqyhnxVT8movOD7cfHp63//GdPXRNjsLfWBx9bwvqSgGm0a7n0oza",
+	"U5jYxPwsaR3+ncXjKtbDyqlrrEQxLCV6Vsp4RU8Rm8jKsodcX5LkKg51mJKyhqAwxUKKVTMsY87PWGDE",
+	"hg7mDDWwaJ2KtslkCpoMqbNTIIfjrKtiWszH65qxXhnENObSh1w9omHwEZvBQj0fdttFs0UcpPeVtiqW",
+	"LVqmWibWv9ms/eLb1rINkXHom9KJVkutqOH1XCg0k0cRBxqpaUcRHafHbD7BiBooq4GLDZPKKuBK56Oq",
+	"FZqubuA581q7PC6Xui0rrxkfHBcogtJQWat+FTzRjdPdSmHETG/xAtPWH15VcoSnTcMi5ZJZ3dY0k0GH",
+	"hepMsXWl0JjX4f7w6FKFUbRKQmUdFF80bb2eHye0fuQthpmD4qqdYVxWuNWVHo9NgPmpdmNfCn0VVCf2",
+	"kmG8Ye5K5kuRS/Kn2/70ZrK8vR4tePTqVru1+GW07L+9Xdz0+8PFIi646o3GN3O2E1j03g1v58PFcjof",
+	"mvXMYlXb6vclzQsH1jElBFenkuTC3KU27ds0/Yltu8a998O5CGu1GC4N5yXzTW82Svk7Jb4TCCitoD2f",
+	"5DuOkMWytxzavzXem2jjTYx7N5P+29vZcL4YLZbDyVLUHk97A1WpVOjExE+gyLR+shHDxshTvAYB+lMH",
+	"piYNcwN6h/sUv6jjqdq4l1eFESbtXWK4DffwPAO0qk08krqJ4ixMNuLqtHvcophxgo72f5CfnE6m3X/b",
+	"m7wZDm57fSFtdBLbQ3zo4iSLBNK+tA4+ewasr+pqluMw1sQvLInNfwPXsDqeXmLNv6me9Sv+4F3jYGNf",
+	"170sMWTbgI7lejYD1N0cI9/B0TIQ5ELZNMT5FgWJQ+7Dd5aF+VgaxjuvHdDcjqQ6EWfLEHOSKP8V86t/",
+	"qLTVlBH/+6HvC2uFBvnF60Xqkj0K0/C432MH7LKGmiyNT5VBxzXY7cTdcd0kS2Iu6Cyy17Mp37MsfhrN",
+	"cgLTqj4ryujdETaDiU61c2sdzDRUpLfy67psk6VMlm/qqb3pgw4FWAEShElco5x7sU9g3fXe9MKr/a3G",
+	"Gmn09T73tK5YwSEUbdmCKiZ7sxD8sbtFkwg4yjWids5JdXlbN4ZbwG0grmPr67otMAaEXv8ginHD8F+M",
+	"S6va3zcGf4dDFxIiTYxqf23Y69ZWiEWQq8Mwt0ceDA/OE6Hxl2WI5GRUjJYzV2zcYB1oEu+x67GJUWMi",
+	"6YlhipU02+iJr7FSKhLPpTyI3qypWV98VcVBAkZB0wQ2R9oNqWbKQW0Y4TLpy3xoDGHtnFud+HL1PXgT",
+	"Lr++vD9yTm7UQBvjVcyGbeQ77NQAVdMtk75lda9ERThj0++1/AupdzU/bthtRLSHODTYaMGDu40mb26v",
+	"h8veoLfstdqtWW++SBXNh4vp+B0rXExv5n2eYqc/nb1nJf3pZDmc8DhwvfFo0FuKJJezm8vxaPFWhgQr",
+	"HZ3pR5CTTuo4UXB1VJYKnJYfP4W4IMgl/pHSWVlOsBb93kTmGe390hstOZl6s5ko+vlmeMO3uPMbVWvW",
+	"my9HvbFxtdOfXs/GwyWv1+9N+sPx7Xz4881wYRaJnbK+qhj+OuPJVz88mUj9NmpxHslJ86VOssQcMOmX",
+	"nMpa0mbmm+UU7PK+lZ7IJiMXhfNPn50l14uiRalJnP/ifXMFQ17VgBLmFT6xZqDJ2hte3kwG/MGanKbc",
+	"HAYRroPdVxajsJbQ1Z7ti/RUnA0nAzHHpCAsEID6gc+mxU+j2Ww4uB3+OlrIuqoonsuX42n/p+FAyluj",
+	"IBa3qkT1Op2wlnh9dR/DRXd8n8hn//VoaTzr6f7BOvrYjb8h76gm4jBPzXLgWWKBlMvdg2PZZru1Tc1M",
+	"nqJq0PHNRJOcHcnE2L3B+0Q+apWK2ppdmm1Tmn6eORljoKg2rQn9tPd03YVP78kO4LwSjaKOvUhpX/bG",
+	"KktLmmuPftjqarXKrbCBkDtc7kVWareLzMQfqePS1MpRmFu4AIc5rJQRz+1UXi8xwxIGrckFw1wOkkt3",
+	"mgMzwjAr2soT9hhr+NkOAjKpPl591f1/5lbjIBNNq8TvH5RdonznJ+KVzKN0Stdic3e7QQkiJGoMsNRQ",
+	"e+V3KeWby8aiuuldJFxvYUCncYDwuoeZmxDT6hJWOGqmc0/X/65mj09jfZHyLzaKPoBnbdI/RzqnaKyz",
+	"r8SkS+fAXhu50IypkWb15uuIjQ/yqJya6mk0Fgi5xPp5pCyNK9ZrleS3OeHRZz64P8A61Ro2svZRYjrG",
+	"ZP27k0x8lBbw/emq9fq3mvZgMm6N7axJR3ywvIz9b8scRFQz8Tc6XE6WPhkZbU+srVFnjeNpwY+NE0Tk",
+	"0mZsoAO9JMzf6qY2lq3YgdNBXQ5Jc3+Yaf+ZrOQruQzMeWiYBdjD4xlNvTiW0dQchtiDODO6+odUFZWv",
+	"Y54XFl0B5QysoS1HPc29CKl1bDmqJ5Odi2BGSRs98qRzeuXkWc0bH08AdaBpe7N8i5Ykaaci4h7Bzz0e",
+	"QX3GPVDjAIHNBswj3GYDlJYT0wwsqyIGJjYIr15VyABcK/+JGVqjiZhOfN22D902sHZ5qhVJmGNnZPpw",
+	"ONIqZE7KH9AAgxU9noFsOsJx9T1r2UxM+YTaIkmVyGM23EXiG2Mq20NQ1d/j5cSjqmqK3lRXyaGu9ms7",
+	"VIgYsXkasWPhpLITpa6UK8iR0OSyzB46vWFLNxwJcoRNOaswDlujRdoIklN5jbZjJmechbkriodkY5e/",
+	"NKM8cfoemZB4D/HlaLqQVk7qq7oG6HG6lvQl9fDXXn95O+ldyzx5w6vpeKCe50P2Y3DLNpG3wqHWthDf",
+	"xSE96yo+LnZfvqh2Ob0HfpSKRpaDg0QLMTar3lTyeMrlAAUhVRNNp0epcFEHgk+VzoEregqXnGCXHUyL",
+	"cI8VZp2K8VihqhH88GAvNmW1JSxz3vXGN8riYDgevRkJ/+PRxHhYDMfDvjDvKTEP6M37b0fvhrc3k0Xv",
+	"ipto3MzGo35vOby9fL8cLspvhYUlTvIcWE+GdmbambgRfCYpoPGrJkRsw2Pyi43nqoiNJmY06aw+9b0E",
+	"0mHvrGHuCl7l2lImI7XbBDt1N9eQbkKLpGOiTBh5cS65XYz+Nby96o3Hl73+T9xRff5muFhmyge95e1w",
+	"spy/v1WBBeISZUUgymIrNPlxlSupAH42E7otMi5dvFfOtlwYx11KYwYBCp8MIiJAlV5lrPTKBkLxievZ",
+	"QZUhqPNOsVNhpHODqRlRpQ2zkJ9vRkLCTGfL0XTSG3PjoclgJJ8+FOxgSi8RK+6FDljYhBFgxvxs2VuO",
+	"+pIpr3v9t6Oc41+Sb+2VkLjiopUbbikC66KYyHGtFLUn0+XtlcqonG8VxqpdDpdLnnCwN+Y2O7eL3rUS",
+	"yhax3u8te+Ppm6PYgWUO703GMsI4FYVeMwVUlvMS9IoFfUriJsVYcqrmMF/h/MwTMcbMyl9KUtrnyc05",
+	"8vXep2DckcBJE6+/g3z3zEx69T+mwA/Xo8weqeqaHqx85NJGXntCfY+TY57Ndw/J3JuNbE6o28z7LAjp",
+	"FdsENndcO9AC7hB/tQSbJFguQ0cDvTG6EjZoGhPxyExOsvqelc06sVCeVQSdwLTMjPFeAZaUl1s6sows",
+	"bzeRYgOeVC6s7fjVcNN/2K7Vdl2barPyeM+0kqWxfOTgBjpHkQXVYWjXiNN6TigvfXZCk2jARGfF5VNy",
+	"9jThmjd13UoFXv4goy93PjxctF8+t0df1t5diQlUfuiT2bGZwdzM0G7VDkAEGO2i4FZpFJ2VVzhNEozy",
+	"feN7ZxsPfgvOshad9d/PV7biAfDHyq6O6btqpi7cDkbzYX85nb/PiY1f1xU248k6mw9nPe7HOp9OZeBL",
+	"5doqD13SHlq38qxzYdR+f2t6R857k5/kBn6yWPbGY8PLknc1NDyvahzYjFaXkFJ7kOkn6Ol6LN9Vi3eq",
+	"iW2Lp2ol79Sn7ZP6SZxoFLmmprki66yqXVI/Kh/VAv/TvFhtSe/Tcn9TmSqnrig3s3ybTPIysQazR4ur",
+	"YHO//fR2TYORbNY60ERWhPpuiTj0E9FtlbpfwGEe9MH9NUl89lIEgiv5MBIZzFLfPk9++jw3TrA5H9/0",
+	"rnls2vnSOofSgnw2Hy4W3Pt0PrUf/+p0mMagalFNgKgnjcKSbrmt8Z3AhI2oN8FK2t81uOk5kwnjEfxT",
+	"i80eYyQ0M3g4MMDu4aHGFABlgyMiNfPpdOcUO5VtVivrzsLqRWfNaxwWnhp3OJ5KVW3mJrKkK7I63OdY",
+	"FB7ZfEtl5UD0fsEwLMMLixWnH4afEB8JYns/VzwqRzPupBlub2XlGAqwQz9BhnseY2wlElkIv9rWnH/j",
+	"vF0uZ05vNjJWydet588unl20RFblAOxQ63Xr5bOLZy/lxp9D1gU71N0/7wJvi4KuDKTa8VHwiXQfEnFV",
+	"HwUF2NLKfiUyNbcGvJzHuuzFH4mEMWALKY8h95udE+Mq3dGKe5y2HtvlVT243YUUBu49R075F/3F/Eqs",
+	"nI8fdKray9DLPZGLqyBIusPtjt7LgO27MCCCsi8uvss4b7YkChyGRgfDffgJeoJ89dBhoHI0aD1+eGyn",
+	"6cVNojseEHtCkc4xRZo3kAq68LqD3pLUJsvPldAbYjga/BxBfF+1ur5Hq/6ZsFyuUnNmpPmuAo848qlQ",
+	"c4y2iEoeSnDCRT4jyXrdHxfTyVw+SY4IiYVos5CkqFZ/LqUmSBOeF7G0We9Zvn9Rf7RF/Nt98Ixco5WF",
+	"TXP0KFHzocqMFl02msSD3lINq2wOp3DQBS5Fe7nXPKjT6mzWU12eUXQ34UwFp503L07Km10PrVbV5e2A",
+	"1a6LzoWOjFwuuXjmgyct447Du8kp+XMEI+iE2MGQZ5JzALkP3A0OgzAizhZQiBHw0Z+cMk64cugGOoxy",
+	"DlgDFBDKC9wIYxhQ/97hkw06g97yWatdOk8aEdXK+GcUql0c+v4dcD+dUaDMVZf/9gLlDoXlWtrlaLo4",
+	"jX6mvWjq6WhnUOl4uv4qFSsrcwyLP0fI/XQCqfj84qKhYGRQjRGhpVzSfUhYoj12YUCxOrmAFlnYD7c7",
+	"gCGXaLEc67B5Bz2H9esA7G5YuTT3cD4juuH14RfgUlbdMTp15C4yKwpNRh1KsA6fLu3Wd0LtOu3SYiRD",
+	"tytjVuwjw5CO1Bed6U5LZSe3QzH6fOqiU8LKRVdWdD4/guh0Qww7QIqWciFqCqJjcKcFIg+BdRASitxy",
+	"cAZG3ZMAowPWW4UDEznEgXuI750tCMAaeg77QogAlUmi6ymDla48ZuswrDvIgwFF9L7tcCeotiNzZzr3",
+	"EOC2ozxVHXXtEkBC2kqtchJNyWy+jjAdaDs8eAjyReNsp4nCoCsuc7o7H9w7rDahYLsjbQcEHmuVhNjZ",
+	"gTUKeO188fRGhlZ/GgtpxoO1xupYedFbhJg+3V2AnWm7D+IgvOp+/42w/3rS4lCAyyF9rH22YJ3Bc54s",
+	"mIgNi5xncirzxfpziD/dwcDdODscfhQ7Rz5hgLOGAUOluA2NJ5SzCrHjsTFvUYCYaHKUTV2Hz9EdhgQG",
+	"tMIsa32NPSKPVCgXU07b7GrKio/AM004IOuWf/L50wXa4b85JovVElaTO7A+9QkYA3oabcSK+e4D//8T",
+	"CtLCLD2Xt+EeirmsHDscHs3T+YQCz7m7l2thsHaAE8DPDtpuIwrufBgvtlhG7Y21eAy3AAXso1hA8EYJ",
+	"pNn5m5KoX4eqpbcoDCqBFJEI1DtEUrQr1ewpGto2Bym6y8vJjiLGcSZfEgcLdwO9yIfEiTUsgyEkCI40",
+	"tGGLwTPHuDRV+hdxCMXIpf69Q0NH3ZT+08lclKo9YKI/bePmiItPvrQETKF0IgKJI3JbO0CH02DwAIQL",
+	"ztHe8GiIiQjUT12qpC60T3QjkuIxxvanlunXrI8njnyVXf48aynDemcn2Poc2JfZ4b8FIihQH49x5nOS",
+	"KUNcDHawk3SdK1WrfVaTOvorvda2Hbhne2AXtp0Noo6wWJT7UaM2W2uFJsB1a+NuwZDSQtIV69MLDn/f",
+	"dMP6uvp1OQ9bQH7ajJyOTnkWWZ5hzO6DGwfWeuyC3c6/by5uKmz8dW9NKdvjID71mxwGZMKJ+AQrhnCE",
+	"7HD7t+4D0l6D/JYNyjhvNdEUN1KJPnH9Oe/wiZMlz37qxdGoUX4SO5L1TnIuKBI1nPg08DRnfC8uzmXP",
+	"JCjwFY2ZJAAn5cOu4epbhR8X2p33ZJJKCymeDOyxImRfRfcYaTitV3TW8XSFO3lToas6q8i+fdHZExe4",
+	"MmbUaTk9SQXu5lBVDA9F5bpYHAMiPpUUq8+gi8Xw7PyJ4+DvZ2JSI9z80+fUVGT8UzFtsEc0vsYv5lGj",
+	"bm3jvaqawHmu4gwz8rT5STkvaTQcvGaf3EJfLvAxxI2O/+PvRXteIUt9DO9I9+FjtUX1x/Duq6youbLK",
+	"hL7xElpZLv0Y3v3vypnEecUF88fw7ltdLavxXsMtcx3W+7ffJO9EBqdO1c1yIuX601kEG+9VE+OpvRAm",
+	"vv5W1sIk0I3YKtFEHf7qPuzMT6vb+ByI6XO6EJZdYd8E3DUBeo4clCOQ4+x8EDiexfCnwlRsHcz8h8jz",
+	"REN2yV7KCI1VjWzn9ebt+dWPk0/0XF2lOVO0zy4ZunE23Y7Mh0iOxB2RjTkiG29oEK4VBH8lPpFjtYzy",
+	"8ajy5CDi11RK+saHdWl1Nq+PDOItqsf5JbCODVEd2yoG6AmuTqYi3nGly5NEHtIaX8QEqOPSVI9LXh2q",
+	"m8r02V+dPRruxw5dn8++R/tqUSPOvL5yNfT89OQBqP6Ky6g5vFMTV94Wd5DK1Jlr0KQulh3ty+OIm0gE",
+	"icMzb0JuYExCTKfs8Z8OBO7GYYuBgwLXjzxIHJ2pmts40Q3UPkId4oY76Dkk2okw0MMvFAbc9tUhoeNB",
+	"QnEk3A+BWJZ5E3LPI2LsOOsIeWwYjgsC5w46GAYCsM+IbsKIOihYQYxRsHZWONwKt21hxuq4IYb51lOZ",
+	"lKa1Oa+Ba88wAHc+28R96w465TM7hd6veImfAeU0hv7Zqdfls4gL0sgyAXs03CIX+P69MskW1oV7RCLg",
+	"iynohCsH+L4ThEFHngDoCaYnLpuwEWFzINxRtBUeOnyaSsdcYjGujux04jO91Whrac8UfCKTKgu2H3aZ",
+	"1I+VT5EO5tbmAWKKdeosYOe/EcqaICV9qVLHWNwnkxjLCk/ZT/7pQCH9HBm9kDEtxB2CPGh4d/JFYAvu",
+	"mbR3ebASz/m8QT6UITlUo6wRgAKxAtkYXLt0HZm4dXUA9mkFEXTGSZHw2W2g5+WwQ7UFYSD67of4G/DN",
+	"jEF9OgRr7mtwNMId7IJwIDWO6FdQQJQKJx665kkAEaPsJFwGq1gOGIm2GwF2iQKA75MrxgYCL9vjWwi8",
+	"k3VZM/whx471BEPicYOISmSS4+HBPdM86Ap3Sb0b+qf0vRReljj8zHcj3LmNrUkWl0sik6U7LtjRiO1X",
+	"AI0bpmhbsDERYLyVwJ7kBG0gITmx/fEVDrc83HSFusuwas1vLHJBkvm6D+JZWFkk5nKSGUeaqe7gKsSw",
+	"C1YU4pjDmJakfI1iLluF2AGBA3Y7HO6h54TY8RBxAfagpzwvFRtW5MChDEZ9frVzbmCqYF4XnHDAwGNz",
+	"Vg48Pt0QpxfslYhEvwwp8BcqAWtbll57r9oyMIJKaSDCmtxgn2OagQ1c6vzBg8vJZZmU4fVEp+KG2ec5",
+	"Io1c+qH7CYpg+38BV4Q83kp561Rcer+iJbzpEVQW62L+FbQ40ecAgxU9kfpmp1xXysTTe1pJVUh29/Td",
+	"33C4B/6JzsTyaCGCTu4AhgHtxKEAyBGpY4n/qQIbOHvgI0+H+gyDOFCO5/xrNNORC2ToT+BsERHna5j9",
+	"lMkMnRmH39kCd4MC6KBABtcQyyxj8b8Th8tJzxEhLnnkPNcPSWQ7mk6zEP9EdNLTOHr65rAFsJ/GVjGP",
+	"yxoGuanIUu8EEyWiX3iM3MB30BasoRkAA0M3xB5hypmxXQBBBHwdEYOB+8xZqJTPDiLODmKCCGuXQAYh",
+	"hf69Qzc4jNabDLM5s96y/7acrb6FqDwmqGcVTVJdPtcyMZDdfSPLxCH2Y00pso18ijqMLudcKYqWiKvR",
+	"eLhQs1ueQ7PVgQdH9e9l9MQ4WLRaPfpvB6Wz85qNlnHFtybxbYCfVdxbQ3mcYw7/b0ALK5kIzyspzUw6",
+	"OAwreBGkc3M2O1i1pRStC2r3QeS9fewat6y14R8Y39YP6s/aSiTJe0rxqXOTJh+yh03jz37ukyBXPaI0",
+	"JYP4WsR6a3973izpZMy1TDnMj78VX5YEzI3kW4IVKwsP0n0gxodVjowOQu+xDWb5QnQN6Sb0npLFazbD",
+	"/7GkTBUJk6Epj/yuwvmk4r9bQ4mVU/5yNF0coEJ8DUJocI8p9asFpyoNzV9GwKY+RRnWqSU9/9ejqIKI",
+	"bZ9XPje1Xj+ME/7Xdr0JKcWWW2zsinEt4q9+RaNTCcBpzq4kHroPKrdoVTvHpmjJt2580SSQp8UkUohG",
+	"v5JRpB7F+S/ZRNf2NSdLla46M6ovXoyO2tWYva/6+qqhuV+chL27K+RD0n1g/9jjDgjPFYDpJHw8BLsV",
+	"rFhYn4OKSUTpJCz3JBW9z5p4u6gw2JWT+In6A7SGhNrkmQw3y1Mt73Y+ckVildClkHYIxRDwrOEiAXQi",
+	"+fEdN9mypD9O5D+WGb7LbaIXNMR89rdbXzoiubHsHwXrzh0HV+XGTrEL4cgrUbZveK3a+6vvLyrpo6EP",
+	"/8r5WTQGS4/SODG6D+xfjWWJcJ+Dv44yJMbGh1WJ+VlNh4Qr2qke5kEi7QBiHrQQMgJXtDP5y5GXDy2H",
+	"uk0JUDKTujtAyOcQex0MCZRJ1ysJvZn8cM6+G/PP/tIh6hqzcYmSZUPlv8UOrsKOJYGYkkh4Ed10gaCg",
+	"4OIuCsgOurRkWxfRjZniXn7TKHlrppXHA9lQtoPCwBh1u0WgG2FE71uvf/uQwYFwbuqoeV0+epG6WaG6",
+	"0cizrTQbOWuHKY5faBGVXVGlUErFLbWOB0kJ5lGAKM/2DMuRPorrNkS40UKjudVwiDogKZtscEerDFV9",
+	"0xNfNMrumWrjfEP2wzUKykc55tUa0lJ8/Hg2TvXDdRjRSoNi9Y4o9C1K6jhcr6HnsI5KAU9qKyR5EFI4",
+	"lORSEp9pNFDSbA3l0C5nG/yRhEFy+xsGcLrKXelFvQSxcxduVVfBKQSzN0BExgj4wCVqymc8ohsYUAaf",
+	"dKSFX6hy+1D+tXJ1bTsytYwnm+zIF8qUiTs5CdWugJ4rsA8xorCzCn1P7rTzSXgla1/xyt/KdXEK6kZC",
+	"K9lGwSFXGqHdB/Gj0n75UPx+g/qnRRQpLDgCcyo44j8dhVviAAwdDClAQbNUgElEV9jq/oUpYxtfo0Ww",
+	"9hyplo8LJKTiDIcr5MO/ExFVwIcxV7QdD2K056JTZOaSc5AbaevAGjIjhwgpEwaMkYDnUAwCIkLVWH28",
+	"rjTMTXlt4Ya7SvvsNHNWdts6Vc5qPYIndWypoBojQqswWzfEaxCU7gtUs1NV+8mvcgrSmEUPmr6XTB5U",
+	"QiiGhKogE6X4nMvKTx6dEtAjYVO2VgmfUaB+V0PpTVz/yWPVgLURPuPvK6HSTCbfPN+hLbCTxhz17w2N",
+	"hDsRaKcAtTYxKHQ0M34mxMMMBA78gggPOaBa4FnZrZGcrprS+EQaWw3m50fLtejVNfchR6VbXkAunds4",
+	"pbk7BIq9F6Nsgp5Mm4gJj6jzeQMDJ4AuJATg+0IiXsnhnZmWczHiNBQnJS4P3ZTvvh/d+YhsoCdwGrvv",
+	"c7VMbXZt0dCeOcNspEJEia7cjgNJtblv3nYLA4+rhRi2RU516PFAHe3Y+V+mfd354J6/Eqmt1dsdRlxp",
+	"5CECnJv5+J/OGgaMyGLmOmu0h8RxfQQDKqJerZBPIRbz3XOwNPXv8LZ9cAd94gC2Q2fNK+w6rh+6n6wK",
+	"6BuOzpOYEDdQCZ9e4sLjxwpIJm2tysket2AWbGwc22Q4+f6fcbwJxiB75MGQP2BocGW4ZkKLcRxxwlUi",
+	"mbAOF6KyCf+dh/ZEAfA7f0IcOv3pu+GcN/5uNBhOZVLiZ84kFKD6iFBnsJw68MsuJJBoGJ45BOzFBBfh",
+	"P5GQlTSkIBmukNVz5IEU60h/R+IYboA625BQ3gJE6w11AviZzbXwcwBxR8wT6DkwoFwCsPUyxoCHiDsK",
+	"PPiFe2+O2cTJnR9fN0GywTqbcAtzGeZtuIU7sIYOWK8xXAO29pQLvRGNpZ2P7rCQRlHAYGgL6sBAxMsT",
+	"GGRFHO8YukIrURkouIwjkPDokfG3ycrAYyJzl2DuROhYzkJcmKqwR20zf7bqTPbzdxIrQ0zucb6Rkvju",
+	"3qEbQIWLpeODKHA3YlEFe4A4G7R5oEwdbVbjiDgoYFMO4i0KRGxMDqLgxlUYYeePCLmfjA8wCD6JThke",
+	"OhI+gUsrZzF6HTsGmBgkTJy3pmwmOXLYGiEREgZM4QyxA1JUYSgolDR2v9Qxb/arWNHKro9gP3t45njB",
+	"8J1ibaXn+wkdUE4xPpFk8Ke2OTfYPJBCLsFkfFK05STQsx+IQMleJCgkBGmCLZ3lxlAS4vjMCRWEhAn9",
+	"wwMi3CYOfR8F685nFHjhZ6mW8PCcHEzCpzFTOxwgpLy0qdfRmJmssk6MOUedUkyOOj+YfMgnx4JJDyKW",
+	"mc+bkCii3EE/DNYODasokKnVJ6tP3gECDaUyO6/aKv6HUCylsOKBTtsOcTGEAY8TdzMfJ7VJy5pm1yfX",
+	"OIx2apnljtG1dMYFx+JJdEax6tXXF8+iYvZDXKd6zyDcX0qD5bOo+6CVskqXUIxpzhkiuaa1mh5L+aXN",
+	"EUZSe58dgK3A4NHCaMjb626dSKHSMvxcUUJP0t0hEUIVzhjnd8RCkZwG3Vg8F+FRc9sirn56dJ6y10Nm",
+	"G8PsBgKfbro+2sMixL3l1cZo30xzjj8vNqeR0GAIvPtycOa8WnN4+Pem7vnq4mXVbychTX1uGw+OAraR",
+	"6sJt5AMa4o+k+6ATYnvvRMD/x+6DrDcDdFMoB+ai3lA29+PiOHyUgryIl88FQW1PmyRO+SKN2Nq0A5Rt",
+	"ipgcb71uGYhupT1f2oblUNpNpp1e8mIEOC5wN7BzFxEK8T8dtA5CHd3V98PP/FSG716RD1VwYnErzQH8",
+	"g6s1GsJ9y4RjC76MYbCmm9br5y++z7rvfDAccHAYUYg7FG6ZasuqNeG/18/+67Fl8q7a2nYfxC/lUt+9",
+	"iwLPh8/+RLsKLHs5mi4u+Qdfi2VPDkHd9M0cmUoOF2FbUKwCkkWbYjI0GqTZwFcZKvxCIQ6A35E+hPK8",
+	"dAK2MP/EdsE9z4g4UQGO6K4j93KM7E6IHRcEYcDPXnl0sslk8szdeI7qUMxOfdDmhtst29+jYO3DDvfg",
+	"E5kwgGs/VFJyUTZ3hb4eo58Bhqb0r7BziglegV1WKEBkU/9y0eDIIl+SxLS6En01scjygYzMfYxNRIGa",
+	"YUPRGmxhk3nEZkFyJvGzyfDuI3TpM+daB/rjJ2JskXu2fRk5EYHEAZGHwu6XznYH1xH2D59WjS8DjjCd",
+	"Ttj3U5lGGwgwvYOAnmcmvdXdfWuTSQRBrqf5iLi6X1f3OQMMJ1MJVFjdgHbYjr8KxvUX8sTo8PHmBMKY",
+	"hE4MHj/VPSpq8kMT5I20UYACFXCgkTEz38MwBuRm1HIT82tnLvYkDKzOgk1glQ8tb8elQxWggP7ju1a7",
+	"tUUB2kbb1uvnetuDAgrXEIv9WIWO43QYeb3CgPXwW6t3s5zejibL4fxdb9xqt657k5ve+Hb462w6X7ba",
+	"reGvo2Xrg3X/9SRiNDw/UPJVieNQOEl9cA9xB+6bhfu1riJpE3IZlJuHZIde2/HDzx0XCAMJRO+dOPaw",
+	"M+PgOBiSyKeOyMaiggQHa0O3cdww/ITgM4etlKTt7ADdkLazAWTDHtm23QU7cZeApKNCEFJHuOlBz34V",
+	"K2enjrIrwDG5sV4MWFs7lVwveFUNbP31zjhvPQlRlxsjD9MOYG6ZIuP+M351/u8Dm9htfcH2+H+fxbdt",
+	"rLKaGCIdbeBgrlOKa3WDIcSQBEG3EaHOnTDKYTvDcIsolSc2UjNlm8HuYLpwFFIK6axPVU9w+W6IEz4c",
+	"hqQuz0LHcJaUJMDzEIMP+DPMgKU8Cu4K+AS2Wzuj6KGlkG4562Li0TxLL5VP7ZbwS6sky0xR9lsMhmoj",
+	"0Xksb8Wu49sQhQ0TcjdRpFUS7m9LidbcUqLGqSn1VTTmU3beXFVOtvXQklYlfb6I8dY/sBp4r9qOsN96",
+	"3eqyb///AAAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

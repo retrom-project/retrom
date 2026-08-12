@@ -3,24 +3,13 @@
 package serverimport
 
 import (
-	"io/fs"
 	"os"
+
+	"retrom/internal/serversource"
 )
 
-func openDirectoryNoFollow(string) (*os.File, error) { return nil, ErrRootUnavailable }
+func openDirectoryNoFollow(path string) (*os.File, error) { return serversource.OpenRoot(path) }
 
-func openDirectoryAt(*os.File, string) (*os.File, error) {
-	return nil, ErrRootUnavailable
-}
-
-func openRegularFileAt(*os.File, string) (*os.File, error) {
-	return nil, ErrRootUnavailable
-}
-
-func inspectEntryAt(*os.File, string) (fs.FileInfo, error) {
-	return nil, ErrRootUnavailable
-}
-
-func duplicateDirectory(*os.File) (*os.File, error) {
-	return nil, ErrRootUnavailable
+func duplicateDirectory(parent *os.File) (*os.File, error) {
+	return serversource.DuplicateDirectory(parent)
 }

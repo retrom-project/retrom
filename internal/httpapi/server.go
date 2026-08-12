@@ -46,6 +46,7 @@ import (
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/metadatascrape"
+	"retrom/internal/pegasusimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
 	"retrom/internal/serverimport"
@@ -95,6 +96,7 @@ type Server struct {
 	saveService     *saves.Service
 	favoriteService *favorites.Service
 	serverImports   *serverimport.Service
+	pegasusImports  *pegasusimport.Service
 	now             func() time.Time
 	sseHeartbeat    time.Duration
 	idempotency     sync.Mutex
@@ -135,25 +137,35 @@ func New(
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
 	firmwareService := firmware.New(database, now).WithBlobStore(blobs)
-	serverImportService := serverimport.New(database, blobs, firmwareService, credentials, config.ServerImportRoots, now)
+	serverImportService := serverimport.New(
+		database,
+		blobs,
+		firmwareService,
+		credentials,
+		config.ServerImportRoots,
+		now,
+	)
 	serverImportService.Start()
+	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, config.ServerImportRoots, now)
+	pegasusImportService.Start()
 	return &Server{
-		config:        config,
-		database:      database,
-		dependencies:  dependencySet,
-		blobs:         blobs,
-		credentials:   credentials,
-		authenticator: authenticator,
-		accounts:      accountService,
-		cursors:       cursor.New(credentials.CursorKey(), now),
-		uploads:       uploads.New(database, blobs, config.DataDir, now),
-		importer:      importer,
-		launcher:      launcher,
-		jobService:    jobs.New(database, now),
-		firmware:      firmwareService,
-		serverImports: serverImportService,
-		arcadeDAT:     arcadeDAT,
-		metadata:      scraper,
+		config:         config,
+		database:       database,
+		dependencies:   dependencySet,
+		blobs:          blobs,
+		credentials:    credentials,
+		authenticator:  authenticator,
+		accounts:       accountService,
+		cursors:        cursor.New(credentials.CursorKey(), now),
+		uploads:        uploads.New(database, blobs, config.DataDir, now),
+		importer:       importer,
+		launcher:       launcher,
+		jobService:     jobs.New(database, now),
+		firmware:       firmwareService,
+		serverImports:  serverImportService,
+		pegasusImports: pegasusImportService,
+		arcadeDAT:      arcadeDAT,
+		metadata:       scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:     saves.New(database, blobs, credentials, now),
@@ -161,6 +173,11 @@ func New(
 		now:             now,
 		sseHeartbeat:    15 * time.Second,
 	}
+}
+
+func (server *Server) Close() {
+	server.serverImports.Close()
+	server.pegasusImports.Close()
 }
 
 //nolint:funlen // Contract branches stay contiguous for a single auditable decision.
@@ -242,6 +259,19 @@ func (server *Server) Handler() http.Handler {
 	)
 	mux.HandleFunc("POST /api/v1/admin/server-imports/{serverImportId}/cancel", server.cancelServerImport)
 	mux.HandleFunc("POST /api/v1/admin/server-imports/{serverImportId}/retry", server.retryServerImport)
+	mux.HandleFunc("POST /api/v1/admin/pegasus-imports", server.createPegasusImport)
+	mux.HandleFunc("GET /api/v1/admin/pegasus-imports", server.pegasusImportList)
+	mux.HandleFunc("GET /api/v1/admin/pegasus-imports/{pegasusImportId}", server.pegasusImportDetail)
+	mux.HandleFunc("DELETE /api/v1/admin/pegasus-imports/{pegasusImportId}", server.deletePegasusImport)
+	mux.HandleFunc("GET /api/v1/admin/pegasus-imports/{pegasusImportId}/collections", server.pegasusImportCollections)
+	mux.HandleFunc(
+		"PUT /api/v1/admin/pegasus-imports/{pegasusImportId}/collection-mappings",
+		server.updatePegasusMappings,
+	)
+	mux.HandleFunc("POST /api/v1/admin/pegasus-imports/{pegasusImportId}/start", server.startPegasusImport)
+	mux.HandleFunc("GET /api/v1/admin/pegasus-imports/{pegasusImportId}/items", server.pegasusImportItems)
+	mux.HandleFunc("POST /api/v1/admin/pegasus-imports/{pegasusImportId}/cancel", server.cancelPegasusImport)
+	mux.HandleFunc("POST /api/v1/admin/pegasus-imports/{pegasusImportId}/retry", server.retryPegasusImport)
 	mux.HandleFunc("GET /api/v1/admin/imports/summary", server.importSummary)
 	mux.HandleFunc("GET /api/v1/admin/imports", server.imports)
 	mux.HandleFunc("POST /api/v1/admin/imports", server.createImport)
@@ -281,6 +311,7 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/admin/games/{gameId}", server.patchAdminGame)
 	mux.HandleFunc("DELETE /api/v1/admin/games/{gameId}", server.deleteAdminGame)
 	mux.HandleFunc("POST /api/v1/admin/games/{gameId}/assets", server.createGameAsset)
+	mux.HandleFunc("DELETE /api/v1/admin/games/{gameId}/assets/{assetKind}", server.deleteGameAsset)
 	mux.HandleFunc("POST /api/v1/admin/games/{gameId}/content-revisions", server.createGameContentRevision)
 	mux.HandleFunc("GET /api/v1/admin/games/{gameId}/scrape-candidates", server.gameScrapeCandidates)
 	mux.HandleFunc("POST /api/v1/admin/games/{gameId}/scrape-candidates", server.scrapeGame)
@@ -331,24 +362,9 @@ func (server *Server) baseMiddleware(next http.Handler) http.Handler {
 		}
 		requestContext := context.WithValue(request.Context(), requestIDKey, requestID.String())
 		request = request.WithContext(requestContext)
-		writer.Header().Set("X-Request-ID", requestID.String())
-		writer.Header().Set("X-Content-Type-Options", "nosniff")
-		writer.Header().Set("Referrer-Policy", "no-referrer")
-		writer.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
-		writer.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
-		if request.URL.Path != "/health/live" && request.URL.Path != "/health/ready" {
-			reason := server.readinessReason(requestContext)
-			if reason != "" {
-				writeError(
-					writer,
-					request,
-					http.StatusServiceUnavailable,
-					"SERVICE_NOT_READY",
-					"依赖索引尚未就绪",
-					map[string]any{"reasonCode": reason},
-				)
-				return
-			}
+		setBaseResponseHeaders(writer, requestID.String())
+		if !server.requestReady(requestContext, writer, request) {
+			return
 		}
 		if err := validateQuery(request); err != nil {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "查询参数无效", map[string]any{})
@@ -371,7 +387,14 @@ func (server *Server) baseMiddleware(next http.Handler) http.Handler {
 				return
 			}
 			if contextView.InstanceState == "INITIALIZATION_REQUIRED" {
-				writeError(writer, request, http.StatusPreconditionRequired, "INITIALIZATION_REQUIRED", "实例尚未初始化", map[string]any{})
+				writeError(
+					writer,
+					request,
+					http.StatusPreconditionRequired,
+					"INITIALIZATION_REQUIRED",
+					"实例尚未初始化",
+					map[string]any{},
+				)
 				return
 			}
 		}
@@ -398,6 +421,37 @@ func (server *Server) baseMiddleware(next http.Handler) http.Handler {
 		request = request.WithContext(authn.WithPrincipal(requestContext, session.Principal))
 		next.ServeHTTP(writer, request)
 	})
+}
+
+func setBaseResponseHeaders(writer http.ResponseWriter, requestID string) {
+	writer.Header().Set("X-Request-ID", requestID)
+	writer.Header().Set("X-Content-Type-Options", "nosniff")
+	writer.Header().Set("Referrer-Policy", "no-referrer")
+	writer.Header().Set("Cross-Origin-Opener-Policy", "same-origin")
+	writer.Header().Set("Cross-Origin-Embedder-Policy", "require-corp")
+}
+
+func (server *Server) requestReady(
+	requestContext context.Context,
+	writer http.ResponseWriter,
+	request *http.Request,
+) bool {
+	if request.URL.Path == "/health/live" || request.URL.Path == "/health/ready" {
+		return true
+	}
+	reason := server.readinessReason(requestContext)
+	if reason == "" {
+		return true
+	}
+	writeError(
+		writer,
+		request,
+		http.StatusServiceUnavailable,
+		"SERVICE_NOT_READY",
+		"依赖索引尚未就绪",
+		map[string]any{"reasonCode": reason},
+	)
+	return false
 }
 
 func unsafeMethod(method string) bool {
@@ -442,16 +496,33 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/admin/review-history": {
 		"q", "decision", "platformInstanceId", "fromAtMs", "toAtMs", "sort", "cursor", "limit",
 	},
-	"GET /api/v1/admin/games":              {"q", "platformId", "platformInstanceId", "status", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/games": {
+		"q",
+		"platformId",
+		"platformInstanceId",
+		"status",
+		"sort",
+		"cursor",
+		"limit",
+	},
 	"GET /api/v1/admin/platform-instances": {"platformId", "enabled", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/bios": {
 		"q", "platformId", "coreId", "coreArtifactId", "scope", "status", "quick", "cursor", "limit",
 	},
 	"GET /api/v1/admin/server-import-roots": {},
 	"GET /api/v1/admin/server-imports":      {"kind", "state", "cursor", "limit"},
-	"GET /api/v1/admin/arcade-dats":         {"q", "coreId", "coreArtifactId", "source", "parseStatus", "cursor", "limit"},
-	"GET /api/v1/admin/users":               {"q", "role", "status", "sort", "cursor", "limit"},
-	"GET /api/v1/admin/invitations":         {"state", "cursor", "limit"},
+	"GET /api/v1/admin/pegasus-imports":     {"state", "cursor", "limit"},
+	"GET /api/v1/admin/arcade-dats": {
+		"q",
+		"coreId",
+		"coreArtifactId",
+		"source",
+		"parseStatus",
+		"cursor",
+		"limit",
+	},
+	"GET /api/v1/admin/users":       {"q", "role", "status", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/invitations": {"state", "cursor", "limit"},
 }
 
 //nolint:gocyclo // The lexical query parser handles independent escaping and separator states.
@@ -481,6 +552,15 @@ func queryParameterNames(request *http.Request) []string {
 			return []string{"cursor", "limit"}
 		}
 		return []string{"q", "outcome", "matchMethod", "cursor", "limit"}
+	}
+	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/pegasus-imports/") {
+		if strings.HasSuffix(path, "/collections") {
+			return []string{"cursor", "limit"}
+		}
+		if strings.HasSuffix(path, "/items") {
+			return []string{"q", "outcome", "warning", "collectionId", "cursor", "limit"}
+		}
+		return []string{}
 	}
 	return nil
 }
@@ -1177,7 +1257,14 @@ func (server *Server) getPersistentSave(writer http.ResponseWriter, request *htt
 		return
 	}
 	if errors.Is(err, saves.ErrPersistentUnsupported) {
-		writeError(writer, request, http.StatusConflict, "PERSISTENT_SAVE_UNSUPPORTED", "当前核心不支持自动持久存档", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"PERSISTENT_SAVE_UNSUPPORTED",
+			"当前核心不支持自动持久存档",
+			map[string]any{},
+		)
 		return
 	}
 	if errors.Is(err, saves.ErrTooLarge) {
@@ -1240,7 +1327,14 @@ func (server *Server) putPersistentSave(writer http.ResponseWriter, request *htt
 	case errors.Is(err, saves.ErrCredential):
 		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
 	case errors.Is(err, saves.ErrPersistentUnsupported):
-		writeError(writer, request, http.StatusConflict, "PERSISTENT_SAVE_UNSUPPORTED", "当前核心不支持自动持久存档", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"PERSISTENT_SAVE_UNSUPPORTED",
+			"当前核心不支持自动持久存档",
+			map[string]any{},
+		)
 	case errors.Is(err, saves.ErrTooLarge):
 		writeError(
 			writer,
@@ -1830,7 +1924,7 @@ func (server *Server) game(writer http.ResponseWriter, request *http.Request) {
 	var title, description, developer, publisher, genre string
 	var platformID, platformName, instanceID, instanceName, contentRevisionID string
 	var players, releaseYear sql.NullInt64
-	var coverAssetID sql.NullString
+	var coverAssetID, videoAssetID sql.NullString
 	var version, updatedAtMS, activeDurationMS int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT m.title,
@@ -1855,6 +1949,14 @@ AND a.kind='COVER'
 ORDER BY a.ordinal,
 a.id
 LIMIT 1),
+(SELECT a.id
+FROM game_assets a
+WHERE a.game_id=g.id
+AND a.metadata_revision_id=g.current_metadata_revision_id
+AND a.kind='VIDEO'
+AND a.ordinal=0
+ORDER BY a.id
+LIMIT 1),
 COALESCE((SELECT SUM(active_duration_ms)
 FROM play_sessions ps
 WHERE ps.game_id=g.id
@@ -1870,7 +1972,7 @@ AND pi.enabled=1
 `, principal.ProfileID, gameID).
 		Scan(&title, &description, &developer, &publisher, &genre, &players, &releaseYear,
 			&platformID, &platformName, &instanceID, &instanceName, &contentRevisionID,
-			&version, &updatedAtMS, &coverAssetID, &activeDurationMS,
+			&version, &updatedAtMS, &coverAssetID, &videoAssetID, &activeDurationMS,
 		)
 	if errors.Is(err, sql.ErrNoRows) {
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
@@ -2081,7 +2183,9 @@ LIMIT 8
 		"platform":                 map[string]any{"id": platformID, "name": platformName},
 		"platformInstance":         map[string]any{"id": instanceID, "name": instanceName},
 		"currentContentRevisionId": contentRevisionID, "version": version, "updatedAtMs": updatedAtMS,
-		"coverUrl": gameCoverURL(coverAssetID), "activeDurationMs": activeDurationMS, "coreOptions": coreOptions,
+		"coverUrl": gameCoverURL(
+			coverAssetID,
+		), "videoUrl": gameCoverURL(videoAssetID), "activeDurationMs": activeDurationMS, "coreOptions": coreOptions,
 		"dosEntries": dosEntries, "defaultDosEntry": nullableString(defaultDOSEntry),
 		"saveStateCount": saveStateCount, "saveStates": saveStates,
 		"favorite": favorite,
@@ -3125,7 +3229,14 @@ func parseImportListFilters(values url.Values, principalID string) (importListFi
 
 func validImportListState(state string) bool {
 	switch state {
-	case "QUEUED", "RUNNING", "REVIEW_PENDING", "PARTIAL_FAILURE", "COMPLETED", "CANCEL_REQUESTED", "CANCELLED", "FAILED":
+	case "QUEUED",
+		"RUNNING",
+		"REVIEW_PENDING",
+		"PARTIAL_FAILURE",
+		"COMPLETED",
+		"CANCEL_REQUESTED",
+		"CANCELLED",
+		"FAILED":
 		return true
 	default:
 		return false

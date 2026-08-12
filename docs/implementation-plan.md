@@ -63,7 +63,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 账户版本追加的 migration 顺序固定为：020 建立 User/Credential/AuthSession/AccountLink/InstanceState/RateLimit 并移除 `local` Profile；021 修正 test bootstrap 从 PENDING 首次完成时的默认密码状态 trigger；022 将幂等记录主键绑定 `principal_id`；023 把 AuditEvent、ReviewEvent 和 ImportJobFileResolution 重建为真实 USER/SYSTEM actor；024 增加多盘 content kind、来源 entry/attachment、Launch DISC 锁定和 SaveState `disc_index`，并把历史 prepublish validation 标为 generation 3/stale。私有数据与 cursor 的 principal 隔离由同一版本的 service/query 实现和测试保证，不伪装成额外 schema migration。020 是破坏性重建边界：既有 001–019 数据库在任何写入前拒绝，只有不存在的数据库、真正空的 schema 或已经包含 020 的库可以继续。
 
-测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能由运行时代码关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立；014 增加核心目录、BIOS delivery 与 Launch external-file 能力；015 收敛旧零 Item 导入；016 增加拒绝文件重新配置 lineage；017 增加重复内容识别证据；018 增加异步 DAT 差异快照与分页明细；019 增加审核来源快照、Validation/草稿快照归属、Arcade Parent Attachment、Job/ReviewEvent enum 和发布 digest 兜底。019 因 SQLite 无法原地改变 CHECK/非空列而使用带 `-- retrom: rebuild-with-foreign-keys-off` 的唯一受控重建：store 只识别 019，先复算旧 source manifest，事务外关闭外键，事务内重建/回填，提交前执行 `PRAGMA foreign_key_check`，随后无条件恢复外键；任何漂移或外键错误都使启动失败。正式发布后继续遵守只追加 migration 的升级纪律。
+测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能由运行时代码关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立；014 增加核心目录、BIOS delivery 与 Launch external-file 能力；015 收敛旧零 Item 导入；016 增加拒绝文件重新配置 lineage；017 增加重复内容识别证据；018 增加异步 DAT 差异快照与分页明细；019 增加审核来源快照、Validation/草稿快照归属、Arcade Parent Attachment、Job/ReviewEvent enum 和发布 digest 兜底。019 因 SQLite 无法原地改变 CHECK/非空列而使用带 `-- retrom: rebuild-with-foreign-keys-off` 的唯一受控重建：store 只识别 019，先复算旧 source manifest，事务外关闭外键，事务内重建/回填，提交前执行 `PRAGMA foreign_key_check`，随后无条件恢复外键；任何漂移或外键错误都使启动失败。026 增加服务器 BIOS 导入；027 增加收藏；028 增加 Pegasus 扫描/映射/导入聚合、`SERVER_PEGASUS_IMPORT` 来源及 VIDEO 媒体约束。正式发布后继续遵守只追加 migration 的升级纪律。
 
 ## 4. 里程碑
 
@@ -138,6 +138,12 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 范围：先同步正式契约与 OpenAPI，再落 Migration 026、root 配置和 no-follow 浏览、`ServerImport` 聚合、`SERVER_BIOS_IMPORT` Worker、STATIC/DAT 候选排序与防降级安装；最后接通 `/admin/imports/server`、任务详情、候选解释和 BIOS FULL_CATALOG cursor 分页。发现阶段必须完整闭合且命中扫描门禁时零安装；逐项 Installation、Item 结果和 JobEvent 同事务提交；重启恢复不得重复 revision，restore 必须终止外部 source 任务。
 
 退出门禁：`ACC-BIOS-003`–`007`，并回归 `ACC-BIOS-001/002`、`ACC-SEC-001`、`ACC-BKP-001`；运行 `make api-check`、`make ci`、`make web-e2e`、全量核心 smoke。026 的受支持升级路径和全新库 schema 必须同构；正式 UI 源、导出稿和 1280/2560/4K 快照同步后才可删除临时设计目录。
+
+### M11：Pegasus 游戏目录与视频垂直切片
+
+范围：先同步正式契约与 OpenAPI，再落 Migration 028、Pegasus 文本 parser、外部目录安全 scanner、显式 Collection→游戏平台目录映射、异步 scan/import Worker、既有 library import/validation/publish 复用、重复内容投影、M3U+CHD 与 Arcade companion 装配。前端在服务器导入页接通等权能力卡、三步 Drawer、可恢复进度和详情筛选；游戏媒体增加 MP4/WebM VIDEO revision，详情 Hero 使用受可见性、页面前台、播放失败、用户暂停与 reduced-motion 约束的渐进播放。
+
+退出门禁：完整执行 `ACC-PEG-001`–`005`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。028 的 027 升级路径和全新库 schema 必须同构；使用授权本地 Pegasus 样例完成隔离服务实测，正式 UI 源、导出稿和 1280/2560/4K 快照同步后才可删除临时设计目录。
 
 ## 5. 垂直切片提交规则
 

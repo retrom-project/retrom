@@ -19,6 +19,8 @@
 
 “游戏目录”表达的是一层可浏览的游戏目录，而不是服务器文件系统目录。涉及上传时，界面应使用“选择文件目录”或“上传目录”与其区分。
 
+Pegasus source Collection 与游戏目录没有名称绑定关系。管理员必须逐 Collection 显式选择一个当前 enabled PlatformInstance 或明确跳过；`shortname`、Collection 名称、`extensions` 与 `launch` 只能作为非绑定展示/忽略字段，不能选择 Platform、Core 或 artifact。映射时冻结 PlatformInstance version、platform、默认 Core、enabled CoreArtifact version 与 active DAT；start 后这些字段不可改，后续配置漂移不能偷换本次运行目标。
+
 ## 2. 解决的问题
 
 基础平台可能关联多个核心，但不同 ROMset 并不天然兼容所有核心。Arcade 尤其容易出现“用户不知道该选 FBNeo 还是 MAME 2003”的问题。

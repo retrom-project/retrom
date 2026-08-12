@@ -420,7 +420,18 @@ node data/example/smoke-test.mjs mgba mame2003
 
 该切片除聚焦用例外必须运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、fixture 校验、无 core 参数全量 smoke、`ACC-BIOS-003`–`007` 与 `make ci`。测试 source 使用临时目录或操作者授权且 Git 忽略的本地文件，绝不提交 BIOS bytes。
 
-## 12. 维护规则
+## 12. Pegasus 目录导入与视频测试矩阵
+
+- parser/scanner：UTF-8 BOM、LF/CRLF、续行与 flowing text、字段别名、同一 metadata 多 game、目录内多个 metadata、大小/条目/深度门禁、非法命令值、路径穿越、symlink/special file、来源中途变化和稳定 `sourceKey`。
+- 映射/持久化：Migration 028 的新建库与 027 升级同构；Collection 显式映射、ETag、版本冻结；最大 64 文件的投影、全部声明文件参与确定性 key、M3U+CHD 有序分组、Arcade 当前 ZIP 与同目标显式 companion 集。
+- 发布/重复：单文件和多盘沿用既有 library import/validation/publish 事务；同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不回滚已经提交的游戏，重试不重复 Game/Revision/Blob。
+- Worker/存储：BIOS 与 Pegasus 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、restore fence、外部 root 变更、媒体告警、保护边 GC 和 backup/restore 均有确定性测试。
+- HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；双能力卡、三步 Drawer、无默认映射、关闭恢复、详情分页与多尺寸/键盘/reduced-motion。
+- VIDEO：MP4/WebM magic 与限额、nullable dimensions、Range/HEAD/MIME、不可变 revision、元信息编辑保留、删除保留历史；详情 2 秒累计可见自动播放、后台页不计时、5 秒/拒绝/错误回退、用户暂停和 reduced-motion 手动模式，以及列表零视频请求。
+
+该切片除聚焦用例外必须运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-PEG-001`–`005`、`ACC-MEDIA-001` 与 `make ci`。使用操作者授权的真实 Pegasus 目录时只记录相对统计和结果，不把 ROM、完整宿主路径或媒体内容写入报告。
+
+## 13. 维护规则
 
 - 升级 Go、Next.js、ESLint、TypeScript、Vitest 或 golangci-lint 时，单独提交配置变化，阅读迁移说明并运行完整 `make ci`；不能把工具升级与大功能混在一起掩盖行为变化。
 - 新 linter 先证明信噪比和修复现有问题，再加入显式 enable；禁止用长期 `new-from-rev` 只检查新增代码形成双重标准。

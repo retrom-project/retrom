@@ -4,7 +4,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 实施就绪结论
 
-一期基线、账户隔离升级、Saturn/yabause 多盘系统和 Migration 026 服务器 BIOS 导入已经落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。多盘内容以一个 M3U 和按序 2–8 个 CHD 形成不可拆分 revision；服务器 BIOS 导入只读取部署者配置的只读 root，并按完整启用 catalog 异步发现、排序和逐项安装。正式细节分别由数据、BIOS、HTTP、运维和 UI 专题维护。
+一期基线、账户隔离升级、Saturn/yabause 多盘系统、服务器 BIOS 导入和 Migration 028 Pegasus ROM 目录导入已经落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、运行检查和自动发布。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
 
 | 检查面 | 状态 | 实施事实源 |
 | --- | --- | --- |
@@ -78,6 +78,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 - [`design/retrom-ui-bios-files.png`](./design/retrom-ui-bios-files.png)：BIOS 文件管理。
 - [`design/retrom-ui-bios-entry-compare.png`](./design/retrom-ui-bios-entry-compare.png)：Arcade BIOS 的 DAT/ZIP 条目对比。
 - [`design/retrom-ui-server-import.png`](./design/retrom-ui-server-import.png)、[`design/retrom-ui-server-import-drawer.png`](./design/retrom-ui-server-import-drawer.png)、[`design/retrom-ui-server-import-detail-4k.png`](./design/retrom-ui-server-import-detail-4k.png)：服务器 BIOS 导入首页、目录选择 Drawer 与 4K 结果解释。
+- [`design/retrom-ui-pegasus-import.png`](./design/retrom-ui-pegasus-import.png)、[`design/retrom-ui-pegasus-import-drawer.png`](./design/retrom-ui-pegasus-import-drawer.png)、[`design/retrom-ui-pegasus-import-detail-4k.png`](./design/retrom-ui-pegasus-import-detail-4k.png)：BIOS/Pegasus 双能力总览、Pegasus 三步 Drawer 与任务详情。
 - [`design/retrom-ui-dat-versions.png`](./design/retrom-ui-dat-versions.png)：Arcade DAT 版本管理。
 
 ## 维护规则

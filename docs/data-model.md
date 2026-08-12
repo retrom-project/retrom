@@ -53,7 +53,7 @@ User 状态变更、Credential/Session/Link 撤销、待用 Launch 终止与安�
 | `blobs` | `id UUIDv7 PK`、唯一小写 `sha256`、`size_bytes`、实际 bytes 的非空小写 `md5/sha1/crc32`、检测后的 `media_type`、`created_at_ms`；物理路径只由 SHA-256 推导。 |
 | `games` | `id PK`、非空 `platform_instance_id`、`status PUBLISHED/DELETED`、非空 `current_metadata_revision_id`、非空 `current_content_revision_id`、非空 `search_text`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；不得另存 `platform_id` 或 `default_core_id`。search_text 与 current metadata 必须同事务更新；改变目录默认 core 不改变 current content。 |
 | `game_metadata_revisions` | `id PK`、`game_id`、非空 title、非空但可为空串的 description/developer/publisher/genre、可空 players/release_year、`source_kind IMPORT_REVIEW/ADMIN_EDIT/RESCRAPE_APPLY`、可空 `source_ref_id`、`created_at_ms`；创建后 append-only。IMPORT_REVIEW 的 ref 必须是发布该 Game 的 ImportItem；RESCRAPE_APPLY 必须是被应用且属于该 Game/current ContentRevision 有效 run 的 ScrapeCandidate；ADMIN_EDIT 的 ref 必须为 NULL，精确修改另由同事务 AuditEvent 关联 Game/revision ID。 |
-| `game_assets` | `id PK`、`game_id`、`metadata_revision_id`、`blob_id`、`kind COVER/BACKGROUND/SCREENSHOT`、`ordinal`、`width_px/height_px/media_type`、`created_at_ms`；`UNIQUE(metadata_revision_id, kind, ordinal)`。尺寸均为正整数，media type 只允许经解码验证的 `image/png|image/jpeg|image/webp`。每个 MetadataRevision 拥有完整媒体清单，未改媒体时复制旧 Blob 引用为新 Asset；URL 使用不可变 asset ID。 |
+| `game_assets` | `id PK`、`game_id`、`metadata_revision_id`、`blob_id`、`kind COVER/BACKGROUND/SCREENSHOT/VIDEO`、`ordinal`、`width_px/height_px/media_type`、`created_at_ms`；`UNIQUE(metadata_revision_id, kind, ordinal)`。图片尺寸为正且 MIME 限 `image/png|image/jpeg|image/webp`；VIDEO 只允许 ordinal 0、`video/mp4|video/webm` 且尺寸为 null。每个 MetadataRevision 拥有完整媒体清单，未改媒体时复制旧 Blob 引用为新 Asset；URL 使用不可变 asset ID。 |
 | `game_content_revisions` | `id PK`、`game_id`、`source_kind IMPORT_REVIEW/ADMIN_REPLACE`、非空 `source_ref_id`、`source_manifest_json`、`source_manifest_digest`、`created_at_ms`；append-only。IMPORT_REVIEW ref 指向被 Approve 的 ImportItem，ADMIN_REPLACE ref 指向 `GAME_FILE_REVISION` Job。它只表示一次已接受的用户内容版本，不包含 core、DAT 或派生启动包；同一 bytes 再次替换仍可形成新 revision，CAS Blob 仍去重。 |
 | `game_content_files` | `(game_content_revision_id, role, logical_name) PK`、`blob_id`、可空 `source_archive_blob_id/source_archive_entry_ordinal`、`sort_order`；两个 source archive 字段同时空或同时非空，并复合引用对应 ArchiveEntry，其 `materialized_blob_id` 必须等于 `blob_id`。role 仅 `CONTENT/DOS_SOURCE/COMPANION`。逻辑名是安全规范相对路径；主机/掌机平台只允许一个 CONTENT，DOS 使用 DOS_SOURCE，Arcade CONTENT 是本机 ROMset ZIP，审核确认与其同属 bundle 的 parent/BIOS/base 源 archive 以 COMPANION 保留。 |
 | `game_variants` | `id PK`、`game_id`、`core_id`、可空 `current_revision_id`、`version`、`created_at_ms/updated_at_ms`；`UNIQUE(game_id, core_id)`，表示稳定逻辑槽，不承载可变文件。只有从未产生 READY 结果、仅保存失败验证证据的备用 core 槽允许 current 为空；发布所用默认 core 槽必须非空。 |
@@ -300,6 +300,16 @@ Game `DELETED`、PlatformInstance 停用或 User 停用不删除三张表中的�
 
 `jobs.kind` 增加 `SERVER_BIOS_IMPORT`，且强制 `scope_type=SERVER_IMPORT`。`bios_installations` 增加不可变的 `source_kind=BROWSER_UPLOAD|SERVER_DIRECTORY` 和可空候选外键；服务器来源必须引用所属 Requirement 的 selected Candidate。每个 Requirement 的 Installation、Item 终态、聚合计数与 `PROGRESS` 事件在同一短事务提交，进程恢复以终态 Item 为幂等边界。
 
-## 12. 统一验收入口
+## 12. Migration 028：Pegasus 目录导入与 VIDEO
 
-schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。
+`pegasus_imports` 保存 root ID/label 与不可逆配置 digest、规范相对目录、metadata snapshot digest、scan/import Job、聚合状态/phase、映射版本、计数、7 天到期和创建者；partial unique index 保证全实例至多一个 `QUEUED|RUNNING|CANCEL_REQUESTED` execution。`pegasus_import_metadata_files` 只保存相对路径、大小、内容/facts digest 和解析结论，不保存原始 metadata bytes。
+
+`pegasus_import_collections` 以 `(import_id,metadata_relative_path,segment_ordinal)` 唯一，冻结展示投影；`IMPORT` 映射必须同时冻结 PlatformInstance/version、Platform、默认 Core、CoreArtifact/version 和可空 active DAT，`SKIP` 不得携带目标。`pegasus_import_items` 以确定性 source key 唯一，冻结标题、允许的 metadata、声明文件引用和 discovery 结论，并关联后续内部 ImportItem、发布 Game 或所有 existing match。`pegasus_import_item_files/assets` 保存 no-follow source facts、CAS 复制结果和媒体 warning；它们的 Blob 边全部登记为 protective reference。
+
+`jobs.kind` 增加 `SERVER_PEGASUS_SCAN|SERVER_PEGASUS_IMPORT` 并强制 `scope_type=PEGASUS_IMPORT`。scan 与 import 是不同 Job；retry 在原 import Job 增加 execution/input snapshot，不复活旧事件。发布来源扩展为 `game_metadata_revisions.source_kind` 与 `game_content_revisions.source_kind` 的 `SERVER_PEGASUS_IMPORT`，且 source_ref 必须指向处于发布边界的 Pegasus Item。
+
+`game_assets.kind` 增加 ordinal 0 的 `VIDEO`：只允许 `video/mp4|video/webm` 且 `width_px/height_px` 必须为 null；图片仍必须具有正尺寸和受限图片 MIME。每个 MetadataRevision 仍拥有完整媒体清单，管理替换/移除 VIDEO 或修改文字时复制未修改的 Asset 引用，历史 Asset 永不原地修改。Migration 028 重建受 enum 影响的表与触发器，026/027→028 与 fresh 001→028 必须同构并通过 foreign-key/integrity 检查。
+
+## 13. 统一验收入口
+
+schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

@@ -323,7 +323,7 @@ func runMigration(
 }
 
 func prepareForeignKeyRebuild(ctx context.Context, connection *sql.Conn, version int, name string) error {
-	if version != 19 && version != 24 && version != 26 {
+	if version != 19 && version != 24 && version != 26 && version != 28 {
 		return fmt.Errorf("migration %s: %w", name, errMigrationRebuild)
 	}
 	if version == 19 {

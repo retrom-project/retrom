@@ -224,6 +224,27 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         240,
         "go test ./internal/httpapi -run '^TestBIOSFullCatalogCursorTraverses286Items$' -count=1 && scripts/acceptance/ui-case.sh ACC-BIOS-007",
     ),
+    "ACC-PEG-001": (
+        180,
+        "go test ./internal/pegasusmeta ./internal/pegasusimport -run 'TestParse|TestScan' -count=1",
+    ),
+    "ACC-PEG-002": (
+        180,
+        "go test ./internal/serversource ./internal/httpapi -run 'TestDeclaredPathNormalization|TestWalkAndOpenStayWithinNoFollowDescriptors|TestPegasusImportHTTPScanMappingAndSourceDrift' -count=1",
+    ),
+    "ACC-PEG-003": (
+        300,
+        "go test ./internal/store -run '^TestPegasusMigrationUpgradesVersion27AndPreservesImageAssets$' -count=1 && go test ./internal/pegasusimport ./internal/libraryimport -run 'TestScanMapImportPublishesGameAndMedia|TestSelectServerImportItemUsesTheDeclaredPrimarySource|TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent|TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure' -count=1",
+    ),
+    "ACC-PEG-004": (
+        300,
+        "go test ./internal/pegasusimport ./internal/serversource -run 'TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors' -count=1 && go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && go test ./internal/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1",
+    ),
+    "ACC-PEG-005": (240, "scripts/acceptance/ui-case.sh ACC-PEG-005"),
+    "ACC-MEDIA-001": (
+        240,
+        "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",
+    ),
     "ACC-RUN-001": (180, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
     "ACC-RUN-002": (180, "scripts/acceptance/ui-case.sh ACC-RUN-002 && node data/example/smoke-test.mjs mame2003"),
     "ACC-RUN-003": (180, "scripts/acceptance/ui-case.sh ACC-RUN-003"),

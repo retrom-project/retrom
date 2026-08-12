@@ -121,21 +121,16 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
   }), [openPicker]);
 
   function closePicker() {
-    const fallbackTarget = pickerAnchor?.isConnected
-      ? pickerAnchor
-      : internalManageButton.current ?? heartButton.current;
-    const restoreFocus = () => {
-      const target = pickerReturnTarget.current?.() ?? fallbackTarget;
-      if (target?.isConnected) target.focus({ preventScroll: true });
-    };
-    restoreFocus();
     setPicker(false);
     setPickerAnchor(null);
-    window.requestAnimationFrame(() => {
-      restoreFocus();
-      pickerReturnTarget.current = null;
-    });
   }
+
+  const resolvePickerReturnFocus = useCallback(() => {
+    const resolved = pickerReturnTarget.current?.();
+    if (resolved?.isConnected) return resolved;
+    if (pickerAnchor?.isConnected) return pickerAnchor;
+    return internalManageButton.current ?? heartButton.current;
+  }, [pickerAnchor]);
 
   async function saveFolders(folderIds: string[]) {
     setBusy(true);
@@ -204,6 +199,7 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
       selectedFolderIds={favorite?.folderIds ?? []}
       busy={busy}
       anchor={pickerAnchor}
+      resolveReturnFocus={resolvePickerReturnFocus}
       onClose={closePicker}
       onCreate={() => { setPicker(false); setCreating(true); }}
       onSave={(folderIds) => void saveFolders(folderIds)}

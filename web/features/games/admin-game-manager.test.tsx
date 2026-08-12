@@ -129,6 +129,19 @@ describe("AdminGameManager", () => {
     expect(within(dialog).getByText(/当前游戏目录只允许替换普通内容/)).toBeVisible();
   });
 
+  it("previews video only on demand and removes it through an immutable media revision", async () => {
+    const user = userEvent.setup();
+    const fetchMock = vi.fn().mockResolvedValue(new Response(null, { status: 204, headers: { ETag: '"v4"' } }));
+    vi.stubGlobal("fetch", fetchMock);
+    render(<AdminGameManager game={{ ...game, assets: [{ assetId: "video-1", kind: "VIDEO", ordinal: 0, widthPx: null, heightPx: null, mediaType: "video/mp4", url: "/content/assets/video-1" }] }} platformInstances={directories} candidates={[]} />);
+
+    const video = screen.getByLabelText("1943 管理视频预览");
+    expect(video).toHaveAttribute("preload", "metadata");
+    expect(video).not.toHaveAttribute("autoplay");
+    await user.click(screen.getByRole("button", { name: "移除" }));
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/games/game-1/assets/VIDEO", expect.objectContaining({ method: "DELETE" })));
+  });
+
   it("preflights one complete multi-disc directory before creating a replacement job", async () => {
     const capableDirectories: PlatformInstanceOption[] = directories.map((directory) => directory.id === "fbneo-games" ? {
       ...directory,

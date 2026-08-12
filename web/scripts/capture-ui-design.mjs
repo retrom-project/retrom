@@ -31,6 +31,9 @@ const captures = [
   ["retrom-ui-server-import.png", "admin-server-import", 2560, 1440],
   ["retrom-ui-server-import-drawer.png", "admin-server-import", 1280, 800, "server-import-drawer"],
   ["retrom-ui-server-import-detail-4k.png", "admin-server-import-detail", 3840, 2160],
+  ["retrom-ui-pegasus-import.png", "admin-server-import", 2560, 1440],
+  ["retrom-ui-pegasus-import-drawer.png", "admin-server-import", 1280, 800, "pegasus-import-drawer"],
+  ["retrom-ui-pegasus-import-detail-4k.png", "admin-pegasus-import-detail", 3840, 2160],
   ["retrom-ui-admin-import-tasks-4k.png", "admin-import-tasks", 3840, 2160],
   ["retrom-ui-admin-review-4k.png", "admin-review", 3840, 2160],
   ["retrom-ui-admin-review-detail-4k.png", "admin-review", 3840, 2160, "review-detail"],
@@ -97,6 +100,9 @@ try {
     } else if (view === "admin-server-import-detail") {
       await clickVisible('[data-page-target="admin-server-import"]');
       await clickVisible('[data-page-link="admin-server-import-detail"]');
+    } else if (view === "admin-pegasus-import-detail") {
+      await clickVisible('[data-page-target="admin-server-import"]');
+      await clickVisible('[data-page-link="admin-pegasus-import-detail"]');
     } else if (!["home", "setup", "login", "register", "reset"].includes(view)) {
       await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);
     }
@@ -110,6 +116,7 @@ try {
     if (variant === "dat-drawer") await frame.locator("[data-open-runtime-drawer]").click();
     if (variant === "dat-diff") await frame.locator("[data-open-runtime-diff]").first().click();
     if (variant === "server-import-drawer") await frame.locator("[data-open-server-import-drawer]").click();
+    if (variant === "pegasus-import-drawer") await frame.locator("[data-open-pegasus-drawer]").click();
     if (variant === "drawer") await frame.locator("[data-open-platform-drawer]").click();
     if (variant === "dialog") await frame.locator("[data-preview-core]").first().click();
     if (variant === "user-drawer") await frame.locator("[data-open-user-drawer]").nth(1).click();
