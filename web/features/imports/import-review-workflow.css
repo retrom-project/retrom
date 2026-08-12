@@ -196,11 +196,18 @@
 .review-workflow-queue .import-workflow-footer { border-top: 1px solid transparent; }
 
 .review-workflow-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 16px; margin-bottom: 16px; }
-.review-workflow-summary-card, .review-workflow-decision { min-height: 162px; padding: 19px 21px; border: 1px solid var(--line); border-radius: 15px; background: white; }
-.review-workflow-summary-card { background: linear-gradient(120deg, #fff, #faf8ff); }
+.review-workflow-summary-card, .review-workflow-decision { min-height: 196px; padding: 19px 21px; border: 1px solid var(--line); border-radius: 15px; background: white; }
+.review-workflow-summary-card { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 34%); align-items: stretch; gap: 20px; background: linear-gradient(120deg, #fff, #faf8ff); }
+.review-workflow-summary-copy { min-width: 0; align-self: center; }
 .review-workflow-summary-card h2 { margin: 11px 0 4px; font-size: 23px; }
 .review-workflow-summary-card p { margin: 0; color: var(--muted); font-size: 12px; }
-.review-workflow-summary-card > div { margin-top: 17px; display: flex; flex-wrap: wrap; gap: 7px; }
+.review-workflow-summary-pills { margin-top: 17px; display: flex; flex-wrap: wrap; gap: 7px; }
+.review-runtime-screenshot { min-width: 0; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid #ded9f2; border-radius: 11px; background: #101521; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 3%); }
+.review-runtime-screenshot > span { padding: 7px 10px; color: #4d5669; background: #f7f5fd; font-size: 10px; font-weight: 800; }
+.review-runtime-screenshot > img { width: 100%; height: 100%; min-height: 126px; object-fit: contain; background: #070a10; }
+.review-runtime-screenshot > div { min-height: 126px; padding: 16px; display: grid; place-content: center; gap: 4px; color: #dce1eb; background: radial-gradient(circle at 50% 30%, #252c3c, #0b0f18 70%); text-align: center; }
+.review-runtime-screenshot strong { font-size: 12px; }
+.review-runtime-screenshot small { max-width: 210px; color: #929aaa; font-size: 9px; line-height: 1.45; }
 .review-workflow-decision { display: grid; align-content: start; gap: 8px; border-color: #d8d1f6; background: #fbfaff; }
 .review-workflow-decision h2 { margin: 0; font-size: 17px; }
 .review-workflow-decision > p { margin: 0; color: var(--muted); font-size: 11px; }
@@ -209,10 +216,26 @@
 .review-workflow-save strong i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
 .review-workflow-ready { padding: 7px 9px; color: #0f737c; border-radius: 8px; background: var(--cyan-soft); font-size: 11px; }
 .review-workflow-ready.has-warning { color: #97511b; background: var(--amber-soft); }
-.review-workflow-decision-actions { margin-top: 8px; display: grid; grid-template-columns: 1fr 1.35fr; gap: 8px; }
+.review-workflow-preview-actions { margin-top: 3px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.review-workflow-preview-actions .button { min-height: 36px; padding-inline: 10px; box-shadow: none; }
+.review-workflow-preview-actions .review-launch-preview { color: #4937ad; border-color: #cfc6f5; background: #f2efff; }
+.review-workflow-preview-actions .review-launch-preview:hover { color: #38278f; border-color: #b9acf0; background: #e9e4ff; }
+.review-workflow-decision-actions { margin-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
 .review-workflow-decision-actions .button { min-height: 38px; }
 .review-workflow-feedback { position: fixed; z-index: 80; right: 24px; bottom: 24px; width: min(420px, calc(100vw - 48px)); display: grid; gap: 8px; filter: drop-shadow(0 14px 30px rgb(24 32 51 / 16%)); }
 .review-workflow-columns { display: grid; grid-template-columns: minmax(380px, .72fr) minmax(620px, 1.28fr); align-items: stretch; gap: 16px; }
+.review-preview-player { width: 100vw; height: 100dvh; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); color: #f2f4f8; background: #05070b; }
+.review-preview-status { min-height: 62px; padding: 10px 16px; display: flex; align-items: center; justify-content: space-between; gap: 18px; border-bottom: 1px solid #262c38; background: #10141d; }
+.review-preview-status > div { min-width: 0; display: grid; gap: 2px; }
+.review-preview-status strong, .review-preview-status span, .review-preview-status small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.review-preview-status strong { font-size: 13px; }
+.review-preview-status span { color: #aab2c0; font-size: 10px; }
+.review-preview-status small { color: #ef9eaa; font-size: 10px; }
+.review-preview-status.is-captured { border-bottom-color: #175e63; background: #0d1b20; }
+.review-preview-status.is-running, .review-preview-status.is-capturing { border-bottom-color: #4c3f94; background: #151329; }
+.review-preview-status button { min-height: 34px; flex: 0 0 auto; padding: 0 12px; color: #e8ebf1; border: 1px solid #3a4250; border-radius: 8px; background: #1b202b; cursor: pointer; font-size: 10px; font-weight: 750; }
+.review-preview-status button:hover { border-color: #6c5fd0; background: #242a37; }
+.review-preview-frame { width: 100%; height: 100%; border: 0; background: #05060a; }
 .review-workflow-left { min-width: 0; display: grid; gap: 16px; }
 .review-multidisc-card .panel-head small { display: block; margin-top: 5px; color: var(--muted); font-size: 10px; }
 .review-multidisc-list { margin: 0; padding: 0; display: grid; gap: 7px; list-style: none; }

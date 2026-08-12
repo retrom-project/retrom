@@ -847,6 +847,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/reviews/{importItemId}/previews": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation; this never changes publish eligibility. A current READY validation enables one runtime screenshot capture five seconds after the core reports game start. */
+        post: operations["postAdminReviewPreview"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reviews/{importItemId}/arcade-parent-attachments": {
         parameters: {
             query?: never;
@@ -1966,6 +1985,25 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/runtime/launches/{launchId}/review-screenshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Stores one bounded PNG captured by a READY review preview five seconds after game start. The path-scoped preview capability is required and ordinary published Launch sessions cannot use this route. */
+        post: operations["postRuntimeReviewScreenshot"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -2133,6 +2171,11 @@ export interface components {
         RenameSaveRequest: {
             name: string;
         };
+        ClientCapabilities: {
+            secureContext: boolean;
+            crossOriginIsolated: boolean;
+            sharedArrayBuffer: boolean;
+        };
         LaunchRequest: {
             /** Format: uuid */
             gameId: string;
@@ -2141,11 +2184,7 @@ export interface components {
             saveStateId: string | null;
             dosEntry: string | null;
             returnTo: string;
-            clientCapabilities: {
-                secureContext: boolean;
-                crossOriginIsolated: boolean;
-                sharedArrayBuffer: boolean;
-            };
+            clientCapabilities: components["schemas"]["ClientCapabilities"];
         };
         StartupAction: {
             /** @enum {string} */
@@ -2169,6 +2208,12 @@ export interface components {
             initialDiscIndex: number;
             entries: components["schemas"]["DiscEntry"][];
         } | null;
+        ReviewPreviewConfig: {
+            /** Format: uuid */
+            importItemId: string;
+            captureAllowed: boolean;
+            captureAfterMs: number;
+        };
         LaunchConfig: {
             /** Format: uuid */
             launchId: string;
@@ -2210,6 +2255,7 @@ export interface components {
             dosEntry: string | null;
             warnings: string[];
             returnTo: string;
+            reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
         };
         CreateUploadRequest: {
             /** @enum {string} */
@@ -2322,6 +2368,9 @@ export interface components {
         ReviewMultiDiscAttachmentRequest: {
             /** Format: uuid */
             uploadId: string;
+        };
+        ReviewPreviewRequest: {
+            clientCapabilities: components["schemas"]["ClientCapabilities"];
         };
         UploadReferenceRequest: {
             /** Format: uuid */
@@ -3951,6 +4000,11 @@ export interface components {
                 "application/json": components["schemas"]["ReviewMultiDiscAttachmentRequest"];
             };
         };
+        ReviewPreview: {
+            content: {
+                "application/json": components["schemas"]["ReviewPreviewRequest"];
+            };
+        };
         UploadReference: {
             content: {
                 "application/json": components["schemas"]["UploadReferenceRequest"];
@@ -5002,6 +5056,22 @@ export interface operations {
             cookie?: never;
         };
         requestBody: components["requestBodies"]["ReviewAsset"];
+        responses: {
+            201: components["responses"]["JSONResponse"];
+        };
+    };
+    postAdminReviewPreview: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                importItemId: components["parameters"]["ImportItemID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["ReviewPreview"];
         responses: {
             201: components["responses"]["JSONResponse"];
         };
@@ -6397,6 +6467,24 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["BinaryResponse"];
+        };
+    };
+    postRuntimeReviewScreenshot: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                launchId: components["parameters"]["LaunchID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "image/png": string;
+            };
+        };
+        responses: {
+            201: components["responses"]["JSONResponse"];
         };
     };
 }

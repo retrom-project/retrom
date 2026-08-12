@@ -13,8 +13,11 @@ import (
 	"encoding/hex"
 	"fmt"
 	"hash/crc32"
+	"io"
 	"path/filepath"
 	"runtime"
+	"sort"
+	"strings"
 	"testing"
 	"time"
 
@@ -47,7 +50,10 @@ func TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	childZIP := arcadeZIP(t, "a.bin", []byte("child"))
 	parentZIP := arcadeZIP(t, "b.bin", []byte("parent"))
-	rootZIP := arcadeZIP(t, "c.bin", []byte("root"))
+	rootZIP := arcadeZIPEntries(t, map[string][]byte{
+		"c.bin":           []byte("root"),
+		"clone/c-alt.bin": []byte("safe clone-only extra"),
+	})
 	wrongZIP := arcadeZIP(t, "wrong.bin", []byte("wrong"))
 	child := uploadCompleteFile(t, ctx, database.SQL, uploadService, "a.zip", childZIP)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
@@ -142,6 +148,14 @@ SELECT status,compatibility_code FROM import_item_core_validations WHERE id=?
 `, validationID).Scan(&validationStatus, &validationCode); err != nil ||
 		validationStatus != "READY" || validationCode != "READY" {
 		t.Fatalf("final validation = %s/%s, error=%v", validationStatus, validationCode, err)
+	}
+	var acceptedDiagnostics string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
+`, acceptedC.AttachmentID).Scan(&acceptedDiagnostics); err != nil ||
+		!strings.Contains(acceptedDiagnostics, `"observedRootEntryCount":1`) ||
+		!strings.Contains(acceptedDiagnostics, `"ignoredNestedEntryCount":1`) {
+		t.Fatalf("merged-style parent diagnostics = %q, error=%v", acceptedDiagnostics, err)
 	}
 	approved, err := importer.Approve(ctx, itemID, version)
 	if err != nil {
@@ -290,12 +304,28 @@ VALUES('attachment-dat',?,0,?, ?,?,?,'GOOD')
 }
 
 func arcadeZIP(t *testing.T, name string, contents []byte) []byte {
+	return arcadeZIPEntries(t, map[string][]byte{name: contents})
+}
+
+func arcadeZIPEntries(t *testing.T, entries map[string][]byte) []byte {
 	t.Helper()
 	var result bytes.Buffer
 	archive := zip.NewWriter(&result)
-	entry, err := archive.Create(name)
-	if err == nil {
-		_, err = entry.Write(contents)
+	names := make([]string, 0, len(entries))
+	for name := range entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	var err error
+	for _, name := range names {
+		var entry io.Writer
+		entry, err = archive.Create(name)
+		if err == nil {
+			_, err = entry.Write(entries[name])
+		}
+		if err != nil {
+			break
+		}
 	}
 	if closeErr := archive.Close(); err == nil {
 		err = closeErr

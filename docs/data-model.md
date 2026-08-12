@@ -326,6 +326,14 @@ Pegasus Worker 在复制、普通 content pipeline 与 CoreValidation 后只冻�
 
 Migration 030 受控重建两个 Pegasus 主表和受影响 trigger，保留 029 的状态、诊断、映射、媒体与历史发布行，并把新增计数初始化为零。029→030 与 fresh 001→030 必须同构并通过 foreign-key/integrity 检查。
 
-## 15. 统一验收入口
+## 15. Migration 031：审核运行预览与第 5 秒截图
+
+`review_preview_sessions` 保存管理员从待审核条目创建的短时、不可变运行快照：锁定 ImportItem、有效来源快照、目标目录、默认 CoreArtifact、当次 Validation、主内容 Blob、依赖摘要、capability hash、启动/硬过期时间和是否允许截图。它不是 `launch_sessions` 或 `play_sessions`，不创建 Game、不累计游玩时长、不读写状态存档或持久存档。只有 `REVIEW_PENDING` Item、当前有效来源和 enabled 管理员能创建；主 ROM 始终必需，当前 Validation 中实际存在的 Parent、BIOS 和 external file 才复制为 `review_preview_files`，缺失依赖不会伪造占位。
+
+`review_preview_files` 只允许 `PARENT/BIOS_BUNDLE/EXTERNAL_FILE/DISC`，行创建后不可更新或删除；Blob、逻辑名和可空虚拟路径必须属于创建时锁定的来源/Validation。`review_runtime_screenshots` 以 `(import_item_id,validation_id)` 唯一保存当前 READY Validation 的 PNG、CoreArtifact、来源快照、尺寸和固定 `captured_after_ms=5000`；重新运行会以新不可变 Blob 替换该 Validation 的当前截图引用。插入/替换 trigger 必须证明 preview 允许截图、Validation 仍为 READY、且草稿仍选择同一有效来源和 Validation，阻断或过期结果不能保留为当前审核截图。
+
+三张表的 Blob 外键全部进入唯一 reference registry。Migration 031 只追加表、索引和 trigger，不重建旧表；030→031 与 fresh 001→031 必须同构并通过 foreign-key/integrity 检查。
+
+## 16. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

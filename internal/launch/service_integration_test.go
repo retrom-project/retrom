@@ -10,6 +10,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -557,6 +558,149 @@ sort_order) VALUES(?,
 		ErrBlocked,
 	) {
 		t.Fatalf("case-insensitive launch logical-name collision error = %v", err)
+	}
+}
+
+func TestReviewPreviewRunsBestEffortAndStoresReadyFiveSecondScreenshot(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	const actorID = "01980000-0000-7000-8000-000000009995"
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO profiles(id,display_name,created_at_ms) VALUES('review-preview-profile','Review Preview Admin',0);
+INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
+VALUES(?,'review-preview-profile','review-preview-admin','Review Preview Admin','ADMIN','ENABLED',0,0);
+`, actorID); err != nil {
+		t.Fatal(err)
+	}
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(
+		filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3",
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	importService := libraryimport.New(database.SQL, time.Now)
+	createReview := func(name string, contents []byte, targetID string) string {
+		t.Helper()
+		upload, createErr := uploadService.Create(ctx, uploads.CreateRequest{
+			SourceType: "FILES", Files: []uploads.FileDeclaration{{
+				ClientFileID: name, RelativePath: name, SizeBytes: int64(len(contents)),
+			}},
+		})
+		if createErr != nil {
+			t.Fatal(createErr)
+		}
+		digest := sha256.Sum256(contents)
+		if putErr := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0,
+			fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)),
+			"sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); putErr != nil {
+			t.Fatal(putErr)
+		}
+		current, getErr := uploadService.Get(ctx, upload.ID)
+		if getErr != nil {
+			t.Fatal(getErr)
+		}
+		jobID, _, completeErr := uploadService.Complete(ctx, upload.ID, current.Version)
+		if completeErr != nil {
+			t.Fatal(completeErr)
+		}
+		for deadline := time.Now().Add(3 * time.Second); ; {
+			var state string
+			if queryErr := database.SQL.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); queryErr != nil {
+				t.Fatal(queryErr)
+			}
+			if state == "SUCCEEDED" {
+				break
+			}
+			if state == "FAILED" || time.Now().After(deadline) {
+				t.Fatalf("review preview upload finalization = %s", state)
+			}
+			time.Sleep(10 * time.Millisecond)
+		}
+		created, importErr := importService.Create(ctx, libraryimport.CreateRequest{
+			UploadID: upload.ID, TargetPlatformInstanceID: targetID, MetadataProvider: "NONE",
+		})
+		if importErr != nil {
+			t.Fatal(importErr)
+		}
+		var itemID string
+		if queryErr := database.SQL.QueryRowContext(ctx, `
+SELECT id FROM import_items WHERE import_job_id=?
+`, created.ImportJobID).Scan(&itemID); queryErr != nil {
+			t.Fatal(queryErr)
+		}
+		return itemID
+	}
+
+	readyItemID := createReview("ready.gba", []byte("review-preview-ready"), "01980000-0000-7000-8000-000000000005")
+	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), "01980000-0000-7000-8000-000000000002")
+	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := New(database.SQL, dependencySet, credentials, time.Now).WithBlobStore(blobs)
+	capabilities := Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
+	ready, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
+		ImportItemID: readyItemID, ActorUserID: actorID, IdempotencyKey: "ready-preview-1",
+		ClientCapabilities: capabilities,
+	})
+	if err != nil || !ready.CaptureAllowed || ready.CaptureAfterMS != 5_000 {
+		t.Fatalf("ready review preview = %#v, error=%v", ready, err)
+	}
+	replayed, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
+		ImportItemID: readyItemID, ActorUserID: actorID, IdempotencyKey: "ready-preview-1",
+		ClientCapabilities: capabilities,
+	})
+	if err != nil || replayed.PreviewID != ready.PreviewID || replayed.Capability != ready.Capability {
+		t.Fatalf("replayed review preview = %#v, error=%v", replayed, err)
+	}
+	configuration, err := service.ReviewPreviewConfig(ctx, ready.PreviewID, ready.Capability)
+	if err != nil || configuration.ReviewPreview == nil || !configuration.ReviewPreview.CaptureAllowed ||
+		configuration.ReviewPreview.ImportItemID != readyItemID || configuration.PersistentSaveMode != "NONE" {
+		t.Fatalf("ready review config = %#v, error=%v", configuration, err)
+	}
+	content, err := service.ReviewPreviewContent(ctx, ready.PreviewID, ready.Capability, "ready.gba")
+	if err != nil || content.Digest == "" || content.Format != "SOURCE_V1" {
+		t.Fatalf("ready review content = %#v, error=%v", content, err)
+	}
+	pngBody, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
+	if err != nil {
+		t.Fatal(err)
+	}
+	screenshot, err := service.StoreReviewScreenshot(ctx, ready.PreviewID, ready.Capability, bytes.NewReader(pngBody))
+	if err != nil || screenshot.ImportItemID != readyItemID || screenshot.WidthPX != 1 || screenshot.HeightPX != 1 {
+		t.Fatalf("stored review screenshot = %#v, error=%v", screenshot, err)
+	}
+
+	blocked, err := service.CreateReviewPreview(ctx, ReviewPreviewRequest{
+		ImportItemID: blockedItemID, ActorUserID: actorID, IdempotencyKey: "blocked-preview-1",
+		ClientCapabilities: capabilities,
+	})
+	if err != nil || blocked.CaptureAllowed {
+		t.Fatalf("blocked best-effort preview = %#v, error=%v", blocked, err)
+	}
+	blockedConfig, err := service.ReviewPreviewConfig(ctx, blocked.PreviewID, blocked.Capability)
+	if err != nil || blockedConfig.ReviewPreview == nil || blockedConfig.ReviewPreview.CaptureAllowed ||
+		blockedConfig.GameURL == "" || blockedConfig.BIOSURL != nil {
+		t.Fatalf("blocked best-effort config = %#v, error=%v", blockedConfig, err)
+	}
+	if _, err := service.StoreReviewScreenshot(ctx, blocked.PreviewID, blocked.Capability, bytes.NewReader(pngBody)); !errors.Is(err, ErrReviewCaptureNotAllowed) {
+		t.Fatalf("blocked screenshot error = %v", err)
 	}
 }
 

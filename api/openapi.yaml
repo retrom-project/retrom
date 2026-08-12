@@ -448,6 +448,15 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/ReviewAsset' }
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/reviews/{importItemId}/previews:
+    parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
+    post:
+      operationId: postAdminReviewPreview
+      description: Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation; this never changes publish eligibility. A current READY validation enables one runtime screenshot capture five seconds after the core reports game start.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ReviewPreview' }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/reviews/{importItemId}/arcade-parent-attachments:
     parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
     post:
@@ -1058,6 +1067,20 @@ paths:
       operationId: headRuntimeState
       responses:
         '200': { $ref: '#/components/responses/BinaryResponse' }
+  /runtime/launches/{launchId}/review-screenshot:
+    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
+    post:
+      security: []
+      operationId: postRuntimeReviewScreenshot
+      x-retrom-streaming-body: true
+      description: Stores one bounded PNG captured by a READY review preview five seconds after game start. The path-scoped preview capability is required and ordinary published Launch sessions cannot use this route.
+      requestBody:
+        required: true
+        content:
+          image/png:
+            schema: { type: string, format: binary }
+      responses:
+        '201': { $ref: '#/components/responses/JSONResponse' }
 components:
   securitySchemes:
     sessionCookie:
@@ -1366,6 +1389,14 @@ components:
       required: [name]
       properties:
         name: { type: string, minLength: 1, maxLength: 120 }
+    ClientCapabilities:
+      type: object
+      additionalProperties: false
+      required: [secureContext, crossOriginIsolated, sharedArrayBuffer]
+      properties:
+        secureContext: { type: boolean }
+        crossOriginIsolated: { type: boolean }
+        sharedArrayBuffer: { type: boolean }
     LaunchRequest:
       type: object
       additionalProperties: false
@@ -1376,14 +1407,7 @@ components:
         saveStateId: { type: string, format: uuid, nullable: true }
         dosEntry: { type: string, nullable: true }
         returnTo: { type: string }
-        clientCapabilities:
-          type: object
-          additionalProperties: false
-          required: [secureContext, crossOriginIsolated, sharedArrayBuffer]
-          properties:
-            secureContext: { type: boolean }
-            crossOriginIsolated: { type: boolean }
-            sharedArrayBuffer: { type: boolean }
+        clientCapabilities: { $ref: '#/components/schemas/ClientCapabilities' }
     StartupAction:
       type: object
       additionalProperties: false
@@ -1417,6 +1441,14 @@ components:
           minItems: 2
           maxItems: 8
           items: { $ref: '#/components/schemas/DiscEntry' }
+    ReviewPreviewConfig:
+      type: object
+      additionalProperties: false
+      required: [importItemId, captureAllowed, captureAfterMs]
+      properties:
+        importItemId: { type: string, format: uuid }
+        captureAllowed: { type: boolean }
+        captureAfterMs: { type: integer, minimum: 5000, maximum: 5000 }
     LaunchConfig:
       type: object
       additionalProperties: false
@@ -1468,6 +1500,7 @@ components:
         dosEntry: { type: string, nullable: true }
         warnings: { type: array, items: { type: string } }
         returnTo: { type: string }
+        reviewPreview: { $ref: '#/components/schemas/ReviewPreviewConfig' }
     CreateUploadRequest:
       type: object
       additionalProperties: false
@@ -1604,6 +1637,12 @@ components:
       required: [uploadId]
       properties:
         uploadId: { type: string, format: uuid }
+    ReviewPreviewRequest:
+      type: object
+      additionalProperties: false
+      required: [clientCapabilities]
+      properties:
+        clientCapabilities: { $ref: '#/components/schemas/ClientCapabilities' }
     UploadReferenceRequest:
       type: object
       additionalProperties: false
@@ -2760,6 +2799,7 @@ components:
     ReviewAsset: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewAssetRequest' } } } }
     ReviewArcadeParentAttachment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewArcadeParentAttachmentRequest' } } } }
     ReviewMultiDiscAttachment: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewMultiDiscAttachmentRequest' } } } }
+    ReviewPreview: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewPreviewRequest' } } } }
     UploadReference: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/UploadReferenceRequest' } } } }
     ApplyCandidate: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApplyCandidateRequest' } } } }
     MovePreview: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MovePreviewRequest' } } } }

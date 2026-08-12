@@ -1,0 +1,85 @@
+import { act, cleanup, render, screen } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { ReviewPreviewPlayer } from "./review-preview-player";
+
+const adapter = vi.hoisted(() => ({
+  mount: vi.fn(),
+  capture: vi.fn(),
+}));
+
+vi.mock("@/features/player/adapters/ejs-4.2.3-v2", () => ({
+  mountEmulatorJS: adapter.mount,
+  captureManualScreenshot: adapter.capture,
+}));
+vi.mock("@/features/player/canvas-fit", () => ({
+  installCanvasContain: () => ({ refresh: vi.fn(), cleanup: vi.fn() }),
+}));
+
+describe("ReviewPreviewPlayer", () => {
+  afterEach(() => {
+    cleanup();
+    vi.useRealTimers();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+    adapter.mount.mockReset();
+    adapter.capture.mockReset();
+  });
+
+  it("captures and uploads a READY preview exactly five seconds after game start", async () => {
+    vi.useFakeTimers();
+    const emulator = { on: vi.fn(), takeScreenshot: vi.fn() };
+    adapter.capture.mockResolvedValue({ screenshot: new Blob(["png"], { type: "image/png" }), format: "png" });
+    adapter.mount.mockImplementation((_config, _target, callbacks) => {
+      callbacks.onReady?.(emulator);
+      callbacks.onGameStart?.();
+      return vi.fn();
+    });
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/config")) return Promise.resolve(new Response(JSON.stringify({
+        gameTitle: "1944",
+        reviewPreview: { importItemId: "item-1", captureAllowed: true, captureAfterMs: 5000 },
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      if (url.endsWith("/review-screenshot") && init?.method === "POST") {
+        return Promise.resolve(new Response(JSON.stringify({ screenshotId: "shot-1" }), { status: 201, headers: { "Content-Type": "application/json" } }));
+      }
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ReviewPreviewPlayer previewId="preview-1" />);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    expect(adapter.mount).toHaveBeenCalledOnce();
+    expect(screen.getByText("游戏已启动，将在第 5 秒自动保存截图。")).toBeVisible();
+    expect(adapter.capture).not.toHaveBeenCalled();
+
+    await act(async () => { await vi.advanceTimersByTimeAsync(4_999); });
+    expect(adapter.capture).not.toHaveBeenCalled();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+
+    expect(adapter.capture).toHaveBeenCalledWith(emulator);
+    expect(fetchMock).toHaveBeenCalledWith("/runtime/launches/preview-1/review-screenshot", expect.objectContaining({
+      method: "POST", body: expect.any(Blob), headers: { "Content-Type": "image/png" },
+    }));
+    expect(screen.getByText("第 5 秒运行截图已保存；可以继续试玩。")).toBeVisible();
+  });
+
+  it("keeps a blocked best-effort preview playable without scheduling a screenshot", async () => {
+    vi.useFakeTimers();
+    adapter.mount.mockImplementation((_config, _target, callbacks) => {
+      callbacks.onReady?.({ on: vi.fn() });
+      callbacks.onGameStart?.();
+      return vi.fn();
+    });
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      gameTitle: "Blocked game",
+      reviewPreview: { importItemId: "item-2", captureAllowed: false, captureAfterMs: 5000 },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }))));
+
+    render(<ReviewPreviewPlayer previewId="preview-2" />);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    expect(screen.getByText("尽最大可能交付现有内容；缺失依赖没有阻止本次试玩。")).toBeVisible();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
+    expect(adapter.capture).not.toHaveBeenCalled();
+  });
+});

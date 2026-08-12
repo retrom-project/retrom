@@ -406,7 +406,7 @@ func (service *Service) runParentAttachment(parent context.Context, jobID string
 	if err != nil {
 		return
 	}
-	entries, err := importing.ScanFlatZIP(ctx, service.blobs.Path(candidate.blobSHA), importing.DefaultArchiveLimits())
+	entries, err := importing.ScanZIP(ctx, service.blobs.Path(candidate.blobSHA), importing.DefaultArchiveLimits())
 	if err != nil {
 		code := ParentErrorArchiveUnsafe
 		if errors.Is(err, importing.ErrNestedArchiveUnsupported) {
@@ -415,9 +415,16 @@ func (service *Service) runParentAttachment(parent context.Context, jobID string
 		service.finishRejectedParentAttachment(ctx, candidate, jobID, workerID, code, archiveReason(err), nil, nil)
 		return
 	}
-	entryByName := make(map[string]importing.ArchiveEntry, len(entries))
-	for _, entry := range entries {
-		entryByName[entry.NormalizedPath] = entry
+	// Some real Arcade sets are distributed as a root-level parent set plus
+	// clone-specific files in safe subdirectories. The parent DAT contract is
+	// matched only against root-level files; clone extras remain immutable
+	// archive evidence and are delivered unchanged to the core.
+	entryByName, ignoredNestedEntries := rootParentEntries(entries)
+	if len(entryByName) == 0 {
+		service.finishRejectedParentAttachment(
+			ctx, candidate, jobID, workerID, ParentErrorStructure, "ROOT_ROM_ENTRIES_MISSING", nil, nil,
+		)
+		return
 	}
 	requirements, hasDisk, err := service.arcadeRequirements(ctx, candidate.datID, candidate.machine)
 	if err != nil {
@@ -468,8 +475,9 @@ func (service *Service) runParentAttachment(parent context.Context, jobID string
 		return
 	}
 	diagnostics := map[string]any{
-		"schemaVersion": 1, "requiredEntryCount": len(requirements), "observedEntryCount": len(entries),
-		"warnings": warnings,
+		"schemaVersion": 1, "requiredEntryCount": len(requirements),
+		"observedEntryCount": len(entries), "observedRootEntryCount": len(entryByName),
+		"ignoredNestedEntryCount": ignoredNestedEntries, "warnings": warnings,
 	}
 	if err := service.commitAcceptedParentAttachment(
 		ctx, candidate, jobID, workerID, entries, files, manifestJSON, manifestDigest, *selectedGroup, diagnostics,
@@ -479,6 +487,19 @@ func (service *Service) runParentAttachment(parent context.Context, jobID string
 		}
 		service.finishRetryableParentAttachment(ctx, candidate, jobID, workerID, ParentErrorInputStale)
 	}
+}
+
+func rootParentEntries(entries []importing.ArchiveEntry) (map[string]importing.ArchiveEntry, int) {
+	rootEntries := make(map[string]importing.ArchiveEntry, len(entries))
+	ignoredNestedEntries := 0
+	for _, entry := range entries {
+		if strings.Contains(entry.NormalizedPath, "/") {
+			ignoredNestedEntries++
+			continue
+		}
+		rootEntries[entry.NormalizedPath] = entry
+	}
+	return rootEntries, ignoredNestedEntries
 }
 
 func (service *Service) parentAttachmentRootMachine(
