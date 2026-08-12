@@ -27,6 +27,27 @@ function resolveRequest(requestUrl) {
   return candidate;
 }
 
+function sendJson(response, status, value) {
+  const body = Buffer.from(JSON.stringify(value));
+  response.writeHead(status, {
+    "Cache-Control": "no-store",
+    "Content-Length": body.length,
+    "Content-Type": "application/json; charset=utf-8"
+  });
+  response.end(body);
+}
+
+async function readJson(request, maxBytes = 4096) {
+  const chunks = [];
+  let length = 0;
+  for await (const chunk of request) {
+    length += chunk.length;
+    if (length > maxBytes) throw new Error("Request body is too large");
+    chunks.push(chunk);
+  }
+  return JSON.parse(Buffer.concat(chunks).toString("utf8") || "{}");
+}
+
 export function validateListenOptions({ host, port }) {
   if (typeof host !== "string" || host.length === 0) throw new TypeError("host is required");
   if (!Number.isInteger(port) || port < 0 || port > 65535) {
@@ -38,12 +59,45 @@ export function validateListenOptions({ host, port }) {
   return { host, port };
 }
 
-export function startServer({ host = "127.0.0.1", port = 4174 } = {}) {
+function normalizePublicOrigin(value) {
+  if (value === null || value === undefined || value === "") return null;
+  const parsed = new URL(value);
+  if (!["http:", "https:"].includes(parsed.protocol)
+    || parsed.origin !== value
+    || parsed.username
+    || parsed.password) {
+    throw new TypeError("PUBLIC_ORIGIN must be an exact http(s) origin without a path");
+  }
+  return parsed.origin;
+}
+
+export function startServer({ host = "127.0.0.1", port = 4174, publicOrigin = null } = {}) {
   validateListenOptions({ host, port });
+  const trustedOrigin = normalizePublicOrigin(publicOrigin);
   const hub = new NetplayHub();
   const server = http.createServer(async (request, response) => {
+    const url = new URL(request.url ?? "/", "http://local.invalid");
+    if (request.method === "POST" && url.pathname === "/api/rooms") {
+      try {
+        if (request.headers.origin !== (trustedOrigin ?? `http://${request.headers.host}`)) {
+          sendJson(response, 403, { error: "Room creation requires the same origin" });
+          return;
+        }
+        const body = await readJson(request);
+        sendJson(response, 201, hub.createRoom({ profileDigest: body.profileDigest }));
+      } catch (error) {
+        sendJson(response, 400, { error: error instanceof Error ? error.message : String(error) });
+      }
+      return;
+    }
+    const roomMatch = /^\/api\/rooms\/([a-zA-Z0-9_-]{1,80})$/.exec(url.pathname);
+    if (request.method === "GET" && roomMatch) {
+      const status = hub.getRoomStatus(roomMatch[1]);
+      sendJson(response, status ? 200 : 404, status ?? { error: "Room not found" });
+      return;
+    }
     if (request.method !== "GET" && request.method !== "HEAD") {
-      response.writeHead(405, { Allow: "GET, HEAD" });
+      response.writeHead(405, { Allow: "GET, HEAD, POST" });
       response.end();
       return;
     }
@@ -75,7 +129,7 @@ export function startServer({ host = "127.0.0.1", port = 4174 } = {}) {
     try {
       const url = new URL(request.url ?? "/", "http://local.invalid");
       const slotText = url.searchParams.get("slot");
-      const expectedOrigin = `http://${request.headers.host}`;
+      const expectedOrigin = trustedOrigin ?? `http://${request.headers.host}`;
       if (request.headers.origin !== expectedOrigin
         || url.pathname !== "/netplay"
         || !/^[01]$/.test(slotText ?? "")) {
@@ -84,7 +138,16 @@ export function startServer({ host = "127.0.0.1", port = 4174 } = {}) {
       }
       const roomId = url.searchParams.get("room") ?? "";
       connection = acceptWebSocket(request, socket, head);
-      if (connection) hub.connect({ roomId, slot: Number(slotText), connection });
+      if (connection) hub.connect({
+        roomId,
+        slot: Number(slotText),
+        joinToken: url.searchParams.get("token") ?? "",
+        resumeToken: url.searchParams.get("resume"),
+        profileDigest: url.searchParams.get("profile") ?? "",
+        afterFrame: Number.parseInt(url.searchParams.get("after") ?? "0", 10),
+        afterHashFrame: Number.parseInt(url.searchParams.get("hafter") ?? "0", 10),
+        connection
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : "Invalid WebSocket request";
       if (connection) connection.close(1008, message);
@@ -111,7 +174,11 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
       validateListenOptions({ host, port });
       console.log(`Listen configuration: http://${host}:${port}`);
     } else {
-      const { origin } = await startServer({ host, port });
+      const { origin } = await startServer({
+        host,
+        port,
+        publicOrigin: process.env.PUBLIC_ORIGIN ?? null
+      });
       console.log(`Retrom netplay demo: ${origin}`);
     }
   } catch (error) {

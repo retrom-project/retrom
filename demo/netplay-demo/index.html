@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="description" content="Dual-instance EmulatorJS 4.2.3 non-streaming netplay feasibility demo">
-  <title>Retrom · Local Lockstep Lab</title>
+  <title>Rollback Netplay Lab</title>
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="./styles.css">
 </head>
@@ -13,7 +13,7 @@
     <header class="hero">
       <div>
         <p class="eyebrow">RETROM / NETPLAY FEASIBILITY</p>
-        <h1>Local Lockstep Lab</h1>
+        <h1>Rollback Netplay Lab</h1>
         <p class="lede">Two cores. Two real runtimes. Zero streamed pixels.</p>
       </div>
       <div class="session-state" data-session-state="idle" aria-live="polite">
@@ -26,7 +26,7 @@
       <label>
         <span>Core / content</span>
         <select data-core>
-          <option value="nes">FCEUmm · FDS Ping Pong</option>
+          <option value="nes">FCEUmm · F-1 Race</option>
           <option value="fbneo">FBNeo · Lode Runner</option>
         </select>
       </label>
@@ -38,12 +38,12 @@
         </select>
       </label>
       <label>
-        <span>Input buffer</span>
+        <span>Prediction bound</span>
         <select data-input-delay>
           <option value="3">3 frames</option>
-          <option value="4" selected>4 frames</option>
+          <option value="4">4 frames</option>
           <option value="6">6 frames</option>
-          <option value="8">8 frames</option>
+          <option value="8" selected>8 frames</option>
         </select>
       </label>
       <label>
@@ -63,14 +63,14 @@
           <option value="3000" selected>3,000 frames</option>
         </select>
       </label>
-      <button class="primary" type="button" data-start>Start lockstep</button>
+      <button class="primary" type="button" data-start>Start rollback session</button>
       <button type="button" data-pause disabled>Pause</button>
       <button type="button" data-hash disabled>Hash now</button>
     </section>
 
     <section class="proof-bar" aria-label="Proof summary">
       <div><span>Transport</span><strong data-transport-label>WebSocket authoritative relay</strong></div>
-      <div><span>Sync model</span><strong>Fixed-delay lockstep</strong></div>
+      <div><span>Sync model</span><strong>Prediction + rollback</strong></div>
       <div><span>State seed</span><strong data-initial-hash>—</strong></div>
       <div><span>Checkpoints</span><strong data-checkpoints>0 / 0 desync</strong></div>
     </section>
@@ -92,8 +92,8 @@
           <div class="wide"><dt>Profile</dt><dd data-profile>—</dd></div>
           <div><dt>Emu frame</dt><dd data-metric="0:emulatorFrame">—</dd></div>
           <div><dt>Net frame</dt><dd data-metric="0:netFrame">—</dd></div>
-          <div><dt>Buffer</dt><dd data-metric="0:bufferDepth">—</dd></div>
-          <div><dt>Stalls</dt><dd data-metric="0:stallCount">—</dd></div>
+          <div><dt>Prediction</dt><dd data-metric="0:predictionDepth">—</dd></div>
+          <div><dt>Rollbacks</dt><dd data-metric="0:rollbackCount">—</dd></div>
           <div class="wide"><dt>Last state hash</dt><dd data-metric="0:lastHash">—</dd></div>
         </dl>
         <div class="debug-pad" aria-label="P1 debug input">
@@ -124,8 +124,8 @@
           <div class="wide"><dt>Profile</dt><dd data-profile>—</dd></div>
           <div><dt>Emu frame</dt><dd data-metric="1:emulatorFrame">—</dd></div>
           <div><dt>Net frame</dt><dd data-metric="1:netFrame">—</dd></div>
-          <div><dt>Buffer</dt><dd data-metric="1:bufferDepth">—</dd></div>
-          <div><dt>Stalls</dt><dd data-metric="1:stallCount">—</dd></div>
+          <div><dt>Prediction</dt><dd data-metric="1:predictionDepth">—</dd></div>
+          <div><dt>Rollbacks</dt><dd data-metric="1:rollbackCount">—</dd></div>
           <div class="wide"><dt>Last state hash</dt><dd data-metric="1:lastHash">—</dd></div>
         </dl>
         <div class="debug-pad" aria-label="P2 debug input">

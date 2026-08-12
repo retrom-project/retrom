@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 
 const WEBSOCKET_GUID = "258EAFA5-E914-47DA-95CA-C5AB0DC85B11";
-const MAX_PAYLOAD_BYTES = 1024 * 1024;
+const MAX_PAYLOAD_BYTES = 2 * 1024 * 1024;
 
 function encodeFrame(opcode, payload = Buffer.alloc(0)) {
   const length = payload.length;
@@ -26,6 +26,9 @@ export class WebSocketConnection {
   #buffer = Buffer.alloc(0);
   #closed = false;
   #closeNotified = false;
+  #fragmentBytes = 0;
+  #fragmentOpcode = null;
+  #fragments = [];
   #onClose = () => {};
   #onMessage = () => {};
   #socket;
@@ -79,11 +82,12 @@ export class WebSocketConnection {
     if (this.#buffer.length < 2) return false;
     const first = this.#buffer[0];
     const second = this.#buffer[1];
-    if ((first & 0x80) === 0) throw new Error("Fragmented frames are unsupported");
+    const finished = (first & 0x80) !== 0;
     if ((first & 0x70) !== 0) throw new Error("Reserved WebSocket bits are set");
     if ((second & 0x80) === 0) throw new Error("Client frames must be masked");
 
     const opcode = first & 0x0f;
+    const controlFrame = opcode >= 0x8;
     let length = second & 0x7f;
     let offset = 2;
     if (length === 126) {
@@ -98,6 +102,9 @@ export class WebSocketConnection {
       offset = 10;
     }
     if (length > MAX_PAYLOAD_BYTES) throw new Error("WebSocket payload is too large");
+    if (controlFrame && (!finished || length > 125)) {
+      throw new Error("Invalid WebSocket control frame");
+    }
     if (this.#buffer.length < offset + 4 + length) return false;
 
     const mask = this.#buffer.subarray(offset, offset + 4);
@@ -107,14 +114,33 @@ export class WebSocketConnection {
       payload[index] ^= mask[index % 4];
     }
 
-    if (opcode === 0x1) {
-      const text = new TextDecoder("utf-8", { fatal: true }).decode(payload);
-      this.#onMessage(text);
+    if (opcode === 0x0 || opcode === 0x1) {
+      if (opcode === 0x0 && this.#fragmentOpcode === null) throw new Error("Unexpected continuation frame");
+      if (opcode === 0x1 && this.#fragmentOpcode !== null) throw new Error("Interleaved fragmented message");
+      if (opcode === 0x1 && !finished) {
+        this.#fragmentOpcode = opcode;
+        this.#fragments = [payload];
+        this.#fragmentBytes = payload.length;
+      } else if (opcode === 0x0) {
+        this.#fragmentBytes += payload.length;
+        if (this.#fragmentBytes > MAX_PAYLOAD_BYTES) throw new Error("WebSocket message is too large");
+        this.#fragments.push(payload);
+        if (finished) {
+          const message = Buffer.concat(this.#fragments, this.#fragmentBytes);
+          this.#fragmentOpcode = null;
+          this.#fragments = [];
+          this.#fragmentBytes = 0;
+          this.#onMessage(new TextDecoder("utf-8", { fatal: true }).decode(message));
+        }
+      } else {
+        this.#onMessage(new TextDecoder("utf-8", { fatal: true }).decode(payload));
+      }
     } else if (opcode === 0x8) {
       this.close();
     } else if (opcode === 0x9) {
       this.#socket.write(encodeFrame(0xA, payload));
-    } else if (opcode !== 0xA) {
+    } else if (opcode === 0xA) {
+    } else {
       throw new Error(`Unsupported WebSocket opcode ${opcode}`);
     }
     return this.#buffer.length >= 2;

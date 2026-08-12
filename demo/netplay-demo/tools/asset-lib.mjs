@@ -9,7 +9,7 @@ export const demoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)
 export async function readManifest() {
   const contents = await readFile(path.join(demoRoot, "assets-manifest.json"), "utf8");
   const manifest = JSON.parse(contents);
-  if (manifest.schemaVersion !== 1 || !Array.isArray(manifest.assets)) {
+  if (manifest.schemaVersion !== 2 || !Array.isArray(manifest.assets) || !manifest.packages) {
     throw new Error("Unsupported asset manifest");
   }
   return manifest;
@@ -44,4 +44,3 @@ export function parseOption(argv, name) {
   if (!value || value.startsWith("--")) throw new Error(`${name} requires a path`);
   return path.resolve(value);
 }
-
