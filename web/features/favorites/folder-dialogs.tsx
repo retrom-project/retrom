@@ -5,10 +5,11 @@ import { createPortal } from "react-dom";
 import type { FavoriteFolder } from "./favorite-api";
 
 function DialogFrame({
-  open, title, description, role = "dialog", modal = true, anchor, dismissButton = false, children, onClose,
+  open, title, description, role = "dialog", modal = true, anchor, resolveReturnFocus, dismissButton = false, children, onClose,
 }: {
   open: boolean; title: string; description?: string; role?: "dialog" | "alertdialog";
-  modal?: boolean; anchor?: HTMLElement | null; dismissButton?: boolean; children: ReactNode; onClose: () => void;
+  modal?: boolean; anchor?: HTMLElement | null; resolveReturnFocus?: () => HTMLElement | null;
+  dismissButton?: boolean; children: ReactNode; onClose: () => void;
 }) {
   const titleId = useId();
   const descriptionId = useId();
@@ -35,10 +36,13 @@ function DialogFrame({
     });
     return () => {
       window.cancelAnimationFrame(frame);
-      const returnTarget = anchor?.isConnected ? anchor : previous;
-      window.requestAnimationFrame(() => returnTarget?.focus());
+      window.requestAnimationFrame(() => {
+        const resolved = resolveReturnFocus?.();
+        const returnTarget = resolved?.isConnected ? resolved : anchor?.isConnected ? anchor : previous;
+        returnTarget?.focus({ preventScroll: true });
+      });
     };
-  }, [anchor, modal, open]);
+  }, [anchor, modal, open, resolveReturnFocus]);
   useEffect(() => {
     if (!open || modal) return;
     const closeOutside = (event: PointerEvent) => {
@@ -76,21 +80,21 @@ function DialogFrame({
 }
 
 export function FolderPickerDialog({
-  open, title, folders, selectedFolderIds, busy, anchor, onSave, onCreate, onClose,
+  open, title, folders, selectedFolderIds, busy, anchor, resolveReturnFocus, onSave, onCreate, onClose,
 }: {
   open: boolean; title: string; folders: FavoriteFolder[]; selectedFolderIds: string[]; busy: boolean;
-  anchor?: HTMLElement | null;
+  anchor?: HTMLElement | null; resolveReturnFocus?: () => HTMLElement | null;
   onSave: (folderIds: string[]) => void; onCreate: () => void; onClose: () => void;
 }) {
   if (!open) return null;
-  return <OpenFolderPickerDialog key={selectedFolderIds.join("\u0000")} title={title} folders={folders} selectedFolderIds={selectedFolderIds} busy={busy} anchor={anchor} onSave={onSave} onCreate={onCreate} onClose={onClose} />;
+  return <OpenFolderPickerDialog key={selectedFolderIds.join("\u0000")} title={title} folders={folders} selectedFolderIds={selectedFolderIds} busy={busy} anchor={anchor} resolveReturnFocus={resolveReturnFocus} onSave={onSave} onCreate={onCreate} onClose={onClose} />;
 }
 
 function OpenFolderPickerDialog({
-  title, folders, selectedFolderIds, busy, anchor, onSave, onCreate, onClose,
+  title, folders, selectedFolderIds, busy, anchor, resolveReturnFocus, onSave, onCreate, onClose,
 }: {
   title: string; folders: FavoriteFolder[]; selectedFolderIds: string[]; busy: boolean;
-  anchor?: HTMLElement | null;
+  anchor?: HTMLElement | null; resolveReturnFocus?: () => HTMLElement | null;
   onSave: (folderIds: string[]) => void; onCreate: () => void; onClose: () => void;
 }) {
   const [selected, setSelected] = useState<Set<string>>(() => new Set(selectedFolderIds));
@@ -99,7 +103,7 @@ function OpenFolderPickerDialog({
     const normalized = query.trim().toLocaleLowerCase("zh-CN");
     return normalized ? folders.filter((folder) => folder.name.toLocaleLowerCase("zh-CN").includes(normalized)) : folders;
   }, [folders, query]);
-  return <DialogFrame open title={title} modal={!anchor} anchor={anchor} dismissButton onClose={onClose}>
+  return <DialogFrame open title={title} modal={!anchor} anchor={anchor} resolveReturnFocus={resolveReturnFocus} dismissButton onClose={onClose}>
     <label className="favorite-folder-search"><span className="sr-only">搜索收藏夹</span><input data-dialog-autofocus type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索收藏夹" /></label>
     <div className="favorite-folder-options">
       {visible.length ? visible.map((folder) => <label key={folder.folderId}>

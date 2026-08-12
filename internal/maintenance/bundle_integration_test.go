@@ -184,6 +184,8 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	seedBackupFavorites(t, database.SQL, admin.Principal.ProfileID)
 	const serverImportID = "01980000-0000-7000-8000-00000000f601"
 	const serverImportJobID = "01980000-0000-7000-8000-00000000f602"
+	const pegasusImportID = "01980000-0000-7000-8000-00000000f603"
+	const pegasusScanJobID = "01980000-0000-7000-8000-00000000f604"
 	if _, err := database.SQL.Exec(`
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,leased_until_ms,heartbeat_at_ms,worker_id,created_at_ms,updated_at_ms)
@@ -198,6 +200,20 @@ catalog_snapshot_digest,replace_if_better,state,phase,catalog_item_count,job_id,
 created_at_ms,updated_at_ms)
 VALUES(?,'BIOS_DIRECTORY','backup-root','Backup root','bios',?,?,0,'RUNNING','DISCOVERING',0,?,?,1,1,1)
 `, serverImportID, strings.Repeat("b", 64), strings.Repeat("c", 64), serverImportJobID, admin.Principal.UserID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.Exec(`
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{"inputExecutionNo":1}',1,'SUCCEEDED',1,4,1,1,1,1,1)
+`, pegasusScanJobID, pegasusImportID, strings.Repeat("d", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.Exec(`
+INSERT INTO pegasus_imports(id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,phase,
+scan_job_id,created_by_user_id,created_at_ms,updated_at_ms,expires_at_ms)
+VALUES(?,'backup-root','Backup root','games',?,'AWAITING_MAPPING',NULL,?,?,1,1,9999999999999)
+`, pegasusImportID, strings.Repeat("e", 64), pegasusScanJobID, admin.Principal.UserID); err != nil {
 		t.Fatal(err)
 	}
 	favoriteHash, favoriteRows := favoriteBackupSnapshot(t, database.SQL)
@@ -254,7 +270,7 @@ VALUES(?,'BIOS_DIRECTORY','backup-root','Backup root','bios',?,?,0,'RUNNING','DI
 			favoriteRows, favoriteHash, restoredFavoriteRows, restoredFavoriteHash,
 		)
 	}
-	var fencedSessions, fencedLinks, fenceAudits, fencedServerImports int
+	var fencedSessions, fencedLinks, fenceAudits, fencedServerImports, fencedPegasusImports int
 	if err := restoredDatabase.QueryRow(`
 SELECT
   (SELECT count(*) FROM auth_sessions WHERE revoked_reason='RESTORE' AND revoked_at_ms IS NOT NULL),
@@ -263,12 +279,14 @@ SELECT
    WHERE actor_kind='SYSTEM' AND actor_label='restore-security-fence' AND action='RESTORE_SECURITY_FENCE'),
   (SELECT count(*) FROM server_imports import JOIN jobs job ON job.id=import.job_id
    WHERE import.id=? AND import.state='FAILED' AND import.last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED'
-   AND job.state='FAILED' AND job.error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND job.error_retryable=0)
-`, serverImportID).Scan(&fencedSessions, &fencedLinks, &fenceAudits, &fencedServerImports); err != nil ||
-		fencedSessions < 1 || fencedLinks != 1 || fenceAudits != 1 || fencedServerImports != 1 {
+   AND job.state='FAILED' AND job.error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND job.error_retryable=0),
+  (SELECT count(*) FROM pegasus_imports WHERE id=? AND state='FAILED'
+   AND last_error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED' AND completed_at_ms IS NOT NULL)
+`, serverImportID, pegasusImportID).Scan(&fencedSessions, &fencedLinks, &fenceAudits, &fencedServerImports, &fencedPegasusImports); err != nil ||
+		fencedSessions < 1 || fencedLinks != 1 || fenceAudits != 1 || fencedServerImports != 1 || fencedPegasusImports != 1 {
 		t.Fatalf(
-			"restore fence = sessions=%d links=%d audits=%d serverImports=%d error=%v",
-			fencedSessions, fencedLinks, fenceAudits, fencedServerImports, err,
+			"restore fence = sessions=%d links=%d audits=%d serverImports=%d pegasusImports=%d error=%v",
+			fencedSessions, fencedLinks, fenceAudits, fencedServerImports, fencedPegasusImports, err,
 		)
 	}
 	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); !errors.Is(

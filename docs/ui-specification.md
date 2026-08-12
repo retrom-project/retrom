@@ -11,7 +11,7 @@
 
 [打开 Retrom 最终可交互设计稿](./design/retrom-ui-review.html)
 
-账户入口、账户设置、用户管理与服务器 BIOS 导入已经合入同一设计源和交互稿；评审稿右上角的“评审场景”可在认证、用户侧与管理后台之间切换，不再维护平行的专题设计稿。
+账户入口、账户设置、用户管理、服务器 BIOS/Pegasus 导入与游戏详情视频已经合入同一设计源和交互稿；评审稿右上角的“评审场景”可在认证、用户侧与管理后台之间切换，不再维护平行的专题设计稿。
 
 静态评审快照：
 
@@ -55,6 +55,9 @@
 - [服务器 BIOS 导入 · 2560×1440](./design/retrom-ui-server-import.png)
 - [服务器 BIOS 导入 Drawer · 1280×800](./design/retrom-ui-server-import-drawer.png)
 - [服务器 BIOS 导入详情 · 3840×2160](./design/retrom-ui-server-import-detail-4k.png)
+- [服务器导入双能力总览 · 2560×1440](./design/retrom-ui-pegasus-import.png)
+- [Pegasus 扫描 Drawer · 1280×800](./design/retrom-ui-pegasus-import-drawer.png)
+- [Pegasus 导入详情 · 3840×2160](./design/retrom-ui-pegasus-import-detail-4k.png)
 - [街机数据目录 · 2560×1440](./design/retrom-ui-dat-versions.png)
 - [上传街机数据目录 Drawer · 2560×1440](./design/retrom-ui-dat-upload.png)
 - [DAT 差异与运行影响 · 2560×1440](./design/retrom-ui-dat-diff.png)
@@ -445,15 +448,21 @@ BIOS 文件页默认展示当前游戏库实际所需项，并可在页面内无
 
 “创建邀请”和“生成重置链接”成功后使用阻断式一次性 secret 对话框：只显示一次完整 URL，复制按钮有明确反馈，关闭时从 React 状态和 DOM 清除。邀请列表展示角色、创建者、过期时间和已使用/已撤销状态，并支持显式撤销；管理员不查看或代填用户密码。只读 `setup-code`、离线 `admin-reset` 和 restore 安全栅栏只由主机 CLI 提供，不在 Web 后台提供绕过入口。视觉和交互基线见本章顶部的账户与用户管理设计稿。
 
-### 7.7 服务器 BIOS 导入
+### 7.7 服务器 BIOS 与 Pegasus 导入
 
-“游戏入库”子菜单固定为“导入游戏、本地扫描、任务进度、待审核、审核历史”。“本地扫描”只命名该导航入口，页面领域标题仍使用“服务器导入”。`/admin/imports/server` 只有“扫描并导入 BIOS”能力卡，展示服务端完整 catalog、需处理数和最近任务；无 root 时只显示部署说明，不提供绝对路径输入。`/admin/bios` 的“从服务器目录批量导入”跳到 `?action=bios` 并只打开创建 Drawer。
+“游戏入库”子菜单固定为“导入游戏、本地扫描、任务进度、待审核、审核历史”。“本地扫描”只命名该导航入口，页面领域标题仍使用“服务器导入”。`/admin/imports/server` 并列显示“扫描并导入 BIOS”和“导入 Pegasus 游戏目录”两张等权能力卡，共用一段只读 root 说明；无 root 时两张卡均禁用并显示部署说明，不提供绝对路径输入。两类任务在同页历史区明确标记类型且各自分页，不把不同状态机拼成一张假统一表。`/admin/bios` 的“从服务器目录批量导入”跳到 `?action=bios` 并只打开 BIOS Drawer；`?action=pegasus` 只打开 Pegasus Drawer。
 
 创建 Drawer 使用 root radio、面包屑和直接子目录分页浏览，展示 `<root label> / <relative path>` 与完整 catalog 范围；“允许使用更优候选替换”默认关闭并说明同分/更差不会替换。pending 时锁定选择；Drawer 有 focus trap、Escape 和关闭后焦点恢复。
 
 `/admin/imports/server/:id` 通过 Job SSE 展示真实阶段/计数，断线保留内容并重连，离页不取消。详情摘要区分导入、无需变更、未找到、需核对和失败；结果及候选每页最多 50 条，服务端筛选写入 URL，候选弹层展示相对路径、hash/DAT entry 证据、rank 与未选原因。取消确认明确不回滚已提交 Installation，retry 只在服务端声明可用时出现。
 
 BIOS FULL_CATALOG 首屏和续页固定 100 条；距底部 600px 自动拉取，Set 去重且同时只有一个请求。切换 scope/query/filter 时 abort 旧请求并清空 cursor；追加失败保留旧页并可用相同 cursor 重试。IntersectionObserver 不可用和纯键盘场景必须可用“加载更多”，`aria-live` 播报新增/完成。1280×800 只允许结果表自身横向滚动，页面不得溢出；2560×1440 与 3840×2160 遵循统一后台画布，且减少动画模式关闭非必要过渡。
+
+Pegasus Drawer 为 760px 右侧三步流程：“选择目录 → 映射 Collection → 确认导入”。第一步复用 root radio、面包屑和直接子目录浏览，只展示 root label 与相对路径；开始扫描后可关闭 Drawer，重新打开时恢复该 SCANNING/AWAITING_MAPPING 计划。第二步展示每个 Collection 的游戏数、扩展名和明确的游戏平台目录选择；不设默认映射，所有 Collection 都选择后才可继续，提交用计划 ETag 并按最多 100 条分批。第三步确认扫描、映射、自动发布和媒体告警数量后启动，不让浏览器解析 metadata 或决定兼容性。
+
+`/admin/imports/server/pegasus/:id` 展示阶段、计数和映射快照，通过 SSE 更新并在断线时有界轮询；过滤条件 `q/outcome/warning/collectionId` 写入 URL。条目每页最多 50 条，展示 Collection、目标游戏平台、来源相对路径、导入结果、已有/新游戏链接以及 cover/video 的 READY、MISSING、WARNING 文本状态。取消不回滚已提交游戏；retry 只为服务端声明可重试的终态提供，delete 只允许已结束且不再引用外部 source 的计划。
+
+游戏详情 Hero 先展示 cover。存在 VIDEO 时，视频必须 muted、inline、loop、`preload="metadata"`；仅在页面前台且 Hero 可见累计 2 秒后尝试自动播放，`playing` 后以 200ms 淡入。播放拒绝、媒体错误、stalled 或 5 秒无 `playing` 时保持封面并提供显式播放；用户暂停后本次页面不再自动恢复。`prefers-reduced-motion` 下完全禁用自动播放和淡入。游戏库卡片/列表不加载或自动播放视频。管理员媒体区提供独立 VIDEO 槽，只接收 MP4/WebM；视频尺寸可未知，预览不自动播放，上传、替换和删除都产生不可变媒体 revision。
 
 ## 8. 多盘界面闭环
 
@@ -479,4 +488,4 @@ Player 在 loader 启动前显示“正在准备多盘内容 · N 张光盘 · �
 
 ## 10. 统一验收入口
 
-UI、导航、4K、键盘、待审队列与状态呈现统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-UI-001`–`ACC-UI-009`；多盘目录预检、缺盘补传、Player 换盘与存档盘号执行 `ACC-MDISC-001`–`ACC-MDISC-008`；账户和用户管理生命周期执行 `ACC-AUTH-*` 与 `ACC-ISO-*`；游戏管理执行 `ACC-GAME-001`–`ACC-GAME-003`；一次点击启动、默认全屏、存档快速恢复与 DOS 程序选择分别由 `ACC-RUN-*` 和 `ACC-SAVE-*` 联合覆盖。本文不再复制验收清单。
+UI、导航、4K、键盘、待审队列与状态呈现统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-UI-001`–`ACC-UI-009`；多盘目录预检、缺盘补传、Player 换盘与存档盘号执行 `ACC-MDISC-001`–`ACC-MDISC-008`；Pegasus 三步流程、详情、恢复与多尺寸布局执行 `ACC-PEG-005`，游戏视频策略执行 `ACC-MEDIA-001`；账户和用户管理生命周期执行 `ACC-AUTH-*` 与 `ACC-ISO-*`；游戏管理执行 `ACC-GAME-001`–`ACC-GAME-003`；一次点击启动、默认全屏、存档快速恢复与 DOS 程序选择分别由 `ACC-RUN-*` 和 `ACC-SAVE-*` 联合覆盖。本文不再复制验收清单。

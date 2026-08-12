@@ -23,6 +23,7 @@ import (
 	"retrom/internal/gamecontent"
 	"retrom/internal/hasheous"
 	"retrom/internal/libraryimport"
+	"retrom/internal/mediaasset"
 )
 
 type gameMetadata struct {
@@ -289,7 +290,8 @@ id
 	defer func() { cleanup.Error("close", assetRows.Close()) }()
 	for assetRows.Next() {
 		var id, kind, mediaType string
-		var ordinal, width, height, createdAtMS int64
+		var ordinal, createdAtMS int64
+		var width, height sql.NullInt64
 		if err := assetRows.Scan(&id, &kind, &ordinal, &width, &height, &mediaType, &createdAtMS); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -300,8 +302,8 @@ id
 				"assetId":     id,
 				"kind":        kind,
 				"ordinal":     ordinal,
-				"widthPx":     width,
-				"heightPx":    height,
+				"widthPx":     nullableInteger(width),
+				"heightPx":    nullableInteger(height),
 				"mediaType":   mediaType,
 				"url":         "/content/assets/" + id,
 				"createdAtMs": createdAtMS,
@@ -656,7 +658,8 @@ ordinal
 	defer func() { cleanup.Error("close", assetRows.Close()) }()
 	for assetRows.Next() {
 		var blobID, kind, mediaType string
-		var ordinal, width, height int64
+		var ordinal int64
+		var width, height sql.NullInt64
 		if err := assetRows.Scan(&blobID, &kind, &ordinal, &width, &height, &mediaType); err != nil {
 			server.databaseError(writer, request, err)
 			return
@@ -689,8 +692,8 @@ created_at_ms) VALUES(?,
 			blobID,
 			kind,
 			ordinal,
-			width,
-			height,
+			nullableInteger(width),
+			nullableInteger(height),
 			mediaType,
 			now,
 		); err != nil {
@@ -1629,7 +1632,8 @@ created_at_ms) VALUES(?,
 
 type currentGameAsset struct {
 	blobID, kind, mediaType string
-	ordinal, width, height  int64
+	ordinal                 int64
+	width, height           sql.NullInt64
 }
 
 func copyCurrentGameAssets(
@@ -1687,7 +1691,8 @@ width_px,
 height_px,
 media_type,
 created_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?)
-`, assetID.String(), gameID, revisionID, asset.blobID, asset.kind, asset.ordinal, asset.width, asset.height,
+	`, assetID.String(), gameID, revisionID, asset.blobID, asset.kind, asset.ordinal,
+			nullableInteger(asset.width), nullableInteger(asset.height),
 			asset.mediaType, now); err != nil {
 			return fmt.Errorf("httpapi/game_handlers: preserve current asset: %w", err)
 		}
@@ -1811,6 +1816,25 @@ created_at_ms) VALUES(?,
 	return assetID.String(), nil
 }
 
+func inspectUploadedGameAsset(
+	file io.ReadSeeker,
+	blobSize int64,
+	kind string,
+) (string, *int64, *int64, string, string) {
+	if kind == "VIDEO" {
+		mediaType, err := mediaasset.InspectVideo(file, blobSize)
+		if err != nil {
+			return "", nil, nil, "ASSET_VIDEO_INVALID", "视频必须是受限 MP4 或 WebM"
+		}
+		return mediaType, nil, nil, "", ""
+	}
+	imageData, err := mediaasset.InspectImage(file, blobSize)
+	if err != nil {
+		return "", nil, nil, "ASSET_IMAGE_INVALID", "媒体必须是受限 PNG、JPEG 或 WebP"
+	}
+	return imageData.MediaType, &imageData.WidthPX, &imageData.HeightPX, "", ""
+}
+
 //nolint:funlen,gocyclo // Asset upload branches are independent media, ownership, and optimistic-lock contract checks.
 func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.Request) {
 	expected, ok := requireVersion(writer, request)
@@ -1827,7 +1851,7 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 		Ordinal      int64  `json:"ordinal"`
 	}
 	if decodeJSON(writer, request, &body, 8<<10) != nil ||
-		body.Kind != "COVER" && body.Kind != "BACKGROUND" && body.Kind != "SCREENSHOT" ||
+		body.Kind != "COVER" && body.Kind != "BACKGROUND" && body.Kind != "SCREENSHOT" && body.Kind != "VIDEO" ||
 		body.Ordinal < 0 ||
 		body.Ordinal > 31 ||
 		body.Kind != "SCREENSHOT" && body.Ordinal != 0 {
@@ -1835,15 +1859,17 @@ func (server *Server) createGameAsset(writer http.ResponseWriter, request *http.
 		return
 	}
 	var uploadID, blobID, digest string
+	var blobSize int64
 	if err := server.database.QueryRowContext(request.Context(), `
 SELECT f.upload_session_id,
 b.id,
-b.sha256
+b.sha256,
+b.size_bytes
 FROM upload_files f
 JOIN blobs b ON b.id=f.final_blob_id
 WHERE f.id=?
 AND f.state='COMPLETE'
-`, body.UploadFileID).Scan(&uploadID, &blobID, &digest); err != nil {
+`, body.UploadFileID).Scan(&uploadID, &blobID, &digest, &blobSize); err != nil {
 		writeError(writer, request, http.StatusUnprocessableEntity, "ASSET_UPLOAD_INVALID", "上传文件不可用", map[string]any{})
 		return
 	}
@@ -1852,22 +1878,14 @@ AND f.state='COMPLETE'
 		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "媒体字节不可用", map[string]any{})
 		return
 	}
-	contents, readErr := io.ReadAll(io.LimitReader(file, (10<<20)+1))
+	mediaType, width, height, errorCode, errorMessage := inspectUploadedGameAsset(file, blobSize, body.Kind)
 	cleanup.Error("close", file.Close())
-	if readErr != nil {
-		writeError(writer, request, http.StatusServiceUnavailable, "CAS_UNAVAILABLE", "媒体字节不可读", map[string]any{})
-		return
-	}
-	imageData, err := hasheous.ValidateImage(contents, "")
-	if err != nil {
-		writeError(
-			writer,
-			request,
-			http.StatusUnprocessableEntity,
-			"ASSET_IMAGE_INVALID",
-			"媒体必须是受限 PNG、JPEG 或 WebP",
-			map[string]any{},
-		)
+	if errorCode != "" {
+		status := http.StatusUnprocessableEntity
+		if errorCode == "CAS_UNAVAILABLE" {
+			status = http.StatusServiceUnavailable
+		}
+		writeError(writer, request, status, errorCode, errorMessage, map[string]any{})
 		return
 	}
 	transaction, err := server.database.BeginTx(request.Context(), nil)
@@ -1991,9 +2009,9 @@ created_at_ms) VALUES(?,
 		blobID,
 		body.Kind,
 		body.Ordinal,
-		imageData.Width,
-		imageData.Height,
-		imageData.MediaType,
+		width,
+		height,
+		mediaType,
 		now,
 	); err != nil {
 		server.databaseError(writer, request, err)
@@ -2052,13 +2070,136 @@ AND version=?
 			"metadataRevisionId": revisionID.String(),
 			"kind":               body.Kind,
 			"ordinal":            body.Ordinal,
-			"widthPx":            imageData.Width,
-			"heightPx":           imageData.Height,
-			"mediaType":          imageData.MediaType,
+			"widthPx":            width,
+			"heightPx":           height,
+			"mediaType":          mediaType,
 			"version":            expected + 1,
 			"createdAtMs":        now,
 		},
 	)
+}
+
+func (server *Server) deleteGameAsset(writer http.ResponseWriter, request *http.Request) {
+	expected, ok := requireVersion(writer, request)
+	if !ok {
+		return
+	}
+	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
+		return
+	}
+	kind := request.PathValue("assetKind")
+	if kind != "VIDEO" {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "游戏媒体类型无效", map[string]any{})
+		return
+	}
+	transaction, err := server.database.BeginTx(request.Context(), nil)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	defer cleanup.Rollback(transaction)
+	currentID, metadata, version, err := currentGameAssetMetadata(
+		request.Context(), transaction, request.PathValue("gameId"),
+	)
+	if err != nil || version != expected {
+		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
+		return
+	}
+	if !gameAssetExists(request.Context(), transaction, request.PathValue("gameId"), currentID, kind) {
+		writeError(writer, request, http.StatusNotFound, "ASSET_NOT_FOUND", "媒体不存在", map[string]any{})
+		return
+	}
+	revisionID := newUUIDString()
+	now := server.now().UnixMilli()
+	if _, err := transaction.ExecContext(request.Context(), `
+INSERT INTO game_metadata_revisions(
+id,game_id,title,description,developer,publisher,genre,players,release_year,
+source_kind,source_ref_id,created_at_ms
+) VALUES(?,?,?,?,?,?,?,?,?,'ADMIN_EDIT',NULL,?)`, revisionID, request.PathValue("gameId"), metadata.Title,
+		metadata.Description, metadata.Developer, metadata.Publisher, metadata.Genre, nullableInteger(metadata.Players),
+		nullableInteger(metadata.ReleaseYear), now); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if err := copyAssetsExcept(
+		request, transaction, request.PathValue("gameId"), currentID, revisionID, kind, 0, now,
+	); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	result, err := transaction.ExecContext(
+		request.Context(),
+		`UPDATE games SET current_metadata_revision_id=?,version=version+1,updated_at_ms=? WHERE id=? AND version=?`,
+		revisionID,
+		now,
+		request.PathValue("gameId"),
+		expected,
+	)
+	if err != nil || rowsAffectedHTTP(result) != 1 {
+		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
+		return
+	}
+	if err := transaction.Commit(); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
+	writer.WriteHeader(http.StatusNoContent)
+}
+
+func currentGameAssetMetadata(
+	ctx context.Context,
+	transaction *sql.Tx,
+	gameID string,
+) (string, gameMetadata, int64, error) {
+	var currentID string
+	var metadata gameMetadata
+	var version int64
+	err := transaction.QueryRowContext(ctx, `
+SELECT g.current_metadata_revision_id,
+g.version,
+m.title,
+m.description,
+m.developer,
+m.publisher,
+m.genre,
+m.players,
+m.release_year
+FROM games g
+JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+WHERE g.id=?
+AND g.status='PUBLISHED'`, gameID).Scan(
+		&currentID, &version, &metadata.Title, &metadata.Description, &metadata.Developer, &metadata.Publisher,
+		&metadata.Genre, &metadata.Players, &metadata.ReleaseYear,
+	)
+	if err != nil {
+		return "", gameMetadata{}, 0, fmt.Errorf("httpapi/load current game asset metadata: %w", err)
+	}
+	return currentID, metadata, version, nil
+}
+
+func gameAssetExists(
+	ctx context.Context,
+	transaction *sql.Tx,
+	gameID, metadataID, kind string,
+) bool {
+	var exists int
+	return transaction.QueryRowContext(ctx, `
+SELECT 1
+FROM game_assets
+WHERE game_id=?
+AND metadata_revision_id=?
+AND kind=?
+AND ordinal=0`, gameID, metadataID, kind).Scan(&exists) == nil
+}
+
+func rowsAffectedHTTP(result sql.Result) int64 {
+	if result == nil {
+		return 0
+	}
+	value, _ := result.RowsAffected()
+	return value
 }
 
 var (
@@ -2263,7 +2404,8 @@ ordinal
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	for rows.Next() {
 		var blobID, kind, mediaType string
-		var ordinal, width, height int64
+		var ordinal int64
+		var width, height sql.NullInt64
 		if err := rows.Scan(&blobID, &kind, &ordinal, &width, &height, &mediaType); err != nil {
 			return fmt.Errorf("httpapi/game_handlers: %w", err)
 		}
@@ -2290,7 +2432,8 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?)
-`, newUUIDString(), gameID, revisionID, blobID, kind, ordinal, width, height, mediaType, now); err != nil {
+	`, newUUIDString(), gameID, revisionID, blobID, kind, ordinal,
+			nullableInteger(width), nullableInteger(height), mediaType, now); err != nil {
 			return fmt.Errorf("httpapi/game_handlers: %w", err)
 		}
 	}

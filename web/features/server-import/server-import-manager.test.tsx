@@ -95,7 +95,7 @@ describe("ServerImportManager", () => {
     render(<ServerImportManager initialRoots={[availableRoot]} initialImports={imports()} initialOpen />);
 
     expect(await screen.findByRole("button", { name: /BIOS/ })).toBeVisible();
-    expect(screen.queryByText("/data/game/Pegasus G")).not.toBeInTheDocument();
+    expect(screen.queryByText("/srv/private-rom-library")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "加载更多目录" }));
     expect(await screen.findByRole("button", { name: /More/ })).toBeVisible();
     expect(requestAt(fetchMock, 1).url).toContain("cursor=next-directories");

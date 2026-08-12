@@ -1,9 +1,9 @@
-import Image from "next/image";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { FavoriteActions } from "@/features/favorites/favorite-actions";
 import type { FavoriteReference } from "@/features/favorites/favorite-api";
 import { GameDetailSaves } from "@/features/games/game-detail-saves";
+import { GameDetailMedia } from "@/features/games/game-detail-media";
 import { LaunchControls, type CoreOption, type DOSEntry } from "@/features/player/launch-controls";
 import { collectSavePages, latestAvailableSave, type SavePage } from "@/features/saves/save-library";
 import { withQuery } from "@/lib/backend";
@@ -12,7 +12,7 @@ import { backendJSON } from "@/lib/server-backend";
 type GameDetail = {
   gameId: string; title: string; description: string; developer: string; publisher: string; genre: string;
   players: number | null; releaseYear: number | null; activeDurationMs: number;
-  coverUrl: string | null;
+  coverUrl: string | null; videoUrl: string | null;
   platform: { id: string; name: string }; platformInstance: { id: string; name: string };
   coreOptions: CoreOption[];
   dosEntries: DOSEntry[];
@@ -54,7 +54,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
       <nav className="game-detail-breadcrumb" aria-label="返回导航"><Link href="/library">← 游戏库</Link></nav>
       <section className="game-detail-hero">
         <div className="game-detail-poster-shell">
-          {game.coverUrl ? <div className="game-detail-poster"><Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="240px" priority unoptimized /></div> : <div className="game-detail-poster is-placeholder" role="img" aria-label={`${game.title} 暂无封面`}><span>{game.title}</span></div>}
+          <GameDetailMedia title={game.title} coverUrl={game.coverUrl} videoUrl={game.videoUrl} />
           <div className="game-detail-poster-caption"><span>{game.platform.name}</span><span>{game.releaseYear ?? "年份未知"}</span></div>
         </div>
         <div className="game-detail-main">

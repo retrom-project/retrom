@@ -121,6 +121,103 @@ test("ACC-BIOS-007 FULL_CATALOG traverses 100/100/86 and retries the same cursor
   await page.screenshot({ path: evidencePath(testInfo, "bios-full-catalog-286.png"), fullPage: true });
 });
 
+test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desktop viewports", async ({ page }, testInfo) => {
+  test.setTimeout(120_000);
+  await page.goto("/admin/imports/server");
+  await expect(page.getByRole("heading", { name: "扫描并导入 BIOS" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "扫描并导入游戏" })).toBeVisible();
+  await expect(page.getByText("Pegasus BIOS", { exact: true }).first()).toBeVisible();
+  await expectNoPageOverflow(page);
+
+  const trigger = page.getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ });
+  await trigger.click();
+  let drawer = page.getByRole("dialog", { name: "从 Pegasus 目录导入游戏" });
+  await expect(drawer).toBeVisible();
+  await expect(drawer.getByRole("list", { name: "导入步骤" })).toContainText("选择目录");
+  await drawer.getByRole("button", { name: /^Games/ }).click();
+  await expect(drawer).toContainText("Pegasus BIOS / Games");
+  await drawer.getByRole("button", { name: "扫描此目录" }).click();
+  const footerClose = drawer.locator("footer").getByRole("button", { name: "关闭", exact: true });
+  await expect(footerClose).toBeEnabled();
+  await footerClose.click();
+  await expect(drawer).toHaveCount(0);
+
+  await page.getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ }).click();
+  drawer = page.getByRole("dialog", { name: "从 Pegasus 目录导入游戏" });
+  const mapping = drawer.getByRole("combobox", { name: "NES 处理方式" });
+  await expect(mapping).toBeVisible({ timeout: 30_000 });
+  await expect(mapping).toHaveValue("");
+  await expect(drawer.getByRole("button", { name: "确认映射" })).toBeDisabled();
+  const nesOption = mapping.getByRole("option", { name: /^导入到 NES 游戏/ });
+  await mapping.selectOption(await nesOption.getAttribute("value") ?? "");
+  await drawer.getByRole("button", { name: "确认映射" }).click();
+  await expect(drawer).toContainText("1 个导入 · 0 个跳过");
+  await drawer.getByRole("button", { name: "开始异步导入" }).click();
+  await expect(page).toHaveURL(/\/admin\/imports\/server\/pegasus\/[0-9a-f-]+$/);
+  await expect(page.getByRole("region", { name: "Pegasus 导入摘要" })).toBeVisible();
+  await expect(page.getByText(/^(已完成|部分失败)$/).first()).toBeVisible({ timeout: 60_000 });
+  const resultTable = page.getByRole("table", { name: "Pegasus 导入结果" });
+  await expect(resultTable).toContainText("Acceptance Game");
+  await expect(resultTable).toContainText("视频 READY");
+  await page.getByRole("searchbox", { name: "搜索标题" }).fill("Acceptance");
+  await page.getByRole("button", { name: "应用筛选" }).click();
+  await expect(page).toHaveURL(/q=Acceptance/);
+  await expectNoPageOverflow(page);
+  await expectNoSeriousAxeViolations(page);
+  await page.screenshot({ path: evidencePath(testInfo, "pegasus-import-detail.png"), fullPage: true });
+});
+
+test("ACC-MEDIA-001 video upload is explicit in admin and absent from library requests", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  const gamesResponse = await page.request.get("/api/v1/admin/games?limit=100");
+  expect(gamesResponse.ok()).toBe(true);
+  const games = await gamesResponse.json() as { items: Array<{ gameId: string; title: string }> };
+  const game = games.items.find((item) => item.title === "Sudoku");
+  if (!game) throw new Error("acceptance fixture game Sudoku was not found");
+  const gameId = game.gameId;
+
+  await page.goto(`/admin/games/${gameId}`);
+  const upload = page.locator("#admin-video-upload");
+  await expect(upload).toBeEnabled();
+  await upload.setInputFiles({
+    name: "acceptance.mp4",
+    mimeType: "video/mp4",
+    buffer: Buffer.from([0, 0, 0, 24, 102, 116, 121, 112, 105, 115, 111, 109, 0, 0, 0, 0, 105, 115, 111, 109, 109, 112, 52, 50]),
+  });
+  const adminVideo = page.getByLabel(/管理视频预览/);
+  await expect(adminVideo).toBeVisible();
+  await expect(adminVideo).toHaveAttribute("controls", "");
+  await expect(adminVideo).not.toHaveAttribute("autoplay", "");
+
+  const detailResponse = await page.request.get(`/api/v1/games/${gameId}`);
+  expect(detailResponse.ok()).toBe(true);
+  const detail = await detailResponse.json() as { videoUrl: string | null };
+  expect(detail.videoUrl).toBeTruthy();
+  let videoRequests = 0;
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === detail.videoUrl) videoRequests += 1;
+  });
+  await page.goto("/library");
+  await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
+  expect(videoRequests).toBe(0);
+
+  await page.emulateMedia({ reducedMotion: "reduce" });
+  await page.goto(`/games/${gameId}`);
+  const detailVideo = page.getByLabel(/视频预览/);
+  await expect(detailVideo).toHaveJSProperty("muted", true);
+  await expect(detailVideo).toHaveAttribute("playsinline", "");
+  await expect(detailVideo).toHaveAttribute("loop", "");
+  await expect(detailVideo).not.toHaveAttribute("autoplay", "");
+  await expect(page.getByRole("button", { name: /播放视频预览/ })).toBeVisible();
+  await expectNoPageOverflow(page);
+  await expectNoSeriousAxeViolations(page);
+  await page.screenshot({ path: evidencePath(testInfo, "game-video-reduced-motion.png"), fullPage: true });
+
+  await page.goto(`/admin/games/${gameId}`);
+  await page.getByRole("button", { name: "移除" }).click();
+  await expect(page.getByText("暂无视频", { exact: true })).toBeVisible();
+});
+
 const realBIOSRelativePath = process.env.RETROM_REAL_BIOS_RELATIVE_PATH;
 
 test.describe("authorized real server BIOS source", () => {

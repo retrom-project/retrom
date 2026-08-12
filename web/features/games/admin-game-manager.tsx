@@ -1,6 +1,6 @@
 "use client";
 
-import { type FormEvent, useEffect, useRef, useState } from "react";
+import { type FormEvent, useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -17,7 +17,7 @@ type Revision = { id: string; sourceKind: string; sourceRefId: string | null; cu
 type ContentRevision = Revision & { contentKind: string; files: Array<{ role: string; logicalName: string; sortOrder: number; sizeBytes: number; sha256: string }> };
 type VariantRevision = { id: string; contentRevisionId: string; coreArtifactId: string; datVersionId: string | null; status: string; compatibilityCode: string; dependencySnapshot?: { multiDisc?: { canonicalPlaylistSha256?: string } }; current: boolean; createdAtMs: number };
 type Variant = { id: string; coreId: string; coreName: string; currentRevisionId: string | null; version: number; revisions: VariantRevision[] };
-type Asset = { assetId: string; kind: string; ordinal: number; widthPx: number; heightPx: number; mediaType: string; url: string };
+type Asset = { assetId: string; kind: string; ordinal: number; widthPx: number | null; heightPx: number | null; mediaType: string; url: string };
 
 export type AdminGame = {
   gameId: string; status: string; title: string; description: string; developer: string; publisher: string; genre: string;
@@ -34,6 +34,9 @@ type MoveImpact = { impactDigest: string; impact: { targetCoreId: string; varian
 type PendingMove = { targetPlatformInstanceId: string; targetName: string; result: MoveImpact };
 
 const metadataFields = ["title", "description", "developer", "publisher", "genre", "players", "releaseYear"];
+const subscribeToClientReady = () => () => undefined;
+const getClientReadySnapshot = () => true;
+const getServerClientReadySnapshot = () => false;
 
 type MetadataDraft = {
   title: string;
@@ -66,6 +69,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const [moveTarget, setMoveTarget] = useState("");
   const [scrapeCandidates, setScrapeCandidates] = useState(candidates);
   const [comparison, setComparison] = useState<ScrapeCandidate | null>(null);
+  const clientReady = useSyncExternalStore(subscribeToClientReady, getClientReadySnapshot, getServerClientReadySnapshot);
   const [draft, setDraft] = useState<MetadataDraft>(() => metadataDraft(game));
   const [savedDraft, setSavedDraft] = useState<MetadataDraft>(() => metadataDraft(game));
   const versionRef = useRef(game.version);
@@ -120,7 +124,17 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
       const response = await fetch(`/api/v1/admin/games/${game.gameId}/assets`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind, ordinal }) });
       if (!response.ok) throw new Error(await responseError(response, "媒体替换失败"));
       const result = await response.json() as { assetId: string; metadataRevisionId: string };
-      return result.assetId && result.metadataRevisionId ? "图片已更新，旧版本仍会保留。" : "图片已更新。";
+      return result.assetId && result.metadataRevisionId ? `${kind === "VIDEO" ? "视频" : "图片"}已更新，旧版本仍会保留。` : "媒体已更新。";
+    });
+  }
+
+  async function removeVideo() {
+    await action("asset", async () => {
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/assets/VIDEO`, { method: "DELETE", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() } });
+      if (!response.ok) throw new Error(await responseError(response, "视频移除失败"));
+      const match = response.headers.get("ETag")?.match(/^"v(\d+)"$/);
+      if (match) versionRef.current = Number(match[1]);
+      return "视频已从当前媒体版本移除，历史版本仍会保留。";
     });
   }
 
@@ -225,6 +239,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const runtime = runtimePresentation(currentRuntime?.status ?? null);
   const cover = game.assets.find((asset) => asset.kind === "COVER");
   const background = game.assets.find((asset) => asset.kind === "BACKGROUND");
+  const video = game.assets.find((asset) => asset.kind === "VIDEO");
   const screenshots = game.assets.filter((asset) => asset.kind === "SCREENSHOT").sort((left, right) => left.ordinal - right.ordinal);
   const nextScreenshotOrdinal = Math.min(31, Math.max(-1, ...screenshots.map((asset) => asset.ordinal)) + 1);
   const metadataComplete = Boolean(game.description.trim() && game.developer.trim() && game.publisher.trim() && game.genre.trim() && game.players && game.releaseYear);
@@ -261,7 +276,8 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
 
       <section className="panel admin-game-media" id="admin-game-media"><div className="panel-head"><h2>媒体</h2></div><div className="panel-body admin-game-media-grid">
         <article className="admin-game-cover-slot"><h3>封面</h3><div className="admin-game-cover-frame">{cover ? <Image src={cover.url} alt={`${game.title} 封面`} fill sizes="180px" unoptimized /> : <span>暂无封面</span>}</div><footer>{cover ? `${cover.widthPx}×${cover.heightPx}` : "建议使用 3:4 图片"}<input id="admin-cover-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "COVER", 0); }} /><label aria-disabled={disabled} htmlFor="admin-cover-upload">{cover ? "替换" : "添加"}</label></footer></article>
-        <div className="admin-game-other-media"><article className="admin-game-background-slot"><h3>背景图</h3><div>{background ? <Image src={background.url} alt={`${game.title} 背景图`} fill sizes="360px" unoptimized /> : <span><strong>暂无背景图</strong><small>添加一张用于用户详情页</small></span>}</div><input id="admin-background-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "BACKGROUND", 0); }} /><label aria-disabled={disabled} htmlFor="admin-background-upload">{background ? "替换背景" : "＋ 添加背景"}</label></article>
+        <div className="admin-game-other-media"><div className="admin-game-feature-media"><article className="admin-game-background-slot"><h3>背景图</h3><div>{background ? <Image src={background.url} alt={`${game.title} 背景图`} fill sizes="220px" unoptimized /> : <span><strong>暂无背景图</strong><small>添加一张用于用户详情页</small></span>}</div><input id="admin-background-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "BACKGROUND", 0); }} /><label aria-disabled={disabled} htmlFor="admin-background-upload">{background ? "替换背景" : "＋ 添加背景"}</label></article>
+          <article className="admin-game-video-slot"><h3>视频预览</h3><div>{video ? <video src={video.url} controls playsInline preload="metadata" aria-label={`${game.title} 管理视频预览`} /> : <span><strong>暂无视频</strong><small>支持 MP4 / WebM，最大 256 MiB</small></span>}</div><footer><input id="admin-video-upload" hidden type="file" accept="video/mp4,video/webm" disabled={disabled || !clientReady} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "VIDEO", 0); }} /><label aria-disabled={disabled || !clientReady} htmlFor="admin-video-upload">{video ? "替换" : "＋ 添加"}</label>{video ? <button type="button" disabled={disabled} onClick={() => void removeVideo()}>移除</button> : null}</footer></article></div>
           <div className="admin-game-screenshots"><h3>游戏截图</h3><div>{screenshots.slice(0, 2).map((asset) => <article key={asset.assetId}><Image src={asset.url} alt={`${game.title} 游戏截图 ${asset.ordinal + 1}`} fill sizes="130px" unoptimized /><input id={`admin-shot-${asset.ordinal}`} hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "SCREENSHOT", asset.ordinal); }} /><label aria-disabled={disabled} htmlFor={`admin-shot-${asset.ordinal}`}>替换截图 {asset.ordinal + 1}</label></article>)}<article className="add"><input id="admin-screenshot-upload" hidden type="file" accept="image/png,image/jpeg,image/webp" disabled={disabled || screenshots.length >= 32} onChange={(event) => { const file = event.target.files?.[0]; if (file) void replaceAsset(file, "SCREENSHOT", nextScreenshotOrdinal); }} /><label aria-disabled={disabled || screenshots.length >= 32} htmlFor="admin-screenshot-upload">＋ 添加截图</label></article></div></div>
         </div>
       </div></section>
@@ -280,7 +296,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
 
     <ConfirmDialog open={comparison !== null} wide title="对比最新游戏信息" description="左栏是当前信息，右栏是最新候选；每栏上方为基础信息与封面，下方为完整游戏说明。应用后会创建新的信息版本。" confirmLabel="应用这组信息" busy={busy === "candidate"} onCancel={() => setComparison(null)} onConfirm={() => { if (comparison) void applyCandidate(comparison); }}>
       {comparison ? <div className="metadata-compare metadata-compare-columns">
-        <section className="metadata-compare-column" aria-label="当前信息"><header><strong>当前信息</strong><span>只读</span></header><div className="metadata-compare-column-top"><div className="metadata-compare-fields">{comparisonFields.map((field) => <div className="compare-readonly" key={field.key}><span>{field.label}</span><p>{String(game[field.key] ?? "") || "未填写"}</p></div>)}</div><div className="metadata-compare-column-cover"><span>封面</span>{cover ? <Image src={cover.url} alt="当前游戏封面" width={cover.widthPx} height={cover.heightPx} unoptimized /> : <p>暂无封面</p>}</div></div><div className="metadata-compare-column-description"><span>游戏说明</span><p>{game.description || "未填写"}</p></div></section>
+        <section className="metadata-compare-column" aria-label="当前信息"><header><strong>当前信息</strong><span>只读</span></header><div className="metadata-compare-column-top"><div className="metadata-compare-fields">{comparisonFields.map((field) => <div className="compare-readonly" key={field.key}><span>{field.label}</span><p>{String(game[field.key] ?? "") || "未填写"}</p></div>)}</div><div className="metadata-compare-column-cover"><span>封面</span>{cover ? <Image src={cover.url} alt="当前游戏封面" width={cover.widthPx ?? 1} height={cover.heightPx ?? 1} unoptimized /> : <p>暂无封面</p>}</div></div><div className="metadata-compare-column-description"><span>游戏说明</span><p>{game.description || "未填写"}</p></div></section>
         <section className="metadata-compare-column" aria-label="最新候选"><header><strong>最新候选</strong><span>应用前预览</span></header><div className="metadata-compare-column-top"><div className="metadata-compare-fields">{comparisonFields.map((field) => { const currentValue = game[field.key]; const nextValue = comparison.metadata[field.key]; const same = String(currentValue ?? "") === String(nextValue ?? ""); return <div className={`compare-readonly ${same ? "is-same" : "is-changed"}`} key={field.key}><span>{field.label}</span><p>{String(nextValue ?? "") || "候选未提供，将保留当前值"}</p></div>; })}</div><div className={`metadata-compare-column-cover ${comparisonCover?.candidateAssetId === cover?.assetId ? "is-same" : "is-changed"}`}><span>封面</span>{comparisonCover ? <Image src={`/api/v1/admin/review-assets/${comparisonCover.candidateAssetId}`} alt="最新候选封面" width={comparisonCover.widthPx ?? 1} height={comparisonCover.heightPx ?? 1} unoptimized /> : <p>候选未提供，将保留当前封面</p>}</div></div><div className={`metadata-compare-column-description ${game.description === String(comparison.metadata.description ?? "") ? "is-same" : "is-changed"}`}><span>游戏说明</span><p>{String(comparison.metadata.description ?? "") || "候选未提供，将保留当前说明"}</p></div></section>
       </div> : null}
     </ConfirmDialog>

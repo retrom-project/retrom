@@ -12,6 +12,7 @@ import (
 	"net/url"
 	"path/filepath"
 	"slices"
+	"strconv"
 	"strings"
 	"sync"
 	"testing"
@@ -351,7 +352,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 27 ||
+		response.DatabaseSchemaVersion != 28 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -965,6 +966,7 @@ func TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms(t *testing.T) {
 	contentID := "01980000-0000-7000-8000-000000000103"
 	coverBlobID := "01980000-0000-7000-8000-000000000104"
 	coverAssetID := "01980000-0000-7000-8000-000000000105"
+	videoAssetID := "01980000-0000-7000-8000-000000000110"
 	variantID := "01980000-0000-7000-8000-000000000106"
 	variantRevisionID := "01980000-0000-7000-8000-000000000107"
 	saveStateID := "01980000-0000-7000-8000-000000000108"
@@ -1088,6 +1090,21 @@ created_at_ms) VALUES(?,
 `, coverAssetID, gameID, metadataID, coverBlobID, now); err != nil {
 		t.Fatal(err)
 	}
+	videoPayload := []byte{0, 0, 0, 24, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0, 'i', 's', 'o', 'm', 'm', 'p', '4', '2'}
+	videoMetadata, err := server.blobs.Put(bytes.NewReader(videoPayload))
+	if err != nil {
+		t.Fatal(err)
+	}
+	videoBlobID, err := blobstore.EnsureRecord(t.Context(), transaction, videoMetadata, "video/mp4", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := transaction.Exec(`
+INSERT INTO game_assets(id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
+VALUES(?,?,?,?,'VIDEO',0,NULL,NULL,'video/mp4',?)
+`, videoAssetID, gameID, metadataID, videoBlobID, now); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := transaction.Exec(`
 INSERT INTO dos_entries(game_content_revision_id,
 normalized_path,
@@ -1192,6 +1209,7 @@ VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
 	var response struct {
 		DefaultDOSEntry *string `json:"defaultDosEntry"`
 		CoverURL        *string `json:"coverUrl"`
+		VideoURL        *string `json:"videoUrl"`
 		CoreOptions     []struct {
 			CoreID string `json:"coreId"`
 			Status string `json:"status"`
@@ -1214,7 +1232,9 @@ VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
 		t.Fatalf("core options = %#v", response.CoreOptions)
 	}
 	expectedCoverURL := "/content/assets/" + coverAssetID
+	expectedVideoURL := "/content/assets/" + videoAssetID
 	if response.CoverURL == nil || *response.CoverURL != expectedCoverURL || response.DefaultDOSEntry != nil ||
+		response.VideoURL == nil || *response.VideoURL != expectedVideoURL ||
 		len(response.DOSEntries) != 2 ||
 		response.DOSEntries[0].Path != "GAMES/DOOM.EXE" ||
 		!response.DOSEntries[0].DirectLaunchSafe ||
@@ -1225,11 +1245,25 @@ VALUES(?,?,'local',?,?, ?,?,?,?,1,'FINISHED',1,?,?)
 	server.Handler().ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/api/v1/games?limit=100", nil))
 	if list.Code != http.StatusOK ||
 		!strings.Contains(list.Body.String(), `"coverUrl":"`+expectedCoverURL+`"`) ||
+		strings.Contains(list.Body.String(), `"videoUrl"`) ||
 		!strings.Contains(list.Body.String(), `"defaultCore":{"id":"dosbox_pure","name":"DOSBox Pure"}`) ||
 		!strings.Contains(list.Body.String(), `"lastPlayedAtMs":`) ||
 		!strings.Contains(list.Body.String(), `"createdAtMs":`) ||
 		!strings.Contains(list.Body.String(), `"generatedAtMs":`) {
 		t.Fatalf("game list cover = %d: %s", list.Code, list.Body.String())
+	}
+	videoRangeRequest := httptest.NewRequest(http.MethodGet, expectedVideoURL, nil)
+	videoRangeRequest.Header.Set("Range", "bytes=4-7")
+	videoRange := httptest.NewRecorder()
+	server.Handler().ServeHTTP(videoRange, videoRangeRequest)
+	if videoRange.Code != http.StatusPartialContent || videoRange.Body.String() != "ftyp" ||
+		videoRange.Header().Get("Content-Type") != "video/mp4" || videoRange.Header().Get("Accept-Ranges") != "bytes" {
+		t.Fatalf("video range = %d headers=%v body=%q", videoRange.Code, videoRange.Header(), videoRange.Body.String())
+	}
+	videoHead := httptest.NewRecorder()
+	server.Handler().ServeHTTP(videoHead, httptest.NewRequest(http.MethodHead, expectedVideoURL, nil))
+	if videoHead.Code != http.StatusOK || videoHead.Body.Len() != 0 || videoHead.Header().Get("Content-Length") != strconv.Itoa(len(videoPayload)) || videoHead.Header().Get("Content-Type") != "video/mp4" {
+		t.Fatalf("video HEAD = %d headers=%v body=%q", videoHead.Code, videoHead.Header(), videoHead.Body.String())
 	}
 	adminList := httptest.NewRecorder()
 	server.Handler().ServeHTTP(adminList, httptest.NewRequest(http.MethodGet, "/api/v1/admin/games?limit=100", nil))
@@ -1522,8 +1556,50 @@ GROUP BY m.title
 `, gameID).Scan(&appliedTitle, &preservedAssets); err != nil {
 		t.Fatal(err)
 	}
-	if appliedTitle != "Doom refreshed" || preservedAssets != 1 {
+	if appliedTitle != "Doom refreshed" || preservedAssets != 2 {
 		t.Fatalf("applied title/assets = %q/%d", appliedTitle, preservedAssets)
+	}
+	videoUploadID := "01980000-0000-7000-8000-000000000111"
+	videoUploadFileID := "01980000-0000-7000-8000-000000000112"
+	if _, err := server.database.Exec(`
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,expires_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'COMPLETE','FILES',1,?,?,1,?,?,?);
+`, videoUploadID, len(videoPayload), videoMetadata.SHA256, now+60_000, now, now); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,final_blob_id,state,created_at_ms,updated_at_ms)
+VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
+`, videoUploadFileID, videoUploadID, len(videoPayload), len(videoPayload), videoBlobID, now, now); err != nil {
+		t.Fatal(err)
+	}
+	replaceVideo := httptest.NewRecorder()
+	replaceVideoRequest := httptest.NewRequest(http.MethodPost, "/api/v1/admin/games/"+gameID+"/assets", strings.NewReader(`{"uploadFileId":"`+videoUploadFileID+`","kind":"VIDEO","ordinal":0}`))
+	replaceVideoRequest.Header.Set("Content-Type", "application/json")
+	replaceVideoRequest.Header.Set("If-Match", `"v2"`)
+	replaceVideoRequest.Header.Set("Idempotency-Key", uuid.NewString())
+	server.Handler().ServeHTTP(replaceVideo, replaceVideoRequest)
+	if replaceVideo.Code != http.StatusCreated || !strings.Contains(replaceVideo.Body.String(), `"mediaType":"video/mp4"`) || !strings.Contains(replaceVideo.Body.String(), `"widthPx":null`) {
+		t.Fatalf("replace video = %d: %s", replaceVideo.Code, replaceVideo.Body.String())
+	}
+	removeVideo := httptest.NewRecorder()
+	removeVideoRequest := httptest.NewRequest(http.MethodDelete, "/api/v1/admin/games/"+gameID+"/assets/VIDEO", nil)
+	removeVideoRequest.Header.Set("If-Match", `"v3"`)
+	removeVideoRequest.Header.Set("Idempotency-Key", uuid.NewString())
+	server.Handler().ServeHTTP(removeVideo, removeVideoRequest)
+	if removeVideo.Code != http.StatusNoContent || removeVideo.Header().Get("ETag") != `"v4"` {
+		t.Fatalf("remove video = %d headers=%v: %s", removeVideo.Code, removeVideo.Header(), removeVideo.Body.String())
+	}
+	var currentVideos, historicalVideos int
+	if err := server.database.QueryRow(`
+SELECT
+(SELECT count(*) FROM game_assets asset JOIN games game ON game.current_metadata_revision_id=asset.metadata_revision_id WHERE game.id=? AND asset.kind='VIDEO'),
+(SELECT count(*) FROM game_assets WHERE game_id=? AND kind='VIDEO')
+`, gameID, gameID).Scan(&currentVideos, &historicalVideos); err != nil {
+		t.Fatal(err)
+	}
+	if currentVideos != 0 || historicalVideos < 3 {
+		t.Fatalf("video revision preservation = current:%d historical:%d", currentVideos, historicalVideos)
 	}
 }
 
@@ -2295,7 +2371,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 	if err != nil {
 		t.Fatalf("create credentials: %v", err)
 	}
-	return New(
+	server := New(
 		config.Config{PublicOrigin: origin, ActiveEJSVersion: "4.2.3", DataDir: dataDir},
 		database.SQL,
 		dependencySet,
@@ -2305,6 +2381,8 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 		nil,
 		time.Now,
 	)
+	t.Cleanup(server.Close)
+	return server
 }
 
 type testAuthenticator struct{}

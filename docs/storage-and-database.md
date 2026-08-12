@@ -301,6 +301,7 @@ data/
 - GC、备份完整性检查和存储审计共用一份机器可读 `blob reference registry`，每个 schema 中的 Blob FK/JSON Blob 引用必须恰好登记为以下一类：`PROTECTIVE`（业务根引用）、`ARCHIVE_OWNERSHIP`（`archive_entries.archive_blob_id/materialized_blob_id` 的派生所有权边）或 `BOOKKEEPING`（`blob_gc_candidates.blob_id` 等不阻止删除的记账边）。未登记、重复登记或分类错误都使 CI 失败；不把可变 `ref_count` 作为事实源。
 - GC 保护集先取所有 `PROTECTIVE` Blob，再对其中的 archive Blob 加入该 ArchiveEntry 已物化的内层 Blob；一期禁止 nested archive，因此一层闭包即完整。`ARCHIVE_OWNERSHIP` 不会反向把一个无业务根的 owning archive 变成永久受保护；`BOOKKEEPING` 从不进入保护集。备份不能直接采用这个 GC 保护集：它逐字节复制未裁剪的 SQLite 快照，所以必须复制快照中每一条 `blobs` 行对应的物理文件，包括尚在 GC 宽限期的无业务引用行；registry 用于证明所有引用边都命中这些 Blob 行。只有“物理文件存在但数据库没有 Blob 行”的 crash orphan 才不进入备份。
 - GameContentRevision、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariantRevision 和 DAT 均可能引用 Blob。
+- Pegasus 扫描阶段不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 在 `pegasus_import_item_files/assets` 中形成 protective 边。发布后的 Game revision/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
 - Discard、软删除或替换文件不立即删除 Blob。
 - 先进入默认 7 天回收保留期（配置只允许 1–30 天），之后在删除事务前后两次确认无引用才删除。
 - 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次计算保护集并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才无跟随删除物理文件；失败可幂等重试。删除任务记录 `scheduled_at_ms`、`deleted_at_ms` 或失败时间。
@@ -322,6 +323,8 @@ retrom restore --input /backup-volume/retrom-20260806 \
 ```
 
 `retrom` serve 进程从启动到退出持有 `RETROM_DATA_DIR/retrom.lock` 的 Linux advisory exclusive lock；`backup` 使用同一非阻塞锁，服务仍运行时以 `BACKUP_REQUIRES_OFFLINE` 失败，不尝试在线复制。lock 文件不是 PID/秘密，崩溃后由内核释放。数据根已被限定为本地文件系统，这一约束也适用于 lock。`restore` 只创建新目标，无需接管正在运行的数据根。默认无参数仍启动服务，维护子命令不得隐式启动 HTTP/worker。
+
+配置的 server-import root、root digest 对应的宿主路径和原始 Pegasus metadata 不进入 bundle。restore 保留数据库与已写 CAS 的发布结果，但把 `SCANNING|AWAITING_MAPPING|QUEUED|RUNNING|CANCEL_REQUESTED` Pegasus 聚合、其活动 Item 与 Job 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 原子失败收口；恢复服务不得根据相同 root ID 自动续跑外部 source。
 
 完整 backup bundle 的 v1 目录固定如下；目录模式均为 `0700`、普通文件均为 `0600`，不保留源文件的 group/other permission、owner、mtime、xattr 或 ACL：
 

@@ -28,6 +28,10 @@ done
 
 mkdir -p "$temporary_root/data"
 mkdir -p "$temporary_root/source/BIOS"
+mkdir -p "$temporary_root/source/Games/media/Acceptance Game"
+printf 'collection: NES\ngame: Acceptance Game\ndescription: Pegasus E2E fixture\nfile: acceptance.nes\n' >"$temporary_root/source/Games/metadata.pegasus.txt"
+printf 'retrom deterministic pegasus acceptance fixture\n' >"$temporary_root/source/Games/acceptance.nes"
+printf '\000\000\000\030ftypisom\000\000\000\000isommp42' >"$temporary_root/source/Games/media/Acceptance Game/video.mp4"
 cd "$repository_root"
 RETROM_SERVER_IMPORT_ROOTS="[{\"id\":\"pegasus-bios\",\"label\":\"Pegasus BIOS\",\"path\":\"$temporary_root/source\"}]" \
 setsid make dev \

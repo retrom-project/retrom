@@ -104,6 +104,24 @@ describe("FavoriteActions", () => {
     anchor.remove();
   });
 
+  it("resolves a replacement card-menu anchor after the picker unmounts", async () => {
+    auth.fetch.mockResolvedValue(json(page()));
+    const original = document.createElement("button");
+    const replacement = document.createElement("button");
+    original.textContent = "原更多操作";
+    replacement.textContent = "新更多操作";
+    document.body.append(original, replacement);
+    const actions = createRef<FavoriteActionsHandle>();
+    render(<FavoriteActions ref={actions} gameId={gameId} title="Metroid" initialFavorite={null} showManageButton={false} />);
+
+    await act(async () => actions.current?.openFolderPicker(original, () => replacement));
+    await screen.findByRole("dialog", { name: "管理“Metroid”的收藏夹" });
+    original.remove();
+    fireEvent.keyDown(screen.getByRole("dialog"), { key: "Escape" });
+    await waitFor(() => expect(replacement).toHaveFocus());
+    replacement.remove();
+  });
+
   it("creates a folder inside the picker with the current game as initial membership", async () => {
     auth.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       const path = String(input);

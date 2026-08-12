@@ -614,6 +614,24 @@ Cursor 只保证稳定 tuple 与筛选绑定，不提供跨请求快照隔离。
 
 `GET /api/v1/admin/bios` 的 FULL_CATALOG 以及所有服务端筛选固定 `limit<=100`、cursor 绑定 scope 与完整 query。每页 items 不影响 `scopeCounts/summary/filteredCount`，这些值始终基于服务端全集；客户端不得把首批 100 条当成完整目录。
 
-## 12. 统一验收入口
+## 12. Pegasus 导入与详情 VIDEO API
 
-通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。
+Pegasus route 全部要求 ADMIN，写请求执行同一 Origin/Fetch Metadata/CSRF、UUID Idempotency-Key 与 `If-Match`。DTO 只返回 root ID/label、规范相对路径、稳定 code 和审计投影，不返回宿主路径、source facts/inode、Blob ID/hash 或原始 metadata/command。
+
+| Route | 契约 |
+| --- | --- |
+| `POST/GET /api/v1/admin/pegasus-imports` | POST `{rootId,sourceRelativePath}` 返回 202 scan plan；GET 按 `createdAtMs DESC,id DESC`、`limit<=20` 分页并可筛 state。 |
+| `GET/DELETE /api/v1/admin/pegasus-imports/{id}` | GET 返回 aggregate、两个 Job ID、phase/counts、mapping/version/expiry 与 ETag；DELETE 只删除无 execution 结果的 `AWAITING_MAPPING|EXPIRED` 投影。 |
+| `GET .../{id}/collections` | `limit<=100`，cursor 绑定 import；返回 metadata 相对路径、segment、name/shortname、game/issue 数与当前映射。 |
+| `PUT .../{id}/collection-mappings` | 最多 100 个精确 replacement；每项只能为 `IMPORT+platformInstanceId` 或 `SKIP`，没有 suggestion/default。 |
+| `POST .../{id}/start` | body `version` 必须等于 `If-Match`；映射完整、至少选择一个 Collection、计划未过期且 metadata snapshot 未漂移才返回 202。 |
+| `GET .../{id}/items` | `limit<=50`，cursor 绑定 `q/outcome/warning/collectionId`；返回映射、内容类型、COVER/VIDEO 状态、warning、全部 existing matches 与发布/已有 Game 链接 ID。 |
+| `POST .../{id}/cancel|retry` | cancel 不回滚已发布 Game；retry 仅在 aggregate `retryable=true` 时创建新 execution。 |
+
+稳定错误包括 `PEGASUS_METADATA_NOT_FOUND`、`PEGASUS_SCAN_LIMIT_EXCEEDED`、`PEGASUS_MAPPING_INCOMPLETE`、`PEGASUS_NO_COLLECTION_SELECTED`、`PEGASUS_SOURCE_CHANGED`、`PEGASUS_PLAN_EXPIRED`、`PEGASUS_IMPORT_ACTIVE`、`SERVER_IMPORT_ROOT_CHANGED` 与 `SERVER_IMPORT_SOURCE_NOT_RESTORED`；Item/warning 使用 OpenAPI 的封闭状态与稳定 code。
+
+`GET /api/v1/games/{gameId}` 增加可空 `videoUrl=/content/assets/{assetId}`，只指向 current MetadataRevision 的 ordinal 0 VIDEO；所有列表/Home/Recent/Favorites/Saves DTO 均无该字段。管理 `POST /api/v1/admin/games/{gameId}/assets` 接受 VIDEO，`DELETE .../assets/VIDEO` 以新 MetadataRevision 移除当前视频。`GET|HEAD /content/assets/{assetId}` 对 VIDEO 沿用强 ETag、immutable cache、`nosniff`、完整 GET 与单 Range；非法/多 Range、不可见 Game 与未知 Asset 继续使用统一拒绝语义。
+
+## 13. 统一验收入口
+
+通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`005` 与 `ACC-MEDIA-001` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。

@@ -107,7 +107,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 - 每个 Item 的 `ImportItemSourceFile` 是 source manifest 与 Approve 复制 GameContentFile 的唯一关系来源；`group_key` 使用数据模型的 canonical digest，重试不得因 worker 遍历顺序改变分组。
 - Chrome 目录上传使用 `webkitdirectory` 并只传递 `File.webkitRelativePath`；浏览器不会也不得提交宿主绝对路径。
 - 局域网开发允许通过非 localhost 的明文 HTTP 域名访问；该上下文可能只有 `crypto.getRandomValues`，没有 `crypto.randomUUID` 或 `crypto.subtle`。前端必须用 CSPRNG bytes 生成规范小写 UUIDv4，并以经过标准 SHA-256 向量验证的本地实现完成分块 digest fallback；不能降级为 `Math.random`、时间戳、跳过 `Content-Digest` 或把整个文件交给后端代算。
-- 一期不提供服务器路径/共享目录导入 API。拖放目录只是 Chrome 增强能力，失败时回退到目录选择器。
+- 普通用户导入不接受服务器路径；管理员可从部署者 `RETROM_SERVER_IMPORT_ROOTS` allowlist 中选择规范相对目录，分别创建 BIOS 或 Pegasus 任务。浏览器永远不能提交或读取任意宿主绝对路径。拖放目录仍只是普通浏览器导入的 Chrome 增强能力。
 - Arcade DAT 发现 machine 依赖 disk/CHD 或 Merged ROMset 时保留文件证据并进入带 `UNSUPPORTED_CHD` / `UNSUPPORTED_MERGED_ROMSET` 的待审核 Blocker；这条只约束 Arcade ROMset，不影响 PSX/Saturn/3DO/PC-FX 明确支持的单文件 CHD。
 
 分组与扩展名规则从目标游戏目录的基础平台推导。默认核心是导入流水线唯一自动执行的兼容性目标；一期不得在导入后为其他核心自动投递后台验证。用户在详情页首次显式选择其他核心启动时，才按运行时专题的 `EnsureVariant` 流程按需验证。
@@ -293,7 +293,7 @@ Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选�
 | --- | --- | --- | --- |
 | 游戏入库总览 | `/admin/imports` | 当前流水线是否健康、哪里需要处理 | 新建导入、跳转任务/待审核/历史 |
 | 导入游戏 | `/admin/imports/new` | 本次导入什么、归属哪个游戏目录、冻结什么配置 | 选择内容、配置、预检、创建 ImportJob |
-| 本地扫描 | `/admin/imports/server` | 配置的只读服务端目录中有哪些可识别 BIOS | 浏览允许目录、创建服务器 BIOS 导入、查看结果 |
+| 本地扫描 | `/admin/imports/server` | 配置的只读服务端目录中有哪些 BIOS 或 Pegasus 游戏 | 浏览允许目录、创建服务器 BIOS/Pegasus 导入、映射与查看结果 |
 | 任务进度 | `/admin/imports/tasks` | ImportJob/ImportItem 运行到哪里、为何失败 | 查看事件、取消任务、重试失败条目 |
 | 待审核 | `/admin/reviews`、`/admin/reviews/:itemId` | 候选是否正确、最终发布内容是什么 | 实时编辑、替换封面、Discard、通过并发布 |
 | 审核历史 | `/admin/reviews/history` | 当时依据什么作出什么决策 | 筛选、查看不可变快照与字段 diff |
@@ -328,6 +328,16 @@ Import create 的 `contentMode` 缺省严格等价于 `STANDARD`；新 Web 对�
 
 发布要求完整盘组、当前 generation 4 READY validation、artifact version/compatibility/content capability 未漂移。发布保留来源 M3U 作为证据，但 GameContentRevision 的 DISC 使用规范顺序，VariantFile 另锁定服务端 canonical playlist。统一验收见 `ACC-MDISC-001`–`003`、`007`–`008`。
 
-## 14. 统一验收入口
+## 14. Pegasus 服务器目录导入
 
-本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-008`；游戏目录唯一归属由 `ACC-PLAT-*`、时间与 CAS 约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。
+Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collection；解析器只保存允许的纯文本字段和相对文件引用，忽略 `launch`、`command`、`logo` 与未知规则，不执行或持久化命令 payload。扫描只读取 metadata、目录项 facts、大小和受限媒体头，不读取完整 ROM、不写业务 Blob、不创建 Game；结果冻结 metadata digest、确定性 source key、可处理/阻断计数、媒体候选和 `estimatedSourceBytes` 上限。
+
+每个 Collection 必须由管理员明确 `IMPORT + enabled PlatformInstance` 或 `SKIP`，没有默认映射。start 在创建 import execution 前重新验证全部 metadata digest；映射冻结后，Worker 在数据库事务外经 no-follow fd 读取源文件并写 CAS，再复用普通导入的 content profile、archive、M3U、DAT/Arcade companion、BIOS、CoreValidation、duplicate 和发布事务。单文件、单 archive/DOS ZIP、以及一个 M3U 加按序 2–8 个 CHD 走既有能力；其他多个可启动文件稳定阻断，不取第一项。同一任务、同一目标游戏目录下其他游戏显式声明的 ZIP 才可成为 Arcade companion。
+
+验证 READY 的游戏逐项自动发布，形成 `SERVER_PEGASUS_IMPORT` MetadataRevision/ContentRevision；相同规范内容不再发布第二个 Game，而是保存所有匹配证据并以 `SKIPPED_EXISTING` 收口。COVER/VIDEO 独立按 game 显式、Collection 显式、title 目录、file basename 目录的顺序选择；媒体读取或格式失败只留下 warning，不使可运行 ROM 失败。取消不回滚已发布游戏；retry 只重开服务端标记 retryable 的失败 Item，复用冻结映射与 snapshot，不重做成功、已存在或确定性阻断项。
+
+聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的 Pegasus import。统一验收见 `ACC-PEG-001`–`005` 与 `ACC-MEDIA-001`。
+
+## 15. 统一验收入口
+
+本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-008` 与 `ACC-PEG-001`–`005`；详情媒体执行 `ACC-MEDIA-001`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与 CAS 约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。

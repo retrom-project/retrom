@@ -322,12 +322,13 @@ func run(mode config.Mode) error {
 		slog.Info("background DAT indexing complete")
 	}()
 
+	apiServer := httpapi.New(
+		configuration, database.SQL, dependencySet, blobs, credentials, accountService, accountService, time.Now,
+	)
+	defer apiServer.Close()
 	server := &http.Server{
-		Addr: configuration.HTTPAddr,
-		Handler: httpapi.New(
-			configuration, database.SQL, dependencySet, blobs, credentials, accountService, accountService, time.Now,
-		).
-			Handler(),
+		Addr:              configuration.HTTPAddr,
+		Handler:           apiServer.Handler(),
 		ReadHeaderTimeout: 10 * time.Second,
 		ReadTimeout:       2 * time.Minute,
 		WriteTimeout:      2 * time.Minute,

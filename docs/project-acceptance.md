@@ -169,7 +169,7 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 2. `ACC-PKG-*`、`ACC-DEV-*`、`ACC-NET-*`：构建、进程与代理边界；
 3. `ACC-DB-*`、`ACC-CAS-*`、`ACC-SEC-*`、`ACC-API-*`、`ACC-OPS-*`：基础设施；
 4. `ACC-AUTH-*`、`ACC-ISO-*`：账户生命周期、权限与私有数据隔离；
-5. `ACC-PLAT-*`、`ACC-GAME-*`、`ACC-IMP-*`、`ACC-DAT-*`、`ACC-BIOS-*`：管理与入库；
+5. `ACC-PLAT-*`、`ACC-GAME-*`、`ACC-IMP-*`、`ACC-DAT-*`、`ACC-BIOS-*`、`ACC-PEG-*`、`ACC-MEDIA-*`：管理与入库；
 6. `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-PLAY-*`：产品主路径；
 7. `ACC-CORE-*`：逐核心真实画面；
 8. `ACC-MDISC-*`：多盘导入、运行、回归与隔离；
@@ -665,7 +665,57 @@ make acceptance-case CASE=<case-id>
 - 通过标准：不覆盖旧版本；`UNIQUE(emulatorjs_version, relative_path)` 允许版本间同路径而不碰撞，静态路由只暴露每份 manifest allowlist。未登记/版本不符 adapter 使 `data-check` 失败，浏览器 guard 以 `PLAYER_ADAPTER_UNSUPPORTED` 在 loader 前拒绝且不套用 v4.2.3 默认；全部证据和适用 Case 已通过后才能启用。config 中 `emulatorjsVersion/playerAdapterId/runtimeBaseUrl/loaderUrl/path override` 始终来自锁定 artifact 的精确 manifest；切换后普通启动使用新 enabled artifact，旧存档仍从旧版本 URL 和对应 adapter 加载锁定 artifact，回滚恢复旧 enabled artifact/DAT 且不改历史 revision。仍有保护引用的旧版本不可从配置列表、adapter registry 或镜像移除；缺任一证据即失败。
 - 证据：升级 manifest、Case 引用和切换/回滚记录。
 
-## 12. 启动、存档与游玩数据
+## 12. Pegasus 服务器目录导入与视频媒体
+
+### ACC-PEG-001：Pegasus parser、扫描投影与确定性边界
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-PEG-001`。
+- 流程：对 BOM、LF/CRLF、续行、flowing text、alias、多 metadata/multi-game、缺失/非法字段、大小/条目/深度门禁和大于 64 个声明文件的固定夹具解析两次；扫描目录后改变无关 UUID 再扫描。
+- 通过标准：两次 Collection/game/media 投影与 `sourceKey` 完全相同；全部声明文件参与 key，最多 64 条文件行进入 UI 投影且给出稳定 blocker；命令型值、非法 UTF-8、越界输入和 ASCII casefold 冲突被拒绝，不把 partial metadata 当成功。
+- 证据：聚焦单元测试输出和确定性摘要。
+
+### ACC-PEG-002：外部 root、HTTP 授权与来源漂移
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-PEG-002`。
+- 流程：从配置 root 浏览直接子目录并创建扫描；尝试绝对路径、`..`、symlink、special file、未知 root、USER/匿名、无 CSRF、未知 JSON 字段和错误 ETag；在映射前替换已扫描来源。
+- 通过标准：客户端只看到 root label/相对路径；逐段 no-follow 阻止越界且响应/日志不泄露完整宿主路径；权限和严格协议按 OpenAPI 拒绝；来源漂移终止计划且不会创建 Game、Revision 或 Blob 引用。
+- 证据：路径和 HTTP 聚焦测试输出、稳定错误码摘要。
+
+### ACC-PEG-003：映射、自动发布、重复、多盘与 Arcade
+
+- 上限：300 秒。
+- 执行：`make acceptance-case CASE=ACC-PEG-003`。
+- 流程：扫描含两个 Collection 的固定目录，不设置默认映射并按 ETag 提交显式映射；导入普通单文件、M3U+CHD 和 Arcade ZIP+同目标 companion；再次导入相同来源与相同内容的另一来源。
+- 通过标准：未映射时不能开始；计划冻结游戏平台目录/核心版本；三种内容均复用既有验证和原子发布管线，M3U 顺序与 Arcade primary source 正确；重复结果列出全部既有匹配并不重复创建 Game/Revision/Blob，条目仍有稳定结果和链接。
+- 证据：Migration/服务集成测试、发布与重复摘要。
+
+### ACC-PEG-004：取消、重试、恢复、GC 与 restore fence
+
+- 上限：300 秒。
+- 执行：`make acceptance-case CASE=ACC-PEG-004`。
+- 流程：在扫描和导入阶段分别取消；注入 retryable 失败、过期 lease、deadline/attempt 耗尽和进程重启；备份恢复含 Pegasus 历史的数据库，并在恢复后运行单轮 Blob GC。
+- 通过标准：取消/失败不回滚已提交游戏；retry/recovery 不重复 revision；耗尽任务收敛到稳定 FAILED；BIOS/Pegasus 总内容读取并发不超过 2；restore 终止外部 source 工作且历史可读、不可恢复执行；受保护 Blob 不被 GC，终态可删除计划不会保留悬空保护边。
+- 证据：worker、maintenance、blob registry/GC 聚焦测试输出。
+
+### ACC-PEG-005：三步 UI、详情恢复与桌面布局
+
+- 上限：240 秒。
+- 执行：`make acceptance-case CASE=ACC-PEG-005`。
+- 流程：在 1280×800、2560×1440、3840×2160 打开服务器导入页，只用键盘完成 root/目录选择、扫描、全部 Collection 显式映射、确认和启动；扫描中关闭并重新打开 Drawer；在详情使用 URL 筛选、分页、取消/retry，并模拟 SSE 断线。
+- 通过标准：两张能力卡等权且共用 root 说明；760px Drawer 三步可达、无默认映射、关闭后计划可恢复；详情显示真实阶段、计数、映射、media READY/MISSING/WARNING 与已有/新游戏链接，断线不清空内容；三个 viewport 无页面级横向溢出，焦点、Escape、reduced-motion 和状态文本符合 UI 契约。
+- 证据：Playwright DOM/网络/布局断言和三尺寸当前截图。
+
+### ACC-MEDIA-001：VIDEO 上传、服务与详情播放策略
+
+- 上限：240 秒。
+- 执行：`make acceptance-case CASE=ACC-MEDIA-001`。
+- 流程：上传合法 MP4/WebM 与伪装/超限媒体；读取 GET/HEAD/single Range；编辑元信息、替换并删除 VIDEO；在详情模拟累计可见、切换后台、播放拒绝、5 秒无 `playing`、用户暂停和 reduced-motion，并监控游戏列表请求。
+- 通过标准：VIDEO 尺寸允许 NULL，magic/MIME/大小严格校验；Range/HEAD 和私有缓存契约正确；元信息编辑保留视频，替换/删除产生不可变 revision 且历史引用保留。详情只有前台可见累计 2 秒才 muted/inline/loop 自动播放，`playing` 后 200ms 淡入；失败保持封面和手动播放，用户暂停不再自动恢复，reduced-motion 完全手动；列表无 VIDEO 请求或 autoplay。
+- 证据：媒体/HTTP/React/Playwright 聚焦结果和请求断言。
+
+## 13. 启动、存档与游玩数据
 
 ### ACC-RUN-001：默认核心与单次核心切换
 
@@ -739,7 +789,7 @@ make acceptance-case CASE=<case-id>
 - 通过标准：加载阶段没有 PlaySession/idle 误过期，pre-start finish 撤销且不创建游玩记录；真实 start 后才启用 2 分钟 idle。三个事件端点都位于 `/runtime/launches/{launchId}/` 且校验 launch cookie，只有公开 launchId 没有 cookie 时为 401。只累计实际运行区间；隐藏/暂停/超出失联上限不累计；heartbeat/finish 幂等、跳号冲突，client time 只审计且越界拒绝；数据库全为整数毫秒，首页/详情汇总一致。
 - 证据：事件时间线、期望/实际 duration 和 API 汇总。
 
-## 13. 三十五个核心的真实运行画面
+## 14. 三十五个核心的真实运行画面
 
 ### 13.1 每个核心的统一执行流程
 
@@ -800,7 +850,7 @@ python3 data/example/verify-fixtures.py
 
 `ACC-CORE-028` 必须同时生成 `ppsspp-cso` 与 `ppsspp-iso` 两条机器结果和两张截图；任一格式失败即为整个 Case 失败。`ACC-CORE-032` 与 `033` 还必须通过专属 DAT 的产品导入、READY Variant、Launch 和跨核 DAT 拒绝集成结果。任一核心失败只重跑该 Case 进行诊断；共享 loader/runtime 变化时仍逐个运行三十五个 Case，不使用一个无界全量 Case 代替。
 
-## 14. UI、4K 与无障碍
+## 15. UI、4K 与无障碍
 
 ### ACC-UI-001：认证入口、用户导航与权限入口
 
@@ -874,7 +924,7 @@ python3 data/example/verify-fixtures.py
 - 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身/最后管理员控件禁用并解释原因，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
 - 证据：三 viewport 当前截图、route/network/storage trace、axe/键盘结果与后端生命周期摘要。
 
-## 15. 多盘系统
+## 16. 多盘系统
 
 ### ACC-MDISC-001：递归目录中的完整多盘导入
 
@@ -942,7 +992,7 @@ python3 data/example/verify-fixtures.py
 - 通过标准：匿名为 401、USER 为 `ADMIN_REQUIRED`，ADMIN 写入保存真实 User actor，同 key 不跨 principal 串响应；两个 Profile 的盘号存档和持久保存互不可见/不可写，跨账号探测不泄露存在性；停用只撤销目标账号 Launch，不影响另一账号。结果同时满足本次 `ACC-AUTH-006` 与 `ACC-ISO-001`–`003` route/owner inventory。
 - 证据：非秘密 User/username、route 状态矩阵、actor/idempotency/owner 断言、Launch 撤销与通用 Case 引用；截图/API DTO 不暴露 Profile ID 或内容秘密。
 
-## 16. 收藏与收藏夹
+## 17. 收藏与收藏夹
 
 ### ACC-FAV-001：Migration、关系不变量与备份保留
 
@@ -972,7 +1022,7 @@ python3 data/example/verify-fixtures.py
 - 通过：无横向溢出/遮挡，卡宽 270–320px，Rail 头部和新建入口固定且只有中间列表自滚动，批量栏不盖末行，4K 字号/控件达标，dialog 焦点与 Escape 正确，axe 无 serious/critical。
 - 证据：三 viewport 测量/截图、键盘 trace、焦点/ARIA/axe/reduced-motion 结果。
 
-## 17. 缺陷处理与重验
+## 18. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
 
@@ -985,11 +1035,11 @@ python3 data/example/verify-fixtures.py
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧对应 `ACC-CORE-*` 或 UI runner 断言。不得用“只能人工复现”免除固化。
 
-## 18. 最终通过标准
+## 19. 最终通过标准
 
 一期项目只有同时满足以下条件才可标记 `PASS`：
 
-- 第 5–16 节所有 Required Case 为 PASS；
+- 第 5–17 节所有 Required Case 为 PASS；
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 本次生成的三十五核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；Saturn 双盘、三盘各自的机器结果与画面复核通过；
@@ -1000,7 +1050,7 @@ python3 data/example/verify-fixtures.py
 
 AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID、实际执行命令、证据目录、本次新增回归测试，以及任何 `NOT_APPLICABLE` 原因。不得仅回复“验收通过”。
 
-## 19. 专题覆盖映射
+## 20. 专题覆盖映射
 
 | 专题 | 统一 Case |
 | --- | --- |
@@ -1012,6 +1062,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`008` |
 | 多盘导入、运行、回归与隔离 | `ACC-MDISC-001`–`008` |
 | BIOS、服务器导入与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`007` |
+| Pegasus 目录导入与游戏视频 | `ACC-PEG-001`–`005`、`ACC-MEDIA-001` |
 | 启动、存档与游玩时长 | `ACC-RUN-001`–`005`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
 | EmulatorJS 三十五核心 | `ACC-CORE-001`–`035` |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |

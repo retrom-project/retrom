@@ -315,7 +315,9 @@ flowchart LR
 
 ### 8.2 BIOS 与 DAT
 
-服务器 BIOS 导入是一期管理能力：部署者用 `RETROM_SERVER_IMPORT_ROOTS` 建立只读宿主目录信任边界，浏览器只提交 root ID 与规范相对目录。每次任务冻结全部 enabled CoreArtifact 的完整 BIOS catalog（含可选与条件项），先完整发现和评估，再逐 Requirement 短事务安装；历史 Launch/VariantRevision 继续引用既有不可变依赖快照。外部 source 不属于 Retrom 数据根、CAS 或 backup，恢复时不得自动续跑依赖该 source 的任务。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
+服务器导入是一期管理能力：部署者用 `RETROM_SERVER_IMPORT_ROOTS` 建立只读宿主目录信任边界，浏览器只提交 root ID 与规范相对目录。BIOS 任务冻结全部 enabled CoreArtifact 的完整 catalog，先完整发现和评估，再逐 Requirement 短事务安装；Pegasus 任务分为 metadata/facts 扫描、管理员逐 Collection 显式映射、逐游戏复制/运行检查/自动发布三阶段，不执行 `launch` 命令，也不按名称或扩展名猜测目标游戏目录。外部 source 与原始 metadata 不属于 Retrom 数据根、CAS 或 backup；已经发布的 ROM、封面和 VIDEO 进入 CAS/backup，恢复时所有仍依赖外部 source 的任务必须失败收口。历史 Launch/VariantRevision 继续引用既有不可变快照。详细领域、协议和页面契约分别见 [`bios-and-arcade.md`](./bios-and-arcade.md)、[`import-and-review.md`](./import-and-review.md)、[`http-api-contract.md`](./http-api-contract.md) 与 [`ui-specification.md`](./ui-specification.md)。
+
+游戏详情是唯一允许请求 VIDEO 的用户页面。详情先用 COVER 保持稳定的 3:4 识别位，媒体区在前台与 viewport 内累计可见满两秒后才尝试 `muted + playsInline + loop`；收到 `playing` 前不隐藏封面，播放拒绝、解码/停滞、隐藏标签页与减少动态效果均有确定性封面回退或手动入口。首页、游戏库、收藏、最近、存档和搜索的 DTO/查询保持 cover-only。
 
 普通核心的 BIOS 需求来自版本化静态目录；Arcade 核心的 machine/parent/BIOS 依赖从该核心活动 DAT 解析。管理页按平台和核心展示逻辑文件名、期望哈希、已安装 Blob 的实际哈希、来源和受影响游戏。
 

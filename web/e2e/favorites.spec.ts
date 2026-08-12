@@ -61,7 +61,9 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   const firstMore = first.getByRole("button", { name: `游戏“${firstTitle}”的更多操作` });
   await firstMore.click();
   await first.getByRole("menuitem", { name: "管理收藏夹" }).click();
-  await expect(page.getByRole("dialog", { name: new RegExp(`管理“${firstTitle}”的收藏夹`) })).toBeVisible();
+  const firstPicker = page.getByRole("dialog", { name: new RegExp(`管理“${firstTitle}”的收藏夹`) });
+  await expect(firstPicker).toBeVisible();
+  await expect(firstPicker.getByRole("searchbox", { name: "搜索收藏夹" })).toBeFocused();
   await page.keyboard.press("Escape");
   await expect(firstMore).toBeFocused();
   await firstMore.click();

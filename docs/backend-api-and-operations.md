@@ -176,7 +176,9 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 `make dev` 不构建镜像、不启动容器、不创建容器网络；本地开发数据写入明确且被 Git 忽略的 `RETROM_DATA_DIR`。它默认使用全新 `.cache/retrom/user-management-v1-data` 和显式 test 模式，空库创建 `test/test`；旧 `.cache/retrom/data` 保留且不自动迁移或删除。测试服务器基线的浏览器 origin 为 `https://dev.sendev.cc`，前端固定监听 `0.0.0.0:3000`，后端仍保持回环监听；调用者可显式覆盖 origin 运行隔离的本地开发实例。仅 test 模式且 insecure flag=true 时允许明文非 localhost origin；release 无条件要求 HTTPS。线程核心仍受 Chrome 安全上下文限制。前端的幂等 UUID 与上传/存档 SHA-256 在缺少 `crypto.randomUUID`/`crypto.subtle` 时仍使用受测的 Web Crypto 兼容 fallback；安全随机数始终来自 `crypto.getRandomValues`。
 
-未显式设置 `RETROM_SERVER_IMPORT_ROOTS` 时，`make dev` 在真正启动进程前幂等创建被 Git 忽略的仓库目录 `.dev-data/bios`，并把它作为 ID `local-bios`、标签“本地 BIOS”的唯一默认只读扫描 root。调用者可以显式提供 JSON 数组替换该默认值，也可以传 `[]` 关闭本地扫描；`scripts/dev.sh --stop` 不创建目录。该目录用于开发者自行放置不得提交的 BIOS 测试文件，不属于 Retrom 数据根、依赖物化目录或镜像输入。
+未显式设置 `RETROM_SERVER_IMPORT_ROOTS` 时，`make dev` 在真正启动进程前幂等创建被 Git 忽略的仓库目录 `.dev-data/bios`，并把它作为 ID `local-bios`、标签“本地导入目录”的唯一默认只读扫描 root。调用者可以显式提供 JSON 数组替换该默认值，也可以传 `[]` 关闭本地扫描；`scripts/dev.sh --stop` 不创建目录。该目录可由开发者放置不得提交的 BIOS 或 Pegasus 游戏测试文件，不属于 Retrom 数据根、依赖物化目录或镜像输入。
+
+同一 root 配置同时服务 BIOS 批量导入和 Pegasus 目录导入。客户端只能提交 `rootId` 与相对路径；后端逐段无跟随打开并拒绝 symlink、special file、路径穿越、根替换和扫描中的来源漂移。BIOS 与 Pegasus 共用全局 2 个内容读取槽，避免两类任务各自达到上限后叠加压满磁盘；数据库写事务只提交已完成的有界结果，不覆盖文件读取、哈希、媒体探测或归档扫描。
 
 ### 7.3 TLS 只在 NG 终结
 
@@ -269,7 +271,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 12. 统一验收入口
 
-工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
+工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏和共享读取治理执行 `ACC-PEG-001`–`005`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
 
 ## 13. 服务器导入运维
 

@@ -19,6 +19,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/firmware"
 	"retrom/internal/importing"
+	"retrom/internal/serversource"
 )
 
 var (
@@ -286,7 +287,14 @@ func (service *Service) execute(ctx context.Context, unit work) {
 			return
 		}
 		if verifyErr != nil {
-			service.completeItem(ctx, unit, item.RequirementID, "SOURCE_CHANGED", selected, "SERVER_IMPORT_SOURCE_CHANGED")
+			service.completeItem(
+				ctx,
+				unit,
+				item.RequirementID,
+				"SOURCE_CHANGED",
+				selected,
+				"SERVER_IMPORT_SOURCE_CHANGED",
+			)
 			continue
 		}
 		selected = verified
@@ -304,7 +312,14 @@ func (service *Service) execute(ctx context.Context, unit work) {
 		})
 		switch {
 		case errors.Is(installErr, firmware.ErrCatalogChanged):
-			service.completeItem(ctx, unit, item.RequirementID, "CATALOG_CHANGED", selected, "BIOS_REQUIREMENT_CATALOG_CHANGED")
+			service.completeItem(
+				ctx,
+				unit,
+				item.RequirementID,
+				"CATALOG_CHANGED",
+				selected,
+				"BIOS_REQUIREMENT_CATALOG_CHANGED",
+			)
 		case installErr != nil:
 			service.completeItem(ctx, unit, item.RequirementID, "COMMIT_FAILED", selected, "INTERNAL_ERROR")
 		default:
@@ -449,17 +464,26 @@ func (service *Service) discoverCandidates(
 	return grouped, walked.counts, firstErr
 }
 
-//nolint:gocyclo,lll // Read, re-stat and per-association evaluation branches are independent source-safety checks.
+//nolint:gocyclo // Read, re-stat and per-association evaluation branches are independent source-safety checks.
 func (service *Service) hashDiscoveredCandidate(
 	ctx context.Context,
 	unit work,
 	task candidateHashTask,
 ) candidateHashResult {
 	result := candidateHashResult{}
+	release, acquireErr := serversource.AcquireReader(ctx)
+	if acquireErr != nil {
+		result.err = acquireErr
+		return result
+	}
+	defer release()
 	handle, before, openErr := openCandidate(task.file)
 	if openErr != nil {
 		for _, association := range task.associations {
-			result.candidates = append(result.candidates, failedCandidate(association.item, task.file, association.kind, "READ_FAILED"))
+			result.candidates = append(
+				result.candidates,
+				failedCandidate(association.item, task.file, association.kind, "READ_FAILED"),
+			)
 		}
 		return result
 	}
@@ -475,7 +499,10 @@ func (service *Service) hashDiscoveredCandidate(
 	}
 	if putErr != nil || statErr != nil || !sameFileFacts(before, after) {
 		for _, association := range task.associations {
-			result.candidates = append(result.candidates, failedCandidate(association.item, task.file, association.kind, "SOURCE_CHANGED"))
+			result.candidates = append(
+				result.candidates,
+				failedCandidate(association.item, task.file, association.kind, "SOURCE_CHANGED"),
+			)
 		}
 		return result
 	}
@@ -543,12 +570,18 @@ func (index candidateIndex) associations(file discoveredFile) []association {
 	return result
 }
 
-//nolint:lll // Evaluation evidence keys deliberately match the persisted/API detail contract.
 func (service *Service) evaluate(ctx context.Context, item catalogItem, association string, file discoveredFile,
 	metadata blobstore.Metadata, facts firmware.FileFacts,
 ) (*evaluatedCandidate, error) {
 	id, _ := uuid.NewV7()
-	candidate := &evaluatedCandidate{ID: id.String(), Item: item, File: file, Association: association, Metadata: metadata, State: "ELIGIBLE"}
+	candidate := &evaluatedCandidate{
+		ID:          id.String(),
+		Item:        item,
+		File:        file,
+		Association: association,
+		Metadata:    metadata,
+		State:       "ELIGIBLE",
+	}
 	if item.SourceKind == "STATIC" {
 		expectation := firmware.StaticExpectation{LogicalName: item.LogicalName, SizeBytes: item.ExpectedSize}
 		if item.ExpectedMD5 != nil {
@@ -562,7 +595,12 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 		}
 		evaluation := firmware.EvaluateStatic(expectation, facts)
 		candidate.Static = &evaluation
-		candidate.Details = map[string]any{"schemaVersion": 1, "exactHash": evaluation.ExactHash, "expectedSizeMatched": evaluation.ExpectedSizeMatched, "exactBasename": evaluation.ExactBasename}
+		candidate.Details = map[string]any{
+			"schemaVersion":       1,
+			"exactHash":           evaluation.ExactHash,
+			"expectedSizeMatched": evaluation.ExpectedSizeMatched,
+			"exactBasename":       evaluation.ExactBasename,
+		}
 		return candidate, nil
 	}
 	select {
@@ -586,7 +624,16 @@ func (service *Service) evaluate(ctx context.Context, item catalogItem, associat
 	candidate.DAT = &evaluation
 	candidate.ExpectedDATEntries = expected
 	candidate.ArchiveEntries = entries
-	candidate.Details = map[string]any{"schemaVersion": 1, "launchable": evaluation.Launchable, "matchedCount": evaluation.MatchedCount, "aliasedCount": evaluation.AliasedCount, "mismatchedCount": evaluation.MismatchedCount, "missingCount": evaluation.MissingCount, "extraCount": evaluation.ExtraCount, "exactBasename": evaluation.ExactBasename}
+	candidate.Details = map[string]any{
+		"schemaVersion":   1,
+		"launchable":      evaluation.Launchable,
+		"matchedCount":    evaluation.MatchedCount,
+		"aliasedCount":    evaluation.AliasedCount,
+		"mismatchedCount": evaluation.MismatchedCount,
+		"missingCount":    evaluation.MissingCount,
+		"extraCount":      evaluation.ExtraCount,
+		"exactBasename":   evaluation.ExactBasename,
+	}
 	return candidate, nil
 }
 
@@ -634,6 +681,11 @@ func (service *Service) verifySelected(
 	root Root,
 	selected *evaluatedCandidate,
 ) (*evaluatedCandidate, error) {
+	release, acquireErr := serversource.AcquireReader(ctx)
+	if acquireErr != nil {
+		return nil, fmt.Errorf("serverimport/acquire reader: %w", acquireErr)
+	}
+	defer release()
 	handle, before, err := openRelativeCandidate(root.path, unit.RelativePath, selected.File.RelativePath)
 	if err != nil {
 		return nil, errSourceChanged
@@ -940,9 +992,14 @@ func (service *Service) clearEvaluation(ctx context.Context, importID string) er
 	if _, err := service.database.ExecContext(ctx, `DELETE FROM server_bios_import_candidates WHERE server_import_id=?`, importID); err != nil {
 		return fmt.Errorf("clear server import candidates: %w", err)
 	}
-	_, err := service.database.ExecContext(ctx, `UPDATE server_bios_import_items SET state='PENDING',candidate_count=0,match_method=NULL,selection_details_json=NULL,
+	_, err := service.database.ExecContext(
+		ctx,
+		`UPDATE server_bios_import_items SET state='PENDING',candidate_count=0,match_method=NULL,selection_details_json=NULL,
 previous_installation_id=NULL,new_installation_id=NULL,outcome_code=NULL,completed_at_ms=NULL,updated_at_ms=?
-WHERE server_import_id=? AND state IN ('PENDING','EVALUATING')`, service.now().UnixMilli(), importID)
+WHERE server_import_id=? AND state IN ('PENDING','EVALUATING')`,
+		service.now().UnixMilli(),
+		importID,
+	)
 	if err != nil {
 		return fmt.Errorf("reset server import items: %w", err)
 	}
@@ -1042,9 +1099,29 @@ not_selected_reason,evaluation_details_json,created_at_ms,updated_at_ms,evaluate
 func (service *Service) progress(ctx context.Context, unit work, phase string, current, total int64) {
 	now := service.now().UnixMilli()
 	data, _ := json.Marshal(map[string]any{"schemaVersion": 1, "phase": phase, "completed": current, "total": total})
-	_, _ = service.database.ExecContext(ctx, `UPDATE server_imports SET phase=?,version=version+1,updated_at_ms=? WHERE id=?`, phase, now, unit.ImportID)
-	_, _ = service.database.ExecContext(ctx, `UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=? WHERE id=?`, now, now+60000, now, unit.JobID)
-	_, _ = service.database.ExecContext(ctx, `INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms) VALUES(?,'SERVER_IMPORT',?,'PROGRESS',?,?)`, unit.JobID, unit.ImportID, string(data), now)
+	_, _ = service.database.ExecContext(
+		ctx,
+		`UPDATE server_imports SET phase=?,version=version+1,updated_at_ms=? WHERE id=?`,
+		phase,
+		now,
+		unit.ImportID,
+	)
+	_, _ = service.database.ExecContext(
+		ctx,
+		`UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=? WHERE id=?`,
+		now,
+		now+60000,
+		now,
+		unit.JobID,
+	)
+	_, _ = service.database.ExecContext(
+		ctx,
+		`INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms) VALUES(?,'SERVER_IMPORT',?,'PROGRESS',?,?)`,
+		unit.JobID,
+		unit.ImportID,
+		string(data),
+		now,
+	)
 }
 
 //nolint:lll // Item outcome, selected candidate and progress event are committed together.
@@ -1087,16 +1164,23 @@ func (service *Service) completeItem(
 	_ = transaction.Commit()
 }
 
-//nolint:lll // This single-row state probe is on the hot cancellation path.
 func (service *Service) cancelRequested(ctx context.Context, jobID string) bool {
 	var state string
-	return service.database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state) == nil && (state == "CANCEL_REQUESTED" || state == "CANCELLED")
+	return service.database.QueryRowContext(ctx, `SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state) == nil &&
+		(state == "CANCEL_REQUESTED" || state == "CANCELLED")
 }
 
 //nolint:lll // Polling renews the lease before reading cancellation state.
 func (service *Service) pollCancellation(ctx context.Context, unit work) bool {
 	now := service.now().UnixMilli()
-	_, _ = service.database.ExecContext(ctx, `UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'`, now, now+60000, now, unit.JobID)
+	_, _ = service.database.ExecContext(
+		ctx,
+		`UPDATE jobs SET heartbeat_at_ms=?,leased_until_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND state='RUNNING'`,
+		now,
+		now+60000,
+		now,
+		unit.JobID,
+	)
 	return service.cancelRequested(ctx, unit.JobID)
 }
 
@@ -1260,10 +1344,13 @@ func (service *Service) cancelTask(ctx context.Context, unit work) {
 	}
 }
 
-//nolint:lll // The grouped state query is the canonical source for terminal counters.
 func itemStateCounts(ctx context.Context, transaction *sql.Tx, importID string) (map[string]int64, error) {
 	counts := make(map[string]int64)
-	rows, err := transaction.QueryContext(ctx, `SELECT state,count(*) FROM server_bios_import_items WHERE server_import_id=? GROUP BY state`, importID)
+	rows, err := transaction.QueryContext(
+		ctx,
+		`SELECT state,count(*) FROM server_bios_import_items WHERE server_import_id=? GROUP BY state`,
+		importID,
+	)
 	if err != nil {
 		return nil, fmt.Errorf("query server import item state counts: %w", err)
 	}
@@ -1282,20 +1369,41 @@ func itemStateCounts(ctx context.Context, transaction *sql.Tx, importID string) 
 	return counts, nil
 }
 
-//nolint:lll // Terminal counters are projected from one immutable item-state snapshot.
-func updateTerminalImport(ctx context.Context, transaction *sql.Tx, importID, state, phase string, code *string, counts map[string]int64, now int64) error {
+func updateTerminalImport(
+	ctx context.Context,
+	transaction *sql.Tx,
+	importID, state, phase string,
+	code *string,
+	counts map[string]int64,
+	now int64,
+) error {
 	failed := counts["SOURCE_CHANGED"] + counts["CATALOG_CHANGED"] + counts["READ_FAILED"] + counts["COMMIT_FAILED"]
 	var phaseValue any
 	if phase != "" {
 		phaseValue = phase
 	}
-	_, err := transaction.ExecContext(ctx, `UPDATE server_imports SET state=?,phase=?,last_error_code=?,
+	_, err := transaction.ExecContext(
+		ctx,
+		`UPDATE server_imports SET state=?,phase=?,last_error_code=?,
 imported_matched_count=?,imported_warning_count=?,imported_missing_entry_count=?,not_found_count=?,
 skipped_existing_count=?,skipped_not_better_count=?,same_bytes_count=?,failed_item_count=?,cancelled_item_count=?,
 completed_at_ms=?,version=version+1,updated_at_ms=? WHERE id=?`,
-		state, phaseValue, code, counts["IMPORTED_MATCHED"], counts["IMPORTED_WARNING"], counts["IMPORTED_MISSING_ENTRY"],
-		counts["NOT_FOUND"], counts["SKIPPED_EXISTING"], counts["SKIPPED_NOT_BETTER"], counts["ALREADY_SAME_BYTES"],
-		failed, counts["CANCELLED"], now, now, importID)
+		state,
+		phaseValue,
+		code,
+		counts["IMPORTED_MATCHED"],
+		counts["IMPORTED_WARNING"],
+		counts["IMPORTED_MISSING_ENTRY"],
+		counts["NOT_FOUND"],
+		counts["SKIPPED_EXISTING"],
+		counts["SKIPPED_NOT_BETTER"],
+		counts["ALREADY_SAME_BYTES"],
+		failed,
+		counts["CANCELLED"],
+		now,
+		now,
+		importID,
+	)
 	if err != nil {
 		return fmt.Errorf("update terminal server import: %w", err)
 	}
