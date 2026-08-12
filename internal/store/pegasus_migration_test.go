@@ -74,7 +74,7 @@ COMMIT;
 	if err := upgraded.SQL.QueryRow(`
 SELECT (SELECT max(version) FROM schema_migrations),kind,width_px,height_px,media_type
 FROM game_assets WHERE id='01980000-0000-7000-8000-00000000a805'
-`).Scan(&version, &kind, &width, &height, &mediaType); err != nil || version != 28 || kind != "COVER" ||
+`).Scan(&version, &kind, &width, &height, &mediaType); err != nil || version != 29 || kind != "COVER" ||
 		width != 320 || height != 480 || mediaType != "image/png" {
 		t.Fatalf("upgrade = version:%d asset:%s/%d/%d/%s error:%v", version, kind, width, height, mediaType, err)
 	}

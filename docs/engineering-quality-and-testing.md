@@ -423,7 +423,7 @@ node data/example/smoke-test.mjs mgba mame2003
 ## 12. Pegasus 目录导入与视频测试矩阵
 
 - parser/scanner：UTF-8 BOM、LF/CRLF、续行与 flowing text、字段别名、同一 metadata 多 game、目录内多个 metadata、大小/条目/深度门禁、非法命令值、路径穿越、symlink/special file、来源中途变化和稳定 `sourceKey`。
-- 映射/持久化：Migration 028 的新建库与 027 升级同构；Collection 显式映射、ETag、版本冻结；最大 64 文件的投影、全部声明文件参与确定性 key、M3U+CHD 有序分组、Arcade 当前 ZIP 与同目标显式 companion 集。
+- 映射/持久化：Migration 029 的新建库与 028 升级同构并回填可证明的旧失败诊断；Collection 显式映射、ETag、版本冻结；最大 64 文件的投影、全部声明文件参与确定性 key、M3U+CHD 有序分组、Arcade 当前 ZIP 与冻结 DAT 依赖闭包内的同目标显式 companion 集。
 - 发布/重复：单文件和多盘沿用既有 library import/validation/publish 事务；同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不回滚已经提交的游戏，重试不重复 Game/Revision/Blob。
 - Worker/存储：BIOS 与 Pegasus 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、restore fence、外部 root 变更、媒体告警、保护边 GC 和 backup/restore 均有确定性测试。
 - HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；双能力卡、三步 Drawer、无默认映射、关闭恢复、详情分页与多尺寸/键盘/reduced-motion。

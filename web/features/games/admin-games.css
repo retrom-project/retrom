@@ -78,7 +78,7 @@
 .admin-game-overview strong { margin-top: 4px; font-size: 13px; }
 .admin-game-primary-grid { display: grid; grid-template-columns: minmax(0, 58fr) minmax(0, 42fr); gap: 14px; align-items: stretch; }
 .admin-game-publish, .admin-game-media { height: 100%; }
-.admin-game-media { display: flex; flex-direction: column; }
+.admin-game-media { min-height: 0; overflow: hidden; display: flex; flex-direction: column; contain: size; }
 .admin-game-media > .panel-body { min-height: 0; flex: 1; }
 .admin-game-publish-form { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
 .admin-game-publish-form > label { min-width: 0; display: grid; gap: 5px; color: #4d586c; font-size: 10px; font-weight: 760; }
@@ -105,10 +105,10 @@
 .admin-game-media label { color: var(--purple-dark); cursor: pointer; font-size: 10px; font-weight: 760; }
 .admin-game-media label[aria-disabled="true"] { color: #a3a9b4; cursor: not-allowed; }
 .admin-game-video-slot { position: relative; min-width: 0; min-height: 0; height: 100%; align-self: stretch; display: grid; grid-template-rows: auto minmax(0, 1fr); }
-.admin-game-video-slot > div { min-height: 0; display: grid; place-items: center; color: #818b9d; background: #111623; text-align: center; }
+.admin-game-video-slot > div { min-width: 0; min-height: 0; overflow: hidden; display: grid; place-items: center; color: #818b9d; background: #111623; text-align: center; }
 .admin-game-video-slot > div span { display: grid; gap: 2px; padding: 8px; }
 .admin-game-video-slot > div small { font-size: 9px; }
-.admin-game-video-slot video { width: 100%; height: 100%; object-fit: contain; }
+.admin-game-video-slot video { width: auto; max-width: 100%; height: 100%; max-height: 100%; min-width: 0; min-height: 0; display: block; place-self: center; object-fit: contain; object-position: 50% 50%; }
 .admin-game-video-slot footer { position: absolute; z-index: 2; right: 5px; bottom: 5px; display: flex; gap: 5px; }
 .admin-game-video-slot footer label, .admin-game-video-slot footer button { min-height: 25px; padding: 0 8px; display: flex; align-items: center; color: var(--purple-dark); border: 1px solid #d8d1f6; border-radius: 7px; background: #f9f7ff; cursor: pointer; font: inherit; font-size: 9px; font-weight: 760; }
 .admin-game-video-slot footer button:disabled { color: #a3a9b4; cursor: not-allowed; }

@@ -310,6 +310,12 @@ Game `DELETED`、PlatformInstance 停用或 User 停用不删除三张表中的�
 
 `game_assets.kind` 增加 ordinal 0 的 `VIDEO`：只允许 `video/mp4|video/webm` 且 `width_px/height_px` 必须为 null；图片仍必须具有正尺寸和受限图片 MIME。每个 MetadataRevision 仍拥有完整媒体清单，管理替换/移除 VIDEO 或修改文字时复制未修改的 Asset 引用，历史 Asset 永不原地修改。Migration 028 重建受 enum 影响的表与触发器，026/027→028 与 fresh 001→028 必须同构并通过 foreign-key/integrity 检查。
 
-## 13. 统一验收入口
+## 13. Migration 029：Pegasus 管理员失败诊断
+
+`pegasus_import_items.error_details_json` 是可空、最大 8 KiB 的 JSON object，只保存管理员排障所需的封闭证据：schema version、失败阶段、内部操作、稳定 cause code、受限技术详情、来源相对路径、观察值/上限，以及已创建时的内部 ImportJob/ImportItem ID。不得写入宿主绝对路径、Blob ID/hash、凭据或未截断上游 payload；retry 把该字段与旧 `error_code` 一起清空，新 execution 重新生成证据。
+
+029 对 028 已产生且可确定为 Arcade companion 文件数超过 64 的 `PEGASUS_LIBRARY_IMPORT_FAILED` 进行一次性回填，记录实际组装数量和内部上限。其他无法从持久状态证明根因的历史失败不得猜测或伪造技术详情。
+
+## 14. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

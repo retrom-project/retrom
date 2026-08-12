@@ -330,7 +330,7 @@
 .launch-quick-save > div:last-child { min-width: 0; }
 .launch-quick-save strong, .launch-quick-save time, .launch-quick-save small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .launch-quick-save strong { font-size: 11px; }
-.launch-quick-save time, .launch-quick-save small { margin-top: 1px; color: #7e8796; font-size: 9px; }
+.launch-quick-save time, .launch-quick-save small { margin-top: 1px; color: var(--muted); font-size: 9px; }
 .launch-quick-save .button { width: 100%; min-height: 34px; margin-top: 7px; padding: 0 10px; border-radius: 8px; box-shadow: none; font-size: 10px; }
 .launch-panel > .button { width: 100%; min-height: 34px; margin-top: 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: white; box-shadow: none; font-size: 10px; }
 .launch-panel > .button:hover { color: var(--purple-dark); border-color: #c9c1f2; }
@@ -370,8 +370,8 @@
 .game-detail-save-body { min-width: 0; padding: 11px 12px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
 .game-detail-save-body strong, .game-detail-save-body time { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-detail-save-body strong { font-size: 11px; }
-.game-detail-save-body time { margin-top: 2px; color: #7d8797; font-size: 9px; }
-.game-detail-save-body > small { color: #8b94a4; font-size: 8px; }
+.game-detail-save-body time { margin-top: 2px; color: var(--muted); font-size: 9px; }
+.game-detail-save-body > small { color: var(--muted); font-size: 8px; }
 .game-detail-save-body .button, .game-detail-drawer-row .button { width: fit-content; min-height: 32px; padding: 0 10px; align-self: flex-start; color: var(--purple-dark); border: 1px solid #d9d2f4; border-radius: 8px; background: #f6f3ff; box-shadow: none; font-size: 9px; }
 .game-detail-save-body .button:hover, .game-detail-drawer-row .button:hover { border-color: #bfb4ef; background: var(--purple-soft); }
 .game-detail-save-body .button:disabled, .game-detail-drawer-row .button:disabled { color: #787f8d; border-color: var(--line); background: #eff1f4; }
@@ -394,7 +394,7 @@
 .game-detail-drawer-row > div { min-width: 0; }
 .game-detail-drawer-row time, .game-detail-drawer-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .game-detail-drawer-row time { font-size: 11px; font-weight: 750; }
-.game-detail-drawer-row small { margin-top: 3px; color: #7d8797; font-size: 9px; }
+.game-detail-drawer-row small { margin-top: 3px; color: var(--muted); font-size: 9px; }
 .game-detail-preview { position: fixed; z-index: 140; inset: 0; padding: 24px; display: grid; place-items: center; background: rgb(17 23 39 / 58%); backdrop-filter: blur(3px); }
 .game-detail-preview > section { width: min(920px, 90vw); max-height: 88dvh; padding: 14px; border: 1px solid #343b49; border-radius: 14px; background: #0a0d14; box-shadow: 0 28px 80px rgb(0 0 0 / 42%); }
 .game-detail-preview-image { max-height: calc(88dvh - 70px); display: grid; place-items: center; overflow: hidden; }

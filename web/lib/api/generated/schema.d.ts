@@ -2675,6 +2675,8 @@ export interface components {
             warnings: components["schemas"]["PegasusWarningValue"][];
             discoveryCode: string | null;
             errorCode: string | null;
+            failureDetails: components["schemas"]["PegasusItemFailureDetails"] | null;
+            runtimeCheck: components["schemas"]["PegasusRuntimeCheck"] | null;
             retryable: boolean;
             /** Format: uuid */
             publishedGameId: string | null;
@@ -2692,6 +2694,63 @@ export interface components {
         PegasusWarningValue: {
             code: string;
             field?: string;
+        };
+        PegasusItemFailureDetails: {
+            /**
+             * Format: int64
+             * @enum {integer}
+             */
+            schemaVersion: 1;
+            /** @enum {string} */
+            stage: "SOURCE_COPY" | "SOURCE_ASSEMBLY" | "LIBRARY_IMPORT" | "RESULT_ATTACHMENT" | "METADATA" | "PUBLICATION" | "STORAGE";
+            operation: string;
+            causeCode: string;
+            technicalDetail: string;
+            relativePath: string | null;
+            /** Format: int64 */
+            observedFileCount: number | null;
+            /** Format: int64 */
+            allowedFileCount: number | null;
+            /** Format: uuid */
+            libraryImportJobId: string | null;
+            /** Format: uuid */
+            libraryImportItemId: string | null;
+        };
+        PegasusRuntimeDependency: {
+            /** @enum {string} */
+            kind: "PARENT" | "BIOS_OR_BASE";
+            machine: string;
+            requiredBy: string | null;
+            expectedLogicalName: string;
+            /** @enum {string} */
+            state: "SATISFIED_BY_CONTENT" | "SATISFIED_EXTERNAL" | "HASH_WARNING" | "MISSING" | "MISMATCH" | "UNSUPPORTED";
+            requiredEntries: string[];
+        };
+        PegasusRuntimeBIOS: {
+            logicalName: string;
+            /** @enum {string} */
+            requirementMode: "REQUIRED" | "OPTIONAL" | "CONDITIONAL";
+            conditionCode: string | null;
+            /** @enum {string|null} */
+            installationStatus: "MATCHED" | "HASH_WARNING" | "MISSING_ENTRY" | "INVALID" | null;
+        };
+        PegasusRuntimeMissingDisc: {
+            /** Format: int64 */
+            ordinal: number;
+            sourceReference: string;
+        };
+        PegasusRuntimeCheck: {
+            /** @enum {string} */
+            status: "READY" | "BLOCKED" | "INCOMPATIBLE";
+            code: string;
+            coreId: string;
+            coreName: string;
+            machine: string | null;
+            missingEntries: string[];
+            mismatchedEntries: string[];
+            dependencies: components["schemas"]["PegasusRuntimeDependency"][];
+            bios: components["schemas"]["PegasusRuntimeBIOS"][];
+            missingDiscs: components["schemas"]["PegasusRuntimeMissingDisc"][];
         };
         PegasusItemList: {
             items: components["schemas"]["PegasusItem"][];
