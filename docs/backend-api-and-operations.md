@@ -57,7 +57,7 @@ api/openapi.yaml          OpenAPI 3.0.3 协议事实源
 api/oapi-codegen.yaml     固定 Go 生成器配置
 web/                      Next.js + React + Tailwind CSS
 data/dat/                 小型依赖 manifest/SHA；大 payload 由 prepare-deps 物化
-data/netplay/v1/          联机 profile schema 与精确 allowlist manifest
+data/netplay/v1/          联机 core profile schema 与精确 artifact allowlist manifest
 ```
 
 依赖方向遵循 `httpapi/jobs -> application modules -> store/blobstore`。HTTP handler 不直接拼 SQL，DAT 解析器不写游戏元信息，Hasheous 适配器不判断 Arcade 可运行性。

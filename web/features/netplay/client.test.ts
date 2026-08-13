@@ -32,5 +32,6 @@ describe("netplay room snapshots", () => {
     for (const code of ["CONTENT_NOT_ALLOWLISTED", "CORE_NOT_ALLOWLISTED", "DEPENDENCY_STALE", "GAME_UNAVAILABLE"] as const) {
       expect(netplayBlocker(code)).toBeTruthy();
     }
+    expect(netplayBlocker("CONTENT_NOT_ALLOWLISTED")).toBe("当前内容类型尚未支持联机");
   });
 });

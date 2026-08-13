@@ -417,10 +417,9 @@ export class NetplayController {
     this.send("HISTORY_APPLIED", { historyAppliedThrough: message.toFrame ?? -1 });
   }
 
-  suspend(reason: "HIDDEN" | "BLUR") {
-    this.resumeBlocked = true;
+  handleFocusLoss() {
+    if (this.stopped) return;
     this.bridge.resetLocalControls();
-    if (this.socket?.readyState === WebSocket.OPEN && !this.stopped) this.send("SUSPEND_REQUEST", { reason });
   }
 
   end() {

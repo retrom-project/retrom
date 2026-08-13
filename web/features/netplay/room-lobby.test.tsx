@@ -14,8 +14,16 @@ class FakeEventSource {
   static instances: FakeEventSource[] = [];
   onerror: (() => void) | null = null;
   close = vi.fn();
-  addEventListener = vi.fn();
+  private readonly listeners = new Map<string, EventListener[]>();
+  addEventListener = vi.fn((name: string, listener: EventListener) => {
+    this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
+  });
   constructor(public readonly url: string) { FakeEventSource.instances.push(this); }
+  emit(name: string, value: NetplayRoom) {
+    for (const listener of this.listeners.get(name) ?? []) {
+      listener({ data: JSON.stringify(value) } as MessageEvent<string>);
+    }
+  }
 }
 
 const roomId = "01980000-0000-7000-8000-000000000001";
@@ -35,8 +43,8 @@ function game(): NetplayGame {
     availability: "SUPPORTED",
     blockerCode: null,
     netplayProfiles: [
-      { id: "fceumm-423-f1race-v1", coreId: "fceumm", coreName: "FCEUmm", emulatorjsVersion: "4.2.3", maxPlayers: 2 },
-      { id: "fceumm-423-f1race-alt", coreId: "fceumm", coreName: "FCEUmm 严格", emulatorjsVersion: "4.2.3", maxPlayers: 2 },
+      { id: "fceumm-423-v1", coreId: "fceumm", coreName: "FCEUmm", emulatorjsVersion: "4.2.3", maxPlayers: 2 },
+      { id: "fceumm-423-alt", coreId: "fceumm", coreName: "FCEUmm 严格", emulatorjsVersion: "4.2.3", maxPlayers: 2 },
     ],
   };
 }
@@ -63,6 +71,22 @@ function room(state: NetplayRoom["state"] = "DRAFT"): NetplayRoom {
     endedAtMs: null,
     endReason: null,
   };
+}
+
+function waitingRoom(version: number, hostReady: boolean, guestReady: boolean): NetplayRoom {
+  const value = room("WAITING");
+  value.version = version;
+  value.members[0]!.ready = hostReady;
+  value.members.push({
+    memberId: "01980000-0000-7000-8000-000000000005", playerNo: 2, role: "GUEST",
+    displayName: "Guest", avatarRef: null, ready: guestReady, connectionState: "NOT_CONNECTED",
+  });
+  value.permissions.canStart = hostReady && guestReady;
+  return value;
+}
+
+function json(value: unknown, status = 200) {
+  return new Response(JSON.stringify(value), { status, headers: { "Content-Type": "application/json" } });
 }
 
 describe("NetplayRoomLobby", () => {
@@ -120,5 +144,42 @@ describe("NetplayRoomLobby", () => {
     expect(screen.queryByRole("button", { name: "选择 P3" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "选择 P4" })).not.toBeInTheDocument();
     expect(auth.fetch).not.toHaveBeenCalled();
+  });
+
+  it("refreshes and retries the first ready click after a concurrent room update", async () => {
+    const stale = json({ error: { code: "PRECONDITION_FAILED", message: "房间已被修改", details: {} } }, 412);
+    auth.fetch
+      .mockResolvedValueOnce(stale)
+      .mockResolvedValueOnce(json(waitingRoom(4, false, true)))
+      .mockResolvedValueOnce(json(waitingRoom(5, true, true)));
+    const user = userEvent.setup();
+    render(<NetplayRoomLobby initialRoom={room("WAITING")} games={[game()]} />);
+
+    await user.click(screen.getByRole("button", { name: "准备" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "取消准备" })).toBeVisible());
+    expect(screen.queryByText("房间已被修改")).not.toBeInTheDocument();
+    expect(auth.fetch).toHaveBeenCalledTimes(3);
+    expect(new Headers(auth.fetch.mock.calls[0]?.[1]?.headers).get("If-Match")).toBe('"v3"');
+    expect(auth.fetch.mock.calls[1]?.[0]).toBe(`/api/v1/netplay/rooms/${roomId}`);
+    expect(new Headers(auth.fetch.mock.calls[2]?.[1]?.headers).get("If-Match")).toBe('"v4"');
+  });
+
+  it("does not let an older mutation response overwrite a newer SSE snapshot", async () => {
+    let resolveMutation!: (response: Response) => void;
+    auth.fetch
+      .mockReturnValueOnce(new Promise<Response>((resolve) => { resolveMutation = resolve; }))
+      .mockResolvedValueOnce(json(waitingRoom(5, true, true)));
+    const user = userEvent.setup();
+    render(<NetplayRoomLobby initialRoom={room("WAITING")} games={[game()]} />);
+    const source = FakeEventSource.instances[0]!;
+
+    await user.click(screen.getByRole("button", { name: "准备" }));
+    source.emit("member.updated", waitingRoom(5, true, true));
+    resolveMutation(json(waitingRoom(4, true, false)));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "开始联机" })).toBeEnabled());
+    expect(screen.getByText("Guest")).toBeInTheDocument();
+    expect(screen.getByText("已准备")).toBeInTheDocument();
   });
 });

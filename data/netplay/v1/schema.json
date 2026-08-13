@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://retrom.invalid/schemas/netplay-manifest-v1.json",
-  "title": "Retrom netplay allowlist manifest v1",
+  "$id": "https://retrom.invalid/schemas/netplay-manifest-v2.json",
+  "title": "Retrom netplay core profile allowlist manifest v2",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "protocol", "profiles"],
   "properties": {
-    "schemaVersion": { "const": 1 },
+    "schemaVersion": { "const": 2 },
     "protocol": {
       "type": "object",
       "additionalProperties": false,
@@ -30,18 +30,12 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "contentKind", "contentLogicalName", "contentSizeBytes", "contentSha256", "sourceArchiveSizeBytes", "sourceArchiveSha256", "maxPlayers"],
+        "required": ["id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "maxPlayers"],
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" },
           "emulatorjsVersion": { "const": "4.2.3" },
           "coreId": { "enum": ["fceumm", "fbneo"] },
           "coreArtifactSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "contentKind": { "const": "SINGLE_FILE" },
-          "contentLogicalName": { "type": "string", "minLength": 1, "maxLength": 255 },
-          "contentSizeBytes": { "type": "integer", "minimum": 1 },
-          "contentSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "sourceArchiveSizeBytes": { "type": "integer", "minimum": 1 },
-          "sourceArchiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "maxPlayers": { "type": "integer", "minimum": 2, "maximum": 4 }
         }
       }

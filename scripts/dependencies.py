@@ -315,7 +315,7 @@ def validate_netplay_manifest(
     if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
         raise CheckError("NETPLAY_SCHEMA_INVALID")
     manifest = load_json(NETPLAY_MANIFEST_PATH)
-    if set(manifest) != {"schemaVersion", "protocol", "profiles"} or manifest.get("schemaVersion") != 1:
+    if set(manifest) != {"schemaVersion", "protocol", "profiles"} or manifest.get("schemaVersion") != 2:
         raise CheckError("NETPLAY_MANIFEST_INVALID")
     protocol = manifest.get("protocol")
     expected_protocol = {
@@ -345,15 +345,11 @@ def validate_netplay_manifest(
         if isinstance(item, dict)
     }
     expected_profiles = {
-        "fceumm-423-f1race-v1": (
+        "fceumm-423-v1": (
             "fceumm", "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493",
-            "f1-race.nes", 24_592, "29208764886f14de20fe82b32ab034130915f6392103874d202fcbbfb8a02ee4",
-            15_343, "aa9a4e5959851440c507aaa551a66eab6fe8623179a8086cb2ec8606cb830393",
         ),
-        "fbneo-423-ldrun-v1": (
+        "fbneo-423-v1": (
             "fbneo", "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c",
-            "ldrun.zip", 59_720, "b45507a74f739e27a5486d79901016b78e061c4db2025435d4df37702553e8d9",
-            59_720, "b45507a74f739e27a5486d79901016b78e061c4db2025435d4df37702553e8d9",
         ),
     }
     profiles = manifest.get("profiles")
@@ -361,9 +357,7 @@ def validate_netplay_manifest(
         raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
     seen: set[str] = set()
     required_keys = {
-        "id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "contentKind",
-        "contentLogicalName", "contentSizeBytes", "contentSha256", "sourceArchiveSizeBytes",
-        "sourceArchiveSha256", "maxPlayers",
+        "id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "maxPlayers",
     }
     for profile in profiles:
         if not isinstance(profile, dict) or set(profile) != required_keys:
@@ -373,14 +367,10 @@ def validate_netplay_manifest(
         if expected is None or profile_id in seen:
             raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
         seen.add(profile_id)
-        actual = (
-            profile.get("coreId"), profile.get("coreArtifactSha256"), profile.get("contentLogicalName"),
-            profile.get("contentSizeBytes"), profile.get("contentSha256"),
-            profile.get("sourceArchiveSizeBytes"), profile.get("sourceArchiveSha256"),
-        )
+        actual = (profile.get("coreId"), profile.get("coreArtifactSha256"))
         artifact = artifacts.get(profile.get("coreId"))
         if actual != expected or profile.get("emulatorjsVersion") != "4.2.3" or \
-                profile.get("contentKind") != "SINGLE_FILE" or profile.get("maxPlayers") != 2 or \
+                profile.get("maxPlayers") != 2 or \
                 artifact is None or artifact.get("sha256") != profile.get("coreArtifactSha256") or \
                 "SINGLE_FILE" not in artifact.get("supported_content_kinds", []):
             raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")

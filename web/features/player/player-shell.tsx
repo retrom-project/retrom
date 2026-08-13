@@ -694,17 +694,17 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
   }, [launchId]);
 
   useEffect(() => {
-    const suspendHidden = () => {
-      if (document.visibilityState === "hidden" && playerMode.current === "netplay") netplayController.current?.suspend("HIDDEN");
+    const releaseHiddenControls = () => {
+      if (document.visibilityState === "hidden" && playerMode.current === "netplay") netplayController.current?.handleFocusLoss();
     };
-    const suspendBlurred = () => {
-      if (playerMode.current === "netplay") netplayController.current?.suspend("BLUR");
+    const releaseBlurredControls = () => {
+      if (playerMode.current === "netplay") netplayController.current?.handleFocusLoss();
     };
-    document.addEventListener("visibilitychange", suspendHidden);
-    window.addEventListener("blur", suspendBlurred);
+    document.addEventListener("visibilitychange", releaseHiddenControls);
+    window.addEventListener("blur", releaseBlurredControls);
     return () => {
-      document.removeEventListener("visibilitychange", suspendHidden);
-      window.removeEventListener("blur", suspendBlurred);
+      document.removeEventListener("visibilitychange", releaseHiddenControls);
+      window.removeEventListener("blur", releaseBlurredControls);
     };
   }, []);
 

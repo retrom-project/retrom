@@ -43,7 +43,7 @@ export function applyRoomSnapshot(current: NetplayRoom, incoming: NetplayRoom) {
 
 export function netplayBlocker(code: NetplayGame["blockerCode"]) {
   return ({
-    CONTENT_NOT_ALLOWLISTED: "内容不在首发联机白名单",
+    CONTENT_NOT_ALLOWLISTED: "当前内容类型尚未支持联机",
     CORE_NOT_ALLOWLISTED: "当前核心尚未验证联机",
     DEPENDENCY_STALE: "运行依赖需要重新验证",
     GAME_UNAVAILABLE: "游戏当前不可用",

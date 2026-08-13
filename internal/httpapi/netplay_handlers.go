@@ -540,9 +540,7 @@ func (server *Server) streamNetplayEvents(
 	roomID, profileID string,
 	lastID int64,
 ) {
-	writer.Header().Set("Content-Type", "text/event-stream")
-	writer.Header().Set("Cache-Control", "private, no-store")
-	writer.Header().Set("Connection", "keep-alive")
+	setNetplayEventStreamHeaders(writer.Header())
 	room, _ := server.netplay.Room(request.Context(), roomID, profileID)
 	encoded, _ := json.Marshal(room)
 	_, _ = fmt.Fprintf(writer, "event: room.snapshot\ndata: %s\n\n", encoded)
@@ -581,6 +579,14 @@ func (server *Server) streamNetplayEvents(
 			}
 		}
 	}
+}
+
+func setNetplayEventStreamHeaders(headers http.Header) {
+	headers.Set("Content-Type", "text/event-stream")
+	headers.Set("Cache-Control", "private, no-store, no-transform")
+	headers.Set("Content-Encoding", "identity")
+	headers.Set("Connection", "keep-alive")
+	headers.Set("X-Accel-Buffering", "no")
 }
 
 func (server *Server) netplaySocket(writer http.ResponseWriter, request *http.Request) {

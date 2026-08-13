@@ -151,7 +151,7 @@ Migration 033 在 032 之后替换审核 preview/screenshot trigger，不新增�
 
 ### M12：受限异地联机垂直切片
 
-范围：先锁定 `data/netplay/v1` schema/manifest、4.2.3 Player/netplay adapter 映射和两个合法本机 fixture selector；再落 Migration 032、独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；最后接通 `/netplay`、房间 UI 与 Player 的 discriminated netplay mode。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面；普通 Launch、存档和未启用 flag 的路由必须回归不变。
+范围：先锁定 `data/netplay/v1` schema/manifest、4.2.3 Player/netplay adapter 映射、FCEUmm/FBNeo 两个 core profile 和各一个合法本机代表性 fixture selector；再落 Migration 032、独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；最后接通 `/netplay`、房间 UI 与 Player 的 discriminated netplay mode。profile 按精确 EmulatorJS/core artifact 放开合格 READY 游戏，fixture 只验证代表性真实内容，不成为逐 ROM 产品白名单。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面；普通 Launch、存档和未启用 flag 的路由必须回归不变。
 
 退出门禁：完整执行 `ACC-NP-001`–`013`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e`、两个 exact core 的真实 smoke 和 `make build-images`；032 的 031 升级路径、全新库、正式 UI 源及导出快照全部闭环后才可删除临时设计目录。
 

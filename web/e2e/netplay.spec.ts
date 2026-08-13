@@ -178,7 +178,7 @@ async function setupRoom(host: PlayerProcess, guest: PlayerProcess, game: "fceum
   const gameID = game === "fceumm"
     ? "01980000-0000-7000-8000-00000000c101"
     : "01980000-0000-7000-8000-00000000c201";
-  const profileID = game === "fceumm" ? "fceumm-423-f1race-v1" : "fbneo-423-ldrun-v1";
+  const profileID = game === "fceumm" ? "fceumm-423-v1" : "fbneo-423-v1";
   let room = (await mutation<RoomSnapshot>(host, "POST", "/api/v1/netplay/rooms", {})).body;
   room = (await mutation<RoomSnapshot>(
     host, "PUT", `/api/v1/netplay/rooms/${room.roomId}/game`,
@@ -285,6 +285,11 @@ async function runBaseline(
       openRuntime(host, setup.hostLaunch.playUrl), openRuntime(guest, setup.guestLaunch.playUrl),
     ]);
     await Promise.all([waitForFrame(hostPage, 60), waitForFrame(guestPage, 60)]);
+    await guestPage.evaluate(() => window.dispatchEvent(new Event("blur")));
+    await Promise.all([waitForFrame(hostPage, 90), waitForFrame(guestPage, 90)]);
+    const afterBlur = await snapshot(guestPage);
+    expect(afterBlur.connections).toBe(1);
+    expect(afterBlur.reconnects).toBe(0);
     await exerciseInputs(hostPage, guestPage);
     await Promise.all([waitForFrame(hostPage, targetFrame), waitForFrame(guestPage, targetFrame)]);
     const [hostResult, guestResult] = await Promise.all([snapshot(hostPage), snapshot(guestPage)]);
@@ -317,6 +322,7 @@ async function runBaseline(
       pids: [host.pid, guest.pid], launchIds: [setup.hostLaunch.launchId, setup.guestLaunch.launchId],
       roomId: setup.room.roomId, sessionId: setup.sessionID,
       host: hostResult, guest: guestResult, matchingCheckpoints: checkpoints.slice(-3),
+      focusLossRetainedConnection: afterBlur.connections === 1 && afterBlur.reconnects === 0,
       logicalBasename: game === "fbneo" ? "ldrun.zip" : "f1-race.nes",
     };
     await closeAcceptanceRoom(host, roomID, sessionID);
@@ -362,7 +368,7 @@ test("ACC-NP-001 navigation search share seat conflict and permissions", async (
     await expect(hostPage.getByRole("combobox", { name: "联机支持" })).toHaveValue("ALL");
     room = (await mutation<RoomSnapshot>(
       host, "PUT", `/api/v1/netplay/rooms/${room.roomId}/game`,
-      { gameId: "01980000-0000-7000-8000-00000000c101", netplayProfileId: "fceumm-423-f1race-v1" },
+      { gameId: "01980000-0000-7000-8000-00000000c101", netplayProfileId: "fceumm-423-v1" },
       room.version,
     )).body;
     await hostPage.reload();
@@ -399,10 +405,40 @@ test("ACC-NP-001 navigation search share seat conflict and permissions", async (
     expect(adminBypass.status()).toBe(403);
     await hostPage.screenshot({ path: evidencePath(testInfo, "netplay-room-host.png"), fullPage: true });
     await guestPage.screenshot({ path: evidencePath(testInfo, "netplay-room-guest.png"), fullPage: true });
+    await guestPage.getByRole("button", { name: "准备" }).click();
+    await expect(guestPage.getByRole("button", { name: "取消准备" })).toBeVisible();
+    await expect(hostPage.locator(".netplay-seat").filter({ hasText: "P2" }).getByText("已准备")).toBeVisible();
+    await hostPage.getByRole("button", { name: "准备" }).click();
+    await expect(hostPage.getByRole("button", { name: "取消准备" })).toBeVisible();
+    const start = hostPage.getByRole("button", { name: "开始联机" });
+    await expect(start).toBeEnabled();
+    let releaseHostConfig: () => void = () => undefined;
+    const hostConfigGate = new Promise<void>((resolve) => { releaseHostConfig = resolve; });
+    await hostPage.route("**/runtime/launches/*/config", async (route) => {
+      await hostConfigGate;
+      await route.continue();
+    });
+    await start.click();
+    await Promise.all([
+      expect(hostPage).toHaveURL(/\/play\/[0-9a-f-]+$/),
+      expect(guestPage).toHaveURL(/\/play\/[0-9a-f-]+$/),
+    ]);
+    expect(new URL(hostPage.url()).pathname).not.toBe(new URL(guestPage.url()).pathname);
+    await expect(guestPage.locator(".player-loading strong")).toHaveText("正在建立联机同步屏障…", { timeout: 120_000 });
+    await guestPage.evaluate(() => window.dispatchEvent(new Event("blur")));
+    await guestPage.waitForTimeout(1_500);
+    await expect(guestPage).toHaveURL(/\/play\/[0-9a-f-]+$/);
+    await expect(guestPage.getByText("联机启动配置已失效")).toHaveCount(0);
+    releaseHostConfig();
+    await expect.poll(async () => {
+      const response = await host.context.request.get(`/api/v1/netplay/rooms/${room.roomId}`);
+      return (await response.json() as RoomSnapshot).state;
+    }, { timeout: 120_000 }).toBe("RUNNING");
     writeEvidence(testInfo, {
       browser: await host.browser.version(), pids: [host.pid, guest.pid], roomId: room.roomId,
       filters: ["F-1", "FCEUmm", "Arcade", "FBNeo 游戏", "ALL"],
-      seatConflict: "NETPLAY_SEAT_TAKEN", adminBypass: "NETPLAY_FORBIDDEN", sharedURL: new URL(hostPage.url()).pathname,
+      seatConflict: "NETPLAY_SEAT_TAKEN", adminBypass: "NETPLAY_FORBIDDEN",
+      launchPaths: [new URL(hostPage.url()).pathname, new URL(guestPage.url()).pathname], preSyncBlurRetained: true,
     });
   } finally {
     await third?.dispose();
@@ -418,7 +454,7 @@ test("ACC-NP-002 start barrier rolls back a partial launch then retries atomical
     const gameID = "01980000-0000-7000-8000-00000000c101";
     let room = (await mutation<RoomSnapshot>(host, "POST", "/api/v1/netplay/rooms", {})).body;
     room = (await mutation<RoomSnapshot>(host, "PUT", `/api/v1/netplay/rooms/${room.roomId}/game`, {
-      gameId: gameID, netplayProfileId: "fceumm-423-f1race-v1",
+      gameId: gameID, netplayProfileId: "fceumm-423-v1",
     }, room.version)).body;
     room = (await mutation<RoomSnapshot>(guest, "PUT", `/api/v1/netplay/rooms/${room.roomId}/members/me/seat`, {
       playerNo: 2,

@@ -39,7 +39,6 @@ type peer struct {
 	writes      chan outbound
 	queuedBytes int
 	clientSeq   uint64
-	lastInputAt time.Time
 	inputTokens float64
 	inputRefill time.Time
 	authToken   string
@@ -142,7 +141,7 @@ func (hub *Hub) Connect(
 	connection.SetReadLimit(MaxWSMessageBytes)
 	client := &peer{
 		participant: participant, connection: connection, writes: make(chan outbound, 256),
-		authToken: authToken, validator: validator, lastInputAt: time.Now(),
+		authToken: authToken, validator: validator,
 		inputTokens: 240, inputRefill: session.service.clock.Now(),
 	}
 	writerDone := make(chan struct{})
@@ -198,20 +197,13 @@ func (client *peer) validationLoop(
 ) {
 	defer close(done)
 	authTicker := time.NewTicker(5 * time.Second)
-	inputTicker := time.NewTicker(500 * time.Millisecond)
 	defer authTicker.Stop()
-	defer inputTicker.Stop()
 	for {
 		select {
 		case <-ctx.Done():
 			return
 		case <-authTicker.C:
 			if !client.validateAndPing(ctx, session) {
-				return
-			}
-		case now := <-inputTicker.C:
-			if client.inputStalled(session, now) {
-				_ = client.connection.Close(websocket.StatusPolicyViolation, "input contribution stalled")
 				return
 			}
 		}
@@ -228,16 +220,6 @@ func (client *peer) validateAndPing(ctx context.Context, session *realtimeSessio
 	err := client.connection.Ping(pingContext)
 	cancelPing()
 	return err == nil
-}
-
-func (client *peer) inputStalled(session *realtimeSession, now time.Time) bool {
-	client.mu.Lock()
-	lastInputAt := client.lastInputAt
-	client.mu.Unlock()
-	session.mu.Lock()
-	defer session.mu.Unlock()
-	return session.running && session.peers[client.participant.PlayerNo] == client &&
-		now.Sub(lastInputAt) > 2*time.Second
 }
 
 func (session *realtimeSession) readMessages(ctx context.Context, client *peer) error {
@@ -460,13 +442,9 @@ func (session *realtimeSession) handleMessage(
 		if message.Reason != "HIDDEN" && message.Reason != "BLUR" {
 			return ErrProtocol
 		}
-		session.mu.Lock()
-		session.broadcastLocked(ctx, "PAUSE", map[string]any{
-			"reason": message.Reason, "atFrame": session.nextFrame - 1,
-			"affectedPlayerNo": client.participant.PlayerNo,
-		})
-		session.mu.Unlock()
-		go func() { _ = client.connection.Close(websocket.StatusNormalClosure, "client suspended") }()
+		// Compatibility no-op for an already-loaded client from before focus loss
+		// stopped being a network lifecycle event. A live page retains its socket;
+		// lockstep naturally waits if Chrome throttles its frame production.
 		return nil
 	case "STATE_META":
 		return session.acceptStateMeta(ctx, client, message)
@@ -632,11 +610,6 @@ func (session *realtimeSession) acceptInput(
 			return fmt.Errorf("input contribution mutated: %w", ErrProtocol)
 		}
 		return nil
-	}
-	if client := session.peers[playerNo]; client != nil {
-		client.mu.Lock()
-		client.lastInputAt = time.Now()
-		client.mu.Unlock()
 	}
 	contributions[playerNo] = value
 	for {
@@ -873,12 +846,6 @@ func (session *realtimeSession) maybeStartLocked(ctx context.Context) {
 	session.inputs = make(map[int64]map[int][24]int16)
 	session.hashes = make(map[int64]map[int]string)
 	session.running = true
-	now := time.Now()
-	for _, client := range session.peers {
-		client.mu.Lock()
-		client.lastInputAt = now
-		client.mu.Unlock()
-	}
 	if err := session.service.MarkSessionRunning(ctx, session.roomID, session.sessionID); err != nil &&
 		!errors.Is(err, ErrRoomConflict) {
 		go session.fail(context.WithoutCancel(ctx), "INTERNAL_ERROR", "")
