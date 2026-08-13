@@ -58,7 +58,7 @@ func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 		t.Fatalf("anonymous write = %d %s", denied.Code, denied.Body.String())
 	}
 
-	auth := accountHTTPLogin(t, handler, "test", "test")
+	auth := accountHTTPLogin(t, handler)
 	request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/platform-instances", strings.NewReader(requestBody))
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Idempotency-Key", uuid.NewString())
@@ -76,7 +76,7 @@ func TestProtectedWritesRejectInvalidOriginWithoutEnablingCORS(t *testing.T) {
 	t.Parallel()
 	server, _ := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
-	auth := accountHTTPLogin(t, handler, "test", "test")
+	auth := accountHTTPLogin(t, handler)
 	send := func(name string, headers map[string]string) *httptest.ResponseRecorder {
 		body := fmt.Sprintf(
 			`{"platformId":"gbc","defaultCoreId":"gambatte","name":%q,"description":"","sortOrder":900}`,
@@ -353,7 +353,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 31 ||
+		response.DatabaseSchemaVersion != 32 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)

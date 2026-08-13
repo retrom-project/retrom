@@ -10,7 +10,8 @@ const anonymous: AuthContext = {
   csrfToken: null,
   idleExpiresAtMs: null,
   absoluteExpiresAtMs: null,
-  testDefaultAccountActive: false
+  testDefaultAccountActive: false,
+  netplayEnabled: false
 };
 
 const administrator: AuthContext = {

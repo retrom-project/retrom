@@ -48,6 +48,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 支持游戏元信息、文件 revision、游戏目录、BIOS 和用户 DAT 的管理。
 - 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
 - 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
+- 可选启用两人异地联机房间；首发只允许 manifest 精确锁定的 FCEUmm/F1 Race 与 FBNeo/Lode Runner 组合，使用服务端中继输入的 rollback，不传输画面或音频。
 - 正式支持 35 个逐一验证的 EmulatorJS core；完整平台映射、默认目录与核心清单见第 6 节，画面证据见核心运行时验证基线。
 
 一期不包含：
@@ -55,11 +56,11 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 多因素认证、WebAuthn、自助邮件找回密码和外部身份提供商。
 - 移动端及 Chrome 之外的浏览器兼容性承诺。
 - 公网匿名开放或无需登录的管理入口。
-- 异地联机房间、匹配、聊天、信令或 TURN。
+- 自动匹配、聊天、观战、语音、WebRTC 信令或 TURN；联机首发只有已登录用户通过房间链接加入的两人模式。
 - Arcade Merged ROMset。
 - 成就、评分、评论、推荐算法和社交关系。
 
-“和朋友一起玩”在一期指通过管理员邀请共享同一游戏目录，以及 EmulatorJS/core 本身支持的本地多人输入；不等于互联网实时联机。每个账号固定拥有一个不可复用的 Profile，游戏目录共享，最近游玩、Launch、存档和 PersistentSave 私有。
+“和朋友一起玩”包括通过管理员邀请共享游戏目录，以及在 `RETROM_NETPLAY_ENABLED=true` 时通过同源房间链接进行受限异地联机。每个账号固定拥有一个不可复用的 Profile；游戏目录共享，普通最近游玩、Launch、存档和 PersistentSave 私有。联机参与身份仍按 Profile 授权，但本局从头开始且不读取或写入任何个人存档。
 
 ## 3. 关键产品与技术决策
 
@@ -147,6 +148,10 @@ Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个�
 
 收藏不改变 Game 对 PlatformInstance 的唯一归属。Favorite 绑定认证 Profile 与共享 Game；FavoriteFolder 只组织已收藏游戏，一款 Game 可进入多个 Folder。加入 Folder 自动收藏，移除或删除 Folder 保留 Favorite，取消 Favorite 才原子删除全部 Membership。管理员没有跨 Profile 查看或维护入口，游戏不可见只隐藏投影而不删除关系。完整边界见 [收藏与收藏夹](./favorites-and-collections.md)。
 
+### 3.10 联机是版本锁定的非串流 rollback 能力
+
+联机不是通用核心能力。`data/netplay/v1/manifest.json` 同时锁定 EmulatorJS、普通 Player adapter、联机 adapter、core artifact SHA-256、内容 size/SHA-256、24 个控制值和 prediction/rollback/state 上限。每位参与者的浏览器运行同一锁定内容；Go `internal/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 savestate 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile 漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
+
 ## 4. 系统上下文
 
 ~~~mermaid
@@ -161,6 +166,7 @@ flowchart LR
     J --> A["Arcade DAT 解析器"]
     J --> H["Hasheous 哈希元信息查询"]
     R -->|同源启动资源 / 存档 / 心跳| N
+    R -->|同源 WSS：输入 / hash / state| S
 ~~~
 
 部署与安全边界：
@@ -171,6 +177,7 @@ flowchart LR
 - NG 必须让页面、EmulatorJS 与受控内容端点保持同源，并保留/设置正确的 COOP/COEP/CORP 响应头；DOSBox Pure 等线程模式依赖该安全上下文。
 - 所有浏览器写入校验精确公开 `Origin`；已登录写入另校验内存中的 CSRF token。可信代理 CIDR 只用于规范化限流客户端 IP，不构成授权。
 - EmulatorJS、core artifact 和 DAT 均锁定版本，不依赖浮动 CDN。
+- 联机只在同一 Go 进程内中继；NG 必须保留 WebSocket upgrade，同一数据根仍禁止多个后端写进程。
 
 ## 5. 核心领域关系
 
@@ -258,6 +265,7 @@ erDiagram
 - 游戏库：搜索、平台/游戏目录筛选和已发布游戏卡片。
 - 我的存档：带截图的手动存档及快速继续。
 - 最近游玩：只展示当前账号的启动历史。
+- 联机游玩：feature flag 开启时位于“最近游玩”之后，展示当前房间、最近终局和创建入口。
 - 账户设置：只读账号资料和密码轮换。
 - 管理后台：固定在底部，切换整套管理菜单。
 
@@ -285,6 +293,7 @@ erDiagram
 | 首页 / 游戏库 / 存档 | `/`、`/library`、`/saves` |
 | 游戏详情 | `/games/:gameId` |
 | 持久 Player Shell | `/play/:launchId` |
+| 联机首页 / 房间 | `/netplay`、`/netplay/rooms/:roomId` |
 | 游戏入库总览 | `/admin/imports` |
 | 新建导入 / 本地扫描 / 任务进度 | `/admin/imports/new`、`/admin/imports/server`、`/admin/imports/tasks` |
 | 待审核 / 审核详情 / 历史 | `/admin/reviews`、`/admin/reviews/:itemId`、`/admin/reviews/history` |
@@ -329,6 +338,10 @@ flowchart LR
 
 手动状态存档必须包含截图。有效游玩时长通过 PlaySession 心跳累计；页面后台、模拟器暂停和长时间失联不计入有效时长。
 
+### 8.4 联机房间与 rollback
+
+房主创建 DRAFT 房间并原子占 P1，选择服务端 eligibility 返回的精确 profile 后进入 WAITING；访客通过站内房间 URL 登录、占 P2，双方 ready 后房主锁定 Session。每位参与者只创建自己的 Launch 与两类路径受限 cookie，进入普通无侧栏 `/play/:launchId`。浏览器先在帧边界暂停，P1 提供初始 RASTATE，服务端校验 full/core digest 后转发给 P2，再开始统一 epoch。运行期服务端只在收到全部已占座输入后发布 canonical frame；客户端最多预测 8 帧、最多回滚 120 帧，每 120 帧比较 core digest。隐藏、失焦、房主全局暂停或断线都会停止推进；断线 10 秒内重连通过 history + 新 state transfer 开启新 epoch。访客退出/超时结束当前 Session、释放其座位并让房间回到 WAITING；房主丢失、服务重启、恢复或 8 小时硬到期才关闭房间。所有联机 save route 固定返回 `409 NETPLAY_SAVE_UNSUPPORTED`。
+
 ## 9. 数据与版本基线
 
 - EmulatorJS 基础运行时锁定 `4.2.3`，`dosbox_pure`、`genesis_plus_gx_wide`、`azahar` 定向使用 `4.3.0-pre`；core 和 DAT 必须记录实际 artifact 标识与 SHA-256。`mame2003` 暂用已验证的官方 4.2.1 core bundle 覆盖，精确边界见[核心运行时验证基线](./core-runtime-validation.md)，不得概括成“所有 core 都来自同一版本”。
@@ -337,6 +350,7 @@ flowchart LR
 - 用户上传内容、下载媒体、存档和截图进入运行时 CAS，不提交到代码仓库。
 - 预置 DAT 不可变；用户 DAT 作为新的非活动 DatVersion 保存，经过解析、差异预览和显式启用后才影响新诊断。
 - DAT 更新不静默改写已发布 GameVariant 的历史兼容性快照；重校验产生新结果并可追踪来源。
+- 联机 allowlist 是独立于普通兼容性的收紧层；普通 READY 不代表可联机，只有 exact manifest profile 可进入房间选择。
 
 ## 10. 一期实施阶段
 
@@ -383,6 +397,12 @@ Phase 0 未通过时，不进入大规模业务实现。
 - 游戏库、详情和 `/favorites` 的收藏、分类、批量整理、两秒撤销、键盘与多尺寸闭环。
 - 以 `ACC-FAV-001`–`004` 和 `make ci` 为退出门禁。
 
+### Phase 6：受限异地联机垂直切片
+
+- Migration 032、netplay manifest、房间/Session/Participant 控制面、独立 credential key 与备份恢复围栏。
+- `/netplay`、房间 UI、SSE、同源 WebSocket hub、4.2.3 帧 adapter、rollback/state/hash/reconnect/end 全链路。
+- 以 `ACC-NP-001`–`013`、全量 Player E2E、真实 FCEUmm/FBNeo 夹具 smoke 和双镜像构建为退出门禁。
+
 ## 11. 统一验收入口
 
 一期所有验收流程、标准、固定夹具、证据要求和短时执行上限统一由 [一期项目验收规范](./project-acceptance.md) 维护。该文档中的 `ACC-*` Case 覆盖本文的全部一期范围；专题文档只解释设计和实现约束，不再维护另一份通过条件。
@@ -391,9 +411,9 @@ Agent 不得根据本总览自行省略或合并 Case，尤其不得把三十五
 
 ## 12. 已锁定边界与后续议题
 
-以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；必须登录且账号 Profile 私有；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
+以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；必须登录且账号 Profile 私有；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；联机是可关闭、exact allowlist、单进程服务端中继的非串流 rollback 且不支持存档；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
 
-异地网络联机、MFA/外部身份、CHD 和 Merged ROMset 只能作为未来版本提案，必须新增设计、威胁模型、迁移和验收 Case；一期 agent 不得预留半实现入口或用占位逻辑宣称支持。
+通用核心联机、自动匹配/聊天/观战/WebRTC、MFA/外部身份、必需 CHD 和 Merged ROMset 只能作为未来版本提案，必须新增设计、威胁模型、迁移和验收 Case；一期 agent 不得把两条已验证 profile 扩大成通用联机承诺。
 
 ## 13. 评审入口与参考
 

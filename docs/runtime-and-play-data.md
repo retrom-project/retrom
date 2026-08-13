@@ -250,6 +250,16 @@ X-Content-Type-Options: nosniff
 
 启动前检查 `window.isSecureContext`、`window.crossOriginIsolated` 和 `SharedArrayBuffer`。`make dev` 的测试服务器基线公开 origin 为 `https://dev.sendev.cc`，且不得把任何远程请求重定向到 localhost；隔离的本地实例可显式覆盖该值。若线程核心详情页从明文 HTTP 主机名打开，前端不发送一个注定被拒绝的 Launch，只明确报告浏览器线程能力不足；测试者可自行使用受信 HTTPS origin 或浏览器测试参数，本项目不替换请求 Host。Go/Next.js 只监听明文 HTTP，不终结 TLS。
 
-## 13. 统一验收入口
+## 13. 联机 Launch、帧 adapter 与 rollback
+
+`GET /runtime/launches/:launchId/config` 使用 `mode` 区分普通与联机。普通为 `mode=single,netplay=null`；联机为 `mode=netplay`，并额外返回 `roomId/sessionId/playerNo/netplayProfile/runtimeSocketUrl`，同时强制 `persistentSaveMode=NONE`、`persistentSaveUrl/stateUrl/discSet=null`。前端必须在请求 game/core/runtime 之前验证这一组合、profile canonical 字段、EmulatorJS 4.2.3、`ejs-4.2.3-v2` 与 `ejs-netplay-4.2.3-v1`；矛盾或未知值立即阻断。联机 config、内容与普通 PlaySession 仍由本人的 Launch cookie 授权，room WebSocket 另用独立 room cookie。
+
+联机 Player 不显示创建存档、普通暂停、换盘、控制重映射或 Core 设置；明确展示 P1/P2、网络/同步状态和“不读取或写入个人存档”。P1 可发起下一 canonical 边界的全局暂停/继续；隐藏或失焦先清空本地控制并请求暂停。退出发送全局 `USER_EXIT`，结束 PlaySession 后使用 `location.replace('/netplay/rooms/:roomId')`，浏览器后退不能复活旧 Player。所有 persistent/save-state runtime route 对联机 Launch 返回 `409 NETPLAY_SAVE_UNSUPPORTED`，前端也不得探测这些 URL。
+
+`EJSNetplayFrameBridge` 只适配 4.2.3：拦截本地 P1 physical controls、通过 `postMainLoop`/`toggleMainLoop` 精确推进一帧、用原生 `getState/loadState` 处理 RASTATE，并在 rollback replay 时抑制画面/音频。RASTATE 必须含 version 1 与 `MEM ` chunk；full state 和 core chunk 分别 SHA-256，state 最大 1 MiB。`loadState` 即使目标 bytes 与当前状态相同也必须真实调用；联机模式使用 manifest 锁定的 4.2.3 source loader，让 adapter 接收 RetroArch 的 `[State] ... game.state` 原生完成日志，同时显式关闭 EmulatorJS 实验性 netplay transport。每次加载由 adapter 先替换内存 FS 的 `/game.state`、调用固定 `functions.loadState("game.state", 0)`，在日志 callback 返回后的 microtask 暂停主循环、重抓并逐字节验证，再立即删除该文件；不能使用公共 `GameManager.loadState` 的五秒延迟清理、JS 函数返回、文件 open/close 或 digest 相同替代 native completion。每 epoch 从 P1 state transfer 开始；客户端最多预测 8 帧，保存 120 帧/128 MiB state ring，canonical 差异回滚到最早帧并确定性 replay，每 120 帧上报 core digest。服务端 history 保留 600 帧；PAUSE 后所有 occupied seat 先确认相同边界，恢复端再确认 history `toFrame`，断线 10 秒内客户端才经 authority state 开新 epoch。访客超时结束本局、释放座位并回 WAITING，房主超时以 `HOST_LOST` 关闭房间。60 秒内前三次 checkpoint mismatch 都执行真实 authority state resync，第四次以 `NETPLAY_UNSTABLE` 结束本局。任何 ring 溢出、窗口越界、state 格式/协议突变都 fail closed，不以继续运行掩盖分歧。
+
+普通 Player adapter、普通 Launch、状态/持久存档和多盘路径保持原契约；联机 exact profile 是否可选只由服务端 allowlist + 当前 READY revision 判断，不由前端 core 名称推断。
+
+## 14. 统一验收入口
 
 启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-005`；状态/持久存档执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；事件映射、三十五 core 画面与跨源隔离分别由 `ACC-CORE-*`、`ACC-NET-001` 和运行时回归测试覆盖。

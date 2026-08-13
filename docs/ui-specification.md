@@ -21,6 +21,9 @@
 - [游戏详情 · 非默认核心对话框 · 2560×1440](./design/retrom-ui-game-detail-core-override.png)
 - [我的存档 · 2560×1440](./design/retrom-ui-saves.png)
 - [最近游玩 · 3840×2160](./design/retrom-ui-recent-4k.png)
+- [联机首页 · 2560×1440](./design/retrom-ui-netplay.png)
+- [联机房间 · 房主等待 · 2560×1440](./design/retrom-ui-netplay-room.png)
+- [联机 Player · 2560×1440](./design/retrom-ui-netplay-player.png)
 - [首次设置 · 1280×800](./design/retrom-ui-setup.png)
 - [登录 · 1280×800](./design/retrom-ui-login.png)
 - [邀请注册 · 1280×800](./design/retrom-ui-register.png)
@@ -77,6 +80,7 @@
 - 我的存档
 - 我的收藏
 - 最近游玩
+- 联机游玩（仅 `netplayEnabled=true`，紧跟“最近游玩”）
 - 管理后台（仅 `ADMIN`，侧边栏底部）
 - 账户菜单（显示名、`@username`、账户设置与退出登录）
 
@@ -116,6 +120,8 @@
 | 我的存档 | `/saves` |
 | 我的收藏 | `/favorites` |
 | 最近游玩 | `/recent` |
+| 联机首页 | `/netplay` |
+| 联机房间 | `/netplay/rooms/:roomId` |
 | 游玩页 | `/play/:launchId` |
 | 游戏入库总览 | `/admin/imports` |
 | 新建导入 | `/admin/imports/new` |
@@ -338,7 +344,17 @@ URL 状态为：
 
 浏览器拒绝全屏或深链接没有用户激活时的例外行为见 [运行时与游玩数据](./runtime-and-play-data.md)。
 
-### 6.8 账户入口与账户设置
+### 6.8 联机首页、房间与 Player
+
+`/netplay` 只有 feature flag 开启且已登录时可进入。标题区提供唯一“创建房间”主操作并在提交中防双击；下方固定分“当前房间”和“最近联机”两区，分别覆盖 skeleton、空状态、容量/限流错误和终态卡片。Room card 展示短房号、状态、游戏/core、参与人数与进入入口，不暴露 Profile ID、Launch 或 credential。
+
+房主新建后进入 DRAFT 游戏选择页。该页复用游戏库的标题、搜索、集合/平台筛选、排序、响应式卡片与空状态；只增加 SUPPORTED/UNSUPPORTED eligibility、blocker 文案和“选择”，若同一游戏有多条 profile 才打开窄对话框。筛选以 `history.replaceState` 维护 `q/platformId/platformInstanceId/availability/sort`，`/` 快捷键聚焦搜索，不能复制一套漂移的游戏库布局。首个 server render 必须从 App Router `searchParams` 得到同一规范化筛选并作为 Client Component 初值；不得在 hydration 后才从 `window.location` 补写状态而造成 HTML 漂移，刷新和前进/后退必须恢复同一结果。
+
+WAITING 房间展示游戏锁定摘要、复制本站房间链接、P1–P4 座位卡与底部操作。未占座访客只能选择支持范围内的空 P2–P4；成员 ready 后先取消才能换座。房主可在 WAITING 移出访客、更换游戏、关闭房间，只有至少两人且全员 ready 时“开始联机”可用。SSE 断线提示不得遮盖座位；连续失败转为 5 秒轮询并保留可重试错误。STARTING 为每人自动创建自己的 Launch 并 `location.replace` 到 Player，不展示第二个启动按钮；终态原位说明 reason 并返回联机首页。
+
+联机 Player 复用无侧栏 stage 与工具栏视觉，但元信息明确显示“联机 · Pn”。它隐藏创建存档、普通暂停、换盘、Core/控制重映射和模拟器设置；P1 只看到“全局暂停/继续联机”，P2 只看到网络状态。暂停 overlay 写“联机已暂停/等待房主继续”；断线在 10 秒租约内显示“连接中断，正在恢复”，恢复时不离开 Player。退出确认明确“会结束所有参与者且不会产生存档”，确认后返回本房间。所有联机按钮、seat、dialog、SSE error 和终态必须可键盘操作、有可读 label/status/live region，不能只靠颜色表达。
+
+### 6.9 账户入口与账户设置
 
 - `/setup` 只在实例 `PENDING` 时显示初始化表单，要求管理员用户名、显示名、密码及主机生成的一次性 setup code；提交成功后直接建立管理员会话并替换到首页。`READY` 实例不得重新进入初始化流程。
 - `/login` 只显示通用的“用户名或密码错误”，不能泄露账号存在、停用或锁定状态；达到限流时保留用户名、清空密码、显示剩余等待时间。`test` 模式必须常驻非生产警告，不能仅用颜色区分。

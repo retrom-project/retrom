@@ -1,10 +1,14 @@
+import { installEmulatorJs423NetplayCompatibility } from "../netplay/ejs-netplay-4.2.3-v1";
+
 export type PlayerConfig = {
+  mode: "single" | "netplay";
   launchId: string;
   emulatorjsVersion: string;
   playerAdapterId: string;
   core: string;
   runtimeCore: string;
   coreName: string;
+  coreArtifactId: string;
   emulatorGameId: number;
   gameName: string;
   gameTitle: string;
@@ -27,6 +31,13 @@ export type PlayerConfig = {
   dosEntry?: string | null;
   warnings?: string[];
   returnTo: string;
+  netplay: {
+    roomId: string;
+    sessionId: string;
+    playerNo: number;
+    netplayProfile: import("../netplay/controller").NetplayProfile;
+    runtimeSocketUrl: string;
+  } | null;
 };
 
 export type DiscSet = {
@@ -52,6 +63,8 @@ export type StartupAction = {
 };
 
 export type EmulatorInstance = {
+  Module?: { postMainLoop?: () => void };
+  canvas?: HTMLCanvasElement;
   allSettings?: Record<string, unknown>;
   paused?: boolean;
   volume?: number;
@@ -77,8 +90,12 @@ export type EmulatorInstance = {
     loadSaveFiles?: () => void;
     loadState?: (bytes: Uint8Array) => void;
     setCurrentDisk?: (index: number) => void;
-    simulateInput?: (player: number, control: number, value: 0 | 1) => void;
+    simulateInput?: (player: number, control: number, value: number) => void;
     toggleMainLoop?: (running: boolean) => void;
+    toggleFastForward?: (running: boolean) => void;
+    functions?: { simulateInput?: (player: number, control: number, value: number) => void };
+    loadStateAndWait?: (bytes: Uint8Array, timeoutMs?: number) => Promise<{ byteExact: boolean }>;
+    runNetplayFrame?: (timeoutMs?: number) => Promise<number>;
   };
   downloadType?: { rom?: { dontExtractIfCore?: string[] } };
 };
@@ -130,6 +147,8 @@ declare global {
     EJS_disableBatchBootup?: boolean;
     EJS_language?: string;
     EJS_disableAutoLang?: boolean;
+    EJS_DEBUG_XX?: boolean;
+    EJS_EXPERIMENTAL_NETPLAY?: boolean;
     EJS_threads?: boolean;
     EJS_defaultOptions?: Record<string, string>;
     EJS_paths?: Record<string, string>;
@@ -300,7 +319,24 @@ function initializeMultiDiscSettings(instance: EmulatorInstance) {
     throw new Error("PLAYER_DISC_SETTINGS_INVALID");
   }
 }
-function validateConfig(config: PlayerConfig) {
+export function validateConfig(config: PlayerConfig) {
+  if (config.mode !== "single" && config.mode !== "netplay") throw new Error("PLAYER_MODE_INVALID");
+  if (config.mode === "single" && config.netplay !== null) throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");
+  if (config.mode === "netplay") {
+    const netplay = config.netplay;
+    const profile = netplay?.netplayProfile;
+    if (!netplay || !profile || config.emulatorjsVersion !== "4.2.3" || config.playerAdapterId !== "ejs-4.2.3-v2" ||
+      config.persistentSaveMode !== "NONE" || config.persistentSaveUrl !== null || config.stateUrl !== null || config.discSet ||
+      netplay.playerNo < 1 || netplay.playerNo > 4 || netplay.runtimeSocketUrl !== `/runtime/netplay/rooms/${netplay.roomId}/socket` ||
+      profile.schemaVersion !== 1 || profile.protocolVersion !== "retrom-netplay-v1" || profile.playerAdapterId !== config.playerAdapterId ||
+      profile.netplayAdapterId !== "ejs-netplay-4.2.3-v1" || profile.coreArtifactId !== config.coreArtifactId ||
+      profile.emulatorjsVersion !== config.emulatorjsVersion || profile.gameVariantRevisionId.length === 0 ||
+      !/^[0-9a-f]{64}$/.test(profile.coreArtifactSha256) || !/^[0-9a-f]{64}$/.test(profile.sourceManifestDigest) ||
+      !/^[0-9a-f]{64}$/.test(profile.dependencySnapshotDigest) || !profile.defaultCoreOptions ||
+      netplay.playerNo > profile.maxPlayers || profile.controlCount !== 24 || profile.maxPredictionFrames !== 8 ||
+      profile.maxRollbackFrames !== 120 || profile.checkpointEveryFrames !== 120 || profile.canonicalHistoryFrames !== 600 ||
+      profile.maxStateBytes !== 1048576) throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");
+  }
   if (!/^[a-z0-9_]{1,64}$/.test(config.runtimeCore)) throw new Error("PLAYER_RUNTIME_CORE_INVALID");
   if (!config.runtimePathOverrides || Object.entries(config.runtimePathOverrides).length !== 1 || Object.entries(config.runtimePathOverrides).some(([name, source]) =>
     !/^[A-Za-z0-9_.-]+-wasm\.data$/.test(name) || name.includes("..") ||
@@ -400,6 +436,11 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_disableBatchBootup = deferredDOSStart;
   runtimeWindow.EJS_language = "zh-CN";
   runtimeWindow.EJS_disableAutoLang = false;
+  // 4.2.3 only forwards RetroArch's native state-task completion log through
+  // its auditable source loader. The pinned netplay adapter consumes that
+  // callback; the EmulatorJS experimental netplay transport stays disabled.
+  runtimeWindow.EJS_DEBUG_XX = config.mode === "netplay";
+  runtimeWindow.EJS_EXPERIMENTAL_NETPLAY = false;
   runtimeWindow.EJS_threads = config.requiresThreads;
   runtimeWindow.EJS_fullscreenOnLoaded = false;
   runtimeWindow.EJS_disableDatabases = true;
@@ -436,6 +477,9 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_defaultOptions = { ...config.defaultCoreOptions };
   runtimeWindow.EJS_paths = { ...config.runtimePathOverrides };
   runtimeWindow.EJS_externalFiles = externalFiles;
+  const cleanupNetplayCompatibility = config.mode === "netplay"
+    ? installEmulatorJs423NetplayCompatibility(runtimeWindow)
+    : () => undefined;
   const cleanupExternalFileCompatibility = config.emulatorjsVersion === "4.2.3" && Object.keys(externalFiles).length > 0
     ? installExternalFileCompatibility(runtimeWindow)
     : () => undefined;
@@ -444,5 +488,5 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   script.async = true;
   script.dataset.retromLoader = "true";
   runtimeWindow.document.head.append(script);
-  return () => { cleanupDeferredStart(); cleanupStartup(); script.remove(); cleanupExternalFileCompatibility(); };
+  return () => { cleanupDeferredStart(); cleanupStartup(); script.remove(); cleanupExternalFileCompatibility(); cleanupNetplayCompatibility(); };
 }

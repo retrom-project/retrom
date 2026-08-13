@@ -13,7 +13,8 @@ const userNavigation: NavItem[] = [
   { href: "/library", label: "游戏库", icon: "library" },
   { href: "/saves", label: "我的存档", icon: "save" },
   { href: "/favorites", label: "我的收藏", icon: "heart" },
-  { href: "/recent", label: "最近游玩", icon: "history" }
+  { href: "/recent", label: "最近游玩", icon: "history" },
+  { href: "/netplay", label: "联机游玩", icon: "gamepad" }
 ];
 
 const adminNavigation: NavItem[] = [
@@ -123,7 +124,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           <span className="brand-mark" aria-hidden="true">R</span>
           <span><strong>Retrom</strong><small>复古游戏管理平台</small></span>
         </Link>
-        <Navigation items={administrator ? adminNavigation : userNavigation} pathname={pathname} />
+        <Navigation items={administrator ? adminNavigation : userNavigation.filter((item) => item.href !== "/netplay" || context.netplayEnabled)} pathname={pathname} />
         <div className="sidebar-foot">
           <div className="sidebar-account-row">
             <details className="account-menu" ref={accountMenuRef}>

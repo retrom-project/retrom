@@ -15,7 +15,10 @@ require (
 
 tool github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen
 
-require github.com/oapi-codegen/oapi-codegen/v2 v2.8.0 // indirect
+require (
+	github.com/coder/websocket v1.8.15 // indirect
+	github.com/oapi-codegen/oapi-codegen/v2 v2.8.0 // indirect
+)
 
 require (
 	github.com/andybalholm/brotli v1.2.2 // indirect

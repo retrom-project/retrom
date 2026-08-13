@@ -24,9 +24,11 @@ Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256
 - 每份 DAT 的 core source 证据、物化配方、最终 size/SHA-256 和解析统计。
 - 两个 EmulatorJS 版本与所有 selected core 的许可文件路径、固定来源、size/SHA-256、二进制关联证据等级和 notice 顺序（两个 manifest 共 38 个 component）。
 
-当前 4.2.3 manifest 使用 schema V5，CoreArtifact compatibility 使用 schema V3。每个 `selected_core_artifacts` 项都显式给出 `runtime_core_id`、loader 实际请求的 `requested_artifact_basename`、canvas policy、默认 option、PersistentSave mode/kind、input mode、启动动作、`supported_content_kinds` 与 report；校验器不再根据 core ID 推导这些值。只有 `yabause` 同时声明 `MULTI_DISC_M3U_V1` 与 `multi_disc={max_discs:8,max_total_bytes:1073741824,delivery:EAGER_EXTERNAL_FILES}`，没有该对象、来自旧 schema 或 kind 不匹配都等价于不支持。`dosbox_pure`、`mednafen_psx_hw`、`ppsspp`、`azahar` 的 loader basename 分别为 `dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`、`azahar-thread-wasm.data`，并与实际 THREAD_WASM 路径逐字匹配。`auxiliary_files` 当前只登记 `data/cores/ppsspp-assets.zip`，它和 36 份跨版本 core report 都必须在各自 runtime allowlist 中。
+当前 4.2.3 manifest 使用 schema V5，CoreArtifact compatibility 使用 schema V3。每个 `selected_core_artifacts` 项都显式给出 `runtime_core_id`、loader 实际请求的 `requested_artifact_basename`、canvas policy、默认 option、PersistentSave mode/kind、input mode、启动动作、`supported_content_kinds` 与 report；校验器不再根据 core ID 推导这些值。只有 `yabause` 同时声明 `MULTI_DISC_M3U_V1` 与 `multi_disc={max_discs:8,max_total_bytes:1073741824,delivery:EAGER_EXTERNAL_FILES}`，没有该对象、来自旧 schema 或 kind 不匹配都等价于不支持。`dosbox_pure`、`mednafen_psx_hw`、`ppsspp`、`azahar` 的 loader basename 分别为 `dosbox_pure-thread-wasm.data`、`mednafen_psx_hw-thread-wasm.data`、`ppsspp-thread-wasm.data`、`azahar-thread-wasm.data`，并与实际 THREAD_WASM 路径逐字匹配。`auxiliary_files` 当前只登记 `data/cores/ppsspp-assets.zip`，它和 36 份跨版本 core report 都必须在各自 runtime allowlist 中。4.2.3 联机适配器还精确发布 release 内的 `data/emulator.css` 与 loader 所列八个 `data/src/*` 文件；联机模式令 loader 使用这些受 size/SHA 约束的可审计源文件，以接收 RetroArch 原生 state-load 完成日志，同时保持 EmulatorJS 自带的实验性 netplay transport 关闭。普通单人模式继续使用 minified loader 资产。
 
 4.2.3 的 Player adapter 固定为 `ejs-4.2.3-v2`，registry 不保留无法由当前 manifest 解释的 v1 fallback。dependency bootstrap 对同一 `(core_id, emulatorjs_version, sha256)` 保留 CoreArtifact ID；bundle/flavor/path/size/compatibility/enabled 等运行语义变化时原子递增 artifact version，逐字节等价的重复 bootstrap 连 `updated_at_ms` 也不改。历史 VariantRevision、SaveState 与 PersistentSave 继续绑定原 artifact ID，但未发布的 generation 3 validation 全部 stale，必须由 compatibility V3 重新验证后才能发布。
+
+联机使用独立的 [`data/netplay/v1/manifest.json`](../data/netplay/v1/manifest.json) 与 schema 作为普通兼容性之上的 exact allowlist。首发只有 `fceumm-423-f1race-v1` 与 `fbneo-423-ldrun-v1`：每项锁定 EmulatorJS 4.2.3、core artifact SHA-256、内容逻辑名/size/SHA-256、来源 archive size/SHA-256 和 `maxPlayers=2`；协议同时锁定 `retrom-netplay-v1`、`ejs-4.2.3-v2`、`ejs-netplay-4.2.3-v1`、24 controls、120-frame checkpoint、8 prediction、120 rollback、600 history 与 1 MiB state 上限。校验器必须与 runtime manifest 的 core artifact、supported content kind 和前端 registry 双向一致，未知 EmulatorJS/adapter/profile 不得 fallback。两个 ROM 只由操作者物化到被忽略的 `data/example/local-fixtures/netplay/`，不属于 dependency payload 或镜像内容。
 
 仓库与本地缓存边界固定为：
 
@@ -61,7 +63,7 @@ data/auth/password-blocklists/v1/
 
 | 命令 | 确切行为 |
 | --- | --- |
-| `make data-check` | 只校验已提交的小文件：4.2.3 manifest schema V5、artifact compatibility V3、多盘 kind/limits、Player adapter registry 双向一致、DAT/许可字段与 `SHA256SUMS`，以及密码 blocklist manifest 的固定 tag/commit、URL、行数、size/SHA 和 MIT 许可。无 payload、无网络时也必须通过。 |
+| `make data-check` | 只校验已提交的小文件：4.2.3 manifest schema V5、artifact compatibility V3、多盘 kind/limits、普通与联机 Player adapter registry 双向一致、netplay exact allowlist、DAT/许可字段与 `SHA256SUMS`，以及密码 blocklist manifest 的固定 tag/commit、URL、行数、size/SHA 和 MIT 许可。无 payload、无网络时也必须通过。 |
 | `make prepare-deps` | 对 `RETROM_DEPENDENCY_VERSIONS` 中缺失/错误的 runtime、core、DAT、许可 payload 以及账户密码 blocklist/许可执行固定来源下载、确定性转换、解包与原子发布，生成 notice；默认 `4.2.3,4.3.0-pre`，最后隐式执行 `deps-check`。已有正确缓存时不访问网络。 |
 | `make deps-check` | 不联网，逐个校验运行时 allowlist、选定 core、可选 DAT、override、许可输入、确定性 notice，以及密码 blocklist 的 size/SHA/10,000 行和许可。缺少、额外发布或不匹配均失败。 |
 | `make release-input-digest` | 不联网、不写工作树，按本节算法校验并只向 stdout 输出 64 位小写 `releaseInputDigest`；镜像 target 调用同一 helper，不复制 shell 算法。 |
@@ -96,7 +98,8 @@ FB Alpha 2012 CPS-1/CPS-2 没有可直接复用的绑定 DAT。`make prepare-dep
     }
   ],
   "activeEmulatorjsVersion": "4.2.3",
-  "passwordBlocklistManifestSha256": "<sha256-of-exact-password-blocklist-manifest-bytes>"
+  "passwordBlocklistManifestSha256": "<sha256-of-exact-password-blocklist-manifest-bytes>",
+  "netplayManifestSha256": "<sha256-of-exact-netplay-manifest-bytes>"
 }
 ```
 
@@ -131,6 +134,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 - 每个配置版本声明的兼容 override；
 - 每个配置版本的 manifest、物化 DAT、逐字节校验的许可文件与确定性 `THIRD_PARTY_NOTICES`；
 - 密码 blocklist manifest、逐字节校验的 10,000 行 payload 与 MIT 许可；
+- netplay schema/manifest；绝不复制本地联机 ROM fixture；
 - CA 根证书和运行所需的最小系统文件。
 
 镜像不得复制 `data/game/`、`data/example/results/`、本地 SQLite/CAS、上传缓存、下载缓存、源码树或整个 7z 发布包。构建完成只产生镜像，不启动容器。运行镜像时依赖已在镜像内，启动不需要 GitHub/CDN 网络。
@@ -147,4 +151,4 @@ EmulatorJS 与各 libretro core 的许可证不同。manifest schema V5 的 `lic
 
 ## 7. 统一验收入口
 
-小型 manifest 结构由 `ACC-QA-001` 的 `make data-check` 覆盖；完整 payload 准备与校验由 `ACC-DAT-001` 覆盖；密码 blocklist 的启动期校验与拒绝行为由 `ACC-AUTH-003` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。
+小型 manifest 结构由 `ACC-QA-001` 的 `make data-check` 覆盖；联机 exact manifest 与真实 fixture 由 `ACC-NP-001` 覆盖；完整 payload 准备与校验由 `ACC-DAT-001` 覆盖；密码 blocklist 的启动期校验与拒绝行为由 `ACC-AUTH-003` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。

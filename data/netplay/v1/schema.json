@@ -1,0 +1,50 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://retrom.invalid/schemas/netplay-manifest-v1.json",
+  "title": "Retrom netplay allowlist manifest v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schemaVersion", "protocol", "profiles"],
+  "properties": {
+    "schemaVersion": { "const": 1 },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["version", "playerAdapterId", "netplayAdapterId", "controlCount", "checkpointEveryFrames", "maxPredictionFrames", "maxRollbackFrames", "canonicalHistoryFrames", "maxStateBytes", "allowedContentKinds"],
+      "properties": {
+        "version": { "const": "retrom-netplay-v1" },
+        "playerAdapterId": { "const": "ejs-4.2.3-v2" },
+        "netplayAdapterId": { "const": "ejs-netplay-4.2.3-v1" },
+        "controlCount": { "const": 24 },
+        "checkpointEveryFrames": { "const": 120 },
+        "maxPredictionFrames": { "const": 8 },
+        "maxRollbackFrames": { "const": 120 },
+        "canonicalHistoryFrames": { "const": 600 },
+        "maxStateBytes": { "const": 1048576 },
+        "allowedContentKinds": { "const": ["SINGLE_FILE"] }
+      }
+    },
+    "profiles": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "contentKind", "contentLogicalName", "contentSizeBytes", "contentSha256", "sourceArchiveSizeBytes", "sourceArchiveSha256", "maxPlayers"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" },
+          "emulatorjsVersion": { "const": "4.2.3" },
+          "coreId": { "enum": ["fceumm", "fbneo"] },
+          "coreArtifactSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "contentKind": { "const": "SINGLE_FILE" },
+          "contentLogicalName": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "contentSizeBytes": { "type": "integer", "minimum": 1 },
+          "contentSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "sourceArchiveSizeBytes": { "type": "integer", "minimum": 1 },
+          "sourceArchiveSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+          "maxPlayers": { "type": "integer", "minimum": 2, "maximum": 4 }
+        }
+      }
+    }
+  }
+}

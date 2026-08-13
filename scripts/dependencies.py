@@ -23,6 +23,8 @@ import fbalpha2012_dat
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = REPOSITORY_ROOT / "data"
 AUTH_MANIFEST_PATH = DATA_ROOT / "auth/password-blocklists/v1/manifest.json"
+NETPLAY_MANIFEST_PATH = DATA_ROOT / "netplay/v1/manifest.json"
+NETPLAY_SCHEMA_PATH = DATA_ROOT / "netplay/v1/schema.json"
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 PINNED_RAW = re.compile(
     r"^https://raw\.githubusercontent\.com/[^/]+/[^/]+/[0-9a-f]{40}/.+$"
@@ -236,7 +238,9 @@ def validate_registry(manifests: list[dict[str, Any]]) -> None:
     registry_path = REPOSITORY_ROOT / "web/features/player/adapters/registry.json"
     registry = load_json(registry_path)
     entries = registry.get("adapters")
-    if registry.get("schemaVersion") != 1 or not isinstance(entries, list):
+    if registry.get("schemaVersion") != 2 or set(registry) != {
+        "schemaVersion", "adapters", "netplayAdapters"
+    } or not isinstance(entries, list):
         raise CheckError("PLAYER_ADAPTER_REGISTRY_INVALID")
     registered: dict[str, str] = {}
     for raw in entries:
@@ -284,6 +288,102 @@ def validate_registry(manifests: list[dict[str, Any]]) -> None:
         expected[adapter_id] = version
     if registered != expected:
         raise CheckError("PLAYER_ADAPTER_REGISTRY_DRIFT")
+
+    netplay_entries = registry.get("netplayAdapters")
+    if not isinstance(netplay_entries, list):
+        raise CheckError("NETPLAY_ADAPTER_REGISTRY_INVALID")
+    netplay_registered: dict[str, str] = {}
+    for raw in netplay_entries:
+        if not isinstance(raw, dict) or set(raw) != {"id", "version", "module"}:
+            raise CheckError("NETPLAY_ADAPTER_REGISTRY_INVALID")
+        adapter_id = raw.get("id")
+        version = raw.get("version")
+        module = safe_relative_path(raw.get("module"), "NETPLAY_ADAPTER_MODULE_INVALID")
+        if not isinstance(adapter_id, str) or not isinstance(version, str) or adapter_id in netplay_registered:
+            raise CheckError("NETPLAY_ADAPTER_REGISTRY_INVALID")
+        module_path = REPOSITORY_ROOT / "web/features/player/netplay" / module
+        if not module_path.is_file():
+            raise CheckError(f"NETPLAY_ADAPTER_IMPLEMENTATION_MISSING:{adapter_id}")
+        netplay_registered[adapter_id] = version
+    validate_netplay_manifest(manifests, netplay_registered)
+
+
+def validate_netplay_manifest(
+    manifests: list[dict[str, Any]], netplay_adapters: dict[str, str]
+) -> None:
+    schema = load_json(NETPLAY_SCHEMA_PATH)
+    if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
+        raise CheckError("NETPLAY_SCHEMA_INVALID")
+    manifest = load_json(NETPLAY_MANIFEST_PATH)
+    if set(manifest) != {"schemaVersion", "protocol", "profiles"} or manifest.get("schemaVersion") != 1:
+        raise CheckError("NETPLAY_MANIFEST_INVALID")
+    protocol = manifest.get("protocol")
+    expected_protocol = {
+        "version": "retrom-netplay-v1",
+        "playerAdapterId": "ejs-4.2.3-v2",
+        "netplayAdapterId": "ejs-netplay-4.2.3-v1",
+        "controlCount": 24,
+        "checkpointEveryFrames": 120,
+        "maxPredictionFrames": 8,
+        "maxRollbackFrames": 120,
+        "canonicalHistoryFrames": 600,
+        "maxStateBytes": 1_048_576,
+        "allowedContentKinds": ["SINGLE_FILE"],
+    }
+    if protocol != expected_protocol:
+        raise CheckError("NETPLAY_PROTOCOL_MANIFEST_INVALID")
+    if netplay_adapters != {protocol["netplayAdapterId"]: "4.2.3"}:
+        raise CheckError("NETPLAY_ADAPTER_REGISTRY_DRIFT")
+
+    versions = {manifest["emulatorjs"]["version"]: manifest for manifest in manifests}
+    runtime_manifest = versions.get("4.2.3")
+    if runtime_manifest is None or runtime_manifest["emulatorjs"]["player_adapter"]["id"] != protocol["playerAdapterId"]:
+        raise CheckError("NETPLAY_PLAYER_ADAPTER_DRIFT")
+    artifacts = {
+        item.get("core_id"): item
+        for item in runtime_manifest["emulatorjs"].get("selected_core_artifacts", [])
+        if isinstance(item, dict)
+    }
+    expected_profiles = {
+        "fceumm-423-f1race-v1": (
+            "fceumm", "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493",
+            "f1-race.nes", 24_592, "29208764886f14de20fe82b32ab034130915f6392103874d202fcbbfb8a02ee4",
+            15_343, "aa9a4e5959851440c507aaa551a66eab6fe8623179a8086cb2ec8606cb830393",
+        ),
+        "fbneo-423-ldrun-v1": (
+            "fbneo", "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c",
+            "ldrun.zip", 59_720, "b45507a74f739e27a5486d79901016b78e061c4db2025435d4df37702553e8d9",
+            59_720, "b45507a74f739e27a5486d79901016b78e061c4db2025435d4df37702553e8d9",
+        ),
+    }
+    profiles = manifest.get("profiles")
+    if not isinstance(profiles, list) or len(profiles) != len(expected_profiles):
+        raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
+    seen: set[str] = set()
+    required_keys = {
+        "id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "contentKind",
+        "contentLogicalName", "contentSizeBytes", "contentSha256", "sourceArchiveSizeBytes",
+        "sourceArchiveSha256", "maxPlayers",
+    }
+    for profile in profiles:
+        if not isinstance(profile, dict) or set(profile) != required_keys:
+            raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
+        profile_id = profile.get("id")
+        expected = expected_profiles.get(profile_id)
+        if expected is None or profile_id in seen:
+            raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
+        seen.add(profile_id)
+        actual = (
+            profile.get("coreId"), profile.get("coreArtifactSha256"), profile.get("contentLogicalName"),
+            profile.get("contentSizeBytes"), profile.get("contentSha256"),
+            profile.get("sourceArchiveSizeBytes"), profile.get("sourceArchiveSha256"),
+        )
+        artifact = artifacts.get(profile.get("coreId"))
+        if actual != expected or profile.get("emulatorjsVersion") != "4.2.3" or \
+                profile.get("contentKind") != "SINGLE_FILE" or profile.get("maxPlayers") != 2 or \
+                artifact is None or artifact.get("sha256") != profile.get("coreArtifactSha256") or \
+                "SINGLE_FILE" not in artifact.get("supported_content_kinds", []):
+            raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
 
 
 def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:

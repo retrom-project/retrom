@@ -158,16 +158,17 @@ def main() -> int:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     fixtures = [
         fixture
-        for fixture in manifest.get("fixtures", [])
+        for fixture in [*manifest.get("fixtures", []), *manifest.get("netplayFixtures", [])]
         if fixture["game"]["localPath"].startswith("data/example/local-fixtures/")
     ]
     requested = set(args.cores)
-    known = {fixture["core"] for fixture in fixtures}
+    selector_for = lambda fixture: fixture.get("id", fixture["core"])
+    known = {selector_for(fixture) for fixture in fixtures}
     unknown = requested - known
     if unknown:
         raise ValueError(f"unknown local fixture core(s): {', '.join(sorted(unknown))}")
     selected = [
-        fixture for fixture in fixtures if not requested or fixture["core"] in requested
+        fixture for fixture in fixtures if not requested or selector_for(fixture) in requested
     ]
     if not selected:
         raise ValueError("no local fixtures selected")
@@ -182,7 +183,7 @@ def main() -> int:
         written.extend(materialize_game(fixture, source_root, REPO_ROOT))
         written.extend(materialize_parent(fixture, source_root, REPO_ROOT))
         written.extend(materialize_bios(fixture, source_root, REPO_ROOT))
-        print(f"OK  {fixture['core']}: materialized verified fixture")
+        print(f"OK  {selector_for(fixture)}: materialized verified fixture")
     print(f"Materialized {len(selected)} core fixture(s), {len(written)} file(s).")
     return 0
 

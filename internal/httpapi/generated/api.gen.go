@@ -673,6 +673,24 @@ func (e LaunchConfigInputMode) Valid() bool {
 	}
 }
 
+// Defines values for LaunchConfigMode.
+const (
+	Netplay LaunchConfigMode = "netplay"
+	Single  LaunchConfigMode = "single"
+)
+
+// Valid indicates whether the value is a known member of the LaunchConfigMode enum.
+func (e LaunchConfigMode) Valid() bool {
+	switch e {
+	case Netplay:
+		return true
+	case Single:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for LaunchConfigPersistentSaveMode.
 const (
 	LaunchConfigPersistentSaveModeDOSOVERLAY LaunchConfigPersistentSaveMode = "DOS_OVERLAY"
@@ -772,6 +790,405 @@ func (e MultiDiscPlayerEventRequestResultCode) Valid() bool {
 	case PLAYERSAVESTATERESTOREFAILED:
 		return true
 	case PLAYERSAVESTATEUNAVAILABLE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileCanonicalHistoryFrames.
+const (
+	N600 NetplayCanonicalProfileCanonicalHistoryFrames = 600
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileCanonicalHistoryFrames enum.
+func (e NetplayCanonicalProfileCanonicalHistoryFrames) Valid() bool {
+	switch e {
+	case N600:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileCheckpointEveryFrames.
+const (
+	NetplayCanonicalProfileCheckpointEveryFramesN120 NetplayCanonicalProfileCheckpointEveryFrames = 120
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileCheckpointEveryFrames enum.
+func (e NetplayCanonicalProfileCheckpointEveryFrames) Valid() bool {
+	switch e {
+	case NetplayCanonicalProfileCheckpointEveryFramesN120:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileControlCount.
+const (
+	N24 NetplayCanonicalProfileControlCount = 24
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileControlCount enum.
+func (e NetplayCanonicalProfileControlCount) Valid() bool {
+	switch e {
+	case N24:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileEmulatorjsVersion.
+const (
+	N423 NetplayCanonicalProfileEmulatorjsVersion = "4.2.3"
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileEmulatorjsVersion enum.
+func (e NetplayCanonicalProfileEmulatorjsVersion) Valid() bool {
+	switch e {
+	case N423:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileMaxPredictionFrames.
+const (
+	N8 NetplayCanonicalProfileMaxPredictionFrames = 8
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileMaxPredictionFrames enum.
+func (e NetplayCanonicalProfileMaxPredictionFrames) Valid() bool {
+	switch e {
+	case N8:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileMaxRollbackFrames.
+const (
+	NetplayCanonicalProfileMaxRollbackFramesN120 NetplayCanonicalProfileMaxRollbackFrames = 120
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileMaxRollbackFrames enum.
+func (e NetplayCanonicalProfileMaxRollbackFrames) Valid() bool {
+	switch e {
+	case NetplayCanonicalProfileMaxRollbackFramesN120:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileMaxStateBytes.
+const (
+	N1048576e06 NetplayCanonicalProfileMaxStateBytes = 1.048576e+06
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileMaxStateBytes enum.
+func (e NetplayCanonicalProfileMaxStateBytes) Valid() bool {
+	switch e {
+	case N1048576e06:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileNetplayAdapterId.
+const (
+	EjsNetplay423V1 NetplayCanonicalProfileNetplayAdapterId = "ejs-netplay-4.2.3-v1"
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileNetplayAdapterId enum.
+func (e NetplayCanonicalProfileNetplayAdapterId) Valid() bool {
+	switch e {
+	case EjsNetplay423V1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfilePlayerAdapterId.
+const (
+	Ejs423V2 NetplayCanonicalProfilePlayerAdapterId = "ejs-4.2.3-v2"
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfilePlayerAdapterId enum.
+func (e NetplayCanonicalProfilePlayerAdapterId) Valid() bool {
+	switch e {
+	case Ejs423V2:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileProtocolVersion.
+const (
+	RetromNetplayV1 NetplayCanonicalProfileProtocolVersion = "retrom-netplay-v1"
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileProtocolVersion enum.
+func (e NetplayCanonicalProfileProtocolVersion) Valid() bool {
+	switch e {
+	case RetromNetplayV1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayCanonicalProfileSchemaVersion.
+const (
+	NetplayCanonicalProfileSchemaVersionN1 NetplayCanonicalProfileSchemaVersion = 1
+)
+
+// Valid indicates whether the value is a known member of the NetplayCanonicalProfileSchemaVersion enum.
+func (e NetplayCanonicalProfileSchemaVersion) Valid() bool {
+	switch e {
+	case NetplayCanonicalProfileSchemaVersionN1:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayGameSummaryAvailability.
+const (
+	NetplayGameSummaryAvailabilitySUPPORTED   NetplayGameSummaryAvailability = "SUPPORTED"
+	NetplayGameSummaryAvailabilityUNSUPPORTED NetplayGameSummaryAvailability = "UNSUPPORTED"
+)
+
+// Valid indicates whether the value is a known member of the NetplayGameSummaryAvailability enum.
+func (e NetplayGameSummaryAvailability) Valid() bool {
+	switch e {
+	case NetplayGameSummaryAvailabilitySUPPORTED:
+		return true
+	case NetplayGameSummaryAvailabilityUNSUPPORTED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayGameSummaryBlockerCode.
+const (
+	CONTENTNOTALLOWLISTED NetplayGameSummaryBlockerCode = "CONTENT_NOT_ALLOWLISTED"
+	CORENOTALLOWLISTED    NetplayGameSummaryBlockerCode = "CORE_NOT_ALLOWLISTED"
+	DEPENDENCYSTALE       NetplayGameSummaryBlockerCode = "DEPENDENCY_STALE"
+	GAMEUNAVAILABLE       NetplayGameSummaryBlockerCode = "GAME_UNAVAILABLE"
+)
+
+// Valid indicates whether the value is a known member of the NetplayGameSummaryBlockerCode enum.
+func (e NetplayGameSummaryBlockerCode) Valid() bool {
+	switch e {
+	case CONTENTNOTALLOWLISTED:
+		return true
+	case CORENOTALLOWLISTED:
+		return true
+	case DEPENDENCYSTALE:
+		return true
+	case GAMEUNAVAILABLE:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayRoomEndReason.
+const (
+	AUTHREVOKED               NetplayRoomEndReason = "AUTH_REVOKED"
+	HARDEXPIRED               NetplayRoomEndReason = "HARD_EXPIRED"
+	HOSTCLOSED                NetplayRoomEndReason = "HOST_CLOSED"
+	HOSTLOST                  NetplayRoomEndReason = "HOST_LOST"
+	INTERNALERROR             NetplayRoomEndReason = "INTERNAL_ERROR"
+	NETPLAYUNSTABLE           NetplayRoomEndReason = "NETPLAY_UNSTABLE"
+	NORMAL                    NetplayRoomEndReason = "NORMAL"
+	PEERTIMEOUT               NetplayRoomEndReason = "PEER_TIMEOUT"
+	PEERTOOSLOW               NetplayRoomEndReason = "PEER_TOO_SLOW"
+	PREPAREFAILED             NetplayRoomEndReason = "PREPARE_FAILED"
+	PROFILEREVOKED            NetplayRoomEndReason = "PROFILE_REVOKED"
+	PROTOCOLVIOLATION         NetplayRoomEndReason = "PROTOCOL_VIOLATION"
+	RESTORE                   NetplayRoomEndReason = "RESTORE"
+	ROLLBACKWINDOWEXCEEDED    NetplayRoomEndReason = "ROLLBACK_WINDOW_EXCEEDED"
+	SERVERRESTARTED           NetplayRoomEndReason = "SERVER_RESTARTED"
+	STARTTIMEOUT              NetplayRoomEndReason = "START_TIMEOUT"
+	STATEINVALID              NetplayRoomEndReason = "STATE_INVALID"
+	STATERINGCAPACITYEXCEEDED NetplayRoomEndReason = "STATE_RING_CAPACITY_EXCEEDED"
+	STATETRANSFERTIMEOUT      NetplayRoomEndReason = "STATE_TRANSFER_TIMEOUT"
+	USEREXIT                  NetplayRoomEndReason = "USER_EXIT"
+)
+
+// Valid indicates whether the value is a known member of the NetplayRoomEndReason enum.
+func (e NetplayRoomEndReason) Valid() bool {
+	switch e {
+	case AUTHREVOKED:
+		return true
+	case HARDEXPIRED:
+		return true
+	case HOSTCLOSED:
+		return true
+	case HOSTLOST:
+		return true
+	case INTERNALERROR:
+		return true
+	case NETPLAYUNSTABLE:
+		return true
+	case NORMAL:
+		return true
+	case PEERTIMEOUT:
+		return true
+	case PEERTOOSLOW:
+		return true
+	case PREPAREFAILED:
+		return true
+	case PROFILEREVOKED:
+		return true
+	case PROTOCOLVIOLATION:
+		return true
+	case RESTORE:
+		return true
+	case ROLLBACKWINDOWEXCEEDED:
+		return true
+	case SERVERRESTARTED:
+		return true
+	case STARTTIMEOUT:
+		return true
+	case STATEINVALID:
+		return true
+	case STATERINGCAPACITYEXCEEDED:
+		return true
+	case STATETRANSFERTIMEOUT:
+		return true
+	case USEREXIT:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayRoomState.
+const (
+	NetplayRoomStateDRAFT    NetplayRoomState = "DRAFT"
+	NetplayRoomStateENDED    NetplayRoomState = "ENDED"
+	NetplayRoomStateEXPIRED  NetplayRoomState = "EXPIRED"
+	NetplayRoomStateRUNNING  NetplayRoomState = "RUNNING"
+	NetplayRoomStateSTARTING NetplayRoomState = "STARTING"
+	NetplayRoomStateWAITING  NetplayRoomState = "WAITING"
+)
+
+// Valid indicates whether the value is a known member of the NetplayRoomState enum.
+func (e NetplayRoomState) Valid() bool {
+	switch e {
+	case NetplayRoomStateDRAFT:
+		return true
+	case NetplayRoomStateENDED:
+		return true
+	case NetplayRoomStateEXPIRED:
+		return true
+	case NetplayRoomStateRUNNING:
+		return true
+	case NetplayRoomStateSTARTING:
+		return true
+	case NetplayRoomStateWAITING:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayRoomMemberConnectionState.
+const (
+	CONNECTED    NetplayRoomMemberConnectionState = "CONNECTED"
+	DISCONNECTED NetplayRoomMemberConnectionState = "DISCONNECTED"
+	LAUNCHREADY  NetplayRoomMemberConnectionState = "LAUNCH_READY"
+	LEFT         NetplayRoomMemberConnectionState = "LEFT"
+	LOCKED       NetplayRoomMemberConnectionState = "LOCKED"
+	NOTCONNECTED NetplayRoomMemberConnectionState = "NOT_CONNECTED"
+	RUNTIMEREADY NetplayRoomMemberConnectionState = "RUNTIME_READY"
+	SYNCHRONIZED NetplayRoomMemberConnectionState = "SYNCHRONIZED"
+)
+
+// Valid indicates whether the value is a known member of the NetplayRoomMemberConnectionState enum.
+func (e NetplayRoomMemberConnectionState) Valid() bool {
+	switch e {
+	case CONNECTED:
+		return true
+	case DISCONNECTED:
+		return true
+	case LAUNCHREADY:
+		return true
+	case LEFT:
+		return true
+	case LOCKED:
+		return true
+	case NOTCONNECTED:
+		return true
+	case RUNTIMEREADY:
+		return true
+	case SYNCHRONIZED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayRoomMemberRole.
+const (
+	GUEST NetplayRoomMemberRole = "GUEST"
+	HOST  NetplayRoomMemberRole = "HOST"
+)
+
+// Valid indicates whether the value is a known member of the NetplayRoomMemberRole enum.
+func (e NetplayRoomMemberRole) Valid() bool {
+	switch e {
+	case GUEST:
+		return true
+	case HOST:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplaySessionSummaryState.
+const (
+	NetplaySessionSummaryStateFAILED          NetplaySessionSummaryState = "FAILED"
+	NetplaySessionSummaryStateFINISHED        NetplaySessionSummaryState = "FINISHED"
+	NetplaySessionSummaryStateLOADING         NetplaySessionSummaryState = "LOADING"
+	NetplaySessionSummaryStatePAUSEDRECONNECT NetplaySessionSummaryState = "PAUSED_RECONNECT"
+	NetplaySessionSummaryStatePREPARING       NetplaySessionSummaryState = "PREPARING"
+	NetplaySessionSummaryStateRESYNCHRONIZING NetplaySessionSummaryState = "RESYNCHRONIZING"
+	NetplaySessionSummaryStateRUNNING         NetplaySessionSummaryState = "RUNNING"
+	NetplaySessionSummaryStateSYNCHRONIZING   NetplaySessionSummaryState = "SYNCHRONIZING"
+)
+
+// Valid indicates whether the value is a known member of the NetplaySessionSummaryState enum.
+func (e NetplaySessionSummaryState) Valid() bool {
+	switch e {
+	case NetplaySessionSummaryStateFAILED:
+		return true
+	case NetplaySessionSummaryStateFINISHED:
+		return true
+	case NetplaySessionSummaryStateLOADING:
+		return true
+	case NetplaySessionSummaryStatePAUSEDRECONNECT:
+		return true
+	case NetplaySessionSummaryStatePREPARING:
+		return true
+	case NetplaySessionSummaryStateRESYNCHRONIZING:
+		return true
+	case NetplaySessionSummaryStateRUNNING:
+		return true
+	case NetplaySessionSummaryStateSYNCHRONIZING:
 		return true
 	default:
 		return false
@@ -1062,13 +1479,13 @@ func (e PegasusItemMediaVideo) Valid() bool {
 
 // Defines values for PegasusItemFailureDetailsSchemaVersion.
 const (
-	N1 PegasusItemFailureDetailsSchemaVersion = 1
+	PegasusItemFailureDetailsSchemaVersionN1 PegasusItemFailureDetailsSchemaVersion = 1
 )
 
 // Valid indicates whether the value is a known member of the PegasusItemFailureDetailsSchemaVersion enum.
 func (e PegasusItemFailureDetailsSchemaVersion) Valid() bool {
 	switch e {
-	case N1:
+	case PegasusItemFailureDetailsSchemaVersionN1:
 		return true
 	default:
 		return false
@@ -1738,6 +2155,42 @@ func (e GameAssetKind) Valid() bool {
 	}
 }
 
+// Defines values for NetplayAvailability.
+const (
+	NetplayAvailabilityALL       NetplayAvailability = "ALL"
+	NetplayAvailabilitySUPPORTED NetplayAvailability = "SUPPORTED"
+)
+
+// Valid indicates whether the value is a known member of the NetplayAvailability enum.
+func (e NetplayAvailability) Valid() bool {
+	switch e {
+	case NetplayAvailabilityALL:
+		return true
+	case NetplayAvailabilitySUPPORTED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for NetplayRoomView.
+const (
+	NetplayRoomViewActive NetplayRoomView = "active"
+	NetplayRoomViewRecent NetplayRoomView = "recent"
+)
+
+// Valid indicates whether the value is a known member of the NetplayRoomView enum.
+func (e NetplayRoomView) Valid() bool {
+	switch e {
+	case NetplayRoomViewActive:
+		return true
+	case NetplayRoomViewRecent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ReviewSourceMediaKind.
 const (
 	ReviewSourceMediaKindCOVER ReviewSourceMediaKind = "COVER"
@@ -1927,6 +2380,42 @@ func (e GetFavoritesParamsSort) Valid() bool {
 	}
 }
 
+// Defines values for GetNetplayGamesParamsAvailability.
+const (
+	GetNetplayGamesParamsAvailabilityALL       GetNetplayGamesParamsAvailability = "ALL"
+	GetNetplayGamesParamsAvailabilitySUPPORTED GetNetplayGamesParamsAvailability = "SUPPORTED"
+)
+
+// Valid indicates whether the value is a known member of the GetNetplayGamesParamsAvailability enum.
+func (e GetNetplayGamesParamsAvailability) Valid() bool {
+	switch e {
+	case GetNetplayGamesParamsAvailabilityALL:
+		return true
+	case GetNetplayGamesParamsAvailabilitySUPPORTED:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GetNetplayRoomsParamsView.
+const (
+	GetNetplayRoomsParamsViewActive GetNetplayRoomsParamsView = "active"
+	GetNetplayRoomsParamsViewRecent GetNetplayRoomsParamsView = "recent"
+)
+
+// Valid indicates whether the value is a known member of the GetNetplayRoomsParamsView enum.
+func (e GetNetplayRoomsParamsView) Valid() bool {
+	switch e {
+	case GetNetplayRoomsParamsViewActive:
+		return true
+	case GetNetplayRoomsParamsViewRecent:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for PutRuntimePersistentSaveParamsXRetromSaveEvent.
 const (
 	AUTOINTERVAL PutRuntimePersistentSaveParamsXRetromSaveEvent = "AUTO_INTERVAL"
@@ -2080,6 +2569,7 @@ type AuthContext struct {
 	IdleExpiresAtMs          *int64                         `json:"idleExpiresAtMs"`
 	InstanceState            AuthContextInstanceState       `json:"instanceState"`
 	Mode                     AuthContextMode                `json:"mode"`
+	NetplayEnabled           bool                           `json:"netplayEnabled"`
 	TestDefaultAccountActive bool                           `json:"testDefaultAccountActive"`
 	User                     *AuthUser                      `json:"user"`
 }
@@ -2899,6 +3389,8 @@ type LaunchConfig struct {
 	InputMode            LaunchConfigInputMode          `json:"inputMode"`
 	LaunchId             openapi_types.UUID             `json:"launchId"`
 	LoaderUrl            string                         `json:"loaderUrl"`
+	Mode                 LaunchConfigMode               `json:"mode"`
+	Netplay              *NetplayLaunchConfig           `json:"netplay"`
 	ParentUrl            *string                        `json:"parentUrl"`
 	PersistentSaveMode   LaunchConfigPersistentSaveMode `json:"persistentSaveMode"`
 	PersistentSaveUrl    *string                        `json:"persistentSaveUrl"`
@@ -2917,6 +3409,9 @@ type LaunchConfig struct {
 
 // LaunchConfigInputMode defines model for LaunchConfig.InputMode.
 type LaunchConfigInputMode string
+
+// LaunchConfigMode defines model for LaunchConfig.Mode.
+type LaunchConfigMode string
 
 // LaunchConfigPersistentSaveMode defines model for LaunchConfig.PersistentSaveMode.
 type LaunchConfigPersistentSaveMode string
@@ -2975,6 +3470,215 @@ type MultiDiscPlayerEventRequestEventType string
 
 // MultiDiscPlayerEventRequestResultCode defines model for MultiDiscPlayerEventRequest.ResultCode.
 type MultiDiscPlayerEventRequestResultCode string
+
+// NetplayCanonicalProfile defines model for NetplayCanonicalProfile.
+type NetplayCanonicalProfile struct {
+	CanonicalHistoryFrames   NetplayCanonicalProfileCanonicalHistoryFrames `json:"canonicalHistoryFrames"`
+	CheckpointEveryFrames    NetplayCanonicalProfileCheckpointEveryFrames  `json:"checkpointEveryFrames"`
+	ControlCount             NetplayCanonicalProfileControlCount           `json:"controlCount"`
+	CoreArtifactId           openapi_types.UUID                            `json:"coreArtifactId"`
+	CoreArtifactSha256       string                                        `json:"coreArtifactSha256"`
+	DefaultCoreOptions       map[string]string                             `json:"defaultCoreOptions"`
+	DependencySnapshotDigest string                                        `json:"dependencySnapshotDigest"`
+	EmulatorjsVersion        NetplayCanonicalProfileEmulatorjsVersion      `json:"emulatorjsVersion"`
+	GameVariantRevisionId    openapi_types.UUID                            `json:"gameVariantRevisionId"`
+	MaxPlayers               int                                           `json:"maxPlayers"`
+	MaxPredictionFrames      NetplayCanonicalProfileMaxPredictionFrames    `json:"maxPredictionFrames"`
+	MaxRollbackFrames        NetplayCanonicalProfileMaxRollbackFrames      `json:"maxRollbackFrames"`
+	MaxStateBytes            NetplayCanonicalProfileMaxStateBytes          `json:"maxStateBytes"`
+	NetplayAdapterId         NetplayCanonicalProfileNetplayAdapterId       `json:"netplayAdapterId"`
+	PlayerAdapterId          NetplayCanonicalProfilePlayerAdapterId        `json:"playerAdapterId"`
+	ProfileId                string                                        `json:"profileId"`
+	ProtocolVersion          NetplayCanonicalProfileProtocolVersion        `json:"protocolVersion"`
+	SchemaVersion            NetplayCanonicalProfileSchemaVersion          `json:"schemaVersion"`
+	SourceManifestDigest     string                                        `json:"sourceManifestDigest"`
+}
+
+// NetplayCanonicalProfileCanonicalHistoryFrames defines model for NetplayCanonicalProfile.CanonicalHistoryFrames.
+type NetplayCanonicalProfileCanonicalHistoryFrames int
+
+// NetplayCanonicalProfileCheckpointEveryFrames defines model for NetplayCanonicalProfile.CheckpointEveryFrames.
+type NetplayCanonicalProfileCheckpointEveryFrames int
+
+// NetplayCanonicalProfileControlCount defines model for NetplayCanonicalProfile.ControlCount.
+type NetplayCanonicalProfileControlCount int
+
+// NetplayCanonicalProfileEmulatorjsVersion defines model for NetplayCanonicalProfile.EmulatorjsVersion.
+type NetplayCanonicalProfileEmulatorjsVersion string
+
+// NetplayCanonicalProfileMaxPredictionFrames defines model for NetplayCanonicalProfile.MaxPredictionFrames.
+type NetplayCanonicalProfileMaxPredictionFrames int
+
+// NetplayCanonicalProfileMaxRollbackFrames defines model for NetplayCanonicalProfile.MaxRollbackFrames.
+type NetplayCanonicalProfileMaxRollbackFrames int
+
+// NetplayCanonicalProfileMaxStateBytes defines model for NetplayCanonicalProfile.MaxStateBytes.
+type NetplayCanonicalProfileMaxStateBytes int
+
+// NetplayCanonicalProfileNetplayAdapterId defines model for NetplayCanonicalProfile.NetplayAdapterId.
+type NetplayCanonicalProfileNetplayAdapterId string
+
+// NetplayCanonicalProfilePlayerAdapterId defines model for NetplayCanonicalProfile.PlayerAdapterId.
+type NetplayCanonicalProfilePlayerAdapterId string
+
+// NetplayCanonicalProfileProtocolVersion defines model for NetplayCanonicalProfile.ProtocolVersion.
+type NetplayCanonicalProfileProtocolVersion string
+
+// NetplayCanonicalProfileSchemaVersion defines model for NetplayCanonicalProfile.SchemaVersion.
+type NetplayCanonicalProfileSchemaVersion int
+
+// NetplayGameList defines model for NetplayGameList.
+type NetplayGameList struct {
+	Items      []NetplayGameSummary `json:"items"`
+	NextCursor *string              `json:"nextCursor"`
+}
+
+// NetplayGameSummary defines model for NetplayGameSummary.
+type NetplayGameSummary struct {
+	AddedAtMs            int64                          `json:"addedAtMs"`
+	Availability         NetplayGameSummaryAvailability `json:"availability"`
+	BlockerCode          *NetplayGameSummaryBlockerCode `json:"blockerCode"`
+	CoverUrl             *string                        `json:"coverUrl"`
+	GameId               openapi_types.UUID             `json:"gameId"`
+	LastPlayedAtMs       *int64                         `json:"lastPlayedAtMs"`
+	NetplayProfiles      []NetplayProfileSummary        `json:"netplayProfiles"`
+	PlatformId           string                         `json:"platformId"`
+	PlatformInstanceId   openapi_types.UUID             `json:"platformInstanceId"`
+	PlatformInstanceName string                         `json:"platformInstanceName"`
+	PlatformName         string                         `json:"platformName"`
+	Title                string                         `json:"title"`
+}
+
+// NetplayGameSummaryAvailability defines model for NetplayGameSummary.Availability.
+type NetplayGameSummaryAvailability string
+
+// NetplayGameSummaryBlockerCode defines model for NetplayGameSummary.BlockerCode.
+type NetplayGameSummaryBlockerCode string
+
+// NetplayLaunchConfig defines model for NetplayLaunchConfig.
+type NetplayLaunchConfig struct {
+	NetplayProfile   NetplayCanonicalProfile `json:"netplayProfile"`
+	PlayerNo         int                     `json:"playerNo"`
+	RoomId           openapi_types.UUID      `json:"roomId"`
+	RuntimeSocketUrl string                  `json:"runtimeSocketUrl"`
+	SessionId        openapi_types.UUID      `json:"sessionId"`
+}
+
+// NetplayLaunchRequest defines model for NetplayLaunchRequest.
+type NetplayLaunchRequest struct {
+	ClientCapabilities ClientCapabilities `json:"clientCapabilities"`
+}
+
+// NetplayLaunchResponseBody defines model for NetplayLaunchResponseBody.
+type NetplayLaunchResponseBody struct {
+	BootstrapExpiresAtMs int64              `json:"bootstrapExpiresAtMs"`
+	HardExpiresAtMs      int64              `json:"hardExpiresAtMs"`
+	LaunchId             openapi_types.UUID `json:"launchId"`
+	PlayUrl              string             `json:"playUrl"`
+	Warnings             []string           `json:"warnings"`
+}
+
+// NetplayProfileSummary defines model for NetplayProfileSummary.
+type NetplayProfileSummary struct {
+	CoreId            string `json:"coreId"`
+	CoreName          string `json:"coreName"`
+	EmulatorjsVersion string `json:"emulatorjsVersion"`
+	Id                string `json:"id"`
+	MaxPlayers        int    `json:"maxPlayers"`
+}
+
+// NetplayReadyRequest defines model for NetplayReadyRequest.
+type NetplayReadyRequest struct {
+	Ready bool `json:"ready"`
+}
+
+// NetplayRoom defines model for NetplayRoom.
+type NetplayRoom struct {
+	CurrentSession *NetplaySessionSummary `json:"currentSession"`
+	EndReason      *NetplayRoomEndReason  `json:"endReason"`
+	EndedAtMs      *int64                 `json:"endedAtMs"`
+	ExpiresAtMs    int64                  `json:"expiresAtMs"`
+	Game           *NetplayRoomGame       `json:"game"`
+	Members        []NetplayRoomMember    `json:"members"`
+	Permissions    NetplayRoomPermissions `json:"permissions"`
+	RoomId         openapi_types.UUID     `json:"roomId"`
+	SelfMemberId   *openapi_types.UUID    `json:"selfMemberId"`
+	ServerNowMs    int64                  `json:"serverNowMs"`
+	State          NetplayRoomState       `json:"state"`
+	Version        int64                  `json:"version"`
+}
+
+// NetplayRoomEndReason defines model for NetplayRoom.EndReason.
+type NetplayRoomEndReason string
+
+// NetplayRoomState defines model for NetplayRoom.State.
+type NetplayRoomState string
+
+// NetplayRoomGame defines model for NetplayRoomGame.
+type NetplayRoomGame struct {
+	CoreName          string             `json:"coreName"`
+	EmulatorjsVersion string             `json:"emulatorjsVersion"`
+	GameId            openapi_types.UUID `json:"gameId"`
+	MaxPlayers        int                `json:"maxPlayers"`
+	PlatformName      string             `json:"platformName"`
+	ProfileId         string             `json:"profileId"`
+	Title             string             `json:"title"`
+}
+
+// NetplayRoomList defines model for NetplayRoomList.
+type NetplayRoomList struct {
+	Items      []NetplayRoom `json:"items"`
+	NextCursor *string       `json:"nextCursor"`
+}
+
+// NetplayRoomMember defines model for NetplayRoomMember.
+type NetplayRoomMember struct {
+	AvatarRef       *string                          `json:"avatarRef"`
+	ConnectionState NetplayRoomMemberConnectionState `json:"connectionState"`
+	DisplayName     string                           `json:"displayName"`
+	MemberId        openapi_types.UUID               `json:"memberId"`
+	PlayerNo        int                              `json:"playerNo"`
+	Ready           bool                             `json:"ready"`
+	Role            NetplayRoomMemberRole            `json:"role"`
+}
+
+// NetplayRoomMemberConnectionState defines model for NetplayRoomMember.ConnectionState.
+type NetplayRoomMemberConnectionState string
+
+// NetplayRoomMemberRole defines model for NetplayRoomMember.Role.
+type NetplayRoomMemberRole string
+
+// NetplayRoomPermissions defines model for NetplayRoomPermissions.
+type NetplayRoomPermissions struct {
+	CanClose      bool `json:"canClose"`
+	CanJoin       bool `json:"canJoin"`
+	CanReady      bool `json:"canReady"`
+	CanSelectGame bool `json:"canSelectGame"`
+	CanStart      bool `json:"canStart"`
+	Host          bool `json:"host"`
+	Member        bool `json:"member"`
+}
+
+// NetplaySeatRequest defines model for NetplaySeatRequest.
+type NetplaySeatRequest struct {
+	PlayerNo int `json:"playerNo"`
+}
+
+// NetplaySelectGameRequest defines model for NetplaySelectGameRequest.
+type NetplaySelectGameRequest struct {
+	GameId           openapi_types.UUID `json:"gameId"`
+	NetplayProfileId string             `json:"netplayProfileId"`
+}
+
+// NetplaySessionSummary defines model for NetplaySessionSummary.
+type NetplaySessionSummary struct {
+	SessionId openapi_types.UUID         `json:"sessionId"`
+	SessionNo int                        `json:"sessionNo"`
+	State     NetplaySessionSummaryState `json:"state"`
+}
+
+// NetplaySessionSummaryState defines model for NetplaySessionSummary.State.
+type NetplaySessionSummaryState string
 
 // OrganizeFavoritesRequest defines model for OrganizeFavoritesRequest.
 type OrganizeFavoritesRequest struct {
@@ -3711,6 +4415,21 @@ type LogicalName = string
 // MatchMethod defines model for MatchMethod.
 type MatchMethod = string
 
+// NetplayAvailability defines model for NetplayAvailability.
+type NetplayAvailability string
+
+// NetplayMemberID defines model for NetplayMemberID.
+type NetplayMemberID = openapi_types.UUID
+
+// NetplayRoomID defines model for NetplayRoomID.
+type NetplayRoomID = openapi_types.UUID
+
+// NetplayRoomView defines model for NetplayRoomView.
+type NetplayRoomView string
+
+// NetplaySessionID defines model for NetplaySessionID.
+type NetplaySessionID = openapi_types.UUID
+
 // Outcome defines model for Outcome.
 type Outcome = string
 
@@ -3852,6 +4571,18 @@ type JSONResponse = JSONObject
 // LaunchConfigResponse defines model for LaunchConfigResponse.
 type LaunchConfigResponse = LaunchConfig
 
+// NetplayGameListResponse defines model for NetplayGameListResponse.
+type NetplayGameListResponse = NetplayGameList
+
+// NetplayLaunchResponse defines model for NetplayLaunchResponse.
+type NetplayLaunchResponse = NetplayLaunchResponseBody
+
+// NetplayRoomListResponse defines model for NetplayRoomListResponse.
+type NetplayRoomListResponse = NetplayRoomList
+
+// NetplayRoomResponse defines model for NetplayRoomResponse.
+type NetplayRoomResponse = NetplayRoom
+
 // PasswordResetCreatedResponse defines model for PasswordResetCreatedResponse.
 type PasswordResetCreatedResponse = PasswordResetCreated
 
@@ -3977,6 +4708,18 @@ type MovePreview = MovePreviewRequest
 
 // MultiDiscPlayerEvent defines model for MultiDiscPlayerEvent.
 type MultiDiscPlayerEvent = MultiDiscPlayerEventRequest
+
+// NetplayLaunch defines model for NetplayLaunch.
+type NetplayLaunch = NetplayLaunchRequest
+
+// NetplayReady defines model for NetplayReady.
+type NetplayReady = NetplayReadyRequest
+
+// NetplaySeat defines model for NetplaySeat.
+type NetplaySeat = NetplaySeatRequest
+
+// NetplaySelectGame defines model for NetplaySelectGame.
+type NetplaySelectGame = NetplaySelectGameRequest
 
 // OrganizeFavorites defines model for OrganizeFavorites.
 type OrganizeFavorites = OrganizeFavoritesRequest
@@ -4631,6 +5374,117 @@ type PostLaunchParams struct {
 	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
 }
 
+// GetNetplayGamesParams defines parameters for GetNetplayGames.
+type GetNetplayGamesParams struct {
+	Cursor       *Cursor                            `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit        *Limit                             `form:"limit,omitempty" json:"limit,omitempty"`
+	Availability *GetNetplayGamesParamsAvailability `form:"availability,omitempty" json:"availability,omitempty"`
+}
+
+// GetNetplayGamesParamsAvailability defines parameters for GetNetplayGames.
+type GetNetplayGamesParamsAvailability string
+
+// GetNetplayRoomsParams defines parameters for GetNetplayRooms.
+type GetNetplayRoomsParams struct {
+	View   *GetNetplayRoomsParamsView `form:"view,omitempty" json:"view,omitempty"`
+	Cursor *Cursor                    `form:"cursor,omitempty" json:"cursor,omitempty"`
+	Limit  *Limit                     `form:"limit,omitempty" json:"limit,omitempty"`
+}
+
+// GetNetplayRoomsParamsView defines parameters for GetNetplayRooms.
+type GetNetplayRoomsParamsView string
+
+// PostNetplayRoomParams defines parameters for PostNetplayRoom.
+type PostNetplayRoomParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// DeleteNetplayRoomParams defines parameters for DeleteNetplayRoom.
+type DeleteNetplayRoomParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// GetNetplayRoomEventsParams defines parameters for GetNetplayRoomEvents.
+type GetNetplayRoomEventsParams struct {
+	LastEventID *LastEventID `json:"Last-Event-ID,omitempty"`
+}
+
+// DeleteNetplayRoomGameParams defines parameters for DeleteNetplayRoomGame.
+type DeleteNetplayRoomGameParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PutNetplayRoomGameParams defines parameters for PutNetplayRoomGame.
+type PutNetplayRoomGameParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// DeleteNetplaySelfMemberParams defines parameters for DeleteNetplaySelfMember.
+type DeleteNetplaySelfMemberParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PutNetplaySelfReadyParams defines parameters for PutNetplaySelfReady.
+type PutNetplaySelfReadyParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PutNetplaySelfSeatParams defines parameters for PutNetplaySelfSeat.
+type PutNetplaySelfSeatParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// DeleteNetplayMemberParams defines parameters for DeleteNetplayMember.
+type DeleteNetplayMemberParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PostNetplayEndParams defines parameters for PostNetplayEnd.
+type PostNetplayEndParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PostNetplayLaunchParams defines parameters for PostNetplayLaunch.
+type PostNetplayLaunchParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PostNetplayPauseParams defines parameters for PostNetplayPause.
+type PostNetplayPauseParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PostNetplayResumeParams defines parameters for PostNetplayResume.
+type PostNetplayResumeParams struct {
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
+// PostNetplayStartParams defines parameters for PostNetplayStart.
+type PostNetplayStartParams struct {
+	IfMatch        IfMatch        `json:"If-Match"`
+	IdempotencyKey IdempotencyKey `json:"Idempotency-Key"`
+	XRetromCsrf    CSRFToken      `json:"X-Retrom-Csrf"`
+}
+
 // GetSavesParams defines parameters for GetSaves.
 type GetSavesParams struct {
 	Q                  *Q                       `form:"q,omitempty" json:"q,omitempty"`
@@ -4871,6 +5725,33 @@ type PutFavoriteFoldersJSONRequestBody = ReplaceFavoriteFoldersRequest
 
 // PostLaunchJSONRequestBody defines body for PostLaunch for application/json ContentType.
 type PostLaunchJSONRequestBody = LaunchRequest
+
+// PostNetplayRoomJSONRequestBody defines body for PostNetplayRoom for application/json ContentType.
+type PostNetplayRoomJSONRequestBody = EmptyRequest
+
+// PutNetplayRoomGameJSONRequestBody defines body for PutNetplayRoomGame for application/json ContentType.
+type PutNetplayRoomGameJSONRequestBody = NetplaySelectGameRequest
+
+// PutNetplaySelfReadyJSONRequestBody defines body for PutNetplaySelfReady for application/json ContentType.
+type PutNetplaySelfReadyJSONRequestBody = NetplayReadyRequest
+
+// PutNetplaySelfSeatJSONRequestBody defines body for PutNetplaySelfSeat for application/json ContentType.
+type PutNetplaySelfSeatJSONRequestBody = NetplaySeatRequest
+
+// PostNetplayEndJSONRequestBody defines body for PostNetplayEnd for application/json ContentType.
+type PostNetplayEndJSONRequestBody = EmptyRequest
+
+// PostNetplayLaunchJSONRequestBody defines body for PostNetplayLaunch for application/json ContentType.
+type PostNetplayLaunchJSONRequestBody = NetplayLaunchRequest
+
+// PostNetplayPauseJSONRequestBody defines body for PostNetplayPause for application/json ContentType.
+type PostNetplayPauseJSONRequestBody = EmptyRequest
+
+// PostNetplayResumeJSONRequestBody defines body for PostNetplayResume for application/json ContentType.
+type PostNetplayResumeJSONRequestBody = EmptyRequest
+
+// PostNetplayStartJSONRequestBody defines body for PostNetplayStart for application/json ContentType.
+type PostNetplayStartJSONRequestBody = EmptyRequest
 
 // PatchSaveJSONRequestBody defines body for PatchSave for application/json ContentType.
 type PatchSaveJSONRequestBody = RenameSaveRequest
@@ -5291,6 +6172,57 @@ type ServerInterface interface {
 	// (POST /api/v1/launches)
 	PostLaunch(w http.ResponseWriter, r *http.Request, params PostLaunchParams)
 
+	// (GET /api/v1/netplay/games)
+	GetNetplayGames(w http.ResponseWriter, r *http.Request, params GetNetplayGamesParams)
+
+	// (GET /api/v1/netplay/rooms)
+	GetNetplayRooms(w http.ResponseWriter, r *http.Request, params GetNetplayRoomsParams)
+
+	// (POST /api/v1/netplay/rooms)
+	PostNetplayRoom(w http.ResponseWriter, r *http.Request, params PostNetplayRoomParams)
+
+	// (DELETE /api/v1/netplay/rooms/{roomId})
+	DeleteNetplayRoom(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params DeleteNetplayRoomParams)
+
+	// (GET /api/v1/netplay/rooms/{roomId})
+	GetNetplayRoom(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID)
+
+	// (GET /api/v1/netplay/rooms/{roomId}/events)
+	GetNetplayRoomEvents(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params GetNetplayRoomEventsParams)
+
+	// (DELETE /api/v1/netplay/rooms/{roomId}/game)
+	DeleteNetplayRoomGame(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params DeleteNetplayRoomGameParams)
+
+	// (PUT /api/v1/netplay/rooms/{roomId}/game)
+	PutNetplayRoomGame(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params PutNetplayRoomGameParams)
+
+	// (DELETE /api/v1/netplay/rooms/{roomId}/members/me)
+	DeleteNetplaySelfMember(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params DeleteNetplaySelfMemberParams)
+
+	// (PUT /api/v1/netplay/rooms/{roomId}/members/me/ready)
+	PutNetplaySelfReady(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params PutNetplaySelfReadyParams)
+
+	// (PUT /api/v1/netplay/rooms/{roomId}/members/me/seat)
+	PutNetplaySelfSeat(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params PutNetplaySelfSeatParams)
+
+	// (DELETE /api/v1/netplay/rooms/{roomId}/members/{memberId})
+	DeleteNetplayMember(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, memberId NetplayMemberID, params DeleteNetplayMemberParams)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/end)
+	PostNetplayEnd(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, sessionId NetplaySessionID, params PostNetplayEndParams)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/launch)
+	PostNetplayLaunch(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, sessionId NetplaySessionID, params PostNetplayLaunchParams)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/pause)
+	PostNetplayPause(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, sessionId NetplaySessionID, params PostNetplayPauseParams)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/resume)
+	PostNetplayResume(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, sessionId NetplaySessionID, params PostNetplayResumeParams)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/start)
+	PostNetplayStart(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params PostNetplayStartParams)
+
 	// (GET /api/v1/recent-games)
 	GetRecentGames(w http.ResponseWriter, r *http.Request)
 
@@ -5383,6 +6315,9 @@ type ServerInterface interface {
 
 	// (HEAD /runtime/launches/{launchId}/state)
 	HeadRuntimeState(w http.ResponseWriter, r *http.Request, launchId LaunchID)
+
+	// (GET /runtime/netplay/rooms/{roomId}/socket)
+	GetNetplaySocket(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID)
 }
 
 // ServerInterfaceWrapper converts contexts to parameters.
@@ -12480,6 +13415,1421 @@ func (siw *ServerInterfaceWrapper) PostLaunch(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// GetNetplayGames operation middleware
+func (siw *ServerInterfaceWrapper) GetNetplayGames(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetNetplayGamesParams
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "availability" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "availability", r.URL.Query(), &params.Availability, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "availability"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "availability", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNetplayGames(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNetplayRooms operation middleware
+func (siw *ServerInterfaceWrapper) GetNetplayRooms(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetNetplayRoomsParams
+
+	// ------------- Optional query parameter "view" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "view", r.URL.Query(), &params.View, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "view"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "view", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNetplayRooms(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostNetplayRoom operation middleware
+func (siw *ServerInterfaceWrapper) PostNetplayRoom(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostNetplayRoomParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostNetplayRoom(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNetplayRoom operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNetplayRoom(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteNetplayRoomParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNetplayRoom(w, r, roomId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNetplayRoom operation middleware
+func (siw *ServerInterfaceWrapper) GetNetplayRoom(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNetplayRoom(w, r, roomId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetNetplayRoomEvents operation middleware
+func (siw *ServerInterfaceWrapper) GetNetplayRoomEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetNetplayRoomEventsParams
+
+	headers := r.Header
+
+	// ------------- Optional header parameter "Last-Event-ID" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Last-Event-ID")]; found {
+		var LastEventID LastEventID
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Last-Event-ID", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Last-Event-ID", valueList[0], &LastEventID, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: false, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Last-Event-ID", Err: err})
+			return
+		}
+
+		params.LastEventID = &LastEventID
+
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNetplayRoomEvents(w, r, roomId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNetplayRoomGame operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNetplayRoomGame(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteNetplayRoomGameParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNetplayRoomGame(w, r, roomId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutNetplayRoomGame operation middleware
+func (siw *ServerInterfaceWrapper) PutNetplayRoomGame(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutNetplayRoomGameParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutNetplayRoomGame(w, r, roomId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNetplaySelfMember operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNetplaySelfMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteNetplaySelfMemberParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNetplaySelfMember(w, r, roomId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutNetplaySelfReady operation middleware
+func (siw *ServerInterfaceWrapper) PutNetplaySelfReady(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutNetplaySelfReadyParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutNetplaySelfReady(w, r, roomId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutNetplaySelfSeat operation middleware
+func (siw *ServerInterfaceWrapper) PutNetplaySelfSeat(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutNetplaySelfSeatParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutNetplaySelfSeat(w, r, roomId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteNetplayMember operation middleware
+func (siw *ServerInterfaceWrapper) DeleteNetplayMember(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "memberId" -------------
+	var memberId NetplayMemberID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "memberId", r.PathValue("memberId"), &memberId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "memberId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params DeleteNetplayMemberParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteNetplayMember(w, r, roomId, memberId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostNetplayEnd operation middleware
+func (siw *ServerInterfaceWrapper) PostNetplayEnd(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sessionId" -------------
+	var sessionId NetplaySessionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", r.PathValue("sessionId"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostNetplayEndParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostNetplayEnd(w, r, roomId, sessionId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostNetplayLaunch operation middleware
+func (siw *ServerInterfaceWrapper) PostNetplayLaunch(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sessionId" -------------
+	var sessionId NetplaySessionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", r.PathValue("sessionId"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostNetplayLaunchParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostNetplayLaunch(w, r, roomId, sessionId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostNetplayPause operation middleware
+func (siw *ServerInterfaceWrapper) PostNetplayPause(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sessionId" -------------
+	var sessionId NetplaySessionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", r.PathValue("sessionId"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostNetplayPauseParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostNetplayPause(w, r, roomId, sessionId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostNetplayResume operation middleware
+func (siw *ServerInterfaceWrapper) PostNetplayResume(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// ------------- Path parameter "sessionId" -------------
+	var sessionId NetplaySessionID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "sessionId", r.PathValue("sessionId"), &sessionId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "sessionId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostNetplayResumeParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostNetplayResume(w, r, roomId, sessionId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PostNetplayStart operation middleware
+func (siw *ServerInterfaceWrapper) PostNetplayStart(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PostNetplayStartParams
+
+	headers := r.Header
+
+	// ------------- Required header parameter "If-Match" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("If-Match")]; found {
+		var IfMatch IfMatch
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "If-Match", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "If-Match", valueList[0], &IfMatch, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "If-Match", Err: err})
+			return
+		}
+
+		params.IfMatch = IfMatch
+
+	} else {
+		err := fmt.Errorf("Header parameter If-Match is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "If-Match", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "Idempotency-Key" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("Idempotency-Key")]; found {
+		var IdempotencyKey IdempotencyKey
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "Idempotency-Key", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "Idempotency-Key", valueList[0], &IdempotencyKey, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: "uuid"})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "Idempotency-Key", Err: err})
+			return
+		}
+
+		params.IdempotencyKey = IdempotencyKey
+
+	} else {
+		err := fmt.Errorf("Header parameter Idempotency-Key is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "Idempotency-Key", Err: err})
+		return
+	}
+
+	// ------------- Required header parameter "X-Retrom-Csrf" -------------
+	if valueList, found := headers[http.CanonicalHeaderKey("X-Retrom-Csrf")]; found {
+		var XRetromCsrf CSRFToken
+		n := len(valueList)
+		if n != 1 {
+			siw.ErrorHandlerFunc(w, r, &TooManyValuesForParamError{ParamName: "X-Retrom-Csrf", Count: n})
+			return
+		}
+
+		err = runtime.BindStyledParameterWithOptions("simple", "X-Retrom-Csrf", valueList[0], &XRetromCsrf, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationHeader, Explode: false, Required: true, Type: "string", Format: ""})
+		if err != nil {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "X-Retrom-Csrf", Err: err})
+			return
+		}
+
+		params.XRetromCsrf = XRetromCsrf
+
+	} else {
+		err := fmt.Errorf("Header parameter X-Retrom-Csrf is required, but not found")
+		siw.ErrorHandlerFunc(w, r, &RequiredHeaderError{ParamName: "X-Retrom-Csrf", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PostNetplayStart(w, r, roomId, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetRecentGames operation middleware
 func (siw *ServerInterfaceWrapper) GetRecentGames(w http.ResponseWriter, r *http.Request) {
 
@@ -13628,6 +15978,32 @@ func (siw *ServerInterfaceWrapper) HeadRuntimeState(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetNetplaySocket operation middleware
+func (siw *ServerInterfaceWrapper) GetNetplaySocket(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "roomId" -------------
+	var roomId NetplayRoomID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "roomId", r.PathValue("roomId"), &roomId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "uuid", ValueIsUnescaped: true})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "roomId", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetNetplaySocket(w, r, roomId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 type UnescapedCookieParamError struct {
 	ParamName string
 	Err       error
@@ -13784,6 +16160,24 @@ func HandlerWithOptions(si ServerInterface, options StdHTTPServerOptions) http.H
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/saves/{saveStateId}", wrapper.DeleteSave)
 	m.HandleFunc(http.MethodPatch+" "+options.BaseURL+"/api/v1/saves/{saveStateId}", wrapper.PatchSave)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/launches", wrapper.PostLaunch)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/netplay/games", wrapper.GetNetplayGames)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/netplay/rooms", wrapper.GetNetplayRooms)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/netplay/rooms", wrapper.PostNetplayRoom)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}", wrapper.DeleteNetplayRoom)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}", wrapper.GetNetplayRoom)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/game", wrapper.DeleteNetplayRoomGame)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/game", wrapper.PutNetplayRoomGame)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/members/me/seat", wrapper.PutNetplaySelfSeat)
+	m.HandleFunc(http.MethodPut+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/members/me/ready", wrapper.PutNetplaySelfReady)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/members/me", wrapper.DeleteNetplaySelfMember)
+	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/members/{memberId}", wrapper.DeleteNetplayMember)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/start", wrapper.PostNetplayStart)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/launch", wrapper.PostNetplayLaunch)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/pause", wrapper.PostNetplayPause)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/resume", wrapper.PostNetplayResume)
+	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/end", wrapper.PostNetplayEnd)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/netplay/rooms/{roomId}/events", wrapper.GetNetplayRoomEvents)
+	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/runtime/netplay/rooms/{roomId}/socket", wrapper.GetNetplaySocket)
 	m.HandleFunc(http.MethodPost+" "+options.BaseURL+"/api/v1/admin/uploads", wrapper.PostAdminUpload)
 	m.HandleFunc(http.MethodDelete+" "+options.BaseURL+"/api/v1/admin/uploads/{uploadId}", wrapper.DeleteAdminUpload)
 	m.HandleFunc(http.MethodGet+" "+options.BaseURL+"/api/v1/admin/uploads/{uploadId}", wrapper.GetAdminUpload)
@@ -13954,6 +16348,21 @@ type InvitationCreatedResponseJSONResponse InvitationCreated
 type JSONResponseJSONResponse JSONObject
 
 type LaunchConfigResponseJSONResponse LaunchConfig
+
+type NetplayGameListResponseJSONResponse NetplayGameList
+
+type NetplayLaunchResponseJSONResponse NetplayLaunchResponseBody
+
+type NetplayRoomListResponseJSONResponse NetplayRoomList
+
+type NetplayRoomResponseResponseHeaders struct {
+	ETag *string
+}
+type NetplayRoomResponseJSONResponse struct {
+	Body NetplayRoom
+
+	Headers NetplayRoomResponseResponseHeaders
+}
 
 type PasswordResetCreatedResponseResponseHeaders struct {
 	ETag *string
@@ -16828,6 +19237,472 @@ func (response PostLaunch202JSONResponse) VisitPostLaunchResponse(w http.Respons
 	return err
 }
 
+type GetNetplayGamesRequestObject struct {
+	Params GetNetplayGamesParams
+}
+
+type GetNetplayGamesResponseObject interface {
+	VisitGetNetplayGamesResponse(w http.ResponseWriter) error
+}
+
+type GetNetplayGames200JSONResponse struct {
+	NetplayGameListResponseJSONResponse
+}
+
+func (response GetNetplayGames200JSONResponse) VisitGetNetplayGamesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetNetplayRoomsRequestObject struct {
+	Params GetNetplayRoomsParams
+}
+
+type GetNetplayRoomsResponseObject interface {
+	VisitGetNetplayRoomsResponse(w http.ResponseWriter) error
+}
+
+type GetNetplayRooms200JSONResponse struct {
+	NetplayRoomListResponseJSONResponse
+}
+
+func (response GetNetplayRooms200JSONResponse) VisitGetNetplayRoomsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostNetplayRoomRequestObject struct {
+	Params PostNetplayRoomParams
+	Body   *PostNetplayRoomJSONRequestBody
+}
+
+type PostNetplayRoomResponseObject interface {
+	VisitPostNetplayRoomResponse(w http.ResponseWriter) error
+}
+
+type PostNetplayRoom201JSONResponse struct {
+	NetplayRoomResponseJSONResponse
+}
+
+func (response PostNetplayRoom201JSONResponse) VisitPostNetplayRoomResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteNetplayRoomRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+	Params DeleteNetplayRoomParams
+}
+
+type DeleteNetplayRoomResponseObject interface {
+	VisitDeleteNetplayRoomResponse(w http.ResponseWriter) error
+}
+
+type DeleteNetplayRoom204Response struct {
+}
+
+func (response DeleteNetplayRoom204Response) VisitDeleteNetplayRoomResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type GetNetplayRoomRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+}
+
+type GetNetplayRoomResponseObject interface {
+	VisitGetNetplayRoomResponse(w http.ResponseWriter) error
+}
+
+type GetNetplayRoom200JSONResponse struct {
+	NetplayRoomResponseJSONResponse
+}
+
+func (response GetNetplayRoom200JSONResponse) VisitGetNetplayRoomResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetNetplayRoomEventsRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+	Params GetNetplayRoomEventsParams
+}
+
+type GetNetplayRoomEventsResponseObject interface {
+	VisitGetNetplayRoomEventsResponse(w http.ResponseWriter) error
+}
+
+type GetNetplayRoomEvents200TexteventStreamResponse struct {
+	SSEResponseTexteventStreamResponse
+}
+
+func (response GetNetplayRoomEvents200TexteventStreamResponse) VisitGetNetplayRoomEventsResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		// If w doesn't support flushing, fall back to io.Copy.
+		_, err := io.Copy(w, response.Body)
+		return err
+	}
+	// text/event-stream messages are typically small; use a
+	// modest buffer and flush after each chunk so clients see
+	// events immediately instead of waiting on OS buffering.
+	buf := make([]byte, 4096)
+	for {
+		n, err := response.Body.Read(buf)
+		if n > 0 {
+			if _, writeErr := w.Write(buf[:n]); writeErr != nil {
+				return writeErr
+			}
+			flusher.Flush()
+		}
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
+}
+
+type DeleteNetplayRoomGameRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+	Params DeleteNetplayRoomGameParams
+}
+
+type DeleteNetplayRoomGameResponseObject interface {
+	VisitDeleteNetplayRoomGameResponse(w http.ResponseWriter) error
+}
+
+type DeleteNetplayRoomGame200JSONResponse struct {
+	NetplayRoomResponseJSONResponse
+}
+
+func (response DeleteNetplayRoomGame200JSONResponse) VisitDeleteNetplayRoomGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutNetplayRoomGameRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+	Params PutNetplayRoomGameParams
+	Body   *PutNetplayRoomGameJSONRequestBody
+}
+
+type PutNetplayRoomGameResponseObject interface {
+	VisitPutNetplayRoomGameResponse(w http.ResponseWriter) error
+}
+
+type PutNetplayRoomGame200JSONResponse struct {
+	NetplayRoomResponseJSONResponse
+}
+
+func (response PutNetplayRoomGame200JSONResponse) VisitPutNetplayRoomGameResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteNetplaySelfMemberRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+	Params DeleteNetplaySelfMemberParams
+}
+
+type DeleteNetplaySelfMemberResponseObject interface {
+	VisitDeleteNetplaySelfMemberResponse(w http.ResponseWriter) error
+}
+
+type DeleteNetplaySelfMember204Response struct {
+}
+
+func (response DeleteNetplaySelfMember204Response) VisitDeleteNetplaySelfMemberResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PutNetplaySelfReadyRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+	Params PutNetplaySelfReadyParams
+	Body   *PutNetplaySelfReadyJSONRequestBody
+}
+
+type PutNetplaySelfReadyResponseObject interface {
+	VisitPutNetplaySelfReadyResponse(w http.ResponseWriter) error
+}
+
+type PutNetplaySelfReady200JSONResponse struct {
+	NetplayRoomResponseJSONResponse
+}
+
+func (response PutNetplaySelfReady200JSONResponse) VisitPutNetplaySelfReadyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutNetplaySelfSeatRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+	Params PutNetplaySelfSeatParams
+	Body   *PutNetplaySelfSeatJSONRequestBody
+}
+
+type PutNetplaySelfSeatResponseObject interface {
+	VisitPutNetplaySelfSeatResponse(w http.ResponseWriter) error
+}
+
+type PutNetplaySelfSeat200JSONResponse struct {
+	NetplayRoomResponseJSONResponse
+}
+
+func (response PutNetplaySelfSeat200JSONResponse) VisitPutNetplaySelfSeatResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteNetplayMemberRequestObject struct {
+	RoomId   NetplayRoomID   `json:"roomId"`
+	MemberId NetplayMemberID `json:"memberId"`
+	Params   DeleteNetplayMemberParams
+}
+
+type DeleteNetplayMemberResponseObject interface {
+	VisitDeleteNetplayMemberResponse(w http.ResponseWriter) error
+}
+
+type DeleteNetplayMember204Response struct {
+}
+
+func (response DeleteNetplayMember204Response) VisitDeleteNetplayMemberResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type PostNetplayEndRequestObject struct {
+	RoomId    NetplayRoomID    `json:"roomId"`
+	SessionId NetplaySessionID `json:"sessionId"`
+	Params    PostNetplayEndParams
+	Body      *PostNetplayEndJSONRequestBody
+}
+
+type PostNetplayEndResponseObject interface {
+	VisitPostNetplayEndResponse(w http.ResponseWriter) error
+}
+
+type PostNetplayEnd202JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response PostNetplayEnd202JSONResponse) VisitPostNetplayEndResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostNetplayLaunchRequestObject struct {
+	RoomId    NetplayRoomID    `json:"roomId"`
+	SessionId NetplaySessionID `json:"sessionId"`
+	Params    PostNetplayLaunchParams
+	Body      *PostNetplayLaunchJSONRequestBody
+}
+
+type PostNetplayLaunchResponseObject interface {
+	VisitPostNetplayLaunchResponse(w http.ResponseWriter) error
+}
+
+type PostNetplayLaunch200JSONResponse struct {
+	NetplayLaunchResponseJSONResponse
+}
+
+func (response PostNetplayLaunch200JSONResponse) VisitPostNetplayLaunchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostNetplayLaunch201JSONResponse NetplayLaunchResponseBody
+
+func (response PostNetplayLaunch201JSONResponse) VisitPostNetplayLaunchResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostNetplayPauseRequestObject struct {
+	RoomId    NetplayRoomID    `json:"roomId"`
+	SessionId NetplaySessionID `json:"sessionId"`
+	Params    PostNetplayPauseParams
+	Body      *PostNetplayPauseJSONRequestBody
+}
+
+type PostNetplayPauseResponseObject interface {
+	VisitPostNetplayPauseResponse(w http.ResponseWriter) error
+}
+
+type PostNetplayPause202JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response PostNetplayPause202JSONResponse) VisitPostNetplayPauseResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostNetplayResumeRequestObject struct {
+	RoomId    NetplayRoomID    `json:"roomId"`
+	SessionId NetplaySessionID `json:"sessionId"`
+	Params    PostNetplayResumeParams
+	Body      *PostNetplayResumeJSONRequestBody
+}
+
+type PostNetplayResumeResponseObject interface {
+	VisitPostNetplayResumeResponse(w http.ResponseWriter) error
+}
+
+type PostNetplayResume202JSONResponse struct{ JSONResponseJSONResponse }
+
+func (response PostNetplayResume202JSONResponse) VisitPostNetplayResumeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PostNetplayStartRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+	Params PostNetplayStartParams
+	Body   *PostNetplayStartJSONRequestBody
+}
+
+type PostNetplayStartResponseObject interface {
+	VisitPostNetplayStartResponse(w http.ResponseWriter) error
+}
+
+type PostNetplayStart202JSONResponse struct {
+	NetplayRoomResponseJSONResponse
+}
+
+func (response PostNetplayStart202JSONResponse) VisitPostNetplayStartResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.ETag != nil {
+		w.Header().Set("ETag", fmt.Sprint(*response.Headers.ETag))
+	}
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetRecentGamesRequestObject struct {
 }
 
@@ -17730,6 +20605,22 @@ func (response HeadRuntimeState200ApplicationoctetStreamResponse) VisitHeadRunti
 	return err
 }
 
+type GetNetplaySocketRequestObject struct {
+	RoomId NetplayRoomID `json:"roomId"`
+}
+
+type GetNetplaySocketResponseObject interface {
+	VisitGetNetplaySocketResponse(w http.ResponseWriter) error
+}
+
+type GetNetplaySocket101Response struct {
+}
+
+func (response GetNetplaySocket101Response) VisitGetNetplaySocketResponse(w http.ResponseWriter) error {
+	w.WriteHeader(101)
+	return nil
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 
@@ -18069,6 +20960,57 @@ type StrictServerInterface interface {
 	// (POST /api/v1/launches)
 	PostLaunch(ctx context.Context, request PostLaunchRequestObject) (PostLaunchResponseObject, error)
 
+	// (GET /api/v1/netplay/games)
+	GetNetplayGames(ctx context.Context, request GetNetplayGamesRequestObject) (GetNetplayGamesResponseObject, error)
+
+	// (GET /api/v1/netplay/rooms)
+	GetNetplayRooms(ctx context.Context, request GetNetplayRoomsRequestObject) (GetNetplayRoomsResponseObject, error)
+
+	// (POST /api/v1/netplay/rooms)
+	PostNetplayRoom(ctx context.Context, request PostNetplayRoomRequestObject) (PostNetplayRoomResponseObject, error)
+
+	// (DELETE /api/v1/netplay/rooms/{roomId})
+	DeleteNetplayRoom(ctx context.Context, request DeleteNetplayRoomRequestObject) (DeleteNetplayRoomResponseObject, error)
+
+	// (GET /api/v1/netplay/rooms/{roomId})
+	GetNetplayRoom(ctx context.Context, request GetNetplayRoomRequestObject) (GetNetplayRoomResponseObject, error)
+
+	// (GET /api/v1/netplay/rooms/{roomId}/events)
+	GetNetplayRoomEvents(ctx context.Context, request GetNetplayRoomEventsRequestObject) (GetNetplayRoomEventsResponseObject, error)
+
+	// (DELETE /api/v1/netplay/rooms/{roomId}/game)
+	DeleteNetplayRoomGame(ctx context.Context, request DeleteNetplayRoomGameRequestObject) (DeleteNetplayRoomGameResponseObject, error)
+
+	// (PUT /api/v1/netplay/rooms/{roomId}/game)
+	PutNetplayRoomGame(ctx context.Context, request PutNetplayRoomGameRequestObject) (PutNetplayRoomGameResponseObject, error)
+
+	// (DELETE /api/v1/netplay/rooms/{roomId}/members/me)
+	DeleteNetplaySelfMember(ctx context.Context, request DeleteNetplaySelfMemberRequestObject) (DeleteNetplaySelfMemberResponseObject, error)
+
+	// (PUT /api/v1/netplay/rooms/{roomId}/members/me/ready)
+	PutNetplaySelfReady(ctx context.Context, request PutNetplaySelfReadyRequestObject) (PutNetplaySelfReadyResponseObject, error)
+
+	// (PUT /api/v1/netplay/rooms/{roomId}/members/me/seat)
+	PutNetplaySelfSeat(ctx context.Context, request PutNetplaySelfSeatRequestObject) (PutNetplaySelfSeatResponseObject, error)
+
+	// (DELETE /api/v1/netplay/rooms/{roomId}/members/{memberId})
+	DeleteNetplayMember(ctx context.Context, request DeleteNetplayMemberRequestObject) (DeleteNetplayMemberResponseObject, error)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/end)
+	PostNetplayEnd(ctx context.Context, request PostNetplayEndRequestObject) (PostNetplayEndResponseObject, error)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/launch)
+	PostNetplayLaunch(ctx context.Context, request PostNetplayLaunchRequestObject) (PostNetplayLaunchResponseObject, error)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/pause)
+	PostNetplayPause(ctx context.Context, request PostNetplayPauseRequestObject) (PostNetplayPauseResponseObject, error)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/resume)
+	PostNetplayResume(ctx context.Context, request PostNetplayResumeRequestObject) (PostNetplayResumeResponseObject, error)
+
+	// (POST /api/v1/netplay/rooms/{roomId}/start)
+	PostNetplayStart(ctx context.Context, request PostNetplayStartRequestObject) (PostNetplayStartResponseObject, error)
+
 	// (GET /api/v1/recent-games)
 	GetRecentGames(ctx context.Context, request GetRecentGamesRequestObject) (GetRecentGamesResponseObject, error)
 
@@ -18161,6 +21103,9 @@ type StrictServerInterface interface {
 
 	// (HEAD /runtime/launches/{launchId}/state)
 	HeadRuntimeState(ctx context.Context, request HeadRuntimeStateRequestObject) (HeadRuntimeStateResponseObject, error)
+
+	// (GET /runtime/netplay/rooms/{roomId}/socket)
+	GetNetplaySocket(ctx context.Context, request GetNetplaySocketRequestObject) (GetNetplaySocketResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -21578,6 +24523,529 @@ func (sh *strictHandler) PostLaunch(w http.ResponseWriter, r *http.Request, para
 	}
 }
 
+// GetNetplayGames operation middleware
+func (sh *strictHandler) GetNetplayGames(w http.ResponseWriter, r *http.Request, params GetNetplayGamesParams) {
+	var request GetNetplayGamesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNetplayGames(ctx, request.(GetNetplayGamesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNetplayGames")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNetplayGamesResponseObject); ok {
+		if err := validResponse.VisitGetNetplayGamesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetNetplayRooms operation middleware
+func (sh *strictHandler) GetNetplayRooms(w http.ResponseWriter, r *http.Request, params GetNetplayRoomsParams) {
+	var request GetNetplayRoomsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNetplayRooms(ctx, request.(GetNetplayRoomsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNetplayRooms")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNetplayRoomsResponseObject); ok {
+		if err := validResponse.VisitGetNetplayRoomsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostNetplayRoom operation middleware
+func (sh *strictHandler) PostNetplayRoom(w http.ResponseWriter, r *http.Request, params PostNetplayRoomParams) {
+	var request PostNetplayRoomRequestObject
+
+	request.Params = params
+
+	var body PostNetplayRoomJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostNetplayRoom(ctx, request.(PostNetplayRoomRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostNetplayRoom")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostNetplayRoomResponseObject); ok {
+		if err := validResponse.VisitPostNetplayRoomResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteNetplayRoom operation middleware
+func (sh *strictHandler) DeleteNetplayRoom(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params DeleteNetplayRoomParams) {
+	var request DeleteNetplayRoomRequestObject
+
+	request.RoomId = roomId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteNetplayRoom(ctx, request.(DeleteNetplayRoomRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteNetplayRoom")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteNetplayRoomResponseObject); ok {
+		if err := validResponse.VisitDeleteNetplayRoomResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetNetplayRoom operation middleware
+func (sh *strictHandler) GetNetplayRoom(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID) {
+	var request GetNetplayRoomRequestObject
+
+	request.RoomId = roomId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNetplayRoom(ctx, request.(GetNetplayRoomRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNetplayRoom")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNetplayRoomResponseObject); ok {
+		if err := validResponse.VisitGetNetplayRoomResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetNetplayRoomEvents operation middleware
+func (sh *strictHandler) GetNetplayRoomEvents(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params GetNetplayRoomEventsParams) {
+	var request GetNetplayRoomEventsRequestObject
+
+	request.RoomId = roomId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNetplayRoomEvents(ctx, request.(GetNetplayRoomEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNetplayRoomEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNetplayRoomEventsResponseObject); ok {
+		if err := validResponse.VisitGetNetplayRoomEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteNetplayRoomGame operation middleware
+func (sh *strictHandler) DeleteNetplayRoomGame(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params DeleteNetplayRoomGameParams) {
+	var request DeleteNetplayRoomGameRequestObject
+
+	request.RoomId = roomId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteNetplayRoomGame(ctx, request.(DeleteNetplayRoomGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteNetplayRoomGame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteNetplayRoomGameResponseObject); ok {
+		if err := validResponse.VisitDeleteNetplayRoomGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutNetplayRoomGame operation middleware
+func (sh *strictHandler) PutNetplayRoomGame(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params PutNetplayRoomGameParams) {
+	var request PutNetplayRoomGameRequestObject
+
+	request.RoomId = roomId
+	request.Params = params
+
+	var body PutNetplayRoomGameJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutNetplayRoomGame(ctx, request.(PutNetplayRoomGameRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutNetplayRoomGame")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutNetplayRoomGameResponseObject); ok {
+		if err := validResponse.VisitPutNetplayRoomGameResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteNetplaySelfMember operation middleware
+func (sh *strictHandler) DeleteNetplaySelfMember(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params DeleteNetplaySelfMemberParams) {
+	var request DeleteNetplaySelfMemberRequestObject
+
+	request.RoomId = roomId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteNetplaySelfMember(ctx, request.(DeleteNetplaySelfMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteNetplaySelfMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteNetplaySelfMemberResponseObject); ok {
+		if err := validResponse.VisitDeleteNetplaySelfMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutNetplaySelfReady operation middleware
+func (sh *strictHandler) PutNetplaySelfReady(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params PutNetplaySelfReadyParams) {
+	var request PutNetplaySelfReadyRequestObject
+
+	request.RoomId = roomId
+	request.Params = params
+
+	var body PutNetplaySelfReadyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutNetplaySelfReady(ctx, request.(PutNetplaySelfReadyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutNetplaySelfReady")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutNetplaySelfReadyResponseObject); ok {
+		if err := validResponse.VisitPutNetplaySelfReadyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutNetplaySelfSeat operation middleware
+func (sh *strictHandler) PutNetplaySelfSeat(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params PutNetplaySelfSeatParams) {
+	var request PutNetplaySelfSeatRequestObject
+
+	request.RoomId = roomId
+	request.Params = params
+
+	var body PutNetplaySelfSeatJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutNetplaySelfSeat(ctx, request.(PutNetplaySelfSeatRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutNetplaySelfSeat")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutNetplaySelfSeatResponseObject); ok {
+		if err := validResponse.VisitPutNetplaySelfSeatResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteNetplayMember operation middleware
+func (sh *strictHandler) DeleteNetplayMember(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, memberId NetplayMemberID, params DeleteNetplayMemberParams) {
+	var request DeleteNetplayMemberRequestObject
+
+	request.RoomId = roomId
+	request.MemberId = memberId
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteNetplayMember(ctx, request.(DeleteNetplayMemberRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteNetplayMember")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteNetplayMemberResponseObject); ok {
+		if err := validResponse.VisitDeleteNetplayMemberResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostNetplayEnd operation middleware
+func (sh *strictHandler) PostNetplayEnd(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, sessionId NetplaySessionID, params PostNetplayEndParams) {
+	var request PostNetplayEndRequestObject
+
+	request.RoomId = roomId
+	request.SessionId = sessionId
+	request.Params = params
+
+	var body PostNetplayEndJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostNetplayEnd(ctx, request.(PostNetplayEndRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostNetplayEnd")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostNetplayEndResponseObject); ok {
+		if err := validResponse.VisitPostNetplayEndResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostNetplayLaunch operation middleware
+func (sh *strictHandler) PostNetplayLaunch(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, sessionId NetplaySessionID, params PostNetplayLaunchParams) {
+	var request PostNetplayLaunchRequestObject
+
+	request.RoomId = roomId
+	request.SessionId = sessionId
+	request.Params = params
+
+	var body PostNetplayLaunchJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostNetplayLaunch(ctx, request.(PostNetplayLaunchRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostNetplayLaunch")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostNetplayLaunchResponseObject); ok {
+		if err := validResponse.VisitPostNetplayLaunchResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostNetplayPause operation middleware
+func (sh *strictHandler) PostNetplayPause(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, sessionId NetplaySessionID, params PostNetplayPauseParams) {
+	var request PostNetplayPauseRequestObject
+
+	request.RoomId = roomId
+	request.SessionId = sessionId
+	request.Params = params
+
+	var body PostNetplayPauseJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostNetplayPause(ctx, request.(PostNetplayPauseRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostNetplayPause")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostNetplayPauseResponseObject); ok {
+		if err := validResponse.VisitPostNetplayPauseResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostNetplayResume operation middleware
+func (sh *strictHandler) PostNetplayResume(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, sessionId NetplaySessionID, params PostNetplayResumeParams) {
+	var request PostNetplayResumeRequestObject
+
+	request.RoomId = roomId
+	request.SessionId = sessionId
+	request.Params = params
+
+	var body PostNetplayResumeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostNetplayResume(ctx, request.(PostNetplayResumeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostNetplayResume")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostNetplayResumeResponseObject); ok {
+		if err := validResponse.VisitPostNetplayResumeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PostNetplayStart operation middleware
+func (sh *strictHandler) PostNetplayStart(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID, params PostNetplayStartParams) {
+	var request PostNetplayStartRequestObject
+
+	request.RoomId = roomId
+	request.Params = params
+
+	var body PostNetplayStartJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PostNetplayStart(ctx, request.(PostNetplayStartRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PostNetplayStart")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PostNetplayStartResponseObject); ok {
+		if err := validResponse.VisitPostNetplayStartResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetRecentGames operation middleware
 func (sh *strictHandler) GetRecentGames(w http.ResponseWriter, r *http.Request) {
 	var request GetRecentGamesRequestObject
@@ -22436,314 +25904,376 @@ func (sh *strictHandler) HeadRuntimeState(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// GetNetplaySocket operation middleware
+func (sh *strictHandler) GetNetplaySocket(w http.ResponseWriter, r *http.Request, roomId NetplayRoomID) {
+	var request GetNetplaySocketRequestObject
+
+	request.RoomId = roomId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetNetplaySocket(ctx, request.(GetNetplaySocketRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetNetplaySocket")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetNetplaySocketResponseObject); ok {
+		if err := validResponse.VisitGetNetplaySocketResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
 // Stored as a slice of fixed-width chunks rather than one concatenated
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7L1tl9s2kj/6VXh055zZ/a9ktZ14NnFe7GFLalsTtaRIaieejG//0SQkwaZIDQDK7vj2d78HjwRJ8FFS",
-	"u53ZN3aLBIFCoVAoAFW/+tLxot0+CmFISefVl84eYLCDFGL+y/W8KA7pBIUfx0P2AIWdV509oNtOtxOC",
-	"Hey86gCjjN/pdjD8V4ww9DuvKI5ht0O8LdwB9vE6wjtAO686cYxYSXq/ZxUQilG46Tw8dDsuIZAWt8Tf",
-	"Ht3GAaAA3KEA0Xvd0L9iiO+NlswyZvX56i7Hs+UvMfI+FtX1L/7SrMSHaxAHjEh3Mul0OzCMd51Xv8tf",
-	"7mo1mq7Gs2mn21mMfrkZL0bDTrczm7Nn7qTz3tapyyDyPkI8iHxYRMedUaS8S4Pl4moVfYShrmoLgQ9x",
-	"UtdvvQWkONr1BgSvS8fDUjsIfeQDCgvH2dMljh3rwRaEm0KOeOJtBblRuEabGEP/LcQERWER0blyZaTv",
-	"AaUQs1r+3/+4+P9+f9778f3vF70f3/+f//znP59VPvmP/3nVY3+6vX+A3h+99//1H//z6p//fJZ69J//",
-	"5z//5y92pkQhhSEdog0ktHCIZameLNZwjMXHixT3i1pYyFFo1gCGLqZoDTw6Hv7Cx7VolM2ifqehAEUY",
-	"1qg/U6+lnhiTCBdWId6aVezA5wkMN3TbefXD8x9f2GgbuispaoUzyQdUFTl2Kg2hh1Lin+mDr96XM2IU",
-	"gruAUWCvBcrXlkruoiiAIOS1XIFDhBGFV1HgQ1zY/bV4fWzXs62VioPRZps2ll60L1RYhL+sv5TcTAfu",
-	"avR6thj/g68hV7PJcLSwryCagAjTwvbZO3vzV+7b2WK8Gg1vh6PlwKAk92IxGoymq8m72/nEfZc8Xo1X",
-	"k9GtK4tMRu5ydPtu5C7EezvJKCheRNbs5dEjj6OdS69J4WCr99ZqUUj/9n2n29mhEO0YNy50GyikcAMx",
-	"b+Q12EFu+PyMQr/M9OHvyzqkeP52PBzN7DxjjRXybMNeHssz0ULpHNHtNKl37MPdPqIw9O5/hveFq4pR",
-	"rMfKHdeZ8foaUG9b3Nq6Jwo0W77Gu32E6ZjCXeFYoKTIsSMiWvt7dFfRGCtxwrZKRSDdYpMWyvrx4QQ9",
-	"mABCRwcYmvuQ7LCzMj1eqDcedgoMO26s/ddfChqJQ29b2I9AvD66K2iHCpV5wF9atfnLiy4zQITSen5x",
-	"Yaiw51YVxht6fnHRoi1RfePGXrRp64XZ1IuaLb28OJaDL2u0FG2QB4Ipr9guEkaJZsqGK6hrSLdRodm1",
-	"M4qUVzaLqRftCi2USL4ur2QOMIFLCmhcuLLujSKVldFpVMC1vXhZxrCK1XkON4DEZBAFAfQoN7YrtgO6",
-	"YFPNJpuSi0ORbtinSh2rIjJtlnYt33KLln4FOGSPCtr4JF9XjHkAKGuximBVzK9bX0goCL1iC2mfLXg0",
-	"/3Mt1+uR2X6T9n4pPKYq2n6+uLiwVvTDReOqfrDWtBDs26WX3DTfsVHmWJYv4AHBT9klPtteUuY07S2j",
-	"GHvwGvoIpOz8DO8+Chs/b9MPZm9Hi063zLZfREGhYsbsna1ed3g9nrK94rJoZ7gEB66Ji2cF0SWO5VXD",
-	"7a+lAqF7C6uQr6sqwQeIK/QwMQsd3W+jskbikezAL8ez5e1wvBgNVrPFO2MHnnnxvqr9RRSVTAz20q97",
-	"tvk76P3xnv1z0fux9/7LRfe75w9/KWHAAgaAogOcszYLLQNOj40Fna6pbb6/+PFv1qaanHDYPmcTubgC",
-	"/raiCjZXCmvgL6srKLadSB2zaRWVHWzQ6OhjjZt9EAG/UJBi8frYiXNDSs7/YnL06d+D+BgSehn5COZu",
-	"xUKyhx4XJ08cZ7M/wX4fIA8wTdP/QIQ2Spr8C4brzqvO/9NPbt764i3p56teiNYTUpJ+PHQ7rkfRAVA4",
-	"dFcnpEHXWdH4fh/c6+uc07WfqraSBBwdQHDKxnmF9ZpdQCBrP3HjrNoKEmK6Fddbc0DIpwj7pyMjV3U1",
-	"KeMQUQQC9Ac8KRlJtdUksD10eNLWeY3lDQ8wPPH00zXWaTh9NXFiGtKV1yFHGBAnJkNaJXWaDw+IAmX/",
-	"nZIEXXEdMlJ76hNTkqq7FjGZHeOp6clUX4ck09g8MTkpO7YGKcJIOTERotLy5ofCaB1E+HQjYtRZu/G5",
-	"2OmegwZZdRUpAaTwtTz3PBEJqso6TTMD8sRNsyrLmx7t9sL56CSt8trKG7zC0W4BmVnMdvMnazmpsrx5",
-	"fcV5spZ1jeUNc7UUBGwLfLKmjTqrGlerhut5cE9PSEG64nIyxF3TyRoX1ZU3eQ0p8AEFVwgGPjlZ05lq",
-	"y9ue4+iATmkUZSuuYEF0OK1aUxVWN3tqnW7UWdF4HFA0RMSbB+AeYn58ejoqLJWXkzPDGxCiP7QdezpB",
-	"zNVcTkiyjSKQDqLdnq0SJyPGWnsVQdTbnmnvYKm7BjFnM1Ottdcg6KR2ga6xouHsXeM12O9RuDmd4Ba2",
-	"UIswYVcvKTih3Z6vuoKUANyfVrHoGssbPvFZT50zngXUXsUn3i3laq4i5KuZjgsYYR/i7AwmJyTE3kAV",
-	"WfsAeJkjklMSZau+iiRCI3yG1S5bcRUZzFBwsQd8OAcYhtSlFHjb3SnnbFkjtcg76WbEqLNO40MM1qdu",
-	"nNdZp3FtRp1tVCwt1CHs1FZrqtZyAm7CtZTtk7WeVFnRtDwrWkMMT2n2ZOotI4I/IfsoJEXXW/zcU5Q4",
-	"400XikJBnw+Jh9FenON2plHYI9DDkDo7uQNzDoiguwA6NHKAcwAB8h0ZhtYLUPjR2QqTll+Q6WYmiNBz",
-	"doPVb+vAkhMfQELSROreBPzDbsf1dyhkVuJ5KDVrt9Epu8KYHWNE73tRGNw7MYE4T+H5qGtImQ8pQEGn",
-	"K110uQCPVmCTbjl3q6su0Bjpn8/A66RuW3+UjeGA0He8GLP1ywEx3cKQsgah3yOQEBSFjqdqEZGGZ5GM",
-	"bMWXkX9vI1sEMfX2YAN9h33keICCINo4nxDdOtw9p/cJ+dABmw2GG8CMEEY4CgG+r0F25FFIe4RiCHZp",
-	"8vU1/R2vy35Rn6ZWtOqoplISIo7NROQZKReVbk1xUtbRJdvq/X05m558mFItLCCJA1owSlyeuB+JE60d",
-	"CLytE8kTC9/RS10usumsVMtThhKCFWGOCKFqOqe7nUnk6cu/eoPFpP6svU7N15K+z3G0RgH8K0m4wHQu",
-	"VxA+xOgAfYfEux3ASMypK21dcNv8rJ2QbRSLnCzgYF7CQaEXxD4KNw75iPZ76DsbsIOEd2YtN0pmxBkT",
-	"1LN2QPhb1ZkrUQhTE+QNBAHdThDbpZ6YuKRqG2VzHHnMYkDECXgRRcs0ogsI/Psz0aOqtxsy+IA8yGgK",
-	"I+pgUU4Rdk6q6pCkyUluR8R1rH9yonIt2Bd5VSix9NgMoFvIxKxH0Q46HthLmAHnZjFh1J9lIrBKZ3cf",
-	"oGedvuytg7WWUjdGIvL95LSYlVv5ttvFFDDrXkRBOeqkSvBSacM1jnaclxzWwHc8poCAjPOWenMPQx+G",
-	"nlSZ6XPyM4mGrRHr/JblepgVrC8hLQzd3JnvWYxIayvWKcs9ZJ0kTsbZiTNohxmWnexp8zmJTVqwDpEo",
-	"5BAPhH0Rr+hsEVvp7nNUnpfCJV/57+sSqa3vI6RlTOHurKyX9Zf1CVG4UzaFko3lclRAEtsm9SGPybTt",
-	"ICr3C8J1qEeYPcCr4UrDdCjSPqlnYUxhS1aLC4Rc6alyxFlHWFgvOPoDhmJ7ZkTNZPsy5Pvms3ZCNFHM",
-	"akeKq7Br77nq42TzcecD3kJ+UxQgDD02X88+YKmWbF0WBRxviwLf8WVpBIlzB4PoEx+5BEHGwVGUG7Gz",
-	"96H4/MocLUMDpp3tzkhZif6zitKxcrOIovOzWzVi3ZckokDAGjoi1oiLBddKyenyWcxF8/C6aM8nXN2S",
-	"4wRnB3d3EJMt2jskBHuyjShXSndRHPrQd+LQj/g2XbaSOWrmFPs+YtWDYI6jPcSUB1ysQUBgt7M3Hn3J",
-	"oI5VB3J0GWdIvIO+CnspjWcJ4yBgNqgKGMnGt3Q7nrDtatVW+PXlfYPzZW5NRvxz+HmPMCQtG/8oA8xU",
-	"gNh4+na8ciXk2NxdLn+dLYa3i9FytLJEi3U7GB6ijydjJJZRi0UBiQU1JOQQFU2laxisxm9HnW5nMJsu",
-	"b6459M1i9Hb2M/9r9NucQ6rZekYB3kB6I8KGLEJVScshwQgrZosdAiC5lfk9h6knw/5kEGeKSlOWujp4",
-	"7KAxyEw5TQtOZkqkxzXhTiT3jam7FCWLzSZtXMjYHCNZ0VC6z+VP+kxe6SAv/UkF7ZnAqmZdgJ/Zt9D/",
-	"+cg5RBW+nhGw+LfvuZCYP8u7niJG1Vmv91JIm/X8a+qcY7WEKVAVhTNcTk8+XU96MlVwnS/0zfi9gSHE",
-	"RywxzIoW8Z3qj5rrDBdPUR3AGHBTL4SfaYJh14x/6Y4owlJ12rmXC0NsxkBuT+OdgMb0bUhyXVXmJvwY",
-	"Rp/CQbTbA4oSbND8B2i3B56BnVje9VTpbpai8uatPNG3pE2tJYoOcCnuFAdsoNvbLC3F0UdkH4D7qV2n",
-	"dzsBIJTH2z2SWWE1I0RMtfpkNHUvJ9xmGI6X+s/RZLQqMB9Os76dzIrIr4zpYdA6TQeMF5kN6cHp2uSp",
-	"VFyfvvpL3A+ehvKzxkA34+BaB19oFijJpojygTe3dOzXAQashk63s4/vAkS2/O8NDDErveeO98JSDCAg",
-	"8B0E2G7dmBzsduIQ/SuGY0GFdHwiMOC2C/eaI9UbZ7N04s2UZrbsca7yAg5bYq2bcRhrl2DDint5cdGt",
-	"ISQlBLUhBXhsCQmgv4E+R2DMjHylQtqBz3KAnhuAP2Uj6MfifAHOowB59yllO5nMfr2djn4t2D+ekm2F",
-	"weoNrQVxFWwG05vUPX+Rss2fW7oVwk+n+XogrALty9CopsyUyHYrTWZxs++LWC39kRpK5x2JgpjCUYM9",
-	"RPUSb3hMoShcZo8BprPVrTufT8YDtnZzOFz3ZvVmNF2NB+6KL+bp3zZZ9Qheryx7te+/S40D+1m5BUF+",
-	"cGIOIOlIluv7eDpejd3J+B98i3Vr4MgvRu7wnbWrOwker+qQSp4pCzadrHoeEiojfuUGglvt0G47x8pw",
-	"DYLZuvPq92ofOrEi57Z3OTM7xQbZE7t8SCrMgc0PTNcqsCXdLZotefiKZvMmYzQb8vedhK8sUyn79tpo",
-	"fwpVxNZhGu9VUoLy2VNqIac6nvr0uyoFmJBQYgfvE4W4b6INUwAhzYb2iMEp4Ezm+KhyaTC4oYkp6miL",
-	"PWfVhq/xBu2RTg+teyQbXy7Hs6WMBRcKRl4+NbQ7jtpVI9/K253/0vqcbMHzohcvXv7NvhkFAd+E+AZO",
-	"49vTbFD54DFaJWWajvJW07vToqHJeTQ33T0FFGLotz0tedz9qwIjkJzSF6bldn3TvW1XQjAas1ZZFreX",
-	"724n48uFy6EHr24mk9uBu3Ins9f2wxZWD2ctaToucRAMhNt5C64q6bu8n6A7LGdrU2Q7U4TzFXZTJNqk",
-	"k7RSFIBSZsy0P7/jCYBQuGn7fbQXlLb9njtotv9Y8Lnt9zSi7SmXoMTtPs8IjEFIdkgyDaU41s2Of5Yl",
-	"2fHJC17FyVSCrppMzURWuxmFWPskq0AztTm/Nhfb+vuIomXasq3gB/KCKGW0VmrETHoh2woqMwQVvSq0",
-	"kGCSKye/mVJ3f9diqa+x+bQfu6eB5y1nNXrorjP7Q1tyMn7nPhwXpirrSoDU7PXpcuWuxoMOT2p0e+0O",
-	"3oyno5qn9NfuavCGU3E9Xi7H09edbueNu3xz+6u7mIqf8sXtaLriy5Mi9zb5Yjx9607G9jOAwwmtHZ0t",
-	"So98N5+hKo31b3AsPx5ZkU0LRtdIqJSc7evjfsu0sk3hQYBgSAfKEVnNySY2bkTIDKMNCsckCrhPtFWo",
-	"eYAfNM6YLEW2AEPfZfbLZbxei22JJUVUeg9oVtu10mOr2cqMLDxj00vJrLqo3szwUN4rkc+oFihuaoNj",
-	"fp2TteIe2hFcmnUWieOPRzqPtmyJn//totmeWO4AM4QXcykNntH4fpoaajXtXjfbIUqh70jwYeLEBDrL",
-	"lTsduovhMwPdWz1jau5mshrfDsfLwe31dze3b5/bj/ks+FiqMqY3R7ObZafbmc4KNLDwPprnExHUl+X2",
-	"csxluJACS+dKhi6H6dnKvYDfHCrk/by6anjKkd1diPvZXFPFvbLigza81RIQ762Q3NVqlQVyrwHLnu63",
-	"RJm31FbS9wKUp4bnVgmCZYHRlpqpaX1zcWHJlmFVTS8uahzgJvlLrIc2EaYzLKdwzjKpsEZSuVHSfe4q",
-	"NZi+Hk6aKx4CG/5qM/ZnHcUqsxewbnGwnPH6EjJ5TeUEkG3YJuZXl3LtWFYs7PnOFfM+DTvb+LQLphfo",
-	"JpqQ24eJgVKRPIa7DzTiW7dD0B/w8l6CGh2z/U7RmqHEbMbG5pRJIqevepA/WROjubpPn5ddjSejJfco",
-	"Ks3HkbJek4q6cqBs1BUj7za3UIt2q/qgMJeetnL/GahcdI1yvaWGThBW0fdz+goWMqaZV6DeA5a7B9o7",
-	"msU2btXPFff/abog5bph1FVMrAl72IrYm9NcBGZrs1KMiDcKaePzKRT68HNKuP+76kwxAHcwKO+SzSQ4",
-	"IExjECjNaaxdfR8Rj6cFf//lu4d//vOZt/X/UmlWC8oVOen6izi0hNUjmdUH1q1P9hSo3gbGU8ewmtk/",
-	"GMx+YWM2DClGsP51SiIHKbX/g6nyX+RVvtw2sq/HTSUiL62aQ6rLlgaSrtkGKwUMXjVi+a8xjvAoFD6B",
-	"TYMF2LeNp7sPC+xtClBQYpWklhxjvYaEgE3xuSYktM1O1BPnbKr2hD6z1srjd8Eh26jZcH4aqqNGd4cZ",
-	"lBRT4F/mbgyz6oOXK+tFgi78aJfiOgV7nROJVqdG3U6894+gsO2JMtPPHPmOWQAnuY4y0tXLTV9yTpxr",
-	"K+sWbjKhTAb4ORqFu8YK4QDxDQ7q3cMcF52QTsdRZ7pMwY7jh4iEb0zsDAzJerBKCvTxoatSoteR2AAQ",
-	"yjHQTxWBqY4CWvd8bwHvblWR6VdePOjmta4yZCu88FXCeeX4rrtsIT4tDd1EDNP02WIkjGEx5KFsamTD",
-	"zJvs2RPM4UZ6/kqDY1b4hjyuC0tOWZzceUWNdHOa1Mmi4VeT2+4nF9u1FlujpvauCVVX+snlvZQVkwnd",
-	"tC9Czft8+9xtaJ/Yd9H1PPaQXqvKyMuOWNOVp52jyIk6pgz+sg6mIIObaA35/bHG1Zmv87JmSopqk4py",
-	"HnFcQlZvy2PRx+lsg+W/aGFrxJBWmwosvn2s6CIJHXl1ghFo1OCjdC/nRJhmbY4YCzvKhlmHg/z59MIp",
-	"pkorXdJuIVFttfU8FLS1/ToOPUDhJsLoj7aekwV6WBkNlhbSRNtYmsvddtwNocqMf+kOfn69mN1Mh51u",
-	"ZzlYjEbT5ZvZqiRnfrcTYR+FIEgd1H33vJKvp/TIkbeAihIbwwyo2GasynvLRR9rXDiJr4op0SCxbcJl",
-	"Bxk3wqG7ci/d5ej2Zuq+dccTGaw3cJeZJ8PRfDQdjqaDd7fKWy/1cOiubufuYjm6vXLHKljf+GQ4+m08",
-	"fV3TqzCM6K1AlK3Lrq7Zv2LetWFcnrxmpNmosWQxbAjmc7pJYKfPnuPw3yuArh1M0MmC56gMkDxp4Fwe",
-	"Pfns0G9HnQ0eB3zUCofEBmdmDYkTh6MJAzDqPB4qmYEeUh9zjJFskwoDorqxOMA9hf5QIkTzUXroFiAi",
-	"PAivZ84M+ffBkA31CJp/pzIl6af59tjT0S4OAI3wB5LEyD107QEM+rmCxI6NFhpfn2XNIi5g3c7y3XI1",
-	"urZKj76CrgWe1QoRz+7xpIMuBQU2cQBr4cnF/gz4aiecyiBfM0xW5d8S6xu2iyj+Tu4xLG+uAfW2uk6e",
-	"cWxoIour59vCuHf5cqQvoZNnV5KdybD9YzxnozZ6O5re/qMWshlgpjQfneQHMX4lf0ceMmUvK9b6t66M",
-	"UrjbU5NrlGJ0F1PppRaF0r/JfGV5pEg4ABQADa/10O3cAe/jBkdx6GuwG9fszh0gMPlrIC7FF/CA2NQy",
-	"Cw2BCg/VT0WmGPl3RJK/ltDsEnsiLplEjNyd+U77AyU/cq+xtGjTD0jqifoVRZRQDPZpGAj2Jg79AKZ0",
-	"hgdCgQkDk998iK4RISjcDBHxiH61gFT11gOhBwOdr1I/CVRPNGy00Rf9bJwtlLQRhUasEHvEcVfU33H4",
-	"cWm46bFnASD6T0sMiX6urUj9ZHbHMW8NvSyeL5kZKE49+bMohNFa/tDD4EVBvFNdj3bC8Uz8nQCsDYzi",
-	"xuOlsrXlC45ym/lpEJWJF1OQcpvRAfkGnfzZUsLi2p5p3zH9JsbQ14rmXkqGOWC6VG7NIdkSabkSs2js",
-	"w5Aiep9p2fDLSR5cJwLt2eegJ25ObQFxputcVcgbeznjDsckKa3/lOHCD/JOzq4yjFvjnOn30C2IRcoi",
-	"vdhcH7HWlPJHgTqSb1W68ILXbwFGIP+xD6j+Iy1Dfk7DsdqZ7lvyu6XUGOtXKq6f33F7yCihPKS/PHRz",
-	"Pu/pR8mENx6mRkk+H0ZEec/xh2yyjLmPo/nET/1IRsbPrar6yf01CNEaEpp7kZ8XuXf6G9NrP+VW9GBi",
-	"n4mfaL1O/uKeUMkMZ4/+Ht1pTqH12tQa7Hd6MDjcuzDylmCtayGeSbbhNCZ/AuxrZiHyMfmLM9n8VvA9",
-	"4Vt6HBROF7OCSeaZxu5iGx1/o97D9RoKjD9+v6e0lOoylBrntTqLNZ59INnfKWYkQa0pvzz2Q/qMqT8T",
-	"hvN0DIlZAVPzQv0y+AE/Qy+mxkzRD6aReoAIReHmtRZtFTY5SQXE5gJta+wHrTvIAHlIU0fZbjowTNU1",
-	"QJon4u+MtbpOG71rY71kf89i6kV6cNdGxTxo21TxaxSCAP0BTG7IZ9AQ6nUADmo0NpoXG8PtyDyK13+T",
-	"5Mc09dWqwFFDvNXqmv1IicsmkdlqdwQrCodal7YA+zmzawvRZkvnctJtkWkYItkztAkjnNpZIEOnZVy/",
-	"xROewiNr6ojnbGAVz8QTg+vigSqfaAMU7uPkcbKJ1N+RoanOUVp4kNkkhfJOPKEr2fp8SEj5EN2payTx",
-	"KzUsH6I7+clHbSuo7ST/k0JCs/tm8dTQQgFTuvJPDcfBf3gwVIZ/EAFfqWXxt5aWIDtXd8DbojD9w2DE",
-	"Tq4i0nvaeGKukzvw2RUbH6IfKFvbImI78HkVURAUh6dYvlG6ZAd9BBLNlnisGoGa6V9G2KbxNGtG7JIt",
-	"gtl/8VS7Dqj+aUW7U6mbxc9QMzaE0CdvBSaPFoKU+w37rV6wdTQln8k1C//BjC/tw86epNRXFNN9LCne",
-	"89zeesD3ACux4H+ay+4eYKoU2l5XvQcxUZp1zySYMJNtCQ5acaWfJk0lTnHZSDy7x5vlaVHpRGCzb1KT",
-	"TL0stJb3AbiXILxGU/dmH+6VpIi/XR/sqTzLeUgQXfWPACkttseQwJBmJGiP4QFFMRmHFOKDGtE9jihf",
-	"I/VPQ0TVr5SRrh6mTVz11DQrFBBt5qes/F/yvxjGqgQGoTSVsLxqMSFHH7rpayj9m6gfHkQH6M+B1sPq",
-	"UWZzyx6HpjYTD5gQJQ/0DuwKR7txVt1j+IGzzTzSqqM+zO90W6bnZBIUyY9z8u3uI4J4Gh/5O3GGT35C",
-	"X23jLgGBiS4wICjML9IoIclDkv612rJh0Q85zCJKhoZEwaHRCo+ZFR/qwYcU37trCvE1MZ6I8zP5M8bh",
-	"KlK/Dgh+Gh34Zk4LufE06SBPJg9Dn029/KPc1/J5xowT71KTHGc0t7wv4H/t9B9Zix9HO3XsgeMwTIiK",
-	"Q4r0QIkfbPS0SpDPEt1rPJgdIMZI7/QJ2O0VLQQchFeJQYN+pkjXD1QF3hb6sTZsde4h/bcBI5cfWAU1",
-	"pv7UrbAfyZJJkpMH4mGwh4s4TIrKB5ogDGGYHMEkv7NHCeoDaNwVZMFJDBDr9C/XOHVVzwbZ4zX1IllU",
-	"Xwv71mgvWyL51jwEk6B+Joqf/pvEO5KMdfJsmS6ZQ1ThIbebENBYMxf9Yfxl6EESxFL4SIRp8leiYM04",
-	"dfnzLQhiXYFyIdV/D1O3tvqxoe7EA3UqYD6bF6zBKrg68ZpMYnSZ+ZbR7qnoXeNWTv2pJxQxTJDEB5j/",
-	"2IsLhNFnCkN1EJG4Rhmhe//85zMZdP7+v6zh5llnY5ooNAGGYf5tnuKIJ/nDcTuERtk7/SVfGeTfW4TV",
-	"n3J/x++sk/0V9zA2/jQ4zH9n9CN/NheWh1kUAxRoHReHapnI/l60XE/tNdRdgdKhQHn3oDTsif7FLAyj",
-	"6+Jhxporx95MClh+D83TreSxYQUkD5cUqMFLPdSCfWDTVf3Jzy1Tb1MUiaAh8UPi2clyn5BPt2qvfS8t",
-	"FRumeypFcLNb0OQ2px50W+EpdEOQptJTbeuxaUGvvlh9JM0S372wsMxP4nKrAltZsfQhYTWrcgd+FkcC",
-	"5T/348XFfz//8ccXL7//7+8vfvzxeVVIm+2g0EJB5tSskH0pOJYX31e62GS4+/xvWqT4AkSqvXbMIOwS",
-	"7Z0MlnE8Zj8Pq3NaZkEhCPdxDqXPwIeaz8bTVYHXici1XTcCzTiGsbk+JXv2GkE5qe13jvrx9PVkdHs1",
-	"Fh6As+Xt7O1oMXHflSFU2Xb09aODSnfb6R10IVyiscuxQc8kexBrckW2fRD/VU3nhVlYpVS3GP6WZkQR",
-	"FfCYwcC56P14+/7L8+7fvrfD3xRsGlqrtB9sKLkUYBrvXY/mTKfSTDHmZ2kP8+8tUVuJLVctIcZqltBS",
-	"YatlHGD0NLOpvbyIyTUqPVzl2JEZTW0oG1O1ZMQ9JzLmHE+UTuIsYc5yg4vW6WybkKayyg11fhoVSJx1",
-	"Zc0uFcnaaKx5xmAa8/F9oS3SEsDECpxZJr0WqM0U8kyljDZa1RsEHZfqrPRJwJE+YjpOQ8PkmNWnxlAT",
-	"ZfUvsY2mupS/0rmxGiHDNcV9M2+Vq2Gx1GVVdcnk3LbEDpN+wtryqhEIbhyu1kLxMoO1SzxLf3xZKw6d",
-	"tkUlKhxmdVnSbvoeh5SZEetayJTX0eF4cKdSEKsKpKqj4D2zzuPFMJ3Nga8YZ46CNXuEflnpVjdqHBoA",
-	"80Pl1qEM+iamCfSR4TthbgoWK5HX8ufbwexmurq9Hi85knan21n+Ol4N3twubwaD0XKZPLhyx5ObBTPE",
-	"l+7b0e1itFzNFiOznPlYlbaGXUnvvqG1TynF1auluTCPaM2GFs1+ZrueiftutBCoUsvRyogdMt+483Em",
-	"3Cj1nWBAZQEdeCTfcYYsV+5qZP/WeG+yjVcxcW+mgze389FiOV6uRtOVKD2ZuUNVqFLpJIOfYpHpfGQb",
-	"DJsgz/AGhOgPjQtNWuYp9I8P6X3RJFC0dSsvSwEe7U1iuIsO8HE6aDWbOKq7yeI8TbbB1SkAuUMvkwSd",
-	"eeCoMDWd2Hvwxp2+Hg1v3YHQNjqh7jEhbEnCRwLpQDrnPno2rq8a6VUQr9UmLCvNzX+DyKwmgVZizb+p",
-	"n4Es+eBta6yvrxvdleqyrUOnivyaA+ptT5Fu4GQJAAqpbIswvkNh6oz5+J1laW6YlnDjjfHE7UxqAvha",
-	"xZizgOzXzPX+vtZWUwLuD6IgEM4CLXKdNwPKki0Kz+yk3VPjZVmRHivhoXLsuAb7vbi6bZrwScwFndH2",
-	"ej7je5blz+N5AS6sarOmjt6fYDOYalTHljbhTEtDeie/bio2+ZHJy00zszd70KEIK2GC8Ehrlf8vCclr",
-	"ut6bQXCNv9VcI62+PhSe1pUbOISiHVtQxWRvh4CfRDu0AaBRkQmN81+qu9OmEGohd0G4Tpyfm9bABBD6",
-	"g6NGjPtl/2rc9zT+vjX5exx5kBDp4dP4a8NdtnmOxQOCn4ZG5FG7GhI3ycYmuUC5Om7sDsiH0dGJIvQI",
-	"5kUyrQ6UqBfMVps8WjuaHvkk9jjLVXOM82NmTHY9eU3VlxVtrZw03yrV9mMZOKI1ayrbF1/VuJGEUdA2",
-	"x82JdmyqmmpSW4JgpsOdj4UZ1vG79QdfWghHHxTIry/vT5zDHLWwGHkRs2Lb8B13soHq2b/p8LOm17YC",
-	"8dgMja3+QtqG7Y9E9lsBCJGgh42XHP9tPH19ez1auUN35Xa6nbm7WGYeLUbL2eQte7ic3SwGPAvPYDZ/",
-	"x54MZtPVaMqh4tzJeOiuRFLQ+WI0d3nVi9Hb8ehX9sn85nIyXr6RSGKVPTbDDwqyUJ0GPFeDudSQvmLY",
-	"FeKBsFAgTpQFy3Lythy4U5mr1f3VHa/40LnzuXj0y83ohm/NFzeq1NxdrMbuxLiSGsyu55PRipcbuNPB",
-	"aHK7GP1yM1qaj8QOX1+xjH6b8wS2758MwL9ttLiMFGQHUydwYl6Y45ee3lr75uag5fTu8r6TndymIJdl",
-	"Acie+aXXkLKFqk16gPL9fg3/X1WBUvA1PrEmrsm7KV7eTIf8hzWnTbUbDyLcLruvrVphI0WsA+KX2ak4",
-	"H02HYo5J5ZhTiokCZEqV6cXb5CP5VkxX8ZL13V0M+aPlz+P5fDS8Hf02Xsr61KNkvl9OZoOfR0Opp40H",
-	"iZpWTxRlsymriZdXd02cgOSulGuI6/HK+K1VwnsrhxKEgJbypapIEKTapdezwIxU6+ajYXLzzdqmb9YK",
-	"Z1uOGMOhkbKnVpZ2Qw1cpauw5mmvaeHwvU6brCPpPOfu8F0qvbjKLG5NFs52UW0/zx0uMlJUndaUhDr+",
-	"u+karDeRRwh4lXHD96Ya8KBF/dLrdQu9j41FaWF+bBWiJi5BlbTaK6u9sNBCj//jDBGrz3IN7skDAh6n",
-	"V+nVjMzUKpkT8cwiW5q9uYSHBaKeW8m6mcxpQgOk3H3Ta6u5cubUV0YE01ZQSrzzEyq3hOQXhOoMSsVq",
-	"seF9ShBEn6oC45o5i3ogJlAZHOaN5YsLa/pPju8xTmOgtNhzmvW037oqn6eaDKl1vqFRL7IJUlulwK3s",
-	"Qi6EWi44z99360QtEipT42kbVlpPs/m7xJZyl8vR9eWEPZmMLxfu4t2tvohbjJY3k9Wtu1q5gzfXwi4z",
-	"t+DMEhxo22w1W7ivC5wroLflyIJCtnM319//UOkklOKF6pw5JKa85lvMJQLOy0c3P4es0mgX9Yq5/WhH",
-	"qrm8Si+/6kmqXKMvx7Nlc6M4BbxYPV9M3KRl7v6f+77ybcEbd/nmVplo2my7HU1XCzYNlPtonV1cGp+o",
-	"MFrMgM0wrMZfbvjZRLczm7M55E74FmY6HMtfldaj2Xq+rSx2pZVB1UOX2GbNYnSbSq4pKZZtR2Hu0LJs",
-	"1uUhuykwwja0JuCdNooTqKoax6aI7LjJ4I8siWwr0QJ2abzYNn0xIGdLWmhFXd4XR+2Y5CafT7rB7Hru",
-	"rsaXk1GDhAyeEnScRBQpa1KyP0e7jdsZcZB4whnGVs8VQyAaZtO1YhPmWZuFAJ+7C3lcMp4tb2eL20t3",
-	"aV+CDWks0lLy9qTGplAUby0MaavEXY2XV+PR8PbynXH+kzwe/bYaLYR2tGtu8ZeKbbiZLm/mzICp43ss",
-	"4coTWTFYYUeMTE5ks2yoFg9zjjWTDyOLTdML9xwqSgVLVFP5T0s6mHNVOyruznrUNTgqY1/1VZnAgFzE",
-	"QSOJtkcJIELi1gTL43u32kGuellpfXjU1sEUbpj9MWsvrtsI0/pnKgL8JoNt3OK7hi0+jRMleeKRRLoe",
-	"IbO2856C85jMGOuMlsnQpaGYzembmhpZUW9/cmSTg6JRzkz1LBtLlFzqxOxEme/XrNVqpewVpZyaB+D+",
-	"iJBDKxR/Y9+LLG5/c4e4HOakcRLcKMhHYoHazqo1ip7lZYJplHuZzeQoq0m+0RCk+fHJn0lnxzXNOmtu",
-	"BAt/bJIgskG0EwMNnpmKabpoGFkha7ETp4EyxanJ14jXfqTQ51px4AsOt7kEB3i6SJgXp4qEWcAI+xDn",
-	"etf8Br+m8XVKZ4oyn7mCjrV00G92QFfG1CYO+vbzOHtvOUBsOvCKPOk8ydlkpKUxrTLX8ZHxyu1y2FsS",
-	"T59rEA8IfnJ5Vqo5R+RJQNfbdZhnDcknfageTDNZhz5MMDcIL19WbhAa5pQ04QrbqOnU1117120d61an",
-	"r5QDc+ost++PZ1qNbLTFHRpisKani3rMZo2pv2etmokZoB8bOm8NZLVl6htjKtthfZvv8QowfuvGF7e1",
-	"VQpGV4OVHKtEDLzTVuJYOqnScHcNdzRgT2MME4TwBHXk5YVUyuZP27W3qEFcBhaC7JTecldcoZlf5xrs",
-	"ZvtQyaiviV1m3dBUonSVTb6mq1lJfsE2HqP2tGMta7rhwi572FaDlGKYtzLGDIDZ2raYnTMF/SzN+1je",
-	"JZu4/KkF5YmP74kHEh8gvhzPljL8R33V1NspSXWa9dQe/eYOVrdT91rmmB9dzSZD9XsxYn8Mb/lFkrgx",
-	"shlcd0k6jKYGroe9717U89A+gCDOIHkX8CBVQ8LNuj6yPBdRNUFhRNVE06lFa9wGgvBjrfP+mjBfFTcV",
-	"VRcQIlVCjVmn8iPUKGokDjgagkaFM4nwlLfu5Ea53Y8m49djAR42nho/lqPJaCBiXCr8393F4M347ej2",
-	"Zrp0r3icws2ce2iNbi/frUbL6vtQEY6SPu/Xk6Gbm3Ymb4ScyRHQ/FUTwrg2NeTFJnN11EabWJJsRtzm",
-	"If5ZyPiTuaJUeRFxZ4VrSLeRRdMxVSYinbiU3C7H/xjdXrmTyaU7+JmjzC1ej5ar3POhuxIuT7fq5jx5",
-	"klyxs2dJKJb8uM7VYwg/jR/fH0vmGavtMpacrD86qTJ9U9FtRSYF09ldy5Kd6uJ4x1Uo3QDaLmzC8yAX",
-	"g7VyV+OBFMprd/BmXHDMT4pDnlIaV1yo88gkNcD6UTLISanMaE9nq9ur2c20IuyJFbscrVY8Wb874b5P",
-	"t0v3Willi1ofuCt3Mnt9kkCn3CWNKVh216kc5HiVo6ExXomiz2jctBpLT9UC4Sudn0UqxphZxUtJxvo8",
-	"u3dusd37FHx1UzxpA9lzFPCOmYW++ccUBNFmnNsj1V3Tw3WAPNoKckeY7yKRL3lM4B1xfNTqU+n22OLL",
-	"MKJXbBPYHvPlyNimY6BeUmKSErncOBrsTdiVii7SnEh6ZkqSFZSlatYlcRGPpoLOEClg5kerQUsG/iXr",
-	"4yufd9tosSFPyB41RkRpuek/btdqu5bP1Fm7v4+0kmW5fGJkQp3f18LqKLJbxFk7J5KXe3thSbQQokfl",
-	"5VNCQTLpWrTFL8kkHHovsw713n+56H733J51SEOcpCZQ9aFPbsdmIrGbuOz1DkAEGd0yZOosix5VVviY",
-	"pATlh9b+BTYZ/BZQpCw2678fiFTNA+APtfF+sj4JPKxkOF6MBqvZ4l1BXrmmGFE5iCcDhWk2k1krFOaT",
-	"PHTJwpTcyrPOpVH63a0JEbRwpz/LDfx0uXInEwNqSAI+JdAiDQ5sxutLyDTbNwL3dCoAJwtEk8ltC1xT",
-	"LYimpw3MJMODyvCZslKRR2zSuEwfFFBTCQhTEdB6GoKpGnRJppltqsoJXq8saQq+/y61BrOfFiyc9oB2",
-	"2e2aJiNdrbWjqWyAzXF3cBSknESUuV8iYT4MwH3Gt+S7i7Rzif3DWMSqZ759nv70eWGSH3M+vnaveWKZ",
-	"xco6h3KBgovRcsnD6xYz+/GvyDiW7lSjURMk6kmjuKRr7mp+pzhhG9SbcC39LFvc9DySq+oJAJjK3VsT",
-	"JrRzeDgyO87xOOGKgKrOkTg4r+2cEaeqzWpt21l4vegAydY53ahxhyNdJjuvzLy+llS/VtS5As/RE7vp",
-	"8RseL8aI3i8Zh2VuILHiDKLoI+I9QWzv54mfKqCQw+tEu1tZOKEC7NHPkPGe4zisRRZKgZjUWfBvnDer",
-	"1dxx52NjlXzVef7s4tmFxGYJwR51XnW+e3bx7Du58eeU9cEe9Q/P+8DfobAvs6D0AhR+JP0vqaQoD2IE",
-	"2NLKo24VuAhjYGfIn/NEFW7ykUiUCnaQcgD4AuSqpEh/vObgQJ2HbnVRH+72EYWhd8+ZU/3FYLm4Eivn",
-	"w3sxnpDQy8gvPJFLiiBI+qPdnt7LbGv7KCRiZF9cfJ8L0u1IFjiMjQ6Gh+gj9MXwNWOHwcrxsPPw/qGb",
-	"HS/u+t7zgdgTbkQK9PTQvIZUjAsvO3RXpPGw/FKLvRGG4+EvMcT3dYvre7T6nwkP9Tol5wATKO+96tAj",
-	"jnxqlJygHaJShlKScFEsSLJc/+/L2XQhf0mJiIhl0OYRyYxa87mUmSBtZF4kwmKt5+X+RfPelslv/4sP",
-	"qMQwaqBs2rNHqZr3dWa0aLLVJB66K9Wtqjmc4UEfeBQd5F7zqEbri5mrmnxE1d1GMhWddtm8OKts9n20",
-	"XtfXt0NWuik7lzqtUbXm4mkLn7SOO43spqfkLzGMoRNhB0OeQd0B5D70tjgKo5g4O0AhRiBAf/CRcaK1",
-	"Q7fQYSPngA1AIaH8gRdjDEMa3Dt8skFn6K6emdhpBfOk1aBaBf8RlWofR0FwBwRk1SMplIVq8t9eoSjg",
-	"r1KtwSG+zmKf6WipZjbaI5h0XrSvpb7qG3OMi7/EyPt4Bq34/OKipWJkVE0QoZVS0v+S8kR76MMETUpK",
-	"T1oXDqLdHmDINVqix3ps3kHfYe06AHtb9ly6ezifEN3y8vAz8Cgr7hiNOnIXmVeFpqAmCGHHTpdu53th",
-	"dp13aVkYbLUaY1bum9CApLnqzDZaqTu5H4rR5lNXnZJWhU6YkYXnJ1CdXoRhD0jVUq1ETUV0Cum0UOQj",
-	"sAkjQpFXTc7QKHsWYnS2OatyYCqHOPAA8b2zAyHYQN9hXwgVoNJA9n3lsNKXx2w9xnUH+TCkiN53HR4E",
-	"1XUwDCAg0LmHAHcdFZHsqGuXEBLSVWaVk6pKokk7wnWg63CQGBSIytlOE0VhX1zm9PcBuHdYaULBbk+6",
-	"Dgh9ViuJsLMHGxTy0sXq6bXMSvY0FtJcpHKD1bH2oreMMH26uwC70Pa/iIPwuvv918L/60mrQ0Eup/Sh",
-	"8dmCdQYvII1xSMSGRc4zOZX5Yv0pwh/vYOhtnT2OPoidI58wwNnAkLFS3IYmE8pZR9jxWZ93KERMNTnK",
-	"p67H5+geQwJDWmOWdb7GHpGDysvFlI9tfjVlj08gM20kIA+/cPb50wca2KE9J8vNElaSB7A+9QmYEHoe",
-	"a8TK+f4X/v/PKMwqs+xc3kUHKOayCuxweJ4G5yMKfefuXq6F4cYBTgg/OWi3iym4C2Cy2GKZliax4jHc",
-	"ARSyjxIFwSslkObnb0ajfp1RrbxFYVQJpmDONP8YTdGtVdJVY2jbHGTGXV5O9tRgnGbypXmw9LbQjwNI",
-	"nMTCMgRCkuBIRxu2GDxzjEtTZX8Rh1CMPBrcOzRy1E3pT07uolTtAVPtaR83R1x88qUlZAalExNIHAG0",
-	"4QANm8LoAQiXnKO95qiXqRRLT12rZC60z3QjkpExJvbn1unXrI0nznxGY4FFdXEervf2Qqwfg/sSquZb",
-	"GARF6sMpznzOMmWIh8Ee9tKhc5VmdcBKUkd/pdfargMPbA/swa6zRdQRHotyP2qUZmutsAS4bW3cLRha",
-	"Wmi6cnt6yekfmGFYX9e+rpZhC8lPW5CzKKSPostzgtn/4iUAag99sN8H9+3VTY2Nv26t7ci6nMSnfpPD",
-	"iEwFEZ9hxRCBkD3u/9b/YoKWPfR5mrTmA2mkTKo1Pkn5BW/wiQ9Lkf/Ui5ONRvVJ7FiWO8u5oEjBd+bT",
-	"wPOc8b24eCx/JjECX9GZSRJwVjnsG6G+deRxqcN5z6aptJLiedoealL2VWyPJJ+c9YrO2p++CCdvq3RV",
-	"YzXFdyAae+IKV2JGnVfS06PAwxzqquGRKNyUixNAxKdyxJoL6HI5enT5xAnI/yMJqZFW4OlLaiYDwrmE",
-	"Njwgmlzjl8uoUbax815dS+BxruIMN/Ks+0m1LGk2HL1mn91DXy7wCcWtjv+T70V9fqlIfYjuSP/Lh3qL",
-	"6t+ju6+yohbqKpP61ktobb309+juf1fONM9rLph/j+6+1dWynuy13DI3Eb1/+03yXmTq6tXdLKusyS33",
-	"zOdaBFvvVVP9abwQpr7+VtbCNNGtxCpVRRP56n/Zm5/W9/E5ktOPGUJYdYV9E/LQBOg7slOOYI6zD0Do",
-	"+BbHnxpTsXO08B+jz1MV2TV7pSC0NjXyjTebt49vfpx9ohfaKu2FovvomqHv6ey4PZn3kpxIOmKbcMQ2",
-	"2dAkXCsK/kxyIvtq6eXDSfXJUYPf0CgZGB82HatHi/rIMd5iejy+BtbYEPW5rTBAz3B1MhN4x7UuT1L5",
-	"Zht8kQxAk5CmZlLy8ljblMLdkxCPlvuxY9fnR9+jfTXUiEdeX7kZ+vjjyQGo/ozLqNm9cw+uvC3uIZWR",
-	"tdChSV0sOzqWxxE3kQgSh2dYhdzBmESYztjPnxwIvK3DFgMHhV4Q+5A4OiM593GiW6hjhHrEi/bQd0i8",
-	"FzDQo88Uhtz31SGR40NCcSzCD4FYlnkVcs8jMHacTYx81g3HA6FzBx0MQ0HYJ0S3UUwdFK4hxijcOGsc",
-	"7UTYtnBjdbwIw2LvqVzq2saS1yK0ZxSCu4Bt4r71AJ3qmZ1h71e8xM+Rch5H//zU6/NZxBVpbJmALo12",
-	"yANBcK9csoV34QGRGARiCjrR2gFB4IRR2JMnAHqC6YnLJmxM2ByI9hTtRIQOn6YyMJdYnKtj+zjxmd5p",
-	"tbW0Z4Q+k0uVhdtf9rkUn7VPkY6W1vYAMeU2dZ6wx78RyrsgpWOpMsdYPCaTGMvKmkc2/eRAof0ciV7I",
-	"hBbiHkE+NKI7+SKwA/dM23scrMR3Pm1RACUkh6qUVQJQKFYgm4DrkK4TD25TG4B9WkMFPeKkSMXstrDz",
-	"CsSh3oIwFG0PIvwNxGYmpD6dAWsfa3CygTs6BOHI0ThhXEHJoNQ48dAlz0KI6GUvFTJYx3PASKjeaQ56",
-	"wfMJc+C8a+gjIOPbWkGYoBDg+/TKs4XAz1P+BgL/yZPeEI6Rj5b1REWO6xYRlVilIOKER8r50BPhm3p3",
-	"9pOMBRVRnzj6xHdHPNiOrZGWEFAik/Q7MiG27wCaVEzRrmSjJMh4I4k9y4neUFJyZn/oKxztOPx1jbKr",
-	"qG7JbwxJIS18/S/it/D6SOmWtDCOtVDdwXWEYR+sKcSJhDGrTcU+JVK2jrADQgfs9zg6QN+JsOMj4gHs",
-	"Q19FgioxrCmBIwmO/fhm8MLgVMm8LjlxgaHP5qzseHLaIk5T2CuBjL+KKAiWKiFsVz699l92JVCDSrEg",
-	"YFZucMA5zcgGHnX+xcHupJlAqvh6plN6ww21PvJJ+gTxMRBTLoPI+whF0oA/QUhFkUxmoo5qmhBf0aPf",
-	"jGyqwuxYfAVrVLQ5xGBNz2SG2keuL3Xp+SPGpCkmm3v6YXw4OoDgTGd7RWMhwDP3AMOQ9hJIA3LC0bHg",
-	"mCqABucAAuRryNIoTAB/fOcf47lGYJAQpsDZISLOCTH7UyZldOacfmcHvC0KoYNCCRIilmcm4n8lDteT",
-	"viOgOjkCoBdEJLYdsWdFiH8iGnE1j56+W28J7efxuSySspZgPTVF6q0QohSKh8+GGwQO2oENNIE8MPQi",
-	"7BNm1BnbDBDGINDIHozcZ85Spa52EHH2EBNEWL0EMgopDO4dusVRvNnmhM2Zu6vBm2qx+hbQhUxSH1U1",
-	"STP7sZaJoWzuG1kmjvGDazsiuzigqMfG5TFXirIl4mo8GS3V7Jbn6Wx14CCvwb1EgUxAr9XqMXgzrJyd",
-	"16y3TCq+NY1vI/xR1f3e2EaeRTLErShT92QbYdoL0AH6XbZpB+IKRt3c3+HoE4FY7SSTG/ZE9autLN+g",
-	"PnOupYRIiyLCAk7Yh3sY+jD02GYXYOhEO0SZBDKzBAKfieYdMzDYt6o1BfL5k0O3iEgIKXEjRJx9fBcg",
-	"snVggDby4uiZ42oQlcXIHb4zZV9cPRE+ATSyqIchDM1jMWeNDtAh0ItCtsbxEw4Bo4hZV7m/jEBD5S4y",
-	"lZOg9Tn5yaS5+KT8jGuPFVTnMVah/4WWsQ4T4RlepcNXD0dRjXiebJbcdlcctuS+TUntfxEZqB/6hr9D",
-	"Y/qHxrfN02uwulLpKp8SUnxh+vJjTmGy/LOfeKaGq9mgtB0G8bW42ul+e3Fl2bTojZyqzI+/laiyFM2t",
-	"9FtKFGsrD9L/QowP6xx6HsXeU7uu84XoGtJt5D8l3/OUsoEUoOBUWqaOhsmNKc/BoIC1MpkYrKB+1SPP",
-	"LNYjTIivMRCa3FNq/XowcZVJMqoGsG10X050GmnP/43tq6Fiu4+rn9vGkRwnCf8bRdJmKMWhkdjYlfNa",
-	"ICF/RfdvScB5dsCSD/0vKstvXY/jtmwp9jN+0QZS1+KcLFRjUMs9Wffi8a+JRdP2NSc/Kn116tlcvRgN",
-	"desJ+0C19VVB8l+cRbz7axRA0v/C/uOnlUDEkAFMp9HDMdyt4b/F2hzWTOdLp1F1TLdofd4m7kwB0tdO",
-	"pynKD9EGEmrTZxL4mSc93+8D5IkUR5FHIe0RiiHg+ftFKvZUGvI77qxoSUSeykQuc+1XRycsaYT57O92",
-	"PvdEmnHZPgo3vTtOrspSnxEXwplXYWzf8FKN91c/XNSyR6MA/pkzJWkOVh6l8cHof2H/NViWCI/++fMY",
-	"Q6JvvFu1hJ+VdEi0pr36gCuSaUcM5lELIRvgmp5Sf7rh5V0rGN22A1Axk/p7QMinCPs9DAmkvQCFH+sp",
-	"vbn8cMG+m/DP/tRgka3FuMLIsrHy32IHV2PHkmJMBSZlTLd9IEZQSHEfhWQPPVqxrYvp1hj4sfymVRrl",
-	"XC0PR4qhrAdFodHrbodAL8aI3nde/f4+xwNxqdxT87q69yKJumJ1q57na2nXc1YPMxw/07JR9kSRUi2V",
-	"1NQ5HSUVnEchojzvOqxm+jgp25LhRg2t5lbLLmpoYDbZ4J7W6ar6xhVftMqzm6nj8bocRBsUVvdywou1",
-	"HEvx8cOjSWoQbaKY1uoUK3dCpW8xUifRZgN9hzVUSXjaWiHpg5DSrqSXkuRMo4WRZquoYOwKtsEfSBSm",
-	"t79RCGfrwpVelEsNduHCrcoqOoVi9oeISLSO91yjZtAbYrqFIWX0yZB2+JmqgCcV6S5X164jkzz5ssqe",
-	"fKGc8Xh4nzDtSsZzDQ4RRhT21lHgy5128RBeydJXvPC3cl2cobqV0krXUXLIlWVo/4v4o9Z++Vj+foP2",
-	"p0UVKS44gnMKpvQnR/FWOPxhSAEK2yXlTDO6xlb3Tzwytv61WgQbz5F6mfFASivOcbRGAfwrEfgeAUyk",
-	"ouv4EKMDV50iR56cgzzMQEPcyNw4wvWUO29C4DsUg5AI0ChrdOOVprmtrC29aF9rn50VztqBh+fKHq97",
-	"8KSOLRVVE0RoHWHrR3gDwsp9gap2pko/+VVOUZqI6FHT95Lpg1oMxZBQBfdSyc+FLPzk2SkJPRE3ZW21",
-	"+BmH6u96LL1Jyj95rhq0tuJn8n0tVqqkl8dlz7VBrGnO0eDesEh4GIwOa1FrE3fsV7iC/EyIA2yEDvyM",
-	"CAfbUDX4Lr22Y6pdtR3jM1lsDYSfHy03Gq++uQ856bgVQePpLOMZy90hUOy92MimxpNZE8nAI+p82sLQ",
-	"CaEHCQH4vnQQr2T3HnksF6LHWSrOOrgcRK0YuEJE20BfBr9o4ApulqnNrg2X8JkzymOGIkp04W4C6dbl",
-	"0aW7HQx9bhZi2BVBQNDnEDXdBPZCJmDeB+CevxJJ5tXbPUbcaOTgGM7NYvKTs4EhG2Qxc50NOkDieAGC",
-	"IRX4c2sUUIjFfPcdLF39e7zuANzBgIdLqZgnwULHCyLvo9UAfc3ZeRYX4hYm4dNLIXp6tIt0+uS6kuxz",
-	"D2YhxsaxTU6S739KkFaYgByQDyP+A0NDKqMNU1pM4ogTrVNpvTVQjsrr/VcOsotCEPT+gDhyBrO3owWv",
-	"/O14OJrJ9ODPnGkkSA0Qoc5wNXPg531EINE0PHMIOIgJLoB4kdCVNKIgDRzKyjnyQIo1pL8jCZoioM4u",
-	"IpTXANFmS50QfmJzLfoUQtwT8wT6Dgwp1wBsvUw44CPijUMffubxxxM2cQrnx9dNVW6IzjbawUKBeRPt",
-	"4B5soAM2Gww3gK091UpvTBNtF6A7LLRRHDIaumJ0YCiQKwUH2SPOdww9YZWoXDBcxxFIOI5r8m26MPCZ",
-	"ytynhDsF4sxFSEVUSm1qZLJXjcl2/koSY4jpPS43UhPf3Tt0C6gIEnYCEIfeViyq4AAQF4Muh6zVuM+a",
-	"R8RBIZtyEO9QKFBqOYlCGtdRjJ1/xcj7aHyAQfhRNMr40JP0CV5aJYuN16nR+EQnYeq8tSikVjIkCpnB",
-	"GWEHZEaFsaBU09iDSie82q/iRSubPoH/bPdor0Qh8L1ya8UNgpQNKKcYn0gS9qxrzg02D6SSSwkZnxRd",
-	"OQn07AcCstyPxQgJRZoSS2e1NYyEBCk9ZYKQKGV/+EAA3+IoCFC46X1CoR99kmYJB8rlZBI+jZnZ4QCh",
-	"5aVPvcZFZ7rKOjEWnHXKMDnp/GD6oXg4lkx7ELHMfNpGRA3KHQyicOPQqI4BmVl98vbkHSDQMCrz86qr",
-	"EGyEYSmVFY8c75qh4DeLSdqatKxpdntyg6N4r5ZZHhjdyGZcci6exWYUq15ze/FRTMxBhJsUd42B+1NZ",
-	"sHwW9b9oo6zWJRQTmscEK2/orab7Un1pc4KeNN5nh2AnOHgyIBh5e91vgtkrPcMVntG5cXbP0twx2LiK",
-	"Z0zye2KhSE+DfqKey/iopW2ZFD8/O8/Z6jGzjXF2C0FAt/0AHWAZ497wYhN0aGc5J5+Xu9NIajAE/n01",
-	"OQterD09/HvT9nx58V3db6cRzXxu64/EkenDXRwAGuEPpP9Fp6b334rUGw/9L7LcHNBtqR5YiHIjWd3f",
-	"l6eRowzlZbL8WBQ0jrRJ85Qv0oitTXtA2aaI6fHOq47B6E428qVreA5lw2S62SUvYYDjAW8Le3cxoRD/",
-	"5KBNGGlc4yCIPvFTGb57RQFUsNziVpoT+C9u1mgKDx2Tjh34PIHhhm47r56/+CEfvvPeCMDBUUwh7lG4",
-	"Y6YtK9ZG/l49+6+Hjim7amvb/yL+UiH1/bs49AP47A+0ryGyl+PZ8pJ/8LVE9uwUNE2kzpmp9HAZt8WI",
-	"1WCyqFNMhladNCv4Kl2FnynEIQh6MoZQnpdOwQ4Wn9gueeQZEScqwBHN9eRejqOLRdjxQBiF/OyV4+tN",
-	"p9Nn3tZ3VINiduqDNi/a7dj+HoWbAPZ4BJ/ISQM8+6GS0ouyuiv09QT9EWhoO/41dk7JgNcQlzUKEdk2",
-	"v1w0JLIsliQ1ra5EW208sgIgMelPsYkoMTNsLNqAHWwzj9gsSM8kfjYZ3X2AHn3mXGuoSn4ixha5Z7vv",
-	"YicmkDgg9lHU/9zb7eEmxsHx06r1ZcAJptMZ234q02gLAaZ3ENDHmUlvdHPf2mQSMN7NLB8BdPl1bZ9H",
-	"oOFsJoEChg5pj+3463BcfyFPjI7vbwEQxjRyEvL4qe5JWVMMTVDU01YABQpwoJUzM9/DMAHkbtRyE/Nb",
-	"byH2JIys3pJNYJWZsGjHpaEKUEj/9n2n29mhEO3iXefVc73tQSGFG4jFfqxGw0kimKJWYcha+L3j3qxm",
-	"t+PparR460463c61O71xJ7ej3+azxarT7Yx+G6867637ryeB0fD8SM1XB8ehdJIG4B7iHjy0A6y2riJZ",
-	"F3IJK8+TCkC/6wTRp54HhIMEovdOgp7tzDk5DoYkDqhE6VVQv+HGsG0cL4o+IvjMYSsl6Tp7QLek62wB",
-	"2bKfbNuuQY8VMnEYUUeE6UHffhUrZ6fGiRbkmNLYDAPWVk+t0AteVBPbfL2TmaDSh6snH1qOJiJcLu+i",
-	"mLt2zaevkxRRd2xXJ/CaJfCzhpvOgzEb2Mv8lpWNqEKr1rjRGsfaQcRRc4uPtnC4wffGnbyUFOVgwXaS",
-	"TATEhSv7PoopLBUEDT1snv4WaQ2eUKG/Dzd/QjVhnN+fRZLYgGs3qj3A3NNJZkJhHXP+7xe2UHT1he3D",
-	"/32W3N7mhAGFDuZ7FOGmYSgY0SWhIHYxoc6dcPJyIqyRy9lHcqezRgHsD2dLRzGlVFz0Kf0ZnDkMQePd",
-	"YUzq8/yijGdpkQO+jxh9IJhjRizlqMprEBDY7eyNR186iumWs1O23Jrqo1KQux0R51hL6E2Z/z0hQ9WR",
-	"ajxZv8Uu9huZM0yXPc7GbEkFzNW3tSnT0lKxLVBT6qvswM7ZePutV7quLx25xg24UcRrf89K4IOqO8ZB",
-	"51Wnz779/wMAAP//",
+	"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",
+	"0Bewi2l6z0uQo+7gQMLWj60ur/v/BwAA//8=",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

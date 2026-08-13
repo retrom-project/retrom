@@ -3,7 +3,8 @@
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { newUuid, sha256 } from "@/lib/crypto";
-import { captureManualScreenshot, captureManualState, mountEmulatorJS, readDiscState, switchDiscPreservingPause, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import { writeHeaders } from "@/lib/api/client";
+import { captureManualScreenshot, captureManualState, mountEmulatorJS, readDiscState, switchDiscPreservingPause, validateConfig, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "./canvas-fit";
 import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
 import { restoreMultiDiscLaunch } from "./multi-disc-restore";
@@ -12,6 +13,8 @@ import { setEmulatorPaused } from "./pause-control";
 import { restorePersistentSave } from "./persistent-save-restore";
 import { PlayerChrome } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
+import { NetplayController } from "./netplay/controller";
+import { digestHex, EJSNetplayFrameBridge } from "./netplay/ejs-netplay-4.2.3-v1";
 
 type ShellState = "loading" | "running" | "error";
 
@@ -49,6 +52,10 @@ export async function readBoundedResponse(response: Response, maximumBytes: numb
   return result;
 }
 
+export function reportsNativeExit(mode: "single" | "netplay") {
+  return mode === "single";
+}
+
 function formatPlayerBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
@@ -80,7 +87,12 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [emulatorMuted, setEmulatorMuted] = useState(false);
   const [discSet, setDiscSet] = useState<DiscSet | null>(null);
   const [discState, setDiscState] = useState<DiscState | null>(null);
+  const [netplayPlayerNo, setNetplayPlayerNo] = useState<number | null>(null);
+  const [netplayPaused, setNetplayPaused] = useState(false);
   const returnTo = useRef("/library");
+  const playerMode = useRef<PlayerConfig["mode"]>("single");
+  const netplayConfig = useRef<NonNullable<PlayerConfig["netplay"]> | null>(null);
+  const netplayController = useRef<NetplayController | null>(null);
   const sequence = useRef(0);
   const started = useRef(false);
   const finishing = useRef(false);
@@ -145,6 +157,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }, [showControls]);
 
   const pauseForToolbarInteraction = useCallback(() => {
+    if (playerMode.current === "netplay") return;
     if (!running.current || pausedRef.current || pausePending.current || !emulator.current) return;
     const current = emulator.current;
     pausePending.current = true;
@@ -171,6 +184,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }, [clearControlsTimer, showToast]);
 
   const handleGameSurfaceInteraction = useCallback(() => {
+    if (playerMode.current === "netplay") return;
     if (!running.current) return;
     if (!pausedRef.current || !setEmulatorPaused(emulator.current, false)) return;
     pausedRef.current = false;
@@ -300,13 +314,17 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     if (finishing.current) return;
     finishing.current = true;
     try {
-      const manager = emulator.current?.gameManager;
-      const path = persistentSaveMode.current === "NONE" ? undefined : manager?.getSaveFilePath?.();
-      if (persistentSaveMode.current !== "NONE" && !persistentConflict.current && path && manager?.FS?.analyzePath(path).exists) {
-        const bytes = await manager.getSaveFile?.();
-        if (bytes?.byteLength) uploadPersistent(bytes, "EXIT");
+      if (playerMode.current === "netplay") {
+        netplayController.current?.end();
+      } else {
+        const manager = emulator.current?.gameManager;
+        const path = persistentSaveMode.current === "NONE" ? undefined : manager?.getSaveFilePath?.();
+        if (persistentSaveMode.current !== "NONE" && !persistentConflict.current && path && manager?.FS?.analyzePath(path).exists) {
+          const bytes = await manager.getSaveFile?.();
+          if (bytes?.byteLength) uploadPersistent(bytes, "EXIT");
+        }
+        await persistentQueue.current;
       }
-      await persistentQueue.current;
       await sendEvent("finish");
     } catch { /* expiry is already a terminal server state */ }
     if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
@@ -337,7 +355,11 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         const response = await fetch(`/runtime/launches/${launchId}/config`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
         if (!response.ok) throw new Error(`LAUNCH_CONFIG_${response.status}`);
         const config = await response.json() as PlayerConfig;
+        validateConfig(config);
         returnTo.current = config.returnTo;
+        playerMode.current = config.mode;
+        netplayConfig.current = config.netplay;
+        setNetplayPlayerNo(config.netplay?.playerNo ?? null);
         setWarnings(config.warnings ?? []);
         setGameTitle(config.gameTitle);
         setCoreName(config.coreName || config.core);
@@ -451,7 +473,13 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
                 if (value instanceof Uint8Array && value.byteLength) uploadPersistent(value, "AUTO_INTERVAL");
               });
             }
-            instance.on("exit", () => { void sendEvent("finish"); });
+            instance.on("exit", () => {
+              if (!reportsNativeExit(playerMode.current)) return;
+              void sendEvent("finish").catch(() => {
+                setState("error");
+                setMessage("PLAY_SESSION_EVENT_FAILED");
+              });
+            });
           },
           onGameStart: () => {
             frameDocument.documentElement.classList.add("retrom-native-menu-locked");
@@ -504,6 +532,50 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
               setMessage(caught instanceof Error ? caught.message : "PLAYER_DISC_SET_INVALID");
               return false;
             }
+            if (config.mode === "netplay") {
+              if (!emulator.current || !config.netplay) throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");
+              try {
+                const bridge = new EJSNetplayFrameBridge(emulator.current);
+                const controller = new NetplayController(config.netplay, "", bridge, {
+                  onStatus: (text, tone) => { setSyncText(text); setSyncTone(tone); },
+                  onRunning: () => {
+                    setNetplayPaused(false);
+                    if (started.current) return;
+                    void sendEvent("start").then(() => {
+                      setState("running");
+                      heartbeat.current = window.setInterval(() => { void sendEvent("heartbeat"); }, 30_000);
+                    }).catch(() => {
+                      setState("error");
+                      setMessage("PLAY_SESSION_EVENT_FAILED");
+                    });
+                  },
+                  onPaused: () => setNetplayPaused(true),
+                  onEnded: (reason) => {
+                    setSyncText("联机已结束");
+                    setSyncTone("warning");
+                    setMessage(reason);
+                    void sendEvent("finish").catch(() => undefined).finally(() => {
+                      window.setTimeout(() => window.location.replace(returnTo.current), 600);
+                    });
+                  },
+                });
+                netplayController.current = controller;
+                setMessage("正在建立联机同步屏障…");
+                void digestHex(new TextEncoder().encode(JSON.stringify(config.netplay.netplayProfile)))
+                  .then((profileDigest) => controller.setProfileDigest(profileDigest))
+                  .then(() => controller.start())
+                  .catch((caught: unknown) => {
+                    controller.end();
+                    setState("error");
+                    setMessage(caught instanceof Error ? caught.message : "NETPLAY_START_FAILED");
+                  });
+                return true;
+              } catch (caught) {
+                setState("error");
+                setMessage(caught instanceof Error ? caught.message : "NETPLAY_START_FAILED");
+                return false;
+              }
+            }
             if (emulator.current) emulator.current.paused = false;
             pausedRef.current = false;
             setPaused(false);
@@ -532,6 +604,8 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
     void bootstrap();
     return () => {
       controller.abort(); cleanup?.(); canvasContain?.cleanup(); cleanupFrameControls?.();
+      netplayController.current?.end();
+      netplayController.current = null;
       closeEmulatorSettingsPanels(emulator.current);
       nativeMenuObserver?.disconnect();
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
@@ -574,6 +648,21 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
     window.addEventListener("pagehide", handlePageHide);
     return () => window.removeEventListener("pagehide", handlePageHide);
   }, [launchId]);
+
+  useEffect(() => {
+    const suspendHidden = () => {
+      if (document.visibilityState === "hidden" && playerMode.current === "netplay") netplayController.current?.suspend("HIDDEN");
+    };
+    const suspendBlurred = () => {
+      if (playerMode.current === "netplay") netplayController.current?.suspend("BLUR");
+    };
+    document.addEventListener("visibilitychange", suspendHidden);
+    window.addEventListener("blur", suspendBlurred);
+    return () => {
+      document.removeEventListener("visibilitychange", suspendHidden);
+      window.removeEventListener("blur", suspendBlurred);
+    };
+  }, []);
 
   async function saveManualState() {
     const current = emulator.current;
@@ -678,6 +767,23 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
     setEmulatorMuted(true);
   }
 
+  async function toggleNetplayPause() {
+    const locked = netplayConfig.current;
+    if (!locked || locked.playerNo !== 1) return;
+    const action = netplayPaused ? "resume" : "pause";
+    const response = await fetch(`/api/v1/netplay/rooms/${locked.roomId}/sessions/${locked.sessionId}/${action}`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
+      body: "{}",
+    });
+    if (!response.ok) {
+      showToast("无法更改全局暂停状态，请重试。", 4_000);
+      return;
+    }
+    if (!netplayPaused) setNetplayPaused(true);
+  }
+
   return (
     <main className={`player-shell${paused ? " is-paused" : ""}`} onKeyDown={showControls} onPointerMove={(event) => revealControlsAtTopEdge(event.clientY)}>
       <PlayerChrome
@@ -698,6 +804,8 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         emulatorMuted={emulatorMuted}
         discSet={discSet}
         discState={discState}
+        netplayPlayerNo={netplayPlayerNo}
+        netplayPaused={netplayPaused}
         onHoldControls={holdControls}
         onReleaseControls={releaseControls}
         onSave={saveManualState}
@@ -709,6 +817,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         onChangeEmulatorVolume={changeEmulatorVolume}
         onToggleEmulatorMute={toggleEmulatorMute}
         onSelectDisc={selectDisc}
+        onToggleNetplayPause={() => void toggleNetplayPause()}
         onExit={() => void exit()}
         onDownloadConflict={downloadConflictingSave}
       />

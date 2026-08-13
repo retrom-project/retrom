@@ -180,6 +180,7 @@ func (server *Server) writeAuthContext(writer http.ResponseWriter, status int, c
 		"authenticationState": authenticationState, "user": user, "csrfToken": csrf,
 		"idleExpiresAtMs": idle, "absoluteExpiresAtMs": absolute,
 		"testDefaultAccountActive": contextView.TestDefaultAccountActive,
+		"netplayEnabled":           server.config.NetplayEnabled,
 	})
 }
 

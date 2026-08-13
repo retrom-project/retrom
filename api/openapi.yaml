@@ -285,6 +285,133 @@ paths:
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
         '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/netplay/games:
+    get:
+      operationId: getNetplayGames
+      parameters: [{ $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }, { $ref: '#/components/parameters/NetplayAvailability' }]
+      responses:
+        '200': { $ref: '#/components/responses/NetplayGameListResponse' }
+  /api/v1/netplay/rooms:
+    get:
+      operationId: getNetplayRooms
+      parameters: [{ $ref: '#/components/parameters/NetplayRoomView' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      responses:
+        '200': { $ref: '#/components/responses/NetplayRoomListResponse' }
+    post:
+      operationId: postNetplayRoom
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '201': { $ref: '#/components/responses/NetplayRoomResponse' }
+  /api/v1/netplay/rooms/{roomId}:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }]
+    get:
+      operationId: getNetplayRoom
+      responses:
+        '200': { $ref: '#/components/responses/NetplayRoomResponse' }
+    delete:
+      operationId: deleteNetplayRoom
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      responses:
+        '204': { description: Room closed }
+  /api/v1/netplay/rooms/{roomId}/game:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }]
+    put:
+      operationId: putNetplayRoomGame
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/NetplaySelectGame' }
+      responses:
+        '200': { $ref: '#/components/responses/NetplayRoomResponse' }
+    delete:
+      operationId: deleteNetplayRoomGame
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      responses:
+        '200': { $ref: '#/components/responses/NetplayRoomResponse' }
+  /api/v1/netplay/rooms/{roomId}/members/me/seat:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }]
+    put:
+      operationId: putNetplaySelfSeat
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/NetplaySeat' }
+      responses:
+        '200': { $ref: '#/components/responses/NetplayRoomResponse' }
+  /api/v1/netplay/rooms/{roomId}/members/me/ready:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }]
+    put:
+      operationId: putNetplaySelfReady
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/NetplayReady' }
+      responses:
+        '200': { $ref: '#/components/responses/NetplayRoomResponse' }
+  /api/v1/netplay/rooms/{roomId}/members/me:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }]
+    delete:
+      operationId: deleteNetplaySelfMember
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      responses:
+        '204': { description: Member left }
+  /api/v1/netplay/rooms/{roomId}/members/{memberId}:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }, { $ref: '#/components/parameters/NetplayMemberID' }]
+    delete:
+      operationId: deleteNetplayMember
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      responses:
+        '204': { description: Guest removed }
+  /api/v1/netplay/rooms/{roomId}/start:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }]
+    post:
+      operationId: postNetplayStart
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { $ref: '#/components/responses/NetplayRoomResponse' }
+  /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/launch:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }, { $ref: '#/components/parameters/NetplaySessionID' }]
+    post:
+      operationId: postNetplayLaunch
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/NetplayLaunch' }
+      responses:
+        '200': { $ref: '#/components/responses/NetplayLaunchResponse' }
+        '201': { $ref: '#/components/responses/NetplayLaunchResponse' }
+  /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/pause:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }, { $ref: '#/components/parameters/NetplaySessionID' }]
+    post:
+      operationId: postNetplayPause
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/resume:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }, { $ref: '#/components/parameters/NetplaySessionID' }]
+    post:
+      operationId: postNetplayResume
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/end:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }, { $ref: '#/components/parameters/NetplaySessionID' }]
+    post:
+      operationId: postNetplayEnd
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/netplay/rooms/{roomId}/events:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }]
+    get:
+      operationId: getNetplayRoomEvents
+      parameters: [{ $ref: '#/components/parameters/LastEventID' }]
+      responses:
+        '200': { $ref: '#/components/responses/SSEResponse' }
+  /runtime/netplay/rooms/{roomId}/socket:
+    parameters: [{ $ref: '#/components/parameters/NetplayRoomID' }]
+    get:
+      operationId: getNetplaySocket
+      description: WebSocket upgrade using subprotocol retrom.netplay.v1; credentials are accepted only from HttpOnly cookies.
+      responses:
+        '101': { description: WebSocket upgraded }
   /api/v1/admin/uploads:
     post:
       operationId: postAdminUpload
@@ -1408,6 +1535,146 @@ components:
         dosEntry: { type: string, nullable: true }
         returnTo: { type: string }
         clientCapabilities: { $ref: '#/components/schemas/ClientCapabilities' }
+    NetplaySelectGameRequest:
+      type: object
+      additionalProperties: false
+      required: [gameId, netplayProfileId]
+      properties:
+        gameId: { type: string, format: uuid }
+        netplayProfileId: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
+    NetplaySeatRequest:
+      type: object
+      additionalProperties: false
+      required: [playerNo]
+      properties:
+        playerNo: { type: integer, minimum: 2, maximum: 4 }
+    NetplayReadyRequest:
+      type: object
+      additionalProperties: false
+      required: [ready]
+      properties:
+        ready: { type: boolean }
+    NetplayLaunchRequest:
+      type: object
+      additionalProperties: false
+      required: [clientCapabilities]
+      properties:
+        clientCapabilities: { $ref: '#/components/schemas/ClientCapabilities' }
+    NetplayProfileSummary:
+      type: object
+      additionalProperties: false
+      required: [id, coreId, coreName, emulatorjsVersion, maxPlayers]
+      properties:
+        id: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
+        coreId: { type: string }
+        coreName: { type: string }
+        emulatorjsVersion: { type: string }
+        maxPlayers: { type: integer, minimum: 2, maximum: 4 }
+    NetplayGameSummary:
+      type: object
+      additionalProperties: false
+      required: [gameId, title, coverUrl, platformId, platformName, platformInstanceId, platformInstanceName, lastPlayedAtMs, addedAtMs, availability, netplayProfiles, blockerCode]
+      properties:
+        gameId: { type: string, format: uuid }
+        title: { type: string }
+        coverUrl: { type: string, nullable: true }
+        platformId: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
+        platformName: { type: string }
+        platformInstanceId: { type: string, format: uuid }
+        platformInstanceName: { type: string }
+        lastPlayedAtMs: { type: integer, format: int64, nullable: true }
+        addedAtMs: { type: integer, format: int64 }
+        availability: { type: string, enum: [SUPPORTED, UNSUPPORTED] }
+        netplayProfiles: { type: array, maxItems: 4, items: { $ref: '#/components/schemas/NetplayProfileSummary' } }
+        blockerCode: { type: string, enum: [CONTENT_NOT_ALLOWLISTED, CORE_NOT_ALLOWLISTED, DEPENDENCY_STALE, GAME_UNAVAILABLE], nullable: true }
+    NetplayGameList:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/NetplayGameSummary' } }
+        nextCursor: { type: string, nullable: true }
+    NetplayRoomMember:
+      type: object
+      additionalProperties: false
+      required: [memberId, playerNo, role, displayName, avatarRef, ready, connectionState]
+      properties:
+        memberId: { type: string, format: uuid }
+        playerNo: { type: integer, minimum: 1, maximum: 4 }
+        role: { type: string, enum: [HOST, GUEST] }
+        displayName: { type: string }
+        avatarRef: { type: string, nullable: true }
+        ready: { type: boolean }
+        connectionState: { type: string, enum: [NOT_CONNECTED, LOCKED, LAUNCH_READY, RUNTIME_READY, SYNCHRONIZED, CONNECTED, DISCONNECTED, LEFT] }
+    NetplayRoomGame:
+      type: object
+      additionalProperties: false
+      required: [gameId, title, platformName, profileId, coreName, emulatorjsVersion, maxPlayers]
+      properties:
+        gameId: { type: string, format: uuid }
+        title: { type: string }
+        platformName: { type: string }
+        profileId: { type: string }
+        coreName: { type: string }
+        emulatorjsVersion: { type: string }
+        maxPlayers: { type: integer, minimum: 2, maximum: 4 }
+    NetplaySessionSummary:
+      type: object
+      additionalProperties: false
+      required: [sessionId, sessionNo, state]
+      properties:
+        sessionId: { type: string, format: uuid }
+        sessionNo: { type: integer, minimum: 1 }
+        state: { type: string, enum: [PREPARING, LOADING, SYNCHRONIZING, RUNNING, PAUSED_RECONNECT, RESYNCHRONIZING, FINISHED, FAILED] }
+    NetplayRoomPermissions:
+      type: object
+      additionalProperties: false
+      required: [host, member, canSelectGame, canJoin, canReady, canStart, canClose]
+      properties:
+        host: { type: boolean }
+        member: { type: boolean }
+        canSelectGame: { type: boolean }
+        canJoin: { type: boolean }
+        canReady: { type: boolean }
+        canStart: { type: boolean }
+        canClose: { type: boolean }
+    NetplayRoom:
+      type: object
+      additionalProperties: false
+      required: [roomId, state, version, game, members, currentSession, permissions, selfMemberId, expiresAtMs, serverNowMs, endedAtMs, endReason]
+      properties:
+        roomId: { type: string, format: uuid }
+        state: { type: string, enum: [DRAFT, WAITING, STARTING, RUNNING, ENDED, EXPIRED] }
+        version: { type: integer, format: int64, minimum: 1 }
+        game: { nullable: true, allOf: [{ $ref: '#/components/schemas/NetplayRoomGame' }] }
+        members: { type: array, maxItems: 4, items: { $ref: '#/components/schemas/NetplayRoomMember' } }
+        currentSession: { nullable: true, allOf: [{ $ref: '#/components/schemas/NetplaySessionSummary' }] }
+        permissions: { $ref: '#/components/schemas/NetplayRoomPermissions' }
+        selfMemberId: { type: string, format: uuid, nullable: true }
+        expiresAtMs: { type: integer, format: int64 }
+        serverNowMs: { type: integer, format: int64 }
+        endedAtMs: { type: integer, format: int64, nullable: true }
+        endReason:
+          type: string
+          nullable: true
+          enum: [NORMAL, USER_EXIT, HOST_CLOSED, HOST_LOST, PEER_TIMEOUT, AUTH_REVOKED, START_TIMEOUT, PREPARE_FAILED, PROFILE_REVOKED, SERVER_RESTARTED, RESTORE, HARD_EXPIRED, ROLLBACK_WINDOW_EXCEEDED, STATE_RING_CAPACITY_EXCEEDED, STATE_TRANSFER_TIMEOUT, STATE_INVALID, NETPLAY_UNSTABLE, PEER_TOO_SLOW, PROTOCOL_VIOLATION, INTERNAL_ERROR]
+    NetplayRoomList:
+      type: object
+      additionalProperties: false
+      required: [items, nextCursor]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/NetplayRoom' } }
+        nextCursor: { type: string, nullable: true }
+    NetplayLaunchResponseBody:
+      type: object
+      additionalProperties: false
+      required: [launchId, playUrl, warnings, bootstrapExpiresAtMs, hardExpiresAtMs]
+      properties:
+        launchId: { type: string, format: uuid }
+        playUrl: { type: string }
+        warnings: { type: array, items: { type: string } }
+        bootstrapExpiresAtMs: { type: integer, format: int64 }
+        hardExpiresAtMs: { type: integer, format: int64 }
     StartupAction:
       type: object
       additionalProperties: false
@@ -1452,12 +1719,13 @@ components:
     LaunchConfig:
       type: object
       additionalProperties: false
-      required: [launchId, emulatorjsVersion, playerAdapterId, core, runtimeCore, coreName,
+      required: [mode, launchId, emulatorjsVersion, playerAdapterId, core, runtimeCore, coreName,
         coreArtifactId, emulatorGameId, gameName, gameTitle, platformName, runtimeBaseUrl,
         loaderUrl, gameUrl, biosUrl, parentUrl, stateUrl, persistentSaveMode,
         persistentSaveUrl, inputMode, startupActions, requiresThreads, runtimePathOverrides,
-        defaultCoreOptions, externalFiles, discSet, dosEntry, warnings, returnTo]
+        defaultCoreOptions, externalFiles, discSet, dosEntry, warnings, returnTo, netplay]
       properties:
+        mode: { type: string, enum: [single, netplay] }
         launchId: { type: string, format: uuid }
         emulatorjsVersion: { type: string }
         playerAdapterId: { type: string }
@@ -1501,6 +1769,46 @@ components:
         warnings: { type: array, items: { type: string } }
         returnTo: { type: string }
         reviewPreview: { $ref: '#/components/schemas/ReviewPreviewConfig' }
+        netplay:
+          nullable: true
+          allOf: [{ $ref: '#/components/schemas/NetplayLaunchConfig' }]
+    NetplayLaunchConfig:
+      type: object
+      additionalProperties: false
+      required: [roomId, sessionId, playerNo, netplayProfile, runtimeSocketUrl]
+      properties:
+        roomId: { type: string, format: uuid }
+        sessionId: { type: string, format: uuid }
+        playerNo: { type: integer, minimum: 1, maximum: 4 }
+        netplayProfile: { $ref: '#/components/schemas/NetplayCanonicalProfile' }
+        runtimeSocketUrl: { type: string, pattern: '^/runtime/netplay/rooms/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/socket$' }
+    NetplayCanonicalProfile:
+      type: object
+      additionalProperties: false
+      required: [schemaVersion, protocolVersion, profileId, emulatorjsVersion, playerAdapterId, netplayAdapterId, coreArtifactId, coreArtifactSha256, gameVariantRevisionId, sourceManifestDigest, dependencySnapshotDigest, defaultCoreOptions, controlCount, maxPlayers, maxPredictionFrames, maxRollbackFrames, checkpointEveryFrames, canonicalHistoryFrames, maxStateBytes]
+      properties:
+        schemaVersion: { type: integer, enum: [1] }
+        protocolVersion: { type: string, enum: [retrom-netplay-v1] }
+        profileId: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
+        emulatorjsVersion: { type: string, enum: ['4.2.3'] }
+        playerAdapterId: { type: string, enum: ['ejs-4.2.3-v2'] }
+        netplayAdapterId: { type: string, enum: ['ejs-netplay-4.2.3-v1'] }
+        coreArtifactId: { type: string, format: uuid }
+        coreArtifactSha256: { type: string, pattern: '^[0-9a-f]{64}$' }
+        gameVariantRevisionId: { type: string, format: uuid }
+        sourceManifestDigest: { type: string, pattern: '^[0-9a-f]{64}$' }
+        dependencySnapshotDigest: { type: string, pattern: '^[0-9a-f]{64}$' }
+        defaultCoreOptions:
+          type: object
+          maxProperties: 32
+          additionalProperties: { type: string }
+        controlCount: { type: integer, enum: [24] }
+        maxPlayers: { type: integer, minimum: 2, maximum: 4 }
+        maxPredictionFrames: { type: integer, enum: [8] }
+        maxRollbackFrames: { type: integer, enum: [120] }
+        checkpointEveryFrames: { type: integer, enum: [120] }
+        canonicalHistoryFrames: { type: integer, enum: [600] }
+        maxStateBytes: { type: integer, enum: [1048576] }
     CreateUploadRequest:
       type: object
       additionalProperties: false
@@ -2231,7 +2539,7 @@ components:
     AuthContext:
       type: object
       additionalProperties: false
-      required: [instanceState, mode, authenticationState, user, csrfToken, idleExpiresAtMs, absoluteExpiresAtMs, testDefaultAccountActive]
+      required: [instanceState, mode, authenticationState, user, csrfToken, idleExpiresAtMs, absoluteExpiresAtMs, testDefaultAccountActive, netplayEnabled]
       properties:
         instanceState: { type: string, enum: [INITIALIZATION_REQUIRED, READY] }
         mode: { type: string, enum: [release, test] }
@@ -2243,6 +2551,7 @@ components:
         idleExpiresAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
         absoluteExpiresAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
         testDefaultAccountActive: { type: boolean }
+        netplayEnabled: { type: boolean }
     AccountLinkInspection:
       type: object
       additionalProperties: false
@@ -2778,6 +3087,10 @@ components:
     RenameSave: { $ref: '#/components/requestBodies/FromRenameSave' }
     FromRenameSave: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RenameSaveRequest' } } } }
     Launch: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/LaunchRequest' } } } }
+    NetplaySelectGame: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NetplaySelectGameRequest' } } } }
+    NetplaySeat: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NetplaySeatRequest' } } } }
+    NetplayReady: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NetplayReadyRequest' } } } }
+    NetplayLaunch: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/NetplayLaunchRequest' } } } }
     CreateUpload: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateUploadRequest' } } } }
     CreateImport: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateImportRequest' } } } }
     ReconfigureImport: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReconfigureImportRequest' } } } }
@@ -2918,6 +3231,27 @@ components:
       content:
         application/json:
           schema: { $ref: '#/components/schemas/LaunchConfig' }
+    NetplayRoomResponse:
+      description: Minimal authenticated room snapshot
+      headers: { ETag: { schema: { type: string } } }
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/NetplayRoom' }
+    NetplayGameListResponse:
+      description: Netplay game eligibility page
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/NetplayGameList' }
+    NetplayRoomListResponse:
+      description: Rooms visible to the current profile
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/NetplayRoomList' }
+    NetplayLaunchResponse:
+      description: Participant-owned launch
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/NetplayLaunchResponseBody' }
     SSEResponse:
       description: Server-sent events
       content:
@@ -2934,6 +3268,8 @@ components:
   parameters:
     Q: { name: q, in: query, schema: { type: string, maxLength: 200 } }
     Q80: { name: q, in: query, schema: { type: string, maxLength: 80 } }
+    NetplayAvailability: { name: availability, in: query, schema: { type: string, enum: [SUPPORTED, ALL], default: SUPPORTED } }
+    NetplayRoomView: { name: view, in: query, schema: { type: string, enum: [active, recent], default: active } }
     Role: { name: role, in: query, schema: { type: string, enum: [ADMIN, USER] } }
     PlatformIDQuery: { name: platformId, in: query, schema: { type: string } }
     GameIDQuery: { name: gameId, in: query, schema: { type: string, format: uuid } }
@@ -2998,6 +3334,9 @@ components:
     DATVersionID: { name: datVersionId, in: path, required: true, schema: { type: string, format: uuid } }
     AssetID: { name: assetId, in: path, required: true, schema: { type: string, format: uuid } }
     LaunchID: { name: launchId, in: path, required: true, schema: { type: string, format: uuid } }
+    NetplayRoomID: { name: roomId, in: path, required: true, schema: { type: string, format: uuid } }
+    NetplayMemberID: { name: memberId, in: path, required: true, schema: { type: string, format: uuid } }
+    NetplaySessionID: { name: sessionId, in: path, required: true, schema: { type: string, format: uuid } }
     UserID: { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
     AccountLinkID: { name: accountLinkId, in: path, required: true, schema: { type: string, format: uuid } }
     ConfiguredVersion: { name: configuredVersion, in: path, required: true, schema: { type: string, pattern: '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$' } }

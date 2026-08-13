@@ -7,6 +7,9 @@ web/features/*
 !web/features/player/
 web/features/player/*
 !web/features/player/adapters/
+!web/features/player/netplay/
+web/features/player/netplay/*
+!web/features/player/netplay/ejs-netplay-4.2.3-v1.ts
 data/game
 data/example/results
 data/runtime

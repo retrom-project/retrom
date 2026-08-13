@@ -19,5 +19,6 @@
 @import "../features/server-import/server-import.css";
 @import "../features/games/admin-games-responsive.css";
 @import "../features/player/player.css";
+@import "../features/netplay/netplay.css";
 @import "../styles/responsive.css";
 @import "../features/home/home-wide.css";

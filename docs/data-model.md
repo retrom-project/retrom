@@ -334,6 +334,19 @@ Migration 030 受控重建两个 Pegasus 主表和受影响 trigger，保留 029
 
 三张表的 Blob 外键全部进入唯一 reference registry。Migration 031 只追加表、索引和 trigger，不重建旧表；030→031 与 fresh 001→031 必须同构并通过 foreign-key/integrity 检查。
 
-## 16. 统一验收入口
+## 16. Migration 032：受限联机控制面
+
+| 表/变更 | 唯一职责与稳定不变量 |
+| --- | --- |
+| `netplay_rooms` | 房间聚合；状态 `DRAFT/WAITING/STARTING/RUNNING/ENDED/EXPIRED`。host、创建时刻不可变；DRAFT 没有 game/profile snapshot，WAITING 以后五个 snapshot 字段全有；STARTING/RUNNING 恰有 current session；每个 Profile 最多主持一个非终态房间。DRAFT 15 分钟、WAITING 30 分钟空闲过期，STARTING 120 秒、运行 8 小时硬终止。 |
+| `netplay_room_members` | `(room_id,profile_id)` 唯一，active `(room_id,player_no)` 唯一；HOST 固定 P1 且每房恰一 active host，GUEST 为 P2–P4；ready 只在 active WAITING 成员上成立，离开必须清 ready 并记录封闭 reason。 |
+| `netplay_sessions` | 每次 Start 的不可变 game/variant/core/profile canonical snapshot；状态 `PREPARING/LOADING/SYNCHRONIZING/RUNNING/PAUSED_RECONNECT/RESYNCHRONIZING/FINISHED/FAILED`，每房最多一个 active session。`profile_json` 是 canonical object，`profile_digest` 是 lowercase SHA-256；P1 是唯一 state authority，occupied mask 必含 P1，resync 只递增。 |
+| `netplay_session_participants` | 锁定 Session 中每个 Profile/seat；状态 `LOCKED/LAUNCH_READY/RUNTIME_READY/SYNCHRONIZED/CONNECTED/DISCONNECTED/LEFT`。LOCKED 时 launch/credential 均空；LAUNCH_READY 起二者全有，credential generation 从 1 单调递增，数据库只存 SHA-256；seat/member/session/launch 绑定不可改。断线只存 10 秒 lease 时刻，不存输入或 state bytes。 |
+| `netplay_events` | 房间级 append-only 小事件；只允许 migration 中封闭 event type 和低基数 `data_json`，禁止 UPDATE/DELETE。不得记录显示名、输入、ROM/BIOS 名称或 hash、state、cookie、IP、宿主路径。每帧 input/canonical/hash 不入库。 |
+| `launch_sessions` | 新增可空 `netplay_session_id/netplay_player_no` 与非空 `save_access NORMAL/NETPLAY_DISABLED`。普通 Launch 必为 `NULL,NULL,NORMAL`；联机 Launch 三者同时锁定并与 Participant/Session snapshot 完全相同，每 Participant 最多一个 Launch。 |
+
+每个 Session 终态都会撤销关联 Launch 并把其 Participant 标为 LEFT。运行中任一 Participant 离开等价全局 `USER_EXIT`：访客释放自己的 RoomMember、房间回到 WAITING且全员 ready 清零；房主主动结束本局时保留成员并回 WAITING。房主丢失/关闭、profile 撤销、服务重启、restore 与硬到期把 Room 标为 ENDED，活动 RoomMember 以 ROOM_ENDED 收口。服务启动 recovery 把遗留 STARTING/RUNNING Session 标为 `FAILED/SERVER_RESTARTED` 并撤销 Launch；restore 使用 `RESTORE`。实时 input/history/hash/state transfer 只存在 `internal/netplay.Hub` 的有界内存，不新增 Job/Blob/CAS 表，也不允许由运行时 DDL 修补。
+
+## 17. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

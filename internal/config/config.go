@@ -27,8 +27,13 @@ var knownVariables = map[string]struct{}{
 	"RETROM_DB_PATH":                      {}, "RETROM_DEPENDENCY_ROOT": {}, "RETROM_DEPENDENCY_VERSIONS": {},
 	"RETROM_ACTIVE_EMULATORJS_VERSION": {}, "RETROM_TRUSTED_PROXIES": {},
 	"RETROM_STARTUP_CHECK_TIMEOUT": {}, "RETROM_LOG_LEVEL": {},
-	"RETROM_MULTI_DISC_IMPORT_ENABLED": {},
-	"RETROM_SERVER_IMPORT_ROOTS":       {},
+	"RETROM_MULTI_DISC_IMPORT_ENABLED":    {},
+	"RETROM_SERVER_IMPORT_ROOTS":          {},
+	"RETROM_NETPLAY_ENABLED":              {},
+	"RETROM_NETPLAY_MAX_ACTIVE_ROOMS":     {},
+	"RETROM_NETPLAY_ROOM_IDLE_DRAFT_MS":   {},
+	"RETROM_NETPLAY_ROOM_IDLE_WAITING_MS": {},
+	"RETROM_NETPLAY_RECONNECT_LEASE_MS":   {},
 }
 
 var ignoredPrefixes = []string{
@@ -50,6 +55,11 @@ type Config struct {
 	LogLevel               string
 	MultiDiscImportEnabled bool
 	ServerImportRoots      []ServerImportRoot
+	NetplayEnabled         bool
+	NetplayMaxActiveRooms  int
+	NetplayRoomIdleDraft   time.Duration
+	NetplayRoomIdleWaiting time.Duration
+	NetplayReconnectLease  time.Duration
 }
 
 type ServerImportRoot struct {
@@ -124,7 +134,7 @@ func LoadRestoreMaintenance() (Maintenance, error) {
 	return loadDependencyMaintenance()
 }
 
-//nolint:gocyclo,funlen // Independent environment checks stay in one ordered fail-fast startup boundary.
+//nolint:gocyclo // Independent environment checks stay in one ordered fail-fast startup boundary.
 func Load(mode Mode) (Config, error) {
 	if mode != ModeRelease && mode != ModeTest {
 		return Config{}, fmt.Errorf("%w: mode", errInvalidConfig)
@@ -178,41 +188,129 @@ func Load(mode Mode) (Config, error) {
 	if err != nil {
 		return Config{}, err
 	}
-	startupTimeout := 60 * time.Second
-	if value := os.Getenv("RETROM_STARTUP_CHECK_TIMEOUT"); value != "" {
-		startupTimeout, err = time.ParseDuration(value)
-		if err != nil || startupTimeout < 10*time.Second || startupTimeout > 5*time.Minute {
-			return Config{}, fmt.Errorf("%w: RETROM_STARTUP_CHECK_TIMEOUT", errInvalidConfig)
-		}
-	}
-	logLevel := os.Getenv("RETROM_LOG_LEVEL")
-	if logLevel == "" {
-		logLevel = "info"
-	}
-	if !slices.Contains([]string{"debug", "info", "warn", "error"}, logLevel) {
-		return Config{}, fmt.Errorf("%w: RETROM_LOG_LEVEL", errInvalidConfig)
-	}
-	multiDiscImportEnabled, err := parseStrictBoolean(
-		"RETROM_MULTI_DISC_IMPORT_ENABLED",
-		os.Getenv("RETROM_MULTI_DISC_IMPORT_ENABLED"),
-		false,
-	)
+	runtimeOptions, err := loadRuntimeOptions(dataDir, dependencyRoot)
 	if err != nil {
 		return Config{}, err
 	}
-	serverImportRoots, err := parseServerImportRoots(
-		os.Getenv("RETROM_SERVER_IMPORT_ROOTS"), dataDir, dependencyRoot,
-	)
+	netplay, err := loadNetplayConfig()
 	if err != nil {
 		return Config{}, err
 	}
 	return Config{
 		Mode: mode, HTTPAddr: httpAddr, PublicOrigin: publicOrigin, DataDir: dataDir, DBPath: dbPath,
 		DependencyRoot: dependencyRoot, DependencyVersions: versions, ActiveEJSVersion: active,
-		TrustedProxies: proxies, StartupCheckTimeout: startupTimeout, LogLevel: logLevel,
-		MultiDiscImportEnabled: multiDiscImportEnabled,
-		ServerImportRoots:      serverImportRoots,
+		TrustedProxies: proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
+		LogLevel: runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
+		ServerImportRoots:      runtimeOptions.serverImportRoots,
+		NetplayEnabled:         netplay.enabled,
+		NetplayMaxActiveRooms:  netplay.maxActiveRooms,
+		NetplayRoomIdleDraft:   netplay.roomIdleDraft,
+		NetplayRoomIdleWaiting: netplay.roomIdleWaiting,
+		NetplayReconnectLease:  netplay.reconnectLease,
 	}, nil
+}
+
+type runtimeOptions struct {
+	startupTimeout         time.Duration
+	logLevel               string
+	multiDiscImportEnabled bool
+	serverImportRoots      []ServerImportRoot
+}
+
+func loadRuntimeOptions(dataDir, dependencyRoot string) (runtimeOptions, error) {
+	result := runtimeOptions{startupTimeout: 60 * time.Second, logLevel: "info"}
+	var err error
+	if value := os.Getenv("RETROM_STARTUP_CHECK_TIMEOUT"); value != "" {
+		result.startupTimeout, err = time.ParseDuration(value)
+		if err != nil || result.startupTimeout < 10*time.Second || result.startupTimeout > 5*time.Minute {
+			return runtimeOptions{}, fmt.Errorf("%w: RETROM_STARTUP_CHECK_TIMEOUT", errInvalidConfig)
+		}
+	}
+	if value := os.Getenv("RETROM_LOG_LEVEL"); value != "" {
+		result.logLevel = value
+	}
+	if !slices.Contains([]string{"debug", "info", "warn", "error"}, result.logLevel) {
+		return runtimeOptions{}, fmt.Errorf("%w: RETROM_LOG_LEVEL", errInvalidConfig)
+	}
+	result.multiDiscImportEnabled, err = parseStrictBoolean(
+		"RETROM_MULTI_DISC_IMPORT_ENABLED", os.Getenv("RETROM_MULTI_DISC_IMPORT_ENABLED"), false,
+	)
+	if err != nil {
+		return runtimeOptions{}, err
+	}
+	result.serverImportRoots, err = parseServerImportRoots(
+		os.Getenv("RETROM_SERVER_IMPORT_ROOTS"), dataDir, dependencyRoot,
+	)
+	if err != nil {
+		return runtimeOptions{}, err
+	}
+	return result, nil
+}
+
+type netplayConfig struct {
+	enabled         bool
+	maxActiveRooms  int
+	roomIdleDraft   time.Duration
+	roomIdleWaiting time.Duration
+	reconnectLease  time.Duration
+}
+
+func loadNetplayConfig() (netplayConfig, error) {
+	var result netplayConfig
+	var err error
+	result.enabled, err = parseStrictBoolean(
+		"RETROM_NETPLAY_ENABLED", os.Getenv("RETROM_NETPLAY_ENABLED"), false,
+	)
+	if err != nil {
+		return netplayConfig{}, err
+	}
+	result.maxActiveRooms, err = parseIntegerRange(
+		"RETROM_NETPLAY_MAX_ACTIVE_ROOMS", os.Getenv("RETROM_NETPLAY_MAX_ACTIVE_ROOMS"), 16, 1, 128,
+	)
+	if err != nil {
+		return netplayConfig{}, err
+	}
+	result.roomIdleDraft, err = parseFixedMilliseconds(
+		"RETROM_NETPLAY_ROOM_IDLE_DRAFT_MS", os.Getenv("RETROM_NETPLAY_ROOM_IDLE_DRAFT_MS"), 900_000,
+	)
+	if err != nil {
+		return netplayConfig{}, err
+	}
+	result.roomIdleWaiting, err = parseFixedMilliseconds(
+		"RETROM_NETPLAY_ROOM_IDLE_WAITING_MS", os.Getenv("RETROM_NETPLAY_ROOM_IDLE_WAITING_MS"), 1_800_000,
+	)
+	if err != nil {
+		return netplayConfig{}, err
+	}
+	result.reconnectLease, err = parseFixedMilliseconds(
+		"RETROM_NETPLAY_RECONNECT_LEASE_MS", os.Getenv("RETROM_NETPLAY_RECONNECT_LEASE_MS"), 10_000,
+	)
+	if err != nil {
+		return netplayConfig{}, err
+	}
+	return result, nil
+}
+
+func parseIntegerRange(name, raw string, defaultValue, minimum, maximum int) (int, error) {
+	if raw == "" {
+		return defaultValue, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value < minimum || value > maximum || strconv.Itoa(value) != raw {
+		return 0, fmt.Errorf("%w: %s", errInvalidConfig, name)
+	}
+	return value, nil
+}
+
+func parseFixedMilliseconds(name, raw string, expected int) (time.Duration, error) {
+	if raw == "" {
+		return time.Duration(expected) * time.Millisecond, nil
+	}
+	value, err := strconv.Atoi(raw)
+	if err != nil || value != expected || strconv.Itoa(value) != raw {
+		return 0, fmt.Errorf("%w: %s", errInvalidConfig, name)
+	}
+	return time.Duration(value) * time.Millisecond, nil
 }
 
 //nolint:gocognit,gocyclo // Each branch enforces an independent closed-schema or filesystem boundary invariant.

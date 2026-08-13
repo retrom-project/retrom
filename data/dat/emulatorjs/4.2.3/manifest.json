@@ -824,6 +824,60 @@
         "role": "loader"
       },
       {
+        "path_in_release": "data/emulator.css",
+        "size_bytes": 33532,
+        "sha256": "0ba5b1ce183b6ecb95c17e54e89fbae77697ebb94ec23caca5fd19f9b569defe",
+        "role": "netplay_loader_source"
+      },
+      {
+        "path_in_release": "data/src/emulator.js",
+        "size_bytes": 341775,
+        "sha256": "24ebac4baf739892046b82c3bdf01d5b6795b801b77d289e43a4c7d59f9666be",
+        "role": "netplay_loader_source"
+      },
+      {
+        "path_in_release": "data/src/nipplejs.js",
+        "size_bytes": 20259,
+        "sha256": "cf745190f5dc5db942ad54f5683d56c6d6da445646f4b4fc23c049c9985a04df",
+        "role": "netplay_loader_source"
+      },
+      {
+        "path_in_release": "data/src/shaders.js",
+        "size_bytes": 139565,
+        "sha256": "79bcd4c35740b2858fc28f2f1894ddb8f483f1aba6f564869a713515726fe902",
+        "role": "netplay_loader_source"
+      },
+      {
+        "path_in_release": "data/src/storage.js",
+        "size_bytes": 4600,
+        "sha256": "06759f310bb2d782d2728e1d3417a0d8f613eff935d2959c1a705670041a6f2e",
+        "role": "netplay_loader_source"
+      },
+      {
+        "path_in_release": "data/src/gamepad.js",
+        "size_bytes": 6054,
+        "sha256": "27707ee9256cf3e1a6f32d1c3c42f2aed991d637773699fff566008229cc09c8",
+        "role": "netplay_loader_source"
+      },
+      {
+        "path_in_release": "data/src/GameManager.js",
+        "size_bytes": 19048,
+        "sha256": "f026130eda3648557498c54c70cbb5b36fd71b088e7e42e5a13e413aab11d888",
+        "role": "netplay_loader_source"
+      },
+      {
+        "path_in_release": "data/src/socket.io.min.js",
+        "size_bytes": 46831,
+        "sha256": "b0e735814f8dcfecd6cdb8a7ce95a297a7e1e5f2727a29e6f5901801d52fa0c5",
+        "role": "netplay_loader_source"
+      },
+      {
+        "path_in_release": "data/src/compression.js",
+        "size_bytes": 6409,
+        "sha256": "bd6723ec29fee8de81118cfbddfcb53301b8f41f7c6fb22c2de44dedbf111c2c",
+        "role": "netplay_loader_source"
+      },
+      {
         "path_in_release": "data/compression/extract7z.js",
         "size_bytes": 280155,
         "sha256": "4ac9933b995a516cb6b3ca4027db860278372a20c21c405d93ceb1998498853a",

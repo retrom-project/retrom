@@ -262,6 +262,33 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         180,
         "go test -tags=integration ./internal/saves -run 'TestPersistentSaveLocksLaunchBaseAndEnforcesSequence|TestPersistentSaveNoneRejectsGetAndPutWithoutCreatingRows' -count=1 && make web-test",
     ),
+    "ACC-NP-001": (120, "scripts/acceptance/netplay-case.sh ACC-NP-001"),
+    "ACC-NP-002": (120, "scripts/acceptance/netplay-case.sh ACC-NP-002"),
+    "ACC-NP-003": (240, "scripts/acceptance/netplay-case.sh ACC-NP-003"),
+    "ACC-NP-004": (240, "scripts/acceptance/netplay-case.sh ACC-NP-004"),
+    "ACC-NP-005": (300, "scripts/acceptance/netplay-case.sh ACC-NP-005"),
+    "ACC-NP-006": (180, "scripts/acceptance/netplay-case.sh ACC-NP-006"),
+    "ACC-NP-007": (120, "scripts/acceptance/netplay-case.sh ACC-NP-007"),
+    "ACC-NP-008": (180, "scripts/acceptance/netplay-case.sh ACC-NP-008"),
+    "ACC-NP-009": (120, "scripts/acceptance/netplay-case.sh ACC-NP-009"),
+    "ACC-NP-010": (
+        120,
+        "python3 data/example/verify-fixtures.py && go test ./internal/netplay ./internal/httpapi "
+        "-run 'TestAcceptanceNP010|TestDecodeClientMessageRejectsUnknownDuplicateDeepAndOversizeInput|TestStateFrameParsesRAStateAndBindsHeader|TestCoreStatePayloadRejectsMalformedAndMissingMemoryChunks|TestCredentialIsPurposeBoundAndStoredOwnerOnly' -count=1",
+    ),
+    "ACC-NP-011": (
+        180,
+        "python3 data/example/verify-fixtures.py && go test ./internal/netplay "
+        "-run 'TestAcceptanceNP011' -count=1 && go test ./internal/config ./internal/httpapi "
+        "-run 'TestParseNetplayCapacityAndFixedProtocolTimers|TestNetplayFeatureFlagHidesRoutesAndAuthProjection' -count=1 && "
+        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run components/app-shell.test.tsx",
+    ),
+    "ACC-NP-012": (
+        120,
+        "go test ./internal/netplay -run '^TestAcceptanceNP012' -count=1 && "
+        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/netplay/room-lobby.test.tsx",
+    ),
+    "ACC-NP-013": (180, "scripts/acceptance/netplay-single-regression.sh"),
     "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
     "ACC-MDISC-001": (
         600,

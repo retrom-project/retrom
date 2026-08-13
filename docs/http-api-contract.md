@@ -638,6 +638,33 @@ Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 
 
 `GET /api/v1/games/{gameId}` 增加可空 `videoUrl=/content/assets/{assetId}`，只指向 current MetadataRevision 的 ordinal 0 VIDEO；所有列表/Home/Recent/Favorites/Saves DTO 均无该字段。管理 `POST /api/v1/admin/games/{gameId}/assets` 接受 VIDEO，`DELETE .../assets/VIDEO` 以新 MetadataRevision 移除当前视频。`GET|HEAD /content/assets/{assetId}` 对 VIDEO 沿用强 ETag、immutable cache、`nosniff`、完整 GET 与单 Range；非法/多 Range、不可见 Game 与未知 Asset 继续使用统一拒绝语义。
 
-## 13. 统一验收入口
+## 13. 受限联机 REST、SSE、WebSocket 与凭据
+
+全部 `/api/v1/netplay/**` 要求有效 AuthSession；写入继续要求同源 Origin/Fetch Metadata、CSRF 和表中列出的幂等/ETag。`RETROM_NETPLAY_ENABLED=false` 时路由根本不注册并返回 404，auth context 投影 `netplayEnabled=false`。Room GET 对任意已登录房间链接访问者开放最小投影，成员身份、权限和写入始终从当前 Profile 推导，不能相信 body 中的 actor/seat/profile。
+
+| Route | 并发/幂等 | 成功语义 |
+| --- | --- | --- |
+| `GET /api/v1/netplay/games?availability=SUPPORTED\|ALL&cursor=&limit=` | 签名 cursor，默认 100 | 按 lowercase title+gameId 稳定分页；item 只给展示字段、`SUPPORTED/UNSUPPORTED`、可选 profile summary 和封闭 blocker，不返回内容/core hash。 |
+| `GET /api/v1/netplay/rooms?view=active\|recent&cursor=&limit=` | 签名 cursor，默认 24 | active 只列本人主持/占座的非终态；recent 只列本人参与且 24 小时内的终态，按 updatedAt+roomId 倒序。 |
+| `POST /api/v1/netplay/rooms` | I | 201 + Location/ETag；DRAFT 且房主原子占 P1。 |
+| `GET /api/v1/netplay/rooms/:roomId` | — | 200 + ETag；最小 Room/game/member/session/permissions 投影。 |
+| `PUT/DELETE /api/v1/netplay/rooms/:roomId/game` | I/E | 房主在 DRAFT/WAITING 选择 exact game/profile 或清回 DRAFT；保留座位、清 ready。 |
+| `PUT .../members/me/seat`、`PUT .../members/me/ready` | I/E | WAITING 中占/换 P2–P4 与切换 ready；越界、占用和 profile stale 原子拒绝。 |
+| `DELETE .../members/me`、`DELETE .../members/:memberId` | I/E | 访客离开；房主仅可在 WAITING 移出访客。运行中访客离开等价全局 `USER_EXIT`。 |
+| `POST .../start` | I/E | 202；仅房主且至少两位、所有 active member ready；原子锁定 Session/Participant snapshot。 |
+| `POST .../sessions/:sessionId/launch` | I | 本人 Participant 首次 201、重放 200；设置本人 launch cookie 与 room cookie，只返回本人 playUrl。 |
+| `POST .../pause`、`POST .../resume` | I | 202；仅 P1，pause 在 canonical 边界停，resume 经 `RESYNCHRONIZING` state transfer 开新 epoch。 |
+| `POST .../end`、`DELETE /api/v1/netplay/rooms/:roomId` | I（DELETE 另 E） | 任一 Participant 以 `USER_EXIT` 结束当前 Session并撤销全体 Launch/cookie；访客同时释放座位、房间回 WAITING，房主结束本局时保留成员。DELETE 仅房主可用，以 `HOST_CLOSED` 关闭整个房间。 |
+| `GET .../events` | Last-Event-ID | `text/event-stream`；先发 `room.snapshot`，之后只发 `room.updated/member.updated/session.updated/room.ended`。 |
+
+Room DTO 固定含 `roomId/state/version/game/members/currentSession/permissions/selfMemberId/expiresAtMs/serverNowMs/endedAtMs/endReason`；成员最多四个，不返回 profileId、credential 或输入。Game eligibility 的 blocker 只允许 `CONTENT_NOT_ALLOWLISTED/CORE_NOT_ALLOWLISTED/DEPENDENCY_STALE/GAME_UNAVAILABLE`。稳定领域错误包括 `NETPLAY_ROOM_NOT_FOUND/SESSION_NOT_FOUND/FORBIDDEN/INVALID_SEAT/INVALID_PROFILE/SEAT_TAKEN/ROOM_NOT_READY/ROOM_STATE_CONFLICT/PROFILE_STALE/CAPACITY_REACHED/PRECONDITION_FAILED`；SSE 超限使用 `429 NETPLAY_RATE_LIMITED`。每房最多 16 条 SSE、每 Profile/房最多 2 条，连接 30 分钟关闭，客户端断线后退化为有界轮询。
+
+WebSocket 固定 `GET /runtime/netplay/rooms/{roomId}/socket`、子协议 `retrom.netplay.v1`。Upgrade 必须同时满足唯一且逐字匹配的同源 `Origin`、有效 AuthSession、精确一项子协议、active 本人联机 Launch 和 room cookie；query/fragment/subprotocol 不得携带凭据。Chromium 的 WebSocket handshake 不发送 Fetch Metadata，因此该 header 缺失时仍只依靠强制 Origin；若出现则必须是唯一的 `Sec-Fetch-Site: same-origin`，多值或 cross-site 均拒绝。JSON 最大 64 KiB、INPUT 最大 4 KiB且每连接采用 120 条/秒、burst 240 的 token bucket，连接 read limit 2 MiB；重复 JSON key、未知字段、深度超过 8、非连续 client seq、错误 session/epoch/player、限流或越界 frame/control 都以 policy violation 结束全局 Session。服务端发送 WELCOME/REQUEST_STATE/STATE_META/START_EPOCH/CANONICAL/HISTORY/PAUSE/SESSION_ENDED；客户端发送 HELLO/RUNTIME_READY/INPUT/HASH/SUSPEND_REQUEST/PAUSED/STATE_META/STATE_READY/STATE_APPLIED/HISTORY_APPLIED/END_REQUEST。PAUSE 后每个 occupied seat 必须先回滚到指定 canonical 边界并发送 PAUSED；恢复端还须以 HISTORY_APPLIED 确认服务端 history 的 `toFrame`，全部确认前不得 state transfer、resume 或开启新 epoch。二进制 state frame 为 `RNS1 + session UUID raw16 + transfer UUID raw16 + epoch uint32-be + nextFrame uint64-be + length uint32-be + RASTATE`，总 payload 上限 1 MiB，header 与 JSON meta/digest 必须完全一致。服务端协议/权限关闭使用 RFC 6455 `1008`；浏览器客户端主动检测同类错误时因 WebSocket API 禁止发送保留的 `1008` 而使用应用码 `4008`，业务终因仍只认关闭前的 SESSION_ENDED。
+
+room cookie 名为 `retrom_netplay_{roomId去连字符}`。原始 32 bytes 固定为 `HMAC-SHA-256(netplayKey, "retrom-netplay-v1\\x00" || session UUID raw16 || profile UUID raw16 || credentialGeneration uint32-be)`，响应只写无 padding base64url；属性为 `HttpOnly; SameSite=Strict; Path=/runtime/netplay/rooms/{roomId}/; Max-Age=28800`，HTTPS public origin 时加 Secure，永不设 Domain。数据库只保存 raw credential 的 SHA-256，比较 constant-time；幂等重放重新派生并重发两类 cookie，不把明文或 Set-Cookie 存入 idempotency record。独立 key 位于 `RETROM_DATA_DIR/secrets/netplay-capability.key`，与 launch key 同样为 32 bytes、`0600`、no-follow、原子 hard-link 发布和目录 fsync，并进入离线 backup 的 `NETPLAY_KEY` 槽。
+
+联机 Launch config 使用 `mode=netplay` 和 exact canonical profile；所有 persistent save、手动 save-state 和 state 内容 route 在鉴权后统一返回 `409 NETPLAY_SAVE_UNSUPPORTED`。普通 Launch 为 `mode=single,netplay=null`，不得因开启联机改变原有 cookie 或 DTO 行为。
+
+## 14. 统一验收入口
 
 通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`005` 与 `ACC-MEDIA-001` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。

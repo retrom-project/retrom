@@ -47,6 +47,7 @@ import (
 	"retrom/internal/libraryimport"
 	"retrom/internal/mediaasset"
 	"retrom/internal/metadatascrape"
+	"retrom/internal/netplay"
 	"retrom/internal/pegasusimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
@@ -80,29 +81,40 @@ type contextKey string
 const requestIDKey contextKey = "request-id"
 
 type Server struct {
-	config          config.Config
-	database        *sql.DB
-	dependencies    *dependencies.Set
-	blobs           *blobstore.Store
-	credentials     *retromruntime.Credentials
-	cursors         *cursor.Codec
-	uploads         *uploads.Service
-	importer        *libraryimport.Service
-	launcher        *launch.Service
-	jobService      *jobs.Service
-	firmware        *firmware.Service
-	arcadeDAT       *arcadecatalog.Service
-	metadata        *metadatascrape.Service
-	gameContent     *gamecontent.Service
-	saveService     *saves.Service
-	favoriteService *favorites.Service
-	serverImports   *serverimport.Service
-	pegasusImports  *pegasusimport.Service
-	now             func() time.Time
-	sseHeartbeat    time.Duration
-	idempotency     sync.Mutex
-	authenticator   Authenticator
-	accounts        *accounts.Service
+	config             config.Config
+	database           *sql.DB
+	dependencies       *dependencies.Set
+	blobs              *blobstore.Store
+	credentials        *retromruntime.Credentials
+	cursors            *cursor.Codec
+	uploads            *uploads.Service
+	importer           *libraryimport.Service
+	launcher           *launch.Service
+	jobService         *jobs.Service
+	firmware           *firmware.Service
+	arcadeDAT          *arcadecatalog.Service
+	metadata           *metadatascrape.Service
+	gameContent        *gamecontent.Service
+	saveService        *saves.Service
+	favoriteService    *favorites.Service
+	serverImports      *serverimport.Service
+	pegasusImports     *pegasusimport.Service
+	now                func() time.Time
+	sseHeartbeat       time.Duration
+	idempotency        sync.Mutex
+	authenticator      Authenticator
+	accounts           *accounts.Service
+	netplay            *netplay.Service
+	netplayHub         *netplay.Hub
+	netplayObserversMu sync.Mutex
+	netplayObservers   map[string]int
+}
+
+func (server *Server) WithNetplay(service *netplay.Service) *Server {
+	server.netplay = service
+	server.netplayHub = netplay.NewHub(service)
+	service.StartMaintenance()
+	return server
 }
 
 type Authenticator interface {
@@ -169,14 +181,19 @@ func New(
 		metadata:       scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
-		saveService:     saves.New(database, blobs, credentials, now),
-		favoriteService: favorites.New(database, now),
-		now:             now,
-		sseHeartbeat:    15 * time.Second,
+		saveService:      saves.New(database, blobs, credentials, now),
+		favoriteService:  favorites.New(database, now),
+		now:              now,
+		sseHeartbeat:     15 * time.Second,
+		netplayObservers: make(map[string]int),
 	}
 }
 
 func (server *Server) Close() {
+	if server.netplay != nil {
+		server.netplayHub.Close()
+		server.netplay.Close()
+	}
 	server.serverImports.Close()
 	server.pegasusImports.Close()
 }
@@ -211,6 +228,9 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/saves/{saveStateId}", server.patchSave)
 	mux.HandleFunc("DELETE /api/v1/saves/{saveStateId}", server.deleteSave)
 	mux.HandleFunc("POST /api/v1/launches", server.createLaunch)
+	if server.config.NetplayEnabled {
+		server.registerNetplayRoutes(mux)
+	}
 	mux.HandleFunc("GET /api/v1/admin/invitations", server.adminInvitations)
 	mux.HandleFunc("POST /api/v1/admin/invitations", server.adminCreateInvitation)
 	mux.HandleFunc("GET /api/v1/admin/users", server.adminUsers)
@@ -492,6 +512,8 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/saves": {
 		"q", "gameId", "platformId", "platformInstanceId", "coreId", "availability", "sort", "cursor", "limit",
 	},
+	"GET /api/v1/netplay/games": {"cursor", "limit", "availability"},
+	"GET /api/v1/netplay/rooms": {"view", "cursor", "limit"},
 	"GET /api/v1/admin/imports": {"q", "state", "platformInstanceId", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/reviews": {
 		"q", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode", "sort", "cursor", "limit",
@@ -1305,6 +1327,9 @@ func validIdempotencyKey(value string) bool {
 }
 
 func (server *Server) createSaveState(writer http.ResponseWriter, request *http.Request) {
+	if server.rejectNetplaySave(writer, request) {
+		return
+	}
 	key := request.Header.Get("Idempotency-Key")
 	if !validIdempotencyKey(key) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
@@ -1353,6 +1378,9 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 }
 
 func (server *Server) getPersistentSave(writer http.ResponseWriter, request *http.Request) {
+	if server.rejectNetplaySave(writer, request) {
+		return
+	}
 	metadata, exists, err := server.saveService.GetPersistent(
 		request.Context(),
 		request.PathValue("launchId"),
@@ -1398,6 +1426,9 @@ func (server *Server) getPersistentSave(writer http.ResponseWriter, request *htt
 }
 
 func (server *Server) putPersistentSave(writer http.ResponseWriter, request *http.Request) {
+	if server.rejectNetplaySave(writer, request) {
+		return
+	}
 	key := request.Header.Get("Idempotency-Key")
 	if !validIdempotencyKey(key) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
@@ -1468,7 +1499,25 @@ func (server *Server) putPersistentSave(writer http.ResponseWriter, request *htt
 	}
 }
 
+func (server *Server) rejectNetplaySave(writer http.ResponseWriter, request *http.Request) bool {
+	access, err := server.launcher.SaveAccess(
+		request.Context(), request.PathValue("launchId"), server.launchCapability(request),
+	)
+	if err != nil {
+		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
+		return true
+	}
+	if access == "NETPLAY_DISABLED" {
+		writeError(writer, request, http.StatusConflict, "NETPLAY_SAVE_UNSUPPORTED", "联机模式不支持存档", map[string]any{})
+		return true
+	}
+	return false
+}
+
 func (server *Server) launchState(writer http.ResponseWriter, request *http.Request) {
+	if server.rejectNetplaySave(writer, request) {
+		return
+	}
 	if rejectMultipleRanges(writer, request) {
 		return
 	}

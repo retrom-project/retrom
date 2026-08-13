@@ -244,17 +244,21 @@ ORDER BY p.storage_key
 			return Manifest{}, fmt.Errorf("maintenance/bundle: %w", err)
 		}
 	}
-	keyEntry, err := copyVerified(
-		filepath.Join(configuration.DataDir, "secrets", "launch-capability.key"),
-		filepath.Join(staging, "secrets", "launch-capability.key"),
-		"secrets/launch-capability.key",
-		"LAUNCH_KEY",
-		"",
-	)
-	if err != nil || keyEntry.SizeBytes != 32 {
-		return Manifest{}, ErrInvalidBundle
+	for _, secret := range []struct{ name, kind string }{
+		{"launch-capability.key", "LAUNCH_KEY"}, {"netplay-capability.key", "NETPLAY_KEY"},
+	} {
+		entry, err := copyVerified(
+			filepath.Join(configuration.DataDir, "secrets", secret.name),
+			filepath.Join(staging, "secrets", secret.name),
+			"secrets/"+secret.name,
+			secret.kind,
+			"",
+		)
+		if err != nil || entry.SizeBytes != 32 {
+			return Manifest{}, ErrInvalidBundle
+		}
+		manifest.Files = append(manifest.Files, entry)
 	}
-	manifest.Files = append(manifest.Files, keyEntry)
 	for _, version := range configuration.DependencyVersions {
 		manifestRelative := "dependencies/emulatorjs/" + version + "/manifest.json"
 		sumsRelative := "dependencies/emulatorjs/" + version + "/SHA256SUMS"
@@ -531,7 +535,7 @@ func validateBundle(root string) (Manifest, error) {
 	}
 	seen, folded := map[string]struct{}{}, map[string]struct{}{}
 	expected := map[string]FileEntry{}
-	var databaseCount, keyCount, blobs, parts int64
+	var databaseCount, launchKeyCount, netplayKeyCount, blobs, parts int64
 	previous := ""
 	for _, entry := range manifest.Files {
 		if !safeManifestPath(entry.Path) || entry.Mode != "0600" || len(entry.SHA256) != 64 || entry.Path <= previous {
@@ -567,7 +571,12 @@ func validateBundle(root string) (Manifest, error) {
 			if entry.Path != "secrets/launch-capability.key" || entry.SizeBytes != 32 {
 				return Manifest{}, ErrInvalidBundle
 			}
-			keyCount++
+			launchKeyCount++
+		case "NETPLAY_KEY":
+			if entry.Path != "secrets/netplay-capability.key" || entry.SizeBytes != 32 {
+				return Manifest{}, ErrInvalidBundle
+			}
+			netplayKeyCount++
 		case "DEPENDENCY_MANIFEST", "DEPENDENCY_SHA256SUMS":
 			if !strings.HasPrefix(entry.Path, "dependencies/emulatorjs/") {
 				return Manifest{}, ErrInvalidBundle
@@ -576,7 +585,7 @@ func validateBundle(root string) (Manifest, error) {
 			return Manifest{}, ErrInvalidBundle
 		}
 	}
-	if databaseCount != 1 || keyCount != 1 || blobs != manifest.Counts.BlobCount ||
+	if databaseCount != 1 || launchKeyCount != 1 || netplayKeyCount != 1 || blobs != manifest.Counts.BlobCount ||
 		parts != manifest.Counts.UploadPartCount {
 		return Manifest{}, ErrInvalidBundle
 	}

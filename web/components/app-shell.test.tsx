@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { AppShell } from "./app-shell";
 
-const shellState = vi.hoisted(() => ({ pathname: "/", role: "ADMIN" as "ADMIN" | "USER" }));
+const shellState = vi.hoisted(() => ({ pathname: "/", role: "ADMIN" as "ADMIN" | "USER", netplayEnabled: false }));
 
 vi.mock("next/link", () => ({
   default: ({ children, href, ...props }: { children: ReactNode; href: string }) => <a href={href} {...props}>{children}</a>,
@@ -18,6 +18,7 @@ vi.mock("@/features/auth/auth-provider", () => ({
     context: {
       instanceState: "READY",
       authenticationState: "AUTHENTICATED",
+      netplayEnabled: shellState.netplayEnabled,
       user: { userId: "user-1", username: "test", displayName: "Test", role: shellState.role }
     },
     logout: vi.fn()
@@ -29,6 +30,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   shellState.pathname = "/";
   shellState.role = "ADMIN";
+  shellState.netplayEnabled = false;
 });
 
 describe("AppShell", () => {
@@ -81,5 +83,16 @@ describe("AppShell", () => {
     const links = screen.getByRole("navigation", { name: "主要导航" }).querySelectorAll("a");
     expect(Array.from(links, (link) => link.textContent).slice(0, 4))
       .toEqual(["游戏入库", "导入游戏", "本地扫描", "任务进度"]);
+  });
+
+  it("shows netplay immediately after recent games only when enabled", () => {
+    shellState.netplayEnabled = true;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
+    const { rerender } = render(<AppShell><div>页面内容</div></AppShell>);
+    const labels = Array.from(screen.getByRole("navigation", { name: "主要导航" }).querySelectorAll("a"), (link) => link.textContent);
+    expect(labels.slice(-2)).toEqual(["最近游玩", "联机游玩"]);
+    shellState.netplayEnabled = false;
+    rerender(<AppShell><div>页面内容</div></AppShell>);
+    expect(screen.queryByRole("link", { name: "联机游玩" })).not.toBeInTheDocument();
   });
 });
