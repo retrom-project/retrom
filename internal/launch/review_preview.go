@@ -52,6 +52,7 @@ type reviewPreviewSource struct {
 	Title, ContentKind, ValidationID, ValidationStatus, DependencySnapshot string
 	DefaultDOSEntry                                                        sql.NullString
 	SelectedValidationID                                                   sql.NullString
+	DATVersionID                                                           sql.NullString
 	RequiresThreads                                                        int
 }
 
@@ -84,14 +85,14 @@ func (service *Service) CreateReviewPreview(
 	}
 	source, err := service.reviewPreviewSource(ctx, request.ImportItemID)
 	if err != nil {
-		return ReviewPreviewCreated{}, err
+		return ReviewPreviewCreated{}, fmt.Errorf("load review preview source: %w", err)
 	}
 	if err := service.validateReviewPreviewSource(ctx, source, request.ClientCapabilities); err != nil {
-		return ReviewPreviewCreated{}, err
+		return ReviewPreviewCreated{}, fmt.Errorf("validate review preview source: %w", err)
 	}
 	content, err := service.reviewPreviewContent(ctx, source)
 	if err != nil {
-		return ReviewPreviewCreated{}, err
+		return ReviewPreviewCreated{}, fmt.Errorf("assemble review preview content: %w", err)
 	}
 	previewID, err := uuid.NewV7()
 	if err != nil {
@@ -99,12 +100,11 @@ func (service *Service) CreateReviewPreview(
 	}
 	capability := service.credentials.Capability(previewID)
 	capabilityHash := retromruntime.HashCapability(capability)
-	captureAllowed := source.ValidationStatus == "READY" && source.SelectedValidationID.Valid &&
-		source.SelectedValidationID.String == source.ValidationID
+	captureAllowed := true
 	if err := service.persistReviewPreview(
 		ctx, request, source, content, previewID.String(), capabilityHash[:], captureAllowed,
 	); err != nil {
-		return ReviewPreviewCreated{}, err
+		return ReviewPreviewCreated{}, fmt.Errorf("persist review preview: %w", err)
 	}
 	return ReviewPreviewCreated{
 		PreviewID: previewID.String(), PlayURL: "/admin/review-previews/" + previewID.String(),
@@ -231,7 +231,7 @@ SELECT draft.effective_source_snapshot_id,draft.target_platform_instance_id,inst
 artifact.id,artifact.emulatorjs_version,core.id,core.name,artifact.compatibility_config_json,core.requires_threads,
 COALESCE(json_extract(draft.metadata_json,'$.title'),''),snapshot.content_kind,
 validation.id,validation.status,validation.dependency_snapshot_json,draft.default_dos_entry,
-draft.selected_validation_id
+draft.selected_validation_id,validation.dat_version_id
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
@@ -254,7 +254,7 @@ WHERE item.id=? AND item.state='REVIEW_PENDING'
 		&value.ArtifactID, &value.EmulatorVersion, &value.CoreID, &value.CoreName,
 		&value.CompatibilityJSON, &value.RequiresThreads, &value.Title, &value.ContentKind,
 		&validationID, &validationStatus, &dependencySnapshot, &value.DefaultDOSEntry,
-		&value.SelectedValidationID,
+		&value.SelectedValidationID, &value.DATVersionID,
 	)
 	if err != nil || !validationID.Valid || !dependencySnapshot.Valid {
 		return reviewPreviewSource{}, ErrReviewPreviewUnavailable
@@ -271,15 +271,20 @@ func (service *Service) reviewPreviewContent(
 ) (reviewPreviewContentSet, error) {
 	content, err := service.reviewPreviewPrimaryContent(ctx, source)
 	if err != nil {
-		return reviewPreviewContentSet{}, err
+		return reviewPreviewContentSet{}, fmt.Errorf("load primary review content: %w", err)
 	}
 	content.Files, err = service.reviewPreviewValidationFiles(ctx, source.ValidationID, content.Files)
 	if err != nil {
-		return reviewPreviewContentSet{}, err
+		return reviewPreviewContentSet{}, fmt.Errorf("load validated review dependencies: %w", err)
 	}
-	content.Files, err = reviewPreviewExternalFiles(source.DependencySnapshot, content.Files)
-	if err != nil || !validPreviewFileSet(content.LogicalName, content.Files) {
-		return reviewPreviewContentSet{}, ErrReviewPreviewUnavailable
+	if !source.DATVersionID.Valid {
+		content.Files, err = reviewPreviewExternalFiles(source.DependencySnapshot, content.Files)
+		if err != nil {
+			return reviewPreviewContentSet{}, fmt.Errorf("load external review dependencies: %w", err)
+		}
+	}
+	if !validPreviewFileSet(content.LogicalName, content.Files) {
+		return reviewPreviewContentSet{}, fmt.Errorf("validate review dependency names: %w", ErrReviewPreviewUnavailable)
 	}
 	return content, nil
 }
@@ -499,6 +504,8 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 	if err != nil {
 		return Config{}, err
 	}
+	startupActions := make([]dependencies.StartupAction, len(compatibility.StartupActions))
+	copy(startupActions, compatibility.StartupActions)
 	base := "/runtime/emulatorjs/" + source.EmulatorVersion + "/"
 	return Config{
 		Mode: "single", LaunchID: previewID, EmulatorJSVersion: source.EmulatorVersion,
@@ -513,7 +520,7 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 		ParentURL:          reviewPreviewBundleURL(previewID, "parent", runtimeFiles.ParentCount),
 		StateURL:           nil,
 		PersistentSaveMode: "NONE", PersistentSaveURL: nil, InputMode: compatibility.InputMode,
-		StartupActions:       append([]dependencies.StartupAction(nil), compatibility.StartupActions...),
+		StartupActions:       startupActions,
 		RequiresThreads:      source.RequiresThreads == 1,
 		RuntimePathOverrides: map[string]string{compatibility.RequestedArtifactBasename: base + source.RelativePath},
 		DefaultCoreOptions:   coreOptions, ExternalFiles: runtimeFiles.ExternalFiles, DiscSet: discSet.Value,
@@ -892,9 +899,20 @@ FROM review_preview_sessions preview
 JOIN import_items item ON item.id=preview.import_item_id AND item.state='REVIEW_PENDING'
 JOIN review_drafts draft ON draft.import_item_id=item.id
  AND draft.effective_source_snapshot_id=preview.source_snapshot_id
- AND draft.selected_validation_id=preview.validation_id
+ AND draft.target_platform_instance_id=preview.target_platform_instance_id
 JOIN import_item_core_validations validation ON validation.id=preview.validation_id
- AND validation.status='READY' AND validation.source_snapshot_id=preview.source_snapshot_id
+ AND validation.import_item_id=preview.import_item_id
+ AND validation.source_snapshot_id=preview.source_snapshot_id
+ AND validation.target_platform_instance_id=preview.target_platform_instance_id
+ AND validation.core_artifact_id=preview.core_artifact_id
+ AND validation.id=(
+  SELECT candidate.id FROM import_item_core_validations candidate
+  WHERE candidate.import_item_id=preview.import_item_id
+   AND candidate.source_snapshot_id=preview.source_snapshot_id
+   AND candidate.target_platform_instance_id=preview.target_platform_instance_id
+   AND candidate.core_artifact_id=preview.core_artifact_id
+  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
+ )
 WHERE preview.id=?
 	`, previewID).Scan(
 		&credentialHash, &state, &hardExpires, &target.ItemID, &target.SourceSnapshotID,

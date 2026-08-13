@@ -64,22 +64,31 @@ describe("ReviewPreviewPlayer", () => {
     expect(screen.getByText("第 5 秒运行截图已保存；可以继续试玩。")).toBeVisible();
   });
 
-  it("keeps a blocked best-effort preview playable without scheduling a screenshot", async () => {
+  it("captures a blocked best-effort preview after five seconds", async () => {
     vi.useFakeTimers();
+    const emulator = { on: vi.fn(), takeScreenshot: vi.fn() };
+    adapter.capture.mockResolvedValue({ screenshot: new Blob(["png"], { type: "image/png" }), format: "png" });
     adapter.mount.mockImplementation((_config, _target, callbacks) => {
-      callbacks.onReady?.({ on: vi.fn() });
+      callbacks.onReady?.(emulator);
       callbacks.onGameStart?.();
       return vi.fn();
     });
-    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
-      gameTitle: "Blocked game",
-      reviewPreview: { importItemId: "item-2", captureAllowed: false, captureAfterMs: 5000 },
-    }), { status: 200, headers: { "Content-Type": "application/json" } }))));
+    const fetchMock = vi.fn((input: RequestInfo | URL) => {
+      if (String(input).endsWith("/config")) return Promise.resolve(new Response(JSON.stringify({
+        gameTitle: "Blocked game",
+        reviewPreview: { importItemId: "item-2", captureAllowed: true, captureAfterMs: 5000 },
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      return Promise.resolve(new Response(JSON.stringify({ screenshotId: "shot-blocked" }), {
+        status: 201, headers: { "Content-Type": "application/json" },
+      }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
 
     render(<ReviewPreviewPlayer previewId="preview-2" />);
     await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
-    expect(screen.getByText("尽最大可能交付现有内容；缺失依赖没有阻止本次试玩。")).toBeVisible();
+    expect(screen.getByText("游戏已启动，将在第 5 秒自动保存截图。")).toBeVisible();
     await act(async () => { await vi.advanceTimersByTimeAsync(5_000); });
-    expect(adapter.capture).not.toHaveBeenCalled();
+    expect(adapter.capture).toHaveBeenCalledWith(emulator);
+    expect(fetchMock).toHaveBeenCalledWith("/runtime/launches/preview-2/review-screenshot", expect.objectContaining({ method: "POST" }));
   });
 });

@@ -5,9 +5,20 @@ import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { EmulatorSettingsPanel } from "./emulator-settings";
 import type { DiscSet, DiscState } from "./adapters/ejs-4.2.3-v2";
+import type { PlayerDebugMetrics } from "./player-debug";
 
 type SyncTone = "synced" | "busy" | "warning";
 type ExitSaveState = "idle" | "saving" | "saved" | "error";
+
+export type PlayerDebugRuntime = {
+  coreId: string;
+  coreArtifactId: string;
+  emulatorJSVersion: string;
+  playerAdapterId: string;
+  inputMode: string;
+  crossOriginIsolated: boolean;
+  sharedArrayBuffer: boolean;
+};
 
 export function PlayerChrome({
   controlsVisible,
@@ -29,6 +40,10 @@ export function PlayerChrome({
   discState,
   netplayPlayerNo,
   netplayPaused,
+  debugOpen,
+  debugMetrics,
+  debugRuntime,
+  runtimeState,
   onHoldControls,
   onReleaseControls,
   onSave,
@@ -41,6 +56,7 @@ export function PlayerChrome({
   onToggleEmulatorMute,
   onSelectDisc,
   onToggleNetplayPause,
+  onToggleDebug,
   onExit,
   onDownloadConflict,
 }: {
@@ -63,6 +79,10 @@ export function PlayerChrome({
   discState: DiscState | null;
   netplayPlayerNo: number | null;
   netplayPaused: boolean;
+  debugOpen: boolean;
+  debugMetrics: PlayerDebugMetrics | null;
+  debugRuntime: PlayerDebugRuntime;
+  runtimeState: "loading" | "running" | "error";
   onHoldControls: () => void;
   onReleaseControls: () => void;
   onSave: () => Promise<boolean>;
@@ -75,6 +95,7 @@ export function PlayerChrome({
   onToggleEmulatorMute: () => void;
   onSelectDisc: (index: number) => Promise<boolean>;
   onToggleNetplayPause: () => void;
+  onToggleDebug: () => void;
   onExit: () => void;
   onDownloadConflict: () => void;
 }) {
@@ -132,9 +153,9 @@ export function PlayerChrome({
   }, [discMenuOpen]);
 
   useEffect(() => {
-    if (menuOpen || discMenuOpen || exitOpen || emulatorToolbarOpen) onHoldControls();
+    if (menuOpen || discMenuOpen || exitOpen || emulatorToolbarOpen || debugOpen) onHoldControls();
     else if (!toolbarHovered.current && !toolbarFocused.current) onReleaseControls();
-  }, [discMenuOpen, emulatorToolbarOpen, exitOpen, menuOpen, onHoldControls, onReleaseControls]);
+  }, [debugOpen, discMenuOpen, emulatorToolbarOpen, exitOpen, menuOpen, onHoldControls, onReleaseControls]);
 
   useEffect(() => {
     if (!localToast) return;
@@ -215,17 +236,17 @@ export function PlayerChrome({
       className={`player-toolbar${controlsVisible || paused ? " is-visible" : ""}`}
       onClickCapture={(event) => {
         const target = event.target;
-        if (target instanceof Element && target.closest(".player-disc-wrap")) return;
+        if (target instanceof Element && target.closest(".player-disc-wrap,.player-debug-control")) return;
         onPauseForToolbarInteraction();
       }}
       onBlurCapture={(event) => {
         if (event.relatedTarget instanceof Node && toolbarRef.current?.contains(event.relatedTarget)) return;
         toolbarFocused.current = false;
-        if (!menuOpen && !discMenuOpen && !exitOpen && !emulatorToolbarOpen) onReleaseControls();
+        if (!menuOpen && !discMenuOpen && !exitOpen && !emulatorToolbarOpen && !debugOpen) onReleaseControls();
       }}
       onFocusCapture={() => { toolbarFocused.current = true; onHoldControls(); }}
       onPointerEnter={() => { toolbarHovered.current = true; onHoldControls(); }}
-      onPointerLeave={() => { toolbarHovered.current = false; if (!menuOpen && !discMenuOpen && !exitOpen && !emulatorToolbarOpen) onReleaseControls(); }}
+      onPointerLeave={() => { toolbarHovered.current = false; if (!menuOpen && !discMenuOpen && !exitOpen && !emulatorToolbarOpen && !debugOpen) onReleaseControls(); }}
       onPointerMove={(event) => event.stopPropagation()}
     >
       <button className="player-back" type="button" aria-label="返回并退出游戏" title="返回并退出游戏" onClick={requestExit}>
@@ -241,6 +262,7 @@ export function PlayerChrome({
         {warnings.length ? <button className="player-warning-dot" type="button" aria-label="查看运行提醒" title="查看运行提醒" onClick={() => setLocalToast(warningCopy)} /> : null}
       </div>
       <div className="player-actions">
+        <button className="player-control player-debug-control" type="button" aria-expanded={debugOpen} aria-controls="player-debug-panel" aria-pressed={debugOpen} onClick={onToggleDebug}><AppIcon name="chip" />调试信息</button>
         {!isNetplay && discSet && discState ? <div className="player-menu-wrap player-disc-wrap" ref={discMenuRef}>
           <button
             ref={discButtonRef}
@@ -286,6 +308,30 @@ export function PlayerChrome({
         </div>
       </div>
     </header>
+
+    <aside id="player-debug-panel" className={`player-debug-panel${debugOpen ? " is-open" : ""}`} aria-label="运行调试信息" aria-hidden={!debugOpen}>
+      <header><div><span>实时运行诊断</span><h2>调试信息</h2></div><button type="button" className="player-debug-close" aria-label="关闭调试信息面板" disabled={!debugOpen} onClick={onToggleDebug}><AppIcon name="x" /></button></header>
+      <section><h3>实时</h3><dl>
+        <div><dt>帧率</dt><dd>{debugMetrics?.fps === null || debugMetrics?.fps === undefined ? "采样中…" : `${debugMetrics.fps.toFixed(1)} FPS`}</dd></div>
+        <div><dt>核心帧计数</dt><dd>{debugMetrics?.frameCount === null || debugMetrics?.frameCount === undefined ? "不可用" : debugMetrics.frameCount.toLocaleString("en-US")}</dd></div>
+        <div><dt>运行状态</dt><dd>{runtimeState === "running" ? paused || netplayPaused ? "暂停" : "运行中" : runtimeState === "loading" ? "加载中" : "错误"}</dd></div>
+        <div><dt>游戏分辨率</dt><dd>{debugMetrics?.canvasWidth && debugMetrics.canvasHeight ? `${debugMetrics.canvasWidth} × ${debugMetrics.canvasHeight}` : "等待画面"}</dd></div>
+      </dl></section>
+      <section><h3>运行环境</h3><dl>
+        <div><dt>Core</dt><dd title={debugRuntime.coreId}>{coreName || debugRuntime.coreId || "—"}</dd></div>
+        <div><dt>EmulatorJS</dt><dd>{debugRuntime.emulatorJSVersion || "—"}</dd></div>
+        <div><dt>Player adapter</dt><dd title={debugRuntime.playerAdapterId}>{debugRuntime.playerAdapterId || "—"}</dd></div>
+        <div><dt>输入模式</dt><dd>{debugRuntime.inputMode || "—"}</dd></div>
+        <div><dt>隔离能力</dt><dd>{debugRuntime.crossOriginIsolated && debugRuntime.sharedArrayBuffer ? "COOP/COEP + SAB" : "未完整启用"}</dd></div>
+        <div><dt>Player 模式</dt><dd>{isNetplay ? `联机 · P${netplayPlayerNo}` : "单机"}</dd></div>
+      </dl></section>
+      <section><h3>显示</h3><dl>
+        <div><dt>视口</dt><dd>{debugMetrics ? `${debugMetrics.viewportWidth} × ${debugMetrics.viewportHeight}` : "—"}</dd></div>
+        <div><dt>像素比</dt><dd>{debugMetrics ? debugMetrics.devicePixelRatio.toFixed(2) : "—"}</dd></div>
+        {discSet && discState ? <div><dt>光盘</dt><dd>{discState.currentIndex + 1} / {discSet.count}</dd></div> : null}
+      </dl></section>
+      <footer title={debugRuntime.coreArtifactId}>Artifact · {debugRuntime.coreArtifactId || "等待配置"}</footer>
+    </aside>
 
     <div className={`player-pause-overlay${paused || netplayPaused ? " is-visible" : ""}`} aria-hidden={!paused && !netplayPaused}>
       <div className="player-pause-pill"><AppIcon name="pause" /><strong>{isNetplay ? "联机已暂停" : "已暂停"}</strong><small>{isNetplay ? "等待房主继续" : "点击游戏画面继续"}</small></div>

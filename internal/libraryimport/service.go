@@ -39,6 +39,8 @@ var (
 	errMetadataScraperNotConfigured   = errors.New("metadata scraper is not configured")
 )
 
+const reviewScreenshotOverrideCode = "REVIEW_SCREENSHOT_OVERRIDE"
+
 type CreateRequest struct {
 	UploadID                 string `json:"uploadId"`
 	TargetPlatformInstanceID string `json:"targetPlatformInstanceId"`
@@ -633,9 +635,7 @@ func matchArcadeRequirements(
 			missing = append(missing, requirement.name)
 			continue
 		}
-		if entry.Size != requirement.size ||
-			requirement.crc32.Valid && !strings.EqualFold(entry.CRC32, requirement.crc32.String) ||
-			requirement.sha1.Valid && !strings.EqualFold(entry.SHA1, requirement.sha1.String) {
+		if !arcadeEntryMatchesRequirement(entry, requirement) {
 			mismatched = append(mismatched, requirement.name)
 		}
 		if requirement.status == "BADDUMP" {
@@ -645,17 +645,32 @@ func matchArcadeRequirements(
 	return missing, mismatched, warnings
 }
 
+func arcadeEntryMatchesRequirement(entry importing.ArchiveEntry, requirement arcadeROMRequirement) bool {
+	return entry.Size == requirement.size &&
+		(!requirement.crc32.Valid || strings.EqualFold(entry.CRC32, requirement.crc32.String)) &&
+		(!requirement.sha1.Valid || strings.EqualFold(entry.SHA1, requirement.sha1.String))
+}
+
 func containsMergedArcadeEntries(entries map[string]importing.ArchiveEntry, requirements []arcadeROMRequirement) bool {
-	requiredNames := make(map[string]struct{}, len(requirements))
-	for _, requirement := range requirements {
-		requiredNames[importing.ASCIICaseFold(requirement.name)] = struct{}{}
-	}
-	for path := range entries {
-		if !strings.Contains(path, "/") {
+	rootEntries := make(map[string]importing.ArchiveEntry, len(entries))
+	nestedEntries := make(map[string][]importing.ArchiveEntry)
+	for entryPath, entry := range entries {
+		if !strings.Contains(entryPath, "/") {
+			rootEntries[importing.ASCIICaseFold(entryPath)] = entry
 			continue
 		}
-		if _, required := requiredNames[importing.ASCIICaseFold(filepath.Base(path))]; required {
-			return true
+		base := importing.ASCIICaseFold(filepath.Base(entryPath))
+		nestedEntries[base] = append(nestedEntries[base], entry)
+	}
+	for _, requirement := range requirements {
+		name := importing.ASCIICaseFold(requirement.name)
+		if root, exists := rootEntries[name]; exists && arcadeEntryMatchesRequirement(root, requirement) {
+			continue
+		}
+		for _, nested := range nestedEntries[name] {
+			if arcadeEntryMatchesRequirement(nested, requirement) {
+				return true
+			}
 		}
 	}
 	return false
@@ -3037,6 +3052,24 @@ WHERE source_snapshot_id=?
 	)
 }
 
+func screenshotOverrideRuntimeSnapshot(snapshot corevalidation.Snapshot) corevalidation.Snapshot {
+	filtered := make([]corevalidation.BIOSDependency, 0, len(snapshot.BIOS))
+	for _, dependency := range snapshot.BIOS {
+		if dependency.DeliveryKind != "EXTERNAL_FILE" {
+			filtered = append(filtered, dependency)
+			continue
+		}
+		if dependency.EmulatorPath == nil || dependency.BlobID == nil || dependency.InstallationStatus == nil {
+			continue
+		}
+		if *dependency.InstallationStatus == "MATCHED" || *dependency.InstallationStatus == "HASH_WARNING" {
+			filtered = append(filtered, dependency)
+		}
+	}
+	snapshot.BIOS = filtered
+	return snapshot
+}
+
 type approvalValidationDigestInput struct {
 	VariantID, ContentID, ContentKind, ArtifactID, ArtifactCompatibility string
 	ArtifactVersion                                                      int64
@@ -3138,19 +3171,21 @@ PRAGMA defer_foreign_keys=ON
 `); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	var state, importID, configSnapshotJSON, platformID, platformInstanceID, validationID string
+	var state, importID, configSnapshotJSON, platformID, platformInstanceID, validationID, validationStatus string
 	var metadataJSON, sourceSnapshotID, sourceManifestJSON, sourceManifestDigest string
 	var contentKind, dependencySnapshotJSON string
 	var coreID, artifactID, artifactCompatibility string
 	var draftVersion, artifactVersion int64
 	var datID, validationDOSEntry, draftDOSEntry, candidateID, coverID, uploadedCoverID, backgroundID sql.NullString
+	var approvalScreenshotID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
 SELECT i.state,
 i.import_job_id,
 j.config_snapshot_json,
 p.platform_id,
 d.target_platform_instance_id,
-d.selected_validation_id,
+v.id,
+v.status,
 d.metadata_json,
 source_snapshot.id,
 source_snapshot.source_manifest_json,
@@ -3164,6 +3199,12 @@ v.dat_version_id,
 v.default_dos_entry,
 d.default_dos_entry,
 v.dependency_snapshot_json,
+(SELECT screenshot.id FROM review_runtime_screenshots screenshot
+ WHERE screenshot.import_item_id=i.id
+ AND screenshot.validation_id=v.id
+ AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
+ AND screenshot.core_artifact_id=v.core_artifact_id
+ ORDER BY screenshot.captured_at_ms DESC,screenshot.id DESC LIMIT 1),
 d.version,
 d.selected_candidate_id,
 d.cover_candidate_asset_id,
@@ -3173,18 +3214,31 @@ FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
 JOIN review_drafts d ON d.import_item_id=i.id
 JOIN import_item_source_snapshots source_snapshot ON source_snapshot.id=d.effective_source_snapshot_id
-JOIN import_item_core_validations v ON v.id=d.selected_validation_id
-AND v.source_snapshot_id=d.effective_source_snapshot_id
 JOIN platform_instances p ON p.id=d.target_platform_instance_id
 AND p.enabled=1
 AND p.deleted_at_ms IS NULL
+JOIN core_artifacts a ON a.core_id=p.default_core_id AND a.enabled=1
+JOIN import_item_core_validations v ON v.id=(
+ SELECT candidate.id FROM import_item_core_validations candidate
+ WHERE candidate.import_item_id=i.id
+ AND candidate.source_snapshot_id=d.effective_source_snapshot_id
+ AND candidate.target_platform_instance_id=d.target_platform_instance_id
+ AND candidate.core_artifact_id=a.id
+ ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
+)
+AND v.source_snapshot_id=d.effective_source_snapshot_id
+AND v.target_platform_instance_id=d.target_platform_instance_id
+AND v.core_artifact_id=a.id
 AND p.version=v.platform_instance_version
-JOIN core_artifacts a ON a.id=v.core_artifact_id
-AND a.core_id=p.default_core_id
-AND a.enabled=1
 AND a.version=v.core_artifact_version
 WHERE i.id=?
-AND v.status='READY'
+AND (v.status='READY' OR EXISTS(
+ SELECT 1 FROM review_runtime_screenshots screenshot
+ WHERE screenshot.import_item_id=i.id
+ AND screenshot.validation_id=v.id
+ AND screenshot.source_snapshot_id=d.effective_source_snapshot_id
+ AND screenshot.core_artifact_id=v.core_artifact_id
+))
 AND v.prepublish_generation=4
 AND v.default_dos_entry IS d.default_dos_entry
 AND v.dat_version_id IS (SELECT active.id
@@ -3199,6 +3253,7 @@ AND active.is_active=1)
 			&platformID,
 			&platformInstanceID,
 			&validationID,
+			&validationStatus,
 			&metadataJSON,
 			&sourceSnapshotID,
 			&sourceManifestJSON,
@@ -3212,6 +3267,7 @@ AND active.is_active=1)
 			&validationDOSEntry,
 			&draftDOSEntry,
 			&dependencySnapshotJSON,
+			&approvalScreenshotID,
 			&draftVersion,
 			&candidateID,
 			&coverID,
@@ -3237,17 +3293,27 @@ AND active.is_active=1)
 	if !contentcapability.SupportsContentKind(artifactCompatibility, contentKind) {
 		return Approved{}, ErrInvalid
 	}
+	screenshotOverride := validationStatus != "READY" && approvalScreenshotID.Valid
 	validationSnapshot, snapshotErr := corevalidation.ParseSnapshot(dependencySnapshotJSON)
 	if snapshotErr != nil && contentKind == multidisc.ContentKind {
 		return Approved{}, ErrInvalid
 	}
-	if snapshotErr == nil {
+	if snapshotErr == nil && !screenshotOverride {
 		if err := validateCurrentApprovalSnapshot(
 			ctx, transaction, sourceSnapshotID, validationID, platformID, artifactID,
 			artifactCompatibility, contentKind, validationSnapshot, dependencySnapshotJSON,
 		); err != nil {
 			return Approved{}, err
 		}
+	}
+	runtimeDependencySnapshotJSON := dependencySnapshotJSON
+	if snapshotErr == nil && screenshotOverride {
+		validationSnapshot = screenshotOverrideRuntimeSnapshot(validationSnapshot)
+		encoded, encodeErr := validationSnapshot.JSON()
+		if encodeErr != nil {
+			return Approved{}, ErrInvalid
+		}
+		runtimeDependencySnapshotJSON = string(encoded)
 	}
 	var metadata struct {
 		Title, Description, Developer, Publisher, Genre string
@@ -3464,6 +3530,10 @@ FROM game_variant_revisions
 	if draftDOSEntry.Valid {
 		defaultDOSEntry = draftDOSEntry
 	}
+	publishedCompatibilityCode := "READY"
+	if screenshotOverride {
+		publishedCompatibilityCode = reviewScreenshotOverrideCode
+	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO game_variants(id,
 game_id,
@@ -3501,7 +3571,7 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 'READY',
-'READY',
+?,
 ?,
 ?,
 ?)
@@ -3513,7 +3583,8 @@ created_at_ms) VALUES(?,
 		nullable(datID),
 		validationInputDigest,
 		emulatorGameID,
-		dependencySnapshotJSON,
+		publishedCompatibilityCode,
+		runtimeDependencySnapshotJSON,
 		nullable(defaultDOSEntry),
 		now,
 	); err != nil {
@@ -3636,6 +3707,12 @@ WHERE id=?
 		"decision":              "APPROVED",
 		"contentIdentityDigest": contentIdentityDigest,
 	}
+	if screenshotOverride {
+		diff["runtimeScreenshotOverride"] = map[string]any{
+			"screenshotId": approvalScreenshotID.String,
+			"validationId": validationID,
+		}
+	}
 	if decision.DuplicatePolicy == "ALLOW_NEW" {
 		diff["duplicatePolicy"] = decision.DuplicatePolicy
 		diff["acknowledgedGameIds"] = duplicateIDs(duplicateGames)
@@ -3643,9 +3720,10 @@ WHERE id=?
 	diffJSON, _ := json.Marshal(diff)
 	configEvidenceJSON, _ := json.Marshal(
 		map[string]any{
-			"schemaVersion":  1,
-			"configSnapshot": json.RawMessage(configSnapshotJSON),
-			"validationId":   validationID,
+			"schemaVersion":       1,
+			"configSnapshot":      json.RawMessage(configSnapshotJSON),
+			"validationId":        validationID,
+			"runtimeScreenshotId": nullable(approvalScreenshotID),
 		},
 	)
 	datEvidenceJSON, _ := json.Marshal(

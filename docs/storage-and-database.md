@@ -200,7 +200,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `review_drafts` | 待审核条目的可编辑草稿与 version |
 | `review_draft_screenshot_assets` | 草稿截图选择的规范顺序与外键 |
 | `review_preview_sessions` / `review_preview_files` | 审核子窗体的短时不可变运行快照与实际可交付依赖 |
-| `review_runtime_screenshots` | 当前 READY Validation 在核心启动后第 5 秒生成的审核截图 |
+| `review_runtime_screenshots` | 当前 READY 或阻断 Validation 在核心启动后第 5 秒生成的审核截图与人工放行证据 |
 | `review_events` | 追加式审核历史 |
 
 ### 4.5 通用任务、幂等与审计
@@ -429,9 +429,9 @@ Migration 025 新增三张无 Blob 引用的关系表：Favorite、FavoriteFolde
 
 ## 12. 审核运行预览的存储边界
 
-Migration 031 追加 `review_preview_sessions`、`review_preview_files` 与 `review_runtime_screenshots`。预览行保留创建时的不可变来源/Validation/CoreArtifact 证据和短时 capability hash；运行内容仍引用既有 CAS Blob，不复制 ROM/BIOS。预览不是正式 Launch 或 PlaySession，因此 restore 安全围栏无需把它转换为业务游玩历史；capability 的硬过期时间仍使旧子窗体不可继续读取内容。
+Migration 031 追加 `review_preview_sessions`、`review_preview_files` 与 `review_runtime_screenshots`。预览行保留创建时的不可变来源/Validation/CoreArtifact 证据和短时 capability hash；运行内容仍引用既有 CAS Blob，不复制 ROM/BIOS。Migration 033 将第 5 秒截图从 READY-only 扩展为 READY/阻断 Validation 均可写，同时用 Item、来源、目标平台、CoreArtifact 和 prepublish generation 的 trigger 约束人工放行证据。预览不是正式 Launch 或 PlaySession，因此 restore 安全围栏无需把它转换为业务游玩历史；capability 的硬过期时间仍使旧子窗体不可继续读取内容。
 
-预览内容、现有依赖和运行截图三类 Blob 边均登记为 protective reference。截图只对仍被草稿选中的当前 READY Validation 投影；阻断条目可以尽最大可能运行但不能写截图。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
+预览内容、现有依赖和运行截图三类 Blob 边均登记为 protective reference。截图只对仍匹配草稿当前来源、目标平台、默认 CoreArtifact 和 prepublish generation 的 Validation 投影；该 Validation 可以是 READY 或阻断状态，后者的当前截图会启用管理员人工放行。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
 
 ## 13. 联机持久化与恢复边界
 

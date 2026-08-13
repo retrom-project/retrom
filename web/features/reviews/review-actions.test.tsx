@@ -202,7 +202,7 @@ describe("ReviewActions", () => {
     const blocked = { ...review, canApprove: false, validation: { ...review.validation!, status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_PARENT_MISSING" } };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/previews")) return Promise.resolve(jsonResponse({ previewId: "preview-best-effort", playUrl: "/admin/review-previews/preview-best-effort", captureAllowed: false, captureAfterMs: 5000 }, 201));
+      if (url.endsWith("/previews")) return Promise.resolve(jsonResponse({ previewId: "preview-best-effort", playUrl: "/admin/review-previews/preview-best-effort", captureAllowed: true, captureAfterMs: 5000 }, 201));
       if (init?.method === "PATCH") return Promise.resolve(jsonResponse({ version: 2 }));
       throw new Error(`unexpected fetch ${url}`);
     });
@@ -213,7 +213,7 @@ describe("ReviewActions", () => {
     await user.click(screen.getByRole("button", { name: "运行游戏" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/review-previews/preview-best-effort"));
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1/previews", expect.objectContaining({ method: "POST" }));
-    expect(screen.getByText("依赖检查未通过")).toBeVisible();
+    expect(screen.getByText("等待运行截图")).toBeVisible();
   });
 
   it("shows the current five-second runtime screenshot", () => {
@@ -225,6 +225,23 @@ describe("ReviewActions", () => {
 
     expect(screen.getByAltText("Manual 的第 5 秒运行截图")).toHaveAttribute("src", expect.stringContaining("shot-1"));
     expect(screen.getByRole("button", { name: "运行游戏" })).toBeVisible();
+  });
+
+  it("enables an administrator screenshot override for a blocked validation", () => {
+    render(<ReviewActions review={{
+      ...review,
+      canApprove: true,
+      validation: { ...review.validation!, status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_PARENT_MISSING" },
+      runtimeScreenshot: {
+        screenshotId: "shot-blocked", validationId: "validation-1", coreArtifactId: "artifact-1",
+        widthPx: 640, heightPx: 480, capturedAfterMs: 5000, capturedAtMs: 123,
+        url: "/api/v1/admin/review-assets/shot-blocked",
+      },
+    }} />);
+
+    expect(screen.getByText("已取得运行截图")).toBeVisible();
+    expect(screen.getByText("已取得第 5 秒运行截图，可由管理员确认后发布。")).toBeVisible();
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
   });
 
   it("flushes, uploads, validates over SSE, then enables publish from the refreshed review", async () => {

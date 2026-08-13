@@ -3908,16 +3908,15 @@ JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
 JOIN core_artifacts current_artifact ON current_artifact.core_id=pi.default_core_id
 AND current_artifact.enabled=1
 LEFT
-JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,
-(
+JOIN import_item_core_validations v ON v.id=(
   SELECT candidate.id
 FROM import_item_core_validations candidate
 WHERE candidate.import_item_id=i.id
 AND candidate.source_snapshot_id=d.effective_source_snapshot_id
 AND candidate.target_platform_instance_id=d.target_platform_instance_id
+AND candidate.core_artifact_id=current_artifact.id
 ORDER BY candidate.created_at_ms DESC,
-candidate.id DESC LIMIT 1
-))
+candidate.id DESC LIMIT 1)
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
 AND NOT EXISTS(
@@ -4006,24 +4005,19 @@ AND NOT EXISTS(
 		server.databaseError(writer, request, err)
 		return
 	}
-	validationProjection, err := server.reviewValidationProjection(request.Context(), reviewValidationInput{
-		validationID: validationID, validationStatus: validationStatus,
-		compatibilityCode: compatibilityCode, dependencyValue: dependencyValue,
-		validationGeneration: validationGeneration, selectedValidationID: selectedValidationID,
-		artifactCompatibility: currentArtifactCompatibility, sourceContentKind: sourceContentKind,
-	})
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	runtimeScreenshot, err := server.reviewRuntimeScreenshot(
-		request.Context(), itemID, validationID, validationProjection.canApprove,
-	)
+	validationProjection, runtimeScreenshot, err := server.reviewValidationEvidence(
+		request.Context(), itemID, reviewValidationInput{
+			validationID: validationID, validationStatus: validationStatus,
+			compatibilityCode: compatibilityCode, dependencyValue: dependencyValue,
+			validationGeneration: validationGeneration, selectedValidationID: selectedValidationID,
+			artifactCompatibility: currentArtifactCompatibility, sourceContentKind: sourceContentKind,
+		})
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
 	gateReviewMultiDiscAttachment(multiDisc, validationProjection.stale)
+	canApprove := validationProjection.canApprove || runtimeScreenshot.value != nil
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"itemId": itemID, "importJobId": importJobID, "version": version, "updatedAtMs": updatedAtMS,
@@ -4035,7 +4029,7 @@ AND NOT EXISTS(
 		"validation": validationProjection.value, "candidates": candidates, "scrapeRuns": scrapeRuns,
 		"validationStale":              validationProjection.stale,
 		"selectedValidationGeneration": validationProjection.selectedGeneration,
-		"canApprove":                   validationProjection.canApprove,
+		"canApprove":                   canApprove,
 		"uploadedAssets":               uploadedAssets, "sourceFiles": sourceFiles,
 		"sourceMedia":       sourceMedia.value,
 		"runtimeScreenshot": runtimeScreenshot.value,
@@ -4061,9 +4055,9 @@ func (server *Server) reviewRuntimeScreenshot(
 	ctx context.Context,
 	itemID string,
 	validationID sql.NullString,
-	canApprove bool,
+	validationCurrent bool,
 ) (optionalReviewProjection, error) {
-	if !canApprove || !validationID.Valid {
+	if !validationCurrent || !validationID.Valid {
 		return optionalReviewProjection{}, nil
 	}
 	var id, coreArtifactID string
@@ -4199,6 +4193,22 @@ func (server *Server) reviewValidationProjection(
 		canApprove: input.selectedValidationID.Valid && evidenceCurrent && input.validationStatus.String == "READY" &&
 			contentcapability.SupportsContentKind(input.artifactCompatibility, input.sourceContentKind),
 	}, nil
+}
+
+func (server *Server) reviewValidationEvidence(
+	ctx context.Context,
+	itemID string,
+	input reviewValidationInput,
+) (reviewValidationResult, optionalReviewProjection, error) {
+	projection, err := server.reviewValidationProjection(ctx, input)
+	if err != nil {
+		return reviewValidationResult{}, optionalReviewProjection{}, err
+	}
+	screenshot, err := server.reviewRuntimeScreenshot(ctx, itemID, input.validationID, !projection.stale)
+	if err != nil {
+		return reviewValidationResult{}, optionalReviewProjection{}, err
+	}
+	return projection, screenshot, nil
 }
 
 func (server *Server) reviewContentDependencies(ctx context.Context, itemID string) (any, any, error) {

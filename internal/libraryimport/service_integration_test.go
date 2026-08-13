@@ -1423,6 +1423,31 @@ status) VALUES(?,
 		len(fullGroups[0].validationFiles) != 0 {
 		t.Fatalf("full non-merged closure = %#v", fullGroups)
 	}
+	fullWithCloneExtraBytes := makeZIP(
+		t,
+		map[string][]byte{
+			"c.bin":       []byte("child"),
+			"p.bin":       []byte("parent"),
+			"b.bin":       []byte("bios"),
+			"clone/c.bin": []byte("clone-specific alternate"),
+		},
+	)
+	fullWithCloneExtraMetadata, err := blobs.Put(bytes.NewReader(fullWithCloneExtraBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, fullWithCloneExtraGroups, _ := service.prepareArcadeFiles(
+		ctx,
+		[]importSourceFile{{
+			id: "full-with-clone-extra", path: "child.zip", blobID: "full-with-clone-extra-blob",
+			sha256: fullWithCloneExtraMetadata.SHA256,
+		}},
+		sql.NullString{String: datID, Valid: true},
+	)
+	if len(fullWithCloneExtraGroups) != 1 || fullWithCloneExtraGroups[0].validationStatus != "READY" ||
+		fullWithCloneExtraGroups[0].compatibilityCode != "READY" {
+		t.Fatalf("full non-merged closure with clone extra = %#v", fullWithCloneExtraGroups)
+	}
 	mergedBytes := makeZIP(t, map[string][]byte{"c.bin": []byte("child"), "parent/p.bin": []byte("parent")})
 	mergedMetadata, err := blobs.Put(bytes.NewReader(mergedBytes))
 	if err != nil {
@@ -1436,6 +1461,26 @@ status) VALUES(?,
 	if len(mergedGroups) != 1 || mergedGroups[0].validationStatus != "BLOCKED" ||
 		mergedGroups[0].compatibilityCode != "UNSUPPORTED_MERGED_ROMSET" {
 		t.Fatalf("merged ROM set = %#v", mergedGroups)
+	}
+	nestedMismatchBytes := makeZIP(
+		t,
+		map[string][]byte{"c.bin": []byte("child"), "parent/p.bin": []byte("not-the-parent-rom")},
+	)
+	nestedMismatchMetadata, err := blobs.Put(bytes.NewReader(nestedMismatchBytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, nestedMismatchGroups, _ := service.prepareArcadeFiles(
+		ctx,
+		[]importSourceFile{{
+			id: "nested-mismatch", path: "child.zip", blobID: "nested-mismatch-blob",
+			sha256: nestedMismatchMetadata.SHA256,
+		}},
+		sql.NullString{String: datID, Valid: true},
+	)
+	if len(nestedMismatchGroups) != 1 || nestedMismatchGroups[0].validationStatus != "BLOCKED" ||
+		nestedMismatchGroups[0].compatibilityCode != "LAUNCH_PARENT_MISSING" {
+		t.Fatalf("nested name-only match must remain a missing parent = %#v", nestedMismatchGroups)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_disk_entries(dat_version_id,
