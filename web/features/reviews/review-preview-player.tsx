@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { captureManualScreenshot, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "@/features/player/adapters/ejs-4.2.3-v2";
+import { captureReviewScreenshot, mountEmulatorJS, type EmulatorInstance, type PlayerConfig } from "@/features/player/adapters/ejs-4.2.3-v2";
 import { installCanvasContain } from "@/features/player/canvas-fit";
 
 type ReviewPlayerConfig = PlayerConfig & {
@@ -35,7 +35,7 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
       const emulator = emulatorRef.current;
       if (!emulator) throw new Error("预览核心尚未就绪，无法截图");
       setState("capturing");
-      const capture = await captureManualScreenshot(emulator);
+      const capture = await captureReviewScreenshot(emulator);
       const response = await fetch(`/runtime/launches/${previewId}/review-screenshot`, {
         method: "POST",
         credentials: "same-origin",

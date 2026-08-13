@@ -536,12 +536,35 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
     screenshot.lastElementChild?.replaceWith(image);
     const imageCardHeight = clone.getBoundingClientRect().height;
     const imageScreenshotHeight = screenshot.getBoundingClientRect().height;
+    const placeholderCardWidth = clone.getBoundingClientRect().width;
+    const placeholderScreenshotWidth = screenshot.getBoundingClientRect().width;
     clone.remove();
-    return { placeholderCardHeight, placeholderScreenshotHeight, imageCardHeight, imageScreenshotHeight };
+    return { placeholderCardHeight, placeholderCardWidth, placeholderScreenshotHeight, placeholderScreenshotWidth, imageCardHeight, imageScreenshotHeight };
   });
   expect(screenshotLayout.placeholderCardHeight).toBe(196);
   expect(screenshotLayout.imageCardHeight).toBe(screenshotLayout.placeholderCardHeight);
   expect(screenshotLayout.imageScreenshotHeight).toBe(screenshotLayout.placeholderScreenshotHeight);
+  expect(screenshotLayout.placeholderScreenshotWidth / screenshotLayout.placeholderCardWidth).toBeLessThanOrEqual(.18);
+  const validationOverflow = await page.locator(".review-workflow-capability").evaluate((element) => {
+    const detail = document.createElement("div");
+    detail.className = "review-validation-guidance";
+    const list = document.createElement("ul");
+    for (let index = 0; index < 40; index += 1) {
+      const item = document.createElement("li");
+      item.textContent = `missing-entry-${index + 1}.bin 缺失`;
+      list.append(item);
+    }
+    detail.append(list);
+    element.append(detail);
+    const bounds = detail.getBoundingClientRect();
+    const computed = getComputedStyle(detail);
+    const result = { height: bounds.height, clientHeight: detail.clientHeight, scrollHeight: detail.scrollHeight, overflowY: computed.overflowY };
+    detail.remove();
+    return result;
+  });
+  expect(validationOverflow.height).toBeLessThanOrEqual(361);
+  expect(validationOverflow.scrollHeight).toBeGreaterThan(validationOverflow.clientHeight);
+  expect(validationOverflow.overflowY).toBe("auto");
   const reviewLayout = await page.locator(".review-workflow-columns").evaluate((element) => {
     const left = element.querySelector<HTMLElement>(".review-workflow-left")!.getBoundingClientRect();
     const metadata = element.querySelector<HTMLElement>(".review-workflow-metadata")!.getBoundingClientRect();

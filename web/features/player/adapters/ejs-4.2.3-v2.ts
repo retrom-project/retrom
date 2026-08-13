@@ -79,7 +79,7 @@ export type EmulatorInstance = {
   capture?: { photo?: { source?: string; format?: string; upscale?: number } };
   takeScreenshot?: (source: string, format: string, upscale: number) => Promise<{ blob: Blob; format: string }>;
   gameManager?: {
-    FS?: { analyzePath: (path: string) => { exists: boolean }; mkdir: (path: string) => void; writeFile: (path: string, bytes: Uint8Array) => void; unlink: (path: string) => void };
+    FS?: { analyzePath: (path: string) => { exists: boolean }; mkdir: (path: string) => void; writeFile: (path: string, bytes: Uint8Array) => void; unlink: (path: string) => void; readFile?: (path: string) => ArrayBufferView; stat?: (path: string) => unknown };
     getFrameNum?: () => number;
     getDiskCount?: () => number;
     getCurrentDisk?: () => number;
@@ -93,7 +93,7 @@ export type EmulatorInstance = {
     simulateInput?: (player: number, control: number, value: number) => void;
     toggleMainLoop?: (running: boolean) => void;
     toggleFastForward?: (running: boolean) => void;
-    functions?: { simulateInput?: (player: number, control: number, value: number) => void };
+    functions?: { simulateInput?: (player: number, control: number, value: number) => void; screenshot?: () => void };
     loadStateAndWait?: (bytes: Uint8Array, timeoutMs?: number) => Promise<{ byteExact: boolean }>;
     runNetplayFrame?: (timeoutMs?: number) => Promise<number>;
   };
@@ -108,6 +108,40 @@ export async function captureManualScreenshot(instance: EmulatorInstance): Promi
   const result = await instance.takeScreenshot(photo?.source ?? "canvas", photo?.format ?? "png", photo?.upscale ?? 1);
   if (!result.blob || typeof result.blob.size !== "number" || result.blob.size === 0) throw new Error("PLAYER_SCREENSHOT_EMPTY");
   return { screenshot: result.blob, format: result.format || "png" };
+}
+
+const reviewCoreScreenshotTimeoutMs = 2_000;
+
+async function captureCoreFramebuffer(instance: EmulatorInstance): Promise<ManualScreenshot> {
+  const fileSystem = instance.gameManager?.FS;
+  const requestScreenshot = instance.gameManager?.functions?.screenshot;
+  if (!fileSystem?.readFile || !fileSystem.stat || !requestScreenshot) throw new Error("PLAYER_CORE_SCREENSHOT_UNAVAILABLE");
+  try { fileSystem.unlink("/screenshot.png"); } catch { /* The previous capture is optional. */ }
+  requestScreenshot();
+  const deadline = Date.now() + reviewCoreScreenshotTimeoutMs;
+  while (Date.now() <= deadline) {
+    try {
+      fileSystem.stat("/screenshot.png");
+      const source = fileSystem.readFile("/screenshot.png");
+      if (source.byteLength > 0) {
+        const bytes = Uint8Array.from(new Uint8Array(source.buffer, source.byteOffset, source.byteLength));
+        return { screenshot: new Blob([bytes], { type: "image/png" }), format: "png" };
+      }
+    } catch { /* EmulatorJS writes the screenshot asynchronously. */ }
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  throw new Error("PLAYER_CORE_SCREENSHOT_TIMEOUT");
+}
+
+// Review evidence should retain static core error frames. Canvas capture can be
+// black after a core stops presenting frames, so only review previews prefer
+// RetroArch's last framebuffer and retain the normal canvas path as fallback.
+export async function captureReviewScreenshot(instance: EmulatorInstance): Promise<ManualScreenshot> {
+  try {
+    return await captureCoreFramebuffer(instance);
+  } catch {
+    return captureManualScreenshot(instance);
+  }
 }
 
 export function captureManualState(instance: EmulatorInstance, capture: ManualScreenshot) {

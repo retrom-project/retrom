@@ -901,7 +901,7 @@
     #retrom-ui-review .rt-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
     #retrom-ui-review .rt-form-grid .rt-field { margin-top: 0; }
     #retrom-ui-review .rt-field-wide { grid-column: 1 / -1; }
-    #retrom-ui-review .rt-validation-box { margin-top: 12px; padding: 11px; border-radius: 9px; background: var(--retrom-green-soft); color: var(--retrom-green); font-size: 11px; }
+    #retrom-ui-review .rt-validation-box { max-height: 360px; margin-top: 12px; padding: 11px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; border-radius: 9px; background: var(--retrom-green-soft); color: var(--retrom-green); font-size: 11px; }
     #retrom-ui-review .rt-validation-box.is-warning { background: var(--retrom-amber-soft); color: var(--retrom-amber); }
     #retrom-ui-review .rt-validation-box.is-validating { background: var(--retrom-purple-soft); color: var(--retrom-purple); }
     #retrom-ui-review .rt-review-actions { display: flex; justify-content: flex-end; gap: 8px; }
@@ -911,7 +911,7 @@
     #retrom-ui-review .rt-review-context-item.is-active { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
     #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; align-items: start; gap: 12px; }
     #retrom-ui-review .rt-review-summary, #retrom-ui-review .rt-review-decision { min-height: 178px; padding: 15px; }
-    #retrom-ui-review .rt-review-summary { min-width: 0; height: 178px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) 250px; grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: 14px; }
+    #retrom-ui-review .rt-review-summary { min-width: 0; height: 178px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) 125px; grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: 14px; }
     #retrom-ui-review .rt-review-summary-copy { min-width: 0; align-self: center; }
     #retrom-ui-review .rt-review-summary h2, #retrom-ui-review .rt-review-decision h2 { margin: 8px 0 3px; }
     #retrom-ui-review .rt-review-summary-status { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }

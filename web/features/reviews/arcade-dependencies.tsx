@@ -55,6 +55,8 @@ export function ArcadeDependencyCard({
   onRetry: (attachment: ArcadeParentAttachment) => Promise<void>;
 }) {
   const rows = useMemo(() => buildArcadeDependencyRows(value), [value]);
+  const dependencyStatusTone = rows.length === 0 ? "info" : value.status === "READY" ? "good" : "warn";
+  const dependencyStatusLabel = rows.length === 0 ? "无额外依赖" : value.status === "READY" ? "全部满足" : "需要处理";
   const [target, setTarget] = useState<ArcadeDependencyNode | null>(null);
   const [file, setFile] = useState<File | null>(null);
   const [fileError, setFileError] = useState("");
@@ -67,7 +69,7 @@ export function ArcadeDependencyCard({
   };
 
   return <section className="panel arcade-dependency-card" aria-labelledby="arcade-dependency-title">
-    <div className="panel-head"><div><h2 id="arcade-dependency-title">Arcade 运行依赖</h2><p>依赖关系来自锁定 DAT；Parent ZIP 按内容识别，本地文件名可以不同。</p></div><span className={`status ${value.status === "READY" ? "good" : "warn"}`}><i />{value.status === "READY" ? "全部满足" : "需要处理"}</span></div>
+    <div className="panel-head"><div><h2 id="arcade-dependency-title">Arcade 运行依赖</h2><p>依赖关系来自锁定 DAT；Parent ZIP 按内容识别，本地文件名可以不同。</p></div><span className={`status ${dependencyStatusTone}`}><i />{dependencyStatusLabel}</span></div>
     <div className="panel-body">
       <div className="arcade-dependency-root"><strong title={`${value.machine}.zip`}>{value.machine}.zip</strong><span>游戏内容</span></div>
       {rows.length ? <ol className="arcade-dependency-tree">{rows.map(({ node, level }) => {

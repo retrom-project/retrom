@@ -9,7 +9,7 @@ const adapter = vi.hoisted(() => ({
 
 vi.mock("@/features/player/adapters/ejs-4.2.3-v2", () => ({
   mountEmulatorJS: adapter.mount,
-  captureManualScreenshot: adapter.capture,
+  captureReviewScreenshot: adapter.capture,
 }));
 vi.mock("@/features/player/canvas-fit", () => ({
   installCanvasContain: () => ({ refresh: vi.fn(), cleanup: vi.fn() }),
