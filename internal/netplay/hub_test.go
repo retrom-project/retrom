@@ -2,6 +2,7 @@ package netplay
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"strconv"
 	"testing"
@@ -65,6 +66,50 @@ func TestLegacyFocusSuspendDoesNotDisconnectOrPauseTheSession(t *testing.T) {
 	if !session.running || session.pause != nil || session.nextFrame != 42 {
 		t.Fatalf("focus suspend changed live session: running=%v pause=%#v next=%d",
 			session.running, session.pause, session.nextFrame)
+	}
+}
+
+func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
+	ctx := context.Background()
+	oldTimer := time.AfterFunc(time.Hour, func() {})
+	session := &realtimeSession{
+		service: &Service{}, sessionID: "session", profileDigest: "profile", coreArtifact: "core",
+		occupiedMask: 3, playerCount: 2, peers: map[int]*peer{
+			1: {
+				participant: SocketParticipant{PlayerNo: 1, ProfileID: "host"},
+				writes:      make(chan outbound, 8),
+			},
+		},
+		participants: map[string]int{"host": 1},
+		transfer: &stateTransfer{
+			id: "old-transfer", nextFrame: 0, reason: "INITIAL_SYNC", timer: oldTimer,
+		},
+	}
+	reconnected := &peer{
+		participant: SocketParticipant{
+			PlayerNo: 2, ProfileID: "guest", ProfileDigest: "profile", CoreArtifactID: "core",
+		},
+		writes: make(chan outbound, 8),
+	}
+
+	if err := session.addPeer(ctx, reconnected, -1); err != nil {
+		t.Fatalf("reconnect during initial transfer: %v", err)
+	}
+	defer session.transfer.timer.Stop()
+	if session.transfer == nil || session.transfer.id == "old-transfer" || session.transfer.reason != "INITIAL_SYNC" {
+		t.Fatalf("initial transfer was not restarted: %#v", session.transfer)
+	}
+	select {
+	case message := <-session.peers[1].writes:
+		var decoded map[string]any
+		if err := json.Unmarshal(message.data, &decoded); err != nil {
+			t.Fatal(err)
+		}
+		if decoded["type"] != "REQUEST_STATE" || decoded["transferId"] != session.transfer.id {
+			t.Fatalf("restart request = %#v", decoded)
+		}
+	default:
+		t.Fatal("authority did not receive a restarted state request")
 	}
 }
 

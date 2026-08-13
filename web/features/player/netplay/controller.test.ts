@@ -80,6 +80,73 @@ describe("NetplayController reconnect lease", () => {
     controller.end();
   });
 
+  it("reconnects during the initial synchronization without ending its launch", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const onEnded = vi.fn();
+    const onConnect = vi.fn();
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const controller = new NetplayController(launch, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
+    }, { onConnect });
+
+    await controller.start();
+    FakeSocket.instances[0]!.remoteClose();
+    expect(onEnded).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(500);
+
+    expect(FakeSocket.instances).toHaveLength(2);
+    const replacement = FakeSocket.instances[1]!;
+    const messages = replacement.sent.map((value) => JSON.parse(value as string) as { type: string; seq: number });
+    expect(messages).toMatchObject([
+      { type: "HELLO", seq: 0 },
+      { type: "RUNTIME_READY", seq: 1 },
+    ]);
+    expect(onConnect.mock.calls.map(([reconnect]) => reconnect)).toEqual([false, true]);
+    expect(onEnded).not.toHaveBeenCalled();
+    controller.dispose();
+  });
+
+  it("disposes a superseded controller without ending the shared session", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const closeBridge = vi.fn();
+    const onEnded = vi.fn();
+    const onStatus = vi.fn();
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: closeBridge,
+      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const controller = new NetplayController(launch, "0".repeat(64), bridge, {
+      onStatus, onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
+    });
+
+    await controller.start();
+    const socket = FakeSocket.instances[0]!;
+    controller.dispose();
+    const types = socket.sent.map((value) => (JSON.parse(value as string) as { type: string }).type);
+    expect(types).not.toContain("END_REQUEST");
+    expect(socket.closes).toContainEqual([1000, "CLIENT_DISPOSED"]);
+    expect(closeBridge).toHaveBeenCalledOnce();
+    expect(onEnded).not.toHaveBeenCalled();
+
+    const replacementController = new NetplayController(launch, "0".repeat(64), bridge, {
+      onStatus, onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
+    });
+    await replacementController.start();
+    const replacement = FakeSocket.instances[1]!;
+    replacement.close(1008, "connection replaced");
+    await vi.advanceTimersByTimeAsync(500);
+    expect(FakeSocket.instances).toHaveLength(2);
+    expect(onEnded).not.toHaveBeenCalled();
+    expect(onStatus).toHaveBeenCalledWith("联机已由同一账户的另一页面接管", "warning");
+  });
+
   it("sends a deferred checkpoint after its post-frame state enters the rollback ring", async () => {
     vi.stubGlobal("WebSocket", FakeSocket);
     let stateByte = 0;

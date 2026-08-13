@@ -230,7 +230,7 @@ PersistentSave 能力来自 artifact compatibility：`SINGLE_FILE` 沿用上述�
 
 ## 11. PlaySession 与有效时长
 
-`EJS_onGameStart`（必然发生在 `saveDatabaseLoaded` handler 成功之后）立即提交 sequence 0 的 start。前端每 30 秒发送 heartbeat，包含连续 sequence 以及上一区间的 `running/visible/paused`。`paused` 读取固定适配器中的 `EJS_emulator.paused`；可见性来自 `document.visibilityState`。联机 Player 的 `blur/visibilitychange` 只清空本地控制输入，不发送 `SUSPEND_REQUEST`、不关闭 WebSocket、不结束 Launch，也不导航回房间；Chrome 后台节流 EmulatorJS 时共享 lockstep 可以等待，恢复前台后沿原连接继续。页面刷新、关闭、主动退出、真实 socket/ping 故障或服务端终局才进入对应结束/恢复路径，服务端不得用短时缺少输入贡献代替网络存活判断。
+`EJS_onGameStart`（必然发生在 `saveDatabaseLoaded` handler 成功之后）立即提交 sequence 0 的 start。前端每 30 秒发送 heartbeat，包含连续 sequence 以及上一区间的 `running/visible/paused`。`paused` 读取固定适配器中的 `EJS_emulator.paused`；可见性来自 `document.visibilityState`。联机 Player 的 `blur/visibilitychange` 只清空本地控制输入，不发送 `SUSPEND_REQUEST`、不关闭 WebSocket、不结束 Launch，也不导航回房间；Chrome 后台节流 EmulatorJS 时共享 lockstep 可以等待，恢复前台后沿原连接继续。React effect 清理、Fast Refresh 或同一 Launch 的新控制器接管只能释放旧控制器，不能发送 `END_REQUEST` 或 finish Launch；初始同步期间的瞬时 socket 关闭同样在 Player 内重连，服务端废弃旧 transfer 并从 P1 重新传输状态。页面刷新、关闭、主动退出、真实 socket/ping 故障超过恢复窗口或服务端终局才进入对应结束路径，服务端不得用短时缺少输入贡献代替网络存活判断。
 
 config bootstrap 后到 `EJS_onGameStart` 前尚无 PlaySession，只受 LaunchSession hard expiry；显式退出或 `pagehide` 发送 sequence 0、`previousInterval:null` 的 pre-start finish。真实 start 后服务端才建立 2 分钟 idle expiry，heartbeat 每 30 秒刷新；因此 ROM/core 下载耗时不会被误判成游玩失联。
 

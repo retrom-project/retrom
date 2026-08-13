@@ -81,12 +81,12 @@ function writeEvidence(testInfo: TestInfo, value: unknown) {
   writeFileSync(target, `${JSON.stringify(value, null, 2)}\n`);
 }
 
-async function launchPlayer(username: string, latency: boolean): Promise<PlayerProcess> {
+async function launchPlayer(username: string, latency: boolean, delayInitialApplied = false): Promise<PlayerProcess> {
   const server = await chromium.launchServer({ headless: true, args: chromeArguments });
   const browser = await chromium.connect(server.wsEndpoint());
   const context = await browser.newContext({ baseURL: origin, viewport: { width: 1280, height: 800 } });
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });
-  await context.addInitScript(({ injectLatency, player }) => {
+  await context.addInitScript(({ injectLatency, player, delayApplied }) => {
     type Controls = Pick<DiagnosticControl, "press" | "dropConnection" | "injectDesync">;
     type DiagnosticFactoryWindow = Window & {
       __RETROM_NETPLAY_DIAGNOSTICS_FACTORY__?: (controls: Controls) => Record<string, unknown>;
@@ -105,6 +105,7 @@ async function launchPlayer(username: string, latency: boolean): Promise<PlayerP
       return {
         perturbInitialState: player === 2,
         delayForMessage: (type: string, fields: Record<string, unknown>) => {
+          if (delayApplied && type === "STATE_APPLIED") return 2_000;
           if (!injectLatency || type !== "INPUT") return 0;
           const frame = typeof fields.frame === "number" ? fields.frame : 0;
           const jitter = ((frame * 17 + player * 13) % 41) - 20;
@@ -133,7 +134,7 @@ async function launchPlayer(username: string, latency: boolean): Promise<PlayerP
         },
       };
     };
-  }, { injectLatency: latency, player: username === "test" ? 1 : 2 });
+  }, { injectLatency: latency, player: username === "test" ? 1 : 2, delayApplied: delayInitialApplied });
   const response = await context.request.post("/api/v1/auth/login", {
     data: { username, password: "test" }, headers: { Origin: origin },
   });
@@ -339,7 +340,7 @@ async function runBaseline(
 
 test("ACC-NP-001 navigation search share seat conflict and permissions", async ({}, testInfo) => {
   const host = await launchPlayer("test", false);
-  const guest = await launchPlayer("alice", false);
+  const guest = await launchPlayer("alice", false, true);
   let third: APIRequestContext | null = null;
   try {
     let room = (await mutation<RoomSnapshot>(host, "POST", "/api/v1/netplay/rooms", {})).body;
@@ -430,15 +431,32 @@ test("ACC-NP-001 navigation search share seat conflict and permissions", async (
     await expect(guestPage).toHaveURL(/\/play\/[0-9a-f-]+$/);
     await expect(guestPage.getByText("联机启动配置已失效")).toHaveCount(0);
     releaseHostConfig();
+    await guestPage.waitForFunction(
+      () => (window.__RETROM_NETPLAY_ACCEPTANCE__?.snapshot().stateLoads.length ?? 0) >= 1,
+      null,
+      { timeout: 120_000 },
+    );
+    await guestPage.evaluate(() => window.__RETROM_NETPLAY_ACCEPTANCE__!.dropConnection(500));
+    await guestPage.waitForFunction(
+      () => (window.__RETROM_NETPLAY_ACCEPTANCE__?.snapshot().reconnects ?? 0) >= 1,
+      null,
+      { timeout: 120_000 },
+    );
     await expect.poll(async () => {
       const response = await host.context.request.get(`/api/v1/netplay/rooms/${room.roomId}`);
       return (await response.json() as RoomSnapshot).state;
     }, { timeout: 120_000 }).toBe("RUNNING");
+    const initialSyncReconnect = await snapshot(guestPage);
+    expect(initialSyncReconnect.connections).toBe(2);
+    expect(initialSyncReconnect.reconnects).toBe(1);
+    expect(initialSyncReconnect.stateLoads.length).toBeGreaterThanOrEqual(2);
+    expect(initialSyncReconnect.endedReason).toBeNull();
     writeEvidence(testInfo, {
       browser: await host.browser.version(), pids: [host.pid, guest.pid], roomId: room.roomId,
       filters: ["F-1", "FCEUmm", "Arcade", "FBNeo 游戏", "ALL"],
       seatConflict: "NETPLAY_SEAT_TAKEN", adminBypass: "NETPLAY_FORBIDDEN",
-      launchPaths: [new URL(hostPage.url()).pathname, new URL(guestPage.url()).pathname], preSyncBlurRetained: true,
+      launchPaths: [new URL(hostPage.url()).pathname, new URL(guestPage.url()).pathname],
+      preSyncBlurRetained: true, initialSyncReconnect,
     });
   } finally {
     await third?.dispose();
