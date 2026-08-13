@@ -356,6 +356,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     let canvasContain: ReturnType<typeof installCanvasContain> | undefined;
     let cleanupFrameControls: (() => void) | undefined;
     let nativeMenuObserver: MutationObserver | undefined;
+    let ownedNetplayController: NetplayController | undefined;
     async function bootstrap() {
       try {
         setMessage("正在加载 Core、ROM 与依赖配置…");
@@ -464,6 +465,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         let mountedSaveFS: NonNullable<NonNullable<EmulatorInstance["gameManager"]>["FS"]> | undefined;
         cleanup = mountEmulatorJS(config, target, {
           onReady: (instance) => {
+            if (controller.signal.aborted) return;
             emulator.current = instance;
             const initialVolume = Math.min(1, Math.max(0, typeof instance.volume === "number" ? instance.volume : 0.5));
             setEmulatorVolume(initialVolume);
@@ -498,6 +500,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
             });
           },
           onGameStart: () => {
+            if (controller.signal.aborted) return false;
             frameDocument.documentElement.classList.add("retrom-native-menu-locked");
             emulator.current?.menu?.close?.();
             const manager = emulator.current?.gameManager;
@@ -551,10 +554,17 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
             if (config.mode === "netplay") {
               if (!emulator.current || !config.netplay) throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");
               try {
+                netplayController.current?.dispose();
                 const bridge = new EJSNetplayFrameBridge(emulator.current);
-                const controller = new NetplayController(config.netplay, "", bridge, {
-                  onStatus: (text, tone) => { setSyncText(text); setSyncTone(tone); },
+                const controllerHolder: { current?: NetplayController } = {};
+                const isCurrent = () => !controller.signal.aborted && netplayController.current === controllerHolder.current;
+                const createdController = new NetplayController(config.netplay, "", bridge, {
+                  onStatus: (text, tone) => {
+                    if (!isCurrent()) return;
+                    setSyncText(text); setSyncTone(tone);
+                  },
                   onRunning: () => {
+                    if (!isCurrent()) return;
                     setNetplayPaused(false);
                     if (started.current) return;
                     void sendEvent("start").then(() => {
@@ -565,8 +575,9 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
                       setMessage("PLAY_SESSION_EVENT_FAILED");
                     });
                   },
-                  onPaused: () => setNetplayPaused(true),
+                  onPaused: () => { if (isCurrent()) setNetplayPaused(true); },
                   onEnded: (reason) => {
+                    if (!isCurrent()) return;
                     setSyncText("联机已结束");
                     setSyncTone("warning");
                     setMessage(reason);
@@ -575,13 +586,16 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
                     });
                   },
                 });
-                netplayController.current = controller;
+                controllerHolder.current = createdController;
+                ownedNetplayController = createdController;
+                netplayController.current = createdController;
                 setMessage("正在建立联机同步屏障…");
                 void digestHex(new TextEncoder().encode(JSON.stringify(config.netplay.netplayProfile)))
-                  .then((profileDigest) => controller.setProfileDigest(profileDigest))
-                  .then(() => controller.start())
+                  .then((profileDigest) => createdController.setProfileDigest(profileDigest))
+                  .then(() => createdController.start())
                   .catch((caught: unknown) => {
-                    controller.end();
+                    if (!isCurrent()) { createdController.dispose(); return; }
+                    createdController.end();
                     setState("error");
                     setMessage(caught instanceof Error ? caught.message : "NETPLAY_START_FAILED");
                   });
@@ -620,8 +634,8 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
     void bootstrap();
     return () => {
       controller.abort(); cleanup?.(); canvasContain?.cleanup(); cleanupFrameControls?.();
-      netplayController.current?.end();
-      netplayController.current = null;
+      ownedNetplayController?.dispose();
+      if (netplayController.current === ownedNetplayController) netplayController.current = null;
       closeEmulatorSettingsPanels(emulator.current);
       nativeMenuObserver?.disconnect();
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);

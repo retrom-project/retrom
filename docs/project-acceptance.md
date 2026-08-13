@@ -1031,9 +1031,9 @@ python3 data/example/verify-fixtures.py
 ### ACC-NP-001：导航、搜索、分享与权限
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-001`。
-- 流程：房主建房；默认 SUPPORTED 下分别用标题 `F-1`、平台 `Arcade`、目录 `FBNeo 游戏` 和 core `FCEUmm` 搜索并验证平台/集合联动；另以 service 集成夹具证明名称、大小和 hash 均不同于代表 ROM 的 FCEUmm/FBNeo `SINGLE_FILE` READY revision 仍分别命中同一 core profile，而未开放 core、非允许 content kind、无 READY revision 和 stale dependency 继续阻断。切 ALL 后检查不可用 blocker 与 URL 恢复；分享无 token 的房间链接。两个账号分别使用独立 Chrome process 打开房间，P2 claim 后先 ready，P1 从其房间页看到更新并首次点击即 ready；P1 启动后两端各自自动进入 Player。故意延迟 P1 config，让 P2 独自在初始同步屏障中失焦 1.5 秒，再放行 P1。第三账号并发抢 P2，ADMIN 尝试旁路，全流程使用键盘重复。
-- 通过：导航按正式顺序出现；筛选、排序、URL 与 blocker 正确；产品准入不依赖逐 ROM 名称/大小/hash，仍精确限制 EmulatorJS/core artifact、content kind、READY revision 与依赖快照；匿名先登录；抢座稳定冲突；ADMIN 无额外权限；链接不含 capability/token；P1 首次 ready 不出现 `PRECONDITION_FAILED`，两端均在 STARTING 后自动进入各自不同且仅属于本人的 Launch URL；P2 在同步前失焦后仍停留 Player、没有 `NETPLAY_PROFILE_STALE`，随后双方进入 RUNNING；键盘焦点与弹层闭环。
-- 证据：两个独立 Chrome process 的 PID、两账号 route/DOM/network、ready 状态传播、两端 Launch path、同步前失焦保活、冲突错误码、URL、焦点 trace 和 1280 截图。
+- 流程：房主建房；默认 SUPPORTED 下分别用标题 `F-1`、平台 `Arcade`、目录 `FBNeo 游戏` 和 core `FCEUmm` 搜索并验证平台/集合联动；另以 service 集成夹具证明名称、大小和 hash 均不同于代表 ROM 的 FCEUmm/FBNeo `SINGLE_FILE` READY revision 仍分别命中同一 core profile，而未开放 core、非允许 content kind、无 READY revision 和 stale dependency 继续阻断。切 ALL 后检查不可用 blocker 与 URL 恢复；分享无 token 的房间链接。两个账号分别使用独立 Chrome process 打开房间，P2 claim 后先 ready，P1 从其房间页看到更新并首次点击即 ready；P1 启动后两端各自自动进入 Player。故意延迟 P1 config，让 P2 独自在初始同步屏障中失焦 1.5 秒；放行 P1 后延迟 P2 的 `STATE_APPLIED`，在 transfer 尚未完成时断开 P2 socket 500ms 并等待原页重连。第三账号并发抢 P2，ADMIN 尝试旁路，全流程使用键盘重复。
+- 通过：导航按正式顺序出现；筛选、排序、URL 与 blocker 正确；产品准入不依赖逐 ROM 名称/大小/hash，仍精确限制 EmulatorJS/core artifact、content kind、READY revision 与依赖快照；匿名先登录；抢座稳定冲突；ADMIN 无额外权限；链接不含 capability/token；P1 首次 ready 不出现 `PRECONDITION_FAILED`，两端均在 STARTING 后自动进入各自不同且仅属于本人的 Launch URL；P2 在同步前失焦后仍停留 Player、没有 `NETPLAY_PROFILE_STALE`；初始 transfer 断线后 P2 在同一 Launch URL 建立第二条连接、重新加载状态且不结束 Launch，随后双方进入 RUNNING；键盘焦点与弹层闭环。
+- 证据：两个独立 Chrome process 的 PID、两账号 route/DOM/network、ready 状态传播、两端 Launch path、同步前失焦保活、初始 transfer 重连次数与两次 state load、冲突错误码、URL、焦点 trace 和 1280 截图。
 
 ### ACC-NP-002：Start barrier 与准备失败回滚
 

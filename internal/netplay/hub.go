@@ -312,8 +312,21 @@ func (session *realtimeSession) addPeer(ctx context.Context, client *peer, lastC
 		session.mu.Unlock()
 		return err
 	}
+	session.restartInitialTransferLocked(ctx)
 	session.mu.Unlock()
 	return nil
+}
+
+func (session *realtimeSession) restartInitialTransferLocked(ctx context.Context) {
+	transfer := session.transfer
+	if session.running || transfer == nil || len(session.peers) != session.playerCount {
+		return
+	}
+	if transfer.timer != nil {
+		transfer.timer.Stop()
+	}
+	session.transfer = nil
+	session.beginTransferLocked(ctx, transfer.reason, transfer.nextFrame)
 }
 
 func (session *realtimeSession) peerAllowedLocked(client *peer) bool {

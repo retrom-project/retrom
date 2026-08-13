@@ -76,6 +76,7 @@ export class NetplayController {
   private advancing = false;
   private stopped = false;
   private hasRun = false;
+  private connectedOnce = false;
   private epochRunning = false;
   private connecting = false;
   private reconnectDeadline = 0;
@@ -92,7 +93,7 @@ export class NetplayController {
   private readonly resumeIfVisible = () => {
     if (document.visibilityState === "hidden" || !document.hasFocus()) return;
     this.resumeBlocked = false;
-    if (this.hasRun && this.socket?.readyState !== WebSocket.OPEN) this.scheduleReconnect();
+    if (this.connectedOnce && this.socket?.readyState !== WebSocket.OPEN) this.scheduleReconnect();
   };
 
   constructor(
@@ -153,28 +154,33 @@ export class NetplayController {
       this.connecting = false;
     }
     if (this.stopped) { socket.close(1000, "USER_EXIT"); return; }
-    const reconnect = this.hasRun;
+    const reconnect = this.connectedOnce;
+    this.connectedOnce = true;
     this.reconnectDeadline = 0;
     this.clientSeq = 0;
     socket.addEventListener("message", (event) => {
       this.work = this.work.then(() => this.receive(event.data)).catch((error: unknown) => this.fail(error));
     });
     socket.addEventListener("close", (event) => {
-      if (this.stopped) return;
-      if (!this.hasRun) { this.callbacks.onEnded(event.reason || "PEER_TIMEOUT"); return; }
+      if (this.stopped || this.socket !== socket) return;
+      if (event.reason === "connection replaced") {
+        this.stop(false, "CONNECTION_REPLACED");
+        this.callbacks.onStatus("联机已由同一账户的另一页面接管", "warning");
+        return;
+      }
       this.epochRunning = false;
       this.bridge.resetLocalControls();
-      this.callbacks.onPaused();
+      if (this.hasRun) this.callbacks.onPaused();
       this.scheduleReconnect();
     });
-	this.diagnostics?.onConnect?.(reconnect);
+    this.diagnostics?.onConnect?.(reconnect);
     socket.send(JSON.stringify({
       v: 1, type: "HELLO", sessionId: this.config.sessionId, epoch: this.epoch, seq: 0,
       protocolVersion: this.config.netplayProfile.protocolVersion, profileDigest: this.profileDigest,
       playerNo: this.config.playerNo, credentialGeneration: 1,
       lastCanonicalFrame: this.lastCanonicalFrame, lastServerSeq: this.serverSeq,
     }));
-    if (!reconnect) {
+    if (!this.hasRun) {
       this.send("RUNTIME_READY", {
         adapterId: this.config.netplayProfile.netplayAdapterId,
         coreArtifactId: this.config.netplayProfile.coreArtifactId,
@@ -423,14 +429,23 @@ export class NetplayController {
   }
 
   end() {
-    if (!this.stopped) { try { this.send("END_REQUEST", { reason: "USER_EXIT" }); } catch { /* socket may already be terminal */ } }
+    this.stop(true, "USER_EXIT");
+  }
+
+  dispose() {
+    this.stop(false, "CLIENT_DISPOSED");
+  }
+
+  private stop(endSession: boolean, closeReason: string) {
+    if (this.stopped) return;
+    if (endSession) { try { this.send("END_REQUEST", { reason: "USER_EXIT" }); } catch { /* socket may already be terminal */ } }
     this.stopped = true;
     this.resetSendQueue();
     if (this.reconnectTimer !== null) window.clearTimeout(this.reconnectTimer);
     this.reconnectTimer = null;
     document.removeEventListener("visibilitychange", this.resumeIfVisible);
     window.removeEventListener("focus", this.resumeIfVisible);
-    this.socket?.close(1000, "USER_EXIT");
+    this.socket?.close(1000, closeReason);
     this.bridge.close();
   }
 
