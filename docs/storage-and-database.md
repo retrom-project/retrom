@@ -223,6 +223,9 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `play_sessions` | 有效游玩会话和 heartbeat |
 | `play_session_events` | 连续 client sequence、服务端计时判定与幂等证据 |
 | `launch_sessions` | 短期不可变启动配置、非秘密 launchId 与 capability hash |
+| `netplay_rooms` / `netplay_room_members` | 联机房间聚合、占座、ready 与终态 |
+| `netplay_sessions` / `netplay_session_participants` | 锁定 profile snapshot、每人 Launch/credential hash、断线 lease 与 resync 状态 |
+| `netplay_events` | 不含输入/state/秘密的房间 append-only 控制事件 |
 
 所有表中的时间点和时长必须遵守第 2 节，不能由各模块自行选择类型或单位。表的必需字段、枚举、唯一索引、append-only revision 和 trigger 以 [一期数据库实体与不变量](./data-model.md) 为唯一数据字典；本节只做模块目录，不能据此省略该文档的约束。
 
@@ -253,6 +256,7 @@ data/
   retrom.db
   blobs/sha256/ab/cd/<64-char-sha256>
   secrets/launch-capability.key
+  secrets/netplay-capability.key
   tmp/uploads/<upload-id>/
   tmp/jobs/
 ~~~
@@ -337,6 +341,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
   blobs/sha256/ab/cd/<64-lowercase-hex>
   tmp/uploads/<upload_parts.storage_key>
   secrets/launch-capability.key
+  secrets/netplay-capability.key
   dependencies/emulatorjs/<version>/manifest.json
   dependencies/emulatorjs/<version>/SHA256SUMS
 ```
@@ -345,6 +350,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
 - `blobs/sha256/...` 精确复制 staging 数据库快照中每一条 `blobs` 行对应的 CAS 文件，包括用户 DAT、审核/provider 证据、游戏、媒体、存档，以及仍在 GC 宽限期但暂时没有业务保护边的 Blob。因为 `retrom.db` 是未裁剪的原样快照，少复制其中任一 Blob 行都会制造不可恢复数据库；反之，只有物理 CAS 文件存在而数据库没有 Blob 行的 crash orphan 不复制。
 - `tmp/uploads/...` 只复制快照中 `upload_parts.storage_key` 仍引用的未完成分块，并逐项验证 size/SHA-256；完成上传的 part 已按清理契约不存在。`storage_key` 是相对于 `RETROM_DATA_DIR/tmp/uploads/` 的 `SAFE_LOGICAL_PATH_V1` 路径，本身不得再带 `tmp/uploads/` 前缀；备份路径只拼接一次该前缀。key 必须数据库唯一并在复制前重新校验，不能借备份复制任意宿主文件。
 - `secrets/launch-capability.key` 是原始 32 bytes；manifest 可记录其 SHA-256 用于完整性，但日志/报告只能给出校验布尔值。
+- `secrets/netplay-capability.key` 是独立原始 32 bytes，使用同样的 owner-only、no-follow、完整性与恢复规则；不能由 launch key 派生或替代。恢复任一 key 漂移都拒绝启动。
 - 每个配置版本只复制小型 dependency manifest 和对应 `SHA256SUMS` 作为恢复证据。内置 runtime/DAT/许可大 payload 不进入 bundle，由部署方按固定 manifest 预先物化到只读依赖根；用户 DAT 已作为 CAS Blob 备份。不存在另一个含糊的“运行配置快照”文件，active 与版本列表只在 `backup.json` 表达。
 
 `backup.json` 必须是下列封闭 schema 的 RFC 8785 canonical JSON；字段名、类型与枚举不得由实现自行扩展。`files` 覆盖除 `backup.json` 自身外的全部普通文件，按 `path` 的原始 UTF-8 bytes 升序；路径使用 `/`、非空相对路径、无 `.`/`..`/反斜杠/NUL/控制字符，且不能重复或 ASCII case-fold 冲突。`dependencyManifests` 按 SemVer 升序且与 `dependencyVersions` 一一对应：
@@ -391,7 +397,7 @@ retrom restore --input /backup-volume/retrom-20260806 \
 }
 ```
 
-`files.kind` 只允许 `DATABASE | CAS_BLOB | UPLOAD_PART | LAUNCH_KEY | DEPENDENCY_MANIFEST | DEPENDENCY_SHA256SUMS`，且路径与 kind 必须符合上面的唯一目录槽；恰有一个 DATABASE、一个 LAUNCH_KEY、每版本一对依赖证据。`databaseSha256` 必须等于 DATABASE 行，四个 count 必须与数组/路径实际计数相等，所有 `sizeBytes` 是非负 int64。schema v1 的 object 全部拒绝未知字段；`backup.json` 不自包含 hash，最终 bundle 的外部签名不在一期范围。schema v1 有意不放入自由形式的应用版本字符串：恢复兼容性只由 `schemaVersion/databaseSchemaVersion` 与固定依赖证据决定，交付 commit 和双镜像 release-input label 由验收报告记录。清单不得含源/目标绝对路径、cookie、capability/key 明文或 Blob 业务名称。
+`files.kind` 只允许 `DATABASE | CAS_BLOB | UPLOAD_PART | LAUNCH_KEY | NETPLAY_KEY | DEPENDENCY_MANIFEST | DEPENDENCY_SHA256SUMS`，且路径与 kind 必须符合上面的唯一目录槽；恰有一个 DATABASE、一个 LAUNCH_KEY、一个 NETPLAY_KEY、每版本一对依赖证据。`databaseSha256` 必须等于 DATABASE 行，四个 count 必须与数组/路径实际计数相等，所有 `sizeBytes` 是非负 int64。schema v1 的 object 全部拒绝未知字段；`backup.json` 不自包含 hash，最终 bundle 的外部签名不在一期范围。schema v1 有意不放入自由形式的应用版本字符串：恢复兼容性只由 `schemaVersion/databaseSchemaVersion` 与固定依赖证据决定，交付 commit 和双镜像 release-input label 由验收报告记录。清单不得含源/目标绝对路径、cookie、capability/key 明文或 Blob 业务名称。
 
 `tmp/jobs` 永远只是可丢弃 scratch：Job 的唯一可恢复输入必须是数据库、CAS、ArchiveEntry 或 UploadFile 引用，不能只存在该目录，所以它不进入备份。新增任何 Blob FK/JSON blob 引用时必须同时更新第 7 节唯一且带边分类的 `blob reference registry`；GC 从它计算保护闭包，备份/完整性检查从它验证每条引用边都命中 `blobs` 行，CI 以 schema introspection 证明没有遗漏，禁止三个模块各维护一份手写引用清单。备份的物理 CAS 枚举则始终直接来自 staging DB 的全部 `blobs` 行，不能把 GC 保护闭包误当作备份集合。
 
@@ -427,6 +433,10 @@ Migration 031 追加 `review_preview_sessions`、`review_preview_files` 与 `rev
 
 预览内容、现有依赖和运行截图三类 Blob 边均登记为 protective reference。截图只对仍被草稿选中的当前 READY Validation 投影；阻断条目可以尽最大可能运行但不能写截图。重新运行同一 Validation 会原子替换当前截图的 Blob 引用，旧 Blob 随统一 GC 规则回收，不在 HTTP、日志或清单中暴露 Blob ID/hash。完整字段和 trigger 见 [`data-model.md`](./data-model.md)。
 
-## 13. 统一验收入口
+## 13. 联机持久化与恢复边界
+
+Migration 032 的房间/成员/Session/Participant/Event 只保存控制面；逐帧 input、canonical history、hash 和 state transfer 永不进入 SQLite/CAS/backup。备份离线停服时所有活动实时 hub 已消失，但数据库可保留终态和等待房间；restore 在首次 serve 前以 `RESTORE` 结束任何遗留 STARTING/RUNNING Session、撤销其 Launch，不能恢复旧 WebSocket 或 room cookie。普通 DRAFT/WAITING 房间仍按绝对过期时刻处理。
+
+## 14. 统一验收入口
 
 SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-BKP-001`、`ACC-AUTH-001`–`002` 与 `ACC-ISO-*`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`。本文不再维护重复通过条件。

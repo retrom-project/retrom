@@ -18,11 +18,11 @@ type accountHTTPAuth struct {
 	csrf   string
 }
 
-func accountHTTPLogin(t *testing.T, handler http.Handler, username, password string) accountHTTPAuth {
+func accountHTTPLogin(t *testing.T, handler http.Handler) accountHTTPAuth {
 	t.Helper()
 	request := httptest.NewRequest(
 		http.MethodPost, "/api/v1/auth/login",
-		strings.NewReader(`{"username":"`+username+`","password":"`+password+`"}`),
+		strings.NewReader(`{"username":"test","password":"test"}`),
 	)
 	request.Header.Set("Content-Type", "application/json")
 	request.Header.Set("Origin", "http://localhost:3000")
@@ -36,7 +36,7 @@ func accountHTTPLogin(t *testing.T, handler http.Handler, username, password str
 	}
 	cookies := recorder.Result().Cookies()
 	if recorder.Code != http.StatusOK || len(cookies) != 1 || body.CSRF == "" {
-		t.Fatalf("login %q = %d cookies=%#v body=%s", username, recorder.Code, cookies, recorder.Body.String())
+		t.Fatalf("login = %d cookies=%#v body=%s", recorder.Code, cookies, recorder.Body.String())
 	}
 	return accountHTTPAuth{cookie: cookies[0], csrf: body.CSRF}
 }
@@ -68,7 +68,7 @@ func TestAccountAdministrationHTTPInvitationAndAuthorization(t *testing.T) {
 	t.Parallel()
 	server, _ := newAuthHTTPServer(t, config.ModeTest)
 	handler := server.Handler()
-	admin := accountHTTPLogin(t, handler, "test", "test")
+	admin := accountHTTPLogin(t, handler)
 
 	createRequest := httptest.NewRequest(
 		http.MethodPost, "/api/v1/admin/invitations", strings.NewReader(`{"role":"USER","confirmAdminRole":false}`),

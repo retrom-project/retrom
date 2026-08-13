@@ -92,6 +92,7 @@ start_dev() {
     PATH="$temporary_root/bin:$PATH" \
     DOCKER="$temporary_root/bin/docker" \
     make dev \
+      RETROM_NETPLAY_ENABLED="true" \
       RETROM_DATA_DIR="$temporary_root/data" \
       RETROM_HTTP_ADDR="127.0.0.1:${backend_port}" \
       RETROM_PUBLIC_ORIGIN="$browser_origin" \
@@ -271,6 +272,47 @@ print(status)
 PY
 )"
 
+netplay_proxy_status="$(python3 - "$web_port" "$browser_origin" <<'PY'
+import base64
+import json
+import os
+import socket
+import sys
+
+port = int(sys.argv[1])
+origin = sys.argv[2]
+key = base64.b64encode(os.urandom(16)).decode("ascii")
+request = (
+    "GET /runtime/netplay/rooms/01980000-0000-7000-8000-000000000001/socket HTTP/1.1\r\n"
+    f"Host: localhost:{port}\r\n"
+    f"Origin: {origin}\r\n"
+    "Sec-Fetch-Site: same-origin\r\n"
+    "Connection: Upgrade\r\n"
+    "Upgrade: websocket\r\n"
+    "Sec-WebSocket-Protocol: retrom.netplay.v1\r\n"
+    f"Sec-WebSocket-Key: {key}\r\n"
+    "Sec-WebSocket-Version: 13\r\n\r\n"
+)
+with socket.create_connection(("127.0.0.1", port), timeout=5) as connection:
+    connection.sendall(request.encode("ascii"))
+    chunks = []
+    while True:
+        chunk = connection.recv(4096)
+        if not chunk:
+            break
+        chunks.append(chunk)
+response = b"".join(chunks).decode("utf-8")
+head, body = response.split("\r\n\r\n", 1)
+status = head.split("\r\n", 1)[0]
+if status != "HTTP/1.1 401 Unauthorized":
+    raise SystemExit(f"netplay upgrade did not reach Go authentication: {status}")
+payload = json.loads(body)
+if payload.get("error", {}).get("code") != "AUTHENTICATION_REQUIRED":
+    raise SystemExit(f"unexpected netplay upgrade response: {payload!r}")
+print(status)
+PY
+)"
+
 process_tree="$(python3 - "$process_id" <<'PY'
 import subprocess
 import sys
@@ -317,8 +359,8 @@ if ! grep -q "go run ./cmd/retrom" <<<"$process_tree" || ! grep -q "next dev" <<
   exit 1
 fi
 
-printf 'live=%s\nready=%s\nfront_end_home=%s\nserver_import_roots=%s\nhmr_status=%s\n' \
-  "$live" "$ready" "$home" "$server_import_roots" "$hmr_status"
+printf 'live=%s\nready=%s\nfront_end_home=%s\nserver_import_roots=%s\nhmr_status=%s\nnetplay_proxy_status=%s\n' \
+  "$live" "$ready" "$home" "$server_import_roots" "$hmr_status" "$netplay_proxy_status"
 printf 'process_tree:\n%s\nlisteners:\n%s\n' "$process_tree" "$listeners"
 
 read -r _registration_version supervisor_pid _supervisor_start_ticks \

@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "emulatorjs": {
     "version": "4.2.3",
     "releaseUrl": "https://github.com/EmulatorJS/EmulatorJS/releases/download/v4.2.3/4.2.3.7z",
@@ -999,6 +999,36 @@
       },
       "settleMs": 60000,
       "timeoutMs": 240000
+    }
+  ],
+  "netplayFixtures": [
+    {
+      "id": "netplay-fceumm-f1race",
+      "profileId": "fceumm-423-f1race-v1",
+      "core": "fceumm",
+      "runtimeVersion": "4.2.3",
+      "game": {
+        "localPath": "data/example/local-fixtures/netplay/f1-race.nes",
+        "sourceRelativePath": "Roms/FC/F1赛车.zip",
+        "sourceArchiveLocalPath": "data/example/local-fixtures/netplay/f1-race-source.zip",
+        "sourceArchiveSize": 15343,
+        "sourceArchiveSha256": "aa9a4e5959851440c507aaa551a66eab6fe8623179a8086cb2ec8606cb830393",
+        "singleMemberArchive": true,
+        "size": 24592,
+        "sha256": "29208764886f14de20fe82b32ab034130915f6392103874d202fcbbfb8a02ee4"
+      }
+    },
+    {
+      "id": "netplay-fbneo-ldrun",
+      "profileId": "fbneo-423-ldrun-v1",
+      "core": "fbneo",
+      "runtimeVersion": "4.2.3",
+      "game": {
+        "localPath": "data/example/local-fixtures/netplay/ldrun.zip",
+        "sourceRelativePath": "Roms/FBNEO ETC/ldrun.zip",
+        "size": 59720,
+        "sha256": "b45507a74f739e27a5486d79901016b78e061c4db2025435d4df37702553e8d9"
+      }
     }
   ],
   "multiDiscFixtures": [

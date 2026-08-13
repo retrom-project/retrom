@@ -28,6 +28,7 @@ import (
 	"retrom/internal/httpapi"
 	"retrom/internal/importing"
 	"retrom/internal/maintenance"
+	"retrom/internal/netplay"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
@@ -299,6 +300,23 @@ func run(mode config.Mode) error {
 	if err != nil {
 		return fmt.Errorf("load launch credentials: %w", err)
 	}
+	netplayRegistry, err := netplay.LoadRegistry(configuration.DependencyRoot, dependencySet)
+	if err != nil {
+		return fmt.Errorf("load netplay registry: %w", err)
+	}
+	netplayCredentials, err := netplay.LoadOrCreateCredentials(configuration.DataDir)
+	if err != nil {
+		return fmt.Errorf("load netplay credentials: %w", err)
+	}
+	netplayService := netplay.NewService(database.SQL, netplayRegistry, netplayCredentials, netplay.Options{
+		MaxActiveRooms: configuration.NetplayMaxActiveRooms,
+		DraftIdle:      configuration.NetplayRoomIdleDraft,
+		WaitingIdle:    configuration.NetplayRoomIdleWaiting,
+		ReconnectLease: configuration.NetplayReconnectLease,
+	}, time.Now)
+	if err := netplayService.Recover(startupContext, "SERVER_RESTARTED"); err != nil {
+		return fmt.Errorf("recover netplay state: %w", err)
+	}
 	blocklist, err := authn.LoadBlocklist(configuration.DependencyRoot)
 	if err != nil {
 		return fmt.Errorf("load password blocklist: %w", err)
@@ -324,7 +342,7 @@ func run(mode config.Mode) error {
 
 	apiServer := httpapi.New(
 		configuration, database.SQL, dependencySet, blobs, credentials, accountService, accountService, time.Now,
-	)
+	).WithNetplay(netplayService)
 	defer apiServer.Close()
 	server := &http.Server{
 		Addr:              configuration.HTTPAddr,

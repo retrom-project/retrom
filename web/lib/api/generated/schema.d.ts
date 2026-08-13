@@ -509,6 +509,278 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/netplay/games": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getNetplayGames"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getNetplayRooms"];
+        put?: never;
+        post: operations["postNetplayRoom"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getNetplayRoom"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteNetplayRoom"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/game": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["putNetplayRoomGame"];
+        post?: never;
+        delete: operations["deleteNetplayRoomGame"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/members/me/seat": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["putNetplaySelfSeat"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/members/me/ready": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["putNetplaySelfReady"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/members/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteNetplaySelfMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/members/{memberId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                memberId: components["parameters"]["NetplayMemberID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["deleteNetplayMember"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postNetplayStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/launch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                sessionId: components["parameters"]["NetplaySessionID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postNetplayLaunch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                sessionId: components["parameters"]["NetplaySessionID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postNetplayPause"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/resume": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                sessionId: components["parameters"]["NetplaySessionID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postNetplayResume"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/sessions/{sessionId}/end": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                sessionId: components["parameters"]["NetplaySessionID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postNetplayEnd"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/netplay/rooms/{roomId}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getNetplayRoomEvents"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/runtime/netplay/rooms/{roomId}/socket": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        /** @description WebSocket upgrade using subprotocol retrom.netplay.v1; credentials are accepted only from HttpOnly cookies. */
+        get: operations["getNetplaySocket"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/uploads": {
         parameters: {
             query?: never;
@@ -2186,6 +2458,125 @@ export interface components {
             returnTo: string;
             clientCapabilities: components["schemas"]["ClientCapabilities"];
         };
+        NetplaySelectGameRequest: {
+            /** Format: uuid */
+            gameId: string;
+            netplayProfileId: string;
+        };
+        NetplaySeatRequest: {
+            playerNo: number;
+        };
+        NetplayReadyRequest: {
+            ready: boolean;
+        };
+        NetplayLaunchRequest: {
+            clientCapabilities: components["schemas"]["ClientCapabilities"];
+        };
+        NetplayProfileSummary: {
+            id: string;
+            coreId: string;
+            coreName: string;
+            emulatorjsVersion: string;
+            maxPlayers: number;
+        };
+        NetplayGameSummary: {
+            /** Format: uuid */
+            gameId: string;
+            title: string;
+            coverUrl: string | null;
+            platformId: string;
+            platformName: string;
+            /** Format: uuid */
+            platformInstanceId: string;
+            platformInstanceName: string;
+            /** Format: int64 */
+            lastPlayedAtMs: number | null;
+            /** Format: int64 */
+            addedAtMs: number;
+            /** @enum {string} */
+            availability: "SUPPORTED" | "UNSUPPORTED";
+            netplayProfiles: components["schemas"]["NetplayProfileSummary"][];
+            /** @enum {string|null} */
+            blockerCode: "CONTENT_NOT_ALLOWLISTED" | "CORE_NOT_ALLOWLISTED" | "DEPENDENCY_STALE" | "GAME_UNAVAILABLE" | null;
+        };
+        NetplayGameList: {
+            items: components["schemas"]["NetplayGameSummary"][];
+            nextCursor: string | null;
+        };
+        NetplayRoomMember: {
+            /** Format: uuid */
+            memberId: string;
+            playerNo: number;
+            /** @enum {string} */
+            role: "HOST" | "GUEST";
+            displayName: string;
+            avatarRef: string | null;
+            ready: boolean;
+            /** @enum {string} */
+            connectionState: "NOT_CONNECTED" | "LOCKED" | "LAUNCH_READY" | "RUNTIME_READY" | "SYNCHRONIZED" | "CONNECTED" | "DISCONNECTED" | "LEFT";
+        };
+        NetplayRoomGame: {
+            /** Format: uuid */
+            gameId: string;
+            title: string;
+            platformName: string;
+            profileId: string;
+            coreName: string;
+            emulatorjsVersion: string;
+            maxPlayers: number;
+        };
+        NetplaySessionSummary: {
+            /** Format: uuid */
+            sessionId: string;
+            sessionNo: number;
+            /** @enum {string} */
+            state: "PREPARING" | "LOADING" | "SYNCHRONIZING" | "RUNNING" | "PAUSED_RECONNECT" | "RESYNCHRONIZING" | "FINISHED" | "FAILED";
+        };
+        NetplayRoomPermissions: {
+            host: boolean;
+            member: boolean;
+            canSelectGame: boolean;
+            canJoin: boolean;
+            canReady: boolean;
+            canStart: boolean;
+            canClose: boolean;
+        };
+        NetplayRoom: {
+            /** Format: uuid */
+            roomId: string;
+            /** @enum {string} */
+            state: "DRAFT" | "WAITING" | "STARTING" | "RUNNING" | "ENDED" | "EXPIRED";
+            /** Format: int64 */
+            version: number;
+            game: components["schemas"]["NetplayRoomGame"] | null;
+            members: components["schemas"]["NetplayRoomMember"][];
+            currentSession: components["schemas"]["NetplaySessionSummary"] | null;
+            permissions: components["schemas"]["NetplayRoomPermissions"];
+            /** Format: uuid */
+            selfMemberId: string | null;
+            /** Format: int64 */
+            expiresAtMs: number;
+            /** Format: int64 */
+            serverNowMs: number;
+            /** Format: int64 */
+            endedAtMs: number | null;
+            /** @enum {string|null} */
+            endReason: "NORMAL" | "USER_EXIT" | "HOST_CLOSED" | "HOST_LOST" | "PEER_TIMEOUT" | "AUTH_REVOKED" | "START_TIMEOUT" | "PREPARE_FAILED" | "PROFILE_REVOKED" | "SERVER_RESTARTED" | "RESTORE" | "HARD_EXPIRED" | "ROLLBACK_WINDOW_EXCEEDED" | "STATE_RING_CAPACITY_EXCEEDED" | "STATE_TRANSFER_TIMEOUT" | "STATE_INVALID" | "NETPLAY_UNSTABLE" | "PEER_TOO_SLOW" | "PROTOCOL_VIOLATION" | "INTERNAL_ERROR" | null;
+        };
+        NetplayRoomList: {
+            items: components["schemas"]["NetplayRoom"][];
+            nextCursor: string | null;
+        };
+        NetplayLaunchResponseBody: {
+            /** Format: uuid */
+            launchId: string;
+            playUrl: string;
+            warnings: string[];
+            /** Format: int64 */
+            bootstrapExpiresAtMs: number;
+            /** Format: int64 */
+            hardExpiresAtMs: number;
+        };
         StartupAction: {
             /** @enum {string} */
             event: "GAME_START";
@@ -2215,6 +2606,8 @@ export interface components {
             captureAfterMs: number;
         };
         LaunchConfig: {
+            /** @enum {string} */
+            mode: "single" | "netplay";
             /** Format: uuid */
             launchId: string;
             emulatorjsVersion: string;
@@ -2256,6 +2649,52 @@ export interface components {
             warnings: string[];
             returnTo: string;
             reviewPreview?: components["schemas"]["ReviewPreviewConfig"];
+            netplay: components["schemas"]["NetplayLaunchConfig"] | null;
+        };
+        NetplayLaunchConfig: {
+            /** Format: uuid */
+            roomId: string;
+            /** Format: uuid */
+            sessionId: string;
+            playerNo: number;
+            netplayProfile: components["schemas"]["NetplayCanonicalProfile"];
+            runtimeSocketUrl: string;
+        };
+        NetplayCanonicalProfile: {
+            /** @enum {integer} */
+            schemaVersion: 1;
+            /** @enum {string} */
+            protocolVersion: "retrom-netplay-v1";
+            profileId: string;
+            /** @enum {string} */
+            emulatorjsVersion: "4.2.3";
+            /** @enum {string} */
+            playerAdapterId: "ejs-4.2.3-v2";
+            /** @enum {string} */
+            netplayAdapterId: "ejs-netplay-4.2.3-v1";
+            /** Format: uuid */
+            coreArtifactId: string;
+            coreArtifactSha256: string;
+            /** Format: uuid */
+            gameVariantRevisionId: string;
+            sourceManifestDigest: string;
+            dependencySnapshotDigest: string;
+            defaultCoreOptions: {
+                [key: string]: string;
+            };
+            /** @enum {integer} */
+            controlCount: 24;
+            maxPlayers: number;
+            /** @enum {integer} */
+            maxPredictionFrames: 8;
+            /** @enum {integer} */
+            maxRollbackFrames: 120;
+            /** @enum {integer} */
+            checkpointEveryFrames: 120;
+            /** @enum {integer} */
+            canonicalHistoryFrames: 600;
+            /** @enum {integer} */
+            maxStateBytes: 1048576;
         };
         CreateUploadRequest: {
             /** @enum {string} */
@@ -2938,6 +3377,7 @@ export interface components {
             /** Format: int64 */
             absoluteExpiresAtMs: number | null;
             testDefaultAccountActive: boolean;
+            netplayEnabled: boolean;
         };
         AccountLinkInspection: {
             /** @enum {string} */
@@ -3741,6 +4181,43 @@ export interface components {
                 "application/json": components["schemas"]["LaunchConfig"];
             };
         };
+        /** @description Minimal authenticated room snapshot */
+        NetplayRoomResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["NetplayRoom"];
+            };
+        };
+        /** @description Netplay game eligibility page */
+        NetplayGameListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["NetplayGameList"];
+            };
+        };
+        /** @description Rooms visible to the current profile */
+        NetplayRoomListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["NetplayRoomList"];
+            };
+        };
+        /** @description Participant-owned launch */
+        NetplayLaunchResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["NetplayLaunchResponseBody"];
+            };
+        };
         /** @description Server-sent events */
         SSEResponse: {
             headers: {
@@ -3765,6 +4242,8 @@ export interface components {
     parameters: {
         Q: string;
         Q80: string;
+        NetplayAvailability: "SUPPORTED" | "ALL";
+        NetplayRoomView: "active" | "recent";
         Role: "ADMIN" | "USER";
         PlatformIDQuery: string;
         GameIDQuery: string;
@@ -3829,6 +4308,9 @@ export interface components {
         DATVersionID: string;
         AssetID: string;
         LaunchID: string;
+        NetplayRoomID: string;
+        NetplayMemberID: string;
+        NetplaySessionID: string;
         UserID: string;
         AccountLinkID: string;
         ConfiguredVersion: string;
@@ -3893,6 +4375,26 @@ export interface components {
         Launch: {
             content: {
                 "application/json": components["schemas"]["LaunchRequest"];
+            };
+        };
+        NetplaySelectGame: {
+            content: {
+                "application/json": components["schemas"]["NetplaySelectGameRequest"];
+            };
+        };
+        NetplaySeat: {
+            content: {
+                "application/json": components["schemas"]["NetplaySeatRequest"];
+            };
+        };
+        NetplayReady: {
+            content: {
+                "application/json": components["schemas"]["NetplayReadyRequest"];
+            };
+        };
+        NetplayLaunch: {
+            content: {
+                "application/json": components["schemas"]["NetplayLaunchRequest"];
             };
         };
         CreateUpload: {
@@ -4686,6 +5188,339 @@ export interface operations {
         responses: {
             201: components["responses"]["JSONResponse"];
             202: components["responses"]["JSONResponse"];
+        };
+    };
+    getNetplayGames: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+                availability?: components["parameters"]["NetplayAvailability"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["NetplayGameListResponse"];
+        };
+    };
+    getNetplayRooms: {
+        parameters: {
+            query?: {
+                view?: components["parameters"]["NetplayRoomView"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["NetplayRoomListResponse"];
+        };
+    };
+    postNetplayRoom: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            201: components["responses"]["NetplayRoomResponse"];
+        };
+    };
+    getNetplayRoom: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["NetplayRoomResponse"];
+        };
+    };
+    deleteNetplayRoom: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Room closed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    putNetplayRoomGame: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["NetplaySelectGame"];
+        responses: {
+            200: components["responses"]["NetplayRoomResponse"];
+        };
+    };
+    deleteNetplayRoomGame: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["NetplayRoomResponse"];
+        };
+    };
+    putNetplaySelfSeat: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["NetplaySeat"];
+        responses: {
+            200: components["responses"]["NetplayRoomResponse"];
+        };
+    };
+    putNetplaySelfReady: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["NetplayReady"];
+        responses: {
+            200: components["responses"]["NetplayRoomResponse"];
+        };
+    };
+    deleteNetplaySelfMember: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Member left */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    deleteNetplayMember: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                memberId: components["parameters"]["NetplayMemberID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Guest removed */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    postNetplayStart: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            202: components["responses"]["NetplayRoomResponse"];
+        };
+    };
+    postNetplayLaunch: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                sessionId: components["parameters"]["NetplaySessionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["NetplayLaunch"];
+        responses: {
+            200: components["responses"]["NetplayLaunchResponse"];
+            201: components["responses"]["NetplayLaunchResponse"];
+        };
+    };
+    postNetplayPause: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                sessionId: components["parameters"]["NetplaySessionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            202: components["responses"]["JSONResponse"];
+        };
+    };
+    postNetplayResume: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                sessionId: components["parameters"]["NetplaySessionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            202: components["responses"]["JSONResponse"];
+        };
+    };
+    postNetplayEnd: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+                sessionId: components["parameters"]["NetplaySessionID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            202: components["responses"]["JSONResponse"];
+        };
+    };
+    getNetplayRoomEvents: {
+        parameters: {
+            query?: never;
+            header?: {
+                "Last-Event-ID"?: components["parameters"]["LastEventID"];
+            };
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["SSEResponse"];
+        };
+    };
+    getNetplaySocket: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                roomId: components["parameters"]["NetplayRoomID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebSocket upgraded */
+            101: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
         };
     };
     postAdminUpload: {

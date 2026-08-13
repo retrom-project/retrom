@@ -177,7 +177,8 @@
 
     #retrom-ui-review .rt-app.is-playing { grid-template-columns: 1fr; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
     #retrom-ui-review .rt-app.is-playing .rt-sidebar { display: none; }
-    #retrom-ui-review .rt-app.is-playing .rt-page[data-page="play"] { width: 100%; max-width: none; min-height: 100vh; }
+    #retrom-ui-review .rt-app.is-playing .rt-page[data-page="play"],
+    #retrom-ui-review .rt-app.is-playing .rt-page[data-page="netplay-player"] { width: 100%; max-width: none; min-height: 100vh; }
     #retrom-ui-review .rt-app.is-playing .rt-player-shell { min-height: 100vh; }
 
     #retrom-ui-review .rt-page { display: none; width: 100%; max-width: var(--retrom-content-max); margin: 0 auto; padding: 24px; }
@@ -187,7 +188,8 @@
     #retrom-ui-review .rt-page[data-page="favorites"] { max-width: 2320px; }
     #retrom-ui-review .rt-page[data-page="admin-platform-instances"] { max-width: 1960px; }
     #retrom-ui-review .rt-page.is-active { display: block; }
-    #retrom-ui-review .rt-page[data-page="play"] { padding: 0; }
+    #retrom-ui-review .rt-page[data-page="play"],
+    #retrom-ui-review .rt-page[data-page="netplay-player"] { padding: 0; }
     #retrom-ui-review .rt-page-head { display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; margin-bottom: 20px; }
     #retrom-ui-review h1,
     #retrom-ui-review h2,
@@ -1351,6 +1353,72 @@
     #retrom-ui-review .rt-runtime-diff-kpis strong { display: block; margin-top: 3px; color: var(--retrom-green); }
     #retrom-ui-review .rt-runtime-impact { margin: 10px 0; padding: 9px; color: var(--retrom-amber); border: 1px solid #ead398; border-radius: 8px; background: var(--retrom-amber-soft); font-size: 8px; }
 
+    #retrom-ui-review .rt-netplay-page { max-width: 1720px; }
+    #retrom-ui-review .rt-netplay-head-actions { display: flex; align-items: center; gap: 9px; }
+    #retrom-ui-review .rt-netplay-section { margin-top: 22px; }
+    #retrom-ui-review .rt-netplay-section-head { margin-bottom: 10px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
+    #retrom-ui-review .rt-netplay-section-head p { margin-top: 4px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-netplay-room-list { display: grid; gap: 10px; }
+    #retrom-ui-review .rt-netplay-room-card { min-height: 112px; padding: 14px; display: grid; grid-template-columns: 84px minmax(0, 1fr) auto; gap: 16px; align-items: center; border: 1px solid var(--retrom-line); border-radius: 14px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-netplay-cover { width: 84px; aspect-ratio: 4 / 3; display: grid; place-items: center; padding: 8px; color: #fff; border-radius: 10px; background: linear-gradient(145deg, #3a4770, #14192b); font: 800 11px/1.05 ui-monospace, monospace; text-align: center; letter-spacing: -.03em; }
+    #retrom-ui-review .rt-netplay-cover.is-arcade { background: linear-gradient(145deg, #76424b, #171a2c); }
+    #retrom-ui-review .rt-netplay-room-title { display: flex; align-items: center; gap: 9px; }
+    #retrom-ui-review .rt-netplay-room-title h3 { font-size: 15px; }
+    #retrom-ui-review .rt-netplay-room-facts { margin-top: 10px; display: grid; grid-template-columns: repeat(3, minmax(120px, 1fr)); gap: 12px; }
+    #retrom-ui-review .rt-netplay-room-facts span,
+    #retrom-ui-review .rt-netplay-room-facts strong { display: block; }
+    #retrom-ui-review .rt-netplay-room-facts span { color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-netplay-room-facts strong { margin-top: 3px; color: var(--retrom-text); font-size: 11px; }
+    #retrom-ui-review .rt-netplay-empty { min-height: 116px; display: grid; place-items: center; color: var(--retrom-muted); border: 1px dashed var(--retrom-line); border-radius: 14px; background: color-mix(in srgb, var(--retrom-panel) 72%, transparent); text-align: center; }
+    #retrom-ui-review .rt-netplay-empty strong { display: block; margin-bottom: 5px; color: var(--retrom-text); }
+    #retrom-ui-review .rt-netplay-breadcrumb { margin-bottom: 14px; display: flex; align-items: center; gap: 7px; color: var(--retrom-muted); font-size: 11px; }
+    #retrom-ui-review .rt-netplay-breadcrumb button { padding: 0; color: var(--retrom-purple); border: 0; background: transparent; }
+    #retrom-ui-review .rt-netplay-lobby { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(300px, .65fr); gap: 14px; align-items: start; }
+    #retrom-ui-review .rt-netplay-lobby-main,
+    #retrom-ui-review .rt-netplay-lobby-aside { display: grid; gap: 14px; }
+    #retrom-ui-review .rt-netplay-panel { padding: 16px; border: 1px solid var(--retrom-line); border-radius: 14px; background: var(--retrom-panel); }
+    #retrom-ui-review .rt-netplay-panel-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; }
+    #retrom-ui-review .rt-netplay-panel-head p { margin-top: 4px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-netplay-game { margin-top: 13px; display: grid; grid-template-columns: 106px minmax(0, 1fr); gap: 14px; align-items: center; }
+    #retrom-ui-review .rt-netplay-game .rt-netplay-cover { width: 106px; }
+    #retrom-ui-review .rt-netplay-game h2 { margin-top: 8px; }
+    #retrom-ui-review .rt-netplay-game p { margin-top: 5px; color: var(--retrom-muted); font-size: 10px; }
+    #retrom-ui-review .rt-netplay-seats { margin-top: 13px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+    #retrom-ui-review .rt-netplay-seat { min-height: 72px; padding: 10px; display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 1px solid var(--retrom-line); border-radius: 10px; background: var(--retrom-panel-raised); }
+    #retrom-ui-review .rt-netplay-seat.is-disabled { opacity: .55; }
+    #retrom-ui-review .rt-netplay-seat-number { width: 40px; height: 40px; display: grid; place-items: center; color: var(--retrom-purple); border-radius: 9px; background: var(--retrom-purple-soft); font-weight: 850; }
+    #retrom-ui-review .rt-netplay-seat strong,
+    #retrom-ui-review .rt-netplay-seat small { display: block; }
+    #retrom-ui-review .rt-netplay-seat small { margin-top: 3px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-netplay-actions { margin-top: 14px; padding-top: 14px; display: flex; justify-content: space-between; gap: 10px; border-top: 1px solid var(--retrom-line); }
+    #retrom-ui-review .rt-netplay-action-group { display: flex; gap: 8px; }
+    #retrom-ui-review .rt-netplay-share { margin-top: 12px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 7px; }
+    #retrom-ui-review .rt-netplay-share input { min-width: 0; }
+    #retrom-ui-review .rt-netplay-copy-status { margin-top: 8px; color: var(--retrom-muted); font-size: 9px; }
+    #retrom-ui-review .rt-netplay-rules { margin: 12px 0 0; padding: 0; display: grid; gap: 9px; list-style: none; }
+    #retrom-ui-review .rt-netplay-rules li { display: grid; grid-template-columns: 24px minmax(0, 1fr); gap: 8px; align-items: center; color: var(--retrom-muted); font-size: 10px; line-height: 1.4; }
+    #retrom-ui-review .rt-netplay-rules b { width: 24px; height: 24px; display: grid; place-items: center; color: var(--retrom-purple); border-radius: 50%; background: var(--retrom-purple-soft); }
+    #retrom-ui-review .rt-netplay-player .rt-player-screen { background: linear-gradient(180deg, #72a6bb 0 42%, #384754 43% 49%, #1b2331 50%); }
+    #retrom-ui-review .rt-netplay-player .rt-player-screen::before { width: 100%; height: 25%; left: 0; top: 44%; border-radius: 0; background: repeating-linear-gradient(90deg, transparent 0 11%, rgb(255 255 255 / .22) 11% 12%), linear-gradient(180deg, #777, #252936); box-shadow: none; clip-path: polygon(0 58%, 100% 0, 100% 100%, 0 100%); }
+    #retrom-ui-review .rt-netplay-player .rt-player-screen::after { width: 12%; height: 22%; left: 44%; bottom: 9%; background: #c93945; box-shadow: inset 0 0 0 6px #181c27; clip-path: polygon(22% 0, 78% 0, 100% 100%, 0 100%); }
+    #retrom-ui-review .rt-netplay-player-badge { padding: 4px 7px; color: #d9d1ff; border: 1px solid #524c78; border-radius: 999px; background: #27233e; font-size: 9px; font-weight: 800; }
+    #retrom-ui-review .rt-netplay-network { margin-left: auto; display: flex; align-items: center; gap: 7px; color: #9eb2a8; font-size: 10px; }
+    #retrom-ui-review .rt-netplay-player-note { position: absolute; z-index: 3; left: 50%; top: 80px; padding: 8px 12px; color: #dbe1ea; border: 1px solid #3a4658; border-radius: 999px; background: rgb(18 25 36 / .86); font-size: 9px; transform: translateX(-50%); }
+    #retrom-ui-review .rt-netplay-footer { position: absolute; z-index: 3; inset: auto 0 0; min-height: 35px; padding: 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 20px; color: #8792a3; border-top: 1px solid #30394a; background: rgb(15 20 29 / 94%); font-size: 9px; }
+
+    @media (max-width: 1000px) {
+      #retrom-ui-review .rt-netplay-lobby { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-netplay-room-facts { grid-template-columns: repeat(2, minmax(100px, 1fr)); }
+    }
+    @media (max-width: 620px) {
+      #retrom-ui-review .rt-netplay-room-card { grid-template-columns: 64px minmax(0, 1fr); }
+      #retrom-ui-review .rt-netplay-room-card > .rt-button { grid-column: 1 / -1; }
+      #retrom-ui-review .rt-netplay-cover { width: 64px; }
+      #retrom-ui-review .rt-netplay-seats { grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-netplay-actions,
+      #retrom-ui-review .rt-netplay-footer { align-items: stretch; flex-direction: column; }
+    }
+
     #retrom-ui-review .rt-empty-note { padding: 28px; color: var(--retrom-muted); text-align: center; }
 
     #retrom-ui-review .rt-player-shell { position: relative; min-height: 760px; overflow: hidden; background: #000; color: #f5f4ff; }
@@ -1900,6 +1968,9 @@
       <button type="button" data-review-scene="register">邀请注册</button>
       <button type="button" data-review-scene="reset">密码重置</button>
       <button type="button" data-review-scene="account">账户设置</button>
+      <button type="button" data-review-scene="netplay">联机首页</button>
+      <button type="button" data-review-scene="netplay-room">联机房间</button>
+      <button type="button" data-review-scene="netplay-player">联机 Player</button>
       <button type="button" data-review-scene="admin-users">用户管理</button>
     </div>
   </details>
@@ -1990,6 +2061,7 @@
           <button type="button" class="rt-nav-button" data-page-target="saves"><i data-lucide="camera" aria-hidden="true"></i><span>我的存档</span></button>
           <button type="button" class="rt-nav-button" data-page-target="favorites"><i data-lucide="heart" aria-hidden="true"></i><span>我的收藏</span></button>
           <button type="button" class="rt-nav-button" data-page-target="recent"><i data-lucide="history" aria-hidden="true"></i><span>最近游玩</span></button>
+          <button type="button" class="rt-nav-button" data-page-target="netplay"><i data-lucide="radio" aria-hidden="true"></i><span>联机游玩</span></button>
         </div>
         <div class="rt-nav-group" data-nav-mode="admin" hidden>
           <div class="rt-nav-section">
@@ -2128,6 +2200,26 @@
         <div class="rt-recent-filters" aria-label="筛选最近游玩"><label class="rt-recent-filter"><span>搜索游戏</span><span><i data-lucide="search" aria-hidden="true"></i><input class="rt-input" type="search" placeholder="输入游戏名称"></span></label><label class="rt-recent-filter"><span>游戏平台</span><select class="rt-select"><option>所有平台</option><option>Arcade</option><option>MS-DOS</option></select></label><label class="rt-recent-filter"><span>排列顺序</span><select class="rt-select"><option>按最近游玩排序</option><option>按累计时长排序</option><option>按游玩次数排序</option></select></label><label class="rt-recent-filter"><span>时间范围</span><span class="rt-recent-ranges"><button type="button" class="is-active">全部</button><button type="button">7 天</button><button type="button">30 天</button></span></label><p class="rt-recent-count">共 3 款</p></div>
         <div class="rt-recent-group"><h2>今天</h2><div class="rt-recent-list"><article class="rt-recent-row"><button type="button" class="rt-cover rt-cover-b rt-recent-cover" data-open-game="metal"><span class="rt-cover-title">1943</span></button><span class="rt-recent-content"><span class="rt-recent-main"><strong>1943: The Battle of Midway</strong><span>Arcade · FBNeo 游戏</span></span><span class="rt-recent-facts"><span class="rt-recent-fact"><span>最近游玩</span><strong>2026年8月8日 01:20</strong></span><span class="rt-recent-fact"><span>累计时长</span><strong>少于 1 分钟</strong></span><span class="rt-recent-fact"><span>游玩次数</span><strong>1 次</strong></span></span></span><span class="rt-recent-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="metal"><i data-lucide="play" aria-hidden="true"></i>再玩一次</button><button type="button" class="rt-recent-detail" data-open-game="metal">查看详情　›</button></span></article></div></div>
         <div class="rt-recent-group"><h2>更早</h2><div class="rt-recent-list"><article class="rt-recent-row"><button type="button" class="rt-cover rt-cover-c rt-recent-cover" data-open-game="doom"><span class="rt-cover-title">1941</span></button><span class="rt-recent-content"><span class="rt-recent-main"><strong>1941</strong><span>Arcade · FBNeo 游戏</span></span><span class="rt-recent-facts"><span class="rt-recent-fact"><span>最近游玩</span><strong>2026年8月7日 21:10</strong></span><span class="rt-recent-fact"><span>累计时长</span><strong>4 分钟</strong></span><span class="rt-recent-fact"><span>游玩次数</span><strong>8 次</strong></span></span></span><span class="rt-recent-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="doom"><i data-lucide="play" aria-hidden="true"></i>再玩一次</button><button type="button" class="rt-recent-detail" data-open-game="doom">查看详情　›</button></span></article><article class="rt-recent-row"><button type="button" class="rt-cover rt-cover-f rt-recent-cover" data-open-game="zelda"><span class="rt-cover-title">1945 KIII</span></button><span class="rt-recent-content"><span class="rt-recent-main"><strong>1945kiii</strong><span>Arcade · FBNeo 游戏</span></span><span class="rt-recent-facts"><span class="rt-recent-fact"><span>最近游玩</span><strong>2026年8月7日 21:02</strong></span><span class="rt-recent-fact"><span>累计时长</span><strong>1 分钟</strong></span><span class="rt-recent-fact"><span>游玩次数</span><strong>1 次</strong></span></span></span><span class="rt-recent-actions"><button type="button" class="rt-button rt-button-primary" data-quick-start="zelda"><i data-lucide="play" aria-hidden="true"></i>再玩一次</button><button type="button" class="rt-recent-detail" data-open-game="zelda">查看详情　›</button></span></article></div></div>
+      </section>
+
+      <section class="rt-page rt-netplay-page" data-page="netplay">
+        <div class="rt-page-head"><div><div class="rt-eyebrow">我的游戏</div><h1>联机游玩</h1><p class="rt-subtitle">与同一 Retrom 服务器上的玩家一起游玩经过验证的游戏组合。</p></div><div class="rt-netplay-head-actions"><span class="rt-badge rt-badge-green">服务正常</span><button type="button" class="rt-button rt-button-primary" data-page-link="netplay-room"><i data-lucide="plus" aria-hidden="true"></i>创建房间</button></div></div>
+        <section class="rt-netplay-section" aria-labelledby="rt-netplay-current"><div class="rt-netplay-section-head"><div><h2 id="rt-netplay-current">当前房间</h2><p>正在等待开始或仍可继续的房间</p></div><span class="rt-badge">1 个</span></div><div class="rt-netplay-room-list"><article class="rt-netplay-room-card"><div class="rt-netplay-cover">F-1<br>RACE</div><div><div class="rt-netplay-room-title"><h3>F-1 Race 联机房间</h3><span class="rt-badge rt-badge-amber">等待 P2</span></div><div class="rt-netplay-room-facts"><span>你的座位<strong>P1 · 房主</strong></span><span>运行方式<strong>NES · FCEUmm</strong></span><span>房间有效期<strong>29 分钟</strong></span></div></div><button type="button" class="rt-button" data-page-link="netplay-room">进入房间</button></article></div></section>
+        <section class="rt-netplay-section" aria-labelledby="rt-netplay-recent"><div class="rt-netplay-section-head"><div><h2 id="rt-netplay-recent">最近联机</h2><p>只显示当前账号参与过的最近终局</p></div></div><div class="rt-netplay-room-list"><article class="rt-netplay-room-card"><div class="rt-netplay-cover is-arcade">LODE<br>RUNNER</div><div><div class="rt-netplay-room-title"><h3>Lode Runner 联机房间</h3><span class="rt-badge">已结束</span></div><div class="rt-netplay-room-facts"><span>你的座位<strong>P2</strong></span><span>有效游玩<strong>38 分钟</strong></span><span>结束时间<strong>今天 20:16</strong></span></div></div><button type="button" class="rt-button">查看结果</button></article></div></section>
+      </section>
+
+      <section class="rt-page rt-netplay-page" data-page="netplay-room">
+        <div class="rt-netplay-breadcrumb"><button type="button" data-page-link="netplay">联机游玩</button><span>/</span><span>F-1 Race 联机房间</span></div>
+        <div class="rt-page-head"><div><div class="rt-eyebrow">你是 P1 · 房主</div><h1>F-1 Race 联机房间</h1><p class="rt-subtitle">全员已经准备，可以开始联机。</p></div><span class="rt-badge rt-badge-green">等待开始</span></div>
+        <div class="rt-netplay-lobby"><div class="rt-netplay-lobby-main"><section class="rt-netplay-panel"><div class="rt-netplay-panel-head"><div><h2>本局游戏</h2><p>开始后锁定游戏、核心、成员和座位</p></div><button type="button" class="rt-text-link">更换游戏</button></div><div class="rt-netplay-game"><div class="rt-netplay-cover">F-1<br>RACE</div><div><span class="rt-badge rt-badge-green">已验证 · 2 人</span><h2>F-1 Race</h2><p>NES · FCEUmm · EmulatorJS 4.2.3</p></div></div></section><section class="rt-netplay-panel"><div class="rt-netplay-panel-head"><div><h2>玩家位置</h2><p>P1 固定属于房主</p></div><span class="rt-badge rt-badge-green">2 / 2 已准备</span></div><div class="rt-netplay-seats"><article class="rt-netplay-seat"><span class="rt-netplay-seat-number">P1</span><span><strong>森（房主）</strong><small>已准备</small></span><span class="rt-badge rt-badge-green">READY</span></article><article class="rt-netplay-seat"><span class="rt-netplay-seat-number">P2</span><span><strong>小林</strong><small>已准备</small></span><span class="rt-badge rt-badge-green">READY</span></article><article class="rt-netplay-seat is-disabled"><span class="rt-netplay-seat-number">P3</span><span><strong>不可用</strong><small>当前游戏不支持</small></span></article><article class="rt-netplay-seat is-disabled"><span class="rt-netplay-seat-number">P4</span><span><strong>不可用</strong><small>当前游戏不支持</small></span></article></div><div class="rt-netplay-actions"><button type="button" class="rt-button rt-button-danger">关闭房间</button><div class="rt-netplay-action-group"><button type="button" class="rt-button">取消准备</button><button type="button" class="rt-button rt-button-primary" data-page-link="netplay-player">开始联机</button></div></div></section></div><aside class="rt-netplay-lobby-aside"><section class="rt-netplay-panel"><div class="rt-netplay-panel-head"><div><h2>邀请玩家</h2><p>对方仍需使用本站账号登录</p></div></div><div class="rt-netplay-share"><input class="rt-input" readonly value="https://retrom.example/netplay/rooms/019c2b14-4a60-78b3-9d15-3da2688f047a" aria-label="本站房间链接"><button type="button" class="rt-button"><i data-lucide="copy" aria-hidden="true"></i>复制</button></div><p class="rt-netplay-copy-status" role="status">只分享房间链接，不要分享 Player 地址。</p></section><section class="rt-netplay-panel"><div class="rt-netplay-panel-head"><h2>本局规则</h2></div><ol class="rt-netplay-rules"><li><b>1</b><span>开始后锁定游戏、核心、成员与座位。</span></li><li><b>2</b><span>任一玩家断线时所有人一起暂停。</span></li><li><b>3</b><span>任一玩家退出会结束所有人的本局。</span></li></ol></section></aside></div>
+      </section>
+
+      <section class="rt-page" data-page="netplay-player">
+        <div class="rt-player-shell rt-netplay-player">
+          <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="F-1 Race 联机游戏画面示意"><span class="rt-player-logo">F-1 RACE</span></div></div>
+          <div class="rt-player-top"><button type="button" class="rt-player-back" data-page-link="netplay-room" aria-label="退出本局并返回房间"><i data-lucide="arrow-left" aria-hidden="true"></i></button><div class="rt-player-title"><strong>F-1 Race</strong><div class="rt-player-meta">联机 · P1 · FCEUmm</div></div><span class="rt-netplay-player-badge">P1 · 房主</span><div class="rt-netplay-network" role="status"><span class="rt-status-dot" aria-hidden="true"></span><span>已同步 · 42 ms</span></div><div class="rt-player-actions"><button type="button" class="rt-player-control is-icon" aria-label="音量"><i data-lucide="volume-2" aria-hidden="true"></i></button><button type="button" class="rt-player-control is-icon" aria-label="全屏"><i data-lucide="maximize" aria-hidden="true"></i></button><button type="button" class="rt-player-control"><i data-lucide="pause" aria-hidden="true"></i>全局暂停</button><button type="button" class="rt-player-control" data-page-link="netplay-room"><i data-lucide="log-out" aria-hidden="true"></i>退出本局</button></div></div>
+          <div class="rt-netplay-player-note" role="status">已完成初始状态同步，所有玩家从同一逻辑帧开始</div><div class="rt-netplay-footer"><span><strong>P1 森</strong> · P2 小林</span><span>已确认 1,842 帧 · 最近回滚 2 帧 · Epoch 1</span><span>本局不读取或写入个人存档</span></div>
+        </div>
       </section>
 
       <section class="rt-page" data-page="account">
@@ -2610,7 +2702,7 @@
       let mode = 'user';
 
       const pageNames = {
-        home: '首页', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', account: '账户设置', detail: '游戏详情', play: '游玩',
+        home: '首页', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', netplay: '联机游玩', 'netplay-room': '联机房间', 'netplay-player': '联机 Player', account: '账户设置', detail: '游戏详情', play: '游玩',
         'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
         'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖'
       };
@@ -2624,10 +2716,10 @@
         selectReviewScene(page);
       }
       function showPage(page) {
-        const activeNavigationTarget = page === 'detail' ? 'library' : page === 'admin-game-detail' ? 'admin-games' : page;
+        const activeNavigationTarget = page === 'detail' ? 'library' : ['netplay-room', 'netplay-player'].includes(page) ? 'netplay' : page === 'admin-game-detail' ? 'admin-games' : page;
         app.hidden = false;
         root.querySelectorAll('[data-auth-page]').forEach((element) => { element.hidden = true; });
-        app.classList.toggle('is-playing', page === 'play');
+        app.classList.toggle('is-playing', page === 'play' || page === 'netplay-player');
         root.querySelectorAll('.rt-page').forEach((element) => element.classList.toggle('is-active', element.dataset.page === page));
         root.querySelectorAll('.rt-nav-button').forEach((button) => button.classList.toggle('is-active', button.dataset.pageTarget === activeNavigationTarget));
         selectReviewScene(page);

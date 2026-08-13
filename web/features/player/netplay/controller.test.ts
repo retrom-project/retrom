@@ -1,0 +1,219 @@
+import { afterEach, describe, expect, it, vi } from "vitest";
+import { NetplayController, type NetplayLaunchConfig } from "./controller";
+import type { EJSNetplayFrameBridge } from "./ejs-netplay-4.2.3-v1";
+
+class FakeSocket extends EventTarget {
+  static readonly OPEN = 1;
+  static instances: FakeSocket[] = [];
+  readyState = FakeSocket.OPEN;
+  binaryType = "";
+  sent: unknown[] = [];
+  closes: Array<[number | undefined, string | undefined]> = [];
+  constructor(public readonly url: URL, public readonly protocol: string) {
+    super(); FakeSocket.instances.push(this);
+    queueMicrotask(() => this.dispatchEvent(new Event("open")));
+  }
+  send(value: unknown) { this.sent.push(value); }
+  close(code?: number, reason?: string) {
+    this.closes.push([code, reason]); this.readyState = 3;
+    this.dispatchEvent(new CloseEvent("close", { code, reason }));
+  }
+  remoteClose() { this.close(); }
+  message(value: unknown) { this.dispatchEvent(new MessageEvent("message", { data: value })); }
+}
+
+const launch: NetplayLaunchConfig = {
+  roomId: "01980000-0000-7000-8000-000000000001",
+  sessionId: "01980000-0000-7000-8000-000000000002",
+  playerNo: 2,
+  runtimeSocketUrl: "/runtime/netplay/rooms/01980000-0000-7000-8000-000000000001/socket",
+  netplayProfile: {
+    schemaVersion: 1, protocolVersion: "retrom-netplay-v1", profileId: "fceumm-423-f1race-v1", emulatorjsVersion: "4.2.3",
+    playerAdapterId: "ejs-4.2.3-v2", netplayAdapterId: "ejs-netplay-4.2.3-v1",
+    coreArtifactId: "01980000-0000-7000-8000-000000000003", gameVariantRevisionId: "01980000-0000-7000-8000-000000000004",
+    coreArtifactSha256: "1".repeat(64), sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64), defaultCoreOptions: {},
+    controlCount: 24, maxPlayers: 2, maxPredictionFrames: 8, maxRollbackFrames: 120,
+    checkpointEveryFrames: 120, canonicalHistoryFrames: 600, maxStateBytes: 1_048_576,
+  },
+};
+
+function raState(core: number[]) {
+  const padded = (core.length + 7) & ~7;
+  const state = new Uint8Array(8 + 8 + padded + 8);
+  state.set(new TextEncoder().encode("RASTATE")); state[7] = 1;
+  state.set(new TextEncoder().encode("MEM "), 8);
+  new DataView(state.buffer).setUint32(12, core.length, true);
+  state.set(core, 16); state.set(new TextEncoder().encode("END "), 16 + padded);
+  return state;
+}
+
+afterEach(() => {
+  vi.useRealTimers(); vi.unstubAllGlobals(); FakeSocket.instances = [];
+});
+
+describe("NetplayController reconnect lease", () => {
+  it("reconnects a running player with HELLO seq zero and retained epoch history", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      captureState: vi.fn(() => new Uint8Array([1])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(), sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const onRunning = vi.fn();
+    const controller = new NetplayController(launch, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning, onPaused: vi.fn(), onEnded: vi.fn(),
+    });
+    await controller.start();
+    expect(FakeSocket.instances).toHaveLength(1);
+    const first = FakeSocket.instances[0]!;
+    expect(JSON.parse(first.sent[0] as string)).toMatchObject({ type: "HELLO", seq: 0, lastCanonicalFrame: -1, lastServerSeq: 0 });
+    expect(JSON.parse(first.sent[1] as string)).toMatchObject({ type: "RUNTIME_READY", seq: 1 });
+    first.message(JSON.stringify({ v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1, nextFrame: 0, occupiedSeatMask: 3 }));
+    await Promise.resolve(); await Promise.resolve();
+    expect(onRunning).toHaveBeenCalledOnce();
+    first.remoteClose();
+    await vi.advanceTimersByTimeAsync(500);
+    expect(FakeSocket.instances).toHaveLength(2);
+    const second = FakeSocket.instances[1]!;
+    expect(JSON.parse(second.sent[0] as string)).toMatchObject({ type: "HELLO", seq: 0, epoch: 0, lastCanonicalFrame: -1, lastServerSeq: 1 });
+    expect(second.sent).toHaveLength(1);
+    controller.end();
+  });
+
+  it("sends a deferred checkpoint after its post-frame state enters the rollback ring", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    let stateByte = 0;
+    let releaseFirstFrame!: () => void;
+    let calls = 0;
+    const runNetplayFrame = vi.fn(() => {
+      calls += 1;
+      if (calls === 1) return new Promise<void>((resolve) => {
+        releaseFirstFrame = () => { stateByte += 1; resolve(); };
+      });
+      stateByte += 1;
+      return Promise.resolve();
+    });
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      captureState: vi.fn(() => raState([stateByte])), loadStateAndWait: vi.fn(), runNetplayFrame,
+      sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const onCanonical = vi.fn();
+    const controller = new NetplayController(launch, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
+    }, { onCanonical });
+    await controller.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.message(JSON.stringify({
+      v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1,
+      nextFrame: 0, occupiedSeatMask: 3,
+    }));
+    await vi.waitFor(() => expect(runNetplayFrame).toHaveBeenCalledOnce());
+    const players = Array.from({ length: 4 }, () => Array(24).fill(0));
+    for (let frame = 0; frame < 120; frame += 1) socket.message(JSON.stringify({
+      v: 1, type: "CANONICAL", sessionId: launch.sessionId, epoch: 0, seq: frame + 2,
+      frame, occupiedSeatMask: 3, players,
+    }));
+    await vi.waitFor(() => expect(onCanonical).toHaveBeenCalledWith({ frame: 119, predictionFrames: 0 }));
+    expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "HASH")).toHaveLength(0);
+    releaseFirstFrame();
+    await vi.waitFor(() => {
+      const hashes = socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "HASH");
+      expect(hashes).toHaveLength(1);
+      expect(JSON.parse(hashes[0] as string)).toMatchObject({ type: "HASH", frame: 119 });
+    });
+    controller.end();
+  });
+
+  it("uses an application close code when the browser rejects a server message", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const onEnded = vi.fn();
+    const controller = new NetplayController(launch, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
+    });
+    await controller.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.message("{}");
+    await vi.waitFor(() => expect(onEnded).toHaveBeenCalledWith("PROTOCOL_VIOLATION"));
+    expect(socket.closes).toContainEqual([4008, "PROTOCOL_VIOLATION"]);
+  });
+
+  it("keeps client sequence order when delayed input is followed by an immediate control message", async () => {
+    vi.useFakeTimers();
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(),
+      runNetplayFrame: vi.fn().mockResolvedValue(undefined), sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const controller = new NetplayController(launch, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
+    }, { delayForMessage: (type) => type === "INPUT" ? 100 : 0 });
+    await controller.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.message(JSON.stringify({
+      v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1,
+      nextFrame: 0, occupiedSeatMask: 3,
+    }));
+    await vi.waitFor(() => expect(bridge.runNetplayFrame).toHaveBeenCalled());
+    controller.suspend("BLUR");
+    await vi.advanceTimersByTimeAsync(101);
+    const types = socket.sent.filter((value): value is string => typeof value === "string").map((value) => {
+      const message = JSON.parse(value) as { type: string; seq: number };
+      return { type: message.type, seq: message.seq };
+    });
+    const last = types.slice(-2);
+    expect(last.map((message) => message.type)).toEqual(["INPUT", "SUSPEND_REQUEST"]);
+    expect(last[1]!.seq).toBe(last[0]!.seq + 1);
+    controller.end();
+  });
+
+  it("waits for the active native frame boundary before loading rollback state", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    let frameRunning = false;
+    let releaseFrame!: () => void;
+    let frameCalls = 0;
+    const runNetplayFrame = vi.fn(() => {
+      frameCalls += 1;
+      if (frameCalls !== 1) return Promise.resolve();
+      frameRunning = true;
+      return new Promise<void>((resolve) => {
+        releaseFrame = () => { frameRunning = false; resolve(); };
+      });
+    });
+    const loadStateAndWait = vi.fn(async () => {
+      expect(frameRunning).toBe(false);
+    });
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      captureState: vi.fn(() => raState([0])), loadStateAndWait, runNetplayFrame,
+      sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const controller = new NetplayController(launch, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
+    });
+    await controller.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.message(JSON.stringify({
+      v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1,
+      nextFrame: 0, occupiedSeatMask: 3,
+    }));
+    await vi.waitFor(() => expect(runNetplayFrame).toHaveBeenCalledOnce());
+    const players = Array.from({ length: 4 }, () => Array(24).fill(0));
+    players[0]![0] = 1;
+    socket.message(JSON.stringify({
+      v: 1, type: "CANONICAL", sessionId: launch.sessionId, epoch: 0, seq: 2,
+      frame: 0, occupiedSeatMask: 3, players,
+    }));
+    await Promise.resolve();
+    expect(loadStateAndWait).not.toHaveBeenCalled();
+    releaseFrame();
+    await vi.waitFor(() => expect(loadStateAndWait).toHaveBeenCalledOnce());
+    controller.end();
+  });
+});

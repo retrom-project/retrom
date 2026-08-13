@@ -3,10 +3,10 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期唯一验收基线 |
-| 版本 | 1.5 |
-| 日期 | 2026-08-10 |
+| 版本 | 1.6 |
+| 日期 | 2026-08-13 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
-| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、35 核兼容性、PSP ISO/CSO 和 4K UI |
+| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、联机、35 核兼容性、PSP ISO/CSO 和 4K UI |
 
 ## 1. 文档职责
 
@@ -104,6 +104,7 @@ make acceptance-report
 | 入库数据 | 小规模的 queued/running/review-pending/failed Item 与 approve/discard ReviewEvent，供总览、任务、待审核和历史页面使用 |
 | Hasheous stub | 命中、未命中、429、超时、500、401 和畸形响应七种固定路由，不要求凭证 |
 | ROM/BIOS | `data/example/fixtures.json` 中的固定路径、大小和 SHA-256 |
+| 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-f1race-v1` 与 `fbneo-423-ldrun-v1` 的内容、core、adapter 和依赖 digest 来自 `data/netplay/v1/manifest.json`；两个浏览器必须为独立 Chrome process |
 | 游戏替换 revision | 基于 `fceumm` 真实本地夹具确定性重打包：ROM entry 字节不变，ZIP 时间固定且 comment 为 `retrom-acceptance-revision-2`；原始 Blob SHA-256 必须变化，提取内容 hash 必须不变 |
 | 媒体 | Hasheous stub 提供一张固定字节的小型合法 PNG，SHA-256 写入 seed manifest |
 | 用户 DAT 候选 | 将 `make prepare-deps` 物化的真实 `data/dat/emulatorjs/4.2.3/fbneo/fbneo-arcade.dat` 逐字节作为用户上传输入；允许 CAS 去重，但 DatVersion/安装记录必须独立 |
@@ -159,7 +160,7 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 4. 视觉 Case 必须查看本次时间戳生成的截图；不得沿用设计稿或历史 PASS 图。
 5. 每个 Case 结束立即记录状态和证据，运行中超过 60 秒应向用户提供简短进度。
 6. 发现 bug 立即登记 defect，先增加能在旧实现失败的回归测试，再修复和重跑；未经授权不得通过改规范规避。
-7. 全部完成后运行 `make acceptance-report`，按第 17 节判定项目结论。
+7. 全部完成后运行 `make acceptance-report`，按第 20 节判定项目结论。
 
 ## 4. 执行顺序
 
@@ -173,8 +174,9 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 6. `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-PLAY-*`：产品主路径；
 7. `ACC-CORE-*`：逐核心真实画面；
 8. `ACC-MDISC-*`：多盘导入、运行、回归与隔离；
-9. `ACC-UI-*`：信息架构、4K 和无障碍；
-10. 缺陷回归审计与最终报告。
+9. `ACC-NP-*`：联机房间、真实双端运行、恢复、安全与单机回归；
+10. `ACC-UI-*`：信息架构、4K 和无障碍；
+11. 缺陷回归审计与最终报告。
 
 除明确写明直接命令的 Case 外，执行命令统一为：
 
@@ -237,9 +239,9 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
 - 前置：验收准备已完成，`make deps-check` 离线通过。
-- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `NEXT_DEV_HOST` 和 `RETROM_SERVER_IMPORT_ROOTS` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取本地扫描 roots 投影。随后执行既有 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管、HMR 外部 origin 和伪造登记身份矩阵，最后安全停止。
-- 通过标准：test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；仓库 `.dev-data/bios` 与 `.dev-data/roms` 已幂等创建，API 分别只投影 `local-bios`/“本地 BIOS”和 `local-roms`/“本地 ROM”两个状态为 `AVAILABLE` 的 root，且不暴露绝对路径；其余进程接管、监听、HMR、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
-- 证据：进程树、健康/登录/首页/root HTTP 结果和退出后的 PID 检查。
+- 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `NEXT_DEV_HOST` 和 `RETROM_SERVER_IMPORT_ROOTS` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取本地扫描 roots 投影。再经前端端口发送字段完整但未认证的联机 WebSocket upgrade，并保持 HMR upgrade。随后执行 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管和伪造登记身份矩阵，最后安全停止。
+- 通过标准：test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；联机 upgrade 到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，HMR 仍为 101；仓库 `.dev-data/bios` 与 `.dev-data/roms` 已幂等创建，API 分别只投影 `local-bios`/“本地 BIOS”和 `local-roms`/“本地 ROM”两个状态为 `AVAILABLE` 的 root，且不暴露绝对路径；其余进程接管、监听、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
+- 证据：进程树、健康/登录/首页/root HTTP 结果、HMR 与联机 upgrade status 和退出后的 PID 检查。
 
 ### ACC-NET-001：应用侧代理契约与同源隔离
 
@@ -1022,7 +1024,101 @@ python3 data/example/verify-fixtures.py
 - 通过：无横向溢出/遮挡，卡宽 270–320px，Rail 头部和新建入口固定且只有中间列表自滚动，批量栏不盖末行，4K 字号/控件达标，dialog 焦点与 Escape 正确，axe 无 serious/critical。
 - 证据：三 viewport 测量/截图、键盘 trace、焦点/ARIA/axe/reduced-motion 结果。
 
-## 18. 缺陷处理与重验
+## 18. 联机游玩
+
+`ACC-NP-001`–`011` 在启动浏览器或服务前必须先运行 `python3 data/example/verify-fixtures.py`，并确认两个 netplay selector 已逐字节物化；缺失或 hash 不符直接 `FAIL`，不得换 ROM、跳过或使用 mock。真实双端 Case 使用两个或所需数量的独立 Chrome process，不得用同一 browser 的多个 context 代替。机器证据除第 3.3 节通用字段外，固定记录 browser/runtime/core/content/profile digest、参与者数、confirmed frame、rollback/resync/reconnect 计数、双端最终 core digest 和终因；敏感 cookie、能力值与宿主绝对路径不得进入证据。
+
+### ACC-NP-001：导航、搜索、分享与权限
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-001`。
+- 流程：房主建房；默认 SUPPORTED 下分别用标题 `F-1`、平台 `Arcade`、目录 `FBNeo 游戏` 和 core `FCEUmm` 搜索并验证平台/集合联动；切 ALL 后检查不可用 blocker 与 URL 恢复；分享无 token 的房间链接。P2 claim/ready，第三账号并发抢 P2，ADMIN 尝试旁路，全流程使用键盘重复。
+- 通过：导航按正式顺序出现；筛选、排序、URL 与 blocker 正确；匿名先登录；抢座稳定冲突；ADMIN 无额外权限；链接不含 capability/token；键盘焦点与弹层闭环。
+- 证据：两账号 route/DOM/network、冲突错误码、URL、焦点 trace 和 1280 截图。
+
+### ACC-NP-002：Start barrier 与准备失败回滚
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-002`。
+- 流程：P1/P2 ready 后人为令 P2 Launch 预检失败，再修复输入并重开。
+- 通过：失败局无人进入 RUNNING，Session=`PREPARE_FAILED`，已创建 Launch 全部 REVOKED，Room 回 WAITING 且 ready 清零；新局两端各自仅得到自己的 launch/cookie。
+- 证据：Room/Session/Participant/Launch 状态、两端响应与无部分启动断言。
+
+### ACC-NP-003：FCEUmm 双端基线
+
+- 上限：240 秒。执行：`make acceptance-case CASE=ACC-NP-003`。
+- 流程：`fceumm-423-f1race-v1` 两端先形成不同初始 state，再由 P1 同步；双方均贡献输入并运行至少 3000 个 confirmed frame，不注入网络故障。
+- 通过：native load 改变 P2 core；最终连续三个 checkpoint core digest 双端一致且不同于 neutral baseline；无非预期 resync/终局。
+- 证据：双进程 PID、初始/加载后 digest、frame/input/checkpoint 计数、最终截图和机器 JSON。
+
+### ACC-NP-004：FBNeo 双端基线
+
+- 上限：240 秒。执行：`make acceptance-case CASE=ACC-NP-004`。
+- 流程与标准：对 `fbneo-423-ldrun-v1` 重复 `ACC-NP-003` 全部流程；运行 logical basename 必须仍为 `ldrun.zip`。
+- 证据：除 `ACC-NP-003` 字段外记录 basename 与 content digest。
+
+### ACC-NP-005：100ms rollback 与最终收敛
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-005`。
+- 流程：两个首发 profile 分别施加确定性 100ms RTT、±20ms jitter，并每 300 帧延后一次 INPUT，但不破坏 WebSocket。
+- 通过：各 profile 至少一次 rollback；预测不超过 8 帧，单次回滚不超过 120 帧；3000 confirmed frame 后连续三个 checkpoint 收敛。
+- 证据：确定性延迟 seed、rollback 深度直方、最大 prediction、三次最终 digest。
+
+### ACC-NP-006：断线原座恢复
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-NP-006`。
+- 流程：confirmed frame≥600 后断开 P2 socket 5 秒，再以原 AuthSession/cookie 恢复。
+- 通过：两端在边界暂停；P2 保留原座；history replay、authority state 与新 epoch 完成后继续；Participant/Launch/PlaySession 各只有一套，暂停区间计时为零。
+- 证据：断线/恢复时 frame、epoch、history range、行数和 PlaySession 时长断言。
+
+### ACC-NP-007：访客超时与房主丢失
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-007`。
+- 流程：用 fake clock 令 P2 租约超过 10 秒；随后新局令 P1 租约超过 10 秒。
+- 通过：访客局以 `PEER_TIMEOUT` 收口、P2 释放、Room WAITING；房主局以 `HOST_LOST` 使 Room ENDED；旧 cookie/socket 均不可复用。
+- 证据：fake clock advance、终因、Room/成员/credential 状态和重放拒绝。
+
+### ACC-NP-008：desync 修复上限
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-NP-008`。
+- 流程：测试构建连续破坏 P2 `MEM ` digest；每次记录 state transfer 和 recapture。
+- 通过：60 秒窗口内前三次 mismatch 均执行真实 native load、recapture 并恢复一致；第四次以 `NETPLAY_UNSTABLE` 终局，之后不再推进也不生成存档。
+- 证据：四次 mismatch/resync 序列、native completion、recapture digest、终局与零存档断言。
+
+### ACC-NP-009：存档与内容授权隔离
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-009`。
+- 流程：两账号预置不同 PersistentSave 后联机；探测全部 save route，并交叉组合 room/launch/cookie/profile 访问运行内容。
+- 通过：两端从干净状态开始且结束后原 save bytes/version 不变；save route 全为 `409 NETPLAY_SAVE_UNSUPPORTED`；任何交叉组合不能读取内容。
+- 证据：前后 save digest/version、route 矩阵、跨主体状态与零联机 SaveState。
+
+### ACC-NP-010：协议与安全负向
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-010`。
+- 流程：覆盖 foreign/null/missing Origin、错 AuthSession/player/generation、future/replayed input、2MiB+1 message、1MiB+1 state、坏 binary header/RASTATE/digest；同时保持另一独立房间运行。
+- 通过：每项按封闭错误/终因拒绝，不泄密、不崩溃、不污染另一房间；严格 JSON 拒绝未知、重复、错型与过深字段。
+- 证据：负向矩阵、close code/reason、独立房间前后 checkpoint。
+
+### ACC-NP-011：重启、feature flag 与容量
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-NP-011`。
+- 流程：运行中终止并重启后端；再关闭 flag；最后建立 17 个 active room。
+- 通过：旧局以 `SERVER_RESTARTED` 收口且 Room/Launch 无假恢复；flag off 隐藏导航并拒绝新 API；第 17 房稳定 `429 NETPLAY_CAPACITY_REACHED`，前 16 房不被驱逐。
+- 证据：重启前后 DB、route/navigation、容量响应和前 16 房抽样。
+
+### ACC-NP-012：2–4 人协议边界
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-012`。
+- 流程：fake core/transport 分别锁定 2/3/4 occupied mask，注入乱序贡献并计算 4 人 hash；再打开真实首发房间。
+- 通过：空座始终 neutral，canonical 只在全部占用座贡献齐全时原子产生；4 人 digest 一致；真实 2P profile 的 P3/P4 显示不支持且不发 claim 请求。
+- 证据：三个 mask 的 frame/input/digest、network 零 claim 与房间截图。
+
+### ACC-NP-013：普通单机回归与生产产物
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-NP-013`。
+- 流程：普通受支持游戏恢复/写 PersistentSave、创建 SaveState、使用 Player controls、退出并结算时长；检查 production web bundle。
+- 通过：普通能力与联机改动前契约一致；联机模式专属禁用不泄漏到 single mode；production 产物不存在测试故障注入或可写 telemetry hook。
+- 证据：普通 launch/save/play 断言、Player network/DOM 与产物扫描。
+
+## 19. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
 
@@ -1035,14 +1131,15 @@ python3 data/example/verify-fixtures.py
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧对应 `ACC-CORE-*` 或 UI runner 断言。不得用“只能人工复现”免除固化。
 
-## 19. 最终通过标准
+## 20. 最终通过标准
 
 一期项目只有同时满足以下条件才可标记 `PASS`：
 
-- 第 5–17 节所有 Required Case 为 PASS；
+- 第 5–18 节所有 Required Case 为 PASS；
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 本次生成的三十五核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；Saturn 双盘、三盘各自的机器结果与画面复核通过；
+- `ACC-NP-001`–`013` 全部通过，两个首发 profile 均生成当次双 Chrome process 的 3000 confirmed frame 和连续三个 checkpoint 收敛证据；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -1050,7 +1147,7 @@ python3 data/example/verify-fixtures.py
 
 AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID、实际执行命令、证据目录、本次新增回归测试，以及任何 `NOT_APPLICABLE` 原因。不得仅回复“验收通过”。
 
-## 20. 专题覆盖映射
+## 21. 专题覆盖映射
 
 | 专题 | 统一 Case |
 | --- | --- |
@@ -1068,5 +1165,6 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
 | 收藏与收藏夹 | `ACC-FAV-001`–`004` |
+| 联机房间、双端运行、恢复与隔离 | `ACC-NP-001`–`013` |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。

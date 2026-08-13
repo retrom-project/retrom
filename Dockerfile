@@ -8,7 +8,9 @@ COPY scripts/fbalpha2012_dat.py scripts/fbalpha2012_dat.py
 COPY scripts/fbalpha2012-dat-enumerator.cpp scripts/fbalpha2012-dat-enumerator.cpp
 COPY data/dat data/dat
 COPY data/auth data/auth
+COPY data/netplay data/netplay
 COPY web/features/player/adapters web/features/player/adapters
+COPY web/features/player/netplay web/features/player/netplay
 RUN python3 scripts/dependencies.py prepare --versions "$RETROM_DEPENDENCY_VERSIONS" \
   && find data/runtime/emulatorjs -type f -name '*.7z' -delete \
   && find data/runtime/emulatorjs -type f -path '*/.downloads/*' -delete \
@@ -34,6 +36,7 @@ COPY --from=build /out/retrom /usr/local/bin/retrom
 COPY --from=dependencies /work/data/dat/emulatorjs /opt/retrom/dependencies/dat/emulatorjs
 COPY --from=dependencies /work/data/runtime/emulatorjs /opt/retrom/dependencies/runtime/emulatorjs
 COPY --from=dependencies /work/data/auth/password-blocklists /opt/retrom/dependencies/auth/password-blocklists
+COPY --from=dependencies /work/data/netplay /opt/retrom/dependencies/netplay
 USER 10001:10001
 ENV RETROM_HTTP_ADDR=0.0.0.0:8080 \
     RETROM_PUBLIC_ORIGIN=https://retrom.invalid \

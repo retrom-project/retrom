@@ -22,6 +22,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
+	"retrom/internal/netplay"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
@@ -161,6 +162,9 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := netplay.LoadOrCreateCredentials(dataDir); err != nil {
 		t.Fatal(err)
 	}
 	accountService, err := accounts.New(

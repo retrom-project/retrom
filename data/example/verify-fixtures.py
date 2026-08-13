@@ -175,20 +175,25 @@ def verify_format_variants(fixture: dict[str, Any], errors: list[str]) -> None:
                 errors.append("ppsspp: ISO sector 16 does not contain CD001")
 
 
-def selected_fixtures(manifest: dict, selectors: set[str]) -> tuple[list[dict], list[dict], set[str]]:
+def selected_fixtures(
+    manifest: dict, selectors: set[str]
+) -> tuple[list[dict], list[dict], list[dict], set[str]]:
     formal_fixtures = manifest.get("fixtures", [])
+    netplay_fixtures = manifest.get("netplayFixtures", [])
     multi_disc_fixtures = manifest.get("multiDiscFixtures", [])
     known = {fixture.get("core") for fixture in formal_fixtures}
+    known.update(fixture.get("id") for fixture in netplay_fixtures)
     known.update(fixture.get("id") for fixture in multi_disc_fixtures)
     unknown = selectors - known
     if not selectors:
-        return formal_fixtures, multi_disc_fixtures, unknown
+        return formal_fixtures, netplay_fixtures, multi_disc_fixtures, unknown
     return (
         [
             fixture
             for fixture in formal_fixtures
             if fixture.get("core") in selectors
         ],
+        [fixture for fixture in netplay_fixtures if fixture.get("id") in selectors],
         [fixture for fixture in multi_disc_fixtures if fixture.get("id") in selectors],
         unknown,
     )
@@ -197,7 +202,9 @@ def selected_fixtures(manifest: dict, selectors: set[str]) -> tuple[list[dict], 
 def main() -> int:
     manifest = json.loads(MANIFEST_PATH.read_text(encoding="utf-8"))
     selectors = set(sys.argv[1:])
-    core_fixtures, multi_disc_fixtures, unknown_selectors = selected_fixtures(manifest, selectors)
+    core_fixtures, netplay_fixtures, multi_disc_fixtures, unknown_selectors = selected_fixtures(
+        manifest, selectors
+    )
     dependency_manifests = {
         version: json.loads((DEPENDENCY_MANIFEST_ROOT / version / "manifest.json").read_text(encoding="utf-8"))
         for version in ("4.2.3", "4.3.0-pre")
@@ -206,8 +213,8 @@ def main() -> int:
     errors: list[str] = []
     notes: list[str] = []
 
-    if manifest.get("schemaVersion") != 3:
-        errors.append("fixtures.json: expected schemaVersion 3")
+    if manifest.get("schemaVersion") != 4:
+        errors.append("fixtures.json: expected schemaVersion 4")
     for selector in sorted(unknown_selectors):
         errors.append(f"fixtures.json: unknown fixture selector {selector!r}")
 
@@ -368,6 +375,69 @@ def main() -> int:
 
     seen_multidisc_ids: set[str] = set()
     sha256_pattern = re.compile(r"^[0-9a-f]{64}$")
+    netplay_manifest = json.loads(
+        (REPO_ROOT / "data/netplay/v1/manifest.json").read_text(encoding="utf-8")
+    )
+    netplay_profiles = {profile["id"]: profile for profile in netplay_manifest["profiles"]}
+    seen_netplay_ids: set[str] = set()
+    for fixture in netplay_fixtures:
+        fixture_id = fixture.get("id", "")
+        profile = netplay_profiles.get(fixture.get("profileId"))
+        if not fixture_id or fixture_id in seen_netplay_ids or profile is None:
+            errors.append(f"fixtures.json: invalid netplay fixture {fixture_id!r}")
+            continue
+        seen_netplay_ids.add(fixture_id)
+        game = fixture.get("game", {})
+        if (
+            fixture.get("core") != profile["coreId"]
+            or fixture.get("runtimeVersion") != profile["emulatorjsVersion"]
+            or game.get("size") != profile["contentSizeBytes"]
+            or game.get("sha256") != profile["contentSha256"]
+        ):
+            errors.append(f"{fixture_id}: fixture content drifts from netplay manifest")
+        source_relative = game.get("sourceRelativePath", "")
+        if (
+            not source_relative
+            or Path(source_relative).is_absolute()
+            or ".." in Path(source_relative).parts
+        ):
+            errors.append(f"{fixture_id}: unsafe or missing sourceRelativePath")
+        game_path = require_file(game, f"{fixture_id} game", errors)
+        source_archive_path = game.get("sourceArchiveLocalPath")
+        if source_archive_path:
+            archive_path = require_file(
+                {
+                    "path": source_archive_path,
+                    "size": game.get("sourceArchiveSize"),
+                    "sha256": game.get("sourceArchiveSha256"),
+                },
+                f"{fixture_id} source archive",
+                errors,
+            )
+            if game.get("singleMemberArchive") is not True:
+                errors.append(f"{fixture_id}: source archive must declare singleMemberArchive")
+            elif archive_path.is_file() and game_path.is_file():
+                try:
+                    with zipfile.ZipFile(archive_path) as archive:
+                        members = [entry for entry in archive.infolist() if not entry.is_dir()]
+                        if len(members) != 1:
+                            errors.append(f"{fixture_id}: expected one source archive member")
+                        else:
+                            with archive.open(members[0]) as content:
+                                if digest_reader(content, "sha256") != game["sha256"]:
+                                    errors.append(f"{fixture_id}: extracted content digest mismatch")
+                except zipfile.BadZipFile as error:
+                    errors.append(f"{fixture_id}: unable to inspect source archive: {error}")
+        if (
+            profile["sourceArchiveSizeBytes"]
+            != game.get("sourceArchiveSize", game.get("size"))
+            or profile["sourceArchiveSha256"]
+            != game.get("sourceArchiveSha256", game.get("sha256"))
+        ):
+            errors.append(f"{fixture_id}: source archive evidence drifts from netplay manifest")
+        if game_path.is_file():
+            notes.append(f"{fixture_id}: netplay fixture hash and size matched")
+
     for fixture in multi_disc_fixtures:
         fixture_id = fixture.get("id", "")
         kind = fixture.get("kind")
@@ -437,7 +507,8 @@ def main() -> int:
     )
     print(
         f"Verified {len(core_fixtures)} core fixtures against EmulatorJS "
-        f"{runtime_versions or emulatorjs['version']}, {len(multi_disc_fixtures)} multi-disc fixtures, "
+        f"{runtime_versions or emulatorjs['version']}, {len(netplay_fixtures)} netplay fixtures, "
+        f"{len(multi_disc_fixtures)} multi-disc fixtures, "
         "and pinned DAT files."
     )
     return 0

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readBoundedResponse } from "./player-shell";
+import { readBoundedResponse, reportsNativeExit } from "./player-shell";
 
 describe("readBoundedResponse", () => {
   it("assembles a bounded streamed state", async () => {
@@ -24,5 +24,12 @@ describe("readBoundedResponse", () => {
       },
     }));
     await expect(readBoundedResponse(streamed, 3)).rejects.toThrow("PLAYER_SAVE_STATE_TOO_LARGE");
+  });
+});
+
+describe("reportsNativeExit", () => {
+  it("leaves netplay termination to its global session controller", () => {
+    expect(reportsNativeExit("single")).toBe(true);
+    expect(reportsNativeExit("netplay")).toBe(false);
   });
 });

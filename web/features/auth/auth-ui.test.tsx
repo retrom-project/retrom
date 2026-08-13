@@ -10,7 +10,7 @@ vi.mock("next/navigation", () => ({ usePathname: () => navigation.pathname, useR
 
 const anonymous: AuthContext = {
   instanceState: "READY", mode: "test", authenticationState: "UNAUTHENTICATED", user: null, csrfToken: null,
-  idleExpiresAtMs: null, absoluteExpiresAtMs: null, testDefaultAccountActive: true
+  idleExpiresAtMs: null, absoluteExpiresAtMs: null, testDefaultAccountActive: true, netplayEnabled: false
 };
 const registered: AuthContext = {
   ...anonymous, authenticationState: "AUTHENTICATED", csrfToken: "csrf", user: { userId: "user-1", username: "alice", displayName: "Alice", role: "USER" }

@@ -65,6 +65,8 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能由运行时代码关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立；014 增加核心目录、BIOS delivery 与 Launch external-file 能力；015 收敛旧零 Item 导入；016 增加拒绝文件重新配置 lineage；017 增加重复内容识别证据；018 增加异步 DAT 差异快照与分页明细；019 增加审核来源快照、Validation/草稿快照归属、Arcade Parent Attachment、Job/ReviewEvent enum 和发布 digest 兜底。019 因 SQLite 无法原地改变 CHECK/非空列而使用带 `-- retrom: rebuild-with-foreign-keys-off` 的唯一受控重建：store 只识别 019，先复算旧 source manifest，事务外关闭外键，事务内重建/回填，提交前执行 `PRAGMA foreign_key_check`，随后无条件恢复外键；任何漂移或外键错误都使启动失败。026 增加服务器 BIOS 导入；027 增加收藏；028 增加 Pegasus 扫描/映射/导入聚合、`SERVER_PEGASUS_IMPORT` 来源及 VIDEO 媒体约束；029 为 Pegasus Item 增加受限结构化内部失败诊断，并为 028 的 Arcade companion 超限失败回填可判定证据；030 把 Pegasus 发布边界改为普通审核交接，增加待审核/审核丢弃状态和聚合计数；031 增加审核专用短时运行快照和 READY Validation 的第 5 秒运行截图。正式发布后继续遵守只追加 migration 的升级纪律。
 
+Migration 032 在 031 之后增加 `netplay_rooms/netplay_room_members/netplay_sessions/netplay_session_participants/netplay_events`，并为 `launch_sessions` 增加联机 session/player 和 `save_access`。联机 snapshot 与 Participant 启动绑定一经锁定不可变，event append-only；032 同时覆盖 031 升级和全新库，运行时不得补 schema。
+
 ## 4. 里程碑
 
 下列退出门禁只列“该里程碑结束时已经能完整执行”的 `ACC-*`。一个 Case 跨越多个模块时只能在所有前置都存在后首次列入，不能在较早里程碑记录“部分 PASS”；较早阶段以对应 package unit/integration/contract test 作为局部门禁，最终仍必须运行完整 Case。
@@ -145,6 +147,12 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 
 退出门禁：完整执行 `ACC-PEG-001`–`005`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。030 的 029 升级路径和全新库 schema 必须同构，并证明审核前零 Game、Approve/Discard 原子联动及交接崩溃恢复不重复内部 ImportItem；使用授权本地 Pegasus 样例完成隔离服务实测，正式 UI 源、导出稿和 1280/2560/4K 快照同步后才可删除临时设计目录。
 
+### M12：受限异地联机垂直切片
+
+范围：先锁定 `data/netplay/v1` schema/manifest、4.2.3 Player/netplay adapter 映射和两个合法本机 fixture selector；再落 Migration 032、独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；最后接通 `/netplay`、房间 UI 与 Player 的 discriminated netplay mode。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面；普通 Launch、存档和未启用 flag 的路由必须回归不变。
+
+退出门禁：完整执行 `ACC-NP-001`–`013`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e`、两个 exact core 的真实 smoke 和 `make build-images`；032 的 031 升级路径、全新库、正式 UI 源及导出快照全部闭环后才可删除临时设计目录。
+
 ## 5. 垂直切片提交规则
 
 每个可合并切片必须闭合以下链条，不允许把长期不工作的半成品推给后续 Agent：
@@ -167,6 +175,7 @@ Migration 文件一旦进入已发布分支不可改写。首版有序边界固�
 - 第一次 `make prepare-deps` 和镜像 dependency builder 需要访问 manifest 固定的公开 HTTPS runtime、DAT 与许可来源；正确缓存后校验与服务启动离线。
 - 默认构建契约只产生私有自托管镜像；若未来要 push、公开或商业分发，必须先完成 manifest 标记的受限制 core 人工许可审查。这是分发授权边界，不允许实现 Agent通过删 notice、换浮动 core 或绕过检查来处理。
 - 三十五个 core 的 ROM/BIOS 夹具由用户授权后保存在 Git 忽略目录；缺失只使对应 `ACC-CORE-*` 为 `BLOCKED`，不会授权提交 ROM/BIOS 或改用假游戏。夹具获取只允许读取操作者明确给出的主机和根目录。
+- 两个联机 exact fixture 同样由用户授权后物化到被忽略目录；`ACC-NP-001`–`011` 在浏览器启动前同时校验两者，任何一个缺失或 hash 漂移都以 `FIXTURE_MISSING` 失败，不能换 ROM 或降级为 mock。
 - 生产需要前置 NG 提供同源 HTTPS、保留 nonce CSP/隔离头并挂载持久数据卷；Retrom 本身不实现 TLS。
 - Hasheous 可临时不可用；导入仍进入人工审核，自动测试不依赖实时命中。
 

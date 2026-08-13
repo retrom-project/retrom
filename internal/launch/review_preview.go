@@ -501,7 +501,7 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 	}
 	base := "/runtime/emulatorjs/" + source.EmulatorVersion + "/"
 	return Config{
-		LaunchID: previewID, EmulatorJSVersion: source.EmulatorVersion,
+		Mode: "single", LaunchID: previewID, EmulatorJSVersion: source.EmulatorVersion,
 		PlayerAdapterID: version.Manifest.EmulatorJS.PlayerAdapter.ID,
 		Core:            source.CoreID, RuntimeCore: compatibility.RuntimeCoreID, CoreName: source.CoreName,
 		CoreArtifactID: source.ArtifactID, EmulatorGameID: source.EmulatorGameID,

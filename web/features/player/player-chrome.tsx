@@ -27,6 +27,8 @@ export function PlayerChrome({
   emulatorMuted,
   discSet,
   discState,
+  netplayPlayerNo,
+  netplayPaused,
   onHoldControls,
   onReleaseControls,
   onSave,
@@ -38,6 +40,7 @@ export function PlayerChrome({
   onChangeEmulatorVolume,
   onToggleEmulatorMute,
   onSelectDisc,
+  onToggleNetplayPause,
   onExit,
   onDownloadConflict,
 }: {
@@ -58,6 +61,8 @@ export function PlayerChrome({
   emulatorMuted: boolean;
   discSet: DiscSet | null;
   discState: DiscState | null;
+  netplayPlayerNo: number | null;
+  netplayPaused: boolean;
   onHoldControls: () => void;
   onReleaseControls: () => void;
   onSave: () => Promise<boolean>;
@@ -69,6 +74,7 @@ export function PlayerChrome({
   onChangeEmulatorVolume: (volume: number) => void;
   onToggleEmulatorMute: () => void;
   onSelectDisc: (index: number) => Promise<boolean>;
+  onToggleNetplayPause: () => void;
   onExit: () => void;
   onDownloadConflict: () => void;
 }) {
@@ -137,6 +143,7 @@ export function PlayerChrome({
   }, [localToast]);
 
   const visibleToast = localToast || toast;
+  const isNetplay = netplayPlayerNo !== null;
   const warningCopy = warnings.includes("BIOS_HASH_WARNING")
     ? "BIOS 校验值与目录期望不同，但当前允许运行。"
     : "当前运行环境有需要留意的提示。";
@@ -149,7 +156,7 @@ export function PlayerChrome({
   }
 
   async function createExitSave() {
-    if (!running || exitSavePending.current || exitSaveState === "saved") return;
+    if (isNetplay || !running || exitSavePending.current || exitSaveState === "saved") return;
     exitSavePending.current = true;
     onPauseForToolbarInteraction();
     setExitSaveState("saving");
@@ -190,7 +197,9 @@ export function PlayerChrome({
     items[target]?.focus();
   }
 
-  const exitDescription = exitSaveState === "saving"
+  const exitDescription = isNetplay
+    ? "退出会结束所有参与者的本局联机，并返回房间。联机模式不会读取或写入个人存档。"
+    : exitSaveState === "saving"
     ? "正在创建退出前存档…"
     : exitSaveState === "saved"
       ? "退出前存档已创建，可以安全退出。"
@@ -224,7 +233,7 @@ export function PlayerChrome({
       </button>
       <div className="player-game-meta">
         <strong>{gameTitle}</strong>
-        <span>{[coreName, platformName].filter(Boolean).join(" · ")}</span>
+        <span>{[coreName, platformName, isNetplay ? `联机 · P${netplayPlayerNo}` : ""].filter(Boolean).join(" · ")}</span>
       </div>
       <div className={`player-sync-status is-${syncTone}`} role="status" aria-live="polite">
         <i aria-hidden="true" />
@@ -232,7 +241,7 @@ export function PlayerChrome({
         {warnings.length ? <button className="player-warning-dot" type="button" aria-label="查看运行提醒" title="查看运行提醒" onClick={() => setLocalToast(warningCopy)} /> : null}
       </div>
       <div className="player-actions">
-        {discSet && discState ? <div className="player-menu-wrap player-disc-wrap" ref={discMenuRef}>
+        {!isNetplay && discSet && discState ? <div className="player-menu-wrap player-disc-wrap" ref={discMenuRef}>
           <button
             ref={discButtonRef}
             className="player-control player-disc-button"
@@ -261,13 +270,14 @@ export function PlayerChrome({
             <small>切换后游戏保持暂停，返回游戏即可继续。</small>
           </div> : null}
         </div> : null}
-        <button className="player-control player-save-button" type="button" disabled={!running} onClick={() => void onSave()}><AppIcon name="save" />创建存档</button>
-        <button className="player-control is-icon" type="button" aria-label={paused ? "已暂停，点击游戏画面继续" : "暂停"} title={paused ? "点击游戏画面继续" : "暂停"} aria-pressed={paused} disabled={!running}><AppIcon name="pause" /></button>
+        {!isNetplay ? <button className="player-control player-save-button" type="button" disabled={!running} onClick={() => void onSave()}><AppIcon name="save" />创建存档</button> : null}
+        {isNetplay && netplayPlayerNo === 1 ? <button className="player-control" type="button" disabled={!running} aria-pressed={netplayPaused} onClick={onToggleNetplayPause}><AppIcon name={netplayPaused ? "play" : "pause"} />{netplayPaused ? "继续联机" : "全局暂停"}</button> : null}
+        {!isNetplay ? <button className="player-control is-icon" type="button" aria-label={paused ? "已暂停，点击游戏画面继续" : "暂停"} title={paused ? "点击游戏画面继续" : "暂停"} aria-pressed={paused} disabled={!running}><AppIcon name="pause" /></button> : null}
         <button className="player-control is-icon" type="button" aria-label={fullscreen ? "退出全屏" : "全屏"} title={fullscreen ? "退出全屏" : "全屏"} onClick={onToggleFullscreen}><AppIcon name={fullscreen ? "minimize" : "maximize"} /></button>
         <div className="player-menu-wrap" ref={menuRef}>
           <button className="player-control is-icon" type="button" aria-label="更多操作" title="更多操作" aria-expanded={menuOpen} aria-haspopup="menu" onClick={() => setMenuOpen((open) => !open)}><AppIcon name="more" /></button>
           {menuOpen ? <div className="player-menu" role="menu">
-            <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onOpenEmulatorSettings(); }}><AppIcon name="settings" />模拟器设置</button>
+            {!isNetplay ? <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onOpenEmulatorSettings(); }}><AppIcon name="settings" />模拟器设置</button> : null}
             <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setLocalToast("将鼠标移到屏幕顶部可显示控制栏；Esc 只退出浏览器全屏，不会退出游戏。"); }}><AppIcon name="keyboard" />查看快捷键</button>
             {warnings.length ? <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setLocalToast(warningCopy); }}><AppIcon name="warning" />查看运行提醒</button> : null}
             <hr />
@@ -277,11 +287,11 @@ export function PlayerChrome({
       </div>
     </header>
 
-    <div className={`player-pause-overlay${paused ? " is-visible" : ""}`} aria-hidden={!paused}>
-      <div className="player-pause-pill"><AppIcon name="pause" /><strong>已暂停</strong><small>点击游戏画面继续</small></div>
+    <div className={`player-pause-overlay${paused || netplayPaused ? " is-visible" : ""}`} aria-hidden={!paused && !netplayPaused}>
+      <div className="player-pause-pill"><AppIcon name="pause" /><strong>{isNetplay ? "联机已暂停" : "已暂停"}</strong><small>{isNetplay ? "等待房主继续" : "点击游戏画面继续"}</small></div>
     </div>
 
-    <section
+    {!isNetplay ? <section
       className={`player-emulator-toolbar${emulatorToolbarOpen ? " is-open" : ""}`}
       aria-label="模拟器设置工具栏"
       aria-hidden={!emulatorToolbarOpen}
@@ -312,7 +322,7 @@ export function PlayerChrome({
         <button type="button" disabled={!emulatorToolbarOpen} aria-label={emulatorMuted ? "取消静音" : "静音"} aria-pressed={emulatorMuted} onClick={onToggleEmulatorMute}><span aria-hidden="true">{emulatorMuted ? "🔇" : "🔊"}</span></button>
         <button type="button" disabled={!emulatorToolbarOpen} onClick={onCloseEmulatorSettings}>收起</button>
       </div>
-    </section>
+    </section> : null}
 
     {!conflictDismissed && hasPersistentConflict ? <aside className="player-conflict" role="alert">
       <span className="player-conflict-mark" aria-hidden="true">!</span>
@@ -330,10 +340,10 @@ export function PlayerChrome({
       open={exitOpen}
       title="退出游戏？"
       description={exitDescription}
-      leadingLabel={exitSaveState === "saved" ? "已创建存档" : exitSaveState === "error" ? "重试创建存档" : "创建存档"}
+      leadingLabel={isNetplay ? undefined : exitSaveState === "saved" ? "已创建存档" : exitSaveState === "error" ? "重试创建存档" : "创建存档"}
       leadingBusy={exitSaveState === "saving"}
       leadingBusyLabel="正在创建…"
-      leadingDisabled={!running || exitSaveState === "saved"}
+      leadingDisabled={isNetplay || !running || exitSaveState === "saved"}
       confirmLabel="退出游戏"
       secondaryLabel={hasPersistentConflict ? "下载本地存档并退出" : undefined}
       tone="danger"
@@ -342,7 +352,7 @@ export function PlayerChrome({
       onSecondary={hasPersistentConflict ? () => { onDownloadConflict(); setExitOpen(false); onExit(); } : undefined}
       onConfirm={() => { setExitOpen(false); onExit(); }}
     >
-      {hasPersistentConflict ? <span>服务器存档已由另一会话推进；直接退出不会覆盖服务器版本，重新进入游戏后将从服务器最新版本开始。</span> : <span>退出时会刷新持久进度、结束本次游玩记录，并返回启动游戏前的页面。</span>}
+      {isNetplay ? <span>本局从头开始，退出后不会产生持久存档或状态存档。</span> : hasPersistentConflict ? <span>服务器存档已由另一会话推进；直接退出不会覆盖服务器版本，重新进入游戏后将从服务器最新版本开始。</span> : <span>退出时会刷新持久进度、结束本次游玩记录，并返回启动游戏前的页面。</span>}
     </ConfirmDialog>
   </>;
 }

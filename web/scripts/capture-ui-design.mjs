@@ -20,6 +20,9 @@ const captures = [
   ["retrom-ui-favorites-folder-manager.png", "favorites", 1280, 800, "folder-manager"],
   ["retrom-ui-favorites-unfavorite-dialog.png", "favorites", 1280, 800, "unfavorite-dialog"],
   ["retrom-ui-recent-4k.png", "recent", 3840, 2160],
+  ["retrom-ui-netplay.png", "netplay", 2560, 1440],
+  ["retrom-ui-netplay-room.png", "netplay-room", 2560, 1440],
+  ["retrom-ui-netplay-player.png", "netplay-player", 2560, 1440],
   ["retrom-ui-account.png", "account", 2560, 1440],
   ["retrom-ui-play.png", "play", 2560, 1440],
   ["retrom-ui-play-portrait.png", "play", 2560, 1440, "portrait"],
@@ -103,6 +106,10 @@ try {
     } else if (view === "admin-pegasus-import-detail") {
       await clickVisible('[data-page-target="admin-server-import"]');
       await clickVisible('[data-page-link="admin-pegasus-import-detail"]');
+    } else if (view === "netplay-room") {
+      await frame.locator('[data-review-scene="netplay-room"]').click();
+    } else if (view === "netplay-player") {
+      await frame.locator('[data-review-scene="netplay-player"]').click();
     } else if (!["home", "setup", "login", "register", "reset"].includes(view)) {
       await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);
     }

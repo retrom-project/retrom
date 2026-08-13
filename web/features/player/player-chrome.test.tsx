@@ -24,6 +24,8 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     emulatorMuted: false,
     discSet: null,
     discState: null,
+    netplayPlayerNo: null,
+    netplayPaused: false,
     onHoldControls: vi.fn(),
     onReleaseControls: vi.fn(),
     onSave: vi.fn().mockResolvedValue(true),
@@ -35,6 +37,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     onChangeEmulatorVolume: vi.fn(),
     onToggleEmulatorMute: vi.fn(),
     onSelectDisc: vi.fn().mockResolvedValue(true),
+    onToggleNetplayPause: vi.fn(),
     onExit: vi.fn(),
     onDownloadConflict: vi.fn(),
     ...overrides,
@@ -42,6 +45,19 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
 }
 
 describe("PlayerChrome", () => {
+  it("locks local save, pause, disc and emulator settings controls in netplay mode", async () => {
+    const user = userEvent.setup();
+    const values = props({ netplayPlayerNo: 1, netplayPaused: false });
+    render(<PlayerChrome {...values} />);
+    expect(screen.getByText("FinalBurn Neo · Arcade · 联机 · P1")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "创建存档" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "暂停" })).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "全局暂停" }));
+    expect(values.onToggleNetplayPause).toHaveBeenCalledOnce();
+    await user.click(screen.getByRole("button", { name: "更多操作" }));
+    expect(screen.queryByRole("menuitem", { name: "模拟器设置" })).not.toBeInTheDocument();
+  });
+
   it("shows the locked disc set and changes discs without exposing server paths", async () => {
     const user = userEvent.setup();
     const values = props({

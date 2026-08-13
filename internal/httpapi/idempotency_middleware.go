@@ -62,7 +62,7 @@ func (response *bufferedResponse) Write(contents []byte) (int, error) {
 	return written, nil
 }
 
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
+//nolint:funlen // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) idempotencyHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		operationID, _ := request.Context().Value(operationIDContextKey).(string)
@@ -129,28 +129,13 @@ FROM idempotency_records
 WHERE operation_id=?
 AND key=?
 AND principal_id=?
-`, operationID, key, principalID).
+		`, operationID, key, principalID).
 			Scan(&storedDigest, &storedStatus, &headersJSON, &storedBody)
 		if err == nil {
-			if storedDigest != digest {
-				writeError(
-					writer,
-					request,
-					http.StatusConflict,
-					"IDEMPOTENCY_KEY_REUSED",
-					"幂等键已用于另一请求",
-					map[string]any{},
-				)
-				return
-			}
-			var headers map[string]string
-			_ = json.Unmarshal([]byte(headersJSON), &headers)
-			for name, value := range headers {
-				writer.Header().Set(name, value)
-			}
-			writer.Header().Set("X-Retrom-Idempotent-Replay", "true")
-			writer.WriteHeader(storedStatus)
-			_, _ = writer.Write(storedBody)
+			server.replayIdempotentResponse(
+				writer, request, operationID, digest, storedDigest,
+				storedStatus, headersJSON, storedBody,
+			)
 			return
 		}
 		if !errors.Is(err, sql.ErrNoRows) {
@@ -205,6 +190,37 @@ expires_at_ms) VALUES(?,
 		}
 		copyResponse(writer, response)
 	})
+}
+
+func (server *Server) replayIdempotentResponse(
+	writer http.ResponseWriter,
+	request *http.Request,
+	operationID, digest, storedDigest string,
+	storedStatus int,
+	headersJSON string,
+	storedBody []byte,
+) {
+	if storedDigest != digest {
+		writeError(
+			writer, request, http.StatusConflict,
+			"IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{},
+		)
+		return
+	}
+	var headers map[string]string
+	_ = json.Unmarshal([]byte(headersJSON), &headers)
+	if operationID == "postNetplayLaunch" {
+		if err := server.reissueNetplayCookies(writer, request, storedBody); err != nil {
+			serverError(writer, request, err)
+			return
+		}
+	}
+	for name, value := range headers {
+		writer.Header().Set(name, value)
+	}
+	writer.Header().Set("X-Retrom-Idempotent-Replay", "true")
+	writer.WriteHeader(storedStatus)
+	_, _ = writer.Write(storedBody)
 }
 
 func semanticRequestDigest(request *http.Request, principalID, operationID string, contents []byte) (string, bool) {

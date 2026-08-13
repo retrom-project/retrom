@@ -2,12 +2,14 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { adapterID, captureManualScreenshot, captureManualState, mountEmulatorJS, scheduleStartupActions, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
 
 const config: PlayerConfig = {
+  mode: "single",
   launchId: "01980000-0000-7000-8000-000000000001",
   emulatorjsVersion: "4.2.3",
   playerAdapterId: adapterID,
   core: "mgba",
   runtimeCore: "mgba",
   coreName: "mGBA",
+  coreArtifactId: "00000000-0000-4000-8000-000000000001",
   emulatorGameId: 1004,
   gameName: "retrom-1",
   gameTitle: "Sudoku",
@@ -26,7 +28,8 @@ const config: PlayerConfig = {
   runtimePathOverrides: { "mgba-wasm.data": "/runtime/emulatorjs/4.2.3/data/cores/mgba-wasm.data" },
   defaultCoreOptions: { webgl2Enabled: "enabled" },
   externalFiles: {},
-  returnTo: "/library"
+  returnTo: "/library",
+  netplay: null
 };
 
 describe("EmulatorJS adapter", () => {
@@ -49,6 +52,8 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_gameUrl).toBe(config.gameUrl);
     expect(window.EJS_externalFiles).toEqual({});
     expect(window.EJS_Buttons).toEqual({ exitEmulation: false });
+    expect(window.EJS_DEBUG_XX).toBe(false);
+    expect(window.EJS_EXPERIMENTAL_NETPLAY).toBe(false);
     expect(document.querySelector<HTMLScriptElement>("script[data-retrom-loader]")?.src).toContain(config.loaderUrl);
     cleanup();
   });

@@ -199,6 +199,27 @@ class DependencyVersionValidationTests(unittest.TestCase):
             dependencies.parse_versions("4.3.0-pre.01")
 
 
+class NetplayManifestValidationTests(unittest.TestCase):
+    def test_release_netplay_manifest_matches_adapters_and_core_artifacts(self) -> None:
+        manifests = [
+            dependencies.load_manifest("4.2.3"),
+            dependencies.load_manifest("4.3.0-pre"),
+        ]
+        dependencies.validate_netplay_manifest(
+            manifests, {"ejs-netplay-4.2.3-v1": "4.2.3"}
+        )
+
+    def test_rejects_unregistered_netplay_adapter(self) -> None:
+        manifests = [
+            dependencies.load_manifest("4.2.3"),
+            dependencies.load_manifest("4.3.0-pre"),
+        ]
+        with self.assertRaisesRegex(
+            dependencies.CheckError, "NETPLAY_ADAPTER_REGISTRY_DRIFT"
+        ):
+            dependencies.validate_netplay_manifest(manifests, {})
+
+
 class ReleaseInputDigestTests(unittest.TestCase):
     def test_unstaged_delete_is_absent_and_untracked_rename_is_present(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
