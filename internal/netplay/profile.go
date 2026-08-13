@@ -46,17 +46,11 @@ type Protocol struct {
 }
 
 type ManifestProfile struct {
-	ID                     string `json:"id"`
-	EmulatorJSVersion      string `json:"emulatorjsVersion"`
-	CoreID                 string `json:"coreId"`
-	CoreArtifactSHA256     string `json:"coreArtifactSha256"`
-	ContentKind            string `json:"contentKind"`
-	ContentLogicalName     string `json:"contentLogicalName"`
-	ContentSizeBytes       int64  `json:"contentSizeBytes"`
-	ContentSHA256          string `json:"contentSha256"`
-	SourceArchiveSizeBytes int64  `json:"sourceArchiveSizeBytes"`
-	SourceArchiveSHA256    string `json:"sourceArchiveSha256"`
-	MaxPlayers             int    `json:"maxPlayers"`
+	ID                 string `json:"id"`
+	EmulatorJSVersion  string `json:"emulatorjsVersion"`
+	CoreID             string `json:"coreId"`
+	CoreArtifactSHA256 string `json:"coreArtifactSha256"`
+	MaxPlayers         int    `json:"maxPlayers"`
 }
 
 type Manifest struct {
@@ -97,7 +91,7 @@ func parseRegistry(contents []byte, dependencySet *dependencies.Set) (*Registry,
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%w: trailing data", ErrManifestInvalid)
 	}
-	if manifest.SchemaVersion != 1 || !validProtocol(manifest.Protocol) || len(manifest.Profiles) == 0 {
+	if manifest.SchemaVersion != 2 || !validProtocol(manifest.Protocol) || len(manifest.Profiles) == 0 {
 		return nil, fmt.Errorf("%w: protocol", ErrManifestInvalid)
 	}
 	version := dependencySet.Versions["4.2.3"]
@@ -138,9 +132,6 @@ func validProtocol(protocol Protocol) bool {
 func validManifestProfile(profile ManifestProfile, core dependencies.SelectedCore) bool {
 	return profile.ID != "" && profile.ID == strings.ToLower(profile.ID) && len(profile.ID) <= 64 &&
 		profile.EmulatorJSVersion == "4.2.3" && profile.CoreArtifactSHA256 == core.SHA256 &&
-		profile.ContentKind == "SINGLE_FILE" && profile.ContentLogicalName != "" &&
-		profile.ContentSizeBytes > 0 && validDigest(profile.ContentSHA256) &&
-		profile.SourceArchiveSizeBytes > 0 && validDigest(profile.SourceArchiveSHA256) &&
 		profile.MaxPlayers >= 2 && profile.MaxPlayers <= 4 &&
 		slices.Contains(core.SupportedContentKinds, "SINGLE_FILE")
 }

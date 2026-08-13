@@ -28,7 +28,7 @@ Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256
 
 4.2.3 的 Player adapter 固定为 `ejs-4.2.3-v2`，registry 不保留无法由当前 manifest 解释的 v1 fallback。dependency bootstrap 对同一 `(core_id, emulatorjs_version, sha256)` 保留 CoreArtifact ID；bundle/flavor/path/size/compatibility/enabled 等运行语义变化时原子递增 artifact version，逐字节等价的重复 bootstrap 连 `updated_at_ms` 也不改。历史 VariantRevision、SaveState 与 PersistentSave 继续绑定原 artifact ID，但未发布的 generation 3 validation 全部 stale，必须由 compatibility V3 重新验证后才能发布。
 
-联机使用独立的 [`data/netplay/v1/manifest.json`](../data/netplay/v1/manifest.json) 与 schema 作为普通兼容性之上的 exact allowlist。首发只有 `fceumm-423-f1race-v1` 与 `fbneo-423-ldrun-v1`：每项锁定 EmulatorJS 4.2.3、core artifact SHA-256、内容逻辑名/size/SHA-256、来源 archive size/SHA-256 和 `maxPlayers=2`；协议同时锁定 `retrom-netplay-v1`、`ejs-4.2.3-v2`、`ejs-netplay-4.2.3-v1`、24 controls、120-frame checkpoint、8 prediction、120 rollback、600 history 与 1 MiB state 上限。校验器必须与 runtime manifest 的 core artifact、supported content kind 和前端 registry 双向一致，未知 EmulatorJS/adapter/profile 不得 fallback。两个 ROM 只由操作者物化到被忽略的 `data/example/local-fixtures/netplay/`，不属于 dependency payload 或镜像内容。
+联机使用独立的 [`data/netplay/v1/manifest.json`](../data/netplay/v1/manifest.json) 与 schema 作为普通兼容性之上的 core-profile allowlist。schema v2 的首发 profile 为 `fceumm-423-v1` 与 `fbneo-423-v1`：每项只锁定 EmulatorJS 4.2.3、core artifact SHA-256 和 `maxPlayers=2`；协议另锁定 `SINGLE_FILE`、`retrom-netplay-v1`、`ejs-4.2.3-v2`、`ejs-netplay-4.2.3-v1`、24 controls、120-frame checkpoint、8 prediction、120 rollback、600 history 与 1 MiB state 上限。任意发布游戏只要当前 READY VariantRevision 使用该精确 artifact、内容类型受协议允许且依赖快照仍有效，即可选择此 profile；ROM 逻辑名、大小、hash 与来源 archive 不进入产品准入。校验器必须与 runtime manifest 的 core artifact、supported content kind 和前端 registry 双向一致，未知 EmulatorJS/adapter/profile 不得 fallback。F-1 Race 与 Lode Runner 只作为两个 core profile 的代表性双端回归夹具，由操作者物化到被忽略的 `data/example/local-fixtures/netplay/`，不属于 dependency payload、镜像内容或逐游戏白名单。
 
 仓库与本地缓存边界固定为：
 
@@ -63,7 +63,7 @@ data/auth/password-blocklists/v1/
 
 | 命令 | 确切行为 |
 | --- | --- |
-| `make data-check` | 只校验已提交的小文件：4.2.3 manifest schema V5、artifact compatibility V3、多盘 kind/limits、普通与联机 Player adapter registry 双向一致、netplay exact allowlist、DAT/许可字段与 `SHA256SUMS`，以及密码 blocklist manifest 的固定 tag/commit、URL、行数、size/SHA 和 MIT 许可。无 payload、无网络时也必须通过。 |
+| `make data-check` | 只校验已提交的小文件：4.2.3 manifest schema V5、artifact compatibility V3、多盘 kind/limits、普通与联机 Player adapter registry 双向一致、netplay core-profile exact allowlist、DAT/许可字段与 `SHA256SUMS`，以及密码 blocklist manifest 的固定 tag/commit、URL、行数、size/SHA 和 MIT 许可。无 payload、无网络时也必须通过。 |
 | `make prepare-deps` | 对 `RETROM_DEPENDENCY_VERSIONS` 中缺失/错误的 runtime、core、DAT、许可 payload 以及账户密码 blocklist/许可执行固定来源下载、确定性转换、解包与原子发布，生成 notice；默认 `4.2.3,4.3.0-pre`，最后隐式执行 `deps-check`。已有正确缓存时不访问网络。 |
 | `make deps-check` | 不联网，逐个校验运行时 allowlist、选定 core、可选 DAT、override、许可输入、确定性 notice，以及密码 blocklist 的 size/SHA/10,000 行和许可。缺少、额外发布或不匹配均失败。 |
 | `make release-input-digest` | 不联网、不写工作树，按本节算法校验并只向 stdout 输出 64 位小写 `releaseInputDigest`；镜像 target 调用同一 helper，不复制 shell 算法。 |

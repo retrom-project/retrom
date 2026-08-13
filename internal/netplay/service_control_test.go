@@ -99,7 +99,7 @@ func TestEligibilityBlockerUsesClosedRepairCodes(t *testing.T) {
 		want                                    string
 	}{
 		{name: "game unavailable", want: "GAME_UNAVAILABLE"},
-		{name: "content", hasVariant: true, want: "CONTENT_NOT_ALLOWLISTED"},
+		{name: "content kind", hasVariant: true, want: "CONTENT_NOT_ALLOWLISTED"},
 		{name: "core", hasVariant: true, contentAllowed: true, want: "CORE_NOT_ALLOWLISTED"},
 		{name: "dependency", hasVariant: true, contentAllowed: true, coreAllowed: true, want: "DEPENDENCY_STALE"},
 	}
@@ -108,6 +108,63 @@ func TestEligibilityBlockerUsesClosedRepairCodes(t *testing.T) {
 			t.Parallel()
 			if got := eligibilityBlocker(test.hasVariant, test.contentAllowed, test.coreAllowed); got != test.want {
 				t.Fatalf("eligibilityBlocker() = %q, want %q", got, test.want)
+			}
+		})
+	}
+}
+
+func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
+	t.Parallel()
+	manifest, err := os.ReadFile(filepath.Join("..", "..", "data", "netplay", "v1", "manifest.json"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	registry, err := parseRegistry(manifest, fixtureDependencySet())
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := &Service{registry: registry}
+	tests := []struct {
+		profileID, coreID, artifactSHA, logicalName string
+	}{
+		{
+			profileID: "fceumm-423-v1", coreID: "fceumm",
+			artifactSHA: "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493",
+			logicalName: "unverified-region-build.nes",
+		},
+		{
+			profileID: "fbneo-423-v1", coreID: "fbneo",
+			artifactSHA: "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c",
+			logicalName: "another-machine.zip",
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.coreID, func(t *testing.T) {
+			t.Parallel()
+			profile, ok := registry.Profile(test.profileID)
+			if !ok {
+				t.Fatalf("profile %q missing", test.profileID)
+			}
+			contentAllowed, artifactMatches := service.matchesCoreProfile(eligibilityRow{
+				coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
+				artifactEnabled: 1, contentKind: "SINGLE_FILE", logicalName: test.logicalName,
+			}, profile)
+			if !contentAllowed || !artifactMatches {
+				t.Fatalf("arbitrary %s content did not match core profile", test.coreID)
+			}
+			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
+				coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
+				artifactEnabled: 1, contentKind: "MULTI_DISC_M3U_V1",
+			}, profile)
+			if contentAllowed || artifactMatches {
+				t.Fatalf("unsupported %s content kind matched core profile", test.coreID)
+			}
+			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
+				coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: strings.Repeat("f", 64),
+				artifactEnabled: 1, contentKind: "SINGLE_FILE",
+			}, profile)
+			if !contentAllowed || artifactMatches {
+				t.Fatalf("drifted %s artifact matched core profile", test.coreID)
 			}
 		})
 	}
@@ -172,8 +229,8 @@ VALUES(?,?,'Prepare fixture','','','','',2,NULL,'ADMIN_EDIT',?)`, []any{metadata
 VALUES(?,?,'ADMIN_REPLACE','prepare-fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("1", 64), now.UnixMilli()}},
 		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
 VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,'prepare fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,24592,?,?,?,'application/octet-stream',?)`, []any{contentBlobID, "29208764886f14de20fe82b32ab034130915f6392103874d202fcbbfb8a02ee4", strings.Repeat("5", 32), strings.Repeat("6", 40), strings.Repeat("7", 8), now.UnixMilli()}},
-		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','f1-race.nes',?,0)`, []any{contentID, contentBlobID}},
+		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,32768,?,?,?,'application/octet-stream',?)`, []any{contentBlobID, strings.Repeat("9", 64), strings.Repeat("5", 32), strings.Repeat("6", 40), strings.Repeat("7", 8), now.UnixMilli()}},
+		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','another-game.nes',?,0)`, []any{contentID, contentBlobID}},
 		{`INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
 VALUES(?,'fceumm','4.2.3','test','WASM','cores/test.data',1,?,'{}','{}',1,1,?,?)`, []any{artifactID, "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493", now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
@@ -258,7 +315,7 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 		t.Fatal(err)
 	}
 	if len(games) != 1 || games[0].GameID != gameID || len(games[0].NetplayProfiles) != 1 ||
-		games[0].NetplayProfiles[0].ID != "fceumm-423-f1race-v1" || games[0].BlockerCode != nil {
+		games[0].NetplayProfiles[0].ID != "fceumm-423-v1" || games[0].BlockerCode != nil {
 		t.Fatalf("eligible games = %#v", games)
 	}
 	eligible, err := service.eligibleProfiles(ctx, gameID)

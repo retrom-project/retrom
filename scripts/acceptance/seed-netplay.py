@@ -33,7 +33,7 @@ GAMES = (
         "title": "F-1 Race",
         "platform_instance_id": "01980000-0000-7000-8000-000000000001",
         "core": "fceumm",
-        "profile": "fceumm-423-f1race-v1",
+        "profile": "fceumm-423-v1",
         "logical_name": "f1-race.nes",
         "fixture": "data/example/local-fixtures/netplay/f1-race.nes",
         "sha256": "29208764886f14de20fe82b32ab034130915f6392103874d202fcbbfb8a02ee4",
@@ -50,7 +50,7 @@ GAMES = (
         "title": "Lode Runner",
         "platform_instance_id": "01980000-0000-7000-8000-000000000006",
         "core": "fbneo",
-        "profile": "fbneo-423-ldrun-v1",
+        "profile": "fbneo-423-v1",
         "logical_name": "ldrun.zip",
         "fixture": "data/example/local-fixtures/netplay/ldrun.zip",
         "sha256": "b45507a74f739e27a5486d79901016b78e061c4db2025435d4df37702553e8d9",
@@ -334,7 +334,7 @@ def main() -> int:
         connection.close()
     print("netplay_seed=passed")
     print("accounts=test,alice,charlie")
-    print("profiles=fceumm-423-f1race-v1,fbneo-423-ldrun-v1")
+    print("profiles=fceumm-423-v1,fbneo-423-v1")
     return 0
 
 

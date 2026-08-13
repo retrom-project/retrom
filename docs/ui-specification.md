@@ -351,11 +351,11 @@ URL 状态为：
 
 `/netplay` 只有 feature flag 开启且已登录时可进入。标题区提供唯一“创建房间”主操作并在提交中防双击；下方固定分“当前房间”和“最近联机”两区，分别覆盖 skeleton、空状态、容量/限流错误和终态卡片。Room card 展示短房号、状态、游戏/core、参与人数与进入入口，不暴露 Profile ID、Launch 或 credential。
 
-房主新建后进入 DRAFT 游戏选择页。该页复用游戏库的标题、搜索、集合/平台筛选、排序、响应式卡片与空状态；只增加 SUPPORTED/UNSUPPORTED eligibility、blocker 文案和“选择”，若同一游戏有多条 profile 才打开窄对话框。筛选以 `history.replaceState` 维护 `q/platformId/platformInstanceId/availability/sort`，`/` 快捷键聚焦搜索，不能复制一套漂移的游戏库布局。首个 server render 必须从 App Router `searchParams` 得到同一规范化筛选并作为 Client Component 初值；不得在 hydration 后才从 `window.location` 补写状态而造成 HTML 漂移，刷新和前进/后退必须恢复同一结果。
+房主新建后进入 DRAFT 游戏选择页。该页复用游戏库的标题、搜索、集合/平台筛选、排序、响应式卡片与空状态；只增加 SUPPORTED/UNSUPPORTED eligibility、blocker 文案和“选择”。SUPPORTED 表示当前 READY VariantRevision 命中 manifest 的 EmulatorJS/core artifact profile、协议允许的内容类型与有效依赖快照，不表示该 ROM 被逐游戏登记；若同一游戏有多条 core profile 才打开窄对话框。筛选以 `history.replaceState` 维护 `q/platformId/platformInstanceId/availability/sort`，`/` 快捷键聚焦搜索，不能复制一套漂移的游戏库布局。首个 server render 必须从 App Router `searchParams` 得到同一规范化筛选并作为 Client Component 初值；不得在 hydration 后才从 `window.location` 补写状态而造成 HTML 漂移，刷新和前进/后退必须恢复同一结果。
 
-WAITING 房间展示游戏锁定摘要、复制本站房间链接、P1–P4 座位卡与底部操作。未占座访客只能选择支持范围内的空 P2–P4；成员 ready 后先取消才能换座。房主可在 WAITING 移出访客、更换游戏、关闭房间，只有至少两人且全员 ready 时“开始联机”可用。SSE 断线提示不得遮盖座位；连续失败转为 5 秒轮询并保留可重试错误。STARTING 为每人自动创建自己的 Launch 并 `location.replace` 到 Player，不展示第二个启动按钮；终态原位说明 reason 并返回联机首页。
+WAITING 房间展示游戏锁定摘要、复制本站房间链接、P1–P4 座位卡与底部操作。未占座访客只能选择支持范围内的空 P2–P4；成员 ready 后先取消才能换座。房主可在 WAITING 移出访客、更换游戏、关闭房间，只有至少两人且全员 ready 时“开始联机”可用。房间快照按版本单调前进，较旧的 mutation 响应不得覆盖 SSE 已显示的成员状态；ready 恰逢另一成员更新而冲突时刷新并至多自动重试一次，不向用户暴露可自行恢复的“房间信息被修改”。SSE 断线提示不得遮盖座位；连续失败转为 5 秒轮询并保留可重试错误。STARTING 为每人自动创建自己的 Launch 并 `location.replace` 到 Player，不展示第二个启动按钮；终态原位说明 reason 并返回联机首页。
 
-联机 Player 复用无侧栏 stage 与工具栏视觉，但元信息明确显示“联机 · Pn”。它隐藏创建存档、普通暂停、换盘、Core/控制重映射和模拟器设置；P1 只看到“全局暂停/继续联机”，P2 只看到网络状态。暂停 overlay 写“联机已暂停/等待房主继续”；断线在 10 秒租约内显示“连接中断，正在恢复”，恢复时不离开 Player。退出确认明确“会结束所有参与者且不会产生存档”，确认后返回本房间。所有联机按钮、seat、dialog、SSE error 和终态必须可键盘操作、有可读 label/status/live region，不能只靠颜色表达。
+联机 Player 复用无侧栏 stage 与工具栏视觉，但元信息明确显示“联机 · Pn”。它隐藏创建存档、普通暂停、换盘、Core/控制重映射和模拟器设置；P1 只看到“全局暂停/继续联机”，P2 只看到网络状态。暂停 overlay 写“联机已暂停/等待房主继续”；断线在 10 秒租约内显示“连接中断，正在恢复”，恢复时不离开 Player。只要 Player 页面未刷新、关闭或主动离开，切换窗口、浏览器失焦、最小化和页面内操作都必须保留当前 Launch、WebSocket 与参与者身份，不得发送 suspend/disconnect、返回房间或重复申请 Launch；失焦只释放本地按键，避免控制保持按下。退出确认明确“会结束所有参与者且不会产生存档”，确认后返回本房间。所有联机按钮、seat、dialog、SSE error 和终态必须可键盘操作、有可读 label/status/live region，不能只靠颜色表达。
 
 ### 6.9 账户入口与账户设置
 

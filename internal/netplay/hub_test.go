@@ -52,6 +52,22 @@ func TestAcceptanceNP010InputRateLimitAllowsBurstAndRefillsAt120PerSecond(t *tes
 	}
 }
 
+func TestLegacyFocusSuspendDoesNotDisconnectOrPauseTheSession(t *testing.T) {
+	t.Parallel()
+	client := &peer{participant: SocketParticipant{PlayerNo: 2}}
+	session := &realtimeSession{running: true, nextFrame: 42}
+
+	if err := session.handleMessage(context.Background(), client, ClientMessage{
+		Type: "SUSPEND_REQUEST", Reason: "BLUR",
+	}, 0); err != nil {
+		t.Fatalf("legacy focus suspend = %v", err)
+	}
+	if !session.running || session.pause != nil || session.nextFrame != 42 {
+		t.Fatalf("focus suspend changed live session: running=%v pause=%#v next=%d",
+			session.running, session.pause, session.nextFrame)
+	}
+}
+
 func TestPauseBarrierRequiresEveryOccupiedPlayerAndReconnectHistory(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

@@ -19,7 +19,7 @@ func TestRegistryRejectsDependencyDriftAndProducesStableCanonicalProfile(t *test
 	if err != nil {
 		t.Fatal(err)
 	}
-	profile, ok := registry.Profile("fbneo-423-ldrun-v1")
+	profile, ok := registry.Profile("fbneo-423-v1")
 	if !ok {
 		t.Fatal("expected profile missing")
 	}
@@ -42,6 +42,29 @@ func TestRegistryRejectsDependencyDriftAndProducesStableCanonicalProfile(t *test
 	set.Versions["4.2.3"].Manifest.EmulatorJS.SelectedCores[0].SHA256 = "wrong"
 	if _, err := parseRegistry(contents, set); err == nil {
 		t.Fatal("dependency artifact drift accepted")
+	}
+}
+
+func TestRegistryRejectsContentSpecificProfileFields(t *testing.T) {
+	t.Parallel()
+	contents := []byte(`{
+  "schemaVersion":2,
+  "protocol":{
+    "version":"retrom-netplay-v1","playerAdapterId":"ejs-4.2.3-v2",
+    "netplayAdapterId":"ejs-netplay-4.2.3-v1","controlCount":24,
+    "checkpointEveryFrames":120,"maxPredictionFrames":8,"maxRollbackFrames":120,
+    "canonicalHistoryFrames":600,"maxStateBytes":1048576,
+    "allowedContentKinds":["SINGLE_FILE"]
+  },
+  "profiles":[{
+    "id":"fceumm-423-v1","emulatorjsVersion":"4.2.3","coreId":"fceumm",
+    "coreArtifactSha256":"8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493",
+    "contentSha256":"29208764886f14de20fe82b32ab034130915f6392103874d202fcbbfb8a02ee4",
+    "maxPlayers":2
+  }]
+}`)
+	if _, err := parseRegistry(contents, fixtureDependencySet()); err == nil {
+		t.Fatal("content-specific profile field accepted")
 	}
 }
 

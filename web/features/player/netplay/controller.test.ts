@@ -28,7 +28,7 @@ const launch: NetplayLaunchConfig = {
   playerNo: 2,
   runtimeSocketUrl: "/runtime/netplay/rooms/01980000-0000-7000-8000-000000000001/socket",
   netplayProfile: {
-    schemaVersion: 1, protocolVersion: "retrom-netplay-v1", profileId: "fceumm-423-f1race-v1", emulatorjsVersion: "4.2.3",
+    schemaVersion: 1, protocolVersion: "retrom-netplay-v1", profileId: "fceumm-423-v1", emulatorjsVersion: "4.2.3",
     playerAdapterId: "ejs-4.2.3-v2", netplayAdapterId: "ejs-netplay-4.2.3-v1",
     coreArtifactId: "01980000-0000-7000-8000-000000000003", gameVariantRevisionId: "01980000-0000-7000-8000-000000000004",
     coreArtifactSha256: "1".repeat(64), sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64), defaultCoreOptions: {},
@@ -143,11 +143,12 @@ describe("NetplayController reconnect lease", () => {
     expect(socket.closes).toContainEqual([4008, "PROTOCOL_VIOLATION"]);
   });
 
-  it("keeps client sequence order when delayed input is followed by an immediate control message", async () => {
+  it("releases local controls on focus loss without suspending the network session", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeSocket);
+    const resetLocalControls = vi.fn();
     const bridge = {
-      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls, close: vi.fn(),
       captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(),
       runNetplayFrame: vi.fn().mockResolvedValue(undefined), sampleLocalControls: vi.fn(() => Array(24).fill(0)),
     } as unknown as EJSNetplayFrameBridge;
@@ -161,15 +162,40 @@ describe("NetplayController reconnect lease", () => {
       nextFrame: 0, occupiedSeatMask: 3,
     }));
     await vi.waitFor(() => expect(bridge.runNetplayFrame).toHaveBeenCalled());
-    controller.suspend("BLUR");
+    const resetsBeforeBlur = resetLocalControls.mock.calls.length;
+    controller.handleFocusLoss();
     await vi.advanceTimersByTimeAsync(101);
-    const types = socket.sent.filter((value): value is string => typeof value === "string").map((value) => {
-      const message = JSON.parse(value) as { type: string; seq: number };
-      return { type: message.type, seq: message.seq };
+    const types = socket.sent.filter((value): value is string => typeof value === "string")
+      .map((value) => (JSON.parse(value) as { type: string }).type);
+    expect(types).not.toContain("SUSPEND_REQUEST");
+    expect(resetLocalControls).toHaveBeenCalledTimes(resetsBeforeBlur + 1);
+    controller.end();
+  });
+
+  it("does not suspend a player that loses focus before the initial sync epoch starts", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const resetLocalControls = vi.fn();
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls, close: vi.fn(),
+      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame: vi.fn(),
+      sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const onEnded = vi.fn();
+    const controller = new NetplayController(launch, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded,
     });
-    const last = types.slice(-2);
-    expect(last.map((message) => message.type)).toEqual(["INPUT", "SUSPEND_REQUEST"]);
-    expect(last[1]!.seq).toBe(last[0]!.seq + 1);
+
+    await controller.start();
+    const socket = FakeSocket.instances[0]!;
+    controller.handleFocusLoss();
+
+    const types = socket.sent
+      .filter((value): value is string => typeof value === "string")
+      .map((value) => (JSON.parse(value) as { type: string }).type);
+    expect(types).toEqual(["HELLO", "RUNTIME_READY"]);
+    expect(socket.readyState).toBe(FakeSocket.OPEN);
+    expect(resetLocalControls).toHaveBeenCalledOnce();
+    expect(onEnded).not.toHaveBeenCalled();
     controller.end();
   });
 

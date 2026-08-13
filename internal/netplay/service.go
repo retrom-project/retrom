@@ -251,11 +251,11 @@ func (service *Service) eligibleProfiles(ctx context.Context, gameID string) ([]
 	return profiles, err
 }
 
-func eligibilityBlocker(hasVariant, contentAllowed, coreAllowed bool) string {
+func eligibilityBlocker(hasVariant, contentKindAllowed, coreAllowed bool) string {
 	if !hasVariant {
 		return "GAME_UNAVAILABLE"
 	}
-	if !contentAllowed {
+	if !contentKindAllowed {
 		return "CONTENT_NOT_ALLOWLISTED"
 	}
 	if !coreAllowed {
@@ -292,10 +292,9 @@ func lockedSnapshotJSON(raw string) ([]byte, bool) {
 }
 
 type eligibilityRow struct {
-	revisionID, artifactID, coreID, coreName, emulatorVersion, artifactSHA  string
-	dependencyJSON, compatibilityJSON, contentKind, logicalName, contentSHA string
-	contentSize                                                             int64
-	artifactEnabled                                                         int
+	revisionID, artifactID, coreID, coreName, emulatorVersion, artifactSHA string
+	dependencyJSON, compatibilityJSON, contentKind, logicalName            string
+	artifactEnabled                                                        int
 }
 
 func (service *Service) profileEligibility(ctx context.Context, gameID string) ([]eligibleProfile, string, error) {
@@ -305,14 +304,14 @@ func (service *Service) profileEligibility(ctx context.Context, gameID string) (
 	}
 	result := make([]eligibleProfile, 0)
 	seen := make(map[string]struct{})
-	contentAllowed, coreAllowed := false, false
+	contentKindAllowed, coreAllowed := false, false
 	for _, row := range lockedRows {
 		for _, candidate := range service.registry.Profiles() {
 			if _, duplicate := seen[candidate.ID]; duplicate {
 				continue
 			}
 			profile, contentMatch, coreMatch, current, matchErr := service.matchEligibleProfile(ctx, row, candidate)
-			contentAllowed = contentAllowed || contentMatch
+			contentKindAllowed = contentKindAllowed || contentMatch
 			coreAllowed = coreAllowed || coreMatch
 			if matchErr != nil {
 				return nil, "", matchErr
@@ -326,14 +325,14 @@ func (service *Service) profileEligibility(ctx context.Context, gameID string) (
 	slices.SortFunc(result, func(left, right eligibleProfile) int {
 		return strings.Compare(left.Summary.ID, right.Summary.ID)
 	})
-	return result, eligibilityBlocker(len(lockedRows) > 0, contentAllowed, coreAllowed), nil
+	return result, eligibilityBlocker(len(lockedRows) > 0, contentKindAllowed, coreAllowed), nil
 }
 
 func (service *Service) queryEligibilityRows(ctx context.Context, gameID string) ([]eligibilityRow, error) {
 	rows, err := service.database.QueryContext(ctx, `
 SELECT revision.id,artifact.id,artifact.core_id,core.name,artifact.emulatorjs_version,artifact.sha256,
   revision.dependency_snapshot_json,artifact.compatibility_config_json,content.content_kind,
-  file.logical_name,blob.size_bytes,blob.sha256,artifact.enabled
+  file.logical_name,artifact.enabled
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
@@ -342,7 +341,6 @@ JOIN core_artifacts artifact ON artifact.id=revision.core_artifact_id
 JOIN cores core ON core.id=artifact.core_id
 JOIN game_content_revisions content ON content.id=revision.game_content_revision_id
 JOIN game_content_files file ON file.game_content_revision_id=content.id AND file.role='CONTENT'
-JOIN blobs blob ON blob.id=file.blob_id
 WHERE game.id=? AND game.status='PUBLISHED'
 ORDER BY artifact.core_id,revision.id,file.sort_order,file.logical_name
 `, gameID)
@@ -355,8 +353,7 @@ ORDER BY artifact.core_id,revision.id,file.sort_order,file.logical_name
 		var row eligibilityRow
 		if err := rows.Scan(
 			&row.revisionID, &row.artifactID, &row.coreID, &row.coreName, &row.emulatorVersion, &row.artifactSHA,
-			&row.dependencyJSON, &row.compatibilityJSON, &row.contentKind, &row.logicalName, &row.contentSize,
-			&row.contentSHA, &row.artifactEnabled,
+			&row.dependencyJSON, &row.compatibilityJSON, &row.contentKind, &row.logicalName, &row.artifactEnabled,
 		); err != nil {
 			return nil, fmt.Errorf("netplay/eligible profile row: %w", err)
 		}
@@ -373,20 +370,16 @@ func (service *Service) matchEligibleProfile(
 	row eligibilityRow,
 	candidate ManifestProfile,
 ) (eligibleProfile, bool, bool, bool, error) {
-	basenameValid := candidate.CoreID != "fbneo" || row.logicalName == candidate.ContentLogicalName
-	contentMatches := candidate.ContentKind == row.contentKind && candidate.ContentSizeBytes == row.contentSize &&
-		candidate.ContentSHA256 == row.contentSHA && basenameValid
-	if !contentMatches {
+	contentKindAllowed, artifactMatches := service.matchesCoreProfile(row, candidate)
+	if !contentKindAllowed {
 		return eligibleProfile{}, false, false, false, nil
 	}
-	artifactMatches := row.artifactEnabled == 1 && candidate.CoreID == row.coreID &&
-		candidate.EmulatorJSVersion == row.emulatorVersion && candidate.CoreArtifactSHA256 == row.artifactSHA
 	if !artifactMatches {
-		return eligibleProfile{}, true, false, false, nil
+		return eligibleProfile{}, contentKindAllowed, false, false, nil
 	}
 	current, err := service.dependencySnapshotCurrent(ctx, row.artifactID, row.logicalName, row.dependencyJSON)
 	if err != nil {
-		return eligibleProfile{}, true, true, false, fmt.Errorf("netplay/dependency snapshot: %w", err)
+		return eligibleProfile{}, contentKindAllowed, true, false, fmt.Errorf("netplay/dependency snapshot: %w", err)
 	}
 	return eligibleProfile{
 		Summary: ProfileSummary{
@@ -395,7 +388,14 @@ func (service *Service) matchEligibleProfile(
 		},
 		Manifest: candidate, VariantRevisionID: row.revisionID, CoreArtifactID: row.artifactID,
 		DependencySnapshotJSON: row.dependencyJSON, DefaultCoreOptions: compatibilityOptions(row.compatibilityJSON),
-	}, true, true, current, nil
+	}, contentKindAllowed, true, current, nil
+}
+
+func (service *Service) matchesCoreProfile(row eligibilityRow, candidate ManifestProfile) (bool, bool) {
+	contentKindAllowed := slices.Contains(service.registry.Manifest.Protocol.AllowedContentKinds, row.contentKind)
+	artifactMatches := contentKindAllowed && row.artifactEnabled == 1 && candidate.CoreID == row.coreID &&
+		candidate.EmulatorJSVersion == row.emulatorVersion && candidate.CoreArtifactSHA256 == row.artifactSHA
+	return contentKindAllowed, artifactMatches
 }
 
 func compatibilityOptions(raw string) map[string]string {

@@ -230,7 +230,7 @@ PersistentSave 能力来自 artifact compatibility：`SINGLE_FILE` 沿用上述�
 
 ## 11. PlaySession 与有效时长
 
-`EJS_onGameStart`（必然发生在 `saveDatabaseLoaded` handler 成功之后）立即提交 sequence 0 的 start。前端每 30 秒发送 heartbeat，包含连续 sequence 以及上一区间的 `running/visible/paused`。`paused` 读取固定适配器中的 `EJS_emulator.paused`；可见性来自 `document.visibilityState`。
+`EJS_onGameStart`（必然发生在 `saveDatabaseLoaded` handler 成功之后）立即提交 sequence 0 的 start。前端每 30 秒发送 heartbeat，包含连续 sequence 以及上一区间的 `running/visible/paused`。`paused` 读取固定适配器中的 `EJS_emulator.paused`；可见性来自 `document.visibilityState`。联机 Player 的 `blur/visibilitychange` 只清空本地控制输入，不发送 `SUSPEND_REQUEST`、不关闭 WebSocket、不结束 Launch，也不导航回房间；Chrome 后台节流 EmulatorJS 时共享 lockstep 可以等待，恢复前台后沿原连接继续。页面刷新、关闭、主动退出、真实 socket/ping 故障或服务端终局才进入对应结束/恢复路径，服务端不得用短时缺少输入贡献代替网络存活判断。
 
 config bootstrap 后到 `EJS_onGameStart` 前尚无 PlaySession，只受 LaunchSession hard expiry；显式退出或 `pagehide` 发送 sequence 0、`previousInterval:null` 的 pre-start finish。真实 start 后服务端才建立 2 分钟 idle expiry，heartbeat 每 30 秒刷新；因此 ROM/core 下载耗时不会被误判成游玩失联。
 
@@ -262,7 +262,7 @@ X-Content-Type-Options: nosniff
 
 `EJSNetplayFrameBridge` 只适配 4.2.3：拦截本地 P1 physical controls、通过 `postMainLoop`/`toggleMainLoop` 精确推进一帧、用原生 `getState/loadState` 处理 RASTATE，并在 rollback replay 时抑制画面/音频。RASTATE 必须含 version 1 与 `MEM ` chunk；full state 和 core chunk 分别 SHA-256，state 最大 1 MiB。`loadState` 即使目标 bytes 与当前状态相同也必须真实调用；联机模式使用 manifest 锁定的 4.2.3 source loader，让 adapter 接收 RetroArch 的 `[State] ... game.state` 原生完成日志，同时显式关闭 EmulatorJS 实验性 netplay transport。每次加载由 adapter 先替换内存 FS 的 `/game.state`、调用固定 `functions.loadState("game.state", 0)`，在日志 callback 返回后的 microtask 暂停主循环、重抓并逐字节验证，再立即删除该文件；不能使用公共 `GameManager.loadState` 的五秒延迟清理、JS 函数返回、文件 open/close 或 digest 相同替代 native completion。每 epoch 从 P1 state transfer 开始；客户端最多预测 8 帧，保存 120 帧/128 MiB state ring，canonical 差异回滚到最早帧并确定性 replay，每 120 帧上报 core digest。服务端 history 保留 600 帧；PAUSE 后所有 occupied seat 先确认相同边界，恢复端再确认 history `toFrame`，断线 10 秒内客户端才经 authority state 开新 epoch。访客超时结束本局、释放座位并回 WAITING，房主超时以 `HOST_LOST` 关闭房间。60 秒内前三次 checkpoint mismatch 都执行真实 authority state resync，第四次以 `NETPLAY_UNSTABLE` 结束本局。任何 ring 溢出、窗口越界、state 格式/协议突变都 fail closed，不以继续运行掩盖分歧。
 
-普通 Player adapter、普通 Launch、状态/持久存档和多盘路径保持原契约；联机 exact profile 是否可选只由服务端 allowlist + 当前 READY revision 判断，不由前端 core 名称推断。
+普通 Player adapter、普通 Launch、状态/持久存档和多盘路径保持原契约；联机 core profile 是否可选只由服务端 allowlist、当前 READY revision 的精确 CoreArtifact 与当前依赖快照共同判断，不由前端 core 名称推断，也不按单个 ROM hash 建白名单。房间锁定的 GameVariantRevision 继续保证所有参与者得到同一内容字节。
 
 ## 14. 统一验收入口
 

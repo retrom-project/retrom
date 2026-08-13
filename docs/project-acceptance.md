@@ -104,7 +104,7 @@ make acceptance-report
 | 入库数据 | 小规模的 queued/running/review-pending/failed Item 与 approve/discard ReviewEvent，供总览、任务、待审核和历史页面使用 |
 | Hasheous stub | 命中、未命中、429、超时、500、401 和畸形响应七种固定路由，不要求凭证 |
 | ROM/BIOS | `data/example/fixtures.json` 中的固定路径、大小和 SHA-256 |
-| 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-f1race-v1` 与 `fbneo-423-ldrun-v1` 的内容、core、adapter 和依赖 digest 来自 `data/netplay/v1/manifest.json`；两个浏览器必须为独立 Chrome process |
+| 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-v1` 与 `fbneo-423-v1` 的 EmulatorJS/core artifact/adapter 边界来自 `data/netplay/v1/manifest.json`，F-1 Race 与 Lode Runner 的代表性内容字节来自 `data/example/fixtures.json`；两个浏览器必须为独立 Chrome process |
 | 游戏替换 revision | 基于 `fceumm` 真实本地夹具确定性重打包：ROM entry 字节不变，ZIP 时间固定且 comment 为 `retrom-acceptance-revision-2`；原始 Blob SHA-256 必须变化，提取内容 hash 必须不变 |
 | 媒体 | Hasheous stub 提供一张固定字节的小型合法 PNG，SHA-256 写入 seed manifest |
 | 用户 DAT 候选 | 将 `make prepare-deps` 物化的真实 `data/dat/emulatorjs/4.2.3/fbneo/fbneo-arcade.dat` 逐字节作为用户上传输入；允许 CAS 去重，但 DatVersion/安装记录必须独立 |
@@ -1031,9 +1031,9 @@ python3 data/example/verify-fixtures.py
 ### ACC-NP-001：导航、搜索、分享与权限
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-001`。
-- 流程：房主建房；默认 SUPPORTED 下分别用标题 `F-1`、平台 `Arcade`、目录 `FBNeo 游戏` 和 core `FCEUmm` 搜索并验证平台/集合联动；切 ALL 后检查不可用 blocker 与 URL 恢复；分享无 token 的房间链接。P2 claim/ready，第三账号并发抢 P2，ADMIN 尝试旁路，全流程使用键盘重复。
-- 通过：导航按正式顺序出现；筛选、排序、URL 与 blocker 正确；匿名先登录；抢座稳定冲突；ADMIN 无额外权限；链接不含 capability/token；键盘焦点与弹层闭环。
-- 证据：两账号 route/DOM/network、冲突错误码、URL、焦点 trace 和 1280 截图。
+- 流程：房主建房；默认 SUPPORTED 下分别用标题 `F-1`、平台 `Arcade`、目录 `FBNeo 游戏` 和 core `FCEUmm` 搜索并验证平台/集合联动；另以 service 集成夹具证明名称、大小和 hash 均不同于代表 ROM 的 FCEUmm/FBNeo `SINGLE_FILE` READY revision 仍分别命中同一 core profile，而未开放 core、非允许 content kind、无 READY revision 和 stale dependency 继续阻断。切 ALL 后检查不可用 blocker 与 URL 恢复；分享无 token 的房间链接。两个账号分别使用独立 Chrome process 打开房间，P2 claim 后先 ready，P1 从其房间页看到更新并首次点击即 ready；P1 启动后两端各自自动进入 Player。故意延迟 P1 config，让 P2 独自在初始同步屏障中失焦 1.5 秒，再放行 P1。第三账号并发抢 P2，ADMIN 尝试旁路，全流程使用键盘重复。
+- 通过：导航按正式顺序出现；筛选、排序、URL 与 blocker 正确；产品准入不依赖逐 ROM 名称/大小/hash，仍精确限制 EmulatorJS/core artifact、content kind、READY revision 与依赖快照；匿名先登录；抢座稳定冲突；ADMIN 无额外权限；链接不含 capability/token；P1 首次 ready 不出现 `PRECONDITION_FAILED`，两端均在 STARTING 后自动进入各自不同且仅属于本人的 Launch URL；P2 在同步前失焦后仍停留 Player、没有 `NETPLAY_PROFILE_STALE`，随后双方进入 RUNNING；键盘焦点与弹层闭环。
+- 证据：两个独立 Chrome process 的 PID、两账号 route/DOM/network、ready 状态传播、两端 Launch path、同步前失焦保活、冲突错误码、URL、焦点 trace 和 1280 截图。
 
 ### ACC-NP-002：Start barrier 与准备失败回滚
 
@@ -1045,20 +1045,20 @@ python3 data/example/verify-fixtures.py
 ### ACC-NP-003：FCEUmm 双端基线
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-NP-003`。
-- 流程：`fceumm-423-f1race-v1` 两端先形成不同初始 state，再由 P1 同步；双方均贡献输入并运行至少 3000 个 confirmed frame，不注入网络故障。
+- 流程：`fceumm-423-v1` 使用代表性 F-1 Race 夹具，两端先形成不同初始 state，再由 P1 同步；双方均贡献输入并运行至少 3000 个 confirmed frame，不注入网络故障。
 - 通过：native load 改变 P2 core；最终连续三个 checkpoint core digest 双端一致且不同于 neutral baseline；无非预期 resync/终局。
 - 证据：双进程 PID、初始/加载后 digest、frame/input/checkpoint 计数、最终截图和机器 JSON。
 
 ### ACC-NP-004：FBNeo 双端基线
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-NP-004`。
-- 流程与标准：对 `fbneo-423-ldrun-v1` 重复 `ACC-NP-003` 全部流程；运行 logical basename 必须仍为 `ldrun.zip`。
+- 流程与标准：对 `fbneo-423-v1` 使用代表性 Lode Runner 夹具重复 `ACC-NP-003` 全部流程；运行 logical basename 必须仍为 `ldrun.zip`。
 - 证据：除 `ACC-NP-003` 字段外记录 basename 与 content digest。
 
 ### ACC-NP-005：100ms rollback 与最终收敛
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-005`。
-- 流程：两个首发 profile 分别施加确定性 100ms RTT、±20ms jitter，并每 300 帧延后一次 INPUT，但不破坏 WebSocket。
+- 流程：两个首发 core profile 分别施加确定性 100ms RTT、±20ms jitter，并每 300 帧延后一次 INPUT，但不破坏 WebSocket。
 - 通过：各 profile 至少一次 rollback；预测不超过 8 帧，单次回滚不超过 120 帧；3000 confirmed frame 后连续三个 checkpoint 收敛。
 - 证据：确定性延迟 seed、rollback 深度直方、最大 prediction、三次最终 digest。
 
@@ -1139,7 +1139,7 @@ python3 data/example/verify-fixtures.py
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 本次生成的三十五核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；Saturn 双盘、三盘各自的机器结果与画面复核通过；
-- `ACC-NP-001`–`013` 全部通过，两个首发 profile 均生成当次双 Chrome process 的 3000 confirmed frame 和连续三个 checkpoint 收敛证据；
+- `ACC-NP-001`–`013` 全部通过，两个首发 core profile 均生成当次双 Chrome process 的 3000 confirmed frame 和连续三个 checkpoint 收敛证据；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；

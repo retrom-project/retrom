@@ -8,7 +8,7 @@ import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
-import { applyRoomSnapshot, netplayBlocker, roomMutation, type NetplayGame, type NetplayLaunch, type NetplayRoom } from "./client";
+import { applyRoomSnapshot, NetplayAPIError, netplayBlocker, roomMutation, type NetplayGame, type NetplayLaunch, type NetplayRoom } from "./client";
 
 type Filters = { query: string; platformId: string; platformInstanceId: string; availability: "SUPPORTED" | "ALL"; sort: "RECENT_DESC" | "ADDED_DESC" | "TITLE_ASC" };
 export type NetplayFilterParams = Partial<Record<"q" | "platformId" | "platformInstanceId" | "availability" | "sort", string>>;
@@ -94,15 +94,23 @@ export function NetplayRoomLobby({ initialRoom, games, initialFilterParams = {} 
   const [copied, setCopied] = useState(false);
   const [confirmAction, setConfirmAction] = useState<"leave" | "close" | null>(null);
   const [profileGame, setProfileGame] = useState<NetplayGame | null>(null);
+  const roomRef = useRef(initialRoom);
   const launchSession = useRef<string | null>(null);
   const pollTimer = useRef<number | null>(null);
+
+  const applyIncomingRoom = useCallback((incoming: NetplayRoom) => {
+    const applied = applyRoomSnapshot(roomRef.current, incoming);
+    roomRef.current = applied.room;
+    setRoom((current) => applyRoomSnapshot(current, incoming).room);
+    return applied;
+  }, []);
 
   const refresh = useCallback(async () => {
     const response = await authenticatedFetch(`/api/v1/netplay/rooms/${initialRoom.roomId}`, { cache: "no-store" });
     if (!response.ok) throw new Error("无法刷新房间状态");
     const next = await response.json() as NetplayRoom;
-    setRoom((current) => applyRoomSnapshot(current, next).room);
-  }, [authenticatedFetch, initialRoom.roomId]);
+    return applyIncomingRoom(next).room;
+  }, [applyIncomingRoom, authenticatedFetch, initialRoom.roomId]);
 
   useEffect(() => {
     let failures = 0;
@@ -111,11 +119,8 @@ export function NetplayRoomLobby({ initialRoom, games, initialFilterParams = {} 
       failures = 0;
       try {
         const incoming = JSON.parse(event.data) as NetplayRoom;
-        setRoom((current) => {
-          const applied = applyRoomSnapshot(current, incoming);
-          if (applied.gap) void refresh();
-          return applied.room;
-        });
+        const applied = applyIncomingRoom(incoming);
+        if (applied.gap) void refresh();
       } catch { void refresh(); }
     };
     for (const name of ["room.snapshot", "room.updated", "member.updated", "session.updated", "room.ended"]) source.addEventListener(name, receive as EventListener);
@@ -126,7 +131,7 @@ export function NetplayRoomLobby({ initialRoom, games, initialFilterParams = {} 
       if (pollTimer.current === null) pollTimer.current = window.setInterval(() => void refresh().catch(() => undefined), 5_000);
     };
     return () => { source.close(); if (pollTimer.current !== null) window.clearInterval(pollTimer.current); };
-  }, [initialRoom.roomId, refresh]);
+  }, [applyIncomingRoom, initialRoom.roomId, refresh]);
 
   useEffect(() => {
     if (!copied) return;
@@ -145,12 +150,34 @@ export function NetplayRoomLobby({ initialRoom, games, initialFilterParams = {} 
     });
   }, [authenticatedFetch, room]);
 
-  async function mutate(path: string, method: "POST" | "PUT" | "DELETE", body?: unknown) {
+  async function mutate(
+    path: string,
+    method: "POST" | "PUT" | "DELETE",
+    body?: unknown,
+    retryReadyPrecondition = false,
+  ) {
     if (busy) return;
     setBusy(true); setError("");
     try {
-      const next = await roomMutation<NetplayRoom | null>(authenticatedFetch, path, method, { version: room.version, body });
-      if (next) setRoom(next);
+      let next: NetplayRoom | null;
+      try {
+        next = await roomMutation<NetplayRoom | null>(authenticatedFetch, path, method, {
+          version: roomRef.current.version, body,
+        });
+      } catch (caught) {
+        if (!(retryReadyPrecondition && caught instanceof NetplayAPIError && caught.code === "PRECONDITION_FAILED")) {
+          throw caught;
+        }
+        const latest = await refresh();
+        const desired = (body as { ready?: boolean } | undefined)?.ready;
+        const currentSelf = latest.members.find((member) => member.memberId === latest.selfMemberId);
+        if (currentSelf?.ready === desired) return;
+        if (latest.state !== "WAITING" || !latest.permissions.canReady) throw caught;
+        next = await roomMutation<NetplayRoom | null>(authenticatedFetch, path, method, {
+          version: latest.version, body,
+        });
+      }
+      if (next) applyIncomingRoom(next);
       else router.replace("/netplay");
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "联机操作失败");
@@ -184,7 +211,7 @@ export function NetplayRoomLobby({ initialRoom, games, initialFilterParams = {} 
 
   const self = room.members.find((member) => member.memberId === room.selfMemberId);
   const terminal = room.state === "ENDED" || room.state === "EXPIRED";
-  if (room.state === "DRAFT" && room.permissions.host) return <div className="page-layout netplay-room-page"><PageHeader eyebrow={`房间 #${room.roomId.slice(0, 8)}`} title="选择联机游戏" description="只允许服务器精确验证过的 EmulatorJS、Core 与内容组合。" actions={<Link className="button secondary" href="/netplay">返回联机首页</Link>} />{error ? <div className="feedback-banner bad" role="alert"><div>{error}</div></div> : null}<GamePicker games={games} busy={busy} initialFilterParams={initialFilterParams} onSelect={selectGame} />{profileGame ? <ProfileDialog game={profileGame} onClose={() => setProfileGame(null)} onSelect={(id) => selectGame(profileGame, id)} /> : null}</div>;
+  if (room.state === "DRAFT" && room.permissions.host) return <div className="page-layout netplay-room-page"><PageHeader eyebrow={`房间 #${room.roomId.slice(0, 8)}`} title="选择联机游戏" description="可选择使用已验证 EmulatorJS 与核心组合的 READY 游戏。" actions={<Link className="button secondary" href="/netplay">返回联机首页</Link>} />{error ? <div className="feedback-banner bad" role="alert"><div>{error}</div></div> : null}<GamePicker games={games} busy={busy} initialFilterParams={initialFilterParams} onSelect={selectGame} />{profileGame ? <ProfileDialog game={profileGame} onClose={() => setProfileGame(null)} onSelect={(id) => selectGame(profileGame, id)} /> : null}</div>;
 
   return <div className="page-layout netplay-room-page">
     <PageHeader eyebrow={`房间 #${room.roomId.slice(0, 8)}`} title={room.game?.title ?? "等待房主选择游戏"} description={room.game ? `${room.game.platformName} · ${room.game.coreName} · EmulatorJS ${room.game.emulatorjsVersion}` : "游戏锁定后即可选择座位。"} actions={<Link className="button secondary" href="/netplay">联机首页</Link>} />
@@ -195,7 +222,7 @@ export function NetplayRoomLobby({ initialRoom, games, initialFilterParams = {} 
       const supported = availableSeats(room).includes(playerNo);
       return <article className={`netplay-seat${member ? " is-occupied" : ""}${!supported ? " is-disabled" : ""}`} key={playerNo}><strong>P{playerNo}</strong>{member ? <><span className="netplay-avatar" aria-hidden="true">{member.displayName.slice(0, 1)}</span><h3>{member.displayName}</h3><p>{member.role === "HOST" ? "房主" : member.ready ? "已准备" : "未准备"}</p>{room.permissions.host && member.role === "GUEST" && room.state === "WAITING" ? <button type="button" disabled={busy} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/members/${member.memberId}`, "DELETE")}>移出</button> : null}</> : <><span className="netplay-empty-seat" aria-hidden="true">+</span><h3>{supported ? "空座位" : "当前游戏不支持"}</h3>{supported && room.permissions.canJoin ? <button type="button" disabled={busy} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/members/me/seat`, "PUT", { playerNo })}>选择 P{playerNo}</button> : null}</>}</article>;
     })}</div></section>
-    {!terminal ? <div className="netplay-actions">{self && room.permissions.canReady ? <button className={`button${self.ready ? " secondary" : ""}`} type="button" disabled={busy} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/members/me/ready`, "PUT", { ready: !self.ready })}>{self.ready ? "取消准备" : "准备"}</button> : null}{room.permissions.host ? <><button className="button" type="button" disabled={busy || !room.permissions.canStart} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/start`, "POST", {})}>开始联机</button><button className="button secondary" type="button" disabled={busy || room.state !== "WAITING"} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/game`, "DELETE")}>更换游戏</button><button className="button danger" type="button" disabled={busy} onClick={() => setConfirmAction("close")}>关闭房间</button></> : self ? <button className="button secondary" type="button" disabled={busy} onClick={() => setConfirmAction("leave")}>离开房间</button> : null}</div> : <div className="netplay-terminal"><h2>本次联机已结束</h2><p>原因：{room.endReason ?? "NORMAL"}</p><Link className="button" href="/netplay">返回联机首页</Link></div>}
+    {!terminal ? <div className="netplay-actions">{self && room.permissions.canReady ? <button className={`button${self.ready ? " secondary" : ""}`} type="button" disabled={busy} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/members/me/ready`, "PUT", { ready: !self.ready }, true)}>{self.ready ? "取消准备" : "准备"}</button> : null}{room.permissions.host ? <><button className="button" type="button" disabled={busy || !room.permissions.canStart} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/start`, "POST", {})}>开始联机</button><button className="button secondary" type="button" disabled={busy || room.state !== "WAITING"} onClick={() => void mutate(`/api/v1/netplay/rooms/${room.roomId}/game`, "DELETE")}>更换游戏</button><button className="button danger" type="button" disabled={busy} onClick={() => setConfirmAction("close")}>关闭房间</button></> : self ? <button className="button secondary" type="button" disabled={busy} onClick={() => setConfirmAction("leave")}>离开房间</button> : null}</div> : <div className="netplay-terminal"><h2>本次联机已结束</h2><p>原因：{room.endReason ?? "NORMAL"}</p><Link className="button" href="/netplay">返回联机首页</Link></div>}
     <ConfirmDialog open={confirmAction !== null} title={confirmAction === "close" ? "关闭联机房间？" : "离开联机房间？"} tone="danger" busy={busy} confirmLabel={confirmAction === "close" ? "关闭房间" : "离开房间"} onCancel={() => setConfirmAction(null)} onConfirm={() => {
       const action = confirmAction; setConfirmAction(null);
       if (action === "close") void mutate(`/api/v1/netplay/rooms/${room.roomId}`, "DELETE");

@@ -1004,7 +1004,7 @@
   "netplayFixtures": [
     {
       "id": "netplay-fceumm-f1race",
-      "profileId": "fceumm-423-f1race-v1",
+      "profileId": "fceumm-423-v1",
       "core": "fceumm",
       "runtimeVersion": "4.2.3",
       "game": {
@@ -1020,7 +1020,7 @@
     },
     {
       "id": "netplay-fbneo-ldrun",
-      "profileId": "fbneo-423-ldrun-v1",
+      "profileId": "fbneo-423-v1",
       "core": "fbneo",
       "runtimeVersion": "4.2.3",
       "game": {

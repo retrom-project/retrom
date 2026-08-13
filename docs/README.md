@@ -4,7 +4,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 实施就绪结论
 
-Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清单和生成物：默认关闭，启用后只开放两个 exact profile、同源房间和服务端中继 rollback；不会把普通 READY 核心扩大为通用联机支持。
+Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清单和生成物：默认关闭，启用后开放 EmulatorJS 4.2.3 的 FCEUmm/FBNeo 两个精确 core profile、同源房间和服务端中继 rollback；每个 profile 覆盖使用该锁定 artifact 的全部合格 READY 游戏，不按单个 ROM 建产品白名单。
 
 一期基线、账户隔离升级、Saturn/yabause 多盘系统、服务器 BIOS 导入、Migration 028 Pegasus ROM 目录导入、Migration 029 Pegasus 管理诊断、Migration 030 Pegasus 审核交接、Migration 031 审核运行预览和 Migration 033 截图人工放行已经落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、复制与运行检查后生成普通审核事项，只有管理员逐项通过才发布。审核页可在隔离子窗体中尽最大可能运行当前来源；核心真实启动后第 5 秒会保存运行截图，当前 READY 证据或与当前来源、目标、核心一致的阻断截图都可启用逐项发布。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
 
@@ -15,7 +15,7 @@ Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清�
 | HTTP、上传、SSE、并发、凭据与诊断输出 | 已锁定；实施时按切片先写 OpenAPI | [`http-api-contract.md`](./http-api-contract.md) |
 | EmulatorJS/core/DAT/BIOS 与真实兼容基线 | 已锁定；payload 按 manifest 物化 | [`dependency-management.md`](./dependency-management.md)、[`core-runtime-validation.md`](./core-runtime-validation.md) |
 | 页面、直接启动、4K 与无障碍 | 已锁定 | [`ui-specification.md`](./ui-specification.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
-| 联机 allowlist、房间、SSE/WebSocket、rollback 与 Player 差异 | 已锁定；仅两个 exact profile | [`dependency-management.md`](./dependency-management.md)、[`data-model.md`](./data-model.md)、[`http-api-contract.md`](./http-api-contract.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
+| 联机 allowlist、房间、SSE/WebSocket、rollback 与 Player 差异 | 已锁定；仅 FCEUmm/FBNeo 两个 core profile | [`dependency-management.md`](./dependency-management.md)、[`data-model.md`](./data-model.md)、[`http-api-contract.md`](./http-api-contract.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
 | 测试、CI、镜像与最终通过规则 | 已锁定 | [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)、[`project-acceptance.md`](./project-acceptance.md) |
 
 `api/openapi.yaml`、两端生成物、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余外部条件仅是依赖首次物化需要公网、三十五核验收需要用户授权夹具、生产需要前置 NG，以及外部分发需要许可复核；它们的阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
@@ -96,6 +96,6 @@ Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清�
 - `data/dat/emulatorjs/<version>/manifest.json` 与 `SHA256SUMS` 是 EmulatorJS/runtime、Player adapter 描述、可选真实 DAT 和许可输入的机器事实源；当前 `4.2.3` 是 33-artifact 基础集合，`4.3.0-pre` 覆盖 DOSBox Pure、Genesis Plus GX Wide 与 Azahar，合并为 35 个 enabled core。前端 adapter registry 由 `make data-check` 双向核对；runtime、五份 DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
 - `data/auth/password-blocklists/v1/manifest.json` 是 release 密码阻断列表及许可的机器事实源；10,000 行 payload 与许可原文由 `make prepare-deps` 校验物化并被 Git 忽略。
 - `data/example/fixtures.json` 是用户本地核心启动夹具的相对来源/hash 事实源；它不得覆盖依赖 manifest。`results/latest.json` 与 `results/manual-review.json` 只记录既有验证，正式验收必须生成当次证据；ROM、BIOS 与截图只保存在本机。
-- `data/netplay/v1/manifest.json` 与 schema 是联机 exact allowlist 的唯一机器事实源；它锁定两个 profile 及协议/adapter/帧上限，必须与依赖 manifest、前端 adapter registry 和 `data/example/fixtures.json` 的本机 selector 双向校验。ROM 只物化到被忽略的 `data/example/local-fixtures/netplay/`。
+- `data/netplay/v1/manifest.json` 与 schema 是联机 core-profile allowlist 的唯一机器事实源；schema v2 锁定两个 profile 的 EmulatorJS 版本、core artifact SHA-256、协议/adapter/内容类型与帧上限，不包含单个 ROM 身份。它必须与依赖 manifest、前端 adapter registry 双向校验；`data/example/fixtures.json` 的两个本机 selector 只提供代表性双端回归 ROM，ROM 只物化到被忽略的 `data/example/local-fixtures/netplay/`。
 - 任何表示时刻的 SQLite 字段必须为 Unix 毫秒 `INTEGER` 并以 `*_at_ms` 命名。
 - 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。

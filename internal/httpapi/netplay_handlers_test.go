@@ -15,6 +15,22 @@ import (
 	"retrom/internal/netplay"
 )
 
+func TestNetplayEventStreamDisablesProxyTransformationAndBuffering(t *testing.T) {
+	t.Parallel()
+	headers := make(http.Header)
+	setNetplayEventStreamHeaders(headers)
+
+	if got := headers.Get("Cache-Control"); got != "private, no-store, no-transform" {
+		t.Fatalf("SSE Cache-Control = %q", got)
+	}
+	if got := headers.Get("Content-Encoding"); got != "identity" {
+		t.Fatalf("SSE Content-Encoding = %q", got)
+	}
+	if got := headers.Get("X-Accel-Buffering"); got != "no" {
+		t.Fatalf("SSE X-Accel-Buffering = %q", got)
+	}
+}
+
 func TestNetplayFeatureFlagHidesRoutesAndAuthProjection(t *testing.T) {
 	t.Parallel()
 	server, _ := newAuthHTTPServer(t, config.ModeTest)
