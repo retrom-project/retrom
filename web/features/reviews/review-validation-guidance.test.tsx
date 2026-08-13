@@ -28,4 +28,13 @@ describe("review validation guidance", () => {
     expect(screen.getByText("CORE_CONTENT_FORMAT_UNSUPPORTED")).toBeVisible();
     expect(reviewCompatibilityLabel("LAUNCH_BIOS_MISSING", "BLOCKED")).toBe("缺少必需 BIOS 文件");
   });
+
+  it("makes long missing-entry details keyboard scrollable", () => {
+    const missingEntries = Array.from({ length: 13 }, (_, index) => `archive-${index + 1}.zip`);
+    render(<ReviewValidationGuidance status="BLOCKED" compatibilityCode="ARCADE_CONTENT_MISSING_ENTRY" snapshot={{ missingEntries }} />);
+
+    const region = screen.getByRole("region", { name: "运行检查错误详情，可滚动查看" });
+    expect(region).toHaveAttribute("tabindex", "0");
+    expect(region.querySelectorAll("li")).toHaveLength(13);
+  });
 });

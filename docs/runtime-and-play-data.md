@@ -72,7 +72,7 @@ sequenceDiagram
 
 审核页的“运行游戏”不是普通用户 Launch。`POST /api/v1/admin/reviews/{itemId}/previews` 为当前 `REVIEW_PENDING` Item 创建短时、capability-scoped 的审核快照并打开 `/admin/review-previews/{previewId}` 子窗体；它锁定当前有效 source snapshot、目标目录默认 CoreArtifact、最新 Validation 和实际存在的依赖。主 ROM 必须存在，已有 Parent、BIOS bundle、external file 与完整多盘内容按普通 Player 协议交付，缺失依赖被省略。DAT 驱动的 Arcade Validation 以其不可变 `ValidationFiles` 作为 Parent/BIOS 交付事实源，不得把 V2 DAT 依赖快照误按普通 BIOS 快照解析；没有 DAT 的普通平台才从 V1 BIOS 快照装配 external file。预览不创建 Game、LaunchSession、PlaySession，不调用 start/heartbeat/finish，不加载或写入 SaveState/PersistentSave，也绝不把“看起来可运行”升级成 READY。
 
-子窗体复用版本锁定的 Player adapter 与 canvas contain 规则。创建成功的 READY 或阻断预览都返回 `reviewPreview.captureAllowed=true`；在真实 `EJS_onGameStart` 回调发生后启动一次 5,000ms timer，通过 adapter 取得 PNG 并上传到同一 preview capability 下的 `review-screenshot`。写入时仍须匹配当前来源快照、目标平台、CoreArtifact 和 prepublish generation；任一漂移都会拒绝旧截图。由于 EmulatorJS/WASM、用户激活和自动播放策略属于浏览器边界，后端不能脱离浏览器伪造这一画面；弹窗、播放或截图上传被阻止时，审核页明确提示重试。
+子窗体复用版本锁定的 Player adapter 与 canvas contain 规则。创建成功的 READY 或阻断预览都返回 `reviewPreview.captureAllowed=true`；在真实 `EJS_onGameStart` 回调发生后启动一次 5,000ms timer，通过 adapter 优先读取核心保存的最后一帧 PNG，使停止持续刷新的 ROM/BIOS 缺失错误页仍可进入审核证据；核心截图在 2 秒内不可用时回退到 EmulatorJS canvas 截图。截图上传到同一 preview capability 下的 `review-screenshot`。写入时仍须匹配当前来源快照、目标平台、CoreArtifact 和 prepublish generation；任一漂移都会拒绝旧截图。由于 EmulatorJS/WASM、用户激活和自动播放策略属于浏览器边界，后端不能脱离浏览器伪造这一画面；弹窗、播放或截图上传被阻止时，审核页明确提示重试。
 
 阻断 Validation 的当前截图允许管理员人工放行。发布后的 Variant 使用 `REVIEW_SCREENSHOT_OVERRIDE` compatibility code，并只交付截图预览时可获得的依赖；普通单机 Launch 跳过同一缺失 BIOS 的强制重解析，仍保留截图放行 warning，Netplay 继续使用严格依赖门禁。截图不是永久绕过所有一致性检查：来源、目标平台、核心或 Validation 更新后必须重新运行并取得新截图。
 

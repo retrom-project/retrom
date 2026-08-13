@@ -52,4 +52,12 @@ describe("ArcadeDependencyCard", () => {
     expect(screen.getByRole("button", { name: "重试校验" })).toBeEnabled();
     expect(screen.queryByRole("button", { name: "补充 Parent ROM" })).not.toBeInTheDocument();
   });
+
+  it("does not report dependency work when the dependency tree is empty", () => {
+    render(<ArcadeDependencyCard value={{ ...dependencies, compatibilityCode: "UNSUPPORTED_MERGED_ROMSET", nodes: [] }} disabled={false} progress="" onAttach={vi.fn()} onRetry={vi.fn()} />);
+
+    expect(screen.getByText("无额外依赖")).toHaveClass("status", "info");
+    expect(screen.queryByText("需要处理")).not.toBeInTheDocument();
+    expect(screen.getByText("当前没有额外 Parent 或 BIOS/Base 依赖。")).toBeVisible();
+  });
 });

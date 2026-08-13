@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adapterID, captureManualScreenshot, captureManualState, mountEmulatorJS, scheduleStartupActions, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
+import { adapterID, captureManualScreenshot, captureManualState, captureReviewScreenshot, mountEmulatorJS, scheduleStartupActions, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
 
 const config: PlayerConfig = {
   mode: "single",
@@ -312,6 +312,42 @@ describe("EmulatorJS adapter", () => {
     expect(payload.screenshot).toBe(screenshot);
     expect(payload.state).toEqual(state);
     expect(payload.state).not.toBe(state);
+  });
+
+  it("captures the core framebuffer for review evidence before using the canvas fallback", async () => {
+    const screenshotBytes = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
+    const requestScreenshot = vi.fn();
+    const takeScreenshot = vi.fn();
+    const capture = await captureReviewScreenshot({
+      on: () => undefined,
+      gameManager: {
+        FS: {
+          analyzePath: () => ({ exists: true }),
+          mkdir: () => undefined,
+          writeFile: () => undefined,
+          unlink: vi.fn(),
+          stat: vi.fn(),
+          readFile: () => screenshotBytes,
+        },
+        functions: { screenshot: requestScreenshot },
+      },
+      takeScreenshot,
+    });
+
+    expect(requestScreenshot).toHaveBeenCalledOnce();
+    expect(takeScreenshot).not.toHaveBeenCalled();
+    expect(capture.format).toBe("png");
+    expect(capture.screenshot.type).toBe("image/png");
+    expect(new Uint8Array(await capture.screenshot.arrayBuffer())).toEqual(screenshotBytes);
+  });
+
+  it("falls back to the normal canvas capture when a core framebuffer API is unavailable", async () => {
+    const screenshot = new Blob(["canvas"], { type: "image/png" });
+    const takeScreenshot = vi.fn(async () => ({ blob: screenshot, format: "png" }));
+    const capture = await captureReviewScreenshot({ on: () => undefined, takeScreenshot });
+
+    expect(takeScreenshot).toHaveBeenCalledWith("canvas", "png", 1);
+    expect(capture.screenshot).toBe(screenshot);
   });
 
   it("rejects unavailable or empty screenshots", async () => {

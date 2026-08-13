@@ -197,7 +197,7 @@
 
 .review-workflow-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; align-items: start; gap: 16px; margin-bottom: 16px; }
 .review-workflow-summary-card, .review-workflow-decision { min-height: 196px; padding: 19px 21px; border: 1px solid var(--line); border-radius: 15px; background: white; }
-.review-workflow-summary-card { min-width: 0; height: 196px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, 34%); grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: 20px; background: linear-gradient(120deg, #fff, #faf8ff); }
+.review-workflow-summary-card { min-width: 0; height: 196px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) minmax(120px, 17%); grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: 20px; background: linear-gradient(120deg, #fff, #faf8ff); }
 .review-workflow-summary-copy { min-width: 0; align-self: center; }
 .review-workflow-summary-card h2 { margin: 11px 0 4px; font-size: 23px; }
 .review-workflow-summary-card p { margin: 0; color: var(--muted); font-size: 12px; }
@@ -259,6 +259,8 @@
 .review-multidisc-drawer-progress { margin: 0; padding: 11px; display: flex; align-items: center; gap: 8px; color: var(--purple-dark); border-radius: 9px; background: var(--purple-soft); font-size: 11px; }
 .review-multidisc-drawer > footer { margin-top: auto; padding: 16px 22px; display: flex; justify-content: flex-end; gap: 8px; border-top: 1px solid var(--line); background: white; }
 .review-workflow-capability, .review-workflow-files, .review-workflow-metadata { min-width: 0; overflow: hidden; }
+.review-workflow-capability .review-validation-guidance { max-height: clamp(220px, 36vh, 360px); overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 5px; }
+.review-workflow-capability .review-validation-guidance:focus-visible { outline: 3px solid color-mix(in srgb, var(--purple) 52%, transparent); outline-offset: 2px; border-radius: 6px; }
 .review-capability-list { display: grid; gap: 9px; }
 .review-capability-list > div { padding: 11px 12px; display: grid; gap: 3px; border: 1px solid var(--line); border-radius: 9px; background: var(--surface-subtle); }
 .review-capability-list > div strong { font-size: 12px; }
