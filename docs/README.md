@@ -6,7 +6,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清单和生成物：默认关闭，启用后只开放两个 exact profile、同源房间和服务端中继 rollback；不会把普通 READY 核心扩大为通用联机支持。
 
-一期基线、账户隔离升级、Saturn/yabause 多盘系统、服务器 BIOS 导入、Migration 028 Pegasus ROM 目录导入、Migration 029 Pegasus 管理诊断、Migration 030 Pegasus 审核交接和 Migration 031 审核运行预览已经落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、复制与运行检查后生成普通审核事项，只有管理员逐项通过才发布。审核页可在隔离子窗体中尽最大可能运行当前来源，只有当前 READY 证据会在核心报告启动后第 5 秒保存运行截图；这不会绕过发布门禁。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
+一期基线、账户隔离升级、Saturn/yabause 多盘系统、服务器 BIOS 导入、Migration 028 Pegasus ROM 目录导入、Migration 029 Pegasus 管理诊断、Migration 030 Pegasus 审核交接、Migration 031 审核运行预览和 Migration 033 截图人工放行已经落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、复制与运行检查后生成普通审核事项，只有管理员逐项通过才发布。审核页可在隔离子窗体中尽最大可能运行当前来源；核心真实启动后第 5 秒会保存运行截图，当前 READY 证据或与当前来源、目标、核心一致的阻断截图都可启用逐项发布。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
 
 | 检查面 | 状态 | 实施事实源 |
 | --- | --- | --- |
@@ -63,6 +63,7 @@ Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清�
 - [`design/retrom-ui-play-portrait.png`](./design/retrom-ui-play-portrait.png)：竖屏内容按可用高度铺满的 Player Shell。
 - [`design/retrom-ui-play-4k.png`](./design/retrom-ui-play-4k.png)：4K 下按视口高度放大的 Player Shell。
 - [`design/retrom-ui-play-emulator-controls.png`](./design/retrom-ui-play-emulator-controls.png)：点击“模拟器设置”后出现的 Retrom 自绘工具栏。
+- [`design/retrom-ui-play-debug.png`](./design/retrom-ui-play-debug.png)：Player 右侧实时调试信息面板。
 - [`design/retrom-ui-admin-import-overview-4k.png`](./design/retrom-ui-admin-import-overview-4k.png)：4K 游戏入库父级总览。
 - [`design/retrom-ui-admin-import.png`](./design/retrom-ui-admin-import.png)：2560×1440 文件/目录导入与配置快照。
 - [`design/retrom-ui-admin-import-new-4k.png`](./design/retrom-ui-admin-import-new-4k.png)：4K 文件/目录导入与配置快照。

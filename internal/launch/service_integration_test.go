@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -561,7 +562,7 @@ sort_order) VALUES(?,
 	}
 }
 
-func TestReviewPreviewRunsBestEffortAndStoresReadyFiveSecondScreenshot(t *testing.T) {
+func TestReviewPreviewStoresFiveSecondScreenshotAndAllowsBlockedRuntimeOverride(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
@@ -649,6 +650,47 @@ SELECT id FROM import_items WHERE import_job_id=?
 
 	readyItemID := createReview("ready.gba", []byte("review-preview-ready"), "01980000-0000-7000-8000-000000000005")
 	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), "01980000-0000-7000-8000-000000000002")
+	parentMetadata, err := blobs.Put(bytes.NewReader([]byte("review-preview-parent")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	parentBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
+	if err != nil {
+		t.Fatal(err)
+	}
+	var baseValidationID, sourceSnapshotID, datVersionID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT draft.selected_validation_id,draft.effective_source_snapshot_id,(SELECT id FROM dat_versions ORDER BY id LIMIT 1)
+FROM review_drafts draft WHERE draft.import_item_id=?
+`, readyItemID).Scan(&baseValidationID, &sourceSnapshotID, &datVersionID); err != nil {
+		t.Fatal(err)
+	}
+	arcadeValidationID := newUUID()
+	arcadeSnapshot := fmt.Sprintf(`{"schemaVersion":2,"machine":"review-child","datVersionId":%q,"closure":[],"dependencies":[{"kind":"PARENT","machine":"review-parent","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datVersionID)
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO import_item_core_validations(id,import_item_id,target_platform_instance_id,
+platform_instance_version,core_id,core_artifact_id,core_artifact_version,prepublish_generation,
+dat_version_id,default_dos_entry,source_manifest_digest,source_snapshot_id,prepublish_input_digest,
+status,compatibility_code,dependency_snapshot_json,created_at_ms)
+SELECT ?,import_item_id,target_platform_instance_id,platform_instance_version,core_id,core_artifact_id,
+core_artifact_version,prepublish_generation,?,default_dos_entry,source_manifest_digest,source_snapshot_id,
+?,status,compatibility_code,?,created_at_ms+1
+FROM import_item_core_validations WHERE id=?
+`, arcadeValidationID, datVersionID, strings.Repeat("a", 64), arcadeSnapshot, baseValidationID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms)
+VALUES(?,'PARENT','review-parent.zip',?,0,0)
+`, arcadeValidationID, parentBlobID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE review_drafts SET selected_validation_id=?,version=version+1,updated_at_ms=updated_at_ms+1
+WHERE import_item_id=? AND effective_source_snapshot_id=?
+`, arcadeValidationID, readyItemID, sourceSnapshotID); err != nil {
+		t.Fatal(err)
+	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
 	if err != nil {
 		t.Fatal(err)
@@ -671,8 +713,13 @@ SELECT id FROM import_items WHERE import_job_id=?
 	}
 	configuration, err := service.ReviewPreviewConfig(ctx, ready.PreviewID, ready.Capability)
 	if err != nil || configuration.ReviewPreview == nil || !configuration.ReviewPreview.CaptureAllowed ||
-		configuration.ReviewPreview.ImportItemID != readyItemID || configuration.PersistentSaveMode != "NONE" {
+		configuration.ReviewPreview.ImportItemID != readyItemID || configuration.PersistentSaveMode != "NONE" ||
+		configuration.ParentURL == nil || configuration.StartupActions == nil {
 		t.Fatalf("ready review config = %#v, error=%v", configuration, err)
+	}
+	encodedConfiguration, err := json.Marshal(configuration)
+	if err != nil || !bytes.Contains(encodedConfiguration, []byte(`"startupActions":[]`)) {
+		t.Fatalf("ready review config JSON = %s, error=%v", encodedConfiguration, err)
 	}
 	content, err := service.ReviewPreviewContent(ctx, ready.PreviewID, ready.Capability, "ready.gba")
 	if err != nil || content.Digest == "" || content.Format != "SOURCE_V1" {
@@ -691,16 +738,44 @@ SELECT id FROM import_items WHERE import_job_id=?
 		ImportItemID: blockedItemID, ActorUserID: actorID, IdempotencyKey: "blocked-preview-1",
 		ClientCapabilities: capabilities,
 	})
-	if err != nil || blocked.CaptureAllowed {
+	if err != nil || !blocked.CaptureAllowed {
 		t.Fatalf("blocked best-effort preview = %#v, error=%v", blocked, err)
 	}
 	blockedConfig, err := service.ReviewPreviewConfig(ctx, blocked.PreviewID, blocked.Capability)
-	if err != nil || blockedConfig.ReviewPreview == nil || blockedConfig.ReviewPreview.CaptureAllowed ||
+	if err != nil || blockedConfig.ReviewPreview == nil || !blockedConfig.ReviewPreview.CaptureAllowed ||
 		blockedConfig.GameURL == "" || blockedConfig.BIOSURL != nil {
 		t.Fatalf("blocked best-effort config = %#v, error=%v", blockedConfig, err)
 	}
-	if _, err := service.StoreReviewScreenshot(ctx, blocked.PreviewID, blocked.Capability, bytes.NewReader(pngBody)); !errors.Is(err, ErrReviewCaptureNotAllowed) {
-		t.Fatalf("blocked screenshot error = %v", err)
+	blockedScreenshot, err := service.StoreReviewScreenshot(
+		ctx, blocked.PreviewID, blocked.Capability, bytes.NewReader(pngBody),
+	)
+	if err != nil || blockedScreenshot.ImportItemID != blockedItemID {
+		t.Fatalf("blocked screenshot = %#v, error=%v", blockedScreenshot, err)
+	}
+	approved, err := importService.Approve(ctx, blockedItemID, 1)
+	if err != nil {
+		t.Fatalf("approve blocked screenshot override: %v", err)
+	}
+	var compatibilityCode string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT revision.compatibility_code
+FROM games game
+JOIN game_variants variant ON variant.game_id=game.id
+JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
+WHERE game.id=?
+`, approved.GameID).Scan(&compatibilityCode); err != nil || compatibilityCode != "REVIEW_SCREENSHOT_OVERRIDE" {
+		t.Fatalf("screenshot override compatibility = %q, error=%v", compatibilityCode, err)
+	}
+	createdLaunch, err := service.Create(ctx, "review-preview-profile", CreateRequest{
+		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID, ClientCapabilities: capabilities,
+	})
+	if err != nil {
+		t.Fatalf("launch screenshot-approved game: %v", err)
+	}
+	publishedConfig, err := service.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
+	if err != nil || !slices.Contains(publishedConfig.Warnings, "REVIEW_SCREENSHOT_OVERRIDE") ||
+		publishedConfig.BIOSURL != nil {
+		t.Fatalf("screenshot-approved config = %#v, error=%v", publishedConfig, err)
 	}
 }
 

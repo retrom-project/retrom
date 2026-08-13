@@ -130,7 +130,7 @@ make web-build
 make integration-test
 ```
 
-影响 Player Shell、EmulatorJS、core artifact、DAT、BIOS 装配或存档恢复时，还须执行对应 Chrome E2E 与：
+影响 Player Shell 的浏览器交互、EmulatorJS 运行链路、core artifact、DAT、BIOS/Parent 装配或存档恢复时，还须按实际影响范围选择对应 Chrome E2E、夹具校验与 core smoke：
 
 ```bash
 make web-e2e
@@ -138,7 +138,13 @@ python3 data/example/verify-fixtures.py
 node data/example/smoke-test.mjs mgba mame2003
 ```
 
-最后一条命令中的核心名只是可执行示例，实际应替换为全部受影响核心；影响共享 loader、Player Shell 或版本基线时运行不带核心参数的全量 smoke。
+最后一条命令中的核心名只是示例，实际决策分为三档：
+
+- **必须跑全核心 smoke**：改动无法被证明只影响有限核心，并且改变了真实模拟器执行路径，例如共享 EmulatorJS loader/adapter 的装载、挂载、启动或配置翻译；所有核心共用的 runtime config 字段语义、内容/依赖 URL 与字节交付协议；active EmulatorJS 版本、adapter registry 解析、全局 core manifest/schema 或批量 core artifact 生成；跨核心存档格式/恢复协议；或正式发布要求重新建立完整核心兼容基线。此时运行不带核心参数的 `node data/example/smoke-test.mjs`。
+- **只跑受影响核心 smoke**：影响可以封闭到明确核心、平台或内容类型，例如单个 core artifact/DAT/BIOS requirement/activation option，Arcade Parent/BIOS bundle、DOS bundle、多盘交付等特定分支，或只对明确核心生效的 adapter 分支。核心特有改动必须覆盖全部受影响核心；多个核心共享同一条受改动执行分支时，至少选择每条不同执行路径的代表核心，并在交付说明中写明选择依据和未覆盖范围。
+- **不需要跑 core smoke**：改动不进入模拟器装载、配置、内容字节交付、帧执行或存档协议，例如纯 CSS/布局/文案/图标/可访问性、只展示既有遥测数据的调试面板、Player Shell 外围导航/弹窗状态、管理后台列表与审核元数据、截图容器展示、普通 CRUD/权限/API 投影、测试或文档。文件位于 Player Shell 或共享组件中本身不构成全核心 smoke 的理由；这类改动仍须运行对应 unit/integration、`make web-e2e` 或视觉/交互回归。
+
+判断 smoke 范围必须沿实际数据与控制路径核对，不能只看文件名。若真实运行影响边界无法确认，先补聚焦测试或检查调用链；确认会影响所有或未知数量核心后才跑全量。开始全量 smoke 后若证据证明改动不进入核心执行路径，应停止并在交付说明中记录原因。`python3 data/example/verify-fixtures.py` 只在 fixture manifest、core/DAT/BIOS 映射或版本基线可能变化时必跑，不因纯 UI 改动自动触发。
 
 跨端改动或影响范围不确定时运行：
 

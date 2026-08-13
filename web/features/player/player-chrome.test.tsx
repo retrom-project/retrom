@@ -26,6 +26,14 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     discState: null,
     netplayPlayerNo: null,
     netplayPaused: false,
+    debugOpen: false,
+    debugMetrics: null,
+    debugRuntime: {
+      coreId: "fbneo", coreArtifactId: "artifact-1", emulatorJSVersion: "4.2.3",
+      playerAdapterId: "ejs-4.2.3-v2", inputMode: "STANDARD",
+      crossOriginIsolated: true, sharedArrayBuffer: true,
+    },
+    runtimeState: "running",
     onHoldControls: vi.fn(),
     onReleaseControls: vi.fn(),
     onSave: vi.fn().mockResolvedValue(true),
@@ -38,6 +46,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     onToggleEmulatorMute: vi.fn(),
     onSelectDisc: vi.fn().mockResolvedValue(true),
     onToggleNetplayPause: vi.fn(),
+    onToggleDebug: vi.fn(),
     onExit: vi.fn(),
     onDownloadConflict: vi.fn(),
     ...overrides,
@@ -133,6 +142,33 @@ describe("PlayerChrome", () => {
     await user.click(screen.getByRole("menuitem", { name: "模拟器设置" }));
     expect(values.onOpenEmulatorSettings).toHaveBeenCalledOnce();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("opens the right-side diagnostics without pausing the running game", async () => {
+    const user = userEvent.setup();
+    const values = props({
+      debugMetrics: {
+        fps: 59.9, frameCount: 4_210, canvasWidth: 384, canvasHeight: 224,
+        viewportWidth: 1440, viewportHeight: 900, devicePixelRatio: 2,
+      },
+    });
+    const { rerender } = render(<PlayerChrome {...values} />);
+
+    const trigger = screen.getByRole("button", { name: "调试信息" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await user.click(trigger);
+    expect(values.onToggleDebug).toHaveBeenCalledOnce();
+    expect(values.onPauseForToolbarInteraction).not.toHaveBeenCalled();
+
+    rerender(<PlayerChrome {...values} debugOpen />);
+    const panel = screen.getByRole("complementary", { name: "运行调试信息" });
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
+    expect(within(panel).getByText("59.9 FPS")).toBeVisible();
+    expect(within(panel).getByText("4,210")).toBeVisible();
+    expect(within(panel).getByText("384 × 224")).toBeVisible();
+    expect(within(panel).getByText("COOP/COEP + SAB")).toBeVisible();
+    await user.click(within(panel).getByRole("button", { name: "关闭调试信息面板" }));
+    expect(values.onToggleDebug).toHaveBeenCalledTimes(2);
   });
 
   it("keeps the toolbar paused until the user returns to the game surface", async () => {

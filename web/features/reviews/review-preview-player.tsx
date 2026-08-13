@@ -10,11 +10,11 @@ type ReviewPlayerConfig = PlayerConfig & {
 
 type PreviewState = "loading" | "running" | "capturing" | "captured" | "error";
 
-function stateCopy(state: PreviewState, captureAllowed: boolean) {
+function stateCopy(state: PreviewState) {
   if (state === "loading") return "正在冻结审核来源并加载核心…";
   if (state === "capturing") return "游戏已运行 5 秒，正在保存审核截图…";
   if (state === "captured") return "第 5 秒运行截图已保存；可以继续试玩。";
-  if (state === "running") return captureAllowed ? "游戏已启动，将在第 5 秒自动保存截图。" : "尽最大可能交付现有内容；缺失依赖没有阻止本次试玩。";
+  if (state === "running") return "游戏已启动，将在第 5 秒自动保存截图。";
   return "审核预览启动失败。";
 }
 
@@ -23,7 +23,6 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
   const emulatorRef = useRef<EmulatorInstance | undefined>(undefined);
   const captureTimerRef = useRef<number | null>(null);
   const [state, setState] = useState<PreviewState>("loading");
-  const [captureAllowed, setCaptureAllowed] = useState(false);
   const [title, setTitle] = useState("审核游戏预览");
   const [detail, setDetail] = useState("");
 
@@ -63,7 +62,6 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
         if (!response.ok) throw new Error("审核预览会话已失效，请回到审核页重新运行");
         const config = await response.json() as ReviewPlayerConfig;
         if (!config.reviewPreview || config.reviewPreview.captureAfterMs !== 5000) throw new Error("审核预览配置无效");
-        setCaptureAllowed(config.reviewPreview.captureAllowed);
         setTitle(config.gameTitle || "审核游戏预览");
         const frame = frameRef.current;
         const frameWindow = frame?.contentWindow;
@@ -82,14 +80,12 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
           onGameStart: () => {
             setState("running");
             frameWindow.requestAnimationFrame(() => canvasContain?.refresh());
-            if (config.reviewPreview.captureAllowed) {
-              captureTimerRef.current = window.setTimeout(() => {
-                void uploadCapture(config).catch((error: unknown) => {
-                  setDetail(error instanceof Error ? error.message : "第 5 秒运行截图保存失败");
-                  setState("error");
-                });
-              }, config.reviewPreview.captureAfterMs);
-            }
+            captureTimerRef.current = window.setTimeout(() => {
+              void uploadCapture(config).catch((error: unknown) => {
+                setDetail(error instanceof Error ? error.message : "第 5 秒运行截图保存失败");
+                setState("error");
+              });
+            }, config.reviewPreview.captureAfterMs);
           },
         }, frameWindow);
       } catch (error) {
@@ -109,7 +105,7 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
 
   return <main className="review-preview-player">
     <header className={`review-preview-status is-${state}`}>
-      <div><strong>{title}</strong><span>{stateCopy(state, captureAllowed)}</span>{detail ? <small role="alert">{detail}</small> : null}</div>
+      <div><strong>{title}</strong><span>{stateCopy(state)}</span>{detail ? <small role="alert">{detail}</small> : null}</div>
       <button type="button" onClick={() => window.close()}>关闭子窗体</button>
     </header>
     <iframe ref={frameRef} title={`${title} 运行画面`} className="review-preview-frame" />

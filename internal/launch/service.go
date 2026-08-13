@@ -28,6 +28,8 @@ var (
 	ErrDOSEntryUnsafe  = errors.New("LAUNCH_DOS_ENTRY_UNSAFE")
 )
 
+const reviewScreenshotOverrideCode = "REVIEW_SCREENSHOT_OVERRIDE"
+
 type Capabilities struct {
 	SecureContext       bool `json:"secureContext"`
 	CrossOriginIsolated bool `json:"crossOriginIsolated"`
@@ -278,7 +280,7 @@ VALUES(?,?,?,?,?)
 		return Created{}, fmt.Errorf("lock netplay launch content: %w", err)
 	}
 	if err := service.lockExternalBIOS(
-		ctx, transaction, launchID.String(), request.GameVariantRevisionID, now,
+		ctx, transaction, launchID.String(), request.GameVariantRevisionID, now, false,
 	); err != nil {
 		return Created{}, err
 	}
@@ -315,7 +317,7 @@ func (service *Service) Create(ctx context.Context, profileID string, request Cr
 		coreID = *request.CoreID
 	}
 	var variantRevisionID, artifactID, selectedCore, emulatorVersion string
-	var validationInputDigest, contentRevisionID, contentLogicalName, contentKind string
+	var validationInputDigest, contentRevisionID, contentLogicalName, contentKind, revisionCompatibilityCode string
 	var revisionDATID sql.NullString
 	var requiresThreads int
 	var savedDOSEntry sql.NullString
@@ -334,6 +336,7 @@ s.dos_entry_path,
 s.disc_index,
 r.game_content_revision_id,
 content.content_kind,
+r.compatibility_code,
 COALESCE((SELECT file.logical_name FROM game_content_files file
 WHERE file.game_content_revision_id=r.game_content_revision_id
 AND file.role IN ('CONTENT','DISC') ORDER BY CASE file.role WHEN 'CONTENT' THEN 0 ELSE 1 END,
@@ -356,7 +359,8 @@ AND r.status='READY'
 `, *request.SaveStateID, request.GameID, profileID).
 			Scan(
 				&variantRevisionID, &artifactID, &selectedCore, &emulatorVersion, &requiresThreads,
-				&savedDOSEntry, &savedDiscIndex, &contentRevisionID, &contentKind, &contentLogicalName,
+				&savedDOSEntry, &savedDiscIndex, &contentRevisionID, &contentKind,
+				&revisionCompatibilityCode, &contentLogicalName,
 			)
 		if err != nil || request.CoreID != nil && coreID != selectedCore {
 			return Created{}, ErrBlocked
@@ -369,6 +373,7 @@ a.core_id,
 a.emulatorjs_version,
 c.requires_threads,
 r.validation_input_digest,
+r.compatibility_code,
 r.game_content_revision_id,
 r.dat_version_id,
 content_revision.content_kind,
@@ -399,6 +404,7 @@ LIMIT 1
 			&emulatorVersion,
 			&requiresThreads,
 			&validationInputDigest,
+			&revisionCompatibilityCode,
 			&contentRevisionID,
 			&revisionDATID,
 			&contentKind,
@@ -409,34 +415,36 @@ LIMIT 1
 			}
 			return Created{}, ErrBlocked
 		}
-		biosSnapshot, biosStatus, _, resolveErr := corevalidation.ResolveBIOS(
-			ctx,
-			service.database,
-			artifactID,
-			contentLogicalName,
-		)
-		if resolveErr != nil || biosStatus != "READY" {
-			return Created{}, ErrBlocked
-		}
-		expectedDigest := ""
-		var digestErr error
-		if contentKind == corevalidation.MultiDiscContentKind {
-			expectedDigest, digestErr = service.expectedMultiDiscDigest(
-				ctx, variantRevisionID, contentRevisionID, artifactID, revisionDATID, biosSnapshot,
-			)
-		} else {
-			expectedDigest, digestErr = corevalidation.ValidationInputDigest(
+		if revisionCompatibilityCode != reviewScreenshotOverrideCode {
+			biosSnapshot, biosStatus, _, resolveErr := corevalidation.ResolveBIOS(
+				ctx,
+				service.database,
 				artifactID,
-				contentRevisionID,
-				revisionDATID,
-				biosSnapshot,
+				contentLogicalName,
 			)
-		}
-		if digestErr != nil {
-			return Created{}, ErrBlocked
-		}
-		if validationInputDigest != expectedDigest {
-			return service.ensureVariant(ctx, profileID, request, coreID, true)
+			if resolveErr != nil || biosStatus != "READY" {
+				return Created{}, ErrBlocked
+			}
+			expectedDigest := ""
+			var digestErr error
+			if contentKind == corevalidation.MultiDiscContentKind {
+				expectedDigest, digestErr = service.expectedMultiDiscDigest(
+					ctx, variantRevisionID, contentRevisionID, artifactID, revisionDATID, biosSnapshot,
+				)
+			} else {
+				expectedDigest, digestErr = corevalidation.ValidationInputDigest(
+					artifactID,
+					contentRevisionID,
+					revisionDATID,
+					biosSnapshot,
+				)
+			}
+			if digestErr != nil {
+				return Created{}, ErrBlocked
+			}
+			if validationInputDigest != expectedDigest {
+				return service.ensureVariant(ctx, profileID, request, coreID, true)
+			}
 		}
 	}
 	if requiresThreads == 1 &&
@@ -605,6 +613,7 @@ VALUES(?,?,?,?,?,'DISC')
 	}
 	if err := service.lockExternalBIOS(
 		ctx, transaction, launchID.String(), variantRevisionID, now,
+		revisionCompatibilityCode == reviewScreenshotOverrideCode,
 	); err != nil {
 		return Created{}, err
 	}
@@ -765,6 +774,7 @@ func (service *Service) lockExternalBIOS(
 	transaction *sql.Tx,
 	launchID, variantRevisionID string,
 	now int64,
+	allowMissing bool,
 ) error {
 	var snapshotJSON, contentLogicalName string
 	if err := transaction.QueryRowContext(ctx, `
@@ -789,8 +799,10 @@ WHERE revision.id=?
 		if dependency.DeliveryKind != "EXTERNAL_FILE" {
 			continue
 		}
-		if dependency.EmulatorPath == nil || dependency.BlobID == nil || dependency.InstallationStatus == nil ||
-			(*dependency.InstallationStatus != "MATCHED" && *dependency.InstallationStatus != "HASH_WARNING") {
+		if !availableExternalBIOS(dependency) {
+			if allowMissing {
+				continue
+			}
 			return ErrBlocked
 		}
 		count++
@@ -818,6 +830,11 @@ kind) VALUES(?,?,?,?,?,'BIOS')
 		}
 	}
 	return nil
+}
+
+func availableExternalBIOS(dependency corevalidation.BIOSDependency) bool {
+	return dependency.EmulatorPath != nil && dependency.BlobID != nil && dependency.InstallationStatus != nil &&
+		(*dependency.InstallationStatus == "MATCHED" || *dependency.InstallationStatus == "HASH_WARNING")
 }
 
 func lockedExternalNames(
@@ -1057,7 +1074,7 @@ type BundleFile struct {
 func (service *Service) Config(ctx context.Context, launchID, capability string) (Config, error) {
 	var credentialHash []byte
 	var state, coreID, coreName, artifactID, emulatorVersion, relativePath, compatibilityJSON string
-	var dependencySnapshotJSON, variantRevisionID string
+	var dependencySnapshotJSON, variantRevisionID, revisionCompatibilityCode string
 	var gameTitle, platformName string
 	var logicalName, contentFormat, returnTo string
 	var bootstrapExpires, hardExpires, emulatorGameID, initialDiscIndex int64
@@ -1082,6 +1099,7 @@ c.requires_threads,
 c.name,
 r.emulator_game_id,
 r.dependency_snapshot_json,
+r.compatibility_code,
 l.game_variant_revision_id,
 metadata.title,
 platform.name,
@@ -1123,6 +1141,7 @@ WHERE l.id=?
 			&coreName,
 			&emulatorGameID,
 			&dependencySnapshotJSON,
+			&revisionCompatibilityCode,
 			&variantRevisionID,
 			&gameTitle,
 			&platformName,
@@ -1204,6 +1223,9 @@ AND state='CREATED'
 	}
 	coreOptions["webgl2Enabled"] = "enabled"
 	warnings := make([]string, 0)
+	if revisionCompatibilityCode == reviewScreenshotOverrideCode {
+		warnings = append(warnings, reviewScreenshotOverrideCode)
+	}
 	dependencySnapshot, snapshotErr := corevalidation.ParseSnapshot(dependencySnapshotJSON)
 	if snapshotErr != nil {
 		return Config{}, ErrBlocked

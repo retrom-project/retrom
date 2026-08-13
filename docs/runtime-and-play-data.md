@@ -70,9 +70,11 @@ sequenceDiagram
 
 ### 3.1 管理审核预览
 
-审核页的“运行游戏”不是普通用户 Launch。`POST /api/v1/admin/reviews/{itemId}/previews` 为当前 `REVIEW_PENDING` Item 创建短时、capability-scoped 的审核快照并打开 `/admin/review-previews/{previewId}` 子窗体；它锁定当前有效 source snapshot、目标目录默认 CoreArtifact、最新 Validation 和实际存在的依赖。主 ROM 必须存在，已有 Parent、BIOS bundle、external file 与完整多盘内容按普通 Player 协议交付，缺失依赖被省略。预览不创建 Game、LaunchSession、PlaySession，不调用 start/heartbeat/finish，不加载或写入 SaveState/PersistentSave，也绝不把“看起来可运行”升级成 READY。
+审核页的“运行游戏”不是普通用户 Launch。`POST /api/v1/admin/reviews/{itemId}/previews` 为当前 `REVIEW_PENDING` Item 创建短时、capability-scoped 的审核快照并打开 `/admin/review-previews/{previewId}` 子窗体；它锁定当前有效 source snapshot、目标目录默认 CoreArtifact、最新 Validation 和实际存在的依赖。主 ROM 必须存在，已有 Parent、BIOS bundle、external file 与完整多盘内容按普通 Player 协议交付，缺失依赖被省略。DAT 驱动的 Arcade Validation 以其不可变 `ValidationFiles` 作为 Parent/BIOS 交付事实源，不得把 V2 DAT 依赖快照误按普通 BIOS 快照解析；没有 DAT 的普通平台才从 V1 BIOS 快照装配 external file。预览不创建 Game、LaunchSession、PlaySession，不调用 start/heartbeat/finish，不加载或写入 SaveState/PersistentSave，也绝不把“看起来可运行”升级成 READY。
 
-子窗体复用版本锁定的 Player adapter 与 canvas contain 规则。只有创建时草稿选择的 Validation 仍为当前 READY，config 才返回 `reviewPreview.captureAllowed=true`；在真实 `EJS_onGameStart` 回调发生后启动一次 5,000ms timer，通过 adapter 取得 PNG 并上传到同一 preview capability 下的 `review-screenshot`。阻断预览不调度截图，过期/变更后的 Validation 也不能写入；重新运行检查只有得到新 READY 后才在用户点击同步打开的子窗体中重跑并替换当前截图。由于 EmulatorJS/WASM、用户激活和自动播放策略属于浏览器边界，后端不能脱离浏览器伪造这一画面；弹窗或播放被浏览器阻止时，审核页明确提示重试。
+子窗体复用版本锁定的 Player adapter 与 canvas contain 规则。创建成功的 READY 或阻断预览都返回 `reviewPreview.captureAllowed=true`；在真实 `EJS_onGameStart` 回调发生后启动一次 5,000ms timer，通过 adapter 取得 PNG 并上传到同一 preview capability 下的 `review-screenshot`。写入时仍须匹配当前来源快照、目标平台、CoreArtifact 和 prepublish generation；任一漂移都会拒绝旧截图。由于 EmulatorJS/WASM、用户激活和自动播放策略属于浏览器边界，后端不能脱离浏览器伪造这一画面；弹窗、播放或截图上传被阻止时，审核页明确提示重试。
+
+阻断 Validation 的当前截图允许管理员人工放行。发布后的 Variant 使用 `REVIEW_SCREENSHOT_OVERRIDE` compatibility code，并只交付截图预览时可获得的依赖；普通单机 Launch 跳过同一缺失 BIOS 的强制重解析，仍保留截图放行 warning，Netplay 继续使用严格依赖门禁。截图不是永久绕过所有一致性检查：来源、目标平台、核心或 Validation 更新后必须重新运行并取得新截图。
 
 ## 4. 启动预检
 
@@ -141,7 +143,9 @@ Player canvas contain 必须优先使用锁定运行时 `gameManager.getVideoDim
 
 Player config 额外提供人类可读的 `gameTitle/coreName/platformName`，只用于 58px 顶部工具栏显示本次游戏、运行核心和基础平台；EJS 的稳定保存键仍只使用 `gameName=retrom-<emulatorGameId>`，前端不得把展示名称用于选择 artifact、URL 或 option。
 
-Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单外，点击工具栏区域或其中操作都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，只有随后点击实际游戏画面才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。光盘菜单是独立的原子运行时操作：打开菜单不暂停，真正换盘时只在 `setCurrentDisk` 与回读边界内短暂停止 main loop，并在成功或失败后恢复进入换盘前的暂停状态。运行后工具栏自动隐藏；只有指针进入 viewport 顶部 32 CSS px、键盘操作或焦点进入工具栏才重新显示，普通画面区域的 pointermove 不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近底边和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。
+Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单与只读“调试信息”面板外，点击工具栏区域或其中操作都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，只有随后点击实际游戏画面才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。光盘菜单是独立的原子运行时操作：打开菜单不暂停，真正换盘时只在 `setCurrentDisk` 与回读边界内短暂停止 main loop，并在成功或失败后恢复进入换盘前的暂停状态。运行后工具栏自动隐藏；只有指针进入 viewport 顶部 32 CSS px、键盘操作或焦点进入工具栏才重新显示，普通画面区域的 pointermove 不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近底边和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。
+
+顶部“调试信息”按钮打开右侧只读诊断面板且保持游戏继续运行；面板打开期间固定显示顶部工具栏。面板每秒读取一次当前 adapter 暴露的 `gameManager.getFrameNum()`，以相邻采样的核心帧数差和单调时钟计算一位小数的“核心帧率”，不能用 CSS 动画或浏览器 `requestAnimationFrame` 次数伪造 FPS。面板同时展示累计核心帧数、运行/暂停/错误状态、canvas drawing-buffer 分辨率、viewport 与 DPR，以及 config 已锁定的 Core、CoreArtifact、EmulatorJS 版本、Player adapter、输入模式、单机/联机模式和当前 COOP/COEP/SharedArrayBuffer 能力。诊断只存在于当前浏览器 Player，会话结束即丢弃，不写数据库、不发遥测，也不得展示 capability、cookie、Blob hash 或宿主路径。
 
 映射：
 

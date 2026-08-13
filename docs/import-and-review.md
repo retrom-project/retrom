@@ -24,7 +24,7 @@ Arcade 依赖细节见 [BIOS 与 Arcade DAT](./bios-and-arcade.md)，文件存�
 - `UploadSession/UploadFile/UploadPart`：一次浏览器文件或目录上传及可恢复分块；分块齐备后由 `UPLOAD_FINALIZE` 异步 Job 流式组装、重算 hash 并发布 CAS。
 - `ImportJob`：从一个已完成 UploadSession 创建的一次导入。
 - `ImportItem`：识别出的单个游戏候选。
-- `ImportItemCoreValidation/ImportItemValidationFile`：发布前针对目标游戏目录默认核心完成的不可变验证结论和派生依赖文件；审核通过只复制这份 READY 证据，不在事务中重新扫描/打包。
+- `ImportItemCoreValidation/ImportItemValidationFile`：发布前针对目标游戏目录默认核心完成的不可变验证结论和派生依赖文件；普通审核通过复制 READY 证据，截图人工放行复制同一当前阻断证据中已实际具备的文件，两者都不在事务中重新扫描/打包。
 - `MetadataScrapeRun`：一个 ImportItem（或已发布 Game 的重新刮削）的一次 provider/hash 证据批次；provider=NONE 只保留一次明确的 no-op Run/Job 和审核选择，不创建伪造的 ContentHashEvidence、QueryAttempt、ProviderResponse 或 Candidate。
 - `ScrapeCandidate/ScrapeCandidateAsset`：一次 run 中 provider 返回的展示元信息候选和可独立下载/失败的媒体候选。
 - `ReviewEvent`：追加式审核事件与前后快照。
@@ -306,7 +306,7 @@ Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选�
 
 审核详情页首集中展示条目摘要和审核决定，四个等宽操作按“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”两行排列，实时保存状态位于同一决策卡片；不再展示重复的“可以发布”信息。下方左栏回答“能不能发布”并展示来源文件，右栏回答“发布成什么”并承载实时保存的元信息与封面；窄桌面折叠为单栏。运行检查必须把稳定 compatibility code 映射为可操作说明：缺必需 BIOS 时列出逻辑文件名并链接到完整 BIOS 目录，DAT 缺失时链接到街机数据目录；修复后可点击“重新运行检查”，READY 结果必须在原页面立即启用发布，不得要求刷新页面、只显示“需要检查”或要求重新导入。依赖计数必须包含 BIOS，不能在存在缺失 BIOS 时显示“没有发现异常”。未知 code 至少展示原 code，不能吞掉原因。若当前内容已关联到未删除游戏，页面常驻展示已有游戏链接；点击发布后用危险确认框明确说明会创建重复游戏，用户选择“仍然发布为新游戏”后才提交确认集合。服务端在点击间出现的新重复项必须返回新集合并再次显示同一确认框。
 
-“运行游戏”在同步冲刷草稿后立即打开独立子窗体，并由服务端冻结审核专用运行快照。主 ROM 始终交付；当前 Validation 已具备的 Parent、BIOS 和 external file 一并交付，缺失依赖直接省略，尽最大可能让核心启动。该预览不创建 Game/正式 Launch/PlaySession，不提供状态或持久存档，也不能改变 `canApprove`；运行成功不能代替 READY 证据。只有草稿仍选择当前 READY Validation 时才允许截图：子窗体收到当前平台默认核心的真实 `EJS_onGameStart` 后启动 5,000ms 计时，随后保存 PNG 并通知审核页刷新；截图展示在页首条目摘要最右侧。点击“重新运行检查”会先生成最新 Validation，只有新结果 READY 才在同一用户触发的子窗体中重新运行并覆盖该 Validation 的第 5 秒截图；阻断结果只更新原因并关闭预留子窗体。浏览器阻止弹窗或自动播放时不能伪造截图，页面必须明确提示管理员允许弹窗后重试。
+“运行游戏”在同步冲刷草稿后立即打开独立子窗体，并由服务端冻结审核专用运行快照。主 ROM 始终交付；当前 Validation 已具备的 Parent、BIOS 和 external file 一并交付，缺失依赖直接省略，尽最大可能让核心启动。DAT 驱动的 Arcade Validation 只从其不可变 ValidationFiles 装配 Parent/BIOS，不得把 V2 DAT dependency snapshot 交给普通平台的 V1 BIOS snapshot parser；非 DAT Validation 才按 V1 snapshot 加载外部 BIOS 文件。该预览不创建 Game/正式 Launch/PlaySession，也不提供状态或持久存档。无论 Validation 为 READY 还是阻断，子窗体收到当前平台默认核心的真实 `EJS_onGameStart` 后都启动 5,000ms 计时，随后保存 PNG 并通知审核页刷新；截图展示在页首条目摘要最右侧。当前截图是管理员已观察到核心真实启动的人工放行证据，可令 `canApprove=true`；发布事务必须再次证明截图、Validation、来源快照、目标平台和 CoreArtifact 一致，并将 `REVIEW_SCREENSHOT_OVERRIDE` 与截图 ID 写入 Variant/审核事件。正式单机启动沿用审核时的最佳努力依赖集合，不能发布后又因同一缺失依赖硬阻断；Netplay 不继承该放行。点击“重新运行检查”得到新 Validation 后，旧截图随之失效；如需人工放行必须再次点击“运行游戏”取得新截图。浏览器阻止弹窗、核心未触发游戏开始、自动播放失败或截图上传失败时不能伪造证据，页面必须明确提示管理员重试。
 
 任务进度只展示 Worker/阶段运行态；待审核只展示未决条目；审核历史只读且按 ReviewEvent 回放。这三个边界可避免“失败任务”“待业务决策”和“已决审计记录”在同一列表中混淆。
 

@@ -1130,7 +1130,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation; this never changes publish eligibility. A current READY validation enables one runtime screenshot capture five seconds after the core reports game start. */
+        /** @description Creates a short-lived, capability-scoped browser preview from the immutable review source. Missing Parent or BIOS dependencies are omitted instead of blocking preview creation. Every preview captures one runtime screenshot five seconds after the core reports game start; a current screenshot may be used by an administrator to publish despite dependency blockers. */
         post: operations["postAdminReviewPreview"];
         delete?: never;
         options?: never;
@@ -1187,6 +1187,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
+        /** @description Publishes a current READY validation, or a current blocked validation that has a five-second runtime screenshot captured by its matching review preview. Screenshot overrides remain explicit in immutable review evidence and the published Variant compatibility code. */
         post: operations["postAdminReviewApprove"];
         delete?: never;
         options?: never;
@@ -2268,7 +2269,7 @@ export interface paths {
         };
         get?: never;
         put?: never;
-        /** @description Stores one bounded PNG captured by a READY review preview five seconds after game start. The path-scoped preview capability is required and ordinary published Launch sessions cannot use this route. */
+        /** @description Stores one bounded PNG captured by a current review preview five seconds after game start, including best-effort previews with missing dependencies. The path-scoped preview capability is required and ordinary published Launch sessions cannot use this route. */
         post: operations["postRuntimeReviewScreenshot"];
         delete?: never;
         options?: never;

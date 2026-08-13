@@ -886,15 +886,15 @@
     #retrom-ui-review .rt-review-context-item { display: grid; gap: 3px; width: 100%; padding: 9px; border: 1px solid var(--retrom-line); border-radius: 8px; color: var(--retrom-text); background: var(--retrom-panel); text-align: left; }
     #retrom-ui-review .rt-review-context-item span { color: var(--retrom-muted); font-size: 9px; }
     #retrom-ui-review .rt-review-context-item.is-active { border-color: var(--retrom-purple); background: var(--retrom-purple-soft); }
-    #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 12px; }
+    #retrom-ui-review .rt-review-detail-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; align-items: start; gap: 12px; }
     #retrom-ui-review .rt-review-summary, #retrom-ui-review .rt-review-decision { min-height: 178px; padding: 15px; }
-    #retrom-ui-review .rt-review-summary { min-width: 0; display: grid; grid-template-columns: minmax(0, 1fr) 250px; align-items: stretch; gap: 14px; }
+    #retrom-ui-review .rt-review-summary { min-width: 0; height: 178px; overflow: hidden; display: grid; grid-template-columns: minmax(0, 1fr) 250px; grid-template-rows: minmax(0, 1fr); align-items: stretch; gap: 14px; }
     #retrom-ui-review .rt-review-summary-copy { min-width: 0; align-self: center; }
     #retrom-ui-review .rt-review-summary h2, #retrom-ui-review .rt-review-decision h2 { margin: 8px 0 3px; }
     #retrom-ui-review .rt-review-summary-status { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
-    #retrom-ui-review .rt-review-runtime-shot { min-width: 0; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--retrom-line); border-radius: 9px; background: #0a0d14; }
+    #retrom-ui-review .rt-review-runtime-shot { min-width: 0; min-height: 0; overflow: hidden; align-self: stretch; display: grid; grid-template-rows: auto minmax(0, 1fr); border: 1px solid var(--retrom-line); border-radius: 9px; background: #0a0d14; }
     #retrom-ui-review .rt-review-runtime-shot > span { padding: 7px 9px; color: var(--retrom-muted); background: var(--retrom-panel-raised); font-size: 9px; font-weight: 750; }
-    #retrom-ui-review .rt-review-runtime-shot > div { min-height: 112px; padding: 12px; display: grid; place-content: center; gap: 4px; color: #dce2ee; background: radial-gradient(circle at 50% 30%, #2c3344, #0a0d14 72%); text-align: center; }
+    #retrom-ui-review .rt-review-runtime-shot > div { min-height: 0; height: 100%; padding: 12px; display: grid; place-content: center; gap: 4px; color: #dce2ee; background: radial-gradient(circle at 50% 30%, #2c3344, #0a0d14 72%); text-align: center; }
     #retrom-ui-review .rt-review-runtime-shot > div.is-ready { background: linear-gradient(145deg, #171a2c, #313759 48%, #0a0d14); }
     #retrom-ui-review .rt-review-runtime-shot strong { font-size: 10px; }
     #retrom-ui-review .rt-review-runtime-shot small { color: #949dad; font-size: 8px; line-height: 1.45; }
@@ -1448,6 +1448,22 @@
     #retrom-ui-review .rt-player-launch-state.is-loading::before { background: #9b87e7; box-shadow: 0 0 0 4px rgb(155 135 231 / 12%); }
     #retrom-ui-review .rt-player-actions { display: flex; align-items: center; gap: 7px; }
     #retrom-ui-review .rt-player-control.is-icon { width: 36px; padding: 0; }
+    #retrom-ui-review .rt-player-debug-toggle[aria-pressed="true"] { color: #d8d1ff; border-color: #6d60bd; background: #2b2551; box-shadow: 0 0 0 3px rgb(139 123 241 / 10%); }
+    #retrom-ui-review .rt-player-debug { position: absolute; z-index: 6; top: 70px; right: 14px; bottom: 14px; width: min(350px, calc(100vw - 28px)); overflow: auto; display: flex; flex-direction: column; color: #dfe4ec; border: 1px solid #3b4558; border-radius: 14px; background: rgb(14 19 28 / 96%); box-shadow: 0 24px 64px rgb(0 0 0 / 45%); opacity: 0; visibility: hidden; pointer-events: none; transform: translateX(calc(100% + 24px)); transition: opacity .18s ease, transform .18s ease; backdrop-filter: blur(14px); }
+    #retrom-ui-review .rt-player-debug.is-open { opacity: 1; visibility: visible; pointer-events: auto; transform: translateX(0); }
+    #retrom-ui-review .rt-player-debug > header { min-height: 66px; padding: 12px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #30394a; background: linear-gradient(135deg, rgb(36 31 67 / 88%), rgb(20 26 38 / 94%)); }
+    #retrom-ui-review .rt-player-debug > header span { color: #9a8ce9; font-size: 9px; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+    #retrom-ui-review .rt-player-debug > header h2 { margin: 3px 0 0; color: #fff; font-size: 18px; }
+    #retrom-ui-review .rt-player-debug-close { width: 32px; height: 32px; padding: 0; display: grid; place-items: center; color: #cbd2de; border: 1px solid #49536a; border-radius: 8px; background: #1b2230; }
+    #retrom-ui-review .rt-player-debug-close svg { width: 16px; height: 16px; }
+    #retrom-ui-review .rt-player-debug > section { padding: 13px 14px; border-bottom: 1px solid #293241; }
+    #retrom-ui-review .rt-player-debug h3 { margin: 0 0 8px; color: #8e98aa; font-size: 10px; letter-spacing: .06em; text-transform: uppercase; }
+    #retrom-ui-review .rt-player-debug dl { margin: 0; display: grid; gap: 1px; }
+    #retrom-ui-review .rt-player-debug dl > div { min-height: 31px; display: grid; grid-template-columns: minmax(110px, .8fr) minmax(0, 1.2fr); align-items: center; gap: 12px; border-bottom: 1px solid rgb(54 64 81 / 48%); }
+    #retrom-ui-review .rt-player-debug dl > div:last-child { border-bottom: 0; }
+    #retrom-ui-review .rt-player-debug dt { color: #929cad; font-size: 10px; }
+    #retrom-ui-review .rt-player-debug dd { min-width: 0; margin: 0; overflow: hidden; color: #edf1f6; text-overflow: ellipsis; white-space: nowrap; text-align: right; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 10px; }
+    #retrom-ui-review .rt-player-debug > footer { margin-top: auto; padding: 11px 14px; overflow: hidden; color: #7f899a; background: #101620; text-overflow: ellipsis; white-space: nowrap; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 9px; }
     #retrom-ui-review .rt-player-menu-wrap { position: relative; }
     #retrom-ui-review .rt-player-menu { position: absolute; right: 0; top: 42px; width: 220px; padding: 7px; display: none; border: 1px solid #343d4f; border-radius: 10px; background: #171e2b; box-shadow: 0 18px 40px rgb(0 0 0 / 34%); }
     #retrom-ui-review .rt-player-menu.is-open { display: grid; gap: 2px; }
@@ -2281,8 +2297,9 @@
             <button type="button" class="rt-player-back" id="rt-exit-player" data-player-exit aria-label="返回并退出游戏"><i data-lucide="arrow-left" aria-hidden="true"></i></button>
             <div class="rt-player-title"><strong id="rt-player-game">NOeL 3</strong><div class="rt-player-meta" id="rt-player-core">Yabause · Saturn</div></div>
             <div class="rt-player-launch-state" id="rt-player-launch-state" role="status" aria-live="polite">已同步</div>
-            <div class="rt-player-actions"><div class="rt-player-menu-wrap"><button type="button" class="rt-player-control" id="rt-player-disc" aria-haspopup="menu" aria-expanded="false" aria-label="光盘 2 / 3"><i data-lucide="disc-3" aria-hidden="true"></i>光盘 2 / 3</button><div class="rt-player-menu rt-player-disc-menu" id="rt-player-disc-menu" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-disc-number="1"><span>光盘 1</span><small>disc-001.chd</small></button><button type="button" role="menuitemradio" aria-checked="true" data-disc-number="2"><span>光盘 2</span><small>当前</small></button><button type="button" role="menuitemradio" aria-checked="false" data-disc-number="3"><span>光盘 3</span><small>disc-003.chd</small></button></div></div><button type="button" class="rt-player-control"><i data-lucide="save" aria-hidden="true"></i>创建存档</button><button type="button" class="rt-player-control is-icon" aria-label="暂停"><i data-lucide="pause" aria-hidden="true"></i></button><button type="button" class="rt-player-control is-icon" id="rt-enter-fullscreen" aria-label="全屏"><i data-lucide="maximize" aria-hidden="true"></i></button><div class="rt-player-menu-wrap"><button type="button" class="rt-player-control is-icon" id="rt-player-more" aria-label="更多操作"><i data-lucide="ellipsis" aria-hidden="true"></i></button><div class="rt-player-menu" id="rt-player-menu"><button type="button" data-open-emulator-controls>模拟器设置</button><button type="button">查看快捷键</button><button type="button">查看运行提醒</button><hr><button type="button" class="is-danger" data-player-exit>退出游戏</button></div></div></div>
+            <div class="rt-player-actions"><button type="button" class="rt-player-control rt-player-debug-toggle" id="rt-player-debug" aria-controls="rt-player-debug-panel" aria-expanded="false" aria-pressed="false"><i data-lucide="cpu" aria-hidden="true"></i>调试信息</button><div class="rt-player-menu-wrap"><button type="button" class="rt-player-control" id="rt-player-disc" aria-haspopup="menu" aria-expanded="false" aria-label="光盘 2 / 3"><i data-lucide="disc-3" aria-hidden="true"></i>光盘 2 / 3</button><div class="rt-player-menu rt-player-disc-menu" id="rt-player-disc-menu" role="menu"><button type="button" role="menuitemradio" aria-checked="false" data-disc-number="1"><span>光盘 1</span><small>disc-001.chd</small></button><button type="button" role="menuitemradio" aria-checked="true" data-disc-number="2"><span>光盘 2</span><small>当前</small></button><button type="button" role="menuitemradio" aria-checked="false" data-disc-number="3"><span>光盘 3</span><small>disc-003.chd</small></button></div></div><button type="button" class="rt-player-control"><i data-lucide="save" aria-hidden="true"></i>创建存档</button><button type="button" class="rt-player-control is-icon" aria-label="暂停"><i data-lucide="pause" aria-hidden="true"></i></button><button type="button" class="rt-player-control is-icon" id="rt-enter-fullscreen" aria-label="全屏"><i data-lucide="maximize" aria-hidden="true"></i></button><div class="rt-player-menu-wrap"><button type="button" class="rt-player-control is-icon" id="rt-player-more" aria-label="更多操作"><i data-lucide="ellipsis" aria-hidden="true"></i></button><div class="rt-player-menu" id="rt-player-menu"><button type="button" data-open-emulator-controls>模拟器设置</button><button type="button">查看快捷键</button><button type="button">查看运行提醒</button><hr><button type="button" class="is-danger" data-player-exit>退出游戏</button></div></div></div>
           </div>
+          <aside class="rt-player-debug" id="rt-player-debug-panel" aria-label="运行调试信息" aria-hidden="true"><header><div><span>实时运行诊断</span><h2>调试信息</h2></div><button type="button" class="rt-player-debug-close" data-close-player-debug aria-label="关闭调试信息面板"><i data-lucide="x" aria-hidden="true"></i></button></header><section><h3>实时</h3><dl><div><dt>帧率</dt><dd>59.9 FPS</dd></div><div><dt>核心帧计数</dt><dd>4,210</dd></div><div><dt>运行状态</dt><dd>运行中</dd></div><div><dt>游戏分辨率</dt><dd>704 × 480</dd></div></dl></section><section><h3>运行环境</h3><dl><div><dt>Core</dt><dd>Yabause</dd></div><div><dt>EmulatorJS</dt><dd>4.2.3</dd></div><div><dt>Player adapter</dt><dd>ejs-4.2.3-v2</dd></div><div><dt>输入模式</dt><dd>STANDARD</dd></div><div><dt>隔离能力</dt><dd>COOP/COEP + SAB</dd></div><div><dt>Player 模式</dt><dd>单机</dd></div></dl></section><section><h3>显示</h3><dl><div><dt>视口</dt><dd>2560 × 1440</dd></div><div><dt>像素比</dt><dd>1.00</dd></div><div><dt>光盘</dt><dd>2 / 3</dd></div></dl></section><footer>Artifact · yabause-wasm-4.2.3</footer></aside>
           <div class="rt-player-pause-overlay" id="rt-player-pause-overlay" aria-hidden="true"><div class="rt-player-pause-pill"><i data-lucide="pause" aria-hidden="true"></i><strong>已暂停</strong><small>点击游戏画面继续</small></div></div>
           <div class="rt-player-emulator-controls" id="rt-player-emulator-controls" aria-hidden="true"><div class="rt-player-emulator-group"><span class="rt-player-emulator-label">模拟器</span><button type="button">🎮 控制</button><button type="button">▤ 显示</button><button type="button">⚙ Core 设置</button></div><div class="rt-player-emulator-group"><label class="rt-player-emulator-volume"><span class="rt-player-emulator-label">音量</span><input type="range" min="0" max="100" value="72" aria-label="模拟器音量"></label><button type="button" aria-label="静音">🔊</button><button type="button" data-close-emulator-controls>收起</button></div></div>
           <div class="rt-player-hint">移动鼠标显示 Retrom 控制</div>
@@ -2437,10 +2454,10 @@
             <div class="rt-review-queue-context">这里只显示当前 Pegasus 任务已交接的审核事项；清除搜索或状态仍保留批次。最终发布仍逐条确认。</div>
             <div class="rt-workflow-chips"><button type="button" class="is-active">当前已加载 5</button><button type="button">可以发布 3</button><button type="button">运行异常 1</button><button type="button">未找到信息 1</button></div>
             <div class="rt-review-queue-list">
-              <button type="button" class="rt-review-item is-selected" aria-current="true" data-review-item data-review-position-value="已选 1 / 4" data-review-file="NOeL 3/game.m3u" data-review-preview="NOeL 3" data-review-title="NOeL 3" data-review-year="" data-review-developer="" data-review-players="1" data-review-description="" data-review-candidate="NOeL 3" data-review-candidate-meta="Saturn · 管理员确认" data-review-candidate-badge="手动" data-review-validation-status="BLOCKED" data-review-validation="! 当前缺少光盘 3；补齐完整缺失集合并重新验证后才能发布">
+              <button type="button" class="rt-review-item is-selected" aria-current="true" data-review-item data-review-position-value="已选 1 / 4" data-review-file="NOeL 3/game.m3u" data-review-preview="NOeL 3" data-review-title="NOeL 3" data-review-year="" data-review-developer="" data-review-players="1" data-review-description="" data-review-candidate="NOeL 3" data-review-candidate-meta="Saturn · 管理员确认" data-review-candidate-badge="手动" data-review-validation-status="BLOCKED" data-review-validation="! 当前缺少光盘 3；可补齐后重新验证，或运行游戏取得第 5 秒截图后人工确认">
                 <span class="rt-review-thumb">NOeL 3</span><span><span class="rt-review-item-title">NOeL 3</span><span class="rt-review-item-source">NOeL 3/game.m3u</span><span class="rt-review-item-meta"><span>2 / 3 张光盘 · M3U</span></span></span><span>Saturn 游戏</span><span class="rt-badge rt-badge-amber">缺少光盘</span><span>手动信息</span><span>2 分钟前 →</span>
               </button>
-              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 2 / 4" data-review-file="garou.zip" data-review-preview="GAROU" data-review-title="Garou: Mark of the Wolves" data-review-year="1999" data-review-developer="SNK" data-review-players="1–2" data-review-description="南镇格斗大会再度开幕，新的格斗家加入战局。" data-review-candidate="Garou: Mark of the Wolves" data-review-candidate-meta="World · 1999 · SNK" data-review-candidate-badge="精确" data-review-validation-status="BLOCKED" data-review-validation="! 当前目录缺少必需 BIOS neogeo.zip；安装并重新检查后才能发布">
+              <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 2 / 4" data-review-file="garou.zip" data-review-preview="GAROU" data-review-title="Garou: Mark of the Wolves" data-review-year="1999" data-review-developer="SNK" data-review-players="1–2" data-review-description="南镇格斗大会再度开幕，新的格斗家加入战局。" data-review-candidate="Garou: Mark of the Wolves" data-review-candidate-meta="World · 1999 · SNK" data-review-candidate-badge="精确" data-review-validation-status="BLOCKED" data-review-validation="! 当前目录缺少必需 BIOS neogeo.zip；可安装后重新检查，或以第 5 秒截图人工确认">
                 <span class="rt-review-thumb" style="background:var(--retrom-cover-c)">GAROU</span><span><span class="rt-review-item-title">Garou: Mark of the Wolves</span><span class="rt-review-item-source">garou.zip</span><span class="rt-review-item-meta"><span>41.7 MiB · MD5 6e13…27aa</span></span></span><span>FBNeo 游戏列表</span><span class="rt-badge rt-badge-red">缺少 BIOS</span><span>1 个候选</span><span>5 分钟前 →</span>
               </button>
               <button type="button" class="rt-review-item" data-review-item data-review-position-value="已选 3 / 4" data-review-file="lastbld2.zip" data-review-preview="LAST BLADE 2" data-review-title="lastbld2" data-review-year="" data-review-developer="" data-review-players="" data-review-description="" data-review-candidate="没有精确候选" data-review-candidate-meta="保留安全文件名并手动编辑" data-review-candidate-badge="手动" data-review-validation-status="READY" data-review-validation="✓ 运行检查已经通过；未找到游戏信息不影响手动补全后发布">
@@ -2458,12 +2475,12 @@
           <div class="rt-review-layout" data-review-view="detail" hidden>
             <button type="button" class="rt-button rt-review-back" data-review-back><i data-lucide="arrow-left" aria-hidden="true"></i>返回待审列表</button>
             <div class="rt-review-detail-top">
-              <section class="rt-panel rt-review-summary"><div class="rt-review-summary-copy"><span class="rt-badge">来源：<span data-review-file-output>NOeL 3/game.m3u</span></span><h2 data-review-preview-output>NOeL 3</h2><p class="rt-subtitle">目标目录：Saturn 游戏</p><div class="rt-review-summary-status"><span class="rt-badge" data-review-disc-received>已接收 M3U 与 2 张光盘</span><span class="rt-badge rt-badge-amber" data-review-disc-summary-state>缺少光盘 3</span><span class="rt-badge rt-badge-cyan">盘序已锁定</span></div></div><aside class="rt-review-runtime-shot"><span>第 5 秒运行截图</span><div data-review-runtime-shot><strong>依赖检查未通过</strong><small>仍可尽最大可能运行；仅 READY 条目自动生成截图</small></div></aside></section>
-              <aside class="rt-panel rt-review-decision"><h2>审核决定</h2><p class="rt-subtitle" data-review-decision-copy>先一次补齐左侧列出的全部缺失光盘，再发布。</p><div class="rt-review-save"><span>实时保存</span><strong>● 已实时保存</strong></div><div class="rt-review-decision-actions"><button type="button" class="rt-button"><i data-lucide="refresh-cw" aria-hidden="true"></i>重新运行检查</button><button type="button" class="rt-button rt-review-run"><i data-lucide="gamepad-2" aria-hidden="true"></i>运行游戏</button></div><div class="rt-review-decision-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>丢弃条目</button><button type="button" class="rt-button rt-button-primary" data-review-approve disabled><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></aside>
+              <section class="rt-panel rt-review-summary"><div class="rt-review-summary-copy"><span class="rt-badge">来源：<span data-review-file-output>NOeL 3/game.m3u</span></span><h2 data-review-preview-output>NOeL 3</h2><p class="rt-subtitle">目标目录：Saturn 游戏</p><div class="rt-review-summary-status"><span class="rt-badge" data-review-disc-received>已接收 M3U 与 2 张光盘</span><span class="rt-badge rt-badge-amber" data-review-disc-summary-state>缺少光盘 3</span><span class="rt-badge rt-badge-cyan">盘序已锁定</span></div></div><aside class="rt-review-runtime-shot"><span>第 5 秒运行截图</span><div data-review-runtime-shot><strong>等待运行截图</strong><small>运行游戏后自动截取，可作为管理员放行依据</small></div></aside></section>
+              <aside class="rt-panel rt-review-decision"><h2>审核决定</h2><p class="rt-subtitle" data-review-decision-copy>可补齐左侧缺失内容，或运行游戏取得第 5 秒截图后人工确认。</p><div class="rt-review-save"><span>实时保存</span><strong>● 已实时保存</strong></div><div class="rt-review-decision-actions"><button type="button" class="rt-button"><i data-lucide="refresh-cw" aria-hidden="true"></i>重新运行检查</button><button type="button" class="rt-button rt-review-run"><i data-lucide="gamepad-2" aria-hidden="true"></i>运行游戏</button></div><div class="rt-review-decision-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>丢弃条目</button><button type="button" class="rt-button rt-button-primary" data-review-approve disabled><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></aside>
             </div>
             <div class="rt-review-detail-columns">
               <div>
-                <section class="rt-panel rt-review-file"><div class="rt-section-head"><div><h2>① 能不能发布？</h2><p class="rt-subtitle">直接展示多盘内容、运行方式和完整性结论。</p></div><span class="rt-badge rt-badge-amber" data-review-capability-state>缺少光盘</span></div><div class="rt-review-capability"><div><strong>内容布局</strong><span>M3U + 3 张 CHD</span></div><div><strong>运行检查</strong><span>Saturn · Yabause</span></div><div><strong>完整性检查</strong><span data-review-completeness>缺少 1 张光盘</span></div></div><div class="rt-validation-box is-warning" data-review-validation-output>! 当前缺少光盘 3；补齐完整缺失集合并重新验证后才能发布</div></section>
+                <section class="rt-panel rt-review-file"><div class="rt-section-head"><div><h2>① 能不能发布？</h2><p class="rt-subtitle">直接展示多盘内容、运行方式和完整性结论。</p></div><span class="rt-badge rt-badge-amber" data-review-capability-state>缺少光盘</span></div><div class="rt-review-capability"><div><strong>内容布局</strong><span>M3U + 3 张 CHD</span></div><div><strong>运行检查</strong><span>Saturn · Yabause</span></div><div><strong>完整性检查</strong><span data-review-completeness>缺少 1 张光盘</span></div></div><div class="rt-validation-box is-warning" data-review-validation-output>! 当前缺少光盘 3；可补齐后重新验证，或运行游戏取得第 5 秒截图后人工确认</div></section>
                 <section class="rt-panel rt-review-file rt-review-disc-card" style="margin-top:12px" data-review-disc-card><div class="rt-section-head"><div><h2>多盘内容</h2><p class="rt-subtitle">服务端锁定的来源盘序；缺失盘不会创建占位文件。</p></div><span class="rt-badge rt-badge-amber" data-review-disc-count>2 / 3 张光盘</span></div><div class="rt-disc-list"><div class="rt-disc-row"><strong>光盘 1</strong><span>NOeL 3 (Disc 1).chd</span><code>314.8 MiB</code><span class="rt-badge rt-badge-green">已就绪</span></div><div class="rt-disc-row"><strong>光盘 2</strong><span>NOeL 3 (Disc 2).chd</span><code>213.7 MiB</code><span class="rt-badge rt-badge-green">已就绪</span></div><div class="rt-disc-row"><strong>光盘 3</strong><span>NOeL 3 (Disc 3).chd</span><code data-review-disc-3-size>—</code><span class="rt-badge rt-badge-amber" data-review-disc-3-state>缺失</span></div></div><div class="rt-setting-note" data-review-disc-message>请一次选择当前全部缺失文件：NOeL 3 (Disc 3).chd</div><div class="rt-review-disc-progress" data-review-disc-progress hidden><span class="rt-review-disc-spinner" aria-hidden="true"></span><span>正在校验补充光盘 · Job 0198d2af…</span></div><div class="rt-dialog-actions" data-review-disc-actions><button type="button" class="rt-button rt-button-primary" data-open-disc-drawer>上传全部缺失光盘</button></div></section>
                 <section class="rt-panel rt-review-file" style="margin-top:12px"><div class="rt-section-head"><div><h2>来源文件</h2><p class="rt-subtitle">来源 M3U 只作为审核证据；发布时生成 canonical playlist。</p></div></div><details class="rt-review-file-summary" open><summary><strong>NOeL 3/game.m3u</strong><span>3 行 / 39 bytes</span></summary><div class="rt-archive-list"><div><strong>NOeL 3 (Disc 1).chd</strong><span>314.8 MiB</span><code>51e03bbe</code></div><div><strong>NOeL 3 (Disc 2).chd</strong><span>213.7 MiB</span><code>ef77f3f9</code></div><div data-review-source-disc-3 hidden><strong>NOeL 3 (Disc 3).chd</strong><span>242.3 MiB</span><code>2ad8cbe1</code></div></div></details></section>
               </div>
@@ -3124,7 +3141,8 @@
       }));
       root.querySelector('#rt-enter-fullscreen').addEventListener('click', requestPlayerFullscreen);
       const playerPauseOverlay = root.querySelector('#rt-player-pause-overlay');
-      root.querySelector('.rt-player-top').addEventListener('click', () => {
+      root.querySelector('.rt-player-top').addEventListener('click', (event) => {
+        if (event.target.closest('#rt-player-debug, #rt-player-disc, #rt-player-disc-menu')) return;
         playerPauseOverlay.classList.add('is-open');
         playerPauseOverlay.setAttribute('aria-hidden', 'false');
       });
@@ -3133,6 +3151,19 @@
         playerPauseOverlay.setAttribute('aria-hidden', 'true');
       });
       root.querySelector('#rt-player-more').addEventListener('click', () => root.querySelector('#rt-player-menu').classList.toggle('is-open'));
+      const playerDebugButton = root.querySelector('#rt-player-debug');
+      const playerDebugPanel = root.querySelector('#rt-player-debug-panel');
+      const setPlayerDebugOpen = (open) => {
+        playerDebugPanel.classList.toggle('is-open', open);
+        playerDebugPanel.setAttribute('aria-hidden', String(!open));
+        playerDebugButton.setAttribute('aria-expanded', String(open));
+        playerDebugButton.setAttribute('aria-pressed', String(open));
+      };
+      playerDebugButton.addEventListener('click', (event) => {
+        event.stopPropagation();
+        setPlayerDebugOpen(!playerDebugPanel.classList.contains('is-open'));
+      });
+      root.querySelector('[data-close-player-debug]').addEventListener('click', () => setPlayerDebugOpen(false));
       const playerDiscButton = root.querySelector('#rt-player-disc');
       const playerDiscMenu = root.querySelector('#rt-player-disc-menu');
       playerDiscButton.addEventListener('click', () => {
@@ -3272,7 +3303,7 @@
         card.classList.toggle('is-validating', state === 'validating');
         card.classList.toggle('is-ready', state === 'ready');
         progress.hidden = state !== 'validating';
-        actions.hidden = state !== 'blocked';
+        actions.hidden = state !== 'blocked' && state !== 'override';
         toast.hidden = state !== 'ready';
         if (state === 'validating') {
           count.className = 'rt-badge rt-badge-purple';
@@ -3294,6 +3325,11 @@
           root.querySelector('[data-review-approve]').disabled = true;
           runtimeShot.classList.remove('is-ready');
           runtimeShot.innerHTML = '<strong>等待运行检查</strong><small>校验完成后才会执行真实运行截图</small>';
+        } else if (state === 'override') {
+          root.querySelector('[data-review-decision-copy]').textContent = '已取得第 5 秒运行截图，可由管理员确认后发布。';
+          root.querySelector('[data-review-approve]').disabled = false;
+          runtimeShot.classList.add('is-ready');
+          runtimeShot.innerHTML = '<strong>截图已生成 · 5.0s</strong><small>依赖阻断下的实际运行画面 · 人工放行依据</small>';
         } else if (state === 'ready') {
           count.className = 'rt-badge rt-badge-green';
           count.textContent = '3 / 3 张光盘';
@@ -3350,7 +3386,7 @@
         runtimeShot.classList.toggle('is-ready', ready);
         runtimeShot.innerHTML = ready
           ? '<strong>截图已生成 · 5.0s</strong><small>当前平台默认核心实际运行画面</small>'
-          : '<strong>依赖检查未通过</strong><small>仍可尽最大可能运行；仅 READY 条目自动生成截图</small>';
+          : '<strong>等待运行截图</strong><small>运行游戏后自动截取，可作为管理员放行依据</small>';
       }));
       root.querySelector('[data-review-back]').addEventListener('click', () => {
         root.querySelector('[data-review-workspace]').classList.remove('is-detail-open');

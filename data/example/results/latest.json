@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "generatedAtMs": 1786542361951,
+  "generatedAtMs": 1786629183197,
   "emulatorjs": {
     "version": "4.2.3",
     "runtimeVersions": [
@@ -22,90 +22,15 @@
   },
   "results": [
     {
-      "core": "fceumm",
-      "productCore": "fceumm",
-      "formatId": null,
-      "playerAdapterId": null,
-      "status": "passed",
-      "failure": null,
-      "startedAtMs": 1786542335502,
-      "finishedAtMs": 1786542347659,
-      "durationMs": 12157,
-      "pageUrl": "http://127.0.0.1:4173/data/example/fceumm/index.html",
-      "initialScreenshotPath": null,
-      "screenshotPath": "data/example/results/fceumm.png",
-      "postSwitchScreenshotPath": null,
-      "smoke": {
-        "core": "fceumm",
-        "system": "nes",
-        "title": "Famicom Disk System / Smash Ping Pong",
-        "phase": "frames-advancing",
-        "configuredAtMs": 1786542335626,
-        "readyAtMs": 1786542335996,
-        "startedAtMs": 1786542336633,
-        "framesAdvancingAtMs": 1786542338891,
-        "frameStart": 0,
-        "frameNow": 122,
-        "frameDelta": 122,
-        "canvas": {
-          "width": 1246,
-          "height": 549,
-          "cssWidth": 1246,
-          "cssHeight": 549
-        },
-        "discCount": null,
-        "discTransitions": [],
-        "externalFileSizes": [],
-        "crossOriginIsolated": true,
-        "errors": []
-      },
-      "crossOriginIsolated": true,
-      "visual": {
-        "width": 1246,
-        "height": 549,
-        "sampledPixels": 171325,
-        "colorBuckets": 7,
-        "nonBlackRatio": 0.033,
-        "meanLuminance": 8.4,
-        "luminanceStdDev": 45.5,
-        "canvasCropUsed": true
-      },
-      "initialVisual": null,
-      "postSwitchVisual": null,
-      "expectedCoreArtifact": {
-        "path": "data/runtime/emulatorjs/4.2.3/data/cores/fceumm-wasm.data",
-        "size": 1054015,
-        "sha256": "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493"
-      },
-      "requestedCoreAssets": [
-        {
-          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/reports/fceumm.json",
-          "status": 200
-        },
-        {
-          "url": "http://127.0.0.1:4173/data/runtime/emulatorjs/4.2.3/data/cores/fceumm-wasm.data",
-          "status": 200
-        }
-      ],
-      "requestedExternalFiles": [
-        {
-          "url": "http://127.0.0.1:4173/data/game/bios/disksys.rom",
-          "status": 200
-        }
-      ],
-      "consoleErrors": [],
-      "consoleMessages": []
-    },
-    {
       "core": "fbneo",
       "productCore": "fbneo",
       "formatId": null,
       "playerAdapterId": null,
       "status": "passed",
       "failure": null,
-      "startedAtMs": 1786542347660,
-      "finishedAtMs": 1786542361950,
-      "durationMs": 14290,
+      "startedAtMs": 1786629167045,
+      "finishedAtMs": 1786629183197,
+      "durationMs": 16152,
       "pageUrl": "http://127.0.0.1:4173/data/example/fbneo/index.html",
       "initialScreenshotPath": null,
       "screenshotPath": "data/example/results/fbneo.png",
@@ -115,13 +40,13 @@
         "system": "arcade",
         "title": "Arcade / Lode Runner",
         "phase": "frames-advancing",
-        "configuredAtMs": 1786542347733,
-        "readyAtMs": 1786542347833,
-        "startedAtMs": 1786542349902,
-        "framesAdvancingAtMs": 1786542352154,
+        "configuredAtMs": 1786629167191,
+        "readyAtMs": 1786629168177,
+        "startedAtMs": 1786629171076,
+        "framesAdvancingAtMs": 1786629173581,
         "frameStart": 0,
-        "frameNow": 126,
-        "frameDelta": 126,
+        "frameNow": 124,
+        "frameDelta": 124,
         "canvas": {
           "width": 1246,
           "height": 549,
@@ -139,10 +64,10 @@
         "width": 1246,
         "height": 549,
         "sampledPixels": 171325,
-        "colorBuckets": 10,
-        "nonBlackRatio": 0.0486,
-        "meanLuminance": 4.81,
-        "luminanceStdDev": 26.69,
+        "colorBuckets": 13,
+        "nonBlackRatio": 0.0454,
+        "meanLuminance": 5.71,
+        "luminanceStdDev": 31.5,
         "canvasCropUsed": true
       },
       "initialVisual": null,

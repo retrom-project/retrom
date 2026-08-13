@@ -11,8 +11,9 @@ import { restoreMultiDiscLaunch } from "./multi-disc-restore";
 import { multiDiscPlayerResultCode, reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
 import { setEmulatorPaused } from "./pause-control";
 import { restorePersistentSave } from "./persistent-save-restore";
-import { PlayerChrome } from "./player-chrome";
+import { PlayerChrome, type PlayerDebugRuntime } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
+import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
 import { NetplayController } from "./netplay/controller";
 import { digestHex, EJSNetplayFrameBridge } from "./netplay/ejs-netplay-4.2.3-v1";
 
@@ -89,6 +90,12 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [discState, setDiscState] = useState<DiscState | null>(null);
   const [netplayPlayerNo, setNetplayPlayerNo] = useState<number | null>(null);
   const [netplayPaused, setNetplayPaused] = useState(false);
+  const [debugOpen, setDebugOpen] = useState(false);
+  const [debugMetrics, setDebugMetrics] = useState<PlayerDebugMetrics | null>(null);
+  const [debugRuntime, setDebugRuntime] = useState<PlayerDebugRuntime>({
+    coreId: "", coreArtifactId: "", emulatorJSVersion: "", playerAdapterId: "", inputMode: "",
+    crossOriginIsolated: false, sharedArrayBuffer: false,
+  });
   const returnTo = useRef("/library");
   const playerMode = useRef<PlayerConfig["mode"]>("single");
   const netplayConfig = useRef<NonNullable<PlayerConfig["netplay"]> | null>(null);
@@ -364,6 +371,15 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         setGameTitle(config.gameTitle);
         setCoreName(config.coreName || config.core);
         setPlatformName(config.platformName);
+        setDebugRuntime({
+          coreId: config.core,
+          coreArtifactId: config.coreArtifactId,
+          emulatorJSVersion: config.emulatorjsVersion,
+          playerAdapterId: config.playerAdapterId,
+          inputMode: config.inputMode,
+          crossOriginIsolated: window.crossOriginIsolated,
+          sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
+        });
         persistentSaveMode.current = config.persistentSaveMode;
         discSetRef.current = config.discSet ?? null;
         setDiscSet(config.discSet ?? null);
@@ -628,6 +644,34 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
   }, []);
 
   useEffect(() => {
+    if (!debugOpen) return;
+    let previous: PlayerDebugSample | null = null;
+    const sample = () => {
+      const canvas = emulator.current?.canvas ?? frameRef.current?.contentDocument?.querySelector("canvas") ?? null;
+      const result = samplePlayerDebugMetrics(emulator.current, canvas, previous, performance.now(), {
+        width: window.innerWidth,
+        height: window.innerHeight,
+        devicePixelRatio: window.devicePixelRatio,
+      });
+      previous = result.sample;
+      setDebugMetrics(result.metrics);
+    };
+    const initialFrame = window.requestAnimationFrame(sample);
+    const timer = window.setInterval(sample, 1_000);
+    window.addEventListener("resize", sample);
+    return () => {
+      window.cancelAnimationFrame(initialFrame);
+      window.clearInterval(timer);
+      window.removeEventListener("resize", sample);
+    };
+  }, [debugOpen]);
+
+  function toggleDebug() {
+    if (!debugOpen) setDebugMetrics(null);
+    setDebugOpen((open) => !open);
+  }
+
+  useEffect(() => {
     const handlePageHide = () => {
       if (finishing.current) return;
       const wasStarted = started.current;
@@ -806,6 +850,10 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         discState={discState}
         netplayPlayerNo={netplayPlayerNo}
         netplayPaused={netplayPaused}
+        debugOpen={debugOpen}
+        debugMetrics={debugMetrics}
+        debugRuntime={debugRuntime}
+        runtimeState={state}
         onHoldControls={holdControls}
         onReleaseControls={releaseControls}
         onSave={saveManualState}
@@ -818,6 +866,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         onToggleEmulatorMute={toggleEmulatorMute}
         onSelectDisc={selectDisc}
         onToggleNetplayPause={() => void toggleNetplayPause()}
+        onToggleDebug={toggleDebug}
         onExit={() => void exit()}
         onDownloadConflict={downloadConflictingSave}
       />
