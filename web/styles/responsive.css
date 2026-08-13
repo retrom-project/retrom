@@ -9,7 +9,7 @@
 @media (min-width: 2600px) {
   .app-frame { grid-template-columns: 280px minmax(0, 1fr); }
   .sidebar { padding-inline: 20px; }
-  .content { max-width: 2560px; padding: 42px 44px 80px; }
+  .content { max-width: calc(var(--content-canvas-max) + 88px); padding: 42px 44px 80px; }
   .page-header p { font-size: 16px; }
   .panel-head h2 { font-size: 18px; }
   .panel-head p, .game-meta, .filter-label, .filter-hint, .filter-result, .technical-details, .field small { font-size: 13px; }
@@ -37,4 +37,3 @@
   .review-workflow-columns { grid-template-columns: minmax(0, 1fr); }
   .review-workflow-top { grid-template-columns: minmax(0, 1fr) 340px; }
 }
-

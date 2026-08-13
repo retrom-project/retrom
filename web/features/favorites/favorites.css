@@ -1,6 +1,5 @@
 /* Favorites and collections */
-.content:has(> .favorite-page) { max-width: 2320px; }
-.favorite-page { max-width: var(--content-library); padding-bottom: 92px; }
+.favorite-page { padding-bottom: 92px; }
 .favorite-page > .page-header { margin-bottom: 18px; }
 .favorite-page > .page-header h1 { font-size: 34px; }
 .favorite-page .header-actions { padding-top: 9px; }

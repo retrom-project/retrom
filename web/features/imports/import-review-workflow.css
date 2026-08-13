@@ -35,7 +35,7 @@
 .import-workflow-empty h2 { margin: 0; color: var(--ink); font-size: 17px; }
 .import-workflow-empty p { margin: 6px 0 0; font-size: 12px; }
 
-.import-wizard { max-width: 1380px; margin-inline: auto; }
+.import-wizard { width: 100%; }
 .import-wizard-steps { max-width: 920px; margin: 2px auto 24px; }
 .import-wizard-stage { display: grid; gap: 16px; }
 .import-dropzone { min-height: 310px; border-color: #bdb2ef; background: radial-gradient(circle at 50% 0, #f2efff, transparent 42%), #fbfaff; }

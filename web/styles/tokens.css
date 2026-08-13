@@ -19,9 +19,5 @@
   --danger: #b6404e;
   --danger-soft: #ffebee;
   --shadow: 0 12px 34px rgb(24 32 51 / 7%);
-  --content-home: 1880px;
-  --content-detail: 1760px;
-  --content-library: 2320px;
-  --content-admin: 1960px;
+  --content-canvas-max: 2320px;
 }
-

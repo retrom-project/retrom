@@ -2,7 +2,6 @@
    legibility; the fractional maxima consume the rest of the first viewport. */
 @media (min-width: 1800px) and (min-height: 950px) {
   .content:has(> .home-page) { height: 100dvh; }
-  .page-layout-home { width: 100%; max-width: var(--content-library); margin-inline: auto; }
   .home-page { height: 100%; display: grid; grid-template-rows: minmax(547px, 46fr) minmax(203px, 19fr) minmax(203px, 19fr) minmax(122px, 12fr) minmax(54px, 4fr); gap: clamp(10px, .85vh, 18px); }
   .home-layer + .home-layer { margin-top: 0; }
   .home-hero-layer { min-height: 0; display: grid; grid-template-rows: 112px minmax(0, 1fr); }

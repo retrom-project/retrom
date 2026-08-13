@@ -24,6 +24,35 @@ async function noPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 }
 
+type HorizontalGaps = { left: number; right: number };
+
+async function pageCanvasGaps(page: Page, targetSelector = ".page-header"): Promise<HorizontalGaps> {
+  const measurement = await page.evaluate((selector) => {
+    const appBody = document.querySelector<HTMLElement>(".app-body");
+    const content = document.querySelector<HTMLElement>(".content");
+    const target = document.querySelector<HTMLElement>(selector);
+    if (!appBody || !content || !target) return null;
+    const appBodyRect = appBody.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const contentStyle = getComputedStyle(content);
+    const contentLeft = contentRect.left + Number.parseFloat(contentStyle.paddingLeft);
+    const contentRight = contentRect.right - Number.parseFloat(contentStyle.paddingRight);
+    return {
+      canvasWidth: contentRight - contentLeft,
+      targetLeftDelta: targetRect.left - contentLeft,
+      targetRightDelta: contentRight - targetRect.right,
+      left: targetRect.left - appBodyRect.left,
+      right: appBodyRect.right - targetRect.right,
+    };
+  }, targetSelector);
+  expect(measurement).not.toBeNull();
+  expect(Math.abs(measurement!.targetLeftDelta)).toBeLessThanOrEqual(1);
+  expect(Math.abs(measurement!.targetRightDelta)).toBeLessThanOrEqual(1);
+  expect(measurement!.canvasWidth).toBeLessThanOrEqual(2321);
+  return { left: measurement!.left, right: measurement!.right };
+}
+
 test("ACC-UI-001 authenticated navigation exposes the administrator entry", async ({ page }, testInfo) => {
   await page.goto("/");
   const navigation = page.getByRole("navigation", { name: "主要导航" });
@@ -182,17 +211,27 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   await page.addInitScript(() => {
     Object.defineProperty(document.documentElement, "requestFullscreen", { configurable: true, value: () => Promise.resolve() });
   });
-  const routes = ["/", "/library", "/saves"];
-  for (const route of routes) {
+  const routes = [
+    ["/", ".home-page"], ["/library", ".page-layout-library"], ["/saves", ".page-layout-saves"],
+    ["/favorites", ".favorite-page"], ["/recent", ".page-layout-recent"], ["/account", ".page-layout-detail"],
+    ["/netplay", ".netplay-page"],
+  ] as const;
+  let sharedPageGaps: HorizontalGaps | null = null;
+  for (const [route, selector] of routes) {
     await page.goto(route);
     await expect(page.locator(".page-header")).toBeVisible();
     await noPageOverflow(page);
+    const gaps = await pageCanvasGaps(page, selector);
+    if (sharedPageGaps) {
+      expect(Math.abs(gaps.left - sharedPageGaps.left)).toBeLessThanOrEqual(1);
+      expect(Math.abs(gaps.right - sharedPageGaps.right)).toBeLessThanOrEqual(1);
+    } else {
+      sharedPageGaps = gaps;
+    }
   }
   await page.goto("/");
   await expect(page.locator("[data-home-layer]")).toHaveCount(5);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
-  let homeLeftGap4K: number | null = null;
-  let homeRightGap4K: number | null = null;
   if (testInfo.project.name === "chrome-4k") {
     const measureHomeLayout = () => page.evaluate(() => {
       const platform = document.querySelector<HTMLElement>('[data-home-layer="4"]');
@@ -220,13 +259,9 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
         featuredCoverActionsBottomDelta: featuredCover && featuredActions ? featuredCover.bottom - featuredActions.bottom : Number.POSITIVE_INFINITY,
         featuredCopyCoverGap: featuredCover && featuredCopy ? featuredCopy.left - featuredCover.right : Number.POSITIVE_INFINITY,
         featuredActionsCoverGap: featuredCover && featuredActions ? featuredActions.left - featuredCover.right : Number.POSITIVE_INFINITY,
-        homeLeftGap: homePage && appBody ? homePage.getBoundingClientRect().left - appBody.getBoundingClientRect().left : Number.POSITIVE_INFINITY,
-        homeRightGap: homePage && appBody ? appBody.getBoundingClientRect().right - homePage.getBoundingClientRect().right : Number.POSITIVE_INFINITY,
       };
     });
     const homeLayout = await measureHomeLayout();
-    homeLeftGap4K = homeLayout.homeLeftGap;
-    homeRightGap4K = homeLayout.homeRightGap;
     expect(homeLayout.fifthLayerBottom).toBeLessThanOrEqual(homeLayout.viewportHeight);
     expect(homeLayout.fifthLayerBottom).toBeGreaterThanOrEqual(homeLayout.viewportHeight - 48);
     expect(homeLayout.documentHeight).toBeLessThanOrEqual(homeLayout.viewportHeight);
@@ -269,20 +304,6 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   }
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
-  if (testInfo.project.name === "chrome-4k") {
-    const libraryGaps = await page.evaluate(() => {
-      const library = document.querySelector<HTMLElement>(".page-layout-library");
-      const appBody = document.querySelector<HTMLElement>(".app-body");
-      if (!library || !appBody) return { left: Number.POSITIVE_INFINITY, right: Number.POSITIVE_INFINITY };
-      const libraryRect = library.getBoundingClientRect();
-      const appBodyRect = appBody.getBoundingClientRect();
-      return { left: libraryRect.left - appBodyRect.left, right: appBodyRect.right - libraryRect.right };
-    });
-    expect(homeLeftGap4K).not.toBeNull();
-    expect(homeRightGap4K).not.toBeNull();
-    expect(Math.abs(libraryGaps.left - (homeLeftGap4K ?? Number.POSITIVE_INFINITY))).toBeLessThanOrEqual(1);
-    expect(Math.abs(libraryGaps.right - (homeRightGap4K ?? Number.POSITIVE_INFINITY))).toBeLessThanOrEqual(1);
-  }
   const launchableGame = page.locator(".library-game-card").filter({ hasText: "Sudoku" });
   await expect(launchableGame).toBeVisible();
   const libraryCard = await launchableGame.evaluate((card) => {
@@ -296,6 +317,9 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   await launchableGame.getByRole("link").first().click();
   await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible();
   await noPageOverflow(page);
+  const detailGaps = await pageCanvasGaps(page, ".game-detail-page");
+  expect(Math.abs(detailGaps.left - sharedPageGaps!.left)).toBeLessThanOrEqual(1);
+  expect(Math.abs(detailGaps.right - sharedPageGaps!.right)).toBeLessThanOrEqual(1);
   await page.getByRole("button", { name: "开始游戏" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
   const shell = page.locator(".player-shell");
@@ -335,14 +359,26 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
 
 test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ page }, testInfo) => {
   const routes = [
-    "/admin/imports", "/admin/imports/new", "/admin/imports/tasks", "/admin/reviews",
-    "/admin/reviews/history", "/admin/games", "/admin/platform-instances", "/admin/users", "/admin/bios", "/admin/bios/dats",
-  ];
-  for (const route of routes) {
+    ["/admin/imports", ".import-workflow-page"], ["/admin/imports/new", ".import-wizard"],
+    ["/admin/imports/server", ".page-layout-admin"], ["/admin/imports/tasks", ".import-workflow-page"],
+    ["/admin/reviews", ".import-workflow-page"], ["/admin/reviews/history", ".import-workflow-page"],
+    ["/admin/games", ".page-header"], ["/admin/platform-instances", ".platform-directory-manager"],
+    ["/admin/users", ".user-admin-page"], ["/admin/bios", ".page-layout-admin"],
+    ["/admin/bios/dats", ".page-layout-admin"],
+  ] as const;
+  let sharedPageGaps: HorizontalGaps | null = null;
+  for (const [route, selector] of routes) {
     await page.goto(route);
     await expect(page.locator(".page-header")).toBeVisible();
     await noPageOverflow(page);
     await expect(page.getByRole("main")).toBeVisible();
+    const gaps = await pageCanvasGaps(page, selector);
+    if (sharedPageGaps) {
+      expect(Math.abs(gaps.left - sharedPageGaps.left)).toBeLessThanOrEqual(1);
+      expect(Math.abs(gaps.right - sharedPageGaps.right)).toBeLessThanOrEqual(1);
+    } else {
+      sharedPageGaps = gaps;
+    }
   }
   await page.goto("/admin/imports/new");
   const dropzoneAlignment = await page.locator(".dropzone").evaluate((dropzone) => {
@@ -407,6 +443,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   if (payload.items[0]) {
     await page.setViewportSize({ width: 3840, height: 2160 });
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
+    await pageCanvasGaps(page, ".admin-game-detail");
     for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "从游戏库移除"]) {
       await expect(page.getByRole("heading", { name: heading })).toBeVisible();
     }
