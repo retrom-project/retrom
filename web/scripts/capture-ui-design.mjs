@@ -131,7 +131,7 @@ try {
       await frame.locator("[data-open-invite-drawer]").click();
       await frame.locator("[data-create-invitation]").click();
     }
-    if (variant === "portrait") await frame.locator(".rt-player-screen").evaluate((element) => element.classList.add("is-portrait"));
+    if (variant === "portrait") await frame.locator('[data-page="play"] .rt-player-screen').evaluate((element) => element.classList.add("is-portrait"));
     if (variant === "emulator-controls") {
       await frame.locator("#rt-player-more").click();
       await frame.locator("[data-open-emulator-controls]").click();

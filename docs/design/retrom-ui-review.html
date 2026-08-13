@@ -205,11 +205,6 @@
     #retrom-ui-review .rt-app.is-playing .rt-player-shell { min-height: 100vh; }
 
     #retrom-ui-review .rt-page { display: none; width: 100%; max-width: var(--retrom-content-max); margin: 0 auto; padding: 24px; }
-    #retrom-ui-review .rt-page[data-page=&quot;home&quot;] { max-width: 1880px; }
-    #retrom-ui-review .rt-page[data-page=&quot;detail&quot;] { max-width: 1760px; }
-    #retrom-ui-review .rt-page[data-page=&quot;library&quot;],
-    #retrom-ui-review .rt-page[data-page=&quot;favorites&quot;] { max-width: 2320px; }
-    #retrom-ui-review .rt-page[data-page=&quot;admin-platform-instances&quot;] { max-width: 1960px; }
     #retrom-ui-review .rt-page.is-active { display: block; }
     #retrom-ui-review .rt-page[data-page=&quot;play&quot;],
     #retrom-ui-review .rt-page[data-page=&quot;netplay-player&quot;] { padding: 0; }
@@ -621,7 +616,7 @@
     #retrom-ui-review .rt-info-row span:first-child { color: var(--retrom-muted); }
 
     /* Game detail · one-screen source */
-    #retrom-ui-review .rt-page[data-page=&quot;detail&quot;] { max-width: 1760px; padding-top: 18px; padding-bottom: 18px; }
+    #retrom-ui-review .rt-page[data-page=&quot;detail&quot;] { padding-top: 18px; padding-bottom: 18px; }
     #retrom-ui-review .rt-detail-breadcrumb { width: fit-content; min-height: 28px; margin-bottom: 10px; padding: 0; color: var(--retrom-purple); border: 0; background: transparent; cursor: pointer; font-size: 12px; font-weight: 700; }
     #retrom-ui-review .rt-detail-hero { position: relative; padding: 16px; display: grid; grid-template-columns: 232px minmax(0, 1fr) 390px; gap: 24px; align-items: center; overflow: visible; border: 1px solid var(--retrom-line); border-radius: 15px; background: var(--retrom-panel); }
     #retrom-ui-review .rt-detail-hero::before { content: none; }
@@ -706,7 +701,7 @@
     #retrom-ui-review .rt-admin-tabs { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 17px; }
     #retrom-ui-review .rt-admin-tab { padding: 7px 10px; border: 1px solid var(--retrom-line); border-radius: 8px; background: var(--retrom-panel); color: var(--retrom-muted); cursor: pointer; }
     #retrom-ui-review .rt-admin-tab.is-active { border-color: color-mix(in srgb, var(--retrom-purple) 52%, var(--retrom-line)); background: var(--retrom-purple-soft); color: var(--retrom-purple); }
-    #retrom-ui-review .rt-import-layout { display: grid; gap: 12px; max-width: 1180px; margin-inline: auto; }
+    #retrom-ui-review .rt-import-layout { width: 100%; display: grid; gap: 12px; }
     #retrom-ui-review .rt-dropzone { display: grid; place-items: center; min-height: 310px; padding: 22px; border: 1px dashed color-mix(in srgb, var(--retrom-purple) 46%, var(--retrom-line)); border-radius: 13px; background: color-mix(in srgb, var(--retrom-purple-soft) 38%, var(--retrom-panel)); text-align: center; }
     #retrom-ui-review .rt-drop-icon { display: grid; place-items: center; width: 44px; height: 44px; margin: 0 auto 12px; border-radius: 12px; background: var(--retrom-purple-soft); color: var(--retrom-purple); }
     #retrom-ui-review .rt-drop-icon svg { width: 21px; height: 21px; }
@@ -1158,7 +1153,7 @@
       #retrom-ui-review .rt-favorite-new-folder { margin-top: 0; }
       #retrom-ui-review .rt-favorite-tools { grid-template-columns: 1fr 160px auto; }
     }
-    #retrom-ui-review .rt-directory-page { max-width: 1710px; margin-inline: auto; }
+    #retrom-ui-review .rt-directory-page { width: 100%; }
     #retrom-ui-review .rt-directory-toolbar { padding: 14px; border: 1px solid var(--retrom-line); border-radius: 15px; background: var(--retrom-panel); }
     #retrom-ui-review .rt-directory-filters { display: grid; grid-template-columns: minmax(320px, 1.8fr) 180px 170px 170px; gap: 10px; align-items: end; }
     #retrom-ui-review .rt-directory-filters label { min-width: 0; display: grid; gap: 6px; color: var(--retrom-muted); font-size: 11px; font-weight: 760; }
@@ -1376,7 +1371,6 @@
     #retrom-ui-review .rt-runtime-diff-kpis strong { display: block; margin-top: 3px; color: var(--retrom-green); }
     #retrom-ui-review .rt-runtime-impact { margin: 10px 0; padding: 9px; color: var(--retrom-amber); border: 1px solid #ead398; border-radius: 8px; background: var(--retrom-amber-soft); font-size: 8px; }
 
-    #retrom-ui-review .rt-netplay-page { max-width: 1720px; }
     #retrom-ui-review .rt-netplay-head-actions { display: flex; align-items: center; gap: 9px; }
     #retrom-ui-review .rt-netplay-section { margin-top: 22px; }
     #retrom-ui-review .rt-netplay-section-head { margin-bottom: 10px; display: flex; align-items: flex-end; justify-content: space-between; gap: 16px; }
@@ -1520,7 +1514,7 @@
     }
 
     @media (min-width: 2600px) {
-      #retrom-ui-review { --retrom-content-max: 2560px; font-size: 16px; }
+      #retrom-ui-review { --retrom-content-max: 2408px; font-size: 16px; }
       #retrom-ui-review .rt-app { grid-template-columns: 280px minmax(0, 1fr); min-height: max(1120px, calc(100vh - 32px)); }
       #retrom-ui-review .rt-page { padding: 44px; }
       #retrom-ui-review h1 { font-size: 30px; }
@@ -1581,7 +1575,7 @@
     }
 
     @media (min-width: 1800px) and (max-height: 1399px) {
-      #retrom-ui-review .rt-page[data-page=&quot;home&quot;].is-active { max-width: 2320px; height: 100vh; padding-top: 12px; padding-bottom: 12px; display: grid; grid-template-rows: minmax(420px, 46fr) minmax(156px, 19fr) minmax(156px, 19fr) minmax(104px, 12fr) minmax(44px, 4fr); gap: 10px; }
+      #retrom-ui-review .rt-page[data-page=&quot;home&quot;].is-active { height: 100vh; padding-top: 12px; padding-bottom: 12px; display: grid; grid-template-rows: minmax(420px, 46fr) minmax(156px, 19fr) minmax(156px, 19fr) minmax(104px, 12fr) minmax(44px, 4fr); gap: 10px; }
       #retrom-ui-review .rt-home-hero-layer { min-height: 0; display: grid; grid-template-rows: 76px minmax(0, 1fr); }
       #retrom-ui-review .rt-page[data-page=&quot;home&quot;] .rt-page-head { height: 68px; margin: 0; }
       #retrom-ui-review .rt-page[data-page=&quot;home&quot;] .rt-page-head h1 { font-size: 32px; line-height: 1.12; }
@@ -1630,7 +1624,7 @@
 
     @media (min-width: 2600px) and (min-height: 1600px) {
       #retrom-ui-review .rt-app:has(.rt-page[data-page=&quot;home&quot;].is-active) { height: 100vh; min-height: 0; }
-      #retrom-ui-review .rt-page[data-page=&quot;home&quot;].is-active { width: 100%; max-width: 2320px; height: 100%; padding: 36px 44px 32px; display: grid; grid-template-rows: minmax(0, 46fr) minmax(0, 19fr) minmax(0, 19fr) minmax(0, 12fr) minmax(0, 4fr); gap: 18px; }
+      #retrom-ui-review .rt-page[data-page=&quot;home&quot;].is-active { width: 100%; height: 100%; padding: 36px 44px 32px; display: grid; grid-template-rows: minmax(0, 46fr) minmax(0, 19fr) minmax(0, 19fr) minmax(0, 12fr) minmax(0, 4fr); gap: 18px; }
       #retrom-ui-review .rt-home-hero-layer { min-height: 0; display: grid; grid-template-rows: 110px minmax(0, 1fr); }
       #retrom-ui-review .rt-page[data-page=&quot;home&quot;] .rt-page-head { height: 110px; margin: 0; align-items: flex-start; }
       #retrom-ui-review .rt-page[data-page=&quot;home&quot;] .rt-page-head h1 { font-size: 44px; }
@@ -1861,7 +1855,7 @@
     #retrom-ui-review .rt-account-popover { position: absolute; z-index: 15; right: 0; bottom: calc(100% + 7px); left: 0; display: grid; gap: 4px; padding: 6px; border: 1px solid #30323f; border-radius: 10px; background: #181a24; box-shadow: 0 16px 40px rgb(0 0 0 / .4); }
     #retrom-ui-review .rt-account-popover button { width: 100%; min-height: 34px; padding: 7px 9px; border: 0; border-radius: 7px; background: transparent; color: #d9d6e8; cursor: pointer; text-align: left; }
     #retrom-ui-review .rt-account-popover button:hover { background: rgb(255 255 255 / .07); color: #fff; }
-    #retrom-ui-review .rt-account-settings-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(360px, 1.2fr); gap: 14px; max-width: 1120px; }
+    #retrom-ui-review .rt-account-settings-grid { width: 100%; display: grid; grid-template-columns: minmax(0, .8fr) minmax(360px, 1.2fr); gap: 14px; }
     #retrom-ui-review .rt-account-section { padding: 20px; }
     #retrom-ui-review .rt-account-facts { display: grid; gap: 0; margin-top: 17px; }
     #retrom-ui-review .rt-account-facts div { display: flex; justify-content: space-between; gap: 18px; padding: 12px 0; border-top: 1px solid var(--retrom-line); }
