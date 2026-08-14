@@ -219,10 +219,22 @@ const supportedAdapters: Record<string, string> = {
 const normalizedExternalFileWriters = new WeakSet<(...args: never[]) => unknown>();
 const normalizedArchiveWorkerReaders = new WeakSet<(...args: never[]) => unknown>();
 
-const archiveWorkerGlobalLookup = 'eval("_"+_0x222174)';
-const archiveWorkerSafeGlobalLookup = 'Module["_"+_0x222174]';
-const archiveWorkerDynamicWrapper = "eval(_0x370f8c)";
-const archiveWorkerSafeWrapper = "(function(){return function(){return ccall(_0x405d7e,_0x2bdb59,_0x4f818b,Array.prototype.slice.call(arguments))}})()";
+const archiveWorkerRewrites = {
+  "7z": {
+    globalLookup: 'eval("_"+_0x222174)',
+    safeGlobalLookup: 'Module["_"+_0x222174]',
+    dynamicWrapper: "eval(_0x370f8c)",
+    safeWrapper: "(function(){return function(){return ccall(_0x405d7e,_0x2bdb59,_0x4f818b,Array.prototype.slice.call(arguments))}})()",
+  },
+  zip: {
+    globalLookup: 'eval("_"+_0x5d9040)',
+    safeGlobalLookup: 'Module["_"+_0x5d9040]',
+    dynamicWrapper: "eval(_0x6f14b3)",
+    safeWrapper: "(function(){return function(){return ccall(_0x557d23,_0x36bd20,_0x501373,Array.prototype.slice.call(arguments))}})()",
+  },
+} as const;
+
+type RewrittenArchiveType = keyof typeof archiveWorkerRewrites;
 
 function replaceArchiveWorkerFragment(source: string, fragment: string, replacement: string) {
   const first = source.indexOf(fragment);
@@ -232,9 +244,10 @@ function replaceArchiveWorkerFragment(source: string, fragment: string, replacem
   return `${source.slice(0, first)}${replacement}${source.slice(first + fragment.length)}`;
 }
 
-function rewriteArchiveWorker(source: string) {
-  let rewritten = replaceArchiveWorkerFragment(source, archiveWorkerGlobalLookup, archiveWorkerSafeGlobalLookup);
-  rewritten = replaceArchiveWorkerFragment(rewritten, archiveWorkerDynamicWrapper, archiveWorkerSafeWrapper);
+function rewriteArchiveWorker(source: string, archiveType: RewrittenArchiveType) {
+  const rewrite = archiveWorkerRewrites[archiveType];
+  let rewritten = replaceArchiveWorkerFragment(source, rewrite.globalLookup, rewrite.safeGlobalLookup);
+  rewritten = replaceArchiveWorkerFragment(rewritten, rewrite.dynamicWrapper, rewrite.safeWrapper);
   if (rewritten.includes("eval(")) throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
   return rewritten;
 }
@@ -246,9 +259,9 @@ function normalizeArchiveWorker(runtimeWindow: typeof window, constructor: EJSCo
   if (normalizedArchiveWorkerReaders.has(original as (...args: never[]) => unknown)) return;
   const normalizedGetWorkerFile = async function (this: unknown, archiveType: string) {
     const worker = await original.call(this, archiveType);
-    if (archiveType !== "7z") return worker;
+    if (archiveType !== "7z" && archiveType !== "zip") return worker;
     const source = await worker.text();
-    return new runtimeWindow.Blob([rewriteArchiveWorker(source)], {
+    return new runtimeWindow.Blob([rewriteArchiveWorker(source, archiveType)], {
       type: worker.type || "application/javascript",
     });
   };

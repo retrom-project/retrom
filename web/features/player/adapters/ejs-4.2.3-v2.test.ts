@@ -197,7 +197,7 @@ describe("EmulatorJS adapter", () => {
     const workerBlob = new Blob([workerSource], { type: "application/javascript" });
     class Compression {
       async getWorkerFile(archiveType: string) {
-        if (archiveType !== "7z" && archiveType !== "zip") throw new Error("unexpected archive type");
+        if (archiveType !== "7z" && archiveType !== "rar") throw new Error("unexpected archive type");
         return workerBlob;
       }
     }
@@ -208,22 +208,47 @@ describe("EmulatorJS adapter", () => {
     expect(patchedSource).not.toContain("eval(");
     expect(patchedSource).toContain('Module["_"+_0x222174]');
     expect(patchedSource).toContain("ccall(_0x405d7e,_0x2bdb59,_0x4f818b,Array.prototype.slice.call(arguments))");
-    await expect(new Compression().getWorkerFile("zip")).resolves.toBe(workerBlob);
+    await expect(new Compression().getWorkerFile("rar")).resolves.toBe(workerBlob);
     cleanup();
   });
 
-  it("fails closed when the pinned 4.2.3 7z worker shape drifts", async () => {
+  it("rewrites the pinned 4.2.3 zip worker without JavaScript eval", async () => {
+    const target = document.createElement("div");
+    const cleanup = mountEmulatorJS(config, target);
+    const workerSource = [
+      'function getCFunc(_0x5d9040){var _0x23b817=Module["_"+_0x5d9040];if(!_0x23b817)try{_0x23b817=eval("_"+_0x5d9040)}catch(_0x2989f0){}}',
+      'function cwrap(_0x557d23,_0x36bd20,_0x501373){var _0x6f14b3="generated";return eval(_0x6f14b3)}',
+    ].join("");
+    const workerBlob = new Blob([workerSource], { type: "application/javascript" });
+    class Compression {
+      async getWorkerFile(archiveType: string) {
+        if (archiveType !== "zip") throw new Error("unexpected archive type");
+        return workerBlob;
+      }
+    }
+    window.EJS_COMPRESSION = Compression;
+
+    const patched = await new Compression().getWorkerFile("zip");
+    const patchedSource = await patched.text();
+    expect(patchedSource).not.toContain("eval(");
+    expect(patchedSource).toContain('Module["_"+_0x5d9040]');
+    expect(patchedSource).toContain("ccall(_0x557d23,_0x36bd20,_0x501373,Array.prototype.slice.call(arguments))");
+    cleanup();
+  });
+
+  it("fails closed when a pinned 4.2.3 archive worker shape drifts", async () => {
     const target = document.createElement("div");
     const cleanup = mountEmulatorJS(config, target);
     class Compression {
       async getWorkerFile(archiveType: string) {
-        if (archiveType !== "7z") throw new Error("unexpected archive type");
+        if (archiveType !== "7z" && archiveType !== "zip") throw new Error("unexpected archive type");
         return new Blob(["unexpected-worker-source"], { type: "application/javascript" });
       }
     }
     window.EJS_COMPRESSION = Compression;
 
     await expect(new Compression().getWorkerFile("7z")).rejects.toThrow("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+    await expect(new Compression().getWorkerFile("zip")).rejects.toThrow("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
     cleanup();
   });
 
