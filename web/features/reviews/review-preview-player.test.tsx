@@ -91,4 +91,38 @@ describe("ReviewPreviewPlayer", () => {
     expect(adapter.capture).toHaveBeenCalledWith(emulator);
     expect(fetchMock).toHaveBeenCalledWith("/runtime/launches/preview-2/review-screenshot", expect.objectContaining({ method: "POST" }));
   });
+
+  it("surfaces an asynchronous EmulatorJS iframe startup error", async () => {
+    adapter.mount.mockImplementation(() => vi.fn());
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      gameTitle: "Broken game",
+      reviewPreview: { importItemId: "item-3", captureAllowed: true, captureAfterMs: 5000 },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }))));
+
+    render(<ReviewPreviewPlayer previewId="preview-3" />);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    const frame = screen.getByTitle("Broken game 运行画面") as HTMLIFrameElement;
+    act(() => {
+      frame.contentWindow?.dispatchEvent(new ErrorEvent("error", { message: "archive worker rejected" }));
+    });
+
+    expect(screen.getByText("审核预览启动失败。")).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent("archive worker rejected");
+  });
+
+  it("fails instead of loading forever when EmulatorJS never starts", async () => {
+    vi.useFakeTimers();
+    adapter.mount.mockImplementation(() => vi.fn());
+    vi.stubGlobal("fetch", vi.fn(() => Promise.resolve(new Response(JSON.stringify({
+      gameTitle: "Silent game",
+      reviewPreview: { importItemId: "item-4", captureAllowed: true, captureAfterMs: 5000 },
+    }), { status: 200, headers: { "Content-Type": "application/json" } }))));
+
+    render(<ReviewPreviewPlayer previewId="preview-4" />);
+    await act(async () => { await Promise.resolve(); await Promise.resolve(); await Promise.resolve(); });
+    await act(async () => { await vi.advanceTimersByTimeAsync(30_000); });
+
+    expect(screen.getByText("审核预览启动失败。")).toBeVisible();
+    expect(screen.getByRole("alert")).toHaveTextContent("启动超时");
+  });
 });
