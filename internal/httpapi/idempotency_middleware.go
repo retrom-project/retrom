@@ -99,7 +99,7 @@ func (server *Server) idempotencyHandler(next http.Handler) http.Handler {
 			next.ServeHTTP(writer, request)
 			return
 		}
-		server.idempotency.Lock()
+		server.lockIdempotentRequest()
 		defer server.idempotency.Unlock()
 		now := server.now().UnixMilli()
 		_, _ = server.database.ExecContext(
@@ -190,6 +190,29 @@ expires_at_ms) VALUES(?,
 		}
 		copyResponse(writer, response)
 	})
+}
+
+func (server *Server) lockIdempotentRequest() {
+	server.idempotencyQueueMu.Lock()
+	server.idempotencyQueueWaiters++
+	server.idempotencyQueueMu.Unlock()
+
+	server.idempotency.Lock()
+
+	server.idempotencyQueueMu.Lock()
+	server.idempotencyQueueWaiters--
+	if server.idempotencyQueueWaiters == 0 {
+		server.idempotencyQueueDrained.Broadcast()
+	}
+	server.idempotencyQueueMu.Unlock()
+}
+
+func (server *Server) waitForQueuedIdempotentRequests() {
+	server.idempotencyQueueMu.Lock()
+	defer server.idempotencyQueueMu.Unlock()
+	for server.idempotencyQueueWaiters > 0 {
+		server.idempotencyQueueDrained.Wait()
+	}
 }
 
 func (server *Server) replayIdempotentResponse(

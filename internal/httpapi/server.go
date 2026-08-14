@@ -81,33 +81,36 @@ type contextKey string
 const requestIDKey contextKey = "request-id"
 
 type Server struct {
-	config             config.Config
-	database           *sql.DB
-	dependencies       *dependencies.Set
-	blobs              *blobstore.Store
-	credentials        *retromruntime.Credentials
-	cursors            *cursor.Codec
-	uploads            *uploads.Service
-	importer           *libraryimport.Service
-	launcher           *launch.Service
-	jobService         *jobs.Service
-	firmware           *firmware.Service
-	arcadeDAT          *arcadecatalog.Service
-	metadata           *metadatascrape.Service
-	gameContent        *gamecontent.Service
-	saveService        *saves.Service
-	favoriteService    *favorites.Service
-	serverImports      *serverimport.Service
-	pegasusImports     *pegasusimport.Service
-	now                func() time.Time
-	sseHeartbeat       time.Duration
-	idempotency        sync.Mutex
-	authenticator      Authenticator
-	accounts           *accounts.Service
-	netplay            *netplay.Service
-	netplayHub         *netplay.Hub
-	netplayObserversMu sync.Mutex
-	netplayObservers   map[string]int
+	config                  config.Config
+	database                *sql.DB
+	dependencies            *dependencies.Set
+	blobs                   *blobstore.Store
+	credentials             *retromruntime.Credentials
+	cursors                 *cursor.Codec
+	uploads                 *uploads.Service
+	importer                *libraryimport.Service
+	launcher                *launch.Service
+	jobService              *jobs.Service
+	firmware                *firmware.Service
+	arcadeDAT               *arcadecatalog.Service
+	metadata                *metadatascrape.Service
+	gameContent             *gamecontent.Service
+	saveService             *saves.Service
+	favoriteService         *favorites.Service
+	serverImports           *serverimport.Service
+	pegasusImports          *pegasusimport.Service
+	now                     func() time.Time
+	sseHeartbeat            time.Duration
+	idempotency             sync.Mutex
+	idempotencyQueueMu      sync.Mutex
+	idempotencyQueueWaiters int
+	idempotencyQueueDrained *sync.Cond
+	authenticator           Authenticator
+	accounts                *accounts.Service
+	netplay                 *netplay.Service
+	netplayHub              *netplay.Hub
+	netplayObserversMu      sync.Mutex
+	netplayObservers        map[string]int
 }
 
 func (server *Server) WithNetplay(service *netplay.Service) *Server {
@@ -161,7 +164,7 @@ func New(
 	serverImportService.Start()
 	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, config.ServerImportRoots, now)
 	pegasusImportService.Start()
-	return &Server{
+	server := &Server{
 		config:         config,
 		database:       database,
 		dependencies:   dependencySet,
@@ -187,6 +190,8 @@ func New(
 		sseHeartbeat:     15 * time.Second,
 		netplayObservers: make(map[string]int),
 	}
+	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
+	return server
 }
 
 func (server *Server) Close() {

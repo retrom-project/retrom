@@ -1090,9 +1090,10 @@ func (server *Server) previewGameMove(writer http.ResponseWriter, request *http.
 
 func (server *Server) resumeMoveValidationAfterIdempotency(ctx context.Context, jobID string) {
 	go func() {
-		// Move preview responses are persisted while this mutex is held. Waiting
-		// here keeps the queued Job observable to concurrent idempotent requests
-		// before a very small validation can become READY.
+		// Move preview responses are persisted while this mutex is held. Let
+		// requests already queued for that mutex observe the queued Job before a
+		// very small validation can become READY.
+		server.waitForQueuedIdempotentRequests()
 		server.idempotency.Lock()
 		var state string
 		err := server.database.QueryRowContext(ctx, `

@@ -81,6 +81,13 @@ updated_at_ms) VALUES(?,
 	}
 	responses := make([]*httptest.ResponseRecorder, len(keys))
 	var wait sync.WaitGroup
+	server.idempotency.Lock()
+	idempotencyLocked := true
+	defer func() {
+		if idempotencyLocked {
+			server.idempotency.Unlock()
+		}
+	}()
 	for index := range keys {
 		wait.Add(1)
 		go func() {
@@ -88,6 +95,9 @@ updated_at_ms) VALUES(?,
 			responses[index] = send("/api/v1/admin/games/"+gameID+"/move-preview", previewBody, keys[index], `"v1"`)
 		}()
 	}
+	waitForIdempotencyQueue(t, server, len(keys))
+	server.idempotency.Unlock()
+	idempotencyLocked = false
 	wait.Wait()
 	jobIDs := make([]string, len(responses))
 	for index, response := range responses {
@@ -165,6 +175,23 @@ WHERE id=?
 			revisionCount,
 			auditCount,
 		)
+	}
+}
+
+func waitForIdempotencyQueue(t *testing.T, server *Server, expected int) {
+	t.Helper()
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		server.idempotencyQueueMu.Lock()
+		waiters := server.idempotencyQueueWaiters
+		server.idempotencyQueueMu.Unlock()
+		if waiters == expected {
+			return
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("idempotency queue waiters = %d, want %d", waiters, expected)
+		}
+		time.Sleep(time.Millisecond)
 	}
 }
 

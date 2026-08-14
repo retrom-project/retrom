@@ -136,6 +136,12 @@ RETROM_EXAMPLE_RESULTS_DIR=.artifacts/core-smoke \
 
 省略 materializer selector 会物化全部 7 个本地夹具。二进制写入 `data/example/local-fixtures/`，当次机器结果和截图写入 `RETROM_EXAMPLE_RESULTS_DIR`，两者均不进入 Git。机器 `PASS` 仍必须人工确认截图确为指定游戏标题或游戏画面，而不是系统 Logo、启动提示、菜单或错误页。
 
+需要验证 FBA2012 的真实 DAT 导入、Variant 与 Launch 隔离时，在本地夹具校验通过后显式启用 `localfixtures` Go build tag；该测试不属于默认 `make integration-test` 或 `make ci`：
+
+~~~bash
+go test -tags='integration localfixtures' ./internal/libraryimport -run '^TestFBA2012' -count=1
+~~~
+
 验收 runner 可用同名 selector 只校验当前 Case 的受控 bytes，例如 `python3 data/example/verify-fixtures.py mgba` 或 `python3 data/example/verify-fixtures.py multidisc-saturn-2`。不传 selector 仍校验完整清单；某个尚未物化的专有多盘 fixture 不得阻断无关核心的独立验收，也不能被无关核心的通过结果掩盖。
 
 脚本会启动带 COOP/COEP/CORP 头的本地服务，通过 Chrome DevTools Protocol 驱动真实 Chrome，保存 canvas 截图，并覆盖 `results/latest.json`。4.2.3 standalone 页与产品 adapter 使用同一版本边界的 external-file 兼容策略：在 loader 定义 `EJS_GameManager` 时把裸 `ArrayBuffer` 写入归一化为 `Uint8Array`；多盘 smoke 随后把每张盘的 MEMFS 长度逐项对照 fixture 锁定的 size。多盘 run 先保存 `<fixture>-initial.png` 作为换盘前游戏画面，再保存 `<fixture>.png` 作为换盘后当前画面；`latest.json` 同时记录两者的画面统计、盘号回读、帧增量与 external file sizes。可用环境变量：
