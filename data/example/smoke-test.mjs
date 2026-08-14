@@ -170,12 +170,22 @@ async function executable(pathname) {
   }
 }
 
-export async function resolveChromeBinary(environment = process.env, homeDirectory = os.homedir()) {
+const SYSTEM_CHROME_BINARIES = [
+  "/usr/bin/google-chrome",
+  "/usr/bin/chromium",
+  "/usr/bin/chromium-browser"
+];
+
+export async function resolveChromeBinary(
+  environment = process.env,
+  homeDirectory = os.homedir(),
+  systemCandidates = SYSTEM_CHROME_BINARIES
+) {
   if (environment.RETROM_CHROME_BIN) {
     if (await executable(environment.RETROM_CHROME_BIN)) return environment.RETROM_CHROME_BIN;
     throw new Error(`RETROM_CHROME_BIN is not executable: ${environment.RETROM_CHROME_BIN}`);
   }
-  for (const candidate of ["/usr/bin/google-chrome", "/usr/bin/chromium", "/usr/bin/chromium-browser"]) {
+  for (const candidate of systemCandidates) {
     if (await executable(candidate)) return candidate;
   }
   const browserRoot = environment.PLAYWRIGHT_BROWSERS_PATH || path.join(homeDirectory, ".cache", "ms-playwright");
