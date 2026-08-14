@@ -83,16 +83,20 @@ test("explicit Chrome path is validated instead of silently falling back", async
   }
 });
 
-test("Playwright Chromium cache is discovered deterministically", async () => {
+test("system Chrome precedence and Playwright cache fallback are deterministic", async () => {
   const home = await fs.mkdtemp(path.join(os.tmpdir(), "retrom-playwright-resolution-"));
   try {
+    const systemChrome = path.join(home, "system", "google-chrome");
     const older = path.join(home, ".cache", "ms-playwright", "chromium-999", "chrome-linux", "chrome");
     const newer = path.join(home, ".cache", "ms-playwright", "chromium-1000", "chrome-linux64", "chrome");
+    await fs.mkdir(path.dirname(systemChrome), { recursive: true });
     await fs.mkdir(path.dirname(older), { recursive: true });
     await fs.mkdir(path.dirname(newer), { recursive: true });
+    await fs.writeFile(systemChrome, "#!/bin/sh\n", { mode: 0o700 });
     await fs.writeFile(older, "#!/bin/sh\n", { mode: 0o700 });
     await fs.writeFile(newer, "#!/bin/sh\n", { mode: 0o700 });
-    assert.equal(await resolveChromeBinary({}, home), newer);
+    assert.equal(await resolveChromeBinary({}, home, [systemChrome]), systemChrome);
+    assert.equal(await resolveChromeBinary({}, home, []), newer);
   } finally {
     await fs.rm(home, { recursive: true, force: true });
   }
