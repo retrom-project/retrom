@@ -65,7 +65,18 @@ declare global {
 
 // Strict lockstep may submit controls ahead to cover network RTT, but never
 // executes those frames until the server returns their canonical inputs.
-const lockstepInputBufferFrames = 8;
+// Keep a low-latency connection at one queued frame and add only the frames
+// needed to cover the measured input-to-canonical round trip.
+const lockstepFrameDurationMS = 1_000 / 60;
+const lockstepInputBufferSafetyMS = 4;
+const lockstepMaxInputBufferFrames = 8;
+
+function inputBufferFramesForRoundTrip(roundTripMS: number) {
+  return Math.max(1, Math.min(
+    lockstepMaxInputBufferFrames,
+    Math.ceil((roundTripMS + lockstepInputBufferSafetyMS) / lockstepFrameDurationMS),
+  ));
+}
 
 export class NetplayController {
   private socket: WebSocket | null = null;
@@ -88,6 +99,9 @@ export class NetplayController {
   private reconnectTimer: number | null = null;
   private lastCanonicalFrame = -1;
   private lockstepInputThrough = -1;
+  private lockstepInputBufferFrames = 1;
+  private lockstepRoundTripMS: number | null = null;
+  private readonly lockstepInputSentAtMS = new Map<number, number>();
   private resumeBlocked = false;
   private sendNotBeforeMS = 0;
   private readonly sendQueue: Array<{ socket: WebSocket; payload: string | Uint8Array; sendAtMS: number }> = [];
@@ -340,6 +354,7 @@ export class NetplayController {
     this.hasRun = true; this.epochRunning = true;
     this.timeline.reset(this.nextFrame); this.pendingCheckpoints.clear(); this.lockstepCheckpointStates.clear();
     this.lastInput = null; this.lockstepInputThrough = this.nextFrame - 1;
+    this.lockstepInputBufferFrames = 1; this.lockstepRoundTripMS = null; this.lockstepInputSentAtMS.clear();
     this.bridge.resetLocalControls();
     this.callbacks.onStatus("网络稳定", "synced"); this.callbacks.onRunning();
 	this.diagnostics?.onEpoch?.({ epoch: this.epoch, nextFrame: this.nextFrame, resync });
@@ -357,11 +372,12 @@ export class NetplayController {
   private fillLockstepInputs() {
     if (this.stopped || !this.epochRunning || this.socket?.readyState !== WebSocket.OPEN) return;
     if (this.lockstepInputThrough < this.nextFrame - 1) throw new Error("NETPLAY_HISTORY_GAP");
-    const targetFrame = this.nextFrame + lockstepInputBufferFrames - 1;
+    const targetFrame = this.nextFrame + this.lockstepInputBufferFrames - 1;
     while (this.lockstepInputThrough < targetFrame) {
       const frame = this.lockstepInputThrough + 1;
       const local = this.bridge.sampleLocalControls();
       this.send("INPUT", { frame, playerNo: this.config.playerNo, controls: local });
+      this.lockstepInputSentAtMS.set(frame, Date.now());
       this.lockstepInputThrough = frame;
     }
     this.callbacks.onStatus("等待其他玩家输入…", "busy");
@@ -399,6 +415,7 @@ export class NetplayController {
       if (message.frame! > this.nextFrame) throw new Error("NETPLAY_HISTORY_GAP");
       if (advancesFrame) {
         if (this.lockstepInputThrough < message.frame!) throw new Error("NETPLAY_HISTORY_GAP");
+        this.updateLockstepInputBuffer(message.frame!);
         await this.bridge.runNetplayFrame(message.players);
         this.lastInput = message.players;
         this.nextFrame = message.frame! + 1;
@@ -430,6 +447,17 @@ export class NetplayController {
       this.requestCheckpointFlush();
     }
     this.requestAdvance();
+  }
+
+  private updateLockstepInputBuffer(frame: number) {
+    const sentAtMS = this.lockstepInputSentAtMS.get(frame);
+    this.lockstepInputSentAtMS.delete(frame);
+    if (sentAtMS === undefined) return;
+    const sampleMS = Math.max(0, Date.now() - sentAtMS);
+    this.lockstepRoundTripMS = this.lockstepRoundTripMS === null
+      ? sampleMS
+      : this.lockstepRoundTripMS * 0.75 + sampleMS * 0.25;
+    this.lockstepInputBufferFrames = inputBufferFramesForRoundTrip(this.lockstepRoundTripMS);
   }
 
   private async pauseAdvancement() {

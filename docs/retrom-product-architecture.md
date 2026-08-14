@@ -340,7 +340,7 @@ flowchart LR
 
 ### 8.4 联机房间与 rollback
 
-房主创建 DRAFT 房间并原子占 P1，选择服务端 eligibility 返回的精确 profile 后进入 WAITING；访客通过站内房间 URL 登录、占 P2，双方 ready 后房主锁定 Session。每位参与者只创建自己的 Launch 与两类路径受限 cookie，进入普通无侧栏 `/play/:launchId`。浏览器先在帧边界暂停，P1 提供初始 RASTATE，服务端校验 full/core digest 后转发给 P2，再开始统一 epoch。运行期服务端只在收到全部已占座输入后发布 canonical frame；客户端最多预测 8 帧、最多回滚 120 帧，每 120 帧比较 core digest。隐藏、失焦、房主全局暂停或断线都会停止推进；断线 10 秒内重连通过 history + 新 state transfer 开启新 epoch。访客退出/超时结束当前 Session、释放其座位并让房间回到 WAITING；房主丢失、服务重启、恢复或 8 小时硬到期才关闭房间。所有联机 save route 固定返回 `409 NETPLAY_SAVE_UNSUPPORTED`。
+房主创建 DRAFT 房间并原子占 P1，选择服务端 eligibility 返回的精确 profile 后进入 WAITING；访客通过站内房间 URL 登录、占 P2，双方 ready 后房主锁定 Session。每位参与者只创建自己的 Launch 与两类路径受限 cookie，进入普通无侧栏 `/play/:launchId`。浏览器先在帧边界暂停，P1 提供初始 RASTATE，服务端校验 full/core digest 后转发给 P2，再开始统一 epoch。运行期服务端只在收到全部已占座输入后发布 canonical frame；客户端最多预测 8 帧、最多回滚 120 帧，每 120 帧比较 core digest。隐藏或失焦只清空本地按键，不改变在线状态或停止会话推进；房主全局暂停或断线才停止推进，断线 10 秒内重连通过 history + 新 state transfer 开启新 epoch。访客退出/超时结束当前 Session、释放其座位并让房间回到 WAITING；房主丢失、服务重启、恢复或 8 小时硬到期才关闭房间。所有联机 save route 固定返回 `409 NETPLAY_SAVE_UNSUPPORTED`。
 
 ## 9. 数据与版本基线
 
