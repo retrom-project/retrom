@@ -17,9 +17,17 @@ export class RollbackTimeline {
   private stateBytes = 0;
   private highestCanonical = -1;
 
-  constructor(private readonly maxRollback = NETPLAY_MAX_ROLLBACK, private readonly byteBudget = NETPLAY_RING_BUDGET) {}
+  constructor(
+    private readonly maxRollback = NETPLAY_MAX_ROLLBACK,
+    private readonly byteBudget = NETPLAY_RING_BUDGET,
+    private readonly maxPrediction = NETPLAY_MAX_PREDICTION,
+  ) {
+    if (!Number.isSafeInteger(maxPrediction) || maxPrediction < 0 || maxPrediction > NETPLAY_MAX_PREDICTION) {
+      throw new Error("NETPLAY_PREDICTION_INVALID");
+    }
+  }
 
-  canPredict(frame: number) { return frame <= this.highestCanonical + NETPLAY_MAX_PREDICTION; }
+  canPredict(frame: number) { return frame <= this.highestCanonical + this.maxPrediction; }
 
   recordBefore(frame: number, state: Uint8Array) {
     if (!Number.isInteger(frame) || frame < 0 || !state.byteLength) throw new Error("NETPLAY_STATE_INVALID");

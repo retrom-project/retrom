@@ -46,11 +46,12 @@ type Protocol struct {
 }
 
 type ManifestProfile struct {
-	ID                 string `json:"id"`
-	EmulatorJSVersion  string `json:"emulatorjsVersion"`
-	CoreID             string `json:"coreId"`
-	CoreArtifactSHA256 string `json:"coreArtifactSha256"`
-	MaxPlayers         int    `json:"maxPlayers"`
+	ID                  string `json:"id"`
+	EmulatorJSVersion   string `json:"emulatorjsVersion"`
+	CoreID              string `json:"coreId"`
+	CoreArtifactSHA256  string `json:"coreArtifactSha256"`
+	MaxPlayers          int    `json:"maxPlayers"`
+	MaxPredictionFrames int    `json:"maxPredictionFrames"`
 }
 
 type Manifest struct {
@@ -91,7 +92,7 @@ func parseRegistry(contents []byte, dependencySet *dependencies.Set) (*Registry,
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%w: trailing data", ErrManifestInvalid)
 	}
-	if manifest.SchemaVersion != 2 || !validProtocol(manifest.Protocol) || len(manifest.Profiles) == 0 {
+	if manifest.SchemaVersion != 3 || !validProtocol(manifest.Protocol) || len(manifest.Profiles) == 0 {
 		return nil, fmt.Errorf("%w: protocol", ErrManifestInvalid)
 	}
 	version := dependencySet.Versions["4.2.3"]
@@ -133,6 +134,7 @@ func validManifestProfile(profile ManifestProfile, core dependencies.SelectedCor
 	return profile.ID != "" && profile.ID == strings.ToLower(profile.ID) && len(profile.ID) <= 64 &&
 		profile.EmulatorJSVersion == "4.2.3" && profile.CoreArtifactSHA256 == core.SHA256 &&
 		profile.MaxPlayers >= 2 && profile.MaxPlayers <= 4 &&
+		profile.MaxPredictionFrames >= 0 && profile.MaxPredictionFrames <= MaxPredictionFrames &&
 		slices.Contains(core.SupportedContentKinds, "SINGLE_FILE")
 }
 
@@ -178,7 +180,7 @@ func (registry *Registry) CanonicalProfile(input CanonicalProfileInput) ([]byte,
 		"sourceManifestDigest":     registry.ManifestDigest,
 		"dependencySnapshotDigest": hex.EncodeToString(dependencyDigest[:]),
 		"defaultCoreOptions":       input.DefaultCoreOptions, "controlCount": ControlCount,
-		"maxPlayers": input.MaxPlayers, "maxPredictionFrames": MaxPredictionFrames,
+		"maxPlayers": input.MaxPlayers, "maxPredictionFrames": input.MaxPredictionFrames,
 		"maxRollbackFrames": MaxRollbackFrames, "checkpointEveryFrames": CheckpointEveryFrames,
 		"canonicalHistoryFrames": CanonicalHistoryFrames, "maxStateBytes": MaxStateBytes,
 	}

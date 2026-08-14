@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NetplayController, type NetplayLaunchConfig } from "./controller";
-import type { EJSNetplayFrameBridge } from "./ejs-netplay-4.2.3-v1";
+import { coreStateBytes, type EJSNetplayFrameBridge } from "./ejs-netplay-4.2.3-v1";
+import { decodeStateFrame } from "./protocol";
 
 class FakeSocket extends EventTarget {
   static readonly OPEN = 1;
@@ -37,6 +38,15 @@ const launch: NetplayLaunchConfig = {
   },
 };
 
+const fbneoLaunch: NetplayLaunchConfig = {
+  ...launch,
+  netplayProfile: {
+    ...launch.netplayProfile,
+    profileId: "fbneo-423-v1",
+    maxPredictionFrames: 0,
+  },
+};
+
 function raState(core: number[]) {
   const padded = (core.length + 7) & ~7;
   const state = new Uint8Array(8 + 8 + padded + 8);
@@ -52,6 +62,47 @@ afterEach(() => {
 });
 
 describe("NetplayController reconnect lease", () => {
+  it("normalizes an authority state to a verified native-load fixed point before transfer", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const captured = raState([1]);
+    const normalized = raState([2]);
+    let current = captured;
+    const loadStateForTransfer = vi.fn(async (state: Uint8Array) => {
+      const coreExact = [...coreStateBytes(state)].every((byte, index) => byte === coreStateBytes(normalized)[index]);
+      current = normalized;
+      return {
+        recaptured: normalized, byteExact: coreExact, coreExact,
+        expectedCoreBytes: 1, recapturedCoreBytes: 1, firstCoreMismatch: coreExact ? -1 : 0,
+      };
+    });
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      captureState: vi.fn(() => current), loadStateForTransfer, loadStateAndWait: vi.fn(),
+      runNetplayFrame: vi.fn(), sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const controller = new NetplayController({ ...launch, playerNo: 1 }, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
+    });
+
+    await controller.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.message(JSON.stringify({
+      v: 1, type: "REQUEST_STATE", sessionId: launch.sessionId, epoch: 0, seq: 1,
+      transferId: "01980000-0000-7000-8000-000000000005", nextFrame: 0,
+      targetPlayerNos: [2], reason: "INITIAL",
+    }));
+
+    await vi.waitFor(() => expect(socket.sent.some((value) => value instanceof Uint8Array)).toBe(true));
+    expect(loadStateForTransfer).toHaveBeenCalledTimes(2);
+    const frame = socket.sent.find((value): value is Uint8Array => value instanceof Uint8Array)!;
+    expect([...coreStateBytes(decodeStateFrame(frame).state)]).toEqual([2]);
+    const ready = socket.sent.filter((value): value is string => typeof value === "string")
+      .map((value) => JSON.parse(value) as { type: string; recaptureMatched?: boolean })
+      .find((message) => message.type === "STATE_READY");
+    expect(ready?.recaptureMatched).toBe(true);
+    controller.end();
+  });
+
   it("reconnects a running player with HELLO seq zero and retained epoch history", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeSocket);
@@ -145,6 +196,55 @@ describe("NetplayController reconnect lease", () => {
     expect(FakeSocket.instances).toHaveLength(2);
     expect(onEnded).not.toHaveBeenCalled();
     expect(onStatus).toHaveBeenCalledWith("联机已由同一账户的另一页面接管", "warning");
+  });
+
+  it("advances an FBNeo frame only after its canonical lockstep input arrives", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    const runNetplayFrame = vi.fn().mockResolvedValue(undefined);
+    const onRollback = vi.fn();
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(), runNetplayFrame,
+      sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const controller = new NetplayController(fbneoLaunch, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
+    }, { onRollback });
+
+    await controller.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.message(JSON.stringify({
+      v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1,
+      nextFrame: 0, occupiedSeatMask: 3,
+    }));
+    await vi.waitFor(() => expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "INPUT")).toHaveLength(8));
+    expect(runNetplayFrame).not.toHaveBeenCalled();
+
+    const players = Array.from({ length: 4 }, () => Array(24).fill(0));
+    socket.message(JSON.stringify({
+      v: 1, type: "CANONICAL", sessionId: launch.sessionId, epoch: 0, seq: 2,
+      frame: 0, occupiedSeatMask: 3, players,
+    }));
+    await vi.waitFor(() => expect(runNetplayFrame).toHaveBeenCalledOnce());
+    expect(bridge.captureState).not.toHaveBeenCalled();
+
+    for (let frame = 1; frame < 120; frame += 1) socket.message(JSON.stringify({
+      v: 1, type: "CANONICAL", sessionId: launch.sessionId, epoch: 0, seq: frame + 2,
+      frame, occupiedSeatMask: 3, players,
+    }));
+    await vi.waitFor(() => expect(runNetplayFrame).toHaveBeenCalledTimes(120));
+    expect(bridge.captureState).toHaveBeenCalledOnce();
+    expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "HASH")
+      .map((value) => JSON.parse(value as string))).toMatchObject([{ frame: 119 }]);
+
+    const inputs = socket.sent.filter((value): value is string => typeof value === "string")
+      .map((value) => JSON.parse(value) as { type: string; frame?: number })
+      .filter((message) => message.type === "INPUT");
+    expect(inputs).toHaveLength(128);
+    expect(inputs.at(0)).toMatchObject({ frame: 0 });
+    expect(inputs.at(-1)).toMatchObject({ frame: 127 });
+    expect(onRollback).not.toHaveBeenCalled();
+    controller.end();
   });
 
   it("sends a deferred checkpoint after its post-frame state enters the rollback ring", async () => {

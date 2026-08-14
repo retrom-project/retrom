@@ -19,7 +19,8 @@ type DiagnosticSnapshot = {
   stateCaptures: Array<{ byteLength: number; stateDigest: string; coreDigest: string }>;
   stateLoads: Array<{
     byteLength: number; stateDigest: string; coreDigest: string;
-    changed: boolean; nativeCompletion: boolean; byteExact: boolean;
+    changed: boolean; nativeCompletion: boolean; byteExact: boolean; coreExact: boolean;
+    expectedCoreBytes: number; recapturedCoreBytes: number; firstCoreMismatch: number;
   }>;
   checkpoints: Array<{ frame: number; coreDigest: string }>;
   endedReason: string | null;
@@ -299,14 +300,20 @@ async function runBaseline(
     expect(checkpoints.slice(-3).map((item) => item.frame)).toEqual(
       hostResult.checkpoints.slice(-3).map((item) => item.frame),
     );
-    expect(guestResult.stateLoads.some((item) => item.changed && item.nativeCompletion && item.byteExact)).toBe(true);
+    expect(guestResult.stateLoads.some((item) => item.changed && item.nativeCompletion && item.coreExact)).toBe(true);
     expect(hostResult.endedReason).toBeNull();
     expect(guestResult.endedReason).toBeNull();
     if (latency) {
-      expect(hostResult.rollbackCount).toBeGreaterThan(0);
-      expect(guestResult.rollbackCount).toBeGreaterThan(0);
-      expect(hostResult.maxPredictionFrames).toBeLessThanOrEqual(8);
-      expect(guestResult.maxPredictionFrames).toBeLessThanOrEqual(8);
+      const expectedMaxPredictionFrames = game === "fbneo" ? 0 : 8;
+      if (game === "fbneo") {
+        expect(hostResult.rollbackCount).toBe(0);
+        expect(guestResult.rollbackCount).toBe(0);
+      } else {
+        expect(hostResult.rollbackCount).toBeGreaterThan(0);
+        expect(guestResult.rollbackCount).toBeGreaterThan(0);
+      }
+      expect(hostResult.maxPredictionFrames).toBeLessThanOrEqual(expectedMaxPredictionFrames);
+      expect(guestResult.maxPredictionFrames).toBeLessThanOrEqual(expectedMaxPredictionFrames);
       expect(hostResult.maxRollbackFrames).toBeLessThanOrEqual(120);
       expect(guestResult.maxRollbackFrames).toBeLessThanOrEqual(120);
     } else {
@@ -676,7 +683,7 @@ test("ACC-NP-008 fourth desync closes an unstable room", async ({}, testInfo) =>
     )));
     const [hostResult, guestResult] = await Promise.all([snapshot(hostPage), snapshot(guestPage)]);
     expect(guestResult.resyncs).toBe(3);
-    expect(guestResult.stateLoads.filter((item) => item.nativeCompletion && item.byteExact).length).toBeGreaterThanOrEqual(4);
+    expect(guestResult.stateLoads.filter((item) => item.nativeCompletion && item.coreExact).length).toBeGreaterThanOrEqual(4);
     expect(hostResult.endedReason).toBe("NETPLAY_UNSTABLE");
     writeEvidence(testInfo, {
       browser: await host.browser.version(), pids: [host.pid, guest.pid], roomId: setup.room.roomId,

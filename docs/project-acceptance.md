@@ -1059,8 +1059,8 @@ python3 data/example/verify-fixtures.py
 
 - 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-005`。
 - 流程：两个首发 core profile 分别施加确定性 100ms RTT、±20ms jitter，并每 300 帧延后一次 INPUT，但不破坏 WebSocket。
-- 通过：各 profile 至少一次 rollback；预测不超过 8 帧，单次回滚不超过 120 帧；3000 confirmed frame 后连续三个 checkpoint 收敛。
-- 证据：确定性延迟 seed、rollback 深度直方、最大 prediction、三次最终 digest。
+- 通过：FCEUmm 至少一次 rollback、预测不超过 8 帧且单次回滚不超过 120 帧；FBNeo 严格 lockstep 的 prediction 与 rollback 均为 0；两个 profile 在 3000 confirmed frame 后连续三个 checkpoint 均收敛。
+- 证据：确定性延迟 seed、每个 profile 的 rollback 深度直方与最大 prediction、三次最终 digest。
 
 ### ACC-NP-006：断线原座恢复
 

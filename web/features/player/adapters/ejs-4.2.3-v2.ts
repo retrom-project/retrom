@@ -359,6 +359,8 @@ export function validateConfig(config: PlayerConfig) {
   if (config.mode === "netplay") {
     const netplay = config.netplay;
     const profile = netplay?.netplayProfile;
+    const expectedPredictionFrames = profile?.profileId === "fceumm-423-v1" ? 8 :
+      profile?.profileId === "fbneo-423-v1" ? 0 : null;
     if (!netplay || !profile || config.emulatorjsVersion !== "4.2.3" || config.playerAdapterId !== "ejs-4.2.3-v2" ||
       config.persistentSaveMode !== "NONE" || config.persistentSaveUrl !== null || config.stateUrl !== null || config.discSet ||
       netplay.playerNo < 1 || netplay.playerNo > 4 || netplay.runtimeSocketUrl !== `/runtime/netplay/rooms/${netplay.roomId}/socket` ||
@@ -367,7 +369,8 @@ export function validateConfig(config: PlayerConfig) {
       profile.emulatorjsVersion !== config.emulatorjsVersion || profile.gameVariantRevisionId.length === 0 ||
       !/^[0-9a-f]{64}$/.test(profile.coreArtifactSha256) || !/^[0-9a-f]{64}$/.test(profile.sourceManifestDigest) ||
       !/^[0-9a-f]{64}$/.test(profile.dependencySnapshotDigest) || !profile.defaultCoreOptions ||
-      netplay.playerNo > profile.maxPlayers || profile.controlCount !== 24 || profile.maxPredictionFrames !== 8 ||
+      netplay.playerNo > profile.maxPlayers || profile.controlCount !== 24 ||
+      expectedPredictionFrames === null || profile.maxPredictionFrames !== expectedPredictionFrames ||
       profile.maxRollbackFrames !== 120 || profile.checkpointEveryFrames !== 120 || profile.canonicalHistoryFrames !== 600 ||
       profile.maxStateBytes !== 1048576) throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");
   }
@@ -508,7 +511,10 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   };
   runtimeWindow.EJS_onSaveState = callbacks.onSaveState;
   runtimeWindow.EJS_onSaveSave = config.persistentSaveMode === "NONE" ? undefined : callbacks.onSaveSave;
-  runtimeWindow.EJS_defaultOptions = { ...config.defaultCoreOptions };
+  runtimeWindow.EJS_defaultOptions = {
+    ...config.defaultCoreOptions,
+    ...(config.mode === "netplay" && config.runtimeCore === "fbneo" ? { "fbneo-hiscores": "disabled" } : {}),
+  };
   runtimeWindow.EJS_paths = { ...config.runtimePathOverrides };
   runtimeWindow.EJS_externalFiles = externalFiles;
   const cleanupNetplayCompatibility = config.mode === "netplay"

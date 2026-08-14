@@ -315,7 +315,7 @@ def validate_netplay_manifest(
     if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
         raise CheckError("NETPLAY_SCHEMA_INVALID")
     manifest = load_json(NETPLAY_MANIFEST_PATH)
-    if set(manifest) != {"schemaVersion", "protocol", "profiles"} or manifest.get("schemaVersion") != 2:
+    if set(manifest) != {"schemaVersion", "protocol", "profiles"} or manifest.get("schemaVersion") != 3:
         raise CheckError("NETPLAY_MANIFEST_INVALID")
     protocol = manifest.get("protocol")
     expected_protocol = {
@@ -346,10 +346,10 @@ def validate_netplay_manifest(
     }
     expected_profiles = {
         "fceumm-423-v1": (
-            "fceumm", "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493",
+            "fceumm", "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493", 8,
         ),
         "fbneo-423-v1": (
-            "fbneo", "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c",
+            "fbneo", "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c", 0,
         ),
     }
     profiles = manifest.get("profiles")
@@ -357,7 +357,7 @@ def validate_netplay_manifest(
         raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
     seen: set[str] = set()
     required_keys = {
-        "id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "maxPlayers",
+        "id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "maxPlayers", "maxPredictionFrames",
     }
     for profile in profiles:
         if not isinstance(profile, dict) or set(profile) != required_keys:
@@ -367,7 +367,7 @@ def validate_netplay_manifest(
         if expected is None or profile_id in seen:
             raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
         seen.add(profile_id)
-        actual = (profile.get("coreId"), profile.get("coreArtifactSha256"))
+        actual = (profile.get("coreId"), profile.get("coreArtifactSha256"), profile.get("maxPredictionFrames"))
         artifact = artifacts.get(profile.get("coreId"))
         if actual != expected or profile.get("emulatorjsVersion") != "4.2.3" or \
                 profile.get("maxPlayers") != 2 or \
