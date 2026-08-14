@@ -217,7 +217,7 @@ describe("NetplayController reconnect lease", () => {
       v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1,
       nextFrame: 0, occupiedSeatMask: 3,
     }));
-    await vi.waitFor(() => expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "INPUT")).toHaveLength(8));
+    await vi.waitFor(() => expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "INPUT")).toHaveLength(1));
     expect(runNetplayFrame).not.toHaveBeenCalled();
 
     const players = Array.from({ length: 4 }, () => Array(24).fill(0));
@@ -240,10 +240,45 @@ describe("NetplayController reconnect lease", () => {
     const inputs = socket.sent.filter((value): value is string => typeof value === "string")
       .map((value) => JSON.parse(value) as { type: string; frame?: number })
       .filter((message) => message.type === "INPUT");
-    expect(inputs).toHaveLength(128);
-    expect(inputs.at(0)).toMatchObject({ frame: 0 });
-    expect(inputs.at(-1)).toMatchObject({ frame: 127 });
+    expect(inputs).toHaveLength(121);
+    expect(inputs.at(0)).toMatchObject({ frame: 0, playerNo: 2 });
+    expect(inputs.at(-1)).toMatchObject({ frame: 120, playerNo: 2 });
     expect(onRollback).not.toHaveBeenCalled();
+    controller.end();
+  });
+
+  it("expands the strict input buffer only when measured round-trip latency needs it", async () => {
+    vi.stubGlobal("WebSocket", FakeSocket);
+    let currentTimeMS = 1_000;
+    vi.spyOn(Date, "now").mockImplementation(() => currentTimeMS);
+    const bridge = {
+      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
+      captureState: vi.fn(() => raState([0])), loadStateAndWait: vi.fn(),
+      runNetplayFrame: vi.fn().mockResolvedValue(undefined), sampleLocalControls: vi.fn(() => Array(24).fill(0)),
+    } as unknown as EJSNetplayFrameBridge;
+    const controller = new NetplayController(fbneoLaunch, "0".repeat(64), bridge, {
+      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
+    });
+
+    await controller.start();
+    const socket = FakeSocket.instances[0]!;
+    socket.message(JSON.stringify({
+      v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1,
+      nextFrame: 0, occupiedSeatMask: 3,
+    }));
+    await vi.waitFor(() => expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "INPUT")).toHaveLength(1));
+
+    currentTimeMS += 100;
+    socket.message(JSON.stringify({
+      v: 1, type: "CANONICAL", sessionId: launch.sessionId, epoch: 0, seq: 2,
+      frame: 0, occupiedSeatMask: 3, players: Array.from({ length: 4 }, () => Array(24).fill(0)),
+    }));
+    await vi.waitFor(() => expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "INPUT")).toHaveLength(8));
+    const frames = socket.sent.filter((value): value is string => typeof value === "string")
+      .map((value) => JSON.parse(value) as { type: string; frame?: number })
+      .filter((message) => message.type === "INPUT")
+      .map((message) => message.frame);
+    expect(frames).toEqual([0, 1, 2, 3, 4, 5, 6, 7]);
     controller.end();
   });
 
