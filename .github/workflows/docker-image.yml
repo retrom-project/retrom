@@ -43,6 +43,20 @@ jobs:
         with:
           path: .cache/tools/node-v24.18.0-linux-x64
           key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
+      - name: Cache materialized runtime dependencies
+        uses: actions/cache@v5
+        with:
+          path: |
+            data/runtime
+            data/dat/emulatorjs/*/fbneo
+            data/dat/emulatorjs/*/mame2003
+            data/dat/emulatorjs/*/mame2003_plus
+            data/dat/emulatorjs/*/fbalpha2012_cps1
+            data/dat/emulatorjs/*/fbalpha2012_cps2
+            data/auth/password-blocklists/*/payload
+          key: retrom-dependencies-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('data/dat/**', 'data/auth/**', 'data/netplay/**', 'scripts/dependencies.py', 'scripts/fbalpha2012_dat.py', 'scripts/fbalpha2012-dat-enumerator.cpp') }}
+      - name: Prepare pinned runtime dependencies
+        run: make prepare-deps
       - name: Run the repository quality gate
         run: make ci
 

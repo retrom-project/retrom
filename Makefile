@@ -98,6 +98,7 @@ web-e2e: prepare-node
 
 data-check:
 	@python3 scripts/test_makefile.py
+	@python3 scripts/test_workflows.py
 	@python3 scripts/test_dependencies.py
 	@python3 scripts/test_fbalpha2012_dat.py
 	@python3 data/example/test_materialize_fixtures.py
