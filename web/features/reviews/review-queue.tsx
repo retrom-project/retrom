@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import Image from "next/image";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { StatusBadge } from "@/components/ui";
 import { formatTime, type ListResponse } from "@/lib/backend";
 import { statusTone } from "@/lib/status";
@@ -58,6 +58,8 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
   const [summaryFilter, setSummaryFilter] = useState<"ALL" | "READY" | "ABNORMAL" | "MISSING">("ALL");
   const persistenceReady = useRef(false);
   const loadMoreRef = useRef<HTMLDivElement>(null);
+  const loadMoreRequest = useRef(false);
+  const autoLoadArmed = useRef(true);
   const counts = useMemo(() => ({
     ready: items.filter((item) => item.validationStatus === "READY" && item.blockerCodes.length === 0).length,
     abnormal: items.filter((item) => item.validationStatus !== "READY" || item.blockerCodes.length > 0).length,
@@ -101,12 +103,13 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
     sessionStorage.setItem(storageKey, JSON.stringify({ items, nextCursor, scrollY: window.scrollY }));
   }
 
-  async function loadMore() {
-    if (!nextCursor || loading) return;
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadMoreRequest.current) return;
+    loadMoreRequest.current = true;
     setLoading(true);
     setError("");
     try {
-      const query = new URLSearchParams(values);
+      const query = new URLSearchParams(listQuery);
       query.set("cursor", nextCursor);
       query.set("limit", "20");
       const response = await fetch(`/api/v1/admin/reviews?${query}`, { cache: "no-store" });
@@ -120,19 +123,27 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "无法加载下一页待审条目");
     } finally {
+      loadMoreRequest.current = false;
       setLoading(false);
     }
-  }
+  }, [listQuery, nextCursor]);
 
   useEffect(() => {
     const target = loadMoreRef.current;
     if (!target || !nextCursor || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver((entries) => {
-      if (entries.some((entry) => entry.isIntersecting)) void loadMore();
+      const intersects = entries.some((entry) => entry.isIntersecting);
+      if (!intersects) {
+        autoLoadArmed.current = true;
+        return;
+      }
+      if (!autoLoadArmed.current) return;
+      autoLoadArmed.current = false;
+      void loadMore();
     }, { rootMargin: "320px 0px" });
     observer.observe(target);
     return () => observer.disconnect();
-  });
+  }, [loadMore, nextCursor]);
 
   return <section className="review-workflow-queue" aria-label="待审核队列">
     <div className="import-workflow-chips review-workflow-chips" aria-label="筛选已加载的审核条目">

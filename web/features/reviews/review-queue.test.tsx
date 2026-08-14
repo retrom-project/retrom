@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReviewQueue, type ReviewQueueItem } from "./review-queue";
@@ -12,7 +12,12 @@ const item: ReviewQueueItem = {
   sourceTotalSizeBytes: 4_194_304, sourceMd5: "0123456789abcdef0123456789abcdef", coverUrl: "/api/v1/admin/review-assets/cover-1",
 };
 
-afterEach(() => { cleanup(); sessionStorage.clear(); });
+afterEach(() => {
+  cleanup();
+  sessionStorage.clear();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
+});
 
 describe("ReviewQueue", () => {
   it("shows a compact cover and file facts without batch UUID details", () => {
@@ -45,5 +50,56 @@ describe("ReviewQueue", () => {
     expect(screen.getByText("已读取 Pegasus 信息")).toBeVisible();
     expect(screen.getByText("等待管理员核对")).toBeVisible();
     expect(screen.getByRole("button", { name: "未找到信息 0" })).toBeVisible();
+  });
+
+  it("loads only one page while the sentinel remains inside the preload area", async () => {
+    const observers: Array<(entries: IntersectionObserverEntry[]) => void> = [];
+    class IntersectionObserverMock {
+      constructor(callback: IntersectionObserverCallback) {
+        observers.push((entries) => callback(entries, this as unknown as IntersectionObserver));
+      }
+      observe() {}
+      disconnect() {}
+      unobserve() {}
+      takeRecords() { return []; }
+      readonly root = null;
+      readonly rootMargin = "320px 0px";
+      readonly thresholds = [0];
+    }
+    vi.stubGlobal("IntersectionObserver", IntersectionObserverMock);
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ items: [{ ...item, itemId: "item-2", draftTitle: "Second game" }], nextCursor: "cursor-2" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    render(<ReviewQueue initial={{ items: [item], nextCursor: "cursor-1" }} values={{ sort: "UPDATED_ASC" }} />);
+    expect(observers).toHaveLength(1);
+
+    await act(async () => {
+      observers[0]([{ isIntersecting: true } as IntersectionObserverEntry]);
+    });
+    await screen.findByText("Second game");
+    await waitFor(() => expect(observers.length).toBeGreaterThan(1));
+
+    await act(async () => {
+      observers.at(-1)?.([{ isIntersecting: true } as IntersectionObserverEntry]);
+    });
+
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith(
+      "/api/v1/admin/reviews?sort=UPDATED_ASC&cursor=cursor-1&limit=20",
+      { cache: "no-store" },
+    );
+
+    await act(async () => {
+      observers.at(-1)?.([{ isIntersecting: false } as IntersectionObserverEntry]);
+      observers.at(-1)?.([{ isIntersecting: true } as IntersectionObserverEntry]);
+    });
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    expect(fetchMock).toHaveBeenLastCalledWith(
+      "/api/v1/admin/reviews?sort=UPDATED_ASC&cursor=cursor-2&limit=20",
+      { cache: "no-store" },
+    );
   });
 });
