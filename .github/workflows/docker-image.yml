@@ -1,0 +1,112 @@
+name: docker-image
+
+on:
+  push:
+    tags: ["*"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-image-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  BACKEND_IMAGE: xxxsen/retrom
+  WEB_IMAGE: xxxsen/retrom-web
+
+jobs:
+  quality:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+      - name: Set up Go
+        uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+          cache: true
+          cache-dependency-path: go.sum
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Cache the repository Node.js toolchain
+        uses: actions/cache@v5
+        with:
+          path: .cache/tools/node-v24.18.0-linux-x64
+          key: retrom-node-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('.node-version', 'scripts/prepare-node.sh') }}
+      - name: Run the repository quality gate
+        run: make ci
+
+  build-and-push:
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Check out the repository
+        uses: actions/checkout@v6
+      - name: Validate the image tag
+        id: release
+        env:
+          IMAGE_TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$IMAGE_TAG" =~ ^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$ ]]; then
+            echo "::error::Git tag '$IMAGE_TAG' cannot be used as a Docker image tag."
+            exit 1
+          fi
+          echo "image_tag=$IMAGE_TAG" >> "$GITHUB_OUTPUT"
+          if [[ "$IMAGE_TAG" == *-* ]]; then
+            echo "publish_latest=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "publish_latest=true" >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate Docker Hub credentials
+        env:
+          DOCKER_USER: ${{ secrets.DOCKER_USER }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
+        run: |
+          if [[ -z "$DOCKER_USER" || -z "$DOCKER_PASSWORD" ]]; then
+            echo "::error::DOCKER_USER and DOCKER_PASSWORD must be configured for Docker Hub."
+            exit 1
+          fi
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version-file: .node-version
+          package-manager-cache: false
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - name: Build and verify both images
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
+        run: make build-images BACKEND_IMAGE="$BACKEND_IMAGE" WEB_IMAGE="$WEB_IMAGE" IMAGE_TAG="$IMAGE_TAG"
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKER_USER }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+      - name: Push versioned images
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
+        run: |
+          docker push "$BACKEND_IMAGE:$IMAGE_TAG"
+          docker push "$WEB_IMAGE:$IMAGE_TAG"
+      - name: Push latest images for a stable tag
+        if: steps.release.outputs.publish_latest == 'true'
+        env:
+          IMAGE_TAG: ${{ steps.release.outputs.image_tag }}
+        run: |
+          docker tag "$BACKEND_IMAGE:$IMAGE_TAG" "$BACKEND_IMAGE:latest"
+          docker tag "$WEB_IMAGE:$IMAGE_TAG" "$WEB_IMAGE:latest"
+          docker push "$BACKEND_IMAGE:latest"
+          docker push "$WEB_IMAGE:latest"
