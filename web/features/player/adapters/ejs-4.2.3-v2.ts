@@ -166,6 +166,12 @@ type EJSGameManagerConstructor = {
   };
 };
 
+type EJSCompressionConstructor = {
+  prototype?: {
+    getWorkerFile?: (archiveType: string) => Promise<Blob>;
+  };
+};
+
 declare global {
   interface Window {
     EJS_player?: string;
@@ -199,6 +205,7 @@ declare global {
     EJS_onSaveSave?: (payload: { screenshot: Blob; format: string; save: Uint8Array }) => void;
     EJS_emulator?: EmulatorInstance;
     EJS_GameManager?: EJSGameManagerConstructor;
+    EJS_COMPRESSION?: EJSCompressionConstructor;
   }
 }
 
@@ -210,6 +217,79 @@ const supportedAdapters: Record<string, string> = {
 };
 
 const normalizedExternalFileWriters = new WeakSet<(...args: never[]) => unknown>();
+const normalizedArchiveWorkerReaders = new WeakSet<(...args: never[]) => unknown>();
+
+const archiveWorkerGlobalLookup = 'eval("_"+_0x222174)';
+const archiveWorkerSafeGlobalLookup = 'Module["_"+_0x222174]';
+const archiveWorkerDynamicWrapper = "eval(_0x370f8c)";
+const archiveWorkerSafeWrapper = "(function(){return function(){return ccall(_0x405d7e,_0x2bdb59,_0x4f818b,Array.prototype.slice.call(arguments))}})()";
+
+function replaceArchiveWorkerFragment(source: string, fragment: string, replacement: string) {
+  const first = source.indexOf(fragment);
+  if (first < 0 || source.indexOf(fragment, first + fragment.length) >= 0) {
+    throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+  }
+  return `${source.slice(0, first)}${replacement}${source.slice(first + fragment.length)}`;
+}
+
+function rewriteArchiveWorker(source: string) {
+  let rewritten = replaceArchiveWorkerFragment(source, archiveWorkerGlobalLookup, archiveWorkerSafeGlobalLookup);
+  rewritten = replaceArchiveWorkerFragment(rewritten, archiveWorkerDynamicWrapper, archiveWorkerSafeWrapper);
+  if (rewritten.includes("eval(")) throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+  return rewritten;
+}
+
+function normalizeArchiveWorker(runtimeWindow: typeof window, constructor: EJSCompressionConstructor | undefined) {
+  const prototype = constructor?.prototype;
+  const original = prototype?.getWorkerFile;
+  if (!prototype || typeof original !== "function") throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+  if (normalizedArchiveWorkerReaders.has(original as (...args: never[]) => unknown)) return;
+  const normalizedGetWorkerFile = async function (this: unknown, archiveType: string) {
+    const worker = await original.call(this, archiveType);
+    if (archiveType !== "7z") return worker;
+    const source = await worker.text();
+    return new runtimeWindow.Blob([rewriteArchiveWorker(source)], {
+      type: worker.type || "application/javascript",
+    });
+  };
+  normalizedArchiveWorkerReaders.add(normalizedGetWorkerFile as (...args: never[]) => unknown);
+  prototype.getWorkerFile = normalizedGetWorkerFile;
+}
+
+function installArchiveWorkerCompatibility(runtimeWindow: typeof window) {
+  const previous = Object.getOwnPropertyDescriptor(runtimeWindow, "EJS_COMPRESSION");
+  if (previous && !previous.configurable) {
+    normalizeArchiveWorker(runtimeWindow, runtimeWindow.EJS_COMPRESSION);
+    return () => undefined;
+  }
+
+  let current = runtimeWindow.EJS_COMPRESSION;
+  if (current) normalizeArchiveWorker(runtimeWindow, current);
+  Object.defineProperty(runtimeWindow, "EJS_COMPRESSION", {
+    configurable: true,
+    enumerable: previous?.enumerable ?? true,
+    get: () => current,
+    set: (value: EJSCompressionConstructor | undefined) => {
+      normalizeArchiveWorker(runtimeWindow, value);
+      current = value;
+    },
+  });
+
+  return () => {
+    if (current) {
+      Object.defineProperty(runtimeWindow, "EJS_COMPRESSION", {
+        configurable: true,
+        enumerable: previous?.enumerable ?? true,
+        writable: true,
+        value: current,
+      });
+    } else if (previous) {
+      Object.defineProperty(runtimeWindow, "EJS_COMPRESSION", previous);
+    } else {
+      Reflect.deleteProperty(runtimeWindow, "EJS_COMPRESSION");
+    }
+  };
+}
 
 function normalizeExternalFileWrites(constructor: EJSGameManagerConstructor | undefined) {
   const prototype = constructor?.prototype;
@@ -520,6 +600,9 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   const cleanupNetplayCompatibility = config.mode === "netplay"
     ? installEmulatorJs423NetplayCompatibility(runtimeWindow)
     : () => undefined;
+  const cleanupArchiveWorkerCompatibility = config.emulatorjsVersion === "4.2.3"
+    ? installArchiveWorkerCompatibility(runtimeWindow)
+    : () => undefined;
   const cleanupExternalFileCompatibility = config.emulatorjsVersion === "4.2.3" && Object.keys(externalFiles).length > 0
     ? installExternalFileCompatibility(runtimeWindow)
     : () => undefined;
@@ -528,5 +611,5 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   script.async = true;
   script.dataset.retromLoader = "true";
   runtimeWindow.document.head.append(script);
-  return () => { cleanupDeferredStart(); cleanupStartup(); script.remove(); cleanupExternalFileCompatibility(); cleanupNetplayCompatibility(); };
+  return () => { cleanupDeferredStart(); cleanupStartup(); script.remove(); cleanupExternalFileCompatibility(); cleanupArchiveWorkerCompatibility(); cleanupNetplayCompatibility(); };
 }

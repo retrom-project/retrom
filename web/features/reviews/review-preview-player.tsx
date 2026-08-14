@@ -9,6 +9,7 @@ type ReviewPlayerConfig = PlayerConfig & {
 };
 
 type PreviewState = "loading" | "running" | "capturing" | "captured" | "error";
+const previewStartupTimeoutMs = 30_000;
 
 function stateCopy(state: PreviewState) {
   if (state === "loading") return "正在冻结审核来源并加载核心…";
@@ -30,6 +31,26 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
     const controller = new AbortController();
     let cleanup: (() => void) | undefined;
     let canvasContain: ReturnType<typeof installCanvasContain> | undefined;
+    let frameWindow: Window | undefined;
+    let startupTimer: number | undefined;
+    let gameStarted = false;
+    let startupFailed = false;
+
+    function failStartup(reason: unknown) {
+      if (controller.signal.aborted || gameStarted || startupFailed) return;
+      startupFailed = true;
+      if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+      const message = reason instanceof Error ? reason.message : typeof reason === "string" ? reason : "模拟器核心启动失败";
+      setDetail(message);
+      setState("error");
+    }
+
+    const onRuntimeError = (event: ErrorEvent) => {
+      failStartup(event.error instanceof Error ? event.error : event.message || "模拟器核心启动失败");
+    };
+    const onRuntimeRejection = (event: PromiseRejectionEvent) => {
+      failStartup(event.reason);
+    };
 
     async function uploadCapture(config: ReviewPlayerConfig) {
       const emulator = emulatorRef.current;
@@ -64,9 +85,12 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
         if (!config.reviewPreview || config.reviewPreview.captureAfterMs !== 5000) throw new Error("审核预览配置无效");
         setTitle(config.gameTitle || "审核游戏预览");
         const frame = frameRef.current;
-        const frameWindow = frame?.contentWindow;
+        const mountedFrameWindow = frame?.contentWindow ?? undefined;
+        frameWindow = mountedFrameWindow;
         const frameDocument = frame?.contentDocument;
-        if (!frame || !frameWindow || !frameDocument) throw new Error("无法创建游戏子窗体");
+        if (!frame || !mountedFrameWindow || !frameDocument) throw new Error("无法创建游戏子窗体");
+        mountedFrameWindow.addEventListener("error", onRuntimeError);
+        mountedFrameWindow.addEventListener("unhandledrejection", onRuntimeRejection);
         frameDocument.documentElement.lang = "zh-CN";
         const style = frameDocument.createElement("style");
         style.textContent = `html,body,#game,#retrom-emulator,.ejs_parent,.ejs_game,.ejs_canvas_parent{width:100%!important;height:100%!important;margin:0!important;overflow:hidden;background:#05060a}.ejs_canvas_parent{display:grid!important;place-items:center!important}canvas{display:block;max-width:none!important;max-height:none!important;margin:auto!important}`;
@@ -75,11 +99,15 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
         target.id = "game";
         frameDocument.body.append(target);
         canvasContain = installCanvasContain(frameDocument, () => emulatorRef.current?.gameManager?.getVideoDimensions?.("aspect"));
+        startupTimer = window.setTimeout(() => failStartup("模拟器核心启动超时，请关闭子窗体后重试"), previewStartupTimeoutMs);
         cleanup = mountEmulatorJS(config, target, {
           onReady: (emulator) => { emulatorRef.current = emulator; },
           onGameStart: () => {
+            if (startupFailed) return false;
+            gameStarted = true;
+            if (startupTimer !== undefined) window.clearTimeout(startupTimer);
             setState("running");
-            frameWindow.requestAnimationFrame(() => canvasContain?.refresh());
+            mountedFrameWindow.requestAnimationFrame(() => canvasContain?.refresh());
             captureTimerRef.current = window.setTimeout(() => {
               void uploadCapture(config).catch((error: unknown) => {
                 setDetail(error instanceof Error ? error.message : "第 5 秒运行截图保存失败");
@@ -87,17 +115,19 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
               });
             }, config.reviewPreview.captureAfterMs);
           },
-        }, frameWindow);
+        }, mountedFrameWindow);
       } catch (error) {
         if (controller.signal.aborted) return;
-        setDetail(error instanceof Error ? error.message : "审核预览启动失败");
-        setState("error");
+        failStartup(error);
       }
     }
     void bootstrap();
     return () => {
       controller.abort();
       if (captureTimerRef.current !== null) window.clearTimeout(captureTimerRef.current);
+      if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+      frameWindow?.removeEventListener("error", onRuntimeError);
+      frameWindow?.removeEventListener("unhandledrejection", onRuntimeRejection);
       cleanup?.();
       canvasContain?.cleanup();
     };
@@ -108,6 +138,6 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
       <div><strong>{title}</strong><span>{stateCopy(state)}</span>{detail ? <small role="alert">{detail}</small> : null}</div>
       <button type="button" onClick={() => window.close()}>关闭子窗体</button>
     </header>
-    <iframe ref={frameRef} title={`${title} 运行画面`} className="review-preview-frame" />
+    <iframe ref={frameRef} src="about:blank" title={`${title} 运行画面`} className="review-preview-frame" />
   </main>;
 }

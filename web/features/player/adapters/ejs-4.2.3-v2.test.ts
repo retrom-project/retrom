@@ -77,6 +77,7 @@ describe("EmulatorJS adapter", () => {
     document.querySelectorAll("script[data-retrom-loader]").forEach((node) => node.remove());
     window.EJS_emulator = undefined;
     Reflect.deleteProperty(window, "EJS_GameManager");
+    Reflect.deleteProperty(window, "EJS_COMPRESSION");
   });
 
   it("rejects an unregistered runtime without mutating the document", () => {
@@ -183,6 +184,46 @@ describe("EmulatorJS adapter", () => {
     expect(writes[0].data).toBeInstanceOf(Uint8Array);
     expect(writes[1]).toEqual({ path: "/already-typed.bin", data: typedBytes });
     expect(writes[1].data).toBe(typedBytes);
+    cleanup();
+  });
+
+  it("rewrites the pinned 4.2.3 7z worker without JavaScript eval", async () => {
+    const target = document.createElement("div");
+    const cleanup = mountEmulatorJS(config, target);
+    const workerSource = [
+      'function getCFunc(_0x222174){var _0x54cf7b=Module["_"+_0x222174];if(!_0x54cf7b)try{_0x54cf7b=eval("_"+_0x222174)}catch(_0x4b65d1){}}',
+      'function cwrap(_0x405d7e,_0x2bdb59,_0x4f818b){var _0x370f8c="generated";return eval(_0x370f8c)}',
+    ].join("");
+    const workerBlob = new Blob([workerSource], { type: "application/javascript" });
+    class Compression {
+      async getWorkerFile(archiveType: string) {
+        if (archiveType !== "7z" && archiveType !== "zip") throw new Error("unexpected archive type");
+        return workerBlob;
+      }
+    }
+    window.EJS_COMPRESSION = Compression;
+
+    const patched = await new Compression().getWorkerFile("7z");
+    const patchedSource = await patched.text();
+    expect(patchedSource).not.toContain("eval(");
+    expect(patchedSource).toContain('Module["_"+_0x222174]');
+    expect(patchedSource).toContain("ccall(_0x405d7e,_0x2bdb59,_0x4f818b,Array.prototype.slice.call(arguments))");
+    await expect(new Compression().getWorkerFile("zip")).resolves.toBe(workerBlob);
+    cleanup();
+  });
+
+  it("fails closed when the pinned 4.2.3 7z worker shape drifts", async () => {
+    const target = document.createElement("div");
+    const cleanup = mountEmulatorJS(config, target);
+    class Compression {
+      async getWorkerFile(archiveType: string) {
+        if (archiveType !== "7z") throw new Error("unexpected archive type");
+        return new Blob(["unexpected-worker-source"], { type: "application/javascript" });
+      }
+    }
+    window.EJS_COMPRESSION = Compression;
+
+    await expect(new Compression().getWorkerFile("7z")).rejects.toThrow("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
     cleanup();
   });
 
