@@ -67,7 +67,7 @@
 | `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成 Go strict stdlib server types 与前端 TypeScript schema | 会重建依赖目录并只修改两个 generated 文件 |
 | `make api-check` | 先以锁文件安装前端依赖，再在临时目录用固定生成器重建并逐字节比较，OpenAPI 无效或 generated 漂移即失败 | 仅依赖产物 |
 | `make web-e2e` | 运行关键 Chrome/Playwright 场景 | 会产生本地报告 |
-| `make data-check` | 离线校验 Makefile 的 clean-checkout 依赖顺序及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
+| `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
 | `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/五份 DAT/许可文件并生成 notice；两个 FBA2012 DAT 从锁定源码确定性原生生成两次；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
 | `make deps-check` | 完全离线校验本地 allowlist、core、DAT、override、许可输入/notice 及 DAT 统计 | 否 |
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
@@ -378,8 +378,8 @@ node data/example/smoke-test.mjs mgba mame2003
 
 ### Phase Q2：CI 与浏览器门禁
 
-1. `.github/workflows/ci.yml` 在所有 pull request 上设置 Go、Node/npm 与仓库固定 Node 工具链缓存后运行 `make ci`；固定 golangci-lint 由 Makefile 依赖自动安装，同一 PR 的旧运行由 concurrency 取消。
-2. CI 使用锁文件安装依赖；测试阶段不访问真实外网、不下载 ROM/BIOS、不依赖开发机浏览器。
+1. `.github/workflows/ci.yml` 在所有 pull request 上设置 Go、Node/npm、仓库固定 Node 工具链及物化 runtime 缓存；随后先执行幂等且逐字节校验的 `make prepare-deps`，再运行 `make ci`。固定 golangci-lint 由 Makefile 依赖自动安装，同一 PR 的旧运行由 concurrency 取消。
+2. CI 使用锁文件和固定 manifest 安装依赖；runtime/core/DAT/许可 payload 可以由 `prepare-deps` 从锁定来源物化并按 hash 校验，测试阶段不下载 ROM/BIOS、不访问真实 Hasheous，也不依赖开发机浏览器。
 3. 建立 `web/e2e/` 的 Chrome 配置和关键路径；按改动范围或发布流程运行 `make web-e2e`。
 4. 保留 `data/example/` 为版本/core/DAT 变更的独立兼容性门禁，并记录机器结果与人工画面复核。
 
@@ -390,7 +390,7 @@ node data/example/smoke-test.mjs mgba mame2003
 3. 新增 `.dockerignore` 与 `web/.dockerignore`，排除 `.git`、缓存、`node_modules`、`.next`、coverage、E2E 报告、`data/game`、本地 runtime 结果和运行数据；构建阶段只通过版本化脚本下载并校验允许进入镜像的固定 runtime artifact。
 4. 在 Makefile 实现三个 image targets 和共用 `release-input-digest` helper；两镜像都写入 `io.retrom.release-input-sha256`，组合 target 以 inspect 确认一致。构建完成后立即返回，不创建容器、不建立网络、不挂载卷、不 push registry。
 5. 为发布流水线增加 `make ci` 与 `make build-images` 两个独立 required steps；普通逻辑 PR 可只运行 `make ci`，涉及 Dockerfile、依赖锁文件、静态/runtime 资产或发布脚本时必须构建镜像。
-6. `.github/workflows/docker-image.yml` 在 tag push 时先完成 `make ci`，再自动执行 `make build-images`；两个镜像校验完成后才允许登录 Docker Hub 并推送，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
+6. `.github/workflows/docker-image.yml` 在 tag push 时先恢复或物化并校验固定 runtime 依赖、完成 `make ci`，再自动执行 `make build-images`；两个镜像校验完成后才允许登录 Docker Hub 并推送，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
 
 ### 10.1 预期文件
 
