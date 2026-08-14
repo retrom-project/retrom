@@ -86,17 +86,18 @@ web-check: web-install web-lint web-typecheck web-test web-build
 integration-test:
 	@go test -tags=integration $(GO_PACKAGES)
 
-api-generate: prepare-node
+api-generate: web-install
 	@go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) --config api/oapi-codegen.yaml api/openapi.yaml
 	@cd web && $(NPM) run api:generate
 
-api-check:
+api-check: web-install
 	@scripts/api-check.sh
 
 web-e2e: prepare-node
 	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/acceptance/web-e2e.sh
 
 data-check:
+	@python3 scripts/test_makefile.py
 	@python3 scripts/test_dependencies.py
 	@python3 scripts/test_fbalpha2012_dat.py
 	@python3 data/example/test_materialize_fixtures.py
