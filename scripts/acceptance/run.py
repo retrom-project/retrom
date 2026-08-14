@@ -34,7 +34,18 @@ CONDITIONAL_CASES = {"ACC-NET-002", "ACC-DAT-006"}
 CASE_COMMANDS: dict[str, tuple[int, str]] = {
     "ACC-QA-001": (900, "make ci"),
     "ACC-QA-002": (300, "scripts/acceptance/quality-sentinels.sh"),
-    "ACC-PKG-001": (900, "make build-backend-image && docker image inspect retrom:latest"),
+    "ACC-PKG-001": (
+        900,
+        """set -euo pipefail
+make build-backend-image
+docker image inspect retrom:latest
+docker run --rm --network none --read-only --user 1000:1000 --entrypoint /bin/sh retrom:latest -ec '
+unreadable="$(find /opt/retrom/dependencies \\( -type d ! -perm -005 -o -type f ! -perm -004 \\) -print)"
+test -z "$unreadable"
+find /opt/retrom/dependencies -type f -exec sha256sum {} + >/dev/null
+'
+""",
+    ),
     "ACC-PKG-002": (900, "make build-web-image && docker image inspect retrom-web:latest"),
     "ACC-PKG-003": (
         900,
