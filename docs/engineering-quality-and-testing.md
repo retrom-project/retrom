@@ -63,7 +63,7 @@
 | `make web-test` | `vitest run` | 否 |
 | `make web-build` | 干净执行 Next.js production build；运行中的本地开发服务需要保留 `.next/` 时可显式设置 `NEXT_DIST_DIR=.next-build` | 只允许重建 `.next/` 或被忽略的 `.next-build/` |
 | `make web-check` | `web-install + web-lint + web-typecheck + web-test + web-build` | 仅依赖/构建产物 |
-| `make integration-test` | Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 否 |
+| `make integration-test` | Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程；不含要求本地专有内容的 `localfixtures` 测试 | 否 |
 | `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成 Go strict stdlib server types 与前端 TypeScript schema | 会重建依赖目录并只修改两个 generated 文件 |
 | `make api-check` | 先以锁文件安装前端依赖，再在临时目录用固定生成器重建并逐字节比较，OpenAPI 无效或 generated 漂移即失败 | 仅依赖产物 |
 | `make web-e2e` | 运行关键 Chrome/Playwright 场景 | 会产生本地报告 |
@@ -83,6 +83,7 @@
 补充规则：
 
 - `make ci` 不含依赖用户私有夹具的核心启动 smoke；该验证按第 8 节的影响范围单独执行。
+- 读取 `data/example/local-fixtures/` 的 Go 集成测试必须同时声明 `integration && localfixtures`，只在操作者已物化并验证授权夹具后以 `go test -tags='integration localfixtures' ...` 显式运行；默认 `make integration-test` 和 `make ci` 不得因缺少专有 ROM/BIOS 失败。`data-check` 必须回归检查这一标签边界。
 - `make ci` 默认也不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，额外执行 `make build-images`。发布流水线必须同时运行二者。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
 - OpenAPI 固定为 `api/openapi.yaml`（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。Go 侧由该版本以 `models + std-http-server + strict-server` 生成 `internal/httpapi/generated/api.gen.go`；生成器作为 `go.mod` 的 tool 依赖锁定，配置放 `api/oapi-codegen.yaml`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定执行 `openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client。两个生成文件不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
