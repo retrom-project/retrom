@@ -60,7 +60,17 @@ const captures = [
   ["retrom-ui-bios-entry-compare.png", "admin-bios", 2560, 1440, "bios-entries"],
   ["retrom-ui-dat-versions.png", "admin-bios", 2560, 1440, "dats"],
   ["retrom-ui-dat-upload.png", "admin-bios", 2560, 1440, "dat-drawer"],
-  ["retrom-ui-dat-diff.png", "admin-bios", 2560, 1440, "dat-diff"]
+  ["retrom-ui-dat-diff.png", "admin-bios", 2560, 1440, "dat-diff"],
+  ["retrom-ui-home-mobile.png", "home", 390, 844],
+  ["retrom-ui-library-mobile.png", "library", 390, 844],
+  ["retrom-ui-game-detail-mobile.png", "detail", 390, 844],
+  ["retrom-ui-saves-mobile.png", "saves", 390, 844],
+  ["retrom-ui-favorites-mobile.png", "favorites", 390, 844],
+  ["retrom-ui-netplay-room-mobile.png", "netplay-room", 390, 844],
+  ["retrom-ui-admin-review-mobile.png", "admin-review", 390, 844],
+  ["retrom-ui-admin-review-detail-mobile.png", "admin-review", 390, 844, "review-detail"],
+  ["retrom-ui-play-portrait-mobile.png", "play", 390, 844, "mobile-portrait"],
+  ["retrom-ui-play-landscape-mobile.png", "play", 844, 390]
 ];
 
 const requestedNames = new Set(process.argv.slice(2));
@@ -91,7 +101,7 @@ try {
     if (["setup", "login", "register", "reset"].includes(view)) {
       await frame.locator(`[data-review-scene="${view}"]`).click();
     } else if (view.startsWith("admin-")) {
-      await frame.locator("#rt-mode-button").click();
+      await frame.locator("#rt-mode-button").evaluate((element) => element.click());
     }
     if (view === "account") {
       await frame.locator('[data-review-scene="account"]').click();
@@ -134,6 +144,7 @@ try {
       await frame.locator("[data-create-invitation]").click();
     }
     if (variant === "portrait") await frame.locator('[data-page="play"] .rt-player-screen').evaluate((element) => element.classList.add("is-portrait"));
+    if (variant === "mobile-portrait") await frame.locator('[data-page="play"] .rt-player-shell').evaluate((element) => element.classList.add("is-mobile-portrait"));
     if (variant === "emulator-controls") {
       await frame.locator("#rt-player-more").click();
       await frame.locator("[data-open-emulator-controls]").click();

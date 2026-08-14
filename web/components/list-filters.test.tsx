@@ -63,8 +63,24 @@ describe("ListFilters", () => {
 
     await user.type(screen.getByRole("textbox", { name: "搜索" }), " 1942 ");
     await user.selectOptions(screen.getByRole("combobox", { name: "游戏状态" }), "PUBLISHED");
-    await user.click(screen.getByRole("button", { name: "搜索" }));
+    await user.click(screen.getByRole("button", { name: "应用筛选" }));
 
     expect(router.replace).toHaveBeenCalledWith("/admin/games?q=1942&status=PUBLISHED", { scroll: false });
+  });
+
+  it("discards a mobile filter draft and restores focus on cancel", async () => {
+    const user = userEvent.setup();
+    render(<ListFilters action="/library" placeholder="search" values={{ sort: "TITLE_ASC" }} filters={[
+      { name: "sort", label: "排列顺序", options: [{ value: "TITLE_ASC", label: "标题" }, { value: "RECENT_DESC", label: "最近游玩" }] },
+    ]} />);
+
+    const trigger = screen.getByRole("button", { name: "筛选与排序（1）" });
+    await user.click(trigger);
+    await user.selectOptions(screen.getByRole("combobox", { name: "排列顺序" }), "RECENT_DESC");
+    await user.click(screen.getByRole("button", { name: "取消" }));
+
+    expect(screen.getByRole("combobox", { name: "排列顺序" })).toHaveValue("TITLE_ASC");
+    expect(trigger).toHaveFocus();
+    expect(router.replace).not.toHaveBeenCalled();
   });
 });

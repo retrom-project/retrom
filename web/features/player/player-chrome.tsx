@@ -5,6 +5,7 @@ import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import type { EmulatorSettingsPanel } from "./emulator-settings";
 import type { DiscSet, DiscState } from "./adapters/ejs-4.2.3-v2";
+import { playerActionPriority } from "./player-actions";
 import type { PlayerDebugMetrics } from "./player-debug";
 
 type SyncTone = "synced" | "busy" | "warning";
@@ -46,6 +47,7 @@ export function PlayerChrome({
   runtimeState,
   onHoldControls,
   onReleaseControls,
+  onToggleControls,
   onSave,
   onPauseForToolbarInteraction,
   onToggleFullscreen,
@@ -85,6 +87,7 @@ export function PlayerChrome({
   runtimeState: "loading" | "running" | "error";
   onHoldControls: () => void;
   onReleaseControls: () => void;
+  onToggleControls: () => void;
   onSave: () => Promise<boolean>;
   onPauseForToolbarInteraction: () => void;
   onToggleFullscreen: () => void;
@@ -107,6 +110,7 @@ export function PlayerChrome({
   const [conflictDismissed, setConflictDismissed] = useState(false);
   const [localToast, setLocalToast] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
   const discMenuRef = useRef<HTMLDivElement>(null);
   const discButtonRef = useRef<HTMLButtonElement>(null);
   const toolbarRef = useRef<HTMLElement>(null);
@@ -116,11 +120,12 @@ export function PlayerChrome({
 
   useEffect(() => {
     if (!menuOpen) return;
+    menuRef.current?.querySelector<HTMLElement>(".player-menu button:not(:disabled)")?.focus();
     const closeOnOutside = (event: PointerEvent) => {
       if (event.target instanceof Node && !menuRef.current?.contains(event.target)) setMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") setMenuOpen(false);
+      if (event.key === "Escape") { setMenuOpen(false); menuButtonRef.current?.focus(); }
     };
     document.addEventListener("pointerdown", closeOnOutside);
     document.addEventListener("keydown", closeOnEscape);
@@ -165,6 +170,11 @@ export function PlayerChrome({
 
   const visibleToast = localToast || toast;
   const isNetplay = netplayPlayerNo !== null;
+  const actionLayout = playerActionPriority({
+    netplay: isNetplay,
+    disc: !isNetplay && Boolean(discSet && discState),
+    save: !isNetplay,
+  });
   const warningCopy = warnings.includes("BIOS_HASH_WARNING")
     ? "BIOS 校验值与目录期望不同，但当前允许运行。"
     : "当前运行环境有需要留意的提示。";
@@ -231,6 +241,7 @@ export function PlayerChrome({
           : "游戏进度已同步，可以安全退出。";
 
   return <>
+    <button className="player-hud-handle" type="button" aria-label={controlsVisible ? "隐藏 Player 控制栏" : "显示 Player 控制栏"} aria-pressed={controlsVisible} onClick={onToggleControls}><span aria-hidden="true" /></button>
     <header
       ref={toolbarRef}
       className={`player-toolbar${controlsVisible || paused ? " is-visible" : ""}`}
@@ -262,11 +273,11 @@ export function PlayerChrome({
         {warnings.length ? <button className="player-warning-dot" type="button" aria-label="查看运行提醒" title="查看运行提醒" onClick={() => setLocalToast(warningCopy)} /> : null}
       </div>
       <div className="player-actions">
-        <button className="player-control player-debug-control" type="button" aria-expanded={debugOpen} aria-controls="player-debug-panel" aria-pressed={debugOpen} onClick={onToggleDebug}><AppIcon name="chip" />调试信息</button>
+        <button className="player-control player-debug-control player-mobile-overflow" type="button" aria-expanded={debugOpen} aria-controls="player-debug-panel" aria-pressed={debugOpen} onClick={onToggleDebug}><AppIcon name="chip" />调试信息</button>
         {!isNetplay && discSet && discState ? <div className="player-menu-wrap player-disc-wrap" ref={discMenuRef}>
           <button
             ref={discButtonRef}
-            className="player-control player-disc-button"
+            className={`player-control player-disc-button player-context-action${actionLayout.primary === "disc" ? " is-primary" : ""}`}
             type="button"
             disabled={!running || discBusy}
             aria-label={`光盘 ${discState.currentIndex + 1} / ${discSet.count}`}
@@ -276,7 +287,7 @@ export function PlayerChrome({
           >
             <span aria-hidden="true">◉</span>光盘 {discState.currentIndex + 1} / {discSet.count}
           </button>
-          {discMenuOpen ? <div className="player-menu player-disc-menu" role="menu" aria-label="选择光盘" onKeyDown={moveDiscMenuFocus}>
+          {discMenuOpen ? <><button className="player-menu-backdrop" type="button" tabIndex={-1} aria-label="关闭光盘选择" onClick={() => setDiscMenuOpen(false)} /><div className="player-menu player-disc-menu" role="menu" aria-label="选择光盘" onKeyDown={moveDiscMenuFocus}>
             <strong>选择光盘</strong>
             {discSet.entries.map((entry) => <button
               key={entry.index}
@@ -290,21 +301,28 @@ export function PlayerChrome({
               {entry.label}{entry.index === discState.currentIndex ? " · 当前" : ""}
             </button>)}
             <small>切换后游戏保持暂停，返回游戏即可继续。</small>
-          </div> : null}
+          </div></> : null}
         </div> : null}
-        {!isNetplay ? <button className="player-control player-save-button" type="button" disabled={!running} onClick={() => void onSave()}><AppIcon name="save" />创建存档</button> : null}
-        {isNetplay && netplayPlayerNo === 1 ? <button className="player-control" type="button" disabled={!running} aria-pressed={netplayPaused} onClick={onToggleNetplayPause}><AppIcon name={netplayPaused ? "play" : "pause"} />{netplayPaused ? "继续联机" : "全局暂停"}</button> : null}
+        {!isNetplay ? <button className={`player-control player-save-button player-context-action${actionLayout.primary === "save" ? " is-primary" : ""}`} type="button" disabled={!running} onClick={() => void onSave()}><AppIcon name="save" />创建存档</button> : null}
+        {isNetplay && netplayPlayerNo === 1 ? <button className="player-control player-context-action is-primary" type="button" disabled={!running} aria-pressed={netplayPaused} onClick={onToggleNetplayPause}><AppIcon name={netplayPaused ? "play" : "pause"} />{netplayPaused ? "继续联机" : "全局暂停"}</button> : null}
+        {isNetplay && netplayPlayerNo !== 1 ? <span className="player-seat-context player-context-action is-primary">联机 · P{netplayPlayerNo}</span> : null}
         {!isNetplay ? <button className="player-control is-icon" type="button" aria-label={paused ? "已暂停，点击游戏画面继续" : "暂停"} title={paused ? "点击游戏画面继续" : "暂停"} aria-pressed={paused} disabled={!running}><AppIcon name="pause" /></button> : null}
-        <button className="player-control is-icon" type="button" aria-label={fullscreen ? "退出全屏" : "全屏"} title={fullscreen ? "退出全屏" : "全屏"} onClick={onToggleFullscreen}><AppIcon name={fullscreen ? "minimize" : "maximize"} /></button>
+        <button className="player-control is-icon player-mobile-overflow" type="button" aria-label={fullscreen ? "退出全屏" : "全屏"} title={fullscreen ? "退出全屏" : "全屏"} onClick={onToggleFullscreen}><AppIcon name={fullscreen ? "minimize" : "maximize"} /></button>
         <div className="player-menu-wrap" ref={menuRef}>
-          <button className="player-control is-icon" type="button" aria-label="更多操作" title="更多操作" aria-expanded={menuOpen} aria-haspopup="menu" onClick={() => setMenuOpen((open) => !open)}><AppIcon name="more" /></button>
-          {menuOpen ? <div className="player-menu" role="menu">
+          <button ref={menuButtonRef} className="player-control is-icon" type="button" aria-label="更多操作" title="更多操作" aria-expanded={menuOpen} aria-haspopup="menu" onClick={() => setMenuOpen((open) => !open)}><AppIcon name="more" /></button>
+          {menuOpen ? <><button className="player-menu-backdrop" type="button" tabIndex={-1} aria-label="关闭更多操作" onClick={() => setMenuOpen(false)} /><div className="player-menu" role="menu" aria-label="Player 更多操作">
+            <header className="player-menu-head"><div><small>Retrom Player</small><strong>更多操作</strong></div><button type="button" aria-label="关闭更多操作" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}><AppIcon name="x" /></button></header>
+            <div className={`player-menu-runtime is-${syncTone}`} role="status"><i aria-hidden="true" /><span><strong>{syncText}</strong><small>{isNetplay ? `联机座位 P${netplayPlayerNo}` : paused ? "当前已暂停" : "游戏运行中"}</small></span></div>
+            {!isNetplay ? <button type="button" role="menuitem" aria-label="在更多操作中创建存档" disabled={!running} onClick={() => { setMenuOpen(false); void onSave(); }}><AppIcon name="save" /><span><strong>创建存档</strong><small>保存当前状态与截图</small></span></button> : null}
+            {!isNetplay && discSet && discState ? <button type="button" role="menuitem" aria-label="在更多操作中选择光盘" disabled={!running || discBusy} onClick={() => { setMenuOpen(false); setDiscMenuOpen(true); }}><AppIcon name="database" /><span><strong>光盘 {discState.currentIndex + 1} / {discSet.count}</strong><small>选择当前运行光盘</small></span></button> : null}
             {!isNetplay ? <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onOpenEmulatorSettings(); }}><AppIcon name="settings" />模拟器设置</button> : null}
-            <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setLocalToast("将鼠标移到屏幕顶部可显示控制栏；Esc 只退出浏览器全屏，不会退出游戏。"); }}><AppIcon name="keyboard" />查看快捷键</button>
+            <button type="button" role="menuitem" aria-label={fullscreen ? "在更多操作中退出全屏" : "在更多操作中进入全屏"} onClick={() => { setMenuOpen(false); onToggleFullscreen(); }}><AppIcon name={fullscreen ? "minimize" : "maximize"} />{fullscreen ? "退出全屏" : "进入全屏"}</button>
+            <button type="button" role="menuitem" aria-label="在更多操作中打开调试信息" onClick={() => { setMenuOpen(false); onToggleDebug(); }}><AppIcon name="chip" />调试信息</button>
+            <button className="player-shortcut-action" type="button" role="menuitem" onClick={() => { setMenuOpen(false); setLocalToast("将鼠标移到屏幕顶部可显示控制栏；Esc 只退出浏览器全屏，不会退出游戏。"); }}><AppIcon name="keyboard" />查看快捷键</button>
             {warnings.length ? <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); setLocalToast(warningCopy); }}><AppIcon name="warning" />查看运行提醒</button> : null}
             <hr />
             <button className="is-danger" type="button" role="menuitem" onClick={requestExit}><AppIcon name="log-out" />退出游戏</button>
-          </div> : null}
+          </div></> : null}
         </div>
       </div>
     </header>

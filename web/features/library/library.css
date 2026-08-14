@@ -12,7 +12,7 @@
 .library-platform-row button:hover { color: var(--purple-dark); background: #f6f3ff; }
 .library-platform-row button.is-active { color: var(--purple-dark); border-color: #d8d1f6; background: var(--purple-soft); }
 .library-platform-row button strong { margin-left: 2px; }
-.library-result-count { margin-left: auto; padding-left: 16px; flex: 0 0 auto; color: #7a8495; font-size: 12px; }
+.library-result-count { margin-left: auto; padding-left: 16px; flex: 0 0 auto; color: var(--muted); font-size: 12px; }
 .library-result-count strong { color: var(--ink); }
 .library-section-head { margin-bottom: 14px; display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; }
 .library-section-head h2 { margin: 0; font-size: 17px; }
@@ -50,5 +50,5 @@
 .library-game-body > p { margin: 7px 0 0; display: flex; gap: 7px; overflow: hidden; color: var(--muted); font-size: 12px; white-space: nowrap; }
 .library-game-body > p span { overflow: hidden; text-overflow: ellipsis; }
 .library-game-body > p span + span::before { content: "·"; margin-right: 7px; color: #a6adba; }
-.library-game-played { margin-top: 12px; padding-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: #7b8495; border-top: 1px solid #efede8; font-size: 11px; }
+.library-game-played { margin-top: 12px; padding-top: 11px; display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--muted); border-top: 1px solid #efede8; font-size: 11px; }
 .library-game-played strong { overflow: hidden; color: #465064; font-size: 11px; font-weight: 750; text-overflow: ellipsis; white-space: nowrap; }

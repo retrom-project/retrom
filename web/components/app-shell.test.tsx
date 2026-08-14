@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import type { ReactNode } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -94,5 +94,38 @@ describe("AppShell", () => {
     shellState.netplayEnabled = false;
     rerender(<AppShell><div>页面内容</div></AppShell>);
     expect(screen.queryByRole("link", { name: "联机游玩" })).not.toBeInTheDocument();
+  });
+
+  it("keeps detail routes in the library tab and restores focus after More closes", async () => {
+    shellState.pathname = "/games/game-1";
+    shellState.netplayEnabled = true;
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
+    const user = userEvent.setup();
+    render(<AppShell><div>页面内容</div></AppShell>);
+
+    const bottom = screen.getByRole("navigation", { name: "手机主导航" });
+    expect(within(bottom).getByRole("link", { name: "游戏库" })).toHaveAttribute("aria-current", "page");
+    const more = within(bottom).getByRole("button", { name: "更多导航" });
+    await user.click(more);
+    const sheet = screen.getByRole("dialog", { name: "更多" });
+    expect(within(sheet).getByRole("link", { name: /最近游玩/ })).toHaveAttribute("href", "/recent");
+    expect(within(sheet).getByRole("link", { name: /联机游玩/ })).toHaveAttribute("href", "/netplay");
+    await user.click(within(sheet).getByRole("button", { name: "关闭更多" }));
+    expect(more).toHaveFocus();
+  });
+
+  it("opens the compact administrator navigation with active and context semantics", async () => {
+    shellState.pathname = "/admin/reviews";
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(null, { status: 200 })));
+    const user = userEvent.setup();
+    render(<AppShell><div>页面内容</div></AppShell>);
+
+    const trigger = screen.getByRole("button", { name: "打开主要导航" });
+    await user.click(trigger);
+    const sheet = screen.getByRole("dialog", { name: "管理后台" });
+    expect(within(sheet).getByRole("link", { name: "游戏入库" })).toHaveClass("is-context");
+    expect(within(sheet).getByRole("link", { name: "待审核" })).toHaveAttribute("aria-current", "page");
+    await user.keyboard("{Escape}");
+    expect(trigger).toHaveFocus();
   });
 });

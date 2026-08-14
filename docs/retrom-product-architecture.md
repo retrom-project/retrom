@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.1 |
-| 日期 | 2026-08-11 |
+| 版本 | 1.2 |
+| 日期 | 2026-08-14 |
 | 适用范围 | Retrom 一期 |
 | 技术栈 | Go、Next.js、React、Tailwind CSS、SQLite、本地文件存储、版本锁定 EmulatorJS（4.2.3 基线 + 4.3.0-pre 定向覆盖）、OCI/Docker 镜像 |
 
@@ -17,7 +17,7 @@
 | 文档 | 唯一负责的内容 |
 | --- | --- |
 | [一期项目验收规范](./project-acceptance.md) | 全部可执行验收 Case、固定数据、证据格式、超时、缺陷回归和最终通过规则 |
-| [UI 与交互规范](./ui-specification.md) | 信息架构、页面规格、4K 布局、直接启动交互和设计稿入口 |
+| [UI 与交互规范](./ui-specification.md) | 信息架构、页面规格、320px 起的响应式与 4K 布局、直接启动交互和设计稿入口 |
 | [游戏目录领域设计](./platform-instance.md) | PlatformInstance 字段、唯一归属、默认核心、变更和迁移规则 |
 | [导入、刮削与审核](./import-and-review.md) | 文件/目录导入、Hasheous、任务状态机、审核与回溯 |
 | [BIOS 与 Arcade DAT](./bios-and-arcade.md) | BIOS 要求、哈希校验、核心专属 DAT、依赖解析和管理 UI |
@@ -35,7 +35,7 @@
 
 ## 2. 产品定位与一期范围
 
-Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。用户从桌面版 Chrome 浏览已发布游戏、选择存档快速继续；同一站点还提供游戏导入、审核、游戏目录、BIOS/DAT 和游戏维护能力。
+Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。用户从 Chrome 的手机、平板或桌面视口浏览已发布游戏、选择存档快速继续；同一站点还提供游戏导入、审核、游戏目录、BIOS/DAT 和游戏维护能力。普通页面在 `320px` 起提供完整响应式操作，移动 Player 仅在横屏稳定后才装载游戏运行时。
 
 一期目标：
 
@@ -54,7 +54,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 一期不包含：
 
 - 多因素认证、WebAuthn、自助邮件找回密码和外部身份提供商。
-- 移动端及 Chrome 之外的浏览器兼容性承诺。
+- Chrome 之外的浏览器兼容性承诺；移动端正式支持范围仍限定为 Chrome。
 - 公网匿名开放或无需登录的管理入口。
 - 自动匹配、聊天、观战、语音、WebRTC 信令或 TURN；联机首发只有已登录用户通过房间链接加入的两人模式。
 - Arcade Merged ROMset。
@@ -156,7 +156,7 @@ Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个�
 
 ~~~mermaid
 flowchart LR
-    U["Chrome Desktop"] -->|HTTPS| N["前置 NG / TLS 终结"]
+    U["Chrome · Phone / Tablet / Desktop"] -->|HTTPS| N["前置 NG / TLS 终结"]
     N -->|HTTP：页面 / _next| W["retrom-web / Next.js + Player Shell"]
     N -->|HTTP：API / content / runtime| S["retrom / Go 模块化单体"]
     W --> R["浏览器内锁定版本 EmulatorJS（初始 4.2.3）"]
@@ -389,7 +389,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 - 状态存档、截图、持久存档和 PlaySession。
 - Blob GC、备份恢复、诊断导出和 Chrome E2E。
-- 1280×800 最小桌面、2560×1440 与 4K 视觉回归。
+- `320px` 起的手机、平板、1280×800 最小桌面、2560×1440 与 4K 视觉回归；移动 Player 另覆盖竖屏阻断、横屏恢复与 P1/P2 暂停职责。
 
 ### Phase 5：收藏与收藏夹垂直切片
 

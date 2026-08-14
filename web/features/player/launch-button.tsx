@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
+import { requestFullscreenAndLandscape, unlockLandscape } from "./orientation";
 
 type LaunchResponse = { launchId: string; playUrl: string };
 type PendingResponse = { status: "VALIDATION_PENDING"; jobId: string; retryAfterMs: number };
@@ -54,7 +55,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
     }
     // Fullscreen must be requested directly from the trusted click; waiting for
     // the API response would lose browser user activation.
-    void document.documentElement.requestFullscreen().catch(() => undefined);
+    void requestFullscreenAndLandscape();
     try {
       const body = JSON.stringify({
         gameId,
@@ -88,6 +89,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
       }
       throw new Error("核心验证完成后仍无法启动");
     } catch (error) {
+      unlockLandscape();
       if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
       setMessage(error instanceof Error ? error.message : "启动失败");
       setState("blocked");

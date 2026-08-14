@@ -10,6 +10,19 @@ web_origin="http://localhost:${web_port}"
 process_id=""
 dev_state="$temporary_root/dev-state"
 
+if [[ -n "${RETROM_CHROME_EXECUTABLE:-}" ]]; then
+  if [[ ! -x "$RETROM_CHROME_EXECUTABLE" ]]; then
+    echo "RETROM_CHROME_EXECUTABLE is not executable: $RETROM_CHROME_EXECUTABLE" >&2
+    exit 1
+  fi
+  chrome_version="$($RETROM_CHROME_EXECUTABLE --version)"
+  if [[ "$chrome_version" != Google\ Chrome\ * ]]; then
+    echo "RETROM_CHROME_EXECUTABLE must be Google Chrome, got: $chrome_version" >&2
+    exit 1
+  fi
+  printf 'browser=%s\n' "$chrome_version"
+fi
+
 cleanup() {
   if [[ -n "$process_id" ]]; then
     RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true

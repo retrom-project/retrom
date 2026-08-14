@@ -1,6 +1,6 @@
 import type { ReactNode, SVGProps } from "react";
 
-export type AppIconName = "home" | "library" | "heart" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "chip" | "database" | "folder" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad" | "maximize" | "minimize" | "more" | "log-out" | "keyboard" | "warning";
+export type AppIconName = "home" | "library" | "heart" | "save" | "download" | "plus" | "clock" | "check" | "history" | "list" | "menu" | "chip" | "database" | "folder" | "settings" | "arrow-left" | "search" | "pencil" | "x" | "grip" | "pause" | "play" | "eye-off" | "pin" | "gamepad" | "maximize" | "minimize" | "more" | "log-out" | "keyboard" | "warning";
 
 const paths: Record<AppIconName, ReactNode> = {
   home: <><path d="m3 11 9-8 9 8" /><path d="M5 10v10h14V10M9 20v-6h6v6" /></>,
@@ -13,6 +13,7 @@ const paths: Record<AppIconName, ReactNode> = {
   check: <><path d="m5 12 4 4L19 6" /></>,
   history: <><path d="M3 12a9 9 0 1 0 3-6.7L3 8" /><path d="M3 3v5h5M12 7v5l3 2" /></>,
   list: <><path d="M8 6h13M8 12h13M8 18h13" /><path d="M3 6h.01M3 12h.01M3 18h.01" /></>,
+  menu: <><path d="M4 6h16M4 12h16M4 18h16" /></>,
   chip: <><rect x="6" y="6" width="12" height="12" rx="2" /><path d="M9 1v5m6-5v5M9 18v5m6-5v5M1 9h5m-5 6h5m12-6h5m-5 6h5" /></>,
   database: <><ellipse cx="12" cy="5" rx="8" ry="3" /><path d="M4 5v7c0 1.7 3.6 3 8 3s8-1.3 8-3V5M4 12v7c0 1.7 3.6 3 8 3s8-1.3 8-3v-7" /></>,
   folder: <path d="M3 6.5h6l2 2h10v10.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2Z" />,

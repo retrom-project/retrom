@@ -55,6 +55,15 @@
 .kpi p { margin: 24px 0 0; color: #7c8596; font-size: 12px; }
 .filter-bar { margin-bottom: 18px; padding: 14px; display: grid; gap: 12px; border: 1px solid var(--line); border-radius: 13px; background: white; }
 .filter-controls { display: flex; flex-wrap: wrap; align-items: end; gap: 10px; }
+.filter-primary-row,
+.filter-sheet,
+.filter-sheet-body,
+.filter-sheet-footer { display: contents; }
+.filter-mobile-trigger,
+.filter-sheet-backdrop,
+.filter-sheet-head,
+.filter-sheet-cancel,
+.filter-sheet-clear { display: none; }
 .filter-control { min-width: 150px; display: grid; gap: 6px; }
 .filter-search { flex: 1; min-width: 240px; }
 .filter-label { color: #596477; font-size: 12px; font-weight: 750; }

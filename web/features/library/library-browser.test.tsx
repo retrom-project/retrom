@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { GameSummary, LibraryFilters } from "./game-library";
@@ -47,5 +47,25 @@ describe("LibraryBrowser", () => {
     render(<LibraryBrowser games={games} nowMs={nowMs} initialFilters={initialFilters} />);
     fireEvent.keyDown(document, { key: "/" });
     expect(screen.getByRole("searchbox", { name: "搜索游戏" })).toHaveFocus();
+  });
+
+  it("applies or discards mobile filter drafts and restores the trigger focus", async () => {
+    const user = userEvent.setup();
+    render(<LibraryBrowser games={games} nowMs={nowMs} initialFilters={initialFilters} />);
+    const trigger = screen.getByRole("button", { name: "筛选与排序" });
+
+    await user.click(trigger);
+    let sheet = screen.getByRole("dialog", { name: "筛选与排序" });
+    await user.selectOptions(within(sheet).getByRole("combobox", { name: "排列顺序" }), "TITLE_ASC");
+    await user.click(within(sheet).getByRole("button", { name: "取消" }));
+    expect(window.location.search).toBe("");
+    expect(trigger).toHaveFocus();
+
+    await user.click(trigger);
+    sheet = screen.getByRole("dialog", { name: "筛选与排序" });
+    await user.selectOptions(within(sheet).getByRole("combobox", { name: "排列顺序" }), "TITLE_ASC");
+    await user.click(within(sheet).getByRole("button", { name: "应用" }));
+    expect(window.location.search).toBe("?sort=TITLE_ASC");
+    expect(screen.getByRole("button", { name: "筛选与排序 · 1" })).toHaveFocus();
   });
 });

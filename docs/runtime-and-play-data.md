@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.1 |
-| 日期 | 2026-08-10 |
+| 版本 | 1.2 |
+| 日期 | 2026-08-14 |
 | EmulatorJS 基线 | v4.2.3 |
 
 ## 1. 用户可观察契约
@@ -52,6 +52,23 @@ sequenceDiagram
 - 全屏被浏览器策略拒绝时，游戏仍在无普通导航的 Player Shell 自动运行，并显示非阻塞“进入全屏”。
 - 刷新 `/play/:launchId` 时，有本浏览器 launch cookie 才可恢复资源；无 cookie 显示“启动会话不可用”。因刷新没有 user activation，可以显示一次“进入全屏并继续”，但游戏 Start 仍不二次出现；Chrome 若同时阻止 AudioContext，画面继续自动运行并显示“点击恢复全屏/声音”，该点击只 resume audio/request fullscreen，不重新创建 Launch 或调用第二次 game start。
 - `Escape` 只退出浏览器全屏；左上返回与更多菜单中的“退出游戏”都先打开 Player 内的影响确认窗。确认窗最左侧提供“创建存档”，调用与工具栏相同的手动状态和截图原子创建事务；保存期间锁定弹窗内的离开动作，成功后保持确认窗并标记“已创建存档”，失败不创建不完整记录且允许原位重试。用户确认退出后才刷新持久存档、finish/revoke launch 并返回 allowlist 的 `returnTo`。进入 `/play/:launchId` 与退出到 `returnTo` 都替换当前浏览器历史项，Player Shell 不留在后退栈中；退出后点击浏览器后退不能重新进入已经结束的游戏画面。取消确认不改变运行状态。
+
+### 2.1 移动 Player 的方向门禁
+
+移动或 `pointer: coarse` 环境只能横屏运行游戏。方向门禁是 Player controller 的显式状态机，不是 CSS 提示：
+
+1. 原始启动点击先请求全屏并 best-effort 调用 `screen.orientation.lock("landscape")`；API 不存在、权限拒绝或设备不支持时继续进入同一方向门禁。
+2. `/runtime/launches/:launchId/config` 可先读取并完成结构、版本、mode 和 profile 校验，以确定普通/P1/P2 语义。若当前为竖屏，则停在 `BLOCKED_PORTRAIT`；此时不得创建 EmulatorJS iframe，不得请求 core、game、persistent-save、state 或 disc bytes，也不得创建 `PlaySession`。
+3. `matchMedia("(orientation: portrait)")`、viewport resize 与 `screen.orientation` 变化都只更新候选方向。候选需连续稳定 `250ms` 才可提交，避免地址栏、软键盘和旋转中间尺寸导致反复装载/暂停。
+4. 首次横屏稳定后状态转为 `PREFLIGHT`，才开始 HEAD/content 预检、持久数据读取、iframe/core/game 装载与 `PlaySession` start；一旦运行，普通横竖切换不得重建 Launch、iframe、Core 或 PlaySession。
+5. 运行中转竖屏立即显示覆盖整个 Player 的模态阻断层并释放本地输入。普通单机调用 adapter pause，并记录该暂停是否由方向门禁拥有；回到横屏时仅恢复门禁自己创建的暂停，不能覆盖用户、文档隐藏或其他原因的暂停。
+6. 联机 P1 在 canonical 边界请求全局暂停，并在横屏稳定、页面可见且该 pause 仍由方向门禁拥有时请求恢复。P2 只释放本地输入并显示“等待 P1 恢复”，不得发送全局 pause/resume。`document.hidden` 优先级高于方向恢复，隐藏期间绝不继续运行。
+
+阻断层是有标题、说明、状态和重试按钮的焦点陷阱；重试只再次请求全屏/方向锁，不创建第二个 Launch。正常退出先调用 `screen.orientation.unlock()`，再退出全屏和完成现有 finish/revoke 流程。桌面 fine-pointer 路径不启用方向门禁。
+
+### 2.2 移动横屏 HUD 与操作收纳
+
+移动横屏 HUD 高 `48px`，使用横屏左右 `safe-area-inset`，自动隐藏后仍保留至少 `44px` 高的可聚焦揭示柄。HUD 保留返回、标题/Core、P1/P2 与同步状态，以及按“联机状态 > 换盘 > 创建存档”的最高优先级上下文操作；其余状态、存档、光盘、模拟器设置、全屏、调试和退出放入“更多”操作 Sheet。Sheet、退出确认、换盘和设置面板都必须捕获焦点、支持 Escape/遮罩/显式关闭，并在关闭后归还触发器。
 
 ## 3. Launch API 与凭据
 
@@ -268,4 +285,4 @@ X-Content-Type-Options: nosniff
 
 ## 14. 统一验收入口
 
-启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-005`；状态/持久存档执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；事件映射、三十五 core 画面与跨源隔离分别由 `ACC-CORE-*`、`ACC-NET-001` 和运行时回归测试覆盖。
+启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-005`；移动方向门禁、横屏 HUD、P1/P2 暂停职责和请求时序执行 `ACC-MOB-005`–`ACC-MOB-007`；状态/持久存档执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；事件映射、三十五 core 画面与跨源隔离分别由 `ACC-CORE-*`、`ACC-NET-001` 和运行时回归测试覆盖。

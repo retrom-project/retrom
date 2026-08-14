@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.3 |
-| 日期 | 2026-08-13 |
+| 版本 | 1.4 |
+| 日期 | 2026-08-14 |
 | 适用范围 | Go 后端、Next.js 前端、SQLite 集成、WebSocket rollback 联机与 EmulatorJS 运行时验证 |
 | 质量原则 | 零 lint warning、关键路径有测试、每个已发现 bug 有回归用例、不设覆盖率百分比门槛 |
 
@@ -212,7 +212,7 @@
 
 测试优先通过角色、可访问名称和用户行为查询元素，不依赖 Tailwind class、DOM 深层结构或大面积 snapshot。浏览器 API fake 必须模拟与用例相关的语义，不能简单返回永远成功从而掩盖全屏、可见性或计时问题。
 
-`web/playwright.config.ts` 只能登记 Chrome 项目：`use.channel="chrome"`，不以 Playwright 的 Firefox/WebKit 或无品牌 Chromium 结果冒充一期浏览器兼容性。runner 必须在报告中记录实际 `google-chrome --version`；本机/CI 缺少 Chrome 时 `make web-e2e` 明确失败并给出安装前置，不能自动改用另一个 browser。`@playwright/test` 是直接 devDependency；不能只安装底层 `playwright` 包后假定 `playwright test` runner 已被正确锁定。
+`web/playwright.config.ts` 只能登记 Chrome 项目：所有项目统一 `use.channel="chrome"`，不以 Playwright 的 Firefox/WebKit 或无品牌 Chromium 结果冒充一期浏览器兼容性。桌面项目继续承载既有流程，移动项目只承载响应式与移动 Player Case，避免把全部桌面矩阵无意义复制到每个视口。runner 必须记录实际 Chrome 版本；系统安装路径不可用时可显式传入 `RETROM_CHROME_EXECUTABLE`，但 runner 必须先验证该可执行文件的版本标识确为 `Google Chrome`，不得指向 Chromium。没有系统 Chrome 或有效显式路径时 `make web-e2e` 明确失败，不能自动改用另一个 browser。`@playwright/test` 是直接 devDependency；不能只安装底层 `playwright` 包后假定 `playwright test` runner 已被正确锁定。
 
 ## 6. 测试分层与目录
 
@@ -223,7 +223,7 @@
 | Go 单元测试 | 状态机、哈希、依赖闭包、校验、时间累计、纯领域逻辑 | 与源码同包或 `_test` 包，`*_test.go` | 是 |
 | Go 集成测试 | SQLite migration、事务、CAS 文件系统、HTTP 契约、跨模块流程 | `*_integration_test.go` + `integration` build tag | 是 |
 | Web 单元/组件测试 | 页面状态、表单、路由 payload、错误映射、用户交互 | 源文件旁 `*.test.ts(x)` + Vitest/RTL | 是 |
-| Chrome E2E | 路由联动、用户激活/Fullscreen、Player Shell、4K 关键布局 | `web/e2e/` + Playwright Chrome | 按影响范围/发布门禁 |
+| Chrome E2E | 路由联动、用户激活/Fullscreen、移动方向门禁、响应式与 4K 关键布局 | `web/e2e/` + Playwright Chrome | 按影响范围/发布门禁 |
 | Core runtime smoke | 真实 EmulatorJS/core/ROM/BIOS/DAT 是否进入游戏画面 | `data/example/` | 本地兼容性门禁 |
 | 多进程联机验收 | 真实双端初始 state、rollback、checkpoint 收敛、断线/resync 与终局 | 两个或更多独立 Chrome process + `ACC-NP-*` runner | 发布门禁 |
 
@@ -284,9 +284,13 @@
 | BIOS/DAT 管理 | 按平台/core 展示状态；哈希 warning 与缺失 blocking 视觉语义不同；DAT 上传、差异预览和启用确认 |
 | NG 同源部署 | 通过测试 NG 访问时页面、API、content、runtime 均为同一公开 origin；内部地址不进入 bundle；`isSecureContext` 与 `crossOriginIsolated` 为真 |
 | 联机房间与 Player | feature flag 导航、SUPPORTED/ALL 与全部筛选/URL、分享/选座/ready/start gate、loading/空/error/blocker、确认弹层和焦点；Player 只暴露联机允许控件，启动前安装 v4.2.3 frame/state hook，rollback 输出抑制必须 finally 恢复，页面隐藏/断线全局暂停并在 lease 内原座恢复 |
+| 响应式应用壳与页面 | `320×568`、`360×800`、`390×844`、`412×915` 手机与 `768×1024`、`1024×768` 平板；路由上下文、底栏/Drawer/Sheet、草稿应用/取消、焦点归还、44px target、safe area、卡片列数和 document 零横向溢出 |
+| 移动 Player 方向门禁 | reducer/clock 单测覆盖首次竖屏、250ms 抖动、单机门禁拥有的暂停、用户暂停不误恢复、P1/P2 职责和 hidden 优先级；Chrome E2E 覆盖 config-first、竖屏零 iframe/core/game/PlaySession 请求、旋转后单次启动，以及 `568×320`、`667×375`、`844×390`、`932×430` HUD/Sheet |
 | 4K 与桌面体验 | 1280×800 最小桌面、2560×1440 与 3840×2160 viewport 的关键页面无失控拉伸、遮挡和不可达操作；Player 保持正确比例 |
 
-4K 视觉回归不能只依赖像素快照：E2E 还应断言内容最大宽度、关键控件可见、无横向溢出、Player canvas 在视口内以及导航层级可达。截图用于评审证据，不取代语义断言。
+响应式与 4K 视觉回归不能只依赖像素快照：E2E 还应断言内容最大宽度、关键控件可见、页面无横向溢出、Player canvas/阻断层在视口内、关键 target 尺寸以及导航层级可达。手机普通页面至少覆盖全部四个固定手机视口，平板覆盖两个固定横/竖视口；移动 Player 横屏至少覆盖四个固定视口。截图用于评审证据，不取代语义断言。
+
+共享 Player 方向/暂停实现进入所有 EmulatorJS core 的执行路径，因此修改其状态机、adapter pause/resume 或 iframe 装载门禁后，除 `make web-e2e` 外必须运行不带 core 参数的 `node data/example/smoke-test.mjs`，重新建立全部 35 core 基线。纯移动 CSS、HUD 排版或外围 Sheet 若有调用链证据证明不进入装载、帧执行、配置翻译和存档协议，则不因文件位于 Player 目录自动触发全量 smoke。
 
 影响多盘 parser、Launch content、Player adapter 或换盘时，除受影响单元/集成/Web 测试外还必须执行 `make web-e2e`、`python3 data/example/verify-fixtures.py`、受控 Saturn 双/三盘 smoke，以及共享 adapter 变更对应的全部独立 `ACC-CORE-*`。缺少仓库外授权 ROM/BIOS 时只能把真实 smoke/acceptance 报告为未执行，不能用伪 CHD 或历史结果替代；最近确定性边界的自动化测试仍必须通过。
 
@@ -405,7 +409,7 @@ node data/example/smoke-test.mjs mgba mame2003
 | `/web/vitest.setup.ts` | matcher 和最小浏览器 API fake |
 | `/web/package.json`、`/web/package-lock.json` | 固定脚本、Node 约束和依赖图 |
 | `/web/lib/api/generated/schema.d.ts` | `web/package.json#scripts.api:generate` 生成的 TS schema，禁止手改 |
-| `/web/e2e/` | Chrome 关键路径与 4K 验收 |
+| `/web/e2e/` | Chrome 关键路径、响应式与 4K 验收 |
 | `/Dockerfile`、`/.dockerignore` | 后端 `retrom` 多阶段镜像与构建上下文 |
 | `/web/Dockerfile`、`/web/.dockerignore` | 前端 `retrom-web` 多阶段镜像与构建上下文 |
 | `/scripts/dev.sh` | 仅编排宿主机 Go/Next.js 开发进程，不接触 Docker |
