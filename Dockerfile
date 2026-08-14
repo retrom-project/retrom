@@ -37,6 +37,7 @@ COPY --from=dependencies /work/data/dat/emulatorjs /opt/retrom/dependencies/dat/
 COPY --from=dependencies /work/data/runtime/emulatorjs /opt/retrom/dependencies/runtime/emulatorjs
 COPY --from=dependencies /work/data/auth/password-blocklists /opt/retrom/dependencies/auth/password-blocklists
 COPY --from=dependencies /work/data/netplay /opt/retrom/dependencies/netplay
+RUN chmod -R a=rX /opt/retrom/dependencies
 USER 10001:10001
 ENV RETROM_HTTP_ADDR=0.0.0.0:8080 \
     RETROM_PUBLIC_ORIGIN=https://retrom.invalid \
