@@ -3,7 +3,7 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.4 |
+| 版本 | 1.5 |
 | 日期 | 2026-08-14 |
 | 适用范围 | Go 后端、Next.js 前端、SQLite 集成、WebSocket rollback 联机与 EmulatorJS 运行时验证 |
 | 质量原则 | 零 lint warning、关键路径有测试、每个已发现 bug 有回归用例、不设覆盖率百分比门槛 |
@@ -377,7 +377,7 @@ node data/example/smoke-test.mjs mgba mame2003
 
 ### Phase Q2：CI 与浏览器门禁
 
-1. 新增 `.github/workflows/ci.yml`，在 pull request 上设置 Go、Node/npm 缓存后运行 `make ci`；固定 golangci-lint 由 Makefile 依赖自动安装。
+1. `.github/workflows/ci.yml` 在所有 pull request 上设置 Go、Node/npm 与仓库固定 Node 工具链缓存后运行 `make ci`；固定 golangci-lint 由 Makefile 依赖自动安装，同一 PR 的旧运行由 concurrency 取消。
 2. CI 使用锁文件安装依赖；测试阶段不访问真实外网、不下载 ROM/BIOS、不依赖开发机浏览器。
 3. 建立 `web/e2e/` 的 Chrome 配置和关键路径；按改动范围或发布流程运行 `make web-e2e`。
 4. 保留 `data/example/` 为版本/core/DAT 变更的独立兼容性门禁，并记录机器结果与人工画面复核。
@@ -389,6 +389,7 @@ node data/example/smoke-test.mjs mgba mame2003
 3. 新增 `.dockerignore` 与 `web/.dockerignore`，排除 `.git`、缓存、`node_modules`、`.next`、coverage、E2E 报告、`data/game`、本地 runtime 结果和运行数据；构建阶段只通过版本化脚本下载并校验允许进入镜像的固定 runtime artifact。
 4. 在 Makefile 实现三个 image targets 和共用 `release-input-digest` helper；两镜像都写入 `io.retrom.release-input-sha256`，组合 target 以 inspect 确认一致。构建完成后立即返回，不创建容器、不建立网络、不挂载卷、不 push registry。
 5. 为发布流水线增加 `make ci` 与 `make build-images` 两个独立 required steps；普通逻辑 PR 可只运行 `make ci`，涉及 Dockerfile、依赖锁文件、静态/runtime 资产或发布脚本时必须构建镜像。
+6. `.github/workflows/docker-image.yml` 在 tag push 时先完成 `make ci`，再自动执行 `make build-images`；两个镜像校验完成后才允许登录 Docker Hub 并推送，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。
 
 ### 10.1 预期文件
 
@@ -401,6 +402,7 @@ node data/example/smoke-test.mjs mgba mame2003
 | `/.golangci.yml` | Go lint、formatter、排除与 depguard |
 | `/Makefile` | 本地与 CI 的统一命令入口 |
 | `/.github/workflows/ci.yml` | 调用 `make ci` 的 required check |
+| `/.github/workflows/docker-image.yml` | tag 的完整 CI、双镜像构建校验与 Docker Hub 发布门禁 |
 | `/web/eslint.config.mjs` | Next.js/TypeScript lint 基线 |
 | `/web/next.config.ts` | standalone 输出、本地后端 rewrite 与固定 COOP/COEP/CORP/`nosniff` 头 |
 | `/web/proxy.ts` | Next.js 16 动态 HTML 的逐响应 nonce CSP；开发模式唯一受控的 `unsafe-eval` 例外 |

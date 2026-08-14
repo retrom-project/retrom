@@ -169,7 +169,20 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 `make build-images` 不自动属于普通 `make ci`，但修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时必须同时执行二者；发布流水线也必须把二者作为独立门禁。
 
-### 7.2 `make dev` 只运行本地进程
+### 7.2 GitHub Actions 与 Docker Hub 发布
+
+`.github/workflows/ci.yml` 在所有 pull request 上运行唯一高层质量入口 `make ci`。CI 使用 `go.mod`、`.node-version` 与 `web/package-lock.json` 的固定版本和依赖缓存；它不另行拼装测试子集，也不依赖 ROM、BIOS、真实外部服务或开发机浏览器。
+
+`.github/workflows/docker-image.yml` 在任意 Git tag push 时触发。tag 发布先独立完成 `make ci`，成功后自动继续，不等待 GitHub Environment 人工批准，并按下列顺序执行：
+
+1. 要求 Git tag 本身符合 Docker tag 语法，不对包含 `/` 等非法字符的 tag 做可能碰撞的静默改写；
+2. 通过 `make build-images BACKEND_IMAGE=xxxsen/retrom WEB_IMAGE=xxxsen/retrom-web IMAGE_TAG=<git-tag>` 构建并复核两个镜像的 release-input label；
+3. 仅在两个镜像都成功后，使用 `DOCKER_USER` 与 `DOCKER_PASSWORD` GitHub secret 登录 Docker Hub，其中 `DOCKER_PASSWORD` 必须保存具备目标仓库 push 权限的访问令牌而不是账户明文密码；
+4. 推送 `xxxsen/retrom:<git-tag>` 与 `xxxsen/retrom-web:<git-tag>`；不含 `-` 的稳定 tag 同时更新两个 `latest`，预发布 tag 不移动 `latest`。
+
+Action 负责 registry 登录和 push，不改变 Make target 的本地构建边界。GitHub 仓库只需配置 `DOCKER_USER` 与 `DOCKER_PASSWORD` repository secrets；凭据不得写入 workflow、镜像或日志。创建并推送发布 tag 即授权流水线自动发布，维护者必须在创建 tag 前自行确认[依赖管理第 6 节](./dependency-management.md#6-升级与许可门禁)的第三方分发义务已经满足。
+
+### 7.3 `make dev` 只运行本地进程
 
 `make dev` 是宿主机开发入口，不是容器入口，也不得依赖 Docker daemon。它先执行幂等 `make prepare-deps`，成功后以前台 supervisor 方式同时启动：
 
@@ -187,7 +200,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 同一 root 配置同时服务 BIOS 批量导入和 Pegasus 目录导入。客户端只能提交 `rootId` 与相对路径；后端逐段无跟随打开并拒绝 symlink、special file、路径穿越、根替换和扫描中的来源漂移。BIOS 与 Pegasus 共用全局 2 个内容读取槽，避免两类任务各自达到上限后叠加压满磁盘；数据库写事务只提交已完成的有界结果，不覆盖文件读取、哈希、媒体探测或归档扫描。
 
-### 7.3 TLS 只在 NG 终结
+### 7.4 TLS 只在 NG 终结
 
 生产拓扑中，浏览器只连接 NG 的 HTTPS 地址；`retrom-web:3000` 和 `retrom:8080` 只接受来自受信网络的明文 HTTP。Retrom 不提供证书/私钥配置、不监听 HTTPS、不申请证书、不执行 HTTP→HTTPS 跳转，也不管理 HSTS。对应职责全部属于前置 NG，且本项目的镜像构建 target 不构建或启动 NG。
 
