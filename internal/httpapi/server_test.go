@@ -2323,7 +2323,6 @@ func TestPlatformInstanceOrderIsAtomicVersionedAndExact(t *testing.T) {
 }
 
 func TestJobEventStreamUsesTransactionalSnapshotAndGlobalCursor(t *testing.T) {
-	t.Parallel()
 	server := newTestServer(t)
 	now := time.Now().UnixMilli()
 	targetID := "01980000-0000-7000-8000-000000000081"
@@ -2461,15 +2460,33 @@ updated_at_ms) VALUES(?,
 		t.Fatal(err)
 	}
 	server.sseHeartbeat = 5 * time.Millisecond
-	heartbeatContext, cancelHeartbeat := context.WithTimeout(context.Background(), 200*time.Millisecond)
+	heartbeatContext, cancelHeartbeat := context.WithTimeout(context.Background(), 2*time.Second)
 	defer cancelHeartbeat()
 	heartbeatRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/jobs/"+runningID+"/events", nil).
 		WithContext(heartbeatContext)
-	heartbeat := httptest.NewRecorder()
+	heartbeat := &cancelOnMarkerRecorder{
+		ResponseRecorder: httptest.NewRecorder(),
+		marker:           []byte(": heartbeat\n\n"),
+		cancel:           cancelHeartbeat,
+	}
 	server.Handler().ServeHTTP(heartbeat, heartbeatRequest)
 	if heartbeat.Code != http.StatusOK || !strings.Contains(heartbeat.Body.String(), ": heartbeat\n\n") {
 		t.Fatalf("heartbeat stream = %d %s", heartbeat.Code, heartbeat.Body.String())
 	}
+}
+
+type cancelOnMarkerRecorder struct {
+	*httptest.ResponseRecorder
+	marker []byte
+	cancel context.CancelFunc
+}
+
+func (recorder *cancelOnMarkerRecorder) Write(contents []byte) (int, error) {
+	written, err := recorder.ResponseRecorder.Write(contents)
+	if bytes.Contains(contents, recorder.marker) {
+		recorder.cancel()
+	}
+	return written, err
 }
 
 func setCSRFCredentials(request *http.Request, cookie *http.Cookie, token string) {
