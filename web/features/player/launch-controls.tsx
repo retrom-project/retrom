@@ -76,7 +76,7 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
     setAdvancedOpen(true);
   }
 
-  return <aside className="launch-panel" aria-label="启动游戏">
+  return <><aside className="launch-panel" aria-label="启动游戏">
     <span className="launch-kicker">{latestSave ? "继续游戏" : "开始游戏"}</span>
     <h2>{latestSave ? "接着最近的存档继续" : "从游戏开头开始"}</h2>
     <div className="launch-runtime-status">
@@ -114,5 +114,11 @@ export function LaunchControls({ gameId, coreOptions, dosEntries, defaultDosEntr
         {coreOptions.map((core) => <option key={core.coreId} value={core.coreId} disabled={core.status === "DEPENDENCY_MISSING" || core.status === "INCOMPATIBLE"}>{core.name}{core.isDefault ? " · 推荐" : ""} · {coreStatusLabels[core.status]}</option>)}
       </select></label>
     </ConfirmDialog>
-  </aside>;
+  </aside>
+  <div className="mobile-launch-dock" aria-label="快速启动">
+    <div><small>{latestSave ? "最近存档" : blocked ? "当前不可启动" : "推荐运行方式"}</small><strong>{latestSave ? formatSaveTime(latestSave.createdAtMs, nowMs ?? latestSave.createdAtMs) : selectedCore?.name ?? "尚未配置"}</strong></div>
+    {latestSave
+      ? <LaunchButton gameId={gameId} saveStateId={latestSave.saveStateId} requiresThreads={latestSaveRequiresThreads} label="从存档继续" />
+      : <LaunchButton gameId={gameId} coreId={coreId || null} dosEntry={isDOS ? dosEntry : null} requiresThreads={selectedCore?.requiresThreads} disabled={blocked} onLaunchCreated={isDOS ? () => writePreferredDOSEntry(userId, gameId, dosEntry) : undefined} />}
+  </div></>;
 }

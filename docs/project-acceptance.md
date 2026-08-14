@@ -3,10 +3,10 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期唯一验收基线 |
-| 版本 | 1.6 |
-| 日期 | 2026-08-13 |
+| 版本 | 1.7 |
+| 日期 | 2026-08-14 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
-| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、联机、35 核兼容性、PSP ISO/CSO 和 4K UI |
+| 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、联机、35 核兼容性、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
 
 ## 1. 文档职责
 
@@ -56,7 +56,7 @@
 
 - Linux 开发/CI 环境，仓库根目录为当前目录；
 - 仓库锁定的 Go、Node.js/npm、golangci-lint 和依赖；
-- Chrome 与 Playwright；只验收 Chrome，不验收其他浏览器或移动端；
+- Chrome 与 Playwright；只验收 Chrome，不承诺其他浏览器，手机/平板使用 Chrome 的固定 CSS viewport 和 coarse-pointer 仿真，并在可用时补充真实移动 Chrome 复核；
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
 - 可选的已部署代理 Case 需要一个已由 NG 暴露的 HTTPS 地址，通过 `RETROM_ACCEPTANCE_BASE_URL` 提供；没有部署环境时只有明确标注的条件 Case 可为 `NOT_APPLICABLE`；
 - 用户有权使用的 ROM/BIOS 只保存在本地 `data/game/`，不进入 Git 或验收报告。
@@ -175,8 +175,9 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 7. `ACC-CORE-*`：逐核心真实画面；
 8. `ACC-MDISC-*`：多盘导入、运行、回归与隔离；
 9. `ACC-NP-*`：联机房间、真实双端运行、恢复、安全与单机回归；
-10. `ACC-UI-*`：信息架构、4K 和无障碍；
-11. 缺陷回归审计与最终报告。
+10. `ACC-UI-*`：信息架构、桌面/4K 和无障碍；
+11. `ACC-MOB-*`：移动响应式、管理流程、方向门禁和横屏 Player；
+12. 缺陷回归审计与最终报告。
 
 除明确写明直接命令的 Case 外，执行命令统一为：
 
@@ -859,7 +860,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-001`。
 - 流程：从全新浏览器 context 分别访问 PENDING 实例、READY 实例的首页、带 query 的游戏库和管理后台；依次以 USER、ADMIN 登录并从游戏卡片进入详情，再访问认证页和退出。
-- 通过标准：PENDING 只进入 `/setup`；READY 匿名重定向 `/login?returnTo=...` 且登录后恢复站内 path/query；已登录访问认证页回首页。用户侧仅首页、游戏库、我的存档、最近游玩四个主菜单并有账户菜单；只有 ADMIN 显示底部管理入口，USER 直达后台显示 403。游戏详情不出现在侧栏且保持游戏库上下文；退出清除会话并回登录，无移动端验收分支。
+- 通过标准：PENDING 只进入 `/setup`；READY 匿名重定向 `/login?returnTo=...` 且登录后恢复站内 path/query；已登录访问认证页回首页。桌面用户侧显示首页、游戏库、我的存档、我的收藏、最近游玩以及按 feature flag 出现的联机游玩；手机底栏显示首页、游戏库、存档、收藏、更多，其余入口位于 More Sheet。只有 ADMIN 显示管理入口，USER 直达后台显示 403。游戏详情不作为一级入口且保持游戏库上下文；退出清除会话并回登录。移动细节由 `ACC-MOB-001`–`007` 覆盖。
 - 证据：导航可访问名称、route 序列和截图。
 
 ### ACC-UI-002：游戏入库父子导航
@@ -1118,7 +1119,58 @@ python3 data/example/verify-fixtures.py
 - 通过：普通能力与联机改动前契约一致；联机模式专属禁用不泄漏到 single mode；production 产物不存在测试故障注入或可写 telemetry hook。
 - 证据：普通 launch/save/play 断言、Player network/DOM 与产物扫描。
 
-## 19. 缺陷处理与重验
+## 19. 移动端与横屏 Player
+
+### ACC-MOB-001：App Shell 与导航
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-MOB-001`。
+- 流程：分别以匿名、USER、ADMIN 在 `320×568`、`390×844`、`768×1024` 和 `1024×768` 访问认证页、用户页、详情和管理页；打开/关闭 More、用户 Drawer 与管理导航，使用浏览器前进/后退。
+- 通过标准：普通页面无 document 横向溢出和未授权内容闪现；手机五项底栏、平板 Drawer、管理全高导航及 active/context 正确；Sheet/Drawer 锁背景滚动、捕获焦点，Escape/遮罩/关闭按钮均可关闭并恢复触发器与原滚动位置。
+- 证据：route/角色矩阵、DOM 宽度与 target 尺寸、焦点 trace、axe 结果和四 viewport 截图。
+
+### ACC-MOB-002：用户核心路径
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-MOB-002`。
+- 流程：在四个手机 viewport 完成登录、首页继续入口、游戏库搜索/条件 Sheet、详情、收藏和存档继续；分别注入 loading、empty 与可重试 error。
+- 通过标准：筛选草稿取消不改 URL，应用后 query 可刷新恢复；`320–767px` 游戏卡两列且标题/主操作可触摸，详情 Launch Dock 不遮挡内容；收藏、继续启动、权限和 API 数据语义与桌面相同，三种状态均有明确恢复路径。
+- 证据：URL/network trace、卡片列数/44px target/overflow 断言、关键截图和状态 DOM。
+
+### ACC-MOB-003：收藏、存档与联机
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-MOB-003`。
+- 流程：在 `390×844` 用键盘与触摸语义完成收藏 Folder Sheet、批量栏、两秒撤销、存档预览/删除确认，以及联机房间选座/准备/取消准备。
+- 通过标准：Sheet 草稿、确认、undo、seat 和 room action 不被底栏或安全区遮挡；关闭后焦点返回触发器；收藏/存档私有隔离和联机禁用存档契约不变，全部关键动作可只用键盘完成。
+- 证据：DOM/focus trace、API 请求序列、undo/确认状态和当前截图。
+
+### ACC-MOB-004：管理完整流程
+
+- 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-004`。
+- 流程：ADMIN 在 `390×844` 完成导入配置、任务恢复、待审核筛选与详情四步锚点、一次逐项决定、用户全屏 Drawer 和 DAT 版本比较；USER 直达同一路由一次。
+- 通过标准：每个桌面表格行在手机有同字段/状态/主操作的卡片投影；来源、运行检查、发布内容、审核决定顺序与 Tab 顺序一致；autosave、ETag、阻断截图放行和逐项决策没有弱化；Drawer/确认可关闭并恢复焦点，USER 仍为应用级 403。
+- 证据：Chrome trace、API/ETag 记录、四步/卡片语义断言、axe 和页面截图。
+
+### ACC-MOB-005：横屏 Player
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-MOB-005`。
+- 流程：在 `390×844` portrait 从真实用户点击启动并模拟方向锁拒绝，核对 config 后保持阻断；旋转到 `844×390`，运行后依次回竖屏/横屏，覆盖原本已暂停、页面隐藏与退出。
+- 通过标准：portrait 可读/校验 config，但不存在 iframe、core/game/persistent/disc 大字节请求和 PlaySession start；方向稳定 250ms 后只装载一次。运行中竖屏释放输入并暂停，回横屏仅恢复方向门禁拥有的暂停，hidden 优先；退出先 unlock 再按 `returnTo` finish/revoke，Launch/Core/PlaySession 不重建。
+- 证据：network/state/clock trace、pause ownership 断言、portrait 阻断和 landscape HUD 截图。
+
+### ACC-MOB-006：Player 多盘与联机
+
+- 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-006`。
+- 流程：在 `568×320`、`667×375`、`844×390`、`932×430` 检查 HUD、More 与光盘 Sheet并完成一次换盘；用两个独立 Chrome process 分别以 P1/P2 运行首发 exact profile，旋转两端并操作虚拟/物理控制。
+- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为联机状态、光盘、存档且 overflow 不丢动作；Sheet 不把 pointer/input 泄漏给 iframe。P1 承担全局 pause/resume，P2 只清本地输入并等待；光盘状态、canonical frame、digest 和联机原契约保持一致。
+- 证据：四 viewport 尺寸/命中断言、真实画面、network/telemetry 与双进程 pause/input/digest 记录。
+
+### ACC-MOB-007：可访问性与视觉回归
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-MOB-007`。
+- 流程：在 `320×568`、`360×800`、`390×844`、`412×915`、`768×1024`、`1024×768` 运行用户/管理代表页，启用 200% 文本、`prefers-reduced-motion` 和测试 safe-area；再运行既有 `1280×800`、`2560×1440`、`3840×2160` 基线。
+- 通过标准：所有普通页面 document 零横向溢出、关键 target 至少 44px、标题/主操作可见，焦点与朗读顺序和视觉顺序一致；Dialog/Sheet 不被软键盘或 safe-area 裁切；axe 无 serious/critical violation，桌面侧栏、共享画布、卡片列数和 Player 比例没有回退。
+- 证据：全部 viewport 的 DOM 尺寸与 axe 报告、键盘 trace、统一设计快照和桌面 screenshot diff。
+
+## 20. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
 
@@ -1131,11 +1183,11 @@ python3 data/example/verify-fixtures.py
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧对应 `ACC-CORE-*` 或 UI runner 断言。不得用“只能人工复现”免除固化。
 
-## 20. 最终通过标准
+## 21. 最终通过标准
 
 一期项目只有同时满足以下条件才可标记 `PASS`：
 
-- 第 5–18 节所有 Required Case 为 PASS；
+- 第 5–19 节所有 Required Case 为 PASS；
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 本次生成的三十五核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；Saturn 双盘、三盘各自的机器结果与画面复核通过；
@@ -1147,7 +1199,7 @@ python3 data/example/verify-fixtures.py
 
 AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID、实际执行命令、证据目录、本次新增回归测试，以及任何 `NOT_APPLICABLE` 原因。不得仅回复“验收通过”。
 
-## 21. 专题覆盖映射
+## 22. 专题覆盖映射
 
 | 专题 | 统一 Case |
 | --- | --- |
@@ -1164,6 +1216,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | EmulatorJS 三十五核心 | `ACC-CORE-001`–`035` |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
+| 移动 App Shell、响应式页面与横屏 Player | `ACC-MOB-001`–`007` |
 | 收藏与收藏夹 | `ACC-FAV-001`–`004` |
 | 联机房间、双端运行、恢复与隔离 | `ACC-NP-001`–`013` |
 

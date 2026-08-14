@@ -14,7 +14,7 @@ Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清�
 | 实体、状态机、migration 顺序与存储安全 | 已锁定 | [`data-model.md`](./data-model.md)、[`storage-and-database.md`](./storage-and-database.md)、[`implementation-plan.md`](./implementation-plan.md) |
 | HTTP、上传、SSE、并发、凭据与诊断输出 | 已锁定；实施时按切片先写 OpenAPI | [`http-api-contract.md`](./http-api-contract.md) |
 | EmulatorJS/core/DAT/BIOS 与真实兼容基线 | 已锁定；payload 按 manifest 物化 | [`dependency-management.md`](./dependency-management.md)、[`core-runtime-validation.md`](./core-runtime-validation.md) |
-| 页面、直接启动、4K 与无障碍 | 已锁定 | [`ui-specification.md`](./ui-specification.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
+| 页面、直接启动、320px 起的响应式布局、横屏 Player、4K 与无障碍 | 已锁定 | [`ui-specification.md`](./ui-specification.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
 | 联机 allowlist、房间、SSE/WebSocket、rollback 与 Player 差异 | 已锁定；仅 FCEUmm/FBNeo 两个 core profile | [`dependency-management.md`](./dependency-management.md)、[`data-model.md`](./data-model.md)、[`http-api-contract.md`](./http-api-contract.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
 | 测试、CI、镜像与最终通过规则 | 已锁定 | [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)、[`project-acceptance.md`](./project-acceptance.md) |
 
@@ -26,14 +26,14 @@ Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清�
 - [`retrom-product-architecture.md`](./retrom-product-architecture.md)：一期范围、关键决策、系统关系、业务流程和阶段计划。
 - [`implementation-plan.md`](./implementation-plan.md)：不可倒置的实现依赖、migration 顺序、里程碑与退出门禁；后续 Agent 的落地路线图。
 - [`project-acceptance.md`](./project-acceptance.md)：一期唯一验收事实源；包含覆盖全部领域的可执行、可复现、短时 Case、证据格式和最终通过规则。
-- [`ui-specification.md`](./ui-specification.md)：页面信息架构、交互状态、4K 规则，以及“一次点击、自动启动、默认全屏”的 UI 契约。
+- [`ui-specification.md`](./ui-specification.md)：页面信息架构、移动/平板/桌面响应式布局、交互状态、4K 规则，以及“一次点击、自动启动、默认全屏”的 UI 契约。
 
 ## 领域与实现专题
 
 - [`platform-instance.md`](./platform-instance.md)：游戏目录（PlatformInstance）的唯一归属、默认核心、导入快照、数据库约束和生命周期。
 - [`import-and-review.md`](./import-and-review.md)：文件/目录导入、Hasheous 哈希刮削、任务状态机、人工审核、Arcade Parent 与多盘缺盘补充、历史回溯。
 - [`bios-and-arcade.md`](./bios-and-arcade.md)：BIOS 文件、哈希提示、服务器目录批量导入、核心专属 Arcade DAT、完整 machine/parent/BIOS 依赖闭包和 Parent ZIP 内容校验。
-- [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、预检、EmulatorJS、DOS 启动程序、存档与游玩时长。
+- [`runtime-and-play-data.md`](./runtime-and-play-data.md)：直接启动、全屏 Player Shell、移动横屏方向门禁、预检、EmulatorJS、DOS 启动程序、存档与游玩时长。
 - 受限联机不建立第二份专题；manifest 归依赖专题，持久状态归数据专题，REST/SSE/WebSocket 归 HTTP 专题，rollback/Player 归运行时专题，页面归 UI 专题。
 - [`favorites-and-collections.md`](./favorites-and-collections.md)：Profile 私有收藏、可重复加入的收藏夹、跨页面接入与统一验收入口。
 - [`core-runtime-validation.md`](./core-runtime-validation.md)：35 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 双格式和 MAME2003 兼容覆盖。
@@ -47,7 +47,7 @@ Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清�
 
 ## UI 评审
 
-- [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)：包含认证、账户、用户管理、收藏、其他用户侧页面与管理后台的最终可交互桌面端 UI 评审稿。
+- [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)：包含认证、账户、用户管理、收藏、其他用户侧页面、管理后台和移动 Player 的统一可交互响应式 UI 评审稿。
 - [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)：可交互评审稿的可维护源文件；修改页面结构时先更新此文件，再重新导出 HTML 与快照。
 - [`design/retrom-ui-library-4k.png`](./design/retrom-ui-library-4k.png)：4K 游戏库。
 - [`design/retrom-ui-game-detail.png`](./design/retrom-ui-game-detail.png)：从游戏库卡片进入的游戏详情。
@@ -64,6 +64,9 @@ Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清�
 - [`design/retrom-ui-play-4k.png`](./design/retrom-ui-play-4k.png)：4K 下按视口高度放大的 Player Shell。
 - [`design/retrom-ui-play-emulator-controls.png`](./design/retrom-ui-play-emulator-controls.png)：点击“模拟器设置”后出现的 Retrom 自绘工具栏。
 - [`design/retrom-ui-play-debug.png`](./design/retrom-ui-play-debug.png)：Player 右侧实时调试信息面板。
+- [`design/retrom-ui-home-mobile.png`](./design/retrom-ui-home-mobile.png)、[`design/retrom-ui-library-mobile.png`](./design/retrom-ui-library-mobile.png)、[`design/retrom-ui-game-detail-mobile.png`](./design/retrom-ui-game-detail-mobile.png)、[`design/retrom-ui-saves-mobile.png`](./design/retrom-ui-saves-mobile.png)、[`design/retrom-ui-favorites-mobile.png`](./design/retrom-ui-favorites-mobile.png)、[`design/retrom-ui-netplay-room-mobile.png`](./design/retrom-ui-netplay-room-mobile.png)：390×844 用户侧响应式基线。
+- [`design/retrom-ui-admin-review-mobile.png`](./design/retrom-ui-admin-review-mobile.png)、[`design/retrom-ui-admin-review-detail-mobile.png`](./design/retrom-ui-admin-review-detail-mobile.png)：390×844 管理审核列表与四步详情基线。
+- [`design/retrom-ui-play-portrait-mobile.png`](./design/retrom-ui-play-portrait-mobile.png)、[`design/retrom-ui-play-landscape-mobile.png`](./design/retrom-ui-play-landscape-mobile.png)：390×844 竖屏方向门禁与 844×390 横屏 Player HUD 基线。
 - [`design/retrom-ui-admin-import-overview-4k.png`](./design/retrom-ui-admin-import-overview-4k.png)：4K 游戏入库父级总览。
 - [`design/retrom-ui-admin-import.png`](./design/retrom-ui-admin-import.png)：2560×1440 文件/目录导入与配置快照。
 - [`design/retrom-ui-admin-import-new-4k.png`](./design/retrom-ui-admin-import-new-4k.png)：4K 文件/目录导入与配置快照。

@@ -193,6 +193,7 @@
 .review-workflow-directory { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .review-workflow-candidate small, .review-workflow-wait small { color: var(--muted); }
 .review-workflow-row .button { min-width: 96px; }
+.review-mobile-stepper { display: none; }
 .review-workflow-queue .import-workflow-footer { border-top: 1px solid transparent; }
 
 .review-workflow-top { display: grid; grid-template-columns: minmax(0, 1fr) 390px; align-items: start; gap: 16px; margin-bottom: 16px; }

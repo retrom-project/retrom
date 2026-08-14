@@ -36,6 +36,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     runtimeState: "running",
     onHoldControls: vi.fn(),
     onReleaseControls: vi.fn(),
+    onToggleControls: vi.fn(),
     onSave: vi.fn().mockResolvedValue(true),
     onPauseForToolbarInteraction: vi.fn(),
     onToggleFullscreen: vi.fn(),

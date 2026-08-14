@@ -42,6 +42,11 @@
     #retrom-ui-review select,
     #retrom-ui-review textarea { font: inherit; }
 
+    #retrom-ui-review .rt-mobile-appbar,
+    #retrom-ui-review .rt-mobile-bottom-nav,
+    #retrom-ui-review .rt-review-mobile-steps,
+    #retrom-ui-review .rt-player-orientation-gate { display: none; }
+
     #retrom-ui-review .rt-app {
       display: grid;
       grid-template-columns: 224px minmax(0, 1fr);
@@ -1967,6 +1972,115 @@
       #retrom-ui-review .rt-compare-column-top,
       #retrom-ui-review .rt-snapshot { grid-template-columns: 1fr; }
     }
+
+    @media (max-width: 1279px) {
+      #retrom-ui-review { overflow-x: clip; }
+      #retrom-ui-review .rt-app { display: block; min-height: 100vh; border: 0; border-radius: 0; box-shadow: none; }
+      #retrom-ui-review .rt-sidebar { display: none; }
+      #retrom-ui-review .rt-mobile-appbar { position: fixed; z-index: 40; inset: 0 0 auto; min-height: calc(52px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) 14px 0; display: flex; align-items: center; gap: 10px; color: #f5f4ff; background: #171421; box-shadow: 0 1px 0 rgb(255 255 255 / .09); }
+      #retrom-ui-review .rt-mobile-brand { display: flex; align-items: center; gap: 9px; font-weight: 700; letter-spacing: .04em; }
+      #retrom-ui-review .rt-mobile-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: #bcb6ca; font-size: 12px; }
+      #retrom-ui-review .rt-mobile-appbar-actions { margin-left: auto; display: flex; align-items: center; gap: 7px; }
+      #retrom-ui-review .rt-mobile-appbar button { width: 44px; height: 44px; padding: 0; display: grid; place-items: center; color: #f5f4ff; border: 0; border-radius: 10px; background: transparent; }
+      #retrom-ui-review .rt-mobile-menu { display: none !important; }
+      #retrom-ui-review .rt-app[data-mode="admin"] .rt-mobile-menu { display: grid !important; }
+      #retrom-ui-review .rt-main { min-height: 100vh; padding-top: calc(52px + env(safe-area-inset-top)); }
+      #retrom-ui-review .rt-page { max-width: none; padding: 22px; }
+      #retrom-ui-review .rt-page-head { align-items: flex-start; }
+      #retrom-ui-review .rt-app.is-playing .rt-mobile-appbar,
+      #retrom-ui-review .rt-app.is-playing .rt-mobile-bottom-nav { display: none !important; }
+      #retrom-ui-review .rt-app.is-playing .rt-main { padding-top: 0; }
+      #retrom-ui-review .rt-drawer { width: min(100vw, 480px); }
+    }
+
+    @media (max-width: 767px) {
+      #retrom-ui-review .rt-page { padding: 16px; }
+      #retrom-ui-review .rt-main { padding-bottom: calc(68px + env(safe-area-inset-bottom)); }
+      #retrom-ui-review .rt-mobile-bottom-nav { position: fixed; z-index: 39; inset: auto 0 0; min-height: calc(62px + env(safe-area-inset-bottom)); padding: 5px 4px env(safe-area-inset-bottom); display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); color: #eae7f1; background: rgb(23 20 33 / 97%); box-shadow: 0 -1px 0 rgb(255 255 255 / .09); backdrop-filter: blur(14px); }
+      #retrom-ui-review .rt-app[data-mode="admin"] .rt-mobile-bottom-nav { display: none; }
+      #retrom-ui-review .rt-mobile-bottom-nav button { min-width: 0; min-height: 52px; padding: 4px 1px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; color: #9f99ad; border: 0; border-radius: 9px; background: transparent; font-size: 9px; }
+      #retrom-ui-review .rt-mobile-bottom-nav button svg { width: 18px; height: 18px; }
+      #retrom-ui-review .rt-mobile-bottom-nav button.is-active { color: #fff; background: rgb(139 123 241 / 20%); }
+      #retrom-ui-review .rt-button, #retrom-ui-review .rt-input, #retrom-ui-review .rt-select { min-height: 44px; }
+      #retrom-ui-review .rt-page-head { display: grid; }
+      #retrom-ui-review .rt-page-head-actions { width: 100%; display: grid; grid-template-columns: 1fr; }
+      #retrom-ui-review .rt-home-first,
+      #retrom-ui-review .rt-detail-lower,
+      #retrom-ui-review .rt-review-detail-top,
+      #retrom-ui-review .rt-review-detail-columns { grid-template-columns: minmax(0, 1fr); }
+      #retrom-ui-review .rt-home-featured-media { grid-template-columns: 78px minmax(0, 1fr); }
+      #retrom-ui-review .rt-home-featured-media { height: auto; min-height: 0; padding: 16px; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; align-items: center; }
+      #retrom-ui-review .rt-home-featured-cover { position: relative; left: auto; top: auto; width: 92px; height: 124px; }
+      #retrom-ui-review .rt-home-featured-copy,
+      #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { position: relative; left: auto; right: auto; top: auto; transform: none; }
+      #retrom-ui-review .rt-home-featured-copy h2 { font-size: 20px; }
+      #retrom-ui-review .rt-home-facts { margin-top: 10px; display: grid; gap: 3px; }
+      #retrom-ui-review .rt-home-featured-actions { margin-top: 12px; display: grid; }
+      #retrom-ui-review .rt-home-featured-save-preview { display: none; }
+      #retrom-ui-review .rt-home-rail { grid-auto-columns: minmax(150px, 72%); overflow-x: auto; scroll-snap-type: x proximity; }
+      #retrom-ui-review .rt-game-grid,
+      #retrom-ui-review .rt-library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      #retrom-ui-review .rt-toolbar,
+      #retrom-ui-review .rt-management-tools,
+      #retrom-ui-review .rt-user-filters { grid-template-columns: minmax(0, 1fr); }
+      #retrom-ui-review .rt-detail-hero { grid-template-columns: 94px minmax(0, 1fr); }
+      #retrom-ui-review .rt-launch-panel { grid-column: 1 / -1; }
+      #retrom-ui-review .rt-save-grid,
+      #retrom-ui-review .rt-management-grid { grid-template-columns: minmax(0, 1fr); }
+      #retrom-ui-review .rt-review-mobile-steps { position: sticky; z-index: 8; top: calc(52px + env(safe-area-inset-top)); margin: -4px -4px 12px; padding: 6px; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; border: 1px solid var(--retrom-line); border-radius: 12px; background: color-mix(in srgb, var(--retrom-panel) 94%, transparent); backdrop-filter: blur(12px); }
+      #retrom-ui-review .rt-review-mobile-steps a { min-height: 44px; padding: 4px 2px; display: grid; place-items: center; color: var(--retrom-muted); border-radius: 8px; text-align: center; text-decoration: none; font-size: 9px; }
+      #retrom-ui-review .rt-review-mobile-steps a:first-child { color: var(--retrom-purple); background: color-mix(in srgb, var(--retrom-purple) 12%, transparent); }
+      #retrom-ui-review .rt-review-layout[data-review-view="detail"] { display: grid; }
+      #retrom-ui-review .rt-review-layout[data-review-view="detail"] > .rt-review-back { order: 1; }
+      #retrom-ui-review .rt-review-layout[data-review-view="detail"] > .rt-review-mobile-steps { order: 2; }
+      #retrom-ui-review .rt-review-layout[data-review-view="detail"] > .rt-review-detail-top,
+      #retrom-ui-review .rt-review-layout[data-review-view="detail"] > .rt-review-detail-columns { display: contents; }
+      #retrom-ui-review .rt-review-layout[data-review-view="detail"] .rt-review-summary { order: 3; }
+      #retrom-ui-review .rt-review-layout[data-review-view="detail"] .rt-review-detail-columns > div { order: 4; }
+      #retrom-ui-review .rt-review-layout[data-review-view="detail"] .rt-review-form { order: 5; }
+      #retrom-ui-review .rt-review-layout[data-review-view="detail"] .rt-review-decision { order: 6; }
+      #retrom-ui-review .rt-review-item { min-width: 0; grid-template-columns: 50px minmax(0, 1fr) auto; padding: 12px; border: 1px solid var(--retrom-line); border-radius: 12px; }
+      #retrom-ui-review .rt-review-item > :nth-child(n+4) { display: none; }
+      #retrom-ui-review .rt-review-summary,
+      #retrom-ui-review .rt-review-decision,
+      #retrom-ui-review .rt-review-file,
+      #retrom-ui-review .rt-review-form { scroll-margin-top: 118px; }
+      #retrom-ui-review .rt-drawer { inset: 0; width: 100vw; max-width: none; border-radius: 0; }
+      #retrom-ui-review .rt-app.is-playing .rt-main { padding-bottom: 0; }
+      #retrom-ui-review .rt-player-shell { min-height: 100vh; }
+      #retrom-ui-review .rt-player-top { height: calc(48px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); gap: 7px; }
+      #retrom-ui-review .rt-player-back,
+      #retrom-ui-review .rt-player-control { min-height: 44px; }
+      #retrom-ui-review .rt-player-back { width: 44px; }
+      #retrom-ui-review .rt-player-actions > button,
+      #retrom-ui-review .rt-player-debug-toggle { display: none; }
+      #retrom-ui-review .rt-player-actions .rt-player-menu-wrap { display: block; }
+      #retrom-ui-review .rt-player-actions .rt-player-menu-wrap .rt-player-control { min-width: 44px; }
+      #retrom-ui-review .rt-player-launch-state { font-size: 9px; }
+      #retrom-ui-review .rt-player-title strong { font-size: 11px; }
+      #retrom-ui-review .rt-player-menu { position: fixed; z-index: 20; inset: auto max(env(safe-area-inset-right), 8px) max(env(safe-area-inset-bottom), 8px) max(env(safe-area-inset-left), 8px); width: auto; max-height: calc(100dvh - 62px); overflow-y: auto; border-radius: 15px; }
+      #retrom-ui-review .rt-player-menu button { min-height: 50px; }
+      #retrom-ui-review .rt-player-shell.is-mobile-portrait .rt-player-orientation-gate { position: absolute; z-index: 30; inset: 0; padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); display: grid; place-items: center; background: #090b12; }
+      #retrom-ui-review .rt-player-orientation-card { width: min(100%, 340px); padding: 28px 22px; display: grid; justify-items: center; gap: 14px; border: 1px solid #343d4f; border-radius: 18px; background: #151a25; text-align: center; box-shadow: 0 24px 70px rgb(0 0 0 / .45); }
+      #retrom-ui-review .rt-player-orientation-card svg { width: 42px; height: 42px; color: #9b87e7; }
+      #retrom-ui-review .rt-player-orientation-card p { color: #9aa4b4; line-height: 1.55; }
+      #retrom-ui-review .rt-player-shell.is-mobile-portrait .rt-player-stage,
+      #retrom-ui-review .rt-player-shell.is-mobile-portrait .rt-player-top { visibility: hidden; }
+    }
+
+    @media (min-width: 768px) and (max-width: 1024px) and (orientation: landscape) {
+      #retrom-ui-review .rt-app.is-playing .rt-player-top { height: calc(48px + env(safe-area-inset-top)); padding: env(safe-area-inset-top) max(8px, env(safe-area-inset-right)) 0 max(8px, env(safe-area-inset-left)); gap: 7px; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-back,
+      #retrom-ui-review .rt-app.is-playing .rt-player-control { min-height: 44px; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-back { width: 44px; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-actions > button,
+      #retrom-ui-review .rt-app.is-playing .rt-player-debug-toggle { display: none; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-actions .rt-player-menu-wrap { display: block; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-actions .rt-player-menu-wrap .rt-player-control { min-width: 44px; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-launch-state { font-size: 9px; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-title strong { font-size: 11px; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-menu { position: fixed; z-index: 20; inset: auto max(env(safe-area-inset-right), 8px) max(env(safe-area-inset-bottom), 8px) max(env(safe-area-inset-left), 8px); width: auto; max-height: calc(100dvh - 62px); overflow-y: auto; border-radius: 15px; }
+    }
   </style>
 
   <details class="rt-review-scenes" open>
@@ -2056,7 +2170,12 @@
     </div>
   </section>
 
-  <div class="rt-app">
+  <div class="rt-app" data-mode="user">
+    <header class="rt-mobile-appbar">
+      <div class="rt-mobile-brand"><span class="rt-brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span><span>RETROM</span></div>
+      <span class="rt-mobile-title" data-mobile-title>首页</span>
+      <div class="rt-mobile-appbar-actions"><button type="button" aria-label="服务状态：正常"><span class="rt-status-dot" aria-hidden="true"></span></button><button type="button" aria-label="账户设置" data-page-link="account"><i data-lucide="user-round" aria-hidden="true"></i></button><button type="button" class="rt-mobile-menu" aria-label="打开导航"><i data-lucide="menu" aria-hidden="true"></i></button></div>
+    </header>
     <aside class="rt-sidebar" aria-label="主导航">
       <div class="rt-brand">
         <span class="rt-brand-mark" aria-hidden="true"><span></span><span></span><span></span><span></span></span>
@@ -2292,6 +2411,7 @@
 
       <section class="rt-page" data-page="play">
         <div class="rt-player-shell">
+          <div class="rt-player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="rt-orientation-title"><div class="rt-player-orientation-card"><i data-lucide="rotate-cw" aria-hidden="true"></i><h2 id="rt-orientation-title">请横屏继续游戏</h2><p>配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。</p><button type="button" class="rt-player-control">重试全屏与横屏</button></div></div>
           <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div></div>
           <div class="rt-player-top">
             <button type="button" class="rt-player-back" id="rt-exit-player" data-player-exit aria-label="返回并退出游戏"><i data-lucide="arrow-left" aria-hidden="true"></i></button>
@@ -2474,6 +2594,7 @@
           </section>
           <div class="rt-review-layout" data-review-view="detail" hidden>
             <button type="button" class="rt-button rt-review-back" data-review-back><i data-lucide="arrow-left" aria-hidden="true"></i>返回待审列表</button>
+            <nav class="rt-review-mobile-steps" aria-label="审核步骤"><a href="#">1 来源</a><a href="#">2 检查</a><a href="#">3 发布</a><a href="#">4 决定</a></nav>
             <div class="rt-review-detail-top">
               <section class="rt-panel rt-review-summary"><div class="rt-review-summary-copy"><span class="rt-badge">来源：<span data-review-file-output>NOeL 3/game.m3u</span></span><h2 data-review-preview-output>NOeL 3</h2><p class="rt-subtitle">目标目录：Saturn 游戏</p><div class="rt-review-summary-status"><span class="rt-badge" data-review-disc-received>已接收 M3U 与 2 张光盘</span><span class="rt-badge rt-badge-amber" data-review-disc-summary-state>缺少光盘 3</span><span class="rt-badge rt-badge-cyan">盘序已锁定</span></div></div><aside class="rt-review-runtime-shot"><span>第 5 秒运行截图</span><div data-review-runtime-shot><strong>等待运行截图</strong><small>运行游戏后自动截取，可作为管理员放行依据</small></div></aside></section>
               <aside class="rt-panel rt-review-decision"><h2>审核决定</h2><p class="rt-subtitle" data-review-decision-copy>可补齐左侧缺失内容，或运行游戏取得第 5 秒截图后人工确认。</p><div class="rt-review-save"><span>实时保存</span><strong>● 已实时保存</strong></div><div class="rt-review-decision-actions"><button type="button" class="rt-button"><i data-lucide="refresh-cw" aria-hidden="true"></i>重新运行检查</button><button type="button" class="rt-button rt-review-run"><i data-lucide="gamepad-2" aria-hidden="true"></i>运行游戏</button></div><div class="rt-review-decision-actions"><button type="button" class="rt-button rt-button-danger"><i data-lucide="archive-x" aria-hidden="true"></i>丢弃条目</button><button type="button" class="rt-button rt-button-primary" data-review-approve disabled><i data-lucide="check" aria-hidden="true"></i>通过并发布</button></div></aside>
@@ -2652,6 +2773,13 @@
         </div>
       </section>
     </main>
+    <nav class="rt-mobile-bottom-nav" aria-label="移动主导航">
+      <button type="button" class="is-active" data-mobile-page="home" data-page-link="home"><i data-lucide="house" aria-hidden="true"></i><span>首页</span></button>
+      <button type="button" data-mobile-page="library" data-page-link="library"><i data-lucide="library" aria-hidden="true"></i><span>游戏库</span></button>
+      <button type="button" data-mobile-page="saves" data-page-link="saves"><i data-lucide="camera" aria-hidden="true"></i><span>存档</span></button>
+      <button type="button" data-mobile-page="favorites" data-page-link="favorites"><i data-lucide="heart" aria-hidden="true"></i><span>收藏</span></button>
+      <button type="button" data-mobile-page="more"><i data-lucide="ellipsis" aria-hidden="true"></i><span>更多</span></button>
+    </nav>
   </div>
 
   <div class="rt-dialog-backdrop rt-player-exit-backdrop" data-player-exit-dialog hidden><section class="rt-dialog rt-player-exit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-player-exit-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-player-exit-title">退出游戏？</h2><p class="rt-dialog-copy" data-player-exit-copy>游戏进度已同步，可以安全退出。</p></div></div><div class="rt-dialog-impact">退出时会刷新持久进度、结束本次游玩记录，并返回启动游戏前的页面。</div><div class="rt-dialog-actions"><button type="button" class="rt-button rt-player-exit-save" data-save-before-player-exit><i data-lucide="save" aria-hidden="true"></i>创建存档</button><button type="button" class="rt-button" data-cancel-player-exit>取消</button><button type="button" class="rt-button rt-button-danger" data-confirm-player-exit>退出游戏</button></div></section></div>
@@ -2733,6 +2861,8 @@
         app.classList.toggle('is-playing', page === 'play' || page === 'netplay-player');
         root.querySelectorAll('.rt-page').forEach((element) => element.classList.toggle('is-active', element.dataset.page === page));
         root.querySelectorAll('.rt-nav-button').forEach((button) => button.classList.toggle('is-active', button.dataset.pageTarget === activeNavigationTarget));
+        root.querySelector('[data-mobile-title]').textContent = pageNames[page] || 'Retrom';
+        root.querySelectorAll('[data-mobile-page]').forEach((button) => button.classList.toggle('is-active', button.dataset.mobilePage === activeNavigationTarget || (button.dataset.mobilePage === 'more' && !['home', 'library', 'saves', 'favorites'].includes(activeNavigationTarget))));
         selectReviewScene(page);
         root.querySelector('[data-ingest-parent]').classList.toggle('is-context', ['admin-import-new', 'admin-import-tasks', 'admin-review', 'admin-review-history'].includes(page));
         const runtimeParent = root.querySelector('[data-runtime-parent]');
@@ -2764,6 +2894,7 @@
 
       function setMode(nextMode) {
         mode = nextMode;
+        app.dataset.mode = mode;
         root.querySelectorAll('[data-nav-mode]').forEach((group) => { group.hidden = group.dataset.navMode !== mode; });
         modeLabel.textContent = mode === 'user' ? '我的游戏' : '管理后台';
         modeButton.querySelector('span').textContent = mode === 'user' ? '管理后台' : '返回用户侧';

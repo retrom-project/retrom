@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LaunchControls, type CoreOption, type DOSEntry } from "./launch-controls";
@@ -8,6 +8,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
 
 const storagePrefix = "retrom:v2:user:user-1:player:";
+const desktopLaunchButton = () => within(screen.getByRole("complementary", { name: "启动游戏" })).getByRole("button", { name: "开始游戏" });
 
 const cores: CoreOption[] = [
   { coreId: "mgba", name: "mGBA", isDefault: true, status: "READY", reasons: [] },
@@ -49,7 +50,7 @@ describe("LaunchControls", () => {
     expect(screen.getByText("开始时会自动检查")).toBeInTheDocument();
     expect(screen.getByText("（未采用默认核心）")).toBeInTheDocument();
     expect(window.localStorage.getItem(`${storagePrefix}preferred-core:game-1`)).toBe("gambatte");
-    await user.click(screen.getByRole("button", { name: "开始游戏" }));
+    await user.click(desktopLaunchButton());
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(JSON.parse(requests[0])).toMatchObject({ gameId: "game-1", coreId: "gambatte", dosEntry: null });
@@ -96,7 +97,7 @@ describe("LaunchControls", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ launchId: "launch-1", playUrl: "/play/launch-1" }), { status: 201, headers: { "Content-Type": "application/json" } })));
     render(<LaunchControls gameId="game-1" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />);
 
-    await user.click(screen.getByRole("button", { name: "开始游戏" }));
+    await user.click(desktopLaunchButton());
 
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/play/launch-1"));
   });
@@ -109,7 +110,7 @@ describe("LaunchControls", () => {
     vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ error: { code: "LAUNCH_BLOCKED", message: "LAUNCH_BIOS_MISSING" } }), { status: 422, headers: { "Content-Type": "application/json" } })));
     render(<LaunchControls gameId="blocked-game" coreOptions={cores.slice(0, 1)} dosEntries={[]} defaultDosEntry={null} />);
 
-    await user.click(screen.getByRole("button", { name: "开始游戏" }));
+    await user.click(desktopLaunchButton());
 
     expect(await screen.findByRole("alert")).toHaveTextContent("LAUNCH_BIOS_MISSING");
     expect(screen.getByRole("link", { name: "前往 BIOS 管理" })).toHaveAttribute("href", "/admin/bios?scope=REQUIRED_BY_LIBRARY");
@@ -124,7 +125,7 @@ describe("LaunchControls", () => {
     expect(screen.getByLabelText("启动程序")).toHaveValue("GAMES/DOOM.EXE");
     expect(screen.getByRole("option", { name: /SETUP%\.EXE/ })).toBeDisabled();
     await user.selectOptions(screen.getByLabelText("启动程序"), "");
-    await user.click(screen.getByRole("button", { name: "开始游戏" }));
+    await user.click(desktopLaunchButton());
 
     await waitFor(() => expect(requests).toHaveLength(1));
     expect(JSON.parse(requests[0])).toMatchObject({ coreId: "dosbox_pure", dosEntry: null });
@@ -138,7 +139,7 @@ describe("LaunchControls", () => {
     const first = render(<LaunchControls gameId="dos-game" coreOptions={dosCore} dosEntries={dosEntries} defaultDosEntry="GAMES/DOOM.EXE" />);
 
     await user.selectOptions(screen.getByLabelText("启动程序"), "");
-    await user.click(screen.getByRole("button", { name: "开始游戏" }));
+    await user.click(desktopLaunchButton());
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/play/launch-1"));
     expect(window.localStorage.getItem(`${storagePrefix}preferred-dos-entry:dos-game`)).toBe('{"version":1,"entry":null}');
 

@@ -14,6 +14,19 @@ import { restorePersistentSave } from "./persistent-save-restore";
 import { PlayerChrome, type PlayerDebugRuntime } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
 import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
+import {
+  initialPlayerOrientationState,
+  mobilePlayerQuery,
+  observeStableOrientation,
+  portraitPlayerQuery,
+  reducePlayerOrientation,
+  requestFullscreenAndLandscape,
+  unlockLandscape,
+  waitForStableLandscape,
+  type PlayerOrientationEffect,
+  type PlayerOrientationState,
+  type PlayerRuntimeKind,
+} from "./orientation";
 import { NetplayController } from "./netplay/controller";
 import { digestHex, EJSNetplayFrameBridge } from "./netplay/ejs-netplay-4.2.3-v1";
 
@@ -70,6 +83,7 @@ function observedRuntimeDiscCount(instance: EmulatorInstance | undefined) {
 export function PlayerShell({ launchId }: { launchId: string }) {
   const stage = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
+  const orientationButtonRef = useRef<HTMLButtonElement>(null);
   const emulator = useRef<EmulatorInstance | undefined>(undefined);
   const [state, setState] = useState<ShellState>("loading");
   const [message, setMessage] = useState("正在验证运行快照…");
@@ -91,6 +105,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [netplayPlayerNo, setNetplayPlayerNo] = useState<number | null>(null);
   const [netplayPaused, setNetplayPaused] = useState(false);
   const [debugOpen, setDebugOpen] = useState(false);
+  const [frameEnabled, setFrameEnabled] = useState(false);
+  const [orientationState, setOrientationState] = useState<PlayerOrientationState>(initialPlayerOrientationState);
+  const [orientationHelp, setOrientationHelp] = useState("若浏览器不能自动锁定方向，请手动旋转设备。");
   const [debugMetrics, setDebugMetrics] = useState<PlayerDebugMetrics | null>(null);
   const [debugRuntime, setDebugRuntime] = useState<PlayerDebugRuntime>({
     coreId: "", coreArtifactId: "", emulatorJSVersion: "", playerAdapterId: "", inputMode: "",
@@ -119,6 +136,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const chromePinned = useRef(false);
   const lastAudibleVolume = useRef(0.5);
   const discSetRef = useRef<DiscSet | null>(null);
+  const netplayPausedRef = useRef(false);
+  const orientationStateRef = useRef<PlayerOrientationState>(initialPlayerOrientationState);
 
   const reportPlayerEvent = useCallback((event: MultiDiscPlayerEvent) => {
     void reportMultiDiscPlayerEvent(launchId, event).catch(() => undefined);
@@ -162,6 +181,16 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     chromePinned.current = false;
     showControls();
   }, [showControls]);
+
+  const toggleControls = useCallback(() => {
+    if (controlsVisible) {
+      chromePinned.current = false;
+      clearControlsTimer();
+      setControlsVisible(false);
+    } else {
+      showControls();
+    }
+  }, [clearControlsTimer, controlsVisible, showControls]);
 
   const pauseForToolbarInteraction = useCallback(() => {
     if (playerMode.current === "netplay") return;
@@ -320,6 +349,10 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const exit = useCallback(async () => {
     if (finishing.current) return;
     finishing.current = true;
+    const exiting = reducePlayerOrientation(orientationStateRef.current, { type: "exit" });
+    orientationStateRef.current = exiting.state;
+    setOrientationState(exiting.state);
+    if (exiting.effects.includes("unlock")) unlockLandscape();
     try {
       if (playerMode.current === "netplay") {
         netplayController.current?.end();
@@ -385,6 +418,37 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         discSetRef.current = config.discSet ?? null;
         setDiscSet(config.discSet ?? null);
         setDiscState(null);
+
+        const mobileQuery = window.matchMedia(mobilePlayerQuery);
+        const portraitQuery = window.matchMedia(portraitPlayerQuery);
+        const runtimeKind: PlayerRuntimeKind = config.mode === "single"
+          ? "single"
+          : config.netplay?.playerNo === 1 ? "netplay-p1" : "netplay-p2";
+        let orientation = reducePlayerOrientation(orientationStateRef.current, {
+          type: "config-ready",
+          mobile: mobileQuery.matches,
+          portrait: portraitQuery.matches,
+          runtimeKind,
+        });
+        orientationStateRef.current = orientation.state;
+        setOrientationState(orientation.state);
+        if (orientation.state.phase === "orientation-blocked") {
+          setMessage("请横向握持设备开始游戏");
+          await waitForStableLandscape(portraitQuery, controller.signal, (portrait) => {
+            orientation = reducePlayerOrientation(orientationStateRef.current, {
+              type: "orientation-stable", portrait, paused: false,
+            });
+            orientationStateRef.current = orientation.state;
+            setOrientationState(orientation.state);
+          });
+        }
+
+        setFrameEnabled(true);
+        for (let attempt = 0; attempt < 12 && !frameRef.current; attempt += 1) {
+          await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+          if (controller.signal.aborted) return;
+        }
+        if (!frameRef.current) throw new Error("PLAYER_FRAME_UNAVAILABLE");
 
         if (config.discSet) {
           const sizes = await Promise.all(config.discSet.entries.map(async (entry) => {
@@ -566,6 +630,10 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
                   onRunning: () => {
                     if (!isCurrent()) return;
                     setNetplayPaused(false);
+                    netplayPausedRef.current = false;
+                    const startedOrientation = reducePlayerOrientation(orientationStateRef.current, { type: "runtime-started", paused: false });
+                    orientationStateRef.current = startedOrientation.state;
+                    setOrientationState(startedOrientation.state);
                     if (started.current) return;
                     void sendEvent("start").then(() => {
                       setState("running");
@@ -575,7 +643,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
                       setMessage("PLAY_SESSION_EVENT_FAILED");
                     });
                   },
-                  onPaused: () => { if (isCurrent()) setNetplayPaused(true); },
+                  onPaused: () => { if (isCurrent()) { netplayPausedRef.current = true; setNetplayPaused(true); } },
                   onEnded: (reason) => {
                     if (!isCurrent()) return;
                     setSyncText("联机已结束");
@@ -609,6 +677,9 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
             if (emulator.current) emulator.current.paused = false;
             pausedRef.current = false;
             setPaused(false);
+            const startedOrientation = reducePlayerOrientation(orientationStateRef.current, { type: "runtime-started", paused: false });
+            orientationStateRef.current = startedOrientation.state;
+            setOrientationState(startedOrientation.state);
             frameWindow.requestAnimationFrame(() => canvasContain?.refresh());
             void sendEvent("start").then(() => {
               setState("running");
@@ -656,6 +727,12 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
     document.addEventListener("fullscreenchange", updateFullscreen);
     return () => document.removeEventListener("fullscreenchange", updateFullscreen);
   }, []);
+
+  useEffect(() => {
+    if (orientationState.phase !== "orientation-blocked") return;
+    const frame = requestAnimationFrame(() => orientationButtonRef.current?.focus());
+    return () => cancelAnimationFrame(frame);
+  }, [orientationState.phase]);
 
   useEffect(() => {
     if (!debugOpen) return;
@@ -839,12 +916,98 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
       showToast("无法更改全局暂停状态，请重试。", 4_000);
       return;
     }
-    if (!netplayPaused) setNetplayPaused(true);
+    if (!netplayPaused) {
+      netplayPausedRef.current = true;
+      setNetplayPaused(true);
+    }
+  }
+
+  const requestNetplayPause = useCallback(async (action: "pause" | "resume") => {
+    const locked = netplayConfig.current;
+    if (!locked || locked.playerNo !== 1) return false;
+    const response = await fetch(`/api/v1/netplay/rooms/${locked.roomId}/sessions/${locked.sessionId}/${action}`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
+      body: "{}",
+    }).catch(() => null);
+    if (!response?.ok) return false;
+    netplayPausedRef.current = action === "pause";
+    setNetplayPaused(action === "pause");
+    return true;
+  }, []);
+
+  const runOrientationEffects = useCallback(async (effects: PlayerOrientationEffect[]) => {
+    const queue = [...effects];
+    while (queue.length) {
+      const effect = queue.shift();
+      if (effect === "release-input") {
+        frameRef.current?.blur();
+        frameRef.current?.contentWindow?.dispatchEvent(new Event("blur"));
+        if (playerMode.current === "netplay") netplayController.current?.handleFocusLoss();
+      } else if (effect === "pause-single") {
+        if (setEmulatorPaused(emulator.current, true)) {
+          pausedRef.current = true;
+          setPaused(true);
+        }
+      } else if (effect === "resume-single") {
+        if (document.visibilityState === "visible" && setEmulatorPaused(emulator.current, false)) {
+          pausedRef.current = false;
+          setPaused(false);
+          showControls();
+        }
+      } else if (effect === "pause-netplay") {
+        const owned = await requestNetplayPause("pause");
+        if (!owned) {
+          showToast("无法在旋转时暂停联机，请立即横屏并手动确认状态。", 4_000);
+          continue;
+        }
+        const transition = reducePlayerOrientation(orientationStateRef.current, { type: "netplay-pause-owned" });
+        orientationStateRef.current = transition.state;
+        setOrientationState(transition.state);
+        queue.unshift(...transition.effects);
+      } else if (effect === "resume-netplay") {
+        if (!await requestNetplayPause("resume")) showToast("无法自动恢复联机，请由房主手动继续。", 4_000);
+      } else if (effect === "warn-netplay-p2") {
+        showToast("本局仍在进行，请立即横屏。", 4_000);
+      }
+    }
+  }, [requestNetplayPause, showControls, showToast]);
+
+  useEffect(() => {
+    if (typeof window.matchMedia !== "function") return;
+    const portraitQuery = window.matchMedia(portraitPlayerQuery);
+    const apply = (portrait: boolean) => {
+      const pausedNow = playerMode.current === "single" ? pausedRef.current : netplayPausedRef.current;
+      const transition = reducePlayerOrientation(orientationStateRef.current, { type: "orientation-stable", portrait, paused: pausedNow });
+      orientationStateRef.current = transition.state;
+      setOrientationState(transition.state);
+      void runOrientationEffects(transition.effects);
+    };
+    return observeStableOrientation(portraitQuery, apply);
+  }, [runOrientationEffects]);
+
+  useEffect(() => {
+    const updateVisibility = () => {
+      const transition = reducePlayerOrientation(orientationStateRef.current, { type: "visibility", hidden: document.visibilityState === "hidden" });
+      orientationStateRef.current = transition.state;
+      setOrientationState(transition.state);
+      void runOrientationEffects(transition.effects);
+    };
+    document.addEventListener("visibilitychange", updateVisibility);
+    return () => document.removeEventListener("visibilitychange", updateVisibility);
+  }, [runOrientationEffects]);
+
+  async function retryLandscape() {
+    const result = await requestFullscreenAndLandscape();
+    if (result.orientation === "unsupported") setOrientationHelp("当前浏览器不支持自动锁定方向，请手动旋转设备。");
+    else if (result.orientation === "denied") setOrientationHelp("浏览器拒绝了方向锁定，请手动旋转设备。");
+    else setOrientationHelp("方向已锁定；若画面没有变化，请手动旋转设备。");
   }
 
   return (
-    <main className={`player-shell${paused ? " is-paused" : ""}`} onKeyDown={showControls} onPointerMove={(event) => revealControlsAtTopEdge(event.clientY)}>
-      <PlayerChrome
+    <main className={`player-shell${paused ? " is-paused" : ""}${orientationState.phase === "orientation-blocked" ? " is-orientation-blocked" : ""}`} onKeyDown={showControls} onPointerMove={(event) => revealControlsAtTopEdge(event.clientY)}>
+      {orientationState.phase !== "orientation-blocked" ? <PlayerChrome
         controlsVisible={controlsVisible}
         running={state === "running"}
         paused={paused}
@@ -870,6 +1033,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         runtimeState={state}
         onHoldControls={holdControls}
         onReleaseControls={releaseControls}
+        onToggleControls={toggleControls}
         onSave={saveManualState}
         onPauseForToolbarInteraction={pauseForToolbarInteraction}
         onToggleFullscreen={() => void toggleFullscreen()}
@@ -883,11 +1047,19 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         onToggleDebug={toggleDebug}
         onExit={() => void exit()}
         onDownloadConflict={downloadConflictingSave}
-      />
-      <div className="player-stage" ref={stage} onClick={handleGameSurfaceInteraction}>
-        <iframe ref={frameRef} title="Retrom EmulatorJS Player" className="player-frame" src="about:blank" />
+      /> : null}
+      <div className="player-stage" ref={stage} inert={orientationState.phase === "orientation-blocked" ? true : undefined} aria-hidden={orientationState.phase === "orientation-blocked" || undefined} onClick={handleGameSurfaceInteraction}>
+        {frameEnabled ? <iframe ref={frameRef} title="Retrom EmulatorJS Player" className="player-frame" src="about:blank" /> : null}
         {state !== "running" ? <div className="player-loading">{state === "loading" ? <i /> : null}<strong>{message}</strong><p>{state === "error" ? <><span>凭据可能已过期或依赖不兼容。</span> <Link href="/library">返回游戏库</Link></> : "页面会在验证和存档预取后自动开始，无需再次点击。"}</p></div> : null}
       </div>
+      {orientationState.phase === "orientation-blocked" ? <section className="player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="player-orientation-title" onKeyDown={(event) => { if (event.key === "Tab") { event.preventDefault(); orientationButtonRef.current?.focus(); } }}>
+        <div className="player-rotate-mark" aria-hidden="true"><span>↻</span></div>
+        <p>{orientationState.runtimeKind === "netplay-p2" && orientationState.started ? "联机仍在进行" : orientationState.started ? "游戏已暂停" : "移动 Player 需要横屏"}</p>
+        <h1 id="player-orientation-title">请横向握持设备开始游戏</h1>
+        <strong>{gameTitle}</strong>
+        <small>{orientationState.runtimeKind === "netplay-p2" && orientationState.started ? "你是 P2，不能暂停全局联机；本地输入已清空。" : orientationHelp}</small>
+        <button ref={orientationButtonRef} className="button" type="button" onClick={() => void retryLandscape()}>尝试进入全屏并横屏</button>
+      </section> : null}
     </main>
   );
 }

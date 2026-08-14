@@ -35,6 +35,17 @@ describe("ReviewActions", () => {
 
   afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
 
+  it("exposes the four-step mobile review workflow without changing decision actions", () => {
+    render(<ReviewActions review={review}><section>来源文件与依赖</section></ReviewActions>);
+    const steps = within(screen.getByRole("navigation", { name: "审核步骤" })).getAllByRole("link");
+    expect(steps.map((step) => step.textContent)).toEqual(["1来源与依赖", "2运行检查", "3发布信息", "4审核决定"]);
+    expect(steps.map((step) => step.getAttribute("href"))).toEqual([
+      "#review-step-source", "#review-step-runtime", "#review-step-publish", "#review-step-decision",
+    ]);
+    expect(screen.getByRole("button", { name: "丢弃条目" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
+  });
+
   it("opens one comparison dialog and autosaves the applied result", async () => {
     const candidate = { candidateId: "candidate-1", scrapeRunId: "run-1", providerGameId: "50192", metadata: { title: "1941: Counter Attack", description: "Long provider description", publisher: "Capcom" }, evidence: {}, assets: [{ candidateAssetId: "cover-1", kind: "COVER" as const, ordinal: 0, status: "READY", widthPx: 320, heightPx: 480, mediaType: "image/png", errorCode: null }] };
     const updated: ReviewWorkspace = { ...review, version: 2, candidates: [candidate], scrapeRuns: [{ scrapeRunId: "run-1", jobId: "job-1", provider: "HASHEOUS", state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 1, completedAtMs: 2, errorCode: null, evidenceCount: 1, attemptCount: 1, candidateCount: 1, outcomes: { hit: 1, miss: 0, rateLimited: 0, timeout: 0, invalidResponse: 0, networkError: 0 } }] };

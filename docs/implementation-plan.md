@@ -155,6 +155,12 @@ Migration 033 在 032 之后替换审核 preview/screenshot trigger，不新增�
 
 退出门禁：完整执行 `ACC-NP-001`–`013`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e`、两个 exact core 的真实 smoke 和 `make build-images`；032 的 031 升级路径、全新库、正式 UI 源及导出快照全部闭环后才可删除临时设计目录。
 
+### M13：移动响应式与横屏 Player
+
+范围：在不改变 API、DTO、权限或数据语义的前提下，把公开入口、用户侧和管理侧普通页面覆盖到 `320px`；手机使用 App Bar、五项底栏和 Sheet，平板使用 Drawer，桌面保持既有侧栏/共享画布。宽表在手机转为同字段/同操作卡片，审核详情提供四步锚点。移动或 coarse-pointer Player 先读并校验 config，竖屏期间阻断 iframe、大字节内容与 PlaySession，横屏稳定 250ms 后才装载；运行中按单机/P1/P2 精确释放输入和暂停，横屏 HUD/Sheet 计入 safe area。
+
+退出门禁：完整执行 `ACC-MOB-001`–`007`，回归 `ACC-UI-001`–`009`、`ACC-RUN-001/002/003`、`ACC-MDISC-005/006/007` 与 `ACC-NP-003/004/013`；运行前端五门禁、`make web-e2e`、无 core 参数全量 smoke 和 `make ci`。正式 UI 源、导出评审稿、固定移动/横屏快照和专题文档同步后才可删除临时设计目录。
+
 ## 5. 垂直切片提交规则
 
 每个可合并切片必须闭合以下链条，不允许把长期不工作的半成品推给后续 Agent：
