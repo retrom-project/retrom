@@ -1,5 +1,5 @@
 {
-  "schemaVersion": 2,
+  "schemaVersion": 3,
   "protocol": {
     "version": "retrom-netplay-v1",
     "playerAdapterId": "ejs-4.2.3-v2",
@@ -20,14 +20,16 @@
       "emulatorjsVersion": "4.2.3",
       "coreId": "fceumm",
       "coreArtifactSha256": "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493",
-      "maxPlayers": 2
+      "maxPlayers": 2,
+      "maxPredictionFrames": 8
     },
     {
       "id": "fbneo-423-v1",
       "emulatorjsVersion": "4.2.3",
       "coreId": "fbneo",
       "coreArtifactSha256": "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c",
-      "maxPlayers": 2
+      "maxPlayers": 2,
+      "maxPredictionFrames": 0
     }
   ]
 }

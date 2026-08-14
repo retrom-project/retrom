@@ -1,12 +1,12 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://retrom.invalid/schemas/netplay-manifest-v2.json",
-  "title": "Retrom netplay core profile allowlist manifest v2",
+  "$id": "https://retrom.invalid/schemas/netplay-manifest-v3.json",
+  "title": "Retrom netplay core profile allowlist manifest v3",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "protocol", "profiles"],
   "properties": {
-    "schemaVersion": { "const": 2 },
+    "schemaVersion": { "const": 3 },
     "protocol": {
       "type": "object",
       "additionalProperties": false,
@@ -30,13 +30,14 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "maxPlayers"],
+        "required": ["id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "maxPlayers", "maxPredictionFrames"],
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" },
           "emulatorjsVersion": { "const": "4.2.3" },
           "coreId": { "enum": ["fceumm", "fbneo"] },
           "coreArtifactSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
-          "maxPlayers": { "type": "integer", "minimum": 2, "maximum": 4 }
+          "maxPlayers": { "type": "integer", "minimum": 2, "maximum": 4 },
+          "maxPredictionFrames": { "type": "integer", "minimum": 0, "maximum": 8 }
         }
       }
     }

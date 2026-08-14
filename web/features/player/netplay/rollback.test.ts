@@ -19,6 +19,23 @@ describe("RollbackTimeline", () => {
     expect(timeline.canPredict(613)).toBe(false);
   });
 
+  it("supports a core-specific prediction limit", () => {
+    const timeline = new RollbackTimeline(120, undefined, 1);
+    expect(timeline.canPredict(0)).toBe(true);
+    expect(timeline.canPredict(1)).toBe(false);
+    timeline.receiveCanonical(0, input());
+    expect(timeline.canPredict(1)).toBe(true);
+    expect(timeline.canPredict(2)).toBe(false);
+  });
+
+  it("accepts strict lockstep as a zero-frame prediction profile", () => {
+    const timeline = new RollbackTimeline(120, undefined, 0);
+    expect(timeline.canPredict(0)).toBe(false);
+    timeline.receiveCanonical(0, input());
+    expect(timeline.canPredict(0)).toBe(true);
+    expect(timeline.canPredict(1)).toBe(false);
+  });
+
   it("returns the earliest mismatched frame and builds deterministic replay", () => {
     const timeline = new RollbackTimeline();
     for (let frame = 0; frame < 3; frame += 1) {

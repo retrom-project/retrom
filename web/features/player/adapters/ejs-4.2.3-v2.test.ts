@@ -32,6 +32,46 @@ const config: PlayerConfig = {
   netplay: null
 };
 
+const fbneoNetplayConfig: PlayerConfig = {
+  ...config,
+  mode: "netplay",
+  core: "fbneo",
+  runtimeCore: "fbneo",
+  coreName: "FinalBurn Neo",
+  coreArtifactId: "01980000-0000-7000-8000-000000000003",
+  stateUrl: null,
+  persistentSaveMode: "NONE",
+  persistentSaveUrl: null,
+  runtimePathOverrides: { "fbneo-wasm.data": "/runtime/emulatorjs/4.2.3/data/cores/fbneo-wasm.data" },
+  netplay: {
+    roomId: "01980000-0000-7000-8000-000000000004",
+    sessionId: "01980000-0000-7000-8000-000000000005",
+    playerNo: 1,
+    runtimeSocketUrl: "/runtime/netplay/rooms/01980000-0000-7000-8000-000000000004/socket",
+    netplayProfile: {
+      schemaVersion: 1,
+      protocolVersion: "retrom-netplay-v1",
+      profileId: "fbneo-423-v1",
+      emulatorjsVersion: "4.2.3",
+      playerAdapterId: "ejs-4.2.3-v2",
+      netplayAdapterId: "ejs-netplay-4.2.3-v1",
+      coreArtifactId: "01980000-0000-7000-8000-000000000003",
+      coreArtifactSha256: "1".repeat(64),
+      gameVariantRevisionId: "01980000-0000-7000-8000-000000000006",
+      sourceManifestDigest: "2".repeat(64),
+      dependencySnapshotDigest: "3".repeat(64),
+      defaultCoreOptions: {},
+      controlCount: 24,
+      maxPlayers: 2,
+      maxPredictionFrames: 0,
+      maxRollbackFrames: 120,
+      checkpointEveryFrames: 120,
+      canonicalHistoryFrames: 600,
+      maxStateBytes: 1_048_576,
+    },
+  },
+};
+
 describe("EmulatorJS adapter", () => {
   afterEach(() => {
     document.querySelectorAll("script[data-retrom-loader]").forEach((node) => node.remove());
@@ -56,6 +96,20 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_EXPERIMENTAL_NETPLAY).toBe(false);
     expect(document.querySelector<HTMLScriptElement>("script[data-retrom-loader]")?.src).toContain(config.loaderUrl);
     cleanup();
+  });
+
+  it("uses the FBNeo profile prediction limit and disables non-deterministic hiscores in netplay", () => {
+    const target = document.createElement("div");
+    const cleanup = mountEmulatorJS(fbneoNetplayConfig, target);
+    expect(window.EJS_defaultOptions).toMatchObject({ "fbneo-hiscores": "disabled" });
+    cleanup();
+    expect(() => mountEmulatorJS({
+      ...fbneoNetplayConfig,
+      netplay: {
+        ...fbneoNetplayConfig.netplay!,
+        netplayProfile: { ...fbneoNetplayConfig.netplay!.netplayProfile, maxPredictionFrames: 8 },
+      },
+    }, target)).toThrow("PLAYER_NETPLAY_CONFIG_INVALID");
   });
 
   it("defers 4.3 DOS startup until the whole-archive mode is installed", async () => {

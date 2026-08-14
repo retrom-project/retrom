@@ -2686,8 +2686,7 @@ export interface components {
             /** @enum {integer} */
             controlCount: 24;
             maxPlayers: number;
-            /** @enum {integer} */
-            maxPredictionFrames: 8;
+            maxPredictionFrames: number;
             /** @enum {integer} */
             maxRollbackFrames: 120;
             /** @enum {integer} */

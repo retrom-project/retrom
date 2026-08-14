@@ -1,6 +1,7 @@
 package netplay
 
 import (
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"testing"
@@ -39,6 +40,12 @@ func TestRegistryRejectsDependencyDriftAndProducesStableCanonicalProfile(t *test
 	if err != nil || string(canonicalA) != string(canonicalB) || digestA != digestB || !validDigest(digestA) {
 		t.Fatalf("canonical profile drift: %s/%s error=%v", digestA, digestB, err)
 	}
+	var canonicalProfile struct {
+		MaxPredictionFrames int `json:"maxPredictionFrames"`
+	}
+	if err := json.Unmarshal(canonicalA, &canonicalProfile); err != nil || canonicalProfile.MaxPredictionFrames != 0 {
+		t.Fatalf("FBNeo prediction limit not bound into canonical profile: %+v error=%v", canonicalProfile, err)
+	}
 	set.Versions["4.2.3"].Manifest.EmulatorJS.SelectedCores[0].SHA256 = "wrong"
 	if _, err := parseRegistry(contents, set); err == nil {
 		t.Fatal("dependency artifact drift accepted")
@@ -48,7 +55,7 @@ func TestRegistryRejectsDependencyDriftAndProducesStableCanonicalProfile(t *test
 func TestRegistryRejectsContentSpecificProfileFields(t *testing.T) {
 	t.Parallel()
 	contents := []byte(`{
-  "schemaVersion":2,
+  "schemaVersion":3,
   "protocol":{
     "version":"retrom-netplay-v1","playerAdapterId":"ejs-4.2.3-v2",
     "netplayAdapterId":"ejs-netplay-4.2.3-v1","controlCount":24,
@@ -60,7 +67,7 @@ func TestRegistryRejectsContentSpecificProfileFields(t *testing.T) {
     "id":"fceumm-423-v1","emulatorjsVersion":"4.2.3","coreId":"fceumm",
     "coreArtifactSha256":"8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493",
     "contentSha256":"29208764886f14de20fe82b32ab034130915f6392103874d202fcbbfb8a02ee4",
-    "maxPlayers":2
+    "maxPlayers":2,"maxPredictionFrames":8
   }]
 }`)
 	if _, err := parseRegistry(contents, fixtureDependencySet()); err == nil {

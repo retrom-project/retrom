@@ -111,7 +111,6 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
         ]);
         this.toggleMainLoop(false);
         const byteExact = equalBytes(new Uint8Array(this.getState()), expected);
-        if (!byteExact) throw new Error("STATE_INVALID");
         return { byteExact };
       } finally {
         if (timer !== undefined) target.clearTimeout(timer);
@@ -270,12 +269,33 @@ export class EJSNetplayFrameBridge {
   }
 
   async loadStateAndWait(bytes: Uint8Array) {
+    const result = await this.loadStateForTransfer(bytes);
+    if (!result.coreExact) throw new Error("STATE_INVALID");
+  }
+
+  async loadStateForTransfer(bytes: Uint8Array) {
     if (!bytes.byteLength) throw new Error("STATE_INVALID");
-    await this.withSuppressedOutput(async () => {
-      const result = await this.manager.loadStateAndWait(new Uint8Array(bytes));
-      if (!result.byteExact || !equalBytes(this.captureState(), bytes)) throw new Error("STATE_INVALID");
+    const expectedCore = coreStateBytes(bytes);
+    const recaptured = await this.withSuppressedOutput(async () => {
+      await this.manager.loadStateAndWait(new Uint8Array(bytes));
+      return this.captureState();
     });
     this.runtime.paused = true;
+    const recapturedCore = coreStateBytes(recaptured);
+    let firstCoreMismatch = -1;
+    const comparedLength = Math.min(expectedCore.byteLength, recapturedCore.byteLength);
+    for (let index = 0; index < comparedLength; index += 1) {
+      if (expectedCore[index] !== recapturedCore[index]) { firstCoreMismatch = index; break; }
+    }
+    if (firstCoreMismatch < 0 && expectedCore.byteLength !== recapturedCore.byteLength) firstCoreMismatch = comparedLength;
+    return {
+      recaptured,
+      byteExact: equalBytes(recaptured, bytes),
+      coreExact: firstCoreMismatch < 0,
+      expectedCoreBytes: expectedCore.byteLength,
+      recapturedCoreBytes: recapturedCore.byteLength,
+      firstCoreMismatch,
+    };
   }
 
   async runNetplayFrame(input: CanonicalInput, suppressOutput = false) {
@@ -339,6 +359,50 @@ export function coreStateBytes(value: Uint8Array) {
     offset = start + ((size + 7) & ~7);
   }
   throw new Error("STATE_INVALID");
+}
+
+// FBNeo scans the Neo Geo AY8910 sound generator through its driver state (96 bytes), then
+// nYM2610Position and nAY8910Position (8 bytes), immediately before uPD4990A.
+// These audio-output states depend on browser sample scheduling, not game logic.
+// Its libretro serializer also writes nCurrentFrame (4 bytes), followed by the
+// 1588 bytes registered by YM2610_save_state, before NeoScan writes game state.
+const fbneoLibretroFrameCounterBytes = 4;
+const fbneoNeoGeoYM2610StateBytes = 1_588;
+const fbneoNeoGeoAY8910StateBytes = 96;
+const fbneoYM2610OutputPositionBytes = 8;
+const fbneoNeoGeoRTCTicksPerSecond = 12_000_000;
+
+export function checkpointCoreStateBytes(value: Uint8Array, profileID: string) {
+  if (profileID !== "fbneo-423-v1") return value;
+  const view = new DataView(value.buffer, value.byteOffset, value.byteLength);
+  const candidates: number[] = [];
+  for (let offset = 0; offset + 68 <= value.byteLength; offset += 4) {
+    const seconds = view.getUint32(offset, true);
+    const minutes = view.getUint32(offset + 4, true);
+    const hours = view.getUint32(offset + 8, true);
+    const day = view.getUint32(offset + 12, true);
+    const month = view.getUint32(offset + 16, true);
+    const year = view.getUint32(offset + 20, true);
+    const weekDay = view.getUint32(offset + 24, true);
+    const mode = view.getInt32(offset + 28, true);
+    const tpMode = view.getInt32(offset + 32, true);
+    const command = view.getUint32(offset + 44, true);
+    const outputs = view.getUint32(offset + 60, true);
+    const ticksPerSecond = view.getUint32(offset + 64, true);
+    if (seconds < 60 && minutes < 60 && hours < 24 && day >= 1 && day <= 31 && month >= 1 && month <= 12 &&
+      year < 100 && weekDay < 7 && mode >= 0 && mode <= 2 && tpMode >= 0 && tpMode <= 2 && command <= 15 &&
+      (outputs & 0xff) <= 1 && ((outputs >>> 8) & 0xff) <= 1 && ((outputs >>> 16) & 0xff) <= 1 &&
+      ticksPerSecond === fbneoNeoGeoRTCTicksPerSecond) candidates.push(offset);
+  }
+  if (candidates.length !== 1) return value;
+  const audioEnd = candidates[0]!;
+  const audioStart = audioEnd - fbneoNeoGeoAY8910StateBytes - fbneoYM2610OutputPositionBytes;
+  const driverStateStart = fbneoLibretroFrameCounterBytes + fbneoNeoGeoYM2610StateBytes;
+  if (audioStart < 0 || driverStateStart > value.byteLength) return value;
+  const projected = new Uint8Array(value);
+  projected.fill(0, fbneoLibretroFrameCounterBytes, driverStateStart);
+  projected.fill(0, audioStart, audioEnd);
+  return projected;
 }
 
 export async function digestHex(value: Uint8Array) {

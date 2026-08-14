@@ -1,4 +1,4 @@
-import { EJSNetplayFrameBridge, coreStateBytes, digestHex } from "./ejs-netplay-4.2.3-v1";
+import { EJSNetplayFrameBridge, checkpointCoreStateBytes, coreStateBytes, digestHex } from "./ejs-netplay-4.2.3-v1";
 import { decodeServerMessage, decodeStateFrame, encodeStateFrame, type ServerMessage } from "./protocol";
 import { RollbackTimeline, predictInputs, type CanonicalInput } from "./rollback";
 
@@ -17,7 +17,7 @@ export type NetplayProfile = {
   defaultCoreOptions: Record<string, string>;
   controlCount: 24;
   maxPlayers: number;
-  maxPredictionFrames: 8;
+  maxPredictionFrames: number;
   maxRollbackFrames: 120;
   checkpointEveryFrames: 120;
   canonicalHistoryFrames: 600;
@@ -41,7 +41,8 @@ export type NetplayDiagnostics = {
   onStateCapture?: (evidence: { byteLength: number; stateDigest: string; coreDigest: string }) => void;
   onStateLoad?: (evidence: {
     byteLength: number; stateDigest: string; coreDigest: string;
-    changed: boolean; nativeCompletion: boolean; byteExact: boolean;
+    changed: boolean; nativeCompletion: boolean; byteExact: boolean; coreExact: boolean;
+    expectedCoreBytes: number; recapturedCoreBytes: number; firstCoreMismatch: number;
   }) => void;
   onEpoch?: (evidence: { epoch: number; nextFrame: number; resync: boolean }) => void;
   onCanonical?: (evidence: { frame: number; predictionFrames: number }) => void;
@@ -62,6 +63,10 @@ declare global {
   }
 }
 
+// Strict lockstep may submit controls ahead to cover network RTT, but never
+// executes those frames until the server returns their canonical inputs.
+const lockstepInputBufferFrames = 8;
+
 export class NetplayController {
   private socket: WebSocket | null = null;
   private clientSeq = 0;
@@ -70,7 +75,7 @@ export class NetplayController {
   private nextFrame = 0;
   private occupiedMask = 0;
   private lastInput: CanonicalInput | null = null;
-  private readonly timeline = new RollbackTimeline();
+  private readonly timeline: RollbackTimeline;
   private work = Promise.resolve();
   private pendingState: PendingState | null = null;
   private advancing = false;
@@ -82,11 +87,13 @@ export class NetplayController {
   private reconnectDeadline = 0;
   private reconnectTimer: number | null = null;
   private lastCanonicalFrame = -1;
+  private lockstepInputThrough = -1;
   private resumeBlocked = false;
   private sendNotBeforeMS = 0;
   private readonly sendQueue: Array<{ socket: WebSocket; payload: string | Uint8Array; sendAtMS: number }> = [];
   private sendTimer: number | null = null;
   private readonly pendingCheckpoints = new Set<number>();
+  private readonly lockstepCheckpointStates = new Map<number, Uint8Array>();
   private flushingCheckpoints = false;
   private checkpointFlushRequested = false;
   private readonly diagnostics?: NetplayDiagnostics;
@@ -116,6 +123,11 @@ export class NetplayController {
         injectDesync: () => this.injectDesyncForTest(),
       });
     }
+    this.timeline = new RollbackTimeline(
+      this.config.netplayProfile.maxRollbackFrames,
+      undefined,
+      this.config.netplayProfile.maxPredictionFrames,
+    );
   }
 
   setProfileDigest(value: string) {
@@ -276,7 +288,14 @@ export class NetplayController {
 
   private async sendAuthorityState(message: ServerMessage) {
     if (this.config.playerNo !== 1 || !message.transferId || !Number.isSafeInteger(message.nextFrame)) throw new Error("PROTOCOL_VIOLATION");
-    const state = this.bridge.captureState();
+    const captured = this.bridge.captureState();
+    const normalized = await this.bridge.loadStateForTransfer(captured);
+    let state = normalized.recaptured;
+    if (!normalized.coreExact) {
+      const fixedPoint = await this.bridge.loadStateForTransfer(state);
+      if (!fixedPoint.coreExact) throw new Error("STATE_INVALID");
+      state = fixedPoint.recaptured;
+    }
     if (state.byteLength > this.config.netplayProfile.maxStateBytes) throw new Error("STATE_RING_CAPACITY_EXCEEDED");
     const [stateSha256, coreSha256] = await Promise.all([digestHex(state), digestHex(coreStateBytes(state))]);
     this.diagnostics?.onStateCapture?.({ byteLength: state.byteLength, stateDigest: stateSha256, coreDigest: coreSha256 });
@@ -299,15 +318,18 @@ export class NetplayController {
     const [stateSha256, coreSha256] = await Promise.all([digestHex(decoded.state), digestHex(coreStateBytes(decoded.state))]);
     if (stateSha256 !== pending.stateSha256 || coreSha256 !== pending.coreSha256) throw new Error("STATE_INVALID");
 	const beforeDigest = await digestHex(coreStateBytes(this.bridge.captureState()));
-	await this.bridge.loadStateAndWait(decoded.state);
-	const recaptured = this.bridge.captureState();
+	const loadResult = await this.bridge.loadStateForTransfer(decoded.state);
+	const recaptured = loadResult.recaptured;
 	const recapturedDigest = await digestHex(coreStateBytes(recaptured));
-	const byteExact = equalBytes(recaptured, decoded.state);
+	const coreExact = recapturedDigest === coreSha256;
 	this.diagnostics?.onStateLoad?.({
 		byteLength: decoded.state.byteLength, stateDigest: stateSha256, coreDigest: coreSha256,
-		changed: beforeDigest !== recapturedDigest, nativeCompletion: true, byteExact,
+		changed: beforeDigest !== recapturedDigest, nativeCompletion: true, byteExact: loadResult.byteExact, coreExact,
+		expectedCoreBytes: loadResult.expectedCoreBytes, recapturedCoreBytes: loadResult.recapturedCoreBytes,
+		firstCoreMismatch: loadResult.firstCoreMismatch,
 	});
-    this.send("STATE_APPLIED", { transferId: pending.transferId, stateSha256, coreSha256, nativeLoadCompleted: true, recaptureMatched: true });
+	if (!coreExact) throw new Error("STATE_INVALID");
+    this.send("STATE_APPLIED", { transferId: pending.transferId, stateSha256, coreSha256, nativeLoadCompleted: true, recaptureMatched: coreExact });
     this.pendingState = null;
   }
 
@@ -316,14 +338,33 @@ export class NetplayController {
 	const resync = this.hasRun;
 	this.epoch = message.epoch!; this.nextFrame = message.nextFrame!; this.occupiedMask = message.occupiedSeatMask ?? this.occupiedMask;
     this.hasRun = true; this.epochRunning = true;
-    this.timeline.reset(this.nextFrame); this.pendingCheckpoints.clear(); this.lastInput = null; this.bridge.resetLocalControls();
+    this.timeline.reset(this.nextFrame); this.pendingCheckpoints.clear(); this.lockstepCheckpointStates.clear();
+    this.lastInput = null; this.lockstepInputThrough = this.nextFrame - 1;
+    this.bridge.resetLocalControls();
     this.callbacks.onStatus("网络稳定", "synced"); this.callbacks.onRunning();
 	this.diagnostics?.onEpoch?.({ epoch: this.epoch, nextFrame: this.nextFrame, resync });
     this.requestAdvance();
   }
 
   private requestAdvance() {
+    if (this.config.netplayProfile.maxPredictionFrames === 0) {
+      try { this.fillLockstepInputs(); } catch (error) { this.fail(error); }
+      return;
+    }
     void this.advance().catch((error: unknown) => this.fail(error));
+  }
+
+  private fillLockstepInputs() {
+    if (this.stopped || !this.epochRunning || this.socket?.readyState !== WebSocket.OPEN) return;
+    if (this.lockstepInputThrough < this.nextFrame - 1) throw new Error("NETPLAY_HISTORY_GAP");
+    const targetFrame = this.nextFrame + lockstepInputBufferFrames - 1;
+    while (this.lockstepInputThrough < targetFrame) {
+      const frame = this.lockstepInputThrough + 1;
+      const local = this.bridge.sampleLocalControls();
+      this.send("INPUT", { frame, playerNo: this.config.playerNo, controls: local });
+      this.lockstepInputThrough = frame;
+    }
+    this.callbacks.onStatus("等待其他玩家输入…", "busy");
   }
 
   private async advance() {
@@ -352,7 +393,25 @@ export class NetplayController {
     this.lastCanonicalFrame = Math.max(this.lastCanonicalFrame, message.frame!);
 	this.diagnostics?.onCanonical?.({
 		frame: message.frame!, predictionFrames: Math.max(0, this.nextFrame - message.frame! - 1),
-	});
+    });
+    if (this.config.netplayProfile.maxPredictionFrames === 0) {
+      const advancesFrame = message.frame === this.nextFrame;
+      if (message.frame! > this.nextFrame) throw new Error("NETPLAY_HISTORY_GAP");
+      if (advancesFrame) {
+        if (this.lockstepInputThrough < message.frame!) throw new Error("NETPLAY_HISTORY_GAP");
+        await this.bridge.runNetplayFrame(message.players);
+        this.lastInput = message.players;
+        this.nextFrame = message.frame! + 1;
+        this.callbacks.onStatus("网络稳定", "synced");
+      }
+      if (advancesFrame && (message.frame! + 1) % this.config.netplayProfile.checkpointEveryFrames === 0) {
+        this.lockstepCheckpointStates.set(message.frame!, this.bridge.captureState());
+        this.pendingCheckpoints.add(message.frame!);
+        this.requestCheckpointFlush();
+      }
+      this.requestAdvance();
+      return;
+    }
     if (rollback !== null) {
 		await this.pauseAdvancement();
 		if (this.stopped) return;
@@ -385,6 +444,7 @@ export class NetplayController {
     const targetNextFrame = atFrame! + 1;
     if (this.nextFrame < targetNextFrame) throw new Error("NETPLAY_HISTORY_GAP");
     if (this.nextFrame === targetNextFrame) return;
+    if (this.config.netplayProfile.maxPredictionFrames === 0) throw new Error("NETPLAY_HISTORY_GAP");
     const state = this.timeline.stateAt(targetNextFrame);
     if (!state) throw new Error("ROLLBACK_WINDOW_EXCEEDED");
     await this.bridge.loadStateAndWait(state);
@@ -403,10 +463,14 @@ export class NetplayController {
       do {
         this.checkpointFlushRequested = false;
         for (const frame of [...this.pendingCheckpoints].sort((left, right) => left - right)) {
-          const after = this.timeline.stateAt(frame + 1);
+          const lockstepState = this.lockstepCheckpointStates.get(frame);
+          const after = lockstepState ?? this.timeline.stateAt(frame + 1);
           if (!after) continue;
           this.pendingCheckpoints.delete(frame);
-          const coreDigest = await digestHex(coreStateBytes(after));
+          this.lockstepCheckpointStates.delete(frame);
+          const core = coreStateBytes(after);
+          const checkpointCore = checkpointCoreStateBytes(core, this.config.netplayProfile.profileId);
+          const coreDigest = await digestHex(checkpointCore);
           this.diagnostics?.onCheckpoint?.({ frame, coreDigest });
           this.send("HASH", { frame, coreDigest });
         }

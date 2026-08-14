@@ -1805,7 +1805,7 @@ components:
           additionalProperties: { type: string }
         controlCount: { type: integer, enum: [24] }
         maxPlayers: { type: integer, minimum: 2, maximum: 4 }
-        maxPredictionFrames: { type: integer, enum: [8] }
+        maxPredictionFrames: { type: integer, minimum: 0, maximum: 8 }
         maxRollbackFrames: { type: integer, enum: [120] }
         checkpointEveryFrames: { type: integer, enum: [120] }
         canonicalHistoryFrames: { type: integer, enum: [600] }
