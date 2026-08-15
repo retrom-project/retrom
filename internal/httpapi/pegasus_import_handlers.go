@@ -12,6 +12,7 @@ import (
 	"retrom/internal/cursor"
 	"retrom/internal/pegasusimport"
 	"retrom/internal/serversource"
+	"retrom/internal/tagging"
 )
 
 func (server *Server) createPegasusImport(writer http.ResponseWriter, request *http.Request) {
@@ -167,6 +168,16 @@ func (server *Server) updatePegasusMappings(writer http.ResponseWriter, request 
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "集合映射无效", map[string]any{})
 		return
 	}
+	for _, mapping := range body.Mappings {
+		if _, err := tagging.ValidateIDs(mapping.TagIDs); err != nil {
+			writeTagError(writer, request, err)
+			return
+		}
+		if mapping.Action == "SKIP" && len(mapping.TagIDs) != 0 {
+			writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "跳过的集合不能关联标签", map[string]any{})
+			return
+		}
+	}
 	summary, err := server.pegasusImports.UpdateMappings(
 		request.Context(),
 		request.PathValue("pegasusImportId"),
@@ -174,6 +185,10 @@ func (server *Server) updatePegasusMappings(writer http.ResponseWriter, request 
 		body.Mappings,
 	)
 	if err != nil {
+		if errors.Is(err, tagging.ErrReferenceInvalid) || errors.Is(err, tagging.ErrAssignmentLimitExceeded) {
+			writeTagError(writer, request, err)
+			return
+		}
 		server.writePegasusImportError(writer, request, err)
 		return
 	}
@@ -409,6 +424,7 @@ func pegasusImportErrorCode(err error) string {
 		pegasusimport.ErrMetadataAbsent,
 		pegasusimport.ErrScanLimit,
 		pegasusimport.ErrMapping,
+		pegasusimport.ErrVersionConflict,
 		pegasusimport.ErrNoSelection,
 		pegasusimport.ErrSourceChanged,
 		pegasusimport.ErrExpired,

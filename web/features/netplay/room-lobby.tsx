@@ -9,6 +9,7 @@ import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
 import { applyRoomSnapshot, NetplayAPIError, netplayBlocker, roomMutation, type NetplayGame, type NetplayLaunch, type NetplayRoom } from "./client";
+import { TagChips } from "@/components/tag-picker";
 
 type Filters = { query: string; platformId: string; platformInstanceId: string; availability: "SUPPORTED" | "ALL"; sort: "RECENT_DESC" | "ADDED_DESC" | "TITLE_ASC" };
 export type NetplayFilterParams = Partial<Record<"q" | "platformId" | "platformInstanceId" | "availability" | "sort", string>>;
@@ -40,7 +41,7 @@ function GamePicker({ games, busy, initialFilterParams, onSelect }: {
       if (filters.availability === "SUPPORTED" && game.availability !== "SUPPORTED") return false;
       if (filters.platformId && game.platformId !== filters.platformId) return false;
       if (filters.platformInstanceId && game.platformInstanceId !== filters.platformInstanceId) return false;
-      return !query || [game.title, game.platformName, game.platformInstanceName, ...game.netplayProfiles.map((profile) => profile.coreName)].some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
+      return !query || [game.title, game.platformName, game.platformInstanceName, ...game.netplayProfiles.map((profile) => profile.coreName), ...game.tags.map((tag) => tag.name)].some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
     }).sort((left, right) => {
       const title = left.title.localeCompare(right.title, "zh-CN") || left.gameId.localeCompare(right.gameId);
       if (filters.sort === "TITLE_ASC") return title;
@@ -78,7 +79,7 @@ function GamePicker({ games, busy, initialFilterParams, onSelect }: {
     </div><div className="library-platform-row"><span className="library-platform-label">平台</span><button className={!filters.platformId ? "is-active" : ""} type="button" onClick={() => setFilters((current) => ({ ...current, platformId: "", platformInstanceId: "" }))}>全部</button>{platforms.map(([id, name]) => <button className={filters.platformId === id ? "is-active" : ""} key={id} type="button" onClick={() => setFilters((current) => ({ ...current, platformId: id, platformInstanceId: current.platformId === id ? current.platformInstanceId : "" }))}>{name}</button>)}<label className="netplay-sort"><span className="sr-only">排序</span><select value={filters.sort} onChange={(event) => setFilters((current) => ({ ...current, sort: event.target.value as Filters["sort"] }))}><option value="RECENT_DESC">最近游玩</option><option value="ADDED_DESC">最近添加</option><option value="TITLE_ASC">标题排序</option></select></label></div></div>
     {filtered.length ? <div className="library-game-grid">{filtered.map((game) => <article className={`library-game-card netplay-game-card${game.availability === "UNSUPPORTED" ? " is-disabled" : ""}`} key={game.gameId}>
       <div className="library-game-cover">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="280px" unoptimized /> : <span className="library-poster"><small>RETROM NETPLAY</small><strong>{game.title}</strong><span>{game.platformName}</span></span>}<span className="library-platform-tag">{game.platformName}</span></div>
-      <div className="library-game-body"><div className="library-game-title-row"><h2>{game.title}</h2></div><p><span>{game.platformInstanceName}</span><span>{game.netplayProfiles[0]?.coreName ?? "未验证核心"}</span></p>{game.availability === "SUPPORTED" ? <button className="button netplay-select-game" type="button" disabled={busy} onClick={() => onSelect(game)}>选择</button> : <p className="netplay-blocker">{netplayBlocker(game.blockerCode)}</p>}</div>
+      <div className="library-game-body"><div className="library-game-title-row"><h2>{game.title}</h2></div><p><span>{game.platformInstanceName}</span><span>{game.netplayProfiles[0]?.coreName ?? "未验证核心"}</span></p><TagChips tags={game.tags} limit={2} label={`${game.title} 的标签`} />{game.availability === "SUPPORTED" ? <button className="button netplay-select-game" type="button" disabled={busy} onClick={() => onSelect(game)}>选择</button> : <p className="netplay-blocker">{netplayBlocker(game.blockerCode)}</p>}</div>
     </article>)}</div> : <EmptyState title={filters.availability === "SUPPORTED" ? "当前筛选没有支持联机的游戏" : "没有符合条件的游戏"} description="调整搜索或平台范围后重试。" action={<button className="button secondary" type="button" onClick={() => setFilters((current) => ({ ...current, query: "", availability: "ALL" }))}>查看全部游戏</button>} />}
   </section>;
 }

@@ -8,6 +8,7 @@ import { formatTime, type ListResponse } from "@/lib/backend";
 import { statusTone } from "@/lib/status";
 import { useAuth } from "@/features/auth/auth-provider";
 import { userStorageKey } from "@/features/auth/storage";
+import { TagChips, type TagReference } from "@/components/tag-picker";
 
 export type ReviewQueueItem = {
   itemId: string;
@@ -27,6 +28,7 @@ export type ReviewQueueItem = {
   sourceLabel?: string | null;
   pegasusImportId?: string | null;
   updatedAtMs: number;
+  tags?: TagReference[];
 };
 
 function queryString(values: Record<string, string>) {
@@ -153,7 +155,7 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
       <button type="button" className={summaryFilter === "MISSING" ? "is-active" : ""} onClick={() => setSummaryFilter("MISSING")}>未找到信息 {counts.missing}</button>
     </div>
     <div className="review-workflow-list">{visibleItems.map((item) => <article className="review-workflow-row" key={item.itemId} data-review-item={item.itemId}>
-      <div className="review-workflow-game"><div className="review-workflow-thumb">{item.coverUrl ? <Image src={item.coverUrl} alt={`${item.draftTitle} 封面缩略图`} width={56} height={56} unoptimized /> : <span role="img" aria-label={`${item.draftTitle} 暂无封面`}>{item.draftTitle.slice(0, 2).toUpperCase() || "R"}</span>}</div><div><h3>{item.draftTitle}{item.sourceKind === "PEGASUS" ? <span className="review-source-tag">Pegasus{item.sourceLabel ? ` · ${item.sourceLabel}` : ""}</span> : null}</h3><p title={item.sourceDisplayName}><span>{item.sourceDisplayName}</span> · <span>{formatBytes(item.sourceTotalSizeBytes)}</span> · <code title={item.sourceMd5 ? `MD5 ${item.sourceMd5}` : "MD5 暂不可用"}>{item.sourceMd5 ? `MD5 ${item.sourceMd5.slice(0, 4)}…` : "MD5 暂不可用"}</code></p></div></div>
+      <div className="review-workflow-game"><div className="review-workflow-thumb">{item.coverUrl ? <Image src={item.coverUrl} alt={`${item.draftTitle} 封面缩略图`} width={56} height={56} unoptimized /> : <span role="img" aria-label={`${item.draftTitle} 暂无封面`}>{item.draftTitle.slice(0, 2).toUpperCase() || "R"}</span>}</div><div><h3>{item.draftTitle}{item.sourceKind === "PEGASUS" ? <span className="review-source-tag">Pegasus{item.sourceLabel ? ` · ${item.sourceLabel}` : ""}</span> : null}</h3><TagChips tags={item.tags ?? []} limit={2} label={`${item.draftTitle} 的标签`} /><p title={item.sourceDisplayName}><span>{item.sourceDisplayName}</span> · <span>{formatBytes(item.sourceTotalSizeBytes)}</span> · <code title={item.sourceMd5 ? `MD5 ${item.sourceMd5}` : "MD5 暂不可用"}>{item.sourceMd5 ? `MD5 ${item.sourceMd5.slice(0, 4)}…` : "MD5 暂不可用"}</code></p></div></div>
       <div className="review-workflow-directory">{item.platformInstance.name}</div>
       <StatusBadge tone={statusTone(item.blockerCodes[0] ?? item.validationStatus)}>{validationLabels[item.validationStatus] ?? item.validationStatus}{item.blockerCodes.length ? " · 需要处理" : ""}</StatusBadge>
       <div className="review-workflow-candidate"><strong>{item.sourceKind === "PEGASUS" ? "已读取 Pegasus 信息" : item.candidateCount ? "已找到游戏信息" : "未找到游戏信息"}</strong><small>{item.sourceKind === "PEGASUS" ? "等待管理员核对" : item.candidateCount ? `${item.candidateCount} 个候选` : "需要手动填写"}</small></div>

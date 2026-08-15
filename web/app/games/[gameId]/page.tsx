@@ -8,6 +8,7 @@ import { LaunchControls, type CoreOption, type DOSEntry } from "@/features/playe
 import { collectSavePages, latestAvailableSave, type SavePage } from "@/features/saves/save-library";
 import { withQuery } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
+import { TagChips, type TagReference } from "@/components/tag-picker";
 
 type GameDetail = {
   gameId: string; title: string; description: string; developer: string; publisher: string; genre: string;
@@ -18,6 +19,7 @@ type GameDetail = {
   dosEntries: DOSEntry[];
   defaultDosEntry: string | null;
   favorite: FavoriteReference | null;
+  tags: TagReference[];
 };
 
 function formatPlayTime(value: number) {
@@ -60,6 +62,7 @@ export default async function GamePage({ params }: { params: Promise<{ gameId: s
         <div className="game-detail-main">
           <p className="game-detail-eyebrow">{game.platform.name} · {game.platformInstance.name}</p>
           <h1>{game.title}</h1>
+          <TagChips tags={game.tags ?? []} linked />
           <FavoriteActions gameId={game.gameId} title={game.title} initialFavorite={game.favorite} variant="detail" />
           <div className="game-detail-meta">{game.releaseYear ? <span>{game.releaseYear}</span> : null}{game.publisher ? <span>{game.publisher}</span> : null}{game.genre ? <span>{game.genre}</span> : null}</div>
           <p className="game-detail-description">{game.description || "尚未填写游戏简介。"}</p>

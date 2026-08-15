@@ -50,6 +50,9 @@ const captures = [
   ["retrom-ui-admin-review-history-detail-4k.png", "admin-review-history", 3840, 2160, "history-detail"],
   ["retrom-ui-admin-games-4k.png", "admin-games", 3840, 2160],
   ["retrom-ui-admin-game-detail-4k.png", "admin-game-detail", 3840, 2160],
+  ["retrom-ui-admin-tags-4k.png", "admin-tags", 3840, 2160],
+  ["retrom-ui-admin-tags-mobile.png", "admin-tags", 390, 844],
+  ["retrom-ui-admin-tag-drawer.png", "admin-tags", 1280, 800, "tag-drawer"],
   ["retrom-ui-platform-directories.png", "admin-platform-instances", 3840, 2160],
   ["retrom-ui-platform-directory-create.png", "admin-platform-instances", 2560, 1440, "drawer"],
   ["retrom-ui-confirm-dialog.png", "admin-platform-instances", 2560, 1440, "dialog"],
@@ -98,6 +101,12 @@ try {
       }
       throw new Error(`visible design control missing: ${selector}`);
     };
+    const activate = async (selector) => {
+      const target = frame.locator(selector).first();
+      if (!await target.count()) throw new Error(`design control missing: ${selector}`);
+      if (await target.isVisible()) await target.click();
+      else await target.evaluate((element) => element.click());
+    };
     if (["setup", "login", "register", "reset"].includes(view)) {
       await frame.locator(`[data-review-scene="${view}"]`).click();
     } else if (view.startsWith("admin-")) {
@@ -110,20 +119,21 @@ try {
     } else if (view === "play") {
       await clickVisible('[data-quick-start="metal"]');
     } else if (view === "admin-game-detail") {
-      await clickVisible('[data-page-target="admin-games"]');
-      await clickVisible('[data-page-link="admin-game-detail"]');
+      await activate('[data-page-target="admin-games"]');
+      await activate('[data-page-link="admin-game-detail"]');
     } else if (view === "admin-server-import-detail") {
-      await clickVisible('[data-page-target="admin-server-import"]');
-      await clickVisible('[data-page-link="admin-server-import-detail"]');
+      await activate('[data-page-target="admin-server-import"]');
+      await activate('[data-page-link="admin-server-import-detail"]');
     } else if (view === "admin-pegasus-import-detail") {
-      await clickVisible('[data-page-target="admin-server-import"]');
-      await clickVisible('[data-page-link="admin-pegasus-import-detail"]');
+      await activate('[data-page-target="admin-server-import"]');
+      await activate('[data-page-link="admin-pegasus-import-detail"]');
     } else if (view === "netplay-room") {
       await frame.locator('[data-review-scene="netplay-room"]').click();
     } else if (view === "netplay-player") {
       await frame.locator('[data-review-scene="netplay-player"]').click();
     } else if (!["home", "setup", "login", "register", "reset"].includes(view)) {
-      await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);
+      if (view.startsWith("admin-")) await activate(`[data-page-target="${view}"], [data-page-link="${view}"]`);
+      else await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);
     }
     const viewSelector = ["setup", "login", "register", "reset"].includes(view)
       ? `[data-auth-page="${view}"]`
@@ -139,6 +149,7 @@ try {
     if (variant === "drawer") await frame.locator("[data-open-platform-drawer]").click();
     if (variant === "dialog") await frame.locator("[data-preview-core]").first().click();
     if (variant === "user-drawer") await frame.locator("[data-open-user-drawer]").nth(1).click();
+    if (variant === "tag-drawer") await frame.locator("[data-open-tag-drawer]").first().click();
     if (variant === "invitation-result") {
       await frame.locator("[data-open-invite-drawer]").click();
       await frame.locator("[data-create-invitation]").click();

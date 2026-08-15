@@ -114,6 +114,23 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-FAV-003": (180, "scripts/acceptance/ui-case.sh ACC-FAV-003"),
     "ACC-FAV-004": (180, "scripts/acceptance/ui-case.sh ACC-FAV-004"),
+    "ACC-TAG-001": (
+        120,
+        "go test ./internal/store ./internal/tagging -run 'TestTagMigrationUpgradesVersion33AndPreservesPegasusCollections|TestNormalizeName|TestValidateIDsRejectsDuplicatesAndLimit|TestTagLifecycleAndNameReuse|TestTagCapacityAndDatabaseAssignmentGuard' -count=1 && go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1",
+    ),
+    "ACC-TAG-002": (
+        120,
+        "go test ./internal/tagging ./internal/httpapi -run 'TestReplaceGameTagsAndDeleteInvalidatesGameVersion|TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation' -count=1",
+    ),
+    "ACC-TAG-003": (
+        180,
+        "go test -tags=integration ./internal/libraryimport -run '^TestUploadImportReviewPublishPipeline$' -count=1",
+    ),
+    "ACC-TAG-004": (
+        180,
+        "go test -tags=integration ./internal/pegasusimport -run '^TestScanMapImportCreatesReviewBeforePublishingGameAndMedia$' -count=1",
+    ),
+    "ACC-TAG-005": (180, "make web-test && scripts/acceptance/ui-case.sh ACC-TAG-005"),
     "ACC-OPS-001": (
         120,
         "go test ./internal/config ./internal/httpapi -run 'TestRejectUnknownVariablesAllowsToolPrefixesOnly|TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders' -count=1 && go test -tags=integration ./internal/httpapi -run '^TestReadinessGatesBusinessRoutesDuringDATIndexing$' -count=1",

@@ -79,16 +79,16 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 		server.createImport(response, request)
 		return response
 	}
-	missing := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","contentMode":"MULTI_DISC_M3U_V1"}`)
+	missing := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
 	if missing.Code != http.StatusUnprocessableEntity || !strings.Contains(missing.Body.String(), "MULTI_DISC_PLAYLIST_MISSING") {
 		t.Fatalf("missing playlist = %d %s", missing.Code, missing.Body.String())
 	}
-	unsupported := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000019","metadataProvider":"NONE","contentMode":"MULTI_DISC_M3U_V1"}`)
+	unsupported := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000019","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
 	if unsupported.Code != http.StatusUnprocessableEntity || !strings.Contains(unsupported.Body.String(), "MULTI_DISC_MODE_UNAVAILABLE") {
 		t.Fatalf("unsupported target = %d %s", unsupported.Code, unsupported.Body.String())
 	}
-	omitted := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE"}`)
-	explicit := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","contentMode":"STANDARD"}`)
+	omitted := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","tagIds":[]}`)
+	explicit := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
 	if omitted.Code != http.StatusAccepted || explicit.Code != http.StatusAccepted {
 		t.Fatalf("standard admission omitted=%d %s explicit=%d %s", omitted.Code, omitted.Body.String(), explicit.Code, explicit.Body.String())
 	}

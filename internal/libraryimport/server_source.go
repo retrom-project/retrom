@@ -13,6 +13,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 )
@@ -71,6 +72,8 @@ func (service *Service) CreateServerSource(
 	ctx context.Context,
 	targetPlatformInstanceID, contentMode string,
 	files []ServerSourceFile,
+	tagIDs []string,
+	assignedByUserID string,
 ) (ServerImportResult, error) {
 	if len(files) == 0 || len(files) > ServerSourceFileLimit {
 		return ServerImportResult{}, ErrInvalid
@@ -101,9 +104,12 @@ func (service *Service) CreateServerSource(
 	); err != nil {
 		return ServerImportResult{}, err
 	}
+	if len(tagIDs) > 0 {
+		ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: assignedByUserID})
+	}
 	created, err := service.create(ctx, CreateRequest{
 		UploadID: uploadID.String(), TargetPlatformInstanceID: targetPlatformInstanceID,
-		MetadataProvider: "NONE", ContentMode: contentMode,
+		MetadataProvider: "NONE", ContentMode: contentMode, TagIDs: tagIDs,
 	}, nil)
 	if err != nil {
 		service.removeUnusedClonedUpload(ctx, uploadID.String())

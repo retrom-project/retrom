@@ -6,6 +6,7 @@ import { useMemo, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { EmptyState } from "@/components/ui";
 import { LaunchButton } from "@/features/player/launch-button";
+import { TagChips } from "@/components/tag-picker";
 import {
   filterRecentGames,
   formatRecentDuration,
@@ -30,6 +31,7 @@ function RecentGameRow({ game }: { game: RecentGame }) {
     <div className="recent-history-content">
       <div className="recent-history-main">
         <Link href={`/games/${game.gameId}`}><h2>{game.title}</h2></Link>
+        <TagChips tags={game.tags ?? []} limit={2} label={`${game.title} 的标签`} />
         <p><AppIcon name="library" />{game.platform.name} · {game.platformInstance.name}</p>
       </div>
       <div className="recent-history-facts">

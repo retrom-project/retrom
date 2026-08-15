@@ -36,7 +36,7 @@ export type ImportDetail = {
   state: string;
   metadataProvider: string;
   targetPlatformInstance: { id: string; name: string };
-  configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1" };
+  configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1"; tags?: Array<{ tagId: string; name: string }> };
   counts: {
     total: number;
     reviewPending: number;

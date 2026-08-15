@@ -172,7 +172,7 @@ paths:
     get:
       operationId: getGames
       description: Published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL; generatedAtMs gives client-side filtering and relative-time labels a stable response clock.
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/TagIDQuery' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/games/{gameId}:
@@ -543,7 +543,7 @@ paths:
     get:
       operationId: getAdminReviews
       description: Pending review summaries including sourceTotalSizeBytes, sourceMd5, and a nullable coverUrl for compact queue previews.
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/ImportJobIDQuery' }, { $ref: '#/components/parameters/PegasusImportIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/BlockerCode' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit20' }]
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/TagIDQuery' }, { $ref: '#/components/parameters/ImportJobIDQuery' }, { $ref: '#/components/parameters/PegasusImportIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/BlockerCode' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit20' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/reviews/{importItemId}:
@@ -633,11 +633,49 @@ paths:
       description: Immutable before/after metadata and evidence captured for an approved or discarded review decision.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/tags:
+    get:
+      operationId: getAdminTags
+      description: Lists instance-wide administrator-managed tags and current or historical usage counts.
+      parameters:
+        - { $ref: '#/components/parameters/Q80' }
+        - { $ref: '#/components/parameters/TagStatus' }
+        - { $ref: '#/components/parameters/TagSort' }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit' }
+      responses:
+        '200': { $ref: '#/components/responses/TagListResponse' }
+    post:
+      operationId: postAdminTag
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/CreateTag' }
+      responses:
+        '201': { $ref: '#/components/responses/TagAdminItemResponse' }
+  /api/v1/admin/tags/{tagId}:
+    parameters: [{ $ref: '#/components/parameters/TagID' }]
+    get:
+      operationId: getAdminTag
+      responses:
+        '200': { $ref: '#/components/responses/TagAdminItemResponse' }
+    patch:
+      operationId: patchAdminTag
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/RenameTag' }
+      responses:
+        '200': { $ref: '#/components/responses/TagAdminItemResponse' }
+    delete:
+      operationId: deleteAdminTag
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/DeleteTag' }
+      responses:
+        '204':
+          description: Tag soft-deleted; retained relationships are historical only.
+          headers: { ETag: { schema: { type: string } } }
   /api/v1/admin/games:
     get:
       operationId: getAdminGames
       description: Lists every managed game with platform/directory/default-core identity, cover, release year, metadata completeness, current default-core runtime status, visibility, creation/update/play timestamps, and cursor pagination.
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/TagIDQuery' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Status' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/games/{gameId}:
@@ -659,6 +697,14 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/DeleteGame' }
       responses:
         '204': { description: Deleted }
+  /api/v1/admin/games/{gameId}/tags:
+    parameters: [{ $ref: '#/components/parameters/GameID' }]
+    put:
+      operationId: putAdminGameTags
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ReplaceGameTags' }
+      responses:
+        '200': { $ref: '#/components/responses/GameTagsResponse' }
   /api/v1/admin/games/{gameId}/assets:
     parameters: [{ $ref: '#/components/parameters/GameID' }]
     post:
@@ -1370,6 +1416,88 @@ components:
       required: [name]
       properties:
         name: { type: string, minLength: 1, maxLength: 160 }
+    TagReference:
+      type: object
+      additionalProperties: false
+      required: [tagId, name]
+      properties:
+        tagId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 160 }
+    TagUsage:
+      type: object
+      additionalProperties: false
+      required: [publishedGameCount, deletedGameCount, reviewDraftCount, pegasusCollectionCount]
+      properties:
+        publishedGameCount: { type: integer, format: int64, minimum: 0 }
+        deletedGameCount: { type: integer, format: int64, minimum: 0 }
+        reviewDraftCount: { type: integer, format: int64, minimum: 0 }
+        pegasusCollectionCount: { type: integer, format: int64, minimum: 0 }
+    TagAdminItem:
+      type: object
+      additionalProperties: false
+      required: [tagId, name, status, version, usage, createdAtMs, updatedAtMs, deletedAtMs]
+      properties:
+        tagId: { type: string, format: uuid }
+        name: { type: string, minLength: 1, maxLength: 160 }
+        status: { type: string, enum: [ACTIVE, DELETED] }
+        version: { type: integer, format: int64, minimum: 1 }
+        usage: { $ref: '#/components/schemas/TagUsage' }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        updatedAtMs: { type: integer, format: int64, minimum: 0 }
+        deletedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+    TagSummary:
+      type: object
+      additionalProperties: false
+      required: [activeTagCount, taggedGameCount, pendingReviewCount]
+      properties:
+        activeTagCount: { type: integer, format: int64, minimum: 0, maximum: 1000 }
+        taggedGameCount: { type: integer, format: int64, minimum: 0 }
+        pendingReviewCount: { type: integer, format: int64, minimum: 0 }
+    TagList:
+      type: object
+      additionalProperties: false
+      required: [generatedAtMs, summary, items, nextCursor]
+      properties:
+        generatedAtMs: { type: integer, format: int64, minimum: 0 }
+        summary: { $ref: '#/components/schemas/TagSummary' }
+        items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/TagAdminItem' } }
+        nextCursor: { type: string, maxLength: 8192, nullable: true }
+    CreateTagRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+    RenameTagRequest:
+      type: object
+      additionalProperties: false
+      required: [name]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 160 }
+    DeleteTagRequest:
+      type: object
+      additionalProperties: false
+      required: [confirmName]
+      properties:
+        confirmName: { type: string, minLength: 1, maxLength: 160 }
+    ReplaceGameTagsRequest:
+      type: object
+      additionalProperties: false
+      required: [tagIds]
+      properties:
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
+    GameTagsResult:
+      type: object
+      additionalProperties: false
+      required: [gameId, version, tags]
+      properties:
+        gameId: { type: string, format: uuid }
+        version: { type: integer, format: int64, minimum: 1 }
+        tags: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/TagReference' } }
     FavoriteReference:
       type: object
       additionalProperties: false
@@ -1430,7 +1558,7 @@ components:
     FavoriteGameItem:
       type: object
       additionalProperties: false
-      required: [gameId, title, platform, platformInstance, defaultCore, coverUrl, releaseYear, createdAtMs, lastPlayedAtMs, favorite]
+      required: [gameId, title, platform, platformInstance, defaultCore, coverUrl, releaseYear, createdAtMs, lastPlayedAtMs, tags, favorite]
       properties:
         gameId: { type: string, format: uuid }
         title: { type: string }
@@ -1441,6 +1569,7 @@ components:
         releaseYear: { type: integer, nullable: true }
         createdAtMs: { type: integer, format: int64, minimum: 0 }
         lastPlayedAtMs: { type: integer, format: int64, minimum: 0, nullable: true }
+        tags: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/TagReference' } }
         favorite: { $ref: '#/components/schemas/FavoriteReference' }
     FavoriteListResponse:
       type: object
@@ -1574,7 +1703,7 @@ components:
     NetplayGameSummary:
       type: object
       additionalProperties: false
-      required: [gameId, title, coverUrl, platformId, platformName, platformInstanceId, platformInstanceName, lastPlayedAtMs, addedAtMs, availability, netplayProfiles, blockerCode]
+      required: [gameId, title, coverUrl, platformId, platformName, platformInstanceId, platformInstanceName, lastPlayedAtMs, addedAtMs, tags, availability, netplayProfiles, blockerCode]
       properties:
         gameId: { type: string, format: uuid }
         title: { type: string }
@@ -1585,6 +1714,7 @@ components:
         platformInstanceName: { type: string }
         lastPlayedAtMs: { type: integer, format: int64, nullable: true }
         addedAtMs: { type: integer, format: int64 }
+        tags: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/TagReference' } }
         availability: { type: string, enum: [SUPPORTED, UNSUPPORTED] }
         netplayProfiles: { type: array, maxItems: 4, items: { $ref: '#/components/schemas/NetplayProfileSummary' } }
         blockerCode: { type: string, enum: [CONTENT_NOT_ALLOWLISTED, CORE_NOT_ALLOWLISTED, DEPENDENCY_STALE, GAME_UNAVAILABLE], nullable: true }
@@ -1831,11 +1961,16 @@ components:
     CreateImportRequest:
       type: object
       additionalProperties: false
-      required: [uploadId, targetPlatformInstanceId, metadataProvider]
+      required: [uploadId, targetPlatformInstanceId, metadataProvider, tagIds]
       properties:
         uploadId: { type: string, format: uuid }
         targetPlatformInstanceId: { type: string, format: uuid }
         metadataProvider: { type: string, enum: [HASHEOUS, NONE] }
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
         contentMode:
           type: string
           enum: [STANDARD, MULTI_DISC_M3U_V1]
@@ -1843,10 +1978,15 @@ components:
     ReconfigureImportRequest:
       type: object
       additionalProperties: false
-      required: [targetPlatformInstanceId, metadataProvider]
+      required: [targetPlatformInstanceId, metadataProvider, tagIds]
       properties:
         targetPlatformInstanceId: { type: string, format: uuid }
         metadataProvider: { type: string, enum: [HASHEOUS, NONE] }
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
     ReasonRequest:
       type: object
       additionalProperties: false
@@ -1898,6 +2038,7 @@ components:
     ReviewDraftRequest:
       type: object
       additionalProperties: false
+      required: [tagIds]
       properties:
         targetPlatformInstanceId: { type: string, format: uuid }
         metadata: { $ref: '#/components/schemas/MetadataFields' }
@@ -1905,6 +2046,11 @@ components:
         selectedCandidateId: { type: string, format: uuid, nullable: true }
         selectedAssets: { $ref: '#/components/schemas/ReviewSelectedAssetsRequest' }
         defaultDosEntry: { type: string, nullable: true }
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
       minProperties: 1
     MetadataProviderRequest:
       type: object
@@ -2058,11 +2204,16 @@ components:
     PegasusCollectionMapping:
       type: object
       additionalProperties: false
-      required: [collectionId, action]
+      required: [collectionId, action, tagIds]
       properties:
         collectionId: { type: string, format: uuid }
         action: { type: string, enum: [IMPORT, SKIP] }
         platformInstanceId: { type: string, format: uuid }
+        tagIds:
+          type: array
+          maxItems: 20
+          uniqueItems: true
+          items: { type: string, format: uuid }
     PegasusCollectionMappingsRequest:
       type: object
       additionalProperties: false
@@ -2273,7 +2424,7 @@ components:
     PegasusSourceCollection:
       type: object
       additionalProperties: false
-      required: [id, metadataRelativePath, segmentOrdinal, name, shortName, description, gameCount, issueCount, mappingAction, targetPlatformInstanceId, targetPlatformInstanceName, targetDefaultCoreId, targetDefaultCoreName, ignoredRules, warningFields]
+      required: [id, metadataRelativePath, segmentOrdinal, name, shortName, description, gameCount, issueCount, mappingAction, targetPlatformInstanceId, targetPlatformInstanceName, targetDefaultCoreId, targetDefaultCoreName, tagSnapshot, ignoredRules, warningFields]
       properties:
         id: { type: string, format: uuid }
         metadataRelativePath: { type: string, maxLength: 4096 }
@@ -2288,6 +2439,7 @@ components:
         targetPlatformInstanceName: { type: string, nullable: true }
         targetDefaultCoreId: { type: string, nullable: true }
         targetDefaultCoreName: { type: string, nullable: true }
+        tagSnapshot: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/TagReference' } }
         ignoredRules: { type: array, uniqueItems: true, items: { type: string } }
         warningFields: { type: array, uniqueItems: true, items: { type: string } }
     PegasusCollectionList:
@@ -2300,7 +2452,7 @@ components:
     PegasusItem:
       type: object
       additionalProperties: false
-      required: [id, title, collectionId, collectionName, targetPlatformInstanceId, targetPlatformInstanceName, metadataRelativePath, executionState, contentKind, media, warnings, discoveryCode, errorCode, failureDetails, runtimeCheck, retryable, reviewItemId, publishedGameId, existingGameId, existingMatches, updatedAtMs]
+      required: [id, title, collectionId, collectionName, targetPlatformInstanceId, targetPlatformInstanceName, metadataRelativePath, executionState, contentKind, tags, media, warnings, discoveryCode, errorCode, failureDetails, runtimeCheck, retryable, reviewItemId, publishedGameId, existingGameId, existingMatches, updatedAtMs]
       properties:
         id: { type: string, format: uuid }
         title: { type: string }
@@ -2311,6 +2463,7 @@ components:
         metadataRelativePath: { type: string, maxLength: 4096 }
         executionState: { type: string, enum: [PENDING, COPYING, VALIDATING, PUBLISHING, REVIEW_PENDING, PUBLISHED, REVIEW_DISCARDED, SKIPPED_EXISTING, SKIPPED_MAPPING, BLOCKED_SOURCE, BLOCKED_CONTENT, BLOCKED_VALIDATION, SOURCE_CHANGED, READ_FAILED, COMMIT_FAILED, CANCELLED] }
         contentKind: { type: string, nullable: true, enum: [SINGLE_FILE, DOS_BUNDLE, MULTI_DISC_M3U_V1] }
+        tags: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/TagReference' } }
         media:
           type: object
           additionalProperties: false
@@ -3105,6 +3258,10 @@ components:
     RestoreFavorites: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RestoreFavoritesRequest' } } } }
     CreateFavoriteFolder: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateFavoriteFolderRequest' } } } }
     PatchFavoriteFolder: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PatchFavoriteFolderRequest' } } } }
+    CreateTag: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateTagRequest' } } } }
+    RenameTag: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/RenameTagRequest' } } } }
+    DeleteTag: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/DeleteTagRequest' } } } }
+    ReplaceGameTags: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReplaceGameTagsRequest' } } } }
     ReviewDraft: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewDraftRequest' } } } }
     MetadataProvider: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MetadataProviderRequest' } } } }
     MetadataFields: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MetadataFields' } } } }
@@ -3133,6 +3290,17 @@ components:
     PlayEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PlayEventRequest' } } } }
     MultiDiscPlayerEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MultiDiscPlayerEventRequest' } } } }
   responses:
+    TagAdminItemResponse:
+      description: Administrator tag projection
+      headers: { ETag: { schema: { type: string } } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/TagAdminItem' } } }
+    TagListResponse:
+      description: Cursor-paged tag management list and instance-wide summary
+      content: { application/json: { schema: { $ref: '#/components/schemas/TagList' } } }
+    GameTagsResponse:
+      description: Current active tag set for one managed game
+      headers: { ETag: { schema: { type: string } } }
+      content: { application/json: { schema: { $ref: '#/components/schemas/GameTagsResult' } } }
     BIOSListResponse:
       description: Cursor-paged BIOS catalog with scope-wide aggregates
       content: { application/json: { schema: { $ref: '#/components/schemas/BIOSListResponseBody' } } }
@@ -3274,6 +3442,9 @@ components:
     Role: { name: role, in: query, schema: { type: string, enum: [ADMIN, USER] } }
     PlatformIDQuery: { name: platformId, in: query, schema: { type: string } }
     GameIDQuery: { name: gameId, in: query, schema: { type: string, format: uuid } }
+    TagIDQuery: { name: tagId, in: query, schema: { type: string, format: uuid } }
+    TagStatus: { name: status, in: query, schema: { type: string, enum: [ACTIVE, DELETED, ALL], default: ACTIVE } }
+    TagSort: { name: sort, in: query, schema: { type: string, enum: [NAME_ASC, UPDATED_DESC], default: NAME_ASC } }
     PlatformInstanceIDQuery: { name: platformInstanceId, in: query, schema: { type: string, format: uuid } }
     CoreIDQuery: { name: coreId, in: query, schema: { type: string } }
     CoreArtifactIDQuery: { name: coreArtifactId, in: query, schema: { type: string, format: uuid } }
@@ -3316,6 +3487,7 @@ components:
     ContentDigest: { name: Content-Digest, in: header, required: true, schema: { type: string } }
     LastEventID: { name: Last-Event-ID, in: header, schema: { type: string, pattern: '^[0-9]+$' } }
     GameID: { name: gameId, in: path, required: true, schema: { type: string, format: uuid } }
+    TagID: { name: tagId, in: path, required: true, schema: { type: string, format: uuid } }
     FavoriteFolderID: { name: folderId, in: path, required: true, schema: { type: string, format: uuid } }
     SaveStateID: { name: saveStateId, in: path, required: true, schema: { type: string, format: uuid } }
     UploadID: { name: uploadId, in: path, required: true, schema: { type: string, format: uuid } }

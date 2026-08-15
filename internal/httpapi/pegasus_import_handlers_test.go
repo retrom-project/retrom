@@ -87,7 +87,7 @@ lower(hex(zeroblob(32))),NULL,'{}','{}',1,1,1,1)`); err != nil {
 	if err := server.database.QueryRow(`SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
 	}
-	mappingBody, _ := json.Marshal(map[string]any{"mappings": []map[string]any{{"collectionId": page.Items[0].ID, "action": "IMPORT", "platformInstanceId": platformInstanceID}}})
+	mappingBody, _ := json.Marshal(map[string]any{"mappings": []map[string]any{{"collectionId": page.Items[0].ID, "action": "IMPORT", "platformInstanceId": platformInstanceID, "tagIds": []string{}}}})
 	mappingRequest := httptest.NewRequest(http.MethodPut, "/api/v1/admin/pegasus-imports/"+summary.ID+"/collection-mappings", strings.NewReader(string(mappingBody)))
 	mappingRequest.Header.Set("Content-Type", "application/json")
 	mappingRequest.Header.Set("If-Match", `"v`+jsonInt(summary.Version)+`"`)

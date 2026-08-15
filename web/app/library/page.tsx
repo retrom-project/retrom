@@ -13,13 +13,14 @@ async function loadAllGames() {
 }
 
 export default async function LibraryPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const values = scalarSearchParams(await searchParams, ["q", "platformId", "platformInstanceId", "sort"]);
+  const values = scalarSearchParams(await searchParams, ["q", "platformId", "platformInstanceId", "tagId", "sort"]);
   const sort: LibraryFilters["sort"] = values.sort === "ADDED_DESC" || values.sort === "TITLE_ASC" ? values.sort : "RECENT_DESC";
   const library = await loadAllGames();
   return <LibraryBrowser games={library.items} nowMs={library.generatedAtMs} initialFilters={{
     query: values.q ?? "",
     platformId: values.platformId ?? "",
     platformInstanceId: values.platformInstanceId ?? "",
+    tagId: values.tagId ?? "",
     sort,
   }} />;
 }

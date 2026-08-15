@@ -25,6 +25,7 @@ import (
 type executionItem struct {
 	ID, TargetPlatformID, TargetPlatformKind, TargetDATVersionID, MetadataJSON string
 	LibraryImportJobID, LibraryImportItemID                                    string
+	TagIDs                                                                     []string
 	Files                                                                      []executionFile
 	Assets                                                                     []executionAsset
 }
@@ -99,16 +100,18 @@ func (service *Service) nextItem(ctx context.Context, importID string) (executio
 	}
 	defer cleanup.Rollback(transaction)
 	var item executionItem
+	var tagSnapshot string
 	err = transaction.QueryRowContext(ctx, `
 SELECT item.id,collection.target_platform_instance_id,collection.target_platform_id,
 COALESCE(collection.target_dat_version_id,''),item.metadata_json,
+collection.tag_snapshot_json,
 COALESCE(item.library_import_job_id,''),COALESCE(item.library_import_item_id,'')
 FROM pegasus_import_items item JOIN pegasus_import_collections collection ON collection.id=item.collection_id
 WHERE item.import_id=? AND item.execution_state='PENDING' AND collection.mapping_action='IMPORT'
 ORDER BY item.metadata_relative_path,item.game_ordinal,item.id LIMIT 1`, importID).
 		Scan(
 			&item.ID, &item.TargetPlatformID, &item.TargetPlatformKind,
-			&item.TargetDATVersionID, &item.MetadataJSON,
+			&item.TargetDATVersionID, &item.MetadataJSON, &tagSnapshot,
 			&item.LibraryImportJobID, &item.LibraryImportItemID,
 		)
 	if errors.Is(err, sql.ErrNoRows) {
@@ -116,6 +119,15 @@ ORDER BY item.metadata_relative_path,item.game_ordinal,item.id LIMIT 1`, importI
 	}
 	if err != nil {
 		return executionItem{}, false, fmt.Errorf("pegasusimport/read next item: %w", err)
+	}
+	var references []struct {
+		TagID string `json:"tagId"`
+	}
+	if err := json.Unmarshal([]byte(tagSnapshot), &references); err != nil || references == nil {
+		return executionItem{}, false, ErrInvalid
+	}
+	for _, reference := range references {
+		item.TagIDs = append(item.TagIDs, reference.TagID)
 	}
 	now := service.now().UnixMilli()
 	result, err := transaction.ExecContext(
@@ -333,7 +345,9 @@ func (service *Service) prepareReviewItem(ctx context.Context, unit work, root R
 	if len(item.Files) > 1 {
 		mode = contentcapability.ModeMultiDiscM3UV1
 	}
-	result, err := service.importer.CreateServerSource(ctx, item.TargetPlatformID, mode, files)
+	result, err := service.importer.CreateServerSource(
+		ctx, item.TargetPlatformID, mode, files, item.TagIDs, unit.CreatedByUserID,
+	)
 	if err != nil {
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "PEGASUS_LIBRARY_IMPORT_FAILED", true, "",

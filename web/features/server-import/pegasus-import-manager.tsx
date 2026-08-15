@@ -13,6 +13,7 @@ import { formatBytes } from "@/lib/backend";
 import { newUuid } from "@/lib/crypto";
 import { responseError } from "@/lib/upload";
 import type { ServerImportRoot } from "./server-import-manager";
+import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
 
 export type PegasusImportSummary = components["schemas"]["PegasusImportSummary"];
 export type PegasusImportList = components["schemas"]["PegasusImportList"];
@@ -119,12 +120,19 @@ function message(response: Response, fallback: string) {
   return responseError(response, fallback);
 }
 
-type MappingDraft = { action: "" | "IMPORT" | "SKIP"; platformInstanceId: string };
+type MappingDraft = { action: "" | "IMPORT" | "SKIP"; platformInstanceId: string; tags: TagReference[] };
 
-export function PegasusImportDrawer({ open, roots, platformInstances, resumablePlan, onClose, onStarted }: {
+function mergeTags(current: TagReference[], additions: TagReference[]) {
+  const merged = new Map(current.map((tag) => [tag.tagId, tag]));
+  additions.forEach((tag) => merged.set(tag.tagId, tag));
+  return [...merged.values()].sort((left, right) => left.name.localeCompare(right.name, "zh-CN"));
+}
+
+export function PegasusImportDrawer({ open, roots, platformInstances, activeTags = [], resumablePlan, onClose, onStarted }: {
   open: boolean;
   roots: ServerImportRoot[];
   platformInstances: PegasusPlatformInstance[];
+  activeTags?: TagReference[];
   resumablePlan?: PegasusImportSummary;
   onClose: () => void;
   onStarted: (summary: PegasusImportSummary) => void;
@@ -143,6 +151,8 @@ export function PegasusImportDrawer({ open, roots, platformInstances, resumableP
   const [plan, setPlan] = useState<PegasusImportSummary | null>(resumablePlan ?? null);
   const [collections, setCollections] = useState<PegasusCollection[]>([]);
   const [mappings, setMappings] = useState<Record<string, MappingDraft>>({});
+  const [batchTags, setBatchTags] = useState<TagReference[]>([]);
+  const [batchTagStatus, setBatchTagStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -162,9 +172,12 @@ export function PegasusImportDrawer({ open, roots, platformInstances, resumableP
       cursor = data.nextCursor ?? undefined;
     } while (cursor);
     setCollections(all);
+    setBatchTags([]);
+    setBatchTagStatus("");
     setMappings(Object.fromEntries(all.map((collection) => [collection.id, {
       action: collection.mappingAction ?? "",
       platformInstanceId: collection.targetPlatformInstanceId ?? "",
+      tags: collection.tagSnapshot ?? [],
     }])));
     return all;
   }, []);
@@ -288,7 +301,7 @@ export function PegasusImportDrawer({ open, roots, platformInstances, resumableP
       let current = plan;
       const values = collections.map((collection) => {
         const draft = mappings[collection.id];
-        return draft.action === "SKIP" ? { collectionId: collection.id, action: "SKIP" as const } : { collectionId: collection.id, action: "IMPORT" as const, platformInstanceId: draft.platformInstanceId };
+        return draft.action === "SKIP" ? { collectionId: collection.id, action: "SKIP" as const, tagIds: [] } : { collectionId: collection.id, action: "IMPORT" as const, platformInstanceId: draft.platformInstanceId, tagIds: draft.tags.map((tag) => tag.tagId) };
       });
       for (let offset = 0; offset < values.length; offset += 100) {
         const { data, response } = await api.PUT("/api/v1/admin/pegasus-imports/{pegasusImportId}/collection-mappings", {
@@ -301,6 +314,26 @@ export function PegasusImportDrawer({ open, roots, platformInstances, resumableP
       setPlan(current); setStep(3);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "集合映射保存失败"); }
     finally { setBusy(false); }
+  }
+
+  function applyBatchTags() {
+    if (!batchTags.length) return;
+    const targets = collections.filter((collection) => mappings[collection.id]?.action !== "SKIP");
+    const oversized = targets.find((collection) => mergeTags(mappings[collection.id]?.tags ?? [], batchTags).length > 20);
+    if (oversized) {
+      setError(`无法批量添加：${oversized.name} 合并后会超过 20 个标签。请先移除部分标签。`);
+      return;
+    }
+    setMappings((current) => {
+      const next = { ...current };
+      targets.forEach((collection) => {
+        const draft = current[collection.id] ?? { action: "", platformInstanceId: "", tags: [] };
+        next[collection.id] = { ...draft, tags: mergeTags(draft.tags, batchTags) };
+      });
+      return next;
+    });
+    const gameCount = targets.reduce((total, collection) => total + collection.gameCount, 0);
+    setBatchTagStatus(`已追加到 ${targets.length} 个未跳过 Collection，覆盖 ${gameCount} 个游戏；仍可在下方逐项调整。`);
   }
 
   async function startImport() {
@@ -319,6 +352,9 @@ export function PegasusImportDrawer({ open, roots, platformInstances, resumableP
 
   const mapped = Object.values(mappings).filter((mapping) => mapping.action === "IMPORT").length;
   const skipped = Object.values(mappings).filter((mapping) => mapping.action === "SKIP").length;
+  const taggedCollections = collections.filter((collection) => mappings[collection.id]?.action === "IMPORT" && mappings[collection.id]?.tags.length);
+  const taggedGames = taggedCollections.reduce((total, collection) => total + collection.gameCount, 0);
+  const mappedTags = mergeTags([], taggedCollections.flatMap((collection) => mappings[collection.id]?.tags ?? []));
   const mappingComplete = collections.length > 0 && mapped + skipped === collections.length && collections.every((collection) => mappings[collection.id]?.action !== "IMPORT" || Boolean(mappings[collection.id]?.platformInstanceId));
   if (!open) return null;
   return <><button type="button" className="runtime-drawer-backdrop" aria-label="关闭 Pegasus 导入" disabled={busy} onClick={onClose} /><aside ref={drawer} className="runtime-drawer server-import-drawer pegasus-import-drawer" role="dialog" aria-modal="true" aria-labelledby="pegasus-import-title" onKeyDown={(event) => {
@@ -333,19 +369,20 @@ export function PegasusImportDrawer({ open, roots, platformInstances, resumableP
     <ol className="pegasus-stepper" aria-label="导入步骤"><li className={step === 1 ? "is-active" : step > 1 ? "is-complete" : ""}><span>1</span>选择目录</li><li className={step === 2 ? "is-active" : step > 2 ? "is-complete" : ""}><span>2</span>检查与映射</li><li className={step === 3 ? "is-active" : ""}><span>3</span>确认审核计划</li></ol>
     <div className="runtime-drawer-body">
       {step === 1 ? <><fieldset className="server-root-options"><legend>服务器位置</legend>{roots.map((root) => <label key={root.id}><input type="radio" name="pegasus-root" checked={rootId === root.id} disabled={busy || root.status !== "AVAILABLE"} onChange={() => { setRootId(root.id); setPath(""); }} /><span><strong>{root.label}</strong><small>{root.status === "AVAILABLE" ? "可用" : "不可用"}</small></span></label>)}</fieldset><div className="server-directory-browser"><nav aria-label="当前目录"><button type="button" onClick={() => setPath("")} disabled={!path || busy}>根目录</button>{breadcrumbs.map((part, index) => <button type="button" key={`${part}-${index}`} disabled={index === breadcrumbs.length - 1 || busy} onClick={() => setPath(breadcrumbs.slice(0, index + 1).join("/"))}>/ {part}</button>)}</nav>{directories.length ? <><ul>{directories.map((directory) => <li key={directory.relativePath}><button type="button" disabled={busy} onClick={() => setPath(directory.relativePath)}><AppIcon name="folder" /><span>{directory.name}</span><span aria-hidden="true">→</span></button></li>)}</ul>{directoryCursor ? <button type="button" className="button secondary compact" disabled={directoryLoading || busy} onClick={() => void loadMoreDirectories()}>{directoryLoading ? "正在读取…" : "加载更多目录"}</button> : null}</> : <p role="status">{directoryLoading ? "正在读取子目录…" : "当前目录没有可进入的子目录。"}</p>}</div><div className="server-import-selection-summary"><strong>{selectedRoot?.label ?? "未选择"} / {path || "根目录"}</strong><span>先异步读取 metadata、文件大小与稳定 facts；确认映射后才读取完整 ROM bytes。</span></div></> : null}
-      {step === 2 ? <>{plan?.state === "SCANNING" ? <div className="pegasus-scan-progress" aria-live="polite"><span className="button-spinner" /><h3>{plan.phase ? phaseLabels[plan.phase] : "扫描准备中"}</h3><p>任务离开页面后仍会继续。当前发现 {plan.counts.metadata} 个 metadata、{plan.counts.collections} 个集合、{plan.counts.games} 个游戏。</p></div> : null}{plan?.state === "FAILED" ? <div className="runtime-inline-empty"><h3>扫描未完成</h3><p>{plan.lastErrorCode ?? "扫描任务失败"}</p></div> : null}{plan?.state === "AWAITING_MAPPING" ? <><div className="pegasus-scan-summary"><div><span>Metadata</span><strong>{plan.counts.metadata}</strong></div><div><span>Collection</span><strong>{plan.counts.collections}</strong></div><div><span>Game</span><strong>{plan.counts.games}</strong></div><div><span>发现视频</span><strong>{plan.counts.videos}</strong></div></div><p className="pegasus-mapping-note">每个 source collection 必须明确选择游戏目录或跳过；Retrom 不会根据名称、扩展名或 launch 命令猜测。</p><div className="pegasus-collection-list">{collections.map((collection) => <article key={collection.id}><div><h3>{collection.name}</h3><p>{collection.metadataRelativePath} · segment {collection.segmentOrdinal + 1}</p><small>{collection.shortName ? `shortname: ${collection.shortName} · ` : ""}{collection.gameCount} 个游戏 · {collection.issueCount} 个阻断/问题</small></div><label><span>处理方式</span><select aria-label={`${collection.name} 处理方式`} value={mappings[collection.id]?.action === "SKIP" ? "SKIP" : mappings[collection.id]?.platformInstanceId ? `IMPORT:${mappings[collection.id].platformInstanceId}` : ""} onChange={(event) => { const value = event.target.value; setMappings((current) => ({ ...current, [collection.id]: value === "SKIP" ? { action: "SKIP", platformInstanceId: "" } : value.startsWith("IMPORT:") ? { action: "IMPORT", platformInstanceId: value.slice(7) } : { action: "", platformInstanceId: "" } })); }}><option value="">请选择，不会自动映射</option><option value="SKIP">跳过此集合</option>{availableInstances.map((instance) => <option value={`IMPORT:${instance.id}`} key={instance.id}>导入到 {instance.name} · {instance.defaultCoreName}</option>)}</select></label></article>)}</div></> : null}</> : null}
-      {step === 3 && plan ? <><div className="pegasus-review-table"><div><span>来源</span><strong>{plan.root.label} / {plan.sourceRelativePath || "根目录"}</strong></div><div><span>映射</span><strong>{mapped} 个处理 · {skipped} 个跳过</strong></div><div><span>可处理 / 源内容阻断</span><strong>{plan.counts.processable} / {plan.counts.blocked} 个游戏</strong></div><div><span>封面 / 视频</span><strong>{plan.counts.covers} / {plan.counts.videos}</strong></div><div><span>预计最多读取</span><strong>{formatBytes(plan.counts.estimatedSourceBytes)}</strong></div><div><span>发布方式</span><strong>全部进入待审核，由管理员逐项决定</strong></div></div><p className="pegasus-mapping-note">开始时会重新核对 metadata digest 与源文件 facts。后台只准备来源与运行检查，不会创建游戏；已经生成的审核事项在取消任务后仍会保留。</p></> : null}
+      {step === 2 ? <>{plan?.state === "SCANNING" ? <div className="pegasus-scan-progress" aria-live="polite"><span className="button-spinner" /><h3>{plan.phase ? phaseLabels[plan.phase] : "扫描准备中"}</h3><p>任务离开页面后仍会继续。当前发现 {plan.counts.metadata} 个 metadata、{plan.counts.collections} 个集合、{plan.counts.games} 个游戏。</p></div> : null}{plan?.state === "FAILED" ? <div className="runtime-inline-empty"><h3>扫描未完成</h3><p>{plan.lastErrorCode ?? "扫描任务失败"}</p></div> : null}{plan?.state === "AWAITING_MAPPING" ? <><div className="pegasus-scan-summary"><div><span>Metadata</span><strong>{plan.counts.metadata}</strong></div><div><span>Collection</span><strong>{plan.counts.collections}</strong></div><div><span>Game</span><strong>{plan.counts.games}</strong></div><div><span>发现视频</span><strong>{plan.counts.videos}</strong></div></div><p className="pegasus-mapping-note">每个 source collection 必须明确选择游戏目录或跳过；Retrom 不会根据名称、扩展名或 launch 命令猜测。</p><section className="pegasus-batch-tags" aria-labelledby="pegasus-batch-tags-title"><header><div><h3 id="pegasus-batch-tags-title">批量添加默认标签</h3><p>选择一次后追加到所有未跳过 Collection，不覆盖已有选择；下方仍可逐项增删。</p></div><span>{collections.reduce((total, collection) => total + collection.gameCount, 0)} 个游戏</span></header><TagPicker label="批次标签" options={activeTags} selected={batchTags} disabled={busy} onChange={(tags) => { setBatchTags(tags); setBatchTagStatus(""); }} description="标签必须先在标签管理中建立。点击应用后，尚未选择处理方式的 Collection 也会保留这些默认标签。" /><div className="pegasus-batch-tag-actions"><button type="button" className="button secondary compact" disabled={busy || !batchTags.length} onClick={applyBatchTags}>应用到所有未跳过 Collection</button>{batchTagStatus ? <p role="status">{batchTagStatus}</p> : null}</div></section><div className="pegasus-collection-list">{collections.map((collection) => { const draft = mappings[collection.id] ?? { action: "" as const, platformInstanceId: "", tags: [] }; return <article key={collection.id}><div><h3>{collection.name}</h3><p>{collection.metadataRelativePath} · segment {collection.segmentOrdinal + 1}</p><small>{collection.shortName ? `shortname: ${collection.shortName} · ` : ""}{collection.gameCount} 个游戏 · {collection.issueCount} 个阻断/问题</small></div><label><span>处理方式</span><select aria-label={`${collection.name} 处理方式`} value={draft.action === "SKIP" ? "SKIP" : draft.platformInstanceId ? `IMPORT:${draft.platformInstanceId}` : ""} onChange={(event) => { const value = event.target.value; setMappings((current) => ({ ...current, [collection.id]: value === "SKIP" ? { action: "SKIP", platformInstanceId: "", tags: [] } : value.startsWith("IMPORT:") ? { action: "IMPORT", platformInstanceId: value.slice(7), tags: current[collection.id]?.tags ?? [] } : { action: "", platformInstanceId: "", tags: [] } })); }}><option value="">请选择，不会自动映射</option><option value="SKIP">跳过此集合</option>{availableInstances.map((instance) => <option value={`IMPORT:${instance.id}`} key={instance.id}>导入到 {instance.name} · {instance.defaultCoreName}</option>)}</select></label>{draft.action === "IMPORT" ? <div className="pegasus-collection-tags"><TagPicker label={`${collection.name} 的默认标签`} options={activeTags} selected={draft.tags} disabled={busy} onChange={(tags) => setMappings((current) => ({ ...current, [collection.id]: { ...draft, tags } }))} description="此集合生成的每个待审核游戏都会继承这些标签。" /></div> : null}</article>; })}</div></> : null}</> : null}
+      {step === 3 && plan ? <><div className="pegasus-review-table"><div><span>来源</span><strong>{plan.root.label} / {plan.sourceRelativePath || "根目录"}</strong></div><div><span>映射</span><strong>{mapped} 个处理 · {skipped} 个跳过</strong></div><div><span>默认标签覆盖</span><strong>{taggedCollections.length} 个 Collection · {taggedGames} 个游戏</strong></div><div><span>可处理 / 源内容阻断</span><strong>{plan.counts.processable} / {plan.counts.blocked} 个游戏</strong></div><div><span>封面 / 视频</span><strong>{plan.counts.covers} / {plan.counts.videos}</strong></div><div><span>预计最多读取</span><strong>{formatBytes(plan.counts.estimatedSourceBytes)}</strong></div><div><span>发布方式</span><strong>全部进入待审核，由管理员逐项决定</strong></div></div>{mappedTags.length ? <div className="pegasus-review-tags"><span>本批使用的标签</span><TagChips tags={mappedTags} /></div> : null}<p className="pegasus-mapping-note">开始时会重新核对 metadata digest 与源文件 facts。后台只准备来源与运行检查，不会创建游戏；已经生成的审核事项在取消任务后仍会保留。</p></> : null}
     </div><footer><button type="button" className="button secondary" disabled={busy} onClick={onClose}>关闭</button>{step === 1 ? <button type="button" className="button" disabled={busy || !rootId || selectedRoot?.status !== "AVAILABLE"} onClick={() => void scan()}>{busy ? "正在创建…" : "扫描此目录"}</button> : null}{step === 2 && plan?.state === "AWAITING_MAPPING" ? <button type="button" className="button" disabled={busy || !mappingComplete} onClick={() => void confirmMappings()}>{busy ? "正在保存…" : "确认映射"}</button> : null}{step === 3 ? <button type="button" className="button" disabled={busy} onClick={() => void startImport()}>{busy ? "正在启动…" : "开始准备审核事项"}</button> : null}</footer></aside><Toast toast={error ? { message: error, tone: "bad" } : null} onDismiss={() => setError("")} /></>;
 }
 
 type DetailFilters = { query: string; outcome: string; warning: string; collectionId: string };
 
-export function PegasusImportDetailManager({ initialSummary, initialItems, collections, roots, platformInstances, initialFilters }: {
+export function PegasusImportDetailManager({ initialSummary, initialItems, collections, roots, platformInstances, activeTags = [], initialFilters }: {
   initialSummary: PegasusImportSummary;
   initialItems: PegasusItemList;
   collections: PegasusCollection[];
   roots: ServerImportRoot[];
   platformInstances: PegasusPlatformInstance[];
+  activeTags?: TagReference[];
   initialFilters: DetailFilters;
 }) {
   const [summary, setSummary] = useState(initialSummary);
@@ -426,11 +463,11 @@ export function PegasusImportDetailManager({ initialSummary, initialItems, colle
     {summary.lastErrorCode ? <p className="server-import-error panel"><strong>{summary.lastErrorCode}</strong><span>外部 source 不属于备份；目录变化时请按结果提示重扫或重试。</span></p> : null}
     <section className="server-import-results"><div className="runtime-section-heading"><div><h2>准备与审核结果</h2><p>后台只准备审核事项；待审核条目必须由管理员逐项决定是否发布。</p></div><span>{items.length} / {summary.counts.games} 项</span></div>
       <form className="server-import-result-filters panel pegasus-result-filters" onSubmit={(event) => { event.preventDefault(); void applyFilters(); }}><label><span>搜索标题</span><input type="search" value={draft.query} onChange={(event) => setDraft((current) => ({ ...current, query: event.target.value }))} /></label><label><span>结果</span><select value={draft.outcome} onChange={(event) => setDraft((current) => ({ ...current, outcome: event.target.value }))}><option value="">全部结果</option>{Object.entries(outcomeLabels).map(([value, label]) => <option key={value} value={value}>{label}</option>)}</select></label><label><span>媒体警告</span><input value={draft.warning} placeholder="例如 PEGASUS_VIDEO_UNSUPPORTED" onChange={(event) => setDraft((current) => ({ ...current, warning: event.target.value }))} /></label><label><span>Collection</span><select value={draft.collectionId} onChange={(event) => setDraft((current) => ({ ...current, collectionId: event.target.value }))}><option value="">全部 Collection</option>{collections.map((collection) => <option value={collection.id} key={collection.id}>{collection.name}</option>)}</select></label><button type="submit" className="button secondary compact" disabled={busy}>{busy ? "正在筛选…" : "应用筛选"}</button></form>
-      <div className="pegasus-result-table" role="table" aria-label="Pegasus 导入结果">{items.map((item) => { const reason = runtimeReason(item); const reviewHref = item.reviewItemId ? `/admin/reviews/${item.reviewItemId}?returnTo=${encodeURIComponent(reviewURL)}` : null; return <article role="row" key={item.id}><div role="cell"><h3>{item.title}</h3><p>{item.collectionName ?? "无有效 Collection"} → {item.targetPlatformInstanceName ?? "未映射"}</p><small>{item.metadataRelativePath} · {item.contentKind ?? "内容类型待定"}</small></div><div role="cell" className="pegasus-result-media"><StatusBadge tone={item.media.cover === "READY" ? "good" : item.media.cover === "WARNING" ? "warn" : "info"}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={item.media.video === "READY" ? "good" : item.media.video === "WARNING" ? "warn" : "info"}>视频 {item.media.video}</StatusBadge></div><div role="cell"><StatusBadge tone={item.executionState === "PUBLISHED" ? "good" : item.executionState === "REVIEW_PENDING" ? "info" : item.executionState.startsWith("BLOCKED") || ["SOURCE_CHANGED", "READ_FAILED", "COMMIT_FAILED"].includes(item.executionState) ? "bad" : "warn"}>{outcomeLabels[item.executionState]}</StatusBadge><small>{reason?.title ?? item.errorCode ?? item.discoveryCode ?? (item.warnings.map((warning) => warning.code).join("、") || (item.executionState === "REVIEW_PENDING" ? "等待管理员作出审核决定" : "无附加结果码"))}</small></div><div role="cell">{reviewHref && item.executionState === "REVIEW_PENDING" ? <Link className="button compact" href={reviewHref}>{item.runtimeCheck?.status === "READY" ? "审核并决定" : "处理运行问题"}</Link> : item.publishedGameId ? <Link href={`/games/${item.publishedGameId}`}>查看游戏 →</Link> : item.existingGameId ? <Link href={`/games/${item.existingGameId}`}>已有游戏 →</Link> : item.executionState === "REVIEW_DISCARDED" ? <small>管理员已在审核队列中丢弃</small> : item.discoveryCode === "PEGASUS_MULTIPLE_LAUNCH_FILES_UNSUPPORTED" ? <small>Pegasus 把多个文件视为可选启动项；请整理为单文件或受支持的 Saturn M3U。</small> : <span>—</span>}</div><div role="cell" className="pegasus-runtime-diagnostic-cell"><RuntimeCheckDetails item={item} /></div></article>; })}</div>
+      <div className="pegasus-result-table" role="table" aria-label="Pegasus 导入结果">{items.map((item) => { const reason = runtimeReason(item); const reviewHref = item.reviewItemId ? `/admin/reviews/${item.reviewItemId}?returnTo=${encodeURIComponent(reviewURL)}` : null; return <article role="row" key={item.id}><div role="cell"><h3>{item.title}</h3><TagChips tags={item.tags} limit={2} ariaLabel={`${item.title} 的标签`} /><p>{item.collectionName ?? "无有效 Collection"} → {item.targetPlatformInstanceName ?? "未映射"}</p><small>{item.metadataRelativePath} · {item.contentKind ?? "内容类型待定"}</small></div><div role="cell" className="pegasus-result-media"><StatusBadge tone={item.media.cover === "READY" ? "good" : item.media.cover === "WARNING" ? "warn" : "info"}>封面 {item.media.cover}</StatusBadge><StatusBadge tone={item.media.video === "READY" ? "good" : item.media.video === "WARNING" ? "warn" : "info"}>视频 {item.media.video}</StatusBadge></div><div role="cell"><StatusBadge tone={item.executionState === "PUBLISHED" ? "good" : item.executionState === "REVIEW_PENDING" ? "info" : item.executionState.startsWith("BLOCKED") || ["SOURCE_CHANGED", "READ_FAILED", "COMMIT_FAILED"].includes(item.executionState) ? "bad" : "warn"}>{outcomeLabels[item.executionState]}</StatusBadge><small>{reason?.title ?? item.errorCode ?? item.discoveryCode ?? (item.warnings.map((warning) => warning.code).join("、") || (item.executionState === "REVIEW_PENDING" ? "等待管理员作出审核决定" : "无附加结果码"))}</small></div><div role="cell">{reviewHref && item.executionState === "REVIEW_PENDING" ? <Link className="button compact" href={reviewHref}>{item.runtimeCheck?.status === "READY" ? "审核并决定" : "处理运行问题"}</Link> : item.publishedGameId ? <Link href={`/games/${item.publishedGameId}`}>查看游戏 →</Link> : item.existingGameId ? <Link href={`/games/${item.existingGameId}`}>已有游戏 →</Link> : item.executionState === "REVIEW_DISCARDED" ? <small>管理员已在审核队列中丢弃</small> : item.discoveryCode === "PEGASUS_MULTIPLE_LAUNCH_FILES_UNSUPPORTED" ? <small>Pegasus 把多个文件视为可选启动项；请整理为单文件或受支持的 Saturn M3U。</small> : <span>—</span>}</div><div role="cell" className="pegasus-runtime-diagnostic-cell"><RuntimeCheckDetails item={item} /></div></article>; })}</div>
       {nextCursor ? <button type="button" className="button secondary server-import-history-more" disabled={busy} onClick={() => { setBusy(true); void requestItems(filters, nextCursor, true).catch((caught: unknown) => setError(caught instanceof Error ? caught.message : "加载失败")).finally(() => setBusy(false)); }}>加载更多结果</button> : null}
     </section>
     <ConfirmDialog open={cancelOpen} title="取消这次 Pegasus 准备任务？" description="已经生成的审核事项会保留，尚未处理的项目会在安全检查点停止。" confirmLabel="确认取消" tone="danger" busy={busy} onCancel={() => setCancelOpen(false)} onConfirm={() => void cancel()} />
-    {mappingOpen ? <PegasusImportDrawer open roots={roots} platformInstances={platformInstances} resumablePlan={summary} onClose={() => setMappingOpen(false)} onStarted={(updated) => setSummary(updated)} /> : null}
+    {mappingOpen ? <PegasusImportDrawer open roots={roots} platformInstances={platformInstances} activeTags={activeTags} resumablePlan={summary} onClose={() => setMappingOpen(false)} onStarted={(updated) => setSummary(updated)} /> : null}
     <Toast toast={error ? { message: error, tone: "bad" } : null} onDismiss={() => setError("")} />
   </div>;
 }

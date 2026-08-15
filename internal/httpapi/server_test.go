@@ -353,7 +353,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 33 ||
+		response.DatabaseSchemaVersion != 34 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -910,7 +910,7 @@ VALUES(?,?,?,'cover-ready','COVER',1,'/api/v1/images/cover-ready','READY',?,600,
 		t.Fatal(err)
 	}
 	patch := httptest.NewRecorder()
-	patchRequest := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/reviews/"+itemID, strings.NewReader(`{"selectedAssets":{"coverCandidateAssetId":null,"coverUploadedAssetId":"`+uploadedCoverResult.AssetID+`","backgroundCandidateAssetId":null,"screenshotCandidateAssetIds":[]}}`))
+	patchRequest := httptest.NewRequest(http.MethodPatch, "/api/v1/admin/reviews/"+itemID, strings.NewReader(`{"selectedAssets":{"coverCandidateAssetId":null,"coverUploadedAssetId":"`+uploadedCoverResult.AssetID+`","backgroundCandidateAssetId":null,"screenshotCandidateAssetIds":[]},"tagIds":[]}`))
 	patchRequest.SetPathValue("importItemId", itemID)
 	patchRequest.Header.Set("Content-Type", "application/json")
 	patchRequest.Header.Set("If-Match", `"v1"`)

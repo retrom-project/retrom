@@ -78,7 +78,7 @@ describe("ReviewActions", () => {
   });
 
   it("autosaves the first successful candidate instead of creating an unsaved draft", async () => {
-    const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2 })));
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ version: 2 }));
     vi.stubGlobal("fetch", fetchMock);
     render(<ReviewActions review={{ ...review, candidates: [{ candidateId: "candidate-first", scrapeRunId: "run-first", providerGameId: "42", metadata: { title: "Scraped title", publisher: "Publisher" }, evidence: {}, assets: [] }] }} />);
 
@@ -87,6 +87,23 @@ describe("ReviewActions", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalled(), { timeout: 2_000 });
     expect(await screen.findByText("已实时保存")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled();
+  });
+
+  it("autosaves selected existing tags with the complete review draft", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(jsonResponse({ version: 2 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const actionTag = { tagId: "tag-action", name: "动作" };
+    const coopTag = { tagId: "tag-coop", name: "双人合作" };
+    render(<ReviewActions review={{ ...review, tags: [actionTag] }} activeTags={[actionTag, coopTag]} />);
+
+    await user.type(screen.getByRole("combobox", { name: "游戏标签" }), "合作");
+    await user.keyboard("{Enter}");
+    await waitFor(() => {
+      const patch = fetchMock.mock.calls.find(([, init]) => init?.method === "PATCH");
+      expect(JSON.parse(String(patch?.[1]?.body)).tagIds).toEqual(["tag-action", "tag-coop"]);
+    }, { timeout: 2_000 });
+    expect(screen.getByText("已实时保存")).toBeVisible();
   });
 
   it("keeps the cover beside metadata without rendering provider summary cards", () => {

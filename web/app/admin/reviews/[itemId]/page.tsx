@@ -7,6 +7,7 @@ import { ReviewValidationGuidance, reviewCompatibilityLabel, type ReviewDependen
 import { formatBytes, type ListResponse } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
 import { statusTone } from "@/lib/status";
+import { loadActiveTags } from "@/features/tags/tag-library";
 
 type DependencySnapshot = ReviewDependencySnapshot & {
   machine?: string;
@@ -36,7 +37,7 @@ function GameFiles({ review }: { review: Review }) {
 function safeReturnTo(raw: string | undefined) {
   if (!raw) return "/admin/reviews";
   const parsed = new URL(raw, "http://retrom.invalid");
-  const allowed = new Set(["q", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode", "sort"]);
+  const allowed = new Set(["q", "tagId", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode", "sort"]);
   if (parsed.origin !== "http://retrom.invalid" || parsed.pathname !== "/admin/reviews") return "/admin/reviews";
   for (const [name] of parsed.searchParams) if (!allowed.has(name) || parsed.searchParams.getAll(name).length !== 1) return "/admin/reviews";
   return `${parsed.pathname}${parsed.search}`;
@@ -47,9 +48,10 @@ export default async function ReviewDetailPage({ params, searchParams }: { param
   const queryParameters = await searchParams;
   const returnTo = safeReturnTo(typeof queryParameters.returnTo === "string" ? queryParameters.returnTo : undefined);
   const listQuery = new URL(returnTo, "http://retrom.invalid").search;
-  const [review, context] = await Promise.all([
+  const [review, context, activeTags] = await Promise.all([
     backendJSON<Review>(`/api/v1/admin/reviews/${itemId}`),
     backendJSON<ListResponse<ReviewQueueItem>>(`/api/v1/admin/reviews${listQuery}${listQuery ? "&" : "?"}limit=20`),
+    loadActiveTags(),
   ]);
   const validationStatus = review.validation?.status ?? "PENDING";
   const nextItemId = adjacentReviewItemId(context.items.map((item) => item.itemId), itemId);
@@ -65,7 +67,7 @@ export default async function ReviewDetailPage({ params, searchParams }: { param
   const dependencyCount = (dependencySnapshot?.dependencies?.length ?? 0) + (dependencySnapshot?.bios?.length ?? 0);
   return <div className="import-workflow-page review-detail-prototype"><FlashToast />
     <PageHeader eyebrow="待审核 / 条目" title="审核条目" description="先判断能不能发布，再确认发布成什么。技术证据按需展开，不挤占主决策。" actions={<ButtonLink href={returnTo} secondary>← 返回待审核列表</ButtonLink>} />
-    <ReviewActions review={review} returnTo={returnTo} nextItemId={nextItemId} sourceDisplayName={sourceDisplayName} platformInstanceName={review.platformInstance.name}>
+    <ReviewActions review={review} activeTags={activeTags} returnTo={returnTo} nextItemId={nextItemId} sourceDisplayName={sourceDisplayName} platformInstanceName={review.platformInstance.name}>
       <section className="panel review-workflow-capability"><div className="panel-head"><div><h2>① 能不能发布？</h2><p>直接展示文件、运行方式和依赖检查结论。</p></div><StatusBadge tone={statusTone(compatibilityCode)}>{compatibilityLabel}</StatusBadge></div><div className="panel-body review-capability-list"><ReviewValidationGuidance status={validationStatus} compatibilityCode={compatibilityCode} snapshot={dependencySnapshot} /><div><strong>游戏文件</strong><span>{sourceDisplayName} · {review.sourceFiles?.[0] ? formatBytes(review.sourceFiles[0].sizeBytes) : `${review.sourceManifest.files.length} 个来源文件`}</span></div><div><strong>运行检查</strong><span>{dependencySnapshot?.machine ? `识别为 ${dependencySnapshot.machine} · ${compatibilityLabel}` : compatibilityLabel}</span></div><div><strong>依赖检查</strong><span>{dependencySnapshot ? `${dependencyCount} 项运行依赖 · ${dependencyIssueCount ? `${dependencyIssueCount} 项需要处理` : "没有发现异常"}` : "检查结果尚未生成"}</span></div></div></section>
       <section className="panel review-workflow-files"><div className="panel-head"><div><h2>来源文件</h2><p>用于核对这条游戏来自哪份内容。</p></div></div><div className="panel-body"><GameFiles review={review} /></div></section>
     </ReviewActions>

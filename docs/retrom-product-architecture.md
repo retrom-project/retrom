@@ -152,6 +152,10 @@ Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个�
 
 联机不是所有核心自动获得的通用能力。`data/netplay/v1/manifest.json` 同时锁定 EmulatorJS、普通 Player adapter、联机 adapter、FCEUmm/FBNeo core artifact SHA-256、允许的内容类型、24 个控制值和 prediction/rollback/state 上限；不按 ROM 名称、大小或 hash 决定资格。游戏仍须有引用该 artifact 与当前 ContentRevision 的 READY VariantRevision，依赖快照必须有效；房间和 Session 再锁定该不可变 revision，确保每位参与者运行同一内容。Go `internal/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 savestate 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile 漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
 
+### 3.11 标签是实例共享、管理员维护的分类
+
+Tag 必须先由管理员建立，再以稳定 ID 关联 Game、导入 ReviewDraft 或 Pegasus Collection；普通用户只能看到可见游戏已关联的活动标签。它与 Profile 私有 FavoriteFolder、单归属 PlatformInstance、metadata genre 和外部来源 tags 都是不同概念。重命名通过动态关系投影立即生效；删除还会推进受影响 owner version，使旧写入稳定冲突。两者都不改写游戏元信息/内容 revision，也不进入 Launch、Player 或存档。完整边界见 [游戏标签](./game-tags.md)。
+
 ## 4. 系统上下文
 
 ~~~mermaid
@@ -210,6 +214,8 @@ erDiagram
     PROFILE ||--o{ FAVORITE_FOLDER : owns
     FAVORITE_GAME ||--o{ FAVORITE_FOLDER_GAME : is_grouped_by
     FAVORITE_FOLDER ||--o{ FAVORITE_FOLDER_GAME : contains
+    TAG ||--o{ GAME_TAG : classifies
+    GAME ||--o{ GAME_TAG : has
 ~~~
 
 关键不变量：
@@ -222,6 +228,7 @@ erDiagram
 - ImportJob/ImportItem 记录创建时的游戏目录、默认核心、core artifact、DAT 和刮削证据快照；在途结果不因后续配置变化而漂移。
 - 审核发布、游戏目录移动、DAT 启用和文件 revision 切换必须可审计。
 - Favorite 与 FavoriteFolder 都由认证 Profile 私有拥有；FolderMembership 必须同时引用同一 Profile 的 Favorite 与 Folder。收藏关系不改变 Game 的 PlatformInstance 唯一归属，管理员也没有跨 Profile 查询旁路。
+- Tag 是实例级共享实体，只有管理员维护；GameTag 不属于 Profile，不改变目录归属，也不进入游戏运行 revision。
 
 ## 6. 平台、核心与初始游戏目录
 
@@ -402,6 +409,12 @@ Phase 0 未通过时，不进入大规模业务实现。
 - Migration 032、netplay manifest、房间/Session/Participant 控制面、独立 credential key 与备份恢复围栏。
 - `/netplay`、房间 UI、SSE、同源 WebSocket hub、4.2.3 帧 adapter、rollback/state/hash/reconnect/end 全链路。
 - 以 `ACC-NP-001`–`013`、全量 Player E2E、真实 FCEUmm/FBNeo 夹具 smoke 和双镜像构建为退出门禁。
+
+### Phase 7：游戏标签垂直切片
+
+- Migration 034、实例级 Tag 与 Game/Review/Pegasus 多对多关系、软删除 tombstone、版本联动和审计。
+- 管理 CRUD、普通导入/Pegasus 默认值、审核原子发布、游戏维护、动态 `q` 与精确 `tagId` 搜索、全站活动标签投影。
+- 以 `ACC-TAG-001`–`005`、API/后端/前端/集成/Chrome E2E 和 `make ci` 为退出门禁；不进入 core smoke。
 
 ## 11. 统一验收入口
 

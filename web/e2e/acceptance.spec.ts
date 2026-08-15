@@ -626,7 +626,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   do {
     const query = new URLSearchParams({ importJobId: primaryJob, limit: "20" });
     if (cursor) query.set("cursor", cursor);
-    const response = await page.request.get(`/api/v1/admin/reviews?${query}`);
+    const response = await page.request.get(`/api/v1/admin/reviews?${query}`, { maxRetries: 2 });
     expect(response.ok()).toBe(true);
     const pageResult = await response.json() as { items: Array<{ itemId: string }>; nextCursor: string | null };
     remaining.push(...pageResult.items);

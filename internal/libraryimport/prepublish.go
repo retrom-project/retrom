@@ -45,6 +45,16 @@ func prepublishDigest(input prepublishDigestInput) string {
 	return hex.EncodeToString(digest[:])
 }
 
+func prepublishDigestMatches(digest string, input prepublishDigestInput) bool {
+	for _, version := range []string{validatorImportV4, validatorReviewV4, validatorArcadeV4, validatorMultiV4} {
+		input.ValidatorVersion = version
+		if subtle.ConstantTimeCompare([]byte(digest), []byte(prepublishDigest(input))) == 1 {
+			return true
+		}
+	}
+	return false
+}
+
 func compatibilityConfigDigest(compatibility string) string {
 	digest := sha256.Sum256([]byte(compatibility))
 	return hex.EncodeToString(digest[:])
@@ -166,11 +176,5 @@ func (service *Service) ReviewValidationCurrent(ctx context.Context, validationI
 	if !current {
 		return false, nil
 	}
-	for _, version := range []string{validatorImportV4, validatorReviewV4, validatorArcadeV4, validatorMultiV4} {
-		input.ValidatorVersion = version
-		if subtle.ConstantTimeCompare([]byte(value.inputDigest), []byte(prepublishDigest(input))) == 1 {
-			return true, nil
-		}
-	}
-	return false, nil
+	return prepublishDigestMatches(value.inputDigest, input), nil
 }

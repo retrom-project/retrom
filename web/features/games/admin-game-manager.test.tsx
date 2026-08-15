@@ -96,6 +96,31 @@ describe("AdminGameManager", () => {
     await waitFor(() => expect(save).toBeDisabled());
   });
 
+  it("replaces the complete game tag set under the current game version", async () => {
+    const actionTag = { tagId: "tag-action", name: "动作" };
+    const coopTag = { tagId: "tag-coop", name: "双人合作" };
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      gameId: game.gameId, version: 4, tags: [actionTag, coopTag],
+    }), { status: 200, headers: { "Content-Type": "application/json" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<AdminGameManager game={{ ...game, tags: [actionTag] }} platformInstances={directories} candidates={[]} activeTags={[actionTag, coopTag]} />);
+
+    const save = screen.getByRole("button", { name: "更新标签" });
+    expect(save).toBeDisabled();
+    await user.type(screen.getByRole("combobox", { name: "标签" }), "合作");
+    await user.keyboard("{Enter}");
+    expect(save).toBeEnabled();
+    await user.click(save);
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/games/game-1/tags", expect.objectContaining({
+      method: "PUT",
+      headers: expect.objectContaining({ "If-Match": '"v3"' }),
+      body: JSON.stringify({ tagIds: ["tag-action", "tag-coop"] }),
+    })));
+    await waitFor(() => expect(save).toBeDisabled());
+  });
+
   it("opens a metadata and cover comparison instead of applying text immediately", async () => {
     const user = userEvent.setup();
     render(<AdminGameManager game={game} platformInstances={directories} candidates={[{

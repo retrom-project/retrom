@@ -7,6 +7,7 @@ export type RecentGame = {
   activeDurationMs: number;
   sessionCount: number;
   coverUrl: string | null;
+  tags?: Array<{ tagId: string; name: string }>;
 };
 
 export type RecentGameFilters = {
@@ -27,7 +28,7 @@ export function filterRecentGames(games: RecentGame[], filters: RecentGameFilter
     if (filters.platformId && game.platform.id !== filters.platformId) return false;
     if (cutoff !== null && game.lastPlayedAtMs < cutoff) return false;
     if (!query) return true;
-    return [game.title, game.platform.name, game.platformInstance.name]
+    return [game.title, game.platform.name, game.platformInstance.name, ...(game.tags ?? []).map((tag) => tag.name)]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   });
   return result.sort((left, right) => {

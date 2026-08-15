@@ -9,8 +9,8 @@ vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ authenticate
 const nowMs = new Date(2026, 7, 8, 12).getTime();
 const initialFilters: LibraryFilters = { query: "", platformId: "", platformInstanceId: "", sort: "RECENT_DESC" };
 const games: GameSummary[] = [
-  { gameId: "1943", title: "1943", platform: { id: "arcade", name: "Arcade" }, platformInstance: { id: "fbneo", name: "FBNeo 游戏" }, defaultCore: { id: "fbneo", name: "FinalBurn Neo" }, status: "PUBLISHED", coverUrl: null, createdAtMs: nowMs - 2_000, lastPlayedAtMs: nowMs - 1_000, favorite: null },
-  { gameId: "doom", title: "DOOM", platform: { id: "dos", name: "MS-DOS" }, platformInstance: { id: "dos-classics", name: "DOS 经典" }, defaultCore: { id: "dosbox_pure", name: "DOSBox Pure" }, status: "PUBLISHED", coverUrl: null, createdAtMs: nowMs - 1_000, lastPlayedAtMs: null, favorite: null },
+  { gameId: "1943", title: "1943", platform: { id: "arcade", name: "Arcade" }, platformInstance: { id: "fbneo", name: "FBNeo 游戏" }, defaultCore: { id: "fbneo", name: "FinalBurn Neo" }, status: "PUBLISHED", coverUrl: null, createdAtMs: nowMs - 2_000, lastPlayedAtMs: nowMs - 1_000, favorite: null, tags: [{ tagId: "tag-coop", name: "双人合作" }] },
+  { gameId: "doom", title: "DOOM", platform: { id: "dos", name: "MS-DOS" }, platformInstance: { id: "dos-classics", name: "DOS 经典" }, defaultCore: { id: "dosbox_pure", name: "DOSBox Pure" }, status: "PUBLISHED", coverUrl: null, createdAtMs: nowMs - 1_000, lastPlayedAtMs: null, favorite: null, tags: [{ tagId: "tag-solo", name: "单人" }] },
 ];
 
 describe("LibraryBrowser", () => {
@@ -41,6 +41,16 @@ describe("LibraryBrowser", () => {
     expect(collection).not.toHaveTextContent("DOS 经典");
     await user.selectOptions(collection, "fbneo");
     expect(window.location.search).toContain("platformInstanceId=fbneo");
+  });
+
+  it("applies the exact tag id filter and keeps it in URL state", async () => {
+    const user = userEvent.setup();
+    render(<LibraryBrowser games={games} nowMs={nowMs} initialFilters={initialFilters} />);
+    await user.selectOptions(screen.getByRole("combobox", { name: "标签" }), "tag-coop");
+
+    expect(screen.getByRole("heading", { name: "1943" })).toBeVisible();
+    expect(screen.queryByRole("heading", { name: "DOOM" })).not.toBeInTheDocument();
+    expect(window.location.search).toBe("?tagId=tag-coop");
   });
 
   it("focuses search with the slash shortcut outside editing controls", () => {

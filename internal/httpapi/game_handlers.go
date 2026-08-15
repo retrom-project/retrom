@@ -24,6 +24,7 @@ import (
 	"retrom/internal/hasheous"
 	"retrom/internal/libraryimport"
 	"retrom/internal/mediaasset"
+	"retrom/internal/tagging"
 )
 
 type gameMetadata struct {
@@ -461,6 +462,15 @@ v.id
 		server.databaseError(writer, request, err)
 		return
 	}
+	tagReferences, err := server.tagService.References(request.Context(), []string{request.PathValue("gameId")})
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	tags := tagReferences[request.PathValue("gameId")]
+	if tags == nil {
+		tags = []tagging.Reference{}
+	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"gameId": request.PathValue(
@@ -477,7 +487,8 @@ v.id
 			"reviewEventCount":  reviewCount,
 			"activeLaunchCount": launchCount,
 		},
-		"metadataRevisions": metadataRevisions, "assets": assets, "contentRevisions": contentRevisions, "variants": variants,
+		"metadataRevisions": metadataRevisions, "assets": assets, "contentRevisions": contentRevisions,
+		"variants": variants, "tags": tags,
 	})
 }
 

@@ -12,6 +12,7 @@ import type { components } from "@/lib/api/generated/schema";
 import { newUuid } from "@/lib/crypto";
 import { responseError } from "@/lib/upload";
 import { PegasusImportDrawer, type PegasusImportList, type PegasusImportSummary, type PegasusPlatformInstance, pegasusStateLabels, pegasusStateTone } from "./pegasus-import-manager";
+import type { TagReference } from "@/components/tag-picker";
 
 export type ServerImportRoot = components["schemas"]["ServerImportRoot"];
 export type ServerImportSummary = components["schemas"]["ServerImportSummary"];
@@ -48,11 +49,12 @@ function errorMessage(response: Response, fallback: string) {
   return responseError(response, fallback);
 }
 
-export function ServerImportManager({ initialRoots, initialImports, initialPegasusImports = { items: [], nextCursor: null }, platformInstances = [], initialOpen = false, initialPegasusOpen = false, initialCatalogSummary }: {
+export function ServerImportManager({ initialRoots, initialImports, initialPegasusImports = { items: [], nextCursor: null }, platformInstances = [], activeTags = [], initialOpen = false, initialPegasusOpen = false, initialCatalogSummary }: {
   initialRoots: ServerImportRoot[];
   initialImports: ServerImportList;
   initialPegasusImports?: PegasusImportList;
   platformInstances?: PegasusPlatformInstance[];
+  activeTags?: TagReference[];
   initialOpen?: boolean;
   initialPegasusOpen?: boolean;
   initialCatalogSummary?: { totalCount: number; attentionCount: number };
@@ -233,7 +235,7 @@ export function ServerImportManager({ initialRoots, initialImports, initialPegas
       <label className="server-import-overwrite"><input type="checkbox" checked={replaceIfBetter} disabled={busy} onChange={(event) => setReplaceIfBetter(event.target.checked)} /><span><strong>允许使用更优候选替换已有 BIOS</strong><small>只有按同一目录证据严格更优时才替换；同分、更差或证据不完整都会保留当前安装。</small></span></label>
       <div className="server-import-selection-summary" aria-live="polite"><strong>{selectedRoot?.label ?? "未选择服务器位置"} / {path}</strong><span>将检查当前系统完整 BIOS 目录，共 {catalogSummary.totalCount} 项；包含可选和按需 BIOS，不只检查已导入游戏。</span></div>
     </div><footer><button type="button" className="button secondary" disabled={busy} onClick={closeDrawer}>取消</button><button type="button" className="button" disabled={busy || !rootId || selectedRoot?.status !== "AVAILABLE"} onClick={() => void createImport()}>{busy ? "正在创建…" : "开始异步导入"}</button></footer></aside></> : null}
-    <PegasusImportDrawer open={pegasusDrawerOpen} roots={roots} platformInstances={platformInstances} resumablePlan={resumablePegasus} onClose={() => setPegasusDrawerOpen(false)} onStarted={(summary: PegasusImportSummary) => setPegasusImports((current) => [summary, ...current.filter((item) => item.id !== summary.id)])} />
+    <PegasusImportDrawer open={pegasusDrawerOpen} roots={roots} platformInstances={platformInstances} activeTags={activeTags} resumablePlan={resumablePegasus} onClose={() => setPegasusDrawerOpen(false)} onStarted={(summary: PegasusImportSummary) => setPegasusImports((current) => [summary, ...current.filter((item) => item.id !== summary.id)])} />
     <Toast toast={error ? { message: error, tone: "bad" } : null} onDismiss={() => setError("")} />
   </div>;
 }

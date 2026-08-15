@@ -1249,6 +1249,41 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Lists instance-wide administrator-managed tags and current or historical usage counts. */
+        get: operations["getAdminTags"];
+        put?: never;
+        post: operations["postAdminTag"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/tags/{tagId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tagId: components["parameters"]["TagID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminTag"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminTag"];
+        options?: never;
+        head?: never;
+        patch: operations["patchAdminTag"];
+        trace?: never;
+    };
     "/api/v1/admin/games": {
         parameters: {
             query?: never;
@@ -1283,6 +1318,24 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["patchAdminGame"];
+        trace?: never;
+    };
+    "/api/v1/admin/games/{gameId}/tags": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                gameId: components["parameters"]["GameID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["putAdminGameTags"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/v1/admin/games/{gameId}/assets": {
@@ -2356,6 +2409,71 @@ export interface components {
         PatchFavoriteFolderRequest: {
             name: string;
         };
+        TagReference: {
+            /** Format: uuid */
+            tagId: string;
+            name: string;
+        };
+        TagUsage: {
+            /** Format: int64 */
+            publishedGameCount: number;
+            /** Format: int64 */
+            deletedGameCount: number;
+            /** Format: int64 */
+            reviewDraftCount: number;
+            /** Format: int64 */
+            pegasusCollectionCount: number;
+        };
+        TagAdminItem: {
+            /** Format: uuid */
+            tagId: string;
+            name: string;
+            /** @enum {string} */
+            status: "ACTIVE" | "DELETED";
+            /** Format: int64 */
+            version: number;
+            usage: components["schemas"]["TagUsage"];
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+            /** Format: int64 */
+            deletedAtMs: number | null;
+        };
+        TagSummary: {
+            /** Format: int64 */
+            activeTagCount: number;
+            /** Format: int64 */
+            taggedGameCount: number;
+            /** Format: int64 */
+            pendingReviewCount: number;
+        };
+        TagList: {
+            /** Format: int64 */
+            generatedAtMs: number;
+            summary: components["schemas"]["TagSummary"];
+            items: components["schemas"]["TagAdminItem"][];
+            nextCursor: string | null;
+        };
+        CreateTagRequest: {
+            name: string;
+        };
+        RenameTagRequest: {
+            name: string;
+        };
+        DeleteTagRequest: {
+            confirmName: string;
+        };
+        ReplaceGameTagsRequest: {
+            tagIds: string[];
+        };
+        GameTagsResult: {
+            /** Format: uuid */
+            gameId: string;
+            /** Format: int64 */
+            version: number;
+            tags: components["schemas"]["TagReference"][];
+        };
         FavoriteReference: {
             /** Format: int64 */
             favoritedAtMs: number;
@@ -2412,6 +2530,7 @@ export interface components {
             createdAtMs: number;
             /** Format: int64 */
             lastPlayedAtMs: number | null;
+            tags: components["schemas"]["TagReference"][];
             favorite: components["schemas"]["FavoriteReference"];
         };
         FavoriteListResponse: {
@@ -2494,6 +2613,7 @@ export interface components {
             lastPlayedAtMs: number | null;
             /** Format: int64 */
             addedAtMs: number;
+            tags: components["schemas"]["TagReference"][];
             /** @enum {string} */
             availability: "SUPPORTED" | "UNSUPPORTED";
             netplayProfiles: components["schemas"]["NetplayProfileSummary"][];
@@ -2713,6 +2833,7 @@ export interface components {
             targetPlatformInstanceId: string;
             /** @enum {string} */
             metadataProvider: "HASHEOUS" | "NONE";
+            tagIds: string[];
             /**
              * @description Omitted requests use STANDARD.
              * @enum {string}
@@ -2724,6 +2845,7 @@ export interface components {
             targetPlatformInstanceId: string;
             /** @enum {string} */
             metadataProvider: "HASHEOUS" | "NONE";
+            tagIds: string[];
         };
         ReasonRequest: {
             reason: string;
@@ -2774,6 +2896,7 @@ export interface components {
             selectedCandidateId?: string | null;
             selectedAssets?: components["schemas"]["ReviewSelectedAssetsRequest"];
             defaultDosEntry?: string | null;
+            tagIds: string[];
         };
         MetadataProviderRequest: {
             /** @enum {string} */
@@ -2891,6 +3014,7 @@ export interface components {
             action: "IMPORT" | "SKIP";
             /** Format: uuid */
             platformInstanceId?: string;
+            tagIds: string[];
         };
         PegasusCollectionMappingsRequest: {
             mappings: components["schemas"]["PegasusCollectionMapping"][];
@@ -3136,6 +3260,7 @@ export interface components {
             targetPlatformInstanceName: string | null;
             targetDefaultCoreId: string | null;
             targetDefaultCoreName: string | null;
+            tagSnapshot: components["schemas"]["TagReference"][];
             ignoredRules: string[];
             warningFields: string[];
         };
@@ -3158,6 +3283,7 @@ export interface components {
             executionState: "PENDING" | "COPYING" | "VALIDATING" | "PUBLISHING" | "REVIEW_PENDING" | "PUBLISHED" | "REVIEW_DISCARDED" | "SKIPPED_EXISTING" | "SKIPPED_MAPPING" | "BLOCKED_SOURCE" | "BLOCKED_CONTENT" | "BLOCKED_VALIDATION" | "SOURCE_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
             /** @enum {string|null} */
             contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC_M3U_V1" | null;
+            tags: components["schemas"]["TagReference"][];
             media: {
                 /** @enum {string} */
                 cover: "READY" | "MISSING" | "WARNING";
@@ -3913,6 +4039,35 @@ export interface components {
         };
     };
     responses: {
+        /** @description Administrator tag projection */
+        TagAdminItemResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["TagAdminItem"];
+            };
+        };
+        /** @description Cursor-paged tag management list and instance-wide summary */
+        TagListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["TagList"];
+            };
+        };
+        /** @description Current active tag set for one managed game */
+        GameTagsResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["GameTagsResult"];
+            };
+        };
         /** @description Cursor-paged BIOS catalog with scope-wide aggregates */
         BIOSListResponse: {
             headers: {
@@ -4247,6 +4402,9 @@ export interface components {
         Role: "ADMIN" | "USER";
         PlatformIDQuery: string;
         GameIDQuery: string;
+        TagIDQuery: string;
+        TagStatus: "ACTIVE" | "DELETED" | "ALL";
+        TagSort: "NAME_ASC" | "UPDATED_DESC";
         PlatformInstanceIDQuery: string;
         CoreIDQuery: string;
         CoreArtifactIDQuery: string;
@@ -4289,6 +4447,7 @@ export interface components {
         ContentDigest: string;
         LastEventID: string;
         GameID: string;
+        TagID: string;
         FavoriteFolderID: string;
         SaveStateID: string;
         UploadID: string;
@@ -4460,6 +4619,26 @@ export interface components {
         PatchFavoriteFolder: {
             content: {
                 "application/json": components["schemas"]["PatchFavoriteFolderRequest"];
+            };
+        };
+        CreateTag: {
+            content: {
+                "application/json": components["schemas"]["CreateTagRequest"];
+            };
+        };
+        RenameTag: {
+            content: {
+                "application/json": components["schemas"]["RenameTagRequest"];
+            };
+        };
+        DeleteTag: {
+            content: {
+                "application/json": components["schemas"]["DeleteTagRequest"];
+            };
+        };
+        ReplaceGameTags: {
+            content: {
+                "application/json": components["schemas"]["ReplaceGameTagsRequest"];
             };
         };
         ReviewDraft: {
@@ -4932,6 +5111,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: components["parameters"]["Q"];
+                tagId?: components["parameters"]["TagIDQuery"];
                 platformId?: components["parameters"]["PlatformIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
                 sort?: components["parameters"]["Sort"];
@@ -5814,6 +5994,7 @@ export interface operations {
         parameters: {
             query?: {
                 q?: components["parameters"]["Q"];
+                tagId?: components["parameters"]["TagIDQuery"];
                 importJobId?: components["parameters"]["ImportJobIDQuery"];
                 pegasusImportId?: components["parameters"]["PegasusImportIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
@@ -6014,10 +6195,98 @@ export interface operations {
             200: components["responses"]["JSONResponse"];
         };
     };
+    getAdminTags: {
+        parameters: {
+            query?: {
+                q?: components["parameters"]["Q80"];
+                status?: components["parameters"]["TagStatus"];
+                sort?: components["parameters"]["TagSort"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TagListResponse"];
+        };
+    };
+    postAdminTag: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["CreateTag"];
+        responses: {
+            201: components["responses"]["TagAdminItemResponse"];
+        };
+    };
+    getAdminTag: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tagId: components["parameters"]["TagID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["TagAdminItemResponse"];
+        };
+    };
+    deleteAdminTag: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                tagId: components["parameters"]["TagID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["DeleteTag"];
+        responses: {
+            /** @description Tag soft-deleted; retained relationships are historical only. */
+            204: {
+                headers: {
+                    ETag?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    patchAdminTag: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                tagId: components["parameters"]["TagID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["RenameTag"];
+        responses: {
+            200: components["responses"]["TagAdminItemResponse"];
+        };
+    };
     getAdminGames: {
         parameters: {
             query?: {
                 q?: components["parameters"]["Q"];
+                tagId?: components["parameters"]["TagIDQuery"];
                 platformId?: components["parameters"]["PlatformIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
                 status?: components["parameters"]["Status"];
@@ -6085,6 +6354,23 @@ export interface operations {
         requestBody: components["requestBodies"]["MetadataFields"];
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    putAdminGameTags: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                gameId: components["parameters"]["GameID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["ReplaceGameTags"];
+        responses: {
+            200: components["responses"]["GameTagsResponse"];
         };
     };
     postAdminGameAsset: {

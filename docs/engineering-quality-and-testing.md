@@ -444,7 +444,17 @@ node data/example/smoke-test.mjs mgba mame2003
 
 该切片除聚焦用例外必须运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-PEG-001`–`005`、`ACC-MEDIA-001` 与 `make ci`。使用操作者授权的真实 Pegasus 目录时只记录相对统计和结果，不把 ROM、完整宿主路径或媒体内容写入报告。
 
-## 13. 维护规则
+## 13. 游戏标签测试矩阵
+
+- migration/store：034 新库与 033 升级、表/列/partial unique/index/trigger/INTEGER 时刻/FK、DELETED 不可恢复、同名新 ID、20/21 owner 上限，以及 backup/restore 对 tombstone、关系和审计的保真。
+- Tagging/HTTP：NFC、Unicode whitespace/case-fold/control、40/41 code point、160/161 byte、1,000/1,001 实例上限；CRUD/usage/cursor/filter/sort、ADMIN/USER、strict JSON/CSRF/If-Match/Idempotency、同名并发、关系 no-op、delete 与 assignment 两种提交顺序、版本联动和审计。
+- 搜索/投影：Game/Admin/Review 的 `q/tagId` 在 SQL 分页前取交集，cursor 不跨筛选复用；Favorite/Recent/Save/Netplay 与 detail 的数组始终非 null、名称稳定排序、删除立即隐藏且列表批量读取无 N+1。
+- Import/Review/Pegasus：批次默认标签、多 Item 继承、reconfigure、逐项 autosave、删除后的旧 ETag、Approve 原子复制、Discard snapshot；逐 Collection 集合、SKIP 空值、mapping 恢复/start 漂移/retry/handoff 幂等和外部 metadata tags 不自动关联。
+- React/Chrome：TagPicker 键盘/20 上限/空 taxonomy，管理页 loading/empty/error/conflict/Drawer/Dialog 焦点，导入/Pegasus/审核/管理员游戏写入，Library/Admin/Favorite/Recent/Save/Netplay 的名称搜索和精确 URL 恢复；390/1280/2560/3840 无页面横向溢出且 axe serious/critical 为零。
+
+该切片运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-TAG-001`–`005` 与 `make ci`。标签不进入 EmulatorJS、内容字节、Variant 或存档协议，因此不因本切片运行 core smoke、fixture 或依赖基线；若实际调用链改变则重新判定。
+
+## 14. 维护规则
 
 - 升级 Go、Next.js、ESLint、TypeScript、Vitest 或 golangci-lint 时，单独提交配置变化，阅读迁移说明并运行完整 `make ci`；不能把工具升级与大功能混在一起掩盖行为变化。
 - 新 linter 先证明信噪比和修复现有问题，再加入显式 enable；禁止用长期 `new-from-rev` 只检查新增代码形成双重标准。

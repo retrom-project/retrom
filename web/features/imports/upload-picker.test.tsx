@@ -95,7 +95,7 @@ describe("UploadPicker", () => {
     render(<UploadPicker directories={[
       { id: "gba", name: "GBA 游戏", platformName: "Game Boy Advance", coreName: "mGBA" },
       { id: "psp", name: "PSP 游戏", platformName: "PlayStation Portable", coreName: "PPSSPP" },
-    ]} reconfigureSource={{
+    ]} activeTags={[{ tagId: "tag-handheld", name: "掌机" }]} reconfigureSource={{
       importJobId: "source-import",
       state: "PARTIAL_FAILURE",
       metadataProvider: "HASHEOUS",
@@ -104,12 +104,14 @@ describe("UploadPicker", () => {
       version: 3,
       createdAtMs: 1,
       updatedAtMs: 2,
+      configSnapshot: { tags: [{ tagId: "tag-handheld", name: "掌机" }] },
       fileOutcomes: [{ uploadFileId: "file-1", name: "game.iso", sizeBytes: 1024, disposition: "REJECTED", reasonCode: "UNSUPPORTED_CONTENT_FORMAT", resolution: null }],
     }} />);
 
     expect(screen.getByText("复用服务器中已上传的内容")).toBeVisible();
     expect(screen.getByText(/不会再次上传文件内容/)).toBeVisible();
     await user.click(screen.getByRole("button", { name: "重新选择平台目录" }));
+    expect(screen.getByRole("button", { name: "移除标签“掌机”" })).toBeVisible();
     await user.selectOptions(screen.getByRole("combobox", { name: "目标游戏目录" }), "psp");
     await user.click(screen.getByRole("button", { name: "按新配置重新识别" }));
 
@@ -117,7 +119,7 @@ describe("UploadPicker", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/imports/source-import/reconfigure", expect.objectContaining({
       method: "POST",
       headers: expect.objectContaining({ "If-Match": '"v3"' }),
-      body: JSON.stringify({ targetPlatformInstanceId: "psp", metadataProvider: "HASHEOUS" }),
+      body: JSON.stringify({ targetPlatformInstanceId: "psp", metadataProvider: "HASHEOUS", tagIds: ["tag-handheld"] }),
     }));
     expect(await screen.findByText("导入任务已创建")).toBeVisible();
   });

@@ -28,6 +28,7 @@ export function ResponsiveSheet({
   placement = "bottom",
   onClose,
   returnFocusRef,
+  initialFocusRef,
   children,
   footer,
   className = "",
@@ -39,6 +40,7 @@ export function ResponsiveSheet({
   placement?: ResponsiveSheetPlacement;
   onClose: () => void;
   returnFocusRef?: RefObject<HTMLElement | null>;
+  initialFocusRef?: RefObject<HTMLElement | null>;
   children: ReactNode;
   footer?: ReactNode;
   className?: string;
@@ -58,7 +60,7 @@ export function ResponsiveSheet({
     body.style.overflow = "hidden";
     if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
     const frame = window.requestAnimationFrame(() => {
-      panelRef.current?.querySelector<HTMLElement>(focusableSelector)?.focus();
+      (initialFocusRef?.current ?? panelRef.current?.querySelector<HTMLElement>(focusableSelector))?.focus();
     });
     return () => {
       window.cancelAnimationFrame(frame);
@@ -66,7 +68,7 @@ export function ResponsiveSheet({
       body.style.paddingRight = previousPaddingRight;
       returnFocus?.focus();
     };
-  }, [open, returnFocusRef]);
+  }, [initialFocusRef, open, returnFocusRef]);
 
   if (!open) return null;
 
