@@ -12,9 +12,10 @@ COPY data/netplay data/netplay
 COPY web/features/player/adapters web/features/player/adapters
 COPY web/features/player/netplay web/features/player/netplay
 RUN python3 scripts/dependencies.py prepare --versions "$RETROM_DEPENDENCY_VERSIONS" \
-  && find data/runtime/emulatorjs -type f -name '*.7z' -delete \
-  && find data/runtime/emulatorjs -type f -path '*/.downloads/*' -delete \
-  && find data/runtime/emulatorjs -depth -type d -empty -delete
+  && python3 scripts/dependencies.py image-export \
+    --versions "$RETROM_DEPENDENCY_VERSIONS" \
+    --output /work/image-dependencies \
+  && rm -rf /work/data/runtime /work/data/dat /work/data/auth /work/data/netplay
 
 FROM golang:1.26.5-alpine AS build
 WORKDIR /src
@@ -29,16 +30,9 @@ RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/retrom ./cmd/retro
 FROM alpine:3.22
 ARG RELEASE_INPUT_DIGEST
 LABEL io.retrom.release-input-sha256=$RELEASE_INPUT_DIGEST
-RUN addgroup -S -g 10001 retrom && adduser -S -D -H -u 10001 -G retrom retrom \
-  && mkdir -p /var/lib/retrom /opt/retrom/dependencies \
-  && chown -R retrom:retrom /var/lib/retrom
-COPY --from=build /out/retrom /usr/local/bin/retrom
-COPY --from=dependencies /work/data/dat/emulatorjs /opt/retrom/dependencies/dat/emulatorjs
-COPY --from=dependencies /work/data/runtime/emulatorjs /opt/retrom/dependencies/runtime/emulatorjs
-COPY --from=dependencies /work/data/auth/password-blocklists /opt/retrom/dependencies/auth/password-blocklists
-COPY --from=dependencies /work/data/netplay /opt/retrom/dependencies/netplay
-RUN chmod -R a=rX /opt/retrom/dependencies
-USER 10001:10001
+RUN mkdir -p /var/lib/retrom
+COPY --from=build --chmod=0555 /out/retrom /usr/local/bin/retrom
+COPY --from=dependencies /work/image-dependencies /opt/retrom/dependencies
 ENV RETROM_HTTP_ADDR=0.0.0.0:8080 \
     RETROM_PUBLIC_ORIGIN=https://retrom.invalid \
     RETROM_DATA_DIR=/var/lib/retrom \

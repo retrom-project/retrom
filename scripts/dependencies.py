@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shutil
+import stat
 import subprocess
 import sys
 import tempfile
@@ -686,6 +687,119 @@ def check_payload(version: str, manifest: dict[str, Any]) -> None:
         raise CheckError("DEPENDENCY_NOTICE_MISMATCH")
 
 
+def image_export_entries(
+    versions: list[str], manifests: list[dict[str, Any]], auth_manifest: dict[str, Any]
+) -> dict[str, Path]:
+    entries: dict[str, Path] = {}
+
+    def add(source: Path, destination: str) -> None:
+        relative = safe_relative_path(destination, "DEPENDENCY_IMAGE_EXPORT_PATH_INVALID")
+        previous = entries.get(relative)
+        if previous is not None and previous != source:
+            raise CheckError("DEPENDENCY_IMAGE_EXPORT_PATH_COLLISION")
+        entries[relative] = source
+
+    for version, manifest in zip(versions, manifests, strict=True):
+        dat_root = DATA_ROOT / "dat/emulatorjs" / version
+        add(dat_root / "manifest.json", f"dat/emulatorjs/{version}/manifest.json")
+        add(dat_root / "SHA256SUMS", f"dat/emulatorjs/{version}/SHA256SUMS")
+        for core in manifest["cores"]:
+            dat = core.get("dat")
+            if isinstance(dat, dict):
+                relative = safe_relative_path(
+                    dat.get("local_path"), "DEPENDENCY_IMAGE_EXPORT_PATH_INVALID"
+                )
+                add(dat_root / relative, f"dat/emulatorjs/{version}/{relative}")
+
+        runtime_relatives = {
+            safe_relative_path(
+                item.get("path_in_release"), "DEPENDENCY_IMAGE_EXPORT_PATH_INVALID"
+            )
+            for item in manifest["emulatorjs"]["runtime_allowlist"]
+        }
+        runtime_relatives.update(
+            safe_relative_path(
+                item.get("path_in_release") or item.get("local_path"),
+                "DEPENDENCY_IMAGE_EXPORT_PATH_INVALID",
+            )
+            for item in manifest["emulatorjs"]["selected_core_artifacts"]
+        )
+        runtime_relatives.update(
+            safe_relative_path(
+                entry.get("output_relative_path"),
+                "DEPENDENCY_IMAGE_EXPORT_PATH_INVALID",
+            )
+            for component in manifest["license_materialization"]["components"]
+            for entry in component["license_files"]
+        )
+        runtime_relatives.add(
+            safe_relative_path(
+                manifest["license_materialization"].get(
+                    "third_party_notices_relative_path"
+                ),
+                "DEPENDENCY_IMAGE_EXPORT_PATH_INVALID",
+            )
+        )
+        for relative in sorted(runtime_relatives):
+            add(
+                runtime_path(version, relative),
+                f"runtime/emulatorjs/{version}/{relative}",
+            )
+
+    add(AUTH_MANIFEST_PATH, "auth/password-blocklists/v1/manifest.json")
+    for key in ("passwords", "license"):
+        relative = safe_relative_path(
+            auth_manifest[key].get("output_relative_path"),
+            "DEPENDENCY_IMAGE_EXPORT_PATH_INVALID",
+        )
+        add(auth_payload_path(relative), f"auth/password-blocklists/v1/{relative}")
+    add(NETPLAY_MANIFEST_PATH, "netplay/v1/manifest.json")
+    add(NETPLAY_SCHEMA_PATH, "netplay/v1/schema.json")
+    return entries
+
+
+def export_image_dependencies(
+    output_root: Path,
+    versions: list[str],
+    manifests: list[dict[str, Any]],
+    auth_manifest: dict[str, Any],
+) -> None:
+    if not output_root.is_absolute():
+        raise CheckError("DEPENDENCY_IMAGE_EXPORT_TARGET_INVALID")
+    if output_root.exists() or output_root.is_symlink():
+        raise CheckError("DEPENDENCY_IMAGE_EXPORT_TARGET_EXISTS")
+    output_root.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+    staging = Path(
+        tempfile.mkdtemp(prefix=".retrom-image-dependencies-", dir=output_root.parent)
+    )
+    try:
+        entries = image_export_entries(versions, manifests, auth_manifest)
+        for relative, source in sorted(entries.items()):
+            try:
+                source_stat = source.lstat()
+            except OSError as exc:
+                raise CheckError(f"DEPENDENCY_IMAGE_EXPORT_SOURCE_INVALID:{source.name}") from exc
+            if not stat.S_ISREG(source_stat.st_mode):
+                raise CheckError(f"DEPENDENCY_IMAGE_EXPORT_SOURCE_INVALID:{source.name}")
+            destination = staging / relative
+            destination.parent.mkdir(mode=0o755, parents=True, exist_ok=True)
+            with source.open("rb") as input_file, destination.open("xb") as output_file:
+                shutil.copyfileobj(input_file, output_file, length=1024 * 1024)
+            os.chmod(destination, 0o444)
+        directories = sorted(
+            (path for path in staging.rglob("*") if path.is_dir()),
+            key=lambda path: len(path.parts),
+            reverse=True,
+        )
+        for directory in directories:
+            os.chmod(directory, 0o555)
+        os.chmod(staging, 0o555)
+        os.replace(staging, output_root)
+    finally:
+        if staging.exists():
+            shutil.rmtree(staging, ignore_errors=True)
+
+
 def download(url: str, target: Path, size: int, sha256: str) -> None:
     target.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
     request = urllib.request.Request(url, headers={"User-Agent": "retrom-dependency-preparer/1"})
@@ -909,10 +1023,15 @@ def prepare(version: str, manifest: dict[str, Any]) -> None:
 
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("action", choices=("data-check", "prepare", "deps-check"))
+    parser.add_argument(
+        "action", choices=("data-check", "prepare", "deps-check", "image-export")
+    )
     parser.add_argument("--versions", required=True)
+    parser.add_argument("--output")
     args = parser.parse_args()
     try:
+        if (args.action == "image-export") != (args.output is not None):
+            raise CheckError("DEPENDENCY_IMAGE_EXPORT_OUTPUT_INVALID")
         versions = parse_versions(args.versions)
         manifests = [load_manifest(version) for version in versions]
         auth_manifest = load_auth_manifest()
@@ -923,10 +1042,14 @@ def main() -> int:
             for version, manifest in zip(versions, manifests, strict=True):
                 prepare(version, manifest)
             prepare_auth(auth_manifest)
-        if args.action in ("prepare", "deps-check"):
+        if args.action in ("prepare", "deps-check", "image-export"):
             for version, manifest in zip(versions, manifests, strict=True):
                 check_payload(version, manifest)
             check_auth_payload(auth_manifest)
+        if args.action == "image-export":
+            export_image_dependencies(
+                Path(args.output), versions, manifests, auth_manifest
+            )
         print(f"{args.action}: ok ({','.join(versions)})")
         return 0
     except (CheckError, OSError, KeyError, TypeError, ValueError, urllib.error.URLError) as exc:

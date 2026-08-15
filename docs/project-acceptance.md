@@ -215,16 +215,16 @@ make acceptance-case CASE=<case-id>
 
 - 上限：900 秒。
 - 执行：`make build-backend-image`，随后 `docker image inspect retrom:latest`；用 `docker image save` 到验收临时目录检查最终 image layer 文件清单，再以 UID/GID `1000:1000`、只读 rootfs、无网络的一次性容器读取并哈希全部内置依赖，容器不挂载数据卷、不启动 Retrom 服务。
-- 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、非 root User、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、两个运行时 manifest 共 38 个许可 component、依赖 manifest allowlist、五份 DAT以及密码 blocklist/许可；从 manifest 在验收临时目录重建 notice 并逐字节比较。最后确认所有依赖目录对任意非 root UID 可读、可遍历且不可写，所有依赖文件可读且不可写。
-- 通过标准：默认 target 为 `retrom:latest`，`io.retrom.release-input-sha256` 等于包含密码 manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中固定 hash。最终文件包含 36 个跨版本 selected core/report 条目（合并为 35 个 enabled core）、PPSSPP assets、五份 DAT、38 个运行时许可 component、10,000 行密码 blocklist及 MIT 许可，但不包含下载 archive、非 allowlist core、用户数据、源码/缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。覆盖镜像默认用户为 UID/GID `1000:1000` 时不得出现 `payload unavailable`。
+- 流程：先记录 `make release-input-digest`，只构建根 Dockerfile；检查镜像名、镜像没有创建或声明固定运行用户、HTTP 入口、最终镜像配置/发布输入 label、`THIRD_PARTY_NOTICES`、两个运行时 manifest 共 38 个许可 component、依赖 manifest allowlist、五份 DAT以及密码 blocklist/许可；从 manifest 在验收临时目录重建 notice 并逐字节比较。最后确认所有依赖目录对任意非 root UID 可读、可遍历且不可写，所有依赖文件可读且不可写。
+- 通过标准：默认 target 为 `retrom:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于包含密码 manifest digest 的本次 helper 值；所有 runtime/DAT/license/blocklist artifact 命中固定 hash。最终文件包含 36 个跨版本 selected core/report 条目（合并为 35 个 enabled core）、PPSSPP assets、五份 DAT、38 个运行时许可 component、10,000 行密码 blocklist及 MIT 许可，但不包含下载 archive、非 allowlist core、用户数据、源码/缓存、TLS 私钥或开发启动命令；被忽略 payload 未被 Git 跟踪且构建不 push。以部署基线 UID/GID `1000:1000` 运行只读依赖校验时不得出现 `payload unavailable`。
 - 证据：build log、image ID、RepoTags、User、Entrypoint/Cmd、最终 layer 文件/size/permission 清单、Git tracked-file size 检查、artifact 校验摘要和 UID `1000` 只读校验结果；一次性校验容器销毁后不留下容器、网络或 volume。
 
 ### ACC-PKG-002：前端镜像构建
 
 - 上限：900 秒。
 - 执行：`make acceptance-case CASE=ACC-PKG-002`。
-- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查 manifest 的 `player_adapter` 与 `web/features/player/adapters/registry.json` 双向一致且每个登记项有实现，再检查 standalone production 产物、非 root User 和内部 HTTP 入口。最后在临时工作树副本把 manifest adapter ID 改为未知值，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
-- 通过标准：默认目标 tag 为 `retrom-web:latest`，`io.retrom.release-input-sha256` 等于本次 helper 值；基线 `ejs-4.2.3-v2` 精确映射版本 `4.2.3`，runtime base/loader 路径命中 manifest allowlist，未知或无实现登记项使临时副本的校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
+- 流程：runner 记录 `make release-input-digest`，调用 `make build-web-image` 并 inspect `retrom-web:latest`；确认 target 在编译生产代码前执行 `data-check`，检查 manifest 的 `player_adapter` 与 `web/features/player/adapters/registry.json` 双向一致且每个登记项有实现，再检查 standalone production 产物、镜像没有创建或声明固定运行用户以及内部 HTTP 入口。最后在临时工作树副本把 manifest adapter ID 改为未知值，运行同一 `data-check` 并要求预期失败；不在主工作树留修改，也不对负向样本再构建镜像。
+- 通过标准：默认目标 tag 为 `retrom-web:latest`，image config 的 `User` 为空且 `/etc/passwd` 不含 Retrom 专用账号，运行身份完全由部署编排决定；`io.retrom.release-input-sha256` 等于本次 helper 值；基线 `ejs-4.2.3-v2` 精确映射版本 `4.2.3`，runtime base/loader 路径命中 manifest allowlist，未知或无实现登记项使临时副本的校验失败；镜像没有开发依赖/缓存、内置后端地址、TLS 私钥或用户数据，Cmd 不是 `next dev`。
 - 证据：build log、image inspect/digest 摘要与负向 `data-check` 错误；不启动容器。
 
 ### ACC-PKG-003：镜像 Target 只构建不运行

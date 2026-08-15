@@ -16,9 +16,7 @@ ARG RELEASE_INPUT_DIGEST
 LABEL io.retrom.release-input-sha256=$RELEASE_INPUT_DIGEST
 WORKDIR /app
 ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 HOSTNAME=0.0.0.0 PORT=3000
-RUN addgroup -S -g 10001 retrom && adduser -S -D -H -u 10001 -G retrom retrom
-COPY --from=build --chown=retrom:retrom /app/.next/standalone ./
-COPY --from=build --chown=retrom:retrom /app/.next/static ./.next/static
-USER 10001:10001
+COPY --from=build /app/.next/standalone ./
+COPY --from=build /app/.next/static ./.next/static
 EXPOSE 3000
 CMD ["node", "server.js"]

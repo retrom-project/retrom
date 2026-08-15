@@ -127,7 +127,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 
 ## 5. 镜像构建
 
-根 Dockerfile 的 dependency builder stage 必须读取同一组 manifest，当前默认列表为 `4.2.3,4.3.0-pre`；该 stage 包含 FBA2012 锁定源码生成器及临时原生编译工具链，生成结束后只把校验通过的依赖 payload 复制到最终镜像，生成器、源码和编译工具不得进入最终层。升级镜像必须同时保留数据库中受 SaveState/PersistentSave/READY VariantRevision 保护的旧版本；两个镜像都使用第 3.1 节的发布输入 label。最终 `retrom` 镜像只复制：
+根 Dockerfile 的 dependency builder stage 必须读取同一组 manifest，当前默认列表为 `4.2.3,4.3.0-pre`；该 stage 包含 FBA2012 锁定源码生成器及临时原生编译工具链，完整 release 只作为校验与选择输入。生成结束后必须从 manifest 确定性导出一个全新的只读目录，只把校验通过且被声明的依赖 payload 复制到最终镜像；不得直接复制解包目录，也不得在最终 stage 对整个依赖树执行会产生 copy-up layer 的递归改权限。生成器、源码、完整 release 和编译工具不得进入最终层。升级镜像必须同时保留数据库中受 SaveState/PersistentSave/READY VariantRevision 保护的旧版本；两个镜像都使用第 3.1 节的发布输入 label。最终 `retrom` 镜像只复制：
 
 - 后端二进制；
 - 每个配置 manifest `runtime_allowlist` 中的固定浏览器文件与 `selected_core_artifacts` 中的 core；
