@@ -353,7 +353,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 36 ||
+		response.DatabaseSchemaVersion != 37 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -629,7 +629,7 @@ INSERT INTO pegasus_import_items(
 	}
 }
 
-func TestPegasusReviewBatchQueryIsAllowed(t *testing.T) {
+func TestReviewWorkflowQueriesAreAllowed(t *testing.T) {
 	t.Parallel()
 	requests := []*http.Request{
 		httptest.NewRequest(
@@ -647,10 +647,20 @@ func TestPegasusReviewBatchQueryIsAllowed(t *testing.T) {
 			"/api/v1/admin/review-assets/01980000-0000-7000-8000-000000000002?kind=VIDEO",
 			nil,
 		),
+		httptest.NewRequest(
+			http.MethodGet,
+			"/api/v1/admin/review-bulk-approval-preview?importJobId=01980000-0000-7000-8000-000000000003&blockerCode=MISSING_BIOS",
+			nil,
+		),
+		httptest.NewRequest(
+			http.MethodGet,
+			"/api/v1/admin/review-bulk-approvals/01980000-0000-7000-8000-000000000004/items?outcome=PUBLISHED&cursor=10&limit=50",
+			nil,
+		),
 	}
 	for _, request := range requests {
 		if err := validateQueryValues(request.URL.Query(), queryAllowlist(request)); err != nil {
-			t.Fatalf("Pegasus review query %s %s rejected: %v", request.Method, request.URL, err)
+			t.Fatalf("review workflow query %s %s rejected: %v", request.Method, request.URL, err)
 		}
 	}
 }

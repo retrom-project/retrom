@@ -563,6 +563,14 @@ make acceptance-case CASE=<case-id>
 - 通过标准：已发布 Item 不回滚，REVIEW_PENDING Item 在取消事务转 CANCELLED；RUNNING cancel 返回 202，ImportJob 在停止前保持 CANCEL_REQUESTED，最后一个 Worker 确认后才为 CANCELLED，且绝不因已有发布/取消混合计数聚合成 COMPLETED/PARTIAL_FAILURE。取消检查不超过规定 reader/token 边界并且不会发布；旧 worker 在取消/lease 转移后提交被 state+lease token 拒绝；取消中 lease 恢复不继续领域计算。IDENTIFYING retry 复用 pipeline Job并增加 execution，SCRAPING retry 新建 Run/Job且旧证据不变；两者都由 persisted failedStage 分派、保留原 Import 配置，不重复创建 Blob/候选/ReviewEvent。重新配置不上传或复制 bytes，新 UploadFile 与旧文件引用相同 SHA-256 Blob，replacement 生成 raw ISO Item并回指 source；source 原 REJECTED reason 保留、resolution 指向 replacement、未解决计数归零并收口，陈旧 ETag/重复接管整体拒绝。JobEvent 仍按每次真实转换追加；普通过期任务被重新领取并完成；确定性错误直接 FAILED_FINAL，attempt 用尽才从 FAILED_RETRYABLE 进入 FAILED_FINAL；没有长事务或真实等待，任务/审核时刻均为 INTEGER。
 - 证据：完整状态转换、引用计数、lease/attempt 和事务时长摘要。
 
+### ACC-IMP-009：严格 READY 快速审批、逐项原子性与恢复
+
+- 上限：240 秒。
+- 执行：`make acceptance-case CASE=ACC-IMP-009`。
+- 流程：创建跨两个 ImportJob 的 READY、阻断截图 override、重复内容、active Parent/多盘 Attachment、过期 Validation 和非法标题 Item；以 `q/tagId/importJobId/pegasusImportId/platformInstanceId/blockerCode` 的固定组合预览完整范围。预览后分别修改一个草稿、发布一个重复来源并并发创建两个 batch，验证 stale/active；重新预览后启动。处理期间在发布事务和批次结果之间故障注入、请求取消并模拟进程退出/重启；另在 worker 基础设施失败后领域 retry，最后对一份含非终态批次的 backup 执行 restore。
+- 通过标准：预览计数互斥覆盖 matched，candidate 只含严格 generation 4 READY、当前来源/目录/CoreArtifact/DAT/BIOS/DOS/dependency、合法标题、无重复和 active Attachment 的 Item；截图 override 永远排除。范围枚举不受列表 limit/cursor/已加载 DOM 影响，scope/candidate digest 漂移返回 `REVIEW_BULK_PREVIEW_STALE`，零项/10,001/第二个 active batch 使用稳定错误且不创建半个 Job。每个 PUBLISHED 的 Game/Revision/ReviewEvent、普通/Pegasus 聚合和 batch item/counter 同事务提交，故障时全部回滚；事件含 `QUICK_STRICT_READY/bulkApprovalId`。处理前 duplicate/changed/not-ready 分别 skip，意外项 final failure 不阻断后续项；取消只收口未提交项，已发布不回滚。重启只恢复未提交项且不重复 Game/Revision/Event，通用 Job retry 被拒绝、worker-only 领域 retry 增加 execution；restore 把遗留 Item 取消、aggregate/Job 置 `FAILED/RESTORE_INTERRUPTED` 并保留已发布项。036→037 与 fresh schema 同构、foreign key/integrity 检查无结果。
+- 证据：preview/create HTTP 摘要、Migration/store 约束、故障注入事务行、JobEvent/ReviewEvent、取消/重启/retry/restore 状态序列及最终 Game 数。
+
 ## 11. BIOS 与 Arcade DAT
 
 ### ACC-DAT-001：真实 DAT 基线完整性
@@ -694,7 +702,7 @@ make acceptance-case CASE=<case-id>
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-003`。
 - 流程：扫描含两个 Collection 的固定目录，不设置默认映射并按 ETag 提交显式映射；准备普通单文件、M3U+CHD 和 Arcade ZIP+同目标 companion，并在 Arcade Collection 中放入超过 64 个无关 ZIP；在审核前查询 Game，再对 READY 条目逐项 Approve、对另一条目 Discard，并让一个 Pegasus Arcade blocker 先补传 Parent ZIP、等待后继 Validation READY 后以当前 Review ETag Approve；再次导入相同来源与相同内容的另一来源；在审核交接中点模拟进程退出并恢复。
-- 通过标准：未映射时不能开始；计划冻结游戏平台目录/核心版本；三种内容均复用既有验证与普通审核管线，M3U 顺序与 Arcade primary source 正确；Arcade 只装配冻结 DAT parent/romof 闭包中的显式 ZIP，无关 ZIP 不进入单 Item 来源且不会触发 64 文件上限。导入前已安装且匹配冻结 CoreArtifact 的 DAT BIOS 在初始 Validation 中即为 `SATISFIED_EXTERNAL` 并进入 `BIOS_BUNDLE`，不得先误报缺失；同时仍缺 Parent 或主内容不匹配的条目继续按真实原因阻断。Worker 完成后 READY 与 blocker 都为普通 `REVIEW_PENDING`，Game 数仍为零且没有批量通过入口；Parent 接受后有效 source manifest、content identity 与 Review version 同步推进，Approve 必须使用后继快照成功创建带 `SERVER_PEGASUS_IMPORT` 来源的 Game/Revision/媒体并同步两组计数，不能再按 Pegasus 初始 manifest 拒绝；Discard 保留 ReviewEvent 并同步为 `REVIEW_DISCARDED`。交接中点恢复复用同一个内部 ImportItem，不重复草稿事件，未交接条目不可见且不可发布。library validation 未通过时原样保留 status、compatibility code、Core 与封闭依赖证据，不得统一覆盖为 `PEGASUS_RUNTIME_BLOCKED`；library import 内部错误收口为可重试失败，并持久化 stage/operation/cause/受限技术详情/数量上限和可用关联 ID；重复结果列出全部既有匹配，不生成审核事项或重复创建 Game/Revision/Blob，条目仍有稳定结果和链接。
+- 通过标准：未映射时不能开始；计划冻结游戏平台目录/核心版本；三种内容均复用既有验证与普通审核管线，M3U 顺序与 Arcade primary source 正确；Arcade 只装配冻结 DAT parent/romof 闭包中的显式 ZIP，无关 ZIP 不进入单 Item 来源且不会触发 64 文件上限。导入前已安装且匹配冻结 CoreArtifact 的 DAT BIOS 在初始 Validation 中即为 `SATISFIED_EXTERNAL` 并进入 `BIOS_BUNDLE`，不得先误报缺失；同时仍缺 Parent 或主内容不匹配的条目继续按真实原因阻断。Worker 完成后 READY 与 blocker 都为普通 `REVIEW_PENDING` 且 Game 数仍为零；只有后续逐项或严格 READY 快速审批才创建 Game。Parent 接受后有效 source manifest、content identity 与 Review version 同步推进，Approve 必须使用后继快照成功创建带 `SERVER_PEGASUS_IMPORT` 来源的 Game/Revision/媒体并同步两组计数，不能再按 Pegasus 初始 manifest 拒绝；Discard 保留 ReviewEvent 并同步为 `REVIEW_DISCARDED`。交接中点恢复复用同一个内部 ImportItem，不重复草稿事件，未交接条目不可见且不可发布。library validation 未通过时原样保留 status、compatibility code、Core 与封闭依赖证据，不得统一覆盖为 `PEGASUS_RUNTIME_BLOCKED`；library import 内部错误收口为可重试失败，并持久化 stage/operation/cause/受限技术详情/数量上限和可用关联 ID；重复结果列出全部既有匹配，不生成审核事项或重复创建 Game/Revision/Blob，条目仍有稳定结果和链接。
 - 证据：Migration/服务集成测试、发布与重复摘要。
 
 ### ACC-PEG-004：取消、重试、恢复、GC 与 restore fence
@@ -709,8 +717,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-005`。
-- 流程：在 1280×800、2560×1440、3840×2160 打开服务器导入页，只用键盘完成 root/目录选择与扫描；扫描后关闭 Drawer，直接进入该计划详情并从“继续映射”恢复，选择一个既有标签并批量追加到全部未跳过 Collection，再完成全部 Collection 显式映射、确认审核计划和启动；另覆盖已完整保存映射后关闭并恢复第三步。任务准备完成后从批次行动区进入限定审核队列，打开 READY 与 blocker 各一项并返回；检查来源 COVER/VIDEO 和无批量入口。在详情注入 BIOS 缺失、parent 缺失、内容 entry 缺失、merged set 不支持、结构化 library import 内部失败和历史通用 runtime blocker，展开诊断、触发原计划重检，再使用 URL 筛选、分页、取消/retry 并模拟 SSE 断线。
-- 通过标准：两张能力卡等权且共用 root 说明，Pegasus 卡明确不会自动发布并显示待审核总数；760px Drawer 三步可达、无默认映射，批量标签以 union 语义进入所有未跳过 Collection 且可逐项调整，第三步显示覆盖数量并明确“全部进入待审核”；`AWAITING_MAPPING` 详情能恢复指定计划且不重新选目录/扫描，未保存映射重新选择、已完整保存映射直接进入第三步。Drawer 打开时背景不可滚动，扫描转换与同计划摘要轮询不得造成布局跳动、焦点转移或本地映射丢失。详情以扫描范围/待审核/已发布·丢弃·已有/阻断·失败分组，显示 media READY/MISSING/WARNING、逐项审核入口与已有/新游戏链接；批次入口保留 `pegasusImportId`，清除其他筛选不丢批次，Pegasus metadata 不计作“未找到信息”；审核媒体中 VIDEO 等比居中且不自动播放，页面无任何批量通过按钮。阻断行展示具体原因，展开后可见稳定 code、Core/machine、缺失条目、依赖和处理建议；内部失败展开后可见 stage、operation、cause code、Pegasus Item ID、相对路径、观察数量/上限、可用内部关联 ID 与受限技术详情，不得只显示 `PEGASUS_LIBRARY_IMPORT_FAILED`；历史 `PEGASUS_RUNTIME_BLOCKED` 可在原任务重检且重检后不再保留通用原因；断线不清空内容；三个 viewport 无页面级横向溢出，焦点、Escape、reduced-motion 和状态文本符合 UI 契约。
+- 流程：在 1280×800、2560×1440、3840×2160 打开服务器导入页，只用键盘完成 root/目录选择与扫描；扫描后关闭 Drawer，直接进入该计划详情并从“继续映射”恢复，选择一个既有标签并批量追加到全部未跳过 Collection，再完成全部 Collection 显式映射、确认审核计划和启动；另覆盖已完整保存映射后关闭并恢复第三步。任务准备完成后从批次行动区进入限定审核队列，打开 READY 与 blocker 各一项并返回；检查来源 COVER/VIDEO，确认快速审批只位于统一审核页。在详情注入 BIOS 缺失、parent 缺失、内容 entry 缺失、merged set 不支持、结构化 library import 内部失败和历史通用 runtime blocker，展开诊断、触发原计划重检，再使用 URL 筛选、分页、取消/retry 并模拟 SSE 断线。
+- 通过标准：两张能力卡等权且共用 root 说明，Pegasus 卡明确扫描不会自动发布并显示待审核总数；760px Drawer 三步可达、无默认映射，批量标签以 union 语义进入所有未跳过 Collection 且可逐项调整，第三步显示覆盖数量并明确“全部进入待审核”；`AWAITING_MAPPING` 详情能恢复指定计划且不重新选目录/扫描，未保存映射重新选择、已完整保存映射直接进入第三步。Drawer 打开时背景不可滚动，扫描转换与同计划摘要轮询不得造成布局跳动、焦点转移或本地映射丢失。详情以扫描范围/待审核/已发布·丢弃·已有/阻断·失败分组，显示 media READY/MISSING/WARNING、逐项审核入口与已有/新游戏链接；批次入口保留 `pegasusImportId`，清除其他筛选不丢批次，Pegasus metadata 不计作“未找到信息”；审核媒体中 VIDEO 等比居中且不自动播放，Pegasus 详情本身不复制快速审批按钮。阻断行展示具体原因，展开后可见稳定 code、Core/machine、缺失条目、依赖和处理建议；内部失败展开后可见 stage、operation、cause code、Pegasus Item ID、相对路径、观察数量/上限、可用内部关联 ID 与受限技术详情，不得只显示 `PEGASUS_LIBRARY_IMPORT_FAILED`；历史 `PEGASUS_RUNTIME_BLOCKED` 可在原任务重检且重检后不再保留通用原因；断线不清空内容；三个 viewport 无页面级横向溢出，焦点、Escape、reduced-motion 和状态文本符合 UI 契约。
 - 证据：Playwright DOM/网络/布局断言和三尺寸当前截图。
 
 ### ACC-MEDIA-001：VIDEO 上传、服务与详情播放策略
@@ -919,7 +927,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-008`。
 - 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，加载第二页后选择第 57 项，点击一次“重新运行检查”并记录 popup 与 Preview 请求，再修改标题并等待实时保存，切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；Approve 第 3 项后再次直达它的旧详情 URL，再 Discard 第 58 项。分别在 1280×800 和 3840×2160 执行，并用键盘完成一次筛选和非顺序选中。
-- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。同一次停留在底部预加载区只请求一页且没有并发重复请求，哨兵离开并再次进入后才自动取下一页，手动“继续加载”仍可用。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；简介标签与文本域间距不超过 8px，剩余栏高扩展文本域而不是标签空白；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。审核决定中的“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”按两行两列显示，四个按钮计算宽度与高度一致，Tab 顺序同视觉顺序；“重新运行检查”刷新 Validation 与发布状态但不产生 popup 或 `/previews` 请求，“运行游戏”仍是唯一创建审核 Preview 的入口；页首截图槽显示当前 READY 或阻断 Validation 的第 5 秒截图，阻断截图出现后发布按钮解除置灰，且占位/图片切换不改变外层摘要卡片高度。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。已处理条目的旧详情 URL 返回原筛选队列、提示条目已处理或不再可用、清除对应浏览器队列快照且不显示通用故障页。页面没有批量 Approve/Discard，所有最终决策各自使用当前 ETag/Idempotency-Key/ReviewEvent，两个批次不会串项。
+- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。同一次停留在底部预加载区只请求一页且没有并发重复请求，哨兵离开并再次进入后才自动取下一页，手动“继续加载”仍可用。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；简介标签与文本域间距不超过 8px，剩余栏高扩展文本域而不是标签空白；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。审核决定中的“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”按两行两列显示，四个按钮计算宽度与高度一致，Tab 顺序同视觉顺序；“重新运行检查”刷新 Validation 与发布状态但不产生 popup 或 `/previews` 请求，“运行游戏”仍是唯一创建审核 Preview 的入口；页首截图槽显示当前 READY 或阻断 Validation 的第 5 秒截图，阻断截图出现后发布按钮解除置灰，且占位/图片切换不改变外层摘要卡片高度。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。已处理条目的旧详情 URL 返回原筛选队列、提示条目已处理或不再可用、清除对应浏览器队列快照且不显示通用故障页。普通逐项 Approve/Discard 各自使用当前 ETag/Idempotency-Key/ReviewEvent；快速审批另按 `ACC-UI-010` 的冻结 aggregate 执行，两个范围不会串项。
 - 证据：API query/cursor、route 序列、键盘 trace、决策前后队列 DOM 及两个 viewport 的当前截图。
 
 ### ACC-UI-009：账户与用户管理全流程
@@ -929,6 +937,14 @@ python3 data/example/verify-fixtures.py
 - 流程：在 `1280×800`、`2560×1440` 和 `3840×2160` viewport 完成 setup、test login、邀请复制/注册、logout/login、管理员创建密码重置链接、重置、账户改密及管理员用户筛选/Drawer/角色/状态/删除；确认登录页不提供自助找回密码，账户资料只读且管理员不能代改 displayName/密码。覆盖空、loading、通用错误、429、ETag 冲突、本人和最后管理员状态；只用键盘重复邀请与 Drawer 流程并运行 axe。
 - 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身/最后管理员控件禁用并解释原因，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
 - 证据：三 viewport 当前截图、route/network/storage trace、axe/键盘结果与后端生命周期摘要。
+
+### ACC-UI-010：快速审批预览、进度恢复与结果
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-UI-010`。
+- 流程：在 `390×844`、`1280×800` 与 `3840×2160` 打开含 READY、截图 override、重复、active Attachment 和 stale Item 的审核队列，设置 `q/tagId/importJobId/pegasusImportId/platformInstanceId/blockerCode` 后仅加载第一页。只用键盘打开快速审批预览，先制造 preview stale 再确认；刷新带 `bulkApprovalId` 的运行页，取消一次并另建批次运行到含 skip/failure 的终态；注入 worker-only failure 后重试。覆盖零 candidate、已有 active batch 和网络错误。
+- 通过标准：页首按钮与历史入口可达；预览来自服务端完整筛选而非当前 DOM，突出自动发布数并以非颜色文本逐类解释排除，截图 override 明确要求人工处理。stale 保留 Dialog、刷新数字并要求再次确认；零项禁用主操作，active batch 恢复其状态。运行卡在刷新/返回后按 URL 恢复，显示状态、processed/candidate、发布/跳过/失败/取消计数和稳定进度，不导致筛选/列表跳动；取消与 retry 只在合法状态出现并带确认/ETag。终态清除当前用户全部 `reviews:` sessionStorage 队列快照、刷新列表，最多首屏 50 条结果都有 Review/Game 链接和可读结果。三个 viewport 无页面级横向溢出；Dialog/status/results 的焦点、Escape、触发器返回、44px target、aria-live、reduced-motion 和 axe serious/critical 全部符合通用契约。
+- 证据：三个 viewport 当前截图、URL/sessionStorage/network 序列、键盘/focus/axe trace 和最终结果 DOM。
 
 ## 16. 多盘系统
 
@@ -1055,7 +1071,7 @@ python3 data/example/verify-fixtures.py
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-TAG-004`。
 - 流程：多个 Collection 使用不同目录/标签，先把一个标签批量追加到全部未跳过 Collection，再逐项增删，覆盖 SKIP 空集合、20 个上限、mapping 保存/恢复/start 漂移、一次 retry 与审核 handoff；来源 metadata 同时含外部 tags/genre，并对已存在内容走 `SKIPPED_EXISTING`。
-- 通过：批量操作只做去重 union、不覆盖已有选择，尚未选择处理方式的 Collection 后续选择 `IMPORT` 仍保留批次标签，`SKIP` 始终清空；每 Collection 关系与 `{tagId,name}` snapshot 稳定，Tag 删除推进 plan/mapping version且旧 start 冲突；handoff 只写一次 DraftTag，retry/crash recovery 不重复；外部字段不创建/猜测 Retrom Tag，SKIPPED_EXISTING 不改已有 GameTag；全部新候选仍逐项审核。
+- 通过：批量操作只做去重 union、不覆盖已有选择，尚未选择处理方式的 Collection 后续选择 `IMPORT` 仍保留批次标签，`SKIP` 始终清空；每 Collection 关系与 `{tagId,name}` snapshot 稳定，Tag 删除推进 plan/mapping version且旧 start 冲突；handoff 只写一次 DraftTag，retry/crash recovery 不重复；外部字段不创建/猜测 Retrom Tag，SKIPPED_EXISTING 不改已有 GameTag；全部新候选仍先进入统一审核，之后只允许严格 READY 子集按 `ACC-IMP-009` 快速审批。
 - 证据：mapping/plan ETag、Collection snapshot、Item/Draft/Game 关系计数、retry execution、外部 metadata 负向和 existing Game 对照。
 
 ### ACC-TAG-005：搜索、展示、响应式与无障碍

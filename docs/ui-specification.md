@@ -42,6 +42,7 @@
 - [导入游戏 · 3840×2160](./design/retrom-ui-admin-import-new-4k.png)
 - [任务进度 · 3840×2160](./design/retrom-ui-admin-import-tasks-4k.png)
 - [待审核列表 · 3840×2160](./design/retrom-ui-admin-review-4k.png)
+- [快速审批影响预览 / 运行进度 / 停止确认 · 3840×2160](./design/retrom-ui-admin-review-bulk-approval-4k.png)、[进度状态](./design/retrom-ui-admin-review-bulk-progress-4k.png)、[停止确认](./design/retrom-ui-admin-review-bulk-cancel-4k.png)
 - [审核详情 · 3840×2160](./design/retrom-ui-admin-review-detail-4k.png)
 - [上传全部缺失光盘 Drawer · 3840×2160](./design/retrom-ui-admin-review-attachment-4k.png)
 - [补盘校验中 · 3840×2160](./design/retrom-ui-admin-review-validating-4k.png)
@@ -465,7 +466,7 @@ Parent 操作打开可用键盘关闭和焦点回退的 modal，只接受一个 
 
 依赖树在 2560×1440、4K 和 1280px 折叠布局中不得使页面横向溢出；颜色不是唯一状态信号，选择文件、提交、关闭、BIOS 跳转和重试均可用键盘完成。
 
-一期不提供批量 Approve/Discard。每个条目的草稿、候选、Validation、ETag、幂等键和最终 ReviewEvent 都独立，必须逐条确认；提高大量 ROM 审核效率依靠可见队列、批次筛选、任意跳转和决策后自动聚焦下一项，不能用一次点击盲目发布整个批次。
+系统不提供盲目批量 Discard，也不把截图人工放行或重复内容确认自动化。每个条目的草稿、候选、Validation 和最终 ReviewEvent 仍独立；快速审批只把服务端再次证明为严格 READY 的冻结子集交给后台逐项原子发布。需要管理员判断的条目继续依靠可见队列、批次筛选、任意跳转和决策后自动聚焦下一项逐条确认。
 
 “审核历史”是独立的只读审计页；列表不展开无解释的技术 UUID，点击整行以对话框展示审核完成瞬间的标题、简介、开发/发行、类型、玩家、年份和封面快照。最终审核事件引用的 READY 候选媒体在条目离开待审状态后仍可读取；历史媒体确实缺失时显示明确占位，不渲染裂图。完整输入/输出、配置和 provider 证据仍由只读事件详情 API 保留，历史页不能修改旧事件或复用为待审核队列。
 
@@ -525,7 +526,11 @@ BIOS FULL_CATALOG 首屏和续页固定 100 条；距底部 600px 自动拉取�
 
 Pegasus Drawer 为 760px 右侧三步流程：“选择目录 → 检查与映射 → 确认审核计划”。第一步复用 root radio、面包屑和直接子目录浏览，只展示 root label 与相对路径；开始扫描后可关闭 Drawer，重新打开时恢复该 SCANNING/AWAITING_MAPPING 计划。Drawer 打开期间必须锁定背景滚动并保留滚动条宽度；同一计划的轮询摘要更新不得重建 Drawer、转移焦点或重置尚未提交的映射。第二步展示每个 Collection 的游戏数、扩展名和明确的游戏平台目录选择；不设默认映射，所有 Collection 都选择后才可继续，提交用计划 ETag 并按最多 100 条分批。该步骤在 Collection 列表之前提供“批量添加默认标签”：管理员选择既有活动标签并显式应用后，以 union 语义追加到全部当前未跳过 Collection（包括尚未选择处理方式者），不得覆盖已有选择；下方 Collection TagPicker 继续支持逐项增删，切换为 `SKIP` 必须清空该项标签。第三步以清晰摘要确认来源、处理/跳过数量、默认标签覆盖的 Collection/游戏数、可处理/源内容阻断、封面/视频、预计读取量和“全部进入待审核，由管理员逐项决定”的发布方式；主按钮为“开始准备审核事项”，正文明确后台不会创建游戏，不让浏览器解析 metadata 或决定兼容性。
 
-`/admin/imports/server/pegasus/:id` 展示阶段、计数和映射快照，通过 SSE 更新并在断线时有界轮询；处于 `AWAITING_MAPPING` 时，详情头必须提供“继续映射”，直接为当前计划打开第二步 Drawer，不得要求重新选择目录或重新扫描。未保存的映射仍须重新选择；已经完整保存映射的计划恢复后直接进入第三步确认。过滤条件 `q/outcome/warning/collectionId` 写入 URL。条目每页最多 50 条，展示 Collection、目标游戏平台、来源相对路径、准备/审核结果、已有/新游戏链接以及 cover/video 的 READY、MISSING、WARNING 文本状态。任务完成且仍有待审核项时，页首显示独立紫色审核行动区，说明“内容已准备好，但尚未进入游戏库”，主操作“逐项审核 N 个游戏”进入 `/admin/reviews?pegasusImportId=:id`；每个 `REVIEW_PENDING` 行另提供“审核并决定”或“处理运行问题”。页面不得提供批量通过。摘要按“扫描范围 / 等待逐项审核 / 已发布·已丢弃·已存在 / 源内容阻断·任务失败”分组，避免把任务准备完成误读为已发布。
+`/admin/imports/server/pegasus/:id` 展示阶段、计数和映射快照，通过 SSE 更新并在断线时有界轮询；处于 `AWAITING_MAPPING` 时，详情头必须提供“继续映射”，直接为当前计划打开第二步 Drawer，不得要求重新选择目录或重新扫描。未保存的映射仍须重新选择；已经完整保存映射的计划恢复后直接进入第三步确认。过滤条件 `q/outcome/warning/collectionId` 写入 URL。条目每页最多 50 条，展示 Collection、目标游戏平台、来源相对路径、准备/审核结果、已有/新游戏链接以及 cover/video 的 READY、MISSING、WARNING 文本状态。任务完成且仍有待审核项时，页首显示独立紫色审核行动区，说明“内容已准备好，但尚未进入游戏库”，主操作“审核 N 个游戏”进入 `/admin/reviews?pegasusImportId=:id`；每个 `REVIEW_PENDING` 行另提供“审核并决定”或“处理运行问题”。快速审批只在统一待审核页对这个筛选范围提供，Pegasus 详情不复制按钮或发布状态机。摘要按“扫描范围 / 等待审核 / 已发布·已丢弃·已存在 / 源内容阻断·任务失败”分组，避免把任务准备完成误读为已发布。
+
+`/admin/reviews` 页首在“审核历史”旁提供“快速审批”。点击后以应用内确认对话框加载当前 URL 筛选的完整服务端预览，不受当前已加载页影响；对话框突出可自动发布数，并分列说明阻断截图人工放行、重复内容、活动补传和其他不 READY/已过期排除数。零 candidate 时主按钮禁用并说明下一步；存在其他 active batch 时显示其进度，不允许启动第二个批次。确认期间筛选或候选漂移时保留对话框并刷新数字，要求再次确认，不能静默使用新集合。
+
+批次启动后对话框关闭，筛选区上方显示非跳动状态卡：状态文本、`processed/candidate`、发布/跳过/失败/取消计数、进度条，以及只在可用状态出现的取消或重试按钮。“停止未处理项目”必须先用应用内 Dialog 说明已发布游戏不会撤销，再提交取消。URL 记录 `bulkApprovalId`，刷新或返回可恢复轮询；终态清除当前用户所有 `reviews:` 队列快照并刷新服务端列表。结果区最多先列 50 个条目，标题链接到对应 Review 或 Game，跳过/失败有非颜色结果文本。手机上页首操作换行、预览对话框单列、状态卡计数两列；所有按钮至少 44px，Dialog 具备焦点圈定、Escape/取消和触发器焦点恢复。
 
 阻断或失败行先显示可理解的具体原因，展开“查看具体原因与处理建议”后展示稳定错误码、检查 Core/machine、缺失或不匹配条目、parent/BIOS/多盘依赖明细及对应修复动作；内部失败另展示失败阶段、内部操作、底层 cause code、Pegasus Item ID、来源相对路径、观察数量/上限、可用的内部 ImportJob/ImportItem ID 和受限技术详情。BIOS 阻断提供 BIOS 管理入口。不得只显示“运行检查阻断”、裸 `PEGASUS_RUNTIME_BLOCKED` 或没有排查上下文的 `PEGASUS_LIBRARY_IMPORT_FAILED`。历史通用阻断在页头提供“重新运行检查”，直接复用原计划和映射恢复诊断，不要求重新选择目录。取消不删除已生成审核事项或回滚已发布游戏；普通 retry 只为服务端声明可重试的终态提供，delete 只允许已结束且不再引用外部 source 的计划。
 

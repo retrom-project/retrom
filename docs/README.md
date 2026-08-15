@@ -6,7 +6,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft 当前有效来源快照：补传 Parent ROM 或多盘内容后仍保留 `SERVER_PEGASUS_IMPORT` 来源审计，但不会因 manifest 已从 Pegasus 初始快照演进而拒绝发布。Migration 034 实例级游戏标签已经进入当前代码、OpenAPI 和生成物：管理员先建立共享标签，再在普通导入、Pegasus Collection、审核或游戏维护中引用；活动标签参与游戏搜索和展示，但不进入内容、运行时或存档协议。Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清单和生成物：默认关闭，启用后开放 EmulatorJS 4.2.3 的 FCEUmm/FBNeo 两个精确 core profile、同源房间和服务端中继 rollback；每个 profile 覆盖使用该锁定 artifact 的全部合格 READY 游戏，不按单个 ROM 建产品白名单。
 
-一期基线、账户隔离升级、Saturn/yabause 多盘系统、服务器 BIOS 导入、Migration 028 Pegasus ROM 目录导入、Migration 029 Pegasus 管理诊断、Migration 030 Pegasus 审核交接、Migration 031 审核运行预览和 Migration 033 截图人工放行已经落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、复制与运行检查后生成普通审核事项，只有管理员逐项通过才发布。审核页可在隔离子窗体中尽最大可能运行当前来源；核心真实启动后第 5 秒会保存运行截图，当前 READY 证据或与当前来源、目标、核心一致的阻断截图都可启用逐项发布。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
+一期基线、账户隔离升级、Saturn/yabause 多盘系统、服务器 BIOS 导入、Migration 028 Pegasus ROM 目录导入、Migration 029 Pegasus 管理诊断、Migration 030 Pegasus 审核交接、Migration 031 审核运行预览、Migration 033 截图人工放行和 Migration 037 快速审批已经落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、复制与运行检查后生成普通审核事项。审核页可预览当前筛选范围，并把严格 `READY`、没有重复内容且没有活动补传的条目交给可恢复后台批次发布；截图人工放行、重复内容和其他需要判断的条目继续逐项处理。审核详情仍可在隔离子窗体中尽最大可能运行当前来源，核心真实启动后第 5 秒保存运行截图。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
 
 | 检查面 | 状态 | 实施事实源 |
 | --- | --- | --- |
@@ -73,6 +73,7 @@ Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft
 - [`design/retrom-ui-admin-import-new-4k.png`](./design/retrom-ui-admin-import-new-4k.png)：4K 文件/目录导入与配置快照。
 - [`design/retrom-ui-admin-import-tasks-4k.png`](./design/retrom-ui-admin-import-tasks-4k.png)：4K ImportJob 运行态与异常处置。
 - [`design/retrom-ui-admin-review-4k.png`](./design/retrom-ui-admin-review-4k.png)：4K 待审核列表及封面、文件摘要。
+- [`design/retrom-ui-admin-review-bulk-approval-4k.png`](./design/retrom-ui-admin-review-bulk-approval-4k.png)、[`design/retrom-ui-admin-review-bulk-progress-4k.png`](./design/retrom-ui-admin-review-bulk-progress-4k.png)：4K 快速审批影响预览与可恢复进度。
 - [`design/retrom-ui-admin-review-detail-4k.png`](./design/retrom-ui-admin-review-detail-4k.png)：4K 审核详情合并工作台。
 - [`design/retrom-ui-admin-review-attachment-4k.png`](./design/retrom-ui-admin-review-attachment-4k.png)：4K 缺失光盘完整集合上传 Drawer。
 - [`design/retrom-ui-admin-review-validating-4k.png`](./design/retrom-ui-admin-review-validating-4k.png)：4K 补盘上传后的服务端校验中状态。

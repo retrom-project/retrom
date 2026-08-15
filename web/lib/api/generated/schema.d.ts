@@ -1066,6 +1066,112 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/review-bulk-approval-preview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Recomputes the current filtered review scope and returns only strict READY candidates; screenshot-only overrides and duplicates are excluded. */
+        get: operations["getAdminReviewBulkApprovalPreview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/review-bulk-approvals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Freezes the previewed strict READY candidates and starts a resumable sequential publication job. */
+        post: operations["postAdminReviewBulkApproval"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/review-bulk-approvals/{bulkApprovalId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bulkApprovalId: components["parameters"]["BulkApprovalID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminReviewBulkApproval"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bulkApprovalId: components["parameters"]["BulkApprovalID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminReviewBulkApprovalItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/review-bulk-approvals/{bulkApprovalId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bulkApprovalId: components["parameters"]["BulkApprovalID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAdminReviewBulkApprovalCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/review-bulk-approvals/{bulkApprovalId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bulkApprovalId: components["parameters"]["BulkApprovalID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAdminReviewBulkApprovalRetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/reviews/{importItemId}": {
         parameters: {
             query?: never;
@@ -2908,6 +3014,23 @@ export interface components {
             duplicatePolicy?: "ALLOW_NEW";
             acknowledgedGameIds?: string[];
         };
+        ReviewBulkApprovalScope: {
+            q?: string;
+            /** Format: uuid */
+            tagId?: string;
+            /** Format: uuid */
+            importJobId?: string;
+            /** Format: uuid */
+            pegasusImportId?: string;
+            /** Format: uuid */
+            platformInstanceId?: string;
+            blockerCode?: string;
+        };
+        ReviewBulkApprovalRequest: {
+            scope: components["schemas"]["ReviewBulkApprovalScope"];
+            scopeDigest: string;
+            candidateManifestDigest: string;
+        };
         MetadataFields: {
             title?: string;
             description?: string;
@@ -4513,6 +4636,7 @@ export interface components {
         PartNo: number;
         ImportJobID: string;
         ImportItemID: string;
+        BulkApprovalID: string;
         JobID: string;
         ReviewEventID: string;
         CandidateID: string;
@@ -4642,6 +4766,11 @@ export interface components {
         Approval: {
             content: {
                 "application/json": components["schemas"]["ApprovalRequest"];
+            };
+        };
+        ReviewBulkApproval: {
+            content: {
+                "application/json": components["schemas"]["ReviewBulkApprovalRequest"];
             };
         };
         Empty: {
@@ -6068,6 +6197,105 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminReviewBulkApprovalPreview: {
+        parameters: {
+            query?: {
+                q?: components["parameters"]["Q"];
+                tagId?: components["parameters"]["TagIDQuery"];
+                importJobId?: components["parameters"]["ImportJobIDQuery"];
+                pegasusImportId?: components["parameters"]["PegasusImportIDQuery"];
+                platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
+                blockerCode?: components["parameters"]["BlockerCode"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAdminReviewBulkApproval: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["ReviewBulkApproval"];
+        responses: {
+            202: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminReviewBulkApproval: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                bulkApprovalId: components["parameters"]["BulkApprovalID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminReviewBulkApprovalItems: {
+        parameters: {
+            query?: {
+                outcome?: "PUBLISHED" | "SKIPPED_DUPLICATE" | "SKIPPED_CHANGED" | "SKIPPED_NOT_READY" | "FAILED_FINAL" | "CANCELLED";
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit50"];
+            };
+            header?: never;
+            path: {
+                bulkApprovalId: components["parameters"]["BulkApprovalID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAdminReviewBulkApprovalCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                bulkApprovalId: components["parameters"]["BulkApprovalID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Reason"];
+        responses: {
+            200: components["responses"]["JSONResponse"];
+        };
+    };
+    postAdminReviewBulkApprovalRetry: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path: {
+                bulkApprovalId: components["parameters"]["BulkApprovalID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            202: components["responses"]["JSONResponse"];
         };
     };
     getAdminReview: {

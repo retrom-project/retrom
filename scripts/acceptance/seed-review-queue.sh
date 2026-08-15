@@ -7,6 +7,15 @@ if [[ -z "$database_path" || ! -f "$database_path" ]]; then
   exit 2
 fi
 
+bulk_ready_digest="142c6b7c4a5c0fa5cc12000ce0ab107f6a5906712a7f08e53000c87427a1eb2a"
+bulk_ready_path="$(dirname "$database_path")/blobs/sha256/${bulk_ready_digest:0:2}/${bulk_ready_digest:2:2}/$bulk_ready_digest"
+mkdir -p "$(dirname "$bulk_ready_path")"
+printf 'retrom deterministic review bulk approval fixture\n' >"$bulk_ready_path"
+if [[ "$(sha256sum "$bulk_ready_path" | cut -d' ' -f1)" != "$bulk_ready_digest" ]]; then
+  echo "review bulk approval fixture digest mismatch" >&2
+  exit 1
+fi
+
 sqlite3 -bail "$database_path" <<'SQL'
 PRAGMA foreign_keys=ON;
 BEGIN IMMEDIATE;
@@ -19,6 +28,14 @@ JOIN import_jobs j ON j.id=i.import_job_id
 WHERE i.state='PUBLISHED'
 ORDER BY i.updated_at_ms DESC,i.id DESC
 LIMIT 1;
+
+-- Item 57 owns distinct CAS bytes so the stateful review test can leave exactly
+-- one strict READY, non-duplicate candidate for the quick-approval acceptance.
+INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
+VALUES('65000000-0000-7000-8000-000000000057',
+       '142c6b7c4a5c0fa5cc12000ce0ab107f6a5906712a7f08e53000c87427a1eb2a',50,
+       '07f8202ba70c1f5013349c58949327b3','e0b7435f9e64b2e8413ec0e08393fab6b4fffaef',
+       '44d50099','application/octet-stream',1786000100057);
 
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,finalization_no,finalize_job_id,version,expires_at_ms,created_at_ms,updated_at_ms,unconsumed_pruned_at_ms,last_error_code)
 SELECT '10000000-0000-7000-8000-000000000001','COMPLETE',source_type,total_files,total_bytes,manifest_digest,finalization_no,NULL,1,expires_at_ms,1786000100000,1786000100000,NULL,NULL
@@ -41,13 +58,19 @@ WITH RECURSIVE generated(batch,n,max_n,job_id) AS (
 )
 INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,search_text,failed_stage,last_error_code,version,created_at_ms,updated_at_ms,completed_at_ms)
 SELECT printf('30000000-0000-7000-80%02d-%012d',batch,n),job_id,printf('%064x',n),'REVIEW_PENDING',
-       json_object('files',json_array(json_object('blobId',(SELECT blob_id FROM import_item_source_files WHERE import_item_id=(SELECT item_id FROM acceptance_base) ORDER BY sort_order LIMIT 1),'logicalName',printf('batch-%d/Game-%02d.gba',batch,n),'role','CONTENT'))),
-       (SELECT source_manifest_digest FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)),
-       lower(printf('batch %d game %02d',batch,n)),NULL,NULL,1,1786000000000+batch*100000+n,1786000000000+batch*100000+n,NULL
+	       json_object('files',json_array(json_object(
+	         'blobId',CASE WHEN batch=1 AND n=57 THEN '65000000-0000-7000-8000-000000000057'
+	                       ELSE (SELECT blob_id FROM import_item_source_files WHERE import_item_id=(SELECT item_id FROM acceptance_base) ORDER BY sort_order LIMIT 1) END,
+	         'logicalName',printf('batch-%d/Game-%02d.gba',batch,n),'role','CONTENT'))),
+	       CASE WHEN batch=1 AND n=57 THEN '87b6e448920b1d8d91ebb700140cfdc18282415255a47219898fe84dc0b8ab32'
+	            ELSE (SELECT source_manifest_digest FROM import_items WHERE id=(SELECT item_id FROM acceptance_base)) END,
+	       lower(printf('batch %d game %02d',batch,n)),NULL,NULL,1,1786000000000+batch*100000+n,1786000000000+batch*100000+n,NULL
 FROM generated;
 
 INSERT INTO import_item_source_files(import_item_id,role,logical_name,upload_file_id,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order,created_at_ms)
-SELECT i.id,s.role,printf('batch-%d/Game-%02d.gba',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),s.upload_file_id,s.blob_id,s.source_archive_blob_id,s.source_archive_entry_ordinal,s.sort_order,i.created_at_ms
+SELECT i.id,s.role,printf('batch-%d/Game-%02d.gba',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),s.upload_file_id,
+	       CASE WHEN i.id='30000000-0000-7000-8001-000000000057' THEN '65000000-0000-7000-8000-000000000057' ELSE s.blob_id END,
+	       s.source_archive_blob_id,s.source_archive_entry_ordinal,s.sort_order,i.created_at_ms
 FROM import_items i
 CROSS JOIN import_item_source_files s
 WHERE s.import_item_id=(SELECT item_id FROM acceptance_base)
@@ -80,7 +103,9 @@ AND v.id=(SELECT selected_validation_id FROM review_drafts WHERE import_item_id=
 AND i.id LIKE '30000000-%';
 
 INSERT INTO import_item_validation_files(import_item_core_validation_id,role,logical_name,blob_id,sort_order,created_at_ms)
-SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),f.role,f.logical_name,f.blob_id,f.sort_order,i.created_at_ms
+SELECT printf('40000000-0000-7000-80%02d-%012d',CASE WHEN i.import_job_id LIKE '%1' THEN 1 ELSE 2 END,CAST(substr(i.id,-12) AS INTEGER)),f.role,f.logical_name,
+	       CASE WHEN i.id='30000000-0000-7000-8001-000000000057' THEN '65000000-0000-7000-8000-000000000057' ELSE f.blob_id END,
+	       f.sort_order,i.created_at_ms
 FROM import_items i
 CROSS JOIN import_item_validation_files f
 WHERE f.import_item_core_validation_id=(SELECT selected_validation_id FROM review_drafts WHERE import_item_id=(SELECT item_id FROM acceptance_base))

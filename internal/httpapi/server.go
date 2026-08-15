@@ -156,6 +156,7 @@ func New(
 		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
+	importer.ResumeReviewBulkJobs(context.Background())
 	firmwareService := firmware.New(database, now).WithBlobStore(blobs)
 	serverImportService := serverimport.New(
 		database,
@@ -321,6 +322,12 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/admin/jobs/{jobId}/cancel", server.cancelJob)
 	mux.HandleFunc("POST /api/v1/admin/jobs/{jobId}/retry", server.retryJob)
 	mux.HandleFunc("GET /api/v1/admin/reviews", server.reviews)
+	mux.HandleFunc("GET /api/v1/admin/review-bulk-approval-preview", server.reviewBulkPreview)
+	mux.HandleFunc("POST /api/v1/admin/review-bulk-approvals", server.createReviewBulk)
+	mux.HandleFunc("GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}", server.reviewBulk)
+	mux.HandleFunc("GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items", server.reviewBulkItems)
+	mux.HandleFunc("POST /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/cancel", server.cancelReviewBulk)
+	mux.HandleFunc("POST /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/retry", server.retryReviewBulk)
 	mux.HandleFunc("GET /api/v1/admin/reviews/{importItemId}", server.review)
 	mux.HandleFunc("PATCH /api/v1/admin/reviews/{importItemId}", server.patchReview)
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/scrape-candidates", server.scrapeReview)
@@ -534,6 +541,9 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/admin/reviews": {
 		"q", "tagId", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode", "sort", "cursor", "limit",
 	},
+	"GET /api/v1/admin/review-bulk-approval-preview": {
+		"q", "tagId", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode",
+	},
 	"GET /api/v1/admin/review-history": {
 		"q", "decision", "platformInstanceId", "fromAtMs", "toAtMs", "sort", "cursor", "limit",
 	},
@@ -568,6 +578,14 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/admin/invitations": {"state", "cursor", "limit"},
 }
 
+func reviewBulkQueryParameterNames(method, path string) []string {
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/review-bulk-approvals/") &&
+		strings.HasSuffix(path, "/items") {
+		return []string{"outcome", "cursor", "limit"}
+	}
+	return nil
+}
+
 //nolint:gocyclo // The lexical query parser handles independent escaping and separator states.
 func queryParameterNames(request *http.Request) []string {
 	path := request.URL.Path
@@ -589,6 +607,9 @@ func queryParameterNames(request *http.Request) []string {
 	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/users/") &&
 		strings.HasSuffix(path, "/password-reset-links") {
 		return []string{"state", "cursor", "limit"}
+	}
+	if names := reviewBulkQueryParameterNames(request.Method, path); names != nil {
+		return names
 	}
 	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/server-import-roots/") &&
 		strings.HasSuffix(path, "/directories") {

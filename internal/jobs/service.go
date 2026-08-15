@@ -77,6 +77,9 @@ WHERE id=?
 		!cancellableJobState(state, retryable) {
 		return Result{}, false, ErrConflict
 	}
+	if kind == "REVIEW_BULK_APPROVE" {
+		return Result{}, false, ErrRetryViaDomain
+	}
 	now := service.now().UnixMilli()
 	pending := state == "RUNNING"
 	newState := "CANCELLED"
@@ -183,7 +186,7 @@ WHERE id=?
 		retryable.Int64 != 1 {
 		return Result{}, ErrConflict
 	}
-	if kind == "METADATA_SCRAPE" || kind == "SERVER_BIOS_IMPORT" {
+	if kind == "METADATA_SCRAPE" || kind == "SERVER_BIOS_IMPORT" || kind == "REVIEW_BULK_APPROVE" {
 		return Result{}, ErrRetryViaDomain
 	}
 	executionNo++
