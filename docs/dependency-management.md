@@ -147,7 +147,7 @@ EmulatorJS 与各 libretro core 的许可证不同。manifest schema V5 的 `lic
 
 `THIRD_PARTY_NOTICES` 的生成算法固定为 `notice_format_version=1`：按 `notice_order`，为每项写 ASCII 分隔头、component ID、repository 的 `/tree/<source_commit>` URL、association status、declared license path，然后逐字节附加已校验许可文件；若源 bytes 最后不是 LF，只在分隔项之间追加一个 LF。禁止写生成时间、宿主路径或浮动 URL，因而相同 manifest/payload 必须产生相同 notice bytes。`deps-check` 重新生成到临时文件并逐字节比较；最终镜像同时保留 notice 和各原始许可文件。
 
-默认镜像构建只面向本项目的私有自托管使用，不等于授予镜像再分发权。manifest 已把 Snes9x、FBNeo、MAME 2003 与 MAME 2003 Plus 标记为受限制组件；构建 target 可以完成本地镜像，但任何 registry push、公开发布、商业分发或第三方镜像交付都必须经过独立人工许可审查，并补足适用的源码提供/通知义务。Retrom 的 Make targets 本来就不执行 push；tag 发布 workflow 不设置二次人工审批，维护者创建并推送 tag 即确认上述义务已在发布前满足，随后流程只在 `make ci` 与双镜像 label 校验完成后使用 secret 自动登录并 push。ROM、BIOS 和用户 DAT 永不随镜像分发。
+默认镜像构建只面向本项目的私有自托管使用，不等于授予镜像再分发权。manifest 已把 Snes9x、FBNeo、MAME 2003 与 MAME 2003 Plus 标记为受限制组件；构建 target 可以完成本地镜像，但任何 registry push、公开发布、商业分发或第三方镜像交付都必须经过独立人工许可审查，并补足适用的源码提供/通知义务。Retrom 的 Make targets 本来就不执行 push；tag 发布 workflow 不设置二次人工审批，也不重复 PR quality，维护者创建并推送 tag 即确认质量门禁与上述义务已在发布前满足；随后流程只在双镜像构建及 release-input label 校验完成后使用 secret 自动登录并 push。ROM、BIOS 和用户 DAT 永不随镜像分发。
 
 ## 7. 统一验收入口
 

@@ -652,22 +652,13 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     if (!succeeded && !popup.closed) popup.close();
   }
 
-  async function revalidate(popup: Window | null = null) {
+  async function revalidate() {
     return run("重新运行检查", async () => {
       if (!await enqueueSave(draftKey, draftPayload, true)) throw new Error("无法保存当前审核内容");
       validationRefreshRequestedRef.current = true;
       const updated = await refreshReview();
       const ready = updated.canApprove ?? (updated.validation?.current === true && updated.validation.status === "READY");
       setNotice(ready ? "运行检查已通过，可以发布。" : "运行检查已更新，请按最新提示继续处理。");
-      if (ready && popup) await createPreview(popup);
-      else if (popup && !popup.closed) popup.close();
-    });
-  }
-
-  function revalidateAndCapture() {
-    const popup = openPreviewWindow();
-    void revalidate(popup).then((succeeded) => {
-      if (!succeeded && popup && !popup.closed) popup.close();
     });
   }
 
@@ -715,7 +706,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
         <div className="review-workflow-summary-copy"><StatusPill tone="info">来源：{review.sourceMedia ? `Pegasus · ${review.sourceMedia.sourceLabel ?? sourceDisplayName}` : sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><TagChips tags={tags} /><div className="review-workflow-summary-pills"><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{validationReady ? "运行检查通过" : screenshotOverride ? "已取得运行截图" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId || review.sourceMedia ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : review.sourceMedia ? "已读取 Pegasus 信息" : "未找到游戏信息"}</StatusPill></div></div>
         <aside className="review-runtime-screenshot" aria-label="第 5 秒运行截图"><span>第 5 秒运行截图</span>{runtimeScreenshot ? <Image src={runtimeScreenshot.url} alt={`${form.title || sourceDisplayName} 的第 5 秒运行截图`} width={runtimeScreenshot.widthPx} height={runtimeScreenshot.heightPx} unoptimized /> : <div><strong>{validationReady ? "等待生成" : "等待运行截图"}</strong><small>运行游戏后在第 5 秒自动截取，可作为管理员放行依据</small></div>}</aside>
       </section>
-      <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p>{validationReady ? "运行检查已经通过，可以发布。" : screenshotOverride ? "已取得第 5 秒运行截图，可由管理员确认后发布。" : "可先运行游戏；取得第 5 秒截图后允许人工放行。"}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div><div className="review-workflow-preview-actions"><button type="button" className="button secondary review-revalidate" aria-busy={busy === "重新运行检查"} disabled={busy !== null || saveState === "error"} onClick={revalidateAndCapture}>{busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button><button type="button" className="button secondary review-launch-preview" aria-busy={busy === "运行游戏"} disabled={busy !== null || saveState === "error"} onClick={() => void launchPreview()}>{busy === "运行游戏" ? "正在准备…" : "运行游戏"}</button></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
+      <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p>{validationReady ? "运行检查已经通过，可以发布。" : screenshotOverride ? "已取得第 5 秒运行截图，可由管理员确认后发布。" : "可先运行游戏；取得第 5 秒截图后允许人工放行。"}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div><div className="review-workflow-preview-actions"><button type="button" className="button secondary review-revalidate" aria-busy={busy === "重新运行检查"} disabled={busy !== null || saveState === "error"} onClick={() => void revalidate()}>{busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button><button type="button" className="button secondary review-launch-preview" aria-busy={busy === "运行游戏"} disabled={busy !== null || saveState === "error"} onClick={() => void launchPreview()}>{busy === "运行游戏" ? "正在准备…" : "运行游戏"}</button></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
     </div>
     {notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{notice}</FeedbackBanner></div> : null}
     {review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。仍可发布为新游戏，但发布时需要二次确认。</FeedbackBanner></div> : null}

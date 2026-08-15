@@ -9,6 +9,7 @@
 .import-priority-grid p { max-width: 520px; margin: 0; color: var(--muted); font-size: 12px; }
 .import-priority-grid article > div:last-child { min-width: 130px; display: grid; justify-items: end; gap: 14px; }
 .import-priority-grid article > div:last-child > strong { font-size: 38px; line-height: 1; }
+.import-priority-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
 .import-kpi-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; margin-bottom: var(--workflow-gap); }
 .import-kpi-grid .kpi { min-height: 112px; padding: 17px 19px; }
 .import-kpi-grid .kpi strong { font-size: 29px; }
@@ -26,6 +27,7 @@
 .import-pipeline b { color: var(--purple-dark); font-size: 12px; }
 .import-pipeline span { color: var(--muted); font-size: 11px; }
 .import-recent-list { display: grid; }
+.import-recent-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .import-recent-list article { min-height: 70px; padding: 12px 18px; display: grid; grid-template-columns: minmax(260px, 1.6fr) auto minmax(130px, .6fr) minmax(130px, .6fr) auto; align-items: center; gap: 18px; border-bottom: 1px solid var(--line); }
 .import-recent-list article:last-child { border-bottom: 0; }
 .import-recent-list h3 { margin: 0; font-size: 14px; }

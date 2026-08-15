@@ -3503,41 +3503,72 @@ func nullableBIOSInstallation(
 	}
 }
 
+type importOverviewSummary struct {
+	Running         int64 `json:"running"`
+	ReviewPending   int64 `json:"reviewPending"`
+	PublishedItems  int64 `json:"publishedItems"`
+	Completed       int64 `json:"completed"`
+	Failed          int64 `json:"failed"`
+	OrdinaryFailed  int64 `json:"ordinaryFailed"`
+	PegasusFailed   int64 `json:"pegasusFailed"`
+	ProcessingItems int64 `json:"processingItems"`
+	IssueItems      int64 `json:"issueItems"`
+}
+
 func (server *Server) importSummary(writer http.ResponseWriter, request *http.Request) {
-	counts := map[string]int64{"running": 0, "reviewPending": 0, "completed": 0, "failed": 0}
-	rows, err := server.database.QueryContext(
-		request.Context(),
-		"SELECT state,count(*) FROM import_jobs GROUP BY state",
+	var summary importOverviewSummary
+	err := server.database.QueryRowContext(request.Context(), importOverviewSummarySQL).Scan(
+		&summary.Running,
+		&summary.ReviewPending,
+		&summary.PublishedItems,
+		&summary.Completed,
+		&summary.Failed,
+		&summary.OrdinaryFailed,
+		&summary.PegasusFailed,
+		&summary.ProcessingItems,
+		&summary.IssueItems,
 	)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	for rows.Next() {
-		var state string
-		var count int64
-		if err := rows.Scan(&state, &count); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		switch state {
-		case "QUEUED", "RUNNING", "CANCEL_REQUESTED":
-			counts["running"] += count
-		case "REVIEW_PENDING":
-			counts["reviewPending"] += count
-		case "COMPLETED":
-			counts["completed"] += count
-		case "PARTIAL_FAILURE", "FAILED", "CANCELLED":
-			counts["failed"] += count
-		}
-	}
-	if err := rows.Err(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	writeJSON(writer, http.StatusOK, counts)
+	writeJSON(writer, http.StatusOK, summary)
 }
+
+const userVisibleImportJobPredicate = `i.id NOT IN (
+ SELECT pegasus_item.library_import_job_id FROM pegasus_import_items pegasus_item
+ WHERE pegasus_item.library_import_job_id IS NOT NULL
+)`
+
+const importOverviewSummarySQL = `
+WITH ordinary AS (
+ SELECT i.state,i.total_item_count,i.failed_item_count,i.rejected_file_count,i.resolved_rejected_file_count
+ FROM import_jobs i
+ WHERE ` + userVisibleImportJobPredicate + `
+)
+SELECT
+ (SELECT count(*) FROM ordinary WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))+
+ (SELECT count(*) FROM pegasus_imports
+  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),
+ (SELECT count(*) FROM import_items WHERE state='REVIEW_PENDING'),
+ (SELECT count(*) FROM import_items WHERE state='PUBLISHED'),
+ (SELECT count(*) FROM ordinary WHERE state='COMPLETED')+
+ (SELECT count(*) FROM pegasus_imports WHERE state='COMPLETED'),
+ (SELECT count(*) FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED'))+
+ (SELECT count(*) FROM pegasus_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
+ (SELECT count(*) FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED')),
+ (SELECT count(*) FROM pegasus_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
+ COALESCE((SELECT sum(total_item_count) FROM ordinary
+  WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),0)+
+ COALESCE((SELECT sum(game_count) FROM pegasus_imports
+  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),0),
+ COALESCE((SELECT sum(failed_item_count+CASE
+   WHEN rejected_file_count>resolved_rejected_file_count
+   THEN rejected_file_count-resolved_rejected_file_count ELSE 0 END)
+  FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)+
+ COALESCE((SELECT sum(blocked_item_count+failed_item_count) FROM pegasus_imports
+  WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)
+`
 
 type importListFilters struct {
 	queryText   string
@@ -3650,7 +3681,8 @@ i.created_at_ms,
 i.updated_at_ms
 FROM import_jobs i
 JOIN platform_instances pi ON pi.id=i.target_platform_instance_id
-WHERE (?='' OR instr(lower(i.id),lower(?))>0 OR instr(lower(pi.name),lower(?))>0)
+WHERE ` + userVisibleImportJobPredicate + `
+AND (?='' OR instr(lower(i.id),lower(?))>0 OR instr(lower(pi.name),lower(?))>0)
 AND (?='' OR i.state=?)
 AND (?='' OR i.target_platform_instance_id=?)
 AND (?='' OR

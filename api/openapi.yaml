@@ -459,11 +459,13 @@ paths:
   /api/v1/admin/imports/summary:
     get:
       operationId: getAdminImportsSummary
+      description: User-visible import overview. Browser/reconfigure ImportJobs count once, Pegasus imports count once, and the per-game ImportJobs created only for Pegasus review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items.
       responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
+        '200': { $ref: '#/components/responses/ImportOverviewSummaryResponse' }
   /api/v1/admin/imports:
     get:
       operationId: getAdminImports
+      description: Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus review handoff are excluded; Pegasus aggregate history is available from `/api/v1/admin/pegasus-imports`.
       parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/State' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit20' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
@@ -1262,6 +1264,56 @@ components:
       in: cookie
       name: retrom_session
   schemas:
+    ImportOverviewSummary:
+      type: object
+      additionalProperties: false
+      required: [running, reviewPending, publishedItems, completed, failed, ordinaryFailed, pegasusFailed, processingItems, issueItems]
+      properties:
+        running:
+          type: integer
+          format: int64
+          minimum: 0
+          description: User-visible non-terminal batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+        reviewPending:
+          type: integer
+          format: int64
+          minimum: 0
+          description: ImportItems whose current state is exactly REVIEW_PENDING.
+        publishedItems:
+          type: integer
+          format: int64
+          minimum: 0
+          description: ImportItems whose current state is exactly PUBLISHED.
+        completed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: User-visible completed batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+        failed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: User-visible batches in PARTIAL_FAILURE or FAILED; cancelled batches are excluded.
+        ordinaryFailed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Browser/reconfigure ImportJobs included in failed.
+        pegasusFailed:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Pegasus imports included in failed.
+        processingItems:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Known game/item count in currently non-terminal user-visible batches.
+        issueItems:
+          type: integer
+          format: int64
+          minimum: 0
+          description: Failed or blocked items plus unresolved rejected files in user-visible attention batches.
     AuthInitializeRequest:
       type: object
       additionalProperties: false
@@ -3290,6 +3342,9 @@ components:
     PlayEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PlayEventRequest' } } } }
     MultiDiscPlayerEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MultiDiscPlayerEventRequest' } } } }
   responses:
+    ImportOverviewSummaryResponse:
+      description: User-visible import batch and item totals
+      content: { application/json: { schema: { $ref: '#/components/schemas/ImportOverviewSummary' } } }
     TagAdminItemResponse:
       description: Administrator tag projection
       headers: { ETag: { schema: { type: string } } }

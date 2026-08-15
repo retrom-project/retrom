@@ -1022,6 +1022,56 @@ type DecisionResult struct {
 	UpdatedAtMS int64  `json:"updatedAtMs"`
 }
 
+func requireSingleReviewMutation(result sql.Result, err error, action string) error {
+	if err != nil {
+		return fmt.Errorf("libraryimport/review: %s: %w", action, err)
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("libraryimport/review: %s result: %w", action, err)
+	}
+	if changed != 1 {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func discardReviewItemAndAggregate(
+	ctx context.Context,
+	transaction *sql.Tx,
+	itemID string,
+	importID string,
+	now int64,
+) error {
+	itemResult, itemErr := transaction.ExecContext(ctx, `
+UPDATE import_items
+SET state='DISCARDED',
+version=version+1,
+updated_at_ms=?,
+completed_at_ms=?
+WHERE id=?
+AND state='REVIEW_PENDING'
+`, now, now, itemID)
+	if err := requireSingleReviewMutation(itemResult, itemErr, "discard item"); err != nil {
+		return err
+	}
+	jobResult, jobErr := transaction.ExecContext(ctx, `
+UPDATE import_jobs
+SET review_pending_item_count=review_pending_item_count-1,
+discarded_item_count=discarded_item_count+1,
+state=CASE WHEN review_pending_item_count=1
+AND rejected_file_count=resolved_rejected_file_count THEN 'COMPLETED'
+WHEN review_pending_item_count=1 THEN 'PARTIAL_FAILURE'
+ELSE state END,
+version=version+1,
+updated_at_ms=?,
+completed_at_ms=CASE WHEN review_pending_item_count=1
+AND rejected_file_count=resolved_rejected_file_count THEN ? ELSE NULL END
+WHERE id=? AND review_pending_item_count>0
+`, now, now, importID)
+	return requireSingleReviewMutation(jobResult, jobErr, "discard job aggregate")
+}
+
 func nullableJSON(value sql.NullString) any {
 	if value.Valid {
 		return json.RawMessage(value.String)
@@ -1164,28 +1214,8 @@ WHERE import_item_id=? AND state IN ('QUEUED','FAILED_RETRYABLE')
 `, now, now, itemID); err != nil {
 		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE import_items
-SET state='DISCARDED',
-version=version+1,
-updated_at_ms=?,
-completed_at_ms=?
-WHERE id=?
-AND state='REVIEW_PENDING';
- UPDATE import_jobs
-SET review_pending_item_count=review_pending_item_count-1,
-discarded_item_count=discarded_item_count+1,
-state=CASE WHEN review_pending_item_count=1
-AND rejected_file_count=resolved_rejected_file_count THEN 'COMPLETED'
-WHEN review_pending_item_count=1 THEN 'PARTIAL_FAILURE'
-ELSE state END,
-version=version+1,
-updated_at_ms=?,
-completed_at_ms=CASE WHEN review_pending_item_count=1
-AND rejected_file_count=resolved_rejected_file_count THEN ? ELSE NULL END
-WHERE id=?
-`, now, now, itemID, now, now, importID); err != nil {
-		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
+	if err := discardReviewItemAndAggregate(ctx, transaction, itemID, importID, now); err != nil {
+		return DecisionResult{}, err
 	}
 	if err := transitionServerReview(
 		ctx, transaction, itemID, "REVIEW_DISCARDED", nil, now,
@@ -1319,22 +1349,32 @@ updated_at_ms) VALUES(?,
 	); err != nil {
 		return RetryResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	if _, err := transaction.ExecContext(ctx, `
+	itemResult, err := transaction.ExecContext(ctx, `
 UPDATE import_items
 SET state='QUEUED',
 failed_stage=NULL,
 last_error_code=NULL,
 version=version+1,
 updated_at_ms=?
-WHERE id=?;
- UPDATE import_jobs
+WHERE id=? AND state='FAILED_RETRYABLE'
+`, now, itemID)
+	if err := requireSingleReviewMutation(itemResult, err, "retry item"); err != nil {
+		return RetryResult{}, err
+	}
+	jobResult, err := transaction.ExecContext(ctx, `
+UPDATE import_jobs
 SET failed_item_count=failed_item_count-1,
 queued_item_count=queued_item_count+1,
 state='RUNNING',
 version=version+1,
 updated_at_ms=?
-WHERE id=?;
- INSERT INTO job_events(job_id,
+WHERE id=? AND failed_item_count>0
+`, now, importID)
+	if err := requireSingleReviewMutation(jobResult, err, "retry job aggregate"); err != nil {
+		return RetryResult{}, err
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_events(job_id,
 scope_type,
 scope_id,
 event_type,
@@ -1345,8 +1385,8 @@ created_at_ms) VALUES(?,
 'MANUAL_RETRY',
 '{}',
 ?)
-`, now, itemID, now, importID, jobID.String(), itemID, now); err != nil {
-		return RetryResult{}, fmt.Errorf("libraryimport/review: %w", err)
+`, jobID.String(), itemID, now); err != nil {
+		return RetryResult{}, fmt.Errorf("libraryimport/review: retry event: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
 		return RetryResult{}, fmt.Errorf("libraryimport/review: %w", err)
@@ -1376,14 +1416,17 @@ func (service *Service) Cancel(
 	}
 	defer cleanup.Rollback(transaction)
 	var state string
-	var version, running int64
+	var version, running, queued, reviewPending, retryableFailed int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT state,
 version,
-running_item_count
+running_item_count,
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='QUEUED'),
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='REVIEW_PENDING'),
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='FAILED_RETRYABLE')
 FROM import_jobs
 WHERE id=?
-`, importID).Scan(&state, &version, &running); err != nil ||
+`, importID).Scan(&state, &version, &running, &queued, &reviewPending, &retryableFailed); err != nil ||
 		version != expectedVersion ||
 		state == "COMPLETED" ||
 		state == "CANCELLED" ||
@@ -1399,27 +1442,36 @@ WHERE id=?
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE import_items
 SET state='CANCELLED',
+failed_stage=NULL,
+last_error_code=NULL,
 completed_at_ms=?,
 updated_at_ms=?,
 version=version+1
 WHERE import_job_id=?
 AND state IN ('QUEUED',
 'REVIEW_PENDING',
-'FAILED_RETRYABLE');
- UPDATE import_jobs
+'FAILED_RETRYABLE')
+`, now, now, importID); err != nil {
+		return CancelResult{}, false, fmt.Errorf("libraryimport/review: cancel items: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE import_jobs
 SET state=?,
 cancel_requested_at_ms=?,
 cancel_reason=?,
-canceled_item_count=canceled_item_count+queued_item_count+review_pending_item_count+failed_item_count,
-queued_item_count=0,
-review_pending_item_count=0,
-failed_item_count=0,
+cancelled_item_count=cancelled_item_count+?+?+?,
+queued_item_count=queued_item_count-?,
+review_pending_item_count=review_pending_item_count-?,
+failed_item_count=failed_item_count-?,
 version=version+1,
 updated_at_ms=?,
 completed_at_ms=CASE WHEN ?='CANCELLED' THEN ? ELSE NULL END
 WHERE id=?
-`, now, now, importID, newState, now, reason, now, newState, now, importID); err != nil {
-		return CancelResult{}, false, fmt.Errorf("libraryimport/review: %w", err)
+`, newState, now, reason,
+		queued, reviewPending, retryableFailed,
+		queued, reviewPending, retryableFailed,
+		now, newState, now, importID); err != nil {
+		return CancelResult{}, false, fmt.Errorf("libraryimport/review: cancel job aggregate: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
 		return CancelResult{}, false, fmt.Errorf("libraryimport/review: %w", err)
