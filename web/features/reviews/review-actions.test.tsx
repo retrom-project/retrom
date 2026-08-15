@@ -15,6 +15,7 @@ vi.mock("@/lib/upload", async (importOriginal) => {
 
 const review: ReviewWorkspace = {
   itemId: "item-1", version: 1,
+  platformInstance: { id: "platform-1", name: "GBA 游戏" },
   metadata: { title: "Manual", description: "", developer: "", publisher: "", genre: "", players: null, releaseYear: null },
   validation: { id: "validation-1", status: "READY", current: true, compatibilityCode: "READY" },
   candidates: [], uploadedAssets: [], scrapeRuns: [], selectedCandidateId: null,
@@ -464,6 +465,74 @@ describe("ReviewActions", () => {
     expect(await screen.findByRole("alert")).toHaveTextContent("运行检查已经过期");
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(container.querySelector(".review-workflow-feedback")).toBeNull();
+  });
+
+  it("retries publish with the current review version after a Parent attachment advances only validation state", async () => {
+    const staleParentReview: ReviewWorkspace = {
+      ...review,
+      version: 7,
+      canApprove: true,
+      effectiveSourceSnapshotId: "snapshot-before-parent",
+      arcadeDependencies: {
+        machine: "a", status: "READY", compatibilityCode: "READY", activeAttachment: null,
+        nodes: [{ kind: "PARENT", machine: "b", requiredBy: "a", depth: 1, expectedLogicalName: "b.zip", state: "SATISFIED_EXTERNAL", requiredEntryCount: 1, canAttach: false, attachment: null }],
+      },
+    };
+    const currentParentReview: ReviewWorkspace = {
+      ...staleParentReview,
+      version: 9,
+      effectiveSourceSnapshotId: "snapshot-after-parent",
+      validation: { id: "validation-after-parent", status: "READY", current: true, compatibilityCode: "READY" },
+    };
+    let approveCount = 0;
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/approve")) {
+        approveCount += 1;
+        return Promise.resolve(approveCount === 1
+          ? jsonResponse({ error: { code: "REVIEW_VALIDATION_STALE", message: "审核输入或验证结果已经变化" } }, 409)
+          : jsonResponse({ gameId: "game-after-parent" }, 201));
+      }
+      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(currentParentReview));
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={staleParentReview} returnTo="/admin/reviews" />);
+
+    await user.click(screen.getByRole("button", { name: "通过并发布" }));
+
+    await waitFor(() => expect(router.replace).toHaveBeenCalledWith("/admin/reviews"));
+    const approveRequests = fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/approve"));
+    expect(approveRequests).toHaveLength(2);
+    expect(approveRequests[0]?.[1]?.headers).toMatchObject({ "If-Match": '"v7"' });
+    expect(approveRequests[1]?.[1]?.headers).toMatchObject({ "If-Match": '"v9"' });
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
+  });
+
+  it("does not retry a stale publish when another editor changed publish fields", async () => {
+    const changedElsewhere: ReviewWorkspace = {
+      ...review,
+      version: 2,
+      metadata: { ...review.metadata, title: "Changed elsewhere" },
+    };
+    const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
+      const url = String(input);
+      if (url.endsWith("/approve")) {
+        return Promise.resolve(jsonResponse({ error: { code: "REVIEW_VALIDATION_STALE", message: "审核输入或验证结果已经变化" } }, 409));
+      }
+      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(changedElsewhere));
+      throw new Error(`unexpected fetch ${url}`);
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    render(<ReviewActions review={review} />);
+
+    await user.click(screen.getByRole("button", { name: "通过并发布" }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("审核发布信息已在其他位置发生变化，请刷新页面核对后重试");
+    expect(fetchMock.mock.calls.filter(([url]) => String(url).endsWith("/approve"))).toHaveLength(1);
+    expect(router.replace).not.toHaveBeenCalled();
   });
 
   it("keeps scrape progress in the metadata header", async () => {

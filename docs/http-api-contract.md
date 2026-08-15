@@ -200,7 +200,7 @@ source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 re
 
 通用 Job 的 `GET /api/v1/admin/jobs/{jobId}/events` 使用同一套全局 JobEvent cursor 规则，但只过滤 `job_id` 精确等于路径资源的事件。无 `Last-Event-ID` 时，服务端在一个只读事务中取得与 `GET /api/v1/admin/jobs/{jobId}` 相同的 Job 快照和当时全局最大 JobEvent ID，先发送 `event: snapshot`，其 `id` 为该全局水位、`data` 为 Job 快照；随后只发送 ID 更大且属于该 Job 的持久事件。重连时可使用属于其他 scope/job 的合法全局 ID 作为水位，仍只按 `id > cursor AND job_id = :jobId` 过滤；负数、非十进制整数或超过当前全局最大值统一为 `400 INVALID_EVENT_CURSOR`。事件 JSON、无 ID 的 15 秒 comment heartbeat、永久保留和“断开不取消”语义与 Import SSE 完全相同。Launch、游戏移动和其他等待共享 `VARIANT_REVALIDATE` 的前端必须使用这条协议，不能轮询一套含不同终态或取消语义的本地状态机。
 
-审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。Approve 普通 body 可为 `{}`；若当前有完全相同内容的未删除游戏则返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED`，`details={contentIdentityDigest,games}`。继续发布必须重交 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":["..."]}`，ID 集合与事务内重查的当前 games 完全一致才成功；新增、减少、重复或未知 ID 均不接受，确认写入 ReviewEvent。历史端点只读，不提供修改或删除事件 API。
+审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。Approve 普通 body 可为 `{}`；Review ETag 或当前 Validation/来源证据漂移返回 `409 REVIEW_VALIDATION_STALE`。审核客户端收到该冲突后必须重新 GET Review；仅当目标目录、发布字段、素材选择、DOS entry 与标签集合和当前页面完全一致，最新 Review 又允许发布且没有 active Attachment 时，才可用新 ETag、新 Idempotency-Key 自动重试一次。字段发生并发变化、补传尚未完成、最新 Validation 不可发布或第二次仍冲突时必须停止并要求人工核对，不能用重试绕过乐观并发。若当前有完全相同内容的未删除游戏则返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED`，`details={contentIdentityDigest,games}`。继续发布必须重交 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":["..."]}`，ID 集合与事务内重查的当前 games 完全一致才成功；新增、减少、重复或未知 ID 均不接受，确认写入 ReviewEvent。历史端点只读，不提供修改或删除事件 API。
 
 ### 5.1 Arcade Parent Attachment
 
@@ -224,7 +224,7 @@ Content-Type: application/json
 
 服务端验证 Review/Item 状态、版本、Arcade 平台、Validation 对 Item/有效快照/目录版本/CoreArtifact/活动 DAT 的绑定、machine 是当前可修复 Parent、UploadSession/File 都 COMPLETE、文件为单个 `.zip`、不存在 whole-session consumption 且 CAS Blob 可读。成功返回 `202`、`Location: /api/v1/admin/jobs/{jobId}`、更新后的 Review ETag 和 `{attachmentId,state:"QUEUED",jobId}`。相同幂等键与完全相同请求返回同一结果；同键异 body 使用通用幂等冲突。每 Item 只有一个 active Attachment，服务端约束是最终防线。
 
-进度只订阅 `GET /api/v1/admin/jobs/{jobId}/events`，事件序列可含 `QUEUED/STARTED/ARCHIVE_SCANNED/PARENT_MATCHED|PARENT_REJECTED/SOURCE_SNAPSHOT_CREATED/CORE_VALIDATION_COMPLETED/SUCCEEDED|FAILED|CANCELLED`。SSE 断线自动按通用协议重连，不取消 Job；终态必须重新 GET Review。`FAILED_RETRYABLE` 使用通用 Job retry 并复用同一 UploadFile。Discard 使用通用 Job cancel 语义收口 Attachment；离开审核页不触发 cancel。
+进度只订阅 `GET /api/v1/admin/jobs/{jobId}/events`，事件序列可含 `QUEUED/STARTED/ARCHIVE_SCANNED/PARENT_MATCHED|PARENT_REJECTED/SOURCE_SNAPSHOT_CREATED/CORE_VALIDATION_COMPLETED/SUCCEEDED|FAILED|CANCELLED`。SSE 断线自动按通用协议重连，不取消 Job；终态必须重新 GET Review，并以返回的 Review version、有效来源快照和 Validation 作为后续 Approve 输入。若页面遗漏这次终态刷新，Approve 的通用 stale 恢复仍按上一段的严格等价检查有界处理。`FAILED_RETRYABLE` 使用通用 Job retry 并复用同一 UploadFile。Discard 使用通用 Job cancel 语义收口 Attachment；离开审核页不触发 cancel。
 
 稳定错误如下，前端按 code/state 分支，中文 message 只用于显示：
 

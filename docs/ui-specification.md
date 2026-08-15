@@ -460,7 +460,7 @@ WAITING 房间展示游戏锁定摘要、复制本站房间链接、P1–P4 座�
 
 Arcade 详情在运行检查区域增加“Arcade 运行依赖”卡片，根为 CONTENT `<machine>.zip`，后续节点严格按服务端 `requiredBy/depth` 形成与 DOM/Tab 一致的树序。每个节点展示 Parent 或 BIOS/Base、期望逻辑名、由谁需要、必需 entry 数量和文本状态；长 machine name 必须换行并用 tooltip 给出完整值。没有任何 Parent/BIOS/Base 节点时，卡片角标固定显示“无额外依赖”，不得沿用整条 Validation 的 blocker 状态显示“需要处理”；兼容性 blocker 仍由上方运行检查结论展示。`SATISFIED_BY_CONTENT` 显示“由游戏文件满足”，`SATISFIED_EXTERNAL` 显示“已匹配”；只有 Parent `MISSING/MISMATCH` 显示“补充/重新上传 Parent ROM”，BIOS 缺失只显示“前往 BIOS 文件”，Merged/CHD/cycle 不显示伪修复按钮。
 
-Parent 操作打开可用键盘关闭和焦点回退的 modal，只接受一个 ZIP，展示原文件名和大小，并明确“本地文件名可以不同，系统按内容校验”。先显示通用分块上传进度，再通过 Job SSE 以 `aria-live` 显示安全扫描、内容匹配、来源快照和完整重验证阶段；断线恢复不取消任务。active Attachment 期间禁用重复上传和发布。成功且全部满足时提示运行检查通过并启用发布；接受 b 但仍缺 c 时关闭 modal、保留页面并展示下一可修复节点；内容错误/不安全时保留旧树和 entry 摘要，提供重新上传；retryable 只显示“重试校验”并复用 bytes；stale 提示刷新后按新依赖操作。离开页面不取消任务，返回后根据 Review GET 的 activeAttachment 恢复 SSE；Discard 才请求取消。
+Parent 操作打开可用键盘关闭和焦点回退的 modal，只接受一个 ZIP，展示原文件名和大小，并明确“本地文件名可以不同，系统按内容校验”。先显示通用分块上传进度，再通过 Job SSE 以 `aria-live` 显示安全扫描、内容匹配、来源快照和完整重验证阶段；断线恢复不取消任务。active Attachment 期间禁用重复上传和发布。成功且全部满足时提示运行检查通过并启用发布；接受 b 但仍缺 c 时关闭 modal、保留页面并展示下一可修复节点；内容错误/不安全时保留旧树和 entry 摘要，提供重新上传；retryable 只显示“重试校验”并复用 bytes；stale 提示刷新后按新依赖操作。离开页面不取消任务，返回后根据 Review GET 的 activeAttachment 恢复 SSE；Discard 才请求取消。若 Parent 完成后的系统版本推进与发布请求交错，页面重新读取审核详情；只有目标目录、发布字段和选择未发生变化、最新状态已可发布且没有 active Attachment 时，才透明使用新 ETag 再提交一次。其他并发编辑或第二次冲突仍显示人工核对提示，不循环重试。
 
 依赖树在 2560×1440、4K 和 1280px 折叠布局中不得使页面横向溢出；颜色不是唯一状态信号，选择文件、提交、关闭、BIOS 跳转和重试均可用键盘完成。
 

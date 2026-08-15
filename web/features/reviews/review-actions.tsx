@@ -98,6 +98,7 @@ export type ReviewMultiDisc = {
 export type ReviewWorkspace = {
   itemId: string;
   version: number;
+  platformInstance?: { id: string; name: string };
   effectiveSourceSnapshotId?: string;
   canApprove?: boolean;
   validationStale?: boolean;
@@ -185,6 +186,38 @@ function toPayload(form: MetadataForm, candidateId: string | null, cover: CoverS
     defaultDosEntry,
     tagIds: tags.map((tag) => tag.tagId),
   };
+}
+
+function workspaceDraftPayload(review: ReviewWorkspace): DraftPayload {
+  return toPayload(
+    metadataForm(review),
+    review.selectedCandidateId,
+    {
+      candidateId: review.selectedAssets.coverCandidateAssetId,
+      uploadedId: review.selectedAssets.coverUploadedAssetId ?? null,
+    },
+    review.selectedAssets.backgroundCandidateAssetId,
+    review.selectedAssets.screenshotCandidateAssetIds,
+    review.defaultDosEntry,
+    review.tags ?? [],
+  );
+}
+
+function sameDraftPayload(left: DraftPayload, right: DraftPayload) {
+  const canonical = (value: DraftPayload) => JSON.stringify({
+    ...value,
+    tagIds: [...value.tagIds].sort(),
+  });
+  return canonical(left) === canonical(right);
+}
+
+function reviewReadyForPublish(review: ReviewWorkspace) {
+  const parentActive = review.arcadeDependencies?.activeAttachment?.state;
+  const multiDiscActive = review.multiDisc?.activeAttachment?.state;
+  const attachmentActive = parentActive === "QUEUED" || parentActive === "RUNNING" ||
+    multiDiscActive === "QUEUED" || multiDiscActive === "RUNNING";
+  const canApprove = review.canApprove ?? (review.validation?.current === true && review.validation.status === "READY");
+  return canApprove && !attachmentActive;
 }
 
 function previewAsset(candidates: ReviewCandidate[], uploaded: UploadedReviewAsset[], cover: CoverSelection): PreviewAsset | null {
@@ -536,18 +569,35 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   async function publish(duplicateGames: DuplicateGame[] = []) {
     await run("发布", async () => {
       const body = duplicateGames.length ? { duplicatePolicy: "ALLOW_NEW", acknowledgedGameIds: duplicateGames.map((game) => game.gameId) } : {};
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
-      if (!response.ok) {
+      let staleRetryAvailable = true;
+      for (;;) {
+        const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
+        if (response.ok) {
+          setDuplicateConfirmation(null);
+          clearQueueCache(); queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
+          router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
+          return;
+        }
         const payload = await response.json().catch(() => null) as { error?: { code?: string; message?: string; details?: { games?: DuplicateGame[] } } } | null;
         if (payload?.error?.code === "DUPLICATE_GAME_CONFIRMATION_REQUIRED" && payload.error.details?.games?.length) {
           setDuplicateConfirmation(payload.error.details.games);
           return;
         }
+        if (payload?.error?.code === "REVIEW_VALIDATION_STALE" && staleRetryAvailable) {
+          staleRetryAvailable = false;
+          const updated = await refreshReview();
+          const targetChanged = review.platformInstance && updated.platformInstance &&
+            review.platformInstance.id !== updated.platformInstance.id;
+          if (targetChanged || !sameDraftPayload(workspaceDraftPayload(updated), latestPayloadRef.current)) {
+            throw new Error("审核发布信息已在其他位置发生变化，请刷新页面核对后重试");
+          }
+          if (!reviewReadyForPublish(updated)) {
+            throw new Error("审核状态已更新，请等待补传校验完成或按最新运行检查继续处理");
+          }
+          continue;
+        }
         throw new Error(payload?.error?.message ?? "发布失败：请确认实时保存和运行检查均已完成");
       }
-      setDuplicateConfirmation(null);
-      clearQueueCache(); queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
-      router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
     });
   }
 
