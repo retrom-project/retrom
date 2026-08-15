@@ -74,7 +74,7 @@ COMMIT;
 	if err := upgraded.SQL.QueryRow(`
 SELECT (SELECT max(version) FROM schema_migrations),kind,width_px,height_px,media_type
 FROM game_assets WHERE id='01980000-0000-7000-8000-00000000a805'
-`).Scan(&version, &kind, &width, &height, &mediaType); err != nil || version != 34 || kind != "COVER" ||
+`).Scan(&version, &kind, &width, &height, &mediaType); err != nil || version != 35 || kind != "COVER" ||
 		width != 320 || height != 480 || mediaType != "image/png" {
 		t.Fatalf("upgrade = version:%d asset:%s/%d/%d/%s error:%v", version, kind, width, height, mediaType, err)
 	}
@@ -184,12 +184,82 @@ WHERE import.id=? AND item.id=?
 	); err != nil {
 		t.Fatal(err)
 	}
-	if version != 34 || reviewPending != 0 || reviewDiscarded != 0 ||
+	if version != 35 || reviewPending != 0 || reviewDiscarded != 0 ||
 		title != "Legacy blocked game" || executionState != "BLOCKED_CONTENT" ||
 		!strings.Contains(details, "preserve me") {
 		t.Fatalf(
 			"upgrade = version:%d reviews:%d/%d item:%q/%q details:%q",
 			version, reviewPending, reviewDiscarded, title, executionState, details,
 		)
+	}
+}
+
+func TestPegasusReviewContentSnapshotMigrationUpgradesVersion34Trigger(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	upgradedPath := filepath.Join(t.TempDir(), "upgraded.db")
+	legacy, err := sql.Open("sqlite", upgradedPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	legacy.SetMaxOpenConns(1)
+	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
+		t.Fatal(err)
+	}
+	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 34)
+	var oldTrigger string
+	if err := legacy.QueryRow(`
+SELECT sql FROM sqlite_master
+WHERE type='trigger' AND name='game_content_revisions_pegasus_source_insert'
+`).Scan(&oldTrigger); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(oldTrigger, "effective_source_snapshot_id") {
+		t.Fatalf("version 34 trigger unexpectedly accepts review snapshots: %s", oldTrigger)
+	}
+	if err := legacy.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	upgraded, err := Open(ctx, upgradedPath, func() time.Time { return time.UnixMilli(5000) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", upgraded.Close()) }()
+	fresh, err := Open(ctx, filepath.Join(t.TempDir(), "fresh.db"), func() time.Time { return time.UnixMilli(5000) })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", fresh.Close()) }()
+	for _, database := range []*DB{upgraded, fresh} {
+		if err := database.IntegrityCheck(ctx); err != nil {
+			t.Fatal(err)
+		}
+	}
+	var version int
+	var upgradedTrigger, freshTrigger string
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 35 {
+		t.Fatalf("schema version = %d, error=%v", version, err)
+	}
+	for database, destination := range map[*DB]*string{
+		upgraded: &upgradedTrigger,
+		fresh:    &freshTrigger,
+	} {
+		if err := database.SQL.QueryRow(`
+SELECT sql FROM sqlite_master
+WHERE type='trigger' AND name='game_content_revisions_pegasus_source_insert'
+`).Scan(destination); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if upgradedTrigger != freshTrigger ||
+		!strings.Contains(upgradedTrigger, "effective_source_snapshot_id") ||
+		!strings.Contains(upgradedTrigger, "item.library_import_item_id") {
+		t.Fatalf("Pegasus content trigger drifted after upgrade:\n%s\n--- fresh ---\n%s", upgradedTrigger, freshTrigger)
 	}
 }

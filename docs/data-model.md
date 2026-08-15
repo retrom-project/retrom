@@ -322,7 +322,7 @@ Game `DELETED`、PlatformInstance 停用或 User 停用不删除三张表中的�
 
 Pegasus Worker 在复制、普通 content pipeline 与 CoreValidation 后只冻结 metadata、COVER/VIDEO 和内部 ImportItem 关联，再把 Pegasus Item 交接为 `REVIEW_PENDING`；此时普通审核队列才允许展示。交接未完成的关联 Item 不得出现在队列/详情，也不得被 Approve/Discard。崩溃恢复复用既有 `library_import_job_id/library_import_item_id` 并幂等补齐 metadata，不得创建第二个内部 ImportItem 或重复系统草稿事件。
 
-管理员 Approve 在普通审核发布事务内创建 `SERVER_PEGASUS_IMPORT` metadata/content revision、复制未被人工封面覆盖的来源 COVER 与来源 VIDEO，并把 Pegasus Item 原子转为 `PUBLISHED`；Discard 在普通审核事务内原子转为 `REVIEW_DISCARDED`。两种决策都同步重算 Pegasus 聚合计数。没有审核决策时不得创建 Game；一期没有批量决策状态或表。
+管理员 Approve 在普通审核发布事务内创建 `SERVER_PEGASUS_IMPORT` metadata/content revision、复制未被人工封面覆盖的来源 COVER 与来源 VIDEO，并把 Pegasus Item 原子转为 `PUBLISHED`；Discard 在普通审核事务内原子转为 `REVIEW_DISCARDED`。`source_ref_id` 始终保留 Pegasus Item 作为来源审计，content manifest 则必须匹配与其一一关联的 ReviewDraft 当前有效来源快照；Parent ROM 或多盘补传产生后继快照时不得退回校验 Pegasus Item 的初始 manifest。两种决策都同步重算 Pegasus 聚合计数。没有审核决策时不得创建 Game；一期没有批量决策状态或表。
 
 Migration 030 受控重建两个 Pegasus 主表和受影响 trigger，保留 029 的状态、诊断、映射、媒体与历史发布行，并把新增计数初始化为零。029→030 与 fresh 001→030 必须同构并通过 foreign-key/integrity 检查。
 
@@ -367,6 +367,12 @@ Tag 名称的 NFC、Unicode 空白折叠、case-fold、control 拒绝、1–40 c
 
 033→034 只新增上述表、索引/trigger和带默认值的列，既有 Pegasus Collection 得到 `[]`；升级库与新建库都必须通过 `foreign_key_check` 和 `integrity_check`。备份直接包含这些 SQLite 行，不新增 Blob reference。
 
-## 19. 统一验收入口
+## 19. Migration 035：Pegasus 审核内容后继快照
+
+035 只替换 `game_content_revisions_pegasus_source_insert` trigger，不修改表和历史行。处于旧 `PUBLISHING` 边界的兼容流程仍只接受 Pegasus Item 冻结的初始 `source_manifest_digest/content_kind`；处于 `REVIEW_PENDING` 的当前流程必须通过 `library_import_item_id` 一一关联 ReviewDraft，并让待写入 ContentRevision 的 digest/content kind 与 Draft 的 `effective_source_snapshot_id` 精确一致。这样 metadata/content revision 仍以 Pegasus Item 作为 `SERVER_PEGASUS_IMPORT` 来源引用，同时 Parent ROM 或多盘补传形成的新 manifest 由不可变审核来源快照证明。
+
+034→035 与 fresh 001→035 的 trigger 必须同构并通过 `foreign_key_check` 和 `integrity_check`。发布服务集成回归必须覆盖 Pegasus Arcade 条目先因缺 Parent 阻断、补传生成后继快照和 READY Validation、再以当前 Review version 成功发布的完整事务；不得放宽到任意历史快照或只信任客户端 digest。
+
+## 20. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；标签由 `ACC-TAG-001`–`005`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

@@ -337,7 +337,7 @@ func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) 
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 34 {
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 35 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	var actorKind, actorUserID string
