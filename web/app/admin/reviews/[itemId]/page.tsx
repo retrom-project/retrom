@@ -5,9 +5,10 @@ import { adjacentReviewItemId } from "@/features/reviews/review-navigation";
 import { type ReviewQueueItem } from "@/features/reviews/review-queue";
 import { ReviewValidationGuidance, reviewCompatibilityLabel, type ReviewDependencySnapshot } from "@/features/reviews/review-validation-guidance";
 import { formatBytes, type ListResponse } from "@/lib/backend";
-import { backendJSON } from "@/lib/server-backend";
+import { BackendResponseError, backendJSON } from "@/lib/server-backend";
 import { statusTone } from "@/lib/status";
 import { loadActiveTags } from "@/features/tags/tag-library";
+import { redirect } from "next/navigation";
 
 type DependencySnapshot = ReviewDependencySnapshot & {
   machine?: string;
@@ -43,16 +44,32 @@ function safeReturnTo(raw: string | undefined) {
   return `${parsed.pathname}${parsed.search}`;
 }
 
+async function loadPendingReview(itemId: string) {
+  try {
+    return await backendJSON<Review>(`/api/v1/admin/reviews/${itemId}`);
+  } catch (error) {
+    if (error instanceof BackendResponseError && error.status === 404) return null;
+    throw error;
+  }
+}
+
+function staleReviewReturnTo(returnTo: string) {
+  const parsed = new URL(returnTo, "http://retrom.invalid");
+  parsed.searchParams.set("reviewNotice", "stale");
+  return `${parsed.pathname}${parsed.search}`;
+}
+
 export default async function ReviewDetailPage({ params, searchParams }: { params: Promise<{ itemId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const { itemId } = await params;
   const queryParameters = await searchParams;
   const returnTo = safeReturnTo(typeof queryParameters.returnTo === "string" ? queryParameters.returnTo : undefined);
   const listQuery = new URL(returnTo, "http://retrom.invalid").search;
   const [review, context, activeTags] = await Promise.all([
-    backendJSON<Review>(`/api/v1/admin/reviews/${itemId}`),
+    loadPendingReview(itemId),
     backendJSON<ListResponse<ReviewQueueItem>>(`/api/v1/admin/reviews${listQuery}${listQuery ? "&" : "?"}limit=20`),
     loadActiveTags(),
   ]);
+  if (!review) redirect(staleReviewReturnTo(returnTo));
   const validationStatus = review.validation?.status ?? "PENDING";
   const nextItemId = adjacentReviewItemId(context.items.map((item) => item.itemId), itemId);
   const sourceDisplayName = review.sourceFiles?.[0]?.name ?? review.sourceManifest.files[0]?.logicalName ?? "游戏文件";

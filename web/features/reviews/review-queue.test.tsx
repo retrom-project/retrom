@@ -1,7 +1,7 @@
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ReviewQueue, type ReviewQueueItem } from "./review-queue";
+import { ReviewQueue, ReviewQueueRecovery, type ReviewQueueItem } from "./review-queue";
 
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
 
@@ -15,6 +15,7 @@ const item: ReviewQueueItem = {
 afterEach(() => {
   cleanup();
   sessionStorage.clear();
+  window.history.replaceState({}, "", "/");
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
 });
@@ -50,6 +51,33 @@ describe("ReviewQueue", () => {
     expect(screen.getByText("已读取 Pegasus 信息")).toBeVisible();
     expect(screen.getByText("等待管理员核对")).toBeVisible();
     expect(screen.getByRole("button", { name: "未找到信息 0" })).toBeVisible();
+  });
+
+  it("ignores a persisted queue after a stale review link is recovered", async () => {
+    const staleItem = { ...item, itemId: "stale-item", draftTitle: "Already processed game" };
+    sessionStorage.setItem("retrom:v2:user:user-1:reviews:queue:", JSON.stringify({
+      items: [staleItem], nextCursor: null, scrollY: 0,
+    }));
+
+    render(<ReviewQueue initial={{ items: [item], nextCursor: null }} values={{}} resetPersisted />);
+
+    await act(async () => {
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+    });
+    expect(screen.getByText(item.draftTitle)).toBeVisible();
+    expect(screen.queryByText(staleItem.draftTitle)).not.toBeInTheDocument();
+  });
+
+  it("clears the affected queue cache and consumes a stale-review notice", async () => {
+    const storageKey = "retrom:v2:user:user-1:reviews:queue:importJobId=job-1";
+    sessionStorage.setItem(storageKey, "stale queue");
+    window.history.replaceState({}, "", "/admin/reviews?importJobId=job-1&reviewNotice=stale");
+
+    render(<ReviewQueueRecovery active values={{ importJobId: "job-1" }} />);
+
+    expect(screen.getByRole("status")).toHaveTextContent("审核条目已处理或不再可用");
+    await waitFor(() => expect(sessionStorage.getItem(storageKey)).toBeNull());
+    expect(window.location.pathname + window.location.search).toBe("/admin/reviews?importJobId=job-1");
   });
 
   it("loads only one page while the sentinel remains inside the preload area", async () => {

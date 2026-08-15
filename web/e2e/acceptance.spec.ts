@@ -357,6 +357,18 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   await page.screenshot({ path: evidencePath(testInfo, "user-layout.png"), fullPage: true });
 });
 
+test("ACC-UI-005 regression: sparse home rails keep game cards within desktop width caps", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.locator(".home-recent-rail")).toHaveCount(2);
+  const layout = await page.locator(".home-recent-rail").evaluateAll((rails) => ({
+    cardWidths: rails.flatMap((rail) =>
+      [...rail.querySelectorAll<HTMLElement>(".home-recent-card")].map((card) => card.getBoundingClientRect().width)),
+    widthCap: window.matchMedia("(min-width: 2600px) and (min-height: 1600px)").matches ? 560 : 480,
+  }));
+  expect(layout.cardWidths.length).toBeGreaterThan(0);
+  expect(Math.max(...layout.cardWidths)).toBeLessThanOrEqual(layout.widthCap + 1);
+});
+
 test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ page }, testInfo) => {
   const routes = [
     ["/admin/imports", ".import-workflow-page"], ["/admin/imports/new", ".import-wizard"],
@@ -629,6 +641,11 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await page.getByRole("link", { name: "返回待审核列表" }).click();
   await expect(page).toHaveURL(new RegExp(`importJobId=${primaryJob}`));
   await expect(rows).toHaveCount(20);
+  await page.goto(`/admin/reviews/${itemId(3)}?returnTo=${encodeURIComponent(`/admin/reviews?importJobId=${primaryJob}`)}`);
+  await expect(page).toHaveURL(new RegExp(`/admin/reviews\\?importJobId=${primaryJob}$`));
+  await expect(page.locator(".app-toast")).toContainText("审核条目已处理或不再可用");
+  await expect(page.getByRole("heading", { name: "暂时无法读取数据" })).toHaveCount(0);
+  await expect(page.locator(`[data-review-item="${itemId(3)}"]`)).toHaveCount(0);
   await page.getByRole("button", { name: "继续加载" }).click();
   await expect(rows).toHaveCount(40);
   await page.getByRole("button", { name: "继续加载" }).click();
