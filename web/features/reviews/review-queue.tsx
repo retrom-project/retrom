@@ -9,6 +9,7 @@ import { statusTone } from "@/lib/status";
 import { useAuth } from "@/features/auth/auth-provider";
 import { userStorageKey } from "@/features/auth/storage";
 import { TagChips, type TagReference } from "@/components/tag-picker";
+import { Toast } from "@/components/flash-toast";
 
 export type ReviewQueueItem = {
   itemId: string;
@@ -48,7 +49,24 @@ function formatBytes(value: number) {
   return `${(value / 1024 ** 3).toFixed(2)} GiB`;
 }
 
-export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQueueItem>; values: Record<string, string> }) {
+export function ReviewQueueRecovery({ active, values }: { active: boolean; values: Record<string, string> }) {
+  const { context } = useAuth();
+  const listQuery = useMemo(() => queryString(values), [values]);
+  const storageKey = userStorageKey(context.user?.userId, "reviews", `queue:${listQuery}`);
+  const [toast, setToast] = useState(active ? { message: "审核条目已处理或不再可用，待审核队列已刷新。", tone: "warn" as const } : null);
+
+  useEffect(() => {
+    if (!active) return;
+    if (storageKey) sessionStorage.removeItem(storageKey);
+    const current = new URL(window.location.href);
+    current.searchParams.delete("reviewNotice");
+    window.history.replaceState(window.history.state, "", `${current.pathname}${current.search}${current.hash}`);
+  }, [active, storageKey]);
+
+  return <Toast toast={toast} onDismiss={() => setToast(null)} />;
+}
+
+export function ReviewQueue({ initial, values, resetPersisted = false }: { initial: ListResponse<ReviewQueueItem>; values: Record<string, string>; resetPersisted?: boolean }) {
   const { context } = useAuth();
   const listQuery = useMemo(() => queryString(values), [values]);
   const listURL = `/admin/reviews${listQuery ? `?${listQuery}` : ""}`;
@@ -75,6 +93,11 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
   }), [items, summaryFilter]);
 
   useEffect(() => {
+    if (resetPersisted) {
+      if (storageKey) sessionStorage.removeItem(storageKey);
+      persistenceReady.current = true;
+      return;
+    }
     if (!storageKey) { persistenceReady.current = true; return; }
     const raw = sessionStorage.getItem(storageKey);
     if (!raw) { persistenceReady.current = true; return; }
@@ -93,7 +116,7 @@ export function ReviewQueue({ initial, values }: { initial: ListResponse<ReviewQ
       sessionStorage.removeItem(storageKey);
     }
     persistenceReady.current = true;
-  }, [initial.items.length, storageKey]);
+  }, [initial.items.length, resetPersisted, storageKey]);
 
   useEffect(() => {
     if (!persistenceReady.current || !storageKey) return;
