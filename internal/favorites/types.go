@@ -1,6 +1,10 @@
 package favorites
 
-import "errors"
+import (
+	"errors"
+
+	"retrom/internal/tagging"
+)
 
 var (
 	ErrInvalid                 = errors.New("INVALID_REQUEST")
@@ -78,16 +82,17 @@ type PlatformSummary struct {
 }
 
 type GameItem struct {
-	GameID           string            `json:"gameId"`
-	Title            string            `json:"title"`
-	Platform         NamedResource     `json:"platform"`
-	PlatformInstance NamedResource     `json:"platformInstance"`
-	DefaultCore      NamedResource     `json:"defaultCore"`
-	CoverURL         *string           `json:"coverUrl"`
-	ReleaseYear      *int64            `json:"releaseYear"`
-	CreatedAtMS      int64             `json:"createdAtMs"`
-	LastPlayedAtMS   *int64            `json:"lastPlayedAtMs"`
-	Favorite         FavoriteReference `json:"favorite"`
+	GameID           string              `json:"gameId"`
+	Title            string              `json:"title"`
+	Platform         NamedResource       `json:"platform"`
+	PlatformInstance NamedResource       `json:"platformInstance"`
+	DefaultCore      NamedResource       `json:"defaultCore"`
+	CoverURL         *string             `json:"coverUrl"`
+	ReleaseYear      *int64              `json:"releaseYear"`
+	CreatedAtMS      int64               `json:"createdAtMs"`
+	LastPlayedAtMS   *int64              `json:"lastPlayedAtMs"`
+	Tags             []tagging.Reference `json:"tags"`
+	Favorite         FavoriteReference   `json:"favorite"`
 }
 
 type PageCursor struct {

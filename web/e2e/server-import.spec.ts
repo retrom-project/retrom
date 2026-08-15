@@ -123,6 +123,13 @@ test("ACC-BIOS-007 FULL_CATALOG traverses 100/100/86 and retries the same cursor
 
 test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desktop viewports", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
+  const batchTagName = `飞行游戏-${testInfo.project.name}`;
+  await page.goto("/admin/tags");
+  await page.getByRole("button", { name: "新建标签" }).click();
+  const createTagDrawer = page.getByRole("dialog", { name: "新建标签" });
+  await createTagDrawer.getByRole("textbox", { name: "标签名称" }).fill(batchTagName);
+  await createTagDrawer.getByRole("button", { name: "保存标签" }).click();
+  await expect(page.getByRole("rowheader", { name: batchTagName })).toBeVisible();
   await page.goto("/admin/imports/server");
   await expect(page.getByRole("heading", { name: "扫描并导入 BIOS" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "扫描并准备审核事项" })).toBeVisible();
@@ -157,16 +164,24 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await expect(mapping).toBeVisible({ timeout: 30_000 });
   await expect(mapping).toHaveValue("");
   await expect(drawer.getByRole("button", { name: "确认映射" })).toBeDisabled();
+  const batchTags = drawer.getByRole("combobox", { name: "批次标签" });
+  await batchTags.fill(batchTagName);
+  await page.keyboard.press("Enter");
+  await drawer.getByRole("button", { name: "应用到所有未跳过 Collection" }).click();
+  await expect(drawer.getByRole("status")).toContainText("覆盖 1 个游戏");
   const nesOption = mapping.getByRole("option", { name: /^导入到 NES 游戏/ });
   await mapping.selectOption(await nesOption.getAttribute("value") ?? "");
+  await expect(drawer.getByRole("button", { name: `移除标签“${batchTagName}”` }).last()).toBeVisible();
   await drawer.getByRole("button", { name: "确认映射" }).click();
   await expect(drawer).toContainText("1 个处理 · 0 个跳过");
+  await expect(drawer).toContainText("1 个 Collection · 1 个游戏");
   await drawer.getByRole("button", { name: "开始准备审核事项" }).click();
   await expect(page).toHaveURL(/\/admin\/imports\/server\/pegasus\/[0-9a-f-]+$/);
   await expect(page.getByRole("region", { name: "Pegasus 导入摘要" })).toBeVisible();
   await expect(page.getByText(/^(审核事项已生成|部分失败)$/).first()).toBeVisible({ timeout: 60_000 });
   const resultTable = page.getByRole("table", { name: "Pegasus 导入结果" });
   await expect(resultTable).toContainText("Acceptance Game");
+  await expect(resultTable).toContainText(batchTagName);
   await expect(resultTable).toContainText("待管理员审核");
   await expect(resultTable).toContainText("视频 READY");
   const adminGamesResponse = await page.request.get("/api/v1/admin/games?q=Acceptance%20Game&limit=100");
@@ -190,6 +205,7 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
         collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
         targetPlatformInstanceId: "01980000-0000-7000-8000-000000000006", targetPlatformInstanceName: "FBNeo 游戏",
         metadataRelativePath: "metadata.pegasus.txt", executionState: "BLOCKED_VALIDATION", contentKind: "SINGLE_FILE",
+        tags: [],
         media: { cover: "READY", video: "MISSING" }, warnings: [], discoveryCode: null,
         errorCode: "LAUNCH_PARENT_MISSING", retryable: false, publishedGameId: null, existingGameId: null,
         failureDetails: null, existingMatches: [], updatedAtMs: Date.now(),
@@ -203,6 +219,7 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
         collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
         targetPlatformInstanceId: "01980000-0000-7000-8000-000000000006", targetPlatformInstanceName: "FBNeo 游戏",
         metadataRelativePath: "metadata.pegasus.txt", executionState: "COMMIT_FAILED", contentKind: "SINGLE_FILE",
+        tags: [],
         media: { cover: "READY", video: "READY" }, warnings: [], discoveryCode: null,
         errorCode: "PEGASUS_LIBRARY_IMPORT_FAILED", retryable: true, publishedGameId: null, existingGameId: null,
         existingMatches: [], updatedAtMs: Date.now(), runtimeCheck: null,

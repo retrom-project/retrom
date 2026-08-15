@@ -12,6 +12,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
+	"retrom/internal/tagging"
 )
 
 func requireVersion(writer http.ResponseWriter, request *http.Request) (int64, bool) {
@@ -530,6 +531,12 @@ func (server *Server) reconfigureImport(writer http.ResponseWriter, request *htt
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "重新导入配置无效", map[string]any{})
 		return
 	}
+	if body.TagIDs != nil {
+		if _, err := tagging.ValidateIDs(body.TagIDs); err != nil {
+			writeTagError(writer, request, err)
+			return
+		}
+	}
 	created, err := server.importer.Reconfigure(
 		request.Context(),
 		request.PathValue("importJobId"),
@@ -537,6 +544,10 @@ func (server *Server) reconfigureImport(writer http.ResponseWriter, request *htt
 		body,
 	)
 	if err != nil {
+		if errors.Is(err, tagging.ErrReferenceInvalid) || errors.Is(err, tagging.ErrAssignmentLimitExceeded) {
+			writeTagError(writer, request, err)
+			return
+		}
 		writeError(
 			writer,
 			request,
@@ -622,6 +633,10 @@ func (server *Server) patchReview(writer http.ResponseWriter, request *http.Requ
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "审核草稿无效", map[string]any{})
 		return
 	}
+	if _, err := tagging.ValidateIDs(body.TagIDs); err != nil {
+		writeTagError(writer, request, err)
+		return
+	}
 	result, err := server.importer.PatchDraft(request.Context(), request.PathValue("importItemId"), version, body)
 	if errors.Is(err, libraryimport.ErrReimportRequiredPlatformChange) {
 		writeError(
@@ -632,6 +647,14 @@ func (server *Server) patchReview(writer http.ResponseWriter, request *http.Requ
 			"跨基础平台会改变分组与识别证据，请丢弃后按目标目录重新导入",
 			map[string]any{},
 		)
+		return
+	}
+	if errors.Is(err, tagging.ErrReferenceInvalid) || errors.Is(err, tagging.ErrAssignmentLimitExceeded) {
+		writeTagError(writer, request, err)
+		return
+	}
+	if errors.Is(err, libraryimport.ErrVersionConflict) {
+		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "审核条目版本已变化", map[string]any{})
 		return
 	}
 	if err != nil {

@@ -9,6 +9,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => router }));
 
 const root = { id: "games", label: "游戏资料库", status: "AVAILABLE" as const };
 const platform: PegasusPlatformInstance = { id: "11111111-1111-4111-8111-111111111111", name: "NES 游戏", platformName: "Nintendo Entertainment System", defaultCoreId: "fceumm", defaultCoreName: "FCEUmm", enabled: true };
+const activeTag = { tagId: "77777777-7777-4777-8777-777777777770", name: "双人" };
 
 function summary(state: PegasusImportSummary["state"], version: number, overrides: Partial<PegasusImportSummary> = {}): PegasusImportSummary {
   return {
@@ -40,7 +41,7 @@ describe("PegasusImportDrawer", () => {
     const awaiting = summary("AWAITING_MAPPING", 2);
     const mapped = summary("AWAITING_MAPPING", 3, { counts: { ...awaiting.counts, mappedCollections: 1 } });
     const queued = summary("QUEUED", 4, { importJobId: "44444444-4444-4444-8444-444444444444", counts: mapped.counts });
-    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, ignoredRules: [], warningFields: [] };
+    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, tagSnapshot: [], ignoredRules: [], warningFields: [] };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(json({ rootId: root.id, path: "", items: [{ name: "Roms", relativePath: "Roms" }], nextCursor: null }))
       .mockResolvedValueOnce(json(scanning, 202))
@@ -50,7 +51,7 @@ describe("PegasusImportDrawer", () => {
       .mockResolvedValueOnce(json(queued, 202));
     vi.stubGlobal("fetch", fetchMock);
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<PegasusImportDrawer open roots={[root]} platformInstances={[platform]} onClose={vi.fn()} onStarted={vi.fn()} />);
+    render(<PegasusImportDrawer open roots={[root]} platformInstances={[platform]} activeTags={[activeTag]} onClose={vi.fn()} onStarted={vi.fn()} />);
 
     await screen.findByRole("button", { name: /Roms/ });
     await user.click(screen.getByRole("button", { name: "扫描此目录" }));
@@ -58,21 +59,27 @@ describe("PegasusImportDrawer", () => {
     await act(async () => { vi.advanceTimersByTime(2_000); });
     expect(await screen.findByRole("combobox", { name: "FC 处理方式" })).toHaveValue("");
     expect(screen.getByRole("button", { name: "确认映射" })).toBeDisabled();
+    await user.type(screen.getByRole("combobox", { name: "批次标签" }), "双");
+    await user.keyboard("{Enter}");
+    await user.click(screen.getByRole("button", { name: "应用到所有未跳过 Collection" }));
+    expect(screen.getByRole("status")).toHaveTextContent("1 个未跳过 Collection，覆盖 3 个游戏");
     await user.selectOptions(screen.getByRole("combobox", { name: "FC 处理方式" }), `IMPORT:${platform.id}`);
+    expect(screen.getAllByRole("button", { name: `移除标签“${activeTag.name}”` })).toHaveLength(2);
     await user.click(screen.getByRole("button", { name: "确认映射" }));
     expect(await screen.findByText("1 个处理 · 0 个跳过")).toBeVisible();
+    expect(screen.getByText("1 个 Collection · 3 个游戏")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "开始准备审核事项" }));
 
     await waitFor(() => expect(router.push).toHaveBeenCalledWith(`/admin/imports/server/pegasus/${queued.id}`));
     const mappingRequest = fetchMock.mock.calls[4]?.[0] as Request;
-    expect(await mappingRequest.clone().json()).toEqual({ mappings: [{ collectionId: collection.id, action: "IMPORT", platformInstanceId: platform.id }] });
+    expect(await mappingRequest.clone().json()).toEqual({ mappings: [{ collectionId: collection.id, action: "IMPORT", platformInstanceId: platform.id, tagIds: [activeTag.tagId] }] });
     const startRequest = fetchMock.mock.calls[5]?.[0] as Request;
     expect(await startRequest.clone().json()).toEqual({ version: 3 });
   });
 
   it("returns a fully saved mapping directly to the import confirmation step", async () => {
     const mapped = summary("AWAITING_MAPPING", 3, { counts: { ...summary("AWAITING_MAPPING", 2).counts, mappedCollections: 1 } });
-    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: "IMPORT" as const, targetPlatformInstanceId: platform.id, targetPlatformInstanceName: platform.name, targetDefaultCoreId: platform.defaultCoreId, targetDefaultCoreName: platform.defaultCoreName, ignoredRules: [], warningFields: [] };
+    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: "IMPORT" as const, targetPlatformInstanceId: platform.id, targetPlatformInstanceName: platform.name, targetDefaultCoreId: platform.defaultCoreId, targetDefaultCoreName: platform.defaultCoreName, tagSnapshot: [], ignoredRules: [], warningFields: [] };
     vi.stubGlobal("fetch", vi.fn()
       .mockResolvedValueOnce(json(mapped))
       .mockResolvedValueOnce(json({ items: [collection], nextCursor: null })));
@@ -86,7 +93,7 @@ describe("PegasusImportDrawer", () => {
 
   it("keeps focus, scroll lock, and mapping drafts stable when the parent refreshes the same plan", async () => {
     const awaiting = summary("AWAITING_MAPPING", 2);
-    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, ignoredRules: [], warningFields: [] };
+    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, tagSnapshot: [], ignoredRules: [], warningFields: [] };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(json(awaiting))
       .mockResolvedValueOnce(json({ items: [collection], nextCursor: null }));
@@ -116,7 +123,7 @@ describe("PegasusImportDrawer", () => {
 describe("PegasusImportDetailManager", () => {
   it("reopens the exact awaiting plan for mapping without rescanning the directory", async () => {
     const awaiting = summary("AWAITING_MAPPING", 2);
-    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, ignoredRules: [], warningFields: [] };
+    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, tagSnapshot: [], ignoredRules: [], warningFields: [] };
     const fetchMock = vi.fn()
       .mockResolvedValueOnce(json(awaiting))
       .mockResolvedValueOnce(json({ items: [collection], nextCursor: null }));
@@ -142,6 +149,7 @@ describe("PegasusImportDetailManager", () => {
       collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
       targetPlatformInstanceId: platform.id, targetPlatformInstanceName: "FBNeo 游戏",
       metadataRelativePath: "metadata.pegasus.txt", executionState: "BLOCKED_VALIDATION", contentKind: "SINGLE_FILE",
+      tags: [],
       media: { cover: "READY", video: "MISSING" }, warnings: [], discoveryCode: null,
       errorCode: "LAUNCH_PARENT_MISSING", retryable: false, publishedGameId: null, existingGameId: null,
       reviewItemId: null,
@@ -171,6 +179,7 @@ describe("PegasusImportDetailManager", () => {
       collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
       targetPlatformInstanceId: platform.id, targetPlatformInstanceName: "FBNeo 游戏",
       metadataRelativePath: "metadata.pegasus.txt", executionState: "COMMIT_FAILED", contentKind: "SINGLE_FILE",
+      tags: [],
       media: { cover: "READY", video: "READY" }, warnings: [], discoveryCode: null,
       errorCode: "PEGASUS_LIBRARY_IMPORT_FAILED", retryable: true, publishedGameId: null, existingGameId: null,
       reviewItemId: null,
@@ -203,6 +212,7 @@ describe("PegasusImportDetailManager", () => {
       collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "FC",
       targetPlatformInstanceId: platform.id, targetPlatformInstanceName: platform.name,
       metadataRelativePath: "metadata.pegasus.txt", executionState: "REVIEW_PENDING", contentKind: "SINGLE_FILE",
+      tags: [],
       media: { cover: "READY", video: "READY" }, warnings: [], discoveryCode: null, errorCode: null,
       failureDetails: null, runtimeCheck: { status: "READY", code: "READY", coreId: "fceumm", coreName: "FCEUmm", machine: null, missingEntries: [], mismatchedEntries: [], dependencies: [], bios: [], missingDiscs: [] },
       retryable: false, reviewItemId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa", publishedGameId: null,

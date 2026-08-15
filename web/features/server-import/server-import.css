@@ -76,6 +76,13 @@
 .pegasus-scan-summary span { color: var(--muted); font-size: 8px; }
 .pegasus-scan-summary strong { margin-top: 3px; font-size: 16px; }
 .pegasus-mapping-note { margin: 10px 0 0; padding: 10px 12px; color: #605b75; border: 1px solid #ded7f8; border-radius: 9px; background: #f8f6ff; font-size: 10px; line-height: 1.55; }
+.pegasus-batch-tags { margin-top: 10px; padding: 12px; display: grid; gap: 10px; border: 1px solid #ded7f8; border-radius: 10px; background: #fcfbff; }
+.pegasus-batch-tags > header { display: flex; align-items: start; justify-content: space-between; gap: 14px; }
+.pegasus-batch-tags > header h3 { margin: 0; font-size: 13px; }
+.pegasus-batch-tags > header p { margin: 4px 0 0; color: var(--muted); font-size: 10px; line-height: 1.5; }
+.pegasus-batch-tags > header > span { flex: 0 0 auto; padding: 4px 8px; color: var(--purple-dark); border-radius: 999px; background: var(--purple-soft); font-size: 9px; font-weight: 800; }
+.pegasus-batch-tag-actions { display: flex; align-items: center; gap: 10px; }
+.pegasus-batch-tag-actions p { margin: 0; color: #316858; font-size: 10px; line-height: 1.45; }
 .pegasus-collection-list { max-height: min(430px, 48dvh); margin-top: 9px; overflow: auto; display: grid; gap: 6px; }
 .pegasus-collection-list article { min-width: 0; padding: 11px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(270px, .75fr); align-items: center; gap: 15px; border: 1px solid var(--line); border-radius: 9px; background: white; }
 .pegasus-collection-list h3 { margin: 0; font-size: 12px; }
@@ -84,6 +91,8 @@
 .pegasus-collection-list select { width: 100%; height: 36px; padding: 0 8px; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; background: white; font-size: 10px; }
 .pegasus-review-table { overflow: hidden; border: 1px solid var(--line); border-radius: 11px; background: white; }
 .pegasus-review-table > div { min-height: 48px; padding: 9px 12px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border-bottom: 1px solid var(--line); }
+.pegasus-review-tags { margin-top: 9px; padding: 10px 12px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border: 1px solid var(--line); border-radius: 9px; background: white; }
+.pegasus-review-tags > span { color: var(--muted); font-size: 10px; font-weight: 750; }
 .pegasus-review-table > div:last-child { border-bottom: 0; }
 .pegasus-review-table span { color: var(--muted); font-size: 10px; }
 .pegasus-review-table strong { max-width: 70%; text-align: right; font-size: 11px; }
@@ -182,6 +191,7 @@
   .server-root-options, .pegasus-scan-summary { grid-template-columns: minmax(0, 1fr); }
   .pegasus-stepper { padding-inline: 12px; }
   .pegasus-stepper li { font-size: 8px; }
+  .pegasus-batch-tags > header, .pegasus-batch-tag-actions, .pegasus-review-tags { align-items: stretch; flex-direction: column; }
   .pegasus-runtime-diagnostic-body > dl { grid-template-columns: minmax(0, 1fr); }
   .pegasus-internal-diagnostic dl { grid-template-columns: minmax(0, 1fr); }
 }

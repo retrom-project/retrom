@@ -20,8 +20,10 @@
 - 删除 Folder 只删除该 Folder 及其 Membership，不取消 Favorite；取消 Favorite 才在同一事务删除其全部 Membership。
 - 收藏不改变 Game、PlatformInstance、GameContentRevision、GameVariantRevision、Launch、SaveState 或 PersistentSave 的归属和运行行为。
 - Game 软删除、PlatformInstance 停用或 User 停用只隐藏用户投影，不删除收藏关系；资源恢复可见后原关系自然恢复。
-- 本能力不引入公开/分享/协作收藏夹、标签、嵌套、描述、封面、图标、手工排序、智能规则、推荐、统计榜或管理员审计事件。
+- 本能力不引入公开/分享/协作收藏夹、嵌套、描述、封面、图标、手工排序、智能规则、推荐、统计榜或管理员审计事件。
 - 本能力不引入后台 Job、Blob、外网请求、浏览器持久副本、Core/DAT/BIOS/Player 变化或新的第三方依赖。
+
+Migration 034 的实例 Tag 与本专题完全独立：Tag 由 ADMIN 预先创建并可跨 Profile 展示在可见 Game 上，FavoriteFolder 由每个用户管理且只有 owner 可见。收藏页必须把游戏 Tag 与紫色 Folder chip 放在两个有独立可访问 label 的区域；按标签的 `q` 只过滤可见游戏，不允许用 Tag API 推断其他 Profile 的收藏。Tag 细节见 [`game-tags.md`](./game-tags.md)。
 
 ## 2. 用户行为不变量
 

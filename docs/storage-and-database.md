@@ -155,6 +155,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `game_variant_revisions` | 某 ContentRevision 在一个 CoreArtifact 上的不可变验证/运行结果 |
 | `variant_files` | parent、BIOS bundle、DOS launch bundle 等 core-specific/派生文件 |
 | `game_metadata_revisions` | 已发布元信息修订 |
+| `tags` / `game_tags` | 实例级 Tag tombstone 与 Game 多对多关系；不含 Blob 或宿主路径 |
 
 `variant_files.role` 一期固定支持：
 
@@ -202,6 +203,8 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `review_preview_sessions` / `review_preview_files` | 审核子窗体的短时不可变运行快照与实际可交付依赖 |
 | `review_runtime_screenshots` | 当前 READY 或阻断 Validation 在核心启动后第 5 秒生成的审核截图与人工放行证据 |
 | `review_events` | 追加式审核历史 |
+| `review_draft_tags` | 待审核草稿的当前活动标签选择；决定后保留历史关系 |
+| `pegasus_collection_tags` | Pegasus Collection 的管理员标签映射；名称证据另冻结在 Collection snapshot |
 
 ### 4.5 通用任务、幂等与审计
 
@@ -437,6 +440,12 @@ Migration 031 追加 `review_preview_sessions`、`review_preview_files` 与 `rev
 
 Migration 032 的房间/成员/Session/Participant/Event 只保存控制面；逐帧 input、canonical history、hash 和 state transfer 永不进入 SQLite/CAS/backup。备份离线停服时所有活动实时 hub 已消失，但数据库可保留终态和等待房间；restore 在首次 serve 前以 `RESTORE` 结束任何遗留 STARTING/RUNNING Session、撤销其 Launch，不能恢复旧 WebSocket 或 room cookie。普通 DRAFT/WAITING 房间仍按绝对过期时刻处理。
 
-## 14. 统一验收入口
+## 14. 标签数据、备份与恢复边界
 
-SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-BKP-001`、`ACC-AUTH-001`–`002` 与 `ACC-ISO-*`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`。本文不再维护重复通过条件。
+Migration 034 的 Tag、Game/Review/Pegasus 关系和 tombstone 全部只存在 SQLite，不新增 CAS payload、Blob reference、外部 taxonomy 或运行期下载。离线备份必须逐行保留活动 Tag、DELETED tombstone、关系、mapping 名称 snapshot 与审计；restore 不重连同名新 Tag，也不清理指向 tombstone 的历史关系。GC registry、物理 CAS 枚举和依赖物化均不因标签改变。
+
+Tag 删除是业务软删除，不是存储清理：不得以减小数据库为由硬删 tombstone/关系。Migration 034 只能随完整数据根回滚，旧应用不能写入已经升级的数据库。字段、trigger 与升级约束见 [`data-model.md`](./data-model.md)，生命周期见 [`game-tags.md`](./game-tags.md)。
+
+## 15. 统一验收入口
+
+SQLite、migration、CAS、GC 与备份统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DB-001`–`ACC-DB-002`、`ACC-CAS-001`–`ACC-CAS-002`、`ACC-BKP-001`、`ACC-AUTH-001`–`002`、`ACC-ISO-*` 与 `ACC-TAG-001`；归档/XML 与内容访问安全执行 `ACC-SEC-001`–`ACC-SEC-002`。本文不再维护重复通过条件。

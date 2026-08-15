@@ -9,12 +9,14 @@ export type GameSummary = {
   createdAtMs: number;
   lastPlayedAtMs: number | null;
   favorite: import("@/features/favorites/favorite-api").FavoriteReference | null;
+  tags?: Array<{ tagId: string; name: string }>;
 };
 
 export type LibraryFilters = {
   query: string;
   platformId: string;
   platformInstanceId: string;
+  tagId?: string;
   sort: "RECENT_DESC" | "ADDED_DESC" | "TITLE_ASC";
 };
 
@@ -49,8 +51,9 @@ export function filterLibraryGames(games: GameSummary[], filters: LibraryFilters
   return games.filter((game) => {
     if (filters.platformId && game.platform.id !== filters.platformId) return false;
     if (filters.platformInstanceId && game.platformInstance.id !== filters.platformInstanceId) return false;
+    if (filters.tagId && !(game.tags ?? []).some((tag) => tag.tagId === filters.tagId)) return false;
     if (!query) return true;
-    return [game.title, game.platform.name, game.platformInstance.name, game.defaultCore.name]
+    return [game.title, game.platform.name, game.platformInstance.name, game.defaultCore.name, ...(game.tags ?? []).map((tag) => tag.name)]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   }).sort((left, right) => {
     if (filters.sort === "TITLE_ASC") return stableTitleOrder(left, right);
@@ -59,6 +62,16 @@ export function filterLibraryGames(games: GameSummary[], filters: LibraryFilters
     const rightPlayed = right.lastPlayedAtMs ?? Number.NEGATIVE_INFINITY;
     return rightPlayed - leftPlayed || right.createdAtMs - left.createdAtMs || stableTitleOrder(left, right);
   });
+}
+
+export function libraryTags(games: GameSummary[]) {
+  const values = new Map<string, { tagId: string; name: string; count: number }>();
+  for (const game of games) for (const tag of game.tags ?? []) {
+    const current = values.get(tag.tagId);
+    if (current) current.count += 1;
+    else values.set(tag.tagId, { ...tag, count: 1 });
+  }
+  return [...values.values()].sort((left, right) => left.name.localeCompare(right.name, "zh-CN") || left.tagId.localeCompare(right.tagId));
 }
 
 export function libraryPlatforms(games: GameSummary[]) {

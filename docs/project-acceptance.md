@@ -706,8 +706,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-005`。
-- 流程：在 1280×800、2560×1440、3840×2160 打开服务器导入页，只用键盘完成 root/目录选择与扫描；扫描后关闭 Drawer，直接进入该计划详情并从“继续映射”恢复全部 Collection 显式映射、确认审核计划和启动；另覆盖已完整保存映射后关闭并恢复第三步。任务准备完成后从批次行动区进入限定审核队列，打开 READY 与 blocker 各一项并返回；检查来源 COVER/VIDEO 和无批量入口。在详情注入 BIOS 缺失、parent 缺失、内容 entry 缺失、merged set 不支持、结构化 library import 内部失败和历史通用 runtime blocker，展开诊断、触发原计划重检，再使用 URL 筛选、分页、取消/retry 并模拟 SSE 断线。
-- 通过标准：两张能力卡等权且共用 root 说明，Pegasus 卡明确不会自动发布并显示待审核总数；760px Drawer 三步可达、无默认映射，第三步明确“全部进入待审核”；`AWAITING_MAPPING` 详情能恢复指定计划且不重新选目录/扫描，未保存映射重新选择、已完整保存映射直接进入第三步。Drawer 打开时背景不可滚动，扫描转换与同计划摘要轮询不得造成布局跳动、焦点转移或本地映射丢失。详情以扫描范围/待审核/已发布·丢弃·已有/阻断·失败分组，显示 media READY/MISSING/WARNING、逐项审核入口与已有/新游戏链接；批次入口保留 `pegasusImportId`，清除其他筛选不丢批次，Pegasus metadata 不计作“未找到信息”；审核媒体中 VIDEO 等比居中且不自动播放，页面无任何批量通过按钮。阻断行展示具体原因，展开后可见稳定 code、Core/machine、缺失条目、依赖和处理建议；内部失败展开后可见 stage、operation、cause code、Pegasus Item ID、相对路径、观察数量/上限、可用内部关联 ID 与受限技术详情，不得只显示 `PEGASUS_LIBRARY_IMPORT_FAILED`；历史 `PEGASUS_RUNTIME_BLOCKED` 可在原任务重检且重检后不再保留通用原因；断线不清空内容；三个 viewport 无页面级横向溢出，焦点、Escape、reduced-motion 和状态文本符合 UI 契约。
+- 流程：在 1280×800、2560×1440、3840×2160 打开服务器导入页，只用键盘完成 root/目录选择与扫描；扫描后关闭 Drawer，直接进入该计划详情并从“继续映射”恢复，选择一个既有标签并批量追加到全部未跳过 Collection，再完成全部 Collection 显式映射、确认审核计划和启动；另覆盖已完整保存映射后关闭并恢复第三步。任务准备完成后从批次行动区进入限定审核队列，打开 READY 与 blocker 各一项并返回；检查来源 COVER/VIDEO 和无批量入口。在详情注入 BIOS 缺失、parent 缺失、内容 entry 缺失、merged set 不支持、结构化 library import 内部失败和历史通用 runtime blocker，展开诊断、触发原计划重检，再使用 URL 筛选、分页、取消/retry 并模拟 SSE 断线。
+- 通过标准：两张能力卡等权且共用 root 说明，Pegasus 卡明确不会自动发布并显示待审核总数；760px Drawer 三步可达、无默认映射，批量标签以 union 语义进入所有未跳过 Collection 且可逐项调整，第三步显示覆盖数量并明确“全部进入待审核”；`AWAITING_MAPPING` 详情能恢复指定计划且不重新选目录/扫描，未保存映射重新选择、已完整保存映射直接进入第三步。Drawer 打开时背景不可滚动，扫描转换与同计划摘要轮询不得造成布局跳动、焦点转移或本地映射丢失。详情以扫描范围/待审核/已发布·丢弃·已有/阻断·失败分组，显示 media READY/MISSING/WARNING、逐项审核入口与已有/新游戏链接；批次入口保留 `pegasusImportId`，清除其他筛选不丢批次，Pegasus metadata 不计作“未找到信息”；审核媒体中 VIDEO 等比居中且不自动播放，页面无任何批量通过按钮。阻断行展示具体原因，展开后可见稳定 code、Core/machine、缺失条目、依赖和处理建议；内部失败展开后可见 stage、operation、cause code、Pegasus Item ID、相对路径、观察数量/上限、可用内部关联 ID 与受限技术详情，不得只显示 `PEGASUS_LIBRARY_IMPORT_FAILED`；历史 `PEGASUS_RUNTIME_BLOCKED` 可在原任务重检且重检后不再保留通用原因；断线不清空内容；三个 viewport 无页面级横向溢出，焦点、Escape、reduced-motion 和状态文本符合 UI 契约。
 - 证据：Playwright DOM/网络/布局断言和三尺寸当前截图。
 
 ### ACC-MEDIA-001：VIDEO 上传、服务与详情播放策略
@@ -1025,7 +1025,44 @@ python3 data/example/verify-fixtures.py
 - 通过：无横向溢出/遮挡，卡宽 270–320px，Rail 头部和新建入口固定且只有中间列表自滚动，批量栏不盖末行，4K 字号/控件达标，dialog 焦点与 Escape 正确，axe 无 serious/critical。
 - 证据：三 viewport 测量/截图、键盘 trace、焦点/ARIA/axe/reduced-motion 结果。
 
-## 18. 联机游玩
+## 18. 游戏标签
+
+### ACC-TAG-001：Migration、名称、生命周期与备份
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-TAG-001`。
+- 流程：从 033 fixture 升级和创建新库；覆盖 NFC、Unicode 空白/case-fold/control、40/41 code point、160/161 byte、活动同名、20/21 owner 与 1,000/1,001 实例上限；关联后软删除，再用同名创建新 ID，并完成带 Tag/关系/tombstone/审计的离线 backup/restore。
+- 通过：034 表/列/partial unique/index/trigger、INTEGER 时刻、FK 与完整性正确；DELETED 不可恢复/改名/硬删，立即退出当前投影但历史关系和审计保留；同名新 ID 不继承旧关系；恢复前后标签快照逐项一致且 restore 安全围栏不退化。
+- 证据：起止 migration/schema 摘要、名称/容量负向矩阵、删除前后 owner/version/关系、恢复前后 canonical hash 与完整性结果。
+
+### ACC-TAG-002：API、权限、并发与游戏维护
+
+- 上限：120 秒。执行：`make acceptance-case CASE=ACC-TAG-002`。
+- 流程：ADMIN/USER/匿名覆盖 Tag CRUD/list/usage 与 GameTag replace，验证 strict JSON、Origin/CSRF、If-Match、Idempotency-Key、cursor/filter；制造 rename、assignment、delete 版本漂移与同 key 重放；用 `q/tagId` 组合查询用户/管理游戏并检查审计。
+- 通过：权限和稳定错误符合 OpenAPI；同名、无效引用、删除确认与过期 ETag 都零部分写入；同集合 no-op 不推进版本；关系变化推进 owner/Tag version，删除令旧 owner 写冲突；rename/search 立即生效且不创建 MetadataRevision。
+- 证据：请求/响应 contract matrix、ETag/idempotency/cursor 摘要、Game/Tag version 与 AuditEvent before/after/diff。
+
+### ACC-TAG-003：普通导入、审核与原子发布
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-TAG-003`。
+- 流程：普通 Import 选择默认标签并生成多个 Item，检查 config snapshot 与每个 ReviewDraft；逐项修改标签，删除一个打开中的 Tag，使用旧 ETag PATCH/Approve 后刷新；分别 Approve/Discard，并回归 duplicate/Validation/content identity 主链。
+- 通过：不存在/已删除 Tag 时零 Import/Item/Consumption；每 Draft 正确继承且 reconfigure 只恢复仍活动项；旧 ETag 稳定冲突；Approve 的 Game/GameTag/ReviewEvent 原子，Discard 只保留关系和名称 snapshot；内容 identity、Variant 与运行依赖不受标签影响。
+- 证据：Import config、Draft/Game 标签集合、删除前后 ETag、发布/丢弃事务行、ReviewEvent snapshot、content digest 与 Variant 对照。
+
+### ACC-TAG-004：Pegasus Collection 默认标签
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-TAG-004`。
+- 流程：多个 Collection 使用不同目录/标签，先把一个标签批量追加到全部未跳过 Collection，再逐项增删，覆盖 SKIP 空集合、20 个上限、mapping 保存/恢复/start 漂移、一次 retry 与审核 handoff；来源 metadata 同时含外部 tags/genre，并对已存在内容走 `SKIPPED_EXISTING`。
+- 通过：批量操作只做去重 union、不覆盖已有选择，尚未选择处理方式的 Collection 后续选择 `IMPORT` 仍保留批次标签，`SKIP` 始终清空；每 Collection 关系与 `{tagId,name}` snapshot 稳定，Tag 删除推进 plan/mapping version且旧 start 冲突；handoff 只写一次 DraftTag，retry/crash recovery 不重复；外部字段不创建/猜测 Retrom Tag，SKIPPED_EXISTING 不改已有 GameTag；全部新候选仍逐项审核。
+- 证据：mapping/plan ETag、Collection snapshot、Item/Draft/Game 关系计数、retry execution、外部 metadata 负向和 existing Game 对照。
+
+### ACC-TAG-005：搜索、展示、响应式与无障碍
+
+- 上限：180 秒。执行：`make acceptance-case CASE=ACC-TAG-005`。
+- 流程：管理员以键盘创建/重命名/删除标签，在普通导入、Pegasus mapping、审核和游戏维护入口选择；在 Library/Admin/Review/Favorite/Recent/Save/Netplay 用名称及精确 Tag URL 搜索，访问详情；覆盖 390×844、1280×800、2560×1440、3840×2160 和 axe。
+- 通过：`q/tagId` 与其他条件取交集且刷新/前进后退恢复；删除标签立即隐藏，chip 位置、截断、`+N` 朗读和 FavoriteFolder/Tag 分区正确；TagPicker 键盘/20 上限、Drawer/Dialog 焦点与错误保留正确；所有页面零 document 横向溢出且 axe 无 serious/critical。
+- 证据：route/network/DOM/键盘/focus trace、四 viewport 尺寸和截图、axe report、删除前后搜索/投影摘要。
+
+## 19. 联机游玩
 
 `ACC-NP-001`–`011` 在启动浏览器或服务前必须先运行 `python3 data/example/verify-fixtures.py`，并确认两个 netplay selector 已逐字节物化；缺失或 hash 不符直接 `FAIL`，不得换 ROM、跳过或使用 mock。真实双端 Case 使用两个或所需数量的独立 Chrome process，不得用同一 browser 的多个 context 代替。机器证据除第 3.3 节通用字段外，固定记录 browser/runtime/core/content/profile digest、参与者数、confirmed frame、rollback/resync/reconnect 计数、双端最终 core digest 和终因；敏感 cookie、能力值与宿主绝对路径不得进入证据。
 
@@ -1119,7 +1156,7 @@ python3 data/example/verify-fixtures.py
 - 通过：普通能力与联机改动前契约一致；联机模式专属禁用不泄漏到 single mode；production 产物不存在测试故障注入或可写 telemetry hook。
 - 证据：普通 launch/save/play 断言、Player network/DOM 与产物扫描。
 
-## 19. 移动端与横屏 Player
+## 20. 移动端与横屏 Player
 
 ### ACC-MOB-001：App Shell 与导航
 
@@ -1170,7 +1207,7 @@ python3 data/example/verify-fixtures.py
 - 通过标准：所有普通页面 document 零横向溢出、关键 target 至少 44px、标题/主操作可见，焦点与朗读顺序和视觉顺序一致；Dialog/Sheet 不被软键盘或 safe-area 裁切；axe 无 serious/critical violation，桌面侧栏、共享画布、卡片列数和 Player 比例没有回退。
 - 证据：全部 viewport 的 DOM 尺寸与 axe 报告、键盘 trace、统一设计快照和桌面 screenshot diff。
 
-## 20. 缺陷处理与重验
+## 21. 缺陷处理与重验
 
 任一 Case 出现非预期行为即登记 defect，不能在原结果上直接改成 PASS：
 
@@ -1183,11 +1220,11 @@ python3 data/example/verify-fixtures.py
 
 若错误只能在真实 EmulatorJS/Chrome 中出现，仍必须在最近确定性边界加自动化测试，并收紧对应 `ACC-CORE-*` 或 UI runner 断言。不得用“只能人工复现”免除固化。
 
-## 21. 最终通过标准
+## 22. 最终通过标准
 
 一期项目只有同时满足以下条件才可标记 `PASS`：
 
-- 第 5–19 节所有 Required Case 为 PASS；
+- 第 5–20 节所有 Required Case 为 PASS；
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 本次生成的三十五核机器结果与画面复核全部通过；PPSSPP 的 CSO、ISO 两个格式 run 均通过；Saturn 双盘、三盘各自的机器结果与画面复核通过；
@@ -1199,7 +1236,7 @@ python3 data/example/verify-fixtures.py
 
 AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID、实际执行命令、证据目录、本次新增回归测试，以及任何 `NOT_APPLICABLE` 原因。不得仅回复“验收通过”。
 
-## 22. 专题覆盖映射
+## 23. 专题覆盖映射
 
 | 专题 | 统一 Case |
 | --- | --- |
@@ -1218,6 +1255,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
 | 移动 App Shell、响应式页面与横屏 Player | `ACC-MOB-001`–`007` |
 | 收藏与收藏夹 | `ACC-FAV-001`–`004` |
+| 游戏标签 | `ACC-TAG-001`–`005` |
 | 联机房间、双端运行、恢复与隔离 | `ACC-NP-001`–`013` |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。

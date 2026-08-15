@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FavoriteActions } from "./favorite-actions";
 import type { FavoriteFolder, FavoriteGame, FavoriteReference } from "./favorite-api";
+import { TagChips } from "@/components/tag-picker";
 
 function FavoritePoster({ game }: { game: FavoriteGame }) {
   if (game.coverUrl) return <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="(min-width: 2600px) 280px, 270px" unoptimized />;
@@ -19,7 +20,7 @@ export function FavoriteGrid({
   const folderNames = new Map(folders.map((folder) => [folder.folderId, folder.name]));
   return <div className={`favorite-game-grid ${selecting ? "is-selecting" : ""}`}>
     {games.map((game) => {
-      const tags = game.favorite.folderIds.map((folderId) => folderNames.get(folderId)).filter((name): name is string => Boolean(name));
+      const folderTags = game.favorite.folderIds.map((folderId) => folderNames.get(folderId)).filter((name): name is string => Boolean(name));
       return <article className="favorite-game-card" data-favorite-game={game.gameId} key={game.gameId}>
         <div className="favorite-game-cover">
           <Link href={`/games/${game.gameId}`} aria-label={`查看游戏“${game.title}”详情`}><FavoritePoster game={game} /><span>查看游戏详情 →</span></Link>
@@ -35,7 +36,8 @@ export function FavoriteGrid({
         <div className="favorite-game-body">
           <Link href={`/games/${game.gameId}`}><h3>{game.title}</h3></Link>
           <p><span>{game.platform.name}</span><span>{game.releaseYear ?? "年份未知"}</span></p>
-          <div className="favorite-tags">{tags.slice(0, 2).map((name) => <span key={name}>{name}</span>)}{tags.length > 2 ? <span aria-label={`另外 ${tags.length - 2} 个收藏夹`}>+{tags.length - 2}</span> : null}</div>
+          <TagChips tags={game.tags ?? []} limit={2} label={`${game.title} 的游戏标签`} />
+          <div className="favorite-tags" aria-label={`${game.title} 的收藏夹`}>{folderTags.slice(0, 2).map((name) => <span key={name}>{name}</span>)}{folderTags.length > 2 ? <span aria-label={`另外 ${folderTags.length - 2} 个收藏夹`}>+{folderTags.length - 2}</span> : null}</div>
         </div>
         <FavoriteActions
           gameId={game.gameId}

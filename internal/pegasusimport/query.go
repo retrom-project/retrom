@@ -13,8 +13,10 @@ import (
 
 	"github.com/google/uuid"
 
+	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/serversource"
+	"retrom/internal/tagging"
 )
 
 const summaryQuery = `
@@ -138,8 +140,9 @@ func (service *Service) Collections(
 SELECT collection.id,collection.metadata_relative_path,collection.segment_ordinal,collection.name,
 collection.shortname,collection.description,collection.game_count,collection.issue_count,collection.mapping_action,
 collection.target_platform_instance_id,platform.name,collection.target_default_core_id,core.name,
-collection.ignored_rules_json,collection.warning_fields_json
+collection.ignored_rules_json,collection.warning_fields_json,collection.tag_snapshot_json,plan.state
 FROM pegasus_import_collections collection
+JOIN pegasus_imports plan ON plan.id=collection.import_id
 LEFT JOIN platform_instances platform ON platform.id=collection.target_platform_instance_id
 LEFT JOIN cores core ON core.id=collection.target_default_core_id
 WHERE collection.import_id=?`+watermark+`
@@ -149,13 +152,15 @@ ORDER BY collection.metadata_relative_path,collection.segment_ordinal,collection
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	result := make([]Collection, 0)
+	collectionStates := make(map[string]string)
 	for rows.Next() {
 		var value Collection
 		var shortName, action, platformID, platformName, coreID, coreName sql.NullString
-		var ignored, warnings string
+		var importState string
+		var ignored, warnings, tagSnapshot string
 		if err := rows.Scan(&value.ID, &value.MetadataRelativePath, &value.SegmentOrdinal, &value.Name, &shortName,
 			&value.Description, &value.GameCount, &value.IssueCount, &action, &platformID, &platformName, &coreID,
-			&coreName, &ignored, &warnings); err != nil {
+			&coreName, &ignored, &warnings, &tagSnapshot, &importState); err != nil {
 			return nil, fmt.Errorf("pegasusimport/scan collection: %w", err)
 		}
 		value.ShortName, value.MappingAction = nullableString(shortName), nullableString(action)
@@ -166,12 +171,46 @@ ORDER BY collection.metadata_relative_path,collection.segment_ordinal,collection
 		)
 		value.TargetDefaultCoreID, value.TargetDefaultCoreName = nullableString(coreID), nullableString(coreName)
 		value.IgnoredRules, value.WarningFields = jsonStrings(ignored), jsonStrings(warnings)
+		if err := json.Unmarshal([]byte(tagSnapshot), &value.TagSnapshot); err != nil || value.TagSnapshot == nil {
+			return nil, fmt.Errorf("pegasusimport/decode collection tag snapshot: %w", err)
+		}
+		collectionStates[value.ID] = importState
 		result = append(result, value)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("pegasusimport/iterate collections: %w", err)
 	}
+	if err := service.projectCollectionTags(ctx, result, collectionStates); err != nil {
+		return nil, err
+	}
 	return result, nil
+}
+
+func (service *Service) projectCollectionTags(
+	ctx context.Context,
+	collections []Collection,
+	states map[string]string,
+) error {
+	collectionIDs := make([]string, 0, len(collections))
+	for _, collection := range collections {
+		if states[collection.ID] == "AWAITING_MAPPING" {
+			collectionIDs = append(collectionIDs, collection.ID)
+		}
+	}
+	activeReferences, err := service.tags.PegasusReferences(ctx, collectionIDs)
+	if err != nil {
+		return fmt.Errorf("pegasusimport/project collection tags: %w", err)
+	}
+	for index := range collections {
+		if states[collections[index].ID] != "AWAITING_MAPPING" {
+			continue
+		}
+		collections[index].TagSnapshot = activeReferences[collections[index].ID]
+		if collections[index].TagSnapshot == nil {
+			collections[index].TagSnapshot = []tagging.Reference{}
+		}
+	}
+	return nil
 }
 
 func (service *Service) Items(
@@ -191,6 +230,7 @@ item.library_import_item_id,
 item.published_game_id,item.existing_game_id,item.existing_matches_json,item.updated_at_ms,
 validation.status,validation.compatibility_code,validation.core_id,core.name,
 validation.dependency_snapshot_json,
+collection.tag_snapshot_json,
 EXISTS(SELECT 1 FROM pegasus_import_item_assets asset WHERE asset.item_id=item.id AND asset.kind='COVER'),
 EXISTS(SELECT 1 FROM pegasus_import_item_assets asset WHERE asset.item_id=item.id AND asset.kind='VIDEO')
 FROM pegasus_import_items item
@@ -249,13 +289,14 @@ func scanItem(row rowScanner) (Item, error) {
 	var collection, collectionName, target, targetName, kind sql.NullString
 	var discovery, itemError, failureDetails, reviewItem, published, existing sql.NullString
 	var validationStatus, compatibilityCode, coreID, coreName, dependencySnapshot sql.NullString
-	var warnings, existingMatches string
+	var warnings, existingMatches, tagSnapshot string
 	var retryable, hasCover, hasVideo int
 	if err := row.Scan(
 		&value.ID, &value.Title, &collection, &collectionName, &target, &targetName,
 		&value.MetadataRelativePath, &value.ExecutionState, &kind, &warnings, &discovery, &itemError, &failureDetails,
 		&retryable, &reviewItem, &published, &existing, &existingMatches, &value.UpdatedAtMS,
 		&validationStatus, &compatibilityCode, &coreID, &coreName, &dependencySnapshot,
+		&tagSnapshot,
 		&hasCover, &hasVideo,
 	); err != nil {
 		return Item{}, fmt.Errorf("pegasusimport/scan item: %w", err)
@@ -279,6 +320,9 @@ func scanItem(row rowScanner) (Item, error) {
 	value.Retryable = retryable == 1
 	_ = json.Unmarshal([]byte(warnings), &value.Warnings)
 	_ = json.Unmarshal([]byte(existingMatches), &value.ExistingMatches)
+	if err := json.Unmarshal([]byte(tagSnapshot), &value.Tags); err != nil || value.Tags == nil {
+		return Item{}, fmt.Errorf("pegasusimport/decode item tag snapshot: %w", err)
+	}
 	value.Media = ItemMedia{
 		Cover: mediaProjection(hasCover == 1, value.Warnings, "cover"),
 		Video: mediaProjection(hasVideo == 1, value.Warnings, "video"),
@@ -384,31 +428,34 @@ func (service *Service) UpdateMappings(
 	if len(mappings) < 1 || len(mappings) > 100 {
 		return Summary{}, ErrInvalid
 	}
+	if !mappingTagArraysPresent(mappings) {
+		return Summary{}, ErrInvalid
+	}
 	seen := map[string]struct{}{}
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/mapping transaction: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var state string
+	var state, actorUserID string
 	var version int64
 	if err := transaction.QueryRowContext(
-		ctx, `SELECT state,version FROM pegasus_imports WHERE id=?`, importID,
-	).Scan(&state, &version); err != nil {
+		ctx, `SELECT state,version,created_by_user_id FROM pegasus_imports WHERE id=?`, importID,
+	).Scan(&state, &version, &actorUserID); err != nil {
 		return Summary{}, ErrNotFound
 	}
-	if state != "AWAITING_MAPPING" || version != expectedVersion {
+	if state != "AWAITING_MAPPING" {
 		return Summary{}, ErrMapping
 	}
+	if version != expectedVersion {
+		return Summary{}, ErrVersionConflict
+	}
+	if principal, ok := authn.PrincipalFromContext(ctx); ok && principal.UserID != "" {
+		actorUserID = principal.UserID
+	}
 	now := service.now().UnixMilli()
-	for _, mapping := range mappings {
-		if mapping.CollectionID == "" || mappingAlreadySeen(seen, mapping.CollectionID) {
-			return Summary{}, ErrInvalid
-		}
-		seen[mapping.CollectionID] = struct{}{}
-		if err := applyMapping(ctx, transaction, importID, mapping, now); err != nil {
-			return Summary{}, ErrInvalid
-		}
+	if err := service.applyMappings(ctx, transaction, importID, actorUserID, now, mappings, seen); err != nil {
+		return Summary{}, err
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_imports SET
@@ -424,41 +471,85 @@ WHERE id=?`, importID, importID, now, importID); err != nil {
 	return service.Get(ctx, importID)
 }
 
+func (service *Service) applyMappings(
+	ctx context.Context,
+	transaction *sql.Tx,
+	importID, actorUserID string,
+	now int64,
+	mappings []Mapping,
+	seen map[string]struct{},
+) error {
+	for _, mapping := range mappings {
+		if mapping.CollectionID == "" || mappingAlreadySeen(seen, mapping.CollectionID) {
+			return ErrInvalid
+		}
+		seen[mapping.CollectionID] = struct{}{}
+		if err := service.applyMapping(ctx, transaction, importID, mapping, actorUserID, now); err != nil {
+			return mappingUpdateError(err)
+		}
+	}
+	return nil
+}
+
+func mappingTagArraysPresent(mappings []Mapping) bool {
+	for _, mapping := range mappings {
+		if mapping.TagIDs == nil {
+			return false
+		}
+	}
+	return true
+}
+
+func mappingUpdateError(err error) error {
+	if errors.Is(err, tagging.ErrReferenceInvalid) || errors.Is(err, tagging.ErrAssignmentLimitExceeded) {
+		return fmt.Errorf("pegasusimport/update mapping tags: %w", err)
+	}
+	return ErrInvalid
+}
+
 func mappingAlreadySeen(seen map[string]struct{}, collectionID string) bool {
 	_, exists := seen[collectionID]
 	return exists
 }
 
-func applyMapping(
+func (service *Service) applyMapping(
 	ctx context.Context,
 	transaction *sql.Tx,
 	importID string,
 	mapping Mapping,
+	actorUserID string,
 	now int64,
 ) error {
 	switch mapping.Action {
 	case "SKIP":
-		return skipCollection(ctx, transaction, importID, mapping, now)
+		return service.skipCollection(ctx, transaction, importID, mapping, actorUserID, now)
 	case "IMPORT":
-		return importCollection(ctx, transaction, importID, mapping, now)
+		return service.importCollection(ctx, transaction, importID, mapping, actorUserID, now)
 	default:
 		return ErrInvalid
 	}
 }
 
-func skipCollection(
+func (service *Service) skipCollection(
 	ctx context.Context,
 	transaction *sql.Tx,
 	importID string,
 	mapping Mapping,
+	actorUserID string,
 	now int64,
 ) error {
-	if mapping.PlatformInstanceID != "" {
+	if mapping.PlatformInstanceID != "" || len(mapping.TagIDs) != 0 {
 		return ErrInvalid
+	}
+	if _, err := service.tags.ReplacePegasusCollectionTags(
+		ctx, transaction, mapping.CollectionID, mapping.TagIDs, actorUserID, now,
+	); err != nil {
+		return fmt.Errorf("pegasusimport/clear skipped collection tags: %w", err)
 	}
 	result, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_collections
 SET mapping_action='SKIP',
+	tag_snapshot_json='[]',
 target_platform_instance_id=NULL,
 target_platform_instance_version=NULL,
 target_platform_id=NULL,
@@ -475,11 +566,12 @@ AND import_id=?`, now, mapping.CollectionID, importID)
 	return nil
 }
 
-func importCollection(
+func (service *Service) importCollection(
 	ctx context.Context,
 	transaction *sql.Tx,
 	importID string,
 	mapping Mapping,
+	actorUserID string,
 	now int64,
 ) error {
 	var instanceVersion, artifactVersion int64
@@ -503,9 +595,20 @@ AND instance.deleted_at_ms IS NULL`, mapping.PlatformInstanceID).
 	if err != nil {
 		return ErrInvalid
 	}
+	references, err := service.tags.ReplacePegasusCollectionTags(
+		ctx, transaction, mapping.CollectionID, mapping.TagIDs, actorUserID, now,
+	)
+	if err != nil {
+		return fmt.Errorf("pegasusimport/replace collection tags: %w", err)
+	}
+	tagSnapshot, err := json.Marshal(references)
+	if err != nil {
+		return fmt.Errorf("pegasusimport/encode tag snapshot: %w", err)
+	}
 	result, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_collections
 SET mapping_action='IMPORT',
+	tag_snapshot_json=?,
 target_platform_instance_id=?,
 target_platform_instance_version=?,
 target_platform_id=?,
@@ -515,7 +618,7 @@ target_core_artifact_version=?,
 target_dat_version_id=?,
 updated_at_ms=?
 WHERE id=?
-AND import_id=?`, mapping.PlatformInstanceID, instanceVersion, platformID, coreID, artifactID,
+AND import_id=?`, string(tagSnapshot), mapping.PlatformInstanceID, instanceVersion, platformID, coreID, artifactID,
 		artifactVersion, nullable(datID), now, mapping.CollectionID, importID)
 	if err != nil || rowsAffected(result) != 1 {
 		return ErrInvalid
@@ -593,9 +696,11 @@ func (service *Service) StartImport(ctx context.Context, importID string, expect
 		summary.State == "PARTIAL_FAILURE" {
 		return summary, nil
 	}
-	if summary.State != "AWAITING_MAPPING" || summary.Version != expectedVersion ||
-		service.now().UnixMilli() >= summary.ExpiresAtMS {
+	if summary.State != "AWAITING_MAPPING" || service.now().UnixMilli() >= summary.ExpiresAtMS {
 		return Summary{}, ErrExpired
+	}
+	if summary.Version != expectedVersion {
+		return Summary{}, ErrVersionConflict
 	}
 	if summary.Counts.MappedCollections+summary.Counts.SkippedCollections != summary.Counts.Collections {
 		return Summary{}, ErrMapping
@@ -632,10 +737,14 @@ func (service *Service) queueImport(
 	var version int64
 	if err := transaction.QueryRowContext(
 		ctx, `SELECT state,version FROM pegasus_imports WHERE id=?`, summary.ID,
-	).Scan(&state, &version); err != nil ||
-		state != "AWAITING_MAPPING" ||
-		version != expectedVersion {
+	).Scan(&state, &version); err != nil || state != "AWAITING_MAPPING" {
 		return ErrMapping
+	}
+	if version != expectedVersion {
+		return ErrVersionConflict
+	}
+	if err := validateQueuedMappingTags(ctx, transaction, summary.ID); err != nil {
+		return err
 	}
 	jobID, _ := uuid.NewV7()
 	executionID, _ := uuid.NewV7()
@@ -688,6 +797,23 @@ VALUES(
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("pegasusimport/commit start: %w", err)
+	}
+	return nil
+}
+
+func validateQueuedMappingTags(ctx context.Context, transaction *sql.Tx, importID string) error {
+	var invalidTagSnapshots int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT count(*)
+FROM pegasus_import_collections collection
+JOIN json_each(collection.tag_snapshot_json) entry
+LEFT JOIN tags tag ON tag.id=json_extract(entry.value,'$.tagId') AND tag.status='ACTIVE'
+WHERE collection.import_id=? AND collection.mapping_action='IMPORT' AND tag.id IS NULL
+`, importID).Scan(&invalidTagSnapshots); err != nil {
+		return fmt.Errorf("pegasusimport/validate mapping tags: %w", err)
+	}
+	if invalidTagSnapshots != 0 {
+		return ErrMapping
 	}
 	return nil
 }

@@ -4,6 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
+import { TagChips } from "@/components/tag-picker";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Toast, type ToastMessage } from "@/components/flash-toast";
 import { EmptyState, PageHeader } from "@/components/ui";
@@ -114,7 +115,7 @@ function SaveGameGroup({
 }) {
   return <section className={`save-library-group ${expanded ? "is-expanded" : ""} ${group.saves.length === 5 ? "has-five-saves" : ""}`}>
     <header className="save-library-group-head">
-      <div className="save-library-group-main"><span className="save-library-group-icon"><AppIcon name="gamepad" /></span><div><h2>{group.gameTitle}</h2><p>{group.platform.name} · {group.coreNames.join(" / ")}</p></div></div>
+      <div className="save-library-group-main"><span className="save-library-group-icon"><AppIcon name="gamepad" /></span><div><h2>{group.gameTitle}</h2><TagChips tags={group.saves[0]?.tags ?? []} limit={2} label={`${group.gameTitle} 的标签`} /><p>{group.platform.name} · {group.coreNames.join(" / ")}</p></div></div>
       <div className="save-library-group-meta"><span><strong>{group.saves.length}</strong> 份存档</span><span>最近保存 <strong>{formatSaveTime(group.latestCreatedAtMs, nowMs, false)}</strong></span><Link href={`/games/${group.gameId}`}>查看游戏详情</Link></div>
     </header>
     <div className={`save-library-grid ${group.saves.length === 1 ? "is-single" : ""}`}>

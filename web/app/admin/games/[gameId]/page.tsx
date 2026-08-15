@@ -2,13 +2,15 @@ import { ButtonLink, PageHeader } from "@/components/ui";
 import { AdminGameManager, type AdminGame, type PlatformInstanceOption, type ScrapeCandidate } from "@/features/games/admin-game-manager";
 import type { ListResponse } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
+import { loadActiveTags } from "@/features/tags/tag-library";
 
 export default async function AdminGameDetail({ params }: { params: Promise<{ gameId: string }> }) {
   const { gameId } = await params;
-  const [game, instances, scrape] = await Promise.all([
+  const [game, instances, scrape, activeTags] = await Promise.all([
     backendJSON<AdminGame>(`/api/v1/admin/games/${gameId}`),
     backendJSON<ListResponse<PlatformInstanceOption>>("/api/v1/admin/platform-instances"),
     backendJSON<{ items: ScrapeCandidate[] }>(`/api/v1/admin/games/${gameId}/scrape-candidates`),
+    loadActiveTags(),
   ]);
   const platformName = instances.items.find((item) => item.id === game.platformInstance.id)?.platformName ?? game.platformId;
   return <>
@@ -18,6 +20,6 @@ export default async function AdminGameDetail({ params }: { params: Promise<{ ga
       description="维护发布信息、媒体、游戏内容与运行环境；历史版本与存档引用都会保留。"
       actions={<ButtonLink href="/admin/games" secondary>← 返回游戏管理</ButtonLink>}
     />
-    <AdminGameManager game={game} platformInstances={instances.items} candidates={scrape.items} />
+    <AdminGameManager game={game} platformInstances={instances.items} candidates={scrape.items} activeTags={activeTags} />
   </>;
 }

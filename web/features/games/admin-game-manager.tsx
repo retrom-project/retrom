@@ -12,6 +12,7 @@ import { newUuid } from "@/lib/crypto";
 import { responseError, uploadFiles, uploadOne, waitForJob } from "@/lib/upload";
 import { formatAdminGameTime, runtimePresentation } from "./admin-game-library";
 import { GameContentReplacementDialog } from "./game-content-replacement-dialog";
+import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
 
 type Revision = { id: string; sourceKind: string; sourceRefId: string | null; current: boolean; createdAtMs: number };
 type ContentRevision = Revision & { contentKind: string; files: Array<{ role: string; logicalName: string; sortOrder: number; sizeBytes: number; sha256: string }> };
@@ -25,6 +26,7 @@ export type AdminGame = {
   currentContentRevisionId: string; currentMetadataRevisionId: string; version: number; createdAtMs: number; updatedAtMs: number; generatedAtMs: number;
   deleteImpact: { saveStateCount: number; reviewEventCount: number; activeLaunchCount: number };
   metadataRevisions: Revision[]; assets: Asset[]; contentRevisions: ContentRevision[]; variants: Variant[];
+  tags?: TagReference[];
 };
 
 export type PlatformInstanceOption = { id: string; platformId: string; platformName: string; name: string; defaultCoreId: string; defaultCoreName: string; enabled: boolean; importCapabilities?: { contentModes: string[]; multiDisc: { maxDiscs: number; maxTotalBytes: number } | null } };
@@ -60,7 +62,7 @@ function metadataDraft(game: AdminGame): MetadataDraft {
   };
 }
 
-export function AdminGameManager({ game, platformInstances, candidates }: { game: AdminGame; platformInstances: PlatformInstanceOption[]; candidates: ScrapeCandidate[] }) {
+export function AdminGameManager({ game, platformInstances, candidates, activeTags = [] }: { game: AdminGame; platformInstances: PlatformInstanceOption[]; candidates: ScrapeCandidate[]; activeTags?: TagReference[] }) {
   const router = useRouter();
   const [busy, setBusy] = useState<string | null>(null);
   const [notice, setNotice] = useState("");
@@ -72,6 +74,8 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const clientReady = useSyncExternalStore(subscribeToClientReady, getClientReadySnapshot, getServerClientReadySnapshot);
   const [draft, setDraft] = useState<MetadataDraft>(() => metadataDraft(game));
   const [savedDraft, setSavedDraft] = useState<MetadataDraft>(() => metadataDraft(game));
+  const [gameTags, setGameTags] = useState<TagReference[]>(game.tags ?? []);
+  const [savedGameTags, setSavedGameTags] = useState<TagReference[]>(game.tags ?? []);
   const versionRef = useRef(game.version);
   const metadataRevisionRef = useRef(game.currentMetadataRevisionId);
 
@@ -115,6 +119,21 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
       if (result.version) versionRef.current = result.version;
       setSavedDraft(submitted);
       return result.metadataRevisionId ? "发布信息已保存为新版本。" : "发布信息已保存。";
+    });
+  }
+
+  async function saveTags() {
+    await action("tags", async () => {
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}/tags`, {
+        method: "PUT", credentials: "same-origin",
+        headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() },
+        body: JSON.stringify({ tagIds: gameTags.map((tag) => tag.tagId) }),
+      });
+      if (!response.ok) throw new Error(await responseError(response, "游戏标签保存失败"));
+      const result = await response.json() as { version: number; tags: TagReference[] };
+      versionRef.current = result.version;
+      setGameTags(result.tags); setSavedGameTags(result.tags);
+      return "游戏标签已更新。";
     });
   }
 
@@ -243,6 +262,7 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
   const moveTargets = platformInstances.filter((item) => item.enabled && item.platformId === game.platformId && item.id !== game.platformInstance.id);
   const disabled = busy !== null || game.status !== "PUBLISHED";
   const metadataDirty = JSON.stringify(draft) !== JSON.stringify(savedDraft);
+  const tagsDirty = JSON.stringify(gameTags.map((tag) => tag.tagId).sort()) !== JSON.stringify(savedGameTags.map((tag) => tag.tagId).sort());
   const comparisonCover = comparison?.assets.find((asset) => asset.kind === "COVER" && asset.status === "READY" && asset.widthPx && asset.heightPx) ?? null;
   const comparisonFields: Array<{ key: "title" | "developer" | "publisher" | "genre" | "players" | "releaseYear"; label: string }> = [
     { key: "title", label: "标题" }, { key: "developer", label: "开发商" }, { key: "publisher", label: "发行商" },
@@ -253,13 +273,15 @@ export function AdminGameManager({ game, platformInstances, candidates }: { game
     <Toast toast={error ? { message: error, tone: "bad" } : notice ? { message: notice, tone: "good" } : null} onDismiss={() => { setNotice(""); setError(""); }} />
     <section className="admin-game-hero">
       <div className="admin-game-hero-cover">{cover ? <Image src={cover.url} alt={`${game.title} 封面`} fill sizes="102px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}>RETROM</span>}</div>
-      <div className="admin-game-hero-copy"><h2>{game.title}</h2><p>{currentInstance?.platformName ?? game.platformId} · {game.platformInstance.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}{game.developer ? ` · ${game.developer}` : ""}</p><div><StatusBadge tone={game.status === "PUBLISHED" ? "good" : "bad"}>{game.status === "PUBLISHED" ? "用户可见" : "用户不可见"}</StatusBadge><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge><StatusBadge tone={metadataComplete ? "info" : "warn"}>{metadataComplete ? "资料完整" : "资料待补充"}</StatusBadge></div></div>
+      <div className="admin-game-hero-copy"><h2>{game.title}</h2><p>{currentInstance?.platformName ?? game.platformId} · {game.platformInstance.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}{game.developer ? ` · ${game.developer}` : ""}</p><TagChips tags={gameTags} /><div><StatusBadge tone={game.status === "PUBLISHED" ? "good" : "bad"}>{game.status === "PUBLISHED" ? "用户可见" : "用户不可见"}</StatusBadge><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge><StatusBadge tone={metadataComplete ? "info" : "warn"}>{metadataComplete ? "资料完整" : "资料待补充"}</StatusBadge></div></div>
       <div className="admin-game-hero-update"><span>最近更新</span><strong>{formatAdminGameTime(game.updatedAtMs, game.generatedAtMs)}</strong><small>{game.metadataRevisions.length} 个信息版本 · {game.contentRevisions.length} 个内容版本</small></div>
     </section>
 
     <section className="admin-game-overview" aria-label="游戏概览">
       <div><span>所属目录</span><strong>{game.platformInstance.name}</strong></div><div><span>推荐运行方式</span><strong>{currentInstance?.defaultCoreName ?? currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>当前游戏文件</span><strong>{currentFile}</strong></div><div><span>最后运行验证</span><strong>{formatTime(currentRuntime?.createdAtMs)}</strong></div><div><span>关联存档</span><strong>{game.deleteImpact.saveStateCount} 份</strong></div>
     </section>
+
+    <section className="panel admin-game-tags" aria-labelledby="admin-game-tags-title"><div className="panel-head"><div><h2 id="admin-game-tags-title">游戏标签</h2><p>标签与发布信息分别保存；已删除游戏仍可调整标签。</p></div><button className="button" type="button" disabled={busy !== null || !tagsDirty} onClick={() => void saveTags()}>{busy === "tags" ? "正在更新…" : "更新标签"}</button></div><div className="panel-body"><TagPicker options={activeTags} selected={gameTags} onChange={setGameTags} disabled={busy !== null} /><div className="admin-game-empty-tags">{gameTags.length ? null : "未设置标签"}</div></div></section>
 
     <div className="admin-game-primary-grid">
       <section className="panel admin-game-publish" id="admin-game-basic"><div className="panel-head"><h2>发布信息</h2></div><form className="panel-body admin-game-publish-form" onSubmit={(event) => void saveMetadata(event)}>

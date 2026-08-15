@@ -29,10 +29,12 @@ import (
 	"retrom/internal/importing"
 	"retrom/internal/metadatascrape"
 	"retrom/internal/multidisc"
+	"retrom/internal/tagging"
 )
 
 var (
 	ErrInvalid                        = errors.New("IMPORT_INVALID")
+	ErrVersionConflict                = errors.New("VERSION_CONFLICT")
 	ErrReimportRequiredPlatformChange = errors.New("REIMPORT_REQUIRED_FOR_PLATFORM_CHANGE")
 	ErrMultiDiscModeUnavailable       = errors.New("MULTI_DISC_MODE_UNAVAILABLE")
 	ErrMultiDiscPlaylistMissing       = errors.New("MULTI_DISC_PLAYLIST_MISSING")
@@ -42,15 +44,17 @@ var (
 const reviewScreenshotOverrideCode = "REVIEW_SCREENSHOT_OVERRIDE"
 
 type CreateRequest struct {
-	UploadID                 string `json:"uploadId"`
-	TargetPlatformInstanceID string `json:"targetPlatformInstanceId"`
-	MetadataProvider         string `json:"metadataProvider"`
-	ContentMode              string `json:"contentMode,omitempty"`
+	UploadID                 string   `json:"uploadId"`
+	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`
+	MetadataProvider         string   `json:"metadataProvider"`
+	ContentMode              string   `json:"contentMode,omitempty"`
+	TagIDs                   []string `json:"tagIds"`
 }
 
 type ReconfigureRequest struct {
-	TargetPlatformInstanceID string `json:"targetPlatformInstanceId"`
-	MetadataProvider         string `json:"metadataProvider"`
+	TargetPlatformInstanceID string   `json:"targetPlatformInstanceId"`
+	MetadataProvider         string   `json:"metadataProvider"`
+	TagIDs                   []string `json:"tagIds"`
 }
 
 type Created struct {
@@ -1399,6 +1403,7 @@ type Service struct {
 	blobs                  *blobstore.Store
 	now                    func() time.Time
 	scraper                *metadatascrape.Service
+	tags                   *tagging.Service
 	multiDiscImportEnabled bool
 }
 
@@ -1417,7 +1422,7 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 }
 
 func New(database *sql.DB, now func() time.Time, scraper ...*metadatascrape.Service) *Service {
-	service := &Service{database: database, now: now}
+	service := &Service{database: database, now: now, tags: tagging.New(database, now)}
 	if len(scraper) > 0 {
 		service.scraper = scraper[0]
 	}
@@ -1457,6 +1462,7 @@ func (service *Service) Reconfigure(
 			UploadID:                 uploadID,
 			TargetPlatformInstanceID: request.TargetPlatformInstanceID,
 			MetadataProvider:         request.MetadataProvider,
+			TagIDs:                   request.TagIDs,
 		},
 		&reconfigurationInput{
 			sourceImportJobID: sourceImportJobID,
@@ -1716,6 +1722,9 @@ func (service *Service) create(
 	request CreateRequest,
 	reconfiguration *reconfigurationInput,
 ) (Created, error) {
+	if request.TagIDs == nil {
+		request.TagIDs = []string{}
+	}
 	contentMode := request.ContentMode
 	if contentMode == "" {
 		contentMode = contentcapability.ModeStandard
@@ -1866,6 +1875,15 @@ AND pi.deleted_at_ms IS NULL
 		compatibilityConfigDigest(lockedCompatibilityConfig) != compatibilityConfigDigest(compatibilityConfig) {
 		return Created{}, ErrInvalid
 	}
+	actor := reviewActor(ctx)
+	actorUserID, actorIsUser := actor.UserID.(string)
+	if len(request.TagIDs) > 0 && (!actorIsUser || actorUserID == "") {
+		return Created{}, ErrInvalid
+	}
+	tagReferences, err := service.tags.ValidateReferences(ctx, transaction, request.TagIDs)
+	if err != nil {
+		return Created{}, fmt.Errorf("libraryimport/service: validate import tags: %w", err)
+	}
 	biosCatalog, err := corevalidation.Catalog(ctx, transaction, artifactID)
 	if err != nil {
 		return Created{}, fmt.Errorf("libraryimport/service: %w", err)
@@ -1893,6 +1911,7 @@ AND pi.deleted_at_ms IS NULL
 		"datVersionId":                  nullable(datID),
 		"biosRequirements":              biosCatalog,
 		"metadataProviderConfigVersion": 1,
+		"tags":                          tagReferences,
 	}
 	if capabilities.MultiDisc != nil && contentMode == contentcapability.ModeMultiDiscM3UV1 {
 		config["multiDisc"] = capabilities.MultiDisc
@@ -2600,6 +2619,11 @@ updated_at_ms) VALUES(?,
 		); err != nil {
 			return Created{}, fmt.Errorf("libraryimport/service: %w", err)
 		}
+		if err := service.tags.AssignReviewDraftTags(
+			ctx, transaction, draftID.String(), tagReferences, actorUserID, now,
+		); err != nil {
+			return Created{}, fmt.Errorf("libraryimport/service: assign draft tags: %w", err)
+		}
 		if contentKind == multidisc.ContentKind {
 			parserResultCode := "MATCHED"
 			if validationStatus != "READY" {
@@ -3171,7 +3195,7 @@ PRAGMA defer_foreign_keys=ON
 `); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	var state, importID, configSnapshotJSON, platformID, platformInstanceID, validationID, validationStatus string
+	var draftID, state, importID, configSnapshotJSON, platformID, platformInstanceID, validationID, validationStatus string
 	var metadataJSON, sourceSnapshotID, sourceManifestJSON, sourceManifestDigest string
 	var contentKind, dependencySnapshotJSON string
 	var coreID, artifactID, artifactCompatibility string
@@ -3179,7 +3203,8 @@ PRAGMA defer_foreign_keys=ON
 	var datID, validationDOSEntry, draftDOSEntry, candidateID, coverID, uploadedCoverID, backgroundID sql.NullString
 	var approvalScreenshotID sql.NullString
 	err = transaction.QueryRowContext(ctx, `
-SELECT i.state,
+SELECT d.id,
+i.state,
 i.import_job_id,
 j.config_snapshot_json,
 p.platform_id,
@@ -3247,6 +3272,7 @@ WHERE active.core_artifact_id=a.id
 AND active.is_active=1)
 `, itemID).
 		Scan(
+			&draftID,
 			&state,
 			&importID,
 			&configSnapshotJSON,
@@ -3325,14 +3351,14 @@ AND active.is_active=1)
 	now := service.now().UnixMilli()
 	contentIdentityDigest, err := importItemContentIdentity(ctx, transaction, itemID)
 	if err != nil {
-		return Approved{}, err
+		return Approved{}, fmt.Errorf("libraryimport/service: publish draft tags: %w", err)
 	}
 	if err := claimContentIdentity(ctx, transaction, platformID, contentIdentityDigest, now); err != nil {
 		return Approved{}, err
 	}
 	duplicateGames, err := findDuplicateGames(ctx, transaction, itemID, platformID)
 	if err != nil {
-		return Approved{}, err
+		return Approved{}, fmt.Errorf("libraryimport/service: publish draft tags: %w", err)
 	}
 	if len(duplicateGames) > 0 &&
 		(decision.DuplicatePolicy != "ALLOW_NEW" ||
@@ -3432,6 +3458,14 @@ updated_at_ms) VALUES(?,
 		now,
 	); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
+	}
+	actor := reviewActor(ctx)
+	actorUserID, _ := actor.UserID.(string)
+	publishedTags, err := service.tags.CopyDraftTagsToGame(
+		ctx, transaction, draftID, gameID.String(), actorUserID, now,
+	)
+	if err != nil {
+		return Approved{}, fmt.Errorf("libraryimport/service: publish draft tags: %w", err)
 	}
 	screenshotIDs, err := service.copyReviewAssets(
 		ctx,
@@ -3691,6 +3725,7 @@ WHERE id=?
 				"screenshotCandidateAssetIds": screenshotIDs,
 			},
 			"defaultDosEntry": nullable(draftDOSEntry),
+			"tags":            publishedTags,
 		},
 	)
 	afterJSON, _ := json.Marshal(
@@ -3700,12 +3735,14 @@ WHERE id=?
 			"metadataRevisionId": metadataID.String(),
 			"contentRevisionId":  contentID.String(),
 			"variantRevisionId":  variantRevisionID.String(),
+			"tags":               publishedTags,
 		},
 	)
 	diff := map[string]any{
 		"schemaVersion":         1,
 		"decision":              "APPROVED",
 		"contentIdentityDigest": contentIdentityDigest,
+		"tags":                  publishedTags,
 	}
 	if screenshotOverride {
 		diff["runtimeScreenshotOverride"] = map[string]any{
@@ -3743,7 +3780,6 @@ WHERE id=?
 			"screenshotCandidateAssetIds": screenshotIDs,
 		},
 	)
-	actor := reviewActor(ctx)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,
 import_item_id,

@@ -25,6 +25,7 @@ function page(overrides: Partial<FavoritePage> = {}): FavoritePage {
       platformInstance: { id: "instance", name: "GBA 游戏" },
       defaultCore: { id: "mgba", name: "mGBA" },
       coverUrl: null, releaseYear: 2000 + index, createdAtMs: 1000, lastPlayedAtMs: null,
+      tags: [],
       favorite: { favoritedAtMs: 1000 + index, folderIds: [folderId] },
     })),
     nextCursor: null,

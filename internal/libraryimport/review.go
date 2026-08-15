@@ -16,6 +16,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
+	"retrom/internal/tagging"
 
 	"github.com/google/uuid"
 )
@@ -82,13 +83,15 @@ type DraftPatch struct {
 	SelectedCandidateID      optionalNullableString `json:"selectedCandidateId,omitempty"`
 	SelectedAssets           *SelectedAssets        `json:"selectedAssets,omitempty"`
 	DefaultDOSEntry          optionalNullableString `json:"defaultDosEntry,omitempty"`
+	TagIDs                   []string               `json:"tagIds"`
 }
 
 type DraftResult struct {
-	ItemID      string         `json:"itemId"`
-	Version     int64          `json:"version"`
-	Metadata    map[string]any `json:"metadata"`
-	UpdatedAtMS int64          `json:"updatedAtMs"`
+	ItemID      string              `json:"itemId"`
+	Version     int64               `json:"version"`
+	Metadata    map[string]any      `json:"metadata"`
+	Tags        []tagging.Reference `json:"tags"`
+	UpdatedAtMS int64               `json:"updatedAtMs"`
 }
 
 func validField(value string, maximum int, multiline bool) bool {
@@ -111,10 +114,11 @@ func (service *Service) PatchDraft(
 	expectedVersion int64,
 	patch DraftPatch,
 ) (DraftResult, error) {
-	if patch.TargetPlatformInstanceID == nil && patch.Metadata == nil && patch.SelectedValidationID == nil &&
-		!patch.SelectedCandidateID.present &&
-		patch.SelectedAssets == nil &&
-		!patch.DefaultDOSEntry.present {
+	if patch.TagIDs == nil ||
+		patch.TargetPlatformInstanceID == nil && patch.Metadata == nil && patch.SelectedValidationID == nil &&
+			!patch.SelectedCandidateID.present &&
+			patch.SelectedAssets == nil &&
+			!patch.DefaultDOSEntry.present && len(patch.TagIDs) == 0 {
 		return DraftResult{}, ErrInvalid
 	}
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -122,12 +126,13 @@ func (service *Service) PatchDraft(
 		return DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var importJobID, targetID, validationID, effectiveSnapshotID, metadataJSON string
+	var draftID, importJobID, targetID, validationID, effectiveSnapshotID, metadataJSON string
 	targetOrDOSChanged := false
 	var currentVersion int64
 	var candidateID, coverID, uploadedCoverID, backgroundID, dosEntry sql.NullString
 	err = transaction.QueryRowContext(ctx, `
-SELECT i.import_job_id,
+SELECT d.id,
+i.import_job_id,
 d.target_platform_instance_id,
 COALESCE(d.selected_validation_id,
 ''),
@@ -145,6 +150,7 @@ WHERE i.id=?
 AND i.state='REVIEW_PENDING'
 `, itemID).
 		Scan(
+			&draftID,
 			&importJobID,
 			&targetID,
 			&validationID,
@@ -157,8 +163,15 @@ AND i.state='REVIEW_PENDING'
 			&metadataJSON,
 			&currentVersion,
 		)
-	if err != nil || currentVersion != expectedVersion {
+	if err != nil {
 		return DraftResult{}, ErrInvalid
+	}
+	if currentVersion != expectedVersion {
+		return DraftResult{}, ErrVersionConflict
+	}
+	beforeTags, err := service.tags.ReviewDraftReferences(ctx, transaction, draftID)
+	if err != nil {
+		return DraftResult{}, fmt.Errorf("libraryimport/review: read draft tags: %w", err)
 	}
 	var metadata map[string]any
 	if err := json.Unmarshal([]byte(metadataJSON), &metadata); err != nil {
@@ -391,6 +404,14 @@ s.logical_name
 		searchParts = append(searchParts, title)
 	}
 	now := service.now().UnixMilli()
+	actor := reviewActor(ctx)
+	actorUserID, _ := actor.UserID.(string)
+	_, afterTags, err := service.tags.ReplaceReviewDraftTags(
+		ctx, transaction, draftID, patch.TagIDs, actorUserID, now,
+	)
+	if err != nil {
+		return DraftResult{}, fmt.Errorf("libraryimport/review: replace draft tags: %w", err)
+	}
 	result, err := transaction.ExecContext(
 		ctx,
 		`
@@ -425,7 +446,7 @@ AND version=?
 		return DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	if affected, _ := result.RowsAffected(); affected != 1 {
-		return DraftResult{}, ErrInvalid
+		return DraftResult{}, ErrVersionConflict
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE import_items
@@ -435,7 +456,16 @@ WHERE id=?
 		return DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	eventID, _ := uuid.NewV7()
-	actor := reviewActor(ctx)
+	beforeJSON, _ := json.Marshal(map[string]any{
+		"schemaVersion": 1,
+		"metadata":      json.RawMessage(metadataJSON),
+		"tags":          beforeTags,
+	})
+	afterJSON, _ := json.Marshal(map[string]any{
+		"schemaVersion": 1,
+		"metadata":      metadata,
+		"tags":          afterTags,
+	})
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,
 import_item_id,
@@ -464,14 +494,16 @@ created_at_ms) VALUES(?,
 ?)
 `,
 		eventID.String(), itemID, actor.Kind, actor.UserID, actor.Label,
-		metadataJSON, string(encoded), string(encoded), now,
+		string(beforeJSON), string(afterJSON), string(afterJSON), now,
 	); err != nil {
 		return DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {
 		return DraftResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
-	return DraftResult{ItemID: itemID, Version: expectedVersion + 1, Metadata: metadata, UpdatedAtMS: now}, nil
+	return DraftResult{
+		ItemID: itemID, Version: expectedVersion + 1, Metadata: metadata, Tags: afterTags, UpdatedAtMS: now,
+	}, nil
 }
 
 //nolint:funlen,gocognit,gocyclo,nestif // Keep immutable validation refresh branches together for auditability.
@@ -514,11 +546,12 @@ AND p.deleted_at_ms IS NULL
 	); err != nil {
 		return "", ErrInvalid
 	}
-	var sourceID, sourceManifestDigest, sourceStatus, compatibilityCode, dependencySnapshot string
+	var sourceID, sourceManifestDigest, sourceInputDigest, sourceStatus, compatibilityCode, dependencySnapshot string
 	var exactBIOSState draftBIOSState
 	err := transaction.QueryRowContext(ctx, `
 SELECT id,
 source_manifest_digest,
+prepublish_input_digest,
 status,
 compatibility_code,
 dependency_snapshot_json
@@ -537,8 +570,22 @@ ORDER BY created_at_ms DESC,
 id DESC LIMIT 1
 `, itemID, effectiveSnapshotID, targetID, platformVersion, coreID, artifactID, artifactVersion,
 		nullable(datID), nullable(dosEntry)).
-		Scan(&sourceID, &sourceManifestDigest, &sourceStatus, &compatibilityCode, &dependencySnapshot)
+		Scan(
+			&sourceID, &sourceManifestDigest, &sourceInputDigest,
+			&sourceStatus, &compatibilityCode, &dependencySnapshot,
+		)
 	if err == nil {
+		validationCurrent := prepublishDigestMatches(sourceInputDigest, prepublishDigestInput{
+			SchemaVersion: 1, SourceSnapshotID: effectiveSnapshotID,
+			SourceManifestDigest: sourceManifestDigest, ContentKind: contentKind,
+			TargetPlatformInstanceID: targetID, PlatformInstanceVersion: platformVersion,
+			CoreArtifactID: artifactID, CoreArtifactVersion: artifactVersion,
+			CompatibilityConfigDigest: compatibilityConfigDigest(compatibilityConfig),
+			DATVersionID:              nullStringPointer(datID),
+			DefaultDOSEntry:           nullStringPointer(dosEntry),
+			DependencySnapshot:        json.RawMessage(dependencySnapshot), Status: sourceStatus,
+			CompatibilityCode: compatibilityCode,
+		})
 		biosState, stateErr := resolveDraftBIOSState(
 			ctx, transaction, effectiveSnapshotID, artifactID, dependencySnapshot, sourceStatus, compatibilityCode,
 		)
@@ -546,10 +593,10 @@ id DESC LIMIT 1
 			return "", stateErr
 		}
 		exactBIOSState = biosState
-		if !biosState.tracked && sourceStatus == "READY" {
+		if validationCurrent && !biosState.tracked && sourceStatus == "READY" {
 			return sourceID, nil
 		}
-		if biosState.tracked && biosState.snapshotJSON == dependencySnapshot &&
+		if validationCurrent && biosState.tracked && biosState.snapshotJSON == dependencySnapshot &&
 			biosState.status == sourceStatus && biosState.code == compatibilityCode {
 			if sourceStatus == "READY" {
 				return sourceID, nil
@@ -564,6 +611,7 @@ id DESC LIMIT 1
 		err = transaction.QueryRowContext(ctx, `
 SELECT id,
 source_manifest_digest,
+prepublish_input_digest,
 status,
 compatibility_code,
 dependency_snapshot_json
@@ -577,7 +625,10 @@ AND status='READY'
 ORDER BY created_at_ms DESC,
 id DESC LIMIT 1
 `, itemID, effectiveSnapshotID, coreID, artifactID, nullable(datID)).
-			Scan(&sourceID, &sourceManifestDigest, &sourceStatus, &compatibilityCode, &dependencySnapshot)
+			Scan(
+				&sourceID, &sourceManifestDigest, &sourceInputDigest,
+				&sourceStatus, &compatibilityCode, &dependencySnapshot,
+			)
 		if errors.Is(err, sql.ErrNoRows) {
 			return "", nil
 		}
@@ -971,6 +1022,13 @@ type DecisionResult struct {
 	UpdatedAtMS int64  `json:"updatedAtMs"`
 }
 
+func nullableJSON(value sql.NullString) any {
+	if value.Valid {
+		return json.RawMessage(value.String)
+	}
+	return nil
+}
+
 //nolint:funlen // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) Discard(
 	ctx context.Context,
@@ -987,11 +1045,12 @@ func (service *Service) Discard(
 		return DecisionResult{}, fmt.Errorf("libraryimport/review: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var importID, metadataJSON, sourceManifestJSON, configSnapshotJSON string
+	var draftID, importID, metadataJSON, sourceManifestJSON, configSnapshotJSON string
 	var validationID, datID, dependencySnapshot, candidateID, coverID, uploadedCoverID, backgroundID sql.NullString
 	var currentVersion int64
 	if err := transaction.QueryRowContext(ctx, `
-SELECT i.import_job_id,
+SELECT d.id,
+i.import_job_id,
 d.metadata_json,
 d.version,
 source_snapshot.source_manifest_json,
@@ -1011,6 +1070,7 @@ LEFT JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
 `, itemID).Scan(
+		&draftID,
 		&importID,
 		&metadataJSON,
 		&currentVersion,
@@ -1027,11 +1087,16 @@ AND i.state='REVIEW_PENDING'
 		currentVersion != expectedVersion {
 		return DecisionResult{}, ErrInvalid
 	}
+	tagReferences, err := service.tags.ReviewDraftReferences(ctx, transaction, draftID)
+	if err != nil {
+		return DecisionResult{}, fmt.Errorf("libraryimport/review: read discarded draft tags: %w", err)
+	}
 	beforeJSON, _ := json.Marshal(map[string]any{
 		"schemaVersion":        1,
 		"metadata":             json.RawMessage(metadataJSON),
 		"sourceManifest":       json.RawMessage(sourceManifestJSON),
 		"selectedValidationId": nullable(validationID),
+		"tags":                 tagReferences,
 		"selectedCandidateId":  nullable(candidateID),
 		"selectedAssets": map[string]any{
 			"coverCandidateAssetId":      nullable(coverID),
@@ -1044,14 +1109,10 @@ AND i.state='REVIEW_PENDING'
 		"configSnapshot": json.RawMessage(configSnapshotJSON),
 		"validationId":   nullable(validationID),
 	})
-	var dependencyEvidence any
-	if dependencySnapshot.Valid {
-		dependencyEvidence = json.RawMessage(dependencySnapshot.String)
-	}
 	datEvidenceJSON, _ := json.Marshal(map[string]any{
 		"schemaVersion":      1,
 		"datVersionId":       nullable(datID),
-		"dependencySnapshot": dependencyEvidence,
+		"dependencySnapshot": nullableJSON(dependencySnapshot),
 	})
 	providerEvidenceJSON, _ := json.Marshal(map[string]any{
 		"schemaVersion":              1,

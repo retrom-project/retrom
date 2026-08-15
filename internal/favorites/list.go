@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"strings"
 	"unicode/utf8"
+
+	"retrom/internal/tagging"
 )
 
 func validateListOptions(options ListOptions) (ListOptions, error) {
@@ -182,7 +184,10 @@ AND (
     AND scoped.folder_id=?
   ))
 )
-AND (?='' OR instr(game.search_text,?)>0)
+AND (?='' OR instr(game.search_text,?)>0 OR EXISTS(
+  SELECT 1 FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+  WHERE relation.game_id=game.id AND instr(tag.search_text,?)>0
+))
 AND (?='' OR platform.id=?)`
 	var count int64
 	if err := transaction.QueryRowContext(
@@ -193,6 +198,7 @@ AND (?='' OR platform.id=?)`
 		options.Scope,
 		options.Scope,
 		options.FolderID,
+		options.Query,
 		options.Query,
 		options.Query,
 		options.PlatformID,
@@ -260,7 +266,10 @@ WITH candidates AS (
       AND scoped.folder_id=?
     ))
   )
-  AND (?='' OR instr(game.search_text,?)>0)
+  AND (?='' OR instr(game.search_text,?)>0 OR EXISTS(
+    SELECT 1 FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+    WHERE relation.game_id=game.id AND instr(tag.search_text,?)>0
+  ))
   AND (?='' OR platform.id=?)
 )
 `
@@ -400,13 +409,14 @@ func queryItems(
 	if err != nil {
 		return nil, err
 	}
-	arguments := make([]any, 0, 9+len(cursorArguments)+1)
+	arguments := make([]any, 0, 10+len(cursorArguments)+1)
 	arguments = append(arguments,
 		profileID,
 		options.Scope,
 		options.Scope,
 		options.Scope,
 		options.FolderID,
+		options.Query,
 		options.Query,
 		options.Query,
 		options.PlatformID,
@@ -472,6 +482,43 @@ ORDER BY membership.game_id,folder.created_at_ms,folder.id`
 	}
 	if err := rows.Err(); err != nil {
 		return fmt.Errorf("favorites: iterate page memberships: %w", err)
+	}
+	return nil
+}
+
+func populateTags(ctx context.Context, transaction *sql.Tx, items []GameItem) error {
+	if len(items) == 0 {
+		return nil
+	}
+	gameIDs := make([]string, len(items))
+	byGame := make(map[string]*GameItem, len(items))
+	for index := range items {
+		items[index].Tags = []tagging.Reference{}
+		gameIDs[index] = items[index].GameID
+		byGame[items[index].GameID] = &items[index]
+	}
+	rows, err := transaction.QueryContext(ctx, `
+SELECT relation.game_id,tag.id,tag.name
+FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+WHERE relation.game_id IN (SELECT value FROM json_each(?))
+ORDER BY relation.game_id,tag.name_key,tag.id
+`, encodedStringList(gameIDs))
+	if err != nil {
+		return fmt.Errorf("favorites: query page tags: %w", err)
+	}
+	defer func() { _ = rows.Close() }()
+	for rows.Next() {
+		var gameID string
+		var reference tagging.Reference
+		if err := rows.Scan(&gameID, &reference.TagID, &reference.Name); err != nil {
+			return fmt.Errorf("favorites: scan page tag: %w", err)
+		}
+		if item := byGame[gameID]; item != nil {
+			item.Tags = append(item.Tags, reference)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("favorites: iterate page tags: %w", err)
 	}
 	return nil
 }
@@ -558,6 +605,9 @@ SELECT 1 FROM favorite_folders WHERE profile_id=? AND id=?
 		next = itemCursor(items[len(items)-1], options.Sort)
 	}
 	if err := populateMemberships(ctx, transaction, principal.ProfileID, items); err != nil {
+		return ListResult{}, err
+	}
+	if err := populateTags(ctx, transaction, items); err != nil {
 		return ListResult{}, err
 	}
 	if err := transaction.Commit(); err != nil {

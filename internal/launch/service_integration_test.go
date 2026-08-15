@@ -1088,7 +1088,7 @@ WHERE import_job_id=?
 		t.Fatal(err)
 	}
 	var defaultPatch libraryimport.DraftPatch
-	if err := json.Unmarshal([]byte(`{"defaultDosEntry":null}`), &defaultPatch); err != nil {
+	if err := json.Unmarshal([]byte(`{"defaultDosEntry":null,"tagIds":[]}`), &defaultPatch); err != nil {
 		t.Fatal(err)
 	}
 	patched, err := importService.PatchDraft(ctx, itemID, 1, defaultPatch)

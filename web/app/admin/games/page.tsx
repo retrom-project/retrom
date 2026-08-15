@@ -7,12 +7,13 @@ import { backendJSON } from "@/lib/server-backend";
 export const metadata = { title: "游戏管理" };
 
 export default async function AdminGamesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const values = scalarSearchParams(await searchParams, ["q", "platformId", "platformInstanceId", "status", "runtime", "sort"]);
+  const values = scalarSearchParams(await searchParams, ["q", "tagId", "platformId", "platformInstanceId", "status", "runtime", "sort"]);
   const result = await collectAdminGamePages((cursor) => backendJSON<AdminGamePage>(withQuery("/api/v1/admin/games", { limit: "100", ...(cursor ? { cursor } : {}) })));
   const initialFilters: AdminGameFilters = {
     query: values.q ?? "",
     platformId: values.platformId ?? "",
     platformInstanceId: values.platformInstanceId ?? "",
+    tagId: values.tagId ?? "",
     visibility: values.status === "PUBLISHED" || values.status === "DELETED" ? values.status : "ALL",
     runtime: values.runtime === "READY" || values.runtime === "ATTENTION" ? values.runtime : "ALL",
     sort: values.sort === "TITLE_ASC" || values.sort === "ADDED_DESC" ? values.sort : "UPDATED_DESC",

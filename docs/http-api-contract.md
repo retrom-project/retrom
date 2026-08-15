@@ -665,6 +665,16 @@ room cookie 名为 `retrom_netplay_{roomId去连字符}`。原始 32 bytes 固�
 
 联机 Launch config 使用 `mode=netplay` 和 exact canonical profile；canonical `maxPredictionFrames` 必须来自锁定的 core profile 且不超过协议上限 8，当前 FCEUmm profile 为 8、FBNeo profile 为 0（严格 lockstep），前端不得覆盖该值。所有 persistent save、手动 save-state 和 state 内容 route 在鉴权后统一返回 `409 NETPLAY_SAVE_UNSUPPORTED`。普通 Launch 为 `mode=single,netplay=null`，不得因开启联机改变原有 cookie 或 DTO 行为。
 
-## 14. 统一验收入口
+## 14. 游戏标签 API
 
-通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`005` 与 `ACC-MEDIA-001` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。
+`GET /api/v1/admin/tags`、`POST /api/v1/admin/tags` 与 `GET|PATCH|DELETE /api/v1/admin/tags/{tagId}` 只允许 ADMIN。列表接受 `q/status=ACTIVE|DELETED|ALL/sort=NAME_ASC|UPDATED_DESC/cursor/limit`，返回 `generatedAtMs/summary/items/nextCursor`；cursor 绑定 principal 与全部筛选。item 固定含 `tagId/name/status/version/usage/createdAtMs/updatedAtMs/deletedAtMs`，写响应返回 ETag。create 使用 Idempotency-Key；rename/delete 同时要求 Tag `If-Match`，delete body 为精确 `confirmName`，成功为 204 并回送新 tombstone ETag。
+
+`PUT /api/v1/admin/games/{gameId}/tags` 以 Game `If-Match`、Idempotency-Key 和严格 `{"tagIds":[]}` 原子替换当前集合，响应为 `gameId/version/tags` 与新 Game ETag。普通 import/reconfigure body 必须含 `tagIds`，服务端兼容旧客户端省略时按 `[]`；Review PATCH 和 Pegasus Collection mapping 的 `tagIds` 必须显式存在，`SKIP` Collection 只接受空数组。Import detail 的 config、Pegasus Collection/item 和 Review/Game DTO 按 OpenAPI 投影标签或名称 snapshot。
+
+`GET /api/v1/games`、`GET /api/v1/admin/games`、`GET /api/v1/admin/reviews` 接受单个 `tagId`；它与 `q` 及其他条件取交集并进入 cursor digest。合法但不存在或 DELETED 的 ID 返回空页；格式非法返回 `400 INVALID_REQUEST`。这些 route 的 `q` 在 SQL 分页前动态匹配活动标签名。Favorite、Home、Recent、Save 与 Netplay 的既有 game summary 同样投影活动 `tags`，但普通用户没有全 taxonomy 管理列表。
+
+稳定错误映射为：名称规则 `422 TAG_NAME_INVALID`，活动同名 `409 TAG_NAME_CONFLICT`，实例上限 `409 TAG_LIMIT_REACHED`，不存在 `404 TAG_NOT_FOUND`，已删除 `409 TAG_ALREADY_DELETED`，引用不存在/已删除 `422 TAG_REFERENCE_INVALID`，owner 上限 `422 TAG_ASSIGNMENT_LIMIT_EXCEEDED`，删除确认不符 `422 TAG_DELETE_CONFIRMATION_MISMATCH`，过期 ETag `409 VERSION_CONFLICT`。所有管理写沿用 strict JSON、Origin/Fetch Metadata、CSRF、Idempotency-Key 和响应重放白名单；未知字段、重复字段或多值标量 query 在 handler 前拒绝。完整领域语义见 [`game-tags.md`](./game-tags.md)。
+
+## 15. 统一验收入口
+
+通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`005` 与 `ACC-MEDIA-001` 覆盖；标签由 `ACC-TAG-002`–`005` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。

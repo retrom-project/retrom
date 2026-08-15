@@ -12,6 +12,7 @@ export type AdminGameFilters = {
   query: string;
   platformId: string;
   platformInstanceId: string;
+  tagId?: string;
   visibility: "ALL" | "PUBLISHED" | "DELETED";
   runtime: "ALL" | "READY" | "ATTENTION";
   sort: "UPDATED_DESC" | "TITLE_ASC" | "ADDED_DESC";
@@ -48,11 +49,12 @@ export function filterAdminGames(games: AdminGameSummary[], filters: AdminGameFi
   return games.filter((game) => {
     if (filters.platformId && game.platform.id !== filters.platformId) return false;
     if (filters.platformInstanceId && game.platformInstance.id !== filters.platformInstanceId) return false;
+    if (filters.tagId && !(game.tags ?? []).some((tag) => tag.tagId === filters.tagId)) return false;
     if (filters.visibility !== "ALL" && game.status !== filters.visibility) return false;
     if (filters.runtime === "READY" && game.runtimeStatus !== "READY") return false;
     if (filters.runtime === "ATTENTION" && game.runtimeStatus === "READY") return false;
     if (!query) return true;
-    return [game.title, game.platform.name, game.platformInstance.name, game.defaultCore.name]
+    return [game.title, game.platform.name, game.platformInstance.name, game.defaultCore.name, ...(game.tags ?? []).map((tag) => tag.name)]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   }).sort((left, right) => {
     if (filters.sort === "TITLE_ASC") return stableTitleOrder(left, right);

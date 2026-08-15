@@ -9,6 +9,8 @@ backend_origin="http://127.0.0.1:${backend_port}"
 web_origin="http://localhost:${web_port}"
 process_id=""
 dev_state="$temporary_root/dev-state"
+cp -p "$repository_root/web/next-env.d.ts" "$temporary_root/next-env.d.ts"
+cp -p "$repository_root/web/tsconfig.json" "$temporary_root/tsconfig.json"
 
 if [[ -n "${RETROM_CHROME_EXECUTABLE:-}" ]]; then
   if [[ ! -x "$RETROM_CHROME_EXECUTABLE" ]]; then
@@ -28,6 +30,8 @@ cleanup() {
     RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
     wait "$process_id" 2>/dev/null || true
   fi
+  cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
+  cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
   rm -rf -- "$temporary_root"
   rm -rf -- "$repository_root/web/.next-e2e"
 }

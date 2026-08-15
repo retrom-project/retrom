@@ -69,6 +69,8 @@ Migration 032 在 031 之后增加 `netplay_rooms/netplay_room_members/netplay_s
 
 Migration 033 在 032 之后替换审核 preview/screenshot trigger，不新增列；032 升级和全新库都必须证明旧 preview 不能越过最新 Validation，阻断截图只能在来源、目标、CoreArtifact、active DAT 与 generation 仍一致时解锁发布。
 
+Migration 034 在 033 之后增加 `tags/game_tags/review_draft_tags/pegasus_collection_tags`，并为 Pegasus Collection 墠加非空 `tag_snapshot_json`。它只新增表、索引、trigger 和带 `[]` 默认值的列；033 升级保留既有 Game/Review/Pegasus 数据并得到空标签集合。Tag tombstone 与历史关系不可硬删，运行时代码不得动态修补 schema。
+
 ## 4. 里程碑
 
 下列退出门禁只列“该里程碑结束时已经能完整执行”的 `ACC-*`。一个 Case 跨越多个模块时只能在所有前置都存在后首次列入，不能在较早里程碑记录“部分 PASS”；较早阶段以对应 package unit/integration/contract test 作为局部门禁，最终仍必须运行完整 Case。
@@ -160,6 +162,12 @@ Migration 033 在 032 之后替换审核 preview/screenshot trigger，不新增�
 范围：在不改变 API、DTO、权限或数据语义的前提下，把公开入口、用户侧和管理侧普通页面覆盖到 `320px`；手机使用 App Bar、五项底栏和 Sheet，平板使用 Drawer，桌面保持既有侧栏/共享画布。宽表在手机转为同字段/同操作卡片，审核详情提供四步锚点。移动或 coarse-pointer Player 先读并校验 config，竖屏期间阻断 iframe、大字节内容与 PlaySession，横屏稳定 250ms 后才装载；运行中按单机/P1/P2 精确释放输入和暂停，横屏 HUD/Sheet 计入 safe area。
 
 退出门禁：完整执行 `ACC-MOB-001`–`007`，回归 `ACC-UI-001`–`009`、`ACC-RUN-001/002/003`、`ACC-MDISC-005/006/007` 与 `ACC-NP-003/004/013`；运行前端五门禁、`make web-e2e`、无 core 参数全量 smoke 和 `make ci`。正式 UI 源、导出评审稿、固定移动/横屏快照和专题文档同步后才可删除临时设计目录。
+
+### M14：游戏标签垂直切片
+
+范围：先同步 [标签领域契约](./game-tags.md) 与 OpenAPI，再落 Migration 034、`internal/tagging`、管理员 CRUD/usage、GameTag 集合替换、SQL 分页前的 `q/tagId` 搜索和批量 DTO 投影；随后把 `tagIds` 配置快照接入普通 import/reconfigure、ReviewDraft 自动保存与 Approve 原子发布、Pegasus Collection mapping/handoff/retry；最后接通 `/admin/tags`、共享 TagPicker、游戏库/详情、收藏/最近/存档/联机与管理入口。
+
+退出门禁：完整执行 `ACC-TAG-001`–`005`，运行 `make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、前端五门禁、`make api-check`、`make web-e2e` 与 `make ci`。034 的 033 升级和全新库必须通过完整性检查；正式 UI 源、导出稿、标签桌面/移动/Drawer 快照与受影响快照同步，且本地 `make dev` 的 CRUD→导入/审核→发布→搜索主链实际通过后，才可删除临时设计目录。标签不进入模拟器执行路径，因此本里程碑不运行 core smoke 或依赖/fixture 基线检查。
 
 ## 5. 垂直切片提交规则
 

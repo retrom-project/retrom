@@ -20,6 +20,7 @@
 @import "../features/games/admin-games-responsive.css";
 @import "../features/player/player.css";
 @import "../features/netplay/netplay.css";
+@import "../features/tags/tags.css";
 @import "../styles/responsive.css";
 @import "../features/home/home-wide.css";
 @import "../styles/mobile.css";

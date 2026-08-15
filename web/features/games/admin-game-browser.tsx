@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { EmptyState, StatusBadge } from "@/components/ui";
+import { TagChips } from "@/components/tag-picker";
+import { libraryTags } from "@/features/library/game-library";
 import {
   adminGameDirectories,
   adminGamePlatforms,
@@ -24,6 +26,7 @@ function updateLocation(filters: AdminGameFilters) {
   if (filters.query.trim()) query.set("q", filters.query.trim());
   if (filters.platformId) query.set("platformId", filters.platformId);
   if (filters.platformInstanceId) query.set("platformInstanceId", filters.platformInstanceId);
+  if (filters.tagId) query.set("tagId", filters.tagId);
   if (filters.visibility !== "ALL") query.set("status", filters.visibility);
   if (filters.runtime !== "ALL") query.set("runtime", filters.runtime);
   if (filters.sort !== "UPDATED_DESC") query.set("sort", filters.sort);
@@ -56,6 +59,7 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
   const summary = useMemo(() => adminGameSummary(games), [games]);
   const platforms = useMemo(() => adminGamePlatforms(games), [games]);
   const directories = useMemo(() => adminGameDirectories(games, filters.platformId), [games, filters.platformId]);
+  const tags = useMemo(() => libraryTags(games), [games]);
   const filtered = useMemo(() => filterAdminGames(games, filters), [games, filters]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const currentPage = Math.min(pageIndex, pageCount - 1);
@@ -100,9 +104,10 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
       {summaryItems.map((item) => <article className={item.tone} key={item.label}><span>{item.label}</span><strong>{item.value}</strong></article>)}
     </section>
     <section className="admin-game-toolbar" aria-label="筛选游戏">
-      <label className="admin-game-search"><span>搜索游戏</span><span><AppIcon name="search" /><input ref={searchRef} type="search" value={filters.query} placeholder="输入游戏名称" onChange={(event) => change({ query: event.target.value })} /></span></label>
+      <label className="admin-game-search"><span>搜索游戏</span><span><AppIcon name="search" /><input ref={searchRef} type="search" value={filters.query} placeholder="输入游戏名称或标签" onChange={(event) => change({ query: event.target.value })} /></span></label>
       <label><span>平台</span><select value={filters.platformId} onChange={(event) => change({ platformId: event.target.value })}><option value="">所有平台</option>{platforms.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       <label><span>游戏目录</span><select value={filters.platformInstanceId} onChange={(event) => change({ platformInstanceId: event.target.value })}><option value="">所有目录</option>{directories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
+      <label><span>标签</span><select value={filters.tagId} onChange={(event) => change({ tagId: event.target.value })}><option value="">所有标签</option>{tags.map((tag) => <option key={tag.tagId} value={tag.tagId}>{tag.name} · {tag.count}</option>)}</select></label>
       <label><span>用户状态</span><select value={filters.visibility} onChange={(event) => change({ visibility: event.target.value as AdminGameFilters["visibility"] })}><option value="ALL">全部状态</option><option value="PUBLISHED">用户可见</option><option value="DELETED">用户不可见</option></select></label>
       <label><span>运行状态</span><select value={filters.runtime} onChange={(event) => change({ runtime: event.target.value as AdminGameFilters["runtime"] })}><option value="ALL">全部状态</option><option value="READY">可以运行</option><option value="ATTENTION">需要处理</option></select></label>
       <label><span>排序</span><select value={filters.sort} onChange={(event) => change({ sort: event.target.value as AdminGameFilters["sort"] })}><option value="UPDATED_DESC">最近更新</option><option value="ADDED_DESC">最近加入</option><option value="TITLE_ASC">名称排序</option></select></label>
@@ -114,7 +119,7 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
           const runtime = runtimePresentation(game.runtimeStatus);
           return <tr key={game.gameId}>
             <td><div className="admin-game-thumb">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="70px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}><strong>{game.title}</strong><small>{game.platform.name}</small></span>}</div></td>
-            <td><div className="admin-game-identity"><Link href={`/admin/games/${game.gameId}`}>{game.title}</Link><p>{game.platform.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}</p><span>{game.platformInstance.name}</span></div></td>
+            <td><div className="admin-game-identity"><Link href={`/admin/games/${game.gameId}`}>{game.title}</Link><TagChips tags={game.tags ?? []} limit={3} label={`${game.title} 的标签`} /><p>{game.platform.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}</p><span>{game.platformInstance.name}</span></div></td>
             <td className="admin-game-visibility"><StatusBadge tone={game.status === "PUBLISHED" ? "good" : "bad"}>{game.status === "PUBLISHED" ? "用户可见" : "用户不可见"}</StatusBadge></td>
             <td><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge></td>
             <td><strong>{game.platformInstance.name}</strong><small>{game.platform.name} · 推荐 {game.defaultCore.name}</small></td>

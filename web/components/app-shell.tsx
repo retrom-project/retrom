@@ -26,6 +26,7 @@ const adminNavigation: NavItem[] = [
   { href: "/admin/reviews", label: "待审核", icon: "check", exact: true, child: true },
   { href: "/admin/reviews/history", label: "审核历史", icon: "history", child: true },
   { href: "/admin/games", label: "游戏管理", icon: "library" },
+  { href: "/admin/tags", label: "标签管理", icon: "list" },
   { href: "/admin/platform-instances", label: "游戏目录", icon: "list" },
   { href: "/admin/users", label: "用户管理", icon: "settings" },
   { href: "/admin/bios", label: "运行依赖", icon: "chip", exact: true },
@@ -119,6 +120,7 @@ function pageTitle(pathname: string) {
   if (pathname === "/admin/reviews") return "待审核";
   if (pathname.startsWith("/admin/games/")) return "游戏管理详情";
   if (pathname === "/admin/games") return "游戏管理";
+  if (pathname === "/admin/tags") return "标签管理";
   if (pathname === "/admin/platform-instances") return "游戏目录";
   if (pathname === "/admin/users") return "用户管理";
   if (pathname === "/admin/bios/dats") return "街机数据目录";

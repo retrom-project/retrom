@@ -40,6 +40,7 @@ function game(): NetplayGame {
     platformInstanceName: "NES 游戏",
     lastPlayedAtMs: null,
     addedAtMs: 100,
+    tags: [],
     availability: "SUPPORTED",
     blockerCode: null,
     netplayProfiles: [

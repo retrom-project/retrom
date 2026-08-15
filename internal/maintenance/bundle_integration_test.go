@@ -26,13 +26,15 @@ import (
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
+	"retrom/internal/tagging"
 	"retrom/internal/uploads"
 )
+
+const backupGameID = "01980000-0000-7000-8000-00000000f501"
 
 func seedBackupFavorites(t *testing.T, database *sql.DB, profileID string) {
 	t.Helper()
 	const (
-		gameID     = "01980000-0000-7000-8000-00000000f501"
 		metadataID = "01980000-0000-7000-8000-00000000d501"
 		contentID  = "01980000-0000-7000-8000-00000000e501"
 		folderID   = "01980000-0000-7000-8000-00000000c501"
@@ -50,14 +52,14 @@ INSERT INTO game_metadata_revisions(
   id,game_id,title,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
 ) VALUES(?,?,?,'','','','',NULL,1995,'ADMIN_EDIT',NULL,1000)
-`, metadataID, gameID, "Backup favorite"); err != nil {
+`, metadataID, backupGameID, "Backup favorite"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`
 INSERT INTO game_content_revisions(
   id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
 ) VALUES(?,?,'ADMIN_REPLACE','backup-favorite-test','[]',?,1000)
-`, contentID, gameID, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); err != nil {
+`, contentID, backupGameID, "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(`
@@ -65,11 +67,11 @@ INSERT INTO games(
   id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
   search_text,version,created_at_ms,updated_at_ms
 ) VALUES(?,'01980000-0000-7000-8000-000000000005','PUBLISHED',?,?,lower(?),1,1000,1000)
-`, gameID, metadataID, contentID, "Backup favorite"); err != nil {
+`, backupGameID, metadataID, contentID, "Backup favorite"); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := transaction.Exec(
-		`INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(?,?,2000)`, profileID, gameID,
+		`INSERT INTO favorite_games(profile_id,game_id,created_at_ms) VALUES(?,?,2000)`, profileID, backupGameID,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -81,7 +83,7 @@ VALUES(?,?,'备份收藏夹','备份收藏夹',1,2000,2000)
 	}
 	if _, err := transaction.Exec(
 		`INSERT INTO favorite_folder_games(profile_id,folder_id,game_id,created_at_ms) VALUES(?,?,?,2000)`,
-		profileID, folderID, gameID,
+		profileID, folderID, backupGameID,
 	); err != nil {
 		t.Fatal(err)
 	}
@@ -99,6 +101,66 @@ SELECT value FROM (
   SELECT 'folder|'||id||'|'||profile_id||'|'||name||'|'||name_key||'|'||version||'|'||created_at_ms||'|'||updated_at_ms FROM favorite_folders
   UNION ALL
   SELECT 'membership|'||profile_id||'|'||folder_id||'|'||game_id||'|'||created_at_ms FROM favorite_folder_games
+) ORDER BY value
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer rows.Close()
+	hash := sha256.New()
+	count := 0
+	for rows.Next() {
+		var value string
+		if err := rows.Scan(&value); err != nil {
+			t.Fatal(err)
+		}
+		_, _ = hash.Write([]byte(value + "\n"))
+		count++
+	}
+	if err := rows.Err(); err != nil {
+		t.Fatal(err)
+	}
+	return hex.EncodeToString(hash.Sum(nil)), count
+}
+
+func seedBackupTags(t *testing.T, ctx context.Context, database *sql.DB, userID string) {
+	t.Helper()
+	service := tagging.New(database, func() time.Time { return time.UnixMilli(3_000) })
+	active, err := service.Create(ctx, userID, "合作")
+	if err != nil {
+		t.Fatal(err)
+	}
+	deleted, err := service.Create(ctx, userID, "历史标签")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.ReplaceGameTags(
+		ctx, userID, backupGameID, 1, []string{active.TagID, deleted.TagID},
+	); err != nil {
+		t.Fatal(err)
+	}
+	current, err := service.Get(ctx, deleted.TagID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := service.Delete(ctx, userID, deleted.TagID, deleted.Name, current.Version); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func tagBackupSnapshot(t *testing.T, database *sql.DB) (string, int) {
+	t.Helper()
+	rows, err := database.Query(`
+SELECT value FROM (
+  SELECT 'tag|'||id||'|'||name||'|'||name_key||'|'||search_text||'|'||status||'|'||version||'|'||
+    created_by_user_id||'|'||updated_by_user_id||'|'||created_at_ms||'|'||updated_at_ms||'|'||
+    coalesce(deleted_at_ms,-1) AS value FROM tags
+  UNION ALL
+  SELECT 'game-tag|'||game_id||'|'||tag_id||'|'||assigned_by_user_id||'|'||created_at_ms FROM game_tags
+  UNION ALL
+  SELECT 'audit|'||action||'|'||resource_type||'|'||resource_id||'|'||coalesce(before_json,'')||'|'||
+    coalesce(after_json,'')||'|'||coalesce(diff_json,'')||'|'||created_at_ms
+  FROM audit_events WHERE action IN ('TAG_CREATED','TAG_DELETED','GAME_TAGS_REPLACED')
 ) ORDER BY value
 `)
 	if err != nil {
@@ -186,6 +248,7 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 		t.Fatal(err)
 	}
 	seedBackupFavorites(t, database.SQL, admin.Principal.ProfileID)
+	seedBackupTags(t, ctx, database.SQL, admin.Principal.UserID)
 	const serverImportID = "01980000-0000-7000-8000-00000000f601"
 	const serverImportJobID = "01980000-0000-7000-8000-00000000f602"
 	const pegasusImportID = "01980000-0000-7000-8000-00000000f603"
@@ -223,6 +286,10 @@ VALUES(?,'backup-root','Backup root','games',?,'AWAITING_MAPPING',NULL,?,?,1,1,9
 	favoriteHash, favoriteRows := favoriteBackupSnapshot(t, database.SQL)
 	if favoriteRows != 3 {
 		t.Fatalf("seed favorite rows = %d", favoriteRows)
+	}
+	tagHash, tagRows := tagBackupSnapshot(t, database.SQL)
+	if tagRows != 8 {
+		t.Fatalf("seed tag rows = %d", tagRows)
 	}
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
@@ -272,6 +339,13 @@ VALUES(?,'backup-root','Backup root','games',?,'AWAITING_MAPPING',NULL,?,?,1,1,9
 		t.Fatalf(
 			"favorite backup snapshot changed: before=%d/%s after=%d/%s",
 			favoriteRows, favoriteHash, restoredFavoriteRows, restoredFavoriteHash,
+		)
+	}
+	restoredTagHash, restoredTagRows := tagBackupSnapshot(t, restoredDatabase)
+	if restoredTagRows != tagRows || restoredTagHash != tagHash {
+		t.Fatalf(
+			"tag backup snapshot changed: before=%d/%s after=%d/%s",
+			tagRows, tagHash, restoredTagRows, restoredTagHash,
 		)
 	}
 	var fencedSessions, fencedLinks, fenceAudits, fencedServerImports, fencedPegasusImports int

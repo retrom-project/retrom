@@ -52,6 +52,7 @@ import (
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
 	"retrom/internal/serverimport"
+	"retrom/internal/tagging"
 	"retrom/internal/uploads"
 )
 
@@ -74,6 +75,8 @@ var (
 	errCandidateMetadata    = errors.New("candidate metadata invalid")
 	errCandidateAssetKind   = errors.New("candidate asset kind mismatch")
 	errInvalidCursorPayload = errors.New("invalid cursor payload")
+	errInvalidGameTagFilter = errors.New("invalid game tag filter")
+	errTagProjectionType    = errors.New("invalid tag projection identifier type")
 )
 
 type contextKey string
@@ -97,6 +100,7 @@ type Server struct {
 	gameContent             *gamecontent.Service
 	saveService             *saves.Service
 	favoriteService         *favorites.Service
+	tagService              *tagging.Service
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
 	now                     func() time.Time
@@ -186,6 +190,7 @@ func New(
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(database, blobs, credentials, now),
 		favoriteService:  favorites.New(database, now),
+		tagService:       tagging.New(database, now),
 		now:              now,
 		sseHeartbeat:     15 * time.Second,
 		netplayObservers: make(map[string]int),
@@ -333,10 +338,16 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/admin/reviews/{importItemId}/discard", server.discardReview)
 	mux.HandleFunc("GET /api/v1/admin/review-history", server.reviewHistory)
 	mux.HandleFunc("GET /api/v1/admin/review-history/{reviewEventId}", server.reviewHistoryEvent)
+	mux.HandleFunc("GET /api/v1/admin/tags", server.adminTags)
+	mux.HandleFunc("POST /api/v1/admin/tags", server.createAdminTag)
+	mux.HandleFunc("GET /api/v1/admin/tags/{tagId}", server.adminTag)
+	mux.HandleFunc("PATCH /api/v1/admin/tags/{tagId}", server.patchAdminTag)
+	mux.HandleFunc("DELETE /api/v1/admin/tags/{tagId}", server.deleteAdminTag)
 	mux.HandleFunc("GET /api/v1/admin/games", server.adminGames)
 	mux.HandleFunc("GET /api/v1/admin/games/{gameId}", server.adminGame)
 	mux.HandleFunc("PATCH /api/v1/admin/games/{gameId}", server.patchAdminGame)
 	mux.HandleFunc("DELETE /api/v1/admin/games/{gameId}", server.deleteAdminGame)
+	mux.HandleFunc("PUT /api/v1/admin/games/{gameId}/tags", server.putAdminGameTags)
 	mux.HandleFunc("POST /api/v1/admin/games/{gameId}/assets", server.createGameAsset)
 	mux.HandleFunc("DELETE /api/v1/admin/games/{gameId}/assets/{assetKind}", server.deleteGameAsset)
 	mux.HandleFunc("POST /api/v1/admin/games/{gameId}/content-revisions", server.createGameContentRevision)
@@ -512,7 +523,7 @@ func (server *Server) validRequestOrigin(request *http.Request) bool {
 }
 
 var exactQueryAllowlists = map[string][]string{
-	"GET /api/v1/games":     {"q", "platformId", "platformInstanceId", "sort", "cursor", "limit"},
+	"GET /api/v1/games":     {"q", "tagId", "platformId", "platformInstanceId", "sort", "cursor", "limit"},
 	"GET /api/v1/favorites": {"scope", "folderId", "q", "platformId", "sort", "cursor", "limit"},
 	"GET /api/v1/saves": {
 		"q", "gameId", "platformId", "platformInstanceId", "coreId", "availability", "sort", "cursor", "limit",
@@ -521,13 +532,14 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/netplay/rooms": {"view", "cursor", "limit"},
 	"GET /api/v1/admin/imports": {"q", "state", "platformInstanceId", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/reviews": {
-		"q", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode", "sort", "cursor", "limit",
+		"q", "tagId", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode", "sort", "cursor", "limit",
 	},
 	"GET /api/v1/admin/review-history": {
 		"q", "decision", "platformInstanceId", "fromAtMs", "toAtMs", "sort", "cursor", "limit",
 	},
 	"GET /api/v1/admin/games": {
 		"q",
+		"tagId",
 		"platformId",
 		"platformInstanceId",
 		"status",
@@ -535,6 +547,7 @@ var exactQueryAllowlists = map[string][]string{
 		"cursor",
 		"limit",
 	},
+	"GET /api/v1/admin/tags":               {"q", "status", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/platform-instances": {"platformId", "enabled", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/bios": {
 		"q", "platformId", "coreId", "coreArtifactId", "scope", "status", "quick", "cursor", "limit",
@@ -1595,23 +1608,25 @@ func deterministicStoreZIPHeader(name string) *zip.FileHeader {
 }
 
 type recentGameProjection struct {
-	GameID           string         `json:"gameId"`
-	Title            string         `json:"title"`
-	Platform         map[string]any `json:"platform"`
-	PlatformInstance map[string]any `json:"platformInstance"`
-	LastPlayedAtMS   int64          `json:"lastPlayedAtMs"`
-	ActiveDurationMS int64          `json:"activeDurationMs"`
-	SessionCount     int64          `json:"sessionCount"`
-	CoverURL         any            `json:"coverUrl"`
+	GameID           string              `json:"gameId"`
+	Title            string              `json:"title"`
+	Platform         map[string]any      `json:"platform"`
+	PlatformInstance map[string]any      `json:"platformInstance"`
+	LastPlayedAtMS   int64               `json:"lastPlayedAtMs"`
+	ActiveDurationMS int64               `json:"activeDurationMs"`
+	SessionCount     int64               `json:"sessionCount"`
+	CoverURL         any                 `json:"coverUrl"`
+	Tags             []tagging.Reference `json:"tags"`
 }
 
 type latestGameProjection struct {
-	GameID           string         `json:"gameId"`
-	Title            string         `json:"title"`
-	Platform         map[string]any `json:"platform"`
-	PlatformInstance map[string]any `json:"platformInstance"`
-	CreatedAtMS      int64          `json:"createdAtMs"`
-	CoverURL         any            `json:"coverUrl"`
+	GameID           string              `json:"gameId"`
+	Title            string              `json:"title"`
+	Platform         map[string]any      `json:"platform"`
+	PlatformInstance map[string]any      `json:"platformInstance"`
+	CreatedAtMS      int64               `json:"createdAtMs"`
+	CoverURL         any                 `json:"coverUrl"`
+	Tags             []tagging.Reference `json:"tags"`
 }
 
 func scanRecentGame(scanner rowScanner) (recentGameProjection, error) {
@@ -1640,6 +1655,75 @@ func scanLatestGame(scanner rowScanner) (latestGameProjection, error) {
 	game.PlatformInstance = map[string]any{"id": instanceID, "name": instanceName}
 	game.CoverURL = gameCoverURL(coverAssetID)
 	return game, nil
+}
+
+func (server *Server) projectRecentGameTags(ctx context.Context, games []recentGameProjection) error {
+	gameIDs := make([]string, 0, len(games))
+	for _, game := range games {
+		gameIDs = append(gameIDs, game.GameID)
+	}
+	references, err := server.tagService.References(ctx, gameIDs)
+	if err != nil {
+		return fmt.Errorf("project recent game tags: %w", err)
+	}
+	for index := range games {
+		games[index].Tags = references[games[index].GameID]
+		if games[index].Tags == nil {
+			games[index].Tags = []tagging.Reference{}
+		}
+	}
+	return nil
+}
+
+func (server *Server) projectLatestGameTags(ctx context.Context, games []latestGameProjection) error {
+	gameIDs := make([]string, 0, len(games))
+	for _, game := range games {
+		gameIDs = append(gameIDs, game.GameID)
+	}
+	references, err := server.tagService.References(ctx, gameIDs)
+	if err != nil {
+		return fmt.Errorf("project latest game tags: %w", err)
+	}
+	for index := range games {
+		games[index].Tags = references[games[index].GameID]
+		if games[index].Tags == nil {
+			games[index].Tags = []tagging.Reference{}
+		}
+	}
+	return nil
+}
+
+type tagReferenceLoader func(context.Context, []string) (map[string][]tagging.Reference, error)
+
+func projectMapTags(
+	ctx context.Context,
+	items []map[string]any,
+	idKey string,
+	load tagReferenceLoader,
+) error {
+	itemIDs := make([]string, 0, len(items))
+	for _, item := range items {
+		itemID, ok := item[idKey].(string)
+		if !ok {
+			return fmt.Errorf("%w: %s", errTagProjectionType, idKey)
+		}
+		itemIDs = append(itemIDs, itemID)
+	}
+	references, err := load(ctx, itemIDs)
+	if err != nil {
+		return fmt.Errorf("load tag projection for %s: %w", idKey, err)
+	}
+	for _, item := range items {
+		itemID, ok := item[idKey].(string)
+		if !ok {
+			return fmt.Errorf("%w after loading: %s", errTagProjectionType, idKey)
+		}
+		item["tags"] = references[itemID]
+		if item["tags"] == nil {
+			item["tags"] = []tagging.Reference{}
+		}
+	}
+	return nil
 }
 
 //nolint:funlen // The dashboard aggregates documented counters in one consistent response snapshot.
@@ -1764,6 +1848,12 @@ s.id DESC LIMIT 3
 		server.databaseError(writer, request, err)
 		return
 	}
+	if err := projectMapTags(
+		request.Context(), recentSaves, "gameId", server.tagService.References,
+	); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	latestGames, err := server.homeLatestGames(request.Context())
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -1837,6 +1927,9 @@ LIMIT 10
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("home recent game rows: %w", err)
 	}
+	if err := server.projectRecentGameTags(ctx, games); err != nil {
+		return nil, err
+	}
 	return games, nil
 }
 
@@ -1880,11 +1973,72 @@ LIMIT 10
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("home latest game rows: %w", err)
 	}
+	if err := server.projectLatestGameTags(ctx, games); err != nil {
+		return nil, err
+	}
 	return games, nil
 }
 
 type homeFeaturedResult struct {
 	Value map[string]any
+}
+
+type homeSessionSave struct {
+	value any
+}
+
+func (server *Server) featuredSessionSave(
+	ctx context.Context,
+	launchID, profileID string,
+) (homeSessionSave, error) {
+	var saveID string
+	var createdAtMS, activeDurationMS int64
+	var discIndex sql.NullInt64
+	err := server.database.QueryRowContext(ctx, `
+SELECT id,created_at_ms,active_duration_ms,disc_index
+FROM save_states
+WHERE source_launch_session_id=? AND profile_id=? AND deleted_at_ms IS NULL
+ORDER BY created_at_ms DESC,id DESC
+LIMIT 1
+	`, launchID, profileID).Scan(&saveID, &createdAtMS, &activeDurationMS, &discIndex)
+	if errors.Is(err, sql.ErrNoRows) {
+		return homeSessionSave{}, nil
+	}
+	if err != nil {
+		return homeSessionSave{}, fmt.Errorf("home featured session save: %w", err)
+	}
+	return homeSessionSave{value: map[string]any{
+		"saveStateId": saveID, "createdAtMs": createdAtMS, "activeDurationMs": activeDurationMS,
+		"discIndex": nullableInteger(discIndex), "discLabel": discLabel(discIndex),
+		"screenshotUrl": saveStateScreenshotURL(saveID),
+	}}, nil
+}
+
+func (server *Server) activeGameTags(ctx context.Context, gameID string) ([]tagging.Reference, error) {
+	references, err := server.tagService.References(ctx, []string{gameID})
+	if err != nil {
+		return nil, fmt.Errorf("project game tags: %w", err)
+	}
+	tags := references[gameID]
+	if tags == nil {
+		tags = []tagging.Reference{}
+	}
+	return tags, nil
+}
+
+func (server *Server) gameAssociations(
+	ctx context.Context,
+	profileID, gameID string,
+) (*favorites.FavoriteReference, []tagging.Reference, error) {
+	favorite, err := server.favoriteService.Reference(ctx, profileID, gameID)
+	if err != nil {
+		return nil, nil, fmt.Errorf("project game favorite: %w", err)
+	}
+	tags, err := server.activeGameTags(ctx, gameID)
+	if err != nil {
+		return nil, nil, err
+	}
+	return favorite, tags, nil
 }
 
 func (server *Server) homeFeaturedGame(ctx context.Context, profileID string) (homeFeaturedResult, error) {
@@ -1937,28 +2091,13 @@ SELECT count(*) FROM save_states WHERE game_id=? AND profile_id=? AND deleted_at
 `, gameID, profileID).Scan(&historicalSaveCount); err != nil {
 		return homeFeaturedResult{}, fmt.Errorf("home featured save count: %w", err)
 	}
-	var saveID string
-	var saveCreatedAtMS, saveActiveDurationMS int64
-	var saveDiscIndex sql.NullInt64
-	saveErr := server.database.QueryRowContext(ctx, `
-SELECT id,created_at_ms,active_duration_ms
-      ,disc_index
-FROM save_states
-WHERE source_launch_session_id=?
-AND profile_id=?
-AND deleted_at_ms IS NULL
-ORDER BY created_at_ms DESC,id DESC
-LIMIT 1
-`, launchID, profileID).Scan(&saveID, &saveCreatedAtMS, &saveActiveDurationMS, &saveDiscIndex)
-	var lastSessionSave any
-	if saveErr == nil {
-		lastSessionSave = map[string]any{
-			"saveStateId": saveID, "createdAtMs": saveCreatedAtMS, "activeDurationMs": saveActiveDurationMS,
-			"discIndex": nullableInteger(saveDiscIndex), "discLabel": discLabel(saveDiscIndex),
-			"screenshotUrl": saveStateScreenshotURL(saveID),
-		}
-	} else if !errors.Is(saveErr, sql.ErrNoRows) {
-		return homeFeaturedResult{}, fmt.Errorf("home featured session save: %w", saveErr)
+	lastSessionSave, err := server.featuredSessionSave(ctx, launchID, profileID)
+	if err != nil {
+		return homeFeaturedResult{}, err
+	}
+	tags, err := server.activeGameTags(ctx, gameID)
+	if err != nil {
+		return homeFeaturedResult{}, err
 	}
 	return homeFeaturedResult{Value: map[string]any{
 		"gameId": gameID, "title": title,
@@ -1966,7 +2105,7 @@ LIMIT 1
 		"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
 		"lastPlayedAtMs":   lastPlayedAtMS, "activeDurationMs": activeDurationMS,
 		"sessionCount": sessionCount, "coverUrl": gameCoverURL(coverAssetID),
-		"hasSaveStates": historicalSaveCount > 0, "lastSessionSave": lastSessionSave,
+		"hasSaveStates": historicalSaveCount > 0, "lastSessionSave": lastSessionSave.value, "tags": tags,
 	}}, nil
 }
 
@@ -2067,6 +2206,10 @@ ORDER BY max(ps.started_at_ms) DESC,g.id DESC
 		items = append(items, game)
 	}
 	if err := rows.Err(); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if err := server.projectRecentGameTags(request.Context(), items); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -2332,7 +2475,7 @@ LIMIT 8
 		server.databaseError(writer, request, err)
 		return
 	}
-	favorite, err := server.favoriteService.Reference(request.Context(), principal.ProfileID, gameID)
+	favorite, tags, err := server.gameAssociations(request.Context(), principal.ProfileID, gameID)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -2348,7 +2491,7 @@ LIMIT 8
 		), "videoUrl": gameCoverURL(videoAssetID), "activeDurationMs": activeDurationMS, "coreOptions": coreOptions,
 		"dosEntries": dosEntries, "defaultDosEntry": nullableString(defaultDOSEntry),
 		"saveStateCount": saveStateCount, "saveStates": saveStates,
-		"favorite": favorite,
+		"favorite": favorite, "tags": tags,
 	})
 }
 
@@ -2361,6 +2504,58 @@ func gameListVisibilityConditions(includeDisabled bool) []string {
 		return nil
 	}
 	return []string{"pi.enabled=1"}
+}
+
+type gameListFilters struct {
+	Conditions  []string
+	Arguments   []any
+	NormalizedQ string
+}
+
+func parseGameListFilters(values url.Values, includeDeleted bool) (gameListFilters, error) {
+	filters := gameListFilters{Conditions: gameListVisibilityConditions(includeDeleted)}
+	status := values.Get("status")
+	switch {
+	case !includeDeleted || status == "PUBLISHED":
+		filters.Conditions = append(filters.Conditions, "g.status='PUBLISHED'")
+	case status == "DELETED":
+		filters.Conditions = append(filters.Conditions, "g.status='DELETED'")
+	case status != "" && status != "ALL":
+		return gameListFilters{}, fmt.Errorf("%w: game status", errUnknownQuery)
+	}
+	filters.NormalizedQ = strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " "))
+	if filters.NormalizedQ != "" {
+		filters.Conditions = append(filters.Conditions, `(instr(g.search_text,?)>0 OR EXISTS(
+SELECT 1 FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+WHERE relation.game_id=g.id AND instr(tag.search_text,?)>0))`)
+		filters.Arguments = append(filters.Arguments, filters.NormalizedQ, filters.NormalizedQ)
+	}
+	if tagID := values.Get("tagId"); tagID != "" {
+		if !tagging.ValidID(tagID) {
+			return gameListFilters{}, errInvalidGameTagFilter
+		}
+		filters.Conditions = append(filters.Conditions, `EXISTS(
+SELECT 1 FROM game_tags relation JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+WHERE relation.game_id=g.id AND tag.id=?)`)
+		filters.Arguments = append(filters.Arguments, tagID)
+	}
+	for _, filter := range []struct{ queryName, column string }{
+		{"platformId", "p.id"}, {"platformInstanceId", "pi.id"},
+	} {
+		if value := values.Get(filter.queryName); value != "" {
+			filters.Conditions = append(filters.Conditions, filter.column+"=?")
+			filters.Arguments = append(filters.Arguments, value)
+		}
+	}
+	return filters, nil
+}
+
+func writeGameListFilterError(writer http.ResponseWriter, request *http.Request, err error) {
+	if errors.Is(err, errInvalidGameTagFilter) {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "标签筛选无效", map[string]any{})
+		return
+	}
+	writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "游戏状态筛选无效", map[string]any{})
 }
 
 func scanGameListItem(scanner rowScanner, includeAdminProjection bool) (map[string]any, error) {
@@ -2430,6 +2625,10 @@ func (server *Server) projectGameListFavorites(
 	return nil
 }
 
+func (server *Server) projectGameListTags(ctx context.Context, items []map[string]any) error {
+	return projectMapTags(ctx, items, "gameId", server.tagService.References)
+}
+
 func scanGameListRows(rows *sql.Rows, includeDeleted bool, capacity int) ([]map[string]any, error) {
 	items := make([]map[string]any, 0, capacity)
 	for rows.Next() {
@@ -2489,30 +2688,15 @@ JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
 JOIN cores dc ON dc.id=pi.default_core_id
 `
-	conditions := gameListVisibilityConditions(includeDeleted)
-	arguments := []any{principal.ProfileID}
 	values := request.URL.Query()
-	if !includeDeleted || values.Get("status") == "PUBLISHED" {
-		conditions = append(conditions, "g.status='PUBLISHED'")
-	} else if values.Get("status") == "DELETED" {
-		conditions = append(conditions, "g.status='DELETED'")
-	} else if status := values.Get("status"); status != "" && status != "ALL" {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "游戏状态筛选无效", map[string]any{})
+	filters, err := parseGameListFilters(values, includeDeleted)
+	if err != nil {
+		writeGameListFilterError(writer, request, err)
 		return
 	}
-	normalizedQ := strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " "))
-	if normalizedQ != "" {
-		conditions = append(conditions, "instr(g.search_text,?)>0")
-		arguments = append(arguments, normalizedQ)
-	}
-	if platformID := values.Get("platformId"); platformID != "" {
-		conditions = append(conditions, "p.id=?")
-		arguments = append(arguments, platformID)
-	}
-	if instanceID := values.Get("platformInstanceId"); instanceID != "" {
-		conditions = append(conditions, "pi.id=?")
-		arguments = append(arguments, instanceID)
-	}
+	conditions := filters.Conditions
+	arguments := append([]any{principal.ProfileID}, filters.Arguments...)
+	normalizedQ := filters.NormalizedQ
 	operationID := "getGames"
 	if includeDeleted {
 		operationID = "getAdminGames"
@@ -2521,6 +2705,7 @@ JOIN cores dc ON dc.id=pi.default_core_id
 		map[string]any{
 			"principalId":        principal.UserID,
 			"q":                  normalizedQ,
+			"tagId":              values.Get("tagId"),
 			"platformId":         values.Get("platformId"),
 			"platformInstanceId": values.Get("platformInstanceId"),
 			"status":             values.Get("status"),
@@ -2549,6 +2734,10 @@ JOIN cores dc ON dc.id=pi.default_core_id
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	items, err := scanGameListRows(rows, includeDeleted, limit+1)
 	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if err := server.projectGameListTags(request.Context(), items); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -2642,6 +2831,24 @@ func parseSaveListFilters(values url.Values, principal authn.Principal) (saveLis
 	return filters, nil
 }
 
+func (server *Server) applySaveCursor(values url.Values, filters *saveListFilters) error {
+	token := values.Get("cursor")
+	if token == "" {
+		return nil
+	}
+	payload, err := server.cursors.Decode(token, "getSaves", filters.Digest, "CREATED_DESC")
+	if err != nil || len(payload.SortValues) != 1 {
+		return errInvalidCursorPayload
+	}
+	createdAt, err := strconv.ParseInt(payload.SortValues[0], 10, 64)
+	if err != nil {
+		return errInvalidCursorPayload
+	}
+	filters.Conditions = append(filters.Conditions, "(s.created_at_ms<? OR (s.created_at_ms=? AND s.id<?))")
+	filters.Arguments = append(filters.Arguments, createdAt, createdAt, payload.ID)
+	return nil
+}
+
 //nolint:funlen // Query projection stays contiguous with pagination assembly.
 func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
@@ -2651,19 +2858,9 @@ func (server *Server) saves(writer http.ResponseWriter, request *http.Request) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "存档可用性筛选无效", map[string]any{})
 		return
 	}
-	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getSaves", filters.Digest, "CREATED_DESC")
-		if err != nil || len(payload.SortValues) != 1 {
-			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
-			return
-		}
-		createdAt, err := strconv.ParseInt(payload.SortValues[0], 10, 64)
-		if err != nil {
-			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
-			return
-		}
-		filters.Conditions = append(filters.Conditions, "(s.created_at_ms<? OR (s.created_at_ms=? AND s.id<?))")
-		filters.Arguments = append(filters.Arguments, createdAt, createdAt, payload.ID)
+	if err := server.applySaveCursor(values, &filters); err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
+		return
 	}
 	limit := 50
 	if raw := values.Get("limit"); raw != "" {
@@ -2747,6 +2944,10 @@ JOIN platforms p ON p.id=pi.platform_id
 		})
 	}
 	if err := rows.Err(); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	if err := projectMapTags(request.Context(), items, "gameId", server.tagService.References); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -3578,6 +3779,12 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "导入配置无效", map[string]any{})
 		return
 	}
+	if body.TagIDs != nil {
+		if _, err := tagging.ValidateIDs(body.TagIDs); err != nil {
+			writeTagError(writer, request, err)
+			return
+		}
+	}
 	created, err := server.importer.Create(request.Context(), body)
 	switch {
 	case errors.Is(err, libraryimport.ErrMultiDiscModeUnavailable):
@@ -3591,6 +3798,9 @@ func (server *Server) createImport(writer http.ResponseWriter, request *http.Req
 			writer, request, http.StatusUnprocessableEntity,
 			"MULTI_DISC_PLAYLIST_MISSING", "所选目录中没有 M3U 播放列表", map[string]any{},
 		)
+		return
+	case errors.Is(err, tagging.ErrReferenceInvalid), errors.Is(err, tagging.ErrAssignmentLimitExceeded):
+		writeTagError(writer, request, err)
 		return
 	case err != nil:
 		writeError(writer, request, http.StatusConflict, "IMPORT_INPUT_INVALID", "上传或目标目录不可用于导入", map[string]any{})
@@ -3676,6 +3886,7 @@ AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
 	values := request.URL.Query()
 	allowed := map[string]struct{}{
 		"q":                  {},
+		"tagId":              {},
 		"importJobId":        {},
 		"pegasusImportId":    {},
 		"platformInstanceId": {},
@@ -3704,8 +3915,25 @@ AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
 		return
 	}
 	if normalizedQ != "" {
-		query += " AND instr(i.search_text,?)>0"
+		query += ` AND (instr(i.search_text,?)>0 OR EXISTS(
+ SELECT 1 FROM review_draft_tags relation
+ JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+ WHERE relation.review_draft_id=d.id AND instr(tag.name_key,?)>0
+))`
 		arguments = append(arguments, normalizedQ)
+		arguments = append(arguments, normalizedQ)
+	}
+	if tagID := values.Get("tagId"); tagID != "" {
+		if !tagging.ValidID(tagID) {
+			writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "标签筛选无效", map[string]any{})
+			return
+		}
+		query += ` AND EXISTS(
+ SELECT 1 FROM review_draft_tags relation
+ JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+ WHERE relation.review_draft_id=d.id AND tag.id=?
+)`
+		arguments = append(arguments, tagID)
 	}
 	if value := values.Get("platformInstanceId"); value != "" {
 		query += " AND d.target_platform_instance_id=?"
@@ -3728,6 +3956,7 @@ AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
 		map[string]any{
 			"principalId":        principal.UserID,
 			"q":                  normalizedQ,
+			"tagId":              values.Get("tagId"),
 			"importJobId":        values.Get("importJobId"),
 			"pegasusImportId":    values.Get("pegasusImportId"),
 			"platformInstanceId": values.Get("platformInstanceId"),
@@ -3846,6 +4075,12 @@ AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
 		server.databaseError(writer, request, err)
 		return
 	}
+	if err := projectMapTags(
+		request.Context(), items, "itemId", server.tagService.ReviewReferences,
+	); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	var nextCursor any
 	if len(items) > limit {
 		last := items[limit-1]
@@ -3872,6 +4107,27 @@ AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
 		nextCursor = token
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nextCursor})
+}
+
+func decodeOptionalJSON(value sql.NullString) any {
+	if !value.Valid {
+		return nil
+	}
+	var decoded any
+	_ = json.Unmarshal([]byte(value.String), &decoded)
+	return decoded
+}
+
+func (server *Server) activeReviewTags(ctx context.Context, itemID string) ([]tagging.Reference, error) {
+	references, err := server.tagService.ReviewReferences(ctx, []string{itemID})
+	if err != nil {
+		return nil, fmt.Errorf("project review tags: %w", err)
+	}
+	tags := references[itemID]
+	if tags == nil {
+		tags = []tagging.Reference{}
+	}
+	return tags, nil
 }
 
 //nolint:funlen // Contract branches stay contiguous for a single auditable decision.
@@ -3961,15 +4217,13 @@ AND NOT EXISTS(
 		server.databaseError(writer, request, err)
 		return
 	}
-	var metadataValue, sourceValue, dependencyValue any
+	var metadataValue, sourceValue any
 	_ = json.Unmarshal([]byte(metadata), &metadataValue)
 	_ = json.Unmarshal([]byte(sourceManifest), &sourceValue)
 	if files, ok := sourceValue.([]any); ok {
 		sourceValue = map[string]any{"files": files}
 	}
-	if dependencySnapshot.Valid {
-		_ = json.Unmarshal([]byte(dependencySnapshot.String), &dependencyValue)
-	}
+	dependencyValue := decodeOptionalJSON(dependencySnapshot)
 	candidates, scrapeRuns, err := server.reviewMetadataEvidence(request, itemID)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -4023,6 +4277,11 @@ AND NOT EXISTS(
 	}
 	gateReviewMultiDiscAttachment(multiDisc, validationProjection.stale)
 	canApprove := validationProjection.canApprove || runtimeScreenshot.value != nil
+	reviewTags, err := server.activeReviewTags(request.Context(), itemID)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"itemId": itemID, "importJobId": importJobID, "version": version, "updatedAtMs": updatedAtMS,
@@ -4048,7 +4307,7 @@ AND NOT EXISTS(
 			"coverUploadedAssetId":        nullableString(uploadedCoverID),
 			"backgroundCandidateAssetId":  nullableString(backgroundID),
 			"screenshotCandidateAssetIds": screenshotIDs,
-		}, "dosEntries": dosEntries,
+		}, "dosEntries": dosEntries, "tags": reviewTags,
 	})
 }
 

@@ -17,6 +17,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/launch"
+	"retrom/internal/tagging"
 )
 
 const (
@@ -62,6 +63,7 @@ type Service struct {
 	stop        chan struct{}
 	done        chan struct{}
 	launchMu    sync.Mutex
+	tags        *tagging.Service
 }
 
 const (
@@ -94,7 +96,7 @@ func NewService(
 	}
 	return &Service{
 		database: database, registry: registry, credentials: credentials, clock: clock, options: options,
-		stop: make(chan struct{}), done: make(chan struct{}),
+		tags: tagging.New(database, now), stop: make(chan struct{}), done: make(chan struct{}),
 	}
 }
 
@@ -133,18 +135,19 @@ type ProfileSummary struct {
 }
 
 type GameSummary struct {
-	GameID               string           `json:"gameId"`
-	Title                string           `json:"title"`
-	CoverURL             *string          `json:"coverUrl"`
-	PlatformID           string           `json:"platformId"`
-	PlatformName         string           `json:"platformName"`
-	PlatformInstanceID   string           `json:"platformInstanceId"`
-	PlatformInstanceName string           `json:"platformInstanceName"`
-	LastPlayedAtMS       *int64           `json:"lastPlayedAtMs"`
-	AddedAtMS            int64            `json:"addedAtMs"`
-	Availability         string           `json:"availability"`
-	NetplayProfiles      []ProfileSummary `json:"netplayProfiles"`
-	BlockerCode          *string          `json:"blockerCode"`
+	GameID               string              `json:"gameId"`
+	Title                string              `json:"title"`
+	CoverURL             *string             `json:"coverUrl"`
+	PlatformID           string              `json:"platformId"`
+	PlatformName         string              `json:"platformName"`
+	PlatformInstanceID   string              `json:"platformInstanceId"`
+	PlatformInstanceName string              `json:"platformInstanceName"`
+	LastPlayedAtMS       *int64              `json:"lastPlayedAtMs"`
+	AddedAtMS            int64               `json:"addedAtMs"`
+	Availability         string              `json:"availability"`
+	NetplayProfiles      []ProfileSummary    `json:"netplayProfiles"`
+	BlockerCode          *string             `json:"blockerCode"`
+	Tags                 []tagging.Reference `json:"tags"`
 }
 
 type eligibleProfile struct {
@@ -220,6 +223,20 @@ ORDER BY lower(metadata.title),game.id
 	}
 	if err := rows.Err(); err != nil {
 		return nil, fmt.Errorf("netplay/list games: %w", err)
+	}
+	gameIDs := make([]string, 0, len(allItems))
+	for _, item := range allItems {
+		gameIDs = append(gameIDs, item.GameID)
+	}
+	references, err := service.tags.References(ctx, gameIDs)
+	if err != nil {
+		return nil, serviceError("list game tags", err)
+	}
+	for index := range allItems {
+		allItems[index].Tags = references[allItems[index].GameID]
+		if allItems[index].Tags == nil {
+			allItems[index].Tags = []tagging.Reference{}
+		}
 	}
 	return allItems, nil
 }

@@ -38,7 +38,7 @@ for _ in $(seq 1 100); do
 done
 [[ "$state" == "SUCCEEDED" ]]
 
-import_body="$(jq -nc --arg upload "$upload_id" '{uploadId:$upload,targetPlatformInstanceId:"01980000-0000-7000-8000-000000000005",metadataProvider:"NONE"}')"
+import_body="$(jq -nc --arg upload "$upload_id" '{uploadId:$upload,targetPlatformInstanceId:"01980000-0000-7000-8000-000000000005",metadataProvider:"NONE",tagIds:[]}')"
 imported="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$import_body" "$backend/api/v1/admin/imports")"
 import_id="$(jq -r .importJobId <<<"$imported")"
 reviews="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews?importJobId=$import_id")"

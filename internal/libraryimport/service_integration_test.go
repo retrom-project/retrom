@@ -21,12 +21,14 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/importing"
 	"retrom/internal/store"
+	"retrom/internal/tagging"
 	"retrom/internal/uploads"
 )
 
@@ -201,6 +203,25 @@ func TestUploadImportReviewPublishPipeline(t *testing.T) {
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
+	const (
+		profileID = "01980000-0000-7000-8000-00000000a461"
+		adminID   = "01980000-0000-7000-8000-00000000b461"
+	)
+	if _, err := database.SQL.ExecContext(ctx,
+		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Import Tag Admin',1)`, profileID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
+VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
+`, adminID, profileID); err != nil {
+		t.Fatal(err)
+	}
+	ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: adminID, ProfileID: profileID, Role: "ADMIN"})
+	defaultTag, err := tagging.New(database.SQL, time.Now).Create(ctx, adminID, "待通关")
+	if err != nil {
+		t.Fatal(err)
+	}
 	blobs, _ := blobstore.Open(dataDir)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	contents := []byte("deterministic gba fixture")
@@ -253,7 +274,7 @@ func TestUploadImportReviewPublishPipeline(t *testing.T) {
 		database.SQL,
 		time.Now,
 	).WithBlobStore(blobs).
-		Create(ctx, CreateRequest{UploadID: upload.ID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005", MetadataProvider: "NONE"})
+		Create(ctx, CreateRequest{UploadID: upload.ID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005", MetadataProvider: "NONE", TagIDs: []string{defaultTag.TagID}})
 	if err != nil {
 		t.Fatalf("create import: %v", err)
 	}
@@ -275,12 +296,54 @@ FROM import_items i
 JOIN import_item_source_files f ON f.import_item_id=i.id
 WHERE i.import_job_id=?
 AND f.logical_name='Discarded.gba'
-`, created.ImportJobID).Scan(&discardItemID, &discardBlobID); err != nil {
+	`, created.ImportJobID).Scan(&discardItemID, &discardBlobID); err != nil {
 		t.Fatal(err)
 	}
+	var inheritedDrafts int
+	var initialConfigSnapshot string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT count(DISTINCT draft.id),job.config_snapshot_json
+FROM import_jobs job
+JOIN import_items item ON item.import_job_id=job.id
+JOIN review_drafts draft ON draft.import_item_id=item.id
+JOIN review_draft_tags relation ON relation.review_draft_id=draft.id AND relation.tag_id=?
+WHERE job.id=?
+`, defaultTag.TagID, created.ImportJobID).Scan(&inheritedDrafts, &initialConfigSnapshot); err != nil ||
+		inheritedDrafts != 2 || !strings.Contains(initialConfigSnapshot, `"name":"待通关"`) {
+		t.Fatalf("default tag inheritance = drafts:%d config:%s error:%v", inheritedDrafts, initialConfigSnapshot, err)
+	}
 	importer := New(database.SQL, time.Now)
+	transientTag, err := tagging.New(database.SQL, time.Now).Create(ctx, adminID, "删除失效")
+	if err != nil {
+		t.Fatal(err)
+	}
+	transientDraft, err := importer.PatchDraft(ctx, discardItemID, 1, DraftPatch{
+		TagIDs: []string{defaultTag.TagID, transientTag.TagID},
+	})
+	if err != nil || transientDraft.Version != 2 {
+		t.Fatalf("add transient review tag = %#v, %v", transientDraft, err)
+	}
+	currentTransientTag, err := tagging.New(database.SQL, time.Now).Get(ctx, transientTag.TagID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, _, err := tagging.New(database.SQL, time.Now).Delete(
+		ctx, adminID, transientTag.TagID, transientTag.Name, currentTransientTag.Version,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := importer.PatchDraft(ctx, discardItemID, 2, DraftPatch{TagIDs: []string{defaultTag.TagID}}); !errors.Is(err, ErrVersionConflict) {
+		t.Fatalf("stale review after tag delete error = %v", err)
+	}
+	refreshedTransientDraft, err := importer.PatchDraft(
+		ctx, discardItemID, 3, DraftPatch{TagIDs: []string{defaultTag.TagID}},
+	)
+	if err != nil || refreshedTransientDraft.Version != 4 || len(refreshedTransientDraft.Tags) != 1 ||
+		refreshedTransientDraft.Tags[0].TagID != defaultTag.TagID {
+		t.Fatalf("refresh deleted review tag = %#v, %v", refreshedTransientDraft, err)
+	}
 	var metadataPatch DraftPatch
-	if err := json.Unmarshal([]byte(`{"metadata":{"players":2,"releaseYear":2001}}`), &metadataPatch); err != nil {
+	if err := json.Unmarshal([]byte(`{"metadata":{"players":2,"releaseYear":2001},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
 	}
 	patched, err := importer.PatchDraft(ctx, itemID, 1, metadataPatch)
@@ -288,7 +351,7 @@ AND f.logical_name='Discarded.gba'
 		patched.Metadata["releaseYear"] != int64(2001) {
 		t.Fatalf("patch nullable metadata values = %#v, error=%v", patched, err)
 	}
-	if err := json.Unmarshal([]byte(`{"metadata":{"players":null,"releaseYear":null}}`), &metadataPatch); err != nil {
+	if err := json.Unmarshal([]byte(`{"metadata":{"players":null,"releaseYear":null},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
 	}
 	patched, err = importer.PatchDraft(ctx, itemID, 2, metadataPatch)
@@ -297,7 +360,7 @@ AND f.logical_name='Discarded.gba'
 		t.Fatalf("clear nullable metadata values = %#v, error=%v", patched, err)
 	}
 	crossPlatform := "01980000-0000-7000-8000-000000000001"
-	_, err = importer.PatchDraft(ctx, itemID, 3, DraftPatch{TargetPlatformInstanceID: &crossPlatform})
+	_, err = importer.PatchDraft(ctx, itemID, 3, DraftPatch{TargetPlatformInstanceID: &crossPlatform, TagIDs: []string{}})
 	if !errors.Is(err, ErrReimportRequiredPlatformChange) {
 		t.Fatalf("cross-platform draft change error = %v", err)
 	}
@@ -323,7 +386,7 @@ WHERE id='01980000-0000-7000-8000-000000000005'
 	if _, err := importer.Approve(ctx, itemID, 3); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("stale selected validation approval error = %v", err)
 	}
-	if err := json.Unmarshal([]byte(`{"metadata":{"title":"Sudoku"}}`), &metadataPatch); err != nil {
+	if err := json.Unmarshal([]byte(`{"metadata":{"title":"Sudoku"},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
 	}
 	refreshed, err := importer.PatchDraft(ctx, itemID, 3, metadataPatch)
@@ -372,7 +435,7 @@ VALUES(?,?,?,?,?,?,?,?,?,'HASH_WARNING','{}',1,1,?,?)
 		sha256Value, requirementVersion, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if err := json.Unmarshal([]byte(`{"metadata":{"description":"BIOS snapshot refreshed"}}`), &metadataPatch); err != nil {
+	if err := json.Unmarshal([]byte(`{"metadata":{"description":"BIOS snapshot refreshed"},"tagIds":[]}`), &metadataPatch); err != nil {
 		t.Fatal(err)
 	}
 	biosRefreshed, err := importer.PatchDraft(ctx, itemID, 4, metadataPatch)
@@ -403,7 +466,9 @@ VALUES(?,?,?,?,'COVER',600,900,'image/png',?)
 `, manualCoverID, itemID, upload.Files[0].ID, sourceBlobID, time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	selected, err := importer.PatchDraft(ctx, itemID, 5, DraftPatch{SelectedAssets: &SelectedAssets{CoverUploadedAssetID: &manualCoverID}})
+	selected, err := importer.PatchDraft(ctx, itemID, 5, DraftPatch{
+		SelectedAssets: &SelectedAssets{CoverUploadedAssetID: &manualCoverID}, TagIDs: []string{defaultTag.TagID},
+	})
 	if err != nil || selected.Version != 6 {
 		t.Fatalf("select uploaded review cover = %#v, error=%v", selected, err)
 	}
@@ -427,7 +492,13 @@ WHERE g.id=?
 	if title != "Sudoku" || variantStatus != "READY" || publishedCoverBlobID != sourceBlobID {
 		t.Fatalf("published title/status/cover = %s/%s/%s", title, variantStatus, publishedCoverBlobID)
 	}
-	discarded, err := importer.Discard(ctx, discardItemID, 1, "")
+	var publishedTags int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT count(*) FROM game_tags WHERE game_id=? AND tag_id=?
+`, approved.GameID, defaultTag.TagID).Scan(&publishedTags); err != nil || publishedTags != 1 {
+		t.Fatalf("published game tag = %d, %v", publishedTags, err)
+	}
+	discarded, err := importer.Discard(ctx, discardItemID, refreshedTransientDraft.Version, "")
 	if err != nil || discarded.Status != "DISCARDED" {
 		t.Fatalf("discard review = %#v, error=%v", discarded, err)
 	}
@@ -451,6 +522,7 @@ WHERE id=?
 		publishedDiscard != 0 || retainedBlob != 1 ||
 		discardReason.Valid ||
 		!strings.Contains(beforeJSON, "sourceManifest") ||
+		!strings.Contains(beforeJSON, `"name":"待通关"`) ||
 		!strings.Contains(configEvidenceJSON, "configSnapshot") ||
 		!strings.Contains(datEvidenceJSON, "dependencySnapshot") {
 		t.Fatalf("discard evidence = games:%d blob:%d before:%s config:%s dat:%s error=%v", publishedDiscard, retainedBlob, beforeJSON, configEvidenceJSON, datEvidenceJSON, err)

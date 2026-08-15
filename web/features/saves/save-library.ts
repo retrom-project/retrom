@@ -13,6 +13,7 @@ export type SaveItem = {
   platform: { id: string; name: string };
   platformInstance: { id: string; name: string };
   availability: { status: "AVAILABLE" | "BLOCKED"; reasons: Array<{ code?: string; logicalName?: string }> };
+  tags?: Array<{ tagId: string; name: string }>;
 };
 
 export type SaveFilters = {
@@ -63,7 +64,7 @@ export function filterSaveItems(saves: SaveItem[], filters: SaveFilters) {
     if (filters.gameId && save.gameId !== filters.gameId) return false;
     if (filters.availability !== "ALL" && save.availability.status !== filters.availability) return false;
     if (!query) return true;
-    return [save.gameTitle, save.name, save.core.name, save.platform.name, save.platformInstance.name]
+    return [save.gameTitle, save.name, save.core.name, save.platform.name, save.platformInstance.name, ...(save.tags ?? []).map((tag) => tag.name)]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   }).sort((left, right) => {
     const direction = filters.sort === "CREATED_ASC" ? 1 : -1;

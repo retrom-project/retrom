@@ -9,6 +9,7 @@ import { formatBytes } from "@/lib/backend";
 import { writeHeaders } from "@/lib/api/client";
 import type { ImportDetail } from "./import-workflow";
 import { MultiDiscModeField } from "./multidisc-mode-field";
+import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
 import { MultiDiscPreflight as MultiDiscPreflightView } from "./multidisc-preflight-view";
 import { MULTI_DISC_DEFAULT_LIMITS, preflightMultiDisc, type MultiDiscPreflight } from "./multidisc-preflight";
 
@@ -18,7 +19,7 @@ type Directory = {
   importCapabilities?: { contentModes: string[]; multiDisc: { maxDiscs: number; maxTotalBytes: number } | null };
 };
 
-export function UploadPicker({ directories, reconfigureSource = null }: { directories: Directory[]; reconfigureSource?: ImportDetail | null }) {
+export function UploadPicker({ directories, activeTags = [], reconfigureSource = null }: { directories: Directory[]; activeTags?: TagReference[]; reconfigureSource?: ImportDetail | null }) {
   const fileInput = useRef<HTMLInputElement>(null);
   const directoryInput = useRef<HTMLInputElement>(null);
   const [files, setFiles] = useState<ChosenFile[]>([]);
@@ -28,6 +29,10 @@ export function UploadPicker({ directories, reconfigureSource = null }: { direct
   const reusableFiles = reconfigureSource?.fileOutcomes.filter((file) => file.disposition === "REJECTED" && !file.resolution) ?? [];
   const [target, setTarget] = useState(reconfigureSource?.targetPlatformInstance.id ?? "");
   const [provider, setProvider] = useState(reconfigureSource?.metadataProvider ?? "HASHEOUS");
+  const [tags, setTags] = useState<TagReference[]>(() => {
+    const activeIDs = new Set(activeTags.map((tag) => tag.tagId));
+    return (reconfigureSource?.configSnapshot?.tags ?? []).filter((tag) => activeIDs.has(tag.tagId));
+  });
   const [contentMode, setContentMode] = useState<"STANDARD" | "MULTI_DISC_M3U_V1">("STANDARD");
   const [preflight, setPreflight] = useState<MultiDiscPreflight | null>(null);
   const [preflighting, setPreflighting] = useState(false);
@@ -93,12 +98,12 @@ export function UploadPicker({ directories, reconfigureSource = null }: { direct
           method: "POST",
           credentials: "same-origin",
           headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${reconfigureSource.version}"`, "Idempotency-Key": newUuid() }),
-          body: JSON.stringify({ targetPlatformInstanceId: target, metadataProvider: provider }),
+          body: JSON.stringify({ targetPlatformInstanceId: target, metadataProvider: provider, tagIds: tags.map((tag) => tag.tagId) }),
         });
       } else {
         const uploaded = await uploadFiles(files.map((chosen) => chosen.file), setProgress);
         setProgress("正在创建导入任务…");
-        imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: provider, contentMode }) });
+        imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: provider, contentMode, tagIds: tags.map((tag) => tag.tagId) }) });
       }
       if (!imported.ok) throw new Error(await responseError(imported, reconfigureSource ? "无法按新配置创建导入任务，请刷新任务后重试" : "上传完成，但无法创建导入任务"));
       const result = await imported.json() as { importJobId: string };
@@ -145,11 +150,13 @@ export function UploadPicker({ directories, reconfigureSource = null }: { direct
             <div className="field"><label>游戏平台</label><input value={selectedDirectory?.platformName ?? "选择目录后显示"} disabled /></div>
             <div className="field"><label>推荐运行方式</label><input value={selectedDirectory?.coreName ?? "选择目录后显示"} disabled /></div>
           </div>
+          <div className="import-tag-config"><TagPicker label="批次默认标签" options={activeTags} selected={tags} onChange={setTags} disabled={busy} description="这些标签会冻结到任务配置，并作为每个待审核游戏的初始选择；审核时仍可逐项调整。" /></div>
           {!reconfigureSource && sourceType === "DIRECTORY" && multiDiscSupported ? <MultiDiscModeField selected={contentMode === "MULTI_DISC_M3U_V1"} detectedGroupCount={preflight?.detected ? preflight.processableGroupCount : 0} maxDiscs={multiDiscLimits.maxDiscs} maxTotalBytes={multiDiscLimits.maxTotalBytes} onChange={(selected) => { setContentMode(selected ? "MULTI_DISC_M3U_V1" : "STANDARD"); multiDiscOptedOutRef.current = !selected; }} /> : null}
           {visibleCapabilityNotice ? <div className="feedback warn" role="alert">{visibleCapabilityNotice}</div> : null}
           {contentMode === "MULTI_DISC_M3U_V1" && !preflight?.detected ? <div className="feedback bad" role="alert">所选目录树中必须至少包含一个 .m3u 文件</div> : null}
           {contentMode === "MULTI_DISC_M3U_V1" && preflight?.detected ? <MultiDiscPreflightView result={preflight} /> : null}
           <div className="import-config-summary"><div><small>内容</small><strong>{fileCount} 个文件</strong></div><div><small>数据量</small><strong>{formatBytes(totalBytes)}</strong></div><div><small>目标</small><strong>{selectedDirectory?.name ?? "尚未选择"}</strong></div><div><small>布局</small><strong>{contentMode === "MULTI_DISC_M3U_V1" ? "多盘 M3U" : "普通内容"}</strong></div></div>
+          {tags.length ? <div className="import-tag-summary"><small>将应用到待审核游戏</small><TagChips tags={tags} /></div> : null}
           <div className="import-stage-actions"><button className="button secondary" type="button" onClick={() => setStep(1)}>上一步</button><button className="button" type="button" disabled={busy || preflighting || !target || multiDiscInvalid} onClick={() => void submitImport()}>{reconfigureSource ? "按新配置重新识别" : contentMode === "MULTI_DISC_M3U_V1" ? multiDiscSubmitLabel : "开始上传并验证"}</button></div>
         </div>
       </section> : null}

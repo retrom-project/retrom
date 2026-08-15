@@ -16,6 +16,7 @@ import { responseError, uploadFiles, uploadOne, waitForJob, waitForJobEvents } f
 import { ArcadeDependencyCard } from "./arcade-dependencies";
 import { type ArcadeDependencies, type ArcadeDependencyNode, type ArcadeParentAttachment } from "./arcade-dependency-tree";
 import { MultiDiscAttachmentDrawer } from "./multi-disc-attachment-drawer";
+import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
 
 export type ReviewAsset = {
   candidateAssetId: string;
@@ -133,6 +134,7 @@ export type ReviewWorkspace = {
   dosEntries: Array<{ path: string; originalPath: string; kind: string; enabled: boolean; directLaunchSafe: boolean }>;
   duplicateGames?: DuplicateGame[];
   contentIdentityDigest?: string;
+  tags?: TagReference[];
 };
 
 export type DuplicateGame = {
@@ -150,6 +152,7 @@ type DraftPayload = {
   selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
   defaultDosEntry: string | null;
+  tagIds: string[];
 };
 type Comparison = { candidate: ReviewCandidate; current: MetadataForm; next: MetadataForm; currentCover: CoverSelection; nextCover: CoverSelection };
 
@@ -174,12 +177,13 @@ function readyCover(candidate: ReviewCandidate | null) {
   return candidate?.assets.find((asset) => asset.kind === "COVER" && asset.status === "READY") ?? null;
 }
 
-function toPayload(form: MetadataForm, candidateId: string | null, cover: CoverSelection, backgroundId: string | null, screenshotIds: string[], defaultDosEntry: string | null): DraftPayload {
+function toPayload(form: MetadataForm, candidateId: string | null, cover: CoverSelection, backgroundId: string | null, screenshotIds: string[], defaultDosEntry: string | null, tags: TagReference[]): DraftPayload {
   return {
     metadata: { ...form, players: form.players === "" ? null : Number(form.players), releaseYear: form.releaseYear === "" ? null : Number(form.releaseYear) },
     selectedCandidateId: candidateId,
     selectedAssets: { coverCandidateAssetId: cover.candidateId, coverUploadedAssetId: cover.uploadedId, backgroundCandidateAssetId: backgroundId, screenshotCandidateAssetIds: screenshotIds },
     defaultDosEntry,
+    tagIds: tags.map((tag) => tag.tagId),
   };
 }
 
@@ -205,7 +209,7 @@ function scrapeResult(run: ReviewScrapeRun) {
   return run.evidenceCount === 0 ? "没有可查询的文件特征" : "没有找到可用信息";
 }
 
-export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId = null, sourceDisplayName = "游戏文件", platformInstanceName = "游戏目录", children }: { review: ReviewWorkspace; returnTo?: string; nextItemId?: string | null; sourceDisplayName?: string; platformInstanceName?: string; children?: ReactNode }) {
+export function ReviewActions({ review, activeTags = [], returnTo = "/admin/reviews", nextItemId = null, sourceDisplayName = "游戏文件", platformInstanceName = "游戏目录", children }: { review: ReviewWorkspace; activeTags?: TagReference[]; returnTo?: string; nextItemId?: string | null; sourceDisplayName?: string; platformInstanceName?: string; children?: ReactNode }) {
   const router = useRouter();
   const { context } = useAuth();
   const validationWasCurrent = review.validation?.current ?? false;
@@ -219,6 +223,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const [backgroundId, setBackgroundId] = useState<string | null>(review.selectedAssets.backgroundCandidateAssetId);
   const [screenshotIds, setScreenshotIds] = useState(review.selectedAssets.screenshotCandidateAssetIds);
   const [defaultDosEntry, setDefaultDosEntry] = useState<string | null>(review.defaultDosEntry);
+  const [tags, setTags] = useState<TagReference[]>(review.tags ?? []);
   const [candidates, setCandidates] = useState(review.candidates);
   const [uploadedAssets, setUploadedAssets] = useState(review.uploadedAssets ?? []);
   const [comparison, setComparison] = useState<Comparison | null>(null);
@@ -243,9 +248,9 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
   const validationRefreshRequestedRef = useRef(false);
   const latestKeyRef = useRef("");
   const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
-  const serverPayload = toPayload(initialMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: review.selectedAssets.coverUploadedAssetId ?? null }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry);
+  const serverPayload = toPayload(initialMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: review.selectedAssets.coverUploadedAssetId ?? null }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, review.tags ?? []);
   const lastSavedKeyRef = useRef(JSON.stringify(serverPayload));
-  const draftPayload = useMemo(() => toPayload(form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry), [form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry]);
+  const draftPayload = useMemo(() => toPayload(form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags), [form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags]);
   const draftKey = useMemo(() => JSON.stringify(draftPayload), [draftPayload]);
   const latestPayloadRef = useRef(draftPayload);
   const validationStatus = currentValidation?.status ?? null;
@@ -264,6 +269,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     setCandidates(updated.candidates);
     setUploadedAssets(updated.uploadedAssets ?? []);
     setRuntimeScreenshot(updated.runtimeScreenshot ?? null);
+    setTags(updated.tags ?? []);
     router.refresh();
     return updated;
   }, [review.itemId, router]);
@@ -656,7 +662,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
     </nav>
     <div className="review-workflow-top">
       <section id="review-step-source" className="review-workflow-summary-card">
-        <div className="review-workflow-summary-copy"><StatusPill tone="info">来源：{review.sourceMedia ? `Pegasus · ${review.sourceMedia.sourceLabel ?? sourceDisplayName}` : sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><div className="review-workflow-summary-pills"><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{validationReady ? "运行检查通过" : screenshotOverride ? "已取得运行截图" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId || review.sourceMedia ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : review.sourceMedia ? "已读取 Pegasus 信息" : "未找到游戏信息"}</StatusPill></div></div>
+        <div className="review-workflow-summary-copy"><StatusPill tone="info">来源：{review.sourceMedia ? `Pegasus · ${review.sourceMedia.sourceLabel ?? sourceDisplayName}` : sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><TagChips tags={tags} /><div className="review-workflow-summary-pills"><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{validationReady ? "运行检查通过" : screenshotOverride ? "已取得运行截图" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId || review.sourceMedia ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : review.sourceMedia ? "已读取 Pegasus 信息" : "未找到游戏信息"}</StatusPill></div></div>
         <aside className="review-runtime-screenshot" aria-label="第 5 秒运行截图"><span>第 5 秒运行截图</span>{runtimeScreenshot ? <Image src={runtimeScreenshot.url} alt={`${form.title || sourceDisplayName} 的第 5 秒运行截图`} width={runtimeScreenshot.widthPx} height={runtimeScreenshot.heightPx} unoptimized /> : <div><strong>{validationReady ? "等待生成" : "等待运行截图"}</strong><small>运行游戏后在第 5 秒自动截取，可作为管理员放行依据</small></div>}</aside>
       </section>
       <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p>{validationReady ? "运行检查已经通过，可以发布。" : screenshotOverride ? "已取得第 5 秒运行截图，可由管理员确认后发布。" : "可先运行游戏；取得第 5 秒截图后允许人工放行。"}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div><div className="review-workflow-preview-actions"><button type="button" className="button secondary review-revalidate" aria-busy={busy === "重新运行检查"} disabled={busy !== null || saveState === "error"} onClick={revalidateAndCapture}>{busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button><button type="button" className="button secondary review-launch-preview" aria-busy={busy === "运行游戏"} disabled={busy !== null || saveState === "error"} onClick={() => void launchPreview()}>{busy === "运行游戏" ? "正在准备…" : "运行游戏"}</button></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
@@ -668,6 +674,7 @@ export function ReviewActions({ review, returnTo = "/admin/reviews", nextItemId 
       <section id="review-step-publish" className="panel review-workflow-metadata">
         <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介和封面；修改会实时保存。</p></div><div className="review-workflow-query-actions">{jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}<button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>
         <div className="panel-body review-workflow-editor">
+          <div className="review-tag-editor"><TagPicker label="游戏标签" options={activeTags} selected={tags} onChange={setTags} disabled={busy !== null} description="与其他发布信息一起实时保存；通过审核后会原子复制到游戏。" /></div>
           <div className="review-workflow-publish-layout">
             <div className="form-grid review-workflow-metadata-fields">
               <label className="field full">标题<input value={form.title} onChange={(event) => updateField("title", event.target.value)} maxLength={200} /></label>

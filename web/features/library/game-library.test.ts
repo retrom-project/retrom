@@ -26,8 +26,8 @@ function game(overrides: Partial<GameSummary> & Pick<GameSummary, "gameId" | "ti
 
 describe("game library projection", () => {
   const games = [
-    game({ gameId: "1941", title: "1941", createdAtMs: nowMs - 30_000, lastPlayedAtMs: nowMs - 2_000 }),
-    game({ gameId: "1943", title: "1943", createdAtMs: nowMs - 20_000, lastPlayedAtMs: nowMs - 1_000 }),
+    game({ gameId: "1941", title: "1941", createdAtMs: nowMs - 30_000, lastPlayedAtMs: nowMs - 2_000, tags: [{ tagId: "arcade-action", name: "动作" }] }),
+    game({ gameId: "1943", title: "1943", createdAtMs: nowMs - 20_000, lastPlayedAtMs: nowMs - 1_000, tags: [{ tagId: "arcade-action", name: "动作" }, { tagId: "coop", name: "双人合作" }] }),
     game({ gameId: "doom", title: "DOOM", platform: { id: "dos", name: "MS-DOS" }, platformInstance: { id: "dos-classics", name: "DOS 经典" }, defaultCore: { id: "dosbox_pure", name: "DOSBox Pure" }, createdAtMs: nowMs - 5_000 }),
   ];
 
@@ -35,6 +35,8 @@ describe("game library projection", () => {
     expect(filterLibraryGames(games, { query: "FinalBurn", platformId: "", platformInstanceId: "", sort: "RECENT_DESC" }).map((item) => item.gameId)).toEqual(["1943", "1941"]);
     expect(filterLibraryGames(games, { query: "", platformId: "dos", platformInstanceId: "dos-classics", sort: "ADDED_DESC" }).map((item) => item.gameId)).toEqual(["doom"]);
     expect(filterLibraryGames(games, { query: "", platformId: "", platformInstanceId: "", sort: "TITLE_ASC" }).map((item) => item.gameId)).toEqual(["1941", "1943", "doom"]);
+    expect(filterLibraryGames(games, { query: "合作", platformId: "", platformInstanceId: "", sort: "TITLE_ASC" }).map((item) => item.gameId)).toEqual(["1943"]);
+    expect(filterLibraryGames(games, { query: "", platformId: "", platformInstanceId: "", tagId: "arcade-action", sort: "TITLE_ASC" }).map((item) => item.gameId)).toEqual(["1941", "1943"]);
   });
 
   it("builds deterministic platform counts and dependent collections", () => {

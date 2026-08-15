@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-00[1-9]|ACC-RUN-00[234]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-BIOS-00[67]|ACC-PEG-005|ACC-MEDIA-001)$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-00N|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-MEDIA-001" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-00[1-9]|ACC-RUN-00[234]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-005|ACC-MEDIA-001)$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-00N|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-MEDIA-001" >&2
   exit 2
 fi
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -17,12 +17,16 @@ web_origin="http://localhost:${web_port}"
 process_id=""
 acceptance_dist_dir=".next-acceptance-${case_id,,}"
 dev_state="$temporary_root/dev-state"
+cp -p "$repository_root/web/next-env.d.ts" "$temporary_root/next-env.d.ts"
+cp -p "$repository_root/web/tsconfig.json" "$temporary_root/tsconfig.json"
 
 cleanup() {
   if [[ -n "$process_id" ]]; then
     RETROM_DEV_STATE_DIR="$dev_state" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
     wait "$process_id" 2>/dev/null || true
   fi
+  cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
+  cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
   rm -rf -- "$temporary_root"
   rm -rf -- "$repository_root/web/$acceptance_dist_dir"
 }
@@ -94,6 +98,9 @@ if [[ "$case_id" == "ACC-UI-009" ]]; then
 fi
 if [[ "$case_id" == "ACC-FAV-003" || "$case_id" == "ACC-FAV-004" ]]; then
   specification="e2e/favorites.spec.ts"
+fi
+if [[ "$case_id" == "ACC-TAG-005" ]]; then
+  specification="e2e/tags.spec.ts"
 fi
 if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" || "$case_id" == "ACC-PEG-005" || "$case_id" == "ACC-MEDIA-001" ]]; then
   specification="e2e/server-import.spec.ts"

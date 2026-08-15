@@ -353,6 +353,20 @@ Migration 030 受控重建两个 Pegasus 主表和受影响 trigger，保留 029
 
 当前阻断 Validation 的第 5 秒截图可作为管理员放行证据；Approve 仍需在同一事务复核来源、目标、默认 CoreArtifact、active DAT 和配置版本，并把截图 ID 与 `REVIEW_SCREENSHOT_OVERRIDE` 写入不可变审核证据。032→033 与 fresh 001→033 必须同构并通过 foreign-key/integrity 检查。
 
-## 18. 统一验收入口
+## 18. Migration 034：实例级游戏标签
 
-schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。
+| 表/变更 | 唯一职责与稳定不变量 |
+| --- | --- |
+| `tags` | `id PK`、规范 `name/name_key/search_text`、`status ACTIVE/DELETED`、`version`、创建/更新 actor 与 `*_at_ms`、可空 `deleted_at_ms`。活动 `name_key` partial unique；DELETED 必须有删除时刻且不能恢复、改名或硬删；稳定创建字段不可改。 |
+| `game_tags` | `(game_id,tag_id) PK`、分配 actor/time；反向索引 `(tag_id,game_id)`。关系无顺序、不可 update，只能引用 ACTIVE Tag，每 Game 最多 20 个活动关系。历史 DELETED 关系保留且不计上限。 |
+| `review_draft_tags` | `(review_draft_id,tag_id) PK`、分配 actor/time；反向索引。只在所属 ImportItem 为 `REVIEW_PENDING` 时改变活动关系，每 Draft 最多 20；决定后关系冻结保留。 |
+| `pegasus_collection_tags` | `(collection_id,tag_id) PK`、分配 actor/time；反向索引。只在所属 PegasusImport 为 `AWAITING_MAPPING` 时改变活动关系，每 Collection 最多 20。 |
+| `pegasus_import_collections.tag_snapshot_json` | 非空合法 JSON array，默认 `[]`；mapping PUT 保存按 Tag 名称稳定排序的 `{tagId,name}` 证据，start 后与其余映射字段共同冻结。 |
+
+Tag 名称的 NFC、Unicode 空白折叠、case-fold、control 拒绝、1–40 code point/160 byte 和实例 1,000 上限在唯一 Tagging service 执行；数据库对长度、活动唯一、owner 状态和关系上限再 fail closed。关系集合变化推进 touched Tag 与 owner version。Tag DELETE 在短事务内写 tombstone、推进全部受影响 Game、待审核 ReviewDraft 和未完成 Pegasus aggregate/mapping version，并保留关系和 AuditEvent。Tag 不进入 metadata/content/variant/runtime 表；完整领域语义见 [`game-tags.md`](./game-tags.md)。
+
+033→034 只新增上述表、索引/trigger和带默认值的列，既有 Pegasus Collection 得到 `[]`；升级库与新建库都必须通过 `foreign_key_check` 和 `integrity_check`。备份直接包含这些 SQLite 行，不新增 Blob reference。
+
+## 19. 统一验收入口
+
+schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；标签由 `ACC-TAG-001`–`005`；状态机与 lease 由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

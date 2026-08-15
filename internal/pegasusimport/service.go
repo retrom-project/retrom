@@ -21,6 +21,7 @@ import (
 	"retrom/internal/libraryimport"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/serversource"
+	"retrom/internal/tagging"
 )
 
 var (
@@ -28,6 +29,7 @@ var (
 	ErrMetadataAbsent   = errors.New("PEGASUS_METADATA_NOT_FOUND")
 	ErrScanLimit        = errors.New("PEGASUS_SCAN_LIMIT_EXCEEDED")
 	ErrMapping          = errors.New("PEGASUS_MAPPING_INCOMPLETE")
+	ErrVersionConflict  = errors.New("VERSION_CONFLICT")
 	ErrNoSelection      = errors.New("PEGASUS_NO_COLLECTION_SELECTED")
 	ErrSourceChanged    = errors.New("PEGASUS_SOURCE_CHANGED")
 	ErrExpired          = errors.New("PEGASUS_PLAN_EXPIRED")
@@ -101,51 +103,54 @@ type Summary struct {
 }
 
 type Collection struct {
-	ID                         string   `json:"id"`
-	MetadataRelativePath       string   `json:"metadataRelativePath"`
-	SegmentOrdinal             int64    `json:"segmentOrdinal"`
-	Name                       string   `json:"name"`
-	ShortName                  *string  `json:"shortName"`
-	Description                string   `json:"description"`
-	GameCount                  int64    `json:"gameCount"`
-	IssueCount                 int64    `json:"issueCount"`
-	MappingAction              *string  `json:"mappingAction"`
-	TargetPlatformInstanceID   *string  `json:"targetPlatformInstanceId"`
-	TargetPlatformInstanceName *string  `json:"targetPlatformInstanceName"`
-	TargetDefaultCoreID        *string  `json:"targetDefaultCoreId"`
-	TargetDefaultCoreName      *string  `json:"targetDefaultCoreName"`
-	IgnoredRules               []string `json:"ignoredRules"`
-	WarningFields              []string `json:"warningFields"`
+	ID                         string              `json:"id"`
+	MetadataRelativePath       string              `json:"metadataRelativePath"`
+	SegmentOrdinal             int64               `json:"segmentOrdinal"`
+	Name                       string              `json:"name"`
+	ShortName                  *string             `json:"shortName"`
+	Description                string              `json:"description"`
+	GameCount                  int64               `json:"gameCount"`
+	IssueCount                 int64               `json:"issueCount"`
+	MappingAction              *string             `json:"mappingAction"`
+	TargetPlatformInstanceID   *string             `json:"targetPlatformInstanceId"`
+	TargetPlatformInstanceName *string             `json:"targetPlatformInstanceName"`
+	TargetDefaultCoreID        *string             `json:"targetDefaultCoreId"`
+	TargetDefaultCoreName      *string             `json:"targetDefaultCoreName"`
+	IgnoredRules               []string            `json:"ignoredRules"`
+	WarningFields              []string            `json:"warningFields"`
+	TagSnapshot                []tagging.Reference `json:"tagSnapshot"`
 }
 
 type Mapping struct {
-	CollectionID       string `json:"collectionId"`
-	Action             string `json:"action"`
-	PlatformInstanceID string `json:"platformInstanceId,omitempty"`
+	CollectionID       string   `json:"collectionId"`
+	Action             string   `json:"action"`
+	PlatformInstanceID string   `json:"platformInstanceId,omitempty"`
+	TagIDs             []string `json:"tagIds"`
 }
 
 type Item struct {
-	ID                         string           `json:"id"`
-	Title                      string           `json:"title"`
-	CollectionID               *string          `json:"collectionId"`
-	CollectionName             *string          `json:"collectionName"`
-	TargetPlatformInstanceID   *string          `json:"targetPlatformInstanceId"`
-	TargetPlatformInstanceName *string          `json:"targetPlatformInstanceName"`
-	MetadataRelativePath       string           `json:"metadataRelativePath"`
-	ExecutionState             string           `json:"executionState"`
-	ContentKind                *string          `json:"contentKind"`
-	Media                      ItemMedia        `json:"media"`
-	Warnings                   []map[string]any `json:"warnings"`
-	DiscoveryCode              *string          `json:"discoveryCode"`
-	ErrorCode                  *string          `json:"errorCode"`
-	FailureDetails             *FailureDetails  `json:"failureDetails"`
-	RuntimeCheck               *RuntimeCheck    `json:"runtimeCheck"`
-	Retryable                  bool             `json:"retryable"`
-	ReviewItemID               *string          `json:"reviewItemId"`
-	PublishedGameID            *string          `json:"publishedGameId"`
-	ExistingGameID             *string          `json:"existingGameId"`
-	ExistingMatches            []ExistingMatch  `json:"existingMatches"`
-	UpdatedAtMS                int64            `json:"updatedAtMs"`
+	ID                         string              `json:"id"`
+	Title                      string              `json:"title"`
+	CollectionID               *string             `json:"collectionId"`
+	CollectionName             *string             `json:"collectionName"`
+	TargetPlatformInstanceID   *string             `json:"targetPlatformInstanceId"`
+	TargetPlatformInstanceName *string             `json:"targetPlatformInstanceName"`
+	MetadataRelativePath       string              `json:"metadataRelativePath"`
+	ExecutionState             string              `json:"executionState"`
+	ContentKind                *string             `json:"contentKind"`
+	Media                      ItemMedia           `json:"media"`
+	Warnings                   []map[string]any    `json:"warnings"`
+	DiscoveryCode              *string             `json:"discoveryCode"`
+	ErrorCode                  *string             `json:"errorCode"`
+	FailureDetails             *FailureDetails     `json:"failureDetails"`
+	RuntimeCheck               *RuntimeCheck       `json:"runtimeCheck"`
+	Retryable                  bool                `json:"retryable"`
+	ReviewItemID               *string             `json:"reviewItemId"`
+	PublishedGameID            *string             `json:"publishedGameId"`
+	ExistingGameID             *string             `json:"existingGameId"`
+	ExistingMatches            []ExistingMatch     `json:"existingMatches"`
+	UpdatedAtMS                int64               `json:"updatedAtMs"`
+	Tags                       []tagging.Reference `json:"tags"`
 }
 
 type FailureDetails struct {
@@ -211,6 +216,7 @@ type Service struct {
 	importer *libraryimport.Service
 	roots    map[string]Root
 	now      func() time.Time
+	tags     *tagging.Service
 	wake     chan struct{}
 	stop     chan struct{}
 	stopOnce sync.Once
@@ -235,7 +241,7 @@ func New(
 		}
 	}
 	return &Service{
-		database: database, blobs: blobs, importer: importer, roots: roots, now: now,
+		database: database, blobs: blobs, importer: importer, roots: roots, now: now, tags: tagging.New(database, now),
 		wake: make(chan struct{}, 1), stop: make(chan struct{}),
 	}
 }
@@ -396,6 +402,7 @@ AND state='RUNNING'`, now); err != nil {
 
 type work struct {
 	JobID, ImportID, Kind, RootID, RootDigest, RelativePath string
+	CreatedByUserID                                         string
 	ExecutionNo, Attempt, DeadlineAtMS                      int64
 }
 
@@ -409,13 +416,14 @@ func (service *Service) claim(ctx context.Context) (work, bool) {
 	var unit work
 	if err := transaction.QueryRowContext(ctx, `
 SELECT job.id,import.id,job.kind,import.root_id,import.root_config_digest,import.source_relative_path,
+import.created_by_user_id,
 job.execution_no,job.attempt_count
 FROM jobs job JOIN pegasus_imports import ON import.id=job.scope_id
 WHERE job.scope_type='PEGASUS_IMPORT' AND job.kind IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT')
 AND job.state='QUEUED' AND job.available_at_ms<=?
 ORDER BY job.available_at_ms,job.created_at_ms,job.id LIMIT 1
 `, now).Scan(&unit.JobID, &unit.ImportID, &unit.Kind, &unit.RootID, &unit.RootDigest,
-		&unit.RelativePath, &unit.ExecutionNo, &unit.Attempt); err != nil {
+		&unit.RelativePath, &unit.CreatedByUserID, &unit.ExecutionNo, &unit.Attempt); err != nil {
 		return work{}, false
 	}
 	duration := int64((30 * time.Minute) / time.Millisecond)
