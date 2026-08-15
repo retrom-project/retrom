@@ -31,16 +31,9 @@ expect_failure() {
 }
 
 before_hash="$(worktree_hash)"
-rsync -a \
-  --exclude '.git/' \
-  --exclude '.artifacts/' \
-  --exclude '.cache/' \
-  --exclude 'bin/' \
-  --exclude 'web/.next/' \
-  --exclude 'web/node_modules/' \
-  --exclude 'web/playwright-report/' \
-  --exclude 'web/test-results/' \
-  "$repository_root/" "$temporary_root/repository/"
+git -C "$repository_root" ls-files --cached --others --exclude-standard -z | \
+  rsync -a --from0 --files-from=- --ignore-missing-args \
+    "$repository_root/" "$temporary_root/repository/"
 sentinel_root="$temporary_root/repository"
 ln -s "$repository_root/web/node_modules" "$sentinel_root/web/node_modules"
 
@@ -120,8 +113,8 @@ if missing:
 missing_multidisc = [f"ACC-MDISC-{number:03d}" for number in range(1, 9) if f"ACC-MDISC-{number:03d}" not in catalog]
 if missing_multidisc:
     raise SystemExit(f"acceptance catalog omitted multi-disc cases: {missing_multidisc}")
-if len(catalog) != 123:
-    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 123")
+if len(catalog) != 156:
+    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 156")
 print(f"acceptance_catalog={len(catalog)} core_cases={len(module.CORE_CASES)}")
 PY
 

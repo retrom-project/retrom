@@ -2935,6 +2935,14 @@ type ApprovalDecision struct {
 	ExternalAssets      []ExternalAsset
 }
 
+type approvalOptions struct {
+	strictReady              bool
+	expectedValidationID     string
+	expectedSourceSnapshotID string
+	bulkApprovalID           string
+	beforeCommit             func(context.Context, *sql.Tx, Approved) error
+}
+
 type ExternalAsset struct {
 	Kind      string
 	BlobID    string
@@ -3152,12 +3160,22 @@ func (service *Service) ApproveWithReason(
 	return service.ApproveWithDecision(ctx, itemID, expectedVersion, ApprovalDecision{Reason: reason})
 }
 
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) ApproveWithDecision(
 	ctx context.Context,
 	itemID string,
 	expectedVersion int64,
 	decision ApprovalDecision,
+) (Approved, error) {
+	return service.approveWithOptions(ctx, itemID, expectedVersion, decision, approvalOptions{})
+}
+
+//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
+func (service *Service) approveWithOptions(
+	ctx context.Context,
+	itemID string,
+	expectedVersion int64,
+	decision ApprovalDecision,
+	options approvalOptions,
 ) (Approved, error) {
 	var decisionReason any
 	if decision.Reason != nil {
@@ -3301,6 +3319,15 @@ AND active.is_active=1)
 			&backgroundID,
 		)
 	if err != nil || state != "REVIEW_PENDING" || draftVersion != expectedVersion {
+		return Approved{}, ErrInvalid
+	}
+	if options.strictReady && validationStatus != "READY" {
+		return Approved{}, ErrInvalid
+	}
+	if options.expectedValidationID != "" && validationID != options.expectedValidationID {
+		return Approved{}, ErrInvalid
+	}
+	if options.expectedSourceSnapshotID != "" && sourceSnapshotID != options.expectedSourceSnapshotID {
 		return Approved{}, ErrInvalid
 	}
 	if decision.SourceKind == "" {
@@ -3744,6 +3771,10 @@ WHERE id=?
 		"contentIdentityDigest": contentIdentityDigest,
 		"tags":                  publishedTags,
 	}
+	if options.bulkApprovalID != "" {
+		diff["approvalMode"] = "QUICK_STRICT_READY"
+		diff["bulkApprovalId"] = options.bulkApprovalID
+	}
 	if screenshotOverride {
 		diff["runtimeScreenshotOverride"] = map[string]any{
 			"screenshotId": approvalScreenshotID.String,
@@ -3856,10 +3887,16 @@ WHERE id=?
 	); err != nil {
 		return Approved{}, err
 	}
+	approved := Approved{GameID: gameID.String(), EventID: eventID.String(), Status: "PUBLISHED"}
+	if options.beforeCommit != nil {
+		if err := options.beforeCommit(ctx, transaction, approved); err != nil {
+			return Approved{}, err
+		}
+	}
 	if err := transaction.Commit(); err != nil {
 		return Approved{}, fmt.Errorf("libraryimport/service: %w", err)
 	}
-	return Approved{GameID: gameID.String(), EventID: eventID.String(), Status: "PUBLISHED"}, nil
+	return approved, nil
 }
 
 func copyCandidateReviewAsset(

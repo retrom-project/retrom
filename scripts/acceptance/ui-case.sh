@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-00[1-9]|ACC-RUN-00[234]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-005|ACC-MEDIA-001)$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-00N|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-MEDIA-001" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-00[234]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-005|ACC-MEDIA-001)$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-MEDIA-001" >&2
   exit 2
 fi
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -82,7 +82,7 @@ if [[ "$case_id" == "ACC-BIOS-007" ]]; then
   python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286
 fi
 
-if [[ "$case_id" == "ACC-UI-008" ]]; then
+if [[ "$case_id" == "ACC-UI-008" || "$case_id" == "ACC-UI-010" ]]; then
   scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 fi
 if [[ "$case_id" == "ACC-RUN-004" ]]; then
@@ -105,7 +105,12 @@ fi
 if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" || "$case_id" == "ACC-PEG-005" || "$case_id" == "ACC-MEDIA-001" ]]; then
   specification="e2e/server-import.spec.ts"
 fi
-playwright_args=(playwright test "$specification" --grep "$case_id")
+playwright_grep="$case_id"
+if [[ "$case_id" == "ACC-UI-010" ]]; then
+  # ACC-UI-008 performs the stateful draft/decision setup consumed by 010.
+  playwright_grep="ACC-UI-008|ACC-UI-010"
+fi
+playwright_args=(playwright test "$specification" --grep "$playwright_grep")
 if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-MEDIA-001" ]]; then
   playwright_args+=(--project=chrome-1280)
 else

@@ -511,7 +511,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await expect(rows).toHaveCount(60);
   expect(new Set(await rows.evaluateAll((elements) => elements.map((element) => element.getAttribute("data-review-item")))).size).toBe(60);
   await expect(rows.first()).toContainText("可以发布");
-  await expect(page.getByRole("button", { name: /批量/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "快速审批" })).toBeVisible();
 
   await page.getByRole("link", { name: "清除" }).click();
   await expect(page).toHaveURL(/\/admin\/reviews$/);
@@ -668,6 +668,27 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   } while (cursor);
   expect(remaining).toHaveLength(58);
   expect(remaining.some((item) => item.itemId === itemId(3) || item.itemId === itemId(58))).toBe(false);
+});
+
+test("ACC-UI-010 strict READY quick approval previews and publishes the complete filtered scope", async ({ page }, testInfo) => {
+  const primaryJob = "20000000-0000-7000-8000-000000000001";
+  await page.goto(`/admin/reviews?importJobId=${primaryJob}`);
+
+  await page.getByRole("button", { name: "快速审批" }).click();
+  const previewDialog = page.getByRole("alertdialog", { name: "快速审批可直接发布的游戏" });
+  await expect(previewDialog).toBeVisible();
+  await expect(previewDialog.getByText("可自动发布").locator("..")).toContainText("1");
+  await expect(previewDialog.getByText("匹配待审核").locator("..")).toContainText("58");
+  await previewDialog.getByRole("button", { name: "确认快速发布 1 个游戏" }).click();
+
+  await expect(page).toHaveURL(/bulkApprovalId=[0-9a-f-]+/);
+  const result = page.locator(".review-bulk-status");
+  await expect(result.getByRole("heading", { name: "快速审批结果" })).toBeVisible({ timeout: 10_000 });
+  await expect(result).toContainText("已处理 1 / 1");
+  await expect(result.getByText("已发布").locator("..")).toContainText("1");
+  const published = result.getByRole("link", { name: /实时保存的标题.*PUBLISHED/ });
+  await expect(published).toHaveAttribute("href", /\/admin\/games\/[0-9a-f-]+/);
+  await page.screenshot({ path: evidencePath(testInfo, "review-bulk-approval-result.png"), fullPage: true });
 });
 
 test("ACC-RUN-002 one click requests fullscreen before launch and auto-starts the locked runtime", async ({ page }, testInfo) => {

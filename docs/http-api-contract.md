@@ -202,7 +202,15 @@ source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 re
 
 审核草稿 `PATCH /api/v1/admin/reviews/{id}` 使用 `If-Match`；通过与 Discard 分别为 `/approve`、`/discard`，必须有 Idempotency-Key。Approve 普通 body 可为 `{}`；Review ETag 或当前 Validation/来源证据漂移返回 `409 REVIEW_VALIDATION_STALE`。审核客户端收到该冲突后必须重新 GET Review；仅当目标目录、发布字段、素材选择、DOS entry 与标签集合和当前页面完全一致，最新 Review 又允许发布且没有 active Attachment 时，才可用新 ETag、新 Idempotency-Key 自动重试一次。字段发生并发变化、补传尚未完成、最新 Validation 不可发布或第二次仍冲突时必须停止并要求人工核对，不能用重试绕过乐观并发。若当前有完全相同内容的未删除游戏则返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED`，`details={contentIdentityDigest,games}`。继续发布必须重交 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":["..."]}`，ID 集合与事务内重查的当前 games 完全一致才成功；新增、减少、重复或未知 ID 均不接受，确认写入 ReviewEvent。历史端点只读，不提供修改或删除事件 API。
 
-### 5.1 Arcade Parent Attachment
+### 5.1 快速审批
+
+`GET /api/v1/admin/review-bulk-approval-preview` 接受审核列表同名的 `q/tagId/importJobId/pegasusImportId/platformInstanceId/blockerCode`，未知或重复 query 拒绝；不接受 sort/cursor/limit。它在一个只读快照中枚举完整筛选范围，返回规范 `scope`、`scopeDigest`、`candidateManifestDigest`、`generatedAtMs`、可空 `activeBulkApproval` 和 `counts={matched,strictReady,screenshotOnly,duplicate,attachmentActive,notReadyOrStale}`。`strictReady` 不含阻断截图人工放行、重复、active Attachment 或任何过期输入。
+
+`POST /api/v1/admin/review-bulk-approvals` 要求 ADMIN、同源/CSRF 与 Idempotency-Key，body 固定为 `{"scope":{...},"scopeDigest":"lowercase-sha256","candidateManifestDigest":"lowercase-sha256"}`。服务端在同一写事务重做预览；digest 不一致返回 `409 REVIEW_BULK_PREVIEW_STALE`，已有 active batch 返回 `409 REVIEW_BULK_APPROVAL_ACTIVE`，零 candidate 返回 `409 REVIEW_BULK_SCOPE_EMPTY`，超过 10,000 返回 `422 REVIEW_BULK_SCOPE_TOO_LARGE`。成功为 `202`，返回 aggregate summary、`ETag: "v1"`，并冻结每项 Review version/Validation/source snapshot 后启动 `REVIEW_BULK_APPROVE` Job。
+
+`GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}` 返回 aggregate、初始分类和当前结果计数并携带 ETag。`GET .../{bulkApprovalId}/items` 以 opaque cursor、`limit<=50` 和可空 `outcome=PUBLISHED|SKIPPED_DUPLICATE|SKIPPED_CHANGED|SKIPPED_NOT_READY|FAILED_FINAL|CANCELLED` 分页，返回冻结标题/目录、结果码及可空 Game/ReviewEvent 链接。`POST .../{bulkApprovalId}/cancel` 使用 `If-Match`、Idempotency-Key 和 `{"reason":"..."}`，只停止未提交 Item；`POST .../{bulkApprovalId}/retry` 使用当前 ETag、Idempotency-Key 和 `{}`，只接受 `FAILED/REVIEW_BULK_WORKER_UNAVAILABLE`。这两个领域 action 不能替换为通用 Job cancel/retry。所有状态变化均保持已提交 Game 与 ReviewEvent，不提供批次回滚或批量 Discard。
+
+### 5.2 Arcade Parent Attachment
 
 Arcade Review GET 额外返回 `effectiveSourceSnapshotId` 和可空 `arcadeDependencies`。非 Arcade 为 null；Arcade object 固定含 `machine/status/compatibilityCode/nodes/activeAttachment`。每个 node 含 `kind/machine/requiredBy/depth/expectedLogicalName/state/requiredEntryCount/requiredEntries/canAttach/attachment`；BIOS/Base 另有站内 `managementUrl`。`canAttach=true` 仅限当前有效 Validation 的 Parent `MISSING/MISMATCH`，且 Item 可编辑、无 active Attachment、非 Merged/CHD/cycle/config stale。历史 V1 由服务端投影，客户端不得推断 Parent 层级。
 
@@ -242,7 +250,7 @@ Content-Type: application/json
 | 422 | `REVIEW_PARENT_STRUCTURE_UNSUPPORTED` | 没有可校验根级 ROM entry、CHD 或其他不可补传结构；安全 clone 子目录 extra 本身不触发此错误 |
 | 503 | `REVIEW_PARENT_VALIDATION_UNAVAILABLE` | 可重试的存储或 worker 故障 |
 
-### 5.2 多盘 Import 与 Review Attachment
+### 5.3 多盘 Import 与 Review Attachment
 
 `POST /api/v1/admin/imports` 与 `POST /api/v1/admin/games/{gameId}/content-revisions` 的可选 `contentMode` 只允许 `STANDARD|MULTI_DISC_M3U_V1`，缺省严格为 STANDARD；MULTI 必须引用完整 DIRECTORY Upload，且 capability 由 feature flag、平台 profile 与当前 enabled artifact 共同决定。Review detail 的可空 `multiDisc` 只返回 playlist 摘要、ordered entries、PRESENT/MISSING、大小/hash、缺失引用、冻结的 `maxDiscs/maxTotalBytes` 与 attachment 状态，不返回 Blob ID、宿主路径或 capability。Attachment 状态包含 Job/Attachment version、可空 diagnostics 与仅在通用 Job 可人工重试时为 true 的 `canRetry`。
 
@@ -415,6 +423,7 @@ OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState`、`putRuntimePersisten
 | Review 运行预览 | `POST /admin/reviews/{itemId}/previews`：`{"clientCapabilities":{...}}` + `Idempotency-Key` | ADMIN 为当前有效来源、目标默认 CoreArtifact 和最新 Validation 创建短时 capability cookie；主 ROM 必需，现有 Parent/BIOS/external files 锁定，缺失依赖省略。返回 `previewId/playUrl/captureAllowed/captureAfterMs=5000`，不改变发布资格。 |
 | Review 显式重刮削 | `POST /admin/reviews/{itemId}/scrape-candidates`：`{"metadataProvider":"HASHEOUS|NONE"}` + `If-Match` + `Idempotency-Key` | Item 必须 REVIEW_PENDING；HASHEOUS bypass cache 创建新 Run/Job 并返回 `202`，NONE 同事务创建 COMPLETED Run/SUCCEEDED Job 并返回 `201`；两者追加 SCRAPE_REQUESTED，不自动改 draft selection。 |
 | Review 通过 / Discard | discard 与无重复的 approve body 可为 `{}`；服务端为旧客户端继续接受可空 `reason`，新 UI 不采集发布说明或丢弃原因。重复内容确认的 approve body 为 `{"duplicatePolicy":"ALLOW_NEW","acknowledgedGameIds":[uuid...]}`；`If-Match` + `Idempotency-Key` | approve 只接受当前匹配的 READY selected Validation，且 title trim 后为 1–200 Unicode code points、无控制字符；在同一写事务 claim 内容身份并重查同平台 current published contents。命中且未精确确认时返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 和当前 games；确认后原子创建发布实体、复制 ValidationFiles 与候选/人工上传封面并把确认写入事件，不得在事务内重扫/打包。discard 不删除证据。 |
+| Review 快速审批 | preview：`GET /admin/review-bulk-approval-preview` + 当前审核筛选；create：`POST /admin/review-bulk-approvals` + preview digests + Idempotency-Key；cancel/retry：aggregate `If-Match` + Idempotency-Key | 只冻结严格 READY、无重复/active Attachment 的当前候选。每项复用普通 approve 事务并原子写 batch result；截图 override 继续逐项。create stale/empty/active/too-large 使用上文稳定错误码，cancel 不回滚已发布项，worker infrastructure failure 才可领域 retry。 |
 | 游戏元信息 | `PATCH /admin/games/{gameId}` + `If-Match`；body 直接包含 title/description/developer/publisher/genre/players/releaseYear 中至少一个字段，例如 `{"title":"..."}`，不再包一层 metadata | 复制未变文本和当前完整 asset 清单，创建 MetadataRevision/Asset refs、更新 `games.search_text` 后切换 current。 |
 | 游戏媒体 | `POST /admin/games/{gameId}/assets`：`{"uploadFileId":"...","kind":"COVER|BACKGROUND|SCREENSHOT","ordinal":0}` + `If-Match` + `Idempotency-Key` | UploadFile 必须 COMPLETE 且为受支持图片；复制文本/未变媒体，创建完整新 MetadataRevision 清单并切换 current。COVER/BACKGROUND 的 ordinal 只能 0，SCREENSHOT 为 `0..31`。 |
 | 游戏内容 revision | `POST /admin/games/{gameId}/content-revisions`：`{"uploadId":"..."}` + Game `If-Match` + `Idempotency-Key` | UploadSession 必须 COMPLETE、未消费，且按游戏基础平台恰好组成一个内容项。事务快照 Game current content、目录/version、默认 core/artifact/DAT，创建 `GAME_FILE_REVISION` Job 和 whole-session consumption，返回 `202`。Worker 在事务外安全扫描/物化/验证；只有 READY 且快照仍一致时才原子创建 GameContentRevision/ContentFiles/VariantRevision、切换 Game content 与目标 Variant current。失败保留 Job/Upload 证据但不创建 revision、不改 current；配置/内容竞态及可修复依赖错误标为 retryable。 |
@@ -471,6 +480,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/import-items/{importItemId}/retry` | 仅重试 retryable item。 |
 | `GET /api/v1/admin/jobs/{jobId}`、`GET /api/v1/admin/jobs/{jobId}/events`、`POST /api/v1/admin/jobs/{jobId}/cancel`、`POST /api/v1/admin/jobs/{jobId}/retry` | Upload 终结、DAT/重校验/游戏内容 revision 等非 Import 长任务的快照、SSE、有界取消与显式 retryable 重试；Import 仍使用领域 route，`METADATA_SCRAPE` 人工重试使用 review/game 领域 route 新建批次。 |
 | `GET /api/v1/admin/reviews`、`GET /api/v1/admin/reviews/{importItemId}`、`PATCH /api/v1/admin/reviews/{importItemId}` | 待审核队列、详情（含 Validation、scrape run/candidate/asset）和草稿。 |
+| `GET /api/v1/admin/review-bulk-approval-preview`、`POST /api/v1/admin/review-bulk-approvals`、`GET /api/v1/admin/review-bulk-approvals/{bulkApprovalId}`、`GET .../{bulkApprovalId}/items`、`POST .../{bulkApprovalId}/cancel|retry` | 当前筛选的严格 READY 快速审批预览、冻结批次、进度/结果分页、有界取消及领域 retry。 |
 | `POST /api/v1/admin/reviews/{importItemId}/previews` | 创建审核专用 best-effort 子窗体运行快照；不发布、不累计游玩、不提供存档。 |
 | `POST /api/v1/admin/reviews/{importItemId}/scrape-candidates` | 审核中切换/重新执行 HASHEOUS 或 NONE 元信息源；显式请求不使用旧 cache。 |
 | `POST /api/v1/admin/reviews/{importItemId}/approve`、`POST /api/v1/admin/reviews/{importItemId}/discard` | 最终审核决策。 |
@@ -632,7 +642,7 @@ Pegasus route 全部要求 ADMIN，写请求执行同一 Origin/Fetch Metadata/C
 | `GET .../{id}/items` | `limit<=50`，cursor 绑定 `q/outcome/warning/collectionId`；返回映射、内容类型、COVER/VIDEO 状态、warning、全部 existing matches、可空 `reviewItemId` 与发布/已有 Game 链接 ID。execution state 包含 `REVIEW_PENDING/REVIEW_DISCARDED`；前者的 `reviewItemId` 是逐项审核入口。存在 library runtime validation 时同时返回 `runtimeCheck`：稳定 `status/code`、Core、machine、缺失/不匹配条目、parent/BIOS 逻辑依赖及其必需 entry、多盘缺失引用。内部失败时返回可空 `failureDetails`：stage、operation、causeCode、受限 technicalDetail、来源相对路径、观察文件数/上限，以及已创建时的内部 ImportJob/ImportItem ID；不得返回 Blob/hash、宿主绝对路径、凭据或未截断上游 payload。 |
 | `POST .../{id}/cancel|retry` | cancel 不回滚已发布 Game，也不删除已经交接的审核事项；retry 仅在 aggregate `retryable=true` 时创建新 execution。历史通用 `PEGASUS_RUNTIME_BLOCKED` 视为一次可重检项，复用原计划和映射、重新核对冻结的 source facts 并利用 CAS 去重，重检后写入真实 compatibility code；新产生的确定性 validation blocker进入审核处理，不作为 Pegasus retry 项。 |
 
-Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 `reviewPending/published/reviewDiscarded`。任务 `COMPLETED` 只表示审核事项准备结束，不表示全部游戏已发布；后续逐项审核会原子推进三个计数和 aggregate version。没有批量审核 route。
+Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 `reviewPending/published/reviewDiscarded`。任务 `COMPLETED` 只表示审核事项准备结束，不表示全部游戏已发布；后续逐项审核或严格 READY 快速审批的每个成功 Item 都原子推进三个计数和 aggregate version。快速审批使用独立 aggregate route，不在 Pegasus route 内建立第二套发布动作。
 
 稳定错误包括 `PEGASUS_METADATA_NOT_FOUND`、`PEGASUS_SCAN_LIMIT_EXCEEDED`、`PEGASUS_MAPPING_INCOMPLETE`、`PEGASUS_NO_COLLECTION_SELECTED`、`PEGASUS_SOURCE_CHANGED`、`PEGASUS_PLAN_EXPIRED`、`PEGASUS_IMPORT_ACTIVE`、`PEGASUS_LIBRARY_IMPORT_FAILED`、`SERVER_IMPORT_ROOT_CHANGED` 与 `SERVER_IMPORT_SOURCE_NOT_RESTORED`；Item/warning 使用 OpenAPI 的封闭状态与稳定 code。`failureDetails.causeCode` 至少区分 `SOURCE_FILE_LIMIT_EXCEEDED`、`LIBRARY_IMPORT_INPUT_INVALID`、`MULTI_DISC_MODE_UNAVAILABLE`、`DATABASE_BUSY`、`DATABASE_CONSTRAINT_FAILED`、`OPERATION_TIMEOUT`、`OPERATION_CANCELLED`、`METADATA_JSON_INVALID` 与 `INTERNAL_OPERATION_FAILED`。library validation 的 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`ARCADE_CONTENT_MISSING_ENTRY`、`ARCADE_DEPENDENCY_MISMATCH`、`UNSUPPORTED_MERGED_ROMSET`、`UNSUPPORTED_CHD`、`ARCADE_DAT_UNAVAILABLE`、`ARCADE_DEPENDENCY_CYCLE` 与 `MULTI_DISC_FILE_MISSING` 等 compatibility code 必须原样保留，客户端不得根据 message 反推原因。
 

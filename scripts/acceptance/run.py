@@ -226,6 +226,12 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         180,
         "go test ./internal/jobs -run '^TestCancelAndRetryEnforceVersionedState$' -count=1 && go test ./internal/importing -run 'TestSevenZip' -count=1 && go test -tags=integration ./internal/libraryimport -run '^TestImportGroupsSingleArchiveMemberAndReportsEveryFile$' -count=1",
     ),
+    "ACC-IMP-009": (
+        240,
+        "go test ./internal/libraryimport ./internal/store -run 'TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence|TestReviewBulkMigrationUpgradesVersion36AndPreservesJobs' -count=1 && "
+        "go test -tags=integration ./internal/libraryimport -run '^TestReviewBulkApprovalPublishesStrictReadyCandidatesAtomically$' -count=1 -timeout=60s && "
+        "go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 -timeout=60s",
+    ),
     "ACC-DAT-001": (300, "go test -tags=integration ./internal/arcadedat ./internal/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-002": (
         180,
@@ -359,6 +365,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-UI-007": (180, "scripts/acceptance/ui-case.sh ACC-UI-007"),
     "ACC-UI-008": (180, "scripts/acceptance/ui-case.sh ACC-UI-008"),
     "ACC-UI-009": (180, "scripts/acceptance/ui-case.sh ACC-UI-009"),
+    "ACC-UI-010": (180, "scripts/acceptance/ui-case.sh ACC-UI-010"),
 }
 
 CORE_CASES = {

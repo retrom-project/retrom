@@ -548,6 +548,61 @@ paths:
       parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/TagIDQuery' }, { $ref: '#/components/parameters/ImportJobIDQuery' }, { $ref: '#/components/parameters/PegasusImportIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/BlockerCode' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit20' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/review-bulk-approval-preview:
+    get:
+      operationId: getAdminReviewBulkApprovalPreview
+      description: Recomputes the current filtered review scope and returns only strict READY candidates; screenshot-only overrides and duplicates are excluded.
+      parameters:
+        - { $ref: '#/components/parameters/Q' }
+        - { $ref: '#/components/parameters/TagIDQuery' }
+        - { $ref: '#/components/parameters/ImportJobIDQuery' }
+        - { $ref: '#/components/parameters/PegasusImportIDQuery' }
+        - { $ref: '#/components/parameters/PlatformInstanceIDQuery' }
+        - { $ref: '#/components/parameters/BlockerCode' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/review-bulk-approvals:
+    post:
+      operationId: postAdminReviewBulkApproval
+      description: Freezes the previewed strict READY candidates and starts a resumable sequential publication job.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/ReviewBulkApproval' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}:
+    parameters: [{ $ref: '#/components/parameters/BulkApprovalID' }]
+    get:
+      operationId: getAdminReviewBulkApproval
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/items:
+    parameters: [{ $ref: '#/components/parameters/BulkApprovalID' }]
+    get:
+      operationId: getAdminReviewBulkApprovalItems
+      parameters:
+        - name: outcome
+          in: query
+          schema: { type: string, enum: [PUBLISHED, SKIPPED_DUPLICATE, SKIPPED_CHANGED, SKIPPED_NOT_READY, FAILED_FINAL, CANCELLED] }
+        - { $ref: '#/components/parameters/Cursor' }
+        - { $ref: '#/components/parameters/Limit50' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/cancel:
+    parameters: [{ $ref: '#/components/parameters/BulkApprovalID' }]
+    post:
+      operationId: postAdminReviewBulkApprovalCancel
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Reason' }
+      responses:
+        '200': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/review-bulk-approvals/{bulkApprovalId}/retry:
+    parameters: [{ $ref: '#/components/parameters/BulkApprovalID' }]
+    post:
+      operationId: postAdminReviewBulkApprovalRetry
+      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '202': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/reviews/{importItemId}:
     parameters: [{ $ref: '#/components/parameters/ImportItemID' }]
     get:
@@ -2059,6 +2114,24 @@ components:
           maxItems: 100
           uniqueItems: true
           items: { type: string, format: uuid }
+    ReviewBulkApprovalScope:
+      type: object
+      additionalProperties: false
+      properties:
+        q: { type: string, maxLength: 200 }
+        tagId: { type: string, format: uuid }
+        importJobId: { type: string, format: uuid }
+        pegasusImportId: { type: string, format: uuid }
+        platformInstanceId: { type: string, format: uuid }
+        blockerCode: { type: string, maxLength: 120 }
+    ReviewBulkApprovalRequest:
+      type: object
+      additionalProperties: false
+      required: [scope, scopeDigest, candidateManifestDigest]
+      properties:
+        scope: { $ref: '#/components/schemas/ReviewBulkApprovalScope' }
+        scopeDigest: { type: string, pattern: '^[0-9a-f]{64}$' }
+        candidateManifestDigest: { type: string, pattern: '^[0-9a-f]{64}$' }
     MetadataFields:
       type: object
       additionalProperties: false
@@ -3303,6 +3376,7 @@ components:
     Reason: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReasonRequest' } } } }
     ApprovalReason: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApprovalReasonRequest' } } } }
     Approval: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ApprovalRequest' } } } }
+    ReviewBulkApproval: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReviewBulkApprovalRequest' } } } }
     Empty: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/EmptyRequest' } } } }
     ReplaceFavoriteFolders: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ReplaceFavoriteFoldersRequest' } } } }
     OrganizeFavorites: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/OrganizeFavoritesRequest' } } } }
@@ -3550,6 +3624,7 @@ components:
     PartNo: { name: partNo, in: path, required: true, schema: { type: integer, minimum: 0 } }
     ImportJobID: { name: importJobId, in: path, required: true, schema: { type: string, format: uuid } }
     ImportItemID: { name: importItemId, in: path, required: true, schema: { type: string, format: uuid } }
+    BulkApprovalID: { name: bulkApprovalId, in: path, required: true, schema: { type: string, format: uuid } }
     JobID: { name: jobId, in: path, required: true, schema: { type: string, format: uuid } }
     ReviewEventID: { name: reviewEventId, in: path, required: true, schema: { type: string, format: uuid } }
     CandidateID: { name: candidateId, in: path, required: true, schema: { type: string, format: uuid } }

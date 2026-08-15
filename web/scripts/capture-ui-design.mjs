@@ -40,6 +40,9 @@ const captures = [
   ["retrom-ui-pegasus-import-detail-4k.png", "admin-pegasus-import-detail", 3840, 2160],
   ["retrom-ui-admin-import-tasks-4k.png", "admin-import-tasks", 3840, 2160],
   ["retrom-ui-admin-review-4k.png", "admin-review", 3840, 2160],
+  ["retrom-ui-admin-review-bulk-approval-4k.png", "admin-review", 3840, 2160, "review-bulk-approval"],
+  ["retrom-ui-admin-review-bulk-progress-4k.png", "admin-review", 3840, 2160, "review-bulk-progress"],
+  ["retrom-ui-admin-review-bulk-cancel-4k.png", "admin-review", 3840, 2160, "review-bulk-cancel"],
   ["retrom-ui-admin-review-detail-4k.png", "admin-review", 3840, 2160, "review-detail"],
   ["retrom-ui-admin-review-attachment-4k.png", "admin-review", 3840, 2160, "review-attachment"],
   ["retrom-ui-admin-review-validating-4k.png", "admin-review", 3840, 2160, "review-validating"],
@@ -162,6 +165,9 @@ try {
     }
     if (variant === "debug") await frame.locator("#rt-player-debug").click();
     if (["review-detail", "review-attachment", "review-validating", "review-ready", "review-override", "review-compare"].includes(variant)) await frame.locator("[data-review-item]").first().click();
+    if (["review-bulk-approval", "review-bulk-progress", "review-bulk-cancel"].includes(variant)) await frame.locator("[data-open-review-bulk]").click();
+    if (["review-bulk-progress", "review-bulk-cancel"].includes(variant)) await frame.locator("[data-confirm-review-bulk]").click();
+    if (variant === "review-bulk-cancel") await frame.locator("[data-stop-review-bulk]").click();
     if (variant === "review-attachment") await frame.locator("[data-open-disc-drawer]").click();
     if (variant === "review-validating") {
       await frame.locator("[data-open-disc-drawer]").click();

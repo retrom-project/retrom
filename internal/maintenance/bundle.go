@@ -398,6 +398,47 @@ func Restore(ctx context.Context, configuration config.Maintenance, input, outpu
 	return manifest, nil
 }
 
+func fenceRestoredReviewBulk(ctx context.Context, transaction *sql.Tx, nowMS int64) error {
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE review_bulk_approval_items SET state='CANCELLED',outcome_code='RESTORE_INTERRUPTED',
+outcome_details_json=json_object('schemaVersion',1,'code','RESTORE_INTERRUPTED'),completed_at_ms=?
+WHERE bulk_approval_id IN (
+  SELECT id FROM review_bulk_approvals WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+) AND state IN ('PENDING','RUNNING')
+`, nowMS); err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored review bulk items: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE review_bulk_approvals SET state='FAILED',last_error_code='RESTORE_INTERRUPTED',
+processed_count=candidate_count,
+published_count=(SELECT count(*) FROM review_bulk_approval_items item
+  WHERE item.bulk_approval_id=review_bulk_approvals.id AND item.state='PUBLISHED'),
+skipped_duplicate_count=(SELECT count(*) FROM review_bulk_approval_items item
+  WHERE item.bulk_approval_id=review_bulk_approvals.id AND item.state='SKIPPED_DUPLICATE'),
+skipped_changed_count=(SELECT count(*) FROM review_bulk_approval_items item
+  WHERE item.bulk_approval_id=review_bulk_approvals.id AND item.state='SKIPPED_CHANGED'),
+skipped_not_ready_count=(SELECT count(*) FROM review_bulk_approval_items item
+  WHERE item.bulk_approval_id=review_bulk_approvals.id AND item.state='SKIPPED_NOT_READY'),
+failed_count=(SELECT count(*) FROM review_bulk_approval_items item
+  WHERE item.bulk_approval_id=review_bulk_approvals.id AND item.state='FAILED_FINAL'),
+cancelled_count=(SELECT count(*) FROM review_bulk_approval_items item
+  WHERE item.bulk_approval_id=review_bulk_approvals.id AND item.state='CANCELLED'),
+cancel_requested_at_ms=NULL,cancel_reason=NULL,completed_at_ms=?,version=version+1,updated_at_ms=?
+WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+`, nowMS, nowMS); err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored review bulk approvals: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE jobs SET state='FAILED',error_code='RESTORE_INTERRUPTED',error_retryable=0,
+finished_at_ms=?,leased_until_ms=NULL,heartbeat_at_ms=NULL,worker_id=NULL,
+cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
+WHERE kind='REVIEW_BULK_APPROVE' AND state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
+`, nowMS, nowMS); err != nil {
+		return fmt.Errorf("maintenance/bundle: fence restored review bulk jobs: %w", err)
+	}
+	return nil
+}
+
 //nolint:funlen,lll // Restore revocations and external-source task fencing are one atomic security boundary.
 func applyRestoreSecurityFence(ctx context.Context, database *sql.DB, now time.Time) error {
 	nowMS := now.UnixMilli()
@@ -443,6 +484,9 @@ WHERE kind IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT') AND state IN ('QUE
 `, nowMS, nowMS)
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored Pegasus jobs: %w", err)
+	}
+	if err := fenceRestoredReviewBulk(ctx, transaction, nowMS); err != nil {
+		return err
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE server_bios_import_items SET state='COMMIT_FAILED',outcome_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',

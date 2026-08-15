@@ -296,6 +296,10 @@
   .review-workflow-game { align-items: flex-start; }
   .review-workflow-game p { white-space: normal; overflow-wrap: anywhere; }
   .review-workflow-row .button { width: 100%; min-width: 0; }
+  .review-bulk-status-head { display: grid; }
+  .review-bulk-status-head .button { width: 100%; }
+  .review-bulk-stats { grid-template-columns: 1fr 1fr; }
+  .review-bulk-results a { align-items: flex-start; flex-direction: column; gap: 2px; }
   .review-history-list > article { min-height: 0; padding: 14px; grid-template-columns: minmax(0, 1fr); gap: 9px; }
   .review-overview-card { height: auto; min-height: 220px; }
   .review-source-package > summary { grid-template-columns: auto minmax(0, 1fr); }

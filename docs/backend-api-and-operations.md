@@ -124,7 +124,7 @@ web/components/           无业务状态的通用组件
 
 ## 6. 后台任务
 
-任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、游戏内容 revision/兼容重校验、孤儿 Blob 垃圾回收。精确 Job kind/scope 映射以数据模型为准，不另起一组同义名称。联机不增加 Job kind；Room 到期由 30 秒维护 ticker 执行短事务，frame/input/hash/state/reconnect 只存在于有界 Hub 内存。
+任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容 revision/兼容重校验、孤儿 Blob 垃圾回收。精确 Job kind/scope 映射以数据模型为准，不另起一组同义名称。联机不增加 Job kind；Room 到期由 30 秒维护 ticker 执行短事务，frame/input/hash/state/reconnect 只存在于有界 Hub 内存。
 
 SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#7-通用任务事件与审计) 的字段、领取索引、60 秒 lease、15 秒 heartbeat、并发上限和四次 attempt 退避。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但等待上限 15 分钟。
 
@@ -133,6 +133,8 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 运行中取消不是立即宣告完成：API 将 Job 置为 `CANCEL_REQUESTED`，当前 worker 在数据模型规定的有界检查点停止并清理 scratch 后才置 `CANCELLED`；lease 已过期时恢复器只能确认取消。所有成果提交都比较 state、lease token 和 cancel flag，防止旧 worker 在取消/重新领取后写入。UI/SSE 必须区分“正在取消”和“已取消”。
 
 不要把长时间哈希、网络请求、DAT 解析或归档扫描放在持有数据库写锁的事务中。先执行可重入计算，再用短事务提交结果和状态转换。
+
+快速审批在创建时冻结最多 10,000 个严格 READY Item，Worker 顺序领取并逐项调用唯一 Approve 服务；整个批次不得持有一个长写事务。每项成功的发布对象、ReviewEvent、普通/Pegasus 聚合和批次结果共用同一事务及 state/worker fence。取消在 Item 边界检查，重启只把未提交 RUNNING Item 恢复为 PENDING；restore 不继续旧批次。只有 worker 基础设施故障允许快速审批领域 retry，业务 skip/final failure 不通过 retry 复活。
 
 导入任务及审核语义见 [导入、刮削与审核](./import-and-review.md)。
 
