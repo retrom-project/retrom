@@ -71,6 +71,8 @@ Migration 033 在 032 之后替换审核 preview/screenshot trigger，不新增�
 
 Migration 034 在 033 之后增加 `tags/game_tags/review_draft_tags/pegasus_collection_tags`，并为 Pegasus Collection 墠加非空 `tag_snapshot_json`。它只新增表、索引、trigger 和带 `[]` 默认值的列；033 升级保留既有 Game/Review/Pegasus 数据并得到空标签集合。Tag tombstone 与历史关系不可硬删，运行时代码不得动态修补 schema。
 
+Migration 035 在 034 之后只替换 Pegasus ContentRevision 来源 trigger：旧 `PUBLISHING` 兼容边界仍锁定 Pegasus 初始 manifest，`REVIEW_PENDING` 发布则锁定一一关联 ReviewDraft 的当前有效来源快照，使 Parent ROM/多盘补传后的后继 manifest 可发布且仍保留 `SERVER_PEGASUS_IMPORT` 来源引用。034 升级与全新库 trigger 必须同构，运行时代码不得动态修补或改写历史 manifest。
+
 ## 4. 里程碑
 
 下列退出门禁只列“该里程碑结束时已经能完整执行”的 `ACC-*`。一个 Case 跨越多个模块时只能在所有前置都存在后首次列入，不能在较早里程碑记录“部分 PASS”；较早阶段以对应 package unit/integration/contract test 作为局部门禁，最终仍必须运行完整 Case。
@@ -149,7 +151,7 @@ Migration 034 在 033 之后增加 `tags/game_tags/review_draft_tags/pegasus_col
 
 范围：先同步正式契约与 OpenAPI，再落 Migration 028–030、Pegasus 文本 parser、外部目录安全 scanner、显式 Collection→游戏平台目录映射、异步 scan/import Worker、既有 library import/validation/review/publish 复用、重复内容投影、M3U+CHD 与 Arcade companion 装配。Worker 只复制、验证并生成普通审核事项；只有管理员逐项 Approve 才创建 Game，Discard 保留审计，一期不提供批量通过。前端在服务器导入页接通等权能力卡、三步 Drawer、可恢复进度、批次限定审核入口和详情筛选；游戏媒体增加 MP4/WebM VIDEO revision，详情 Hero 使用受可见性、页面前台、播放失败、用户暂停与 reduced-motion 约束的渐进播放。
 
-退出门禁：完整执行 `ACC-PEG-001`–`005`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。030 的 029 升级路径和全新库 schema 必须同构，并证明审核前零 Game、Approve/Discard 原子联动及交接崩溃恢复不重复内部 ImportItem；使用授权本地 Pegasus 样例完成隔离服务实测，正式 UI 源、导出稿和 1280/2560/4K 快照同步后才可删除临时设计目录。
+退出门禁：完整执行 `ACC-PEG-001`–`005`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。030 的 029 升级路径、035 的 034 升级路径和全新库 schema 必须同构，并证明审核前零 Game、Approve/Discard 原子联动、Pegasus Parent 后继快照可发布及交接崩溃恢复不重复内部 ImportItem；使用授权本地 Pegasus 样例完成隔离服务实测，正式 UI 源、导出稿和 1280/2560/4K 快照同步后才可删除临时设计目录。
 
 ### M12：受限异地联机垂直切片
 

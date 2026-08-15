@@ -32,6 +32,16 @@ import (
 
 func TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t *testing.T) {
 	t.Parallel()
+	testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t, false)
+}
+
+func TestPegasusArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot(t *testing.T) {
+	t.Parallel()
+	testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t, true)
+}
+
+func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t *testing.T, pegasus bool) {
+	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
@@ -65,6 +75,9 @@ func TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 		t.Fatalf("child import = %#v, error=%v", created, err)
 	}
 	itemID, version, snapshotID, validationID := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	if pegasus {
+		linkReviewToPegasusOrigin(t, database.SQL, created.ImportJobID, itemID, snapshotID)
+	}
 	view, found, err := importer.ReviewArcadeDependencies(ctx, itemID)
 	if err != nil {
 		t.Fatal(err)
@@ -161,6 +174,19 @@ SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
 	if err != nil {
 		t.Fatal(err)
 	}
+	if pegasus {
+		var contentSource, pegasusState string
+		if err := database.SQL.QueryRowContext(ctx, `
+SELECT content.source_kind,item.execution_state
+FROM games game
+JOIN game_content_revisions content ON content.id=game.current_content_revision_id
+JOIN pegasus_import_items item ON item.published_game_id=game.id
+WHERE game.id=?
+`, approved.GameID).Scan(&contentSource, &pegasusState); err != nil ||
+			contentSource != "SERVER_PEGASUS_IMPORT" || pegasusState != "PUBLISHED" {
+			t.Fatalf("Pegasus parent publication = %s/%s, error=%v", contentSource, pegasusState, err)
+		}
+	}
 	contentNames := queryAttachmentStrings(t, database.SQL, `
 SELECT file.role||':'||file.logical_name
 FROM games game JOIN game_content_files file ON file.game_content_revision_id=game.current_content_revision_id
@@ -223,6 +249,58 @@ WHERE variant.game_id=? ORDER BY dependency.kind,dependency.logical_archive
 `, approved.GameID)
 	if fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]" {
 		t.Fatalf("revalidated dependencies = %v", revalidatedDependencies)
+	}
+}
+
+func linkReviewToPegasusOrigin(
+	t *testing.T,
+	database *sql.DB,
+	importJobID, itemID, sourceSnapshotID string,
+) {
+	t.Helper()
+	var manifestJSON, manifestDigest, contentKind string
+	if err := database.QueryRow(`
+SELECT source_manifest_json,source_manifest_digest,content_kind
+FROM import_item_source_snapshots WHERE id=?
+`, sourceSnapshotID).Scan(&manifestJSON, &manifestDigest, &contentKind); err != nil {
+		t.Fatal(err)
+	}
+	const userID = "01980000-0000-7000-8000-000000000811"
+	const pegasusImportID = "01980000-0000-7000-8000-000000000812"
+	const pegasusScanJobID = "01980000-0000-7000-8000-000000000813"
+	const pegasusItemID = "01980000-0000-7000-8000-000000000814"
+	if _, err := database.Exec(`
+INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
+VALUES(?,'local','pegasus-parent','Pegasus Parent','ADMIN','ENABLED',1,1)
+`, userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,1,2,1,2)
+`, pegasusScanJobID, pegasusImportID, strings.Repeat("8", 64)); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`
+INSERT INTO pegasus_imports(
+  id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,scan_job_id,
+  game_count,processable_item_count,review_pending_item_count,created_by_user_id,
+  created_at_ms,updated_at_ms,completed_at_ms,expires_at_ms
+) VALUES(?,'games','Games','Arcade',?,'COMPLETED',?,1,1,1,?,1,2,2,999999)
+`, pegasusImportID, strings.Repeat("9", 64), pegasusScanJobID, userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.Exec(`
+INSERT INTO pegasus_import_items(
+  id,import_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,execution_state,
+  content_kind,metadata_json,source_manifest_json,source_manifest_digest,retryable,
+  library_import_job_id,library_import_item_id,created_at_ms,updated_at_ms,completed_at_ms
+) VALUES(?,?,'Arcade/metadata.pegasus.txt',0,?,'Pegasus Parent','READY','REVIEW_PENDING',
+  ?,?, ?,?,0,?,?,1,2,2)
+`, pegasusItemID, pegasusImportID, strings.Repeat("a", 64), contentKind,
+		`{"title":"Pegasus Parent"}`, manifestJSON, manifestDigest, importJobID, itemID); err != nil {
+		t.Fatal(err)
 	}
 }
 
