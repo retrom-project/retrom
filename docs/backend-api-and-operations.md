@@ -167,13 +167,13 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 两个 Dockerfile 都使用多阶段构建，最终层不保留编译工具、源码缓存或开发依赖。两个镜像都不创建 Retrom 专用账号，也不声明固定 `USER`；运行身份由 Compose/Kubernetes 等部署编排显式决定，生产基线为 UID/GID `1000:1000`。后端持久数据目录必须挂载为该身份可写，镜像不得尝试 chown 未知宿主 UID。后端 dependency builder 必须读取构建参数中 `RETROM_DEPENDENCY_VERSIONS` 对应的小型 manifest 集，按固定来源逐版本物化/校验 EmulatorJS、core、可选 DAT 与许可输入；当前默认 `4.2.3,4.3.0-pre`，后者提供 DOSBox Pure、Genesis Plus GX Wide 与 Azahar 定向覆盖。完整 release 只能作为 builder 输入，随后从 manifest 导出新的只读 allowlist 目录供最终层复制；不能把下载 archive、非 allowlist core、本地依赖缓存、source checkout 或整个 `data/` 目录复制进镜像，也不能用最终层递归 `chmod` 重写整棵依赖树。前端镜像携带经过 `data-check` 的 adapter registry/实现；两个镜像必须携带完全相同的 release-input label。最终镜像中的内置依赖层必须对任意非 root 运行 UID 保持只读且可遍历，不能继承物化阶段仅 root 可访问的 `0700/0600` 权限；部署以 UID/GID `1000:1000` 运行时仍须通过同一依赖校验。
 
-`make build-images` 不自动属于普通 `make ci`，但修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时必须同时执行二者；发布流水线也必须把二者作为独立门禁。
+`make build-images` 不自动属于普通 `make ci`，但修改任一 Dockerfile、依赖锁文件、构建脚本、DAT/runtime 打包逻辑或发布资产时必须在合并前同时验证二者。tag 发布流水线不重复 PR quality，只保留 `make build-images` 及后续发布门禁。
 
 ### 7.2 GitHub Actions 与 Docker Hub 发布
 
 `.github/workflows/ci.yml` 在所有 pull request 上运行唯一高层质量入口 `make ci`。CI 使用 `go.mod`、`.node-version`、`web/package-lock.json` 与依赖 manifest 的固定版本和缓存；全新 runner 在测试前先执行幂等 `make prepare-deps`，缓存命中也必须重新逐字节校验 runtime/core/DAT/许可 payload。它不另行拼装测试子集，也不依赖 ROM、BIOS、真实 Hasheous 或开发机浏览器。
 
-`.github/workflows/docker-image.yml` 在任意 Git tag push 时触发。tag 发布先独立完成 `make ci`，成功后自动继续，不等待 GitHub Environment 人工批准，并按下列顺序执行：
+`.github/workflows/docker-image.yml` 在任意 Git tag push 时触发。tag 发布直接构建并校验双镜像，不重复执行 PR 的 `make ci`，也不等待 GitHub Environment 人工批准，并按下列顺序执行：
 
 1. 要求 Git tag 本身符合 Docker tag 语法，不对包含 `/` 等非法字符的 tag 做可能碰撞的静默改写；
 2. 通过 `make build-images BACKEND_IMAGE=xxxsen/retrom WEB_IMAGE=xxxsen/retrom-web IMAGE_TAG=<git-tag>` 构建并复核两个镜像的 release-input label；

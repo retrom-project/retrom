@@ -462,10 +462,10 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/uploads` | 创建文件/目录 upload manifest。 |
 | `GET /api/v1/admin/uploads/{uploadId}`、`PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}` | 恢复状态与上传 part。 |
 | `POST /api/v1/admin/uploads/{uploadId}/complete`、`DELETE /api/v1/admin/uploads/{uploadId}` | 投递异步 UPLOAD_FINALIZE 或取消 upload；两者都使用当前 ETag，complete 另需 Idempotency-Key。 |
-| `GET /api/v1/admin/imports/summary` | 入库总览聚合。 |
+| `GET /api/v1/admin/imports/summary` | 入库总览按用户可见顶层批次聚合：浏览器上传/重新配置产生的 ImportJob 各计一次，PegasusImport 各计一次，Pegasus 为审核交接逐游戏创建的内部 ImportJob 不再重复计数。`running/completed/failed` 是批次数，其中 `failed` 只含 `PARTIAL_FAILURE/FAILED`、不把主动取消当异常，并以 `ordinaryFailed/pegasusFailed` 提供正确处置入口；`processingItems/issueItems` 分别是当前处理中条目数和阻断/失败/未解决拒绝文件数；`reviewPending/publishedItems` 固定为全局实际处于对应状态的 ImportItem 数量。 |
 | `GET /api/v1/admin/users`、`GET|PATCH|DELETE /api/v1/admin/users/{userId}` | 只含账号与安全状态的用户列表/详情、角色状态变更和软删除。 |
 | `GET|POST /api/v1/admin/invitations`、`GET|POST /api/v1/admin/users/{userId}/password-reset-links`、`DELETE /api/v1/admin/account-links/{accountLinkId}` | 一次性链接的非秘密列表、创建和撤销；完整 URL只在 create/replay响应出现。 |
-| `GET /api/v1/admin/imports`、`POST /api/v1/admin/imports`、`GET /api/v1/admin/imports/{importJobId}` | ImportJob 列表、创建与详情；详情包含原文件处置和可空 resolution。 |
+| `GET /api/v1/admin/imports`、`POST /api/v1/admin/imports`、`GET /api/v1/admin/imports/{importJobId}` | 列表只投影用户发起的浏览器上传/重新配置 ImportJob，排除通过 `PegasusImportItem.library_import_job_id` 关联的逐游戏审核交接任务；Pegasus 顶层历史由 `/api/v1/admin/pegasus-imports` 返回。创建与详情契约不变，详情包含原文件处置和可空 resolution；已知内部 ID 的详情仍可用于管理员诊断。 |
 | `GET /api/v1/admin/imports/{importJobId}/events`、`POST /api/v1/admin/imports/{importJobId}/cancel` | SSE 进度与取消。 |
 | `POST /api/v1/admin/imports/{importJobId}/reconfigure` | 携带 `If-Match`/`Idempotency-Key`，复用未解决 REJECTED 文件的 CAS Blob，以新游戏目录配置创建 replacement ImportJob。 |
 | `POST /api/v1/admin/import-items/{importItemId}/retry` | 仅重试 retryable item。 |

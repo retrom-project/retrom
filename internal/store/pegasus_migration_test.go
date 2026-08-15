@@ -74,7 +74,7 @@ COMMIT;
 	if err := upgraded.SQL.QueryRow(`
 SELECT (SELECT max(version) FROM schema_migrations),kind,width_px,height_px,media_type
 FROM game_assets WHERE id='01980000-0000-7000-8000-00000000a805'
-`).Scan(&version, &kind, &width, &height, &mediaType); err != nil || version != 35 || kind != "COVER" ||
+`).Scan(&version, &kind, &width, &height, &mediaType); err != nil || version != 36 || kind != "COVER" ||
 		width != 320 || height != 480 || mediaType != "image/png" {
 		t.Fatalf("upgrade = version:%d asset:%s/%d/%d/%s error:%v", version, kind, width, height, mediaType, err)
 	}
@@ -184,7 +184,7 @@ WHERE import.id=? AND item.id=?
 	); err != nil {
 		t.Fatal(err)
 	}
-	if version != 35 || reviewPending != 0 || reviewDiscarded != 0 ||
+	if version != 36 || reviewPending != 0 || reviewDiscarded != 0 ||
 		title != "Legacy blocked game" || executionState != "BLOCKED_CONTENT" ||
 		!strings.Contains(details, "preserve me") {
 		t.Fatalf(
@@ -243,7 +243,7 @@ WHERE type='trigger' AND name='game_content_revisions_pegasus_source_insert'
 	}
 	var version int
 	var upgradedTrigger, freshTrigger string
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 35 {
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 36 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	for database, destination := range map[*DB]*string{

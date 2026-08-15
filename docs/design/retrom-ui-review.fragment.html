@@ -2484,10 +2484,10 @@
           <article class="rt-ingest-priority is-danger"><div><span class="rt-badge rt-badge-red">阻塞进度</span><h2>异常任务</h2><p class="rt-subtitle">文件、依赖或运行检查存在问题，需要先处理。</p></div><div><strong>3</strong><button type="button" class="rt-button" data-page-link="admin-import-tasks">查看异常任务 →</button></div></article>
         </div>
         <div class="rt-ingest-stat-grid">
-          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">运行中任务</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>2</span></div><div class="rt-stat-note">正在上传、识别或检查</div></div>
+          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">进行中批次</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>2</span></div><div class="rt-stat-note">正在扫描、配置、识别或检查</div></div>
           <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">等待审核</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>4</span></div><div class="rt-stat-note">已进入人工审核队列</div></div>
           <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">异常条目</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>3</span></div><div class="rt-stat-note">需要重新整理或补齐依赖</div></div>
-          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">历史完成批次</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>36</span></div><div class="rt-stat-note">已完成的全部导入任务</div></div>
+          <div class="rt-stat"><div class="rt-stat-main"><span class="rt-stat-label">历史完成批次</span><span class="rt-stat-value"><i class="rt-stat-accent" aria-hidden="true"></i>37</span></div><div class="rt-stat-note">按用户发起的顶层导入统计</div></div>
         </div>
 
         <div class="rt-overview-grid">
@@ -2495,19 +2495,19 @@
             <div class="rt-panel-heading"><div class="rt-panel-heading-copy"><h2>当前入库流水线</h2><p class="rt-subtitle">展示当前任务规模和需要处理的真实条目。</p></div><span class="rt-badge rt-badge-cyan">实时快照</span></div>
             <div class="rt-pipeline-grid" aria-label="当前入库流水线">
               <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">2</div><div class="rt-pipeline-label">上传与校验</div></div>
-              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">44</div><div class="rt-pipeline-label">识别游戏</div></div>
+              <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">196</div><div class="rt-pipeline-label">识别游戏</div></div>
               <div class="rt-pipeline-stage is-running"><div class="rt-pipeline-count">3</div><div class="rt-pipeline-label">运行检查</div></div>
               <div class="rt-pipeline-stage"><div class="rt-pipeline-count">2</div><div class="rt-pipeline-label">获取游戏信息</div></div>
               <div class="rt-pipeline-stage"><div class="rt-pipeline-count">4</div><div class="rt-pipeline-label">人工审核</div></div>
-              <div class="rt-pipeline-stage"><div class="rt-pipeline-count">36</div><div class="rt-pipeline-label">发布</div></div>
+              <div class="rt-pipeline-stage"><div class="rt-pipeline-count">126</div><div class="rt-pipeline-label">发布</div></div>
             </div>
             <div class="rt-pipeline-caption">系统会继续推进自动阶段；人工审核只处理已经完成运行检查的条目。</div>
           </div>
         </div>
 
-        <div class="rt-section-head"><h2>最近任务</h2><button type="button" class="rt-text-link" data-page-link="admin-import-tasks">查看全部</button></div>
+        <div class="rt-section-head"><div><h2>最近任务</h2><p class="rt-subtitle">按用户发起的批次展示；Pegasus 目录导入只占一行。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-text-link" data-page-link="admin-import-tasks">普通任务</button><button type="button" class="rt-text-link" data-page-link="admin-server-import">本地扫描</button></div></div>
         <div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>创建时间 / 目标目录</th><th>当前状态</th><th>当前阶段</th><th>条目摘要</th><th>操作</th></tr></thead><tbody>
-          <tr><td><div class="rt-table-title">今天 22:41 · FBNeo 游戏</div><div class="rt-table-sub">12 个条目 · Hasheous 哈希查询</div></td><td><span class="rt-badge rt-badge-cyan">运行中</span></td><td>获取游戏信息</td><td>0 待审核 · 0 异常</td><td><button class="rt-button" data-page-link="admin-import-tasks">查看</button></td></tr>
+          <tr><td><div class="rt-table-title">今天 22:41 · 本地导入目录 / FBNeo</div><div class="rt-table-sub">109 个条目 · Pegasus 目录</div></td><td><span class="rt-badge rt-badge-green">准备完成</span></td><td>准备完成</td><td>107 个已发布 · 2 个已丢弃</td><td><button class="rt-button" data-page-link="admin-pegasus-import-detail">查看</button></td></tr>
           <tr><td><div class="rt-table-title">今天 22:18 · DOS 经典游戏</div><div class="rt-table-sub">4 个条目 · Hasheous 哈希查询</div></td><td><span class="rt-badge rt-badge-amber">等待审核</span></td><td>人工审核</td><td>4 个待审核</td><td><button class="rt-button" data-page-link="admin-review">审核</button></td></tr>
           <tr><td><div class="rt-table-title">昨天 23:18 · NES 游戏</div><div class="rt-table-sub">28 个条目 · 不刮削</div></td><td><span class="rt-badge rt-badge-red">部分失败</span></td><td>运行检查</td><td>2 个异常</td><td><button class="rt-button" data-page-link="admin-import-tasks">查看</button></td></tr>
         </tbody></table></div>
@@ -2578,8 +2578,8 @@
 
       <section class="rt-page" data-page="admin-import-tasks">
         <div class="rt-page-head">
-          <div><h1>任务进度</h1><p class="rt-subtitle">关注每个导入批次当前所处阶段、完成比例和条目分布。异常和运行中任务优先展示。</p></div>
-          <div class="rt-page-head-actions"><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>新建导入</button></div>
+          <div><h1>普通任务进度</h1><p class="rt-subtitle">查看浏览器上传或重新配置产生的导入批次；Pegasus 目录按顶层批次统一显示在本地扫描。</p></div>
+          <div class="rt-page-head-actions"><button type="button" class="rt-button" data-page-link="admin-server-import">本地扫描任务</button><button type="button" class="rt-button rt-button-primary" data-page-link="admin-import-new"><i data-lucide="plus" aria-hidden="true"></i>新建导入</button></div>
         </div>
         <div class="rt-toolbar">
           <label class="rt-search"><i data-lucide="search" aria-hidden="true"></i><span class="sr-only">搜索任务</span><input class="rt-input" type="search" placeholder="输入目录名称或任务状态"></label>

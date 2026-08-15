@@ -860,6 +860,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description User-visible import overview. Browser/reconfigure ImportJobs count once, Pegasus imports count once, and the per-game ImportJobs created only for Pegasus review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items. */
         get: operations["getAdminImportsSummary"];
         put?: never;
         post?: never;
@@ -876,6 +877,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus review handoff are excluded; Pegasus aggregate history is available from `/api/v1/admin/pegasus-imports`. */
         get: operations["getAdminImports"];
         put?: never;
         post: operations["postAdminImport"];
@@ -2334,6 +2336,53 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        ImportOverviewSummary: {
+            /**
+             * Format: int64
+             * @description User-visible non-terminal batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+             */
+            running: number;
+            /**
+             * Format: int64
+             * @description ImportItems whose current state is exactly REVIEW_PENDING.
+             */
+            reviewPending: number;
+            /**
+             * Format: int64
+             * @description ImportItems whose current state is exactly PUBLISHED.
+             */
+            publishedItems: number;
+            /**
+             * Format: int64
+             * @description User-visible completed batches, counting each browser/reconfigure ImportJob or Pegasus import once.
+             */
+            completed: number;
+            /**
+             * Format: int64
+             * @description User-visible batches in PARTIAL_FAILURE or FAILED; cancelled batches are excluded.
+             */
+            failed: number;
+            /**
+             * Format: int64
+             * @description Browser/reconfigure ImportJobs included in failed.
+             */
+            ordinaryFailed: number;
+            /**
+             * Format: int64
+             * @description Pegasus imports included in failed.
+             */
+            pegasusFailed: number;
+            /**
+             * Format: int64
+             * @description Known game/item count in currently non-terminal user-visible batches.
+             */
+            processingItems: number;
+            /**
+             * Format: int64
+             * @description Failed or blocked items plus unresolved rejected files in user-visible attention batches.
+             */
+            issueItems: number;
+        };
         AuthInitializeRequest: {
             setupCode: string;
             username: string;
@@ -4039,6 +4088,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description User-visible import batch and item totals */
+        ImportOverviewSummaryResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ImportOverviewSummary"];
+            };
+        };
         /** @description Administrator tag projection */
         TagAdminItemResponse: {
             headers: {
@@ -5809,7 +5867,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["ImportOverviewSummaryResponse"];
         };
     };
     getAdminImports: {

@@ -502,6 +502,37 @@ SELECT count(*) FROM game_tags WHERE game_id=? AND tag_id=?
 	if err != nil || discarded.Status != "DISCARDED" {
 		t.Fatalf("discard review = %#v, error=%v", discarded, err)
 	}
+	var discardedJobState, discardedItemState string
+	var discardedJobPending, discardedJobPublished, discardedJobDiscarded int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT job.state,
+job.review_pending_item_count,
+job.published_item_count,
+job.discarded_item_count,
+item.state
+FROM import_jobs job
+JOIN import_items item ON item.import_job_id=job.id
+WHERE job.id=? AND item.id=?
+`, created.ImportJobID, discardItemID).Scan(
+		&discardedJobState,
+		&discardedJobPending,
+		&discardedJobPublished,
+		&discardedJobDiscarded,
+		&discardedItemState,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if discardedJobState != "COMPLETED" || discardedJobPending != 0 || discardedJobPublished != 1 ||
+		discardedJobDiscarded != 1 || discardedItemState != "DISCARDED" {
+		t.Fatalf(
+			"discard aggregate = job:%s pending:%d published:%d discarded:%d item:%s",
+			discardedJobState,
+			discardedJobPending,
+			discardedJobPublished,
+			discardedJobDiscarded,
+			discardedItemState,
+		)
+	}
 	var publishedDiscard, retainedBlob int
 	var beforeJSON, configEvidenceJSON, datEvidenceJSON string
 	var discardReason sql.NullString
@@ -530,6 +561,168 @@ WHERE id=?
 	if _, err := database.SQL.ExecContext(ctx, `UPDATE review_events SET reason='tampered' WHERE id=?`, discarded.EventID); err == nil ||
 		!strings.Contains(err.Error(), "immutable") {
 		t.Fatalf("immutable review event update error = %v", err)
+	}
+}
+
+func TestRetryAndCancelKeepImportItemAggregatesInSync(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
+		t.Fatal(err)
+	}
+	var artifactID string
+	if err := database.SQL.QueryRow(`
+SELECT id FROM core_artifacts WHERE core_id='mgba' AND enabled=1
+`).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	const (
+		retryUploadID  = "01980000-0000-7000-8000-00000000a171"
+		retryImportID  = "01980000-0000-7000-8000-00000000b171"
+		retryItemID    = "01980000-0000-7000-8000-00000000c171"
+		cancelUploadID = "01980000-0000-7000-8000-00000000a172"
+		cancelImportID = "01980000-0000-7000-8000-00000000b172"
+	)
+	digest := strings.Repeat("a", 64)
+	for _, uploadID := range []string{retryUploadID, cancelUploadID} {
+		if _, err := database.SQL.Exec(`
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
+expires_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'COMPLETE','FILES',1,0,?,1,10000,1000,1000)
+`, uploadID, digest); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if _, err := database.SQL.Exec(`
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
+platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
+state,total_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'01980000-0000-7000-8000-000000000005',1,'gba','mgba',?,'NONE','{}',?,
+'PARTIAL_FAILURE',1,1,1,1000,1000)
+`, retryImportID, retryUploadID, artifactID, digest); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.Exec(`
+INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,
+search_text,failed_stage,last_error_code,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,'FAILED_RETRYABLE','{}',?,'retry.gba','SCRAPING','PROVIDER_TIMEOUT',1,1000,1000)
+`, retryItemID, retryImportID, strings.Repeat("b", 64), digest); err != nil {
+		t.Fatal(err)
+	}
+	service := New(database.SQL, func() time.Time { return time.UnixMilli(2_000) })
+	retried, err := service.RetryItem(ctx, retryItemID, 1)
+	if err != nil || retried.State != "QUEUED" || retried.Version != 2 {
+		t.Fatalf("retry = %#v, error=%v", retried, err)
+	}
+	var retryJobState, retryItemState string
+	var retryQueued, retryFailed, retryJobVersion, retryEventCount int64
+	if err := database.SQL.QueryRow(`
+SELECT job.state,job.queued_item_count,job.failed_item_count,job.version,item.state,
+(SELECT count(*) FROM job_events WHERE job_id=? AND event_type='MANUAL_RETRY')
+FROM import_jobs job
+JOIN import_items item ON item.import_job_id=job.id
+WHERE job.id=? AND item.id=?
+`, retried.JobID, retryImportID, retryItemID).Scan(
+		&retryJobState,
+		&retryQueued,
+		&retryFailed,
+		&retryJobVersion,
+		&retryItemState,
+		&retryEventCount,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if retryJobState != "RUNNING" || retryQueued != 1 || retryFailed != 0 || retryJobVersion != 2 ||
+		retryItemState != "QUEUED" || retryEventCount != 1 {
+		t.Fatalf(
+			"retry aggregate = job:%s queued:%d failed:%d version:%d item:%s events:%d",
+			retryJobState,
+			retryQueued,
+			retryFailed,
+			retryJobVersion,
+			retryItemState,
+			retryEventCount,
+		)
+	}
+
+	if _, err := database.SQL.Exec(`
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
+platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
+state,total_item_count,queued_item_count,review_pending_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'01980000-0000-7000-8000-000000000005',1,'gba','mgba',?,'NONE','{}',?,
+'PARTIAL_FAILURE',4,1,1,2,1,1000,1000)
+`, cancelImportID, cancelUploadID, artifactID, digest); err != nil {
+		t.Fatal(err)
+	}
+	cancelItems := []struct {
+		id        string
+		state     string
+		stage     any
+		errorCode any
+	}{
+		{"01980000-0000-7000-8000-00000000c172", "QUEUED", nil, nil},
+		{"01980000-0000-7000-8000-00000000c173", "REVIEW_PENDING", nil, nil},
+		{"01980000-0000-7000-8000-00000000c174", "FAILED_RETRYABLE", "SCRAPING", "PROVIDER_TIMEOUT"},
+		{"01980000-0000-7000-8000-00000000c175", "FAILED_FINAL", "IDENTIFYING", "UNSUPPORTED_CONTENT"},
+	}
+	for index, item := range cancelItems {
+		if _, err := database.SQL.Exec(`
+INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,
+search_text,failed_stage,last_error_code,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,?,'{}',?,'cancel.gba',?,?,1,1000,1000)
+`, item.id, cancelImportID, strings.Repeat(fmt.Sprintf("%x", index+1), 64), item.state, digest,
+			item.stage, item.errorCode); err != nil {
+			t.Fatal(err)
+		}
+	}
+	cancelled, pending, err := service.Cancel(ctx, cancelImportID, 1, "operator cancelled")
+	if err != nil || pending || cancelled.State != "CANCELLED" || cancelled.Version != 2 {
+		t.Fatalf("cancel = %#v pending=%t error=%v", cancelled, pending, err)
+	}
+	var cancelState string
+	var cancelQueued, cancelReviewPending, cancelFailed, cancelCount, cancelCompletedAt int64
+	var cancelledItems, failedFinalItems int64
+	if err := database.SQL.QueryRow(`
+SELECT state,queued_item_count,review_pending_item_count,failed_item_count,cancelled_item_count,completed_at_ms,
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='CANCELLED'),
+(SELECT count(*) FROM import_items WHERE import_job_id=import_jobs.id AND state='FAILED_FINAL')
+FROM import_jobs WHERE id=?
+`, cancelImportID).Scan(
+		&cancelState,
+		&cancelQueued,
+		&cancelReviewPending,
+		&cancelFailed,
+		&cancelCount,
+		&cancelCompletedAt,
+		&cancelledItems,
+		&failedFinalItems,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if cancelState != "CANCELLED" || cancelQueued != 0 || cancelReviewPending != 0 || cancelFailed != 1 ||
+		cancelCount != 3 || cancelCompletedAt != 2_000 || cancelledItems != 3 || failedFinalItems != 1 {
+		t.Fatalf(
+			"cancel aggregate = job:%s queued:%d pending:%d failed:%d cancelled:%d completed:%d items:%d/%d",
+			cancelState,
+			cancelQueued,
+			cancelReviewPending,
+			cancelFailed,
+			cancelCount,
+			cancelCompletedAt,
+			cancelledItems,
+			failedFinalItems,
+		)
 	}
 }
 

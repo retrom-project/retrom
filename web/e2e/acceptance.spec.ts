@@ -389,7 +389,9 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   expect(dropzoneAlignment).not.toBeNull();
   expect(dropzoneAlignment!).toBeLessThanOrEqual(1);
   await page.goto("/admin/imports/tasks");
-  await expect(page.getByRole("heading", { name: "任务进度", exact: true })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "普通任务进度", exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: "本地扫描任务", exact: true })).toHaveAttribute("href", "/admin/imports/server");
+  await expect(page.getByText("查看浏览器上传或重新配置产生的导入批次；Pegasus 目录按顶层批次统一显示在本地扫描。", { exact: true })).toBeVisible();
   await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "查看多盘详情" })).toHaveCount(0);
   const taskGridColumns = await page.locator(".import-task-card").evaluateAll((cards) => cards.map((card) => getComputedStyle(card).gridTemplateColumns));
@@ -518,6 +520,21 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(57)}`));
   await page.setViewportSize({ width: 3840, height: 2160 });
   await expect(page.getByRole("heading", { name: "审核决定" })).toBeVisible();
+  let reviewPopupCount = 0;
+  const reviewPreviewRequests: string[] = [];
+  page.on("popup", async (popup) => {
+    reviewPopupCount += 1;
+    await popup.close();
+  });
+  page.on("request", (request) => {
+    if (request.url().endsWith(`/api/v1/admin/reviews/${itemId(57)}/previews`)) reviewPreviewRequests.push(request.url());
+  });
+  const refreshedReview = page.waitForResponse((response) =>
+    response.request().method() === "GET" && response.url().endsWith(`/api/v1/admin/reviews/${itemId(57)}`));
+  await page.getByRole("button", { name: "重新运行检查" }).click();
+  await refreshedReview;
+  expect(reviewPopupCount).toBe(0);
+  expect(reviewPreviewRequests).toEqual([]);
   expect(await page.locator(".review-workflow-columns").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(2);
   const screenshotLayout = await page.locator(".review-workflow-summary-card").evaluate((element) => {
     const clone = element.cloneNode(true) as HTMLElement;

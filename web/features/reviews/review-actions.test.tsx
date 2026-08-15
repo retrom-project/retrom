@@ -195,7 +195,7 @@ describe("ReviewActions", () => {
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
   });
 
-  it("lets a blocked review explicitly rerun validation after fixing dependencies", async () => {
+  it("reruns blocked validation without opening a game preview", async () => {
     const refreshed = {
       ...review,
       version: 2,
@@ -203,9 +203,8 @@ describe("ReviewActions", () => {
       validationStale: false,
       validation: { ...review.validation!, id: "validation-2", status: "READY", current: true, compatibilityCode: "READY" },
     };
-    const replace = vi.fn();
-    const popup = { closed: false, close: vi.fn(), location: { replace }, document: { title: "", body: { style: { cssText: "" }, textContent: "" } } } as unknown as Window;
-    vi.spyOn(window, "open").mockReturnValue(popup);
+    const popup = { closed: false, close: vi.fn(), location: { replace: vi.fn() }, document: { title: "", body: { style: { cssText: "" }, textContent: "" } } } as unknown as Window;
+    const open = vi.spyOn(window, "open").mockReturnValue(popup);
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith("/previews")) return Promise.resolve(jsonResponse({ previewId: "preview-1", playUrl: "/admin/review-previews/preview-1", captureAllowed: true, captureAfterMs: 5000 }, 201));
@@ -220,7 +219,8 @@ describe("ReviewActions", () => {
     await waitFor(() => expect(fetchMock).toHaveBeenCalledWith(expect.stringMatching(/reviews\/item-1$/), expect.objectContaining({ method: "PATCH" })));
     await waitFor(() => expect(screen.getByRole("button", { name: "通过并发布" })).toBeEnabled());
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1", { cache: "no-store" });
-    await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/review-previews/preview-1"));
+    expect(open).not.toHaveBeenCalled();
+    expect(fetchMock.mock.calls.some(([input]) => String(input).endsWith("/previews"))).toBe(false);
     expect(router.refresh).toHaveBeenCalled();
   });
 

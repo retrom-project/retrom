@@ -551,6 +551,9 @@ make acceptance-case CASE=<case-id>
 - 通过标准：匹配当前目录/config 和 effective source snapshot 的 READY Validation，或同一当前阻断 Validation 的第 5 秒截图，可 Approve；两类审核预览都锁定 source/Validation/CoreArtifact，生产 CSP 保持不含 `unsafe-eval`，4.2.3 的 7z 与 ZIP Worker 在各自 version-bound 转换后均不执行 `eval` 且真实触发 `EJS_onGameStart`，任一源形状漂移则 fail closed。真实 start 前不计时，第 4,999ms 没有截图、第 5,000ms 才开始优先读取核心最后一帧，静态 ROM/BIOS 错误画面可辨识且不能退化为黑帧，核心截图有界失败才回退 canvas，最终保存非空 PNG 并在 Review GET 投影；iframe 同步错误、未处理 rejection 或 30 秒未 start 都显示可操作失败而非永久 loading。Blocker 预览只交付主 ROM 与实际存在的依赖、不创建正式 Game/LaunchSession/PlaySession/Save/PersistentSave；截图写入后启用 Approve，发布 Variant/ReviewEvent 保留 `REVIEW_SCREENSHOT_OVERRIDE` 与 screenshot ID，正式单机启动继续最佳努力交付，Netplay 仍严格阻断。重新检查、换目录或 CoreArtifact 漂移后旧截图不能投影或放行。第二项首次 approve 返回 `409 DUPLICATE_GAME_CONFIRMATION_REQUIRED` 且不产生 Game/ReviewEvent，错误/过期/重复 acknowledged ID 不能越过；精确 `ALLOW_NEW` 确认后才发布，并在最终事件保留当前有效内容摘要、policy 和已有 Game IDs。第三次识别直接将 Item 置 `DISCARDED`、任务 `COMPLETED`，计数/文件投影为已导入跳过，保留指向前两个 Game/current ContentRevision 的不可变匹配，不创建 ReviewDraft、Validation、刮削或第三个 Game；改文件名/UploadSession 不影响身份，不同基础平台和已软删除 Game 不误阻断。Arcade 接受 b 只追加 revision 2 并仍 BLOCKED，错误 c REJECTED 且快照/digest 不变，正确 c 追加 revision 3/READY；metadata PATCH 不被覆盖。补传导致的首次 stale 发布必须重新 GET Review，并在发布草稿逐字段等价、当前可发布且无 active Attachment 时使用新 ETag 和新 Idempotency-Key 自动成功一次；另一编辑者改字段、当前仍阻断或第二次 stale 时不得重试或发布。Approve 的 GameContentFiles 从 revision 3 包含 CONTENT a 与 COMPANION b/c，VariantFiles 含 PARENT b/c，ReviewEvent 保存前后快照/Validation/hash 且无 ROM bytes/宿主路径；同内容、同 DAT 的后继启动重校验仍保留这两项 PARENT 与依赖索引，config `parentUrl` 非空且 bundle 根级包含 `b.zip/c.zip`。补传后的重复检查使用 revision 3 digest，不沿用 child-only digest。审批只复制 effective source/ValidationFile refs 并原子发布到唯一游戏目录，不做耗时计算。Discard 会取消 active Attachment 且不发布、不立即删受保护证据；历史可还原输入、validation、scrape run/candidate/media/Attachment 混合来源、字段 diff、目录/DAT 快照；旧事件不可更新。
 - 证据：三次普通任务与 Arcade 分步任务的 Item/文件/快照/Validation/consumption 计数、两次发布响应、409 details、确认和 Parent ReviewEvent、Content/Variant 文件、游戏库结果、历史 API/页面截图和更新拒绝。
 
+- 聚合补充流程：对同一批两个 Item 分别 approve/discard，并在每次决策前后读取 ImportJob 聚合与入库总览。
+- 聚合补充通过标准：最后一个 Item 决策后，Item 状态与 ImportJob 的 pending/published/discarded 计数、state/version/completed time 在同一事务收口；总览 `reviewPending` 只统计实际仍为 `REVIEW_PENDING` 的 Item，不能继续显示已发布/丢弃条目或按任务数计数。
+
 ### ACC-IMP-008：有界失败、取消、重试和重启恢复
 
 - 上限：300 秒。
@@ -863,13 +866,13 @@ python3 data/example/verify-fixtures.py
 - 通过标准：PENDING 只进入 `/setup`；READY 匿名重定向 `/login?returnTo=...` 且登录后恢复站内 path/query；已登录访问认证页回首页。桌面用户侧显示首页、游戏库、我的存档、我的收藏、最近游玩以及按 feature flag 出现的联机游玩；手机底栏显示首页、游戏库、存档、收藏、更多，其余入口位于 More Sheet。只有 ADMIN 显示管理入口，USER 直达后台显示 403。游戏详情不作为一级入口且保持游戏库上下文；退出清除会话并回登录。移动细节由 `ACC-MOB-001`–`007` 覆盖。
 - 证据：导航可访问名称、route 序列和截图。
 
-### ACC-UI-002：游戏入库父子导航
+### ACC-UI-002：游戏入库父子导航与顶层批次口径
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-002`。
-- 流程：依次访问 `/admin/imports`、`/admin/imports/new`、`/admin/imports/tasks`、`/admin/reviews` 和 `/admin/reviews/history`，使用浏览器前进/后退。
-- 通过标准：“游戏入库”可点击进入独立总览；导入、任务、待审核、历史是同级缩进子菜单；父级上下文与当前子项同时高亮；页面不是通过页内 Tab 伪装路由，浏览器历史正确。
-- 证据：每条 URL、导航状态和五张当前截图。
+- 流程：依次访问 `/admin/imports`、`/admin/imports/new`、`/admin/imports/server`、`/admin/imports/tasks`、`/admin/reviews` 和 `/admin/reviews/history`，使用浏览器前进/后退；建立一个含至少三个游戏的 Pegasus 批次和一个普通上传批次后重新读取总览与普通任务页。
+- 通过标准：“游戏入库”可点击进入独立总览；导入、本地扫描、任务、待审核、历史是同级缩进子菜单；父级上下文与当前子项同时高亮；页面不是通过页内 Tab 伪装路由，浏览器历史正确。一次 Pegasus 操作在最近任务中只出现一行并只贡献一个进行中或完成批次，普通任务页不出现其逐游戏内部 ImportJob；处理中/异常/待审核条目分别来自真实全集，不能等于最近三行的偶然求和。
+- 证据：每条 URL、导航状态、六张当前截图，以及顶层批次/条目 API 响应与可访问 DOM 断言。
 
 ### ACC-UI-003：首页、游戏库、详情与存档流程
 
@@ -915,8 +918,8 @@ python3 data/example/verify-fixtures.py
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-008`。
-- 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，加载第二页后选择第 57 项，修改标题并等待实时保存，再切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；最后 Approve 第 3 项并 Discard 第 58 项。分别在 1280×800 和 3840×2160 执行，并用键盘完成一次筛选和非顺序选中。
-- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。同一次停留在底部预加载区只请求一页且没有并发重复请求，哨兵离开并再次进入后才自动取下一页，手动“继续加载”仍可用。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；简介标签与文本域间距不超过 8px，剩余栏高扩展文本域而不是标签空白；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。审核决定中的“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”按两行两列显示，四个按钮计算宽度与高度一致，Tab 顺序同视觉顺序；页首截图槽显示当前 READY 或阻断 Validation 的第 5 秒截图，阻断截图出现后发布按钮解除置灰，且占位/图片切换不改变外层摘要卡片高度。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。页面没有批量 Approve/Discard，所有最终决策各自使用当前 ETag/Idempotency-Key/ReviewEvent，两个批次不会串项。
+- 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，加载第二页后选择第 57 项，点击一次“重新运行检查”并记录 popup 与 Preview 请求，再修改标题并等待实时保存，切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；最后 Approve 第 3 项并 Discard 第 58 项。分别在 1280×800 和 3840×2160 执行，并用键盘完成一次筛选和非顺序选中。
+- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。同一次停留在底部预加载区只请求一页且没有并发重复请求，哨兵离开并再次进入后才自动取下一页，手动“继续加载”仍可用。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；简介标签与文本域间距不超过 8px，剩余栏高扩展文本域而不是标签空白；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。审核决定中的“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”按两行两列显示，四个按钮计算宽度与高度一致，Tab 顺序同视觉顺序；“重新运行检查”刷新 Validation 与发布状态但不产生 popup 或 `/previews` 请求，“运行游戏”仍是唯一创建审核 Preview 的入口；页首截图槽显示当前 READY 或阻断 Validation 的第 5 秒截图，阻断截图出现后发布按钮解除置灰，且占位/图片切换不改变外层摘要卡片高度。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。页面没有批量 Approve/Discard，所有最终决策各自使用当前 ETag/Idempotency-Key/ReviewEvent，两个批次不会串项。
 - 证据：API query/cursor、route 序列、键盘 trace、决策前后队列 DOM 及两个 viewport 的当前截图。
 
 ### ACC-UI-009：账户与用户管理全流程

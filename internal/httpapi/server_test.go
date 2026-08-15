@@ -353,7 +353,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 35 ||
+		response.DatabaseSchemaVersion != 36 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -439,6 +439,36 @@ VALUES(?,?,'01980000-0000-7000-8000-000000000001',1,'nes','fceumm',?,'HASHEOUS',
 	if err := transaction.Commit(); err != nil {
 		t.Fatal(err)
 	}
+	summaryResponse := httptest.NewRecorder()
+	server.importSummary(
+		summaryResponse,
+		httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports/summary", nil),
+	)
+	var overview struct {
+		Running         int64 `json:"running"`
+		ReviewPending   int64 `json:"reviewPending"`
+		PublishedItems  int64 `json:"publishedItems"`
+		Completed       int64 `json:"completed"`
+		Failed          int64 `json:"failed"`
+		OrdinaryFailed  int64 `json:"ordinaryFailed"`
+		PegasusFailed   int64 `json:"pegasusFailed"`
+		ProcessingItems int64 `json:"processingItems"`
+		IssueItems      int64 `json:"issueItems"`
+	}
+	if err := json.Unmarshal(summaryResponse.Body.Bytes(), &overview); err != nil ||
+		summaryResponse.Code != http.StatusOK ||
+		overview.Running != 0 || overview.ReviewPending != 0 || overview.PublishedItems != 0 ||
+		overview.Completed != 20 ||
+		overview.Failed != 1 || overview.OrdinaryFailed != 1 || overview.PegasusFailed != 0 ||
+		overview.ProcessingItems != 0 || overview.IssueItems != 1 {
+		t.Fatalf(
+			"import overview = %d %s, parsed=%#v error=%v",
+			summaryResponse.Code,
+			summaryResponse.Body.String(),
+			overview,
+			err,
+		)
+	}
 
 	list := httptest.NewRecorder()
 	server.imports(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports?limit=20", nil))
@@ -487,6 +517,115 @@ VALUES(?,?,'01980000-0000-7000-8000-000000000001',1,'nes','fceumm',?,'HASHEOUS',
 		!strings.Contains(detail.Body.String(), `"reasonCode":"ARCHIVE_UNSAFE"`) ||
 		!strings.Contains(detail.Body.String(), `"unresolvedRejectedFiles":1`) {
 		t.Fatalf("import detail = %d %s", detail.Code, detail.Body.String())
+	}
+}
+
+func TestImportOverviewCountsPegasusOnceAndHidesItsInternalJob(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	now := time.Now()
+	if err := server.dependencies.Bootstrap(context.Background(), server.database, now); err != nil {
+		t.Fatal(err)
+	}
+	var artifactID string
+	if err := server.database.QueryRow(`
+SELECT id FROM core_artifacts WHERE core_id='mgba' AND enabled=1
+`).Scan(&artifactID); err != nil {
+		t.Fatal(err)
+	}
+	const (
+		importID       = "01980000-0000-7000-8000-000000000150"
+		uploadID       = "01980000-0000-7000-8000-000000000151"
+		itemID         = "01980000-0000-7000-8000-000000000152"
+		pegasusID      = "01980000-0000-7000-8000-000000000153"
+		pegasusItemID  = "01980000-0000-7000-8000-000000000154"
+		pegasusScanJob = "01980000-0000-7000-8000-000000000155"
+	)
+	digest := strings.Repeat("a", 64)
+	timestamp := now.UnixMilli()
+	if _, err := server.database.Exec(`
+INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
+expires_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'COMPLETE','FILES',1,1,?,1,?,?,?)
+`, uploadID, digest, timestamp+60_000, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
+platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
+state,total_item_count,review_pending_item_count,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'01980000-0000-7000-8000-000000000005',1,'gba','mgba',?,'NONE','{}',?,
+'REVIEW_PENDING',1,1,1,?,?)
+`, importID, uploadID, artifactID, digest, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO import_items(id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,
+search_text,version,created_at_ms,updated_at_ms,completed_at_ms)
+VALUES(?,?,?,'DISCARDED','{"files":[]}',?,'discarded.gba',2,?,?,?)
+`, itemID, importID, digest, digest, timestamp, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	var userID string
+	if err := server.database.QueryRow(`SELECT id FROM users WHERE status='ENABLED' ORDER BY id LIMIT 1`).Scan(&userID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
+attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
+VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,?,?,?,?)
+`, pegasusScanJob, pegasusID, strings.Repeat("b", 64), timestamp, timestamp, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO pegasus_imports(
+ id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,scan_job_id,
+ game_count,processable_item_count,review_discarded_item_count,created_by_user_id,
+ created_at_ms,updated_at_ms,completed_at_ms,expires_at_ms
+) VALUES(?,'games','Games','FBNeo',?,'COMPLETED',?,1,1,1,?,?,?,?,?)
+`, pegasusID, strings.Repeat("c", 64), pegasusScanJob, userID,
+		timestamp, timestamp, timestamp, timestamp+60_000); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := server.database.Exec(`
+INSERT INTO pegasus_import_items(
+ id,import_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,execution_state,
+ metadata_json,source_manifest_json,source_manifest_digest,retryable,
+ library_import_job_id,library_import_item_id,created_at_ms,updated_at_ms,completed_at_ms
+) VALUES(?,?,'FBNeo/metadata.pegasus.txt',0,?,'Fixture','READY','REVIEW_DISCARDED',
+ '{}','{"files":[]}',?,0,?,?,?,?,?)
+`, pegasusItemID, pegasusID, strings.Repeat("d", 64), digest,
+		importID, itemID, timestamp, timestamp, timestamp); err != nil {
+		t.Fatal(err)
+	}
+
+	recorder := httptest.NewRecorder()
+	server.importSummary(recorder, httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports/summary", nil))
+	var summary struct {
+		Running         int64 `json:"running"`
+		ReviewPending   int64 `json:"reviewPending"`
+		PublishedItems  int64 `json:"publishedItems"`
+		Completed       int64 `json:"completed"`
+		Failed          int64 `json:"failed"`
+		OrdinaryFailed  int64 `json:"ordinaryFailed"`
+		PegasusFailed   int64 `json:"pegasusFailed"`
+		ProcessingItems int64 `json:"processingItems"`
+		IssueItems      int64 `json:"issueItems"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &summary); err != nil || recorder.Code != http.StatusOK ||
+		summary.Running != 0 || summary.ReviewPending != 0 || summary.PublishedItems != 0 ||
+		summary.Completed != 1 || summary.Failed != 0 ||
+		summary.OrdinaryFailed != 0 || summary.PegasusFailed != 0 || summary.ProcessingItems != 0 ||
+		summary.IssueItems != 0 {
+		t.Fatalf("import summary = %d %s, parsed=%#v error=%v", recorder.Code, recorder.Body.String(), summary, err)
+	}
+	list := httptest.NewRecorder()
+	server.imports(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/imports?limit=20", nil))
+	var page struct {
+		Items []importListItem `json:"items"`
+	}
+	if err := json.Unmarshal(list.Body.Bytes(), &page); err != nil || list.Code != http.StatusOK || len(page.Items) != 0 {
+		t.Fatalf("user-visible import list = %d %s, parsed=%#v error=%v", list.Code, list.Body.String(), page, err)
 	}
 }
 
