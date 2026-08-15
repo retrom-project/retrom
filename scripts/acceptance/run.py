@@ -39,14 +39,25 @@ CASE_COMMANDS: dict[str, tuple[int, str]] = {
         """set -euo pipefail
 make build-backend-image
 docker image inspect retrom:latest
+docker image inspect retrom:latest | python3 -c 'import json, sys; assert not json.load(sys.stdin)[0]["Config"].get("User")'
 docker run --rm --network none --read-only --user 1000:1000 --entrypoint /bin/sh retrom:latest -ec '
 unreadable="$(find /opt/retrom/dependencies \\( -type d ! -perm -005 -o -type f ! -perm -004 \\) -print)"
 test -z "$unreadable"
+test -z "$(find /opt/retrom/dependencies \\( -type d -perm -222 -o -type f -perm -222 \\) -print)"
+! grep -q "^retrom:" /etc/passwd
 find /opt/retrom/dependencies -type f -exec sha256sum {} + >/dev/null
 '
 """,
     ),
-    "ACC-PKG-002": (900, "make build-web-image && docker image inspect retrom-web:latest"),
+    "ACC-PKG-002": (
+        900,
+        """set -euo pipefail
+make build-web-image
+docker image inspect retrom-web:latest
+docker image inspect retrom-web:latest | python3 -c 'import json, sys; assert not json.load(sys.stdin)[0]["Config"].get("User")'
+docker run --rm --network none --read-only --user 1000:1000 --entrypoint /bin/sh retrom-web:latest -ec '! grep -q "^retrom:" /etc/passwd && test -r /app/server.js'
+""",
+    ),
     "ACC-PKG-003": (
         900,
         """set -euo pipefail

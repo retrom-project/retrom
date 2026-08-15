@@ -254,6 +254,169 @@ class DependencyMaterializationTests(unittest.TestCase):
             self.assertEqual(target.read_bytes(), b"updated\n")
             self.assertEqual(target.stat().st_mode & 0o777, 0o600)
 
+    def test_image_export_contains_only_declared_read_only_payload(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_root = root / "data"
+            auth_manifest_path = data_root / "auth/password-blocklists/v1/manifest.json"
+            netplay_manifest_path = data_root / "netplay/v1/manifest.json"
+            netplay_schema_path = data_root / "netplay/v1/schema.json"
+            manifest = {
+                "cores": [{"dat": {"local_path": "arcade/catalog.dat"}}],
+                "emulatorjs": {
+                    "runtime_allowlist": [
+                        {"path_in_release": "data/loader.js"},
+                        {"path_in_release": "data/cores/reports/core.json"},
+                    ],
+                    "selected_core_artifacts": [
+                        {"path_in_release": "data/cores/core-wasm.data"},
+                        {"path_in_release": None, "local_path": "overrides/core.data"},
+                    ],
+                },
+                "license_materialization": {
+                    "components": [
+                        {
+                            "license_files": [
+                                {"output_relative_path": "licenses/core/LICENSE"}
+                            ]
+                        }
+                    ],
+                    "third_party_notices_relative_path": "THIRD_PARTY_NOTICES",
+                },
+            }
+            auth_manifest = {
+                "passwords": {"output_relative_path": "payload/passwords.txt"},
+                "license": {"output_relative_path": "payload/LICENSE"},
+            }
+            expected = {
+                "dat/emulatorjs/1.0.0/manifest.json",
+                "dat/emulatorjs/1.0.0/SHA256SUMS",
+                "dat/emulatorjs/1.0.0/arcade/catalog.dat",
+                "runtime/emulatorjs/1.0.0/data/loader.js",
+                "runtime/emulatorjs/1.0.0/data/cores/reports/core.json",
+                "runtime/emulatorjs/1.0.0/data/cores/core-wasm.data",
+                "runtime/emulatorjs/1.0.0/overrides/core.data",
+                "runtime/emulatorjs/1.0.0/licenses/core/LICENSE",
+                "runtime/emulatorjs/1.0.0/THIRD_PARTY_NOTICES",
+                "auth/password-blocklists/v1/manifest.json",
+                "auth/password-blocklists/v1/payload/passwords.txt",
+                "auth/password-blocklists/v1/payload/LICENSE",
+                "netplay/v1/manifest.json",
+                "netplay/v1/schema.json",
+            }
+            source_paths = set(expected)
+            source_paths.remove("dat/emulatorjs/1.0.0/manifest.json")
+            source_paths.remove("auth/password-blocklists/v1/manifest.json")
+            for relative in source_paths:
+                target = data_root / relative
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(relative.encode("utf-8"))
+                target.chmod(0o600)
+            for target in (auth_manifest_path, netplay_manifest_path, netplay_schema_path):
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_text("{}\n", encoding="utf-8")
+                target.chmod(0o600)
+            runtime_manifest_path = data_root / "dat/emulatorjs/1.0.0/manifest.json"
+            runtime_manifest_path.parent.mkdir(parents=True, exist_ok=True)
+            runtime_manifest_path.write_text("{}\n", encoding="utf-8")
+            unused = data_root / "runtime/emulatorjs/1.0.0/data/cores/unused.data"
+            unused.parent.mkdir(parents=True, exist_ok=True)
+            unused.write_bytes(b"must not be exported")
+
+            output = root / "image-dependencies"
+            with mock.patch.multiple(
+                dependencies,
+                DATA_ROOT=data_root,
+                AUTH_MANIFEST_PATH=auth_manifest_path,
+                NETPLAY_MANIFEST_PATH=netplay_manifest_path,
+                NETPLAY_SCHEMA_PATH=netplay_schema_path,
+            ):
+                dependencies.export_image_dependencies(
+                    output, ["1.0.0"], [manifest], auth_manifest
+                )
+
+            actual = {
+                path.relative_to(output).as_posix()
+                for path in output.rglob("*")
+                if path.is_file()
+            }
+            self.assertEqual(actual, expected)
+            self.assertNotIn("runtime/emulatorjs/1.0.0/data/cores/unused.data", actual)
+            for path in output.rglob("*"):
+                self.assertEqual(path.stat().st_mode & 0o777, 0o555 if path.is_dir() else 0o444)
+            self.assertEqual(output.stat().st_mode & 0o777, 0o555)
+
+    def test_image_export_rejects_symlink_source(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            data_root = root / "data"
+            source = data_root / "runtime/emulatorjs/1.0.0/data/loader.js"
+            source.parent.mkdir(parents=True)
+            real_source = root / "real-loader.js"
+            real_source.write_bytes(b"loader")
+            source.symlink_to(real_source)
+            manifest = {
+                "cores": [],
+                "emulatorjs": {
+                    "runtime_allowlist": [{"path_in_release": "data/loader.js"}],
+                    "selected_core_artifacts": [],
+                },
+                "license_materialization": {
+                    "components": [],
+                    "third_party_notices_relative_path": "THIRD_PARTY_NOTICES",
+                },
+            }
+            auth_manifest = {
+                "passwords": {"output_relative_path": "payload/passwords.txt"},
+                "license": {"output_relative_path": "payload/LICENSE"},
+            }
+            required = (
+                data_root / "dat/emulatorjs/1.0.0/manifest.json",
+                data_root / "dat/emulatorjs/1.0.0/SHA256SUMS",
+                data_root / "runtime/emulatorjs/1.0.0/THIRD_PARTY_NOTICES",
+                data_root / "auth/password-blocklists/v1/manifest.json",
+                data_root / "auth/password-blocklists/v1/payload/passwords.txt",
+                data_root / "auth/password-blocklists/v1/payload/LICENSE",
+                data_root / "netplay/v1/manifest.json",
+                data_root / "netplay/v1/schema.json",
+            )
+            for target in required:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                target.write_bytes(b"fixture")
+
+            with mock.patch.multiple(
+                dependencies,
+                DATA_ROOT=data_root,
+                AUTH_MANIFEST_PATH=required[3],
+                NETPLAY_MANIFEST_PATH=required[6],
+                NETPLAY_SCHEMA_PATH=required[7],
+            ), self.assertRaisesRegex(
+                dependencies.CheckError, "DEPENDENCY_IMAGE_EXPORT_SOURCE_INVALID"
+            ):
+                dependencies.export_image_dependencies(
+                    root / "image-dependencies", ["1.0.0"], [manifest], auth_manifest
+                )
+
+
+class ImagePackagingTests(unittest.TestCase):
+    def test_backend_image_uses_curated_export_without_fixed_runtime_user(self) -> None:
+        repository_root = MANIFEST_PATH.parents[4]
+        dockerfile = (repository_root / "Dockerfile").read_text(encoding="utf-8")
+        self.assertIn("dependencies.py image-export", dockerfile)
+        self.assertIn("/work/image-dependencies", dockerfile)
+        self.assertNotIn("/work/data/runtime/emulatorjs /opt/retrom/dependencies", dockerfile)
+        self.assertNotIn("chmod -R", dockerfile)
+        self.assertNotRegex(dockerfile, r"(?m)^USER\s+")
+        self.assertNotIn("adduser", dockerfile)
+
+    def test_web_image_does_not_declare_a_fixed_runtime_user(self) -> None:
+        dockerfile = (MANIFEST_PATH.parents[4] / "web/Dockerfile").read_text(
+            encoding="utf-8"
+        )
+        self.assertNotRegex(dockerfile, r"(?m)^USER\s+")
+        self.assertNotIn("adduser", dockerfile)
+        self.assertNotIn("--chown=retrom:retrom", dockerfile)
+
 
 if __name__ == "__main__":
     unittest.main()
