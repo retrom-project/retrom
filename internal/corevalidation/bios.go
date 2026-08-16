@@ -70,6 +70,17 @@ type Snapshot struct {
 	MultiDisc     *MultiDiscSnapshot `json:"multiDisc,omitempty"`
 }
 
+type arcadeRuntimeSnapshot struct {
+	SchemaVersion     int               `json:"schemaVersion"`
+	Machine           string            `json:"machine"`
+	DATVersionID      string            `json:"datVersionId"`
+	Closure           []json.RawMessage `json:"closure"`
+	Dependencies      []json.RawMessage `json:"dependencies"`
+	MissingEntries    []string          `json:"missingEntries"`
+	MismatchedEntries []string          `json:"mismatchedEntries"`
+	Warnings          []string          `json:"warnings"`
+}
+
 func Catalog(ctx context.Context, database Queryer, artifactID string) ([]BIOSCatalogEntry, error) {
 	rows, err := database.QueryContext(ctx, `
 SELECT id,version,catalog_digest,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path
@@ -198,6 +209,44 @@ func ParseSnapshot(raw string) (Snapshot, error) {
 		return Snapshot{}, ErrInvalidSnapshot
 	}
 	return snapshot, nil
+}
+
+// ParseRuntimeBIOSDependencies accepts both dependency snapshot families that
+// can back a published variant. Static BIOS and multi-disc revisions use the
+// schema-v1 snapshot. Arcade revisions use a schema-v2 DAT closure whose
+// parent and BIOS files are already frozen as variant files, so it contributes
+// no external static BIOS dependencies at launch time.
+func ParseRuntimeBIOSDependencies(raw string) ([]BIOSDependency, error) {
+	var envelope struct {
+		SchemaVersion int `json:"schemaVersion"`
+	}
+	if err := json.Unmarshal([]byte(raw), &envelope); err != nil {
+		return nil, ErrInvalidSnapshot
+	}
+	switch envelope.SchemaVersion {
+	case SnapshotSchemaVersion:
+		snapshot, err := ParseSnapshot(raw)
+		if err != nil {
+			return nil, err
+		}
+		return snapshot.BIOS, nil
+	case 2:
+		var snapshot arcadeRuntimeSnapshot
+		decoder := json.NewDecoder(strings.NewReader(raw))
+		decoder.DisallowUnknownFields()
+		if err := decoder.Decode(&snapshot); err != nil || !validArcadeRuntimeSnapshot(snapshot) {
+			return nil, ErrInvalidSnapshot
+		}
+		return []BIOSDependency{}, nil
+	default:
+		return nil, ErrInvalidSnapshot
+	}
+}
+
+func validArcadeRuntimeSnapshot(snapshot arcadeRuntimeSnapshot) bool {
+	return snapshot.SchemaVersion == 2 && snapshot.Machine != "" && snapshot.DATVersionID != "" &&
+		snapshot.Closure != nil && snapshot.Dependencies != nil && snapshot.MissingEntries != nil &&
+		snapshot.MismatchedEntries != nil && snapshot.Warnings != nil
 }
 
 func validSnapshot(snapshot Snapshot) bool {

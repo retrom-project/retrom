@@ -59,6 +59,16 @@ type ServerMetadata struct {
 	Players, ReleaseYear                            *int
 }
 
+type ServerMetadataWarning struct {
+	Code  string `json:"code"`
+	Field string `json:"field"`
+}
+
+const (
+	reviewDescriptionMaximumRunes = 10_000
+	reviewShortFieldMaximumRunes  = 200
+)
+
 type serverReviewOrigin struct {
 	SourceRefID string
 	Assets      []ExternalAsset
@@ -279,7 +289,7 @@ func (service *Service) patchServerMetadata(
 	itemID string,
 	metadata ServerMetadata,
 ) (int64, error) {
-	if !validServerMetadata(metadata) {
+	if !validServerReviewMetadata(metadata, service.now().UTC().Year()+1) {
 		return 0, ErrInvalid
 	}
 	encoded, err := json.Marshal(map[string]any{
@@ -338,7 +348,7 @@ VALUES(?,?,'DRAFT_SAVED',?,?,?,?,?,?,'{}','{}','{}',?)
 	return version + 1, nil
 }
 
-func validServerMetadata(metadata ServerMetadata) bool {
+func validServerSourceMetadata(metadata ServerMetadata) bool {
 	if metadata.Title == "" || !validField(metadata.Title, 200, false) {
 		return false
 	}
@@ -362,14 +372,63 @@ func validServerMetadata(metadata ServerMetadata) bool {
 	return metadata.ReleaseYear == nil || *metadata.ReleaseYear >= 1000 && *metadata.ReleaseYear <= 9999
 }
 
+func validServerReviewMetadata(metadata ServerMetadata, maximumYear int) bool {
+	if metadata.Title == "" || !validField(metadata.Title, reviewShortFieldMaximumRunes, false) ||
+		!validField(metadata.Description, reviewDescriptionMaximumRunes, true) ||
+		!validField(metadata.Developer, reviewShortFieldMaximumRunes, false) ||
+		!validField(metadata.Publisher, reviewShortFieldMaximumRunes, false) ||
+		!validField(metadata.Genre, reviewShortFieldMaximumRunes, false) {
+		return false
+	}
+	if metadata.Players != nil && (*metadata.Players < 1 || *metadata.Players > 64) {
+		return false
+	}
+	return metadata.ReleaseYear == nil || *metadata.ReleaseYear >= 1950 && *metadata.ReleaseYear <= maximumYear
+}
+
+func normalizeServerReviewMetadata(
+	metadata ServerMetadata,
+	maximumYear int,
+) (ServerMetadata, []ServerMetadataWarning, error) {
+	if !validServerSourceMetadata(metadata) {
+		return ServerMetadata{}, nil, ErrInvalid
+	}
+	warnings := make([]ServerMetadataWarning, 0, 5)
+	truncate := func(value string, maximum int, field string) string {
+		runes := []rune(value)
+		if len(runes) <= maximum {
+			return value
+		}
+		warnings = append(warnings, ServerMetadataWarning{Code: "FIELD_TRUNCATED", Field: field})
+		return string(runes[:maximum])
+	}
+	metadata.Description = truncate(metadata.Description, reviewDescriptionMaximumRunes, "description")
+	metadata.Developer = truncate(metadata.Developer, reviewShortFieldMaximumRunes, "developer")
+	metadata.Publisher = truncate(metadata.Publisher, reviewShortFieldMaximumRunes, "publisher")
+	metadata.Genre = truncate(metadata.Genre, reviewShortFieldMaximumRunes, "genre")
+	if metadata.ReleaseYear != nil && (*metadata.ReleaseYear < 1950 || *metadata.ReleaseYear > maximumYear) {
+		metadata.ReleaseYear = nil
+		warnings = append(warnings, ServerMetadataWarning{Code: "FIELD_VALUE_INVALID", Field: "releaseYear"})
+	}
+	if !validServerReviewMetadata(metadata, maximumYear) {
+		return ServerMetadata{}, nil, ErrInvalid
+	}
+	return metadata, warnings, nil
+}
+
 // SeedServerReviewMetadata applies the trusted, frozen Pegasus text fields to
 // the ordinary review draft. Publication remains an explicit review decision.
 func (service *Service) SeedServerReviewMetadata(
 	ctx context.Context,
 	importItemID string,
 	metadata ServerMetadata,
-) (int64, error) {
-	return service.patchServerMetadata(ctx, importItemID, metadata)
+) (int64, []ServerMetadataWarning, error) {
+	normalized, warnings, err := normalizeServerReviewMetadata(metadata, service.now().UTC().Year()+1)
+	if err != nil {
+		return 0, nil, err
+	}
+	version, err := service.patchServerMetadata(ctx, importItemID, normalized)
+	return version, warnings, err
 }
 
 func validExternalAssets(assets []ExternalAsset) bool {

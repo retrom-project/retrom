@@ -422,7 +422,8 @@ func (service *Service) prepareLibraryReview(
 		)
 		return
 	}
-	if _, err := service.importer.SeedServerReviewMetadata(ctx, imported.ItemID, metadata); err != nil {
+	_, metadataWarnings, err := service.importer.SeedServerReviewMetadata(ctx, imported.ItemID, metadata)
+	if err != nil {
 		service.closeItemWithFailure(
 			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
 			withLibraryImportIdentity(
@@ -433,7 +434,7 @@ func (service *Service) prepareLibraryReview(
 		)
 		return
 	}
-	service.finalizeReviewHandoff(ctx, unit, item, importJobID, imported.ItemID)
+	service.finalizeReviewHandoff(ctx, unit, item, importJobID, imported.ItemID, metadataWarnings)
 }
 
 func (service *Service) finalizeReviewHandoff(
@@ -441,6 +442,7 @@ func (service *Service) finalizeReviewHandoff(
 	unit work,
 	item executionItem,
 	importJobID, importItemID string,
+	metadataWarnings []libraryimport.ServerMetadataWarning,
 ) {
 	now := service.now().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -456,6 +458,18 @@ func (service *Service) finalizeReviewHandoff(
 		return
 	}
 	defer cleanup.Rollback(transaction)
+	if err := appendServerMetadataWarnings(ctx, transaction, item.ID, metadataWarnings, now); err != nil {
+		cleanup.Rollback(transaction)
+		service.closeItemWithFailure(
+			ctx, item.ID, "COMMIT_FAILED", "INTERNAL_ERROR", true, "",
+			withLibraryImportIdentity(
+				service.itemFailure("STORAGE", "APPEND_METADATA_WARNINGS", err, firstSourcePath(item)),
+				importJobID,
+				importItemID,
+			),
+		)
+		return
+	}
 	result, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_items
 SET execution_state='REVIEW_PENDING',error_code=NULL,retryable=0,
@@ -495,6 +509,51 @@ WHERE id=? AND execution_state='VALIDATING'`, now, now, item.ID)
 			),
 		)
 	}
+}
+
+func appendServerMetadataWarnings(
+	ctx context.Context,
+	transaction *sql.Tx,
+	itemID string,
+	additions []libraryimport.ServerMetadataWarning,
+	now int64,
+) error {
+	if len(additions) == 0 {
+		return nil
+	}
+	var encoded string
+	if err := transaction.QueryRowContext(
+		ctx, `SELECT warnings_json FROM pegasus_import_items WHERE id=?`, itemID,
+	).Scan(&encoded); err != nil {
+		return fmt.Errorf("read metadata warnings: %w", err)
+	}
+	warnings := make([]map[string]any, 0, len(additions))
+	if err := json.Unmarshal([]byte(encoded), &warnings); err != nil {
+		return fmt.Errorf("decode metadata warnings: %w", err)
+	}
+	for _, addition := range additions {
+		duplicate := false
+		for _, existing := range warnings {
+			if existing["code"] == addition.Code && existing["field"] == addition.Field {
+				duplicate = true
+				break
+			}
+		}
+		if !duplicate {
+			warnings = append(warnings, map[string]any{"code": addition.Code, "field": addition.Field})
+		}
+	}
+	updated, err := json.Marshal(warnings)
+	if err != nil {
+		return fmt.Errorf("encode metadata warnings: %w", err)
+	}
+	if _, err := transaction.ExecContext(
+		ctx, `UPDATE pegasus_import_items SET warnings_json=?,updated_at_ms=? WHERE id=?`,
+		string(updated), now, itemID,
+	); err != nil {
+		return fmt.Errorf("update metadata warnings: %w", err)
+	}
+	return nil
 }
 
 func runtimeBlockCode(item libraryimport.ServerImportItem) string {

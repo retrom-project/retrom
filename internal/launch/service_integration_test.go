@@ -766,6 +766,30 @@ WHERE game.id=?
 `, approved.GameID).Scan(&compatibilityCode); err != nil || compatibilityCode != "REVIEW_SCREENSHOT_OVERRIDE" {
 		t.Fatalf("screenshot override compatibility = %q, error=%v", compatibilityCode, err)
 	}
+	arcadeOverrideRevisionID := newUUID()
+	arcadeOverrideSnapshot := fmt.Sprintf(
+		`{"schemaVersion":2,"machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[],"missingEntries":["missing.rom"],"mismatchedEntries":[],"warnings":[]}`,
+		datVersionID,
+	)
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,
+dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,
+dependency_snapshot_json,default_dos_entry,created_at_ms)
+SELECT ?,variant.id,current.game_content_revision_id,current.core_artifact_id,?, ?,current.emulator_game_id+100000,
+'READY','REVIEW_SCREENSHOT_OVERRIDE',?,current.default_dos_entry,current.created_at_ms+1
+FROM game_variants variant
+JOIN game_variant_revisions current ON current.id=variant.current_revision_id
+WHERE variant.game_id=?
+`, arcadeOverrideRevisionID, datVersionID, strings.Repeat("b", 64), arcadeOverrideSnapshot,
+		approved.GameID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE game_variants SET current_revision_id=?,version=version+1,updated_at_ms=updated_at_ms+1
+WHERE game_id=?
+`, arcadeOverrideRevisionID, approved.GameID); err != nil {
+		t.Fatal(err)
+	}
 	createdLaunch, err := service.Create(ctx, "review-preview-profile", CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID, ClientCapabilities: capabilities,
 	})

@@ -4,10 +4,48 @@ import (
 	"context"
 	"database/sql"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	_ "modernc.org/sqlite"
 )
+
+func TestNormalizeServerReviewMetadataUsesOrdinaryDraftLimits(t *testing.T) {
+	t.Parallel()
+	releaseYear := 1949
+	metadata, warnings, err := normalizeServerReviewMetadata(ServerMetadata{
+		Title:       "Fixture",
+		Description: strings.Repeat("界", reviewDescriptionMaximumRunes+1),
+		Developer:   strings.Repeat("开", reviewShortFieldMaximumRunes+1),
+		Publisher:   strings.Repeat("发", reviewShortFieldMaximumRunes+1),
+		Genre:       strings.Repeat("类", reviewShortFieldMaximumRunes+1),
+		ReleaseYear: &releaseYear,
+	}, 2027)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len([]rune(metadata.Description)) != reviewDescriptionMaximumRunes ||
+		len([]rune(metadata.Developer)) != reviewShortFieldMaximumRunes ||
+		len([]rune(metadata.Publisher)) != reviewShortFieldMaximumRunes ||
+		len([]rune(metadata.Genre)) != reviewShortFieldMaximumRunes || metadata.ReleaseYear != nil {
+		t.Fatalf("normalized metadata = %#v", metadata)
+	}
+	expected := []ServerMetadataWarning{
+		{Code: "FIELD_TRUNCATED", Field: "description"},
+		{Code: "FIELD_TRUNCATED", Field: "developer"},
+		{Code: "FIELD_TRUNCATED", Field: "publisher"},
+		{Code: "FIELD_TRUNCATED", Field: "genre"},
+		{Code: "FIELD_VALUE_INVALID", Field: "releaseYear"},
+	}
+	if len(warnings) != len(expected) {
+		t.Fatalf("warnings = %#v", warnings)
+	}
+	for index := range expected {
+		if warnings[index] != expected[index] {
+			t.Fatalf("warnings[%d] = %#v, want %#v", index, warnings[index], expected[index])
+		}
+	}
+}
 
 func TestServerImportResultKeepsLatestBlockedValidationWhenDraftHasNoSelection(t *testing.T) {
 	t.Parallel()

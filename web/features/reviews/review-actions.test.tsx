@@ -228,11 +228,16 @@ describe("ReviewActions", () => {
     const replace = vi.fn();
     const popup = { closed: false, close: vi.fn(), location: { replace }, document: { title: "", body: { style: { cssText: "" }, textContent: "" } } } as unknown as Window;
     vi.spyOn(window, "open").mockReturnValue(popup);
-    const blocked = { ...review, canApprove: false, validation: { ...review.validation!, status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_PARENT_MISSING" } };
+    const blocked = {
+      ...review,
+      metadata: { ...review.metadata, description: "界".repeat(12_167) },
+      canApprove: false,
+      validation: { ...review.validation!, status: "BLOCKED", current: true, compatibilityCode: "LAUNCH_PARENT_MISSING" },
+    };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
       if (url.endsWith("/previews")) return Promise.resolve(jsonResponse({ previewId: "preview-best-effort", playUrl: "/admin/review-previews/preview-best-effort", captureAllowed: true, captureAfterMs: 5000 }, 201));
-      if (init?.method === "PATCH") return Promise.resolve(jsonResponse({ version: 2 }));
+      if (init?.method === "PATCH") return Promise.resolve(jsonResponse({ error: { code: "INVALID_REQUEST" } }, 400));
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -242,6 +247,7 @@ describe("ReviewActions", () => {
     await user.click(screen.getByRole("button", { name: "运行游戏" }));
     await waitFor(() => expect(replace).toHaveBeenCalledWith("/admin/review-previews/preview-best-effort"));
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/reviews/item-1/previews", expect.objectContaining({ method: "POST" }));
+    expect(fetchMock.mock.calls.some(([, init]) => init?.method === "PATCH")).toBe(false);
     expect(screen.getByText("等待运行截图")).toBeVisible();
   });
 
