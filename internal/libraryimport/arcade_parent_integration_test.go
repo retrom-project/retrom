@@ -21,6 +21,7 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
@@ -38,6 +39,100 @@ func TestArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 func TestPegasusArcadeParentAttachmentPublishesTheEffectiveReviewSnapshot(t *testing.T) {
 	t.Parallel()
 	testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t, true)
+}
+
+func TestReviewBulkApprovalPublishesCurrentArcadeSnapshotV2(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	dataDir := t.TempDir()
+	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
+	const (
+		profileID = "01990000-0000-7000-8000-00000000c710"
+		adminID   = "01990000-0000-7000-8000-00000000c711"
+	)
+	if _, err := database.SQL.Exec(
+		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Arcade Bulk Admin',1)`, profileID,
+	); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.Exec(`
+INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
+VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
+`, adminID, profileID); err != nil {
+		t.Fatal(err)
+	}
+	ctx = authn.WithPrincipal(ctx, authn.Principal{
+		UserID: adminID, ProfileID: profileID, Role: "ADMIN",
+	})
+	blobs, err := blobstore.Open(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	insertArcadeParentCatalog(t, database.SQL)
+	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
+	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
+	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	created, err := importer.Create(ctx, CreateRequest{
+		UploadID: root.uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
+		MetadataProvider: "NONE",
+	})
+	if err != nil || created.ItemCount != 1 {
+		t.Fatalf("arcade import = %#v, error=%v", created, err)
+	}
+	itemID, _, _, validationID := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
+	var validationStatus, dependencySnapshot string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT status,dependency_snapshot_json FROM import_item_core_validations WHERE id=?
+`, validationID).Scan(&validationStatus, &dependencySnapshot); err != nil {
+		t.Fatal(err)
+	}
+	if validationStatus != "READY" || !strings.Contains(dependencySnapshot, `"schemaVersion":2`) {
+		t.Fatalf("arcade validation = %s %s", validationStatus, dependencySnapshot)
+	}
+	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{ImportJobID: created.ImportJobID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Counts.Matched != 1 || preview.Counts.StrictReady != 1 ||
+		preview.Counts.NotReadyOrStale != 0 {
+		t.Fatalf("arcade bulk preview = %#v", preview.Counts)
+	}
+	bulk, err := importer.CreateReviewBulk(ctx, ReviewBulkCreateRequest{
+		Scope: preview.Scope, ScopeDigest: preview.ScopeDigest,
+		CandidateManifestDigest: preview.CandidateManifestDigest,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	deadline := time.Now().Add(5 * time.Second)
+	var summary ReviewBulkSummary
+	for {
+		summary, err = importer.GetReviewBulk(ctx, bulk.BulkApprovalID)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if summary.State == "COMPLETED" || summary.State == "PARTIAL_FAILURE" || summary.State == "FAILED" {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatalf("arcade bulk approval did not finish: %#v", summary)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if summary.State != "COMPLETED" || summary.Progress.Published != 1 || summary.Progress.Processed != 1 {
+		t.Fatalf("arcade bulk result = %#v", summary)
+	}
+	var gameID string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT game_id FROM review_bulk_approval_items
+WHERE bulk_approval_id=? AND import_item_id=? AND state='PUBLISHED'
+`, bulk.BulkApprovalID, itemID).Scan(&gameID); err != nil || gameID == "" {
+		t.Fatalf("arcade bulk game = %q, error=%v", gameID, err)
+	}
 }
 
 func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t *testing.T, pegasus bool) {
@@ -169,6 +264,14 @@ SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
 		!strings.Contains(acceptedDiagnostics, `"observedRootEntryCount":1`) ||
 		!strings.Contains(acceptedDiagnostics, `"ignoredNestedEntryCount":1`) {
 		t.Fatalf("merged-style parent diagnostics = %q, error=%v", acceptedDiagnostics, err)
+	}
+	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{ImportJobID: created.ImportJobID})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if preview.Counts.Matched != 1 || preview.Counts.StrictReady != 1 ||
+		preview.Counts.NotReadyOrStale != 0 {
+		t.Fatalf("arcade parent bulk preview = %#v", preview.Counts)
 	}
 	approved, err := importer.Approve(ctx, itemID, version)
 	if err != nil {

@@ -554,8 +554,21 @@ func (service *Service) arcadeRequirements(
 	ctx context.Context,
 	datID, machine string,
 ) ([]arcadeROMRequirement, bool, error) {
+	return arcadeRequirementsWithQueryer(ctx, service.database, datID, machine)
+}
+
+type arcadeCatalogQueryer interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
+	QueryRowContext(context.Context, string, ...any) *sql.Row
+}
+
+func arcadeRequirementsWithQueryer(
+	ctx context.Context,
+	queryer arcadeCatalogQueryer,
+	datID, machine string,
+) ([]arcadeROMRequirement, bool, error) {
 	var defaultBIOS sql.NullString
-	_ = service.database.QueryRowContext(ctx, `
+	_ = queryer.QueryRowContext(ctx, `
 SELECT bios_name
 FROM dat_bios_sets
 WHERE dat_version_id=?
@@ -563,7 +576,7 @@ AND machine_name=?
 AND is_default=1
 `, datID, machine).
 		Scan(&defaultBIOS)
-	rows, err := service.database.QueryContext(
+	rows, err := queryer.QueryContext(
 		ctx,
 		`
 SELECT name,
@@ -611,7 +624,7 @@ ORDER BY ordinal
 		return nil, false, fmt.Errorf("libraryimport/service: %w", err)
 	}
 	var disks int
-	if err := service.database.QueryRowContext(ctx, `
+	if err := queryer.QueryRowContext(ctx, `
 SELECT count(*)
 FROM dat_disk_entries
 WHERE dat_version_id=?
@@ -3084,6 +3097,143 @@ WHERE source_snapshot_id=?
 	)
 }
 
+func validArcadeApprovalDependencyState(state string) bool {
+	return state == "SATISFIED_BY_CONTENT" || state == "SATISFIED_EXTERNAL" || state == "HASH_WARNING"
+}
+
+func equalArcadeRequirementNames(requirements []arcadeROMRequirement, frozen []string) bool {
+	if len(requirements) != len(frozen) {
+		return false
+	}
+	for index := range requirements {
+		if requirements[index].name != frozen[index] {
+			return false
+		}
+	}
+	return true
+}
+
+func arcadeDependencyValidationRole(kind string) string {
+	if kind == "PARENT" {
+		return "PARENT"
+	}
+	if kind == "BIOS_OR_BASE" {
+		return "BIOS_BUNDLE"
+	}
+	return ""
+}
+
+func validateArcadeExternalDependencyFile(
+	ctx context.Context,
+	transaction *sql.Tx,
+	validationID string,
+	dependency arcadeDraftDependency,
+) error {
+	role := arcadeDependencyValidationRole(dependency.Kind)
+	if role == "" {
+		return ErrInvalid
+	}
+	var count int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT count(*) FROM import_item_validation_files
+WHERE import_item_core_validation_id=? AND role=? AND logical_name=?
+`, validationID, role, dependency.ExpectedLogicalName).Scan(&count); err != nil {
+		return fmt.Errorf("libraryimport/approve arcade dependency: %w", err)
+	}
+	if count != 1 {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func (service *Service) validateCurrentArcadeApprovalDependency(
+	ctx context.Context,
+	transaction *sql.Tx,
+	validationID, datVersionID string,
+	dependency arcadeDraftDependency,
+) error {
+	if !validArcadeApprovalDependencyState(dependency.State) {
+		return ErrInvalid
+	}
+	requirements, hasDisk, err := arcadeRequirementsWithQueryer(
+		ctx, transaction, datVersionID, dependency.Machine,
+	)
+	if err != nil || hasDisk || !equalArcadeRequirementNames(requirements, dependency.RequiredEntries) {
+		return ErrInvalid
+	}
+	if dependency.State == "SATISFIED_BY_CONTENT" {
+		return nil
+	}
+	return validateArcadeExternalDependencyFile(ctx, transaction, validationID, dependency)
+}
+
+func (service *Service) validateCurrentArcadeApprovalSnapshot(
+	ctx context.Context,
+	transaction *sql.Tx,
+	validationID, frozenJSON string,
+) error {
+	frozen, valid := parseArcadeDraftSnapshot(frozenJSON)
+	if !valid || frozen.SchemaVersion != 2 || len(frozen.MissingEntries) != 0 ||
+		len(frozen.MismatchedEntries) != 0 {
+		return ErrInvalid
+	}
+	projected, err := service.projectArcadeSnapshotV2WithQueryer(ctx, transaction, frozenJSON)
+	if err != nil || len(projected.Dependencies) != len(projectedClosureDependencies(projected.Closure)) {
+		return ErrInvalid
+	}
+	seen := make(map[string]struct{}, len(projected.Dependencies))
+	for _, dependency := range projected.Dependencies {
+		key := dependency.Kind + "\x00" + dependency.Machine
+		if _, duplicate := seen[key]; duplicate {
+			return ErrInvalid
+		}
+		seen[key] = struct{}{}
+		if err := service.validateCurrentArcadeApprovalDependency(
+			ctx, transaction, validationID, projected.DatVersionID, dependency,
+		); err != nil {
+			return err
+		}
+	}
+	frozenCanonical, frozenErr := json.Marshal(frozen)
+	projectedCanonical, projectedErr := json.Marshal(projected)
+	if frozenErr != nil || projectedErr != nil || !bytes.Equal(frozenCanonical, projectedCanonical) {
+		return ErrInvalid
+	}
+	return nil
+}
+
+func projectedClosureDependencies(raw json.RawMessage) []arcadeClosureNode {
+	var nodes []arcadeClosureNode
+	if json.Unmarshal(raw, &nodes) != nil {
+		return nil
+	}
+	dependencies := make([]arcadeClosureNode, 0, len(nodes))
+	for _, node := range nodes {
+		if node.Kind != "CONTENT" {
+			dependencies = append(dependencies, node)
+		}
+	}
+	return dependencies
+}
+
+func (service *Service) validateCurrentApprovalDependencySnapshot(
+	ctx context.Context,
+	transaction *sql.Tx,
+	sourceSnapshotID, validationID, platformID, artifactID, compatibility, contentKind, frozenJSON string,
+) error {
+	snapshot, err := corevalidation.ParseSnapshot(frozenJSON)
+	if err == nil {
+		return validateCurrentApprovalSnapshot(
+			ctx, transaction, sourceSnapshotID, validationID, platformID, artifactID,
+			compatibility, contentKind, snapshot, frozenJSON,
+		)
+	}
+	if platformID != "arcade" || contentKind != "SINGLE_FILE" {
+		return ErrInvalid
+	}
+	return service.validateCurrentArcadeApprovalSnapshot(ctx, transaction, validationID, frozenJSON)
+}
+
 func screenshotOverrideRuntimeSnapshot(snapshot corevalidation.Snapshot) corevalidation.Snapshot {
 	filtered := make([]corevalidation.BIOSDependency, 0, len(snapshot.BIOS))
 	for _, dependency := range snapshot.BIOS {
@@ -3348,13 +3498,10 @@ AND active.is_active=1)
 	}
 	screenshotOverride := validationStatus != "READY" && approvalScreenshotID.Valid
 	validationSnapshot, snapshotErr := corevalidation.ParseSnapshot(dependencySnapshotJSON)
-	if snapshotErr != nil && contentKind == multidisc.ContentKind {
-		return Approved{}, ErrInvalid
-	}
-	if snapshotErr == nil && !screenshotOverride {
-		if err := validateCurrentApprovalSnapshot(
+	if !screenshotOverride {
+		if err := service.validateCurrentApprovalDependencySnapshot(
 			ctx, transaction, sourceSnapshotID, validationID, platformID, artifactID,
-			artifactCompatibility, contentKind, validationSnapshot, dependencySnapshotJSON,
+			artifactCompatibility, contentKind, dependencySnapshotJSON,
 		); err != nil {
 			return Approved{}, err
 		}

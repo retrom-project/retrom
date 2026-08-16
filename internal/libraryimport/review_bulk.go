@@ -18,7 +18,6 @@ import (
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
-	"retrom/internal/corevalidation"
 )
 
 const (
@@ -295,15 +294,10 @@ func (service *Service) classifyReviewBulkCandidates(
 			counts.NotReadyOrStale++
 			continue
 		}
-		snapshot, err := corevalidation.ParseSnapshot(candidate.dependencySnapshot.String)
-		if err != nil {
-			counts.NotReadyOrStale++
-			continue
-		}
-		err = validateCurrentApprovalSnapshot(
+		err := service.validateCurrentApprovalDependencySnapshot(
 			ctx, transaction, candidate.sourceSnapshotID, candidate.validationID.String,
 			candidate.platformID, candidate.artifactID.String, candidate.artifactCompatibility.String,
-			candidate.contentKind, snapshot, candidate.dependencySnapshot.String,
+			candidate.contentKind, candidate.dependencySnapshot.String,
 		)
 		if errors.Is(err, ErrInvalid) {
 			counts.NotReadyOrStale++
