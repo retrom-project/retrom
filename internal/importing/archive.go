@@ -14,11 +14,9 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"unicode/utf8"
-
-	"golang.org/x/text/encoding/simplifiedchinese"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/zipentry"
 )
 
 var (
@@ -190,14 +188,8 @@ func ScanFlatZIP(ctx context.Context, path string, limits ArchiveLimits) ([]Arch
 }
 
 func zipEntryName(item *zip.File) (string, error) {
-	if utf8.ValidString(item.Name) {
-		return item.Name, nil
-	}
-	if !item.NonUTF8 {
-		return "", ErrArchiveUnsafe
-	}
-	decoded, err := simplifiedchinese.GB18030.NewDecoder().String(item.Name)
-	if err != nil || !utf8.ValidString(decoded) || strings.ContainsRune(decoded, utf8.RuneError) {
+	decoded, err := zipentry.DecodeName(item.Name, item.NonUTF8)
+	if err != nil {
 		return "", ErrArchiveUnsafe
 	}
 	return decoded, nil

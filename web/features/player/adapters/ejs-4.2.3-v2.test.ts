@@ -32,6 +32,32 @@ const config: PlayerConfig = {
   netplay: null
 };
 
+const dosConfig: PlayerConfig = {
+  ...config,
+  emulatorjsVersion: "4.3.0-pre",
+  playerAdapterId: "ejs-4.3.0-pre-v1",
+  core: "dosbox_pure",
+  runtimeCore: "dosbox_pure",
+  dosEntry: "GAMES/DOOM.EXE",
+  runtimeBaseUrl: "/runtime/emulatorjs/4.3.0-pre/data/",
+  loaderUrl: "/runtime/emulatorjs/4.3.0-pre/data/loader.js",
+  runtimePathOverrides: { "dosbox_pure-thread-wasm.data": "/runtime/emulatorjs/4.3.0-pre/data/cores/dosbox_pure-thread-wasm.data" },
+  defaultCoreOptions: {},
+  externalFiles: {}
+};
+
+const originalWindowFetch = window.fetch;
+
+const sevenZipWorkerSource = [
+  'function getCFunc(_0x222174){var _0x54cf7b=Module["_"+_0x222174];if(!_0x54cf7b)try{_0x54cf7b=eval("_"+_0x222174)}catch(_0x4b65d1){}}',
+  'function cwrap(_0x405d7e,_0x2bdb59,_0x4f818b){var _0x370f8c="generated";return eval(_0x370f8c)}',
+].join("");
+
+const zipWorkerSource = [
+  'function getCFunc(_0x5d9040){var _0x23b817=Module["_"+_0x5d9040];if(!_0x23b817)try{_0x23b817=eval("_"+_0x5d9040)}catch(_0x2989f0){}}',
+  'function cwrap(_0x557d23,_0x36bd20,_0x501373){var _0x6f14b3="generated";return eval(_0x6f14b3)}',
+].join("");
+
 const fbneoNetplayConfig: PlayerConfig = {
   ...config,
   mode: "netplay",
@@ -78,6 +104,7 @@ describe("EmulatorJS adapter", () => {
     window.EJS_emulator = undefined;
     Reflect.deleteProperty(window, "EJS_GameManager");
     Reflect.deleteProperty(window, "EJS_COMPRESSION");
+    window.fetch = originalWindowFetch;
   });
 
   it("rejects an unregistered runtime without mutating the document", () => {
@@ -115,19 +142,6 @@ describe("EmulatorJS adapter", () => {
 
   it("defers 4.3 DOS startup until the whole-archive mode is installed", async () => {
     const target = document.createElement("div");
-    const dosConfig: PlayerConfig = {
-      ...config,
-      emulatorjsVersion: "4.3.0-pre",
-      playerAdapterId: "ejs-4.3.0-pre-v1",
-      core: "dosbox_pure",
-      runtimeCore: "dosbox_pure",
-      dosEntry: "GAMES/DOOM.EXE",
-      runtimeBaseUrl: "/runtime/emulatorjs/4.3.0-pre/data/",
-      loaderUrl: "/runtime/emulatorjs/4.3.0-pre/data/loader.js",
-      runtimePathOverrides: { "dosbox_pure-thread-wasm.data": "/runtime/emulatorjs/4.3.0-pre/data/cores/dosbox_pure-thread-wasm.data" },
-      defaultCoreOptions: {},
-      externalFiles: {}
-    };
     const cleanup = mountEmulatorJS(dosConfig, target);
     expect(window.EJS_startOnLoaded).toBe(false);
     expect(window.EJS_dontExtractRom).toBe(true);
@@ -190,11 +204,7 @@ describe("EmulatorJS adapter", () => {
   it("rewrites the pinned 4.2.3 7z worker without JavaScript eval", async () => {
     const target = document.createElement("div");
     const cleanup = mountEmulatorJS(config, target);
-    const workerSource = [
-      'function getCFunc(_0x222174){var _0x54cf7b=Module["_"+_0x222174];if(!_0x54cf7b)try{_0x54cf7b=eval("_"+_0x222174)}catch(_0x4b65d1){}}',
-      'function cwrap(_0x405d7e,_0x2bdb59,_0x4f818b){var _0x370f8c="generated";return eval(_0x370f8c)}',
-    ].join("");
-    const workerBlob = new Blob([workerSource], { type: "application/javascript" });
+    const workerBlob = new Blob([sevenZipWorkerSource], { type: "application/javascript" });
     class Compression {
       async getWorkerFile(archiveType: string) {
         if (archiveType !== "7z" && archiveType !== "rar") throw new Error("unexpected archive type");
@@ -212,14 +222,35 @@ describe("EmulatorJS adapter", () => {
     cleanup();
   });
 
+  it("rewrites the byte-identical pinned 4.3 DOS core 7z worker without JavaScript eval", async () => {
+    const frame = document.createElement("iframe");
+    document.body.append(frame);
+    const runtimeWindow = frame.contentWindow!;
+    expect(runtimeWindow.location.href).toBe("about:blank");
+    const target = runtimeWindow.document.createElement("div");
+    const fetchMock = vi.fn(async () => new Response(sevenZipWorkerSource, { status: 200, headers: { "Content-Length": "100", ETag: "worker-v1" } }));
+    runtimeWindow.fetch = fetchMock;
+    const cleanup = mountEmulatorJS(dosConfig, target, {}, runtimeWindow);
+    const workerURL = new URL("/runtime/emulatorjs/4.3.0-pre/data/compression/extract7z.js", window.location.href);
+    const patched = await runtimeWindow.fetch(workerURL.href);
+    const patchedSource = await patched.text();
+    expect(patchedSource).not.toContain("eval(");
+    expect(patchedSource).toContain('Module["_"+_0x222174]');
+    expect(patchedSource).toContain("ccall(_0x405d7e,_0x2bdb59,_0x4f818b,Array.prototype.slice.call(arguments))");
+    expect(patched.headers.has("content-length")).toBe(false);
+    expect(patched.headers.has("etag")).toBe(false);
+    const unrelated = await runtimeWindow.fetch("/runtime/emulatorjs/4.3.0-pre/data/compression/libunrar.js");
+    expect(await unrelated.text()).toBe(sevenZipWorkerSource);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    cleanup();
+    expect(runtimeWindow.fetch).toBe(fetchMock);
+    frame.remove();
+  });
+
   it("rewrites the pinned 4.2.3 zip worker without JavaScript eval", async () => {
     const target = document.createElement("div");
     const cleanup = mountEmulatorJS(config, target);
-    const workerSource = [
-      'function getCFunc(_0x5d9040){var _0x23b817=Module["_"+_0x5d9040];if(!_0x23b817)try{_0x23b817=eval("_"+_0x5d9040)}catch(_0x2989f0){}}',
-      'function cwrap(_0x557d23,_0x36bd20,_0x501373){var _0x6f14b3="generated";return eval(_0x6f14b3)}',
-    ].join("");
-    const workerBlob = new Blob([workerSource], { type: "application/javascript" });
+    const workerBlob = new Blob([zipWorkerSource], { type: "application/javascript" });
     class Compression {
       async getWorkerFile(archiveType: string) {
         if (archiveType !== "zip") throw new Error("unexpected archive type");
@@ -228,8 +259,7 @@ describe("EmulatorJS adapter", () => {
     }
     window.EJS_COMPRESSION = Compression;
 
-    const patched = await new Compression().getWorkerFile("zip");
-    const patchedSource = await patched.text();
+    const patchedSource = await (await new Compression().getWorkerFile("zip")).text();
     expect(patchedSource).not.toContain("eval(");
     expect(patchedSource).toContain('Module["_"+_0x5d9040]');
     expect(patchedSource).toContain("ccall(_0x557d23,_0x36bd20,_0x501373,Array.prototype.slice.call(arguments))");
@@ -249,6 +279,15 @@ describe("EmulatorJS adapter", () => {
 
     await expect(new Compression().getWorkerFile("7z")).rejects.toThrow("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
     await expect(new Compression().getWorkerFile("zip")).rejects.toThrow("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+    cleanup();
+  });
+
+  it("fails closed when the pinned 4.3 archive worker response shape drifts", async () => {
+    const target = document.createElement("div");
+    window.fetch = vi.fn(async () => new Response("unexpected-worker-source", { status: 200 }));
+    const cleanup = mountEmulatorJS(dosConfig, target);
+    await expect(window.fetch("/runtime/emulatorjs/4.3.0-pre/data/compression/extract7z.js")).rejects.toThrow("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+    await expect(window.fetch("/runtime/emulatorjs/4.3.0-pre/data/compression/extractzip.js")).rejects.toThrow("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
     cleanup();
   });
 

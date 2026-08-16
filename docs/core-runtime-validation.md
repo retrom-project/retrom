@@ -130,7 +130,7 @@ Cross-Origin-Embedder-Policy: require-corp
 Cross-Origin-Resource-Policy: same-origin
 ~~~
 
-测试同时断言 `window.crossOriginIsolated === true`。smoke 从未跟踪的原 DOOM II ZIP 确定性生成带根级 `AUTOBOOT.DBP` 的临时派生包；adapter 在 `EJS_ready` 安装 whole-archive 模式后自动点击运行时 start button，帧持续推进且画面通过非空/非均匀检查。生产链路不物化该派生包，而由受限内容端点以 seekable 虚拟 ZIP 等价返回。用户本地 DOS corpus 另执行结构矩阵，覆盖安装器优先、数据首项、嵌套资源和高压缩比空白存档。
+测试同时断言 `window.crossOriginIsolated === true`。smoke 从未跟踪的原 DOOM II ZIP 确定性生成带根级 `AUTOBOOT.DBP` 的临时派生包；adapter 在加载 4.3 thread core 前把其字节锁定的 7z Worker 转换为无 JavaScript `eval` 的等价实现，在 `EJS_ready` 安装 whole-archive 模式后自动点击运行时 start button，生产 CSP 保持不含 `unsafe-eval`，帧持续推进且画面通过非空/非均匀检查。生产链路不物化该派生包，而由受限内容端点以 seekable 虚拟 ZIP 等价返回。用户本地 DOS corpus 另执行结构矩阵，覆盖安装器优先、数据首项、嵌套资源和高压缩比空白存档。
 
 ## 8. PSP ISO/CSO 与线程产物
 

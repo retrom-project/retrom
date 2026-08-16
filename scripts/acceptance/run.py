@@ -296,7 +296,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-RUN-004": (180, "scripts/acceptance/ui-case.sh ACC-RUN-004"),
     "ACC-RUN-005": (
         180,
-        "go test -tags=integration ./internal/launch ./internal/libraryimport -run 'TestDOSDirectBundleIsDeterministicAndInjectsOnlyExactConfig|TestDOSLaunchLocksMenuOrSelectedDeterministicBundle|TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms' -count=1",
+        "go test -tags=integration ./internal/launch ./internal/libraryimport -run 'TestDOSDirectBundleIsDeterministicAndInjectsOnlyExactConfig|TestDOSLaunchLocksMenuOrSelectedDeterministicBundle|TestDOSDirectoryGroupingProducesDeterministicBundleAndSafePrograms|TestDOSRanking|TestPrepareDOSFilesInspectsLauncherBatch' -count=1 && make web-test",
     ),
     "ACC-SAVE-001": (
         180,

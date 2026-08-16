@@ -7,6 +7,8 @@ import (
 	"io"
 	"strings"
 	"testing"
+
+	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
 func TestOverlayPrependsDeterministicLauncherAndPreservesArchive(t *testing.T) {
@@ -136,6 +138,121 @@ func TestOverlayUsesDOSBoxPure83AliasesIncludingCollisions(t *testing.T) {
 	}
 	if got := readFile(t, reader.File[0]); got != `C:\LONGLDER\ABCDXXYZ.EXE` {
 		t.Fatalf("8.3 collision launcher = %q", got)
+	}
+}
+
+func TestOverlayMatchesLegacyGB18030EntryNameUsedByImportScan(t *testing.T) {
+	t.Parallel()
+	encoded, err := simplifiedchinese.GB18030.NewEncoder().String("金庸群侠传/PLAY.BAT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	var output bytes.Buffer
+	writer := zip.NewWriter(&output)
+	untrusted, err := writer.Create("RETROM.BAT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := io.WriteString(untrusted, "untrusted"); err != nil {
+		t.Fatal(err)
+	}
+	destination, err := writer.CreateHeader(&zip.FileHeader{
+		Name: encoded, NonUTF8: true, Method: zip.Store,
+	})
+	if err == nil {
+		_, err = io.WriteString(destination, "@ECHO OFF\r\nZ\r\n")
+	}
+	if err == nil {
+		var after io.Writer
+		after, err = writer.Create("AFTER.TXT")
+		if err == nil {
+			_, err = io.WriteString(after, "after")
+		}
+	}
+	if closeErr := writer.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	overlay, err := New(bytes.NewReader(output.Bytes()), int64(output.Len()), "金庸群侠传/PLAY.BAT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents, err := io.ReadAll(overlay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(reader.File) != 4 || reader.File[0].Name != "AUTOBOOT.DBP" || reader.File[1].Name != "RETROM.BAT" ||
+		reader.File[2].Name != "RT93B32B/PLAY.BAT" {
+		t.Fatalf("legacy-name overlay entries = %#v", reader.File)
+	}
+	if got, want := readFile(t, reader.File[0]), `C:\RT93B32B\PLAY.BAT`; got != want {
+		t.Fatalf("legacy-name AUTOBOOT.DBP = %x, want %x", got, want)
+	}
+	if got, want := readFile(t, reader.File[1]), "untrusted"; got != want {
+		t.Fatalf("source RETROM.BAT = %x, want %x", got, want)
+	}
+	if got, want := readFile(t, reader.File[2]), "@ECHO OFF\r\nZ\r\n"; got != want {
+		t.Fatalf("rewritten selected entry contents = %x, want %x", got, want)
+	}
+	if got, want := readFile(t, reader.File[3]), "after"; got != want {
+		t.Fatalf("entry after rewritten local name = %q, want %q", got, want)
+	}
+}
+
+func TestOverlayAvoidsLegacyDirectoryMappingCollision(t *testing.T) {
+	t.Parallel()
+	directory, err := simplifiedchinese.GB18030.NewEncoder().String("金庸群侠传")
+	if err != nil {
+		t.Fatal(err)
+	}
+	firstMapping := legacyReplacement(directory, 0, false)
+	secondMapping := legacyReplacement(directory, 1, false)
+	var output bytes.Buffer
+	writer := zip.NewWriter(&output)
+	reserved, err := writer.Create(firstMapping + "/KEEP.TXT")
+	if err == nil {
+		_, err = io.WriteString(reserved, "keep")
+	}
+	var selected io.Writer
+	if err == nil {
+		selected, err = writer.CreateHeader(&zip.FileHeader{
+			Name: directory + "/PLAY.BAT", NonUTF8: true, Method: zip.Store,
+		})
+	}
+	if err == nil {
+		_, err = io.WriteString(selected, "play")
+	}
+	if closeErr := writer.Close(); err == nil {
+		err = closeErr
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	overlay, err := New(bytes.NewReader(output.Bytes()), int64(output.Len()), "金庸群侠传/PLAY.BAT")
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents, err := io.ReadAll(overlay)
+	if err != nil {
+		t.Fatal(err)
+	}
+	reader, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got, want := readFile(t, reader.File[0]), `C:\`+secondMapping+`\PLAY.BAT`; got != want {
+		t.Fatalf("collision-safe AUTOBOOT.DBP = %q, want %q", got, want)
+	}
+	if reader.File[1].Name != firstMapping+"/KEEP.TXT" || reader.File[2].Name != secondMapping+"/PLAY.BAT" {
+		t.Fatalf("collision-safe entries = %#v", reader.File)
 	}
 }
 
