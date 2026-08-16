@@ -20,6 +20,8 @@
 .library-section-head > span { display: flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12px; }
 .library-section-head kbd { padding: 2px 5px; color: #596273; border: 1px solid #d9dce3; border-bottom-width: 2px; border-radius: 5px; background: white; font-size: 10px; }
 .library-game-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 280px)); gap: 18px; align-items: start; }
+.library-loading { min-height: 180px; display: grid; place-items: center; color: var(--muted); font-size: 13px; }
+.library-pagination { min-height: 52px; margin-top: 18px; padding: 10px 0; display: flex; align-items: center; justify-content: space-between; gap: 14px; color: var(--muted); font-size: 12px; }
 .library-game-card { position: relative; min-width: 0; border: 1px solid var(--line); border-radius: 15px; background: white; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
 .library-game-card:hover { z-index: 3; border-color: #d9d1f7; box-shadow: var(--shadow); transform: translateY(-3px); }
 .library-game-card:has([aria-expanded="true"]) { z-index: 5; }

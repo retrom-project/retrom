@@ -161,6 +161,39 @@ FROM platform_instances ORDER BY id
 	}
 }
 
+func TestOpenProvidesAnIndependentConfiguredReadPool(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	database, err := Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatalf("Open() error = %v", err)
+	}
+	defer func() { cleanup.Error("close", database.Close()) }()
+	if database.ReadOnly == nil || database.ReadOnly.Stats().MaxOpenConnections != 4 {
+		t.Fatalf("read pool = %#v, stats = %#v", database.ReadOnly, database.ReadOnly.Stats())
+	}
+
+	writer, err := database.SQL.Conn(ctx)
+	if err != nil {
+		t.Fatalf("reserve writer connection: %v", err)
+	}
+	defer func() { cleanup.Error("close", writer.Close()) }()
+
+	readContext, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	var foreignKeys, busyTimeout, tableCount int
+	if err := database.ReadOnly.QueryRowContext(readContext, `
+SELECT (SELECT foreign_keys FROM pragma_foreign_keys),
+       (SELECT timeout FROM pragma_busy_timeout),
+       (SELECT count(*) FROM sqlite_schema WHERE type='table')
+`).Scan(&foreignKeys, &busyTimeout, &tableCount); err != nil {
+		t.Fatalf("query independent read pool while writer is reserved: %v", err)
+	}
+	if foreignKeys != 1 || busyTimeout != 5000 || tableCount == 0 {
+		t.Fatalf("read pool configuration = foreign_keys:%d busy_timeout:%d tables:%d", foreignKeys, busyTimeout, tableCount)
+	}
+}
+
 func queryStrings(t *testing.T, database *sql.DB, query string) []string {
 	t.Helper()
 	rows, err := database.Query(query)

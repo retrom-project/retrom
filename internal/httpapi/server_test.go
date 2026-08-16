@@ -1922,6 +1922,100 @@ SELECT
 	}
 }
 
+func TestGameListUsesFilteredCursorPagesAndReturnsFacetsOnlyOnFirstPage(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	transaction, err := server.database.Begin()
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.Exec(`PRAGMA defer_foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	const baseTime = int64(1_786_000_000_000)
+	gameIDs := []string{
+		"01980000-0000-7000-8000-000000001001",
+		"01980000-0000-7000-8000-000000001002",
+		"01980000-0000-7000-8000-000000001003",
+	}
+	for index, gameID := range gameIDs {
+		metadataID := fmt.Sprintf("01980000-0000-7000-8000-%012d", 1101+index)
+		contentID := fmt.Sprintf("01980000-0000-7000-8000-%012d", 1201+index)
+		title := fmt.Sprintf("DOS Game %d", index+1)
+		createdAt := baseTime + int64(index)*1000
+		if _, err := transaction.Exec(`
+INSERT INTO game_metadata_revisions(
+ id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,source_ref_id,created_at_ms
+) VALUES(?,?,?,'','','','',NULL,NULL,'IMPORT_REVIEW','pagination-fixture',?)
+`, metadataID, gameID, title, createdAt); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO game_content_revisions(
+ id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
+) VALUES(?,?,'IMPORT_REVIEW','pagination-fixture','{}',?,?)
+`, contentID, gameID, strings.Repeat(strconv.Itoa(index+1), 64), createdAt); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO games(
+ id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms
+) VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
+`, gameID, metadataID, contentID, strings.ToLower(title), createdAt, createdAt); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+
+	type pageResponse struct {
+		Items []struct {
+			GameID string `json:"gameId"`
+		} `json:"items"`
+		NextCursor    *string `json:"nextCursor"`
+		FilteredCount int64   `json:"filteredCount"`
+		Facets        struct {
+			TotalCount int64 `json:"totalCount"`
+		} `json:"facets"`
+	}
+	first := httptest.NewRecorder()
+	server.Handler().ServeHTTP(first, httptest.NewRequest(
+		http.MethodGet, "/api/v1/games?sort=ADDED_DESC&platformId=dos&limit=2", nil,
+	))
+	if first.Code != http.StatusOK {
+		t.Fatalf("first game page = %d %s", first.Code, first.Body.String())
+	}
+	var firstPage pageResponse
+	if err := json.Unmarshal(first.Body.Bytes(), &firstPage); err != nil {
+		t.Fatal(err)
+	}
+	if len(firstPage.Items) != 2 || firstPage.Items[0].GameID != gameIDs[2] ||
+		firstPage.Items[1].GameID != gameIDs[1] || firstPage.NextCursor == nil ||
+		firstPage.FilteredCount != 3 || firstPage.Facets.TotalCount != 3 {
+		t.Fatalf("first page = %#v", firstPage)
+	}
+
+	second := httptest.NewRecorder()
+	server.Handler().ServeHTTP(second, httptest.NewRequest(
+		http.MethodGet,
+		"/api/v1/games?sort=ADDED_DESC&platformId=dos&limit=2&cursor="+url.QueryEscape(*firstPage.NextCursor),
+		nil,
+	))
+	if second.Code != http.StatusOK {
+		t.Fatalf("second game page = %d %s", second.Code, second.Body.String())
+	}
+	var secondPage pageResponse
+	if err := json.Unmarshal(second.Body.Bytes(), &secondPage); err != nil {
+		t.Fatal(err)
+	}
+	if len(secondPage.Items) != 1 || secondPage.Items[0].GameID != gameIDs[0] || secondPage.NextCursor != nil ||
+		strings.Contains(second.Body.String(), `"facets"`) || strings.Contains(second.Body.String(), `"filteredCount"`) {
+		t.Fatalf("second page = %#v body=%s", secondPage, second.Body.String())
+	}
+}
+
 func seedCompletedGameScrape(
 	t *testing.T,
 	database *sql.DB,
@@ -2749,7 +2843,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 		testAuthenticator{},
 		nil,
 		time.Now,
-	)
+	).WithReadinessDatabase(database.ReadOnly)
 	t.Cleanup(server.Close)
 	return server
 }

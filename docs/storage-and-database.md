@@ -108,7 +108,7 @@ PRAGMA busy_timeout = 5000;
 
 - 所有写操作通过短事务完成；耗时哈希、网络请求和 DAT 解析不得占用写事务。
 - SQLite 数据库和 WAL 必须位于本机磁盘；不支持把数据库放在 NFS/SMB/分布式文件系统。CAS 可单独挂载，但必须满足原子 rename 语义。
-- 一期只允许一个 `retrom` 进程写同一数据库。写 handle 的 `MaxOpenConns=1`；只读 handle 最多 4 个连接。每个新连接都执行 `foreign_keys=ON` 和 `busy_timeout=5000`，不能只在首个连接设置。
+- 一期只允许一个 `retrom` 进程写同一数据库。写 handle 的 `MaxOpenConns=1`；独立只读 handle 使用 `mode=ro` 且最多 4 个连接，健康探测等只读控制面查询不能排在唯一写连接之后。每个新连接都执行 `foreign_keys=ON` 和 `busy_timeout=5000`，不能只在首个连接设置。
 - 外键删除策略默认 `RESTRICT`，业务软删除通过状态字段实现。
 - 布尔值使用 `INTEGER NOT NULL CHECK (value IN (0, 1))`。
 - 枚举使用 `TEXT` 加 `CHECK` 或稳定字典表，不使用依赖插入顺序的整数枚举。

@@ -183,7 +183,7 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
       <StatusBadge tone={statusTone(item.blockerCodes[0] ?? item.validationStatus)}>{validationLabels[item.validationStatus] ?? item.validationStatus}{item.blockerCodes.length ? " · 需要处理" : ""}</StatusBadge>
       <div className="review-workflow-candidate"><strong>{item.sourceKind === "PEGASUS" ? "已读取 Pegasus 信息" : item.candidateCount ? "已找到游戏信息" : "未找到游戏信息"}</strong><small>{item.sourceKind === "PEGASUS" ? "等待管理员核对" : item.candidateCount ? `${item.candidateCount} 个候选` : "需要手动填写"}</small></div>
       <div className="review-workflow-wait"><strong>{formatTime(item.updatedAtMs)}</strong><small>更新时间</small></div>
-      <Link aria-label={item.validationStatus === "READY" && !item.blockerCodes.length ? "审核条目" : "处理条目"} className={item.validationStatus === "READY" && !item.blockerCodes.length ? "button" : "button secondary"} onClick={remember} href={`/admin/reviews/${item.itemId}?returnTo=${encodeURIComponent(listURL)}`}>{item.validationStatus === "READY" && !item.blockerCodes.length ? "审核" : "处理"}</Link>
+      <Link prefetch={false} aria-label={item.validationStatus === "READY" && !item.blockerCodes.length ? "审核条目" : "处理条目"} className={item.validationStatus === "READY" && !item.blockerCodes.length ? "button" : "button secondary"} onClick={remember} href={`/admin/reviews/${item.itemId}?returnTo=${encodeURIComponent(listURL)}`}>{item.validationStatus === "READY" && !item.blockerCodes.length ? "审核" : "处理"}</Link>
     </article>)}</div>
     {!visibleItems.length ? <div className="import-workflow-empty"><h2>已加载条目中没有匹配项</h2><p>继续向下滚动会加载下一页，或切换上方筛选。</p></div> : null}
     <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />

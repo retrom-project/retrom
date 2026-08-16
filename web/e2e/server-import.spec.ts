@@ -172,6 +172,17 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   const nesOption = mapping.getByRole("option", { name: /^导入到 NES 游戏/ });
   await mapping.selectOption(await nesOption.getAttribute("value") ?? "");
   await expect(drawer.getByRole("button", { name: `移除标签“${batchTagName}”` }).last()).toBeVisible();
+  const collectionTags = drawer.getByRole("combobox", { name: "NES 的默认标签" });
+  await collectionTags.focus();
+  const floatingTagList = page.getByRole("listbox");
+  await expect(floatingTagList).toBeVisible();
+  expect(await floatingTagList.evaluate((element) => element.parentElement === document.body)).toBe(true);
+  const floatingBounds = await floatingTagList.boundingBox();
+  expect(floatingBounds).not.toBeNull();
+  expect(floatingBounds!.y).toBeGreaterThanOrEqual(0);
+  expect(floatingBounds!.y + floatingBounds!.height).toBeLessThanOrEqual(page.viewportSize()!.height);
+  await page.keyboard.press("Escape");
+  await expect(floatingTagList).toHaveCount(0);
   await drawer.getByRole("button", { name: "确认映射" }).click();
   await expect(drawer).toContainText("1 个处理 · 0 个跳过");
   await expect(drawer).toContainText("1 个 Collection · 1 个游戏");

@@ -171,8 +171,8 @@ paths:
   /api/v1/games:
     get:
       operationId: getGames
-      description: Published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL; generatedAtMs gives client-side filtering and relative-time labels a stable response clock.
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/TagIDQuery' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/Sort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
+      description: Cursor-paginated published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL. The first page also includes filteredCount and complete visible-library platform, directory and active-tag facets so clients can render accurate filters without downloading every game; generatedAtMs gives relative-time labels a stable response clock.
+      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/TagIDQuery' }, { $ref: '#/components/parameters/PlatformIDQuery' }, { $ref: '#/components/parameters/PlatformInstanceIDQuery' }, { $ref: '#/components/parameters/GameListSort' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/games/{gameId}:
@@ -3597,6 +3597,7 @@ components:
     FavoriteScope: { name: scope, in: query, schema: { type: string, enum: [ALL, UNCATEGORIZED, FOLDER], default: ALL } }
     FavoriteFolderIDQuery: { name: folderId, in: query, schema: { type: string, format: uuid } }
     FavoriteSort: { name: sort, in: query, schema: { type: string, enum: [FAVORITED_DESC, RECENTLY_PLAYED_DESC, TITLE_ASC, RELEASE_YEAR_DESC], default: FAVORITED_DESC } }
+    GameListSort: { name: sort, in: query, schema: { type: string, enum: [RECENT_DESC, ADDED_DESC, TITLE_ASC], default: RECENT_DESC } }
     Source: { name: source, in: query, schema: { type: string } }
     ParseStatus: { name: parseStatus, in: query, schema: { type: string } }
     Section: { name: section, in: query, schema: { type: string } }

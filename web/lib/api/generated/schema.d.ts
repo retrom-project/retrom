@@ -291,7 +291,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL; generatedAtMs gives client-side filtering and relative-time labels a stable response clock. */
+        /** @description Cursor-paginated published game summaries from enabled platform directories. Each item includes its platform, directory, recommended core, created time, nullable latest play time and nullable primary cover URL. The first page also includes filteredCount and complete visible-library platform, directory and active-tag facets so clients can render accurate filters without downloading every game; generatedAtMs gives relative-time labels a stable response clock. */
         get: operations["getGames"];
         put?: never;
         post?: never;
@@ -4609,6 +4609,7 @@ export interface components {
         FavoriteScope: "ALL" | "UNCATEGORIZED" | "FOLDER";
         FavoriteFolderIDQuery: string;
         FavoriteSort: "FAVORITED_DESC" | "RECENTLY_PLAYED_DESC" | "TITLE_ASC" | "RELEASE_YEAR_DESC";
+        GameListSort: "RECENT_DESC" | "ADDED_DESC" | "TITLE_ASC";
         Source: string;
         ParseStatus: string;
         Section: string;
@@ -5301,7 +5302,7 @@ export interface operations {
                 tagId?: components["parameters"]["TagIDQuery"];
                 platformId?: components["parameters"]["PlatformIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
-                sort?: components["parameters"]["Sort"];
+                sort?: components["parameters"]["GameListSort"];
                 cursor?: components["parameters"]["Cursor"];
                 limit?: components["parameters"]["Limit"];
             };

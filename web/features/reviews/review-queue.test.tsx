@@ -4,6 +4,9 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { ReviewQueue, ReviewQueueRecovery, type ReviewQueueItem } from "./review-queue";
 
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
+vi.mock("next/link", () => ({
+  default: ({ prefetch, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { prefetch?: boolean }) => <a data-prefetch={String(prefetch)} {...props} />,
+}));
 
 const item: ReviewQueueItem = {
   itemId: "item-1", reviewVersion: 1, importJobId: "job-secret-looking-id", sourceDisplayName: "1941.zip",
@@ -28,6 +31,7 @@ describe("ReviewQueue", () => {
     expect(screen.getByText("MD5 0123…")).toHaveAttribute("title", `MD5 ${item.sourceMd5}`);
     expect(screen.queryByText("批次详情")).not.toBeInTheDocument();
     expect(screen.queryByText(item.importJobId)).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "审核条目" })).toHaveAttribute("data-prefetch", "false");
   });
 
   it("uses the summary chips as real filters over the loaded queue", async () => {
