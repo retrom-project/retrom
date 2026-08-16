@@ -284,7 +284,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 ## 10. 可观测性与故障诊断
 
 - 每个 HTTP 请求和后台任务携带 `request_id` / `job_id`，结构化日志包含稳定错误码。
-- `GET /health/live` 只证明进程存活；`GET /health/ready` 仅在数据库可读写、migration checksum、CAS 数据根、全部 manifest 依赖，以及每个当前 enabled Arcade CoreArtifact 的 READY active DatVersion 均通过时返回 `200`。503 的闭集 reason code 按优先级为 `DATABASE_UNAVAILABLE`、`CAS_UNAVAILABLE`、`DEPENDENCY_INVALID`、`DEPENDENCY_DAT_PARSE_FAILED`、`DEPENDENCY_INDEXING`；响应不含路径/hash。冷库 DAT indexing 期间 HTTP/worker 可以存活，但除 health 外全部路由由前置 readiness middleware 返回 `503 SERVICE_NOT_READY`，不得让部分业务读到未激活目录。
+- `GET /health/live` 只证明进程存活；`GET /health/ready` 每次使用独立只读连接池执行实时探测，仅在数据库可读写、migration checksum、CAS 数据根、全部 manifest 依赖，以及每个当前 enabled Arcade CoreArtifact 的 READY active DatVersion 均通过时返回 `200`。503 的闭集 reason code 按优先级为 `DATABASE_UNAVAILABLE`、`CAS_UNAVAILABLE`、`DEPENDENCY_INVALID`、`DEPENDENCY_DAT_PARSE_FAILED`、`DEPENDENCY_INDEXING`；响应不含路径/hash。冷库 DAT indexing 期间 HTTP/worker 可以存活，但除 health 外全部路由由前置启动门禁返回 `503 SERVICE_NOT_READY`，不得让部分业务读到未激活目录；首次完整就绪后该启动门禁单向打开，普通业务请求不再逐次执行健康 SQL 或因写连接短暂繁忙误报 503，实时运维状态继续由 `/health/ready` 表达。
 - 管理后台任务详情展示阶段、进度、最近错误、重试次数和下次重试时间，不展示堆栈。
 - 启动失败日志关联 `launchId`、game、VariantRevision、CoreArtifact、DAT 版本和缺失依赖，但不记录 capability。
 - 联机只在 Room/Session 转移、upgrade 拒绝、resync、终局与 recovery 记录低基数结构化事件；不记录每帧 input/canonical/hash/state bytes、credential、显示名、IP、内容 hash 或路径。可聚合字段限 profile ID、playerNo、状态、终因、耗时、frame lag、rollback/resync 计数。

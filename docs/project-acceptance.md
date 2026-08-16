@@ -887,7 +887,7 @@ python3 data/example/verify-fixtures.py
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-003`。
 - 流程：检查首页时长、最近游玩和按添加时间倒序的最新 10 款游戏；在游戏库搜索并按平台/目录筛选；从卡片进入详情；查看封面、元信息、时长、最近 4 份存档、全量存档 Drawer、截图预览、核心和 DOS 程序；从存档次要入口进入详情。
-- 通过标准：首页五层顺序为最近玩的游戏/快速开始、最近游玩、最新添加、平台、资料库摘要；最新添加只含启用目录中的已发布游戏，最多 10 款且以创建时间和 Game ID 稳定倒序，入口进入游戏详情，“查看游戏库”恢复最近加入排序。筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；存在简介时全文可见、不行数截断，在 3840px viewport 中简介占满 Hero 中栏可用宽度而不留固定空白；详情只内联最近 4 份存档且 Drawer 包含当前游戏全部存档；取消运行方式对话框不修改偏好，应用后才生效；存档主操作直接启动、标题/次要操作才进详情。
+- 通过标准：首页五层顺序为最近玩的游戏/快速开始、最近游玩、最新添加、平台、资料库摘要；最新添加只含启用目录中的已发布游戏，最多 10 款且以创建时间和 Game ID 稳定倒序，入口进入游戏详情，“查看游戏库”恢复最近加入排序。游戏库首屏和每个续页只请求 50 条，滚动到末尾才按 cursor 读取下一页；同一次哨兵停留不并发或连续重复请求，跨页无重复/漏项，首分页 facet 仍提供全部平台、目录、活动标签和真实计数，搜索/筛选/排序改动取消旧请求并从首分页重载。筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；存在简介时全文可见、不行数截断，在 3840px viewport 中简介占满 Hero 中栏可用宽度而不留固定空白；详情只内联最近 4 份存档且 Drawer 包含当前游戏全部存档；取消运行方式对话框不修改偏好，应用后才生效；存档主操作直接启动、标题/次要操作才进详情。
 - 证据：URL/query、可访问 DOM 断言和关键截图。
 
 ### ACC-UI-004：加载、空、错误、Warning 与 Blocker 状态
@@ -1077,8 +1077,8 @@ python3 data/example/verify-fixtures.py
 ### ACC-TAG-005：搜索、展示、响应式与无障碍
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-TAG-005`。
-- 流程：管理员以键盘创建/重命名/删除标签，在普通导入、Pegasus mapping、审核和游戏维护入口选择；在 Library/Admin/Review/Favorite/Recent/Save/Netplay 用名称及精确 Tag URL 搜索，访问详情；覆盖 390×844、1280×800、2560×1440、3840×2160 和 axe。
-- 通过：`q/tagId` 与其他条件取交集且刷新/前进后退恢复；删除标签立即隐藏，chip 位置、截断、`+N` 朗读和 FavoriteFolder/Tag 分区正确；TagPicker 键盘/20 上限、Drawer/Dialog 焦点与错误保留正确；所有页面零 document 横向溢出且 axe 无 serious/critical。
+- 流程：管理员以键盘创建/重命名/删除标签，在普通导入、Pegasus mapping、审核和游戏维护入口选择；把 Pegasus Collection TagPicker 滚动到容器边缘后展开并滚动父容器，检查浮动 listbox 的挂载、跟随与上下翻转；在 Library/Admin/Review/Favorite/Recent/Save/Netplay 用名称及精确 Tag URL 搜索，访问详情；覆盖 390×844、1280×800、2560×1440、3840×2160 和 axe。
+- 通过：`q/tagId` 与其他条件取交集且刷新/前进后退恢复；删除标签立即隐藏，chip 位置、截断、`+N` 朗读和 FavoriteFolder/Tag 分区正确；TagPicker 键盘/20 上限、Drawer/Dialog 焦点与错误保留正确，listbox 在顶层浮动层内保持视口可见且不被任一滚动容器裁剪；所有页面零 document 横向溢出且 axe 无 serious/critical。
 - 证据：route/network/DOM/键盘/focus trace、四 viewport 尺寸和截图、axe report、删除前后搜索/投影摘要。
 
 ## 19. 联机游玩

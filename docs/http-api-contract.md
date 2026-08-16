@@ -34,7 +34,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 | 端点 | 一期 query |
 | --- | --- |
-| `/games` | `q`、`platformId`、`platformInstanceId`、`sort=TITLE_ASC|RECENTLY_PLAYED_DESC|RELEASE_YEAR_DESC`、`cursor/limit` |
+| `/games` | `q`、`tagId`、`platformId`、`platformInstanceId`、`sort=RECENT_DESC|ADDED_DESC|TITLE_ASC`（默认 `RECENT_DESC`）、`cursor/limit`；`limit` 默认 50。 |
 | `/saves` | `q`、精确 `gameId`、`platformId`、`platformInstanceId`、`coreId`、`availability=AVAILABLE|BLOCKED|ALL`、`sort=CREATED_DESC|GAME_TITLE_ASC`、`cursor/limit` |
 | `/admin/imports` | `q`、`state`、`platformInstanceId`、`sort=UPDATED_DESC|CREATED_DESC`、`cursor/limit` |
 | `/admin/reviews` | `q`、`importJobId`、`pegasusImportId`、`platformInstanceId`、`blockerCode`、`sort=UPDATED_ASC|UPDATED_DESC`、`cursor/limit` |
@@ -461,7 +461,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/auth/account-links/inspect`、`POST /api/v1/auth/invitations/accept`、`POST /api/v1/auth/password-resets/complete` | fragment capability检查、邀请注册与密码重置。 |
 | `GET /api/v1/home` | 首页聚合：启用目录中的统计、按 PlaySession `started_at_ms` 选择的最近 10 款游戏、按 Game `created_at_ms DESC, id DESC` 选择的最新添加 10 款已发布游戏、最后启动的一次游玩及仅由该次 Launch 产生的最新手动存档、全部支持平台，以及按 PlaySession 次数降序的前 4 个快捷平台。相同启动时刻按 PlaySession ID 确定唯一会话，平台热度相同时按名称和 ID 确定性排序；旧会话较晚结束或补写 heartbeat 不得反向夺取“最后游玩”，历史存档只影响“查看存档”，不得冒充最后一次游玩的恢复点。`latestGames[]` 固定提供 `gameId/title/platform/platformInstance/createdAtMs/coverUrl`，目录停用后对应游戏不进入该投影。 |
 | `GET /api/v1/recent-games` | 返回启用目录中全部有游玩记录的已发布游戏，不截断为固定 50 款；按最新 PlaySession 的 `started_at_ms` 降序聚合 `lastPlayedAtMs/activeDurationMs/sessionCount` 与可空封面 URL。每款游戏只占一行，接口不接受 `limit`；响应级 `generatedAtMs` 是页面分组与 7/30 天滚动窗口的统一时钟。 |
-| `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`，响应级 `generatedAtMs` 作为客户端排序和相对时间的统一时钟。 |
+| `GET /api/v1/games`、`GET /api/v1/games/{gameId}` | 已发布游戏列表/详情；两者的可空 `coverUrl` 只投影当前 MetadataRevision 中按 ordinal/ID 排序的首个 `COVER`，值为 `/content/assets/{assetId}` 逻辑 URL，不暴露 Blob ID。列表项同时包含基础平台、游戏目录、推荐 Core、`createdAtMs` 与可空 `lastPlayedAtMs`；列表按 `RECENT_DESC/ADDED_DESC/TITLE_ASC` 的服务端稳定 cursor 分页，每页默认 50。无 cursor 的首分页额外返回 `filteredCount` 与 `facets={totalCount,platforms,platformInstances,tags}`；facet 覆盖完整可见游戏库并带真实 count，续页不重复返回。响应级 `generatedAtMs` 作为相对时间的统一时钟。 |
 | `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；列表项包含基础平台、游戏目录、锁定 Core、`screenshotUrl=/content/save-states/{saveStateId}/screenshot` 与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |

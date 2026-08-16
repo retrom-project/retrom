@@ -22,6 +22,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unicode/utf8"
 
@@ -77,6 +78,7 @@ var (
 	errInvalidCursorPayload = errors.New("invalid cursor payload")
 	errInvalidGameTagFilter = errors.New("invalid game tag filter")
 	errTagProjectionType    = errors.New("invalid tag projection identifier type")
+	errGamePagination       = errors.New("game pagination projection invalid")
 )
 
 type contextKey string
@@ -86,6 +88,9 @@ const requestIDKey contextKey = "request-id"
 type Server struct {
 	config                  config.Config
 	database                *sql.DB
+	readinessDatabase       *sql.DB
+	startupReadinessMu      sync.Mutex
+	startupReady            atomic.Bool
 	dependencies            *dependencies.Set
 	blobs                   *blobstore.Store
 	credentials             *retromruntime.Credentials
@@ -121,6 +126,13 @@ func (server *Server) WithNetplay(service *netplay.Service) *Server {
 	server.netplay = service
 	server.netplayHub = netplay.NewHub(service)
 	service.StartMaintenance()
+	return server
+}
+
+func (server *Server) WithReadinessDatabase(database *sql.DB) *Server {
+	if database != nil {
+		server.readinessDatabase = database
+	}
 	return server
 }
 
@@ -170,23 +182,24 @@ func New(
 	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, config.ServerImportRoots, now)
 	pegasusImportService.Start()
 	server := &Server{
-		config:         config,
-		database:       database,
-		dependencies:   dependencySet,
-		blobs:          blobs,
-		credentials:    credentials,
-		authenticator:  authenticator,
-		accounts:       accountService,
-		cursors:        cursor.New(credentials.CursorKey(), now),
-		uploads:        uploads.New(database, blobs, config.DataDir, now),
-		importer:       importer,
-		launcher:       launcher,
-		jobService:     jobs.New(database, now),
-		firmware:       firmwareService,
-		serverImports:  serverImportService,
-		pegasusImports: pegasusImportService,
-		arcadeDAT:      arcadeDAT,
-		metadata:       scraper,
+		config:            config,
+		database:          database,
+		readinessDatabase: database,
+		dependencies:      dependencySet,
+		blobs:             blobs,
+		credentials:       credentials,
+		authenticator:     authenticator,
+		accounts:          accountService,
+		cursors:           cursor.New(credentials.CursorKey(), now),
+		uploads:           uploads.New(database, blobs, config.DataDir, now),
+		importer:          importer,
+		launcher:          launcher,
+		jobService:        jobs.New(database, now),
+		firmware:          firmwareService,
+		serverImports:     serverImportService,
+		pegasusImports:    pegasusImportService,
+		arcadeDAT:         arcadeDAT,
+		metadata:          scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(database, blobs, credentials, now),
@@ -485,8 +498,17 @@ func (server *Server) requestReady(
 	if request.URL.Path == "/health/live" || request.URL.Path == "/health/ready" {
 		return true
 	}
+	if server.startupReady.Load() {
+		return true
+	}
+	server.startupReadinessMu.Lock()
+	defer server.startupReadinessMu.Unlock()
+	if server.startupReady.Load() {
+		return true
+	}
 	reason := server.readinessReason(requestContext)
 	if reason == "" {
+		server.startupReady.Store(true)
 		return true
 	}
 	writeError(
@@ -691,17 +713,22 @@ func (server *Server) healthReady(writer http.ResponseWriter, request *http.Requ
 		writeJSON(writer, http.StatusServiceUnavailable, map[string]any{"status": "not_ready", "reasonCode": reason})
 		return
 	}
+	server.startupReady.Store(true)
 	writeJSON(writer, http.StatusOK, map[string]any{"status": "ready"})
 }
 
 func (server *Server) readinessReason(ctx context.Context) string {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	if err := server.database.PingContext(ctx); err != nil {
+	database := server.readinessDatabase
+	if database == nil {
+		database = server.database
+	}
+	if err := database.PingContext(ctx); err != nil {
 		return "DATABASE_UNAVAILABLE"
 	}
 	var missing int64
-	err := server.database.QueryRowContext(ctx, `
+	err := database.QueryRowContext(ctx, `
 SELECT count(*)
 FROM core_artifacts a
 WHERE a.enabled=1
@@ -722,7 +749,7 @@ AND d.parse_status='READY')
 		return ""
 	}
 	var failed int64
-	err = server.database.QueryRowContext(ctx, `
+	err = database.QueryRowContext(ctx, `
 SELECT count(*)
 FROM core_artifacts a
 WHERE a.enabled=1
@@ -2533,6 +2560,114 @@ type gameListFilters struct {
 	NormalizedQ string
 }
 
+type gameListFacet struct {
+	ID         string `json:"id"`
+	Name       string `json:"name"`
+	PlatformID string `json:"platformId,omitempty"`
+	Count      int64  `json:"count"`
+}
+
+type gameListFacets struct {
+	TotalCount        int64           `json:"totalCount"`
+	Platforms         []gameListFacet `json:"platforms"`
+	PlatformInstances []gameListFacet `json:"platformInstances"`
+	Tags              []gameListFacet `json:"tags"`
+}
+
+func queryGameListFacetRows(
+	ctx context.Context,
+	database *sql.DB,
+	query string,
+	suffix string,
+	includePlatform bool,
+) ([]gameListFacet, error) {
+	visible := []string{"g.status='PUBLISHED'", "pi.enabled=1"}
+	rows, err := database.QueryContext(ctx, queryWithConditions(query, visible, suffix))
+	if err != nil {
+		return nil, fmt.Errorf("query game facets: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]gameListFacet, 0)
+	for rows.Next() {
+		var item gameListFacet
+		if includePlatform {
+			err = rows.Scan(&item.ID, &item.Name, &item.PlatformID, &item.Count)
+		} else {
+			err = rows.Scan(&item.ID, &item.Name, &item.Count)
+		}
+		if err != nil {
+			return nil, fmt.Errorf("scan game facet: %w", err)
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate game facets: %w", err)
+	}
+	return items, nil
+}
+
+func queryGameListFacets(
+	ctx context.Context,
+	database *sql.DB,
+	filteredConditions []string,
+	filteredArguments []any,
+) (int64, gameListFacets, error) {
+	baseFrom := `
+FROM games g
+JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
+JOIN platform_instances pi ON pi.id=g.platform_instance_id
+JOIN platforms p ON p.id=pi.platform_id
+`
+	var filteredCount int64
+	if err := database.QueryRowContext(
+		ctx,
+		queryWithConditions("SELECT count(*) "+baseFrom, filteredConditions, ""),
+		filteredArguments...,
+	).Scan(&filteredCount); err != nil {
+		return 0, gameListFacets{}, fmt.Errorf("count filtered games: %w", err)
+	}
+
+	platforms, err := queryGameListFacetRows(
+		ctx,
+		database,
+		"SELECT p.id,p.name,count(*) "+baseFrom,
+		" GROUP BY p.id,p.name ORDER BY p.name,p.id",
+		false,
+	)
+	if err != nil {
+		return 0, gameListFacets{}, fmt.Errorf("list game platform facets: %w", err)
+	}
+	platformInstances, err := queryGameListFacetRows(
+		ctx,
+		database,
+		"SELECT pi.id,pi.name,p.id,count(*) "+baseFrom,
+		" GROUP BY pi.id,pi.name,p.id ORDER BY pi.name,pi.id",
+		true,
+	)
+	if err != nil {
+		return 0, gameListFacets{}, fmt.Errorf("list game directory facets: %w", err)
+	}
+	tagFrom := baseFrom + `
+JOIN game_tags relation ON relation.game_id=g.id
+JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+`
+	tags, err := queryGameListFacetRows(
+		ctx,
+		database,
+		"SELECT tag.id,tag.name,count(*) "+tagFrom,
+		" GROUP BY tag.id,tag.name ORDER BY tag.name,tag.id",
+		false,
+	)
+	if err != nil {
+		return 0, gameListFacets{}, fmt.Errorf("list game tag facets: %w", err)
+	}
+	facets := gameListFacets{Platforms: platforms, PlatformInstances: platformInstances, Tags: tags}
+	for _, platform := range platforms {
+		facets.TotalCount += platform.Count
+	}
+	return filteredCount, facets, nil
+}
+
 func parseGameListFilters(values url.Values, includeDeleted bool) (gameListFilters, error) {
 	filters := gameListFilters{Conditions: gameListVisibilityConditions(includeDeleted)}
 	status := values.Get("status")
@@ -2665,6 +2800,168 @@ func scanGameListRows(rows *sql.Rows, includeDeleted bool, capacity int) ([]map[
 	return items, nil
 }
 
+func gameListSortCode(raw string, includeDeleted bool) (string, error) {
+	if raw == "" {
+		if includeDeleted {
+			return "UPDATED_DESC", nil
+		}
+		return "RECENT_DESC", nil
+	}
+	switch raw {
+	case "TITLE_ASC", "ADDED_DESC":
+		return raw, nil
+	case "RECENT_DESC":
+		if !includeDeleted {
+			return raw, nil
+		}
+	case "UPDATED_DESC":
+		if includeDeleted {
+			return raw, nil
+		}
+	}
+	return "", errUnknownQuery
+}
+
+func gameListInteger(item map[string]any, key string, fallback int64) int64 {
+	value, ok := item[key].(int64)
+	if !ok {
+		return fallback
+	}
+	return value
+}
+
+func appendGameListTitleCursor(payload cursor.Payload, conditions *[]string, arguments *[]any) error {
+	if len(payload.SortValues) != 1 {
+		return errInvalidCursorPayload
+	}
+	*conditions = append(*conditions, "(m.title>? OR (m.title=? AND g.id>?))")
+	*arguments = append(*arguments, payload.SortValues[0], payload.SortValues[0], payload.ID)
+	return nil
+}
+
+func appendGameListTimestampCursor(
+	payload cursor.Payload,
+	column string,
+	conditions *[]string,
+	arguments *[]any,
+) error {
+	if len(payload.SortValues) != 2 {
+		return errInvalidCursorPayload
+	}
+	timestamp, err := strconv.ParseInt(payload.SortValues[0], 10, 64)
+	if err != nil {
+		return errInvalidCursorPayload
+	}
+	*conditions = append(*conditions, fmt.Sprintf(
+		"(%s<? OR (%s=? AND (m.title>? OR (m.title=? AND g.id>?))))", column, column,
+	))
+	*arguments = append(*arguments, timestamp, timestamp, payload.SortValues[1], payload.SortValues[1], payload.ID)
+	return nil
+}
+
+func appendGameListRecentCursor(
+	payload cursor.Payload,
+	profileID string,
+	conditions *[]string,
+	arguments *[]any,
+) error {
+	if len(payload.SortValues) != 3 {
+		return errInvalidCursorPayload
+	}
+	lastPlayed, playedErr := strconv.ParseInt(payload.SortValues[0], 10, 64)
+	createdAt, createdErr := strconv.ParseInt(payload.SortValues[1], 10, 64)
+	if playedErr != nil || createdErr != nil {
+		return errInvalidCursorPayload
+	}
+	lastPlayedExpression := `COALESCE((SELECT max(ps_cursor.started_at_ms)
+FROM play_sessions ps_cursor WHERE ps_cursor.game_id=g.id AND ps_cursor.profile_id=?),-1)`
+	*conditions = append(*conditions, fmt.Sprintf(
+		`(%s<? OR (%s=? AND (g.created_at_ms<? OR (g.created_at_ms=? AND (m.title>? OR (m.title=? AND g.id>?))))))`,
+		lastPlayedExpression, lastPlayedExpression,
+	))
+	*arguments = append(*arguments,
+		profileID, lastPlayed, profileID, lastPlayed,
+		createdAt, createdAt, payload.SortValues[2], payload.SortValues[2], payload.ID,
+	)
+	return nil
+}
+
+func (server *Server) applyGameListCursor(
+	token string,
+	operationID string,
+	filterDigest string,
+	sortCode string,
+	profileID string,
+	conditions *[]string,
+	arguments *[]any,
+) error {
+	if token == "" {
+		return nil
+	}
+	payload, err := server.cursors.Decode(token, operationID, filterDigest, sortCode)
+	if err != nil {
+		return errInvalidCursorPayload
+	}
+	switch sortCode {
+	case "TITLE_ASC":
+		return appendGameListTitleCursor(payload, conditions, arguments)
+	case "ADDED_DESC":
+		return appendGameListTimestampCursor(payload, "g.created_at_ms", conditions, arguments)
+	case "UPDATED_DESC":
+		return appendGameListTimestampCursor(payload, "g.updated_at_ms", conditions, arguments)
+	case "RECENT_DESC":
+		return appendGameListRecentCursor(payload, profileID, conditions, arguments)
+	default:
+		return errInvalidCursorPayload
+	}
+}
+
+func gameListCursorSortValues(item map[string]any, sortCode, title string) []string {
+	switch sortCode {
+	case "RECENT_DESC":
+		return []string{
+			strconv.FormatInt(gameListInteger(item, "lastPlayedAtMs", -1), 10),
+			strconv.FormatInt(gameListInteger(item, "createdAtMs", 0), 10),
+			title,
+		}
+	case "ADDED_DESC":
+		return []string{strconv.FormatInt(gameListInteger(item, "createdAtMs", 0), 10), title}
+	case "UPDATED_DESC":
+		return []string{strconv.FormatInt(gameListInteger(item, "updatedAtMs", 0), 10), title}
+	default:
+		return []string{title}
+	}
+}
+
+func (server *Server) encodeGameListNextCursor(
+	items []map[string]any,
+	limit int,
+	operationID string,
+	filterDigest string,
+	sortCode string,
+) ([]map[string]any, any, error) {
+	if len(items) <= limit {
+		return items, nil, nil
+	}
+	last := items[limit-1]
+	lastTitle, titleOK := last["title"].(string)
+	lastID, idOK := last["gameId"].(string)
+	if !titleOK || !idOK {
+		return nil, nil, errGamePagination
+	}
+	token, err := server.cursors.Encode(cursor.Payload{
+		OperationID:  operationID,
+		FilterDigest: filterDigest,
+		SortCode:     sortCode,
+		SortValues:   gameListCursorSortValues(last, sortCode, lastTitle),
+		ID:           lastID,
+	})
+	if err != nil {
+		return nil, nil, fmt.Errorf("encode game cursor: %w", err)
+	}
+	return items[:limit], token, nil
+}
+
 //nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) gameList(writer http.ResponseWriter, request *http.Request, includeDeleted bool) {
 	principal, _ := authn.PrincipalFromContext(request.Context())
@@ -2681,7 +2978,7 @@ SELECT g.id,
  g.version,
  g.created_at_ms,
  g.updated_at_ms,
- (SELECT max(ps.started_at_ms) FROM play_sessions ps WHERE ps.game_id=g.id AND ps.profile_id=?),
+ (SELECT max(ps.started_at_ms) FROM play_sessions ps WHERE ps.game_id=g.id AND ps.profile_id=?) AS last_played_at_ms,
  m.release_year,
  CASE WHEN trim(m.description)<>''
  AND trim(m.developer)<>''
@@ -2717,7 +3014,14 @@ JOIN cores dc ON dc.id=pi.default_core_id
 	}
 	conditions := filters.Conditions
 	arguments := append([]any{principal.ProfileID}, filters.Arguments...)
+	baseConditions := append([]string(nil), filters.Conditions...)
+	baseArguments := append([]any(nil), filters.Arguments...)
 	normalizedQ := filters.NormalizedQ
+	sortCode, err := gameListSortCode(values.Get("sort"), includeDeleted)
+	if err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_QUERY", "游戏排序无效", map[string]any{})
+		return
+	}
 	operationID := "getGames"
 	if includeDeleted {
 		operationID = "getAdminGames"
@@ -2730,22 +3034,29 @@ JOIN cores dc ON dc.id=pi.default_core_id
 			"platformId":         values.Get("platformId"),
 			"platformInstanceId": values.Get("platformInstanceId"),
 			"status":             values.Get("status"),
+			"sort":               sortCode,
 		},
 	)
-	if token := values.Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, operationID, filterDigest, "TITLE_ASC")
-		if err != nil || len(payload.SortValues) != 1 {
-			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
-			return
-		}
-		conditions = append(conditions, "(m.title>? OR (m.title=? AND g.id>?))")
-		arguments = append(arguments, payload.SortValues[0], payload.SortValues[0], payload.ID)
+	if err := server.applyGameListCursor(
+		values.Get("cursor"), operationID, filterDigest, sortCode, principal.ProfileID, &conditions, &arguments,
+	); err != nil {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
+		return
 	}
 	limit := 50
 	if raw := values.Get("limit"); raw != "" {
 		limit, _ = strconv.Atoi(raw)
 	}
-	query = queryWithConditions(query, conditions, " ORDER BY m.title,g.id LIMIT ?")
+	order := " ORDER BY m.title ASC,g.id ASC LIMIT ?"
+	switch sortCode {
+	case "RECENT_DESC":
+		order = " ORDER BY last_played_at_ms DESC,g.created_at_ms DESC,m.title ASC,g.id ASC LIMIT ?"
+	case "ADDED_DESC":
+		order = " ORDER BY g.created_at_ms DESC,m.title ASC,g.id ASC LIMIT ?"
+	case "UPDATED_DESC":
+		order = " ORDER BY g.updated_at_ms DESC,m.title ASC,g.id ASC LIMIT ?"
+	}
+	query = queryWithConditions(query, conditions, order)
 	arguments = append(arguments, limit+1)
 	rows, err := server.database.QueryContext(request.Context(), query, arguments...)
 	if err != nil {
@@ -2768,34 +3079,26 @@ JOIN cores dc ON dc.id=pi.default_core_id
 			return
 		}
 	}
-	var nextCursor any
-	if len(items) > limit {
-		last := items[limit-1]
-		lastTitle, titleOK := last["title"].(string)
-		lastID, idOK := last["gameId"].(string)
-		if !titleOK || !idOK {
-			writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "游戏分页投影无效", map[string]any{})
-			return
-		}
-		items = items[:limit]
-		token, err := server.cursors.Encode(
-			cursor.Payload{
-				OperationID:  operationID,
-				FilterDigest: filterDigest,
-				SortCode:     "TITLE_ASC",
-				SortValues:   []string{lastTitle},
-				ID:           lastID,
-			},
-		)
-		if err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		nextCursor = token
+	items, nextCursor, err := server.encodeGameListNextCursor(items, limit, operationID, filterDigest, sortCode)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
 	}
-	writeJSON(writer, http.StatusOK, map[string]any{
+	response := map[string]any{
 		"generatedAtMs": server.now().UnixMilli(), "items": items, "nextCursor": nextCursor,
-	})
+	}
+	if !includeDeleted && values.Get("cursor") == "" {
+		filteredCount, facets, facetErr := queryGameListFacets(
+			request.Context(), server.database, baseConditions, baseArguments,
+		)
+		if facetErr != nil {
+			server.databaseError(writer, request, facetErr)
+			return
+		}
+		response["filteredCount"] = filteredCount
+		response["facets"] = facets
+	}
+	writeJSON(writer, http.StatusOK, response)
 }
 
 type saveListFilters struct {

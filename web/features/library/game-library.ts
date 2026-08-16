@@ -24,22 +24,27 @@ export type GamePage = {
   generatedAtMs: number;
   items: GameSummary[];
   nextCursor: string | null;
+  filteredCount?: number;
+  facets?: LibraryFacets;
 };
 
-export async function collectGamePages(loadPage: (cursor: string | null) => Promise<GamePage>) {
-  const items: GameSummary[] = [];
-  const seenCursors = new Set<string>();
-  let cursor: string | null = null;
-  let generatedAtMs: number | null = null;
-  do {
-    const page = await loadPage(cursor);
-    generatedAtMs ??= page.generatedAtMs;
-    items.push(...page.items);
-    cursor = page.nextCursor;
-    if (cursor && seenCursors.has(cursor)) throw new Error("Retrom API returned a repeated game cursor");
-    if (cursor) seenCursors.add(cursor);
-  } while (cursor);
-  return { generatedAtMs: generatedAtMs ?? 0, items };
+export type LibraryFacet = { id: string; name: string; count: number; platformId?: string };
+
+export type LibraryFacets = {
+  totalCount: number;
+  platforms: LibraryFacet[];
+  platformInstances: LibraryFacet[];
+  tags: LibraryFacet[];
+};
+
+export function gamePageQuery(filters: LibraryFilters, cursor?: string | null) {
+  const query = new URLSearchParams({ limit: "50", sort: filters.sort });
+  if (filters.query.trim()) query.set("q", filters.query.trim());
+  if (filters.platformId) query.set("platformId", filters.platformId);
+  if (filters.platformInstanceId) query.set("platformInstanceId", filters.platformInstanceId);
+  if (filters.tagId) query.set("tagId", filters.tagId);
+  if (cursor) query.set("cursor", cursor);
+  return query.toString();
 }
 
 function stableTitleOrder(left: GameSummary, right: GameSummary) {

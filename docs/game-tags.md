@@ -58,7 +58,7 @@ Pegasus 在 Collection 映射步骤逐项选择默认标签，可用批量辅助
 ## 6. 管理与用户界面
 
 - App Shell 在“游戏管理”之后提供 `/admin/tags`。页面包含活动/关联游戏/待审核摘要、名称/状态/排序筛选、桌面表与移动卡片、创建/重命名 Drawer 和带 usage、完整名称确认的删除 Dialog。
-- 通用 TagPicker 使用 combobox/listbox 语义，支持 ArrowUp/Down、Enter、Escape、带完整名称的移除按钮、20 个上限朗读和空 taxonomy 管理链接；它只管理受控选择，业务 feature 负责读取与提交。
+- 通用 TagPicker 使用 combobox/listbox 语义，支持 ArrowUp/Down、Enter、Escape、带完整名称的移除按钮、20 个上限朗读和空 taxonomy 管理链接；listbox 通过顶层浮动层呈现并随输入位置更新，按视口剩余空间向下或向上展开，不能被 Drawer、列表或其他滚动容器裁剪；它只管理受控选择，业务 feature 负责读取与提交。
 - 游戏库搜索提示明确包含标签，并用 `tagId` 单选筛选写入 URL；游戏详情的每个 chip 链接回 `/library?tagId=...`。genre 与 Tag 始终分开展示。
 - 普通导入、Pegasus Collection、ReviewDraft 和管理员游戏详情均使用同一活动 TagPicker；成功写入后必须采用响应的新 owner version，冲突时刷新真实聚合，不能在客户端猜测 rename/delete 结果。
 - 收藏夹 chip 和实例标签有不同区域与可访问名称，避免把 Profile 私有集合误认为共享 taxonomy。

@@ -1,10 +1,13 @@
 import { cleanup, render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { useState } from "react";
 import { TagChips, TagPicker, type TagReference } from "./tag-picker";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 const options: TagReference[] = [
   { tagId: "tag-action", name: "动作" },
@@ -46,6 +49,27 @@ describe("TagPicker", () => {
     rerender(<TagPicker options={twenty} selected={twenty} onChange={() => undefined} />);
     expect(screen.getByRole("combobox", { name: "标签" })).toBeDisabled();
     expect(screen.getByText(/已选择 20\/20 个标签，已达到上限/)).toBeVisible();
+  });
+
+  it("portals the listbox beyond clipping containers and flips it above the viewport edge", async () => {
+    const user = userEvent.setup();
+    const outerKeyDown = vi.fn();
+    render(<div data-testid="clipping-container" style={{ maxHeight: 80, overflow: "hidden" }} onKeyDown={outerKeyDown}><PickerHarness /></div>);
+    const input = screen.getByRole("combobox", { name: "游戏标签" });
+    vi.spyOn(input, "getBoundingClientRect").mockReturnValue({
+      bottom: 744, height: 44, left: 100, right: 420, top: 700, width: 320, x: 100, y: 700,
+      toJSON: () => ({}),
+    });
+
+    await user.click(input);
+    const listbox = await screen.findByRole("listbox");
+    expect(screen.getByTestId("clipping-container")).not.toContainElement(listbox);
+    expect(listbox.parentElement).toBe(document.body);
+    expect(listbox).toHaveClass("tag-picker-list-floating", "is-above");
+    expect(listbox).toHaveStyle({ left: "100px", maxHeight: "240px", top: "695px", width: "320px" });
+    await user.keyboard("{Escape}");
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(outerKeyDown).not.toHaveBeenCalled();
   });
 });
 

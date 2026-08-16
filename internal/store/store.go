@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io/fs"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -45,7 +46,8 @@ var (
 )
 
 type DB struct {
-	SQL *sql.DB
+	SQL      *sql.DB
+	ReadOnly *sql.DB
 }
 
 func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
@@ -78,7 +80,33 @@ func Open(ctx context.Context, path string, now func() time.Time) (*DB, error) {
 		cleanup.Error("close", database.Close())
 		return nil, err
 	}
-	return &DB{SQL: database}, nil
+	readOnly, err := openReadOnlyDatabase(ctx, path)
+	if err != nil {
+		cleanup.Error("close", database.Close())
+		return nil, err
+	}
+	return &DB{SQL: database, ReadOnly: readOnly}, nil
+}
+
+func openReadOnlyDatabase(ctx context.Context, path string) (*sql.DB, error) {
+	query := url.Values{}
+	query.Set("mode", "ro")
+	query.Add("_pragma", "foreign_keys(1)")
+	query.Add("_pragma", "busy_timeout(5000)")
+	dsn := (&url.URL{Scheme: "file", Path: filepath.ToSlash(path), RawQuery: query.Encode()}).String()
+	database, err := sql.Open("sqlite", dsn)
+	if err != nil {
+		return nil, fmt.Errorf("open read-only sqlite: %w", err)
+	}
+	// Read traffic has a small independent pool so health probes and page reads
+	// cannot queue behind the single serialized writer connection.
+	database.SetMaxOpenConns(4)
+	database.SetMaxIdleConns(4)
+	if err := database.PingContext(ctx); err != nil {
+		cleanup.Error("close", database.Close())
+		return nil, fmt.Errorf("open read-only sqlite: %w", err)
+	}
+	return database, nil
 }
 
 //nolint:gocyclo // Every read-only branch distinguishes a stable startup failure without touching the database.
@@ -169,7 +197,18 @@ func latestMigrationVersion() (int, error) {
 }
 
 func (database *DB) Close() error {
-	if err := database.SQL.Close(); err != nil {
+	var closeErrors []error
+	if database.ReadOnly != nil {
+		if err := database.ReadOnly.Close(); err != nil {
+			closeErrors = append(closeErrors, fmt.Errorf("close read-only database: %w", err))
+		}
+	}
+	if database.SQL != nil {
+		if err := database.SQL.Close(); err != nil {
+			closeErrors = append(closeErrors, fmt.Errorf("close database: %w", err))
+		}
+	}
+	if err := errors.Join(closeErrors...); err != nil {
 		return fmt.Errorf("close database: %w", err)
 	}
 	return nil

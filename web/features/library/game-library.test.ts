@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
-  collectGamePages,
   filterLibraryGames,
   formatLibraryPlayedAt,
+  gamePageQuery,
   libraryPlatformInstances,
   libraryPlatforms,
   type GameSummary,
@@ -50,13 +50,8 @@ describe("game library projection", () => {
     expect(formatLibraryPlayedAt(new Date(2026, 7, 7, 21, 10).getTime(), nowMs)).toBe("昨天 21:10");
   });
 
-  it("collects every cursor page and rejects repeated cursors", async () => {
-    const result = await collectGamePages(async (cursor) => cursor === null
-      ? { generatedAtMs: 101, items: [games[0]], nextCursor: "next" }
-      : { generatedAtMs: 202, items: [games[1]], nextCursor: null });
-    expect(result.generatedAtMs).toBe(101);
-    expect(result.items.map((item) => item.gameId)).toEqual(["1941", "1943"]);
-    await expect(collectGamePages(async () => ({ generatedAtMs: 101, items: [], nextCursor: "same" })))
-      .rejects.toThrow("repeated game cursor");
+  it("builds a fixed 50-item cursor query with all server-side filters", () => {
+    expect(gamePageQuery({ query: "  doom ", platformId: "dos", platformInstanceId: "dos-classics", tagId: "solo", sort: "ADDED_DESC" }, "next page"))
+      .toBe("limit=50&sort=ADDED_DESC&q=doom&platformId=dos&platformInstanceId=dos-classics&tagId=solo&cursor=next+page");
   });
 });

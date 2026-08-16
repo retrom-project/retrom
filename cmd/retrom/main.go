@@ -342,7 +342,7 @@ func run(mode config.Mode) error {
 
 	apiServer := httpapi.New(
 		configuration, database.SQL, dependencySet, blobs, credentials, accountService, accountService, time.Now,
-	).WithNetplay(netplayService)
+	).WithReadinessDatabase(database.ReadOnly).WithNetplay(netplayService)
 	defer apiServer.Close()
 	server := &http.Server{
 		Addr:              configuration.HTTPAddr,
