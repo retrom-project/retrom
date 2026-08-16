@@ -646,7 +646,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     const popup = openPreviewWindow();
     if (!popup) return;
     const succeeded = await run("运行游戏", async () => {
-      if (!await enqueueSave(draftKey, draftPayload, true)) throw new Error("无法保存当前审核内容");
+      if (!await flushDraft()) throw new Error("无法保存当前审核内容");
       await createPreview(popup);
     });
     if (!succeeded && !popup.closed) popup.close();

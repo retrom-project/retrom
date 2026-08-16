@@ -785,7 +785,7 @@ WHERE revision.id=?
 `, launchID, variantRevisionID).Scan(&snapshotJSON, &contentLogicalName); err != nil {
 		return ErrBlocked
 	}
-	snapshot, err := corevalidation.ParseSnapshot(snapshotJSON)
+	dependencies, err := corevalidation.ParseRuntimeBIOSDependencies(snapshotJSON)
 	if err != nil {
 		return ErrBlocked
 	}
@@ -795,7 +795,7 @@ WHERE revision.id=?
 	if err != nil {
 		return err
 	}
-	for _, dependency := range snapshot.BIOS {
+	for _, dependency := range dependencies {
 		if dependency.DeliveryKind != "EXTERNAL_FILE" {
 			continue
 		}
@@ -1226,11 +1226,11 @@ AND state='CREATED'
 	if revisionCompatibilityCode == reviewScreenshotOverrideCode {
 		warnings = append(warnings, reviewScreenshotOverrideCode)
 	}
-	dependencySnapshot, snapshotErr := corevalidation.ParseSnapshot(dependencySnapshotJSON)
+	biosDependencies, snapshotErr := corevalidation.ParseRuntimeBIOSDependencies(dependencySnapshotJSON)
 	if snapshotErr != nil {
 		return Config{}, ErrBlocked
 	}
-	for _, dependency := range dependencySnapshot.BIOS {
+	for _, dependency := range biosDependencies {
 		if dependency.BlobID == nil || dependency.InstallationStatus == nil {
 			continue
 		}

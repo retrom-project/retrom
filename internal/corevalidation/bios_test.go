@@ -87,3 +87,31 @@ func TestMultiDiscSnapshotRoundTripsAndRejectsInvalidEvidence(t *testing.T) {
 		}
 	}
 }
+
+func TestParseRuntimeBIOSDependenciesAcceptsStaticAndArcadeSnapshots(t *testing.T) {
+	t.Parallel()
+	static := `{"schemaVersion":1,"bios":[{"requirementId":"bios","requirementVersion":1,"catalogDigest":"digest","logicalName":"bios.bin","requirementMode":"REQUIRED","conditionCode":null,"deliveryKind":"EXTERNAL_FILE","emulatorPath":"/bios.bin","activationOptions":{},"installationId":"installation","installationVersion":1,"blobId":"blob","installationStatus":"MATCHED"}]}`
+	dependencies, err := ParseRuntimeBIOSDependencies(static)
+	if err != nil || len(dependencies) != 1 || dependencies[0].LogicalName != "bios.bin" {
+		t.Fatalf("ParseRuntimeBIOSDependencies(static) = %#v, error=%v", dependencies, err)
+	}
+
+	arcade := `{"schemaVersion":2,"machine":"nbbatman","datVersionId":"dat-version","closure":[],"dependencies":[],"missingEntries":["missing.rom"],"mismatchedEntries":[],"warnings":[]}`
+	dependencies, err = ParseRuntimeBIOSDependencies(arcade)
+	if err != nil || len(dependencies) != 0 {
+		t.Fatalf("ParseRuntimeBIOSDependencies(arcade) = %#v, error=%v", dependencies, err)
+	}
+}
+
+func TestParseRuntimeBIOSDependenciesRejectsMalformedSnapshots(t *testing.T) {
+	t.Parallel()
+	for _, raw := range []string{
+		`{"schemaVersion":2,"machine":"nbbatman","datVersionId":"dat-version","closure":null,"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
+		`{"schemaVersion":2,"machine":"nbbatman","datVersionId":"dat-version","closure":[],"dependencies":[],"missingEntries":[],"mismatchedEntries":[],"warnings":[],"unknown":true}`,
+		`{"schemaVersion":3,"bios":[]}`,
+	} {
+		if _, err := ParseRuntimeBIOSDependencies(raw); !errors.Is(err, ErrInvalidSnapshot) {
+			t.Errorf("ParseRuntimeBIOSDependencies(%s) error = %v", raw, err)
+		}
+	}
+}

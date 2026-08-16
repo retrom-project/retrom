@@ -83,6 +83,7 @@ sequenceDiagram
 - 已 READY 的预检成功返回 `201`；需新验证时返回 `202 VALIDATION_PENDING` 且不签发 credential，Player 在同一加载 overlay 等待 Worker，成功后以新幂等键自动重调。Blocker 返回 `422 LAUNCH_BLOCKED`。整个过程没有第二个 Start/确认页；Warning 不增加确认步骤。
 - `VARIANT_REVALIDATE` 按 gameVariant/input digest 跨请求去重且不可由单个 Player 取消；退出加载壳只终止本页订阅并退出全屏，后台任务继续，避免一个朋友中断另一个朋友正在等待的同一验证。
 - DOS 只有 `DOS_SOURCE`、没有主机平台的 `CONTENT` 行；重校验必须以 ContentRevision 本身作为内容输入，并在内容 revision 未变化时把既有 `DOS_LAUNCH_BUNDLE` 与审核默认入口复制到新 VariantRevision。Worker 任一步骤失败都必须把 Job 收口为可重试 FAILED，进程重启时重新领取 lease 已过期且尚有 attempt 的 RUNNING Job，不能让 Player 永久等待在 `VALIDATION_PENDING`。
+- 正式 Launch 解析 Variant 依赖时同时接受静态 BIOS/多盘的 schema v1 与 Arcade DAT 的 schema v2。v1 中可用的 `EXTERNAL_FILE` 在签发时锁定并合并 activation options；v2 的 Parent/BIOS 已冻结为 VariantFiles，不得再交给 v1 parser，也不得因此把审核截图放行的已发布 Arcade 游戏误报为 `LAUNCH_BLOCKED`。
 - 默认核心不可运行时不静默尝试其他核心。
 
 ### 3.1 管理审核预览

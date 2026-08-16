@@ -68,7 +68,7 @@ VALUES('01980000-0000-7000-8000-000000000800','pegasus-profile','pegasus-test','
 	writeFixture(
 		t,
 		filepath.Join(root, "metadata.pegasus.txt"),
-		[]byte("collection: NES\ngame: Published Fixture\ndescription: Prepared for review\ntags: External\ngenre: Action\nfile: fixture.nes\n\ngame: Discarded Fixture\ndescription: Must not publish\ntags: External\nfile: discard.nes\n"),
+		[]byte("collection: NES\ngame: Published Fixture\ndescription: "+strings.Repeat("界", 10_001)+"\ndeveloper: "+strings.Repeat("开", 201)+"\ntags: External\ngenre: Action\nfile: fixture.nes\n\ngame: Discarded Fixture\ndescription: Must not publish\ntags: External\nfile: discard.nes\n"),
 	)
 	writeFixture(t, filepath.Join(root, "fixture.nes"), []byte("deterministic NES fixture"))
 	writeFixture(t, filepath.Join(root, "discard.nes"), []byte("deterministic discarded NES fixture"))
@@ -200,17 +200,26 @@ SELECT
 	}
 	var reviewItemID string
 	var reviewVersion int64
-	var reviewTitle string
+	var reviewTitle, reviewDescription, reviewDeveloper, reviewWarnings string
 	if err := database.SQL.QueryRow(`
-SELECT item.library_import_item_id,draft.version,json_extract(draft.metadata_json,'$.title')
+SELECT item.library_import_item_id,draft.version,json_extract(draft.metadata_json,'$.title'),
+json_extract(draft.metadata_json,'$.description'),json_extract(draft.metadata_json,'$.developer'),item.warnings_json
 FROM pegasus_import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.library_import_item_id
 WHERE item.import_id=? AND item.execution_state='REVIEW_PENDING' AND item.title='Published Fixture'
-`, created.ID).Scan(&reviewItemID, &reviewVersion, &reviewTitle); err != nil {
+`, created.ID).Scan(
+		&reviewItemID, &reviewVersion, &reviewTitle, &reviewDescription, &reviewDeveloper, &reviewWarnings,
+	); err != nil {
 		t.Fatal(err)
 	}
-	if reviewTitle != "Published Fixture" {
-		t.Fatalf("review title = %q", reviewTitle)
+	if reviewTitle != "Published Fixture" || len([]rune(reviewDescription)) != 10_000 ||
+		len([]rune(reviewDeveloper)) != 200 ||
+		!strings.Contains(reviewWarnings, `"code":"FIELD_TRUNCATED","field":"description"`) ||
+		!strings.Contains(reviewWarnings, `"code":"FIELD_TRUNCATED","field":"developer"`) {
+		t.Fatalf(
+			"review metadata = title:%q description:%d developer:%d warnings:%s",
+			reviewTitle, len([]rune(reviewDescription)), len([]rune(reviewDeveloper)), reviewWarnings,
+		)
 	}
 	var gameCount int
 	if err := database.SQL.QueryRow(`SELECT count(*) FROM games`).Scan(&gameCount); err != nil {
