@@ -269,7 +269,7 @@ function normalizeArchiveWorker(runtimeWindow: typeof window, constructor: EJSCo
   prototype.getWorkerFile = normalizedGetWorkerFile;
 }
 
-function installArchiveWorkerCompatibility(runtimeWindow: typeof window) {
+function installArchiveWorkerBlobCompatibility(runtimeWindow: typeof window) {
   const previous = Object.getOwnPropertyDescriptor(runtimeWindow, "EJS_COMPRESSION");
   if (previous && !previous.configurable) {
     normalizeArchiveWorker(runtimeWindow, runtimeWindow.EJS_COMPRESSION);
@@ -301,6 +301,53 @@ function installArchiveWorkerCompatibility(runtimeWindow: typeof window) {
     } else {
       Reflect.deleteProperty(runtimeWindow, "EJS_COMPRESSION");
     }
+  };
+}
+
+function archiveWorkerBaseURL(runtimeWindow: typeof window) {
+  if (runtimeWindow.location.protocol === "http:" || runtimeWindow.location.protocol === "https:") return runtimeWindow.location.href;
+  const parentLocation = runtimeWindow.parent.location;
+  if (parentLocation.protocol === "http:" || parentLocation.protocol === "https:") return parentLocation.href;
+  throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+}
+
+function archiveWorkerRequestURL(runtimeWindow: typeof window, input: RequestInfo | URL, baseURL: string) {
+  const value = typeof input === "string"
+    ? input
+    : input instanceof runtimeWindow.URL
+      ? input.href
+      : input.url;
+  return new runtimeWindow.URL(value, baseURL);
+}
+
+function installArchiveWorkerResponseCompatibility(runtimeWindow: typeof window, config: PlayerConfig) {
+  const originalFetch = runtimeWindow.fetch;
+  if (typeof originalFetch !== "function") throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+  const baseURL = archiveWorkerBaseURL(runtimeWindow);
+  const archiveWorkers = new Map<string, RewrittenArchiveType>([
+    [new runtimeWindow.URL("compression/extract7z.js", new runtimeWindow.URL(config.runtimeBaseUrl, baseURL)).href, "7z"],
+    [new runtimeWindow.URL("compression/extractzip.js", new runtimeWindow.URL(config.runtimeBaseUrl, baseURL)).href, "zip"],
+  ]);
+  const compatibleFetch: typeof runtimeWindow.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    const requestURL = archiveWorkerRequestURL(runtimeWindow, input, baseURL);
+    const archiveType = archiveWorkers.get(requestURL.href);
+    const response = await originalFetch.call(runtimeWindow, input, init);
+    if (!archiveType || (init?.method ?? (typeof input === "string" || "href" in input ? "GET" : input.method)).toUpperCase() !== "GET" || !response.ok) {
+      return response;
+    }
+    const headers = new runtimeWindow.Headers(response.headers);
+    headers.delete("content-length");
+    headers.delete("etag");
+    const ResponseConstructor = typeof runtimeWindow.Response === "function" ? runtimeWindow.Response : Response;
+    return new ResponseConstructor(rewriteArchiveWorker(await response.text(), archiveType), {
+      status: response.status,
+      statusText: response.statusText,
+      headers,
+    });
+  };
+  runtimeWindow.fetch = compatibleFetch;
+  return () => {
+    if (runtimeWindow.fetch === compatibleFetch) runtimeWindow.fetch = originalFetch;
   };
 }
 
@@ -614,8 +661,10 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
     ? installEmulatorJs423NetplayCompatibility(runtimeWindow)
     : () => undefined;
   const cleanupArchiveWorkerCompatibility = config.emulatorjsVersion === "4.2.3"
-    ? installArchiveWorkerCompatibility(runtimeWindow)
-    : () => undefined;
+    ? installArchiveWorkerBlobCompatibility(runtimeWindow)
+    : config.emulatorjsVersion === "4.3.0-pre"
+      ? installArchiveWorkerResponseCompatibility(runtimeWindow, config)
+      : () => undefined;
   const cleanupExternalFileCompatibility = config.emulatorjsVersion === "4.2.3" && Object.keys(externalFiles).length > 0
     ? installExternalFileCompatibility(runtimeWindow)
     : () => undefined;

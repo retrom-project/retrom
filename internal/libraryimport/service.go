@@ -150,10 +150,14 @@ type preparedValidationFile struct {
 }
 
 type preparedDOSEntry struct {
-	path, kind string
-	rank       int
-	safe       bool
+	path, kind             string
+	rank                   int
+	safe                   bool
+	batchContents          []byte
+	inferredTerminalTarget bool
 }
+
+const maxDOSBatchInspectionBytes = 64 << 10
 
 type reconfigurationInput struct {
 	sourceImportJobID string
@@ -256,6 +260,7 @@ func dosProgram(path string) (string, bool) {
 }
 
 func rankDOSEntries(entries []preparedDOSEntry) {
+	inferDOSBatchTerminalTargets(entries)
 	sort.SliceStable(entries, func(left, right int) bool {
 		leftCategory, leftExtension, leftDepth, leftPath := dosEntryPriority(entries[left])
 		rightCategory, rightExtension, rightDepth, rightPath := dosEntryPriority(entries[right])
@@ -284,21 +289,210 @@ func dosEntryPriority(entry preparedDOSEntry) (int, int, int, string) {
 		return -1
 	}, base)
 	category := 1
-	preferred := map[string]struct{}{
-		"game": {}, "go": {}, "launch": {}, "play": {}, "run": {}, "start": {},
-	}
-	helpers := map[string]struct{}{
-		"arj": {}, "backup": {}, "config": {}, "configure": {}, "dos32a": {}, "dos4gw": {},
-		"end": {}, "help": {}, "install": {}, "installer": {}, "pkunzip": {}, "readme": {},
-		"register": {}, "restore": {}, "setup": {}, "setsound": {}, "uninstall": {}, "update": {},
-	}
-	if _, matched := preferred[name]; matched {
+	switch {
+	case entry.inferredTerminalTarget:
+		category = -1
+	case preferredDOSProgramName(name):
 		category = 0
-	} else if _, matched := helpers[name]; matched {
+	case helperDOSProgramName(name):
 		category = 2
 	}
 	extension := map[string]int{"EXE": 0, "COM": 1, "BAT": 2}[entry.kind]
 	return category, extension, strings.Count(entry.path, "/"), strings.ToLower(entry.path)
+}
+
+func preferredDOSProgramName(name string) bool {
+	switch name {
+	case "game", "go", "launch", "play", "run", "start":
+		return true
+	default:
+		return false
+	}
+}
+
+func helperDOSProgramName(name string) bool {
+	switch name {
+	case "arj", "backup", "config", "configure", "dos32a", "dos4gw", "end", "help", "install",
+		"installer", "joymouse", "js3", "pkunzip", "readme", "register", "restore", "setup", "setsound",
+		"uninstall", "update":
+		return true
+	default:
+		return false
+	}
+}
+
+// inferDOSBatchTerminalTargets keeps a named launcher batch as the default unless it demonstrably opens a known
+// interactive helper before ending in another scanned EXE/COM. In that narrow case the terminal program is the
+// safer zero-interaction default; the batch remains available for an administrator who needs its setup flow.
+func inferDOSBatchTerminalTargets(entries []preparedDOSEntry) {
+	byPath := make(map[string]int, len(entries))
+	for index := range entries {
+		entries[index].inferredTerminalTarget = false
+		byPath[strings.ToLower(entries[index].path)] = index
+	}
+	for index := range entries {
+		launcher := entries[index]
+		if launcher.kind != "BAT" || len(launcher.batchContents) == 0 {
+			continue
+		}
+		launcherName := normalizedDOSProgramName(launcher.path)
+		if !preferredDOSProgramName(launcherName) {
+			continue
+		}
+		invocations := resolveDOSBatchInvocations(launcher.path, launcher.batchContents, entries, byPath)
+		if len(invocations) < 2 {
+			continue
+		}
+		terminal := invocations[len(invocations)-1]
+		terminalName := normalizedDOSProgramName(entries[terminal].path)
+		if terminal == index || entries[terminal].kind == "BAT" || helperDOSProgramName(terminalName) {
+			continue
+		}
+		interactiveHelper := false
+		for _, invoked := range invocations[:len(invocations)-1] {
+			if helperDOSProgramName(normalizedDOSProgramName(entries[invoked].path)) {
+				interactiveHelper = true
+				break
+			}
+		}
+		if interactiveHelper {
+			entries[terminal].inferredTerminalTarget = true
+		}
+	}
+}
+
+func normalizedDOSProgramName(programPath string) string {
+	extension := filepath.Ext(programPath)
+	base := strings.TrimSuffix(filepath.Base(programPath), extension)
+	return strings.Map(func(character rune) rune {
+		if character >= 'A' && character <= 'Z' {
+			return character + ('a' - 'A')
+		}
+		if character >= 'a' && character <= 'z' || character >= '0' && character <= '9' {
+			return character
+		}
+		return -1
+	}, base)
+}
+
+func resolveDOSBatchInvocations(
+	launcherPath string,
+	contents []byte,
+	entries []preparedDOSEntry,
+	byPath map[string]int,
+) []int {
+	if len(contents) > maxDOSBatchInspectionBytes {
+		return nil
+	}
+	directory := path.Dir(strings.ReplaceAll(launcherPath, "\\", "/"))
+	invocations := make([]int, 0, 4)
+	for _, line := range strings.FieldsFunc(string(contents), func(character rune) bool {
+		return character == '\r' || character == '\n'
+	}) {
+		token, safe := dosBatchCommandToken(line)
+		if !safe {
+			return nil
+		}
+		if token == "" {
+			continue
+		}
+		invoked, matched := resolveDOSBatchProgram(token, directory, entries, byPath)
+		if !matched {
+			return nil
+		}
+		invocations = append(invocations, invoked)
+	}
+	return invocations
+}
+
+func dosBatchCommandToken(line string) (string, bool) {
+	line = strings.TrimSpace(line)
+	line = strings.TrimLeft(line, "@")
+	line = strings.TrimSpace(line)
+	if line == "" || strings.HasPrefix(line, ":") {
+		return "", true
+	}
+	fields := strings.Fields(line)
+	if len(fields) == 0 {
+		return "", true
+	}
+	first := strings.ToLower(strings.Trim(fields[0], "\""))
+	if ignoredDOSBatchCommand(first) {
+		return "", true
+	}
+	if conditionalDOSBatchCommand(first) {
+		return "", false
+	}
+	if first == "call" {
+		if len(fields) < 2 {
+			return "", false
+		}
+		return strings.Trim(fields[1], "\""), true
+	}
+	return strings.Trim(fields[0], "\""), true
+}
+
+func ignoredDOSBatchCommand(command string) bool {
+	switch command {
+	case "rem", "echo", "set", "cd", "chdir", "path", "prompt":
+		return true
+	default:
+		return strings.HasPrefix(command, "::")
+	}
+}
+
+func conditionalDOSBatchCommand(command string) bool {
+	switch command {
+	case "goto", "if", "for":
+		return true
+	default:
+		return false
+	}
+}
+
+func resolveDOSBatchProgram(
+	token, directory string,
+	entries []preparedDOSEntry,
+	byPath map[string]int,
+) (int, bool) {
+	normalized := strings.ReplaceAll(token, "\\", "/")
+	if len(normalized) >= 2 && normalized[1] == ':' {
+		normalized = normalized[2:]
+	}
+	normalized = strings.TrimLeft(normalized, "/")
+	if normalized == "" {
+		return 0, false
+	}
+	if !strings.Contains(normalized, "/") && directory != "." {
+		normalized = path.Join(directory, normalized)
+	}
+	candidates := []string{normalized}
+	if filepath.Ext(normalized) == "" {
+		candidates = []string{normalized + ".EXE", normalized + ".COM", normalized + ".BAT"}
+	}
+	for _, candidate := range candidates {
+		index, matched := byPath[strings.ToLower(path.Clean(candidate))]
+		if matched && index >= 0 && index < len(entries) {
+			return index, true
+		}
+	}
+	return 0, false
+}
+
+func (service *Service) inspectDOSBatch(digest string) []byte {
+	if service.blobs == nil || digest == "" {
+		return nil
+	}
+	file, err := service.blobs.OpenDigest(digest)
+	if err != nil {
+		return nil
+	}
+	defer func() { cleanup.Error("close", file.Close()) }()
+	contents, err := io.ReadAll(io.LimitReader(file, maxDOSBatchInspectionBytes+1))
+	if err != nil || len(contents) > maxDOSBatchInspectionBytes {
+		return nil
+	}
+	return contents
 }
 
 func directDOSPathSafe(path string) bool {
@@ -456,13 +650,18 @@ func (service *Service) prepareDOSFiles(
 				},
 			)
 			if kind, ok := dosProgram(entry.NormalizedPath); ok {
+				var batchContents []byte
+				if kind == "BAT" {
+					batchContents = service.inspectDOSBatch(metadata.SHA256)
+				}
 				programs = append(
 					programs,
 					preparedDOSEntry{
-						path: entry.NormalizedPath,
-						kind: kind,
-						rank: len(programs),
-						safe: directDOSPathSafe(entry.NormalizedPath),
+						path:          entry.NormalizedPath,
+						kind:          kind,
+						rank:          len(programs),
+						safe:          directDOSPathSafe(entry.NormalizedPath),
+						batchContents: batchContents,
 					},
 				)
 			}
@@ -497,9 +696,16 @@ func (service *Service) prepareDOSFiles(
 		dispositions = append(dispositions, preparedDisposition{file: file, disposition: "SOURCE"})
 		sources = append(sources, preparedSource{file: file, role: "DOS_SOURCE", logicalName: file.path})
 		if kind, ok := dosProgram(file.path); ok {
+			var batchContents []byte
+			if kind == "BAT" {
+				batchContents = service.inspectDOSBatch(file.sha256)
+			}
 			programs = append(
 				programs,
-				preparedDOSEntry{path: file.path, kind: kind, rank: len(programs), safe: directDOSPathSafe(file.path)},
+				preparedDOSEntry{
+					path: file.path, kind: kind, rank: len(programs), safe: directDOSPathSafe(file.path),
+					batchContents: batchContents,
+				},
 			)
 		}
 	}
