@@ -12,18 +12,18 @@ dev_state="$temporary_root/dev-state"
 cp -p "$repository_root/web/next-env.d.ts" "$temporary_root/next-env.d.ts"
 cp -p "$repository_root/web/tsconfig.json" "$temporary_root/tsconfig.json"
 
-if [[ -n "${RETROM_CHROME_EXECUTABLE:-}" ]]; then
-  if [[ ! -x "$RETROM_CHROME_EXECUTABLE" ]]; then
-    echo "RETROM_CHROME_EXECUTABLE is not executable: $RETROM_CHROME_EXECUTABLE" >&2
-    exit 1
-  fi
-  chrome_version="$($RETROM_CHROME_EXECUTABLE --version)"
-  if [[ "$chrome_version" != Google\ Chrome\ * ]]; then
-    echo "RETROM_CHROME_EXECUTABLE must be Google Chrome, got: $chrome_version" >&2
-    exit 1
-  fi
-  printf 'browser=%s\n' "$chrome_version"
+chrome_executable="${RETROM_CHROME_EXECUTABLE:-$repository_root/.cache/tools/retrom-chrome-for-testing}"
+if [[ ! -x "$chrome_executable" ]]; then
+  echo "Chrome for Testing is missing; run make install-deps" >&2
+  exit 1
 fi
+chrome_version="$($chrome_executable --version | sed -E 's/[[:space:]]+$//')"
+if [[ "$chrome_version" != Google\ Chrome\ * ]]; then
+  echo "RETROM_CHROME_EXECUTABLE must be Google Chrome, got: $chrome_version" >&2
+  exit 1
+fi
+export RETROM_CHROME_EXECUTABLE="$chrome_executable"
+printf 'browser=%s\n' "$chrome_version"
 
 cleanup() {
   if [[ -n "$process_id" ]]; then

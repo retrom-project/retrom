@@ -186,7 +186,7 @@ Action 负责 registry 登录和 push，不改变 Make target 的本地构建边
 
 ### 7.3 `make dev` 只运行本地进程
 
-`make dev` 是宿主机开发入口，不是容器入口，也不得依赖 Docker daemon。它先执行幂等 `make prepare-deps`，成功后以前台 supervisor 方式同时启动：
+`make dev` 是宿主机开发入口，不是容器入口，也不得依赖 Docker daemon。它先执行幂等 `make prepare-deps` 与锁文件驱动的 `make web-install`，成功后以前台 supervisor 方式同时启动：
 
 1. `go run ./cmd/retrom --mode=test`，默认监听 `127.0.0.1:8080`；启动器只用 `RETROM_MODE` 选择并转换 CLI 参数，显式以 `RETROM_NETPLAY_ENABLED=true` 打开测试联机入口，随后在执行 Go 前移除工具变量；
 2. `cd web && npm run dev`，默认监听所有 IPv4 接口 `0.0.0.0:3000`，可用 `NEXT_DEV_HOST` 显式收窄；

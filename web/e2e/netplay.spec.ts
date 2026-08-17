@@ -1,5 +1,6 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync, writeFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
 import path from "node:path";
 import { randomUUID } from "node:crypto";
 import {
@@ -58,6 +59,8 @@ type RoomSnapshot = {
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
 const databasePath = process.env.RETROM_E2E_DATABASE ?? "";
+const chromeExecutablePath = process.env.RETROM_CHROME_EXECUTABLE
+  ?? fileURLToPath(new URL("../../.cache/tools/retrom-chrome-for-testing", import.meta.url));
 const dedicatedNetplayRunner = process.env.RETROM_NETPLAY_ACCEPTANCE === "1";
 const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR ?? "";
 const chromeArguments = [
@@ -83,7 +86,11 @@ function writeEvidence(testInfo: TestInfo, value: unknown) {
 }
 
 async function launchPlayer(username: string, latency: boolean, delayInitialApplied = false): Promise<PlayerProcess> {
-  const server = await chromium.launchServer({ headless: true, args: chromeArguments });
+  const server = await chromium.launchServer({
+    headless: true,
+    executablePath: chromeExecutablePath,
+    args: chromeArguments,
+  });
   const browser = await chromium.connect(server.wsEndpoint());
   const context = await browser.newContext({ baseURL: origin, viewport: { width: 1280, height: 800 } });
   await context.grantPermissions(["clipboard-read", "clipboard-write"], { origin });

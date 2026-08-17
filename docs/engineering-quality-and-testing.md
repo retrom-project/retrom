@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.5 |
-| 日期 | 2026-08-14 |
+| 版本 | 1.6 |
+| 日期 | 2026-08-17 |
 | 适用范围 | Go 后端、Next.js 前端、SQLite 集成、WebSocket rollback 联机与 EmulatorJS 运行时验证 |
 | 质量原则 | 零 lint warning、关键路径有测试、每个已发现 bug 有回归用例、不设覆盖率百分比门槛 |
 
@@ -30,12 +30,12 @@
 
 - 不设置全仓或单包的行、分支、函数覆盖率百分比门槛。
 - 不要求每个简单 DTO、纯展示组件或生成文件都有单测。
-- 不让默认 CI 依赖真实 Hasheous、用户 ROM/BIOS、浮动 CDN 或本机 Chrome 状态。
+- 不让默认 CI 依赖真实 Hasheous、用户 ROM/BIOS、浮动 CDN 或开发机预装的系统 Chrome。
 - 不用单元测试替代实际 EmulatorJS/core 兼容性验证，也不用人工截图替代可自动断言的逻辑测试。
 
 ### 2.3 一期工具链基线
 
-脚手架必须从以下已审定基线开始，并以锁文件为最终事实源：Go `1.26.5`；`modernc.org/sqlite v1.52.0`；`github.com/google/uuid v1.6.0`；`github.com/coder/websocket v1.8.15`；`oapi-codegen v2.8.0`；`github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其直接使用的 `github.com/getkin/kin-openapi v0.142.0`；`gofumpt v0.11.0`；`goimports` 来自 `golang.org/x/tools v0.48.0`；Node `24.18.0`（`.node-version`）；npm `11.16.0`（`packageManager`）；Next.js 与 `eslint-config-next` `16.3.0`；React/React DOM `19.2.7`；Tailwind CSS 与 `@tailwindcss/postcss` `4.3.0`；TypeScript `5.9.3`；ESLint `9.39.0`；Vitest `4.1.8` 与 Vite `8.2.0`；`@playwright/test 1.61.1`（它锁定同版本 `playwright` runtime）；`openapi-typescript 7.13.0`；`openapi-fetch 0.17.0`；golangci-lint `v2.11.4`。
+脚手架必须从以下已审定基线开始，并以锁文件为最终事实源：Go `1.26.5`；`modernc.org/sqlite v1.52.0`；`github.com/google/uuid v1.6.0`；`github.com/coder/websocket v1.8.15`；`oapi-codegen v2.8.0`；`github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其直接使用的 `github.com/getkin/kin-openapi v0.142.0`；`gofumpt v0.11.0`；`goimports` 来自 `golang.org/x/tools v0.48.0`；Node `24.18.0`（`.node-version`）；npm `11.16.0`（`packageManager`）；Next.js 与 `eslint-config-next` `16.3.0`；React/React DOM `19.2.7`；Tailwind CSS 与 `@tailwindcss/postcss` `4.3.0`；TypeScript `5.9.3`；ESLint `9.39.0`；Vitest `4.1.8` 与 Vite `8.2.0`；`@playwright/test 1.61.1`（它锁定同版本 `playwright` runtime 及 Chrome for Testing `149.0.7827.55`）；`openapi-typescript 7.13.0`；`openapi-fetch 0.17.0`；golangci-lint `v2.11.4`。
 
 前端测试配套固定为 `@testing-library/react 16.3.2`、`@testing-library/dom 10.4.1`、`@testing-library/user-event 14.6.3`、`@testing-library/jest-dom 6.9.1`、`jsdom 29.1.1`、`@vitejs/plugin-react 6.0.2`、`axe-core 4.13.0`、`postcss 8.5.26`、`@types/node 24.13.3`、`@types/react 19.2.18`、`@types/react-dom 19.2.4`。Vite 必须作为直接 devDependency，不能只依赖 Vitest 的传递依赖；`@testing-library/dom` 同理是 React Testing Library 的必需 peer；`axe-core` 作为 `ACC-UI-009` 的浏览器无障碍扫描器也必须直接锁定，不能依赖 Playwright 的传递安装。`package.json` 的全部直接依赖/devDependency 使用精确版本而非 `^`/`~`，`package-lock.json` 和 `go.sum` 必须提交；若首次 `npm ci` 证明某组合存在 peer incompatibility，必须作为独立工具链修订更新本节与锁文件，不能在功能 PR 中静默漂移到 `latest`。TypeScript 固定 5.9.3 是因为 `openapi-typescript 7.13.0` 的正式 peer range 为 `^5.x`；升级到 TypeScript 6 前必须先升级/验证生成器，不能使用 `--force` 或 `legacy-peer-deps` 绕过。
 
@@ -49,10 +49,12 @@
 
 | 命令 | 必须执行的内容 | 是否修改文件 |
 | --- | --- | --- |
+| `make install-deps` | 项目初始化：物化固定 Go 工具与模块、Node/npm 包、EmulatorJS/core/DAT/许可和 Playwright 锁定的 Chrome for Testing | 会写 `bin/`、`web/node_modules/`、`data/` 的忽略 payload 与 `.cache/` |
 | `make fmt` | 对 Go 源码执行 `gofumpt` 与 `goimports` | 是 |
 | `make fmt-check` | 检查 Go 格式并输出 diff；存在差异即失败 | 否 |
 | `make install-go-formatters` | 将固定 `gofumpt v0.11.0` 与 `goimports@v0.48.0` 安装到仓库忽略的 `bin/` | 会写工具缓存与 `bin/` |
 | `make install-golangci-lint` | 将固定版本 golangci-lint v2 安装到仓库忽略的 `bin/` | 会写工具缓存与 `bin/` |
+| `make prepare-e2e-browser` | 通过锁定的 Playwright CLI 幂等下载并启动校验官方 Chrome for Testing；缓存到 `.cache/tools/ms-playwright/`，稳定入口为 `.cache/tools/retrom-chrome-for-testing` | 会写被忽略的 `.cache/tools/` |
 | `make build` | 构建 `./cmd/retrom` | 否 |
 | `make test` | 运行 Go 常规单元测试，默认不含 `integration` build tag | 否 |
 | `make lint-go` | 使用仓库固定版本的 golangci-lint v2 扫描源码和测试 | 否 |
@@ -66,13 +68,13 @@
 | `make integration-test` | Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程；不含要求本地专有内容的 `localfixtures` 测试 | 否 |
 | `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成 Go strict stdlib server types 与前端 TypeScript schema | 会重建依赖目录并只修改两个 generated 文件 |
 | `make api-check` | 先以锁文件安装前端依赖，再在临时目录用固定生成器重建并逐字节比较，OpenAPI 无效或 generated 漂移即失败 | 仅依赖产物 |
-| `make web-e2e` | 运行关键 Chrome/Playwright 场景 | 会产生本地报告 |
+| `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景 | 会写浏览器缓存并产生本地报告 |
 | `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
 | `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/五份 DAT/许可文件并生成 notice；两个 FBA2012 DAT 从锁定源码确定性原生生成两次；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
 | `make deps-check` | 完全离线校验本地 allowlist、core、DAT、override、许可输入/notice 及 DAT 统计 | 否 |
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
 | `make ci` | `api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物 |
-| `make dev` | 先 `prepare-deps`，再在宿主机启动 Go/Next.js 本地进程并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存 |
+| `make dev` | 先 `prepare-deps + web-install`，再在宿主机启动 Go/Next.js 本地进程并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存 |
 | `make build-backend-image` | 只构建 `retrom:${IMAGE_TAG}`，前后复核并标记 release-input digest | 只写本地镜像缓存 |
 | `make build-web-image` | 只构建 `retrom-web:${IMAGE_TAG}`，前后复核并标记同一 digest | 只写本地镜像缓存 |
 | `make build-images` | 以同一 digest 依次构建上述两个镜像，最后 inspect label 一致性 | 只写本地镜像缓存 |
@@ -83,6 +85,7 @@
 补充规则：
 
 - `make ci` 不含依赖用户私有夹具的核心启动 smoke；该验证按第 8 节的影响范围单独执行。
+- 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。浏览器缓存、Node 工具链和运行时 payload 不进入 Git 或镜像。
 - 读取 `data/game/` 中私有 ROM/BIOS 的 Go 集成测试必须同时声明 `integration && localfixtures`，只在操作者已物化并验证授权夹具后以 `go test -tags='integration localfixtures' ...` 显式运行；默认 `make integration-test` 和 `make ci` 不得因缺少专有 ROM/BIOS 失败。`data-check` 必须回归检查这一标签边界。
 - `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
@@ -94,7 +97,7 @@
 - Makefile 固定 golangci-lint `v2.11.4`；升级必须显式修改变量和本节并运行完整门禁，不能在安装命令使用 `@latest`。
 - Makefile 固定 `DOCKER ?= docker`、`BACKEND_IMAGE ?= retrom`、`WEB_IMAGE ?= retrom-web`、`IMAGE_TAG ?= latest`。默认输出必须是 `retrom:latest` 与 `retrom-web:latest`，同时允许调用者显式覆盖 tag 或完整镜像仓库前缀。
 - 三个 image targets 只能调用镜像构建，不得依赖 `dev`，也不得执行 `docker run`、`docker compose`、push、登录 registry 或部署操作。
-- `make dev` 除前置执行 `make prepare-deps` 外，只能运行宿主机的 `go run ./cmd/retrom` 与 `npm run dev`（可以由 `scripts/dev.sh` 编排），必须正确转发 `SIGINT/SIGTERM` 并在任一子进程异常退出时结束另一进程；登记必须同时覆盖 supervisor 与两个独立 process group 的 PID/start ticks。启动前以仓库专用 PID/start ticks/工作目录/命令行身份安全停止并等待旧 dev supervisor；若 supervisor 被强制终止，则还要以登记的 process group/session 和子进程身份安全接管遗留 Go/Next.js。身份无法确认时只能失败，不能按端口或名称误杀其他进程；不得要求 Docker daemon。
+- `make dev` 前置执行 `make prepare-deps` 与 `make web-install`，之后只能运行宿主机的 `go run ./cmd/retrom` 与 `npm run dev`（可以由 `scripts/dev.sh` 编排），必须正确转发 `SIGINT/SIGTERM` 并在任一子进程异常退出时结束另一进程；登记必须同时覆盖 supervisor 与两个独立 process group 的 PID/start ticks。启动前以仓库专用 PID/start ticks/工作目录/命令行身份安全停止并等待旧 dev supervisor；若 supervisor 被强制终止，则还要以登记的 process group/session 和子进程身份安全接管遗留 Go/Next.js。身份无法确认时只能失败，不能按端口或名称误杀其他进程；不得要求 Docker daemon。
 - 本地自动化明确使用 `RETROM_MODE=test`，dev supervisor 将它转换为后端 CLI 的 `--mode=test` 后从 Go 子进程环境中移除，避免严格环境变量校验把前端编排变量误当作后端配置。测试模式只允许临时数据目录、固定 `test/test` 账号和显著 UI 警告；release 模式测试必须走 setup code，不得用测试账号旁路。
 
 ## 4. Go Lint 基线
@@ -214,7 +217,7 @@
 
 测试优先通过角色、可访问名称和用户行为查询元素，不依赖 Tailwind class、DOM 深层结构或大面积 snapshot。浏览器 API fake 必须模拟与用例相关的语义，不能简单返回永远成功从而掩盖全屏、可见性或计时问题。
 
-`web/playwright.config.ts` 只能登记 Chrome 项目：所有项目统一 `use.channel="chrome"`，不以 Playwright 的 Firefox/WebKit 或无品牌 Chromium 结果冒充一期浏览器兼容性。桌面项目继续承载既有流程，移动项目只承载响应式与移动 Player Case，避免把全部桌面矩阵无意义复制到每个视口。runner 必须记录实际 Chrome 版本；系统安装路径不可用时可显式传入 `RETROM_CHROME_EXECUTABLE`，但 runner 必须先验证该可执行文件的版本标识确为 `Google Chrome`，不得指向 Chromium。没有系统 Chrome 或有效显式路径时 `make web-e2e` 明确失败，不能自动改用另一个 browser。`@playwright/test` 是直接 devDependency；不能只安装底层 `playwright` 包后假定 `playwright test` runner 已被正确锁定。
+`web/playwright.config.ts` 只能登记 Chrome 项目：所有项目统一 `use.channel="chrome"`，不以 Playwright 的 Firefox/WebKit 或无品牌 Chromium 结果冒充一期浏览器兼容性。默认浏览器是 `@playwright/test` 精确版本绑定的官方 Chrome for Testing，由 `make prepare-e2e-browser` 下载到仓库忽略的 `.cache/tools/ms-playwright/`，校验 manifest 版本和实际启动后以 `.cache/tools/retrom-chrome-for-testing` 稳定路径提供给所有项目。桌面项目继续承载既有流程，移动项目只承载响应式与移动 Player Case，避免把全部桌面矩阵无意义复制到每个视口。runner 必须记录实际 Chrome 版本；可显式传入 `RETROM_CHROME_EXECUTABLE` 覆盖默认路径，但 runner 必须先验证其版本标识确为 `Google Chrome`，不得指向无品牌 Chromium。浏览器缺失时错误必须指向 `make install-deps`，不得静默改用系统浏览器或另一个 channel。`@playwright/test` 是直接 devDependency；不能只安装底层 `playwright` 包后假定 `playwright test` runner 已被正确锁定。
 
 ## 6. 测试分层与目录
 

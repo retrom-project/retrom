@@ -56,7 +56,7 @@
 
 - Linux 开发/CI 环境，仓库根目录为当前目录；
 - 仓库锁定的 Go、Node.js/npm、golangci-lint 和依赖；
-- Chrome 与 Playwright；只验收 Chrome，不承诺其他浏览器，手机/平板使用 Chrome 的固定 CSS viewport 和 coarse-pointer 仿真，并在可用时补充真实移动 Chrome 复核；
+- 由仓库锁定 Playwright 物化的官方 Chrome for Testing；只验收 Chrome，不承诺其他浏览器，手机/平板使用 Chrome 的固定 CSS viewport 和 coarse-pointer 仿真，并在可用时补充真实移动 Chrome 复核；
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
 - 可选的已部署代理 Case 需要一个已由 NG 暴露的 HTTPS 地址，通过 `RETROM_ACCEPTANCE_BASE_URL` 提供；没有部署环境时只有明确标注的条件 Case 可为 `NOT_APPLICABLE`；
 - 用户有权使用的 ROM/BIOS 只保存在本地 `data/game/`，不进入 Git 或验收报告。
@@ -64,10 +64,10 @@
 首次准备依赖可以执行：
 
 ```bash
-make prepare-deps
+make install-deps
 ```
 
-依赖下载是验收前准备，不计入单 Case 时长；正式计时期间只运行离线 `make deps-check`。操作者自行把有权使用的私有资源放入 `data/game/`；每个实际产品测试在消费前校验自己依赖的路径、大小或 SHA-256。仓库不提供 ROM/BIOS 下载器，也不在 manifest 中保存主机名、远端绝对路径或凭据。
+日常项目初始化直接执行 `make install-deps`；单独的 `make prepare-deps` 只物化应用 runtime/DAT/许可。初始化会把固定 Chrome for Testing 写入被忽略的 `.cache/tools/`，并在正式计时前完成实际启动校验。依赖下载是验收前准备，不计入单 Case 时长；正式计时期间只运行离线 `make deps-check`。操作者自行把有权使用的私有资源放入 `data/game/`；每个实际产品测试在消费前校验自己依赖的路径、大小或 SHA-256。仓库不提供 ROM/BIOS 下载器，也不在 manifest 中保存主机名、远端绝对路径或凭据。
 
 ### 3.2 隔离数据与固定种子
 

@@ -69,6 +69,8 @@ data/auth/password-blocklists/v1/
 | `make release-input-digest` | 不联网、不写工作树，按本节算法校验并只向 stdout 输出 64 位小写 `releaseInputDigest`；镜像 target 调用同一 helper，不复制 shell 算法。 |
 | `make dev` | 先依赖 `prepare-deps`，然后只启动宿主机 Go/Next.js 进程；依赖准备不改变“非 Docker”契约。 |
 
+`make install-deps` 是项目级初始化聚合入口，还会安装 Go/Node/Web 工具与 Playwright 锁定的 Chrome for Testing；其中浏览器位于 `.cache/tools/`，不属于本专题的应用 runtime allowlist，也不进入任何发布镜像。`make prepare-deps` 的职责和发布输入因此保持不变。
+
 下载规则：连接、首字节和总请求分别有界；最多跟随 3 次 HTTPS redirect；拒绝 scheme 降级；先写同文件系统的 `0600` 临时文件，再校验 size/SHA，最后原子 rename。失败不得覆盖已有正确文件，也不得留下会被 `deps-check` 误认的目标文件。脚本不使用 `latest`、分支名、浮动 CDN 目录或未校验镜像。`PINNED_RAW_FILE` 只能命中 manifest 中与 40 位 commit 对应的 `raw.githubusercontent.com` URL；`RELEASE_ENTRY` 只能从已校验 release archive 的 allowlist 路径复制，不能再联网取“相似”文本。
 
 FBNeo 的快速物化配方不是 mock：它下载固定 commit 的公开上游 DAT 快照，执行 manifest 中带 `expected_count` 的两项精确字节替换，并验证最终 SHA-256 与从绑定 EmulatorJS/FBNeo 源码直接运行 `fbneo -dat` 的结果完全一致。任一替换计数不符必须失败；直接源码构建仍是升级审计的独立复核路径。

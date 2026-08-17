@@ -25,13 +25,20 @@ NEXT_DEV_PORT ?= 3000
 NEXT_BACKEND_ORIGIN ?= http://$(RETROM_HTTP_ADDR)
 NODE_HOME := $(abspath .cache/tools/node-v24.18.0-linux-x64)
 NPM := PATH="$(NODE_HOME)/bin:$$PATH" npm
+PLAYWRIGHT_BROWSERS_PATH ?= $(abspath .cache/tools/ms-playwright)
+RETROM_CHROME_EXECUTABLE ?= $(abspath .cache/tools/retrom-chrome-for-testing)
+export PLAYWRIGHT_BROWSERS_PATH
+export RETROM_CHROME_EXECUTABLE
 
 GO_PACKAGES := ./cmd/... ./internal/... ./migrations/...
 
-.PHONY: fmt fmt-check install-go-formatters install-golangci-lint prepare-node build test lint-go backend-check \
-	web-install web-lint web-typecheck web-test web-build web-check integration-test api-generate api-check \
+.PHONY: fmt fmt-check install-deps install-go-formatters install-golangci-lint prepare-node prepare-e2e-browser \
+	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-generate api-check \
 	web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report
+
+install-deps: install-go-formatters install-golangci-lint prepare-deps web-install prepare-e2e-browser
+	@go mod download
 
 install-go-formatters:
 	@mkdir -p bin
@@ -66,6 +73,9 @@ prepare-node:
 web-install: prepare-node
 	@cd web && $(NPM) ci
 
+prepare-e2e-browser: web-install
+	@PATH="$(NODE_HOME)/bin:$$PATH" PLAYWRIGHT_BROWSERS_PATH="$(PLAYWRIGHT_BROWSERS_PATH)" scripts/prepare-e2e-browser.sh
+
 web-lint: prepare-node
 	@cd web && $(NPM) run lint
 
@@ -93,7 +103,7 @@ api-generate: web-install
 api-check: web-install
 	@scripts/api-check.sh
 
-web-e2e: prepare-node
+web-e2e: prepare-e2e-browser
 	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/acceptance/web-e2e.sh
 
 data-check:
@@ -115,7 +125,7 @@ release-input-digest:
 
 ci: api-check backend-check web-check integration-test data-check
 
-dev: prepare-deps prepare-node
+dev: prepare-deps web-install
 	@RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
 	 RETROM_PUBLIC_ORIGIN="$(RETROM_PUBLIC_ORIGIN)" \
 	 RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN="$(RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN)" \
