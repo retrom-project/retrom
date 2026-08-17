@@ -115,6 +115,7 @@ web-e2e: prepare-e2e-browser public-fixtures-check
 data-check:
 	@python3 scripts/test_makefile.py
 	@python3 scripts/test_workflows.py
+	@python3 scripts/test_design_assets.py
 	@python3 scripts/test_public_fixtures.py
 	@python3 scripts/test_dependencies.py
 	@python3 scripts/test_fbalpha2012_dat.py
