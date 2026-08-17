@@ -33,6 +33,7 @@ class PrivateFixtureBoundaryTests(unittest.TestCase):
         for legacy_path in (
             "/".join(("data", "example")),
             "/".join(("data", "core-validation")),
+            "/".join(("data", "game", "td002")),
             "/".join(("demo", "netplay-demo")),
         ):
             self.assertFalse(
