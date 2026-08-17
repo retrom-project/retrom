@@ -15,7 +15,7 @@ Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256
 
 ## 2. 唯一事实源与目录
 
-运行时机器事实源由按 SemVer 升序配置的 manifest 集合组成：[`4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json) 提供 33 个基础 artifact 与五份 DAT，[`4.3.0-pre/manifest.json`](../data/dat/emulatorjs/4.3.0-pre/manifest.json) 覆盖 DOSBox Pure、Genesis Plus GX Wide 与 Azahar；按“后声明覆盖同 core”合并后共有 35 个 enabled core artifact。账户密码拒绝列表由 [`password-blocklists/v1/manifest.json`](../data/auth/password-blocklists/v1/manifest.json) 独立锁定 SecLists tag、40 位 commit、10,000 行 payload、MIT 许可及各自 size/SHA-256。后出现的运行时 manifest 只替换它明确列出的 core；不能要求部分覆盖重复全部核心/DAT。`data/example/fixtures.json` 只描述本地兼容夹具，不得反向覆盖依赖版本。运行时 manifest 同时锁定：
+运行时机器事实源由按 SemVer 升序配置的 manifest 集合组成：[`4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json) 提供 33 个基础 artifact 与五份 DAT，[`4.3.0-pre/manifest.json`](../data/dat/emulatorjs/4.3.0-pre/manifest.json) 覆盖 DOSBox Pure、Genesis Plus GX Wide 与 Azahar；按“后声明覆盖同 core”合并后共有 35 个 enabled core artifact。账户密码拒绝列表由 [`password-blocklists/v1/manifest.json`](../data/auth/password-blocklists/v1/manifest.json) 独立锁定 SecLists tag、40 位 commit、10,000 行 payload、MIT 许可及各自 size/SHA-256。后出现的运行时 manifest 只替换它明确列出的 core；不能要求部分覆盖重复全部核心/DAT。本机 `data/game/` 资源只服务实际产品测试，不得反向覆盖依赖版本。运行时 manifest 同时锁定：
 
 - EmulatorJS release、tag、发布资产 URL/size/SHA-256；
 - 允许进入镜像/由 Go 静态服务的 EmulatorJS 文件 allowlist、36 个跨版本 selected artifact 条目（合并为 35 个 enabled core artifact）以及 PPSSPP auxiliary asset 的路径、size/SHA-256；
@@ -28,7 +28,7 @@ Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256
 
 4.2.3 的 Player adapter 固定为 `ejs-4.2.3-v2`，registry 不保留无法由当前 manifest 解释的 v1 fallback。4.2.3 与 4.3.0-pre 的 adapter 都对两份版本中逐字节相同的官方 `extract7z.js`、`extractzip.js` 执行运行时专题锁定的 CSP 兼容转换：4.2.3 保留既有 Worker Blob 转换，4.3.0-pre 因 compression 变为 module-private 而精确转换同源下载响应，再由 EmulatorJS 构造 Worker Blob。转换发生在浏览器内且任一源形状漂移即阻断，不能修改 runtime allowlist 中的官方 bytes、size/SHA 或许可关联证据。新版本不得仅因进入 registry 就自动继承转换，必须先证明其锁定 Worker 仍为已接受形状。dependency bootstrap 对同一 `(core_id, emulatorjs_version, sha256)` 保留 CoreArtifact ID；bundle/flavor/path/size/compatibility/enabled 等运行语义变化时原子递增 artifact version，逐字节等价的重复 bootstrap 连 `updated_at_ms` 也不改。历史 VariantRevision、SaveState 与 PersistentSave 继续绑定原 artifact ID，但未发布的 generation 3 validation 全部 stale，必须由 compatibility V3 重新验证后才能发布。
 
-联机使用独立的 [`data/netplay/v1/manifest.json`](../data/netplay/v1/manifest.json) 与 schema 作为普通兼容性之上的 core-profile allowlist。schema v3 的首发 profile 为 `fceumm-423-v1` 与 `fbneo-423-v1`：每项锁定 EmulatorJS 4.2.3、core artifact SHA-256、`maxPlayers=2` 和核心级 prediction 上限；FCEUmm 为 8 帧，FBNeo 为 0 帧严格 lockstep。协议另锁定 `SINGLE_FILE`、`retrom-netplay-v1`、`ejs-4.2.3-v2`、`ejs-netplay-4.2.3-v1`、24 controls、120-frame checkpoint、8 帧 prediction 协议上限、120 rollback、600 history 与 1 MiB state 上限。任意发布游戏只要当前 READY VariantRevision 使用该精确 artifact、内容类型受协议允许且依赖快照仍有效，即可选择此 profile；ROM 逻辑名、大小、hash 与来源 archive 不进入产品准入。校验器必须与 runtime manifest 的 core artifact、supported content kind 和前端 registry 双向一致，未知 EmulatorJS/adapter/profile 不得 fallback。F-1 Race 与 Lode Runner 只作为两个 core profile 的代表性双端回归夹具，由操作者物化到被忽略的 `data/example/local-fixtures/netplay/`，不属于 dependency payload、镜像内容或逐游戏白名单。
+联机使用独立的 [`data/netplay/v1/manifest.json`](../data/netplay/v1/manifest.json) 与 schema 作为普通兼容性之上的 core-profile allowlist。schema v3 的首发 profile 为 `fceumm-423-v1` 与 `fbneo-423-v1`：每项锁定 EmulatorJS 4.2.3、core artifact SHA-256、`maxPlayers=2` 和核心级 prediction 上限；FCEUmm 为 8 帧，FBNeo 为 0 帧严格 lockstep。协议另锁定 `SINGLE_FILE`、`retrom-netplay-v1`、`ejs-4.2.3-v2`、`ejs-netplay-4.2.3-v1`、24 controls、120-frame checkpoint、8 帧 prediction 协议上限、120 rollback、600 history 与 1 MiB state 上限。任意发布游戏只要当前 READY VariantRevision 使用该精确 artifact、内容类型受协议允许且依赖快照仍有效，即可选择此 profile；ROM 逻辑名、大小、hash 与来源 archive 不进入产品准入。校验器必须与 runtime manifest 的 core artifact、supported content kind 和前端 registry 双向一致，未知 EmulatorJS/adapter/profile 不得 fallback。F-1 Race 与 Lode Runner 只作为两个 core profile 的代表性双端回归夹具，由操作者物化到被忽略的 `data/game/netplay/`，不属于 dependency payload、镜像内容或逐游戏白名单。
 
 仓库与本地缓存边界固定为：
 
@@ -137,7 +137,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 - netplay schema/manifest；绝不复制本地联机 ROM fixture；
 - CA 根证书和运行所需的最小系统文件。
 
-镜像不得复制 `data/game/`、`data/example/results/`、本地 SQLite/CAS、上传缓存、下载缓存、源码树或整个 7z 发布包。构建完成只产生镜像，不启动容器。运行镜像时依赖已在镜像内，启动不需要 GitHub/CDN 网络。
+镜像不得复制 `data/game/`、本地 SQLite/CAS、上传缓存、下载缓存、源码树或整个 7z 发布包。构建完成只产生镜像，不启动容器。运行镜像时依赖已在镜像内，启动不需要 GitHub/CDN 网络。
 
 ## 6. 升级与许可门禁
 

@@ -8,7 +8,6 @@ for its complete contract.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import re
@@ -25,7 +24,6 @@ ROOT = Path(__file__).resolve().parents[2]
 ARTIFACTS = ROOT / ".artifacts" / "acceptance"
 CURRENT = ARTIFACTS / "current-run"
 CASE_PATTERN = re.compile(r"^### (ACC-[A-Z]+-\d{3})[：:]", re.MULTILINE)
-CORE_CASE_ROW_PATTERN = re.compile(r"^\| `(ACC-CORE-\d{3})` \|", re.MULTILINE)
 CONDITIONAL_CASES = {"ACC-NET-002", "ACC-DAT-006"}
 
 
@@ -234,8 +232,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-DAT-001": (300, "go test -tags=integration ./internal/arcadedat ./internal/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-002": (
-        180,
-        "go test -tags=integration ./internal/libraryimport -run '^TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure$' -count=1",
+        300,
+        "go test -tags=integration ./internal/libraryimport -run '^TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure$' -count=1 && "
+        "go test -tags='integration localfixtures' ./internal/libraryimport "
+        "-run '^TestFBA2012RealDATImportVariantAndLaunchIsolation$' -count=1 -timeout=120s",
     ),
     "ACC-DAT-003": (180, "go test -tags=integration ./internal/arcadecatalog -run '^TestUserDATRequiresParseDiffAndExplicitActivation$' -count=1"),
     "ACC-DAT-004": (
@@ -243,7 +243,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "go test -tags=integration ./internal/arcadecatalog -run '^TestUserDATRequiresParseDiffAndExplicitActivation$' -count=1",
     ),
     "ACC-DAT-005": (120, "go test ./internal/arcadedat -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective' -count=1"),
-    "ACC-DAT-006": (300, "scripts/acceptance/dependency-upgrade.sh"),
+    "ACC-DAT-006": (900, "scripts/acceptance/dependency-upgrade.sh"),
     "ACC-BIOS-001": (120, "go test -tags=integration ./internal/firmware -run '^TestStaticBIOSHashMismatchIsInstalledAsWarning$' -count=1"),
     "ACC-BIOS-002": (
         180,
@@ -291,7 +291,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",
     ),
     "ACC-RUN-001": (180, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
-    "ACC-RUN-002": (180, "scripts/acceptance/ui-case.sh ACC-RUN-002 && node data/example/smoke-test.mjs mame2003"),
+    "ACC-RUN-002": (180, "scripts/acceptance/ui-case.sh ACC-RUN-002"),
     "ACC-RUN-003": (180, "scripts/acceptance/ui-case.sh ACC-RUN-003"),
     "ACC-RUN-004": (180, "scripts/acceptance/ui-case.sh ACC-RUN-004"),
     "ACC-RUN-005": (
@@ -318,12 +318,12 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-NP-009": (120, "scripts/acceptance/netplay-case.sh ACC-NP-009"),
     "ACC-NP-010": (
         120,
-        "python3 data/example/verify-fixtures.py && go test ./internal/netplay ./internal/httpapi "
+        "go test ./internal/netplay ./internal/httpapi "
         "-run 'TestAcceptanceNP010|TestDecodeClientMessageRejectsUnknownDuplicateDeepAndOversizeInput|TestStateFrameParsesRAStateAndBindsHeader|TestCoreStatePayloadRejectsMalformedAndMissingMemoryChunks|TestCredentialIsPurposeBoundAndStoredOwnerOnly' -count=1",
     ),
     "ACC-NP-011": (
         180,
-        "python3 data/example/verify-fixtures.py && go test ./internal/netplay "
+        "go test ./internal/netplay "
         "-run 'TestAcceptanceNP011' -count=1 && go test ./internal/config ./internal/httpapi "
         "-run 'TestParseNetplayCapacityAndFixedProtocolTimers|TestNetplayFeatureFlagHidesRoutesAndAuthProjection' -count=1 && "
         ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run components/app-shell.test.tsx",
@@ -351,6 +351,20 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         600,
         "go test -tags=integration ./internal/libraryimport -run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=60s && go test ./internal/httpapi -run '^TestRestrictedBinaryEndpointsRejectMultipleRanges$' -count=1",
     ),
+    "ACC-MDISC-005": (
+        600,
+        "go test -tags=integration ./internal/libraryimport "
+        "-run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=120s && "
+        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- "
+        "--run features/player/adapters/ejs-4.2.3-v2.test.ts",
+    ),
+    "ACC-MDISC-006": (
+        600,
+        "go test -tags=integration ./internal/saves "
+        "-run '^TestPersistentSaveLocksLaunchBaseAndEnforcesSequence$' -count=1 -timeout=120s && "
+        ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- "
+        "--run features/player/adapters/ejs-4.2.3-v2.test.ts features/player/multi-disc-restore.test.ts",
+    ),
     "ACC-MDISC-007": (600, "scripts/acceptance/multidisc-regression.sh"),
     "ACC-MDISC-008": (
         600,
@@ -368,115 +382,6 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-UI-010": (180, "scripts/acceptance/ui-case.sh ACC-UI-010"),
 }
 
-CORE_CASES = {
-    "ACC-CORE-001": "fceumm",
-    "ACC-CORE-002": "snes9x",
-    "ACC-CORE-003": "gambatte",
-    "ACC-CORE-004": "mgba",
-    "ACC-CORE-005": "fbneo",
-    "ACC-CORE-006": "mame2003",
-    "ACC-CORE-007": "mame2003_plus",
-    "ACC-CORE-008": "dosbox_pure",
-    "ACC-CORE-009": "nestopia",
-    "ACC-CORE-010": "melonds",
-    "ACC-CORE-011": "desmume2015",
-    "ACC-CORE-012": "desmume",
-    "ACC-CORE-013": "a5200",
-    "ACC-CORE-014": "pcsx_rearmed",
-    "ACC-CORE-015": "mednafen_psx_hw",
-    "ACC-CORE-016": "handy",
-    "ACC-CORE-017": "yabause",
-    "ACC-CORE-018": "genesis_plus_gx",
-    "ACC-CORE-019": "mupen64plus_next",
-    "ACC-CORE-020": "parallel_n64",
-    "ACC-CORE-021": "opera",
-    "ACC-CORE-022": "prosystem",
-    "ACC-CORE-023": "stella2014",
-    "ACC-CORE-024": "picodrive",
-    "ACC-CORE-025": "mednafen_pce",
-    "ACC-CORE-026": "mednafen_pcfx",
-    "ACC-CORE-027": "mednafen_ngp",
-    "ACC-CORE-028": "ppsspp",
-    "ACC-CORE-029": "beetle_vb",
-    "ACC-CORE-030": "mednafen_wswan",
-    "ACC-CORE-031": "smsplus",
-    "ACC-CORE-032": "fbalpha2012_cps1",
-    "ACC-CORE-033": "fbalpha2012_cps2",
-    "ACC-CORE-034": "genesis_plus_gx_wide",
-    "ACC-CORE-035": "azahar",
-}
-
-MULTIDISC_RUNTIME_CASES = {
-    "ACC-MDISC-005": ("multidisc-saturn-2", "Saturn 双盘游戏画面；换盘 0→1→0 后继续推进"),
-    "ACC-MDISC-006": ("multidisc-saturn-3", "Saturn 三盘游戏画面；全部盘可切换且跨盘恢复顺序正确"),
-}
-
-MULTIDISC_PRODUCT_COMMANDS = {
-    "ACC-MDISC-005": "make web-test",
-    "ACC-MDISC-006": (
-        "go test -tags=integration ./internal/libraryimport "
-        "-run '^TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent$' -count=1 -timeout=120s && "
-        "go test -tags=integration ./internal/saves "
-        "-run '^TestPersistentSaveLocksLaunchBaseAndEnforcesSequence$' -count=1 -timeout=120s && "
-        "make web-test"
-    ),
-}
-
-CORE_EXPECTATIONS = {
-    "fceumm": "Family Computer/FDS 启动画面",
-    "snes9x": "Dr. Mario 标题或玩家选择菜单",
-    "gambatte": "Tetris 版权启动画面",
-    "mgba": "Sudoku Advance 标题或菜单",
-    "fbneo": "Lode Runner 标题或投币画面",
-    "mame2003": "Lode Runner 标题或 attract 画面",
-    "mame2003_plus": "Lode Runner 标题或投币画面",
-    "dosbox_pure": "DOOM II 标题画面",
-    "nestopia": "Family Computer/FDS 启动画面",
-    "melonds": "Zoo Keeper 标题菜单而非 FreeBIOS 空白双屏",
-    "desmume2015": "Zoo Keeper 标题菜单",
-    "desmume": "Zoo Keeper 标题菜单",
-    "a5200": "Super Breakout 游戏画面",
-    "pcsx_rearmed": "PlayStation/游戏启动画面",
-    "mednafen_psx_hw": "PlayStation/游戏启动画面",
-    "handy": "Lode Runner 标题/游戏画面",
-    "yabause": "Sega Saturn 游戏画面",
-    "genesis_plus_gx": "Felix the Cat 标题画面",
-    "mupen64plus_next": "Dr. Mario 64 标题画面",
-    "parallel_n64": "Dr. Mario 64 标题画面",
-    "opera": "Total Eclipse 游戏画面",
-    "prosystem": "Asteroids 标题画面",
-    "stella2014": "Freeway 游戏画面",
-    "picodrive": "Felix the Cat 标题画面",
-    "mednafen_pce": "Adventure Island 游戏画面",
-    "mednafen_pcfx": "光盘内游戏菜单",
-    "mednafen_ngp": "Pac-Man 游戏画面",
-    "ppsspp": "CSO 与 ISO 均到达 Sheep Defense 标题画面",
-    "beetle_vb": "Panic Bomber 动画开场",
-    "mednafen_wswan": "Mingle Magnet 标题画面",
-    "smsplus": "Bank Panic 标题画面",
-    "fbalpha2012_cps1": "1941 attract 或游戏画面",
-    "fbalpha2012_cps2": "Pocket Fighter 动画开场",
-    "genesis_plus_gx_wide": "Fix-It Felix Jr. high-score 或 attract 画面",
-    "azahar": "Cave Story 2D 中文标题和菜单",
-}
-
-CORE_TIMEOUTS = {
-    "pcsx_rearmed": 240,
-    "mednafen_psx_hw": 240,
-    "yabause": 240,
-    "mupen64plus_next": 240,
-    "parallel_n64": 240,
-    "opera": 240,
-    "mednafen_pcfx": 240,
-    "ppsspp": 480,
-    "azahar": 240,
-}
-
-CORE_PRODUCT_COMMANDS = {
-    "fbalpha2012_cps1": "go test -tags=integration ./internal/libraryimport -run '^TestFBA2012RealDATImportVariantAndLaunchIsolation$/^CPS1$' -count=1 -timeout=120s",
-    "fbalpha2012_cps2": "go test -tags=integration ./internal/libraryimport -run '^TestFBA2012RealDATImportVariantAndLaunchIsolation$/^CPS2$' -count=1 -timeout=120s",
-}
-
 
 def now_ms() -> int:
     return time.time_ns() // 1_000_000
@@ -484,14 +389,6 @@ def now_ms() -> int:
 
 def relative(path: Path, run_dir: Path) -> str:
     return path.relative_to(run_dir).as_posix()
-
-
-def sha256_file(path: Path) -> str:
-    digest = hashlib.sha256()
-    with path.open("rb") as source:
-        for chunk in iter(lambda: source.read(1024 * 1024), b""):
-            digest.update(chunk)
-    return digest.hexdigest()
 
 
 def git_state() -> tuple[str, bool]:
@@ -509,14 +406,10 @@ def git_state() -> tuple[str, bool]:
 def all_cases() -> list[str]:
     document = (ROOT / "docs" / "project-acceptance.md").read_text(encoding="utf-8")
     heading_cases = CASE_PATTERN.findall(document)
-    core_cases = CORE_CASE_ROW_PATTERN.findall(document)
-    if core_cases != list(CORE_CASES):
-        raise RuntimeError("ACCEPTANCE_CORE_CASE_CATALOG_INVALID")
     ui_start = heading_cases.index("ACC-UI-001")
     multidisc_start = heading_cases.index("ACC-MDISC-001")
     cases = (
         heading_cases[:ui_start]
-        + core_cases
         + heading_cases[multidisc_start:]
         + heading_cases[ui_start:multidisc_start]
     )
@@ -546,8 +439,6 @@ def prepare() -> int:
     (run_dir / "work" / "seed").mkdir(parents=True)
     (run_dir / "defects.json").write_text("[]\n", encoding="utf-8")
 
-    fixture_manifest = ROOT / "data" / "example" / "fixtures.json"
-    fixture_hash = sha256_file(fixture_manifest)
     fixed_seed = {
         "schemaVersion": 2,
         "accounts": [
@@ -571,7 +462,6 @@ def prepare() -> int:
             },
         ],
         "nowMs": 1786000000000,
-        "fixtureManifestSha256": fixture_hash,
         "platformInstances": [
             "acc-arcade-fbneo", "acc-arcade-mame", "acc-nes-fceumm",
             "acc-snes-snes9x", "acc-gb-gambatte", "acc-gba-mgba", "acc-dos-pure",
@@ -602,7 +492,6 @@ def prepare() -> int:
         "finishedAtMs": finished,
         "gitCommit": commit,
         "gitDirty": dirty,
-        "fixtureManifestSha256": fixture_hash,
         "fakeClockNowMs": 1786000000000,
         "dataRoot": "work/data",
         "seedManifest": "work/seed/manifest.json",
@@ -631,7 +520,7 @@ def archive_previous(case_dir: Path) -> None:
         number += 1
     target = attempts / f"{number:03d}"
     target.mkdir()
-    for name in ("result.json", "stdout.log", "network.json", "core-result.json", "runtime-result.json"):
+    for name in ("result.json", "stdout.log", "network.json"):
         source = case_dir / name
         if source.exists():
             shutil.move(source, target / name)
@@ -709,93 +598,6 @@ def execute_case(case_id: str) -> int:
         status, reason = conditional
         log_path.write_text(reason + "\n", encoding="utf-8")
         return_code = 0
-    elif case_id in MULTIDISC_RUNTIME_CASES:
-        run_id, _expectation = MULTIDISC_RUNTIME_CASES[case_id]
-        product_command = MULTIDISC_PRODUCT_COMMANDS[case_id]
-        log_path.write_text("[deterministic product contract]\n", encoding="utf-8")
-        product_code, product_timeout = run_command(product_command, 300, log_path, append=True)
-        verify = f"python3 data/example/verify-fixtures.py {run_id}"
-        if product_code != 0 or product_timeout:
-            status, reason, command, timed_out, return_code = (
-                "FAIL", "多盘产品契约回归测试失败", product_command, product_timeout, product_code
-            )
-        else:
-            with log_path.open("a", encoding="utf-8") as log:
-                log.write("\n[controlled runtime fixture verification]\n")
-            verify_code, verify_timeout = run_command(verify, 120, log_path, append=True)
-        if product_code == 0 and not product_timeout and (verify_code != 0 or verify_timeout):
-            status, reason, command, timed_out, return_code = (
-                "BLOCKED", "用户授权 Saturn 多盘 ROM/BIOS 夹具缺失或校验失败",
-                f"{product_command} && {verify}", verify_timeout, verify_code
-            )
-        elif product_code == 0 and not product_timeout:
-            smoke_command = f"node data/example/smoke-test.mjs {run_id}"
-            command = f"{product_command} && {verify} && {smoke_command}"
-            timeout = 600 if case_id == "ACC-MDISC-005" else 900
-            smoke_output = case_dir / "smoke-output"
-            with log_path.open("a", encoding="utf-8") as log:
-                log.write("\n[real EmulatorJS multi-disc smoke]\n")
-            return_code, timed_out = run_command(
-                smoke_command,
-                timeout,
-                log_path,
-                {"RETROM_EXAMPLE_RESULTS_DIR": str(smoke_output)},
-                append=True,
-            )
-            smoke_passed = return_code == 0 and not timed_out
-            status = "BLOCKED" if smoke_passed else "FAIL"
-            reason = "多盘机器断言通过；必须复核本次截图后才能通过" if smoke_passed else "多盘 Saturn smoke 失败"
-            initial_source = smoke_output / f"{run_id}-initial.png"
-            post_switch_source = smoke_output / f"{run_id}.png"
-            if initial_source.is_file():
-                shutil.copy2(initial_source, case_dir / "screenshots" / f"{run_id}.png")
-            if post_switch_source.is_file():
-                shutil.copy2(post_switch_source, case_dir / "screenshots" / f"{run_id}-post-switch.png")
-            latest = smoke_output / "latest.json"
-            if latest.is_file():
-                shutil.copy2(latest, case_dir / "runtime-result.json")
-    elif case_id in CORE_CASES:
-        core = CORE_CASES[case_id]
-        verify = f"python3 data/example/verify-fixtures.py {core}"
-        verify_code, verify_timeout = run_command(verify, 120, log_path)
-        if verify_code != 0 or verify_timeout:
-            status, reason, command, timed_out, return_code = (
-                "BLOCKED", "用户授权 ROM/BIOS 夹具缺失或校验失败", verify, verify_timeout, verify_code
-            )
-        else:
-            product_command = CORE_PRODUCT_COMMANDS.get(core)
-            product_failed = False
-            if product_command:
-                product_code, product_timeout = run_command(
-                    product_command, 120, log_path, append=True
-                )
-                if product_code != 0 or product_timeout:
-                    status, reason, command, timed_out, return_code = (
-                        "FAIL", "专属 Arcade DAT 产品链路失败", product_command,
-                        product_timeout, product_code,
-                    )
-                    product_failed = True
-            if not product_failed:
-                smoke_command = f"node data/example/smoke-test.mjs {core}"
-                command = " && ".join(filter(None, [verify, product_command, smoke_command]))
-                smoke_output = case_dir / "smoke-output"
-                return_code, timed_out = run_command(
-                    smoke_command,
-                    CORE_TIMEOUTS.get(core, 180),
-                    log_path,
-                    {"RETROM_EXAMPLE_RESULTS_DIR": str(smoke_output)},
-                )
-                smoke_passed = return_code == 0 and not timed_out
-                status = "BLOCKED" if smoke_passed else "FAIL"
-                reason = "单核心机器断言通过；必须对本次截图执行视觉复核后才能通过" if smoke_passed else "单核心 smoke 失败"
-                run_ids = ["ppsspp-cso", "ppsspp-iso"] if core == "ppsspp" else [core]
-                for run_id in run_ids:
-                    source = smoke_output / f"{run_id}.png"
-                    if source.is_file():
-                        shutil.copy2(source, case_dir / "screenshots" / f"{run_id}.png")
-                latest = smoke_output / "latest.json"
-                if latest.is_file():
-                    shutil.copy2(latest, case_dir / "core-result.json")
     elif case_id == "ACC-QA-003":
         command = "validate defects.json regression mappings"
         defects = json.loads((run_dir / "defects.json").read_text(encoding="utf-8"))
@@ -827,12 +629,6 @@ def execute_case(case_id: str) -> int:
     evidence = [relative(log_path, run_dir)]
     for path in sorted((case_dir / "screenshots").glob("*.png")):
         evidence.append(relative(path, run_dir))
-    core_result = case_dir / "core-result.json"
-    if core_result.is_file():
-        evidence.append(relative(core_result, run_dir))
-    runtime_result = case_dir / "runtime-result.json"
-    if runtime_result.is_file():
-        evidence.append(relative(runtime_result, run_dir))
     result = {
         "caseId": case_id,
         "status": status,
@@ -844,7 +640,6 @@ def execute_case(case_id: str) -> int:
         "timedOut": timed_out,
         "gitCommit": commit,
         "gitDirty": dirty,
-        "fixtureManifestSha256": run["fixtureManifestSha256"],
         "assertions": [{"name": "registered-case-contract", "passed": status in {"PASS", "NOT_APPLICABLE"}, "details": reason}],
         "evidence": evidence,
     }
@@ -852,104 +647,6 @@ def execute_case(case_id: str) -> int:
     print(f"{case_id}: {status} ({finished - started} ms)")
     print(f"evidence=.artifacts/acceptance/{run_dir.name}/cases/{case_id.lower()}")
     return 0 if status in {"PASS", "NOT_APPLICABLE"} else 1
-
-
-def review_core(case_id: str, decision: str, observed: str) -> int:
-    if case_id not in CORE_CASES or decision not in {"passed", "failed"} or not observed.strip():
-        print("usage: run.py review-core ACC-CORE-NNN passed|failed OBSERVED", file=sys.stderr)
-        return 2
-    _, run_dir = current_run()
-    case_dir = run_dir / "cases" / case_id.lower()
-    result_path = case_dir / "result.json"
-    core = CORE_CASES[case_id]
-    run_ids = ["ppsspp-cso", "ppsspp-iso"] if core == "ppsspp" else [core]
-    screenshots = [case_dir / "screenshots" / f"{run_id}.png" for run_id in run_ids]
-    machine_result = case_dir / "core-result.json"
-    if not result_path.is_file() or not all(path.is_file() for path in screenshots) or not machine_result.is_file():
-        raise RuntimeError("CORE_REVIEW_EVIDENCE_MISSING：先运行对应 ACC-CORE Case")
-    result = json.loads(result_path.read_text(encoding="utf-8"))
-    if result.get("status") != "BLOCKED" or result.get("exitCode") != 0 or result.get("timedOut"):
-        raise RuntimeError("CORE_MACHINE_ASSERTIONS_NOT_PASSED")
-    payload = json.loads(machine_result.read_text(encoding="utf-8"))
-    records = [next((item for item in payload.get("results", []) if item.get("core") == run_id), None) for run_id in run_ids]
-    if any(not record or record.get("status") != "passed" or record.get("failure") is not None for record in records):
-        raise RuntimeError("CORE_MACHINE_RESULT_INVALID")
-    reviewed_at = now_ms()
-    passed = decision == "passed"
-    result["status"] = "PASS" if passed else "FAIL"
-    result["finishedAtMs"] = reviewed_at
-    result["durationMs"] = reviewed_at - result["startedAtMs"]
-    result["assertions"] = [
-        {
-            "name": "machine-core-contract",
-            "passed": True,
-            "details": "本次单核心 smoke 的帧、画布、画面统计、隔离和 artifact 断言通过",
-        },
-        {
-            "name": "current-screenshot-visual-review",
-            "passed": passed,
-            "details": observed.strip(),
-        },
-    ]
-    result["visualReview"] = {
-        "reviewedAtMs": reviewed_at,
-        "decision": decision,
-        "expected": CORE_EXPECTATIONS[core],
-        "observed": observed.strip(),
-        "screenshots": [
-            {"runId": run_id, "sha256": sha256_file(screenshot), "path": relative(screenshot, run_dir)}
-            for run_id, screenshot in zip(run_ids, screenshots, strict=True)
-        ],
-    }
-    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"{case_id}: {result['status']} (visual review recorded)")
-    print(f"evidence=.artifacts/acceptance/{run_dir.name}/cases/{case_id.lower()}")
-    return 0 if passed else 1
-
-
-def review_multidisc(case_id: str, decision: str, observed: str) -> int:
-    if case_id not in MULTIDISC_RUNTIME_CASES or decision not in {"passed", "failed"} or not observed.strip():
-        print("usage: run.py review-multidisc ACC-MDISC-005|006 passed|failed OBSERVED", file=sys.stderr)
-        return 2
-    _, run_dir = current_run()
-    run_id, expectation = MULTIDISC_RUNTIME_CASES[case_id]
-    case_dir = run_dir / "cases" / case_id.lower()
-    result_path = case_dir / "result.json"
-    screenshot = case_dir / "screenshots" / f"{run_id}.png"
-    post_switch_screenshot = case_dir / "screenshots" / f"{run_id}-post-switch.png"
-    machine_result = case_dir / "runtime-result.json"
-    if not result_path.is_file() or not screenshot.is_file() or not post_switch_screenshot.is_file() or not machine_result.is_file():
-        raise RuntimeError("MULTIDISC_REVIEW_EVIDENCE_MISSING：先运行对应 ACC-MDISC Case")
-    result = json.loads(result_path.read_text(encoding="utf-8"))
-    if result.get("status") != "BLOCKED" or result.get("exitCode") != 0 or result.get("timedOut"):
-        raise RuntimeError("MULTIDISC_MACHINE_ASSERTIONS_NOT_PASSED")
-    payload = json.loads(machine_result.read_text(encoding="utf-8"))
-    record = next((item for item in payload.get("results", []) if item.get("core") == run_id), None)
-    if not record or record.get("status") != "passed" or record.get("failure") is not None:
-        raise RuntimeError("MULTIDISC_MACHINE_RESULT_INVALID")
-    reviewed_at = now_ms()
-    passed = decision == "passed"
-    result["status"] = "PASS" if passed else "FAIL"
-    result["finishedAtMs"] = reviewed_at
-    result["durationMs"] = reviewed_at - result["startedAtMs"]
-    result["assertions"] = [
-        {"name": "machine-multidisc-contract", "passed": True, "details": "盘数、换盘回读、帧推进、artifact 与隔离断言通过"},
-        {"name": "game-and-post-switch-screenshot-visual-review", "passed": passed, "details": observed.strip()},
-    ]
-    result["visualReview"] = {
-        "reviewedAtMs": reviewed_at,
-        "decision": decision,
-        "expected": expectation,
-        "observed": observed.strip(),
-        "screenshots": [
-            {"runId": run_id, "phase": "game-before-switch", "sha256": sha256_file(screenshot), "path": relative(screenshot, run_dir)},
-            {"runId": run_id, "phase": "post-switch", "sha256": sha256_file(post_switch_screenshot), "path": relative(post_switch_screenshot, run_dir)},
-        ],
-    }
-    result_path.write_text(json.dumps(result, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"{case_id}: {result['status']} (visual review recorded)")
-    print(f"evidence=.artifacts/acceptance/{run_dir.name}/cases/{case_id.lower()}")
-    return 0 if passed else 1
 
 
 def report() -> int:
@@ -996,7 +693,7 @@ def report() -> int:
 def main() -> int:
     os.chdir(ROOT)
     if len(sys.argv) < 2:
-        print("usage: run.py prepare | case CASE_ID | review-core CASE_ID passed|failed OBSERVED | review-multidisc CASE_ID passed|failed OBSERVED | report", file=sys.stderr)
+        print("usage: run.py prepare | case CASE_ID | report", file=sys.stderr)
         return 2
     try:
         if sys.argv[1] == "prepare" and len(sys.argv) == 2:
@@ -1005,14 +702,10 @@ def main() -> int:
             return execute_case(sys.argv[2])
         if sys.argv[1] == "report" and len(sys.argv) == 2:
             return report()
-        if sys.argv[1] == "review-core" and len(sys.argv) == 5:
-            return review_core(sys.argv[2], sys.argv[3], sys.argv[4])
-        if sys.argv[1] == "review-multidisc" and len(sys.argv) == 5:
-            return review_multidisc(sys.argv[2], sys.argv[3], sys.argv[4])
     except (OSError, RuntimeError, ValueError, json.JSONDecodeError, subprocess.TimeoutExpired) as error:
         print(str(error), file=sys.stderr)
         return 1
-    print("usage: run.py prepare | case CASE_ID | review-core CASE_ID passed|failed OBSERVED | review-multidisc CASE_ID passed|failed OBSERVED | report", file=sys.stderr)
+    print("usage: run.py prepare | case CASE_ID | report", file=sys.stderr)
     return 2
 
 

@@ -11,7 +11,6 @@ web/features/player/*
 web/features/player/netplay/*
 !web/features/player/netplay/ejs-netplay-4.2.3-v1.ts
 data/game
-data/example/results
 data/runtime
 data/auth/password-blocklists/*/payload
 data/dat/emulatorjs/*/licenses

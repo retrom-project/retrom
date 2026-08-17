@@ -24,7 +24,7 @@
 - 根目录 `Dockerfile` 只构建后端镜像 `retrom`，`web/Dockerfile` 只构建前端镜像 `retrom-web`；镜像构建和服务启动是两个独立动作。
 - `docs/` 保存可长期维护的正式契约；设计决策、行为或验收标准变化时必须同步更新。
 - `data/dat/` 的 Git 内容只保存受版本约束的真实来源 manifest、SHA、DAT/许可物化配方与说明；约 53 MiB DAT、runtime、许可原文和生成 notice 由 `make prepare-deps` 写入被忽略目录，不得提交、手工改写或用 mock 替换。
-- `data/example/` 保存核心兼容性验证脚本和可提交的清单。ROM、BIOS、运行时包、游戏截图、运行数据库和 CAS 内容不得提交到仓库。
+- `data/game/` 统一保存自动化测试所需、且操作者有权使用的本地 ROM、BIOS 与来源归档，并整体由 Git 与镜像构建忽略；`.dev-data/` 是 `make dev` 暴露给服务器导入功能的操作者语料，不是测试 fixture。核心是否已接入必须通过 Retrom 实际导入、Launch、内容端点与 Player 链路验证，不得再建立绕过产品代码的独立示例页。
 - 不得提交凭据、launch capability/cookie、本机 `launch-capability.key`、用户主机绝对路径、专有游戏内容或来源不明的二进制文件。非秘密 `launchId` 不得被误当成授权凭据。
 
 修改生成物前先找到唯一源文件，并从源文件重新生成。具体事实源以 `docs/README.md` 为准；禁止只改导出文件造成源稿、清单或快照漂移。
@@ -94,7 +94,7 @@
 
 - 不设置单元测试覆盖率百分比门槛；覆盖率报告只用于发现风险，不代替测试设计。
 - 关键路径中可分离的业务决策、状态转换、校验和计算必须有单元测试；集成/E2E/smoke 作为跨边界补充，不能替代这些单元测试。普通改动至少覆盖受影响的正常路径、错误路径和边界条件。
-- 纯逻辑优先单元测试；SQLite、migration、HTTP 契约和跨模块事务使用集成测试；关键浏览器交互使用 React Testing Library 和 Chrome E2E；核心兼容性使用 `data/example/` 的真实运行时冒烟验证。
+- 纯逻辑优先单元测试；SQLite、migration、HTTP 契约和跨模块事务使用集成测试；关键浏览器交互与核心运行兼容性使用经过 Retrom 导入、Launch、内容端点和 Player 的 Chrome E2E。
 - 任意在开发自测、验收、评审或生产使用中发现的 bug，都必须留下能阻止同类问题再次出现的回归用例。修复前应先证明用例在旧行为上失败，修复后运行聚焦用例及受影响的完整测试集。
 - 若浏览器权限、第三方运行时或不得提交的 ROM/BIOS 使普通自动化无法完整复现，仍须在最近的确定性边界增加自动化测试，并补充可执行 smoke 用例和机器可读验收记录；不得只留下文字说明。
 - 测试必须可重复：常规测试不依赖真实外网、真实时间、随机执行顺序或用户本机状态；使用 fake clock、固定 seed、临时目录和独立 SQLite 数据库。
@@ -130,21 +130,13 @@ make web-build
 make integration-test
 ```
 
-影响 Player Shell 的浏览器交互、EmulatorJS 运行链路、core artifact、DAT、BIOS/Parent 装配或存档恢复时，还须按实际影响范围选择对应 Chrome E2E、夹具校验与 core smoke：
+影响 Player Shell 的浏览器交互、EmulatorJS 运行链路、core artifact、DAT、BIOS/Parent 装配或存档恢复时，还须运行实际产品 Chrome E2E：
 
 ```bash
 make web-e2e
-python3 data/example/verify-fixtures.py
-node data/example/smoke-test.mjs mgba mame2003
 ```
 
-最后一条命令中的核心名只是示例，实际决策分为三档：
-
-- **必须跑全核心 smoke**：改动无法被证明只影响有限核心，并且改变了真实模拟器执行路径，例如共享 EmulatorJS loader/adapter 的装载、挂载、启动或配置翻译；所有核心共用的 runtime config 字段语义、内容/依赖 URL 与字节交付协议；active EmulatorJS 版本、adapter registry 解析、全局 core manifest/schema 或批量 core artifact 生成；跨核心存档格式/恢复协议；或正式发布要求重新建立完整核心兼容基线。此时运行不带核心参数的 `node data/example/smoke-test.mjs`。
-- **只跑受影响核心 smoke**：影响可以封闭到明确核心、平台或内容类型，例如单个 core artifact/DAT/BIOS requirement/activation option，Arcade Parent/BIOS bundle、DOS bundle、多盘交付等特定分支，或只对明确核心生效的 adapter 分支。核心特有改动必须覆盖全部受影响核心；多个核心共享同一条受改动执行分支时，至少选择每条不同执行路径的代表核心，并在交付说明中写明选择依据和未覆盖范围。
-- **不需要跑 core smoke**：改动不进入模拟器装载、配置、内容字节交付、帧执行或存档协议，例如纯 CSS/布局/文案/图标/可访问性、只展示既有遥测数据的调试面板、Player Shell 外围导航/弹窗状态、管理后台列表与审核元数据、截图容器展示、普通 CRUD/权限/API 投影、测试或文档。文件位于 Player Shell 或共享组件中本身不构成全核心 smoke 的理由；这类改动仍须运行对应 unit/integration、`make web-e2e` 或视觉/交互回归。
-
-判断 smoke 范围必须沿实际数据与控制路径核对，不能只看文件名。若真实运行影响边界无法确认，先补聚焦测试或检查调用链；确认会影响所有或未知数量核心后才跑全量。开始全量 smoke 后若证据证明改动不进入核心执行路径，应停止并在交付说明中记录原因。`python3 data/example/verify-fixtures.py` 只在 fixture manifest、core/DAT/BIOS 映射或版本基线可能变化时必跑，不因纯 UI 改动自动触发。
+`make web-e2e` 当前只代表其中已登记的真实产品场景；修改只影响特定 core、平台或内容类型时，还必须运行该分支已有的产品集成测试。若受影响核心没有产品路径 E2E，不得用独立 EmulatorJS 示例页冒充覆盖；必须在交付说明中明确未覆盖范围，并在最近的确定性产品边界补测试。
 
 跨端改动或影响范围不确定时运行：
 

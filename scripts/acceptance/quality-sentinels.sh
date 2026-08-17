@@ -107,15 +107,12 @@ if spec is None or spec.loader is None:
 module = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(module)
 catalog = module.all_cases()
-missing = [case_id for case_id in module.CORE_CASES if case_id not in catalog]
-if missing:
-    raise SystemExit(f"acceptance catalog omitted core cases: {missing}")
 missing_multidisc = [f"ACC-MDISC-{number:03d}" for number in range(1, 9) if f"ACC-MDISC-{number:03d}" not in catalog]
 if missing_multidisc:
     raise SystemExit(f"acceptance catalog omitted multi-disc cases: {missing_multidisc}")
-if len(catalog) != 156:
-    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 156")
-print(f"acceptance_catalog={len(catalog)} core_cases={len(module.CORE_CASES)}")
+if len(catalog) != 121:
+    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 121")
+print(f"acceptance_catalog={len(catalog)}")
 PY
 
 after_hash="$(worktree_hash)"

@@ -18,7 +18,7 @@ Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft
 | 联机 allowlist、房间、SSE/WebSocket、rollback 与 Player 差异 | 已锁定；仅 FCEUmm/FBNeo 两个 core profile | [`dependency-management.md`](./dependency-management.md)、[`data-model.md`](./data-model.md)、[`http-api-contract.md`](./http-api-contract.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
 | 测试、CI、镜像与最终通过规则 | 已锁定 | [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)、[`project-acceptance.md`](./project-acceptance.md) |
 
-`api/openapi.yaml`、两端生成物、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余外部条件仅是依赖首次物化需要公网、三十五核验收需要用户授权夹具、生产需要前置 NG，以及外部分发需要许可复核；它们的阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
+`api/openapi.yaml`、两端生成物、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余外部条件包括依赖首次物化需要公网、部分产品 E2E 需要 `data/game/` 下的用户授权资源、生产需要前置 NG，以及外部分发需要许可复核；它们的阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
 
 ## 从这里开始
 
@@ -37,7 +37,7 @@ Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft
 - 受限联机不建立第二份专题；manifest 归依赖专题，持久状态归数据专题，REST/SSE/WebSocket 归 HTTP 专题，rollback/Player 归运行时专题，页面归 UI 专题。
 - [`favorites-and-collections.md`](./favorites-and-collections.md)：Profile 私有收藏、可重复加入的收藏夹、跨页面接入与统一验收入口。
 - [`game-tags.md`](./game-tags.md)：实例共享、管理员维护的游戏标签，覆盖生命周期、关系并发、导入继承、搜索投影与页面接入。
-- [`core-runtime-validation.md`](./core-runtime-validation.md)：35 个核心的真实 ROM/BIOS 夹具、Chrome 启动画面证据、可重复验证链路、PSP ISO/CSO 双格式和 MAME2003 兼容覆盖。
+- [`core-runtime-validation.md`](./core-runtime-validation.md)：核心运行时的实际产品测试覆盖、未覆盖边界、内容格式约束和 MAME2003 兼容覆盖。
 - [`storage-and-database.md`](./storage-and-database.md)：SQLite Unix 毫秒 `INTEGER` 时间规范、表目录、本地 SHA-256 CAS、GC 和备份。
 - [`data-model.md`](./data-model.md)：一期表字段、ID、枚举、不可变 revision、外键、索引和数据库级不变量的唯一数据字典。
 - [`http-api-contract.md`](./http-api-contract.md)：认证/授权、Origin/CSRF、JSON/错误、乐观并发、分块上传、SSE、launch cookie、内容缓存和 route 的唯一 HTTP 细节契约。
@@ -101,7 +101,7 @@ Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft
 - `design/retrom-ui-review.fragment.html` 是 UI 源稿；`design/retrom-ui-review.html` 与 PNG 只从该源稿重新导出，禁止只改导出文件造成评审稿漂移。
 - `data/dat/emulatorjs/<version>/manifest.json` 与 `SHA256SUMS` 是 EmulatorJS/runtime、Player adapter 描述、可选真实 DAT 和许可输入的机器事实源；当前 `4.2.3` 是 33-artifact 基础集合，`4.3.0-pre` 覆盖 DOSBox Pure、Genesis Plus GX Wide 与 Azahar，合并为 35 个 enabled core。前端 adapter registry 由 `make data-check` 双向核对；runtime、五份 DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
 - `data/auth/password-blocklists/v1/manifest.json` 是 release 密码阻断列表及许可的机器事实源；10,000 行 payload 与许可原文由 `make prepare-deps` 校验物化并被 Git 忽略。
-- `data/example/fixtures.json` 是用户本地核心启动夹具的相对来源/hash 事实源；它不得覆盖依赖 manifest。`results/latest.json` 与 `results/manual-review.json` 只记录既有验证，正式验收必须生成当次证据；ROM、BIOS 与截图只保存在本机。
-- `data/netplay/v1/manifest.json` 与 schema 是联机 core-profile allowlist 的唯一机器事实源；schema v2 锁定两个 profile 的 EmulatorJS 版本、core artifact SHA-256、协议/adapter/内容类型与帧上限，不包含单个 ROM 身份。它必须与依赖 manifest、前端 adapter registry 双向校验；`data/example/fixtures.json` 的两个本机 selector 只提供代表性双端回归 ROM，ROM 只物化到被忽略的 `data/example/local-fixtures/netplay/`。
+- `data/game/` 是自动化测试所需本机授权 ROM、BIOS 和源归档的统一根目录，整体被 Git 与镜像构建忽略。需要私有资源的实际产品测试在自己的入口中锁定相对路径、大小或 SHA-256；不存在独立 example manifest 覆盖依赖或替代产品链路验证。`.dev-data/` 只作为 `make dev` 的服务器导入 root，不属于测试 fixture。
+- `data/netplay/v1/manifest.json` 与 schema 是联机 core-profile allowlist 的唯一机器事实源；schema v2 锁定两个 profile 的 EmulatorJS 版本、core artifact SHA-256、协议/adapter/内容类型与帧上限，不包含单个 ROM 身份。它必须与依赖 manifest、前端 adapter registry 双向校验；代表性双端回归 ROM 位于被忽略的 `data/game/netplay/`，由 `scripts/acceptance/seed-netplay.py` 逐字节校验。
 - 任何表示时刻的 SQLite 字段必须为 Unix 毫秒 `INTEGER` 并以 `*_at_ms` 命名。
 - 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。
