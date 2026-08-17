@@ -74,6 +74,7 @@
 
 - `make dev` 只启动宿主机上的 Go 与 Next.js 开发进程，不得调用 Docker、Compose、容器镜像或容器网络。
 - `make dev` 可以且必须先调用幂等 `make prepare-deps`；依赖准备结束后仍只启动宿主机进程。应用启动期只校验依赖，不自行联网下载。
+- 全新 checkout 使用 `make install-deps` 初始化固定 Go/Node/Web 工具、应用依赖及缓存中的 Chrome for Testing；`make web-e2e` 必须自行依赖浏览器准备 target，不得要求开发机预装系统 Chrome。
 - `make build-backend-image`、`make build-web-image` 和 `make build-images` 只构建/检查镜像；不得隐式执行 `docker run`、Compose、push、部署或修改运行数据。两个镜像必须使用依赖专题的同一 `io.retrom.release-input-sha256`，不得用 tag 相同冒充可组合证据。
 - 默认镜像名固定为后端 `retrom`、前端 `retrom-web`。改变默认名称属于构建契约变更，必须同步正式文档。
 - 两个应用进程只监听明文 HTTP。TLS 证书、TLS 握手、HTTP 到 HTTPS 跳转和 HSTS 由前置 NG/反向代理负责；不得在 Go 或 Next.js 应用内加入 TLS 终结能力。

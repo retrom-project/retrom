@@ -1,6 +1,8 @@
 import { defineConfig, devices } from "@playwright/test";
+import { fileURLToPath } from "node:url";
 
-const chromeExecutablePath = process.env.RETROM_CHROME_EXECUTABLE;
+const chromeExecutablePath = process.env.RETROM_CHROME_EXECUTABLE
+  ?? fileURLToPath(new URL("../.cache/tools/retrom-chrome-for-testing", import.meta.url));
 
 export default defineConfig({
   testDir: "./e2e",
@@ -10,7 +12,7 @@ export default defineConfig({
   use: {
     baseURL: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000",
     channel: "chrome",
-    launchOptions: chromeExecutablePath ? { executablePath: chromeExecutablePath } : undefined,
+    launchOptions: { executablePath: chromeExecutablePath },
     trace: "retain-on-failure",
   },
   projects: [

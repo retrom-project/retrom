@@ -198,7 +198,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 一期产品决策、实体边界、协议、依赖版本、UI、质量与验收均已锁定，不存在需要实现 Agent 自行选择的产品阻塞项。以下是外部运行条件，不是许可 Agent 改规格的理由：
 
-- 第一次 `make prepare-deps` 和镜像 dependency builder 需要访问 manifest 固定的公开 HTTPS runtime、DAT 与许可来源；正确缓存后校验与服务启动离线。
+- 第一次项目初始化运行 `make install-deps`，需要访问固定 Go/npm/Playwright 与 manifest 公开来源；Node、Chrome for Testing 和其他工具写入仓库忽略的 `.cache/tools/`，应用 runtime/DAT/许可按既有目录物化。镜像 dependency builder 仍只准备发布所需 payload；正确缓存后校验与服务启动离线。
 - 默认构建契约只产生私有自托管镜像；若未来要 push、公开或商业分发，必须先完成 manifest 标记的受限制 core 人工许可审查。这是分发授权边界，不允许实现 Agent通过删 notice、换浮动 core 或绕过检查来处理。
 - 产品 E2E 所需的 ROM/BIOS 由用户授权后统一保存在 Git 忽略的 `data/game/`；测试消费者负责锁定相对路径、大小或 SHA-256。资源缺失不会授权提交 ROM/BIOS、从公网下载或改用假游戏。
 - 两个联机 exact fixture 位于 `data/game/netplay/`；`ACC-NP-001`–`009` 的 seed 在浏览器启动前逐字节校验两者，任何一个缺失或 hash 漂移都以 `NETPLAY_FIXTURE_DRIFT` 失败，不能换 ROM 或降级为 mock。
