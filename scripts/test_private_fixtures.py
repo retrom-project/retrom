@@ -68,6 +68,36 @@ class PrivateFixtureBoundaryTests(unittest.TestCase):
             )
         self.assertTrue(matches, "expected at least one private-fixture Go test")
 
+    def test_local_private_resources_have_test_consumers(self) -> None:
+        consumer_roots = ("Makefile", "internal", "scripts", "web/e2e")
+        data_root = REPOSITORY_ROOT / "data" / "game"
+        unreferenced: list[str] = []
+
+        for path in sorted(candidate for candidate in data_root.rglob("*") if candidate.is_file()):
+            relative_path = path.relative_to(REPOSITORY_ROOT).as_posix()
+            result = subprocess.run(
+                ["git", "grep", "-n", "-F", relative_path, "--", *consumer_roots],
+                cwd=REPOSITORY_ROOT,
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+            if result.returncode == 1:
+                unreferenced.append(relative_path)
+                continue
+            self.assertEqual(
+                0,
+                result.returncode,
+                f"failed to inspect private-resource consumers:\n{result.stderr}",
+            )
+
+        self.assertEqual(
+            [],
+            unreferenced,
+            "data/game contains resources without an executable test consumer:\n"
+            + "\n".join(unreferenced),
+        )
+
 
 if __name__ == "__main__":
     unittest.main()

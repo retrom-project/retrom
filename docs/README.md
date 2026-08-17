@@ -18,7 +18,7 @@ Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft
 | 联机 allowlist、房间、SSE/WebSocket、rollback 与 Player 差异 | 已锁定；仅 FCEUmm/FBNeo 两个 core profile | [`dependency-management.md`](./dependency-management.md)、[`data-model.md`](./data-model.md)、[`http-api-contract.md`](./http-api-contract.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
 | 测试、CI、镜像与最终通过规则 | 已锁定 | [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)、[`project-acceptance.md`](./project-acceptance.md) |
 
-`api/openapi.yaml`、两端生成物、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余外部条件包括依赖首次物化需要公网、部分产品 E2E 需要 `data/game/` 下的用户授权资源、生产需要前置 NG，以及外部分发需要许可复核；它们的阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
+`api/openapi.yaml`、两端生成物、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余外部条件包括依赖首次物化需要公网、FBA2012 与联机等私有兼容性验收需要 `data/game/` 下的用户授权资源、生产需要前置 NG，以及外部分发需要许可复核；公开 `make web-e2e` 使用仓库自有的确定性 GBA ROM，不属于外部前置条件。阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
 
 ## 从这里开始
 
@@ -104,7 +104,7 @@ Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft
 - `data/dat/emulatorjs/<version>/manifest.json` 与 `SHA256SUMS` 是 EmulatorJS/runtime、Player adapter 描述、可选真实 DAT 和许可输入的机器事实源；当前 `4.2.3` 是 33-artifact 基础集合，`4.3.0-pre` 覆盖 DOSBox Pure、Genesis Plus GX Wide 与 Azahar，合并为 35 个 enabled core。前端 adapter registry 由 `make data-check` 双向核对；runtime、五份 DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
 - `data/auth/password-blocklists/v1/manifest.json` 是 release 密码阻断列表及许可的机器事实源；10,000 行 payload 与许可原文由 `make prepare-deps` 校验物化并被 Git 忽略。
 - `make install-deps` 是全仓初始化入口；Playwright 精确版本绑定的 Chrome for Testing 由 `make prepare-e2e-browser` 物化到 `.cache/tools/ms-playwright/`，稳定可执行入口为 `.cache/tools/retrom-chrome-for-testing`。这些测试工具不属于应用发布依赖，不进入镜像。
-- `data/game/` 是自动化测试所需本机授权 ROM、BIOS 和源归档的统一根目录，整体被 Git 与镜像构建忽略。需要私有资源的实际产品测试在自己的入口中锁定相对路径、大小或 SHA-256；不存在独立 example manifest 覆盖依赖或替代产品链路验证。`.dev-data/` 只作为 `make dev` 的服务器导入 root，不属于测试 fixture。
+- `testdata/public-roms/gba-smoke/` 保存 Retrom 自有、MIT 许可、由同目录 `build.py` 确定性生成的 1 KiB mGBA 产品 E2E ROM；生成二进制随仓库提交，`make public-fixtures-check` 与实际 HTTP/E2E 消费者共同锁定 bytes。`data/game/` 只保存本机授权的私有 ROM、BIOS 和源归档，整体被 Git 与镜像构建忽略；私有消费者在自己的入口中锁定相对路径、大小或 SHA-256。不存在独立 example manifest 覆盖依赖或替代产品链路验证。`.dev-data/` 只作为 `make dev` 的服务器导入 root，不属于测试 fixture。
 - `data/netplay/v1/manifest.json` 与 schema 是联机 core-profile allowlist 的唯一机器事实源；schema v2 锁定两个 profile 的 EmulatorJS 版本、core artifact SHA-256、协议/adapter/内容类型与帧上限，不包含单个 ROM 身份。它必须与依赖 manifest、前端 adapter registry 双向校验；代表性双端回归 ROM 位于被忽略的 `data/game/netplay/`，由 `scripts/acceptance/seed-netplay.py` 逐字节校验。
 - 任何表示时刻的 SQLite 字段必须为 Unix 毫秒 `INTEGER` 并以 `*_at_ms` 命名。
 - 根级 [`AGENTS.md`](../AGENTS.md) 是 Agent 实施铁律；详细质量规则只在 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md) 维护。

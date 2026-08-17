@@ -119,7 +119,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 范围：首页、游戏库、详情、存档列表空壳的真实 API；LaunchSession/HMAC capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 锁定原 bundle 加 seekable 虚拟 ZIP 引导；Player Shell 通过显式 `playerAdapterId` 设置锁定版本 globals/callback/external files 与 artifact override，未知/错配 adapter 在加载 loader 前阻断。基础 adapter 对应 v4.2.3，DOS whole-archive adapter 对应 v4.3.0-pre。
 
-退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`005` 与 `make web-e2e`；若依赖版本、core artifact 或内置 DAT 发生变化另执行 `ACC-DAT-006`。真实核心运行必须经过 Retrom 的导入、Launch、内容端点和 Player；本地授权资源统一从 `data/game/` 读取，资源缺失或核心尚无产品 E2E 时必须明确报告，不能用 mock、独立 EmulatorJS 页面或历史截图判为通过。
+退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`005` 与 `make web-e2e`；若依赖版本、core artifact 或内置 DAT 发生变化另执行 `ACC-DAT-006`。真实核心运行必须经过 Retrom 的导入、Launch、内容端点和 Player；公开 mGBA 链路使用项目自有的确定性测试 ROM，其他本地授权资源从 `data/game/` 读取。私有资源缺失或核心尚无产品 E2E 时必须明确报告，不能用 mock、独立 EmulatorJS 页面或历史截图判为通过。
 
 ### M6：存档、时长与完整 UI
 
@@ -200,7 +200,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 - 第一次项目初始化运行 `make install-deps`，需要访问固定 Go/npm/Playwright 与 manifest 公开来源；Node、Chrome for Testing 和其他工具写入仓库忽略的 `.cache/tools/`，应用 runtime/DAT/许可按既有目录物化。镜像 dependency builder 仍只准备发布所需 payload；正确缓存后校验与服务启动离线。
 - 默认构建契约只产生私有自托管镜像；若未来要 push、公开或商业分发，必须先完成 manifest 标记的受限制 core 人工许可审查。这是分发授权边界，不允许实现 Agent通过删 notice、换浮动 core 或绕过检查来处理。
-- 产品 E2E 所需的 ROM/BIOS 由用户授权后统一保存在 Git 忽略的 `data/game/`；测试消费者负责锁定相对路径、大小或 SHA-256。资源缺失不会授权提交 ROM/BIOS、从公网下载或改用假游戏。
+- 公开 `make web-e2e` 使用 `testdata/public-roms/gba-smoke/` 中由 Retrom 自有源码确定性生成、带独立 MIT 许可且随仓库提交的最小 GBA 测试程序；生成器与消费者共同锁定 bytes，镜像必须排除整个公开 fixture 目录。其余产品 E2E 所需的 ROM/BIOS 由用户授权后统一保存在 Git 忽略的 `data/game/`；测试消费者负责锁定相对路径、大小或 SHA-256。私有资源缺失不会授权提交或下载第三方 ROM/BIOS，也不能改用假游戏冒充对应核心兼容性证据。
 - 两个联机 exact fixture 位于 `data/game/netplay/`；`ACC-NP-001`–`009` 的 seed 在浏览器启动前逐字节校验两者，任何一个缺失或 hash 漂移都以 `NETPLAY_FIXTURE_DRIFT` 失败，不能换 ROM 或降级为 mock。
 - 生产需要前置 NG 提供同源 HTTPS、保留 nonce CSP/隔离头并挂载持久数据卷；Retrom 本身不实现 TLS。
 - Hasheous 可临时不可用；导入仍进入人工审核，自动测试不依赖实时命中。

@@ -9,13 +9,13 @@
 
 ## 1. 结论
 
-Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得或从锁定源码确定性生成，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
+Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、第三方或用户 ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。唯一 ROM 例外是 `testdata/public-roms/gba-smoke/` 中由 Retrom 自有源码确定性生成、MIT 许可、仅供公开 mGBA 产品 E2E 的 1 KiB 夹具；它的生成源与 bytes 同时提交并由 `data-check` 校验。其他真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得或从锁定源码确定性生成，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
 
 应用进程启动期间禁止联网下载或自动升级依赖。依赖缺失、大小或 SHA-256 不符时，后端必须拒绝进入 ready 状态并输出 `make prepare-deps` 这一条可操作命令；不能回退到 CDN、最新版本或另一个 core。
 
 ## 2. 唯一事实源与目录
 
-运行时机器事实源由按 SemVer 升序配置的 manifest 集合组成：[`4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json) 提供 33 个基础 artifact 与五份 DAT，[`4.3.0-pre/manifest.json`](../data/dat/emulatorjs/4.3.0-pre/manifest.json) 覆盖 DOSBox Pure、Genesis Plus GX Wide 与 Azahar；按“后声明覆盖同 core”合并后共有 35 个 enabled core artifact。账户密码拒绝列表由 [`password-blocklists/v1/manifest.json`](../data/auth/password-blocklists/v1/manifest.json) 独立锁定 SecLists tag、40 位 commit、10,000 行 payload、MIT 许可及各自 size/SHA-256。后出现的运行时 manifest 只替换它明确列出的 core；不能要求部分覆盖重复全部核心/DAT。本机 `data/game/` 资源只服务实际产品测试，不得反向覆盖依赖版本。运行时 manifest 同时锁定：
+运行时机器事实源由按 SemVer 升序配置的 manifest 集合组成：[`4.2.3/manifest.json`](../data/dat/emulatorjs/4.2.3/manifest.json) 提供 33 个基础 artifact 与五份 DAT，[`4.3.0-pre/manifest.json`](../data/dat/emulatorjs/4.3.0-pre/manifest.json) 覆盖 DOSBox Pure、Genesis Plus GX Wide 与 Azahar；按“后声明覆盖同 core”合并后共有 35 个 enabled core artifact。账户密码拒绝列表由 [`password-blocklists/v1/manifest.json`](../data/auth/password-blocklists/v1/manifest.json) 独立锁定 SecLists tag、40 位 commit、10,000 行 payload、MIT 许可及各自 size/SHA-256。后出现的运行时 manifest 只替换它明确列出的 core；不能要求部分覆盖重复全部核心/DAT。公开测试 ROM 与本机 `data/game/` 私有资源都只服务实际产品测试，不得反向覆盖依赖版本。运行时 manifest 同时锁定：
 
 - EmulatorJS release、tag、发布资产 URL/size/SHA-256；
 - 允许进入镜像/由 Go 静态服务的 EmulatorJS 文件 allowlist、36 个跨版本 selected artifact 条目（合并为 35 个 enabled core artifact）以及 PPSSPP auxiliary asset 的路径、size/SHA-256；

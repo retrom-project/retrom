@@ -7,8 +7,16 @@ mkdir -p "$evidence_root"
 evidence="$(mktemp -d "$evidence_root/http-flow-XXXXXX")"
 backend="${RETROM_ACCEPTANCE_BACKEND:-http://127.0.0.1:8080}"
 origin="${RETROM_ACCEPTANCE_ORIGIN:-http://localhost:3000}"
-fixture="$repository_root/data/game/mgba/gba-smoke.gba"
+fixture="$repository_root/testdata/public-roms/gba-smoke/gba-smoke.gba"
+expected_size=1024
+expected_sha256="f86c63b35aea59190f5e1cf99f8f3d576c3646b26da02f3f826fde192a47239b"
+[[ -f "$fixture" ]] || { echo "public GBA smoke ROM is missing; run make public-fixtures-generate" >&2; exit 1; }
 size="$(stat -c %s "$fixture")"
+sha256="$(openssl dgst -sha256 "$fixture" | awk '{print $2}')"
+[[ "$size" == "$expected_size" && "$sha256" == "$expected_sha256" ]] || {
+  echo "PUBLIC_GBA_SMOKE_FIXTURE_DRIFT:size=$size:sha256=$sha256" >&2
+  exit 1
+}
 digest="$(openssl dgst -sha256 -binary "$fixture" | base64 -w0)"
 
 new_id() { python3 -c 'import uuid; print(uuid.uuid4())'; }
