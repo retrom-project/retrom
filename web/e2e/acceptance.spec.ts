@@ -122,6 +122,14 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   await expect(page.getByRole("combobox", { name: "排列顺序" })).toHaveValue("ADDED_DESC");
   await page.goto("/library");
   await expect(page.locator(".library-toolbar")).toBeVisible();
+  const desktopFilterTops = await Promise.all([
+    page.getByRole("searchbox", { name: "搜索游戏" }),
+    page.getByRole("combobox", { name: "游戏集合" }),
+    page.getByRole("combobox", { name: "标签" }),
+    page.getByRole("combobox", { name: "排列顺序" }),
+  ].map(async (control) => (await control.boundingBox())?.y));
+  expect(desktopFilterTops.every((top) => top !== undefined)).toBe(true);
+  expect(Math.max(...desktopFilterTops as number[]) - Math.min(...desktopFilterTops as number[])).toBeLessThanOrEqual(1);
   const toolbarHeight = await page.locator(".library-toolbar").evaluate((element) => element.getBoundingClientRect().height);
   await page.evaluate(() => { (window as typeof window & { __retromSearchMarker?: string }).__retromSearchMarker = "preserved"; });
   await page.getByRole("searchbox", { name: "搜索游戏" }).fill("Sudoku");
