@@ -105,9 +105,11 @@ api-check: web-install
 
 public-fixtures-generate:
 	@python3 testdata/public-roms/gba-smoke/build.py
+	@python3 testdata/public-roms/arcade-smoke/build.py
 
 public-fixtures-check:
 	@python3 testdata/public-roms/gba-smoke/build.py --check
+	@python3 testdata/public-roms/arcade-smoke/build.py --check
 
 web-e2e: prepare-e2e-browser public-fixtures-check
 	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/acceptance/web-e2e.sh

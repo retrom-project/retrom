@@ -173,7 +173,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 ### 7.2 GitHub Actions 与 Docker Hub 发布
 
-`.github/workflows/ci.yml` 在所有 pull request 上运行唯一高层质量入口 `make ci`。CI 使用 `go.mod`、`.node-version`、`web/package-lock.json` 与依赖 manifest 的固定版本和缓存；全新 runner 在测试前先执行幂等 `make prepare-deps`，缓存命中也必须重新逐字节校验 runtime/core/DAT/许可 payload。它不另行拼装测试子集，不依赖用户 ROM/BIOS、真实 Hasheous 或开发机浏览器；仓库自有公开 GBA 测试 ROM 作为普通 checkout 输入由 `data-check` 验证，但不进入发布镜像。
+`.github/workflows/ci.yml` 在所有 pull request 上运行唯一高层质量入口 `make ci`。CI 使用 `go.mod`、`.node-version`、`web/package-lock.json` 与依赖 manifest 的固定版本和缓存；全新 runner 在测试前先执行幂等 `make prepare-deps`，缓存命中也必须重新逐字节校验 runtime/core/DAT/许可 payload。它不另行拼装测试子集，不依赖用户 ROM/BIOS、真实 Hasheous 或开发机浏览器；仓库自有公开 GBA 与 Arcade 测试程序作为普通 checkout 输入由 `data-check` 验证，但不进入发布镜像。
 
 `.github/workflows/docker-image.yml` 在任意 Git tag push 时触发。tag 发布直接构建并校验双镜像，不重复执行 PR 的 `make ci`，也不等待 GitHub Environment 人工批准，并按下列顺序执行：
 

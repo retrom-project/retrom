@@ -2,6 +2,9 @@ package arcadedat
 
 import (
 	"context"
+	"os"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 )
@@ -69,5 +72,46 @@ func TestParseRejectsRootFromAnotherDATFamily(t *testing.T) {
 	}
 	if _, err := Parse(context.Background(), strings.NewReader(`<datafile><machine name="1941"/></datafile>`), "mame2003"); err == nil {
 		t.Fatal("expected MAME 2003 to reject a Logiqx datafile root")
+	}
+}
+
+func TestPublicArcadeSmokeDATMaterializesExecutableDependencyContract(t *testing.T) {
+	t.Parallel()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	source, err := os.Open(filepath.Join(
+		repositoryRoot,
+		"testdata",
+		"public-roms",
+		"arcade-smoke",
+		"mame2003-smoke.xml",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := source.Close(); err != nil {
+			t.Errorf("close public Arcade smoke DAT: %v", err)
+		}
+	}()
+	catalog, err := ParseCatalog(context.Background(), source, "mame2003")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if catalog.Stats.MachineCount != 3 || catalog.Stats.ROMEntryCount != 17 ||
+		catalog.Stats.ROMEntryWithMergeCount != 6 || catalog.Stats.CloneofRelationCount != 1 ||
+		catalog.Stats.RomofRelationCount != 2 || catalog.Stats.ExplicitBIOSMachineCount != 1 ||
+		catalog.Stats.BaseDependencyTargetCount != 1 {
+		t.Fatalf("public Arcade smoke stats = %#v", catalog.Stats)
+	}
+	machines := make(map[string]Machine, len(catalog.Machines))
+	for _, machine := range catalog.Machines {
+		machines[machine.Name] = machine
+	}
+	child, parent, bios := machines["pacman"], machines["puckman"], machines["retrombios"]
+	if child.CloneOf != "puckman" || child.ROMOf != "retrombios" || len(child.ROMs) != 10 ||
+		parent.ROMOf != "retrombios" || len(parent.ROMs) != 6 ||
+		bios.Classification != "EXPLICIT_BIOS" || len(bios.ROMs) != 1 {
+		t.Fatalf("public Arcade smoke catalog = %#v", catalog.Machines)
 	}
 }

@@ -833,6 +833,94 @@ test("ACC-RUN-004 BIOS blockers stop launch while hash warnings auto-start", asy
   await page.screenshot({ path: evidencePath(testInfo, "required-bios-blocker-repair.png"), fullPage: true });
 });
 
+test("ACC-RUN-006 public Arcade split set locks DAT, Parent, BIOS, and executes frames", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await page.addInitScript(() => {
+    Object.defineProperty(Element.prototype, "requestFullscreen", {
+      configurable: true,
+      value: () => Promise.resolve(),
+    });
+  });
+  const runtimeRequests: string[] = [];
+  const runtimeFailures: string[] = [];
+  const pageErrors: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname.startsWith("/runtime/")) runtimeRequests.push(request.url());
+  });
+  page.on("requestfailed", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    const errorText = request.failure()?.errorText ?? "unknown";
+    const canceledPlayerProbe = errorText === "net::ERR_ABORTED"
+      && /\/runtime\/launches\/[^/]+\/(config|persistent-save)$/.test(pathname);
+    if (pathname.startsWith("/runtime/") && !canceledPlayerProbe) {
+      runtimeFailures.push(`${request.url()}: ${errorText}`);
+    }
+  });
+  page.on("pageerror", (error) => pageErrors.push(error.message));
+
+  await page.goto("/library?q=pacman");
+  const game = page.locator(".library-game-card").filter({ hasText: "pacman" });
+  await expect(game).toHaveCount(1);
+  await game.getByRole("link").first().click();
+  const configResponse = page.waitForResponse((response) =>
+    /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
+  await page.getByRole("button", { name: "开始游戏" }).click();
+  await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+  const configuration = await (await configResponse).json() as {
+    core: string;
+    runtimeCore: string;
+    coreName: string;
+    emulatorjsVersion: string;
+    playerAdapterId: string;
+    gameUrl: string;
+    parentUrl: string | null;
+    biosUrl: string | null;
+    runtimePathOverrides: Record<string, string>;
+  };
+  expect(configuration).toMatchObject({
+    core: "mame2003",
+    runtimeCore: "mame2003",
+    coreName: "MAME 2003",
+    emulatorjsVersion: "4.2.3",
+    playerAdapterId: "ejs-4.2.3-v2",
+  });
+  expect(configuration.gameUrl).toMatch(/\/game\/pacman\.zip$/);
+  expect(configuration.parentUrl).toMatch(/\/parent\/bundle\.zip$/);
+  expect(configuration.biosUrl).toMatch(/\/bios\/bundle\.zip$/);
+  expect(configuration.runtimePathOverrides).toEqual({
+    "mame2003-wasm.data": "/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data",
+  });
+
+  await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
+  const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas");
+  await expect(canvas).toBeVisible({ timeout: 10_000 });
+  const canvasSize = await canvas.evaluate((element) => {
+    if (!(element instanceof HTMLCanvasElement)) return { width: 0, height: 0 };
+    return { width: element.width, height: element.height };
+  });
+  expect(canvasSize.width).toBeGreaterThan(0);
+  expect(canvasSize.height).toBeGreaterThan(0);
+  const firstFrame = await canvas.screenshot();
+  await page.waitForTimeout(1_200);
+  const secondFrame = await canvas.screenshot();
+  expect(firstFrame.equals(secondFrame)).toBe(false);
+
+  await page.mouse.move(20, 20);
+  await page.getByRole("button", { name: "调试信息" }).click();
+  const debugPanel = page.getByRole("complementary", { name: "运行调试信息" });
+  await expect(debugPanel.getByText("MAME 2003", { exact: true })).toBeVisible();
+  await expect(debugPanel.getByText("运行中", { exact: true })).toBeVisible();
+  const fps = debugPanel.getByText(/^\d+\.\d FPS$/);
+  await expect(fps).toBeVisible({ timeout: 5_000 });
+  expect(Number.parseFloat(await fps.innerText())).toBeGreaterThan(0);
+  for (const url of [configuration.gameUrl, configuration.parentUrl!, configuration.biosUrl!]) {
+    expect(runtimeRequests.some((requestURL) => requestURL.endsWith(url))).toBe(true);
+  }
+  expect(runtimeFailures).toEqual([]);
+  expect(pageErrors).toEqual([]);
+  await page.screenshot({ path: evidencePath(testInfo, "arcade-public-smoke-running.png"), fullPage: true });
+});
+
 test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   await page.addInitScript(() => {

@@ -200,7 +200,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 - 第一次项目初始化运行 `make install-deps`，需要访问固定 Go/npm/Playwright 与 manifest 公开来源；Node、Chrome for Testing 和其他工具写入仓库忽略的 `.cache/tools/`，应用 runtime/DAT/许可按既有目录物化。镜像 dependency builder 仍只准备发布所需 payload；正确缓存后校验与服务启动离线。
 - 默认构建契约只产生私有自托管镜像；若未来要 push、公开或商业分发，必须先完成 manifest 标记的受限制 core 人工许可审查。这是分发授权边界，不允许实现 Agent通过删 notice、换浮动 core 或绕过检查来处理。
-- 公开 `make web-e2e` 使用 `testdata/public-roms/gba-smoke/` 中由 Retrom 自有源码确定性生成、带独立 MIT 许可且随仓库提交的最小 GBA 测试程序；生成器与消费者共同锁定 bytes，镜像必须排除整个公开 fixture 目录。其他产品测试不得读取或下载用户私有 ROM/BIOS；没有合法公开 fixture 的核心必须登记为未覆盖，不能改用假游戏、mock 或相邻核心结果冒充兼容性证据。
+- 公开 `make web-e2e` 使用 `testdata/public-roms/gba-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中由 Retrom 自有源码确定性生成、带独立 MIT 许可且随仓库提交的测试程序；生成器与消费者共同锁定 bytes，分别覆盖 mGBA 以及 MAME 2003 的 DAT/Split/Parent/BIOS 交付和帧执行，镜像必须排除整个公开 fixture 目录。Arcade 测试 BIOS 不被目标驱动执行，不能外推为核心内部 BIOS 语义覆盖。其他产品测试不得读取或下载用户私有 ROM/BIOS；没有合法公开 fixture 的核心必须登记为未覆盖，不能改用 mock 或相邻核心结果冒充兼容性证据。
 - 生产需要前置 NG 提供同源 HTTPS、保留 nonce CSP/隔离头并挂载持久数据卷；Retrom 本身不实现 TLS。
 - Hasheous 可临时不可用；导入仍进入人工审核，自动测试不依赖实时命中。
 

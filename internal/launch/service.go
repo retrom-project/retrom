@@ -316,7 +316,7 @@ func (service *Service) Create(ctx context.Context, profileID string, request Cr
 	if request.CoreID != nil {
 		coreID = *request.CoreID
 	}
-	var variantRevisionID, artifactID, selectedCore, emulatorVersion string
+	var variantID, variantRevisionID, artifactID, selectedCore, emulatorVersion string
 	var validationInputDigest, contentRevisionID, contentLogicalName, contentKind, revisionCompatibilityCode string
 	var revisionDATID sql.NullString
 	var requiresThreads int
@@ -367,7 +367,8 @@ AND r.status='READY'
 		}
 	} else {
 		query := `
-SELECT v.current_revision_id,
+SELECT v.id,
+v.current_revision_id,
 r.core_artifact_id,
 a.core_id,
 a.emulatorjs_version,
@@ -398,6 +399,7 @@ ORDER BY CASE content.role WHEN 'CONTENT' THEN 0 ELSE 1 END,content.sort_order,c
 LIMIT 1
 `
 		if err := service.database.QueryRowContext(ctx, query, request.GameID, coreID, coreID).Scan(
+			&variantID,
 			&variantRevisionID,
 			&artifactID,
 			&selectedCore,
@@ -416,11 +418,8 @@ LIMIT 1
 			return Created{}, ErrBlocked
 		}
 		if revisionCompatibilityCode != reviewScreenshotOverrideCode {
-			biosSnapshot, biosStatus, _, resolveErr := corevalidation.ResolveBIOS(
-				ctx,
-				service.database,
-				artifactID,
-				contentLogicalName,
+			biosSnapshot, biosStatus, _, resolveErr := service.resolveVariantBIOS(
+				ctx, service.database, variantID, contentRevisionID, artifactID, contentLogicalName, revisionDATID,
 			)
 			if resolveErr != nil || biosStatus != "READY" {
 				return Created{}, ErrBlocked

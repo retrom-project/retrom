@@ -1,0 +1,29 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mame build="retrom-public-arcade-smoke-v1">
+  <game name="retrombios" isbios="yes" runnable="no">
+    <description>Retrom public test BIOS archive</description>
+    <rom name="retrom-test-bios.bin" size="258" crc="82b678f0" sha1="706902af05beb09046d69f1d8f1d112a5eadd309" status="good" region="cpu1" offset="0" />
+  </game>
+  <game name="puckman" romof="retrombios" runnable="yes">
+    <description>Retrom public parent fixture</description>
+    <rom name="pacman.5e" size="4096" crc="58951880" sha1="9b666b23f6fd153ca81c93221859dacb1d9482cf" status="good" region="user1" offset="0" />
+    <rom name="pacman.5f" size="4096" crc="f1fb8a7d" sha1="8f65344ebffa5c1853174cacfd117f123f1ac90f" status="good" region="user1" offset="1" />
+    <rom name="82s123.7f" size="32" crc="db92a1b3" sha1="7e5b4aa90908a5c7529595a4555b8eed278b4199" status="good" region="user1" offset="2" />
+    <rom name="82s126.4a" size="256" crc="8ac51697" sha1="287ecb02f04ca63249a61812d2e2d224309d53da" status="good" region="user1" offset="3" />
+    <rom name="82s126.1m" size="256" crc="0d968558" sha1="b376885ac8452b6cbf9ced81b1080bfd570d9b91" status="good" region="user1" offset="4" />
+    <rom name="82s126.3m" size="256" crc="0d968558" sha1="b376885ac8452b6cbf9ced81b1080bfd570d9b91" status="good" region="user1" offset="5" />
+  </game>
+  <game name="pacman" cloneof="puckman" romof="retrombios" runnable="yes">
+    <description>Retrom Arcade Smoke</description>
+    <rom name="pacman.6e" size="4096" crc="f8e5cda7" sha1="945189caf3dc791d5605b4b5c4240046164ce606" status="good" region="cpu1" offset="0" />
+    <rom name="pacman.6f" size="4096" crc="c71c0011" sha1="1ceaf73df40e531df3bfb26b4fb7cd95fb7bff1d" status="good" region="cpu1" offset="1000" />
+    <rom name="pacman.6h" size="4096" crc="c71c0011" sha1="1ceaf73df40e531df3bfb26b4fb7cd95fb7bff1d" status="good" region="cpu1" offset="2000" />
+    <rom name="pacman.6j" size="4096" crc="221a14c5" sha1="cca0e5c04dbf3925335d5b7cdb11e108faba476a" status="good" region="cpu1" offset="3000" />
+    <rom name="pacman.5e" size="4096" crc="58951880" sha1="9b666b23f6fd153ca81c93221859dacb1d9482cf" status="good" merge="pacman.5e" region="user1" offset="0" />
+    <rom name="pacman.5f" size="4096" crc="f1fb8a7d" sha1="8f65344ebffa5c1853174cacfd117f123f1ac90f" status="good" merge="pacman.5f" region="user1" offset="1" />
+    <rom name="82s123.7f" size="32" crc="db92a1b3" sha1="7e5b4aa90908a5c7529595a4555b8eed278b4199" status="good" merge="82s123.7f" region="user1" offset="2" />
+    <rom name="82s126.4a" size="256" crc="8ac51697" sha1="287ecb02f04ca63249a61812d2e2d224309d53da" status="good" merge="82s126.4a" region="user1" offset="3" />
+    <rom name="82s126.1m" size="256" crc="0d968558" sha1="b376885ac8452b6cbf9ced81b1080bfd570d9b91" status="good" merge="82s126.1m" region="user1" offset="4" />
+    <rom name="82s126.3m" size="256" crc="0d968558" sha1="b376885ac8452b6cbf9ced81b1080bfd570d9b91" status="good" merge="82s126.3m" region="user1" offset="5" />
+  </game>
+</mame>
