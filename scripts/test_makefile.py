@@ -39,8 +39,16 @@ class MakefileDependencyTests(unittest.TestCase):
         output = self.dry_run("web-e2e")
         install_position = output.find("npm ci")
         browser_position = output.find("scripts/prepare-e2e-browser.sh")
+        fixture_position = output.find("gba-smoke/build.py --check")
         e2e_position = output.find("scripts/acceptance/web-e2e.sh")
-        self.assertTrue(0 <= install_position < browser_position < e2e_position, output)
+        self.assertTrue(
+            0
+            <= install_position
+            < browser_position
+            < fixture_position
+            < e2e_position,
+            output,
+        )
 
     def test_install_deps_covers_all_project_dependency_classes(self) -> None:
         output = self.dry_run("install-deps")
@@ -50,6 +58,7 @@ class MakefileDependencyTests(unittest.TestCase):
             "scripts/dependencies.py prepare",
             "npm ci",
             "scripts/prepare-e2e-browser.sh",
+            "gba-smoke/build.py --check",
             "go mod download",
         ):
             self.assertIn(command, output)

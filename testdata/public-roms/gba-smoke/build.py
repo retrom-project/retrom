@@ -1,0 +1,321 @@
+#!/usr/bin/env python3
+"""Build Retrom's project-owned, third-party-free GBA smoke-test ROM."""
+
+from __future__ import annotations
+
+import argparse
+import hashlib
+import struct
+from dataclasses import dataclass
+from pathlib import Path
+
+
+OUTPUT = Path(__file__).with_name("gba-smoke.gba")
+ROM_SIZE = 1024
+CODE_OFFSET = 0xC0
+
+COND_EQ = 0x0
+COND_NE = 0x1
+COND_CS = 0x2
+COND_CC = 0x3
+COND_AL = 0xE
+
+
+def rotate_right(value: int, amount: int) -> int:
+    amount %= 32
+    return ((value >> amount) | (value << (32 - amount))) & 0xFFFFFFFF
+
+
+def encode_immediate(value: int) -> tuple[int, int]:
+    value &= 0xFFFFFFFF
+    for rotation in range(16):
+        for immediate in range(256):
+            if rotate_right(immediate, rotation * 2) == value:
+                return rotation, immediate
+    raise ValueError(f"ARM immediate is not encodable: 0x{value:08x}")
+
+
+def data_processing_immediate(
+    opcode: int,
+    destination: int,
+    value: int,
+    *,
+    source: int = 0,
+    set_flags: bool = False,
+    condition: int = COND_AL,
+) -> int:
+    rotation, immediate = encode_immediate(value)
+    return (
+        (condition << 28)
+        | (1 << 25)
+        | (opcode << 21)
+        | (int(set_flags) << 20)
+        | (source << 16)
+        | (destination << 12)
+        | (rotation << 8)
+        | immediate
+    )
+
+
+@dataclass(frozen=True)
+class BranchFixup:
+    word_index: int
+    label: str
+    condition: int
+
+
+@dataclass(frozen=True)
+class LiteralFixup:
+    word_index: int
+    destination: int
+    value: int
+    condition: int
+
+
+class ARMProgram:
+    def __init__(self) -> None:
+        self.words: list[int] = []
+        self.labels: dict[str, int] = {}
+        self.branches: list[BranchFixup] = []
+        self.literals: list[LiteralFixup] = []
+
+    def emit(self, word: int) -> None:
+        self.words.append(word & 0xFFFFFFFF)
+
+    def label(self, name: str) -> None:
+        if name in self.labels:
+            raise ValueError(f"duplicate label: {name}")
+        self.labels[name] = len(self.words)
+
+    def branch(self, label: str, *, condition: int = COND_AL) -> None:
+        self.branches.append(BranchFixup(len(self.words), label, condition))
+        self.emit(0)
+
+    def load_literal(
+        self,
+        destination: int,
+        value: int,
+        *,
+        condition: int = COND_AL,
+    ) -> None:
+        self.literals.append(
+            LiteralFixup(len(self.words), destination, value & 0xFFFFFFFF, condition)
+        )
+        self.emit(0)
+
+    def move_immediate(self, destination: int, value: int) -> None:
+        self.emit(data_processing_immediate(13, destination, value))
+
+    def add_immediate(self, destination: int, source: int, value: int) -> None:
+        self.emit(
+            data_processing_immediate(4, destination, value, source=source)
+        )
+
+    def subtract_immediate_with_flags(
+        self, destination: int, source: int, value: int
+    ) -> None:
+        self.emit(
+            data_processing_immediate(
+                2,
+                destination,
+                value,
+                source=source,
+                set_flags=True,
+            )
+        )
+
+    def compare_immediate(self, source: int, value: int) -> None:
+        self.emit(
+            data_processing_immediate(
+                10,
+                0,
+                value,
+                source=source,
+                set_flags=True,
+            )
+        )
+
+    def test_immediate(self, source: int, value: int) -> None:
+        self.emit(
+            data_processing_immediate(
+                8,
+                0,
+                value,
+                source=source,
+                set_flags=True,
+            )
+        )
+
+    def store_word_postincrement(
+        self, source: int, base: int, offset: int = 4
+    ) -> None:
+        if not 0 <= offset <= 0xFFF:
+            raise ValueError("word store offset is out of range")
+        self.emit(
+            (COND_AL << 28)
+            | 0x04800000
+            | (base << 16)
+            | (source << 12)
+            | offset
+        )
+
+    def transfer_halfword(
+        self,
+        *,
+        load: bool,
+        register: int,
+        base: int,
+        offset: int = 0,
+    ) -> None:
+        if not 0 <= offset <= 0xFF:
+            raise ValueError("halfword transfer offset is out of range")
+        self.emit(
+            (COND_AL << 28)
+            | 0x01C000B0
+            | (int(load) << 20)
+            | (base << 16)
+            | (register << 12)
+            | ((offset & 0xF0) << 4)
+            | (offset & 0x0F)
+        )
+
+    def build(self) -> bytes:
+        words = list(self.words)
+        literal_indices: dict[int, int] = {}
+        for fixup in self.literals:
+            if fixup.value not in literal_indices:
+                literal_indices[fixup.value] = len(words)
+                words.append(fixup.value)
+
+        for fixup in self.branches:
+            if fixup.label not in self.labels:
+                raise ValueError(f"unknown branch label: {fixup.label}")
+            delta = self.labels[fixup.label] - (fixup.word_index + 2)
+            if not -(1 << 23) <= delta < (1 << 23):
+                raise ValueError(f"branch target is out of range: {fixup.label}")
+            words[fixup.word_index] = (
+                (fixup.condition << 28) | 0x0A000000 | (delta & 0x00FFFFFF)
+            )
+
+        for fixup in self.literals:
+            literal_index = literal_indices[fixup.value]
+            offset = (literal_index - (fixup.word_index + 2)) * 4
+            if not 0 <= offset <= 0xFFF:
+                raise ValueError("literal pool is out of range")
+            words[fixup.word_index] = (
+                (fixup.condition << 28)
+                | 0x059F0000
+                | (fixup.destination << 12)
+                | offset
+            )
+
+        return b"".join(struct.pack("<I", word) for word in words)
+
+
+def build_program() -> bytes:
+    io_base = 0x04000000
+    video_ram = 0x06000000
+    key_input = 0x04000130
+    words_per_half_screen = 9_600
+    words_per_animated_band = 1_200
+
+    program = ARMProgram()
+    program.load_literal(0, io_base)
+    program.load_literal(1, video_ram)
+    program.load_literal(2, 0x0403)
+    program.transfer_halfword(load=False, register=2, base=0)
+
+    # Mode 3 is a 240x160 15-bit framebuffer. The upper half starts black and
+    # the lower half white so screenshots have deterministic contrast.
+    program.load_literal(8, video_ram)
+    program.load_literal(9, words_per_half_screen)
+    program.move_immediate(6, 0)
+    program.label("fill_black")
+    program.store_word_postincrement(6, 8)
+    program.subtract_immediate_with_flags(9, 9, 1)
+    program.branch("fill_black", condition=COND_NE)
+
+    program.load_literal(9, words_per_half_screen)
+    program.load_literal(6, 0x7FFF7FFF)
+    program.label("fill_white")
+    program.store_word_postincrement(6, 8)
+    program.subtract_immediate_with_flags(9, 9, 1)
+    program.branch("fill_white", condition=COND_NE)
+
+    program.move_immediate(4, 0)
+    program.load_literal(7, key_input)
+    program.label("wait_visible")
+    program.transfer_halfword(load=True, register=5, base=0, offset=6)
+    program.compare_immediate(5, 160)
+    program.branch("wait_visible", condition=COND_CS)
+    program.label("wait_vblank")
+    program.transfer_halfword(load=True, register=5, base=0, offset=6)
+    program.compare_immediate(5, 160)
+    program.branch("wait_vblank", condition=COND_CC)
+
+    program.add_immediate(4, 4, 1)
+    program.test_immediate(4, 1)
+    program.load_literal(6, 0x001F001F, condition=COND_EQ)
+    program.load_literal(6, 0x03E003E0, condition=COND_NE)
+    program.transfer_halfword(load=True, register=10, base=7)
+    program.test_immediate(10, 1)
+    program.load_literal(6, 0x7C007C00, condition=COND_EQ)
+
+    # Animate the first ten scanlines red/green on alternating frames. Holding
+    # the GBA A button changes the band to blue, providing an input sentinel.
+    program.load_literal(8, video_ram)
+    program.load_literal(9, words_per_animated_band)
+    program.label("paint_band")
+    program.store_word_postincrement(6, 8)
+    program.subtract_immediate_with_flags(9, 9, 1)
+    program.branch("paint_band", condition=COND_NE)
+    program.branch("wait_visible")
+    return program.build()
+
+
+def build_rom() -> bytes:
+    header = bytearray(CODE_OFFSET)
+    branch_delta = (CODE_OFFSET - 8) // 4
+    struct.pack_into("<I", header, 0, 0xEA000000 | branch_delta)
+    header[0xA0:0xAC] = b"RETROM SMOKE"
+    header[0xAC:0xB0] = b"RTSM"
+    header[0xB0:0xB2] = b"00"
+    header[0xB2] = 0x96
+    header[0xBC] = 0
+    header[0xBD] = (-(0x19 + sum(header[0xA0:0xBD]))) & 0xFF
+
+    image = bytes(header) + build_program()
+    if len(image) > ROM_SIZE:
+        raise ValueError(f"ROM exceeds {ROM_SIZE} bytes: {len(image)}")
+    return image.ljust(ROM_SIZE, b"\xFF")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="fail unless the checked-in ROM is byte-identical to generated output",
+    )
+    arguments = parser.parse_args()
+
+    image = build_rom()
+    digest = hashlib.sha256(image).hexdigest()
+    if arguments.check:
+        if not OUTPUT.exists():
+            raise SystemExit(f"public GBA smoke ROM is missing: {OUTPUT}")
+        if OUTPUT.read_bytes() != image:
+            raise SystemExit(
+                "public GBA smoke ROM drifted; run "
+                "python3 testdata/public-roms/gba-smoke/build.py"
+            )
+        print(f"gba_smoke_check=passed size={len(image)} sha256={digest}")
+        return 0
+
+    OUTPUT.write_bytes(image)
+    print(f"gba_smoke_generated={OUTPUT} size={len(image)} sha256={digest}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

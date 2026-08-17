@@ -34,10 +34,10 @@ GO_PACKAGES := ./cmd/... ./internal/... ./migrations/...
 
 .PHONY: fmt fmt-check install-deps install-go-formatters install-golangci-lint prepare-node prepare-e2e-browser \
 	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-generate api-check \
-	web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
+	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report
 
-install-deps: install-go-formatters install-golangci-lint prepare-deps web-install prepare-e2e-browser
+install-deps: install-go-formatters install-golangci-lint prepare-deps web-install prepare-e2e-browser public-fixtures-check
 	@go mod download
 
 install-go-formatters:
@@ -103,13 +103,20 @@ api-generate: web-install
 api-check: web-install
 	@scripts/api-check.sh
 
-web-e2e: prepare-e2e-browser
+public-fixtures-generate:
+	@python3 testdata/public-roms/gba-smoke/build.py
+
+public-fixtures-check:
+	@python3 testdata/public-roms/gba-smoke/build.py --check
+
+web-e2e: prepare-e2e-browser public-fixtures-check
 	@PATH="$(NODE_HOME)/bin:$$PATH" scripts/acceptance/web-e2e.sh
 
 data-check:
 	@python3 scripts/test_makefile.py
 	@python3 scripts/test_workflows.py
 	@python3 scripts/test_private_fixtures.py
+	@python3 scripts/test_public_fixtures.py
 	@python3 scripts/test_dependencies.py
 	@python3 scripts/test_fbalpha2012_dat.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
