@@ -36,8 +36,6 @@ cleanup() {
 trap cleanup EXIT
 
 cd "$repository_root"
-python3 data/example/verify-fixtures.py >/dev/null
-
 for port in "$backend_port" "$web_port"; do
   if ss -ltn "sport = :${port}" | tail -n +2 | grep -q .; then
     echo "netplay acceptance port is already in use: ${port}" >&2

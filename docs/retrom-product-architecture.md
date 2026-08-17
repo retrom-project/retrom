@@ -369,7 +369,7 @@ flowchart LR
 - 验证直接启动、默认全屏、状态存档/截图、持久存档、有效时长心跳。
 - 验证 FBNeo/MAME/FBA2012 Split 与 Full Non-Merged 的 parent/BIOS 加载，及五个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
-- 已有三十五核历史 smoke 确认固定运行时在 Chrome 中 `crossOriginIsolated`、核心帧推进并进入可辨识画面；它不是产品启动编排的替代。DOSBox Pure 另验证 4.3 whole-archive 启动、虚拟 ZIP 引导、程序菜单、原 bundle 不复制及不安全路径阻断，必须执行 `ACC-RUN-005`。
+- 核心运行兼容只能由经过 Retrom 导入、Launch、内容端点和 Player 的产品 E2E 证明；历史独立 EmulatorJS 页面结果不是产品启动编排的证据。当前已覆盖核心与缺口以核心运行时专题为准。DOSBox Pure 的 4.3 whole-archive、虚拟 ZIP 引导、程序菜单、原 bundle 不复制及不安全路径阻断执行 `ACC-RUN-005`。
 
 Phase 0 未通过时，不进入大规模业务实现。
 
@@ -420,7 +420,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 一期所有验收流程、标准、固定夹具、证据要求和短时执行上限统一由 [一期项目验收规范](./project-acceptance.md) 维护。该文档中的 `ACC-*` Case 覆盖本文的全部一期范围；专题文档只解释设计和实现约束，不再维护另一份通过条件。
 
-Agent 不得根据本总览自行省略或合并 Case，尤其不得把三十五个核心合成一个长时间运行任务，也不得用 soak、压力测试或无限等待代替统一规范中的确定性短时流程。
+Agent 不得根据本总览自行省略或合并 Case，也不得用 soak、压力测试、无限等待或绕过产品链路的独立示例替代统一规范中的确定性短时流程。
 
 ## 12. 已锁定边界与后续议题
 

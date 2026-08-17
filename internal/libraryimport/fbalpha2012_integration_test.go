@@ -74,12 +74,12 @@ func TestFBA2012RealDATImportVariantAndLaunchIsolation(t *testing.T) {
 	}{
 		{
 			name: "CPS1", coreID: "fbalpha2012_cps1", otherCoreID: "fbalpha2012_cps2", machine: "1941",
-			fixturePath:        "data/example/local-fixtures/fbalpha2012_cps1/1941.zip",
+			fixturePath:        "data/game/fbalpha2012_cps1/1941.zip",
 			platformInstanceID: "01980000-0000-7000-8000-000000000027",
 		},
 		{
 			name: "CPS2", coreID: "fbalpha2012_cps2", otherCoreID: "fbalpha2012_cps1", machine: "sgemf",
-			fixturePath:        "data/example/local-fixtures/fbalpha2012_cps2/sgemf.zip",
+			fixturePath:        "data/game/fbalpha2012_cps2/sgemf.zip",
 			platformInstanceID: "01980000-0000-7000-8000-000000000028",
 		},
 	}
@@ -326,8 +326,8 @@ func TestFBA2012FixtureFilesExist(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	for _, path := range []string{
-		"data/example/local-fixtures/fbalpha2012_cps1/1941.zip",
-		"data/example/local-fixtures/fbalpha2012_cps2/sgemf.zip",
+		"data/game/fbalpha2012_cps1/1941.zip",
+		"data/game/fbalpha2012_cps2/sgemf.zip",
 	} {
 		if info, err := os.Stat(filepath.Join(repositoryRoot, filepath.FromSlash(path))); err != nil || !info.Mode().IsRegular() {
 			t.Fatalf("fixture %s is unavailable: %v", path, err)

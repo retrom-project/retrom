@@ -119,7 +119,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 范围：首页、游戏库、详情、存档列表空壳的真实 API；LaunchSession/HMAC capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 锁定原 bundle 加 seekable 虚拟 ZIP 引导；Player Shell 通过显式 `playerAdapterId` 设置锁定版本 globals/callback/external files 与 artifact override，未知/错配 adapter 在加载 loader 前阻断。基础 adapter 对应 v4.2.3，DOS whole-archive adapter 对应 v4.3.0-pre。
 
-退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`005` 与 `ACC-CORE-001`–`035`；若依赖版本、core artifact 或内置 DAT 发生变化另执行 `ACC-DAT-006`。核心 Case 与核心的映射以验收文档表格为准，使用本地授权夹具；夹具不可用时可以阻塞这些 Case，但不能以 mock 或历史截图判为通过。PPSSPP 的一个 Case 内含 ISO、CSO 两个独立 run，两者必须同时通过。
+退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`005` 与 `make web-e2e`；若依赖版本、core artifact 或内置 DAT 发生变化另执行 `ACC-DAT-006`。真实核心运行必须经过 Retrom 的导入、Launch、内容端点和 Player；本地授权资源统一从 `data/game/` 读取，资源缺失或核心尚无产品 E2E 时必须明确报告，不能用 mock、独立 EmulatorJS 页面或历史截图判为通过。
 
 ### M6：存档、时长与完整 UI
 
@@ -200,8 +200,8 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 - 第一次 `make prepare-deps` 和镜像 dependency builder 需要访问 manifest 固定的公开 HTTPS runtime、DAT 与许可来源；正确缓存后校验与服务启动离线。
 - 默认构建契约只产生私有自托管镜像；若未来要 push、公开或商业分发，必须先完成 manifest 标记的受限制 core 人工许可审查。这是分发授权边界，不允许实现 Agent通过删 notice、换浮动 core 或绕过检查来处理。
-- 三十五个 core 的 ROM/BIOS 夹具由用户授权后保存在 Git 忽略目录；缺失只使对应 `ACC-CORE-*` 为 `BLOCKED`，不会授权提交 ROM/BIOS 或改用假游戏。夹具获取只允许读取操作者明确给出的主机和根目录。
-- 两个联机 exact fixture 同样由用户授权后物化到被忽略目录；`ACC-NP-001`–`011` 在浏览器启动前同时校验两者，任何一个缺失或 hash 漂移都以 `FIXTURE_MISSING` 失败，不能换 ROM 或降级为 mock。
+- 产品 E2E 所需的 ROM/BIOS 由用户授权后统一保存在 Git 忽略的 `data/game/`；测试消费者负责锁定相对路径、大小或 SHA-256。资源缺失不会授权提交 ROM/BIOS、从公网下载或改用假游戏。
+- 两个联机 exact fixture 位于 `data/game/netplay/`；`ACC-NP-001`–`009` 的 seed 在浏览器启动前逐字节校验两者，任何一个缺失或 hash 漂移都以 `NETPLAY_FIXTURE_DRIFT` 失败，不能换 ROM 或降级为 mock。
 - 生产需要前置 NG 提供同源 HTTPS、保留 nonce CSP/隔离头并挂载持久数据卷；Retrom 本身不实现 TLS。
 - Hasheous 可临时不可用；导入仍进入人工审核，自动测试不依赖实时命中。
 

@@ -83,7 +83,7 @@
 补充规则：
 
 - `make ci` 不含依赖用户私有夹具的核心启动 smoke；该验证按第 8 节的影响范围单独执行。
-- 读取 `data/example/local-fixtures/` 的 Go 集成测试必须同时声明 `integration && localfixtures`，只在操作者已物化并验证授权夹具后以 `go test -tags='integration localfixtures' ...` 显式运行；默认 `make integration-test` 和 `make ci` 不得因缺少专有 ROM/BIOS 失败。`data-check` 必须回归检查这一标签边界。
+- 读取 `data/game/` 中私有 ROM/BIOS 的 Go 集成测试必须同时声明 `integration && localfixtures`，只在操作者已物化并验证授权夹具后以 `go test -tags='integration localfixtures' ...` 显式运行；默认 `make integration-test` 和 `make ci` 不得因缺少专有 ROM/BIOS 失败。`data-check` 必须回归检查这一标签边界。
 - `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
 - OpenAPI 固定为 `api/openapi.yaml`（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。Go 侧由该版本以 `models + std-http-server + strict-server` 生成 `internal/httpapi/generated/api.gen.go`；生成器作为 `go.mod` 的 tool 依赖锁定，配置放 `api/oapi-codegen.yaml`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定执行 `openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client。两个生成文件不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
@@ -218,7 +218,7 @@
 
 ## 6. 测试分层与目录
 
-关键路径中的状态转换、校验、依赖计算、时间累计和请求构造必须先在确定性边界建立单元测试；集成测试、E2E 和 runtime smoke 用于证明各边界能正确组合，不能作为不拆分、不测试核心规则的理由。只有无法脱离真实边界才有意义的能力（例如 migration 执行本身）才以集成测试作为最低层。
+关键路径中的状态转换、校验、依赖计算、时间累计和请求构造必须先在确定性边界建立单元测试；集成测试和产品 E2E 用于证明各边界能正确组合，不能作为不拆分、不测试核心规则的理由。只有无法脱离真实边界才有意义的能力（例如 migration 执行本身）才以集成测试作为最低层。
 
 | 层级 | 适用问题 | 建议位置与工具 | 默认 CI |
 | --- | --- | --- | --- |
@@ -226,7 +226,7 @@
 | Go 集成测试 | SQLite migration、事务、CAS 文件系统、HTTP 契约、跨模块流程 | `*_integration_test.go` + `integration` build tag | 是 |
 | Web 单元/组件测试 | 页面状态、表单、路由 payload、错误映射、用户交互 | 源文件旁 `*.test.ts(x)` + Vitest/RTL | 是 |
 | Chrome E2E | 路由联动、用户激活/Fullscreen、移动方向门禁、响应式与 4K 关键布局 | `web/e2e/` + Playwright Chrome | 按影响范围/发布门禁 |
-| Core runtime smoke | 真实 EmulatorJS/core/ROM/BIOS/DAT 是否进入游戏画面 | `data/example/` | 本地兼容性门禁 |
+| 产品运行时 E2E | 真实 Retrom 导入/Launch/内容端点/Player 是否能驱动 EmulatorJS 核心 | `web/e2e/` + `data/game/` 本机授权资源 | 按影响范围/发布门禁 |
 | 多进程联机验收 | 真实双端初始 state、rollback、checkpoint 收敛、断线/resync 与终局 | 两个或更多独立 Chrome process + `ACC-NP-*` runner | 发布门禁 |
 
 命名要求：
@@ -292,18 +292,18 @@
 
 响应式与 4K 视觉回归不能只依赖像素快照：E2E 还应断言内容最大宽度、关键控件可见、页面无横向溢出、Player canvas/阻断层在视口内、关键 target 尺寸以及导航层级可达。手机普通页面至少覆盖全部四个固定手机视口，平板覆盖两个固定横/竖视口；移动 Player 横屏至少覆盖四个固定视口。截图用于评审证据，不取代语义断言。
 
-共享 Player 方向/暂停实现进入所有 EmulatorJS core 的执行路径，因此修改其状态机、adapter pause/resume 或 iframe 装载门禁后，除 `make web-e2e` 外必须运行不带 core 参数的 `node data/example/smoke-test.mjs`，重新建立全部 35 core 基线。纯移动 CSS、HUD 排版或外围 Sheet 若有调用链证据证明不进入装载、帧执行、配置翻译和存档协议，则不因文件位于 Player 目录自动触发全量 smoke。
+共享 Player 方向/暂停实现进入所有 EmulatorJS core 的执行路径，因此修改其状态机、adapter pause/resume 或 iframe 装载门禁后必须运行 `make web-e2e` 及所有受影响的产品 E2E。当前没有产品 E2E 的核心必须在交付说明中列为未覆盖，不能用直接装载 EmulatorJS 的独立页面补齐。纯移动 CSS、HUD 排版或外围 Sheet 若有调用链证据证明不进入装载、帧执行、配置翻译和存档协议，则不因文件位于 Player 目录自动扩大核心覆盖范围。
 
-影响多盘 parser、Launch content、Player adapter 或换盘时，除受影响单元/集成/Web 测试外还必须执行 `make web-e2e`、`python3 data/example/verify-fixtures.py`、受控 Saturn 双/三盘 smoke，以及共享 adapter 变更对应的全部独立 `ACC-CORE-*`。缺少仓库外授权 ROM/BIOS 时只能把真实 smoke/acceptance 报告为未执行，不能用伪 CHD 或历史结果替代；最近确定性边界的自动化测试仍必须通过。
+影响多盘 parser、Launch content、Player adapter 或换盘时，除受影响单元/集成/Web 测试外还必须执行 `make web-e2e` 与 `ACC-MDISC-001`–`008` 的受影响产品测试。当前没有真实 Saturn ROM 的浏览器产品 E2E；交付时必须明确这一边界，不能用伪 CHD、独立 EmulatorJS 页面或历史截图替代。
 
-影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`、`python3 data/example/verify-fixtures.py`、两个首发 core smoke，并按 [`ACC-NP-001`–`013`](./project-acceptance.md#18-联机游玩) 生成当次证据。真实 Case 必须使用独立 Chrome process；iframe、同 browser 多 context、静止首帧、mock relay 或历史截图都不能替代双端 confirmed frame 与 digest 收敛。
+影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-001`–`013`](./project-acceptance.md#18-联机游玩) 生成当次证据。真实 Case 由 `scripts/acceptance/seed-netplay.py` 校验 `data/game/netplay/` 的本机资源，并使用独立 Chrome process；iframe、同 browser 多 context、静止首帧、mock relay 或历史截图都不能替代双端 confirmed frame 与 digest 收敛。
 
 ## 8. Bug 回归固化流程
 
 任何在 Agent 自测、人工验收、代码评审或实际使用中发现的 bug，都执行同一流程：
 
 1. **记录最小复现**：输入、初始状态、触发步骤、实际结果和期望结果必须清楚；先排除环境或数据版本漂移。
-2. **选择最低可靠层级**：纯函数用单测，数据库/HTTP/事务用集成测试，用户激活和全屏用 Chrome E2E，真实 core 兼容性用 runtime smoke。
+2. **选择最低可靠层级**：纯函数用单测，数据库/HTTP/事务用集成测试，用户激活、全屏和真实 core 运行用经过 Retrom 产品链路的 Chrome E2E。
 3. **先建立失败证据**：新增用例在修复前应稳定失败，并且失败原因正是该 bug；不能只证明“某处报错”。不要求提交一个单独的红色 commit，但修复说明要能说明 red/green 过程。
 4. **实施最小修复**：修复根因，不只调整测试数据、等待时间或错误提示来绕过症状。
 5. **运行回归**：先跑聚焦用例，再跑对应包/页面完整测试、lint、typecheck/build 和受影响的集成/E2E/smoke。
@@ -316,20 +316,19 @@
 ROM、BIOS 和截图可能因授权不能进 Git；Fullscreen 和某些 EmulatorJS 行为也不能由 jsdom 真实复现。这不构成“无需回归用例”的例外。应组合：
 
 - 对故障最近的确定性逻辑增加普通自动化测试；
-- 在 `data/example/` 增加或收紧脚本断言、fixture hash、帧/canvas/控制台判定；
-- 将人工画面判断写入机器可读 review 记录，而不是聊天或临时笔记；
+- 在实际产品 E2E 中增加或收紧资源 hash、Launch/config、请求、帧/canvas 和控制台断言；
+- 需要人工画面判断时，将结果写入当次验收证据，而不是聊天或历史样例记录；
 - 在交付说明中列出本地夹具要求和未能完全自动化的边界。
 
 影响 EmulatorJS、core artifact、DAT、BIOS 装配、Player Shell 或存档恢复时，至少执行：
 
 ```bash
-python3 data/example/verify-fixtures.py
-node data/example/smoke-test.mjs mgba mame2003
+make data-check
+make deps-check
+make web-e2e
 ```
 
-核心参数应替换为全部受影响核心；共享 loader、Player Shell 或版本基线变化时不传参数并运行 35 核全量 smoke。PPSSPP 在全量模式下展开为 ISO、CSO 两个独立 run，任一失败均视为该核心失败。
-
-全量升级门禁和“进入游戏画面”的判定以 [`core-runtime-validation.md`](./core-runtime-validation.md) 为准。
+另运行所有受影响的产品集成测试。现有 E2E 未覆盖到的核心按 [`core-runtime-validation.md`](./core-runtime-validation.md) 明确报告，不能把 manifest 校验或相邻核心成功外推成运行兼容。
 
 ## 9. 覆盖率、夹具与测试可靠性
 
@@ -354,7 +353,7 @@ node data/example/smoke-test.mjs mgba mame2003
 - 解析器可以使用小型、可读、带来源说明的确定性片段覆盖边界和畸形输入。
 - Arcade 兼容性结论必须另有针对 `make prepare-deps` 物化到 `data/dat/` 的完整、真实、版本锁定 DAT 的集成校验；小片段不能替代真实基线，payload 也不能因此提交 Git。
 - 负向安全测试可以构造恶意 ZIP/XML/路径，因为它们用于验证拒绝行为，不能被描述为真实游戏数据。
-- 用户 ROM/BIOS 只以本地路径和预期 hash 参与 runtime smoke，永不成为默认 CI 的下载前提。
+- 用户 ROM/BIOS 统一保存在 Git 忽略的 `data/game/`，只由明确的产品集成/E2E 消费并校验，永不成为默认单元测试或 CI 下载前提。
 
 ## 10. 后续实施清单
 
@@ -382,7 +381,7 @@ node data/example/smoke-test.mjs mgba mame2003
 1. `.github/workflows/ci.yml` 在所有 pull request 上设置 Go、Node/npm、仓库固定 Node 工具链及物化 runtime 缓存；随后先执行幂等且逐字节校验的 `make prepare-deps`，再运行 `make ci`。固定 golangci-lint 由 Makefile 依赖自动安装，同一 PR 的旧运行由 concurrency 取消。
 2. CI 使用锁文件和固定 manifest 安装依赖；runtime/core/DAT/许可 payload 可以由 `prepare-deps` 从锁定来源物化并按 hash 校验，测试阶段不下载 ROM/BIOS、不访问真实 Hasheous，也不依赖开发机浏览器。
 3. 建立 `web/e2e/` 的 Chrome 配置和关键路径；按改动范围或发布流程运行 `make web-e2e`。
-4. 保留 `data/example/` 为版本/core/DAT 变更的独立兼容性门禁，并记录机器结果与人工画面复核。
+4. 真实核心覆盖只能加入 Retrom 产品 E2E；不得建立绕过导入、Launch、内容端点或 Player 的独立示例门禁。
 
 ### Phase Q3：镜像构建门禁
 

@@ -37,8 +37,7 @@ var knownVariables = map[string]struct{}{
 }
 
 var ignoredPrefixes = []string{
-	"RETROM_ACCEPTANCE_", "RETROM_CHROME_", "RETROM_EJS_DEP_", "RETROM_EXAMPLE_",
-	"RETROM_FIXTURE_", "RETROM_SMOKE_",
+	"RETROM_ACCEPTANCE_", "RETROM_CHROME_", "RETROM_EJS_DEP_",
 }
 
 type Config struct {

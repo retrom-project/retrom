@@ -102,10 +102,7 @@ data-check:
 	@python3 scripts/test_private_fixtures.py
 	@python3 scripts/test_dependencies.py
 	@python3 scripts/test_fbalpha2012_dat.py
-	@python3 data/example/test_materialize_fixtures.py
-	@python3 data/example/verify_fixtures_test.py
 	@python3 scripts/dependencies.py data-check --versions "$(RETROM_DEPENDENCY_VERSIONS)"
-	@node --test data/example/smoke-test.test.mjs
 
 prepare-deps:
 	@python3 scripts/dependencies.py prepare --versions "$(RETROM_DEPENDENCY_VERSIONS)"

@@ -288,4 +288,4 @@ X-Content-Type-Options: nosniff
 
 ## 14. 统一验收入口
 
-启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-005`；移动方向门禁、横屏 HUD、P1/P2 暂停职责和请求时序执行 `ACC-MOB-005`–`ACC-MOB-007`；状态/持久存档执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；事件映射、三十五 core 画面与跨源隔离分别由 `ACC-CORE-*`、`ACC-NET-001` 和运行时回归测试覆盖。
+启动与全屏执行 `ACC-RUN-001`–`ACC-RUN-005`；移动方向门禁、横屏 HUD、P1/P2 暂停职责和请求时序执行 `ACC-MOB-005`–`ACC-MOB-007`；状态/持久存档执行 `ACC-SAVE-001`–`ACC-SAVE-003`；多盘锁定、换盘与跨盘恢复执行 `ACC-MDISC-004`–`ACC-MDISC-006`；账户与 Player 数据隔离执行 `ACC-ISO-001`–`ACC-ISO-003` 与 `ACC-MDISC-008`；有效时长执行 `ACC-PLAY-001`；事件映射、真实核心运行与跨源隔离分别由 `make web-e2e`、受影响产品集成测试、`ACC-NP-*` 和 `ACC-NET-001` 覆盖。具体已覆盖核心与缺口以 [`core-runtime-validation.md`](./core-runtime-validation.md) 为准。

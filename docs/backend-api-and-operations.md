@@ -271,7 +271,7 @@ RETROM_DATA_DIR/
 
 多盘 capability 是 `RETROM_MULTI_DISC_IMPORT_ENABLED`、Platform content profile 与当前 enabled CoreArtifact compatibility 的交集，flag 不是校验旁路。关闭时新建 MULTI Import 与 MULTI 内容替换 fail closed，但不删除证据、不取消已冻结的 Import/Attachment/Job，也不阻止既有多盘 Game 的 Launch、换盘、存档和恢复；需要阻止在途审批时必须显式 cancel/discard。既有 rejected-file reconfigure 始终保持 STANDARD。flag 值不进入日志或诊断。
 
-环境变量解析使用封闭规则：上表列出的名称是服务配置；仅供仓库工具使用、可能被父进程继承的 `RETROM_ACCEPTANCE_*`、`RETROM_CHROME_*`、`RETROM_EJS_DEP_*`、`RETROM_EXAMPLE_*`、`RETROM_FIXTURE_*`、`RETROM_SMOKE_*` 由服务配置加载器明确忽略且不记录值；任何其他未知 `RETROM_*`（例如拼错的 `RETROM_DATA_DI`）都以 `CONFIG_UNKNOWN_VARIABLE` 快速失败。维护子命令只校验自身所需的已知服务变量，但使用同一 unknown/工具前缀规则。缺失配置、目录不可写或路径越界同样非零退出并给出变量名和稳定错误码，但不回显变量值、秘密或完整用户路径。应用配置中不存在 TLS 证书、私钥或 ACME 参数。
+环境变量解析使用封闭规则：上表列出的名称是服务配置；仅供仓库工具使用、可能被父进程继承的 `RETROM_ACCEPTANCE_*`、`RETROM_CHROME_*`、`RETROM_EJS_DEP_*` 由服务配置加载器明确忽略且不记录值；任何其他未知 `RETROM_*`（例如拼错的 `RETROM_DATA_DI` 或已移除的 example 前缀）都以 `CONFIG_UNKNOWN_VARIABLE` 快速失败。维护子命令只校验自身所需的已知服务变量，但使用同一 unknown/工具前缀规则。缺失配置、目录不可写或路径越界同样非零退出并给出变量名和稳定错误码，但不回显变量值、秘密或完整用户路径。应用配置中不存在 TLS 证书、私钥或 ACME 参数。
 
 SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本化迁移升级；启动时拒绝运行比二进制更新的 schema。数据库连接池需限制写并发，业务上的多表状态转换使用事务。
 

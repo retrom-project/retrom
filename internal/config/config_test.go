@@ -134,11 +134,13 @@ func TestParseVersionsRequiresStrictSortedSemver(t *testing.T) {
 
 func TestRejectUnknownVariablesAllowsToolPrefixesOnly(t *testing.T) {
 	t.Parallel()
-	if err := rejectUnknownVariables([]string{"RETROM_FIXTURE_ROOT=secret", "RETROM_HTTP_ADDR=x", "RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true", "RETROM_MULTI_DISC_IMPORT_ENABLED=false", "RETROM_NETPLAY_ENABLED=true"}); err != nil {
+	if err := rejectUnknownVariables([]string{"RETROM_ACCEPTANCE_BASE_URL=https://example.invalid", "RETROM_HTTP_ADDR=x", "RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN=true", "RETROM_MULTI_DISC_IMPORT_ENABLED=false", "RETROM_NETPLAY_ENABLED=true"}); err != nil {
 		t.Fatalf("known variables rejected: %v", err)
 	}
-	if err := rejectUnknownVariables([]string{"RETROM_DATA_DI=typo"}); err == nil {
-		t.Fatal("unknown RETROM variable was accepted")
+	for _, variable := range []string{"RETROM_DATA_DI=typo", "RETROM_EXAMPLE_ROOT=removed"} {
+		if err := rejectUnknownVariables([]string{variable}); err == nil {
+			t.Fatalf("unknown RETROM variable %q was accepted", variable)
+		}
 	}
 }
 

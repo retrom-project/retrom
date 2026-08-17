@@ -36,12 +36,8 @@
 !/data/dat/**
 !/data/auth/
 !/data/auth/**
-!/data/example/
-!/data/example/**
 !/data/netplay/
 !/data/netplay/**
-/data/example/**/__pycache__/
-/data/example/**/*.py[cod]
 
 # Git stores DAT provenance, recipes and checksums, not the five XML payloads.
 /data/dat/emulatorjs/*/fbneo/
@@ -51,9 +47,4 @@
 /data/dat/emulatorjs/*/fbalpha2012_cps2/
 /data/auth/password-blocklists/*/payload/
 
-# Test evidence is reproducible and may contain game imagery. Keep it local.
-/data/example/results/*
-!/data/example/results/.gitkeep
-!/data/example/results/latest.json
-!/data/example/results/manual-review.json
 /sample
