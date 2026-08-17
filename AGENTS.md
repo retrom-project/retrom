@@ -24,7 +24,7 @@
 - 根目录 `Dockerfile` 只构建后端镜像 `retrom`，`web/Dockerfile` 只构建前端镜像 `retrom-web`；镜像构建和服务启动是两个独立动作。
 - `docs/` 保存可长期维护的正式契约；设计决策、行为或验收标准变化时必须同步更新。
 - `data/dat/` 的 Git 内容只保存受版本约束的真实来源 manifest、SHA、DAT/许可物化配方与说明；约 53 MiB DAT、runtime、许可原文和生成 notice 由 `make prepare-deps` 写入被忽略目录，不得提交、手工改写或用 mock 替换。
-- `data/game/` 统一保存自动化测试所需、且操作者有权使用的私有 ROM、BIOS 与来源归档，并整体由 Git 与镜像构建忽略。唯一可提交的 ROM 是 `testdata/public-roms/gba-smoke/` 中由本项目从同目录可审查源码确定性生成、带独立许可且由 `data-check` 逐字节回归的公开 mGBA E2E 夹具；新增其他可提交二进制必须同时证明项目所有权或明确再分发许可、保留唯一生成源与实际产品消费者，不能借此提交第三方游戏或 BIOS。`.dev-data/` 是 `make dev` 暴露给服务器导入功能的操作者语料，不是测试 fixture。核心是否已接入必须通过 Retrom 实际导入、Launch、内容端点与 Player 链路验证，不得再建立绕过产品代码的独立示例页。
+- 自动化测试不得读取或下载操作者私有 ROM、BIOS 与来源归档。唯一可提交的 ROM 是 `testdata/public-roms/gba-smoke/` 中由本项目从同目录可审查源码确定性生成、带独立许可且由 `data-check` 逐字节回归的公开 mGBA E2E 夹具；新增其他可提交二进制必须同时证明项目所有权或明确再分发许可、保留唯一生成源与实际产品消费者，不能借此提交第三方游戏或 BIOS。`.dev-data/` 是 `make dev` 暴露给服务器导入功能的操作者语料，不是测试 fixture。核心是否已接入必须通过 Retrom 实际导入、Launch、内容端点与 Player 链路验证，不得再建立绕过产品代码的独立示例页或私有 fixture 根目录。
 - 不得提交凭据、launch capability/cookie、本机 `launch-capability.key`、用户主机绝对路径、专有游戏内容或来源不明的二进制文件。非秘密 `launchId` 不得被误当成授权凭据。
 
 修改生成物前先找到唯一源文件，并从源文件重新生成。具体事实源以 `docs/README.md` 为准；禁止只改导出文件造成源稿、清单或快照漂移。

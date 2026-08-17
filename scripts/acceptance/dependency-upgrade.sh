@@ -12,9 +12,6 @@ go test -tags=integration ./internal/dependencies \
 go test ./internal/dependencies ./internal/launch \
   -run 'TestSelectedCoreStartupActionDelayBoundary|TestArtifactCompatibilityV2Validation' \
   -count=1
-go test -tags='integration localfixtures' ./internal/libraryimport \
-  -run '^TestFBA2012RealDATImportVariantAndLaunchIsolation$' \
-  -count=1 -timeout=120s
 make web-test
 make web-e2e
 

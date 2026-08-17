@@ -408,7 +408,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 - Migration 032、netplay manifest、房间/Session/Participant 控制面、独立 credential key 与备份恢复围栏。
 - `/netplay`、房间 UI、SSE、同源 WebSocket hub、4.2.3 帧 adapter、rollback/state/hash/reconnect/end 全链路。
-- 以 `ACC-NP-001`–`013`、全量 Player E2E、真实 FCEUmm/FBNeo 夹具 smoke 和双镜像构建为退出门禁。
+- 以 `ACC-NP-010`–`013`、全量 Player E2E 和双镜像构建为退出门禁；FCEUmm/FBNeo 当前没有合法公开 ROM 的真实双端产品链路兼容基线，交付不得把协议、manifest 或界面测试解释为核心运行通过。
 
 ### Phase 7：游戏标签垂直切片
 

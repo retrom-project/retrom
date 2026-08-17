@@ -233,9 +233,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-DAT-001": (300, "go test -tags=integration ./internal/arcadedat ./internal/dependencies -run 'TestRealDATStatisticsMatchManifest|TestBootstrapCatalogsMaterializesPinnedDATsIdempotently' -count=1"),
     "ACC-DAT-002": (
         300,
-        "go test -tags=integration ./internal/libraryimport -run '^TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure$' -count=1 && "
-        "go test -tags='integration localfixtures' ./internal/libraryimport "
-        "-run '^TestFBA2012RealDATImportVariantAndLaunchIsolation$' -count=1 -timeout=120s",
+        "go test -tags=integration ./internal/libraryimport -run '^TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure$' -count=1",
     ),
     "ACC-DAT-003": (180, "go test -tags=integration ./internal/arcadecatalog -run '^TestUserDATRequiresParseDiffAndExplicitActivation$' -count=1"),
     "ACC-DAT-004": (
@@ -307,15 +305,6 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         180,
         "go test -tags=integration ./internal/saves -run 'TestPersistentSaveLocksLaunchBaseAndEnforcesSequence|TestPersistentSaveNoneRejectsGetAndPutWithoutCreatingRows' -count=1 && make web-test",
     ),
-    "ACC-NP-001": (120, "scripts/acceptance/netplay-case.sh ACC-NP-001"),
-    "ACC-NP-002": (120, "scripts/acceptance/netplay-case.sh ACC-NP-002"),
-    "ACC-NP-003": (240, "scripts/acceptance/netplay-case.sh ACC-NP-003"),
-    "ACC-NP-004": (240, "scripts/acceptance/netplay-case.sh ACC-NP-004"),
-    "ACC-NP-005": (300, "scripts/acceptance/netplay-case.sh ACC-NP-005"),
-    "ACC-NP-006": (180, "scripts/acceptance/netplay-case.sh ACC-NP-006"),
-    "ACC-NP-007": (120, "scripts/acceptance/netplay-case.sh ACC-NP-007"),
-    "ACC-NP-008": (180, "scripts/acceptance/netplay-case.sh ACC-NP-008"),
-    "ACC-NP-009": (120, "scripts/acceptance/netplay-case.sh ACC-NP-009"),
     "ACC-NP-010": (
         120,
         "go test ./internal/netplay ./internal/httpapi "
