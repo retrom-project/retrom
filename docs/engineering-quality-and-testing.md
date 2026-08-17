@@ -65,7 +65,7 @@
 | `make web-test` | `vitest run` | 否 |
 | `make web-build` | 干净执行 Next.js production build；运行中的本地开发服务需要保留 `.next/` 时可显式设置 `NEXT_DIST_DIR=.next-build` | 只允许重建 `.next/` 或被忽略的 `.next-build/` |
 | `make web-check` | `web-install + web-lint + web-typecheck + web-test + web-build` | 仅依赖/构建产物 |
-| `make integration-test` | Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程；不含要求本地专有内容的 `localfixtures` 测试 | 否 |
+| `make integration-test` | Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 否 |
 | `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成 Go strict stdlib server types 与前端 TypeScript schema | 会重建依赖目录并只修改两个 generated 文件 |
 | `make api-check` | 先以锁文件安装前端依赖，再在临时目录用固定生成器重建并逐字节比较，OpenAPI 无效或 generated 漂移即失败 | 仅依赖产物 |
 | `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景 | 会写浏览器缓存并产生本地报告 |
@@ -84,9 +84,9 @@
 
 补充规则：
 
-- `make ci` 不含依赖用户私有夹具的核心启动 smoke；该验证按第 8 节的影响范围单独执行。
+- `make ci` 包含全部可复现的仓库内单元、集成与数据检查；没有合法公开 fixture 的核心启动兼容性不在自动化测试中冒充已覆盖。
 - 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。浏览器缓存、Node 工具链和运行时 payload 不进入 Git 或镜像。
-- 读取 `data/game/` 中私有 ROM/BIOS 的 Go 集成测试必须同时声明 `integration && localfixtures`，只在操作者已物化并验证授权夹具后以 `go test -tags='integration localfixtures' ...` 显式运行；默认 `make integration-test` 和 `make ci` 不得因缺少专有 ROM/BIOS 失败。`data-check` 必须回归检查这一标签边界，并拒绝本机 `data/game/` 中没有被 `Makefile`、`internal/`、`scripts/` 或 `web/e2e/` 实际测试入口按完整相对路径引用的文件；仅有文档说明、core 配置或相同 basename 不构成消费证据。
+- 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM 必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check` 和实际产品消费者共同逐字节校验；当前唯一实例是 `testdata/public-roms/gba-smoke/`。
 - `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
 - OpenAPI 固定为 `api/openapi.yaml`（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。Go 侧由该版本以 `models + std-http-server + strict-server` 生成 `internal/httpapi/generated/api.gen.go`；生成器作为 `go.mod` 的 tool 依赖锁定，配置放 `api/oapi-codegen.yaml`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定执行 `openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client。两个生成文件不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
@@ -229,8 +229,8 @@
 | Go 集成测试 | SQLite migration、事务、CAS 文件系统、HTTP 契约、跨模块流程 | `*_integration_test.go` + `integration` build tag | 是 |
 | Web 单元/组件测试 | 页面状态、表单、路由 payload、错误映射、用户交互 | 源文件旁 `*.test.ts(x)` + Vitest/RTL | 是 |
 | Chrome E2E | 路由联动、用户激活/Fullscreen、移动方向门禁、响应式与 4K 关键布局 | `web/e2e/` + Playwright Chrome | 按影响范围/发布门禁 |
-| 产品运行时 E2E | 真实 Retrom 导入/Launch/内容端点/Player 是否能驱动 EmulatorJS 核心 | `web/e2e/` + `testdata/public-roms/` 项目自有 ROM；特定兼容性验收另用 `data/game/` 本机授权资源 | 按影响范围/发布门禁 |
-| 多进程联机验收 | 真实双端初始 state、rollback、checkpoint 收敛、断线/resync 与终局 | 两个或更多独立 Chrome process + `ACC-NP-*` runner | 发布门禁 |
+| 产品运行时 E2E | 真实 Retrom 导入/Launch/内容端点/Player 是否能驱动 EmulatorJS 核心 | `web/e2e/` + `testdata/public-roms/` 项目自有 ROM | 按影响范围/发布门禁 |
+| 联机协议与回归 | 房间/协议边界、安全拒绝、feature flag、容量和单机路径不回退 | 聚焦 Go/Web 测试 + `ACC-NP-010`–`013` | 按影响范围/发布门禁 |
 
 命名要求：
 
@@ -299,7 +299,7 @@
 
 影响多盘 parser、Launch content、Player adapter 或换盘时，除受影响单元/集成/Web 测试外还必须执行 `make web-e2e` 与 `ACC-MDISC-001`–`008` 的受影响产品测试。当前没有真实 Saturn ROM 的浏览器产品 E2E；交付时必须明确这一边界，不能用伪 CHD、独立 EmulatorJS 页面或历史截图替代。
 
-影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-001`–`013`](./project-acceptance.md#18-联机游玩) 生成当次证据。真实 Case 由 `scripts/acceptance/seed-netplay.py` 校验 `data/game/netplay/` 的本机资源，并使用独立 Chrome process；iframe、同 browser 多 context、静止首帧、mock relay 或历史截图都不能替代双端 confirmed frame 与 digest 收敛。
+影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-010`–`013`](./project-acceptance.md#19-联机游玩) 生成当次协议、安全、feature flag 与单机回归证据。当前没有 FCEUmm/FBNeo 的合法公开联机 ROM fixture，因此这些检查不能证明真实双端核心执行、confirmed frame 或 digest 收敛；涉及该边界的交付必须明确列为未覆盖。
 
 ## 8. Bug 回归固化流程
 
@@ -356,7 +356,7 @@ make web-e2e
 - 解析器可以使用小型、可读、带来源说明的确定性片段覆盖边界和畸形输入。
 - Arcade 兼容性结论必须另有针对 `make prepare-deps` 物化到 `data/dat/` 的完整、真实、版本锁定 DAT 的集成校验；小片段不能替代真实基线，payload 也不能因此提交 Git。
 - 负向安全测试可以构造恶意 ZIP/XML/路径，因为它们用于验证拒绝行为，不能被描述为真实游戏数据。
-- 用户 ROM/BIOS 统一保存在 Git 忽略的 `data/game/`，只由明确的产品集成/E2E 消费并校验，永不成为默认单元测试或 CI 下载前提。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；当前唯一实例是 `testdata/public-roms/gba-smoke/`，只证明 mGBA 产品链路。
+- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；当前唯一实例是 `testdata/public-roms/gba-smoke/`，只证明 mGBA 产品链路。
 
 ## 10. 后续实施清单
 
@@ -390,7 +390,7 @@ make web-e2e
 
 1. 新增根 `Dockerfile`，用多阶段构建生成后端镜像 `retrom`；最终镜像只包含 Go 可执行文件、固定 DAT/必要 EmulatorJS runtime 资产和运行所需证书库，不包含编译工具、ROM、BIOS、测试截图或本地数据库。
 2. 新增 `web/Dockerfile`，用多阶段构建生成前端镜像 `retrom-web`；采用 Next.js production/standalone 产物，最终镜像不包含开发依赖和构建缓存。
-3. 新增 `.dockerignore` 与 `web/.dockerignore`，排除 `.git`、缓存、`node_modules`、`.next`、coverage、E2E 报告、`data/game`、本地 runtime 结果和运行数据；构建阶段只通过版本化脚本下载并校验允许进入镜像的固定 runtime artifact。
+3. 新增 `.dockerignore` 与 `web/.dockerignore`，排除 `.git`、缓存、`node_modules`、`.next`、coverage、E2E 报告、公开测试 ROM、本地 runtime 结果和运行数据；构建阶段只通过版本化脚本下载并校验允许进入镜像的固定 runtime artifact。
 4. 在 Makefile 实现三个 image targets 和共用 `release-input-digest` helper；两镜像都写入 `io.retrom.release-input-sha256`，组合 target 以 inspect 确认一致。构建完成后立即返回，不创建容器、不建立网络、不挂载卷、不 push registry。
 5. PR 的 required quality check 统一执行 `make ci`；涉及 Dockerfile、依赖锁文件、静态/runtime 资产或发布脚本时还必须在合并前验证 `make build-images`。tag 发布不重复执行 quality check。
 6. `.github/workflows/docker-image.yml` 在 tag push 时直接执行 `make build-images`；该命令通过镜像内的确定性依赖物化、`data-check`、release-input digest 和双镜像 label 复核完成发布输入校验。两个镜像校验完成后才允许登录 Docker Hub 并推送，流程不等待 Environment 人工批准，也不能用 Action 重新拼装或绕过 Makefile 的发布输入校验。

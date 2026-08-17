@@ -59,7 +59,7 @@
 - 由仓库锁定 Playwright 物化的官方 Chrome for Testing；只验收 Chrome，不承诺其他浏览器，手机/平板使用 Chrome 的固定 CSS viewport 和 coarse-pointer 仿真，并在可用时补充真实移动 Chrome 复核；
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
 - 可选的已部署代理 Case 需要一个已由 NG 暴露的 HTTPS 地址，通过 `RETROM_ACCEPTANCE_BASE_URL` 提供；没有部署环境时只有明确标注的条件 Case 可为 `NOT_APPLICABLE`；
-- 用户有权使用的私有 ROM/BIOS 只保存在本地 `data/game/`，不进入 Git 或验收报告。`testdata/public-roms/gba-smoke/` 中由 Retrom 自有源码生成、MIT 许可并随仓库提交的最小 GBA 测试 ROM 是公开 mGBA 产品 E2E 的唯一例外，不包含第三方游戏或 BIOS。
+- 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/` 中由 Retrom 自有源码生成、MIT 许可并随仓库提交的最小 GBA 测试 ROM 是当前唯一 ROM fixture，不包含第三方游戏或 BIOS。
 
 首次准备依赖可以执行：
 
@@ -67,7 +67,7 @@
 make install-deps
 ```
 
-日常项目初始化直接执行 `make install-deps`；单独的 `make prepare-deps` 只物化应用 runtime/DAT/许可。初始化会把固定 Chrome for Testing 写入被忽略的 `.cache/tools/`，校验仓库自有公开 GBA ROM 与生成源逐字节一致，并在正式计时前完成实际启动校验。依赖下载是验收前准备，不计入单 Case 时长；正式计时期间只运行离线 `make deps-check`。操作者自行把有权使用的私有资源放入 `data/game/`；每个实际产品测试在消费前校验自己依赖的路径、大小或 SHA-256。仓库不提供第三方 ROM/BIOS 下载器，也不在 manifest 中保存主机名、远端绝对路径或凭据。
+日常项目初始化直接执行 `make install-deps`；单独的 `make prepare-deps` 只物化应用 runtime/DAT/许可。初始化会把固定 Chrome for Testing 写入被忽略的 `.cache/tools/`，校验仓库自有公开 GBA ROM 与生成源逐字节一致，并在正式计时前完成实际启动校验。依赖下载是验收前准备，不计入单 Case 时长；正式计时期间只运行离线 `make deps-check`。仓库不提供第三方 ROM/BIOS 下载器；没有合法公开 fixture 的核心登记为未覆盖，也不在 manifest 中保存主机名、远端绝对路径或凭据。
 
 ### 3.2 隔离数据与固定种子
 
@@ -101,9 +101,8 @@ make acceptance-report
 | 入库数据 | 小规模的 queued/running/review-pending/failed Item 与 approve/discard ReviewEvent，供总览、任务、待审核和历史页面使用 |
 | Hasheous stub | 命中、未命中、429、超时、500、401 和畸形响应七种固定路由，不要求凭证 |
 | 公开 mGBA ROM | `testdata/public-roms/gba-smoke/gba-smoke.gba`；项目自有源码生成，MIT 许可，生成器与消费者锁定 size/SHA-256/bytes |
-| 私有 ROM/BIOS | 本机 `data/game/`；实际消费测试锁定所需相对路径、大小或 SHA-256 |
-| 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-v1` 与 `fbneo-423-v1` 的 EmulatorJS/core artifact/adapter 边界来自 `data/netplay/v1/manifest.json`，代表性内容字节位于 `data/game/netplay/` 并由 `scripts/acceptance/seed-netplay.py` 校验；两个浏览器必须为独立 Chrome process |
-| 游戏替换 revision | 基于 `fceumm` 真实本地夹具确定性重打包：ROM entry 字节不变，ZIP 时间固定且 comment 为 `retrom-acceptance-revision-2`；原始 Blob SHA-256 必须变化，提取内容 hash 必须不变 |
+| 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-v1` 与 `fbneo-423-v1` 的 EmulatorJS/core artifact/adapter 边界来自 `data/netplay/v1/manifest.json`；当前只维护 manifest、协议、安全、feature flag 与单机回归种子，不维护真实双端 ROM fixture |
+| 游戏替换 revision | 基于测试内生成的确定性 ZIP 重打包：entry 字节不变，ZIP 时间固定且 comment 为 `retrom-acceptance-revision-2`；原始 Blob SHA-256 必须变化，提取内容 hash 必须不变 |
 | 媒体 | Hasheous stub 提供一张固定字节的小型合法 PNG，SHA-256 写入 seed manifest |
 | 用户 DAT 候选 | 将 `make prepare-deps` 物化的真实 `data/dat/emulatorjs/4.2.3/fbneo/fbneo-arcade.dat` 逐字节作为用户上传输入；允许 CAS 去重，但 DatVersion/安装记录必须独立 |
 | 非法 BIOS | 临时目录内生成内容为 `retrom-invalid-bios\n`、逻辑文件名为 `gba_bios.bin` 的文件 |
@@ -124,13 +123,13 @@ make acceptance-report
   defects.json
 ```
 
-`result.json` 至少记录 `caseId`、`status`、`startedAtMs`、`finishedAtMs`、`durationMs`、实际命令、Git commit/dirty 状态、断言和证据相对路径。读取 `data/game/` 的 Case 还必须在自己的日志中记录资源约束校验结果，但不得记录 ROM/BIOS bytes 或宿主绝对路径。所有时刻使用 Unix 毫秒整数。
+`result.json` 至少记录 `caseId`、`status`、`startedAtMs`、`finishedAtMs`、`durationMs`、实际命令、Git commit/dirty 状态、断言和证据相对路径。报告不得记录 ROM/BIOS bytes 或宿主绝对路径。所有时刻使用 Unix 毫秒整数。
 
 状态只有：
 
 - `PASS`：本 Case 全部步骤与标准满足；
 - `FAIL`：行为、命令、视觉或证据任一不满足；
-- `BLOCKED`：缺少明确外部前置条件，例如用户 ROM/BIOS 或 NG 验收地址；
+- `BLOCKED`：缺少明确外部前置条件，例如条件 Case 所需的 NG 验收地址；
 - `NOT_APPLICABLE`：仅允许标记带“条件 Case”的项目，并写明条件为什么不成立。
 
 Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验收。失败后重跑成功不能抹掉首次失败；报告必须保留缺陷与回归测试映射。
@@ -171,7 +170,7 @@ Required Case 出现 `BLOCKED`、缺失结果或超时都不能通过项目验�
 5. `ACC-PLAT-*`、`ACC-GAME-*`、`ACC-IMP-*`、`ACC-DAT-*`、`ACC-BIOS-*`、`ACC-PEG-*`、`ACC-MEDIA-*`：管理与入库；
 6. `ACC-RUN-*`、`ACC-SAVE-*`、`ACC-PLAY-*`：产品主路径；
 7. `ACC-MDISC-*`：多盘导入、协议、adapter、回归与隔离；
-8. `ACC-NP-*`：联机房间、真实双端运行、恢复、安全与单机回归；
+8. `ACC-NP-010`–`013`：联机协议、安全、feature flag 与单机回归；
 9. `ACC-UI-*`：信息架构、桌面/4K 和无障碍；
 10. `ACC-MOB-*`：移动响应式、管理流程、方向门禁和横屏 Player；
 11. 缺陷回归审计与最终报告。
@@ -583,9 +582,9 @@ make acceptance-case CASE=<case-id>
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-DAT-002`。
-- 流程：用确定性 Arcade DAT/ZIP 向量验证 core-scoped parent/BIOS 依赖闭包、补充内容和组装隔离；再用 `data/game/fbalpha2012_cps1/1941.zip` 与 `data/game/fbalpha2012_cps2/sgemf.zip` 走真实 DAT、导入、READY Variant 和 Launch 产品链路，并交换两个家族的 DAT。
-- 通过标准：Requirement、Parent 与 BIOS 不跨 CoreArtifact/DatVersion 串用；依赖组装只包含当前核心允许的 entry，缺项与错误 hash 阻断 READY。两个 FBA2012 家族均能用自己的真实 DAT 发布并创建 Launch，跨家族 DAT 必须拒绝。本 Case 不包含浏览器帧执行。
-- 证据：确定性依赖闭包集成测试，以及两个本机授权 FBA2012 资源的产品集成测试输出。
+- 流程：用确定性 Arcade DAT/ZIP 向量验证 core-scoped parent/BIOS 依赖闭包、补充内容和组装隔离，并交换两个核心的 DAT/依赖上下文。
+- 通过标准：Requirement、Parent 与 BIOS 不跨 CoreArtifact/DatVersion 串用；依赖组装只包含当前核心允许的 entry，缺项、错误 hash 与跨核心 DAT 必须拒绝。本 Case 不包含真实游戏导入、Launch 或浏览器帧执行。
+- 证据：确定性依赖闭包集成测试输出。
 
 ### ACC-BIOS-001：正确与错误 Hash 上传
 
@@ -804,7 +803,7 @@ make acceptance-case CASE=<case-id>
 
 核心运行兼容必须由实际 Retrom 产品链路证明，不能用直接加载 EmulatorJS 的独立页面形成验收 Case。当前覆盖范围、对应命令和未覆盖核心由 [`core-runtime-validation.md`](./core-runtime-validation.md) 维护；本验收目录只登记能够覆盖完整产品契约的 Case。
 
-`ACC-RUN-002` 与 `make web-e2e` 覆盖 mGBA 的真实浏览器产品链路，`ACC-NP-*` 覆盖 FCEUmm/FBNeo 的双端产品链路，FBA2012 两个核心由带 `localfixtures` tag 的真实 DAT/导入/Launch 集成测试覆盖。其余 enabled core 尚无真实浏览器产品 E2E，不得从 manifest、单元测试或相邻核心结果外推为已通过。
+`ACC-RUN-002` 与 `make web-e2e` 覆盖 mGBA 的真实浏览器产品链路。FCEUmm、FBNeo、FBA2012 与其余 enabled core 尚无真实 ROM 产品链路 E2E，不得从 manifest、协议、单元测试或相邻核心结果外推为已通过。
 
 ## 15. UI、4K 与无障碍
 
@@ -1023,69 +1022,7 @@ make acceptance-case CASE=<case-id>
 
 ## 19. 联机游玩
 
-`ACC-NP-001`–`009` 由 `scripts/acceptance/seed-netplay.py` 在启动浏览器前逐字节校验 `data/game/netplay/` 下的两个资源；缺失、大小或 SHA-256 不符直接 `FAIL`，不得换 ROM、跳过或使用 mock。`ACC-NP-010`–`013` 是不读取私有 ROM 的协议、安全、feature flag 与单机回归测试。真实双端 Case 使用两个或所需数量的独立 Chrome process，不得用同一 browser 的多个 context 代替。机器证据除第 3.3 节通用字段外，固定记录 browser/runtime/core/content/profile digest、参与者数、confirmed frame、rollback/resync/reconnect 计数、双端最终 core digest 和终因；敏感 cookie、能力值与宿主绝对路径不得进入证据。
-
-### ACC-NP-001：导航、搜索、分享与权限
-
-- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-001`。
-- 流程：房主建房；默认 SUPPORTED 下分别用标题 `F-1`、平台 `Arcade`、目录 `FBNeo 游戏` 和 core `FCEUmm` 搜索并验证平台/集合联动；另以 service 集成夹具证明名称、大小和 hash 均不同于代表 ROM 的 FCEUmm/FBNeo `SINGLE_FILE` READY revision 仍分别命中同一 core profile，而未开放 core、非允许 content kind、无 READY revision 和 stale dependency 继续阻断。切 ALL 后检查不可用 blocker 与 URL 恢复；分享无 token 的房间链接。两个账号分别使用独立 Chrome process 打开房间，P2 claim 后先 ready，P1 从其房间页看到更新并首次点击即 ready；P1 启动后两端各自自动进入 Player。故意延迟 P1 config，让 P2 独自在初始同步屏障中失焦 1.5 秒；放行 P1 后延迟 P2 的 `STATE_APPLIED`，在 transfer 尚未完成时断开 P2 socket 500ms 并等待原页重连。第三账号并发抢 P2，ADMIN 尝试旁路，全流程使用键盘重复。
-- 通过：导航按正式顺序出现；筛选、排序、URL 与 blocker 正确；产品准入不依赖逐 ROM 名称/大小/hash，仍精确限制 EmulatorJS/core artifact、content kind、READY revision 与依赖快照；匿名先登录；抢座稳定冲突；ADMIN 无额外权限；链接不含 capability/token；P1 首次 ready 不出现 `PRECONDITION_FAILED`，两端均在 STARTING 后自动进入各自不同且仅属于本人的 Launch URL；P2 在同步前失焦后仍停留 Player、没有 `NETPLAY_PROFILE_STALE`；初始 transfer 断线后 P2 在同一 Launch URL 建立第二条连接、重新加载状态且不结束 Launch，随后双方进入 RUNNING；键盘焦点与弹层闭环。
-- 证据：两个独立 Chrome process 的 PID、两账号 route/DOM/network、ready 状态传播、两端 Launch path、同步前失焦保活、初始 transfer 重连次数与两次 state load、冲突错误码、URL、焦点 trace 和 1280 截图。
-
-### ACC-NP-002：Start barrier 与准备失败回滚
-
-- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-002`。
-- 流程：P1/P2 ready 后人为令 P2 Launch 预检失败，再修复输入并重开。
-- 通过：失败局无人进入 RUNNING，Session=`PREPARE_FAILED`，已创建 Launch 全部 REVOKED，Room 回 WAITING 且 ready 清零；新局两端各自仅得到自己的 launch/cookie。
-- 证据：Room/Session/Participant/Launch 状态、两端响应与无部分启动断言。
-
-### ACC-NP-003：FCEUmm 双端基线
-
-- 上限：240 秒。执行：`make acceptance-case CASE=ACC-NP-003`。
-- 流程：`fceumm-423-v1` 使用代表性 F-1 Race 夹具，两端先形成不同初始 state，再由 P1 同步；双方均贡献输入并运行至少 3000 个 confirmed frame，不注入网络故障。
-- 通过：native load 改变 P2 core；最终连续三个 checkpoint core digest 双端一致且不同于 neutral baseline；无非预期 resync/终局。
-- 证据：双进程 PID、初始/加载后 digest、frame/input/checkpoint 计数、最终截图和机器 JSON。
-
-### ACC-NP-004：FBNeo 双端基线
-
-- 上限：240 秒。执行：`make acceptance-case CASE=ACC-NP-004`。
-- 流程与标准：对 `fbneo-423-v1` 使用代表性 Lode Runner 夹具重复 `ACC-NP-003` 全部流程；运行 logical basename 必须仍为 `ldrun.zip`。
-- 证据：除 `ACC-NP-003` 字段外记录 basename 与 content digest。
-
-### ACC-NP-005：100ms rollback 与最终收敛
-
-- 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-005`。
-- 流程：两个首发 core profile 分别施加确定性 100ms RTT、±20ms jitter，并每 300 帧延后一次 INPUT，但不破坏 WebSocket。
-- 通过：FCEUmm 至少一次 rollback、预测不超过 8 帧且单次回滚不超过 120 帧；FBNeo 严格 lockstep 的 prediction 与 rollback 均为 0；两个 profile 在 3000 confirmed frame 后连续三个 checkpoint 均收敛。
-- 证据：确定性延迟 seed、每个 profile 的 rollback 深度直方与最大 prediction、三次最终 digest。
-
-### ACC-NP-006：断线原座恢复
-
-- 上限：180 秒。执行：`make acceptance-case CASE=ACC-NP-006`。
-- 流程：confirmed frame≥600 后断开 P2 socket 5 秒，再以原 AuthSession/cookie 恢复。
-- 通过：两端在边界暂停；P2 保留原座；history replay、authority state 与新 epoch 完成后继续；Participant/Launch/PlaySession 各只有一套，暂停区间计时为零。
-- 证据：断线/恢复时 frame、epoch、history range、行数和 PlaySession 时长断言。
-
-### ACC-NP-007：访客超时与房主丢失
-
-- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-007`。
-- 流程：用 fake clock 令 P2 租约超过 10 秒；随后新局令 P1 租约超过 10 秒。
-- 通过：访客局以 `PEER_TIMEOUT` 收口、P2 释放、Room WAITING；房主局以 `HOST_LOST` 使 Room ENDED；旧 cookie/socket 均不可复用。
-- 证据：fake clock advance、终因、Room/成员/credential 状态和重放拒绝。
-
-### ACC-NP-008：desync 修复上限
-
-- 上限：180 秒。执行：`make acceptance-case CASE=ACC-NP-008`。
-- 流程：测试构建连续破坏 P2 `MEM ` digest；每次记录 state transfer 和 recapture。
-- 通过：60 秒窗口内前三次 mismatch 均执行真实 native load、recapture 并恢复一致；第四次以 `NETPLAY_UNSTABLE` 终局，之后不再推进也不生成存档。
-- 证据：四次 mismatch/resync 序列、native completion、recapture digest、终局与零存档断言。
-
-### ACC-NP-009：存档与内容授权隔离
-
-- 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-009`。
-- 流程：两账号预置不同 PersistentSave 后联机；探测全部 save route，并交叉组合 room/launch/cookie/profile 访问运行内容。
-- 通过：两端从干净状态开始且结束后原 save bytes/version 不变；save route 全为 `409 NETPLAY_SAVE_UNSUPPORTED`；任何交叉组合不能读取内容。
-- 证据：前后 save digest/version、route 矩阵、跨主体状态与零联机 SaveState。
+本节只维护不需要 ROM 的协议、安全、feature flag 与单机回归 Case `ACC-NP-010`–`013`。当前没有 FCEUmm/FBNeo 的合法公开联机 ROM fixture，因此不维护真实双端核心执行、confirmed frame、rollback 或 digest 收敛 Case，也不得从本节结果宣称两个 core profile 的真实游戏兼容性已通过。机器证据除第 3.3 节通用字段外，记录适用的协议/profile digest、参与者数、拒绝原因、资源计数与终因；敏感 cookie、能力值与宿主绝对路径不得进入证据。
 
 ### ACC-NP-010：协议与安全负向
 
@@ -1152,12 +1089,12 @@ make acceptance-case CASE=<case-id>
 - 通过标准：portrait 可读/校验 config，但不存在 iframe、core/game/persistent/disc 大字节请求和 PlaySession start；方向稳定 250ms 后只装载一次。运行中竖屏释放输入并暂停，回横屏仅恢复方向门禁拥有的暂停，hidden 优先；退出先 unlock 再按 `returnTo` finish/revoke，Launch/Core/PlaySession 不重建。
 - 证据：network/state/clock trace、pause ownership 断言、portrait 阻断和 landscape HUD 截图。
 
-### ACC-MOB-006：Player 多盘与联机
+### ACC-MOB-006：Player 多盘与联机状态
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-006`。
-- 流程：在 `568×320`、`667×375`、`844×390`、`932×430` 检查 HUD、More 与光盘 Sheet并完成一次换盘；用两个独立 Chrome process 分别以 P1/P2 运行首发 exact profile，旋转两端并操作虚拟/物理控制。
-- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为联机状态、光盘、存档且 overflow 不丢动作；Sheet 不把 pointer/input 泄漏给 iframe。P1 承担全局 pause/resume，P2 只清本地输入并等待；光盘状态、canonical frame、digest 和联机原契约保持一致。
-- 证据：四 viewport 尺寸/命中断言、真实画面、network/telemetry 与双进程 pause/input/digest 记录。
+- 流程：在 `568×320`、`667×375`、`844×390`、`932×430` 检查 HUD、More 与光盘 Sheet并用确定性多盘夹具完成一次换盘；以聚焦 Player reducer/adapter 与房间组件测试分别驱动 P1/P2 的方向门禁、暂停和本地输入状态。
+- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为联机状态、光盘、存档且 overflow 不丢动作；Sheet 不把 pointer/input 泄漏给 iframe。P1 承担全局 pause/resume，P2 只清本地输入并等待，状态转换与联机协议契约一致。本 Case 不证明真实双端核心执行、canonical frame 或 digest 收敛。
+- 证据：四 viewport 尺寸/命中断言、DOM/network trace 与 P1/P2 pause/input 状态测试输出。
 
 ### ACC-MOB-007：可访问性与视觉回归
 
@@ -1187,7 +1124,7 @@ make acceptance-case CASE=<case-id>
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 当前明确登记的产品 E2E 与产品集成测试全部通过；[`core-runtime-validation.md`](./core-runtime-validation.md) 中未覆盖核心和 Saturn 真实浏览器运行缺口已如实列入最终报告，不得表述为已验证；
-- `ACC-NP-001`–`013` 全部通过，两个首发 core profile 均生成当次双 Chrome process 的 3000 confirmed frame 和连续三个 checkpoint 收敛证据；
+- `ACC-NP-010`–`013` 全部通过；FCEUmm/FBNeo 缺少真实双端 ROM 产品链路基线的范围已如实列入最终报告，不得表述为兼容性已验证；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -1209,12 +1146,12 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | BIOS、服务器导入与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`007` |
 | Pegasus 目录导入与游戏视频 | `ACC-PEG-001`–`005`、`ACC-MEDIA-001` |
 | 启动、存档与游玩时长 | `ACC-RUN-001`–`005`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
-| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`ACC-NP-001`–`009`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
+| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
 | 移动 App Shell、响应式页面与横屏 Player | `ACC-MOB-001`–`007` |
 | 收藏与收藏夹 | `ACC-FAV-001`–`004` |
 | 游戏标签 | `ACC-TAG-001`–`005` |
-| 联机房间、双端运行、恢复与隔离 | `ACC-NP-001`–`013` |
+| 联机协议、安全、feature flag 与单机回归 | `ACC-NP-010`–`013` |
 
 本文列出的范围不包含 soak、压力或性能基准；未来若需要性能专项，应另建不阻塞一期功能验收的测试计划，不能把长时间运行 Case 混入本文。
