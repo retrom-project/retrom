@@ -147,37 +147,37 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 范围：先同步正式契约与 OpenAPI，再落 Migration 026、root 配置和 no-follow 浏览、`ServerImport` 聚合、`SERVER_BIOS_IMPORT` Worker、STATIC/DAT 候选排序与防降级安装；最后接通 `/admin/imports/server`、任务详情、候选解释和 BIOS FULL_CATALOG cursor 分页。发现阶段必须完整闭合且命中扫描门禁时零安装；逐项 Installation、Item 结果和 JobEvent 同事务提交；重启恢复不得重复 revision，restore 必须终止外部 source 任务。
 
-退出门禁：`ACC-BIOS-003`–`007`，并回归 `ACC-BIOS-001/002`、`ACC-SEC-001`、`ACC-BKP-001`；运行 `make api-check`、`make ci`、`make web-e2e`、全量核心 smoke。026 的受支持升级路径和全新库 schema 必须同构；正式 UI 源、导出稿和 1280/2560/4K 快照同步后才可删除临时设计目录。
+退出门禁：`ACC-BIOS-003`–`007`，并回归 `ACC-BIOS-001/002`、`ACC-SEC-001`、`ACC-BKP-001`；运行 `make api-check`、`make ci`、`make web-e2e`、全量核心 smoke。026 的受支持升级路径和全新库 schema 必须同构；正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
 
 ### M11：Pegasus 游戏目录与视频垂直切片
 
 范围：先同步正式契约与 OpenAPI，再落 Migration 028–030、Pegasus 文本 parser、外部目录安全 scanner、显式 Collection→游戏平台目录映射、异步 scan/import Worker、既有 library import/validation/review/publish 复用、重复内容投影、M3U+CHD 与 Arcade companion 装配。Worker 只复制、验证并生成普通审核事项；Game 只由后续普通 Approve 事务创建，Discard 保留审计。前端在服务器导入页接通等权能力卡、三步 Drawer、可恢复进度、批次限定审核入口和详情筛选；游戏媒体增加 MP4/WebM VIDEO revision，详情 Hero 使用受可见性、页面前台、播放失败、用户暂停与 reduced-motion 约束的渐进播放。后续 Migration 037 允许统一待审核页把其中严格 READY 的无重复项交给快速审批，但不改变 Pegasus Worker 的零 Game 边界。
 
-退出门禁：完整执行 `ACC-PEG-001`–`005`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。030 的 029 升级路径、035 的 034 升级路径和全新库 schema 必须同构，并证明审核前零 Game、Approve/Discard 原子联动、Pegasus Parent 后继快照可发布及交接崩溃恢复不重复内部 ImportItem；使用授权本地 Pegasus 样例完成隔离服务实测，正式 UI 源、导出稿和 1280/2560/4K 快照同步后才可删除临时设计目录。
+退出门禁：完整执行 `ACC-PEG-001`–`005`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。030 的 029 升级路径、035 的 034 升级路径和全新库 schema 必须同构，并证明审核前零 Game、Approve/Discard 原子联动、Pegasus Parent 后继快照可发布及交接崩溃恢复不重复内部 ImportItem；使用授权本地 Pegasus 样例完成隔离服务实测，正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
 
 ### M12：受限异地联机垂直切片
 
 范围：先锁定 `data/netplay/v1` schema/manifest、4.2.3 Player/netplay adapter 映射与 FCEUmm/FBNeo 两个 core profile；再落 Migration 032、独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；最后接通 `/netplay`、房间 UI 与 Player 的 discriminated netplay mode。profile 按精确 EmulatorJS/core artifact 放开合格 READY 游戏，不建立逐 ROM 产品白名单。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面；普通 Launch、存档和未启用 flag 的路由必须回归不变。当前没有合法公开的 FCEUmm/FBNeo 联机 ROM fixture，真实双端核心执行另列为未覆盖边界。
 
-退出门禁：完整执行 `ACC-NP-010`–`013`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e` 和 `make build-images`；032 的 031 升级路径、全新库、正式 UI 源及导出快照全部闭环后才可删除临时设计目录。FCEUmm/FBNeo 当前没有真实双端 ROM 产品链路兼容基线，不能把协议与界面测试解释为核心运行通过。
+退出门禁：完整执行 `ACC-NP-010`–`013`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e` 和 `make build-images`；032 的 031 升级路径、全新库、正式 UI 源、导出 HTML 与当次本地视觉复核全部闭环后才可删除临时设计目录，本地图片不得提交。FCEUmm/FBNeo 当前没有真实双端 ROM 产品链路兼容基线，不能把协议与界面测试解释为核心运行通过。
 
 ### M13：移动响应式与横屏 Player
 
 范围：在不改变 API、DTO、权限或数据语义的前提下，把公开入口、用户侧和管理侧普通页面覆盖到 `320px`；手机使用 App Bar、五项底栏和 Sheet，平板使用 Drawer，桌面保持既有侧栏/共享画布。宽表在手机转为同字段/同操作卡片，审核详情提供四步锚点。移动或 coarse-pointer Player 先读并校验 config，竖屏期间阻断 iframe、大字节内容与 PlaySession，横屏稳定 250ms 后才装载；运行中按单机/P1/P2 精确释放输入和暂停，横屏 HUD/Sheet 计入 safe area。
 
-退出门禁：完整执行 `ACC-MOB-001`–`007`，回归 `ACC-UI-001`–`010`、`ACC-RUN-001/002/003`、`ACC-MDISC-005/006/007` 与 `ACC-NP-013`；运行前端五门禁、`make web-e2e` 和 `make ci`。正式 UI 源、导出评审稿、固定移动/横屏快照和专题文档同步后才可删除临时设计目录。
+退出门禁：完整执行 `ACC-MOB-001`–`007`，回归 `ACC-UI-001`–`010`、`ACC-RUN-001/002/003`、`ACC-MDISC-005/006/007` 与 `ACC-NP-013`；运行前端五门禁、`make web-e2e` 和 `make ci`。正式 UI 源、导出评审 HTML、固定移动/横屏的当次本地视觉复核和专题文档同步后才可删除临时设计目录，本地图片不得提交。
 
 ### M14：游戏标签垂直切片
 
 范围：先同步 [标签领域契约](./game-tags.md) 与 OpenAPI，再落 Migration 034、`internal/tagging`、管理员 CRUD/usage、GameTag 集合替换、SQL 分页前的 `q/tagId` 搜索和批量 DTO 投影；随后把 `tagIds` 配置快照接入普通 import/reconfigure、ReviewDraft 自动保存与 Approve 原子发布、Pegasus Collection mapping/handoff/retry；最后接通 `/admin/tags`、共享 TagPicker、游戏库/详情、收藏/最近/存档/联机与管理入口。
 
-退出门禁：完整执行 `ACC-TAG-001`–`005`，运行 `make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、前端五门禁、`make api-check`、`make web-e2e` 与 `make ci`。034 的 033 升级和全新库必须通过完整性检查；正式 UI 源、导出稿、标签桌面/移动/Drawer 快照与受影响快照同步，且本地 `make dev` 的 CRUD→导入/审核→发布→搜索主链实际通过后，才可删除临时设计目录。标签不进入模拟器执行路径，因此本里程碑不运行 core smoke 或依赖/fixture 基线检查。
+退出门禁：完整执行 `ACC-TAG-001`–`005`，运行 `make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、前端五门禁、`make api-check`、`make web-e2e` 与 `make ci`。034 的 033 升级和全新库必须通过完整性检查；正式 UI 源、导出 HTML、标签桌面/移动/Drawer 与受影响页面的当次本地视觉复核闭环，且本地 `make dev` 的 CRUD→导入/审核→发布→搜索主链实际通过后，才可删除临时设计目录。本地图片不得提交；标签不进入模拟器执行路径，因此本里程碑不运行 core smoke 或依赖/fixture 基线检查。
 
 ### M15：严格 READY 快速审批垂直切片
 
 范围：先同步审核、数据、HTTP、UI、质量和验收契约与 OpenAPI，再落 Migration 037、`review_bulk_approvals/items`、`REVIEW_BULK_APPROVE` Worker 和 restore fence；复用普通 Approve 服务并把每项发布与批次结果原子提交。前端在统一待审核页接通当前筛选预览、确认、可恢复进度、取消/worker retry 和结果链接；截图人工放行、重复内容、活动补传和漂移输入继续逐项处理。
 
-退出门禁：完整执行 `ACC-IMP-009`、`ACC-UI-010`，回归 `ACC-IMP-004/007/008`、`ACC-PEG-003/004`、`ACC-TAG-003/004` 与 `ACC-BKP-001`；运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e` 与 `make ci`。036→037、fresh schema、restore、取消竞争和每项发布原子性必须有确定性证据；正式 UI 源、导出稿和待审核桌面/移动快照同步后才可删除临时设计目录。本切片不进入模拟器执行路径，不运行 core smoke 或依赖/fixture 基线检查。
+退出门禁：完整执行 `ACC-IMP-009`、`ACC-UI-010`，回归 `ACC-IMP-004/007/008`、`ACC-PEG-003/004`、`ACC-TAG-003/004` 与 `ACC-BKP-001`；运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e` 与 `make ci`。036→037、fresh schema、restore、取消竞争和每项发布原子性必须有确定性证据；正式 UI 源、导出 HTML 和待审核桌面/移动的当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。本切片不进入模拟器执行路径，不运行 core smoke 或依赖/fixture 基线检查。
 
 ## 5. 垂直切片提交规则
 

@@ -1,7 +1,12 @@
-*.png
-!retrom-ui-admin-tags-4k.png
-!retrom-ui-admin-tags-mobile.png
-!retrom-ui-admin-tag-drawer.png
-!retrom-ui-admin-review-bulk-approval-4k.png
-!retrom-ui-admin-review-bulk-progress-4k.png
-!retrom-ui-admin-review-bulk-cancel-4k.png
+# Design captures are generated locally for review and are never committed.
+*.[Pp][Nn][Gg]
+*.[Jj][Pp][Gg]
+*.[Jj][Pp][Ee][Gg]
+*.[Ww][Ee][Bb][Pp]
+*.[Gg][Ii][Ff]
+*.[Aa][Vv][Ii][Ff]
+*.[Bb][Mm][Pp]
+*.[Tt][Ii][Ff]
+*.[Tt][Ii][Ff][Ff]
+*.[Ii][Cc][Oo]
+*.[Ss][Vv][Gg]

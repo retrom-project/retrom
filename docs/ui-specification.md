@@ -13,79 +13,13 @@
 
 账户入口、账户设置、用户管理、服务器 BIOS/Pegasus 导入与游戏详情视频已经合入同一设计源和交互稿；评审稿右上角的“评审场景”可在认证、用户侧与管理后台之间切换，不再维护平行的专题设计稿。
 
-静态评审快照：
-
-- [首页 · 3840×2160](./design/retrom-ui-home-4k.png)
-- [游戏库 · 3840×2160](./design/retrom-ui-library-4k.png)
-- [游戏详情 · 2560×1440](./design/retrom-ui-game-detail.png)
-- [游戏详情 · 非默认核心对话框 · 2560×1440](./design/retrom-ui-game-detail-core-override.png)
-- [我的存档 · 2560×1440](./design/retrom-ui-saves.png)
-- [最近游玩 · 3840×2160](./design/retrom-ui-recent-4k.png)
-- [联机首页 · 2560×1440](./design/retrom-ui-netplay.png)
-- [联机房间 · 房主等待 · 2560×1440](./design/retrom-ui-netplay-room.png)
-- [联机 Player · 2560×1440](./design/retrom-ui-netplay-player.png)
-- [首次设置 · 1280×800](./design/retrom-ui-setup.png)
-- [登录 · 1280×800](./design/retrom-ui-login.png)
-- [邀请注册 · 1280×800](./design/retrom-ui-register.png)
-- [密码重置 · 1280×800](./design/retrom-ui-reset-password.png)
-- [账户设置 · 2560×1440](./design/retrom-ui-account.png)
-- [用户管理 · 3840×2160](./design/retrom-ui-admin-users-4k.png)
-- [管理用户 Drawer · 2560×1440](./design/retrom-ui-admin-user-drawer.png)
-- [一次性邀请结果 · 2560×1440](./design/retrom-ui-admin-invitation-result.png)
-- [自动启动 Player Shell · 2560×1440](./design/retrom-ui-play.png)
-- [竖屏 Player Shell · 2560×1440](./design/retrom-ui-play-portrait.png)
-- [自动启动 Player Shell · 3840×2160](./design/retrom-ui-play-4k.png)
-- [Player 自绘模拟器工具栏 · 2560×1440](./design/retrom-ui-play-emulator-controls.png)
-- [Player 调试信息面板 · 2560×1440](./design/retrom-ui-play-debug.png)
-- [游戏入库总览 · 3840×2160](./design/retrom-ui-admin-import-overview-4k.png)
-- [导入游戏 · 2560×1440](./design/retrom-ui-admin-import.png)
-- [导入游戏 · 3840×2160](./design/retrom-ui-admin-import-new-4k.png)
-- [任务进度 · 3840×2160](./design/retrom-ui-admin-import-tasks-4k.png)
-- [待审核列表 · 3840×2160](./design/retrom-ui-admin-review-4k.png)
-- [快速审批影响预览 / 运行进度 / 停止确认 · 3840×2160](./design/retrom-ui-admin-review-bulk-approval-4k.png)、[进度状态](./design/retrom-ui-admin-review-bulk-progress-4k.png)、[停止确认](./design/retrom-ui-admin-review-bulk-cancel-4k.png)
-- [审核详情 · 3840×2160](./design/retrom-ui-admin-review-detail-4k.png)
-- [上传全部缺失光盘 Drawer · 3840×2160](./design/retrom-ui-admin-review-attachment-4k.png)
-- [补盘校验中 · 3840×2160](./design/retrom-ui-admin-review-validating-4k.png)
-- [多盘内容已就绪 · 3840×2160](./design/retrom-ui-admin-review-ready-4k.png)
-- [依赖阻断截图人工放行 · 3840×2160](./design/retrom-ui-admin-review-override-4k.png)
-- [重新查询信息对比 · 3840×2160](./design/retrom-ui-admin-review-compare-4k.png)
-- [审核历史 · 3840×2160](./design/retrom-ui-admin-review-history-4k.png)
-- [审核元信息快照 · 3840×2160](./design/retrom-ui-admin-review-history-detail-4k.png)
-- [游戏管理 · 3840×2160](./design/retrom-ui-admin-games-4k.png)
-- [游戏管理详情 · 3840×2160](./design/retrom-ui-admin-game-detail-4k.png)
-- [标签管理 · 3840×2160](./design/retrom-ui-admin-tags-4k.png)
-- [标签管理 · 390×844](./design/retrom-ui-admin-tags-mobile.png)
-- [新建标签 Drawer · 1280×800](./design/retrom-ui-admin-tag-drawer.png)
-- [游戏目录 · 3840×2160](./design/retrom-ui-platform-directories.png)
-- [新建游戏目录 Drawer · 2560×1440](./design/retrom-ui-platform-directory-create.png)
-- [统一影响确认对话框 · 2560×1440](./design/retrom-ui-confirm-dialog.png)
-- [BIOS 文件 · 2560×1440](./design/retrom-ui-bios-files.png)
-- [Arcade BIOS 条目对比 · 2560×1440](./design/retrom-ui-bios-entry-compare.png)
-- [服务器 BIOS 导入 · 2560×1440](./design/retrom-ui-server-import.png)
-- [服务器 BIOS 导入 Drawer · 1280×800](./design/retrom-ui-server-import-drawer.png)
-- [服务器 BIOS 导入详情 · 3840×2160](./design/retrom-ui-server-import-detail-4k.png)
-- [服务器导入双能力总览 · 2560×1440](./design/retrom-ui-pegasus-import.png)
-- [Pegasus 扫描 Drawer · 1280×800](./design/retrom-ui-pegasus-import-drawer.png)
-- [Pegasus 导入详情 · 3840×2160](./design/retrom-ui-pegasus-import-detail-4k.png)
-- [街机数据目录 · 2560×1440](./design/retrom-ui-dat-versions.png)
-- [上传街机数据目录 Drawer · 2560×1440](./design/retrom-ui-dat-upload.png)
-- [DAT 差异与运行影响 · 2560×1440](./design/retrom-ui-dat-diff.png)
-- [手机首页 · 390×844](./design/retrom-ui-home-mobile.png)
-- [手机游戏库 · 390×844](./design/retrom-ui-library-mobile.png)
-- [手机游戏详情 · 390×844](./design/retrom-ui-game-detail-mobile.png)
-- [手机我的存档 · 390×844](./design/retrom-ui-saves-mobile.png)
-- [手机我的收藏 · 390×844](./design/retrom-ui-favorites-mobile.png)
-- [手机联机房间 · 390×844](./design/retrom-ui-netplay-room-mobile.png)
-- [手机待审核 · 390×844](./design/retrom-ui-admin-review-mobile.png)
-- [手机审核详情 · 390×844](./design/retrom-ui-admin-review-detail-mobile.png)
-- [手机 Player 竖屏阻断 · 390×844](./design/retrom-ui-play-portrait-mobile.png)
-- [手机 Player 横屏 HUD · 844×390](./design/retrom-ui-play-landscape-mobile.png)
+固定 viewport 和页面状态由本文契约及 `web/scripts/capture-ui-design.mjs` 的登记共同维护。该脚本仍可在本地生成静态评审图片，但图片由 `docs/design/.gitignore` 忽略，不提交 Git，也不作为本文链接或事实源。
 
 设计稿是已审定的页面结构、视觉语义和主流程基线，不代表最终封面素材，也不是可复制进产品的 HTML/安全配置。评审导出为了独立打开可加载外部图标脚本并使用宽松 sandbox CSP；正式 Next.js/Player 实现绝不能沿用这些 CDN、inline script 或 CSP，必须遵循 [HTTP API 契约](./http-api-contract.md#2-认证授权与同源写入) 的 nonce/CSP 策略。稿内示例标题、数量和日期只是视觉内容，不是数据库 seed 或 API fixture。
 
-本文负责完整状态和尺寸契约；静态图未展示的错误/空状态以本文为准。实现若改变导航层级、直接启动行为、阻断状态或审核流程，应先更新本文档和设计稿源文件，再重新生成 HTML/快照。
+本文负责完整状态和尺寸契约；本地评审图片未展示的错误/空状态仍以本文为准。实现若改变导航层级、直接启动行为、阻断状态或审核流程，应先更新本文档和设计稿源文件，再重新生成 HTML；需要视觉复核时可在本地重新生成图片。
 
-设计源 `design/retrom-ui-review.fragment.html` 是唯一可编辑稿；在 `web/` 依次运行 `node scripts/export-ui-review.mjs` 与 `node scripts/capture-ui-design.mjs`，可重新生成评审 HTML 并按上述固定视口导出全部静态快照；只需更新部分页面时，可把一个或多个已登记 PNG 文件名作为 capture 脚本参数。不得只手工修改生成 HTML 或 PNG。
+设计源 `design/retrom-ui-review.fragment.html` 是唯一可编辑稿；在 `web/` 运行 `node scripts/export-ui-review.mjs` 重新生成评审 HTML，运行 `node scripts/capture-ui-design.mjs` 可按登记的固定 viewport 生成本地评审图片；只需复核部分页面时，可把一个或多个已登记输出文件名作为 capture 脚本参数。不得手工修改生成 HTML；本地图片不进入 Git。
 
 ## 2. 信息架构
 
@@ -345,7 +279,7 @@ URL 状态为：
 
 1280×800 至 4K 不得出现页面横向溢出。1280–1599 的收藏 Rail 为 210px；1600–2599 为 220–250px；2600+ 为 250px，正文至少 16px、辅助文字至少 12px、按钮和输入至少 42px。所有爱心、关闭、更多和选择按钮都要有上下文名称；checkbox 使用原生控件，批量栏/toast 使用 `aria-live=polite`，错误使用 alert。Folder 管理使用不带 `aria-modal` 的非模态 `dialog`，打开时焦点进入但不圈定 Tab，Escape 或离开弹层关闭并返回触发器；创建/重命名使用模态 `dialog`，删除 Folder/取消收藏使用模态 `alertdialog`，后两者圈定焦点。所有弹层关闭时不提交未确认内容，并支持 `prefers-reduced-motion` 和非颜色单一语义。
 
-可维护设计源为 [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)，生成评审页为 [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)，收藏主页面、Folder 管理与取消收藏确认快照分别为 [`design/retrom-ui-favorites.png`](./design/retrom-ui-favorites.png)、[`design/retrom-ui-favorites-folder-manager.png`](./design/retrom-ui-favorites-folder-manager.png) 和 [`design/retrom-ui-favorites-unfavorite-dialog.png`](./design/retrom-ui-favorites-unfavorite-dialog.png)。设计中的图片、标题和数量仅用于评审，不进入生产 seed、fixture 或默认值。
+可维护设计源为 [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)，生成评审页为 [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)。收藏主页面、Folder 管理与取消收藏确认仍可由 capture 脚本在本地生成图片复核，但图片不提交、不被正式文档引用；稿内标题、封面和数量也不进入生产 seed、fixture 或默认值。
 
 ### 6.5 我的存档
 

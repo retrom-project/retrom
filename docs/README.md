@@ -51,48 +51,8 @@ Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft
 ## UI 评审
 
 - [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)：包含认证、账户、用户管理、收藏、其他用户侧页面、管理后台和移动 Player 的统一可交互响应式 UI 评审稿。
-- [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)：可交互评审稿的可维护源文件；修改页面结构时先更新此文件，再重新导出 HTML 与快照。
-- [`design/retrom-ui-library-4k.png`](./design/retrom-ui-library-4k.png)：4K 游戏库。
-- [`design/retrom-ui-game-detail.png`](./design/retrom-ui-game-detail.png)：从游戏库卡片进入的游戏详情。
-- [`design/retrom-ui-saves.png`](./design/retrom-ui-saves.png)：存档列表与直接继续入口。
-- [`design/retrom-ui-favorites.png`](./design/retrom-ui-favorites.png)：收藏页、左侧 Rail、筛选与卡片布局。
-- [`design/retrom-ui-favorites-folder-manager.png`](./design/retrom-ui-favorites-folder-manager.png)：单游戏 Folder 管理的稳定宽版弹层。
-- [`design/retrom-ui-favorites-unfavorite-dialog.png`](./design/retrom-ui-favorites-unfavorite-dialog.png)：取消收藏的宽版影响确认框。
-- [`design/retrom-ui-recent-4k.png`](./design/retrom-ui-recent-4k.png)：4K 最近游玩列表。
-- [`design/retrom-ui-setup.png`](./design/retrom-ui-setup.png)、[`design/retrom-ui-login.png`](./design/retrom-ui-login.png)、[`design/retrom-ui-register.png`](./design/retrom-ui-register.png)、[`design/retrom-ui-reset-password.png`](./design/retrom-ui-reset-password.png)：账户公开入口的 1280×800 最小桌面快照。
-- [`design/retrom-ui-account.png`](./design/retrom-ui-account.png)：账户设置。
-- [`design/retrom-ui-admin-users-4k.png`](./design/retrom-ui-admin-users-4k.png)、[`design/retrom-ui-admin-user-drawer.png`](./design/retrom-ui-admin-user-drawer.png)、[`design/retrom-ui-admin-invitation-result.png`](./design/retrom-ui-admin-invitation-result.png)：用户管理、管理 Drawer 与一次性链接结果。
-- [`design/retrom-ui-play.png`](./design/retrom-ui-play.png)：点击后自动启动的全屏 Player Shell。
-- [`design/retrom-ui-play-portrait.png`](./design/retrom-ui-play-portrait.png)：竖屏内容按可用高度铺满的 Player Shell。
-- [`design/retrom-ui-play-4k.png`](./design/retrom-ui-play-4k.png)：4K 下按视口高度放大的 Player Shell。
-- [`design/retrom-ui-play-emulator-controls.png`](./design/retrom-ui-play-emulator-controls.png)：点击“模拟器设置”后出现的 Retrom 自绘工具栏。
-- [`design/retrom-ui-play-debug.png`](./design/retrom-ui-play-debug.png)：Player 右侧实时调试信息面板。
-- [`design/retrom-ui-home-mobile.png`](./design/retrom-ui-home-mobile.png)、[`design/retrom-ui-library-mobile.png`](./design/retrom-ui-library-mobile.png)、[`design/retrom-ui-game-detail-mobile.png`](./design/retrom-ui-game-detail-mobile.png)、[`design/retrom-ui-saves-mobile.png`](./design/retrom-ui-saves-mobile.png)、[`design/retrom-ui-favorites-mobile.png`](./design/retrom-ui-favorites-mobile.png)、[`design/retrom-ui-netplay-room-mobile.png`](./design/retrom-ui-netplay-room-mobile.png)：390×844 用户侧响应式基线。
-- [`design/retrom-ui-admin-review-mobile.png`](./design/retrom-ui-admin-review-mobile.png)、[`design/retrom-ui-admin-review-detail-mobile.png`](./design/retrom-ui-admin-review-detail-mobile.png)：390×844 管理审核列表与四步详情基线。
-- [`design/retrom-ui-play-portrait-mobile.png`](./design/retrom-ui-play-portrait-mobile.png)、[`design/retrom-ui-play-landscape-mobile.png`](./design/retrom-ui-play-landscape-mobile.png)：390×844 竖屏方向门禁与 844×390 横屏 Player HUD 基线。
-- [`design/retrom-ui-admin-import-overview-4k.png`](./design/retrom-ui-admin-import-overview-4k.png)：4K 游戏入库父级总览。
-- [`design/retrom-ui-admin-import.png`](./design/retrom-ui-admin-import.png)：2560×1440 文件/目录导入与配置快照。
-- [`design/retrom-ui-admin-import-new-4k.png`](./design/retrom-ui-admin-import-new-4k.png)：4K 文件/目录导入与配置快照。
-- [`design/retrom-ui-admin-import-tasks-4k.png`](./design/retrom-ui-admin-import-tasks-4k.png)：4K ImportJob 运行态与异常处置。
-- [`design/retrom-ui-admin-review-4k.png`](./design/retrom-ui-admin-review-4k.png)：4K 待审核列表及封面、文件摘要。
-- [`design/retrom-ui-admin-review-bulk-approval-4k.png`](./design/retrom-ui-admin-review-bulk-approval-4k.png)、[`design/retrom-ui-admin-review-bulk-progress-4k.png`](./design/retrom-ui-admin-review-bulk-progress-4k.png)：4K 快速审批影响预览与可恢复进度。
-- [`design/retrom-ui-admin-review-detail-4k.png`](./design/retrom-ui-admin-review-detail-4k.png)：4K 审核详情合并工作台。
-- [`design/retrom-ui-admin-review-attachment-4k.png`](./design/retrom-ui-admin-review-attachment-4k.png)：4K 缺失光盘完整集合上传 Drawer。
-- [`design/retrom-ui-admin-review-validating-4k.png`](./design/retrom-ui-admin-review-validating-4k.png)：4K 补盘上传后的服务端校验中状态。
-- [`design/retrom-ui-admin-review-ready-4k.png`](./design/retrom-ui-admin-review-ready-4k.png)：4K 多盘内容补齐并恢复发布能力的状态。
-- [`design/retrom-ui-admin-review-compare-4k.png`](./design/retrom-ui-admin-review-compare-4k.png)：4K 最新刮削结果对比窗。
-- [`design/retrom-ui-admin-review-history-4k.png`](./design/retrom-ui-admin-review-history-4k.png)：4K 不可变审核历史列表。
-- [`design/retrom-ui-admin-review-history-detail-4k.png`](./design/retrom-ui-admin-review-history-detail-4k.png)：4K 审核完成瞬间的元信息快照。
-- [`design/retrom-ui-admin-games-4k.png`](./design/retrom-ui-admin-games-4k.png)：4K 游戏管理列表。
-- [`design/retrom-ui-admin-game-detail-4k.png`](./design/retrom-ui-admin-game-detail-4k.png)：4K 游戏管理详情的四区版本化工作台。
-- [`design/retrom-ui-admin-tags-4k.png`](./design/retrom-ui-admin-tags-4k.png)、[`design/retrom-ui-admin-tags-mobile.png`](./design/retrom-ui-admin-tags-mobile.png)、[`design/retrom-ui-admin-tag-drawer.png`](./design/retrom-ui-admin-tag-drawer.png)：标签管理桌面/移动基线与创建 Drawer。
-- [`design/retrom-ui-platform-directories.png`](./design/retrom-ui-platform-directories.png)：4K 游戏目录管理列表。
-- [`design/retrom-ui-platform-directory-create.png`](./design/retrom-ui-platform-directory-create.png)：新建游戏目录 Drawer。
-- [`design/retrom-ui-bios-files.png`](./design/retrom-ui-bios-files.png)：BIOS 文件管理。
-- [`design/retrom-ui-bios-entry-compare.png`](./design/retrom-ui-bios-entry-compare.png)：Arcade BIOS 的 DAT/ZIP 条目对比。
-- [`design/retrom-ui-server-import.png`](./design/retrom-ui-server-import.png)、[`design/retrom-ui-server-import-drawer.png`](./design/retrom-ui-server-import-drawer.png)、[`design/retrom-ui-server-import-detail-4k.png`](./design/retrom-ui-server-import-detail-4k.png)：服务器 BIOS 导入首页、目录选择 Drawer 与 4K 结果解释。
-- [`design/retrom-ui-pegasus-import.png`](./design/retrom-ui-pegasus-import.png)、[`design/retrom-ui-pegasus-import-drawer.png`](./design/retrom-ui-pegasus-import-drawer.png)、[`design/retrom-ui-pegasus-import-detail-4k.png`](./design/retrom-ui-pegasus-import-detail-4k.png)：BIOS/Pegasus 双能力总览、Pegasus 三步 Drawer 与任务详情。
-- [`design/retrom-ui-dat-versions.png`](./design/retrom-ui-dat-versions.png)：Arcade DAT 版本管理。
+- [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)：可交互评审稿的可维护源文件；修改页面结构时先更新此文件，再重新导出 HTML。
+- `web/scripts/capture-ui-design.mjs` 仍可按固定 viewport 在本地生成评审图片；`docs/design/.gitignore` 忽略所有常见图片格式，图片不提交 Git，也不作为正式文档依赖。
 
 ## 维护规则
 
@@ -100,7 +60,7 @@ Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft
 - 跨领域产品决策先更新总览，再更新受影响专题。
 - 字段、状态机、API 和页面细节只在负责该领域的专题维护，总览仅链接和摘要。
 - 所有项目验收流程和通过标准只在 `project-acceptance.md` 维护；专题文档只按 Case ID 回链，不得复制验收清单。
-- `design/retrom-ui-review.fragment.html` 是 UI 源稿；`design/retrom-ui-review.html` 与 PNG 只从该源稿重新导出，禁止只改导出文件造成评审稿漂移。
+- `design/retrom-ui-review.fragment.html` 是 UI 源稿；`design/retrom-ui-review.html` 只从该源稿重新导出，禁止只改导出文件造成评审稿漂移。本地生成的图片只用于即时评审，由 `docs/design/.gitignore` 忽略且不得被正式文档引用。
 - `data/dat/emulatorjs/<version>/manifest.json` 与 `SHA256SUMS` 是 EmulatorJS/runtime、Player adapter 描述、可选真实 DAT 和许可输入的机器事实源；当前 `4.2.3` 是 33-artifact 基础集合，`4.3.0-pre` 覆盖 DOSBox Pure、Genesis Plus GX Wide 与 Azahar，合并为 35 个 enabled core。前端 adapter registry 由 `make data-check` 双向核对；runtime、五份 DAT 与许可 payload/notice 由 `make prepare-deps` 物化并被 Git 忽略。
 - `data/auth/password-blocklists/v1/manifest.json` 是 release 密码阻断列表及许可的机器事实源；10,000 行 payload 与许可原文由 `make prepare-deps` 校验物化并被 Git 忽略。
 - `make install-deps` 是全仓初始化入口；Playwright 精确版本绑定的 Chrome for Testing 由 `make prepare-e2e-browser` 物化到 `.cache/tools/ms-playwright/`，稳定可执行入口为 `.cache/tools/retrom-chrome-for-testing`。这些测试工具不属于应用发布依赖，不进入镜像。

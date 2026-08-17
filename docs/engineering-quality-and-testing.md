@@ -69,7 +69,7 @@
 | `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成 Go strict stdlib server types 与前端 TypeScript schema | 会重建依赖目录并只修改两个 generated 文件 |
 | `make api-check` | 先以锁文件安装前端依赖，再在临时目录用固定生成器重建并逐字节比较，OpenAPI 无效或 generated 漂移即失败 | 仅依赖产物 |
 | `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景 | 会写浏览器缓存并产生本地报告 |
-| `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
+| `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序、`docs/design` 图片不跟踪/不引用边界，以及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
 | `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/五份 DAT/许可文件并生成 notice；两个 FBA2012 DAT 从锁定源码确定性原生生成两次；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
 | `make deps-check` | 完全离线校验本地 allowlist、core、DAT、override、许可输入/notice 及 DAT 统计 | 否 |
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |

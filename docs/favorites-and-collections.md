@@ -84,7 +84,7 @@ database/sql + 既有 authn/cursor/idempotency
 - 一级导航顺序固定为首页、游戏库、我的存档、我的收藏、最近游玩；收藏页路由为 `/favorites`。
 - 游戏库卡片、游戏详情和收藏页共享服务端 Favorite 投影；首页、最近游玩、存档页和 Player 不新增首批收藏入口。
 - 收藏页的 Rail、筛选、卡片、Folder 管理、批量栏、状态与无障碍细节见 [`ui-specification.md`](./ui-specification.md)。
-- 可维护的交互设计源是 [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)，由它生成 [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)、[`design/retrom-ui-favorites.png`](./design/retrom-ui-favorites.png)、[`design/retrom-ui-favorites-folder-manager.png`](./design/retrom-ui-favorites-folder-manager.png) 和 [`design/retrom-ui-favorites-unfavorite-dialog.png`](./design/retrom-ui-favorites-unfavorite-dialog.png)。设计中的标题、封面和数量仅用于评审，不进入 seed、fixture 或生产默认值。
+- 可维护的交互设计源是 [`design/retrom-ui-review.fragment.html`](./design/retrom-ui-review.fragment.html)，由它生成 [`design/retrom-ui-review.html`](./design/retrom-ui-review.html)。收藏主页面、Folder 管理与取消收藏确认可由 capture 脚本在本地生成图片复核，但图片由 `docs/design/.gitignore` 忽略且不被正式文档引用。设计中的标题、封面和数量仅用于评审，不进入 seed、fixture 或生产默认值。
 
 ## 6. 发布、回滚与验证
 

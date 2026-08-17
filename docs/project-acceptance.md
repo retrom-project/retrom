@@ -1101,7 +1101,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-MOB-007`。
 - 流程：在 `320×568`、`360×800`、`390×844`、`412×915`、`768×1024`、`1024×768` 运行用户/管理代表页，启用 200% 文本、`prefers-reduced-motion` 和测试 safe-area；再运行既有 `1280×800`、`2560×1440`、`3840×2160` 基线。
 - 通过标准：所有普通页面 document 零横向溢出、关键 target 至少 44px、标题/主操作可见，焦点与朗读顺序和视觉顺序一致；Dialog/Sheet 不被软键盘或 safe-area 裁切；axe 无 serious/critical violation，桌面侧栏、共享画布、卡片列数和 Player 比例没有回退。
-- 证据：全部 viewport 的 DOM 尺寸与 axe 报告、键盘 trace、统一设计快照和桌面 screenshot diff。
+- 证据：全部 viewport 的 DOM 尺寸与 axe 报告、键盘 trace，以及本次运行在证据目录生成的桌面截图与视觉核对结果；不得依赖仓库内设计图片或历史 screenshot diff。
 
 ## 21. 缺陷处理与重验
 
