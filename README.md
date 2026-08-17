@@ -117,14 +117,14 @@ retrom restore \
 | `make install-deps` | 初始化并校验开发、测试所需的固定依赖 |
 | `make dev` | 在宿主机启动 Go 后端和 Next.js 开发服务 |
 | `make ci` | 运行仓库内可重复的质量、单元、集成和数据检查 |
-| `make web-e2e` | 使用项目自有的 GBA 测试程序运行 Chrome 产品 E2E |
+| `make web-e2e` | 使用项目自有的 GBA 与 Arcade 测试程序运行 Chrome 产品 E2E |
 | `make build-images` | 构建并校验后端与 Web 镜像 |
 | `make deps-check` | 离线校验已物化的运行时、核心、DAT 和许可文件 |
 
 ## 当前兼容性边界
 
 - Chrome 是当前唯一承诺支持的浏览器。
-- 仓库配置了多个 EmulatorJS 核心，但不能把配置存在等同于所有真实游戏均已验证。当前公开的真实 ROM 产品 E2E 只覆盖项目自有的 mGBA 冒烟程序。
+- 仓库配置了多个 EmulatorJS 核心，但不能把配置存在等同于所有真实游戏均已验证。当前公开的产品 E2E 覆盖项目自有的 mGBA 冒烟程序，以及 MAME 2003 的 DAT/Split/Parent/BIOS 交付和帧执行链路。
 - FCEUmm、FBNeo、FBA2012 和其他未登记产品 E2E 的核心仍需要部署者使用合法内容自行验证。
 - 异地联机默认在生产环境关闭；即使启用，也只适用于机器清单精确允许且已通过普通启动检查的游戏。
 - Retrom 不包含 MFA、邮件找回、外部身份提供商、聊天、观战或 Arcade Merged ROMset 支持。

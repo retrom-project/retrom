@@ -46,7 +46,7 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   page.setDefaultTimeout(10_000);
   test.skip(testInfo.project.name !== "chrome-1280", "The stateful favorite flow runs once.");
   const admin = await login(page.request);
-  await page.goto("/library");
+  await page.goto("/library?platformId=gba");
 
   const available = page.locator('.library-game-card:has(button[aria-label^="收藏“"])');
   expect(await available.count()).toBeGreaterThanOrEqual(2);

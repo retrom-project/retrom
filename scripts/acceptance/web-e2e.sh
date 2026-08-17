@@ -83,6 +83,9 @@ done
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/http-flow.sh
+RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+  scripts/acceptance/arcade-flow.sh
 scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 

@@ -59,7 +59,7 @@
 - 由仓库锁定 Playwright 物化的官方 Chrome for Testing；只验收 Chrome，不承诺其他浏览器，手机/平板使用 Chrome 的固定 CSS viewport 和 coarse-pointer 仿真，并在可用时补充真实移动 Chrome 复核；
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
 - 可选的已部署代理 Case 需要一个已由 NG 暴露的 HTTPS 地址，通过 `RETROM_ACCEPTANCE_BASE_URL` 提供；没有部署环境时只有明确标注的条件 Case 可为 `NOT_APPLICABLE`；
-- 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/` 中由 Retrom 自有源码生成、MIT 许可并随仓库提交的最小 GBA 测试 ROM 是当前唯一 ROM fixture，不包含第三方游戏或 BIOS。
+- 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中的测试程序均由 Retrom 自有源码确定性生成、使用 MIT 许可并随仓库提交，不包含第三方游戏或 BIOS bytes。
 
 首次准备依赖可以执行：
 
@@ -67,7 +67,7 @@
 make install-deps
 ```
 
-日常项目初始化直接执行 `make install-deps`；单独的 `make prepare-deps` 只物化应用 runtime/DAT/许可。初始化会把固定 Chrome for Testing 写入被忽略的 `.cache/tools/`，校验仓库自有公开 GBA ROM 与生成源逐字节一致，并在正式计时前完成实际启动校验。依赖下载是验收前准备，不计入单 Case 时长；正式计时期间只运行离线 `make deps-check`。仓库不提供第三方 ROM/BIOS 下载器；没有合法公开 fixture 的核心登记为未覆盖，也不在 manifest 中保存主机名、远端绝对路径或凭据。
+日常项目初始化直接执行 `make install-deps`；单独的 `make prepare-deps` 只物化应用 runtime/DAT/许可。初始化会把固定 Chrome for Testing 写入被忽略的 `.cache/tools/`，校验仓库自有公开 GBA 与 Arcade fixture 和生成源逐字节一致，并在正式计时前完成实际启动校验。依赖下载是验收前准备，不计入单 Case 时长；正式计时期间只运行离线 `make deps-check`。仓库不提供第三方 ROM/BIOS 下载器；没有合法公开 fixture 的核心登记为未覆盖，也不在 manifest 中保存主机名、远端绝对路径或凭据。
 
 ### 3.2 隔离数据与固定种子
 
@@ -101,6 +101,7 @@ make acceptance-report
 | 入库数据 | 小规模的 queued/running/review-pending/failed Item 与 approve/discard ReviewEvent，供总览、任务、待审核和历史页面使用 |
 | Hasheous stub | 命中、未命中、429、超时、500、401 和畸形响应七种固定路由，不要求凭证 |
 | 公开 mGBA ROM | `testdata/public-roms/gba-smoke/gba-smoke.gba`；项目自有源码生成，MIT 许可，生成器与消费者锁定 size/SHA-256/bytes |
+| 公开 MAME 2003 split set | `testdata/public-roms/arcade-smoke/`；项目自有 Z80 程序、生成资源、测试 BIOS 角色归档和小型 DAT，MIT 许可；生成器与消费者锁定 archive、entry、size、CRC32、SHA-1 和 SHA-256 |
 | 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-v1` 与 `fbneo-423-v1` 的 EmulatorJS/core artifact/adapter 边界来自 `data/netplay/v1/manifest.json`；当前只维护 manifest、协议、安全、feature flag 与单机回归种子，不维护真实双端 ROM fixture |
 | 游戏替换 revision | 基于测试内生成的确定性 ZIP 重打包：entry 字节不变，ZIP 时间固定且 comment 为 `retrom-acceptance-revision-2`；原始 Blob SHA-256 必须变化，提取内容 hash 必须不变 |
 | 媒体 | Hasheous stub 提供一张固定字节的小型合法 PNG，SHA-256 写入 seed manifest |
@@ -767,6 +768,14 @@ make acceptance-case CASE=<case-id>
 - 通过标准：重校验不要求不存在的 CONTENT 行，保留相同 ContentRevision 的 bundle/default entry 并在有界时间进入终态；安装/配置工具只降权不消失；有界 BAT 分析把“交互配置器 → 实际 EXE”的末端程序提升为目录与 ZIP 的默认入口，使第 5 秒截图来自游戏启动序列而不是配置器/模拟器菜单，同时没有已知交互辅助程序的 BAT 维持原排序，所有候选和原 bytes 均保留。直接启动锁定原 bundle Blob、Blob 数不增加，响应 ZIP 的首项是受控 `AUTOBOOT.DBP`，程序菜单首项是受控 `DOSBOX.BAT`，其余原成员压缩 bytes/顺序不变，源包同名保留文件都无法覆盖或劫持选择；标准 UTF-8 与旧式 GB18030 中文目录都按导入时的规范路径命中精确成员。后者在虚拟 ZIP 中把所选入口的高位 byte 路径组件确定性映射为同目录无碰撞的 ASCII 名称，所有共享该目录前缀的 local/central name 与后续 local offset 一致更新，`AUTOBOOT.DBP` 直接运行映射后的 ASCII 8.3 路径；原 Blob、成员内容和数据库记录均不改写。config 的 `externalFiles/defaultCoreOptions` 不含 DOS 启动补丁，4.3 adapter 在 start 前对锁定的 7z/ZIP Worker 执行与 4.2.3 同样精确且 fail-closed 的无 `eval` 转换，在不含 `unsafe-eval` 的生产 CSP 下把完整 ZIP 交给 core，安全路径进入所选程序画面。程序菜单通过 `Z:\PUREMENU` 进入 core 菜单。只有成功创建 Launch 后才按游戏记住入口或菜单，失败不改偏好，存档恢复不改偏好；缺失/不安全 entry 仍分别稳定阻断且不猜替代程序。
 - 证据：完整程序列表与排序、launch/config payload、原 Blob/引用计数、三种 game 响应、虚拟 ZIP central directory/引导 bytes、运行画面、浏览器偏好和错误响应；另以 `RETROM_DOS_CORPUS=<合法本地目录> go test ./internal/libraryimport -run TestLocalDOSCorpusCompatibility -count=1 -v` 验证多游戏结构矩阵。
 
+### ACC-RUN-006：公开 Arcade Split、Parent 与 BIOS 产品链路
+
+- 上限：300 秒。
+- 执行：`make acceptance-case CASE=ACC-RUN-006`。
+- 流程：校验并上传 `testdata/public-roms/arcade-smoke/` 中项目自有的小型 DAT、`pacman.zip` Child、`puckman.zip` Parent 与 `retrombios.zip` 测试 BIOS；启用 DAT、安装 DAT_MACHINE BIOS、导入 Child/Parent、审核发布并触发首次启动重验证。读取 Launch config 与三路受限内容，随后由 Chrome 通过 Retrom Player 启动 MAME 2003。
+- 通过标准：DAT machine/entry/cloneof/romof 与 archive entry 的 name、size、CRC32、SHA-1 均与生成源一致；发布与重验证后仍锁定同一 ContentRevision、DAT、Parent 和 BIOS，config 精确选择 `mame2003`、`ejs-4.2.3-v2` 与 4.2.1 data override。游戏、Parent 和 BIOS 端点交付的 bytes 与仓库 fixture 精确相同；Player 无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0。测试 BIOS 只证明 Retrom 的 DAT 依赖解析、安装、快照、bundle 与交付，不得据此声称 Pac-Man 驱动执行了该 BIOS。
+- 证据：fixture 校验结果、DAT/import/review/launch ID、三路 bundle 比对、Playwright trace、动画帧/遥测断言与运行截图。
+
 ### ACC-SAVE-001：手动状态存档与截图
 
 - 上限：180 秒。
@@ -803,7 +812,7 @@ make acceptance-case CASE=<case-id>
 
 核心运行兼容必须由实际 Retrom 产品链路证明，不能用直接加载 EmulatorJS 的独立页面形成验收 Case。当前覆盖范围、对应命令和未覆盖核心由 [`core-runtime-validation.md`](./core-runtime-validation.md) 维护；本验收目录只登记能够覆盖完整产品契约的 Case。
 
-`ACC-RUN-002` 与 `make web-e2e` 覆盖 mGBA 的真实浏览器产品链路。FCEUmm、FBNeo、FBA2012 与其余 enabled core 尚无真实 ROM 产品链路 E2E，不得从 manifest、协议、单元测试或相邻核心结果外推为已通过。
+`ACC-RUN-002`、`ACC-RUN-006` 与 `make web-e2e` 分别覆盖 mGBA 和 MAME 2003 Arcade split set 的真实浏览器产品链路。FCEUmm、FBNeo、FBA2012 与其余未登记 enabled core 尚无真实 ROM 产品链路 E2E，不得从 manifest、协议、单元测试或相邻核心结果外推为已通过。
 
 ## 15. UI、4K 与无障碍
 
@@ -1145,8 +1154,8 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 多盘导入、运行、回归与隔离 | `ACC-MDISC-001`–`008` |
 | BIOS、服务器导入与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`007` |
 | Pegasus 目录导入与游戏视频 | `ACC-PEG-001`–`005`、`ACC-MEDIA-001` |
-| 启动、存档与游玩时长 | `ACC-RUN-001`–`005`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
-| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
+| 启动、存档与游玩时长 | `ACC-RUN-001`–`006`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
+| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`ACC-RUN-006`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
 | 移动 App Shell、响应式页面与横屏 Player | `ACC-MOB-001`–`007` |

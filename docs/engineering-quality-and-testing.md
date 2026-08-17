@@ -68,7 +68,7 @@
 | `make integration-test` | Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 否 |
 | `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成 Go strict stdlib server types 与前端 TypeScript schema | 会重建依赖目录并只修改两个 generated 文件 |
 | `make api-check` | 先以锁文件安装前端依赖，再在临时目录用固定生成器重建并逐字节比较，OpenAPI 无效或 generated 漂移即失败 | 仅依赖产物 |
-| `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景 | 会写浏览器缓存并产生本地报告 |
+| `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景，包括项目自有 GBA 与 Arcade 产品链路 | 会写浏览器缓存并产生本地报告 |
 | `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序、`docs/design` 图片不跟踪/不引用边界，以及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
 | `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/五份 DAT/许可文件并生成 notice；两个 FBA2012 DAT 从锁定源码确定性原生生成两次；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
 | `make deps-check` | 完全离线校验本地 allowlist、core、DAT、override、许可输入/notice 及 DAT 统计 | 否 |
@@ -86,7 +86,7 @@
 
 - `make ci` 包含全部可复现的仓库内单元、集成与数据检查；没有合法公开 fixture 的核心启动兼容性不在自动化测试中冒充已覆盖。
 - 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。浏览器缓存、Node 工具链和运行时 payload 不进入 Git 或镜像。
-- 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM 必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check` 和实际产品消费者共同逐字节校验；当前唯一实例是 `testdata/public-roms/gba-smoke/`。
+- 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM 必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/` 与 `testdata/public-roms/arcade-smoke/`。
 - `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
 - OpenAPI 固定为 `api/openapi.yaml`（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。Go 侧由该版本以 `models + std-http-server + strict-server` 生成 `internal/httpapi/generated/api.gen.go`；生成器作为 `go.mod` 的 tool 依赖锁定，配置放 `api/oapi-codegen.yaml`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定执行 `openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client。两个生成文件不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
@@ -356,7 +356,7 @@ make web-e2e
 - 解析器可以使用小型、可读、带来源说明的确定性片段覆盖边界和畸形输入。
 - Arcade 兼容性结论必须另有针对 `make prepare-deps` 物化到 `data/dat/` 的完整、真实、版本锁定 DAT 的集成校验；小片段不能替代真实基线，payload 也不能因此提交 Git。
 - 负向安全测试可以构造恶意 ZIP/XML/路径，因为它们用于验证拒绝行为，不能被描述为真实游戏数据。
-- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；当前唯一实例是 `testdata/public-roms/gba-smoke/`，只证明 mGBA 产品链路。
+- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；`testdata/public-roms/gba-smoke/` 证明 mGBA 产品链路，`testdata/public-roms/arcade-smoke/` 证明 MAME 2003 的 DAT/Split/Parent/BIOS 交付与帧执行链路。后者的测试 BIOS 不被目标驱动执行，不能外推为核心内部 BIOS 执行覆盖。
 
 ## 10. 后续实施清单
 

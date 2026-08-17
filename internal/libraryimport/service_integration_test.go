@@ -27,6 +27,8 @@ import (
 	"retrom/internal/corevalidation"
 	"retrom/internal/dependencies"
 	"retrom/internal/importing"
+	"retrom/internal/launch"
+	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
 	"retrom/internal/tagging"
 	"retrom/internal/uploads"
@@ -1354,8 +1356,8 @@ INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machin
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
 VALUES(?,'fbneo',?,'DAT_MACHINE','codexbios','codexbios.zip','REQUIRED',
-'ARCADE_DAT_DEPENDENCY','{}',?,NULL,NULL,NULL,NULL,'test://bios','test',1,1,?,?,'BIOS_BUNDLE',NULL)
-`, requirementID, artifactID, strings.Repeat("a", 64), now, now); err != nil {
+'ARCADE_DAT_DEPENDENCY','{}',?,NULL,NULL,NULL,NULL,'test://bios',?,1,1,?,?,'BIOS_BUNDLE',NULL)
+`, requirementID, artifactID, strings.Repeat("a", 64), datID, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -1410,7 +1412,8 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
+	importService := New(database.SQL, time.Now).WithBlobStore(blobs)
+	created, err := importService.Create(ctx, CreateRequest{
 		UploadID: upload.ID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
 		MetadataProvider: "NONE",
 	})
@@ -1445,6 +1448,97 @@ WHERE import_item_core_validation_id=? AND role='BIOS_BUNDLE' AND logical_name='
 	}
 	if validationBlobID != biosBlobID {
 		t.Fatalf("initial BIOS blob = %s, want %s", validationBlobID, biosBlobID)
+	}
+	var itemID string
+	var draftVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT item.id,draft.version
+FROM import_items item
+JOIN review_drafts draft ON draft.import_item_id=item.id
+WHERE item.import_job_id=?
+`, created.ImportJobID).Scan(&itemID, &draftVersion); err != nil {
+		t.Fatal(err)
+	}
+	approved, err := importService.Approve(ctx, itemID, draftVersion)
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacementMetadata, err := blobs.Put(bytes.NewReader(append(biosArchive, []byte("replacement")...)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	replacementBlobID, err := blobstore.EnsureRecord(
+		ctx, database.SQL, replacementMetadata, "application/zip", now,
+	)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE bios_installations SET is_active=0,version=version+1,updated_at_ms=?
+WHERE requirement_id=? AND is_active=1
+`, now+1, requirementID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO bios_installations(id,requirement_id,blob_id,original_filename,size_bytes,md5,sha1,sha256,
+validated_requirement_version,status,validation_details_json,is_active,version,created_at_ms,updated_at_ms)
+VALUES('01990000-0000-7000-8000-000000000204',?,?,?, ?,?,?,?,1,'HASH_WARNING','{}',1,1,?,?)
+`, requirementID, replacementBlobID, "codexbios.zip", replacementMetadata.Size, replacementMetadata.MD5,
+		replacementMetadata.SHA1, replacementMetadata.SHA256, now+1, now+1); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS Fixture',?)
+`, now); err != nil {
+		t.Fatal(err)
+	}
+	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now)
+	coreID := "fbneo"
+	capabilities := launch.Capabilities{
+		SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
+	}
+	pending, err := launcher.Create(ctx, "local", launch.CreateRequest{
+		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
+		ClientCapabilities: capabilities,
+	})
+	if err != nil || pending.Status != "VALIDATION_PENDING" || pending.JobID == "" {
+		t.Fatalf("first Arcade BIOS launch = %#v, error=%v", pending, err)
+	}
+	deadline = time.Now().Add(3 * time.Second)
+	for {
+		var state string
+		var errorCode sql.NullString
+		if err := database.SQL.QueryRowContext(ctx, `SELECT state,error_code FROM jobs WHERE id=?`, pending.JobID).
+			Scan(&state, &errorCode); err != nil {
+			t.Fatal(err)
+		}
+		if state == "SUCCEEDED" {
+			break
+		}
+		if state == "FAILED" || time.Now().After(deadline) {
+			t.Fatalf("Arcade BIOS revalidation = %s/%s", state, errorCode.String)
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{
+		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
+		ClientCapabilities: capabilities,
+	})
+	if err != nil || createdLaunch.LaunchID == "" {
+		t.Fatalf("Arcade BIOS launch after revalidation = %#v, error=%v", createdLaunch, err)
+	}
+	configuration, err := launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
+	if err != nil || configuration.BIOSURL == nil {
+		t.Fatalf("Arcade BIOS launch config = %#v, error=%v", configuration, err)
+	}
+	bundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
+	if err != nil || len(bundle) != 1 || bundle[0].LogicalName != "codexbios.zip" ||
+		bundle[0].SHA256 != replacementMetadata.SHA256 {
+		t.Fatalf("Arcade BIOS launch bundle = %#v, error=%v", bundle, err)
 	}
 }
 

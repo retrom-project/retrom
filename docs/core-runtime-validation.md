@@ -2,7 +2,7 @@
 
 ## 1. 文档职责
 
-本文定义 EmulatorJS 核心的产品链路验证边界。核心版本、artifact、SHA-256、DAT 与 adapter 映射以 [`data/dat/`](../data/dat/) 的版本化 manifest 和前端 adapter registry 为机器事实源。公开 mGBA 产品 E2E 使用 [`testdata/public-roms/gba-smoke/`](../testdata/public-roms/gba-smoke/) 中由本项目源码确定性生成并许可分发的 ROM。自动化测试不读取操作者私有 ROM/BIOS；`make dev` 的 `.dev-data/` 服务器导入语料也不属于测试 fixture。
+本文定义 EmulatorJS 核心的产品链路验证边界。核心版本、artifact、SHA-256、DAT 与 adapter 映射以 [`data/dat/`](../data/dat/) 的版本化 manifest 和前端 adapter registry 为机器事实源。公开产品 E2E 使用 [`testdata/public-roms/`](../testdata/public-roms/) 中由本项目源码确定性生成并许可分发的 GBA 与 Arcade 测试程序。自动化测试不读取操作者私有 ROM/BIOS；`make dev` 的 `.dev-data/` 服务器导入语料也不属于测试 fixture。
 
 独立 HTML 页面直接装载 EmulatorJS 会绕过 Retrom 的导入、审核、发布、Launch capability、内容端点和 Player，因此不能作为产品集成或验收证据。仓库不再维护这种 example runner，也不再用逐核心独立页面的成功结果宣称 Retrom 已覆盖对应核心。
 
@@ -11,6 +11,7 @@
 | 核心/能力 | 实际入口 | 本机资源 | 覆盖边界 |
 | --- | --- | --- | --- |
 | `mgba` | `make web-e2e`、`ACC-RUN-002` | `testdata/public-roms/gba-smoke/gba-smoke.gba`；项目自有 MIT 夹具，size/SHA-256 与生成一致性由消费者锁定 | 真实 Retrom 服务、导入/发布数据、Launch、受限内容端点、Player 与 Chrome |
+| `mame2003` | `make web-e2e`、`ACC-RUN-006` | `testdata/public-roms/arcade-smoke/`；项目自有 MIT 的 Z80 程序、图形/声音资源、测试 BIOS 角色归档和小型 DAT | 真实 DAT 上传/解析/启用、Split Child/Parent/BIOS 识别、导入/审核/发布、首次启动重验证、三路受限内容交付、Player、Chrome 动画帧与运行遥测；测试 BIOS 不被 Pac-Man 驱动执行，因此不证明核心内部 BIOS 执行语义 |
 | Saturn 多盘 | `ACC-MDISC-001`–`008` | 普通测试使用确定性临时夹具 | 产品 parser、导入、发布、Launch 内容协议、Player adapter 换盘与存档恢复；当前不包含真实 ROM 的浏览器运行 |
 
 其余 enabled core（包括 FCEUmm、FBNeo 与 FBA2012）目前只有 manifest/schema、依赖物化、adapter 配置、协议或相邻纯逻辑测试，尚没有走完整 Retrom 产品链路的真实浏览器 E2E。发布或依赖升级不能把这些结构检查解释为“核心已实际启动”。新增覆盖时应扩展 `make web-e2e` 或对应产品 E2E，并使用项目自有或有明确再分发许可、可确定性生成且能够提交的测试程序。

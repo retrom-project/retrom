@@ -240,6 +240,12 @@ Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insens
 
 发布后的首次启动可能因当前 BIOS 输入快照与审核期摘要不同而创建后继 VariantRevision。只有后继仍引用同一 GameContentRevision 和同一 DatVersion 时，重校验才继承 current revision 已验证的 `PARENT` VariantFiles 与 `variant_dependencies`，并重新生成 BIOS bundle；不得因摘要归一化丢失 Parent，也不得把旧 DAT 的 Parent 关联带入新 DAT。
 
+### 8.2 公开自动化回归夹具
+
+[`testdata/public-roms/arcade-smoke/`](../testdata/public-roms/arcade-smoke/) 保存项目自有、MIT 许可且可确定性重建的 MAME 2003 测试程序。小型 DAT 把 Z80 Child 程序、生成的 Parent 图形/声音资源和测试 BIOS 角色归档组成 Split 闭包，并锁定 archive/entry 的 name、size、CRC32、SHA-1 与 SHA-256。`data-check` 校验生成一致性和 DAT 对 bytes 的描述，Go 集成测试覆盖 DAT 解析、导入、审核、发布及首次启动重验证，`ACC-RUN-006` 再覆盖 config、Parent/BIOS bundle、受限内容交付和 Chrome 帧执行。
+
+`retrombios.zip` 仅用于验证 Retrom 对 BIOS/base 的识别、安装、快照、装配与传输；目标 Pac-Man 驱动不会执行其中的 bytes。该 Case 因此不能替代真正要求 BIOS 启动的核心/机器用例，也不能把 MAME 2003 结果外推到 FBNeo、FBA2012 或其他 Arcade core。
+
 ## 9. 管理页面
 
 ### BIOS 文件

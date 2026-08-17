@@ -9,7 +9,7 @@
 
 ## 1. 结论
 
-Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、第三方或用户 ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。唯一 ROM 例外是 `testdata/public-roms/gba-smoke/` 中由 Retrom 自有源码确定性生成、MIT 许可、仅供公开 mGBA 产品 E2E 的 1 KiB 夹具；它的生成源与 bytes 同时提交并由 `data-check` 校验。其他真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得或从锁定源码确定性生成，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
+Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、第三方或用户 ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。公开测试程序例外位于 `testdata/public-roms/`：`gba-smoke/` 是 1 KiB mGBA 程序，`arcade-smoke/` 是 MAME 2003 的 Z80 程序、生成资源、测试 BIOS 角色归档与小型 DAT；两者均由 Retrom 自有源码确定性生成、使用 MIT 许可，生成源与 bytes 同时提交并由 `data-check` 校验。Arcade 测试 BIOS 不含第三方 BIOS bytes，也不被目标驱动执行。其他真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得或从锁定源码确定性生成，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
 
 应用进程启动期间禁止联网下载或自动升级依赖。依赖缺失、大小或 SHA-256 不符时，后端必须拒绝进入 ready 状态并输出 `make prepare-deps` 这一条可操作命令；不能回退到 CDN、最新版本或另一个 core。
 

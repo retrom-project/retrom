@@ -26,6 +26,7 @@ SELECT i.id AS item_id,
 FROM import_items i
 JOIN import_jobs j ON j.id=i.import_job_id
 WHERE i.state='PUBLISHED'
+AND j.platform_id='gba'
 ORDER BY i.updated_at_ms DESC,i.id DESC
 LIMIT 1;
 
