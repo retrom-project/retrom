@@ -322,7 +322,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-NP-012": (
         120,
-        "go test ./internal/netplay -run '^TestAcceptanceNP012' -count=1 && "
+        "go test ./internal/netplay -run 'TestAcceptanceNP012|TestGamePageBoundsInitialCatalogWorkAndUsesStableCursor' -count=1 && "
         ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/netplay/room-lobby.test.tsx",
     ),
     "ACC-NP-013": (180, "scripts/acceptance/netplay-single-regression.sh"),

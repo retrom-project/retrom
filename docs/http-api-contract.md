@@ -646,7 +646,7 @@ Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 
 
 | Route | 并发/幂等 | 成功语义 |
 | --- | --- | --- |
-| `GET /api/v1/netplay/games?availability=SUPPORTED\|ALL&cursor=&limit=` | 签名 cursor，默认 100 | 按 lowercase title+gameId 稳定分页；item 只给展示字段、`SUPPORTED/UNSUPPORTED`、可选 profile summary 和封闭 blocker，不返回内容/core hash。 |
+| `GET /api/v1/netplay/games?availability=SUPPORTED\|ALL&cursor=&limit=` | 签名 cursor，默认且最大 100 | 按 lowercase title+gameId 稳定分页；cursor/limit 先约束候选行，再只对生成当前响应所需的候选执行 eligibility 与标签装配，不能先展开整个游戏库再切页。item 只给展示字段、`SUPPORTED/UNSUPPORTED`、可选 profile summary 和封闭 blocker，不返回内容/core hash。 |
 | `GET /api/v1/netplay/rooms?view=active\|recent&cursor=&limit=` | 签名 cursor，默认 24 | active 只列本人主持/占座的非终态；recent 只列本人参与且 24 小时内的终态，按 updatedAt+roomId 倒序。 |
 | `POST /api/v1/netplay/rooms` | I | 201 + Location/ETag；DRAFT 且房主原子占 P1。 |
 | `GET /api/v1/netplay/rooms/:roomId` | — | 200 + ETag；最小 Room/game/member/session/permissions 投影。 |

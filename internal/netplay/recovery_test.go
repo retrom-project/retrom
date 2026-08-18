@@ -32,6 +32,7 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 		memberID   = "01980000-0000-7000-8000-00000000e008"
 		sessionID  = "01980000-0000-7000-8000-00000000e009"
 		launchID   = "01980000-0000-7000-8000-00000000e010"
+		playID     = "01980000-0000-7000-8000-00000000e012"
 	)
 	tx, err := database.SQL.BeginTx(ctx, nil)
 	if err != nil {
@@ -59,6 +60,7 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 		{`UPDATE netplay_rooms SET state='RUNNING',current_session_id=? WHERE id=?`, []any{sessionID, roomID}},
 		{`INSERT INTO netplay_session_participants(netplay_session_id,profile_id,room_member_id,player_no,state,credential_generation,version,created_at_ms,updated_at_ms) VALUES(?,?,?,1,'LOCKED',0,1,?,?)`, []any{sessionID, profileID, memberID, now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO launch_sessions(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,return_to,credential_sha256,state,bootstrap_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,netplay_session_id,netplay_player_no,save_access) VALUES(?,?,?,?,?,'/netplay/rooms/'||?,zeroblob(32),'ACTIVE',?,?,?,?, ?,?,1,'NETPLAY_DISABLED')`, []any{launchID, profileID, gameID, revisionID, artifactID, roomID, now.Add(time.Minute).UnixMilli(), now.UnixMilli(), now.Add(time.Hour).UnixMilli(), now.UnixMilli(), now.UnixMilli(), sessionID}},
+		{`INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms) VALUES(?,?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)`, []any{playID, launchID, profileID, gameID, revisionID, now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()}},
 		{`UPDATE netplay_session_participants SET state='CONNECTED',launch_session_id=?,credential_sha256=zeroblob(32),credential_generation=1 WHERE netplay_session_id=? AND profile_id=?`, []any{launchID, sessionID, profileID}},
 	}
 	for _, statement := range statements {
@@ -73,7 +75,8 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 	if err := service.Recover(ctx, "SERVER_RESTARTED"); err != nil {
 		t.Fatal(err)
 	}
-	var roomState, roomReason, sessionState, sessionReason, launchState string
+	var roomState, roomReason, sessionState, sessionReason, launchState, playState string
+	var playEndedAt int64
 	if err := database.SQL.QueryRow(`SELECT state,end_reason FROM netplay_rooms WHERE id=?`, roomID).Scan(&roomState, &roomReason); err != nil {
 		t.Fatal(err)
 	}
@@ -83,8 +86,71 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 	if err := database.SQL.QueryRow(`SELECT state FROM launch_sessions WHERE id=?`, launchID).Scan(&launchState); err != nil {
 		t.Fatal(err)
 	}
+	if err := database.SQL.QueryRow(`SELECT state,ended_at_ms FROM play_sessions WHERE id=?`, playID).
+		Scan(&playState, &playEndedAt); err != nil {
+		t.Fatal(err)
+	}
 	if roomState != "ENDED" || roomReason != "SERVER_RESTARTED" || sessionState != "FAILED" ||
-		sessionReason != "SERVER_RESTARTED" || launchState != "REVOKED" {
-		t.Fatalf("recovery room=%s/%s session=%s/%s launch=%s", roomState, roomReason, sessionState, sessionReason, launchState)
+		sessionReason != "SERVER_RESTARTED" || launchState != "REVOKED" ||
+		playState != "ABANDONED" || playEndedAt != now.UnixMilli() {
+		t.Fatalf("recovery room=%s/%s session=%s/%s launch=%s play=%s/%d", roomState, roomReason, sessionState, sessionReason, launchState, playState, playEndedAt)
+	}
+
+	const (
+		finishedSessionID = "01980000-0000-7000-8000-00000000e013"
+		finishedLaunchID  = "01980000-0000-7000-8000-00000000e014"
+		finishedPlayID    = "01980000-0000-7000-8000-00000000e015"
+	)
+	tx, err = database.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(tx)
+	if _, err := tx.Exec(`
+INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_revision_id,core_artifact_id,
+netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,version,created_at_ms,updated_at_ms)
+VALUES(?,?,2,'RUNNING',?,?,?,'fixture','{}',?,2,3,1,?,?)
+`, finishedSessionID, roomID, gameID, revisionID, artifactID, strings.Repeat("3", 64), now.UnixMilli(), now.UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`
+INSERT INTO netplay_session_participants(netplay_session_id,profile_id,room_member_id,player_no,state,
+credential_generation,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,1,'LOCKED',0,1,?,?)
+`, finishedSessionID, profileID, memberID, now.UnixMilli(), now.UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`
+INSERT INTO launch_sessions(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,return_to,
+credential_sha256,state,bootstrap_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,
+netplay_session_id,netplay_player_no,save_access)
+VALUES(?,?,?,?,?,'/netplay/rooms/'||?,randomblob(32),'ACTIVE',?,?,?,?,?,?,1,'NETPLAY_DISABLED')
+`, finishedLaunchID, profileID, gameID, revisionID, artifactID, roomID, now.Add(time.Minute).UnixMilli(),
+		now.UnixMilli(), now.Add(time.Hour).UnixMilli(), now.UnixMilli(), now.UnixMilli(), finishedSessionID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := tx.Exec(`
+INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,
+last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
+VALUES(?,?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)
+`, finishedPlayID, finishedLaunchID, profileID, gameID, revisionID, now.UnixMilli(), now.UnixMilli(),
+		now.UnixMilli(), now.UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	if err := closeNetplaySession(ctx, tx, finishedSessionID, "FINISHED", "USER_EXIT", now.UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow(`SELECT state,ended_at_ms FROM play_sessions WHERE id=?`, finishedPlayID).
+		Scan(&playState, &playEndedAt); err != nil {
+		t.Fatal(err)
+	}
+	if err := database.SQL.QueryRow(`SELECT state FROM launch_sessions WHERE id=?`, finishedLaunchID).Scan(&launchState); err != nil {
+		t.Fatal(err)
+	}
+	if playState != "FINISHED" || playEndedAt != now.UnixMilli() || launchState != "REVOKED" {
+		t.Fatalf("normal end launch=%s play=%s/%d", launchState, playState, playEndedAt)
 	}
 }

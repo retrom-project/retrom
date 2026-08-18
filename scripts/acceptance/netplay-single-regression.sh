@@ -4,8 +4,8 @@ set -euo pipefail
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repository_root"
 
-go test -tags=integration ./internal/launch ./internal/saves \
-  -run 'TestPublishedGameLaunchLocksContentAndCredential|TestManualStateRequiresAtomicNonEmptyStateAndScreenshot|TestPersistentSaveLocksLaunchBaseAndEnforcesSequence' \
+go test -tags=integration ./internal/launch ./internal/libraryimport ./internal/saves \
+  -run 'TestPublishedGameLaunchLocksContentAndCredential|TestArcadeImportUsesInstalledBIOSBeforeCreatingReview|TestManualStateRequiresAtomicNonEmptyStateAndScreenshot|TestPersistentSaveLocksLaunchBaseAndEnforcesSequence' \
   -count=1 -timeout=120s
 
 PATH="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin:$PATH"
@@ -13,6 +13,7 @@ export PATH
 npm --prefix web test -- --run \
   features/player/player-shell.test.ts \
   features/player/player-chrome.test.tsx \
+  features/player/launch-button.test.tsx \
   features/player/persistent-save-restore.test.ts \
   features/player/pause-control.test.ts
 

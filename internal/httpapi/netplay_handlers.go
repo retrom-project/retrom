@@ -91,36 +91,29 @@ func netplayLimit(request *http.Request, fallback int) int {
 
 func (server *Server) netplayGames(writer http.ResponseWriter, request *http.Request) {
 	availability := request.URL.Query().Get("availability")
-	items, err := server.netplay.Games(request.Context(), netplayProfileID(request), availability)
-	if err != nil {
-		server.writeNetplayError(writer, request, err)
-		return
-	}
 	limit := netplayLimit(request, 100)
 	filterDigest := cursor.FilterDigest(map[string]any{"availability": availability})
-	start := 0
+	afterTitle, afterGameID := "", ""
 	if token := request.URL.Query().Get("cursor"); token != "" {
 		payload, decodeErr := server.cursors.Decode(token, "getNetplayGames", filterDigest, "TITLE_ASC")
 		if decodeErr != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
 		}
-		afterTitle := payload.SortValues[0]
-		start = len(items)
-		for index := range items {
-			title := strings.ToLower(items[index].Title)
-			if title > afterTitle || title == afterTitle && items[index].GameID > payload.ID {
-				start = index
-				break
-			}
-		}
+		afterTitle, afterGameID = payload.SortValues[0], payload.ID
 	}
-	end := min(start+limit, len(items))
+	items, hasMore, err := server.netplay.GamePage(
+		request.Context(), netplayProfileID(request), availability, afterTitle, afterGameID, limit,
+	)
+	if err != nil {
+		server.writeNetplayError(writer, request, err)
+		return
+	}
 	var next any
-	if end < len(items) {
+	if hasMore && len(items) > 0 {
 		token, encodeErr := server.cursors.Encode(cursor.Payload{
 			OperationID: "getNetplayGames", FilterDigest: filterDigest, SortCode: "TITLE_ASC",
-			SortValues: []string{strings.ToLower(items[end-1].Title)}, ID: items[end-1].GameID,
+			SortValues: []string{strings.ToLower(items[len(items)-1].Title)}, ID: items[len(items)-1].GameID,
 		})
 		if encodeErr != nil {
 			serverError(writer, request, encodeErr)
@@ -129,7 +122,7 @@ func (server *Server) netplayGames(writer http.ResponseWriter, request *http.Req
 		next = token
 	}
 	writer.Header().Set("Cache-Control", "private, no-store")
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items[start:end], "nextCursor": next})
+	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": next})
 }
 
 func (server *Server) netplayRooms(writer http.ResponseWriter, request *http.Request) {

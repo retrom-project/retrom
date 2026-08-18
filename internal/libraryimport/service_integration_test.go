@@ -1452,11 +1452,33 @@ SELECT item.id,draft.version
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 WHERE item.import_job_id=?
-`, created.ImportJobID).Scan(&itemID, &draftVersion); err != nil {
+	`, created.ImportJobID).Scan(&itemID, &draftVersion); err != nil {
 		t.Fatal(err)
 	}
 	approved, err := importService.Approve(ctx, itemID, draftVersion)
 	if err != nil {
+		t.Fatal(err)
+	}
+	// Reproduce the immutable legacy production shape: older Arcade approvals
+	// could leave their current revision on a schema-v1 runtime snapshot even
+	// though the revision remained locked to the built-in DAT.
+	const legacyRevisionID = "01990000-0000-7000-8000-000000000205"
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
+validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
+SELECT ?,revision.game_variant_id,revision.game_content_revision_id,revision.core_artifact_id,revision.dat_version_id,
+?,revision.emulator_game_id+1,revision.status,revision.compatibility_code,'{"schemaVersion":1,"bios":[]}',
+revision.default_dos_entry,?
+FROM game_variant_revisions revision
+JOIN game_variants variant ON variant.current_revision_id=revision.id
+WHERE variant.game_id=? AND variant.core_id='fbneo'
+`, legacyRevisionID, strings.Repeat("f", 64), now, approved.GameID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE game_variants SET current_revision_id=?,version=version+1,updated_at_ms=?
+WHERE game_id=? AND core_id='fbneo'
+`, legacyRevisionID, now, approved.GameID); err != nil {
 		t.Fatal(err)
 	}
 	replacementMetadata, err := blobs.Put(bytes.NewReader(append(biosArchive, []byte("replacement")...)))
@@ -1497,12 +1519,23 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 	capabilities := launch.Capabilities{
 		SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
 	}
+	legacyEntries, err := json.Marshal(snapshot.Dependencies[0].RequiredEntries)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO variant_dependencies(game_variant_revision_id,kind,logical_archive,dat_version_id,
+source_machine_name,required_entries_json,state,created_at_ms)
+VALUES(?,'BIOS_OR_BASE','codexbios.zip',?,'codexbios',?,'SATISFIED_EXTERNAL',?)
+`, legacyRevisionID, datID, string(legacyEntries), now); err != nil {
+		t.Fatal(err)
+	}
 	pending, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})
 	if err != nil || pending.Status != "VALIDATION_PENDING" || pending.JobID == "" {
-		t.Fatalf("first Arcade BIOS launch = %#v, error=%v", pending, err)
+		t.Fatalf("legacy Arcade validation = %#v, error=%v", pending, err)
 	}
 	deadline = time.Now().Add(3 * time.Second)
 	for {
@@ -1516,9 +1549,24 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 			break
 		}
 		if state == "FAILED" || time.Now().After(deadline) {
-			t.Fatalf("Arcade BIOS revalidation = %s/%s", state, errorCode.String)
+			t.Fatalf("legacy Arcade BIOS validation = %s/%s", state, errorCode.String)
 		}
 		time.Sleep(10 * time.Millisecond)
+	}
+	var migratedSnapshot string
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT revision.dependency_snapshot_json
+FROM game_variants variant
+JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
+WHERE variant.game_id=? AND variant.core_id='fbneo'
+`, approved.GameID).Scan(&migratedSnapshot); err != nil {
+		t.Fatal(err)
+	}
+	var migratedEnvelope struct {
+		SchemaVersion int `json:"schemaVersion"`
+	}
+	if err := json.Unmarshal([]byte(migratedSnapshot), &migratedEnvelope); err != nil || migratedEnvelope.SchemaVersion != 2 {
+		t.Fatalf("migrated Arcade dependency snapshot = %s, error=%v", migratedSnapshot, err)
 	}
 	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
