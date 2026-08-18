@@ -153,7 +153,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 范围：先同步正式契约与 OpenAPI，再落 Migration 028–030、Pegasus 文本 parser、外部目录安全 scanner、显式 Collection→游戏平台目录映射、异步 scan/import Worker、既有 library import/validation/review/publish 复用、重复内容投影、M3U+CHD 与 Arcade companion 装配。Worker 只复制、验证并生成普通审核事项；Game 只由后续普通 Approve 事务创建，Discard 保留审计。前端在服务器导入页接通等权能力卡、三步 Drawer、可恢复进度、批次限定审核入口和详情筛选；游戏媒体增加 MP4/WebM VIDEO revision，详情 Hero 使用受可见性、页面前台、播放失败、用户暂停与 reduced-motion 约束的渐进播放。后续 Migration 037 允许统一待审核页把其中严格 READY 的无重复项交给快速审批，但不改变 Pegasus Worker 的零 Game 边界。
 
-退出门禁：完整执行 `ACC-PEG-001`–`005`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。030 的 029 升级路径、035 的 034 升级路径和全新库 schema 必须同构，并证明审核前零 Game、Approve/Discard 原子联动、Pegasus Parent 后继快照可发布及交接崩溃恢复不重复内部 ImportItem；使用授权本地 Pegasus 样例完成隔离服务实测，正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
+退出门禁：完整执行 `ACC-PEG-001`–`006`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。030 的 029 升级路径、035 的 034 升级路径和全新库 schema 必须同构，并证明审核前零 Game、Approve/Discard 原子联动、Pegasus Parent 后继快照可发布及交接崩溃恢复不重复内部 ImportItem；项目自有 GBA Pegasus fixture 必须完成真实目录扫描到 Chrome 核心帧执行，使用授权本地 Pegasus 样例时另完成隔离服务实测。正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
 
 ### M12：受限异地联机垂直切片
 
@@ -200,7 +200,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 - 第一次项目初始化运行 `make install-deps`，需要访问固定 Go/npm/Playwright 与 manifest 公开来源；Node、Chrome for Testing 和其他工具写入仓库忽略的 `.cache/tools/`，应用 runtime/DAT/许可按既有目录物化。镜像 dependency builder 仍只准备发布所需 payload；正确缓存后校验与服务启动离线。
 - 默认构建契约只产生私有自托管镜像；若未来要 push、公开或商业分发，必须先完成 manifest 标记的受限制 core 人工许可审查。这是分发授权边界，不允许实现 Agent通过删 notice、换浮动 core 或绕过检查来处理。
-- 公开 `make web-e2e` 使用 `testdata/public-roms/gba-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中由 Retrom 自有源码确定性生成、带独立 MIT 许可且随仓库提交的测试程序；生成器与消费者共同锁定 bytes，分别覆盖 mGBA，以及 MAME 2003/FBNeo 的 Split Child/Parent/BIOS 识别、三路交付和单机帧执行，镜像必须排除整个公开 fixture 目录。Arcade 小型 DAT 只由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不开放 DAT 上传/管理能力；production manifest 的真实 DAT 另由 `ACC-DAT-004` 验证，二者证据不能互相冒充。Arcade 测试 BIOS 不被目标驱动执行；FBNeo 的单机结果不构成双浏览器联机证据。其他产品测试不得读取或下载用户私有 ROM/BIOS；没有合法公开 fixture 的核心必须登记为未覆盖，不能改用 mock 或相邻核心结果冒充兼容性证据。
+- 公开 `make web-e2e` 使用 `testdata/public-roms/gba-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中由 Retrom 自有源码确定性生成、带独立 MIT 许可且随仓库提交的测试程序；生成器与消费者共同锁定 bytes。GBA 的两个不同内容身份分别覆盖普通上传，以及 Pegasus 服务器目录扫描、显式映射、审核发布、Launch 和 mGBA 帧执行；Arcade fixture 覆盖 MAME 2003/FBNeo 的 Split Child/Parent/BIOS 识别、三路交付和单机帧执行。镜像必须排除整个公开 fixture 目录。Arcade 小型 DAT 只由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不开放 DAT 上传/管理能力；production manifest 的真实 DAT 另由 `ACC-DAT-004` 验证，二者证据不能互相冒充。Arcade 测试 BIOS 不被目标驱动执行；FBNeo 的单机结果不构成双浏览器联机证据。其他产品测试不得读取或下载用户私有 ROM/BIOS；没有合法公开 fixture 的核心必须登记为未覆盖，不能改用 mock 或相邻核心结果冒充兼容性证据。
 - 生产需要前置 NG 提供同源 HTTPS、保留 nonce CSP/隔离头并挂载持久数据卷；Retrom 本身不实现 TLS。
 - Hasheous 可临时不可用；导入仍进入人工审核，自动测试不依赖实时命中。
 

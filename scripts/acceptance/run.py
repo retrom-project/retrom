@@ -284,6 +284,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         "go test ./internal/pegasusimport ./internal/serversource -run 'TestRecoverWorkClosesExhaustedLeaseAsFailed|TestWalkAndOpenStayWithinNoFollowDescriptors' -count=1 && go test -tags=integration ./internal/maintenance -run '^TestBackupRestoreRoundTripAndOnlineRefusal$' -count=1 && go test ./internal/blobgc -run '^TestRunOnceHonorsGraceAndConcurrentReference$' -count=1",
     ),
     "ACC-PEG-005": (240, "scripts/acceptance/ui-case.sh ACC-PEG-005"),
+    "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
     "ACC-MEDIA-001": (
         240,
         "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",

@@ -15,6 +15,9 @@ test.beforeEach(async ({ page }, testInfo) => {
   if (testInfo.title.startsWith("ACC-BIOS-007") && testInfo.project.name !== "chrome-1280") {
     test.skip(true, "FULL_CATALOG 行为只消费一次共享 catalog；多尺寸由 ACC-BIOS-006 覆盖");
   }
+  if (testInfo.title.startsWith("ACC-PEG-006") && testInfo.project.name !== "chrome-1280") {
+    test.skip(true, "真实 Pegasus 核心链路只执行一次；多尺寸布局由 ACC-PEG-005 覆盖");
+  }
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
   const response = await page.request.post("/api/v1/auth/login", {
     data: { username: "test", password: "test" }, headers: { Origin: origin },
@@ -262,6 +265,97 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await expectNoPageOverflow(page);
   await expectNoSeriousAxeViolations(page);
   await page.screenshot({ path: evidencePath(testInfo, "pegasus-import-detail.png"), fullPage: true });
+});
+
+test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real emulator frames", async ({ page }, testInfo) => {
+  test.setTimeout(180_000);
+  await page.addInitScript(() => {
+    Object.defineProperty(Element.prototype, "requestFullscreen", {
+      configurable: true,
+      value: () => Promise.resolve(),
+    });
+  });
+
+  const title = "Pegasus GBA Smoke";
+  const beforeGamesResponse = await page.request.get(`/api/v1/admin/games?q=${encodeURIComponent(title)}&limit=100`);
+  expect(beforeGamesResponse.ok()).toBe(true);
+  const beforeGames = await beforeGamesResponse.json() as { items: Array<{ gameId: string; title: string }> };
+  expect(beforeGames.items.filter((game) => game.title === title)).toHaveLength(0);
+
+  await page.goto("/admin/imports/server");
+  await page.getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ }).click();
+  const drawer = page.getByRole("dialog", { name: "从 Pegasus 目录准备审核事项" });
+  await drawer.getByRole("button", { name: /^Playable/ }).click();
+  await expect(drawer).toContainText("Pegasus BIOS / Playable");
+  const scanResponse = page.waitForResponse((response) => new URL(response.url()).pathname === "/api/v1/admin/pegasus-imports" && response.request().method() === "POST");
+  await drawer.getByRole("button", { name: "扫描此目录" }).click();
+  const plan = await (await scanResponse).json() as { id: string };
+
+  await expect.poll(async () => {
+    const response = await page.request.get(`/api/v1/admin/pegasus-imports/${plan.id}`);
+    const payload = await response.json() as { state: string };
+    return payload.state;
+  }, { timeout: 30_000 }).toBe("AWAITING_MAPPING");
+  const mapping = drawer.getByRole("combobox", { name: "GBA Smoke 处理方式" });
+  await expect(mapping).toBeVisible({ timeout: 30_000 });
+  const gbaOption = mapping.getByRole("option", { name: /^导入到 GBA 游戏/ });
+  await mapping.selectOption(await gbaOption.getAttribute("value") ?? "");
+  await drawer.getByRole("button", { name: "确认映射" }).click();
+  await expect(drawer.getByText("可处理 / 源内容阻断").locator("..")).toContainText("1 / 0 个游戏");
+  await drawer.getByRole("button", { name: "开始准备审核事项" }).click();
+
+  await expect(page).toHaveURL(new RegExp(`/admin/imports/server/pegasus/${plan.id}$`));
+  await expect(page.getByText("审核事项已生成", { exact: true })).toBeVisible({ timeout: 60_000 });
+  const resultTable = page.getByRole("table", { name: "Pegasus 导入结果" });
+  const resultRow = resultTable.getByRole("row").filter({ hasText: title });
+  await expect(resultRow).toContainText("待管理员审核");
+  const reviewLink = page.getByRole("link", { name: /逐项审核 1 个游戏/ });
+  await expect(reviewLink).toHaveAttribute("href", `/admin/reviews?pegasusImportId=${plan.id}`);
+  await reviewLink.click();
+
+  const reviewRow = page.locator(".review-workflow-row").filter({ hasText: title });
+  await expect(reviewRow).toContainText("可以发布", { timeout: 30_000 });
+  await expect(reviewRow).toContainText("Pegasus · GBA Smoke");
+  await reviewRow.getByRole("link", { name: "审核条目" }).click();
+  await expect(page.getByRole("heading", { name: "审核条目" })).toBeVisible();
+  await expect(page.getByText("来源：Pegasus · GBA Smoke", { exact: true })).toBeVisible();
+  const approve = page.getByRole("button", { name: "通过并发布" });
+  await expect(approve).toBeEnabled();
+  await approve.click();
+  await expect(page.locator(".app-toast")).toContainText("游戏已成功发布", { timeout: 20_000 });
+
+  let gameId = "";
+  await expect.poll(async () => {
+    const response = await page.request.get(`/api/v1/admin/games?q=${encodeURIComponent(title)}&limit=100`);
+    const payload = await response.json() as { items: Array<{ gameId: string; title: string }> };
+    gameId = payload.items.find((game) => game.title === title)?.gameId ?? "";
+    return gameId;
+  }, { timeout: 20_000 }).not.toBe("");
+
+  await page.goto(`/games/${gameId}`);
+  const configResponse = page.waitForResponse((response) => /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
+  await page.getByRole("button", { name: "开始游戏" }).click();
+  await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/, { timeout: 10_000 });
+  const configuration = await (await configResponse).json() as { gameTitle: string; core: string; coreName: string; playerAdapterId: string; emulatorjsVersion: string; gameUrl: string };
+  expect(configuration.gameTitle).toBe(title);
+  expect(configuration.core).toBe("mgba");
+  expect(configuration.coreName).toBe("mGBA");
+  expect(configuration.playerAdapterId).toBe("ejs-4.2.3-v2");
+  expect(configuration.emulatorjsVersion).toBe("4.2.3");
+  expect(configuration.gameUrl).toMatch(/\/runtime\/launches\/[0-9a-f-]+\/game\/pegasus-smoke\.gba$/);
+
+  const player = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]');
+  await expect(player.locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
+  const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
+  expect(playerFrame).toBeTruthy();
+  const initialFrame = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
+  await expect.poll(
+    async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0),
+    { timeout: 30_000 },
+  ).toBeGreaterThan(initialFrame + 30);
+  await page.mouse.move(20, 20);
+  await expect(page.locator(".player-game-meta")).toContainText(title);
+  await page.screenshot({ path: evidencePath(testInfo, "pegasus-gba-player-running.png"), fullPage: true });
 });
 
 test("ACC-MEDIA-001 video upload is explicit in admin and absent from library requests", async ({ page }, testInfo) => {

@@ -507,4 +507,4 @@ Player 在 loader 启动前显示“正在准备多盘内容 · N 张光盘 · �
 
 ## 10. 统一验收入口
 
-UI、导航、桌面/4K、键盘、待审队列与状态呈现统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-UI-001`–`ACC-UI-009`；手机/平板 App Shell、逐页响应式布局、管理流程、方向门禁与移动横屏 Player 执行 `ACC-MOB-001`–`ACC-MOB-007`；多盘目录预检、缺盘补传、Player 换盘与存档盘号执行 `ACC-MDISC-001`–`ACC-MDISC-008`；Pegasus 三步流程、详情、恢复与多尺寸布局执行 `ACC-PEG-005`，游戏视频策略执行 `ACC-MEDIA-001`；账户和用户管理生命周期执行 `ACC-AUTH-*` 与 `ACC-ISO-*`；游戏管理执行 `ACC-GAME-001`–`ACC-GAME-003`；一次点击启动、默认全屏、存档快速恢复与 DOS 程序选择分别由 `ACC-RUN-*` 和 `ACC-SAVE-*` 联合覆盖。本文不再复制验收清单。
+UI、导航、桌面/4K、键盘、待审队列与状态呈现统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-UI-001`–`ACC-UI-009`；手机/平板 App Shell、逐页响应式布局、管理流程、方向门禁与移动横屏 Player 执行 `ACC-MOB-001`–`ACC-MOB-007`；多盘目录预检、缺盘补传、Player 换盘与存档盘号执行 `ACC-MDISC-001`–`ACC-MDISC-008`；Pegasus 三步流程、详情、恢复与多尺寸布局执行 `ACC-PEG-005`，目录到 Player 的完整产品交互执行 `ACC-PEG-006`，游戏视频策略执行 `ACC-MEDIA-001`；账户和用户管理生命周期执行 `ACC-AUTH-*` 与 `ACC-ISO-*`；游戏管理执行 `ACC-GAME-001`–`ACC-GAME-003`；一次点击启动、默认全屏、存档快速恢复与 DOS 程序选择分别由 `ACC-RUN-*` 和 `ACC-SAVE-*` 联合覆盖。本文不再复制验收清单。

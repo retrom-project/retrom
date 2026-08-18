@@ -1,17 +1,21 @@
 # Retrom GBA smoke ROM
 
-`gba-smoke.gba` is a project-owned Game Boy Advance program used only by
-Retrom's product E2E tests. It contains no third-party game, firmware, vendor
-logo, SDK output, or other proprietary payload.
+`gba-smoke.gba` and `pegasus-smoke.gba` are project-owned Game Boy Advance
+programs used only by Retrom's product E2E tests. They contain no third-party
+game, firmware, vendor logo, SDK output, or other proprietary payload. The two
+ROMs execute the same program but carry distinct project-owned GBA header
+identities, so the ordinary upload flow and the Pegasus directory flow can run
+in one isolated database without duplicate-content short-circuiting either
+product path.
 
-The ROM boots directly in ARM state without a BIOS, selects GBA video mode 3,
+Each ROM boots directly in ARM state without a BIOS, selects GBA video mode 3,
 draws a high-contrast framebuffer, and alternates the top ten scanlines between
 red and green once per frame. Holding the GBA A button changes that animated
-band to blue. This gives the browser test deterministic frame, image, input,
+band to blue. This gives the browser tests deterministic frame, image, input,
 and save-state signals while still exercising the real mGBA core.
 
-The deliberately blank vendor-logo area means this 1 KiB image targets
-BIOS-free emulator execution and is not intended to boot on physical hardware.
+The deliberately blank vendor-logo area means these 1 KiB images target
+BIOS-free emulator execution and are not intended to boot on physical hardware.
 
 Regenerate and verify it with:
 

@@ -14,8 +14,10 @@ from xml.etree import ElementTree
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "gba-smoke"
-ROM = FIXTURE_ROOT / "gba-smoke.gba"
-EXPECTED_SHA256 = "f86c63b35aea59190f5e1cf99f8f3d576c3646b26da02f3f826fde192a47239b"
+GBA_ROMS = {
+    "gba-smoke.gba": (b"RETROM SMOKE", b"RTSM", "f86c63b35aea59190f5e1cf99f8f3d576c3646b26da02f3f826fde192a47239b"),
+    "pegasus-smoke.gba": (b"RETROM PEGAS", b"RTPG", "6550cc49ddd91337c7c44bc827e2e9305b91c811ef6b032e1ee35fa5884a2e3a"),
+}
 ARCADE_FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "arcade-smoke"
 ARCADE_OUTPUTS = {
     "pacman.zip": (16782, "9364e180d8ec43d8efd530afea30399f7a974eeec78266dcaecc04f3524c68d7"),
@@ -57,23 +59,29 @@ class PublicFixtureTests(unittest.TestCase):
             text=True,
         )
 
-    def test_gba_smoke_rom_has_locked_identity_and_valid_header(self) -> None:
-        image = ROM.read_bytes()
-        self.assertEqual(1024, len(image))
-        self.assertEqual(EXPECTED_SHA256, hashlib.sha256(image).hexdigest())
-        self.assertEqual(b"RETROM SMOKE", image[0xA0:0xAC])
-        self.assertEqual(b"RTSM", image[0xAC:0xB0])
-        self.assertEqual(0x96, image[0xB2])
-        self.assertEqual(
-            0,
-            (0x19 + sum(image[0xA0:0xBE])) & 0xFF,
-            "GBA header complement checksum drifted",
-        )
-        self.assertEqual(
-            bytes(156),
-            image[0x04:0xA0],
-            "the public ROM must not embed a third-party vendor logo",
-        )
+    def test_gba_smoke_roms_have_locked_identities_and_valid_headers(self) -> None:
+        identities: set[str] = set()
+        for name, (title, product_code, expected_sha256) in GBA_ROMS.items():
+            with self.subTest(name=name):
+                image = (FIXTURE_ROOT / name).read_bytes()
+                digest = hashlib.sha256(image).hexdigest()
+                self.assertEqual(1024, len(image))
+                self.assertEqual(expected_sha256, digest)
+                self.assertEqual(title, image[0xA0:0xAC])
+                self.assertEqual(product_code, image[0xAC:0xB0])
+                self.assertEqual(0x96, image[0xB2])
+                self.assertEqual(
+                    0,
+                    (0x19 + sum(image[0xA0:0xBE])) & 0xFF,
+                    "GBA header complement checksum drifted",
+                )
+                self.assertEqual(
+                    bytes(156),
+                    image[0x04:0xA0],
+                    "the public ROM must not embed a third-party vendor logo",
+                )
+                identities.add(digest)
+        self.assertEqual(len(GBA_ROMS), len(identities))
 
     def test_arcade_smoke_outputs_match_their_generator(self) -> None:
         subprocess.run(
