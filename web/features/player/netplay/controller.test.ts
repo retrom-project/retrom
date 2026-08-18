@@ -58,7 +58,7 @@ function raState(core: number[]) {
 }
 
 afterEach(() => {
-  vi.useRealTimers(); vi.unstubAllGlobals(); FakeSocket.instances = [];
+  vi.useRealTimers(); vi.restoreAllMocks(); vi.unstubAllGlobals(); FakeSocket.instances = [];
 });
 
 describe("NetplayController reconnect lease", () => {
@@ -123,7 +123,7 @@ describe("NetplayController reconnect lease", () => {
     await Promise.resolve(); await Promise.resolve();
     expect(onRunning).toHaveBeenCalledOnce();
     first.remoteClose();
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(0);
     expect(FakeSocket.instances).toHaveLength(2);
     const second = FakeSocket.instances[1]!;
     expect(JSON.parse(second.sent[0] as string)).toMatchObject({ type: "HELLO", seq: 0, epoch: 0, lastCanonicalFrame: -1, lastServerSeq: 1 });
@@ -148,7 +148,7 @@ describe("NetplayController reconnect lease", () => {
     await controller.start();
     FakeSocket.instances[0]!.remoteClose();
     expect(onEnded).not.toHaveBeenCalled();
-    await vi.advanceTimersByTimeAsync(500);
+    await vi.advanceTimersByTimeAsync(0);
 
     expect(FakeSocket.instances).toHaveLength(2);
     const replacement = FakeSocket.instances[1]!;

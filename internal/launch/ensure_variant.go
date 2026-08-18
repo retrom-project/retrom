@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -278,6 +279,35 @@ type arcadeSnapshotIdentity struct {
 	DATVersionID  string `json:"datVersionId"`
 }
 
+type legacyArcadeClosureNode struct {
+	Machine    string  `json:"machine"`
+	Kind       string  `json:"kind"`
+	RequiredBy *string `json:"requiredBy"`
+	Depth      int     `json:"depth"`
+}
+
+type projectedArcadeDependency struct {
+	Kind                string   `json:"kind"`
+	Machine             string   `json:"machine"`
+	RequiredBy          *string  `json:"requiredBy,omitempty"`
+	Depth               int      `json:"depth,omitempty"`
+	ExpectedLogicalName string   `json:"expectedLogicalName,omitempty"`
+	State               string   `json:"state"`
+	RequiredEntryCount  int      `json:"requiredEntryCount,omitempty"`
+	RequiredEntries     []string `json:"requiredEntries"`
+}
+
+type projectedArcadeSnapshot struct {
+	SchemaVersion     int                         `json:"schemaVersion"`
+	Machine           string                      `json:"machine"`
+	DATVersionID      string                      `json:"datVersionId"`
+	Closure           []legacyArcadeClosureNode   `json:"closure"`
+	Dependencies      []projectedArcadeDependency `json:"dependencies"`
+	MissingEntries    []string                    `json:"missingEntries"`
+	MismatchedEntries []string                    `json:"mismatchedEntries"`
+	Warnings          []string                    `json:"warnings"`
+}
+
 func validateLockedArcadeSnapshot(raw, contentLogicalName, datID string) error {
 	var identity arcadeSnapshotIdentity
 	if err := json.Unmarshal([]byte(raw), &identity); err != nil {
@@ -297,21 +327,309 @@ func (service *Service) lockedArcadeDependencySnapshot(
 	ctx context.Context,
 	variantID, contentID, contentLogicalName, datID string,
 ) (string, error) {
-	var raw string
+	var revisionID, raw string
 	if err := service.database.QueryRowContext(ctx, `
-SELECT revision.dependency_snapshot_json
+SELECT revision.id,revision.dependency_snapshot_json
 FROM game_variants variant
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 WHERE variant.id=?
 AND revision.game_content_revision_id=?
 AND revision.dat_version_id=?
-`, variantID, contentID, datID).Scan(&raw); err != nil {
+`, variantID, contentID, datID).Scan(&revisionID, &raw); err != nil {
 		return "", fmt.Errorf("load locked Arcade dependency snapshot: %w", err)
 	}
-	if err := validateLockedArcadeSnapshot(raw, contentLogicalName, datID); err != nil {
+	if err := validateLockedArcadeSnapshot(raw, contentLogicalName, datID); err == nil {
+		return raw, nil
+	}
+	if _, err := corevalidation.ParseSnapshot(raw); err != nil {
 		return "", fmt.Errorf("validate locked Arcade dependency snapshot: %w", err)
 	}
-	return raw, nil
+	projected, err := service.projectLegacyArcadeSnapshot(ctx, revisionID, contentLogicalName, datID)
+	if err != nil {
+		return "", fmt.Errorf("project legacy Arcade dependency snapshot: %w", err)
+	}
+	return projected, nil
+}
+
+func (service *Service) projectLegacyArcadeSnapshot(
+	ctx context.Context,
+	revisionID, contentLogicalName, datID string,
+) (string, error) {
+	machine := strings.TrimSuffix(filepath.Base(contentLogicalName), filepath.Ext(contentLogicalName))
+	closure, err := service.arcadeDependencyClosure(ctx, datID, machine)
+	if err != nil {
+		return "", err
+	}
+	dependencies, err := service.legacyArcadeDependencies(ctx, revisionID, datID, closure)
+	if err != nil {
+		return "", err
+	}
+	warnings := make([]string, 0)
+	for _, dependency := range dependencies {
+		if dependency.State == "HASH_WARNING" {
+			warnings = append(warnings, dependency.Machine+".zip:HASH_WARNING")
+		}
+	}
+	sort.Strings(warnings)
+	snapshot := projectedArcadeSnapshot{
+		SchemaVersion: 2, Machine: machine, DATVersionID: datID, Closure: closure, Dependencies: dependencies,
+		MissingEntries: []string{}, MismatchedEntries: []string{}, Warnings: warnings,
+	}
+	encoded, err := json.Marshal(snapshot)
+	if err != nil {
+		return "", fmt.Errorf("encode projected Arcade snapshot: %w", err)
+	}
+	if err := validateLockedArcadeSnapshot(string(encoded), contentLogicalName, datID); err != nil {
+		return "", err
+	}
+	return string(encoded), nil
+}
+
+type arcadeMachineRelation struct {
+	cloneOf string
+	romOf   string
+}
+
+//nolint:gocognit,gocyclo,nestif // The bounded DAT traversal keeps cycle and relation validation together.
+func (service *Service) arcadeDependencyClosure(
+	ctx context.Context,
+	datID, machine string,
+) ([]legacyArcadeClosureNode, error) {
+	if machine == "" {
+		return nil, corevalidation.ErrInvalidSnapshot
+	}
+	cache := make(map[string]arcadeMachineRelation)
+	resolve := func(name string) (arcadeMachineRelation, error) {
+		return service.loadLegacyArcadeMachineRelation(ctx, datID, name, cache)
+	}
+	nodes := []legacyArcadeClosureNode{{Machine: machine, Kind: "CONTENT", Depth: 0}}
+	indices := map[string]int{machine: 0}
+	chain := make(map[string]struct{})
+	current, depth := machine, 0
+	for current != "" {
+		if _, duplicate := chain[current]; duplicate {
+			return nil, corevalidation.ErrInvalidSnapshot
+		}
+		chain[current] = struct{}{}
+		relation, err := resolve(current)
+		if err != nil {
+			return nil, err
+		}
+		if relation.romOf != "" && relation.romOf != relation.cloneOf {
+			if _, err := resolve(relation.romOf); err != nil {
+				return nil, err
+			}
+			if _, exists := indices[relation.romOf]; !exists {
+				if len(nodes) >= 64 {
+					return nil, corevalidation.ErrInvalidSnapshot
+				}
+				requiredBy := current
+				indices[relation.romOf] = len(nodes)
+				nodes = append(nodes, legacyArcadeClosureNode{
+					Machine: relation.romOf, Kind: "BIOS_OR_BASE", RequiredBy: &requiredBy, Depth: depth + 1,
+				})
+			}
+		}
+		if relation.cloneOf == "" {
+			break
+		}
+		if _, duplicate := chain[relation.cloneOf]; duplicate {
+			return nil, corevalidation.ErrInvalidSnapshot
+		}
+		if _, err := resolve(relation.cloneOf); err != nil {
+			return nil, err
+		}
+		requiredBy := current
+		if existing, exists := indices[relation.cloneOf]; exists {
+			nodes[existing] = legacyArcadeClosureNode{
+				Machine: relation.cloneOf, Kind: "PARENT", RequiredBy: &requiredBy, Depth: depth + 1,
+			}
+		} else {
+			if len(nodes) >= 64 {
+				return nil, corevalidation.ErrInvalidSnapshot
+			}
+			indices[relation.cloneOf] = len(nodes)
+			nodes = append(nodes, legacyArcadeClosureNode{
+				Machine: relation.cloneOf, Kind: "PARENT", RequiredBy: &requiredBy, Depth: depth + 1,
+			})
+		}
+		current, depth = relation.cloneOf, depth+1
+	}
+	sort.Slice(nodes, func(left, right int) bool {
+		if nodes[left].Depth != nodes[right].Depth {
+			return nodes[left].Depth < nodes[right].Depth
+		}
+		leftKind := legacyArcadeClosureKindOrder(nodes[left].Kind)
+		rightKind := legacyArcadeClosureKindOrder(nodes[right].Kind)
+		if leftKind != rightKind {
+			return leftKind < rightKind
+		}
+		return nodes[left].Machine < nodes[right].Machine
+	})
+	return nodes, nil
+}
+
+func (service *Service) loadLegacyArcadeMachineRelation(
+	ctx context.Context,
+	datID, machine string,
+	cache map[string]arcadeMachineRelation,
+) (arcadeMachineRelation, error) {
+	if relation, exists := cache[machine]; exists {
+		return relation, nil
+	}
+	var cloneOf, romOf sql.NullString
+	if err := service.database.QueryRowContext(ctx, `
+SELECT cloneof,romof FROM dat_machines WHERE dat_version_id=? AND machine_name=?
+`, datID, machine).Scan(&cloneOf, &romOf); err != nil {
+		return arcadeMachineRelation{}, fmt.Errorf("load locked DAT machine %q: %w", machine, err)
+	}
+	relation := arcadeMachineRelation{cloneOf: cloneOf.String, romOf: romOf.String}
+	cache[machine] = relation
+	return relation, nil
+}
+
+func legacyArcadeClosureKindOrder(kind string) int {
+	switch kind {
+	case "CONTENT":
+		return 0
+	case "PARENT":
+		return 1
+	default:
+		return 2
+	}
+}
+
+func (service *Service) legacyArcadeDependencies(
+	ctx context.Context,
+	revisionID, datID string,
+	closure []legacyArcadeClosureNode,
+) ([]projectedArcadeDependency, error) {
+	byKey, err := service.loadLegacyArcadeDependencyIndex(ctx, revisionID, datID)
+	if err != nil {
+		return nil, err
+	}
+	result := make([]projectedArcadeDependency, 0, len(closure)-1)
+	for _, node := range closure {
+		if node.Kind == "CONTENT" {
+			continue
+		}
+		key := node.Kind + "\x00" + node.Machine
+		dependency, exists := byKey[key]
+		if !exists {
+			return nil, corevalidation.ErrInvalidSnapshot
+		}
+		delete(byKey, key)
+		dependency.RequiredBy, dependency.Depth = node.RequiredBy, node.Depth
+		if err := service.validateLegacyArcadeParentFile(ctx, revisionID, dependency); err != nil {
+			return nil, err
+		}
+		result = append(result, dependency)
+	}
+	if len(byKey) != 0 {
+		return nil, corevalidation.ErrInvalidSnapshot
+	}
+	sort.Slice(result, func(left, right int) bool {
+		if result[left].Kind != result[right].Kind {
+			return result[left].Kind < result[right].Kind
+		}
+		if result[left].Depth != result[right].Depth {
+			return result[left].Depth < result[right].Depth
+		}
+		return result[left].Machine < result[right].Machine
+	})
+	return result, nil
+}
+
+func (service *Service) loadLegacyArcadeDependencyIndex(
+	ctx context.Context,
+	revisionID, datID string,
+) (map[string]projectedArcadeDependency, error) {
+	rows, err := service.database.QueryContext(ctx, `
+SELECT kind,logical_archive,source_machine_name,required_entries_json,state
+FROM variant_dependencies
+WHERE game_variant_revision_id=? AND dat_version_id=?
+ORDER BY kind,logical_archive
+`, revisionID, datID)
+	if err != nil {
+		return nil, fmt.Errorf("load legacy Arcade dependencies: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	byKey := make(map[string]projectedArcadeDependency)
+	for rows.Next() {
+		var kind, logicalArchive, machine, rawEntries, state string
+		if err := rows.Scan(&kind, &logicalArchive, &machine, &rawEntries, &state); err != nil {
+			return nil, fmt.Errorf("scan legacy Arcade dependency: %w", err)
+		}
+		if logicalArchive != machine+".zip" ||
+			(state != "SATISFIED_BY_CONTENT" && state != "SATISFIED_EXTERNAL" && state != "HASH_WARNING") {
+			return nil, corevalidation.ErrInvalidSnapshot
+		}
+		entries, err := legacyArcadeEntryNames(rawEntries)
+		if err != nil {
+			return nil, err
+		}
+		key := kind + "\x00" + machine
+		if _, duplicate := byKey[key]; duplicate {
+			return nil, corevalidation.ErrInvalidSnapshot
+		}
+		byKey[key] = projectedArcadeDependency{
+			Kind: kind, Machine: machine, State: state,
+			ExpectedLogicalName: logicalArchive, RequiredEntryCount: len(entries), RequiredEntries: entries,
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate legacy Arcade dependencies: %w", err)
+	}
+	return byKey, nil
+}
+
+func (service *Service) validateLegacyArcadeParentFile(
+	ctx context.Context,
+	revisionID string,
+	dependency projectedArcadeDependency,
+) error {
+	if dependency.Kind != "PARENT" || dependency.State != "SATISFIED_EXTERNAL" {
+		return nil
+	}
+	var fileCount int
+	if err := service.database.QueryRowContext(ctx, `
+SELECT count(*) FROM variant_files
+WHERE game_variant_revision_id=? AND role='PARENT' AND logical_name=?
+`, revisionID, dependency.ExpectedLogicalName).Scan(&fileCount); err != nil {
+		return fmt.Errorf("check locked legacy Arcade parent: %w", err)
+	}
+	if fileCount != 1 {
+		return corevalidation.ErrInvalidSnapshot
+	}
+	return nil
+}
+
+func legacyArcadeEntryNames(raw string) ([]string, error) {
+	var legacy []string
+	if err := json.Unmarshal([]byte(raw), &legacy); err == nil && legacy != nil {
+		for _, name := range legacy {
+			if name == "" {
+				return nil, corevalidation.ErrInvalidSnapshot
+			}
+		}
+		return legacy, nil
+	}
+	var snapshot struct {
+		Entries []struct {
+			Name string `json:"name"`
+		} `json:"entries"`
+	}
+	if err := json.Unmarshal([]byte(raw), &snapshot); err != nil || snapshot.Entries == nil {
+		return nil, corevalidation.ErrInvalidSnapshot
+	}
+	names := make([]string, 0, len(snapshot.Entries))
+	for _, entry := range snapshot.Entries {
+		if entry.Name == "" {
+			return nil, corevalidation.ErrInvalidSnapshot
+		}
+		names = append(names, entry.Name)
+	}
+	return names, nil
 }
 
 //nolint:funlen,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
@@ -498,19 +816,23 @@ func (service *Service) queueValidationJob(
 ) (string, bool, error) {
 	dedupeKey := validationDedupeKey(variantID, digest)
 	var jobID, jobState string
+	var retryable sql.NullInt64
+	var executionNo, jobVersion int64
 	err := transaction.QueryRowContext(ctx, `
 SELECT id,
-state
+state,
+error_retryable,
+execution_no,
+version
 FROM jobs
 WHERE kind='VARIANT_REVALIDATE'
 AND dedupe_key=?
 `, dedupeKey).
-		Scan(&jobID, &jobState)
+		Scan(&jobID, &jobState, &retryable, &executionNo, &jobVersion)
 	if err == nil {
-		if jobState == "FAILED" || jobState == "CANCELLED" {
-			return "", false, ErrBlocked
-		}
-		return jobID, false, nil
+		return service.reuseValidationJob(
+			ctx, transaction, variantID, jobID, jobState, retryable, executionNo, jobVersion,
+		)
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
 		return "", false, fmt.Errorf("launch/ensure_variant: %w", err)
@@ -595,6 +917,83 @@ created_at_ms) VALUES(?,
 		return "", false, fmt.Errorf("launch/ensure_variant: %w", err)
 	}
 	return jobID, true, nil
+}
+
+func (service *Service) reuseValidationJob(
+	ctx context.Context,
+	transaction *sql.Tx,
+	variantID, jobID, jobState string,
+	retryable sql.NullInt64,
+	executionNo, jobVersion int64,
+) (string, bool, error) {
+	if jobState == "FAILED" && retryable.Valid && retryable.Int64 == 1 {
+		if err := retryVariantValidationJob(
+			ctx, transaction, jobID, variantID, executionNo, jobVersion, service.now().UnixMilli(),
+		); err != nil {
+			return "", false, err
+		}
+		return jobID, true, nil
+	}
+	if jobState == "FAILED" || jobState == "CANCELLED" {
+		return "", false, ErrBlocked
+	}
+	return jobID, false, nil
+}
+
+func retryVariantValidationJob(
+	ctx context.Context,
+	transaction *sql.Tx,
+	jobID, variantID string,
+	executionNo, jobVersion, now int64,
+) error {
+	var previousJSON string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT input_json FROM job_input_snapshots WHERE job_id=? AND execution_no=?
+`, jobID, executionNo).Scan(&previousJSON); err != nil {
+		return fmt.Errorf("launch/retry validation input: %w", err)
+	}
+	var snapshot validationSnapshot
+	if err := json.Unmarshal([]byte(previousJSON), &snapshot); err != nil ||
+		snapshot.SchemaVersion != 1 || snapshot.Kind != "VARIANT_REVALIDATE" ||
+		snapshot.Scope.Type != "GAME_VARIANT" || snapshot.Scope.ID != variantID {
+		return ErrBlocked
+	}
+	executionNo++
+	snapshot.ExecutionID = newUUID()
+	inputJSON, err := json.Marshal(snapshot)
+	if err != nil {
+		return fmt.Errorf("launch/retry validation input: %w", err)
+	}
+	inputHash := sha256.Sum256(inputJSON)
+	payload, _ := json.Marshal(map[string]any{"schemaVersion": 1, "inputExecutionNo": executionNo})
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
+VALUES(?,?,?,?,?)
+`, jobID, executionNo, string(inputJSON), hex.EncodeToString(inputHash[:]), now); err != nil {
+		return fmt.Errorf("launch/write retried validation input: %w", err)
+	}
+	result, err := transaction.ExecContext(ctx, `
+UPDATE jobs
+SET state='QUEUED',execution_no=?,payload_json=?,attempt_count=0,available_at_ms=?,
+execution_started_at_ms=NULL,execution_deadline_at_ms=NULL,leased_until_ms=NULL,heartbeat_at_ms=NULL,
+finished_at_ms=NULL,worker_id=NULL,error_code=NULL,error_retryable=NULL,
+cancel_requested_at_ms=NULL,cancel_reason=NULL,version=version+1,updated_at_ms=?
+WHERE id=? AND version=? AND state='FAILED' AND error_retryable=1
+`, executionNo, string(payload), now, now, jobID, jobVersion)
+	if err != nil {
+		return fmt.Errorf("launch/reset retried validation job: %w", err)
+	}
+	affected, err := result.RowsAffected()
+	if err != nil || affected != 1 {
+		return ErrBlocked
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
+VALUES(?,'GAME_VARIANT',?,'RETRY_SCHEDULED',json_object('schemaVersion',1,'executionNo',?,'trigger','LAUNCH'),?)
+`, jobID, variantID, executionNo, now); err != nil {
+		return fmt.Errorf("launch/write retried validation event: %w", err)
+	}
+	return nil
 }
 
 // QueueDATRevalidations records every job in the caller's DAT activation
