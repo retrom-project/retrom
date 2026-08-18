@@ -1327,6 +1327,35 @@ WHERE v.game_id=?
 		Scan(&failedState, &retryable); err != nil || failedState != "FAILED" || retryable != 1 {
 		t.Fatalf("failed validation terminal state = %s/%d, error=%v", failedState, retryable, err)
 	}
+	retryTx, err := database.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(retryTx)
+	retriedJobID, queued, err := service.queueValidationJob(
+		ctx,
+		retryTx,
+		variantID,
+		"missing-content-revision",
+		artifactID,
+		sql.NullString{},
+		strings.Repeat("0", 64),
+		strings.Repeat("0", 64),
+	)
+	if err != nil || !queued || retriedJobID != invalidJobID {
+		t.Fatalf("automatic validation retry = %s/%t, error=%v", retriedJobID, queued, err)
+	}
+	if err := retryTx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	var executionNo, retryEvents int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT execution_no,(SELECT count(*) FROM job_events WHERE job_id=jobs.id AND event_type='RETRY_SCHEDULED'
+  AND json_extract(data_json,'$.trigger')='LAUNCH')
+FROM jobs WHERE id=? AND state='QUEUED'
+`, invalidJobID).Scan(&executionNo, &retryEvents); err != nil || executionNo != 2 || retryEvents != 1 {
+		t.Fatalf("automatic validation retry evidence = execution %d/events %d, error=%v", executionNo, retryEvents, err)
+	}
 	now := time.Now().UnixMilli()
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE jobs

@@ -6,14 +6,8 @@ import { backendJSON } from "@/lib/server-backend";
 
 export const metadata = { title: "联机房间" };
 
-async function loadGames() {
-  const items: NetplayGameList["items"] = [];
-  let cursor: string | null = null;
-  do {
-    const page: NetplayGameList = await backendJSON<NetplayGameList>(`/api/v1/netplay/games?availability=ALL&limit=100${cursor ? `&cursor=${encodeURIComponent(cursor)}` : ""}`);
-    items.push(...page.items); cursor = page.nextCursor;
-  } while (cursor);
-  return items;
+async function loadGamePage() {
+  return backendJSON<NetplayGameList>("/api/v1/netplay/games?availability=ALL&limit=100");
 }
 
 type PageSearchParams = Promise<Record<string, string | string[] | undefined>>;
@@ -30,14 +24,19 @@ export default async function NetplayRoomPage({ params, searchParams }: {
   const context = await loadAuthContext();
   if (!context.netplayEnabled) notFound();
   const [{ roomId }, query] = await Promise.all([params, searchParams]);
-  const [room, games] = await Promise.all([
-    backendJSON<NetplayRoom>(`/api/v1/netplay/rooms/${encodeURIComponent(roomId)}`),
-    loadGames(),
-  ]);
+  const room = await backendJSON<NetplayRoom>(`/api/v1/netplay/rooms/${encodeURIComponent(roomId)}`);
+  const gamePage = room.state === "DRAFT" && room.permissions.canSelectGame
+    ? await loadGamePage()
+    : { items: [], nextCursor: null };
   const initialFilterParams: NetplayFilterParams = {
     q: first(query, "q"), platformId: first(query, "platformId"),
     platformInstanceId: first(query, "platformInstanceId"),
     availability: first(query, "availability"), sort: first(query, "sort"),
   };
-  return <NetplayRoomLobby initialRoom={room} games={games} initialFilterParams={initialFilterParams} />;
+  return <NetplayRoomLobby
+    initialRoom={room}
+    games={gamePage.items}
+    initialGamesNextCursor={gamePage.nextCursor}
+    initialFilterParams={initialFilterParams}
+  />;
 }

@@ -26,6 +26,23 @@ class FakeEventSource {
   }
 }
 
+class FakeIntersectionObserver {
+  static instances: FakeIntersectionObserver[] = [];
+  observe = vi.fn();
+  unobserve = vi.fn();
+  disconnect = vi.fn();
+  takeRecords = vi.fn(() => []);
+  root = null;
+  rootMargin = "0px";
+  thresholds = [0];
+  constructor(private readonly callback: IntersectionObserverCallback) {
+    FakeIntersectionObserver.instances.push(this);
+  }
+  emit(isIntersecting: boolean) {
+    this.callback([{ isIntersecting } as IntersectionObserverEntry], this as unknown as IntersectionObserver);
+  }
+}
+
 const roomId = "01980000-0000-7000-8000-000000000001";
 const hostMemberId = "01980000-0000-7000-8000-000000000002";
 
@@ -95,7 +112,9 @@ describe("NetplayRoomLobby", () => {
     auth.fetch.mockReset();
     navigation.replace.mockReset();
     FakeEventSource.instances = [];
+    FakeIntersectionObserver.instances = [];
     vi.stubGlobal("EventSource", FakeEventSource);
+    vi.stubGlobal("IntersectionObserver", FakeIntersectionObserver);
     window.history.replaceState({}, "", `/netplay/rooms/${roomId}`);
   });
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
@@ -113,6 +132,33 @@ describe("NetplayRoomLobby", () => {
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(trigger).toHaveFocus();
+  });
+
+  it("loads only the next game page after the user scrolls to the sentinel", async () => {
+    const nextGame = {
+      ...game(),
+      gameId: "01980000-0000-7000-8000-000000000099",
+      title: "Second Page Game",
+    };
+    auth.fetch.mockResolvedValue(json({ items: [nextGame], nextCursor: null }));
+    render(<NetplayRoomLobby initialRoom={room()} games={[game()]} initialGamesNextCursor="page-2" />);
+
+    expect(screen.getAllByText("F1 Race")).not.toHaveLength(0);
+    expect(screen.queryByText("Second Page Game")).not.toBeInTheDocument();
+    expect(auth.fetch).not.toHaveBeenCalled();
+    await waitFor(() => expect(FakeIntersectionObserver.instances).toHaveLength(1));
+    FakeIntersectionObserver.instances[0]!.emit(true);
+    expect(auth.fetch).not.toHaveBeenCalled();
+
+    window.dispatchEvent(new Event("scroll"));
+    FakeIntersectionObserver.instances[0]!.emit(true);
+
+    await waitFor(() => expect(screen.getAllByText("Second Page Game")).not.toHaveLength(0));
+    expect(auth.fetch).toHaveBeenCalledWith(
+      "/api/v1/netplay/games?availability=ALL&limit=100&cursor=page-2",
+      { cache: "no-store" },
+    );
+    expect(screen.getByText("已加载全部联机游戏")).toBeInTheDocument();
   });
 
   it("copies the room link and requires confirmation before closing", async () => {

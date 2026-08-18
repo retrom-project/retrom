@@ -7,7 +7,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"path/filepath"
 	"slices"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -160,31 +162,96 @@ type eligibleProfile struct {
 }
 
 func (service *Service) Games(ctx context.Context, profileID, availability string) ([]GameSummary, error) {
+	items := make([]GameSummary, 0)
+	afterTitle, afterGameID := "", ""
+	for {
+		page, hasMore, err := service.GamePage(ctx, profileID, availability, afterTitle, afterGameID, 100)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, page...)
+		if !hasMore {
+			return items, nil
+		}
+		last := page[len(page)-1]
+		afterTitle, afterGameID = strings.ToLower(last.Title), last.GameID
+	}
+}
+
+func (service *Service) GamePage(
+	ctx context.Context,
+	profileID, availability, afterTitle, afterGameID string,
+	limit int,
+) ([]GameSummary, bool, error) {
 	if availability == "" {
 		availability = "SUPPORTED"
 	}
-	if availability != "SUPPORTED" && availability != "ALL" {
-		return nil, ErrInvalidProfile
+	if (availability != "SUPPORTED" && availability != "ALL") || limit < 1 || limit > 100 ||
+		(afterGameID == "") != (afterTitle == "") {
+		return nil, false, ErrInvalidProfile
 	}
-	allItems, err := service.queryGames(ctx, profileID)
-	if err != nil {
-		return nil, err
+	items := make([]GameSummary, 0, limit+1)
+	scanTitle, scanGameID := afterTitle, afterGameID
+	for len(items) <= limit {
+		candidates, hasMoreCandidates, err := service.queryGamePage(
+			ctx, profileID, scanTitle, scanGameID, limit+1,
+		)
+		if err != nil {
+			return nil, false, err
+		}
+		items, scanTitle, scanGameID, err = service.appendEligibleGames(
+			ctx, candidates, availability, items, limit,
+		)
+		if err != nil {
+			return nil, false, err
+		}
+		if len(items) > limit {
+			break
+		}
+		if !hasMoreCandidates {
+			if err := service.attachGameTags(ctx, items); err != nil {
+				return nil, false, err
+			}
+			return items, false, nil
+		}
 	}
-	items := make([]GameSummary, 0, len(allItems))
-	for _, item := range allItems {
-		item, include, enrichErr := service.enrichGame(ctx, item, availability)
-		if enrichErr != nil {
-			return nil, enrichErr
+	items = items[:limit]
+	if err := service.attachGameTags(ctx, items); err != nil {
+		return nil, false, err
+	}
+	return items, true, nil
+}
+
+func (service *Service) appendEligibleGames(
+	ctx context.Context,
+	candidates []GameSummary,
+	availability string,
+	items []GameSummary,
+	limit int,
+) ([]GameSummary, string, string, error) {
+	lastTitle, lastGameID := "", ""
+	for _, candidate := range candidates {
+		lastTitle, lastGameID = strings.ToLower(candidate.Title), candidate.GameID
+		item, include, err := service.enrichGame(ctx, candidate, availability)
+		if err != nil {
+			return nil, "", "", err
 		}
 		if include {
 			items = append(items, item)
+			if len(items) > limit {
+				break
+			}
 		}
 	}
-	return items, nil
+	return items, lastTitle, lastGameID, nil
 }
 
-func (service *Service) queryGames(ctx context.Context, profileID string) ([]GameSummary, error) {
-	rows, err := service.database.QueryContext(ctx, `
+func (service *Service) queryGamePage(
+	ctx context.Context,
+	profileID, afterTitle, afterGameID string,
+	limit int,
+) ([]GameSummary, bool, error) {
+	query := `
 SELECT game.id,metadata.title,platform.id,platform.name,instance.id,instance.name,game.created_at_ms,
   (SELECT max(play.started_at_ms) FROM play_sessions play WHERE play.game_id=game.id AND play.profile_id=?),
   (SELECT asset.id FROM game_assets asset
@@ -194,14 +261,20 @@ FROM games game
 JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
 JOIN platform_instances instance ON instance.id=game.platform_instance_id
 JOIN platforms platform ON platform.id=instance.platform_id
-WHERE game.status='PUBLISHED' AND instance.enabled=1
-ORDER BY lower(metadata.title),game.id
-`, profileID)
+WHERE game.status='PUBLISHED' AND instance.enabled=1`
+	arguments := []any{profileID}
+	if afterGameID != "" {
+		query += ` AND (lower(metadata.title)>? OR (lower(metadata.title)=? AND game.id>?))`
+		arguments = append(arguments, afterTitle, afterTitle, afterGameID)
+	}
+	query += ` ORDER BY lower(metadata.title),game.id LIMIT ?`
+	arguments = append(arguments, limit)
+	rows, err := service.database.QueryContext(ctx, query, arguments...)
 	if err != nil {
-		return nil, fmt.Errorf("netplay/list games: %w", err)
+		return nil, false, fmt.Errorf("netplay/list games: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
-	allItems := make([]GameSummary, 0)
+	items := make([]GameSummary, 0, limit)
 	for rows.Next() {
 		var item GameSummary
 		var coverID sql.NullString
@@ -210,7 +283,7 @@ ORDER BY lower(metadata.title),game.id
 			&item.GameID, &item.Title, &item.PlatformID, &item.PlatformName,
 			&item.PlatformInstanceID, &item.PlatformInstanceName, &item.AddedAtMS, &lastPlayed, &coverID,
 		); err != nil {
-			return nil, fmt.Errorf("netplay/scan game: %w", err)
+			return nil, false, fmt.Errorf("netplay/scan game: %w", err)
 		}
 		if lastPlayed.Valid {
 			item.LastPlayedAtMS = &lastPlayed.Int64
@@ -219,26 +292,30 @@ ORDER BY lower(metadata.title),game.id
 			value := "/content/assets/" + coverID.String
 			item.CoverURL = &value
 		}
-		allItems = append(allItems, item)
+		items = append(items, item)
 	}
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("netplay/list games: %w", err)
+		return nil, false, fmt.Errorf("netplay/list games: %w", err)
 	}
-	gameIDs := make([]string, 0, len(allItems))
-	for _, item := range allItems {
+	return items, len(items) == limit, nil
+}
+
+func (service *Service) attachGameTags(ctx context.Context, items []GameSummary) error {
+	gameIDs := make([]string, 0, len(items))
+	for _, item := range items {
 		gameIDs = append(gameIDs, item.GameID)
 	}
 	references, err := service.tags.References(ctx, gameIDs)
 	if err != nil {
-		return nil, serviceError("list game tags", err)
+		return serviceError("list game tags", err)
 	}
-	for index := range allItems {
-		allItems[index].Tags = references[allItems[index].GameID]
-		if allItems[index].Tags == nil {
-			allItems[index].Tags = []tagging.Reference{}
+	for index := range items {
+		items[index].Tags = references[items[index].GameID]
+		if items[index].Tags == nil {
+			items[index].Tags = []tagging.Reference{}
 		}
 	}
-	return allItems, nil
+	return nil
 }
 
 func (service *Service) enrichGame(
@@ -281,9 +358,11 @@ func eligibilityBlocker(hasVariant, contentKindAllowed, coreAllowed bool) string
 	return "DEPENDENCY_STALE"
 }
 
-func (service *Service) dependencySnapshotCurrent(
-	ctx context.Context, artifactID, logicalName, rawSnapshot string,
-) (bool, error) {
+func (service *Service) dependencySnapshotCurrent(ctx context.Context, row eligibilityRow) (bool, error) {
+	if row.datVersionID.Valid {
+		return service.arcadeDependencySnapshotRunnable(ctx, row)
+	}
+	artifactID, logicalName, rawSnapshot := row.artifactID, row.logicalName, row.dependencyJSON
 	lockedJSON, valid := lockedSnapshotJSON(rawSnapshot)
 	if !valid {
 		return false, nil
@@ -299,6 +378,216 @@ func (service *Service) dependencySnapshotCurrent(
 	return status == "READY" && bytes.Equal(lockedJSON, currentJSON), nil
 }
 
+type netplayArcadeClosureNode struct {
+	Machine    string  `json:"machine"`
+	Kind       string  `json:"kind"`
+	RequiredBy *string `json:"requiredBy"`
+	Depth      int     `json:"depth"`
+}
+
+type netplayArcadeDependency struct {
+	Kind                string   `json:"kind"`
+	Machine             string   `json:"machine"`
+	RequiredBy          *string  `json:"requiredBy,omitempty"`
+	Depth               int      `json:"depth,omitempty"`
+	ExpectedLogicalName string   `json:"expectedLogicalName,omitempty"`
+	State               string   `json:"state"`
+	RequiredEntryCount  int      `json:"requiredEntryCount,omitempty"`
+	RequiredEntries     []string `json:"requiredEntries"`
+}
+
+type netplayArcadeSnapshot struct {
+	SchemaVersion     int                        `json:"schemaVersion"`
+	Machine           string                     `json:"machine"`
+	DATVersionID      string                     `json:"datVersionId"`
+	Closure           []netplayArcadeClosureNode `json:"closure"`
+	Dependencies      []netplayArcadeDependency  `json:"dependencies"`
+	MissingEntries    []string                   `json:"missingEntries"`
+	MismatchedEntries []string                   `json:"mismatchedEntries"`
+	Warnings          []string                   `json:"warnings"`
+}
+
+type netplayLockedArcadeDependency struct {
+	state           string
+	requiredEntries []string
+}
+
+func (service *Service) arcadeDependencySnapshotRunnable(ctx context.Context, row eligibilityRow) (bool, error) {
+	snapshot, valid := parseNetplayArcadeSnapshot(row)
+	if !valid {
+		return false, nil
+	}
+	if !validArcadeRuntimeSnapshot(row.dependencyJSON) {
+		return false, nil
+	}
+	closure, valid := netplayArcadeClosureIndex(snapshot)
+	if !valid {
+		return false, nil
+	}
+	locked, valid, err := service.loadNetplayArcadeDependencies(ctx, row)
+	if err != nil {
+		return false, err
+	}
+	if !valid {
+		return false, nil
+	}
+	if len(snapshot.Dependencies) != len(locked) || len(closure) != len(locked)+1 {
+		return false, nil
+	}
+	return service.arcadeSnapshotDependenciesRunnable(ctx, row.revisionID, snapshot, closure, locked)
+}
+
+func validArcadeRuntimeSnapshot(raw string) bool {
+	_, err := corevalidation.ParseRuntimeBIOSDependencies(raw)
+	return err == nil
+}
+
+func parseNetplayArcadeSnapshot(row eligibilityRow) (netplayArcadeSnapshot, bool) {
+	var snapshot netplayArcadeSnapshot
+	decoder := json.NewDecoder(strings.NewReader(row.dependencyJSON))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&snapshot); err != nil || snapshot.SchemaVersion != 2 ||
+		snapshot.DATVersionID != row.datVersionID.String || snapshot.Closure == nil || snapshot.Dependencies == nil ||
+		snapshot.MissingEntries == nil || len(snapshot.MissingEntries) != 0 || snapshot.MismatchedEntries == nil ||
+		len(snapshot.MismatchedEntries) != 0 || snapshot.Warnings == nil ||
+		snapshot.Machine != strings.TrimSuffix(filepath.Base(row.logicalName), filepath.Ext(row.logicalName)) {
+		return netplayArcadeSnapshot{}, false
+	}
+	return snapshot, true
+}
+
+func netplayArcadeClosureIndex(
+	snapshot netplayArcadeSnapshot,
+) (map[string]netplayArcadeClosureNode, bool) {
+	closure := make(map[string]netplayArcadeClosureNode, len(snapshot.Closure))
+	for _, node := range snapshot.Closure {
+		key := node.Kind + "\x00" + node.Machine
+		if node.Machine == "" || (node.Kind != "CONTENT" && node.Kind != "PARENT" && node.Kind != "BIOS_OR_BASE") {
+			return nil, false
+		}
+		if _, duplicate := closure[key]; duplicate {
+			return nil, false
+		}
+		closure[key] = node
+	}
+	root, exists := closure["CONTENT\x00"+snapshot.Machine]
+	if !exists || root.Depth != 0 || root.RequiredBy != nil {
+		return nil, false
+	}
+	return closure, true
+}
+
+func (service *Service) loadNetplayArcadeDependencies(
+	ctx context.Context,
+	row eligibilityRow,
+) (map[string]netplayLockedArcadeDependency, bool, error) {
+	rows, err := service.database.QueryContext(ctx, `
+SELECT kind,logical_archive,source_machine_name,required_entries_json,state
+FROM variant_dependencies
+WHERE game_variant_revision_id=? AND dat_version_id=?
+ORDER BY kind,logical_archive
+	`, row.revisionID, row.datVersionID.String)
+	if err != nil {
+		return nil, false, serviceError("load Arcade dependencies", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	locked := make(map[string]netplayLockedArcadeDependency)
+	for rows.Next() {
+		var kind, logicalArchive, machine, requiredEntriesJSON, state string
+		if err := rows.Scan(&kind, &logicalArchive, &machine, &requiredEntriesJSON, &state); err != nil {
+			return nil, false, serviceError("scan Arcade dependency", err)
+		}
+		if logicalArchive != machine+".zip" {
+			return nil, false, nil
+		}
+		var requiredEntries []string
+		if err := json.Unmarshal([]byte(requiredEntriesJSON), &requiredEntries); err != nil || requiredEntries == nil {
+			return nil, false, nil
+		}
+		key := kind + "\x00" + machine
+		if _, duplicate := locked[key]; duplicate {
+			return nil, false, nil
+		}
+		locked[key] = netplayLockedArcadeDependency{state: state, requiredEntries: requiredEntries}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, false, serviceError("iterate Arcade dependencies", err)
+	}
+	return locked, true, nil
+}
+
+func (service *Service) arcadeSnapshotDependenciesRunnable(
+	ctx context.Context,
+	revisionID string,
+	snapshot netplayArcadeSnapshot,
+	closure map[string]netplayArcadeClosureNode,
+	locked map[string]netplayLockedArcadeDependency,
+) (bool, error) {
+	seenDependencies := make(map[string]struct{}, len(snapshot.Dependencies))
+	expectedWarnings := make([]string, 0)
+	for _, dependency := range snapshot.Dependencies {
+		key := dependency.Kind + "\x00" + dependency.Machine
+		node, inClosure := closure[key]
+		stored, exists := locked[key]
+		if _, duplicate := seenDependencies[key]; duplicate {
+			return false, nil
+		}
+		seenDependencies[key] = struct{}{}
+		if !inClosure || !exists || !netplayArcadeDependencyMatches(dependency, node, stored) {
+			return false, nil
+		}
+		if stored.state == "HASH_WARNING" {
+			expectedWarnings = append(expectedWarnings, dependency.Machine+".zip:HASH_WARNING")
+		}
+		if stored.state == "SATISFIED_EXTERNAL" || stored.state == "HASH_WARNING" {
+			available, err := service.netplayArcadeDependencyFileAvailable(ctx, revisionID, dependency)
+			if err != nil || !available {
+				return false, err
+			}
+		}
+	}
+	sort.Strings(expectedWarnings)
+	return slices.Equal(snapshot.Warnings, expectedWarnings), nil
+}
+
+func netplayArcadeDependencyMatches(
+	dependency netplayArcadeDependency,
+	node netplayArcadeClosureNode,
+	stored netplayLockedArcadeDependency,
+) bool {
+	if node.Depth != dependency.Depth ||
+		(node.RequiredBy == nil) != (dependency.RequiredBy == nil) ||
+		node.RequiredBy != nil && *node.RequiredBy != *dependency.RequiredBy {
+		return false
+	}
+	return dependency.ExpectedLogicalName == dependency.Machine+".zip" &&
+		dependency.RequiredEntries != nil && dependency.RequiredEntryCount == len(dependency.RequiredEntries) &&
+		slices.Equal(stored.requiredEntries, dependency.RequiredEntries) && stored.state == dependency.State &&
+		(stored.state == "SATISFIED_BY_CONTENT" || stored.state == "SATISFIED_EXTERNAL" || stored.state == "HASH_WARNING")
+}
+
+func (service *Service) netplayArcadeDependencyFileAvailable(
+	ctx context.Context,
+	revisionID string,
+	dependency netplayArcadeDependency,
+) (bool, error) {
+	role := "BIOS_BUNDLE"
+	if dependency.Kind == "PARENT" {
+		role = "PARENT"
+	}
+	var count int
+	if err := service.database.QueryRowContext(ctx, `
+SELECT count(*) FROM variant_files
+WHERE game_variant_revision_id=? AND role=? AND logical_name=?
+	`, revisionID, role, dependency.ExpectedLogicalName).Scan(&count); err != nil {
+		return false, serviceError("check Arcade dependency file", err)
+	}
+	if count != 1 {
+		return false, nil
+	}
+	return true, nil
+}
+
 func lockedSnapshotJSON(raw string) ([]byte, bool) {
 	locked, err := corevalidation.ParseSnapshot(raw)
 	if err != nil {
@@ -311,6 +600,7 @@ func lockedSnapshotJSON(raw string) ([]byte, bool) {
 type eligibilityRow struct {
 	revisionID, artifactID, coreID, coreName, emulatorVersion, artifactSHA string
 	dependencyJSON, compatibilityJSON, contentKind, logicalName            string
+	datVersionID                                                           sql.NullString
 	artifactEnabled                                                        int
 }
 
@@ -349,7 +639,7 @@ func (service *Service) queryEligibilityRows(ctx context.Context, gameID string)
 	rows, err := service.database.QueryContext(ctx, `
 SELECT revision.id,artifact.id,artifact.core_id,core.name,artifact.emulatorjs_version,artifact.sha256,
   revision.dependency_snapshot_json,artifact.compatibility_config_json,content.content_kind,
-  file.logical_name,artifact.enabled
+  file.logical_name,revision.dat_version_id,artifact.enabled
 FROM games game
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
@@ -370,7 +660,8 @@ ORDER BY artifact.core_id,revision.id,file.sort_order,file.logical_name
 		var row eligibilityRow
 		if err := rows.Scan(
 			&row.revisionID, &row.artifactID, &row.coreID, &row.coreName, &row.emulatorVersion, &row.artifactSHA,
-			&row.dependencyJSON, &row.compatibilityJSON, &row.contentKind, &row.logicalName, &row.artifactEnabled,
+			&row.dependencyJSON, &row.compatibilityJSON, &row.contentKind, &row.logicalName, &row.datVersionID,
+			&row.artifactEnabled,
 		); err != nil {
 			return nil, fmt.Errorf("netplay/eligible profile row: %w", err)
 		}
@@ -394,7 +685,7 @@ func (service *Service) matchEligibleProfile(
 	if !artifactMatches {
 		return eligibleProfile{}, contentKindAllowed, false, false, nil
 	}
-	current, err := service.dependencySnapshotCurrent(ctx, row.artifactID, row.logicalName, row.dependencyJSON)
+	current, err := service.dependencySnapshotCurrent(ctx, row)
 	if err != nil {
 		return eligibleProfile{}, contentKindAllowed, true, false, fmt.Errorf("netplay/dependency snapshot: %w", err)
 	}
@@ -1459,6 +1750,20 @@ UPDATE netplay_sessions SET state=?,finished_at_ms=?,end_reason=?,version=versio
 WHERE id=? AND state NOT IN ('FINISHED','FAILED')
 `, sessionState, now, reason, now, sessionID); err != nil {
 		return serviceError("finish session", err)
+	}
+	playState := "ABANDONED"
+	if sessionState == "FINISHED" {
+		playState = "FINISHED"
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE play_sessions
+SET state=?,ended_at_ms=?,updated_at_ms=?,version=version+1
+WHERE launch_session_id IN (
+  SELECT id FROM launch_sessions WHERE netplay_session_id=?
+)
+AND state='ACTIVE'
+`, playState, now, now, sessionID); err != nil {
+		return serviceError("finish session plays", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1

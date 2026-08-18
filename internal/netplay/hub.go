@@ -166,7 +166,24 @@ func (hub *Hub) Connect(
 		cancelValidation()
 		<-validationDone
 	}()
-	return session.readMessages(ctx, client)
+	err = session.readMessages(ctx, client)
+	if err != nil {
+		status := websocket.CloseStatus(err)
+		kind := "TRANSPORT_ERROR"
+		switch {
+		case status != -1:
+			kind = "CLOSE_FRAME"
+		case errors.Is(err, context.Canceled):
+			kind = "REQUEST_CANCELED"
+		case errors.Is(err, context.DeadlineExceeded):
+			kind = "TIMEOUT"
+		}
+		slog.InfoContext(ctx, "netplay peer socket disconnected",
+			"roomId", session.roomID, "sessionId", session.sessionID,
+			"playerNo", participant.PlayerNo, "kind", kind, "closeStatus", int(status),
+		)
+	}
+	return err
 }
 
 func readHello(ctx context.Context, connection *websocket.Conn) (ClientMessage, error) {

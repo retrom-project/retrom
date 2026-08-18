@@ -96,6 +96,7 @@ export class NetplayController {
   private epochRunning = false;
   private connecting = false;
   private reconnectDeadline = 0;
+  private reconnectAttempt = 0;
   private reconnectTimer: number | null = null;
   private lastCanonicalFrame = -1;
   private lockstepInputThrough = -1;
@@ -182,7 +183,6 @@ export class NetplayController {
     if (this.stopped) { socket.close(1000, "USER_EXIT"); return; }
     const reconnect = this.connectedOnce;
     this.connectedOnce = true;
-    this.reconnectDeadline = 0;
     this.clientSeq = 0;
     socket.addEventListener("message", (event) => {
       this.work = this.work.then(() => this.receive(event.data)).catch((error: unknown) => this.fail(error));
@@ -216,14 +216,21 @@ export class NetplayController {
 
   private scheduleReconnect() {
     if (this.stopped || this.reconnectTimer !== null || this.connecting) return;
-    if (this.reconnectDeadline === 0) this.reconnectDeadline = Date.now() + 10_000;
+    if (this.reconnectDeadline === 0) {
+      this.reconnectDeadline = Date.now() + 10_000;
+      this.reconnectAttempt = 0;
+    }
     if (Date.now() >= this.reconnectDeadline) { this.fail(new Error("PEER_TIMEOUT")); return; }
     this.callbacks.onStatus("连接中断，正在恢复…", "warning");
+    const delayMS = this.resumeBlocked
+      ? 250
+      : [0, 250, 500, 1_000][Math.min(this.reconnectAttempt, 3)]!;
+    this.reconnectAttempt += 1;
     this.reconnectTimer = window.setTimeout(() => {
       this.reconnectTimer = null;
       if (this.resumeBlocked) { this.scheduleReconnect(); return; }
       void this.connect().catch(() => this.scheduleReconnect());
-    }, 500);
+    }, delayMS);
   }
 
   private send(type: string, fields: Record<string, unknown> = {}) {
@@ -352,6 +359,7 @@ export class NetplayController {
 	const resync = this.hasRun;
 	this.epoch = message.epoch!; this.nextFrame = message.nextFrame!; this.occupiedMask = message.occupiedSeatMask ?? this.occupiedMask;
     this.hasRun = true; this.epochRunning = true;
+    this.reconnectDeadline = 0; this.reconnectAttempt = 0;
     this.timeline.reset(this.nextFrame); this.pendingCheckpoints.clear(); this.lockstepCheckpointStates.clear();
     this.lastInput = null; this.lockstepInputThrough = this.nextFrame - 1;
     this.lockstepInputBufferFrames = 1; this.lockstepRoundTripMS = null; this.lockstepInputSentAtMS.clear();

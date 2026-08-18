@@ -324,7 +324,7 @@ URL 状态为：
 
 `/netplay` 只有 feature flag 开启且已登录时可进入。标题区提供唯一“创建房间”主操作并在提交中防双击；下方固定分“当前房间”和“最近联机”两区，分别覆盖 skeleton、空状态、容量/限流错误和终态卡片。Room card 展示短房号、状态、游戏/core、参与人数与进入入口，不暴露 Profile ID、Launch 或 credential。
 
-房主新建后进入 DRAFT 游戏选择页。该页复用游戏库的标题、搜索、集合/平台筛选、排序、响应式卡片与空状态；只增加 SUPPORTED/UNSUPPORTED eligibility、blocker 文案和“选择”。SUPPORTED 表示当前 READY VariantRevision 命中 manifest 的 EmulatorJS/core artifact profile、协议允许的内容类型与有效依赖快照，不表示该 ROM 被逐游戏登记；若同一游戏有多条 core profile 才打开窄对话框。筛选以 `history.replaceState` 维护 `q/platformId/platformInstanceId/availability/sort`，`/` 快捷键聚焦搜索，不能复制一套漂移的游戏库布局。首个 server render 必须从 App Router `searchParams` 得到同一规范化筛选并作为 Client Component 初值；不得在 hydration 后才从 `window.location` 补写状态而造成 HTML 漂移，刷新和前进/后退必须恢复同一结果。
+房主新建后进入 DRAFT 游戏选择页。该页复用游戏库的标题、搜索、集合/平台筛选、排序、响应式卡片与空状态；只增加 SUPPORTED/UNSUPPORTED eligibility、blocker 文案和“选择”。SUPPORTED 表示当前 READY VariantRevision 命中 manifest 的 EmulatorJS/core artifact profile、协议允许的内容类型与有效依赖快照，不表示该 ROM 被逐游戏登记；若同一游戏有多条 core profile 才打开窄对话框。筛选以 `history.replaceState` 维护 `q/platformId/platformInstanceId/availability/sort`，`/` 快捷键聚焦搜索，不能复制一套漂移的游戏库布局。首个 server render 必须从 App Router `searchParams` 得到同一规范化筛选并作为 Client Component 初值，而且只读取最多 100 款的首个服务端页；WAITING/STARTING/RUNNING/终态房间不读取游戏目录。用户实际向下滚动且末尾哨兵进入视口后才读取一个续页，哨兵再次离开并进入才可继续；任一时刻只允许一个续页请求，并保留可点击的重试/继续加载入口。不得在 server render 循环读取全部页，也不得在 hydration 后才从 `window.location` 补写状态而造成 HTML 漂移；刷新和前进/后退必须恢复同一结果。
 
 WAITING 房间展示游戏锁定摘要、复制本站房间链接、P1–P4 座位卡与底部操作。未占座访客只能选择支持范围内的空 P2–P4；成员 ready 后先取消才能换座。房主可在 WAITING 移出访客、更换游戏、关闭房间，只有至少两人且全员 ready 时“开始联机”可用。房间快照按版本单调前进，较旧的 mutation 响应不得覆盖 SSE 已显示的成员状态；ready 恰逢另一成员更新而冲突时刷新并至多自动重试一次，不向用户暴露可自行恢复的“房间信息被修改”。SSE 断线提示不得遮盖座位；连续失败转为 5 秒轮询并保留可重试错误。STARTING 为每人自动创建自己的 Launch 并 `location.replace` 到 Player，不展示第二个启动按钮；终态原位说明 reason 并返回联机首页。
 

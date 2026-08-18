@@ -1061,21 +1061,21 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-NP-011`。
 - 流程：运行中终止并重启后端；再关闭 flag；最后建立 17 个 active room。
-- 通过：旧局以 `SERVER_RESTARTED` 收口且 Room/Launch 无假恢复；flag off 隐藏导航并拒绝新 API；第 17 房稳定 `429 NETPLAY_CAPACITY_REACHED`，前 16 房不被驱逐。
+- 通过：旧局以 `SERVER_RESTARTED` 收口且 Room/Launch 无假恢复，关联 ACTIVE PlaySession 变为 ABANDONED；正常 `USER_EXIT` 的关联 PlaySession 变为 FINISHED，两者均写入结束时间且不遗留 ACTIVE。flag off 隐藏导航并拒绝新 API；第 17 房稳定 `429 NETPLAY_CAPACITY_REACHED`，前 16 房不被驱逐。
 - 证据：重启前后 DB、route/navigation、容量响应和前 16 房抽样。
 
 ### ACC-NP-012：2–4 人协议边界
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-NP-012`。
-- 流程：fake core/transport 分别锁定 2/3/4 occupied mask，注入乱序贡献并计算 4 人 hash；再打开真实首发房间。
-- 通过：空座始终 neutral，canonical 只在全部占用座贡献齐全时原子产生；4 人 digest 一致；真实 2P profile 的 P3/P4 显示不支持且不发 claim 请求。
+- 流程：fake core/transport 分别锁定 2/3/4 occupied mask，注入乱序贡献并计算 4 人 hash；再打开真实首发房间，并用 205 个目录项检查 DRAFT 首页与向下滚动续页。
+- 通过：空座始终 neutral，canonical 只在全部占用座贡献齐全时原子产生；4 人 digest 一致；真实 2P profile 的 P3/P4 显示不支持且不发 claim 请求。DRAFT 首次只取 100 项，未滚动不发续页，触底后每次只取一页且三页无重复遗漏；非 DRAFT 不读取游戏目录。
 - 证据：三个 mask 的 frame/input/digest、network 零 claim 与房间截图。
 
 ### ACC-NP-013：普通单机回归与生产产物
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-NP-013`。
-- 流程：普通受支持游戏恢复/写 PersistentSave、创建 SaveState、使用 Player controls、退出并结算时长；检查 production web bundle。
-- 通过：普通能力与联机改动前契约一致；联机模式专属禁用不泄漏到 single mode；production 产物不存在测试故障注入或可写 telemetry hook。
+- 流程：普通受支持游戏恢复/写 PersistentSave、创建 SaveState、使用 Player controls、退出并结算时长；以一次联机历史渲染首页“再玩一次”并检查 Launch body；再让不可变的旧 Arcade schema-v1 修订通过普通 Launch 自动重校验；最后检查 production web bundle。
+- 通过：普通能力与联机改动前契约一致；联机历史的“再玩一次”只创建普通 single-player Launch，不携带 room/session 字段。旧 Arcade 修订按其锁定 DAT/依赖生成 schema v2 后成功启动，不能报 `LAUNCH_CORE_VALIDATION_UNAVAILABLE`；联机模式专属禁用不泄漏到 single mode；production 产物不存在测试故障注入或可写 telemetry hook。
 - 证据：普通 launch/save/play 断言、Player network/DOM 与产物扫描。
 
 ## 20. 移动端与横屏 Player
