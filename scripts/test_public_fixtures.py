@@ -22,6 +22,28 @@ ARCADE_OUTPUTS = {
     "puckman.zip": (9578, "a7ca86aecb425661a66a4faee139ff386c906e513c988f583f5b9bae71073b34"),
     "retrombios.zip": (396, "36c08c0777cad0d3bc9a1824072f611b0ec3def41e17e363e68cbf62d41add01"),
     "mame2003-smoke.xml": (3043, "e7838a8e2ab2b8e7e5f451585f6c53f32e1d66f412d425998a6268827327c5be"),
+    "fbneo/pacman.zip": (25162, "8e07c429e67009e824072109429afb71b00f1776dddb30abc0cbedb66ff8e26d"),
+    "fbneo/puckman.zip": (1190, "7dd4c47b9c0832c8f43d72817c189a5b5081ec7dee50fe4423f3c281c8e33f6e"),
+    "fbneo/retrombios.zip": (396, "36c08c0777cad0d3bc9a1824072f611b0ec3def41e17e363e68cbf62d41add01"),
+    "fbneo/fbneo-smoke.dat": (2403, "d3fd1cf86c31b3a465e66482350f054742cfe42772c714b26a2ccc5bd9bbad53"),
+}
+FBNEO_DRIVER_CRC32 = {
+    "pacman.6e": "c1e6ab10",
+    "pacman.6f": "1a6fb2d4",
+    "pacman.6h": "bcdd1beb",
+    "pacman.6j": "817d94e3",
+    "pacman.5e": "0c944964",
+    "pacman.5f": "958fedf9",
+    "pm1-1.7f": "2fc650bd",
+    "pm1-4.4a": "3eb3a8e4",
+    "pm1-3.1m": "a9cc86bf",
+    "pm1-2.3m": "77245b66",
+}
+FBNEO_MERGES = {
+    "82s123.7f": "pm1-1.7f",
+    "82s126.4a": "pm1-4.4a",
+    "82s126.1m": "pm1-3.1m",
+    "82s126.3m": "pm1-2.3m",
 }
 
 
@@ -107,6 +129,79 @@ class PublicFixtureTests(unittest.TestCase):
             archives["pacman"]["pacman.6j"],
         )
         self.assertTrue(archives["retrombios"]["retrom-test-bios.bin"].startswith(b"RETROM TEST BIOS CONTRACT V1"))
+
+    def test_fbneo_smoke_dat_locks_driver_crc_child_parent_and_bios(self) -> None:
+        fixture_root = ARCADE_FIXTURE_ROOT / "fbneo"
+        archives: dict[str, dict[str, bytes]] = {}
+        for machine in ("pacman", "puckman", "retrombios"):
+            with zipfile.ZipFile(fixture_root / f"{machine}.zip") as archive:
+                archives[machine] = {
+                    name: archive.read(name) for name in archive.namelist()
+                }
+
+        root = ElementTree.parse(fixture_root / "fbneo-smoke.dat").getroot()
+        machines = {machine.attrib["name"]: machine for machine in root.findall("game")}
+        self.assertEqual({"pacman", "puckman", "retrombios"}, set(machines))
+        self.assertEqual("puckman", machines["pacman"].attrib["cloneof"])
+        self.assertEqual("retrombios", machines["pacman"].attrib["romof"])
+        self.assertEqual("retrombios", machines["puckman"].attrib["romof"])
+        self.assertEqual("yes", machines["retrombios"].attrib["isbios"])
+
+        for machine_name, archive_entries in archives.items():
+            dat_entries = {
+                entry.attrib["name"]: entry
+                for entry in machines[machine_name].findall("rom")
+                if "merge" not in entry.attrib
+            }
+            self.assertEqual(set(archive_entries), set(dat_entries))
+            for name, content in archive_entries.items():
+                with self.subTest(machine=machine_name, name=name):
+                    self.assertEqual(str(len(content)), dat_entries[name].attrib["size"])
+                    self.assertEqual(
+                        f"{binascii.crc32(content) & 0xFFFFFFFF:08x}",
+                        dat_entries[name].attrib["crc"],
+                    )
+                    self.assertEqual(
+                        hashlib.sha1(content, usedforsecurity=False).hexdigest(),
+                        dat_entries[name].attrib["sha1"],
+                    )
+
+        actual_driver_crc32 = {
+            name: f"{binascii.crc32(content) & 0xFFFFFFFF:08x}"
+            for archive_name in ("pacman", "puckman")
+            for name, content in archives[archive_name].items()
+        }
+        self.assertEqual(FBNEO_DRIVER_CRC32, actual_driver_crc32)
+        merge_entries = {
+            entry.attrib["name"]: entry
+            for entry in machines["pacman"].findall("rom")
+            if "merge" in entry.attrib
+        }
+        self.assertEqual(FBNEO_MERGES, {
+            name: entry.attrib["merge"] for name, entry in merge_entries.items()
+        })
+        for child_name, parent_name in FBNEO_MERGES.items():
+            with self.subTest(merge=child_name):
+                content = archives["puckman"][parent_name]
+                self.assertEqual(str(len(content)), merge_entries[child_name].attrib["size"])
+                self.assertEqual(
+                    f"{binascii.crc32(content) & 0xFFFFFFFF:08x}",
+                    merge_entries[child_name].attrib["crc"],
+                )
+                self.assertEqual(
+                    hashlib.sha1(content, usedforsecurity=False).hexdigest(),
+                    merge_entries[child_name].attrib["sha1"],
+                )
+
+        self.assertIn(
+            b"RETROM PUBLIC ARCADE SMOKE - ORIGINAL MIT-LICENSED Z80 PROGRAM",
+            archives["pacman"]["pacman.6j"],
+        )
+        self.assertTrue(
+            archives["retrombios"]["retrom-test-bios.bin"].startswith(
+                b"RETROM TEST BIOS CONTRACT V1"
+            )
+        )
 
     def test_public_roms_are_excluded_from_backend_image_context(self) -> None:
         dockerignore = (REPOSITORY_ROOT / ".dockerignore").read_text(

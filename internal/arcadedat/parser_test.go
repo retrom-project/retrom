@@ -75,7 +75,7 @@ func TestParseRejectsRootFromAnotherDATFamily(t *testing.T) {
 	}
 }
 
-func TestPublicArcadeSmokeDATMaterializesExecutableDependencyContract(t *testing.T) {
+func TestPublicMAME2003SmokeDATMaterializesExecutableDependencyContract(t *testing.T) {
 	t.Parallel()
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
@@ -113,5 +113,47 @@ func TestPublicArcadeSmokeDATMaterializesExecutableDependencyContract(t *testing
 		parent.ROMOf != "retrombios" || len(parent.ROMs) != 6 ||
 		bios.Classification != "EXPLICIT_BIOS" || len(bios.ROMs) != 1 {
 		t.Fatalf("public Arcade smoke catalog = %#v", catalog.Machines)
+	}
+}
+
+func TestPublicFBNeoSmokeDATMaterializesExecutableDependencyContract(t *testing.T) {
+	t.Parallel()
+	_, filename, _, _ := runtime.Caller(0)
+	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
+	source, err := os.Open(filepath.Join(
+		repositoryRoot,
+		"testdata",
+		"public-roms",
+		"arcade-smoke",
+		"fbneo",
+		"fbneo-smoke.dat",
+	))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() {
+		if err := source.Close(); err != nil {
+			t.Errorf("close public FBNeo smoke DAT: %v", err)
+		}
+	}()
+	catalog, err := ParseCatalog(context.Background(), source, "fbneo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if catalog.Stats.MachineCount != 3 || catalog.Stats.ROMEntryCount != 15 ||
+		catalog.Stats.ROMEntryWithMergeCount != 4 || catalog.Stats.CloneofRelationCount != 1 ||
+		catalog.Stats.RomofRelationCount != 2 || catalog.Stats.ExplicitBIOSMachineCount != 1 ||
+		catalog.Stats.BaseDependencyTargetCount != 1 {
+		t.Fatalf("public FBNeo smoke stats = %#v", catalog.Stats)
+	}
+	machines := make(map[string]Machine, len(catalog.Machines))
+	for _, machine := range catalog.Machines {
+		machines[machine.Name] = machine
+	}
+	child, parent, bios := machines["pacman"], machines["puckman"], machines["retrombios"]
+	if child.CloneOf != "puckman" || child.ROMOf != "retrombios" || len(child.ROMs) != 10 ||
+		parent.ROMOf != "retrombios" || len(parent.ROMs) != 4 ||
+		bios.Classification != "EXPLICIT_BIOS" || len(bios.ROMs) != 1 {
+		t.Fatalf("public FBNeo smoke catalog = %#v", catalog.Machines)
 	}
 }

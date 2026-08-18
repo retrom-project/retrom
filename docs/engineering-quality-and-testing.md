@@ -299,7 +299,7 @@
 
 影响多盘 parser、Launch content、Player adapter 或换盘时，除受影响单元/集成/Web 测试外还必须执行 `make web-e2e` 与 `ACC-MDISC-001`–`008` 的受影响产品测试。当前没有真实 Saturn ROM 的浏览器产品 E2E；交付时必须明确这一边界，不能用伪 CHD、独立 EmulatorJS 页面或历史截图替代。
 
-影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-010`–`013`](./project-acceptance.md#19-联机游玩) 生成当次协议、安全、feature flag 与单机回归证据。当前没有 FCEUmm/FBNeo 的合法公开联机 ROM fixture，因此这些检查不能证明真实双端核心执行、confirmed frame 或 digest 收敛；涉及该边界的交付必须明确列为未覆盖。
+影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-010`–`013`](./project-acceptance.md#19-联机游玩) 生成当次协议、安全、feature flag 与单机回归证据。FBNeo 的公开 fixture 当前只进入单机 Case，本阶段也不新增 FCEUmm/FBNeo 双浏览器用例，因此这些检查不能证明真实双端核心执行、confirmed frame 或 digest 收敛；涉及该边界的交付必须明确列为未覆盖。
 
 ## 8. Bug 回归固化流程
 
@@ -356,7 +356,7 @@ make web-e2e
 - 解析器可以使用小型、可读、带来源说明的确定性片段覆盖边界和畸形输入。
 - Arcade 兼容性结论必须另有针对 `make prepare-deps` 物化到 `data/dat/` 的完整、真实、版本锁定 DAT 的集成校验；小片段不能替代真实基线，payload 也不能因此提交 Git。
 - 负向安全测试可以构造恶意 ZIP/XML/路径，因为它们用于验证拒绝行为，不能被描述为真实游戏数据。
-- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；`testdata/public-roms/gba-smoke/` 证明 mGBA 产品链路，`testdata/public-roms/arcade-smoke/` 证明 MAME 2003 的 DAT/Split/Parent/BIOS 交付与帧执行链路。后者的测试 BIOS 不被目标驱动执行，不能外推为核心内部 BIOS 执行覆盖。
+- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；`testdata/public-roms/gba-smoke/` 证明 mGBA 产品链路，`testdata/public-roms/arcade-smoke/` 分别证明 MAME 2003 与 FBNeo 的 DAT/Split/Parent/BIOS 交付及单机帧执行链路。Arcade 测试 BIOS 不被目标驱动执行，不能外推为核心内部 BIOS 执行覆盖；FBNeo 单机 Case 也不能替代双浏览器联机验证。
 
 ## 10. 后续实施清单
 

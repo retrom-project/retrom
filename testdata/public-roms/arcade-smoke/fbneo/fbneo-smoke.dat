@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<datafile>
+  <header>
+    <name>Retrom public FBNeo smoke</name>
+    <description>Retrom public FBNeo smoke</description>
+    <version>1</version>
+  </header>
+  <game name="retrombios" isbios="yes">
+    <description>Retrom public test BIOS archive</description>
+    <rom name="retrom-test-bios.bin" size="258" crc="82b678f0" sha1="706902af05beb09046d69f1d8f1d112a5eadd309" status="good" />
+  </game>
+  <game name="puckman" romof="retrombios">
+    <description>Retrom public FBNeo parent fixture</description>
+    <rom name="pm1-1.7f" size="32" crc="2fc650bd" sha1="2671b538a25e23aa504b7b67a799040e964e4bcb" status="good" />
+    <rom name="pm1-4.4a" size="256" crc="3eb3a8e4" sha1="c64023ea33057d791cc688db76ea7e0aed5f60d1" status="good" />
+    <rom name="pm1-3.1m" size="256" crc="a9cc86bf" sha1="85909d6fdca30008c34282829ea80fac2f047950" status="good" />
+    <rom name="pm1-2.3m" size="256" crc="77245b66" sha1="b4d57cc133e04c7952a993f94ba171ecf440398b" status="good" />
+  </game>
+  <game name="pacman" cloneof="puckman" romof="retrombios">
+    <description>Retrom FBNeo Arcade Smoke</description>
+    <rom name="pacman.6e" size="4096" crc="c1e6ab10" sha1="62d54fdc343555fd769de8518b1419980ec16de2" status="good" />
+    <rom name="pacman.6f" size="4096" crc="1a6fb2d4" sha1="7d4016f14609ab5742327d38cf8bd40efff35936" status="good" />
+    <rom name="pacman.6h" size="4096" crc="bcdd1beb" sha1="69e9c33024a71cc3809c53f3aa6841a2582d6d5c" status="good" />
+    <rom name="pacman.6j" size="4096" crc="817d94e3" sha1="c264c3aaac20b42bb7d875f099c48bec10599309" status="good" />
+    <rom name="pacman.5e" size="4096" crc="0c944964" sha1="71dbed8b0e618de29c9eebd2391395ffd50cd19e" status="good" />
+    <rom name="pacman.5f" size="4096" crc="958fedf9" sha1="75d957125cd115f9ed3ac09ad10585016c72cf6b" status="good" />
+    <rom name="82s123.7f" size="32" crc="2fc650bd" sha1="2671b538a25e23aa504b7b67a799040e964e4bcb" status="good" merge="pm1-1.7f" />
+    <rom name="82s126.4a" size="256" crc="3eb3a8e4" sha1="c64023ea33057d791cc688db76ea7e0aed5f60d1" status="good" merge="pm1-4.4a" />
+    <rom name="82s126.1m" size="256" crc="a9cc86bf" sha1="85909d6fdca30008c34282829ea80fac2f047950" status="good" merge="pm1-3.1m" />
+    <rom name="82s126.3m" size="256" crc="77245b66" sha1="b4d57cc133e04c7952a993f94ba171ecf440398b" status="good" merge="pm1-2.3m" />
+  </game>
+</datafile>
