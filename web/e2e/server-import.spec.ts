@@ -401,7 +401,7 @@ test.describe("authorized real server BIOS source", () => {
     for (const viewport of [
       { width: 1280, height: 800, name: "1280x800" },
       { width: 2560, height: 1440, name: "2560x1440" },
-      { width: 3840, height: 2160, name: "3840x2160" },
+      { width: 3840, height: 2160, name: "3840-css-ultrawide" },
     ]) {
       await page.setViewportSize(viewport);
       await expectNoPageOverflow(page);

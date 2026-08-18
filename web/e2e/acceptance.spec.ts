@@ -20,6 +20,11 @@ function evidencePath(testInfo: TestInfo, name: string) {
   return path.join(screenshots, `${testInfo.project.name}-${name}`);
 }
 
+function pngDimensions(contents: Buffer) {
+  expect(contents.subarray(1, 4).toString("ascii")).toBe("PNG");
+  return { width: contents.readUInt32BE(16), height: contents.readUInt32BE(20) };
+}
+
 async function noPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 }
@@ -156,7 +161,7 @@ test("ACC-UI-003 library filters and game detail use URL state", async ({ page }
   await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
   await expect(page.getByRole("button", { name: "开始游戏" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "从游戏开头开始" })).toBeVisible();
-  await page.setViewportSize({ width: 3840, height: 2160 });
+  await page.setViewportSize({ width: 2560, height: 1440 });
   const descriptionLayout = await page.locator(".game-detail-description").evaluate((element) => {
     const box = element.getBoundingClientRect();
     const main = element.parentElement!.getBoundingClientRect();
@@ -222,12 +227,14 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   const routes = [
     ["/", ".home-page"], ["/library", ".page-layout-library"], ["/saves", ".page-layout-saves"],
     ["/favorites", ".favorite-page"], ["/recent", ".page-layout-recent"], ["/account", ".page-layout-detail"],
-    ["/netplay", ".netplay-page"],
+    ["/netplay", '.netplay-page:not([role="status"])'],
   ] as const;
   let sharedPageGaps: HorizontalGaps | null = null;
   for (const [route, selector] of routes) {
     await page.goto(route);
-    await expect(page.locator(".page-header")).toBeVisible();
+    const routeLayout = page.locator(selector);
+    await expect(routeLayout).toBeVisible();
+    await expect(routeLayout.locator(".page-header")).toBeVisible();
     await noPageOverflow(page);
     const gaps = await pageCanvasGaps(page, selector);
     if (sharedPageGaps) {
@@ -240,7 +247,7 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   await page.goto("/");
   await expect(page.locator("[data-home-layer]")).toHaveCount(5);
   await expect(page.getByText("我的资料库", { exact: true })).toBeVisible();
-  if (testInfo.project.name === "chrome-4k") {
+  if (testInfo.project.name === "chrome-4k-150") {
     const measureHomeLayout = () => page.evaluate(() => {
       const platform = document.querySelector<HTMLElement>('[data-home-layer="4"]');
       const platformTitle = platform?.querySelector<HTMLElement>("h2");
@@ -270,6 +277,19 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
       };
     });
     const homeLayout = await measureHomeLayout();
+    expect(await page.evaluate(() => ({
+      viewport: { width: innerWidth, height: innerHeight },
+      screen: { width: window.screen.width, height: window.screen.height },
+      devicePixelRatio: window.devicePixelRatio,
+    }))).toEqual({
+      viewport: { width: 2560, height: 1440 },
+      screen: { width: 2560, height: 1440 },
+      devicePixelRatio: 1.5,
+    });
+    const physical4KScreenshot = await page.screenshot({
+      path: evidencePath(testInfo, "physical-4k-150-home.png"),
+    });
+    expect(pngDimensions(physical4KScreenshot)).toEqual({ width: 3840, height: 2160 });
     expect(homeLayout.fifthLayerBottom).toBeLessThanOrEqual(homeLayout.viewportHeight);
     expect(homeLayout.fifthLayerBottom).toBeGreaterThanOrEqual(homeLayout.viewportHeight - 48);
     expect(homeLayout.documentHeight).toBeLessThanOrEqual(homeLayout.viewportHeight);
@@ -300,15 +320,14 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
     }
     if (homeLayout.featuredHasSave) expect(fluidFeaturedLayout.at(-1)!.saveWidth).toBeGreaterThan(fluidFeaturedLayout[0].saveWidth);
 
-    // A physical 4K display commonly exposes a much smaller CSS viewport after
-    // OS scaling and browser chrome are applied. Keep that real-world case in
-    // the acceptance boundary instead of testing only 3840 × 2160 CSS pixels.
+    // Browser chrome or a non-maximized window can reduce the CSS viewport
+    // further even on the same physical 4K display.
     await page.setViewportSize({ width: 1920, height: 950 });
     const scaledHomeLayout = await measureHomeLayout();
     expect(scaledHomeLayout.fifthLayerBottom).toBeLessThanOrEqual(scaledHomeLayout.viewportHeight);
     expect(scaledHomeLayout.documentHeight).toBeLessThanOrEqual(scaledHomeLayout.viewportHeight);
     expect(scaledHomeLayout.platformTitleOffset).toBeLessThanOrEqual(16);
-    await page.setViewportSize({ width: 3840, height: 2160 });
+    await page.setViewportSize({ width: 2560, height: 1440 });
   }
   await page.goto("/library");
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
@@ -455,7 +474,6 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   const games = await page.request.get("/api/v1/admin/games?limit=100");
   const payload = await games.json() as { items: Array<{ gameId: string }> };
   if (payload.items[0]) {
-    await page.setViewportSize({ width: 3840, height: 2160 });
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
     await pageCanvasGaps(page, ".admin-game-detail");
     for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作", "从游戏库移除"]) {
@@ -478,7 +496,13 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
     await expect(page.getByRole("button", { name: "保存新版本" })).toBeDisabled();
     await noPageOverflow(page);
   }
-  await page.screenshot({ path: evidencePath(testInfo, "admin-layout.png"), fullPage: true });
+  const adminLayoutScreenshot = await page.screenshot({
+    path: evidencePath(testInfo, "admin-layout.png"),
+    fullPage: testInfo.project.name !== "chrome-4k-150",
+  });
+  if (testInfo.project.name === "chrome-4k-150") {
+    expect(pngDimensions(adminLayoutScreenshot)).toEqual({ width: 3840, height: 2160 });
+  }
 });
 
 test("ACC-UI-007 keyboard focus and reduced motion remain explicit", async ({ page }, testInfo) => {
@@ -530,6 +554,8 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await item57.focus();
   await page.keyboard.press("Enter");
   await expect(page).toHaveURL(new RegExp(`/admin/reviews/${itemId(57)}`));
+  // Keep a supplemental ultra-wide CSS breakpoint check. Physical 4K evidence
+  // is captured by the chrome-4k-150 project at 2560x1440 CSS pixels and DPR 1.5.
   await page.setViewportSize({ width: 3840, height: 2160 });
   await expect(page.getByRole("heading", { name: "审核决定" })).toBeVisible();
   let reviewPopupCount = 0;
@@ -615,7 +641,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   expect(reviewLayout.descriptionGap).toBeLessThanOrEqual(8);
   await expect(page.locator(".review-workflow-metadata").getByText("Hasheous 候选信息")).toHaveCount(0);
   await expect(page.locator(".review-workflow-metadata").getByText("信息来源", { exact: true })).toHaveCount(0);
-  await page.screenshot({ path: evidencePath(testInfo, "review-workbench-4k.png"), fullPage: true });
+  await page.screenshot({ path: evidencePath(testInfo, "review-workbench-3840-css-ultrawide.png"), fullPage: true });
 
   await page.getByRole("textbox", { name: "标题" }).fill("实时保存的标题");
   await expect(page.locator(".autosave-state")).toContainText(/等待保存|正在实时保存/);

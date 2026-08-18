@@ -274,7 +274,7 @@
 | 关键路径 | 最低自动化要求 |
 | --- | --- |
 | 游戏库到详情 | 卡片进入 `/games/:id`；详情不是一级菜单；筛选/搜索可恢复；加载、空、错误状态 |
-| 收藏跨页面闭环 | 游戏库/详情/收藏页状态一致；全部/未分类/Folder URL 恢复；创建/重命名/删除、精确分类、批量与两秒 undo；两个账号隔离；1280/2560/3840、键盘/focus/ARIA/axe/reduced-motion |
+| 收藏跨页面闭环 | 游戏库/详情/收藏页状态一致；全部/未分类/Folder URL 恢复；创建/重命名/删除、精确分类、批量与两秒 undo；两个账号隔离；1280/2560/物理 4K 150%、键盘/focus/ARIA/axe/reduced-motion |
 | 详情启动 | 默认选中游戏目录核心；用户可作单次切换；一次点击创建 launch 并自动运行；正常路径无第二个 Start 按钮 |
 | 默认全屏 | Fullscreen 请求发生在原始用户激活链；拒绝/刷新深链有恢复入口；阻断失败退出全屏并返回可修复错误 |
 | 存档快速启动 | 首页、存档页和详情存档都直接启动；使用存档绑定环境，不重新询问核心或 DOS 程序 |
@@ -282,7 +282,7 @@
 | DOS 启动 | 程序列表、默认项、缺失选择校验和 launch payload；不能在浏览器端猜测可执行文件；4.3 thread core 的 7z/ZIP Worker 在生产 CSP 下完成无 `eval` 精确转换，源形状漂移 fail closed |
 | 管理侧信息架构 | “游戏入库”为父级总览；导入、任务、待审核、历史同级缩进；父/子高亮和直接路由一致 |
 | 认证与路由守卫 | 初始化、登录、邀请注册、重置、账户设置；匿名 returnTo、已登录认证页重定向、USER 后台 403、401 清除内存状态；secret fragment 立即清除且不进任何浏览器存储 |
-| 用户管理 | 1280/2560/3840 表格、筛选、Drawer/焦点、本人/最后管理员禁用态、ETag 冲突、邀请/重置一次性 secret 对话框和确认流程 |
+| 用户管理 | 1280/2560/物理 4K 150% 表格、筛选、Drawer/焦点、本人/最后管理员禁用态、ETag 冲突、邀请/重置一次性 secret 对话框和确认流程 |
 | 账户切换与 Player | 同一 Chrome profile 中 A 的平台图钉、DOS 偏好、查询缓存和 EJS IDBFS bytes 不得被 B 读取；无服务器保存时清除旧 IDBFS 路径 |
 | Player 换盘 | loader 前盘组/大小校验、真实 diskCount 不匹配阻断、初始盘/当前盘回读、no-op/失败保持、busy/live region、菜单键盘与焦点、光盘 2 SaveState 恢复、两个账号保存隔离 |
 | 导入与审核 | 必须选择游戏目录；上传进度、失败重试、候选切换、人工编辑、approve/discard 与历史回放 |
@@ -291,7 +291,7 @@
 | 联机房间与 Player | feature flag 导航、SUPPORTED/ALL 与全部筛选/URL、分享/选座/ready/start gate、loading/空/error/blocker、确认弹层和焦点；Player 只暴露联机允许控件，启动前安装 v4.2.3 frame/state hook，rollback 输出抑制必须 finally 恢复，页面隐藏/断线全局暂停并在 lease 内原座恢复 |
 | 响应式应用壳与页面 | `320×568`、`360×800`、`390×844`、`412×915` 手机与 `768×1024`、`1024×768` 平板；路由上下文、底栏/Drawer/Sheet、草稿应用/取消、焦点归还、44px target、safe area、卡片列数和 document 零横向溢出 |
 | 移动 Player 方向门禁 | reducer/clock 单测覆盖首次竖屏、250ms 抖动、单机门禁拥有的暂停、用户暂停不误恢复、P1/P2 职责和 hidden 优先级；Chrome E2E 覆盖 config-first、竖屏零 iframe/core/game/PlaySession 请求、旋转后单次启动，以及 `568×320`、`667×375`、`844×390`、`932×430` HUD/Sheet |
-| 4K 与桌面体验 | 1280×800 最小桌面、2560×1440 与 3840×2160 viewport 的关键页面无失控拉伸、遮挡和不可达操作；Player 保持正确比例 |
+| 4K 与桌面体验 | 1280×800 最小桌面、2560×1440，以及物理 3840×2160、150% scale（CSS 2560×1440、DPR 1.5）的关键页面无失控拉伸、遮挡和不可达操作；4K viewport 截图实际为 3840×2160 像素，Player 保持正确比例 |
 
 响应式与 4K 视觉回归不能只依赖像素快照：E2E 还应断言内容最大宽度、关键控件可见、页面无横向溢出、Player canvas/阻断层在视口内、关键 target 尺寸以及导航层级可达。手机普通页面至少覆盖全部四个固定手机视口，平板覆盖两个固定横/竖视口；移动 Player 横屏至少覆盖四个固定视口。截图用于评审证据，不取代语义断言。
 
@@ -431,7 +431,7 @@ make web-e2e
 - 领域/存储：026 全新库与受支持旧库升级；STATIC/DAT exact、fallback、同名/重命名、多 Requirement CAS 去重；overwrite off/on、同分/更差、同 bytes、版本漂移与并发安装均证明不降级。
 - Worker：完整发现前零安装、扫描门禁、2 hash/1 archive 并发、8 MiB cancel、lease/heartbeat/deadline、崩溃后不重复 revision、瞬时 root 退避与 attempt 耗尽、restore fence。
 - HTTP：ADMIN/USER/匿名与 CSRF 矩阵，严格 body/Idempotency/ETag/active conflict，root/directory/list/item/candidate cursor 和 allowlist 投影；BIOS 286 fixture 为 100/100/86，无重复遗漏且全集汇总恒为 286。
-- React/Chrome：无配置/不可用/空历史、Drawer 键盘、SSE/cancel/retry、完成/部分失败/候选解释；FULL_CATALOG abort/乱序/重复触发/追加失败/键盘 fallback。分别验证 1280×800、2560×1440、3840×2160、无页面横向溢出及零 serious/critical axe 结果。
+- React/Chrome：无配置/不可用/空历史、Drawer 键盘、SSE/cancel/retry、完成/部分失败/候选解释；FULL_CATALOG abort/乱序/重复触发/追加失败/键盘 fallback。分别验证 1280×800、2560×1440、物理 4K 150% scale、无页面横向溢出及零 serious/critical axe 结果。
 
 该切片除聚焦用例外必须运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、fixture 校验、无 core 参数全量 smoke、`ACC-BIOS-003`–`007` 与 `make ci`。测试 source 使用临时目录或操作者授权且 Git 忽略的本地文件，绝不提交 BIOS bytes。
 
@@ -441,7 +441,7 @@ make web-e2e
 - 映射/持久化：Migration 030 的新建库与 029 升级同构并保留旧状态/诊断，Migration 031 的新建库与 030 升级同构并保护审核 preview/screenshot Blob 边，Migration 033 的新建库与 032 升级同构并允许受当前来源/目标/CoreArtifact/generation 约束的阻断截图；Collection 显式映射、ETag、版本冻结；最大 64 文件的投影、全部声明文件参与确定性 key、M3U+CHD 有序分组、Arcade 当前 ZIP 与冻结 DAT 依赖闭包内的同目标显式 companion 集。
 - 审核/发布/重复：单文件和多盘沿用既有 library import/validation/review/publish 事务；Worker 完成后只产生 `REVIEW_PENDING` 且零 Game，READY 与 blocker 都可在统一队列处理；初始 Arcade Validation 会采用导入前已经安装且匹配当前 CoreArtifact 的 DAT BIOS，生成 `SATISFIED_EXTERNAL` 依赖与 `BIOS_BUNDLE` 文件，真正仍缺 Parent/内容的条目继续阻断。Approve/Discard 原子推进普通与 Pegasus 两组状态/计数，来源 COVER/VIDEO 正确保留，用户封面选择优先。快速审批覆盖完整筛选枚举、preview/create digest 漂移、严格 READY 与截图 override 分界、duplicate/Attachment 排除、逐项原子记账、取消竞争、重启恢复、restore fence、worker-only retry、10,000/10,001 上限和两个并发创建；另以真实 Arcade dependency snapshot schema v2 覆盖预览 candidate 与最终发布，证明它走 Arcade DAT closure/required-entry/ValidationFile 校验而不是 BIOS schema v1 解析失败分支。交接崩溃恢复复用已有内部 ImportItem 且不重复系统草稿事件；未完成交接的 Item 不出现在队列/详情且不能发布。同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不删除审核事项或回滚已经提交的游戏，重试不重复 Game/Revision/Blob。
 - Worker/存储：BIOS 与 Pegasus 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、restore fence、外部 root 变更、媒体告警、保护边 GC 和 backup/restore 均有确定性测试。
-- HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；`pegasusImportId` 精确队列筛选、来源媒体 GET/HEAD 与 COVER/VIDEO kind；审核 best-effort preview 锁定现有依赖，READY/阻断均在 `EJS_onGameStart + 5000ms` 优先读取核心最后一帧并上传 PNG，核心截图有界失败时回退 canvas，使静态 ROM/BIOS 错误画面不退化成黑帧；当前阻断截图启用人工发布 override，过期 Validation 拒绝、弹窗失败提示和四个等宽决策按钮。快速审批 UI 覆盖当前筛选的服务端影响预览、零候选/active/stale、进度恢复、取消/retry、终态缓存清理、结果链接与 390/1280/3840 键盘/reduced-motion。Pegasus 双能力卡、三步 Drawer、无默认映射、关闭恢复、同计划轮询重渲染不重置映射/焦点/滚动、详情审核行动区和逐行审核入口保持不变。
+- HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；`pegasusImportId` 精确队列筛选、来源媒体 GET/HEAD 与 COVER/VIDEO kind；审核 best-effort preview 锁定现有依赖，READY/阻断均在 `EJS_onGameStart + 5000ms` 优先读取核心最后一帧并上传 PNG，核心截图有界失败时回退 canvas，使静态 ROM/BIOS 错误画面不退化成黑帧；当前阻断截图启用人工发布 override，过期 Validation 拒绝、弹窗失败提示和四个等宽决策按钮。快速审批 UI 覆盖当前筛选的服务端影响预览、零候选/active/stale、进度恢复、取消/retry、终态缓存清理、结果链接与 390/1280/物理 4K 150% scale 的键盘/reduced-motion。Pegasus 双能力卡、三步 Drawer、无默认映射、关闭恢复、同计划轮询重渲染不重置映射/焦点/滚动、详情审核行动区和逐行审核入口保持不变。
 - 总览聚合：一个包含多个游戏的 PegasusImport 只能贡献一个最近任务和一个顶层批次；其逐游戏内部 ImportJob 不进入普通任务分页。进行中/完成/异常批次、处理中条目、异常条目和实际待审核 Item 分别按正式口径断言，主动取消不误报为异常，最近三条不能反向决定流水线数字。
 - VIDEO：MP4/WebM magic 与限额、nullable dimensions、Range/HEAD/MIME、不可变 revision、元信息编辑保留、删除保留历史；详情 2 秒累计可见自动播放、后台页不计时、5 秒/拒绝/错误回退、用户暂停和 reduced-motion 手动模式，以及列表零视频请求。
 
@@ -453,7 +453,7 @@ make web-e2e
 - Tagging/HTTP：NFC、Unicode whitespace/case-fold/control、40/41 code point、160/161 byte、1,000/1,001 实例上限；CRUD/usage/cursor/filter/sort、ADMIN/USER、strict JSON/CSRF/If-Match/Idempotency、同名并发、关系 no-op、delete 与 assignment 两种提交顺序、版本联动和审计。
 - 搜索/投影：Game/Admin/Review 的 `q/tagId` 在 SQL 分页前取交集，cursor 不跨筛选复用；Favorite/Recent/Save/Netplay 与 detail 的数组始终非 null、名称稳定排序、删除立即隐藏且列表批量读取无 N+1。
 - Import/Review/Pegasus：批次默认标签、多 Item 继承、reconfigure、逐项 autosave、删除后的旧 ETag、Approve 原子复制、Discard snapshot；逐 Collection 集合、SKIP 空值、mapping 恢复/start 漂移/retry/handoff 幂等和外部 metadata tags 不自动关联。
-- React/Chrome：TagPicker 键盘/20 上限/空 taxonomy，管理页 loading/empty/error/conflict/Drawer/Dialog 焦点，导入/Pegasus/审核/管理员游戏写入，Library/Admin/Favorite/Recent/Save/Netplay 的名称搜索和精确 URL 恢复；390/1280/2560/3840 无页面横向溢出且 axe serious/critical 为零。
+- React/Chrome：TagPicker 键盘/20 上限/空 taxonomy，管理页 loading/empty/error/conflict/Drawer/Dialog 焦点，导入/Pegasus/审核/管理员游戏写入，Library/Admin/Favorite/Recent/Save/Netplay 的名称搜索和精确 URL 恢复；390/1280/2560/物理 4K 150% scale 无页面横向溢出且 axe serious/critical 为零。
 
 该切片运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-TAG-001`–`005` 与 `make ci`。标签不进入 EmulatorJS、内容字节、Variant 或存档协议，因此不因本切片运行 core smoke、fixture 或依赖基线；若实际调用链改变则重新判定。
 

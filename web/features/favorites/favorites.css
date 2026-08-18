@@ -131,7 +131,7 @@
 @media (min-width: 1600px) {
   .favorite-layout { gap: 16px; }
 }
-@media (min-width: 2600px) {
+@media (min-width: 2500px) {
   .favorite-layout { grid-template-columns: 250px minmax(0, 1fr); gap: 20px; }
   .favorite-game-grid { gap: 18px; }
   .favorite-toolbar select, .favorite-search, .favorite-toolbar > .button, .favorite-new-folder,
