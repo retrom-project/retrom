@@ -102,6 +102,7 @@ make acceptance-report
 | Hasheous stub | 命中、未命中、429、超时、500、401 和畸形响应七种固定路由，不要求凭证 |
 | 公开 mGBA ROM | `testdata/public-roms/gba-smoke/gba-smoke.gba`；项目自有源码生成，MIT 许可，生成器与消费者锁定 size/SHA-256/bytes |
 | 公开 MAME 2003 split set | `testdata/public-roms/arcade-smoke/`；项目自有 Z80 程序、生成资源、测试 BIOS 角色归档和小型 DAT，MIT 许可；生成器与消费者锁定 archive、entry、size、CRC32、SHA-1 和 SHA-256 |
+| 公开 FBNeo split set | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 Z80 程序、生成图形/PROM、测试 BIOS 角色归档和 Logiqx DAT，MIT 许可；driver CRC32 由生成器对其控制的 4 bytes 做确定性校正，完整 bytes 由 SHA-1/SHA-256 锁定 |
 | 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-v1` 与 `fbneo-423-v1` 的 EmulatorJS/core artifact/adapter 边界来自 `data/netplay/v1/manifest.json`；当前只维护 manifest、协议、安全、feature flag 与单机回归种子，不维护真实双端 ROM fixture |
 | 游戏替换 revision | 基于测试内生成的确定性 ZIP 重打包：entry 字节不变，ZIP 时间固定且 comment 为 `retrom-acceptance-revision-2`；原始 Blob SHA-256 必须变化，提取内容 hash 必须不变 |
 | 媒体 | Hasheous stub 提供一张固定字节的小型合法 PNG，SHA-256 写入 seed manifest |
@@ -776,6 +777,14 @@ make acceptance-case CASE=<case-id>
 - 通过标准：DAT machine/entry/cloneof/romof 与 archive entry 的 name、size、CRC32、SHA-1 均与生成源一致；发布与重验证后仍锁定同一 ContentRevision、DAT、Parent 和 BIOS，config 精确选择 `mame2003`、`ejs-4.2.3-v2` 与 4.2.1 data override。游戏、Parent 和 BIOS 端点交付的 bytes 与仓库 fixture 精确相同；Player 无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0。测试 BIOS 只证明 Retrom 的 DAT 依赖解析、安装、快照、bundle 与交付，不得据此声称 Pac-Man 驱动执行了该 BIOS。
 - 证据：fixture 校验结果、DAT/import/review/launch ID、三路 bundle 比对、Playwright trace、动画帧/遥测断言与运行截图。
 
+### ACC-RUN-007：公开 FBNeo Split、Parent 与 BIOS 单机产品链路
+
+- 上限：300 秒。
+- 执行：`make acceptance-case CASE=ACC-RUN-007`。
+- 流程：校验并上传 `testdata/public-roms/arcade-smoke/fbneo/` 中项目自有的 Logiqx DAT、`pacman.zip` Child、`puckman.zip` Parent 与 `retrombios.zip` 测试 BIOS；启用 FBNeo DAT、安装 DAT_MACHINE BIOS、导入 Child/Parent、审核发布并触发首次启动重验证。读取 Launch config 与三路受限内容，随后由单个 Chrome 页面通过 Retrom Player 启动 FinalBurn Neo。
+- 通过标准：DAT machine/entry/cloneof/romof 与 archive entry 的 name、size、FBNeo 锁定驱动 CRC32、SHA-1 均与生成源一致；发布与重验证后仍锁定同一 ContentRevision、DAT、Parent 和 BIOS，config 精确选择 `fbneo`、`ejs-4.2.3-v2` 与锁定 4.2.3 core artifact。游戏、Parent 和 BIOS 端点交付的 bytes 与仓库 fixture 精确相同；Player 无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0。测试 BIOS 只证明 Retrom 的 DAT 依赖解析、安装、快照、bundle 与交付，不证明 Pac-Man 驱动执行该 BIOS；本 Case 不创建联机房间、不验证双浏览器 confirmed frame、lockstep 或 digest 收敛。
+- 证据：fixture 校验结果、DAT/import/review/launch ID、三路 bundle 比对、Playwright trace、动画帧/遥测断言与运行截图。
+
 ### ACC-SAVE-001：手动状态存档与截图
 
 - 上限：180 秒。
@@ -812,7 +821,7 @@ make acceptance-case CASE=<case-id>
 
 核心运行兼容必须由实际 Retrom 产品链路证明，不能用直接加载 EmulatorJS 的独立页面形成验收 Case。当前覆盖范围、对应命令和未覆盖核心由 [`core-runtime-validation.md`](./core-runtime-validation.md) 维护；本验收目录只登记能够覆盖完整产品契约的 Case。
 
-`ACC-RUN-002`、`ACC-RUN-006` 与 `make web-e2e` 分别覆盖 mGBA 和 MAME 2003 Arcade split set 的真实浏览器产品链路。FCEUmm、FBNeo、FBA2012 与其余未登记 enabled core 尚无真实 ROM 产品链路 E2E，不得从 manifest、协议、单元测试或相邻核心结果外推为已通过。
+`ACC-RUN-002`、`ACC-RUN-006`、`ACC-RUN-007` 与 `make web-e2e` 分别覆盖 mGBA、MAME 2003 和 FBNeo Arcade split set 的真实浏览器单机产品链路。FCEUmm、FBA2012 与其余未登记 enabled core 尚无真实 ROM 产品链路 E2E，不得从 manifest、协议、单元测试或相邻核心结果外推为已通过；FBNeo 的双浏览器联机执行同样不在该单机覆盖内。
 
 ## 15. UI、4K 与无障碍
 
@@ -1031,7 +1040,7 @@ make acceptance-case CASE=<case-id>
 
 ## 19. 联机游玩
 
-本节只维护不需要 ROM 的协议、安全、feature flag 与单机回归 Case `ACC-NP-010`–`013`。当前没有 FCEUmm/FBNeo 的合法公开联机 ROM fixture，因此不维护真实双端核心执行、confirmed frame、rollback 或 digest 收敛 Case，也不得从本节结果宣称两个 core profile 的真实游戏兼容性已通过。机器证据除第 3.3 节通用字段外，记录适用的协议/profile digest、参与者数、拒绝原因、资源计数与终因；敏感 cookie、能力值与宿主绝对路径不得进入证据。
+本节只维护不需要 ROM 的协议、安全、feature flag 与单机回归 Case `ACC-NP-010`–`013`。FBNeo 已有合法公开的单机 ROM fixture，但本阶段明确不建立它或 FCEUmm 的真实双浏览器执行、confirmed frame、rollback 或 digest 收敛 Case，也不得从单机或本节结果宣称两个 core profile 的真实联机兼容性已通过。机器证据除第 3.3 节通用字段外，记录适用的协议/profile digest、参与者数、拒绝原因、资源计数与终因；敏感 cookie、能力值与宿主绝对路径不得进入证据。
 
 ### ACC-NP-010：协议与安全负向
 
@@ -1133,7 +1142,7 @@ make acceptance-case CASE=<case-id>
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 当前明确登记的产品 E2E 与产品集成测试全部通过；[`core-runtime-validation.md`](./core-runtime-validation.md) 中未覆盖核心和 Saturn 真实浏览器运行缺口已如实列入最终报告，不得表述为已验证；
-- `ACC-NP-010`–`013` 全部通过；FCEUmm/FBNeo 缺少真实双端 ROM 产品链路基线的范围已如实列入最终报告，不得表述为兼容性已验证；
+- `ACC-NP-010`–`013` 全部通过；FCEUmm/FBNeo 没有真实双端 ROM 产品链路基线的范围已如实列入最终报告，不得把 FBNeo 单机 Case 表述为联机兼容性已验证；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -1154,8 +1163,8 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 多盘导入、运行、回归与隔离 | `ACC-MDISC-001`–`008` |
 | BIOS、服务器导入与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`007` |
 | Pegasus 目录导入与游戏视频 | `ACC-PEG-001`–`005`、`ACC-MEDIA-001` |
-| 启动、存档与游玩时长 | `ACC-RUN-001`–`006`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
-| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`ACC-RUN-006`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
+| 启动、存档与游玩时长 | `ACC-RUN-001`–`007`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
+| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`ACC-RUN-006`、`ACC-RUN-007`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
 | 移动 App Shell、响应式页面与横屏 Player | `ACC-MOB-001`–`007` |

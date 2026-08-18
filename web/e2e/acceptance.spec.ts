@@ -424,9 +424,9 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   expect((await adminGameRow.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(84);
   await expect(page.getByRole("region", { name: "游戏管理摘要" })).toBeVisible();
   await page.evaluate(() => window.history.replaceState({ marker: "admin-games" }, "", window.location.href));
-  const firstAdminTitle = await adminGameRow.locator(".admin-game-identity a").innerText();
-  await page.getByRole("searchbox", { name: "搜索游戏" }).fill(firstAdminTitle);
+  await page.getByRole("searchbox", { name: "搜索游戏" }).fill("Sudoku");
   await expect(page.locator(".admin-game-table tbody tr")).toHaveCount(1);
+  await expect(page.locator(".admin-game-table tbody tr")).toContainText("Sudoku");
   expect(await page.evaluate(() => window.history.state?.marker)).toBe("admin-games");
   await page.getByRole("searchbox", { name: "搜索游戏" }).fill("");
   await page.goto("/admin/bios/dats");
@@ -833,8 +833,19 @@ test("ACC-RUN-004 BIOS blockers stop launch while hash warnings auto-start", asy
   await page.screenshot({ path: evidencePath(testInfo, "required-bios-blocker-repair.png"), fullPage: true });
 });
 
-test("ACC-RUN-006 public Arcade split set locks DAT, Parent, BIOS, and executes frames", async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
+type PublicArcadeSmokeExpectation = {
+  platformInstanceId: string;
+  core: string;
+  coreName: string;
+  runtimePathOverrides: Record<string, string>;
+  screenshotName: string;
+};
+
+async function verifyPublicArcadeSmoke(
+  page: Page,
+  testInfo: TestInfo,
+  expectation: PublicArcadeSmokeExpectation,
+) {
   await page.addInitScript(() => {
     Object.defineProperty(Element.prototype, "requestFullscreen", {
       configurable: true,
@@ -858,7 +869,7 @@ test("ACC-RUN-006 public Arcade split set locks DAT, Parent, BIOS, and executes 
   });
   page.on("pageerror", (error) => pageErrors.push(error.message));
 
-  await page.goto("/library?q=pacman");
+  await page.goto(`/library?platformInstanceId=${expectation.platformInstanceId}&q=pacman`);
   const game = page.locator(".library-game-card").filter({ hasText: "pacman" });
   await expect(game).toHaveCount(1);
   await game.getByRole("link").first().click();
@@ -878,18 +889,16 @@ test("ACC-RUN-006 public Arcade split set locks DAT, Parent, BIOS, and executes 
     runtimePathOverrides: Record<string, string>;
   };
   expect(configuration).toMatchObject({
-    core: "mame2003",
-    runtimeCore: "mame2003",
-    coreName: "MAME 2003",
+    core: expectation.core,
+    runtimeCore: expectation.core,
+    coreName: expectation.coreName,
     emulatorjsVersion: "4.2.3",
     playerAdapterId: "ejs-4.2.3-v2",
   });
   expect(configuration.gameUrl).toMatch(/\/game\/pacman\.zip$/);
   expect(configuration.parentUrl).toMatch(/\/parent\/bundle\.zip$/);
   expect(configuration.biosUrl).toMatch(/\/bios\/bundle\.zip$/);
-  expect(configuration.runtimePathOverrides).toEqual({
-    "mame2003-wasm.data": "/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data",
-  });
+  expect(configuration.runtimePathOverrides).toEqual(expectation.runtimePathOverrides);
 
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas");
@@ -908,7 +917,7 @@ test("ACC-RUN-006 public Arcade split set locks DAT, Parent, BIOS, and executes 
   await page.mouse.move(20, 20);
   await page.getByRole("button", { name: "调试信息" }).click();
   const debugPanel = page.getByRole("complementary", { name: "运行调试信息" });
-  await expect(debugPanel.getByText("MAME 2003", { exact: true })).toBeVisible();
+  await expect(debugPanel.getByText(expectation.coreName, { exact: true })).toBeVisible();
   await expect(debugPanel.getByText("运行中", { exact: true })).toBeVisible();
   const fps = debugPanel.getByText(/^\d+\.\d FPS$/);
   await expect(fps).toBeVisible({ timeout: 5_000 });
@@ -918,7 +927,33 @@ test("ACC-RUN-006 public Arcade split set locks DAT, Parent, BIOS, and executes 
   }
   expect(runtimeFailures).toEqual([]);
   expect(pageErrors).toEqual([]);
-  await page.screenshot({ path: evidencePath(testInfo, "arcade-public-smoke-running.png"), fullPage: true });
+  await page.screenshot({ path: evidencePath(testInfo, expectation.screenshotName), fullPage: true });
+}
+
+test("ACC-RUN-006 public MAME 2003 split set locks DAT, Parent, BIOS, and executes frames", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await verifyPublicArcadeSmoke(page, testInfo, {
+    platformInstanceId: "01980000-0000-7000-8000-000000000008",
+    core: "mame2003",
+    coreName: "MAME 2003",
+    runtimePathOverrides: {
+      "mame2003-wasm.data": "/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data",
+    },
+    screenshotName: "mame2003-public-smoke-running.png",
+  });
+});
+
+test("ACC-RUN-007 public FBNeo split set locks DAT, Parent, BIOS, and executes frames", async ({ page }, testInfo) => {
+  test.setTimeout(90_000);
+  await verifyPublicArcadeSmoke(page, testInfo, {
+    platformInstanceId: "01980000-0000-7000-8000-000000000006",
+    core: "fbneo",
+    coreName: "FinalBurn Neo",
+    runtimePathOverrides: {
+      "fbneo-wasm.data": "/runtime/emulatorjs/4.2.3/data/cores/fbneo-wasm.data",
+    },
+    screenshotName: "fbneo-public-smoke-running.png",
+  });
 });
 
 test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click", async ({ page }, testInfo) => {

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Retrom's project-owned MAME 2003 arcade smoke-test fixture."""
+"""Build Retrom's project-owned MAME 2003 and FBNeo smoke fixtures."""
 
 from __future__ import annotations
 
@@ -25,7 +25,41 @@ PARENT_NAMES = (
     "82s126.1m",
     "82s126.3m",
 )
-OUTPUT_NAMES = ("pacman.zip", "puckman.zip", "retrombios.zip", "mame2003-smoke.xml")
+MAME2003_OUTPUT_NAMES = (
+    "pacman.zip",
+    "puckman.zip",
+    "retrombios.zip",
+    "mame2003-smoke.xml",
+)
+FBNEO_OUTPUT_NAMES = (
+    "fbneo/pacman.zip",
+    "fbneo/puckman.zip",
+    "fbneo/retrombios.zip",
+    "fbneo/fbneo-smoke.dat",
+)
+OUTPUT_NAMES = MAME2003_OUTPUT_NAMES + FBNEO_OUTPUT_NAMES
+FBNEO_PROGRAM_CRC32 = {
+    "pacman.6e": 0xC1E6AB10,
+    "pacman.6f": 0x1A6FB2D4,
+    "pacman.6h": 0xBCDD1BEB,
+    "pacman.6j": 0x817D94E3,
+}
+FBNEO_GRAPHICS_CRC32 = {
+    "pacman.5e": 0x0C944964,
+    "pacman.5f": 0x958FEDF9,
+}
+FBNEO_PARENT_CRC32 = {
+    "pm1-1.7f": 0x2FC650BD,
+    "pm1-4.4a": 0x3EB3A8E4,
+    "pm1-3.1m": 0xA9CC86BF,
+    "pm1-2.3m": 0x77245B66,
+}
+FBNEO_MERGES = {
+    "82s123.7f": "pm1-1.7f",
+    "82s126.4a": "pm1-4.4a",
+    "82s126.1m": "pm1-3.1m",
+    "82s126.3m": "pm1-2.3m",
+}
 
 
 @dataclass(frozen=True)
@@ -146,6 +180,60 @@ def build_lookup_prom() -> bytes:
     return bytes(index % 4 for index in range(256))
 
 
+def force_crc32(content: bytes, target: int, patch_offset: int | None = None) -> bytes:
+    """Set four generator-controlled bytes so the payload has a driver-locked CRC32."""
+    if len(content) < 4:
+        raise ValueError("CRC32 correction requires at least four bytes")
+    if patch_offset is None:
+        patch_offset = len(content) - 4
+    if patch_offset < 0 or patch_offset + 4 > len(content):
+        raise ValueError("CRC32 correction offset is outside the payload")
+    baseline = bytearray(content)
+    baseline[patch_offset : patch_offset + 4] = bytes(4)
+    baseline_crc = binascii.crc32(baseline) & 0xFFFFFFFF
+    effects: list[int] = []
+    for bit in range(32):
+        candidate = bytearray(baseline)
+        candidate[patch_offset + bit // 8] ^= 1 << (bit % 8)
+        effects.append((binascii.crc32(candidate) & 0xFFFFFFFF) ^ baseline_crc)
+
+    desired = target ^ baseline_crc
+    rows: list[int] = []
+    for output_bit in range(32):
+        coefficients = sum(
+            ((effect >> output_bit) & 1) << input_bit
+            for input_bit, effect in enumerate(effects)
+        )
+        rows.append(coefficients | (((desired >> output_bit) & 1) << 32))
+
+    pivot_row_for_column: dict[int, int] = {}
+    next_row = 0
+    for column in range(32):
+        pivot = next(
+            (row for row in range(next_row, 32) if rows[row] & (1 << column)),
+            None,
+        )
+        if pivot is None:
+            continue
+        rows[next_row], rows[pivot] = rows[pivot], rows[next_row]
+        for row in range(32):
+            if row != next_row and rows[row] & (1 << column):
+                rows[row] ^= rows[next_row]
+        pivot_row_for_column[column] = next_row
+        next_row += 1
+    if next_row != 32:
+        raise ValueError("CRC32 correction matrix is not invertible")
+
+    correction = 0
+    for column, row in pivot_row_for_column.items():
+        correction |= ((rows[row] >> 32) & 1) << column
+    baseline[patch_offset : patch_offset + 4] = correction.to_bytes(4, "little")
+    result = bytes(baseline)
+    if binascii.crc32(result) & 0xFFFFFFFF != target:
+        raise ValueError("CRC32 correction failed")
+    return result
+
+
 def deterministic_zip(entries: dict[str, bytes]) -> bytes:
     output = io.BytesIO()
     with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_STORED) as archive:
@@ -170,7 +258,7 @@ def rom_attributes(name: str, content: bytes, **extra: str) -> dict[str, str]:
     return attributes
 
 
-def build_dat(programs: dict[str, bytes], parent: dict[str, bytes], bios: dict[str, bytes]) -> bytes:
+def build_mame2003_dat(programs: dict[str, bytes], parent: dict[str, bytes], bios: dict[str, bytes]) -> bytes:
     root = ElementTree.Element("mame", {"build": "retrom-public-arcade-smoke-v1"})
     bios_machine = ElementTree.SubElement(
         root,
@@ -221,6 +309,53 @@ def build_dat(programs: dict[str, bytes], parent: dict[str, bytes], bios: dict[s
     return b'<?xml version="1.0" encoding="UTF-8"?>\n' + ElementTree.tostring(root, encoding="utf-8") + b"\n"
 
 
+def build_fbneo_dat(
+    child: dict[str, bytes],
+    parent: dict[str, bytes],
+    bios: dict[str, bytes],
+) -> bytes:
+    root = ElementTree.Element("datafile")
+    header = ElementTree.SubElement(root, "header")
+    ElementTree.SubElement(header, "name").text = "Retrom public FBNeo smoke"
+    ElementTree.SubElement(header, "description").text = "Retrom public FBNeo smoke"
+    ElementTree.SubElement(header, "version").text = "1"
+
+    bios_machine = ElementTree.SubElement(
+        root,
+        "game",
+        {"name": "retrombios", "isbios": "yes"},
+    )
+    ElementTree.SubElement(bios_machine, "description").text = "Retrom public test BIOS archive"
+    for name, content in bios.items():
+        ElementTree.SubElement(bios_machine, "rom", rom_attributes(name, content))
+
+    parent_machine = ElementTree.SubElement(
+        root,
+        "game",
+        {"name": "puckman", "romof": "retrombios"},
+    )
+    ElementTree.SubElement(parent_machine, "description").text = "Retrom public FBNeo parent fixture"
+    for name, content in parent.items():
+        ElementTree.SubElement(parent_machine, "rom", rom_attributes(name, content))
+
+    child_machine = ElementTree.SubElement(
+        root,
+        "game",
+        {"name": "pacman", "cloneof": "puckman", "romof": "retrombios"},
+    )
+    ElementTree.SubElement(child_machine, "description").text = "Retrom FBNeo Arcade Smoke"
+    for name, content in child.items():
+        ElementTree.SubElement(child_machine, "rom", rom_attributes(name, content))
+    for child_name, parent_name in FBNEO_MERGES.items():
+        ElementTree.SubElement(
+            child_machine,
+            "rom",
+            rom_attributes(child_name, parent[parent_name], merge=parent_name),
+        )
+    ElementTree.indent(root, space="  ")
+    return b'<?xml version="1.0" encoding="UTF-8"?>\n' + ElementTree.tostring(root, encoding="utf-8") + b"\n"
+
+
 def build_outputs() -> dict[str, bytes]:
     program = build_program()
     programs = {
@@ -236,11 +371,34 @@ def build_outputs() -> dict[str, bytes]:
         "82s126.3m": bytes(0x100),
     }
     bios = {"retrom-test-bios.bin": b"RETROM TEST BIOS CONTRACT V1\n" + bytes(229)}
+    fbneo_programs = {
+        name: force_crc32(content, FBNEO_PROGRAM_CRC32[name], 0x0EFC if index == 3 else None)
+        for index, (name, content) in enumerate(programs.items())
+    }
+    fbneo_graphics = {
+        "pacman.5e": force_crc32(build_character_rom(), FBNEO_GRAPHICS_CRC32["pacman.5e"], 0x0FE0),
+        "pacman.5f": force_crc32(build_sprite_rom(), FBNEO_GRAPHICS_CRC32["pacman.5f"], 0x0FE0),
+    }
+    fbneo_child = {**fbneo_programs, **fbneo_graphics}
+    parent_sources = {
+        "pm1-1.7f": build_palette_prom(),
+        "pm1-4.4a": build_lookup_prom(),
+        "pm1-3.1m": bytes(0x100),
+        "pm1-2.3m": bytes(0x100),
+    }
+    fbneo_parent = {
+        name: force_crc32(content, FBNEO_PARENT_CRC32[name])
+        for name, content in parent_sources.items()
+    }
     return {
         "pacman.zip": deterministic_zip(programs),
         "puckman.zip": deterministic_zip(parent),
         "retrombios.zip": deterministic_zip(bios),
-        "mame2003-smoke.xml": build_dat(programs, parent, bios),
+        "mame2003-smoke.xml": build_mame2003_dat(programs, parent, bios),
+        "fbneo/pacman.zip": deterministic_zip(fbneo_child),
+        "fbneo/puckman.zip": deterministic_zip(fbneo_parent),
+        "fbneo/retrombios.zip": deterministic_zip(bios),
+        "fbneo/fbneo-smoke.dat": build_fbneo_dat(fbneo_child, fbneo_parent, bios),
     }
 
 
@@ -255,9 +413,13 @@ def write_outputs(outputs: dict[str, bytes]) -> None:
     with tempfile.TemporaryDirectory(prefix="retrom-arcade-smoke-", dir=OUTPUT_ROOT) as temporary:
         temporary_root = Path(temporary)
         for name in OUTPUT_NAMES:
-            (temporary_root / name).write_bytes(outputs[name])
+            path = temporary_root / name
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_bytes(outputs[name])
         for name in OUTPUT_NAMES:
-            shutil.move(temporary_root / name, OUTPUT_ROOT / name)
+            destination = OUTPUT_ROOT / name
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.move(temporary_root / name, destination)
 
 
 def main() -> None:

@@ -2,10 +2,25 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-fixture_root="$repository_root/testdata/public-roms/arcade-smoke"
+core_id="${1:-mame2003}"
+fixture_builder_root="$repository_root/testdata/public-roms/arcade-smoke"
+case "$core_id" in
+  mame2003)
+    fixture_root="$fixture_builder_root"
+    dat_filename="mame2003-smoke.xml"
+    ;;
+  fbneo)
+    fixture_root="$fixture_builder_root/fbneo"
+    dat_filename="fbneo-smoke.dat"
+    ;;
+  *)
+    echo "usage: arcade-flow.sh [mame2003|fbneo]" >&2
+    exit 2
+    ;;
+esac
 evidence_root="$repository_root/.cache/retrom/acceptance"
 mkdir -p "$evidence_root"
-evidence="$(mktemp -d "$evidence_root/arcade-flow-XXXXXX")"
+evidence="$(mktemp -d "$evidence_root/arcade-${core_id}-flow-XXXXXX")"
 backend="${RETROM_ACCEPTANCE_BACKEND:-http://127.0.0.1:8080}"
 origin="${RETROM_ACCEPTANCE_ORIGIN:-http://localhost:3000}"
 
@@ -65,22 +80,22 @@ upload_files() {
   jq -nc --arg uploadId "$upload_id" --argjson files "$(jq -c .files <<<"$upload")" '{uploadId:$uploadId,files:$files}' >"$evidence/$response_name-result.json"
 }
 
-for output in pacman.zip puckman.zip retrombios.zip mame2003-smoke.xml; do
+for output in pacman.zip puckman.zip retrombios.zip "$dat_filename"; do
   [[ -f "$fixture_root/$output" ]] || {
     echo "public Arcade smoke fixture is missing; run make public-fixtures-generate" >&2
     exit 1
   }
 done
-python3 "$fixture_root/build.py" --check
+python3 "$fixture_builder_root/build.py" --check
 printf 'arcade_flow=fixtures_verified\n'
 
-dat_list="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/arcade-dats?coreId=mame2003")"
+dat_list="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/arcade-dats?coreId=$core_id")"
 core_artifact_id="$(jq -er '.items[] | select(.active == true) | .coreArtifactId' <<<"$dat_list")"
 core_artifacts="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/core-artifacts")"
 core_artifact_version="$(jq -er --arg id "$core_artifact_id" '.items[] | select(.id == $id) | .version' <<<"$core_artifacts")"
 printf 'arcade_flow=artifact_resolved\n'
 
-upload_files dat "$fixture_root/mame2003-smoke.xml"
+upload_files dat "$fixture_root/$dat_filename"
 dat_upload_file_id="$(jq -r '.files[0].fileId' "$evidence/dat-result.json")"
 dat_created="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg uploadFileId "$dat_upload_file_id" --arg coreArtifactId "$core_artifact_id" '{uploadFileId:$uploadFileId,coreArtifactId:$coreArtifactId}')" "$backend/api/v1/admin/arcade-dats")"
 dat_version_id="$(jq -r .datVersionId <<<"$dat_created")"
@@ -116,7 +131,7 @@ printf '%s\n' "$bios_installation" >"$evidence/bios-installation.json"
 printf 'arcade_flow=bios_installed\n'
 platform_instances="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/platform-instances")"
 printf '%s\n' "$platform_instances" >"$evidence/platform-instances.json"
-platform_instance_id="$(jq -er '.items[] | select(.defaultCoreId == "mame2003") | .id' <<<"$platform_instances")"
+platform_instance_id="$(jq -er --arg coreId "$core_id" '.items[] | select(.defaultCoreId == $coreId) | .id' <<<"$platform_instances")"
 imported="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg uploadId "$arcade_upload_id" --arg target "$platform_instance_id" '{uploadId:$uploadId,targetPlatformInstanceId:$target,metadataProvider:"NONE",tagIds:[]}')" "$backend/api/v1/admin/imports")"
 printf '%s\n' "$imported" >"$evidence/import.json"
 import_id="$(jq -r .importJobId <<<"$imported")"
@@ -139,7 +154,7 @@ printf '%s\n' "$approved" >"$evidence/approved.json"
 game_id="$(jq -r .gameId <<<"$approved")"
 printf 'arcade_flow=review_approved\n'
 
-launch_body="$(jq -nc --arg game "$game_id" '{gameId:$game,coreId:"mame2003",saveStateId:null,dosEntry:null,returnTo:("/games/"+$game),clientCapabilities:{secureContext:true,crossOriginIsolated:true,sharedArrayBuffer:true}}')"
+launch_body="$(jq -nc --arg game "$game_id" --arg coreId "$core_id" '{gameId:$game,coreId:$coreId,saveStateId:null,dosEntry:null,returnTo:("/games/"+$game),clientCapabilities:{secureContext:true,crossOriginIsolated:true,sharedArrayBuffer:true}}')"
 launch="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$launch_body" "$backend/api/v1/launches")"
 if [[ "$(jq -r .status <<<"$launch")" == "VALIDATION_PENDING" ]]; then
   validation_job_id="$(jq -r .jobId <<<"$launch")"
@@ -161,7 +176,7 @@ printf 'arcade_flow=launch_created\n'
 configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" "$backend/runtime/launches/$launch_id/config")"
 printf '%s\n' "$configuration" >"$evidence/configuration.json"
 printf 'arcade_flow=config_loaded\n'
-[[ "$(jq -r .runtimeCore <<<"$configuration")" == "mame2003" ]]
+[[ "$(jq -r .runtimeCore <<<"$configuration")" == "$core_id" ]]
 parent_url="$(jq -er .parentUrl <<<"$configuration")"
 bios_url="$(jq -er .biosUrl <<<"$configuration")"
 game_url="$(jq -er .gameUrl <<<"$configuration")"
@@ -175,7 +190,7 @@ unzip -p "$evidence/parent-bundle.zip" puckman.zip | cmp "$fixture_root/puckman.
 unzip -p "$evidence/bios-bundle.zip" retrombios.zip | cmp "$fixture_root/retrombios.zip" -
 
 jq -n \
-  --arg status "PASSED" --arg datVersionId "$dat_version_id" --arg importJobId "$import_id" \
+  --arg status "PASSED" --arg coreId "$core_id" --arg datVersionId "$dat_version_id" --arg importJobId "$import_id" \
   --arg gameId "$game_id" --arg launchId "$launch_id" --arg evidenceDirectory "$evidence" \
-  '{status:$status,datVersionId:$datVersionId,importJobId:$importJobId,gameId:$gameId,launchId:$launchId,evidenceDirectory:$evidenceDirectory}' \
+  '{status:$status,coreId:$coreId,datVersionId:$datVersionId,importJobId:$importJobId,gameId:$gameId,launchId:$launchId,evidenceDirectory:$evidenceDirectory}' \
   | tee "$evidence/result.json"
