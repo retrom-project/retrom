@@ -8,7 +8,7 @@ import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState, PageHeader, StatusBadge } from "@/components/ui";
 import { useAuth } from "@/features/auth/auth-provider";
-import { applyRoomSnapshot, NetplayAPIError, netplayBlocker, roomMutation, type NetplayGame, type NetplayLaunch, type NetplayRoom } from "./client";
+import { applyRoomSnapshot, NetplayAPIError, netplayBlocker, roomMutation, type AuthenticatedFetch, type NetplayGame, type NetplayGameList, type NetplayLaunch, type NetplayRoom } from "./client";
 import { TagChips } from "@/components/tag-picker";
 
 type Filters = { query: string; platformId: string; platformInstanceId: string; availability: "SUPPORTED" | "ALL"; sort: "RECENT_DESC" | "ADDED_DESC" | "TITLE_ASC" };
@@ -27,11 +27,18 @@ function availableSeats(room: NetplayRoom) {
   return Array.from({ length: 4 }, (_, index) => index + 1).filter((playerNo) => playerNo <= (room.game?.maxPlayers ?? 1));
 }
 
-function GamePicker({ games, busy, initialFilterParams, onSelect }: {
-  games: NetplayGame[]; busy: boolean; initialFilterParams: NetplayFilterParams;
+function GamePicker({ initialGames, initialNextCursor, authenticatedFetch, busy, initialFilterParams, onSelect }: {
+  initialGames: NetplayGame[]; initialNextCursor: string | null; authenticatedFetch: AuthenticatedFetch;
+  busy: boolean; initialFilterParams: NetplayFilterParams;
   onSelect: (game: NetplayGame) => void;
 }) {
   const searchInput = useRef<HTMLInputElement>(null);
+  const loadMoreTarget = useRef<HTMLDivElement>(null);
+  const userScrolled = useRef(false);
+  const [games, setGames] = useState(initialGames);
+  const [nextCursor, setNextCursor] = useState(initialNextCursor);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState("");
   const [filters, setFilters] = useState<Filters>(() => filtersFromParams(initialFilterParams));
   const platforms = useMemo(() => [...new Map(games.filter((game) => filters.availability === "ALL" || game.availability === "SUPPORTED").map((game) => [game.platformId, game.platformName])).entries()], [filters.availability, games]);
   const collections = useMemo(() => [...new Map(games.filter((game) => !filters.platformId || game.platformId === filters.platformId).map((game) => [game.platformInstanceId, game.platformInstanceName])).entries()], [filters.platformId, games]);
@@ -70,8 +77,40 @@ function GamePicker({ games, busy, initialFilterParams, onSelect }: {
       search?.removeAttribute("data-shortcut-ready");
     };
   }, []);
+  const loadMore = useCallback(async () => {
+    if (!nextCursor || loadingMore) return;
+    setLoadingMore(true); setLoadMoreError("");
+    try {
+      const response = await authenticatedFetch(`/api/v1/netplay/games?availability=ALL&limit=100&cursor=${encodeURIComponent(nextCursor)}`, { cache: "no-store" });
+      if (!response.ok) throw new Error("无法加载更多联机游戏");
+      const page = await response.json() as NetplayGameList;
+      setGames((current) => {
+        const seen = new Set(current.map((game) => game.gameId));
+        return [...current, ...page.items.filter((game) => !seen.has(game.gameId))];
+      });
+      setNextCursor(page.nextCursor);
+    } catch (caught) {
+      setLoadMoreError(caught instanceof Error ? caught.message : "无法加载更多联机游戏");
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [authenticatedFetch, loadingMore, nextCursor]);
+  useEffect(() => {
+    const markScrolled = () => { userScrolled.current = true; };
+    window.addEventListener("scroll", markScrolled, { passive: true });
+    return () => window.removeEventListener("scroll", markScrolled);
+  }, []);
+  useEffect(() => {
+    const target = loadMoreTarget.current;
+    if (!target || !nextCursor || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver((entries) => {
+      if (entries.some((entry) => entry.isIntersecting) && userScrolled.current) void loadMore();
+    }, { rootMargin: "320px 0px" });
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [loadMore, nextCursor]);
   return <section className="netplay-picker" aria-labelledby="netplay-picker-title">
-    <div className="netplay-picker-title"><div><p className="eyebrow">选择游戏</p><h2 id="netplay-picker-title">选择经过验证的联机组合</h2></div><strong>当前显示 {filtered.length} 款游戏</strong></div>
+    <div className="netplay-picker-title"><div><p className="eyebrow">选择游戏</p><h2 id="netplay-picker-title">选择经过验证的联机组合</h2></div><strong>当前显示 {filtered.length} 款 · 已加载 {games.length} 款</strong></div>
     <div className="library-toolbar"><div className="library-tool-row">
       <label className="library-search"><AppIcon name="search" /><input ref={searchInput} id="netplay-game-search" type="search" maxLength={100} aria-label="搜索联机游戏" placeholder="搜索游戏、平台或核心…" value={filters.query} onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))} /></label>
       <label><span className="sr-only">游戏集合</span><select value={filters.platformInstanceId} onChange={(event) => setFilters((current) => ({ ...current, platformInstanceId: event.target.value }))}><option value="">全部游戏集合</option>{collections.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
@@ -80,12 +119,16 @@ function GamePicker({ games, busy, initialFilterParams, onSelect }: {
     {filtered.length ? <div className="library-game-grid">{filtered.map((game) => <article className={`library-game-card netplay-game-card${game.availability === "UNSUPPORTED" ? " is-disabled" : ""}`} key={game.gameId}>
       <div className="library-game-cover">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="280px" unoptimized /> : <span className="library-poster"><small>RETROM NETPLAY</small><strong>{game.title}</strong><span>{game.platformName}</span></span>}<span className="library-platform-tag">{game.platformName}</span></div>
       <div className="library-game-body"><div className="library-game-title-row"><h2>{game.title}</h2></div><p><span>{game.platformInstanceName}</span><span>{game.netplayProfiles[0]?.coreName ?? "未验证核心"}</span></p><TagChips tags={game.tags} limit={2} label={`${game.title} 的标签`} />{game.availability === "SUPPORTED" ? <button className="button netplay-select-game" type="button" disabled={busy} onClick={() => onSelect(game)}>选择</button> : <p className="netplay-blocker">{netplayBlocker(game.blockerCode)}</p>}</div>
-    </article>)}</div> : <EmptyState title={filters.availability === "SUPPORTED" ? "当前筛选没有支持联机的游戏" : "没有符合条件的游戏"} description="调整搜索或平台范围后重试。" action={<button className="button secondary" type="button" onClick={() => setFilters((current) => ({ ...current, query: "", availability: "ALL" }))}>查看全部游戏</button>} />}
+    </article>)}</div> : <EmptyState title={filters.availability === "SUPPORTED" ? "当前已加载范围没有支持联机的游戏" : "没有符合条件的游戏"} description={nextCursor ? "继续向下加载，或调整搜索与平台范围。" : "调整搜索或平台范围后重试。"} action={<button className="button secondary" type="button" onClick={() => setFilters((current) => ({ ...current, query: "", availability: "ALL" }))}>查看全部游戏</button>} />}
+    <div className="netplay-game-pagination" ref={loadMoreTarget} aria-live="polite">
+      {loadMoreError ? <span role="alert">{loadMoreError}</span> : null}
+      {nextCursor ? <button className="button secondary" type="button" disabled={loadingMore} onClick={() => void loadMore()}>{loadingMore ? "正在加载…" : loadMoreError ? "重试加载" : "加载更多"}</button> : <span>已加载全部联机游戏</span>}
+    </div>
   </section>;
 }
 
-export function NetplayRoomLobby({ initialRoom, games, initialFilterParams = {} }: {
-  initialRoom: NetplayRoom; games: NetplayGame[]; initialFilterParams?: NetplayFilterParams;
+export function NetplayRoomLobby({ initialRoom, games, initialGamesNextCursor = null, initialFilterParams = {} }: {
+  initialRoom: NetplayRoom; games: NetplayGame[]; initialGamesNextCursor?: string | null; initialFilterParams?: NetplayFilterParams;
 }) {
   const { authenticatedFetch } = useAuth();
   const router = useRouter();
@@ -212,7 +255,7 @@ export function NetplayRoomLobby({ initialRoom, games, initialFilterParams = {} 
 
   const self = room.members.find((member) => member.memberId === room.selfMemberId);
   const terminal = room.state === "ENDED" || room.state === "EXPIRED";
-  if (room.state === "DRAFT" && room.permissions.host) return <div className="page-layout netplay-room-page"><PageHeader eyebrow={`房间 #${room.roomId.slice(0, 8)}`} title="选择联机游戏" description="可选择使用已验证 EmulatorJS 与核心组合的 READY 游戏。" actions={<Link className="button secondary" href="/netplay">返回联机首页</Link>} />{error ? <div className="feedback-banner bad" role="alert"><div>{error}</div></div> : null}<GamePicker games={games} busy={busy} initialFilterParams={initialFilterParams} onSelect={selectGame} />{profileGame ? <ProfileDialog game={profileGame} onClose={() => setProfileGame(null)} onSelect={(id) => selectGame(profileGame, id)} /> : null}</div>;
+  if (room.state === "DRAFT" && room.permissions.host) return <div className="page-layout netplay-room-page"><PageHeader eyebrow={`房间 #${room.roomId.slice(0, 8)}`} title="选择联机游戏" description="可选择使用已验证 EmulatorJS 与核心组合的 READY 游戏。" actions={<Link className="button secondary" href="/netplay">返回联机首页</Link>} />{error ? <div className="feedback-banner bad" role="alert"><div>{error}</div></div> : null}<GamePicker initialGames={games} initialNextCursor={initialGamesNextCursor} authenticatedFetch={authenticatedFetch} busy={busy} initialFilterParams={initialFilterParams} onSelect={selectGame} />{profileGame ? <ProfileDialog game={profileGame} onClose={() => setProfileGame(null)} onSelect={(id) => selectGame(profileGame, id)} /> : null}</div>;
 
   return <div className="page-layout netplay-room-page">
     <PageHeader eyebrow={`房间 #${room.roomId.slice(0, 8)}`} title={room.game?.title ?? "等待房主选择游戏"} description={room.game ? `${room.game.platformName} · ${room.game.coreName} · EmulatorJS ${room.game.emulatorjsVersion}` : "游戏锁定后即可选择座位。"} actions={<Link className="button secondary" href="/netplay">联机首页</Link>} />

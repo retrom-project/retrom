@@ -1,3 +1,4 @@
+import { sha256 } from "@/lib/crypto";
 import type { EmulatorInstance } from "../adapters/ejs-4.2.3-v2";
 import type { CanonicalInput } from "./rollback";
 
@@ -406,6 +407,6 @@ export function checkpointCoreStateBytes(value: Uint8Array, profileID: string) {
 }
 
 export async function digestHex(value: Uint8Array) {
-  const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(value).buffer);
+  const digest = await sha256(value);
   return [...new Uint8Array(digest)].map((byte) => byte.toString(16).padStart(2, "0")).join("");
 }

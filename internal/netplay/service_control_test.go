@@ -113,6 +113,80 @@ func TestEligibilityBlockerUsesClosedRepairCodes(t *testing.T) {
 	}
 }
 
+func TestGamePageBoundsInitialCatalogWorkAndUsesStableCursor(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	now := time.UnixMilli(1_786_000_000_000).UTC()
+	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", database.Close()) }()
+	if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('paging-profile','Player',?)`, now.UnixMilli()); err != nil {
+		t.Fatal(err)
+	}
+	transaction, err := database.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(transaction)
+	if _, err := transaction.Exec(`PRAGMA defer_foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	for index := 0; index < 205; index++ {
+		gameID := fmt.Sprintf("01980000-0000-7000-8100-%012x", index)
+		metadataID := fmt.Sprintf("01980000-0000-7000-8200-%012x", index)
+		contentID := fmt.Sprintf("01980000-0000-7000-8300-%012x", index)
+		if _, err := transaction.Exec(`
+INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,created_at_ms)
+VALUES(?,?,?,'','','','',NULL,NULL,'ADMIN_EDIT',?)
+`, metadataID, gameID, fmt.Sprintf("Game %03d", index), now.UnixMilli()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
+VALUES(?,?,'ADMIN_REPLACE',?,'{}',?,?)
+`, contentID, gameID, gameID, strings.Repeat("7", 64), now.UnixMilli()); err != nil {
+			t.Fatal(err)
+		}
+		if _, err := transaction.Exec(`
+INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
+VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
+`, gameID, metadataID, contentID, fmt.Sprintf("game %03d", index), now.UnixMilli(), now.UnixMilli()); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := transaction.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(database.SQL, nil, nil, Options{}, func() time.Time { return now })
+	first, hasMore, err := service.GamePage(ctx, "paging-profile", "ALL", "", "", 100)
+	if err != nil || !hasMore || len(first) != 100 {
+		t.Fatalf("first game page = len %d more %t error=%v", len(first), hasMore, err)
+	}
+	if first[0].Title != "Game 000" || first[99].Title != "Game 099" {
+		t.Fatalf("first game page bounds = %q/%q", first[0].Title, first[99].Title)
+	}
+	second, hasMore, err := service.GamePage(
+		ctx, "paging-profile", "ALL", strings.ToLower(first[99].Title), first[99].GameID, 100,
+	)
+	if err != nil || !hasMore || len(second) != 100 {
+		t.Fatalf("second game page = len %d more %t error=%v", len(second), hasMore, err)
+	}
+	if second[0].Title != "Game 100" || second[99].Title != "Game 199" {
+		t.Fatalf("second game page bounds = %q/%q", second[0].Title, second[99].Title)
+	}
+	third, hasMore, err := service.GamePage(
+		ctx, "paging-profile", "ALL", strings.ToLower(second[99].Title), second[99].GameID, 100,
+	)
+	if err != nil || hasMore || len(third) != 5 {
+		t.Fatalf("third game page = len %d more %t error=%v", len(third), hasMore, err)
+	}
+	if third[0].Title != "Game 200" || third[4].Title != "Game 204" {
+		t.Fatalf("third game page bounds = %q/%q", third[0].Title, third[4].Title)
+	}
+}
+
 func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 	t.Parallel()
 	manifest, err := os.ReadFile(filepath.Join("..", "..", "data", "netplay", "v1", "manifest.json"))
@@ -167,6 +241,77 @@ func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 				t.Fatalf("drifted %s artifact matched core profile", test.coreID)
 			}
 		})
+	}
+}
+
+func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	now := time.UnixMilli(1_786_000_000_000).UTC()
+	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer func() { cleanup.Error("close", database.Close()) }()
+	const (
+		gameID      = "01980000-0000-7000-8400-000000000001"
+		metadataID  = "01980000-0000-7000-8400-000000000002"
+		contentID   = "01980000-0000-7000-8400-000000000003"
+		variantID   = "01980000-0000-7000-8400-000000000004"
+		revisionID  = "01980000-0000-7000-8400-000000000005"
+		artifactID  = "01980000-0000-7000-8400-000000000006"
+		datID       = "01980000-0000-7000-8400-000000000007"
+		contentBlob = "01980000-0000-7000-8400-000000000008"
+		biosBlob    = "01980000-0000-7000-8400-000000000009"
+	)
+	snapshot := fmt.Sprintf(`{"schemaVersion":2,"machine":"child","datVersionId":%q,"closure":[{"machine":"child","kind":"CONTENT","requiredBy":null,"depth":0},{"machine":"bios","kind":"BIOS_OR_BASE","requiredBy":"child","depth":1}],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","requiredBy":"child","depth":1,"expectedLogicalName":"bios.zip","state":"SATISFIED_EXTERNAL","requiredEntryCount":1,"requiredEntries":["bios.bin"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datID)
+	tx, err := database.SQL.BeginTx(ctx, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cleanup.Rollback(tx)
+	if _, err := tx.Exec(`PRAGMA defer_foreign_keys=ON`); err != nil {
+		t.Fatal(err)
+	}
+	statements := []struct {
+		query string
+		args  []any
+	}{
+		{`INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,source_kind,created_at_ms) VALUES(?,?,'Arcade fixture','','','','',2,'ADMIN_EDIT',?)`, []any{metadataID, gameID, now.UnixMilli()}},
+		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms) VALUES(?,?,'ADMIN_REPLACE','arcade-fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("1", 64), now.UnixMilli()}},
+		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms) VALUES(?,'01980000-0000-7000-8000-000000000006','PUBLISHED',?,?,'arcade fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,1,?,?,?,'application/octet-stream',?)`, []any{contentBlob, strings.Repeat("2", 64), strings.Repeat("3", 32), strings.Repeat("4", 40), strings.Repeat("5", 8), now.UnixMilli()}},
+		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,1,?,?,?,'application/octet-stream',?)`, []any{biosBlob, strings.Repeat("6", 64), strings.Repeat("7", 32), strings.Repeat("8", 40), strings.Repeat("9", 8), now.UnixMilli()}},
+		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','child.zip',?,0)`, []any{contentID, contentBlob}},
+		{`INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms) VALUES(?,'fbneo','4.2.3','test','WASM','cores/fbneo.data',1,?,'{}','{}',1,1,?,?)`, []any{artifactID, strings.Repeat("a", 64), now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,compatibility_status,parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms) VALUES(?,'fbneo',?,'BUILTIN','data/dat/fbneo.xml',?,'1','MATCHED','READY',1,1,?,?,?,?)`, []any{datID, artifactID, strings.Repeat("b", 64), now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms) VALUES(?,?,'fbneo',NULL,1,?,?)`, []any{variantID, gameID, now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms) VALUES(?,?,?,?,?,?,1,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, artifactID, datID, strings.Repeat("c", 64), snapshot, now.UnixMilli()}},
+		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{revisionID, variantID}},
+		{`INSERT INTO variant_dependencies(game_variant_revision_id,kind,logical_archive,dat_version_id,source_machine_name,required_entries_json,state,created_at_ms) VALUES(?,'BIOS_OR_BASE','bios.zip',?,'bios','["bios.bin"]','SATISFIED_EXTERNAL',?)`, []any{revisionID, datID, now.UnixMilli()}},
+		{`INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'BIOS_BUNDLE','bios.zip',?,0)`, []any{revisionID, biosBlob}},
+	}
+	for _, statement := range statements {
+		if _, err := tx.Exec(statement.query, statement.args...); err != nil {
+			t.Fatalf("fixture statement %q: %v", statement.query, err)
+		}
+	}
+	if err := tx.Commit(); err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(database.SQL, nil, nil, Options{}, func() time.Time { return now })
+	row := eligibilityRow{
+		revisionID: revisionID, logicalName: "child.zip", dependencyJSON: snapshot,
+		datVersionID: sql.NullString{String: datID, Valid: true},
+	}
+	runnable, err := service.arcadeDependencySnapshotRunnable(ctx, row)
+	if err != nil || !runnable {
+		t.Fatalf("schema-v2 Arcade revision runnable=%t error=%v", runnable, err)
+	}
+	row.dependencyJSON = `{"schemaVersion":1,"bios":[]}`
+	runnable, err = service.arcadeDependencySnapshotRunnable(ctx, row)
+	if err != nil || runnable {
+		t.Fatalf("legacy Arcade revision runnable=%t error=%v", runnable, err)
 	}
 }
 

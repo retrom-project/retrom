@@ -25,6 +25,16 @@ WHERE state NOT IN ('FINISHED','FAILED')
 		return fmt.Errorf("netplay/recover sessions: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
+UPDATE play_sessions
+SET state='ABANDONED',ended_at_ms=?,updated_at_ms=?,version=version+1
+WHERE launch_session_id IN (
+  SELECT id FROM launch_sessions WHERE netplay_session_id IS NOT NULL
+)
+AND state='ACTIVE'
+`, now, now); err != nil {
+		return fmt.Errorf("netplay/recover plays: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
 UPDATE launch_sessions SET state='REVOKED',finished_at_ms=?,updated_at_ms=?,version=version+1
 WHERE netplay_session_id IS NOT NULL AND state IN ('CREATED','ACTIVE')
 `, now, now); err != nil {
