@@ -124,7 +124,7 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
     { width: 390, height: 844, label: "390x844" },
     { width: 1280, height: 800, label: "1280x800" },
     { width: 2560, height: 1440, label: "2560x1440" },
-    { width: 3840, height: 2160, label: "3840x2160" },
+    { width: 3840, height: 2160, label: "3840-css-ultrawide" },
   ];
   for (const viewport of viewports) {
     await page.setViewportSize(viewport);

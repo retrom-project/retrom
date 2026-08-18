@@ -632,7 +632,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-BIOS-006`。
-- 流程：用确定性门禁 fixture 验证大目录发现、2 个 hash worker、全局 1 个 archive scanner、进度、lease/heartbeat/deadline、瞬时 root 退避、cancel、崩溃恢复和 restore fence；再由 Chrome 在 1280×800、2560×1440、3840×2160 创建空候选任务并查看终态详情、筛选和候选入口。
+- 流程：用确定性门禁 fixture 验证大目录发现、2 个 hash worker、全局 1 个 archive scanner、进度、lease/heartbeat/deadline、瞬时 root 退避、cancel、崩溃恢复和 restore fence；再由 Chrome 在 1280×800、2560×1440，以及物理 3840×2160、150% scale（CSS 2560×1440、DPR 1.5）创建空候选任务并查看终态详情、筛选和候选入口。
 - 通过标准：完整发现前零安装，cancel 保留已完成 Item 并终止其余项；零终态 Item 的瞬时错误按固定有界退避，恢复不重复结果，restore 不自动继续外部 source。Drawer 的 radio/目录/checkbox、Escape/focus trap/焦点返回可用；详情无页面横向溢出、状态不只靠颜色，axe 无 serious/critical 结果。
 - 证据：Worker 计数/事件/事务、恢复前后摘要、三尺寸截图、键盘与 axe 结果。
 
@@ -715,7 +715,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-PEG-005`。
-- 流程：在 1280×800、2560×1440、3840×2160 打开服务器导入页，只用键盘完成 root/目录选择与扫描；扫描后关闭 Drawer，直接进入该计划详情并从“继续映射”恢复，选择一个既有标签并批量追加到全部未跳过 Collection，再完成全部 Collection 显式映射、确认审核计划和启动；另覆盖已完整保存映射后关闭并恢复第三步。任务准备完成后从批次行动区进入限定审核队列，打开 READY 与 blocker 各一项并返回；检查来源 COVER/VIDEO，确认快速审批只位于统一审核页。在详情注入 BIOS 缺失、parent 缺失、内容 entry 缺失、merged set 不支持、结构化 library import 内部失败和历史通用 runtime blocker，展开诊断、触发原计划重检，再使用 URL 筛选、分页、取消/retry 并模拟 SSE 断线。
+- 流程：在 1280×800、2560×1440，以及物理 4K、150% scale 场景打开服务器导入页，只用键盘完成 root/目录选择与扫描；扫描后关闭 Drawer，直接进入该计划详情并从“继续映射”恢复，选择一个既有标签并批量追加到全部未跳过 Collection，再完成全部 Collection 显式映射、确认审核计划和启动；另覆盖已完整保存映射后关闭并恢复第三步。任务准备完成后从批次行动区进入限定审核队列，打开 READY 与 blocker 各一项并返回；检查来源 COVER/VIDEO，确认快速审批只位于统一审核页。在详情注入 BIOS 缺失、parent 缺失、内容 entry 缺失、merged set 不支持、结构化 library import 内部失败和历史通用 runtime blocker，展开诊断、触发原计划重检，再使用 URL 筛选、分页、取消/retry 并模拟 SSE 断线。
 - 通过标准：两张能力卡等权且共用 root 说明，Pegasus 卡明确扫描不会自动发布并显示待审核总数；760px Drawer 三步可达、无默认映射，批量标签以 union 语义进入所有未跳过 Collection 且可逐项调整，第三步显示覆盖数量并明确“全部进入待审核”；`AWAITING_MAPPING` 详情能恢复指定计划且不重新选目录/扫描，未保存映射重新选择、已完整保存映射直接进入第三步。Drawer 打开时背景不可滚动，扫描转换与同计划摘要轮询不得造成布局跳动、焦点转移或本地映射丢失。详情以扫描范围/待审核/已发布·丢弃·已有/阻断·失败分组，显示 media READY/MISSING/WARNING、逐项审核入口与已有/新游戏链接；批次入口保留 `pegasusImportId`，清除其他筛选不丢批次，Pegasus metadata 不计作“未找到信息”；审核媒体中 VIDEO 等比居中且不自动播放，Pegasus 详情本身不复制快速审批按钮。阻断行展示具体原因，展开后可见稳定 code、Core/machine、缺失条目、依赖和处理建议；内部失败展开后可见 stage、operation、cause code、Pegasus Item ID、相对路径、观察数量/上限、可用内部关联 ID 与受限技术详情，不得只显示 `PEGASUS_LIBRARY_IMPORT_FAILED`；历史 `PEGASUS_RUNTIME_BLOCKED` 可在原任务重检且重检后不再保留通用原因；断线不清空内容；三个 viewport 无页面级横向溢出，焦点、Escape、reduced-motion 和状态文本符合 UI 契约。
 - 证据：Playwright DOM/网络/布局断言和三尺寸当前截图。
 
@@ -846,7 +846,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-003`。
 - 流程：检查首页时长、最近游玩和按添加时间倒序的最新 10 款游戏；在游戏库搜索并按平台/目录筛选；从卡片进入详情；查看封面、元信息、时长、最近 4 份存档、全量存档 Drawer、截图预览、核心和 DOS 程序；从存档次要入口进入详情。
-- 通过标准：首页五层顺序为最近玩的游戏/快速开始、最近游玩、最新添加、平台、资料库摘要；最新添加只含启用目录中的已发布游戏，最多 10 款且以创建时间和 Game ID 稳定倒序，入口进入游戏详情，“查看游戏库”恢复最近加入排序。游戏库首屏和每个续页只请求 50 条，滚动到末尾才按 cursor 读取下一页；同一次哨兵停留不并发或连续重复请求，跨页无重复/漏项，首分页 facet 仍提供全部平台、目录、活动标签和真实计数，搜索/筛选/排序改动取消旧请求并从首分页重载。筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；存在简介时全文可见、不行数截断，在 3840px viewport 中简介占满 Hero 中栏可用宽度而不留固定空白；详情只内联最近 4 份存档且 Drawer 包含当前游戏全部存档；取消运行方式对话框不修改偏好，应用后才生效；存档主操作直接启动、标题/次要操作才进详情。
+- 通过标准：首页五层顺序为最近玩的游戏/快速开始、最近游玩、最新添加、平台、资料库摘要；最新添加只含启用目录中的已发布游戏，最多 10 款且以创建时间和 Game ID 稳定倒序，入口进入游戏详情，“查看游戏库”恢复最近加入排序。游戏库首屏和每个续页只请求 50 条，滚动到末尾才按 cursor 读取下一页；同一次哨兵停留不并发或连续重复请求，跨页无重复/漏项，首分页 facet 仍提供全部平台、目录、活动标签和真实计数，搜索/筛选/排序改动取消旧请求并从首分页重载。筛选进入 URL 且刷新可恢复；卡片只显示已发布游戏；详情信息完整，默认核心状态准确；存在简介时全文可见、不行数截断，在 2560px CSS viewport 中简介占满 Hero 中栏可用宽度而不留固定空白；详情只内联最近 4 份存档且 Drawer 包含当前游戏全部存档；取消运行方式对话框不修改偏好，应用后才生效；存档主操作直接启动、标题/次要操作才进详情。
 - 证据：URL/query、可访问 DOM 断言和关键截图。
 
 ### ACC-UI-004：加载、空、错误、Warning 与 Blocker 状态
@@ -861,16 +861,16 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-005`。
-- 流程：在 `1280×800`、`2560×1440` CSS viewport，以及 3840×2160、100% scale viewport 分别打开首页、游戏库、详情、存档、收藏、最近游玩、联机大厅、账户和 Player Shell；首页另在物理 4K 高缩放的代表性 `1920×950` CSS viewport 复测。
-- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；同一 viewport 下首页、游戏库、详情、存档、收藏、最近游玩、联机大厅与账户页的主容器相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。首页最近游玩和最新添加在稀疏数据下从左侧自然排列，常规桌面单卡宽度不超过 480px，4K 布局不超过 560px，不得拉伸填满轨道。3840×2160 与 `1920×950` 首页五层均完整落在首屏且 `documentElement.scrollHeight <= clientHeight`，不出现纵向滚动条，紧凑态仍保持正文和卡片信息清晰可读。3840×2160 首页宽度至少占应用内容区 65%，最末层底边距离 viewport 底部不超过 48px，避免内容聚集在屏幕上半部。三个基准 viewport 的游戏库分别为 4/6/8 列，共享页面有效内容宽度不超过 2320px。详情页在 `2560×1440` 与 `3840×2160` 下 Hero、信息条和最近 4 份存档均完整落在首屏，截图保持比例，Drawer/对话框不推动页面布局；`1280×800` 下关键启动操作和存档区仍在首屏可达。Player stage 为无边距的 100vw×100dvh；运行后 58px toolbar 自动移出画面，只有指针进入顶部 32px、键盘操作或工具栏获焦才恢复，画面中央 pointermove 不改变可见性，标题/Core/平台和同步状态不挤压主操作。点击顶部 toolbar 的标题空白或任一操作都先暂停且保持暂停，只有点击游戏画面恢复；点击模拟器设置控件不能误恢复。EmulatorJS 原生底部工具栏启动后及靠近底边时始终隐藏；Retrom 的“模拟器设置”首次点击直接显示包含控制、显示、Core 设置、音量、静音和收起的自绘工具栏，桥接出来的原生设置面板与自绘栏均不存在 EmulatorJS 退出按钮。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式在水平和垂直方向居中，未被裁切或拉伸。
+- 流程：在 `1280×800`、`2560×1440` CSS viewport，以及物理 3840×2160、150% scale（`2560×1440` CSS viewport、DPR 1.5）的 `chrome-4k-150` 项目分别打开首页、游戏库、详情、存档、收藏、最近游玩、联机大厅、账户和 Player Shell；首页另在浏览器工具栏占用后的代表性 `1920×950` CSS viewport 复测，并以 `3840×2160` CSS viewport 做不生成标准 4K 截图的补充 ultra-wide 检查。
+- 通过标准：无页面级横向溢出、遮挡、过小控件或跨屏长文本；同一 CSS viewport 下首页、游戏库、详情、存档、收藏、最近游玩、联机大厅与账户页的主容器相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。首页最近游玩和最新添加在稀疏数据下从左侧自然排列，常规桌面单卡宽度不超过 480px，不得拉伸填满轨道。物理 4K 150% 与 `1920×950` 首页五层均完整落在首屏且 `documentElement.scrollHeight <= clientHeight`，不出现纵向滚动条，紧凑态仍保持正文和卡片信息清晰可读；物理 4K 页面截图的 CSS viewport/DPR 必须为 `2560×1440/1.5`，PNG 必须为 `3840×2160` 像素。标准基线的游戏库在 1280/2560/物理 4K 150% 下分别为 4/6/6 列，补充的 3840 CSS ultra-wide 为 8 列，共享页面有效内容宽度不超过 2320px。详情页在 `2560×1440`（同时代表物理 4K 150% 的 CSS 布局）下 Hero、信息条和最近 4 份存档均完整落在首屏，截图保持比例，Drawer/对话框不推动页面布局；`1280×800` 下关键启动操作和存档区仍在首屏可达。Player stage 为无边距的 100vw×100dvh；运行后 58px toolbar 自动移出画面，只有指针进入顶部 32px、键盘操作或工具栏获焦才恢复，画面中央 pointermove 不改变可见性，标题/Core/平台和同步状态不挤压主操作。点击顶部 toolbar 的标题空白或任一操作都先暂停且保持暂停，只有点击游戏画面恢复；点击模拟器设置控件不能误恢复。EmulatorJS 原生底部工具栏启动后及靠近底边时始终隐藏；Retrom 的“模拟器设置”首次点击直接显示包含控制、显示、Core 设置、音量、静音和收起的自绘工具栏，桥接出来的原生设置面板与自绘栏均不存在 EmulatorJS 退出按钮。canvas rect 完全在 viewport 内，CSS/drawing-buffer 宽高比误差 ≤0.01，宽或高至少一边与 viewport 对应边误差 ≤2px，另一边按 contain 公式在水平和垂直方向居中，未被裁切或拉伸。
 - 证据：三个 viewport 的布局测量、overflow 断言和页面截图。
 
 ### ACC-UI-006：管理侧 4K
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-006`。
-- 流程：在 `1280×800`、`2560×1440` 与 `3840×2160` 三个 viewport 打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理和 `/admin/bios`；另断言已移除的 `/admin/bios/dats` 返回 404。
-- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面在同一 viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560/3840 下历史 diff、任务阶段和 BIOS hash 不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备。游戏目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个 viewport 均可达；封面容器保持 3:4 并在 3840px 双栏布局中等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
+- 流程：在 `1280×800`、`2560×1440` 与物理 4K 150% 三个场景打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理和 `/admin/bios`；另断言已移除的 `/admin/bios/dats` 返回 404。
+- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面在同一 CSS viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560 CSS/物理 4K 150% 下历史 diff、任务阶段和 BIOS hash 不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备。游戏目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个场景均可达；封面容器保持 3:4 并等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
 - 证据：布局断言和每类页面当前截图。
 
 ### ACC-UI-007：键盘、标签与减少动画
@@ -885,7 +885,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-008`。
-- 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，加载第二页后选择第 57 项，点击一次“重新运行检查”并记录 popup 与 Preview 请求，再修改标题并等待实时保存，切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；Approve 第 3 项后再次直达它的旧详情 URL，再 Discard 第 58 项。分别在 1280×800 和 3840×2160 执行，并用键盘完成一次筛选和非顺序选中。
+- 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，加载第二页后选择第 57 项，点击一次“重新运行检查”并记录 popup 与 Preview 请求，再修改标题并等待实时保存，切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；Approve 第 3 项后再次直达它的旧详情 URL，再 Discard 第 58 项。分别在 1280×800 和补充的 3840×2160 CSS ultra-wide viewport 执行，并用键盘完成一次筛选和非顺序选中；该 ultra-wide 截图不得标记成物理 4K 150% 证据。
 - 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。同一次停留在底部预加载区只请求一页且没有并发重复请求，哨兵离开并再次进入后才自动取下一页，手动“继续加载”仍可用。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；简介标签与文本域间距不超过 8px，剩余栏高扩展文本域而不是标签空白；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。审核决定中的“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”按两行两列显示，四个按钮计算宽度与高度一致，Tab 顺序同视觉顺序；“重新运行检查”刷新 Validation 与发布状态但不产生 popup 或 `/previews` 请求，“运行游戏”仍是唯一创建审核 Preview 的入口；页首截图槽显示当前 READY 或阻断 Validation 的第 5 秒截图，阻断截图出现后发布按钮解除置灰，且占位/图片切换不改变外层摘要卡片高度。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。已处理条目的旧详情 URL 返回原筛选队列、提示条目已处理或不再可用、清除对应浏览器队列快照且不显示通用故障页。普通逐项 Approve/Discard 各自使用当前 ETag/Idempotency-Key/ReviewEvent；快速审批另按 `ACC-UI-010` 的冻结 aggregate 执行，两个范围不会串项。
 - 证据：API query/cursor、route 序列、键盘 trace、决策前后队列 DOM 及两个 viewport 的当前截图。
 
@@ -893,7 +893,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-009`。
-- 流程：在 `1280×800`、`2560×1440` 和 `3840×2160` viewport 完成 setup、test login、邀请复制/注册、logout/login、管理员创建密码重置链接、重置、账户改密及管理员用户筛选/Drawer/角色/状态/删除；确认登录页不提供自助找回密码，账户资料只读且管理员不能代改 displayName/密码。覆盖空、loading、通用错误、429、ETag 冲突、本人和最后管理员状态；只用键盘重复邀请与 Drawer 流程并运行 axe。
+- 流程：在 `1280×800`、`2560×1440` 和物理 4K 150% 场景完成 setup、test login、邀请复制/注册、logout/login、管理员创建密码重置链接、重置、账户改密及管理员用户筛选/Drawer/角色/状态/删除；确认登录页不提供自助找回密码，账户资料只读且管理员不能代改 displayName/密码。覆盖空、loading、通用错误、429、ETag 冲突、本人和最后管理员状态；只用键盘重复邀请与 Drawer 流程并运行 axe。
 - 通过标准：路由和表单符合 `ACC-AUTH-*`；secret 只在一次性对话框出现并从 fragment/状态及时清除；表格无页面级横向溢出，身份/操作列 sticky，Drawer/对话框焦点受控且关闭后返回触发器。危险确认包含用户名和影响，自身/最后管理员控件禁用并解释原因，错误/空/loading 不泄露旧数据或改变布局；测试模式有文本警告，密码/secret 不被辅助技术意外回读。
 - 证据：三 viewport 当前截图、route/network/storage trace、axe/键盘结果与后端生命周期摘要。
 
@@ -901,7 +901,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-010`。
-- 流程：在 `390×844`、`1280×800` 与 `3840×2160` 打开含 READY、截图 override、重复、active Attachment 和 stale Item 的审核队列，设置 `q/tagId/importJobId/pegasusImportId/platformInstanceId/blockerCode` 后仅加载第一页。只用键盘打开快速审批预览，先制造 preview stale 再确认；刷新带 `bulkApprovalId` 的运行页，取消一次并另建批次运行到含 skip/failure 的终态；注入 worker-only failure 后重试。覆盖零 candidate、已有 active batch 和网络错误。
+- 流程：在 `390×844`、`1280×800` 与物理 4K 150% 场景打开含 READY、截图 override、重复、active Attachment 和 stale Item 的审核队列，设置 `q/tagId/importJobId/pegasusImportId/platformInstanceId/blockerCode` 后仅加载第一页。只用键盘打开快速审批预览，先制造 preview stale 再确认；刷新带 `bulkApprovalId` 的运行页，取消一次并另建批次运行到含 skip/failure 的终态；注入 worker-only failure 后重试。覆盖零 candidate、已有 active batch 和网络错误。
 - 通过标准：页首按钮与历史入口可达；预览来自服务端完整筛选而非当前 DOM，突出自动发布数并以非颜色文本逐类解释排除，截图 override 明确要求人工处理。stale 保留 Dialog、刷新数字并要求再次确认；零项禁用主操作，active batch 恢复其状态。运行卡在刷新/返回后按 URL 恢复，显示状态、processed/candidate、发布/跳过/失败/取消计数和稳定进度，不导致筛选/列表跳动；取消与 retry 只在合法状态出现并带确认/ETag。终态清除当前用户全部 `reviews:` sessionStorage 队列快照、刷新列表，最多首屏 50 条结果都有 Review/Game 链接和可读结果。三个 viewport 无页面级横向溢出；Dialog/status/results 的焦点、Escape、触发器返回、44px target、aria-live、reduced-motion 和 axe serious/critical 全部符合通用契约。
 - 证据：三个 viewport 当前截图、URL/sessionStorage/network 序列、键盘/focus/axe trace 和最终结果 DOM。
 
@@ -997,7 +997,7 @@ make acceptance-case CASE=<case-id>
 ### ACC-FAV-004：状态、键盘与多尺寸布局
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-FAV-004`。
-- 流程：1280×800、2560×1440、3840×2160 覆盖 loading/全空/Folder 空/筛选空/错误/冲突、50 项批量和 100 Folder；键盘创建/管理/取消，reduced motion 与 axe。
+- 流程：1280×800、2560×1440、物理 4K 150% 覆盖 loading/全空/Folder 空/筛选空/错误/冲突、50 项批量和 100 Folder；键盘创建/管理/取消，reduced motion 与 axe。
 - 通过：无横向溢出/遮挡，卡宽 270–320px，Rail 头部和新建入口固定且只有中间列表自滚动，批量栏不盖末行，4K 字号/控件达标，dialog 焦点与 Escape 正确，axe 无 serious/critical。
 - 证据：三 viewport 测量/截图、键盘 trace、焦点/ARIA/axe/reduced-motion 结果。
 
@@ -1034,7 +1034,7 @@ make acceptance-case CASE=<case-id>
 ### ACC-TAG-005：搜索、展示、响应式与无障碍
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-TAG-005`。
-- 流程：管理员以键盘创建/重命名/删除标签，在普通导入、Pegasus mapping、审核和游戏维护入口选择；把 Pegasus Collection TagPicker 滚动到容器边缘后展开并滚动父容器，检查浮动 listbox 的挂载、跟随与上下翻转；在 Library/Admin/Review/Favorite/Recent/Save/Netplay 用名称及精确 Tag URL 搜索，访问详情；覆盖 390×844、1280×800、2560×1440、3840×2160 和 axe。
+- 流程：管理员以键盘创建/重命名/删除标签，在普通导入、Pegasus mapping、审核和游戏维护入口选择；把 Pegasus Collection TagPicker 滚动到容器边缘后展开并滚动父容器，检查浮动 listbox 的挂载、跟随与上下翻转；在 Library/Admin/Review/Favorite/Recent/Save/Netplay 用名称及精确 Tag URL 搜索，访问详情；标准截图覆盖 390×844、1280×800、2560×1440、物理 4K 150% 和 axe，另保留 3840×2160 CSS ultra-wide 的无溢出检查。
 - 通过：`q/tagId` 与其他条件取交集且刷新/前进后退恢复；删除标签立即隐藏，chip 位置、截断、`+N` 朗读和 FavoriteFolder/Tag 分区正确；TagPicker 键盘/20 上限、Drawer/Dialog 焦点与错误保留正确，listbox 在顶层浮动层内保持视口可见且不被任一滚动容器裁剪；所有页面零 document 横向溢出且 axe 无 serious/critical。
 - 证据：route/network/DOM/键盘/focus trace、四 viewport 尺寸和截图、axe report、删除前后搜索/投影摘要。
 
@@ -1117,7 +1117,7 @@ make acceptance-case CASE=<case-id>
 ### ACC-MOB-007：可访问性与视觉回归
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-MOB-007`。
-- 流程：在 `320×568`、`360×800`、`390×844`、`412×915`、`768×1024`、`1024×768` 运行用户/管理代表页，启用 200% 文本、`prefers-reduced-motion` 和测试 safe-area；再运行既有 `1280×800`、`2560×1440`、`3840×2160` 基线。
+- 流程：在 `320×568`、`360×800`、`390×844`、`412×915`、`768×1024`、`1024×768` 运行用户/管理代表页，启用 200% 文本、`prefers-reduced-motion` 和测试 safe-area；再运行既有 `1280×800`、`2560×1440`、物理 4K 150% 基线。
 - 通过标准：所有普通页面 document 零横向溢出、关键 target 至少 44px、标题/主操作可见，焦点与朗读顺序和视觉顺序一致；Dialog/Sheet 不被软键盘或 safe-area 裁切；axe 无 serious/critical violation，桌面侧栏、共享画布、卡片列数和 Player 比例没有回退。
 - 证据：全部 viewport 的 DOM 尺寸与 axe 报告、键盘 trace，以及本次运行在证据目录生成的桌面截图与视觉核对结果；不得依赖仓库内设计图片或历史 screenshot diff。
 

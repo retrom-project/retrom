@@ -63,7 +63,7 @@ Pegasus 在 Collection 映射步骤逐项选择默认标签，可用批量辅助
 - 普通导入、Pegasus Collection、ReviewDraft 和管理员游戏详情均使用同一活动 TagPicker；成功写入后必须采用响应的新 owner version，冲突时刷新真实聚合，不能在客户端猜测 rename/delete 结果。
 - 收藏夹 chip 和实例标签有不同区域与可访问名称，避免把 Profile 私有集合误认为共享 taxonomy。
 
-响应式基线为 390×844、1280×800、2560×1440 与 3840×2160。chip 可换行、长名称截断但保留 title，不得制造页面级横向溢出；Drawer/Dialog 遵守焦点圈定、Esc 关闭和关闭后焦点恢复。
+响应式基线为 390×844、1280×800、2560×1440，以及物理 3840×2160、系统缩放 150%（CSS viewport 2560×1440、DPR 1.5）的 4K 场景。chip 可换行、长名称截断但保留 title，不得制造页面级横向溢出；Drawer/Dialog 遵守焦点圈定、Esc 关闭和关闭后焦点恢复。
 
 ## 7. 错误、审计与验证
 

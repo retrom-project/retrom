@@ -25,7 +25,23 @@ fi
 export RETROM_CHROME_EXECUTABLE="$chrome_executable"
 printf 'browser=%s\n' "$chrome_version"
 
+remove_e2e_dist() {
+  local dist_directory="$repository_root/web/.next-e2e"
+  local deadline=$((SECONDS + 5))
+  while [[ -e "$dist_directory" ]]; do
+    rm -rf -- "$dist_directory" 2>/dev/null || true
+    [[ ! -e "$dist_directory" ]] && return 0
+    if (( SECONDS >= deadline )); then
+      echo "failed to remove web E2E build directory: $dist_directory" >&2
+      return 1
+    fi
+    sleep 0.1
+  done
+}
+
 cleanup() {
+  local status=$?
+  trap - EXIT
   if [[ -n "$process_id" ]]; then
     RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
     wait "$process_id" 2>/dev/null || true
@@ -33,7 +49,10 @@ cleanup() {
   cp -p "$temporary_root/next-env.d.ts" "$repository_root/web/next-env.d.ts"
   cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
   rm -rf -- "$temporary_root"
-  rm -rf -- "$repository_root/web/.next-e2e"
+  if ! remove_e2e_dist; then
+    status=1
+  fi
+  exit "$status"
 }
 trap cleanup EXIT
 

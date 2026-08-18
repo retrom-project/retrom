@@ -5,6 +5,10 @@ import path from "node:path";
 const webRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const designRoot = path.resolve(webRoot, "..", "docs", "design");
 const documentURL = pathToFileURL(path.join(designRoot, "retrom-ui-review.html"));
+const chromeExecutablePath = process.env.RETROM_CHROME_EXECUTABLE
+  ?? path.resolve(webRoot, "..", ".cache", "tools", "retrom-chrome-for-testing");
+
+const physical4K = { width: 3840, height: 2160, scale: 1.5 };
 
 const captures = [
   ["retrom-ui-setup.png", "setup", 1280, 800],
@@ -86,10 +90,19 @@ if (requestedNames.size && selectedCaptures.length !== requestedNames.size) {
   throw new Error(`unknown design capture: ${unknownNames.join(", ")}`);
 }
 
-const browser = await chromium.launch({ headless: true });
+const browser = await chromium.launch({ executablePath: chromeExecutablePath, headless: true });
 try {
   for (const [filename, view, width, height, variant] of selectedCaptures) {
-    const page = await browser.newPage({ viewport: { width, height }, deviceScaleFactor: 1, colorScheme: "light" });
+    const isPhysical4K = width === physical4K.width && height === physical4K.height;
+    const viewport = isPhysical4K
+      ? { width: width / physical4K.scale, height: height / physical4K.scale }
+      : { width, height };
+    const page = await browser.newPage({
+      viewport,
+      screen: viewport,
+      deviceScaleFactor: isPhysical4K ? physical4K.scale : 1,
+      colorScheme: "light",
+    });
     await page.goto(documentURL.href, { waitUntil: "load" });
     const frame = page.frames().find((candidate) => candidate !== page.mainFrame());
     if (!frame) throw new Error(`design iframe missing for ${filename}`);
@@ -185,7 +198,13 @@ try {
       await frame.locator("#rt-player-core").evaluate((element) => { element.textContent = "Yabause · Saturn"; });
     }
     await frame.locator("[data-lucide]").first().waitFor({ state: "attached" });
-    await page.screenshot({ path: path.join(designRoot, filename) });
+    const screenshot = await page.screenshot({ path: path.join(designRoot, filename) });
+    if (isPhysical4K) {
+      const actual = { width: screenshot.readUInt32BE(16), height: screenshot.readUInt32BE(20) };
+      if (actual.width !== physical4K.width || actual.height !== physical4K.height) {
+        throw new Error(`physical 4K capture has unexpected pixels: ${filename} ${actual.width}x${actual.height}`);
+      }
+    }
     await page.close();
   }
 } finally {
