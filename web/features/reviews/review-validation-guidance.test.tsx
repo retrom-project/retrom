@@ -37,4 +37,12 @@ describe("review validation guidance", () => {
     expect(region).toHaveAttribute("tabindex", "0");
     expect(region.querySelectorAll("li")).toHaveLength(13);
   });
+
+  it("treats an unavailable Arcade DAT as a release dependency failure", () => {
+    render(<ReviewValidationGuidance status="BLOCKED" compatibilityCode="ARCADE_DAT_UNAVAILABLE" />);
+
+    expect(screen.getByText(/内置 Arcade DAT 尚未准备完成/)).toBeVisible();
+    expect(screen.getByText("make prepare-deps")).toBeVisible();
+    expect(screen.queryByRole("link", { name: /街机数据目录/ })).not.toBeInTheDocument();
+  });
 });

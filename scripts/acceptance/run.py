@@ -235,10 +235,10 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         300,
         "go test -tags=integration ./internal/libraryimport -run '^TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure$' -count=1",
     ),
-    "ACC-DAT-003": (180, "go test -tags=integration ./internal/arcadecatalog -run '^TestUserDATRequiresParseDiffAndExplicitActivation$' -count=1"),
+    "ACC-DAT-003": (180, "go test ./internal/store -run '^TestBuiltInArcadeDATMigrationRetiresUserCatalogManagement$' -count=1"),
     "ACC-DAT-004": (
         180,
-        "go test -tags=integration ./internal/arcadecatalog -run '^TestUserDATRequiresParseDiffAndExplicitActivation$' -count=1",
+        "go test -tags=integration ./internal/dependencies -run '^TestBootstrapCatalogsMaterializesPinnedDATsIdempotently$' -count=1",
     ),
     "ACC-DAT-005": (120, "go test ./internal/arcadedat -run 'TestParserAllowsSafeDoctypeWithoutResolvingIt|TestParserRejectsEntityDirective' -count=1"),
     "ACC-DAT-006": (900, "scripts/acceptance/dependency-upgrade.sh"),

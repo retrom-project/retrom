@@ -166,18 +166,14 @@ FBNeo、MAME2003-Plus 与两个 FBA2012 source commit 按 EmulatorJS v4.2.3 官�
 ## 6. DAT 生命周期
 
 1. 仓库只保存 `data/dat/emulatorjs/<version>/manifest.json` 和 `SHA256SUMS`；真实 DAT payload 由 `make prepare-deps` 按固定配方预下载/生成到同一被 Git 忽略的版本目录。
-2. 服务同步启动阶段只校验、不下载；比较 manifest 与 `dat_versions`，并为缺少缓存的内置版本持久化唯一、不可取消的 `DAT_PARSE` Job。首次数据库或 parser version 变化时由 Worker 在事务外安全解析；当前 enabled Arcade artifact 完成前服务 live 但以 `DEPENDENCY_INDEXING` 不 ready，解析成功并短事务发布索引后才允许该内置版本成为 active。
-3. 内置 DAT 只有 EmulatorJS version 和实际 Core artifact SHA-256 都匹配 manifest 时才可自动激活。
-4. 用户上传时必须从封闭的五个 DAT-capable Core（`fbneo`、`mame2003`、`mame2003_plus`、`fbalpha2012_cps1`、`fbalpha2012_cps2`）中选择目标；流式保存为非活动候选并计算 SHA-256。其他 core（包括 `azahar`）不得出现在目标选择器中。
-5. 使用第 7.1 节的 streaming XML parser；用户 DAT 默认上限 64 MiB、500,000 元素、单字段 4 KiB，超限失败。
-6. 候选解析成功后自动排队异步差异物化；页面显示排队/运行状态并禁用查看和启用，不让 HTTP GET 承担全量 DAT 扫描。后台以当时 active DAT 为 base，物化 machine/entry/依赖差异、影响摘要和 digest；失败或失效可直接重新生成，无需再次上传 DAT。
-7. 用户显式启用前，diff GET 只分页读取 READY 物化结果。BIOS/parent archive 在上传验证时已安全扫描为 ArchiveEntry，因而 preview 和 commit 只比较索引的 entry hash/size，不重读大 Blob。启用请求校验同一 canonical input/impact、CoreArtifact version 与活动指针，短事务内切换 DatVersion、应用 requirement/version/installation 状态结果、写审计并为受影响的稳定 GameVariant 投递可观察 revalidation job。不回写不可变 VariantRevision，也不引入未定义的临时状态。任一启用或回滚会使同 CoreArtifact 其他候选/历史版本的已物化差异全部失效并删除明细；其页面恢复为“重新生成差异”。
-8. 重校验完成前旧 current VariantRevision 与旧 DAT/依赖快照仍可启动；成功校验才创建新 VariantRevision 并原子切换 current，失败则旧 current 不变并显示 job blocker。
-9. 支持回滚到内置版本或之前成功解析的用户版本。
+2. 服务同步启动阶段只校验、不下载；按 release manifest 为每个 DAT-capable CoreArtifact 登记唯一 `BUILTIN` DatVersion。若 manifest 选择与数据库当前 active 不同，启动引导先停用旧选择并推进 CoreArtifact version，使服务保持 not ready，不能在后台索引期间继续使用旧 DAT。
+3. 缺少索引时创建唯一、不可取消的 `DAT_PARSE` Job，并在事务外使用第 7.1 节的 streaming XML parser。当前 enabled Arcade artifact 完成前服务 live 但以 `DEPENDENCY_INDEXING` not ready；确定性失败时以 `DEPENDENCY_DAT_PARSE_FAILED` not ready，不能回退到空目录、其他 core 的 DAT 或旧 artifact。
+4. 只有 manifest 固定的 SHA-256、EmulatorJS version 与实际 CoreArtifact 均匹配，且解析统计与 manifest 一致的内置 DatVersion 才能在短事务内成为 active。激活同时同步 DAT_MACHINE requirements、写系统审计；已建立正确索引的重复启动只修复 active 指针，不重复解析。
+5. 管理员和普通用户都不能上传、创建、比较、启用、回滚或删除 DAT。OpenAPI、HTTP router 和 Web UI 均不提供 Arcade DAT 管理面；SQLite migration 038 删除旧差异/候选任务表，停止旧用户解析任务，并用 trigger 拒绝新的 `USER` DatVersion。
+6. 历史 `USER` DatVersion 不硬删除，因为旧 Import、VariantRevision、ReviewEvent 或 Launch 仍可能引用它；它们在 migration 后固定为 inactive、只读证据，不能重新激活。DatVersion 身份因此仍是运行链路必需字段，而不是可由当前 active 指针替代的配置。
+7. release manifest 升级产生新的内置 DatVersion；成功索引后由启动引导激活，受影响稳定 GameVariant 通过既有版本/输入漂移机制按需重校验。旧 current VariantRevision 和历史 Launch 保留原 DatVersion 与依赖快照，不被静默改写。
 
-启动自动激活只发生在目标 CoreArtifact 尚无 active DatVersion 时；已经激活的用户 DAT 不被内置版本覆盖。当前 enabled artifact 的 bootstrap parse 确定性失败时保持 live、以 `DEPENDENCY_DAT_PARSE_FAILED` 不 ready，不能回退到空目录、其他 core 的 DAT 或旧 artifact。同步启动 60 秒预算不包含后台解析，解析使用通用 DAT_PARSE execution deadline 与重启 lease 恢复规则。
-
-文件名相同但 SHA-256 不同必须视为新版本。用户 DAT 能由内置版本 hash/已知 header 证明时为 `MATCHED`；无法证明但结构属于所选 core family 时为 `UNKNOWN`，不能自动替换内置基线。管理员在激活影响预览中勾选“确认未验证兼容性”后才可把它转为 `USER_CONFIRMED` 并激活，审计必须保存原状态、确认值和影响 digest。结构/root/family 明确不符为 `INCOMPATIBLE`，即使确认也不可激活。
+同步启动 60 秒预算不包含后台解析，解析使用通用 DAT_PARSE execution deadline 与重启 lease 恢复规则。文件名相同但 SHA-256 不同仍是不同内置版本；同一 `(CoreArtifact, SHA-256, parser version)` 只能有一条 BUILTIN 记录。
 
 DAT 与任务时间字段使用数据模型中唯一命名的 `created_at_ms`、`activated_at_ms`、`parsed_at_ms` 等 Unix 毫秒 INTEGER；不存在另一套 `imported_at_ms` 字段。
 
@@ -210,7 +206,7 @@ DAT 与任务时间字段使用数据模型中唯一命名的 `created_at_ms`、
 4. 同时限制 depth 32、每元素 attribute 64、machine 名/entry 名 1–255 UTF-8 bytes、description/manufacturer/year 4 KiB、总 XML element 500,000，并每次循环检查 context cancellation。根必须精确为 FBNeo `datafile` 或 MAME `mame`，且必须与用户选定 core family 一致。
 5. 重复 machine key、重复 `(machine, ROM ordinal/name)`、非固定长度 ASCII hex 的 CRC32/SHA-1（有值时）、负 size，以及非 NODUMP ROM 同时缺 CRC/SHA-1，都是确定性 parse failure。合法 hash 接受 ASCII 大小写并在入表/canonical JSON 前规范为小写。NODUMP ROM 可同时缺两种 hash；FBNeo 的真实基线普遍没有 SHA-1，不得自行伪造。悬空关系为 Warning。clone/romof 图用显式 visited/visiting 集合迭代遍历，cycle 只阻断受影响 machine 并输出排序稳定诊断，不递归至栈溢出。
 
-scanner 与 XML decoder 必须从无文件系统/网络 callback 的 `io.LimitedReader` 工作；不得把用户 DOCTYPE 写到临时 DTD 文件，也不得用正则直接删除跨行内部 subset。内置与用户 DAT 共用相同 parser，防止“预置数据特权路径”掩盖解析差异。
+scanner 与 XML decoder 必须从无文件系统/网络 callback 的 `io.LimitedReader` 工作；不得把 DOCTYPE 写到临时 DTD 文件，也不得用正则直接删除跨行内部 subset。小型项目自有 DAT 继续直接测试同一生产 parser 的正常与恶意输入边界，但不能通过 HTTP 进入运行配置。
 
 ## 8. ROM 匹配
 
@@ -242,29 +238,22 @@ Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insens
 
 ### 8.2 公开自动化回归夹具
 
-[`testdata/public-roms/arcade-smoke/`](../testdata/public-roms/arcade-smoke/) 保存项目自有、MIT 许可且可确定性重建的 MAME 2003 与 FBNeo 测试程序。两套小型 DAT 分别按核心要求把 Z80 Child 程序、生成的 Parent 资源和测试 BIOS 角色归档组成 Split 闭包，并锁定 archive/entry 的 name、size、CRC32、SHA-1 与 SHA-256。FBNeo 夹具对生成器控制的 4 bytes 做确定性 CRC32 校正，以满足锁定 `pacman` 驱动的公开 name/size/CRC32 契约；SHA-1/SHA-256 仍锁定完整项目自有 bytes。`data-check` 校验生成一致性和 DAT 对 bytes 的描述，Go 测试覆盖两种 DAT family 的解析，`ACC-RUN-006`/`007` 分别覆盖 MAME 2003/FBNeo 的导入、审核、发布、首次启动重验证、config、Parent/BIOS bundle、受限内容交付和 Chrome 帧执行。
+[`testdata/public-roms/arcade-smoke/`](../testdata/public-roms/arcade-smoke/) 保存项目自有、MIT 许可且可确定性重建的 MAME 2003 与 FBNeo 测试程序、小型 DAT 与测试 BIOS 角色归档。生成器共同锁定 `pacman` Child、`puckman` Parent、`retrombios` BIOS 的 archive/entry/name/size/hash；FBNeo 对生成器控制的 4 bytes 做确定性 CRC32 校正，完整 bytes 另由 SHA-1/SHA-256 固定。
 
-`retrombios.zip` 仅用于验证 Retrom 对 BIOS/base 的识别、安装、快照、装配与传输；两个目标 Pac-Man 驱动都不会执行其中的 bytes。这两个 Case 因此不能替代真正要求 BIOS 启动的核心/机器用例，也不能把某个核心的结果外推到 FBA2012 或其他 Arcade core。`ACC-RUN-007` 只覆盖 FBNeo 单机产品链路，不覆盖联机模式。
+真实 release DAT 的来源、物化、parser stats 与 manifest 精确 active 选择由 `ACC-DAT-001/002/004` 证明。`ACC-RUN-006/007` 为了合法执行自制 ROM，由 acceptance-only 装置在临时数据库中把同目录小型 DAT 直接登记为 test-only `BUILTIN`；该装置没有 HTTP/UI 入口，不能在生产构建中调用，也不构成用户 DAT 功能。随后 Case 仍经过真实产品导入、BIOS installation、审核 schema v2 `PARENT/BIOS_OR_BASE`、发布、详情、首次 Launch 重验证、三路受限内容和 Chrome 帧执行；启动前后必须保持同一 DatVersion 和 schema v2，禁止再次退化为静态 BIOS schema v1。测试 BIOS 不被 Pac-Man 驱动执行，因此只证明 Retrom 的解析、装配、冻结与交付，不证明核心内部 BIOS 执行语义。`ACC-RUN-007` 只覆盖 FBNeo 单机产品链路，不覆盖联机模式。
 
 ## 9. 管理页面
 
 ### BIOS 文件
 
-- 导航归入“运行依赖”，BIOS 文件与街机数据目录是两个独立子页。
+- “运行依赖”是直接进入 `/admin/bios` 的单一导航项，不提供 Arcade DAT 子页。
 - “当前游戏库需要”与“完整 BIOS 目录”在客户端切换，不做整页导航；URL 保留范围、关键字、Core 和状态，便于从启动阻断处返回。
 - 页首摘要固定展示当前范围、缺失/阻断、需要核对和已就绪；可选文件未安装不计入阻断。
 - 先按“需要处理”和“已就绪与可选项”分区，再展示逻辑文件/ROMset、Core、状态和可证明的使用语义。当前列表接口没有使用数量时，不显示虚构计数。
 - 支持上传、替换；STATIC 文件 hash 不同明确警告但保留，期望/实际 MD5 直接展示。Arcade `DAT_MACHINE` 没有可信的整个 ZIP 期望 MD5，它以条目级 name/size/CRC/SHA-1 校验为准。
 - 已安装的 `DAT_MACHINE` ZIP 文件名可点击；对比弹窗左右列出锁定 DAT 版本要求和安装时落库的实际归档条目 name/size/CRC，并区分 `MATCHED/ALIASED/MISMATCHED/MISSING/EXTRA`。`ALIASED` 只在 size 与 SHA-1（无 SHA-1 时 CRC32）同时命中时成立；弹窗读取持久化 ArchiveEntry，不重新打开或解压 Blob。
 
-### Arcade DAT 版本
-
-- 每个 Core 当前实际生效的版本先用独立卡片展示；候选与历史版本位于下方列表并支持即时搜索、来源、处理状态和稳定快速筛选。
-- 上传入口放入右侧 Drawer；只生成候选，解析和 diff 完成后才能显式启用，未选择文件或 CoreArtifact 时不允许提交。
-- 展示接口真实提供的 machine/ROM/BIOS 数、来源、兼容状态、EmulatorJS/bundle 版本和更新时间；SHA-256、影响目录和稳定 GameVariant 数只在对应 diff/API 实际返回时显示。
-- 差异查看、启用和回滚共用宽对话框，显示当前/目标版本、四类增删改摘要、影响、警告和分页明细，不展示只含 ID 或原始 JSON 的技术详情。
-- 解析状态逐字对应 `PENDING/PARSING/READY/FAILED/CANCELLED`；取消仅适用于用户 DAT，CANCELLED 候选不可重试，只能删除后重新上传，避免复活已经终止的 Job 证据。
-- 支持启用、回滚及删除未活动且无引用的用户 DAT。
+- 页面明确说明 Arcade DAT 由 release/core manifest 自动准备。`ARCADE_DAT_UNAVAILABLE` 是部署依赖/Ready 故障，界面提示检查 `make prepare-deps`、服务日志和 `/health/ready`，不引导用户上传另一份目录。
 
 ## 10. API
 
@@ -272,16 +261,12 @@ Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insens
 | --- | --- | --- |
 | GET | `/api/v1/admin/bios` | BIOS 状态与筛选 |
 | POST | `/api/v1/admin/bios/{requirementId}/installations` | 上传新的 BIOS installation revision |
-| GET | `/api/v1/admin/arcade-dats` | Core 独立 DAT 版本 |
-| POST | `/api/v1/admin/arcade-dats` | 上传 DAT 候选 |
-| GET | `/api/v1/admin/arcade-dats/{id}/diff` | 相对当前 active DAT 分页查看差异、影响和 activation digest |
-| POST | `/api/v1/admin/arcade-dats/{id}/activate` | 启用并投递重校验 |
-| POST | `/api/v1/admin/arcade-dats/{id}/rollback` | 回滚活动版本 |
-| DELETE | `/api/v1/admin/arcade-dats/{id}` | 删除无引用用户版本 |
+
+Arcade DAT 没有管理员 HTTP API；运行时只通过审核、GameVariant、Launch 和 BIOS 内容接口投影锁定的 DatVersion。
 
 ## 11. 统一验收入口
 
-真实 DAT、core 隔离、用户 DAT 生命周期与升级证据统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DAT-001`–`ACC-DAT-006`；BIOS 上传、哈希提示和依赖阻断执行 `ACC-BIOS-001`–`ACC-BIOS-002`，服务器导入执行 `ACC-BIOS-003`–`ACC-BIOS-007`。本文不再维护重复通过条件。
+真实 DAT、core 隔离、内置-only 迁移/选择和升级证据统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-DAT-001`–`ACC-DAT-006`；BIOS 上传、哈希提示和依赖阻断执行 `ACC-BIOS-001`–`ACC-BIOS-002`，服务器导入执行 `ACC-BIOS-003`–`ACC-BIOS-007`。本文不再维护重复通过条件。
 
 ## 12. 服务器目录批量导入
 

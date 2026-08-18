@@ -170,7 +170,6 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | 表 | 用途 |
 | --- | --- |
 | `dat_versions` | Core artifact 专属 DAT、来源、SHA-256、解析器版本、兼容性及活动状态 |
-| `dat_import_jobs` | 用户 DAT 上传、解析、差异、启用与重校验任务 |
 | `dat_machines` | machine |
 | `dat_bios_sets` | MAME machine 的 BIOS option/default |
 | `dat_rom_entries` | ROM entry |
@@ -189,7 +188,7 @@ PlatformInstance 的复合外键、游戏唯一归属和迁移规则见 [游戏�
 | `import_item_core_validations` / `import_item_validation_files` | 审核可选择的默认核心验证证据与派生文件 |
 | `upload_sessions` / `upload_files` | 浏览器上传会话与相对路径 |
 | `upload_parts` | 分块上传 |
-| `upload_consumptions` | 已完成上传到 Import、游戏文件替换 Job、BIOS/DAT/Game Asset/Review Asset 的互斥审计归属 |
+| `upload_consumptions` | 已完成上传到 Import、游戏文件替换 Job、BIOS/Game Asset/Review Asset 的互斥审计归属；`DAT_VERSION` 只兼容 migration 038 前的历史行 |
 | `metadata_scrape_runs` | ImportItem 或 Game 的一次 hash/provider 证据批次 |
 | `content_hash_evidence` | run 内的版本化 hash profile、来源 Blob/archive entry 与查询顺序 |
 | `metadata_scrape_query_attempts` | run/evidence 到每次网络或缓存 response 的不可变关联 |
@@ -264,7 +263,7 @@ data/
   tmp/jobs/
 ~~~
 
-项目 ignore 规则必须忽略 `.cache/`、`data/runtime/**` 和五个 DAT payload 目录，只允许 manifest、`SHA256SUMS`、文档和脚本进入 Git；许可原文与生成 notice 也属于 runtime payload，不能因体积小而提交成第二份事实源。生产 `RETROM_DATA_DIR` 使用独立持久卷；不得把只读依赖目录挂成业务数据根。`make prepare-deps` 在服务启动前物化并校验 payload；应用同步预检只校验、不下载，随后 Worker 可从已校验只读 DAT 建立数据库索引。用户上传 DAT 作为 Blob 写入 CAS，由 `dat_versions.blob_id` 引用；不得改写内置 DAT 基线。完整契约见 [第三方依赖管理](./dependency-management.md)。
+项目 ignore 规则必须忽略 `.cache/`、`data/runtime/**` 和五个 DAT payload 目录，只允许 manifest、`SHA256SUMS`、文档和脚本进入 Git；许可原文与生成 notice 也属于 runtime payload，不能因体积小而提交成第二份事实源。生产 `RETROM_DATA_DIR` 使用独立持久卷；不得把只读依赖目录挂成业务数据根。`make prepare-deps` 在服务启动前物化并校验 payload；应用同步预检只校验、不下载，随后 Worker 可从已校验只读 DAT 建立数据库索引。Arcade DAT 不接受上传且不进入 CAS；历史 `dat_versions.blob_id` 只为 migration 038 前的外键证据保留。完整契约见 [第三方依赖管理](./dependency-management.md)。
 
 ### 5.2 Blob 写入
 
@@ -350,11 +349,11 @@ retrom restore --input /backup-volume/retrom-20260806 \
 ```
 
 - `retrom.db` 是持锁后以普通 SQLite PRAGMA 完成一致性检查和 WAL checkpoint、关闭全部数据库 handle 后逐字节复制的单文件快照；不依赖 driver 私有 Backup API，也不依赖源 WAL/SHM。
-- `blobs/sha256/...` 精确复制 staging 数据库快照中每一条 `blobs` 行对应的 CAS 文件，包括用户 DAT、审核/provider 证据、游戏、媒体、存档，以及仍在 GC 宽限期但暂时没有业务保护边的 Blob。因为 `retrom.db` 是未裁剪的原样快照，少复制其中任一 Blob 行都会制造不可恢复数据库；反之，只有物理 CAS 文件存在而数据库没有 Blob 行的 crash orphan 不复制。
+- `blobs/sha256/...` 精确复制 staging 数据库快照中每一条 `blobs` 行对应的 CAS 文件，包括 migration 038 前仍被历史 DatVersion 引用的 Blob、审核/provider 证据、游戏、媒体、存档，以及仍在 GC 宽限期但暂时没有业务保护边的 Blob。因为 `retrom.db` 是未裁剪的原样快照，少复制其中任一 Blob 行都会制造不可恢复数据库；反之，只有物理 CAS 文件存在而数据库没有 Blob 行的 crash orphan 不复制。
 - `tmp/uploads/...` 只复制快照中 `upload_parts.storage_key` 仍引用的未完成分块，并逐项验证 size/SHA-256；完成上传的 part 已按清理契约不存在。`storage_key` 是相对于 `RETROM_DATA_DIR/tmp/uploads/` 的 `SAFE_LOGICAL_PATH_V1` 路径，本身不得再带 `tmp/uploads/` 前缀；备份路径只拼接一次该前缀。key 必须数据库唯一并在复制前重新校验，不能借备份复制任意宿主文件。
 - `secrets/launch-capability.key` 是原始 32 bytes；manifest 可记录其 SHA-256 用于完整性，但日志/报告只能给出校验布尔值。
 - `secrets/netplay-capability.key` 是独立原始 32 bytes，使用同样的 owner-only、no-follow、完整性与恢复规则；不能由 launch key 派生或替代。恢复任一 key 漂移都拒绝启动。
-- 每个配置版本只复制小型 dependency manifest 和对应 `SHA256SUMS` 作为恢复证据。内置 runtime/DAT/许可大 payload 不进入 bundle，由部署方按固定 manifest 预先物化到只读依赖根；用户 DAT 已作为 CAS Blob 备份。不存在另一个含糊的“运行配置快照”文件，active 与版本列表只在 `backup.json` 表达。
+- 每个配置版本只复制小型 dependency manifest 和对应 `SHA256SUMS` 作为恢复证据。内置 runtime/DAT/许可大 payload 不进入 bundle，由部署方按固定 manifest 预先物化到只读依赖根。不存在另一个含糊的“运行配置快照”文件，active 与版本列表只在 `backup.json` 表达。
 
 `backup.json` 必须是下列封闭 schema 的 RFC 8785 canonical JSON；字段名、类型与枚举不得由实现自行扩展。`files` 覆盖除 `backup.json` 自身外的全部普通文件，按 `path` 的原始 UTF-8 bytes 升序；路径使用 `/`、非空相对路径、无 `.`/`..`/反斜杠/NUL/控制字符，且不能重复或 ASCII case-fold 冲突。`dependencyManifests` 按 SemVer 升序且与 `dependencyVersions` 一一对应：
 

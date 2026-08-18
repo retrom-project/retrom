@@ -384,7 +384,6 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
     ["/admin/reviews", ".import-workflow-page"], ["/admin/reviews/history", ".import-workflow-page"],
     ["/admin/games", ".page-header"], ["/admin/platform-instances", ".platform-directory-manager"],
     ["/admin/users", ".user-admin-page"], ["/admin/bios", ".page-layout-admin"],
-    ["/admin/bios/dats", ".page-layout-admin"],
   ] as const;
   let sharedPageGaps: HorizontalGaps | null = null;
   for (const [route, selector] of routes) {
@@ -429,14 +428,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await expect(page.locator(".admin-game-table tbody tr")).toContainText("Sudoku");
   expect(await page.evaluate(() => window.history.state?.marker)).toBe("admin-games");
   await page.getByRole("searchbox", { name: "搜索游戏" }).fill("");
-  await page.goto("/admin/bios/dats");
-  await expect(page.getByRole("heading", { name: "街机数据目录", exact: true })).toBeVisible();
-  await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
-  await expect(page.getByRole("heading", { name: "当前启用", exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "上传新目录" }).click();
-  await expect(page.getByRole("dialog", { name: "上传街机数据目录" })).toBeVisible();
-  await expect(page.getByRole("button", { name: "开始上传" })).toBeDisabled();
-  await page.getByRole("button", { name: "取消", exact: true }).click();
+  expect((await page.request.get("/admin/bios/dats")).status()).toBe(404);
   await page.goto("/admin/platform-instances");
   await expect(page.getByRole("heading", { name: "游戏目录", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "主要导航" }).getByText("游戏目录", { exact: true })).toBeVisible();
@@ -839,6 +831,8 @@ type PublicArcadeSmokeExpectation = {
   coreName: string;
   runtimePathOverrides: Record<string, string>;
   screenshotName: string;
+  schemaV2Title: string;
+  schemaV2ScreenshotName: string;
 };
 
 async function verifyPublicArcadeSmoke(
@@ -930,9 +924,80 @@ async function verifyPublicArcadeSmoke(
   await page.screenshot({ path: evidencePath(testInfo, expectation.screenshotName), fullPage: true });
 }
 
-test("ACC-RUN-006 public MAME 2003 split set locks DAT, Parent, BIOS, and executes frames", async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
-  await verifyPublicArcadeSmoke(page, testInfo, {
+async function verifyPersistedArcadeSchemaV2Launch(
+  page: Page,
+  testInfo: TestInfo,
+  expectation: PublicArcadeSmokeExpectation,
+) {
+  await page.goto(`/library?platformInstanceId=${expectation.platformInstanceId}&q=${encodeURIComponent(expectation.schemaV2Title)}`);
+  const game = page.locator(".library-game-card").filter({ hasText: expectation.schemaV2Title });
+  await expect(game).toHaveCount(1);
+  await game.getByRole("link").first().click();
+  await expect(page).toHaveURL(/\/games\/[0-9a-f-]+$/);
+  const gameId = page.url().split("/").at(-1)!;
+  const [detailResponse, adminResponse] = await Promise.all([
+    page.request.get(`/api/v1/games/${gameId}`),
+    page.request.get(`/api/v1/admin/games/${gameId}`),
+  ]);
+  expect(detailResponse.ok()).toBe(true);
+  expect(adminResponse.ok()).toBe(true);
+  const detail = await detailResponse.json() as {
+    coreOptions: Array<{ coreId: string; status: string; datVersionId: string | null }>;
+  };
+  const coreOption = detail.coreOptions.find((option) => option.coreId === expectation.core);
+  expect(coreOption).toMatchObject({ status: "READY" });
+  expect(coreOption?.datVersionId).toBeTruthy();
+  const admin = await adminResponse.json() as {
+    variants: Array<{
+      coreId: string;
+      currentRevisionId: string;
+      revisions: Array<{
+        id: string;
+        datVersionId: string | null;
+        dependencySnapshot: {
+          schemaVersion: number;
+          datVersionId?: string;
+          bios?: unknown;
+          dependencies?: Array<{ kind: string; machine: string; state: string }>;
+        };
+      }>;
+    }>;
+  };
+  const variant = admin.variants.find((item) => item.coreId === expectation.core);
+  const revision = variant?.revisions.find((item) => item.id === variant.currentRevisionId);
+  expect(revision?.datVersionId).toBe(coreOption?.datVersionId);
+  expect(revision?.dependencySnapshot).toMatchObject({
+    schemaVersion: 2,
+    datVersionId: coreOption?.datVersionId,
+    dependencies: expect.arrayContaining([
+      expect.objectContaining({ kind: "PARENT", machine: "puckman", state: "SATISFIED_EXTERNAL" }),
+      expect.objectContaining({ kind: "BIOS_OR_BASE", machine: "retrombios", state: "SATISFIED_EXTERNAL" }),
+    ]),
+  });
+  expect(revision?.dependencySnapshot.bios).toBeUndefined();
+
+  const configResponse = page.waitForResponse((response) =>
+    /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
+  await page.getByRole("button", { name: "开始游戏" }).click();
+  await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+  const configuration = await (await configResponse).json() as {
+    runtimeCore: string;
+    parentUrl: string | null;
+    biosUrl: string | null;
+    warnings: string[];
+  };
+  expect(configuration.runtimeCore).toBe(expectation.core);
+  expect(configuration.parentUrl).toMatch(/\/parent\/bundle\.zip$/);
+  expect(configuration.biosUrl).toMatch(/\/bios\/bundle\.zip$/);
+  expect(configuration.warnings).toContain("REVIEW_SCREENSHOT_OVERRIDE");
+  await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
+  await expect(page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas")).toBeVisible({ timeout: 10_000 });
+  await page.screenshot({ path: evidencePath(testInfo, expectation.schemaV2ScreenshotName), fullPage: true });
+}
+
+test("ACC-RUN-006 public MAME 2003 split set locks test-only built-in DAT, Parent and BIOS, then executes frames", async ({ page }, testInfo) => {
+  test.setTimeout(150_000);
+  const expectation: PublicArcadeSmokeExpectation = {
     platformInstanceId: "01980000-0000-7000-8000-000000000008",
     core: "mame2003",
     coreName: "MAME 2003",
@@ -940,12 +1005,16 @@ test("ACC-RUN-006 public MAME 2003 split set locks DAT, Parent, BIOS, and execut
       "mame2003-wasm.data": "/runtime/emulatorjs/4.2.3/overrides/mame2003-4.2.1-wasm.data",
     },
     screenshotName: "mame2003-public-smoke-running.png",
-  });
+    schemaV2Title: "MAME 2003 Schema V2 Regression",
+    schemaV2ScreenshotName: "mame2003-schema-v2-direct-launch.png",
+  };
+  await verifyPublicArcadeSmoke(page, testInfo, expectation);
+  await verifyPersistedArcadeSchemaV2Launch(page, testInfo, expectation);
 });
 
-test("ACC-RUN-007 public FBNeo split set locks DAT, Parent, BIOS, and executes frames", async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
-  await verifyPublicArcadeSmoke(page, testInfo, {
+test("ACC-RUN-007 public FBNeo split set locks test-only built-in DAT, Parent and BIOS, then executes frames", async ({ page }, testInfo) => {
+  test.setTimeout(150_000);
+  const expectation: PublicArcadeSmokeExpectation = {
     platformInstanceId: "01980000-0000-7000-8000-000000000006",
     core: "fbneo",
     coreName: "FinalBurn Neo",
@@ -953,7 +1022,11 @@ test("ACC-RUN-007 public FBNeo split set locks DAT, Parent, BIOS, and executes f
       "fbneo-wasm.data": "/runtime/emulatorjs/4.2.3/data/cores/fbneo-wasm.data",
     },
     screenshotName: "fbneo-public-smoke-running.png",
-  });
+    schemaV2Title: "FBNeo Schema V2 Regression",
+    schemaV2ScreenshotName: "fbneo-schema-v2-direct-launch.png",
+  };
+  await verifyPublicArcadeSmoke(page, testInfo, expectation);
+  await verifyPersistedArcadeSchemaV2Launch(page, testInfo, expectation);
 });
 
 test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click", async ({ page }, testInfo) => {
@@ -995,8 +1068,11 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   await expect(page.locator(".save-library-toolbar")).toContainText("当前显示 1 份");
   expect(await page.locator(".save-library-toolbar").evaluate((element) => element.getBoundingClientRect().height)).toBe(saveFilterHeight);
   await noPageOverflow(page);
+  const resumedConfigResponse = page.waitForResponse((response) =>
+    /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   await page.getByRole("button", { name: "从这里继续" }).first().click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+  await resumedConfigResponse;
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   const latestLaunchId = page.url().split("/").at(-1)!;
   const latestSaveResponse = await page.request.post(`/runtime/launches/${latestLaunchId}/save-states`, {

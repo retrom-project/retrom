@@ -79,15 +79,25 @@ RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/http-flow.sh
 
 if [[ "$case_id" == "ACC-RUN-006" ]]; then
+  go run scripts/acceptance/seed-public-arcade-dat.go \
+    "$temporary_root/data/retrom.db" \
+    mame2003 \
+    "$repository_root/testdata/public-roms/arcade-smoke/mame2003-smoke.xml"
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
     scripts/acceptance/arcade-flow.sh mame2003
+  python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" mame2003
 fi
 
 if [[ "$case_id" == "ACC-RUN-007" ]]; then
+  go run scripts/acceptance/seed-public-arcade-dat.go \
+    "$temporary_root/data/retrom.db" \
+    fbneo \
+    "$repository_root/testdata/public-roms/arcade-smoke/fbneo/fbneo-smoke.dat"
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
     scripts/acceptance/arcade-flow.sh fbneo
+  python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" fbneo
 fi
 
 if [[ "$case_id" == "ACC-BIOS-007" ]]; then

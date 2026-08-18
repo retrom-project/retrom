@@ -2016,95 +2016,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/v1/admin/arcade-dats": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["getAdminArcadeDATs"];
-        put?: never;
-        post: operations["postAdminArcadeDAT"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/arcade-dats/{datVersionId}/diff": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                datVersionId: components["parameters"]["DATVersionID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getAdminArcadeDATDiff"];
-        put?: never;
-        /** @description Queue or restart asynchronous materialization of the diff against the currently active DAT. */
-        post: operations["postAdminArcadeDATDiff"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/arcade-dats/{datVersionId}/activate": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                datVersionId: components["parameters"]["DATVersionID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminArcadeDATActivate"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/arcade-dats/{datVersionId}/rollback": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                datVersionId: components["parameters"]["DATVersionID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["postAdminArcadeDATRollback"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/v1/admin/arcade-dats/{datVersionId}": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                datVersionId: components["parameters"]["DATVersionID"];
-            };
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post?: never;
-        delete: operations["deleteAdminArcadeDAT"];
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/v1/admin/diagnostics": {
         parameters: {
             query?: never;
@@ -3609,17 +3520,6 @@ export interface components {
             items: components["schemas"]["BIOSRequirementSummary"][];
             nextCursor: string | null;
         };
-        CreateDATRequest: {
-            /** Format: uuid */
-            uploadFileId: string;
-            /** Format: uuid */
-            coreArtifactId: string;
-        };
-        ActivateDATRequest: {
-            impactDigest: string;
-            confirmBlocked: boolean;
-            confirmUnknownCompatibility: boolean;
-        };
         PlayEventRequest: {
             /** Format: int64 */
             clientSequence: number;
@@ -4647,7 +4547,6 @@ export interface components {
         ServerImportID: string;
         PegasusImportID: string;
         GameAssetKind: "VIDEO";
-        DATVersionID: string;
         AssetID: string;
         LaunchID: string;
         NetplayRoomID: string;
@@ -4942,16 +4841,6 @@ export interface components {
         PegasusImportStart: {
             content: {
                 "application/json": components["schemas"]["PegasusImportStartRequest"];
-            };
-        };
-        CreateDAT: {
-            content: {
-                "application/json": components["schemas"]["CreateDATRequest"];
-            };
-        };
-        ActivateDAT: {
-            content: {
-                "application/json": components["schemas"]["ActivateDATRequest"];
             };
         };
         PlayEvent: {
@@ -7324,131 +7213,6 @@ export interface operations {
         responses: {
             200: components["responses"]["JSONResponse"];
             404: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminArcadeDATs: {
-        parameters: {
-            query?: {
-                q?: components["parameters"]["Q"];
-                coreId?: components["parameters"]["CoreIDQuery"];
-                coreArtifactId?: components["parameters"]["CoreArtifactIDQuery"];
-                source?: components["parameters"]["Source"];
-                parseStatus?: components["parameters"]["ParseStatus"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminArcadeDAT: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["CreateDAT"];
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    getAdminArcadeDATDiff: {
-        parameters: {
-            query?: {
-                section?: components["parameters"]["Section"];
-                change?: components["parameters"]["Change"];
-                cursor?: components["parameters"]["Cursor"];
-                limit?: components["parameters"]["Limit"];
-            };
-            header?: never;
-            path: {
-                datVersionId: components["parameters"]["DATVersionID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminArcadeDATDiff: {
-        parameters: {
-            query?: never;
-            header: {
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                datVersionId: components["parameters"]["DATVersionID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            202: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminArcadeDATActivate: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                datVersionId: components["parameters"]["DATVersionID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ActivateDAT"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    postAdminArcadeDATRollback: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-            };
-            path: {
-                datVersionId: components["parameters"]["DATVersionID"];
-            };
-            cookie?: never;
-        };
-        requestBody: components["requestBodies"]["ActivateDAT"];
-        responses: {
-            200: components["responses"]["JSONResponse"];
-        };
-    };
-    deleteAdminArcadeDAT: {
-        parameters: {
-            query?: never;
-            header: {
-                "If-Match": components["parameters"]["IfMatch"];
-            };
-            path: {
-                datVersionId: components["parameters"]["DATVersionID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description Deleted */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
         };
     };
     getAdminDiagnostics: {

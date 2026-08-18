@@ -2280,13 +2280,7 @@
           <button type="button" class="rt-nav-button" data-page-target="admin-tags"><i data-lucide="tags" aria-hidden="true"></i><span>标签管理</span></button>
           <button type="button" class="rt-nav-button" data-page-target="admin-platform-instances"><i data-lucide="folders" aria-hidden="true"></i><span>游戏目录</span></button>
           <button type="button" class="rt-nav-button" data-page-target="admin-users"><i data-lucide="users" aria-hidden="true"></i><span>用户管理</span></button>
-          <div class="rt-nav-section">
-            <button type="button" class="rt-nav-button rt-nav-parent" data-page-target="admin-bios" data-runtime-parent><i data-lucide="microchip" aria-hidden="true"></i><span class="rt-nav-label">运行依赖</span></button>
-            <div class="rt-nav-children" aria-label="运行依赖子菜单">
-              <button type="button" class="rt-nav-button rt-nav-child is-active" data-bios-view="files"><span class="rt-nav-label">BIOS 文件</span></button>
-              <button type="button" class="rt-nav-button rt-nav-child" data-bios-view="dats"><span class="rt-nav-label">街机数据目录</span></button>
-            </div>
-          </div>
+          <button type="button" class="rt-nav-button" data-page-target="admin-bios"><i data-lucide="microchip" aria-hidden="true"></i><span>运行依赖</span></button>
         </div>
       </nav>
 
@@ -2836,8 +2830,7 @@
       </section>
 
       <section class="rt-page" data-page="admin-bios">
-        <div data-bios-panel="files">
-          <div class="rt-page-head"><div><div class="rt-eyebrow">运行依赖</div><h1>BIOS 文件</h1><p class="rt-subtitle">管理游戏运行所需的系统文件。默认只关注当前游戏库实际用到的依赖，也可切换到完整核心目录。</p></div><button type="button" class="rt-button" data-bios-view="dats">街机数据目录 →</button></div>
+          <div class="rt-page-head"><div><div class="rt-eyebrow">运行依赖</div><h1>BIOS 文件</h1><p class="rt-subtitle">管理游戏运行所需的系统文件。Arcade DAT 随核心版本由系统自动准备，无需手动上传或切换。</p></div></div>
           <div class="rt-runtime-scope"><button type="button" class="is-active">当前游戏库需要 <strong>12</strong></button><button type="button">完整 BIOS 目录 <strong>27</strong></button></div>
           <div class="rt-runtime-kpis"><article><span>当前范围</span><strong>12</strong><small>游戏库实际引用的依赖</small></article><article><span>缺失 / 阻断</span><strong>2</strong><small>必需文件缺失会阻断相关游戏</small></article><article><span>需要核对</span><strong>1</strong><small>哈希不同仍可启动，建议替换</small></article><article><span>已就绪</span><strong>9</strong><small>已经安装并通过当前校验</small></article></div>
           <div class="rt-runtime-toolbar"><label>搜索文件或运行方式<input class="rt-input" placeholder="例如 gba_bios.bin 或 mGBA"></label><label>运行方式<select class="rt-select"><option>全部运行方式</option><option>FinalBurn Neo</option><option>mGBA</option></select></label><label>文件状态<select class="rt-select"><option>所有状态</option><option>缺少文件</option><option>校验值不一致</option><option>已安装并匹配</option></select></label></div>
@@ -2850,28 +2843,6 @@
           </div>
           <div class="rt-runtime-section-head"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>9 项</span></div>
           <div class="rt-runtime-list"><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><button type="button" class="rt-runtime-entry-button" data-open-bios-entries>stvbios.zip</button><small>必需 · 点击文件名核对 ZIP 内容</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>mame2003_plus</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>DAT 条目级校验已通过</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>BIOS</i><div><strong>gb_bios.bin</strong><small>可选 · 按游戏内容决定是否需要</small></div></div><div class="rt-runtime-cell"><strong>Gambatte</strong><small>gambatte</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>未安装可选项不会作为必需依赖阻断</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div></div>
-        </div>
-
-        <div data-bios-panel="dats" hidden>
-          <div class="rt-page-head"><div><div class="rt-eyebrow">运行依赖</div><h1>街机数据目录</h1><p class="rt-subtitle">管理 Arcade 运行方式当前使用的数据目录，以及候选和历史版本。先确认当前启用版本，再上传、比较或切换。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button" data-bios-view="files">← BIOS 文件</button><button type="button" class="rt-button rt-button-primary" data-open-runtime-drawer><i data-lucide="plus" aria-hidden="true"></i>上传新目录</button></div></div>
-          <div class="rt-runtime-section-head"><div><h2>当前启用</h2><p>这里展示每个街机运行方式实际生效的数据目录。</p></div><span>5 个运行方式</span></div>
-          <div class="rt-runtime-active-grid">
-            <article class="rt-runtime-active"><span class="rt-badge rt-badge-green">当前启用</span><h3>FinalBurn Neo</h3><p>系统内置 · EmulatorJS 4.2.3</p><dl><div><dt>游戏条目</dt><dd>7,980</dd></div><div><dt>BIOS 集合</dt><dd>13</dd></div><div><dt>匹配状态</dt><dd>已匹配</dd></div></dl><footer><span>最后启用：2026/08/08</span><span>bundle 4.2.3</span></footer></article>
-            <article class="rt-runtime-active"><span class="rt-badge rt-badge-green">当前启用</span><h3>MAME 2003</h3><p>系统内置 · EmulatorJS 4.2.3</p><dl><div><dt>游戏条目</dt><dd>4,727</dd></div><div><dt>BIOS 集合</dt><dd>1,427</dd></div><div><dt>匹配状态</dt><dd>已匹配</dd></div></dl><footer><span>最后启用：2026/08/08</span><span>bundle 4.2.1</span></footer></article>
-            <article class="rt-runtime-active"><span class="rt-badge rt-badge-green">当前启用</span><h3>MAME 2003 Plus</h3><p>系统内置 · EmulatorJS 4.2.3</p><dl><div><dt>游戏条目</dt><dd>5,257</dd></div><div><dt>BIOS 集合</dt><dd>3,462</dd></div><div><dt>匹配状态</dt><dd>已匹配</dd></div></dl><footer><span>最后启用：2026/08/08</span><span>bundle 4.2.3</span></footer></article>
-            <article class="rt-runtime-active"><span class="rt-badge rt-badge-green">当前启用</span><h3>FB Alpha 2012 CPS-1</h3><p>系统内置 · EmulatorJS 4.2.3</p><dl><div><dt>游戏条目</dt><dd>227</dd></div><div><dt>BIOS 集合</dt><dd>0</dd></div><div><dt>匹配状态</dt><dd>已匹配</dd></div></dl><footer><span>最后启用：2026/08/11</span><span>bundle 4.2.3</span></footer></article>
-            <article class="rt-runtime-active"><span class="rt-badge rt-badge-green">当前启用</span><h3>FB Alpha 2012 CPS-2</h3><p>系统内置 · EmulatorJS 4.2.3</p><dl><div><dt>游戏条目</dt><dd>284</dd></div><div><dt>BIOS 集合</dt><dd>0</dd></div><div><dt>匹配状态</dt><dd>已匹配</dd></div></dl><footer><span>最后启用：2026/08/11</span><span>bundle 4.2.3</span></footer></article>
-          </div>
-          <div class="rt-runtime-toolbar" style="margin-top:12px"><label>搜索运行方式<input class="rt-input" placeholder="例如 FinalBurn Neo"></label><label>目录来源<select class="rt-select"><option>所有来源</option><option>系统内置</option><option>手动上传</option></select></label><label>处理状态<select class="rt-select"><option>所有状态</option><option>解析完成</option><option>正在解析</option><option>解析失败</option></select></label></div>
-          <div class="rt-runtime-chips"><button type="button" class="is-active">全部 7</button><button type="button">可启用 1</button><button type="button">处理中 1</button><button type="button">需处理 1</button><button type="button">历史版本 1</button></div>
-          <div class="rt-runtime-section-head"><div><h2>候选与历史版本</h2><p>只有解析成功的候选可以查看差异并显式启用。</p></div><span>4 个版本</span></div>
-          <div class="rt-runtime-list">
-            <div class="rt-runtime-dat-row"><div class="rt-runtime-cell"><strong>FinalBurn Neo</strong><small>手动上传 · 更新于 2026/08/08</small></div><span>手动上传</span><span class="rt-badge rt-badge-purple">可以启用</span><div class="rt-runtime-cell"><strong>8,012 个游戏</strong><small>58,431 个 ROM 条目</small></div><div class="rt-runtime-cell"><strong>需要确认</strong><small>启用前查看实际变化</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button" data-open-runtime-diff>查看差异</button><button type="button" class="rt-button rt-button-primary" data-open-runtime-diff>启用</button></div></div>
-            <div class="rt-runtime-dat-row"><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>手动上传 · 更新于 2026/08/08</small></div><span>手动上传</span><span class="rt-badge rt-badge-purple">正在解析</span><div class="rt-runtime-cell"><strong>—</strong><small>解析完成后显示统计</small></div><div class="rt-runtime-cell"><strong>等待</strong><small>尚未产生匹配结果</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">取消解析</button></div></div>
-            <div class="rt-runtime-dat-row"><div class="rt-runtime-cell"><strong>MAME 2003</strong><small>手动上传 · 更新于 2026/08/07</small></div><span>手动上传</span><span class="rt-badge rt-badge-red">解析失败</span><div class="rt-runtime-cell"><strong>—</strong><small>候选未生成索引</small></div><div class="rt-runtime-cell"><strong>无法判断</strong><small>重新上传有效 XML</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">删除</button></div></div>
-            <div class="rt-runtime-dat-row"><div class="rt-runtime-cell"><strong>FinalBurn Neo</strong><small>系统内置 · 更新于 2026/07/20</small></div><span>系统内置</span><span class="rt-badge">历史版本</span><div class="rt-runtime-cell"><strong>7,944 个游戏</strong><small>57,990 个 ROM 条目</small></div><div class="rt-runtime-cell"><strong>已匹配</strong><small>回滚前重新计算影响</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button" data-open-runtime-diff>预览回滚</button></div></div>
-          </div>
-        </div>
       </section>
     </main>
     <nav class="rt-mobile-bottom-nav" aria-label="移动主导航">
@@ -2890,11 +2861,6 @@
   <div class="rt-dialog-backdrop" data-review-bulk-cancel-dialog hidden><section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-review-bulk-cancel-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">i</span><div><h2 id="rt-review-bulk-cancel-title">停止快速审批？</h2><p class="rt-dialog-copy">只会停止尚未提交的项目；已经发布的游戏不会被撤销。</p></div></div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-review-bulk-cancel>继续审批</button><button type="button" class="rt-button rt-button-primary" data-confirm-review-bulk-cancel>停止未处理项目</button></div></section></div>
 
   <div class="rt-dialog-backdrop" data-bios-entries hidden><section class="rt-dialog rt-bios-entry-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-bios-entry-title"><div class="rt-panel-heading"><div><span class="rt-badge rt-badge-green">DAT 条目对比</span><h2 id="rt-bios-entry-title" style="margin-top:7px">stvbios.zip 内容对比</h2><p class="rt-dialog-copy">左侧为当前 DAT 要求列表，右侧为已安装 ZIP 内容列表；行背景表示状态，悬停可查看说明。</p></div><button type="button" class="rt-button" data-close-bios-entries aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></div><div class="rt-bios-entry-columns"><section class="rt-bios-entry-column"><header><strong>DAT 要求</strong><span>1 项</span></header><ul class="rt-bios-entry-field-head"><li>name</li><li>size</li><li>crc</li></ul><ul class="rt-bios-entry-list"><li class="rt-bios-entry-card is-aliased" title="内容匹配 · 文件名不同"><ul class="rt-bios-entry-facts"><li><code>epr19730.ic8</code></li><li><strong>524,288 bytes</strong></li><li><code>d0e0889d</code></li></ul></li></ul></section><section class="rt-bios-entry-column"><header><strong>当前 ZIP 内容</strong><span>2 项</span></header><ul class="rt-bios-entry-field-head"><li>name</li><li>size</li><li>crc</li></ul><ul class="rt-bios-entry-list"><li class="rt-bios-entry-card is-aliased" title="内容匹配 · 文件名不同"><ul class="rt-bios-entry-facts"><li><code>epr-19730.ic8</code></li><li><strong>524,288 bytes</strong></li><li><code>d0e0889d</code></li></ul></li><li class="rt-bios-entry-card is-extra" title="ZIP 内额外文件"><ul class="rt-bios-entry-facts"><li><code>epr-17740.ic8</code></li><li><strong>524,288 bytes</strong></li><li><code>5c5aa63d</code></li></ul></li></ul></section></div><div class="rt-dialog-actions"><button type="button" class="rt-button rt-button-primary" data-close-bios-entries>关闭</button></div></section></div>
-
-  <div class="rt-runtime-drawer-backdrop" data-runtime-drawer-backdrop hidden></div>
-  <aside class="rt-runtime-drawer" data-runtime-drawer hidden><header><div><span class="rt-badge rt-badge-purple">新候选</span><h2>上传街机数据目录</h2><p>上传后先安全解析，再查看差异，最后才允许启用。</p></div><button type="button" class="rt-button" data-close-runtime-drawer aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></header><div class="rt-runtime-drawer-body"><label>目标运行方式<select class="rt-select"><option>FinalBurn Neo · bundle 4.2.3</option><option>MAME 2003 · bundle 4.2.1</option><option>MAME 2003 Plus · bundle 4.2.3</option><option>FB Alpha 2012 CPS-1 · bundle 4.2.3</option><option>FB Alpha 2012 CPS-2 · bundle 4.2.3</option></select></label><label>DAT / XML 文件<input class="rt-input" placeholder="尚未选择文件" readonly></label><button type="button" class="rt-button">选择 DAT 或 XML 文件</button><ol class="rt-runtime-upload-flow"><li><span>1</span><strong>上传</strong></li><li><span>2</span><strong>解析</strong></li><li><span>3</span><strong>查看差异</strong></li><li><span>4</span><strong>启用</strong></li></ol></div><footer><button type="button" class="rt-button" data-close-runtime-drawer>取消</button><button type="button" class="rt-button rt-button-primary" disabled>开始上传</button></footer></aside>
-
-  <div class="rt-dialog-backdrop" data-runtime-diff hidden><section class="rt-dialog rt-runtime-diff-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-runtime-diff-title"><div class="rt-panel-heading"><div><span class="rt-badge rt-badge-amber">差异与运行影响</span><h2 id="rt-runtime-diff-title" style="margin-top:7px">启用 FinalBurn Neo 数据目录？</h2><p class="rt-dialog-copy">比较当前启用版本与目标版本；提交时会重新校验本次预览是否过期。</p></div><button type="button" class="rt-button" data-close-runtime-diff aria-label="关闭"><i data-lucide="x" aria-hidden="true"></i></button></div><div style="margin-top:13px"><div class="rt-runtime-compare"><article><span class="rt-badge rt-badge-green">当前启用</span><h3>FinalBurn Neo</h3><p>系统内置 · 7,980 个游戏</p></article><span>→</span><article><span class="rt-badge rt-badge-purple">目标版本</span><h3>FinalBurn Neo</h3><p>手动上传 · 8,012 个游戏</p></article></div><div class="rt-runtime-diff-kpis"><div>游戏条目<strong>+32 / −4 / ~18</strong></div><div>ROM 文件<strong>+126 / −12 / ~43</strong></div><div>BIOS 集合<strong>+1 / −0 / ~2</strong></div><div>依赖目标<strong>+3 / −1 / ~4</strong></div></div><div class="rt-runtime-impact"><strong>运行影响</strong> · 2 个游戏目录受到影响；38 个游戏运行版本需要重新检查；3 项解析警告。</div><div class="rt-panel rt-table-wrap"><table class="rt-table"><thead><tr><th>变化</th><th>对象</th><th>当前</th><th>目标</th></tr></thead><tbody><tr><td><span class="rt-badge rt-badge-green">新增</span></td><td>machine: newgame</td><td>—</td><td>parent: none</td></tr><tr><td><span class="rt-badge rt-badge-red">移除</span></td><td>machine: oldgame</td><td>parent: oldbase</td><td>—</td></tr><tr><td><span class="rt-badge rt-badge-amber">变更</span></td><td>machine: 1943</td><td>parent: 1943old</td><td>parent: 1943</td></tr></tbody></table></div></div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-runtime-diff>取消</button><button type="button" class="rt-button rt-button-primary">启用这个版本</button></div></section></div>
 
   <div class="rt-dialog-backdrop" data-impact-dialog hidden>
     <section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-dialog-title">
@@ -2973,13 +2939,6 @@
         root.querySelectorAll('[data-mobile-page]').forEach((button) => button.classList.toggle('is-active', button.dataset.mobilePage === activeNavigationTarget || (button.dataset.mobilePage === 'more' && !['home', 'library', 'saves', 'favorites'].includes(activeNavigationTarget))));
         selectReviewScene(page);
         root.querySelector('[data-ingest-parent]').classList.toggle('is-context', ['admin-import-new', 'admin-import-tasks', 'admin-review', 'admin-review-history'].includes(page));
-        const runtimeParent = root.querySelector('[data-runtime-parent]');
-        runtimeParent.classList.toggle('is-context', page === 'admin-bios');
-        if (page === 'admin-bios') {
-          runtimeParent.classList.remove('is-active');
-          const currentView = [...root.querySelectorAll('[data-bios-panel]')].find((panel) => !panel.hidden)?.dataset.biosPanel || 'files';
-          root.querySelectorAll('[data-bios-view]').forEach((button) => button.classList.toggle('is-active', button.dataset.biosView === currentView));
-        }
         if (page === 'admin-review') {
           root.querySelector('[data-review-page-title]').textContent = '待审核';
           root.querySelector('[data-review-position]').textContent = '已加载 4 条';
@@ -3480,23 +3439,9 @@
         else returnToSource();
       });
 
-      root.querySelectorAll('[data-bios-view]').forEach((button) => button.addEventListener('click', () => {
-        showPage('admin-bios');
-        root.querySelectorAll('[data-bios-view]').forEach((peer) => peer.classList.toggle('is-active', peer.dataset.biosView === button.dataset.biosView));
-        root.querySelectorAll('[data-bios-panel]').forEach((panel) => { panel.hidden = panel.dataset.biosPanel !== button.dataset.biosView; });
-      }));
       const biosEntriesDialog = root.querySelector('[data-bios-entries]');
       root.querySelectorAll('[data-open-bios-entries]').forEach((button) => button.addEventListener('click', () => { biosEntriesDialog.hidden = false; }));
       root.querySelectorAll('[data-close-bios-entries]').forEach((button) => button.addEventListener('click', () => { biosEntriesDialog.hidden = true; }));
-      const runtimeDrawer = root.querySelector('[data-runtime-drawer]');
-      const runtimeDrawerBackdrop = root.querySelector('[data-runtime-drawer-backdrop]');
-      root.querySelectorAll('[data-open-runtime-drawer]').forEach((button) => button.addEventListener('click', () => { runtimeDrawer.hidden = false; runtimeDrawerBackdrop.hidden = false; }));
-      root.querySelectorAll('[data-close-runtime-drawer]').forEach((button) => button.addEventListener('click', () => { runtimeDrawer.hidden = true; runtimeDrawerBackdrop.hidden = true; }));
-      runtimeDrawerBackdrop.addEventListener('click', () => { runtimeDrawer.hidden = true; runtimeDrawerBackdrop.hidden = true; });
-      const runtimeDiff = root.querySelector('[data-runtime-diff]');
-      root.querySelectorAll('[data-open-runtime-diff]').forEach((button) => button.addEventListener('click', () => { runtimeDiff.hidden = false; }));
-      root.querySelectorAll('[data-close-runtime-diff]').forEach((button) => button.addEventListener('click', () => { runtimeDiff.hidden = true; }));
-
       const serverImportDrawer = root.querySelector('[data-server-import-drawer]');
       const serverImportBackdrop = root.querySelector('[data-server-import-backdrop]');
       const closeServerImportDrawer = () => { serverImportDrawer.hidden = true; serverImportBackdrop.hidden = true; };
@@ -3701,10 +3646,6 @@
         } else if (requestedView.startsWith('game-')) {
           setMode('user');
           openGame(requestedView.slice(5));
-        } else if (requestedView === 'admin-bios-dats') {
-          setMode('admin');
-          showPage('admin-bios');
-          root.querySelector('[data-bios-view="dats"]').click();
         } else if (requestedView.startsWith('admin-') && pageNames[requestedView]) {
           setMode('admin');
           showPage(requestedView);

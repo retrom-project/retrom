@@ -1036,54 +1036,6 @@ paths:
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
         '404': { $ref: '#/components/responses/JSONResponse' }
-  /api/v1/admin/arcade-dats:
-    get:
-      operationId: getAdminArcadeDATs
-      parameters: [{ $ref: '#/components/parameters/Q' }, { $ref: '#/components/parameters/CoreIDQuery' }, { $ref: '#/components/parameters/CoreArtifactIDQuery' }, { $ref: '#/components/parameters/Source' }, { $ref: '#/components/parameters/ParseStatus' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
-      responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
-    post:
-      operationId: postAdminArcadeDAT
-      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody: { $ref: '#/components/requestBodies/CreateDAT' }
-      responses:
-        '202': { $ref: '#/components/responses/JSONResponse' }
-  /api/v1/admin/arcade-dats/{datVersionId}/diff:
-    parameters: [{ $ref: '#/components/parameters/DATVersionID' }]
-    get:
-      operationId: getAdminArcadeDATDiff
-      parameters: [{ $ref: '#/components/parameters/Section' }, { $ref: '#/components/parameters/Change' }, { $ref: '#/components/parameters/Cursor' }, { $ref: '#/components/parameters/Limit' }]
-      responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
-    post:
-      operationId: postAdminArcadeDATDiff
-      description: Queue or restart asynchronous materialization of the diff against the currently active DAT.
-      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
-      responses:
-        '202': { $ref: '#/components/responses/JSONResponse' }
-  /api/v1/admin/arcade-dats/{datVersionId}/activate:
-    parameters: [{ $ref: '#/components/parameters/DATVersionID' }]
-    post:
-      operationId: postAdminArcadeDATActivate
-      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody: { $ref: '#/components/requestBodies/ActivateDAT' }
-      responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
-  /api/v1/admin/arcade-dats/{datVersionId}/rollback:
-    parameters: [{ $ref: '#/components/parameters/DATVersionID' }]
-    post:
-      operationId: postAdminArcadeDATRollback
-      parameters: [{ $ref: '#/components/parameters/IfMatch' }, { $ref: '#/components/parameters/IdempotencyKey' }]
-      requestBody: { $ref: '#/components/requestBodies/ActivateDAT' }
-      responses:
-        '200': { $ref: '#/components/responses/JSONResponse' }
-  /api/v1/admin/arcade-dats/{datVersionId}:
-    parameters: [{ $ref: '#/components/parameters/DATVersionID' }]
-    delete:
-      operationId: deleteAdminArcadeDAT
-      parameters: [{ $ref: '#/components/parameters/IfMatch' }]
-      responses:
-        '204': { description: Deleted }
   /api/v1/admin/diagnostics:
     get:
       operationId: getAdminDiagnostics
@@ -2742,21 +2694,6 @@ components:
         filteredCount: { type: integer, format: int64, minimum: 0 }
         items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/BIOSRequirementSummary' } }
         nextCursor: { type: string, nullable: true }
-    CreateDATRequest:
-      type: object
-      additionalProperties: false
-      required: [uploadFileId, coreArtifactId]
-      properties:
-        uploadFileId: { type: string, format: uuid }
-        coreArtifactId: { type: string, format: uuid }
-    ActivateDATRequest:
-      type: object
-      additionalProperties: false
-      required: [impactDigest, confirmBlocked, confirmUnknownCompatibility]
-      properties:
-        impactDigest: { type: string }
-        confirmBlocked: { type: boolean }
-        confirmUnknownCompatibility: { type: boolean }
     PlayEventRequest:
       type: object
       additionalProperties: false
@@ -3411,8 +3348,6 @@ components:
     CreatePegasusImport: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreatePegasusImportRequest' } } } }
     PegasusCollectionMappings: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PegasusCollectionMappingsRequest' } } } }
     PegasusImportStart: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PegasusImportStartRequest' } } } }
-    CreateDAT: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/CreateDATRequest' } } } }
-    ActivateDAT: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/ActivateDATRequest' } } } }
     PlayEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PlayEventRequest' } } } }
     MultiDiscPlayerEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MultiDiscPlayerEventRequest' } } } }
   responses:
@@ -3635,7 +3570,6 @@ components:
     ServerImportID: { name: serverImportId, in: path, required: true, schema: { type: string, format: uuid } }
     PegasusImportID: { name: pegasusImportId, in: path, required: true, schema: { type: string, format: uuid } }
     GameAssetKind: { name: assetKind, in: path, required: true, schema: { type: string, enum: [VIDEO] } }
-    DATVersionID: { name: datVersionId, in: path, required: true, schema: { type: string, format: uuid } }
     AssetID: { name: assetId, in: path, required: true, schema: { type: string, format: uuid } }
     LaunchID: { name: launchId, in: path, required: true, schema: { type: string, format: uuid } }
     NetplayRoomID: { name: roomId, in: path, required: true, schema: { type: string, format: uuid } }

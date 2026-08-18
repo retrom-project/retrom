@@ -1,15 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { filterBIOS, filterDATVersions, isBIOSBlocking, summarizeBIOS, summarizeDAT, type BIOSRequirement, type DATVersion } from "./runtime-dependencies";
+import { filterBIOS, isBIOSBlocking, summarizeBIOS, type BIOSRequirement } from "./runtime-dependencies";
 
 const bios = (id: string, overrides: Partial<BIOSRequirement> = {}): BIOSRequirement => ({
   id, coreId: "mgba", coreName: "mGBA", coreArtifactId: "artifact", logicalName: `${id}.bin`,
   sourceKind: "STATIC", requirementMode: "REQUIRED", enabled: true, version: 1, status: "MATCHED", ...overrides,
-});
-
-const dat = (id: string, overrides: Partial<DATVersion> = {}): DATVersion => ({
-  id, coreId: "fbneo", coreName: "FinalBurn Neo", coreArtifactId: "artifact", source: "BUILTIN",
-  compatibilityStatus: "MATCHED", parseStatus: "READY", active: false, machineCount: 1,
-  romEntryCount: 2, diskEntryCount: 0, biosSetCount: 1, diffStatus: "READY", version: 1, updatedAtMs: 1, ...overrides,
 });
 
 describe("runtime dependency presentation", () => {
@@ -24,11 +18,5 @@ describe("runtime dependency presentation", () => {
     const items = [bios("gba"), bios("gb", { coreId: "gambatte", coreName: "Gambatte", requirementMode: "OPTIONAL" })];
     expect(filterBIOS(items, { query: "gb.bin", coreId: "gambatte", status: "", quick: "OPTIONAL" })).toEqual([items[1]]);
     expect(items).toHaveLength(2);
-  });
-
-  it("separates active, candidate, processing and failed DAT versions", () => {
-    const items = [dat("active", { active: true }), dat("candidate", { source: "USER" }), dat("parsing", { source: "USER", parseStatus: "PARSING" }), dat("failed", { source: "USER", parseStatus: "FAILED" })];
-    expect(summarizeDAT(items)).toEqual({ all: 4, active: 1, ready: 1, working: 1, attention: 1, history: 0 });
-    expect(filterDATVersions(items, { query: "final", source: "USER", parseStatus: "", quick: "ATTENTION" }).map((item) => item.id)).toEqual(["failed"]);
   });
 });

@@ -13,7 +13,7 @@ export default async function BIOSPage({ searchParams }: { searchParams: Promise
   for (const key of ["q", "coreId", "status"] as const) if (values[key]) query.set(key, values[key]);
   const initialResponse = await backendJSON<BIOSListResponse>(`/api/v1/admin/bios?${query.toString()}`);
   return <div className="page-layout page-layout-admin runtime-dependency-shell">
-    <PageHeader eyebrow="运行依赖" title="BIOS 文件" description="管理游戏运行所需的系统文件。默认只关注当前游戏库实际用到的依赖，也可切换到完整核心目录。" actions={<><ButtonLink href="/admin/imports/server?action=bios" secondary>服务器批量导入</ButtonLink><ButtonLink href="/admin/bios/dats" secondary>街机数据目录 →</ButtonLink></>} />
+    <PageHeader eyebrow="运行依赖" title="BIOS 文件" description="管理游戏运行所需的系统文件。Arcade DAT 随核心版本由系统自动准备，无需手动上传或切换。" actions={<ButtonLink href="/admin/imports/server?action=bios" secondary>服务器批量导入</ButtonLink>} />
     <BIOSManager initialResponse={initialResponse} initialScope={scope} initialFilters={{ query: values.q ?? "", coreId: values.coreId ?? "", status: values.status ?? "", quick }} />
   </div>;
 }

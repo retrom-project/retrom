@@ -63,7 +63,7 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot }
   }
 
   if (compatibilityCode === "ARCADE_DAT_UNAVAILABLE") {
-    return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance"><strong>{title}</strong><p>请先准备并启用与当前街机运行方式匹配的数据目录，然后返回本页重新运行检查。</p><Link className="button secondary compact" href="/admin/bios/dats">前往街机数据目录</Link></div></FeedbackBanner>;
+    return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance"><strong>{title}</strong><p>当前核心固定的内置 Arcade DAT 尚未准备完成。请检查服务的依赖准备和 Ready 状态；恢复后返回本页重新运行检查。</p><code>make prepare-deps</code></div></FeedbackBanner>;
   }
 
   const scrollable = missingEntries.length + mismatchedEntries.length > 8;

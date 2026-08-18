@@ -768,7 +768,7 @@ WHERE game.id=?
 	}
 	arcadeOverrideRevisionID := newUUID()
 	arcadeOverrideSnapshot := fmt.Sprintf(
-		`{"schemaVersion":2,"machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[],"missingEntries":["missing.rom"],"mismatchedEntries":[],"warnings":[]}`,
+		`{"schemaVersion":2,"machine":"review-blocked","datVersionId":%q,"closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"review-bios","state":"SATISFIED_EXTERNAL","requiredEntries":[]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`,
 		datVersionID,
 	)
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -790,6 +790,12 @@ WHERE game_id=?
 `, arcadeOverrideRevisionID, approved.GameID); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order)
+VALUES(?,'BIOS_BUNDLE','review-bios.zip',?,0)
+`, arcadeOverrideRevisionID, parentBlobID); err != nil {
+		t.Fatal(err)
+	}
 	createdLaunch, err := service.Create(ctx, "review-preview-profile", CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID, ClientCapabilities: capabilities,
 	})
@@ -798,8 +804,15 @@ WHERE game_id=?
 	}
 	publishedConfig, err := service.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
 	if err != nil || !slices.Contains(publishedConfig.Warnings, "REVIEW_SCREENSHOT_OVERRIDE") ||
-		publishedConfig.BIOSURL != nil {
+		publishedConfig.BIOSURL == nil {
 		t.Fatalf("screenshot-approved config = %#v, error=%v", publishedConfig, err)
+	}
+	publishedBIOS, err := service.BundleFiles(
+		ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE",
+	)
+	if err != nil || len(publishedBIOS) != 1 || publishedBIOS[0].LogicalName != "review-bios.zip" ||
+		publishedBIOS[0].SHA256 != parentMetadata.SHA256 {
+		t.Fatalf("screenshot-approved Arcade BIOS = %#v, error=%v", publishedBIOS, err)
 	}
 }
 

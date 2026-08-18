@@ -554,6 +554,18 @@ AND a.emulatorjs_version=?
 				continue
 			}
 			if parseStatus == "READY" && indexed == core.ParseStats.MachineCount {
+				transaction, activateErr := database.BeginTx(ctx, nil)
+				if activateErr == nil {
+					activateErr = activateBuiltInDAT(ctx, transaction, datID, now)
+				}
+				if activateErr == nil {
+					activateErr = transaction.Commit()
+				} else if transaction != nil {
+					cleanup.Rollback(transaction)
+				}
+				if activateErr != nil && firstFailure == nil {
+					firstFailure = fmt.Errorf("activate ready built-in DAT: %w", activateErr)
+				}
 				continue
 			}
 			if parseStatus == "FAILED" {
@@ -705,15 +717,11 @@ json_object('schemaVersion',
 			stats := catalog.Stats
 			finishedAtMS := now.UnixMilli()
 			var artifactID string
-			var artifactEnabled int
 			if err := transaction.QueryRowContext(ctx, `
-SELECT core_artifact_id,
-(SELECT enabled
-FROM core_artifacts
-WHERE id=core_artifact_id)
+SELECT core_artifact_id
 FROM dat_versions
 WHERE id=?
-`, datID).Scan(&artifactID, &artifactEnabled); err != nil {
+`, datID).Scan(&artifactID); err != nil {
 				cleanup.Rollback(transaction)
 				failBuiltInDAT(ctx, database, datID, jobID, "DEPENDENCY_DAT_INDEX_WRITE_FAILED", now)
 				if firstFailure == nil {
@@ -721,27 +729,12 @@ WHERE id=?
 				}
 				continue
 			}
-			var activeCount int64
-			if err := transaction.QueryRowContext(ctx, `
-SELECT count(*)
-FROM dat_versions
-WHERE core_artifact_id=?
-AND is_active=1
-`, artifactID).Scan(&activeCount); err != nil {
-				cleanup.Rollback(transaction)
-				failBuiltInDAT(ctx, database, datID, jobID, "DEPENDENCY_DAT_INDEX_WRITE_FAILED", now)
-				if firstFailure == nil {
-					firstFailure = err
-				}
-				continue
-			}
-			activate := artifactEnabled == 1 && activeCount == 0
 			_, err = transaction.ExecContext(
 				ctx,
 				`
 UPDATE dat_versions
 SET parse_status='READY',
-is_active=?,
+is_active=0,
 machine_count=?,
 rom_entry_count=?,
 disk_entry_count=?,
@@ -751,12 +744,10 @@ explicit_bios_machine_count=?,
 base_dependency_target_count=?,
 unresolved_relation_count=?,
 parsed_at_ms=?,
-activated_at_ms=CASE WHEN ? THEN ? ELSE activated_at_ms END,
 updated_at_ms=?,
 version=version+1
 WHERE id=?
 `,
-				boolToInteger(activate),
 				stats.MachineCount,
 				stats.ROMEntryCount,
 				stats.DiskEntryCount,
@@ -765,8 +756,6 @@ WHERE id=?
 				stats.ExplicitBIOSMachineCount,
 				stats.BaseDependencyTargetCount,
 				stats.UnresolvedCloneofTargetCount+stats.UnresolvedRomofTargetCount,
-				finishedAtMS,
-				activate,
 				finishedAtMS,
 				finishedAtMS,
 				datID,
@@ -779,48 +768,13 @@ WHERE id=?
 				}
 				continue
 			}
-			if activate {
-				if err := datindex.SyncRequirements(ctx, transaction, datID, now); err != nil {
-					cleanup.Rollback(transaction)
-					failBuiltInDAT(ctx, database, datID, jobID, "DEPENDENCY_DAT_INDEX_WRITE_FAILED", now)
-					if firstFailure == nil {
-						firstFailure = fmt.Errorf("publish built-in DAT requirements: %w", err)
-					}
-					continue
+			if err := activateBuiltInDAT(ctx, transaction, datID, now); err != nil {
+				cleanup.Rollback(transaction)
+				failBuiltInDAT(ctx, database, datID, jobID, "DEPENDENCY_DAT_INDEX_WRITE_FAILED", now)
+				if firstFailure == nil {
+					firstFailure = fmt.Errorf("publish built-in DAT requirements: %w", err)
 				}
-				auditID, _ := uuid.NewV7()
-				actor := authn.ActorFromContext(ctx, "release-setup")
-				if _, err := transaction.ExecContext(ctx, `
-INSERT INTO audit_events(id,
-actor_kind,
-actor_user_id,
-actor_label,
-action,
-resource_type,
-resource_id,
-before_json,
-after_json,
-diff_json,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-'BUILTIN_DAT_ACTIVATED',
-'DAT_VERSION',
-?,
-'{"active":false}',
-'{"active":true}',
-json_object('source',
-'startup-indexer'),
-?)
-`, auditID.String(), actor.Kind, actor.UserID, actor.Label, datID, finishedAtMS); err != nil {
-					cleanup.Rollback(transaction)
-					failBuiltInDAT(ctx, database, datID, jobID, "DEPENDENCY_DAT_INDEX_WRITE_FAILED", now)
-					if firstFailure == nil {
-						firstFailure = err
-					}
-					continue
-				}
+				continue
 			}
 			if _, err := transaction.ExecContext(ctx, `
 UPDATE jobs
@@ -876,6 +830,69 @@ json_object('schemaVersion',
 		}
 	}
 	return firstFailure
+}
+
+func activateBuiltInDAT(
+	ctx context.Context,
+	transaction *sql.Tx,
+	datID string,
+	now time.Time,
+) error {
+	var artifactID, source, parseStatus string
+	var artifactEnabled, alreadyActive int
+	if err := transaction.QueryRowContext(ctx, `
+SELECT d.core_artifact_id,a.enabled,d.source,d.parse_status,d.is_active
+FROM dat_versions d
+JOIN core_artifacts a ON a.id=d.core_artifact_id
+WHERE d.id=?
+`, datID).Scan(&artifactID, &artifactEnabled, &source, &parseStatus, &alreadyActive); err != nil {
+		return fmt.Errorf("inspect selected built-in DAT: %w", err)
+	}
+	if artifactEnabled == 0 {
+		return nil
+	}
+	if source != "BUILTIN" || parseStatus != "READY" {
+		return fmt.Errorf("%w: selected DAT is not a ready built-in version", ErrInvalid)
+	}
+	if alreadyActive == 1 {
+		return nil
+	}
+	deactivated, err := transaction.ExecContext(ctx, `
+UPDATE dat_versions
+SET is_active=0,version=version+1,updated_at_ms=?
+WHERE core_artifact_id=? AND source='BUILTIN' AND is_active=1 AND id<>?
+`, now.UnixMilli(), artifactID, datID)
+	if err != nil {
+		return fmt.Errorf("deactivate superseded built-in DAT: %w", err)
+	}
+	if changed, _ := deactivated.RowsAffected(); changed > 0 {
+		if _, err := transaction.ExecContext(ctx, `
+UPDATE core_artifacts SET version=version+1,updated_at_ms=? WHERE id=?
+`, now.UnixMilli(), artifactID); err != nil {
+			return fmt.Errorf("advance artifact DAT selection: %w", err)
+		}
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE dat_versions
+SET is_active=1,activated_at_ms=?,version=version+1,updated_at_ms=?
+WHERE id=? AND source='BUILTIN' AND parse_status='READY' AND is_active=0
+`, now.UnixMilli(), now.UnixMilli(), datID); err != nil {
+		return fmt.Errorf("activate selected built-in DAT: %w", err)
+	}
+	if err := datindex.SyncRequirements(ctx, transaction, datID, now); err != nil {
+		return fmt.Errorf("sync selected built-in DAT requirements: %w", err)
+	}
+	auditID, _ := uuid.NewV7()
+	actor := authn.ActorFromContext(ctx, "release-setup")
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
+before_json,after_json,diff_json,created_at_ms)
+VALUES(?,?,?,?,'BUILTIN_DAT_ACTIVATED','DAT_VERSION',?,
+'{"active":false}','{"active":true}',json_object('source','release-manifest'),?)
+`, auditID.String(), actor.Kind, actor.UserID, actor.Label, datID, now.UnixMilli()); err != nil {
+		return fmt.Errorf("audit selected built-in DAT activation: %w", err)
+	}
+	return nil
 }
 
 //nolint:funlen,nestif // Contract branches stay contiguous for a single auditable decision.
@@ -1653,10 +1670,12 @@ updated_at_ms=excluded.updated_at_ms
 		return fmt.Errorf("upsert builtin DAT version: %w", err)
 	}
 	var parseStatus string
+	var selectedActive int
 	var indexedMachineCount, indexedROMCount, indexedDiskCount, indexedBIOSCount int64
 	var indexedDefaultBIOSCount, indexedExplicitBIOSCount, indexedBaseTargetCount, indexedUnresolvedCount int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT d.parse_status,
+d.is_active,
 COALESCE(d.machine_count,
 -1),
 COALESCE(d.rom_entry_count,
@@ -1676,7 +1695,7 @@ COALESCE(d.unresolved_relation_count,
 FROM dat_versions d
 WHERE d.id=?
 `, id).Scan(
-		&parseStatus, &indexedMachineCount, &indexedROMCount, &indexedDiskCount, &indexedBIOSCount,
+		&parseStatus, &selectedActive, &indexedMachineCount, &indexedROMCount, &indexedDiskCount, &indexedBIOSCount,
 		&indexedDefaultBIOSCount, &indexedExplicitBIOSCount, &indexedBaseTargetCount, &indexedUnresolvedCount,
 	); err != nil {
 		return fmt.Errorf("inspect built-in DAT index: %w", err)
@@ -1686,7 +1705,24 @@ WHERE d.id=?
 		indexedExplicitBIOSCount == explicitBIOSCount && indexedBaseTargetCount == baseTargetCount &&
 		indexedUnresolvedCount == unresolvedCount
 	if parseStatus == "READY" && !statsMatch {
-		if _, err := transaction.ExecContext(ctx, `
+		if err := repairBuiltInDATIndex(ctx, transaction, id, artifactID, selectedActive == 1, now); err != nil {
+			return err
+		}
+	}
+	if !activeVersion {
+		return nil
+	}
+	return retireSupersededBuiltInDAT(ctx, transaction, artifactID, id, now)
+}
+
+func repairBuiltInDATIndex(
+	ctx context.Context,
+	transaction *sql.Tx,
+	datID, artifactID string,
+	wasActive bool,
+	now time.Time,
+) error {
+	if _, err := transaction.ExecContext(ctx, `
 UPDATE dat_versions
 SET parse_status='PENDING',
 is_active=0,
@@ -1703,9 +1739,45 @@ activated_at_ms=NULL,
 version=version+1,
 updated_at_ms=?
 WHERE id=?
-`, now.UnixMilli(), id); err != nil {
-			return fmt.Errorf("repair incomplete built-in DAT index: %w", err)
-		}
+`, now.UnixMilli(), datID); err != nil {
+		return fmt.Errorf("repair incomplete built-in DAT index: %w", err)
+	}
+	if !wasActive {
+		return nil
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE core_artifacts SET version=version+1,updated_at_ms=? WHERE id=?
+`, now.UnixMilli(), artifactID); err != nil {
+		return fmt.Errorf("advance artifact for repaired active DAT: %w", err)
+	}
+	return nil
+}
+
+func retireSupersededBuiltInDAT(
+	ctx context.Context,
+	transaction *sql.Tx,
+	artifactID, selectedDATID string,
+	now time.Time,
+) error {
+	result, err := transaction.ExecContext(ctx, `
+UPDATE dat_versions
+SET is_active=0,version=version+1,updated_at_ms=?
+WHERE core_artifact_id=? AND source='BUILTIN' AND id<>? AND is_active=1
+`, now.UnixMilli(), artifactID, selectedDATID)
+	if err != nil {
+		return fmt.Errorf("retire superseded built-in DAT: %w", err)
+	}
+	changed, err := result.RowsAffected()
+	if err != nil {
+		return fmt.Errorf("count superseded built-in DAT rows: %w", err)
+	}
+	if changed == 0 {
+		return nil
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE core_artifacts SET version=version+1,updated_at_ms=? WHERE id=?
+`, now.UnixMilli(), artifactID); err != nil {
+		return fmt.Errorf("advance DAT-selected artifact: %w", err)
 	}
 	return nil
 }

@@ -116,7 +116,7 @@ test("ACC-MOB-004 administrator list and workflow routes use cards or full-width
   const routes = [
     "/admin/imports", "/admin/imports/new", "/admin/imports/server", "/admin/imports/tasks",
     "/admin/reviews", "/admin/reviews/history", "/admin/games", "/admin/platform-instances",
-    "/admin/users", "/admin/bios", "/admin/bios/dats",
+    "/admin/users", "/admin/bios",
   ];
   for (const route of routes) {
     await page.goto(route);

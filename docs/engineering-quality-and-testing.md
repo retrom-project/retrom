@@ -256,7 +256,7 @@
 | Hasheous 适配 | 哈希请求与响应映射、未命中、超时、429/Retry-After、畸形响应、缓存；常规测试不得访问真实外网 |
 | Arcade DAT | 对三个核心分别解析 machine/clone/parent/BIOS、依赖闭包、循环/缺失引用、活动版本隔离，并对固定真实 DAT 运行集成校验 |
 | BIOS 安装与诊断 | 文件名/哈希匹配；哈希不符保存并警告；必需项缺失阻断；可选项缺失不阻断；不同核心状态不串用 |
-| 启动预检与 capability | 默认核心与单次覆盖、必需依赖、DOS 程序、cookie capability hash/过期/范围/一次启动绑定、复制 launchId 无 cookie 拒绝、未授权 Blob 与路径逃逸拒绝、日志脱敏 |
+| 启动预检与 capability | 默认核心与单次覆盖、必需依赖、DOS 程序、静态 BIOS schema v1 与 Arcade DAT schema v2 分流、Arcade 冻结 BIOS bundle、cookie capability hash/过期/范围/一次启动绑定、复制 launchId 无 cookie 拒绝、未授权 Blob 与路径逃逸拒绝、日志脱敏 |
 | 多盘发布、Launch 与存档 | canonical playlist/ordered identity、artifact V3 digest、config discSet、playlist/Disc GET/HEAD/单 Range、跨 Launch/原名拒绝、当前盘存档与先切盘后恢复、替换失败保留旧 revision |
 | 账户初始化与认证 | 数据库 `PENDING/COMPLETED` 及 context 映射、release setup code、test bootstrap、Argon2 参数、密码 blocklist、通用登录错误、session 轮换/过期/撤销、Origin/Fetch Metadata/CSRF、限流与可信代理 |
 | 用户管理 | 邀请/重置 secret 单次显示且数据库不保存 secret/hash、角色和状态转换、ETag、本人保护、最后管理员保护、停用/删除级联撤销、离线 admin-reset 与 restore 安全栅栏 |
@@ -356,7 +356,7 @@ make web-e2e
 - 解析器可以使用小型、可读、带来源说明的确定性片段覆盖边界和畸形输入。
 - Arcade 兼容性结论必须另有针对 `make prepare-deps` 物化到 `data/dat/` 的完整、真实、版本锁定 DAT 的集成校验；小片段不能替代真实基线，payload 也不能因此提交 Git。
 - 负向安全测试可以构造恶意 ZIP/XML/路径，因为它们用于验证拒绝行为，不能被描述为真实游戏数据。
-- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；`testdata/public-roms/gba-smoke/` 证明 mGBA 产品链路，`testdata/public-roms/arcade-smoke/` 分别证明 MAME 2003 与 FBNeo 的 DAT/Split/Parent/BIOS 交付及单机帧执行链路。Arcade 测试 BIOS 不被目标驱动执行，不能外推为核心内部 BIOS 执行覆盖；FBNeo 单机 Case 也不能替代双浏览器联机验证。
+- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；`testdata/public-roms/gba-smoke/` 证明 mGBA 产品链路，`testdata/public-roms/arcade-smoke/` 分别证明 MAME 2003 与 FBNeo 的 Split Child/Parent/BIOS、审核、发布、详情、Launch、三路受限内容和单机帧执行。真实 release DAT 的物化、解析和精确 active 选择由 `ACC-DAT-004` 使用 production manifest 独立证明；Arcade 产品 Case 的项目自有小型 DAT 由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不得经过或重新引入 DAT 上传 API，也不得冒充 production baseline。Case 必须显式核对审核与发布 revision 使用 schema v2 的 `PARENT` 与 `BIOS_OR_BASE`，详情页与 Launch 锁定同一 DatVersion，首次重验证及 screenshot-approved schema v2 current revision 都不能误走静态 BIOS schema v1 parser；config 的 `parentUrl/biosUrl` 均必须存在且 bytes 冻结一致。该构造只复现持久化状态，不代替前置真实导入。测试 BIOS 不被目标驱动执行，不能外推为核心内部 BIOS 执行覆盖；FBNeo 单机 Case 也不能替代双浏览器联机验证。
 
 ## 10. 后续实施清单
 

@@ -85,7 +85,7 @@ VALUES(?,?,'tag.migration','Tag Migration Admin','ADMIN','ENABLED',1,1)`, []any{
 	if err := upgraded.SQL.QueryRow(`
 SELECT (SELECT max(version) FROM schema_migrations),tag_snapshot_json
 FROM pegasus_import_collections WHERE id=?
-`, collectionID).Scan(&version, &snapshot); err != nil || version != 37 || snapshot != "[]" {
+`, collectionID).Scan(&version, &snapshot); err != nil || version != 38 || snapshot != "[]" {
 		t.Fatalf("upgrade = version:%d snapshot:%q error:%v", version, snapshot, err)
 	}
 	for _, table := range []string{"tags", "game_tags", "review_draft_tags", "pegasus_collection_tags"} {
