@@ -83,12 +83,24 @@ done
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/http-flow.sh
+go run scripts/acceptance/seed-public-arcade-dat.go \
+  "$temporary_root/data/retrom.db" \
+  mame2003 \
+  "$repository_root/testdata/public-roms/arcade-smoke/mame2003-smoke.xml" \
+  >"$temporary_root/mame2003-smoke-dat.json"
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/arcade-flow.sh mame2003
+go run scripts/acceptance/seed-public-arcade-dat.go \
+  "$temporary_root/data/retrom.db" \
+  fbneo \
+  "$repository_root/testdata/public-roms/arcade-smoke/fbneo/fbneo-smoke.dat" \
+  >"$temporary_root/fbneo-smoke-dat.json"
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/arcade-flow.sh fbneo
+python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" mame2003
+python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" fbneo
 scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
 

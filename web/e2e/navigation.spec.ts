@@ -240,22 +240,16 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
   await page.screenshot({ path: testInfo.outputPath("game-detail-one-screen.png"), fullPage: true });
 });
 
-test("BIOS, DAT and save controls are labeled and keyboard reachable", async ({ page }, testInfo) => {
+test("BIOS and save controls are labeled and keyboard reachable", async ({ page }, testInfo) => {
   await page.goto("/admin/bios?scope=FULL_CATALOG");
   await expect(page.getByRole("heading", { name: "BIOS 文件" })).toBeVisible();
   await expect(page.getByRole("searchbox", { name: "搜索 BIOS 文件" })).toBeVisible();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
-  await page.goto("/admin/bios/dats");
-  await expect(page.getByRole("heading", { name: "街机数据目录" })).toBeVisible();
-  await expect(page.getByText("技术详情", { exact: true })).toHaveCount(0);
-  await page.getByRole("button", { name: "上传新目录" }).click();
-  await expect(page.getByLabel("目标运行方式")).toBeVisible();
-  await expect(page.getByRole("button", { name: "选择 DAT 或 XML 文件" })).toBeVisible();
   await page.goto("/saves?availability=ALL");
   await expect(page.getByRole("heading", { name: "我的存档" })).toBeVisible();
   const rename = page.getByRole("button", { name: /编辑存档.*的名称/ }).first();
   if (await rename.count()) await expect(rename).toBeVisible();
   await page.keyboard.press("Tab");
   expect(await page.evaluate(() => document.activeElement?.tagName !== "BODY")).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath("bios-dat-saves.png"), fullPage: true });
+  await page.screenshot({ path: testInfo.outputPath("bios-saves.png"), fullPage: true });
 });

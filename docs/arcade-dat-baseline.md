@@ -113,9 +113,9 @@ manifest 为每个核心单独保存 `association_status`。FBNeo 与 MAME2003-P
 1. Git 只跟踪 manifest/校验表；本地在 `make dev` 前执行 `make prepare-deps`，镜像在 dependency builder stage 执行同一固定来源配方。禁止浮动版本。
 2. 应用同步启动阶段只验证 manifest schema、DAT size 和 SHA-256，不联网；再创建或复用 `PENDING/READY` 的 `dat_versions` 及唯一 `DAT_PARSE` Job，绝不把未解析版本标为 active。
 3. 同时验证实际部署的 EmulatorJS version 及 core artifact SHA-256；未命中 manifest 的 core 不自动绑定内置 DAT。
-4. Worker 以 `core_artifact_id + dat_sha256 + parser_version` 复用解析结果；冷库在后台解析期间 live 但不 ready，成功发布索引后才在无既有 active DAT 时激活。原始 DAT 不在每次启动游戏时重新解析；确定性失败使当前 enabled artifact 保持 `DEPENDENCY_DAT_PARSE_FAILED`，不得用空索引进入 ready。
-5. `GameVariantRevision` 锁定 core artifact 和 DAT version；DAT 切换只触发重校验/新 revision，不静默改写已有快照。
-6. 用户上传 DAT 是独立候选版本。除非用户选择目标 core 且确认兼容范围，否则其 `compatibility_status` 为 `UNKNOWN`。
+4. Worker 以 `core_artifact_id + dat_sha256 + parser_version` 复用解析结果；冷库在后台解析期间 live 但不 ready，成功发布索引后由启动引导激活 manifest 指定的精确版本，并停用同 artifact 的其他 BUILTIN 版本。原始 DAT 不在每次启动游戏时重新解析；确定性失败使当前 enabled artifact 保持 `DEPENDENCY_DAT_PARSE_FAILED`，不得用空索引进入 ready。
+5. `GameVariantRevision` 锁定 core artifact 和 DAT version；release manifest 的 DAT 选择变化只触发后续重校验/新 revision，不静默改写已有快照。
+6. 运行时只接受 manifest 固定并通过 SHA-256 校验的内置 DAT；没有用户上传、兼容性确认或候选版本分支。
 
 ## 7. 统一升级验收入口
 

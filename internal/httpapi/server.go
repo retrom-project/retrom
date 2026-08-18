@@ -29,7 +29,6 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/accounts"
-	"retrom/internal/arcadecatalog"
 	"retrom/internal/authn"
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
@@ -100,7 +99,6 @@ type Server struct {
 	launcher                *launch.Service
 	jobService              *jobs.Service
 	firmware                *firmware.Service
-	arcadeDAT               *arcadecatalog.Service
 	metadata                *metadatascrape.Service
 	gameContent             *gamecontent.Service
 	saveService             *saves.Service
@@ -152,17 +150,7 @@ func New(
 ) *Server {
 	scraper := metadatascrape.New(database, blobs, hasheous.New(nil, nil, now), now)
 	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs)
-	arcadeDAT := arcadecatalog.New(
-		database,
-		blobs,
-		now,
-		arcadecatalog.RevalidationHooks{
-			Queue:  launcher.QueueDATRevalidations,
-			Resume: launcher.ResumeQueuedValidationJobs,
-		},
-	)
 	launcher.ResumeQueuedValidationJobs()
-	arcadeDAT.ResumeDiffJobs()
 	importer := libraryimport.New(database, now, scraper).
 		WithBlobStore(blobs).
 		WithMultiDiscImportEnabled(config.MultiDiscImportEnabled)
@@ -198,7 +186,6 @@ func New(
 		firmware:          firmwareService,
 		serverImports:     serverImportService,
 		pegasusImports:    pegasusImportService,
-		arcadeDAT:         arcadeDAT,
 		metadata:          scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
@@ -283,13 +270,6 @@ func (server *Server) Handler() http.Handler {
 		server.previewDefaultCore,
 	)
 	mux.HandleFunc("POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core", server.changeDefaultCore)
-	mux.HandleFunc("GET /api/v1/admin/arcade-dats", server.arcadeDATs)
-	mux.HandleFunc("POST /api/v1/admin/arcade-dats", server.createArcadeDAT)
-	mux.HandleFunc("GET /api/v1/admin/arcade-dats/{datVersionId}/diff", server.arcadeDATDiff)
-	mux.HandleFunc("POST /api/v1/admin/arcade-dats/{datVersionId}/diff", server.createArcadeDATDiff)
-	mux.HandleFunc("POST /api/v1/admin/arcade-dats/{datVersionId}/activate", server.activateArcadeDAT)
-	mux.HandleFunc("POST /api/v1/admin/arcade-dats/{datVersionId}/rollback", server.rollbackArcadeDAT)
-	mux.HandleFunc("DELETE /api/v1/admin/arcade-dats/{datVersionId}", server.deleteArcadeDAT)
 	mux.HandleFunc("GET /api/v1/admin/bios", server.bios)
 	mux.HandleFunc("GET /api/v1/admin/bios/{requirementId}/entries", server.biosEntries)
 	mux.HandleFunc("POST /api/v1/admin/bios/{requirementId}/installations", server.installBIOS)
@@ -587,17 +567,8 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/admin/server-import-roots": {},
 	"GET /api/v1/admin/server-imports":      {"kind", "state", "cursor", "limit"},
 	"GET /api/v1/admin/pegasus-imports":     {"state", "cursor", "limit"},
-	"GET /api/v1/admin/arcade-dats": {
-		"q",
-		"coreId",
-		"coreArtifactId",
-		"source",
-		"parseStatus",
-		"cursor",
-		"limit",
-	},
-	"GET /api/v1/admin/users":       {"q", "role", "status", "sort", "cursor", "limit"},
-	"GET /api/v1/admin/invitations": {"state", "cursor", "limit"},
+	"GET /api/v1/admin/users":               {"q", "role", "status", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/invitations":         {"state", "cursor", "limit"},
 }
 
 func reviewBulkQueryParameterNames(method, path string) []string {
@@ -621,10 +592,6 @@ func queryParameterNames(request *http.Request) []string {
 	}
 	if names := exactQueryAllowlists[request.Method+" "+path]; names != nil {
 		return names
-	}
-	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/arcade-dats/") &&
-		strings.HasSuffix(path, "/diff") {
-		return []string{"section", "change", "cursor", "limit"}
 	}
 	if request.Method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/users/") &&
 		strings.HasSuffix(path, "/password-reset-links") {
@@ -739,6 +706,7 @@ AND NOT EXISTS(SELECT 1
 FROM dat_versions d
 WHERE d.core_artifact_id=a.id
 AND d.is_active=1
+AND d.source='BUILTIN'
 AND d.parse_status='READY')
 `).
 		Scan(&missing)
@@ -760,6 +728,7 @@ AND NOT EXISTS(SELECT 1
 FROM dat_versions active
 WHERE active.core_artifact_id=a.id
 AND active.is_active=1
+AND active.source='BUILTIN'
 AND active.parse_status='READY')
 AND EXISTS(SELECT 1
 FROM dat_versions failed
@@ -3667,126 +3636,6 @@ JOIN cores c ON c.id=pi.default_core_id
 			"importCapabilities": contentcapability.Resolve(
 				platformID, enabled == 1, server.config.MultiDiscImportEnabled, compatibility,
 			),
-		})
-	}
-	if err := rows.Err(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": nil})
-}
-
-//nolint:funlen // DAT status and parse statistics are projected together as one versioned administrative resource.
-func (server *Server) arcadeDATs(writer http.ResponseWriter, request *http.Request) {
-	values := request.URL.Query()
-	conditions := []string{"1=1"}
-	arguments := make([]any, 0, 5)
-	if value := strings.TrimSpace(values.Get("q")); value != "" {
-		conditions = append(conditions, "(instr(lower(c.name),lower(?))>0 OR instr(lower(d.core_id),lower(?))>0)")
-		arguments = append(arguments, value, value)
-	}
-	filters := map[string]string{
-		"coreId": "d.core_id", "coreArtifactId": "d.core_artifact_id",
-		"source": "d.source", "parseStatus": "d.parse_status",
-	}
-	for name, column := range filters {
-		if value := values.Get(name); value != "" {
-			conditions = append(conditions, column+"=?")
-			arguments = append(arguments, value)
-		}
-	}
-	query := queryWithConditions(
-		`
-SELECT d.id,
-d.core_id,
-c.name,
-d.core_artifact_id,
-d.source,
-d.compatibility_status,
-d.parse_status,
-d.is_active,
-d.machine_count,
-d.rom_entry_count,
-d.disk_entry_count,
-d.bios_set_count,
-d.version,
-d.updated_at_ms,
-j.id,
-j.state,
-j.version,
-s.id,
-s.state,
-s.error_code,
-s.version
-FROM dat_versions d
-JOIN cores c ON c.id=d.core_id
-LEFT JOIN dat_import_jobs dj ON dj.dat_version_id=d.id
-LEFT JOIN jobs j ON j.id=dj.job_id
-LEFT JOIN dat_diff_snapshots s ON s.dat_version_id=d.id
-`,
-		conditions,
-		` ORDER BY c.name,d.created_at_ms DESC,d.id LIMIT 100`,
-	)
-	rows, err := server.database.QueryContext(request.Context(), query, arguments...)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]map[string]any, 0)
-	for rows.Next() {
-		var id, coreID, coreName, artifactID, source, compatibility, status string
-		var active int
-		var machineCount, romCount, diskCount, biosCount sql.NullInt64
-		var version, updatedAtMS int64
-		var jobID, jobState sql.NullString
-		var jobVersion sql.NullInt64
-		var diffJobID, diffState, diffError sql.NullString
-		var diffVersion sql.NullInt64
-		if err := rows.Scan(
-			&id,
-			&coreID,
-			&coreName,
-			&artifactID,
-			&source,
-			&compatibility,
-			&status,
-			&active,
-			&machineCount,
-			&romCount,
-			&diskCount,
-			&biosCount,
-			&version,
-			&updatedAtMS,
-			&jobID,
-			&jobState,
-			&jobVersion,
-			&diffJobID,
-			&diffState,
-			&diffError,
-			&diffVersion,
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		projectedDiffState := "NOT_RUN"
-		switch {
-		case active == 1:
-			projectedDiffState = "NOT_APPLICABLE"
-		case status != "READY":
-			projectedDiffState = "NOT_READY"
-		case diffState.Valid:
-			projectedDiffState = diffState.String
-		}
-		items = append(items, map[string]any{
-			"id": id, "coreId": coreID, "coreName": coreName, "coreArtifactId": artifactID, "source": source,
-			"compatibilityStatus": compatibility, "parseStatus": status, "active": active == 1,
-			"machineCount": nullableInteger(machineCount), "romEntryCount": nullableInteger(romCount),
-			"diskEntryCount": nullableInteger(diskCount), "biosSetCount": nullableInteger(biosCount),
-			"version": version, "updatedAtMs": updatedAtMS, "jobId": nullableString(jobID),
-			"jobState": nullableString(jobState), "jobVersion": nullableInteger(jobVersion),
-			"diffJobId": nullableString(diffJobID), "diffStatus": projectedDiffState,
-			"diffErrorCode": nullableString(diffError), "diffVersion": nullableInteger(diffVersion),
 		})
 	}
 	if err := rows.Err(); err != nil {

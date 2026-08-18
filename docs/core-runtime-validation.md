@@ -11,8 +11,8 @@
 | 核心/能力 | 实际入口 | 本机资源 | 覆盖边界 |
 | --- | --- | --- | --- |
 | `mgba` | `make web-e2e`、`ACC-RUN-002` | `testdata/public-roms/gba-smoke/gba-smoke.gba`；项目自有 MIT 夹具，size/SHA-256 与生成一致性由消费者锁定 | 真实 Retrom 服务、导入/发布数据、Launch、受限内容端点、Player 与 Chrome |
-| `mame2003` | `make web-e2e`、`ACC-RUN-006` | `testdata/public-roms/arcade-smoke/`；项目自有 MIT 的 Z80 程序、图形/声音资源、测试 BIOS 角色归档和小型 DAT | 真实 DAT 上传/解析/启用、Split Child/Parent/BIOS 识别、导入/审核/发布、首次启动重验证、三路受限内容交付、Player、Chrome 动画帧与运行遥测；测试 BIOS 不被 Pac-Man 驱动执行，因此不证明核心内部 BIOS 执行语义 |
-| `fbneo` | `make web-e2e`、`ACC-RUN-007` | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 MIT 的 Z80 程序、生成图形/PROM、测试 BIOS 角色归档和 Logiqx DAT；生成器将其控制的 4 bytes 校正到锁定驱动所需 CRC32，完整 bytes 另由 SHA-1/SHA-256 固定 | 真实 DAT 上传/解析/启用、Split Child/Parent/BIOS 识别、导入/审核/发布、首次启动重验证、三路受限内容交付、Player、Chrome 动画帧与运行遥测；测试 BIOS 不被 Pac-Man 驱动执行，且本行只证明单机路径，不证明双浏览器联机 |
+| `mame2003` | `make web-e2e`、`ACC-RUN-006` | `testdata/public-roms/arcade-smoke/`；项目自有 MIT 的 Z80 程序、图形/声音资源、小型 MAME XML 和测试 BIOS 角色归档 | `ACC-DAT-004` 独立证明 release 真实 DAT 的物化/选版；产品 E2E 将项目自有小型 DAT 通过测试装置登记为 test-only `BUILTIN`（无上传/API），再覆盖 Split Child/Parent/BIOS 识别、审核与发布 schema v2、详情页同一 DatVersion、首次启动重验证仍保持 v2、schema v2 current revision 直接 Launch、三路受限内容、Player、Chrome 动画帧与运行遥测；测试 BIOS 不被 Pac-Man 驱动执行，不证明核心内部 BIOS 执行语义 |
+| `fbneo` | `make web-e2e`、`ACC-RUN-007` | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 MIT 的 Z80 程序、生成图形/PROM、Logiqx DAT 和测试 BIOS；生成器将其控制的 4 bytes 校正到锁定驱动所需 CRC32，完整 bytes 另由 SHA-1/SHA-256 固定 | `ACC-DAT-004` 独立证明 release 真实 DAT 的物化/选版；产品 E2E 将项目自有小型 DAT 通过测试装置登记为 test-only `BUILTIN`（无上传/API），再覆盖 Split Child/Parent/BIOS 识别、审核与发布 schema v2、详情页同一 DatVersion、首次启动重验证仍保持 v2、schema v2 current revision 直接 Launch、三路受限内容、Player、Chrome 动画帧与运行遥测；测试 BIOS 不被 Pac-Man 驱动执行，且只证明单机路径，不证明双浏览器联机 |
 | Saturn 多盘 | `ACC-MDISC-001`–`008` | 普通测试使用确定性临时夹具 | 产品 parser、导入、发布、Launch 内容协议、Player adapter 换盘与存档恢复；当前不包含真实 ROM 的浏览器运行 |
 
 其余 enabled core（包括 FCEUmm 与 FBA2012）目前只有 manifest/schema、依赖物化、adapter 配置、协议或相邻纯逻辑测试，尚没有走完整 Retrom 产品链路的真实浏览器 E2E。发布或依赖升级不能把这些结构检查解释为“核心已实际启动”。新增覆盖时应扩展 `make web-e2e` 或对应产品 E2E，并使用项目自有或有明确再分发许可、可确定性生成且能够提交的测试程序。FBNeo 虽已有单机产品 E2E，但仍没有双浏览器联机运行基线。

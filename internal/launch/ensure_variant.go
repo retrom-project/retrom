@@ -272,6 +272,48 @@ func (service *Service) currentValidationEvidence(
 	return digest, hex.EncodeToString(biosDigest[:]), biosSnapshot, biosStatus, biosCode, nil
 }
 
+type arcadeSnapshotIdentity struct {
+	SchemaVersion int    `json:"schemaVersion"`
+	Machine       string `json:"machine"`
+	DATVersionID  string `json:"datVersionId"`
+}
+
+func validateLockedArcadeSnapshot(raw, contentLogicalName, datID string) error {
+	var identity arcadeSnapshotIdentity
+	if err := json.Unmarshal([]byte(raw), &identity); err != nil {
+		return corevalidation.ErrInvalidSnapshot
+	}
+	machine := strings.TrimSuffix(filepath.Base(contentLogicalName), filepath.Ext(contentLogicalName))
+	if identity.SchemaVersion != 2 || identity.Machine != machine || identity.DATVersionID != datID {
+		return corevalidation.ErrInvalidSnapshot
+	}
+	if _, err := corevalidation.ParseRuntimeBIOSDependencies(raw); err != nil {
+		return fmt.Errorf("parse Arcade runtime dependency snapshot: %w", err)
+	}
+	return nil
+}
+
+func (service *Service) lockedArcadeDependencySnapshot(
+	ctx context.Context,
+	variantID, contentID, contentLogicalName, datID string,
+) (string, error) {
+	var raw string
+	if err := service.database.QueryRowContext(ctx, `
+SELECT revision.dependency_snapshot_json
+FROM game_variants variant
+JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
+WHERE variant.id=?
+AND revision.game_content_revision_id=?
+AND revision.dat_version_id=?
+`, variantID, contentID, datID).Scan(&raw); err != nil {
+		return "", fmt.Errorf("load locked Arcade dependency snapshot: %w", err)
+	}
+	if err := validateLockedArcadeSnapshot(raw, contentLogicalName, datID); err != nil {
+		return "", fmt.Errorf("validate locked Arcade dependency snapshot: %w", err)
+	}
+	return raw, nil
+}
+
 //nolint:funlen,gocyclo,nestif // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) ensureVariant(
 	ctx context.Context,
@@ -854,6 +896,15 @@ WHERE r.id=?
 	if err != nil {
 		return
 	}
+	dependencySnapshotJSON := string(biosSnapshotJSON)
+	if datID.Valid {
+		dependencySnapshotJSON, err = service.lockedArcadeDependencySnapshot(
+			ctx, variantID, contentID, contentLogicalName, datID.String,
+		)
+		if err != nil {
+			return
+		}
+	}
 	status, code := service.validateContentForArtifact(ctx, contentID, artifactID, datID)
 	if biosStatus != "READY" {
 		status, code = biosStatus, biosCode
@@ -931,7 +982,7 @@ created_at_ms) VALUES(?,
 		emulatorGameID,
 		status,
 		code,
-		string(biosSnapshotJSON),
+		dependencySnapshotJSON,
 		nullableSQL(defaultDOSEntry),
 		service.now().UnixMilli(),
 	); err != nil {

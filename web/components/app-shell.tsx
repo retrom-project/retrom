@@ -29,15 +29,12 @@ const adminNavigation: NavItem[] = [
   { href: "/admin/tags", label: "标签管理", icon: "list" },
   { href: "/admin/platform-instances", label: "游戏目录", icon: "list" },
   { href: "/admin/users", label: "用户管理", icon: "settings" },
-  { href: "/admin/bios", label: "运行依赖", icon: "chip", exact: true },
-  { href: "/admin/bios", label: "BIOS 文件", icon: "chip", exact: true, child: true },
-  { href: "/admin/bios/dats", label: "街机数据目录", icon: "database", child: true }
+  { href: "/admin/bios", label: "运行依赖", icon: "chip", exact: true }
 ];
 
 function navState(item: NavItem, pathname: string): "active" | "context" | "" {
   if (item.href === "/admin/imports" && pathname !== item.href &&
     (pathname.startsWith("/admin/imports") || pathname.startsWith("/admin/reviews"))) return "context";
-  if (item.href === "/admin/bios" && item.label === "运行依赖" && pathname.startsWith("/admin/bios")) return "context";
   if (item.exact) return pathname === item.href ? "active" : "";
   return pathname === item.href || pathname.startsWith(`${item.href}/`) ? "active" : "";
 }
@@ -123,8 +120,7 @@ function pageTitle(pathname: string) {
   if (pathname === "/admin/tags") return "标签管理";
   if (pathname === "/admin/platform-instances") return "游戏目录";
   if (pathname === "/admin/users") return "用户管理";
-  if (pathname === "/admin/bios/dats") return "街机数据目录";
-  if (pathname === "/admin/bios") return "BIOS 文件";
+  if (pathname === "/admin/bios") return "运行依赖";
   return "Retrom";
 }
 

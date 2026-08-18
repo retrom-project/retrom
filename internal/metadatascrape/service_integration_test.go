@@ -578,10 +578,6 @@ func TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dummyID, err := blobstore.EnsureRecord(ctx, database.SQL, dummy, "application/xml", time.Now().UnixMilli())
-	if err != nil {
-		t.Fatal(err)
-	}
 	var artifactID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT id
@@ -605,7 +601,7 @@ INSERT INTO dat_versions(id,
 core_id,
 core_artifact_id,
 source,
-blob_id,
+builtin_relative_path,
 sha256,
 parser_version,
 compatibility_status,
@@ -626,8 +622,8 @@ parsed_at_ms,
 activated_at_ms) VALUES(?,
 'fbneo',
 ?,
-'USER',
-?,
+'BUILTIN',
+'testdata/arcade-evidence.dat',
 ?,
 'test',
 'MATCHED',
@@ -646,7 +642,7 @@ activated_at_ms) VALUES(?,
 ?,
 ?,
 ?)
-`, datID, artifactID, dummyID, dummy.SHA256, now, now, now, now); err != nil {
+`, datID, artifactID, dummy.SHA256, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `

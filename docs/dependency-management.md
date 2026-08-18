@@ -121,7 +121,7 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 4. 打开数据库并执行 migration；
 5. 在一个短事务中 upsert 全部已配置版本的 CoreArtifact 与版本化静态 BIOS Requirement；逐 core 将 enabled artifact 切到配置顺序中最后一个声明它的 manifest，再按 `core_artifact_id + dat_sha256 + parser_version` 创建或复用实际存在的内置 DatVersion。部分 runtime overlay 可以不含 DAT/其他 core，不能因此删除基础版本 seed；
 6. 建立 allowlist 静态路由，启动 HTTP 与 worker。`/health/live` 此时可返回 200；只要当前 enabled Arcade CoreArtifact 还没有 `READY` 的 active DatVersion，`/health/ready` 就返回 `503 DEPENDENCY_INDEXING`，除 health 外的全部路由统一返回错误 envelope `503 SERVICE_NOT_READY`；
-7. Worker 在事务外通过受限 streaming parser 读取 DAT，以数据模型规定的短事务批次写入“尚未发布”的索引行；成功后以一个短事务把 DatVersion 转为 `READY`、发布这些行的可见性，并且仅在该 CoreArtifact 此刻仍无 active DatVersion 时激活此内置版本、物化 Requirement 和写 AuditEvent。管理员已经激活的用户 DAT 永远不会被启动任务覆盖。所有当前 enabled Arcade artifact 都有 `READY` active DatVersion 后，ready 才转为 200；非 Arcade 静态 BIOS seed 不依赖 DAT 解析。
+7. Worker 在事务外通过受限 streaming parser 读取 DAT，以数据模型规定的短事务批次写入“尚未发布”的索引行；成功后以一个短事务把 DatVersion 转为 `READY`、发布这些行的可见性。启动引导随后校验 manifest 为该 CoreArtifact 选定的精确 DatVersion，停用同 artifact 的其他 BUILTIN 版本、激活目标、物化 Requirement 并写 AuditEvent；选版变化同时递增 CoreArtifact version。所有当前 enabled Arcade artifact 都有 manifest 指定的 `READY` active DatVersion 后，ready 才转为 200；非 Arcade 静态 BIOS seed 不依赖 DAT 解析。
 
 步骤 1–5 属于同步启动校验，受 `RETROM_STARTUP_CHECK_TIMEOUT` 约束（默认 60 秒）；后台 DAT_PARSE 的 30 分钟 execution deadline 由通用 Job 契约单独约束，不能塞进这 60 秒，也不能持有长数据库事务。进程在解析期间保持 live，重启后按 lease/Job 规则恢复同一任务。当前 enabled artifact 所需的内置解析若确定性失败，则 DatVersion/Job 为 `FAILED`，进程保持 live、ready 固定为 `503 DEPENDENCY_DAT_PARSE_FAILED`，其他路由继续由 readiness gate 阻断；相同 DAT/parser 的重启不得自动抹掉失败证据，修复必须发布新的 parser version（产生新 DatVersion/Job）或按通用规则对 retryable execution 显式重试。未启用版本的预解析失败可记录诊断但不阻断当前 ready。
 
@@ -143,13 +143,13 @@ dependencyVersions 必须等于规范化后的 `RETROM_DEPENDENCY_VERSIONS`、�
 
 ## 6. 升级与许可门禁
 
-升级 EmulatorJS/core/DAT 必须作为独立变更：新增 manifest 版本目录，记录上游证据和 digest，重新物化与统计，并先新增/登记该精确版本的 Player adapter（即使代码与旧 adapter 相同也不能走默认分支）；再把新版本追加到 `RETROM_DEPENDENCY_VERSIONS` 并逐核心执行兼容、存档和 Arcade 依赖验收，最后切换 `RETROM_ACTIVE_EMULATORJS_VERSION`。`data-check` 必须在任何一个镜像 build 前证明 manifest/registry 对齐，两个镜像作为同一个项目版本部署。进程在 migration 后用短事务切换每个 core 的 enabled artifact；新 artifact 的内置 DAT 仍按第 4 节先解析为 READY，只有该 artifact 没有 active DAT 时才能激活，切换期间 readiness gate 阻止业务请求。旧 artifact 自己的 active DAT 和全部历史引用不变。回滚只切回旧 enabled artifact 并复用该 artifact 原有 READY active DAT，不修改历史 revision。旧版本只有在数据库已无 SaveState、PersistentSave、GameVariantRevision 或其他保护引用且有审计记录后，才可从后续镜像、adapter registry 和版本列表一并移除。不得只改版本字符串、覆盖目录、激活 PENDING DAT 或沿用旧 DAT。
+升级 EmulatorJS/core/DAT 必须作为独立变更：新增 manifest 版本目录，记录上游证据和 digest，重新物化与统计，并先新增/登记该精确版本的 Player adapter（即使代码与旧 adapter 相同也不能走默认分支）；再把新版本追加到 `RETROM_DEPENDENCY_VERSIONS` 并逐核心执行兼容、存档和 Arcade 依赖验收，最后切换 `RETROM_ACTIVE_EMULATORJS_VERSION`。`data-check` 必须在任何一个镜像 build 前证明 manifest/registry 对齐，两个镜像作为同一个项目版本部署。进程在 migration 后用短事务切换每个 core 的 enabled artifact；新 artifact 的内置 DAT 仍按第 4 节先解析为 READY，再由启动引导把 manifest 指定版本设为 active，切换期间 readiness gate 阻止业务请求。旧 artifact 自己的 DatVersion 和全部历史引用不变。release 回退只切回旧 enabled artifact，并由同一引导恢复该 artifact manifest 指定的 READY active DAT，不修改历史 revision。旧版本只有在数据库已无 SaveState、PersistentSave、GameVariantRevision 或其他保护引用且有审计记录后，才可从后续镜像、adapter registry 和版本列表一并移除。不得只改版本字符串、覆盖目录、激活 PENDING DAT 或沿用错误 DAT。
 
 EmulatorJS 与各 libretro core 的许可证不同。manifest schema V5 的 `license_materialization.entries` 是唯一许可输入清单：entry 以 `component_id` 显式关联 artifact，不能依赖数组位置；EmulatorJS 的文本来自已校验 release entry，各 core 使用官方 `cores.json` 声明的 license path，并从记录的固定 commit 下载。PPSSPP auxiliary asset 归属同一个 `ppsspp` component，不另造许可 component。`binary_association_status` 必须如实区分 `EXACT_RELEASE`、运行时日志给出的 `EMBEDDED_GIT_VERSION` 和仅按官方 build timestamp 推断的 `INFERRED_FROM_OFFICIAL_BUILD_TIMESTAMP`；后两者绝不能在 notice 中统一写成“已证明可复现源码”。
 
 `THIRD_PARTY_NOTICES` 的生成算法固定为 `notice_format_version=1`：按 `notice_order`，为每项写 ASCII 分隔头、component ID、repository 的 `/tree/<source_commit>` URL、association status、declared license path，然后逐字节附加已校验许可文件；若源 bytes 最后不是 LF，只在分隔项之间追加一个 LF。禁止写生成时间、宿主路径或浮动 URL，因而相同 manifest/payload 必须产生相同 notice bytes。`deps-check` 重新生成到临时文件并逐字节比较；最终镜像同时保留 notice 和各原始许可文件。
 
-默认镜像构建只面向本项目的私有自托管使用，不等于授予镜像再分发权。manifest 已把 Snes9x、FBNeo、MAME 2003 与 MAME 2003 Plus 标记为受限制组件；构建 target 可以完成本地镜像，但任何 registry push、公开发布、商业分发或第三方镜像交付都必须经过独立人工许可审查，并补足适用的源码提供/通知义务。Retrom 的 Make targets 本来就不执行 push；tag 发布 workflow 不设置二次人工审批，也不重复 PR quality，维护者创建并推送 tag 即确认质量门禁与上述义务已在发布前满足；随后流程只在双镜像构建及 release-input label 校验完成后使用 secret 自动登录并 push。ROM、BIOS 和用户 DAT 永不随镜像分发。
+默认镜像构建只面向本项目的私有自托管使用，不等于授予镜像再分发权。manifest 已把 Snes9x、FBNeo、MAME 2003 与 MAME 2003 Plus 标记为受限制组件；构建 target 可以完成本地镜像，但任何 registry push、公开发布、商业分发或第三方镜像交付都必须经过独立人工许可审查，并补足适用的源码提供/通知义务。Retrom 的 Make targets 本来就不执行 push；tag 发布 workflow 不设置二次人工审批，也不重复 PR quality，维护者创建并推送 tag 即确认质量门禁与上述义务已在发布前满足；随后流程只在双镜像构建及 release-input label 校验完成后使用 secret 自动登录并 push。ROM、BIOS 永不随镜像分发；Arcade DAT 只有在其 manifest 许可允许且通过发布审查时才进入镜像 allowlist。
 
 ## 7. 统一验收入口
 

@@ -61,7 +61,7 @@ VALUES(?,'BLOB','migration-037','QUEUED','{}',1)
 SELECT (SELECT max(version) FROM schema_migrations),
        (SELECT count(*) FROM jobs WHERE id=?),
        (SELECT count(*) FROM job_events WHERE job_id=?)
-`, jobID, jobID).Scan(&version, &jobs, &events); err != nil || version != 37 || jobs != 1 || events != 1 {
+`, jobID, jobID).Scan(&version, &jobs, &events); err != nil || version != 38 || jobs != 1 || events != 1 {
 		t.Fatalf("upgrade = version:%d jobs:%d events:%d error:%v", version, jobs, events, err)
 	}
 	for _, name := range []string{

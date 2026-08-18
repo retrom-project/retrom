@@ -189,7 +189,7 @@ SELECT (SELECT max(version) FROM schema_migrations),
 `).Scan(&version, &userCount, &idempotencyCount); err != nil {
 		t.Fatal(err)
 	}
-	if version != 37 || userCount != 2 || idempotencyCount != 1 {
+	if version != 38 || userCount != 2 || idempotencyCount != 1 {
 		t.Fatalf("upgrade values = version:%d users:%d idempotency:%d", version, userCount, idempotencyCount)
 	}
 }

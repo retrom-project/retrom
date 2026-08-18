@@ -96,7 +96,7 @@ func TestParseRuntimeBIOSDependenciesAcceptsStaticAndArcadeSnapshots(t *testing.
 		t.Fatalf("ParseRuntimeBIOSDependencies(static) = %#v, error=%v", dependencies, err)
 	}
 
-	arcade := `{"schemaVersion":2,"machine":"nbbatman","datVersionId":"dat-version","closure":[],"dependencies":[],"missingEntries":["missing.rom"],"mismatchedEntries":[],"warnings":[]}`
+	arcade := `{"schemaVersion":2,"machine":"nbbatman","datVersionId":"dat-version","closure":[],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"deco32","state":"SATISFIED_EXTERNAL","requiredEntries":["mb7124h.16r"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`
 	dependencies, err = ParseRuntimeBIOSDependencies(arcade)
 	if err != nil || len(dependencies) != 0 {
 		t.Fatalf("ParseRuntimeBIOSDependencies(arcade) = %#v, error=%v", dependencies, err)

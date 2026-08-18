@@ -101,12 +101,12 @@ make acceptance-report
 | 入库数据 | 小规模的 queued/running/review-pending/failed Item 与 approve/discard ReviewEvent，供总览、任务、待审核和历史页面使用 |
 | Hasheous stub | 命中、未命中、429、超时、500、401 和畸形响应七种固定路由，不要求凭证 |
 | 公开 mGBA ROM | `testdata/public-roms/gba-smoke/gba-smoke.gba`；项目自有源码生成，MIT 许可，生成器与消费者锁定 size/SHA-256/bytes |
-| 公开 MAME 2003 split set | `testdata/public-roms/arcade-smoke/`；项目自有 Z80 程序、生成资源、测试 BIOS 角色归档和小型 DAT，MIT 许可；生成器与消费者锁定 archive、entry、size、CRC32、SHA-1 和 SHA-256 |
-| 公开 FBNeo split set | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 Z80 程序、生成图形/PROM、测试 BIOS 角色归档和 Logiqx DAT，MIT 许可；driver CRC32 由生成器对其控制的 4 bytes 做确定性校正，完整 bytes 由 SHA-1/SHA-256 锁定 |
+| 公开 MAME 2003 split set | `testdata/public-roms/arcade-smoke/`；项目自有 Z80 程序、生成资源、小型 DAT 与测试 BIOS，MIT 许可；生成器与消费者锁定 Child/Parent/BIOS archive、entry、size、CRC32、SHA-1 和 SHA-256；DAT 只由 acceptance-only 装置登记为 test-only BUILTIN，不经 HTTP 上传 |
+| 公开 FBNeo split set | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 Z80 程序、生成图形/PROM、Logiqx DAT 与测试 BIOS，MIT 许可；driver CRC32 由生成器对其控制的 4 bytes 做确定性校正，完整 bytes 由 SHA-1/SHA-256 锁定；DAT 只由 acceptance-only 装置登记为 test-only BUILTIN，不经 HTTP 上传 |
 | 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-v1` 与 `fbneo-423-v1` 的 EmulatorJS/core artifact/adapter 边界来自 `data/netplay/v1/manifest.json`；当前只维护 manifest、协议、安全、feature flag 与单机回归种子，不维护真实双端 ROM fixture |
 | 游戏替换 revision | 基于测试内生成的确定性 ZIP 重打包：entry 字节不变，ZIP 时间固定且 comment 为 `retrom-acceptance-revision-2`；原始 Blob SHA-256 必须变化，提取内容 hash 必须不变 |
 | 媒体 | Hasheous stub 提供一张固定字节的小型合法 PNG，SHA-256 写入 seed manifest |
-| 用户 DAT 候选 | 将 `make prepare-deps` 物化的真实 `data/dat/emulatorjs/4.2.3/fbneo/fbneo-arcade.dat` 逐字节作为用户上传输入；允许 CAS 去重，但 DatVersion/安装记录必须独立 |
+| Production 内置 Arcade DAT | `make prepare-deps` 按 manifest 物化并逐字节校验真实 MAME 2003/FBNeo DAT，供 `ACC-DAT-001/002/004`；产品 ROM smoke 使用上一行项目自有 test-only BUILTIN，不上传替代 DAT，也不把两类证据混为一谈 |
 | 非法 BIOS | 临时目录内生成内容为 `retrom-invalid-bios\n`、逻辑文件名为 `gba_bios.bin` 的文件 |
 | 数据库 | 空库及每个受支持 migration 起始版本各一份最小确定性 fixture |
 | 安全夹具 | 小型 path traversal、绝对路径、symlink、超压缩比和 XXE 文件；不得真实展开超大内容 |
@@ -644,29 +644,29 @@ make acceptance-case CASE=<case-id>
 - 通过标准：API 页长精确为 100/100/86，ID 无重复遗漏且末页 cursor 为 null；每页 `summary/filteredCount` 恒为 286。UI 依次显示 100/286、200/286、全部 286；失败不清空旧页、重试 cursor 不变、终点不再请求，纯键盘可完成且页面无横向溢出。
 - 证据：三页 request/response 摘要、唯一 ID 数、失败/重试 URL、最终 DOM 行数和截图。
 
-### ACC-DAT-003：用户 DAT 候选不自动生效
+### ACC-DAT-003：内置-only 迁移与写入边界
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-DAT-003`。
-- 流程：把固定 seed 中真实的 `fbneo-arcade.dat` 作为用户文件上传给 `fbneo`；观察解析完成后自动进入异步差异队列，在任务完成前尝试 GET/启用，完成后查看 diff 但不点击启用；随后删除这个未活动、无业务引用的用户候选。
-- 通过标准：即使底层 Blob 因相同 SHA-256 去重，也创建来源、上传时刻和状态独立的 DatVersion；解析完成自动显示排队/比对状态，按钮禁用，GET 返回 `DAT_DIFF_NOT_READY` 且请求不执行 DAT 全量扫描；READY 后兼容状态和空 diff 可见。当前活动 DAT、已有 VariantRevision 诊断与启动结果完全不变；候选可删除但共享 Blob 和预置 DatVersion 不受影响。
-- 证据：上传前后 active ID、diff、删除响应、Blob 引用和旧快照 hash。
+- 流程：从 migration 037 fixture 创建一个排队中的 USER DatVersion/`DAT_PARSE`、一个活动 USER DatVersion 和候选差异记录，再升级到 038；随后尝试修改历史 USER 行以及插入新的 USER DatVersion。
+- 通过标准：非终态 USER 解析 Job 与 DatVersion 以 `USER_DAT_RETIRED` 收口，所有 USER 版本 inactive，`dat_import_jobs/dat_diff_snapshots/dat_diff_items` 已删除；历史 DatVersion 保留以维持外键，但不可修改，新 USER 写入被 trigger 拒绝；数据库通过 foreign-key/integrity 检查。
+- 证据：聚焦 migration 测试输出、升级后状态、表集合与两项拒绝写入。
 
-### ACC-DAT-004：启用、重校验与回滚
+### ACC-DAT-004：release manifest 选版与 active 修复
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-DAT-004`。
-- 流程：在本 Case 内按 `ACC-DAT-003` 的固定输入重新创建独立候选，等待差异 READY 后显式启用并等待有界重校验任务完成；查看同一 CoreArtifact 的其他历史/候选差异状态；为目标重新生成差异后回滚到预置 installation。
-- 通过标准：不依赖 `ACC-DAT-003` 遗留状态；启用有影响预览和审计；同 artifact 的其他 materialized diff 原子转为 STALE 且明细删除，页面只提供异步“重新生成差异”，旧 impact digest 不能提交；相同内容允许生成 no-op 重校验，但不得静默改写历史快照；回滚恢复活动 DatVersion，新旧版本均可追溯且被引用版本不可删除。
-- 证据：两个 active version 事件、重校验结果和快照引用。
+- 流程：物化固定 dependency manifest；先让同一 CoreArtifact 的另一 BUILTIN DatVersion 处于 active，再执行 `BootstrapCatalogs`，并重复执行验证幂等性。
+- 通过标准：引导只选择 manifest 中路径/SHA-256 精确匹配的 BUILTIN DatVersion；旧 active 被停用、CoreArtifact version 递增，目标完成解析后成为唯一 READY active，Requirement 全部指向目标；重复引导不增加 DatVersion/Job，也不再次增加 artifact version。
+- 证据：聚焦 dependency integration 测试输出、前后 active ID/version、Requirement sourceVersion 与行数。
 
 ### ACC-DAT-005：恶意/错误 DAT 拒绝
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DAT-005`。
-- 流程：提交 XXE/参数实体、畸形或超限 DOCTYPE/XML、声明 core 不匹配和关系循环夹具；夹具全部小于 1 MiB。
-- 通过标准：XXE/超限/畸形输入在安全解析阶段拒绝且无外连；结构/core family 明确不匹配为 `INCOMPATIBLE` 且不可通过确认启用；结构可解析但无法证明 artifact 兼容的版本为 `UNKNOWN`，只有带影响 digest 和 `confirmUnknownCompatibility=true` 的显式激活才能转为 `USER_CONFIRMED`，否则拒绝；循环输出稳定诊断，不造成递归崩溃或污染活动版本。
-- 证据：错误码、无外连日志和 active version 不变证明。
+- 流程：直接向受限 production DAT parser 提交带安全 DOCTYPE、XXE/参数实体、畸形或超限 XML 和关系循环夹具；夹具全部小于 1 MiB，不经过已移除的上传 HTTP 路由。
+- 通过标准：安全 DOCTYPE 可解析但不解析实体；XXE/参数实体、超限与畸形输入在安全解析阶段拒绝且无外连；循环输出稳定诊断，不造成递归崩溃。任何失败都不能发布 READY/active DatVersion。
+- 证据：聚焦 parser 测试、错误码、无外连和无状态发布证明。
 
 ### ACC-DAT-006：版本升级证据审计（条件 Case）
 
@@ -674,7 +674,7 @@ make acceptance-case CASE=<case-id>
 - 条件：EmulatorJS、任一 core artifact 或预置 DAT 相比上一已接受版本发生变化；否则为 `NOT_APPLICABLE`。
 - 执行：`make acceptance-case CASE=ACC-DAT-006`。
 - 流程：检查新版本目录、发布物 digest、core source 证据、DAT 同提交/生成证据、parser stats、关系完整性、manifest Player adapter 描述/前端 registry/实现一一对应，以及受影响产品集成、`make web-e2e` 和存档兼容结果；先放入未登记 adapter 的小型 manifest 夹具验证 `data-check` 和 Player config guard 失败，再登记并把新版本追加到配置列表但不切 active，创建一份锁定旧 artifact 的存档，再切 active 并分别普通启动、从旧存档启动，最后切回旧 active。
-- 通过标准：不覆盖旧版本；`UNIQUE(emulatorjs_version, relative_path)` 允许版本间同路径而不碰撞，静态路由只暴露每份 manifest allowlist。未登记/版本不符 adapter 使 `data-check` 失败，浏览器 guard 以 `PLAYER_ADAPTER_UNSUPPORTED` 在 loader 前拒绝且不套用 v4.2.3 默认；全部证据和适用 Case 已通过后才能启用。config 中 `emulatorjsVersion/playerAdapterId/runtimeBaseUrl/loaderUrl/path override` 始终来自锁定 artifact 的精确 manifest；切换后普通启动使用新 enabled artifact，旧存档仍从旧版本 URL 和对应 adapter 加载锁定 artifact，回滚恢复旧 enabled artifact/DAT 且不改历史 revision。仍有保护引用的旧版本不可从配置列表、adapter registry 或镜像移除；缺任一证据即失败。
+- 通过标准：不覆盖旧版本；`UNIQUE(emulatorjs_version, relative_path)` 允许版本间同路径而不碰撞，静态路由只暴露每份 manifest allowlist。未登记/版本不符 adapter 使 `data-check` 失败，浏览器 guard 以 `PLAYER_ADAPTER_UNSUPPORTED` 在 loader 前拒绝且不套用 v4.2.3 默认；全部证据和适用 Case 已通过后才能启用。config 中 `emulatorjsVersion/playerAdapterId/runtimeBaseUrl/loaderUrl/path override` 始终来自锁定 artifact 的精确 manifest；切换后普通启动使用新 enabled artifact 与其 manifest 固定 DAT，旧存档仍从旧版本 URL 和对应 adapter 加载锁定 artifact，release 回退恢复旧 enabled artifact 及其 manifest DAT 且不改历史 revision。仍有保护引用的旧版本不可从配置列表、adapter registry 或镜像移除；缺任一证据即失败。
 - 证据：升级 manifest、受影响产品测试与未覆盖核心清单、切换/回滚记录。
 
 ## 12. Pegasus 服务器目录导入与视频媒体
@@ -769,21 +769,21 @@ make acceptance-case CASE=<case-id>
 - 通过标准：重校验不要求不存在的 CONTENT 行，保留相同 ContentRevision 的 bundle/default entry 并在有界时间进入终态；安装/配置工具只降权不消失；有界 BAT 分析把“交互配置器 → 实际 EXE”的末端程序提升为目录与 ZIP 的默认入口，使第 5 秒截图来自游戏启动序列而不是配置器/模拟器菜单，同时没有已知交互辅助程序的 BAT 维持原排序，所有候选和原 bytes 均保留。直接启动锁定原 bundle Blob、Blob 数不增加，响应 ZIP 的首项是受控 `AUTOBOOT.DBP`，程序菜单首项是受控 `DOSBOX.BAT`，其余原成员压缩 bytes/顺序不变，源包同名保留文件都无法覆盖或劫持选择；标准 UTF-8 与旧式 GB18030 中文目录都按导入时的规范路径命中精确成员。后者在虚拟 ZIP 中把所选入口的高位 byte 路径组件确定性映射为同目录无碰撞的 ASCII 名称，所有共享该目录前缀的 local/central name 与后续 local offset 一致更新，`AUTOBOOT.DBP` 直接运行映射后的 ASCII 8.3 路径；原 Blob、成员内容和数据库记录均不改写。config 的 `externalFiles/defaultCoreOptions` 不含 DOS 启动补丁，4.3 adapter 在 start 前对锁定的 7z/ZIP Worker 执行与 4.2.3 同样精确且 fail-closed 的无 `eval` 转换，在不含 `unsafe-eval` 的生产 CSP 下把完整 ZIP 交给 core，安全路径进入所选程序画面。程序菜单通过 `Z:\PUREMENU` 进入 core 菜单。只有成功创建 Launch 后才按游戏记住入口或菜单，失败不改偏好，存档恢复不改偏好；缺失/不安全 entry 仍分别稳定阻断且不猜替代程序。
 - 证据：完整程序列表与排序、launch/config payload、原 Blob/引用计数、三种 game 响应、虚拟 ZIP central directory/引导 bytes、运行画面、浏览器偏好和错误响应；另以 `RETROM_DOS_CORPUS=<合法本地目录> go test ./internal/libraryimport -run TestLocalDOSCorpusCompatibility -count=1 -v` 验证多游戏结构矩阵。
 
-### ACC-RUN-006：公开 Arcade Split、Parent 与 BIOS 产品链路
+### ACC-RUN-006：MAME 2003 test-only 内置 DAT、Split、Parent 与 BIOS 产品链路
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-006`。
-- 流程：校验并上传 `testdata/public-roms/arcade-smoke/` 中项目自有的小型 DAT、`pacman.zip` Child、`puckman.zip` Parent 与 `retrombios.zip` 测试 BIOS；启用 DAT、安装 DAT_MACHINE BIOS、导入 Child/Parent、审核发布并触发首次启动重验证。读取 Launch config 与三路受限内容，随后由 Chrome 通过 Retrom Player 启动 MAME 2003。
-- 通过标准：DAT machine/entry/cloneof/romof 与 archive entry 的 name、size、CRC32、SHA-1 均与生成源一致；发布与重验证后仍锁定同一 ContentRevision、DAT、Parent 和 BIOS，config 精确选择 `mame2003`、`ejs-4.2.3-v2` 与 4.2.1 data override。游戏、Parent 和 BIOS 端点交付的 bytes 与仓库 fixture 精确相同；Player 无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0。测试 BIOS 只证明 Retrom 的 DAT 依赖解析、安装、快照、bundle 与交付，不得据此声称 Pac-Man 驱动执行了该 BIOS。
-- 证据：fixture 校验结果、DAT/import/review/launch ID、三路 bundle 比对、Playwright trace、动画帧/遥测断言与运行截图。
+- 流程：先确认 `ACC-DAT-004` 已独立验证 production manifest 的 MAME 2003 DAT；本 Case 在临时验收数据库中由 acceptance-only Go 装置把项目自有 `mame2003-smoke.xml` 登记为 test-only `BUILTIN/READY`，不调用任何 DAT HTTP/UI 路由。分别通过真实 BIOS installation 与普通 Import 上传 `retrombios.zip`、`pacman.zip` Child、`puckman.zip` Parent，核对审核 schema v2 依赖快照、审核发布、读取详情页并触发首次启动重验证。再从同次实际导入形成的 Content、DatVersion、Parent 与 BIOS 不可变证据复现 screenshot-approved 的 schema v2 current revision，不经首次重验证从详情页直接 Launch。读取两条 Launch config 与受限内容，随后由 Chrome 通过 Retrom Player 启动 MAME 2003。
+- 通过标准：test-only active DatVersion 为 `BUILTIN/READY` 且与小型 DAT SHA-256 一致，但不得被解释为 production manifest 基线；其 `pacman`、`cloneof=puckman`、`romof=retrombios` 与三份 archive entry 的 name、size、CRC32、SHA-1 和 fixture bytes 一致。审核及发布 current revision 的依赖证据锁定同一 DatVersion 的 Arcade schema v2，包含 `PARENT puckman` 与 `BIOS_OR_BASE retrombios` 两个 `SATISFIED_EXTERNAL`，不能出现普通 BIOS schema v1 的 `bios` 字段；详情页在首次启动重验证前后都投影同一 DatVersion/READY/schema v2。正常发布、首次重验证与直接 Launch 都保留同一 ContentRevision、DatVersion、Parent 和 BIOS；config `parentUrl/biosUrl` 均非空，并保留 `REVIEW_SCREENSHOT_OVERRIDE` 诊断。config 精确选择 `mame2003`、`ejs-4.2.3-v2` 与 4.2.1 data override；游戏、Parent 和 BIOS 端点 bytes 与 fixture 精确相同。Player 无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0。测试 BIOS 不被目标驱动执行。
+- 证据：fixture/production manifest 分层校验、test-only DatVersion/import/review/launch ID、三路内容比对、Playwright trace、动画帧/遥测断言与运行截图。
 
-### ACC-RUN-007：公开 FBNeo Split、Parent 与 BIOS 单机产品链路
+### ACC-RUN-007：FBNeo test-only 内置 DAT、Split、Parent 与 BIOS 单机产品链路
 
 - 上限：300 秒。
 - 执行：`make acceptance-case CASE=ACC-RUN-007`。
-- 流程：校验并上传 `testdata/public-roms/arcade-smoke/fbneo/` 中项目自有的 Logiqx DAT、`pacman.zip` Child、`puckman.zip` Parent 与 `retrombios.zip` 测试 BIOS；启用 FBNeo DAT、安装 DAT_MACHINE BIOS、导入 Child/Parent、审核发布并触发首次启动重验证。读取 Launch config 与三路受限内容，随后由单个 Chrome 页面通过 Retrom Player 启动 FinalBurn Neo。
-- 通过标准：DAT machine/entry/cloneof/romof 与 archive entry 的 name、size、FBNeo 锁定驱动 CRC32、SHA-1 均与生成源一致；发布与重验证后仍锁定同一 ContentRevision、DAT、Parent 和 BIOS，config 精确选择 `fbneo`、`ejs-4.2.3-v2` 与锁定 4.2.3 core artifact。游戏、Parent 和 BIOS 端点交付的 bytes 与仓库 fixture 精确相同；Player 无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0。测试 BIOS 只证明 Retrom 的 DAT 依赖解析、安装、快照、bundle 与交付，不证明 Pac-Man 驱动执行该 BIOS；本 Case 不创建联机房间、不验证双浏览器 confirmed frame、lockstep 或 digest 收敛。
-- 证据：fixture 校验结果、DAT/import/review/launch ID、三路 bundle 比对、Playwright trace、动画帧/遥测断言与运行截图。
+- 流程：先确认 `ACC-DAT-004` 已独立验证 production manifest 的 FBNeo DAT；本 Case 在临时验收数据库中由 acceptance-only Go 装置把项目自有 `fbneo-smoke.dat` 登记为 test-only `BUILTIN/READY`，不调用任何 DAT HTTP/UI 路由。分别通过真实 BIOS installation 与普通 Import 上传 `retrombios.zip`、`pacman.zip` Child、`puckman.zip` Parent，核对审核 schema v2 依赖快照、审核发布、读取详情页并触发首次启动重验证。再从同次实际导入形成的 Content、DatVersion、Parent 与 BIOS 不可变证据复现 screenshot-approved 的 schema v2 current revision，不经首次重验证从详情页直接 Launch。读取两条 Launch config 与受限内容，随后由单个 Chrome 页面通过 Retrom Player 启动 FinalBurn Neo。
+- 通过标准：test-only active DatVersion 为 `BUILTIN/READY` 且与小型 DAT SHA-256 一致，但不得被解释为 production manifest 基线；其 `pacman`、`cloneof=puckman`、`romof=retrombios` 与三份 archive entry 的 name、size、FBNeo 锁定驱动 CRC32 和 fixture bytes 一致。审核及发布 current revision 的依赖证据锁定同一 DatVersion 的 Arcade schema v2，包含 `PARENT puckman` 与 `BIOS_OR_BASE retrombios` 两个 `SATISFIED_EXTERNAL`，不能出现普通 BIOS schema v1 的 `bios` 字段；详情页在首次启动重验证前后都投影同一 DatVersion/READY/schema v2。正常发布、首次重验证与直接 Launch 都保留同一 ContentRevision、DatVersion、Parent 和 BIOS；config `parentUrl/biosUrl` 均非空，并保留 `REVIEW_SCREENSHOT_OVERRIDE` 诊断。config 精确选择 `fbneo`、`ejs-4.2.3-v2` 与锁定 4.2.3 core artifact；游戏、Parent 和 BIOS 端点 bytes 与 fixture 精确相同。Player 无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0；测试 BIOS 不被目标驱动执行，本 Case 不创建联机房间、不验证双浏览器 confirmed frame、lockstep 或 digest 收敛。
+- 证据：fixture/production manifest 分层校验、test-only DatVersion/import/review/launch ID、三路内容比对、Playwright trace、动画帧/遥测断言与运行截图。
 
 ### ACC-SAVE-001：手动状态存档与截图
 
@@ -869,8 +869,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-006`。
-- 流程：在 `1280×800`、`2560×1440` 与 `3840×2160` 三个 viewport 打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理、`/admin/bios` 和 `/admin/bios/dats`。
-- 通过标准：表格/卡片密度可读，筛选和主操作可达；子菜单缩进清晰；所有列出的管理页面在同一 viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560/3840 下历史 diff、任务阶段、BIOS hash 和 DAT 版本不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。游戏目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个 viewport 均可达；封面容器保持 3:4 并在 3840px 双栏布局中等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
+- 流程：在 `1280×800`、`2560×1440` 与 `3840×2160` 三个 viewport 打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理和 `/admin/bios`；另断言已移除的 `/admin/bios/dats` 返回 404。
+- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面在同一 viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560/3840 下历史 diff、任务阶段和 BIOS hash 不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备。游戏目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个 viewport 均可达；封面容器保持 3:4 并在 3840px 双栏布局中等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
 - 证据：布局断言和每类页面当前截图。
 
 ### ACC-UI-007：键盘、标签与减少动画
@@ -1096,7 +1096,7 @@ make acceptance-case CASE=<case-id>
 ### ACC-MOB-004：管理完整流程
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-004`。
-- 流程：ADMIN 在 `390×844` 完成导入配置、任务恢复、待审核筛选与详情四步锚点、一次逐项决定、用户全屏 Drawer 和 DAT 版本比较；USER 直达同一路由一次。
+- 流程：ADMIN 在 `390×844` 完成导入配置、任务恢复、待审核筛选与详情四步锚点、一次逐项决定、用户全屏 Drawer 和 BIOS 条目对比；USER 直达同一路由一次，并确认已移除的 DAT 管理路由返回 404。
 - 通过标准：每个桌面表格行在手机有同字段/状态/主操作的卡片投影；来源、运行检查、发布内容、审核决定顺序与 Tab 顺序一致；autosave、ETag、阻断截图放行和逐项决策没有弱化；Drawer/确认可关闭并恢复焦点，USER 仍为应用级 403。
 - 证据：Chrome trace、API/ETag 记录、四步/卡片语义断言、axe 和页面截图。
 

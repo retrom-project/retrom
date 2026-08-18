@@ -89,39 +89,10 @@ done
 python3 "$fixture_builder_root/build.py" --check
 printf 'arcade_flow=fixtures_verified\n'
 
-dat_list="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/arcade-dats?coreId=$core_id")"
-core_artifact_id="$(jq -er '.items[] | select(.active == true) | .coreArtifactId' <<<"$dat_list")"
 core_artifacts="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/core-artifacts")"
-core_artifact_version="$(jq -er --arg id "$core_artifact_id" '.items[] | select(.id == $id) | .version' <<<"$core_artifacts")"
-printf 'arcade_flow=artifact_resolved\n'
-
-upload_files dat "$fixture_root/$dat_filename"
-dat_upload_file_id="$(jq -r '.files[0].fileId' "$evidence/dat-result.json")"
-dat_created="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg uploadFileId "$dat_upload_file_id" --arg coreArtifactId "$core_artifact_id" '{uploadFileId:$uploadFileId,coreArtifactId:$coreArtifactId}')" "$backend/api/v1/admin/arcade-dats")"
-dat_version_id="$(jq -r .datVersionId <<<"$dat_created")"
-printf 'arcade_flow=dat_uploaded\n'
-
-diff_status="NOT_READY"
-for _ in $(seq 1 400); do
-  dat_list="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/arcade-dats?coreArtifactId=$core_artifact_id")"
-  diff_status="$(jq -r --arg id "$dat_version_id" '.items[] | select(.id == $id) | .diffStatus' <<<"$dat_list")"
-  parse_status="$(jq -r --arg id "$dat_version_id" '.items[] | select(.id == $id) | .parseStatus' <<<"$dat_list")"
-  [[ "$parse_status" == "FAILED" || "$diff_status" == "FAILED" ]] && { jq . <<<"$dat_list" >&2; exit 1; }
-  [[ "$parse_status" == "READY" && "$diff_status" == "READY" ]] && break
-  sleep 0.1
-done
-[[ "$diff_status" == "READY" ]]
-printf 'arcade_flow=dat_diff_ready\n'
-
-diff="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/arcade-dats/$dat_version_id/diff?limit=1")"
-impact_digest="$(jq -r .impactDigest <<<"$diff")"
-activated="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "If-Match: \"v$core_artifact_version\"" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg digest "$impact_digest" '{impactDigest:$digest,confirmBlocked:false,confirmUnknownCompatibility:true}')" "$backend/api/v1/admin/arcade-dats/$dat_version_id/activate")"
-[[ "$(jq -r .active <<<"$activated")" == "true" ]]
-printf 'arcade_flow=dat_activated\n'
-
-upload_files arcade "$fixture_root/pacman.zip" "$fixture_root/puckman.zip" "$fixture_root/retrombios.zip"
-arcade_upload_id="$(jq -r .uploadId "$evidence/arcade-result.json")"
-bios_upload_file_id="$(jq -r '.files[2].fileId' "$evidence/arcade-result.json")"
+core_artifact_id="$(jq -er --arg coreId "$core_id" '.items[] | select(.coreId == $coreId and .enabled == true) | .id' <<<"$core_artifacts")"
+upload_files bios "$fixture_root/retrombios.zip"
+bios_upload_file_id="$(jq -r '.files[0].fileId' "$evidence/bios-result.json")"
 bios_catalog="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/bios?scope=FULL_CATALOG&coreArtifactId=$core_artifact_id&q=retrombios.zip")"
 bios_requirement_id="$(jq -er '.items[] | select(.logicalName == "retrombios.zip") | .id' <<<"$bios_catalog")"
 bios_requirement_version="$(jq -er '.items[] | select(.logicalName == "retrombios.zip") | .version' <<<"$bios_catalog")"
@@ -129,6 +100,9 @@ bios_installation="$(curl --fail --silent --show-error "${common[@]}" "${write[@
 printf '%s\n' "$bios_installation" >"$evidence/bios-installation.json"
 [[ "$(jq -r .status <<<"$bios_installation")" == "MATCHED" ]]
 printf 'arcade_flow=bios_installed\n'
+
+upload_files arcade "$fixture_root/pacman.zip" "$fixture_root/puckman.zip"
+arcade_upload_id="$(jq -r .uploadId "$evidence/arcade-result.json")"
 platform_instances="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/platform-instances")"
 printf '%s\n' "$platform_instances" >"$evidence/platform-instances.json"
 platform_instance_id="$(jq -er --arg coreId "$core_id" '.items[] | select(.defaultCoreId == $coreId) | .id' <<<"$platform_instances")"
@@ -148,14 +122,70 @@ done
 [[ -n "$item_id" ]]
 [[ "$(jq -r '.items | length' <<<"$reviews")" == "1" ]]
 [[ "$(jq -r '.items[0].validationStatus' <<<"$reviews")" == "READY" ]]
+review_detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews/$item_id")"
+printf '%s\n' "$review_detail" >"$evidence/review-detail.json"
+dat_version_id="$(jq -er '.validation.dependencySnapshot.datVersionId' <<<"$review_detail")"
+jq -e --arg datVersionId "$dat_version_id" '
+  .validation
+  | select(.status == "READY" and .current == true)
+  | .dependencySnapshot
+  | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
+  | [.dependencies[] | select(.kind == "PARENT" and .machine == "puckman" and .state == "SATISFIED_EXTERNAL")]
+  | select(length == 1)
+' <<<"$review_detail" >/dev/null
+jq -e --arg datVersionId "$dat_version_id" '
+  .validation.dependencySnapshot
+  | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
+  | [.dependencies[] | select(.kind == "BIOS_OR_BASE" and .machine == "retrombios" and .state == "SATISFIED_EXTERNAL")]
+  | select(length == 1)
+' <<<"$review_detail" >/dev/null
 printf 'arcade_flow=review_ready\n'
 approved="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -X POST -H 'Content-Type: application/json' -H 'If-Match: "v1"' -H "Idempotency-Key: $(new_id)" -d '{"reason":null}' "$backend/api/v1/admin/reviews/$item_id/approve")"
 printf '%s\n' "$approved" >"$evidence/approved.json"
 game_id="$(jq -r .gameId <<<"$approved")"
 printf 'arcade_flow=review_approved\n'
 
+assert_game_detail_uses_arcade_snapshot() {
+  local response_name="$1"
+  local snapshot_family="$2"
+  local game_detail admin_game
+  game_detail="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/games/$game_id")"
+  printf '%s\n' "$game_detail" >"$evidence/$response_name-game-detail.json"
+  jq -e --arg coreId "$core_id" --arg datVersionId "$dat_version_id" '.coreOptions[] | select(.coreId == $coreId and .status == "READY" and .datVersionId == $datVersionId)' <<<"$game_detail" >/dev/null
+  admin_game="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/games/$game_id")"
+  printf '%s\n' "$admin_game" >"$evidence/$response_name-admin-game.json"
+  if [[ "$snapshot_family" == "ARCADE_V2" ]]; then
+    jq -e --arg coreId "$core_id" --arg datVersionId "$dat_version_id" '
+      .variants[]
+      | select(.coreId == $coreId)
+      | .currentRevisionId as $current
+      | .revisions[]
+      | select(.id == $current and .status == "READY" and .datVersionId == $datVersionId)
+      | .dependencySnapshot
+      | select(.schemaVersion == 2 and .datVersionId == $datVersionId and (has("bios") | not))
+      | ([.dependencies[] | select(.kind == "PARENT" and .machine == "puckman" and .state == "SATISFIED_EXTERNAL")] | length == 1)
+        and ([.dependencies[] | select(.kind == "BIOS_OR_BASE" and .machine == "retrombios" and .state == "SATISFIED_EXTERNAL")] | length == 1)
+    ' <<<"$admin_game" >/dev/null
+    return
+  fi
+  jq -e --arg coreId "$core_id" --arg datVersionId "$dat_version_id" '
+    .variants[]
+    | select(.coreId == $coreId)
+    | .currentRevisionId as $current
+    | .revisions[]
+    | select(.id == $current and .status == "READY" and .datVersionId == $datVersionId)
+    | .dependencySnapshot
+    | select(.schemaVersion == 1)
+    | select(.schemaVersion == 1 and ((.bios // []) | length) == 0)
+  ' <<<"$admin_game" >/dev/null
+}
+
+assert_game_detail_uses_arcade_snapshot before-launch ARCADE_V2
+printf 'arcade_flow=game_detail_uses_arcade_schema_v2\n'
+
 launch_body="$(jq -nc --arg game "$game_id" --arg coreId "$core_id" '{gameId:$game,coreId:$coreId,saveStateId:null,dosEntry:null,returnTo:("/games/"+$game),clientCapabilities:{secureContext:true,crossOriginIsolated:true,sharedArrayBuffer:true}}')"
 launch="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$launch_body" "$backend/api/v1/launches")"
+initial_launch_status="$(jq -r '.status // "READY"' <<<"$launch")"
 if [[ "$(jq -r .status <<<"$launch")" == "VALIDATION_PENDING" ]]; then
   validation_job_id="$(jq -r .jobId <<<"$launch")"
   validation_state="QUEUED"
@@ -173,6 +203,7 @@ printf '%s\n' "$launch" >"$evidence/launch.json"
 launch_id="$(jq -r .launchId <<<"$launch")"
 [[ -n "$launch_id" && "$launch_id" != "null" ]]
 printf 'arcade_flow=launch_created\n'
+assert_game_detail_uses_arcade_snapshot after-launch ARCADE_V2
 configuration="$(curl --fail --silent --show-error -b "$evidence/cookies" "$backend/runtime/launches/$launch_id/config")"
 printf '%s\n' "$configuration" >"$evidence/configuration.json"
 printf 'arcade_flow=config_loaded\n'
@@ -190,7 +221,8 @@ unzip -p "$evidence/parent-bundle.zip" puckman.zip | cmp "$fixture_root/puckman.
 unzip -p "$evidence/bios-bundle.zip" retrombios.zip | cmp "$fixture_root/retrombios.zip" -
 
 jq -n \
-  --arg status "PASSED" --arg coreId "$core_id" --arg datVersionId "$dat_version_id" --arg importJobId "$import_id" \
+  --arg status "PASSED" --arg coreId "$core_id" --arg initialLaunchStatus "$initial_launch_status" \
+  --arg datVersionId "$dat_version_id" --arg importJobId "$import_id" \
   --arg gameId "$game_id" --arg launchId "$launch_id" --arg evidenceDirectory "$evidence" \
-  '{status:$status,coreId:$coreId,datVersionId:$datVersionId,importJobId:$importJobId,gameId:$gameId,launchId:$launchId,evidenceDirectory:$evidenceDirectory}' \
+  '{status:$status,coreId:$coreId,reviewDependencySnapshotSchemaVersion:2,initialLaunchStatus:$initialLaunchStatus,datVersionId:$datVersionId,importJobId:$importJobId,gameId:$gameId,launchId:$launchId,evidenceDirectory:$evidenceDirectory}' \
   | tee "$evidence/result.json"

@@ -64,9 +64,6 @@ const captures = [
   ["retrom-ui-admin-invitation-result.png", "admin-users", 2560, 1440, "invitation-result"],
   ["retrom-ui-bios-files.png", "admin-bios", 2560, 1440],
   ["retrom-ui-bios-entry-compare.png", "admin-bios", 2560, 1440, "bios-entries"],
-  ["retrom-ui-dat-versions.png", "admin-bios", 2560, 1440, "dats"],
-  ["retrom-ui-dat-upload.png", "admin-bios", 2560, 1440, "dat-drawer"],
-  ["retrom-ui-dat-diff.png", "admin-bios", 2560, 1440, "dat-diff"],
   ["retrom-ui-home-mobile.png", "home", 390, 844],
   ["retrom-ui-library-mobile.png", "library", 390, 844],
   ["retrom-ui-game-detail-mobile.png", "detail", 390, 844],
@@ -143,10 +140,7 @@ try {
       : `[data-page="${view}"]`;
     await frame.locator(viewSelector).waitFor({ state: "visible" });
     await frame.locator(".rt-review-scenes").evaluate((element) => { element.hidden = true; });
-    if (["dats", "dat-drawer", "dat-diff"].includes(variant)) await frame.locator('[data-bios-view="dats"]').first().click();
     if (variant === "bios-entries") await frame.locator("[data-open-bios-entries]").click();
-    if (variant === "dat-drawer") await frame.locator("[data-open-runtime-drawer]").click();
-    if (variant === "dat-diff") await frame.locator("[data-open-runtime-diff]").first().click();
     if (variant === "server-import-drawer") await frame.locator("[data-open-server-import-drawer]").click();
     if (variant === "pegasus-import-drawer") await frame.locator("[data-open-pegasus-drawer]").click();
     if (variant === "drawer") await frame.locator("[data-open-platform-drawer]").click();

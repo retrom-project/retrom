@@ -1287,10 +1287,6 @@ SELECT id FROM core_artifacts WHERE core_id='fbneo' AND enabled=1
 	if err != nil {
 		t.Fatal(err)
 	}
-	dummyID, err := blobstore.EnsureRecord(ctx, database.SQL, dummy, "application/xml", now)
-	if err != nil {
-		t.Fatal(err)
-	}
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE dat_versions SET is_active=0,version=version+1,updated_at_ms=?
 WHERE core_artifact_id=? AND is_active=1
@@ -1299,12 +1295,12 @@ WHERE core_artifact_id=? AND is_active=1
 	}
 	const datID = "01990000-0000-7000-8000-000000000201"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,source,blob_id,sha256,parser_version,
+INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,
 compatibility_status,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
 bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
 unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'fbneo',?,'USER',?,?,'test','MATCHED','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
-`, datID, artifactID, dummyID, dummy.SHA256, now, now, now, now); err != nil {
+VALUES(?,'fbneo',?,'BUILTIN','testdata/installed-bios.dat',?,'test','MATCHED','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
+`, datID, artifactID, dummy.SHA256, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -1568,10 +1564,6 @@ func TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	dummyID, err := blobstore.EnsureRecord(ctx, database.SQL, dummy, "application/xml", time.Now().UnixMilli())
-	if err != nil {
-		t.Fatal(err)
-	}
 	var artifactID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT id
@@ -1587,7 +1579,7 @@ INSERT INTO dat_versions(id,
 core_id,
 core_artifact_id,
 source,
-blob_id,
+builtin_relative_path,
 sha256,
 parser_version,
 compatibility_status,
@@ -1607,8 +1599,8 @@ updated_at_ms,
 parsed_at_ms) VALUES(?,
 'fbneo',
 ?,
-'USER',
-?,
+'BUILTIN',
+'testdata/grouping.dat',
 ?,
 'test',
 'MATCHED',
@@ -1629,7 +1621,6 @@ parsed_at_ms) VALUES(?,
 `,
 		datID,
 		artifactID,
-		dummyID,
 		dummy.SHA256,
 		time.Now().UnixMilli(),
 		time.Now().UnixMilli(),

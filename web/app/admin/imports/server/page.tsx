@@ -20,7 +20,7 @@ export default async function ServerImportsPage({ searchParams }: { searchParams
     loadActiveTags(),
   ]);
   return <div className="page-layout page-layout-admin">
-    <PageHeader eyebrow="服务器导入" title="从服务器目录导入" description="从部署管理员明确允许的只读位置异步发现内容，支持 BIOS 与 Pegasus ROM 目录。" actions={<><ButtonLink href="/admin/bios" secondary>BIOS 文件</ButtonLink><ButtonLink href="/admin/bios/dats" secondary>街机数据目录</ButtonLink></>} />
+    <PageHeader eyebrow="服务器导入" title="从服务器目录导入" description="从部署管理员明确允许的只读位置异步发现内容，支持 BIOS 与 Pegasus ROM 目录。" actions={<ButtonLink href="/admin/bios" secondary>BIOS 文件</ButtonLink>} />
     <ServerImportManager initialRoots={roots.items} initialImports={imports} initialPegasusImports={pegasusImports} platformInstances={platformInstances.items} activeTags={activeTags} initialOpen={values.action === "bios"} initialPegasusOpen={values.action === "pegasus"} initialCatalogSummary={{ totalCount: bios.summary.totalCount, attentionCount: bios.summary.attentionCount }} />
   </div>;
 }

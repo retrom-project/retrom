@@ -35,7 +35,7 @@
 
 ## 2. 产品定位与一期范围
 
-Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。用户从 Chrome 的手机、平板或桌面视口浏览已发布游戏、选择存档快速继续；同一站点还提供游戏导入、审核、游戏目录、BIOS/DAT 和游戏维护能力。普通页面在 `320px` 起提供完整响应式操作，移动 Player 仅在横屏稳定后才装载游戏运行时。
+Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。用户从 Chrome 的手机、平板或桌面视口浏览已发布游戏、选择存档快速继续；同一站点还提供游戏导入、审核、游戏目录、BIOS 和游戏维护能力，Arcade DAT 随 release 自动管理。普通页面在 `320px` 起提供完整响应式操作，移动 Player 仅在横屏稳定后才装载游戏运行时。
 
 一期目标：
 
@@ -45,7 +45,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 支持文件和目录导入、SHA-256 去重、元信息刮削、人工审核、发布与审核回溯。
 - 使用 Hasheous 的免登录哈希查询作为一期元信息候选源；不集成 ScreenScraper。
 - 使用与具体 EmulatorJS/core artifact 绑定的 DAT 识别 Arcade machine、parent ROM 和 BIOS 依赖；DAT 不承担元信息刮削。
-- 支持游戏元信息、文件 revision、游戏目录、BIOS 和用户 DAT 的管理。
+- 支持游戏元信息、文件 revision、游戏目录和 BIOS 管理；Arcade DAT 只使用 core release 固定的内置版本。
 - 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
 - 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
 - 可选启用两人异地联机房间；首发开放 manifest 精确锁定的 EmulatorJS 4.2.3 FCEUmm/FBNeo core profile，覆盖其全部合格 READY 游戏，使用服务端中继输入的 rollback，不传输画面或音频。
@@ -97,7 +97,7 @@ flowchart LR
 - DAT 只负责 ROM entry、machine、clone/parent、BIOS 依赖及核心兼容性诊断。
 - Hasheous 只根据内容哈希提供标题、厂商、描述、封面等展示元信息候选。
 - 两者独立保存原始证据、版本和审核结果；一方未命中不能覆盖另一方的结论。
-- 系统预置并锁定真实 DAT；管理员也可针对某核心上传 DAT，解析并预览差异后显式启用或回滚。
+- 每个 DAT-capable core 只使用随其 release artifact 在依赖 manifest 中固定的真实 DAT；管理员和普通用户都不能上传、切换或回滚 DAT。DatVersion 仍作为审核、内容 revision 与 Launch 的不可变证据身份保留。
 
 ### 3.3 时间统一为整数时间戳
 
@@ -287,7 +287,7 @@ erDiagram
 - 游戏管理
 - 游戏目录
 - 用户管理
-- BIOS 管理（包含“BIOS 文件”和“Arcade DAT 版本”视图）
+- 运行依赖（BIOS 文件；Arcade DAT 由 release 自动管理）
 
 “游戏入库”是可点击的父级总览；五个子项使用明确缩进并保持同级，其中“本地扫描”位于“导入游戏”之后、“任务进度”之前并进入服务器 BIOS 导入能力。进入子页时父项保留上下文高亮，当前子项使用强高亮。游戏详情不是左侧一级菜单。它只能从游戏库卡片、首页最近游戏或资源详情链接进入；进入时左侧仍保持“游戏库”上下文。存档的主按钮直接启动，标题/次要操作才进入游戏详情。
 
@@ -307,7 +307,7 @@ erDiagram
 | 游戏管理 / 详情 | `/admin/games`、`/admin/games/:gameId` |
 | 游戏目录 | `/admin/platform-instances` |
 | 用户管理 | `/admin/users` |
-| BIOS 与 DAT | `/admin/bios`、`/admin/bios/dats` |
+| 运行依赖 | `/admin/bios` |
 
 完整页面状态、4K 密度和响应式上限见 [UI 与交互规范](./ui-specification.md)。
 
@@ -355,7 +355,7 @@ flowchart LR
 - 真实 Arcade DAT 在开发、验收和镜像构建前物化到 `data/dat/emulatorjs/4.2.3/`；Git 只保存机器可读 manifest、`SHA256SUMS` 与物化脚本，不提交 50+ MiB payload。同步启动阶段只校验本地依赖并登记解析任务，Worker 可建立数据库索引，但任何启动阶段都不联网下载。
 - SQLite schema 中业务时刻全部为 Unix 毫秒 `INTEGER`；禁止后续 migration 引入 TEXT 时刻字段。
 - 用户上传内容、下载媒体、存档和截图进入运行时 CAS，不提交到代码仓库。
-- 预置 DAT 不可变；用户 DAT 作为新的非活动 DatVersion 保存，经过解析、差异预览和显式启用后才影响新诊断。
+- 预置 DAT 不可变且是唯一可创建、激活的 DatVersion 来源；release manifest 变化时先撤销旧选择并保持服务 not ready，待新版本索引成功后由启动引导原子激活。历史 DatVersion 只为旧 revision/Launch 提供可追溯引用。
 - DAT 更新不静默改写已发布 GameVariant 的历史兼容性快照；重校验产生新结果并可追踪来源。
 - 联机 allowlist 是独立于普通兼容性的收紧层；只有 READY revision 使用 exact manifest core profile 的游戏可进入房间选择，但同一 profile 不再逐 ROM 限制名称、大小或 hash。
 
@@ -383,8 +383,8 @@ Phase 0 未通过时，不进入大规模业务实现。
 ### Phase 2：导入与管理
 
 - 文件/目录导入、任务恢复、Hasheous 适配器、DAT 解析和审核历史。
-- 游戏目录、游戏 revision、BIOS 和用户 DAT 管理。
-- DAT 差异预览、启用、回滚和批量重校验。
+- 游戏目录、游戏 revision 与 BIOS 管理。
+- 内置 DAT 索引、release 版本切换和受影响 Variant 的可观察重校验。
 
 ### Phase 3：用户侧与运行时
 

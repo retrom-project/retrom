@@ -6,6 +6,7 @@ import (
 	"context"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
 	"time"
 
@@ -94,5 +95,58 @@ AND core_id IN ('fbalpha2012_cps1','fbalpha2012_cps2')
 	}
 	if err := set.BootstrapCatalogs(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatalf("idempotent bootstrap: %v", err)
+	}
+	var artifactID, selectedDATID string
+	var artifactVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT a.id,a.version,d.id
+FROM core_artifacts a
+JOIN dat_versions d ON d.core_artifact_id=a.id AND d.source='BUILTIN' AND d.is_active=1
+WHERE a.core_id='fbneo' AND a.enabled=1
+`).Scan(&artifactID, &artifactVersion, &selectedDATID); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `UPDATE dat_versions SET is_active=0 WHERE id=?`, selectedDATID); err != nil {
+		t.Fatal(err)
+	}
+	const supersededID = "01990000-0000-7000-8000-000000000038"
+	if _, err := database.SQL.ExecContext(ctx, `
+INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,
+compatibility_status,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
+default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
+version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
+VALUES(?,'fbneo',?,'BUILTIN','legacy/fbneo.dat',?,'legacy-parser','MATCHED','READY',1,
+0,0,0,0,0,0,0,0,1,1,1,1,1)
+`, supersededID, artifactID, strings.Repeat("e", 64)); err != nil {
+		t.Fatal(err)
+	}
+	selectionTime := time.Now().Add(time.Second)
+	if err := set.Bootstrap(ctx, database.SQL, selectionTime); err != nil {
+		t.Fatal(err)
+	}
+	var activeAfterSelection, supersededActive int
+	var advancedVersion int64
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT (SELECT count(*) FROM dat_versions WHERE core_artifact_id=? AND is_active=1),
+       (SELECT is_active FROM dat_versions WHERE id=?),
+       (SELECT version FROM core_artifacts WHERE id=?)
+`, artifactID, supersededID, artifactID).Scan(&activeAfterSelection, &supersededActive, &advancedVersion); err != nil {
+		t.Fatal(err)
+	}
+	if activeAfterSelection != 0 || supersededActive != 0 || advancedVersion != artifactVersion+1 {
+		t.Fatalf("manifest selection = active:%d superseded:%d artifactVersion:%d", activeAfterSelection, supersededActive, advancedVersion)
+	}
+	if err := set.BootstrapCatalogs(ctx, database.SQL, selectionTime); err != nil {
+		t.Fatal(err)
+	}
+	var selectedActive, selectedRequirements int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT (SELECT is_active FROM dat_versions WHERE id=?),
+       (SELECT count(*) FROM bios_requirements WHERE core_artifact_id=? AND source_kind='DAT_MACHINE' AND enabled=1 AND source_version=?)
+`, selectedDATID, artifactID, selectedDATID).Scan(&selectedActive, &selectedRequirements); err != nil {
+		t.Fatal(err)
+	}
+	if selectedActive != 1 || selectedRequirements == 0 {
+		t.Fatalf("selected built-in DAT = active:%d requirements:%d", selectedActive, selectedRequirements)
 	}
 }
