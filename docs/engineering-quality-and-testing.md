@@ -356,7 +356,7 @@ make web-e2e
 - 解析器可以使用小型、可读、带来源说明的确定性片段覆盖边界和畸形输入。
 - Arcade 兼容性结论必须另有针对 `make prepare-deps` 物化到 `data/dat/` 的完整、真实、版本锁定 DAT 的集成校验；小片段不能替代真实基线，payload 也不能因此提交 Git。
 - 负向安全测试可以构造恶意 ZIP/XML/路径，因为它们用于验证拒绝行为，不能被描述为真实游戏数据。
-- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；`testdata/public-roms/gba-smoke/` 证明 mGBA 产品链路，`testdata/public-roms/arcade-smoke/` 分别证明 MAME 2003 与 FBNeo 的 Split Child/Parent/BIOS、审核、发布、详情、Launch、三路受限内容和单机帧执行。真实 release DAT 的物化、解析和精确 active 选择由 `ACC-DAT-004` 使用 production manifest 独立证明；Arcade 产品 Case 的项目自有小型 DAT 由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不得经过或重新引入 DAT 上传 API，也不得冒充 production baseline。Case 必须显式核对审核与发布 revision 使用 schema v2 的 `PARENT` 与 `BIOS_OR_BASE`，详情页与 Launch 锁定同一 DatVersion，首次重验证及 screenshot-approved schema v2 current revision 都不能误走静态 BIOS schema v1 parser；config 的 `parentUrl/biosUrl` 均必须存在且 bytes 冻结一致。该构造只复现持久化状态，不代替前置真实导入。测试 BIOS 不被目标驱动执行，不能外推为核心内部 BIOS 执行覆盖；FBNeo 单机 Case 也不能替代双浏览器联机验证。
+- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；`testdata/public-roms/gba-smoke/` 的两个不同内容身份分别证明普通上传和 Pegasus 目录扫描、映射、审核发布、Launch、内容端点与 mGBA 帧执行，`testdata/public-roms/arcade-smoke/` 分别证明 MAME 2003 与 FBNeo 的 Split Child/Parent/BIOS、审核、发布、详情、Launch、三路受限内容和单机帧执行。真实 release DAT 的物化、解析和精确 active 选择由 `ACC-DAT-004` 使用 production manifest 独立证明；Arcade 产品 Case 的项目自有小型 DAT 由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不得经过或重新引入 DAT 上传 API，也不得冒充 production baseline。Case 必须显式核对审核与发布 revision 使用 schema v2 的 `PARENT` 与 `BIOS_OR_BASE`，详情页与 Launch 锁定同一 DatVersion，首次重验证及 screenshot-approved schema v2 current revision 都不能误走静态 BIOS schema v1 parser；config 的 `parentUrl/biosUrl` 均必须存在且 bytes 冻结一致。该构造只复现持久化状态，不代替前置真实导入。测试 BIOS 不被目标驱动执行，不能外推为核心内部 BIOS 执行覆盖；FBNeo 单机 Case 也不能替代双浏览器联机验证。
 
 ## 10. 后续实施清单
 
@@ -442,10 +442,11 @@ make web-e2e
 - 审核/发布/重复：单文件和多盘沿用既有 library import/validation/review/publish 事务；Worker 完成后只产生 `REVIEW_PENDING` 且零 Game，READY 与 blocker 都可在统一队列处理；初始 Arcade Validation 会采用导入前已经安装且匹配当前 CoreArtifact 的 DAT BIOS，生成 `SATISFIED_EXTERNAL` 依赖与 `BIOS_BUNDLE` 文件，真正仍缺 Parent/内容的条目继续阻断。Approve/Discard 原子推进普通与 Pegasus 两组状态/计数，来源 COVER/VIDEO 正确保留，用户封面选择优先。快速审批覆盖完整筛选枚举、preview/create digest 漂移、严格 READY 与截图 override 分界、duplicate/Attachment 排除、逐项原子记账、取消竞争、重启恢复、restore fence、worker-only retry、10,000/10,001 上限和两个并发创建；另以真实 Arcade dependency snapshot schema v2 覆盖预览 candidate 与最终发布，证明它走 Arcade DAT closure/required-entry/ValidationFile 校验而不是 BIOS schema v1 解析失败分支。交接崩溃恢复复用已有内部 ImportItem 且不重复系统草稿事件；未完成交接的 Item 不出现在队列/详情且不能发布。同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不删除审核事项或回滚已经提交的游戏，重试不重复 Game/Revision/Blob。
 - Worker/存储：BIOS 与 Pegasus 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、restore fence、外部 root 变更、媒体告警、保护边 GC 和 backup/restore 均有确定性测试。
 - HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；`pegasusImportId` 精确队列筛选、来源媒体 GET/HEAD 与 COVER/VIDEO kind；审核 best-effort preview 锁定现有依赖，READY/阻断均在 `EJS_onGameStart + 5000ms` 优先读取核心最后一帧并上传 PNG，核心截图有界失败时回退 canvas，使静态 ROM/BIOS 错误画面不退化成黑帧；当前阻断截图启用人工发布 override，过期 Validation 拒绝、弹窗失败提示和四个等宽决策按钮。快速审批 UI 覆盖当前筛选的服务端影响预览、零候选/active/stale、进度恢复、取消/retry、终态缓存清理、结果链接与 390/1280/物理 4K 150% scale 的键盘/reduced-motion。Pegasus 双能力卡、三步 Drawer、无默认映射、关闭恢复、同计划轮询重渲染不重置映射/焦点/滚动、详情审核行动区和逐行审核入口保持不变。
+- 产品运行：独立的项目自有 `pegasus-smoke.gba` 必须从临时服务器 root 经 Chrome 完成目录选择、真实扫描、显式 GBA 映射、Worker、待审核、逐项发布、Game 详情、Launch config、受限内容端点与 mGBA 帧推进；不得复用普通上传已经发布的相同内容、直接写库、mock Pegasus API 或只检查 canvas 元素。
 - 总览聚合：一个包含多个游戏的 PegasusImport 只能贡献一个最近任务和一个顶层批次；其逐游戏内部 ImportJob 不进入普通任务分页。进行中/完成/异常批次、处理中条目、异常条目和实际待审核 Item 分别按正式口径断言，主动取消不误报为异常，最近三条不能反向决定流水线数字。
 - VIDEO：MP4/WebM magic 与限额、nullable dimensions、Range/HEAD/MIME、不可变 revision、元信息编辑保留、删除保留历史；详情 2 秒累计可见自动播放、后台页不计时、5 秒/拒绝/错误回退、用户暂停和 reduced-motion 手动模式，以及列表零视频请求。
 
-该切片除聚焦用例外必须运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-PEG-001`–`005`、`ACC-MEDIA-001` 与 `make ci`。使用操作者授权的真实 Pegasus 目录时只记录相对统计和结果，不把 ROM、完整宿主路径或媒体内容写入报告。
+该切片除聚焦用例外必须运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-PEG-001`–`006`、`ACC-MEDIA-001` 与 `make ci`。使用操作者授权的真实 Pegasus 目录时只记录相对统计和结果，不把 ROM、完整宿主路径或媒体内容写入报告。
 
 ## 13. 游戏标签测试矩阵
 

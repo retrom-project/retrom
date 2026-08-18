@@ -344,7 +344,7 @@ Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collect
 
 相同规范内容不生成审核事项或第二个 Game，而是保存所有匹配证据并以 `SKIPPED_EXISTING` 收口。运行检查未通过时必须保留 library validation 的原始 `status/compatibilityCode/core` 和经过封闭投影的依赖快照，包括 machine、缺失/不匹配条目、parent/BIOS 逻辑归档、必需 entry 与多盘缺失引用；不得统一覆盖成无解释的 `PEGASUS_RUNTIME_BLOCKED`。library import 自身发生内部失败时收口为可重试 `PEGASUS_LIBRARY_IMPORT_FAILED`，并持久化失败 stage、operation、稳定 cause、受限技术文本、相对路径、输入数量/上限和可用内部关联 ID，不得只返回聚合错误码，也不得误报为内容不兼容。COVER/VIDEO 独立按 game 显式、Collection 显式、title 目录、file basename 目录的顺序选择；媒体读取或格式失败只留下 warning，不使可运行 ROM 失败。取消只停止尚未交接的工作，已经生成的审核事项继续保留；retry 只重开服务端标记 retryable 的失败 Item，复用冻结映射与 snapshot，不重做成功、待审核、已发布、审核丢弃、已存在或确定性阻断项，并清空旧失败详情。交接阶段崩溃时复用已关联的内部 ImportItem 并幂等补齐 metadata，不能制造不可见的第二个审核条目。历史版本已经写成通用 `PEGASUS_RUNTIME_BLOCKED` 且丢失诊断的条目可在原计划重新运行检查一次，以恢复真实结论和详细证据，无需重新扫描或映射。
 
-聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的 Pegasus import。统一验收见 `ACC-PEG-001`–`005` 与 `ACC-MEDIA-001`。
+聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的 Pegasus import。统一验收见 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001`。
 
 ## 15. 标签默认值与发布传播
 
@@ -356,4 +356,4 @@ Pegasus Collection 的 `IMPORT` mapping 必须显式提供 `tagIds`，`SKIP` 必
 
 ## 16. 统一验收入口
 
-本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-008` 与 `ACC-PEG-001`–`005`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与 CAS 约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。
+本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-008` 与 `ACC-PEG-001`–`006`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与 CAS 约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。

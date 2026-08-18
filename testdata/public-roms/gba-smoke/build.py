@@ -10,7 +10,10 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-OUTPUT = Path(__file__).with_name("gba-smoke.gba")
+OUTPUTS = {
+    Path(__file__).with_name("gba-smoke.gba"): (b"RETROM SMOKE", b"RTSM"),
+    Path(__file__).with_name("pegasus-smoke.gba"): (b"RETROM PEGAS", b"RTPG"),
+}
 ROM_SIZE = 1024
 CODE_OFFSET = 0xC0
 
@@ -273,12 +276,14 @@ def build_program() -> bytes:
     return program.build()
 
 
-def build_rom() -> bytes:
+def build_rom(title: bytes, product_code: bytes) -> bytes:
+    if len(title) != 12 or len(product_code) != 4:
+        raise ValueError("GBA fixture title and product code must fill the header")
     header = bytearray(CODE_OFFSET)
     branch_delta = (CODE_OFFSET - 8) // 4
     struct.pack_into("<I", header, 0, 0xEA000000 | branch_delta)
-    header[0xA0:0xAC] = b"RETROM SMOKE"
-    header[0xAC:0xB0] = b"RTSM"
+    header[0xA0:0xAC] = title
+    header[0xAC:0xB0] = product_code
     header[0xB0:0xB2] = b"00"
     header[0xB2] = 0x96
     header[0xBC] = 0
@@ -299,21 +304,32 @@ def main() -> int:
     )
     arguments = parser.parse_args()
 
-    image = build_rom()
-    digest = hashlib.sha256(image).hexdigest()
+    images = {
+        output: build_rom(title, product_code)
+        for output, (title, product_code) in OUTPUTS.items()
+    }
     if arguments.check:
-        if not OUTPUT.exists():
-            raise SystemExit(f"public GBA smoke ROM is missing: {OUTPUT}")
-        if OUTPUT.read_bytes() != image:
-            raise SystemExit(
-                "public GBA smoke ROM drifted; run "
-                "python3 testdata/public-roms/gba-smoke/build.py"
+        for output, image in images.items():
+            if not output.exists():
+                raise SystemExit(f"public GBA smoke ROM is missing: {output}")
+            if output.read_bytes() != image:
+                raise SystemExit(
+                    f"public GBA smoke ROM drifted: {output.name}; run "
+                    "python3 testdata/public-roms/gba-smoke/build.py"
+                )
+            digest = hashlib.sha256(image).hexdigest()
+            print(
+                f"gba_smoke_check=passed name={output.name} "
+                f"size={len(image)} sha256={digest}"
             )
-        print(f"gba_smoke_check=passed size={len(image)} sha256={digest}")
         return 0
 
-    OUTPUT.write_bytes(image)
-    print(f"gba_smoke_generated={OUTPUT} size={len(image)} sha256={digest}")
+    for output, image in images.items():
+        output.write_bytes(image)
+        digest = hashlib.sha256(image).hexdigest()
+        print(
+            f"gba_smoke_generated={output} size={len(image)} sha256={digest}"
+        )
     return 0
 
 

@@ -679,4 +679,4 @@ room cookie 名为 `retrom_netplay_{roomId去连字符}`。原始 32 bytes 固�
 
 ## 15. 统一验收入口
 
-通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`005` 与 `ACC-MEDIA-001` 覆盖；标签由 `ACC-TAG-002`–`005` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。
+通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001` 覆盖；标签由 `ACC-TAG-002`–`005` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖。

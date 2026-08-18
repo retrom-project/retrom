@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-00[23467]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-005|ACC-MEDIA-001)$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-RUN-006|ACC-RUN-007|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-MEDIA-001" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-00[23467]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-MEDIA-001)$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-RUN-006|ACC-RUN-007|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-MEDIA-001" >&2
   exit 2
 fi
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -44,6 +44,7 @@ mkdir -p "$temporary_root/source/Games/media/Acceptance Game"
 printf 'collection: NES\ngame: Acceptance Game\ndescription: Pegasus UI acceptance fixture\nfile: acceptance.nes\n' >"$temporary_root/source/Games/metadata.pegasus.txt"
 printf 'retrom deterministic pegasus acceptance fixture\n' >"$temporary_root/source/Games/acceptance.nes"
 printf '\000\000\000\030ftypisom\000\000\000\000isommp42' >"$temporary_root/source/Games/media/Acceptance Game/video.mp4"
+"$repository_root/scripts/acceptance/prepare-pegasus-gba-source.sh" "$temporary_root/source/Playable"
 cd "$repository_root"
 RETROM_SERVER_IMPORT_ROOTS="[{\"id\":\"pegasus-bios\",\"label\":\"Pegasus BIOS\",\"path\":\"$temporary_root/source\"}]" \
 setsid make dev \
@@ -124,7 +125,7 @@ fi
 if [[ "$case_id" == "ACC-TAG-005" ]]; then
   specification="e2e/tags.spec.ts"
 fi
-if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" || "$case_id" == "ACC-PEG-005" || "$case_id" == "ACC-MEDIA-001" ]]; then
+if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" || "$case_id" == "ACC-PEG-005" || "$case_id" == "ACC-PEG-006" || "$case_id" == "ACC-MEDIA-001" ]]; then
   specification="e2e/server-import.spec.ts"
 fi
 playwright_grep="$case_id"

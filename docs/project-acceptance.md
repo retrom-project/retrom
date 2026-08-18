@@ -100,7 +100,7 @@ make acceptance-report
 | 游玩数据 | 一条已完成 PlaySession、一条最近记录和一份带固定 PNG 的兼容 SaveState，所有时间相对 fake clock 固定 |
 | 入库数据 | 小规模的 queued/running/review-pending/failed Item 与 approve/discard ReviewEvent，供总览、任务、待审核和历史页面使用 |
 | Hasheous stub | 命中、未命中、429、超时、500、401 和畸形响应七种固定路由，不要求凭证 |
-| 公开 mGBA ROM | `testdata/public-roms/gba-smoke/gba-smoke.gba`；项目自有源码生成，MIT 许可，生成器与消费者锁定 size/SHA-256/bytes |
+| 公开 mGBA ROM | `testdata/public-roms/gba-smoke/gba-smoke.gba` 与同目录 `pegasus-smoke.gba`；项目自有源码生成、MIT 许可且具有不同内容身份，生成器与上传/Pegasus 实际消费者分别锁定 size/SHA-256/bytes |
 | 公开 MAME 2003 split set | `testdata/public-roms/arcade-smoke/`；项目自有 Z80 程序、生成资源、小型 DAT 与测试 BIOS，MIT 许可；生成器与消费者锁定 Child/Parent/BIOS archive、entry、size、CRC32、SHA-1 和 SHA-256；DAT 只由 acceptance-only 装置登记为 test-only BUILTIN，不经 HTTP 上传 |
 | 公开 FBNeo split set | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 Z80 程序、生成图形/PROM、Logiqx DAT 与测试 BIOS，MIT 许可；driver CRC32 由生成器对其控制的 4 bytes 做确定性校正，完整 bytes 由 SHA-1/SHA-256 锁定；DAT 只由 acceptance-only 装置登记为 test-only BUILTIN，不经 HTTP 上传 |
 | 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-v1` 与 `fbneo-423-v1` 的 EmulatorJS/core artifact/adapter 边界来自 `data/netplay/v1/manifest.json`；当前只维护 manifest、协议、安全、feature flag 与单机回归种子，不维护真实双端 ROM fixture |
@@ -719,6 +719,14 @@ make acceptance-case CASE=<case-id>
 - 通过标准：两张能力卡等权且共用 root 说明，Pegasus 卡明确扫描不会自动发布并显示待审核总数；760px Drawer 三步可达、无默认映射，批量标签以 union 语义进入所有未跳过 Collection 且可逐项调整，第三步显示覆盖数量并明确“全部进入待审核”；`AWAITING_MAPPING` 详情能恢复指定计划且不重新选目录/扫描，未保存映射重新选择、已完整保存映射直接进入第三步。Drawer 打开时背景不可滚动，扫描转换与同计划摘要轮询不得造成布局跳动、焦点转移或本地映射丢失。详情以扫描范围/待审核/已发布·丢弃·已有/阻断·失败分组，显示 media READY/MISSING/WARNING、逐项审核入口与已有/新游戏链接；批次入口保留 `pegasusImportId`，清除其他筛选不丢批次，Pegasus metadata 不计作“未找到信息”；审核媒体中 VIDEO 等比居中且不自动播放，Pegasus 详情本身不复制快速审批按钮。阻断行展示具体原因，展开后可见稳定 code、Core/machine、缺失条目、依赖和处理建议；内部失败展开后可见 stage、operation、cause code、Pegasus Item ID、相对路径、观察数量/上限、可用内部关联 ID 与受限技术详情，不得只显示 `PEGASUS_LIBRARY_IMPORT_FAILED`；历史 `PEGASUS_RUNTIME_BLOCKED` 可在原任务重检且重检后不再保留通用原因；断线不清空内容；三个 viewport 无页面级横向溢出，焦点、Escape、reduced-motion 和状态文本符合 UI 契约。
 - 证据：Playwright DOM/网络/布局断言和三尺寸当前截图。
 
+### ACC-PEG-006：自有 GBA 目录全链发布与核心运行
+
+- 上限：300 秒。
+- 执行：`make acceptance-case CASE=ACC-PEG-006`。
+- 流程：将 `testdata/public-roms/gba-smoke/pegasus-smoke.gba` 与最小 `metadata.pegasus.txt` 复制到隔离的只读服务器 root；Chrome 从服务器导入页选择该目录，等待真实 scanner 进入 `AWAITING_MAPPING`，把唯一 Collection 显式映射到 GBA 游戏目录并启动 Worker。任务完成后进入 `pegasusImportId` 限定审核队列，打开 READY 条目并“通过并发布”，再从新建 Game 详情一次点击创建 Launch，读取 config、装载锁定 mGBA artifact 并等待核心帧推进。
+- 通过标准：公开 fixture 的 size/SHA-256 与生成器一致且在本 Case 前不存在同标题 Game；扫描、映射、复制、验证和审核交接均消费真实后端，不得 route mock 或直接写库。Worker 结束时条目为待审核且 Game 仍不存在；审核详情保留 `Pegasus · GBA Smoke` 来源，发布后恰有一个新 Game。Launch config 锁定 `mgba`、EmulatorJS `4.2.3` 与 `ejs-4.2.3-v2`，`gameUrl` 只指向本 Launch 的 `pegasus-smoke.gba` 内容端点；真实 Player canvas 可见且 `getFrameNum()` 至少继续推进 30 帧。
+- 证据：Playwright DOM/API/config/帧数断言、运行中 Player 截图和 fixture identity 输出。
+
 ### ACC-MEDIA-001：VIDEO 上传、服务与详情播放策略
 
 - 上限：240 秒。
@@ -1162,9 +1170,9 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`008` |
 | 多盘导入、运行、回归与隔离 | `ACC-MDISC-001`–`008` |
 | BIOS、服务器导入与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`007` |
-| Pegasus 目录导入与游戏视频 | `ACC-PEG-001`–`005`、`ACC-MEDIA-001` |
+| Pegasus 目录导入与游戏视频 | `ACC-PEG-001`–`006`、`ACC-MEDIA-001` |
 | 启动、存档与游玩时长 | `ACC-RUN-001`–`007`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
-| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`ACC-RUN-006`、`ACC-RUN-007`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
+| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`ACC-RUN-006`、`ACC-RUN-007`、`ACC-PEG-006`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
 | 移动 App Shell、响应式页面与横屏 Player | `ACC-MOB-001`–`007` |

@@ -301,7 +301,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 12. 统一验收入口
 
-工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，联机协议、安全、feature flag 与单机回归执行 `ACC-NP-010`–`013`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏和共享读取治理执行 `ACC-PEG-001`–`005`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
+工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，联机协议、安全、feature flag 与单机回归执行 `ACC-NP-010`–`013`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏、共享读取治理和产品运行链执行 `ACC-PEG-001`–`006`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
 
 ## 13. 服务器导入运维
 
