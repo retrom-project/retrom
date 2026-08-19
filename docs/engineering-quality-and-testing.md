@@ -284,6 +284,7 @@
 | 认证与路由守卫 | 初始化、登录、邀请注册、重置、账户设置；匿名 returnTo、已登录认证页重定向、USER 后台 403、401 清除内存状态；secret fragment 立即清除且不进任何浏览器存储 |
 | 用户管理 | 1280/2560/物理 4K 150% 表格、筛选、Drawer/焦点、本人/最后管理员禁用态、ETag 冲突、邀请/重置一次性 secret 对话框和确认流程 |
 | 账户切换与 Player | 同一 Chrome profile 中 A 的平台图钉、DOS 偏好、查询缓存和 EJS IDBFS bytes 不得被 B 读取；无服务器保存时清除旧 IDBFS 路径 |
+| Player 画面模式 | 单测锁定模式到 shader/CSS 合成策略的映射、默认“锐利像素”、未知偏好回退和用户命名空间，并证明 750ms 暂停期限不会丢弃随后在 5 秒窗口内完成的截图；真实 Chrome E2E 在 mGBA、MAME 2003、FBNeo 上确认默认 shader 关闭、`image-rendering: pixelated`、动画帧与零页面异常，并在 mGBA 回归“清晰增强”等模式切换及 Core 设置切换到显示设置后的 shader 入口；物理 4K 150% 生成 3840×2160 当次截图，并完成 core framebuffer 优先的状态存档截图、服务端解码与继续游戏 |
 | Player 换盘 | loader 前盘组/大小校验、真实 diskCount 不匹配阻断、初始盘/当前盘回读、no-op/失败保持、busy/live region、菜单键盘与焦点、光盘 2 SaveState 恢复、两个账号保存隔离 |
 | 导入与审核 | 必须选择游戏目录；上传进度、失败重试、候选切换、人工编辑、approve/discard 与历史回放 |
 | BIOS/DAT 管理 | 按平台/core 展示状态；哈希 warning 与缺失 blocking 视觉语义不同；DAT 上传、差异预览和启用确认 |

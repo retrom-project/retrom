@@ -68,7 +68,7 @@ sequenceDiagram
 
 ### 2.2 移动横屏 HUD 与操作收纳
 
-移动横屏 HUD 高 `48px`，使用横屏左右 `safe-area-inset`，自动隐藏后仍保留至少 `44px` 高的可聚焦揭示柄。HUD 保留返回、标题/Core、P1/P2 与同步状态，以及按“联机状态 > 换盘 > 创建存档”的最高优先级上下文操作；其余状态、存档、光盘、模拟器设置、全屏、调试和退出放入“更多”操作 Sheet。Sheet、退出确认、换盘和设置面板都必须捕获焦点、支持 Escape/遮罩/显式关闭，并在关闭后归还触发器。
+移动横屏 HUD 高 `48px`，使用横屏左右 `safe-area-inset`，自动隐藏后仍保留至少 `44px` 高的可聚焦揭示柄。HUD 保留返回、标题/Core、P1/P2 与同步状态，以及按“联机状态 > 创建存档 > 换盘”的最高优先级上下文操作；创建存档始终使用 HUD 顶部入口，不在“更多”操作 Sheet 重复出现，其余状态、光盘、模拟器设置、全屏、调试和退出放入 Sheet。Sheet、退出确认、换盘和设置面板都必须捕获焦点、支持 Escape/遮罩/显式关闭，并在关闭后归还触发器。
 
 ## 3. Launch API 与凭据
 
@@ -162,9 +162,11 @@ Player Shell 创建同源 `about:blank` iframe，由父页面在 iframe document
 
 Player canvas contain 必须优先使用锁定运行时 `gameManager.getVideoDimensions("aspect")` 的正数结果，只有 game-start 前尚不可用时才回退 drawing-buffer `canvas.width/canvas.height`。这能处理 drawing buffer 仍为横向但核心实际输出为 3:4 等竖屏画面的情况：竖屏画面 CSS 高度贴满 `100dvh`，左右保留必要黑边，不能误在上下留下黑边。viewport、canvas 属性或核心比例变化时必须重新计算；canvas 在父 grid 的水平和垂直方向都显式居中，不能把 contain 后的余量全部留在右侧或底部，也不能拉伸或裁切。
 
+Player 对低分辨率核心输出提供按用户隔离的画面模式，默认“锐利像素”：关闭 runtime shader，并把 canvas 的浏览器合成缩放锁为 `image-rendering: pixelated`，避免核心 drawing buffer 被 CSS 放大时再次插值。用户还可选择“清晰增强”（项目自有 single-pass sharp-bilinear shader 配合像素缩放）、“增强锐化”（项目自有自适应锐化）、“平滑增强”（运行时内置 SABR）或“原始画面”（无 shader、浏览器默认缩放）。两份项目自有 shader 由 adapter 通过 `EJS_shaders` 在 loader 前注入，不修改已物化的 EmulatorJS payload，也不引入未锁定的第三方 shader 归档；选择通过当前实例的 `changeSettingOption("shader", ...)` 即时生效。偏好只写入当前认证用户命名空间的浏览器 `localStorage`，EmulatorJS 自身的设置持久化仍保持关闭；存储不可用、值未知或首次使用时回到“锐利像素”，已保存的合法偏好继续保留。
+
 Player config 额外提供人类可读的 `gameTitle/coreName/platformName`，只用于 58px 顶部工具栏显示本次游戏、运行核心和基础平台；EJS 的稳定保存键仍只使用 `gameName=retrom-<emulatorGameId>`，前端不得把展示名称用于选择 artifact、URL 或 option。
 
-Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单与只读“调试信息”面板外，点击工具栏区域或其中操作都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，只有随后点击实际游戏画面才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。光盘菜单是独立的原子运行时操作：打开菜单不暂停，真正换盘时只在 `setCurrentDisk` 与回读边界内短暂停止 main loop，并在成功或失败后恢复进入换盘前的暂停状态。运行后工具栏自动隐藏；只有指针进入 viewport 顶部 32 CSS px、键盘操作或焦点进入工具栏才重新显示，普通画面区域的 pointermove 不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近底边和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。
+Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单与只读“调试信息”面板外，点击工具栏区域或其中操作都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，只有随后点击实际游戏画面才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。光盘菜单是独立的原子运行时操作：打开菜单不暂停，真正换盘时只在 `setCurrentDisk` 与回读边界内短暂停止 main loop，并在成功或失败后恢复进入换盘前的暂停状态。运行后工具栏自动隐藏；只有指针进入 viewport 顶部 32 CSS px、键盘操作或焦点进入工具栏才重新显示，普通画面区域的 pointermove 不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近底边和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。Retrom 自绘栏额外提供上述画面模式；从 Core 设置切换到显示设置时必须先把原生嵌套导航复位到首页，再进入 Graphics Settings，不能把先前 Core panel 留在前景或隐藏 shader 入口。
 
 顶部“调试信息”按钮打开右侧只读诊断面板且保持游戏继续运行；面板打开期间固定显示顶部工具栏。面板每秒读取一次当前 adapter 暴露的 `gameManager.getFrameNum()`，以相邻采样的核心帧数差和单调时钟计算一位小数的“核心帧率”，不能用 CSS 动画或浏览器 `requestAnimationFrame` 次数伪造 FPS。面板同时展示累计核心帧数、运行/暂停/错误状态、canvas drawing-buffer 分辨率、viewport 与 DPR，以及 config 已锁定的 Core、CoreArtifact、EmulatorJS 版本、Player adapter、输入模式、单机/联机模式和当前 COOP/COEP/SharedArrayBuffer 能力。诊断只存在于当前浏览器 Player，会话结束即丢弃，不写数据库、不发遥测，也不得展示 capability、cookie、Blob hash 或宿主路径。
 
@@ -195,7 +197,7 @@ NDS 三核心与 Azahar 的 `inputMode=POINTER`：Player 不向 iframe 合成额
 - `saveSaveFiles`：接收 core 定时/退出时产生的持久 bytes；
 - 浏览器 `pagehide`：使用 `fetch(..., {keepalive:true})` 尝试最后 heartbeat/finish；服务端仍以最后已确认心跳截断。
 
-`EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。Retrom 必须同时上传非空 state 与截图，任一失败都不创建 SaveState。`EJS_onSaveSave` 是用户手动导出持久保存时的 `{ screenshot, format, save }`，自动同步则监听 `saveSaveFiles`，两条路径去重到同一 PersistentSave service。
+`EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。Retrom 必须同时上传非空 state 与截图，任一失败都不创建 SaveState。工具栏交互最迟在 750ms 暂停 main loop，但不能因此丢弃仍在生成的截图：截图在独立的 5 秒有界窗口内继续完成并供本次或重试保存使用。截图优先读取 core framebuffer，避免物理 4K/高 DPR 下对 viewport-sized shader canvas 编码超时或 WebGL 暂停后黑帧；核心能力不可用时才回退 EmulatorJS canvas。`EJS_onSaveSave` 是用户手动导出持久保存时的 `{ screenshot, format, save }`，自动同步则监听 `saveSaveFiles`，两条路径去重到同一 PersistentSave service。
 
 PersistentSave 预载必须避免事件竞态：Launch 创建时锁定当时可空 current revision，Player 在加载 `loader.js` 前从本次受限 URL 把该精确 revision 完整读入一个 `Uint8Array`；另一会话稍后的保存不能改变本次 GET。服务端和客户端共同硬限 64 MiB，超限在 loader 启动前以 `LAUNCH_PERSISTENT_SAVE_TOO_LARGE` 阻断，不能在主线程复制 512 MiB 级对象。`EJS_ready` 立即注册 `saveDatabaseLoaded/saveSaveFiles/exit` listener。`saveDatabaseLoaded` 在 v4.2.3 中无条件发生于 IDBFS `mount + syncfs(true)` 后、ROM 下载与 `startGame()` 前，即使 `disableDatabases=true` 也会触发。真实 mGBA v4.2.3 验证表明该事件和 `startGame()` 入口处的 `gameManager.getSaveFilePath()` 均仍可为空，路径直到 `EJS_onGameStart` 才稳定；因此 handler 在 `saveDatabaseLoaded` 保存经验证的 FS 引用，并在 `EJS_onGameStart` 的第一个同步动作中暂停 main loop、取得路径、完成注入、调用 `loadSaveFiles()` 后再恢复 main loop和提交 Retrom `start` 事件。这样不会把未恢复的区间计入 PlaySession，也不会让后端开始 idle 计时。有服务端 bytes 时创建父目录并覆盖目标；没有服务端保存时若 IDBFS 中存在同路径旧文件则先删除，避免复活浏览器残留。在任何可能调用 `saveState()` 前必须至少注册一个 `saveState` listener；v4.2.3 的 `callEvent` 忽略 callback 返回值并返回 listener 数，只有该数量为 0 时才 fallback 写入独立 `EmulatorJS-states` store，所以不得实现一个依赖 callback 布尔返回值的虚假协议。路径为空、listener/FS 未及时安装或读写失败都终止本次运行并显示 `LAUNCH_PERSISTENT_SAVE_LOAD_FAILED`；不得在 Retrom `start` 事件后再注入。每个 CoreArtifact 的此顺序必须有真实 smoke，尤其是 DOS overlay。
 
