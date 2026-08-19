@@ -85,7 +85,7 @@ AuthSession cookie 在 HTTP 开发环境名为 `retrom_session`，HTTPS 为 `__H
 
 登录按规范用户名和规范客户端 IP分别限 5/30 次，初始化 IP 5 次，链接检查/消费 IP 20 次；窗口和 block均 15 分钟，超限返回 429 与 `Retry-After`。subject 用实例 HMAC 后入库。直接 peer 只有命中 `RETROM_TRUSTED_PROXIES` 规范 CIDR时才读取单个 X-Forwarded-For，从右向左跳过受信代理并取首个不受信地址；超过 16 项、缺失或任一项非法回退 peer IP并只记录稳定诊断码，不读取 X-Real-IP/Forwarded，也不记录原链。
 
-release 密码分别做 NFC 但不 trim，最少 15 个字符且不超过 128 个 Unicode code point/512 bytes，拒绝控制字符，并拒绝固定 10,000 行常见密码列表以及与用户名、显示名称或 `retrom` 相同的 Unicode case-fold 值。存储使用严格 `ARGON2ID_V1` PHC：`$argon2id$v=19$m=19456,t=2,p=1$<16-byte-salt>$<32-byte-hash>`；最多并行执行 4 个 Argon2 计算。`--mode=test` 自动创建的 `test/test` 是唯一豁免，用户修改密码时必须立即满足 release 规则。
+release 密码分别做 NFC 但不 trim，最少 6 个字符且不超过 128 个 Unicode code point/512 bytes，拒绝控制字符，并拒绝固定 10,000 行常见密码列表以及与用户名、显示名称或 `retrom` 相同的 Unicode case-fold 值。存储使用严格 `ARGON2ID_V1` PHC：`$argon2id$v=19$m=19456,t=2,p=1$<16-byte-salt>$<32-byte-hash>`；最多并行执行 4 个 Argon2 计算。`--mode=test` 自动创建的 `test/test` 是唯一豁免，用户修改密码时必须立即满足 release 规则。
 
 ### 2.1 初始化、邀请与密码重置
 

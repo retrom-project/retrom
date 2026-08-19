@@ -4,7 +4,7 @@ import { expect, test, type APIRequestContext, type BrowserContext, type Page, t
 import axe from "axe-core";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
-const userPassword = "a sufficiently long password";
+const userPassword = "A1!x2z";
 
 function evidencePath(testInfo: TestInfo, name: string) {
   const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
@@ -161,7 +161,7 @@ test("ACC-UI-009 an administrator can invite a user without retaining the capabi
   await expect(userPage.getByRole("main").getByText("@invited-user")).toBeVisible();
   await expect(userPage.getByRole("main").getByText("Invited User", { exact: true })).toBeVisible();
   await userPage.getByLabel("当前密码", { exact: true }).fill(userPassword);
-  const changedPassword = "a different sufficiently long password";
+  const changedPassword = "B2@y3w";
   await userPage.getByLabel("新密码", { exact: true }).fill(changedPassword);
   await userPage.getByLabel("确认密码", { exact: true }).fill(changedPassword);
   await userPage.getByRole("button", { name: "更新密码" }).click();
@@ -246,7 +246,7 @@ test("ACC-UI-009 password reset revokes old sessions and does not enable a disab
   const enabledReset = await createReset(page.request, admin.csrfToken, detail.user, detail.etag);
   const resetContext = await browser.newContext({ baseURL: origin });
   const resetPage = await resetContext.newPage();
-  const changedPassword = "a different sufficiently long password";
+  const changedPassword = "B2@y3w";
   await completeReset(resetPage, enabledReset.url, changedPassword);
   await expect(resetPage.getByRole("heading", { name: "今天想玩什么？" })).toBeVisible();
   expect((await firstUserContext.request.get("/api/v1/home")).status()).toBe(401);
@@ -257,7 +257,7 @@ test("ACC-UI-009 password reset revokes old sessions and does not enable a disab
   const disabledReset = await createReset(page.request, admin.csrfToken, disabled.user, disabled.etag);
   const disabledResetContext = await browser.newContext({ baseURL: origin });
   const disabledResetPage = await disabledResetContext.newPage();
-  const disabledPassword = "a disabled sufficiently long password";
+  const disabledPassword = "C3#z4v";
   await completeReset(disabledResetPage, disabledReset.url, disabledPassword);
   await expect(disabledResetPage.getByRole("heading", { name: "账号仍处于停用状态" })).toBeVisible();
   await expect(disabledResetPage.getByText("密码已更新，但账号仍处于停用状态，请联系管理员")).toBeVisible();

@@ -43,6 +43,34 @@ func TestPasswordPolicyUsesNFCFoldAndExactBlocklist(t *testing.T) {
 	}
 }
 
+func TestPasswordPolicyRequiresAtLeastSixUnicodeCharacters(t *testing.T) {
+	t.Parallel()
+	for _, testCase := range []struct {
+		name      string
+		candidate string
+		valid     bool
+	}{
+		{name: "five ASCII characters", candidate: "A1!x2"},
+		{name: "six ASCII characters", candidate: "A1!x2z", valid: true},
+		{name: "five Unicode characters", candidate: "甲乙丙丁戊"},
+		{name: "six Unicode characters", candidate: "甲乙丙丁戊己", valid: true},
+	} {
+		t.Run(testCase.name, func(t *testing.T) {
+			normalized, err := NormalizePassword(testCase.candidate)
+			if testCase.valid {
+				if err != nil || normalized != testCase.candidate {
+					t.Fatalf("NormalizePassword(%q) = %q, %v", testCase.candidate, normalized, err)
+				}
+				return
+			}
+			var policy *PasswordError
+			if !errors.As(err, &policy) || policy.Reason != ReasonTooShort {
+				t.Fatalf("NormalizePassword(%q) error = %v", testCase.candidate, err)
+			}
+		})
+	}
+}
+
 func TestArgon2IDV1RoundTripAndStrictParser(t *testing.T) {
 	t.Parallel()
 	hasher := newPasswordHasher(bytes.NewReader(bytes.Repeat([]byte{7}, 32)), 1)
