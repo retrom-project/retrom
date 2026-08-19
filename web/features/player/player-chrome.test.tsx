@@ -22,6 +22,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     emulatorToolbarOpen: false,
     emulatorVolume: 0.72,
     emulatorMuted: false,
+    videoRenderingMode: "pixel",
     discSet: null,
     discState: null,
     netplayPlayerNo: null,
@@ -45,6 +46,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     onOpenEmulatorPanel: vi.fn(),
     onChangeEmulatorVolume: vi.fn(),
     onToggleEmulatorMute: vi.fn(),
+    onChangeVideoRenderingMode: vi.fn(),
     onSelectDisc: vi.fn().mockResolvedValue(true),
     onToggleNetplayPause: vi.fn(),
     onToggleDebug: vi.fn(),
@@ -140,6 +142,8 @@ describe("PlayerChrome", () => {
 
     await user.click(screen.getByRole("button", { name: "更多操作" }));
     expect(screen.getByRole("button", { name: "更多操作" })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.queryByRole("menuitem", { name: /创建存档/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "创建存档" })).toBeVisible();
     await user.click(screen.getByRole("menuitem", { name: "模拟器设置" }));
     expect(values.onOpenEmulatorSettings).toHaveBeenCalledOnce();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
@@ -197,11 +201,14 @@ describe("PlayerChrome", () => {
     expect(screen.getByRole("button", { name: "控制" })).toBeVisible();
     expect(screen.getByRole("button", { name: "显示" })).toBeVisible();
     expect(screen.getByRole("button", { name: "Core 设置" })).toBeVisible();
+    expect(screen.getByRole("combobox", { name: "画面模式" })).toHaveValue("pixel");
     expect(screen.getByRole("slider", { name: "模拟器音量" })).toHaveValue("72");
     expect(within(toolbar).queryByRole("button", { name: /退出/ })).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "显示" }));
     expect(values.onOpenEmulatorPanel).toHaveBeenCalledWith("display");
+    await user.selectOptions(screen.getByRole("combobox", { name: "画面模式" }), "sharpen");
+    expect(values.onChangeVideoRenderingMode).toHaveBeenCalledWith("sharpen");
     await user.click(screen.getByRole("button", { name: "静音" }));
     expect(values.onToggleEmulatorMute).toHaveBeenCalledOnce();
     await user.click(screen.getByRole("button", { name: "收起" }));

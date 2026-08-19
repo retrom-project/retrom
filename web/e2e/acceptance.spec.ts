@@ -29,6 +29,34 @@ async function noPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 }
 
+async function currentEmulatorBrightRatio(page: Page) {
+  const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
+  if (!playerFrame) return 0;
+  return playerFrame.evaluate(async () => {
+    const emulator = window.EJS_emulator;
+    if (!emulator?.takeScreenshot) return 0;
+    const result = await Promise.race([
+      emulator.takeScreenshot("canvas", "png", 1),
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1_000)),
+    ]);
+    if (!result?.blob.size) return 0;
+    const bitmap = await createImageBitmap(result.blob);
+    const sample = document.createElement("canvas");
+    sample.width = 64;
+    sample.height = 64;
+    const context = sample.getContext("2d", { alpha: false });
+    if (!context) return 0;
+    context.drawImage(bitmap, 0, 0, sample.width, sample.height);
+    bitmap.close();
+    const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
+    let brightPixels = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if ((pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3 > 8) brightPixels += 1;
+    }
+    return brightPixels / (pixels.length / 4);
+  });
+}
+
 type HorizontalGaps = { left: number; right: number };
 
 async function pageCanvasGaps(page: Page, targetSelector = ".page-header"): Promise<HorizontalGaps> {
@@ -750,6 +778,18 @@ test("ACC-RUN-002 one click requests fullscreen before launch and auto-starts th
   await expect(page.locator(".player-shell")).toBeVisible();
   await expect(page.getByRole("button", { name: "开始游戏" })).toHaveCount(0);
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 30_000 });
+  const playerCanvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
+  await expect(playerCanvas).toBeVisible({ timeout: 30_000 });
+  await expect.poll(() => playerCanvas.evaluate((element) => {
+    const runtimeWindow = element.ownerDocument.defaultView as Window & {
+      EJS_emulator?: { allSettings?: Record<string, string> };
+    };
+    return {
+      imageRendering: runtimeWindow.getComputedStyle(element).imageRendering,
+      shader: runtimeWindow.EJS_emulator?.allSettings?.shader,
+    };
+  })).toEqual({ imageRendering: "pixelated", shader: "disabled" });
+  await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 15_000, intervals: [500] }).toBeGreaterThan(0.02);
   await page.mouse.move(20, 20);
   const debugButton = page.getByRole("button", { name: "调试信息" });
   await expect(debugButton).toBeVisible();
@@ -765,6 +805,43 @@ test("ACC-RUN-002 one click requests fullscreen before launch and auto-starts th
   await page.screenshot({ path: evidencePath(testInfo, "player-debug.png"), fullPage: true });
   await debugPanel.getByRole("button", { name: "关闭调试信息面板" }).click();
   await expect(page.locator("#player-debug-panel")).toHaveAttribute("aria-hidden", "true");
+  await page.mouse.move(20, 20);
+  await page.getByRole("button", { name: "更多操作" }).click();
+  await expect(page.getByRole("menuitem", { name: /创建存档/ })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "创建存档", exact: true })).toBeVisible();
+  await page.getByRole("menuitem", { name: "模拟器设置" }).click();
+  const renderingToolbar = page.getByRole("region", { name: "模拟器设置工具栏" });
+  const renderingMode = renderingToolbar.getByRole("combobox", { name: "画面模式" });
+  await expect(renderingMode).toHaveValue("pixel");
+  await renderingMode.selectOption("clear");
+  await expect.poll(() => playerCanvas.evaluate((element) => {
+    const runtimeWindow = element.ownerDocument.defaultView as Window & {
+      EJS_emulator?: { allSettings?: Record<string, string> };
+    };
+    return runtimeWindow.EJS_emulator?.allSettings?.shader;
+  })).toBe("retrom-sharp-bilinear");
+  await renderingMode.selectOption("sharpen");
+  await expect.poll(() => playerCanvas.evaluate((element) => {
+    const runtimeWindow = element.ownerDocument.defaultView as Window & {
+      EJS_emulator?: { allSettings?: Record<string, string> };
+    };
+    return runtimeWindow.EJS_emulator?.allSettings?.shader;
+  })).toBe("retrom-adaptive-sharpen");
+  await renderingToolbar.getByRole("button", { name: "收起" }).click();
+  await playerCanvas.click({ position: { x: 100, y: 100 } });
+  await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 15_000, intervals: [500] }).toBeGreaterThan(0.02);
+  await page.mouse.move(20, 20);
+  await page.getByRole("button", { name: "更多操作" }).click();
+  await page.getByRole("menuitem", { name: "模拟器设置" }).click();
+  await renderingMode.selectOption("original");
+  await expect.poll(() => playerCanvas.evaluate((element) => getComputedStyle(element).imageRendering)).toBe("auto");
+  await renderingMode.selectOption("pixel");
+  await expect.poll(() => playerCanvas.evaluate((element) => {
+    const runtimeWindow = element.ownerDocument.defaultView as Window & {
+      EJS_emulator?: { allSettings?: Record<string, string> };
+    };
+    return runtimeWindow.EJS_emulator?.allSettings?.shader;
+  })).toBe("disabled");
   const events = await page.evaluate(() => JSON.parse(sessionStorage.getItem("retrom:launch-events") ?? "[]") as Array<{ kind: string; value: string }>);
   const fullscreenIndex = events.findIndex((event) => event.kind === "fullscreen");
   const launchIndex = events.findIndex((event) => event.kind === "fetch" && event.value === "/api/v1/launches");
@@ -923,6 +1000,15 @@ async function verifyPublicArcadeSmoke(
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas");
   await expect(canvas).toBeVisible({ timeout: 10_000 });
+  await expect.poll(() => canvas.evaluate((element) => {
+    const runtimeWindow = element.ownerDocument.defaultView as Window & {
+      EJS_emulator?: { allSettings?: Record<string, string> };
+    };
+    return {
+      imageRendering: runtimeWindow.getComputedStyle(element).imageRendering,
+      shader: runtimeWindow.EJS_emulator?.allSettings?.shader,
+    };
+  })).toEqual({ imageRendering: "pixelated", shader: "disabled" });
   const canvasSize = await canvas.evaluate((element) => {
     if (!(element instanceof HTMLCanvasElement)) return { width: 0, height: 0 };
     return { width: element.width, height: element.height };

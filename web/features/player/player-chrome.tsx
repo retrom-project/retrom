@@ -7,6 +7,7 @@ import type { EmulatorSettingsPanel } from "./emulator-settings";
 import type { DiscSet, DiscState } from "./adapters/ejs-4.2.3-v2";
 import { playerActionPriority } from "./player-actions";
 import type { PlayerDebugMetrics } from "./player-debug";
+import { videoRenderingModeOptions, type VideoRenderingMode } from "./video-rendering";
 
 type SyncTone = "synced" | "busy" | "warning";
 type ExitSaveState = "idle" | "saving" | "saved" | "error";
@@ -37,6 +38,7 @@ export function PlayerChrome({
   emulatorToolbarOpen,
   emulatorVolume,
   emulatorMuted,
+  videoRenderingMode,
   discSet,
   discState,
   netplayPlayerNo,
@@ -56,6 +58,7 @@ export function PlayerChrome({
   onOpenEmulatorPanel,
   onChangeEmulatorVolume,
   onToggleEmulatorMute,
+  onChangeVideoRenderingMode,
   onSelectDisc,
   onToggleNetplayPause,
   onToggleDebug,
@@ -77,6 +80,7 @@ export function PlayerChrome({
   emulatorToolbarOpen: boolean;
   emulatorVolume: number;
   emulatorMuted: boolean;
+  videoRenderingMode: VideoRenderingMode;
   discSet: DiscSet | null;
   discState: DiscState | null;
   netplayPlayerNo: number | null;
@@ -96,6 +100,7 @@ export function PlayerChrome({
   onOpenEmulatorPanel: (panel: EmulatorSettingsPanel) => void;
   onChangeEmulatorVolume: (volume: number) => void;
   onToggleEmulatorMute: () => void;
+  onChangeVideoRenderingMode: (mode: VideoRenderingMode) => void;
   onSelectDisc: (index: number) => Promise<boolean>;
   onToggleNetplayPause: () => void;
   onToggleDebug: () => void;
@@ -313,7 +318,6 @@ export function PlayerChrome({
           {menuOpen ? <><button className="player-menu-backdrop" type="button" tabIndex={-1} aria-label="关闭更多操作" onClick={() => setMenuOpen(false)} /><div className="player-menu" role="menu" aria-label="Player 更多操作">
             <header className="player-menu-head"><div><small>Retrom Player</small><strong>更多操作</strong></div><button type="button" aria-label="关闭更多操作" onClick={() => { setMenuOpen(false); menuButtonRef.current?.focus(); }}><AppIcon name="x" /></button></header>
             <div className={`player-menu-runtime is-${syncTone}`} role="status"><i aria-hidden="true" /><span><strong>{syncText}</strong><small>{isNetplay ? `联机座位 P${netplayPlayerNo}` : paused ? "当前已暂停" : "游戏运行中"}</small></span></div>
-            {!isNetplay ? <button type="button" role="menuitem" aria-label="在更多操作中创建存档" disabled={!running} onClick={() => { setMenuOpen(false); void onSave(); }}><AppIcon name="save" /><span><strong>创建存档</strong><small>保存当前状态与截图</small></span></button> : null}
             {!isNetplay && discSet && discState ? <button type="button" role="menuitem" aria-label="在更多操作中选择光盘" disabled={!running || discBusy} onClick={() => { setMenuOpen(false); setDiscMenuOpen(true); }}><AppIcon name="database" /><span><strong>光盘 {discState.currentIndex + 1} / {discSet.count}</strong><small>选择当前运行光盘</small></span></button> : null}
             {!isNetplay ? <button type="button" role="menuitem" onClick={() => { setMenuOpen(false); onOpenEmulatorSettings(); }}><AppIcon name="settings" />模拟器设置</button> : null}
             <button type="button" role="menuitem" aria-label={fullscreen ? "在更多操作中退出全屏" : "在更多操作中进入全屏"} onClick={() => { setMenuOpen(false); onToggleFullscreen(); }}><AppIcon name={fullscreen ? "minimize" : "maximize"} />{fullscreen ? "退出全屏" : "进入全屏"}</button>
@@ -364,10 +368,21 @@ export function PlayerChrome({
     >
       <div className="player-emulator-group">
         <span className="player-emulator-label">模拟器</span>
-        <button type="button" disabled={!emulatorToolbarOpen} onClick={() => onOpenEmulatorPanel("controls")}><span aria-hidden="true">🎮</span>控制</button>
+        <button type="button" disabled={!emulatorToolbarOpen} onClick={() => onOpenEmulatorPanel("controls")}><AppIcon name="gamepad" />控制</button>
         <button type="button" disabled={!emulatorToolbarOpen} onClick={() => onOpenEmulatorPanel("display")}><span aria-hidden="true">▤</span>显示</button>
         <button type="button" disabled={!emulatorToolbarOpen} onClick={() => onOpenEmulatorPanel("core")}><span aria-hidden="true">⚙</span>Core 设置</button>
       </div>
+      <label className="player-emulator-rendering">
+        <span className="player-emulator-label">画面</span>
+        <select
+          aria-label="画面模式"
+          disabled={!emulatorToolbarOpen}
+          value={videoRenderingMode}
+          onChange={(event) => onChangeVideoRenderingMode(event.currentTarget.value as VideoRenderingMode)}
+        >
+          {videoRenderingModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
+        </select>
+      </label>
       <div className="player-emulator-group">
         <label className="player-emulator-volume">
           <span className="player-emulator-label">音量</span>

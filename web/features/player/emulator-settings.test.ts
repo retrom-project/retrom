@@ -23,6 +23,33 @@ function instance(): EmulatorInstance {
   };
 }
 
+function nestedInstance(ownerDocument: Document = document): EmulatorInstance {
+  const settingsMenu = ownerDocument.createElement("div");
+  const transition = ownerDocument.createElement("div");
+  transition.className = "ejs_settings_transition";
+  const corePanel = ownerDocument.createElement("div");
+  corePanel.dataset.panel = "core";
+  const displayPanel = ownerDocument.createElement("div");
+  displayPanel.dataset.panel = "display";
+  displayPanel.setAttribute("hidden", "");
+  const home = ownerDocument.createElement("div");
+  home.className = "ejs_setting_menu";
+  home.setAttribute("hidden", "");
+  for (const [label, panel] of [["Graphics Settings", displayPanel], ["Backend Core Options", corePanel]] as const) {
+    const button = ownerDocument.createElement("button");
+    button.className = "ejs_settings_main_bar";
+    button.textContent = label;
+    button.addEventListener("click", () => {
+      home.setAttribute("hidden", "");
+      panel.removeAttribute("hidden");
+    });
+    home.append(button);
+  }
+  transition.append(corePanel, displayPanel, home);
+  settingsMenu.append(transition);
+  return { on: () => undefined, menu: { open: vi.fn(), close: vi.fn() }, settingsMenu };
+}
+
 describe("EmulatorJS settings bridge", () => {
   it("opens the real control panel without exposing the native menu bar", () => {
     const emulator = instance();
@@ -44,6 +71,16 @@ describe("EmulatorJS settings bridge", () => {
     expect(document.documentElement).toHaveClass("retrom-native-settings-open");
     expect(emulator.settingsMenu?.style.display).toBe("");
     expect(click).toHaveBeenCalledOnce();
+  });
+
+  it("resets the native nested page before switching from core options to graphics", () => {
+    const frame = document.createElement("iframe");
+    document.body.append(frame);
+    const emulator = nestedInstance(frame.contentDocument!);
+    expect(emulator.settingsMenu?.querySelector<HTMLElement>("[data-panel=core]")).not.toHaveAttribute("hidden");
+    expect(openEmulatorSettingsPanel(emulator, "display")).toBe(true);
+    expect(emulator.settingsMenu?.querySelector<HTMLElement>("[data-panel=core]")).toHaveAttribute("hidden");
+    expect(emulator.settingsMenu?.querySelector<HTMLElement>("[data-panel=display]")).not.toHaveAttribute("hidden");
   });
 
   it("closes all native panels behind the Retrom toolbar", () => {

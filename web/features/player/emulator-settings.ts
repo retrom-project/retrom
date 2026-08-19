@@ -16,6 +16,21 @@ function setNativeSettingsVisibility(instance: EmulatorInstance, visible: boolea
   frameDocument?.documentElement.classList.toggle("retrom-native-settings-open", visible);
 }
 
+function resetNativeSettingsNavigation(instance: EmulatorInstance) {
+  const transition = instance.settingsMenu?.querySelector<HTMLElement>(".ejs_settings_transition");
+  if (!transition) return instance.settingsMenu ?? null;
+  // The native settings tree lives in the same-origin Player iframe. Avoid an
+  // instanceof check against the host realm, which rejects iframe elements.
+  const children = [...transition.querySelectorAll<HTMLElement>(":scope > *")];
+  const home = children.find((child) => child.classList.contains("ejs_setting_menu"));
+  if (!home) return instance.settingsMenu ?? null;
+  for (const child of children) {
+    if (child === home) child.removeAttribute("hidden");
+    else child.setAttribute("hidden", "");
+  }
+  return home;
+}
+
 export function openEmulatorSettingsPanel(instance: EmulatorInstance, panel: EmulatorSettingsPanel) {
   if (panel === "controls") {
     setNativeSettingsVisibility(instance, false);
@@ -33,9 +48,11 @@ export function openEmulatorSettingsPanel(instance: EmulatorInstance, panel: Emu
   instance.settingsMenuOpen = true;
   instance.settingsMenu.style.display = "";
   const matcher = panelMatchers[panel];
-  const target = [...instance.settingsMenu.querySelectorAll<HTMLElement>(".ejs_settings_main_bar")]
+  const navigationRoot = resetNativeSettingsNavigation(instance);
+  const target = [...(navigationRoot?.querySelectorAll<HTMLElement>(".ejs_settings_main_bar") ?? [])]
     .find((entry) => matcher.test(entry.textContent ?? ""));
-  target?.click();
+  if (!target) return false;
+  target.click();
   return true;
 }
 

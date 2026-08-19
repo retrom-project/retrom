@@ -1,4 +1,36 @@
 import { expect, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
+
+async function screenshotCenterBrightRatio(page: Page, screenshot: Buffer) {
+  return page.evaluate(async (source) => {
+    const decoded = atob(source);
+    const bytes = Uint8Array.from(decoded, (character) => character.charCodeAt(0));
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
+    const sample = document.createElement("canvas");
+    sample.width = 64;
+    sample.height = 64;
+    const context = sample.getContext("2d", { alpha: false });
+    if (!context) return 0;
+    context.drawImage(
+      bitmap,
+      bitmap.width * 0.25,
+      bitmap.height * 0.25,
+      bitmap.width * 0.5,
+      bitmap.height * 0.5,
+      0,
+      0,
+      sample.width,
+      sample.height,
+    );
+    bitmap.close();
+    const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
+    let brightPixels = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if ((pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3 > 8) brightPixels += 1;
+    }
+    return brightPixels / (pixels.length / 4);
+  }, screenshot.toString("base64"));
+}
 
 test.beforeEach(async ({ page }) => {
   const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
@@ -61,7 +93,7 @@ test("HTML CSP uses a fresh nonce and only development enables unsafe-eval", asy
 
 test("one click creates a capability launch and advances real emulator frames", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
-  test.skip(testInfo.project.name !== "chrome-1280", "The real core smoke runs once; layout is covered separately at larger viewports.");
+  test.skip(!["chrome-1280", "chrome-4k-150"].includes(testInfo.project.name), "The real core smoke covers the minimum desktop and physical 4K at 150% scaling.");
   const games = await page.request.get("/api/v1/games");
   const payload = await games.json() as { items: Array<{ gameId: string; title: string }> };
   const game = payload.items.find((item) => item.title === "Sudoku");
@@ -80,29 +112,6 @@ test("one click creates a capability launch and advances real emulator frames", 
   await expect(player.getByRole("button", { name: "退出模拟器" })).toHaveCount(0);
   const initial = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
   await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 30_000 }).toBeGreaterThan(initial + 30);
-  await expect.poll(async () => playerFrame!.evaluate(async () => {
-    const emulator = window.EJS_emulator;
-    if (!emulator?.takeScreenshot) return 0;
-    const result = await Promise.race([
-      emulator.takeScreenshot("canvas", "png", 1),
-      new Promise<null>((resolve) => setTimeout(() => resolve(null), 1_000)),
-    ]);
-    if (!result?.blob.size) return 0;
-    const bitmap = await createImageBitmap(result.blob);
-    const canvas = document.createElement("canvas");
-    canvas.width = 64;
-    canvas.height = 64;
-    const context = canvas.getContext("2d", { alpha: false });
-    if (!context) return 0;
-    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
-    bitmap.close();
-    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
-    let brightPixels = 0;
-    for (let index = 0; index < pixels.length; index += 4) {
-      if ((pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3 > 8) brightPixels += 1;
-    }
-    return brightPixels / (pixels.length / 4);
-  }), { timeout: 15_000, intervals: [500] }).toBeGreaterThan(0.02);
   await page.mouse.move(20, 20);
   await expect(page.locator(".player-game-meta")).toContainText("Sudoku");
   await page.getByRole("button", { name: "返回并退出游戏" }).click();
@@ -160,8 +169,29 @@ test("one click creates a capability launch and advances real emulator frames", 
   await expect(emulatorToolbar).toBeVisible();
   await expect(nativeMenu).toBeHidden();
   await expect(emulatorToolbar.getByRole("button", { name: /退出/ })).toHaveCount(0);
+  const renderingMode = emulatorToolbar.getByRole("combobox", { name: "画面模式" });
+  await expect(renderingMode).toHaveValue("pixel");
+  await expect.poll(() => canvas.evaluate((element) => getComputedStyle(element).imageRendering)).toBe("pixelated");
+  await renderingMode.selectOption("clear");
+  await expect.poll(() => playerFrame!.evaluate(() => window.EJS_emulator?.allSettings?.shader)).toBe("retrom-sharp-bilinear");
+  await renderingMode.selectOption("sharpen");
+  await expect.poll(() => playerFrame!.evaluate(() => window.EJS_emulator?.allSettings?.shader)).toBe("retrom-adaptive-sharpen");
+  await renderingMode.selectOption("original");
+  await expect.poll(() => playerFrame!.evaluate(() => window.EJS_emulator?.allSettings?.shader)).toBe("disabled");
+  await expect.poll(() => canvas.evaluate((element) => getComputedStyle(element).imageRendering)).toBe("auto");
+  await renderingMode.selectOption("pixel");
+  await expect.poll(() => playerFrame!.evaluate(() => window.EJS_emulator?.allSettings?.shader)).toBe("disabled");
+  const renderingEvidence = await page.screenshot({ path: testInfo.outputPath("player-pixel-rendering.png") });
+  expect(await screenshotCenterBrightRatio(page, renderingEvidence)).toBeGreaterThan(0.02);
+  if (testInfo.project.name === "chrome-4k-150") {
+    expect({ width: renderingEvidence.readUInt32BE(16), height: renderingEvidence.readUInt32BE(20) }).toEqual({ width: 3840, height: 2160 });
+  }
+  await emulatorToolbar.getByRole("button", { name: "Core 设置" }).click();
+  await expect(player.getByRole("button", { name: /Backend Core Options|Core Options|核心选项|核心设置/ })).toBeVisible();
   await emulatorToolbar.getByRole("button", { name: "显示" }).click();
   await expect(player.getByRole("button", { name: /Graphics Settings|图形设置|显示设置/ })).toBeVisible();
+  await expect(player.getByRole("button", { name: /Backend Core Options|Core Options|核心选项|核心设置/ })).toBeHidden();
+  await expect(player.locator(".ejs_settings_main_bar").filter({ hasText: /Shaders|着色器/ })).toBeVisible();
   const pausedAt = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
   await page.waitForTimeout(350);
   expect(await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0)).toBeLessThanOrEqual(pausedAt + 1);

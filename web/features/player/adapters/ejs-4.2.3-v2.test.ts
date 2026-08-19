@@ -102,6 +102,7 @@ describe("EmulatorJS adapter", () => {
   afterEach(() => {
     document.querySelectorAll("script[data-retrom-loader]").forEach((node) => node.remove());
     window.EJS_emulator = undefined;
+    Reflect.deleteProperty(window, "EJS_shaders");
     Reflect.deleteProperty(window, "EJS_GameManager");
     Reflect.deleteProperty(window, "EJS_COMPRESSION");
     window.fetch = originalWindowFetch;
@@ -122,6 +123,10 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_Buttons).toEqual({ exitEmulation: false });
     expect(window.EJS_DEBUG_XX).toBe(false);
     expect(window.EJS_EXPERIMENTAL_NETPLAY).toBe(false);
+    expect(window.EJS_shaders).toMatchObject({
+      "retrom-sharp-bilinear": { shader: { type: "text" } },
+      "retrom-adaptive-sharpen": { shader: { type: "text" } },
+    });
     expect(document.querySelector<HTMLScriptElement>("script[data-retrom-loader]")?.src).toContain(config.loaderUrl);
     cleanup();
   });
@@ -473,11 +478,11 @@ describe("EmulatorJS adapter", () => {
     expect(payload.state).not.toBe(state);
   });
 
-  it("captures the core framebuffer for review evidence before using the canvas fallback", async () => {
+  it("captures the core framebuffer before using the canvas fallback", async () => {
     const screenshotBytes = Uint8Array.from([137, 80, 78, 71, 13, 10, 26, 10]);
     const requestScreenshot = vi.fn();
     const takeScreenshot = vi.fn();
-    const capture = await captureReviewScreenshot({
+    const capture = await captureManualScreenshot({
       on: () => undefined,
       gameManager: {
         FS: {

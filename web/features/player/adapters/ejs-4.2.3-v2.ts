@@ -1,4 +1,5 @@
 import { installEmulatorJs423NetplayCompatibility } from "../netplay/ejs-netplay-4.2.3-v1";
+import { retromShaders } from "../retrom-shaders";
 
 export type PlayerConfig = {
   mode: "single" | "netplay";
@@ -75,6 +76,8 @@ export type EmulatorInstance = {
   settingsMenu?: HTMLElement;
   settingsMenuOpen?: boolean;
   closeSettingsMenu?: () => void;
+  changeSettingOption?: (name: string, value: string) => void;
+  enableShader?: (name: string) => void;
   on: (event: string, callback: (...args: unknown[]) => void) => void;
   capture?: { photo?: { source?: string; format?: string; upscale?: number } };
   takeScreenshot?: (source: string, format: string, upscale: number) => Promise<{ blob: Blob; format: string }>;
@@ -102,7 +105,7 @@ export type EmulatorInstance = {
 
 export type ManualScreenshot = { screenshot: Blob; format: string };
 
-export async function captureManualScreenshot(instance: EmulatorInstance): Promise<ManualScreenshot> {
+async function captureCanvasScreenshot(instance: EmulatorInstance): Promise<ManualScreenshot> {
   if (!instance.takeScreenshot) throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
   const photo = instance.capture?.photo;
   const result = await instance.takeScreenshot(photo?.source ?? "canvas", photo?.format ?? "png", photo?.upscale ?? 1);
@@ -133,16 +136,17 @@ async function captureCoreFramebuffer(instance: EmulatorInstance): Promise<Manua
   throw new Error("PLAYER_CORE_SCREENSHOT_TIMEOUT");
 }
 
-// Review evidence should retain static core error frames. Canvas capture can be
-// black after a core stops presenting frames, so only review previews prefer
-// RetroArch's last framebuffer and retain the normal canvas path as fallback.
-export async function captureReviewScreenshot(instance: EmulatorInstance): Promise<ManualScreenshot> {
+// The core framebuffer avoids blank WebGL readback after a core stops presenting
+// and avoids encoding a viewport-sized shader canvas on high-DPI displays.
+export async function captureManualScreenshot(instance: EmulatorInstance): Promise<ManualScreenshot> {
   try {
     return await captureCoreFramebuffer(instance);
   } catch {
-    return captureManualScreenshot(instance);
+    return captureCanvasScreenshot(instance);
   }
 }
+
+export const captureReviewScreenshot = captureManualScreenshot;
 
 export function captureManualState(instance: EmulatorInstance, capture: ManualScreenshot) {
   const state = instance.gameManager?.getState?.();
@@ -191,6 +195,7 @@ declare global {
     EJS_EXPERIMENTAL_NETPLAY?: boolean;
     EJS_threads?: boolean;
     EJS_defaultOptions?: Record<string, string>;
+    EJS_shaders?: typeof retromShaders;
     EJS_paths?: Record<string, string>;
     EJS_externalFiles?: Record<string, string>;
     EJS_gameParentUrl?: string;
@@ -655,6 +660,7 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
     ...config.defaultCoreOptions,
     ...(config.mode === "netplay" && config.runtimeCore === "fbneo" ? { "fbneo-hiscores": "disabled" } : {}),
   };
+  runtimeWindow.EJS_shaders = retromShaders;
   runtimeWindow.EJS_paths = { ...config.runtimePathOverrides };
   runtimeWindow.EJS_externalFiles = externalFiles;
   const cleanupNetplayCompatibility = config.mode === "netplay"

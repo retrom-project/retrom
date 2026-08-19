@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useAuth } from "@/features/auth/auth-provider";
 import { newUuid, sha256 } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
 import { captureManualScreenshot, captureManualState, mountEmulatorJS, readDiscState, switchDiscPreservingPause, validateConfig, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
@@ -10,10 +11,12 @@ import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSe
 import { restoreMultiDiscLaunch } from "./multi-disc-restore";
 import { multiDiscPlayerResultCode, reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
 import { setEmulatorPaused } from "./pause-control";
+import { captureBeforePause } from "./pause-screenshot";
 import { restorePersistentSave } from "./persistent-save-restore";
 import { PlayerChrome, type PlayerDebugRuntime } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
 import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
+import { applyVideoRenderingMode, readVideoRenderingMode, subscribeVideoRenderingMode, writeVideoRenderingMode, type VideoRenderingMode } from "./video-rendering";
 import {
   initialPlayerOrientationState,
   mobilePlayerQuery,
@@ -81,6 +84,8 @@ function observedRuntimeDiscCount(instance: EmulatorInstance | undefined) {
 }
 
 export function PlayerShell({ launchId }: { launchId: string }) {
+  const { context } = useAuth();
+  const userId = context.user?.userId;
   const stage = useRef<HTMLDivElement>(null);
   const frameRef = useRef<HTMLIFrameElement>(null);
   const orientationButtonRef = useRef<HTMLButtonElement>(null);
@@ -100,6 +105,11 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [emulatorToolbarOpen, setEmulatorToolbarOpen] = useState(false);
   const [emulatorVolume, setEmulatorVolume] = useState(0.5);
   const [emulatorMuted, setEmulatorMuted] = useState(false);
+  const videoRenderingMode = useSyncExternalStore<VideoRenderingMode>(
+    subscribeVideoRenderingMode,
+    () => readVideoRenderingMode(userId),
+    () => "pixel",
+  );
   const [discSet, setDiscSet] = useState<DiscSet | null>(null);
   const [discState, setDiscState] = useState<DiscState | null>(null);
   const [netplayPlayerNo, setNetplayPlayerNo] = useState<number | null>(null);
@@ -138,6 +148,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const discSetRef = useRef<DiscSet | null>(null);
   const netplayPausedRef = useRef(false);
   const orientationStateRef = useRef<PlayerOrientationState>(initialPlayerOrientationState);
+  const videoRenderingModeRef = useRef<VideoRenderingMode>("pixel");
 
   const reportPlayerEvent = useCallback((event: MultiDiscPlayerEvent) => {
     void reportMultiDiscPlayerEvent(launchId, event).catch(() => undefined);
@@ -197,26 +208,19 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     if (!running.current || pausedRef.current || pausePending.current || !emulator.current) return;
     const current = emulator.current;
     pausePending.current = true;
-    let timeoutID: number | undefined;
-    const timeout = new Promise<null>((resolve) => {
-      timeoutID = window.setTimeout(() => resolve(null), 750);
+    const capture = captureManualScreenshot(current).then((screenshot) => {
+      lastManualScreenshot.current = screenshot;
+      return screenshot;
     });
-    pauseCapture.current = Promise.race([captureManualScreenshot(current), timeout])
-      .then((capture) => {
-        if (capture) lastManualScreenshot.current = capture;
-        return capture;
-      })
-      .catch(() => null)
-      .finally(() => {
-        if (timeoutID !== undefined) window.clearTimeout(timeoutID);
-        pausePending.current = false;
-        if (!running.current || pausedRef.current || !setEmulatorPaused(current, true)) return;
-        pausedRef.current = true;
-        setPaused(true);
-        showToast("游戏已暂停，点击游戏画面继续");
-        setControlsVisible(true);
-        clearControlsTimer();
-      });
+    pauseCapture.current = captureBeforePause(capture, () => {
+      pausePending.current = false;
+      if (!running.current || pausedRef.current || !setEmulatorPaused(current, true)) return;
+      pausedRef.current = true;
+      setPaused(true);
+      showToast("游戏已暂停，点击游戏画面继续");
+      setControlsVisible(true);
+      clearControlsTimer();
+    });
   }, [clearControlsTimer, showToast]);
 
   const handleGameSurfaceInteraction = useCallback(() => {
@@ -384,6 +388,12 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }
 
   useEffect(() => {
+    videoRenderingModeRef.current = videoRenderingMode;
+    const canvas = emulator.current?.canvas ?? frameRef.current?.contentDocument?.querySelector<HTMLCanvasElement>("canvas") ?? null;
+    applyVideoRenderingMode(emulator.current, canvas, videoRenderingMode);
+  }, [videoRenderingMode]);
+
+  useEffect(() => {
     const controller = new AbortController();
     let cleanup: (() => void) | undefined;
     let canvasContain: ReturnType<typeof installCanvasContain> | undefined;
@@ -496,7 +506,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         style.textContent = `
 html,body,#game,#retrom-emulator,.ejs_parent,.ejs_game,.ejs_canvas_parent{width:100%!important;height:100%!important;margin:0!important;overflow:hidden;background:#05060a}
 .ejs_canvas_parent{display:grid!important;place-items:center!important}
-canvas{display:block;max-width:none!important;max-height:none!important;margin:auto!important}
+canvas{display:block;max-width:none!important;max-height:none!important;margin:auto!important;image-rendering:pixelated!important}
 html.retrom-native-menu-locked:not(.retrom-native-settings-open) .ejs_menu_bar{visibility:hidden!important;opacity:0!important;pointer-events:none!important}
 html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar{border:0!important;background:transparent!important;box-shadow:none!important;pointer-events:none!important}
 html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar>*{visibility:hidden!important;pointer-events:none!important}
@@ -531,6 +541,8 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
           onReady: (instance) => {
             if (controller.signal.aborted) return;
             emulator.current = instance;
+            const runningCanvas = instance.canvas ?? frameDocument.querySelector<HTMLCanvasElement>("canvas");
+            applyVideoRenderingMode(instance, runningCanvas, videoRenderingModeRef.current);
             const initialVolume = Math.min(1, Math.max(0, typeof instance.volume === "number" ? instance.volume : 0.5));
             setEmulatorVolume(initialVolume);
             setEmulatorMuted(instance.muted === true || initialVolume === 0);
@@ -568,6 +580,8 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
             frameDocument.documentElement.classList.add("retrom-native-menu-locked");
             emulator.current?.menu?.close?.();
             const manager = emulator.current?.gameManager;
+            const runningCanvas = emulator.current?.canvas ?? frameDocument.querySelector<HTMLCanvasElement>("canvas");
+            applyVideoRenderingMode(emulator.current, runningCanvas, videoRenderingModeRef.current);
             try {
               if (config.discSet) {
                 let persistentRestore = null;
@@ -902,6 +916,14 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
     setEmulatorMuted(true);
   }
 
+  function changeVideoRenderingMode(mode: VideoRenderingMode) {
+    videoRenderingModeRef.current = mode;
+    writeVideoRenderingMode(userId, mode);
+    const canvas = emulator.current?.canvas ?? frameRef.current?.contentDocument?.querySelector<HTMLCanvasElement>("canvas") ?? null;
+    const runtimeApplied = applyVideoRenderingMode(emulator.current, canvas, mode);
+    showToast(runtimeApplied ? "画面模式已应用" : "画面模式将在模拟器准备完成后应用");
+  }
+
   async function toggleNetplayPause() {
     const locked = netplayConfig.current;
     if (!locked || locked.playerNo !== 1) return;
@@ -1023,6 +1045,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         emulatorToolbarOpen={emulatorToolbarOpen}
         emulatorVolume={emulatorVolume}
         emulatorMuted={emulatorMuted}
+        videoRenderingMode={videoRenderingMode}
         discSet={discSet}
         discState={discState}
         netplayPlayerNo={netplayPlayerNo}
@@ -1042,6 +1065,7 @@ html.retrom-native-menu-locked.retrom-native-settings-open .ejs_menu_bar .ejs_se
         onOpenEmulatorPanel={openEmulatorPanel}
         onChangeEmulatorVolume={changeEmulatorVolume}
         onToggleEmulatorMute={toggleEmulatorMute}
+        onChangeVideoRenderingMode={changeVideoRenderingMode}
         onSelectDisc={selectDisc}
         onToggleNetplayPause={() => void toggleNetplayPause()}
         onToggleDebug={toggleDebug}
