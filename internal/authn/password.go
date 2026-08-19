@@ -19,11 +19,12 @@ import (
 )
 
 const (
-	argonMemory      = 19_456
-	argonIterations  = 2
-	argonParallelism = 1
-	argonSaltBytes   = 16
-	argonHashBytes   = 32
+	minimumPasswordCharacters = 6
+	argonMemory               = 19_456
+	argonIterations           = 2
+	argonParallelism          = 1
+	argonSaltBytes            = 16
+	argonHashBytes            = 32
 )
 
 var (
@@ -109,7 +110,7 @@ func NormalizePassword(password string) (string, error) {
 		}
 		count++
 	}
-	if count < 15 {
+	if count < minimumPasswordCharacters {
 		return "", &PasswordError{Reason: ReasonTooShort}
 	}
 	if count > 128 || len(password) > 512 {

@@ -137,7 +137,7 @@ func TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin(t *testing.T) {
 	if ordinary.Code != http.StatusPreconditionRequired || !strings.Contains(ordinary.Body.String(), "INITIALIZATION_REQUIRED") {
 		t.Fatalf("pending ordinary = %d %s", ordinary.Code, ordinary.Body.String())
 	}
-	body := `{"setupCode":"` + credentials.SetupCode() + `","username":"admin","displayName":"Administrator","password":"a sufficiently long phrase","passwordConfirmation":"a sufficiently long phrase"}`
+	body := `{"setupCode":"` + credentials.SetupCode() + `","username":"admin","displayName":"Administrator","password":"A1!x2z","passwordConfirmation":"A1!x2z"}`
 	crossSite := httptest.NewRequest(http.MethodPost, "/api/v1/auth/initialize", strings.NewReader(body))
 	crossSite.Header.Set("Content-Type", "application/json")
 	crossSite.Header.Set("Origin", "http://attacker.invalid")
@@ -145,6 +145,17 @@ func TestAuthHTTPReleasePendingRequiresSetupAndExactOrigin(t *testing.T) {
 	handler.ServeHTTP(crossRecorder, crossSite)
 	if crossRecorder.Code != http.StatusForbidden || !strings.Contains(crossRecorder.Body.String(), "REQUEST_ORIGIN_INVALID") {
 		t.Fatalf("cross-site setup = %d %s", crossRecorder.Code, crossRecorder.Body.String())
+	}
+	tooShortBody := `{"setupCode":"` + credentials.SetupCode() + `","username":"admin","displayName":"Administrator","password":"A1!x2","passwordConfirmation":"A1!x2"}`
+	tooShort := httptest.NewRequest(http.MethodPost, "/api/v1/auth/initialize", strings.NewReader(tooShortBody))
+	tooShort.Header.Set("Content-Type", "application/json")
+	tooShort.Header.Set("Origin", "http://localhost:3000")
+	tooShortRecorder := httptest.NewRecorder()
+	handler.ServeHTTP(tooShortRecorder, tooShort)
+	if tooShortRecorder.Code != http.StatusUnprocessableEntity ||
+		!strings.Contains(tooShortRecorder.Body.String(), `"code":"PASSWORD_POLICY_VIOLATION"`) ||
+		!strings.Contains(tooShortRecorder.Body.String(), `"reasonCode":"TOO_SHORT"`) {
+		t.Fatalf("five-character setup = %d %s", tooShortRecorder.Code, tooShortRecorder.Body.String())
 	}
 	initialize := httptest.NewRequest(http.MethodPost, "/api/v1/auth/initialize", strings.NewReader(body))
 	initialize.Header.Set("Content-Type", "application/json")

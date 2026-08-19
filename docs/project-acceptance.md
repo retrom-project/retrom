@@ -372,7 +372,7 @@ make acceptance-case CASE=<case-id>
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-AUTH-003`。
 - 流程：覆盖正确/错误/停用登录、logout、idle 8h、absolute 24h、并发改密、当前/其他 session rotation、Argon2 参数、10,000 项 blocklist、Origin/Fetch Metadata/CSRF 和 username+IP 双维限流；用 fake clock 和可信/不可信代理矩阵，不真实等待。
-- 通过标准：登录错误通用且等时路径不泄露账号状态；session cookie/CSRF/缓存属性符合契约，过期和撤销立即生效；改密要求当前密码并只保留轮换后的当前会话。release 密码策略与物化 blocklist fail-closed，限流只信任 allowlist 代理并返回稳定 `429/Retry-After`。
+- 通过标准：登录错误通用且等时路径不泄露账号状态；session cookie/CSRF/缓存属性符合契约，过期和撤销立即生效；改密要求当前密码并只保留轮换后的当前会话。release 密码最少 6 个 Unicode 字符，5 个字符稳定拒绝，长度边界与物化 blocklist 均 fail-closed；限流只信任 allowlist 代理并返回稳定 `429/Retry-After`。
 - 证据：cookie 属性、受控时钟、密码校验与请求负向矩阵、blocklist hash。
 
 ### ACC-AUTH-004：邀请与密码重置 capability

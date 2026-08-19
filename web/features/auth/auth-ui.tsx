@@ -7,6 +7,8 @@ import { safeReturnTo, useAuth } from "./auth-provider";
 import { readAPIError, type AuthContext } from "./types";
 import type { components } from "@/lib/api/generated/schema";
 
+const minimumPasswordCharacters = 6;
+
 export function AuthPanel({ title, eyebrow, description, width = "narrow", children }: { title: string; eyebrow: string; description?: string; width?: "narrow" | "wide"; children: ReactNode }) {
   return <main className="auth-canvas"><section className={`auth-panel ${width === "wide" ? "is-wide" : ""}`}>
     <div className="auth-brand"><span className="brand-mark" aria-hidden="true">R</span><strong>Retrom</strong></div>
@@ -18,9 +20,13 @@ export function AuthPanel({ title, eyebrow, description, width = "narrow", child
 function PasswordField({ name, label, autoComplete, required = true }: { name: string; label: string; autoComplete: string; required?: boolean }) {
   const [visible, setVisible] = useState(false);
   return <div className="form-field"><label htmlFor={name}>{label}</label><div className="password-control">
-    <input autoComplete={autoComplete} id={name} name={name} required={required} type={visible ? "text" : "password"} />
+    <input autoComplete={autoComplete} id={name} minLength={autoComplete === "new-password" ? minimumPasswordCharacters : undefined} name={name} required={required} type={visible ? "text" : "password"} />
     <button aria-label={visible ? `隐藏${label}` : `显示${label}`} type="button" onClick={() => setVisible((value) => !value)}>{visible ? "隐藏" : "显示"}</button>
   </div></div>;
+}
+
+function PasswordPolicy() {
+  return <p className="password-policy">至少 6 个字符，可以使用空格；不要求特定字符组合。</p>;
 }
 
 function ErrorSummary({ message, requestId, errorRef }: { message: string | null; requestId?: string; errorRef: React.RefObject<HTMLDivElement | null> }) {
@@ -62,7 +68,7 @@ export function SetupForm() {
       <div className="form-field"><label htmlFor="displayName">显示名称</label><input autoComplete="name" id="displayName" name="displayName" required /></div>
       <PasswordField autoComplete="new-password" label="密码" name="password" />
       <PasswordField autoComplete="new-password" label="确认密码" name="passwordConfirmation" />
-      <p className="password-policy">至少 15 个字符，可以使用空格；不要求特定字符组合。</p>
+      <PasswordPolicy />
       <button className="button auth-submit" disabled={state.busy} type="submit">{state.busy ? "正在初始化…" : "创建管理员并进入 Retrom"}</button>
     </form>
   </AuthPanel>;
@@ -157,7 +163,7 @@ export function RegisterForm() {
       <div className="form-field"><label htmlFor="username">用户名</label><input autoComplete="username" id="username" name="username" required /></div>
       <div className="form-field"><label htmlFor="displayName">显示名称</label><input autoComplete="name" id="displayName" name="displayName" required /></div>
       <PasswordField autoComplete="new-password" label="密码" name="password" /><PasswordField autoComplete="new-password" label="确认密码" name="passwordConfirmation" />
-      <p className="password-policy">至少 15 个字符，可以使用空格；不要求特定字符组合。</p>
+      <PasswordPolicy />
       <button className="button auth-submit" disabled={state.busy} type="submit">{state.busy ? "正在创建账号…" : "创建账号并进入 Retrom"}</button>
     </form>
   </AuthPanel>;
@@ -183,7 +189,7 @@ export function ResetPasswordForm() {
     <div className="link-facts"><span>账号</span><strong>@{capability.inspection.username}</strong><span>到期时间</span><strong>{formatAbsolute(capability.inspection.expiresAtMs)}</strong></div>
     <form className="auth-form" onSubmit={(event) => void submit(event)} aria-busy={state.busy}><ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} />
       <PasswordField autoComplete="new-password" label="新密码" name="password" /><PasswordField autoComplete="new-password" label="确认密码" name="passwordConfirmation" />
-      <p className="password-policy">至少 15 个字符，可以使用空格；不要求特定字符组合。</p>
+      <PasswordPolicy />
       <button className="button auth-submit" disabled={state.busy} type="submit">{state.busy ? "正在更新密码…" : "更新密码"}</button>
     </form>
   </AuthPanel>;
@@ -202,7 +208,7 @@ export function AccountSettings() {
   }
   return <div className="page-layout page-layout-detail"><header className="page-header"><div><p className="eyebrow">账号安全</p><h1 tabIndex={-1}>账户设置</h1><p>查看当前账号资料并更新登录密码。</p></div></header>
     <div className="account-settings-grid"><section className="panel"><div className="panel-head"><div><h2>账号资料</h2><p>本版本不提供自行修改用户名或显示名称。</p></div></div><dl className="account-facts"><div><dt>用户名</dt><dd>@{user?.username}</dd></div><div><dt>显示名称</dt><dd>{user?.displayName}</dd></div><div><dt>角色</dt><dd><StatusBadge tone={user?.role === "ADMIN" ? "info" : "neutral"}>{user?.role === "ADMIN" ? "管理员" : "普通用户"}</StatusBadge></dd></div><div><dt>账号状态</dt><dd><StatusBadge tone="good">启用</StatusBadge></dd></div></dl></section>
-      <section className="panel"><div className="panel-head"><div><h2>修改密码</h2><p>更新后，其他设备上的会话将立即退出。</p></div></div><div className="panel-body">{success ? <FeedbackBanner tone="good">密码已更新，其他设备已退出登录</FeedbackBanner> : null}<form className="auth-form account-password-form" onSubmit={(event) => void submit(event)} aria-busy={state.busy}><ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} /><PasswordField autoComplete="current-password" label="当前密码" name="currentPassword" /><PasswordField autoComplete="new-password" label="新密码" name="newPassword" /><PasswordField autoComplete="new-password" label="确认密码" name="newPasswordConfirmation" /><p className="password-policy">至少 15 个字符，可以使用空格；不要求特定字符组合。</p><button className="button" disabled={state.busy} type="submit">{state.busy ? "正在更新…" : "更新密码"}</button></form></div></section></div>
+      <section className="panel"><div className="panel-head"><div><h2>修改密码</h2><p>更新后，其他设备上的会话将立即退出。</p></div></div><div className="panel-body">{success ? <FeedbackBanner tone="good">密码已更新，其他设备已退出登录</FeedbackBanner> : null}<form className="auth-form account-password-form" onSubmit={(event) => void submit(event)} aria-busy={state.busy}><ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} /><PasswordField autoComplete="current-password" label="当前密码" name="currentPassword" /><PasswordField autoComplete="new-password" label="新密码" name="newPassword" /><PasswordField autoComplete="new-password" label="确认密码" name="newPasswordConfirmation" /><PasswordPolicy /><button className="button" disabled={state.busy} type="submit">{state.busy ? "正在更新…" : "更新密码"}</button></form></div></section></div>
   </div>;
 }
 

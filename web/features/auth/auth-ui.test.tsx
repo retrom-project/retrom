@@ -37,12 +37,21 @@ describe("authentication UI", () => {
     await user.type(screen.getByLabelText("初始化码", { selector: "input" }), "setup-proof");
     await user.type(screen.getByLabelText("管理员用户名"), "admin");
     await user.type(screen.getByLabelText("显示名称"), "Server Admin");
-    await user.type(screen.getByLabelText("密码", { selector: "input" }), "a sufficiently long password");
-    await user.type(screen.getByLabelText("确认密码", { selector: "input" }), "a sufficiently long password");
+    const password = "A1!x2z";
+    const passwordInput = screen.getByLabelText("密码", { selector: "input" });
+    const confirmationInput = screen.getByLabelText("确认密码", { selector: "input" });
+    expect(passwordInput).toHaveAttribute("minlength", "6");
+    expect(confirmationInput).toHaveAttribute("minlength", "6");
+    expect(screen.getByText("至少 6 个字符，可以使用空格；不要求特定字符组合。")).toBeInTheDocument();
+    await user.type(passwordInput, password);
+    await user.type(confirmationInput, password);
     await user.click(screen.getByRole("button", { name: "创建管理员并进入 Retrom" }));
     await waitFor(() => expect(navigation.replace).toHaveBeenCalledWith("/"));
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/initialize", expect.objectContaining({
       method: "POST", body: expect.stringContaining('"setupCode":"setup-proof"')
+    }));
+    expect(fetchMock).toHaveBeenCalledWith("/api/v1/auth/initialize", expect.objectContaining({
+      method: "POST", body: expect.stringContaining('"password":"A1!x2z"')
     }));
   });
 
