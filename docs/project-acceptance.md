@@ -1006,7 +1006,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-FAV-004`。
 - 流程：1280×800、2560×1440、物理 4K 150% 覆盖 loading/全空/Folder 空/筛选空/错误/冲突、50 项批量和 100 Folder；键盘创建/管理/取消，reduced motion 与 axe。
-- 通过：无横向溢出/遮挡，卡宽 270–320px，Rail 头部和新建入口固定且只有中间列表自滚动，批量栏不盖末行，4K 字号/控件达标，dialog 焦点与 Escape 正确，axe 无 serious/critical。
+- 通过：无横向溢出/遮挡，卡宽 270–320px，Rail 头部和新建入口固定且只有中间列表自滚动，批量栏不盖末行；游戏库与收藏页的收藏按钮在切换前后保持同一 38×38 容器和 18×18 居中心形，已收藏为红色实心、未收藏为空心；4K 字号/控件达标，dialog 焦点与 Escape 正确，axe 无 serious/critical。
 - 证据：三 viewport 测量/截图、键盘 trace、焦点/ARIA/axe/reduced-motion 结果。
 
 ## 18. 游戏标签

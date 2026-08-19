@@ -1,7 +1,7 @@
 import { execFileSync } from "node:child_process";
 import { mkdirSync } from "node:fs";
 import path from "node:path";
-import { expect, test, type APIRequestContext, type BrowserContext, type Page, type TestInfo } from "@playwright/test";
+import { expect, test, type APIRequestContext, type BrowserContext, type Locator, type Page, type TestInfo } from "@playwright/test";
 import axe from "axe-core";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
@@ -41,6 +41,24 @@ async function noPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 }
 
+async function favoriteHeartVisual(heart: Locator) {
+  return heart.evaluate((element) => {
+    const button = element.getBoundingClientRect();
+    const icon = element.querySelector("svg")!.getBoundingClientRect();
+    const iconStyle = getComputedStyle(element.querySelector("svg")!);
+    return {
+      buttonWidth: button.width,
+      buttonHeight: button.height,
+      iconWidth: icon.width,
+      iconHeight: icon.height,
+      centerOffsetX: icon.left + icon.width / 2 - (button.left + button.width / 2),
+      centerOffsetY: icon.top + icon.height / 2 - (button.top + button.height / 2),
+      color: getComputedStyle(element).color,
+      fill: iconStyle.fill,
+    };
+  });
+}
+
 test("ACC-FAV-003 user flow remains consistent across library, detail, folders, batch and owner", async ({ page, browser }, testInfo) => {
   test.setTimeout(120_000);
   page.setDefaultTimeout(10_000);
@@ -55,7 +73,18 @@ test("ACC-FAV-003 user flow remains consistent across library, detail, folders, 
   const first = page.locator(`[data-library-game="${firstId}"]`);
   const second = page.locator(`[data-library-game="${secondId}"]`);
   const firstTitle = await first.locator("h2").innerText();
-  await first.getByRole("button", { name: `收藏“${firstTitle}”` }).click();
+  const emptyHeart = first.getByRole("button", { name: `收藏“${firstTitle}”` });
+  const emptyHeartVisual = await favoriteHeartVisual(emptyHeart);
+  await emptyHeart.click();
+  const filledHeart = first.getByRole("button", { name: `取消收藏“${firstTitle}”` });
+  await expect(filledHeart).toHaveAttribute("aria-pressed", "true");
+  const filledHeartVisual = await favoriteHeartVisual(filledHeart);
+  expect(emptyHeartVisual).toMatchObject({ buttonWidth: 38, buttonHeight: 38, iconWidth: 18, iconHeight: 18, fill: "none" });
+  expect(filledHeartVisual).toMatchObject({ buttonWidth: 38, buttonHeight: 38, iconWidth: 18, iconHeight: 18, color: "rgb(220, 66, 87)", fill: "rgb(220, 66, 87)" });
+  expect(Math.abs(emptyHeartVisual.centerOffsetX)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(emptyHeartVisual.centerOffsetY)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(filledHeartVisual.centerOffsetX)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(filledHeartVisual.centerOffsetY)).toBeLessThanOrEqual(0.5);
   await second.getByRole("button", { name: /^收藏“/ }).click();
 
   const firstMore = first.getByRole("button", { name: `游戏“${firstTitle}”的更多操作` });
@@ -183,6 +212,9 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
     const firstCard = cards[0].getBoundingClientRect();
     const firstCover = cards[0].querySelector<HTMLElement>(".favorite-game-cover")!.getBoundingClientRect();
     const heart = cards[0].querySelector<HTMLElement>(".favorite-heart")!;
+    const heartRect = heart.getBoundingClientRect();
+    const heartIcon = heart.querySelector("svg")!;
+    const heartIconRect = heartIcon.getBoundingClientRect();
     const manage = cards[0].querySelector<HTMLElement>(".favorite-manage")!;
     const manageRect = manage.getBoundingClientRect();
     const toolbarControl = document.querySelector<HTMLElement>(".favorite-toolbar select")!;
@@ -196,7 +228,14 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
       helperFont: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".favorite-head-summary")!).fontSize),
       railLabelFont: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".favorite-rail-label")!).fontSize),
       cardTitleFont: Number.parseFloat(getComputedStyle(document.querySelector<HTMLElement>(".favorite-game-body h3")!).fontSize),
-      heartText: heart.textContent,
+      heartWidth: heartRect.width,
+      heartHeight: heartRect.height,
+      heartIconWidth: heartIconRect.width,
+      heartIconHeight: heartIconRect.height,
+      heartCenterOffsetX: heartIconRect.left + heartIconRect.width / 2 - (heartRect.left + heartRect.width / 2),
+      heartCenterOffsetY: heartIconRect.top + heartIconRect.height / 2 - (heartRect.top + heartRect.height / 2),
+      heartColor: getComputedStyle(heart).color,
+      heartFill: getComputedStyle(heartIcon).fill,
       heartRadius: getComputedStyle(heart).borderRadius,
       manageText: manage.textContent,
       manageInsideBody: manageRect.top >= firstCover.bottom && manageRect.bottom <= firstCard.bottom + 1,
@@ -209,7 +248,12 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
   expect(layout.railListScrollable).toBe(true);
   expect(layout.railOverflow).toBe("hidden");
   expect(layout.railHeight).toBeLessThan(layout.viewportHeight);
-  expect(layout.heartText).toBe("♥");
+  expect({ width: layout.heartWidth, height: layout.heartHeight }).toEqual({ width: 38, height: 38 });
+  expect({ width: layout.heartIconWidth, height: layout.heartIconHeight }).toEqual({ width: 18, height: 18 });
+  expect(Math.abs(layout.heartCenterOffsetX)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(layout.heartCenterOffsetY)).toBeLessThanOrEqual(0.5);
+  expect(layout.heartColor).toBe("rgb(220, 66, 87)");
+  expect(layout.heartFill).toBe("rgb(220, 66, 87)");
   expect(layout.heartRadius).toBe("50%");
   expect(layout.manageText).toBe("•••");
   expect(layout.manageInsideBody).toBe(true);

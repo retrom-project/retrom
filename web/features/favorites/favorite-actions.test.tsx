@@ -41,8 +41,14 @@ describe("FavoriteActions", () => {
     const user = userEvent.setup();
     render(<FavoriteActions gameId={gameId} title="Metroid" initialFavorite={null} onChange={onChange} />);
 
-    await user.click(screen.getByRole("button", { name: "收藏“Metroid”" }));
-    await waitFor(() => expect(screen.getByRole("button", { name: "取消收藏“Metroid”" })).toHaveAttribute("aria-pressed", "true"));
+    const emptyHeart = screen.getByRole("button", { name: "收藏“Metroid”" });
+    expect(emptyHeart).toHaveTextContent("");
+    expect(emptyHeart.querySelector("svg")).toHaveAttribute("viewBox", "0 0 24 24");
+    await user.click(emptyHeart);
+    const filledHeart = await screen.findByRole("button", { name: "取消收藏“Metroid”" });
+    await waitFor(() => expect(filledHeart).toHaveAttribute("aria-pressed", "true"));
+    expect(filledHeart).toHaveClass("is-favorite");
+    expect(filledHeart.querySelector("svg")).toHaveAttribute("viewBox", "0 0 24 24");
     expect(onChange).toHaveBeenLastCalledWith({ favoritedAtMs: 1200, folderIds: [] });
 
     await user.click(screen.getByRole("button", { name: "加入收藏夹" }));
