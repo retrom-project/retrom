@@ -28,18 +28,26 @@ function makeSave(index: number): SaveItem {
 describe("GameDetailSaves", () => {
   afterEach(cleanup);
 
-  it("keeps four recent saves in the page and exposes every save in a drawer", async () => {
+  it("keeps three recent saves in the page and exposes every save in a drawer", async () => {
     const user = userEvent.setup();
     const saves = Array.from({ length: 6 }, (_, index) => makeSave(index));
     const { container } = render(<GameDetailSaves gameId="game-1" gameTitle="1943: The Battle of Midway" saves={saves} nowMs={nowMs} />);
 
-    expect(container.querySelectorAll(".game-detail-save-card")).toHaveLength(4);
-    expect(screen.getByText("最近 4 份 · 共 6 份")).toBeInTheDocument();
-    const drawerTrigger = screen.getByRole("button", { name: "查看全部 →" });
+    expect(container.querySelectorAll(".game-detail-save-card")).toHaveLength(3);
+    expect(screen.getByText("共 6 份")).toBeInTheDocument();
+    const recentCard = container.querySelector<HTMLElement>(".game-detail-save-card");
+    expect(recentCard).not.toBeNull();
+    expect(within(recentCard!).getByText("最近存档")).toBeInTheDocument();
+    expect(within(recentCard!).getByText("保存位置")).toBeInTheDocument();
+    expect(within(recentCard!).getByText("运行核心")).toBeInTheDocument();
+    expect(within(recentCard!).getByText("当时已游玩")).toBeInTheDocument();
+    expect(within(recentCard!).getByRole("button", { name: "▶ 从这里继续" })).toBeInTheDocument();
+    const drawerTrigger = screen.getByRole("button", { name: "查看全部存档" });
     await user.click(drawerTrigger);
 
     const drawer = screen.getByRole("dialog", { name: "全部存档" });
     expect(within(drawer).getAllByRole("article")).toHaveLength(6);
+    expect(within(drawer).getAllByRole("button", { name: "▶ 继续" })).toHaveLength(6);
     expect(within(drawer).getByText("1943: The Battle of Midway · 共 6 份")).toBeInTheDocument();
     await user.keyboard("{Escape}");
     expect(screen.queryByRole("dialog", { name: "全部存档" })).not.toBeInTheDocument();
