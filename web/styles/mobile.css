@@ -570,7 +570,8 @@
   .game-detail-save-drawer { z-index: 206; width: 100%; }
   .game-detail-save-drawer > header { padding: calc(16px + env(safe-area-inset-top)) 16px 14px; }
   .game-detail-drawer-body { padding: 12px; }
-  .game-detail-drawer-row { grid-template-columns: 112px minmax(0, 1fr); }
+  .game-detail-drawer-row { min-height: 0; grid-template-columns: 112px minmax(0, 1fr); }
+  .game-detail-drawer-shot { width: 112px; }
   .game-detail-drawer-row > .button,
   .game-detail-drawer-row > .status { grid-column: 1 / -1; width: 100%; }
   .game-detail-preview { padding: 12px; }

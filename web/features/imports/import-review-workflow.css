@@ -361,41 +361,42 @@
 .game-detail-poster.is-placeholder span { font-size: 18px; font-weight: 850; letter-spacing: .04em; }
 .game-detail-poster-caption { margin-top: 7px; display: flex; justify-content: space-between; gap: 10px; color: var(--muted); font-size: 10px; }
 .game-detail-main { min-width: 0; width: 100%; align-self: center; }
-.game-detail-eyebrow { margin: 0; color: #6d7483; font-size: 11px; font-weight: 760; }
-.game-detail-main h1 { margin: 6px 0 7px; font-size: 30px; line-height: 1.15; letter-spacing: -.03em; }
-.game-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: #5e6879; font-size: 11px; }
+.game-detail-eyebrow { margin: 0; color: #6d7483; font-size: 12px; font-weight: 750; }
+.game-detail-main h1 { margin: 6px 0 7px; font-size: 30px; font-weight: 800; line-height: 1.15; letter-spacing: -.03em; }
+.game-detail-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; color: #5e6879; font-size: 12px; }
 .game-detail-meta span { display: inline-flex; align-items: center; gap: 7px; }
 .game-detail-meta span:not(:last-child)::after { content: ""; width: 3px; height: 3px; margin-left: 2px; border-radius: 50%; background: #a7aeba; }
-.game-detail-description { width: 100%; margin: 14px 0 0; overflow-wrap: anywhere; color: #566174; font-size: 12px; line-height: 1.62; white-space: pre-wrap; }
-.game-detail-playtime { margin-top: 14px; display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.game-detail-description { width: 100%; margin: 14px 0 0; overflow-wrap: anywhere; color: #566174; font-size: 13px; line-height: 1.62; white-space: pre-wrap; }
+.game-detail-playtime { margin-top: 14px; display: flex; align-items: center; gap: 8px; font-size: 12px; }
+.game-detail-playtime strong { font-weight: 800; }
 .game-detail-playtime span { color: var(--muted); }
 .launch-panel { position: relative; min-width: 0; align-self: center; padding: 14px; border: 1px solid #ddd8f4; border-radius: 12px; background: linear-gradient(180deg, #faf9ff, #f7f5fd); }
-.launch-panel h2 { margin: 4px 0 9px; font-size: 16px; }
-.launch-kicker { color: var(--purple-dark); font-size: 9px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
+.launch-panel h2 { margin: 4px 0 9px; font-size: 18px; font-weight: 800; }
+.launch-kicker { color: var(--purple-dark); font-size: 10px; font-weight: 850; letter-spacing: .1em; text-transform: uppercase; }
 .launch-runtime-status { position: absolute; top: 12px; right: 12px; }
-.launch-runtime-status .status { min-height: 21px; padding: 1px 7px; font-size: 9px; }
+.launch-runtime-status .status { min-height: 23px; padding: 1px 8px; font-size: 10px; font-weight: 750; }
 .launch-panel > .field { margin: 0 0 8px; }
-.launch-panel > .field label { font-size: 9px; }
-.launch-panel > .field select { min-height: 34px; font-size: 10px; }
+.launch-panel > .field label { font-size: 10px; font-weight: 750; }
+.launch-panel > .field select { min-height: 34px; font-size: 11px; }
 .launch-quick-save { padding: 9px; display: grid; grid-template-columns: 126px minmax(0, 1fr); gap: 10px; align-items: center; border: 1px solid #e4e0ef; border-radius: 10px; background: white; }
 .launch-quick-save > div:first-child { position: relative; width: 126px; aspect-ratio: 16 / 9; overflow: hidden; border-radius: 7px; background: #05060a; }
 .launch-quick-save img { object-fit: contain; }
 .launch-quick-save > div:last-child { min-width: 0; }
 .launch-quick-save strong, .launch-quick-save time, .launch-quick-save small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.launch-quick-save strong { font-size: 11px; }
-.launch-quick-save time, .launch-quick-save small { margin-top: 1px; color: var(--muted); font-size: 9px; }
-.launch-quick-save .button { width: 100%; min-height: 34px; margin-top: 7px; padding: 0 10px; border-radius: 8px; box-shadow: none; font-size: 10px; }
-.launch-panel > .button { width: 100%; min-height: 34px; margin-top: 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: white; box-shadow: none; font-size: 10px; }
+.launch-quick-save strong { font-size: 12px; font-weight: 800; }
+.launch-quick-save time, .launch-quick-save small { margin-top: 1px; color: var(--muted); font-size: 10px; }
+.launch-quick-save .button { width: 100%; min-height: 34px; margin-top: 7px; padding: 0 10px; border-radius: 8px; box-shadow: none; font-size: 11px; font-weight: 800; }
+.launch-panel > .button { width: 100%; min-height: 34px; margin-top: 7px; border: 1px solid var(--line); border-radius: 8px; color: var(--ink); background: white; box-shadow: none; font-size: 11px; font-weight: 750; }
 .launch-panel > .button:hover { color: var(--purple-dark); border-color: #c9c1f2; }
 .launch-panel > .button:disabled { color: white; border-color: transparent; background: #c7cbd4; }
 .launch-panel > .status.bad { width: 100%; margin-top: 7px; white-space: normal; }
 .launch-runtime-row { margin-top: 9px; padding-top: 8px; display: flex; align-items: center; justify-content: space-between; gap: 10px; border-top: 1px solid #e4e0ef; }
 .launch-runtime-row > div { min-width: 0; }
 .launch-runtime-row small, .launch-runtime-row strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.launch-runtime-row small { color: #818a99; font-size: 8px; }
-.launch-runtime-row strong { margin-top: 1px; font-size: 10px; }
-.launch-runtime-row button { flex: 0 0 auto; padding: 4px; color: var(--purple-dark); border: 0; background: transparent; cursor: pointer; font-size: 9px; font-weight: 760; }
-.launch-core-override { display: block; margin-top: 2px; overflow: hidden; color: var(--danger); text-overflow: ellipsis; white-space: nowrap; font-size: 8px; font-weight: 750; }
+.launch-runtime-row small { color: #818a99; font-size: 10px; }
+.launch-runtime-row strong { margin-top: 1px; font-size: 12px; font-weight: 800; }
+.launch-runtime-row button { flex: 0 0 auto; padding: 4px; color: var(--purple-dark); border: 0; background: transparent; cursor: pointer; font-size: 11px; font-weight: 800; }
+.launch-core-override { display: block; margin-top: 2px; overflow: hidden; color: var(--danger); text-overflow: ellipsis; white-space: nowrap; font-size: 10px; font-weight: 750; }
 .launch-core-field { display: grid; gap: 7px; }
 .launch-core-field span { color: var(--muted); font-size: 12px; font-weight: 750; }
 .launch-core-field select { width: 100%; height: 42px; padding: 0 10px; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; }
@@ -403,29 +404,36 @@
 .game-detail-fact { min-width: 0; padding: 0 9px; border-right: 1px solid #ece9e3; }
 .game-detail-fact:last-child { border-right: 0; }
 .game-detail-fact span, .game-detail-fact strong { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.game-detail-fact span { color: var(--muted); font-size: 8px; }
-.game-detail-fact strong { margin-top: 2px; font-size: 10px; }
+.game-detail-fact span { color: var(--muted); font-size: 10px; }
+.game-detail-fact strong { margin-top: 2px; font-size: 12px; font-weight: 800; }
 .game-detail-fact strong.is-missing { color: #9ba3af; }
 .game-detail-saves { margin-top: 10px; overflow: hidden; border: 1px solid var(--line); border-radius: 15px; background: white; }
 .game-detail-saves-head { min-height: 55px; padding: 11px 15px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
-.game-detail-saves-head h2 { margin: 0; font-size: 14px; }
-.game-detail-saves-head p { margin: 2px 0 0; color: var(--muted); font-size: 9px; }
+.game-detail-saves-head h2 { margin: 0; font-size: 16px; font-weight: 800; }
+.game-detail-saves-head p { margin: 2px 0 0; color: var(--muted); font-size: 11px; }
 .game-detail-saves-actions { display: flex; align-items: center; gap: 9px; }
-.game-detail-saves-actions span { padding: 3px 8px; color: var(--cyan); border-radius: 999px; background: var(--cyan-soft); white-space: nowrap; font-size: 9px; font-weight: 800; }
-.game-detail-saves-actions button { padding: 4px; color: var(--purple-dark); border: 0; background: transparent; cursor: pointer; font-size: 10px; font-weight: 760; }
-.game-detail-save-grid { padding: 12px 14px 14px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.game-detail-saves-actions span { color: var(--muted); white-space: nowrap; font-size: 11px; font-weight: 750; }
+.game-detail-saves-actions button { min-height: 32px; padding: 0 11px; color: var(--ink); border: 1px solid var(--line); border-radius: 8px; background: white; cursor: pointer; font-size: 12px; font-weight: 750; }
+.game-detail-saves-actions button:hover { color: var(--purple-dark); border-color: #c9c1f2; }
+.game-detail-save-grid { padding: 12px 14px 14px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
 .game-detail-save-card { min-width: 0; min-height: 122px; overflow: hidden; display: grid; grid-template-columns: minmax(210px, 290px) minmax(0, 1fr); border: 1px solid var(--line); border-radius: 11px; background: white; }
 .game-detail-save-media { position: relative; min-width: 0; aspect-ratio: 16 / 9; overflow: hidden; display: grid; place-items: center; padding: 0; border: 0; background: #05060a; cursor: zoom-in; }
 .game-detail-save-media img, .game-detail-drawer-shot img { object-fit: contain; }
-.game-detail-save-latest, .game-detail-save-blocked { position: absolute; z-index: 2; top: 7px; padding: 3px 7px; border-radius: 999px; color: white; background: rgb(20 27 40 / 88%); backdrop-filter: blur(8px); font-size: 8px; font-weight: 800; }
-.game-detail-save-latest { left: 7px; }
-.game-detail-save-blocked { right: 7px; background: rgb(166 55 69 / 90%); }
+.game-detail-save-blocked { position: absolute; z-index: 2; top: 7px; right: 7px; padding: 3px 7px; border-radius: 999px; color: white; background: rgb(166 55 69 / 90%); backdrop-filter: blur(8px); font-size: 8px; font-weight: 800; }
 .game-detail-save-body { min-width: 0; padding: 11px 12px; display: flex; flex-direction: column; justify-content: center; gap: 8px; }
-.game-detail-save-body strong, .game-detail-save-body time { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.game-detail-save-body strong { font-size: 11px; }
-.game-detail-save-body time { margin-top: 2px; color: var(--muted); font-size: 9px; }
-.game-detail-save-body > small { color: var(--muted); font-size: 8px; }
-.game-detail-save-body .button, .game-detail-drawer-row .button { width: fit-content; min-height: 32px; padding: 0 10px; align-self: flex-start; color: var(--purple-dark); border: 1px solid #d9d2f4; border-radius: 8px; background: #f6f3ff; box-shadow: none; font-size: 9px; }
+.game-detail-save-title-line { min-width: 0; display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.game-detail-save-title-line > div { min-width: 0; }
+.game-detail-save-title-line strong, .game-detail-save-title-line time, .game-detail-save-title-line small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-detail-save-title-line strong { font-size: 13px; font-weight: 800; }
+.game-detail-save-title-line small { margin-top: 2px; color: var(--muted); font-size: 10px; }
+.game-detail-save-title-line > span { flex: 0 0 auto; padding: 3px 7px; color: #5f687b; border-radius: 999px; background: #eef1f5; font-size: 10px; font-weight: 800; }
+.game-detail-save-title-line > span.is-latest { color: var(--purple-dark); background: var(--purple-soft); }
+.game-detail-save-fact-row { display: none; min-width: 0; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.game-detail-save-fact-row > span { min-width: 0; padding: 7px 8px; border-radius: 8px; background: #faf9f6; }
+.game-detail-save-fact-row small, .game-detail-save-fact-row b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-detail-save-fact-row small { color: var(--muted); font-size: 10px; }
+.game-detail-save-fact-row b { margin-top: 2px; font-size: 12px; font-weight: 800; }
+.game-detail-save-body .button, .game-detail-drawer-row .button { width: fit-content; min-height: 32px; padding: 0 10px; align-self: flex-start; color: var(--purple-dark); border: 1px solid #d9d2f4; border-radius: 8px; background: #f6f3ff; box-shadow: none; font-size: 11px; font-weight: 800; }
 .game-detail-save-body .button:hover, .game-detail-drawer-row .button:hover { border-color: #bfb4ef; background: var(--purple-soft); }
 .game-detail-save-body .button:disabled, .game-detail-drawer-row .button:disabled { color: #787f8d; border-color: var(--line); background: #eff1f4; }
 .game-detail-save-body .status, .game-detail-drawer-row .status { max-width: 100%; white-space: normal; }
@@ -437,17 +445,20 @@
 .game-detail-save-drawer { position: fixed; z-index: 71; top: 0; right: 0; width: min(560px, 100vw); height: 100dvh; display: flex; flex-direction: column; border-left: 1px solid var(--line); background: white; box-shadow: -22px 0 60px rgb(17 23 39 / 18%); transform: translateX(100%); visibility: hidden; transition: transform .2s ease, visibility 0s linear .2s; }
 .game-detail-save-drawer.is-open { visibility: visible; transform: none; transition-delay: 0s; }
 .game-detail-save-drawer > header { padding: 20px; display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; border-bottom: 1px solid var(--line); }
-.game-detail-save-drawer h2 { margin: 0; font-size: 20px; }
-.game-detail-save-drawer header p { margin: 5px 0 0; color: var(--muted); font-size: 11px; }
+.game-detail-save-drawer h2 { margin: 0; font-size: 24px; font-weight: 800; }
+.game-detail-save-drawer header p { margin: 5px 0 0; color: var(--muted); font-size: 13px; }
 .game-detail-drawer-close { width: 34px; height: 34px; padding: 0; display: grid; place-items: center; border: 1px solid var(--line); border-radius: 9px; color: var(--ink); background: white; cursor: pointer; }
 .game-detail-drawer-close svg { width: 17px; height: 17px; }
 .game-detail-drawer-body { padding: 16px; overflow: auto; display: grid; align-content: start; gap: 10px; }
-.game-detail-drawer-row { min-width: 0; padding: 10px; display: grid; grid-template-columns: 128px minmax(0, 1fr) auto; gap: 10px; align-items: center; border: 1px solid var(--line); border-radius: 11px; }
-.game-detail-drawer-shot { position: relative; width: 128px; aspect-ratio: 16 / 9; overflow: hidden; padding: 0; border: 0; border-radius: 8px; background: #05060a; cursor: zoom-in; }
-.game-detail-drawer-row > div { min-width: 0; }
+.game-detail-drawer-row { min-width: 0; min-height: 140px; padding: 12px; display: grid; grid-template-columns: 192px minmax(0, 1fr) auto; gap: 12px; align-items: stretch; border: 1px solid var(--line); border-radius: 11px; }
+.game-detail-drawer-shot { position: relative; width: 192px; aspect-ratio: 16 / 9; align-self: center; overflow: hidden; padding: 0; border: 0; border-radius: 8px; background: #05060a; cursor: zoom-in; }
+.game-detail-drawer-row > div { min-width: 0; align-self: center; }
+.game-detail-drawer-row > .button, .game-detail-drawer-row > .status { align-self: end; }
+.game-detail-drawer-row > .button:not(:disabled) { color: white; border-color: var(--purple); background: var(--purple); }
+.game-detail-drawer-row > .button:not(:disabled):hover { color: white; border-color: var(--purple-dark); background: var(--purple-dark); }
 .game-detail-drawer-row time, .game-detail-drawer-row small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.game-detail-drawer-row time { font-size: 11px; font-weight: 750; }
-.game-detail-drawer-row small { margin-top: 3px; color: var(--muted); font-size: 9px; }
+.game-detail-drawer-row time { font-size: 14px; font-weight: 800; }
+.game-detail-drawer-row small { margin-top: 3px; color: var(--muted); font-size: 12px; }
 .game-detail-preview { position: fixed; z-index: 140; inset: 0; padding: 24px; display: grid; place-items: center; background: rgb(17 23 39 / 58%); backdrop-filter: blur(3px); }
 .game-detail-preview > section { width: min(920px, 90vw); max-height: 88dvh; padding: 14px; border: 1px solid #343b49; border-radius: 14px; background: #0a0d14; box-shadow: 0 28px 80px rgb(0 0 0 / 42%); }
 .game-detail-preview-image { max-height: calc(88dvh - 70px); display: grid; place-items: center; overflow: hidden; }
@@ -461,6 +472,34 @@
   .game-detail-main h1 { font-size: 29px; }
   .game-detail-save-grid { gap: 9px; }
   .game-detail-save-card { min-height: 116px; }
+}
+@media (min-width: 1800px) and (min-height: 1050px) {
+  .game-detail-page { min-height: calc(100dvh - 74px); margin-top: -10px; display: grid; grid-template-rows: 28px minmax(402px, auto) 56px minmax(230px, 1fr); gap: 10px; align-content: stretch; }
+  .game-detail-breadcrumb { height: 28px; margin: 0; }
+  .game-detail-hero { min-height: 0; height: 100%; padding: 18px 22px; grid-template-columns: 260px minmax(430px, 1fr) 400px; gap: 30px; }
+  .game-detail-poster-shell { width: 240px; justify-self: center; }
+  .game-detail-main h1 { margin-block: 8px 10px; font-size: 36px; }
+  .game-detail-eyebrow { font-size: 13px; }
+  .game-detail-meta { font-size: 13px; }
+  .game-detail-description { margin-top: 16px; font-size: 15px; line-height: 1.68; }
+  .game-detail-playtime { margin-top: 18px; font-size: 13px; }
+  .launch-panel { width: 100%; padding: 16px; }
+  .game-detail-info-strip { height: 56px; margin: 0; padding-block: 8px; align-items: center; }
+  .game-detail-fact span { font-size: 11px; }
+  .game-detail-fact strong { font-size: 13px; }
+  .game-detail-saves { min-height: 0; height: 100%; margin: 0; display: grid; grid-template-rows: 52px minmax(0, 1fr); }
+  .game-detail-saves-head { min-height: 52px; padding-block: 9px; }
+  .game-detail-saves-head h2 { font-size: 17px; }
+  .game-detail-save-grid { min-height: 0; height: 100%; padding: 10px 12px 12px; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+  .game-detail-save-card { min-height: 0; height: 100%; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .game-detail-save-media { width: 100%; height: 100%; min-height: 0; aspect-ratio: auto; }
+  .game-detail-save-body { min-height: 158px; padding: 11px 13px 12px; display: grid; grid-template-rows: auto auto auto; gap: 9px; justify-content: stretch; }
+  .game-detail-save-title-line strong { font-size: 14px; }
+  .game-detail-save-title-line small { font-size: 11px; }
+  .game-detail-save-fact-row { display: grid; }
+  .game-detail-save-body .button { width: 100%; }
+  .game-detail-save-card:first-child .game-detail-save-body .button { color: white; border-color: var(--purple); background: var(--purple); }
+  .game-detail-save-card:first-child .game-detail-save-body .button:hover { color: white; border-color: var(--purple-dark); background: var(--purple-dark); }
 }
 @media (max-width: 1350px) {
   .game-detail-hero { grid-template-columns: 200px minmax(0, 1fr) 340px; gap: 20px; }

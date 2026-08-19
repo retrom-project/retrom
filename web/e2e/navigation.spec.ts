@@ -237,17 +237,86 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
   await page.goto(`/games/${preferredGameId}`);
   await expect(page.locator(".game-detail-hero")).toBeVisible();
   await expect(page.locator(".game-detail-info-strip")).toBeVisible();
-  await expect(page.getByRole("region", { name: "你的存档" })).toBeVisible();
-  expect(await page.locator(".game-detail-save-card").count()).toBeLessThanOrEqual(4);
+  await expect(page.getByRole("region", { name: "游戏存档" })).toBeVisible();
+  expect(await page.locator(".game-detail-save-card").count()).toBeLessThanOrEqual(3);
   const layout = await page.evaluate(() => ({
     overflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
     savesTop: document.querySelector(".game-detail-saves")?.getBoundingClientRect().top ?? Number.POSITIVE_INFINITY,
     savesBottom: document.querySelector(".game-detail-saves")?.getBoundingClientRect().bottom ?? Number.POSITIVE_INFINITY,
     viewportHeight: document.documentElement.clientHeight,
+    heroHeight: document.querySelector(".game-detail-hero")?.getBoundingClientRect().height ?? Number.POSITIVE_INFINITY,
+    launchTopGap: (() => {
+      const hero = document.querySelector(".game-detail-hero")?.getBoundingClientRect();
+      const launch = document.querySelector(".launch-panel")?.getBoundingClientRect();
+      return hero && launch ? launch.top - hero.top : Number.POSITIVE_INFINITY;
+    })(),
+    launchBottomGap: (() => {
+      const hero = document.querySelector(".game-detail-hero")?.getBoundingClientRect();
+      const launch = document.querySelector(".launch-panel")?.getBoundingClientRect();
+      return hero && launch ? hero.bottom - launch.bottom : Number.POSITIVE_INFINITY;
+    })(),
   }));
   expect(layout.overflow).toBe(false);
   if (testInfo.project.name === "chrome-1280") expect(layout.savesTop).toBeLessThan(layout.viewportHeight);
-  else expect(layout.savesBottom).toBeLessThanOrEqual(layout.viewportHeight);
+  else {
+    expect(layout.savesBottom).toBeLessThanOrEqual(layout.viewportHeight);
+    expect(layout.heroHeight).toBeLessThanOrEqual(415);
+    expect(Math.max(layout.launchTopGap, layout.launchBottomGap)).toBeLessThanOrEqual(65);
+    const typography = await page.evaluate(() => {
+      const read = (selector: string) => {
+        const element = document.querySelector(selector);
+        const style = element ? getComputedStyle(element) : null;
+        return { size: Number.parseFloat(style?.fontSize ?? "0"), weight: Number.parseInt(style?.fontWeight ?? "0", 10) };
+      };
+      return { title: read(".game-detail-main h1"), description: read(".game-detail-description") };
+    });
+    expect(typography.title.size).toBeGreaterThanOrEqual(36);
+    expect(typography.title.weight).toBeGreaterThanOrEqual(700);
+    expect(typography.description.size).toBeGreaterThanOrEqual(15);
+  }
+  const saveCards = await page.locator(".game-detail-save-card").evaluateAll((cards) => cards.map((card) => {
+    const cardBox = card.getBoundingClientRect();
+    const mediaBox = card.querySelector(".game-detail-save-media")?.getBoundingClientRect();
+    const bodyBox = card.querySelector(".game-detail-save-body")?.getBoundingClientRect();
+    return { x: cardBox.x, y: cardBox.y, width: cardBox.width, mediaWidth: mediaBox?.width ?? 0, mediaBottom: mediaBox?.bottom ?? 0, bodyTop: bodyBox?.top ?? 0 };
+  }));
+  if (testInfo.project.name !== "chrome-1280" && saveCards.length === 3) {
+    expect(Math.max(...saveCards.map((card) => card.y)) - Math.min(...saveCards.map((card) => card.y))).toBeLessThanOrEqual(1);
+    expect(saveCards[0].x).toBeLessThan(saveCards[1].x);
+    expect(saveCards[1].x).toBeLessThan(saveCards[2].x);
+    for (const card of saveCards) {
+      expect(card.mediaWidth / card.width).toBeGreaterThanOrEqual(.98);
+      expect(card.bodyTop).toBeGreaterThanOrEqual(card.mediaBottom - 1);
+    }
+    const firstSaveCard = page.locator(".game-detail-save-card").first();
+    await expect(firstSaveCard.getByText("最近存档", { exact: true })).toBeVisible();
+    await expect(firstSaveCard.locator(".game-detail-save-fact-row > span")).toHaveCount(3);
+    for (const label of ["保存位置", "运行核心", "当时已游玩"]) await expect(firstSaveCard.getByText(label, { exact: true })).toBeVisible();
+    const cardAndAction = await firstSaveCard.evaluate((card) => {
+      const body = card.querySelector(".game-detail-save-body")?.getBoundingClientRect();
+      const action = card.querySelector(".game-detail-save-body .button")?.getBoundingClientRect();
+      const titleStyle = getComputedStyle(card.querySelector(".game-detail-save-title-line strong")!);
+      const factStyle = getComputedStyle(card.querySelector(".game-detail-save-fact-row b")!);
+      const actionStyle = getComputedStyle(card.querySelector(".game-detail-save-body .button")!);
+      return {
+        bodyWidth: body?.width ?? 0,
+        actionWidth: action?.width ?? 0,
+        titleSize: Number.parseFloat(titleStyle.fontSize),
+        titleWeight: Number.parseInt(titleStyle.fontWeight, 10),
+        factSize: Number.parseFloat(factStyle.fontSize),
+        factWeight: Number.parseInt(factStyle.fontWeight, 10),
+        actionSize: Number.parseFloat(actionStyle.fontSize),
+        actionWeight: Number.parseInt(actionStyle.fontWeight, 10),
+      };
+    });
+    expect(cardAndAction.actionWidth / cardAndAction.bodyWidth).toBeGreaterThanOrEqual(.94);
+    expect(cardAndAction.titleSize).toBeGreaterThanOrEqual(14);
+    expect(cardAndAction.titleWeight).toBeGreaterThanOrEqual(700);
+    expect(cardAndAction.factSize).toBeGreaterThanOrEqual(12);
+    expect(cardAndAction.factWeight).toBeGreaterThanOrEqual(700);
+    expect(cardAndAction.actionSize).toBeGreaterThanOrEqual(11);
+    expect(cardAndAction.actionWeight).toBeGreaterThanOrEqual(700);
+  }
 
   const runtimeButton = page.getByRole("button", { name: /更换/ });
   await runtimeButton.click();
@@ -257,14 +326,47 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
 
   const expectedSaveCount = saves.items.filter((save) => save.gameId === preferredGameId).length;
   if (expectedSaveCount > 0) {
-    await page.getByRole("button", { name: "查看全部 →" }).click();
+    await page.getByRole("button", { name: "查看全部存档" }).click();
     const drawer = page.getByRole("dialog", { name: "全部存档" });
+    const drawerElement = page.locator(".game-detail-save-drawer");
     await expect(drawer).toBeVisible();
     await expect(drawer.locator(".game-detail-drawer-row")).toHaveCount(expectedSaveCount);
+    await expect(drawer.getByRole("button", { name: "▶ 继续" }).first()).toBeVisible();
+    const drawerRowLayout = await drawer.locator(".game-detail-drawer-row").first().evaluate((row) => {
+      const rowBox = row.getBoundingClientRect();
+      const shotBox = row.querySelector(".game-detail-drawer-shot")?.getBoundingClientRect();
+      const actionBox = row.querySelector(".game-detail-drawer-row > .button")?.getBoundingClientRect();
+      const actionStyle = actionBox ? getComputedStyle(row.querySelector(".game-detail-drawer-row > .button")!) : null;
+      const timeStyle = getComputedStyle(row.querySelector("time")!);
+      return {
+        height: rowBox.height,
+        shotWidth: shotBox?.width ?? 0,
+        actionBottomGap: actionBox ? rowBox.bottom - actionBox.bottom : Number.POSITIVE_INFINITY,
+        actionColor: actionStyle?.color ?? "",
+        actionBackground: actionStyle?.backgroundColor ?? "",
+        actionSize: Number.parseFloat(actionStyle?.fontSize ?? "0"),
+        actionWeight: Number.parseInt(actionStyle?.fontWeight ?? "0", 10),
+        timeSize: Number.parseFloat(timeStyle.fontSize),
+        timeWeight: Number.parseInt(timeStyle.fontWeight, 10),
+      };
+    });
+    expect(drawerRowLayout.height).toBeGreaterThanOrEqual(138);
+    expect(drawerRowLayout.shotWidth).toBeGreaterThanOrEqual(190);
+    expect(drawerRowLayout.actionBottomGap).toBeLessThanOrEqual(13);
+    expect(drawerRowLayout.actionColor).toBe("rgb(255, 255, 255)");
+    expect(drawerRowLayout.actionBackground).toBe("rgb(98, 80, 210)");
+    expect(drawerRowLayout.actionSize).toBeGreaterThanOrEqual(11);
+    expect(drawerRowLayout.actionWeight).toBeGreaterThanOrEqual(700);
+    expect(drawerRowLayout.timeSize).toBeGreaterThanOrEqual(14);
+    expect(drawerRowLayout.timeWeight).toBeGreaterThanOrEqual(700);
+    await page.screenshot({ path: testInfo.outputPath("game-detail-save-drawer.png"), fullPage: true });
     await drawer.getByRole("button", { name: /预览.*存档截图/ }).first().click();
     await expect(page.getByRole("dialog", { name: "存档截图预览" })).toBeVisible();
     await page.getByRole("button", { name: "关闭" }).click();
     await page.getByRole("button", { name: "关闭全部存档" }).click();
+    await expect(drawer).toBeHidden();
+    await expect(drawerElement).toHaveCSS("visibility", "hidden");
+    await expect(page.locator(".game-detail-drawer-backdrop")).toHaveCSS("opacity", "0");
     await expect(page).toHaveURL(new RegExp(`/games/${preferredGameId}$`));
   }
   await page.screenshot({ path: testInfo.outputPath("game-detail-one-screen.png"), fullPage: true });
