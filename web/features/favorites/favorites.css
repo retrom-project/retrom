@@ -64,7 +64,9 @@
 .favorite-heart, .favorite-manage { min-height: 38px; padding: 0 10px; display: inline-flex; align-items: center; justify-content: center; gap: 6px; color: white; border: 1px solid rgb(255 255 255 / 30%); border-radius: 9px; background: rgb(16 22 34 / 78%); backdrop-filter: blur(8px); cursor: pointer; font-size: 13px; font-weight: 800; }
 .favorite-actions-card .favorite-heart, .favorite-actions-favorite-card .favorite-heart { width: 38px; height: 38px; min-height: 38px; padding: 0; border-radius: 50%; font-size: 18px; }
 .favorite-actions-favorite-card .favorite-heart { position: absolute; z-index: 6; top: 9px; right: 9px; }
-.favorite-heart.is-favorite { color: white; background: rgb(82 64 190 / 92%); }
+.favorite-heart > svg { width: 18px; height: 18px; flex: 0 0 18px; display: block; fill: none; }
+.favorite-heart.is-favorite { color: #dc4257; border-color: rgb(239 192 199 / 92%); background: rgb(255 247 248 / 94%); }
+.favorite-heart.is-favorite > svg { fill: currentColor; }
 .favorite-actions-favorite-card .favorite-manage { position: absolute; z-index: 6; right: 9px; bottom: 9px; width: 36px; height: 36px; min-height: 36px; padding: 0; color: #596477; border: 1px solid var(--line); border-radius: 8px; background: white; backdrop-filter: none; font-size: 13px; letter-spacing: .08em; }
 .favorite-actions-favorite-card .favorite-manage:hover { color: var(--purple-dark); background: #f7f6fb; }
 .favorite-heart:disabled, .favorite-manage:disabled { opacity: .58; cursor: wait; }

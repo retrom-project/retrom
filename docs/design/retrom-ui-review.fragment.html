@@ -1029,8 +1029,9 @@
     #retrom-ui-review .rt-library-title > button:first-child { min-width: 0; overflow: hidden; padding: 0; color: var(--retrom-text); border: 0; background: transparent; font-weight: 700; text-align: left; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-library-more { width: 30px; min-height: 30px; padding: 0; color: var(--retrom-muted); border: 0; border-radius: 7px; background: transparent; font-weight: 800; }
     #retrom-ui-review .rt-library-more:hover { color: var(--retrom-purple); background: var(--retrom-panel-raised); }
-    #retrom-ui-review .rt-library-favorite { position: absolute; z-index: 6; top: 10px; right: 10px; width: 38px; min-height: 38px; padding: 0; display: grid; place-items: center; color: #fff; border: 1px solid rgb(255 255 255 / .28); border-radius: 50%; background: rgb(16 22 34 / .78); backdrop-filter: blur(8px); }
+    #retrom-ui-review .rt-library-favorite { position: absolute; z-index: 6; top: 10px; right: 10px; width: 38px; min-height: 38px; padding: 0; display: grid; place-items: center; color: #dc4257; border: 1px solid rgb(239 192 199 / .92); border-radius: 50%; background: rgb(255 247 248 / .94); backdrop-filter: blur(8px); }
     #retrom-ui-review .rt-library-favorite svg { width: 17px; height: 17px; fill: currentColor; }
+    #retrom-ui-review .rt-library-favorite[aria-pressed="false"] { color: #fff; border-color: rgb(255 255 255 / .28); background: rgb(16 22 34 / .78); }
     #retrom-ui-review .rt-library-favorite[aria-pressed="false"] svg { fill: none; }
     #retrom-ui-review .rt-library-meta { margin-top: 7px; color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-library-played { margin-top: 12px; padding-top: 11px; display: flex; justify-content: space-between; color: var(--retrom-muted); border-top: 1px solid var(--retrom-line); font-size: 10px; }
@@ -1093,9 +1094,9 @@
     #retrom-ui-review .rt-favorite-poster small { color: #d3d9e6; font: 700 8px/1.2 ui-monospace, monospace; letter-spacing: .22em; }
     #retrom-ui-review .rt-favorite-poster strong { margin: 15px 0 11px; font: 800 30px/1 ui-monospace, monospace; letter-spacing: -.05em; }
     #retrom-ui-review .rt-favorite-poster span { color: #d7dceb; font: 650 8px/1 ui-monospace, monospace; letter-spacing: .11em; }
-    #retrom-ui-review .rt-favorite-heart { position: absolute; z-index: 5; top: 9px; right: 9px; width: 38px; min-height: 38px; padding: 0; display: grid; place-items: center; color: #fff; border: 1px solid rgb(255 255 255 / .28); border-radius: 50%; background: rgb(16 22 34 / .78); backdrop-filter: blur(8px); }
+    #retrom-ui-review .rt-favorite-heart { position: absolute; z-index: 5; top: 9px; right: 9px; width: 38px; min-height: 38px; padding: 0; display: grid; place-items: center; color: #dc4257; border: 1px solid rgb(239 192 199 / .92); border-radius: 50%; background: rgb(255 247 248 / .94); backdrop-filter: blur(8px); }
     #retrom-ui-review .rt-favorite-heart svg { width: 17px; height: 17px; fill: currentColor; }
-    #retrom-ui-review .rt-favorite-heart[aria-pressed="false"] { color: #d7dbea; background: rgb(16 22 34 / .64); }
+    #retrom-ui-review .rt-favorite-heart[aria-pressed="false"] { color: #d7dbea; border-color: rgb(255 255 255 / .28); background: rgb(16 22 34 / .64); }
     #retrom-ui-review .rt-favorite-heart[aria-pressed="false"] svg { fill: none; }
     #retrom-ui-review .rt-favorite-select { position: absolute; z-index: 5; top: 9px; left: 9px; width: 38px; min-height: 38px; padding: 0; display: none; place-items: center; color: #fff; border: 1px solid rgb(255 255 255 / .34); border-radius: 9px; background: rgb(16 22 34 / .82); }
     #retrom-ui-review .rt-favorites-page.is-batching .rt-favorite-select { display: grid; }

@@ -1,6 +1,7 @@
 "use client";
 
 import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from "react";
+import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { useAuth } from "@/features/auth/auth-provider";
 import {
@@ -169,7 +170,7 @@ export const FavoriteActions = forwardRef<FavoriteActionsHandle, FavoriteActions
         title={favorite ? "取消收藏" : "收藏"}
         disabled={busy}
         onClick={() => favorite ? setConfirming(true) : void addFavorite()}
-      ><span aria-hidden="true">{favorite ? "♥" : "♡"}</span>{variant === "detail" ? <span>{favorite ? "已收藏" : "收藏"}</span> : null}</button>
+      ><AppIcon name="heart" />{variant === "detail" ? <span>{favorite ? "已收藏" : "收藏"}</span> : null}</button>
       {showManageButton ? <button
         ref={internalManageButton}
         className="favorite-manage"

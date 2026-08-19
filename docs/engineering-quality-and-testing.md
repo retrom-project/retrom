@@ -261,7 +261,7 @@
 | 账户初始化与认证 | 数据库 `PENDING/COMPLETED` 及 context 映射、release setup code、test bootstrap、Argon2 参数、密码 blocklist、通用登录错误、session 轮换/过期/撤销、Origin/Fetch Metadata/CSRF、限流与可信代理 |
 | 用户管理 | 邀请/重置 secret 单次显示且数据库不保存 secret/hash、角色和状态转换、ETag、本人保护、最后管理员保护、停用/删除级联撤销、离线 admin-reset 与 restore 安全栅栏 |
 | 私有数据隔离 | 所有 Profile 派生列表/详情/写入按认证主体限定；跨用户 ID、cursor、Idempotency-Key、SaveState、PersistentSave 和 Launch 探测均不泄露也不串写 |
-| 收藏与收藏夹 | 名称 NFC/空白/case-fold 边界、收藏状态机、Folder 上限/version、批量边界和原子失败；023/024→025、复合 owner FK、隐藏投影；每条 route 的 strict JSON/query、CSRF、cursor、ETag、幂等与两个 Profile 隔离 |
+| 收藏与收藏夹 | 名称 NFC/空白/case-fold 边界、收藏状态机、Folder 上限/version、批量边界和原子失败；卡片 E2E 锁定收藏前后相同的按钮/图标几何、居中位置及红色实心状态；023/024→025、复合 owner FK、隐藏投影；每条 route 的 strict JSON/query、CSRF、cursor、ETag、幂等与两个 Profile 隔离 |
 | 联机控制面与实时协议 | Room/Member/Session 全状态与非法边、core profile 准入（同 artifact 的不同 ROM 名称/大小/hash 均可选，错版本/artifact/content kind/READY/dependency 均拒绝）、profile canonical digest、2/3/4 occupied mask、乱序贡献与 neutral seat、seq/frame/int16/大小校验、租约/history、前三次真实 resync/第四次终局、slow peer/backpressure、prepare/restart/restore 收口；Hub 必须跑 race test，SQLite 不保存实时 state/input bytes |
 | NG/代理边界 | 只信任 allowlist 代理的转发头、公开 origin 校验、伪造 `X-Forwarded-*` 拒绝、应用仅绑定 HTTP 且没有证书配置路径 |
 | 存档与恢复 | 截图必需、存档绑定 CoreArtifact 与 GameVariantRevision、兼容恢复、不匹配拒绝、旧 revision 被引用时 GC 保护 |
