@@ -1475,6 +1475,17 @@
     #retrom-ui-review .rt-player-screen::after { content: ""; position: absolute; width: 28%; height: 8%; left: 34%; bottom: 18%; background: #345c57; box-shadow: -130px 28px 0 #283f49, 150px 16px 0 #2d4c4c; }
     #retrom-ui-review .rt-player-screen.is-portrait { width: 75vh; height: 100vh; aspect-ratio: 3 / 4; }
     #retrom-ui-review .rt-player-logo { position: relative; z-index: 1; padding: 10px 13px; border: 1px solid rgb(255 255 255 / 0.22); background: rgb(5 7 12 / 0.58); color: #fff; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: 0.16em; }
+    #retrom-ui-review .rt-player-touch-controls { display: none; }
+    #retrom-ui-review .rt-player-touch-zone { position: absolute; z-index: 2; bottom: 70px; width: 125px; height: 125px; opacity: .66; pointer-events: none; }
+    #retrom-ui-review .rt-player-touch-zone.is-left { left: 10px; }
+    #retrom-ui-review .rt-player-touch-zone.is-right { right: 10px; }
+    #retrom-ui-review .rt-player-touch-dpad::before,
+    #retrom-ui-review .rt-player-touch-dpad::after { content: ""; position: absolute; left: 50%; top: 50%; border: 1px solid rgb(255 255 255 / .7); border-radius: 6px; background: rgb(255 255 255 / .18); transform: translate(-50%, -50%); }
+    #retrom-ui-review .rt-player-touch-dpad::before { width: 118px; height: 38px; }
+    #retrom-ui-review .rt-player-touch-dpad::after { width: 38px; height: 118px; }
+    #retrom-ui-review .rt-player-touch-button { position: absolute; width: 50px; height: 50px; display: grid; place-items: center; border: 1px solid rgb(255 255 255 / .7); border-radius: 50%; background: rgb(255 255 255 / .18); color: #fff; font-size: 20px; font-weight: 800; }
+    #retrom-ui-review .rt-player-touch-button.is-a { right: 4px; bottom: 25px; }
+    #retrom-ui-review .rt-player-touch-button.is-b { right: 70px; bottom: 4px; }
     #retrom-ui-review .rt-player-top { position: absolute; z-index: 5; inset: 0 0 auto; height: 58px; padding: 0 16px; display: flex; align-items: center; gap: 13px; border-bottom: 1px solid #343d4f; background: linear-gradient(180deg,rgb(17 23 34 / 98%),rgb(17 23 34 / 92%)); box-shadow: 0 10px 30px rgb(0 0 0 / 28%); backdrop-filter: blur(12px); }
     #retrom-ui-review .rt-player-back, #retrom-ui-review .rt-player-control { min-height: 34px; padding: 0 11px; display: inline-flex; align-items: center; justify-content: center; gap: 7px; border: 1px solid #343d4f; border-radius: 8px; color: #edf0f5; background: #171d29; font-size: 11px; font-weight: 650; }
     #retrom-ui-review .rt-player-back { width: 34px; padding: 0; flex: none; }
@@ -2150,8 +2161,9 @@
       #retrom-ui-review .rt-player-actions .rt-player-menu-wrap .rt-player-control { min-width: 44px; }
       #retrom-ui-review .rt-player-launch-state { font-size: 9px; }
       #retrom-ui-review .rt-player-title strong { font-size: 11px; }
-      #retrom-ui-review .rt-player-menu { position: fixed; z-index: 20; inset: auto max(env(safe-area-inset-right), 8px) max(env(safe-area-inset-bottom), 8px) max(env(safe-area-inset-left), 8px); width: auto; max-height: calc(100dvh - 62px); overflow-y: auto; border-radius: 15px; }
+      #retrom-ui-review .rt-player-menu { position: fixed; z-index: 20; inset: 0 0 auto auto; width: min(360px, 72vw); height: 100dvh; max-height: 100dvh; padding: calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom)); overflow-y: auto; border-radius: 0; background: #111722; }
       #retrom-ui-review .rt-player-menu button { min-height: 50px; }
+      #retrom-ui-review .rt-player-touch-controls { display: block; }
       #retrom-ui-review .rt-player-shell.is-mobile-portrait .rt-player-orientation-gate { position: absolute; z-index: 30; inset: 0; padding: max(24px, env(safe-area-inset-top)) 24px max(24px, env(safe-area-inset-bottom)); display: grid; place-items: center; background: #090b12; }
       #retrom-ui-review .rt-player-orientation-card { width: min(100%, 340px); padding: 28px 22px; display: grid; justify-items: center; gap: 14px; border: 1px solid #343d4f; border-radius: 18px; background: #151a25; text-align: center; box-shadow: 0 24px 70px rgb(0 0 0 / .45); }
       #retrom-ui-review .rt-player-orientation-card svg { width: 42px; height: 42px; color: #9b87e7; }
@@ -2171,7 +2183,8 @@
       #retrom-ui-review .rt-app.is-playing .rt-player-actions .rt-player-menu-wrap .rt-player-control { min-width: 44px; }
       #retrom-ui-review .rt-app.is-playing .rt-player-launch-state { font-size: 9px; }
       #retrom-ui-review .rt-app.is-playing .rt-player-title strong { font-size: 11px; }
-      #retrom-ui-review .rt-app.is-playing .rt-player-menu { position: fixed; z-index: 20; inset: auto max(env(safe-area-inset-right), 8px) max(env(safe-area-inset-bottom), 8px) max(env(safe-area-inset-left), 8px); width: auto; max-height: calc(100dvh - 62px); overflow-y: auto; border-radius: 15px; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-menu { position: fixed; z-index: 20; inset: 0 0 auto auto; width: min(360px, 72vw); height: 100dvh; max-height: 100dvh; padding: calc(8px + env(safe-area-inset-top)) 8px calc(8px + env(safe-area-inset-bottom)); overflow-y: auto; border-radius: 0; background: #111722; }
+      #retrom-ui-review .rt-app.is-playing .rt-player-touch-controls { display: block; }
     }
 
     @media (min-width: 1800px) and (min-height: 1050px) {
@@ -2528,7 +2541,7 @@
       <section class="rt-page" data-page="play">
         <div class="rt-player-shell">
           <div class="rt-player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="rt-orientation-title"><div class="rt-player-orientation-card"><i data-lucide="rotate-cw" aria-hidden="true"></i><h2 id="rt-orientation-title">请横屏继续游戏</h2><p>配置已经检查完成。横屏稳定后才会加载游戏内容并开始本次游玩。</p><button type="button" class="rt-player-control">重试全屏与横屏</button></div></div>
-          <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div></div>
+          <div class="rt-player-stage"><div class="rt-player-screen" role="img" aria-label="EmulatorJS 游戏画面占位"><span class="rt-player-logo">EMULATORJS</span></div><div class="rt-player-touch-controls" aria-hidden="true"><div class="rt-player-touch-zone rt-player-touch-dpad is-left"></div><div class="rt-player-touch-zone is-right"><span class="rt-player-touch-button is-b">B</span><span class="rt-player-touch-button is-a">A</span></div></div></div>
           <div class="rt-player-top">
             <button type="button" class="rt-player-back" id="rt-exit-player" data-player-exit aria-label="返回并退出游戏"><i data-lucide="arrow-left" aria-hidden="true"></i></button>
             <div class="rt-player-title"><strong id="rt-player-game">NOeL 3</strong><div class="rt-player-meta" id="rt-player-core">Yabause · Saturn</div></div>

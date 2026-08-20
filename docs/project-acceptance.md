@@ -1141,7 +1141,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-006`。
 - 流程：在 `568×320`、`667×375`、`844×390`、`932×430` 检查 HUD、More 与光盘 Sheet并用确定性多盘夹具完成一次换盘；以聚焦 Player reducer/adapter 与房间组件测试分别驱动 P1/P2 的方向门禁、暂停和本地输入状态。
-- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为联机状态、光盘、存档且 overflow 不丢动作；Sheet 不把 pointer/input 泄漏给 iframe。P1 承担全局 pause/resume，P2 只清本地输入并等待，状态转换与联机协议契约一致。本 Case 不证明真实双端核心执行、canonical frame 或 digest 收敛。
+- 通过标准：HUD 高 48px、隐藏后揭示柄命中不小于 44px，安全区内无裁切，操作优先级为联机状态、光盘、存档且 overflow 不丢动作；More/光盘 Sheet 占满可用高度、覆盖 iframe 且不把 pointer/input 泄漏给游戏，触屏原生菜单入口不可见，左右虚拟控制区底边距为 70px。P1 承担全局 pause/resume，P2 只清本地输入并等待，状态转换与联机协议契约一致。本 Case 不证明真实双端核心执行、canonical frame 或 digest 收敛。
 - 证据：四 viewport 尺寸/命中断言、DOM/network trace 与 P1/P2 pause/input 状态测试输出。
 
 ### ACC-MOB-007：可访问性与视觉回归

@@ -149,7 +149,7 @@
   .player-hud-handle > span { width: 24px; height: 6px; margin-top: 5px; border: 1px solid rgb(255 255 255 / 34%); border-radius: 999px; background: rgb(238 241 247 / 72%); box-shadow: 0 3px 10px rgb(0 0 0 / 35%); }
   .player-hud-handle:focus-visible { outline: 3px solid rgb(139 123 241 / 64%); outline-offset: -3px; }
   .player-menu-backdrop { position: fixed; z-index: 58; inset: 0; width: 100dvw; height: 100dvh; padding: 0; display: block; border: 0; background: rgb(0 0 0 / 48%); cursor: default; }
-  .player-menu { position: fixed; z-index: 60; top: 0; right: 0; bottom: 0; width: min(360px, 72vw); max-height: 100dvh; padding: 0 8px calc(8px + env(safe-area-inset-bottom)); overflow-y: auto; align-content: start; gap: 2px; border-width: 0 0 0 1px; border-radius: 0; background: #111722; }
+  .player-menu { position: fixed; z-index: 60; top: 0; right: 0; bottom: auto; width: min(360px, 72vw); height: 100dvh; max-height: 100dvh; padding: 0 8px calc(8px + env(safe-area-inset-bottom)); overflow-y: auto; align-content: start; gap: 2px; border-width: 0 0 0 1px; border-radius: 0; background: #111722; }
   .player-menu-head { position: sticky; z-index: 2; top: 0; min-height: calc(56px + env(safe-area-inset-top)); margin: 0 -8px 6px; padding: env(safe-area-inset-top) 8px 0 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; border-bottom: 1px solid #30394a; background: #151c28; }
   .player-menu-head small,
   .player-menu-head strong { display: block; }

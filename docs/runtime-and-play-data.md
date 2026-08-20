@@ -68,7 +68,7 @@ sequenceDiagram
 
 ### 2.2 移动横屏 HUD 与操作收纳
 
-移动横屏 HUD 高 `48px`，使用横屏左右 `safe-area-inset`，自动隐藏后仍保留至少 `44px` 高的可聚焦揭示柄。HUD 保留返回、标题/Core、P1/P2 与同步状态，以及按“联机状态 > 创建存档 > 换盘”的最高优先级上下文操作；创建存档始终使用 HUD 顶部入口，不在“更多”操作 Sheet 重复出现，其余状态、光盘、模拟器设置、全屏、调试和退出放入 Sheet。Sheet、退出确认、换盘和设置面板都必须捕获焦点、支持 Escape/遮罩/显式关闭，并在关闭后归还触发器。
+移动横屏 HUD 高 `48px`，使用横屏左右 `safe-area-inset`，自动隐藏后仍保留至少 `44px` 高的可聚焦揭示柄。HUD 保留返回、标题/Core、P1/P2 与同步状态，以及按“联机状态 > 创建存档 > 换盘”的最高优先级上下文操作；创建存档始终使用 HUD 顶部入口，不在“更多”操作 Sheet 重复出现，其余状态、光盘、模拟器设置、全屏、调试和退出放入 Sheet。Sheet、退出确认、换盘和设置面板都必须捕获焦点、支持 Escape/遮罩/显式关闭，并在关闭后归还触发器；“更多”和换盘 Sheet 必须占满横屏可用高度并覆盖 iframe，不能因 HUD 的定位上下文只剩一条不可操作的顶部区域。EmulatorJS 自带的触屏菜单入口由 iframe 样式门禁隐藏，设置只从 Retrom Sheet 进入；左右虚拟控制区相对上游默认位置下移 `30px`，最终距 viewport 底边 `70px`。
 
 ## 3. Launch API 与凭据
 
@@ -166,7 +166,7 @@ Player 对低分辨率核心输出提供按用户隔离的画面模式，默认�
 
 Player config 额外提供人类可读的 `gameTitle/coreName/platformName`，只用于 58px 顶部工具栏显示本次游戏、运行核心和基础平台；EJS 的稳定保存键仍只使用 `gameName=retrom-<emulatorGameId>`，前端不得把展示名称用于选择 artifact、URL 或 option。
 
-Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单与只读“调试信息”面板外，点击工具栏区域或其中操作都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，只有随后点击实际游戏画面才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。光盘菜单是独立的原子运行时操作：打开菜单不暂停，真正换盘时只在 `setCurrentDisk` 与回读边界内短暂停止 main loop，并在成功或失败后恢复进入换盘前的暂停状态。运行后工具栏自动隐藏；只有指针进入 viewport 顶部 32 CSS px、键盘操作或焦点进入工具栏才重新显示，普通画面区域的 pointermove 不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近底边和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。Retrom 自绘栏额外提供上述画面模式；从 Core 设置切换到显示设置时必须先把原生嵌套导航复位到首页，再进入 Graphics Settings，不能把先前 Core panel 留在前景或隐藏 shader 入口。
+Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单与只读“调试信息”面板外，点击工具栏区域或其中操作都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，只有随后点击实际游戏画面才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。光盘菜单是独立的原子运行时操作：打开菜单不暂停，真正换盘时只在 `setCurrentDisk` 与回读边界内短暂停止 main loop，并在成功或失败后恢复进入换盘前的暂停状态。运行后工具栏自动隐藏；只有指针进入 viewport 顶部 32 CSS px、键盘操作或焦点进入工具栏才重新显示，普通画面区域的 pointermove 不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏与触屏右上角的原生虚拟手柄菜单入口默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近边缘和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除底栏门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。Retrom 自绘栏额外提供上述画面模式；从 Core 设置切换到显示设置时必须先把原生嵌套导航复位到首页，再进入 Graphics Settings，不能把先前 Core panel 留在前景或隐藏 shader 入口。
 
 顶部“调试信息”按钮打开右侧只读诊断面板且保持游戏继续运行；面板打开期间固定显示顶部工具栏。面板每秒读取一次当前 adapter 暴露的 `gameManager.getFrameNum()`，以相邻采样的核心帧数差和单调时钟计算一位小数的“核心帧率”，不能用 CSS 动画或浏览器 `requestAnimationFrame` 次数伪造 FPS。面板同时展示累计核心帧数、运行/暂停/错误状态、canvas drawing-buffer 分辨率、viewport 与 DPR，以及 config 已锁定的 Core、CoreArtifact、EmulatorJS 版本、Player adapter、输入模式、单机/联机模式和当前 COOP/COEP/SharedArrayBuffer 能力。诊断只存在于当前浏览器 Player，会话结束即丢弃，不写数据库、不发遥测，也不得展示 capability、cookie、Blob hash 或宿主路径。
 
