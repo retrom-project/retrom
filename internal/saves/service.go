@@ -591,6 +591,19 @@ func (service *Service) PutPersistent(
 	if subtle.ConstantTimeCompare([]byte(metadata.SHA256), []byte(expectedDigest)) != 1 {
 		return PersistentResult{}, false, ErrInvalid
 	}
+	if launch.persistentSaveMode == "FILE_TREE" {
+		stored, openErr := os.Open(metadata.Path)
+		if openErr != nil {
+			return PersistentResult{}, false, fmt.Errorf("saves/service: open persistent file tree: %w", openErr)
+		}
+		validationErr := validateFileTreeBundle(stored)
+		if closeErr := stored.Close(); validationErr == nil && closeErr != nil {
+			return PersistentResult{}, false, fmt.Errorf("saves/service: close persistent file tree: %w", closeErr)
+		}
+		if validationErr != nil {
+			return PersistentResult{}, false, validationErr
+		}
+	}
 	now := service.now().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {

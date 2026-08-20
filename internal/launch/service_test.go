@@ -23,6 +23,16 @@ func TestArtifactCompatibilityV2Validation(t *testing.T) {
 	if !validArtifactCompatibility(valid) {
 		t.Fatal("generic future core compatibility was rejected")
 	}
+	valid.RuntimeCoreID = "ppsspp"
+	valid.PersistentSaveMode = "FILE_TREE"
+	if !validArtifactCompatibility(valid) {
+		t.Fatal("PPSSPP file-tree compatibility was rejected")
+	}
+	valid.RuntimeCoreID = "future_core"
+	if validArtifactCompatibility(valid) {
+		t.Fatal("non-PPSSPP file-tree compatibility was accepted")
+	}
+	valid.PersistentSaveMode = "SINGLE_FILE"
 	valid.StartupActions = []dependencies.StartupAction{{
 		Event: "GAME_START", Kind: "PRESS_CONTROL", DelayMS: 30_000, DurationMS: 120,
 	}}

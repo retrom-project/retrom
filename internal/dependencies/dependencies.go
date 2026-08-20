@@ -331,10 +331,12 @@ func validateSelectedCore(core SelectedCore, allowlist map[string]File, manifest
 		}
 	}
 	expectedKind := map[string]*string{
-		"SINGLE_FILE": pointerTo("CORE_SAVE"), "DOS_OVERLAY": pointerTo("DOS_OVERLAY"), "NONE": nil,
+		"SINGLE_FILE": pointerTo("CORE_SAVE"), "DOS_OVERLAY": pointerTo("DOS_OVERLAY"),
+		"FILE_TREE": pointerTo("CORE_SAVE"), "NONE": nil,
 	}
 	kind, exists := expectedKind[core.PersistentSaveMode]
 	if !exists || !equalOptionalString(core.PersistentSaveKind, kind) ||
+		core.PersistentSaveMode == "FILE_TREE" && core.RuntimeCoreID != "ppsspp" ||
 		core.InputMode != "STANDARD" && core.InputMode != "POINTER" || len(core.StartupActions) > 4 {
 		return fmt.Errorf("%w: artifact runtime capability", ErrInvalid)
 	}

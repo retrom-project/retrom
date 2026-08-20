@@ -726,6 +726,9 @@ func validPersistentCapability(compatibility artifactCompatibility) bool {
 	switch compatibility.PersistentSaveMode {
 	case "SINGLE_FILE":
 		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "CORE_SAVE"
+	case "FILE_TREE":
+		return compatibility.RuntimeCoreID == "ppsspp" && compatibility.PersistentSaveKind != nil &&
+			*compatibility.PersistentSaveKind == "CORE_SAVE"
 	case "DOS_OVERLAY":
 		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "DOS_OVERLAY"
 	case "NONE":

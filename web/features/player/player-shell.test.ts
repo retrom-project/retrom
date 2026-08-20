@@ -31,5 +31,6 @@ describe("reportsNativeExit", () => {
   it("leaves netplay termination to its global session controller", () => {
     expect(reportsNativeExit("single")).toBe(true);
     expect(reportsNativeExit("netplay")).toBe(false);
+    expect(reportsNativeExit("single", true)).toBe(false);
   });
 });

@@ -2815,8 +2815,11 @@ export interface components {
             biosUrl: string | null;
             parentUrl: string | null;
             stateUrl: string | null;
-            /** @enum {string} */
-            persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "NONE";
+            /**
+             * @description FILE_TREE is the bounded PSP/SAVEDATA bundle capability and is currently valid only for PPSSPP.
+             * @enum {string}
+             */
+            persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "FILE_TREE" | "NONE";
             persistentSaveUrl: string | null;
             /** @enum {string} */
             inputMode: "STANDARD" | "POINTER";

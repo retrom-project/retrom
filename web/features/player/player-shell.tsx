@@ -13,6 +13,8 @@ import { multiDiscPlayerResultCode, reportMultiDiscPlayerEvent, type MultiDiscPl
 import { setEmulatorPaused } from "./pause-control";
 import { captureBeforePause } from "./pause-screenshot";
 import { restorePersistentSave } from "./persistent-save-restore";
+import { isPspSaveFileSystem, PspPersistentSaveSync, restorePspSaveTree } from "./psp-persistent-save";
+import { requiresExplicitPspStateRestore } from "./psp-state-restore";
 import { PlayerChrome, type PlayerDebugRuntime } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
 import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
@@ -42,12 +44,12 @@ function base64(bytes: Uint8Array) {
   return btoa(value);
 }
 
-export async function readBoundedResponse(response: Response, maximumBytes: number) {
+export async function readBoundedResponse(response: Response, maximumBytes: number, errorCode = "PLAYER_SAVE_STATE_TOO_LARGE") {
   const declared = Number(response.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > maximumBytes) throw new Error("PLAYER_SAVE_STATE_TOO_LARGE");
+  if (Number.isFinite(declared) && declared > maximumBytes) throw new Error(errorCode);
   if (!response.body) {
     const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > maximumBytes) throw new Error("PLAYER_SAVE_STATE_TOO_LARGE");
+    if (bytes.byteLength > maximumBytes) throw new Error(errorCode);
     return bytes;
   }
   const reader = response.body.getReader();
@@ -58,7 +60,7 @@ export async function readBoundedResponse(response: Response, maximumBytes: numb
       const { done, value } = await reader.read();
       if (done) break;
       length += value.byteLength;
-      if (length > maximumBytes) throw new Error("PLAYER_SAVE_STATE_TOO_LARGE");
+      if (length > maximumBytes) throw new Error(errorCode);
       chunks.push(value);
     }
   } finally {
@@ -70,8 +72,8 @@ export async function readBoundedResponse(response: Response, maximumBytes: numb
   return result;
 }
 
-export function reportsNativeExit(mode: "single" | "netplay") {
-  return mode === "single";
+export function reportsNativeExit(mode: "single" | "netplay", finishing = false) {
+  return mode === "single" && !finishing;
 }
 
 function formatPlayerBytes(bytes: number) {
@@ -136,6 +138,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const persistentSaveMode = useRef<PlayerConfig["persistentSaveMode"]>("SINGLE_FILE");
   const persistentQueue = useRef(Promise.resolve());
   const persistentConflict = useRef<Uint8Array | null>(null);
+  const pspPersistentSync = useRef<PspPersistentSaveSync | null>(null);
   const [hasPersistentConflict, setHasPersistentConflict] = useState(false);
   const controlsTimer = useRef<number | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -260,8 +263,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
 
   const uploadPersistent = useCallback((bytes: Uint8Array, event: "AUTO_INTERVAL" | "MANUAL_EXPORT" | "EXIT") => {
     const stableBytes = new Uint8Array(bytes);
-    persistentQueue.current = persistentQueue.current.then(async () => {
-      if (persistentConflict.current) return;
+    const result = persistentQueue.current.then(async () => {
+      if (persistentConflict.current) return false;
       setSyncText("正在同步…");
       setSyncTone("busy");
       const digest = await sha256(stableBytes);
@@ -295,16 +298,24 @@ export function PlayerShell({ launchId }: { launchId: string }) {
           setSyncText("存档需要处理");
           setSyncTone("warning");
         } else {
-          setSyncText("同步失败");
-          setSyncTone("warning");
-          showToast("持久存档同步失败，最后有效版本仍被保留。", 4_000);
+          throw new Error("PERSISTENT_SAVE_FAILED");
         }
         throw new Error("PERSISTENT_SAVE_FAILED");
       }
       persistentSequence.current = next;
       setSyncText("已同步");
       setSyncTone("synced");
-    }).catch(() => undefined);
+      return true;
+    }).catch(() => {
+      if (!persistentConflict.current) {
+        setSyncText("同步失败");
+        setSyncTone("warning");
+        showToast("持久存档同步失败，最后有效版本仍被保留。", 4_000);
+      }
+      return false;
+    });
+    persistentQueue.current = result.then(() => undefined);
+    return result;
   }, [launchId, showToast]);
 
   const uploadManualState = useCallback(async (payload: { screenshot: Blob; format: string; state: Uint8Array }) => {
@@ -361,12 +372,15 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     try {
       if (playerMode.current === "netplay") {
         netplayController.current?.end();
+      } else if (persistentSaveMode.current === "FILE_TREE") {
+        await pspPersistentSync.current?.flush();
+        await persistentQueue.current;
       } else {
         const manager = emulator.current?.gameManager;
         const path = persistentSaveMode.current === "NONE" ? undefined : manager?.getSaveFilePath?.();
         if (persistentSaveMode.current !== "NONE" && !persistentConflict.current && path && manager?.FS?.analyzePath(path).exists) {
           const bytes = await manager.getSaveFile?.();
-          if (bytes?.byteLength) uploadPersistent(bytes, "EXIT");
+          if (bytes?.byteLength) void uploadPersistent(bytes, "EXIT");
         }
         await persistentQueue.current;
       }
@@ -482,14 +496,13 @@ export function PlayerShell({ launchId }: { launchId: string }) {
           if (!config.persistentSaveUrl) throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
           const persistentResponse = await fetch(config.persistentSaveUrl, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
           if (!persistentResponse.ok && persistentResponse.status !== 204) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
-          const contentLength = Number(persistentResponse.headers.get("content-length") ?? "0");
-          if (contentLength > 64 * 1024 * 1024) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
-          persistentBytes = persistentResponse.status === 204 ? null : new Uint8Array(await persistentResponse.arrayBuffer());
-          if (persistentBytes && persistentBytes.byteLength > 64 * 1024 * 1024) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
+          persistentBytes = persistentResponse.status === 204
+            ? null
+            : await readBoundedResponse(persistentResponse, 64 * 1024 * 1024, "LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
         }
 
         let stateBytes: Uint8Array | null = null;
-        if (config.discSet && config.stateUrl) {
+        if ((config.discSet || requiresExplicitPspStateRestore(config)) && config.stateUrl) {
           const stateResponse = await fetch(config.stateUrl, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
           if (!stateResponse.ok) throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");
           stateBytes = await readBoundedResponse(stateResponse, 64 * 1024 * 1024);
@@ -549,15 +562,47 @@ export function PlayerShell({ launchId }: { launchId: string }) {
             if (config.persistentSaveMode !== "NONE") {
               instance.on("saveDatabaseLoaded", () => {
                 const fs = instance.gameManager?.FS;
-                if (!fs) { setState("error"); setMessage("LAUNCH_PERSISTENT_SAVE_FS_UNAVAILABLE"); return; }
+                if (!fs) {
+                  setState("error");
+                  setMessage("LAUNCH_PERSISTENT_SAVE_FS_UNAVAILABLE");
+                  throw new Error("LAUNCH_PERSISTENT_SAVE_FS_UNAVAILABLE");
+                }
                 mountedSaveFS = fs;
+                if (config.persistentSaveMode === "FILE_TREE") {
+                  if (!isPspSaveFileSystem(fs) || !instance.gameManager) {
+                    setState("error");
+                    setMessage("LAUNCH_PERSISTENT_SAVE_FS_UNAVAILABLE");
+                    throw new Error("LAUNCH_PERSISTENT_SAVE_FS_UNAVAILABLE");
+                  }
+                  try {
+                    restorePspSaveTree(fs, persistentBytes);
+                    const sync = new PspPersistentSaveSync(fs, instance.gameManager, uploadPersistent, {
+                      isPaused: () => emulator.current?.paused === true,
+                      onError: (error) => {
+                        setSyncText("同步失败");
+                        setSyncTone("warning");
+                        showToast(error.message === "LAUNCH_PERSISTENT_SAVE_TOO_LARGE"
+                          ? "PSP 游戏内存档超过 64 MiB，未覆盖服务器上的最后有效版本。"
+                          : "无法读取 PSP 游戏内存档，服务器上的最后有效版本仍被保留。", 4_000);
+                      },
+                    });
+                    pspPersistentSync.current?.stop();
+                    pspPersistentSync.current = sync;
+                  } catch (error) {
+                    setState("error");
+                    setMessage(error instanceof Error ? error.message : "LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
+                    throw error;
+                  }
+                }
               });
-              instance.on("saveSaveFiles", (value: unknown) => {
-                if (value instanceof Uint8Array && value.byteLength) uploadPersistent(value, "AUTO_INTERVAL");
-              });
+              if (config.persistentSaveMode !== "FILE_TREE") {
+                instance.on("saveSaveFiles", (value: unknown) => {
+                  if (value instanceof Uint8Array && value.byteLength) void uploadPersistent(value, "AUTO_INTERVAL");
+                });
+              }
             }
             instance.on("exit", () => {
-              if (!reportsNativeExit(playerMode.current)) return;
+              if (!reportsNativeExit(playerMode.current, finishing.current)) return;
               void sendEvent("finish").catch(() => {
                 setState("error");
                 setMessage("PLAY_SESSION_EVENT_FAILED");
@@ -571,10 +616,33 @@ export function PlayerShell({ launchId }: { launchId: string }) {
             const manager = emulator.current?.gameManager;
             const runningCanvas = emulator.current?.canvas ?? frameDocument.querySelector<HTMLCanvasElement>("canvas");
             applyVideoRenderingMode(emulator.current, runningCanvas, videoRenderingModeRef.current);
+            const completeSinglePlayerStart = (resumeMainLoop: boolean) => {
+              if (controller.signal.aborted) return;
+              if (emulator.current) {
+                emulator.current.paused = false;
+                if (resumeMainLoop) emulator.current.gameManager?.toggleMainLoop?.(true);
+              }
+              pausedRef.current = false;
+              setPaused(false);
+              if (config.persistentSaveMode === "FILE_TREE") pspPersistentSync.current?.start();
+              const startedOrientation = reducePlayerOrientation(orientationStateRef.current, { type: "runtime-started", paused: false });
+              orientationStateRef.current = startedOrientation.state;
+              setOrientationState(startedOrientation.state);
+              frameWindow.requestAnimationFrame(() => canvasContain?.refresh());
+              void sendEvent("start").then(() => {
+                setState("running");
+                setSyncText(config.persistentSaveMode === "NONE" ? "仅支持状态存档" : "已同步");
+                setSyncTone(config.persistentSaveMode === "NONE" ? "warning" : "synced");
+                heartbeat.current = window.setInterval(() => { void sendEvent("heartbeat"); }, 30_000);
+              }).catch(() => {
+                setState("error");
+                setMessage("PLAY_SESSION_EVENT_FAILED");
+              });
+            };
             try {
               if (config.discSet) {
                 let persistentRestore = null;
-                if (config.persistentSaveMode !== "NONE") {
+                if (config.persistentSaveMode !== "NONE" && config.persistentSaveMode !== "FILE_TREE") {
                   const savePath = manager?.getSaveFilePath?.();
                   if (!mountedSaveFS || !savePath) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
                   persistentRestore = { fileSystem: mountedSaveFS, savePath, bytes: persistentBytes };
@@ -591,6 +659,20 @@ export function PlayerShell({ launchId }: { launchId: string }) {
                   eventType: "SAVE_RESTORE_SUCCESS", resultCode: "OK", discCount: config.discSet.count,
                   observedDiscCount: selected.count,
                 });
+              } else if (config.persistentSaveMode === "FILE_TREE") {
+                if (!pspPersistentSync.current) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
+                if (stateBytes) {
+                  if (!manager?.loadPspStateAndWait) throw new Error("PSP_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+                  setMessage("正在恢复 PSP 状态存档");
+                  void manager.loadPspStateAndWait(stateBytes).then(() => {
+                    completeSinglePlayerStart(true);
+                  }).catch(() => {
+                    if (controller.signal.aborted) return;
+                    setState("error");
+                    setMessage("PLAYER_SAVE_STATE_RESTORE_FAILED");
+                  });
+                  return false;
+                }
               } else if (config.persistentSaveMode !== "NONE") {
                 const savePath = manager?.getSaveFilePath?.();
                 if (!manager || !mountedSaveFS || !savePath) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
@@ -677,26 +759,13 @@ export function PlayerShell({ launchId }: { launchId: string }) {
                 return false;
               }
             }
-            if (emulator.current) emulator.current.paused = false;
-            pausedRef.current = false;
-            setPaused(false);
-            const startedOrientation = reducePlayerOrientation(orientationStateRef.current, { type: "runtime-started", paused: false });
-            orientationStateRef.current = startedOrientation.state;
-            setOrientationState(startedOrientation.state);
-            frameWindow.requestAnimationFrame(() => canvasContain?.refresh());
-            void sendEvent("start").then(() => {
-              setState("running");
-              setSyncText(config.persistentSaveMode === "NONE" ? "仅支持状态存档" : "已同步");
-              setSyncTone(config.persistentSaveMode === "NONE" ? "warning" : "synced");
-              heartbeat.current = window.setInterval(() => { void sendEvent("heartbeat"); }, 30_000);
-            }).catch(() => {
-              setState("error");
-              setMessage("PLAY_SESSION_EVENT_FAILED");
-            });
+            completeSinglePlayerStart(false);
             return true;
           },
           onSaveState: (payload) => { void uploadManualState(payload); },
-          onSaveSave: config.persistentSaveMode === "NONE" ? undefined : (payload) => { if (payload.save.byteLength) uploadPersistent(payload.save, "MANUAL_EXPORT"); }
+          onSaveSave: config.persistentSaveMode === "SINGLE_FILE" || config.persistentSaveMode === "DOS_OVERLAY"
+            ? (payload) => { if (payload.save.byteLength) void uploadPersistent(payload.save, "MANUAL_EXPORT"); }
+            : undefined
         }, frameWindow);
       } catch (error) {
         if (controller.signal.aborted) return;
@@ -712,10 +781,12 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       if (netplayController.current === ownedNetplayController) netplayController.current = null;
       closeEmulatorSettingsPanels(emulator.current);
       nativeMenuObserver?.disconnect();
+      pspPersistentSync.current?.stop();
+      pspPersistentSync.current = null;
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     };
-  }, [exit, launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState, uploadPersistent]);
+  }, [exit, launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, showToast, uploadManualState, uploadPersistent]);
 
   useEffect(() => {
     running.current = state === "running";

@@ -414,6 +414,26 @@ describe("EmulatorJS adapter", () => {
     expect(() => mountEmulatorJS({ ...config, persistentSaveMode: "NONE" }, target)).toThrow("PLAYER_PERSISTENT_CAPABILITY_INVALID");
   });
 
+  it("accepts PPSSPP file-tree saves without wiring the single-file export callback", () => {
+    const target = document.createElement("div");
+    const onSaveSave = vi.fn();
+    const pspConfig: PlayerConfig = {
+      ...config,
+      core: "ppsspp",
+      runtimeCore: "ppsspp",
+      persistentSaveMode: "FILE_TREE",
+    };
+    const cleanup = mountEmulatorJS(pspConfig, target, { onSaveSave });
+    expect(window.EJS_onSaveSave).toBeUndefined();
+    cleanup();
+    const restoreCleanup = mountEmulatorJS({ ...pspConfig, stateUrl: "/runtime/launches/id/state" }, target);
+    expect(window.EJS_loadStateURL).toBeUndefined();
+    expect(window.EJS_DEBUG_XX).toBe(true);
+    restoreCleanup();
+    expect(() => mountEmulatorJS({ ...pspConfig, runtimeCore: "mgba" }, target))
+      .toThrow("PLAYER_PERSISTENT_CAPABILITY_INVALID");
+  });
+
   it("presses and releases bounded startup controls exactly once", () => {
     vi.useFakeTimers();
     const receivers: unknown[] = [];

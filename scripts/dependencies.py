@@ -599,8 +599,15 @@ def validate_artifact_capability(
             raise CheckError("DEPENDENCY_CORE_OPTIONS_INVALID")
     mode = item.get("persistent_save_mode")
     kind = item.get("persistent_save_kind")
-    expected_kind = {"SINGLE_FILE": "CORE_SAVE", "DOS_OVERLAY": "DOS_OVERLAY", "NONE": None}
-    if mode not in expected_kind or kind != expected_kind[mode]:
+    expected_kind = {
+        "SINGLE_FILE": "CORE_SAVE",
+        "DOS_OVERLAY": "DOS_OVERLAY",
+        "FILE_TREE": "CORE_SAVE",
+        "NONE": None,
+    }
+    if mode not in expected_kind or kind != expected_kind[mode] or (
+        mode == "FILE_TREE" and item.get("runtime_core_id") != "ppsspp"
+    ):
         raise CheckError("DEPENDENCY_PERSISTENT_SAVE_INVALID")
     if item.get("input_mode") not in ("STANDARD", "POINTER"):
         raise CheckError("DEPENDENCY_INPUT_MODE_INVALID")
