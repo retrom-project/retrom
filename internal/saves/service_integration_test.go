@@ -622,3 +622,66 @@ SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND
 		t.Fatalf("NONE persistent rows = %d, error=%v", count, err)
 	}
 }
+
+func TestPersistentFileTreeRejectsMalformedBundleBeforeCreatingRevision(t *testing.T) {
+	fixture := newSaveFixture(t)
+	var artifactID, compatibilityJSON string
+	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
+SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND enabled=1
+`).Scan(&artifactID, &compatibilityJSON); err != nil {
+		t.Fatal(err)
+	}
+	var compatibility map[string]any
+	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil {
+		t.Fatal(err)
+	}
+	compatibility["runtimeCoreId"] = "ppsspp"
+	compatibility["persistentSaveMode"] = "FILE_TREE"
+	compatibility["persistentSaveKind"] = "CORE_SAVE"
+	updatedCompatibility, err := json.Marshal(compatibility)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.database.SQL.ExecContext(
+		fixture.ctx,
+		`UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?`,
+		string(updatedCompatibility),
+		artifactID,
+	); err != nil {
+		t.Fatal(err)
+	}
+	created := fixture.createLaunch(t)
+	malformed := []byte("not-a-file-tree")
+	if _, _, err := fixture.saves.PutPersistent(
+		fixture.ctx,
+		created.LaunchID,
+		created.Capability,
+		uuid.NewString(),
+		contentDigest(malformed),
+		"AUTO_INTERVAL",
+		1,
+		bytes.NewReader(malformed),
+	); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("malformed file tree error = %v", err)
+	}
+	valid := fileTreeBundle()
+	if _, _, err := fixture.saves.PutPersistent(
+		fixture.ctx,
+		created.LaunchID,
+		created.Capability,
+		uuid.NewString(),
+		contentDigest(valid),
+		"AUTO_INTERVAL",
+		1,
+		bytes.NewReader(valid),
+	); err != nil {
+		t.Fatalf("valid file tree error = %v", err)
+	}
+	var revisionCount int
+	if err := fixture.database.SQL.QueryRowContext(
+		fixture.ctx,
+		`SELECT count(*) FROM persistent_save_revisions`,
+	).Scan(&revisionCount); err != nil || revisionCount != 1 {
+		t.Fatalf("file tree revisions = %d, error=%v", revisionCount, err)
+	}
+}

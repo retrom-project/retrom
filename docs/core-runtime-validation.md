@@ -44,7 +44,7 @@ GBA 单成员 ZIP 在导入时应逐字节物化实际 `.gba` entry 到 CAS；�
 
 `dosbox_pure`、`genesis_plus_gx_wide` 与 `azahar` 使用 EmulatorJS `4.3.0-pre` 定向覆盖，其他核心使用各自 manifest 锁定版本。线程核心要求同源响应具备 COOP、COEP 与 CORP，生产 CSP 不得为运行时放开无界 `unsafe-eval`。
 
-PSP profile 接受 raw `.cso` 和 `.iso`，两者分别以 `RAW_FILE_V1` 进入 CONTENT、Variant 与 Launch；产品导入、Launch 与 Player 不做格式互转。PPSSPP 与 `mednafen_psx_hw` 的线程 artifact basename、assets 和 renderer 配置以依赖 manifest 与 adapter 实现为准，不从旧的示例物化脚本推导。
+PSP profile 接受 raw `.cso` 和 `.iso`，两者分别以 `RAW_FILE_V1` 进入 CONTENT、Variant 与 Launch；产品导入、Launch 与 Player 不做格式互转。PPSSPP 与 `mednafen_psx_hw` 的线程 artifact basename、assets 和 renderer 配置以依赖 manifest 与 adapter 实现为准，不从旧的示例物化脚本推导。PPSSPP 的游戏内保存只同步 `/data/saves/PSP/SAVEDATA` 的 FILE_TREE envelope，不包含 `PSP/GAME`、cache、texture 或状态存档目录；恢复必须在 PPSSPP asset/ROM/start 前完成。4.2.3 状态恢复不能使用 EmulatorJS 的首帧自动加载：Player 必须等 PPSSPP 可序列化后执行原生 state task，并以原生失败日志 fail closed；smoke 至少比较保存截图与恢复后的可辨识游戏位置，不能只证明约 40 MiB 文件上传/下载成功。使用操作者测试服务器私有 PSP 游戏的人工 smoke 可以验证部署实例，但不提升第 2 节的可提交公开产品 E2E 覆盖等级。
 
 ## 6. 依赖升级
 

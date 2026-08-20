@@ -1933,7 +1933,10 @@ components:
         biosUrl: { type: string, nullable: true }
         parentUrl: { type: string, nullable: true }
         stateUrl: { type: string, nullable: true }
-        persistentSaveMode: { type: string, enum: [SINGLE_FILE, DOS_OVERLAY, NONE] }
+        persistentSaveMode:
+          type: string
+          enum: [SINGLE_FILE, DOS_OVERLAY, FILE_TREE, NONE]
+          description: FILE_TREE is the bounded PSP/SAVEDATA bundle capability and is currently valid only for PPSSPP.
         persistentSaveUrl: { type: string, nullable: true }
         inputMode: { type: string, enum: [STANDARD, POINTER] }
         startupActions:

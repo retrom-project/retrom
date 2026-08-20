@@ -125,6 +125,17 @@ class DependencyManifestValidationTests(unittest.TestCase):
 
         self.assert_invalid(invalid_none_kind, "DEPENDENCY_PERSISTENT_SAVE_INVALID")
 
+        def invalid_file_tree_core(manifest: dict[str, object]) -> None:
+            artifact = next(
+                item
+                for item in manifest["emulatorjs"]["selected_core_artifacts"]
+                if item["core_id"] == "handy"
+            )
+            artifact["persistent_save_mode"] = "FILE_TREE"
+            artifact["persistent_save_kind"] = "CORE_SAVE"
+
+        self.assert_invalid(invalid_file_tree_core, "DEPENDENCY_PERSISTENT_SAVE_INVALID")
+
     def test_startup_action_delay_accepts_30_seconds_and_rejects_one_more_ms(self) -> None:
         def set_delay(manifest: dict[str, object], delay_ms: int) -> None:
             artifact = next(

@@ -1734,8 +1734,8 @@
         "requested_artifact_basename": "ppsspp-thread-wasm.data",
         "canvas_resize_policy": "NONE",
         "default_options": {},
-        "persistent_save_mode": "NONE",
-        "persistent_save_kind": null,
+        "persistent_save_mode": "FILE_TREE",
+        "persistent_save_kind": "CORE_SAVE",
         "input_mode": "STANDARD",
         "startup_actions": [
           {

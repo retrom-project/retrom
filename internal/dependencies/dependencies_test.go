@@ -124,7 +124,8 @@ AND emulator_path IN ('/retroarch/userdata/system/bios7.bin',
 SELECT compatibility_config_json
 FROM core_artifacts
 WHERE core_id='ppsspp' AND enabled=1
-`).Scan(&compatibility); err != nil || !strings.Contains(compatibility, `"persistentSaveMode":"NONE"`) ||
+`).Scan(&compatibility); err != nil || !strings.Contains(compatibility, `"persistentSaveMode":"FILE_TREE"`) ||
+		!strings.Contains(compatibility, `"persistentSaveKind":"CORE_SAVE"`) ||
 		!strings.Contains(compatibility, `"requestedArtifactBasename":"ppsspp-thread-wasm.data"`) {
 		t.Fatalf("PPSSPP compatibility = %s, error=%v", compatibility, err)
 	}

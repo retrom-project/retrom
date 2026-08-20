@@ -30,6 +30,16 @@ func TestSelectedCoreStartupActionDelayBoundary(t *testing.T) {
 	if err := validateSelectedCore(core, allowlist, 5); err != nil {
 		t.Fatalf("30 second action rejected: %v", err)
 	}
+	core.PersistentSaveMode = "FILE_TREE"
+	if err := validateSelectedCore(core, allowlist, 5); err == nil {
+		t.Fatal("non-PPSSPP file tree accepted")
+	}
+	core.RuntimeCoreID = "ppsspp"
+	if err := validateSelectedCore(core, allowlist, 5); err != nil {
+		t.Fatalf("PPSSPP file tree rejected: %v", err)
+	}
+	core.RuntimeCoreID = "test"
+	core.PersistentSaveMode = "SINGLE_FILE"
 	core.StartupActions[0].DelayMS = 30_001
 	if err := validateSelectedCore(core, allowlist, 5); err == nil {
 		t.Fatal("30 second plus one millisecond action accepted")
