@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"retrom/internal/accounts"
 	"retrom/internal/authn"
 	"retrom/internal/cursor"
 	"retrom/internal/launch"
@@ -536,8 +537,9 @@ func (server *Server) streamNetplayEvents(
 	setNetplayEventStreamHeaders(writer.Header())
 	room, _ := server.netplay.Room(request.Context(), roomID, profileID)
 	encoded, _ := json.Marshal(room)
-	_, _ = fmt.Fprintf(writer, "event: room.snapshot\ndata: %s\n\n", encoded)
-	_ = http.NewResponseController(writer).Flush()
+	if err := server.writeSSE(writer, fmt.Sprintf("event: room.snapshot\ndata: %s\n\n", encoded)); err != nil {
+		return
+	}
 	poll := time.NewTicker(500 * time.Millisecond)
 	heartbeat := time.NewTicker(server.sseHeartbeat)
 	closeAfter := time.NewTimer(30 * time.Minute)
@@ -551,13 +553,15 @@ func (server *Server) streamNetplayEvents(
 		case <-closeAfter.C:
 			return
 		case <-heartbeat.C:
-			_, _ = fmt.Fprint(writer, ": heartbeat\n\n")
-			_ = http.NewResponseController(writer).Flush()
+			if err := server.writeSSE(writer, ": heartbeat\n\n"); err != nil {
+				return
+			}
 		case <-poll.C:
 			events, err := server.netplay.Events(request.Context(), roomID, lastID, 100)
 			if err != nil {
 				return
 			}
+			var payload strings.Builder
 			for _, event := range events {
 				lastID = event.ID
 				snapshot, snapshotErr := server.netplay.Room(request.Context(), roomID, profileID)
@@ -565,10 +569,12 @@ func (server *Server) streamNetplayEvents(
 					return
 				}
 				data, _ := json.Marshal(snapshot)
-				_, _ = fmt.Fprintf(writer, "id: %d\nevent: %s\ndata: %s\n\n", event.ID, netplaySSEName(event.EventType), data)
+				_, _ = fmt.Fprintf(&payload, "id: %d\nevent: %s\ndata: %s\n\n", event.ID, netplaySSEName(event.EventType), data)
 			}
-			if len(events) > 0 {
-				_ = http.NewResponseController(writer).Flush()
+			if payload.Len() > 0 {
+				if err := server.writeSSE(writer, payload.String()); err != nil {
+					return
+				}
 			}
 		}
 	}
@@ -607,9 +613,15 @@ func (server *Server) netplaySocket(writer http.ResponseWriter, request *http.Re
 		return
 	}
 	defer func() { _ = connection.CloseNow() }()
-	validator := func(ctx context.Context, token, profileID string) bool {
+	validator := func(ctx context.Context, token, profileID string) netplay.SessionValidation {
 		session, err := server.authenticator.Authenticate(ctx, token)
-		return err == nil && session.Principal.ProfileID == profileID
+		if err == nil && session.Principal.ProfileID == profileID {
+			return netplay.SessionValid
+		}
+		if err == nil || errors.Is(err, accounts.ErrAuthenticationNeeded) {
+			return netplay.SessionRevoked
+		}
+		return netplay.SessionUnavailable
 	}
 	err = server.netplayHub.Connect(request.Context(), connection, participant, server.authCookieToken(request), validator)
 	if err != nil {

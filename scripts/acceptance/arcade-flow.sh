@@ -87,6 +87,7 @@ for output in pacman.zip puckman.zip retrombios.zip "$dat_filename"; do
   }
 done
 python3 "$fixture_builder_root/build.py" --check
+fixture_sha256="$(openssl dgst -sha256 "$fixture_root/pacman.zip" | awk '{print $2}')"
 printf 'arcade_flow=fixtures_verified\n'
 
 core_artifacts="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/core-artifacts")"
@@ -220,9 +221,13 @@ cmp "$fixture_root/pacman.zip" "$evidence/game.zip"
 unzip -p "$evidence/parent-bundle.zip" puckman.zip | cmp "$fixture_root/puckman.zip" -
 unzip -p "$evidence/bios-bundle.zip" retrombios.zip | cmp "$fixture_root/retrombios.zip" -
 
-jq -n \
+result="$(jq -nc \
   --arg status "PASSED" --arg coreId "$core_id" --arg initialLaunchStatus "$initial_launch_status" \
   --arg datVersionId "$dat_version_id" --arg importJobId "$import_id" \
-  --arg gameId "$game_id" --arg launchId "$launch_id" --arg evidenceDirectory "$evidence" \
-  '{status:$status,coreId:$coreId,reviewDependencySnapshotSchemaVersion:2,initialLaunchStatus:$initialLaunchStatus,datVersionId:$datVersionId,importJobId:$importJobId,gameId:$gameId,launchId:$launchId,evidenceDirectory:$evidenceDirectory}' \
-  | tee "$evidence/result.json"
+  --arg gameId "$game_id" --arg launchId "$launch_id" --arg fixtureSha256 "$fixture_sha256" --arg evidenceDirectory "$evidence" \
+  '{status:$status,coreId:$coreId,reviewDependencySnapshotSchemaVersion:2,initialLaunchStatus:$initialLaunchStatus,datVersionId:$datVersionId,importJobId:$importJobId,gameId:$gameId,launchId:$launchId,fixtureSha256:$fixtureSha256,evidenceDirectory:$evidenceDirectory}' \
+)"
+printf '%s\n' "$result" | tee "$evidence/result.json"
+if [[ -n "${RETROM_ACCEPTANCE_RESULT_FILE:-}" ]]; then
+  printf '%s\n' "$result" >"$RETROM_ACCEPTANCE_RESULT_FILE"
+fi

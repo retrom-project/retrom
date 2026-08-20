@@ -19,15 +19,17 @@ GBA_ROMS = {
     "pegasus-smoke.gba": (b"RETROM PEGAS", b"RTPG", "6550cc49ddd91337c7c44bc827e2e9305b91c811ef6b032e1ee35fa5884a2e3a"),
 }
 ARCADE_FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "arcade-smoke"
+NES_FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "nes-smoke"
+NES_SHA256 = "6b5224f3227879472e19e4d419008d77e69296140205771fd2df8370f18a01f8"
 ARCADE_OUTPUTS = {
-    "pacman.zip": (16782, "9364e180d8ec43d8efd530afea30399f7a974eeec78266dcaecc04f3524c68d7"),
+    "pacman.zip": (16782, "eb7575bf12b9616874aa8672f4bc8fa9f90142f94ba8683d8d18dce928989611"),
     "puckman.zip": (9578, "a7ca86aecb425661a66a4faee139ff386c906e513c988f583f5b9bae71073b34"),
     "retrombios.zip": (396, "36c08c0777cad0d3bc9a1824072f611b0ec3def41e17e363e68cbf62d41add01"),
-    "mame2003-smoke.xml": (3043, "e7838a8e2ab2b8e7e5f451585f6c53f32e1d66f412d425998a6268827327c5be"),
-    "fbneo/pacman.zip": (25162, "8e07c429e67009e824072109429afb71b00f1776dddb30abc0cbedb66ff8e26d"),
+    "mame2003-smoke.xml": (3043, "746f0828479bd8749596c0f57af43e5f46afca215f0bb3e005d53a2adb2994c8"),
+    "fbneo/pacman.zip": (25162, "4af28131b7621391e3de9c009e075d960c4f7126c8d93f016206c1c0237dd271"),
     "fbneo/puckman.zip": (1190, "7dd4c47b9c0832c8f43d72817c189a5b5081ec7dee50fe4423f3c281c8e33f6e"),
     "fbneo/retrombios.zip": (396, "36c08c0777cad0d3bc9a1824072f611b0ec3def41e17e363e68cbf62d41add01"),
-    "fbneo/fbneo-smoke.dat": (2403, "d3fd1cf86c31b3a465e66482350f054742cfe42772c714b26a2ccc5bd9bbad53"),
+    "fbneo/fbneo-smoke.dat": (2403, "f460da0fd6d2f2613df3838dad956df05f453d023db04b112eba44ff4121341a"),
 }
 FBNEO_DRIVER_CRC32 = {
     "pacman.6e": "c1e6ab10",
@@ -92,6 +94,25 @@ class PublicFixtureTests(unittest.TestCase):
             text=True,
         )
 
+    def test_nes_netplay_smoke_is_a_locked_mapper_zero_rom(self) -> None:
+        subprocess.run(
+            ["python3", str(NES_FIXTURE_ROOT / "build.py"), "--check"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        image = (NES_FIXTURE_ROOT / "nes-smoke.nes").read_bytes()
+        self.assertEqual(24_592, len(image))
+        self.assertEqual(NES_SHA256, hashlib.sha256(image).hexdigest())
+        self.assertEqual(b"NES\x1a\x01\x01\x00\x00" + bytes(8), image[:16])
+        self.assertIn(b"RETROM PUBLIC NES NETPLAY SMOKE - MIT", image)
+        vectors = image[16 + 0x3FFA : 16 + 0x4000]
+        self.assertEqual(0x8000, int.from_bytes(vectors[2:4], "little"))
+        self.assertTrue(0x8000 <= int.from_bytes(vectors[0:2], "little") < 0xC000)
+        self.assertIn(bytes((0xAD, 0x16, 0x40)), image[16 : 16 + 0x4000])
+        self.assertIn(bytes((0xAD, 0x17, 0x40)), image[16 : 16 + 0x4000])
+
     def test_arcade_smoke_outputs_have_locked_identities(self) -> None:
         for name, (expected_size, expected_sha256) in ARCADE_OUTPUTS.items():
             with self.subTest(name=name):
@@ -136,6 +157,12 @@ class PublicFixtureTests(unittest.TestCase):
             b"RETROM PUBLIC ARCADE SMOKE - ORIGINAL MIT-LICENSED Z80 PROGRAM",
             archives["pacman"]["pacman.6j"],
         )
+        program = b"".join(
+            archives["pacman"][name]
+            for name in ("pacman.6e", "pacman.6f", "pacman.6h", "pacman.6j")
+        )
+        self.assertIn(bytes((0x3A, 0x00, 0x50)), program)
+        self.assertIn(bytes((0x3A, 0x40, 0x50)), program)
         self.assertTrue(archives["retrombios"]["retrom-test-bios.bin"].startswith(b"RETROM TEST BIOS CONTRACT V1"))
 
     def test_fbneo_smoke_dat_locks_driver_crc_child_parent_and_bios(self) -> None:

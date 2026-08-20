@@ -15,7 +15,7 @@
   </game>
   <game name="pacman" cloneof="puckman" romof="retrombios" runnable="yes">
     <description>Retrom Arcade Smoke</description>
-    <rom name="pacman.6e" size="4096" crc="f8e5cda7" sha1="945189caf3dc791d5605b4b5c4240046164ce606" status="good" region="cpu1" offset="0" />
+    <rom name="pacman.6e" size="4096" crc="1551cbe1" sha1="91899c71d5b6c9018085bd85aad2dc3b0d813ac3" status="good" region="cpu1" offset="0" />
     <rom name="pacman.6f" size="4096" crc="c71c0011" sha1="1ceaf73df40e531df3bfb26b4fb7cd95fb7bff1d" status="good" region="cpu1" offset="1000" />
     <rom name="pacman.6h" size="4096" crc="c71c0011" sha1="1ceaf73df40e531df3bfb26b4fb7cd95fb7bff1d" status="good" region="cpu1" offset="2000" />
     <rom name="pacman.6j" size="4096" crc="221a14c5" sha1="cca0e5c04dbf3925335d5b7cdb11e108faba476a" status="good" region="cpu1" offset="3000" />

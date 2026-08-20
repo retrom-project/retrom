@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -69,6 +70,32 @@ func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
 	handler.ServeHTTP(created, request)
 	if created.Code != http.StatusCreated {
 		t.Fatalf("authenticated write status = %d %s", created.Code, created.Body.String())
+	}
+}
+
+func TestAuthenticationMiddlewareClearsCookieOnlyForDefinitiveRevocation(t *testing.T) {
+	t.Parallel()
+	server := newTestServer(t)
+	cookie, _ := testSessionCredentials()
+
+	server.authenticator = fixedAuthenticator{Err: errors.New("database unavailable")}
+	unavailableRequest := httptest.NewRequest(http.MethodGet, "/api/v1/games", nil)
+	unavailableRequest.AddCookie(cookie)
+	unavailable := httptest.NewRecorder()
+	server.Handler().ServeHTTP(unavailable, unavailableRequest)
+	if unavailable.Code != http.StatusInternalServerError || unavailable.Header().Values("Set-Cookie") != nil {
+		t.Fatalf("temporary auth failure = %d cookies=%v body=%s",
+			unavailable.Code, unavailable.Header().Values("Set-Cookie"), unavailable.Body.String())
+	}
+
+	server.authenticator = fixedAuthenticator{Err: accounts.ErrAuthenticationNeeded}
+	revokedRequest := httptest.NewRequest(http.MethodGet, "/api/v1/games", nil)
+	revokedRequest.AddCookie(cookie)
+	revoked := httptest.NewRecorder()
+	server.Handler().ServeHTTP(revoked, revokedRequest)
+	if revoked.Code != http.StatusUnauthorized || len(revoked.Header().Values("Set-Cookie")) == 0 {
+		t.Fatalf("revoked auth = %d cookies=%v body=%s",
+			revoked.Code, revoked.Header().Values("Set-Cookie"), revoked.Body.String())
 	}
 }
 
@@ -2852,6 +2879,7 @@ type testAuthenticator struct{}
 
 type fixedAuthenticator struct {
 	Principal authn.Principal
+	Err       error
 }
 
 func testSessionCredentials() (*http.Cookie, string) {
@@ -2867,5 +2895,5 @@ func (testAuthenticator) Authenticate(context.Context, string) (accounts.Session
 }
 
 func (authenticator fixedAuthenticator) Authenticate(context.Context, string) (accounts.Session, error) {
-	return accounts.Session{Principal: authenticator.Principal, CookieToken: "test-only"}, nil
+	return accounts.Session{Principal: authenticator.Principal, CookieToken: "test-only"}, authenticator.Err
 }

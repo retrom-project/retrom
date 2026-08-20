@@ -173,7 +173,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 ### 7.2 GitHub Actions 与 Docker Hub 发布
 
-`.github/workflows/ci.yml` 在所有 pull request 上运行唯一高层质量入口 `make ci`。CI 使用 `go.mod`、`.node-version`、`web/package-lock.json` 与依赖 manifest 的固定版本和缓存；全新 runner 在测试前先执行幂等 `make prepare-deps`，缓存命中也必须重新逐字节校验 runtime/core/DAT/许可 payload。它不另行拼装测试子集，不依赖用户 ROM/BIOS、真实 Hasheous 或开发机浏览器；仓库自有公开 GBA 与 Arcade 测试程序作为普通 checkout 输入由 `data-check` 验证，但不进入发布镜像。
+`.github/workflows/ci.yml` 在所有 pull request 上运行唯一高层质量入口 `make ci`。CI 使用 `go.mod`、`.node-version`、`web/package-lock.json` 与依赖 manifest 的固定版本和缓存；全新 runner 在测试前先执行幂等 `make prepare-deps`，缓存命中也必须重新逐字节校验 runtime/core/DAT/许可 payload。它不另行拼装测试子集，不依赖用户 ROM/BIOS、真实 Hasheous 或开发机浏览器；仓库自有公开 GBA、NES 与 Arcade 测试程序作为普通 checkout 输入由 `data-check` 验证，但不进入发布镜像。
 
 `.github/workflows/docker-image.yml` 在任意 Git tag push 时触发。tag 发布直接构建并校验双镜像，不重复执行 PR 的 `make ci`，也不等待 GitHub Environment 人工批准，并按下列顺序执行：
 
@@ -301,7 +301,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 ## 12. 统一验收入口
 
-工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，联机协议、安全、feature flag 与单机回归执行 `ACC-NP-010`–`013`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏、共享读取治理和产品运行链执行 `ACC-PEG-001`–`006`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
+工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，联机协议、安全、feature flag、单机回归与双浏览器核心生命周期执行 `ACC-NP-010`–`016`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏、共享读取治理和产品运行链执行 `ACC-PEG-001`–`006`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
 
 ## 13. 服务器导入运维
 

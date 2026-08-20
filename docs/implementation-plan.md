@@ -119,7 +119,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 范围：首页、游戏库、详情、存档列表空壳的真实 API；LaunchSession/HMAC capability、全部受限内容端点、Core option 状态、`EnsureVariant` 的 202/SSE/自动二次 POST 协议、BIOS/parent bundle、DOS 锁定原 bundle 加 seekable 虚拟 ZIP 引导；Player Shell 通过显式 `playerAdapterId` 设置锁定版本 globals/callback/external files 与 artifact override，未知/错配 adapter 在加载 loader 前阻断。基础 adapter 对应 v4.2.3，DOS whole-archive adapter 对应 v4.3.0-pre。
 
-退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`007` 与 `make web-e2e`；若依赖版本、core artifact 或内置 DAT 发生变化另执行 `ACC-DAT-006`。真实核心运行必须经过 Retrom 的导入、Launch、内容端点和 Player；当前公开 mGBA、MAME 2003 与 FBNeo 单机链路使用项目自有的确定性测试 ROM。其他核心尚无合法公开产品 E2E 时必须明确报告，不能用 mock、私有 ROM、独立 EmulatorJS 页面或历史截图判为通过。
+退出门禁：完整执行 `ACC-API-001`、`ACC-SEC-002`、`ACC-PLAT-003/004`、`ACC-GAME-002/003`、`ACC-DAT-002/004`、`ACC-BIOS-002`、`ACC-RUN-001`–`007` 与 `make web-e2e`；若依赖版本、core artifact 或内置 DAT 发生变化另执行 `ACC-DAT-006`。真实核心运行必须经过 Retrom 的导入、Launch、内容端点和 Player；当前公开 mGBA、FCEUmm、MAME 2003 与 FBNeo 单机/联机链路使用项目自有的确定性测试 ROM。其他核心尚无合法公开产品 E2E 时必须明确报告，不能用 mock、私有 ROM、独立 EmulatorJS 页面或历史截图判为通过。
 
 ### M6：存档、时长与完整 UI
 
@@ -157,9 +157,9 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 ### M12：受限异地联机垂直切片
 
-范围：先锁定 `data/netplay/v1` schema/manifest、4.2.3 Player/netplay adapter 映射与 FCEUmm/FBNeo 两个 core profile；再落 Migration 032、独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；最后接通 `/netplay`、房间 UI 与 Player 的 discriminated netplay mode。profile 按精确 EmulatorJS/core artifact 放开合格 READY 游戏，不建立逐 ROM 产品白名单。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面；普通 Launch、存档和未启用 flag 的路由必须回归不变。FBNeo 的公开 fixture 仅用于单机链路；本阶段不做 FCEUmm/FBNeo 真实双浏览器执行，该边界保持未覆盖。
+范围：先锁定 `data/netplay/v1` schema/manifest、4.2.3 Player/netplay adapter 映射与 FCEUmm/FBNeo 两个 core profile；再落 Migration 032、独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；最后接通 `/netplay`、房间 UI 与 Player 的 discriminated netplay mode。profile 按精确 EmulatorJS/core artifact 放开合格 READY 游戏，不建立逐 ROM 产品白名单。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面；普通 Launch、存档和未启用 flag 的路由必须回归不变。项目自有 NES/Arcade fixture 经过真实导入、Launch、内容端点与双浏览器 Player，作为两个精确 profile 的回归基线。
 
-退出门禁：完整执行 `ACC-NP-010`–`013`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e` 和 `make build-images`；032 的 031 升级路径、全新库、正式 UI 源、导出 HTML 与当次本地视觉复核全部闭环后才可删除临时设计目录，本地图片不得提交。FCEUmm/FBNeo 当前没有真实双端 ROM 产品链路兼容基线，不能把协议与界面测试解释为核心运行通过。
+退出门禁：完整执行 `ACC-NP-010`–`016`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002/006/007`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e` 和 `make build-images`；032 的 031 升级路径、全新库、正式 UI 源、导出 HTML 与当次本地视觉复核全部闭环后才可删除临时设计目录，本地图片不得提交。双浏览器结果只证明锁定 FCEUmm/FBNeo profile 与项目自有 fixture，不扩大内容或 core allowlist。
 
 ### M13：移动响应式与横屏 Player
 
@@ -200,7 +200,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 - 第一次项目初始化运行 `make install-deps`，需要访问固定 Go/npm/Playwright 与 manifest 公开来源；Node、Chrome for Testing 和其他工具写入仓库忽略的 `.cache/tools/`，应用 runtime/DAT/许可按既有目录物化。镜像 dependency builder 仍只准备发布所需 payload；正确缓存后校验与服务启动离线。
 - 默认构建契约只产生私有自托管镜像；若未来要 push、公开或商业分发，必须先完成 manifest 标记的受限制 core 人工许可审查。这是分发授权边界，不允许实现 Agent通过删 notice、换浮动 core 或绕过检查来处理。
-- 公开 `make web-e2e` 使用 `testdata/public-roms/gba-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中由 Retrom 自有源码确定性生成、带独立 MIT 许可且随仓库提交的测试程序；生成器与消费者共同锁定 bytes。GBA 的两个不同内容身份分别覆盖普通上传，以及 Pegasus 服务器目录扫描、显式映射、审核发布、Launch 和 mGBA 帧执行；Arcade fixture 覆盖 MAME 2003/FBNeo 的 Split Child/Parent/BIOS 识别、三路交付和单机帧执行。镜像必须排除整个公开 fixture 目录。Arcade 小型 DAT 只由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不开放 DAT 上传/管理能力；production manifest 的真实 DAT 另由 `ACC-DAT-004` 验证，二者证据不能互相冒充。Arcade 测试 BIOS 不被目标驱动执行；FBNeo 的单机结果不构成双浏览器联机证据。其他产品测试不得读取或下载用户私有 ROM/BIOS；没有合法公开 fixture 的核心必须登记为未覆盖，不能改用 mock 或相邻核心结果冒充兼容性证据。
+- 公开 `make web-e2e` 使用 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中由 Retrom 自有源码确定性生成、带独立 MIT 许可且随仓库提交的测试程序；生成器与消费者共同锁定 bytes。GBA 覆盖普通上传与 Pegasus；NES 覆盖 FCEUmm 双浏览器 rollback；Arcade 覆盖 MAME 2003/FBNeo 的 Split Child/Parent/BIOS、单机帧执行与 FBNeo 双浏览器 lockstep。镜像必须排除整个公开 fixture 目录。Arcade 小型 DAT 只由 acceptance-only 装置登记为 test-only `BUILTIN`；production manifest 的真实 DAT 另由 `ACC-DAT-004` 验证，测试 BIOS 不被目标驱动执行。其他产品测试不得读取或下载用户私有 ROM/BIOS；没有合法公开 fixture 的核心必须登记为未覆盖，不能改用 mock 或相邻核心结果冒充兼容性证据。
 - 生产需要前置 NG 提供同源 HTTPS、保留 nonce CSP/隔离头并挂载持久数据卷；Retrom 本身不实现 TLS。
 - Hasheous 可临时不可用；导入仍进入人工审核，自动测试不依赖实时命中。
 

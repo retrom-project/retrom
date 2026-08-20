@@ -238,9 +238,9 @@ Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insens
 
 ### 8.2 公开自动化回归夹具
 
-[`testdata/public-roms/arcade-smoke/`](../testdata/public-roms/arcade-smoke/) 保存项目自有、MIT 许可且可确定性重建的 MAME 2003 与 FBNeo 测试程序、小型 DAT 与测试 BIOS 角色归档。生成器共同锁定 `pacman` Child、`puckman` Parent、`retrombios` BIOS 的 archive/entry/name/size/hash；FBNeo 对生成器控制的 4 bytes 做确定性 CRC32 校正，完整 bytes 另由 SHA-1/SHA-256 固定。
+[`testdata/public-roms/arcade-smoke/`](../testdata/public-roms/arcade-smoke/) 保存项目自有、MIT 许可且可确定性重建的 MAME 2003 与 FBNeo 测试程序、小型 DAT 与测试 BIOS 角色归档。生成的 Z80 程序持续更新整屏 tile，并读取 Pac-Man 驱动的 P1/P2 active-low 输入端口，把两路输入计数反映到可见 tile。生成器共同锁定 `pacman` Child、`puckman` Parent、`retrombios` BIOS 的 archive/entry/name/size/hash；FBNeo 对生成器控制的 4 bytes 做确定性 CRC32 校正，完整 bytes 另由 SHA-1/SHA-256 固定。
 
-真实 release DAT 的来源、物化、parser stats 与 manifest 精确 active 选择由 `ACC-DAT-001/002/004` 证明。`ACC-RUN-006/007` 为了合法执行自制 ROM，由 acceptance-only 装置在临时数据库中把同目录小型 DAT 直接登记为 test-only `BUILTIN`；该装置没有 HTTP/UI 入口，不能在生产构建中调用，也不构成用户 DAT 功能。随后 Case 仍经过真实产品导入、BIOS installation、审核 schema v2 `PARENT/BIOS_OR_BASE`、发布、详情、首次 Launch 重验证、三路受限内容和 Chrome 帧执行；启动前后必须保持同一 DatVersion 和 schema v2，禁止再次退化为静态 BIOS schema v1。测试 BIOS 不被 Pac-Man 驱动执行，因此只证明 Retrom 的解析、装配、冻结与交付，不证明核心内部 BIOS 执行语义。`ACC-RUN-007` 只覆盖 FBNeo 单机产品链路，不覆盖联机模式。
+真实 release DAT 的来源、物化、parser stats 与 manifest 精确 active 选择由 `ACC-DAT-001/002/004` 证明。`ACC-RUN-006/007` 与 `ACC-NP-015/016` 为了合法执行自制 ROM，由 acceptance-only 装置在临时数据库中把同目录小型 DAT 直接登记为 test-only `BUILTIN`；该装置没有 HTTP/UI 入口，不能在生产构建中调用，也不构成用户 DAT 功能。Case 仍经过真实产品导入、BIOS installation、审核 schema v2 `PARENT/BIOS_OR_BASE`、发布、三路受限内容和 Chrome Player；启动前后必须保持同一 DatVersion 和 schema v2。测试 BIOS 不被 Pac-Man 驱动执行，因此只证明 Retrom 的解析、装配、冻结与交付，不证明核心内部 BIOS 执行语义；双浏览器 Case 证明的是 FBNeo 锁定 profile 的 strict lockstep 与 digest 收敛。
 
 ## 9. 管理页面
 

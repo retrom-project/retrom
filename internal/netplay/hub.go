@@ -14,7 +14,15 @@ import (
 	"github.com/google/uuid"
 )
 
-type SessionValidator func(context.Context, string, string) bool
+type SessionValidation uint8
+
+const (
+	SessionValid SessionValidation = iota
+	SessionRevoked
+	SessionUnavailable
+)
+
+type SessionValidator func(context.Context, string, string) SessionValidation
 
 type Hub struct {
 	service  *Service
@@ -33,16 +41,19 @@ type outbound struct {
 }
 
 type peer struct {
-	mu          sync.Mutex
-	participant SocketParticipant
-	connection  *websocket.Conn
-	writes      chan outbound
-	queuedBytes int
-	clientSeq   uint64
-	inputTokens float64
-	inputRefill time.Time
-	authToken   string
-	validator   SessionValidator
+	mu              sync.Mutex
+	participant     SocketParticipant
+	connection      *websocket.Conn
+	writes          chan outbound
+	queuedBytes     int
+	clientSeq       uint64
+	inputTokens     float64
+	inputRefill     time.Time
+	authToken       string
+	validator       SessionValidator
+	dropOnce        sync.Once
+	writeStopped    bool
+	authUnavailable int
 }
 
 type canonicalFrame struct {
@@ -62,7 +73,6 @@ type stateTransfer struct {
 	binarySent  bool
 	authorityOK bool
 	applied     map[int]bool
-	timer       *time.Timer
 }
 
 type realtimeSession struct {
@@ -187,7 +197,7 @@ func (hub *Hub) Connect(
 }
 
 func readHello(ctx context.Context, connection *websocket.Conn) (ClientMessage, error) {
-	helloContext, cancelHello := context.WithTimeout(ctx, 5*time.Second)
+	helloContext, cancelHello := context.WithTimeout(ctx, 10*time.Second)
 	kind, contents, err := connection.Read(helloContext)
 	cancelHello()
 	if err != nil || kind != websocket.MessageText {
@@ -228,15 +238,54 @@ func (client *peer) validationLoop(
 }
 
 func (client *peer) validateAndPing(ctx context.Context, session *realtimeSession) bool {
-	if client.validator != nil && !client.validator(ctx, client.authToken, client.participant.ProfileID) {
-		session.fail(ctx, "AUTH_REVOKED", client.participant.ProfileID)
-		_ = client.connection.Close(websocket.StatusPolicyViolation, "authentication revoked")
-		return false
+	if client.validator != nil {
+		validation, shouldDrop := client.validateSession(ctx)
+		switch validation {
+		case SessionValid:
+		case SessionRevoked:
+			session.fail(ctx, "AUTH_REVOKED", client.participant.ProfileID)
+			return false
+		case SessionUnavailable:
+			slog.WarnContext(ctx, "netplay peer authentication unavailable",
+				"roomId", session.roomID, "sessionId", session.sessionID,
+				"playerNo", client.participant.PlayerNo, "consecutive", client.authUnavailable,
+			)
+			if shouldDrop {
+				client.dropTransport("")
+				return false
+			}
+		}
 	}
 	pingContext, cancelPing := context.WithTimeout(ctx, 5*time.Second)
 	err := client.connection.Ping(pingContext)
 	cancelPing()
-	return err == nil
+	if err != nil {
+		client.dropTransport("")
+		return false
+	}
+	return true
+}
+
+func (client *peer) validateSession(ctx context.Context) (SessionValidation, bool) {
+	validation := client.validator(ctx, client.authToken, client.participant.ProfileID)
+	if validation == SessionUnavailable {
+		client.authUnavailable++
+		return validation, client.authUnavailable >= 3
+	}
+	client.authUnavailable = 0
+	return validation, false
+}
+
+func (client *peer) dropTransport(reason string) {
+	client.dropOnce.Do(func() {
+		if client.connection != nil {
+			if reason == "connection replaced" {
+				_ = client.connection.Close(websocket.StatusPolicyViolation, reason)
+			} else {
+				_ = client.connection.CloseNow()
+			}
+		}
+	})
 }
 
 func (session *realtimeSession) readMessages(ctx context.Context, client *peer) error {
@@ -303,6 +352,28 @@ func (client *peer) writeLoop(ctx context.Context, done chan<- struct{}) {
 			close(message.flushed)
 		}
 		if err != nil {
+			client.mu.Lock()
+			client.writeStopped = true
+			client.mu.Unlock()
+			client.releaseQueuedFlushes()
+			client.dropTransport("")
+			return
+		}
+	}
+}
+
+func (client *peer) releaseQueuedFlushes() {
+	for {
+		select {
+		case message, ok := <-client.writes:
+			if !ok {
+				return
+			}
+			client.mu.Lock()
+			client.queuedBytes -= len(message.data)
+			client.mu.Unlock()
+			closeFlushSignal(message.flushed)
+		default:
 			return
 		}
 	}
@@ -321,7 +392,7 @@ func (session *realtimeSession) addPeer(ctx context.Context, client *peer, lastC
 		reconnecting = true
 	}
 	if previous := session.peers[client.participant.PlayerNo]; previous != nil && previous != client {
-		_ = previous.connection.Close(websocket.StatusPolicyViolation, "connection replaced")
+		previous.dropTransport("connection replaced")
 	}
 	session.peers[client.participant.PlayerNo] = client
 	session.participants[client.participant.ProfileID] = client.participant.PlayerNo
@@ -329,18 +400,15 @@ func (session *realtimeSession) addPeer(ctx context.Context, client *peer, lastC
 		session.mu.Unlock()
 		return err
 	}
-	session.restartInitialTransferLocked(ctx)
+	session.restartTransferLocked(ctx)
 	session.mu.Unlock()
 	return nil
 }
 
-func (session *realtimeSession) restartInitialTransferLocked(ctx context.Context) {
+func (session *realtimeSession) restartTransferLocked(ctx context.Context) {
 	transfer := session.transfer
 	if session.running || transfer == nil || len(session.peers) != session.playerCount {
 		return
-	}
-	if transfer.timer != nil {
-		transfer.timer.Stop()
 	}
 	session.transfer = nil
 	session.beginTransferLocked(ctx, transfer.reason, transfer.nextFrame)
@@ -369,32 +437,36 @@ func (session *realtimeSession) sendPeerHistoryLocked(
 		"leaseMs": session.service.options.ReconnectLease.Milliseconds(), "historyStartFrame": start,
 		"historyEndFrame": end, "occupiedSeatMask": session.occupiedMask, "playerNo": client.participant.PlayerNo,
 	}))
-	if reconnecting {
-		if lastCanonical+1 < start {
-			return ErrProtocol
-		}
-		frames := make([]canonicalFrame, 0, end-lastCanonical)
-		for _, frame := range session.history {
-			if frame.Frame > lastCanonical {
-				frames = append(frames, frame)
-			}
-		}
-		session.sendLocked(ctx, client, websocket.MessageText, session.serverMessageLocked("HISTORY", map[string]any{
-			"fromFrame": lastCanonical + 1, "toFrame": end, "canonical": frames,
-		}))
-		if session.pause == nil || session.pause.action != pauseActionReconnect {
-			return ErrProtocol
-		}
-		session.sendLocked(ctx, client, websocket.MessageText, session.serverMessageLocked("PAUSE", map[string]any{
-			"reason": session.pause.reason, "atFrame": session.pause.atFrame,
-			"affectedPlayerNo": client.participant.PlayerNo,
-		}))
+	if !reconnecting {
+		return nil
 	}
+	if !session.running && (session.pause == nil || session.pause.action != pauseActionReconnect) {
+		return nil
+	}
+	if lastCanonical+1 < start {
+		return ErrProtocol
+	}
+	frames := make([]canonicalFrame, 0, end-lastCanonical)
+	for _, frame := range session.history {
+		if frame.Frame > lastCanonical {
+			frames = append(frames, frame)
+		}
+	}
+	session.sendLocked(ctx, client, websocket.MessageText, session.serverMessageLocked("HISTORY", map[string]any{
+		"fromFrame": lastCanonical + 1, "toFrame": end, "canonical": frames,
+	}))
+	if session.pause == nil || session.pause.action != pauseActionReconnect {
+		return ErrProtocol
+	}
+	session.sendLocked(ctx, client, websocket.MessageText, session.serverMessageLocked("PAUSE", map[string]any{
+		"reason": session.pause.reason, "atFrame": session.pause.atFrame,
+		"affectedPlayerNo": client.participant.PlayerNo,
+	}))
 	return nil
 }
 
 func (session *realtimeSession) prepareResync(ctx context.Context) {
-	if err := session.service.PrepareResync(ctx, session.roomID, session.sessionID); err != nil {
+	if err := session.service.PrepareReconnectResync(ctx, session.roomID, session.sessionID); err != nil {
 		session.fail(ctx, "INTERNAL_ERROR", "")
 		return
 	}
@@ -413,26 +485,45 @@ func (session *realtimeSession) removePeer(ctx context.Context, client *peer) {
 		return
 	}
 	delete(session.peers, client.participant.PlayerNo)
+	playerNo := client.participant.PlayerNo
+	profileID := client.participant.ProfileID
 	if session.running {
-		session.beginPauseLocked(workContext, "PEER_DISCONNECTED", client.participant.PlayerNo, pauseActionReconnect)
-		playerNo := client.participant.PlayerNo
-		profileID := client.participant.ProfileID
+		session.beginPauseLocked(workContext, "PEER_DISCONNECTED", playerNo, pauseActionReconnect)
 		participant := client.participant
 		go func() {
 			if err := session.service.MarkDisconnected(workContext, participant); err != nil {
-				session.fail(workContext, "INTERNAL_ERROR", profileID)
+				slog.ErrorContext(workContext, "netplay disconnect persistence failed",
+					"roomId", session.roomID, "sessionId", session.sessionID, "playerNo", playerNo,
+				)
 			}
 		}()
-		session.leaseTimers[playerNo] = time.AfterFunc(session.service.options.ReconnectLease, func() {
-			session.mu.Lock()
-			missing := session.peers[playerNo] == nil && !session.ended
-			session.mu.Unlock()
-			if missing {
-				session.fail(workContext, "PEER_TIMEOUT", profileID)
-			}
-		})
+	} else {
+		session.invalidateTransferLocked()
 	}
+	session.leaseTimers[playerNo] = time.AfterFunc(session.service.options.ReconnectLease, func() {
+		session.mu.Lock()
+		missing := session.peers[playerNo] == nil && !session.ended
+		session.mu.Unlock()
+		if missing {
+			session.fail(workContext, "PEER_TIMEOUT", profileID)
+		}
+	})
 	session.mu.Unlock()
+}
+
+func (session *realtimeSession) invalidateTransferLocked() {
+	previous := session.transfer
+	if previous == nil {
+		return
+	}
+	targets := make(map[int]bool, len(previous.targets))
+	for playerNo := range previous.targets {
+		targets[playerNo] = true
+	}
+	session.transfer = &stateTransfer{
+		id: uuid.Must(uuid.NewV7()).String(), nextFrame: previous.nextFrame,
+		reason: previous.reason, targets: targets, applied: make(map[int]bool),
+	}
 }
 
 //nolint:gocyclo // This closed dispatcher explicitly enumerates every accepted wire message type.
@@ -487,13 +578,23 @@ func (session *realtimeSession) handleMessage(
 	case "HISTORY_APPLIED":
 		return session.acceptHistoryApplied(ctx, client, message.HistoryAppliedThrough)
 	case "END_REQUEST":
-		if message.Reason != "USER_EXIT" {
+		if !allowedClientEndReason(message.Reason) {
 			return ErrProtocol
 		}
-		session.fail(ctx, "USER_EXIT", client.participant.ProfileID)
+		session.fail(ctx, message.Reason, client.participant.ProfileID)
 		return nil
 	default:
 		return ErrProtocol
+	}
+}
+
+func allowedClientEndReason(reason string) bool {
+	switch reason {
+	case "USER_EXIT", "ROLLBACK_WINDOW_EXCEEDED", "STATE_RING_CAPACITY_EXCEEDED", "STATE_INVALID",
+		"NETPLAY_UNSTABLE", "INTERNAL_ERROR", "PROTOCOL_VIOLATION":
+		return true
+	default:
+		return false
 	}
 }
 
@@ -727,7 +828,7 @@ func (session *realtimeSession) handleMismatchLocked(ctx context.Context) {
 }
 
 func (session *realtimeSession) prepareHashResync(ctx context.Context) {
-	if err := session.service.PrepareResync(ctx, session.roomID, session.sessionID); err != nil {
+	if err := session.service.PrepareHashResync(ctx, session.roomID, session.sessionID); err != nil {
 		session.fail(ctx, "INTERNAL_ERROR", "")
 		return
 	}
@@ -752,10 +853,6 @@ func (session *realtimeSession) beginTransferLocked(ctx context.Context, reason 
 	transfer := &stateTransfer{
 		id: transferID, nextFrame: nextFrame, reason: reason, targets: targets, applied: make(map[int]bool),
 	}
-	workContext := context.WithoutCancel(ctx)
-	transfer.timer = time.AfterFunc(15*time.Second, func() {
-		session.fail(workContext, "STATE_TRANSFER_TIMEOUT", "")
-	})
 	session.transfer = transfer
 	if authority := session.peers[1]; authority != nil {
 		session.sendLocked(ctx, authority, websocket.MessageText, session.serverMessageLocked("REQUEST_STATE", map[string]any{
@@ -869,7 +966,6 @@ func (session *realtimeSession) maybeStartLocked(ctx context.Context) {
 	if transfer == nil || !transfer.authorityOK || len(transfer.applied) != len(transfer.targets) {
 		return
 	}
-	transfer.timer.Stop()
 	session.transfer = nil
 	session.epoch++
 	session.nextFrame = transfer.nextFrame
@@ -927,17 +1023,17 @@ func (session *realtimeSession) sendTrackedLocked(
 }
 
 func (session *realtimeSession) enqueueLocked(
-	ctx context.Context,
+	_ context.Context,
 	client *peer,
 	kind websocket.MessageType,
 	data []byte,
 	flushed chan struct{},
 ) {
 	client.mu.Lock()
-	if len(client.writes) >= 256 || client.queuedBytes+len(data) > MaxWSMessageBytes {
+	if client.writeStopped || len(client.writes) >= 256 || client.queuedBytes+len(data) > MaxWSMessageBytes {
 		client.mu.Unlock()
 		closeFlushSignal(flushed)
-		go session.fail(context.WithoutCancel(ctx), "PEER_TOO_SLOW", client.participant.ProfileID)
+		client.dropTransport("")
 		return
 	}
 	copyData := make([]byte, len(data))
@@ -951,7 +1047,7 @@ func (session *realtimeSession) enqueueLocked(
 		client.queuedBytes -= len(copyData)
 		client.mu.Unlock()
 		closeFlushSignal(flushed)
-		go session.fail(context.WithoutCancel(ctx), "PEER_TOO_SLOW", client.participant.ProfileID)
+		client.dropTransport("")
 	}
 }
 
@@ -969,9 +1065,6 @@ func (session *realtimeSession) fail(ctx context.Context, reason, profileID stri
 		return
 	}
 	session.ended = true
-	if session.transfer != nil && session.transfer.timer != nil {
-		session.transfer.timer.Stop()
-	}
 	for _, timer := range session.leaseTimers {
 		timer.Stop()
 	}
@@ -994,10 +1087,16 @@ func (session *realtimeSession) fail(ctx context.Context, reason, profileID stri
 	if actor == "" && len(peers) > 0 {
 		actor = peers[0].participant.ProfileID
 	}
+	var endErr error
 	if actor == "" {
-		_ = session.service.endRoomSystem(workContext, session.roomID, reason)
+		endErr = session.service.endRoomSystem(workContext, session.roomID, reason)
 	} else {
-		_ = session.service.EndRoom(workContext, session.roomID, actor, reason, nil)
+		endErr = session.service.EndRoom(workContext, session.roomID, actor, reason, nil)
+	}
+	if endErr != nil {
+		slog.ErrorContext(workContext, "netplay terminal persistence failed",
+			"roomId", session.roomID, "sessionId", session.sessionID, "reason", reason,
+		)
 	}
 	session.hub.mu.Lock()
 	if session.hub.sessions[session.roomID] == session {
@@ -1078,7 +1177,7 @@ func (hub *Hub) Resume(ctx context.Context, roomID, sessionID, profileID string)
 		session.peers[1] == nil || session.peers[1].participant.ProfileID != profileID {
 		return ErrForbidden
 	}
-	if err := session.service.PrepareResync(ctx, roomID, sessionID); err != nil {
+	if err := session.service.PrepareHostResync(ctx, roomID, sessionID); err != nil {
 		return err
 	}
 	session.pause = nil
@@ -1100,9 +1199,6 @@ func (hub *Hub) Terminate(ctx context.Context, roomID, reason string) {
 		return
 	}
 	session.ended = true
-	if session.transfer != nil && session.transfer.timer != nil {
-		session.transfer.timer.Stop()
-	}
 	for _, timer := range session.leaseTimers {
 		timer.Stop()
 	}

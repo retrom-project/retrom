@@ -322,6 +322,48 @@ func TestHostCannotClaimGuestSeatThroughTheService(t *testing.T) {
 	}
 }
 
+func TestAuthenticateSocketDistinguishesForbiddenFromDatabaseFailure(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	service := NewService(database.SQL, nil, nil, Options{}, time.Now)
+	if _, err := service.AuthenticateSocket(ctx, "missing", "missing", "invalid"); !errors.Is(err, ErrForbidden) {
+		t.Fatalf("missing socket participant = %v", err)
+	}
+	if err := database.SQL.Close(); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := service.AuthenticateSocket(ctx, "missing", "missing", "invalid"); err == nil || errors.Is(err, ErrForbidden) {
+		t.Fatalf("database failure was collapsed to forbidden: %v", err)
+	}
+}
+
+func TestResyncCausesAcceptOnlyTheirDeclaredSessionStates(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		cause resyncCause
+		state string
+		valid bool
+	}{
+		{resyncReconnect, "RUNNING", true},
+		{resyncReconnect, "PAUSED_RECONNECT", true},
+		{resyncReconnect, "RESYNCHRONIZING", false},
+		{resyncHash, "RUNNING", true},
+		{resyncHash, "PAUSED_RECONNECT", false},
+		{resyncHost, "PAUSED_RECONNECT", true},
+		{resyncHost, "RUNNING", false},
+		{resyncCause("UNKNOWN"), "RUNNING", false},
+	}
+	for _, test := range tests {
+		if got := validResyncSource(test.cause, test.state); got != test.valid {
+			t.Fatalf("validResyncSource(%q, %q) = %v, want %v", test.cause, test.state, got, test.valid)
+		}
+	}
+}
+
 func TestPrepareFailureReturnsRoomToWaitingAndClearsReady(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()

@@ -443,8 +443,12 @@ func (server *Server) baseMiddleware(next http.Handler) http.Handler {
 		}
 		session, authErr := server.authenticator.Authenticate(requestContext, server.authCookieToken(request))
 		if authErr != nil {
-			server.clearAuthCookies(writer)
-			writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "需要登录", map[string]any{})
+			if errors.Is(authErr, accounts.ErrAuthenticationNeeded) {
+				server.clearAuthCookies(writer)
+				writeError(writer, request, http.StatusUnauthorized, "AUTHENTICATION_REQUIRED", "需要登录", map[string]any{})
+			} else {
+				server.databaseError(writer, request, authErr)
+			}
 			return
 		}
 		if strings.HasPrefix(request.URL.Path, "/api/v1/admin/") && session.Principal.Role != "ADMIN" {

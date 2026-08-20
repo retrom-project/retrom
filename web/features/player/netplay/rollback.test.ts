@@ -50,6 +50,10 @@ describe("RollbackTimeline", () => {
       state: new Uint8Array([2]),
       frames: [{ frame: 1, input: input(1, 1) }, { frame: 2, input: input(1, 0) }],
     });
+    const canonical = timeline.canonicalAt(1)!;
+    expect(canonical).toEqual(input(1, 1));
+    (canonical[0] as number[])[0] = 9;
+    expect(timeline.canonicalAt(1)).toEqual(input(1, 1));
   });
 
   it("fails closed on mutated canonical history, gaps, window overflow, and ring capacity", () => {
@@ -60,6 +64,51 @@ describe("RollbackTimeline", () => {
     expect(() => timeline.receiveCanonical(0, input(1))).toThrow("NETPLAY_CANONICAL_MUTATED");
     expect(() => timeline.rollbackPlan(0, 2)).toThrow("ROLLBACK_WINDOW_EXCEEDED");
     expect(() => timeline.recordBefore(1, new Uint8Array([1, 2]))).toThrow("STATE_RING_CAPACITY_EXCEEDED");
+  });
+
+  it("keeps long-running canonical, prediction, and state storage bounded", () => {
+    const timeline = new RollbackTimeline(4, 64, 2);
+    for (let frame = 0; frame < 1_000_000; frame += 1) {
+      timeline.recordOwnedStateBefore(frame, new Uint8Array([frame & 0xff]));
+      timeline.recordPrediction(frame, input());
+      timeline.receiveCanonical(frame, input());
+    }
+    expect(timeline.retained()).toEqual({ states: 4, predicted: 4, canonical: 4, stateBytes: 4 });
+    expect(timeline.stateAt(999_996)).toEqual(new Uint8Array([60]));
+    expect(timeline.stateAt(999_995)).toBeNull();
+  });
+
+  it("caps state entries while predictions are ahead of canonical history", () => {
+    const timeline = new RollbackTimeline(4, 64, 2);
+    for (let frame = 0; frame < 10; frame += 1) {
+      timeline.recordOwnedStateBefore(frame, new Uint8Array([frame]));
+      timeline.recordPrediction(frame, input());
+      timeline.receiveCanonical(frame, input());
+    }
+    for (let frame = 10; frame < 12; frame += 1) {
+      timeline.recordOwnedStateBefore(frame, new Uint8Array([frame]));
+      timeline.recordPrediction(frame, input());
+    }
+    expect(timeline.retained()).toEqual({ states: 5, predicted: 6, canonical: 4, stateBytes: 5 });
+    expect(timeline.stateAt(6)).toBeNull();
+    expect(timeline.stateAt(7)).toEqual(new Uint8Array([7]));
+    expect(timeline.stateAt(11)).toEqual(new Uint8Array([11]));
+  });
+
+  it("takes ownership without copying but returns defensive state copies", () => {
+    const timeline = new RollbackTimeline();
+    const owned = new Uint8Array([7]);
+    timeline.recordOwnedStateBefore(0, owned);
+    owned[0] = 8;
+    const first = timeline.stateAt(0)!;
+    expect(first[0]).toBe(8);
+    first[0] = 9;
+    expect(timeline.stateAt(0)?.[0]).toBe(8);
+    timeline.recordPrediction(0, input(1));
+    timeline.receiveCanonical(0, input(2));
+    const plan = timeline.rollbackPlan(0, 0);
+    plan.state[0] = 10;
+    expect(timeline.stateAt(0)?.[0]).toBe(8);
   });
 });
 

@@ -9,7 +9,7 @@
 
 ## 1. 结论
 
-Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、第三方或用户 ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。公开测试程序例外位于 `testdata/public-roms/`：`gba-smoke/` 由同一生成源产出两个各 1 KiB、内容身份不同的 mGBA 程序，分别供普通上传与 Pegasus 目录产品 E2E 使用；`arcade-smoke/` 是 MAME 2003 与 FBNeo 共用生成源产出的 Z80 程序、图形/PROM、测试 BIOS 角色归档与两种小型 DAT。它们均由 Retrom 自有源码确定性生成、使用 MIT 许可，生成源与 bytes 同时提交并由 `data-check` 校验。Arcade 测试 BIOS 不含第三方 BIOS bytes，也不被目标驱动执行。其他真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得或从锁定源码确定性生成，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
+Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、第三方或用户 ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。公开测试程序例外位于 `testdata/public-roms/`：`gba-smoke/` 由同一生成源产出两个各 1 KiB、内容身份不同的 mGBA 程序；`nes-smoke/` 产出读取 P1/P2 控制器并把输入反映到画面的 iNES NROM 程序；`arcade-smoke/` 是 MAME 2003 与 FBNeo 共用生成源产出的 Z80 程序、图形/PROM、测试 BIOS 角色归档与两种小型 DAT，其程序读取两个玩家输入端口并维持整屏动画。它们均由 Retrom 自有源码确定性生成、使用 MIT 许可，生成源与 bytes 同时提交并由 `data-check` 校验。Arcade 测试 BIOS 不含第三方 BIOS bytes，也不被目标驱动执行。其他真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得或从锁定源码确定性生成，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
 
 应用进程启动期间禁止联网下载或自动升级依赖。依赖缺失、大小或 SHA-256 不符时，后端必须拒绝进入 ready 状态并输出 `make prepare-deps` 这一条可操作命令；不能回退到 CDN、最新版本或另一个 core。
 
@@ -28,7 +28,7 @@ Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256
 
 4.2.3 的 Player adapter 固定为 `ejs-4.2.3-v2`，registry 不保留无法由当前 manifest 解释的 v1 fallback。4.2.3 与 4.3.0-pre 的 adapter 都对两份版本中逐字节相同的官方 `extract7z.js`、`extractzip.js` 执行运行时专题锁定的 CSP 兼容转换：4.2.3 保留既有 Worker Blob 转换，4.3.0-pre 因 compression 变为 module-private 而精确转换同源下载响应，再由 EmulatorJS 构造 Worker Blob。转换发生在浏览器内且任一源形状漂移即阻断，不能修改 runtime allowlist 中的官方 bytes、size/SHA 或许可关联证据。新版本不得仅因进入 registry 就自动继承转换，必须先证明其锁定 Worker 仍为已接受形状。dependency bootstrap 对同一 `(core_id, emulatorjs_version, sha256)` 保留 CoreArtifact ID；bundle/flavor/path/size/compatibility/enabled 等运行语义变化时原子递增 artifact version，逐字节等价的重复 bootstrap 连 `updated_at_ms` 也不改。历史 VariantRevision、SaveState 与 PersistentSave 继续绑定原 artifact ID，但未发布的 generation 3 validation 全部 stale，必须由 compatibility V3 重新验证后才能发布。
 
-联机使用独立的 [`data/netplay/v1/manifest.json`](../data/netplay/v1/manifest.json) 与 schema 作为普通兼容性之上的 core-profile allowlist。schema v3 的首发 profile 为 `fceumm-423-v1` 与 `fbneo-423-v1`：每项锁定 EmulatorJS 4.2.3、core artifact SHA-256、`maxPlayers=2` 和核心级 prediction 上限；FCEUmm 为 8 帧，FBNeo 为 0 帧严格 lockstep。协议另锁定 `SINGLE_FILE`、`retrom-netplay-v1`、`ejs-4.2.3-v2`、`ejs-netplay-4.2.3-v1`、24 controls、120-frame checkpoint、8 帧 prediction 协议上限、120 rollback、600 history 与 1 MiB state 上限。任意发布游戏只要当前 READY VariantRevision 使用该精确 artifact、内容类型受协议允许且依赖快照仍有效，即可选择此 profile；ROM 逻辑名、大小、hash 与来源 archive 不进入产品准入。校验器必须与 runtime manifest 的 core artifact、supported content kind 和前端 registry 双向一致，未知 EmulatorJS/adapter/profile 不得 fallback。FBNeo 已有合法公开的单机 fixture，但本阶段未建立它或 FCEUmm 的双浏览器产品链路；manifest、协议检查和单机运行结果都不构成真实双端核心兼容基线。
+联机使用独立的 [`data/netplay/v1/manifest.json`](../data/netplay/v1/manifest.json) 与 schema 作为普通兼容性之上的 core-profile allowlist。schema v3 的首发 profile 为 `fceumm-423-v1` 与 `fbneo-423-v1`：每项锁定 EmulatorJS 4.2.3、core artifact SHA-256、`maxPlayers=2` 和核心级 prediction 上限；FCEUmm 为 8 帧，FBNeo 为 0 帧严格 lockstep。协议另锁定 `SINGLE_FILE`、`retrom-netplay-v1`、`ejs-4.2.3-v2`、`ejs-netplay-4.2.3-v1`、24 controls、120-frame checkpoint、8 帧 prediction 协议上限、120 rollback、600 history 与 1 MiB state 上限。任意发布游戏只要当前 READY VariantRevision 使用该精确 artifact、内容类型受协议允许且依赖快照仍有效，即可选择此 profile；ROM 逻辑名、大小、hash 与来源 archive 不进入产品准入。校验器必须与 runtime manifest 的 core artifact、supported content kind 和前端 registry 双向一致，未知 EmulatorJS/adapter/profile 不得 fallback。`ACC-NP-014`–`016` 使用项目自有 NES/Arcade bytes 经过真实 Retrom 导入、Launch、内容端点和两个 Chrome Player，分别建立 FCEUmm rollback、FBNeo 严格 lockstep、后台恢复和断线重连基线；该证据只适用于精确 profile/artifact，不能改写为任意 ROM 的兼容承诺。
 
 仓库与本地缓存边界固定为：
 
@@ -153,4 +153,4 @@ EmulatorJS 与各 libretro core 的许可证不同。manifest schema V5 的 `lic
 
 ## 7. 统一验收入口
 
-小型 manifest 结构（包括联机 exact manifest）由 `ACC-QA-001` 的 `make data-check` 覆盖；联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖，但不证明真实双端核心运行；完整 payload 准备与校验由 `ACC-DAT-001` 覆盖；密码 blocklist 的启动期校验与拒绝行为由 `ACC-AUTH-003` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。
+小型 manifest 结构（包括联机 exact manifest）由 `ACC-QA-001` 的 `make data-check` 覆盖；联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖，真实双端核心运行与生命周期由 `ACC-NP-014`–`016` 覆盖；完整 payload 准备与校验由 `ACC-DAT-001` 覆盖；密码 blocklist 的启动期校验与拒绝行为由 `ACC-AUTH-003` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。

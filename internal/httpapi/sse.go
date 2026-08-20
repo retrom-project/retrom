@@ -263,8 +263,7 @@ func (server *Server) streamEvents(
 	read func(context.Context, int64) ([]streamEvent, error),
 	terminal func(context.Context) (bool, error),
 ) {
-	flusher, ok := writer.(http.Flusher)
-	if !ok {
+	if _, ok := writer.(http.Flusher); !ok {
 		writeError(
 			writer,
 			request,
@@ -280,15 +279,12 @@ func (server *Server) streamEvents(
 	writer.Header().Set("X-Accel-Buffering", "no")
 	if request.Header.Get("Last-Event-ID") == "" {
 		// snapshot is JSON-encoded by the server, so embedded CR/LF bytes are escaped before reaching SSE framing.
-		if _, err := fmt.Fprintf( //nolint:gosec // Server-marshaled JSON escapes CR/LF bytes.
-			writer,
-			"id: %d\nevent: snapshot\ndata: %s\n\n",
-			snapshotID,
-			snapshot,
-		); err != nil {
+		payload := fmt.Sprintf(
+			"id: %d\nevent: snapshot\ndata: %s\n\n", snapshotID, snapshot,
+		)
+		if err := server.writeSSE(writer, payload); err != nil {
 			return
 		}
-		flusher.Flush()
 	}
 	poll := time.NewTicker(250 * time.Millisecond)
 	heartbeat := time.NewTicker(server.sseHeartbeat)
@@ -299,20 +295,16 @@ func (server *Server) streamEvents(
 		if err != nil {
 			return
 		}
+		var payload strings.Builder
 		for _, event := range events {
-			if _, err := fmt.Fprintf(
-				writer,
-				"id: %d\nevent: %s\ndata: %s\n\n",
-				event.ID,
-				strings.ToLower(event.Type),
-				event.Data,
-			); err != nil {
-				return
-			}
+			_, _ = fmt.Fprintf(&payload, "id: %d\nevent: %s\ndata: %s\n\n",
+				event.ID, strings.ToLower(event.Type), event.Data)
 			cursor = event.ID
 		}
-		if len(events) > 0 {
-			flusher.Flush()
+		if payload.Len() > 0 {
+			if err := server.writeSSE(writer, payload.String()); err != nil {
+				return
+			}
 		}
 		done, err := terminal(request.Context())
 		if err != nil || done {
@@ -323,10 +315,24 @@ func (server *Server) streamEvents(
 			return
 		case <-poll.C:
 		case <-heartbeat.C:
-			if _, err := fmt.Fprint(writer, ": heartbeat\n\n"); err != nil {
+			if err := server.writeSSE(writer, ": heartbeat\n\n"); err != nil {
 				return
 			}
-			flusher.Flush()
 		}
 	}
+}
+
+func (server *Server) writeSSE(writer http.ResponseWriter, payload string) error {
+	controller := http.NewResponseController(writer)
+	deadlineErr := controller.SetWriteDeadline(server.now().Add(30 * time.Second))
+	if deadlineErr != nil && !errors.Is(deadlineErr, errors.ErrUnsupported) {
+		return fmt.Errorf("set SSE write deadline: %w", deadlineErr)
+	}
+	if _, err := writer.Write([]byte(payload)); err != nil { //nolint:gosec // Server-marshaled SSE framing, not HTML.
+		return fmt.Errorf("write SSE: %w", err)
+	}
+	if err := controller.Flush(); err != nil {
+		return fmt.Errorf("flush SSE: %w", err)
+	}
+	return nil
 }
