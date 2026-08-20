@@ -1,5 +1,6 @@
 import { sha256 } from "@/lib/crypto";
 import type { EmulatorInstance } from "../adapters/ejs-4.2.3-v2";
+import { ActiveTimeBudget } from "./active-time-budget";
 import type { CanonicalInput } from "./rollback";
 
 export const netplayAdapterID = "ejs-netplay-4.2.3-v1" as const;
@@ -18,6 +19,7 @@ type GameManagerPrototype = {
   mountFileSystems?: () => Promise<void>;
   loadStateAndWait?: (state: Uint8Array, timeoutMs?: number) => Promise<{ byteExact: boolean }>;
   runNetplayFrame?: (timeoutMs?: number) => Promise<number>;
+  cancelNetplayOperations?: () => void;
 };
 type GameManagerConstructor = { prototype?: GameManagerPrototype };
 type NetplayPatchWindow = Window & {
@@ -38,6 +40,7 @@ type NetplayManager = Required<Pick<NonNullable<EmulatorInstance["gameManager"]>
       loadState?: (...args: unknown[]) => unknown;
     };
     toggleFastForward?: (running: boolean) => void;
+    cancelNetplayOperations?: () => void;
   };
 
 function equalBytes(left: Uint8Array, right: Uint8Array) {
@@ -50,6 +53,7 @@ function equalBytes(left: Uint8Array, right: Uint8Array) {
 export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = window) {
   const target = playerWindow as NetplayPatchWindow;
   const loadSignals: LoadSignal[] = [];
+  const activeBudgets = new Set<ActiveTimeBudget>();
   const prototypeRestores: Array<() => void> = [];
   let active = true;
 
@@ -83,73 +87,84 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
   const patchManager = (constructor: GameManagerConstructor | undefined) => {
     const prototype = constructor?.prototype;
     if (!prototype || typeof prototype.mountFileSystems !== "function") throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
-    if (prototype.loadStateAndWait || prototype.runNetplayFrame) throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
+    if (prototype.loadStateAndWait || prototype.runNetplayFrame || prototype.cancelNetplayOperations) {
+      throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
+    }
     const originalMount = prototype.mountFileSystems;
     const mountInMemory = async function (this: { mkdir?: (path: string) => void }) {
       if (typeof this.mkdir !== "function") throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
       this.mkdir("/data");
       this.mkdir("/data/saves");
     };
-    const loadStateAndWait = async function (this: NonNullable<EmulatorInstance["gameManager"]>, state: Uint8Array, timeoutMs = 5_000) {
+    const activeBudget = (timeoutMS: number) => new ActiveTimeBudget(timeoutMS, {
+      now: () => target.performance.now(),
+      visibility: target.document,
+      setTimer: (callback, delayMS) => target.setTimeout(callback, delayMS),
+      clearTimer: (timer) => target.clearTimeout(timer),
+    });
+    const raceWithActiveBudget = async <T>(operation: Promise<T>, timeoutMS: number, timeoutReason: string) => {
+      const budget = activeBudget(timeoutMS);
+      activeBudgets.add(budget);
+      try {
+        return await budget.race(operation, timeoutReason);
+      } finally {
+        activeBudgets.delete(budget);
+      }
+    };
+    const loadStateAndWait = async function (this: NonNullable<EmulatorInstance["gameManager"]>, state: Uint8Array, timeoutMs = 15_000) {
       const fileSystem = this.FS as RuntimeFileSystem | undefined;
       const functions = (this as { functions?: { loadState?: (...args: unknown[]) => unknown } }).functions;
       if (!this.getState || !this.toggleMainLoop || !fileSystem?.writeFile || !fileSystem.unlink ||
         typeof functions?.loadState !== "function") throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
       const expected = new Uint8Array(state);
       const completion = registerLoadSignal();
-      let timer: number | undefined;
       try {
-        try { fileSystem.unlink("game.state"); } catch { /* absent before the first load */ }
+        try { fileSystem.unlink("/game.state"); } catch { /* absent before the first load */ }
         fileSystem.writeFile("/game.state", expected);
         (this as { clearEJSResetTimer?: () => void }).clearEJSResetTimer?.();
         functions.loadState("game.state", 0);
         this.toggleMainLoop(true);
-        await Promise.race([
-          completion.promise,
-          new Promise<never>((_, reject) => {
-            timer = target.setTimeout(() => reject(new Error("STATE_LOAD_TIMEOUT")), timeoutMs);
-          }),
-        ]);
+        await raceWithActiveBudget(completion.promise, timeoutMs, "STATE_LOAD_TIMEOUT");
         this.toggleMainLoop(false);
         const byteExact = equalBytes(new Uint8Array(this.getState()), expected);
         return { byteExact };
       } finally {
-        if (timer !== undefined) target.clearTimeout(timer);
         this.toggleMainLoop(false);
         completion.cancel();
-        try { fileSystem.unlink("game.state"); } catch { /* native code may already remove it */ }
+        try { fileSystem.unlink("/game.state"); } catch { /* native code may already remove it */ }
       }
     };
-    const runNetplayFrame = function (this: NonNullable<EmulatorInstance["gameManager"]>, timeoutMs = 1_000) {
+    const runNetplayFrame = async function (this: NonNullable<EmulatorInstance["gameManager"]>, timeoutMs = 5_000) {
       if (!this.getFrameNum || !this.toggleMainLoop) return Promise.reject(new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE"));
-      return new Promise<number>((resolve, reject) => {
-        const original = target.__RETROM_POST_MAIN_LOOP__;
-        const startFrame = this.getFrameNum!();
-        const wrapper = () => {
-          original?.();
-          const completedFrame = this.getFrameNum!();
-          if (completedFrame <= startFrame) return;
-          target.clearTimeout(timer);
-          this.toggleMainLoop!(false);
-          if (target.__RETROM_POST_MAIN_LOOP__ === wrapper) target.__RETROM_POST_MAIN_LOOP__ = original;
-          resolve(completedFrame);
-        };
-        const timer = target.setTimeout(() => {
-          this.toggleMainLoop!(false);
-          if (target.__RETROM_POST_MAIN_LOOP__ === wrapper) target.__RETROM_POST_MAIN_LOOP__ = original;
-          reject(new Error("NETPLAY_FRAME_STEP_TIMEOUT"));
-        }, timeoutMs);
-        target.__RETROM_POST_MAIN_LOOP__ = wrapper;
-        this.toggleMainLoop!(true);
-      });
+      const original = target.__RETROM_POST_MAIN_LOOP__;
+      const startFrame = this.getFrameNum();
+      let resolveFrame!: (frame: number) => void;
+      const completion = new Promise<number>((resolve) => { resolveFrame = resolve; });
+      const wrapper = () => {
+        original?.();
+        const completedFrame = this.getFrameNum!();
+        if (completedFrame > startFrame) resolveFrame(completedFrame);
+      };
+      target.__RETROM_POST_MAIN_LOOP__ = wrapper;
+      try {
+        this.toggleMainLoop(true);
+        return await raceWithActiveBudget(completion, timeoutMs, "NETPLAY_FRAME_STEP_TIMEOUT");
+      } finally {
+        this.toggleMainLoop(false);
+        if (target.__RETROM_POST_MAIN_LOOP__ === wrapper) target.__RETROM_POST_MAIN_LOOP__ = original;
+      }
     };
     prototype.mountFileSystems = mountInMemory;
     prototype.loadStateAndWait = loadStateAndWait;
     prototype.runNetplayFrame = runNetplayFrame;
+    prototype.cancelNetplayOperations = () => {
+      for (const budget of [...activeBudgets]) budget.cancel("NETPLAY_SESSION_ENDED");
+    };
     prototypeRestores.push(() => {
       prototype.mountFileSystems = originalMount;
       Reflect.deleteProperty(prototype, "loadStateAndWait");
       Reflect.deleteProperty(prototype, "runNetplayFrame");
+      Reflect.deleteProperty(prototype, "cancelNetplayOperations");
     });
   };
 
@@ -227,6 +242,7 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
     if (runtimeDescriptor) Object.defineProperty(target, "EJS_Runtime", runtimeDescriptor);
     else Reflect.deleteProperty(target, "EJS_Runtime");
     Reflect.deleteProperty(target, "__RETROM_POST_MAIN_LOOP__");
+    for (const budget of [...activeBudgets]) budget.cancel("NETPLAY_SESSION_ENDED");
     for (const signal of loadSignals.splice(0)) signal.reject(new Error("NETPLAY_SESSION_ENDED"));
   };
 }
@@ -332,6 +348,7 @@ export class EJSNetplayFrameBridge {
 
   close() {
     this.closed = true;
+    this.manager.cancelNetplayOperations?.();
     this.manager.toggleMainLoop(false);
     if (this.manager.simulateInput === this.inputCapture) this.manager.simulateInput = this.publicSimulateInput;
     this.localControls.fill(0);
@@ -339,13 +356,6 @@ export class EJSNetplayFrameBridge {
 
   sampleLocalControls() { return [...this.localControls]; }
   resetLocalControls() { this.localControls.fill(0); }
-	setLocalControlForTest(control: number, value: number) {
-		if (process.env.NODE_ENV === "production") return;
-		if (!Number.isInteger(control) || control < 0 || control >= this.localControls.length || !Number.isFinite(value)) {
-			throw new Error("NETPLAY_INPUT_INVALID");
-		}
-		this.localControls[control] = Math.max(-32768, Math.min(32767, Math.trunc(value)));
-	}
 }
 
 export function coreStateBytes(value: Uint8Array) {

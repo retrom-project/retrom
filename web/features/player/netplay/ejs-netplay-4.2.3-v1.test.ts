@@ -200,6 +200,70 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
     window.fetch = originalFetch;
   });
 
+  it("enforces exact active-time boundaries and cleans native frame/load resources after timeout", async () => {
+    vi.useFakeTimers();
+    const removeVisibilityListener = vi.spyOn(document, "removeEventListener");
+    const cleanup = installEmulatorJs423NetplayCompatibility(window);
+    const mainLoop = vi.fn();
+    const removedFiles: string[] = [];
+    const files = new Set<string>();
+    class GameManager {
+      frame = 0;
+      functions = { loadState: () => 1 };
+      FS = {
+        unlink: (path: string) => {
+          removedFiles.push(path);
+          if (!files.delete(path)) throw new Error("ENOENT");
+        },
+        writeFile: (path: string) => { files.add(path); },
+      };
+      async mountFileSystems() { return undefined; }
+      getFrameNum() { return this.frame; }
+      getState() { return Uint8Array.from([1]); }
+      toggleMainLoop(running: boolean) { mainLoop(running); }
+    }
+    Reflect.set(window, "EJS_GameManager", GameManager);
+    const manager = new GameManager() as GameManager & {
+      cancelNetplayOperations: () => void;
+      loadStateAndWait: (state: Uint8Array) => Promise<{ byteExact: boolean }>;
+      runNetplayFrame: () => Promise<number>;
+    };
+    const patchedWindow = window as Window & { __RETROM_POST_MAIN_LOOP__?: () => void };
+    const originalHook = vi.fn();
+    patchedWindow.__RETROM_POST_MAIN_LOOP__ = originalHook;
+
+    const frame = manager.runNetplayFrame();
+    const frameFailure = expect(frame).rejects.toThrow("NETPLAY_FRAME_STEP_TIMEOUT");
+    await vi.advanceTimersByTimeAsync(4_999);
+    expect(mainLoop.mock.calls.at(-1)).toEqual([true]);
+    expect(patchedWindow.__RETROM_POST_MAIN_LOOP__).not.toBe(originalHook);
+    await vi.advanceTimersByTimeAsync(1);
+    await frameFailure;
+    expect(mainLoop.mock.calls.at(-1)).toEqual([false]);
+    expect(patchedWindow.__RETROM_POST_MAIN_LOOP__).toBe(originalHook);
+
+    const load = manager.loadStateAndWait(Uint8Array.from([9]));
+    const loadFailure = expect(load).rejects.toThrow("STATE_LOAD_TIMEOUT");
+    await vi.advanceTimersByTimeAsync(14_999);
+    expect(files.has("/game.state")).toBe(true);
+    await vi.advanceTimersByTimeAsync(1);
+    await loadFailure;
+    expect(mainLoop.mock.calls.at(-1)).toEqual([false]);
+    expect(files.size).toBe(0);
+    expect(removedFiles).toContain("/game.state");
+    expect(removeVisibilityListener).toHaveBeenCalledWith("visibilitychange", expect.any(Function));
+    expect(vi.getTimerCount()).toBe(0);
+
+    const cancelledLoad = manager.loadStateAndWait(Uint8Array.from([7]));
+    const cancelledFailure = expect(cancelledLoad).rejects.toThrow("NETPLAY_SESSION_ENDED");
+    expect(files.has("/game.state")).toBe(true);
+    manager.cancelNetplayOperations();
+    await cancelledFailure;
+    expect(files.size).toBe(0);
+    expect(vi.getTimerCount()).toBe(0);
+    cleanup();
+  });
+
   it("fails closed when required native APIs are unavailable", () => {
     const runtime: EmulatorInstance = { on: () => undefined, gameManager: {} };
     expect(() => new EJSNetplayFrameBridge(runtime)).toThrow("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");

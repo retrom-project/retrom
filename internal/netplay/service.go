@@ -85,6 +85,14 @@ func endDisposition(reason string, actorIsHost bool) string {
 	return RoomDispositionWaiting
 }
 
+type resyncCause string
+
+const (
+	resyncReconnect resyncCause = "PEER_RECONNECTED"
+	resyncHash      resyncCause = "STATE_MISMATCH"
+	resyncHost      resyncCause = "HOST_RESUME"
+)
+
 func NewService(
 	database *sql.DB,
 	registry *Registry,
@@ -2019,7 +2027,7 @@ UPDATE netplay_sessions SET state=?,version=version+1,updated_at_ms=? WHERE id=?
 	return nil
 }
 
-func (service *Service) PrepareResync(ctx context.Context, roomID, sessionID string) error {
+func (service *Service) prepareResync(ctx context.Context, roomID, sessionID string, cause resyncCause) error {
 	now := service.clock.Now().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
@@ -2035,7 +2043,7 @@ func (service *Service) PrepareResync(ctx context.Context, roomID, sessionID str
 		}
 		return serviceError("prepare resync state", err)
 	}
-	if fromState != "PAUSED_RECONNECT" && fromState != "RUNNING" {
+	if !validResyncSource(cause, fromState) {
 		return ErrRoomConflict
 	}
 	result, err := transaction.ExecContext(ctx, `
@@ -2056,13 +2064,11 @@ WHERE netplay_session_id=? AND state IN ('CONNECTED','DISCONNECTED')
 		return serviceError("prepare resync participants", err)
 	}
 	eventType := "RESUMED"
-	reason := "PEER_RECONNECTED"
-	if fromState == "RUNNING" {
+	if cause == resyncHash {
 		eventType = "PAUSED"
-		reason = "STATE_MISMATCH"
 	}
 	data := map[string]any{
-		"schemaVersion": 1, "fromState": fromState, "toState": "RESYNCHRONIZING", "reason": reason,
+		"schemaVersion": 1, "fromState": fromState, "toState": "RESYNCHRONIZING", "reason": string(cause),
 	}
 	if err := appendEvent(
 		ctx, transaction, roomID, &sessionID, nil, nil, eventType, data, now,
@@ -2073,6 +2079,31 @@ WHERE netplay_session_id=? AND state IN ('CONNECTED','DISCONNECTED')
 		return serviceError("prepare resync commit", err)
 	}
 	return nil
+}
+
+func validResyncSource(cause resyncCause, fromState string) bool {
+	switch cause {
+	case resyncReconnect:
+		return fromState == "PAUSED_RECONNECT" || fromState == "RUNNING"
+	case resyncHash:
+		return fromState == "RUNNING"
+	case resyncHost:
+		return fromState == "PAUSED_RECONNECT"
+	default:
+		return false
+	}
+}
+
+func (service *Service) PrepareReconnectResync(ctx context.Context, roomID, sessionID string) error {
+	return service.prepareResync(ctx, roomID, sessionID, resyncReconnect)
+}
+
+func (service *Service) PrepareHashResync(ctx context.Context, roomID, sessionID string) error {
+	return service.prepareResync(ctx, roomID, sessionID, resyncHash)
+}
+
+func (service *Service) PrepareHostResync(ctx context.Context, roomID, sessionID string) error {
+	return service.prepareResync(ctx, roomID, sessionID, resyncHost)
 }
 
 func (service *Service) MarkDisconnected(ctx context.Context, participant SocketParticipant) error {
@@ -2163,7 +2194,13 @@ WHERE room.id=? AND participant.profile_id=? AND room.state IN ('STARTING','RUNN
 		&participant.OccupiedSeatMask, &participant.PlayerCount,
 		&credentialHash, &launchState,
 	)
-	if err != nil || launchState != "ACTIVE" || !MatchesCapability(encodedCredential, credentialHash) {
+	if errors.Is(err, sql.ErrNoRows) {
+		return SocketParticipant{}, ErrForbidden
+	}
+	if err != nil {
+		return SocketParticipant{}, serviceError("authenticate socket", err)
+	}
+	if launchState != "ACTIVE" || !MatchesCapability(encodedCredential, credentialHash) {
 		return SocketParticipant{}, ErrForbidden
 	}
 	return participant, nil

@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-00[23467]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-MEDIA-001)$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-RUN-006|ACC-RUN-007|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-MEDIA-001" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-00[23467]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-MEDIA-001|ACC-NP-01[456])$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-RUN-006|ACC-RUN-007|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-MEDIA-001|ACC-NP-014|ACC-NP-015|ACC-NP-016" >&2
   exit 2
 fi
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -101,6 +101,23 @@ if [[ "$case_id" == "ACC-RUN-007" ]]; then
   python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" fbneo
 fi
 
+netplay_nes_result="$temporary_root/netplay-nes.json"
+netplay_fbneo_result="$temporary_root/netplay-fbneo.json"
+if [[ "$case_id" =~ ^ACC-NP-01[456]$ ]]; then
+  RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+  RETROM_ACCEPTANCE_RESULT_FILE="$netplay_nes_result" \
+    scripts/acceptance/netplay-nes-flow.sh
+  go run scripts/acceptance/seed-public-arcade-dat.go \
+    "$temporary_root/data/retrom.db" \
+    fbneo \
+    "$repository_root/testdata/public-roms/arcade-smoke/fbneo/fbneo-smoke.dat"
+  RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+  RETROM_ACCEPTANCE_RESULT_FILE="$netplay_fbneo_result" \
+    scripts/acceptance/arcade-flow.sh fbneo
+fi
+
 if [[ "$case_id" == "ACC-BIOS-007" ]]; then
   python3 scripts/acceptance/seed-bios-catalog.py "$temporary_root/data/retrom.db" 286
 fi
@@ -128,6 +145,9 @@ fi
 if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" || "$case_id" == "ACC-PEG-005" || "$case_id" == "ACC-PEG-006" || "$case_id" == "ACC-MEDIA-001" ]]; then
   specification="e2e/server-import.spec.ts"
 fi
+if [[ "$case_id" =~ ^ACC-NP-01[456]$ ]]; then
+  specification="e2e/netplay.spec.ts"
+fi
 playwright_grep="$case_id"
 if [[ "$case_id" == "ACC-UI-010" ]]; then
   # ACC-UI-008 performs the stateful draft/decision setup consumed by 010.
@@ -142,6 +162,10 @@ fi
 (cd web && \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
+  RETROM_NETPLAY_NES_GAME_ID="$(jq -r '.gameId // empty' "$netplay_nes_result" 2>/dev/null || true)" \
+  RETROM_NETPLAY_NES_FIXTURE_SHA256="$(jq -r '.fixtureSha256 // empty' "$netplay_nes_result" 2>/dev/null || true)" \
+  RETROM_NETPLAY_FBNEO_GAME_ID="$(jq -r '.gameId // empty' "$netplay_fbneo_result" 2>/dev/null || true)" \
+  RETROM_NETPLAY_FBNEO_FIXTURE_SHA256="$(jq -r '.fixtureSha256 // empty' "$netplay_fbneo_result" 2>/dev/null || true)" \
   RETROM_ACCEPTANCE_CASE_DIR="${RETROM_ACCEPTANCE_CASE_DIR:-}" \
   npm exec -- "${playwright_args[@]}")
 

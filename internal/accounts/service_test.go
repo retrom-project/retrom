@@ -158,6 +158,25 @@ func TestReleaseInitializationLoginExpiryAndPasswordRotation(t *testing.T) {
 	}
 }
 
+func TestAuthenticatePreservesDatabaseFailures(t *testing.T) {
+	t.Parallel()
+	fixture := newAccountFixture(t, config.ModeTest)
+	if err := fixture.service.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	loggedIn, err := fixture.service.Login(context.Background(), "test", "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := fixture.database.SQL.Close(); err != nil {
+		t.Fatal(err)
+	}
+	_, err = fixture.service.Authenticate(context.Background(), loggedIn.CookieToken)
+	if err == nil || errors.Is(err, ErrAuthenticationNeeded) || !strings.Contains(err.Error(), "authenticate session") {
+		t.Fatalf("database failure was collapsed to authentication state: %v", err)
+	}
+}
+
 func TestStartRejectsCorruptCredentialWithoutComputingIt(t *testing.T) {
 	t.Parallel()
 	fixture := newAccountFixture(t, config.ModeTest)

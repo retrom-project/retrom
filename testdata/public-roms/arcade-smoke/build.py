@@ -128,11 +128,38 @@ def build_program() -> bytes:
     program.relative(0x20, "fill_color")
 
     program.label("animate")
+    program.emit_word(0x21, 0x4E02)  # deterministic frame counter
+    program.emit(0x34)
+
+    # Keep the entire visible tile map moving. Besides making the fixture's
+    # frame progression obvious, this preserves the existing real-core smoke
+    # contract across both supported arcade cores.
     program.emit_word(0x21, 0x4000)
     program.emit_word(0x01, 0x0400)
     program.label("animate_tiles")
     program.emit(0x34, 0x23, 0x0B, 0x78, 0xB1)  # INC (HL); INC HL; DEC BC; LD A,B; OR C
     program.relative(0x20, "animate_tiles")
+
+    program.emit_word(0x3A, 0x5000)  # P1 input port, active-low
+    program.emit(0x2F, 0xE6, 0x1F)
+    program.relative(0x28, "p1_idle")
+    program.emit_word(0x21, 0x4E00)
+    program.emit(0x34)
+    program.label("p1_idle")
+    program.emit_word(0x3A, 0x4E00)
+    program.emit(0xE6, 0x03, 0x3C)
+    program.emit_word(0x32, 0x4040)
+
+    program.emit_word(0x3A, 0x5040)  # P2 input port, active-low
+    program.emit(0x2F, 0xE6, 0x1F)
+    program.relative(0x28, "p2_idle")
+    program.emit_word(0x21, 0x4E01)
+    program.emit(0x34)
+    program.label("p2_idle")
+    program.emit_word(0x3A, 0x4E01)
+    program.emit(0xE6, 0x03, 0x3C)
+    program.emit_word(0x32, 0x4080)
+
     program.emit_word(0x32, 0x50C0)  # watchdog reset
     program.emit_word(0x01, 0xFFFF)
     program.label("delay")

@@ -326,6 +326,9 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
         ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- --run features/netplay/room-lobby.test.tsx",
     ),
     "ACC-NP-013": (180, "scripts/acceptance/netplay-single-regression.sh"),
+    "ACC-NP-014": (240, "scripts/acceptance/ui-case.sh ACC-NP-014"),
+    "ACC-NP-015": (240, "scripts/acceptance/ui-case.sh ACC-NP-015"),
+    "ACC-NP-016": (240, "scripts/acceptance/ui-case.sh ACC-NP-016"),
     "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
     "ACC-MDISC-001": (
         600,

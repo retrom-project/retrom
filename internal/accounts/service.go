@@ -359,7 +359,13 @@ FROM auth_sessions s JOIN users u ON u.id=s.user_id WHERE s.token_sha256=?
 		&sessionVersion, &lastSeen, &idleExpiry, &absoluteExpiry, &revoked,
 	)
 	now := service.now().UTC().UnixMilli()
-	if err != nil || revoked.Valid || status != "ENABLED" || userVersion != sessionVersion ||
+	if errors.Is(err, sql.ErrNoRows) {
+		return Session{}, ErrAuthenticationNeeded
+	}
+	if err != nil {
+		return Session{}, fmt.Errorf("authenticate session: %w", err)
+	}
+	if revoked.Valid || status != "ENABLED" || userVersion != sessionVersion ||
 		now >= idleExpiry || now >= absoluteExpiry {
 		return Session{}, ErrAuthenticationNeeded
 	}

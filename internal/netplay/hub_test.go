@@ -4,10 +4,46 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"net/http"
+	"net/http/httptest"
 	"strconv"
+	"strings"
 	"testing"
 	"time"
+
+	"github.com/coder/websocket"
 )
+
+func websocketPair(t *testing.T) (*websocket.Conn, *websocket.Conn) {
+	t.Helper()
+	accepted := make(chan *websocket.Conn, 1)
+	handlerDone := make(chan struct{})
+	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
+		connection, err := websocket.Accept(writer, request, nil)
+		if err != nil {
+			t.Errorf("accept websocket: %v", err)
+			return
+		}
+		accepted <- connection
+		<-handlerDone
+	}))
+	client, response, err := websocket.Dial(context.Background(), "ws"+strings.TrimPrefix(server.URL, "http"), nil)
+	if response != nil && response.Body != nil {
+		defer func() { _ = response.Body.Close() }()
+	}
+	if err != nil {
+		server.Close()
+		t.Fatal(err)
+	}
+	serverConnection := <-accepted
+	t.Cleanup(func() {
+		_ = client.CloseNow()
+		_ = serverConnection.CloseNow()
+		close(handlerDone)
+		server.Close()
+	})
+	return serverConnection, client
+}
 
 func TestPausedSessionIgnoresValidInFlightInputAndHash(t *testing.T) {
 	t.Parallel()
@@ -71,7 +107,6 @@ func TestLegacyFocusSuspendDoesNotDisconnectOrPauseTheSession(t *testing.T) {
 
 func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
 	ctx := context.Background()
-	oldTimer := time.AfterFunc(time.Hour, func() {})
 	session := &realtimeSession{
 		service: &Service{}, sessionID: "session", profileDigest: "profile", coreArtifact: "core",
 		occupiedMask: 3, playerCount: 2, peers: map[int]*peer{
@@ -82,7 +117,7 @@ func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
 		},
 		participants: map[string]int{"host": 1},
 		transfer: &stateTransfer{
-			id: "old-transfer", nextFrame: 0, reason: "INITIAL_SYNC", timer: oldTimer,
+			id: "old-transfer", nextFrame: 0, reason: "INITIAL_SYNC",
 		},
 	}
 	reconnected := &peer{
@@ -95,7 +130,6 @@ func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
 	if err := session.addPeer(ctx, reconnected, -1); err != nil {
 		t.Fatalf("reconnect during initial transfer: %v", err)
 	}
-	defer session.transfer.timer.Stop()
 	if session.transfer == nil || session.transfer.id == "old-transfer" || session.transfer.reason != "INITIAL_SYNC" {
 		t.Fatalf("initial transfer was not restarted: %#v", session.transfer)
 	}
@@ -110,6 +144,195 @@ func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
 		}
 	default:
 		t.Fatal("authority did not receive a restarted state request")
+	}
+}
+
+func TestTransportLossDuringStateTransferStartsLeaseAndInvalidatesOldTransfer(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	service := &Service{options: Options{ReconnectLease: time.Hour}}
+	authority := &peer{
+		participant: SocketParticipant{
+			PlayerNo: 1, ProfileID: "host", ProfileDigest: "profile", CoreArtifactID: "core",
+		},
+		writes: make(chan outbound, 8),
+	}
+	disconnected := &peer{
+		participant: SocketParticipant{
+			PlayerNo: 2, ProfileID: "guest", ProfileDigest: "profile", CoreArtifactID: "core",
+		},
+		writes: make(chan outbound, 8),
+	}
+	session := &realtimeSession{
+		service: service, sessionID: "session", profileDigest: "profile", coreArtifact: "core",
+		occupiedMask: 3, playerCount: 2, peers: map[int]*peer{1: authority, 2: disconnected},
+		participants: map[string]int{"host": 1, "guest": 2}, leaseTimers: make(map[int]*time.Timer),
+		transfer: &stateTransfer{
+			id: "old-transfer", nextFrame: 12, reason: "INITIAL_SYNC",
+			targets: map[int]bool{2: true}, applied: make(map[int]bool),
+		},
+	}
+
+	session.removePeer(ctx, disconnected)
+	if session.peers[2] != nil || session.leaseTimers[2] == nil {
+		t.Fatalf("transfer disconnect peer=%#v lease=%#v", session.peers[2], session.leaseTimers[2])
+	}
+	invalidatedID := session.transfer.id
+	if invalidatedID == "old-transfer" {
+		t.Fatal("transport loss left the old transfer ID valid")
+	}
+	if err := session.acceptStateMeta(ctx, authority, ClientMessage{
+		TransferID: "old-transfer", NextFrame: 12, ByteLength: 1,
+		StateSHA256: strings.Repeat("a", 64), CoreSHA256: strings.Repeat("b", 64),
+	}); !errors.Is(err, ErrProtocol) {
+		t.Fatalf("old transfer metadata error = %v", err)
+	}
+
+	reconnected := &peer{participant: disconnected.participant, writes: make(chan outbound, 8)}
+	if err := session.addPeer(ctx, reconnected, -1); err != nil {
+		t.Fatalf("reconnect during transfer: %v", err)
+	}
+	if session.leaseTimers[2] != nil {
+		t.Fatal("successful reconnect did not stop the recovery lease")
+	}
+	if session.transfer == nil || session.transfer.id == invalidatedID || session.transfer.reason != "INITIAL_SYNC" {
+		t.Fatalf("replacement transfer = %#v", session.transfer)
+	}
+	select {
+	case message := <-authority.writes:
+		var decoded map[string]any
+		if err := json.Unmarshal(message.data, &decoded); err != nil {
+			t.Fatal(err)
+		}
+		if decoded["type"] != "REQUEST_STATE" || decoded["transferId"] != session.transfer.id {
+			t.Fatalf("replacement request = %#v", decoded)
+		}
+	default:
+		t.Fatal("authority did not receive a replacement state request")
+	}
+}
+
+func TestClientRuntimeEndReasonIsAClosedSet(t *testing.T) {
+	t.Parallel()
+	for _, reason := range []string{
+		"USER_EXIT", "ROLLBACK_WINDOW_EXCEEDED", "STATE_RING_CAPACITY_EXCEEDED", "STATE_INVALID",
+		"NETPLAY_UNSTABLE", "INTERNAL_ERROR", "PROTOCOL_VIOLATION",
+	} {
+		if !allowedClientEndReason(reason) {
+			t.Fatalf("allowed client reason %q was rejected", reason)
+		}
+	}
+	for _, reason := range []string{"", "AUTH_REVOKED", "PEER_TIMEOUT", "arbitrary error"} {
+		if allowedClientEndReason(reason) {
+			t.Fatalf("untrusted client reason %q was accepted", reason)
+		}
+	}
+}
+
+func TestQueueOverflowDropsOnlyTheAffectedTransport(t *testing.T) {
+	for _, test := range []struct {
+		name       string
+		fillQueue  bool
+		queuedByte int
+	}{
+		{name: "message count", fillQueue: true},
+		{name: "byte count", queuedByte: MaxWSMessageBytes},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			serverConnection, remote := websocketPair(t)
+			client := &peer{
+				participant: SocketParticipant{PlayerNo: 2, ProfileID: "guest"},
+				connection:  serverConnection,
+				writes:      make(chan outbound, 256),
+				queuedBytes: test.queuedByte,
+			}
+			if test.fillQueue {
+				for range 256 {
+					client.writes <- outbound{data: []byte{1}}
+				}
+			}
+			session := &realtimeSession{}
+			flushed := session.sendTrackedLocked(context.Background(), client, websocket.MessageText, []byte("overflow"))
+			select {
+			case <-flushed:
+			default:
+				t.Fatal("overflow did not release its terminal flush waiter")
+			}
+			readContext, cancelRead := context.WithTimeout(context.Background(), time.Second)
+			defer cancelRead()
+			if _, _, err := remote.Read(readContext); err == nil {
+				t.Fatal("overflow did not close the affected transport")
+			}
+			if session.ended {
+				t.Fatal("one peer queue overflow ended the whole session")
+			}
+		})
+	}
+}
+
+func TestPingAndWriteFailuresDropOnlyTheirTransportAndReleaseFlushes(t *testing.T) {
+	t.Run("ping", func(t *testing.T) {
+		serverConnection, remote := websocketPair(t)
+		_ = remote.CloseNow()
+		client := &peer{connection: serverConnection}
+		session := &realtimeSession{}
+		if client.validateAndPing(context.Background(), session) {
+			t.Fatal("ping unexpectedly succeeded after the remote transport closed")
+		}
+		if session.ended {
+			t.Fatal("ping failure ended the whole session")
+		}
+	})
+
+	t.Run("write", func(t *testing.T) {
+		serverConnection, remote := websocketPair(t)
+		_ = remote.CloseNow()
+		readContext, cancelRead := context.WithTimeout(context.Background(), time.Second)
+		_, _, _ = serverConnection.Read(readContext)
+		cancelRead()
+		flushed := make(chan struct{})
+		client := &peer{connection: serverConnection, writes: make(chan outbound, 2), queuedBytes: 2}
+		client.writes <- outbound{kind: websocket.MessageText, data: []byte("a"), flushed: flushed}
+		client.writes <- outbound{kind: websocket.MessageText, data: []byte("b"), flushed: make(chan struct{})}
+		close(client.writes)
+		done := make(chan struct{})
+		client.writeLoop(context.Background(), done)
+		<-done
+		select {
+		case <-flushed:
+		default:
+			t.Fatal("failed write did not release the in-flight flush")
+		}
+		client.mu.Lock()
+		writeStopped, queuedBytes := client.writeStopped, client.queuedBytes
+		client.mu.Unlock()
+		if !writeStopped || queuedBytes != 0 {
+			t.Fatalf("write cleanup stopped=%v queuedBytes=%d", writeStopped, queuedBytes)
+		}
+	})
+}
+
+func TestSessionValidationToleratesTwoUnavailableChecksAndResetsOnSuccess(t *testing.T) {
+	t.Parallel()
+	results := []SessionValidation{SessionUnavailable, SessionUnavailable, SessionValid, SessionUnavailable, SessionUnavailable, SessionUnavailable}
+	client := &peer{validator: func(context.Context, string, string) SessionValidation {
+		result := results[0]
+		results = results[1:]
+		return result
+	}}
+	for index, wantDrop := range []bool{false, false, false, false, false, true} {
+		validation, drop := client.validateSession(context.Background())
+		if index == 2 && validation != SessionValid {
+			t.Fatalf("successful validation = %v", validation)
+		}
+		if drop != wantDrop {
+			t.Fatalf("validation %d drop=%v want=%v", index+1, drop, wantDrop)
+		}
+	}
+	client.validator = func(context.Context, string, string) SessionValidation { return SessionRevoked }
+	validation, drop := client.validateSession(context.Background())
+	if validation != SessionRevoked || drop {
+		t.Fatalf("explicit revocation = %v/%v", validation, drop)
 	}
 }
 

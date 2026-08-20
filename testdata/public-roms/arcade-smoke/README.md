@@ -2,7 +2,7 @@
 
 This directory contains deterministic, project-owned MAME 2003 and FBNeo test programs. They are built entirely from the adjacent Python source and contain no bytes from Pac-Man, PuckMan, their BIOSes, or any other third-party game.
 
-Both fixtures deliberately target the public memory map and file layout of the cores' `pacman` drivers. The generated Z80 program fills video and color RAM with animated test tiles. The MAME 2003 resources are split across:
+Both fixtures deliberately target the public memory map and file layout of the cores' `pacman` drivers. The generated Z80 program fills video and color RAM, reads the active-low P1/P2 ports at `$5000`/`$5040`, and maps independent input counters plus a frame counter to three fixed video RAM areas. The FBNeo addresses and bit assignments are audited against the manifest-bound source commit [`c8c70ba4858458c44b7200b88a29ebbb48c9bb23`](https://github.com/EmulatorJS/FBNeo/blob/c8c70ba4858458c44b7200b88a29ebbb48c9bb23/src/burn/drv/pre90s/d_pacman.cpp); compatibility is still proven by the locked wasm product run. The MAME 2003 resources are split across:
 
 - `pacman.zip`: the four test program ROMs;
 - `puckman.zip`: generated character, sprite, palette, lookup, and silent sound data used as a Parent archive;

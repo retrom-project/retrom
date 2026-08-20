@@ -2,6 +2,7 @@ package httpapi
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -14,6 +15,66 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/netplay"
 )
+
+type sseTestWriter struct {
+	header      http.Header
+	deadlines   []time.Time
+	deadlineErr error
+	writeErr    error
+	flushErr    error
+}
+
+func (writer *sseTestWriter) Header() http.Header {
+	if writer.header == nil {
+		writer.header = make(http.Header)
+	}
+	return writer.header
+}
+func (*sseTestWriter) WriteHeader(int) {}
+func (writer *sseTestWriter) Write(contents []byte) (int, error) {
+	if writer.writeErr != nil {
+		return 0, writer.writeErr
+	}
+	return len(contents), nil
+}
+
+func (writer *sseTestWriter) SetWriteDeadline(deadline time.Time) error {
+	writer.deadlines = append(writer.deadlines, deadline)
+	return writer.deadlineErr
+}
+func (writer *sseTestWriter) FlushError() error { return writer.flushErr }
+
+func TestSSEWritesRefreshDeadlineAndPropagateBoundaryErrors(t *testing.T) {
+	t.Parallel()
+	now := time.Unix(1_786_000_000, 0)
+	server := &Server{now: func() time.Time { return now }}
+	writer := &sseTestWriter{}
+	if err := server.writeSSE(writer, "one"); err != nil {
+		t.Fatal(err)
+	}
+	now = now.Add(2 * time.Minute)
+	if err := server.writeSSE(writer, "two"); err != nil {
+		t.Fatal(err)
+	}
+	if len(writer.deadlines) != 2 || !writer.deadlines[0].Equal(time.Unix(1_786_000_030, 0)) ||
+		!writer.deadlines[1].Equal(time.Unix(1_786_000_150, 0)) {
+		t.Fatalf("SSE deadlines = %v", writer.deadlines)
+	}
+
+	unsupported := &sseTestWriter{deadlineErr: errors.ErrUnsupported}
+	if err := server.writeSSE(unsupported, "supported fallback"); err != nil {
+		t.Fatalf("unsupported deadline should degrade exactly: %v", err)
+	}
+	for name, failing := range map[string]*sseTestWriter{
+		"deadline": {deadlineErr: errors.New("deadline failed")},
+		"write":    {writeErr: errors.New("write failed")},
+		"flush":    {flushErr: errors.New("flush failed")},
+	} {
+		if err := server.writeSSE(failing, "event"); err == nil {
+			t.Fatalf("%s error was ignored", name)
+		}
+	}
+}
 
 func TestNetplayEventStreamDisablesProxyTransformationAndBuffering(t *testing.T) {
 	t.Parallel()

@@ -18,7 +18,7 @@
   </game>
   <game name="pacman" cloneof="puckman" romof="retrombios">
     <description>Retrom FBNeo Arcade Smoke</description>
-    <rom name="pacman.6e" size="4096" crc="c1e6ab10" sha1="62d54fdc343555fd769de8518b1419980ec16de2" status="good" />
+    <rom name="pacman.6e" size="4096" crc="c1e6ab10" sha1="be3cf1f3797d0abfa9ddbd1eff905971059d9c96" status="good" />
     <rom name="pacman.6f" size="4096" crc="1a6fb2d4" sha1="7d4016f14609ab5742327d38cf8bd40efff35936" status="good" />
     <rom name="pacman.6h" size="4096" crc="bcdd1beb" sha1="69e9c33024a71cc3809c53f3aa6841a2582d6d5c" status="good" />
     <rom name="pacman.6j" size="4096" crc="817d94e3" sha1="c264c3aaac20b42bb7d875f099c48bec10599309" status="good" />

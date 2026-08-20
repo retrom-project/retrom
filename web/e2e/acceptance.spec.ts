@@ -254,7 +254,7 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
   });
   const routes = [
     ["/", ".home-page"], ["/library", ".page-layout-library"], ["/saves", ".page-layout-saves"],
-    ["/favorites", ".favorite-page"], ["/recent", ".page-layout-recent"], ["/account", ".page-layout-detail"],
+    ["/favorites", ".favorite-page:not(.favorite-loading-shell)"], ["/recent", ".page-layout-recent"], ["/account", ".page-layout-detail"],
     ["/netplay", '.netplay-page:not([role="status"])'],
   ] as const;
   let sharedPageGaps: HorizontalGaps | null = null;
