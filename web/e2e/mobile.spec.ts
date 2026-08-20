@@ -179,5 +179,35 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
     const target = await handle.boundingBox();
     expect(target?.width).toBeGreaterThanOrEqual(44);
     expect(target?.height).toBeGreaterThanOrEqual(44);
+
+    if (viewport.width === 568) {
+      const player = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]');
+      await expect(player.locator("canvas.ejs_canvas")).toBeVisible({ timeout: 60_000 });
+      const nativeTouchMenu = player.locator(".ejs_virtualGamepad_open");
+      await expect(nativeTouchMenu).toHaveCount(1);
+      await expect(nativeTouchMenu).toBeHidden();
+      const sideControls = player.locator(".ejs_virtualGamepad_left,.ejs_virtualGamepad_right");
+      await expect(sideControls).toHaveCount(2);
+      for (const control of await sideControls.all()) await expect(control).toBeVisible();
+      const bottomGaps = await sideControls.evaluateAll((elements) => elements.map((element) => {
+        const frameWindow = element.ownerDocument.defaultView!;
+        return frameWindow.innerHeight - element.getBoundingClientRect().bottom;
+      }));
+      expect(bottomGaps).toEqual([70, 70]);
+    }
+
+    if (await handle.getAttribute("aria-pressed") === "false") await handle.click();
+    const more = page.getByRole("button", { name: "更多操作" });
+    await expect(more).toBeVisible();
+    await more.click();
+    const moreMenu = page.getByRole("menu", { name: "Player 更多操作" });
+    await expect(moreMenu).toBeVisible();
+    const menuBounds = await moreMenu.boundingBox();
+    expect(menuBounds?.y).toBeLessThanOrEqual(1);
+    expect(menuBounds?.height).toBeGreaterThanOrEqual(viewport.height - 1);
+    await moreMenu.getByRole("menuitem", { name: "模拟器设置" }).click();
+    const settings = page.getByRole("region", { name: "模拟器设置工具栏" });
+    await expect(settings).toBeVisible();
+    await settings.getByRole("button", { name: "收起" }).click();
   }
 });
