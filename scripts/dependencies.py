@@ -179,7 +179,7 @@ def manifest_path(version: str) -> Path:
 
 def load_manifest(version: str) -> dict[str, Any]:
     manifest = load_json(manifest_path(version))
-    if manifest.get("schema_version") not in (4, 5):
+    if manifest.get("schema_version") not in (4, 5, 6):
         raise CheckError(f"DEPENDENCY_SCHEMA_UNSUPPORTED:{version}")
     emulatorjs = manifest.get("emulatorjs")
     if not isinstance(emulatorjs, dict) or emulatorjs.get("version") != version:
@@ -603,10 +603,13 @@ def validate_artifact_capability(
         "SINGLE_FILE": "CORE_SAVE",
         "DOS_OVERLAY": "DOS_OVERLAY",
         "FILE_TREE": "CORE_SAVE",
+        "AUTO_STATE": "CORE_SAVE",
         "NONE": None,
     }
     if mode not in expected_kind or kind != expected_kind[mode] or (
-        mode == "FILE_TREE" and item.get("runtime_core_id") != "ppsspp"
+        manifest_schema in (4, 5) and mode == "FILE_TREE" and item.get("runtime_core_id") != "ppsspp"
+    ) or (
+        manifest_schema in (4, 5) and mode == "AUTO_STATE"
     ):
         raise CheckError("DEPENDENCY_PERSISTENT_SAVE_INVALID")
     if item.get("input_mode") not in ("STANDARD", "POINTER"):

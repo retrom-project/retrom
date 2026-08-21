@@ -81,7 +81,7 @@ type manualMetadata struct {
 
 type launchSnapshot struct {
 	principalID, profileID, gameID, variantRevisionID, artifactID string
-	persistentSaveMode, persistentSaveKind                        string
+	persistentSaveMode, persistentSaveKind, runtimeCoreID         string
 	datVersionID, dosEntry                                        sql.NullString
 	credentialHash                                                []byte
 	state                                                         string
@@ -127,27 +127,39 @@ WHERE l.id=?
 		result.state != "ACTIVE" || result.hardExpiresAtMS <= service.now().UnixMilli() {
 		return launchSnapshot{}, ErrCredential
 	}
-	var compatibility struct {
-		SchemaVersion      int     `json:"schemaVersion"`
-		PersistentSaveMode string  `json:"persistentSaveMode"`
-		PersistentSaveKind *string `json:"persistentSaveKind"`
-	}
-	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil ||
-		compatibility.SchemaVersion != 2 && compatibility.SchemaVersion != 3 {
+	if err := applySaveCompatibility(&result, compatibilityJSON); err != nil {
 		return launchSnapshot{}, ErrCredential
 	}
-	result.persistentSaveMode = compatibility.PersistentSaveMode
-	if compatibility.PersistentSaveKind != nil {
-		result.persistentSaveKind = *compatibility.PersistentSaveKind
-	}
-	if result.contentFormat == "RETROM_MULTIDISC_M3U_V1" {
-		if result.discCount < 2 || result.initialDiscIndex < 0 || result.initialDiscIndex >= result.discCount {
-			return launchSnapshot{}, ErrCredential
-		}
-	} else if result.discCount != 0 || result.initialDiscIndex != 0 {
+	if !validLaunchDiscShape(result) {
 		return launchSnapshot{}, ErrCredential
 	}
 	return result, nil
+}
+
+func applySaveCompatibility(result *launchSnapshot, raw string) error {
+	var compatibility struct {
+		SchemaVersion      int     `json:"schemaVersion"`
+		RuntimeCoreID      string  `json:"runtimeCoreId"`
+		PersistentSaveMode string  `json:"persistentSaveMode"`
+		PersistentSaveKind *string `json:"persistentSaveKind"`
+	}
+	if err := json.Unmarshal([]byte(raw), &compatibility); err != nil ||
+		compatibility.SchemaVersion != 2 && compatibility.SchemaVersion != 3 && compatibility.SchemaVersion != 4 {
+		return ErrCredential
+	}
+	result.persistentSaveMode = compatibility.PersistentSaveMode
+	result.runtimeCoreID = compatibility.RuntimeCoreID
+	if compatibility.PersistentSaveKind != nil {
+		result.persistentSaveKind = *compatibility.PersistentSaveKind
+	}
+	return nil
+}
+
+func validLaunchDiscShape(result launchSnapshot) bool {
+	if result.contentFormat != "RETROM_MULTIDISC_M3U_V1" {
+		return result.discCount == 0 && result.initialDiscIndex == 0
+	}
+	return result.discCount >= 2 && result.initialDiscIndex >= 0 && result.initialDiscIndex < result.discCount
 }
 
 func validName(name string) bool {
@@ -596,7 +608,7 @@ func (service *Service) PutPersistent(
 		if openErr != nil {
 			return PersistentResult{}, false, fmt.Errorf("saves/service: open persistent file tree: %w", openErr)
 		}
-		validationErr := validateFileTreeBundle(stored)
+		validationErr := validateFileTreeBundle(stored, launch.runtimeCoreID == "ppsspp")
 		if closeErr := stored.Close(); validationErr == nil && closeErr != nil {
 			return PersistentResult{}, false, fmt.Errorf("saves/service: close persistent file tree: %w", closeErr)
 		}

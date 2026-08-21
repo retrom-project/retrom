@@ -32,6 +32,7 @@ export function PlayerChrome({
   platformName,
   syncText,
   syncTone,
+  saveUploadProgress,
   toast,
   warnings,
   hasPersistentConflict,
@@ -74,6 +75,7 @@ export function PlayerChrome({
   platformName: string;
   syncText: string;
   syncTone: SyncTone;
+  saveUploadProgress: number | null;
   toast: string;
   warnings: string[];
   hasPersistentConflict: boolean;
@@ -246,6 +248,11 @@ export function PlayerChrome({
           : "游戏进度已同步，可以安全退出。";
 
   return <>
+    {saveUploadProgress !== null ? <div className="player-save-upload-progress" role="status" aria-live="polite">
+      <span>正在上传存档</span>
+      <progress aria-label="存档上传进度" max="100" value={saveUploadProgress} />
+      <strong>{saveUploadProgress}%</strong>
+    </div> : null}
     <button className="player-hud-handle" type="button" aria-label={controlsVisible ? "隐藏 Player 控制栏" : "显示 Player 控制栏"} aria-pressed={controlsVisible} onClick={onToggleControls}><span aria-hidden="true" /></button>
     <header
       ref={toolbarRef}

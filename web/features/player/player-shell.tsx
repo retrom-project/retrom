@@ -13,8 +13,17 @@ import { multiDiscPlayerResultCode, reportMultiDiscPlayerEvent, type MultiDiscPl
 import { setEmulatorPaused } from "./pause-control";
 import { captureBeforePause } from "./pause-screenshot";
 import { restorePersistentSave } from "./persistent-save-restore";
-import { isPspSaveFileSystem, PspPersistentSaveSync, restorePspSaveTree } from "./psp-persistent-save";
-import { requiresExplicitPspStateRestore } from "./psp-state-restore";
+import {
+  hasRetromSaveEnvelopePrefix,
+  isPersistentSaveTreeFileSystem,
+  isPersistentSaveTreeBundle,
+  PersistentSaveTreeSync,
+  PSP_SAVE_ROOT,
+  restorePersistentSaveTree,
+} from "./psp-persistent-save";
+import { PersistentStateSync } from "./persistent-state-sync";
+import { requiresExplicitPersistentStateRestore, requiresExplicitPspStateRestore } from "./psp-state-restore";
+import { uploadWithProgress, type SaveUploadProgress } from "./upload-with-progress";
 import { PlayerChrome, type PlayerDebugRuntime } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
 import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
@@ -37,6 +46,7 @@ import { NetplayController } from "./netplay/controller";
 import { digestHex, EJSNetplayFrameBridge } from "./netplay/ejs-netplay-4.2.3-v1";
 
 type ShellState = "loading" | "running" | "error";
+const SAVE_UPLOAD_PRESENTATION_MS = 400;
 
 function base64(bytes: Uint8Array) {
   let value = "";
@@ -81,6 +91,11 @@ function formatPlayerBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
 }
 
+async function waitForSaveUploadPresentation(startedAt: number) {
+  const remaining = SAVE_UPLOAD_PRESENTATION_MS - (performance.now() - startedAt);
+  if (remaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
+}
+
 function observedRuntimeDiscCount(instance: EmulatorInstance | undefined) {
   const value = instance?.gameManager?.getDiskCount?.();
   return typeof value === "number" && Number.isInteger(value) && value >= -1 && value <= 64 ? value : null;
@@ -99,6 +114,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const [toast, setToast] = useState("");
   const [syncText, setSyncText] = useState("正在连接…");
   const [syncTone, setSyncTone] = useState<"synced" | "busy" | "warning">("busy");
+  const [saveUploadProgress, setSaveUploadProgress] = useState<number | null>(null);
   const [gameTitle, setGameTitle] = useState("正在运行的游戏");
   const [coreName, setCoreName] = useState("");
   const [platformName, setPlatformName] = useState("");
@@ -138,7 +154,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const persistentSaveMode = useRef<PlayerConfig["persistentSaveMode"]>("SINGLE_FILE");
   const persistentQueue = useRef(Promise.resolve());
   const persistentConflict = useRef<Uint8Array | null>(null);
-  const pspPersistentSync = useRef<PspPersistentSaveSync | null>(null);
+  const persistentTreeSync = useRef<PersistentSaveTreeSync | null>(null);
+  const persistentStateSync = useRef<PersistentStateSync | null>(null);
   const [hasPersistentConflict, setHasPersistentConflict] = useState(false);
   const controlsTimer = useRef<number | null>(null);
   const toastTimer = useRef<number | null>(null);
@@ -261,6 +278,12 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     if (kind === "finish") finishing.current = true;
   }, [launchId]);
 
+  const reportSaveUploadProgress = useCallback((progress: SaveUploadProgress) => {
+    setSaveUploadProgress(progress.percent);
+    setSyncText(`正在上传存档 ${progress.percent}%`);
+    setSyncTone("busy");
+  }, []);
+
   const uploadPersistent = useCallback((bytes: Uint8Array, event: "AUTO_INTERVAL" | "MANUAL_EXPORT" | "EXIT") => {
     const stableBytes = new Uint8Array(bytes);
     const result = persistentQueue.current.then(async () => {
@@ -270,25 +293,35 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       const digest = await sha256(stableBytes);
       const next = persistentSequence.current + 1;
       const idempotencyKey = newUuid();
-      let response: Response | undefined;
-      for (let attempt = 0; attempt < 2; attempt += 1) {
-        try {
-          response = await fetch(`/runtime/launches/${launchId}/persistent-save`, {
-            method: "PUT",
-            credentials: "same-origin",
-            headers: {
-              "Content-Type": "application/octet-stream",
-              "Content-Digest": `sha-256=:${base64(digest)}:`,
-              "Idempotency-Key": idempotencyKey,
-              "X-Retrom-Save-Sequence": String(next),
-              "X-Retrom-Save-Event": event
-            },
-            body: stableBytes
-          });
-          if (response.status < 500) break;
-        } catch {
-          if (attempt === 1) throw new Error("PERSISTENT_SAVE_NETWORK_FAILED");
+      let response: Awaited<ReturnType<typeof uploadWithProgress>> | undefined;
+      const progressStartedAt = performance.now();
+      setSaveUploadProgress(0);
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+      try {
+        for (let attempt = 0; attempt < 2; attempt += 1) {
+          try {
+            response = await uploadWithProgress({
+              url: `/runtime/launches/${launchId}/persistent-save`,
+              method: "PUT",
+              headers: {
+                "Content-Type": "application/octet-stream",
+                "Content-Digest": `sha-256=:${base64(digest)}:`,
+                "Idempotency-Key": idempotencyKey,
+                "X-Retrom-Save-Sequence": String(next),
+                "X-Retrom-Save-Event": event,
+              },
+              body: stableBytes,
+              totalBytes: stableBytes.byteLength,
+              onProgress: reportSaveUploadProgress,
+            });
+            if (response.status < 500) break;
+          } catch {
+            if (attempt === 1) throw new Error("PERSISTENT_SAVE_NETWORK_FAILED");
+          }
         }
+      } finally {
+        await waitForSaveUploadPresentation(progressStartedAt);
+        setSaveUploadProgress(null);
       }
       if (!response) throw new Error("PERSISTENT_SAVE_NETWORK_FAILED");
       if (!response.ok) {
@@ -316,51 +349,74 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     });
     persistentQueue.current = result.then(() => undefined);
     return result;
-  }, [launchId, showToast]);
+  }, [launchId, reportSaveUploadProgress, showToast]);
 
-  const uploadManualState = useCallback(async (payload: { screenshot: Blob; format: string; state: Uint8Array }) => {
-    if (!payload.screenshot.size || !payload.state.byteLength) {
-      setSyncText("保存失败");
-      setSyncTone("warning");
-      showToast("状态或截图为空，未创建存档。", 4_000);
-      return false;
-    }
-    let discIndex: number | undefined;
-    if (discSetRef.current) {
-      try {
-        if (!emulator.current) throw new Error("PLAYER_DISC_STATE_UNAVAILABLE");
-        discIndex = readDiscState(emulator.current, discSetRef.current.count).currentIndex;
-      } catch {
+  const uploadManualState = useCallback((payload: { screenshot: Blob; format: string; state: Uint8Array }) => {
+    const result = persistentQueue.current.then(async () => {
+      if (!payload.screenshot.size || !payload.state.byteLength) {
         setSyncText("保存失败");
         setSyncTone("warning");
-        showToast("无法读取当前光盘，未创建存档。", 4_000);
+        showToast("状态或截图为空，未创建存档。", 4_000);
         return false;
       }
-    }
-    const form = new FormData();
-    form.append("metadata", new Blob([JSON.stringify({
-      name: `手动存档 ${new Date().toLocaleString("zh-CN")}`,
-      ...(discIndex === undefined ? {} : { discIndex })
-    })], { type: "application/json" }));
-    const stateBytes = new Uint8Array(payload.state).slice().buffer;
-    form.append("state", new Blob([stateBytes], { type: "application/octet-stream" }), `state.${payload.format || "bin"}`);
-    form.append("screenshot", payload.screenshot, `screenshot.${payload.format || "png"}`);
-    const response = await fetch(`/runtime/launches/${launchId}/save-states`, {
-      method: "POST", credentials: "same-origin",
-      headers: { "Idempotency-Key": newUuid() }, body: form
+      let discIndex: number | undefined;
+      if (discSetRef.current) {
+        try {
+          if (!emulator.current) throw new Error("PLAYER_DISC_STATE_UNAVAILABLE");
+          discIndex = readDiscState(emulator.current, discSetRef.current.count).currentIndex;
+        } catch {
+          setSyncText("保存失败");
+          setSyncTone("warning");
+          showToast("无法读取当前光盘，未创建存档。", 4_000);
+          return false;
+        }
+      }
+      const form = new FormData();
+      form.append("metadata", new Blob([JSON.stringify({
+        name: `手动存档 ${new Date().toLocaleString("zh-CN")}`,
+        ...(discIndex === undefined ? {} : { discIndex })
+      })], { type: "application/json" }));
+      const stateBytes = new Uint8Array(payload.state).slice().buffer;
+      form.append("state", new Blob([stateBytes], { type: "application/octet-stream" }), `state.${payload.format || "bin"}`);
+      form.append("screenshot", payload.screenshot, `screenshot.${payload.format || "png"}`);
+      const progressStartedAt = performance.now();
+      setSaveUploadProgress(0);
+      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
+      let response: Awaited<ReturnType<typeof uploadWithProgress>>;
+      try {
+        response = await uploadWithProgress({
+          url: `/runtime/launches/${launchId}/save-states`,
+          method: "POST",
+          headers: { "Idempotency-Key": newUuid() },
+          body: form,
+          totalBytes: payload.state.byteLength + payload.screenshot.size,
+          onProgress: reportSaveUploadProgress,
+        });
+      } finally {
+        await waitForSaveUploadPresentation(progressStartedAt);
+        setSaveUploadProgress(null);
+      }
+      if (response.ok) {
+        setSyncText("已同步");
+        setSyncTone("synced");
+        showToast("手动存档和截图已保存");
+        return true;
+      } else {
+        setSyncText("保存失败");
+        setSyncTone("warning");
+        showToast("手动存档失败，服务器未创建不完整记录", 4_000);
+        return false;
+      }
     });
-    if (response.ok) {
-      setSyncText("已同步");
-      setSyncTone("synced");
-      showToast("手动存档和截图已保存");
-      return true;
-    } else {
+    persistentQueue.current = result.then(() => undefined, () => undefined);
+    return result.catch(() => {
+      setSaveUploadProgress(null);
       setSyncText("保存失败");
       setSyncTone("warning");
-      showToast("手动存档失败，服务器未创建不完整记录", 4_000);
+      showToast("手动存档上传失败，服务器未创建不完整记录", 4_000);
       return false;
-    }
-  }, [launchId, showToast]);
+    });
+  }, [launchId, reportSaveUploadProgress, showToast]);
 
   const exit = useCallback(async () => {
     if (finishing.current) return;
@@ -373,7 +429,10 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       if (playerMode.current === "netplay") {
         netplayController.current?.end();
       } else if (persistentSaveMode.current === "FILE_TREE") {
-        await pspPersistentSync.current?.flush();
+        await persistentTreeSync.current?.flush();
+        await persistentQueue.current;
+      } else if (persistentSaveMode.current === "AUTO_STATE") {
+        await persistentStateSync.current?.flush();
         await persistentQueue.current;
       } else {
         const manager = emulator.current?.gameManager;
@@ -488,6 +547,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         }
 
         let persistentBytes: Uint8Array | null = null;
+        let legacySingleFilePersistentBytes: Uint8Array | null = null;
         if (config.persistentSaveMode === "NONE") {
           if (config.persistentSaveUrl !== null) throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
           setSyncText("仅支持状态存档");
@@ -502,7 +562,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         }
 
         let stateBytes: Uint8Array | null = null;
-        if ((config.discSet || requiresExplicitPspStateRestore(config)) && config.stateUrl) {
+        if ((config.discSet || requiresExplicitPspStateRestore(config) ||
+          requiresExplicitPersistentStateRestore(config)) && config.stateUrl) {
           const stateResponse = await fetch(config.stateUrl, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
           if (!stateResponse.ok) throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");
           stateBytes = await readBoundedResponse(stateResponse, 64 * 1024 * 1024);
@@ -569,25 +630,39 @@ export function PlayerShell({ launchId }: { launchId: string }) {
                 }
                 mountedSaveFS = fs;
                 if (config.persistentSaveMode === "FILE_TREE") {
-                  if (!isPspSaveFileSystem(fs) || !instance.gameManager) {
+                  if (!isPersistentSaveTreeFileSystem(fs) || !instance.gameManager) {
                     setState("error");
                     setMessage("LAUNCH_PERSISTENT_SAVE_FS_UNAVAILABLE");
                     throw new Error("LAUNCH_PERSISTENT_SAVE_FS_UNAVAILABLE");
                   }
                   try {
-                    restorePspSaveTree(fs, persistentBytes);
-                    const sync = new PspPersistentSaveSync(fs, instance.gameManager, uploadPersistent, {
+                    if (persistentBytes && !isPersistentSaveTreeBundle(
+                      persistentBytes,
+                      config.runtimeCore === "ppsspp",
+                    )) {
+                      if (hasRetromSaveEnvelopePrefix(persistentBytes)) {
+                        restorePersistentSaveTree(fs, persistentBytes);
+                      }
+                      legacySingleFilePersistentBytes = persistentBytes;
+                    }
+                    restorePersistentSaveTree(fs, legacySingleFilePersistentBytes ? null : persistentBytes);
+                    const sync = new PersistentSaveTreeSync(fs, instance.gameManager, uploadPersistent, {
                       isPaused: () => emulator.current?.paused === true,
+                      restartOnExit: config.runtimeCore === "handy",
+                      captureRoot: config.runtimeCore === "ppsspp" ? PSP_SAVE_ROOT : undefined,
+                      excludedBundlePaths: config.runtimeCore === "azahar"
+                        ? ["Azahar/Azahar/shaders"]
+                        : undefined,
                       onError: (error) => {
                         setSyncText("同步失败");
                         setSyncTone("warning");
                         showToast(error.message === "LAUNCH_PERSISTENT_SAVE_TOO_LARGE"
-                          ? "PSP 游戏内存档超过 64 MiB，未覆盖服务器上的最后有效版本。"
-                          : "无法读取 PSP 游戏内存档，服务器上的最后有效版本仍被保留。", 4_000);
+                          ? "游戏内持久存档超过 64 MiB，未覆盖服务器上的最后有效版本。"
+                          : "无法读取游戏内持久存档，服务器上的最后有效版本仍被保留。", 4_000);
                       },
                     });
-                    pspPersistentSync.current?.stop();
-                    pspPersistentSync.current = sync;
+                    persistentTreeSync.current?.stop();
+                    persistentTreeSync.current = sync;
                   } catch (error) {
                     setState("error");
                     setMessage(error instanceof Error ? error.message : "LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
@@ -595,7 +670,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
                   }
                 }
               });
-              if (config.persistentSaveMode !== "FILE_TREE") {
+              if (config.persistentSaveMode === "SINGLE_FILE" || config.persistentSaveMode === "DOS_OVERLAY") {
                 instance.on("saveSaveFiles", (value: unknown) => {
                   if (value instanceof Uint8Array && value.byteLength) void uploadPersistent(value, "AUTO_INTERVAL");
                 });
@@ -624,7 +699,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
               }
               pausedRef.current = false;
               setPaused(false);
-              if (config.persistentSaveMode === "FILE_TREE") pspPersistentSync.current?.start();
+              if (config.persistentSaveMode === "FILE_TREE") persistentTreeSync.current?.start();
+              if (config.persistentSaveMode === "AUTO_STATE") persistentStateSync.current?.start();
               const startedOrientation = reducePlayerOrientation(orientationStateRef.current, { type: "runtime-started", paused: false });
               orientationStateRef.current = startedOrientation.state;
               setOrientationState(startedOrientation.state);
@@ -660,11 +736,43 @@ export function PlayerShell({ launchId }: { launchId: string }) {
                   observedDiscCount: selected.count,
                 });
               } else if (config.persistentSaveMode === "FILE_TREE") {
-                if (!pspPersistentSync.current) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
+                if (!persistentTreeSync.current) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
+                if (legacySingleFilePersistentBytes) {
+                  const savePath = manager?.getSaveFilePath?.();
+                  if (!manager || !mountedSaveFS || !savePath) throw new Error("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
+                  restorePersistentSave(manager, mountedSaveFS, savePath, legacySingleFilePersistentBytes);
+                  legacySingleFilePersistentBytes = null;
+                }
                 if (stateBytes) {
-                  if (!manager?.loadPspStateAndWait) throw new Error("PSP_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+                  if (!manager?.loadPersistentStateAndWait) throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
                   setMessage("正在恢复 PSP 状态存档");
-                  void manager.loadPspStateAndWait(stateBytes).then(() => {
+                  void manager.loadPersistentStateAndWait(stateBytes).then(() => {
+                    completeSinglePlayerStart(true);
+                  }).catch(() => {
+                    if (controller.signal.aborted) return;
+                    setState("error");
+                    setMessage("PLAYER_SAVE_STATE_RESTORE_FAILED");
+                  });
+                  return false;
+                }
+              } else if (config.persistentSaveMode === "AUTO_STATE") {
+                if (!manager?.loadPersistentStateAndWait) {
+                  throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+                }
+                const restoredState = stateBytes ?? persistentBytes;
+                const sync = new PersistentStateSync(manager, restoredState, uploadPersistent, {
+                  isPaused: () => emulator.current?.paused === true,
+                  onError: () => {
+                    setSyncText("同步失败");
+                    setSyncTone("warning");
+                    showToast("无法生成自动进度存档，服务器上的最后有效版本仍被保留。", 4_000);
+                  },
+                });
+                persistentStateSync.current?.stop();
+                persistentStateSync.current = sync;
+                if (restoredState) {
+                  setMessage("正在恢复自动进度存档");
+                  void manager.loadPersistentStateAndWait(restoredState).then(() => {
                     completeSinglePlayerStart(true);
                   }).catch(() => {
                     if (controller.signal.aborted) return;
@@ -781,8 +889,10 @@ export function PlayerShell({ launchId }: { launchId: string }) {
       if (netplayController.current === ownedNetplayController) netplayController.current = null;
       closeEmulatorSettingsPanels(emulator.current);
       nativeMenuObserver?.disconnect();
-      pspPersistentSync.current?.stop();
-      pspPersistentSync.current = null;
+      persistentTreeSync.current?.stop();
+      persistentTreeSync.current = null;
+      persistentStateSync.current?.stop();
+      persistentStateSync.current = null;
       if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
       if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
     };
@@ -1099,6 +1209,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
         platformName={platformName}
         syncText={syncText}
         syncTone={syncTone}
+        saveUploadProgress={saveUploadProgress}
         toast={toast}
         warnings={warnings}
         hasPersistentConflict={hasPersistentConflict}

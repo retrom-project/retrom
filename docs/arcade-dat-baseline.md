@@ -94,7 +94,7 @@ manifest 为每个核心单独保存 `association_status`。FBNeo 与 MAME2003-P
 - 根元素是 `mame`，machine 元素名也是 `game`。
 - 旧 List XML 没有 `isbios` 属性，`explicit_bios_machine_count = 0` 不表示没有 BIOS。
 - MAME 2003 有 24,274 条 merge、1,408 条带 bios 的 ROM、1,427 个 biosset（213 个 default）、148 个 nodump 和 177 个 baddump；MAME 2003-Plus 对应为 29,580、3,435、3,462（268 个 default）、92 和 140。以上真实统计已进入 manifest，解析器不能把所有 bios option 同时当作必需 ROM。
-- MAME 2003 缺 CRC32/SHA-1/两种 hash 的 ROM 计数分别为 148/154/148；MAME 2003-Plus 为 92/193/92。同时缺两种 hash 的都是 NODUMP，非 NODUMP 至少有一种 hash；两份各 30 条 disk 都有 SHA-1。这些计数也是当前 manifest schema V5 的机器基线。
+- MAME 2003 缺 CRC32/SHA-1/两种 hash 的 ROM 计数分别为 148/154/148；MAME 2003-Plus 为 92/193/92。同时缺两种 hash 的都是 NODUMP，非 NODUMP 至少有一种 hash；两份各 30 条 disk 都有 SHA-1。这些计数也是当前 manifest schema V6 的机器基线。
 - `cloneof` 表示 parent；当 `romof` 与 `cloneof` 不同，`romof` 目标是应加载的 BIOS/base archive。clone 还需沿 parent 链继续解析父项依赖。
 - 两份真实 XML 都有 17 个 BIOS/base dependency target。
 - 两份文件都包含 `brvblade`、`beastrzr` 指向未定义 `psarc95` 的关系。解析结果保留 unresolved warning；不得补 mock machine，也不得因两条悬空关系拒绝其余数千条有效记录。

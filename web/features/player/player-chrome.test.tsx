@@ -16,6 +16,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     platformName: "Arcade",
     syncText: "已同步",
     syncTone: "synced",
+    saveUploadProgress: null,
     toast: "",
     warnings: [],
     hasPersistentConflict: false,
@@ -57,6 +58,17 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
 }
 
 describe("PlayerChrome", () => {
+  it("keeps a determinate save upload progress bar visible until completion", () => {
+    const { rerender } = render(<PlayerChrome {...props({
+      syncText: "正在上传存档 47%", syncTone: "busy", saveUploadProgress: 47,
+    })} />);
+    const progress = screen.getByRole("progressbar", { name: "存档上传进度" });
+    expect(progress).toHaveValue(47);
+    expect(progress.closest("[role='status']")).toHaveTextContent("正在上传存档47%");
+    rerender(<PlayerChrome {...props({ saveUploadProgress: null })} />);
+    expect(screen.queryByRole("progressbar", { name: "存档上传进度" })).not.toBeInTheDocument();
+  });
+
   it("locks local save, pause, disc and emulator settings controls in netplay mode", async () => {
     const user = userEvent.setup();
     const values = props({ netplayPlayerNo: 1, netplayPaused: false });

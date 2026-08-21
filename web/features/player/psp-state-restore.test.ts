@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  installEmulatorJs423PspStateRestoreCompatibility,
+  installEmulatorJs423StateRestoreCompatibility,
+  requiresExplicitPersistentStateRestore,
   requiresExplicitPspStateRestore,
 } from "./psp-state-restore";
 
@@ -16,17 +17,23 @@ afterEach(() => {
 describe("PSP state restore compatibility", () => {
   it("only selects explicit restore for EmulatorJS 4.2.3 PPSSPP file-tree launches with a state", () => {
     expect(requiresExplicitPspStateRestore({
-      emulatorjsVersion: "4.2.3", persistentSaveMode: "FILE_TREE", stateUrl: "/state",
+      emulatorjsVersion: "4.2.3", runtimeCore: "ppsspp", persistentSaveMode: "FILE_TREE", stateUrl: "/state",
     })).toBe(true);
     expect(requiresExplicitPspStateRestore({
-      emulatorjsVersion: "4.2.3", persistentSaveMode: "FILE_TREE", stateUrl: null,
+      emulatorjsVersion: "4.2.3", runtimeCore: "ppsspp", persistentSaveMode: "FILE_TREE", stateUrl: null,
     })).toBe(false);
     expect(requiresExplicitPspStateRestore({
-      emulatorjsVersion: "4.3.0-pre", persistentSaveMode: "FILE_TREE", stateUrl: "/state",
+      emulatorjsVersion: "4.3.0-pre", runtimeCore: "ppsspp", persistentSaveMode: "FILE_TREE", stateUrl: "/state",
     })).toBe(false);
     expect(requiresExplicitPspStateRestore({
-      emulatorjsVersion: "4.2.3", persistentSaveMode: "SINGLE_FILE", stateUrl: "/state",
+      emulatorjsVersion: "4.2.3", runtimeCore: "ppsspp", persistentSaveMode: "SINGLE_FILE", stateUrl: "/state",
     })).toBe(false);
+    expect(requiresExplicitPspStateRestore({
+      emulatorjsVersion: "4.2.3", runtimeCore: "azahar", persistentSaveMode: "FILE_TREE", stateUrl: "/state",
+    })).toBe(false);
+    expect(requiresExplicitPersistentStateRestore({
+      emulatorjsVersion: "4.2.3", persistentSaveMode: "AUTO_STATE",
+    })).toBe(true);
   });
 
   it("waits for PPSSPP state readiness and native completion before resolving", async () => {
@@ -36,7 +43,7 @@ describe("PSP state restore compatibility", () => {
       upstreamRequests.push(String(input));
       return new Response("ok");
     });
-    const cleanup = installEmulatorJs423PspStateRestoreCompatibility(window);
+    const cleanup = installEmulatorJs423StateRestoreCompatibility(window, { waitForSerializable: true });
     let runtimeConfig: { print?: (...args: unknown[]) => void } = {};
     const loop = vi.fn();
     const removed: string[] = [];
@@ -68,10 +75,10 @@ describe("PSP state restore compatibility", () => {
     const runtimeFactory = Reflect.get(window, "EJS_Runtime") as (config: typeof runtimeConfig) => unknown;
     runtimeFactory({});
     const manager = new GameManager() as GameManager & {
-      loadPspStateAndWait: (state: Uint8Array) => Promise<void>;
+      loadPersistentStateAndWait: (state: Uint8Array) => Promise<void>;
     };
 
-    const restore = manager.loadPspStateAndWait(Uint8Array.of(9, 8, 7));
+    const restore = manager.loadPersistentStateAndWait(Uint8Array.of(9, 8, 7));
     expect(manager.nativeLoads).toBe(0);
     await vi.advanceTimersByTimeAsync(150);
     await expect(restore).resolves.toBeUndefined();
@@ -91,7 +98,7 @@ describe("PSP state restore compatibility", () => {
 
   it("rejects when RetroArch reports that PPSSPP refused the state", async () => {
     vi.useFakeTimers();
-    const cleanup = installEmulatorJs423PspStateRestoreCompatibility(window);
+    const cleanup = installEmulatorJs423StateRestoreCompatibility(window, { waitForSerializable: true });
     let runtimeConfig: { print?: (...args: unknown[]) => void; printErr?: (...args: unknown[]) => void } = {};
     class GameManager {
       functions = {
@@ -108,14 +115,47 @@ describe("PSP state restore compatibility", () => {
     Reflect.set(window, "EJS_Runtime", (config: typeof runtimeConfig) => { runtimeConfig = config; return {}; });
     (Reflect.get(window, "EJS_Runtime") as (config: typeof runtimeConfig) => unknown)({});
     const manager = new GameManager() as GameManager & {
-      loadPspStateAndWait: (state: Uint8Array) => Promise<void>;
+      loadPersistentStateAndWait: (state: Uint8Array) => Promise<void>;
     };
 
-    const restore = manager.loadPspStateAndWait(Uint8Array.of(9));
+    const restore = manager.loadPersistentStateAndWait(Uint8Array.of(9));
     const failure = expect(restore).rejects.toThrow("PLAYER_SAVE_STATE_RESTORE_FAILED");
-    await vi.advanceTimersByTimeAsync(0);
+    await vi.advanceTimersByTimeAsync(1);
     await failure;
     cleanup();
     expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("loads an automatic persistent state after its serialization layout is ready", async () => {
+    vi.useFakeTimers();
+    const cleanup = installEmulatorJs423StateRestoreCompatibility(window, { waitForSerializable: true });
+    let runtimeConfig: { print?: (...args: unknown[]) => void } = {};
+    const readiness = vi.fn(() => "2|0|1");
+    let frame = 0;
+    const nativeLoad = vi.fn(() => window.setTimeout(() => {
+      runtimeConfig.print?.('[INFO] [State]: Loading state "game.state", 2 bytes.');
+    }, 0));
+    class GameManager {
+      functions = { loadState: nativeLoad, saveStateInfo: readiness };
+      FS = { unlink: () => undefined, writeFile: () => undefined };
+      getFrameNum() { return frame; }
+      toggleMainLoop(running: boolean) { if (running) frame = 1; }
+    }
+    Reflect.set(window, "EJS_GameManager", GameManager);
+    Reflect.set(window, "EJS_Runtime", (config: typeof runtimeConfig) => { runtimeConfig = config; return {}; });
+    (Reflect.get(window, "EJS_Runtime") as (config: typeof runtimeConfig) => unknown)({});
+    const manager = new GameManager() as GameManager & {
+      loadPersistentStateAndWait: (state: Uint8Array) => Promise<void>;
+    };
+
+    const restore = manager.loadPersistentStateAndWait(Uint8Array.of(1, 2));
+    expect(readiness).toHaveBeenCalledTimes(1);
+    expect(nativeLoad).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(50);
+    expect(readiness).toHaveBeenCalledTimes(2);
+    expect(nativeLoad).toHaveBeenCalledTimes(1);
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(restore).resolves.toBeUndefined();
+    cleanup();
   });
 });

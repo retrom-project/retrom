@@ -1,7 +1,10 @@
-export const PSP_SAVE_ROOT = "/data/saves/PSP/SAVEDATA";
-export const PSP_SAVE_BUNDLE_MAX_BYTES = 64 * 1024 * 1024;
+export const PERSISTENT_SAVE_ROOT = "/data/saves";
+export const PSP_SAVE_ROOT = `${PERSISTENT_SAVE_ROOT}/PSP/SAVEDATA`;
+export const PERSISTENT_SAVE_BUNDLE_MAX_BYTES = 64 * 1024 * 1024;
+export const PSP_SAVE_BUNDLE_MAX_BYTES = PERSISTENT_SAVE_BUNDLE_MAX_BYTES;
 
-const bundleMagic = Uint8Array.of(0x52, 0x45, 0x54, 0x50, 0x53, 0x50, 0x30, 0x31); // RETPSP01
+const bundleMagic = Uint8Array.of(0x52, 0x45, 0x54, 0x46, 0x53, 0x30, 0x30, 0x31); // RETFS001
+const legacyPspBundleMagic = Uint8Array.of(0x52, 0x45, 0x54, 0x50, 0x53, 0x50, 0x30, 0x31); // RETPSP01
 const bundleHeaderBytes = bundleMagic.byteLength + 4;
 const entryHeaderBytes = 2 + 4;
 const maximumEntries = 4_096;
@@ -31,10 +34,26 @@ export type PspSaveFileSystem = {
   isFile?: (mode: number) => boolean;
 };
 
+export type PersistentSaveTreeFileSystem = PspSaveFileSystem;
+
 export function isPspSaveFileSystem(value: unknown): value is PspSaveFileSystem {
   if (typeof value !== "object" || value === null) return false;
   return ["analyzePath", "mkdir", "writeFile", "unlink", "readdir", "readFile", "stat", "lstat", "rmdir"]
     .every((name) => typeof Reflect.get(value, name) === "function");
+}
+
+export const isPersistentSaveTreeFileSystem = isPspSaveFileSystem;
+
+export function isPersistentSaveTreeBundle(bundle: Uint8Array, allowLegacyPsp = false) {
+  const currentFormat = bundle.byteLength >= bundleMagic.byteLength &&
+    bundleMagic.every((byte, index) => bundle[index] === byte);
+  const legacyPspFormat = allowLegacyPsp && bundle.byteLength >= legacyPspBundleMagic.byteLength &&
+    legacyPspBundleMagic.every((byte, index) => bundle[index] === byte);
+  return currentFormat || legacyPspFormat;
+}
+
+export function hasRetromSaveEnvelopePrefix(bundle: Uint8Array) {
+  return bundle.byteLength >= 3 && bundle[0] === 0x52 && bundle[1] === 0x45 && bundle[2] === 0x54;
 }
 
 type SaveEntry = {
@@ -47,10 +66,14 @@ export type PspSaveTreeFingerprint = {
   value: string;
   fileCount: number;
 };
+export type PersistentSaveTreeFingerprint = PspSaveTreeFingerprint;
 
 export type PspSaveManager = {
   toggleMainLoop?: (running: boolean) => void;
+  saveSaveFiles?: () => void;
+  functions?: { restart?: () => void };
 };
+export type PersistentSaveTreeManager = PspSaveManager;
 
 type SyncEvent = "AUTO_INTERVAL" | "EXIT";
 
@@ -59,6 +82,9 @@ type SyncOptions = {
   stableMs?: number;
   isPaused?: () => boolean;
   onError?: (error: Error) => void;
+  restartOnExit?: boolean;
+  captureRoot?: string;
+  excludedBundlePaths?: string[];
 };
 
 function normalizedError() {
@@ -117,10 +143,14 @@ function hashView(view: ArrayBufferView) {
   return hash.toString(16).padStart(8, "0");
 }
 
-function listEntries(fileSystem: PspSaveFileSystem) {
-  if (!fileSystem.analyzePath(PSP_SAVE_ROOT).exists) return [];
+function listEntries(
+  fileSystem: PspSaveFileSystem,
+  root = PERSISTENT_SAVE_ROOT,
+  excludedBundlePaths: readonly string[] = [],
+) {
+  if (!fileSystem.analyzePath(root).exists) return [];
   const entries: SaveEntry[] = [];
-  const pending = [{ absolutePath: PSP_SAVE_ROOT, relativePath: "" }];
+  const pending = [{ absolutePath: root, relativePath: "" }];
   let visited = 0;
   while (pending.length) {
     const directory = pending.pop();
@@ -130,7 +160,11 @@ function listEntries(fileSystem: PspSaveFileSystem) {
       visited += 1;
       if (visited > maximumEntries * 2) throw normalizedError();
       const relativePath = directory.relativePath ? `${directory.relativePath}/${name}` : name;
-      const encodedPath = encodePath(relativePath);
+      const bundlePath = root === PERSISTENT_SAVE_ROOT
+        ? relativePath
+        : `${root.slice(PERSISTENT_SAVE_ROOT.length + 1)}/${relativePath}`;
+      if (excludedBundlePaths.some((path) => bundlePath === path || bundlePath.startsWith(`${path}/`))) continue;
+      const encodedPath = encodePath(bundlePath);
       const absolutePath = `${directory.absolutePath}/${name}`;
       const stat = fileSystem.lstat(absolutePath);
       if (!Number.isSafeInteger(stat.size) || stat.size < 0) throw normalizedError();
@@ -173,13 +207,17 @@ function removeTree(fileSystem: PspSaveFileSystem, directoryPath: string) {
   }
 }
 
-export function snapshotPspSaveTree(fileSystem: PspSaveFileSystem) {
+export function snapshotPspSaveTree(
+  fileSystem: PspSaveFileSystem,
+  root = PERSISTENT_SAVE_ROOT,
+  excludedBundlePaths: readonly string[] = [],
+) {
   try {
-    const entries = listEntries(fileSystem);
+    const entries = listEntries(fileSystem, root, excludedBundlePaths);
     let totalBytes = bundleHeaderBytes;
     for (const entry of entries) {
       totalBytes += entryHeaderBytes + entry.encodedPath.byteLength + entry.size;
-      if (totalBytes > PSP_SAVE_BUNDLE_MAX_BYTES) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
+      if (totalBytes > PERSISTENT_SAVE_BUNDLE_MAX_BYTES) throw new Error("LAUNCH_PERSISTENT_SAVE_TOO_LARGE");
     }
     const result = new Uint8Array(totalBytes);
     result.set(bundleMagic, 0);
@@ -192,7 +230,7 @@ export function snapshotPspSaveTree(fileSystem: PspSaveFileSystem) {
       offset += entryHeaderBytes;
       result.set(entry.encodedPath, offset);
       offset += entry.encodedPath.byteLength;
-      const source = fileSystem.readFile(`${PSP_SAVE_ROOT}/${entry.relativePath}`);
+      const source = fileSystem.readFile(`${root}/${entry.relativePath}`);
       if (source.byteLength !== entry.size) throw normalizedError();
       result.set(new Uint8Array(source.buffer, source.byteOffset, source.byteLength), offset);
       offset += source.byteLength;
@@ -207,9 +245,15 @@ export function snapshotPspSaveTree(fileSystem: PspSaveFileSystem) {
 export function restorePspSaveTree(fileSystem: PspSaveFileSystem, bundle: Uint8Array | null) {
   try {
     const entries: Array<{ relativePath: string; bytes: Uint8Array }> = [];
+    let entryRoot = PERSISTENT_SAVE_ROOT;
     if (bundle) {
-      if (bundle.byteLength < bundleHeaderBytes || bundle.byteLength > PSP_SAVE_BUNDLE_MAX_BYTES ||
-        bundleMagic.some((byte, index) => bundle[index] !== byte)) throw normalizedError();
+      if (bundle.byteLength < bundleHeaderBytes || bundle.byteLength > PERSISTENT_SAVE_BUNDLE_MAX_BYTES) {
+        throw normalizedError();
+      }
+      const currentFormat = bundleMagic.every((byte, index) => bundle[index] === byte);
+      const legacyPspFormat = legacyPspBundleMagic.every((byte, index) => bundle[index] === byte);
+      if (!currentFormat && !legacyPspFormat) throw normalizedError();
+      if (legacyPspFormat) entryRoot = PSP_SAVE_ROOT;
       const data = new DataView(bundle.buffer, bundle.byteOffset, bundle.byteLength);
       const entryCount = data.getUint32(bundleMagic.byteLength, true);
       if (entryCount > maximumEntries) throw normalizedError();
@@ -236,10 +280,10 @@ export function restorePspSaveTree(fileSystem: PspSaveFileSystem, bundle: Uint8A
       if (offset !== bundle.byteLength) throw normalizedError();
     }
 
-    removeTree(fileSystem, PSP_SAVE_ROOT);
-    ensureDirectory(fileSystem, PSP_SAVE_ROOT);
+    removeTree(fileSystem, PERSISTENT_SAVE_ROOT);
+    ensureDirectory(fileSystem, entryRoot);
     for (const entry of entries) {
-      const absolutePath = `${PSP_SAVE_ROOT}/${entry.relativePath}`;
+      const absolutePath = `${entryRoot}/${entry.relativePath}`;
       ensureDirectory(fileSystem, absolutePath.slice(0, absolutePath.lastIndexOf("/")));
       fileSystem.writeFile(absolutePath, entry.bytes);
     }
@@ -248,14 +292,18 @@ export function restorePspSaveTree(fileSystem: PspSaveFileSystem, bundle: Uint8A
   }
 }
 
-export function fingerprintPspSaveTree(fileSystem: PspSaveFileSystem): PspSaveTreeFingerprint {
+export function fingerprintPspSaveTree(
+  fileSystem: PspSaveFileSystem,
+  root = PERSISTENT_SAVE_ROOT,
+  excludedBundlePaths: readonly string[] = [],
+): PspSaveTreeFingerprint {
   try {
-    const entries = listEntries(fileSystem);
+    const entries = listEntries(fileSystem, root, excludedBundlePaths);
     const values = entries.map((entry) => {
-      const stat = fileSystem.lstat(`${PSP_SAVE_ROOT}/${entry.relativePath}`);
+      const stat = fileSystem.lstat(`${root}/${entry.relativePath}`);
       const timestamp = stableTimestamp(stat);
       const contentMarker = timestamp === null
-        ? hashView(fileSystem.readFile(`${PSP_SAVE_ROOT}/${entry.relativePath}`))
+        ? hashView(fileSystem.readFile(`${root}/${entry.relativePath}`))
         : String(timestamp);
       return `${entry.relativePath.length}:${entry.relativePath}:${entry.size}:${contentMarker}`;
     });
@@ -275,6 +323,9 @@ export class PspPersistentSaveSync {
   private timer: ReturnType<typeof setInterval> | null = null;
   private active: Promise<boolean> | null = null;
   private failedFingerprint: string | null = null;
+  private readonly restartOnExit: boolean;
+  private readonly captureRoot: string;
+  private readonly excludedBundlePaths: readonly string[];
 
   constructor(
     private readonly fileSystem: PspSaveFileSystem,
@@ -286,7 +337,10 @@ export class PspPersistentSaveSync {
     this.stableMs = options.stableMs ?? 2_000;
     this.isPaused = options.isPaused ?? (() => false);
     this.onError = options.onError ?? (() => undefined);
-    this.saved = fingerprintPspSaveTree(fileSystem);
+    this.restartOnExit = options.restartOnExit ?? false;
+    this.captureRoot = options.captureRoot ?? PERSISTENT_SAVE_ROOT;
+    this.excludedBundlePaths = options.excludedBundlePaths ?? [];
+    this.saved = fingerprintPspSaveTree(fileSystem, this.captureRoot, this.excludedBundlePaths);
   }
 
   start() {
@@ -303,7 +357,8 @@ export class PspPersistentSaveSync {
     if (this.active) return this.active;
     let current: PspSaveTreeFingerprint;
     try {
-      current = fingerprintPspSaveTree(this.fileSystem);
+      this.manager.saveSaveFiles?.();
+      current = fingerprintPspSaveTree(this.fileSystem, this.captureRoot, this.excludedBundlePaths);
     } catch (error) {
       this.report(error);
       return false;
@@ -326,7 +381,9 @@ export class PspPersistentSaveSync {
     if (this.active) await this.active;
     let current: PspSaveTreeFingerprint;
     try {
-      current = fingerprintPspSaveTree(this.fileSystem);
+      if (this.restartOnExit) this.manager.functions?.restart?.();
+      this.manager.saveSaveFiles?.();
+      current = fingerprintPspSaveTree(this.fileSystem, this.captureRoot, this.excludedBundlePaths);
     } catch (error) {
       this.report(error);
       return false;
@@ -344,7 +401,7 @@ export class PspPersistentSaveSync {
         this.manager.toggleMainLoop(false);
         let bytes: Uint8Array;
         try {
-          bytes = snapshotPspSaveTree(this.fileSystem);
+          bytes = snapshotPspSaveTree(this.fileSystem, this.captureRoot, this.excludedBundlePaths);
         } finally {
           this.manager.toggleMainLoop(shouldResume);
         }
@@ -371,3 +428,8 @@ export class PspPersistentSaveSync {
     this.onError(error instanceof Error ? error : normalizedError());
   }
 }
+
+export const fingerprintPersistentSaveTree = fingerprintPspSaveTree;
+export const restorePersistentSaveTree = restorePspSaveTree;
+export const snapshotPersistentSaveTree = snapshotPspSaveTree;
+export { PspPersistentSaveSync as PersistentSaveTreeSync };

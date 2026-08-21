@@ -1,5 +1,9 @@
 import { installEmulatorJs423NetplayCompatibility } from "../netplay/ejs-netplay-4.2.3-v1";
-import { installEmulatorJs423PspStateRestoreCompatibility, requiresExplicitPspStateRestore } from "../psp-state-restore";
+import {
+  installEmulatorJs423StateRestoreCompatibility,
+  requiresExplicitPersistentStateRestore,
+  requiresExplicitPspStateRestore,
+} from "../psp-state-restore";
 import { retromShaders } from "../retrom-shaders";
 
 export type PlayerConfig = {
@@ -21,7 +25,7 @@ export type PlayerConfig = {
   biosUrl: string | null;
   parentUrl: string | null;
   stateUrl: string | null;
-  persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "FILE_TREE" | "NONE";
+  persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "FILE_TREE" | "AUTO_STATE" | "NONE";
   persistentSaveUrl: string | null;
   inputMode: "STANDARD" | "POINTER";
   startupActions: StartupAction[];
@@ -104,6 +108,7 @@ export type EmulatorInstance = {
     getSaveFilePath?: () => string;
     getVideoDimensions?: (dimension: "aspect" | "width" | "height") => number | undefined;
     loadSaveFiles?: () => void;
+    saveSaveFiles?: () => void;
     loadState?: (bytes: Uint8Array) => void;
     setCurrentDisk?: (index: number) => void;
     simulateInput?: (player: number, control: number, value: number) => void;
@@ -111,12 +116,13 @@ export type EmulatorInstance = {
     toggleFastForward?: (running: boolean) => void;
     functions?: {
       loadState?: (path: string, slot: number) => unknown;
+      restart?: () => void;
       saveStateInfo?: () => string;
       simulateInput?: (player: number, control: number, value: number) => void;
       screenshot?: () => void;
     };
     loadStateAndWait?: (bytes: Uint8Array, timeoutMs?: number) => Promise<{ byteExact: boolean }>;
-    loadPspStateAndWait?: (bytes: Uint8Array, timeoutMs?: number) => Promise<void>;
+    loadPersistentStateAndWait?: (bytes: Uint8Array, timeoutMs?: number) => Promise<void>;
     runNetplayFrame?: (timeoutMs?: number) => Promise<number>;
   };
   downloadType?: { rom?: { dontExtractIfCore?: string[] } };
@@ -542,10 +548,10 @@ export function validateConfig(config: PlayerConfig) {
   if (!config.runtimePathOverrides || Object.entries(config.runtimePathOverrides).length !== 1 || Object.entries(config.runtimePathOverrides).some(([name, source]) =>
     !/^[A-Za-z0-9_.-]+-wasm\.data$/.test(name) || name.includes("..") ||
     !source.startsWith(`/runtime/emulatorjs/${config.emulatorjsVersion}/`))) throw new Error("PLAYER_RUNTIME_PATHS_INVALID");
-  if (!["SINGLE_FILE", "DOS_OVERLAY", "FILE_TREE", "NONE"].includes(config.persistentSaveMode) ||
+  if (!["SINGLE_FILE", "DOS_OVERLAY", "FILE_TREE", "AUTO_STATE", "NONE"].includes(config.persistentSaveMode) ||
     (config.persistentSaveMode === "NONE") !== (config.persistentSaveUrl === null) ||
     config.persistentSaveMode !== "NONE" && config.persistentSaveUrl !== `/runtime/launches/${config.launchId}/persistent-save` ||
-    config.persistentSaveMode === "FILE_TREE" && config.runtimeCore !== "ppsspp") {
+    config.persistentSaveMode === "AUTO_STATE" && config.emulatorjsVersion !== "4.2.3") {
     throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
   }
   if (config.inputMode !== "STANDARD" && config.inputMode !== "POINTER") throw new Error("PLAYER_INPUT_MODE_INVALID");
@@ -632,7 +638,9 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_biosUrl = config.biosUrl ?? undefined;
   runtimeWindow.EJS_gameParentUrl = config.parentUrl ?? undefined;
   const explicitPspStateRestore = requiresExplicitPspStateRestore(config);
-  runtimeWindow.EJS_loadStateURL = config.discSet || explicitPspStateRestore ? undefined : config.stateUrl ?? undefined;
+  const explicitPersistentStateRestore = requiresExplicitPersistentStateRestore(config);
+  const explicitStateRestore = explicitPspStateRestore || explicitPersistentStateRestore;
+  runtimeWindow.EJS_loadStateURL = config.discSet || explicitStateRestore ? undefined : config.stateUrl ?? undefined;
   const deferredDOSStart = config.emulatorjsVersion === "4.3.0-pre" && config.runtimeCore === "dosbox_pure";
   runtimeWindow.EJS_startOnLoaded = !deferredDOSStart;
   runtimeWindow.EJS_dontExtractRom = deferredDOSStart;
@@ -642,7 +650,7 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   // 4.2.3 only forwards RetroArch's native state-task completion log through
   // its auditable source loader. Netplay and explicit PPSSPP restore consume
   // that callback; the EmulatorJS experimental transport stays disabled.
-  runtimeWindow.EJS_DEBUG_XX = config.mode === "netplay" || explicitPspStateRestore;
+  runtimeWindow.EJS_DEBUG_XX = config.mode === "netplay" || explicitStateRestore;
   runtimeWindow.EJS_EXPERIMENTAL_NETPLAY = false;
   runtimeWindow.EJS_threads = config.requiresThreads;
   runtimeWindow.EJS_fullscreenOnLoaded = false;
@@ -689,8 +697,10 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   const cleanupNetplayCompatibility = config.mode === "netplay"
     ? installEmulatorJs423NetplayCompatibility(runtimeWindow)
     : () => undefined;
-  const cleanupPspStateRestoreCompatibility = explicitPspStateRestore
-    ? installEmulatorJs423PspStateRestoreCompatibility(runtimeWindow)
+  const cleanupStateRestoreCompatibility = explicitStateRestore
+    ? installEmulatorJs423StateRestoreCompatibility(runtimeWindow, {
+        waitForSerializable: explicitPspStateRestore || explicitPersistentStateRestore,
+      })
     : () => undefined;
   const cleanupArchiveWorkerCompatibility = config.emulatorjsVersion === "4.2.3"
     ? installArchiveWorkerBlobCompatibility(runtimeWindow)
@@ -707,6 +717,6 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.document.head.append(script);
   return () => {
     cleanupDeferredStart(); cleanupStartup(); script.remove(); cleanupExternalFileCompatibility();
-    cleanupArchiveWorkerCompatibility(); cleanupPspStateRestoreCompatibility(); cleanupNetplayCompatibility();
+    cleanupArchiveWorkerCompatibility(); cleanupStateRestoreCompatibility(); cleanupNetplayCompatibility();
   };
 }

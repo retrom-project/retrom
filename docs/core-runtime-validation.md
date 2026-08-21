@@ -44,7 +44,9 @@ GBA 单成员 ZIP 在导入时应逐字节物化实际 `.gba` entry 到 CAS；�
 
 `dosbox_pure`、`genesis_plus_gx_wide` 与 `azahar` 使用 EmulatorJS `4.3.0-pre` 定向覆盖，其他核心使用各自 manifest 锁定版本。线程核心要求同源响应具备 COOP、COEP 与 CORP，生产 CSP 不得为运行时放开无界 `unsafe-eval`。
 
-PSP profile 接受 raw `.cso` 和 `.iso`，两者分别以 `RAW_FILE_V1` 进入 CONTENT、Variant 与 Launch；产品导入、Launch 与 Player 不做格式互转。PPSSPP 与 `mednafen_psx_hw` 的线程 artifact basename、assets 和 renderer 配置以依赖 manifest 与 adapter 实现为准，不从旧的示例物化脚本推导。PPSSPP 的游戏内保存只同步 `/data/saves/PSP/SAVEDATA` 的 FILE_TREE envelope，不包含 `PSP/GAME`、cache、texture 或状态存档目录；恢复必须在 PPSSPP asset/ROM/start 前完成。4.2.3 状态恢复不能使用 EmulatorJS 的首帧自动加载：Player 必须等 PPSSPP 可序列化后执行原生 state task，并以原生失败日志 fail closed；smoke 至少比较保存截图与恢复后的可辨识游戏位置，不能只证明约 40 MiB 文件上传/下载成功。使用操作者测试服务器私有 PSP 游戏的人工 smoke 可以验证部署实例，但不提升第 2 节的可提交公开产品 E2E 覆盖等级。
+PSP profile 接受 raw `.cso` 和 `.iso`，两者分别以 `RAW_FILE_V1` 进入 CONTENT、Variant 与 Launch；产品导入、Launch 与 Player 不做格式互转。PPSSPP 与 `mednafen_psx_hw` 的线程 artifact basename、assets 和 renderer 配置以依赖 manifest 与 adapter 实现为准，不从旧的示例物化脚本推导。PPSSPP 的新游戏内保存用通用 `RETFS001` FILE_TREE envelope，但只采集 `/data/saves/PSP/SAVEDATA`，不包含 `PSP/GAME`、cache、texture 或状态存档目录；旧 `RETPSP01` revision 继续兼容恢复，恢复必须在 PPSSPP asset/ROM/start 前完成。4.2.3 状态恢复不能使用 EmulatorJS 的首帧自动加载：Player 必须等 PPSSPP 可序列化后执行原生 state task，并以原生失败日志 fail closed；smoke 至少比较保存截图与恢复后的可辨识游戏位置，不能只证明约 40 MiB 文件上传/下载成功。使用操作者测试服务器私有 PSP 游戏的人工 smoke 可以验证部署实例，但不提升第 2 节的可提交公开产品 E2E 覆盖等级。
+
+持久存档能力验证必须按 manifest mode 分支。FILE_TREE 核心要证明游戏内写入后产生的实际文件（包括 Gambatte/Snes9x/mGBA 的 RTC、Handy EEPROM、PS1 记忆卡与 Azahar `sdmc/nand`）进入 `RETFS001`，新 Launch 在 start 前清除浏览器残留并恢复同一游戏内进度。AUTO_STATE 核心要证明 30 秒周期或主动退出产生 revision，下一 Launch 等待原生 state-load 成功后恢复到相同可辨识画面/位置；Neo Geo Pocket flash 只在 `retro_unload_game` 提交，而 Opera 的锁定 WASM artifact 在可用 `restart` hook 上触发异常，两者都没有可在上传前安全调用并继续会话的原生写盘 hook，因此归入该分支。状态后备证据必须明确不是原生 NVRAM。人工 smoke 使用的私有 ROM/BIOS 只能存在于被忽略的操作者目录或临时服务器数据，不得进入 Git、测试 fixture、日志或正式证据中的宿主绝对路径；没有可再分发 fixture 的核心仍保持第 2 节所述的自动化覆盖缺口。
 
 ## 6. 依赖升级
 

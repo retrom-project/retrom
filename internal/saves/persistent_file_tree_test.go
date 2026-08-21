@@ -32,7 +32,7 @@ func fileTreeBundle() []byte {
 func TestValidateFileTreeBundle(t *testing.T) {
 	t.Parallel()
 	valid := fileTreeBundle()
-	if err := validateFileTreeBundle(bytes.NewReader(valid)); err != nil {
+	if err := validateFileTreeBundle(bytes.NewReader(valid), false); err != nil {
 		t.Fatalf("valid bundle rejected: %v", err)
 	}
 
@@ -43,7 +43,7 @@ func TestValidateFileTreeBundle(t *testing.T) {
 	for name, body := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			if err := validateFileTreeBundle(bytes.NewReader(body)); !errors.Is(err, ErrInvalid) {
+			if err := validateFileTreeBundle(bytes.NewReader(body), false); !errors.Is(err, ErrInvalid) {
 				t.Fatalf("error = %v, want ErrInvalid", err)
 			}
 		})
@@ -71,9 +71,21 @@ func TestValidateFileTreeBundleRejectsUnsafeAndNonCanonicalPaths(t *testing.T) {
 				body.WriteString(entry.path)
 				body.WriteByte(1)
 			}
-			if err := validateFileTreeBundle(bytes.NewReader(body.Bytes())); !errors.Is(err, ErrInvalid) {
+			if err := validateFileTreeBundle(bytes.NewReader(body.Bytes()), false); !errors.Is(err, ErrInvalid) {
 				t.Fatalf("error = %v, want ErrInvalid", err)
 			}
 		})
+	}
+}
+
+func TestValidateFileTreeBundleLegacyPSPIsCapabilityBound(t *testing.T) {
+	t.Parallel()
+	body := fileTreeBundle()
+	copy(body[:8], legacyPSPFileTreeMagic[:])
+	if err := validateFileTreeBundle(bytes.NewReader(body), true); err != nil {
+		t.Fatalf("legacy PSP bundle rejected for PPSSPP: %v", err)
+	}
+	if err := validateFileTreeBundle(bytes.NewReader(body), false); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("legacy PSP bundle error = %v, want ErrInvalid", err)
 	}
 }

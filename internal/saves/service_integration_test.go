@@ -19,6 +19,7 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"runtime"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -86,13 +87,27 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var artifactID string
+	var artifactID, compatibilityJSON string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id
+SELECT id,compatibility_config_json
 FROM core_artifacts
 WHERE core_id='mgba'
 AND enabled=1
-`).Scan(&artifactID); err != nil {
+`).Scan(&artifactID, &compatibilityJSON); err != nil {
+		t.Fatal(err)
+	}
+	var compatibility map[string]any
+	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil {
+		t.Fatal(err)
+	}
+	compatibility["persistentSaveMode"] = "SINGLE_FILE"
+	updatedCompatibility, err := json.Marshal(compatibility)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := database.SQL.ExecContext(ctx, `
+UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?
+`, string(updatedCompatibility), artifactID); err != nil {
 		t.Fatal(err)
 	}
 	gameID := uuid.NewString()
@@ -635,7 +650,6 @@ SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND
 	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil {
 		t.Fatal(err)
 	}
-	compatibility["runtimeCoreId"] = "ppsspp"
 	compatibility["persistentSaveMode"] = "FILE_TREE"
 	compatibility["persistentSaveKind"] = "CORE_SAVE"
 	updatedCompatibility, err := json.Marshal(compatibility)
@@ -665,6 +679,20 @@ SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND
 		t.Fatalf("malformed file tree error = %v", err)
 	}
 	valid := fileTreeBundle()
+	legacy := slices.Clone(valid)
+	copy(legacy[:8], legacyPSPFileTreeMagic[:])
+	if _, _, err := fixture.saves.PutPersistent(
+		fixture.ctx,
+		created.LaunchID,
+		created.Capability,
+		uuid.NewString(),
+		contentDigest(legacy),
+		"AUTO_INTERVAL",
+		1,
+		bytes.NewReader(legacy),
+	); !errors.Is(err, ErrInvalid) {
+		t.Fatalf("legacy PSP tree accepted for generic core: %v", err)
+	}
 	if _, _, err := fixture.saves.PutPersistent(
 		fixture.ctx,
 		created.LaunchID,

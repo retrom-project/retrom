@@ -1,5 +1,5 @@
 {
-  "schema_version": 5,
+  "schema_version": 6,
   "purpose": "Targeted EmulatorJS 4.3.0 pre-release runtime lane for DOSBox Pure, Genesis Plus GX Wide, and Azahar; other cores remain on their independently selected version",
   "created_at": "2026-08-09T00:00:00Z",
   "reviewed_at": "2026-08-09T00:00:00Z",
@@ -160,8 +160,8 @@
         "default_options": {
           "webgl2Enabled": "enabled"
         },
-        "persistent_save_mode": "NONE",
-        "persistent_save_kind": null,
+        "persistent_save_mode": "FILE_TREE",
+        "persistent_save_kind": "CORE_SAVE",
         "input_mode": "POINTER",
         "startup_actions": [],
         "report_path": "data/cores/reports/azahar.json",
