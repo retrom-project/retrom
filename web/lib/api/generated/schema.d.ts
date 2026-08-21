@@ -2816,10 +2816,10 @@ export interface components {
             parentUrl: string | null;
             stateUrl: string | null;
             /**
-             * @description FILE_TREE is the bounded PSP/SAVEDATA bundle capability and is currently valid only for PPSSPP.
+             * @description FILE_TREE is a bounded /data/saves tree bundle; AUTO_STATE persists a bounded automatic core state for cores without a reliable native save-file flush hook.
              * @enum {string}
              */
-            persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "FILE_TREE" | "NONE";
+            persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "FILE_TREE" | "AUTO_STATE" | "NONE";
             persistentSaveUrl: string | null;
             /** @enum {string} */
             inputMode: "STANDARD" | "POINTER";

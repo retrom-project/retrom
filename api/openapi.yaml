@@ -1935,8 +1935,8 @@ components:
         stateUrl: { type: string, nullable: true }
         persistentSaveMode:
           type: string
-          enum: [SINGLE_FILE, DOS_OVERLAY, FILE_TREE, NONE]
-          description: FILE_TREE is the bounded PSP/SAVEDATA bundle capability and is currently valid only for PPSSPP.
+          enum: [SINGLE_FILE, DOS_OVERLAY, FILE_TREE, AUTO_STATE, NONE]
+          description: FILE_TREE is a bounded /data/saves tree bundle; AUTO_STATE persists a bounded automatic core state for cores without a reliable native save-file flush hook.
         persistentSaveUrl: { type: string, nullable: true }
         inputMode: { type: string, enum: [STANDARD, POINTER] }
         startupActions:

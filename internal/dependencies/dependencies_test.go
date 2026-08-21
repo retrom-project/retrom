@@ -129,10 +129,10 @@ WHERE core_id='ppsspp' AND enabled=1
 		!strings.Contains(compatibility, `"requestedArtifactBasename":"ppsspp-thread-wasm.data"`) {
 		t.Fatalf("PPSSPP compatibility = %s, error=%v", compatibility, err)
 	}
-	if !strings.Contains(compatibility, `"schemaVersion":3`) ||
+	if !strings.Contains(compatibility, `"schemaVersion":4`) ||
 		!strings.Contains(compatibility, `"supportedContentKinds":["SINGLE_FILE"]`) ||
 		strings.Contains(compatibility, `"MULTI_DISC_M3U_V1"`) {
-		t.Fatalf("PPSSPP V3 capability = %s", compatibility)
+		t.Fatalf("PPSSPP V4 capability = %s", compatibility)
 	}
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT compatibility_config_json FROM core_artifacts
@@ -179,7 +179,7 @@ SELECT id,version,updated_at_ms,compatibility_config_json
 FROM core_artifacts
 WHERE core_id='yabause' AND enabled=1
 `).Scan(&currentID, &versionNumber, &updatedAtMS, &compatibility); err != nil || currentID != yabauseID ||
-		versionNumber != 8 || updatedAtMS != v3Time.UnixMilli() || !strings.Contains(compatibility, `"schemaVersion":3`) {
+		versionNumber != 8 || updatedAtMS != v3Time.UnixMilli() || !strings.Contains(compatibility, `"schemaVersion":4`) {
 		t.Fatalf("V2 to V3 artifact = id:%s version:%d updated:%d compatibility:%s error:%v", currentID, versionNumber, updatedAtMS, compatibility, err)
 	}
 	if err := manifest.Bootstrap(context.Background(), database.SQL, v3Time.Add(time.Hour)); err != nil {

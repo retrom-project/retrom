@@ -414,7 +414,7 @@ describe("EmulatorJS adapter", () => {
     expect(() => mountEmulatorJS({ ...config, persistentSaveMode: "NONE" }, target)).toThrow("PLAYER_PERSISTENT_CAPABILITY_INVALID");
   });
 
-  it("accepts PPSSPP file-tree saves without wiring the single-file export callback", () => {
+  it("accepts generic file-tree saves and keeps PPSSPP state restore explicit", () => {
     const target = document.createElement("div");
     const onSaveSave = vi.fn();
     const pspConfig: PlayerConfig = {
@@ -430,8 +430,23 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_loadStateURL).toBeUndefined();
     expect(window.EJS_DEBUG_XX).toBe(true);
     restoreCleanup();
-    expect(() => mountEmulatorJS({ ...pspConfig, runtimeCore: "mgba" }, target))
-      .toThrow("PLAYER_PERSISTENT_CAPABILITY_INVALID");
+    const genericCleanup = mountEmulatorJS({ ...pspConfig, core: "mgba", runtimeCore: "mgba" }, target);
+    expect(window.EJS_DEBUG_XX).toBe(false);
+    genericCleanup();
+  });
+
+  it("installs explicit state transport for automatic persistent states", () => {
+    const target = document.createElement("div");
+    const cleanup = mountEmulatorJS({
+      ...config,
+      core: "mame2003",
+      runtimeCore: "mame2003",
+      persistentSaveMode: "AUTO_STATE",
+      stateUrl: "/runtime/launches/id/state",
+    }, target);
+    expect(window.EJS_loadStateURL).toBeUndefined();
+    expect(window.EJS_DEBUG_XX).toBe(true);
+    cleanup();
   });
 
   it("presses and releases bounded startup controls exactly once", () => {

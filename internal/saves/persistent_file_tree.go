@@ -9,7 +9,10 @@ import (
 	"unicode/utf8"
 )
 
-var fileTreeBundleMagic = [8]byte{'R', 'E', 'T', 'P', 'S', 'P', '0', '1'}
+var (
+	fileTreeBundleMagic    = [8]byte{'R', 'E', 'T', 'F', 'S', '0', '0', '1'}
+	legacyPSPFileTreeMagic = [8]byte{'R', 'E', 'T', 'P', 'S', 'P', '0', '1'}
+)
 
 const (
 	fileTreeMaximumEntries   = 4_096
@@ -34,9 +37,14 @@ func validFileTreePath(value []byte) bool {
 	return true
 }
 
-func validateFileTreeBundle(reader io.Reader) error {
+func validateFileTreeBundle(reader io.Reader, allowLegacyPSP bool) error {
 	var header [12]byte
-	if _, err := io.ReadFull(reader, header[:]); err != nil || !bytes.Equal(header[:8], fileTreeBundleMagic[:]) {
+	if _, err := io.ReadFull(reader, header[:]); err != nil {
+		return ErrInvalid
+	}
+	validMagic := bytes.Equal(header[:8], fileTreeBundleMagic[:]) ||
+		allowLegacyPSP && bytes.Equal(header[:8], legacyPSPFileTreeMagic[:])
+	if !validMagic {
 		return ErrInvalid
 	}
 	entryCount := binary.LittleEndian.Uint32(header[8:])
@@ -45,21 +53,8 @@ func validateFileTreeBundle(reader io.Reader) error {
 	}
 	var previousPath []byte
 	for range entryCount {
-		var entryHeader [6]byte
-		if _, err := io.ReadFull(reader, entryHeader[:]); err != nil {
-			return ErrInvalid
-		}
-		pathLength := binary.LittleEndian.Uint16(entryHeader[:2])
-		fileLength := binary.LittleEndian.Uint32(entryHeader[2:])
-		if pathLength == 0 || pathLength > fileTreeMaximumPathBytes {
-			return ErrInvalid
-		}
-		pathBytes := make([]byte, pathLength)
-		if _, err := io.ReadFull(reader, pathBytes); err != nil || !validFileTreePath(pathBytes) ||
-			previousPath != nil && bytes.Compare(previousPath, pathBytes) >= 0 {
-			return ErrInvalid
-		}
-		if _, err := io.CopyN(io.Discard, reader, int64(fileLength)); err != nil {
+		pathBytes, err := validateFileTreeEntry(reader, previousPath)
+		if err != nil {
 			return ErrInvalid
 		}
 		previousPath = pathBytes
@@ -69,4 +64,27 @@ func validateFileTreeBundle(reader io.Reader) error {
 		return ErrInvalid
 	}
 	return nil
+}
+
+func validateFileTreeEntry(reader io.Reader, previousPath []byte) ([]byte, error) {
+	var entryHeader [6]byte
+	if _, err := io.ReadFull(reader, entryHeader[:]); err != nil {
+		return nil, ErrInvalid
+	}
+	pathLength := binary.LittleEndian.Uint16(entryHeader[:2])
+	fileLength := binary.LittleEndian.Uint32(entryHeader[2:])
+	if pathLength == 0 || pathLength > fileTreeMaximumPathBytes {
+		return nil, ErrInvalid
+	}
+	pathBytes := make([]byte, pathLength)
+	if _, err := io.ReadFull(reader, pathBytes); err != nil {
+		return nil, ErrInvalid
+	}
+	if !validFileTreePath(pathBytes) || previousPath != nil && bytes.Compare(previousPath, pathBytes) >= 0 {
+		return nil, ErrInvalid
+	}
+	if _, err := io.CopyN(io.Discard, reader, int64(fileLength)); err != nil {
+		return nil, ErrInvalid
+	}
+	return pathBytes, nil
 }

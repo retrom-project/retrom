@@ -48,7 +48,7 @@ func Resolve(
 	}
 	var compatibility compatibilityV3
 	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil ||
-		compatibility.SchemaVersion != 3 || compatibility.MultiDisc == nil ||
+		(compatibility.SchemaVersion != 3 && compatibility.SchemaVersion != 4) || compatibility.MultiDisc == nil ||
 		!slices.Contains(compatibility.SupportedContentKinds, ModeMultiDiscM3UV1) ||
 		compatibility.MultiDisc.MaxDiscs < 2 || compatibility.MultiDisc.MaxDiscs > MaximumMultiDiscCount ||
 		compatibility.MultiDisc.MaxTotalBytes < 1 || compatibility.MultiDisc.MaxTotalBytes > MaximumMultiDiscBytes ||
@@ -67,7 +67,8 @@ func Resolve(
 // in-flight review can be completed after admission is closed.
 func SupportsContentKind(compatibilityJSON, contentKind string) bool {
 	var compatibility compatibilityV3
-	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil || compatibility.SchemaVersion != 3 ||
+	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil ||
+		(compatibility.SchemaVersion != 3 && compatibility.SchemaVersion != 4) ||
 		!slices.Contains(compatibility.SupportedContentKinds, contentKind) {
 		return false
 	}

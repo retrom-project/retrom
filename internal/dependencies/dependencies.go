@@ -181,7 +181,8 @@ func loadVersion(root, versionName string) (*Version, error) {
 	if err := decoder.Decode(&manifest); err != nil {
 		return nil, fmt.Errorf("%w: manifest schema", ErrInvalid)
 	}
-	if manifest.SchemaVersion != 4 && manifest.SchemaVersion != 5 || manifest.EmulatorJS.Version != versionName {
+	if manifest.SchemaVersion != 4 && manifest.SchemaVersion != 5 && manifest.SchemaVersion != 6 ||
+		manifest.EmulatorJS.Version != versionName {
 		return nil, fmt.Errorf("%w: manifest version", ErrInvalid)
 	}
 	manifestDigest := sha256.Sum256(contents)
@@ -298,54 +299,22 @@ func validateManifestCapabilities(manifest Manifest, allowlist map[string]File) 
 	return nil
 }
 
-//nolint:gocyclo // Each branch enforces one independent core capability invariant.
 func validateSelectedCore(core SelectedCore, allowlist map[string]File, manifestSchemaVersion int) error {
 	path := core.LocalPath
 	if core.PathInRelease != nil {
 		path = *core.PathInRelease
 	}
-	threadBasename := strings.HasSuffix(core.RequestedArtifactBasename, "-thread-wasm.data")
-	if !safeRelative(path) || filepath.Base(core.RequestedArtifactBasename) != core.RequestedArtifactBasename ||
-		strings.Contains(core.RequestedArtifactBasename, "..") ||
-		!strings.HasSuffix(core.RequestedArtifactBasename, "-wasm.data") || threadBasename != core.Threads {
+	if !validArtifactIdentity(core, path) {
 		return fmt.Errorf("%w: artifact basename", ErrInvalid)
 	}
-	expectedFlavor := "WASM"
-	if core.Threads {
-		expectedFlavor = "THREAD_WASM"
-	}
-	if core.PathInRelease == nil {
-		expectedFlavor = "OVERRIDE"
-	}
-	if core.BundleVersion == "" || core.ArtifactFlavor != expectedFlavor ||
-		core.CanvasResizePolicy != "NONE" && core.CanvasResizePolicy != "ON_GAME_START_TO_CSS_PIXELS" {
+	if !validArtifactCapability(core) {
 		return fmt.Errorf("%w: artifact capability", ErrInvalid)
 	}
-	if len(core.DefaultOptions) > 32 {
+	if !validDefaultOptions(core.DefaultOptions) {
 		return fmt.Errorf("%w: artifact options", ErrInvalid)
 	}
-	for name, value := range core.DefaultOptions {
-		if name == "__proto__" || name == "constructor" || name == "prototype" ||
-			!validASCIIOption(name, 1) || !validASCIIOption(value, 0) {
-			return fmt.Errorf("%w: artifact options", ErrInvalid)
-		}
-	}
-	expectedKind := map[string]*string{
-		"SINGLE_FILE": pointerTo("CORE_SAVE"), "DOS_OVERLAY": pointerTo("DOS_OVERLAY"),
-		"FILE_TREE": pointerTo("CORE_SAVE"), "NONE": nil,
-	}
-	kind, exists := expectedKind[core.PersistentSaveMode]
-	if !exists || !equalOptionalString(core.PersistentSaveKind, kind) ||
-		core.PersistentSaveMode == "FILE_TREE" && core.RuntimeCoreID != "ppsspp" ||
-		core.InputMode != "STANDARD" && core.InputMode != "POINTER" || len(core.StartupActions) > 4 {
-		return fmt.Errorf("%w: artifact runtime capability", ErrInvalid)
-	}
-	for _, action := range core.StartupActions {
-		if action.Event != "GAME_START" || action.Kind != "PRESS_CONTROL" || action.DelayMS < 0 || action.DelayMS > 30_000 ||
-			action.Player < 0 || action.Player > 3 || action.Control < 0 || action.Control > 255 ||
-			action.DurationMS < 1 || action.DurationMS > 1_000 {
-			return fmt.Errorf("%w: startup action", ErrInvalid)
-		}
+	if err := validateRuntimeCapability(core, manifestSchemaVersion); err != nil {
+		return err
 	}
 	if !safeRelative(core.ReportPath) {
 		return fmt.Errorf("%w: core report", ErrInvalid)
@@ -354,6 +323,72 @@ func validateSelectedCore(core SelectedCore, allowlist map[string]File, manifest
 		return fmt.Errorf("%w: core report allowlist", ErrInvalid)
 	}
 	return validateContentCapabilities(core, manifestSchemaVersion)
+}
+
+func validArtifactIdentity(core SelectedCore, path string) bool {
+	basename := core.RequestedArtifactBasename
+	return safeRelative(path) && filepath.Base(basename) == basename && !strings.Contains(basename, "..") &&
+		strings.HasSuffix(basename, "-wasm.data") && strings.HasSuffix(basename, "-thread-wasm.data") == core.Threads
+}
+
+func validArtifactCapability(core SelectedCore) bool {
+	expectedFlavor := "WASM"
+	if core.Threads {
+		expectedFlavor = "THREAD_WASM"
+	}
+	if core.PathInRelease == nil {
+		expectedFlavor = "OVERRIDE"
+	}
+	return core.BundleVersion != "" && core.ArtifactFlavor == expectedFlavor &&
+		(core.CanvasResizePolicy == "NONE" || core.CanvasResizePolicy == "ON_GAME_START_TO_CSS_PIXELS")
+}
+
+func validDefaultOptions(options map[string]string) bool {
+	if len(options) > 32 {
+		return false
+	}
+	for name, value := range options {
+		if name == "__proto__" || name == "constructor" || name == "prototype" ||
+			!validASCIIOption(name, 1) || !validASCIIOption(value, 0) {
+			return false
+		}
+	}
+	return true
+}
+
+func validateRuntimeCapability(core SelectedCore, manifestSchemaVersion int) error {
+	if !validPersistentSaveCapability(core, manifestSchemaVersion) ||
+		core.InputMode != "STANDARD" && core.InputMode != "POINTER" || len(core.StartupActions) > 4 {
+		return fmt.Errorf("%w: artifact runtime capability", ErrInvalid)
+	}
+	for _, action := range core.StartupActions {
+		if !validStartupAction(action) {
+			return fmt.Errorf("%w: startup action", ErrInvalid)
+		}
+	}
+	return nil
+}
+
+func validPersistentSaveCapability(core SelectedCore, manifestSchemaVersion int) bool {
+	expectedKind := map[string]*string{
+		"SINGLE_FILE": pointerTo("CORE_SAVE"), "DOS_OVERLAY": pointerTo("DOS_OVERLAY"),
+		"FILE_TREE": pointerTo("CORE_SAVE"), "AUTO_STATE": pointerTo("CORE_SAVE"), "NONE": nil,
+	}
+	kind, exists := expectedKind[core.PersistentSaveMode]
+	if !exists || !equalOptionalString(core.PersistentSaveKind, kind) {
+		return false
+	}
+	if manifestSchemaVersion >= 6 {
+		return true
+	}
+	return core.PersistentSaveMode != "AUTO_STATE" &&
+		(core.PersistentSaveMode != "FILE_TREE" || core.RuntimeCoreID == "ppsspp")
+}
+
+func validStartupAction(action StartupAction) bool {
+	return action.Event == "GAME_START" && action.Kind == "PRESS_CONTROL" &&
+		action.DelayMS >= 0 && action.DelayMS <= 30_000 && action.Player >= 0 && action.Player <= 3 &&
+		action.Control >= 0 && action.Control <= 255 && action.DurationMS >= 1 && action.DurationMS <= 1_000
 }
 
 func validateContentCapabilities(core SelectedCore, manifestSchemaVersion int) error {
@@ -1791,7 +1826,6 @@ func boolToInteger(value bool) int {
 	return 0
 }
 
-//nolint:funlen // Contract branches stay contiguous for a single auditable decision.
 func bootstrapCore(
 	ctx context.Context,
 	transaction *sql.Tx,
@@ -1805,40 +1839,8 @@ func bootstrapCore(
 	},
 	now time.Time,
 ) error {
-	path := core.LocalPath
-	if core.PathInRelease != nil {
-		path = *core.PathInRelease
-	}
-	compatibilitySchema := 2
-	if version.Manifest.SchemaVersion == 5 {
-		compatibilitySchema = 3
-	}
-	compatibility := map[string]any{
-		"schemaVersion": compatibilitySchema, "runtimeCoreId": core.RuntimeCoreID,
-		"requestedArtifactBasename": core.RequestedArtifactBasename,
-		"canvasResizePolicy":        core.CanvasResizePolicy,
-		"defaultOptions":            core.DefaultOptions,
-		"persistentSaveMode":        core.PersistentSaveMode,
-		"persistentSaveKind":        core.PersistentSaveKind,
-		"inputMode":                 core.InputMode,
-		"startupActions":            core.StartupActions,
-	}
-	if compatibilitySchema == 3 {
-		compatibility["supportedContentKinds"] = core.SupportedContentKinds
-		compatibility["multiDisc"] = nil
-		if core.MultiDisc != nil {
-			compatibility["multiDisc"] = map[string]any{
-				"maxDiscs":      core.MultiDisc.MaxDiscs,
-				"maxTotalBytes": core.MultiDisc.MaxTotalBytes,
-				"delivery":      core.MultiDisc.Delivery,
-			}
-		}
-	}
-	association := "INFERRED_BUILD_TIME"
-	if component.Association == "EMBEDDED_GIT_VERSION" || component.Association == "EXACT_COMMIT" ||
-		component.Association == "EXACT_RELEASE" {
-		association = "EXACT_COMMIT"
-	}
+	compatibility := coreCompatibility(core, version.Manifest.SchemaVersion)
+	association := sourceAssociation(component.Association)
 	provenance := map[string]any{
 		"schemaVersion": 1, "dependencyManifestSha256": version.ManifestSHA256,
 		"manifestEntryPointer":    fmt.Sprintf("/emulatorjs/selected_core_artifacts/%d", index),
@@ -1848,6 +1850,67 @@ func bootstrapCore(
 	}
 	compatibilityJSON, _ := json.Marshal(compatibility)
 	provenanceJSON, _ := json.Marshal(provenance)
+	return persistBootstrappedCore(
+		ctx, transaction, versionName, activeVersion, core, now,
+		compatibilityJSON, provenanceJSON, nullableCommit(association, component.SourceCommit),
+	)
+}
+
+func coreCompatibility(core SelectedCore, manifestSchemaVersion int) map[string]any {
+	compatibilitySchema := 2
+	if manifestSchemaVersion >= 5 {
+		compatibilitySchema = 3
+	}
+	if manifestSchemaVersion >= 6 {
+		compatibilitySchema = 4
+	}
+	result := map[string]any{
+		"schemaVersion": compatibilitySchema, "runtimeCoreId": core.RuntimeCoreID,
+		"requestedArtifactBasename": core.RequestedArtifactBasename,
+		"canvasResizePolicy":        core.CanvasResizePolicy,
+		"defaultOptions":            core.DefaultOptions,
+		"persistentSaveMode":        core.PersistentSaveMode,
+		"persistentSaveKind":        core.PersistentSaveKind,
+		"inputMode":                 core.InputMode,
+		"startupActions":            core.StartupActions,
+	}
+	if compatibilitySchema >= 3 {
+		result["supportedContentKinds"] = core.SupportedContentKinds
+		result["multiDisc"] = nil
+		if core.MultiDisc != nil {
+			result["multiDisc"] = map[string]any{
+				"maxDiscs":      core.MultiDisc.MaxDiscs,
+				"maxTotalBytes": core.MultiDisc.MaxTotalBytes,
+				"delivery":      core.MultiDisc.Delivery,
+			}
+		}
+	}
+	return result
+}
+
+func sourceAssociation(value string) string {
+	association := "INFERRED_BUILD_TIME"
+	if value == "EMBEDDED_GIT_VERSION" || value == "EXACT_COMMIT" || value == "EXACT_RELEASE" {
+		association = "EXACT_COMMIT"
+	}
+	return association
+}
+
+//nolint:funlen // The upsert remains contiguous so every persisted artifact field is auditable.
+func persistBootstrappedCore(
+	ctx context.Context,
+	transaction *sql.Tx,
+	versionName string,
+	activeVersion bool,
+	core SelectedCore,
+	now time.Time,
+	compatibilityJSON, provenanceJSON []byte,
+	sourceCommit any,
+) error {
+	path := core.LocalPath
+	if core.PathInRelease != nil {
+		path = *core.PathInRelease
+	}
 	var id string
 	err := transaction.QueryRowContext(ctx,
 		"SELECT id FROM core_artifacts WHERE core_id = ? AND emulatorjs_version = ? AND sha256 = ?",
@@ -1948,7 +2011,7 @@ WHERE core_artifacts.bundle_version IS NOT excluded.bundle_version
 		path,
 		core.SizeBytes,
 		core.SHA256,
-		nullableCommit(association, component.SourceCommit),
+		sourceCommit,
 		string(provenanceJSON),
 		string(compatibilityJSON),
 		active,

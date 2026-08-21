@@ -6,7 +6,7 @@ import (
 	"retrom/internal/dependencies"
 )
 
-func TestArtifactCompatibilityV2Validation(t *testing.T) {
+func TestArtifactCompatibilityValidation(t *testing.T) {
 	t.Parallel()
 	kind := "CORE_SAVE"
 	valid := artifactCompatibility{
@@ -31,6 +31,15 @@ func TestArtifactCompatibilityV2Validation(t *testing.T) {
 	valid.RuntimeCoreID = "future_core"
 	if validArtifactCompatibility(valid) {
 		t.Fatal("non-PPSSPP file-tree compatibility was accepted")
+	}
+	valid.SchemaVersion = 4
+	valid.SupportedContentKinds = []string{"SINGLE_FILE"}
+	if !validArtifactCompatibility(valid) {
+		t.Fatal("V4 generic file-tree compatibility was rejected")
+	}
+	valid.PersistentSaveMode = "AUTO_STATE"
+	if !validArtifactCompatibility(valid) {
+		t.Fatal("V4 automatic-state compatibility was rejected")
 	}
 	valid.PersistentSaveMode = "SINGLE_FILE"
 	valid.StartupActions = []dependencies.StartupAction{{

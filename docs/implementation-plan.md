@@ -135,7 +135,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 ### M8：Saturn 多盘垂直切片
 
-范围：024 migration、manifest V5/compatibility V3、`ejs-4.2.3-v2`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
+范围：024 migration、首次引入的 manifest V5/compatibility V3（当前已演进为 V6/V4）、`ejs-4.2.3-v2`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
 
 ### M9：收藏与收藏夹垂直切片
 

@@ -678,7 +678,7 @@ func validArtifactCompatibilitySchema(compatibility artifactCompatibility) bool 
 	switch compatibility.SchemaVersion {
 	case 2:
 		return len(compatibility.SupportedContentKinds) == 0 && compatibility.MultiDisc == nil
-	case 3:
+	case 3, 4:
 		return validContentCapabilities(compatibility)
 	default:
 		return false
@@ -727,7 +727,10 @@ func validPersistentCapability(compatibility artifactCompatibility) bool {
 	case "SINGLE_FILE":
 		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "CORE_SAVE"
 	case "FILE_TREE":
-		return compatibility.RuntimeCoreID == "ppsspp" && compatibility.PersistentSaveKind != nil &&
+		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "CORE_SAVE" &&
+			(compatibility.SchemaVersion >= 4 || compatibility.RuntimeCoreID == "ppsspp")
+	case "AUTO_STATE":
+		return compatibility.SchemaVersion >= 4 && compatibility.PersistentSaveKind != nil &&
 			*compatibility.PersistentSaveKind == "CORE_SAVE"
 	case "DOS_OVERLAY":
 		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "DOS_OVERLAY"

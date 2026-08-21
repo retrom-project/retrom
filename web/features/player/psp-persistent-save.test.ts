@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   fingerprintPspSaveTree,
+  hasRetromSaveEnvelopePrefix,
+  isPersistentSaveTreeBundle,
+  PERSISTENT_SAVE_ROOT,
   PSP_SAVE_ROOT,
   PspPersistentSaveSync,
   restorePspSaveTree,
@@ -51,18 +54,32 @@ function fixture() {
     rmdir: (path) => { directories.delete(path); },
   };
   const write = (relativePath: string, bytes: number[]) => {
-    let current = PSP_SAVE_ROOT;
-    for (const segment of relativePath.split("/").slice(0, -1)) {
+    let current = PERSISTENT_SAVE_ROOT;
+    for (const segment of `PSP/SAVEDATA/${relativePath}`.split("/").slice(0, -1)) {
       current += `/${segment}`;
       directories.add(current);
     }
-    directories.add(PSP_SAVE_ROOT);
     fileSystem.writeFile(`${PSP_SAVE_ROOT}/${relativePath}`, Uint8Array.from(bytes));
   };
   return { directories, fileSystem, files, write };
 }
 
 describe("PSP persistent save bundle", () => {
+  it("distinguishes current and PPSSPP-only legacy envelopes from old single-file bytes", () => {
+    const source = fixture();
+    source.write("GAME/DATA.BIN", [1]);
+    const current = snapshotPspSaveTree(source.fileSystem, PSP_SAVE_ROOT);
+    const legacy = new Uint8Array(current);
+    legacy.set(new TextEncoder().encode("RETPSP01"));
+
+    expect(isPersistentSaveTreeBundle(current)).toBe(true);
+    expect(isPersistentSaveTreeBundle(legacy)).toBe(false);
+    expect(isPersistentSaveTreeBundle(legacy, true)).toBe(true);
+    expect(isPersistentSaveTreeBundle(Uint8Array.of(1, 2, 3))).toBe(false);
+    expect(hasRetromSaveEnvelopePrefix(new TextEncoder().encode("RETFS000"))).toBe(true);
+    expect(hasRetromSaveEnvelopePrefix(Uint8Array.of(1, 2, 3))).toBe(false);
+  });
+
   it("captures a deterministic tree and restores it after clearing browser residue", () => {
     const source = fixture();
     source.write("ULUS12345/DATA.BIN", [1, 2, 3]);
@@ -81,12 +98,12 @@ describe("PSP persistent save bundle", () => {
     expect(snapshotPspSaveTree(target.fileSystem)).toEqual(bundle);
   });
 
-  it("clears the PSP tree when the launch has no server revision", () => {
+  it("clears the complete save mount when the launch has no server revision", () => {
     const target = fixture();
     target.write("OTHER_GAME/DATA.BIN", [4]);
     restorePspSaveTree(target.fileSystem, null);
     expect(target.files.size).toBe(0);
-    expect(target.directories.has(PSP_SAVE_ROOT)).toBe(true);
+    expect(target.directories.has(PERSISTENT_SAVE_ROOT)).toBe(true);
   });
 
   it("rejects traversal paths before touching the mounted filesystem", () => {
@@ -94,7 +111,7 @@ describe("PSP persistent save bundle", () => {
     target.write("SAFE/DATA.BIN", [1]);
     const path = new TextEncoder().encode("../escape.bin");
     const bundle = new Uint8Array(12 + 6 + path.byteLength + 1);
-    bundle.set(new TextEncoder().encode("RETPSP01"));
+    bundle.set(new TextEncoder().encode("RETFS001"));
     const view = new DataView(bundle.buffer);
     view.setUint32(8, 1, true);
     view.setUint16(12, path.byteLength, true);
@@ -119,6 +136,41 @@ describe("PSP persistent save bundle", () => {
     target.write("GAME/LINK.BIN", [1]);
     target.fileSystem.lstat = () => ({ mode: 0o120777, size: 1, mtime: 1 });
     expect(() => snapshotPspSaveTree(target.fileSystem)).toThrow("LAUNCH_PERSISTENT_SAVE_LOAD_FAILED");
+  });
+
+  it("encodes a PPSSPP-scoped snapshot relative to the shared save mount", () => {
+    const source = fixture();
+    source.write("GAME/DATA.BIN", [1, 2, 3]);
+    source.directories.add(`${PERSISTENT_SAVE_ROOT}/PSP/GAME`);
+    source.fileSystem.writeFile(`${PERSISTENT_SAVE_ROOT}/PSP/GAME/CACHE.BIN`, Uint8Array.of(9));
+
+    const bundle = snapshotPspSaveTree(source.fileSystem, PSP_SAVE_ROOT);
+    const target = fixture();
+    restorePspSaveTree(target.fileSystem, bundle);
+
+    expect(Array.from(target.files.keys())).toEqual([`${PSP_SAVE_ROOT}/GAME/DATA.BIN`]);
+  });
+
+  it("excludes a configured cache subtree from generic snapshots and fingerprints", () => {
+    const source = fixture();
+    for (const directory of [
+      "/data/saves/Azahar",
+      "/data/saves/Azahar/Azahar",
+      "/data/saves/Azahar/Azahar/nand",
+      "/data/saves/Azahar/Azahar/shaders",
+    ]) source.directories.add(directory);
+    source.fileSystem.writeFile("/data/saves/Azahar/Azahar/nand/save.bin", Uint8Array.of(1, 2));
+    source.fileSystem.writeFile("/data/saves/Azahar/Azahar/shaders/cache.bin", Uint8Array.of(3, 4));
+    const excluded = ["Azahar/Azahar/shaders"];
+    const fingerprint = fingerprintPspSaveTree(source.fileSystem, PERSISTENT_SAVE_ROOT, excluded);
+    const bundle = snapshotPspSaveTree(source.fileSystem, PERSISTENT_SAVE_ROOT, excluded);
+
+    source.fileSystem.writeFile("/data/saves/Azahar/Azahar/shaders/cache.bin", Uint8Array.of(9, 9));
+    expect(fingerprintPspSaveTree(source.fileSystem, PERSISTENT_SAVE_ROOT, excluded)).toEqual(fingerprint);
+
+    const target = fixture();
+    restorePspSaveTree(target.fileSystem, bundle);
+    expect(Array.from(target.files.keys())).toEqual(["/data/saves/Azahar/Azahar/nand/save.bin"]);
   });
 });
 
@@ -166,5 +218,18 @@ describe("PspPersistentSaveSync", () => {
     );
     expect(await sync.flush()).toBe(true);
     expect(loop.mock.calls).toEqual([[false], [false]]);
+  });
+
+  it("runs the opt-in reset and native save flush before an exit snapshot", async () => {
+    const target = fixture();
+    const calls: string[] = [];
+    const sync = new PspPersistentSaveSync(target.fileSystem, {
+      toggleMainLoop: () => undefined,
+      functions: { restart: () => { calls.push("restart"); target.write("GAME/DATA.BIN", [1]); } },
+      saveSaveFiles: () => { calls.push("save-files"); },
+    }, async () => true, { restartOnExit: true });
+
+    expect(await sync.flush()).toBe(true);
+    expect(calls).toEqual(["restart", "save-files"]);
   });
 });

@@ -9,16 +9,16 @@ type RuntimeModuleConfig = {
   [name: string]: unknown;
 };
 
-type RuntimeFactory = ((config: RuntimeModuleConfig) => unknown) & { retromPspStateRestoreHook?: boolean };
+type RuntimeFactory = ((config: RuntimeModuleConfig) => unknown) & { retromStateRestoreHook?: boolean };
 
-type PspStateRestoreManager = NonNullable<EmulatorInstance["gameManager"]> & {
+type StateRestoreManager = NonNullable<EmulatorInstance["gameManager"]> & {
   clearEJSResetTimer?: () => void;
-  loadPspStateAndWait?: (state: Uint8Array, timeoutMs?: number) => Promise<void>;
+  loadPersistentStateAndWait?: (state: Uint8Array, timeoutMs?: number) => Promise<void>;
 };
 
-type GameManagerConstructor = { prototype?: PspStateRestoreManager };
+type GameManagerConstructor = { prototype?: StateRestoreManager };
 
-type PspStateRestoreWindow = Window & {
+type StateRestoreWindow = Window & {
   EJS_Runtime?: RuntimeFactory;
   EJS_GameManager?: GameManagerConstructor;
 };
@@ -37,11 +37,19 @@ type ReadyWait = {
 
 export function requiresExplicitPspStateRestore(config: {
   emulatorjsVersion: string;
+  runtimeCore: string;
   persistentSaveMode: string;
   stateUrl: string | null;
 }) {
   return config.emulatorjsVersion === "4.2.3" &&
-    config.persistentSaveMode === "FILE_TREE" && config.stateUrl !== null;
+    config.runtimeCore === "ppsspp" && config.persistentSaveMode === "FILE_TREE" && config.stateUrl !== null;
+}
+
+export function requiresExplicitPersistentStateRestore(config: {
+  emulatorjsVersion: string;
+  persistentSaveMode: string;
+}) {
+  return config.emulatorjsVersion === "4.2.3" && config.persistentSaveMode === "AUTO_STATE";
 }
 
 function removeItem<T>(items: T[], item: T) {
@@ -51,13 +59,20 @@ function removeItem<T>(items: T[], item: T) {
 }
 
 /**
- * EmulatorJS 4.2.3 asks PPSSPP to restore on its first RetroArch frame. At
- * that point PPSSPP's GPU is not ready yet and retro_unserialize returns
- * false. This patch waits until PPSSPP can serialize a state, then waits for
- * the native RetroArch state task and fails closed when it rejects the file.
+ * EmulatorJS 4.2.3 may ask a core to restore before it has established its
+ * serialization layout. PPSSPP needs its GPU to be ready, while the FBA 2012
+ * cores initialise their expected state size on the first serialization,
+ * and MAME 2003 Plus rejects an unserialize attempt during frame zero. This
+ * patch can wait for both a completed frame and serialization readiness,
+ * then waits for the native RetroArch state task and fails closed when it
+ * rejects the file.
  */
-export function installEmulatorJs423PspStateRestoreCompatibility(playerWindow: Window = window) {
-  const target = playerWindow as PspStateRestoreWindow;
+export function installEmulatorJs423StateRestoreCompatibility(
+  playerWindow: Window = window,
+  options: { waitForSerializable?: boolean } = {},
+) {
+  const target = playerWindow as StateRestoreWindow;
+  const waitForSerializable = options.waitForSerializable ?? false;
   const loadSignals: LoadSignal[] = [];
   const readyWaits = new Set<ReadyWait>();
   const prototypeRestores: Array<() => void> = [];
@@ -125,30 +140,36 @@ export function installEmulatorJs423PspStateRestoreCompatibility(playerWindow: W
 
   const patchManager = (constructor: GameManagerConstructor | undefined) => {
     const prototype = constructor?.prototype;
-    if (!prototype || prototype.loadPspStateAndWait) {
-      throw new Error("PSP_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+    if (!prototype || prototype.loadPersistentStateAndWait) {
+      throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
     }
-    const loadPspStateAndWait = async function (this: PspStateRestoreManager, state: Uint8Array, timeoutMs = 15_000) {
+    const loadPersistentStateAndWait = async function (this: StateRestoreManager, state: Uint8Array, timeoutMs = 15_000) {
       const fileSystem = this.FS;
       const nativeLoadState = this.functions?.loadState;
       const nativeSaveStateInfo = this.functions?.saveStateInfo;
       if (!this.toggleMainLoop || !fileSystem?.writeFile || !fileSystem.unlink ||
-        typeof nativeLoadState !== "function" || typeof nativeSaveStateInfo !== "function" ||
+        typeof nativeLoadState !== "function" ||
         !(state instanceof Uint8Array) || state.byteLength === 0) {
-        throw new Error("PSP_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+        throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+      }
+      if (waitForSerializable && typeof nativeSaveStateInfo !== "function") {
+        throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
       }
 
       const deadline = target.performance.now() + timeoutMs;
-      while (active) {
-        try {
-          const [size, , succeeded] = String(nativeSaveStateInfo.call(this.functions)).split("|");
-          if (succeeded === "1" && Number.isSafeInteger(Number(size)) && Number(size) > 0) break;
-        } catch {
-          // PPSSPP returns an invalid state before its GPU has been created.
+      if (waitForSerializable && nativeSaveStateInfo) {
+        while (active) {
+          try {
+            const [size, , succeeded] = String(nativeSaveStateInfo.call(this.functions)).split("|");
+            const frameReady = typeof this.getFrameNum !== "function" || this.getFrameNum() > 0;
+            if (frameReady && succeeded === "1" && Number.isSafeInteger(Number(size)) && Number(size) > 0) break;
+          } catch {
+            // PPSSPP returns an invalid state before its GPU has been created.
+          }
+          if (target.performance.now() >= deadline) throw new Error("PLAYER_SAVE_STATE_RESTORE_TIMEOUT");
+          this.toggleMainLoop(true);
+          await delay(Math.min(50, Math.max(1, deadline - target.performance.now())));
         }
-        if (target.performance.now() >= deadline) throw new Error("PLAYER_SAVE_STATE_RESTORE_TIMEOUT");
-        this.toggleMainLoop(true);
-        await delay(Math.min(50, Math.max(1, deadline - target.performance.now())));
       }
       if (!active) throw new Error("PLAYER_SESSION_ENDED");
 
@@ -167,12 +188,12 @@ export function installEmulatorJs423PspStateRestoreCompatibility(playerWindow: W
         try { fileSystem.unlink(stateFilePath); } catch { /* native code may already remove it */ }
       }
     };
-    prototype.loadPspStateAndWait = loadPspStateAndWait;
-    prototypeRestores.push(() => Reflect.deleteProperty(prototype, "loadPspStateAndWait"));
+    prototype.loadPersistentStateAndWait = loadPersistentStateAndWait;
+    prototypeRestores.push(() => Reflect.deleteProperty(prototype, "loadPersistentStateAndWait"));
   };
 
   const managerDescriptor = Object.getOwnPropertyDescriptor(target, "EJS_GameManager");
-  if (managerDescriptor && !managerDescriptor.configurable) throw new Error("PSP_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+  if (managerDescriptor && !managerDescriptor.configurable) throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
   let managerConstructor = target.EJS_GameManager;
   if (managerConstructor) patchManager(managerConstructor);
   Object.defineProperty(target, "EJS_GameManager", {
@@ -186,8 +207,8 @@ export function installEmulatorJs423PspStateRestoreCompatibility(playerWindow: W
   });
 
   const wrapRuntime = (factory: RuntimeFactory | undefined) => {
-    if (typeof factory !== "function") throw new Error("PSP_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
-    if (factory.retromPspStateRestoreHook) return factory;
+    if (typeof factory !== "function") throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+    if (factory.retromStateRestoreHook) return factory;
     const wrapped = function (this: unknown, moduleConfig: RuntimeModuleConfig) {
       return Reflect.apply(factory, this, [{
         ...moduleConfig,
@@ -195,12 +216,12 @@ export function installEmulatorJs423PspStateRestoreCompatibility(playerWindow: W
         printErr: (...args: unknown[]) => { moduleConfig?.printErr?.(...args); observeNativeLog(args); },
       }]);
     } as RuntimeFactory;
-    Object.defineProperty(wrapped, "retromPspStateRestoreHook", { value: true });
+    Object.defineProperty(wrapped, "retromStateRestoreHook", { value: true });
     return wrapped;
   };
 
   const runtimeDescriptor = Object.getOwnPropertyDescriptor(target, "EJS_Runtime");
-  if (runtimeDescriptor && !runtimeDescriptor.configurable) throw new Error("PSP_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+  if (runtimeDescriptor && !runtimeDescriptor.configurable) throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
   let runtimeFactory = target.EJS_Runtime ? wrapRuntime(target.EJS_Runtime) : undefined;
   Object.defineProperty(target, "EJS_Runtime", {
     configurable: true,
