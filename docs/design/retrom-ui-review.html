@@ -2243,6 +2243,22 @@
       #retrom-ui-review .rt-detail-save-body .rt-button { width: 100%; }
       #retrom-ui-review .rt-detail-save-card:first-child .rt-detail-save-body .rt-button { color: white; border-color: var(--retrom-purple); background: var(--retrom-purple); }
     }
+    #retrom-ui-review .rt-storage-summary { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px }
+    #retrom-ui-review .rt-storage-summary article,#retrom-ui-review .rt-storage-detail { padding:18px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel) }
+    #retrom-ui-review .rt-storage-summary span,#retrom-ui-review .rt-storage-detail span { display:block;color:var(--retrom-muted);font-size:11px }
+    #retrom-ui-review .rt-storage-summary strong { display:block;margin:5px 0;font-size:28px }
+    #retrom-ui-review .rt-storage-summary small,#retrom-ui-review .rt-storage-detail small { color:var(--retrom-muted) }
+    #retrom-ui-review .rt-storage-panel { padding:18px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel) }
+    #retrom-ui-review .rt-storage-bar { height:17px;display:flex;overflow:hidden;border-radius:999px;background:var(--retrom-panel-raised) }
+    #retrom-ui-review .rt-storage-bar i:nth-child(1){width:46%;background:var(--retrom-purple)}#retrom-ui-review .rt-storage-bar i:nth-child(2){width:12%;background:#287bb5}#retrom-ui-review .rt-storage-bar i:nth-child(3){width:8%;background:var(--retrom-cyan)}#retrom-ui-review .rt-storage-bar i:nth-child(4){width:14%;background:var(--retrom-green)}#retrom-ui-review .rt-storage-bar i:nth-child(5){width:13%;background:var(--retrom-amber)}#retrom-ui-review .rt-storage-bar i:nth-child(6){width:7%;background:#b9b4aa}
+    #retrom-ui-review .rt-storage-categories { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin-top:16px;overflow:hidden;border:1px solid var(--retrom-line);border-radius:10px;background:var(--retrom-line) }
+    #retrom-ui-review .rt-storage-category { min-height:90px;padding:14px;background:var(--retrom-panel) }
+    #retrom-ui-review .rt-storage-category strong,#retrom-ui-review .rt-storage-category small { display:block }#retrom-ui-review .rt-storage-category small{margin-top:5px;color:var(--retrom-muted)}
+    #retrom-ui-review .rt-storage-details { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px }
+    #retrom-ui-review .rt-storage-detail strong { display:block;margin:5px 0;font-size:20px }
+    #retrom-ui-review .rt-storage-scope { margin-top:14px;padding:16px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel-raised);color:var(--retrom-muted);font-size:11px }
+    #retrom-ui-review .rt-storage-scope strong { color:var(--retrom-text) }
+    @media(max-width:760px){#retrom-ui-review .rt-storage-summary,#retrom-ui-review .rt-storage-categories,#retrom-ui-review .rt-storage-details{grid-template-columns:1fr}}
   &lt;/style&gt;
 
   &lt;details class=&quot;rt-review-scenes&quot; open&gt;
@@ -2370,6 +2386,7 @@
           &lt;button type=&quot;button&quot; class=&quot;rt-nav-button&quot; data-page-target=&quot;admin-platform-instances&quot;&gt;&lt;i data-lucide=&quot;folders&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;游戏目录&lt;/span&gt;&lt;/button&gt;
           &lt;button type=&quot;button&quot; class=&quot;rt-nav-button&quot; data-page-target=&quot;admin-users&quot;&gt;&lt;i data-lucide=&quot;users&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;用户管理&lt;/span&gt;&lt;/button&gt;
           &lt;button type=&quot;button&quot; class=&quot;rt-nav-button&quot; data-page-target=&quot;admin-bios&quot;&gt;&lt;i data-lucide=&quot;microchip&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;运行依赖&lt;/span&gt;&lt;/button&gt;
+          &lt;button type=&quot;button&quot; class=&quot;rt-nav-button&quot; data-page-target=&quot;admin-storage&quot;&gt;&lt;i data-lucide=&quot;hard-drive&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;容量分析&lt;/span&gt;&lt;/button&gt;
         &lt;/div&gt;
       &lt;/nav&gt;
 
@@ -2939,6 +2956,16 @@
           &lt;div class=&quot;rt-runtime-section-head&quot;&gt;&lt;div&gt;&lt;h2&gt;已就绪与可选项&lt;/h2&gt;&lt;p&gt;这些依赖当前不会阻断游戏运行。&lt;/p&gt;&lt;/div&gt;&lt;span&gt;9 项&lt;/span&gt;&lt;/div&gt;
           &lt;div class=&quot;rt-runtime-list&quot;&gt;&lt;div class=&quot;rt-runtime-bios-row&quot;&gt;&lt;div class=&quot;rt-runtime-file&quot;&gt;&lt;i&gt;ZIP&lt;/i&gt;&lt;div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-runtime-entry-button&quot; data-open-bios-entries&gt;stvbios.zip&lt;/button&gt;&lt;small&gt;必需 · 点击文件名核对 ZIP 内容&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-cell&quot;&gt;&lt;strong&gt;MAME 2003 Plus&lt;/strong&gt;&lt;small&gt;mame2003_plus&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;已安装并匹配&lt;/span&gt;&lt;div class=&quot;rt-runtime-cell&quot;&gt;&lt;strong&gt;当前游戏库已就绪&lt;/strong&gt;&lt;small&gt;DAT 条目级校验已通过&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;替换文件&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-bios-row&quot;&gt;&lt;div class=&quot;rt-runtime-file&quot;&gt;&lt;i&gt;BIOS&lt;/i&gt;&lt;div&gt;&lt;strong&gt;gb_bios.bin&lt;/strong&gt;&lt;small&gt;可选 · 按游戏内容决定是否需要&lt;/small&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-cell&quot;&gt;&lt;strong&gt;Gambatte&lt;/strong&gt;&lt;small&gt;gambatte&lt;/small&gt;&lt;/div&gt;&lt;span class=&quot;rt-badge rt-badge-green&quot;&gt;已安装并匹配&lt;/span&gt;&lt;div class=&quot;rt-runtime-cell&quot;&gt;&lt;strong&gt;当前游戏库已就绪&lt;/strong&gt;&lt;small&gt;未安装可选项不会作为必需依赖阻断&lt;/small&gt;&lt;/div&gt;&lt;div class=&quot;rt-runtime-actions&quot;&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;替换文件&lt;/button&gt;&lt;/div&gt;&lt;/div&gt;&lt;/div&gt;
       &lt;/section&gt;
+      &lt;section class=&quot;rt-page&quot; data-page=&quot;admin-storage&quot;&gt;
+        &lt;div class=&quot;rt-page-head&quot;&gt;&lt;div&gt;&lt;div class=&quot;rt-eyebrow&quot;&gt;系统存储&lt;/div&gt;&lt;h1&gt;容量分析&lt;/h1&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;查看 Retrom 已登记 CAS 数据的业务用途，定位长期数据、流程数据与等待回收内容。&lt;/p&gt;&lt;/div&gt;&lt;button type=&quot;button&quot; class=&quot;rt-button&quot;&gt;刷新分析&lt;/button&gt;&lt;/div&gt;
+        &lt;p class=&quot;rt-subtitle&quot; style=&quot;text-align:right&quot;&gt;统计生成于 2026/8/23 01:20:00&lt;/p&gt;
+        &lt;div class=&quot;rt-storage-summary&quot;&gt;&lt;article&gt;&lt;span&gt;已登记 CAS&lt;/span&gt;&lt;strong&gt;18.6 GiB&lt;/strong&gt;&lt;small&gt;482 个 Blob&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;受保护数据&lt;/span&gt;&lt;strong&gt;17.3 GiB&lt;/strong&gt;&lt;small&gt;93.0% 已被引用&lt;/small&gt;&lt;/article&gt;&lt;article&gt;&lt;span&gt;等待回收&lt;/span&gt;&lt;strong&gt;1.3 GiB&lt;/strong&gt;&lt;small&gt;7.0% 当前未引用&lt;/small&gt;&lt;/article&gt;&lt;/div&gt;
+        &lt;section class=&quot;rt-storage-panel&quot;&gt;&lt;div class=&quot;rt-panel-heading&quot;&gt;&lt;div&gt;&lt;h2&gt;按用途分析&lt;/h2&gt;&lt;p class=&quot;rt-subtitle&quot;&gt;同一个 Blob 只统计一次；长期业务用途优先于流程和运行快照。&lt;/p&gt;&lt;/div&gt;&lt;/div&gt;&lt;div class=&quot;rt-storage-bar&quot; aria-label=&quot;容量用途比例&quot;&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;i&gt;&lt;/i&gt;&lt;/div&gt;&lt;div class=&quot;rt-storage-categories&quot;&gt;
+          &lt;article class=&quot;rt-storage-category&quot;&gt;&lt;strong&gt;ROM 与游戏内容&lt;/strong&gt;&lt;small&gt;8.6 GiB · 126 个 Blob&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-category&quot;&gt;&lt;strong&gt;BIOS 与运行 bundle&lt;/strong&gt;&lt;small&gt;2.2 GiB · 38 个 Blob&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-category&quot;&gt;&lt;strong&gt;存档&lt;/strong&gt;&lt;small&gt;1.5 GiB · 94 个 Blob&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-category&quot;&gt;&lt;strong&gt;游戏媒体&lt;/strong&gt;&lt;small&gt;2.6 GiB · 81 个 Blob&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-category&quot;&gt;&lt;strong&gt;导入与审核工作区&lt;/strong&gt;&lt;small&gt;2.4 GiB · 70 个 Blob&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-category&quot;&gt;&lt;strong&gt;运行快照&lt;/strong&gt;&lt;small&gt;320 MiB · 11 个 Blob&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-category&quot;&gt;&lt;strong&gt;跨领域共享&lt;/strong&gt;&lt;small&gt;180 MiB · 9 个 Blob&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-category&quot;&gt;&lt;strong&gt;其他受保护数据&lt;/strong&gt;&lt;small&gt;0 B · 0 个 Blob&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-category&quot;&gt;&lt;strong&gt;未引用、等待回收&lt;/strong&gt;&lt;small&gt;1.3 GiB · 53 个 Blob&lt;/small&gt;&lt;/article&gt;
+        &lt;/div&gt;&lt;/section&gt;
+        &lt;div class=&quot;rt-storage-details&quot;&gt;&lt;article class=&quot;rt-storage-detail&quot;&gt;&lt;span&gt;存档引用视图&lt;/span&gt;&lt;strong&gt;67 份有效 · 4 份软删除&lt;/strong&gt;&lt;small&gt;状态文件 1.1 GiB · 截图文件 420 MiB；两个引用视图不与用途分类相加。&lt;/small&gt;&lt;/article&gt;&lt;article class=&quot;rt-storage-detail&quot;&gt;&lt;span&gt;清理候选视图&lt;/span&gt;&lt;strong&gt;31 个 Blob · 760 MiB&lt;/strong&gt;&lt;small&gt;候选登记不代表立即删除，本页不提供清理操作。&lt;/small&gt;&lt;/article&gt;&lt;/div&gt;
+        &lt;div class=&quot;rt-storage-scope&quot;&gt;&lt;strong&gt;仅计算已登记 CAS payload&lt;/strong&gt; · REGISTERED_CAS_PAYLOAD_V1&lt;br&gt;不包含 SQLite/WAL/SHM、上传分片、任务临时文件、依赖根、文件系统开销、未登记孤立文件和卷剩余空间。&lt;/div&gt;
+      &lt;/section&gt;
     &lt;/main&gt;
     &lt;nav class=&quot;rt-mobile-bottom-nav&quot; aria-label=&quot;移动主导航&quot;&gt;
       &lt;button type=&quot;button&quot; class=&quot;is-active&quot; data-mobile-page=&quot;home&quot; data-page-link=&quot;home&quot;&gt;&lt;i data-lucide=&quot;house&quot; aria-hidden=&quot;true&quot;&gt;&lt;/i&gt;&lt;span&gt;首页&lt;/span&gt;&lt;/button&gt;
@@ -3012,7 +3039,7 @@
       const pageNames = {
         home: '首页', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', netplay: '联机游玩', 'netplay-room': '联机房间', 'netplay-player': '联机 Player', account: '账户设置', detail: '游戏详情', play: '游玩',
         'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
-        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖'
+        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖', 'admin-storage': '容量分析'
       };
       const authPageNames = new Set(['setup', 'login', 'register', 'reset']);
       function selectReviewScene(scene) {

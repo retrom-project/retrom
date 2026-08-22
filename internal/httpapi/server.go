@@ -28,6 +28,7 @@ import (
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
 	"retrom/internal/serverimport"
+	"retrom/internal/storageanalysis"
 	"retrom/internal/tagging"
 	"retrom/internal/uploads"
 )
@@ -83,6 +84,7 @@ type Server struct {
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
 	platformDirectories     *platforminstance.Service
+	storageAnalysis         *storageanalysis.Service
 	now                     func() time.Time
 	sseHeartbeat            time.Duration
 	idempotency             sync.Mutex
@@ -107,6 +109,7 @@ func (server *Server) WithNetplay(service *netplay.Service) *Server {
 func (server *Server) WithReadinessDatabase(database *sql.DB) *Server {
 	if database != nil {
 		server.readinessDatabase = database
+		server.storageAnalysis = storageanalysis.New(database, server.now)
 	}
 	return server
 }
@@ -367,6 +370,7 @@ func (server *Server) registerAdminLibraryRoutes(mux *http.ServeMux) {
 		{"POST /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply", server.applyGameScrapeCandidate},
 		{"POST /api/v1/admin/games/{gameId}/move-preview", server.previewGameMove},
 		{"POST /api/v1/admin/games/{gameId}/move", server.moveGame},
+		{"GET /api/v1/admin/storage-analysis", server.adminStorageAnalysis},
 	}
 	for _, route := range routes {
 		mux.HandleFunc(route.pattern, route.handler)

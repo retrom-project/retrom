@@ -6,7 +6,6 @@ import (
 	"errors"
 	"fmt"
 	"os"
-	"strings"
 	"time"
 
 	"retrom/internal/blobregistry"
@@ -61,9 +60,9 @@ WHERE save_state_id=save_states.id)
 `, cutoff); err != nil {
 		return Result{}, fmt.Errorf("blobgc/service: %w", err)
 	}
-	protected, err := protectiveSet(ctx, service.database)
+	protected, err := blobregistry.ProtectiveSet(ctx, service.database)
 	if err != nil {
-		return Result{}, err
+		return Result{}, fmt.Errorf("blobgc/service: %w", err)
 	}
 	result := Result{Protected: len(protected)}
 	candidates, retained, err := collectCandidates(ctx, service.database, protected)
@@ -177,9 +176,9 @@ func (service *Service) deleteCandidate(ctx context.Context, blobID string) (boo
 		return false, fmt.Errorf("blobgc/service: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	protected, err := protectiveSet(ctx, transaction)
+	protected, err := blobregistry.ProtectiveSet(ctx, transaction)
 	if err != nil {
-		return false, err
+		return false, fmt.Errorf("blobgc/service: %w", err)
 	}
 	if _, keep := protected[blobID]; keep {
 		_, _ = transaction.ExecContext(ctx, `
@@ -223,84 +222,4 @@ WHERE id=?
 		return false, fmt.Errorf("commit deleted GC candidate: %w", err)
 	}
 	return true, nil
-}
-
-type queryer interface {
-	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
-}
-
-func protectiveSet(ctx context.Context, database queryer) (map[string]struct{}, error) {
-	edges, err := blobregistry.Load()
-	if err != nil {
-		return nil, fmt.Errorf("blobgc/service: %w", err)
-	}
-	protected := map[string]struct{}{}
-	for _, edge := range edges {
-		if edge.Class != "PROTECTIVE" {
-			continue
-		}
-		query := `
-SELECT DISTINCT
-` + quote(
-			edge.Column,
-		) + ` FROM ` + quote(
-			edge.Table,
-		) + ` WHERE ` + quote(
-			edge.Column,
-		) + ` IS NOT NULL`
-		if err := collectProtected(ctx, database, query, nil, protected); err != nil {
-			return nil, err
-		}
-	}
-	// A protected archive owns its already materialized members. Ownership is
-	// deliberately one-way: an unreferenced archive does not protect itself.
-	if len(protected) > 0 {
-		values := make([]any, 0, len(protected))
-		placeholders := make([]string, 0, len(protected))
-		for id := range protected {
-			values = append(values, id)
-			placeholders = append(placeholders, "?")
-		}
-		query := `
-SELECT DISTINCT materialized_blob_id
-FROM archive_entries
-WHERE archive_blob_id IN (
-` + strings.Join(
-			placeholders,
-			",",
-		) + `) AND materialized_blob_id IS NOT NULL`
-		if err := collectProtected(ctx, database, query, values, protected); err != nil {
-			return nil, err
-		}
-	}
-	return protected, nil
-}
-
-func collectProtected(
-	ctx context.Context,
-	database queryer,
-	query string,
-	values []any,
-	protected map[string]struct{},
-) error {
-	rows, err := database.QueryContext(ctx, query, values...)
-	if err != nil {
-		return fmt.Errorf("blobgc/service: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return fmt.Errorf("blobgc/service: %w", err)
-		}
-		protected[id] = struct{}{}
-	}
-	if err := rows.Err(); err != nil {
-		return fmt.Errorf("scan protected blob references: %w", err)
-	}
-	return nil
-}
-
-func quote(value string) string {
-	return `"` + strings.ReplaceAll(value, `"`, `""`) + `"`
 }

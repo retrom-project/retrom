@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.1 |
-| 日期 | 2026-08-10 |
+| 版本 | 1.2 |
+| 日期 | 2026-08-23 |
 | 适用范围 | Retrom 一期 |
 
 ## 1. 文档边界
@@ -313,6 +313,30 @@ data/
 - Discard、软删除或替换文件不立即删除 Blob。
 - 先进入默认 7 天回收保留期（配置只允许 1–30 天），之后在删除事务前后两次确认无引用才删除。
 - 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次计算保护集并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才无跟随删除物理文件；失败可幂等重试。删除任务记录 `scheduled_at_ms`、`deleted_at_ms` 或失败时间。
+
+### 7.1 已登记 CAS 容量分析
+
+容量分析的唯一口径为 `REGISTERED_CAS_PAYLOAD_V1`：只计算 `blobs` 表中已登记 payload 的 `size_bytes`，按 Blob ID 去重，不读取文件系统目录大小，也不把相同 size 误当成相同内容。统计在独立只读连接池上的一个 read-only transaction 中完成，并与 GC 共用 `blob reference registry` 计算出的保护集合及“受保护 archive 单向保护已物化 member”闭包；不得在容量模块复制第二套保护规则。所有加法在 Go 中使用受检 `int64`，溢出使整次读取失败；HTTP 以十进制字符串返回 byte 数，避免 JavaScript `Number` 精度损失。
+
+每个已登记 Blob 必须且只能进入下列固定顺序的一类，零值类也保留：
+
+| code | 展示名 | 归类依据 |
+| --- | --- | --- |
+| `GAME_CONTENT` | ROM 与游戏内容 | `game_content_files` 的内容/来源 archive，或 `variant_files` 的 `PARENT/DOS_LAUNCH_BUNDLE/MULTI_DISC_PLAYLIST`。 |
+| `BIOS` | BIOS 与运行 bundle | `bios_installations`，或 `variant_files.role=BIOS_BUNDLE`。 |
+| `SAVES` | 存档 | `save_states.state_blob_id/screenshot_blob_id`。 |
+| `MEDIA` | 游戏媒体 | `game_assets.blob_id`。 |
+| `WORKFLOW` | 导入与审核工作区 | Upload、Import、Pegasus、metadata/scrape 与 Review 的 protective 边。 |
+| `RUNTIME_SNAPSHOT` | 运行快照 | `launch_content_files/launch_external_files`。 |
+| `SHARED_DURABLE` | 跨领域共享 | 同一 Blob 同时被至少两个 `GAME_CONTENT/BIOS/SAVES/MEDIA` 长期领域引用。 |
+| `OTHER_REFERENCED` | 其他受保护数据 | 在 registry 保护集合中，但没有命中已登记用途语义；出现非零值时只记录 code/count/bytes 的低基数告警。 |
+| `UNREFERENCED` | 未引用、等待回收 | 已登记但不在当前 GC 保护集合；是否已进入 `blob_gc_candidates` 不改变此分类。 |
+
+一个长期用途即使还被 Workflow 或 Runtime 引用，仍归长期用途；多个长期用途才归 `SHARED_DURABLE`。受保护 archive 的用途向已物化 member 单向传播，并与 member 自身用途取并集；无业务根 archive 的 ownership 不能反向保护自身或 member。容量语义表必须覆盖 registry 的每条 `PROTECTIVE` 边且不能留下已删除边，覆盖不一致使测试失败。
+
+顶层恒等式固定为 `registeredBytes = protectedBytes + unreferencedBytes = sum(categories[].bytes)`，`blobCount = sum(categories[].blobCount)`。存档详情另给有效/软删除行数、去重后的状态文件引用量和截图引用量；GC 候选详情给候选 Blob 数与引用量。这些详情是可能相互重叠的引用视图，不与九类容量相加。
+
+明确不在本口径内的项目为 `DATABASE_FILES`、`UPLOAD_PARTS`、`JOB_SCRATCH`、`DEPENDENCY_ROOT`、`FILESYSTEM_OVERHEAD`、`UNREGISTERED_ORPHANS`、`VOLUME_FREE_SPACE`。因此该分析不能回答卷总量、剩余空间或完整磁盘占用，也不得提供清理动作。统一验证为 [`ACC-STOR-001`](./project-acceptance.md#acc-stor-001已登记-cas-容量分析)。
 
 ## 8. 备份与恢复
 

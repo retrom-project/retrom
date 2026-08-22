@@ -2220,6 +2220,22 @@
       #retrom-ui-review .rt-detail-save-body .rt-button { width: 100%; }
       #retrom-ui-review .rt-detail-save-card:first-child .rt-detail-save-body .rt-button { color: white; border-color: var(--retrom-purple); background: var(--retrom-purple); }
     }
+    #retrom-ui-review .rt-storage-summary { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px;margin-bottom:14px }
+    #retrom-ui-review .rt-storage-summary article,#retrom-ui-review .rt-storage-detail { padding:18px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel) }
+    #retrom-ui-review .rt-storage-summary span,#retrom-ui-review .rt-storage-detail span { display:block;color:var(--retrom-muted);font-size:11px }
+    #retrom-ui-review .rt-storage-summary strong { display:block;margin:5px 0;font-size:28px }
+    #retrom-ui-review .rt-storage-summary small,#retrom-ui-review .rt-storage-detail small { color:var(--retrom-muted) }
+    #retrom-ui-review .rt-storage-panel { padding:18px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel) }
+    #retrom-ui-review .rt-storage-bar { height:17px;display:flex;overflow:hidden;border-radius:999px;background:var(--retrom-panel-raised) }
+    #retrom-ui-review .rt-storage-bar i:nth-child(1){width:46%;background:var(--retrom-purple)}#retrom-ui-review .rt-storage-bar i:nth-child(2){width:12%;background:#287bb5}#retrom-ui-review .rt-storage-bar i:nth-child(3){width:8%;background:var(--retrom-cyan)}#retrom-ui-review .rt-storage-bar i:nth-child(4){width:14%;background:var(--retrom-green)}#retrom-ui-review .rt-storage-bar i:nth-child(5){width:13%;background:var(--retrom-amber)}#retrom-ui-review .rt-storage-bar i:nth-child(6){width:7%;background:#b9b4aa}
+    #retrom-ui-review .rt-storage-categories { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin-top:16px;overflow:hidden;border:1px solid var(--retrom-line);border-radius:10px;background:var(--retrom-line) }
+    #retrom-ui-review .rt-storage-category { min-height:90px;padding:14px;background:var(--retrom-panel) }
+    #retrom-ui-review .rt-storage-category strong,#retrom-ui-review .rt-storage-category small { display:block }#retrom-ui-review .rt-storage-category small{margin-top:5px;color:var(--retrom-muted)}
+    #retrom-ui-review .rt-storage-details { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin-top:14px }
+    #retrom-ui-review .rt-storage-detail strong { display:block;margin:5px 0;font-size:20px }
+    #retrom-ui-review .rt-storage-scope { margin-top:14px;padding:16px;border:1px solid var(--retrom-line);border-radius:13px;background:var(--retrom-panel-raised);color:var(--retrom-muted);font-size:11px }
+    #retrom-ui-review .rt-storage-scope strong { color:var(--retrom-text) }
+    @media(max-width:760px){#retrom-ui-review .rt-storage-summary,#retrom-ui-review .rt-storage-categories,#retrom-ui-review .rt-storage-details{grid-template-columns:1fr}}
   </style>
 
   <details class="rt-review-scenes" open>
@@ -2347,6 +2363,7 @@
           <button type="button" class="rt-nav-button" data-page-target="admin-platform-instances"><i data-lucide="folders" aria-hidden="true"></i><span>游戏目录</span></button>
           <button type="button" class="rt-nav-button" data-page-target="admin-users"><i data-lucide="users" aria-hidden="true"></i><span>用户管理</span></button>
           <button type="button" class="rt-nav-button" data-page-target="admin-bios"><i data-lucide="microchip" aria-hidden="true"></i><span>运行依赖</span></button>
+          <button type="button" class="rt-nav-button" data-page-target="admin-storage"><i data-lucide="hard-drive" aria-hidden="true"></i><span>容量分析</span></button>
         </div>
       </nav>
 
@@ -2916,6 +2933,16 @@
           <div class="rt-runtime-section-head"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>9 项</span></div>
           <div class="rt-runtime-list"><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><button type="button" class="rt-runtime-entry-button" data-open-bios-entries>stvbios.zip</button><small>必需 · 点击文件名核对 ZIP 内容</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>mame2003_plus</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>DAT 条目级校验已通过</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>BIOS</i><div><strong>gb_bios.bin</strong><small>可选 · 按游戏内容决定是否需要</small></div></div><div class="rt-runtime-cell"><strong>Gambatte</strong><small>gambatte</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>未安装可选项不会作为必需依赖阻断</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div></div>
       </section>
+      <section class="rt-page" data-page="admin-storage">
+        <div class="rt-page-head"><div><div class="rt-eyebrow">系统存储</div><h1>容量分析</h1><p class="rt-subtitle">查看 Retrom 已登记 CAS 数据的业务用途，定位长期数据、流程数据与等待回收内容。</p></div><button type="button" class="rt-button">刷新分析</button></div>
+        <p class="rt-subtitle" style="text-align:right">统计生成于 2026/8/23 01:20:00</p>
+        <div class="rt-storage-summary"><article><span>已登记 CAS</span><strong>18.6 GiB</strong><small>482 个 Blob</small></article><article><span>受保护数据</span><strong>17.3 GiB</strong><small>93.0% 已被引用</small></article><article><span>等待回收</span><strong>1.3 GiB</strong><small>7.0% 当前未引用</small></article></div>
+        <section class="rt-storage-panel"><div class="rt-panel-heading"><div><h2>按用途分析</h2><p class="rt-subtitle">同一个 Blob 只统计一次；长期业务用途优先于流程和运行快照。</p></div></div><div class="rt-storage-bar" aria-label="容量用途比例"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="rt-storage-categories">
+          <article class="rt-storage-category"><strong>ROM 与游戏内容</strong><small>8.6 GiB · 126 个 Blob</small></article><article class="rt-storage-category"><strong>BIOS 与运行 bundle</strong><small>2.2 GiB · 38 个 Blob</small></article><article class="rt-storage-category"><strong>存档</strong><small>1.5 GiB · 94 个 Blob</small></article><article class="rt-storage-category"><strong>游戏媒体</strong><small>2.6 GiB · 81 个 Blob</small></article><article class="rt-storage-category"><strong>导入与审核工作区</strong><small>2.4 GiB · 70 个 Blob</small></article><article class="rt-storage-category"><strong>运行快照</strong><small>320 MiB · 11 个 Blob</small></article><article class="rt-storage-category"><strong>跨领域共享</strong><small>180 MiB · 9 个 Blob</small></article><article class="rt-storage-category"><strong>其他受保护数据</strong><small>0 B · 0 个 Blob</small></article><article class="rt-storage-category"><strong>未引用、等待回收</strong><small>1.3 GiB · 53 个 Blob</small></article>
+        </div></section>
+        <div class="rt-storage-details"><article class="rt-storage-detail"><span>存档引用视图</span><strong>67 份有效 · 4 份软删除</strong><small>状态文件 1.1 GiB · 截图文件 420 MiB；两个引用视图不与用途分类相加。</small></article><article class="rt-storage-detail"><span>清理候选视图</span><strong>31 个 Blob · 760 MiB</strong><small>候选登记不代表立即删除，本页不提供清理操作。</small></article></div>
+        <div class="rt-storage-scope"><strong>仅计算已登记 CAS payload</strong> · REGISTERED_CAS_PAYLOAD_V1<br>不包含 SQLite/WAL/SHM、上传分片、任务临时文件、依赖根、文件系统开销、未登记孤立文件和卷剩余空间。</div>
+      </section>
     </main>
     <nav class="rt-mobile-bottom-nav" aria-label="移动主导航">
       <button type="button" class="is-active" data-mobile-page="home" data-page-link="home"><i data-lucide="house" aria-hidden="true"></i><span>首页</span></button>
@@ -2989,7 +3016,7 @@
       const pageNames = {
         home: '首页', library: '游戏库', saves: '我的存档', favorites: '我的收藏', recent: '最近游玩', netplay: '联机游玩', 'netplay-room': '联机房间', 'netplay-player': '联机 Player', account: '账户设置', detail: '游戏详情', play: '游玩',
         'admin-import': '游戏入库', 'admin-import-new': '导入游戏', 'admin-import-tasks': '任务进度',
-        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖'
+        'admin-review': '待审核', 'admin-review-history': '审核历史', 'admin-games': '游戏管理', 'admin-game-detail': '游戏管理详情', 'admin-tags': '标签管理', 'admin-platform-instances': '游戏目录', 'admin-users': '用户管理', 'admin-bios': '运行依赖', 'admin-storage': '容量分析'
       };
       const authPageNames = new Set(['setup', 'login', 'register', 'reset']);
       function selectReviewScene(scene) {

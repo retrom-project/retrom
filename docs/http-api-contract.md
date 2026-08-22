@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.4 |
-| 日期 | 2026-08-22 |
+| 版本 | 1.5 |
+| 日期 | 2026-08-23 |
 | 适用范围 | `/api/v1`、`/content`、`/runtime`、SSE 与同源安全 |
 
 ## 1. 协议基线
@@ -45,6 +45,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 | `/admin/invitations`、`/admin/users/{userId}/password-reset-links` | `state=ACTIVE|CONSUMED|REVOKED|EXPIRED|ALL`、`cursor/limit`；默认 ACTIVE |
 | `/admin/bios` | `platformId`、`coreId`、`coreArtifactId`、`scope=REQUIRED_BY_LIBRARY|FULL_CATALOG`、`status`、`cursor/limit` |
 | `/admin/bios/{requirementId}/entries` | 无 query；只读当前 active `DAT_MACHINE` installation 的持久化归档条目对比 |
+| `/admin/storage-analysis` | 无 query；只读已登记 CAS payload 容量快照 |
 
 `platformInstanceId` 与 `platformId` 同时出现时必须验证目录属于该平台；`fromAtMs <= toAtMs`。`q` 使用数据模型定义的 `strings.ToLower + unicode.IsSpace` 折叠算法并以 SQLite `instr(search_text, :q)` 匹配；不使用仅 ASCII 的 `NOCASE`，也不把用户输入当 LIKE pattern。排序和 cursor 均以数据库值加 ID 完成，不能先分页再在 Go 内存二次筛选。
 
@@ -490,6 +491,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |
 | `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 新建 installation revision。替换只切换 active；一期没有删除 Installation API，旧安装与审计证据按 GC 引用规则保留。 |
 | `GET /api/v1/admin/diagnostics` | 下载不含内容标识与路径的封闭 JSON 诊断摘要；只读、无需 Idempotency-Key，但仍受全局 readiness 门禁。 |
+| `GET /api/v1/admin/storage-analysis` | ADMIN-only、`private, no-store` 的已登记 CAS payload 容量快照；无 query，不返回 Blob ID、hash、文件名、路径或 capability。 |
 
 `GET /api/v1/games/{gameId}` 顶层返回非空 `currentContentRevisionId` 和全部未删除存档总数 `saveStateCount`，并在 `saveStates[]` 保留该游戏最近 8 份未删除手动存档的 `saveStateId/name/createdAtMs/core{id,name}` 轻量投影。详情页的一屏最近 3 份与全量 Drawer 统一通过 `GET /api/v1/saves?gameId=<id>&availability=ALL` 分页取全，避免把 8 份投影误当成全量。其 `coreOptions` 必须覆盖该基础平台全部 enabled Core，稳定按平台配置顺序返回：`coreId`、`name`、`isDefault`、`status=READY|NEEDS_VALIDATION|DEPENDENCY_MISSING|INCOMPATIBLE`、`revalidationStatus=NOT_REQUIRED|PENDING|FAILED`、可空 `currentVariantRevisionId/coreArtifactId/datVersionId/revalidationJobId`、`requiresThreads`、结构化 `reasons[]`。DEPENDENCY_MISSING 覆盖 BIOS/parent/base 的可修复缺失，具体标签由 reason code 决定，不得把 parent 缺失误称为 BIOS。主 status 以是否存在直接引用当前 ContentRevision 的 READY 结果及其锁定快照是否仍可部署计算；旧内容或相同 bytes 的另一 ContentRevision 曾验证成功不能冒充当前 READY，但活动 DAT 更新也不能让当前内容的旧锁定快照突然不可运行。`POST /api/v1/launches` 收到显式/默认 core 时按游戏目录第 5.1 节执行同一 `EnsureVariant`，必要时先返回同一 `VARIANT_REVALIDATE` Job；前端预热不是正确性前提，也没有第二个启动 endpoint。
 
@@ -515,6 +517,34 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 ```
 
 响应固定为 `application/json; charset=utf-8`、`Cache-Control: private, no-store`、`Content-Disposition: attachment; filename="retrom-diagnostics.json"` 与 `X-Content-Type-Options: nosniff`。不得增加自由文本日志、资源 ID、游戏/文件名、Blob/DAT/core hash、上传/provider 原文、环境变量值、cookie/capability/key、内部地址或宿主路径；需要新增诊断字段时先升级 schemaVersion、OpenAPI 和 `ACC-OPS-001`，不能把任意 map 当作后门。
+
+容量分析成功响应是同一只读事务生成的封闭对象：
+
+```json
+{
+  "scope": "REGISTERED_CAS_PAYLOAD_V1",
+  "generatedAtMs": 1787448000000,
+  "totals": {"registeredBytes": "0", "protectedBytes": "0", "unreferencedBytes": "0", "blobCount": 0},
+  "categories": [
+    {"code": "GAME_CONTENT", "bytes": "0", "blobCount": 0},
+    {"code": "BIOS", "bytes": "0", "blobCount": 0},
+    {"code": "SAVES", "bytes": "0", "blobCount": 0},
+    {"code": "MEDIA", "bytes": "0", "blobCount": 0},
+    {"code": "WORKFLOW", "bytes": "0", "blobCount": 0},
+    {"code": "RUNTIME_SNAPSHOT", "bytes": "0", "blobCount": 0},
+    {"code": "SHARED_DURABLE", "bytes": "0", "blobCount": 0},
+    {"code": "OTHER_REFERENCED", "bytes": "0", "blobCount": 0},
+    {"code": "UNREFERENCED", "bytes": "0", "blobCount": 0}
+  ],
+  "details": {
+    "saveStates": {"activeCount": 0, "deletedCount": 0, "stateReferenceBytes": "0", "screenshotReferenceBytes": "0"},
+    "cleanupCandidates": {"blobCount": 0, "bytes": "0"}
+  },
+  "excluded": ["DATABASE_FILES", "UPLOAD_PARTS", "JOB_SCRATCH", "DEPENDENCY_ROOT", "FILESYSTEM_OVERHEAD", "UNREGISTERED_ORPHANS", "VOLUME_FREE_SPACE"]
+}
+```
+
+Byte 数只能是无符号十进制字符串；count 和 `generatedAtMs` 为非负 int64。`categories` 恰含上述九类和顺序，零值不省略；顶层与分类恒等式、归类优先级和排除边界由[存储专题第 7.1 节](./storage-and-database.md#71-已登记-cas-容量分析)定义。该接口不设置下载 header，不提供 query、cursor、清理 action 或任何资源标识；失败返回通用错误 envelope，不返回半个快照。统一验证为 `ACC-STOR-001`。
 
 ## 10. 收藏与收藏夹 API
 

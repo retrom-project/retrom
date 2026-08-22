@@ -2083,6 +2083,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/storage-analysis": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns one read-only snapshot of registered CAS payload usage. Byte quantities are decimal strings. */
+        get: operations["getAdminStorageAnalysis"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/content/assets/{assetId}": {
         parameters: {
             query?: never;
@@ -2386,6 +2403,47 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        StorageAnalysis: {
+            /** @enum {string} */
+            scope: "REGISTERED_CAS_PAYLOAD_V1";
+            /** Format: int64 */
+            generatedAtMs: number;
+            totals: components["schemas"]["StorageAnalysisTotals"];
+            categories: components["schemas"]["StorageAnalysisCategory"][];
+            details: components["schemas"]["StorageAnalysisDetails"];
+            excluded: ("DATABASE_FILES" | "UPLOAD_PARTS" | "JOB_SCRATCH" | "DEPENDENCY_ROOT" | "FILESYSTEM_OVERHEAD" | "UNREGISTERED_ORPHANS" | "VOLUME_FREE_SPACE")[];
+        };
+        StorageAnalysisTotals: {
+            registeredBytes: string;
+            protectedBytes: string;
+            unreferencedBytes: string;
+            /** Format: int64 */
+            blobCount: number;
+        };
+        StorageAnalysisCategory: {
+            /** @enum {string} */
+            code: "GAME_CONTENT" | "BIOS" | "SAVES" | "MEDIA" | "WORKFLOW" | "RUNTIME_SNAPSHOT" | "SHARED_DURABLE" | "OTHER_REFERENCED" | "UNREFERENCED";
+            bytes: string;
+            /** Format: int64 */
+            blobCount: number;
+        };
+        StorageAnalysisDetails: {
+            saveStates: components["schemas"]["StorageAnalysisSaveStates"];
+            cleanupCandidates: components["schemas"]["StorageAnalysisCleanupCandidates"];
+        };
+        StorageAnalysisSaveStates: {
+            /** Format: int64 */
+            activeCount: number;
+            /** Format: int64 */
+            deletedCount: number;
+            stateReferenceBytes: string;
+            screenshotReferenceBytes: string;
+        };
+        StorageAnalysisCleanupCandidates: {
+            /** Format: int64 */
+            blobCount: number;
+            bytes: string;
+        };
         ImportOverviewSummary: {
             /**
              * Format: int64
@@ -4208,6 +4266,15 @@ export interface components {
         };
     };
     responses: {
+        /** @description Registered CAS payload capacity snapshot */
+        StorageAnalysisResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["StorageAnalysis"];
+            };
+        };
         /** @description Recommended platform/core directory catalog and current coverage */
         PlatformInstanceRecommendationsResponse: {
             headers: {
@@ -7389,6 +7456,18 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminStorageAnalysis: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["StorageAnalysisResponse"];
         };
     };
     getContentAsset: {
