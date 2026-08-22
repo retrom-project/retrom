@@ -70,6 +70,41 @@ test("library exposes its filters and empty state", async ({ page }) => {
   await expect(page.getByRole("combobox", { name: "排列顺序" })).toBeVisible();
 });
 
+test("directory import uses an application dialog before requesting local access", async ({ page }) => {
+  await page.goto("/admin/imports/new");
+  await page.evaluate(() => {
+    Object.defineProperty(window, "showDirectoryPicker", {
+      configurable: true,
+      value: async () => ({
+        kind: "directory",
+        name: "snes",
+        async *entries() {
+          yield ["game.sfc", { kind: "file", name: "game.sfc", getFile: async () => new File(["rom"], "game.sfc") }];
+        },
+      }),
+    });
+  });
+  const trigger = page.getByRole("button", { name: "选择目录" });
+  await trigger.click();
+
+  const dialog = page.getByRole("dialog", { name: "选择游戏目录" });
+  await expect(dialog).toBeVisible();
+  await dialog.getByRole("button", { name: "浏览本机目录" }).click();
+  await expect(dialog.getByRole("heading", { name: "snes" })).toBeVisible();
+  await expect(dialog.getByText("snes/game.sfc", { exact: true })).toBeVisible();
+  await expect(page.getByLabel("选择导入目录")).toHaveAttribute("webkitdirectory", "");
+  await expect(dialog.getByRole("button", { name: "使用此目录" })).toBeEnabled();
+  await dialog.getByRole("button", { name: "使用此目录" }).click();
+  await expect(dialog).toBeHidden();
+
+  await trigger.click();
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "使用此目录" })).toBeDisabled();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+  await expect(trigger).toBeFocused();
+});
+
 test("protected cover images bypass the unauthenticated Next.js optimizer", async ({ page }) => {
   const response = await page.request.get("/api/v1/games?limit=100");
   const payload = await response.json() as { items: Array<{ title: string; coverUrl: string | null }> };

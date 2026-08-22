@@ -708,6 +708,14 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/CreateTag' }
       responses:
         '201': { $ref: '#/components/responses/TagAdminItemResponse' }
+  /api/v1/admin/tags/defaults:
+    post:
+      operationId: postAdminTagDefaults
+      description: Atomically creates every missing tag from the editable common-tag template and leaves existing active tags unchanged.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '200': { $ref: '#/components/responses/CommonTagsApplyResponse' }
   /api/v1/admin/tags/{tagId}:
     parameters: [{ $ref: '#/components/parameters/TagID' }]
     get:
@@ -1505,6 +1513,13 @@ components:
         summary: { $ref: '#/components/schemas/TagSummary' }
         items: { type: array, maxItems: 100, items: { $ref: '#/components/schemas/TagAdminItem' } }
         nextCursor: { type: string, maxLength: 8192, nullable: true }
+    CommonTagsApplyResult:
+      type: object
+      additionalProperties: false
+      required: [createdItems, existingItems]
+      properties:
+        createdItems: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/TagAdminItem' } }
+        existingItems: { type: array, maxItems: 10, items: { $ref: '#/components/schemas/TagAdminItem' } }
     CreateTagRequest:
       type: object
       additionalProperties: false
@@ -3441,6 +3456,9 @@ components:
     TagListResponse:
       description: Cursor-paged tag management list and instance-wide summary
       content: { application/json: { schema: { $ref: '#/components/schemas/TagList' } } }
+    CommonTagsApplyResponse:
+      description: Atomic common-tag ensure result, separated into newly created and already-active items
+      content: { application/json: { schema: { $ref: '#/components/schemas/CommonTagsApplyResult' } } }
     GameTagsResponse:
       description: Current active tag set for one managed game
       headers: { ETag: { schema: { type: string } } }

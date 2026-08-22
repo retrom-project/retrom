@@ -1374,6 +1374,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/tags/defaults": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Atomically creates every missing tag from the editable common-tag template and leaves existing active tags unchanged. */
+        post: operations["postAdminTagDefaults"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/tags/{tagId}": {
         parameters: {
             query?: never;
@@ -2536,6 +2553,10 @@ export interface components {
             summary: components["schemas"]["TagSummary"];
             items: components["schemas"]["TagAdminItem"][];
             nextCursor: string | null;
+        };
+        CommonTagsApplyResult: {
+            createdItems: components["schemas"]["TagAdminItem"][];
+            existingItems: components["schemas"]["TagAdminItem"][];
         };
         CreateTagRequest: {
             name: string;
@@ -4231,6 +4252,15 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["TagList"];
+            };
+        };
+        /** @description Atomic common-tag ensure result, separated into newly created and already-active items */
+        CommonTagsApplyResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["CommonTagsApplyResult"];
             };
         };
         /** @description Current active tag set for one managed game */
@@ -6495,6 +6525,20 @@ export interface operations {
         requestBody: components["requestBodies"]["CreateTag"];
         responses: {
             201: components["responses"]["TagAdminItemResponse"];
+        };
+    };
+    postAdminTagDefaults: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            200: components["responses"]["CommonTagsApplyResponse"];
         };
     };
     getAdminTag: {

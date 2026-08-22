@@ -12,6 +12,15 @@ type UploadSession = {
   files: Array<{ fileId: string; clientFileId: string }>;
 };
 
+export type UploadFileInput = File | { file: File; relativePath: string };
+
+function normalizeUploadFile(input: UploadFileInput) {
+  if (input instanceof File) {
+    return { file: input, relativePath: input.webkitRelativePath || input.name };
+  }
+  return input;
+}
+
 export async function responseError(response: Response, fallback: string) {
   try {
     const body = await response.json() as { error?: { code?: string; message?: string } };
@@ -74,20 +83,21 @@ export async function waitForJobEvents(jobId: string, onProgress?: (eventType: s
   });
 }
 
-export async function uploadFiles(files: File[], onProgress?: (message: string) => void): Promise<{ uploadId: string; uploadFileIds: string[] }> {
-  if (files.length === 0) {throw new Error("至少选择一个文件");}
+export async function uploadFiles(inputs: UploadFileInput[], onProgress?: (message: string) => void): Promise<{ uploadId: string; uploadFileIds: string[] }> {
+  if (inputs.length === 0) {throw new Error("至少选择一个文件");}
+  const files = inputs.map(normalizeUploadFile);
   onProgress?.("正在创建安全上传会话…");
   const create = await fetch("/api/v1/admin/uploads", {
     method: "POST",
     credentials: "same-origin",
     headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
-    body: JSON.stringify({ sourceType: files.some((file) => file.webkitRelativePath) ? "DIRECTORY" : "FILES", files: files.map((file, index) => ({ clientFileId: `file-${index}`, relativePath: file.webkitRelativePath || file.name, sizeBytes: file.size })) })
+    body: JSON.stringify({ sourceType: files.some((entry) => entry.relativePath !== entry.file.name) ? "DIRECTORY" : "FILES", files: files.map((entry, index) => ({ clientFileId: `file-${index}`, relativePath: entry.relativePath, sizeBytes: entry.file.size })) })
   });
   if (!create.ok) {throw new Error(await responseError(create, "无法创建上传会话"));}
   const session = await create.json() as UploadSession;
   const remoteIDs: string[] = [];
   for (let fileIndex = 0; fileIndex < files.length; fileIndex += 1) {
-    const file = files[fileIndex];
+    const file = files[fileIndex].file;
     const remote = session.files.find((entry) => entry.clientFileId === `file-${fileIndex}`);
     if (!remote) {throw new Error("服务器没有返回上传文件映射");}
     remoteIDs.push(remote.fileId);

@@ -30,6 +30,7 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .tag-manager-toolbar label { min-width: 150px; display: grid; gap: 5px; }
 .tag-manager-toolbar label:first-child { flex: 1; max-width: 380px; }
 .tag-manager-toolbar label span, .tag-name-field > span, .tag-delete-impact label span { color: var(--muted); font-size: 11px; font-weight: 800; }
+.tag-manager-actions { display: flex; align-items: center; gap: 8px; }
 .tag-table-wrap { overflow-x: auto; border: 1px solid var(--line); border-radius: 14px; background: white; }
 .tag-table { width: 100%; min-width: 980px; border-collapse: collapse; }
 .tag-table th, .tag-table td { height: 58px; padding: 10px 14px; border-bottom: 1px solid #eceef2; color: var(--muted); font-size: 12px; text-align: left; }
@@ -65,6 +66,7 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
   .tag-kpis { grid-template-columns: 1fr; }
   .tag-manager-toolbar, .tag-manager-toolbar form { align-items: stretch; flex-direction: column; }
   .tag-manager-toolbar label, .tag-manager-toolbar label:first-child { width: 100%; max-width: none; }
+  .tag-manager-actions { display: grid; grid-template-columns: 1fr 1fr; }
   .tag-table { min-width: 0; }
   .tag-table thead { display: none; }
   .tag-table tbody { padding: 10px; display: grid; gap: 10px; }

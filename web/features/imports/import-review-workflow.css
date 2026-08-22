@@ -42,6 +42,13 @@
 .import-wizard-stage { display: grid; gap: 16px; }
 .import-dropzone { min-height: 310px; border-color: #bdb2ef; background: radial-gradient(circle at 50% 0, #f2efff, transparent 42%), #fbfaff; }
 .import-dropzone > div { padding: 32px; }
+.import-directory-dialog-drop { min-height: 210px; padding: 24px; display: grid; place-items: center; align-content: center; gap: 8px; border: 1px dashed #bdb2ef; border-radius: 12px; background: #fbfaff; text-align: center; }
+.import-directory-dialog-drop.has-selection { place-items: stretch; text-align: left; }
+.import-directory-dialog-drop h3 { margin: 4px 0 0; font-size: 18px; }
+.import-directory-dialog-drop p { margin: 0; color: var(--muted); font-size: 12px; line-height: 1.55; }
+.import-directory-dialog-drop ul { max-height: 128px; margin: 8px 0 0; padding: 8px 10px; overflow: auto; display: grid; gap: 5px; border: 1px solid var(--line); border-radius: 9px; background: white; list-style: none; }
+.import-directory-dialog-drop li { overflow: hidden; color: var(--ink); font-size: 11px; text-overflow: ellipsis; white-space: nowrap; }
+.import-directory-dialog-drop small { color: var(--muted); font-size: 11px; }
 .import-selected-summary { min-height: 104px; padding: 17px 20px; display: flex; align-items: center; justify-content: space-between; gap: 20px; border: 1px solid #d9d3c8; border-radius: 14px; background: white; }
 .import-selected-summary h3 { margin: 8px 0 2px; font-size: 16px; }
 .import-selected-summary p { margin: 0; color: var(--muted); font-size: 12px; }
@@ -183,7 +190,7 @@
 .import-workflow-footer button { padding: 5px 9px; color: var(--purple-dark); border: 1px solid var(--line); border-radius: 8px; background: white; cursor: pointer; }
 
 .review-workflow-row, .review-history-list > article { min-width: 1120px; min-height: 82px; padding: 12px 15px; display: grid; align-items: center; gap: 16px; border: 1px solid var(--line); border-radius: 12px; background: white; }
-.review-workflow-row { grid-template-columns: minmax(280px, 1.45fr) minmax(150px, .65fr) auto minmax(140px, .65fr) minmax(120px, .55fr) auto; }
+.review-workflow-row { grid-template-columns: minmax(280px, 1.45fr) minmax(150px, .65fr) minmax(170px, .3fr) minmax(140px, .65fr) minmax(120px, .55fr) 96px; }
 .review-workflow-game { min-width: 0; display: flex; align-items: center; gap: 12px; }
 .review-workflow-thumb { position: relative; overflow: hidden; width: 56px; height: 56px; flex: 0 0 56px; display: grid; place-items: center; color: var(--purple-dark); border-radius: 10px; background: var(--purple-soft); font-size: 12px; font-weight: 850; }
 .review-workflow-thumb img { width: 100%; height: 100%; object-fit: cover; }

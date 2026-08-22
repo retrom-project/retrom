@@ -480,8 +480,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-GAME-001`。
-- 流程：在游戏管理按关键字、基础平台和游戏目录找到固定游戏；检查发布信息/媒体/内容与运行版本/管理操作四区；在未修改时检查保存按钮，记录当前 version，编辑标题、简介、年份与类型并保存，再次检查按钮和版本；替换固定 PNG；针对 current ContentRevision 触发 Hasheous stub 重新刮削，先不采用候选，再选择部分字段和 READY media 应用；构造一个旧 ContentRevision run 做负向 apply，最后用旧 ETag 提交一次并发编辑。
-- 通过标准：搜索/筛选结果正确；没有字段变化和保存成功后“保存新版本”都禁用，不会创建空修订；每次确认修改创建可追溯 MetadataRevision/Asset，ADMIN_EDIT revision 的 source ref 为 NULL 且同事务 AuditEvent 指向新 revision，RESCRAPE_APPLY ref 精确指向被采用 Candidate；游戏库、详情和管理页读取同一当前值。运行区分开显示当前/历史 ContentRevision、各 Core VariantRevision、CoreArtifact/DAT，而不暴露宿主路径/Blob 编辑；显式重新刮削绕过旧 cache，创建独立 MetadataScrapeRun/QueryAttempt/Candidate/Asset 且不自动覆盖，旧 content run 不能 apply；采用范围与字段 diff 一致；旧 ETag 写入以 409 拒绝；Game ID、current content 和游戏目录不变。
+- 流程：在游戏管理按关键字、基础平台和游戏目录找到固定游戏，并检查桌面筛选栏顺序与对齐；检查发布信息/媒体/内容与运行版本/管理操作四区；在未修改时检查保存按钮，记录当前 version，编辑标题、简介、年份与类型并保存，再次检查按钮和版本；替换固定 PNG；针对 current ContentRevision 触发 Hasheous stub 重新刮削，先不采用候选，再选择部分字段和 READY media 应用；构造一个旧 ContentRevision run 做负向 apply，最后用旧 ETag 提交一次并发编辑。
+- 通过标准：搜索/筛选结果正确，桌面端“排序”紧跟“运行状态”且位于同一行；没有字段变化和保存成功后“保存新版本”都禁用，不会创建空修订；每次确认修改创建可追溯 MetadataRevision/Asset，ADMIN_EDIT revision 的 source ref 为 NULL 且同事务 AuditEvent 指向新 revision，RESCRAPE_APPLY ref 精确指向被采用 Candidate；游戏库、详情和管理页读取同一当前值。运行区分开显示当前/历史 ContentRevision、各 Core VariantRevision、CoreArtifact/DAT，而不暴露宿主路径/Blob 编辑；显式重新刮削绕过旧 cache，创建独立 MetadataScrapeRun/QueryAttempt/Candidate/Asset 且不自动覆盖，旧 content run 不能 apply；采用范围与字段 diff 一致；旧 ETag 写入以 409 拒绝；Game ID、current content 和游戏目录不变。
 - 证据：查询参数、修改前后 API、revision/diff、Blob SHA-256、冲突响应及三处当前 UI 截图。
 
 ### ACC-GAME-002：重新上传与不可变文件 revision
@@ -514,8 +514,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-IMP-002`。
-- 流程：先将 `gba-smoke.zip` 上传到 Arcade 目录，令它完成安全扫描但以 `ARCADE_MACHINE_NOT_FOUND` 拒绝；再以新 UploadSession 把相同 bytes 导入 GBA 目录，验证复用同一 Archive Blob/Entry 并将 Unicode `.gba` member 一次性物化。另导入固定 DOS 目录到审核；检查两份 READY ImportItemCoreValidation，再分别 approve 并读取发布实体。
-- 通过标准：第一批次不物化无需的 member；第二批次不重复 ArchiveEntry，`materialized_blob_id` 只从 NULL 提升一次，物化 Blob 的 size/四种 hash 等于 entry/fixtures manifest，尝试改回 NULL、替换 Blob 或修改 entry hash 均被数据库拒绝。审核前 DOS 目录形成可追溯 source manifest/程序候选和确定性 ValidationFile，GBA 原 ZIP Blob/ArchiveEntry 保留，且没有提前创建 GameContentRevision。Approve 后 ContentRevision 的 DOS_SOURCE/CONTENT 与来源 pair 正确，VariantRevision 直接引用 ContentRevision并复制已验证派生文件；浏览器启动不临时猜 ZIP 入口，审批事务不读 archive/重新打包。
+- 流程：先用“选择目录”打开应用内 Dialog，覆盖目录句柄浏览、递归相对路径、摘要确认、系统选择取消、Dialog 取消/Escape、焦点恢复，以及目录句柄 API 不可用时的 `webkitdirectory` 回退；再将 `gba-smoke.zip` 上传到 Arcade 目录，令它完成安全扫描但以 `ARCADE_MACHINE_NOT_FOUND` 拒绝；以新 UploadSession 把相同 bytes 导入 GBA 目录，验证复用同一 Archive Blob/Entry 并将 Unicode `.gba` member 一次性物化。另导入固定 DOS 目录到审核；检查两份 READY ImportItemCoreValidation，再分别 approve 并读取发布实体。
+- 通过标准：本地目录的产品确认只在 Retrom Dialog 内完成，Chrome / Edge 的目录句柄路径不触发“上传 N 个文件到此网站”的浏览器二次确认；Brave 未开放该 API 时自动回退 `webkitdirectory` 并允许其原生安全确认。两条路径中未确认文件都不进入配置步骤，Dialog 都保留以根目录开头的相对路径并满足焦点圈定与返回焦点；第一批次不物化无需的 member；第二批次不重复 ArchiveEntry，`materialized_blob_id` 只从 NULL 提升一次，物化 Blob 的 size/四种 hash 等于 entry/fixtures manifest，尝试改回 NULL、替换 Blob 或修改 entry hash 均被数据库拒绝。审核前 DOS 目录形成可追溯 source manifest/程序候选和确定性 ValidationFile，GBA 原 ZIP Blob/ArchiveEntry 保留，且没有提前创建 GameContentRevision。Approve 后 ContentRevision 的 DOS_SOURCE/CONTENT 与来源 pair 正确，VariantRevision 直接引用 ContentRevision并复制已验证派生文件；浏览器启动不临时猜 ZIP 入口，审批事务不读 archive/重新打包。
 - 证据：审核前 Item/Validation/ValidationFile，发布后的 GameContentRevision 文件表、来源 archive/entry 与物化 Blob hash、实际 VariantRevision 对 ContentRevision 的引用。
 
 ### ACC-IMP-003：三种 Hash profile 不混用
@@ -902,8 +902,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-008`。
-- 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，加载第二页后选择第 57 项，点击一次“重新运行检查”并记录 popup 与 Preview 请求，再修改标题并等待实时保存，切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；Approve 第 3 项后再次直达它的旧详情 URL，再 Discard 第 58 项。分别在 1280×800 和补充的 3840×2160 CSS ultra-wide viewport 执行，并用键盘完成一次筛选和非顺序选中；该 ultra-wide 截图不得标记成物理 4K 150% 证据。
-- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，cursor 分页无重复/漏项。同一次停留在底部预加载区只请求一页且没有并发重复请求，哨兵离开并再次进入后才自动取下一页，手动“继续加载”仍可用。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；简介标签与文本域间距不超过 8px，剩余栏高扩展文本域而不是标签空白；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。审核决定中的“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”按两行两列显示，四个按钮计算宽度与高度一致，Tab 顺序同视觉顺序；“重新运行检查”刷新 Validation 与发布状态但不产生 popup 或 `/previews` 请求，“运行游戏”仍是唯一创建审核 Preview 的入口；页首截图槽显示当前 READY 或阻断 Validation 的第 5 秒截图，阻断截图出现后发布按钮解除置灰，且占位/图片切换不改变外层摘要卡片高度。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。已处理条目的旧详情 URL 返回原筛选队列、提示条目已处理或不再可用、清除对应浏览器队列快照且不显示通用故障页。普通逐项 Approve/Discard 各自使用当前 ETag/Idempotency-Key/ReviewEvent；快速审批另按 `ACC-UI-010` 的冻结 aggregate 执行，两个范围不会串项。
+- 流程：创建两个 ImportJob，其中一个含 60 个 REVIEW_PENDING Item、另一个含 3 个；从任务页进入前者的待审核，以长短不同的 Validation/Blocker 文案检查目录和信息来源列对齐，加载第二页后选择第 57 项，点击一次“重新运行检查”并记录 popup 与 Preview 请求，再修改标题并等待实时保存，切换到第 3 项并返回。修改第 3 项草稿并等待实时保存，选择第 58 项后用浏览器前进/后退；Approve 第 3 项后再次直达它的旧详情 URL，再 Discard 第 58 项。分别在 1280×800 和补充的 3840×2160 CSS ultra-wide viewport 执行，并用键盘完成一次筛选和非顺序选中；该 ultra-wide 截图不得标记成物理 4K 150% 证据。
+- 通过标准：任务入口带精确 `importJobId`，队列只显示该批 60 项且可清除筛选查看 63 项；每行可辨认来源、草稿标题、批次、目录、Validation/Blocker、候选数量和更新时间，目标游戏目录与信息来源的跨行左边界误差均不超过 1px，且不受状态或操作文案宽度影响；cursor 分页无重复/漏项。同一次停留在底部预加载区只请求一页且没有并发重复请求，哨兵离开并再次进入后才自动取下一页，手动“继续加载”仍可用。3840 下详情的“发布成什么”与左侧两容器堆叠总高一致，元信息位于中间、当前封面位于最右；简介标签与文本域间距不超过 8px，剩余栏高扩展文本域而不是标签空白；封面等比占满栏内剩余高度且底边对齐内容底边，不受固定最大高度限制，也不出现重复的候选摘要或信息来源卡片。审核决定中的“重新运行检查 / 运行游戏、丢弃条目 / 通过并发布”按两行两列显示，四个按钮计算宽度与高度一致，Tab 顺序同视觉顺序；“重新运行检查”刷新 Validation 与发布状态但不产生 popup 或 `/previews` 请求，“运行游戏”仍是唯一创建审核 Preview 的入口；页首截图槽显示当前 READY 或阻断 Validation 的第 5 秒截图，阻断截图出现后发布按钮解除置灰，且占位/图片切换不改变外层摘要卡片高度。1280 下列表/详情路由明确分离且详情顺序折叠为单栏。选择任意项都会更新 `/admin/reviews/:itemId` 并保留筛选、已加载页和滚动位置，前进/后退可恢复。字段和来源修改经防抖串行实时保存，离页前已成功冲刷且没有额外“保存草稿”按钮；决策后只移除对应行并聚焦相邻项。已处理条目的旧详情 URL 返回原筛选队列、提示条目已处理或不再可用、清除对应浏览器队列快照且不显示通用故障页。普通逐项 Approve/Discard 各自使用当前 ETag/Idempotency-Key/ReviewEvent；快速审批另按 `ACC-UI-010` 的冻结 aggregate 执行，两个范围不会串项。
 - 证据：API query/cursor、route 序列、键盘 trace、决策前后队列 DOM 及两个 viewport 的当前截图。
 
 ### ACC-UI-009：账户与用户管理全流程
@@ -1030,8 +1030,8 @@ make acceptance-case CASE=<case-id>
 ### ACC-TAG-002：API、权限、并发与游戏维护
 
 - 上限：120 秒。执行：`make acceptance-case CASE=ACC-TAG-002`。
-- 流程：ADMIN/USER/匿名覆盖 Tag CRUD/list/usage 与 GameTag replace，验证 strict JSON、Origin/CSRF、If-Match、Idempotency-Key、cursor/filter；制造 rename、assignment、delete 版本漂移与同 key 重放；用 `q/tagId` 组合查询用户/管理游戏并检查审计。
-- 通过：权限和稳定错误符合 OpenAPI；同名、无效引用、删除确认与过期 ETag 都零部分写入；同集合 no-op 不推进版本；关系变化推进 owner/Tag version，删除令旧 owner 写冲突；rename/search 立即生效且不创建 MetadataRevision。
+- 流程：ADMIN/USER/匿名覆盖 Tag CRUD/list/usage、常用标签补齐与 GameTag replace，验证 strict JSON、Origin/CSRF、If-Match、Idempotency-Key、cursor/filter；制造 rename、assignment、delete 版本漂移与同 key 重放；用 `q/tagId` 组合查询用户/管理游戏并检查审计。
+- 通过：权限和稳定错误符合 OpenAPI；常用模板精确补齐 10 个领域标签，同名活动项复用、重复执行零新建，容量不足时整批零写入且每个新建项仍写 `TAG_CREATED`；同名、无效引用、删除确认与过期 ETag 都零部分写入；同集合 no-op 不推进版本；关系变化推进 owner/Tag version，删除令旧 owner 写冲突；rename/search 立即生效且不创建 MetadataRevision。
 - 证据：请求/响应 contract matrix、ETag/idempotency/cursor 摘要、Game/Tag version 与 AuditEvent before/after/diff。
 
 ### ACC-TAG-003：普通导入、审核与原子发布
@@ -1051,8 +1051,8 @@ make acceptance-case CASE=<case-id>
 ### ACC-TAG-005：搜索、展示、响应式与无障碍
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-TAG-005`。
-- 流程：管理员以键盘创建/重命名/删除标签，在普通导入、Pegasus mapping、审核和游戏维护入口选择；把 Pegasus Collection TagPicker 滚动到容器边缘后展开并滚动父容器，检查浮动 listbox 的挂载、跟随与上下翻转；在 Library/Admin/Review/Favorite/Recent/Save/Netplay 用名称及精确 Tag URL 搜索，访问详情；标准截图覆盖 390×844、1280×800、2560×1440、物理 4K 150% 和 axe，另保留 3840×2160 CSS ultra-wide 的无溢出检查。
-- 通过：`q/tagId` 与其他条件取交集且刷新/前进后退恢复；删除标签立即隐藏，chip 位置、截断、`+N` 朗读和 FavoriteFolder/Tag 分区正确；TagPicker 键盘/20 上限、Drawer/Dialog 焦点与错误保留正确，listbox 在顶层浮动层内保持视口可见且不被任一滚动容器裁剪；所有页面零 document 横向溢出且 axe 无 serious/critical。
+- 流程：管理员以键盘补齐常用标签并重复执行，再创建/重命名/删除标签，在普通导入、Pegasus mapping、审核和游戏维护入口选择；把 Pegasus Collection TagPicker 滚动到容器边缘后展开并滚动父容器，检查浮动 listbox 的挂载、跟随与上下翻转；在 Library/Admin/Review/Favorite/Recent/Save/Netplay 用名称及精确 Tag URL 搜索，访问详情；标准截图覆盖 390×844、1280×800、2560×1440、物理 4K 150% 和 axe，另保留 3840×2160 CSS ultra-wide 的无溢出检查。
+- 通过：“添加常用标签”报告新建/已存在数量，列表展示完整模板且第二次执行报告全部存在；`q/tagId` 与其他条件取交集且刷新/前进后退恢复；删除标签立即隐藏，chip 位置、截断、`+N` 朗读和 FavoriteFolder/Tag 分区正确；TagPicker 键盘/20 上限、Drawer/Dialog 焦点与错误保留正确，listbox 在顶层浮动层内保持视口可见且不被任一滚动容器裁剪；所有页面零 document 横向溢出且 axe 无 serious/critical。
 - 证据：route/network/DOM/键盘/focus trace、四 viewport 尺寸和截图、axe report、删除前后搜索/投影摘要。
 
 ## 19. 联机游玩

@@ -23,6 +23,7 @@ type ConfirmDialogProps = {
   wide?: boolean;
   hideCancel?: boolean;
   portalToBody?: boolean;
+  role?: "alertdialog" | "dialog";
   onConfirm: () => void;
   onCancel: () => void;
   onLeading?: () => void;
@@ -39,6 +40,7 @@ const confirmDialogDefaults = {
   leadingBusyLabel: "处理中…",
   leadingDisabled: false,
   portalToBody: false,
+  role: "alertdialog" as const,
   tone: "default" as DialogTone,
   wide: false,
 };
@@ -48,7 +50,7 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
   const {
     busy, cancelLabel, children, confirmDisabled, confirmLabel, description, hideCancel, leadingBusy,
     leadingBusyLabel, leadingDisabled, leadingLabel, onCancel, onConfirm, onLeading, onSecondary, open,
-    portalToBody, secondaryLabel, title, tone, wide,
+    portalToBody, role, secondaryLabel, title, tone, wide,
   } = props;
   const titleId = useId();
   const descriptionId = useId();
@@ -75,7 +77,7 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
       <section
         ref={dialogRef}
         className={`app-dialog ${tone === "danger" ? "is-danger" : ""} ${wide ? "is-wide" : ""}`}
-        role="alertdialog"
+        role={role}
         aria-modal="true"
         aria-labelledby={titleId}
         aria-describedby={description ? descriptionId : undefined}

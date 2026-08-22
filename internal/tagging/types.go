@@ -60,6 +60,11 @@ type Summary struct {
 	PendingReviewCount int64 `json:"pendingReviewCount"`
 }
 
+type CommonTagsResult struct {
+	CreatedItems  []AdminItem `json:"createdItems"`
+	ExistingItems []AdminItem `json:"existingItems"`
+}
+
 type ListFilter struct {
 	Query       string
 	Status      string
