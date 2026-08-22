@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
-import { expectHomeCoverRatios } from "./acceptance-support";
+import { expectHomeCoverRatios, expectNoTextArrowsInInteractiveControls } from "./acceptance-support";
 
 declare global {
   interface Window {
@@ -85,6 +85,7 @@ test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility
     await page.goto(route);
     await expect(page.locator("main").first()).toBeVisible();
     await expectNoDocumentOverflow(page);
+    await expectNoTextArrowsInInteractiveControls(page);
     if (route === "/") {await expectHomeCoverRatios(page);}
   }
 
@@ -124,6 +125,7 @@ test("ACC-MOB-004 administrator list and workflow routes use cards or full-width
     await page.goto(route);
     await expect(page.locator("main").first()).toBeVisible();
     await expectNoDocumentOverflow(page);
+    await expectNoTextArrowsInInteractiveControls(page);
     await expect(page.getByRole("button", { name: "打开主要导航" })).toBeVisible();
     await expect(page.getByRole("navigation", { name: "手机主导航" })).toHaveCount(0);
   }

@@ -124,7 +124,7 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
             <td><StatusBadge tone={runtime.tone}>{runtime.label}</StatusBadge></td>
             <td><strong>{game.platformInstance.name}</strong><small>{game.platform.name} · 推荐 {game.defaultCore.name}</small></td>
             <td><strong>{formatAdminGameTime(game.updatedAtMs, nowMs)}</strong><small>{adminGameUpdateNote(game)}</small></td>
-            <td><Link className="admin-game-manage" href={`/admin/games/${game.gameId}`}>管理 →</Link></td>
+            <td><Link className="admin-game-manage" href={`/admin/games/${game.gameId}`}>管理</Link></td>
           </tr>;
         })}</tbody>
       </table>

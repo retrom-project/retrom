@@ -23,7 +23,7 @@ export function FavoriteGrid({
       const folderTags = game.favorite.folderIds.map((folderId) => folderNames.get(folderId)).filter((name): name is string => Boolean(name));
       return <article className="favorite-game-card" data-favorite-game={game.gameId} key={game.gameId}>
         <div className="favorite-game-cover">
-          <Link href={`/games/${game.gameId}`} aria-label={`查看游戏“${game.title}”详情`}><FavoritePoster game={game} /><span>查看游戏详情 →</span></Link>
+          <Link href={`/games/${game.gameId}`} aria-label={`查看游戏“${game.title}”详情`}><FavoritePoster game={game} /><span>查看游戏详情</span></Link>
           {selecting ? <button
             className={`favorite-select ${selected.has(game.gameId) ? "is-selected" : ""}`}
             type="button"

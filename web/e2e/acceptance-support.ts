@@ -19,6 +19,18 @@ export async function noPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 }
 
+export async function expectNoTextArrowsInInteractiveControls(page: Page) {
+  const labels = await page.locator("a, button").evaluateAll((elements) => elements
+    .filter((element) => {
+      const style = getComputedStyle(element);
+      const rectangle = element.getBoundingClientRect();
+      return style.display !== "none" && style.visibility !== "hidden" && rectangle.width > 0 && rectangle.height > 0;
+    })
+    .map((element) => element.textContent?.trim() ?? "")
+    .filter((label) => label.includes("→")));
+  expect(labels, "可见按钮和链接文案不应追加箭头字符").toEqual([]);
+}
+
 export async function expectHomeCoverRatios(page: Page) {
   const groups = [
     ["最近玩的游戏", '.home-featured-cover'],
