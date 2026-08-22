@@ -217,11 +217,12 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
       items: [{
         id: "77777777-7777-4777-8777-777777777777", title: "1944 循环的征服者",
         collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
-        targetPlatformInstanceId: "01980000-0000-7000-8000-000000000006", targetPlatformInstanceName: "FBNeo 游戏",
-        metadataRelativePath: "metadata.pegasus.txt", executionState: "BLOCKED_VALIDATION", contentKind: "SINGLE_FILE",
+        targetPlatformInstanceId: "02980000-0000-7000-8000-000000000106", targetPlatformInstanceName: "FBNeo 游戏",
+        metadataRelativePath: "metadata.pegasus.txt", executionState: "REVIEW_PENDING", contentKind: "SINGLE_FILE",
         tags: [],
         media: { cover: "READY", video: "MISSING" }, warnings: [], discoveryCode: null,
-        errorCode: "LAUNCH_PARENT_MISSING", retryable: false, publishedGameId: null, existingGameId: null,
+        errorCode: null, retryable: false, publishedGameId: null, existingGameId: null,
+        reviewItemId: "99999999-9999-4999-8999-999999999999",
         failureDetails: null, existingMatches: [], updatedAtMs: Date.now(),
         runtimeCheck: {
           status: "BLOCKED", code: "LAUNCH_PARENT_MISSING", coreId: "fbneo", coreName: "FinalBurn Neo",
@@ -231,7 +232,7 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
       }, {
         id: "88888888-8888-4888-8888-888888888888", title: "1944 内部组装失败",
         collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
-        targetPlatformInstanceId: "01980000-0000-7000-8000-000000000006", targetPlatformInstanceName: "FBNeo 游戏",
+        targetPlatformInstanceId: "02980000-0000-7000-8000-000000000106", targetPlatformInstanceName: "FBNeo 游戏",
         metadataRelativePath: "metadata.pegasus.txt", executionState: "COMMIT_FAILED", contentKind: "SINGLE_FILE",
         tags: [],
         media: { cover: "READY", video: "READY" }, warnings: [], discoveryCode: null,

@@ -25,7 +25,7 @@ type ImportCapabilities struct {
 	MultiDisc    *MultiDiscLimits `json:"multiDisc"`
 }
 
-type compatibilityV3 struct {
+type compatibility struct {
 	SchemaVersion         int      `json:"schemaVersion"`
 	SupportedContentKinds []string `json:"supportedContentKinds"`
 	MultiDisc             *struct {
@@ -46,9 +46,9 @@ func Resolve(
 		!contentprofile.AllowsContentKind(platformID, contentprofile.ContentKindMultiDiscM3UV1) {
 		return result
 	}
-	var compatibility compatibilityV3
+	var compatibility compatibility
 	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil ||
-		(compatibility.SchemaVersion != 3 && compatibility.SchemaVersion != 4) || compatibility.MultiDisc == nil ||
+		compatibility.SchemaVersion != 5 || compatibility.MultiDisc == nil ||
 		!slices.Contains(compatibility.SupportedContentKinds, ModeMultiDiscM3UV1) ||
 		compatibility.MultiDisc.MaxDiscs < 2 || compatibility.MultiDisc.MaxDiscs > MaximumMultiDiscCount ||
 		compatibility.MultiDisc.MaxTotalBytes < 1 || compatibility.MultiDisc.MaxTotalBytes > MaximumMultiDiscBytes ||
@@ -66,9 +66,9 @@ func Resolve(
 // admission it intentionally does not consult the feature flag, so a frozen
 // in-flight review can be completed after admission is closed.
 func SupportsContentKind(compatibilityJSON, contentKind string) bool {
-	var compatibility compatibilityV3
+	var compatibility compatibility
 	if json.Unmarshal([]byte(compatibilityJSON), &compatibility) != nil ||
-		(compatibility.SchemaVersion != 3 && compatibility.SchemaVersion != 4) ||
+		compatibility.SchemaVersion != 5 ||
 		!slices.Contains(compatibility.SupportedContentKinds, contentKind) {
 		return false
 	}

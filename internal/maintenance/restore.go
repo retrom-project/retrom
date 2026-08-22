@@ -17,6 +17,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
+	"retrom/internal/store"
 )
 
 func Restore(ctx context.Context, configuration config.Maintenance, input, output string) (Manifest, error) {
@@ -100,6 +101,10 @@ func validateAndFenceRestore(ctx context.Context, staging string) error {
 	if err := checkDatabase(ctx, database); err != nil {
 		cleanup.Error("close", database.Close())
 		return err
+	}
+	if _, err := store.ValidateCurrentMigrationLineage(ctx, database); err != nil {
+		cleanup.Error("close", database.Close())
+		return ErrInvalidBundle
 	}
 	if err := blobregistry.ValidateSchema(ctx, database); err != nil {
 		cleanup.Error("close", database.Close())
@@ -258,7 +263,7 @@ WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')
 UPDATE pegasus_import_items SET execution_state='COMMIT_FAILED',error_code='SERVER_IMPORT_SOURCE_NOT_RESTORED',
 retryable=0,completed_at_ms=?,updated_at_ms=? WHERE import_id IN (
   SELECT id FROM pegasus_imports WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
-) AND execution_state IN ('PENDING','COPYING','VALIDATING','PUBLISHING')
+) AND execution_state IN ('PENDING','COPYING','VALIDATING')
 `, nowMS, nowMS); err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored Pegasus items: %w", err)
 	}
@@ -271,7 +276,7 @@ existing_item_count=(SELECT count(*) FROM pegasus_import_items item
   WHERE item.import_id=pegasus_imports.id AND item.execution_state='SKIPPED_EXISTING'),
 blocked_item_count=(SELECT count(*) FROM pegasus_import_items item
   WHERE item.import_id=pegasus_imports.id
-  AND item.execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT','BLOCKED_VALIDATION')),
+  AND item.execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')),
 failed_item_count=(SELECT count(*) FROM pegasus_import_items item
   WHERE item.import_id=pegasus_imports.id
   AND item.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')),

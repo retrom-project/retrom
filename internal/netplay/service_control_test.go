@@ -147,7 +147,7 @@ VALUES(?,?,'ADMIN_REPLACE',?,'{}',?,?)
 		}
 		if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
-VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
+VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),'PUBLISHED',?,?,?,1,?,?)
 `, gameID, metadataID, contentID, fmt.Sprintf("game %03d", index), now.UnixMilli(), now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
@@ -173,7 +173,7 @@ VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
 
 func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 	t.Parallel()
-	manifest, err := os.ReadFile(filepath.Join("..", "..", "data", "netplay", "v1", "manifest.json"))
+	manifest, err := os.ReadFile(filepath.Join("..", "..", "data", ManifestRelativePath))
 	testassert.False(t, err != nil, err)
 	registry, err := parseRegistry(manifest, fixtureDependencySet())
 	testassert.False(t, err != nil, err)
@@ -246,12 +246,12 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	}{
 		{`INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,source_kind,created_at_ms) VALUES(?,?,'Arcade fixture','','','','',2,'ADMIN_EDIT',?)`, []any{metadataID, gameID, now.UnixMilli()}},
 		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms) VALUES(?,?,'ADMIN_REPLACE','arcade-fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("1", 64), now.UnixMilli()}},
-		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms) VALUES(?,'01980000-0000-7000-8000-000000000006','PUBLISHED',?,?,'arcade fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='arcade/fbneo'),'PUBLISHED',?,?,'arcade fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,1,?,?,?,'application/octet-stream',?)`, []any{contentBlob, strings.Repeat("2", 64), strings.Repeat("3", 32), strings.Repeat("4", 40), strings.Repeat("5", 8), now.UnixMilli()}},
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,1,?,?,?,'application/octet-stream',?)`, []any{biosBlob, strings.Repeat("6", 64), strings.Repeat("7", 32), strings.Repeat("8", 40), strings.Repeat("9", 8), now.UnixMilli()}},
 		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','child.zip',?,0)`, []any{contentID, contentBlob}},
 		{`INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms) VALUES(?,'fbneo','4.2.3','test','WASM','cores/fbneo.data',1,?,'{}','{}',1,1,?,?)`, []any{artifactID, strings.Repeat("a", 64), now.UnixMilli(), now.UnixMilli()}},
-		{`INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,compatibility_status,parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms) VALUES(?,'fbneo',?,'BUILTIN','data/dat/fbneo.xml',?,'1','MATCHED','READY',1,1,?,?,?,?)`, []any{datID, artifactID, strings.Repeat("b", 64), now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()}},
+		{`INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms) VALUES(?,'fbneo',?,'data/dat/fbneo.xml',?,'1','READY',1,1,?,?,?,?)`, []any{datID, artifactID, strings.Repeat("b", 64), now.UnixMilli(), now.UnixMilli(), now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms) VALUES(?,?,'fbneo',NULL,1,?,?)`, []any{variantID, gameID, now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,created_at_ms) VALUES(?,?,?,?,?,?,1,'READY','READY',?,?)`, []any{revisionID, variantID, contentID, artifactID, datID, strings.Repeat("c", 64), snapshot, now.UnixMilli()}},
 		{`UPDATE game_variants SET current_revision_id=? WHERE id=?`, []any{revisionID, variantID}},
@@ -273,9 +273,6 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	}
 	runnable, err := service.arcadeDependencySnapshotRunnable(ctx, row)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !runnable }), "schema-v2 Arcade revision runnable=%t error=%v", runnable, err)
-	row.dependencyJSON = `{"schemaVersion":1,"bios":[]}`
-	runnable, err = service.arcadeDependencySnapshotRunnable(ctx, row)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return runnable }), "legacy Arcade revision runnable=%t error=%v", runnable, err)
 }
 
 func TestHostCannotClaimGuestSeatThroughTheService(t *testing.T) {
@@ -368,7 +365,7 @@ VALUES(?,?,'Prepare fixture','','','','',2,NULL,'ADMIN_EDIT',?)`, []any{metadata
 		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
 VALUES(?,?,'ADMIN_REPLACE','prepare-fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("1", 64), now.UnixMilli()}},
 		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
-VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,'prepare fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
+VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),'PUBLISHED',?,?,'prepare fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,32768,?,?,?,'application/octet-stream',?)`, []any{contentBlobID, strings.Repeat("9", 64), strings.Repeat("5", 32), strings.Repeat("6", 40), strings.Repeat("7", 8), now.UnixMilli()}},
 		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','another-game.nes',?,0)`, []any{contentID, contentBlobID}},
 		{`INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
@@ -437,7 +434,7 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 	).Scan(&left)
 	testassert.False(t, err != nil, err)
 	testassert.Falsef(t, testassert.Any(func() bool { return sessionState != "FAILED" }, func() bool { return reason != "PREPARE_FAILED" }, func() bool { return left != 2 }), "session after prepare failure = state %q reason %q left %d", sessionState, reason, left)
-	manifest, err := os.ReadFile(filepath.Join("..", "..", "data", "netplay", "v1", "manifest.json"))
+	manifest, err := os.ReadFile(filepath.Join("..", "..", "data", ManifestRelativePath))
 	testassert.False(t, err != nil, err)
 	service.registry, err = parseRegistry(manifest, fixtureDependencySet())
 	testassert.False(t, err != nil, err)

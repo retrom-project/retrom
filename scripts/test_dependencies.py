@@ -104,7 +104,7 @@ class DependencyManifestValidationTests(unittest.TestCase):
             "DEPENDENCY_CORE_OPTIONS_INVALID",
         )
 
-    def test_rejects_invalid_startup_action_and_none_save_kind(self) -> None:
+    def test_rejects_invalid_startup_action(self) -> None:
         def invalid_action(manifest: dict[str, object]) -> None:
             artifact = next(
                 item
@@ -114,27 +114,6 @@ class DependencyManifestValidationTests(unittest.TestCase):
             artifact["startup_actions"][0]["kind"] = "ARBITRARY_SCRIPT"
 
         self.assert_invalid(invalid_action, "DEPENDENCY_STARTUP_ACTION_INVALID")
-
-        def invalid_none_kind(manifest: dict[str, object]) -> None:
-            artifact = next(
-                item
-                for item in manifest["emulatorjs"]["selected_core_artifacts"]
-                if item["persistent_save_mode"] == "NONE"
-            )
-            artifact["persistent_save_kind"] = "CORE_SAVE"
-
-        self.assert_invalid(invalid_none_kind, "DEPENDENCY_PERSISTENT_SAVE_INVALID")
-
-        def invalid_persistent_mode(manifest: dict[str, object]) -> None:
-            artifact = next(
-                item
-                for item in manifest["emulatorjs"]["selected_core_artifacts"]
-                if item["core_id"] == "handy"
-            )
-            artifact["persistent_save_mode"] = "FILE_TREE_UNBOUNDED"
-            artifact["persistent_save_kind"] = "CORE_SAVE"
-
-        self.assert_invalid(invalid_persistent_mode, "DEPENDENCY_PERSISTENT_SAVE_INVALID")
 
     def test_startup_action_delay_accepts_30_seconds_and_rejects_one_more_ms(self) -> None:
         def set_delay(manifest: dict[str, object], delay_ms: int) -> None:
@@ -172,7 +151,7 @@ class DependencyManifestValidationTests(unittest.TestCase):
         def missing_content_kinds(manifest: dict[str, object]) -> None:
             manifest["emulatorjs"]["selected_core_artifacts"][0].pop("supported_content_kinds")
 
-        self.assert_invalid(missing_content_kinds, "DEPENDENCY_CONTENT_CAPABILITY_INVALID")
+        self.assert_invalid(missing_content_kinds, "DEPENDENCY_ARTIFACT_CAPABILITY_INVALID")
 
         def unsupported_core(manifest: dict[str, object]) -> None:
             artifact = manifest["emulatorjs"]["selected_core_artifacts"][0]
@@ -270,8 +249,8 @@ class DependencyMaterializationTests(unittest.TestCase):
             root = Path(directory)
             data_root = root / "data"
             auth_manifest_path = data_root / "auth/password-blocklists/v1/manifest.json"
-            netplay_manifest_path = data_root / "netplay/v1/manifest.json"
-            netplay_schema_path = data_root / "netplay/v1/schema.json"
+            netplay_manifest_path = data_root / "netplay/v2/manifest.json"
+            netplay_schema_path = data_root / "netplay/v2/schema.json"
             manifest = {
                 "cores": [{"dat": {"local_path": "arcade/catalog.dat"}}],
                 "emulatorjs": {
@@ -312,8 +291,8 @@ class DependencyMaterializationTests(unittest.TestCase):
                 "auth/password-blocklists/v1/manifest.json",
                 "auth/password-blocklists/v1/payload/passwords.txt",
                 "auth/password-blocklists/v1/payload/LICENSE",
-                "netplay/v1/manifest.json",
-                "netplay/v1/schema.json",
+                "netplay/v2/manifest.json",
+                "netplay/v2/schema.json",
             }
             source_paths = set(expected)
             source_paths.remove("dat/emulatorjs/1.0.0/manifest.json")
@@ -388,8 +367,8 @@ class DependencyMaterializationTests(unittest.TestCase):
                 data_root / "auth/password-blocklists/v1/manifest.json",
                 data_root / "auth/password-blocklists/v1/payload/passwords.txt",
                 data_root / "auth/password-blocklists/v1/payload/LICENSE",
-                data_root / "netplay/v1/manifest.json",
-                data_root / "netplay/v1/schema.json",
+                data_root / "netplay/v2/manifest.json",
+                data_root / "netplay/v2/schema.json",
             )
             for target in required:
                 target.parent.mkdir(parents=True, exist_ok=True)

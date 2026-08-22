@@ -91,7 +91,7 @@ def main() -> int:
             (ROOT / "data/auth/password-blocklists/v1/manifest.json").read_bytes()
         ),
         "netplayManifestSha256": sha256(
-            (ROOT / "data/netplay/v1/manifest.json").read_bytes()
+            (ROOT / "data/netplay/v2/manifest.json").read_bytes()
         ),
     }
     print(sha256(canonical(release_input)))

@@ -32,16 +32,6 @@ func TestSelectServerImportItemUsesTheDeclaredPrimarySource(t *testing.T) {
 	}
 }
 
-func TestRuntimeBlockCodePreservesLibraryCompatibilityReason(t *testing.T) {
-	t.Parallel()
-	if code := runtimeBlockCode(libraryimport.ServerImportItem{CompatibilityCode: "LAUNCH_PARENT_MISSING"}); code != "LAUNCH_PARENT_MISSING" {
-		t.Fatalf("runtime block code = %q", code)
-	}
-	if code := runtimeBlockCode(libraryimport.ServerImportItem{}); code != "PEGASUS_RUNTIME_BLOCKED" {
-		t.Fatalf("fallback runtime block code = %q", code)
-	}
-}
-
 func TestArcadeCompanionsReleaseQueryBeforeRecordingCASBlob(t *testing.T) {
 	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)

@@ -20,8 +20,6 @@ func (session *realtimeSession) handleMessage(
 		return session.handleInput(ctx, client, message, messageBytes)
 	case "HASH":
 		return session.acceptHash(ctx, client.participant.PlayerNo, message.Frame, message.CoreDigest)
-	case "SUSPEND_REQUEST":
-		return handleSuspendRequest(message.Reason)
 	case "STATE_META":
 		return session.acceptStateMeta(ctx, client, message)
 	case "STATE_READY":
@@ -70,14 +68,6 @@ func (session *realtimeSession) handleInput(
 		return ErrProtocol
 	}
 	return session.acceptInput(ctx, client.participant.PlayerNo, message.Frame, message.Controls)
-}
-
-func handleSuspendRequest(reason string) error {
-	if reason != "HIDDEN" && reason != "BLUR" {
-		return ErrProtocol
-	}
-	// Compatibility no-op for clients loaded before focus loss stopped being a network lifecycle event.
-	return nil
 }
 
 func (session *realtimeSession) handleEndRequest(ctx context.Context, client *peer, reason string) error {

@@ -34,8 +34,6 @@ type Config struct {
 	BIOSURL              any                          `json:"biosUrl"`
 	ParentURL            any                          `json:"parentUrl"`
 	StateURL             any                          `json:"stateUrl"`
-	PersistentSaveMode   string                       `json:"persistentSaveMode"`
-	PersistentSaveURL    *string                      `json:"persistentSaveUrl"`
 	InputMode            string                       `json:"inputMode"`
 	StartupActions       []dependencies.StartupAction `json:"startupActions"`
 	RequiresThreads      bool                         `json:"requiresThreads"`
@@ -365,9 +363,6 @@ func (service *Service) buildLaunchConfig(
 	if err != nil {
 		return Config{}, err
 	}
-	// Game progress is restored only from request.SaveStateID/stateURL. The
-	// runtime must not preload or upload an automatic exit/interval save.
-	persistentSaveMode := "NONE"
 	startupActions := slices.Clone(compatibility.StartupActions)
 	mode, netplayConfig, err := buildNetplayConfig(input)
 	if err != nil {
@@ -395,8 +390,6 @@ func (service *Service) buildLaunchConfig(
 		BIOSURL:              biosURL,
 		ParentURL:            parentURL,
 		StateURL:             stateURL,
-		PersistentSaveMode:   persistentSaveMode,
-		PersistentSaveURL:    nil,
 		InputMode:            compatibility.InputMode,
 		StartupActions:       startupActions,
 		RequiresThreads:      requiresThreads == 1,

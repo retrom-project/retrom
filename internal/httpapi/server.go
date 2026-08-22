@@ -399,8 +399,6 @@ func (server *Server) registerRuntimeRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("POST /runtime/launches/{launchId}/finish", server.launchFinish)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/player-events", server.multiDiscPlayerEvent)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/save-states", server.createSaveState)
-	mux.HandleFunc("GET /runtime/launches/{launchId}/persistent-save", server.getPersistentSave)
-	mux.HandleFunc("PUT /runtime/launches/{launchId}/persistent-save", server.putPersistentSave)
 	mux.HandleFunc("GET /runtime/launches/{launchId}/state", server.launchState)
 	mux.HandleFunc("HEAD /runtime/launches/{launchId}/state", server.launchState)
 	mux.HandleFunc("POST /runtime/launches/{launchId}/review-screenshot", server.storeReviewScreenshot)

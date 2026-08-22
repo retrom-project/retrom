@@ -75,11 +75,12 @@ func TestPublishedGameLaunchLocksContentAndCredential(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	importService := libraryimport.New(database.SQL, time.Now)
+	gbaID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 	createdImport, err := importService.Create(
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID:                 upload.ID,
-			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005",
+			TargetPlatformInstanceID: gbaID,
 			MetadataProvider:         "NONE",
 		},
 	)
@@ -216,23 +217,20 @@ SELECT state,error_code FROM jobs WHERE id=?
 	}
 	configuration, err := service.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
 	testassert.Falsef(t, err != nil, "config: %v", err)
-	testassert.Falsef(t, testassert.Any(func() bool { return configuration.Core != "mgba" }, func() bool { return configuration.EmulatorJSVersion != "4.2.3" }, func() bool { return configuration.GameURL == "" }, func() bool { return configuration.CoreName != "mGBA" }, func() bool { return configuration.GameTitle != "Launch" }, func() bool { return configuration.PlatformName != "Game Boy Advance" }, func() bool { return configuration.BIOSURL == nil }, func() bool { return configuration.DefaultCoreOptions["mgba_use_bios"] != "ON" }, func() bool { return configuration.PersistentSaveMode != "NONE" }, func() bool { return configuration.PersistentSaveURL != nil }, func() bool { return configuration.StartupActions == nil }, func() bool { return len(configuration.Warnings) != 1 }, func() bool { return configuration.Warnings[0] != "BIOS_HASH_WARNING" }), "configuration = %#v", configuration)
+	testassert.Falsef(t, testassert.Any(func() bool { return configuration.Core != "mgba" }, func() bool { return configuration.EmulatorJSVersion != "4.2.3" }, func() bool { return configuration.GameURL == "" }, func() bool { return configuration.CoreName != "mGBA" }, func() bool { return configuration.GameTitle != "Launch" }, func() bool { return configuration.PlatformName != "Game Boy Advance" }, func() bool { return configuration.BIOSURL == nil }, func() bool { return configuration.DefaultCoreOptions["mgba_use_bios"] != "ON" }, func() bool { return configuration.StartupActions == nil }, func() bool { return len(configuration.Warnings) != 1 }, func() bool { return configuration.Warnings[0] != "BIOS_HASH_WARNING" }), "configuration = %#v", configuration)
 	bundle, err := service.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "BIOS_BUNDLE")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(bundle) != 1 }, func() bool { return bundle[0].LogicalName != "gba_bios.bin" }, func() bool { return bundle[0].SHA256 != firmwareMetadata.SHA256 }), "BIOS bundle = %#v, error=%v", bundle, err)
 	contentDigest, err := service.ContentBlob(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "Launch.gba")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return contentDigest != base64DigestHex(digest) }), "content digest = %s, error = %v", contentDigest, err)
 	var lockedVariantRevisionID, lockedArtifactID string
-	var persistentBaseRevisionID sql.NullString
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT game_variant_revision_id,
-core_artifact_id,
-persistent_save_base_revision_id
+core_artifact_id
 FROM launch_sessions
 WHERE id=?
-`, createdLaunch.LaunchID).Scan(&lockedVariantRevisionID, &lockedArtifactID, &persistentBaseRevisionID); err != nil {
+`, createdLaunch.LaunchID).Scan(&lockedVariantRevisionID, &lockedArtifactID); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, persistentBaseRevisionID.Valid, "plain launch bound implicit persistent revision %q", persistentBaseRevisionID.String)
 	saveID, _ := uuid.NewV7()
 	if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO save_states(id,
@@ -242,12 +240,14 @@ game_variant_revision_id,
 core_artifact_id,
 state_blob_id,
 screenshot_blob_id,
+source_launch_session_id,
 name,
 active_duration_ms,
 version,
 created_at_ms,
 updated_at_ms) VALUES(?,
 'local',
+?,
 ?,
 ?,
 ?,
@@ -265,6 +265,7 @@ updated_at_ms) VALUES(?,
 		lockedArtifactID,
 		firmwareBlobID,
 		firmwareBlobID,
+		createdLaunch.LaunchID,
 		time.Now().UnixMilli(),
 		time.Now().UnixMilli(),
 	); err != nil {
@@ -329,7 +330,7 @@ WHERE launch_session_id=?
 	}
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE games
-SET platform_instance_id='01980000-0000-7000-8000-000000000004',
+SET platform_instance_id=(SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'),
 version=version+1,
 updated_at_ms=?
 WHERE id=?
@@ -348,7 +349,7 @@ WHERE id=?
 	)
 	testassert.Falsef(t, err != nil, "locked save quick launch: %v", err)
 	quickConfig, err := service.Config(ctx, quickLaunch.LaunchID, quickLaunch.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return quickConfig.Core != "mgba" }, func() bool { return quickConfig.StateURL == nil }, func() bool { return quickConfig.PersistentSaveMode != "NONE" }, func() bool { return quickConfig.PersistentSaveURL != nil }), "locked save config = %#v, error=%v", quickConfig, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return quickConfig.Core != "mgba" }, func() bool { return quickConfig.StateURL == nil }), "locked save config = %#v, error=%v", quickConfig, err)
 	gbContentID := newUUID()
 	contentTx, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)

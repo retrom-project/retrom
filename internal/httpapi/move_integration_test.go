@@ -23,6 +23,7 @@ import (
 	"retrom/internal/corevalidation"
 	"retrom/internal/launch"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func TestGameMovePreviewQueuesTargetCoreValidationAndPreservesHistory(t *testing.T) {
@@ -199,7 +200,7 @@ func TestPlatformInstanceVisibilityAndNonEmptyDeletionBoundaries(t *testing.T) {
 		handler.ServeHTTP(recorder, request)
 		return recorder
 	}
-	sourceID := "01980000-0000-7000-8000-000000000004"
+	sourceID := testsupport.MustPlatformInstanceID(t, server.database, "gbc/gambatte")
 	disabled := send(http.MethodPatch, "/api/v1/admin/platform-instances/"+sourceID, `{"enabled":false}`, `"v1"`)
 	testassert.Falsef(t, testassert.Any(func() bool { return disabled.Code != http.StatusOK }, func() bool { return disabled.Header().Get("ETag") != `"v2"` }), "disable non-empty platform = %d %s", disabled.Code, disabled.Body.String())
 	userGames := httptest.NewRecorder()
@@ -265,10 +266,17 @@ func TestDefaultCoreImpactPaginationRejectsDriftAndPreservesSaveLaunch(t *testin
 	gameID, _ := seedMovableGame(t, server)
 	cloneMovableGame(t, server, gameID, "181", "182", "183", "184", "185")
 	cloneMovableGame(t, server, gameID, "186", "187", "188", "189", "190")
+	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
+	sourceLaunch, err := server.launcher.Create(
+		ctx,
+		"local",
+		launch.CreateRequest{GameID: gameID, ReturnTo: "/games/" + gameID, ClientCapabilities: capabilities},
+	)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return sourceLaunch.LaunchID == "" }), "source launch = %#v, error=%v", sourceLaunch, err)
 
 	handler := server.Handler()
 	cookie, csrfToken := testSessionCredentials()
-	instanceID := "01980000-0000-7000-8000-000000000004"
+	instanceID := testsupport.MustPlatformInstanceID(t, server.database, "gbc/gambatte")
 	preview := func(cursorValue *string) *httptest.ResponseRecorder {
 		body, err := json.Marshal(map[string]any{"coreId": "mgba", "cursor": cursorValue, "limit": 1})
 		testassert.False(t, err != nil, err)
@@ -392,6 +400,7 @@ game_variant_revision_id,
 core_artifact_id,
 state_blob_id,
 screenshot_blob_id,
+source_launch_session_id,
 name,
 active_duration_ms,
 version,
@@ -404,6 +413,7 @@ r.id,
 r.core_artifact_id,
 f.blob_id,
 f.blob_id,
+?,
 'Old core save',
 0,
 1,
@@ -414,10 +424,9 @@ JOIN game_variants v ON v.game_id=g.id AND v.core_id='gambatte'
 JOIN game_variant_revisions r ON r.id=v.current_revision_id
 JOIN game_content_files f ON f.game_content_revision_id=g.current_content_revision_id AND f.role='CONTENT'
 WHERE g.id=?
-`, saveID, time.Now().UnixMilli(), time.Now().UnixMilli(), gameID); err != nil {
+`, saveID, sourceLaunch.LaunchID, time.Now().UnixMilli(), time.Now().UnixMilli(), gameID); err != nil {
 		t.Fatal(err)
 	}
-	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
 	pending, err := server.launcher.Create(
 		ctx,
 		"local",
@@ -490,7 +499,8 @@ WHERE g.id=?
 `, gameID).Scan(&title, &sourceKind, &sourceRef, &storedContent, &ownerID, &revisionCount, &auditCount); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return title != "Edited fixture" }, func() bool { return sourceKind != "ADMIN_EDIT" }, func() bool { return sourceRef.Valid }, func() bool { return storedContent != contentID }, func() bool { return ownerID != "01980000-0000-7000-8000-000000000004" }, func() bool { return revisionCount != 2 }, func() bool { return auditCount != 1 }), "metadata state = title:%s source:%s/%v content:%s owner:%s revisions:%d audits:%d", title, sourceKind, sourceRef, storedContent, ownerID, revisionCount, auditCount)
+	gbcID := testsupport.MustPlatformInstanceID(t, server.database, "gbc/gambatte")
+	testassert.Falsef(t, testassert.Any(func() bool { return title != "Edited fixture" }, func() bool { return sourceKind != "ADMIN_EDIT" }, func() bool { return sourceRef.Valid }, func() bool { return storedContent != contentID }, func() bool { return ownerID != gbcID }, func() bool { return revisionCount != 2 }, func() bool { return auditCount != 1 }), "metadata state = title:%s source:%s/%v content:%s owner:%s revisions:%d audits:%d", title, sourceKind, sourceRef, storedContent, ownerID, revisionCount, auditCount)
 	public := httptest.NewRecorder()
 	handler.ServeHTTP(public, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/games/"+gameID, nil))
 	testassert.Falsef(t, testassert.Any(func() bool { return public.Code != http.StatusOK }, func() bool { return !strings.Contains(public.Body.String(), `"title":"Edited fixture"`) }), "public game metadata = %d %s", public.Code, public.Body.String())
@@ -534,6 +544,7 @@ game_variant_revision_id,
 core_artifact_id,
 state_blob_id,
 screenshot_blob_id,
+source_launch_session_id,
 name,
 active_duration_ms,
 version,
@@ -545,12 +556,13 @@ updated_at_ms) VALUES(?,
 ?,
 ?,
 ?,
+?,
 'Delete fixture save',
 0,
 1,
 ?,
 ?)
-`, saveID, gameID, revisionID, artifactID, blobID, blobID, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
+`, saveID, gameID, revisionID, artifactID, blobID, blobID, created.LaunchID, time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	handler, cookie, csrf := httpSession(t, server)
@@ -682,7 +694,7 @@ VALUES(?, ?, 'IMPORT_REVIEW', 'fixture', '{}', ?, ?)
 		{`
 INSERT INTO games(id, platform_instance_id, status, current_metadata_revision_id, current_content_revision_id,
 search_text, version, created_at_ms, updated_at_ms)
-VALUES(?, '01980000-0000-7000-8000-000000000004', 'PUBLISHED', ?, ?, 'move fixture', 1, ?, ?)
+VALUES(?, (SELECT id FROM platform_instances WHERE catalog_template_key='gbc/gambatte'), 'PUBLISHED', ?, ?, 'move fixture', 1, ?, ?)
 `, []any{gameID, metadataID, contentID, now, now}},
 		{`
 INSERT INTO game_content_files(game_content_revision_id, role, logical_name, blob_id, sort_order)

@@ -2252,24 +2252,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/runtime/launches/{launchId}/persistent-save": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        get: operations["getRuntimePersistentSave"];
-        put: operations["putRuntimePersistentSave"];
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/runtime/launches/{launchId}/game/{logicalName}": {
         parameters: {
             query?: never;
@@ -2849,13 +2831,6 @@ export interface components {
             biosUrl: string | null;
             parentUrl: string | null;
             stateUrl: string | null;
-            /**
-             * @description Active Player launches always return NONE. Other values are retained only for compatibility with historical artifact metadata and persistent-save records.
-             * @enum {string}
-             */
-            persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "FILE_TREE" | "AUTO_STATE" | "NONE";
-            /** @description Active Player launches always return null because saves are created only by an explicit save-state action. */
-            persistentSaveUrl: string | null;
             /** @enum {string} */
             inputMode: "STANDARD" | "POINTER";
             startupActions: components["schemas"]["StartupAction"][];
@@ -2889,7 +2864,7 @@ export interface components {
             /** @enum {integer} */
             schemaVersion: 1;
             /** @enum {string} */
-            protocolVersion: "retrom-netplay-v1";
+            protocolVersion: "retrom-netplay-v2";
             profileId: string;
             /** @enum {string} */
             emulatorjsVersion: "4.2.3";
@@ -3397,7 +3372,7 @@ export interface components {
             /** @enum {string} */
             state: "SCANNING" | "AWAITING_MAPPING" | "QUEUED" | "RUNNING" | "PARTIAL_FAILURE" | "COMPLETED" | "CANCEL_REQUESTED" | "CANCELLED" | "FAILED" | "EXPIRED";
             /** @enum {string|null} */
-            phase: "DISCOVERING_METADATA" | "PARSING_METADATA" | "RESOLVING_SOURCES" | "COPYING_CONTENT" | "VALIDATING" | "PREPARING_REVIEWS" | "PUBLISHING" | null;
+            phase: "DISCOVERING_METADATA" | "PARSING_METADATA" | "RESOLVING_SOURCES" | "COPYING_CONTENT" | "VALIDATING" | "PREPARING_REVIEWS" | null;
             /** Format: uuid */
             scanJobId: string;
             /** Format: uuid */
@@ -3467,7 +3442,7 @@ export interface components {
             targetPlatformInstanceName: string | null;
             metadataRelativePath: string;
             /** @enum {string} */
-            executionState: "PENDING" | "COPYING" | "VALIDATING" | "PUBLISHING" | "REVIEW_PENDING" | "PUBLISHED" | "REVIEW_DISCARDED" | "SKIPPED_EXISTING" | "SKIPPED_MAPPING" | "BLOCKED_SOURCE" | "BLOCKED_CONTENT" | "BLOCKED_VALIDATION" | "SOURCE_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
+            executionState: "PENDING" | "COPYING" | "VALIDATING" | "REVIEW_PENDING" | "PUBLISHED" | "REVIEW_DISCARDED" | "SKIPPED_EXISTING" | "SKIPPED_MAPPING" | "BLOCKED_SOURCE" | "BLOCKED_CONTENT" | "SOURCE_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
             /** @enum {string|null} */
             contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC_M3U_V1" | null;
             tags: components["schemas"]["TagReference"][];
@@ -3639,7 +3614,7 @@ export interface components {
             /** @enum {string} */
             eventType: "START" | "DISK_COUNT_MISMATCH" | "SWITCH_SUCCESS" | "SWITCH_FAILURE" | "SAVE_RESTORE_SUCCESS" | "SAVE_RESTORE_FAILURE";
             /** @enum {string} */
-            resultCode: "OK" | "PLAYER_DISC_SET_INVALID" | "PLAYER_DISC_API_UNAVAILABLE" | "PLAYER_DISC_SWITCH_UNAVAILABLE" | "PLAYER_DISC_SWITCH_FAILED" | "PLAYER_SAVE_STATE_UNAVAILABLE" | "PLAYER_SAVE_STATE_RESTORE_FAILED" | "LAUNCH_PERSISTENT_SAVE_LOAD_FAILED";
+            resultCode: "OK" | "PLAYER_DISC_SET_INVALID" | "PLAYER_DISC_API_UNAVAILABLE" | "PLAYER_DISC_SWITCH_UNAVAILABLE" | "PLAYER_DISC_SWITCH_FAILED" | "PLAYER_SAVE_STATE_UNAVAILABLE" | "PLAYER_SAVE_STATE_RESTORE_FAILED";
             discCount: number;
             observedDiscCount: number | null;
         };
@@ -3834,7 +3809,6 @@ export interface components {
             backgroundCandidateAssetId?: unknown;
             base?: unknown;
             baseContentRevisionId?: unknown;
-            baseDatVersionId?: unknown;
             binary?: unknown;
             bios?: unknown;
             biosSetCount?: unknown;
@@ -4041,8 +4015,6 @@ export interface components {
             path?: unknown;
             paused?: unknown;
             playlist?: unknown;
-            persistentSaveId?: unknown;
-            persistentSaveUrl?: unknown;
             platform?: unknown;
             platformId?: unknown;
             platformInstance?: unknown;
@@ -7595,50 +7567,6 @@ export interface operations {
                     /** Format: binary */
                     screenshot: string;
                 };
-            };
-        };
-        responses: {
-            201: components["responses"]["JSONResponse"];
-        };
-    };
-    getRuntimePersistentSave: {
-        parameters: {
-            query?: never;
-            header?: never;
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            200: components["responses"]["BinaryResponse"];
-            /** @description No persistent save */
-            204: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content?: never;
-            };
-        };
-    };
-    putRuntimePersistentSave: {
-        parameters: {
-            query?: never;
-            header: {
-                "Content-Digest": components["parameters"]["ContentDigest"];
-                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
-                "X-Retrom-Save-Sequence": number;
-                "X-Retrom-Save-Event": "AUTO_INTERVAL" | "MANUAL_EXPORT" | "EXIT";
-            };
-            path: {
-                launchId: components["parameters"]["LaunchID"];
-            };
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/octet-stream": string;
             };
         };
         responses: {

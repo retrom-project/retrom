@@ -6,8 +6,7 @@ export type MultiDiscPlayerResultCode = MultiDiscPlayerEvent["resultCode"];
 function isMultiDiscPlayerResultCode(value: string): value is MultiDiscPlayerResultCode {
   return value === "OK" || value === "PLAYER_DISC_SET_INVALID" || value === "PLAYER_DISC_API_UNAVAILABLE"
     || value === "PLAYER_DISC_SWITCH_UNAVAILABLE" || value === "PLAYER_DISC_SWITCH_FAILED"
-    || value === "PLAYER_SAVE_STATE_UNAVAILABLE" || value === "PLAYER_SAVE_STATE_RESTORE_FAILED"
-    || value === "LAUNCH_PERSISTENT_SAVE_LOAD_FAILED";
+    || value === "PLAYER_SAVE_STATE_UNAVAILABLE" || value === "PLAYER_SAVE_STATE_RESTORE_FAILED";
 }
 
 export function multiDiscPlayerResultCode(

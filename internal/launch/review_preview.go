@@ -133,8 +133,7 @@ func (service *Service) validateReviewPreviewSource(
 	if err != nil {
 		return ErrReviewPreviewUnavailable
 	}
-	supported := slices.Contains(compatibility.SupportedContentKinds, source.ContentKind) ||
-		compatibility.SchemaVersion == 2 && source.ContentKind != corevalidation.MultiDiscContentKind
+	supported := slices.Contains(compatibility.SupportedContentKinds, source.ContentKind)
 	if !supported {
 		return ErrReviewPreviewUnavailable
 	}
@@ -513,13 +512,13 @@ func (service *Service) ReviewPreviewConfig(ctx context.Context, previewID, capa
 		Core:            source.CoreID, RuntimeCore: compatibility.RuntimeCoreID, CoreName: source.CoreName,
 		CoreArtifactID: source.ArtifactID, EmulatorGameID: source.EmulatorGameID,
 		GameName: "retrom-review-" + previewID, GameTitle: source.Title, PlatformName: source.PlatformName,
-		RuntimeBaseURL:     base + strings.TrimSuffix(version.Manifest.EmulatorJS.PlayerAdapter.RuntimeBasePath, "/") + "/",
-		LoaderURL:          base + version.Manifest.EmulatorJS.PlayerAdapter.LoaderPath,
-		GameURL:            "/runtime/launches/" + previewID + "/game/" + url.PathEscape(source.LogicalName),
-		BIOSURL:            reviewPreviewBundleURL(previewID, "bios", runtimeFiles.BIOSCount),
-		ParentURL:          reviewPreviewBundleURL(previewID, "parent", runtimeFiles.ParentCount),
-		StateURL:           nil,
-		PersistentSaveMode: "NONE", PersistentSaveURL: nil, InputMode: compatibility.InputMode,
+		RuntimeBaseURL:       base + strings.TrimSuffix(version.Manifest.EmulatorJS.PlayerAdapter.RuntimeBasePath, "/") + "/",
+		LoaderURL:            base + version.Manifest.EmulatorJS.PlayerAdapter.LoaderPath,
+		GameURL:              "/runtime/launches/" + previewID + "/game/" + url.PathEscape(source.LogicalName),
+		BIOSURL:              reviewPreviewBundleURL(previewID, "bios", runtimeFiles.BIOSCount),
+		ParentURL:            reviewPreviewBundleURL(previewID, "parent", runtimeFiles.ParentCount),
+		StateURL:             nil,
+		InputMode:            compatibility.InputMode,
 		StartupActions:       startupActions,
 		RequiresThreads:      source.RequiresThreads == 1,
 		RuntimePathOverrides: map[string]string{compatibility.RequestedArtifactBasename: base + source.RelativePath},

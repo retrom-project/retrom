@@ -20,8 +20,6 @@ const config: PlayerConfig = {
   biosUrl: null,
   parentUrl: null,
   stateUrl: null,
-  persistentSaveMode: "NONE",
-  persistentSaveUrl: null,
   inputMode: "STANDARD",
   startupActions: [],
   requiresThreads: false,
@@ -87,8 +85,6 @@ const fbneoNetplayConfig: PlayerConfig = {
   coreName: "FinalBurn Neo",
   coreArtifactId: "01980000-0000-7000-8000-000000000003",
   stateUrl: null,
-  persistentSaveMode: "NONE",
-  persistentSaveUrl: null,
   runtimePathOverrides: { "fbneo-wasm.data": "/runtime/emulatorjs/4.2.3/data/cores/fbneo-wasm.data" },
   netplay: {
     roomId: "01980000-0000-7000-8000-000000000004",
@@ -97,7 +93,7 @@ const fbneoNetplayConfig: PlayerConfig = {
     runtimeSocketUrl: "/runtime/netplay/rooms/01980000-0000-7000-8000-000000000004/socket",
     netplayProfile: {
       schemaVersion: 1,
-      protocolVersion: "retrom-netplay-v1",
+      protocolVersion: "retrom-netplay-v2",
       profileId: "fbneo-423-v1",
       emulatorjsVersion: "4.2.3",
       playerAdapterId: "ejs-4.2.3-v2",
@@ -437,18 +433,13 @@ describe("EmulatorJS adapter runtime controls", () => {
     vi.useRealTimers();
   });
 
-  it("exposes only explicit state callbacks and rejects automatic persistence capabilities", () => {
+  it("exposes only explicit state callbacks", () => {
     const target = document.createElement("div");
     const onSaveState = vi.fn();
     const cleanup = mountEmulatorJS(config, target, { onSaveState });
     expect(window.EJS_onSaveState).toBe(onSaveState);
     expect(window.EJS_onSaveSave).toBeUndefined();
     cleanup();
-    expect(() => mountEmulatorJS({
-      ...config,
-      persistentSaveMode: "SINGLE_FILE",
-      persistentSaveUrl: `/runtime/launches/${config.launchId}/persistent-save`,
-    }, target)).toThrow("PLAYER_PERSISTENT_CAPABILITY_INVALID");
   });
 
   it("uses explicit native restore for every selected 4.2.3 state and DOSBox Pure", () => {

@@ -197,11 +197,11 @@ INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES(?,?,1024,?,?,?,'application/zip',?)
 `, blobID, strings.Repeat("b", 64), strings.Repeat("c", 32), strings.Repeat("d", 40), strings.Repeat("e", 8), now)
 	mustExecHTTPTest(t, transaction, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,
-compatibility_status,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
+INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
 default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
 version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'mame2003_plus',?,'BUILTIN','test.dat',?,'test','MATCHED','READY',1,1,1,0,0,0,1,0,0,1,?,?,?,?)
+VALUES(?,'mame2003_plus',?,'test.dat',?,'test','READY',1,1,1,0,0,0,1,0,0,1,?,?,?,?)
 `, datVersionID, artifactID, strings.Repeat("f", 64), now, now, now, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,is_explicit_bios,classification)
@@ -301,7 +301,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 	if err := decoder.Decode(&response); err != nil {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 1 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 40 }, func() bool { return !slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) }, func() bool { return response.Dependencies.Active != "4.2.3" }), "diagnostics values = %#v", response)
+	testassert.Falsef(t, testassert.Any(func() bool { return response.SchemaVersion != 1 }, func() bool { return response.GeneratedAtMS != fixed.UnixMilli() }, func() bool { return response.DatabaseSchemaVersion != 10 }, func() bool { return !slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) }, func() bool { return response.Dependencies.Active != "4.2.3" }), "diagnostics values = %#v", response)
 }
 
 func TestImportProjectionsIncludeRejectedFileProblems(t *testing.T) {
@@ -342,7 +342,7 @@ VALUES(?,?,'fc/8只眼.zip',1,1,?,'COMPLETE',?,?)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
 core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,total_item_count,rejected_file_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'01980000-0000-7000-8000-000000000001',1,'nes','fceumm',?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,'HASHEOUS','{}',?,'PARTIAL_FAILURE',0,1,1,?,?)
 `, importID, uploadID, artifactID, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO import_job_files(import_job_id,upload_file_id,disposition,reason_code,created_at_ms,updated_at_ms)
@@ -359,7 +359,7 @@ VALUES(?,'COMPLETE','FILES',1,0,?,1,?,?,?)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,platform_id,default_core_id,
 core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,state,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'01980000-0000-7000-8000-000000000001',1,'nes','fceumm',?,'HASHEOUS','{}',?,'COMPLETED',1,?,?)
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),1,'nes','fceumm',?,'HASHEOUS','{}',?,'COMPLETED',1,?,?)
 `, extraImportID, extraUploadID, artifactID, digest, extraTimestamp, extraTimestamp)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -467,7 +467,7 @@ VALUES(?,'COMPLETE','FILES',1,1,?,1,?,?,?)
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
 platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
 state,total_item_count,review_pending_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'01980000-0000-7000-8000-000000000005',1,'gba','mgba',?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,'NONE','{}',?,
 'REVIEW_PENDING',1,1,1,?,?)
 `, importID, uploadID, artifactID, digest, timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `

@@ -39,10 +39,10 @@ func TestReviewBulkApprovalPublishesStrictReadyCandidatesAtomically(t *testing.T
 		t.Fatal(err)
 	}
 	const (
-		profileID          = "01990000-0000-7000-8000-00000000b710"
-		adminID            = "01990000-0000-7000-8000-00000000b711"
-		platformInstanceID = "01980000-0000-7000-8000-000000000005"
+		profileID = "01990000-0000-7000-8000-00000000b710"
+		adminID   = "01990000-0000-7000-8000-00000000b711"
 	)
+	platformInstanceID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 	if _, err := database.SQL.ExecContext(
 		ctx, `INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Bulk Review Admin',1)`, profileID,
 	); err != nil {

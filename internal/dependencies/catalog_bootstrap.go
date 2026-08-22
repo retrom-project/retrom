@@ -208,8 +208,7 @@ FROM dat_machines m
 WHERE m.dat_version_id=d.id)
 FROM dat_versions d
 JOIN core_artifacts a ON a.id=d.core_artifact_id
-WHERE d.source='BUILTIN'
-AND d.sha256=?
+WHERE d.sha256=?
 AND d.parser_version='retrom-dat-v1'
 AND a.core_id=?
 AND a.emulatorjs_version=?
@@ -466,20 +465,20 @@ func activateBuiltInDAT(
 	datID string,
 	now time.Time,
 ) error {
-	var artifactID, source, parseStatus string
+	var artifactID, parseStatus string
 	var artifactEnabled, alreadyActive int
 	if err := transaction.QueryRowContext(ctx, `
-SELECT d.core_artifact_id,a.enabled,d.source,d.parse_status,d.is_active
+SELECT d.core_artifact_id,a.enabled,d.parse_status,d.is_active
 FROM dat_versions d
 JOIN core_artifacts a ON a.id=d.core_artifact_id
 WHERE d.id=?
-`, datID).Scan(&artifactID, &artifactEnabled, &source, &parseStatus, &alreadyActive); err != nil {
+`, datID).Scan(&artifactID, &artifactEnabled, &parseStatus, &alreadyActive); err != nil {
 		return fmt.Errorf("inspect selected built-in DAT: %w", err)
 	}
 	if artifactEnabled == 0 {
 		return nil
 	}
-	if source != "BUILTIN" || parseStatus != "READY" {
+	if parseStatus != "READY" {
 		return fmt.Errorf("%w: selected DAT is not a ready built-in version", ErrInvalid)
 	}
 	if alreadyActive == 1 {
@@ -488,7 +487,7 @@ WHERE d.id=?
 	deactivated, err := transaction.ExecContext(ctx, `
 UPDATE dat_versions
 SET is_active=0,version=version+1,updated_at_ms=?
-WHERE core_artifact_id=? AND source='BUILTIN' AND is_active=1 AND id<>?
+WHERE core_artifact_id=? AND is_active=1 AND id<>?
 `, now.UnixMilli(), artifactID, datID)
 	if err != nil {
 		return fmt.Errorf("deactivate superseded built-in DAT: %w", err)
@@ -503,7 +502,7 @@ UPDATE core_artifacts SET version=version+1,updated_at_ms=? WHERE id=?
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE dat_versions
 SET is_active=1,activated_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND source='BUILTIN' AND parse_status='READY' AND is_active=0
+WHERE id=? AND parse_status='READY' AND is_active=0
 `, now.UnixMilli(), now.UnixMilli(), datID); err != nil {
 		return fmt.Errorf("activate selected built-in DAT: %w", err)
 	}
@@ -600,16 +599,11 @@ func createBuiltInDATJob(
 	executionID, _ := uuid.NewV7()
 	jobID := generated.String()
 	var datVersion int64
-	var baseID sql.NullString
 	if err := transaction.QueryRowContext(ctx, `
-SELECT version,
-(SELECT id
-FROM dat_versions active
-WHERE active.core_artifact_id=target.core_artifact_id
-AND active.is_active=1)
-FROM dat_versions target
-WHERE target.id=?
-`, datID).Scan(&datVersion, &baseID); err != nil {
+SELECT version
+FROM dat_versions
+WHERE id=?
+`, datID).Scan(&datVersion); err != nil {
 		return "", fmt.Errorf("dependencies/dependencies: %w", err)
 	}
 	input := map[string]any{
@@ -618,10 +612,9 @@ WHERE target.id=?
 		"scope":         map[string]any{"type": "DAT_VERSION", "id": datID},
 		"executionId":   executionID.String(),
 		"inputs": map[string]any{
-			"datVersion":       datVersion,
-			"datSha256":        datSHA,
-			"parserVersion":    parserVersion,
-			"baseDatVersionId": nullableString(baseID),
+			"datVersion":    datVersion,
+			"datSha256":     datSHA,
+			"parserVersion": parserVersion,
 		},
 	}
 	inputJSON, _ := json.Marshal(input)
@@ -774,13 +767,6 @@ false),
 		now.UnixMilli(),
 	)
 	_ = transaction.Commit()
-}
-
-func nullableString(value sql.NullString) any {
-	if value.Valid {
-		return value.String
-	}
-	return nil
 }
 
 func statsMatch(actual arcadedat.Stats, expected catalogStats) bool {

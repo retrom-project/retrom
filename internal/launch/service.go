@@ -72,8 +72,6 @@ type artifactCompatibility struct {
 	RequestedArtifactBasename string                       `json:"requestedArtifactBasename"`
 	CanvasResizePolicy        string                       `json:"canvasResizePolicy"`
 	DefaultOptions            map[string]string            `json:"defaultOptions"`
-	PersistentSaveMode        string                       `json:"persistentSaveMode"`
-	PersistentSaveKind        *string                      `json:"persistentSaveKind"`
 	InputMode                 string                       `json:"inputMode"`
 	StartupActions            []dependencies.StartupAction `json:"startupActions"`
 	SupportedContentKinds     []string                     `json:"supportedContentKinds,omitempty"`
@@ -121,8 +119,8 @@ SELECT credential_sha256,state,hard_expires_at_ms,save_access FROM launch_sessio
 }
 
 // CreateNetplay creates the participant-owned launch from a server-locked
-// session snapshot. It deliberately bypasses save-state and persistent-save
-// selection while retaining the normal content/BIOS locking path.
+// session snapshot. It deliberately bypasses save-state selection while
+// retaining the normal content/BIOS locking path.
 func (service *Service) CreateNetplay(ctx context.Context, request NetplayCreateRequest) (Created, error) {
 	if !validNetplayCreateRequest(request) {
 		return Created{}, ErrBlocked
@@ -258,10 +256,10 @@ func (service *Service) insertNetplayLaunch(
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO launch_sessions(
   id,profile_id,game_id,game_variant_revision_id,core_artifact_id,save_state_id,dos_entry_path,
-  persistent_save_base_revision_id,initial_disc_index,return_to,credential_sha256,state,
+  initial_disc_index,return_to,credential_sha256,state,
   bootstrap_expires_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,
   netplay_session_id,netplay_player_no,save_access
-) VALUES(?,?,?,?,?,NULL,NULL,NULL,0,?,?,'CREATED',?,?,?,?,?,?,'NETPLAY_DISABLED')
+) VALUES(?,?,?,?,?,NULL,NULL,0,?,?,'CREATED',?,?,?,?,?,?,'NETPLAY_DISABLED')
 `, launchID.String(), request.ProfileID, request.GameID, request.GameVariantRevisionID,
 		request.CoreArtifactID, request.ReturnTo, capabilityHash[:], bootstrapExpires, hardExpires, now, now,
 		request.SessionID, request.PlayerNo); err != nil {

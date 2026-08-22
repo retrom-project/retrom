@@ -195,7 +195,7 @@ func TestMultiDiscDirectoryCreatesOrderedItemsAndPublishesCanonicalContent(t *te
 		{path: "Nested/Beta/two.chd", contents: fakeCHD("beta-two")},
 	})
 	created, err := importer.Create(ctx, CreateRequest{
-		UploadID: uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 2 }), "Create() = %#v, error=%v", created, err)
@@ -333,7 +333,7 @@ func TestMultiDiscMissingDiscIsBlockedWithoutPlaceholderBlob(t *testing.T) {
 		{path: "game/two.chd", contents: fakeCHD("two")},
 	})
 	created, err := importer.Create(ctx, CreateRequest{
-		UploadID: uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "Create() = %#v, error=%v", created, err)
@@ -433,7 +433,7 @@ func TestMultiDiscAttachmentRejectsNonExactSetWithoutAdvancingDraft(t *testing.T
 		{path: "game/two.chd", contents: fakeCHD("two")},
 	})
 	created, err := importer.Create(ctx, CreateRequest{
-		UploadID: baseUploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
 	})
 	testassert.False(t, err != nil, err)
@@ -496,13 +496,13 @@ func TestMultiDiscAdmissionRejectsMissingPlaylistAndUnsupportedTargetWithoutCons
 		{path: "game/two.chd", contents: fakeCHD("two")},
 	})
 	request := CreateRequest{
-		UploadID: uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
 	}
 	if _, err := importer.Create(ctx, request); !errors.Is(err, ErrMultiDiscPlaylistMissing) {
 		t.Fatalf("missing playlist error = %v", err)
 	}
-	request.TargetPlatformInstanceID = "01980000-0000-7000-8000-000000000019"
+	request.TargetPlatformInstanceID = testsupport.MustPlatformInstanceID(t, database.SQL, "psx/pcsx_rearmed")
 	if _, err := importer.Create(ctx, request); !errors.Is(err, ErrMultiDiscModeUnavailable) {
 		t.Fatalf("unsupported target error = %v", err)
 	}

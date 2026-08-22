@@ -412,26 +412,26 @@ func (service *Service) validateCurrentArcadeApprovalSnapshot(
 		len(frozen.MismatchedEntries) != 0 {
 		return ErrInvalid
 	}
-	projected, err := service.projectArcadeSnapshotV2WithQueryer(ctx, transaction, frozenJSON)
-	if err != nil || len(projected.Dependencies) != len(projectedClosureDependencies(projected.Closure)) {
+	canonical, err := service.canonicalArcadeSnapshotWithQueryer(ctx, transaction, frozenJSON)
+	if err != nil || len(canonical.Dependencies) != len(projectedClosureDependencies(canonical.Closure)) {
 		return ErrInvalid
 	}
-	seen := make(map[string]struct{}, len(projected.Dependencies))
-	for _, dependency := range projected.Dependencies {
+	seen := make(map[string]struct{}, len(canonical.Dependencies))
+	for _, dependency := range canonical.Dependencies {
 		key := dependency.Kind + "\x00" + dependency.Machine
 		if _, duplicate := seen[key]; duplicate {
 			return ErrInvalid
 		}
 		seen[key] = struct{}{}
 		if err := service.validateCurrentArcadeApprovalDependency(
-			ctx, transaction, validationID, projected.DatVersionID, dependency,
+			ctx, transaction, validationID, canonical.DatVersionID, dependency,
 		); err != nil {
 			return err
 		}
 	}
 	frozenCanonical, frozenErr := json.Marshal(frozen)
-	projectedCanonical, projectedErr := json.Marshal(projected)
-	if frozenErr != nil || projectedErr != nil || !bytes.Equal(frozenCanonical, projectedCanonical) {
+	canonicalJSON, canonicalErr := json.Marshal(canonical)
+	if frozenErr != nil || canonicalErr != nil || !bytes.Equal(frozenCanonical, canonicalJSON) {
 		return ErrInvalid
 	}
 	return nil

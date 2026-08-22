@@ -41,7 +41,6 @@ const pegasusPhaseLabels: Record<string, string> = {
   COPYING_CONTENT: "复制游戏内容",
   VALIDATING: "运行检查",
   PREPARING_REVIEWS: "准备审核事项",
-  PUBLISHING: "更新审核结果",
 };
 
 function pegasusTone(state: string): ImportOverviewActivity["tone"] {

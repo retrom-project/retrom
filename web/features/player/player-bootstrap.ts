@@ -69,7 +69,6 @@ async function bootstrapPlayer(params: PlayerBootstrapParams, resources: Bootstr
   await prepareOrientation(params, config, controller);
   const frame = await prepareFrame(params, controller);
   await describeDiscSet(params, config, controller);
-  validatePersistence(config);
   const stateBytes = await fetchLaunchState(config, controller);
   const mounted = mountFrame(params, resources, controller, config, frame, stateBytes);
   resources.cleanup = mountEmulatorJS(config, mounted.target, createMountCallbacks(mounted.context), mounted.context.frameWindow);
@@ -129,10 +128,6 @@ async function describeDiscSet(params: PlayerBootstrapParams, config: PlayerConf
     return size;
   }));
   params.setMessage(`正在准备多盘内容 · ${config.discSet.count} 张光盘 · ${formatPlayerBytes(sizes.reduce((total, size) => total + size, 0))}`);
-}
-
-function validatePersistence(config: PlayerConfig) {
-  if (config.persistentSaveMode !== "NONE" || config.persistentSaveUrl !== null) {throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");}
 }
 
 async function fetchLaunchState(config: PlayerConfig, controller: AbortController) {

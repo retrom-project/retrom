@@ -13,7 +13,7 @@ func TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence(t *test
 		title: "Strict Ready", contentKind: "SINGLE_FILE", platformVersion: 3,
 		artifactID: sql.NullString{String: "artifact", Valid: true},
 		artifactCompatibility: sql.NullString{
-			String: `{"schemaVersion":3,"supportedContentKinds":["SINGLE_FILE"]}`,
+			String: `{"schemaVersion":5,"supportedContentKinds":["SINGLE_FILE"]}`,
 			Valid:  true,
 		},
 		artifactVersion:           sql.NullInt64{Int64: 4, Valid: true},

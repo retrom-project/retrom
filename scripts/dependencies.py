@@ -24,8 +24,8 @@ import fbalpha2012_dat
 REPOSITORY_ROOT = Path(__file__).resolve().parent.parent
 DATA_ROOT = REPOSITORY_ROOT / "data"
 AUTH_MANIFEST_PATH = DATA_ROOT / "auth/password-blocklists/v1/manifest.json"
-NETPLAY_MANIFEST_PATH = DATA_ROOT / "netplay/v1/manifest.json"
-NETPLAY_SCHEMA_PATH = DATA_ROOT / "netplay/v1/schema.json"
+NETPLAY_MANIFEST_PATH = DATA_ROOT / "netplay/v2/manifest.json"
+NETPLAY_SCHEMA_PATH = DATA_ROOT / "netplay/v2/schema.json"
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 PINNED_RAW = re.compile(
     r"^https://raw\.githubusercontent\.com/[^/]+/[^/]+/[0-9a-f]{40}/.+$"
@@ -179,7 +179,7 @@ def manifest_path(version: str) -> Path:
 
 def load_manifest(version: str) -> dict[str, Any]:
     manifest = load_json(manifest_path(version))
-    if manifest.get("schema_version") not in (4, 5, 6):
+    if manifest.get("schema_version") != 7:
         raise CheckError(f"DEPENDENCY_SCHEMA_UNSUPPORTED:{version}")
     emulatorjs = manifest.get("emulatorjs")
     if not isinstance(emulatorjs, dict) or emulatorjs.get("version") != version:
@@ -316,11 +316,11 @@ def validate_netplay_manifest(
     if schema.get("$schema") != "https://json-schema.org/draft/2020-12/schema":
         raise CheckError("NETPLAY_SCHEMA_INVALID")
     manifest = load_json(NETPLAY_MANIFEST_PATH)
-    if set(manifest) != {"schemaVersion", "protocol", "profiles"} or manifest.get("schemaVersion") != 3:
+    if set(manifest) != {"schemaVersion", "protocol", "profiles"} or manifest.get("schemaVersion") != 4:
         raise CheckError("NETPLAY_MANIFEST_INVALID")
     protocol = manifest.get("protocol")
     expected_protocol = {
-        "version": "retrom-netplay-v1",
+        "version": "retrom-netplay-v2",
         "playerAdapterId": "ejs-4.2.3-v2",
         "netplayAdapterId": "ejs-netplay-4.2.3-v1",
         "controlCount": 24,
@@ -418,7 +418,7 @@ def validate_small_manifest(version: str, manifest: dict[str, Any]) -> None:
         if not isinstance(item.get("size_bytes"), int):
             raise CheckError("DEPENDENCY_CORE_SIZE_INVALID")
         expect_digest(item.get("sha256"), "DEPENDENCY_CORE_SHA256_INVALID")
-        validate_artifact_capability(item, paths, manifest.get("schema_version"))
+        validate_artifact_capability(item, paths)
 
     auxiliary = emulatorjs.get("auxiliary_files")
     if not isinstance(auxiliary, list):
@@ -572,9 +572,16 @@ def validate_dat_definition(core_id: str, core: dict[str, Any], dat: dict[str, A
         raise CheckError("DEPENDENCY_FBA2012_DAT_GATE_INVALID")
 
 
-def validate_artifact_capability(
-    item: dict[str, Any], allowlist_paths: set[str], manifest_schema: object
-) -> None:
+def validate_artifact_capability(item: dict[str, Any], allowlist_paths: set[str]) -> None:
+    required_fields = {
+        "core_id", "source_component_id", "runtime_core_id", "path_in_release", "size_bytes", "sha256",
+        "requires_threads", "bundle_version", "artifact_flavor", "requested_artifact_basename",
+        "canvas_resize_policy", "default_options", "input_mode", "startup_actions", "report_path",
+        "supported_content_kinds",
+    }
+    optional_fields = {"local_path", "override_ref", "multi_disc"}
+    if not required_fields.issubset(item) or not set(item).issubset(required_fields | optional_fields):
+        raise CheckError("DEPENDENCY_ARTIFACT_CAPABILITY_INVALID")
     basename = item.get("requested_artifact_basename")
     if not isinstance(basename, str) or ARTIFACT_BASENAME.fullmatch(basename) is None or ".." in basename:
         raise CheckError("DEPENDENCY_ARTIFACT_BASENAME_INVALID")
@@ -597,21 +604,6 @@ def validate_artifact_capability(
             raise CheckError("DEPENDENCY_CORE_OPTIONS_INVALID") from exc
         if not 1 <= len(encoded_key) <= 128 or len(encoded_value) > 128 or any(byte < 0x20 or byte > 0x7E for byte in (*encoded_key, *encoded_value)):
             raise CheckError("DEPENDENCY_CORE_OPTIONS_INVALID")
-    mode = item.get("persistent_save_mode")
-    kind = item.get("persistent_save_kind")
-    expected_kind = {
-        "SINGLE_FILE": "CORE_SAVE",
-        "DOS_OVERLAY": "DOS_OVERLAY",
-        "FILE_TREE": "CORE_SAVE",
-        "AUTO_STATE": "CORE_SAVE",
-        "NONE": None,
-    }
-    if mode not in expected_kind or kind != expected_kind[mode] or (
-        manifest_schema in (4, 5) and mode == "FILE_TREE" and item.get("runtime_core_id") != "ppsspp"
-    ) or (
-        manifest_schema in (4, 5) and mode == "AUTO_STATE"
-    ):
-        raise CheckError("DEPENDENCY_PERSISTENT_SAVE_INVALID")
     if item.get("input_mode") not in ("STANDARD", "POINTER"):
         raise CheckError("DEPENDENCY_INPUT_MODE_INVALID")
     report_path = safe_relative_path(item.get("report_path"), "DEPENDENCY_CORE_REPORT_INVALID")
@@ -634,10 +626,6 @@ def validate_artifact_capability(
             raise CheckError("DEPENDENCY_STARTUP_ACTION_INVALID")
     content_kinds = item.get("supported_content_kinds")
     multi_disc = item.get("multi_disc")
-    if manifest_schema == 4:
-        if content_kinds is not None or multi_disc is not None:
-            raise CheckError("DEPENDENCY_LEGACY_CONTENT_CAPABILITY_INVALID")
-        return
     expected_primary = "DOS_BUNDLE" if item.get("core_id") == "dosbox_pure" else "SINGLE_FILE"
     if content_kinds not in ([expected_primary], [expected_primary, "MULTI_DISC_M3U_V1"]):
         raise CheckError("DEPENDENCY_CONTENT_CAPABILITY_INVALID")
@@ -763,8 +751,8 @@ def image_export_entries(
             "DEPENDENCY_IMAGE_EXPORT_PATH_INVALID",
         )
         add(auth_payload_path(relative), f"auth/password-blocklists/v1/{relative}")
-    add(NETPLAY_MANIFEST_PATH, "netplay/v1/manifest.json")
-    add(NETPLAY_SCHEMA_PATH, "netplay/v1/schema.json")
+    add(NETPLAY_MANIFEST_PATH, "netplay/v2/manifest.json")
+    add(NETPLAY_SCHEMA_PATH, "netplay/v2/schema.json")
     return entries
 
 

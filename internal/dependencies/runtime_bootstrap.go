@@ -85,7 +85,7 @@ func findOrCreateDATVersionID(
 	err := transaction.QueryRowContext(
 		ctx,
 		`SELECT id FROM dat_versions
-WHERE core_artifact_id = ? AND sha256 = ? AND parser_version = 'retrom-dat-v1' AND source = 'BUILTIN'`,
+WHERE core_artifact_id = ? AND sha256 = ? AND parser_version = 'retrom-dat-v1'`,
 		artifactID,
 		digest,
 	).Scan(&id)
@@ -111,12 +111,9 @@ func upsertBuiltInDAT(
 INSERT INTO dat_versions(id,
  core_id,
  core_artifact_id,
- source,
  builtin_relative_path,
- blob_id,
  sha256,
  parser_version,
- compatibility_status,
  parse_status,
  is_active,
  machine_count,
@@ -135,12 +132,9 @@ INSERT INTO dat_versions(id,
 VALUES(?,
 ?,
 ?,
-'BUILTIN',
 ?,
-NULL,
 ?,
 'retrom-dat-v1',
-'MATCHED',
 'PENDING',
 0,
 NULL,
@@ -158,10 +152,8 @@ NULL,
 NULL)
 ON CONFLICT(core_artifact_id,
  sha256,
- parser_version)
-WHERE source = 'BUILTIN' DO UPDATE SET
+parser_version) DO UPDATE SET
   builtin_relative_path=excluded.builtin_relative_path,
-compatibility_status='MATCHED',
 updated_at_ms=excluded.updated_at_ms
 `,
 		id, coreID, artifactID, relativePath, digest, now.UnixMilli(), now.UnixMilli())
@@ -263,7 +255,7 @@ func retireSupersededBuiltInDAT(
 	result, err := transaction.ExecContext(ctx, `
 UPDATE dat_versions
 SET is_active=0,version=version+1,updated_at_ms=?
-WHERE core_artifact_id=? AND source='BUILTIN' AND id<>? AND is_active=1
+WHERE core_artifact_id=? AND id<>? AND is_active=1
 `, now.UnixMilli(), artifactID, selectedDATID)
 	if err != nil {
 		return fmt.Errorf("retire superseded built-in DAT: %w", err)
@@ -320,33 +312,22 @@ func bootstrapCore(
 	)
 }
 
-func coreCompatibility(core SelectedCore, manifestSchemaVersion int) map[string]any {
-	compatibilitySchema := 2
-	if manifestSchemaVersion >= 5 {
-		compatibilitySchema = 3
-	}
-	if manifestSchemaVersion >= 6 {
-		compatibilitySchema = 4
-	}
+func coreCompatibility(core SelectedCore, _ int) map[string]any {
 	result := map[string]any{
-		"schemaVersion": compatibilitySchema, "runtimeCoreId": core.RuntimeCoreID,
+		"schemaVersion": 5, "runtimeCoreId": core.RuntimeCoreID,
 		"requestedArtifactBasename": core.RequestedArtifactBasename,
 		"canvasResizePolicy":        core.CanvasResizePolicy,
 		"defaultOptions":            core.DefaultOptions,
-		"persistentSaveMode":        core.PersistentSaveMode,
-		"persistentSaveKind":        core.PersistentSaveKind,
 		"inputMode":                 core.InputMode,
 		"startupActions":            core.StartupActions,
+		"supportedContentKinds":     core.SupportedContentKinds,
+		"multiDisc":                 nil,
 	}
-	if compatibilitySchema >= 3 {
-		result["supportedContentKinds"] = core.SupportedContentKinds
-		result["multiDisc"] = nil
-		if core.MultiDisc != nil {
-			result["multiDisc"] = map[string]any{
-				"maxDiscs":      core.MultiDisc.MaxDiscs,
-				"maxTotalBytes": core.MultiDisc.MaxTotalBytes,
-				"delivery":      core.MultiDisc.Delivery,
-			}
+	if core.MultiDisc != nil {
+		result["multiDisc"] = map[string]any{
+			"maxDiscs":      core.MultiDisc.MaxDiscs,
+			"maxTotalBytes": core.MultiDisc.MaxTotalBytes,
+			"delivery":      core.MultiDisc.Delivery,
 		}
 	}
 	return result

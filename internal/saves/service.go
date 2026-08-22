@@ -5,7 +5,6 @@ import (
 	"crypto/sha256"
 	"crypto/subtle"
 	"database/sql"
-	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -39,14 +38,10 @@ const (
 )
 
 var (
-	ErrCredential            = errors.New("LAUNCH_CREDENTIAL_INVALID")
-	ErrInvalid               = errors.New("SAVE_INVALID")
-	ErrTooLarge              = errors.New("SAVE_TOO_LARGE")
-	ErrIdempotencyReused     = errors.New("IDEMPOTENCY_KEY_REUSED")
-	ErrSequenceGap           = errors.New("SAVE_SEQUENCE_GAP")
-	ErrSequenceReused        = errors.New("SAVE_SEQUENCE_REUSED")
-	ErrPersistentConflict    = errors.New("PERSISTENT_SAVE_CONFLICT")
-	ErrPersistentUnsupported = errors.New("PERSISTENT_SAVE_UNSUPPORTED")
+	ErrCredential     = errors.New("LAUNCH_CREDENTIAL_INVALID")
+	ErrInvalid        = errors.New("SAVE_INVALID")
+	ErrTooLarge       = errors.New("SAVE_TOO_LARGE")
+	ErrSequenceReused = errors.New("SAVE_SEQUENCE_REUSED")
 )
 
 type Service struct {
@@ -81,7 +76,6 @@ type manualMetadata struct {
 
 type launchSnapshot struct {
 	principalID, profileID, gameID, variantRevisionID, artifactID string
-	persistentSaveMode, persistentSaveKind, runtimeCoreID         string
 	datVersionID, dosEntry                                        sql.NullString
 	credentialHash                                                []byte
 	state                                                         string
@@ -92,7 +86,6 @@ type launchSnapshot struct {
 
 func (service *Service) launch(ctx context.Context, launchID, capability string) (launchSnapshot, error) {
 	var result launchSnapshot
-	var compatibilityJSON string
 	err := service.database.QueryRowContext(ctx, `
 SELECT COALESCE(u.id,l.profile_id),
 l.profile_id,
@@ -104,15 +97,12 @@ l.dos_entry_path,
 l.credential_sha256,
 l.state,
 l.hard_expires_at_ms,
-a.compatibility_config_json
-,
 content.format_version,
 (SELECT count(*) FROM launch_external_files external
  WHERE external.launch_session_id=l.id AND external.kind='DISC'),
 l.initial_disc_index
 FROM launch_sessions l
 JOIN game_variant_revisions r ON r.id=l.game_variant_revision_id
-JOIN core_artifacts a ON a.id=l.core_artifact_id
 JOIN launch_content_files content ON content.launch_session_id=l.id
 LEFT JOIN users u ON u.profile_id=l.profile_id
 WHERE l.id=?
@@ -120,39 +110,16 @@ WHERE l.id=?
 		Scan(
 			&result.principalID, &result.profileID, &result.gameID, &result.variantRevisionID, &result.artifactID,
 			&result.datVersionID, &result.dosEntry, &result.credentialHash, &result.state, &result.hardExpiresAtMS,
-			&compatibilityJSON,
 			&result.contentFormat, &result.discCount, &result.initialDiscIndex,
 		)
 	if err != nil || !retromruntime.MatchesCapability(capability, result.credentialHash) ||
 		result.state != "ACTIVE" || result.hardExpiresAtMS <= service.now().UnixMilli() {
 		return launchSnapshot{}, ErrCredential
 	}
-	if err := applySaveCompatibility(&result, compatibilityJSON); err != nil {
-		return launchSnapshot{}, ErrCredential
-	}
 	if !validLaunchDiscShape(result) {
 		return launchSnapshot{}, ErrCredential
 	}
 	return result, nil
-}
-
-func applySaveCompatibility(result *launchSnapshot, raw string) error {
-	var compatibility struct {
-		SchemaVersion      int     `json:"schemaVersion"`
-		RuntimeCoreID      string  `json:"runtimeCoreId"`
-		PersistentSaveMode string  `json:"persistentSaveMode"`
-		PersistentSaveKind *string `json:"persistentSaveKind"`
-	}
-	if err := json.Unmarshal([]byte(raw), &compatibility); err != nil ||
-		compatibility.SchemaVersion != 2 && compatibility.SchemaVersion != 3 && compatibility.SchemaVersion != 4 {
-		return ErrCredential
-	}
-	result.persistentSaveMode = compatibility.PersistentSaveMode
-	result.runtimeCoreID = compatibility.RuntimeCoreID
-	if compatibility.PersistentSaveKind != nil {
-		result.persistentSaveKind = *compatibility.PersistentSaveKind
-	}
-	return nil
 }
 
 func validLaunchDiscShape(result launchSnapshot) bool {
@@ -538,434 +505,6 @@ VALUES(?,
 func nullable(value sql.NullString) any {
 	if value.Valid {
 		return value.String
-	}
-	return nil
-}
-
-type PersistentResult struct {
-	PersistentSaveID string `json:"persistentSaveId"`
-	RevisionID       string `json:"revisionId"`
-	Sequence         int64  `json:"sequence"`
-	CreatedAtMS      int64  `json:"createdAtMs"`
-}
-
-type persistentWrite struct {
-	launchID, idempotencyKey, event, requestDigest string
-	sequence, now                                  int64
-	launch                                         launchSnapshot
-	metadata                                       blobstore.Metadata
-}
-
-func (service *Service) GetPersistent(
-	ctx context.Context,
-	launchID, capability string,
-) (blobstore.Metadata, bool, error) {
-	launch, err := service.launch(ctx, launchID, capability)
-	if err != nil {
-		return blobstore.Metadata{}, false, err
-	}
-	if launch.persistentSaveMode == "NONE" {
-		return blobstore.Metadata{}, false, ErrPersistentUnsupported
-	}
-	var digest, mediaType string
-	var size int64
-	err = service.database.QueryRowContext(ctx, `
-SELECT b.sha256,
-b.size_bytes,
-b.media_type
-FROM launch_sessions l
-JOIN persistent_save_revisions r ON r.id=l.persistent_save_base_revision_id
-JOIN blobs b ON b.id=r.blob_id
-WHERE l.id=?
-`, launchID).
-		Scan(&digest, &size, &mediaType)
-	if errors.Is(err, sql.ErrNoRows) {
-		return blobstore.Metadata{}, false, nil
-	}
-	if err != nil {
-		return blobstore.Metadata{}, false, fmt.Errorf("saves/service: %w", err)
-	}
-	if size > maxStateBytes {
-		return blobstore.Metadata{}, false, ErrTooLarge
-	}
-	return blobstore.Metadata{SHA256: digest, Size: size, Path: service.blobs.Path(digest)}, true, nil
-}
-
-func parseRFC9530(value string) (string, error) {
-	if !strings.HasPrefix(value, "sha-256=:") || !strings.HasSuffix(value, ":") {
-		return "", ErrInvalid
-	}
-	decoded, err := base64.StdEncoding.DecodeString(strings.TrimSuffix(strings.TrimPrefix(value, "sha-256=:"), ":"))
-	if err != nil || len(decoded) != sha256.Size {
-		return "", ErrInvalid
-	}
-	return hex.EncodeToString(decoded), nil
-}
-
-func (service *Service) PutPersistent(
-	ctx context.Context,
-	launchID, capability, idempotencyKey, digestHeader, event string,
-	sequence int64,
-	body io.Reader,
-) (PersistentResult, bool, error) {
-	launch, err := service.launch(ctx, launchID, capability)
-	if err != nil {
-		return PersistentResult{}, false, err
-	}
-	if launch.persistentSaveMode == "NONE" {
-		return PersistentResult{}, false, ErrPersistentUnsupported
-	}
-	if sequence < 1 || event != "AUTO_INTERVAL" && event != "MANUAL_EXPORT" && event != "EXIT" {
-		return PersistentResult{}, false, ErrInvalid
-	}
-	expectedDigest, err := parseRFC9530(digestHeader)
-	if err != nil {
-		return PersistentResult{}, false, err
-	}
-	metadata, err := service.readBounded(body, maxStateBytes)
-	if err != nil {
-		return PersistentResult{}, false, err
-	}
-	if subtle.ConstantTimeCompare([]byte(metadata.SHA256), []byte(expectedDigest)) != 1 {
-		return PersistentResult{}, false, ErrInvalid
-	}
-	if err := validatePersistentPayload(launch, metadata); err != nil {
-		return PersistentResult{}, false, err
-	}
-	now := service.now().UnixMilli()
-	requestDigestBytes := sha256.Sum256([]byte(strings.Join([]string{
-		launchID, fmt.Sprint(sequence), event, metadata.SHA256,
-	}, "\x00")))
-	return service.persistPersistent(ctx, persistentWrite{
-		launchID: launchID, idempotencyKey: idempotencyKey, event: event,
-		requestDigest: hex.EncodeToString(requestDigestBytes[:]), sequence: sequence, now: now,
-		launch: launch, metadata: metadata,
-	})
-}
-
-func validatePersistentPayload(launch launchSnapshot, metadata blobstore.Metadata) error {
-	if launch.persistentSaveMode != "FILE_TREE" {
-		return nil
-	}
-	stored, err := os.Open(metadata.Path)
-	if err != nil {
-		return fmt.Errorf("saves/service: open persistent file tree: %w", err)
-	}
-	validationErr := validateFileTreeBundle(stored, launch.runtimeCoreID == "ppsspp")
-	if closeErr := stored.Close(); validationErr == nil && closeErr != nil {
-		return fmt.Errorf("saves/service: close persistent file tree: %w", closeErr)
-	}
-	return validationErr
-}
-
-func (service *Service) persistPersistent(
-	ctx context.Context,
-	request persistentWrite,
-) (PersistentResult, bool, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-	}
-	defer cleanup.Rollback(transaction)
-	if previous, replayed, err := replayPersistentRequest(
-		ctx, transaction, request.launch.principalID, request.idempotencyKey, request.requestDigest, request.now,
-	); err != nil || replayed {
-		return previous, replayed, err
-	}
-	if previous, replayed, err := service.replayPersistentSequence(ctx, transaction, request); err != nil || replayed {
-		return previous, replayed, err
-	}
-	saveID, currentRevisionID, kind, err := resolvePersistentSave(ctx, transaction, request)
-	if err != nil {
-		return PersistentResult{}, false, err
-	}
-	result, err := writePersistentRevision(ctx, transaction, request, saveID, currentRevisionID, kind)
-	return result, false, err
-}
-
-func writePersistentRevision(
-	ctx context.Context,
-	transaction *sql.Tx,
-	request persistentWrite,
-	saveID, currentRevisionID, kind string,
-) (PersistentResult, error) {
-	blobID, err := blobstore.EnsureRecord(
-		ctx, transaction, request.metadata, "application/octet-stream", request.now,
-	)
-	if err != nil {
-		return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
-	}
-	revisionID, err := uuid.NewV7()
-	if err != nil {
-		return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
-	}
-	if currentRevisionID == "" {
-		_, err = transaction.ExecContext(
-			ctx,
-			`
-INSERT INTO persistent_saves(id,
-profile_id,
-game_variant_revision_id,
-kind,
-current_revision_id,
-version,
-created_at_ms,
-updated_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-1,
-?,
-?)
-`,
-			saveID,
-			request.launch.profileID,
-			request.launch.variantRevisionID,
-			kind,
-			revisionID.String(),
-			request.now,
-			request.now,
-		)
-		if err != nil {
-			return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
-		}
-	}
-	_, err = transaction.ExecContext(
-		ctx,
-		`
-INSERT INTO persistent_save_revisions(id,
-persistent_save_id,
-blob_id,
-source_launch_session_id,
-client_sequence,
-source_event,
-created_at_ms) VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?)
-`,
-		revisionID.String(),
-		saveID,
-		blobID,
-		request.launchID,
-		request.sequence,
-		request.event,
-		request.now,
-	)
-	if err != nil {
-		return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
-	}
-	if currentRevisionID != "" {
-		update, updateErr := transaction.ExecContext(
-			ctx,
-			`
-UPDATE persistent_saves
-SET current_revision_id=?,
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-AND current_revision_id=?
-`,
-			revisionID.String(),
-			request.now,
-			saveID,
-			currentRevisionID,
-		)
-		if updateErr != nil {
-			return PersistentResult{}, fmt.Errorf("saves/service: %w", updateErr)
-		}
-		rows, _ := update.RowsAffected()
-		if rows != 1 {
-			return PersistentResult{}, ErrPersistentConflict
-		}
-	}
-	result := PersistentResult{
-		PersistentSaveID: saveID,
-		RevisionID:       revisionID.String(),
-		Sequence:         request.sequence,
-		CreatedAtMS:      request.now,
-	}
-	if err := storePersistentIdempotency(
-		ctx, transaction, request.launch.principalID, request.idempotencyKey,
-		request.requestDigest, result, request.now,
-	); err != nil {
-		return PersistentResult{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
-	}
-	return result, nil
-}
-
-func replayPersistentRequest(
-	ctx context.Context,
-	transaction *sql.Tx,
-	principalID, idempotencyKey, requestDigest string,
-	now int64,
-) (PersistentResult, bool, error) {
-	var storedDigest string
-	var storedBody []byte
-	err := transaction.QueryRowContext(ctx, `
-SELECT request_digest,response_body FROM idempotency_records
-WHERE operation_id='putRuntimePersistentSave' AND key=? AND principal_id=? AND expires_at_ms>?
-`, idempotencyKey, principalID, now).Scan(&storedDigest, &storedBody)
-	if errors.Is(err, sql.ErrNoRows) {
-		return PersistentResult{}, false, nil
-	}
-	if err != nil {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-	}
-	if subtle.ConstantTimeCompare([]byte(storedDigest), []byte(requestDigest)) != 1 {
-		return PersistentResult{}, false, ErrIdempotencyReused
-	}
-	var previous PersistentResult
-	if err := json.Unmarshal(storedBody, &previous); err != nil {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-	}
-	return previous, true, nil
-}
-
-func (service *Service) replayPersistentSequence(
-	ctx context.Context,
-	transaction *sql.Tx,
-	request persistentWrite,
-) (PersistentResult, bool, error) {
-	var existing PersistentResult
-	var existingEvent, existingDigest string
-	err := transaction.QueryRowContext(ctx, `
-SELECT p.id,r.id,r.client_sequence,r.source_event,b.sha256,r.created_at_ms
-FROM persistent_save_revisions r JOIN persistent_saves p ON p.id=r.persistent_save_id
-JOIN blobs b ON b.id=r.blob_id
-WHERE r.source_launch_session_id=? AND r.client_sequence=?
-`, request.launchID, request.sequence).Scan(
-		&existing.PersistentSaveID, &existing.RevisionID, &existing.Sequence,
-		&existingEvent, &existingDigest, &existing.CreatedAtMS,
-	)
-	if errors.Is(err, sql.ErrNoRows) {
-		return PersistentResult{}, false, nil
-	}
-	if err != nil {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-	}
-	if existingEvent != request.event ||
-		subtle.ConstantTimeCompare([]byte(existingDigest), []byte(request.metadata.SHA256)) != 1 {
-		return PersistentResult{}, false, ErrSequenceReused
-	}
-	if err := storePersistentIdempotency(
-		ctx, transaction, request.launch.principalID, request.idempotencyKey,
-		request.requestDigest, existing, request.now,
-	); err != nil {
-		return PersistentResult{}, false, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-	}
-	return existing, true, nil
-}
-
-func resolvePersistentSave(
-	ctx context.Context,
-	transaction *sql.Tx,
-	request persistentWrite,
-) (string, string, string, error) {
-	var lastSequence int64
-	_ = transaction.QueryRowContext(ctx, `
-SELECT COALESCE(MAX(client_sequence),0) FROM persistent_save_revisions
-WHERE source_launch_session_id=?
-`, request.launchID).Scan(&lastSequence)
-	if request.sequence != lastSequence+1 {
-		return "", "", "", ErrSequenceGap
-	}
-	kind := request.launch.persistentSaveKind
-	if kind != "CORE_SAVE" && kind != "DOS_OVERLAY" {
-		return "", "", "", ErrPersistentUnsupported
-	}
-	var saveID, currentRevisionID string
-	err := transaction.QueryRowContext(ctx, `
-SELECT id,current_revision_id FROM persistent_saves
-WHERE profile_id=? AND game_variant_revision_id=? AND kind=?
-`, request.launch.profileID, request.launch.variantRevisionID, kind).Scan(&saveID, &currentRevisionID)
-	base := persistentSaveBase(ctx, transaction, request.launchID, request.sequence)
-	switch {
-	case errors.Is(err, sql.ErrNoRows) && base != "":
-		return "", "", "", ErrPersistentConflict
-	case errors.Is(err, sql.ErrNoRows):
-		generated, idErr := uuid.NewV7()
-		if idErr != nil {
-			return "", "", "", fmt.Errorf("saves/service: %w", idErr)
-		}
-		return generated.String(), "", kind, nil
-	case err != nil:
-		return "", "", "", fmt.Errorf("saves/service: %w", err)
-	case currentRevisionID != base:
-		return "", "", "", ErrPersistentConflict
-	default:
-		return saveID, currentRevisionID, kind, nil
-	}
-}
-
-func persistentSaveBase(ctx context.Context, transaction *sql.Tx, launchID string, sequence int64) string {
-	var base string
-	if sequence == 1 {
-		_ = transaction.QueryRowContext(ctx, `
-SELECT COALESCE(persistent_save_base_revision_id,'') FROM launch_sessions WHERE id=?
-`, launchID).Scan(&base)
-		return base
-	}
-	_ = transaction.QueryRowContext(ctx, `
-SELECT id FROM persistent_save_revisions WHERE source_launch_session_id=? AND client_sequence=?
-`, launchID, sequence-1).Scan(&base)
-	return base
-}
-
-func storePersistentIdempotency(
-	ctx context.Context,
-	transaction *sql.Tx,
-	principalID string,
-	key string,
-	requestDigest string,
-	result PersistentResult,
-	now int64,
-) error {
-	body, err := json.Marshal(result)
-	if err != nil {
-		return fmt.Errorf("saves/service: %w", err)
-	}
-	_, err = transaction.ExecContext(
-		ctx,
-		`
-INSERT INTO idempotency_records(principal_id,
-operation_id,
-key,
-request_digest,
-http_status,
-response_headers_json,
-response_body,
-created_at_ms,
-expires_at_ms)
-VALUES(?,
-'putRuntimePersistentSave',
-?,
-?,
-201,
-'{}',
-?,
-?,
-?)
-`,
-		principalID,
-		key,
-		requestDigest,
-		body,
-		now,
-		now+int64(24*time.Hour/time.Millisecond),
-	)
-	if err != nil {
-		return fmt.Errorf("store persistent-save idempotency record: %w", err)
 	}
 	return nil
 }

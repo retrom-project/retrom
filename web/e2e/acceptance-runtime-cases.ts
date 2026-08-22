@@ -432,12 +432,6 @@ function registerRun007(): void {
 function registerSave002(): void {
   test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click", async ({ page }, testInfo) => {
     test.setTimeout(120_000);
-    const persistentRequests: string[] = [];
-    page.on("request", (request) => {
-      if (/\/runtime\/launches\/[^/]+\/persistent-save$/.test(new URL(request.url()).pathname)) {
-        persistentRequests.push(request.url());
-      }
-    });
     await page.addInitScript(() => {
       Object.defineProperty(Element.prototype, "requestFullscreen", { configurable: true, value: () => Promise.resolve() });
     });
@@ -465,12 +459,8 @@ function registerSave002(): void {
     const freshConfigResponse = page.waitForResponse((response) =>
       /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
     await page.getByRole("button", { name: "重新开始游戏" }).click();
-    const freshConfig = await (await freshConfigResponse).json() as {
-      stateUrl: string | null;
-      persistentSaveMode: string;
-      persistentSaveUrl: string | null;
-    };
-    expect(freshConfig).toMatchObject({ stateUrl: null, persistentSaveMode: "NONE", persistentSaveUrl: null });
+    const freshConfig = await (await freshConfigResponse).json() as { stateUrl: string | null };
+    expect(freshConfig).toMatchObject({ stateUrl: null });
     await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   
     await page.goto(detailURL);
@@ -529,7 +519,6 @@ function registerSave002(): void {
     });
     expect(mismatch.status()).toBe(422);
     expect((await mismatch.json() as { error: { code: string } }).error.code).toBe("LAUNCH_BLOCKED");
-    expect(persistentRequests).toEqual([]);
     await page.screenshot({ path: evidencePath(testInfo, "three-save-resume-entry-points.png"), fullPage: true });
   });
 }

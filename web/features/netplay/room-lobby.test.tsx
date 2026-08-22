@@ -53,7 +53,7 @@ function game(): NetplayGame {
     coverUrl: null,
     platformId: "nes",
     platformName: "Nintendo Entertainment System",
-    platformInstanceId: "01980000-0000-7000-8000-000000000004",
+    platformInstanceId: "02980000-0000-7000-8000-000000000104",
     platformInstanceName: "NES 游戏",
     lastPlayedAtMs: null,
     addedAtMs: 100,

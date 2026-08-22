@@ -57,7 +57,7 @@ api/openapi.yaml          OpenAPI 3.0.3 协议事实源
 api/oapi-codegen.yaml     固定 Go 生成器配置
 web/                      Next.js + React + Tailwind CSS
 data/dat/                 小型依赖 manifest/SHA；大 payload 由 prepare-deps 物化
-data/netplay/v1/          联机 core profile schema 与精确 artifact allowlist manifest
+data/netplay/v2/          联机 core profile schema 与精确 artifact allowlist manifest
 ```
 
 依赖方向遵循 `httpapi/jobs -> application modules -> store/blobstore`。HTTP handler 不直接拼 SQL，DAT 解析器不写游戏元信息，Hasheous 适配器不判断 Arcade 可运行性。
@@ -102,7 +102,7 @@ web/components/           无业务状态的通用组件
 
 `strict-server` 主要约束 handler/response type，并不自动完成全部请求验证。正式 handler 外层固定使用 `github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其锁定的 `github.com/getkin/kin-openapi v0.142.0` 加载同一 OpenAPI 3.0.3，验证 path/query/header/body schema；所有固定 object schema 必须 `additionalProperties:false`。在它之前的 JSON lexical middleware 对 `application/json` body 施加 route 上限（全局最高 16 MiB），先 `utf8.Valid`，再用 token stack 拒绝重复 object key、depth >64、多个顶层值和尾随非空白，最后恢复 body 给 validator/generated binder。query middleware 根据匹配 operation 的参数集合拒绝未知名、标量重复值与非法 percent encoding。
 
-三个大 body operation `putAdminUploadPart`、`postRuntimeSaveState`、`putRuntimePersistentSave` 在 OpenAPI 标记 `x-retrom-streaming-body: true`。启动时基于同一已加载 spec 构建两条不可变 validator chain：普通链保持 `Options.Options.ExcludeRequestBody=false`，流式链设置 `Options.Options.ExcludeRequestBody=true`；前置 kin-openapi router 匹配 operation extension 后分派，不能在并发请求之间修改共享 options。流式链只跳过 schema body 读取，仍验证 method/path/query/必需 headers/content type；随后由 generated strict request 的 `io.Reader`/`multipart.Reader` 交给领域 handler 按 HTTP 专题流式限额、part、digest 和临时文件规则处理。其他 operation 不得设置该 extension。不能按 URL 字符串另维护一份 skip 清单，也不能用全局 `Skipper` 跳过整条验证。SSE/GET 无 request body，不经过 JSON scanner。出站响应由 `httptest.ResponseRecorder` contract test 逐 operation 用同一 schema 验证；生产不为此重复 buffer 大二进制响应。
+两个大 body operation `putAdminUploadPart`、`postRuntimeSaveState` 在 OpenAPI 标记 `x-retrom-streaming-body: true`。启动时基于同一已加载 spec 构建两条不可变 validator chain：普通链保持 `Options.Options.ExcludeRequestBody=false`，流式链设置 `Options.Options.ExcludeRequestBody=true`；前置 kin-openapi router 匹配 operation extension 后分派，不能在并发请求之间修改共享 options。流式链只跳过 schema body 读取，仍验证 method/path/query/必需 headers/content type；随后由 generated strict request 的 `io.Reader`/`multipart.Reader` 交给领域 handler 按 HTTP 专题流式限额、part、digest 和临时文件规则处理。其他 operation 不得设置该 extension。不能按 URL 字符串另维护一份 skip 清单，也不能用全局 `Skipper` 跳过整条验证。SSE/GET 无 request body，不经过 JSON scanner。出站响应由 `httptest.ResponseRecorder` contract test 逐 operation 用同一 schema 验证；生产不为此重复 buffer 大二进制响应。
 
 ## 4. API 能力地图
 
@@ -281,7 +281,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 无参数服务固定为 `release`；唯一可选服务参数为 `--mode=release|test`。release 空实例先启动到 PENDING，主机操作者再运行只读 `retrom setup-code` 取得证明并通过 `/setup` 创建首位管理员；该命令不取写锁、不修改数据库且不打印路径或其他状态。`retrom admin-reset --username <existing-admin>` 必须在服务停止并取得同一 data-root lock 后，从 `/dev/tty` 隐藏读取两次 release 合规密码；它只操作现有非 DELETED ADMIN，重新启用、撤销 session并写 SYSTEM 审计，密码不允许进入参数、环境或日志。
 
-已初始化实例必须登录。ADMIN 可以管理共享游戏内容、服务器配置和账号安全状态，但不能浏览其他用户的私有游戏历史、存档、截图或 PersistentSave；主机操作者因可读取 data root/backup/进程内存属于更高信任域，部署方必须用文件权限、磁盘加密和备份访问控制保护。上传仍执行大小、归档、路径和文件魔数安全；第三方文本按纯文本展示。日志/诊断不记录密码、session/CSRF、account-link capability、完整 IP/XFF、ROM/BIOS 内容或完整宿主路径，非秘密 `launchId` 可以与 `request_id` 关联。
+已初始化实例必须登录。ADMIN 可以管理共享游戏内容、服务器配置和账号安全状态，但不能浏览其他用户的私有游戏历史、存档或截图；主机操作者因可读取 data root/backup/进程内存属于更高信任域，部署方必须用文件权限、磁盘加密和备份访问控制保护。上传仍执行大小、归档、路径和文件魔数安全；第三方文本按纯文本展示。日志/诊断不记录密码、session/CSRF、account-link capability、完整 IP/XFF、ROM/BIOS 内容或完整宿主路径，非秘密 `launchId` 可以与 `request_id` 关联。
 
 ## 10. 可观测性与故障诊断
 
@@ -293,13 +293,13 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 - 多盘结构化事件覆盖 Import mode/parser 结果、Attachment 状态/重试/执行时长、Validation 结果、Launch 盘数、playlist/DISC 内容响应状态与 bytes，以及 Player 开始/盘数不一致/换盘/存档恢复结果。可聚合标签仅限 platform key、core key、artifact version、盘数 bucket、HTTP 状态与稳定错误码；不得记录标题、basename、路径、内容 hash 或 capability。Import/Attachment/Validation 使用持久 JobEvent，运行端使用固定 schema 的结构化日志；不存在自由形式客户端 telemetry body。
 - `GET /api/v1/admin/diagnostics` 提供 HTTP 契约规定的封闭 JSON 诊断摘要，只含版本与状态计数；不打包原始日志、ROM/BIOS，不输出资源 ID、内容 hash、环境变量值或宿主路径。响应必须 `private, no-store`，字段变化先升级 schemaVersion/OpenAPI/验收，不能临时追加自由形式 map。
 
-## 11. 备份、恢复与升级
+## 11. 备份、恢复与 lineage
 
-一致备份使用同一 `retrom` 二进制的离线 `backup`/`restore` 子命令；没有 HTTP Backup API，也不允许在 serve/worker 仍持有数据根 lock 时复制。bundle 包含离线 checkpoint、关闭全部 handle 后复制并二次校验的单文件 SQLite 快照、该快照全部 `blobs` 行对应的 CAS 文件、未完成 UploadPart、`secrets/launch-capability.key`、`secrets/netplay-capability.key`、已配置版本的小型 dependency manifest/SHA256SUMS，以及 `backup.json` 中唯一的 active/有序版本配置；尚在 GC 宽限期的 Blob 仍有数据库行，不能从原样快照的 bundle 中裁掉。精确 v1 目录与封闭 JSON schema见存储专题；不存在第二份运行配置文件。内置大 DAT/runtime/许可 payload 不进入 bundle，由部署方在恢复服务启动前按 manifest 预先物化。该流程只依赖标准 SQL/文件 API，不要求 `modernc.org/sqlite` 暴露私有 Backup API。密钥按 secret 文件处理且不出现在日志或 manifest 明文。
+一致备份使用同一 `retrom` 二进制的离线 `backup`/`restore` 子命令；没有 HTTP Backup API，也不允许在 serve/worker 仍持有数据根 lock 时复制。bundle 包含离线 checkpoint、关闭全部 handle 后复制并二次校验的单文件 SQLite 快照、该快照全部 `blobs` 行对应的 CAS 文件、未完成 UploadPart、`secrets/launch-capability.key`、`secrets/netplay-capability.key`、已配置版本的小型 dependency manifest/SHA256SUMS，以及 `backup.json` 中唯一的 active/有序版本配置与 migration lineage digest；尚在 GC 宽限期的 Blob 仍有数据库行，不能从原样快照的 bundle 中裁掉。精确 v2 目录与封闭 JSON schema见存储专题；不存在第二份运行配置文件。内置大 DAT/runtime/许可 payload 不进入 bundle，由部署方在恢复服务启动前按 manifest 预先物化。该流程只依赖标准 SQL/文件 API，不要求 `modernc.org/sqlite` 暴露私有 Backup API。密钥按 secret 文件处理且不出现在日志或 manifest 明文。
 
 精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复发布前还要在单一事务撤销全部旧 AuthSession、ACTIVE AccountLink和非终态 Launch，把遗留联机 Session/Room 以 `RESTORE` 收口，并写 SYSTEM安全围栏审计；因此恢复后的旧 cookie/capability/WebSocket 全部无效，实时 history 不尝试恢复。命令本身不启动服务、不覆盖旧目录。
 
-普通追加升级顺序：备份 → 在依赖版本列表追加并物化新版本 → 校验目标 EmulatorJS/DAT 兼容矩阵和旧存档 → 部署仍含受保护旧版本的二进制/前端镜像并切换 active 版本 → 执行向前迁移 → 重建派生索引 → 抽样普通启动与旧存档启动。账户版本 020 是显式例外：001–019 数据根不能迁移，必须归档后以空根 release初始化；回退只恢复旧二进制与其旧归档，不把新账号/内容合并回旧根。升级不得静默改写已有 GameVariant 或存档绑定。
+当前未发布基线只接受 001–010 clean lineage 的精确有序前缀或完整集合；旧开发 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。部署本次改造时归档或删除标准开发数据库并以空根初始化；回退只能恢复与目标二进制 lineage 精确匹配的完整数据根，不得混合数据库、CAS 或密钥。首次正式发布后再按当时契约设计只追加升级，不预留未验证的转换分支。
 
 ## 12. 统一验收入口
 

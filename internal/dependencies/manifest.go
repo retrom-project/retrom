@@ -97,8 +97,6 @@ type SelectedCore struct {
 	RequestedArtifactBasename string            `json:"requested_artifact_basename"`
 	CanvasResizePolicy        string            `json:"canvas_resize_policy"`
 	DefaultOptions            map[string]string `json:"default_options"`
-	PersistentSaveMode        string            `json:"persistent_save_mode"`
-	PersistentSaveKind        *string           `json:"persistent_save_kind"`
 	InputMode                 string            `json:"input_mode"`
 	StartupActions            []StartupAction   `json:"startup_actions"`
 	ReportPath                string            `json:"report_path"`
@@ -192,8 +190,7 @@ func loadManifest(datRoot, versionName string) (Manifest, string, error) {
 	if err := decoder.Decode(&manifest); err != nil {
 		return Manifest{}, "", fmt.Errorf("%w: manifest schema", ErrInvalid)
 	}
-	validSchema := manifest.SchemaVersion == 4 || manifest.SchemaVersion == 5 || manifest.SchemaVersion == 6
-	if !validSchema || manifest.EmulatorJS.Version != versionName {
+	if manifest.SchemaVersion != 7 || manifest.EmulatorJS.Version != versionName {
 		return Manifest{}, "", fmt.Errorf("%w: manifest version", ErrInvalid)
 	}
 	manifestDigest := sha256.Sum256(contents)
@@ -317,7 +314,7 @@ func validateSelectedCores(manifest Manifest, allowlist map[string]File) (map[st
 		}
 		coreIDs[core.CoreID] = struct{}{}
 		runtimeIDs[core.RuntimeCoreID] = struct{}{}
-		if err := validateSelectedCore(core, allowlist, manifest.SchemaVersion); err != nil {
+		if err := validateSelectedCore(core, allowlist); err != nil {
 			return nil, err
 		}
 	}
@@ -337,7 +334,7 @@ func validateAuxiliaryFiles(manifest Manifest, allowlist map[string]File, coreID
 	return nil
 }
 
-func validateSelectedCore(core SelectedCore, allowlist map[string]File, manifestSchemaVersion int) error {
+func validateSelectedCore(core SelectedCore, allowlist map[string]File) error {
 	path := core.LocalPath
 	if core.PathInRelease != nil {
 		path = *core.PathInRelease
@@ -351,7 +348,7 @@ func validateSelectedCore(core SelectedCore, allowlist map[string]File, manifest
 	if !validDefaultOptions(core.DefaultOptions) {
 		return fmt.Errorf("%w: artifact options", ErrInvalid)
 	}
-	if err := validateRuntimeCapability(core, manifestSchemaVersion); err != nil {
+	if err := validateRuntimeCapability(core); err != nil {
 		return err
 	}
 	if !safeRelative(core.ReportPath) {
@@ -360,7 +357,7 @@ func validateSelectedCore(core SelectedCore, allowlist map[string]File, manifest
 	if _, exists := allowlist[core.ReportPath]; !exists {
 		return fmt.Errorf("%w: core report allowlist", ErrInvalid)
 	}
-	return validateContentCapabilities(core, manifestSchemaVersion)
+	return validateContentCapabilities(core)
 }
 
 func validArtifactIdentity(core SelectedCore, path string) bool {
@@ -394,9 +391,8 @@ func validDefaultOptions(options map[string]string) bool {
 	return true
 }
 
-func validateRuntimeCapability(core SelectedCore, manifestSchemaVersion int) error {
-	if !validPersistentSaveCapability(core, manifestSchemaVersion) ||
-		core.InputMode != "STANDARD" && core.InputMode != "POINTER" || len(core.StartupActions) > 4 {
+func validateRuntimeCapability(core SelectedCore) error {
+	if core.InputMode != "STANDARD" && core.InputMode != "POINTER" || len(core.StartupActions) > 4 {
 		return fmt.Errorf("%w: artifact runtime capability", ErrInvalid)
 	}
 	for _, action := range core.StartupActions {
@@ -407,35 +403,13 @@ func validateRuntimeCapability(core SelectedCore, manifestSchemaVersion int) err
 	return nil
 }
 
-func validPersistentSaveCapability(core SelectedCore, manifestSchemaVersion int) bool {
-	expectedKind := map[string]*string{
-		"SINGLE_FILE": pointerTo("CORE_SAVE"), "DOS_OVERLAY": pointerTo("DOS_OVERLAY"),
-		"FILE_TREE": pointerTo("CORE_SAVE"), "AUTO_STATE": pointerTo("CORE_SAVE"), "NONE": nil,
-	}
-	kind, exists := expectedKind[core.PersistentSaveMode]
-	if !exists || !equalOptionalString(core.PersistentSaveKind, kind) {
-		return false
-	}
-	if manifestSchemaVersion >= 6 {
-		return true
-	}
-	return core.PersistentSaveMode != "AUTO_STATE" &&
-		(core.PersistentSaveMode != "FILE_TREE" || core.RuntimeCoreID == "ppsspp")
-}
-
 func validStartupAction(action StartupAction) bool {
 	return action.Event == "GAME_START" && action.Kind == "PRESS_CONTROL" &&
 		action.DelayMS >= 0 && action.DelayMS <= 30_000 && action.Player >= 0 && action.Player <= 3 &&
 		action.Control >= 0 && action.Control <= 255 && action.DurationMS >= 1 && action.DurationMS <= 1_000
 }
 
-func validateContentCapabilities(core SelectedCore, manifestSchemaVersion int) error {
-	if manifestSchemaVersion == 4 {
-		if len(core.SupportedContentKinds) != 0 || core.MultiDisc != nil {
-			return fmt.Errorf("%w: legacy content capability", ErrInvalid)
-		}
-		return nil
-	}
+func validateContentCapabilities(core SelectedCore) error {
 	if !validSupportedContentKinds(core) {
 		return fmt.Errorf("%w: content capability", ErrInvalid)
 	}
@@ -469,15 +443,6 @@ func expectedContentKind(coreID string) string {
 		return "DOS_BUNDLE"
 	}
 	return "SINGLE_FILE"
-}
-
-func pointerTo(value string) *string { return &value }
-
-func equalOptionalString(left, right *string) bool {
-	if left == nil || right == nil {
-		return left == nil && right == nil
-	}
-	return *left == *right
 }
 
 func checkFile(root, relative string, expectedSize int64, expectedDigest string) error {

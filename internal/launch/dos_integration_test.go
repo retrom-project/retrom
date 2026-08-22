@@ -78,11 +78,12 @@ WHERE id=?
 		time.Sleep(10 * time.Millisecond)
 	}
 	importService := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	dosID := testsupport.MustPlatformInstanceID(t, database.SQL, "dos/dosbox_pure")
 	createdImport, err := importService.Create(
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID:                 upload.ID,
-			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000009",
+			TargetPlatformInstanceID: dosID,
 			MetadataProvider:         "NONE",
 		},
 	)

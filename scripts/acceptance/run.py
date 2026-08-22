@@ -306,7 +306,7 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-SAVE-002": (180, "scripts/acceptance/ui-case.sh ACC-SAVE-002"),
     "ACC-SAVE-003": (
         180,
-        "go test -tags=integration ./internal/saves -run 'TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence|TestPersistentSaveNoneRejectsGetAndPutWithoutCreatingRows' -count=1 && make web-test",
+        "go test -tags=integration ./internal/saves -run '^TestManualStateRequiresAtomicNonEmptyStateAndScreenshot$' -count=1 && make web-test",
     ),
     "ACC-NP-010": (
         120,
@@ -355,8 +355,6 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-MDISC-006": (
         600,
-        "go test -tags=integration ./internal/saves "
-        "-run '^TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence$' -count=1 -timeout=120s && "
         ".cache/tools/node-v24.18.0-linux-x64/bin/npm --prefix web test -- "
         "--run features/player/adapters/ejs-4.2.3-v2.test.ts features/player/multi-disc-restore.test.ts",
     ),

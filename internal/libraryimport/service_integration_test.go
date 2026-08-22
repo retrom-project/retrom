@@ -98,7 +98,9 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	created, err := New(database.SQL, time.Now).WithBlobStore(blobs).Create(ctx, CreateRequest{
-		UploadID: upload.ID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000011", MetadataProvider: "NONE",
+		UploadID:                 upload.ID,
+		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "atari2600/stella2014"),
+		MetadataProvider:         "NONE",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "Create() = %#v, error=%v", created, err)
 	var itemID, sourceArchiveBlobID, contentBlobID, logicalName, archiveFormat, compressionProfile, contentSHA string
@@ -222,7 +224,7 @@ VALUES(?,?,'import.tag.admin','Import Tag Admin','ADMIN','ENABLED',1,1)
 		database.SQL,
 		time.Now,
 	).WithBlobStore(blobs).
-		Create(ctx, CreateRequest{UploadID: upload.ID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005", MetadataProvider: "NONE", TagIDs: []string{defaultTag.TagID}})
+		Create(ctx, CreateRequest{UploadID: upload.ID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"), MetadataProvider: "NONE", TagIDs: []string{defaultTag.TagID}})
 	testassert.Falsef(t, err != nil, "create import: %v", err)
 	var itemID string
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -290,7 +292,7 @@ WHERE job.id=?
 	}
 	patched, err = importer.PatchDraft(ctx, itemID, 2, metadataPatch)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return patched.Version != 3 }, func() bool { return patched.Metadata["players"] != nil }, func() bool { return patched.Metadata["releaseYear"] != nil }), "clear nullable metadata values = %#v, error=%v", patched, err)
-	crossPlatform := "01980000-0000-7000-8000-000000000001"
+	crossPlatform := testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm")
 	_, err = importer.PatchDraft(ctx, itemID, 3, DraftPatch{TargetPlatformInstanceID: &crossPlatform, TagIDs: []string{}})
 	testassert.Truef(t, errors.Is(err, ErrReimportRequiredPlatformChange), "cross-platform draft change error = %v", err)
 	var oldValidationID, importConfigSnapshot string
@@ -308,7 +310,7 @@ WHERE d.import_item_id=?
 UPDATE platform_instances
 SET version=version+1,
 updated_at_ms=updated_at_ms+1
-WHERE id='01980000-0000-7000-8000-000000000005'
+WHERE catalog_template_key='gba/mgba'
 `); err != nil {
 		t.Fatal(err)
 	}

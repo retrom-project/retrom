@@ -50,8 +50,6 @@ export type PlayerConfig = {
   biosUrl: string | null;
   parentUrl: string | null;
   stateUrl: string | null;
-  persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "FILE_TREE" | "AUTO_STATE" | "NONE";
-  persistentSaveUrl: string | null;
   inputMode: "STANDARD" | "POINTER";
   startupActions: StartupAction[];
   requiresThreads: boolean;

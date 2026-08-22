@@ -5,7 +5,7 @@ The source game, content, DAT, Parent, and test BIOS blobs must already have bee
 created by arcade-flow.sh. This script only copies that immutable evidence into
 a second published aggregate whose current revision deliberately remains the
 review-produced schema-v2 snapshot and bypasses first-launch revalidation, as a
-historical screenshot-approved game does.
+current screenshot-approved game does.
 """
 
 from __future__ import annotations

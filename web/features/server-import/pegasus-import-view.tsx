@@ -38,7 +38,6 @@ const runtimeReasonCatalog: Record<string, Omit<RuntimeReason, "code">> = {
   MULTI_DISC_FILE_MISSING: { title: "多盘游戏缺少引用文件", explanation: "M3U 引用的光盘文件没有全部出现在冻结的来源快照中。", action: "补齐列出的光盘文件，并保持 M3U 中的相对路径一致。" },
   LAUNCH_CORE_VALIDATION_UNAVAILABLE: { title: "核心运行检查不可用", explanation: "核心依赖或验证器当前无法完成检查。", action: "确认核心 artifact、DAT 和 BIOS 状态后重新运行检查。" },
   PEGASUS_LIBRARY_IMPORT_FAILED: { title: "内部导入检查未完成", explanation: "内容已经复制，但复用游戏入库检查时发生了可重试错误。", action: "点击页面顶部的“重新运行检查”重试，不需要重新扫描目录。" },
-  PEGASUS_RUNTIME_BLOCKED: { title: "旧任务未保留具体诊断", explanation: "这条记录由旧逻辑统一写成运行检查阻断，原始具体原因没有保存到 Pegasus 结果中。", action: "点击页面顶部的“重新运行检查”，系统会保留新的具体诊断。" },
 };
 
 const failureReasonCatalog: Record<string, Omit<RuntimeReason, "code">> = {
