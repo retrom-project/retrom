@@ -55,7 +55,7 @@ a.tag-chip:hover, a.tag-chip:focus-visible { color: var(--purple-dark); border-c
 .import-tag-config { margin-top: 18px; padding: 16px; border: 1px solid #e2dafa; border-radius: 12px; background: #fcfbff; }
 .import-tag-summary { margin-top: 12px; display: grid; gap: 7px; }
 .import-tag-summary > small { color: var(--muted); font-weight: 760; }
-.review-tag-editor { margin-bottom: 18px; padding: 15px; border: 1px solid #e2dafa; border-radius: 12px; background: #fcfbff; }
+.review-tag-editor { margin: 0; padding: 15px; border: 1px solid #e2dafa; border-radius: 12px; background: #fcfbff; }
 .admin-game-tags { margin-bottom: 18px; }
 .admin-game-tags .panel-head { align-items: center; }
 .admin-game-tags .panel-head p { margin-top: 4px; color: var(--muted); font-size: 12px; }
