@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.6 |
-| 日期 | 2026-08-17 |
+| 版本 | 1.7 |
+| 日期 | 2026-08-22 |
 | 适用范围 | Go 后端、Next.js 前端、SQLite 集成、WebSocket rollback 联机与 EmulatorJS 运行时验证 |
 | 质量原则 | 零 lint warning、关键路径有测试、每个已发现 bug 有回归用例、不设覆盖率百分比门槛 |
 
@@ -55,9 +55,10 @@
 | `make install-go-formatters` | 将固定 `gofumpt v0.11.0` 与 `goimports@v0.48.0` 安装到仓库忽略的 `bin/` | 会写工具缓存与 `bin/` |
 | `make install-golangci-lint` | 将固定版本 golangci-lint v2 安装到仓库忽略的 `bin/` | 会写工具缓存与 `bin/` |
 | `make prepare-e2e-browser` | 通过锁定的 Playwright CLI 幂等下载并启动校验官方 Chrome for Testing；缓存到 `.cache/tools/ms-playwright/`，稳定入口为 `.cache/tools/retrom-chrome-for-testing` | 会写被忽略的 `.cache/tools/` |
-| `make build` | 构建 `./cmd/retrom` | 否 |
-| `make test` | 运行 Go 常规单元测试，默认不含 `integration` build tag | 否 |
-| `make lint-go` | 使用仓库固定版本的 golangci-lint v2 扫描源码和测试 | 否 |
+| `make quality-structure-check` | 运行结构检查器自身测试，再检查全仓手写源码行数与 suppression 策略 | 否 |
+| `make build` | 按需生成被 Git 忽略的 Go API 文件，再构建 `./cmd/retrom` | 会写被忽略的 Go 生成物 |
+| `make test` | 按需生成被 Git 忽略的 Go API 文件，再运行常规 Go 单元测试；默认不含 `integration` build tag | 会写被忽略的 Go 生成物 |
+| `make lint-go` | 按需生成被 Git 忽略的 Go API 文件，再使用仓库固定版本的 golangci-lint v2 扫描源码和测试 | 会写被忽略的 Go 生成物 |
 | `make backend-check` | `fmt-check + build + test + lint-go` | 否 |
 | `make web-install` | 在 `web/` 执行 `npm ci`，只接受 `package-lock.json` | 会重建依赖目录 |
 | `make web-lint` | ESLint 扫描全部受控 TS/TSX/JS，warning 视为失败 | 否 |
@@ -65,16 +66,16 @@
 | `make web-test` | `vitest run` | 否 |
 | `make web-build` | 干净执行 Next.js production build；运行中的本地开发服务需要保留 `.next/` 时可显式设置 `NEXT_DIST_DIR=.next-build` | 只允许重建 `.next/` 或被忽略的 `.next-build/` |
 | `make web-check` | `web-install + web-lint + web-typecheck + web-test + web-build` | 仅依赖/构建产物 |
-| `make integration-test` | Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 否 |
-| `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成 Go strict stdlib server types 与前端 TypeScript schema | 会重建依赖目录并只修改两个 generated 文件 |
-| `make api-check` | 先以锁文件安装前端依赖，再在临时目录用固定生成器重建并逐字节比较，OpenAPI 无效或 generated 漂移即失败 | 仅依赖产物 |
+| `make integration-test` | 按需生成被 Git 忽略的 Go API 文件，再运行 Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 会写被忽略的 Go 生成物 |
+| `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成被忽略的 Go strict stdlib server types 与须提交的前端 TypeScript schema | 会重建依赖目录并修改两端 generated 文件 |
+| `make api-check` | 在临时目录用固定生成器验证 OpenAPI 和两端生成结果，逐字节比较已提交的 TypeScript schema，并拒绝 Go 生成物被跟踪或未被 ignore | 仅依赖产物 |
 | `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景，包括项目自有 GBA/NES/Arcade 单机与双浏览器联机产品链路 | 会写浏览器缓存并产生本地报告 |
 | `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序、`docs/design` 图片不跟踪/不引用边界，以及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
 | `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/五份 DAT/许可文件并生成 notice；两个 FBA2012 DAT 从锁定源码确定性原生生成两次；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
 | `make deps-check` | 完全离线校验本地 allowlist、core、DAT、override、许可输入/notice 及 DAT 统计 | 否 |
 | `make release-input-digest` | 离线计算依赖专题规定的源码/依赖发布输入指纹，stdout 只输出 64 位小写 SHA-256 | 否 |
-| `make ci` | `api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物 |
-| `make dev` | 先 `prepare-deps + web-install`，再在宿主机启动 Go/Next.js 本地进程并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存 |
+| `make ci` | `quality-structure-check + api-check + backend-check + web-check + integration-test + data-check` | 仅依赖/构建产物与被忽略的 Go 生成物 |
+| `make dev` | 先生成被忽略的 Go API 文件并执行 `prepare-deps + web-install`，再在宿主机启动 Go/Next.js 本地进程并统一处理退出信号；不使用 Docker | 会写本地依赖/开发数据缓存与被忽略的 Go 生成物 |
 | `make build-backend-image` | 只构建 `retrom:${IMAGE_TAG}`，前后复核并标记 release-input digest | 只写本地镜像缓存 |
 | `make build-web-image` | 只构建 `retrom-web:${IMAGE_TAG}`，前后复核并标记同一 digest | 只写本地镜像缓存 |
 | `make build-images` | 以同一 digest 依次构建上述两个镜像，最后 inspect label 一致性 | 只写本地镜像缓存 |
@@ -89,8 +90,8 @@
 - 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM 必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/` 与 `testdata/public-roms/arcade-smoke/`。
 - `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
-- OpenAPI 固定为 `api/openapi.yaml`（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。Go 侧由该版本以 `models + std-http-server + strict-server` 生成 `internal/httpapi/generated/api.gen.go`；生成器作为 `go.mod` 的 tool 依赖锁定，配置放 `api/oapi-codegen.yaml`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定执行 `openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client。两个生成文件不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
-- `api-generate` 与 `api-check` 必须直接依赖 `web-install`，保证全新 checkout 在调用 `npx --no-install` 前已通过 `package-lock.json` 物化精确版本；不得依赖开发机残留的 `web/node_modules`，也不得允许 npx 临时下载缺失包。`data-check` 的 Makefile 回归用例必须锁定这一先后关系。
+- OpenAPI 固定为 `api/openapi.yaml`（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。Go 侧由该版本以 `models + std-http-server + strict-server` 生成 `internal/httpapi/generated/api.gen.go`；该文件被 Git 忽略且不得提交，由标准后端 build/test/lint/integration/dev target 和后端镜像构建在编译前按需生成。生成器作为 `go.mod` 的 tool 依赖锁定，配置放 `api/oapi-codegen.yaml`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定执行 `openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client；该 TypeScript schema 必须提交并由漂移检查逐字节比较。两个生成文件都不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
+- `api-generate` 与 `api-check` 必须直接依赖 `web-install`，保证全新 checkout 在调用 `npx --no-install` 前已通过 `package-lock.json` 物化精确版本；不得依赖开发机残留的 `web/node_modules`，也不得允许 npx 临时下载缺失包。`api-check` 必须在临时目录生成 Go 文件，不能依赖或改写工作树中的被忽略副本；同时检查该路径仍被 ignore 且不在 Git index。`data-check` 的 Makefile 回归用例必须锁定这些依赖与跟踪边界。
 - Makefile 固定 `GOFUMPT_VERSION=v0.11.0`、`GOIMPORTS_VERSION=v0.48.0` 与 `GOLANGCI_LINT_VERSION=v2.11.4`，都安装到仓库内忽略的 `bin/`；`fmt/fmt-check` 只调用本地 formatter，`lint-go` 只调用本地 golangci-lint，不得调用浮动的 `@latest` 或依赖开发机全局版本。安装命令精确为 `go install mvdan.cc/gofumpt@$(GOFUMPT_VERSION)`、`go install golang.org/x/tools/cmd/goimports@$(GOIMPORTS_VERSION)` 和 `go install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@$(GOLANGCI_LINT_VERSION)`；版本 sentinel 必须核对二进制报告值，已有错误版本不能因文件存在而复用。
 - Go 版本以 `go.mod` 为事实源，`.golangci.yml` 与 CI 必须一致。Node 版本以 `web/package.json#engines` 和仓库版本文件为事实源，CI 不得另选一个未记录版本。
 - Web 统一使用 npm，必须提交 `web/package-lock.json`；CI 使用 `npm ci`，不得用会改锁文件的 `npm install`。
@@ -99,6 +100,14 @@
 - 三个 image targets 只能调用镜像构建，不得依赖 `dev`，也不得执行 `docker run`、`docker compose`、push、登录 registry 或部署操作。
 - `make dev` 前置执行 `make prepare-deps` 与 `make web-install`，之后只能运行宿主机的 `go run ./cmd/retrom` 与 `npm run dev`（可以由 `scripts/dev.sh` 编排），必须正确转发 `SIGINT/SIGTERM` 并在任一子进程异常退出时结束另一进程；登记必须同时覆盖 supervisor 与两个独立 process group 的 PID/start ticks。启动前以仓库专用 PID/start ticks/工作目录/命令行身份安全停止并等待旧 dev supervisor；若 supervisor 被强制终止，则还要以登记的 process group/session 和子进程身份安全接管遗留 Go/Next.js。身份无法确认时只能失败，不能按端口或名称误杀其他进程；不得要求 Docker daemon。
 - 本地自动化明确使用 `RETROM_MODE=test`，dev supervisor 将它转换为后端 CLI 的 `--mode=test` 后从 Go 子进程环境中移除，避免严格环境变量校验把前端编排变量误当作后端配置。测试模式只允许临时数据目录、固定 `test/test` 账号和显著 UI 警告；release 模式测试必须走 setup code，不得用测试账号旁路。
+
+### 3.1 全仓源码结构门禁
+
+所有 Git 已跟踪及尚未提交但未被 ignore 的手写新旧源码执行同一规则；不建立存量 baseline、旧文件 allowlist、“只禁止继续增长”或按本次 diff 跳过的历史豁免。`make quality-structure-check` 在完整 lint 和测试前快速失败，并由 `make backend-check`、`make web-check`、`make ci` 及 CI quality job 调用同一实现。
+
+文件以格式化后的物理行计数，包含空行与注释；无末尾换行的最后一行仍计一行。硬门槛为：Go 生产文件 1,000 行、Go `*_test.go` 1,200 行、前端生产 `.ts/.tsx/.js/.jsx/.mjs` 600 行、前端测试与 `web/e2e/**` 800 行、手写 CSS 800 行。非阻断设计目标依次为 600、800、400、500、500 行。不得通过压缩代码、删除必要注释、合并语句、缩短可读命名或把逻辑机械移动到无职责的 `part1/part2/helpers` 文件规避计数。
+
+结构检查器枚举 Git index 与未忽略新文件，校验上述边界、严格生成标记和允许路径、Go suppression 中央清单双向一致性，以及前端 inline disable/ignore 为零。它必须一次报告全部 `path:line` 违规并对空文件、无末尾换行、Unicode、CRLF、新文件、重命名、ignored 文件、伪生成标记、非法/过期/未使用 allowlist 和前端 suppression 建立确定性自身测试。生成物只有同时命中精确允许路径与严格生成标记时才可排除；普通源码不能靠目录或注释伪装生成物。
 
 ## 4. Go Lint 基线
 
@@ -117,10 +126,10 @@
 | 工程纪律 | `depguard`、`forbidigo`、`gochecknoinits`、`nolintlint`、`predeclared` |
 | 格式 | `gofumpt`、`goimports`（放在 `formatters.enable`） |
 
-第一版阈值采用：
+当前阈值对所有手写生产和测试 Go 代码一致采用：
 
 - `dupl.threshold = 120`；
-- `funlen.lines = 80`、`funlen.statements = 50`；
+- `funlen.lines = 150`、`funlen.statements = 100`；
 - `gocognit.min-complexity = 25`；
 - `gocyclo.min-complexity = 15`；
 - `interfacebloat.max = 5`；
@@ -128,11 +137,12 @@
 - `nestif.min-complexity = 4`；
 - `misspell.locale = US`。
 
-这些阈值是重构提示，不是鼓励把逻辑拆成无意义的小函数。若一个有序校验器、状态机或事务边界确实需要保持连续，可以使用局部例外，但必须说明为什么拆分会损害正确性或审计性。
+这些阈值不是鼓励把逻辑拆成无意义的小函数。`funlen`、`gocyclo`、`gocognit`、`nestif`、`dupl` 和用于掩盖业务表达过长的 `lll` 属于结构性规则，任何生产或测试源码都不得用 inline suppression 规避；事务原子性通过命名步骤共享同一 `*sql.Tx` 保持，编排顺序和状态机边界通过短函数与显式阶段结果表达。
 
 ### 4.2 必须显式配置的规则
 
-- `nolintlint` 要求具体 linter 名、非空原因、禁止未使用的 suppress。合法形式类似 `//nolint:gosec // 输入已经过 allowlist，拼接内容不是用户值。`
+- `nolintlint` 要求具体 linter 名、非空原因、禁止未使用的 suppress。结构性规则不可抑制；`gosec`、`errcheck`、`staticcheck`、`wrapcheck` 等安全/正确性规则只有确属工具误报或外部协议强制要求时，才允许精确到单一表达式和单一 linter 的 suppression。
+- 每个获准的非结构性 suppression 必须登记在 `quality/go-suppressions.json`，字段固定为 `path/line/symbol/linter/reason/invariant/reviewAfter`；源码与清单双向一致，未知字段、重复键、路径漂移、过期或未使用条目都使结构门禁失败。同一模式重复出现时优先收口到可测试 helper，不复制 suppression。
 - `forbidigo` 禁止 `fmt.Print*` 及内建 `print/println`；运行时代码使用结构化日志，测试使用测试框架输出。
 - `errcheck` 检查类型断言；不得通过全局排除忽略文件关闭、事务 rollback、响应体关闭或序列化错误。
 - `errorlint` 开启 `%w`、错误比较和断言检查；可分类错误使用 sentinel 或类型，不依赖字符串匹配。
@@ -153,9 +163,9 @@
 
 ### 4.4 测试文件例外
 
-`*_test.go` 可以集中豁免 `dupl`、`err113`、`funlen`、`gocognit`、`gocyclo`、`lll`、`nestif`、`noctx` 和 `wrapcheck`，以允许清晰的表驱动夹具与失败消息。
+`*_test.go` 只集中豁免 `dupl`、`err113`、`lll` 与 `wrapcheck`，用于清晰的表驱动夹具和失败消息；不得豁免 `funlen`、`gocognit`、`gocyclo`、`nestif` 或 `noctx`。测试函数同样遵守 150 行、100 statements、圈复杂度 15、认知复杂度 25 和嵌套复杂度 4，较大场景进入稳定行为命名的 `t.Run`、fixture builder 和断言 helper。
 
-测试中仍必须保留 `errcheck`、`govet`、`staticcheck`、`gosec`、`rowserrcheck` 和 `sqlclosecheck`。测试也是代码，不能用整类正确性检查豁免来隐藏资源泄漏或无效断言。
+测试中仍必须保留 `errcheck`、`govet`、`staticcheck`、`gosec`、`rowserrcheck` 和 `sqlclosecheck`。测试也是受治理源码，不能用整类正确性检查豁免隐藏资源泄漏、无效断言或不稳定边界，也不能通过删除、skip、合并 Case 或弱化断言缩短文件。
 
 ## 5. Next.js Lint、类型与单测基线
 
@@ -192,10 +202,11 @@
 - `no-console`：禁止 `log/debug/info`，只允许经说明的 `warn/error`；
 - `eqeqeq`、`curly`、`prefer-const`；
 - Next.js 自带的 React Hooks、Core Web Vitals、Image、Link 与 JSX a11y 规则。
+- 生产源码 `max-lines=600`、`max-lines-per-function=250`；测试/E2E 分别为 800 与 350；两类都执行 `complexity=15`、`max-depth=4`。函数、method、React 组件、hook 和事件处理器均独立检查，不能把复杂度转移到未命名 hook。
 
 全局 ignore 只能覆盖 `node_modules/`、`.next/`、`out/`、`build/`、`coverage/`、Playwright 报告、测试结果及 `next-env.d.ts` 等生成物。不得排除 `web/app/`、`web/features/`、`web/lib/`、`web/components/` 或测试源码。
 
-`eslint-disable` 必须精确到规则和最小行，并附原因。因为 lint 以 `--max-warnings=0` 运行，任何 warning 都是门禁失败。
+flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 为 error。手写前端源码禁止 `eslint-disable`、`eslint-disable-next-line`、`eslint-disable-line`、`@ts-ignore` 和 `@ts-expect-error`；确有第三方类型或框架误报时，只能在 flat config 中按精确文件与规则登记，不能排除业务或测试目录。lint 以 `--max-warnings=0` 运行，任何 warning 都是门禁失败。
 
 ### 5.2 TypeScript 与边界数据
 
@@ -367,11 +378,11 @@ make web-e2e
 
 1. 创建 Go module、锁定 Go 版本并建立 `cmd/retrom` 最小可构建入口。
 2. 在 `web/` 创建 Next.js TypeScript 项目，锁定 Node/npm 约束并提交 `package-lock.json`。
-3. 新增 `.golangci.yml`，按第 4 节启用规则、阈值、formatters 与 depguard。
+3. 新增 `.golangci.yml`，按第 4 节启用规则、阈值、formatters 与 depguard；新增结构检查器、中央 suppression allowlist 及其边界测试，不建立存量 baseline。
 4. 新增 `web/eslint.config.mjs`、严格 `tsconfig.json`、Vitest config/setup、package scripts、`web/next.config.ts` 和 `web/proxy.ts`。`next.config.ts` 负责 standalone、开发 rewrite 与固定隔离头；`proxy.ts` 按 HTTP 契约为动态 HTML 生成逐响应 nonce CSP 并把同一 header 传入 App Router，不得改用静态 nonce 或旧 `middleware.ts`。
-5. 新增 `api/openapi.yaml` 与两端生成配置/产物，先覆盖通用 envelope、session/health 与一条代表性 CRUD；实现 `api-generate/api-check`，后续每个 route 必须先扩 schema 再写 handler/UI。
+5. 新增 `api/openapi.yaml` 与两端生成配置，先覆盖通用 envelope、session/health 与一条代表性 CRUD；Go 生成物在后端编译前按需生成且不提交，TypeScript schema 提交并检查漂移；实现 `api-generate/api-check`，后续每个 route 必须先扩 schema 再写 handler/UI。
 6. 新增根 Makefile，实现第 3 节所有命令；golangci-lint 安装到仓库本地并固定版本。
-7. 更新 `.gitignore`：忽略 `bin/`、`.cache/`、`web/node_modules/`、`web/.next/`、coverage/E2E 报告和五份 DAT payload；继续跟踪真实来源 manifest、SHA256SUMS、物化配方与可提交验证清单。
+7. 更新 `.gitignore`：忽略 `bin/`、`.cache/`、`internal/httpapi/generated/api.gen.go`、`web/node_modules/`、`web/.next/`、coverage/E2E 报告和五份 DAT payload；继续跟踪 TypeScript schema、真实来源 manifest、SHA256SUMS、物化配方与可提交验证清单。
 
 ### Phase Q1：基础测试
 
@@ -402,9 +413,10 @@ make web-e2e
 | --- | --- |
 | `/AGENTS.md` | Agent 实施铁律 |
 | `/api/openapi.yaml`、`/api/oapi-codegen.yaml` | HTTP 事实源与 Go strict stdlib 生成配置 |
-| `/internal/httpapi/generated/api.gen.go` | 由 OpenAPI 生成的 Go 类型/strict server 接口，禁止手改 |
+| `/internal/httpapi/generated/api.gen.go` | 后端编译前由 OpenAPI 按需生成的 Go 类型/strict server 接口；禁止手改、被 Git 忽略且不得提交 |
 | `/migrations/embed.go`、`/migrations/*.sql` | 编译进后端的顺序 migration 与 checksum 输入 |
 | `/.golangci.yml` | Go lint、formatter、排除与 depguard |
+| `/quality/go-suppressions.json`、`/scripts/quality_structure.py` | 非结构性 Go suppression 中央清单与全仓源码结构门禁 |
 | `/Makefile` | 本地与 CI 的统一命令入口 |
 | `/.github/workflows/ci.yml` | 调用 `make ci` 的 required check |
 | `/.github/workflows/docker-image.yml` | tag 的双镜像构建校验与 Docker Hub 发布门禁；不重复 PR quality job |

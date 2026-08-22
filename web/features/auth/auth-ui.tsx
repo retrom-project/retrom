@@ -30,7 +30,7 @@ function PasswordPolicy() {
 }
 
 function ErrorSummary({ message, requestId, errorRef }: { message: string | null; requestId?: string; errorRef: React.RefObject<HTMLDivElement | null> }) {
-  useEffect(() => { if (message) errorRef.current?.focus(); }, [errorRef, message]);
+  useEffect(() => { if (message) {errorRef.current?.focus();} }, [errorRef, message]);
   return message ? <div className="form-error" role="alert" tabIndex={-1} ref={errorRef}><strong>{message}</strong>{requestId ? <small>请求 ID：{requestId}</small> : null}</div> : null;
 }
 
@@ -83,17 +83,17 @@ export function LoginForm() {
   const errorRef = useRef<HTMLDivElement>(null);
   const passwordRef = useRef<HTMLInputElement>(null);
   useEffect(() => {
-    if (!retryAt) return;
+    if (!retryAt) {return;}
     const timer = window.setInterval(() => { if (Date.now() >= retryAt) { setRetryAt(null); setRateLimited(false); setState(initialSubmit); } }, 1000);
     return () => window.clearInterval(timer);
   }, [retryAt]);
   async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault(); if (retryAt && Date.now() < retryAt) return;
+    event.preventDefault(); if (retryAt && Date.now() < retryAt) {return;}
     setState({ busy: true, error: null }); const values = new FormData(event.currentTarget);
     const response = await fetch("/api/v1/auth/login", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ username: values.get("username"), password: values.get("password") }) }).catch(() => null);
     if (!response) { setState({ busy: false, error: "无法连接服务器，请检查网络后重试" }); return; }
     if (!response.ok) {
-      if (passwordRef.current) passwordRef.current.value = "";
+      if (passwordRef.current) {passwordRef.current.value = "";}
       if (response.status === 429) {
         const at = Date.now() + Number(response.headers.get("Retry-After") ?? "900") * 1000; setRetryAt(at); setRateLimited(true);
         setState({ busy: false, error: `尝试次数过多，请在 ${new Intl.DateTimeFormat("zh-CN", { timeStyle: "medium" }).format(at)} 后重试` }); return;
@@ -123,7 +123,7 @@ function useCapability(fragmentName: "invite" | "reset", expectedKind: LinkInspe
   const [result, setResult] = useState<{ state: "loading" | "invalid" | "ready"; token?: string; inspection?: LinkInspection }>({ state: "loading" });
   const started = useRef(false);
   useEffect(() => {
-    if (started.current) return; started.current = true;
+    if (started.current) {return;} started.current = true;
     const params = new URLSearchParams(window.location.hash.slice(1));
     const token = params.get(fragmentName);
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${window.location.search}`);
@@ -146,8 +146,8 @@ export function RegisterForm() {
   const capability = useCapability("invite", "INVITATION");
   const { acceptContext } = useAuth(); const router = useRouter();
   const [state, setState] = useState(initialSubmit); const errorRef = useRef<HTMLDivElement>(null);
-  if (capability.state === "loading") return <AuthPanel eyebrow="账号邀请" title="正在检查邀请"><div className="auth-skeleton" role="status" aria-label="正在检查邀请" /></AuthPanel>;
-  if (capability.state !== "ready" || !capability.token || !capability.inspection) return <LinkUnavailable kind="invite" />;
+  if (capability.state === "loading") {return <AuthPanel eyebrow="账号邀请" title="正在检查邀请"><div className="auth-skeleton" role="status" aria-label="正在检查邀请" /></AuthPanel>;}
+  if (capability.state !== "ready" || !capability.token || !capability.inspection) {return <LinkUnavailable kind="invite" />;}
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setState({ busy: true, error: null }); const values = new FormData(event.currentTarget);
     const response = await fetch("/api/v1/auth/invitations/accept", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: capability.token, username: values.get("username"), displayName: values.get("displayName"), password: values.get("password"), passwordConfirmation: values.get("passwordConfirmation") }) }).catch(() => null);
@@ -173,8 +173,8 @@ export function ResetPasswordForm() {
   const capability = useCapability("reset", "PASSWORD_RESET");
   const { acceptContext } = useAuth(); const router = useRouter();
   const [state, setState] = useState(initialSubmit); const [disabledComplete, setDisabledComplete] = useState(false); const errorRef = useRef<HTMLDivElement>(null);
-  if (capability.state === "loading") return <AuthPanel eyebrow="账号恢复" title="正在检查链接"><div className="auth-skeleton" role="status" aria-label="正在检查链接" /></AuthPanel>;
-  if (capability.state !== "ready" || !capability.token || !capability.inspection) return <LinkUnavailable kind="reset" />;
+  if (capability.state === "loading") {return <AuthPanel eyebrow="账号恢复" title="正在检查链接"><div className="auth-skeleton" role="status" aria-label="正在检查链接" /></AuthPanel>;}
+  if (capability.state !== "ready" || !capability.token || !capability.inspection) {return <LinkUnavailable kind="reset" />;}
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault(); setState({ busy: true, error: null }); const values = new FormData(event.currentTarget);
     const response = await fetch("/api/v1/auth/password-resets/complete", { method: "POST", credentials: "same-origin", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ token: capability.token, password: values.get("password"), passwordConfirmation: values.get("passwordConfirmation") }) }).catch(() => null);
@@ -184,7 +184,7 @@ export function ResetPasswordForm() {
     if ("authenticationState" in payload) { acceptContext(payload); router.replace("/"); router.refresh(); return; }
     setDisabledComplete(true); setState(initialSubmit);
   }
-  if (disabledComplete) return <AuthPanel eyebrow="密码已更新" title="账号仍处于停用状态"><FeedbackBanner tone="info">密码已更新，但账号仍处于停用状态，请联系管理员</FeedbackBanner></AuthPanel>;
+  if (disabledComplete) {return <AuthPanel eyebrow="密码已更新" title="账号仍处于停用状态"><FeedbackBanner tone="info">密码已更新，但账号仍处于停用状态，请联系管理员</FeedbackBanner></AuthPanel>;}
   return <AuthPanel eyebrow="账号恢复" title="设置新密码">
     <div className="link-facts"><span>账号</span><strong>@{capability.inspection.username}</strong><span>到期时间</span><strong>{formatAbsolute(capability.inspection.expiresAtMs)}</strong></div>
     <form className="auth-form" onSubmit={(event) => void submit(event)} aria-busy={state.busy}><ErrorSummary message={state.error} requestId={state.requestId} errorRef={errorRef} />

@@ -4,6 +4,8 @@ import (
 	"bytes"
 	"strings"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestParseAcceptsBoundedPlaylistAndBuildsCanonicalView(t *testing.T) {
@@ -13,16 +15,11 @@ func TestParseAcceptsBoundedPlaylistAndBuildsCanonicalView(t *testing.T) {
 		{Basename: "disc one.chd", LogicalName: "games/disc one.chd", SizeBytes: 8, Header: []byte("MComprHD")},
 		{Basename: "光盘二.chd", LogicalName: "games/光盘二.chd", SizeBytes: 9, Header: []byte("MComprHD")},
 	}, DefaultLimits())
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if got, want := string(result.CanonicalPlaylist), "disc-001.chd\ndisc-002.chd\n"; got != want {
 		t.Fatalf("canonical playlist = %q, want %q", got, want)
 	}
-	if result.PresentTotalBytes != 17 || result.Entries[0].State != EntryPresent ||
-		result.Entries[0].File.Basename != "disc one.chd" || result.Entries[1].NormalizedReference != "光盘二.chd" {
-		t.Fatalf("result = %#v", result)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return result.PresentTotalBytes != 17 }, func() bool { return result.Entries[0].State != EntryPresent }, func() bool { return result.Entries[0].File.Basename != "disc one.chd" }, func() bool { return result.Entries[1].NormalizedReference != "光盘二.chd" }), "result = %#v", result)
 }
 
 func TestParsePreservesUnicodeBytesWithoutNormalization(t *testing.T) {
@@ -32,13 +29,8 @@ func TestParsePreservesUnicodeBytesWithoutNormalization(t *testing.T) {
 	result, err := Parse([]byte(nfc+"\n"+nfd+"\n"), []File{
 		{Basename: nfc, SizeBytes: 8, Header: []byte("MComprHD")},
 	}, DefaultLimits())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Entries[0].State != EntryPresent || result.Entries[1].State != EntryMissing ||
-		result.Entries[1].NormalizedReference != nfd {
-		t.Fatalf("Unicode matching was normalized: %#v", result.Entries)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return result.Entries[0].State != EntryPresent }, func() bool { return result.Entries[1].State != EntryMissing }, func() bool { return result.Entries[1].NormalizedReference != nfd }), "Unicode matching was normalized: %#v", result.Entries)
 }
 
 func TestParseBoundaries(t *testing.T) {
@@ -60,9 +52,7 @@ func TestParseBoundaries(t *testing.T) {
 		t.Fatalf("nine disc error = %v", err)
 	}
 	exactLimit := append([]byte("one.chd\ntwo.chd\n#"), bytes.Repeat([]byte{'x'}, MaxPlaylistBytes-17)...)
-	if len(exactLimit) != MaxPlaylistBytes {
-		t.Fatalf("test playlist size = %d", len(exactLimit))
-	}
+	testassert.Falsef(t, len(exactLimit) != MaxPlaylistBytes, "test playlist size = %d", len(exactLimit))
 	if _, err := Parse(exactLimit, nil, DefaultLimits()); err != nil {
 		t.Fatalf("65,536 bytes: %v", err)
 	}
@@ -90,9 +80,7 @@ func TestParseRejectsUnsafeOrInvalidReferences(t *testing.T) {
 		t.Run(strings.ReplaceAll(playlist, "\n", "_"), func(t *testing.T) {
 			t.Parallel()
 			_, err := Parse([]byte(playlist), nil, DefaultLimits())
-			if err == nil {
-				t.Fatal("Parse() accepted unsafe playlist")
-			}
+			testassert.False(t, err == nil, "Parse() accepted unsafe playlist")
 		})
 	}
 	invalid := []string{
@@ -111,13 +99,8 @@ func TestParseMatchesExactlyThenUniqueASCIIFoldAndAllowsMissing(t *testing.T) {
 		{Basename: "Exact.chd", SizeBytes: 8, Header: []byte("MComprHD")},
 		{Basename: "second.chd", SizeBytes: 8, Header: []byte("MComprHD")},
 	}, DefaultLimits())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Entries[0].File.Basename != "Exact.chd" || result.Entries[1].File.Basename != "second.chd" ||
-		result.Entries[2].State != EntryMissing || result.Entries[2].File != nil {
-		t.Fatalf("entries = %#v", result.Entries)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return result.Entries[0].File.Basename != "Exact.chd" }, func() bool { return result.Entries[1].File.Basename != "second.chd" }, func() bool { return result.Entries[2].State != EntryMissing }, func() bool { return result.Entries[2].File != nil }), "entries = %#v", result.Entries)
 }
 
 func TestParseExactMatchWinsOverASCIIFoldCollision(t *testing.T) {
@@ -126,12 +109,8 @@ func TestParseExactMatchWinsOverASCIIFoldCollision(t *testing.T) {
 		{Basename: "Exact.chd", SizeBytes: 8, Header: []byte("MComprHD")},
 		{Basename: "exact.chd", SizeBytes: 8, Header: []byte("MComprHD")},
 	}, DefaultLimits())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Entries[0].State != EntryPresent || result.Entries[0].File.Basename != "Exact.chd" {
-		t.Fatalf("exact entry = %#v", result.Entries[0])
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return result.Entries[0].State != EntryPresent }, func() bool { return result.Entries[0].File.Basename != "Exact.chd" }), "exact entry = %#v", result.Entries[0])
 	if _, err := Parse([]byte("EXACT.CHD\ntwo.chd\n"), []File{
 		{Basename: "Exact.chd"}, {Basename: "exact.chd"},
 	}, DefaultLimits()); !ErrorHasCode(err, CodePlaylistInvalid) {
@@ -162,28 +141,20 @@ func TestIdentityExpectedSetGroupAndAttachmentState(t *testing.T) {
 	discA := strings.Repeat("a", 64)
 	discB := strings.Repeat("b", 64)
 	base, err := ContentIdentity([]string{discA, discB})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	same, _ := ContentIdentity([]string{discA, discB})
 	reordered, _ := ContentIdentity([]string{discB, discA})
 	changed, _ := ContentIdentity([]string{discA, strings.Repeat("c", 64)})
-	if base != same || base == reordered || base == changed {
-		t.Fatalf("identities = %q %q %q %q", base, same, reordered, changed)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return base != same }, func() bool { return base == reordered }, func() bool { return base == changed }), "identities = %q %q %q %q", base, same, reordered, changed)
 	entries := []Entry{
 		{Ordinal: 0, SourceReference: "ONE.CHD", NormalizedReference: "one.chd", State: EntryMissing},
 		{Ordinal: 1, SourceReference: "two.chd", NormalizedReference: "two.chd", State: EntryPresent},
 		{Ordinal: 2, SourceReference: "three.chd", NormalizedReference: "three.chd", State: EntryMissing},
 	}
 	digest, err := ExpectedSetDigest(entries)
-	if err != nil || len(digest) != 64 {
-		t.Fatalf("expected-set digest = %q, %v", digest, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(digest) != 64 }), "expected-set digest = %q, %v", digest, err)
 	group, err := GroupKey("games/title", strings.Repeat("d", 64))
-	if err != nil || len(group) != 64 {
-		t.Fatalf("group key = %q, %v", group, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(group) != 64 }), "group key = %q, %v", group, err)
 	allowed := [][2]AttachmentState{
 		{AttachmentQueued, AttachmentRunning},
 		{AttachmentQueued, AttachmentCancelled},
@@ -195,15 +166,9 @@ func TestIdentityExpectedSetGroupAndAttachmentState(t *testing.T) {
 		{AttachmentFailedRetryable, AttachmentCancelled},
 	}
 	for _, transition := range allowed {
-		if !CanTransitionAttachment(transition[0], transition[1]) {
-			t.Fatalf("transition %s -> %s rejected", transition[0], transition[1])
-		}
+		testassert.Truef(t, CanTransitionAttachment(transition[0], transition[1]), "transition %s -> %s rejected", transition[0], transition[1])
 	}
-	if CanTransitionAttachment(AttachmentAccepted, AttachmentRunning) ||
-		CanTransitionAttachment(AttachmentFailedRetryable, AttachmentQueued) ||
-		CanTransitionAttachment("UNKNOWN", AttachmentRunning) {
-		t.Fatal("invalid attachment transition accepted")
-	}
+	testassert.False(t, testassert.Any(func() bool { return CanTransitionAttachment(AttachmentAccepted, AttachmentRunning) }, func() bool { return CanTransitionAttachment(AttachmentFailedRetryable, AttachmentQueued) }, func() bool { return CanTransitionAttachment("UNKNOWN", AttachmentRunning) }), "invalid attachment transition accepted")
 }
 
 func FuzzParse(f *testing.F) {
@@ -223,8 +188,6 @@ func FuzzParse(f *testing.F) {
 			{Basename: "one.chd", SizeBytes: 8, Header: []byte("MComprHD")},
 			{Basename: "two.chd", SizeBytes: 8, Header: []byte("MComprHD")},
 		}, DefaultLimits())
-		if len(result.Entries) > MaxDiscs || len(result.CanonicalPlaylist) > MaxDiscs*13 {
-			t.Fatalf("unbounded result: %#v", result)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return len(result.Entries) > MaxDiscs }, func() bool { return len(result.CanonicalPlaylist) > MaxDiscs*13 }), "unbounded result: %#v", result)
 	})
 }

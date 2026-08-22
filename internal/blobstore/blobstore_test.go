@@ -5,14 +5,14 @@ import (
 	"os"
 	"sync"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestPutDeduplicatesConcurrentContent(t *testing.T) {
 	t.Parallel()
 	store, err := Open(t.TempDir())
-	if err != nil {
-		t.Fatalf("Open() error = %v", err)
-	}
+	testassert.Falsef(t, err != nil, "Open() error = %v", err)
 	payload := bytes.Repeat([]byte("retrom"), 4096)
 	results := make([]Metadata, 2)
 	errorsFound := make([]error, 2)
@@ -25,17 +25,9 @@ func TestPutDeduplicatesConcurrentContent(t *testing.T) {
 		}()
 	}
 	wait.Wait()
-	if errorsFound[0] != nil || errorsFound[1] != nil {
-		t.Fatalf("Put() errors = %v, %v", errorsFound[0], errorsFound[1])
-	}
-	if results[0].SHA256 != results[1].SHA256 || results[0].Path != results[1].Path {
-		t.Fatal("equal content did not converge to one CAS path")
-	}
-	if results[0].Existing == results[1].Existing {
-		t.Fatalf("Existing flags = %v/%v, want one publisher", results[0].Existing, results[1].Existing)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return errorsFound[0] != nil }, func() bool { return errorsFound[1] != nil }), "Put() errors = %v, %v", errorsFound[0], errorsFound[1])
+	testassert.False(t, testassert.Any(func() bool { return results[0].SHA256 != results[1].SHA256 }, func() bool { return results[0].Path != results[1].Path }), "equal content did not converge to one CAS path")
+	testassert.Falsef(t, results[0].Existing == results[1].Existing, "Existing flags = %v/%v, want one publisher", results[0].Existing, results[1].Existing)
 	contents, err := os.ReadFile(results[0].Path)
-	if err != nil || !bytes.Equal(contents, payload) {
-		t.Fatalf("published content mismatch: %v", err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !bytes.Equal(contents, payload) }), "published content mismatch: %v", err)
 }

@@ -8,7 +8,7 @@ export const metadata = { title: "联机游玩" };
 
 export default async function NetplayPage() {
   const context = await loadAuthContext();
-  if (!context.netplayEnabled) notFound();
+  if (!context.netplayEnabled) {notFound();}
   const [active, recent] = await Promise.all([
     backendJSON<RoomList>("/api/v1/netplay/rooms?view=active&limit=24"),
     backendJSON<RoomList>("/api/v1/netplay/rooms?view=recent&limit=24"),

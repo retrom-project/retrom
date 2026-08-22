@@ -5,9 +5,9 @@ import axe from "axe-core";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 
 test.beforeAll(() => {
-  if (process.env.E2E_SERVER_IMPORT_SEED !== "1") return;
+  if (process.env.E2E_SERVER_IMPORT_SEED !== "1") {return;}
   const database = process.env.RETROM_E2E_DATABASE;
-  if (!database) throw new Error("RETROM_E2E_DATABASE is required for the server import E2E fixture");
+  if (!database) {throw new Error("RETROM_E2E_DATABASE is required for the server import E2E fixture");}
   execFileSync("python3", [path.resolve(process.cwd(), "../scripts/acceptance/seed-bios-catalog.py"), database, "286"], { stdio: "inherit" });
 });
 
@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }, testInfo) => {
 
 function evidencePath(testInfo: TestInfo, name: string) {
   const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
-  if (!caseDirectory) return testInfo.outputPath(name);
+  if (!caseDirectory) {return testInfo.outputPath(name);}
   const screenshots = path.join(caseDirectory, "screenshots");
   mkdirSync(screenshots, { recursive: true });
   return path.join(screenshots, `${testInfo.project.name}-${name}`);
@@ -85,7 +85,7 @@ test("ACC-BIOS-007 FULL_CATALOG traverses 100/100/86 and retries the same cursor
   let cursor: string | null = null;
   do {
     const query = new URLSearchParams({ scope: "FULL_CATALOG", limit: "100" });
-    if (cursor) query.set("cursor", cursor);
+    if (cursor) {query.set("cursor", cursor);}
     const response = await page.request.get(`/api/v1/admin/bios?${query}`);
     expect(response.ok()).toBe(true);
     const payload = await response.json() as { items: Array<{ id: string }>; nextCursor: string | null; filteredCount: number; summary: { totalCount: number } };
@@ -364,7 +364,7 @@ test("ACC-MEDIA-001 video upload is explicit in admin and absent from library re
   expect(gamesResponse.ok()).toBe(true);
   const games = await gamesResponse.json() as { items: Array<{ gameId: string; title: string }> };
   const game = games.items.find((item) => item.title === "Sudoku");
-  if (!game) throw new Error("acceptance fixture game Sudoku was not found");
+  if (!game) {throw new Error("acceptance fixture game Sudoku was not found");}
   const gameId = game.gameId;
 
   await page.goto(`/admin/games/${gameId}`);
@@ -430,7 +430,7 @@ test("ACC-MEDIA-001 video upload is explicit in admin and absent from library re
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
   let videoRequests = 0;
   page.on("request", (request) => {
-    if (new URL(request.url()).pathname === detail.videoUrl) videoRequests += 1;
+    if (new URL(request.url()).pathname === detail.videoUrl) {videoRequests += 1;}
   });
   await page.reload();
   await expect(page.getByRole("heading", { name: "游戏库" })).toBeVisible();
@@ -479,7 +479,7 @@ test.describe("authorized real server BIOS source", () => {
     let summary: { state: string; counts: { candidates: number; imported: number; matched: number; warnings: number; failed: number } } | null = null;
     do {
       const query = new URLSearchParams({ limit: "50" });
-      if (cursor) query.set("cursor", cursor);
+      if (cursor) {query.set("cursor", cursor);}
       const response = await page.request.get(`/api/v1/admin/server-imports/${importID}?${query}`);
       expect(response.ok()).toBe(true);
       const payload = await response.json() as { summary: typeof summary; items: typeof items; nextCursor: string | null };

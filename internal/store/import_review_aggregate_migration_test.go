@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestImportReviewAggregateMigrationRepairsDiscardedTerminalJob(t *testing.T) {
@@ -19,9 +20,7 @@ func TestImportReviewAggregateMigrationRepairsDiscardedTerminalJob(t *testing.T)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -31,9 +30,7 @@ func TestImportReviewAggregateMigrationRepairsDiscardedTerminalJob(t *testing.T)
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 23)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "023_fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +54,7 @@ WHERE id='01980000-0000-7000-8000-00000000f002'
 	var schemaVersion, pending, published, discarded, jobVersion int64
 	var completedAt sql.NullInt64
 	var jobState, itemState string
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT (SELECT max(version) FROM schema_migrations),
 job.state,
 job.review_pending_item_count,
@@ -81,18 +78,5 @@ WHERE job.id='01980000-0000-7000-8000-00000000f001'
 	); err != nil {
 		t.Fatal(err)
 	}
-	if schemaVersion != 39 || jobState != "COMPLETED" || pending != 0 || published != 0 || discarded != 1 ||
-		jobVersion != 2 || !completedAt.Valid || completedAt.Int64 != 1500 || itemState != "DISCARDED" {
-		t.Fatalf(
-			"aggregate repair = schema:%d job:%s pending:%d published:%d discarded:%d version:%d completed:%d item:%s",
-			schemaVersion,
-			jobState,
-			pending,
-			published,
-			discarded,
-			jobVersion,
-			completedAt.Int64,
-			itemState,
-		)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return schemaVersion != 39 }, func() bool { return jobState != "COMPLETED" }, func() bool { return pending != 0 }, func() bool { return published != 0 }, func() bool { return discarded != 1 }, func() bool { return jobVersion != 2 }, func() bool { return !completedAt.Valid }, func() bool { return completedAt.Int64 != 1500 }, func() bool { return itemState != "DISCARDED" }), "aggregate repair = schema:%d job:%s pending:%d published:%d discarded:%d version:%d completed:%d item:%s", schemaVersion, jobState, pending, published, discarded, jobVersion, completedAt.Int64, itemState)
 }

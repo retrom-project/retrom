@@ -10,6 +10,7 @@ import (
 	_ "modernc.org/sqlite"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestPlatformDirectoryConsolidationMovesGamesAndRetainsHistory(t *testing.T) {
@@ -18,9 +19,7 @@ func TestPlatformDirectoryConsolidationMovesGamesAndRetainsHistory(t *testing.T)
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	database, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "consolidation.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 	database.SetMaxOpenConns(1)
 	if _, err := database.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
@@ -32,9 +31,7 @@ func TestPlatformDirectoryConsolidationMovesGamesAndRetainsHistory(t *testing.T)
 	applyMigrationRange(ctx, t, database, repositoryRoot, 1, 38)
 
 	transaction, err := database.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := transaction.ExecContext(ctx, "PRAGMA defer_foreign_keys=ON"); err != nil {
 		_ = transaction.Rollback()
 		t.Fatal(err)
@@ -94,9 +91,7 @@ SELECT id||':'||platform_instance_id||':'||version FROM games ORDER BY id
 		"01980000-0000-7000-8000-00000000a101:01980000-0000-7000-8000-000000000001:2",
 		"01980000-0000-7000-8000-00000000a201:01980000-0000-7000-8000-000000000007:2",
 	}
-	if len(moved) != len(wantMoved) || moved[0] != wantMoved[0] || moved[1] != wantMoved[1] {
-		t.Fatalf("moved games = %#v, want %#v", moved, wantMoved)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return len(moved) != len(wantMoved) }, func() bool { return moved[0] != wantMoved[0] }, func() bool { return moved[1] != wantMoved[1] }), "moved games = %#v, want %#v", moved, wantMoved)
 	retired := queryStrings(t, database, `
 SELECT id||':'||enabled||':'||(deleted_at_ms IS NOT NULL)
 FROM platform_instances
@@ -110,25 +105,19 @@ ORDER BY id
 		"01980000-0000-7000-8000-000000000002:0:1",
 		"01980000-0000-7000-8000-000000000008:0:1",
 	}
-	if len(retired) != len(wantRetired) || retired[0] != wantRetired[0] || retired[1] != wantRetired[1] {
-		t.Fatalf("retired directories = %#v, want %#v", retired, wantRetired)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return len(retired) != len(wantRetired) }, func() bool { return retired[0] != wantRetired[0] }, func() bool { return retired[1] != wantRetired[1] }), "retired directories = %#v, want %#v", retired, wantRetired)
 	var metadataCount, contentCount int
 	if err := database.QueryRowContext(ctx, `
 SELECT (SELECT count(*) FROM game_metadata_revisions),(SELECT count(*) FROM game_content_revisions)
 `).Scan(&metadataCount, &contentCount); err != nil {
 		t.Fatal(err)
 	}
-	if metadataCount != 2 || contentCount != 2 {
-		t.Fatalf("historical revisions = metadata:%d content:%d", metadataCount, contentCount)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return metadataCount != 2 }, func() bool { return contentCount != 2 }), "historical revisions = metadata:%d content:%d", metadataCount, contentCount)
 	var foreignKeyViolations int
 	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM pragma_foreign_key_check`).Scan(&foreignKeyViolations); err != nil {
 		t.Fatal(err)
 	}
-	if foreignKeyViolations != 0 {
-		t.Fatalf("foreign key violations = %d", foreignKeyViolations)
-	}
+	testassert.Falsef(t, foreignKeyViolations != 0, "foreign key violations = %d", foreignKeyViolations)
 }
 
 func TestPlatformDirectoryConsolidationRevivesDeletedDestinations(t *testing.T) {
@@ -137,9 +126,7 @@ func TestPlatformDirectoryConsolidationRevivesDeletedDestinations(t *testing.T) 
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	database, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "revive.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 	database.SetMaxOpenConns(1)
 	if _, err := database.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
@@ -173,7 +160,5 @@ ORDER BY id
 		"01980000-0000-7000-8000-000000000001:1:1:3",
 		"01980000-0000-7000-8000-000000000007:1:1:3",
 	}
-	if len(active) != len(wantActive) || active[0] != wantActive[0] || active[1] != wantActive[1] {
-		t.Fatalf("revived directories = %#v, want %#v", active, wantActive)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return len(active) != len(wantActive) }, func() bool { return active[0] != wantActive[0] }, func() bool { return active[1] != wantActive[1] }), "revived directories = %#v, want %#v", active, wantActive)
 }

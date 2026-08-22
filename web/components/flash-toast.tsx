@@ -12,12 +12,12 @@ export function queueFlashToast(toast: ToastMessage) {
 
 export function Toast({ toast, onDismiss }: { toast: ToastMessage | null; onDismiss: () => void }) {
   useEffect(() => {
-    if (!toast) return;
+    if (!toast) {return;}
     const timer = window.setTimeout(onDismiss, 2_000);
     return () => window.clearTimeout(timer);
   }, [onDismiss, toast]);
 
-  if (!toast) return null;
+  if (!toast) {return null;}
   return <div className={`app-toast ${toast.tone}`} role={toast.tone === "bad" ? "alert" : "status"} aria-live="polite">
     <span>{toast.message}</span>
     <button type="button" aria-label="关闭通知" onClick={onDismiss}>×</button>
@@ -29,7 +29,7 @@ export function FlashToast() {
   useEffect(() => {
     const timer = window.setTimeout(() => {
       const raw = sessionStorage.getItem(flashKey);
-      if (!raw) return;
+      if (!raw) {return;}
       sessionStorage.removeItem(flashKey);
       try {
         const parsed = JSON.parse(raw) as Partial<ToastMessage>;

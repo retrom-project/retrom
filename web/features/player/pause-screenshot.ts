@@ -10,7 +10,7 @@ export function captureBeforePause<T>(
   let paused = false;
   let completionTimer: ReturnType<typeof setTimeout> | undefined;
   const pauseOnce = () => {
-    if (paused) return;
+    if (paused) {return;}
     paused = true;
     clearTimeout(pauseTimer);
     pause();
@@ -30,6 +30,6 @@ export function captureBeforePause<T>(
     completionTimer = setTimeout(() => resolve(null), completionDeadlineMs);
   });
   return Promise.race([settledCapture, completionDeadline]).finally(() => {
-    if (completionTimer !== undefined) clearTimeout(completionTimer);
+    if (completionTimer !== undefined) {clearTimeout(completionTimer);}
   });
 }

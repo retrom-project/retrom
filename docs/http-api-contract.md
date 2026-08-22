@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.3 |
-| 日期 | 2026-08-10 |
+| 版本 | 1.4 |
+| 日期 | 2026-08-22 |
 | 适用范围 | `/api/v1`、`/content`、`/runtime`、SSE 与同源安全 |
 
 ## 1. 协议基线
@@ -14,7 +14,7 @@
 - 业务实体 ID 使用规范小写 UUIDv7 字符串。`coreId`、`platformId` 等代码种子使用稳定小写 code（如 `fbneo`、`arcade`），不得混成自增数字。
 - 时刻为 camelCase `*AtMs` 的 JSON int64，数据库对应 Unix 毫秒 `INTEGER`；时长为 `*DurationMs`。
 - 未知 JSON 字段、重复字段、错误类型、尾随多个 JSON 值一律 `400 INVALID_REQUEST`；UTF-8 无效文本拒绝。所有固定 JSON request/response object schema 显式 `additionalProperties: false`；真正的 map/错误 `details` 才逐项显式允许 additional properties。
-- OpenAPI 3.0.3 文件 `api/openapi.yaml` 是实现后的协议事实源。固定 `oapi-codegen` strict stdlib server types、`openapi-typescript` schema、`openapi-fetch` client 与 contract test 必须由它保持一致；`make api-check` 验证生成物无漂移。锁定的 `oapi-codegen v2.8.0` 已支持 OpenAPI 3.1，但一期仍将 3.0.3 作为经审定的项目协议基线，以避免 nullable/schema 方言和两端生成结果在实施中漂移；升级规范版本必须作为独立契约迁移，同时验证全部生成器、validator 与 contract test，不能只修改 `openapi` 版本号。可空字段使用 OAS 3.0 `nullable: true`，不得写 3.1 的 union type；本文锁定一期语义，不能由生成器反向改变。
+- OpenAPI 3.0.3 文件 `api/openapi.yaml` 是实现后的协议事实源。固定 `oapi-codegen` strict stdlib server types、`openapi-typescript` schema、`openapi-fetch` client 与 contract test 必须由它保持一致。Go `internal/httpapi/generated/api.gen.go` 在标准后端编译链路中按需生成、被 Git 忽略且不得提交；TypeScript `web/lib/api/generated/schema.d.ts` 必须提交。`make api-check` 在临时目录重建两端结果、逐字节检查 TypeScript 漂移并拒绝 Go 生成物被跟踪。锁定的 `oapi-codegen v2.8.0` 已支持 OpenAPI 3.1，但一期仍将 3.0.3 作为经审定的项目协议基线，以避免 nullable/schema 方言和两端生成结果在实施中漂移；升级规范版本必须作为独立契约迁移，同时验证全部生成器、validator 与 contract test，不能只修改 `openapi` 版本号。可空字段使用 OAS 3.0 `nullable: true`，不得写 3.1 的 union type；本文锁定一期语义，不能由生成器反向改变。
 
 成功列表统一为：
 

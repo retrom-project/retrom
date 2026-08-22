@@ -97,22 +97,22 @@ export function importTaskSummary(items: ImportListItem[]) {
 export function filterImportTasks(items: ImportListItem[], filters: ImportTaskFilters) {
   const query = filters.query.trim().toLocaleLowerCase("zh-CN");
   return items.filter((item) => {
-    if (filters.directory && item.platformInstanceName !== filters.directory) return false;
-    if (filters.state === "ATTENTION" && item.state !== "PARTIAL_FAILURE" && item.state !== "FAILED") return false;
-    if (filters.state && filters.state !== "ATTENTION" && item.state !== filters.state) return false;
-    if (!query) return true;
+    if (filters.directory && item.platformInstanceName !== filters.directory) {return false;}
+    if (filters.state === "ATTENTION" && item.state !== "PARTIAL_FAILURE" && item.state !== "FAILED") {return false;}
+    if (filters.state && filters.state !== "ATTENTION" && item.state !== filters.state) {return false;}
+    if (!query) {return true;}
     return [item.platformInstanceName, importStateLabels[item.state] ?? item.state, importProviderLabels[item.metadataProvider] ?? item.metadataProvider]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   });
 }
 
 export function importTaskProgress(item: ImportListItem) {
-  if (item.state === "QUEUED") return 5;
-  if (["REVIEW_PENDING", "COMPLETED", "CANCELLED", "FAILED"].includes(item.state)) return 100;
+  if (item.state === "QUEUED") {return 5;}
+  if (["REVIEW_PENDING", "COMPLETED", "CANCELLED", "FAILED"].includes(item.state)) {return 100;}
   const known = item.reviewPendingItemCount + item.failedItemCount;
   const measured = item.totalItemCount > 0 ? Math.round(known / item.totalItemCount * 100) : 0;
-  if (item.state === "PARTIAL_FAILURE") return Math.max(72, measured);
-  if (item.state === "CANCEL_REQUESTED") return Math.max(20, Math.min(95, measured || 60));
+  if (item.state === "PARTIAL_FAILURE") {return Math.max(72, measured);}
+  if (item.state === "CANCEL_REQUESTED") {return Math.max(20, Math.min(95, measured || 60));}
   return Math.max(18, Math.min(92, measured || 48));
 }
 
@@ -122,28 +122,28 @@ export function importTaskIssueCount(item: ImportListItem) {
 
 export function importTaskIssueSummary(item: ImportListItem) {
   const parts = [];
-  if (item.failedItemCount) parts.push(`${item.failedItemCount} 个条目失败`);
+  if (item.failedItemCount) {parts.push(`${item.failedItemCount} 个条目失败`);}
   const rejected = item.unresolvedRejectedFileCount ?? item.rejectedFileCount ?? 0;
-  if (rejected) parts.push(`${rejected} 个文件未被接受`);
+  if (rejected) {parts.push(`${rejected} 个文件未被接受`);}
   return parts.length ? parts.join("；") : "没有可报告的异常";
 }
 
 export function importTaskPhase(item: ImportListItem) {
-  if (item.state === "QUEUED") return "等待识别";
-  if (item.state === "RUNNING") return "识别与运行检查";
-  if (item.state === "REVIEW_PENDING") return "人工审核";
-  if (item.state === "PARTIAL_FAILURE" || item.state === "FAILED") return "处理异常";
-  if (item.state === "COMPLETED") return "发布";
-  if (item.state === "CANCEL_REQUESTED") return "正在取消";
-  if (item.state === "CANCELLED") return "已取消";
+  if (item.state === "QUEUED") {return "等待识别";}
+  if (item.state === "RUNNING") {return "识别与运行检查";}
+  if (item.state === "REVIEW_PENDING") {return "人工审核";}
+  if (item.state === "PARTIAL_FAILURE" || item.state === "FAILED") {return "处理异常";}
+  if (item.state === "COMPLETED") {return "发布";}
+  if (item.state === "CANCEL_REQUESTED") {return "正在取消";}
+  if (item.state === "CANCELLED") {return "已取消";}
   return "后台处理";
 }
 
 export function importStageIndex(item: ImportListItem) {
-  if (item.state === "QUEUED") return 0;
-  if (item.state === "RUNNING") return 2;
-  if (item.state === "REVIEW_PENDING") return 4;
-  if (item.state === "COMPLETED") return 5;
-  if (item.state === "PARTIAL_FAILURE" || item.state === "FAILED") return 2;
+  if (item.state === "QUEUED") {return 0;}
+  if (item.state === "RUNNING") {return 2;}
+  if (item.state === "REVIEW_PENDING") {return 4;}
+  if (item.state === "COMPLETED") {return 5;}
+  if (item.state === "PARTIAL_FAILURE" || item.state === "FAILED") {return 2;}
   return 0;
 }

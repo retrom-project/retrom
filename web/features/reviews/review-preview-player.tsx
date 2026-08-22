@@ -12,10 +12,10 @@ type PreviewState = "loading" | "running" | "capturing" | "captured" | "error";
 const previewStartupTimeoutMs = 30_000;
 
 function stateCopy(state: PreviewState) {
-  if (state === "loading") return "正在冻结审核来源并加载核心…";
-  if (state === "capturing") return "游戏已运行 5 秒，正在保存审核截图…";
-  if (state === "captured") return "第 5 秒运行截图已保存；可以继续试玩。";
-  if (state === "running") return "游戏已启动，将在第 5 秒自动保存截图。";
+  if (state === "loading") {return "正在冻结审核来源并加载核心…";}
+  if (state === "capturing") {return "游戏已运行 5 秒，正在保存审核截图…";}
+  if (state === "captured") {return "第 5 秒运行截图已保存；可以继续试玩。";}
+  if (state === "running") {return "游戏已启动，将在第 5 秒自动保存截图。";}
   return "审核预览启动失败。";
 }
 
@@ -37,9 +37,9 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
     let startupFailed = false;
 
     function failStartup(reason: unknown) {
-      if (controller.signal.aborted || gameStarted || startupFailed) return;
+      if (controller.signal.aborted || gameStarted || startupFailed) {return;}
       startupFailed = true;
-      if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+      if (startupTimer !== undefined) {window.clearTimeout(startupTimer);}
       const message = reason instanceof Error ? reason.message : typeof reason === "string" ? reason : "模拟器核心启动失败";
       setDetail(message);
       setState("error");
@@ -54,7 +54,7 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
 
     async function uploadCapture(config: ReviewPlayerConfig) {
       const emulator = emulatorRef.current;
-      if (!emulator) throw new Error("预览核心尚未就绪，无法截图");
+      if (!emulator) {throw new Error("预览核心尚未就绪，无法截图");}
       setState("capturing");
       const capture = await captureReviewScreenshot(emulator);
       const response = await fetch(`/runtime/launches/${previewId}/review-screenshot`, {
@@ -80,15 +80,15 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
         const response = await fetch(`/runtime/launches/${previewId}/config`, {
           credentials: "same-origin", cache: "no-store", signal: controller.signal,
         });
-        if (!response.ok) throw new Error("审核预览会话已失效，请回到审核页重新运行");
+        if (!response.ok) {throw new Error("审核预览会话已失效，请回到审核页重新运行");}
         const config = await response.json() as ReviewPlayerConfig;
-        if (!config.reviewPreview || config.reviewPreview.captureAfterMs !== 5000) throw new Error("审核预览配置无效");
+        if (!config.reviewPreview || config.reviewPreview.captureAfterMs !== 5000) {throw new Error("审核预览配置无效");}
         setTitle(config.gameTitle || "审核游戏预览");
         const frame = frameRef.current;
         const mountedFrameWindow = frame?.contentWindow ?? undefined;
         frameWindow = mountedFrameWindow;
         const frameDocument = frame?.contentDocument;
-        if (!frame || !mountedFrameWindow || !frameDocument) throw new Error("无法创建游戏子窗体");
+        if (!frame || !mountedFrameWindow || !frameDocument) {throw new Error("无法创建游戏子窗体");}
         mountedFrameWindow.addEventListener("error", onRuntimeError);
         mountedFrameWindow.addEventListener("unhandledrejection", onRuntimeRejection);
         frameDocument.documentElement.lang = "zh-CN";
@@ -103,9 +103,9 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
         cleanup = mountEmulatorJS(config, target, {
           onReady: (emulator) => { emulatorRef.current = emulator; },
           onGameStart: () => {
-            if (startupFailed) return false;
+            if (startupFailed) {return false;}
             gameStarted = true;
-            if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+            if (startupTimer !== undefined) {window.clearTimeout(startupTimer);}
             setState("running");
             mountedFrameWindow.requestAnimationFrame(() => canvasContain?.refresh());
             captureTimerRef.current = window.setTimeout(() => {
@@ -117,15 +117,15 @@ export function ReviewPreviewPlayer({ previewId }: { previewId: string }) {
           },
         }, mountedFrameWindow);
       } catch (error) {
-        if (controller.signal.aborted) return;
+        if (controller.signal.aborted) {return;}
         failStartup(error);
       }
     }
     void bootstrap();
     return () => {
       controller.abort();
-      if (captureTimerRef.current !== null) window.clearTimeout(captureTimerRef.current);
-      if (startupTimer !== undefined) window.clearTimeout(startupTimer);
+      if (captureTimerRef.current !== null) {window.clearTimeout(captureTimerRef.current);}
+      if (startupTimer !== undefined) {window.clearTimeout(startupTimer);}
       frameWindow?.removeEventListener("error", onRuntimeError);
       frameWindow?.removeEventListener("unhandledrejection", onRuntimeRejection);
       cleanup?.();

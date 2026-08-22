@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/testassert"
+
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
@@ -19,25 +21,15 @@ func TestOverlayPrependsDeterministicLauncherAndPreservesArchive(t *testing.T) {
 		{name: "GAME/game.exe", contents: "executable"},
 	})
 	first, err := New(bytes.NewReader(base), int64(len(base)), "GAME/game.exe")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	contents, err := io.ReadAll(first)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	second, err := New(bytes.NewReader(base), int64(len(base)), "GAME/game.exe")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	repeated, err := io.ReadAll(second)
-	if err != nil || !bytes.Equal(contents, repeated) {
-		t.Fatalf("overlay drift: error=%v", err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !bytes.Equal(contents, repeated) }), "overlay drift: error=%v", err)
 	reader, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if len(reader.File) != 4 || reader.File[0].Name != "AUTOBOOT.DBP" {
 		names := make([]string, 0, len(reader.File))
 		for _, entry := range reader.File {
@@ -51,9 +43,7 @@ func TestOverlayPrependsDeterministicLauncherAndPreservesArchive(t *testing.T) {
 	if got := readFile(t, reader.File[3]); got != "executable" {
 		t.Fatalf("preserved executable = %q", got)
 	}
-	if first.Size() != int64(len(contents)) {
-		t.Fatalf("overlay size = %d, want %d", first.Size(), len(contents))
-	}
+	testassert.Falsef(t, first.Size() != int64(len(contents)), "overlay size = %d, want %d", first.Size(), len(contents))
 	if _, err := first.Seek(5, io.SeekStart); err != nil {
 		t.Fatal(err)
 	}
@@ -72,17 +62,11 @@ func TestOverlayCallsBatchEntriesAndRejectsInvalidZIP(t *testing.T) {
 	t.Parallel()
 	base := zipBytes(t, []file{{name: "PLAY.BAT", contents: "play"}})
 	overlay, err := New(bytes.NewReader(base), int64(len(base)), "PLAY.BAT")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	contents, err := io.ReadAll(overlay)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	reader, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if got := readFile(t, reader.File[0]); got != `C:\PLAY.BAT` {
 		t.Fatalf("autoboot launcher = %q", got)
 	}
@@ -99,20 +83,12 @@ func TestOverlayReplacesAnExistingReservedLauncher(t *testing.T) {
 		{name: "GAME.EXE", contents: "executable"},
 	})
 	overlay, err := New(bytes.NewReader(base), int64(len(base)), "GAME.EXE")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	contents, err := io.ReadAll(overlay)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	reader, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(reader.File) != 2 || reader.File[0].Name != "AUTOBOOT.DBP" || reader.File[1].Name != "GAME.EXE" {
-		t.Fatalf("overlay entries = %#v", reader.File)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(reader.File) != 2 }, func() bool { return reader.File[0].Name != "AUTOBOOT.DBP" }, func() bool { return reader.File[1].Name != "GAME.EXE" }), "overlay entries = %#v", reader.File)
 	if got := readFile(t, reader.File[0]); strings.Contains(got, "untrusted") || got != `C:\GAME.EXE` {
 		t.Fatalf("replacement launcher = %q", got)
 	}
@@ -125,17 +101,11 @@ func TestOverlayUsesDOSBoxPure83AliasesIncludingCollisions(t *testing.T) {
 		{name: "Long Folder/ABCD2222WXYZ.EXE", contents: "selected"},
 	})
 	overlay, err := New(bytes.NewReader(base), int64(len(base)), "Long Folder/ABCD2222WXYZ.EXE")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	contents, err := io.ReadAll(overlay)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	reader, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if got := readFile(t, reader.File[0]); got != `C:\LONGLDER\ABCDXXYZ.EXE` {
 		t.Fatalf("8.3 collision launcher = %q", got)
 	}
@@ -144,15 +114,11 @@ func TestOverlayUsesDOSBoxPure83AliasesIncludingCollisions(t *testing.T) {
 func TestOverlayMatchesLegacyGB18030EntryNameUsedByImportScan(t *testing.T) {
 	t.Parallel()
 	encoded, err := simplifiedchinese.GB18030.NewEncoder().String("金庸群侠传/PLAY.BAT")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var output bytes.Buffer
 	writer := zip.NewWriter(&output)
 	untrusted, err := writer.Create("RETROM.BAT")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := io.WriteString(untrusted, "untrusted"); err != nil {
 		t.Fatal(err)
 	}
@@ -172,26 +138,15 @@ func TestOverlayMatchesLegacyGB18030EntryNameUsedByImportScan(t *testing.T) {
 	if closeErr := writer.Close(); err == nil {
 		err = closeErr
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 
 	overlay, err := New(bytes.NewReader(output.Bytes()), int64(output.Len()), "金庸群侠传/PLAY.BAT")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	contents, err := io.ReadAll(overlay)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	reader, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(reader.File) != 4 || reader.File[0].Name != "AUTOBOOT.DBP" || reader.File[1].Name != "RETROM.BAT" ||
-		reader.File[2].Name != "RT93B32B/PLAY.BAT" {
-		t.Fatalf("legacy-name overlay entries = %#v", reader.File)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(reader.File) != 4 }, func() bool { return reader.File[0].Name != "AUTOBOOT.DBP" }, func() bool { return reader.File[1].Name != "RETROM.BAT" }, func() bool { return reader.File[2].Name != "RT93B32B/PLAY.BAT" }), "legacy-name overlay entries = %#v", reader.File)
 	if got, want := readFile(t, reader.File[0]), `C:\RT93B32B\PLAY.BAT`; got != want {
 		t.Fatalf("legacy-name AUTOBOOT.DBP = %x, want %x", got, want)
 	}
@@ -209,9 +164,7 @@ func TestOverlayMatchesLegacyGB18030EntryNameUsedByImportScan(t *testing.T) {
 func TestOverlayAvoidsLegacyDirectoryMappingCollision(t *testing.T) {
 	t.Parallel()
 	directory, err := simplifiedchinese.GB18030.NewEncoder().String("金庸群侠传")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	firstMapping := legacyReplacement(directory, 0, false)
 	secondMapping := legacyReplacement(directory, 1, false)
 	var output bytes.Buffer
@@ -232,28 +185,18 @@ func TestOverlayAvoidsLegacyDirectoryMappingCollision(t *testing.T) {
 	if closeErr := writer.Close(); err == nil {
 		err = closeErr
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 
 	overlay, err := New(bytes.NewReader(output.Bytes()), int64(output.Len()), "金庸群侠传/PLAY.BAT")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	contents, err := io.ReadAll(overlay)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	reader, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if got, want := readFile(t, reader.File[0]), `C:\`+secondMapping+`\PLAY.BAT`; got != want {
 		t.Fatalf("collision-safe AUTOBOOT.DBP = %q, want %q", got, want)
 	}
-	if reader.File[1].Name != firstMapping+"/KEEP.TXT" || reader.File[2].Name != secondMapping+"/PLAY.BAT" {
-		t.Fatalf("collision-safe entries = %#v", reader.File)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return reader.File[1].Name != firstMapping+"/KEEP.TXT" }, func() bool { return reader.File[2].Name != secondMapping+"/PLAY.BAT" }), "collision-safe entries = %#v", reader.File)
 }
 
 func TestMenuOverlayUsesPureMenuAndRemovesAutoboot(t *testing.T) {
@@ -263,20 +206,12 @@ func TestMenuOverlayUsesPureMenuAndRemovesAutoboot(t *testing.T) {
 		{name: "GAME.EXE", contents: "executable"},
 	})
 	overlay, err := NewMenu(bytes.NewReader(base), int64(len(base)))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	contents, err := io.ReadAll(overlay)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	reader, err := zip.NewReader(bytes.NewReader(contents), int64(len(contents)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(reader.File) != 2 || reader.File[0].Name != "DOSBOX.BAT" || reader.File[1].Name != "GAME.EXE" {
-		t.Fatalf("menu overlay entries = %#v", reader.File)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(reader.File) != 2 }, func() bool { return reader.File[0].Name != "DOSBOX.BAT" }, func() bool { return reader.File[1].Name != "GAME.EXE" }), "menu overlay entries = %#v", reader.File)
 	if got := readFile(t, reader.File[0]); got != "@ECHO OFF\r\nZ:\\PUREMENU\r\n" {
 		t.Fatalf("menu launcher = %q", got)
 	}
@@ -290,9 +225,7 @@ func zipBytes(t *testing.T, files []file) []byte {
 	writer := zip.NewWriter(&output)
 	for _, source := range files {
 		destination, err := writer.Create(source.name)
-		if err != nil {
-			t.Fatal(err)
-		}
+		testassert.False(t, err != nil, err)
 		if _, err := io.WriteString(destination, source.contents); err != nil {
 			t.Fatal(err)
 		}
@@ -306,17 +239,13 @@ func zipBytes(t *testing.T, files []file) []byte {
 func readFile(t *testing.T, source *zip.File) string {
 	t.Helper()
 	reader, err := source.Open()
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() {
 		if err := reader.Close(); err != nil {
 			t.Error(err)
 		}
 	}()
 	contents, err := io.ReadAll(reader)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	return string(contents)
 }

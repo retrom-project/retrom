@@ -7,6 +7,8 @@ import (
 	"strings"
 	"testing"
 
+	"retrom/internal/testassert"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -21,15 +23,8 @@ func TestNormalizeServerReviewMetadataUsesOrdinaryDraftLimits(t *testing.T) {
 		Genre:       strings.Repeat("类", reviewShortFieldMaximumRunes+1),
 		ReleaseYear: &releaseYear,
 	}, 2027)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len([]rune(metadata.Description)) != reviewDescriptionMaximumRunes ||
-		len([]rune(metadata.Developer)) != reviewShortFieldMaximumRunes ||
-		len([]rune(metadata.Publisher)) != reviewShortFieldMaximumRunes ||
-		len([]rune(metadata.Genre)) != reviewShortFieldMaximumRunes || metadata.ReleaseYear != nil {
-		t.Fatalf("normalized metadata = %#v", metadata)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return len([]rune(metadata.Description)) != reviewDescriptionMaximumRunes }, func() bool { return len([]rune(metadata.Developer)) != reviewShortFieldMaximumRunes }, func() bool { return len([]rune(metadata.Publisher)) != reviewShortFieldMaximumRunes }, func() bool { return len([]rune(metadata.Genre)) != reviewShortFieldMaximumRunes }, func() bool { return metadata.ReleaseYear != nil }), "normalized metadata = %#v", metadata)
 	expected := []ServerMetadataWarning{
 		{Code: "FIELD_TRUNCATED", Field: "description"},
 		{Code: "FIELD_TRUNCATED", Field: "developer"},
@@ -37,24 +32,18 @@ func TestNormalizeServerReviewMetadataUsesOrdinaryDraftLimits(t *testing.T) {
 		{Code: "FIELD_TRUNCATED", Field: "genre"},
 		{Code: "FIELD_VALUE_INVALID", Field: "releaseYear"},
 	}
-	if len(warnings) != len(expected) {
-		t.Fatalf("warnings = %#v", warnings)
-	}
+	testassert.Falsef(t, len(warnings) != len(expected), "warnings = %#v", warnings)
 	for index := range expected {
-		if warnings[index] != expected[index] {
-			t.Fatalf("warnings[%d] = %#v, want %#v", index, warnings[index], expected[index])
-		}
+		testassert.Falsef(t, warnings[index] != expected[index], "warnings[%d] = %#v, want %#v", index, warnings[index], expected[index])
 	}
 }
 
 func TestServerImportResultKeepsLatestBlockedValidationWhenDraftHasNoSelection(t *testing.T) {
 	t.Parallel()
 	database, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "server-source.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { _ = database.Close() })
-	if _, err := database.Exec(`
+	if _, err := database.ExecContext(context.Background(), `
 CREATE TABLE import_items(id TEXT PRIMARY KEY,import_job_id TEXT,state TEXT);
 CREATE TABLE import_item_source_snapshots(id TEXT PRIMARY KEY,import_item_id TEXT,revision_no INTEGER,content_kind TEXT,source_manifest_json TEXT,source_manifest_digest TEXT);
 CREATE TABLE review_drafts(import_item_id TEXT PRIMARY KEY,selected_validation_id TEXT,effective_source_snapshot_id TEXT,target_platform_instance_id TEXT);
@@ -80,15 +69,8 @@ INSERT INTO import_item_source_files VALUES('item','file','CONTENT');
 	result, err := (&Service{database: database}).serverImportResult(
 		context.Background(), Created{ImportJobID: "job"},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(result.Items) != 1 {
-		t.Fatalf("items = %#v", result.Items)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, len(result.Items) != 1, "items = %#v", result.Items)
 	item := result.Items[0]
-	if item.ValidationStatus != "BLOCKED" || item.CompatibilityCode != "LAUNCH_PARENT_MISSING" ||
-		item.CoreID != "fbneo" || item.CoreName != "FinalBurn Neo" || item.DependencySnapshotJSON == "" {
-		t.Fatalf("blocked item = %#v", item)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return item.ValidationStatus != "BLOCKED" }, func() bool { return item.CompatibilityCode != "LAUNCH_PARENT_MISSING" }, func() bool { return item.CoreID != "fbneo" }, func() bool { return item.CoreName != "FinalBurn Neo" }, func() bool { return item.DependencySnapshotJSON == "" }), "blocked item = %#v", item)
 }

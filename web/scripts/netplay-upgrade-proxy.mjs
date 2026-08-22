@@ -31,8 +31,8 @@ function proxyNetplayUpgrade(incoming, clientSocket, clientHead) {
   });
   upstream.once("upgrade", (response, backendSocket, backendHead) => {
     clientSocket.write(responseHead(response));
-    if (backendHead.length > 0) clientSocket.write(backendHead);
-    if (clientHead.length > 0) backendSocket.write(clientHead);
+    if (backendHead.length > 0) {clientSocket.write(backendHead);}
+    if (clientHead.length > 0) {backendSocket.write(clientHead);}
     backendSocket.pipe(clientSocket);
     clientSocket.pipe(backendSocket);
   });
@@ -48,7 +48,7 @@ function proxyNetplayUpgrade(incoming, clientSocket, clientHead) {
 if (!Server.prototype[installed]) {
   const addListener = Server.prototype.on;
   Server.prototype.on = function on(event, listener) {
-    if (event !== "upgrade") return addListener.call(this, event, listener);
+    if (event !== "upgrade") {return addListener.call(this, event, listener);}
     return addListener.call(this, event, function upgrade(request, socket, head) {
       if (request.url && netplaySocketPath.test(request.url)) {
         proxyNetplayUpgrade(request, socket, head);

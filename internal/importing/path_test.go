@@ -1,6 +1,10 @@
 package importing
 
-import "testing"
+import (
+	"testing"
+
+	"retrom/internal/testassert"
+)
 
 func TestValidateLogicalPath(t *testing.T) {
 	t.Parallel()
@@ -23,9 +27,7 @@ func TestValidateLogicalPath(t *testing.T) {
 		t.Run(test.value, func(t *testing.T) {
 			t.Parallel()
 			_, err := ValidateLogicalPath(test.value)
-			if (err == nil) != test.valid {
-				t.Fatalf("ValidateLogicalPath(%q) error = %v", test.value, err)
-			}
+			testassert.Falsef(t, (err == nil) != test.valid, "ValidateLogicalPath(%q) error = %v", test.value, err)
 		})
 	}
 }

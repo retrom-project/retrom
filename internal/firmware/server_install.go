@@ -51,7 +51,7 @@ type ServerInstallResult struct {
 // server import. File reads and archive inspection have already completed, so
 // the transaction contains only authoritative rechecks and persistence.
 //
-//nolint:funlen,gocognit,gocyclo,lll,nestif // Quality comparison, CAS registration and audit commit atomically.
+// Quality comparison, CAS registration and audit commit atomically.
 func (service *Service) InstallServerCandidate(
 	ctx context.Context,
 	request ServerInstallRequest,
@@ -61,69 +61,149 @@ func (service *Service) InstallServerCandidate(
 		return ServerInstallResult{}, fmt.Errorf("firmware/server install: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
+	version, err := validateServerCatalog(ctx, transaction, request)
+	if err != nil {
+		return ServerInstallResult{}, err
+	}
+	now := service.now().UnixMilli()
+	if err := selectServerCandidate(ctx, transaction, request, now); err != nil {
+		return ServerInstallResult{}, err
+	}
+	active, exists, err := readActiveInstallation(ctx, transaction, request.RequirementID)
+	if err != nil {
+		return ServerInstallResult{}, err
+	}
+	result, handled, err := service.evaluateExistingInstallation(ctx, transaction, request, version, active, exists)
+	if err != nil {
+		return ServerInstallResult{}, err
+	}
+	if handled {
+		return service.commitServerOutcome(ctx, transaction, request, result)
+	}
+	result, err = persistServerInstallation(ctx, transaction, request, version, now, result)
+	if err != nil {
+		return ServerInstallResult{}, err
+	}
+	return service.commitServerOutcome(ctx, transaction, request, result)
+}
+
+func validateServerCatalog(
+	ctx context.Context,
+	transaction *sql.Tx,
+	request ServerInstallRequest,
+) (int64, error) {
 	var sourceKind, sourceVersion, catalogDigest string
 	var version, artifactVersion int64
 	if err := transaction.QueryRowContext(ctx, `
-SELECT requirement.source_kind,requirement.source_version,requirement.catalog_digest,requirement.version,artifact.version
+SELECT requirement.source_kind,
+requirement.source_version,
+requirement.catalog_digest,
+requirement.version,
+artifact.version
 FROM bios_requirements requirement
 JOIN core_artifacts artifact ON artifact.id=requirement.core_artifact_id AND artifact.enabled=1
 WHERE requirement.id=? AND requirement.enabled=1
 `, request.RequirementID).Scan(&sourceKind, &sourceVersion, &catalogDigest, &version, &artifactVersion); err != nil ||
-		sourceKind != request.SourceKind || sourceVersion != request.SourceVersion || catalogDigest != request.CatalogDigest ||
+		sourceKind != request.SourceKind || sourceVersion != request.SourceVersion ||
+		catalogDigest != request.CatalogDigest ||
 		version != request.RequirementVersion || artifactVersion != request.CoreArtifactVersion {
-		return ServerInstallResult{}, ErrCatalogChanged
+		return 0, ErrCatalogChanged
 	}
-	now := service.now().UnixMilli()
+	return version, nil
+}
+
+func selectServerCandidate(
+	ctx context.Context,
+	transaction *sql.Tx,
+	request ServerInstallRequest,
+	now int64,
+) error {
 	if changed, updateErr := transaction.ExecContext(ctx, `
 UPDATE server_bios_import_candidates
 SET state='SELECTED',not_selected_reason=NULL,updated_at_ms=?
 WHERE id=? AND server_import_id=? AND requirement_id=? AND state IN ('ELIGIBLE','SELECTED')
 `, now, request.CandidateID, request.ServerImportID, request.RequirementID); updateErr != nil {
-		return ServerInstallResult{}, fmt.Errorf("firmware/server select candidate: %w", updateErr)
+		return fmt.Errorf("firmware/server select candidate: %w", updateErr)
 	} else if rows, rowsErr := changed.RowsAffected(); rowsErr != nil || rows != 1 {
-		return ServerInstallResult{}, fmt.Errorf("firmware/server select candidate changed %d rows: %w", rows, rowsErr)
+		return fmt.Errorf("firmware/server select candidate changed %d rows: %w", rows, rowsErr)
 	}
+	return nil
+}
 
-	result := ServerInstallResult{}
-	var activeID, activeBlobID, activeFilename, activeMD5, activeSHA1, activeSHA, activeStatus string
-	var activeSize int64
-	var activeValidatedVersion int64
-	err = transaction.QueryRowContext(ctx, `
+type activeInstallation struct {
+	id, blobID, filename, md5, sha1, sha256, status string
+	size, validatedVersion                          int64
+}
+
+func readActiveInstallation(
+	ctx context.Context,
+	transaction *sql.Tx,
+	requirementID string,
+) (activeInstallation, bool, error) {
+	var active activeInstallation
+	err := transaction.QueryRowContext(ctx, `
 SELECT id,blob_id,original_filename,size_bytes,md5,sha1,sha256,status,validated_requirement_version
 FROM bios_installations WHERE requirement_id=? AND is_active=1
-`, request.RequirementID).Scan(&activeID, &activeBlobID, &activeFilename, &activeSize, &activeMD5, &activeSHA1, &activeSHA, &activeStatus, &activeValidatedVersion)
+`, requirementID).Scan(
+		&active.id, &active.blobID, &active.filename, &active.size, &active.md5,
+		&active.sha1, &active.sha256, &active.status, &active.validatedVersion,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return activeInstallation{}, false, nil
+	}
 	if err != nil && !errors.Is(err, sql.ErrNoRows) {
-		return ServerInstallResult{}, fmt.Errorf("firmware/server active: %w", err)
+		return activeInstallation{}, false, fmt.Errorf("firmware/server active: %w", err)
 	}
-	if err == nil {
-		result.PreviousInstallationID = activeID
-		if !request.ReplaceIfBetter {
-			result.Outcome = "SKIPPED_EXISTING"
-			return service.commitServerOutcome(ctx, transaction, request, result)
-		}
-		if activeSHA == request.Metadata.SHA256 {
-			if activeValidatedVersion == version && activeStatus == request.Status {
-				result.Outcome = "ALREADY_SAME_BYTES"
-				return service.commitServerOutcome(ctx, transaction, request, result)
-			}
-		} else {
-			activeFacts := FileFacts{
-				Basename: activeFilename, SizeBytes: activeSize, MD5: activeMD5, SHA1: activeSHA1, SHA256: activeSHA,
-			}
-			better, complete, scoreErr := candidateStrictlyBetter(ctx, transaction, request, activeBlobID, activeFacts)
-			if scoreErr != nil {
-				return ServerInstallResult{}, scoreErr
-			}
-			if !complete || !better {
-				result.Outcome = "SKIPPED_NOT_BETTER"
-				if !complete {
-					result.OutcomeCode = "BIOS_CURRENT_EVIDENCE_INCOMPLETE"
-				}
-				return service.commitServerOutcome(ctx, transaction, request, result)
-			}
-		}
-	}
+	return active, true, nil
+}
 
+func (service *Service) evaluateExistingInstallation(
+	ctx context.Context,
+	transaction *sql.Tx,
+	request ServerInstallRequest,
+	version int64,
+	active activeInstallation,
+	exists bool,
+) (ServerInstallResult, bool, error) {
+	if !exists {
+		return ServerInstallResult{}, false, nil
+	}
+	result := ServerInstallResult{PreviousInstallationID: active.id}
+	if !request.ReplaceIfBetter {
+		result.Outcome = "SKIPPED_EXISTING"
+		return result, true, nil
+	}
+	if active.sha256 == request.Metadata.SHA256 {
+		if active.validatedVersion == version && active.status == request.Status {
+			result.Outcome = "ALREADY_SAME_BYTES"
+			return result, true, nil
+		}
+		return result, false, nil
+	}
+	activeFacts := FileFacts{
+		Basename: active.filename, SizeBytes: active.size, MD5: active.md5, SHA1: active.sha1, SHA256: active.sha256,
+	}
+	better, complete, err := candidateStrictlyBetter(ctx, transaction, request, active.blobID, activeFacts)
+	if err != nil {
+		return ServerInstallResult{}, false, err
+	}
+	if complete && better {
+		return result, false, nil
+	}
+	result.Outcome = "SKIPPED_NOT_BETTER"
+	if !complete {
+		result.OutcomeCode = "BIOS_CURRENT_EVIDENCE_INCOMPLETE"
+	}
+	return result, true, nil
+}
+
+func persistServerInstallation(
+	ctx context.Context,
+	transaction *sql.Tx,
+	request ServerInstallRequest,
+	version, now int64,
+	result ServerInstallResult,
+) (ServerInstallResult, error) {
 	blobID, err := blobstore.EnsureRecord(ctx, transaction, request.Metadata, "application/octet-stream", now)
 	if err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server register blob: %w", err)
@@ -167,7 +247,7 @@ INSERT INTO bios_installations(
 	default:
 		result.Outcome = "IMPORTED_MISSING_ENTRY"
 	}
-	return service.commitServerOutcome(ctx, transaction, request, result)
+	return result, nil
 }
 
 func (service *Service) commitServerOutcome(

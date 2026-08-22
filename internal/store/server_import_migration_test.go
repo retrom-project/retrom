@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestServerImportMigrationUpgradesVersion25WithoutJobEventLoss(t *testing.T) {
@@ -19,9 +20,7 @@ func TestServerImportMigrationUpgradesVersion25WithoutJobEventLoss(t *testing.T)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -50,13 +49,13 @@ VALUES(9001,'01980000-0000-7000-8000-00000000d001','DAT_VERSION','fixture','SUCC
 		t.Fatal(err)
 	}
 	var jobs, events, version int
-	if err := upgraded.SQL.QueryRow(`SELECT
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT
 (SELECT count(*) FROM jobs WHERE id='01980000-0000-7000-8000-00000000d001'),
 (SELECT count(*) FROM job_events WHERE id=9001),
 (SELECT max(version) FROM schema_migrations)`).Scan(&jobs, &events, &version); err != nil || jobs != 1 || events != 1 || version != 39 {
 		t.Fatalf("upgrade result = jobs:%d events:%d version:%d error:%v", jobs, events, version, err)
 	}
-	if _, err := upgraded.SQL.Exec(`
+	if _, err := upgraded.SQL.ExecContext(context.Background(), `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES('01980000-0000-7000-8000-00000000a001','Admin',1);
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES('01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000a001','migration.admin','Admin','ADMIN','ENABLED',1,1);
@@ -71,10 +70,10 @@ VALUES('01980000-0000-7000-8000-00000000e001','BIOS_DIRECTORY','bios-root','BIOS
 `, strings.Repeat("b", 64), strings.Repeat("c", 64), strings.Repeat("d", 64)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := upgraded.SQL.Exec(`UPDATE server_imports SET state='FAILED',completed_at_ms=2,failed_item_count=1 WHERE id='01980000-0000-7000-8000-00000000e001'`); err == nil {
+	if _, err := upgraded.SQL.ExecContext(context.Background(), `UPDATE server_imports SET state='FAILED',completed_at_ms=2,failed_item_count=1 WHERE id='01980000-0000-7000-8000-00000000e001'`); err == nil {
 		t.Fatal("terminal classification count greater than catalog was accepted")
 	}
-	if _, err := upgraded.SQL.Exec(`INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms) VALUES('01980000-0000-7000-8000-00000000d003','DAT_VERSION','wrong','SERVER_BIOS_IMPORT',?,1,'{}',1,'QUEUED',0,4,1,1,1,1)`, strings.Repeat("e", 64)); err == nil {
+	if _, err := upgraded.SQL.ExecContext(context.Background(), `INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms) VALUES('01980000-0000-7000-8000-00000000d003','DAT_VERSION','wrong','SERVER_BIOS_IMPORT',?,1,'{}',1,'QUEUED',0,4,1,1,1,1)`, strings.Repeat("e", 64)); err == nil {
 		t.Fatal("SERVER_BIOS_IMPORT with a non-server scope was accepted")
 	}
 }

@@ -23,13 +23,13 @@ const PAGE_SIZE = 6;
 
 function updateLocation(filters: AdminGameFilters) {
   const query = new URLSearchParams();
-  if (filters.query.trim()) query.set("q", filters.query.trim());
-  if (filters.platformId) query.set("platformId", filters.platformId);
-  if (filters.platformInstanceId) query.set("platformInstanceId", filters.platformInstanceId);
-  if (filters.tagId) query.set("tagId", filters.tagId);
-  if (filters.visibility !== "ALL") query.set("status", filters.visibility);
-  if (filters.runtime !== "ALL") query.set("runtime", filters.runtime);
-  if (filters.sort !== "UPDATED_DESC") query.set("sort", filters.sort);
+  if (filters.query.trim()) {query.set("q", filters.query.trim());}
+  if (filters.platformId) {query.set("platformId", filters.platformId);}
+  if (filters.platformInstanceId) {query.set("platformInstanceId", filters.platformInstanceId);}
+  if (filters.tagId) {query.set("tagId", filters.tagId);}
+  if (filters.visibility !== "ALL") {query.set("status", filters.visibility);}
+  if (filters.runtime !== "ALL") {query.set("runtime", filters.runtime);}
+  if (filters.sort !== "UPDATED_DESC") {query.set("sort", filters.sort);}
   const encoded = query.toString();
   window.history.replaceState(window.history.state, "", encoded ? `${window.location.pathname}?${encoded}` : window.location.pathname);
 }
@@ -67,9 +67,9 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
 
   useEffect(() => {
     const focusSearch = (event: KeyboardEvent) => {
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) return;
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey) {return;}
       const target = event.target;
-      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) return;
+      if (target instanceof HTMLInputElement || target instanceof HTMLTextAreaElement || target instanceof HTMLSelectElement) {return;}
       event.preventDefault();
       searchRef.current?.focus();
     };
@@ -82,7 +82,7 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
       const updated = { ...current, ...next };
       if (Object.hasOwn(next, "platformId") && updated.platformInstanceId) {
         const selected = games.find((game) => game.platformInstance.id === updated.platformInstanceId);
-        if (!selected || selected.platform.id !== updated.platformId) updated.platformInstanceId = "";
+        if (!selected || selected.platform.id !== updated.platformId) {updated.platformInstanceId = "";}
       }
       updateLocation(updated);
       return updated;

@@ -17,7 +17,7 @@ type DiagnosticEvent = {
 
 function evidencePath(testInfo: TestInfo, name: string) {
   const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
-  if (!caseDirectory) return testInfo.outputPath(name);
+  if (!caseDirectory) {return testInfo.outputPath(name);}
   const directory = path.join(caseDirectory, "screenshots");
   mkdirSync(directory, { recursive: true });
   return path.join(directory, `${testInfo.project.name}-${name}`);
@@ -181,13 +181,13 @@ async function createSession(
   await Promise.all([installDiagnostics(hostPage), installDiagnostics(guestPage)]);
   const consoleErrors: string[] = [];
   for (const [label, page] of [["P1", hostPage], ["P2", guestPage]] as const) {
-    page.on("console", (message) => { if (message.type() === "error") consoleErrors.push(`${label}:${message.text()}`); });
+    page.on("console", (message) => { if (message.type() === "error") {consoleErrors.push(`${label}:${message.text()}`);} });
     page.on("pageerror", (error) => consoleErrors.push(`${label}:${error.message}`));
   }
   const configResponses: Array<Record<string, unknown>> = [];
-  for (const page of [hostPage, guestPage]) page.on("response", async (response) => {
-    if (/\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.ok()) configResponses.push(await response.json() as Record<string, unknown>);
-  });
+  for (const page of [hostPage, guestPage]) {page.on("response", async (response) => {
+    if (/\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.ok()) {configResponses.push(await response.json() as Record<string, unknown>);}
+  });}
   await Promise.all([hostPage.goto(hostLaunch.playUrl), guestPage.goto(guestLaunch.playUrl)]);
   await Promise.all([
     expect(hostPage.locator(".player-loading")).toBeHidden({ timeout: 45_000 }),

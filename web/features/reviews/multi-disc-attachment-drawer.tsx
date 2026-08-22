@@ -79,20 +79,20 @@ export function MultiDiscAttachmentDrawer({
   );
 
   const close = () => {
-    if (busy) return;
+    if (busy) {return;}
     setFiles([]);
     onClose();
   };
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {return;}
     previousFocusRef.current = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     titleRef.current?.focus();
     const keydown = (event: KeyboardEvent) => {
       if (event.key === "Escape" && !busyRef.current) { event.preventDefault(); setFiles([]); onCloseRef.current(); return; }
-      if (event.key !== "Tab") return;
+      if (event.key !== "Tab") {return;}
       const focusable = [...(drawerRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled),input:not(:disabled)") ?? [])];
-      if (!focusable.length) return;
+      if (!focusable.length) {return;}
       const first = focusable[0];
       const last = focusable.at(-1)!;
       if (event.shiftKey && (document.activeElement === first || document.activeElement === titleRef.current)) { event.preventDefault(); last.focus(); }
@@ -105,7 +105,7 @@ export function MultiDiscAttachmentDrawer({
     };
   }, [open]);
 
-  if (!open) return null;
+  if (!open) {return null;}
   const overLimit = presentBytes + selection.selectedBytes > maxTotalBytes;
   return <>
     <button className="review-multidisc-drawer-backdrop" type="button" tabIndex={-1} aria-label="关闭上传全部缺失光盘" onClick={close} />

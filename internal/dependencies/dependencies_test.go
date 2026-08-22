@@ -12,25 +12,20 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
+	"retrom/internal/testassert"
 )
 
 func TestBootstrapMaterializedDependencies(t *testing.T) {
 	t.Parallel()
 
 	_, filename, _, ok := runtime.Caller(0)
-	if !ok {
-		t.Fatal("locate test file")
-	}
+	testassert.True(t, ok, "locate test file")
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	manifest, err := Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3", "4.3.0-pre"}, "4.2.3")
-	if err != nil {
-		t.Fatalf("load dependencies: %v", err)
-	}
+	testassert.Falsef(t, err != nil, "load dependencies: %v", err)
 
 	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatalf("open database: %v", err)
-	}
+	testassert.Falsef(t, err != nil, "open database: %v", err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 
 	bootstrapTime := time.Now().Truncate(time.Millisecond)
@@ -46,9 +41,7 @@ WHERE enabled = 1
 `).Scan(&activeArtifacts); err != nil {
 		t.Fatalf("count active artifacts: %v", err)
 	}
-	if activeArtifacts != 35 {
-		t.Fatalf("active artifacts = %d, want 35", activeArtifacts)
-	}
+	testassert.Falsef(t, activeArtifacts != 35, "active artifacts = %d, want 35", activeArtifacts)
 	var implicitPersistenceArtifacts int
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT count(*)
@@ -103,9 +96,7 @@ WHERE source='BUILTIN'
 `).Scan(&pendingDATs, &activeDATs); err != nil {
 		t.Fatalf("count pending DATs: %v", err)
 	}
-	if pendingDATs != 5 || activeDATs != 0 {
-		t.Fatalf("pre-index DATs pending/active = %d/%d, want 5/0", pendingDATs, activeDATs)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return pendingDATs != 5 }, func() bool { return activeDATs != 0 }), "pre-index DATs pending/active = %d/%d, want 5/0", pendingDATs, activeDATs)
 	var staticBIOS, matchedCatalog int
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT count(*),
@@ -116,9 +107,7 @@ AND enabled=1
 `).Scan(&staticBIOS, &matchedCatalog); err != nil {
 		t.Fatalf("count BIOS requirements: %v", err)
 	}
-	if staticBIOS != 22 || matchedCatalog != staticBIOS {
-		t.Fatalf("static BIOS catalog = %d/%d, want 22/22", staticBIOS, matchedCatalog)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return staticBIOS != 22 }, func() bool { return matchedCatalog != staticBIOS }), "static BIOS catalog = %d/%d, want 22/22", staticBIOS, matchedCatalog)
 	var externalBIOS int
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT count(*)
@@ -141,11 +130,7 @@ WHERE core_id='ppsspp' AND enabled=1
 		!strings.Contains(compatibility, `"requestedArtifactBasename":"ppsspp-thread-wasm.data"`) {
 		t.Fatalf("PPSSPP compatibility = %s, error=%v", compatibility, err)
 	}
-	if !strings.Contains(compatibility, `"schemaVersion":4`) ||
-		!strings.Contains(compatibility, `"supportedContentKinds":["SINGLE_FILE"]`) ||
-		strings.Contains(compatibility, `"MULTI_DISC_M3U_V1"`) {
-		t.Fatalf("PPSSPP V4 capability = %s", compatibility)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !strings.Contains(compatibility, `"schemaVersion":4`) }, func() bool { return !strings.Contains(compatibility, `"supportedContentKinds":["SINGLE_FILE"]`) }, func() bool { return strings.Contains(compatibility, `"MULTI_DISC_M3U_V1"`) }), "PPSSPP V4 capability = %s", compatibility)
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT compatibility_config_json FROM core_artifacts
 WHERE core_id='beetle_vb' AND enabled=1

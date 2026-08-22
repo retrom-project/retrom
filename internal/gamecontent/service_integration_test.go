@@ -23,6 +23,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	"retrom/internal/libraryimport"
+	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
@@ -35,13 +36,9 @@ func installSaturnBIOS(
 ) {
 	t.Helper()
 	metadata, err := blobs.Put(bytes.NewReader([]byte("replacement Saturn BIOS fixture")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	blobID, err := blobstore.EnsureRecord(ctx, database, metadata, "application/octet-stream", time.Now().UnixMilli())
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
 	if err := database.QueryRowContext(ctx, `
@@ -67,30 +64,22 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.gba", []byte("original"))
 	createdImport, err := libraryimport.New(database.SQL, time.Now).
 		Create(ctx, libraryimport.CreateRequest{UploadID: initialUpload, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005", MetadataProvider: "NONE"})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var itemID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT id
@@ -100,9 +89,7 @@ WHERE import_job_id=?
 		t.Fatal(err)
 	}
 	published, err := libraryimport.New(database.SQL, time.Now).Approve(ctx, itemID, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var originalContent string
 	var initialVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -126,9 +113,7 @@ WHERE id=?
 		idempotencyKey,
 		requestDigest,
 	)
-	if err != nil || replayed || scheduled.Version != initialVersion {
-		t.Fatalf("schedule = %#v, error=%v", scheduled, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }, func() bool { return scheduled.Version != initialVersion }), "schedule = %#v, error=%v", scheduled, err)
 	replayedSchedule, replayed, err := service.ScheduleIdempotent(
 		ctx,
 		published.GameID,
@@ -137,9 +122,7 @@ WHERE id=?
 		idempotencyKey,
 		requestDigest,
 	)
-	if err != nil || !replayed || replayedSchedule.JobID != scheduled.JobID {
-		t.Fatalf("idempotent replay = %#v, replayed=%v, error=%v", replayedSchedule, replayed, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replayedSchedule.JobID != scheduled.JobID }), "idempotent replay = %#v, replayed=%v, error=%v", replayedSchedule, replayed, err)
 	if _, _, err := service.ScheduleIdempotent(ctx, published.GameID, replacementUpload, initialVersion, idempotencyKey, "abcdef0123456789abcdef0123456789abcdef0123456789abcdef0123456789"); !errors.Is(
 		err,
 		ErrIdempotencyKeyReused,
@@ -157,9 +140,7 @@ WHERE id=?
 `, published.GameID).Scan(&replacementContent, &replacedVersion); err != nil {
 		t.Fatal(err)
 	}
-	if replacementContent == originalContent || replacedVersion != initialVersion+1 {
-		t.Fatalf("content/version = %s/%d, wanted new/%d", replacementContent, replacedVersion, initialVersion+1)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return replacementContent == originalContent }, func() bool { return replacedVersion != initialVersion+1 }), "content/version = %s/%d, wanted new/%d", replacementContent, replacedVersion, initialVersion+1)
 	var sourceKind, sourceRef, variantContent string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT c.source_kind,
@@ -172,9 +153,7 @@ WHERE c.id=?
 `, replacementContent).Scan(&sourceKind, &sourceRef, &variantContent); err != nil {
 		t.Fatal(err)
 	}
-	if sourceKind != "ADMIN_REPLACE" || sourceRef != scheduled.JobID || variantContent != replacementContent {
-		t.Fatalf("published revision = %s/%s/%s", sourceKind, sourceRef, variantContent)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return sourceKind != "ADMIN_REPLACE" }, func() bool { return sourceRef != scheduled.JobID }, func() bool { return variantContent != replacementContent }), "published revision = %s/%s/%s", sourceKind, sourceRef, variantContent)
 
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE games
@@ -187,9 +166,7 @@ WHERE id=?
 	}
 	badUpload := completeUpload(t, ctx, database.SQL, uploadService, "not-an-arcade-set.bin", []byte("invalid"))
 	failed, err := service.Schedule(ctx, published.GameID, badUpload, replacedVersion+1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
 	var afterFailure string
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -199,9 +176,7 @@ WHERE id=?
 `, published.GameID).Scan(&afterFailure); err != nil {
 		t.Fatal(err)
 	}
-	if afterFailure != replacementContent {
-		t.Fatalf("failed replacement changed current content: %s != %s", afterFailure, replacementContent)
-	}
+	testassert.Falsef(t, afterFailure != replacementContent, "failed replacement changed current content: %s != %s", afterFailure, replacementContent)
 	var failedRevisionCount int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT count(*)
@@ -218,23 +193,17 @@ func TestMultiDiscReplacementPublishesCompleteRevisionAndRejectsMissingDisc(t *t
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	installSaturnBIOS(t, ctx, database.SQL, blobs)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.chd", fakeReplacementCHD("original"))
@@ -243,18 +212,14 @@ func TestMultiDiscReplacementPublishesCompleteRevisionAndRejectsMissingDisc(t *t
 		UploadID: initialUpload, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
 		MetadataProvider: "NONE",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var itemID string
 	if err := database.SQL.QueryRowContext(ctx, `SELECT id FROM import_items WHERE import_job_id=?`,
 		createdImport.ImportJobID).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
 	published, err := importer.Approve(ctx, itemID, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var originalContentID string
 	var gameVersion int64
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -272,9 +237,7 @@ SELECT current_content_revision_id,version FROM games WHERE id=?
 	scheduled, err := service.ScheduleMode(
 		ctx, published.GameID, replacementUpload, "MULTI_DISC_M3U_V1", gameVersion,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, scheduled.JobID, "SUCCEEDED")
 	var currentContentID, contentKind string
 	var replacedVersion int64
@@ -285,9 +248,7 @@ WHERE game.id=?
 `, published.GameID).Scan(&currentContentID, &replacedVersion, &contentKind); err != nil {
 		t.Fatal(err)
 	}
-	if currentContentID == originalContentID || replacedVersion != gameVersion+1 || contentKind != "MULTI_DISC_M3U_V1" {
-		t.Fatalf("replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return currentContentID == originalContentID }, func() bool { return replacedVersion != gameVersion+1 }, func() bool { return contentKind != "MULTI_DISC_M3U_V1" }), "replacement = %s/%d/%s", currentContentID, replacedVersion, contentKind)
 	var discCount, playlistCount int
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=? AND role='DISC'),
@@ -305,9 +266,7 @@ SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?
 	failed, err := service.ScheduleMode(
 		ctx, published.GameID, missingUpload, "MULTI_DISC_M3U_V1", replacedVersion,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database.SQL, failed.JobID, "FAILED")
 	var errorCode, afterFailure string
 	if err := database.SQL.QueryRowContext(ctx, `SELECT error_code FROM jobs WHERE id=?`, failed.JobID).
@@ -318,9 +277,7 @@ SELECT (SELECT count(*) FROM game_content_files WHERE game_content_revision_id=?
 		published.GameID).Scan(&afterFailure); err != nil {
 		t.Fatal(err)
 	}
-	if errorCode != "MULTI_DISC_FILE_MISSING" || afterFailure != currentContentID {
-		t.Fatalf("failed replacement = code=%s content=%s", errorCode, afterFailure)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return errorCode != "MULTI_DISC_FILE_MISSING" }, func() bool { return afterFailure != currentContentID }), "failed replacement = code=%s content=%s", errorCode, afterFailure)
 }
 
 func fakeReplacementCHD(payload string) []byte {
@@ -350,9 +307,7 @@ func completeDirectoryUpload(
 		})
 	}
 	session, err := service.Create(ctx, uploads.CreateRequest{SourceType: "DIRECTORY", Files: declarations})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	for index, name := range paths {
 		value := contents[name]
 		digest := sha256.Sum256(value)
@@ -365,13 +320,9 @@ func completeDirectoryUpload(
 		}
 	}
 	current, err := service.Get(ctx, session.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	jobID, _, err := service.Complete(ctx, session.ID, current.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database, jobID, "SUCCEEDED")
 	return session.ID
 }
@@ -390,9 +341,7 @@ func completeUpload(t *testing.T, ctx context.Context, database interface {
 			},
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(contents)
 	contentRange := "bytes 0-" + strconv.FormatInt(
 		int64(len(contents)-1),
@@ -405,13 +354,9 @@ func completeUpload(t *testing.T, ctx context.Context, database interface {
 		t.Fatal(err)
 	}
 	current, err := service.Get(ctx, session.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	jobID, _, err := service.Complete(ctx, session.ID, current.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForJob(t, ctx, database, jobID, "SUCCEEDED")
 	return session.ID
 }
@@ -433,9 +378,7 @@ WHERE id=?
 		if state == expected {
 			return
 		}
-		if state == "FAILED" || state == "CANCELLED" || time.Now().After(deadline) {
-			t.Fatalf("job %s state = %s, wanted %s", jobID, state, expected)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s state = %s, wanted %s", jobID, state, expected)
 		time.Sleep(10 * time.Millisecond)
 	}
 }

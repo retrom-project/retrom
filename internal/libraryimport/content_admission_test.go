@@ -4,6 +4,8 @@ import (
 	"context"
 	"database/sql"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestExpandedPlatformsAdmitTheirVerifiedRawExtensions(t *testing.T) {
@@ -29,11 +31,7 @@ func TestExpandedPlatformsAdmitTheirVerifiedRawExtensions(t *testing.T) {
 				[]importSourceFile{{id: "fixture", path: test.logicalName, blobID: "blob", sha256: "digest", size: 1}},
 				sql.NullString{},
 			)
-			if len(dispositions) != 1 || dispositions[0].disposition != "SOURCE" || dispositions[0].reason != "" ||
-				len(groups) != 1 || len(groups[0].sources) != 1 || groups[0].sources[0].logicalName != test.logicalName ||
-				len(archives) != 0 {
-				t.Fatalf("admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 1 }, func() bool { return dispositions[0].disposition != "SOURCE" }, func() bool { return dispositions[0].reason != "" }, func() bool { return len(groups) != 1 }, func() bool { return len(groups[0].sources) != 1 }, func() bool { return groups[0].sources[0].logicalName != test.logicalName }, func() bool { return len(archives) != 0 }), "admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
 		})
 	}
 }
@@ -47,8 +45,5 @@ func TestExpandedPlatformsRejectUnregisteredRawExtensions(t *testing.T) {
 		[]importSourceFile{{id: "fixture", path: "game.3dsx", blobID: "blob", sha256: "digest", size: 1}},
 		sql.NullString{},
 	)
-	if len(dispositions) != 1 || dispositions[0].disposition != "REJECTED" ||
-		dispositions[0].reason != "UNSUPPORTED_CONTENT_FORMAT" || len(groups) != 0 || len(archives) != 0 {
-		t.Fatalf("unexpected unsupported admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return len(dispositions) != 1 }, func() bool { return dispositions[0].disposition != "REJECTED" }, func() bool { return dispositions[0].reason != "UNSUPPORTED_CONTENT_FORMAT" }, func() bool { return len(groups) != 0 }, func() bool { return len(archives) != 0 }), "unexpected unsupported admission = dispositions:%#v groups:%#v archives:%#v", dispositions, groups, archives)
 }

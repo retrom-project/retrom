@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 	"retrom/migrations"
 )
 
@@ -25,18 +26,14 @@ func TestMigrationsCreateIntegerBusinessTimesAndReferenceCatalog(t *testing.T) {
 	database, err := Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
 		return time.UnixMilli(1786000000000)
 	})
-	if err != nil {
-		t.Fatalf("Open() error = %v", err)
-	}
+	testassert.Falsef(t, err != nil, "Open() error = %v", err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 	if err := database.IntegrityCheck(context.Background()); err != nil {
 		t.Fatalf("IntegrityCheck() error = %v", err)
 	}
 
 	rows, err := database.SQL.QueryContext(context.Background(), "SELECT name FROM sqlite_master WHERE type='table'")
-	if err != nil {
-		t.Fatalf("list tables: %v", err)
-	}
+	testassert.Falsef(t, err != nil, "list tables: %v", err)
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	var tables []string
 	for rows.Next() {
@@ -67,43 +64,33 @@ func TestMigrationsCreateIntegerBusinessTimesAndReferenceCatalog(t *testing.T) {
 	assertColumns(t, database.SQL, "netplay_events", "event_type", "data_json", "created_at_ms")
 	assertColumns(t, database.SQL, "launch_sessions", "netplay_session_id", "netplay_player_no", "save_access")
 	var platformCount, coreCount, directoryCount int
-	if err := database.SQL.QueryRow("SELECT (SELECT COUNT(*) FROM platforms), (SELECT COUNT(*) FROM cores), (SELECT COUNT(*) FROM platform_instances WHERE deleted_at_ms IS NULL)").Scan(
+	if err := database.SQL.QueryRowContext(context.Background(), "SELECT (SELECT COUNT(*) FROM platforms), (SELECT COUNT(*) FROM cores), (SELECT COUNT(*) FROM platform_instances WHERE deleted_at_ms IS NULL)").Scan(
 		&platformCount,
 		&coreCount,
 		&directoryCount,
 	); err != nil {
 		t.Fatalf("count seed: %v", err)
 	}
-	if platformCount != 25 || coreCount != 35 || directoryCount != 0 {
-		t.Fatalf("seed counts = %d/%d/%d", platformCount, coreCount, directoryCount)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return platformCount != 25 }, func() bool { return coreCount != 35 }, func() bool { return directoryCount != 0 }), "seed counts = %d/%d/%d", platformCount, coreCount, directoryCount)
 	assertColumns(t, database.SQL, "platform_instances", "catalog_template_key")
 	var profileCount, userCount int
 	var instanceState string
-	if err := database.SQL.QueryRow(`
+	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT (SELECT count(*) FROM profiles),(SELECT count(*) FROM users),state FROM instance_state WHERE id=1
 `).Scan(&profileCount, &userCount, &instanceState); err != nil {
 		t.Fatal(err)
 	}
-	if profileCount != 0 || userCount != 0 || instanceState != "PENDING" {
-		t.Fatalf("pending auth state = profiles:%d users:%d state:%s", profileCount, userCount, instanceState)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return profileCount != 0 }, func() bool { return userCount != 0 }, func() bool { return instanceState != "PENDING" }), "pending auth state = profiles:%d users:%d state:%s", profileCount, userCount, instanceState)
 	platformIDs := queryStrings(t, database.SQL, "SELECT id FROM platforms ORDER BY id")
 	wantPlatforms := []string{"3do", "arcade", "atari2600", "atari5200", "atari7800", "dos", "fds", "gba", "gbc", "lynx", "mastersystem", "megadrive", "n64", "nds", "nes", "ngpc", "nintendo3ds", "pce", "pcfx", "psp", "psx", "saturn", "snes", "virtualboy", "wonderswan"}
-	if !slices.Equal(platformIDs, wantPlatforms) {
-		t.Fatalf("platform IDs = %#v", platformIDs)
-	}
+	testassert.Truef(t, slices.Equal(platformIDs, wantPlatforms), "platform IDs = %#v", platformIDs)
 	coreIDs := queryStrings(t, database.SQL, "SELECT id FROM cores ORDER BY id")
 	wantCores := []string{"a5200", "azahar", "beetle_vb", "desmume", "desmume2015", "dosbox_pure", "fbalpha2012_cps1", "fbalpha2012_cps2", "fbneo", "fceumm", "gambatte", "genesis_plus_gx", "genesis_plus_gx_wide", "handy", "mame2003", "mame2003_plus", "mednafen_ngp", "mednafen_pce", "mednafen_pcfx", "mednafen_psx_hw", "mednafen_wswan", "melonds", "mgba", "mupen64plus_next", "nestopia", "opera", "parallel_n64", "pcsx_rearmed", "picodrive", "ppsspp", "prosystem", "smsplus", "snes9x", "stella2014", "yabause"}
-	if !slices.Equal(coreIDs, wantCores) {
-		t.Fatalf("core IDs = %#v", coreIDs)
-	}
+	testassert.Truef(t, slices.Equal(coreIDs, wantCores), "core IDs = %#v", coreIDs)
 	threadCores := queryStrings(t, database.SQL, "SELECT id FROM cores WHERE requires_threads=1 ORDER BY id")
-	if !slices.Equal(threadCores, []string{"azahar", "dosbox_pure", "mednafen_psx_hw", "ppsspp"}) {
-		t.Fatalf("thread cores = %#v", threadCores)
-	}
+	testassert.Truef(t, slices.Equal(threadCores, []string{"azahar", "dosbox_pure", "mednafen_psx_hw", "ppsspp"}), "thread cores = %#v", threadCores)
 	var enabledRelations int
-	if err := database.SQL.QueryRow("SELECT count(*) FROM platform_cores WHERE enabled=1").Scan(&enabledRelations); err != nil || enabledRelations != 38 {
+	if err := database.SQL.QueryRowContext(context.Background(), "SELECT count(*) FROM platform_cores WHERE enabled=1").Scan(&enabledRelations); err != nil || enabledRelations != 38 {
 		t.Fatalf("enabled platform/core relations = %d, error=%v", enabledRelations, err)
 	}
 	relations := queryStrings(t, database.SQL, `
@@ -119,27 +106,19 @@ SELECT platform_id || ':' || core_id FROM platform_cores WHERE enabled=1 ORDER B
 		"psx:mednafen_psx_hw", "psx:pcsx_rearmed", "saturn:yabause", "snes:snes9x",
 		"virtualboy:beetle_vb", "wonderswan:mednafen_wswan",
 	}
-	if !slices.Equal(relations, wantRelations) {
-		t.Fatalf("platform/core relations = %#v", relations)
-	}
+	testassert.Truef(t, slices.Equal(relations, wantRelations), "platform/core relations = %#v", relations)
 }
 
 func TestOpenProvidesAnIndependentConfiguredReadPool(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	database, err := Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatalf("Open() error = %v", err)
-	}
+	testassert.Falsef(t, err != nil, "Open() error = %v", err)
 	defer func() { cleanup.Error("close", database.Close()) }()
-	if database.ReadOnly == nil || database.ReadOnly.Stats().MaxOpenConnections != 4 {
-		t.Fatalf("read pool = %#v, stats = %#v", database.ReadOnly, database.ReadOnly.Stats())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return database.ReadOnly == nil }, func() bool { return database.ReadOnly.Stats().MaxOpenConnections != 4 }), "read pool = %#v, stats = %#v", database.ReadOnly, database.ReadOnly.Stats())
 
 	writer, err := database.SQL.Conn(ctx)
-	if err != nil {
-		t.Fatalf("reserve writer connection: %v", err)
-	}
+	testassert.Falsef(t, err != nil, "reserve writer connection: %v", err)
 	defer func() { cleanup.Error("close", writer.Close()) }()
 
 	readContext, cancel := context.WithTimeout(ctx, time.Second)
@@ -152,17 +131,13 @@ SELECT (SELECT foreign_keys FROM pragma_foreign_keys),
 `).Scan(&foreignKeys, &busyTimeout, &tableCount); err != nil {
 		t.Fatalf("query independent read pool while writer is reserved: %v", err)
 	}
-	if foreignKeys != 1 || busyTimeout != 5000 || tableCount == 0 {
-		t.Fatalf("read pool configuration = foreign_keys:%d busy_timeout:%d tables:%d", foreignKeys, busyTimeout, tableCount)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return foreignKeys != 1 }, func() bool { return busyTimeout != 5000 }, func() bool { return tableCount == 0 }), "read pool configuration = foreign_keys:%d busy_timeout:%d tables:%d", foreignKeys, busyTimeout, tableCount)
 }
 
 func queryStrings(t *testing.T, database *sql.DB, query string) []string {
 	t.Helper()
-	rows, err := database.Query(query)
-	if err != nil {
-		t.Fatal(err)
-	}
+	rows, err := database.QueryContext(context.Background(), query)
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	values := make([]string, 0)
 	for rows.Next() {
@@ -180,10 +155,8 @@ func queryStrings(t *testing.T, database *sql.DB, query string) []string {
 
 func assertColumns(t *testing.T, database *sql.DB, table string, expected ...string) {
 	t.Helper()
-	rows, err := database.Query(`PRAGMA table_info(` + table + `)`)
-	if err != nil {
-		t.Fatal(err)
-	}
+	rows, err := database.QueryContext(context.Background(), `PRAGMA table_info(`+table+`)`)
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	found := make(map[string]bool, len(expected))
 	for rows.Next() {
@@ -199,9 +172,7 @@ func assertColumns(t *testing.T, database *sql.DB, table string, expected ...str
 		t.Fatal(err)
 	}
 	for _, name := range expected {
-		if !found[name] {
-			t.Errorf("%s.%s is missing", table, name)
-		}
+		testassert.CheckTruef(t, found[name], "%s.%s is missing", table, name)
 	}
 }
 
@@ -215,9 +186,7 @@ func applyMigrationRange(
 ) {
 	t.Helper()
 	entries, err := os.ReadDir(filepath.Join(repositoryRoot, "migrations"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
 			continue
@@ -227,9 +196,7 @@ func applyMigrationRange(
 			continue
 		}
 		migration, readErr := migrations.Files.ReadFile(entry.Name())
-		if readErr != nil {
-			t.Fatal(readErr)
-		}
+		testassert.False(t, readErr != nil, readErr)
 		digest := sha256.Sum256(migration)
 		if err := runMigration(
 			ctx,
@@ -256,9 +223,7 @@ func openHistoricalSchemaForTest(
 ) *DB {
 	t.Helper()
 	database, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	database.SetMaxOpenConns(1)
 	database.SetMaxIdleConns(1)
 	if _, err := database.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
@@ -302,26 +267,20 @@ func TestSupportedMigrationVersionsIdempotencyAndFutureProtection(t *testing.T) 
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	contents, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "supported_versions.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var supported []int
 	if err := json.Unmarshal(contents, &supported); err != nil || len(supported) != 0 {
 		t.Fatalf("supported versions = %#v, error=%v", supported, err)
 	}
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	database, err := Open(context.Background(), path, time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := database.Close(); err != nil {
 		t.Fatal(err)
 	}
 	database, err = Open(context.Background(), path, time.Now)
-	if err != nil {
-		t.Fatalf("second current-schema open: %v", err)
-	}
-	if _, err := database.SQL.Exec(`
+	testassert.Falsef(t, err != nil, "second current-schema open: %v", err)
+	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO schema_migrations(version,
 name,
 checksum,
@@ -350,9 +309,7 @@ func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) 
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -362,9 +319,7 @@ func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) 
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 23)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "023_fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
 		t.Fatal(err)
 	}
@@ -374,15 +329,21 @@ func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) 
 
 	upgraded := openHistoricalSchemaForTest(ctx, t, databasePath, repositoryRoot, func() time.Time { return time.UnixMilli(2000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
+	verifyMultiDiscMigrationUpgrade(t, upgraded)
+}
+
+func verifyMultiDiscMigrationUpgrade(t *testing.T, upgraded *DB) {
+	t.Helper()
+	ctx := context.Background()
 	if err := upgraded.IntegrityCheck(ctx); err != nil {
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	var actorKind, actorUserID string
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT actor_kind,actor_user_id FROM review_events
 WHERE id='01980000-0000-7000-8000-00000000f006'
 `).Scan(&actorKind, &actorUserID); err != nil || actorKind != "USER" ||
@@ -391,7 +352,7 @@ WHERE id='01980000-0000-7000-8000-00000000f006'
 	}
 	var artifactVersion, generation int
 	var validationDigest string
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT core_artifact_version,prepublish_generation,prepublish_input_digest
 FROM import_item_core_validations WHERE id='01980000-0000-7000-8000-00000000f004'
 `).Scan(&artifactVersion, &generation, &validationDigest); err != nil || artifactVersion != 5 || generation != 3 ||
@@ -404,25 +365,21 @@ SELECT id||':'||content_kind FROM import_item_source_snapshots
 WHERE id IN ('01980000-0000-7000-8000-00000000f003','01980000-0000-7000-8000-00000000f030')
 ORDER BY id
 `)
-	if !slices.Equal(contentKinds, []string{
+	testassert.Truef(t, slices.Equal(contentKinds, []string{
 		"01980000-0000-7000-8000-00000000f003:SINGLE_FILE",
 		"01980000-0000-7000-8000-00000000f030:DOS_BUNDLE",
-	}) {
-		t.Fatalf("snapshot content kinds = %#v", contentKinds)
-	}
+	}), "snapshot content kinds = %#v", contentKinds)
 	revisionKinds := queryStrings(t, upgraded.SQL, `
 SELECT id||':'||content_kind FROM game_content_revisions
 WHERE id IN ('01980000-0000-7000-8000-00000000f012','01980000-0000-7000-8000-00000000f015')
 ORDER BY id
 `)
-	if !slices.Equal(revisionKinds, []string{
+	testassert.Truef(t, slices.Equal(revisionKinds, []string{
 		"01980000-0000-7000-8000-00000000f012:SINGLE_FILE",
 		"01980000-0000-7000-8000-00000000f015:DOS_BUNDLE",
-	}) {
-		t.Fatalf("revision content kinds = %#v", revisionKinds)
-	}
+	}), "revision content kinds = %#v", revisionKinds)
 	var userCount, saveOwnerCount, persistentOwnerCount, principalCount, parentAttachmentCount, multiAttachmentCount int
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT
   (SELECT count(*) FROM users WHERE id IN (
     '01980000-0000-7000-8000-00000000b001','01980000-0000-7000-8000-00000000b002'
@@ -437,18 +394,12 @@ SELECT
 	); err != nil {
 		t.Fatal(err)
 	}
-	if userCount != 2 || saveOwnerCount != 2 || persistentOwnerCount != 2 || principalCount != 1 ||
-		parentAttachmentCount != 1 || multiAttachmentCount != 0 {
-		t.Fatalf(
-			"preserved counts = users:%d saves:%d persistent:%d principal:%d parent:%d multi:%d",
-			userCount, saveOwnerCount, persistentOwnerCount, principalCount, parentAttachmentCount, multiAttachmentCount,
-		)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return userCount != 2 }, func() bool { return saveOwnerCount != 2 }, func() bool { return persistentOwnerCount != 2 }, func() bool { return principalCount != 1 }, func() bool { return parentAttachmentCount != 1 }, func() bool { return multiAttachmentCount != 0 }), "preserved counts = users:%d saves:%d persistent:%d principal:%d parent:%d multi:%d", userCount, saveOwnerCount, persistentOwnerCount, principalCount, parentAttachmentCount, multiAttachmentCount)
 	assertColumns(t, upgraded.SQL, "import_item_core_validations", "core_artifact_version", "prepublish_generation")
 	assertColumns(t, upgraded.SQL, "launch_external_files", "kind")
 	assertColumns(t, upgraded.SQL, "launch_sessions", "initial_disc_index")
 	assertColumns(t, upgraded.SQL, "save_states", "disc_index")
-	if _, err := upgraded.SQL.Exec(`
+	if _, err := upgraded.SQL.ExecContext(context.Background(), `
 INSERT INTO import_item_source_snapshots(
 id,import_item_id,revision_no,content_kind,source_manifest_json,source_manifest_digest,created_by,created_at_ms
 ) VALUES(
@@ -525,7 +476,7 @@ WHERE id='01980000-0000-7000-8000-00000000f034'`,
 WHERE source_snapshot_id='01980000-0000-7000-8000-00000000f031' AND ordinal=0`,
 	}
 	for _, statement := range invalidStatements {
-		if _, err := upgraded.SQL.Exec(statement); err == nil {
+		if _, err := upgraded.SQL.ExecContext(context.Background(), statement); err == nil {
 			t.Fatalf("invalid multi-disc statement succeeded: %s", statement)
 		}
 	}
@@ -538,18 +489,14 @@ func TestMultiDiscMigrationRejectsMixedHistoricalLayoutWithoutWriting(t *testing
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
 		t.Fatal(err)
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 23)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "023_fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
 		t.Fatal(err)
 	}
@@ -571,16 +518,14 @@ source_snapshot_id,role,logical_name,upload_file_id,blob_id,sort_order,created_a
 		t.Fatal("mixed schema upgrade unexpectedly succeeded")
 	}
 	readonly, err := sql.Open("sqlite", "file:"+filepath.ToSlash(databasePath)+"?mode=ro&immutable=1")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", readonly.Close()) }()
 	var maximum int
-	if err := readonly.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&maximum); err != nil || maximum != 23 {
+	if err := readonly.QueryRowContext(context.Background(), `SELECT max(version) FROM schema_migrations`).Scan(&maximum); err != nil || maximum != 23 {
 		t.Fatalf("schema version after rejected migration = %d, error=%v", maximum, err)
 	}
 	var newColumnCount int
-	if err := readonly.QueryRow(`
+	if err := readonly.QueryRowContext(context.Background(), `
 SELECT count(*) FROM pragma_table_info('import_item_source_snapshots') WHERE name='content_kind'
 `).Scan(&newColumnCount); err != nil || newColumnCount != 0 {
 		t.Fatalf("new column after rejected migration = %d, error=%v", newColumnCount, err)
@@ -594,9 +539,7 @@ func TestVersion19DatabaseIsRejectedBeforeAccountOrMultiDiscWrites(t *testing.T)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, migrationTable); err != nil {
 		t.Fatal(err)
@@ -612,12 +555,10 @@ func TestVersion19DatabaseIsRejectedBeforeAccountOrMultiDiscWrites(t *testing.T)
 		t.Fatalf("version 19 startup error = %v", err)
 	}
 	readonly, err := sql.Open("sqlite", "file:"+filepath.ToSlash(databasePath)+"?mode=ro&immutable=1")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", readonly.Close()) }()
 	var maximum, userTables, multiTables int
-	if err := readonly.QueryRow(`
+	if err := readonly.QueryRowContext(context.Background(), `
 SELECT
   (SELECT max(version) FROM schema_migrations),
   (SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='users'),
@@ -625,9 +566,7 @@ SELECT
 `).Scan(&maximum, &userTables, &multiTables); err != nil {
 		t.Fatal(err)
 	}
-	if maximum != 19 || userTables != 0 || multiTables != 0 {
-		t.Fatalf("version 19 changed = max:%d users:%d multi:%d", maximum, userTables, multiTables)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return maximum != 19 }, func() bool { return userTables != 0 }, func() bool { return multiTables != 0 }), "version 19 changed = max:%d users:%d multi:%d", maximum, userTables, multiTables)
 }
 
 func TestReviewArcadeParentMigrationUpgradesVersion18(t *testing.T) {
@@ -637,9 +576,7 @@ func TestReviewArcadeParentMigrationUpgradesVersion18(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)
@@ -649,9 +586,7 @@ func TestReviewArcadeParentMigrationUpgradesVersion18(t *testing.T) {
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 18)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "018_fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
 		t.Fatal(err)
 	}
@@ -660,9 +595,7 @@ func TestReviewArcadeParentMigrationUpgradesVersion18(t *testing.T) {
 	}
 
 	upgraded, err := Open(ctx, databasePath, time.Now)
-	if !errors.Is(err, ErrDatabaseRebuild) {
-		t.Fatalf("legacy version 18 error = %v", err)
-	}
+	testassert.Truef(t, errors.Is(err, ErrDatabaseRebuild), "legacy version 18 error = %v", err)
 	if upgraded != nil {
 		cleanup.Error("close", upgraded.Close())
 	}
@@ -675,9 +608,7 @@ func TestReviewArcadeParentMigrationRejectsDriftedManifest(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)
@@ -687,9 +618,7 @@ func TestReviewArcadeParentMigrationRejectsDriftedManifest(t *testing.T) {
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 18)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "018_fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
 		t.Fatal(err)
 	}
@@ -714,9 +643,7 @@ func TestDOSExternalConfigMigrationRepointsLegacyLaunchContent(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)
@@ -726,9 +653,7 @@ func TestDOSExternalConfigMigrationRepointsLegacyLaunchContent(t *testing.T) {
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 10)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "010_fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
 		t.Fatal(err)
 	}
@@ -737,9 +662,7 @@ func TestDOSExternalConfigMigrationRepointsLegacyLaunchContent(t *testing.T) {
 	}
 
 	upgraded, err := Open(ctx, databasePath, time.Now)
-	if !errors.Is(err, ErrDatabaseRebuild) {
-		t.Fatalf("legacy version 10 error = %v", err)
-	}
+	testassert.Truef(t, errors.Is(err, ErrDatabaseRebuild), "legacy version 10 error = %v", err)
 	if upgraded != nil {
 		cleanup.Error("close", upgraded.Close())
 	}
@@ -752,9 +675,7 @@ func TestCoreExpansionMigrationPreservesArchiveReferences(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)
@@ -764,9 +685,7 @@ func TestCoreExpansionMigrationPreservesArchiveReferences(t *testing.T) {
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 10)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "010_fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
 		t.Fatal(err)
 	}
@@ -832,9 +751,7 @@ INSERT INTO content_hash_evidence(
 	}
 
 	upgraded, err := Open(ctx, databasePath, time.Now)
-	if !errors.Is(err, ErrDatabaseRebuild) {
-		t.Fatalf("legacy version 13 error = %v", err)
-	}
+	testassert.Truef(t, errors.Is(err, ErrDatabaseRebuild), "legacy version 13 error = %v", err)
 	if upgraded != nil {
 		cleanup.Error("close", upgraded.Close())
 	}
@@ -847,9 +764,7 @@ func TestImportProgressRepairMigrationFinalizesZeroItemJobs(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
 		t.Fatal(err)
@@ -859,9 +774,7 @@ func TestImportProgressRepairMigrationFinalizesZeroItemJobs(t *testing.T) {
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 10)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "010_fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
 		t.Fatal(err)
 	}
@@ -884,9 +797,7 @@ VALUES
 	}
 
 	upgraded, err := Open(ctx, databasePath, time.Now)
-	if !errors.Is(err, ErrDatabaseRebuild) {
-		t.Fatalf("legacy version 14 error = %v", err)
-	}
+	testassert.Truef(t, errors.Is(err, ErrDatabaseRebuild), "legacy version 14 error = %v", err)
 	if upgraded != nil {
 		cleanup.Error("close", upgraded.Close())
 	}
@@ -894,10 +805,8 @@ VALUES
 
 func assertIntegerTimeColumns(t *testing.T, database *sql.DB, table string) {
 	t.Helper()
-	rows, err := database.Query("PRAGMA table_info(" + table + ")")
-	if err != nil {
-		t.Fatalf("inspect %s: %v", table, err)
-	}
+	rows, err := database.QueryContext(context.Background(), "PRAGMA table_info("+table+")")
+	testassert.Falsef(t, err != nil, "inspect %s: %v", table, err)
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	for rows.Next() {
 		var cid, notNull, primaryKey int
@@ -906,9 +815,7 @@ func assertIntegerTimeColumns(t *testing.T, database *sql.DB, table string) {
 		if err := rows.Scan(&cid, &name, &dataType, &notNull, &defaultValue, &primaryKey); err != nil {
 			t.Fatalf("scan %s column: %v", table, err)
 		}
-		if strings.HasSuffix(name, "_at_ms") && strings.ToUpper(dataType) != "INTEGER" {
-			t.Errorf("%s.%s uses %s, want INTEGER", table, name, dataType)
-		}
+		testassert.CheckFalsef(t, testassert.All(func() bool { return strings.HasSuffix(name, "_at_ms") }, func() bool { return strings.ToUpper(dataType) != "INTEGER" }), "%s.%s uses %s, want INTEGER", table, name, dataType)
 	}
 	if err := rows.Err(); err != nil {
 		t.Fatalf("iterate %s columns: %v", table, err)

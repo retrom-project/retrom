@@ -86,10 +86,10 @@ describe("fullscreen and orientation request", () => {
       await requestFullscreenAndLandscape();
       expect(request).toHaveBeenCalledWith({ navigationUI: "hide" });
     } finally {
-      if (fullscreenDescriptor) Object.defineProperty(document, "fullscreenElement", fullscreenDescriptor);
-      else Reflect.deleteProperty(document, "fullscreenElement");
-      if (requestDescriptor) Object.defineProperty(document.documentElement, "requestFullscreen", requestDescriptor);
-      else Reflect.deleteProperty(document.documentElement, "requestFullscreen");
+      if (fullscreenDescriptor) {Object.defineProperty(document, "fullscreenElement", fullscreenDescriptor);}
+      else {Reflect.deleteProperty(document, "fullscreenElement");}
+      if (requestDescriptor) {Object.defineProperty(document.documentElement, "requestFullscreen", requestDescriptor);}
+      else {Reflect.deleteProperty(document.documentElement, "requestFullscreen");}
     }
   });
 });

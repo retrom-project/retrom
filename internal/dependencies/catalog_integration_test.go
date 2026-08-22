@@ -12,6 +12,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
+	"retrom/internal/testassert"
 )
 
 func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
@@ -19,13 +20,9 @@ func TestBootstrapCatalogsMaterializesPinnedDATsIdempotently(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	set, err := Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if err := set.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
@@ -40,9 +37,7 @@ FROM dat_machines
 `).Scan(&machines); err != nil {
 		t.Fatal(err)
 	}
-	if machines != 7_980+4_727+5_257+227+284 {
-		t.Fatalf("machine rows = %d", machines)
-	}
+	testassert.Falsef(t, machines != 7_980+4_727+5_257+227+284, "machine rows = %d", machines)
 	var activeDATs, succeededJobs, nonCancellableJobs, snapshots int64
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT
@@ -66,15 +61,7 @@ WHERE j.kind='DAT_PARSE')
 `).Scan(&activeDATs, &succeededJobs, &nonCancellableJobs, &snapshots); err != nil {
 		t.Fatal(err)
 	}
-	if activeDATs != 5 || succeededJobs != 5 || nonCancellableJobs != 5 || snapshots != 5 {
-		t.Fatalf(
-			"published DAT/job/snapshot contract = %d/%d/%d/%d",
-			activeDATs,
-			succeededJobs,
-			nonCancellableJobs,
-			snapshots,
-		)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return activeDATs != 5 }, func() bool { return succeededJobs != 5 }, func() bool { return nonCancellableJobs != 5 }, func() bool { return snapshots != 5 }), "published DAT/job/snapshot contract = %d/%d/%d/%d", activeDATs, succeededJobs, nonCancellableJobs, snapshots)
 	var requirements int64
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT count(*)
@@ -133,9 +120,7 @@ SELECT (SELECT count(*) FROM dat_versions WHERE core_artifact_id=? AND is_active
 `, artifactID, supersededID, artifactID).Scan(&activeAfterSelection, &supersededActive, &advancedVersion); err != nil {
 		t.Fatal(err)
 	}
-	if activeAfterSelection != 0 || supersededActive != 0 || advancedVersion != artifactVersion+1 {
-		t.Fatalf("manifest selection = active:%d superseded:%d artifactVersion:%d", activeAfterSelection, supersededActive, advancedVersion)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return activeAfterSelection != 0 }, func() bool { return supersededActive != 0 }, func() bool { return advancedVersion != artifactVersion+1 }), "manifest selection = active:%d superseded:%d artifactVersion:%d", activeAfterSelection, supersededActive, advancedVersion)
 	if err := set.BootstrapCatalogs(ctx, database.SQL, selectionTime); err != nil {
 		t.Fatal(err)
 	}
@@ -146,7 +131,5 @@ SELECT (SELECT is_active FROM dat_versions WHERE id=?),
 `, selectedDATID, artifactID, selectedDATID).Scan(&selectedActive, &selectedRequirements); err != nil {
 		t.Fatal(err)
 	}
-	if selectedActive != 1 || selectedRequirements == 0 {
-		t.Fatalf("selected built-in DAT = active:%d requirements:%d", selectedActive, selectedRequirements)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return selectedActive != 1 }, func() bool { return selectedRequirements == 0 }), "selected built-in DAT = active:%d requirements:%d", selectedActive, selectedRequirements)
 }

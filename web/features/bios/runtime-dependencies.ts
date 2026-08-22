@@ -53,12 +53,12 @@ export function summarizeBIOS(items: BIOSRequirement[]) {
 export function filterBIOS(items: BIOSRequirement[], filters: BIOSFilters) {
   const query = filters.query.trim().toLocaleLowerCase("zh-CN");
   return items.filter((item) => {
-    if (query && !`${item.logicalName} ${item.coreName}`.toLocaleLowerCase("zh-CN").includes(query)) return false;
-    if (filters.coreId && item.coreId !== filters.coreId) return false;
-    if (filters.status && item.status !== filters.status) return false;
-    if (filters.quick === "ATTENTION" && !isBIOSAttention(item)) return false;
-    if (filters.quick === "REQUIRED" && item.requirementMode !== "REQUIRED") return false;
-    if (filters.quick === "OPTIONAL" && item.requirementMode !== "OPTIONAL") return false;
+    if (query && !`${item.logicalName} ${item.coreName}`.toLocaleLowerCase("zh-CN").includes(query)) {return false;}
+    if (filters.coreId && item.coreId !== filters.coreId) {return false;}
+    if (filters.status && item.status !== filters.status) {return false;}
+    if (filters.quick === "ATTENTION" && !isBIOSAttention(item)) {return false;}
+    if (filters.quick === "REQUIRED" && item.requirementMode !== "REQUIRED") {return false;}
+    if (filters.quick === "OPTIONAL" && item.requirementMode !== "OPTIONAL") {return false;}
     return true;
   });
 }

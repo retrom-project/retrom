@@ -10,12 +10,12 @@ export default async function ServerImportDetailPage({ params, searchParams }: {
   const { serverImportId } = await params;
   const filters = scalarSearchParams(await searchParams, ["q", "outcome", "matchMethod"]);
   const query = new URLSearchParams({ limit: "50" });
-  for (const key of ["q", "outcome", "matchMethod"] as const) if (filters[key]) query.set(key, filters[key]);
+  for (const key of ["q", "outcome", "matchMethod"] as const) {if (filters[key]) {query.set(key, filters[key]);}}
   let detail: ServerImportDetail;
   try {
     detail = await backendJSON<ServerImportDetail>(`/api/v1/admin/server-imports/${encodeURIComponent(serverImportId)}?${query.toString()}`);
   } catch (error) {
-    if (error instanceof Error && error.message.includes("returned 404")) notFound();
+    if (error instanceof Error && error.message.includes("returned 404")) {notFound();}
     throw error;
   }
   return <div className="page-layout page-layout-admin">

@@ -8,6 +8,28 @@ import {
   requiresDOSBoxPureStateCompatibility,
 } from "../dosbox-pure-state";
 import { retromShaders } from "../retrom-shaders";
+import type { NetplayProfile } from "../netplay/controller";
+import {
+  initializeMultiDiscSettings,
+  validateConfig,
+  validatedExternalFiles,
+  validateDiscSet,
+} from "./ejs-config";
+
+export {
+  captureManualScreenshot,
+  captureManualState,
+  captureReviewScreenshot,
+  coreFramebufferNeedsCanvasOrientation,
+  type ManualScreenshot,
+} from "./ejs-screenshot";
+export {
+  readDiscState,
+  switchDisc,
+  switchDiscPreservingPause,
+  validateConfig,
+  type DiscState,
+} from "./ejs-config";
 
 export type PlayerConfig = {
   mode: "single" | "netplay";
@@ -44,7 +66,7 @@ export type PlayerConfig = {
     roomId: string;
     sessionId: string;
     playerNo: number;
-    netplayProfile: import("../netplay/controller").NetplayProfile;
+    netplayProfile: NetplayProfile;
     runtimeSocketUrl: string;
   } | null;
 };
@@ -126,79 +148,6 @@ export type EmulatorInstance = {
   };
   downloadType?: { rom?: { dontExtractIfCore?: string[] } };
 };
-
-export type ManualScreenshot = { screenshot: Blob; format: string };
-
-async function captureCanvasScreenshot(instance: EmulatorInstance): Promise<ManualScreenshot> {
-  if (!instance.takeScreenshot) throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
-  const photo = instance.capture?.photo;
-  const result = await instance.takeScreenshot(photo?.source ?? "canvas", photo?.format ?? "png", photo?.upscale ?? 1);
-  if (!result.blob || typeof result.blob.size !== "number" || result.blob.size === 0) throw new Error("PLAYER_SCREENSHOT_EMPTY");
-  return { screenshot: result.blob, format: result.format || "png" };
-}
-
-const reviewCoreScreenshotTimeoutMs = 2_000;
-
-export function coreFramebufferNeedsCanvasOrientation(bytes: Uint8Array, expectedAspect: number | undefined) {
-  if (!Number.isFinite(expectedAspect) || !expectedAspect || expectedAspect <= 0 || bytes.byteLength < 24 ||
-    bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47 ||
-    bytes[12] !== 0x49 || bytes[13] !== 0x48 || bytes[14] !== 0x44 || bytes[15] !== 0x52) return false;
-  const dimensions = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
-  const width = dimensions.getUint32(16);
-  const height = dimensions.getUint32(20);
-  if (!width || !height) return false;
-  const directError = Math.abs(Math.log(width / height / expectedAspect));
-  const rotatedError = Math.abs(Math.log(height / width / expectedAspect));
-  return rotatedError + 0.05 < directError;
-}
-
-async function captureCoreFramebuffer(instance: EmulatorInstance): Promise<ManualScreenshot> {
-  const fileSystem = instance.gameManager?.FS;
-  const requestScreenshot = instance.gameManager?.functions?.screenshot;
-  if (!fileSystem?.readFile || !fileSystem.stat || !requestScreenshot) throw new Error("PLAYER_CORE_SCREENSHOT_UNAVAILABLE");
-  try { fileSystem.unlink("/screenshot.png"); } catch { /* The previous capture is optional. */ }
-  requestScreenshot();
-  const deadline = Date.now() + reviewCoreScreenshotTimeoutMs;
-  while (Date.now() <= deadline) {
-    try {
-      fileSystem.stat("/screenshot.png");
-      const source = fileSystem.readFile("/screenshot.png");
-      if (source.byteLength > 0) {
-        const bytes = Uint8Array.from(new Uint8Array(source.buffer, source.byteOffset, source.byteLength));
-        if (coreFramebufferNeedsCanvasOrientation(bytes, instance.gameManager?.getVideoDimensions?.("aspect"))) {
-          throw new Error("PLAYER_CORE_SCREENSHOT_ORIENTATION_MISMATCH");
-        }
-        return { screenshot: new Blob([bytes], { type: "image/png" }), format: "png" };
-      }
-    } catch (error) {
-      if (error instanceof Error && error.message === "PLAYER_CORE_SCREENSHOT_ORIENTATION_MISMATCH") throw error;
-      // EmulatorJS writes the screenshot asynchronously.
-    }
-    await new Promise((resolve) => setTimeout(resolve, 50));
-  }
-  throw new Error("PLAYER_CORE_SCREENSHOT_TIMEOUT");
-}
-
-// The core framebuffer avoids blank WebGL readback after a core stops presenting
-// and avoids encoding a viewport-sized shader canvas on high-DPI displays.
-export async function captureManualScreenshot(instance: EmulatorInstance): Promise<ManualScreenshot> {
-  try {
-    return await captureCoreFramebuffer(instance);
-  } catch {
-    return captureCanvasScreenshot(instance);
-  }
-}
-
-export const captureReviewScreenshot = captureManualScreenshot;
-
-export function captureManualState(instance: EmulatorInstance, capture: ManualScreenshot) {
-  const state = instance.gameManager?.getState?.();
-  // The runtime lives in a same-origin iframe; realm-local instanceof checks
-  // reject its otherwise valid Uint8Array and Blob values.
-  if (!state || !ArrayBuffer.isView(state) || state.byteLength === 0) throw new Error("PLAYER_STATE_UNAVAILABLE");
-  if (!capture.screenshot || typeof capture.screenshot.size !== "number" || capture.screenshot.size === 0) throw new Error("PLAYER_SCREENSHOT_EMPTY");
-  return { ...capture, state: new Uint8Array(state) };
-}
 
 export type AdapterCallbacks = {
   onReady?: (emulator: EmulatorInstance) => void;
@@ -295,18 +244,18 @@ function rewriteArchiveWorker(source: string, archiveType: RewrittenArchiveType)
   const rewrite = archiveWorkerRewrites[archiveType];
   let rewritten = replaceArchiveWorkerFragment(source, rewrite.globalLookup, rewrite.safeGlobalLookup);
   rewritten = replaceArchiveWorkerFragment(rewritten, rewrite.dynamicWrapper, rewrite.safeWrapper);
-  if (rewritten.includes("eval(")) throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+  if (rewritten.includes("eval(")) {throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");}
   return rewritten;
 }
 
 function normalizeArchiveWorker(runtimeWindow: typeof window, constructor: EJSCompressionConstructor | undefined) {
   const prototype = constructor?.prototype;
   const original = prototype?.getWorkerFile;
-  if (!prototype || typeof original !== "function") throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
-  if (normalizedArchiveWorkerReaders.has(original as (...args: never[]) => unknown)) return;
+  if (!prototype || typeof original !== "function") {throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");}
+  if (normalizedArchiveWorkerReaders.has(original as (...args: never[]) => unknown)) {return;}
   const normalizedGetWorkerFile = async function (this: unknown, archiveType: string) {
     const worker = await original.call(this, archiveType);
-    if (archiveType !== "7z" && archiveType !== "zip") return worker;
+    if (archiveType !== "7z" && archiveType !== "zip") {return worker;}
     const source = await worker.text();
     return new runtimeWindow.Blob([rewriteArchiveWorker(source, archiveType)], {
       type: worker.type || "application/javascript",
@@ -324,7 +273,7 @@ function installArchiveWorkerBlobCompatibility(runtimeWindow: typeof window) {
   }
 
   let current = runtimeWindow.EJS_COMPRESSION;
-  if (current) normalizeArchiveWorker(runtimeWindow, current);
+  if (current) {normalizeArchiveWorker(runtimeWindow, current);}
   Object.defineProperty(runtimeWindow, "EJS_COMPRESSION", {
     configurable: true,
     enumerable: previous?.enumerable ?? true,
@@ -352,9 +301,9 @@ function installArchiveWorkerBlobCompatibility(runtimeWindow: typeof window) {
 }
 
 function archiveWorkerBaseURL(runtimeWindow: typeof window) {
-  if (runtimeWindow.location.protocol === "http:" || runtimeWindow.location.protocol === "https:") return runtimeWindow.location.href;
+  if (runtimeWindow.location.protocol === "http:" || runtimeWindow.location.protocol === "https:") {return runtimeWindow.location.href;}
   const parentLocation = runtimeWindow.parent.location;
-  if (parentLocation.protocol === "http:" || parentLocation.protocol === "https:") return parentLocation.href;
+  if (parentLocation.protocol === "http:" || parentLocation.protocol === "https:") {return parentLocation.href;}
   throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
 }
 
@@ -369,7 +318,7 @@ function archiveWorkerRequestURL(runtimeWindow: typeof window, input: RequestInf
 
 function installArchiveWorkerResponseCompatibility(runtimeWindow: typeof window, config: PlayerConfig) {
   const originalFetch = runtimeWindow.fetch;
-  if (typeof originalFetch !== "function") throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
+  if (typeof originalFetch !== "function") {throw new Error("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");}
   const baseURL = archiveWorkerBaseURL(runtimeWindow);
   const archiveWorkers = new Map<string, RewrittenArchiveType>([
     [new runtimeWindow.URL("compression/extract7z.js", new runtimeWindow.URL(config.runtimeBaseUrl, baseURL)).href, "7z"],
@@ -394,15 +343,15 @@ function installArchiveWorkerResponseCompatibility(runtimeWindow: typeof window,
   };
   runtimeWindow.fetch = compatibleFetch;
   return () => {
-    if (runtimeWindow.fetch === compatibleFetch) runtimeWindow.fetch = originalFetch;
+    if (runtimeWindow.fetch === compatibleFetch) {runtimeWindow.fetch = originalFetch;}
   };
 }
 
 function normalizeExternalFileWrites(constructor: EJSGameManagerConstructor | undefined) {
   const prototype = constructor?.prototype;
   const original = prototype?.writeFile;
-  if (!prototype || typeof original !== "function") throw new Error("PLAYER_EXTERNAL_FILES_COMPATIBILITY_UNAVAILABLE");
-  if (normalizedExternalFileWriters.has(original as (...args: never[]) => unknown)) return;
+  if (!prototype || typeof original !== "function") {throw new Error("PLAYER_EXTERNAL_FILES_COMPATIBILITY_UNAVAILABLE");}
+  if (normalizedExternalFileWriters.has(original as (...args: never[]) => unknown)) {return;}
   const normalizedWriteFile = function (this: unknown, path: string, data: unknown) {
     const bytes = Object.prototype.toString.call(data) === "[object ArrayBuffer]"
       ? new Uint8Array(data as ArrayBuffer)
@@ -421,7 +370,7 @@ function installExternalFileCompatibility(runtimeWindow: typeof window) {
   }
 
   let current = runtimeWindow.EJS_GameManager;
-  if (current) normalizeExternalFileWrites(current);
+  if (current) {normalizeExternalFileWrites(current);}
   Object.defineProperty(runtimeWindow, "EJS_GameManager", {
     configurable: true,
     enumerable: previous?.enumerable ?? true,
@@ -448,140 +397,6 @@ function installExternalFileCompatibility(runtimeWindow: typeof window) {
   };
 }
 
-function safeVirtualPath(value: string) {
-  if (!value.startsWith("/") || value.length > 512 || value.includes("\\") || value.includes("?") || value.includes("#") || value.includes("//")) return false;
-  return value.slice(1).split("/").every((segment) => segment !== "" && segment !== "." && segment !== "..");
-}
-
-function validatedExternalFiles(config: PlayerConfig): Record<string, string> {
-  const entries = Object.entries(config.externalFiles);
-  if (entries.length > 16) throw new Error("PLAYER_EXTERNAL_FILES_INVALID");
-  const result: Record<string, string> = {};
-  for (const [virtualPath, source] of entries) {
-    const externalPrefix = `/runtime/launches/${config.launchId}/external-files/`;
-    const logicalName = source.startsWith(externalPrefix) ? source.slice(externalPrefix.length) : "";
-    if (!safeVirtualPath(virtualPath) || source.length > 1024 ||
-      !source.startsWith(externalPrefix) || !/^[A-Za-z0-9_(). -]{1,255}$/.test(logicalName) ||
-      logicalName === "." || logicalName === "..") {
-      throw new Error("PLAYER_EXTERNAL_FILES_INVALID");
-    }
-    result[virtualPath] = source;
-  }
-  return result;
-}
-
-function validateDiscSet(config: PlayerConfig, externalFiles: Record<string, string>) {
-  const discSet = config.discSet;
-  if (discSet === undefined || discSet === null) return;
-  if (discSet.contentKind !== "MULTI_DISC_M3U_V1" || !Number.isInteger(discSet.count) ||
-    discSet.count < 2 || discSet.count > 8 || !Array.isArray(discSet.entries) || discSet.entries.length !== discSet.count ||
-    !Number.isInteger(discSet.initialDiscIndex) || discSet.initialDiscIndex < 0 ||
-    discSet.initialDiscIndex >= discSet.count ||
-    config.gameUrl !== `/runtime/launches/${config.launchId}/game/playlist.m3u`) {
-    throw new Error("PLAYER_DISC_SET_INVALID");
-  }
-  for (let index = 0; index < discSet.count; index += 1) {
-    const entry = discSet.entries[index];
-    const canonicalName = `disc-${String(index + 1).padStart(3, "0")}.chd`;
-    if (!entry || entry.index !== index || entry.label !== `光盘 ${index + 1}` ||
-      entry.virtualPath !== `/${canonicalName}` ||
-      externalFiles[entry.virtualPath] !== `/runtime/launches/${config.launchId}/external-files/${canonicalName}`) {
-      throw new Error("PLAYER_DISC_SET_INVALID");
-    }
-  }
-}
-
-export type DiscState = { count: number; currentIndex: number };
-
-export function readDiscState(instance: EmulatorInstance, expectedCount?: number): DiscState {
-  const count = instance.gameManager?.getDiskCount?.();
-  const currentIndex = instance.gameManager?.getCurrentDisk?.();
-  if (!Number.isInteger(count) || !Number.isInteger(currentIndex) || count === undefined || currentIndex === undefined ||
-    count < 2 || count > 8 || currentIndex < 0 || currentIndex >= count ||
-    expectedCount !== undefined && count !== expectedCount) {
-    throw new Error("PLAYER_DISC_SET_INVALID");
-  }
-  return { count, currentIndex };
-}
-
-export function switchDisc(instance: EmulatorInstance, targetIndex: number, expectedCount: number): DiscState {
-  if (!Number.isInteger(targetIndex) || targetIndex < 0 || targetIndex >= expectedCount) {
-    throw new Error("PLAYER_DISC_INDEX_INVALID");
-  }
-  const before = readDiscState(instance, expectedCount);
-  if (targetIndex === before.currentIndex) return before;
-  const setCurrentDisk = instance.gameManager?.setCurrentDisk?.bind(instance.gameManager);
-  if (!setCurrentDisk) throw new Error("PLAYER_DISC_SWITCH_UNAVAILABLE");
-  setCurrentDisk(targetIndex);
-  const after = readDiscState(instance, expectedCount);
-  if (after.currentIndex !== targetIndex) throw new Error("PLAYER_DISC_SWITCH_FAILED");
-  return after;
-}
-
-export function switchDiscPreservingPause(instance: EmulatorInstance, targetIndex: number, expectedCount: number): DiscState {
-  const manager = instance.gameManager;
-  if (!manager?.toggleMainLoop) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
-  const wasPaused = instance.paused === true;
-  manager.toggleMainLoop(false);
-  try {
-    return switchDisc(instance, targetIndex, expectedCount);
-  } finally {
-    manager.toggleMainLoop(!wasPaused);
-    instance.paused = wasPaused;
-  }
-}
-
-function initializeMultiDiscSettings(instance: EmulatorInstance) {
-  if (instance.allSettings === undefined) {
-    instance.allSettings = {};
-    return;
-  }
-  if (Object.prototype.toString.call(instance.allSettings) !== "[object Object]") {
-    throw new Error("PLAYER_DISC_SETTINGS_INVALID");
-  }
-}
-export function validateConfig(config: PlayerConfig) {
-  if (config.mode !== "single" && config.mode !== "netplay") throw new Error("PLAYER_MODE_INVALID");
-  if (config.mode === "single" && config.netplay !== null) throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");
-  if (config.mode === "netplay") {
-    const netplay = config.netplay;
-    const profile = netplay?.netplayProfile;
-    const expectedPredictionFrames = profile?.profileId === "fceumm-423-v1" ? 8 :
-      profile?.profileId === "fbneo-423-v1" ? 0 : null;
-    if (!netplay || !profile || config.emulatorjsVersion !== "4.2.3" || config.playerAdapterId !== "ejs-4.2.3-v2" ||
-      config.persistentSaveMode !== "NONE" || config.persistentSaveUrl !== null || config.stateUrl !== null || config.discSet ||
-      netplay.playerNo < 1 || netplay.playerNo > 4 || netplay.runtimeSocketUrl !== `/runtime/netplay/rooms/${netplay.roomId}/socket` ||
-      profile.schemaVersion !== 1 || profile.protocolVersion !== "retrom-netplay-v1" || profile.playerAdapterId !== config.playerAdapterId ||
-      profile.netplayAdapterId !== "ejs-netplay-4.2.3-v1" || profile.coreArtifactId !== config.coreArtifactId ||
-      profile.emulatorjsVersion !== config.emulatorjsVersion || profile.gameVariantRevisionId.length === 0 ||
-      !/^[0-9a-f]{64}$/.test(profile.coreArtifactSha256) || !/^[0-9a-f]{64}$/.test(profile.sourceManifestDigest) ||
-      !/^[0-9a-f]{64}$/.test(profile.dependencySnapshotDigest) || !profile.defaultCoreOptions ||
-      netplay.playerNo > profile.maxPlayers || profile.controlCount !== 24 ||
-      expectedPredictionFrames === null || profile.maxPredictionFrames !== expectedPredictionFrames ||
-      profile.maxRollbackFrames !== 120 || profile.checkpointEveryFrames !== 120 || profile.canonicalHistoryFrames !== 600 ||
-      profile.maxStateBytes !== 1048576) throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");
-  }
-  if (!/^[a-z0-9_]{1,64}$/.test(config.runtimeCore)) throw new Error("PLAYER_RUNTIME_CORE_INVALID");
-  if (!config.runtimePathOverrides || Object.entries(config.runtimePathOverrides).length !== 1 || Object.entries(config.runtimePathOverrides).some(([name, source]) =>
-    !/^[A-Za-z0-9_.-]+-wasm\.data$/.test(name) || name.includes("..") ||
-    !source.startsWith(`/runtime/emulatorjs/${config.emulatorjsVersion}/`))) throw new Error("PLAYER_RUNTIME_PATHS_INVALID");
-  if (config.persistentSaveMode !== "NONE" || config.persistentSaveUrl !== null) {
-    throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
-  }
-  if (config.inputMode !== "STANDARD" && config.inputMode !== "POINTER") throw new Error("PLAYER_INPUT_MODE_INVALID");
-  if (!config.defaultCoreOptions || Object.entries(config.defaultCoreOptions).length > 32 ||
-    Object.entries(config.defaultCoreOptions).some(([name, value]) => ["__proto__", "constructor", "prototype"].includes(name) ||
-      !/^[\x20-\x7E]{1,128}$/.test(name) || !/^[\x20-\x7E]{0,128}$/.test(value))) throw new Error("PLAYER_CORE_OPTIONS_INVALID");
-  if (!Array.isArray(config.startupActions) || config.startupActions.length > 4 || config.startupActions.some((action) =>
-    action.event !== "GAME_START" || action.kind !== "PRESS_CONTROL" ||
-    !Number.isInteger(action.delayMs) || action.delayMs < 0 || action.delayMs > 30_000 ||
-    !Number.isInteger(action.player) || action.player < 0 || action.player > 3 ||
-    !Number.isInteger(action.control) || action.control < 0 || action.control > 255 ||
-    !Number.isInteger(action.durationMs) || action.durationMs < 1 || action.durationMs > 1_000)) {
-    throw new Error("PLAYER_STARTUP_ACTION_INVALID");
-  }
-}
-
 function startWhenAvailable(runtimeWindow: Window) {
   const immediate = runtimeWindow.document.querySelector<HTMLElement>(".ejs_start_button");
   if (immediate) {
@@ -595,7 +410,7 @@ function startWhenAvailable(runtimeWindow: Window) {
   }
   const observer = new Observer(() => {
     const startButton = runtimeWindow.document.querySelector<HTMLElement>(".ejs_start_button");
-    if (!startButton) return;
+    if (!startButton) {return;}
     observer.disconnect();
     runtimeWindow.clearTimeout(timeout);
     startButton.click();
@@ -614,8 +429,8 @@ function startWhenAvailable(runtimeWindow: Window) {
 export function scheduleStartupActions(config: PlayerConfig, instance: EmulatorInstance, timerWindow: Window = window) {
   const gameManager = instance.gameManager;
   const simulate = gameManager?.simulateInput?.bind(gameManager);
-  if (config.startupActions.length === 0) return () => undefined;
-  if (!simulate) throw new Error("PLAYER_STARTUP_ACTION_UNAVAILABLE");
+  if (config.startupActions.length === 0) {return () => undefined;}
+  if (!simulate) {throw new Error("PLAYER_STARTUP_ACTION_UNAVAILABLE");}
   const timers: number[] = [];
   const pressed = new Map<string, { player: number; control: number }>();
   for (const action of config.startupActions) {
@@ -630,14 +445,28 @@ export function scheduleStartupActions(config: PlayerConfig, instance: EmulatorI
     }, action.delayMs));
   }
   return () => {
-    for (const timer of timers) timerWindow.clearTimeout(timer);
-    for (const action of pressed.values()) simulate(action.player, action.control, 0);
+    for (const timer of timers) {timerWindow.clearTimeout(timer);}
+    for (const action of pressed.values()) {simulate(action.player, action.control, 0);}
     pressed.clear();
   };
 }
 
-export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callbacks: AdapterCallbacks = {}, playerWindow: Window = window) {
-  if (supportedAdapters[config.emulatorjsVersion] !== config.playerAdapterId) throw new Error("PLAYER_ADAPTER_MISMATCH");
+export function mountEmulatorJS(
+  config: PlayerConfig,
+  target: HTMLElement,
+  callbacks?: AdapterCallbacks,
+  playerWindow?: Window,
+) {
+  return mountEmulatorJSRuntime(config, target, callbacks ?? {}, playerWindow ?? window);
+}
+
+function mountEmulatorJSRuntime(
+  config: PlayerConfig,
+  target: HTMLElement,
+  callbacks: AdapterCallbacks,
+  playerWindow: Window,
+) {
+  if (supportedAdapters[config.emulatorjsVersion] !== config.playerAdapterId) {throw new Error("PLAYER_ADAPTER_MISMATCH");}
   validateConfig(config);
   const externalFiles = validatedExternalFiles(config);
   validateDiscSet(config, externalFiles);
@@ -653,7 +482,6 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_gameParentUrl = config.parentUrl ?? undefined;
   const explicitStateRestore = requiresExplicitStateRestore(config);
   const needsDOSBoxStateCompatibility = requiresDOSBoxPureStateCompatibility(config);
-  let dosboxStateCompatibility: ReturnType<typeof installDOSBoxPureStateCompatibility> | null = null;
   runtimeWindow.EJS_loadStateURL = config.discSet || explicitStateRestore ? undefined : config.stateUrl ?? undefined;
   const deferredDOSStart = config.emulatorjsVersion === "4.3.0-pre" && config.runtimeCore === "dosbox_pure";
   runtimeWindow.EJS_startOnLoaded = !deferredDOSStart;
@@ -676,25 +504,25 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_ready = () => {
     const instance = runtimeWindow.EJS_emulator;
     if (!instance) {
-      if (config.discSet) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
+      if (config.discSet) {throw new Error("PLAYER_DISC_API_UNAVAILABLE");}
       return;
     }
-    if (config.discSet) initializeMultiDiscSettings(instance);
+    if (config.discSet) {initializeMultiDiscSettings(instance);}
     if (deferredDOSStart) {
       const dontExtractIfCore = instance.downloadType?.rom?.dontExtractIfCore;
-      if (!Array.isArray(dontExtractIfCore)) throw new Error("PLAYER_DOS_ARCHIVE_MODE_UNAVAILABLE");
-      if (!dontExtractIfCore.includes(config.runtimeCore)) dontExtractIfCore.push(config.runtimeCore);
+      if (!Array.isArray(dontExtractIfCore)) {throw new Error("PLAYER_DOS_ARCHIVE_MODE_UNAVAILABLE");}
+      if (!dontExtractIfCore.includes(config.runtimeCore)) {dontExtractIfCore.push(config.runtimeCore);}
     }
     callbacks.onReady?.(instance);
-    if (deferredDOSStart) cleanupDeferredStart = startWhenAvailable(runtimeWindow);
+    if (deferredDOSStart) {cleanupDeferredStart = startWhenAvailable(runtimeWindow);}
   };
   let startupScheduled = false;
   let cleanupStartup: () => void = () => undefined;
   runtimeWindow.EJS_onGameStart = () => {
     if (needsDOSBoxStateCompatibility && runtimeWindow.EJS_emulator) {
-      dosboxStateCompatibility?.prepare(runtimeWindow.EJS_emulator);
+      compatibility.dosbox?.prepare(runtimeWindow.EJS_emulator);
     }
-    if (callbacks.onGameStart?.() === false) return;
+    if (callbacks.onGameStart?.() === false) {return;}
     if (!startupScheduled && runtimeWindow.EJS_emulator) {
       startupScheduled = true;
       cleanupStartup = scheduleStartupActions(config, runtimeWindow.EJS_emulator, runtimeWindow);
@@ -702,40 +530,56 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   };
   runtimeWindow.EJS_onSaveState = callbacks.onSaveState;
   runtimeWindow.EJS_onSaveSave = undefined;
-  runtimeWindow.EJS_defaultOptions = {
-    ...config.defaultCoreOptions,
-    ...(config.mode === "netplay" && config.runtimeCore === "fbneo" ? { "fbneo-hiscores": "disabled" } : {}),
-  };
+  runtimeWindow.EJS_defaultOptions = runtimeDefaultOptions(config);
   runtimeWindow.EJS_shaders = retromShaders;
   runtimeWindow.EJS_paths = { ...config.runtimePathOverrides };
   runtimeWindow.EJS_externalFiles = externalFiles;
-  const cleanupNetplayCompatibility = config.mode === "netplay"
-    ? installEmulatorJs423NetplayCompatibility(runtimeWindow)
-    : () => undefined;
-  dosboxStateCompatibility = needsDOSBoxStateCompatibility
-    ? installDOSBoxPureStateCompatibility(runtimeWindow)
-    : null;
-  const cleanupStateRestoreCompatibility = explicitStateRestore && !needsDOSBoxStateCompatibility
-    ? installEmulatorJs423StateRestoreCompatibility(runtimeWindow, {
-        waitForSerializable: true,
-      })
-    : () => undefined;
-  const cleanupArchiveWorkerCompatibility = config.emulatorjsVersion === "4.2.3"
-    ? installArchiveWorkerBlobCompatibility(runtimeWindow)
-    : config.emulatorjsVersion === "4.3.0-pre"
-      ? installArchiveWorkerResponseCompatibility(runtimeWindow, config)
-      : () => undefined;
-  const cleanupExternalFileCompatibility = config.emulatorjsVersion === "4.2.3" && Object.keys(externalFiles).length > 0
-    ? installExternalFileCompatibility(runtimeWindow)
-    : () => undefined;
+  const compatibility = installCompatibilityLayers(
+    config, runtimeWindow, externalFiles, explicitStateRestore, needsDOSBoxStateCompatibility,
+  );
   const script = runtimeWindow.document.createElement("script");
   script.src = config.loaderUrl;
   script.async = true;
   script.dataset.retromLoader = "true";
   runtimeWindow.document.head.append(script);
   return () => {
-    cleanupDeferredStart(); cleanupStartup(); script.remove(); cleanupExternalFileCompatibility();
-    cleanupArchiveWorkerCompatibility(); cleanupStateRestoreCompatibility(); dosboxStateCompatibility?.cleanup();
-    cleanupNetplayCompatibility();
+    cleanupDeferredStart(); cleanupStartup(); script.remove(); compatibility.externalFiles();
+    compatibility.archiveWorker(); compatibility.stateRestore(); compatibility.dosbox?.cleanup();
+    compatibility.netplay();
+  };
+}
+
+function runtimeDefaultOptions(config: PlayerConfig) {
+  if (config.mode === "netplay" && config.runtimeCore === "fbneo") {
+    return { ...config.defaultCoreOptions, "fbneo-hiscores": "disabled" };
+  }
+  return { ...config.defaultCoreOptions };
+}
+
+function archiveWorkerCompatibility(runtimeWindow: typeof window, config: PlayerConfig) {
+  if (config.emulatorjsVersion === "4.2.3") {return installArchiveWorkerBlobCompatibility(runtimeWindow);}
+  if (config.emulatorjsVersion === "4.3.0-pre") {
+    return installArchiveWorkerResponseCompatibility(runtimeWindow, config);
+  }
+  return () => undefined;
+}
+
+function installCompatibilityLayers(
+  config: PlayerConfig,
+  runtimeWindow: typeof window,
+  externalFiles: Record<string, string>,
+  explicitStateRestore: boolean,
+  needsDOSBoxStateCompatibility: boolean,
+) {
+  return {
+    netplay: config.mode === "netplay" ? installEmulatorJs423NetplayCompatibility(runtimeWindow) : () => undefined,
+    dosbox: needsDOSBoxStateCompatibility ? installDOSBoxPureStateCompatibility(runtimeWindow) : null,
+    stateRestore: explicitStateRestore && !needsDOSBoxStateCompatibility
+      ? installEmulatorJs423StateRestoreCompatibility(runtimeWindow, { waitForSerializable: true })
+      : () => undefined,
+    archiveWorker: archiveWorkerCompatibility(runtimeWindow, config),
+    externalFiles: config.emulatorjsVersion === "4.2.3" && Object.keys(externalFiles).length > 0
+      ? installExternalFileCompatibility(runtimeWindow)
+      : () => undefined,
   };
 }

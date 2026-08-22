@@ -35,20 +35,20 @@ export function uploadWithProgress(request: UploadRequest): Promise<UploadRespon
     const fallbackTotal = Math.max(1, request.totalBytes ?? 1);
     let settled = false;
     const fail = () => {
-      if (settled) return;
+      if (settled) {return;}
       settled = true;
       reject(new Error("SAVE_UPLOAD_NETWORK_FAILED"));
     };
     xhr.open(request.method, request.url);
     xhr.withCredentials = true;
-    for (const [name, value] of Object.entries(request.headers ?? {})) xhr.setRequestHeader(name, value);
+    for (const [name, value] of Object.entries(request.headers ?? {})) {xhr.setRequestHeader(name, value);}
     xhr.upload.addEventListener("loadstart", () => request.onProgress(boundedProgress(0, fallbackTotal)));
     xhr.upload.addEventListener("progress", (event) => {
       const total = event.lengthComputable && event.total > 0 ? event.total : fallbackTotal;
       request.onProgress(boundedProgress(event.loaded, total));
     });
     xhr.addEventListener("load", () => {
-      if (settled) return;
+      if (settled) {return;}
       settled = true;
       request.onProgress(boundedProgress(fallbackTotal, fallbackTotal));
       resolve({ ok: xhr.status >= 200 && xhr.status < 300, status: xhr.status });

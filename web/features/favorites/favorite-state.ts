@@ -32,12 +32,12 @@ export function favoriteQuery(values: Record<string, string | string[] | undefin
 
 export function favoriteQueryString(query: FavoriteQuery, cursor = "") {
   const values = new URLSearchParams();
-  if (query.scope !== "ALL") values.set("scope", query.scope);
-  if (query.scope === "FOLDER" && uuid.test(query.folderId)) values.set("folderId", query.folderId);
-  if (query.q.trim()) values.set("q", query.q.trim());
-  if (query.platformId) values.set("platformId", query.platformId);
-  if (query.sort !== "FAVORITED_DESC") values.set("sort", query.sort);
-  if (cursor) values.set("cursor", cursor);
+  if (query.scope !== "ALL") {values.set("scope", query.scope);}
+  if (query.scope === "FOLDER" && uuid.test(query.folderId)) {values.set("folderId", query.folderId);}
+  if (query.q.trim()) {values.set("q", query.q.trim());}
+  if (query.platformId) {values.set("platformId", query.platformId);}
+  if (query.sort !== "FAVORITED_DESC") {values.set("sort", query.sort);}
+  if (cursor) {values.set("cursor", cursor);}
   values.set("limit", "50");
   return values.toString();
 }
@@ -48,7 +48,7 @@ export function selectFavoriteScope(query: FavoriteQuery, scope: FavoriteScope, 
 
 export function toggleGameSelection(selected: ReadonlySet<string>, gameId: string) {
   const next = new Set(selected);
-  if (next.has(gameId)) next.delete(gameId);
-  else next.add(gameId);
+  if (next.has(gameId)) {next.delete(gameId);}
+  else {next.add(gameId);}
   return next;
 }

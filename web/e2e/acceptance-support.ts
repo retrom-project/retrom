@@ -1,0 +1,68 @@
+import { mkdirSync } from "node:fs";
+import path from "node:path";
+import { expect, type Page, type TestInfo } from "@playwright/test";
+
+export function evidencePath(testInfo: TestInfo, name: string) {
+  const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
+  if (!caseDirectory) {return testInfo.outputPath(name);}
+  const screenshots = path.join(caseDirectory, "screenshots");
+  mkdirSync(screenshots, { recursive: true });
+  return path.join(screenshots, `${testInfo.project.name}-${name}`);
+}
+
+export function pngDimensions(contents: Buffer) {
+  expect(contents.subarray(1, 4).toString("ascii")).toBe("PNG");
+  return { width: contents.readUInt32BE(16), height: contents.readUInt32BE(20) };
+}
+
+export async function noPageOverflow(page: Page) {
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
+}
+
+export async function currentEmulatorBrightRatio(page: Page) {
+  const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
+  if (!playerFrame) {return 0;}
+  return playerFrame.evaluate(async () => {
+    const emulator = window.EJS_emulator;
+    if (!emulator?.takeScreenshot) {return 0;}
+    const result = await Promise.race([emulator.takeScreenshot("canvas", "png", 1), new Promise<null>((resolve) => setTimeout(() => resolve(null), 1_000))]);
+    if (!result?.blob.size) {return 0;}
+    const bitmap = await createImageBitmap(result.blob);
+    const sample = document.createElement("canvas");
+    sample.width = 64; sample.height = 64;
+    const context = sample.getContext("2d", { alpha: false });
+    if (!context) {return 0;}
+    context.drawImage(bitmap, 0, 0, sample.width, sample.height);
+    bitmap.close();
+    const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
+    let brightPixels = 0;
+    for (let index = 0; index < pixels.length; index += 4) {
+      if ((pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3 > 8) {brightPixels += 1;}
+    }
+    return brightPixels / (pixels.length / 4);
+  });
+}
+
+export type HorizontalGaps = { left: number; right: number };
+
+export async function pageCanvasGaps(page: Page, targetSelector = ".page-header"): Promise<HorizontalGaps> {
+  const measurement = await page.evaluate((selector) => {
+    const appBody = document.querySelector<HTMLElement>(".app-body");
+    const content = document.querySelector<HTMLElement>(".content");
+    const target = document.querySelector<HTMLElement>(selector);
+    if (!appBody || !content || !target) {return null;}
+    const appBodyRect = appBody.getBoundingClientRect();
+    const contentRect = content.getBoundingClientRect();
+    const targetRect = target.getBoundingClientRect();
+    const contentStyle = getComputedStyle(content);
+    const contentLeft = contentRect.left + Number.parseFloat(contentStyle.paddingLeft);
+    const contentRight = contentRect.right - Number.parseFloat(contentStyle.paddingRight);
+    return { canvasWidth: contentRight - contentLeft, targetLeftDelta: targetRect.left - contentLeft, targetRightDelta: contentRight - targetRect.right, left: targetRect.left - appBodyRect.left, right: appBodyRect.right - targetRect.right };
+  }, targetSelector);
+  expect(measurement).not.toBeNull();
+  if (!measurement) {throw new Error("ACCEPTANCE_LAYOUT_MEASUREMENT_UNAVAILABLE");}
+  expect(Math.abs(measurement.targetLeftDelta)).toBeLessThanOrEqual(1);
+  expect(Math.abs(measurement.targetRightDelta)).toBeLessThanOrEqual(1);
+  expect(measurement.canvasWidth).toBeLessThanOrEqual(2321);
+  return { left: measurement.left, right: measurement.right };
+}

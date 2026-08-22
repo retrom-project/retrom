@@ -23,9 +23,9 @@ export function readPreferredCore(userId: string | null | undefined, gameId: str
 export function writePreferredCore(userId: string | null | undefined, gameId: string, coreId: string, defaultCoreId: string | undefined) {
   try {
     const key = userStorageKey(userId, "player", `preferred-core:${gameId}`);
-    if (!key) return;
-    if (!coreId || coreId === defaultCoreId) window.localStorage.removeItem(key);
-    else window.localStorage.setItem(key, coreId);
+    if (!key) {return;}
+    if (!coreId || coreId === defaultCoreId) {window.localStorage.removeItem(key);}
+    else {window.localStorage.setItem(key, coreId);}
     window.dispatchEvent(new Event(preferenceEvent));
   } catch {
     // Launching must remain available when browser storage is blocked.

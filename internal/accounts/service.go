@@ -188,22 +188,14 @@ func (service *Service) Initialize(ctx context.Context, request InitializeReques
 	return service.bootstrap(ctx, username, displayName, password, "RELEASE_SETUP")
 }
 
-//nolint:funlen,gocyclo // Initialization invariants and atomic writes remain auditable in one transaction.
+// Initialization invariants and atomic writes remain auditable in one transaction.
 func (service *Service) bootstrap(
 	ctx context.Context,
 	username, displayName, password, kind string,
 ) (Session, error) {
-	encoded, err := service.hasher.Hash(ctx, password)
-	if err != nil {
-		return Session{}, fmt.Errorf("hash initial password: %w", err)
-	}
-	prepared, err := service.prepareSession()
+	input, err := service.prepareBootstrap(ctx, username, displayName, password)
 	if err != nil {
 		return Session{}, err
-	}
-	userID, profileID := newID(), newID()
-	if userID == "" || profileID == "" {
-		return Session{}, errIdentityGeneration
 	}
 	now := service.now().UTC().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -211,9 +203,47 @@ func (service *Service) bootstrap(
 		return Session{}, fmt.Errorf("begin initialization: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
+	return persistBootstrap(ctx, transaction, input, kind, now)
+}
+
+type bootstrapInput struct {
+	username, displayName, encodedPassword string
+	session                                preparedSession
+	userID, profileID                      string
+}
+
+func (service *Service) prepareBootstrap(
+	ctx context.Context,
+	username, displayName, password string,
+) (bootstrapInput, error) {
+	encoded, err := service.hasher.Hash(ctx, password)
+	if err != nil {
+		return bootstrapInput{}, fmt.Errorf("hash initial password: %w", err)
+	}
+	prepared, err := service.prepareSession()
+	if err != nil {
+		return bootstrapInput{}, err
+	}
+	userID, profileID := newID(), newID()
+	if userID == "" || profileID == "" {
+		return bootstrapInput{}, errIdentityGeneration
+	}
+	return bootstrapInput{
+		username: username, displayName: displayName, encodedPassword: encoded,
+		session: prepared, userID: userID, profileID: profileID,
+	}, nil
+}
+
+func persistBootstrap(
+	ctx context.Context,
+	transaction *sql.Tx,
+	input bootstrapInput,
+	kind string,
+	now int64,
+) (Session, error) {
 	var state string
 	var users, profiles int
-	if err = transaction.QueryRowContext(ctx, `
+	if err := transaction.QueryRowContext(ctx, `
 SELECT state,(SELECT count(*) FROM users),(SELECT count(*) FROM profiles)
 FROM instance_state WHERE id=1
 `).Scan(&state, &users, &profiles); err != nil {
@@ -225,21 +255,21 @@ FROM instance_state WHERE id=1
 	if users != 0 || profiles != 0 {
 		return Session{}, ErrInitializationState
 	}
-	if _, err = transaction.ExecContext(ctx, `
+	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)
-`, profileID, displayName, now); err != nil {
+`, input.profileID, input.displayName, now); err != nil {
 		return Session{}, fmt.Errorf("create profile: %w", err)
 	}
-	if _, err = transaction.ExecContext(ctx, `
+	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,'ADMIN','ENABLED',?,?)
-`, userID, profileID, username, displayName, now, now); err != nil {
+`, input.userID, input.profileID, input.username, input.displayName, now, now); err != nil {
 		return Session{}, fmt.Errorf("create initial user: %w", err)
 	}
-	if _, err = transaction.ExecContext(ctx, `
+	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO user_credentials(user_id,password_hash,password_scheme,password_changed_at_ms,created_at_ms)
 VALUES(?,?,'ARGON2ID_V1',?,?)
-`, userID, encoded, now, now); err != nil {
+`, input.userID, input.encodedPassword, now, now); err != nil {
 		return Session{}, fmt.Errorf("create initial credential: %w", err)
 	}
 	testDefault := 0
@@ -252,37 +282,87 @@ VALUES(?,?,'ARGON2ID_V1',?,?)
 UPDATE instance_state SET state='COMPLETED',bootstrap_kind=?,initial_admin_user_id=?,
 test_default_password_active=?,version=version+1,updated_at_ms=?,initialized_at_ms=?
 WHERE id=1 AND state='PENDING'
-`, kind, userID, testDefault, now, now)
+`, kind, input.userID, testDefault, now, now)
 	if err != nil {
 		return Session{}, fmt.Errorf("complete initialization: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
 		return Session{}, ErrInitializationDone
 	}
-	if err = insertPreparedSession(ctx, transaction, prepared, userID, 1, now); err != nil {
+	if err := insertPreparedSession(ctx, transaction, input.session, input.userID, 1, now); err != nil {
 		return Session{}, err
 	}
 	auditID := newID()
-	if _, err = transaction.ExecContext(ctx, `
+	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
 before_json,after_json,diff_json,request_id,created_at_ms)
 VALUES(?,'SYSTEM',NULL,?,'INSTANCE_INITIALIZED','USER',?,NULL,'{}','{}',NULL,?)
-`, auditID, actorLabel, userID, now); err != nil {
+`, auditID, actorLabel, input.userID, now); err != nil {
 		return Session{}, fmt.Errorf("audit initialization: %w", err)
 	}
-	if err = transaction.Commit(); err != nil {
+	if err := transaction.Commit(); err != nil {
 		return Session{}, fmt.Errorf("commit initialization: %w", err)
 	}
-	return prepared.view(
-		User{UserID: userID, Username: username, DisplayName: displayName, Role: "ADMIN"},
-		profileID,
+	return input.session.view(
+		User{UserID: input.userID, Username: input.username, DisplayName: input.displayName, Role: "ADMIN"},
+		input.profileID,
 		1,
 		now,
 	), nil
 }
 
-//nolint:gocyclo // Authentication deliberately keeps the dummy-hash and real-user paths indistinguishable.
+// Authentication deliberately keeps the dummy-hash and real-user paths indistinguishable.
 func (service *Service) Login(ctx context.Context, usernameInput, passwordInput string) (Session, error) {
+	identity, err := service.verifyLogin(ctx, usernameInput, passwordInput)
+	if err != nil {
+		return Session{}, err
+	}
+	prepared, err := service.prepareSession()
+	if err != nil {
+		return Session{}, err
+	}
+	now := service.now().UTC().UnixMilli()
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return Session{}, fmt.Errorf("begin login: %w", err)
+	}
+	defer cleanup.Rollback(transaction)
+	result, err := transaction.ExecContext(ctx, `
+UPDATE users SET last_login_at_ms=?,updated_at_ms=?
+WHERE id=? AND status='ENABLED' AND session_version=?
+`, now, now, identity.userID, identity.sessionVersion)
+	if err != nil {
+		return Session{}, fmt.Errorf("record login: %w", err)
+	}
+	if changed, _ := result.RowsAffected(); changed != 1 {
+		return Session{}, ErrAuthentication
+	}
+	if err := insertPreparedSession(
+		ctx, transaction, prepared, identity.userID, identity.sessionVersion, now,
+	); err != nil {
+		return Session{}, err
+	}
+	if err := transaction.Commit(); err != nil {
+		return Session{}, fmt.Errorf("commit login: %w", err)
+	}
+	return prepared.view(
+		User{
+			UserID: identity.userID, Username: identity.username,
+			DisplayName: identity.displayName, Role: identity.role,
+		},
+		identity.profileID, identity.sessionVersion, now,
+	), nil
+}
+
+type loginIdentity struct {
+	userID, profileID, username, displayName, role string
+	sessionVersion                                 int64
+}
+
+func (service *Service) verifyLogin(
+	ctx context.Context,
+	usernameInput, passwordInput string,
+) (loginIdentity, error) {
 	username, usernameErr := authn.NormalizeUsername(usernameInput)
 	password, passwordErr := authn.NormalizeLoginPassword(passwordInput)
 	var userID, profileID, displayName, role, status, encoded string
@@ -302,43 +382,15 @@ FROM users u JOIN user_credentials c ON c.user_id=u.id WHERE u.username=?
 	}
 	verified, verifyErr := service.hasher.Verify(ctx, password, encoded)
 	if verifyErr != nil {
-		return Session{}, fmt.Errorf("verify login password: %w", verifyErr)
+		return loginIdentity{}, fmt.Errorf("verify login password: %w", verifyErr)
 	}
 	if usernameErr != nil || passwordErr != nil || lookupErr != nil || !verified || status != "ENABLED" {
-		return Session{}, ErrAuthentication
+		return loginIdentity{}, ErrAuthentication
 	}
-	prepared, err := service.prepareSession()
-	if err != nil {
-		return Session{}, err
-	}
-	now := service.now().UTC().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return Session{}, fmt.Errorf("begin login: %w", err)
-	}
-	defer cleanup.Rollback(transaction)
-	result, err := transaction.ExecContext(ctx, `
-UPDATE users SET last_login_at_ms=?,updated_at_ms=?
-WHERE id=? AND status='ENABLED' AND session_version=?
-`, now, now, userID, sessionVersion)
-	if err != nil {
-		return Session{}, fmt.Errorf("record login: %w", err)
-	}
-	if changed, _ := result.RowsAffected(); changed != 1 {
-		return Session{}, ErrAuthentication
-	}
-	if err := insertPreparedSession(ctx, transaction, prepared, userID, sessionVersion, now); err != nil {
-		return Session{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Session{}, fmt.Errorf("commit login: %w", err)
-	}
-	return prepared.view(
-		User{UserID: userID, Username: username, DisplayName: displayName, Role: role},
-		profileID,
-		sessionVersion,
-		now,
-	), nil
+	return loginIdentity{
+		userID: userID, profileID: profileID, username: username,
+		displayName: displayName, role: role, sessionVersion: sessionVersion,
+	}, nil
 }
 
 func (service *Service) Authenticate(ctx context.Context, token string) (Session, error) {
@@ -400,63 +452,89 @@ WHERE id=? AND revoked_at_ms IS NULL
 	return nil
 }
 
-//nolint:funlen,gocyclo // Password rotation, revocation, and replacement session issuance must remain atomic.
+// Password rotation, revocation, and replacement session issuance must remain atomic.
 func (service *Service) ChangePassword(
 	ctx context.Context,
 	principal authn.Principal,
 	currentPassword, newPassword, confirmation string,
 ) (Session, error) {
-	current, err := authn.NormalizeLoginPassword(currentPassword)
-	if err != nil {
-		return Session{}, ErrAuthentication
-	}
-	var encoded string
-	if err := service.database.QueryRowContext(ctx, `
-SELECT password_hash FROM user_credentials WHERE user_id=?
-`, principal.UserID).Scan(&encoded); err != nil {
-		return Session{}, ErrAuthentication
-	}
-	ok, err := service.hasher.Verify(ctx, current, encoded)
-	if err != nil || !ok {
-		return Session{}, ErrAuthentication
-	}
-	normalized, err := authn.ValidatePassword(
-		newPassword, confirmation, principal.Username, principal.DisplayName, service.blocklist,
-	)
-	if err != nil {
-		return Session{}, fmt.Errorf("validate replacement password: %w", err)
-	}
-	newHash, err := service.hasher.Hash(ctx, normalized)
-	if err != nil {
-		return Session{}, fmt.Errorf("hash replacement password: %w", err)
-	}
-	prepared, err := service.prepareSession()
+	input, err := service.preparePasswordChange(ctx, principal, currentPassword, newPassword, confirmation)
 	if err != nil {
 		return Session{}, err
 	}
-	now := service.now().UTC().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return Session{}, fmt.Errorf("begin password change: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
+	return persistPasswordChange(ctx, transaction, principal, input)
+}
+
+type passwordChangeInput struct {
+	newHash string
+	session preparedSession
+	now     int64
+}
+
+func (service *Service) preparePasswordChange(
+	ctx context.Context,
+	principal authn.Principal,
+	currentPassword, newPassword, confirmation string,
+) (passwordChangeInput, error) {
+	current, err := authn.NormalizeLoginPassword(currentPassword)
+	if err != nil {
+		return passwordChangeInput{}, ErrAuthentication
+	}
+	var encoded string
+	if err := service.database.QueryRowContext(ctx, `
+SELECT password_hash FROM user_credentials WHERE user_id=?
+`, principal.UserID).Scan(&encoded); err != nil {
+		return passwordChangeInput{}, ErrAuthentication
+	}
+	ok, err := service.hasher.Verify(ctx, current, encoded)
+	if err != nil || !ok {
+		return passwordChangeInput{}, ErrAuthentication
+	}
+	normalized, err := authn.ValidatePassword(
+		newPassword, confirmation, principal.Username, principal.DisplayName, service.blocklist,
+	)
+	if err != nil {
+		return passwordChangeInput{}, fmt.Errorf("validate replacement password: %w", err)
+	}
+	newHash, err := service.hasher.Hash(ctx, normalized)
+	if err != nil {
+		return passwordChangeInput{}, fmt.Errorf("hash replacement password: %w", err)
+	}
+	prepared, err := service.prepareSession()
+	if err != nil {
+		return passwordChangeInput{}, err
+	}
+	return passwordChangeInput{newHash: newHash, session: prepared, now: service.now().UTC().UnixMilli()}, nil
+}
+
+func persistPasswordChange(
+	ctx context.Context,
+	transaction *sql.Tx,
+	principal authn.Principal,
+	input passwordChangeInput,
+) (Session, error) {
 	var version int64
 	var status, role string
 	if err := transaction.QueryRowContext(ctx, `
 UPDATE users SET session_version=session_version+1,version=version+1,updated_at_ms=?
 WHERE id=? AND status='ENABLED' RETURNING session_version,status,role
-`, now, principal.UserID).Scan(&version, &status, &role); err != nil {
+`, input.now, principal.UserID).Scan(&version, &status, &role); err != nil {
 		return Session{}, ErrAuthenticationNeeded
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE user_credentials SET password_hash=?,password_changed_at_ms=? WHERE user_id=?
-	`, newHash, now, principal.UserID); err != nil {
+	`, input.newHash, input.now, principal.UserID); err != nil {
 		return Session{}, fmt.Errorf("replace password credential: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE auth_sessions SET revoked_at_ms=?,revoked_reason='PASSWORD_CHANGED'
 WHERE user_id=? AND revoked_at_ms IS NULL
-	`, now, principal.UserID); err != nil {
+	`, input.now, principal.UserID); err != nil {
 		return Session{}, fmt.Errorf("revoke password-change sessions: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -466,30 +544,30 @@ AND target_user_id=?
 AND consumed_at_ms IS NULL
 AND revoked_at_ms IS NULL
 AND expires_at_ms>?
-`, now, principal.UserID, now); err != nil {
+`, input.now, principal.UserID, input.now); err != nil {
 		return Session{}, fmt.Errorf("revoke password-reset links: %w", err)
 	}
 	if principal.Username == "test" {
 		_, _ = transaction.ExecContext(ctx, `
 UPDATE instance_state SET test_default_password_active=0,version=version+1,updated_at_ms=?
 WHERE id=1 AND test_default_password_active=1
-`, now)
+`, input.now)
 	}
-	if err := insertPreparedSession(ctx, transaction, prepared, principal.UserID, version, now); err != nil {
+	if err := insertPreparedSession(ctx, transaction, input.session, principal.UserID, version, input.now); err != nil {
 		return Session{}, err
 	}
 	if err := insertUserAudit(
 		ctx, transaction, principal, "PASSWORD_CHANGED", "USER", principal.UserID,
-		map[string]any{"sessionVersion": version - 1}, map[string]any{"sessionVersion": version}, now,
+		map[string]any{"sessionVersion": version - 1}, map[string]any{"sessionVersion": version}, input.now,
 	); err != nil {
 		return Session{}, err
 	}
 	if err := transaction.Commit(); err != nil {
 		return Session{}, fmt.Errorf("commit password change: %w", err)
 	}
-	return prepared.view(User{
+	return input.session.view(User{
 		UserID: principal.UserID, Username: principal.Username, DisplayName: principal.DisplayName, Role: role,
-	}, principal.ProfileID, version, now), nil
+	}, principal.ProfileID, version, input.now), nil
 }
 
 func (service *Service) Context(ctx context.Context, cookie string) (Context, error) {

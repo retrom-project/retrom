@@ -23,7 +23,7 @@ export function NetplayRoomList({ active, recent }: { active: NetplayRoom[]; rec
   const [error, setError] = useState("");
 
   async function createRoom() {
-    if (creating) return;
+    if (creating) {return;}
     setCreating(true); setError("");
     try {
       const room = await roomMutation<NetplayRoom>(authenticatedFetch, "/api/v1/netplay/rooms", "POST", { body: {} });

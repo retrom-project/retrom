@@ -11,15 +11,14 @@ import (
 	"testing"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestRealDATStatisticsMatchManifest(t *testing.T) {
 	t.Parallel()
 	manifestPath := filepath.Join("..", "..", "data", "dat", "emulatorjs", "4.2.3", "manifest.json")
 	contents, err := os.ReadFile(manifestPath)
-	if err != nil {
-		t.Fatalf("read manifest: %v", err)
-	}
+	testassert.Falsef(t, err != nil, "read manifest: %v", err)
 	var manifest struct {
 		Cores []struct {
 			CoreID string `json:"core_id"`
@@ -41,17 +40,11 @@ func TestRealDATStatisticsMatchManifest(t *testing.T) {
 			t.Parallel()
 			path := filepath.Join(filepath.Dir(manifestPath), filepath.FromSlash(core.DAT.LocalPath))
 			file, err := os.Open(path)
-			if err != nil {
-				t.Fatalf("open DAT: %v", err)
-			}
+			testassert.Falsef(t, err != nil, "open DAT: %v", err)
 			defer func() { cleanup.Error("close", file.Close()) }()
 			actual, err := Parse(context.Background(), file, core.CoreID)
-			if err != nil {
-				t.Fatalf("Parse() error = %v", err)
-			}
-			if !reflect.DeepEqual(actual, core.ParseStats) {
-				t.Fatalf("stats mismatch\nactual: %+v\nwant:   %+v", actual, core.ParseStats)
-			}
+			testassert.Falsef(t, err != nil, "Parse() error = %v", err)
+			testassert.Truef(t, reflect.DeepEqual(actual, core.ParseStats), "stats mismatch\nactual: %+v\nwant:   %+v", actual, core.ParseStats)
 		})
 	}
 }

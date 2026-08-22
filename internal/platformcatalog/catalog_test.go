@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"retrom/internal/contentprofile"
+	"retrom/internal/testassert"
 )
 
 func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
@@ -13,13 +14,9 @@ func TestCurrentCatalogIsValidAndReturnsDeepCopy(t *testing.T) {
 	if err := Validate(catalog); err != nil {
 		t.Fatalf("Validate() error = %v", err)
 	}
-	if catalog.Version != 1 || len(catalog.Templates) != 27 {
-		t.Fatalf("catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return catalog.Version != 1 }, func() bool { return len(catalog.Templates) != 27 }), "catalog = version:%d templates:%d", catalog.Version, len(catalog.Templates))
 	catalog.Templates[0].Name = "changed"
-	if Current().Templates[0].Name != "NES 游戏" {
-		t.Fatal("Current returned mutable catalog storage")
-	}
+	testassert.False(t, Current().Templates[0].Name != "NES 游戏", "Current returned mutable catalog storage")
 }
 
 func TestCatalogConsolidatesFDSAndMAME2003(t *testing.T) {
@@ -29,9 +26,7 @@ func TestCatalogConsolidatesFDSAndMAME2003(t *testing.T) {
 	for _, template := range catalog.Templates {
 		keys = append(keys, template.Key)
 	}
-	if slices.Contains(keys, "fds/fceumm") || slices.Contains(keys, "arcade/mame2003") {
-		t.Fatalf("retired recommendations remained: %#v", keys)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return slices.Contains(keys, "fds/fceumm") }, func() bool { return slices.Contains(keys, "arcade/mame2003") }), "retired recommendations remained: %#v", keys)
 	if got := contentprofile.SupportedExtensions("nes"); !slices.Equal(got, []string{".nes", ".unf", ".unif", ".fds"}) {
 		t.Fatalf("NES extensions = %#v", got)
 	}
@@ -39,14 +34,10 @@ func TestCatalogConsolidatesFDSAndMAME2003(t *testing.T) {
 	for _, template := range catalog.Templates {
 		if template.PlatformID == "arcade" {
 			arcadeCount++
-			if !slices.Equal(contentprofile.SupportedExtensions(template.PlatformID), []string{".zip"}) {
-				t.Fatalf("Arcade extensions for %s are invalid", template.Key)
-			}
+			testassert.Truef(t, slices.Equal(contentprofile.SupportedExtensions(template.PlatformID), []string{".zip"}), "Arcade extensions for %s are invalid", template.Key)
 		}
 	}
-	if arcadeCount != 4 {
-		t.Fatalf("Arcade recommendation count = %d", arcadeCount)
-	}
+	testassert.Falsef(t, arcadeCount != 4, "Arcade recommendation count = %d", arcadeCount)
 }
 
 func TestValidateRejectsDuplicateAndMalformedTemplates(t *testing.T) {

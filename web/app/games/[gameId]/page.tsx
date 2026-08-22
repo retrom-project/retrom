@@ -23,9 +23,9 @@ type GameDetail = {
 };
 
 function formatPlayTime(value: number) {
-  if (value < 60_000) return "少于 1 分钟";
+  if (value < 60_000) {return "少于 1 分钟";}
   const minutes = Math.floor(value / 60_000);
-  if (minutes < 60) return `${minutes} 分钟`;
+  if (minutes < 60) {return `${minutes} 分钟`;}
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return remainder ? `${hours} 小时 ${remainder} 分钟` : `${hours} 小时`;

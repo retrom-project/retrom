@@ -17,6 +17,7 @@ import (
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
+	"retrom/internal/testassert"
 )
 
 func accountCommandFixture(t *testing.T, mode config.Mode) (config.Maintenance, *retromruntime.Credentials) {
@@ -24,19 +25,13 @@ func accountCommandFixture(t *testing.T, mode config.Mode) (config.Maintenance, 
 	root := t.TempDir()
 	databasePath := filepath.Join(root, "retrom.db")
 	database, err := store.Open(context.Background(), databasePath, time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(root)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	service, err := accounts.New(
 		context.Background(), database.SQL, credentials, mode, authn.EmptyBlocklist{}, time.Now,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := service.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -54,29 +49,19 @@ func TestReadSetupCodeCommandDoesNotModifyDatabase(t *testing.T) {
 	t.Parallel()
 	configuration, credentials := accountCommandFixture(t, config.ModeRelease)
 	before, err := os.ReadFile(configuration.DBPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	code, err := readSetupCode(context.Background(), configuration)
-	if err != nil || code != credentials.SetupCode() {
-		t.Fatalf("readSetupCode() = %q, %v", code, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return code != credentials.SetupCode() }), "readSetupCode() = %q, %v", code, err)
 	after, err := os.ReadFile(configuration.DBPath)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !bytes.Equal(before, after) {
-		t.Fatal("setup-code command modified the database")
-	}
+	testassert.False(t, err != nil, err)
+	testassert.True(t, bytes.Equal(before, after), "setup-code command modified the database")
 }
 
 func TestResetOfflineAdminRequiresLockAndTTYConfirmation(t *testing.T) {
 	t.Parallel()
 	configuration, _ := accountCommandFixture(t, config.ModeTest)
 	lock, err := processlock.Acquire(configuration.DataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	readCount := 0
 	if err := resetOfflineAdmin(
 		context.Background(), configuration, "test", func(string) (string, error) {
@@ -102,25 +87,17 @@ func TestResetOfflineAdminRequiresLockAndTTYConfirmation(t *testing.T) {
 	); err != nil {
 		t.Fatal(err)
 	}
-	if len(prompts) != 2 || prompts[0] == prompts[1] {
-		t.Fatalf("offline reset prompts = %#v", prompts)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return len(prompts) != 2 }, func() bool { return prompts[0] == prompts[1] }), "offline reset prompts = %#v", prompts)
 
 	database, err := store.Open(context.Background(), configuration.DBPath, time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 	credentials, err := retromruntime.LoadCredentials(configuration.DataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	service, err := accounts.New(
 		context.Background(), database.SQL, credentials, config.ModeRelease, authn.EmptyBlocklist{}, time.Now,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := service.Start(context.Background()); err != nil {
 		t.Fatal(err)
 	}

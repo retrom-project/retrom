@@ -43,9 +43,9 @@ function hasReviewMetadata(item: ReviewQueueItem) {
 }
 
 function formatBytes(value: number) {
-  if (value < 1024) return `${value} B`;
-  if (value < 1024 ** 2) return `${(value / 1024).toFixed(1)} KiB`;
-  if (value < 1024 ** 3) return `${(value / 1024 ** 2).toFixed(1)} MiB`;
+  if (value < 1024) {return `${value} B`;}
+  if (value < 1024 ** 2) {return `${(value / 1024).toFixed(1)} KiB`;}
+  if (value < 1024 ** 3) {return `${(value / 1024 ** 2).toFixed(1)} MiB`;}
   return `${(value / 1024 ** 3).toFixed(2)} GiB`;
 }
 
@@ -56,8 +56,8 @@ export function ReviewQueueRecovery({ active, values }: { active: boolean; value
   const [toast, setToast] = useState(active ? { message: "审核条目已处理或不再可用，待审核队列已刷新。", tone: "warn" as const } : null);
 
   useEffect(() => {
-    if (!active) return;
-    if (storageKey) sessionStorage.removeItem(storageKey);
+    if (!active) {return;}
+    if (storageKey) {sessionStorage.removeItem(storageKey);}
     const current = new URL(window.location.href);
     current.searchParams.delete("reviewNotice");
     window.history.replaceState(window.history.state, "", `${current.pathname}${current.search}${current.hash}`);
@@ -86,15 +86,15 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
     missing: items.filter((item) => !hasReviewMetadata(item)).length,
   }), [items]);
   const visibleItems = useMemo(() => items.filter((item) => {
-    if (summaryFilter === "READY") return item.validationStatus === "READY" && item.blockerCodes.length === 0;
-    if (summaryFilter === "ABNORMAL") return item.validationStatus !== "READY" || item.blockerCodes.length > 0;
-    if (summaryFilter === "MISSING") return !hasReviewMetadata(item);
+    if (summaryFilter === "READY") {return item.validationStatus === "READY" && item.blockerCodes.length === 0;}
+    if (summaryFilter === "ABNORMAL") {return item.validationStatus !== "READY" || item.blockerCodes.length > 0;}
+    if (summaryFilter === "MISSING") {return !hasReviewMetadata(item);}
     return true;
   }), [items, summaryFilter]);
 
   useEffect(() => {
     if (resetPersisted) {
-      if (storageKey) sessionStorage.removeItem(storageKey);
+      if (storageKey) {sessionStorage.removeItem(storageKey);}
       persistenceReady.current = true;
       return;
     }
@@ -119,17 +119,17 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
   }, [initial.items.length, resetPersisted, storageKey]);
 
   useEffect(() => {
-    if (!persistenceReady.current || !storageKey) return;
+    if (!persistenceReady.current || !storageKey) {return;}
     sessionStorage.setItem(storageKey, JSON.stringify({ items, nextCursor, scrollY: window.scrollY }));
   }, [items, nextCursor, storageKey]);
 
   function remember() {
-    if (!storageKey) return;
+    if (!storageKey) {return;}
     sessionStorage.setItem(storageKey, JSON.stringify({ items, nextCursor, scrollY: window.scrollY }));
   }
 
   const loadMore = useCallback(async () => {
-    if (!nextCursor || loadMoreRequest.current) return;
+    if (!nextCursor || loadMoreRequest.current) {return;}
     loadMoreRequest.current = true;
     setLoading(true);
     setError("");
@@ -138,7 +138,7 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
       query.set("cursor", nextCursor);
       query.set("limit", "20");
       const response = await fetch(`/api/v1/admin/reviews?${query}`, { cache: "no-store" });
-      if (!response.ok) throw new Error("无法加载下一页待审条目");
+      if (!response.ok) {throw new Error("无法加载下一页待审条目");}
       const page = await response.json() as ListResponse<ReviewQueueItem>;
       setItems((current) => {
         const seen = new Set(current.map((item) => item.itemId));
@@ -155,14 +155,14 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
 
   useEffect(() => {
     const target = loadMoreRef.current;
-    if (!target || !nextCursor || typeof IntersectionObserver === "undefined") return;
+    if (!target || !nextCursor || typeof IntersectionObserver === "undefined") {return;}
     const observer = new IntersectionObserver((entries) => {
       const intersects = entries.some((entry) => entry.isIntersecting);
       if (!intersects) {
         autoLoadArmed.current = true;
         return;
       }
-      if (!autoLoadArmed.current) return;
+      if (!autoLoadArmed.current) {return;}
       autoLoadArmed.current = false;
       void loadMore();
     }, { rootMargin: "320px 0px" });
@@ -177,16 +177,44 @@ export function ReviewQueue({ initial, values, resetPersisted = false }: { initi
       <button type="button" className={summaryFilter === "ABNORMAL" ? "is-active" : ""} onClick={() => setSummaryFilter("ABNORMAL")}>运行异常 {counts.abnormal}</button>
       <button type="button" className={summaryFilter === "MISSING" ? "is-active" : ""} onClick={() => setSummaryFilter("MISSING")}>未找到信息 {counts.missing}</button>
     </div>
-    <div className="review-workflow-list">{visibleItems.map((item) => <article className="review-workflow-row" key={item.itemId} data-review-item={item.itemId}>
-      <div className="review-workflow-game"><div className="review-workflow-thumb">{item.coverUrl ? <Image src={item.coverUrl} alt={`${item.draftTitle} 封面缩略图`} width={56} height={56} unoptimized /> : <span role="img" aria-label={`${item.draftTitle} 暂无封面`}>{item.draftTitle.slice(0, 2).toUpperCase() || "R"}</span>}</div><div><h3>{item.draftTitle}{item.sourceKind === "PEGASUS" ? <span className="review-source-tag">Pegasus{item.sourceLabel ? ` · ${item.sourceLabel}` : ""}</span> : null}</h3><TagChips tags={item.tags ?? []} limit={2} label={`${item.draftTitle} 的标签`} /><p title={item.sourceDisplayName}><span>{item.sourceDisplayName}</span> · <span>{formatBytes(item.sourceTotalSizeBytes)}</span> · <code title={item.sourceMd5 ? `MD5 ${item.sourceMd5}` : "MD5 暂不可用"}>{item.sourceMd5 ? `MD5 ${item.sourceMd5.slice(0, 4)}…` : "MD5 暂不可用"}</code></p></div></div>
-      <div className="review-workflow-directory">{item.platformInstance.name}</div>
-      <StatusBadge tone={statusTone(item.blockerCodes[0] ?? item.validationStatus)}>{validationLabels[item.validationStatus] ?? item.validationStatus}{item.blockerCodes.length ? " · 需要处理" : ""}</StatusBadge>
-      <div className="review-workflow-candidate"><strong>{item.sourceKind === "PEGASUS" ? "已读取 Pegasus 信息" : item.candidateCount ? "已找到游戏信息" : "未找到游戏信息"}</strong><small>{item.sourceKind === "PEGASUS" ? "等待管理员核对" : item.candidateCount ? `${item.candidateCount} 个候选` : "需要手动填写"}</small></div>
-      <div className="review-workflow-wait"><strong>{formatTime(item.updatedAtMs)}</strong><small>更新时间</small></div>
-      <Link prefetch={false} aria-label={item.validationStatus === "READY" && !item.blockerCodes.length ? "审核条目" : "处理条目"} className={item.validationStatus === "READY" && !item.blockerCodes.length ? "button" : "button secondary"} onClick={remember} href={`/admin/reviews/${item.itemId}?returnTo=${encodeURIComponent(listURL)}`}>{item.validationStatus === "READY" && !item.blockerCodes.length ? "审核" : "处理"}</Link>
-    </article>)}</div>
+    <div className="review-workflow-list">{visibleItems.map((item) => <ReviewQueueRow
+      item={item}
+      key={item.itemId}
+      listURL={listURL}
+      onRemember={remember}
+    />)}</div>
     {!visibleItems.length ? <div className="import-workflow-empty"><h2>已加载条目中没有匹配项</h2><p>继续向下滚动会加载下一页，或切换上方筛选。</p></div> : null}
     <div ref={loadMoreRef} className="infinite-scroll-sentinel" aria-hidden="true" />
     <div className="queue-footer"><span>当前筛选显示 {visibleItems.length} / 已加载 {items.length} 条</span>{nextCursor ? <button type="button" className="button secondary" disabled={loading} onClick={() => void loadMore()}>{loading ? "正在加载下一页…" : "继续加载"}</button> : <span className="status good"><i />已加载当前搜索条件的全部条目</span>}{error ? <span role="alert" className="status bad"><i />{error}</span> : null}</div>
   </section>;
+}
+
+function ReviewQueueRow({ item, listURL, onRemember }: {
+  item: ReviewQueueItem;
+  listURL: string;
+  onRemember: () => void;
+}) {
+  const ready = item.validationStatus === "READY" && item.blockerCodes.length === 0;
+  const [candidateTitle, candidateDetail] = reviewCandidateCopy(item);
+  return <article className="review-workflow-row" data-review-item={item.itemId}>
+    <ReviewQueueGame item={item} />
+    <div className="review-workflow-directory">{item.platformInstance.name}</div>
+    <StatusBadge tone={statusTone(item.blockerCodes[0] ?? item.validationStatus)}>{validationLabels[item.validationStatus] ?? item.validationStatus}{item.blockerCodes.length ? " · 需要处理" : ""}</StatusBadge>
+    <div className="review-workflow-candidate"><strong>{candidateTitle}</strong><small>{candidateDetail}</small></div>
+    <div className="review-workflow-wait"><strong>{formatTime(item.updatedAtMs)}</strong><small>更新时间</small></div>
+    <Link prefetch={false} aria-label={ready ? "审核条目" : "处理条目"} className={ready ? "button" : "button secondary"} onClick={onRemember} href={`/admin/reviews/${item.itemId}?returnTo=${encodeURIComponent(listURL)}`}>{ready ? "审核" : "处理"}</Link>
+  </article>;
+}
+
+function reviewCandidateCopy(item: ReviewQueueItem): [string, string] {
+  if (item.sourceKind === "PEGASUS") {return ["已读取 Pegasus 信息", "等待管理员核对"];}
+  if (item.candidateCount > 0) {return ["已找到游戏信息", `${item.candidateCount} 个候选`];}
+  return ["未找到游戏信息", "需要手动填写"];
+}
+
+function ReviewQueueGame({ item }: { item: ReviewQueueItem }) {
+  const pegasus = item.sourceKind === "PEGASUS";
+  const md5Title = item.sourceMd5 ? `MD5 ${item.sourceMd5}` : "MD5 暂不可用";
+  const md5Label = item.sourceMd5 ? `MD5 ${item.sourceMd5.slice(0, 4)}…` : "MD5 暂不可用";
+  return <div className="review-workflow-game"><div className="review-workflow-thumb">{item.coverUrl ? <Image src={item.coverUrl} alt={`${item.draftTitle} 封面缩略图`} width={56} height={56} unoptimized /> : <span role="img" aria-label={`${item.draftTitle} 暂无封面`}>{item.draftTitle.slice(0, 2).toUpperCase() || "R"}</span>}</div><div><h3>{item.draftTitle}{pegasus ? <span className="review-source-tag">Pegasus{item.sourceLabel ? ` · ${item.sourceLabel}` : ""}</span> : null}</h3><TagChips tags={item.tags ?? []} limit={2} label={`${item.draftTitle} 的标签`} /><p title={item.sourceDisplayName}><span>{item.sourceDisplayName}</span> · <span>{formatBytes(item.sourceTotalSizeBytes)}</span> · <code title={md5Title}>{md5Label}</code></p></div></div>;
 }

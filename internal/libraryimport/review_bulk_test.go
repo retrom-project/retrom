@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"database/sql"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence(t *testing.T) {
@@ -21,9 +23,7 @@ func TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence(t *test
 		validationPlatformVersion: sql.NullInt64{Int64: 3, Valid: true},
 		validationArtifactVersion: sql.NullInt64{Int64: 4, Valid: true},
 	}
-	if !preliminaryQuickApprovalReady(ready) {
-		t.Fatal("current READY evidence was rejected")
-	}
+	testassert.True(t, preliminaryQuickApprovalReady(ready), "current READY evidence was rejected")
 
 	tests := []struct {
 		name   string
@@ -42,9 +42,7 @@ func TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence(t *test
 		t.Run(test.name, func(t *testing.T) {
 			candidate := ready
 			test.mutate(&candidate)
-			if preliminaryQuickApprovalReady(candidate) {
-				t.Fatal("non-strict candidate was accepted")
-			}
+			testassert.False(t, preliminaryQuickApprovalReady(candidate), "non-strict candidate was accepted")
 		})
 	}
 }

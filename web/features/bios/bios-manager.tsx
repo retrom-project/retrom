@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type RefObject } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Toast } from "@/components/flash-toast";
@@ -54,8 +54,8 @@ const entryStatusLabels: Record<ArchiveEntryComparison["status"], string> = {
 };
 
 function tone(status: string): "good" | "warn" | "bad" {
-  if (["MATCHED", "SATISFIED_BY_CONTENT"].includes(status)) return "good";
-  if (["MISSING", "MISSING_ENTRY", "INVALID"].includes(status)) return "bad";
+  if (["MATCHED", "SATISFIED_BY_CONTENT"].includes(status)) {return "good";}
+  if (["MISSING", "MISSING_ENTRY", "INVALID"].includes(status)) {return "bad";}
   return "warn";
 }
 
@@ -63,8 +63,8 @@ function updateURL(scope: Scope, filters: BIOSFilters) {
   const params = new URLSearchParams(window.location.search);
   const values: Record<string, string> = { scope, q: filters.query.trim(), coreId: filters.coreId, status: filters.status, quick: filters.quick === "ALL" ? "" : filters.quick };
   for (const [name, value] of Object.entries(values)) {
-    if (value) params.set(name, value);
-    else params.delete(name);
+    if (value) {params.set(name, value);}
+    else {params.delete(name);}
   }
   const query = params.toString();
   window.history.replaceState(window.history.state, "", `${window.location.pathname}${query ? `?${query}` : ""}`);
@@ -88,33 +88,159 @@ function filtersFromLocation(): { scope: Scope; filters: BIOSFilters } {
   };
 }
 
-function BIOSRow({ item, currentLibrary, busy, inputRef, onInstall, onInspect }: {
+type BIOSRowProps = {
   item: BIOSRequirement;
   currentLibrary: boolean;
   busy: string | null;
   inputRef: (element: HTMLInputElement | null) => void;
   onInstall: (item: BIOSRequirement, file: File) => void;
   onInspect: (item: BIOSRequirement) => void;
+};
+
+function BIOSFileCell({ installed, item, onInspect }: {
+  installed: BIOSRequirement["activeInstallation"];
+  item: BIOSRequirement;
+  onInspect: BIOSRowProps["onInspect"];
 }) {
-  const installed = item.activeInstallation;
-  const canUpload = true;
-  return <article className="runtime-bios-row" role="row">
-    <div className="runtime-bios-file" role="cell">
-      <span className="runtime-file-mark" aria-hidden="true">{item.logicalName.toLowerCase().endsWith(".zip") ? "ZIP" : "BIOS"}</span>
-      <div><h3>{item.sourceKind === "DAT_MACHINE" && installed ? <button className="runtime-bios-inspect" type="button" onClick={() => onInspect(item)}>{item.logicalName}</button> : item.logicalName}</h3><p>{requirementLabels[item.requirementMode] ?? item.requirementMode}{item.conditionCode ? " · 按游戏内容决定是否需要" : ""}</p>
-        {(item.expectedMd5 || installed?.md5) ? <dl className="runtime-technical">
-          {item.expectedMd5 ? <><dt>期望 MD5</dt><dd><code>{item.expectedMd5}</code></dd></> : null}
-          {installed?.md5 ? <><dt>当前 MD5</dt><dd><code>{installed.md5}</code></dd></> : null}
-        </dl> : null}
-      </div>
+  const name = item.sourceKind === "DAT_MACHINE" && installed
+    ? <button className="runtime-bios-inspect" type="button" onClick={() => onInspect(item)}>{item.logicalName}</button>
+    : item.logicalName;
+  return <div className="runtime-bios-file" role="cell">
+    <span className="runtime-file-mark" aria-hidden="true">{item.logicalName.toLowerCase().endsWith(".zip") ? "ZIP" : "BIOS"}</span>
+    <div><h3>{name}</h3><p>{requirementLabels[item.requirementMode] ?? item.requirementMode}{item.conditionCode ? " · 按游戏内容决定是否需要" : ""}</p>
+      {(item.expectedMd5 || installed?.md5) ? <dl className="runtime-technical">
+        {item.expectedMd5 ? <><dt>期望 MD5</dt><dd><code>{item.expectedMd5}</code></dd></> : null}
+        {installed?.md5 ? <><dt>当前 MD5</dt><dd><code>{installed.md5}</code></dd></> : null}
+      </dl> : null}
     </div>
+  </div>;
+}
+
+function BIOSUsage({ currentLibrary, item }: { currentLibrary: boolean; item: BIOSRequirement }) {
+  const headline = currentLibrary
+    ? (isBIOSAttention(item) ? "当前游戏库需要处理" : "当前游戏库已就绪")
+    : "完整核心目录项";
+  const detail = item.requirementMode === "OPTIONAL"
+    ? "未安装不会作为必需依赖阻断"
+    : item.status === "HASH_WARNING" ? "校验警告允许启动，但建议核对文件" : "启动前会按当前运行方式检查";
+  return <div className="runtime-usage" role="cell"><strong>{headline}</strong><small>{detail}</small></div>;
+}
+
+function BIOSRowAction({ busy, inputRef, installed, item, onInstall }: {
+  busy: string | null;
+  inputRef: BIOSRowProps["inputRef"];
+  installed: BIOSRequirement["activeInstallation"];
+  item: BIOSRequirement;
+  onInstall: BIOSRowProps["onInstall"];
+}) {
+  const chooseFile = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {onInstall(item, file);}
+  };
+  return <div className="runtime-row-actions" role="cell">
+    <input ref={inputRef} hidden id={`bios-${item.id}`} type="file" disabled={busy !== null} onChange={chooseFile} />
+    <button className={`button ${isBIOSAttention(item) ? "" : "secondary"} compact`} type="button" disabled={busy !== null} onClick={() => document.getElementById(`bios-${item.id}`)?.click()}>{busy === item.id ? "验证中…" : installed ? "替换文件" : "选择 BIOS 文件"}</button>
+  </div>;
+}
+
+function BIOSRow({ item, currentLibrary, busy, inputRef, onInstall, onInspect }: BIOSRowProps) {
+  const installed = item.activeInstallation;
+  return <article className="runtime-bios-row" role="row">
+    <BIOSFileCell installed={installed} item={item} onInspect={onInspect} />
     <div className="runtime-core" role="cell"><strong>{item.coreName}</strong><small>{item.coreId}</small></div>
     <div role="cell"><StatusBadge tone={tone(item.status)}>{statusLabels[item.status] ?? item.status}</StatusBadge></div>
-    <div className="runtime-usage" role="cell"><strong>{currentLibrary ? (isBIOSAttention(item) ? "当前游戏库需要处理" : "当前游戏库已就绪") : "完整核心目录项"}</strong><small>{item.requirementMode === "OPTIONAL" ? "未安装不会作为必需依赖阻断" : item.status === "HASH_WARNING" ? "校验警告允许启动，但建议核对文件" : "启动前会按当前运行方式检查"}</small></div>
-    <div className="runtime-row-actions" role="cell">
-      {canUpload ? <><input ref={inputRef} hidden id={`bios-${item.id}`} type="file" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) onInstall(item, file); }} /><button className={`button ${isBIOSAttention(item) ? "" : "secondary"} compact`} type="button" disabled={busy !== null} onClick={() => document.getElementById(`bios-${item.id}`)?.click()}>{busy === item.id ? "验证中…" : installed ? "替换文件" : "选择 BIOS 文件"}</button></> : <span className="runtime-no-action">无需上传</span>}
-    </div>
+    <BIOSUsage currentLibrary={currentLibrary} item={item} />
+    <BIOSRowAction busy={busy} inputRef={inputRef} installed={installed} item={item} onInstall={onInstall} />
   </article>;
+}
+
+type BIOSResultsProps = {
+  announcement: string;
+  attention: BIOSRequirement[];
+  busy: string | null;
+  firstError: string;
+  firstLoading: boolean;
+  inputs: RefObject<Record<string, HTMLInputElement | null>>;
+  loadMore: () => Promise<void>;
+  nextError: string;
+  nextLoading: boolean;
+  onClear: () => void;
+  onInstall: BIOSRowProps["onInstall"];
+  onInspect: BIOSRowProps["onInspect"];
+  onReload: () => Promise<void>;
+  ready: BIOSRequirement[];
+  response: BIOSListResponse;
+  scope: Scope;
+  sentinel: RefObject<HTMLDivElement | null>;
+};
+
+function BIOSSection({ busy, currentLibrary, description, inputs, items, label, onInstall, onInspect, title }: {
+  busy: string | null;
+  currentLibrary: boolean;
+  description: string;
+  inputs: BIOSResultsProps["inputs"];
+  items: BIOSRequirement[];
+  label: string;
+  onInstall: BIOSRowProps["onInstall"];
+  onInspect: BIOSRowProps["onInspect"];
+  title: string;
+}) {
+  if (!items.length) {return null;}
+  return <section className="runtime-section">
+    <div className="runtime-section-heading"><div><h2>{title}</h2><p>{description}</p></div><span>{items.length} 项已加载</span></div>
+    <div className="runtime-list" role="table" aria-label={label}>{items.map((item) => <BIOSRow item={item} currentLibrary={currentLibrary} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={onInstall} onInspect={onInspect} key={item.id} />)}</div>
+  </section>;
+}
+
+function BIOSPagination({ announcement, loadMore, nextError, nextLoading, response, sentinel }: Pick<BIOSResultsProps, "announcement" | "loadMore" | "nextError" | "nextLoading" | "response" | "sentinel">) {
+  const progress = response.nextCursor
+    ? `已加载 ${response.items.length} / ${response.filteredCount} 项`
+    : `已加载全部 ${response.filteredCount} 项`;
+  const buttonLabel = nextLoading ? "正在加载下一批…" : nextError ? "重试加载下一页" : "加载更多";
+  return <>
+    <div className="runtime-pagination" ref={sentinel}>
+      <p>{progress}</p>
+      {nextError ? <p className="runtime-pagination-error">{nextError}</p> : null}
+      {response.nextCursor ? <button type="button" className="button secondary compact" disabled={nextLoading} onClick={() => void loadMore()}>{buttonLabel}</button> : null}
+    </div>
+    <p className="sr-only" aria-live="polite">{announcement}</p>
+  </>;
+}
+
+function LoadedBIOSResults(props: BIOSResultsProps) {
+  const currentLibrary = props.scope === "REQUIRED_BY_LIBRARY";
+  return <>
+    <BIOSSection busy={props.busy} currentLibrary={currentLibrary} description="优先展示会阻断游戏或需要管理员核对的依赖。" inputs={props.inputs} items={props.attention} label="需要处理的 BIOS 文件" onInstall={props.onInstall} onInspect={props.onInspect} title="需要处理" />
+    <BIOSSection busy={props.busy} currentLibrary={currentLibrary} description="这些依赖当前不会阻断游戏运行。" inputs={props.inputs} items={props.ready} label="已就绪的 BIOS 文件" onInstall={props.onInstall} onInspect={props.onInspect} title="已就绪与可选项" />
+    <BIOSPagination announcement={props.announcement} loadMore={props.loadMore} nextError={props.nextError} nextLoading={props.nextLoading} response={props.response} sentinel={props.sentinel} />
+  </>;
+}
+
+function BIOSResults(props: BIOSResultsProps) {
+  if (props.firstLoading) {return <section className="runtime-inline-empty" role="status"><span className="button-spinner" /><h2>正在加载 BIOS 目录</h2></section>;}
+  if (props.firstError) {return <section className="runtime-inline-empty"><h2>BIOS 列表加载失败</h2><p>{props.firstError}</p><button type="button" className="button secondary compact" onClick={() => void props.onReload()}>重试</button></section>;}
+  if (props.response.items.length === 0) {return <section className="runtime-inline-empty"><h2>没有符合条件的 BIOS 文件</h2><p>调整查看范围或清除筛选条件后再试。</p><button type="button" className="button secondary compact" onClick={props.onClear}>清除筛选</button></section>;}
+  return <LoadedBIOSResults {...props} />;
+}
+
+function ArchiveInspectionDialog({ archiveDialog, onClose }: {
+  archiveDialog: { item: BIOSRequirement; loading: boolean; error: string; inspection: ArchiveInspection | null } | null;
+  onClose: () => void;
+}) {
+  let content = null;
+  if (archiveDialog?.loading) {content = <p className="bios-entry-message">正在读取已安装 BIOS 的安全扫描结果…</p>;}
+  else if (archiveDialog?.error) {content = <p className="bios-entry-message is-error">{archiveDialog.error}</p>;}
+  else if (archiveDialog?.inspection) {content = <ArchiveComparisonLists inspection={archiveDialog.inspection} />;}
+  return <ConfirmDialog
+    open={archiveDialog !== null}
+    title={`${archiveDialog?.item.logicalName ?? "BIOS"} 内容对比`}
+    description="左侧为当前 DAT 要求，右侧为已安装 ZIP 内容；name、size、crc 表头统一位于列表上方。行背景表示状态，悬停可查看说明。"
+    confirmLabel="关闭"
+    hideCancel
+    wide
+    onConfirm={onClose}
+    onCancel={onClose}
+  >{content}</ConfirmDialog>;
 }
 
 export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRARY", initialFilters }: {
@@ -161,7 +287,7 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
       scope, q: filters.query.trim() || undefined, coreId: filters.coreId || undefined,
       status: filters.status || undefined, quick: filters.quick, cursor: cursor ?? undefined, limit: 100,
     } }, signal });
-    if (!data) throw new Error(await responseError(raw, "BIOS 列表读取失败"));
+    if (!data) {throw new Error(await responseError(raw, "BIOS 列表读取失败"));}
     return data;
   }, [filters, scope]);
 
@@ -170,32 +296,32 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
     setFirstLoading(true); setFirstError(""); setNextError("");
     try {
       const data = await requestPage(null);
-      if (current !== sequence.current) return;
+      if (current !== sequence.current) {return;}
       setResponse(data); setLoadedKey(queryKey(scope, filters));
     } catch (caught) {
-      if (current !== sequence.current || caught instanceof DOMException && caught.name === "AbortError") return;
+      if (current !== sequence.current || caught instanceof DOMException && caught.name === "AbortError") {return;}
       setFirstError(caught instanceof Error ? caught.message : "BIOS 列表读取失败");
     } finally {
-      if (current === sequence.current) setFirstLoading(false);
+      if (current === sequence.current) {setFirstLoading(false);}
     }
   }, [filters, requestPage, scope]);
 
   useEffect(() => {
     const key = queryKey(scope, filters);
-    if (key === loadedKey) return;
+    if (key === loadedKey) {return;}
     const controller = new AbortController();
     const current = ++sequence.current;
     const load = async () => {
       setFirstLoading(true); setFirstError(""); setNextError("");
       try {
         const data = await requestPage(null, controller.signal);
-        if (current !== sequence.current) return;
+        if (current !== sequence.current) {return;}
         setResponse(data); setLoadedKey(key);
       } catch (caught) {
-        if (current !== sequence.current || caught instanceof DOMException && caught.name === "AbortError") return;
+        if (current !== sequence.current || caught instanceof DOMException && caught.name === "AbortError") {return;}
         setFirstError(caught instanceof Error ? caught.message : "BIOS 列表读取失败");
       } finally {
-        if (current === sequence.current) setFirstLoading(false);
+        if (current === sequence.current) {setFirstLoading(false);}
       }
     };
     void load();
@@ -204,12 +330,12 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
 
   const loadMore = useCallback(async () => {
     const cursor = response.nextCursor;
-    if (!cursor || nextRequest.current) return;
+    if (!cursor || nextRequest.current) {return;}
     nextRequest.current = true; setNextLoading(true); setNextError("");
     const current = sequence.current;
     try {
       const page = await requestPage(cursor);
-      if (current !== sequence.current) return;
+      if (current !== sequence.current) {return;}
       setResponse((previous) => {
         const ids = new Set(previous.items.map((item) => item.id));
         const appended = page.items.filter((item) => !ids.has(item.id));
@@ -217,16 +343,16 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
         return { ...page, items: [...previous.items, ...appended] };
       });
     } catch (caught) {
-      if (current === sequence.current) setNextError(caught instanceof Error ? caught.message : "下一页读取失败");
+      if (current === sequence.current) {setNextError(caught instanceof Error ? caught.message : "下一页读取失败");}
     } finally {
       nextRequest.current = false; setNextLoading(false);
     }
   }, [requestPage, response.nextCursor]);
 
   useEffect(() => {
-    if (!response.nextCursor || typeof IntersectionObserver === "undefined") return;
-    const observer = new IntersectionObserver((entries) => { if (entries.some((entry) => entry.isIntersecting)) void loadMore(); }, { rootMargin: "600px 0px" });
-    if (sentinel.current) observer.observe(sentinel.current);
+    if (!response.nextCursor || typeof IntersectionObserver === "undefined") {return;}
+    const observer = new IntersectionObserver((entries) => { if (entries.some((entry) => entry.isIntersecting)) {void loadMore();} }, { rootMargin: "600px 0px" });
+    if (sentinel.current) {observer.observe(sentinel.current);}
     return () => observer.disconnect();
   }, [loadMore, response.nextCursor]);
 
@@ -245,7 +371,7 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
         headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${requirement.version}"`, "Idempotency-Key": newUuid() }),
         body: JSON.stringify({ uploadFileId: upload.uploadFileId }),
       });
-      if (!response.ok) throw new Error(await responseError(response, "BIOS 安装失败"));
+      if (!response.ok) {throw new Error(await responseError(response, "BIOS 安装失败"));}
       const installed = await response.json() as { status: string };
       setNotice(`BIOS 已安装：${statusLabels[installed.status] ?? "验证完成"}`);
       await reloadFirst();
@@ -254,7 +380,7 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
     } finally {
       setBusy(null);
       const input = inputs.current[requirement.id];
-      if (input) input.value = "";
+      if (input) {input.value = "";}
     }
   }
 
@@ -262,7 +388,7 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
     setArchiveDialog({ item: requirement, loading: true, error: "", inspection: null });
     try {
       const response = await fetch(`/api/v1/admin/bios/${requirement.id}/entries`, { credentials: "same-origin" });
-      if (!response.ok) throw new Error(await responseError(response, "BIOS 条目读取失败"));
+      if (!response.ok) {throw new Error(await responseError(response, "BIOS 条目读取失败"));}
       const inspection = await response.json() as ArchiveInspection;
       setArchiveDialog((current) => current?.item.id === requirement.id ? { ...current, loading: false, inspection } : current);
     } catch (caught) {
@@ -299,29 +425,27 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
 
     <div className="runtime-chips" aria-label="BIOS 快速筛选">{quickFilters.map(([value, label, count]) => <button type="button" className={filters.quick === value ? "is-active" : ""} aria-pressed={filters.quick === value} onClick={() => patchFilters({ quick: value })} key={value}>{label} {count}</button>)}</div>
 
-    {firstLoading ? <section className="runtime-inline-empty" role="status"><span className="button-spinner" /><h2>正在加载 BIOS 目录</h2></section> : firstError ? <section className="runtime-inline-empty"><h2>BIOS 列表加载失败</h2><p>{firstError}</p><button type="button" className="button secondary compact" onClick={() => void reloadFirst()}>重试</button></section> : response.items.length === 0 ? <section className="runtime-inline-empty"><h2>没有符合条件的 BIOS 文件</h2><p>调整查看范围或清除筛选条件后再试。</p><button type="button" className="button secondary compact" onClick={() => setFilters({ query: "", coreId: "", status: "", quick: "ALL" })}>清除筛选</button></section> : <>
-      {attention.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>需要处理</h2><p>优先展示会阻断游戏或需要管理员核对的依赖。</p></div><span>{attention.length} 项已加载</span></div><div className="runtime-list" role="table" aria-label="需要处理的 BIOS 文件">{attention.map((item) => <BIOSRow item={item} currentLibrary={scope === "REQUIRED_BY_LIBRARY"} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} onInspect={(requirement) => void inspectArchive(requirement)} key={item.id} />)}</div></section> : null}
-      {ready.length ? <section className="runtime-section"><div className="runtime-section-heading"><div><h2>已就绪与可选项</h2><p>这些依赖当前不会阻断游戏运行。</p></div><span>{ready.length} 项已加载</span></div><div className="runtime-list" role="table" aria-label="已就绪的 BIOS 文件">{ready.map((item) => <BIOSRow item={item} currentLibrary={scope === "REQUIRED_BY_LIBRARY"} busy={busy} inputRef={(element) => { inputs.current[item.id] = element; }} onInstall={(requirement, file) => void install(requirement, file)} onInspect={(requirement) => void inspectArchive(requirement)} key={item.id} />)}</div></section> : null}
-      <div className="runtime-pagination" ref={sentinel}>
-        <p>{response.nextCursor ? `已加载 ${response.items.length} / ${response.filteredCount} 项` : `已加载全部 ${response.filteredCount} 项`}</p>
-        {nextError ? <p className="runtime-pagination-error">{nextError}</p> : null}
-        {response.nextCursor ? <button type="button" className="button secondary compact" disabled={nextLoading} onClick={() => void loadMore()}>{nextLoading ? "正在加载下一批…" : nextError ? "重试加载下一页" : "加载更多"}</button> : null}
-      </div>
-      <p className="sr-only" aria-live="polite">{announcement}</p>
-    </>}
+    <BIOSResults
+      announcement={announcement}
+      attention={attention}
+      busy={busy}
+      firstError={firstError}
+      firstLoading={firstLoading}
+      inputs={inputs}
+      loadMore={loadMore}
+      nextError={nextError}
+      nextLoading={nextLoading}
+      onClear={() => setFilters({ query: "", coreId: "", status: "", quick: "ALL" })}
+      onInstall={(requirement, file) => void install(requirement, file)}
+      onInspect={(requirement) => void inspectArchive(requirement)}
+      onReload={reloadFirst}
+      ready={ready}
+      response={response}
+      scope={scope}
+      sentinel={sentinel}
+    />
     <p className="runtime-server-import-link"><Link href="/admin/imports/server?action=bios">从服务器目录批量导入 BIOS →</Link></p>
-    <ConfirmDialog
-      open={archiveDialog !== null}
-      title={`${archiveDialog?.item.logicalName ?? "BIOS"} 内容对比`}
-      description="左侧为当前 DAT 要求，右侧为已安装 ZIP 内容；name、size、crc 表头统一位于列表上方。行背景表示状态，悬停可查看说明。"
-      confirmLabel="关闭"
-      hideCancel
-      wide
-      onConfirm={() => setArchiveDialog(null)}
-      onCancel={() => setArchiveDialog(null)}
-    >
-      {archiveDialog?.loading ? <p className="bios-entry-message">正在读取已安装 BIOS 的安全扫描结果…</p> : archiveDialog?.error ? <p className="bios-entry-message is-error">{archiveDialog.error}</p> : archiveDialog?.inspection ? <ArchiveComparisonLists inspection={archiveDialog.inspection} /> : null}
-    </ConfirmDialog>
+    <ArchiveInspectionDialog archiveDialog={archiveDialog} onClose={() => setArchiveDialog(null)} />
     <Toast toast={error ? { message: error, tone: "bad" } : notice ? { message: notice, tone: "good" } : null} onDismiss={() => { setNotice(""); setError(""); }} />
   </div>;
 }

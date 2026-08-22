@@ -9,6 +9,11 @@ import { requestFullscreenAndLandscape, unlockLandscape } from "./orientation";
 
 type LaunchResponse = { launchId: string; playUrl: string };
 type PendingResponse = { status: "VALIDATION_PENDING"; jobId: string; retryAfterMs: number };
+type ClientCapabilities = { secureContext: boolean; crossOriginIsolated: boolean; sharedArrayBuffer: boolean };
+
+function lacksRequiredThreads(required: boolean, capabilities: ClientCapabilities) {
+  return required && !(capabilities.secureContext && capabilities.crossOriginIsolated && capabilities.sharedArrayBuffer);
+}
 
 function waitForValidation(jobId: string) {
   return new Promise<void>((resolve, reject) => {
@@ -20,12 +25,12 @@ function waitForValidation(jobId: string) {
     const finish = (error?: Error) => {
       window.clearTimeout(timeout);
       source.close();
-      if (error) reject(error); else resolve();
+      if (error) {reject(error);} else {resolve();}
     };
     source.addEventListener("snapshot", (event) => {
       const snapshot = JSON.parse((event as MessageEvent<string>).data) as { state?: string; errorCode?: string | null };
-      if (snapshot.state === "SUCCEEDED") finish();
-      if (snapshot.state === "FAILED" || snapshot.state === "CANCELLED") finish(new Error(snapshot.errorCode ?? "核心验证失败"));
+      if (snapshot.state === "SUCCEEDED") {finish();}
+      if (snapshot.state === "FAILED" || snapshot.state === "CANCELLED") {finish(new Error(snapshot.errorCode ?? "核心验证失败"));}
     });
     source.addEventListener("succeeded", () => finish());
     source.addEventListener("failed", (event) => {
@@ -48,7 +53,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
       crossOriginIsolated: window.crossOriginIsolated,
       sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined"
     };
-    if (requiresThreads && (!clientCapabilities.secureContext || !clientCapabilities.crossOriginIsolated || !clientCapabilities.sharedArrayBuffer)) {
+    if (lacksRequiredThreads(requiresThreads, clientCapabilities)) {
       setMessage("当前浏览器环境不提供该运行方式所需的线程能力；远程明文 HTTP 无法提供 SharedArrayBuffer。");
       setState("blocked");
       return;
@@ -78,7 +83,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
         }
         if (response.status === 202) {
           const pending = await response.json() as PendingResponse;
-          if (pending.status !== "VALIDATION_PENDING" || !pending.jobId) throw new Error("核心验证响应无效");
+          if (pending.status !== "VALIDATION_PENDING" || !pending.jobId) {throw new Error("核心验证响应无效");}
           await waitForValidation(pending.jobId);
           continue;
         }
@@ -90,7 +95,7 @@ export function LaunchButton({ gameId, coreId = null, saveStateId = null, dosEnt
       throw new Error("核心验证完成后仍无法启动");
     } catch (error) {
       unlockLandscape();
-      if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
+      if (document.fullscreenElement) {await document.exitFullscreen().catch(() => undefined);}
       setMessage(error instanceof Error ? error.message : "启动失败");
       setState("blocked");
     }

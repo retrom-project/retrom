@@ -51,6 +51,7 @@
 5. 新依赖必须有明确必要性，使用锁文件固定版本，并避免引入与现有能力重复的框架。
 6. 不做未经请求的大规模重构、技术栈替换、数据迁移或破坏兼容性的接口改造。
 7. 未获得命令结果、测试证据或可复现验证前，不得宣称完成。
+8. 修改手写源码前先确认目标文件、函数、组件或 hook 是否满足正式质量文档的当前规模与复杂度门槛；预计超限时，在同一变更中按领域职责完成必要拆分。
 
 ## 4. 实现边界
 
@@ -88,8 +89,10 @@
 - 删除失败用例、弱化断言、更新快照以接受错误行为；
 - 把当前变更引入的错误或 warning 描述成“已有问题”；
 - 在主链路、迁移或数据安全仍未闭环时声明完成。
+- 为新旧生产或测试源码建立存量 baseline、旧文件 allowlist 或“只禁止继续增长”的历史豁免；
+- 使用结构性 `nolint`、前端 inline disable/ignore、伪造生成标记、压缩排版或把手写源码移入排除目录规避规模与复杂度门槛。
 
-确需例外时，抑制必须精确到规则和最小代码范围，写明无法通过结构性修复消除的原因，并在交付说明中列出。生成代码和经确认的第三方产物可以使用集中、可审计的排除项；业务源码不能使用整目录兜底排除。
+结构性 lint 不允许例外。安全或正确性规则确属工具误报、外部协议要求时，抑制必须精确到一个规则和最小代码范围，与机器可读中央 allowlist 的 symbol、理由、不变量和复审日期一致，并在交付说明中列出。生成代码和经确认的第三方产物可以使用集中、可审计的排除项；业务源码不能使用整目录兜底排除。详细阈值和例外 schema 只以 `docs/engineering-quality-and-testing.md` 与可执行配置为准。
 
 ## 6. 测试纪律
 
@@ -101,10 +104,17 @@
 - 测试必须可重复：常规测试不依赖真实外网、真实时间、随机执行顺序或用户本机状态；使用 fake clock、固定 seed、临时目录和独立 SQLite 数据库。
 - 测试夹具只包含合法可分发内容。格式兼容性测试应同时覆盖小型确定性夹具与仓库中固定版本的真实 DAT 基线，不得用臆造数据冒充生产基线。
 - 项目验收必须按 `docs/project-acceptance.md` 的 Case ID 和硬超时执行；不得临时合并 Case、复用历史截图，或加入 soak、压力、无限等待类验收。
+- 测试源码不因属于 fixture、集成或 E2E 获得结构性豁免；拆分时使用稳定行为命名的 case、builder 和断言 helper，不得删除、skip、合并验收 Case 或弱化断言。
 
 ## 7. 必跑门禁
 
 项目脚手架应实现 `docs/engineering-quality-and-testing.md` 规定的 Makefile 命令。涉及代码修改时按范围执行：
+
+```bash
+make quality-structure-check
+```
+
+该门禁适用于所有手写生产、单元、集成和 E2E 源码；失败不得以存量问题或不在当前 diff 为由跳过。
 
 后端：
 
@@ -145,7 +155,7 @@ make web-e2e
 make ci
 ```
 
-新增/修改 HTTP route、DTO、错误码或 client 调用时，必须先改 `api/openapi.yaml`，运行 `make api-generate` 并提交两端生成物，随后运行不会写工作树的 `make api-check`；禁止手改 generated 文件。
+新增/修改 HTTP route、DTO、错误码或 client 调用时，必须先改 `api/openapi.yaml` 并运行 `make api-generate`。Go 生成物 `internal/httpapi/generated/api.gen.go` 由后端 build/test/lint/integration/dev 与镜像构建按需生成，必须被 Git 忽略且不得提交；TypeScript 生成物 `web/lib/api/generated/schema.d.ts` 必须提交。随后运行不会写工作树的 `make api-check`；禁止手改 generated 文件。
 
 修改 Dockerfile、镜像内容、构建参数或发布资产时还必须运行：
 

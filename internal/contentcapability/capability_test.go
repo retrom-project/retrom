@@ -3,6 +3,8 @@ package contentcapability
 import (
 	"reflect"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 const saturnCompatibility = `{
@@ -34,15 +36,10 @@ func TestResolveRequiresFeaturePlatformInstanceAndArtifactIntersection(t *testin
 			t.Parallel()
 			got := Resolve(test.platform, test.instance, test.feature, test.compatibility)
 			if test.wantMulti {
-				if !reflect.DeepEqual(got.ContentModes, []string{ModeStandard, ModeMultiDiscM3UV1}) ||
-					got.MultiDisc == nil || got.MultiDisc.MaxDiscs != 8 || got.MultiDisc.MaxTotalBytes != MaximumMultiDiscBytes {
-					t.Fatalf("Resolve() = %#v", got)
-				}
+				testassert.Falsef(t, testassert.Any(func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeStandard, ModeMultiDiscM3UV1}) }, func() bool { return got.MultiDisc == nil }, func() bool { return got.MultiDisc.MaxDiscs != 8 }, func() bool { return got.MultiDisc.MaxTotalBytes != MaximumMultiDiscBytes }), "Resolve() = %#v", got)
 				return
 			}
-			if !reflect.DeepEqual(got.ContentModes, []string{ModeStandard}) || got.MultiDisc != nil {
-				t.Fatalf("Resolve() failed closed = %#v", got)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return !reflect.DeepEqual(got.ContentModes, []string{ModeStandard}) }, func() bool { return got.MultiDisc != nil }), "Resolve() failed closed = %#v", got)
 		})
 	}
 }
@@ -50,10 +47,5 @@ func TestResolveRequiresFeaturePlatformInstanceAndArtifactIntersection(t *testin
 func TestSupportsContentKindRequiresExplicitCompatibilityV3(t *testing.T) {
 	t.Parallel()
 	standard := `{"schemaVersion":3,"supportedContentKinds":["SINGLE_FILE"]}`
-	if !SupportsContentKind(standard, "SINGLE_FILE") || SupportsContentKind(standard, "MULTI_DISC_M3U_V1") ||
-		!SupportsContentKind(saturnCompatibility, "MULTI_DISC_M3U_V1") ||
-		SupportsContentKind(`{"schemaVersion":2}`, "SINGLE_FILE") ||
-		SupportsContentKind(saturnCompatibility, "UNKNOWN") {
-		t.Fatal("publication capability did not fail closed")
-	}
+	testassert.False(t, testassert.Any(func() bool { return !SupportsContentKind(standard, "SINGLE_FILE") }, func() bool { return SupportsContentKind(standard, "MULTI_DISC_M3U_V1") }, func() bool { return !SupportsContentKind(saturnCompatibility, "MULTI_DISC_M3U_V1") }, func() bool { return SupportsContentKind(`{"schemaVersion":2}`, "SINGLE_FILE") }, func() bool { return SupportsContentKind(saturnCompatibility, "UNKNOWN") }), "publication capability did not fail closed")
 }

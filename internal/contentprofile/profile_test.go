@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"retrom/internal/importing"
+	"retrom/internal/testassert"
 )
 
 func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
@@ -22,9 +23,7 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 	}
 	for platformID, names := range tests {
 		for _, name := range names {
-			if !AcceptsRaw(platformID, name) {
-				t.Errorf("AcceptsRaw(%q, %q) = false", platformID, name)
-			}
+			testassert.CheckTruef(t, AcceptsRaw(platformID, name), "AcceptsRaw(%q, %q) = false", platformID, name)
 		}
 	}
 	for _, rejected := range []struct{ platform, name string }{
@@ -35,9 +34,7 @@ func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 		{"arcade", "game.zip"},
 		{"unknown", "game.gba"},
 	} {
-		if AcceptsRaw(rejected.platform, rejected.name) {
-			t.Errorf("AcceptsRaw(%q, %q) = true", rejected.platform, rejected.name)
-		}
+		testassert.CheckFalsef(t, AcceptsRaw(rejected.platform, rejected.name), "AcceptsRaw(%q, %q) = true", rejected.platform, rejected.name)
 	}
 }
 
@@ -51,18 +48,12 @@ func TestSupportedExtensionsCoverEverySeededPlatformWithoutExposingWrappers(t *t
 	}
 	for platformID, want := range tests {
 		got := SupportedExtensions(platformID)
-		if len(got) != len(want) {
-			t.Fatalf("SupportedExtensions(%q) = %#v, want %#v", platformID, got, want)
-		}
+		testassert.Falsef(t, len(got) != len(want), "SupportedExtensions(%q) = %#v, want %#v", platformID, got, want)
 		for index := range want {
-			if got[index] != want[index] {
-				t.Fatalf("SupportedExtensions(%q) = %#v, want %#v", platformID, got, want)
-			}
+			testassert.Falsef(t, got[index] != want[index], "SupportedExtensions(%q) = %#v, want %#v", platformID, got, want)
 		}
 		got[0] = ".changed"
-		if SupportedExtensions(platformID)[0] != want[0] {
-			t.Fatalf("SupportedExtensions(%q) exposed mutable registry storage", platformID)
-		}
+		testassert.Falsef(t, SupportedExtensions(platformID)[0] != want[0], "SupportedExtensions(%q) exposed mutable registry storage", platformID)
 	}
 	if got := SupportedExtensions("unknown"); len(got) != 0 {
 		t.Fatalf("unknown platform extensions = %#v", got)
@@ -92,22 +83,14 @@ func TestSupportedExtensionsContainNoDuplicates(t *testing.T) {
 func TestArchivePoliciesAreExplicitAndReturnedByValue(t *testing.T) {
 	t.Parallel()
 	profile, ok := ByPlatform("nds")
-	if !ok || profile.ArchivePolicy != ArchiveSinglePrimary ||
-		!AcceptsArchive("nds", ArchiveZIP) || !AcceptsArchive("nds", ArchiveSevenZip) {
-		t.Fatalf("NDS profile = %#v", profile)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !ok }, func() bool { return profile.ArchivePolicy != ArchiveSinglePrimary }, func() bool { return !AcceptsArchive("nds", ArchiveZIP) }, func() bool { return !AcceptsArchive("nds", ArchiveSevenZip) }), "NDS profile = %#v", profile)
 	profile.Extensions[0] = ".changed"
 	profile.ArchiveFormats[0] = "CHANGED"
 	profile.ContentKinds[0] = "CHANGED"
-	if !AcceptsRaw("nds", "game.nds") || !AcceptsArchive("nds", ArchiveZIP) {
-		t.Fatal("ByPlatform exposed mutable registry storage")
-	}
+	testassert.False(t, testassert.Any(func() bool { return !AcceptsRaw("nds", "game.nds") }, func() bool { return !AcceptsArchive("nds", ArchiveZIP) }), "ByPlatform exposed mutable registry storage")
 	for _, platformID := range []string{"psx", "saturn", "3do", "pcfx", "psp"} {
 		profile, ok := ByPlatform(platformID)
-		if !ok || profile.ArchivePolicy != ArchiveNone || AcceptsArchive(platformID, ArchiveZIP) ||
-			AcceptsArchive(platformID, ArchiveSevenZip) {
-			t.Errorf("raw-only profile %q = %#v", platformID, profile)
-		}
+		testassert.CheckFalsef(t, testassert.Any(func() bool { return !ok }, func() bool { return profile.ArchivePolicy != ArchiveNone }, func() bool { return AcceptsArchive(platformID, ArchiveZIP) }, func() bool { return AcceptsArchive(platformID, ArchiveSevenZip) }), "raw-only profile %q = %#v", platformID, profile)
 	}
 }
 
@@ -115,16 +98,10 @@ func TestMultiDiscContentKindIsExplicitlyLimitedToSaturn(t *testing.T) {
 	t.Parallel()
 	for platformID := range registry {
 		got := AllowsContentKind(platformID, ContentKindMultiDiscM3UV1)
-		if got != (platformID == "saturn") {
-			t.Errorf("AllowsContentKind(%q, MULTI_DISC_M3U_V1) = %t", platformID, got)
-		}
-		if !AllowsContentKind(platformID, ContentKindSingleFile) {
-			t.Errorf("platform %q lost SINGLE_FILE support", platformID)
-		}
+		testassert.CheckFalsef(t, got != (platformID == "saturn"), "AllowsContentKind(%q, MULTI_DISC_M3U_V1) = %t", platformID, got)
+		testassert.CheckTruef(t, AllowsContentKind(platformID, ContentKindSingleFile), "platform %q lost SINGLE_FILE support", platformID)
 	}
-	if AllowsContentKind("unknown", ContentKindMultiDiscM3UV1) {
-		t.Fatal("unknown platform accepted multi-disc content")
-	}
+	testassert.False(t, AllowsContentKind("unknown", ContentKindMultiDiscM3UV1), "unknown platform accepted multi-disc content")
 }
 
 func TestSelectArchivePrimary(t *testing.T) {
@@ -135,9 +112,7 @@ func TestSelectArchivePrimary(t *testing.T) {
 		importing.ArchiveEntry{Ordinal: 1, NormalizedPath: "folder/Game.NDS"},
 	)
 	selected, err := SelectArchivePrimary("nds", entries)
-	if err != nil || selected.Ordinal != 1 {
-		t.Fatalf("SelectArchivePrimary() = %#v, %v", selected, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return selected.Ordinal != 1 }), "SelectArchivePrimary() = %#v, %v", selected, err)
 	if _, err := SelectArchivePrimary("nds", entries[:1]); !errors.Is(err, ErrNoSupportedContent) {
 		t.Fatalf("zero candidates error = %v", err)
 	}

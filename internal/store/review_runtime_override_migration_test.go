@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestReviewRuntimeOverrideMigrationUpgradesVersion32(t *testing.T) {
@@ -19,9 +20,7 @@ func TestReviewRuntimeOverrideMigrationUpgradesVersion32(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -40,7 +39,7 @@ func TestReviewRuntimeOverrideMigrationUpgradesVersion32(t *testing.T) {
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	for _, trigger := range []string{
@@ -49,17 +48,11 @@ func TestReviewRuntimeOverrideMigrationUpgradesVersion32(t *testing.T) {
 		"review_runtime_screenshots_validate_update",
 	} {
 		var source string
-		if err := upgraded.SQL.QueryRow(`SELECT sql FROM sqlite_master WHERE type='trigger' AND name=?`, trigger).Scan(&source); err != nil {
+		if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT sql FROM sqlite_master WHERE type='trigger' AND name=?`, trigger).Scan(&source); err != nil {
 			t.Fatalf("trigger %s: %v", trigger, err)
 		}
-		if strings.Contains(source, "status='READY'") || strings.Contains(source, "selected_validation_id=preview.validation_id") {
-			t.Fatalf("trigger %s retained READY-only screenshot gate: %s", trigger, source)
-		}
-		if !strings.Contains(source, "prepublish_generation=4") {
-			t.Fatalf("trigger %s lost current validation generation gate: %s", trigger, source)
-		}
-		if !strings.Contains(source, "ORDER BY candidate.created_at_ms DESC") {
-			t.Fatalf("trigger %s does not bind the preview to the latest validation: %s", trigger, source)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return strings.Contains(source, "status='READY'") }, func() bool { return strings.Contains(source, "selected_validation_id=preview.validation_id") }), "trigger %s retained READY-only screenshot gate: %s", trigger, source)
+		testassert.Truef(t, strings.Contains(source, "prepublish_generation=4"), "trigger %s lost current validation generation gate: %s", trigger, source)
+		testassert.Truef(t, strings.Contains(source, "ORDER BY candidate.created_at_ms DESC"), "trigger %s does not bind the preview to the latest validation: %s", trigger, source)
 	}
 }

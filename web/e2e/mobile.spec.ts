@@ -155,7 +155,7 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
   const playURL = (await launch.json() as { playUrl: string }).playUrl;
   const runtimeRequests: string[] = [];
   page.on("request", (request) => {
-    if (!request.url().endsWith("/config")) runtimeRequests.push(request.url());
+    if (!request.url().endsWith("/config")) {runtimeRequests.push(request.url());}
   });
   await page.goto(playURL);
   const gate = page.getByRole("dialog", { name: "请横向握持设备开始游戏" });
@@ -188,7 +188,7 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
       await expect(nativeTouchMenu).toBeHidden();
       const sideControls = player.locator(".ejs_virtualGamepad_left,.ejs_virtualGamepad_right");
       await expect(sideControls).toHaveCount(2);
-      for (const control of await sideControls.all()) await expect(control).toBeVisible();
+      for (const control of await sideControls.all()) {await expect(control).toBeVisible();}
       const bottomGaps = await sideControls.evaluateAll((elements) => elements.map((element) => {
         const frameWindow = element.ownerDocument.defaultView!;
         return frameWindow.innerHeight - element.getBoundingClientRect().bottom;
@@ -196,7 +196,7 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
       expect(bottomGaps).toEqual([70, 70]);
     }
 
-    if (await handle.getAttribute("aria-pressed") === "false") await handle.click();
+    if (await handle.getAttribute("aria-pressed") === "false") {await handle.click();}
     const more = page.getByRole("button", { name: "更多操作" });
     await expect(more).toBeVisible();
     await more.click();

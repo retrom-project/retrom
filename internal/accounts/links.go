@@ -152,44 +152,100 @@ WHERE link.id=? AND link.kind=?
 	return result, nil
 }
 
-//nolint:funlen,gocyclo // Invitation consumption must create identity, credential, session, and audit atomically.
+// Invitation consumption must create identity, credential, session, and audit atomically.
 func (service *Service) AcceptInvitation(
 	ctx context.Context,
 	request AcceptInvitationRequest,
 ) (Session, error) {
-	linkID, valid := service.credentials.ParseAccountLinkToken("INVITATION", request.Token)
-	if !valid {
-		return Session{}, ErrAccountLinkUnavailable
-	}
-	username, err := authn.NormalizeUsername(request.Username)
-	if err != nil {
-		return Session{}, fmt.Errorf("normalize invited username: %w", err)
-	}
-	displayName, err := authn.NormalizeDisplayName(request.DisplayName)
-	if err != nil {
-		return Session{}, fmt.Errorf("normalize invited display name: %w", err)
-	}
-	password, err := authn.ValidatePassword(
-		request.Password, request.PasswordConfirmation, username, displayName, service.blocklist,
-	)
-	if err != nil {
-		return Session{}, fmt.Errorf("validate invited password: %w", err)
-	}
-	encoded, err := service.hasher.Hash(ctx, password)
-	if err != nil {
-		return Session{}, fmt.Errorf("hash invited password: %w", err)
-	}
-	prepared, err := service.prepareSession()
+	input, err := service.prepareInvitationAcceptance(ctx, request)
 	if err != nil {
 		return Session{}, err
 	}
-	userID, profileID := newID(), newID()
-	now := service.now().UTC().UnixMilli()
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return Session{}, fmt.Errorf("begin invitation acceptance: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
+	role, err := readActiveInvitation(ctx, transaction, input.linkID, input.now)
+	if err != nil {
+		return Session{}, err
+	}
+	if err := ensureUsernameAvailable(ctx, transaction, input.username); err != nil {
+		return Session{}, err
+	}
+	if err := persistInvitedIdentity(ctx, transaction, input, role); err != nil {
+		return Session{}, err
+	}
+	if err := insertPreparedSession(ctx, transaction, input.session, input.userID, 1, input.now); err != nil {
+		return Session{}, err
+	}
+	principal := authn.Principal{UserID: input.userID, Username: input.username}
+	if err := insertUserAudit(
+		ctx, transaction, principal, "INVITATION_ACCEPTED", "ACCOUNT_LINK", input.linkID.String(),
+		nil, map[string]any{"role": role, "status": "CONSUMED", "userId": input.userID}, input.now,
+	); err != nil {
+		return Session{}, err
+	}
+	if err := transaction.Commit(); err != nil {
+		return Session{}, fmt.Errorf("commit invitation acceptance: %w", err)
+	}
+	return input.session.view(
+		User{UserID: input.userID, Username: input.username, DisplayName: input.displayName, Role: role},
+		input.profileID, 1, input.now,
+	), nil
+}
+
+type invitationAcceptance struct {
+	linkID                uuid.UUID
+	username, displayName string
+	encodedPassword       string
+	session               preparedSession
+	userID, profileID     string
+	now                   int64
+}
+
+func (service *Service) prepareInvitationAcceptance(
+	ctx context.Context,
+	request AcceptInvitationRequest,
+) (invitationAcceptance, error) {
+	linkID, valid := service.credentials.ParseAccountLinkToken("INVITATION", request.Token)
+	if !valid {
+		return invitationAcceptance{}, ErrAccountLinkUnavailable
+	}
+	username, err := authn.NormalizeUsername(request.Username)
+	if err != nil {
+		return invitationAcceptance{}, fmt.Errorf("normalize invited username: %w", err)
+	}
+	displayName, err := authn.NormalizeDisplayName(request.DisplayName)
+	if err != nil {
+		return invitationAcceptance{}, fmt.Errorf("normalize invited display name: %w", err)
+	}
+	password, err := authn.ValidatePassword(
+		request.Password, request.PasswordConfirmation, username, displayName, service.blocklist,
+	)
+	if err != nil {
+		return invitationAcceptance{}, fmt.Errorf("validate invited password: %w", err)
+	}
+	encoded, err := service.hasher.Hash(ctx, password)
+	if err != nil {
+		return invitationAcceptance{}, fmt.Errorf("hash invited password: %w", err)
+	}
+	prepared, err := service.prepareSession()
+	if err != nil {
+		return invitationAcceptance{}, err
+	}
+	return invitationAcceptance{
+		linkID: linkID, username: username, displayName: displayName, encodedPassword: encoded,
+		session: prepared, userID: newID(), profileID: newID(), now: service.now().UTC().UnixMilli(),
+	}, nil
+}
+
+func readActiveInvitation(
+	ctx context.Context,
+	transaction *sql.Tx,
+	linkID uuid.UUID,
+	now int64,
+) (string, error) {
 	var role string
 	var expiresAt int64
 	var consumedAt, revokedAt sql.NullInt64
@@ -198,71 +254,68 @@ SELECT invited_role,expires_at_ms,consumed_at_ms,revoked_at_ms
 FROM account_links WHERE id=? AND kind='INVITATION'
 `, linkID.String()).Scan(&role, &expiresAt, &consumedAt, &revokedAt); err != nil ||
 		accountLinkState(consumedAt, revokedAt, expiresAt, now) != "ACTIVE" {
-		return Session{}, ErrAccountLinkUnavailable
+		return "", ErrAccountLinkUnavailable
 	}
+	return role, nil
+}
+
+func ensureUsernameAvailable(ctx context.Context, transaction *sql.Tx, username string) error {
 	var usernameExists int
 	if err := transaction.QueryRowContext(ctx, `
 SELECT EXISTS(SELECT 1 FROM users WHERE username=?)
 `, username).Scan(&usernameExists); err != nil {
-		return Session{}, fmt.Errorf("check invited username: %w", err)
+		return fmt.Errorf("check invited username: %w", err)
 	}
 	if usernameExists != 0 {
-		return Session{}, ErrUsernameUnavailable
+		return ErrUsernameUnavailable
 	}
+	return nil
+}
+
+func persistInvitedIdentity(
+	ctx context.Context,
+	transaction *sql.Tx,
+	input invitationAcceptance,
+	role string,
+) error {
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)
-`, profileID, displayName, now); err != nil {
-		return Session{}, fmt.Errorf("create invited profile: %w", err)
+`, input.profileID, input.displayName, input.now); err != nil {
+		return fmt.Errorf("create invited profile: %w", err)
 	}
 	result, err := transaction.ExecContext(ctx, `
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,'ENABLED',?,?)
 ON CONFLICT(username) DO NOTHING
-`, userID, profileID, username, displayName, role, now, now)
+`, input.userID, input.profileID, input.username, input.displayName, role, input.now, input.now)
 	if err != nil {
-		return Session{}, fmt.Errorf("create invited user: %w", err)
+		return fmt.Errorf("create invited user: %w", err)
 	}
 	if changed, rowsErr := result.RowsAffected(); rowsErr != nil {
-		return Session{}, fmt.Errorf("read invited user insert result: %w", rowsErr)
+		return fmt.Errorf("read invited user insert result: %w", rowsErr)
 	} else if changed != 1 {
-		return Session{}, ErrUsernameUnavailable
+		return ErrUsernameUnavailable
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO user_credentials(user_id,password_hash,password_scheme,password_changed_at_ms,created_at_ms)
 VALUES(?,?,'ARGON2ID_V1',?,?)
-`, userID, encoded, now, now); err != nil {
-		return Session{}, fmt.Errorf("create invited credential: %w", err)
+`, input.userID, input.encodedPassword, input.now, input.now); err != nil {
+		return fmt.Errorf("create invited credential: %w", err)
 	}
 	result, err = transaction.ExecContext(ctx, `
 UPDATE account_links SET consumed_at_ms=?,consumed_by_user_id=?,version=version+1
 WHERE id=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, now, userID, linkID.String(), now)
+`, input.now, input.userID, input.linkID.String(), input.now)
 	if err != nil {
-		return Session{}, fmt.Errorf("consume invitation: %w", err)
+		return fmt.Errorf("consume invitation: %w", err)
 	}
 	if changed, _ := result.RowsAffected(); changed != 1 {
-		return Session{}, ErrAccountLinkUnavailable
+		return ErrAccountLinkUnavailable
 	}
-	if err := insertPreparedSession(ctx, transaction, prepared, userID, 1, now); err != nil {
-		return Session{}, err
-	}
-	principal := authn.Principal{UserID: userID, Username: username}
-	if err := insertUserAudit(
-		ctx, transaction, principal, "INVITATION_ACCEPTED", "ACCOUNT_LINK", linkID.String(),
-		nil, map[string]any{"role": role, "status": "CONSUMED", "userId": userID}, now,
-	); err != nil {
-		return Session{}, err
-	}
-	if err := transaction.Commit(); err != nil {
-		return Session{}, fmt.Errorf("commit invitation acceptance: %w", err)
-	}
-	return prepared.view(
-		User{UserID: userID, Username: username, DisplayName: displayName, Role: role},
-		profileID, 1, now,
-	), nil
+	return nil
 }
 
-//nolint:funlen,gocyclo // Closed transaction preserves exact version and idempotency semantics.
+// Closed transaction preserves exact version and idempotency semantics.
 func (service *Service) CreatePasswordReset(
 	ctx context.Context,
 	principal authn.Principal,
@@ -294,20 +347,8 @@ func (service *Service) CreatePasswordReset(
 		result.CapabilityToken = service.linkToken("PASSWORD_RESET", result.AccountLinkID)
 		return result, true, nil
 	}
-	var status string
-	var currentVersion int64
-	if err := transaction.QueryRowContext(ctx, `
-SELECT status,version FROM users WHERE id=?
-`, targetUserID).Scan(&status, &currentVersion); errors.Is(err, sql.ErrNoRows) {
-		return AccountLink{}, false, ErrUserNotFound
-	} else if err != nil {
-		return AccountLink{}, false, fmt.Errorf("read password-reset target: %w", err)
-	}
-	if status == "DELETED" {
-		return AccountLink{}, false, ErrUserDeleted
-	}
-	if currentVersion != expectedVersion {
-		return AccountLink{}, false, ErrUserVersion
+	if err := validatePasswordResetTarget(ctx, transaction, targetUserID, expectedVersion); err != nil {
+		return AccountLink{}, false, err
 	}
 	result, err := transaction.ExecContext(ctx, `
 UPDATE users SET version=version+1,updated_at_ms=? WHERE id=? AND version=? AND status!='DELETED'
@@ -361,14 +402,64 @@ VALUES(?,'PASSWORD_RESET',NULL,?,?,?,?,1)
 	return resultLink, false, nil
 }
 
-//nolint:funlen,gocyclo // Capability consumption, password rotation, revocation, and optional session are atomic.
+func validatePasswordResetTarget(
+	ctx context.Context,
+	transaction *sql.Tx,
+	targetUserID string,
+	expectedVersion int64,
+) error {
+	var status string
+	var currentVersion int64
+	err := transaction.QueryRowContext(ctx, `
+SELECT status,version FROM users WHERE id=?
+`, targetUserID).Scan(&status, &currentVersion)
+	if errors.Is(err, sql.ErrNoRows) {
+		return ErrUserNotFound
+	}
+	if err != nil {
+		return fmt.Errorf("read password-reset target: %w", err)
+	}
+	if status == "DELETED" {
+		return ErrUserDeleted
+	}
+	if currentVersion != expectedVersion {
+		return ErrUserVersion
+	}
+	return nil
+}
+
+// Capability consumption, password rotation, revocation, and optional session are atomic.
 func (service *Service) CompletePasswordReset(
 	ctx context.Context,
 	request CompletePasswordResetRequest,
 ) (PasswordResetResult, error) {
+	input, err := service.preparePasswordReset(ctx, request)
+	if err != nil {
+		return PasswordResetResult{}, err
+	}
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return PasswordResetResult{}, fmt.Errorf("begin password reset: %w", err)
+	}
+	defer cleanup.Rollback(transaction)
+	return service.completePasswordReset(ctx, transaction, input)
+}
+
+type passwordResetInput struct {
+	linkID                       uuid.UUID
+	targetUserID, username       string
+	displayName, encodedPassword string
+	prepared                     preparedSession
+	now                          int64
+}
+
+func (service *Service) preparePasswordReset(
+	ctx context.Context,
+	request CompletePasswordResetRequest,
+) (passwordResetInput, error) {
 	linkID, valid := service.credentials.ParseAccountLinkToken("PASSWORD_RESET", request.Token)
 	if !valid {
-		return PasswordResetResult{}, ErrAccountLinkUnavailable
+		return passwordResetInput{}, ErrAccountLinkUnavailable
 	}
 	var targetUserID, username, displayName, status string
 	var expiresAt int64
@@ -382,45 +473,50 @@ WHERE link.id=? AND link.kind='PASSWORD_RESET'
 		&targetUserID, &username, &displayName, &status, &expiresAt, &consumedAt, &revokedAt,
 	); err != nil || status == "DELETED" ||
 		accountLinkState(consumedAt, revokedAt, expiresAt, service.now().UTC().UnixMilli()) != "ACTIVE" {
-		return PasswordResetResult{}, ErrAccountLinkUnavailable
+		return passwordResetInput{}, ErrAccountLinkUnavailable
 	}
 	password, err := authn.ValidatePassword(
 		request.Password, request.PasswordConfirmation, username, displayName, service.blocklist,
 	)
 	if err != nil {
-		return PasswordResetResult{}, fmt.Errorf("validate reset password: %w", err)
+		return passwordResetInput{}, fmt.Errorf("validate reset password: %w", err)
 	}
 	encoded, err := service.hasher.Hash(ctx, password)
 	if err != nil {
-		return PasswordResetResult{}, fmt.Errorf("hash reset password: %w", err)
+		return passwordResetInput{}, fmt.Errorf("hash reset password: %w", err)
 	}
 	prepared := preparedSession{}
 	if status == "ENABLED" {
 		prepared, err = service.prepareSession()
 		if err != nil {
-			return PasswordResetResult{}, err
+			return passwordResetInput{}, err
 		}
 	}
-	now := service.now().UTC().UnixMilli()
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return PasswordResetResult{}, fmt.Errorf("begin password reset: %w", err)
-	}
-	defer cleanup.Rollback(transaction)
+	return passwordResetInput{
+		linkID: linkID, targetUserID: targetUserID, username: username, displayName: displayName,
+		encodedPassword: encoded, prepared: prepared, now: service.now().UTC().UnixMilli(),
+	}, nil
+}
+
+func (service *Service) completePasswordReset(
+	ctx context.Context,
+	transaction *sql.Tx,
+	input passwordResetInput,
+) (PasswordResetResult, error) {
 	var role, profileID, currentStatus string
 	var sessionVersion int64
 	if err := transaction.QueryRowContext(ctx, `
 UPDATE users SET session_version=session_version+1,version=version+1,updated_at_ms=?
 WHERE id=? AND status!='DELETED'
 RETURNING role,profile_id,status,session_version
-`, now, targetUserID).Scan(&role, &profileID, &currentStatus, &sessionVersion); err != nil {
+`, input.now, input.targetUserID).Scan(&role, &profileID, &currentStatus, &sessionVersion); err != nil {
 		return PasswordResetResult{}, ErrAccountLinkUnavailable
 	}
 	consume, err := transaction.ExecContext(ctx, `
 UPDATE account_links SET consumed_at_ms=?,consumed_by_user_id=?,version=version+1
 WHERE id=? AND kind='PASSWORD_RESET'
 AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
-`, now, targetUserID, linkID.String(), now)
+`, input.now, input.targetUserID, input.linkID.String(), input.now)
 	if err != nil {
 		return PasswordResetResult{}, fmt.Errorf("consume password-reset link: %w", err)
 	}
@@ -429,38 +525,40 @@ AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AND expires_at_ms>?
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE user_credentials SET password_hash=?,password_changed_at_ms=? WHERE user_id=?
-`, encoded, now, targetUserID); err != nil {
+`, input.encodedPassword, input.now, input.targetUserID); err != nil {
 		return PasswordResetResult{}, fmt.Errorf("replace reset credential: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE auth_sessions SET revoked_at_ms=?,revoked_reason='PASSWORD_RESET'
 WHERE user_id=? AND revoked_at_ms IS NULL
-`, now, targetUserID); err != nil {
+`, input.now, input.targetUserID); err != nil {
 		return PasswordResetResult{}, fmt.Errorf("revoke reset sessions: %w", err)
 	}
-	if username == "test" {
+	if input.username == "test" {
 		_, _ = transaction.ExecContext(ctx, `
 UPDATE instance_state SET test_default_password_active=0,version=version+1,updated_at_ms=?
 WHERE id=1 AND test_default_password_active=1
-`, now)
+`, input.now)
 	}
-	principal := authn.Principal{UserID: targetUserID, Username: username}
+	principal := authn.Principal{UserID: input.targetUserID, Username: input.username}
 	if err := insertUserAudit(
-		ctx, transaction, principal, "PASSWORD_RESET_COMPLETED", "USER", targetUserID,
-		nil, map[string]any{"status": currentStatus}, now,
+		ctx, transaction, principal, "PASSWORD_RESET_COMPLETED", "USER", input.targetUserID,
+		nil, map[string]any{"status": currentStatus}, input.now,
 	); err != nil {
 		return PasswordResetResult{}, err
 	}
 	result := PasswordResetResult{Status: "PASSWORD_CHANGED_ACCOUNT_DISABLED"}
 	if currentStatus == "ENABLED" {
 		if err := insertPreparedSession(
-			ctx, transaction, prepared, targetUserID, sessionVersion, now,
+			ctx, transaction, input.prepared, input.targetUserID, sessionVersion, input.now,
 		); err != nil {
 			return PasswordResetResult{}, err
 		}
-		session := prepared.view(
-			User{UserID: targetUserID, Username: username, DisplayName: displayName, Role: role},
-			profileID, sessionVersion, now,
+		session := input.prepared.view(
+			User{
+				UserID: input.targetUserID, Username: input.username, DisplayName: input.displayName, Role: role,
+			},
+			profileID, sessionVersion, input.now,
 		)
 		result.Session = &session
 		result.Status = "AUTHENTICATED"
@@ -543,22 +641,50 @@ WHERE id=? AND version=? AND consumed_at_ms IS NULL AND revoked_at_ms IS NULL AN
 	return false, nil
 }
 
-//nolint:funlen,gocyclo // Closed link filters and derived states share one stable projection.
 func (service *Service) ListAccountLinks(
 	ctx context.Context,
 	filter LinkListFilter,
 ) ([]AccountLink, error) {
+	filter, err := validateLinkListFilter(filter)
+	if err != nil {
+		return nil, err
+	}
+	now := service.now().UTC().UnixMilli()
+	query, arguments := buildLinkListQuery(filter, now)
+	rows, err := service.database.QueryContext(ctx, query, arguments...)
+	if err != nil {
+		return nil, fmt.Errorf("list account links: %w", err)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	items := make([]AccountLink, 0, filter.Limit)
+	for rows.Next() {
+		item, err := scanAccountLink(rows, now)
+		if err != nil {
+			return nil, err
+		}
+		items = append(items, item)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterate account links: %w", err)
+	}
+	return items, nil
+}
+
+func validateLinkListFilter(filter LinkListFilter) (LinkListFilter, error) {
 	if filter.Kind != "INVITATION" && filter.Kind != "PASSWORD_RESET" {
-		return nil, ErrAccountLinkUnavailable
+		return filter, ErrAccountLinkUnavailable
 	}
 	if filter.State == "" {
 		filter.State = "ACTIVE"
 	}
 	if filter.State != "ACTIVE" && filter.State != "CONSUMED" && filter.State != "REVOKED" &&
 		filter.State != "EXPIRED" && filter.State != "ALL" {
-		return nil, ErrAccountLinkUnavailable
+		return filter, ErrAccountLinkUnavailable
 	}
-	now := service.now().UTC().UnixMilli()
+	return filter, nil
+}
+
+func buildLinkListQuery(filter LinkListFilter, now int64) (string, []any) {
 	query := `
 SELECT link.id,link.kind,link.invited_role,link.target_user_id,
 creator.id,creator.username,link.version,link.created_at_ms,link.expires_at_ms,
@@ -590,43 +716,33 @@ AND link.expires_at_ms<=?`
 	}
 	query += " ORDER BY link.created_at_ms DESC,link.id DESC LIMIT ?"
 	arguments = append(arguments, filter.Limit)
-	rows, err := service.database.QueryContext(ctx, query, arguments...)
-	if err != nil {
-		return nil, fmt.Errorf("list account links: %w", err)
+	return query, arguments
+}
+
+func scanAccountLink(scanner interface{ Scan(...any) error }, now int64) (AccountLink, error) {
+	var item AccountLink
+	var role, target sql.NullString
+	var creatorID, creatorUsername string
+	var consumed, revoked sql.NullInt64
+	if err := scanner.Scan(
+		&item.AccountLinkID, &item.Kind, &role, &target, &creatorID, &creatorUsername,
+		&item.Version, &item.CreatedAtMS, &item.ExpiresAtMS, &consumed, &revoked,
+	); err != nil {
+		return AccountLink{}, fmt.Errorf("scan account link: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]AccountLink, 0, filter.Limit)
-	for rows.Next() {
-		var item AccountLink
-		var role, target sql.NullString
-		var creatorID, creatorUsername string
-		var consumed, revoked sql.NullInt64
-		if err := rows.Scan(
-			&item.AccountLinkID, &item.Kind, &role, &target, &creatorID, &creatorUsername,
-			&item.Version, &item.CreatedAtMS, &item.ExpiresAtMS, &consumed, &revoked,
-		); err != nil {
-			return nil, fmt.Errorf("scan account link: %w", err)
-		}
-		item.Role, item.TargetUserID = nil, nil
-		if role.Valid {
-			item.Role = role.String
-		}
-		if target.Valid {
-			item.TargetUserID = target.String
-		}
-		item.CreatedBy = map[string]any{"userId": creatorID, "username": creatorUsername}
-		item.ConsumedAtMS, item.RevokedAtMS = nil, nil
-		if consumed.Valid {
-			item.ConsumedAtMS = consumed.Int64
-		}
-		if revoked.Valid {
-			item.RevokedAtMS = revoked.Int64
-		}
-		item.State = accountLinkState(consumed, revoked, item.ExpiresAtMS, now)
-		items = append(items, item)
+	if role.Valid {
+		item.Role = role.String
 	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("iterate account links: %w", err)
+	if target.Valid {
+		item.TargetUserID = target.String
 	}
-	return items, nil
+	item.CreatedBy = map[string]any{"userId": creatorID, "username": creatorUsername}
+	if consumed.Valid {
+		item.ConsumedAtMS = consumed.Int64
+	}
+	if revoked.Valid {
+		item.RevokedAtMS = revoked.Int64
+	}
+	item.State = accountLinkState(consumed, revoked, item.ExpiresAtMS, now)
+	return item, nil
 }

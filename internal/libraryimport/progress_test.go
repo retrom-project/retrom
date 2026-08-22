@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"reflect"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestNewInitialImportProgress(t *testing.T) {
@@ -37,9 +39,7 @@ func TestNewInitialImportProgress(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			got := newInitialImportProgress(test.provider, test.items, test.rejected)
-			if !reflect.DeepEqual(got, test.want) {
-				t.Fatalf("newInitialImportProgress() = %#v, want %#v", got, test.want)
-			}
+			testassert.Truef(t, reflect.DeepEqual(got, test.want), "newInitialImportProgress() = %#v, want %#v", got, test.want)
 		})
 	}
 }

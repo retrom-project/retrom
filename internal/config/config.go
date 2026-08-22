@@ -133,7 +133,7 @@ func LoadRestoreMaintenance() (Maintenance, error) {
 	return loadDependencyMaintenance()
 }
 
-//nolint:gocyclo // Independent environment checks stay in one ordered fail-fast startup boundary.
+// Independent environment checks stay in one ordered fail-fast startup boundary.
 func Load(mode Mode) (Config, error) {
 	if mode != ModeRelease && mode != ModeTest {
 		return Config{}, fmt.Errorf("%w: mode", errInvalidConfig)
@@ -141,53 +141,15 @@ func Load(mode Mode) (Config, error) {
 	if err := rejectUnknownVariables(os.Environ()); err != nil {
 		return Config{}, err
 	}
-
-	dataDir, err := checkedDataDir(os.Getenv("RETROM_DATA_DIR"))
+	base, err := loadBaseConfig()
 	if err != nil {
 		return Config{}, err
 	}
-	dependencyRoot, err := checkedExistingDir("RETROM_DEPENDENCY_ROOT", os.Getenv("RETROM_DEPENDENCY_ROOT"))
+	network, err := loadNetworkConfig(mode)
 	if err != nil {
 		return Config{}, err
 	}
-	versions, err := parseVersions(os.Getenv("RETROM_DEPENDENCY_VERSIONS"))
-	if err != nil {
-		return Config{}, err
-	}
-	active := os.Getenv("RETROM_ACTIVE_EMULATORJS_VERSION")
-	if !slices.Contains(versions, active) {
-		return Config{}, fmt.Errorf("%w: RETROM_ACTIVE_EMULATORJS_VERSION", errInvalidConfig)
-	}
-	allowInsecurePublicOrigin := os.Getenv("RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN")
-	if allowInsecurePublicOrigin != "" && allowInsecurePublicOrigin != "true" && allowInsecurePublicOrigin != "false" {
-		return Config{}, fmt.Errorf("%w: RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN", errInvalidConfig)
-	}
-	publicOrigin, err := parsePublicOrigin(
-		os.Getenv("RETROM_PUBLIC_ORIGIN"),
-		mode == ModeTest && allowInsecurePublicOrigin == "true",
-	)
-	if err != nil {
-		return Config{}, err
-	}
-	httpAddr := os.Getenv("RETROM_HTTP_ADDR")
-	if httpAddr == "" {
-		return Config{}, fmt.Errorf("%w: RETROM_HTTP_ADDR", errInvalidConfig)
-	}
-	if _, _, splitErr := net.SplitHostPort(httpAddr); splitErr != nil {
-		return Config{}, fmt.Errorf("%w: RETROM_HTTP_ADDR", errInvalidConfig)
-	}
-	dbPath := os.Getenv("RETROM_DB_PATH")
-	if dbPath == "" {
-		dbPath = filepath.Join(dataDir, "retrom.db")
-	}
-	if !filepath.IsAbs(dbPath) || !pathWithin(dataDir, dbPath) || dbPath == dataDir {
-		return Config{}, fmt.Errorf("%w: RETROM_DB_PATH", errInvalidConfig)
-	}
-	proxies, err := parseTrustedProxies(os.Getenv("RETROM_TRUSTED_PROXIES"))
-	if err != nil {
-		return Config{}, err
-	}
-	runtimeOptions, err := loadRuntimeOptions(dataDir, dependencyRoot)
+	runtimeOptions, err := loadRuntimeOptions(base.dataDir, base.dependencyRoot)
 	if err != nil {
 		return Config{}, err
 	}
@@ -196,17 +158,88 @@ func Load(mode Mode) (Config, error) {
 		return Config{}, err
 	}
 	return Config{
-		Mode: mode, HTTPAddr: httpAddr, PublicOrigin: publicOrigin, DataDir: dataDir, DBPath: dbPath,
-		DependencyRoot: dependencyRoot, DependencyVersions: versions, ActiveEJSVersion: active,
-		TrustedProxies: proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
+		Mode: mode, HTTPAddr: network.httpAddr, PublicOrigin: network.publicOrigin,
+		DataDir: base.dataDir, DBPath: base.dbPath, DependencyRoot: base.dependencyRoot,
+		DependencyVersions: base.versions, ActiveEJSVersion: base.active,
+		TrustedProxies: network.proxies, StartupCheckTimeout: runtimeOptions.startupTimeout,
 		LogLevel: runtimeOptions.logLevel, MultiDiscImportEnabled: runtimeOptions.multiDiscImportEnabled,
-		ServerImportRoots:      runtimeOptions.serverImportRoots,
-		NetplayEnabled:         netplay.enabled,
-		NetplayMaxActiveRooms:  netplay.maxActiveRooms,
+		ServerImportRoots: runtimeOptions.serverImportRoots,
+		NetplayEnabled:    netplay.enabled, NetplayMaxActiveRooms: netplay.maxActiveRooms,
 		NetplayRoomIdleDraft:   netplay.roomIdleDraft,
 		NetplayRoomIdleWaiting: netplay.roomIdleWaiting,
 		NetplayReconnectLease:  netplay.reconnectLease,
 	}, nil
+}
+
+type baseConfig struct {
+	dataDir        string
+	dependencyRoot string
+	versions       []string
+	active         string
+	dbPath         string
+}
+
+func loadBaseConfig() (baseConfig, error) {
+	var result baseConfig
+	var err error
+	result.dataDir, err = checkedDataDir(os.Getenv("RETROM_DATA_DIR"))
+	if err != nil {
+		return baseConfig{}, err
+	}
+	result.dependencyRoot, err = checkedExistingDir(
+		"RETROM_DEPENDENCY_ROOT", os.Getenv("RETROM_DEPENDENCY_ROOT"),
+	)
+	if err != nil {
+		return baseConfig{}, err
+	}
+	result.versions, err = parseVersions(os.Getenv("RETROM_DEPENDENCY_VERSIONS"))
+	if err != nil {
+		return baseConfig{}, err
+	}
+	result.active = os.Getenv("RETROM_ACTIVE_EMULATORJS_VERSION")
+	if !slices.Contains(result.versions, result.active) {
+		return baseConfig{}, fmt.Errorf("%w: RETROM_ACTIVE_EMULATORJS_VERSION", errInvalidConfig)
+	}
+	result.dbPath = os.Getenv("RETROM_DB_PATH")
+	if result.dbPath == "" {
+		result.dbPath = filepath.Join(result.dataDir, "retrom.db")
+	}
+	if !filepath.IsAbs(result.dbPath) || !pathWithin(result.dataDir, result.dbPath) ||
+		result.dbPath == result.dataDir {
+		return baseConfig{}, fmt.Errorf("%w: RETROM_DB_PATH", errInvalidConfig)
+	}
+	return result, nil
+}
+
+type networkConfig struct {
+	publicOrigin *url.URL
+	httpAddr     string
+	proxies      []netip.Prefix
+}
+
+func loadNetworkConfig(mode Mode) (networkConfig, error) {
+	allowInsecure := os.Getenv("RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN")
+	if allowInsecure != "" && allowInsecure != "true" && allowInsecure != "false" {
+		return networkConfig{}, fmt.Errorf("%w: RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN", errInvalidConfig)
+	}
+	publicOrigin, err := parsePublicOrigin(
+		os.Getenv("RETROM_PUBLIC_ORIGIN"), mode == ModeTest && allowInsecure == "true",
+	)
+	if err != nil {
+		return networkConfig{}, err
+	}
+	httpAddr := os.Getenv("RETROM_HTTP_ADDR")
+	if httpAddr == "" {
+		return networkConfig{}, fmt.Errorf("%w: RETROM_HTTP_ADDR", errInvalidConfig)
+	}
+	if _, _, err := net.SplitHostPort(httpAddr); err != nil {
+		return networkConfig{}, fmt.Errorf("%w: RETROM_HTTP_ADDR", errInvalidConfig)
+	}
+	proxies, err := parseTrustedProxies(os.Getenv("RETROM_TRUSTED_PROXIES"))
+	if err != nil {
+		return networkConfig{}, err
+	}
+	return networkConfig{publicOrigin: publicOrigin, httpAddr: httpAddr, proxies: proxies}, nil
 }
 
 type runtimeOptions struct {
@@ -312,7 +345,7 @@ func parseFixedMilliseconds(name, raw string, expected int) (time.Duration, erro
 	return time.Duration(value) * time.Millisecond, nil
 }
 
-//nolint:gocognit,gocyclo // Each branch enforces an independent closed-schema or filesystem boundary invariant.
+// Each branch enforces an independent closed-schema or filesystem boundary invariant.
 func parseServerImportRoots(raw, dataDir, dependencyRoot string) ([]ServerImportRoot, error) {
 	if raw == "" {
 		return []ServerImportRoot{}, nil
@@ -331,37 +364,50 @@ func parseServerImportRoots(raw, dataDir, dependencyRoot string) ([]ServerImport
 	labels := make(map[string]struct{}, len(roots))
 	home, _ := os.UserHomeDir()
 	for index := range roots {
-		root := &roots[index]
-		invalidLabel := root.Label != strings.TrimSpace(root.Label) || len([]rune(root.Label)) < 1 ||
-			len([]rune(root.Label)) > 40 || len([]byte(root.Label)) > 160 || containsControl(root.Label)
-		invalidPath := root.Path == "" || !filepath.IsAbs(root.Path) || filepath.Clean(root.Path) != root.Path
-		if !validServerImportRootID(root.ID) || invalidLabel || invalidPath {
-			return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+		if err := validateServerImportRoot(
+			&roots[index], roots[:index], ids, labels, home, dataDir, dependencyRoot,
+		); err != nil {
+			return nil, err
 		}
-		if _, exists := ids[root.ID]; exists {
-			return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-		}
-		if _, exists := labels[root.Label]; exists {
-			return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-		}
-		ids[root.ID], labels[root.Label] = struct{}{}, struct{}{}
-		canonical, err := canonicalDirectoryWithoutSymlinks(root.Path)
-		if err != nil || canonical == string(filepath.Separator) || canonical == home {
-			return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-		}
-		for _, protected := range []string{dataDir, dependencyRoot} {
-			if pathsOverlap(canonical, protected) {
-				return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-			}
-		}
-		for previous := range index {
-			if pathsOverlap(canonical, roots[previous].CanonicalPath) {
-				return nil, fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
-			}
-		}
-		root.CanonicalPath = canonical
 	}
 	return roots, nil
+}
+
+func validateServerImportRoot(
+	root *ServerImportRoot,
+	previous []ServerImportRoot,
+	ids, labels map[string]struct{},
+	home, dataDir, dependencyRoot string,
+) error {
+	_, duplicateID := ids[root.ID]
+	_, duplicateLabel := labels[root.Label]
+	if !validServerImportRootShape(*root) || duplicateID || duplicateLabel {
+		return fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+	}
+	canonical, err := canonicalDirectoryWithoutSymlinks(root.Path)
+	if err != nil || !validCanonicalImportRoot(canonical, home, dataDir, dependencyRoot) {
+		return fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+	}
+	for _, configured := range previous {
+		if pathsOverlap(canonical, configured.CanonicalPath) {
+			return fmt.Errorf("%w: RETROM_SERVER_IMPORT_ROOTS", errInvalidConfig)
+		}
+	}
+	ids[root.ID], labels[root.Label] = struct{}{}, struct{}{}
+	root.CanonicalPath = canonical
+	return nil
+}
+
+func validServerImportRootShape(root ServerImportRoot) bool {
+	validLabel := root.Label == strings.TrimSpace(root.Label) && len([]rune(root.Label)) >= 1 &&
+		len([]rune(root.Label)) <= 40 && len([]byte(root.Label)) <= 160 && !containsControl(root.Label)
+	validPath := root.Path != "" && filepath.IsAbs(root.Path) && filepath.Clean(root.Path) == root.Path
+	return validServerImportRootID(root.ID) && validLabel && validPath
+}
+
+func validCanonicalImportRoot(canonical, home, dataDir, dependencyRoot string) bool {
+	return canonical != string(filepath.Separator) && canonical != home &&
+		!pathsOverlap(canonical, dataDir) && !pathsOverlap(canonical, dependencyRoot)
 }
 
 func validServerImportRootID(value string) bool {

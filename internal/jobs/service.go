@@ -44,7 +44,7 @@ func cancellableJobState(state string, retryable sql.NullInt64) bool {
 		state == "FAILED" && retryable.Valid && retryable.Int64 == 1
 }
 
-//nolint:funlen,gocyclo,lll,nestif // Generic and ServerImport cancellation retain distinct atomic transitions.
+// Generic and ServerImport cancellation retain distinct atomic transitions.
 func (service *Service) Cancel(
 	ctx context.Context,
 	jobID string,
@@ -127,31 +127,8 @@ WHERE id=?
 		return Result{}, false, fmt.Errorf("jobs/service: %w", err)
 	}
 	if kind == "SERVER_BIOS_IMPORT" {
-		if pending {
-			if _, err := transaction.ExecContext(ctx, `
-UPDATE server_imports SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,
-version=version+1,updated_at_ms=? WHERE job_id=? AND state='RUNNING'
-`, now, strings.TrimSpace(reason), now, jobID); err != nil {
-				return Result{}, false, fmt.Errorf("jobs/server import cancel: %w", err)
-			}
-		} else {
-			var importID string
-			if err := transaction.QueryRowContext(ctx, `SELECT id FROM server_imports WHERE job_id=?`, jobID).Scan(&importID); err != nil {
-				return Result{}, false, fmt.Errorf("jobs/server import: %w", err)
-			}
-			if _, err := transaction.ExecContext(ctx, `
-UPDATE server_bios_import_items SET state='CANCELLED',outcome_code='CANCELLED',completed_at_ms=?,updated_at_ms=?
-WHERE server_import_id=? AND state IN ('PENDING','EVALUATING')
-`, now, now, importID); err != nil {
-				return Result{}, false, fmt.Errorf("jobs/server import items: %w", err)
-			}
-			if _, err := transaction.ExecContext(ctx, `
-UPDATE server_imports SET state='CANCELLED',cancel_requested_at_ms=?,cancel_reason=?,
-cancelled_item_count=catalog_item_count,completed_at_ms=?,version=version+1,updated_at_ms=?
-WHERE id=? AND state='QUEUED'
-`, now, strings.TrimSpace(reason), now, now, importID); err != nil {
-				return Result{}, false, fmt.Errorf("jobs/server import cancel: %w", err)
-			}
+		if err := cancelServerImport(ctx, transaction, jobID, reason, pending, now); err != nil {
+			return Result{}, false, err
 		}
 	}
 	if err := transaction.Commit(); err != nil {
@@ -160,7 +137,47 @@ WHERE id=? AND state='QUEUED'
 	return Result{JobID: jobID, State: newState, ExecutionNo: executionNo, Version: version + 1}, pending, nil
 }
 
-//nolint:funlen // Retry eligibility, attempt creation, event emission, and optimistic locking share one transaction.
+func cancelServerImport(
+	ctx context.Context,
+	transaction *sql.Tx,
+	jobID, reason string,
+	pending bool,
+	now int64,
+) error {
+	if pending {
+		if _, err := transaction.ExecContext(ctx, `
+UPDATE server_imports SET state='CANCEL_REQUESTED',cancel_requested_at_ms=?,cancel_reason=?,
+version=version+1,updated_at_ms=? WHERE job_id=? AND state='RUNNING'
+`, now, strings.TrimSpace(reason), now, jobID); err != nil {
+			return fmt.Errorf("jobs/server import cancel: %w", err)
+		}
+		return nil
+	}
+	var importID string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT id
+FROM server_imports
+WHERE job_id=?
+`, jobID).Scan(&importID); err != nil {
+		return fmt.Errorf("jobs/server import: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE server_bios_import_items SET state='CANCELLED',outcome_code='CANCELLED',completed_at_ms=?,updated_at_ms=?
+WHERE server_import_id=? AND state IN ('PENDING','EVALUATING')
+`, now, now, importID); err != nil {
+		return fmt.Errorf("jobs/server import items: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE server_imports SET state='CANCELLED',cancel_requested_at_ms=?,cancel_reason=?,
+cancelled_item_count=catalog_item_count,completed_at_ms=?,version=version+1,updated_at_ms=?
+WHERE id=? AND state='QUEUED'
+`, now, strings.TrimSpace(reason), now, now, importID); err != nil {
+		return fmt.Errorf("jobs/server import cancel: %w", err)
+	}
+	return nil
+}
+
+// Retry eligibility, attempt creation, event emission, and optimistic locking share one transaction.
 func (service *Service) Retry(ctx context.Context, jobID string, expectedVersion int64) (Result, error) {
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {

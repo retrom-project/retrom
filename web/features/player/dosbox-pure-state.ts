@@ -56,6 +56,15 @@ type MainLoopSignal = {
   timer: number;
 };
 
+type OperationSignal = { promise: Promise<void>; cancel: () => void };
+type DOSLoadDependencies = {
+  target: DOSBoxWindow;
+  isActive: () => boolean;
+  delay: (delayMs: number) => Promise<void>;
+  registerLoadSignal: (timeoutMs: number) => OperationSignal;
+  registerMainLoopSignal: (timeoutMs: number) => OperationSignal;
+};
+
 function matchingOffsets(bytes: Uint8Array, pattern: Uint8Array) {
   const offsets: number[] = [];
   for (let at = 0; at <= bytes.byteLength - pattern.byteLength; at += 1) {
@@ -66,15 +75,15 @@ function matchingOffsets(bytes: Uint8Array, pattern: Uint8Array) {
         break;
       }
     }
-    if (matches) offsets.push(at);
+    if (matches) {offsets.push(at);}
   }
   return offsets;
 }
 
 function equalBytes(left: Uint8Array, right: Uint8Array) {
-  if (left.byteLength !== right.byteLength) return false;
+  if (left.byteLength !== right.byteLength) {return false;}
   for (let index = 0; index < left.byteLength; index += 1) {
-    if (left[index] !== right[index]) return false;
+    if (left[index] !== right[index]) {return false;}
   }
   return true;
 }
@@ -88,9 +97,9 @@ function coreStatePayload(state: Uint8Array) {
     const marker = String.fromCharCode(...state.subarray(offset, offset + 4));
     const size = state[offset + 4]! | state[offset + 5]! << 8 |
       state[offset + 6]! << 16 | state[offset + 7]! << 24;
-    if (size < 0 || offset + 8 + size > state.byteLength) throw new Error("PLAYER_STATE_UNAVAILABLE");
-    if (marker === "MEM ") return state.subarray(offset + 8, offset + 8 + size);
-    if (marker === "END ") break;
+    if (size < 0 || offset + 8 + size > state.byteLength) {throw new Error("PLAYER_STATE_UNAVAILABLE");}
+    if (marker === "MEM ") {return state.subarray(offset + 8, offset + 8 + size);}
+    if (marker === "END ") {break;}
     offset += 8 + (size + 7 & ~7);
   }
   throw new Error("PLAYER_STATE_UNAVAILABLE");
@@ -102,14 +111,14 @@ export function patchDOSBoxPureStateStack(source: BufferSource) {
     ? new Uint8Array(source)
     : new Uint8Array(source.buffer, source.byteOffset, source.byteLength);
   const markers = matchingOffsets(view, dosboxPureStackMarker);
-  if (markers.length === 0) return null;
+  if (markers.length === 0) {return null;}
   const stackHighOffsets = matchingOffsets(view, linkedStackHigh);
   if (markers.length !== 1 || stackHighOffsets.length !== 2) {
     throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");
   }
   const patched = view.slice();
-  for (const offset of stackHighOffsets) patched.set(compatibleStackHigh, offset);
-  if (!WebAssembly.validate(patched)) throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");
+  for (const offset of stackHighOffsets) {patched.set(compatibleStackHigh, offset);}
+  if (!WebAssembly.validate(patched)) {throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");}
   return patched;
 }
 
@@ -154,6 +163,63 @@ export function canCreateRecoverableManualState(config: {
   return config.runtimeCore !== "dosbox_pure" || Boolean(config.dosEntry);
 }
 
+async function waitForDOSBoxSerialization(manager: DOSBoxManager, toggleMainLoop: (running: boolean) => void, deadline: number, dependencies: DOSLoadDependencies) {
+  while (dependencies.isActive()) {
+    try {
+      if (manager.getState?.().byteLength) {return;}
+    } catch {
+      // DOSBox Pure rejects serialization until the selected program runs.
+    }
+    if (dependencies.target.performance.now() >= deadline) {throw new Error("PLAYER_SAVE_STATE_RESTORE_TIMEOUT");}
+    toggleMainLoop(true);
+    await dependencies.delay(Math.min(50, Math.max(1, deadline - dependencies.target.performance.now())));
+  }
+  throw new Error("PLAYER_SESSION_ENDED");
+}
+
+function dosBoxLoadResources(manager: DOSBoxManager, state: Uint8Array) {
+  const fileSystem = manager.FS;
+  const nativeLoadState = manager.functions?.loadState;
+  if (!manager.toggleMainLoop || !fileSystem?.writeFile || !fileSystem.unlink || typeof nativeLoadState !== "function" || !(state instanceof Uint8Array) || state.byteLength === 0) {
+    throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");
+  }
+  return { fileSystem, nativeLoadState, toggleMainLoop: manager.toggleMainLoop.bind(manager) };
+}
+
+function createDOSBoxStateLoader(dependencies: DOSLoadDependencies) {
+  return async function loadExplicitStateAndWait(this: DOSBoxManager, state: Uint8Array, timeoutMs = 30_000) {
+    const { fileSystem, nativeLoadState, toggleMainLoop } = dosBoxLoadResources(this, state);
+    coreStatePayload(state);
+    const deadline = dependencies.target.performance.now() + timeoutMs;
+    await waitForDOSBoxSerialization(this, toggleMainLoop, deadline, dependencies);
+    toggleMainLoop(false);
+    await dependencies.delay(50);
+    if (!dependencies.isActive()) {throw new Error("PLAYER_SESSION_ENDED");}
+    try {
+      try {fileSystem.unlink(stateFilePath);} catch { /* absent before the first load */ }
+      fileSystem.writeFile(stateFilePath, new Uint8Array(state));
+      const remaining = () => Math.max(1, deadline - dependencies.target.performance.now());
+      const completion = dependencies.registerLoadSignal(remaining());
+      const loadIteration = dependencies.registerMainLoopSignal(remaining());
+      try {
+        this.clearEJSResetTimer?.();
+        nativeLoadState.call(this.functions, stateFilePath, 0);
+        toggleMainLoop(true);
+        await Promise.all([completion.promise, loadIteration.promise]);
+        toggleMainLoop(false);
+        const observed = this.getState?.();
+        if (!observed?.byteLength) {throw new Error("PLAYER_SAVE_STATE_RESTORE_FAILED");}
+        coreStatePayload(observed);
+      } finally {
+        loadIteration.cancel(); completion.cancel(); toggleMainLoop(false);
+      }
+    } finally {
+      toggleMainLoop(false);
+      try {fileSystem.unlink(stateFilePath);} catch { /* native code may already remove it */ }
+    }
+  };
+}
+
 export function installDOSBoxPureStateCompatibility(playerWindow: Window = window) {
   const target = playerWindow as DOSBoxWindow;
   const originalInstantiate = target.WebAssembly.instantiate.bind(target.WebAssembly);
@@ -195,11 +261,11 @@ export function installDOSBoxPureStateCompatibility(playerWindow: Window = windo
 
   const finishSignal = (signal: LoadSignal, error?: Error) => {
     const index = loadSignals.indexOf(signal);
-    if (index < 0) return;
+    if (index < 0) {return;}
     loadSignals.splice(index, 1);
     target.clearTimeout(signal.timer);
-    if (error) signal.reject(error);
-    else signal.resolve();
+    if (error) {signal.reject(error);}
+    else {signal.resolve();}
   };
 
   const registerLoadSignal = (timeoutMs: number) => {
@@ -218,11 +284,11 @@ export function installDOSBoxPureStateCompatibility(playerWindow: Window = windo
 
   const finishMainLoopSignal = (signal: MainLoopSignal, error?: Error) => {
     const index = mainLoopSignals.indexOf(signal);
-    if (index < 0) return;
+    if (index < 0) {return;}
     mainLoopSignals.splice(index, 1);
     target.clearTimeout(signal.timer);
-    if (error) signal.reject(error);
-    else signal.resolve();
+    if (error) {signal.reject(error);}
+    else {signal.resolve();}
   };
 
   const registerMainLoopSignal = (timeoutMs: number) => {
@@ -242,28 +308,28 @@ export function installDOSBoxPureStateCompatibility(playerWindow: Window = windo
 
   const observeNativeLog = (args: unknown[]) => {
     const message = args.map(String).join(" ");
-    if (!message.includes("[State]") || !message.includes("game.state")) return;
+    if (!message.includes("[State]") || !message.includes("game.state")) {return;}
     const signal = loadSignals[0];
-    if (!signal) return;
+    if (!signal) {return;}
     if (/failed/i.test(message)) {
       signal.loading = false;
       target.queueMicrotask(() => {
-        if (loadSignals[0] === signal) finishSignal(signal, new Error("PLAYER_SAVE_STATE_RESTORE_FAILED"));
+        if (loadSignals[0] === signal) {finishSignal(signal, new Error("PLAYER_SAVE_STATE_RESTORE_FAILED"));}
       });
       return;
     }
     if (/loading state/i.test(message)) {
       signal.loading = true;
       target.queueMicrotask(() => {
-        if (loadSignals[0] === signal && signal.loading) finishSignal(signal);
+        if (loadSignals[0] === signal && signal.loading) {finishSignal(signal);}
       });
     }
   };
 
   const patchManager = (constructor: GameManagerConstructor | undefined) => {
     const prototype = constructor?.prototype;
-    if (!prototype || patchedPrototypes.has(prototype)) return;
-    if (!patchedArtifact) return;
+    if (!prototype || patchedPrototypes.has(prototype)) {return;}
+    if (!patchedArtifact) {return;}
     if (prototype.loadExplicitStateAndWait) {
       throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");
     }
@@ -274,78 +340,20 @@ export function installDOSBoxPureStateCompatibility(playerWindow: Window = windo
     prototype.getState = function (this: DOSBoxManager) {
       return readDOSBoxPureState(this.Module ?? {});
     };
-    prototype.loadExplicitStateAndWait = async function (this: DOSBoxManager, state: Uint8Array, timeoutMs = 30_000) {
-      const fileSystem = this.FS;
-      const nativeLoadState = this.functions?.loadState;
-      if (!this.toggleMainLoop || !fileSystem?.writeFile || !fileSystem.unlink ||
-        typeof nativeLoadState !== "function" || !(state instanceof Uint8Array) || state.byteLength === 0) {
-        throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");
-      }
-      const toggleMainLoop = this.toggleMainLoop.bind(this);
-      coreStatePayload(state);
-      const deadline = target.performance.now() + timeoutMs;
-      while (active) {
-        try {
-          if (this.getState?.().byteLength) break;
-        } catch {
-          // DOSBox Pure rejects serialization until the selected program runs.
-        }
-        if (target.performance.now() >= deadline) throw new Error("PLAYER_SAVE_STATE_RESTORE_TIMEOUT");
-        toggleMainLoop(true);
-        await delay(Math.min(50, Math.max(1, deadline - target.performance.now())));
-      }
-      if (!active) throw new Error("PLAYER_SESSION_ENDED");
-
-      // Let the worker observe EJS_PAUSED before enqueueing RetroArch's
-      // blocking load task. The runtime factory hook then stops execution at
-      // the postMainLoop boundary where task_queue_check has completed.
-      toggleMainLoop(false);
-      await delay(50);
-      if (!active) throw new Error("PLAYER_SESSION_ENDED");
-
-      try {
-        try { fileSystem.unlink(stateFilePath); } catch { /* absent before the first load */ }
-        fileSystem.writeFile(stateFilePath, new Uint8Array(state));
-        const completion = registerLoadSignal(Math.max(1, deadline - target.performance.now()));
-        const loadIteration = registerMainLoopSignal(Math.max(1, deadline - target.performance.now()));
-        try {
-          this.clearEJSResetTimer?.();
-          nativeLoadState.call(this.functions, stateFilePath, 0);
-          toggleMainLoop(true);
-          await Promise.all([completion.promise, loadIteration.promise]);
-          toggleMainLoop(false);
-          // DOSBox Pure intentionally normalizes timers and host-facing fields
-          // during unserialize, so its next serialization is not byte-identical
-          // to the input. Native completion without the paired failure log,
-          // followed by another structurally valid state, is the pinned core's
-          // reliable completion boundary. Browser smoke compares the actual
-          // saved/restored game scene to verify position.
-          const observed = this.getState?.();
-          if (!observed?.byteLength) throw new Error("PLAYER_SAVE_STATE_RESTORE_FAILED");
-          coreStatePayload(observed);
-        } finally {
-          loadIteration.cancel();
-          completion.cancel();
-          toggleMainLoop(false);
-        }
-      } finally {
-        toggleMainLoop(false);
-        try { fileSystem.unlink(stateFilePath); } catch { /* native code may already remove it */ }
-      }
-    };
+    prototype.loadExplicitStateAndWait = createDOSBoxStateLoader({ target, isActive: () => active, delay, registerLoadSignal, registerMainLoopSignal });
     patchedPrototypes.add(prototype);
   };
 
   const wrapRuntime = (factory: RuntimeFactory | undefined) => {
-    if (typeof factory !== "function") throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");
-    if (factory.retromDOSBoxStateHook) return factory;
+    if (typeof factory !== "function") {throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");}
+    if (factory.retromDOSBoxStateHook) {return factory;}
     const wrapped = function (this: unknown, moduleConfig: RuntimeModuleConfig) {
       return Reflect.apply(factory, this, [{
         ...moduleConfig,
         postMainLoop: (...args: unknown[]) => {
           moduleConfig?.postMainLoop?.(...args);
           const signal = mainLoopSignals[0];
-          if (signal) finishMainLoopSignal(signal);
+          if (signal) {finishMainLoopSignal(signal);}
         },
         print: (...args: unknown[]) => { moduleConfig?.print?.(...args); observeNativeLog(args); },
         printErr: (...args: unknown[]) => { moduleConfig?.printErr?.(...args); observeNativeLog(args); },
@@ -356,11 +364,11 @@ export function installDOSBoxPureStateCompatibility(playerWindow: Window = windo
   };
 
   const instantiate = (async (source: BufferSource | WebAssembly.Module, imports?: WebAssembly.Imports) => {
-    if (source instanceof target.WebAssembly.Module) return originalInstantiate(source, imports);
+    if (source instanceof target.WebAssembly.Module) {return originalInstantiate(source, imports);}
     const patched = patchDOSBoxPureStateStack(source);
-    if (!patched) return originalInstantiate(source, imports);
+    if (!patched) {return originalInstantiate(source, imports);}
     patchedArtifact = true;
-    if (managerConstructor) patchManager(managerConstructor);
+    if (managerConstructor) {patchManager(managerConstructor);}
     return originalInstantiate(patched, imports);
   }) as typeof WebAssembly.instantiate;
   target.WebAssembly.instantiate = instantiate;
@@ -371,14 +379,14 @@ export function installDOSBoxPureStateCompatibility(playerWindow: Window = windo
       const response = await source;
       const bytes = new Uint8Array(await response.clone().arrayBuffer());
       const patched = patchDOSBoxPureStateStack(bytes);
-      if (!patched) return originalInstantiateStreaming(response, imports);
+      if (!patched) {return originalInstantiateStreaming(response, imports);}
       patchedArtifact = true;
-      if (managerConstructor) patchManager(managerConstructor);
+      if (managerConstructor) {patchManager(managerConstructor);}
       return originalInstantiate(patched, imports) as Promise<WebAssembly.WebAssemblyInstantiatedSource>;
     };
   }
 
-  if (managerConstructor) patchManager(managerConstructor);
+  if (managerConstructor) {patchManager(managerConstructor);}
   Object.defineProperty(target, "EJS_GameManager", {
     configurable: true,
     enumerable: managerDescriptor?.enumerable ?? true,
@@ -388,7 +396,7 @@ export function installDOSBoxPureStateCompatibility(playerWindow: Window = windo
       managerConstructor = constructor;
     },
   });
-  if (runtimeFactory) runtimeFactory = wrapRuntime(runtimeFactory);
+  if (runtimeFactory) {runtimeFactory = wrapRuntime(runtimeFactory);}
   Object.defineProperty(target, "EJS_Runtime", {
     configurable: true,
     enumerable: runtimeDescriptor?.enumerable ?? true,
@@ -397,22 +405,22 @@ export function installDOSBoxPureStateCompatibility(playerWindow: Window = windo
   });
 
   const cleanup = () => {
-    if (!active) return;
+    if (!active) {return;}
     active = false;
     target.WebAssembly.instantiate = originalInstantiate;
-    if (originalInstantiateStreaming) target.WebAssembly.instantiateStreaming = originalInstantiateStreaming;
+    if (originalInstantiateStreaming) {target.WebAssembly.instantiateStreaming = originalInstantiateStreaming;}
     for (const prototype of patchedPrototypes) {
       const descriptors = prototypeDescriptors.get(prototype);
-      if (descriptors?.getState) Object.defineProperty(prototype, "getState", descriptors.getState);
-      else Reflect.deleteProperty(prototype, "getState");
+      if (descriptors?.getState) {Object.defineProperty(prototype, "getState", descriptors.getState);}
+      else {Reflect.deleteProperty(prototype, "getState");}
       if (descriptors?.loadExplicitStateAndWait) {
         Object.defineProperty(prototype, "loadExplicitStateAndWait", descriptors.loadExplicitStateAndWait);
-      } else Reflect.deleteProperty(prototype, "loadExplicitStateAndWait");
+      } else {Reflect.deleteProperty(prototype, "loadExplicitStateAndWait");}
     }
-    if (managerDescriptor) Object.defineProperty(target, "EJS_GameManager", managerDescriptor);
-    else Reflect.deleteProperty(target, "EJS_GameManager");
-    if (runtimeDescriptor) Object.defineProperty(target, "EJS_Runtime", runtimeDescriptor);
-    else Reflect.deleteProperty(target, "EJS_Runtime");
+    if (managerDescriptor) {Object.defineProperty(target, "EJS_GameManager", managerDescriptor);}
+    else {Reflect.deleteProperty(target, "EJS_GameManager");}
+    if (runtimeDescriptor) {Object.defineProperty(target, "EJS_Runtime", runtimeDescriptor);}
+    else {Reflect.deleteProperty(target, "EJS_Runtime");}
     for (const signal of waitSignals) {
       target.clearTimeout(signal.timer);
       signal.reject(new Error("PLAYER_SESSION_ENDED"));
@@ -431,7 +439,7 @@ export function installDOSBoxPureStateCompatibility(playerWindow: Window = windo
     prepare(instance: EmulatorInstance) {
       const manager = instance.gameManager as DOSBoxManager | undefined;
       const prototype = manager ? Object.getPrototypeOf(manager) as DOSBoxManager | null : null;
-      if (!manager || !prototype) throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");
+      if (!manager || !prototype) {throw new Error("PLAYER_DOS_STATE_COMPATIBILITY_UNAVAILABLE");}
       patchManager({ prototype });
     },
     cleanup,

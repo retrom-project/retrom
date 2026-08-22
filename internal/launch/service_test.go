@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"retrom/internal/dependencies"
+	"retrom/internal/testassert"
 )
 
 func TestArtifactCompatibilityValidation(t *testing.T) {
@@ -20,34 +21,22 @@ func TestArtifactCompatibilityValidation(t *testing.T) {
 		InputMode:                 "STANDARD",
 		StartupActions:            []dependencies.StartupAction{},
 	}
-	if !validArtifactCompatibility(valid) {
-		t.Fatal("generic future core compatibility was rejected")
-	}
+	testassert.True(t, validArtifactCompatibility(valid), "generic future core compatibility was rejected")
 	valid.RuntimeCoreID = "ppsspp"
 	valid.PersistentSaveMode = "FILE_TREE"
-	if !validArtifactCompatibility(valid) {
-		t.Fatal("PPSSPP file-tree compatibility was rejected")
-	}
+	testassert.True(t, validArtifactCompatibility(valid), "PPSSPP file-tree compatibility was rejected")
 	valid.RuntimeCoreID = "future_core"
-	if validArtifactCompatibility(valid) {
-		t.Fatal("non-PPSSPP file-tree compatibility was accepted")
-	}
+	testassert.False(t, validArtifactCompatibility(valid), "non-PPSSPP file-tree compatibility was accepted")
 	valid.SchemaVersion = 4
 	valid.SupportedContentKinds = []string{"SINGLE_FILE"}
-	if !validArtifactCompatibility(valid) {
-		t.Fatal("V4 generic file-tree compatibility was rejected")
-	}
+	testassert.True(t, validArtifactCompatibility(valid), "V4 generic file-tree compatibility was rejected")
 	valid.PersistentSaveMode = "AUTO_STATE"
-	if !validArtifactCompatibility(valid) {
-		t.Fatal("V4 automatic-state compatibility was rejected")
-	}
+	testassert.True(t, validArtifactCompatibility(valid), "V4 automatic-state compatibility was rejected")
 	valid.PersistentSaveMode = "SINGLE_FILE"
 	valid.StartupActions = []dependencies.StartupAction{{
 		Event: "GAME_START", Kind: "PRESS_CONTROL", DelayMS: 30_000, DurationMS: 120,
 	}}
-	if !validArtifactCompatibility(valid) {
-		t.Fatal("30 second startup action was rejected")
-	}
+	testassert.True(t, validArtifactCompatibility(valid), "30 second startup action was rejected")
 	valid.StartupActions = []dependencies.StartupAction{}
 	tests := map[string]func(*artifactCompatibility){
 		"runtime core": func(value *artifactCompatibility) { value.RuntimeCoreID = "future-core" },
@@ -67,9 +56,7 @@ func TestArtifactCompatibilityValidation(t *testing.T) {
 			value.DefaultOptions = map[string]string{}
 			value.StartupActions = []dependencies.StartupAction{}
 			mutate(&value)
-			if validArtifactCompatibility(value) {
-				t.Fatal("malformed compatibility was accepted")
-			}
+			testassert.False(t, validArtifactCompatibility(value), "malformed compatibility was accepted")
 		})
 	}
 }

@@ -62,7 +62,7 @@ describe("FavoriteBrowser", () => {
   it("persists URL filters and exposes folder-specific batch removal", async () => {
     const folderQuery: FavoriteQuery = { ...query, scope: "FOLDER", folderId };
     auth.fetch.mockImplementation(async (input: RequestInfo | URL) => {
-      if (String(input).endsWith("/organize")) return json({ items: [] });
+      if (String(input).endsWith("/organize")) {return json({ items: [] });}
       return json(page());
     });
     const user = userEvent.setup();
@@ -92,7 +92,7 @@ describe("FavoriteBrowser", () => {
 
   it("keeps a failed folder deletion visible and retryable in the confirmation dialog", async () => {
     auth.fetch.mockImplementation(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      if (init?.method === "DELETE") return json({ error: { code: "RESOURCE_VERSION_CONFLICT", message: "收藏夹已被修改" } }, 412);
+      if (init?.method === "DELETE") {return json({ error: { code: "RESOURCE_VERSION_CONFLICT", message: "收藏夹已被修改" } }, 412);}
       return json(page());
     });
     const user = userEvent.setup();

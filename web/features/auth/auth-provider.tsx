@@ -20,7 +20,7 @@ const Context = createContext<AuthState | null>(null);
 export { safeReturnTo } from "./routing";
 
 function currentReturnTo() {
-  if (typeof window === "undefined") return "/";
+  if (typeof window === "undefined") {return "/";}
   return safeReturnTo(`${window.location.pathname}${window.location.search}`);
 }
 
@@ -48,7 +48,7 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
 
   const refresh = useCallback(async () => {
     const response = await fetch("/api/v1/auth/context", { cache: "no-store", credentials: "same-origin" });
-    if (!response.ok) throw new Error(`认证上下文请求失败（HTTP ${response.status}）`);
+    if (!response.ok) {throw new Error(`认证上下文请求失败（HTTP ${response.status}）`);}
     const next = await response.json() as AuthContext;
     acceptContext(next);
     return next;
@@ -58,7 +58,7 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
     const method = (init.method ?? "GET").toUpperCase();
     const headers = new Headers(init.headers);
     const currentCSRF = contextRef.current.csrfToken;
-    if (currentCSRF && !["GET", "HEAD", "OPTIONS"].includes(method)) headers.set("X-Retrom-Csrf", currentCSRF);
+    if (currentCSRF && !["GET", "HEAD", "OPTIONS"].includes(method)) {headers.set("X-Retrom-Csrf", currentCSRF);}
     const response = await fetch(input, { ...init, headers, credentials: "same-origin" });
     return handleAuthenticationResponse(response);
   }, []);
@@ -67,7 +67,7 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
     const response = await authenticatedFetch("/api/v1/auth/logout", {
       method: "POST", headers: { "Content-Type": "application/json" }, body: "{}"
     });
-    if (!response.ok && response.status !== 401) throw new Error("退出登录失败，请刷新后重试");
+    if (!response.ok && response.status !== 401) {throw new Error("退出登录失败，请刷新后重试");}
     clearUserStorage(contextRef.current.user?.userId);
     acceptContext({ ...contextRef.current, authenticationState: "UNAUTHENTICATED", user: null, csrfToken: null });
     router.replace("/login");
@@ -80,6 +80,6 @@ export function AuthProvider({ initialContext, children }: { initialContext: Aut
 
 export function useAuth() {
   const value = useContext(Context);
-  if (!value) throw new Error("useAuth 必须在 AuthProvider 中使用");
+  if (!value) {throw new Error("useAuth 必须在 AuthProvider 中使用");}
   return value;
 }

@@ -35,15 +35,15 @@ function stableNameOrder(left: PlatformInstance, right: PlatformInstance) {
 export function filterPlatformDirectories(instances: PlatformInstance[], filters: PlatformDirectoryFilters) {
   const query = filters.query.trim().toLocaleLowerCase("zh-CN");
   return instances.filter((instance) => {
-    if (filters.platformId && instance.platformId !== filters.platformId) return false;
-    if (filters.status === "ENABLED" && !instance.enabled) return false;
-    if (filters.status === "DISABLED" && instance.enabled) return false;
-    if (!query) return true;
+    if (filters.platformId && instance.platformId !== filters.platformId) {return false;}
+    if (filters.status === "ENABLED" && !instance.enabled) {return false;}
+    if (filters.status === "DISABLED" && instance.enabled) {return false;}
+    if (!query) {return true;}
     return [instance.name, instance.platformName, instance.description]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   }).sort((left, right) => {
-    if (filters.sort === "NAME") return stableNameOrder(left, right);
-    if (filters.sort === "GAME_COUNT") return right.gameCount - left.gameCount || stableNameOrder(left, right);
+    if (filters.sort === "NAME") {return stableNameOrder(left, right);}
+    if (filters.sort === "GAME_COUNT") {return right.gameCount - left.gameCount || stableNameOrder(left, right);}
     return left.sortOrder - right.sortOrder || left.id.localeCompare(right.id);
   });
 }
@@ -70,11 +70,11 @@ export function summarizeRecommendations(items: PlatformRecommendations["items"]
     missingCount: 0,
   };
   for (const item of items) {
-    if (item.state === "ACTIVE") summary.activeCount++;
-    if (item.state === "CUSTOMIZED") summary.customizedCount++;
-    if (item.state === "COVERED_BY_EQUIVALENT") summary.coveredByEquivalentCount++;
-    if (item.state === "SUPPRESSED") summary.suppressedCount++;
-    if (item.state === "MISSING") summary.missingCount++;
+    if (item.state === "ACTIVE") {summary.activeCount++;}
+    if (item.state === "CUSTOMIZED") {summary.customizedCount++;}
+    if (item.state === "COVERED_BY_EQUIVALENT") {summary.coveredByEquivalentCount++;}
+    if (item.state === "SUPPRESSED") {summary.suppressedCount++;}
+    if (item.state === "MISSING") {summary.missingCount++;}
   }
   return summary;
 }

@@ -7,7 +7,7 @@ import type { FavoriteFolder, FavoriteGame, FavoriteReference } from "./favorite
 import { TagChips } from "@/components/tag-picker";
 
 function FavoritePoster({ game }: { game: FavoriteGame }) {
-  if (game.coverUrl) return <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="(min-width: 2600px) 280px, 270px" unoptimized />;
+  if (game.coverUrl) {return <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="(min-width: 2600px) 280px, 270px" unoptimized />;}
   return <span className="favorite-poster" role="img" aria-label={`${game.title} 暂无封面`}><small>RETROM CLASSICS</small><strong>{game.title}</strong><span>{game.defaultCore.name}</span></span>;
 }
 

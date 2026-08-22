@@ -63,7 +63,7 @@ func (response *bufferedResponse) Write(contents []byte) (int, error) {
 	return written, nil
 }
 
-//nolint:funlen // Contract branches stay contiguous for a single auditable decision.
+// Contract branches stay contiguous for a single auditable decision.
 func (server *Server) idempotencyHandler(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(writer http.ResponseWriter, request *http.Request) {
 		operationID, _ := request.Context().Value(operationIDContextKey).(string)

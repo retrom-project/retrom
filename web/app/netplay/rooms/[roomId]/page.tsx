@@ -22,7 +22,7 @@ export default async function NetplayRoomPage({ params, searchParams }: {
   searchParams: PageSearchParams;
 }) {
   const context = await loadAuthContext();
-  if (!context.netplayEnabled) notFound();
+  if (!context.netplayEnabled) {notFound();}
   const [{ roomId }, query] = await Promise.all([params, searchParams]);
   const room = await backendJSON<NetplayRoom>(`/api/v1/netplay/rooms/${encodeURIComponent(roomId)}`);
   const gamePage = room.state === "DRAFT" && room.permissions.canSelectGame

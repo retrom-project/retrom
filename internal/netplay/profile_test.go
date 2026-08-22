@@ -7,39 +7,30 @@ import (
 	"testing"
 
 	"retrom/internal/dependencies"
+	"retrom/internal/testassert"
 )
 
 func TestRegistryRejectsDependencyDriftAndProducesStableCanonicalProfile(t *testing.T) {
 	t.Parallel()
 	contents, err := os.ReadFile(filepath.Join("..", "..", "data", "netplay", "v1", "manifest.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	set := fixtureDependencySet()
 	registry, err := parseRegistry(contents, set)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	profile, ok := registry.Profile("fbneo-423-v1")
-	if !ok {
-		t.Fatal("expected profile missing")
-	}
+	testassert.True(t, ok, "expected profile missing")
 	canonicalA, digestA, err := registry.CanonicalProfile(CanonicalProfileInput{
 		ManifestProfile: profile, CoreArtifactID: "01980000-0000-7000-8000-000000000001",
 		GameVariantRevisionID:  "01980000-0000-7000-8000-000000000002",
 		DependencySnapshotJSON: `{"schemaVersion":1}`, DefaultCoreOptions: map[string]string{},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	canonicalB, digestB, err := registry.CanonicalProfile(CanonicalProfileInput{
 		ManifestProfile: profile, CoreArtifactID: "01980000-0000-7000-8000-000000000001",
 		GameVariantRevisionID:  "01980000-0000-7000-8000-000000000002",
 		DependencySnapshotJSON: `{"schemaVersion":1}`, DefaultCoreOptions: map[string]string{},
 	})
-	if err != nil || string(canonicalA) != string(canonicalB) || digestA != digestB || !validDigest(digestA) {
-		t.Fatalf("canonical profile drift: %s/%s error=%v", digestA, digestB, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return string(canonicalA) != string(canonicalB) }, func() bool { return digestA != digestB }, func() bool { return !validDigest(digestA) }), "canonical profile drift: %s/%s error=%v", digestA, digestB, err)
 	var canonicalProfile struct {
 		MaxPredictionFrames int `json:"maxPredictionFrames"`
 	}

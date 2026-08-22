@@ -19,6 +19,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
@@ -28,16 +29,12 @@ func TestReviewBulkApprovalPublishesStrictReadyCandidatesAtomically(t *testing.T
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -59,9 +56,7 @@ VALUES(?,?,'bulk.review.admin','Bulk Review Admin','ADMIN','ENABLED',1,1)
 	}
 	ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: adminID, ProfileID: profileID, Role: "ADMIN"})
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	uploader := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	createImport := func(name, contents string) string {
@@ -73,9 +68,7 @@ VALUES(?,?,'bulk.review.admin','Bulk Review Admin','ADMIN','ENABLED',1,1)
 				ClientFileID: "game", RelativePath: name, SizeBytes: int64(len(payload)),
 			}},
 		})
-		if createErr != nil {
-			t.Fatal(createErr)
-		}
+		testassert.False(t, createErr != nil, createErr)
 		digest := sha256.Sum256(payload)
 		if err := uploader.PutPart(
 			ctx, upload.ID, upload.Files[0].ID, 0,
@@ -85,57 +78,38 @@ VALUES(?,?,'bulk.review.admin','Bulk Review Admin','ADMIN','ENABLED',1,1)
 			t.Fatal(err)
 		}
 		current, err := uploader.Get(ctx, upload.ID)
-		if err != nil {
-			t.Fatal(err)
-		}
+		testassert.False(t, err != nil, err)
 		jobID, _, err := uploader.Complete(ctx, upload.ID, current.Version)
-		if err != nil {
-			t.Fatal(err)
-		}
+		testassert.False(t, err != nil, err)
 		waitForJob(t, database, jobID)
 		created, err := importer.Create(ctx, CreateRequest{
 			UploadID: upload.ID, TargetPlatformInstanceID: platformInstanceID, MetadataProvider: "NONE",
 		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		testassert.False(t, err != nil, err)
 		return created.ImportJobID
 	}
 	firstImportID := createImport("bulk-first.gba", "bulk-ready-first")
 	createImport("bulk-second.gba", "bulk-ready-second")
 	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if preview.Counts.Matched != 2 || preview.Counts.StrictReady != 2 || preview.ActiveBulkApproval != nil {
-		t.Fatalf("preview counts = %#v active=%#v", preview.Counts, preview.ActiveBulkApproval)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 2 }, func() bool { return preview.Counts.StrictReady != 2 }, func() bool { return preview.ActiveBulkApproval != nil }), "preview counts = %#v active=%#v", preview.Counts, preview.ActiveBulkApproval)
 	created, err := importer.CreateReviewBulk(ctx, ReviewBulkCreateRequest{
 		Scope: preview.Scope, ScopeDigest: preview.ScopeDigest,
 		CandidateManifestDigest: preview.CandidateManifestDigest,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	deadline := time.Now().Add(5 * time.Second)
 	var summary ReviewBulkSummary
 	for {
 		summary, err = importer.GetReviewBulk(ctx, created.BulkApprovalID)
-		if err != nil {
-			t.Fatal(err)
-		}
+		testassert.False(t, err != nil, err)
 		if summary.State == "COMPLETED" || summary.State == "PARTIAL_FAILURE" || summary.State == "FAILED" {
 			break
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("bulk approval did not finish: %#v", summary)
-		}
+		testassert.Falsef(t, time.Now().After(deadline), "bulk approval did not finish: %#v", summary)
 		time.Sleep(10 * time.Millisecond)
 	}
-	if summary.State != "COMPLETED" || summary.Progress.Published != 2 || summary.Progress.Processed != 2 ||
-		summary.Progress.Failed != 0 {
-		t.Fatalf("bulk result = %#v", summary)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return summary.State != "COMPLETED" }, func() bool { return summary.Progress.Published != 2 }, func() bool { return summary.Progress.Processed != 2 }, func() bool { return summary.Progress.Failed != 0 }), "bulk result = %#v", summary)
 	var published, events, bulkItems int
 	var auditDiff string
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -146,11 +120,7 @@ SELECT (SELECT count(*) FROM games WHERE status='PUBLISHED'),
 `, created.BulkApprovalID).Scan(&published, &events, &bulkItems, &auditDiff); err != nil {
 		t.Fatal(err)
 	}
-	if published != 2 || events != 2 || bulkItems != 2 ||
-		!strings.Contains(auditDiff, created.BulkApprovalID) ||
-		!strings.Contains(auditDiff, `"approvalMode":"QUICK_STRICT_READY"`) {
-		t.Fatalf("published/events/items = %d/%d/%d diff=%s", published, events, bulkItems, auditDiff)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return published != 2 }, func() bool { return events != 2 }, func() bool { return bulkItems != 2 }, func() bool { return !strings.Contains(auditDiff, created.BulkApprovalID) }, func() bool { return !strings.Contains(auditDiff, `"approvalMode":"QUICK_STRICT_READY"`) }), "published/events/items = %d/%d/%d diff=%s", published, events, bulkItems, auditDiff)
 	var importState string
 	if err := database.SQL.QueryRowContext(ctx, `SELECT state FROM import_jobs WHERE id=?`, firstImportID).
 		Scan(&importState); err != nil || importState != "COMPLETED" {
@@ -172,9 +142,7 @@ WHERE bulk_approval_id=? AND import_item_id=(
 
 	createImport("bulk-stale.gba", "bulk-ready-stale")
 	stalePreview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{})
-	if err != nil || stalePreview.Counts.StrictReady != 1 {
-		t.Fatalf("stale preview = %#v, %v", stalePreview, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return stalePreview.Counts.StrictReady != 1 }), "stale preview = %#v, %v", stalePreview, err)
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE review_drafts SET version=version+1,updated_at_ms=updated_at_ms+1
 WHERE import_item_id=(SELECT id FROM import_items WHERE state='REVIEW_PENDING' LIMIT 1)
@@ -191,14 +159,10 @@ WHERE import_item_id=(SELECT id FROM import_items WHERE state='REVIEW_PENDING' L
 	insertInterruptedBatch := func(t *testing.T, bulkID, jobID, state string) ReviewBulkSummary {
 		t.Helper()
 		transaction, err := database.SQL.BeginTx(ctx, nil)
-		if err != nil {
-			t.Fatal(err)
-		}
+		testassert.False(t, err != nil, err)
 		defer cleanup.Rollback(transaction)
 		currentPreview, candidates, err := importer.reviewBulkPreviewInTransaction(ctx, transaction, ReviewBulkScope{})
-		if err != nil || len(candidates) != 1 {
-			t.Fatalf("interrupted preview = %#v candidates=%d error=%v", currentPreview, len(candidates), err)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(candidates) != 1 }), "interrupted preview = %#v candidates=%d error=%v", currentPreview, len(candidates), err)
 		candidate := candidates[0]
 		jobState := state
 		workerID := any(nil)
@@ -254,20 +218,14 @@ VALUES(?,?,?,?,?,?,?,?,?,?,10,?)
 	deadline = time.Now().Add(5 * time.Second)
 	for {
 		summary, err = importer.GetReviewBulk(ctx, restarted.BulkApprovalID)
-		if err != nil {
-			t.Fatal(err)
-		}
+		testassert.False(t, err != nil, err)
 		if summary.State == "COMPLETED" || summary.State == "PARTIAL_FAILURE" || summary.State == "FAILED" {
 			break
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("restarted bulk approval did not finish: %#v", summary)
-		}
+		testassert.Falsef(t, time.Now().After(deadline), "restarted bulk approval did not finish: %#v", summary)
 		time.Sleep(10 * time.Millisecond)
 	}
-	if summary.State != "COMPLETED" || summary.Progress.Published != 1 {
-		t.Fatalf("restarted result = %#v", summary)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return summary.State != "COMPLETED" }, func() bool { return summary.Progress.Published != 1 }), "restarted result = %#v", summary)
 	var gameCount int
 	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM games WHERE status='PUBLISHED'`).Scan(&gameCount); err != nil || gameCount != 3 {
 		t.Fatalf("published game count after restart = %d, %v", gameCount, err)
@@ -277,9 +235,7 @@ VALUES(?,?,?,?,?,?,?,?,?,?,10,?)
 	cancelled := insertInterruptedBatch(t,
 		"01990000-0000-7000-8000-00000000b722", "01990000-0000-7000-8000-00000000b723", "QUEUED")
 	cancelledSummary, err := importer.CancelReviewBulk(ctx, cancelled.BulkApprovalID, cancelled.Version, "integration cancel")
-	if err != nil || cancelledSummary.State != "CANCELLED" || cancelledSummary.Progress.Cancelled != 1 {
-		t.Fatalf("cancelled result = %#v, %v", cancelledSummary, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return cancelledSummary.State != "CANCELLED" }, func() bool { return cancelledSummary.Progress.Cancelled != 1 }), "cancelled result = %#v, %v", cancelledSummary, err)
 	if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM games WHERE status='PUBLISHED'`).Scan(&gameCount); err != nil || gameCount != 3 {
 		t.Fatalf("published game count after cancel = %d, %v", gameCount, err)
 	}

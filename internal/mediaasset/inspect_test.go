@@ -5,18 +5,16 @@ import (
 	"encoding/base64"
 	"errors"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestInspectImageAndVideoContainers(t *testing.T) {
 	t.Parallel()
 	png, err := base64.StdEncoding.DecodeString("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	image, err := InspectImage(bytes.NewReader(png), int64(len(png)))
-	if err != nil || image.MediaType != "image/png" || image.WidthPX != 1 || image.HeightPX != 1 {
-		t.Fatalf("image = %#v, error=%v", image, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return image.MediaType != "image/png" }, func() bool { return image.WidthPX != 1 }, func() bool { return image.HeightPX != 1 }), "image = %#v, error=%v", image, err)
 	mp4 := []byte{0, 0, 0, 20, 'f', 't', 'y', 'p', 'i', 's', 'o', 'm', 0, 0, 0, 0, 'i', 's', 'o', 'm'}
 	if mediaType, err := InspectVideo(bytes.NewReader(mp4), int64(len(mp4))); err != nil || mediaType != "video/mp4" {
 		t.Fatalf("mp4 = %q, error=%v", mediaType, err)

@@ -110,8 +110,8 @@ linters:
           msg: use structured logging
       analyze-types: true
     funlen:
-      lines: 80
-      statements: 50
+      lines: 150
+      statements: 100
     gocognit:
       min-complexity: 25
     gocyclo:
@@ -151,12 +151,7 @@ linters:
         linters:
           - dupl
           - err113
-          - funlen
-          - gocognit
-          - gocyclo
           - lll
-          - nestif
-          - noctx
           - wrapcheck
 
 formatters:

@@ -5,7 +5,7 @@ export function prepareMultiDiscLaunch(
   discSet: DiscSet,
 ): DiscState {
   const manager = instance.gameManager;
-  if (!manager?.toggleMainLoop) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
+  if (!manager?.toggleMainLoop) {throw new Error("PLAYER_DISC_API_UNAVAILABLE");}
   manager.toggleMainLoop(false);
   return switchDisc(instance, discSet.initialDiscIndex, discSet.count);
 }

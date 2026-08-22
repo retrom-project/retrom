@@ -16,9 +16,9 @@ function fixture() {
     const prefix = path === "/" ? "/" : `${path}/`;
     const names = new Set<string>();
     for (const candidate of [...directories, ...files]) {
-      if (!candidate.startsWith(prefix)) continue;
+      if (!candidate.startsWith(prefix)) {continue;}
       const suffix = candidate.slice(prefix.length);
-      if (suffix && !suffix.includes("/")) names.add(suffix);
+      if (suffix && !suffix.includes("/")) {names.add(suffix);}
     }
     return [".", "..", ...Array.from(names).sort()];
   };
@@ -28,8 +28,8 @@ function fixture() {
     unlink: (path) => { files.delete(path); },
     readdir: children,
     lstat: (path) => {
-      if (files.has(path)) return { mode: fileMode };
-      if (directories.has(path)) return { mode: directoryMode };
+      if (files.has(path)) {return { mode: fileMode };}
+      if (directories.has(path)) {return { mode: directoryMode };}
       throw new Error("missing path");
     },
     rmdir: (path) => { directories.delete(path); },

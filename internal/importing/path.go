@@ -8,23 +8,31 @@ import (
 
 var ErrUnsafeLogicalPath = errors.New("UNSAFE_LOGICAL_PATH")
 
-//nolint:gocyclo // Independent path safety checks intentionally collapse to one canonical unsafe-path error.
 func ValidateLogicalPath(value string) (string, error) {
-	if !utf8.ValidString(value) || len(value) < 1 || len(value) > 1024 ||
-		strings.HasPrefix(value, "/") || strings.HasSuffix(value, "/") ||
-		strings.Contains(value, "\\") || strings.ContainsRune(value, 0) {
+	if unsafeWholePath(value) {
 		return "", ErrUnsafeLogicalPath
 	}
 	parts := strings.Split(value, "/")
 	for index, part := range parts {
-		if part == "" || part == "." || part == ".." || len(part) > 255 || hasControl(part) {
-			return "", ErrUnsafeLogicalPath
-		}
-		if index == 0 && len(part) >= 2 && isASCIIAlpha(part[0]) && part[1] == ':' {
+		if unsafePathPart(part) || index == 0 && windowsDrivePart(part) {
 			return "", ErrUnsafeLogicalPath
 		}
 	}
 	return strings.Join(parts, "/"), nil
+}
+
+func unsafeWholePath(value string) bool {
+	return !utf8.ValidString(value) || len(value) < 1 || len(value) > 1024 ||
+		strings.HasPrefix(value, "/") || strings.HasSuffix(value, "/") ||
+		strings.Contains(value, "\\") || strings.ContainsRune(value, 0)
+}
+
+func unsafePathPart(part string) bool {
+	return part == "" || part == "." || part == ".." || len(part) > 255 || hasControl(part)
+}
+
+func windowsDrivePart(part string) bool {
+	return len(part) >= 2 && isASCIIAlpha(part[0]) && part[1] == ':'
 }
 
 func hasControl(value string) bool {

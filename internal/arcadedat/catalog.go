@@ -57,8 +57,6 @@ type DiskEntry struct {
 
 // ParseCatalog uses the same bounded, non-resolving validator as Parse before
 // materializing the index rows consumed by matching and dependency planning.
-//
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func ParseCatalog(ctx context.Context, source io.Reader, coreID string) (Catalog, error) {
 	contents, err := io.ReadAll(io.LimitReader(source, maxDATBytes+1))
 	if err != nil {
@@ -74,9 +72,7 @@ func ParseCatalog(ctx context.Context, source io.Reader, coreID string) (Catalog
 	decoder := xml.NewDecoder(bytes.NewReader(contents))
 	decoder.Strict = true
 	catalog := Catalog{Stats: stats, Machines: make([]Machine, 0, stats.MachineCount)}
-	var current *Machine
-	var textField string
-	var text strings.Builder
+	state := catalogParseState{catalog: &catalog}
 	for {
 		if err := ctx.Err(); err != nil {
 			return Catalog{}, fmt.Errorf("arcadedat/catalog: %w", err)
@@ -88,82 +84,140 @@ func ParseCatalog(ctx context.Context, source io.Reader, coreID string) (Catalog
 		if err != nil {
 			return Catalog{}, fmt.Errorf("%w: %w", ErrInvalidDocument, err)
 		}
-		switch value := token.(type) {
-		case xml.StartElement:
-			switch value.Name.Local {
-			case "machine", "game":
-				catalog.Machines = append(catalog.Machines, Machine{
-					Name: attribute(value, "name"), CloneOf: attribute(value, "cloneof"), ROMOf: attribute(value, "romof"),
-					ExplicitBIOS: attribute(value, "isbios") == "yes", Classification: "NORMAL",
-				})
-				current = &catalog.Machines[len(catalog.Machines)-1]
-			case "description", "year", "manufacturer":
-				if current != nil {
-					textField = value.Name.Local
-					text.Reset()
-				}
-			case "biosset":
-				if current != nil {
-					current.BIOSSets = append(current.BIOSSets, BIOSSet{
-						Name:        attribute(value, "name"),
-						Description: attribute(value, "description"),
-						Default:     attribute(value, "default") == "yes",
-					})
-				}
-			case "rom":
-				if current != nil {
-					size, _ := strconv.ParseInt(zeroIfEmpty(attribute(value, "size")), 10, 64)
-					current.ROMs = append(current.ROMs, ROMEntry{
-						Ordinal:   len(current.ROMs),
-						Name:      attribute(value, "name"),
-						SizeBytes: size,
-						CRC32:     strings.ToLower(attribute(value, "crc")),
-						SHA1:      strings.ToLower(attribute(value, "sha1")),
-						Status:    catalogStatus(attribute(value, "status")),
-						MergeName: attribute(value, "merge"),
-						BIOSName:  attribute(value, "bios"),
-					})
-				}
-			case "disk":
-				if current != nil {
-					current.Disks = append(current.Disks, DiskEntry{
-						Ordinal: len(current.Disks),
-						Name:    attribute(value, "name"),
-						SHA1:    strings.ToLower(attribute(value, "sha1")),
-						Status:  catalogStatus(attribute(value, "status")),
-					})
-				}
-			}
-		case xml.CharData:
-			if textField != "" {
-				_, _ = text.Write(value)
-			}
-		case xml.EndElement:
-			if textField != "" && value.Name.Local == textField && current != nil {
-				field := strings.TrimSpace(text.String())
-				if !utf8.ValidString(field) || len(field) > maxFieldBytes {
-					return Catalog{}, ErrLimitExceeded
-				}
-				switch textField {
-				case "description":
-					current.Description = field
-				case "year":
-					current.Year = field
-				case "manufacturer":
-					current.Manufacturer = field
-				}
-				textField = ""
-			}
-			if (value.Name.Local == "machine" || value.Name.Local == "game") && current != nil {
-				if err := validateMachine(*current); err != nil {
-					return Catalog{}, err
-				}
-				current = nil
-			}
+		if err := state.consume(token); err != nil {
+			return Catalog{}, err
 		}
 	}
+	applyCatalogClassifications(catalog.Machines)
+	return catalog, nil
+}
+
+type catalogParseState struct {
+	catalog   *Catalog
+	current   *Machine
+	textField string
+	text      strings.Builder
+}
+
+func (state *catalogParseState) consume(token xml.Token) error {
+	switch value := token.(type) {
+	case xml.StartElement:
+		state.start(value)
+	case xml.CharData:
+		if state.textField != "" {
+			_, _ = state.text.Write(value)
+		}
+	case xml.EndElement:
+		return state.end(value)
+	}
+	return nil
+}
+
+func (state *catalogParseState) start(element xml.StartElement) {
+	switch element.Name.Local {
+	case "machine", "game":
+		state.catalog.Machines = append(state.catalog.Machines, Machine{
+			Name:           attribute(element, "name"),
+			CloneOf:        attribute(element, "cloneof"),
+			ROMOf:          attribute(element, "romof"),
+			ExplicitBIOS:   attribute(element, "isbios") == "yes",
+			Classification: "NORMAL",
+		})
+		state.current = &state.catalog.Machines[len(state.catalog.Machines)-1]
+	case "description", "year", "manufacturer":
+		state.startText(element.Name.Local)
+	case "biosset":
+		state.appendBIOS(element)
+	case "rom":
+		state.appendROM(element)
+	case "disk":
+		state.appendDisk(element)
+	}
+}
+
+func (state *catalogParseState) startText(field string) {
+	if state.current == nil {
+		return
+	}
+	state.textField = field
+	state.text.Reset()
+}
+
+func (state *catalogParseState) appendBIOS(element xml.StartElement) {
+	if state.current == nil {
+		return
+	}
+	state.current.BIOSSets = append(state.current.BIOSSets, BIOSSet{
+		Name:        attribute(element, "name"),
+		Description: attribute(element, "description"),
+		Default:     attribute(element, "default") == "yes",
+	})
+}
+
+func (state *catalogParseState) appendROM(element xml.StartElement) {
+	if state.current == nil {
+		return
+	}
+	size, _ := strconv.ParseInt(zeroIfEmpty(attribute(element, "size")), 10, 64)
+	state.current.ROMs = append(state.current.ROMs, ROMEntry{
+		Ordinal:   len(state.current.ROMs),
+		Name:      attribute(element, "name"),
+		SizeBytes: size,
+		CRC32:     strings.ToLower(attribute(element, "crc")),
+		SHA1:      strings.ToLower(attribute(element, "sha1")),
+		Status:    catalogStatus(attribute(element, "status")),
+		MergeName: attribute(element, "merge"),
+		BIOSName:  attribute(element, "bios"),
+	})
+}
+
+func (state *catalogParseState) appendDisk(element xml.StartElement) {
+	if state.current == nil {
+		return
+	}
+	state.current.Disks = append(state.current.Disks, DiskEntry{
+		Ordinal: len(state.current.Disks),
+		Name:    attribute(element, "name"),
+		SHA1:    strings.ToLower(attribute(element, "sha1")),
+		Status:  catalogStatus(attribute(element, "status")),
+	})
+}
+
+func (state *catalogParseState) end(element xml.EndElement) error {
+	if state.textField != "" && element.Name.Local == state.textField && state.current != nil {
+		if err := state.finishText(); err != nil {
+			return err
+		}
+	}
+	if (element.Name.Local == "machine" || element.Name.Local == "game") && state.current != nil {
+		if err := validateMachine(*state.current); err != nil {
+			return err
+		}
+		state.current = nil
+	}
+	return nil
+}
+
+func (state *catalogParseState) finishText() error {
+	field := strings.TrimSpace(state.text.String())
+	if !utf8.ValidString(field) || len(field) > maxFieldBytes {
+		return ErrLimitExceeded
+	}
+	switch state.textField {
+	case "description":
+		state.current.Description = field
+	case "year":
+		state.current.Year = field
+	case "manufacturer":
+		state.current.Manufacturer = field
+	}
+	state.textField = ""
+	return nil
+}
+
+func applyCatalogClassifications(machines []Machine) {
 	classifications := make(map[string]string)
-	for _, machine := range catalog.Machines {
+	for _, machine := range machines {
 		if machine.ExplicitBIOS {
 			classifications[machine.Name] = "EXPLICIT_BIOS"
 		}
@@ -173,12 +227,11 @@ func ParseCatalog(ctx context.Context, source io.Reader, coreID string) (Catalog
 			}
 		}
 	}
-	for index := range catalog.Machines {
-		if classification := classifications[catalog.Machines[index].Name]; classification != "" {
-			catalog.Machines[index].Classification = classification
+	for index := range machines {
+		if classification := classifications[machines[index].Name]; classification != "" {
+			machines[index].Classification = classification
 		}
 	}
-	return catalog, nil
 }
 
 func validateMachine(machine Machine) error {

@@ -25,7 +25,9 @@ COPY api api
 COPY cmd cmd
 COPY internal internal
 COPY migrations migrations
-RUN CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/retrom ./cmd/retrom
+RUN mkdir -p internal/httpapi/generated \
+  && go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.8.0 --config api/oapi-codegen.yaml api/openapi.yaml \
+  && CGO_ENABLED=0 go build -trimpath -ldflags='-s -w' -o /out/retrom ./cmd/retrom
 
 FROM alpine:3.22
 ARG RELEASE_INPUT_DIGEST

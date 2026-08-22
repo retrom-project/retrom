@@ -11,6 +11,8 @@ import (
 	"testing"
 	"time"
 
+	"retrom/internal/testassert"
+
 	"github.com/coder/websocket"
 )
 
@@ -63,9 +65,7 @@ func TestPausedSessionIgnoresValidInFlightInputAndHash(t *testing.T) {
 	if err := session.acceptHash(context.Background(), 2, 119, digest); err != nil {
 		t.Fatalf("valid in-flight hash at pause boundary: %v", err)
 	}
-	if len(session.inputs) != 0 || len(session.hashes) != 0 {
-		t.Fatalf("paused in-flight messages mutated session: inputs=%d hashes=%d", len(session.inputs), len(session.hashes))
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return len(session.inputs) != 0 }, func() bool { return len(session.hashes) != 0 }), "paused in-flight messages mutated session: inputs=%d hashes=%d", len(session.inputs), len(session.hashes))
 	if err := session.acceptInput(context.Background(), 2, 241, controls); !errors.Is(err, ErrProtocol) {
 		t.Fatalf("out-of-window paused input error = %v, want protocol violation", err)
 	}
@@ -76,17 +76,11 @@ func TestAcceptanceNP010InputRateLimitAllowsBurstAndRefillsAt120PerSecond(t *tes
 	now := time.Unix(1_786_000_000, 0)
 	client := &peer{inputTokens: 240, inputRefill: now}
 	for index := 0; index < 240; index++ {
-		if !client.allowInput(now) {
-			t.Fatalf("burst contribution %d rejected", index+1)
-		}
+		testassert.Truef(t, client.allowInput(now), "burst contribution %d rejected", index+1)
 	}
-	if client.allowInput(now) {
-		t.Fatal("241st contribution in one burst was accepted")
-	}
+	testassert.False(t, client.allowInput(now), "241st contribution in one burst was accepted")
 	now = now.Add(time.Second/120 + time.Nanosecond)
-	if !client.allowInput(now) || client.allowInput(now) {
-		t.Fatal("rate limiter did not refill exactly one token at 120/s")
-	}
+	testassert.False(t, testassert.Any(func() bool { return !client.allowInput(now) }, func() bool { return client.allowInput(now) }), "rate limiter did not refill exactly one token at 120/s")
 }
 
 func TestLegacyFocusSuspendDoesNotDisconnectOrPauseTheSession(t *testing.T) {
@@ -99,10 +93,7 @@ func TestLegacyFocusSuspendDoesNotDisconnectOrPauseTheSession(t *testing.T) {
 	}, 0); err != nil {
 		t.Fatalf("legacy focus suspend = %v", err)
 	}
-	if !session.running || session.pause != nil || session.nextFrame != 42 {
-		t.Fatalf("focus suspend changed live session: running=%v pause=%#v next=%d",
-			session.running, session.pause, session.nextFrame)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !session.running }, func() bool { return session.pause != nil }, func() bool { return session.nextFrame != 42 }), "focus suspend changed live session: running=%v pause=%#v next=%d", session.running, session.pause, session.nextFrame)
 }
 
 func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
@@ -130,18 +121,14 @@ func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
 	if err := session.addPeer(ctx, reconnected, -1); err != nil {
 		t.Fatalf("reconnect during initial transfer: %v", err)
 	}
-	if session.transfer == nil || session.transfer.id == "old-transfer" || session.transfer.reason != "INITIAL_SYNC" {
-		t.Fatalf("initial transfer was not restarted: %#v", session.transfer)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return session.transfer == nil }, func() bool { return session.transfer.id == "old-transfer" }, func() bool { return session.transfer.reason != "INITIAL_SYNC" }), "initial transfer was not restarted: %#v", session.transfer)
 	select {
 	case message := <-session.peers[1].writes:
 		var decoded map[string]any
 		if err := json.Unmarshal(message.data, &decoded); err != nil {
 			t.Fatal(err)
 		}
-		if decoded["type"] != "REQUEST_STATE" || decoded["transferId"] != session.transfer.id {
-			t.Fatalf("restart request = %#v", decoded)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return decoded["type"] != "REQUEST_STATE" }, func() bool { return decoded["transferId"] != session.transfer.id }), "restart request = %#v", decoded)
 	default:
 		t.Fatal("authority did not receive a restarted state request")
 	}
@@ -174,13 +161,9 @@ func TestTransportLossDuringStateTransferStartsLeaseAndInvalidatesOldTransfer(t 
 	}
 
 	session.removePeer(ctx, disconnected)
-	if session.peers[2] != nil || session.leaseTimers[2] == nil {
-		t.Fatalf("transfer disconnect peer=%#v lease=%#v", session.peers[2], session.leaseTimers[2])
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return session.peers[2] != nil }, func() bool { return session.leaseTimers[2] == nil }), "transfer disconnect peer=%#v lease=%#v", session.peers[2], session.leaseTimers[2])
 	invalidatedID := session.transfer.id
-	if invalidatedID == "old-transfer" {
-		t.Fatal("transport loss left the old transfer ID valid")
-	}
+	testassert.False(t, invalidatedID == "old-transfer", "transport loss left the old transfer ID valid")
 	if err := session.acceptStateMeta(ctx, authority, ClientMessage{
 		TransferID: "old-transfer", NextFrame: 12, ByteLength: 1,
 		StateSHA256: strings.Repeat("a", 64), CoreSHA256: strings.Repeat("b", 64),
@@ -192,21 +175,15 @@ func TestTransportLossDuringStateTransferStartsLeaseAndInvalidatesOldTransfer(t 
 	if err := session.addPeer(ctx, reconnected, -1); err != nil {
 		t.Fatalf("reconnect during transfer: %v", err)
 	}
-	if session.leaseTimers[2] != nil {
-		t.Fatal("successful reconnect did not stop the recovery lease")
-	}
-	if session.transfer == nil || session.transfer.id == invalidatedID || session.transfer.reason != "INITIAL_SYNC" {
-		t.Fatalf("replacement transfer = %#v", session.transfer)
-	}
+	testassert.False(t, session.leaseTimers[2] != nil, "successful reconnect did not stop the recovery lease")
+	testassert.Falsef(t, testassert.Any(func() bool { return session.transfer == nil }, func() bool { return session.transfer.id == invalidatedID }, func() bool { return session.transfer.reason != "INITIAL_SYNC" }), "replacement transfer = %#v", session.transfer)
 	select {
 	case message := <-authority.writes:
 		var decoded map[string]any
 		if err := json.Unmarshal(message.data, &decoded); err != nil {
 			t.Fatal(err)
 		}
-		if decoded["type"] != "REQUEST_STATE" || decoded["transferId"] != session.transfer.id {
-			t.Fatalf("replacement request = %#v", decoded)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return decoded["type"] != "REQUEST_STATE" }, func() bool { return decoded["transferId"] != session.transfer.id }), "replacement request = %#v", decoded)
 	default:
 		t.Fatal("authority did not receive a replacement state request")
 	}
@@ -218,14 +195,10 @@ func TestClientRuntimeEndReasonIsAClosedSet(t *testing.T) {
 		"USER_EXIT", "ROLLBACK_WINDOW_EXCEEDED", "STATE_RING_CAPACITY_EXCEEDED", "STATE_INVALID",
 		"NETPLAY_UNSTABLE", "INTERNAL_ERROR", "PROTOCOL_VIOLATION",
 	} {
-		if !allowedClientEndReason(reason) {
-			t.Fatalf("allowed client reason %q was rejected", reason)
-		}
+		testassert.Truef(t, allowedClientEndReason(reason), "allowed client reason %q was rejected", reason)
 	}
 	for _, reason := range []string{"", "AUTH_REVOKED", "PEER_TIMEOUT", "arbitrary error"} {
-		if allowedClientEndReason(reason) {
-			t.Fatalf("untrusted client reason %q was accepted", reason)
-		}
+		testassert.Falsef(t, allowedClientEndReason(reason), "untrusted client reason %q was accepted", reason)
 	}
 }
 
@@ -263,9 +236,7 @@ func TestQueueOverflowDropsOnlyTheAffectedTransport(t *testing.T) {
 			if _, _, err := remote.Read(readContext); err == nil {
 				t.Fatal("overflow did not close the affected transport")
 			}
-			if session.ended {
-				t.Fatal("one peer queue overflow ended the whole session")
-			}
+			testassert.False(t, session.ended, "one peer queue overflow ended the whole session")
 		})
 	}
 }
@@ -276,12 +247,8 @@ func TestPingAndWriteFailuresDropOnlyTheirTransportAndReleaseFlushes(t *testing.
 		_ = remote.CloseNow()
 		client := &peer{connection: serverConnection}
 		session := &realtimeSession{}
-		if client.validateAndPing(context.Background(), session) {
-			t.Fatal("ping unexpectedly succeeded after the remote transport closed")
-		}
-		if session.ended {
-			t.Fatal("ping failure ended the whole session")
-		}
+		testassert.False(t, client.validateAndPing(context.Background(), session), "ping unexpectedly succeeded after the remote transport closed")
+		testassert.False(t, session.ended, "ping failure ended the whole session")
 	})
 
 	t.Run("write", func(t *testing.T) {
@@ -306,9 +273,7 @@ func TestPingAndWriteFailuresDropOnlyTheirTransportAndReleaseFlushes(t *testing.
 		client.mu.Lock()
 		writeStopped, queuedBytes := client.writeStopped, client.queuedBytes
 		client.mu.Unlock()
-		if !writeStopped || queuedBytes != 0 {
-			t.Fatalf("write cleanup stopped=%v queuedBytes=%d", writeStopped, queuedBytes)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return !writeStopped }, func() bool { return queuedBytes != 0 }), "write cleanup stopped=%v queuedBytes=%d", writeStopped, queuedBytes)
 	})
 }
 
@@ -322,18 +287,12 @@ func TestSessionValidationToleratesTwoUnavailableChecksAndResetsOnSuccess(t *tes
 	}}
 	for index, wantDrop := range []bool{false, false, false, false, false, true} {
 		validation, drop := client.validateSession(context.Background())
-		if index == 2 && validation != SessionValid {
-			t.Fatalf("successful validation = %v", validation)
-		}
-		if drop != wantDrop {
-			t.Fatalf("validation %d drop=%v want=%v", index+1, drop, wantDrop)
-		}
+		testassert.Falsef(t, testassert.All(func() bool { return index == 2 }, func() bool { return validation != SessionValid }), "successful validation = %v", validation)
+		testassert.Falsef(t, drop != wantDrop, "validation %d drop=%v want=%v", index+1, drop, wantDrop)
 	}
 	client.validator = func(context.Context, string, string) SessionValidation { return SessionRevoked }
 	validation, drop := client.validateSession(context.Background())
-	if validation != SessionRevoked || drop {
-		t.Fatalf("explicit revocation = %v/%v", validation, drop)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return validation != SessionRevoked }, func() bool { return drop }), "explicit revocation = %v/%v", validation, drop)
 }
 
 func TestPauseBarrierRequiresEveryOccupiedPlayerAndReconnectHistory(t *testing.T) {
@@ -352,15 +311,11 @@ func TestPauseBarrierRequiresEveryOccupiedPlayerAndReconnectHistory(t *testing.T
 	if err := session.acceptPaused(ctx, session.peers[1]); err != nil {
 		t.Fatal(err)
 	}
-	if allAcknowledged(session.pause.paused) {
-		t.Fatal("pause completed before P2 acknowledged")
-	}
+	testassert.False(t, allAcknowledged(session.pause.paused), "pause completed before P2 acknowledged")
 	if err := session.acceptPaused(ctx, session.peers[2]); err != nil {
 		t.Fatal(err)
 	}
-	if !allAcknowledged(session.pause.paused) || session.running {
-		t.Fatalf("pause barrier = %#v running=%v", session.pause, session.running)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !allAcknowledged(session.pause.paused) }, func() bool { return session.running }), "pause barrier = %#v running=%v", session.pause, session.running)
 
 	session.pause = &pauseBarrier{
 		action: pauseActionReconnect, paused: map[int]bool{1: false, 2: false},
@@ -375,9 +330,7 @@ func TestPauseBarrierRequiresEveryOccupiedPlayerAndReconnectHistory(t *testing.T
 	if err := session.acceptPaused(ctx, session.peers[2]); err != nil {
 		t.Fatal(err)
 	}
-	if session.pause == nil || !session.pause.historyApplied[2] || !session.pause.paused[2] {
-		t.Fatalf("reconnect acknowledgements = %#v", session.pause)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return session.pause == nil }, func() bool { return !session.pause.historyApplied[2] }, func() bool { return !session.pause.paused[2] }), "reconnect acknowledgements = %#v", session.pause)
 }
 
 func TestAcceptanceNP012CanonicalFramesAreAtomicForTwoToFourPlayers(t *testing.T) {
@@ -397,22 +350,16 @@ func TestAcceptanceNP012CanonicalFramesAreAtomicForTwoToFourPlayers(t *testing.T
 				if err := session.acceptInput(ctx, playerNo, 0, controls); err != nil {
 					t.Fatal(err)
 				}
-				if playerNo > 1 && session.nextFrame != 0 {
-					t.Fatal("canonical frame published before every occupied seat contributed")
-				}
+				testassert.False(t, testassert.All(func() bool { return playerNo > 1 }, func() bool { return session.nextFrame != 0 }), "canonical frame published before every occupied seat contributed")
 			}
-			if session.nextFrame != 1 || len(session.history) != 1 {
-				t.Fatalf("canonical state: next=%d history=%d", session.nextFrame, len(session.history))
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return session.nextFrame != 1 }, func() bool { return len(session.history) != 1 }), "canonical state: next=%d history=%d", session.nextFrame, len(session.history))
 			frame := session.history[0]
 			for playerNo := 1; playerNo <= 4; playerNo++ {
 				want := int16(0)
 				if playerNo <= players {
 					want = playerValue[playerNo]
 				}
-				if frame.Players[playerNo-1][0] != want {
-					t.Fatalf("P%d input=%d want=%d", playerNo, frame.Players[playerNo-1][0], want)
-				}
+				testassert.Falsef(t, frame.Players[playerNo-1][0] != want, "P%d input=%d want=%d", playerNo, frame.Players[playerNo-1][0], want)
 			}
 		})
 	}
@@ -451,7 +398,5 @@ func TestAcceptanceNP010InputReplayFutureMutationAndRoomIsolation(t *testing.T) 
 			t.Fatal(err)
 		}
 	}
-	if second.nextFrame != 1 || len(second.history) != 1 {
-		t.Fatalf("independent room was polluted: next=%d history=%d", second.nextFrame, len(second.history))
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return second.nextFrame != 1 }, func() bool { return len(second.history) != 1 }), "independent room was polluted: next=%d history=%d", second.nextFrame, len(second.history))
 }

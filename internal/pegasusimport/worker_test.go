@@ -16,6 +16,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/libraryimport"
 	"retrom/internal/serversource"
+	"retrom/internal/testassert"
 )
 
 func TestSelectServerImportItemUsesTheDeclaredPrimarySource(t *testing.T) {
@@ -25,9 +26,7 @@ func TestSelectServerImportItemUsesTheDeclaredPrimarySource(t *testing.T) {
 		{ItemID: "primary", SourceRelativePaths: []string{"arcade/mslug.zip"}},
 	}
 	selected, ok := selectServerImportItem(items, []executionFile{{Path: "arcade/mslug.zip"}})
-	if !ok || selected.ItemID != "primary" {
-		t.Fatalf("selected = %#v, %v", selected, ok)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !ok }, func() bool { return selected.ItemID != "primary" }), "selected = %#v, %v", selected, ok)
 	if _, ok := selectServerImportItem(append(items, items[1]), []executionFile{{Path: "arcade/mslug.zip"}}); ok {
 		t.Fatal("ambiguous primary source must not be selected")
 	}
@@ -49,9 +48,7 @@ func TestArcadeCompanionsReleaseQueryBeforeRecordingCASBlob(t *testing.T) {
 	defer cancel()
 	dataDir := t.TempDir()
 	database, err := sql.Open("sqlite", filepath.Join(dataDir, "companion.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	database.SetMaxOpenConns(1)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if _, err := database.ExecContext(ctx, `
@@ -74,9 +71,7 @@ INSERT INTO dat_machines VALUES('dat','child','parent',NULL),('dat','parent',NUL
 		t.Fatal(err)
 	}
 	info, err := os.Stat(sourcePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := database.ExecContext(
 		ctx,
 		`INSERT INTO pegasus_import_item_files VALUES('parent',?,?,?)`,
@@ -100,30 +95,22 @@ INSERT INTO dat_machines VALUES('dat','child','parent',NULL),('dat','parent',NUL
 		}
 	}
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	service := &Service{database: database, blobs: blobs, now: time.Now}
 	item := executionItem{
 		ID: "primary", TargetPlatformID: "target", TargetDATVersionID: "dat",
 		Files: []executionFile{{Path: "child.zip"}},
 	}
 	candidates, err := service.arcadeCompanionCandidates(ctx, "import", item)
-	if err != nil || len(candidates) != 1 || candidates[0].Path != name {
-		t.Fatalf("candidates = %#v, error=%v", candidates, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(candidates) != 1 }, func() bool { return candidates[0].Path != name }), "candidates = %#v, error=%v", candidates, err)
 	companions, err := service.arcadeCompanions(
 		ctx,
 		work{ImportID: "import"},
 		Root{path: sourceDir},
 		item,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(companions) != 1 || companions[0].RelativePath != name || companions[0].BlobID == "" {
-		t.Fatalf("companions = %#v", companions)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(companions) != 1 }, func() bool { return companions[0].RelativePath != name }, func() bool { return companions[0].BlobID == "" }), "companions = %#v", companions)
 }
 
 func TestLibraryImportFailureExposesSourceFileLimit(t *testing.T) {
@@ -131,12 +118,7 @@ func TestLibraryImportFailureExposesSourceFileLimit(t *testing.T) {
 	files := make([]libraryimport.ServerSourceFile, libraryimport.ServerSourceFileLimit+1)
 	files[0].RelativePath = "1944j.zip"
 	details := (&Service{}).libraryImportFailure(libraryimport.ErrInvalid, files)
-	if details.CauseCode != "SOURCE_FILE_LIMIT_EXCEEDED" || details.ObservedFileCount == nil ||
-		*details.ObservedFileCount != int64(len(files)) || details.AllowedFileCount == nil ||
-		*details.AllowedFileCount != libraryimport.ServerSourceFileLimit || details.RelativePath == nil ||
-		*details.RelativePath != "1944j.zip" {
-		t.Fatalf("failure details = %#v", details)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return details.CauseCode != "SOURCE_FILE_LIMIT_EXCEEDED" }, func() bool { return details.ObservedFileCount == nil }, func() bool { return *details.ObservedFileCount != int64(len(files)) }, func() bool { return details.AllowedFileCount == nil }, func() bool { return *details.AllowedFileCount != libraryimport.ServerSourceFileLimit }, func() bool { return details.RelativePath == nil }, func() bool { return *details.RelativePath != "1944j.zip" }), "failure details = %#v", details)
 }
 
 func TestItemFailureKeepsInternalIdentityAndRedactsHostPath(t *testing.T) {
@@ -152,32 +134,20 @@ func TestItemFailureKeepsInternalIdentityAndRedactsHostPath(t *testing.T) {
 		"11111111-1111-4111-8111-111111111111",
 		"22222222-2222-4222-8222-222222222222",
 	)
-	if strings.Contains(details.TechnicalDetail, "/srv/private") || !strings.Contains(details.TechnicalDetail, "[path]") {
-		t.Fatalf("technical detail = %q", details.TechnicalDetail)
-	}
-	if details.LibraryImportJobID == nil || details.LibraryImportItemID == nil ||
-		*details.LibraryImportJobID != "11111111-1111-4111-8111-111111111111" ||
-		*details.LibraryImportItemID != "22222222-2222-4222-8222-222222222222" {
-		t.Fatalf("failure details = %#v", details)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return strings.Contains(details.TechnicalDetail, "/srv/private") }, func() bool { return !strings.Contains(details.TechnicalDetail, "[path]") }), "technical detail = %q", details.TechnicalDetail)
+	testassert.Falsef(t, testassert.Any(func() bool { return details.LibraryImportJobID == nil }, func() bool { return details.LibraryImportItemID == nil }, func() bool { return *details.LibraryImportJobID != "11111111-1111-4111-8111-111111111111" }, func() bool { return *details.LibraryImportItemID != "22222222-2222-4222-8222-222222222222" }), "failure details = %#v", details)
 }
 
 func TestItemFailureClassifiesSQLiteConstraintByDriverCode(t *testing.T) {
 	t.Parallel()
 	database, err := sql.Open("sqlite", ":memory:")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	if _, err := database.Exec(`CREATE TABLE unique_value(value TEXT UNIQUE); INSERT INTO unique_value VALUES('same')`); err != nil {
+	if _, err := database.ExecContext(context.Background(), `CREATE TABLE unique_value(value TEXT UNIQUE); INSERT INTO unique_value VALUES('same')`); err != nil {
 		t.Fatal(err)
 	}
-	_, constraintError := database.Exec(`INSERT INTO unique_value VALUES('same')`)
-	if constraintError == nil {
-		t.Fatal("expected SQLite constraint error")
-	}
+	_, constraintError := database.ExecContext(context.Background(), `INSERT INTO unique_value VALUES('same')`)
+	testassert.False(t, constraintError == nil, "expected SQLite constraint error")
 	details := (&Service{}).itemFailure("STORAGE", "WRITE", constraintError, "")
-	if details.CauseCode != "DATABASE_CONSTRAINT_FAILED" {
-		t.Fatalf("failure details = %#v", details)
-	}
+	testassert.Falsef(t, details.CauseCode != "DATABASE_CONSTRAINT_FAILED", "failure details = %#v", details)
 }

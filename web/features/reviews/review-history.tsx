@@ -34,8 +34,8 @@ const fields: Array<[string, keyof NonNullable<HistoryDetail["before"]["metadata
 
 function HistoryCover({ assetId, title }: { assetId: string | null; title: string }) {
   const [failed, setFailed] = useState(false);
-  if (!assetId) return <div className="asset-placeholder">当时未选择封面</div>;
-  if (failed) return <div className="asset-placeholder">历史封面暂不可用</div>;
+  if (!assetId) {return <div className="asset-placeholder">当时未选择封面</div>;}
+  if (failed) {return <div className="asset-placeholder">历史封面暂不可用</div>;}
   return <Image src={`/api/v1/admin/review-assets/${assetId}`} alt={`${title} 审核时封面`} width={360} height={480} unoptimized onError={() => setFailed(true)} />;
 }
 
@@ -49,7 +49,7 @@ export function ReviewHistory({ items }: { items: HistoryItem[] }) {
     setSelected(item); setDetail(null); setError(""); setLoading(true);
     try {
       const response = await fetch(`/api/v1/admin/review-history/${item.reviewEventId}`, { cache: "no-store" });
-      if (!response.ok) throw new Error(await responseError(response, "无法读取审核快照"));
+      if (!response.ok) {throw new Error(await responseError(response, "无法读取审核快照"));}
       setDetail(await response.json() as HistoryDetail);
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "无法读取审核快照");
@@ -61,9 +61,73 @@ export function ReviewHistory({ items }: { items: HistoryItem[] }) {
     ?? detail?.before.selectedAssets?.coverCandidateAssetId
     ?? null;
   return <>
-    <section className="review-history-list" aria-label="审核历史">{items.map((item) => <article key={item.reviewEventId} role="button" tabIndex={0} aria-label={`查看“${item.title}”的审核快照`} onClick={() => void open(item)} onKeyDown={(event) => { if (event.key === "Enter" || event.key === " ") { event.preventDefault(); void open(item); } }}><div><h3>{item.title}</h3><small>审核完成时的信息快照</small></div><StatusBadge tone={item.decision === "APPROVED" ? "good" : "bad"}>{item.decision === "APPROVED" ? "已发布" : "已丢弃"}</StatusBadge><span>{item.reason ?? (item.decision === "APPROVED" ? "审核通过并发布" : "管理员丢弃条目")}</span><time>{formatTime(item.createdAtMs)}</time><span className="button secondary">查看快照</span></article>)}</section>
-    <ConfirmDialog open={selected !== null} wide hideCancel title={selected?.title ?? "审核完成时的游戏信息"} description={selected ? `审核完成时的决策快照 · ${selected.decision === "APPROVED" ? "发布" : "丢弃"}于 ${formatTime(selected.createdAtMs)}` : undefined} confirmLabel="关闭" busy={loading} onCancel={() => setSelected(null)} onConfirm={() => setSelected(null)}>
-      {loading ? <p className="scrape-live"><i className="button-spinner" aria-hidden="true" />正在读取当时的元信息…</p> : error ? <p role="alert">{error}</p> : <div className="history-snapshot"><div className="history-snapshot-cover"><HistoryCover key={coverId ?? selected?.reviewEventId} assetId={coverId} title={metadata?.title ?? selected?.title ?? "游戏"} /></div><div><StatusBadge tone={selected?.decision === "APPROVED" ? "good" : "bad"}>{selected?.decision === "APPROVED" ? "已发布" : "已丢弃"}</StatusBadge><h3>{metadata?.title ?? selected?.title ?? "未命名游戏"}</h3><p>{metadata?.description || "当时未填写简介。"}</p><dl>{fields.map(([label, key]) => <div key={key}><dt>{label}</dt><dd>{metadata?.[key] ?? "—"}</dd></div>)}</dl>{detail?.reason ? <p className="history-reason"><strong>审核说明</strong>{detail.reason}</p> : null}</div></div>}
-    </ConfirmDialog>
+    <HistoryList items={items} onOpen={(item) => void open(item)} />
+    <HistoryDialog {...{ coverId, detail, error, loading, metadata, selected }} onClose={() => setSelected(null)} />
   </>;
+}
+
+function HistoryList({ items, onOpen }: { items: HistoryItem[]; onOpen: (item: HistoryItem) => void }) {
+  return <section className="review-history-list" aria-label="审核历史">{items.map((item) => {
+    const approved = item.decision === "APPROVED";
+    const activate = () => onOpen(item);
+    return <article key={item.reviewEventId} role="button" tabIndex={0} aria-label={`查看“${item.title}”的审核快照`} onClick={activate} onKeyDown={(event) => {if (event.key === "Enter" || event.key === " ") {event.preventDefault(); activate();}}}><div><h3>{item.title}</h3><small>审核完成时的信息快照</small></div><StatusBadge tone={approved ? "good" : "bad"}>{approved ? "已发布" : "已丢弃"}</StatusBadge><span>{item.reason ?? (approved ? "审核通过并发布" : "管理员丢弃条目")}</span><time>{formatTime(item.createdAtMs)}</time><span className="button secondary">查看快照</span></article>;
+  })}</section>;
+}
+
+function HistoryDialog({ coverId, detail, error, loading, metadata, onClose, selected }: {
+  coverId: string | null;
+  detail: HistoryDetail | null;
+  error: string;
+  loading: boolean;
+  metadata: HistoryDetail["before"]["metadata"];
+  onClose: () => void;
+  selected: HistoryItem | null;
+}) {
+  const decision = selected?.decision === "APPROVED" ? "发布" : "丢弃";
+  const description = selected ? `审核完成时的决策快照 · ${decision}于 ${formatTime(selected.createdAtMs)}` : undefined;
+  return <ConfirmDialog open={selected !== null} wide hideCancel title={selected?.title ?? "审核完成时的游戏信息"} description={description} confirmLabel="关闭" busy={loading} onCancel={onClose} onConfirm={onClose}>
+    <HistoryDialogContents {...{ coverId, detail, error, loading, metadata, selected }} />
+  </ConfirmDialog>;
+}
+
+function HistoryDialogContents({ coverId, detail, error, loading, metadata, selected }: {
+  coverId: string | null;
+  detail: HistoryDetail | null;
+  error: string;
+  loading: boolean;
+  metadata: HistoryDetail["before"]["metadata"];
+  selected: HistoryItem | null;
+}) {
+  if (loading) {return <p className="scrape-live"><i className="button-spinner" aria-hidden="true" />正在读取当时的元信息…</p>;}
+  if (error) {return <p role="alert">{error}</p>;}
+  return <div className="history-snapshot">
+    <HistorySnapshotCover {...{ coverId, metadata, selected }} />
+    <HistorySnapshotDetails {...{ detail, metadata, selected }} />
+  </div>;
+}
+
+function HistorySnapshotCover({ coverId, metadata, selected }: {
+  coverId: string | null;
+  metadata: HistoryDetail["before"]["metadata"];
+  selected: HistoryItem | null;
+}) {
+  const key = coverId ?? selected?.reviewEventId;
+  const title = metadata?.title ?? selected?.title ?? "游戏";
+  return <div className="history-snapshot-cover"><HistoryCover key={key} assetId={coverId} title={title} /></div>;
+}
+
+function HistorySnapshotDetails({ detail, metadata, selected }: {
+  detail: HistoryDetail | null;
+  metadata: HistoryDetail["before"]["metadata"];
+  selected: HistoryItem | null;
+}) {
+  const approved = selected?.decision === "APPROVED";
+  const title = metadata?.title ?? selected?.title ?? "未命名游戏";
+  return <div>
+    <StatusBadge tone={approved ? "good" : "bad"}>{approved ? "已发布" : "已丢弃"}</StatusBadge>
+    <h3>{title}</h3>
+    <p>{metadata?.description || "当时未填写简介。"}</p>
+    <dl>{fields.map(([label, key]) => <div key={key}><dt>{label}</dt><dd>{metadata?.[key] ?? "—"}</dd></div>)}</dl>
+    {detail?.reason ? <p className="history-reason"><strong>审核说明</strong>{detail.reason}</p> : null}
+  </div>;
 }

@@ -51,14 +51,14 @@ export function ResponsiveSheet({
   const panelRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {return;}
     const body = document.body;
     const previousOverflow = body.style.overflow;
     const previousPaddingRight = body.style.paddingRight;
     const returnFocus = returnFocusRef?.current;
     const scrollbarWidth = window.innerWidth - document.documentElement.clientWidth;
     body.style.overflow = "hidden";
-    if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
+    if (scrollbarWidth > 0) {body.style.paddingRight = `${scrollbarWidth}px`;}
     const frame = window.requestAnimationFrame(() => {
       (initialFocusRef?.current ?? panelRef.current?.querySelector<HTMLElement>(focusableSelector))?.focus();
     });
@@ -70,7 +70,7 @@ export function ResponsiveSheet({
     };
   }, [initialFocusRef, open, returnFocusRef]);
 
-  if (!open) return null;
+  if (!open) {return null;}
 
   function trapFocus(event: ReactKeyboardEvent<HTMLElement>) {
     if (event.key === "Escape") {
@@ -78,7 +78,7 @@ export function ResponsiveSheet({
       onClose();
       return;
     }
-    if (event.key !== "Tab") return;
+    if (event.key !== "Tab") {return;}
     const focusable = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])
       .filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
     if (!focusable.length) {

@@ -35,9 +35,10 @@ export PLAYWRIGHT_BROWSERS_PATH
 export RETROM_CHROME_EXECUTABLE
 
 GO_PACKAGES := ./cmd/... ./internal/... ./migrations/...
+API_GO_GENERATED := internal/httpapi/generated/api.gen.go
 
-.PHONY: fmt fmt-check install-deps install-go-formatters install-golangci-lint prepare-node prepare-e2e-browser \
-	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-generate api-check \
+.PHONY: fmt fmt-check quality-structure-check install-deps install-go-formatters install-golangci-lint prepare-node prepare-e2e-browser \
+	build test lint-go backend-check web-install web-lint web-typecheck web-test web-build web-check integration-test api-generate-go api-generate api-check \
 	public-fixtures-generate public-fixtures-check web-e2e data-check prepare-deps deps-check release-input-digest ci dev build-backend-image \
 	build-web-image build-images acceptance-prepare acceptance-case acceptance-report
 
@@ -60,16 +61,26 @@ fmt: install-go-formatters
 fmt-check: install-go-formatters
 	@scripts/fmt-check.sh
 
-build:
+quality-structure-check:
+	@python3 scripts/test_quality_structure.py
+	@python3 scripts/quality_structure.py
+
+api-generate-go: $(API_GO_GENERATED)
+
+$(API_GO_GENERATED): api/openapi.yaml api/oapi-codegen.yaml go.mod go.sum
+	@mkdir -p $(@D)
+	@go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) --config api/oapi-codegen.yaml api/openapi.yaml
+
+build: api-generate-go
 	@go build ./cmd/retrom
 
-test:
+test: api-generate-go
 	@go test $(GO_PACKAGES)
 
-lint-go: install-golangci-lint
+lint-go: api-generate-go install-golangci-lint
 	@bin/golangci-lint run $(GO_PACKAGES)
 
-backend-check: fmt-check build test lint-go
+backend-check: quality-structure-check fmt-check build test lint-go
 
 prepare-node:
 	@scripts/prepare-node.sh
@@ -95,13 +106,12 @@ web-build: prepare-node
 	@test "$(NEXT_DIST_DIR)" = ".next" || test "$(NEXT_DIST_DIR)" = ".next-build"
 	@cd web && rm -rf "$(NEXT_DIST_DIR)" && NEXT_DIST_DIR="$(NEXT_DIST_DIR)" $(NPM) run build
 
-web-check: web-install web-lint web-typecheck web-test web-build
+web-check: quality-structure-check web-install web-lint web-typecheck web-test web-build
 
-integration-test:
+integration-test: api-generate-go
 	@go test -tags=integration $(GO_PACKAGES)
 
-api-generate: web-install
-	@go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@$(OAPI_CODEGEN_VERSION) --config api/oapi-codegen.yaml api/openapi.yaml
+api-generate: api-generate-go web-install
 	@cd web && $(NPM) run api:generate
 
 api-check: web-install
@@ -138,9 +148,9 @@ deps-check:
 release-input-digest:
 	@python3 scripts/release-input-digest.py --versions "$(RETROM_DEPENDENCY_VERSIONS)" --active "$(RETROM_ACTIVE_EMULATORJS_VERSION)"
 
-ci: api-check backend-check web-check integration-test data-check
+ci: quality-structure-check api-check backend-check web-check integration-test data-check
 
-dev: prepare-deps web-install
+dev: api-generate-go prepare-deps web-install
 	@RETROM_DEV_STATE_DIR="$(RETROM_DEV_STATE_DIR)" \
 	 RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
 	 RETROM_PUBLIC_ORIGIN="$(RETROM_PUBLIC_ORIGIN)" \

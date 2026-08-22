@@ -244,7 +244,7 @@ ORDER BY upload.relative_path,upload.id
 	return summaries, nil
 }
 
-//nolint:funlen // Aggregate and item projections are read together to preserve one import snapshot response.
+// Aggregate and item projections are read together to preserve one import snapshot response.
 func (server *Server) importDetail(writer http.ResponseWriter, request *http.Request) {
 	var id, uploadID, targetID, targetName, platformID, coreID, artifactID, provider, state, configJSON string
 	var datID, errorCode, cancelReason, reconfiguredFrom sql.NullString
@@ -328,94 +328,8 @@ WHERE i.id=?
 	}
 	var configValue any
 	_ = json.Unmarshal([]byte(configJSON), &configValue)
-	fileRows, err := server.database.QueryContext(request.Context(), `
-SELECT u.id,
-u.relative_path,
-u.declared_size_bytes,
-f.disposition,
-f.reason_code,
-resolution.action,
-resolution.replacement_import_job_id,
-resolution.created_at_ms,
-EXISTS(
-  SELECT 1
-  FROM import_item_source_files source
-  JOIN import_items item ON item.id=source.import_item_id
-  JOIN import_item_duplicate_matches duplicate ON duplicate.import_item_id=item.id
-  WHERE item.import_job_id=f.import_job_id
-  AND source.upload_file_id=f.upload_file_id
-)
-AND NOT EXISTS(
-  SELECT 1
-  FROM import_item_source_files source
-  JOIN import_items item ON item.id=source.import_item_id
-  WHERE item.import_job_id=f.import_job_id
-  AND source.upload_file_id=f.upload_file_id
-  AND NOT EXISTS(
-    SELECT 1 FROM import_item_duplicate_matches duplicate
-    WHERE duplicate.import_item_id=item.id
-  )
-)
-FROM import_job_files f
-JOIN upload_files u ON u.id=f.upload_file_id
-LEFT JOIN import_job_file_resolutions resolution
-ON resolution.import_job_id=f.import_job_id
-AND resolution.upload_file_id=f.upload_file_id
-WHERE f.import_job_id=?
-ORDER BY u.relative_path,u.id
-`, id)
+	fileOutcomes, err := server.importFileOutcomes(request.Context(), id)
 	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer func() { cleanup.Error("close", fileRows.Close()) }()
-	fileOutcomes := make([]map[string]any, 0)
-	for fileRows.Next() {
-		var uploadFileID, name, disposition string
-		var sizeBytes int64
-		var reasonCode, resolutionAction, replacementImportJobID sql.NullString
-		var resolvedAtMS sql.NullInt64
-		var alreadyImported int64
-		if err := fileRows.Scan(
-			&uploadFileID,
-			&name,
-			&sizeBytes,
-			&disposition,
-			&reasonCode,
-			&resolutionAction,
-			&replacementImportJobID,
-			&resolvedAtMS,
-			&alreadyImported,
-		); err != nil {
-			server.databaseError(writer, request, err)
-			return
-		}
-		outcome := map[string]any{
-			"uploadFileId": uploadFileID,
-			"name":         name,
-			"sizeBytes":    sizeBytes,
-			"disposition":  disposition,
-			"reasonCode":   nullableString(reasonCode),
-			"resolution":   nil,
-		}
-		if alreadyImported == 1 {
-			outcome["disposition"] = "ALREADY_IMPORTED"
-			outcome["reasonCode"] = "ALREADY_IMPORTED"
-		}
-		if resolutionAction.Valid && replacementImportJobID.Valid && resolvedAtMS.Valid {
-			outcome["resolution"] = map[string]any{
-				"action":                 resolutionAction.String,
-				"replacementImportJobId": replacementImportJobID.String,
-				"resolvedAtMs":           resolvedAtMS.Int64,
-			}
-		}
-		fileOutcomes = append(fileOutcomes, outcome)
-	}
-	if err := fileRows.Err(); err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if err := fileRows.Close(); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -467,6 +381,97 @@ ORDER BY u.relative_path,u.id
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, version))
 	writeJSON(writer, http.StatusOK, item)
+}
+
+func (server *Server) importFileOutcomes(ctx context.Context, importJobID string) ([]map[string]any, error) {
+	fileRows, err := server.database.QueryContext(ctx, `
+SELECT u.id,
+u.relative_path,
+u.declared_size_bytes,
+f.disposition,
+f.reason_code,
+resolution.action,
+resolution.replacement_import_job_id,
+resolution.created_at_ms,
+EXISTS(
+  SELECT 1
+  FROM import_item_source_files source
+  JOIN import_items item ON item.id=source.import_item_id
+  JOIN import_item_duplicate_matches duplicate ON duplicate.import_item_id=item.id
+  WHERE item.import_job_id=f.import_job_id
+  AND source.upload_file_id=f.upload_file_id
+)
+AND NOT EXISTS(
+  SELECT 1
+  FROM import_item_source_files source
+  JOIN import_items item ON item.id=source.import_item_id
+  WHERE item.import_job_id=f.import_job_id
+  AND source.upload_file_id=f.upload_file_id
+  AND NOT EXISTS(
+    SELECT 1 FROM import_item_duplicate_matches duplicate
+    WHERE duplicate.import_item_id=item.id
+  )
+)
+FROM import_job_files f
+JOIN upload_files u ON u.id=f.upload_file_id
+LEFT JOIN import_job_file_resolutions resolution
+ON resolution.import_job_id=f.import_job_id
+AND resolution.upload_file_id=f.upload_file_id
+WHERE f.import_job_id=?
+ORDER BY u.relative_path,u.id
+`, importJobID)
+	if err != nil {
+		return nil, fmt.Errorf("query import file outcomes: %w", err)
+	}
+	defer func() { cleanup.Error("close", fileRows.Close()) }()
+	fileOutcomes := make([]map[string]any, 0)
+	for fileRows.Next() {
+		var uploadFileID, name, disposition string
+		var sizeBytes int64
+		var reasonCode, resolutionAction, replacementImportJobID sql.NullString
+		var resolvedAtMS sql.NullInt64
+		var alreadyImported int64
+		if err := fileRows.Scan(
+			&uploadFileID,
+			&name,
+			&sizeBytes,
+			&disposition,
+			&reasonCode,
+			&resolutionAction,
+			&replacementImportJobID,
+			&resolvedAtMS,
+			&alreadyImported,
+		); err != nil {
+			return nil, fmt.Errorf("scan import file outcome: %w", err)
+		}
+		outcome := map[string]any{
+			"uploadFileId": uploadFileID,
+			"name":         name,
+			"sizeBytes":    sizeBytes,
+			"disposition":  disposition,
+			"reasonCode":   nullableString(reasonCode),
+			"resolution":   nil,
+		}
+		if alreadyImported == 1 {
+			outcome["disposition"] = "ALREADY_IMPORTED"
+			outcome["reasonCode"] = "ALREADY_IMPORTED"
+		}
+		if resolutionAction.Valid && replacementImportJobID.Valid && resolvedAtMS.Valid {
+			outcome["resolution"] = map[string]any{
+				"action":                 resolutionAction.String,
+				"replacementImportJobId": replacementImportJobID.String,
+				"resolvedAtMs":           resolvedAtMS.Int64,
+			}
+		}
+		fileOutcomes = append(fileOutcomes, outcome)
+	}
+	if err := fileRows.Err(); err != nil {
+		return nil, fmt.Errorf("scan import file outcomes: %w", err)
+	}
+	if err := fileRows.Close(); err != nil {
+		return nil, fmt.Errorf("close import file outcomes: %w", err)
+	}
+	return fileOutcomes, nil
 }
 
 func (server *Server) importDuplicateMatches(ctx context.Context, importJobID string) ([]map[string]any, error) {

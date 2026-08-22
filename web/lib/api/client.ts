@@ -27,7 +27,7 @@ export function writeHeaders(extra: Record<string, string> = {}) {
 }
 
 export function handleAuthenticationResponse(response: Response) {
-  if (response.status === 401) authenticationFailure?.();
+  if (response.status === 401) {authenticationFailure?.();}
   return response;
 }
 

@@ -6,7 +6,7 @@ export function containSize(
   contentWidth: number,
   contentHeight: number
 ): ContainedSize | null {
-  if (![viewportWidth, viewportHeight, contentWidth, contentHeight].every((value) => Number.isFinite(value) && value > 0)) return null;
+  if (![viewportWidth, viewportHeight, contentWidth, contentHeight].every((value) => Number.isFinite(value) && value > 0)) {return null;}
   const contentRatio = contentWidth / contentHeight;
   if (contentRatio >= viewportWidth / viewportHeight) {
     return { width: viewportWidth, height: viewportWidth / contentRatio };
@@ -19,7 +19,7 @@ export function fitCanvasToViewport(canvas: HTMLCanvasElement, viewportWidth: nu
   const size = hasRuntimeAspect
     ? containSize(viewportWidth, viewportHeight, aspectRatio, 1)
     : containSize(viewportWidth, viewportHeight, canvas.width, canvas.height);
-  if (!size) return false;
+  if (!size) {return false;}
   canvas.style.setProperty("width", `${size.width}px`, "important");
   canvas.style.setProperty("height", `${size.height}px`, "important");
   canvas.style.setProperty("max-width", "none", "important");
@@ -34,10 +34,10 @@ export function fitCanvasToViewport(canvas: HTMLCanvasElement, viewportWidth: nu
 
 export function installCanvasContain(frameDocument: Document, getAspectRatio: () => number | undefined = () => undefined) {
   const frameWindow = frameDocument.defaultView;
-  if (!frameWindow) return { refresh: () => undefined, cleanup: () => undefined };
+  if (!frameWindow) {return { refresh: () => undefined, cleanup: () => undefined };}
   const fit = () => {
     const canvas = frameDocument.querySelector<HTMLCanvasElement>("canvas");
-    if (!canvas) return;
+    if (!canvas) {return;}
     fitCanvasToViewport(canvas, frameWindow.innerWidth, frameWindow.innerHeight, getAspectRatio());
   };
   const mutationObserver = new frameWindow.MutationObserver(fit);

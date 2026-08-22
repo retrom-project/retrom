@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	"retrom/internal/importing"
+	"retrom/internal/testassert"
 )
 
 func TestCompareArchiveEntriesClassifiesRequiredAndExtraFiles(t *testing.T) {
@@ -23,25 +24,14 @@ func TestCompareArchiveEntriesClassifiesRequiredAndExtraFiles(t *testing.T) {
 	}
 
 	comparisons, missing, mismatched, warnings := compareArchiveEntries(expected, actual)
-	if len(comparisons) != 5 {
-		t.Fatalf("comparisons = %#v", comparisons)
-	}
+	testassert.Falsef(t, len(comparisons) != 5, "comparisons = %#v", comparisons)
 	wantedStatuses := []string{"MATCHED", "ALIASED", "MISMATCHED", "MISSING", "EXTRA"}
 	for index, wanted := range wantedStatuses {
-		if comparisons[index].Status != wanted {
-			t.Fatalf("comparison %d status = %q, want %q", index, comparisons[index].Status, wanted)
-		}
+		testassert.Falsef(t, comparisons[index].Status != wanted, "comparison %d status = %q, want %q", index, comparisons[index].Status, wanted)
 	}
-	if len(missing) != 1 || len(mismatched) != 1 || len(warnings) != 1 {
-		t.Fatalf("missing=%#v mismatched=%#v warnings=%#v", missing, mismatched, warnings)
-	}
-	if comparisons[1].Expected == nil || comparisons[1].Actual == nil ||
-		comparisons[1].Expected.Name != "alias.bin" || comparisons[1].Actual.Name != "renamed.bin" {
-		t.Fatalf("alias comparison = %#v", comparisons[1])
-	}
-	if comparisons[3].Actual != nil || comparisons[4].Expected != nil {
-		t.Fatalf("missing/extra comparisons = %#v / %#v", comparisons[3], comparisons[4])
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return len(missing) != 1 }, func() bool { return len(mismatched) != 1 }, func() bool { return len(warnings) != 1 }), "missing=%#v mismatched=%#v warnings=%#v", missing, mismatched, warnings)
+	testassert.Falsef(t, testassert.Any(func() bool { return comparisons[1].Expected == nil }, func() bool { return comparisons[1].Actual == nil }, func() bool { return comparisons[1].Expected.Name != "alias.bin" }, func() bool { return comparisons[1].Actual.Name != "renamed.bin" }), "alias comparison = %#v", comparisons[1])
+	testassert.Falsef(t, testassert.Any(func() bool { return comparisons[3].Actual != nil }, func() bool { return comparisons[4].Expected != nil }), "missing/extra comparisons = %#v / %#v", comparisons[3], comparisons[4])
 }
 
 func TestCompareArchiveEntriesUsesSHA1BeforeCRC(t *testing.T) {
@@ -60,7 +50,5 @@ func TestCompareArchiveEntriesUsesSHA1BeforeCRC(t *testing.T) {
 	}}
 
 	comparisons, _, mismatched, _ := compareArchiveEntries(expected, actual)
-	if len(mismatched) != 1 || len(comparisons) != 1 || comparisons[0].Status != "MISMATCHED" {
-		t.Fatalf("comparisons=%#v mismatched=%#v", comparisons, mismatched)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return len(mismatched) != 1 }, func() bool { return len(comparisons) != 1 }, func() bool { return comparisons[0].Status != "MISMATCHED" }), "comparisons=%#v mismatched=%#v", comparisons, mismatched)
 }

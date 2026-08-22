@@ -109,7 +109,7 @@ func openReadOnlyDatabase(ctx context.Context, path string) (*sql.DB, error) {
 	return database, nil
 }
 
-//nolint:gocyclo // Every read-only branch distinguishes a stable startup failure without touching the database.
+// Every read-only branch distinguishes a stable startup failure without touching the database.
 func preflightExistingDatabase(ctx context.Context, path string) error {
 	info, err := fsStat(path)
 	if errors.Is(err, fs.ErrNotExist) {
@@ -136,6 +136,10 @@ SELECT count(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_
 `).Scan(&tableCount); err != nil {
 		return fmt.Errorf("%w: unreadable schema", ErrSchemaInvalid)
 	}
+	return inspectMigrationHistory(ctx, database, tableCount)
+}
+
+func inspectMigrationHistory(ctx context.Context, database *sql.DB, tableCount int) error {
 	var migrationTableCount int
 	if err := database.QueryRowContext(ctx, `
 SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'
@@ -257,7 +261,7 @@ var (
 	fsStat     = os.Stat
 )
 
-//nolint:gocyclo // Contract branches stay contiguous for a single auditable decision.
+// Contract branches stay contiguous for a single auditable decision.
 func applyMigrations(ctx context.Context, database *sql.DB, now func() time.Time) error {
 	if _, err := database.ExecContext(ctx, migrationTable); err != nil {
 		return fmt.Errorf("create migration table: %w", err)
@@ -269,34 +273,12 @@ func applyMigrations(ctx context.Context, database *sql.DB, now func() time.Time
 	sort.Slice(entries, func(left, right int) bool { return entries[left].Name() < entries[right].Name() })
 	latest := 0
 	for _, entry := range entries {
-		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
-			continue
-		}
-		version, parseErr := strconv.Atoi(strings.SplitN(entry.Name(), "_", 2)[0])
-		if parseErr != nil || version <= latest {
-			return fmt.Errorf("%w: %s", errMigrationFilename, entry.Name())
-		}
-		latest = version
-		contents, readErr := migrations.Files.ReadFile(entry.Name())
-		if readErr != nil {
-			return fmt.Errorf("read migration %s: %w", entry.Name(), readErr)
-		}
-		checksumBytes := sha256.Sum256(contents)
-		checksum := hex.EncodeToString(checksumBytes[:])
-		var existing string
-		scanErr := database.QueryRowContext(ctx,
-			"SELECT checksum FROM schema_migrations WHERE version = ?", version).Scan(&existing)
-		switch {
-		case scanErr == nil:
-			if existing != checksum {
-				return fmt.Errorf("%w: %03d", ErrMigrationChecksum, version)
-			}
-			continue
-		case !errors.Is(scanErr, sql.ErrNoRows):
-			return fmt.Errorf("read migration record: %w", scanErr)
-		}
-		if err := runMigration(ctx, database, version, entry.Name(), checksum, contents, now); err != nil {
+		version, applied, err := applyMigrationEntry(ctx, database, entry, latest, now)
+		if err != nil {
 			return err
+		}
+		if applied {
+			latest = version
 		}
 	}
 	var maximum sql.NullInt64
@@ -307,6 +289,44 @@ func applyMigrations(ctx context.Context, database *sql.DB, now func() time.Time
 		return fmt.Errorf("%w: %d", ErrFutureSchema, maximum.Int64)
 	}
 	return nil
+}
+
+func applyMigrationEntry(
+	ctx context.Context,
+	database *sql.DB,
+	entry fs.DirEntry,
+	latest int,
+	now func() time.Time,
+) (int, bool, error) {
+	if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
+		return latest, false, nil
+	}
+	version, err := strconv.Atoi(strings.SplitN(entry.Name(), "_", 2)[0])
+	if err != nil || version <= latest {
+		return 0, false, fmt.Errorf("%w: %s", errMigrationFilename, entry.Name())
+	}
+	contents, err := migrations.Files.ReadFile(entry.Name())
+	if err != nil {
+		return 0, false, fmt.Errorf("read migration %s: %w", entry.Name(), err)
+	}
+	checksumBytes := sha256.Sum256(contents)
+	checksum := hex.EncodeToString(checksumBytes[:])
+	var existing string
+	err = database.QueryRowContext(ctx,
+		"SELECT checksum FROM schema_migrations WHERE version = ?", version).Scan(&existing)
+	if err == nil {
+		if existing != checksum {
+			return 0, false, fmt.Errorf("%w: %03d", ErrMigrationChecksum, version)
+		}
+		return version, true, nil
+	}
+	if !errors.Is(err, sql.ErrNoRows) {
+		return 0, false, fmt.Errorf("read migration record: %w", err)
+	}
+	if err := runMigration(ctx, database, version, entry.Name(), checksum, contents, now); err != nil {
+		return 0, false, err
+	}
+	return version, true, nil
 }
 
 func runMigration(

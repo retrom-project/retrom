@@ -8,6 +8,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/config"
+	"retrom/internal/testassert"
 )
 
 func TestReadSetupCodeIsReadOnlyAndPendingOnly(t *testing.T) {
@@ -17,9 +18,7 @@ func TestReadSetupCodeIsReadOnlyAndPendingOnly(t *testing.T) {
 		t.Fatal(err)
 	}
 	code, err := ReadSetupCode(context.Background(), fixture.database.SQL, fixture.credentials)
-	if err != nil || code != fixture.credentials.SetupCode() {
-		t.Fatalf("pending setup code = %q, %v", code, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return code != fixture.credentials.SetupCode() }), "pending setup code = %q, %v", code, err)
 	if _, err := fixture.service.Initialize(context.Background(), InitializeRequest{
 		SetupCode: code, Username: "admin", DisplayName: "Administrator",
 		Password: "a sufficiently long phrase", PasswordConfirmation: "a sufficiently long phrase",
@@ -40,9 +39,7 @@ func TestOfflineAdminResetRotatesCredentialAndSecurityState(t *testing.T) {
 	reset, _, err := fixture.service.CreatePasswordReset(
 		context.Background(), admin.Principal, admin.User.UserID, 1, uuid.NewString(),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := fixture.service.OfflineAdminReset(
 		context.Background(), "test", "an offline replacement phrase", "an offline replacement phrase",
 	); err != nil {
@@ -64,7 +61,7 @@ func TestOfflineAdminResetRotatesCredentialAndSecurityState(t *testing.T) {
 		t.Fatalf("offline recovery login = %v", err)
 	}
 	var defaultActive, audits int
-	if err := fixture.database.SQL.QueryRow(`
+	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
 SELECT test_default_password_active,
 (SELECT count(*) FROM audit_events
  WHERE actor_kind='SYSTEM' AND actor_label='offline-recovery' AND action='ADMIN_OFFLINE_RECOVERED')

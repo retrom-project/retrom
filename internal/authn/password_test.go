@@ -5,6 +5,8 @@ import (
 	"context"
 	"errors"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 type testBlocklist map[string]bool
@@ -29,18 +31,12 @@ func TestIdentityNormalization(t *testing.T) {
 func TestPasswordPolicyUsesNFCFoldAndExactBlocklist(t *testing.T) {
 	t.Parallel()
 	password, err := ValidatePassword("secure phrase 123", "secure phrase 123", "alice", "Alice", testBlocklist{})
-	if err != nil || password != "secure phrase 123" {
-		t.Fatalf("password = %q, %v", password, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return password != "secure phrase 123" }), "password = %q, %v", password, err)
 	_, err = ValidatePassword("COMMON PASSWORD 123", "COMMON PASSWORD 123", "alice", "Alice", testBlocklist{"common password 123": true})
 	var policy *PasswordError
-	if !errors.As(err, &policy) || policy.Reason != ReasonCommon {
-		t.Fatalf("common password error = %v", err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !errors.As(err, &policy) }, func() bool { return policy.Reason != ReasonCommon }), "common password error = %v", err)
 	_, err = ValidatePassword("different password", "different passwörd", "alice", "Alice", testBlocklist{})
-	if !errors.As(err, &policy) || policy.Reason != ReasonConfirmation {
-		t.Fatalf("confirmation error = %v", err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !errors.As(err, &policy) }, func() bool { return policy.Reason != ReasonConfirmation }), "confirmation error = %v", err)
 }
 
 func TestPasswordPolicyRequiresAtLeastSixUnicodeCharacters(t *testing.T) {
@@ -58,15 +54,11 @@ func TestPasswordPolicyRequiresAtLeastSixUnicodeCharacters(t *testing.T) {
 		t.Run(testCase.name, func(t *testing.T) {
 			normalized, err := NormalizePassword(testCase.candidate)
 			if testCase.valid {
-				if err != nil || normalized != testCase.candidate {
-					t.Fatalf("NormalizePassword(%q) = %q, %v", testCase.candidate, normalized, err)
-				}
+				testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return normalized != testCase.candidate }), "NormalizePassword(%q) = %q, %v", testCase.candidate, normalized, err)
 				return
 			}
 			var policy *PasswordError
-			if !errors.As(err, &policy) || policy.Reason != ReasonTooShort {
-				t.Fatalf("NormalizePassword(%q) error = %v", testCase.candidate, err)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return !errors.As(err, &policy) }, func() bool { return policy.Reason != ReasonTooShort }), "NormalizePassword(%q) error = %v", testCase.candidate, err)
 		})
 	}
 }
@@ -75,17 +67,11 @@ func TestArgon2IDV1RoundTripAndStrictParser(t *testing.T) {
 	t.Parallel()
 	hasher := newPasswordHasher(bytes.NewReader(bytes.Repeat([]byte{7}, 32)), 1)
 	encoded, err := hasher.Hash(context.Background(), "secure phrase 123")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	ok, err := hasher.Verify(context.Background(), "secure phrase 123", encoded)
-	if err != nil || !ok {
-		t.Fatalf("verify = %t, %v", ok, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !ok }), "verify = %t, %v", ok, err)
 	ok, err = hasher.Verify(context.Background(), "secure phrase 124", encoded)
-	if err != nil || ok {
-		t.Fatalf("wrong verify = %t, %v", ok, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return ok }), "wrong verify = %t, %v", ok, err)
 	for _, corrupted := range []string{
 		"$argon2id$v=19$m=65536,t=2,p=1$c2FsdA$aGFzaA",
 		"$argon2i$v=19$m=19456,t=2,p=1$c2FsdA$aGFzaA",

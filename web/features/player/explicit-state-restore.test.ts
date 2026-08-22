@@ -49,7 +49,7 @@ describe("EmulatorJS 4.2.3 state restore compatibility", () => {
       FS = {
         unlink: (path: string) => {
           removed.push(path);
-          if (!files.delete(path)) throw new Error("ENOENT");
+          if (!files.delete(path)) {throw new Error("ENOENT");}
         },
         writeFile: (path: string, state: Uint8Array) => files.set(path, new Uint8Array(state)),
       };
@@ -124,7 +124,7 @@ describe("EmulatorJS 4.2.3 state restore compatibility", () => {
       functions = { loadState: nativeLoad, saveStateInfo: readiness };
       FS = { unlink: () => undefined, writeFile: () => undefined };
       getFrameNum() { return frame; }
-      toggleMainLoop(running: boolean) { if (running) frame = 1; }
+      toggleMainLoop(running: boolean) { if (running) {frame = 1;} }
     }
     Reflect.set(window, "EJS_GameManager", GameManager);
     Reflect.set(window, "EJS_Runtime", (config: typeof runtimeConfig) => { runtimeConfig = config; return {}; });

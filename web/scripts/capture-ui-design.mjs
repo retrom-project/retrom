@@ -120,7 +120,7 @@ try {
     });
     await page.goto(documentURL.href, { waitUntil: "load" });
     const frame = page.frames().find((candidate) => candidate !== page.mainFrame());
-    if (!frame) throw new Error(`design iframe missing for ${filename}`);
+    if (!frame) {throw new Error(`design iframe missing for ${filename}`);}
     await frame.locator("#retrom-ui-review").waitFor({ state: "visible" });
     const clickVisible = async (selector) => {
       const candidates = await frame.locator(selector).all();
@@ -131,9 +131,9 @@ try {
     };
     const activate = async (selector) => {
       const target = frame.locator(selector).first();
-      if (!await target.count()) throw new Error(`design control missing: ${selector}`);
-      if (await target.isVisible()) await target.click();
-      else await target.evaluate((element) => element.click());
+      if (!await target.count()) {throw new Error(`design control missing: ${selector}`);}
+      if (await target.isVisible()) {await target.click();}
+      else {await target.evaluate((element) => element.click());}
     };
     if (["setup", "login", "register", "reset"].includes(view)) {
       await frame.locator(`[data-review-scene="${view}"]`).click();
@@ -160,53 +160,53 @@ try {
     } else if (view === "netplay-player") {
       await frame.locator('[data-review-scene="netplay-player"]').click();
     } else if (!["home", "setup", "login", "register", "reset"].includes(view)) {
-      if (view.startsWith("admin-")) await activate(`[data-page-target="${view}"], [data-page-link="${view}"]`);
-      else await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);
+      if (view.startsWith("admin-")) {await activate(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
+      else {await clickVisible(`[data-page-target="${view}"], [data-page-link="${view}"]`);}
     }
     const viewSelector = ["setup", "login", "register", "reset"].includes(view)
       ? `[data-auth-page="${view}"]`
       : `[data-page="${view}"]`;
     await frame.locator(viewSelector).waitFor({ state: "visible" });
     await frame.locator(".rt-review-scenes").evaluate((element) => { element.hidden = true; });
-    if (variant === "bios-entries") await frame.locator("[data-open-bios-entries]").click();
-    if (variant === "server-import-drawer") await frame.locator("[data-open-server-import-drawer]").click();
-    if (variant === "pegasus-import-drawer") await frame.locator("[data-open-pegasus-drawer]").click();
-    if (variant === "drawer") await frame.locator("[data-open-platform-drawer]").click();
-    if (variant === "dialog") await frame.locator("[data-preview-core]").first().click();
-    if (variant === "user-drawer") await frame.locator("[data-open-user-drawer]").nth(1).click();
-    if (variant === "tag-drawer") await frame.locator("[data-open-tag-drawer]").first().click();
+    if (variant === "bios-entries") {await frame.locator("[data-open-bios-entries]").click();}
+    if (variant === "server-import-drawer") {await frame.locator("[data-open-server-import-drawer]").click();}
+    if (variant === "pegasus-import-drawer") {await frame.locator("[data-open-pegasus-drawer]").click();}
+    if (variant === "drawer") {await frame.locator("[data-open-platform-drawer]").click();}
+    if (variant === "dialog") {await frame.locator("[data-preview-core]").first().click();}
+    if (variant === "user-drawer") {await frame.locator("[data-open-user-drawer]").nth(1).click();}
+    if (variant === "tag-drawer") {await frame.locator("[data-open-tag-drawer]").first().click();}
     if (variant === "invitation-result") {
       await frame.locator("[data-open-invite-drawer]").click();
       await frame.locator("[data-create-invitation]").click();
     }
-    if (variant === "portrait") await frame.locator('[data-page="play"] .rt-player-screen').evaluate((element) => element.classList.add("is-portrait"));
-    if (variant === "mobile-portrait") await frame.locator('[data-page="play"] .rt-player-shell').evaluate((element) => element.classList.add("is-mobile-portrait"));
+    if (variant === "portrait") {await frame.locator('[data-page="play"] .rt-player-screen').evaluate((element) => element.classList.add("is-portrait"));}
+    if (variant === "mobile-portrait") {await frame.locator('[data-page="play"] .rt-player-shell').evaluate((element) => element.classList.add("is-mobile-portrait"));}
     if (variant === "emulator-controls") {
       await frame.locator("#rt-player-more").click();
       await frame.locator("[data-open-emulator-controls]").click();
     }
-    if (variant === "debug") await frame.locator("#rt-player-debug").click();
-    if (["review-detail", "review-attachment", "review-validating", "review-ready", "review-override", "review-compare"].includes(variant)) await frame.locator("[data-review-item]").first().click();
-    if (["review-bulk-approval", "review-bulk-progress", "review-bulk-cancel"].includes(variant)) await frame.locator("[data-open-review-bulk]").click();
-    if (["review-bulk-progress", "review-bulk-cancel"].includes(variant)) await frame.locator("[data-confirm-review-bulk]").click();
-    if (variant === "review-bulk-cancel") await frame.locator("[data-stop-review-bulk]").click();
-    if (variant === "review-attachment") await frame.locator("[data-open-disc-drawer]").click();
+    if (variant === "debug") {await frame.locator("#rt-player-debug").click();}
+    if (["review-detail", "review-attachment", "review-validating", "review-ready", "review-override", "review-compare"].includes(variant)) {await frame.locator("[data-review-item]").first().click();}
+    if (["review-bulk-approval", "review-bulk-progress", "review-bulk-cancel"].includes(variant)) {await frame.locator("[data-open-review-bulk]").click();}
+    if (["review-bulk-progress", "review-bulk-cancel"].includes(variant)) {await frame.locator("[data-confirm-review-bulk]").click();}
+    if (variant === "review-bulk-cancel") {await frame.locator("[data-stop-review-bulk]").click();}
+    if (variant === "review-attachment") {await frame.locator("[data-open-disc-drawer]").click();}
     if (variant === "review-validating") {
       await frame.locator("[data-open-disc-drawer]").click();
       await frame.locator("[data-queue-disc-validation]").click();
     }
-    if (variant === "review-ready") await frame.locator("#retrom-ui-review").evaluate((element) => element.dispatchEvent(new CustomEvent("retrom:set-disc-state", { detail: "ready" })));
-    if (variant === "review-override") await frame.locator("#retrom-ui-review").evaluate((element) => element.dispatchEvent(new CustomEvent("retrom:set-disc-state", { detail: "override" })));
-    if (variant === "review-compare") await frame.locator("[data-open-compare]").click();
-    if (variant === "history-detail") await frame.locator("[data-open-history]").first().click();
+    if (variant === "review-ready") {await frame.locator("#retrom-ui-review").evaluate((element) => element.dispatchEvent(new CustomEvent("retrom:set-disc-state", { detail: "ready" })));}
+    if (variant === "review-override") {await frame.locator("#retrom-ui-review").evaluate((element) => element.dispatchEvent(new CustomEvent("retrom:set-disc-state", { detail: "override" })));}
+    if (variant === "review-compare") {await frame.locator("[data-open-compare]").click();}
+    if (variant === "history-detail") {await frame.locator("[data-open-history]").first().click();}
     if (variant === "core-override") {
       await frame.locator("[data-open-detail-runtime]").click();
       await frame.locator("#rt-core-select").selectOption({ label: "MAME 2003 Plus · 可选" });
       await frame.locator("[data-apply-detail-runtime]").click();
       await frame.locator("[data-open-detail-runtime]").click();
     }
-    if (variant === "folder-manager") await frame.locator("[data-favorite-manage]").first().click();
-    if (variant === "unfavorite-dialog") await frame.locator("[data-favorite-heart]").first().click();
+    if (variant === "folder-manager") {await frame.locator("[data-favorite-manage]").first().click();}
+    if (variant === "unfavorite-dialog") {await frame.locator("[data-favorite-heart]").first().click();}
     if (view === "play") {
       await page.waitForTimeout(1_400);
       await frame.locator("#rt-player-game").evaluate((element) => { element.textContent = "NOeL 3"; });

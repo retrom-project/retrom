@@ -239,7 +239,7 @@ describe("EmulatorJS adapter", () => {
     const workerBlob = new Blob([sevenZipWorkerSource], { type: "application/javascript" });
     class Compression {
       async getWorkerFile(archiveType: string) {
-        if (archiveType !== "7z" && archiveType !== "rar") throw new Error("unexpected archive type");
+        if (archiveType !== "7z" && archiveType !== "rar") {throw new Error("unexpected archive type");}
         return workerBlob;
       }
     }
@@ -285,7 +285,7 @@ describe("EmulatorJS adapter", () => {
     const workerBlob = new Blob([zipWorkerSource], { type: "application/javascript" });
     class Compression {
       async getWorkerFile(archiveType: string) {
-        if (archiveType !== "zip") throw new Error("unexpected archive type");
+        if (archiveType !== "zip") {throw new Error("unexpected archive type");}
         return workerBlob;
       }
     }
@@ -303,7 +303,7 @@ describe("EmulatorJS adapter", () => {
     const cleanup = mountEmulatorJS(config, target);
     class Compression {
       async getWorkerFile(archiveType: string) {
-        if (archiveType !== "7z" && archiveType !== "zip") throw new Error("unexpected archive type");
+        if (archiveType !== "7z" && archiveType !== "zip") {throw new Error("unexpected archive type");}
         return new Blob(["unexpected-worker-source"], { type: "application/javascript" });
       }
     }
@@ -321,6 +321,17 @@ describe("EmulatorJS adapter", () => {
     await expect(window.fetch("/runtime/emulatorjs/4.3.0-pre/data/compression/extract7z.js")).rejects.toThrow("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
     await expect(window.fetch("/runtime/emulatorjs/4.3.0-pre/data/compression/extractzip.js")).rejects.toThrow("PLAYER_ARCHIVE_COMPATIBILITY_UNAVAILABLE");
     cleanup();
+  });
+});
+
+describe("EmulatorJS adapter runtime controls", () => {
+  afterEach(() => {
+    document.querySelectorAll("script[data-retrom-loader]").forEach((node) => node.remove());
+    window.EJS_emulator = undefined;
+    Reflect.deleteProperty(window, "EJS_shaders");
+    Reflect.deleteProperty(window, "EJS_GameManager");
+    Reflect.deleteProperty(window, "EJS_COMPRESSION");
+    window.fetch = originalWindowFetch;
   });
 
   it("initializes the EmulatorJS settings object before exposing a validated disc runtime", () => {

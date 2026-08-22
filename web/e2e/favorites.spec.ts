@@ -11,7 +11,7 @@ type AuthContext = { csrfToken: string };
 
 function evidencePath(testInfo: TestInfo, name: string) {
   const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
-  if (!caseDirectory) return testInfo.outputPath(name);
+  if (!caseDirectory) {return testInfo.outputPath(name);}
   const screenshots = path.join(caseDirectory, "screenshots");
   mkdirSync(screenshots, { recursive: true });
   return path.join(screenshots, `${testInfo.project.name}-${name}`);
@@ -270,7 +270,7 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
   if (testInfo.project.name === "chrome-1280") {
     await page.getByRole("button", { name: "批量整理" }).click();
     const selectionButtons = page.locator(".favorite-select");
-    for (let index = 0; index < 50; index += 1) await selectionButtons.nth(index).click();
+    for (let index = 0; index < 50; index += 1) {await selectionButtons.nth(index).click();}
     await expect(page.locator(".favorite-batch")).toContainText("已选择 50 款");
     const batchLayout = await page.evaluate(() => {
       const batch = document.querySelector<HTMLElement>(".favorite-batch")!.getBoundingClientRect();
@@ -324,7 +324,7 @@ test("ACC-FAV-004 favorite states, keyboard semantics and bounded layout hold at
   if (testInfo.project.name === "chrome-1280") {
     const folderId = "73000000-0000-7000-8000-000000000001";
     await page.route(`**/api/v1/favorite-folders/${folderId}`, async (route) => {
-      if (route.request().method() !== "PATCH") return route.continue();
+      if (route.request().method() !== "PATCH") {return route.continue();}
       await route.fulfill({
         status: 412,
         contentType: "application/json",

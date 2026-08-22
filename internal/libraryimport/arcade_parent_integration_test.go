@@ -6,11 +6,9 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"crypto/sha1" //nolint:gosec // DAT compatibility checksum.
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
-	"encoding/hex"
 	"fmt"
 	"hash/crc32"
 	"io"
@@ -26,7 +24,9 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
+	"retrom/internal/legacychecksum"
 	retromruntime "retrom/internal/runtime"
+	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
@@ -46,20 +46,18 @@ func TestReviewBulkApprovalPublishesCurrentArcadeSnapshotV2(t *testing.T) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	const (
 		profileID = "01990000-0000-7000-8000-00000000c710"
 		adminID   = "01990000-0000-7000-8000-00000000c711"
 	)
-	if _, err := database.SQL.Exec(
+	if _, err := database.SQL.ExecContext(context.Background(),
 		`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,'Arcade Bulk Admin',1)`, profileID,
 	); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.SQL.Exec(`
+	if _, err := database.SQL.ExecContext(context.Background(), `
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 `, adminID, profileID); err != nil {
@@ -69,9 +67,7 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 		UserID: adminID, ProfileID: profileID, Role: "ADMIN",
 	})
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
@@ -80,9 +76,7 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 		UploadID: root.uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
 		MetadataProvider: "NONE",
 	})
-	if err != nil || created.ItemCount != 1 {
-		t.Fatalf("arcade import = %#v, error=%v", created, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "arcade import = %#v, error=%v", created, err)
 	itemID, _, _, validationID := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	var validationStatus, dependencySnapshot string
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -90,42 +84,27 @@ SELECT status,dependency_snapshot_json FROM import_item_core_validations WHERE i
 `, validationID).Scan(&validationStatus, &dependencySnapshot); err != nil {
 		t.Fatal(err)
 	}
-	if validationStatus != "READY" || !strings.Contains(dependencySnapshot, `"schemaVersion":2`) {
-		t.Fatalf("arcade validation = %s %s", validationStatus, dependencySnapshot)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return validationStatus != "READY" }, func() bool { return !strings.Contains(dependencySnapshot, `"schemaVersion":2`) }), "arcade validation = %s %s", validationStatus, dependencySnapshot)
 	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{ImportJobID: created.ImportJobID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if preview.Counts.Matched != 1 || preview.Counts.StrictReady != 1 ||
-		preview.Counts.NotReadyOrStale != 0 {
-		t.Fatalf("arcade bulk preview = %#v", preview.Counts)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 1 }, func() bool { return preview.Counts.StrictReady != 1 }, func() bool { return preview.Counts.NotReadyOrStale != 0 }), "arcade bulk preview = %#v", preview.Counts)
 	bulk, err := importer.CreateReviewBulk(ctx, ReviewBulkCreateRequest{
 		Scope: preview.Scope, ScopeDigest: preview.ScopeDigest,
 		CandidateManifestDigest: preview.CandidateManifestDigest,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	deadline := time.Now().Add(5 * time.Second)
 	var summary ReviewBulkSummary
 	for {
 		summary, err = importer.GetReviewBulk(ctx, bulk.BulkApprovalID)
-		if err != nil {
-			t.Fatal(err)
-		}
+		testassert.False(t, err != nil, err)
 		if summary.State == "COMPLETED" || summary.State == "PARTIAL_FAILURE" || summary.State == "FAILED" {
 			break
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("arcade bulk approval did not finish: %#v", summary)
-		}
+		testassert.Falsef(t, time.Now().After(deadline), "arcade bulk approval did not finish: %#v", summary)
 		time.Sleep(10 * time.Millisecond)
 	}
-	if summary.State != "COMPLETED" || summary.Progress.Published != 1 || summary.Progress.Processed != 1 {
-		t.Fatalf("arcade bulk result = %#v", summary)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return summary.State != "COMPLETED" }, func() bool { return summary.Progress.Published != 1 }, func() bool { return summary.Progress.Processed != 1 }), "arcade bulk result = %#v", summary)
 	var gameID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT game_id FROM review_bulk_approval_items
@@ -140,17 +119,13 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
+	if _, err := database.SQL.ExecContext(context.Background(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	insertArcadeParentCatalog(t, database.SQL)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	childZIP := arcadeZIP(t, "a.bin", []byte("child"))
@@ -166,37 +141,25 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 		UploadID: child.uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
 		MetadataProvider: "NONE",
 	})
-	if err != nil || created.ItemCount != 1 {
-		t.Fatalf("child import = %#v, error=%v", created, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "child import = %#v, error=%v", created, err)
 	itemID, version, snapshotID, validationID := reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	if pegasus {
 		linkReviewToPegasusOrigin(t, database.SQL, created.ImportJobID, itemID, snapshotID)
 	}
 	view, found, err := importer.ReviewArcadeDependencies(ctx, itemID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if !found {
-		t.Fatal("arcade dependencies were not projected")
-	}
+	testassert.False(t, err != nil, err)
+	testassert.True(t, found, "arcade dependencies were not projected")
 	viewMap := view.(map[string]any)
-	if viewMap["machine"] != "a" || len(viewMap["nodes"].([]map[string]any)) != 2 {
-		t.Fatalf("initial dependency view = %#v", view)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return viewMap["machine"] != "a" }, func() bool { return len(viewMap["nodes"].([]map[string]any)) != 2 }), "initial dependency view = %#v", view)
 	parent := uploadCompleteFile(t, ctx, database.SQL, uploadService, "anything.zip", parentZIP)
 	acceptedB, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "b",
 		UploadFileID: parent.fileID,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, acceptedB.JobID, "SUCCEEDED")
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
-	if version != 3 {
-		t.Fatalf("draft version after b = %d", version)
-	}
+	testassert.Falsef(t, version != 3, "draft version after b = %d", version)
 	var revision, snapshotCount int
 	var validationStatus, validationCode string
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -208,17 +171,13 @@ WHERE snapshot.id=? ORDER BY validation.created_at_ms DESC LIMIT 1
 `, snapshotID).Scan(&revision, &validationStatus, &validationCode, &snapshotCount); err != nil {
 		t.Fatal(err)
 	}
-	if revision != 2 || snapshotCount != 2 || validationStatus != "BLOCKED" || validationCode != "LAUNCH_PARENT_MISSING" {
-		t.Fatalf("after b = revision:%d count:%d validation:%s/%s", revision, snapshotCount, validationStatus, validationCode)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return revision != 2 }, func() bool { return snapshotCount != 2 }, func() bool { return validationStatus != "BLOCKED" }, func() bool { return validationCode != "LAUNCH_PARENT_MISSING" }), "after b = revision:%d count:%d validation:%s/%s", revision, snapshotCount, validationStatus, validationCode)
 	wrong := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", wrongZIP)
 	rejectedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
 		UploadFileID: wrong.fileID,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, rejectedC.JobID, "FAILED")
 	var attachmentState, attachmentCode, currentSnapshotID string
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -229,23 +188,17 @@ WHERE attachment.id=?
 `, rejectedC.AttachmentID).Scan(&attachmentState, &attachmentCode, &currentSnapshotID); err != nil {
 		t.Fatal(err)
 	}
-	if attachmentState != "REJECTED" || attachmentCode != ParentErrorMismatch || currentSnapshotID != snapshotID {
-		t.Fatalf("wrong c = %s/%s snapshot=%s", attachmentState, attachmentCode, currentSnapshotID)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return attachmentState != "REJECTED" }, func() bool { return attachmentCode != ParentErrorMismatch }, func() bool { return currentSnapshotID != snapshotID }), "wrong c = %s/%s snapshot=%s", attachmentState, attachmentCode, currentSnapshotID)
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
 	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "renamed-root.zip", rootZIP)
 	acceptedC, err := importer.CreateArcadeParentAttachment(ctx, itemID, version, ParentAttachmentRequest{
 		ValidationID: validationID, BaseSourceSnapshotID: snapshotID, DependencyMachine: "c",
 		UploadFileID: root.fileID,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitParentJob(t, database.SQL, acceptedC.JobID, "SUCCEEDED")
 	itemID, version, snapshotID, validationID = reviewAttachmentInputs(t, database.SQL, created.ImportJobID)
-	if version != 6 {
-		t.Fatalf("draft version after c = %d", version)
-	}
+	testassert.Falsef(t, version != 6, "draft version after c = %d", version)
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT revision_no FROM import_item_source_snapshots WHERE id=?
 `, snapshotID).Scan(&revision); err != nil || revision != 3 {
@@ -266,17 +219,10 @@ SELECT diagnostics_json FROM review_arcade_parent_attachments WHERE id=?
 		t.Fatalf("merged-style parent diagnostics = %q, error=%v", acceptedDiagnostics, err)
 	}
 	preview, err := importer.PreviewReviewBulk(ctx, ReviewBulkScope{ImportJobID: created.ImportJobID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if preview.Counts.Matched != 1 || preview.Counts.StrictReady != 1 ||
-		preview.Counts.NotReadyOrStale != 0 {
-		t.Fatalf("arcade parent bulk preview = %#v", preview.Counts)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return preview.Counts.Matched != 1 }, func() bool { return preview.Counts.StrictReady != 1 }, func() bool { return preview.Counts.NotReadyOrStale != 0 }), "arcade parent bulk preview = %#v", preview.Counts)
 	approved, err := importer.Approve(ctx, itemID, version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if pegasus {
 		var contentSource, pegasusState string
 		if err := database.SQL.QueryRowContext(ctx, `
@@ -295,28 +241,20 @@ SELECT file.role||':'||file.logical_name
 FROM games game JOIN game_content_files file ON file.game_content_revision_id=game.current_content_revision_id
 WHERE game.id=? ORDER BY file.role,file.logical_name
 `, approved.GameID)
-	if fmt.Sprint(contentNames) != "[COMPANION:b.zip COMPANION:c.zip CONTENT:a.zip]" {
-		t.Fatalf("published content = %v", contentNames)
-	}
+	testassert.Falsef(t, fmt.Sprint(contentNames) != "[COMPANION:b.zip COMPANION:c.zip CONTENT:a.zip]", "published content = %v", contentNames)
 	variantNames := queryAttachmentStrings(t, database.SQL, `
 SELECT file.role||':'||file.logical_name
 FROM games game JOIN game_variants variant ON variant.game_id=game.id
 JOIN variant_files file ON file.game_variant_revision_id=variant.current_revision_id
 WHERE game.id=? ORDER BY file.role,file.logical_name
 `, approved.GameID)
-	if fmt.Sprint(variantNames) != "[PARENT:b.zip PARENT:c.zip]" {
-		t.Fatalf("published variant files = %v", variantNames)
-	}
+	testassert.Falsef(t, fmt.Sprint(variantNames) != "[PARENT:b.zip PARENT:c.zip]", "published variant files = %v", variantNames)
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	launcher := launch.New(database.SQL, dependencySet, credentials, time.Now)
 	coreID := "fbneo"
 	capabilities := launch.Capabilities{SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true}
@@ -324,35 +262,24 @@ WHERE game.id=? ORDER BY file.role,file.logical_name
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})
-	if err != nil || pending.Status != "VALIDATION_PENDING" || pending.JobID == "" {
-		t.Fatalf("first launch revalidation = %#v, error=%v", pending, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "first launch revalidation = %#v, error=%v", pending, err)
 	waitParentJob(t, database.SQL, pending.JobID, "SUCCEEDED")
 	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})
-	if err != nil || createdLaunch.LaunchID == "" {
-		t.Fatalf("launch after revalidation = %#v, error=%v", createdLaunch, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return createdLaunch.LaunchID == "" }), "launch after revalidation = %#v, error=%v", createdLaunch, err)
 	configuration, err := launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability)
-	if err != nil || configuration.ParentURL == nil {
-		t.Fatalf("launch parent config = %#v, error=%v", configuration.ParentURL, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.ParentURL == nil }), "launch parent config = %#v, error=%v", configuration.ParentURL, err)
 	parentBundle, err := launcher.BundleFiles(ctx, createdLaunch.LaunchID, createdLaunch.Capability, "PARENT")
-	if err != nil || fmt.Sprint(parentBundle) == "[]" || len(parentBundle) != 2 ||
-		parentBundle[0].LogicalName != "b.zip" || parentBundle[1].LogicalName != "c.zip" {
-		t.Fatalf("launch parent bundle = %#v, error=%v", parentBundle, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return fmt.Sprint(parentBundle) == "[]" }, func() bool { return len(parentBundle) != 2 }, func() bool { return parentBundle[0].LogicalName != "b.zip" }, func() bool { return parentBundle[1].LogicalName != "c.zip" }), "launch parent bundle = %#v, error=%v", parentBundle, err)
 	revalidatedDependencies := queryAttachmentStrings(t, database.SQL, `
 SELECT dependency.kind||':'||dependency.logical_archive
 FROM game_variants variant
 JOIN variant_dependencies dependency ON dependency.game_variant_revision_id=variant.current_revision_id
 WHERE variant.game_id=? ORDER BY dependency.kind,dependency.logical_archive
 `, approved.GameID)
-	if fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]" {
-		t.Fatalf("revalidated dependencies = %v", revalidatedDependencies)
-	}
+	testassert.Falsef(t, fmt.Sprint(revalidatedDependencies) != "[PARENT:b.zip PARENT:c.zip]", "revalidated dependencies = %v", revalidatedDependencies)
 }
 
 func linkReviewToPegasusOrigin(
@@ -362,7 +289,7 @@ func linkReviewToPegasusOrigin(
 ) {
 	t.Helper()
 	var manifestJSON, manifestDigest, contentKind string
-	if err := database.QueryRow(`
+	if err := database.QueryRowContext(context.Background(), `
 SELECT source_manifest_json,source_manifest_digest,content_kind
 FROM import_item_source_snapshots WHERE id=?
 `, sourceSnapshotID).Scan(&manifestJSON, &manifestDigest, &contentKind); err != nil {
@@ -372,20 +299,20 @@ FROM import_item_source_snapshots WHERE id=?
 	const pegasusImportID = "01980000-0000-7000-8000-000000000812"
 	const pegasusScanJobID = "01980000-0000-7000-8000-000000000813"
 	const pegasusItemID = "01980000-0000-7000-8000-000000000814"
-	if _, err := database.Exec(`
+	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO users(id,profile_id,username,display_name,role,status,created_at_ms,updated_at_ms)
 VALUES(?,'local','pegasus-parent','Pegasus Parent','ADMIN','ENABLED',1,1)
 `, userID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.Exec(`
+	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,finished_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'PEGASUS_IMPORT',?,'SERVER_PEGASUS_SCAN',?,1,'{}',1,'SUCCEEDED',1,4,1,1,2,1,2)
 `, pegasusScanJobID, pegasusImportID, strings.Repeat("8", 64)); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.Exec(`
+	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO pegasus_imports(
   id,root_id,root_label_snapshot,source_relative_path,root_config_digest,state,scan_job_id,
   game_count,processable_item_count,review_pending_item_count,created_by_user_id,
@@ -394,7 +321,7 @@ INSERT INTO pegasus_imports(
 `, pegasusImportID, strings.Repeat("9", 64), pegasusScanJobID, userID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := database.Exec(`
+	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO pegasus_import_items(
   id,import_id,metadata_relative_path,game_ordinal,source_key,title,discovery_state,execution_state,
   content_kind,metadata_json,source_manifest_json,source_manifest_digest,retryable,
@@ -421,9 +348,7 @@ func uploadCompleteFile(
 	upload, err := service.Create(ctx, uploads.CreateRequest{
 		SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "fixture", RelativePath: name, SizeBytes: int64(len(contents))}},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(contents)
 	if err := service.PutPart(ctx, upload.ID, upload.Files[0].ID, 0,
 		fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)),
@@ -431,13 +356,9 @@ func uploadCompleteFile(
 		t.Fatal(err)
 	}
 	current, err := service.Get(ctx, upload.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	jobID, _, err := service.Complete(ctx, upload.ID, current.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitParentJob(t, database, jobID, "SUCCEEDED")
 	return completedUpload{uploadID: upload.ID, fileID: upload.Files[0].ID}
 }
@@ -445,7 +366,7 @@ func uploadCompleteFile(
 func insertArcadeParentCatalog(t *testing.T, database *sql.DB) {
 	t.Helper()
 	now := time.Now().UnixMilli()
-	if _, err := database.Exec(`
+	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,
 sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
 VALUES('attachment-artifact','fbneo','4.2.3','fixture','WASM','data/cores/attachment.data',1,
@@ -467,18 +388,18 @@ VALUES('attachment-dat','fbneo','attachment-artifact','BUILTIN','data/dat/attach
 			clone = relation.clone
 		}
 		payload := payloads[relation.machine]
-		sha := sha1.Sum(payload)
-		if _, err := database.Exec(`
+		_, sha := legacychecksum.Sum(payload)
+		if _, err := database.ExecContext(context.Background(), `
 INSERT INTO dat_machines(dat_version_id,machine_name,description,year,manufacturer,cloneof,romof,
 is_explicit_bios,classification) VALUES('attachment-dat',?,'','','',?,NULL,0,'NORMAL')
 `, relation.machine, clone); err != nil {
 			t.Fatalf("insert relation %d machine: %v", ordinal, err)
 		}
-		if _, err := database.Exec(`
+		if _, err := database.ExecContext(context.Background(), `
 INSERT INTO dat_rom_entries(dat_version_id,machine_name,ordinal,name,size_bytes,crc32,sha1,status)
 VALUES('attachment-dat',?,0,?, ?,?,?,'GOOD')
 `, relation.machine, relation.machine+".bin", len(payload),
-			fmt.Sprintf("%08x", crc32.ChecksumIEEE(payload)), hex.EncodeToString(sha[:])); err != nil {
+			fmt.Sprintf("%08x", crc32.ChecksumIEEE(payload)), sha); err != nil {
 			t.Fatalf("insert relation %d: %v", ordinal, err)
 		}
 	}
@@ -511,9 +432,7 @@ func arcadeZIPEntries(t *testing.T, entries map[string][]byte) []byte {
 	if closeErr := archive.Close(); err == nil {
 		err = closeErr
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	return result.Bytes()
 }
 
@@ -521,7 +440,7 @@ func reviewAttachmentInputs(t *testing.T, database *sql.DB, importID string) (st
 	t.Helper()
 	var itemID, snapshotID, validationID string
 	var version int64
-	if err := database.QueryRow(`
+	if err := database.QueryRowContext(context.Background(), `
 SELECT item.id,draft.version,draft.effective_source_snapshot_id,validation.id
 FROM import_items item JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_core_validations validation ON validation.id=COALESCE(
@@ -539,26 +458,25 @@ func waitParentJob(t *testing.T, database *sql.DB, jobID, wanted string) {
 	t.Helper()
 	deadline := time.Now().Add(5 * time.Second)
 	for {
-		var state string
-		if err := database.QueryRow(`SELECT state FROM jobs WHERE id=?`, jobID).Scan(&state); err != nil {
+		var state, kind string
+		var errorCode sql.NullString
+		if err := database.QueryRowContext(context.Background(),
+			`SELECT state,kind,error_code FROM jobs WHERE id=?`, jobID,
+		).Scan(&state, &kind, &errorCode); err != nil {
 			t.Fatal(err)
 		}
 		if state == wanted {
 			return
 		}
-		if state == "FAILED" || state == "CANCELLED" || time.Now().After(deadline) {
-			t.Fatalf("job %s state = %s, want %s", jobID, state, wanted)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return state == "CANCELLED" }, func() bool { return time.Now().After(deadline) }), "job %s kind/state = %s/%s/%s, want %s", jobID, kind, state, errorCode.String, wanted)
 		time.Sleep(10 * time.Millisecond)
 	}
 }
 
 func queryAttachmentStrings(t *testing.T, database *sql.DB, query string, arguments ...any) []string {
 	t.Helper()
-	rows, err := database.Query(query, arguments...)
-	if err != nil {
-		t.Fatal(err)
-	}
+	rows, err := database.QueryContext(context.Background(), query, arguments...)
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	values := make([]string, 0)
 	for rows.Next() {

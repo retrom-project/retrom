@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) {
@@ -30,11 +31,9 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 		playID     = "01980000-0000-7000-8000-00000000e012"
 	)
 	tx, err := database.SQL.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(tx)
-	if _, err := tx.Exec(`PRAGMA defer_foreign_keys=ON`); err != nil {
+	if _, err := tx.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
 	statements := []struct {
@@ -59,7 +58,7 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 		{`UPDATE netplay_session_participants SET state='CONNECTED',launch_session_id=?,credential_sha256=zeroblob(32),credential_generation=1 WHERE netplay_session_id=? AND profile_id=?`, []any{launchID, sessionID, profileID}},
 	}
 	for _, statement := range statements {
-		if _, err := tx.Exec(statement.query, statement.args...); err != nil {
+		if _, err := tx.ExecContext(context.Background(), statement.query, statement.args...); err != nil {
 			t.Fatalf("fixture statement %q: %v", statement.query, err)
 		}
 	}
@@ -72,24 +71,19 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 	}
 	var roomState, roomReason, sessionState, sessionReason, launchState, playState string
 	var playEndedAt int64
-	if err := database.SQL.QueryRow(`SELECT state,end_reason FROM netplay_rooms WHERE id=?`, roomID).Scan(&roomState, &roomReason); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.SQL.QueryRow(`SELECT state,end_reason FROM netplay_sessions WHERE id=?`, sessionID).Scan(&sessionState, &sessionReason); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.SQL.QueryRow(`SELECT state FROM launch_sessions WHERE id=?`, launchID).Scan(&launchState); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.SQL.QueryRow(`SELECT state,ended_at_ms FROM play_sessions WHERE id=?`, playID).
-		Scan(&playState, &playEndedAt); err != nil {
-		t.Fatal(err)
-	}
-	if roomState != "ENDED" || roomReason != "SERVER_RESTARTED" || sessionState != "FAILED" ||
-		sessionReason != "SERVER_RESTARTED" || launchState != "REVOKED" ||
-		playState != "ABANDONED" || playEndedAt != now.UnixMilli() {
-		t.Fatalf("recovery room=%s/%s session=%s/%s launch=%s play=%s/%d", roomState, roomReason, sessionState, sessionReason, launchState, playState, playEndedAt)
-	}
+	err = database.SQL.QueryRowContext(context.Background(),
+		`SELECT state,end_reason FROM netplay_rooms WHERE id=?`, roomID).Scan(&roomState, &roomReason)
+	testassert.False(t, err != nil, err)
+	err = database.SQL.QueryRowContext(context.Background(),
+		`SELECT state,end_reason FROM netplay_sessions WHERE id=?`, sessionID).Scan(&sessionState, &sessionReason)
+	testassert.False(t, err != nil, err)
+	err = database.SQL.QueryRowContext(context.Background(),
+		`SELECT state FROM launch_sessions WHERE id=?`, launchID).Scan(&launchState)
+	testassert.False(t, err != nil, err)
+	err = database.SQL.QueryRowContext(context.Background(),
+		`SELECT state,ended_at_ms FROM play_sessions WHERE id=?`, playID).Scan(&playState, &playEndedAt)
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return roomState != "ENDED" }, func() bool { return roomReason != "SERVER_RESTARTED" }, func() bool { return sessionState != "FAILED" }, func() bool { return sessionReason != "SERVER_RESTARTED" }, func() bool { return launchState != "REVOKED" }, func() bool { return playState != "ABANDONED" }, func() bool { return playEndedAt != now.UnixMilli() }), "recovery room=%s/%s session=%s/%s launch=%s play=%s/%d", roomState, roomReason, sessionState, sessionReason, launchState, playState, playEndedAt)
 
 	const (
 		finishedSessionID = "01980000-0000-7000-8000-00000000e013"
@@ -97,25 +91,23 @@ func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) 
 		finishedPlayID    = "01980000-0000-7000-8000-00000000e015"
 	)
 	tx, err = database.SQL.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(tx)
-	if _, err := tx.Exec(`
+	if _, err := tx.ExecContext(context.Background(), `
 INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_revision_id,core_artifact_id,
 netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,version,created_at_ms,updated_at_ms)
 VALUES(?,?,2,'RUNNING',?,?,?,'fixture','{}',?,2,3,1,?,?)
 `, finishedSessionID, roomID, gameID, revisionID, artifactID, strings.Repeat("3", 64), now.UnixMilli(), now.UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(`
+	if _, err := tx.ExecContext(context.Background(), `
 INSERT INTO netplay_session_participants(netplay_session_id,profile_id,room_member_id,player_no,state,
 credential_generation,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,1,'LOCKED',0,1,?,?)
 `, finishedSessionID, profileID, memberID, now.UnixMilli(), now.UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(`
+	if _, err := tx.ExecContext(context.Background(), `
 INSERT INTO launch_sessions(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,return_to,
 credential_sha256,state,bootstrap_expires_at_ms,activated_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,
 netplay_session_id,netplay_player_no,save_access)
@@ -124,7 +116,7 @@ VALUES(?,?,?,?,?,'/netplay/rooms/'||?,randomblob(32),'ACTIVE',?,?,?,?,?,?,1,'NET
 		now.UnixMilli(), now.Add(time.Hour).UnixMilli(), now.UnixMilli(), now.UnixMilli(), finishedSessionID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := tx.Exec(`
+	if _, err := tx.ExecContext(context.Background(), `
 INSERT INTO play_sessions(id,launch_session_id,profile_id,game_id,game_variant_revision_id,started_at_ms,
 last_heartbeat_at_ms,active_duration_ms,last_client_sequence,state,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)
@@ -138,14 +130,12 @@ VALUES(?,?,?,?,?,?,?,0,0,'ACTIVE',1,?,?)
 	if err := tx.Commit(); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRow(`SELECT state,ended_at_ms FROM play_sessions WHERE id=?`, finishedPlayID).
+	if err := database.SQL.QueryRowContext(context.Background(), `SELECT state,ended_at_ms FROM play_sessions WHERE id=?`, finishedPlayID).
 		Scan(&playState, &playEndedAt); err != nil {
 		t.Fatal(err)
 	}
-	if err := database.SQL.QueryRow(`SELECT state FROM launch_sessions WHERE id=?`, finishedLaunchID).Scan(&launchState); err != nil {
+	if err := database.SQL.QueryRowContext(context.Background(), `SELECT state FROM launch_sessions WHERE id=?`, finishedLaunchID).Scan(&launchState); err != nil {
 		t.Fatal(err)
 	}
-	if playState != "FINISHED" || playEndedAt != now.UnixMilli() || launchState != "REVOKED" {
-		t.Fatalf("normal end launch=%s play=%s/%d", launchState, playState, playEndedAt)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return playState != "FINISHED" }, func() bool { return playEndedAt != now.UnixMilli() }, func() bool { return launchState != "REVOKED" }), "normal end launch=%s play=%s/%d", launchState, playState, playEndedAt)
 }

@@ -20,6 +20,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
+	"retrom/internal/testassert"
 	"retrom/internal/uploads"
 )
 
@@ -44,9 +45,7 @@ func completeMultiDiscHTTPUpload(
 	}
 	ctx := context.Background()
 	upload, err := server.uploads.Create(ctx, uploads.CreateRequest{SourceType: sourceType, Files: declarations})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	for index, file := range files {
 		digest := sha256.Sum256(file.contents)
 		if err := server.uploads.PutPart(
@@ -59,13 +58,9 @@ func completeMultiDiscHTTPUpload(
 		}
 	}
 	current, err := server.uploads.Get(ctx, upload.ID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	jobID, _, err := server.uploads.Complete(ctx, upload.ID, current.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForHTTPJob(t, server.database, jobID, "SUCCEEDED")
 	return upload.ID
 }
@@ -74,13 +69,9 @@ func seedMultiDiscHTTPBIOS(t *testing.T, server *Server) {
 	t.Helper()
 	ctx := context.Background()
 	metadata, err := server.blobs.Put(bytes.NewReader([]byte("deterministic HTTP Saturn BIOS fixture")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	blobID, err := blobstore.EnsureRecord(ctx, server.database, metadata, "application/octet-stream", time.Now().UnixMilli())
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var requirementID string
 	var requirementVersion int64
 	if err := server.database.QueryRowContext(ctx, `
@@ -125,16 +116,14 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 		UploadID: baseUploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var itemID string
 	if err := server.database.QueryRowContext(
 		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
 	).Scan(&itemID); err != nil {
 		t.Fatal(err)
 	}
-	importDetailRequest := httptest.NewRequest(
+	importDetailRequest := httptest.NewRequestWithContext(context.Background(),
 		http.MethodGet, "/api/v1/admin/imports/"+createdImport.ImportJobID, nil,
 	)
 	importDetailRequest.SetPathValue("importJobId", createdImport.ImportJobID)
@@ -151,20 +140,16 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 		`"ignoredFileCount":1`,
 		`"ignoredFiles":["notes.txt"]`,
 	} {
-		if importDetail.Code != http.StatusOK || !strings.Contains(importDetail.Body.String(), expected) {
-			t.Fatalf("import detail missing %s = %d %s", expected, importDetail.Code, importDetail.Body.String())
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return importDetail.Code != http.StatusOK }, func() bool { return !strings.Contains(importDetail.Body.String(), expected) }), "import detail missing %s = %d %s", expected, importDetail.Code, importDetail.Body.String())
 	}
-	if strings.Contains(importDetail.Body.String(), `"blobId"`) {
-		t.Fatalf("import detail exposes blob id = %s", importDetail.Body.String())
-	}
+	testassert.Falsef(t, strings.Contains(importDetail.Body.String(), `"blobId"`), "import detail exposes blob id = %s", importDetail.Body.String())
 	attachmentUploadID := completeMultiDiscHTTPUpload(t, server, "FILES", []multiDiscHTTPFile{
 		{path: "three.chd", contents: multiDiscHTTPCHD("three")},
 	})
 	handler, cookie, csrf := httpSession(t, server)
 	key := uuid.NewString()
 	send := func() *httptest.ResponseRecorder {
-		request := httptest.NewRequest(
+		request := httptest.NewRequestWithContext(context.Background(),
 			http.MethodPost, "/api/v1/admin/reviews/"+itemID+"/multi-disc-attachments",
 			strings.NewReader(fmt.Sprintf(`{"uploadId":%q}`, attachmentUploadID)),
 		)
@@ -190,12 +175,9 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 		t.Fatalf("attachment create = %d %s, headers=%v, error=%v", first.Code, first.Body.String(), first.Header(), err)
 	}
 	replay := send()
-	if replay.Code != http.StatusAccepted || replay.Body.String() != first.Body.String() ||
-		replay.Header().Get("X-Retrom-Idempotent-Replay") != "true" || replay.Header().Get("ETag") != `"v2"` {
-		t.Fatalf("attachment replay = %d %s, headers=%v", replay.Code, replay.Body.String(), replay.Header())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return replay.Code != http.StatusAccepted }, func() bool { return replay.Body.String() != first.Body.String() }, func() bool { return replay.Header().Get("X-Retrom-Idempotent-Replay") != "true" }, func() bool { return replay.Header().Get("ETag") != `"v2"` }), "attachment replay = %d %s, headers=%v", replay.Code, replay.Body.String(), replay.Header())
 	waitForHTTPJob(t, server.database, attachment.JobID, "SUCCEEDED")
-	reviewRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
+	reviewRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	reviewRequest.AddCookie(cookie)
 	review := httptest.NewRecorder()
 	handler.ServeHTTP(review, reviewRequest)
@@ -217,14 +199,11 @@ WHERE core_id='yabause' AND enabled=1
 `); err != nil {
 		t.Fatal(err)
 	}
-	staleRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
+	staleRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/reviews/"+itemID, nil)
 	staleRequest.AddCookie(cookie)
 	stale := httptest.NewRecorder()
 	handler.ServeHTTP(stale, staleRequest)
-	if stale.Code != http.StatusOK || !strings.Contains(stale.Body.String(), `"validationStale":true`) ||
-		!strings.Contains(stale.Body.String(), `"canApprove":false`) {
-		t.Fatalf("compatibility-stale review = %d %s", stale.Code, stale.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return stale.Code != http.StatusOK }, func() bool { return !strings.Contains(stale.Body.String(), `"validationStale":true`) }, func() bool { return !strings.Contains(stale.Body.String(), `"canApprove":false`) }), "compatibility-stale review = %d %s", stale.Code, stale.Body.String())
 }
 
 func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
@@ -247,9 +226,7 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		UploadID: uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var itemID string
 	if err := server.database.QueryRowContext(
 		ctx, `SELECT id FROM import_items WHERE import_job_id=?`, createdImport.ImportJobID,
@@ -257,18 +234,14 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		t.Fatal(err)
 	}
 	approved, err := server.importer.Approve(ctx, itemID, 1)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	createdLaunch, err := server.launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: launch.Capabilities{
 			SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := server.launcher.Config(ctx, createdLaunch.LaunchID, createdLaunch.Capability); err != nil {
 		t.Fatal(err)
 	}
@@ -278,7 +251,7 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		Path: "/runtime/launches/" + createdLaunch.LaunchID + "/",
 	}
 	send := func(body string, cookie *http.Cookie) *httptest.ResponseRecorder {
-		request := httptest.NewRequest(
+		request := httptest.NewRequestWithContext(context.Background(),
 			http.MethodPost, "/runtime/launches/"+createdLaunch.LaunchID+"/player-events", strings.NewReader(body),
 		)
 		request.Header.Set("Content-Type", "application/json")
@@ -295,23 +268,17 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		`{"eventType":"START","resultCode":"OK","discCount":2,"observedDiscCount":2}`,
 		launchCookie,
 	)
-	if accepted.Code != http.StatusNoContent || accepted.Body.Len() != 0 {
-		t.Fatalf("accepted event = %d %s", accepted.Code, accepted.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return accepted.Code != http.StatusNoContent }, func() bool { return accepted.Body.Len() != 0 }), "accepted event = %d %s", accepted.Code, accepted.Body.String())
 	mismatched := send(
 		`{"eventType":"START","resultCode":"OK","discCount":3,"observedDiscCount":3}`,
 		launchCookie,
 	)
-	if mismatched.Code != http.StatusUnprocessableEntity ||
-		!strings.Contains(mismatched.Body.String(), `"code":"PLAYER_EVENT_INVALID"`) {
-		t.Fatalf("mismatched event = %d %s", mismatched.Code, mismatched.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return mismatched.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(mismatched.Body.String(), `"code":"PLAYER_EVENT_INVALID"`) }), "mismatched event = %d %s", mismatched.Code, mismatched.Body.String())
 	unauthorized := send(
 		`{"eventType":"START","resultCode":"OK","discCount":2,"observedDiscCount":2}`,
 		nil,
 	)
-	if unauthorized.Code != http.StatusUnauthorized ||
-		!strings.Contains(unauthorized.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`) {
-		t.Fatalf("unauthorized event = %d %s", unauthorized.Code, unauthorized.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return unauthorized.Code != http.StatusUnauthorized }, func() bool {
+		return !strings.Contains(unauthorized.Body.String(), `"code":"LAUNCH_CREDENTIAL_INVALID"`)
+	}), "unauthorized event = %d %s", unauthorized.Code, unauthorized.Body.String())
 }
