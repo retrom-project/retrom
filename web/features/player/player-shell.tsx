@@ -90,6 +90,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   const netplayPausedRef = useRef(false);
   const orientationStateRef = useRef<PlayerOrientationState>(initialPlayerOrientationState);
   const videoRenderingModeRef = useRef<VideoRenderingMode>("pixel");
+  const keyboardPauseAction = useRef<() => void>(() => undefined);
 
   const reportPlayerEvent = useCallback((event: MultiDiscPlayerEvent) => {
     void reportMultiDiscPlayerEvent(launchId, event).catch(() => undefined);
@@ -175,6 +176,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     showControls();
   }, [showControls, showToast]);
 
+  const onKeyboardPause = useCallback(() => keyboardPauseAction.current(), []);
+
   const sessionParams = useMemo(() => ({
     launchId, emulator, playerMode, sequence, started, finishing, saveUploadQueue, discSetRef,
     orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
@@ -195,8 +198,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     setNetplayPlayerNo, setWarnings, setGameTitle, setCoreName, setPlatformName, setDebugRuntime, setDiscSet,
     setDiscState, setOrientationState, setFrameEnabled, setSyncText, setSyncTone, setEmulatorVolume,
     setEmulatorMuted, setPaused, setNetplayPaused, reportPlayerEvent, revealControlsAtTopEdge, showControls,
-    sendEvent, uploadManualState,
-  }), [launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState]);
+    sendEvent, uploadManualState, onKeyboardPause,
+  }), [launchId, onKeyboardPause, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState]);
 
   usePlayerBootstrap(bootstrapParams);
 
@@ -215,6 +218,32 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     netplayPaused, netplayPausedRef, setNetplayPaused,
   }), [discState, emulatorMuted, emulatorVolume, holdControls, netplayPaused, releaseControls, reportPlayerEvent, showToast, state, uploadManualState, userId]);
   const actions = usePlayerRuntimeActions(runtimeActionParams);
+  const toggleNetplayPause = actions.toggleNetplayPause;
+
+  useEffect(() => {
+    keyboardPauseAction.current = () => {
+      if (!running.current || chromePinned.current || pausePending.current) {return;}
+      if (playerMode.current === "netplay") {
+        if (netplayConfig.current?.playerNo !== 1) {showToast("只有 P1 可以暂停联机", 3_000); return;}
+        void toggleNetplayPause();
+        return;
+      }
+      const nextPaused = !pausedRef.current;
+      if (!setEmulatorPaused(emulator.current, nextPaused)) {return;}
+      pausedRef.current = nextPaused;
+      setPaused(nextPaused);
+      if (nextPaused) {
+        showToast("游戏已暂停，按 P 或点击游戏画面继续");
+        setControlsVisible(true);
+        clearControlsTimer();
+        return;
+      }
+      lastManualScreenshot.current = null;
+      showToast("游戏已继续");
+      showControls();
+    };
+    return () => {keyboardPauseAction.current = () => undefined;};
+  }, [clearControlsTimer, showControls, showToast, toggleNetplayPause]);
 
   const orientationParams = useMemo(() => ({
     frameRef, playerMode, netplayController, emulator, pausedRef, netplayPausedRef, orientationStateRef,

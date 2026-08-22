@@ -16,6 +16,7 @@ import { NetplayController } from "./netplay/controller";
 import { digestHex, EJSNetplayFrameBridge } from "./netplay/ejs-netplay-4.2.3-v1";
 import { readBoundedResponse, reportsNativeExit } from "./player-shell-model";
 import type { PlayerDebugRuntime } from "./player-chrome";
+import { handlePlayerPauseShortcut } from "./keyboard-controls";
 
 type ShellState = "loading" | "running" | "error";
 type SyncTone = "synced" | "busy" | "warning";
@@ -37,6 +38,7 @@ export type PlayerBootstrapParams = {
   setEmulatorVolume: Dispatch<SetStateAction<number>>; setEmulatorMuted: Dispatch<SetStateAction<boolean>>; setPaused: Dispatch<SetStateAction<boolean>>;
   setNetplayPaused: Dispatch<SetStateAction<boolean>>;
   reportPlayerEvent: (event: MultiDiscPlayerEvent) => void; revealControlsAtTopEdge: (clientY: number) => void; showControls: () => void;
+  onKeyboardPause: () => void;
   sendEvent: (kind: "start" | "heartbeat" | "finish") => Promise<void>; uploadManualState: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => Promise<boolean>;
 };
 
@@ -157,7 +159,10 @@ function mountFrame(params: PlayerBootstrapParams, resources: BootstrapResources
 
 function installFrameControls(document: Document, frame: HTMLIFrameElement, inputMode: string, params: PlayerBootstrapParams) {
   const pointer = (event: PointerEvent) => params.revealControlsAtTopEdge(event.clientY);
-  const key = () => params.showControls();
+  const key = (event: KeyboardEvent) => {
+    params.showControls();
+    handlePlayerPauseShortcut(event, params.onKeyboardPause);
+  };
   const click = (event: MouseEvent) => {
     const target = event.target;
     if (target && "closest" in target && typeof target.closest === "function" && target.closest(".ejs_menu_bar,.ejs_popup_container,.ejs_cheat_parent,.ejs_control_bar,button,a,input,select,textarea,[role=button]")) {return;}

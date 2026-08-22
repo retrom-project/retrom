@@ -138,6 +138,18 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_gameUrl).toBe(config.gameUrl);
     expect(window.EJS_externalFiles).toEqual({});
     expect(window.EJS_Buttons).toEqual({ exitEmulation: false });
+    expect(window.EJS_defaultControls?.[0]).toMatchObject({
+      0: { value: "j", value2: "BUTTON_2" },
+      2: { value: "5", value2: "SELECT" },
+      3: { value: "1", value2: "START" },
+      8: { value: "k", value2: "BUTTON_1" },
+    });
+    expect(window.EJS_defaultControls?.[1]).toMatchObject({
+      0: { value: "numpad 1" },
+      2: { value: "" },
+      3: { value: "2" },
+      8: { value: "numpad 2" },
+    });
     expect(window.EJS_DEBUG_XX).toBe(false);
     expect(window.EJS_EXPERIMENTAL_NETPLAY).toBe(false);
     expect(window.EJS_shaders).toMatchObject({

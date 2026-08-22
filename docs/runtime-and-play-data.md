@@ -158,6 +158,19 @@ if (config.stateUrl !== null) window.EJS_loadStateURL = config.stateUrl;
 
 Player adapter 使用 manifest 声明的 `playerAdapterId → adapter` 显式 registry，不允许默认分支把未知 ID/版本当成 v4.2.3。机器可读 registry 固定为 `web/features/player/adapters/registry.json`，当前登记 `ejs-4.2.3-v2 → 4.2.3` 与 `ejs-4.3.0-pre-v1 → 4.3.0-pre`；后者同时服务 DOSBox Pure、Genesis Plus GX Wide 与 Azahar。两份 TypeScript 实现必须与 JSON 双向一一对应。浏览器收到未知或版本不匹配的 ID 时必须在加载 loader 前终止，不得回退 active 版本或任意旧 adapter。
 
+两个 adapter 在 loader 前写入同一份 `EJS_defaultControls`。键盘只保留下表绑定，未列出的肩键、摇杆、L3/R3、快存、快读、存档槽、快进、慢放、倒带以及 P3/P4 均为未绑定；每次 mount 必须生成全新配置，避免 EmulatorJS 按平台删减 control 时污染后续 Launch。这里的覆盖只改变 `value`，P1 的 `value2` 必须逐项保持锁定 EmulatorJS 的 `BUTTON_1..4`、D-pad、Select/Start、肩键和双摇杆默认值，P2/P3/P4 也不得新增或删除 gamepad 默认值。
+
+| 功能 | P1 键盘 | P2 键盘 |
+| --- | --- | --- |
+| 投币 / Select | `5`（P1/P2 共用，只向核心注入一次） | 未绑定 |
+| 开始 / Start | `1` | `2` |
+| 上 / 下 / 左 / 右 | `W` / `S` / `A` / `D` | `↑` / `↓` / `←` / `→` |
+| A / B / X / Y | `K` / `J` / `I` / `L` | 小键盘 `2` / `1` / `5` / `3` |
+
+共享投币只绑定 P1 control 2；P2 control 2 必须保持未绑定。EmulatorJS 会遍历全部玩家并向每个同键 control 分别调用 `simulateInput`，因此不能把 `5` 同时写入 P1/P2 control 2，否则一次物理按键会向 Arcade 核心注入两路 coin slot，并由游戏的 coinage/DIP 规则累计成多个 credit。
+
+`P` 是 Retrom Player 保留的暂停/继续键，不写入任一虚拟手柄 control，也不改变 gamepad 输入。单机运行时它切换 main loop 并同步 `paused`；焦点在输入控件、组合键、按键重复、设置/弹层占用 Player 时不触发。联机仍遵守席位权限：P1 的 `P` 请求 canonical 全局暂停/继续，P2 只得到无权限提示；各浏览器的游戏输入仍由联机 bridge 捕获本地 P1 control 后按 seat 发送，不改用本地 P2 control 表。
+
 Player Shell 创建同源 `about:blank` iframe，由父页面在 iframe document 中建立唯一 `#game` 容器、设置上述 globals、注册 callback，最后追加 `src=config.loaderUrl` 的 script；不使用 `srcdoc` inline script、跨源 frame 或 `document.write`。iframe 继承父页面 origin/CSP，所有内容请求会按 `/runtime/launches/<launchId>/` 路径自动携带 capability cookie。只有 config 校验与可选指定 SaveState 预读完成后才加载 loader。
 
 Player canvas contain 必须优先使用锁定运行时 `gameManager.getVideoDimensions("aspect")` 的正数结果，只有 game-start 前尚不可用时才回退 drawing-buffer `canvas.width/canvas.height`。这能处理 drawing buffer 仍为横向但核心实际输出为 3:4 等竖屏画面的情况：竖屏画面 CSS 高度贴满 `100dvh`，左右保留必要黑边，不能误在上下留下黑边。viewport、canvas 属性或核心比例变化时必须重新计算；canvas 在父 grid 的水平和垂直方向都显式居中，不能把 contain 后的余量全部留在右侧或底部，也不能拉伸或裁切。
@@ -166,7 +179,7 @@ Player 对低分辨率核心输出提供按用户隔离的画面模式，默认�
 
 Player config 额外提供人类可读的 `gameTitle/coreName/platformName`，只用于 58px 顶部工具栏显示本次游戏、运行核心和基础平台；EJS 的稳定保存键仍只使用 `gameName=retrom-<emulatorGameId>`，前端不得把展示名称用于选择 artifact、URL 或 option。
 
-Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单与只读“调试信息”面板外，点击工具栏区域或其中操作都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，只有随后点击实际游戏画面才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。光盘菜单是独立的原子运行时操作：打开菜单不暂停，真正换盘时只在 `setCurrentDisk` 与回读边界内短暂停止 main loop，并在成功或失败后恢复进入换盘前的暂停状态。运行后工具栏自动隐藏；只有指针进入 viewport 顶部 32 CSS px、键盘操作或焦点进入工具栏才重新显示，普通画面区域的 pointermove 不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏与触屏右上角的原生虚拟手柄菜单入口默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近边缘和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除底栏门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。Retrom 自绘栏额外提供上述画面模式；从 Core 设置切换到显示设置时必须先把原生嵌套导航复位到首页，再进入 Graphics Settings，不能把先前 Core panel 留在前景或隐藏 shader 入口。
+Retrom 顶部工具栏是运行中的暂停边界：除光盘菜单与只读“调试信息”面板外，点击工具栏区域或其中操作都先调用 `gameManager.toggleMainLoop(false)` 并同步设置实例 `paused=true`；工具栏内不提供恢复动作，随后点击实际游戏画面或在未被设置/弹层占用时按 `P` 才调用 `toggleMainLoop(true)` 并恢复 `paused=false`。光盘菜单是独立的原子运行时操作：打开菜单不暂停，真正换盘时只在 `setCurrentDisk` 与回读边界内短暂停止 main loop，并在成功或失败后恢复进入换盘前的暂停状态。运行后工具栏自动隐藏；只有指针进入 viewport 顶部 32 CSS px、键盘操作或焦点进入工具栏才重新显示，普通画面区域的 pointermove 不得唤出，避免干扰 DOS/DS 等鼠标控制游戏。同源 iframe 内只把非 EmulatorJS 工具栏、弹窗、按钮或输入控件的画面点击映射为恢复，避免用户调整原生设置时误启动游戏。该状态进入后续 heartbeat/finish 的 `previousInterval.paused`，暂停区间不累计有效游玩时长；暂停期间工具栏和画面中央“点击游戏画面继续”浮层保持可见。EmulatorJS 底部工具栏与触屏右上角的原生虚拟手柄菜单入口默认由 iframe 级显示门禁锁定，启动时的 `menu.open()`、靠近边缘和画面点击都不能自行显示；只有 Retrom 更多菜单中的“模拟器设置”解除底栏门禁并调用本次 v4.2.3 实例的真实 `menu.open()`。运行时把工具栏重新收起时门禁自动恢复。这样继续使用 EJS 已装载的控制、显示、Core 和音量设置，同时不复制一套会与运行时状态分叉的设置面板。Retrom 自绘栏额外提供上述画面模式；从 Core 设置切换到显示设置时必须先把原生嵌套导航复位到首页，再进入 Graphics Settings，不能把先前 Core panel 留在前景或隐藏 shader 入口。
 
 顶部“调试信息”按钮打开右侧只读诊断面板且保持游戏继续运行；面板打开期间固定显示顶部工具栏。面板每秒读取一次当前 adapter 暴露的 `gameManager.getFrameNum()`，以相邻采样的核心帧数差和单调时钟计算一位小数的“核心帧率”，不能用 CSS 动画或浏览器 `requestAnimationFrame` 次数伪造 FPS。面板同时展示累计核心帧数、运行/暂停/错误状态、canvas drawing-buffer 分辨率、viewport 与 DPR，以及 config 已锁定的 Core、CoreArtifact、EmulatorJS 版本、Player adapter、输入模式、单机/联机模式和当前 COOP/COEP/SharedArrayBuffer 能力。诊断只存在于当前浏览器 Player，会话结束即丢弃，不写数据库、不发遥测，也不得展示 capability、cookie、Blob hash 或宿主路径。
 

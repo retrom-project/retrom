@@ -115,22 +115,34 @@ async function waitForFrame(page: Page, frame: number) {
 async function canvasDigest(page: Page, testInfo: TestInfo, name: string) {
   const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
   await expect(canvas).toBeVisible({ timeout: 30_000 });
-  // Element screenshots include fixed-position page chrome composited over the
-  // canvas crop. Read the canvas bitmap itself so the digest proves emulator
-  // output equality regardless of each player's surrounding layout.
-  const dataURL = await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL("image/png"));
-  const png = Buffer.from(dataURL.slice(dataURL.indexOf(",") + 1), "base64");
-  writeFileSync(evidencePath(testInfo, name), png);
-  return createHash("sha256").update(png).digest("hex");
+  const chrome = page.locator(".player-toolbar,.player-pause-overlay,.player-debug-panel,.player-toast,.player-controls-hint,.player-emulator-toolbar");
+  const visibility = await chrome.evaluateAll((elements) => elements.map((element) => (element as HTMLElement).style.visibility));
+  try {
+    await chrome.evaluateAll((elements) => {for (const element of elements) {(element as HTMLElement).style.visibility = "hidden";}});
+    await page.evaluate(() => new Promise<void>((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve()))));
+    // A WebGL canvas without preserveDrawingBuffer may return an already
+    // cleared backing store from toDataURL even while Chrome still displays
+    // the correct compositor frame. Capture the visible canvas with Retrom
+    // chrome hidden so the digest compares the frame users actually see.
+    const png = await canvas.screenshot();
+    writeFileSync(evidencePath(testInfo, name), png);
+    return createHash("sha256").update(png).digest("hex");
+  } finally {
+    await chrome.evaluateAll((elements, values) => {
+      elements.forEach((element, index) => {(element as HTMLElement).style.visibility = values[index] ?? "";});
+    }, visibility);
+  }
 }
 
 async function setDirectionalInput(page: Page, pressed: boolean) {
   if (pressed) {
     const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
     await canvas.click({ position: { x: 64, y: 64 } });
-    await page.keyboard.down("ArrowLeft");
+    // Each netplay browser contributes its local P1 controls; the bridge maps
+    // that input to the participant seat before sending it to the server.
+    await page.keyboard.down("a");
   } else {
-    await page.keyboard.up("ArrowLeft");
+    await page.keyboard.up("a");
   }
 }
 

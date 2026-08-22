@@ -65,6 +65,39 @@ function registerRun002(): void {
       };
     })).toEqual({ imageRendering: "pixelated", shader: "disabled" });
     await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 15_000, intervals: [500] }).toBeGreaterThan(0.02);
+    const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
+    expect(playerFrame).toBeTruthy();
+    const controls = await playerFrame!.evaluate(() => {
+      const runtime = window.EJS_emulator as typeof window.EJS_emulator & {
+        controls?: Record<number, Record<number, { value?: number; value2?: string }>>;
+      };
+      return runtime?.controls;
+    });
+    expect(controls?.[0]).toMatchObject({
+      0: { value: 74, value2: "BUTTON_2" },
+      2: { value: 53, value2: "SELECT" },
+      3: { value: 49, value2: "START" },
+      4: { value: 87, value2: "DPAD_UP" },
+      5: { value: 83, value2: "DPAD_DOWN" },
+      6: { value: 65, value2: "DPAD_LEFT" },
+      7: { value: 68, value2: "DPAD_RIGHT" },
+      8: { value: 75, value2: "BUTTON_1" },
+      24: { value: 0 }, 25: { value: 0 }, 26: { value: 0 }, 27: { value: 0 }, 28: { value: 0 }, 29: { value: 0 },
+    });
+    expect(controls?.[1]).toMatchObject({
+      0: { value: 97 }, 2: { value: 0 }, 3: { value: 50 }, 4: { value: 38 }, 5: { value: 40 },
+      6: { value: 37 }, 7: { value: 39 }, 8: { value: 98 },
+    });
+    const frameBeforePause = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
+    await playerFrame!.locator("body").press("p");
+    await expect(page.locator(".player-shell")).toHaveClass(/is-paused/);
+    const pausedFrame = await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0);
+    expect(pausedFrame).toBeGreaterThanOrEqual(frameBeforePause);
+    await page.waitForTimeout(350);
+    expect(await playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0)).toBeLessThanOrEqual(pausedFrame + 1);
+    await playerFrame!.locator("body").press("p");
+    await expect(page.locator(".player-shell")).not.toHaveClass(/is-paused/);
+    await expect.poll(() => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 10_000 }).toBeGreaterThan(frameBeforePause + 5);
     await page.mouse.move(20, 20);
     const debugButton = page.getByRole("button", { name: "调试信息" });
     await expect(debugButton).toBeVisible();

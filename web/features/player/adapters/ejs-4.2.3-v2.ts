@@ -8,6 +8,7 @@ import {
   requiresDOSBoxPureStateCompatibility,
 } from "../dosbox-pure-state";
 import { retromShaders } from "../retrom-shaders";
+import { createRetromDefaultControls, type EmulatorDefaultControls } from "../keyboard-controls";
 import type { NetplayProfile } from "../netplay/controller";
 import {
   initializeMultiDiscSettings,
@@ -193,6 +194,7 @@ declare global {
     EJS_disableLocalStorage?: boolean;
     EJS_CacheLimit?: number;
     EJS_Buttons?: Record<string, boolean | { visible?: boolean }>;
+    EJS_defaultControls?: EmulatorDefaultControls;
     EJS_onGameStart?: () => void;
     EJS_ready?: () => void;
     EJS_onSaveState?: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => void;
@@ -498,6 +500,7 @@ function mountEmulatorJSRuntime(
   runtimeWindow.EJS_disableLocalStorage = true;
   runtimeWindow.EJS_CacheLimit = 0;
   runtimeWindow.EJS_Buttons = { exitEmulation: false };
+  runtimeWindow.EJS_defaultControls = createRetromDefaultControls();
   let cleanupDeferredStart: () => void = () => undefined;
   runtimeWindow.EJS_ready = () => {
     const instance = runtimeWindow.EJS_emulator;
