@@ -478,9 +478,9 @@
   .home-featured-body { padding: 12px; }
   .home-featured-media { height: 300px; }
   .home-featured-media.has-session-save { height: 420px; }
-  .home-featured-cover { left: 16px; top: 20px; width: 34%; height: auto; aspect-ratio: 3 / 4; }
+  .home-featured-cover { left: 16px; top: 20px; width: 32.381%; height: auto; aspect-ratio: 5 / 7; }
   .home-featured-copy,
-  .home-featured-media.has-session-save .home-featured-copy { left: calc(34% + 32px); right: 14px; top: 20px; transform: none; }
+  .home-featured-media.has-session-save .home-featured-copy { left: calc(32.381% + 32px); right: 14px; top: 20px; transform: none; }
   .home-featured-copy h2 { overflow: visible; font-size: 22px; text-overflow: clip; white-space: normal; }
   .home-featured-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
   .home-featured-facts { margin-top: 10px; gap: 7px 10px; }
@@ -497,7 +497,7 @@
   .home-section-head h2 { font-size: 18px; }
   .home-section-head p { font-size: 12px; }
   .home-recent-rail { grid-auto-columns: 78%; gap: 12px; scroll-snap-type: x proximity; }
-  .home-recent-card { min-height: 132px; grid-template-columns: 106px minmax(0, 1fr); scroll-snap-align: start; }
+  .home-recent-card { height: 132px; min-height: 0; scroll-snap-align: start; }
   .home-recent-copy { padding: 11px; }
   .home-platform-section { padding: 12px; }
   .home-platform-rail { grid-auto-columns: 68%; scroll-snap-type: x proximity; }

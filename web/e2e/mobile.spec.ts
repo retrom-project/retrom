@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import axe from "axe-core";
+import { expectHomeCoverRatios } from "./acceptance-support";
 
 declare global {
   interface Window {
@@ -84,6 +85,7 @@ test("ACC-MOB-002 user routes, filter sheet, active navigation and accessibility
     await page.goto(route);
     await expect(page.locator("main").first()).toBeVisible();
     await expectNoDocumentOverflow(page);
+    if (route === "/") {await expectHomeCoverRatios(page);}
   }
 
   await page.goto("/library");

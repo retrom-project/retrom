@@ -19,6 +19,33 @@ export async function noPageOverflow(page: Page) {
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
 }
 
+export async function expectHomeCoverRatios(page: Page) {
+  const groups = [
+    ["最近玩的游戏", '.home-featured-cover'],
+    ["最近游玩", '[data-home-layer="2"] .home-recent-cover'],
+    ["最新添加", '[data-home-layer="3"] .home-recent-cover'],
+  ] as const;
+  let measuredCoverCount = 0;
+  for (const [label, selector] of groups) {
+    const sizes = await page.locator(selector).evaluateAll((elements) => elements.map((element) => {
+      const rectangle = element.getBoundingClientRect();
+      const existingImage = element.querySelector("img");
+      const image = existingImage ?? document.createElement("img");
+      if (!existingImage) {element.append(image);}
+      const objectFit = getComputedStyle(image).objectFit;
+      if (!existingImage) {image.remove();}
+      return { width: rectangle.width, height: rectangle.height, objectFit };
+    }));
+    measuredCoverCount += sizes.length;
+    for (const size of sizes) {
+      expect(size.height, `${label}封面高度应大于零`).toBeGreaterThan(0);
+      expect(Math.abs(size.width / size.height - 5 / 7), `${label}封面宽高比应为 5:7`).toBeLessThanOrEqual(0.01);
+      expect(size.objectFit, `${label}封面图片应等比裁切填满容器`).toBe("cover");
+    }
+  }
+  expect(measuredCoverCount, "首页验收夹具应包含至少一张可测量封面").toBeGreaterThan(0);
+}
+
 export async function currentEmulatorBrightRatio(page: Page) {
   const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
   if (!playerFrame) {return 0;}

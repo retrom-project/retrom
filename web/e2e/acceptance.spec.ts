@@ -179,9 +179,16 @@ test("ACC-UI-005 user desktop layouts scale at all required viewports", async ({
 
 test("ACC-UI-005 regression: sparse home rails keep game cards within desktop width caps", async ({ page }) => {
   await page.goto("/");
-  await expect(page.locator(".home-recent-rail")).toHaveCount(2);
-  const layout = await page.locator(".home-recent-rail").evaluateAll((rails) => ({
-    cardWidths: rails.flatMap((rail) =>
+  await expect(page.locator('[data-home-layer="2"] h2')).toHaveText("最近游玩");
+  await expect(page.locator('[data-home-layer="3"] h2')).toHaveText("最新添加");
+  const rails = page.locator(".home-recent-rail");
+  expect(await rails.count()).toBeGreaterThan(0);
+  expect(await rails.count()).toBeLessThanOrEqual(2);
+  if (await page.locator('[data-home-layer="2"] .home-recent-card').count() === 0) {
+    await expect(page.locator('[data-home-layer="2"] .home-inline-empty')).toBeVisible();
+  }
+  const layout = await rails.evaluateAll((railElements) => ({
+    cardWidths: railElements.flatMap((rail) =>
       [...rail.querySelectorAll<HTMLElement>(".home-recent-card")].map((card) => card.getBoundingClientRect().width)),
     widthCap: window.matchMedia("(min-width: 2600px) and (min-height: 1600px)").matches ? 560 : 480,
   }));
