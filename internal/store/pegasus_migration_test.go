@@ -61,10 +61,7 @@ COMMIT;
 		t.Fatal(err)
 	}
 
-	upgraded, err := Open(ctx, databasePath, func() time.Time { return time.UnixMilli(3000) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	upgraded := openHistoricalSchemaForTest(ctx, t, databasePath, repositoryRoot, func() time.Time { return time.UnixMilli(3000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	if err := upgraded.IntegrityCheck(ctx); err != nil {
 		t.Fatal(err)
@@ -163,10 +160,7 @@ INSERT INTO pegasus_import_items(
 		t.Fatal(err)
 	}
 
-	upgraded, err := Open(ctx, databasePath, func() time.Time { return time.UnixMilli(4000) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	upgraded := openHistoricalSchemaForTest(ctx, t, databasePath, repositoryRoot, func() time.Time { return time.UnixMilli(4000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	if err := upgraded.IntegrityCheck(ctx); err != nil {
 		t.Fatal(err)
@@ -226,10 +220,7 @@ WHERE type='trigger' AND name='game_content_revisions_pegasus_source_insert'
 		t.Fatal(err)
 	}
 
-	upgraded, err := Open(ctx, upgradedPath, func() time.Time { return time.UnixMilli(5000) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	upgraded := openHistoricalSchemaForTest(ctx, t, upgradedPath, repositoryRoot, func() time.Time { return time.UnixMilli(5000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	fresh, err := Open(ctx, filepath.Join(t.TempDir(), "fresh.db"), func() time.Time { return time.UnixMilli(5000) })
 	if err != nil {

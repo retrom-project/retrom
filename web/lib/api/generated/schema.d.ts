@@ -1626,6 +1626,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/platform-instances/recommendations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** @description Returns the versioned code catalog and its current coverage without creating or changing directories. */
+        get: operations["getAdminPlatformInstanceRecommendations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/platform-instances/recommendations/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Atomically creates every currently missing recommendation without updating equivalent, customized, disabled, or explicitly deleted directories. */
+        post: operations["postAdminPlatformInstanceRecommendationsApply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/platform-instances/order": {
         parameters: {
             query?: never;
@@ -3052,6 +3086,72 @@ export interface components {
             /** Format: int64 */
             sortOrder: number;
         };
+        PlatformDirectoryReference: {
+            id: string;
+            name: string;
+        };
+        PlatformInstanceRecommendation: {
+            templateKey: string;
+            catalogOrder: number;
+            name: string;
+            description: string;
+            platform: components["schemas"]["PlatformDirectoryReference"];
+            defaultCore: components["schemas"]["PlatformDirectoryReference"];
+            supportedExtensions: string[];
+            /** @enum {string} */
+            state: "ACTIVE" | "CUSTOMIZED" | "COVERED_BY_EQUIVALENT" | "SUPPRESSED" | "MISSING";
+            /** Format: uuid */
+            platformInstanceId: string | null;
+        };
+        PlatformInstanceRecommendationSummary: {
+            totalCount: number;
+            activeCount: number;
+            customizedCount: number;
+            coveredByEquivalentCount: number;
+            suppressedCount: number;
+            missingCount: number;
+        };
+        PlatformInstanceRecommendations: {
+            catalogVersion: number;
+            summary: components["schemas"]["PlatformInstanceRecommendationSummary"];
+            items: components["schemas"]["PlatformInstanceRecommendation"][];
+        };
+        RecommendedPlatformInstance: {
+            /** Format: uuid */
+            id: string;
+            platformId: string;
+            platformName: string;
+            defaultCoreId: string;
+            defaultCoreName: string;
+            name: string;
+            slug: string;
+            description: string;
+            /** Format: int64 */
+            sortOrder: number;
+            enabled: boolean;
+            /** Format: int64 */
+            gameCount: number;
+            supportedExtensions: string[];
+            /** Format: int64 */
+            version: number;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+        };
+        PlatformInstanceRecommendationsApplySummary: {
+            createdCount: number;
+            coveredCount: number;
+            suppressedCount: number;
+            remainingMissingCount: number;
+        };
+        PlatformInstanceRecommendationsApplyResult: {
+            catalogVersion: number;
+            createdTemplateKeys: string[];
+            created: components["schemas"]["RecommendedPlatformInstance"][];
+            summary: components["schemas"]["PlatformInstanceRecommendationsApplySummary"];
+            items: components["schemas"]["PlatformInstanceRecommendation"][];
+        };
         PatchPlatformInstanceRequest: {
             name?: string;
             description?: string;
@@ -4115,6 +4215,24 @@ export interface components {
         };
     };
     responses: {
+        /** @description Recommended platform/core directory catalog and current coverage */
+        PlatformInstanceRecommendationsResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PlatformInstanceRecommendations"];
+            };
+        };
+        /** @description Atomic recommended-directory ensure result */
+        PlatformInstanceRecommendationsApplyResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["PlatformInstanceRecommendationsApplyResult"];
+            };
+        };
         /** @description User-visible import batch and item totals */
         ImportOverviewSummaryResponse: {
             headers: {
@@ -6749,6 +6867,32 @@ export interface operations {
         requestBody: components["requestBodies"]["CreatePlatformInstance"];
         responses: {
             201: components["responses"]["JSONResponse"];
+        };
+    };
+    getAdminPlatformInstanceRecommendations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["PlatformInstanceRecommendationsResponse"];
+        };
+    };
+    postAdminPlatformInstanceRecommendationsApply: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            200: components["responses"]["PlatformInstanceRecommendationsApplyResponse"];
         };
     };
     putAdminPlatformInstanceOrder: {

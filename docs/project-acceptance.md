@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期唯一验收基线 |
-| 版本 | 1.7 |
-| 日期 | 2026-08-14 |
+| 版本 | 1.8 |
+| 日期 | 2026-08-22 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
 | 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、联机、35 核兼容性、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
 
@@ -240,7 +240,7 @@ make acceptance-case CASE=<case-id>
 - 执行：`make acceptance-case CASE=ACC-DEV-001`。
 - 前置：验收准备已完成，`make deps-check` 离线通过。
 - 流程：把会记录调用并退出 99 的 `docker` 哨兵放在临时 `PATH` 首位，以显式 `RETROM_MODE=test` 启动未覆盖 `NEXT_DEV_HOST` 和 `RETROM_SERVER_IMPORT_ROOTS` 的 `make dev`，并把 public origin 设为确定性的开发域名；确认依赖离线命中、后端收到 `--mode=test` 且环境中不残留未知的 `RETROM_MODE`。等待两端 ready 后用 `test/test` 登录，通过前端 origin 请求 `/api/v1/home`，并读取本地扫描 roots 投影。再经前端端口发送字段完整但未认证的联机 WebSocket upgrade，并保持 HMR upgrade。随后执行 supervisor 正常接管、`SIGKILL` 后孤儿 process group 接管和伪造登记身份矩阵，最后安全停止。
-- 通过标准：test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；联机 upgrade 到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，HMR 仍为 101；仓库 `.dev-data/bios` 与 `.dev-data/roms` 已幂等创建，API 分别只投影 `local-bios`/“本地 BIOS”和 `local-roms`/“本地 ROM”两个状态为 `AVAILABLE` 的 root，且不暴露绝对路径；其余进程接管、监听、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
+- 通过标准：test 空库只创建一个 `test` ADMIN/Profile，登录页有测试警告，认证后的 rewrite 同源成功；联机 upgrade 到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，HMR 仍为 101；标准开发配置文件、数据根与启动状态分别固定到被忽略的 `.dev-data/dev.mk`、`.dev-data/data` 和 `.dev-data/dev-state`，隔离 Case 通过命令行覆盖为临时目录；仓库 `.dev-data/bios` 与 `.dev-data/roms` 已幂等创建，API 分别只投影 `local-bios`/“本地 BIOS”和 `local-roms`/“本地 ROM”两个状态为 `AVAILABLE` 的 root，且不暴露绝对路径；其余进程接管、监听、Docker 哨兵、身份保护和退出约束全部满足。默认 release 不创建测试账号，由 `ACC-AUTH-002` 独立证明。
 - 证据：进程树、健康/登录/首页/root HTTP 结果、HMR 与联机 upgrade status 和退出后的 PID 检查。
 
 ### ACC-NET-001：应用侧代理契约与同源隔离
@@ -274,8 +274,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-DB-002`。
-- 流程：读取 `migrations/testdata/supported_versions.json` 的有序整数版本清单，对每个仍受支持的真实旧版本 fixture 逐级迁移到当前版本；再次启动当前 schema 验证幂等；构造 migration 020 之前的匿名 `local` 数据库和比二进制更新的 schema version。账户版本明确使用全新数据根，前账户数据库只执行只读识别。
-- 通过标准：清单与 fixture 一一对应、无未登记 fixture；受支持版本升级后 schema 与全新库同构且 `foreign_key_check` 无结果。前账户数据库以 `DATABASE_REBUILD_REQUIRED` 拒绝，文件 hash、WAL/SHM、schema version 和业务行逐字节/逐项不变；重复启动不重复变更，未来 schema 被快速拒绝且不会写库。
+- 流程：读取 `migrations/testdata/supported_versions.json`；当前未对外版本的清单为空，使用全新数据根执行 001→040 并再次启动当前 schema 验证幂等。另构造 migration 020 之前的匿名 `local` 数据库和比二进制更新的 schema version；前账户数据库仍只执行既有只读识别。本 Case 不把 039→040 数据迁移列为产品能力，部署直接重建数据库。
+- 通过标准：全新库到 040 后 `foreign_key_check` 无结果且重复启动不重复变更；Platform/Core 参考行完整、PlatformInstance 为零。前账户数据库继续以 `DATABASE_REBUILD_REQUIRED` 拒绝且不写库；未来 schema 被快速拒绝。产品代码没有为 039→040 新增数据保留或专用拒绝分支。
 - 证据：支持版本清单、各实际起始/最终 schema 摘要、行数/hash、二次启动结果与未来版本拒绝日志。
 
 ### ACC-CAS-001：SHA-256 去重与原子写入
@@ -465,6 +465,14 @@ make acceptance-case CASE=<case-id>
 - 流程：分别对非空和空游戏目录执行停用/重新启用/删除；停用期间查询用户首页、游戏库、详情、存档并尝试新启动，同时查询管理端游戏。
 - 通过标准：非空目录可停用且 Game/存档/revision 不改写；停用后关联游戏从用户首页统计与最近记录、游戏库、详情和存档列表消失，新启动被拒绝，管理端仍可见，重新启用后原记录恢复展示。非空目录仍不可软删除；空目录可软删除，但没有硬删除 API 且旧 slug 不释放；操作写入不可变审计记录；作为默认核心的关联不可被直接禁用。
 - 证据：启停/删除响应、用户与管理端查询、Launch 拒绝、目录状态和审计事件。
+
+### ACC-PLAT-006：推荐目录代码 catalog 与幂等补齐
+
+- 上限：180 秒。
+- 执行：`make acceptance-case CASE=ACC-PLAT-006`。
+- 流程：使用全新数据根建到 schema 040，确认零目录；ADMIN 读取推荐状态并第一次补齐。随后修改一个模板目录名称/核心、停用一个、软删除一个，再手动创建一个缺失 pair 的等价目录；以新 key 再次补齐，并并发提交两次相同缺失集合。另故障注入一次 AuditEvent 写入失败。
+- 通过标准：catalog 固定返回 27 项且扩展名来自平台 profile；不存在 FDS/MAME 2003 独立模板，NES 包含 `.fds`，Arcade `.zip` 不重复。第一次补齐在一个事务创建 27 项并逐项审计；模板、自定义、等价、停用/删除分别投影为 `ACTIVE/CUSTOMIZED/COVERED_BY_EQUIVALENT/SUPPRESSED`。后续补齐不覆盖、不恢复、不重排、不重复创建，新的缺失项只追加到末尾；同 key 精确重放，并发只有一组创建结果；故障使目录、审计和幂等记录全部回滚。手动目录 key 为 NULL，推荐目录 key 唯一。
+- 证据：GET/POST 响应、Idempotency replay header、并发结果、目录/审计/幂等行和 catalog/contentprofile 对照。
 
 ## 9. 游戏管理
 
@@ -879,7 +887,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-006`。
 - 流程：在 `1280×800`、`2560×1440` 与物理 4K 150% 三个场景打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理和 `/admin/bios`；另断言已移除的 `/admin/bios/dats` 返回 404。
-- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面在同一 CSS viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560 CSS/物理 4K 150% 下历史 diff、任务阶段和 BIOS hash 不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备。游戏目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个场景均可达；封面容器保持 3:4 并等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
+- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面在同一 CSS viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560 CSS/物理 4K 150% 下历史 diff、任务阶段和 BIOS hash 不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备。游戏目录页零数据时不自动打开 Drawer，页首/空状态的“补齐推荐目录”与手动新建入口可达；请求中按钮禁用，成功/失败 toast 不推动布局。目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个场景均可达；封面容器保持 3:4 并等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
 - 证据：布局断言和每类页面当前截图。
 
 ### ACC-UI-007：键盘、标签与减少动画
@@ -1126,8 +1134,8 @@ make acceptance-case CASE=<case-id>
 ### ACC-MOB-004：管理完整流程
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-004`。
-- 流程：ADMIN 在 `390×844` 完成导入配置、任务恢复、待审核筛选与详情四步锚点、一次逐项决定、用户全屏 Drawer 和 BIOS 条目对比；USER 直达同一路由一次，并确认已移除的 DAT 管理路由返回 404。
-- 通过标准：每个桌面表格行在手机有同字段/状态/主操作的卡片投影；来源、运行检查、发布内容、审核决定顺序与 Tab 顺序一致；autosave、ETag、阻断截图放行和逐项决策没有弱化；Drawer/确认可关闭并恢复焦点，USER 仍为应用级 403。
+- 流程：ADMIN 在 `390×844` 完成推荐目录补齐、导入配置、任务恢复、待审核筛选与详情四步锚点、一次逐项决定、用户全屏 Drawer 和 BIOS 条目对比；USER 直达同一路由一次，并确认已移除的 DAT 管理路由返回 404。
+- 通过标准：推荐补齐、手动新建与状态提示的触控目标均不小于 44px，零目录不会自动弹 Drawer，请求中防重复提交且 toast 可读；每个桌面表格行在手机有同字段/状态/主操作的卡片投影。来源、运行检查、发布内容、审核决定顺序与 Tab 顺序一致；autosave、ETag、阻断截图放行和逐项决策没有弱化；Drawer/确认可关闭并恢复焦点，USER 仍为应用级 403。
 - 证据：Chrome trace、API/ETag 记录、四步/卡片语义断言、axe 和页面截图。
 
 ### ACC-MOB-005：横屏 Player

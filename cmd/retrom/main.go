@@ -29,6 +29,7 @@ import (
 	"retrom/internal/importing"
 	"retrom/internal/maintenance"
 	"retrom/internal/netplay"
+	"retrom/internal/platforminstance"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
@@ -288,6 +289,10 @@ func run(mode config.Mode) error {
 	defer func() { cleanup.Error("close", database.Close()) }()
 	if err := dependencySet.Bootstrap(startupContext, database.SQL, time.Now()); err != nil {
 		return fmt.Errorf("bootstrap dependency records: %w", err)
+	}
+	if err := platforminstance.New(database.SQL, time.Now).
+		ValidateCatalog(startupContext); err != nil {
+		return fmt.Errorf("validate recommended game directories: %w", err)
 	}
 	if err := database.IntegrityCheck(startupContext); err != nil {
 		return fmt.Errorf("retrom/main: %w", err)

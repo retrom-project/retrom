@@ -18,6 +18,7 @@ import (
 	"retrom/internal/dependencies"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
+	"retrom/internal/testsupport"
 )
 
 func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *retromruntime.Credentials) {
@@ -26,6 +27,9 @@ func newAuthHTTPServer(t *testing.T, mode config.Mode) (*Server, *retromruntime.
 	now := func() time.Time { return time.UnixMilli(1_786_000_000_000).UTC() }
 	database, err := store.Open(context.Background(), filepath.Join(root, "retrom.db"), now)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := testsupport.SeedPlatformInstances(context.Background(), database.SQL); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })

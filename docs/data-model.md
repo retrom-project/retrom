@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.2 |
-| 日期 | 2026-08-10 |
+| 版本 | 1.3 |
+| 日期 | 2026-08-22 |
 | 数据库 | SQLite，单个 `retrom` 写进程 |
 
 ## 1. 标识、版本与删除
@@ -38,7 +38,7 @@ User 状态变更、Credential/Session/Link 撤销、待用 Launch 终止与安�
 | `cores` | `id PK`、`name`、`requires_threads`、`enabled`、`created_at_ms/updated_at_ms`；35 个稳定 code seed。`dosbox_pure`、`mednafen_psx_hw`、`ppsspp`、`azahar` 的 `requires_threads=1`。 |
 | `core_artifacts` | `id PK`、`core_id FK`、`emulatorjs_version`、`bundle_version`、`flavor WASM/THREAD_WASM/OVERRIDE`、`relative_path`、`size_bytes`、`sha256`、可空 `source_commit`、`provenance_json`、`compatibility_config_json`、`enabled`、`version`、`created_at_ms/updated_at_ms`；`UNIQUE(core_id, emulatorjs_version, sha256)`、`UNIQUE(emulatorjs_version, relative_path)`，另以 partial unique index 保证每个 core 至多一条 `enabled=1`。`relative_path` 是相对 `<RETROM_DEPENDENCY_ROOT>/runtime/emulatorjs/<emulatorjs_version>` 的规范相对路径，不得含 `..`；不同版本可合法复用 `data/cores/mgba-wasm.data` 等路径。active 依赖 manifest 的 `selected_core_artifacts` 必须让每个 enabled Core 恰有一条 enabled artifact；保留版本的历史 artifact 为 disabled，但精确引用仍可通过对应版本静态路由启动。路径/hash 必须命中该版本 manifest，`mame2003` override 是该 core 当前唯一 enabled 行；上游未提供 commit 时必须在 provenance 保留证据等级，不能伪造值。active DAT 等 artifact 级配置切换会递增 version。 |
 | `platform_cores` | `(platform_id, core_id) PK`、`enabled`；默认核心和 Variant 的 core 必须引用 enabled 关系。 |
-| `platform_instances` | `id PK`、`platform_id`、`default_core_id`、`name`、规范化 `slug`、`description`、`sort_order`、`enabled`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；`UNIQUE(platform_id, slug)`。复合 FK 保证默认 core 存在于 PlatformCore，trigger/service 额外保证其 enabled。 |
+| `platform_instances` | `id PK`、`platform_id`、`default_core_id`、`name`、规范化 `slug`、`description`、`sort_order`、`enabled`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`、可空 `catalog_template_key`；`UNIQUE(platform_id, slug)`，另以 partial unique index 保证非空 template key 全局唯一。复合 FK 保证默认 core 存在于 PlatformCore，trigger/service 额外保证其 enabled。手动创建永远写 NULL；推荐补齐才写 `<platform_id>/<default_core_id>`，停用或软删除也保留该 key 作为不自动恢复的 tombstone。 |
 
 `slug` 由服务端创建时从展示名生成小写 ASCII 标识，冲突时追加数字后缀，必须匹配 `^[a-z0-9]+(?:-[a-z0-9]+)*$` 且不超过 80 byte；创建后不可改，软删除也不释放。展示名可改。游戏目录的 `platform_id` 创建后不可改。
 
@@ -390,6 +390,12 @@ Migration 038 收口为 release 内置 DAT：升级时取消历史 USER DatVersi
 
 NES 内容 profile 合并 `.fds` 后稳定返回 `.nes/.unf/.unif/.fds`；Arcade 各目录共同的 `.zip` 只投影一次。扩展名集合必须稳定有序且无重复。038→039 与 fresh 001→039 都必须通过 `foreign_key_check`、`integrity_check` 和含既有 Game 的升级回归。
 
-## 22. 统一验收入口
+## 22. Migration 040：推荐目录代码 catalog
+
+040 为 `platform_instances` 增加可空 `catalog_template_key` 和非空值 partial unique index，并在 fresh 001→040 构建中清空 001–039 的历史目录 seed，使新数据库最终拥有完整 Platform/Core 参考行但零 PlatformInstance。推荐模板改由 `internal/platformcatalog` 管理，扩展名继续只由 `internal/contentprofile` 管理；后续 migration 不再插入默认目录。
+
+当前项目尚未对外开放，部署本变更时直接重建数据库与数据根，不提供 039→040 数据保留、转换或专用拒绝分支。040 的交付基线只验证全新数据库；如果 fresh migration 链意外产生引用 PlatformInstance 的业务行，删除会因外键失败并视为 migration 缺陷，不能加入级联删除绕过。
+
+## 23. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；标签由 `ACC-TAG-001`–`005`；状态机、lease 与快速审批由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

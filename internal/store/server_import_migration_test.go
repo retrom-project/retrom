@@ -44,10 +44,7 @@ VALUES(9001,'01980000-0000-7000-8000-00000000d001','DAT_VERSION','fixture','SUCC
 		t.Fatal(err)
 	}
 
-	upgraded, err := Open(ctx, databasePath, func() time.Time { return time.UnixMilli(3000) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	upgraded := openHistoricalSchemaForTest(ctx, t, databasePath, repositoryRoot, func() time.Time { return time.UnixMilli(3000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	if err := upgraded.IntegrityCheck(ctx); err != nil {
 		t.Fatal(err)

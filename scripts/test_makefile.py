@@ -64,7 +64,21 @@ class MakefileDependencyTests(unittest.TestCase):
             self.assertIn(command, output)
 
     def test_dev_installs_locked_web_dependencies_before_starting(self) -> None:
-        self.assert_web_install_precedes("dev", "scripts/dev.sh")
+        output = self.dry_run("dev")
+        install_position = output.find("npm ci")
+        dev_position = output.find("scripts/dev.sh")
+        self.assertTrue(0 <= install_position < dev_position, output)
+        self.assertIn(
+            f'RETROM_DEV_STATE_DIR="{REPOSITORY_ROOT / ".dev-data/dev-state"}"',
+            output,
+        )
+        self.assertIn(
+            f'RETROM_DATA_DIR="{REPOSITORY_ROOT / ".dev-data/data"}"',
+            output,
+        )
+        makefile = (REPOSITORY_ROOT / "Makefile").read_text(encoding="utf-8")
+        self.assertIn("RETROM_DEV_CONFIG ?= $(abspath .dev-data/dev.mk)", makefile)
+        self.assertIn("-include $(RETROM_DEV_CONFIG)", makefile)
 
 
 if __name__ == "__main__":

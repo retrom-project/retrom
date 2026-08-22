@@ -2,23 +2,18 @@ package netplay
 
 import (
 	"context"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
 
 	"retrom/internal/cleanup"
-	"retrom/internal/store"
 )
 
 func TestAcceptanceNP011RecoveryClosesRunningSessionRoomAndLaunch(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000).UTC()
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := openNetplayTestDatabase(ctx, t, func() time.Time { return now })
 	defer func() { cleanup.Error("close", database.Close()) }()
 	const (
 		profileID  = "01980000-0000-7000-8000-00000000e001"

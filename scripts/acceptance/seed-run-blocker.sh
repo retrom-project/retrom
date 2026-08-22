@@ -41,9 +41,11 @@ FROM game_content_files
 WHERE game_content_revision_id=(SELECT content_id FROM acceptance_game);
 
 INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms,deleted_at_ms)
-VALUES('60000000-0000-7000-8000-000000000001','01980000-0000-7000-8000-000000000001','PUBLISHED',
+SELECT '60000000-0000-7000-8000-000000000001',id,'PUBLISHED',
        '60000000-0000-7000-8000-000000000002','60000000-0000-7000-8000-000000000003',
-       'acceptance missing fds bios',1,1786000300000,1786000300000,NULL);
+       'acceptance missing fds bios',1,1786000300000,1786000300000,NULL
+FROM platform_instances
+WHERE catalog_template_key='nes/fceumm';
 
 DROP TABLE acceptance_game;
 COMMIT;

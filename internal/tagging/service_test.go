@@ -10,6 +10,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
+	"retrom/internal/testsupport"
 )
 
 const (
@@ -24,6 +25,9 @@ func openTaggingTest(t *testing.T) (*store.DB, *Service, *int64) {
 		return time.UnixMilli(clock)
 	})
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := testsupport.SeedPlatformInstances(context.Background(), database.SQL); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := database.SQL.Exec(`

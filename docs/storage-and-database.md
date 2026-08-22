@@ -119,7 +119,7 @@ PRAGMA busy_timeout = 5000;
 
 Migration 020 是账户版本边界。`store.Open` 在取得数据根独占锁后先用 SQLite `mode=ro` 探测既有 schema；001–019 旧库必须在执行 PRAGMA 写操作、DDL、DML 或 WAL checkpoint 前以 `DATABASE_REBUILD_REQUIRED` 失败，错误只给出旧/所需版本和“使用新数据根”提示。不存在的数据库或没有 Retrom 业务表的真正空 schema 可从 001 顺序建立到最新版本；已经包含 020 的库继续追加 migration。版本空洞、checksum 漂移、无 migration 记录却已有业务表或 020 结构不完整统一 `DATABASE_SCHEMA_INVALID`，不得动态修补。
 
-发布切换固定为：停止旧版本并归档整个旧数据根 → 保留归档用于旧版本回退 → 为新版本配置全新空数据根 → 以 release 启动并完成主机证明初始化。旧 `local` Profile、游戏或存档不迁移，也没有双写或“选择迁移数据”页面。仓库 `make dev` 的默认根为 `.cache/retrom/user-management-v1-data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。
+发布切换固定为：停止旧版本并归档整个旧数据根 → 保留归档用于旧版本回退 → 为新版本配置全新空数据根 → 以 release 启动并完成主机证明初始化。旧 `local` Profile、游戏或存档不迁移，也没有双写或“选择迁移数据”页面。仓库 `make dev` 的默认根为 `.dev-data/data`；测试与每个验收 Case 使用独立临时 data root 并在结束时删除。
 
 ## 4. 表目录
 
@@ -253,7 +253,7 @@ data/
       licenses/             # manifest 锁定许可原文；不写入 Git
       THIRD_PARTY_NOTICES   # 确定性生成；不写入 Git
 
-.cache/retrom/user-management-v1-data/ # 开发 RETROM_DATA_DIR，不进入版本控制；旧 data 目录不自动删除
+.dev-data/data/              # 开发 RETROM_DATA_DIR，不进入版本控制
   retrom.lock
   retrom.db
   blobs/sha256/ab/cd/<64-char-sha256>
@@ -261,6 +261,8 @@ data/
   secrets/netplay-capability.key
   tmp/uploads/<upload-id>/
   tmp/jobs/
+.dev-data/dev-state/         # make dev PID 登记与接管锁，不进入版本控制
+.dev-data/dev.mk             # make dev 本地启动配置，不进入版本控制
 ~~~
 
 项目 ignore 规则必须忽略 `.cache/`、`data/runtime/**` 和五个 DAT payload 目录，只允许 manifest、`SHA256SUMS`、文档和脚本进入 Git；许可原文与生成 notice 也属于 runtime payload，不能因体积小而提交成第二份事实源。生产 `RETROM_DATA_DIR` 使用独立持久卷；不得把只读依赖目录挂成业务数据根。`make prepare-deps` 在服务启动前物化并校验 payload；应用同步预检只校验、不下载，随后 Worker 可从已校验只读 DAT 建立数据库索引。Arcade DAT 不接受上传且不进入 CAS；历史 `dat_versions.blob_id` 只为 migration 038 前的外键证据保留。完整契约见 [第三方依赖管理](./dependency-management.md)。

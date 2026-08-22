@@ -4,19 +4,23 @@ import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState, type DragEvent, type FormEvent } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { EmptyState, FeedbackBanner, PageHeader } from "@/components/ui";
+import { Toast, type ToastMessage } from "@/components/flash-toast";
+import { EmptyState, PageHeader } from "@/components/ui";
 import { writeHeaders } from "@/lib/api/client";
 import { newUuid } from "@/lib/crypto";
 import {
   canReorderPlatformDirectories,
   filterPlatformDirectories,
   platformDirectorySummary,
+  summarizeRecommendations,
   type Platform,
   type PlatformDirectoryFilters,
   type PlatformInstance,
+  type PlatformRecommendations,
+  type PlatformRecommendationsApplyResult,
 } from "./platform-directory-list";
 
-export type { Platform, PlatformInstance } from "./platform-directory-list";
+export type { Platform, PlatformInstance, PlatformRecommendations } from "./platform-directory-list";
 
 type PendingAction =
   | { kind: "core"; instance: PlatformInstance; coreId: string; coreName: string; impactDigest: string; counts: { ready: number; needsValidation: number; blocked: number } }
@@ -31,12 +35,13 @@ async function message(response: Response) {
   return body?.error?.message ?? `请求失败（${response.status}）`;
 }
 
-export function PlatformManager({ instances, platforms, createOpen }: { instances: PlatformInstance[]; platforms: Platform[]; createOpen: boolean }) {
+export function PlatformManager({ instances, platforms, recommendations = null, createOpen }: { instances: PlatformInstance[]; platforms: Platform[]; recommendations?: PlatformRecommendations | null; createOpen: boolean }) {
   const router = useRouter();
   const [rows, setRows] = useState(() => [...instances].sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id)));
   const [filters, setFilters] = useState(initialFilters);
   const [busy, setBusy] = useState<string | null>(null);
-  const [error, setError] = useState("");
+  const [toast, setToast] = useState<ToastMessage | null>(null);
+  const [recommendationState, setRecommendationState] = useState(recommendations);
   const [pending, setPending] = useState<PendingAction | null>(null);
   const [editing, setEditing] = useState<EditTarget>(null);
   const [draggedId, setDraggedId] = useState<string | null>(null);
@@ -89,7 +94,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
     };
   }, [drawerOpen]);
 
-  function clearFeedback() { setError(""); }
+  function clearFeedback() { setToast(null); }
 
   function selectCreatePlatform(platformId: string) {
     const platform = platforms.find((item) => item.id === platformId);
@@ -110,7 +115,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
       setCreateDescription("");
       setDrawerOpen(false);
       router.refresh();
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "目录创建失败"); }
+    } catch (caught) { setToast({ message: caught instanceof Error ? caught.message : "目录创建失败", tone: "bad" }); }
     finally { setBusy(null); }
   }
 
@@ -123,7 +128,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
       const updated = await response.json() as Partial<PlatformInstance> & { version: number };
       setRows((current) => current.map((row) => row.id === instance.id ? { ...row, ...updated } : row));
       setEditing(null);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "目录更新失败"); }
+    } catch (caught) { setToast({ message: caught instanceof Error ? caught.message : "目录更新失败", tone: "bad" }); }
     finally { setBusy(null); }
   }
 
@@ -144,7 +149,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
       const impact = await preview.json() as { impactDigest: string; counts: { ready: number; needsValidation: number; blocked: number } };
       const coreName = platforms.flatMap((platform) => platform.cores).find((core) => core.id === coreId)?.name ?? coreId;
       setPending({ kind: "core", instance, coreId, coreName, impactDigest: impact.impactDigest, counts: impact.counts });
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "无法预览运行方式影响"); }
+    } catch (caught) { setToast({ message: caught instanceof Error ? caught.message : "无法预览运行方式影响", tone: "bad" }); }
     finally { setBusy(null); }
   }
 
@@ -165,7 +170,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
         setRows((current) => current.filter((row) => row.id !== pending.instance.id));
       }
       setPending(null);
-    } catch (caught) { setError(caught instanceof Error ? caught.message : "目录操作失败"); }
+    } catch (caught) { setToast({ message: caught instanceof Error ? caught.message : "目录操作失败", tone: "bad" }); }
     finally { setBusy(null); }
   }
 
@@ -180,7 +185,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
       setRows((current) => current.map((item) => ({ ...item, ...projections.get(item.id) })));
     } catch (caught) {
       setRows(previous);
-      setError(caught instanceof Error ? caught.message : "目录排序失败");
+      setToast({ message: caught instanceof Error ? caught.message : "目录排序失败", tone: "bad" });
     } finally { setBusy(null); }
   }
 
@@ -218,10 +223,49 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
     setDraggedId(instanceId);
   }
 
-  return <div className="platform-directory-manager">
-    <PageHeader eyebrow="管理后台" title="游戏目录" description="维护现有游戏平台实例，为每个游戏集合配置推荐运行方式。列表只展示当前状态；修改默认运行方式时，系统会在确认前单独展示影响范围。" actions={<><button className="button secondary" type="button" onClick={() => setSortHelpOpen(true)}>排序说明</button><button ref={createTriggerRef} className="button" type="button" onClick={() => setDrawerOpen(true)}><AppIcon name="plus" />新建游戏目录</button></>} />
+  async function applyRecommendations() {
+    if (!recommendationState || recommendationState.summary.missingCount === 0 || busy) return;
+    setBusy("recommendations");
+    clearFeedback();
+    try {
+      const response = await fetch("/api/v1/admin/platform-instances/recommendations/apply", {
+        method: "POST",
+        credentials: "same-origin",
+        headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
+        body: "{}",
+      });
+      if (!response.ok) throw new Error(await message(response));
+      const result = await response.json() as PlatformRecommendationsApplyResult;
+      const created: PlatformInstance[] = result.created;
+      setRows((current) => {
+        const existing = new Set(current.map((item) => item.id));
+        return [...current, ...created.filter((item) => !existing.has(item.id))]
+          .sort((left, right) => left.sortOrder - right.sortOrder || left.id.localeCompare(right.id));
+      });
+      setRecommendationState({ catalogVersion: result.catalogVersion, items: result.items, summary: summarizeRecommendations(result.items) });
+      const suppressed = result.summary.suppressedCount
+		? `；${result.summary.suppressedCount} 个已停用或删除的推荐目录未恢复`
+        : "";
+      setToast({ message: `已创建 ${result.summary.createdCount} 个；已有 ${result.summary.coveredCount} 个目录保持不变${suppressed}。`, tone: "good" });
+      router.refresh();
+    } catch (caught) {
+      setToast({ message: caught instanceof Error ? caught.message : "补全推荐目录失败。没有创建任何目录，请重试。", tone: "bad" });
+    } finally {
+      setBusy(null);
+    }
+  }
 
-    {error ? <div className="platform-directory-error"><FeedbackBanner tone="bad">{error}</FeedbackBanner></div> : null}
+  const recommendationButton = recommendationState === null
+    ? <button className="button secondary" type="button" disabled title="推荐目录暂时无法读取">推荐目录暂不可用</button>
+    : recommendationState.summary.missingCount === 0
+      ? <button className="button secondary" type="button" disabled title={recommendationState.summary.suppressedCount ? `推荐项均已处理；其中 ${recommendationState.summary.suppressedCount} 个已停用或删除的目录不会自动恢复。` : "全部推荐目录均已覆盖"}>✓ 推荐目录已补全</button>
+      : <button className="button secondary" type="button" disabled={busy !== null} aria-busy={busy === "recommendations"} title="只创建尚未覆盖的推荐游戏平台与运行方式组合，不修改已有目录。" onClick={() => void applyRecommendations()}>{busy === "recommendations" ? <><span className="button-spinner" aria-hidden="true" />正在补全…</> : `补全推荐目录 ${recommendationState.summary.missingCount}`}</button>;
+
+  return <div className="platform-directory-manager">
+    <PageHeader eyebrow="管理后台" title="游戏目录" description="维护游戏集合及其推荐运行方式。补全只会创建缺失项，不会修改已有目录。" actions={<><button className="button secondary" type="button" disabled={busy !== null} onClick={() => setSortHelpOpen(true)}>排序说明</button>{recommendationButton}<button ref={createTriggerRef} className="button" type="button" disabled={busy !== null} onClick={() => setDrawerOpen(true)}><AppIcon name="plus" />新建游戏目录</button></>} />
+
+    <Toast toast={toast} onDismiss={() => setToast(null)} />
+    <p className="sr-only" role="status" aria-live="polite">{busy === "recommendations" ? "正在补全推荐目录" : recommendationState?.summary.missingCount === 0 ? "推荐目录已补全" : ""}</p>
 
     <section className="platform-directory-toolbar" aria-label="筛选游戏目录">
       <label className="platform-directory-search"><span>搜索目录</span><span><AppIcon name="search" /><input type="search" value={filters.query} placeholder="输入目录名称、平台或说明" onChange={(event) => setFilters((current) => ({ ...current, query: event.target.value }))} /></span></label>
@@ -253,7 +297,7 @@ export function PlatformManager({ instances, platforms, createOpen }: { instance
           </div>;
         })}</div>
       </div>
-    </section> : <EmptyState title={rows.length ? "没有匹配的游戏目录" : "还没有游戏目录"} description={rows.length ? "请调整搜索或筛选条件。" : "点击“新建游戏目录”创建第一个导入目标。"} />}
+    </section> : <EmptyState title={rows.length ? "没有匹配的游戏目录" : "还没有游戏目录"} description={rows.length ? "请调整搜索或筛选条件。" : "可以一次创建 Retrom 推荐目录，也可以只建立自己的主题目录。"} action={!rows.length ? <div className="platform-directory-empty-actions">{recommendationState && recommendationState.summary.missingCount > 0 ? <button className="button" type="button" disabled={busy !== null} onClick={() => void applyRecommendations()}>补全推荐目录 {recommendationState.summary.missingCount}</button> : null}<button className="button secondary" type="button" disabled={busy !== null} onClick={() => setDrawerOpen(true)}>新建游戏目录</button></div> : undefined} />}
 
     <footer className="platform-directory-footer"><span>当前显示 {visibleRows.length} / {rows.length} 个目录</span><span>{reorderEnabled ? "当前可调整全局展示顺序" : "筛选状态下仅查看；清除筛选后可调整全局展示顺序"}</span></footer>
 

@@ -20,7 +20,7 @@ import (
 	"retrom/migrations"
 )
 
-func TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog(t *testing.T) {
+func TestMigrationsCreateIntegerBusinessTimesAndReferenceCatalog(t *testing.T) {
 	t.Parallel()
 	database, err := Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), func() time.Time {
 		return time.UnixMilli(1786000000000)
@@ -74,9 +74,10 @@ func TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog(t *testing.T) {
 	); err != nil {
 		t.Fatalf("count seed: %v", err)
 	}
-	if platformCount != 25 || coreCount != 35 || directoryCount != 27 {
+	if platformCount != 25 || coreCount != 35 || directoryCount != 0 {
 		t.Fatalf("seed counts = %d/%d/%d", platformCount, coreCount, directoryCount)
 	}
+	assertColumns(t, database.SQL, "platform_instances", "catalog_template_key")
 	var profileCount, userCount int
 	var instanceState string
 	if err := database.SQL.QueryRow(`
@@ -120,42 +121,6 @@ SELECT platform_id || ':' || core_id FROM platform_cores WHERE enabled=1 ORDER B
 	}
 	if !slices.Equal(relations, wantRelations) {
 		t.Fatalf("platform/core relations = %#v", relations)
-	}
-	instances := queryStrings(t, database.SQL, `
-SELECT id || ':' || platform_id || ':' || default_core_id || ':' || slug || ':' || sort_order
-FROM platform_instances WHERE deleted_at_ms IS NULL ORDER BY id
-`)
-	wantInstances := []string{
-		"01980000-0000-7000-8000-000000000001:nes:fceumm:nes-games:10",
-		"01980000-0000-7000-8000-000000000003:snes:snes9x:snes-games:30",
-		"01980000-0000-7000-8000-000000000004:gbc:gambatte:gbc-games:40",
-		"01980000-0000-7000-8000-000000000005:gba:mgba:gba-games:50",
-		"01980000-0000-7000-8000-000000000006:arcade:fbneo:fbneo-games:60",
-		"01980000-0000-7000-8000-000000000007:arcade:mame2003_plus:mame2003-plus-games:70",
-		"01980000-0000-7000-8000-000000000009:dos:dosbox_pure:dos-games:90",
-		"01980000-0000-7000-8000-000000000010:nds:desmume2015:nds-games:100",
-		"01980000-0000-7000-8000-000000000011:atari2600:stella2014:atari-2600-games:110",
-		"01980000-0000-7000-8000-000000000012:atari5200:a5200:atari-5200-games:120",
-		"01980000-0000-7000-8000-000000000013:atari7800:prosystem:atari-7800-games:130",
-		"01980000-0000-7000-8000-000000000014:lynx:handy:atari-lynx-games:140",
-		"01980000-0000-7000-8000-000000000015:megadrive:genesis_plus_gx:mega-drive-games:150",
-		"01980000-0000-7000-8000-000000000016:pce:mednafen_pce:pc-engine-games:160",
-		"01980000-0000-7000-8000-000000000017:ngpc:mednafen_ngp:neo-geo-pocket-games:170",
-		"01980000-0000-7000-8000-000000000018:n64:mupen64plus_next:nintendo-64-games:180",
-		"01980000-0000-7000-8000-000000000019:psx:pcsx_rearmed:playstation-games:190",
-		"01980000-0000-7000-8000-000000000020:saturn:yabause:sega-saturn-games:200",
-		"01980000-0000-7000-8000-000000000021:pcfx:mednafen_pcfx:pc-fx-games:210",
-		"01980000-0000-7000-8000-000000000022:3do:opera:3do-games:220",
-		"01980000-0000-7000-8000-000000000023:psp:ppsspp:psp-games:230",
-		"01980000-0000-7000-8000-000000000024:virtualboy:beetle_vb:virtual-boy-games:240",
-		"01980000-0000-7000-8000-000000000025:wonderswan:mednafen_wswan:wonderswan-games:250",
-		"01980000-0000-7000-8000-000000000026:mastersystem:smsplus:master-system-games:260",
-		"01980000-0000-7000-8000-000000000027:arcade:fbalpha2012_cps1:fbalpha2012-cps1-games:270",
-		"01980000-0000-7000-8000-000000000028:arcade:fbalpha2012_cps2:fbalpha2012-cps2-games:280",
-		"01980000-0000-7000-8000-000000000029:nintendo3ds:azahar:nintendo-3ds-games:290",
-	}
-	if !slices.Equal(instances, wantInstances) {
-		t.Fatalf("platform instances = %#v", instances)
 	}
 }
 
@@ -280,6 +245,58 @@ func applyMigrationRange(
 	}
 }
 
+// openHistoricalSchemaForTest keeps the immutable pre-040 migration chain
+// independently testable across the fresh-database-only catalog reset.
+func openHistoricalSchemaForTest(
+	ctx context.Context,
+	t *testing.T,
+	databasePath string,
+	repositoryRoot string,
+	now func() time.Time,
+) *DB {
+	t.Helper()
+	database, err := sql.Open("sqlite", databasePath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	database.SetMaxOpenConns(1)
+	database.SetMaxIdleConns(1)
+	if _, err := database.ExecContext(ctx, "PRAGMA foreign_keys = ON"); err != nil {
+		cleanup.Error("close", database.Close())
+		t.Fatal(err)
+	}
+	var current int
+	if err := database.QueryRowContext(ctx, "SELECT max(version) FROM schema_migrations").Scan(&current); err != nil {
+		cleanup.Error("close", database.Close())
+		t.Fatal(err)
+	}
+	entries, err := os.ReadDir(filepath.Join(repositoryRoot, "migrations"))
+	if err != nil {
+		cleanup.Error("close", database.Close())
+		t.Fatal(err)
+	}
+	for _, entry := range entries {
+		if entry.IsDir() || filepath.Ext(entry.Name()) != ".sql" {
+			continue
+		}
+		version, parseErr := strconv.Atoi(strings.SplitN(entry.Name(), "_", 2)[0])
+		if parseErr != nil || version <= current || version > 39 {
+			continue
+		}
+		migration, readErr := migrations.Files.ReadFile(entry.Name())
+		if readErr != nil {
+			cleanup.Error("close", database.Close())
+			t.Fatal(readErr)
+		}
+		digest := sha256.Sum256(migration)
+		if err := runMigration(ctx, database, version, entry.Name(), fmt.Sprintf("%x", digest), migration, now); err != nil {
+			cleanup.Error("close", database.Close())
+			t.Fatal(err)
+		}
+	}
+	return &DB{SQL: database}
+}
+
 func TestSupportedMigrationVersionsIdempotencyAndFutureProtection(t *testing.T) {
 	t.Parallel()
 	_, filename, _, _ := runtime.Caller(0)
@@ -289,12 +306,8 @@ func TestSupportedMigrationVersionsIdempotencyAndFutureProtection(t *testing.T) 
 		t.Fatal(err)
 	}
 	var supported []int
-	if err := json.Unmarshal(contents, &supported); err != nil || !slices.Equal(supported, []int{23, 24, 25}) {
+	if err := json.Unmarshal(contents, &supported); err != nil || len(supported) != 0 {
 		t.Fatalf("supported versions = %#v, error=%v", supported, err)
-	}
-	fixture := filepath.Join(repositoryRoot, "migrations", "testdata", "023_fixture.sql")
-	if _, err := os.Stat(fixture); err != nil {
-		t.Fatalf("migration fixture = %s, error=%v", fixture, err)
 	}
 	path := filepath.Join(t.TempDir(), "retrom.db")
 	database, err := Open(context.Background(), path, time.Now)
@@ -359,10 +372,7 @@ func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) 
 		t.Fatal(err)
 	}
 
-	upgraded, err := Open(ctx, databasePath, func() time.Time { return time.UnixMilli(2000) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	upgraded := openHistoricalSchemaForTest(ctx, t, databasePath, repositoryRoot, func() time.Time { return time.UnixMilli(2000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	if err := upgraded.IntegrityCheck(ctx); err != nil {
 		t.Fatal(err)

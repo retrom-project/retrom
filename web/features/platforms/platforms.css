@@ -2,6 +2,9 @@
 .platform-directory-manager .page-header { min-height: 0; margin-bottom: 18px; }
 .platform-directory-manager .page-header p:not(.eyebrow) { max-width: 860px; }
 .platform-directory-manager .header-actions svg { width: 17px; height: 17px; }
+.platform-directory-manager .header-actions { flex-wrap: wrap; }
+.platform-directory-manager .header-actions .button { min-height: 44px; }
+.platform-directory-empty-actions { margin-top: 16px; display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
 .platform-directory-error { position: fixed; z-index: 110; right: 28px; top: 24px; width: min(440px, calc(100vw - 48px)); filter: drop-shadow(0 14px 28px rgb(26 31 44 / 16%)); }
 .platform-directory-toolbar { min-height: 76px; padding: 14px; display: grid; grid-template-columns: minmax(320px, 1.8fr) 180px 170px 170px; gap: 10px; align-items: end; border: 1px solid var(--line); border-radius: 15px; background: white; }
 .platform-directory-toolbar label { min-width: 0; display: grid; gap: 6px; color: #596477; font-size: 11px; font-weight: 760; }

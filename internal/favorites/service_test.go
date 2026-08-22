@@ -15,6 +15,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
+	"retrom/internal/testsupport"
 )
 
 const (
@@ -61,6 +62,9 @@ func newFavoriteTestDatabase(t *testing.T) *store.DB {
 	t.Helper()
 	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := testsupport.SeedPlatformInstances(context.Background(), database.SQL); err != nil {
 		t.Fatal(err)
 	}
 	transaction, err := database.SQL.Begin()

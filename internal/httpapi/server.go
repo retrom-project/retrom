@@ -49,6 +49,7 @@ import (
 	"retrom/internal/metadatascrape"
 	"retrom/internal/netplay"
 	"retrom/internal/pegasusimport"
+	"retrom/internal/platforminstance"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
 	"retrom/internal/serverimport"
@@ -106,6 +107,7 @@ type Server struct {
 	tagService              *tagging.Service
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
+	platformDirectories     *platforminstance.Service
 	now                     func() time.Time
 	sseHeartbeat            time.Duration
 	idempotency             sync.Mutex
@@ -170,23 +172,24 @@ func New(
 	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, config.ServerImportRoots, now)
 	pegasusImportService.Start()
 	server := &Server{
-		config:            config,
-		database:          database,
-		readinessDatabase: database,
-		dependencies:      dependencySet,
-		blobs:             blobs,
-		credentials:       credentials,
-		authenticator:     authenticator,
-		accounts:          accountService,
-		cursors:           cursor.New(credentials.CursorKey(), now),
-		uploads:           uploads.New(database, blobs, config.DataDir, now),
-		importer:          importer,
-		launcher:          launcher,
-		jobService:        jobs.New(database, now),
-		firmware:          firmwareService,
-		serverImports:     serverImportService,
-		pegasusImports:    pegasusImportService,
-		metadata:          scraper,
+		config:              config,
+		database:            database,
+		readinessDatabase:   database,
+		dependencies:        dependencySet,
+		blobs:               blobs,
+		credentials:         credentials,
+		authenticator:       authenticator,
+		accounts:            accountService,
+		cursors:             cursor.New(credentials.CursorKey(), now),
+		uploads:             uploads.New(database, blobs, config.DataDir, now),
+		importer:            importer,
+		launcher:            launcher,
+		jobService:          jobs.New(database, now),
+		firmware:            firmwareService,
+		serverImports:       serverImportService,
+		pegasusImports:      pegasusImportService,
+		platformDirectories: platforminstance.New(database, now),
+		metadata:            scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(database, blobs, credentials, now),
@@ -261,6 +264,14 @@ func (server *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/admin/core-artifacts", server.coreArtifacts)
 	mux.HandleFunc("GET /api/v1/admin/platform-instances", server.platformInstances)
 	mux.HandleFunc("POST /api/v1/admin/platform-instances", server.createPlatformInstance)
+	mux.HandleFunc(
+		"GET /api/v1/admin/platform-instances/recommendations",
+		server.platformInstanceRecommendations,
+	)
+	mux.HandleFunc(
+		"POST /api/v1/admin/platform-instances/recommendations/apply",
+		server.applyPlatformInstanceRecommendations,
+	)
 	mux.HandleFunc("PUT /api/v1/admin/platform-instances/order", server.reorderPlatformInstances)
 	mux.HandleFunc("GET /api/v1/admin/platform-instances/{platformInstanceId}", server.platformInstance)
 	mux.HandleFunc("PATCH /api/v1/admin/platform-instances/{platformInstanceId}", server.patchPlatformInstance)
@@ -563,8 +574,9 @@ var exactQueryAllowlists = map[string][]string{
 		"cursor",
 		"limit",
 	},
-	"GET /api/v1/admin/tags":               {"q", "status", "sort", "cursor", "limit"},
-	"GET /api/v1/admin/platform-instances": {"platformId", "enabled", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/tags":                               {"q", "status", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/platform-instances":                 {"platformId", "enabled", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/platform-instances/recommendations": {},
 	"GET /api/v1/admin/bios": {
 		"q", "platformId", "coreId", "coreArtifactId", "scope", "status", "quick", "cursor", "limit",
 	},

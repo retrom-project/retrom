@@ -84,6 +84,7 @@ flowchart LR
 - Platform 表示 Arcade、NES、MS-DOS 等基础硬件/系统。
 - Platform 可关联多个 Core，但自身不保存默认核心。
 - PlatformInstance 在 UI 统一称为“游戏目录”；它从 Platform 创建，并从该平台的启用核心中选择一个默认核心。
+- release 只在代码 catalog 中维护推荐的 Platform/Core 组合；全新数据库不预置目录，由管理员显式一键补齐缺失项。模板状态不覆盖用户重命名、换核心、停用或软删除的选择。
 - Game 只能且必须由一个 PlatformInstance 持有，基础平台由此间接推导。
 - Game 另以非空 current pointer 持有一个不可变 GameContentRevision，唯一决定普通启动的当前用户文件；改变游戏目录默认核心不能改变内容版本。
 - GameVariant 是 Game + Core 的稳定逻辑槽；某个 GameContentRevision 在具体 core artifact 上的兼容性、派生文件和依赖快照保存在不可变 GameVariantRevision。稳定槽有 READY 结果时只指向当前 READY revision；从未验证成功的备用核心槽允许 current 为空并保留失败诊断。
@@ -230,39 +231,39 @@ erDiagram
 - Favorite 与 FavoriteFolder 都由认证 Profile 私有拥有；FolderMembership 必须同时引用同一 Profile 的 Favorite 与 Folder。收藏关系不改变 Game 的 PlatformInstance 唯一归属，管理员也没有跨 Profile 查询旁路。
 - Tag 是实例级共享实体，只有管理员维护；GameTag 不属于 Profile，不改变目录归属，也不进入游戏运行 revision。
 
-## 6. 平台、核心与初始游戏目录
+## 6. 平台、核心与推荐游戏目录
 
-空库 bootstrap 必须在同一 migration/seed 版本中写入下表的基础平台、启用关系和初始游戏目录；重复执行按稳定 code/slug 幂等，不生成重复目录。管理员之后可以创建、重命名或软删除空目录，但不得修改基础平台 code。
+空库 migration 只写入下表的基础平台与启用关系，最终保持零 PlatformInstance。管理员在管理页显式点击“补齐推荐目录”后，服务按 `internal/platformcatalog` 中的 27 个 Platform/Core 模板创建当前缺失项；管理员之后仍可创建、重命名、换核心、停用或软删除空目录。推荐模板不定义 slug 或扩展名：slug 由服务端生成，扩展名只由基础平台的 `contentprofile` 决定。
 
-| 基础平台（稳定 code） | 启用核心 | 初始游戏目录（slug）→ 默认核心 | 备注 |
+| 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |
-| NES / Famicom (`nes`) | `fceumm`、`nestopia` | NES 游戏（`nes-games`）→ `fceumm` | 统一接收 `.nes/.unf/.unif/.fds`；只有 FDS 内容需要 `disksys.rom` |
-| Famicom Disk System (`fds`) | `fceumm`、`nestopia` | 无独立初始目录 | 基础平台 code 仅为历史兼容保留；FDS 内容统一导入 NES 游戏目录 |
-| SNES (`snes`) | `snes9x` | SNES 游戏（`snes-games`）→ `snes9x` | 标准游戏通常不要求 BIOS |
-| Game Boy / Color (`gbc`) | `gambatte`、`mgba` | Game Boy 游戏（`gbc-games`）→ `gambatte` | 两个 core 均可供本次启动切换 |
-| Game Boy Advance (`gba`) | `mgba` | GBA 游戏（`gba-games`）→ `mgba` | BIOS 可选 |
-| Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003`、`fbalpha2012_cps1`、`fbalpha2012_cps2` | FBNeo 游戏（`fbneo-games`）→ `fbneo`；MAME 2003 Plus 游戏（`mame2003-plus-games`）→ `mame2003_plus`；FB Alpha 2012 CPS-1/2 游戏（`fbalpha2012-cps1-games` / `fbalpha2012-cps2-games`）→ 对应核心 | MAME 2003 不另建初始目录；Arcade 扩展名合并去重后仍为 `.zip`，每个核心继续使用独立 DAT |
-| MS-DOS (`dos`) | `dosbox_pure` | DOS 经典游戏（`dos-games`）→ `dosbox_pure` | 启动前可选程序；需要线程模式 |
-| Nintendo DS (`nds`) | `melonds`、`desmume2015`、`desmume` | Nintendo DS 游戏（`nds-games`）→ `desmume2015` | 指针输入；MelonDS 需要三个外部 BIOS 文件 |
-| Atari 2600 (`atari2600`) | `stella2014` | Atari 2600 游戏（`atari-2600-games`）→ `stella2014` | `.a26`；允许 ZIP/7z 单成员来源 |
-| Atari 5200 (`atari5200`) | `a5200` | Atari 5200 游戏（`atari-5200-games`）→ `a5200` | `.a52`；需要 `5200.rom` |
-| Atari 7800 (`atari7800`) | `prosystem` | Atari 7800 游戏（`atari-7800-games`）→ `prosystem` | `.a78`；需要 `7800 BIOS (U).rom` |
-| Atari Lynx (`lynx`) | `handy` | Atari Lynx 游戏（`atari-lynx-games`）→ `handy` | `.lnx`；需要 `lynxboot.img` |
-| Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏（`mega-drive-games`）→ `genesis_plus_gx` | `.md`；Wide 为可选核心，不另建目录 |
-| PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏（`pc-engine-games`）→ `mednafen_pce` | `.pce` |
-| Neo Geo Pocket / Color (`ngpc`) | `mednafen_ngp` | Neo Geo Pocket 游戏（`neo-geo-pocket-games`）→ `mednafen_ngp` | `.ngp` |
-| Nintendo 64 (`n64`) | `mupen64plus_next`、`parallel_n64` | Nintendo 64 游戏（`nintendo-64-games`）→ `mupen64plus_next` | `.z64`；产品 ID 只使用 `parallel_n64` |
-| PlayStation (`psx`) | `pcsx_rearmed`、`mednafen_psx_hw` | PlayStation 游戏（`playstation-games`）→ `pcsx_rearmed` | 单文件 CHD；后者需要线程且固定 software renderer |
-| Sega Saturn (`saturn`) | `yabause` | Sega Saturn 游戏（`sega-saturn-games`）→ `yabause` | 单文件 CHD |
-| PC-FX (`pcfx`) | `mednafen_pcfx` | PC-FX 游戏（`pc-fx-games`）→ `mednafen_pcfx` | 单文件 CHD |
-| 3DO (`3do`) | `opera` | 3DO 游戏（`3do-games`）→ `opera` | 单文件 CHD |
-| PlayStation Portable (`psp`) | `ppsspp` | PSP 游戏（`psp-games`）→ `ppsspp` | raw ISO/CSO；需要线程与固定辅助资产 |
-| Virtual Boy (`virtualboy`) | `beetle_vb` | Virtual Boy 游戏（`virtual-boy-games`）→ `beetle_vb` | `.vb`；四条锁定启动动作，最大延迟 25 秒 |
-| WonderSwan / Color (`wonderswan`) | `mednafen_wswan` | WonderSwan 游戏（`wonderswan-games`）→ `mednafen_wswan` | `.ws` / `.wsc` 单文件 |
-| Master System (`mastersystem`) | `smsplus` | Master System 游戏（`master-system-games`）→ `smsplus` | `.sms`；本期只建立 Master System 映射 |
-| Nintendo 3DS (`nintendo3ds`) | `azahar` | Nintendo 3DS 游戏（`nintendo-3ds-games`）→ `azahar` | `.3ds` / `.cci`；4.3.0-pre thread、pointer、WebGL2 |
+| NES / Famicom (`nes`) | `fceumm`、`nestopia` | NES 游戏 → `fceumm` | 统一接收 `.nes/.unf/.unif/.fds`；只有 FDS 内容需要 `disksys.rom` |
+| Famicom Disk System (`fds`) | `fceumm`、`nestopia` | 无独立推荐目录 | 基础平台 code 仅为历史兼容保留；FDS 内容统一导入 NES 游戏目录 |
+| SNES (`snes`) | `snes9x` | SNES 游戏 → `snes9x` | 标准游戏通常不要求 BIOS |
+| Game Boy / Color (`gbc`) | `gambatte`、`mgba` | Game Boy 游戏 → `gambatte` | 两个 core 均可供本次启动切换 |
+| Game Boy Advance (`gba`) | `mgba` | GBA 游戏 → `mgba` | BIOS 可选 |
+| Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003`、`fbalpha2012_cps1`、`fbalpha2012_cps2` | FBNeo 游戏 → `fbneo`；MAME 2003 Plus 游戏 → `mame2003_plus`；FB Alpha 2012 CPS-1/2 游戏 → 对应核心 | MAME 2003 不另建推荐目录；Arcade 扩展名去重后仍为 `.zip`，每个核心继续使用独立 DAT |
+| MS-DOS (`dos`) | `dosbox_pure` | DOS 经典游戏 → `dosbox_pure` | 启动前可选程序；需要线程模式 |
+| Nintendo DS (`nds`) | `melonds`、`desmume2015`、`desmume` | Nintendo DS 游戏 → `desmume2015` | 指针输入；MelonDS 需要三个外部 BIOS 文件 |
+| Atari 2600 (`atari2600`) | `stella2014` | Atari 2600 游戏 → `stella2014` | `.a26`；允许 ZIP/7z 单成员来源 |
+| Atari 5200 (`atari5200`) | `a5200` | Atari 5200 游戏 → `a5200` | `.a52`；需要 `5200.rom` |
+| Atari 7800 (`atari7800`) | `prosystem` | Atari 7800 游戏 → `prosystem` | `.a78`；需要 `7800 BIOS (U).rom` |
+| Atari Lynx (`lynx`) | `handy` | Atari Lynx 游戏 → `handy` | `.lnx`；需要 `lynxboot.img` |
+| Mega Drive / Genesis (`megadrive`) | `genesis_plus_gx`、`picodrive`、`genesis_plus_gx_wide` | Mega Drive 游戏 → `genesis_plus_gx` | `.md`；Wide 为可选核心，不另建目录 |
+| PC Engine (`pce`) | `mednafen_pce` | PC Engine 游戏 → `mednafen_pce` | `.pce` |
+| Neo Geo Pocket / Color (`ngpc`) | `mednafen_ngp` | Neo Geo Pocket 游戏 → `mednafen_ngp` | `.ngp` |
+| Nintendo 64 (`n64`) | `mupen64plus_next`、`parallel_n64` | Nintendo 64 游戏 → `mupen64plus_next` | `.z64`；产品 ID 只使用 `parallel_n64` |
+| PlayStation (`psx`) | `pcsx_rearmed`、`mednafen_psx_hw` | PlayStation 游戏 → `pcsx_rearmed` | 单文件 CHD；后者需要线程且固定 software renderer |
+| Sega Saturn (`saturn`) | `yabause` | Sega Saturn 游戏 → `yabause` | 单文件 CHD |
+| PC-FX (`pcfx`) | `mednafen_pcfx` | PC-FX 游戏 → `mednafen_pcfx` | 单文件 CHD |
+| 3DO (`3do`) | `opera` | 3DO 游戏 → `opera` | 单文件 CHD |
+| PlayStation Portable (`psp`) | `ppsspp` | PSP 游戏 → `ppsspp` | raw ISO/CSO；需要线程与固定辅助资产 |
+| Virtual Boy (`virtualboy`) | `beetle_vb` | Virtual Boy 游戏 → `beetle_vb` | `.vb`；四条锁定启动动作，最大延迟 25 秒 |
+| WonderSwan / Color (`wonderswan`) | `mednafen_wswan` | WonderSwan 游戏 → `mednafen_wswan` | `.ws` / `.wsc` 单文件 |
+| Master System (`mastersystem`) | `smsplus` | Master System 游戏 → `smsplus` | `.sms`；本期只建立 Master System 映射 |
+| Nintendo 3DS (`nintendo3ds`) | `azahar` | Nintendo 3DS 游戏 → `azahar` | `.3ds` / `.cci`；4.3.0-pre thread、pointer、WebGL2 |
 
-平台和核心是代码种子/版本化配置；游戏目录是管理员可创建、重命名和调整默认核心的业务实体。游戏目录不是标签或多对多收藏集。
+平台和核心是代码种子/版本化配置；推荐目录是 release 代码 catalog，真正的游戏目录仍是管理员创建、重命名和调整默认核心的业务实体。catalog key 只记录模板接管/抑制状态，不把目录变成不可编辑 seed。游戏目录不是标签或多对多收藏集。
 
 ## 7. 产品信息架构
 

@@ -48,10 +48,7 @@ VALUES(?,'BLOB','migration-037','QUEUED','{}',1)
 		t.Fatal(err)
 	}
 
-	upgraded, err := Open(ctx, databasePath, func() time.Time { return time.UnixMilli(2_000) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	upgraded := openHistoricalSchemaForTest(ctx, t, databasePath, repositoryRoot, func() time.Time { return time.UnixMilli(2_000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	if err := upgraded.IntegrityCheck(ctx); err != nil {
 		t.Fatal(err)

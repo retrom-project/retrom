@@ -33,6 +33,7 @@ import (
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
+	"retrom/internal/testsupport"
 )
 
 type saveFixture struct {
@@ -52,7 +53,7 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	dataDir := t.TempDir()
 	now := time.Date(2026, time.August, 6, 2, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), clock)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), clock)
 	if err != nil {
 		t.Fatal(err)
 	}

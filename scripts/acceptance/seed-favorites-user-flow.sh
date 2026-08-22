@@ -37,7 +37,7 @@ INSERT INTO games(
   search_text,version,created_at_ms,updated_at_ms
 ) VALUES(
   '74100000-0000-7000-8000-000000000001',
-  '01980000-0000-7000-8000-000000000005',
+  (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
   'PUBLISHED',
   '74000000-0000-7000-8000-000000000001',
   '74200000-0000-7000-8000-000000000001',

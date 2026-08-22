@@ -26,6 +26,16 @@ login="$(curl --fail --silent --show-error "${common[@]}" -H "Origin: $origin" -
 csrf="$(jq -r .csrfToken <<<"$login")"
 write=(-H "Origin: $origin" -H "X-Retrom-Csrf: $csrf")
 
+recommended="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" \
+  -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d '{}' \
+  "$backend/api/v1/admin/platform-instances/recommendations/apply")"
+platform_instance_id="$(jq -r '.created[] | select(.platformId=="gba" and .defaultCoreId=="mgba") | .id' <<<"$recommended")"
+if [[ -z "$platform_instance_id" ]]; then
+  directories="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/platform-instances")"
+  platform_instance_id="$(jq -r '.items[] | select(.platformId=="gba" and .defaultCoreId=="mgba") | .id' <<<"$directories")"
+fi
+[[ -n "$platform_instance_id" ]] || { echo "recommended GBA directory was not created" >&2; exit 1; }
+
 upload_body="$(jq -nc --argjson size "$size" '{sourceType:"FILES",files:[{clientFileId:"gba",relativePath:"Sudoku.gba",sizeBytes:$size}]}')"
 upload="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$upload_body" "$backend/api/v1/admin/uploads")"
 upload_id="$(jq -r .uploadId <<<"$upload")"
@@ -46,7 +56,7 @@ for _ in $(seq 1 100); do
 done
 [[ "$state" == "SUCCEEDED" ]]
 
-import_body="$(jq -nc --arg upload "$upload_id" '{uploadId:$upload,targetPlatformInstanceId:"01980000-0000-7000-8000-000000000005",metadataProvider:"NONE",tagIds:[]}')"
+import_body="$(jq -nc --arg upload "$upload_id" --arg platformInstance "$platform_instance_id" '{uploadId:$upload,targetPlatformInstanceId:$platformInstance,metadataProvider:"NONE",tagIds:[]}')"
 imported="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$import_body" "$backend/api/v1/admin/imports")"
 import_id="$(jq -r .importJobId <<<"$imported")"
 reviews="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/reviews?importJobId=$import_id")"

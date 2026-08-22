@@ -16,6 +16,7 @@ orphan_backend_start_ticks=""
 orphan_web_pid=""
 orphan_web_start_ticks=""
 dev_log="$temporary_root/dev.log"
+dev_state="$temporary_root/dev-state"
 
 read_start_ticks() {
   local pid="$1"
@@ -40,11 +41,11 @@ process_matches_start_ticks() {
 }
 
 cleanup() {
-  if [[ -r "$repository_root/.cache/retrom/dev.pid" ]]; then
+  if [[ -r "$dev_state/dev.pid" ]]; then
     registration_marker=""
     registered_pid=""
     read -r registration_marker registered_pid _registered_start_ticks \
-      <"$repository_root/.cache/retrom/dev.pid" || true
+      <"$dev_state/dev.pid" || true
     if [[ "$registration_marker" != "v2" ]]; then
       registered_pid="$registration_marker"
     fi
@@ -93,6 +94,7 @@ start_dev() {
     DOCKER="$temporary_root/bin/docker" \
     make dev \
       RETROM_NETPLAY_ENABLED="true" \
+      RETROM_DEV_STATE_DIR="$dev_state" \
       RETROM_DATA_DIR="$temporary_root/data" \
       RETROM_HTTP_ADDR="127.0.0.1:${backend_port}" \
       RETROM_PUBLIC_ORIGIN="$browser_origin" \
@@ -163,7 +165,7 @@ orphan_supervisor_pid=""
 orphan_supervisor_start_ticks=""
 read -r registration_version orphan_supervisor_pid orphan_supervisor_start_ticks \
   orphan_backend_pid orphan_backend_start_ticks orphan_web_pid orphan_web_start_ticks \
-  <"$repository_root/.cache/retrom/dev.pid"
+  <"$dev_state/dev.pid"
 if [[ "$registration_version" != "v2" ]]; then
   echo "development registration does not preserve child identities" >&2
   exit 1
@@ -364,7 +366,7 @@ printf 'live=%s\nready=%s\nfront_end_home=%s\nserver_import_roots=%s\nhmr_status
 printf 'process_tree:\n%s\nlisteners:\n%s\n' "$process_tree" "$listeners"
 
 read -r _registration_version supervisor_pid _supervisor_start_ticks \
-  <"$repository_root/.cache/retrom/dev.pid"
+  <"$dev_state/dev.pid"
 kill -TERM "$supervisor_pid"
 set +e
 wait "$process_id"
@@ -393,10 +395,11 @@ while ss -ltn "sport = :${backend_port} or sport = :${web_port}" | tail -n +2 | 
 done
 
 foreign_start_ticks="$(read_start_ticks "$$")"
-printf '%s %s\n' "$$" "$foreign_start_ticks" >"$repository_root/.cache/retrom/dev.pid"
-RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop
+printf '%s %s\n' "$$" "$foreign_start_ticks" >"$dev_state/dev.pid"
+RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" \
+  "$repository_root/scripts/dev.sh" --stop
 kill -0 "$$"
-if [[ -e "$repository_root/.cache/retrom/dev.pid" ]]; then
+if [[ -e "$dev_state/dev.pid" ]]; then
   echo "stale or foreign dev PID registration was not cleaned" >&2
   exit 1
 fi

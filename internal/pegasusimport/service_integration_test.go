@@ -20,6 +20,7 @@ import (
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
 	"retrom/internal/tagging"
+	"retrom/internal/testsupport"
 )
 
 func TestScanMapImportCreatesReviewBeforePublishingGameAndMedia(t *testing.T) {
@@ -27,6 +28,9 @@ func TestScanMapImportCreatesReviewBeforePublishingGameAndMedia(t *testing.T) {
 	dataDir := t.TempDir()
 	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
@@ -337,6 +341,9 @@ func TestRecoverWorkClosesExhaustedLeaseAsFailed(t *testing.T) {
 	dataDir := t.TempDir()
 	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
+		t.Fatal(err)
+	}
+	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {
 		t.Fatal(err)
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })

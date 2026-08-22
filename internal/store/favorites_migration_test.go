@@ -26,6 +26,11 @@ func seedFavoriteConstraintRows(t *testing.T, database *sql.DB) {
 	if _, err := database.Exec(`
 PRAGMA defer_foreign_keys=ON;
 BEGIN;
+INSERT INTO platform_instances(
+  id,platform_id,name,slug,default_core_id,enabled,sort_order,version,created_at_ms,updated_at_ms
+) VALUES(
+  '01980000-0000-7000-8000-000000000005','gba','GBA 测试目录','gba-test-games','mgba',1,10,1,1000,1000
+);
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES
   ('` + migrationProfileA + `','Favorite A',1000),
   ('` + migrationProfileB + `','Favorite B',1000);
@@ -176,10 +181,7 @@ func TestFavoritesMigrationUpgradesVersion24AndPreservesFixture(t *testing.T) {
 	if err := legacy.Close(); err != nil {
 		t.Fatal(err)
 	}
-	upgraded, err := Open(ctx, databasePath, func() time.Time { return time.UnixMilli(3000) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	upgraded := openHistoricalSchemaForTest(ctx, t, databasePath, repositoryRoot, func() time.Time { return time.UnixMilli(3000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	var version, userCount, idempotencyCount int
 	if err := upgraded.SQL.QueryRow(`
