@@ -507,20 +507,10 @@ AND d.enabled=1
 	} else if savedDiscIndex.Valid {
 		return Created{}, ErrBlocked
 	}
+	// Retrom save states are explicit user actions. Launches never bind an
+	// implicit persistent-save revision, so a plain start always begins from
+	// the game's initial state.
 	var persistentBase sql.NullString
-	if compatibility.PersistentSaveMode != "NONE" {
-		baseErr := service.database.QueryRowContext(ctx, `
-SELECT current_revision_id
-FROM persistent_saves
-WHERE profile_id=?
-AND game_variant_revision_id=?
-AND kind=?
-	`, profileID, variantRevisionID, *compatibility.PersistentSaveKind).
-			Scan(&persistentBase)
-		if baseErr != nil && !errors.Is(baseErr, sql.ErrNoRows) {
-			return Created{}, fmt.Errorf("launch/service: %w", baseErr)
-		}
-	}
 	launchID, err := uuid.NewV7()
 	if err != nil {
 		return Created{}, fmt.Errorf("launch/service: %w", err)
@@ -1304,15 +1294,9 @@ ORDER BY CASE kind WHEN 'DISC' THEN 0 ELSE 1 END,virtual_path
 	} else if len(discEntries) != 0 || initialDiscIndex != 0 {
 		return Config{}, ErrBlocked
 	}
-	var persistentSaveURL *string
-	persistentSaveMode := compatibility.PersistentSaveMode
-	if isNetplay {
-		persistentSaveMode = "NONE"
-	}
-	if persistentSaveMode != "NONE" {
-		value := "/runtime/launches/" + launchID + "/persistent-save"
-		persistentSaveURL = &value
-	}
+	// Game progress is restored only from request.SaveStateID/stateURL. The
+	// runtime must not preload or upload an automatic exit/interval save.
+	persistentSaveMode := "NONE"
 	startupActions := make([]dependencies.StartupAction, len(compatibility.StartupActions))
 	copy(startupActions, compatibility.StartupActions)
 	mode := "single"
@@ -1354,7 +1338,7 @@ ORDER BY CASE kind WHEN 'DISC' THEN 0 ELSE 1 END,virtual_path
 		ParentURL:            parentURL,
 		StateURL:             stateURL,
 		PersistentSaveMode:   persistentSaveMode,
-		PersistentSaveURL:    persistentSaveURL,
+		PersistentSaveURL:    nil,
 		InputMode:            compatibility.InputMode,
 		StartupActions:       startupActions,
 		RequiresThreads:      requiresThreads == 1,

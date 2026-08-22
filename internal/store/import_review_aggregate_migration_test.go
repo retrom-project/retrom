@@ -84,7 +84,7 @@ WHERE job.id='01980000-0000-7000-8000-00000000f001'
 	); err != nil {
 		t.Fatal(err)
 	}
-	if schemaVersion != 38 || jobState != "COMPLETED" || pending != 0 || published != 0 || discarded != 1 ||
+	if schemaVersion != 39 || jobState != "COMPLETED" || pending != 0 || published != 0 || discarded != 1 ||
 		jobVersion != 2 || !completedAt.Valid || completedAt.Int64 != 1500 || itemState != "DISCARDED" {
 		t.Fatalf(
 			"aggregate repair = schema:%d job:%s pending:%d published:%d discarded:%d version:%d completed:%d item:%s",

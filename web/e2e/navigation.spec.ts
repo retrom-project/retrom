@@ -94,6 +94,13 @@ test("HTML CSP uses a fresh nonce and only development enables unsafe-eval", asy
 test("one click creates a capability launch and advances real emulator frames", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
   test.skip(!["chrome-1280", "chrome-4k-150"].includes(testInfo.project.name), "The real core smoke covers the minimum desktop and physical 4K at 150% scaling.");
+  const saveWrites: string[] = [];
+  const persistentRequests: string[] = [];
+  page.on("request", (request) => {
+    const pathname = new URL(request.url()).pathname;
+    if (request.method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(pathname)) saveWrites.push(pathname);
+    if (/\/runtime\/launches\/[^/]+\/persistent-save$/.test(pathname)) persistentRequests.push(pathname);
+  });
   const games = await page.request.get("/api/v1/games");
   const payload = await games.json() as { items: Array<{ gameId: string; title: string }> };
   const game = payload.items.find((item) => item.title === "Sudoku");
@@ -200,6 +207,14 @@ test("one click creates a capability launch and advances real emulator frames", 
   await expect(nativeMenu).toBeHidden();
   await canvas.click({ position: { x: 100, y: 100 } });
   await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 10_000 }).toBeGreaterThan(pausedAt + 5);
+  await page.mouse.move(20, 1);
+  await page.getByRole("button", { name: "返回并退出游戏" }).click();
+  const directExitDialog = page.getByRole("alertdialog", { name: "退出游戏？" });
+  await expect(directExitDialog).toContainText("只有点击“创建存档”才会保存当前位置");
+  await directExitDialog.getByRole("button", { name: "退出游戏" }).click();
+  await expect(page).toHaveURL(new RegExp(`/games/${game!.gameId}$`));
+  expect(saveWrites).toHaveLength(1);
+  expect(persistentRequests).toEqual([]);
 });
 
 test("library grid and management workbench match desktop breakpoints", async ({ page }, testInfo) => {

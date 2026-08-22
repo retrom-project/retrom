@@ -10,7 +10,7 @@ import (
 func TestProfilesAcceptExactCaseInsensitiveExtensions(t *testing.T) {
 	t.Parallel()
 	tests := map[string][]string{
-		"nes": {"game.nes", "game.UNIF"}, "fds": {"disk.fds"}, "snes": {"game.sfc"},
+		"nes": {"game.nes", "game.UNIF", "disk.FDS"}, "fds": {"disk.fds"}, "snes": {"game.sfc"},
 		"gbc": {"game.gb", "game.GBC"}, "gba": {"game.gba"}, "nds": {"game.nds"},
 		"atari5200": {"game.a52"}, "psx": {"game.chd"}, "lynx": {"game.lnx"},
 		"saturn": {"game.chd"}, "megadrive": {"game.md"}, "n64": {"game.z64"},
@@ -47,7 +47,7 @@ func TestSupportedExtensionsCoverEverySeededPlatformWithoutExposingWrappers(t *t
 		"virtualboy": {".vb"}, "wonderswan": {".ws", ".wsc"},
 		"mastersystem": {".sms"}, "nintendo3ds": {".3ds", ".cci"},
 		"arcade": {".zip"}, "dos": {".exe", ".com", ".bat"},
-		"nes": {".nes", ".unf", ".unif"},
+		"nes": {".nes", ".unf", ".unif", ".fds"},
 	}
 	for platformID, want := range tests {
 		got := SupportedExtensions(platformID)
@@ -66,6 +66,26 @@ func TestSupportedExtensionsCoverEverySeededPlatformWithoutExposingWrappers(t *t
 	}
 	if got := SupportedExtensions("unknown"); len(got) != 0 {
 		t.Fatalf("unknown platform extensions = %#v", got)
+	}
+}
+
+func TestSupportedExtensionsContainNoDuplicates(t *testing.T) {
+	t.Parallel()
+	platformIDs := make([]string, 0, len(registry)+len(specialPlatformExtensions))
+	for platformID := range registry {
+		platformIDs = append(platformIDs, platformID)
+	}
+	for platformID := range specialPlatformExtensions {
+		platformIDs = append(platformIDs, platformID)
+	}
+	for _, platformID := range platformIDs {
+		seen := make(map[string]struct{})
+		for _, extension := range SupportedExtensions(platformID) {
+			if _, duplicate := seen[extension]; duplicate {
+				t.Errorf("SupportedExtensions(%q) contains duplicate %q", platformID, extension)
+			}
+			seen[extension] = struct{}{}
+		}
 	}
 }
 

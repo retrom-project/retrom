@@ -5,7 +5,7 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repository_root"
 
 go test -tags=integration ./internal/launch ./internal/libraryimport ./internal/saves \
-  -run 'TestPublishedGameLaunchLocksContentAndCredential|TestArcadeImportUsesInstalledBIOSBeforeCreatingReview|TestManualStateRequiresAtomicNonEmptyStateAndScreenshot|TestPersistentSaveLocksLaunchBaseAndEnforcesSequence' \
+  -run 'TestPublishedGameLaunchLocksContentAndCredential|TestArcadeImportUsesInstalledBIOSBeforeCreatingReview|TestManualStateRequiresAtomicNonEmptyStateAndScreenshot|TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence' \
   -count=1 -timeout=120s
 
 PATH="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin:$PATH"
@@ -14,7 +14,8 @@ npm --prefix web test -- --run \
   features/player/player-shell.test.ts \
   features/player/player-chrome.test.tsx \
   features/player/launch-button.test.tsx \
-  features/player/persistent-save-restore.test.ts \
+  features/player/explicit-state-restore.test.ts \
+  features/player/transient-save-storage.test.ts \
   features/player/pause-control.test.ts
 
 make web-build

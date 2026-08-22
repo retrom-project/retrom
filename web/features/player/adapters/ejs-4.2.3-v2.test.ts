@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { adapterID, captureManualScreenshot, captureManualState, captureReviewScreenshot, mountEmulatorJS, scheduleStartupActions, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
+import { adapterID, captureManualScreenshot, captureManualState, captureReviewScreenshot, coreFramebufferNeedsCanvasOrientation, mountEmulatorJS, scheduleStartupActions, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
 
 const config: PlayerConfig = {
   mode: "single",
@@ -20,8 +20,8 @@ const config: PlayerConfig = {
   biosUrl: null,
   parentUrl: null,
   stateUrl: null,
-  persistentSaveMode: "SINGLE_FILE",
-  persistentSaveUrl: "/runtime/launches/01980000-0000-7000-8000-000000000001/persistent-save",
+  persistentSaveMode: "NONE",
+  persistentSaveUrl: null,
   inputMode: "STANDARD",
   startupActions: [],
   requiresThreads: false,
@@ -57,6 +57,27 @@ const zipWorkerSource = [
   'function getCFunc(_0x5d9040){var _0x23b817=Module["_"+_0x5d9040];if(!_0x23b817)try{_0x23b817=eval("_"+_0x5d9040)}catch(_0x2989f0){}}',
   'function cwrap(_0x557d23,_0x36bd20,_0x501373){var _0x6f14b3="generated";return eval(_0x6f14b3)}',
 ].join("");
+
+function pngWithDimensions(width: number, height: number) {
+  const bytes = new Uint8Array(24);
+  bytes.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  bytes.set([0x49, 0x48, 0x44, 0x52], 12);
+  const view = new DataView(bytes.buffer);
+  view.setUint32(16, width);
+  view.setUint32(20, height);
+  return bytes;
+}
+
+function pinnedDOSBoxWasmShape() {
+  const payload = [
+    1, 0x78,
+    0xf0, 0xec, 0x80, 0x0e,
+    0x23, 0x0c, 0x45, 0x04, 0x40, 0x20, 0x01, 0x41, 0xc0, 0x02,
+    0x6a, 0x24, 0x00, 0x20, 0x01, 0x41, 0x10, 0x6a, 0x0f,
+    0xf0, 0xec, 0x80, 0x0e,
+  ];
+  return Uint8Array.of(0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x00, payload.length, ...payload);
+}
 
 const fbneoNetplayConfig: PlayerConfig = {
   ...config,
@@ -152,7 +173,13 @@ describe("EmulatorJS adapter", () => {
     expect(window.EJS_dontExtractRom).toBe(true);
     expect(window.EJS_disableBatchBootup).toBe(true);
     const dontExtractIfCore: string[] = [];
-    window.EJS_emulator = { on: () => undefined, downloadType: { rom: { dontExtractIfCore } } };
+    await window.WebAssembly.instantiate(pinnedDOSBoxWasmShape());
+    class DOSManager { getState() { return Uint8Array.of(1); } }
+    window.EJS_emulator = {
+      on: () => undefined,
+      downloadType: { rom: { dontExtractIfCore } },
+      gameManager: new DOSManager(),
+    };
     window.EJS_ready?.();
     const start = document.createElement("button");
     start.className = "ejs_start_button";
@@ -399,54 +426,30 @@ describe("EmulatorJS adapter", () => {
     vi.useRealTimers();
   });
 
-  it("treats NONE persistent saves as an explicit capability while keeping state callbacks", () => {
+  it("exposes only explicit state callbacks and rejects automatic persistence capabilities", () => {
     const target = document.createElement("div");
     const onSaveState = vi.fn();
-    const onSaveSave = vi.fn();
-    const cleanup = mountEmulatorJS(
-      { ...config, persistentSaveMode: "NONE", persistentSaveUrl: null },
-      target,
-      { onSaveState, onSaveSave }
-    );
+    const cleanup = mountEmulatorJS(config, target, { onSaveState });
     expect(window.EJS_onSaveState).toBe(onSaveState);
     expect(window.EJS_onSaveSave).toBeUndefined();
     cleanup();
-    expect(() => mountEmulatorJS({ ...config, persistentSaveMode: "NONE" }, target)).toThrow("PLAYER_PERSISTENT_CAPABILITY_INVALID");
+    expect(() => mountEmulatorJS({
+      ...config,
+      persistentSaveMode: "SINGLE_FILE",
+      persistentSaveUrl: `/runtime/launches/${config.launchId}/persistent-save`,
+    }, target)).toThrow("PLAYER_PERSISTENT_CAPABILITY_INVALID");
   });
 
-  it("accepts generic file-tree saves and keeps PPSSPP state restore explicit", () => {
+  it("uses explicit native restore for every selected 4.2.3 state and DOSBox Pure", () => {
     const target = document.createElement("div");
-    const onSaveSave = vi.fn();
-    const pspConfig: PlayerConfig = {
-      ...config,
-      core: "ppsspp",
-      runtimeCore: "ppsspp",
-      persistentSaveMode: "FILE_TREE",
-    };
-    const cleanup = mountEmulatorJS(pspConfig, target, { onSaveSave });
-    expect(window.EJS_onSaveSave).toBeUndefined();
-    cleanup();
-    const restoreCleanup = mountEmulatorJS({ ...pspConfig, stateUrl: "/runtime/launches/id/state" }, target);
+    const restoreCleanup = mountEmulatorJS({ ...config, stateUrl: "/runtime/launches/id/state" }, target);
     expect(window.EJS_loadStateURL).toBeUndefined();
     expect(window.EJS_DEBUG_XX).toBe(true);
     restoreCleanup();
-    const genericCleanup = mountEmulatorJS({ ...pspConfig, core: "mgba", runtimeCore: "mgba" }, target);
-    expect(window.EJS_DEBUG_XX).toBe(false);
-    genericCleanup();
-  });
-
-  it("installs explicit state transport for automatic persistent states", () => {
-    const target = document.createElement("div");
-    const cleanup = mountEmulatorJS({
-      ...config,
-      core: "mame2003",
-      runtimeCore: "mame2003",
-      persistentSaveMode: "AUTO_STATE",
-      stateUrl: "/runtime/launches/id/state",
-    }, target);
+    const loaderCleanup = mountEmulatorJS({ ...dosConfig, stateUrl: "/runtime/launches/id/state" }, target);
     expect(window.EJS_loadStateURL).toBeUndefined();
     expect(window.EJS_DEBUG_XX).toBe(true);
-    cleanup();
+    loaderCleanup();
   });
 
   it("presses and releases bounded startup controls exactly once", () => {
@@ -538,6 +541,33 @@ describe("EmulatorJS adapter", () => {
     expect(capture.format).toBe("png");
     expect(capture.screenshot.type).toBe("image/png");
     expect(new Uint8Array(await capture.screenshot.arrayBuffer())).toEqual(screenshotBytes);
+  });
+
+  it("uses the displayed canvas when a vertical core framebuffer is rotated", async () => {
+    const rawCorePng = pngWithDimensions(256, 224);
+    expect(coreFramebufferNeedsCanvasOrientation(rawCorePng, 3 / 4)).toBe(true);
+    expect(coreFramebufferNeedsCanvasOrientation(rawCorePng, 4 / 3)).toBe(false);
+    const displayed = new Blob(["displayed-upright"], { type: "image/png" });
+    const takeScreenshot = vi.fn(async () => ({ blob: displayed, format: "png" }));
+    const capture = await captureManualScreenshot({
+      on: () => undefined,
+      gameManager: {
+        FS: {
+          analyzePath: () => ({ exists: true }),
+          mkdir: () => undefined,
+          writeFile: () => undefined,
+          unlink: () => undefined,
+          stat: () => ({ mode: 0o100666, size: rawCorePng.byteLength }),
+          readFile: () => rawCorePng,
+        },
+        functions: { screenshot: () => undefined },
+        getVideoDimensions: () => 3 / 4,
+      },
+      takeScreenshot,
+    });
+
+    expect(takeScreenshot).toHaveBeenCalledWith("canvas", "png", 1);
+    expect(capture.screenshot).toBe(displayed);
   });
 
   it("falls back to the normal canvas capture when a core framebuffer API is unavailable", async () => {

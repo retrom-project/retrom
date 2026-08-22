@@ -2816,10 +2816,11 @@ export interface components {
             parentUrl: string | null;
             stateUrl: string | null;
             /**
-             * @description FILE_TREE is a bounded /data/saves tree bundle; AUTO_STATE persists a bounded automatic core state for cores without a reliable native save-file flush hook.
+             * @description Active Player launches always return NONE. Other values are retained only for compatibility with historical artifact metadata and persistent-save records.
              * @enum {string}
              */
             persistentSaveMode: "SINGLE_FILE" | "DOS_OVERLAY" | "FILE_TREE" | "AUTO_STATE" | "NONE";
+            /** @description Active Player launches always return null because saves are created only by an explicit save-state action. */
             persistentSaveUrl: string | null;
             /** @enum {string} */
             inputMode: "STANDARD" | "POINTER";

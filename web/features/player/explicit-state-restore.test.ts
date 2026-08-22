@@ -1,9 +1,8 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   installEmulatorJs423StateRestoreCompatibility,
-  requiresExplicitPersistentStateRestore,
-  requiresExplicitPspStateRestore,
-} from "./psp-state-restore";
+  requiresExplicitStateRestore,
+} from "./explicit-state-restore";
 
 const originalFetch = window.fetch;
 
@@ -14,29 +13,15 @@ afterEach(() => {
   Reflect.deleteProperty(window, "EJS_Runtime");
 });
 
-describe("PSP state restore compatibility", () => {
-  it("only selects explicit restore for EmulatorJS 4.2.3 PPSSPP file-tree launches with a state", () => {
-    expect(requiresExplicitPspStateRestore({
-      emulatorjsVersion: "4.2.3", runtimeCore: "ppsspp", persistentSaveMode: "FILE_TREE", stateUrl: "/state",
-    })).toBe(true);
-    expect(requiresExplicitPspStateRestore({
-      emulatorjsVersion: "4.2.3", runtimeCore: "ppsspp", persistentSaveMode: "FILE_TREE", stateUrl: null,
-    })).toBe(false);
-    expect(requiresExplicitPspStateRestore({
-      emulatorjsVersion: "4.3.0-pre", runtimeCore: "ppsspp", persistentSaveMode: "FILE_TREE", stateUrl: "/state",
-    })).toBe(false);
-    expect(requiresExplicitPspStateRestore({
-      emulatorjsVersion: "4.2.3", runtimeCore: "ppsspp", persistentSaveMode: "SINGLE_FILE", stateUrl: "/state",
-    })).toBe(false);
-    expect(requiresExplicitPspStateRestore({
-      emulatorjsVersion: "4.2.3", runtimeCore: "azahar", persistentSaveMode: "FILE_TREE", stateUrl: "/state",
-    })).toBe(false);
-    expect(requiresExplicitPersistentStateRestore({
-      emulatorjsVersion: "4.2.3", persistentSaveMode: "AUTO_STATE",
-    })).toBe(true);
+describe("EmulatorJS 4.2.3 state restore compatibility", () => {
+  it("defers every explicitly selected 4.2.3 state regardless of core", () => {
+    expect(requiresExplicitStateRestore({ emulatorjsVersion: "4.2.3", stateUrl: "/state" })).toBe(true);
+    expect(requiresExplicitStateRestore({ emulatorjsVersion: "4.2.3", stateUrl: null })).toBe(false);
+    expect(requiresExplicitStateRestore({ emulatorjsVersion: "4.3.0-pre", runtimeCore: "azahar", stateUrl: "/state" })).toBe(false);
+    expect(requiresExplicitStateRestore({ emulatorjsVersion: "4.3.0-pre", runtimeCore: "dosbox_pure", stateUrl: "/state" })).toBe(true);
   });
 
-  it("waits for PPSSPP state readiness and native completion before resolving", async () => {
+  it("waits for core state readiness and native completion before resolving", async () => {
     vi.useFakeTimers();
     const upstreamRequests: string[] = [];
     window.fetch = vi.fn(async (input: RequestInfo | URL) => {
@@ -75,10 +60,10 @@ describe("PSP state restore compatibility", () => {
     const runtimeFactory = Reflect.get(window, "EJS_Runtime") as (config: typeof runtimeConfig) => unknown;
     runtimeFactory({});
     const manager = new GameManager() as GameManager & {
-      loadPersistentStateAndWait: (state: Uint8Array) => Promise<void>;
+      loadExplicitStateAndWait: (state: Uint8Array) => Promise<void>;
     };
 
-    const restore = manager.loadPersistentStateAndWait(Uint8Array.of(9, 8, 7));
+    const restore = manager.loadExplicitStateAndWait(Uint8Array.of(9, 8, 7));
     expect(manager.nativeLoads).toBe(0);
     await vi.advanceTimersByTimeAsync(150);
     await expect(restore).resolves.toBeUndefined();
@@ -96,7 +81,7 @@ describe("PSP state restore compatibility", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("rejects when RetroArch reports that PPSSPP refused the state", async () => {
+  it("rejects when RetroArch reports that the core refused the state", async () => {
     vi.useFakeTimers();
     const cleanup = installEmulatorJs423StateRestoreCompatibility(window, { waitForSerializable: true });
     let runtimeConfig: { print?: (...args: unknown[]) => void; printErr?: (...args: unknown[]) => void } = {};
@@ -115,10 +100,10 @@ describe("PSP state restore compatibility", () => {
     Reflect.set(window, "EJS_Runtime", (config: typeof runtimeConfig) => { runtimeConfig = config; return {}; });
     (Reflect.get(window, "EJS_Runtime") as (config: typeof runtimeConfig) => unknown)({});
     const manager = new GameManager() as GameManager & {
-      loadPersistentStateAndWait: (state: Uint8Array) => Promise<void>;
+      loadExplicitStateAndWait: (state: Uint8Array) => Promise<void>;
     };
 
-    const restore = manager.loadPersistentStateAndWait(Uint8Array.of(9));
+    const restore = manager.loadExplicitStateAndWait(Uint8Array.of(9));
     const failure = expect(restore).rejects.toThrow("PLAYER_SAVE_STATE_RESTORE_FAILED");
     await vi.advanceTimersByTimeAsync(1);
     await failure;
@@ -126,7 +111,7 @@ describe("PSP state restore compatibility", () => {
     expect(vi.getTimerCount()).toBe(0);
   });
 
-  it("loads an automatic persistent state after its serialization layout is ready", async () => {
+  it("loads a user-selected state after its serialization layout is ready", async () => {
     vi.useFakeTimers();
     const cleanup = installEmulatorJs423StateRestoreCompatibility(window, { waitForSerializable: true });
     let runtimeConfig: { print?: (...args: unknown[]) => void } = {};
@@ -145,10 +130,10 @@ describe("PSP state restore compatibility", () => {
     Reflect.set(window, "EJS_Runtime", (config: typeof runtimeConfig) => { runtimeConfig = config; return {}; });
     (Reflect.get(window, "EJS_Runtime") as (config: typeof runtimeConfig) => unknown)({});
     const manager = new GameManager() as GameManager & {
-      loadPersistentStateAndWait: (state: Uint8Array) => Promise<void>;
+      loadExplicitStateAndWait: (state: Uint8Array) => Promise<void>;
     };
 
-    const restore = manager.loadPersistentStateAndWait(Uint8Array.of(1, 2));
+    const restore = manager.loadExplicitStateAndWait(Uint8Array.of(1, 2));
     expect(readiness).toHaveBeenCalledTimes(1);
     expect(nativeLoad).not.toHaveBeenCalled();
     await vi.advanceTimersByTimeAsync(50);

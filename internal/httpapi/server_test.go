@@ -380,7 +380,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 38 ||
+		response.DatabaseSchemaVersion != 39 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -2527,7 +2527,7 @@ func TestPlatformInstanceOrderIsAtomicVersionedAndExact(t *testing.T) {
 
 	list := httptest.NewRecorder()
 	handler.ServeHTTP(list, httptest.NewRequest(http.MethodGet, "/api/v1/admin/platform-instances", nil))
-	if list.Code != http.StatusOK || strings.Count(list.Body.String(), `"gameCount":0`) != 31 {
+	if list.Code != http.StatusOK || strings.Count(list.Body.String(), `"gameCount":0`) != 29 {
 		t.Fatalf("platform game counts = %d %s", list.Code, list.Body.String())
 	}
 	sendOrder := func(body string) *httptest.ResponseRecorder {

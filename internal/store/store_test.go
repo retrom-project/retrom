@@ -67,14 +67,14 @@ func TestMigrationsCreateIntegerBusinessTimesAndSeedCatalog(t *testing.T) {
 	assertColumns(t, database.SQL, "netplay_events", "event_type", "data_json", "created_at_ms")
 	assertColumns(t, database.SQL, "launch_sessions", "netplay_session_id", "netplay_player_no", "save_access")
 	var platformCount, coreCount, directoryCount int
-	if err := database.SQL.QueryRow("SELECT (SELECT COUNT(*) FROM platforms), (SELECT COUNT(*) FROM cores), (SELECT COUNT(*) FROM platform_instances)").Scan(
+	if err := database.SQL.QueryRow("SELECT (SELECT COUNT(*) FROM platforms), (SELECT COUNT(*) FROM cores), (SELECT COUNT(*) FROM platform_instances WHERE deleted_at_ms IS NULL)").Scan(
 		&platformCount,
 		&coreCount,
 		&directoryCount,
 	); err != nil {
 		t.Fatalf("count seed: %v", err)
 	}
-	if platformCount != 25 || coreCount != 35 || directoryCount != 29 {
+	if platformCount != 25 || coreCount != 35 || directoryCount != 27 {
 		t.Fatalf("seed counts = %d/%d/%d", platformCount, coreCount, directoryCount)
 	}
 	var profileCount, userCount int
@@ -123,17 +123,15 @@ SELECT platform_id || ':' || core_id FROM platform_cores WHERE enabled=1 ORDER B
 	}
 	instances := queryStrings(t, database.SQL, `
 SELECT id || ':' || platform_id || ':' || default_core_id || ':' || slug || ':' || sort_order
-FROM platform_instances ORDER BY id
+FROM platform_instances WHERE deleted_at_ms IS NULL ORDER BY id
 `)
 	wantInstances := []string{
 		"01980000-0000-7000-8000-000000000001:nes:fceumm:nes-games:10",
-		"01980000-0000-7000-8000-000000000002:fds:fceumm:fds-games:20",
 		"01980000-0000-7000-8000-000000000003:snes:snes9x:snes-games:30",
 		"01980000-0000-7000-8000-000000000004:gbc:gambatte:gbc-games:40",
 		"01980000-0000-7000-8000-000000000005:gba:mgba:gba-games:50",
 		"01980000-0000-7000-8000-000000000006:arcade:fbneo:fbneo-games:60",
 		"01980000-0000-7000-8000-000000000007:arcade:mame2003_plus:mame2003-plus-games:70",
-		"01980000-0000-7000-8000-000000000008:arcade:mame2003:mame2003-games:80",
 		"01980000-0000-7000-8000-000000000009:dos:dosbox_pure:dos-games:90",
 		"01980000-0000-7000-8000-000000000010:nds:desmume2015:nds-games:100",
 		"01980000-0000-7000-8000-000000000011:atari2600:stella2014:atari-2600-games:110",
@@ -370,7 +368,7 @@ func TestMultiDiscMigrationUpgradesVersion23WithoutOwnershipDrift(t *testing.T) 
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 38 {
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	var actorKind, actorUserID string

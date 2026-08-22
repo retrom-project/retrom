@@ -114,6 +114,7 @@ go run scripts/acceptance/seed-public-arcade-dat.go \
   >"$temporary_root/mame2003-smoke-dat.json"
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
   scripts/acceptance/arcade-flow.sh mame2003
 go run scripts/acceptance/seed-public-arcade-dat.go \
   "$temporary_root/data/retrom.db" \
@@ -136,6 +137,7 @@ scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
   RETROM_NETPLAY_NES_FIXTURE_SHA256="$(jq -r .fixtureSha256 "$temporary_root/netplay-nes.json")" \
   RETROM_NETPLAY_FBNEO_GAME_ID="$(jq -r .gameId "$temporary_root/netplay-fbneo.json")" \
   RETROM_NETPLAY_FBNEO_FIXTURE_SHA256="$(jq -r .fixtureSha256 "$temporary_root/netplay-fbneo.json")" \
+  RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/mame2003.json")" \
   E2E_SERVER_IMPORT_SEED="1" \
   npm run test:e2e)
 

@@ -56,7 +56,7 @@ VALUES(9001,'01980000-0000-7000-8000-00000000d001','DAT_VERSION','fixture','SUCC
 	if err := upgraded.SQL.QueryRow(`SELECT
 (SELECT count(*) FROM jobs WHERE id='01980000-0000-7000-8000-00000000d001'),
 (SELECT count(*) FROM job_events WHERE id=9001),
-(SELECT max(version) FROM schema_migrations)`).Scan(&jobs, &events, &version); err != nil || jobs != 1 || events != 1 || version != 38 {
+(SELECT max(version) FROM schema_migrations)`).Scan(&jobs, &events, &version); err != nil || jobs != 1 || events != 1 || version != 39 {
 		t.Fatalf("upgrade result = jobs:%d events:%d version:%d error:%v", jobs, events, version, err)
 	}
 	if _, err := upgraded.SQL.Exec(`

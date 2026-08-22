@@ -249,6 +249,7 @@ SELECT state,error_code FROM jobs WHERE id=?
 	if configuration.Core != "mgba" || configuration.EmulatorJSVersion != "4.2.3" || configuration.GameURL == "" ||
 		configuration.CoreName != "mGBA" || configuration.GameTitle != "Launch" || configuration.PlatformName != "Game Boy Advance" ||
 		configuration.BIOSURL == nil || configuration.DefaultCoreOptions["mgba_use_bios"] != "ON" ||
+		configuration.PersistentSaveMode != "NONE" || configuration.PersistentSaveURL != nil ||
 		configuration.StartupActions == nil ||
 		len(configuration.Warnings) != 1 || configuration.Warnings[0] != "BIOS_HASH_WARNING" {
 		t.Fatalf("configuration = %#v", configuration)
@@ -263,13 +264,18 @@ SELECT state,error_code FROM jobs WHERE id=?
 		t.Fatalf("content digest = %s, error = %v", contentDigest, err)
 	}
 	var lockedVariantRevisionID, lockedArtifactID string
+	var persistentBaseRevisionID sql.NullString
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT game_variant_revision_id,
-core_artifact_id
+core_artifact_id,
+persistent_save_base_revision_id
 FROM launch_sessions
 WHERE id=?
-`, createdLaunch.LaunchID).Scan(&lockedVariantRevisionID, &lockedArtifactID); err != nil {
+`, createdLaunch.LaunchID).Scan(&lockedVariantRevisionID, &lockedArtifactID, &persistentBaseRevisionID); err != nil {
 		t.Fatal(err)
+	}
+	if persistentBaseRevisionID.Valid {
+		t.Fatalf("plain launch bound implicit persistent revision %q", persistentBaseRevisionID.String)
 	}
 	saveID, _ := uuid.NewV7()
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -398,7 +404,8 @@ WHERE id=?
 		t.Fatalf("locked save quick launch: %v", err)
 	}
 	quickConfig, err := service.Config(ctx, quickLaunch.LaunchID, quickLaunch.Capability)
-	if err != nil || quickConfig.Core != "mgba" || quickConfig.StateURL == nil {
+	if err != nil || quickConfig.Core != "mgba" || quickConfig.StateURL == nil ||
+		quickConfig.PersistentSaveMode != "NONE" || quickConfig.PersistentSaveURL != nil {
 		t.Fatalf("locked save config = %#v, error=%v", quickConfig, err)
 	}
 	gbContentID := newUUID()
@@ -649,7 +656,7 @@ SELECT id FROM import_items WHERE import_job_id=?
 	}
 
 	readyItemID := createReview("ready.gba", []byte("review-preview-ready"), "01980000-0000-7000-8000-000000000005")
-	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), "01980000-0000-7000-8000-000000000002")
+	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), "01980000-0000-7000-8000-000000000001")
 	parentMetadata, err := blobs.Put(bytes.NewReader([]byte("review-preview-parent")))
 	if err != nil {
 		t.Fatal(err)

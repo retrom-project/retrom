@@ -480,6 +480,12 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await expect(page.getByRole("heading", { name: "游戏目录", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "主要导航" }).getByText("游戏目录", { exact: true })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "启用状态" })).toBeVisible();
+  await expect(page.getByText("FDS 游戏", { exact: true })).toHaveCount(0);
+  await expect(page.getByText("MAME 2003 游戏", { exact: true })).toHaveCount(0);
+  const nesDirectory = page.locator(".platform-directory-row").filter({ hasText: "NES 游戏" });
+  await expect(nesDirectory.getByText(".fds", { exact: true })).toHaveCount(1);
+  const mamePlusDirectory = page.locator(".platform-directory-row").filter({ hasText: "MAME 2003 Plus 游戏" });
+  await expect(mamePlusDirectory.getByText(".zip", { exact: true })).toHaveCount(1);
   const directoryRowHeights = await page.locator(".platform-directory-row").evaluateAll((rows) => rows.map((row) => row.getBoundingClientRect().height));
   expect(directoryRowHeights.length).toBeGreaterThan(0);
   expect(directoryRowHeights.every((height) => height >= 87 && height <= 90)).toBe(true);
@@ -959,7 +965,7 @@ async function verifyPublicArcadeSmoke(
     const pathname = new URL(request.url()).pathname;
     const errorText = request.failure()?.errorText ?? "unknown";
     const canceledPlayerProbe = errorText === "net::ERR_ABORTED"
-      && /\/runtime\/launches\/[^/]+\/(config|persistent-save)$/.test(pathname);
+      && /\/runtime\/launches\/[^/]+\/config$/.test(pathname);
     if (pathname.startsWith("/runtime/") && !canceledPlayerProbe) {
       runtimeFailures.push(`${request.url()}: ${errorText}`);
     }
@@ -1109,8 +1115,10 @@ async function verifyPersistedArcadeSchemaV2Launch(
 
 test("ACC-RUN-006 public MAME 2003 split set locks test-only built-in DAT, Parent and BIOS, then executes frames", async ({ page }, testInfo) => {
   test.setTimeout(150_000);
+  const platformInstanceId = process.env.RETROM_MAME2003_PLATFORM_INSTANCE_ID;
+  expect(platformInstanceId, "MAME 2003 acceptance directory ID").toBeTruthy();
   const expectation: PublicArcadeSmokeExpectation = {
-    platformInstanceId: "01980000-0000-7000-8000-000000000008",
+    platformInstanceId: platformInstanceId!,
     core: "mame2003",
     coreName: "MAME 2003",
     runtimePathOverrides: {
@@ -1143,6 +1151,12 @@ test("ACC-RUN-007 public FBNeo split set locks test-only built-in DAT, Parent an
 
 test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click", async ({ page }, testInfo) => {
   test.setTimeout(120_000);
+  const persistentRequests: string[] = [];
+  page.on("request", (request) => {
+    if (/\/runtime\/launches\/[^/]+\/persistent-save$/.test(new URL(request.url()).pathname)) {
+      persistentRequests.push(request.url());
+    }
+  });
   await page.addInitScript(() => {
     Object.defineProperty(Element.prototype, "requestFullscreen", { configurable: true, value: () => Promise.resolve() });
   });
@@ -1155,22 +1169,37 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
   await expect(page.locator(".player-shell")).toBeVisible();
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
-  const launchId = page.url().split("/").at(-1)!;
-  const png = Buffer.from("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=", "base64");
-  const saveResponse = await page.request.post(`/runtime/launches/${launchId}/save-states`, {
-    headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000", "Idempotency-Key": crypto.randomUUID() },
-    multipart: {
-      metadata: { name: "metadata.json", mimeType: "application/json", buffer: Buffer.from('{"name":"Acceptance Save"}') },
-      state: { name: "state.bin", mimeType: "application/octet-stream", buffer: Buffer.from([1, 2, 3, 4]) },
-      screenshot: { name: "screenshot.png", mimeType: "image/png", buffer: png },
-    },
-  });
-  expect(saveResponse.status()).toBe(201);
-  const saved = await saveResponse.json() as { saveStateId: string };
+  await page.mouse.move(640, 1);
+  await expect(page.locator(".player-toolbar")).toHaveCSS("opacity", "1");
+  const saveResponse = page.waitForResponse((response) =>
+    /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()) && response.request().method() === "POST");
+  await page.locator(".player-save-button").click();
+  await expect(page.locator(".player-save-upload-progress")).toBeVisible({ timeout: 10_000 });
+  const savedResponse = await saveResponse;
+  expect(savedResponse.status()).toBe(201);
+  const saved = await savedResponse.json() as { saveStateId: string };
+  await expect(page.locator(".player-save-upload-progress")).toBeHidden({ timeout: 5_000 });
 
   await page.goto(detailURL);
+  const freshConfigResponse = page.waitForResponse((response) =>
+    /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
+  await page.getByRole("button", { name: "重新开始游戏" }).click();
+  const freshConfig = await (await freshConfigResponse).json() as {
+    stateUrl: string | null;
+    persistentSaveMode: string;
+    persistentSaveUrl: string | null;
+  };
+  expect(freshConfig).toMatchObject({ stateUrl: null, persistentSaveMode: "NONE", persistentSaveUrl: null });
+  await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
+
+  await page.goto(detailURL);
+  const detailResumeConfigResponse = page.waitForResponse((response) =>
+    /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   await page.getByRole("button", { name: "从存档继续" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+  const detailResumeConfig = await (await detailResumeConfigResponse).json() as { stateUrl: string | null };
+  expect(detailResumeConfig.stateUrl).toMatch(/\/runtime\/launches\/[^/]+\/state$/);
+  await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
   await page.goto("/saves");
   await expect(page.getByRole("heading", { name: "最近保存" })).toBeVisible();
   await expect(page.getByRole("region", { name: "筛选存档" })).toBeVisible();
@@ -1184,18 +1213,15 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
     /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   await page.getByRole("button", { name: "从这里继续" }).first().click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
-  await resumedConfigResponse;
+  const savesResumeConfig = await (await resumedConfigResponse).json() as { stateUrl: string | null };
+  expect(savesResumeConfig.stateUrl).toMatch(/\/runtime\/launches\/[^/]+\/state$/);
   await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
-  const latestLaunchId = page.url().split("/").at(-1)!;
-  const latestSaveResponse = await page.request.post(`/runtime/launches/${latestLaunchId}/save-states`, {
-    headers: { Origin: process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000", "Idempotency-Key": crypto.randomUUID() },
-    multipart: {
-      metadata: { name: "metadata.json", mimeType: "application/json", buffer: Buffer.from('{"name":"Latest Session Save"}') },
-      state: { name: "state.bin", mimeType: "application/octet-stream", buffer: Buffer.from([5, 6, 7, 8]) },
-      screenshot: { name: "screenshot.png", mimeType: "image/png", buffer: png },
-    },
-  });
-  expect(latestSaveResponse.status()).toBe(201);
+  await page.mouse.move(640, 1);
+  await expect(page.locator(".player-toolbar")).toHaveCSS("opacity", "1");
+  const latestSaveResponse = page.waitForResponse((response) =>
+    /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()) && response.request().method() === "POST");
+  await page.locator(".player-save-button").click();
+  expect((await latestSaveResponse).status()).toBe(201);
   await page.goto("/recent");
   await expect(page.getByRole("region", { name: "游玩统计" })).toBeVisible();
   await expect(page.getByRole("region", { name: "筛选最近游玩" })).toBeVisible();
@@ -1206,8 +1232,13 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   expect(await page.locator(".recent-filter-panel").evaluate((element) => element.getBoundingClientRect().height)).toBe(filterHeight);
   await noPageOverflow(page);
   await page.goto("/");
+  const homeResumeConfigResponse = page.waitForResponse((response) =>
+    /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
   await page.getByRole("button", { name: "继续游玩" }).click();
   await expect(page).toHaveURL(/\/play\/[0-9a-f-]+$/);
+  const homeResumeConfig = await (await homeResumeConfigResponse).json() as { stateUrl: string | null };
+  expect(homeResumeConfig.stateUrl).toMatch(/\/runtime\/launches\/[^/]+\/state$/);
+  await expect(page.locator(".player-loading")).toBeHidden({ timeout: 60_000 });
 
   const authContext = await page.request.get("/api/v1/auth/context");
   const csrfToken = (await authContext.json() as { csrfToken: string }).csrfToken;
@@ -1217,6 +1248,7 @@ test("ACC-SAVE-002 detail, saves, and home resume the locked save in one click",
   });
   expect(mismatch.status()).toBe(422);
   expect((await mismatch.json() as { error: { code: string } }).error.code).toBe("LAUNCH_BLOCKED");
+  expect(persistentRequests).toEqual([]);
   await page.screenshot({ path: evidencePath(testInfo, "three-save-resume-entry-points.png"), fullPage: true });
 });
 

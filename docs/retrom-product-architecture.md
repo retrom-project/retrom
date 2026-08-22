@@ -236,12 +236,12 @@ erDiagram
 
 | 基础平台（稳定 code） | 启用核心 | 初始游戏目录（slug）→ 默认核心 | 备注 |
 | --- | --- | --- | --- |
-| NES / Famicom (`nes`) | `fceumm` | NES 游戏（`nes-games`）→ `fceumm` | 普通卡带不要求 BIOS |
-| Famicom Disk System (`fds`) | `fceumm` | FDS 游戏（`fds-games`）→ `fceumm` | 需要 `disksys.rom` |
+| NES / Famicom (`nes`) | `fceumm`、`nestopia` | NES 游戏（`nes-games`）→ `fceumm` | 统一接收 `.nes/.unf/.unif/.fds`；只有 FDS 内容需要 `disksys.rom` |
+| Famicom Disk System (`fds`) | `fceumm`、`nestopia` | 无独立初始目录 | 基础平台 code 仅为历史兼容保留；FDS 内容统一导入 NES 游戏目录 |
 | SNES (`snes`) | `snes9x` | SNES 游戏（`snes-games`）→ `snes9x` | 标准游戏通常不要求 BIOS |
 | Game Boy / Color (`gbc`) | `gambatte`、`mgba` | Game Boy 游戏（`gbc-games`）→ `gambatte` | 两个 core 均可供本次启动切换 |
 | Game Boy Advance (`gba`) | `mgba` | GBA 游戏（`gba-games`）→ `mgba` | BIOS 可选 |
-| Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003`、`fbalpha2012_cps1`、`fbalpha2012_cps2` | FBNeo 游戏（`fbneo-games`）→ `fbneo`；MAME 2003 Plus 游戏（`mame2003-plus-games`）→ `mame2003_plus`；MAME 2003 游戏（`mame2003-games`）→ `mame2003`；FB Alpha 2012 CPS-1/2 游戏（`fbalpha2012-cps1-games` / `fbalpha2012-cps2-games`）→ 对应核心 | 每个核心使用独立 DAT |
+| Arcade (`arcade`) | `fbneo`、`mame2003_plus`、`mame2003`、`fbalpha2012_cps1`、`fbalpha2012_cps2` | FBNeo 游戏（`fbneo-games`）→ `fbneo`；MAME 2003 Plus 游戏（`mame2003-plus-games`）→ `mame2003_plus`；FB Alpha 2012 CPS-1/2 游戏（`fbalpha2012-cps1-games` / `fbalpha2012-cps2-games`）→ 对应核心 | MAME 2003 不另建初始目录；Arcade 扩展名合并去重后仍为 `.zip`，每个核心继续使用独立 DAT |
 | MS-DOS (`dos`) | `dosbox_pure` | DOS 经典游戏（`dos-games`）→ `dosbox_pure` | 启动前可选程序；需要线程模式 |
 | Nintendo DS (`nds`) | `melonds`、`desmume2015`、`desmume` | Nintendo DS 游戏（`nds-games`）→ `desmume2015` | 指针输入；MelonDS 需要三个外部 BIOS 文件 |
 | Atari 2600 (`atari2600`) | `stella2014` | Atari 2600 游戏（`atari-2600-games`）→ `stella2014` | `.a26`；允许 ZIP/7z 单成员来源 |
@@ -366,7 +366,7 @@ flowchart LR
 ### Phase 0：兼容性闸门
 
 - 锁定基础 EmulatorJS 4.2.3、定向 4.3.0-pre 与三十五个实际 enabled core artifact（包括版本化覆盖），每个核心启动至少一个用户合法提供的测试游戏；固定兼容基线、线程产物、辅助资产与格式矩阵见[核心运行时验证基线](./core-runtime-validation.md)。
-- 验证直接启动、默认全屏、状态存档/截图、持久存档、有效时长心跳。
+- 验证直接启动、默认全屏、仅用户显式状态存档/截图、指定存档恢复与有效时长心跳。
 - 验证 FBNeo/MAME/FBA2012 Split 与 Full Non-Merged 的 parent/BIOS 加载，及五个独立 DAT。
 - 已确认 Hasheous 的 `POST /api/v1/Lookup/ByHash` 无凭证契约；自动测试使用 fake，上线前只做一次有界 smoke，不能依赖实时命中内容或把限流阈值写死。
 - 核心运行兼容只能由经过 Retrom 导入、Launch、内容端点和 Player 的产品 E2E 证明；历史独立 EmulatorJS 页面结果不是产品启动编排的证据。当前已覆盖核心与缺口以核心运行时专题为准。DOSBox Pure 的 4.3 whole-archive、虚拟 ZIP 引导、程序菜单、原 bundle 不复制及不安全路径阻断执行 `ACC-RUN-005`。
@@ -394,7 +394,7 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 ### Phase 4：存档与稳定性
 
-- 状态存档、截图、持久存档和 PlaySession。
+- 显式状态存档、截图、普通启动残留隔离和 PlaySession。
 - Blob GC、备份恢复、诊断导出和 Chrome E2E。
 - `320px` 起的手机、平板、1280×800 最小桌面、2560×1440 与 4K 视觉回归；移动 Player 另覆盖竖屏阻断、横屏恢复与 P1/P2 暂停职责。
 
