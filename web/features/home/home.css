@@ -26,10 +26,10 @@
 .home-featured-media { position: relative; height: 270px; overflow: hidden; border-radius: 13px; color: white; background: #171d30; }
 .home-featured-backdrop { object-fit: cover; filter: blur(24px) saturate(.86); opacity: .48; transform: scale(1.16); }
 .home-featured-media::after { content: ""; position: absolute; z-index: 1; inset: 0; background: linear-gradient(90deg, rgb(13 18 31 / 84%), rgb(13 18 31 / 42%) 52%, rgb(13 18 31 / 76%)), linear-gradient(180deg, transparent 58%, rgb(7 10 18 / 35%)); }
-.home-featured-cover { position: absolute; z-index: 2; left: 28px; top: 23px; width: 168px; height: 224px; overflow: hidden; display: grid; place-items: center; border: 1px solid rgb(255 255 255 / 20%); border-radius: 11px; color: rgb(255 255 255 / 52%); background: #0f1422; box-shadow: 0 16px 42px rgb(0 0 0 / 38%); font: 850 12px/1 ui-monospace, monospace; letter-spacing: .16em; }
-.home-featured-cover img { object-fit: contain; }
+.home-featured-cover { position: absolute; z-index: 2; left: 28px; top: 23px; width: 160px; height: 224px; overflow: hidden; display: grid; place-items: center; border: 1px solid rgb(255 255 255 / 20%); border-radius: 11px; color: rgb(255 255 255 / 52%); background: #0f1422; box-shadow: 0 16px 42px rgb(0 0 0 / 38%); font: 850 12px/1 ui-monospace, monospace; letter-spacing: .16em; }
+.home-featured-cover img { object-fit: cover; object-position: 50% 50%; }
 .home-cover-placeholder { background: radial-gradient(circle at 65% 30%, rgb(78 212 221 / 46%), transparent 22%), linear-gradient(145deg, #303958, #171d30 65%); }
-.home-featured-copy { position: absolute; z-index: 3; left: 224px; right: 25px; top: 50%; min-width: 0; transform: translateY(-50%); }
+.home-featured-copy { position: absolute; z-index: 3; left: 216px; right: 25px; top: 50%; min-width: 0; transform: translateY(-50%); }
 .home-featured-media.has-session-save .home-featured-copy { right: calc(clamp(210px, 28%, 310px) + 48px); }
 .home-featured-save-preview { position: absolute; z-index: 3; right: 24px; top: 50%; width: clamp(210px, 28%, 310px); aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid rgb(255 255 255 / 24%); border-radius: 10px; background: #05060a; box-shadow: 0 15px 38px rgb(0 0 0 / 34%); transform: translateY(-50%); }
 .home-featured-save-preview img { object-fit: contain; }
@@ -81,11 +81,11 @@
 .home-horizontal-rail { overflow-x: auto; overflow-y: hidden; display: grid; grid-auto-flow: column; overscroll-behavior-inline: contain; scrollbar-color: #b7aecf transparent; scrollbar-width: thin; }
 .home-horizontal-rail:focus-visible { outline-offset: 4px; }
 .home-recent-rail { grid-auto-columns: minmax(330px, 480px); gap: 13px; padding-bottom: 8px; }
-.home-recent-card { min-width: 0; min-height: 144px; overflow: hidden; display: grid; grid-template-columns: 144px minmax(0, 1fr); border: 1px solid var(--line); border-radius: 13px; background: white; }
+.home-recent-card { min-width: 0; height: 144px; overflow: hidden; display: flex; border: 1px solid var(--line); border-radius: 13px; background: white; }
 .home-recent-card:hover { border-color: #c9c1f2; box-shadow: 0 8px 22px rgb(24 32 51 / 7%); }
-.home-recent-cover { position: relative; overflow: hidden; display: grid; place-items: center; color: rgb(255 255 255 / 42%); background: radial-gradient(circle at 65% 30%, rgb(78 212 221 / 46%), transparent 22%), linear-gradient(145deg, #303958, #171d30 65%); font: 800 10px/1 ui-monospace, monospace; letter-spacing: .12em; }
-.home-recent-cover img { object-fit: contain; background: #171d30; }
-.home-recent-copy { min-width: 0; padding: 13px; display: flex; flex-direction: column; }
+.home-recent-cover { position: relative; height: 100%; aspect-ratio: 5 / 7; overflow: hidden; display: grid; flex: 0 0 auto; place-items: center; color: rgb(255 255 255 / 42%); background: radial-gradient(circle at 65% 30%, rgb(78 212 221 / 46%), transparent 22%), linear-gradient(145deg, #303958, #171d30 65%); font: 800 10px/1 ui-monospace, monospace; letter-spacing: .12em; }
+.home-recent-cover img { object-fit: cover; object-position: 50% 50%; }
+.home-recent-copy { min-width: 0; padding: 13px; display: flex; flex: 1 1 auto; flex-direction: column; }
 .home-recent-copy > strong { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; }
 .home-recent-copy > small { margin-top: 5px; overflow: hidden; color: var(--muted); font-size: 10px; line-height: 1.55; text-overflow: ellipsis; }
 .home-recent-copy > span { margin-top: auto; padding-top: 9px; display: flex; align-items: baseline; justify-content: space-between; gap: 8px; border-top: 1px solid #efede8; }

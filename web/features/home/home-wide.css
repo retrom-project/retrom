@@ -14,7 +14,7 @@
   .home-recent-section, .home-latest-section { min-height: 0; display: grid; grid-template-rows: 51px minmax(0, 1fr); }
   .home-recent-section .home-section-head, .home-latest-section .home-section-head { min-height: 51px; margin: 0; }
   .home-recent-rail { min-height: 0; height: 100%; }
-  .home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(144px, 34%, 240px) minmax(0, 1fr); }
+  .home-recent-card { height: 100%; min-height: 0; }
   .home-platform-section { min-height: 0; display: grid; grid-template-rows: 35px minmax(0, 1fr); }
   .home-platform-section .home-section-head { min-height: 35px; margin: 0; }
   .home-platform-rail { min-height: 0; height: 100%; }
@@ -53,7 +53,7 @@
   .home-section-head { min-height: 30px; margin-bottom: 4px; align-items: center; }
   .home-section-head h2 { font-size: 16px; }
   .home-recent-rail { padding-bottom: 4px; }
-  .home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(118px, 34%, 180px) minmax(0, 1fr); }
+  .home-recent-card { height: 100%; min-height: 0; }
   .home-recent-copy { padding: 10px; }
   .home-recent-copy > strong { font-size: 13px; }
   .home-recent-copy > small { margin-top: 3px; font-size: 9px; line-height: 1.45; }
@@ -108,7 +108,7 @@
   .home-section-head h2 { font-size: 22px; }
   .home-section-head > a { font-size: 15px; }
   .home-recent-rail { min-height: 0; height: 100%; grid-auto-columns: minmax(480px, 560px); gap: 16px; padding-bottom: 10px; }
-  .home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(240px, 34%, 340px) minmax(0, 1fr); }
+  .home-recent-card { height: 100%; min-height: 0; }
   .home-recent-copy { padding: 20px; }
   .home-recent-copy > strong { font-size: 17px; }
   .home-recent-copy > small { margin-top: 8px; font-size: 12px; line-height: 1.6; }
@@ -130,7 +130,7 @@
 }
 
 /* Scale the featured game's contents continuously with its own canvas. The
-   height cap keeps the 3:4 cover inside the first layer; cqw avoids a visible
+   height cap keeps the 5:7 cover inside the first layer; cqw avoids a visible
    size jump when a wide browser crosses a viewport breakpoint. */
 @media (min-width: 1800px) and (min-height: 950px) {
   .home-featured-media { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; grid-template-rows: minmax(0, 1fr); column-gap: clamp(24px, .8vw, 32px); align-items: stretch; }
@@ -147,7 +147,7 @@
     height: min(calc(100% - clamp(16px, 1.67vh, 36px) - clamp(16px, 1.67vh, 36px)), clamp(224px, 36cqw, 516px));
     margin-left: clamp(20px, 1.85cqw, 42px);
     margin-bottom: clamp(16px, 1.67vh, 36px);
-    aspect-ratio: 3 / 4;
+    aspect-ratio: 5 / 7;
     transform: none;
   }
   .home-featured-copy {

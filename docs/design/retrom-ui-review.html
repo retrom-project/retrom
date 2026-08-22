@@ -329,8 +329,8 @@
     #retrom-ui-review .rt-home-featured-body { padding: 16px; }
     #retrom-ui-review .rt-home-featured-media { position: relative; height: 270px; overflow: hidden; container-type: inline-size; border-radius: 13px; color: white; background: radial-gradient(circle at 70% 20%, rgb(78 212 221 / 24%), transparent 26%), linear-gradient(135deg, #202942, #111625 72%); }
     #retrom-ui-review .rt-home-featured-media::after { content: &quot;&quot;; position: absolute; inset: 0; background: linear-gradient(90deg, rgb(13 18 31 / 55%), transparent 52%, rgb(13 18 31 / 38%)); }
-    #retrom-ui-review .rt-home-featured-cover { position: absolute; z-index: 2; left: 28px; top: 23px; width: 168px; height: 224px; border: 1px solid rgb(255 255 255 / 20%); border-radius: 11px; box-shadow: 0 16px 42px rgb(0 0 0 / 38%); }
-    #retrom-ui-review .rt-home-featured-copy { position: absolute; z-index: 3; left: 224px; right: 25px; top: 50%; transform: translateY(-50%); }
+    #retrom-ui-review .rt-home-featured-cover { position: absolute; z-index: 2; left: 28px; top: 23px; width: 160px; height: 224px; border: 1px solid rgb(255 255 255 / 20%); border-radius: 11px; box-shadow: 0 16px 42px rgb(0 0 0 / 38%); }
+    #retrom-ui-review .rt-home-featured-copy { position: absolute; z-index: 3; left: 216px; right: 25px; top: 50%; transform: translateY(-50%); }
     #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { right: 350px; }
     #retrom-ui-review .rt-home-featured-save-preview { position: absolute; z-index: 3; right: 24px; top: 50%; width: 300px; aspect-ratio: 16 / 9; overflow: hidden; border: 1px solid rgb(255 255 255 / 24%); border-radius: 10px; background: #05060a; box-shadow: 0 15px 38px rgb(0 0 0 / 34%); transform: translateY(-50%); }
     #retrom-ui-review .rt-home-featured-save-preview span { position: absolute; right: 8px; bottom: 8px; padding: 4px 8px; border-radius: 999px; color: white; background: rgb(12 17 28 / 78%); font-size: 9px; font-weight: 800; }
@@ -367,9 +367,9 @@
     #retrom-ui-review .rt-home-layer-head p { margin: 3px 0 0; color: var(--retrom-muted); font-size: 10px; }
     #retrom-ui-review .rt-home-rail { overflow-x: auto; display: grid; grid-auto-flow: column; gap: 12px; padding-bottom: 7px; }
     #retrom-ui-review .rt-home-recent-rail { grid-auto-columns: minmax(330px, 480px); }
-    #retrom-ui-review .rt-home-recent-card { min-height: 144px; overflow: hidden; display: grid; grid-template-columns: 144px minmax(0,1fr); border: 1px solid var(--retrom-line); border-radius: 13px; color: var(--retrom-text); background: var(--retrom-panel); text-align: left; }
-    #retrom-ui-review .rt-home-recent-card .rt-cover { width: 144px; height: 100%; border-radius: 0; }
-    #retrom-ui-review .rt-home-recent-copy { min-width: 0; padding: 13px; display: flex; flex-direction: column; }
+    #retrom-ui-review .rt-home-recent-card { height: 144px; overflow: hidden; display: flex; border: 1px solid var(--retrom-line); border-radius: 13px; color: var(--retrom-text); background: var(--retrom-panel); text-align: left; }
+    #retrom-ui-review .rt-home-recent-card .rt-cover { height: 100%; aspect-ratio: 5 / 7; flex: 0 0 auto; border-radius: 0; }
+    #retrom-ui-review .rt-home-recent-copy { min-width: 0; padding: 13px; display: flex; flex: 1 1 auto; flex-direction: column; }
     #retrom-ui-review .rt-home-recent-copy strong, #retrom-ui-review .rt-home-recent-copy small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
     #retrom-ui-review .rt-home-recent-copy &gt; small { margin-top: 5px; color: var(--retrom-muted); font-size: 9px; line-height: 1.6; }
     #retrom-ui-review .rt-home-recent-copy span { margin-top: auto; padding-top: 9px; display: flex; justify-content: space-between; border-top: 1px solid var(--retrom-line); font-size: 10px; }
@@ -1655,8 +1655,8 @@
       #retrom-ui-review .rt-home-panel-head { min-height: 52px; padding: 9px 15px; }
       #retrom-ui-review .rt-home-featured-body { height: calc(100% - 52px); padding: 9px; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       #retrom-ui-review .rt-home-featured-media { height: auto; min-height: 0; }
-      #retrom-ui-review .rt-home-featured-cover { left: 20px; top: 12px; width: 144px; height: 192px; }
-      #retrom-ui-review .rt-home-featured-copy { left: 184px; right: 20px; }
+      #retrom-ui-review .rt-home-featured-cover { left: 20px; top: 12px; width: 137.143px; height: 192px; }
+      #retrom-ui-review .rt-home-featured-copy { left: 177.143px; right: 20px; }
       #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { right: 234px; }
       #retrom-ui-review .rt-home-featured-save-preview { right: 16px; width: 200px; }
       #retrom-ui-review .rt-home-featured-copy .rt-overline { margin-bottom: 5px; font-size: 11px; }
@@ -1681,8 +1681,8 @@
       #retrom-ui-review .rt-home-layer-head h2 { font-size: 16px; }
       #retrom-ui-review .rt-home-rail { padding-bottom: 4px; }
       #retrom-ui-review .rt-home-rail { min-height: 0; height: 100%; }
-      #retrom-ui-review .rt-home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(118px, 34%, 180px) minmax(0,1fr); }
-      #retrom-ui-review .rt-home-recent-card .rt-cover { width: 100%; }
+      #retrom-ui-review .rt-home-recent-card { height: 100%; min-height: 0; }
+      #retrom-ui-review .rt-home-recent-card .rt-cover { height: 100%; }
       #retrom-ui-review .rt-home-recent-copy { padding: 10px; }
       #retrom-ui-review .rt-home-recent-copy &gt; small { margin-top: 3px; line-height: 1.45; }
       #retrom-ui-review .rt-home-recent-copy span { padding-top: 7px; }
@@ -1705,7 +1705,7 @@
       #retrom-ui-review .rt-home-panel-head h2 { font-size: 22px; }
       #retrom-ui-review .rt-home-featured-body { height: calc(100% - 86px); padding: 20px; display: grid; grid-template-rows: minmax(0, 1fr) auto; }
       #retrom-ui-review .rt-home-featured-media { height: auto; min-height: 0; }
-      #retrom-ui-review .rt-home-featured-cover { left: 42px; top: 50%; width: auto; height: min(calc(100% - 48px), 516px); aspect-ratio: 3 / 4; transform: translateY(-50%); }
+      #retrom-ui-review .rt-home-featured-cover { left: 42px; top: 50%; width: auto; height: min(calc(100% - 48px), 516px); aspect-ratio: 5 / 7; transform: translateY(-50%); }
       #retrom-ui-review .rt-home-featured-copy { left: 480px; right: 38px; top: 0; bottom: 0; padding-block: 36px; display: flex; flex-direction: column; transform: none; }
       #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { right: 710px; }
       #retrom-ui-review .rt-home-featured-details { margin-block: auto; }
@@ -1736,8 +1736,8 @@
       #retrom-ui-review .rt-home-layer-head h2 { font-size: 22px; }
       #retrom-ui-review .rt-home-rail { min-height: 0; height: 100%; padding-bottom: 10px; }
       #retrom-ui-review .rt-home-recent-rail { grid-auto-columns: minmax(480px, 560px); gap: 16px; }
-      #retrom-ui-review .rt-home-recent-card { height: 100%; min-height: 0; grid-template-columns: clamp(240px, 34%, 340px) minmax(0,1fr); }
-      #retrom-ui-review .rt-home-recent-card .rt-cover { width: 100%; }
+      #retrom-ui-review .rt-home-recent-card { height: 100%; min-height: 0; }
+      #retrom-ui-review .rt-home-recent-card .rt-cover { height: 100%; }
       #retrom-ui-review .rt-home-recent-copy { padding: 20px; }
       #retrom-ui-review .rt-home-recent-copy strong { font-size: 17px; }
       #retrom-ui-review .rt-home-recent-copy &gt; small { margin-top: 8px; font-size: 12px; line-height: 1.6; }
@@ -1770,7 +1770,7 @@
         height: min(calc(100% - clamp(16px, 1.67vh, 36px) - clamp(16px, 1.67vh, 36px)), clamp(224px, 36cqw, 516px));
         margin-left: clamp(20px, 1.85cqw, 42px);
         margin-bottom: clamp(16px, 1.67vh, 36px);
-        aspect-ratio: 3 / 4;
+        aspect-ratio: 5 / 7;
         transform: none;
       }
       #retrom-ui-review .rt-home-featured-copy {
@@ -2122,15 +2122,17 @@
       #retrom-ui-review .rt-detail-lower,
       #retrom-ui-review .rt-review-detail-top,
       #retrom-ui-review .rt-review-detail-columns { grid-template-columns: minmax(0, 1fr); }
-      #retrom-ui-review .rt-home-featured-media { grid-template-columns: 78px minmax(0, 1fr); }
-      #retrom-ui-review .rt-home-featured-media { height: auto; min-height: 0; padding: 16px; display: grid; grid-template-columns: 92px minmax(0, 1fr); gap: 14px; align-items: center; }
-      #retrom-ui-review .rt-home-featured-cover { position: relative; left: auto; top: auto; width: 92px; height: 124px; }
+      #retrom-ui-review .rt-home-featured-media { grid-template-columns: 88.571px minmax(0, 1fr); }
+      #retrom-ui-review .rt-home-featured-media { height: auto; min-height: 0; padding: 16px; display: grid; grid-template-columns: 88.571px minmax(0, 1fr); gap: 14px; align-items: center; }
+      #retrom-ui-review .rt-home-featured-cover { position: relative; left: auto; top: auto; width: 88.571px; height: 124px; }
       #retrom-ui-review .rt-home-featured-copy,
       #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { position: relative; left: auto; right: auto; top: auto; transform: none; }
       #retrom-ui-review .rt-home-featured-copy h2 { font-size: 20px; }
       #retrom-ui-review .rt-home-facts { margin-top: 10px; display: grid; gap: 3px; }
       #retrom-ui-review .rt-home-featured-actions { margin-top: 12px; display: grid; }
       #retrom-ui-review .rt-home-featured-save-preview { display: none; }
+      #retrom-ui-review .rt-home-recent-card { height: 132px; min-height: 0; }
+      #retrom-ui-review .rt-home-recent-card .rt-cover { height: 100%; }
       #retrom-ui-review .rt-home-rail { grid-auto-columns: minmax(150px, 72%); overflow-x: auto; scroll-snap-type: x proximity; }
       #retrom-ui-review .rt-game-grid,
       #retrom-ui-review .rt-library-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
