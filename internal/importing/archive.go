@@ -69,7 +69,7 @@ type ArchiveEntry struct {
 }
 
 func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveEntry, error) {
-	file, err := os.Open(path) //nolint:gosec // Caller supplies a CAS path, and this scanner never writes beside it.
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open zip: %w", err)
 	}

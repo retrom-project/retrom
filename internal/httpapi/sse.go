@@ -328,7 +328,7 @@ func (server *Server) writeSSE(writer http.ResponseWriter, payload string) error
 	if deadlineErr != nil && !errors.Is(deadlineErr, errors.ErrUnsupported) {
 		return fmt.Errorf("set SSE write deadline: %w", deadlineErr)
 	}
-	if _, err := writer.Write([]byte(payload)); err != nil { //nolint:gosec // Server-marshaled SSE framing, not HTML.
+	if _, err := writer.Write([]byte(payload)); err != nil {
 		return fmt.Errorf("write SSE: %w", err)
 	}
 	if err := controller.Flush(); err != nil {

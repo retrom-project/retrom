@@ -103,7 +103,6 @@ func (service *Service) List(
 	return result, nil
 }
 
-//nolint:gosec // SQL fragments come only from closed predicates; values remain bound parameters.
 func (service *Service) Items(
 	ctx context.Context,
 	importID, query, outcome, method string,

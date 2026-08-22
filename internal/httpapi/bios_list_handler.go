@@ -21,7 +21,6 @@ type biosQuery struct {
 	limit                int
 }
 
-//nolint:gosec // SQL fragments come only from closed filters; values remain placeholders.
 func (server *Server) bios(writer http.ResponseWriter, request *http.Request) {
 	values := request.URL.Query()
 	parsed, message := parseBIOSQuery(values)

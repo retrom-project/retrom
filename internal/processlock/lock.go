@@ -25,7 +25,7 @@ func Acquire(dataDir string) (*Lock, error) {
 		return nil, fmt.Errorf("create data root for lock: %w", err)
 	}
 	path := filepath.Join(dataDir, "retrom.lock")
-	file, err := os.OpenFile( //nolint:gosec // path is the fixed lock filename beneath checked RETROM_DATA_DIR.
+	file, err := os.OpenFile(
 		path,
 		os.O_CREATE|os.O_RDWR,
 		0o600,

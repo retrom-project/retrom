@@ -120,7 +120,7 @@
 | 类别 | Linters |
 | --- | --- |
 | 正确性与资源释放 | `bodyclose`、`contextcheck`、`copyloopvar`、`errcheck`、`errorlint`、`gocritic`、`govet`、`ineffassign`、`nilerr`、`nilnil`、`noctx`、`rowserrcheck`、`sqlclosecheck`、`staticcheck`、`unparam`、`unused` |
-| 安全 | `gosec`、`asasalint`、`canonicalheader`、`fatcontext` |
+| 安全与 API 约束 | `asasalint`、`canonicalheader`、`fatcontext` |
 | 错误契约 | `err113`、`wrapcheck` |
 | 可维护性 | `dogsled`、`dupl`、`exhaustive`、`funlen`、`gocognit`、`gocyclo`、`interfacebloat`、`lll`、`makezero`、`misspell`、`nakedret`、`nestif`、`nonamedreturns`、`prealloc`、`revive`、`unconvert`、`whitespace` |
 | 工程纪律 | `depguard`、`forbidigo`、`gochecknoinits`、`nolintlint`、`predeclared` |
@@ -141,7 +141,7 @@
 
 ### 4.2 必须显式配置的规则
 
-- `nolintlint` 要求具体 linter 名、非空原因、禁止未使用的 suppress。结构性规则不可抑制；`gosec`、`errcheck`、`staticcheck`、`wrapcheck` 等安全/正确性规则只有确属工具误报或外部协议强制要求时，才允许精确到单一表达式和单一 linter 的 suppression。
+- `nolintlint` 要求具体 linter 名、非空原因、禁止未使用的 suppress。结构性规则不可抑制；`errcheck`、`staticcheck`、`wrapcheck` 等正确性规则只有确属工具误报或外部协议强制要求时，才允许精确到单一表达式和单一 linter 的 suppression。项目不启用 `gosec`，也不得保留对应 suppression 或中央例外。
 - 每个获准的非结构性 suppression 必须登记在 `quality/go-suppressions.json`，字段固定为 `path/line/symbol/linter/reason/invariant/reviewAfter`；源码与清单双向一致，未知字段、重复键、路径漂移、过期或未使用条目都使结构门禁失败。同一模式重复出现时优先收口到可测试 helper，不复制 suppression。
 - `forbidigo` 禁止 `fmt.Print*` 及内建 `print/println`；运行时代码使用结构化日志，测试使用测试框架输出。
 - `errcheck` 检查类型断言；不得通过全局排除忽略文件关闭、事务 rollback、响应体关闭或序列化错误。
@@ -165,7 +165,7 @@
 
 `*_test.go` 只集中豁免 `dupl`、`err113`、`lll` 与 `wrapcheck`，用于清晰的表驱动夹具和失败消息；不得豁免 `funlen`、`gocognit`、`gocyclo`、`nestif` 或 `noctx`。测试函数同样遵守 150 行、100 statements、圈复杂度 15、认知复杂度 25 和嵌套复杂度 4，较大场景进入稳定行为命名的 `t.Run`、fixture builder 和断言 helper。
 
-测试中仍必须保留 `errcheck`、`govet`、`staticcheck`、`gosec`、`rowserrcheck` 和 `sqlclosecheck`。测试也是受治理源码，不能用整类正确性检查豁免隐藏资源泄漏、无效断言或不稳定边界，也不能通过删除、skip、合并 Case 或弱化断言缩短文件。
+测试中仍必须保留 `errcheck`、`govet`、`staticcheck`、`rowserrcheck` 和 `sqlclosecheck`。测试也是受治理源码，不能用整类正确性检查豁免隐藏资源泄漏、无效断言或不稳定边界，也不能通过删除、skip、合并 Case 或弱化断言缩短文件。
 
 ## 5. Next.js Lint、类型与单测基线
 

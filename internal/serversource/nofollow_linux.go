@@ -78,7 +78,7 @@ func checkedDescriptor(file *os.File) (int, error) {
 }
 
 func fileFromDescriptor(descriptor int, name string) *os.File {
-	return os.NewFile(uintptr(descriptor), name) //nolint:gosec // Validated Unix file descriptor.
+	return os.NewFile(uintptr(descriptor), name)
 }
 
 func systemFacts(value any) any {

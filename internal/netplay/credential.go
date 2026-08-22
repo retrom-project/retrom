@@ -31,7 +31,7 @@ func LoadOrCreateCredentials(dataDir string) (*Credentials, error) {
 	if err := os.MkdirAll(directory, 0o700); err != nil {
 		return nil, fmt.Errorf("create netplay key directory: %w", err)
 	}
-	if err := os.Chmod(directory, 0o700); err != nil { //nolint:gosec // Owner-only secret directory.
+	if err := os.Chmod(directory, 0o700); err != nil {
 		return nil, fmt.Errorf("secure netplay key directory: %w", err)
 	}
 	target := filepath.Join(directory, "netplay-capability.key")
@@ -89,7 +89,7 @@ func readCredentialKey(path string) ([32]byte, error) {
 	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 || info.Size() != 32 {
 		return key, ErrCredentialKeyInvalid
 	}
-	file, err := os.OpenFile( //nolint:gosec // Fixed secret slot with O_NOFOLLOW.
+	file, err := os.OpenFile(
 		path,
 		os.O_RDONLY|credentialNoFollow(),
 		0,
@@ -109,7 +109,7 @@ func readCredentialKey(path string) ([32]byte, error) {
 }
 
 func syncCredentialDirectory(path string) error {
-	directory, err := os.Open(path) //nolint:gosec // Fixed secrets directory below the configured data root.
+	directory, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open netplay key directory for sync: %w", err)
 	}

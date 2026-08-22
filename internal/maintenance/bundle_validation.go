@@ -43,7 +43,7 @@ func validateBundle(root string) (Manifest, error) {
 }
 
 func loadBundleManifest(root string) (Manifest, error) {
-	contents, err := os.ReadFile( //nolint:gosec // Fixed slot in an exclusive bundle root.
+	contents, err := os.ReadFile(
 		filepath.Join(root, "backup.json"),
 	)
 	if err != nil || len(contents) > 16<<20 {
@@ -284,7 +284,7 @@ func copyVerified(source, target, relative, kind, expected string) (FileEntry, e
 		return FileEntry{}, err
 	}
 	defer func() { cleanup.Error("close", input.Close()) }()
-	output, err := os.OpenFile( //nolint:gosec // Validated path in a new exclusive root.
+	output, err := os.OpenFile(
 		target,
 		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
 		0o600,
@@ -308,7 +308,7 @@ func openRegular(path string) (*os.File, error) {
 	if err != nil || !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 {
 		return nil, ErrInvalidBundle
 	}
-	file, err := os.OpenFile( //nolint:gosec // Lstat plus O_NOFOLLOW blocks symlinks.
+	file, err := os.OpenFile(
 		path,
 		os.O_RDONLY|syscall.O_NOFOLLOW,
 		0,
@@ -334,7 +334,7 @@ func writeExclusive(path string, contents []byte) error {
 	if err := os.MkdirAll(filepath.Dir(path), 0o700); err != nil {
 		return fmt.Errorf("maintenance/bundle: %w", err)
 	}
-	f, err := os.OpenFile( //nolint:gosec // Validated slot in a new exclusive restore root.
+	f, err := os.OpenFile(
 		path,
 		os.O_CREATE|os.O_EXCL|os.O_WRONLY,
 		0o600,
@@ -432,7 +432,7 @@ func exists(path string) bool {
 }
 
 func syncDirectory(path string) error {
-	directory, err := os.Open( //nolint:gosec // Application-created directory in an exclusive root.
+	directory, err := os.Open(
 		path,
 	)
 	if err != nil {
@@ -453,12 +453,12 @@ func syncTree(root string) error {
 		}
 		if item.IsDir() {
 			directories = append(directories, path)
-			return os.Chmod( //nolint:gosec // Directories require owner execute permission and remain owner-only.
+			return os.Chmod(
 				path,
 				0o700,
 			)
 		}
-		return os.Chmod( //nolint:gosec // No untrusted writer can race the exclusive root.
+		return os.Chmod(
 			path,
 			0o600,
 		)

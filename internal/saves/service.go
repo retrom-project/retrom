@@ -348,7 +348,7 @@ AND expires_at_ms>?
 }
 
 func validWebPDimensions(path string) bool {
-	file, err := os.Open(path) //nolint:gosec // The default implementation receives a digest-derived CAS path.
+	file, err := os.Open(path)
 	if err != nil {
 		return false
 	}

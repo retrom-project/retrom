@@ -44,7 +44,7 @@ func TestLocalDOSCorpusCompatibility(t *testing.T) {
 
 func discoverDOSCorpusArchives(root string) ([]string, error) {
 	archives := make([]string, 0)
-	//nolint:gosec // The operator explicitly opts this test into traversing their local legal corpus root.
+
 	err := filepath.WalkDir(root, func(path string, entry os.DirEntry, walkErr error) error {
 		if walkErr != nil {
 			return walkErr
@@ -67,7 +67,7 @@ func validateDOSCorpusArchive(archivePath string) (bool, error) {
 		return false, errors.New("no executable candidates")
 	}
 	rankDOSEntries(programs)
-	file, err := os.Open(archivePath) //nolint:gosec // Explicit opt-in test corpus path supplied by its operator.
+	file, err := os.Open(archivePath)
 	if err != nil {
 		return false, fmt.Errorf("open: %w", err)
 	}

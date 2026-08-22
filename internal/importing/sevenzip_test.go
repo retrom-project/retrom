@@ -122,7 +122,7 @@ func TestArchiveWorkerProtocolRejectsOversizeAndUnknownFields(t *testing.T) {
 	payload := []byte(`{"entries":[],"unknown":true}`)
 	var framed bytes.Buffer
 	var size [4]byte
-	binary.BigEndian.PutUint32(size[:], uint32(len(payload))) //nolint:gosec // The test payload is a fixed short literal.
+	binary.BigEndian.PutUint32(size[:], uint32(len(payload)))
 	framed.Write(size[:])
 	framed.Write(payload)
 	if _, err := readWorkerResponse(&framed); err == nil {
@@ -177,7 +177,7 @@ func TestArchiveWorkerProcessFaultInjection(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), test.timeout)
 			defer cancel()
 			factory := func(ctx context.Context, _ string, _ ...string) *exec.Cmd {
-				command := exec.CommandContext(ctx, os.Args[0], "-test.run=TestArchiveWorkerFakeProcess") //nolint:gosec // The current test binary is the intentional fake worker.
+				command := exec.CommandContext(ctx, os.Args[0], "-test.run=TestArchiveWorkerFakeProcess")
 				command.Env = append(os.Environ(), "RETROM_FAKE_ARCHIVE_WORKER=1", "RETROM_FAKE_ARCHIVE_MODE="+test.mode)
 				return command
 			}

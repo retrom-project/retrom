@@ -16,7 +16,7 @@ import (
 func writeZIP(t *testing.T, name string, contents []byte) string {
 	t.Helper()
 	path := t.TempDir() + "/fixture.zip"
-	file, err := os.Create(path) //nolint:gosec // Test path is isolated under t.TempDir.
+	file, err := os.Create(path)
 	testassert.False(t, err != nil, err)
 	archive := zip.NewWriter(file)
 	entry, err := archive.Create(name)
@@ -38,7 +38,7 @@ func writeLegacyNamedZIP(t *testing.T, name string) string {
 	encoded, err := simplifiedchinese.GB18030.NewEncoder().String(name)
 	testassert.False(t, err != nil, err)
 	path := t.TempDir() + "/legacy.zip"
-	file, err := os.Create(path) //nolint:gosec // Test path is isolated under t.TempDir.
+	file, err := os.Create(path)
 	testassert.False(t, err != nil, err)
 	archive := zip.NewWriter(file)
 	header := &zip.FileHeader{Name: encoded, NonUTF8: true, Method: zip.Deflate}
