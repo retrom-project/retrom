@@ -32,9 +32,9 @@ describe("FavoriteActions", () => {
   it("favorites a game and exactly replaces multiple folder membership", async () => {
     auth.fetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const path = String(input);
-      if (path === `/api/v1/favorites/${gameId}`) return json({ gameId, favoritedAtMs: 1200, folderIds: [] });
-      if (path.startsWith("/api/v1/favorites?")) return json(page());
-      if (path.endsWith("/folders") && init?.method === "PUT") return json({ gameId, favoritedAtMs: 1200, folderIds: [folderId] });
+      if (path === `/api/v1/favorites/${gameId}`) {return json({ gameId, favoritedAtMs: 1200, folderIds: [] });}
+      if (path.startsWith("/api/v1/favorites?")) {return json(page());}
+      if (path.endsWith("/folders") && init?.method === "PUT") {return json({ gameId, favoritedAtMs: 1200, folderIds: [folderId] });}
       throw new Error(`unexpected ${init?.method} ${path}`);
     });
     const onChange = vi.fn();
@@ -64,9 +64,9 @@ describe("FavoriteActions", () => {
   it("confirms unfavorite and restores the server snapshot from the two-second undo", async () => {
     auth.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.endsWith("/unfavorite")) return json({ items: [{ gameId, folderIds: [folderId] }] });
-      if (path.endsWith("/restore")) return json({ restoredGameIds: [gameId], skippedGameIds: [], skippedFolderIds: [] });
-      if (path === `/api/v1/favorites/${gameId}`) return json({ gameId, favoritedAtMs: 1200, folderIds: [folderId] });
+      if (path.endsWith("/unfavorite")) {return json({ items: [{ gameId, folderIds: [folderId] }] });}
+      if (path.endsWith("/restore")) {return json({ restoredGameIds: [gameId], skippedGameIds: [], skippedFolderIds: [] });}
+      if (path === `/api/v1/favorites/${gameId}`) {return json({ gameId, favoritedAtMs: 1200, folderIds: [folderId] });}
       throw new Error(`unexpected ${path}`);
     });
     const onChange = vi.fn();
@@ -131,9 +131,9 @@ describe("FavoriteActions", () => {
   it("creates a folder inside the picker with the current game as initial membership", async () => {
     auth.fetch.mockImplementation(async (input: RequestInfo | URL) => {
       const path = String(input);
-      if (path.startsWith("/api/v1/favorites?")) return json(page());
-      if (path === "/api/v1/favorite-folders") return json({ folderId: createdFolderId, name: "RPG", version: 1, visibleGameCount: 1, createdAtMs: 1000, updatedAtMs: 1000 }, 201);
-      if (path === `/api/v1/favorites/${gameId}`) return json({ gameId, favoritedAtMs: 1200, folderIds: [createdFolderId] });
+      if (path.startsWith("/api/v1/favorites?")) {return json(page());}
+      if (path === "/api/v1/favorite-folders") {return json({ folderId: createdFolderId, name: "RPG", version: 1, visibleGameCount: 1, createdAtMs: 1000, updatedAtMs: 1000 }, 201);}
+      if (path === `/api/v1/favorites/${gameId}`) {return json({ gameId, favoritedAtMs: 1200, folderIds: [createdFolderId] });}
       throw new Error(`unexpected ${path}`);
     });
     const user = userEvent.setup();

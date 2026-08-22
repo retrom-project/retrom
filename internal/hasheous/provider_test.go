@@ -11,6 +11,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testassert"
 )
 
 type roundTripFunc func(*http.Request) (*http.Response, error)
@@ -37,9 +39,7 @@ func TestLookupNormalizesBoundedResponse(t *testing.T) {
 	t.Parallel()
 	var requestBody string
 	client := roundTripFunc(func(request *http.Request) (*http.Response, error) {
-		if request.URL.String() != lookupURL || request.Method != http.MethodPost {
-			t.Fatalf("request = %s %s", request.Method, request.URL)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return request.URL.String() != lookupURL }, func() bool { return request.Method != http.MethodPost }), "request = %s %s", request.Method, request.URL)
 		contents, _ := io.ReadAll(request.Body)
 		requestBody = string(contents)
 		return response(
@@ -50,29 +50,14 @@ func TestLookupNormalizesBoundedResponse(t *testing.T) {
 	})
 	provider := New(client, nil, func() time.Time { return time.Date(2026, time.August, 6, 0, 0, 0, 0, time.UTC) })
 	result, err := provider.LookupByHash(context.Background(), ContentHashes{SHA256: strings.Repeat("a", 64)})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Outcome != OutcomeHit || result.Candidate == nil || result.Candidate.ProviderGameID != "42" {
-		t.Fatalf("result = %#v", result)
-	}
-	if requestBody != `{"shA256":"`+strings.Repeat("a", 64)+`"}` || len(result.RequestDigest) != 64 {
-		t.Fatalf("body/digest = %s / %s", requestBody, result.RequestDigest)
-	}
-	if result.Candidate.Metadata["title"] != "<script>name</script>" ||
-		result.Candidate.Metadata["releaseYear"] != 2001 {
-		t.Fatalf("metadata = %#v", result.Candidate.Metadata)
-	}
-	if len(result.Candidate.Assets) != 1 {
-		t.Fatalf("assets = %#v", result.Candidate.Assets)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return result.Outcome != OutcomeHit }, func() bool { return result.Candidate == nil }, func() bool { return result.Candidate.ProviderGameID != "42" }), "result = %#v", result)
+	testassert.Falsef(t, testassert.Any(func() bool { return requestBody != `{"shA256":"`+strings.Repeat("a", 64)+`"}` }, func() bool { return len(result.RequestDigest) != 64 }), "body/digest = %s / %s", requestBody, result.RequestDigest)
+	testassert.Falsef(t, testassert.Any(func() bool { return result.Candidate.Metadata["title"] != "<script>name</script>" }, func() bool { return result.Candidate.Metadata["releaseYear"] != 2001 }), "metadata = %#v", result.Candidate.Metadata)
+	testassert.Falsef(t, len(result.Candidate.Assets) != 1, "assets = %#v", result.Candidate.Assets)
 	warnings, ok := result.Candidate.Evidence["warnings"].([]string)
-	if !ok {
-		t.Fatalf("warnings type = %T", result.Candidate.Evidence["warnings"])
-	}
-	if len(warnings) != 1 || warnings[0] != "DUPLICATE_ASSET_SLOT:COVER:0" {
-		t.Fatalf("warnings = %#v", warnings)
-	}
+	testassert.Truef(t, ok, "warnings type = %T", result.Candidate.Evidence["warnings"])
+	testassert.Falsef(t, testassert.Any(func() bool { return len(warnings) != 1 }, func() bool { return warnings[0] != "DUPLICATE_ASSET_SLOT:COVER:0" }), "warnings = %#v", warnings)
 }
 
 func TestLookupUsesAIDescriptionWhenSignatureDescriptionIsEmpty(t *testing.T) {
@@ -86,16 +71,10 @@ func TestLookupUsesAIDescriptionWhenSignatureDescriptionIsEmpty(t *testing.T) {
 	})
 	provider := New(client, nil, func() time.Time { return time.Date(2026, time.August, 9, 0, 0, 0, 0, time.UTC) })
 	result, err := provider.LookupByHash(context.Background(), ContentHashes{SHA256: strings.Repeat("a", 64)})
-	if err != nil || result.Candidate == nil {
-		t.Fatalf("lookup result = %#v, error = %v", result, err)
-	}
-	if result.Candidate.Metadata["description"] != "First paragraph.\n\nSecond\tparagraph." {
-		t.Fatalf("description = %#v", result.Candidate.Metadata["description"])
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return result.Candidate == nil }), "lookup result = %#v, error = %v", result, err)
+	testassert.Falsef(t, result.Candidate.Metadata["description"] != "First paragraph.\n\nSecond\tparagraph.", "description = %#v", result.Candidate.Metadata["description"])
 	warnings, ok := result.Candidate.Evidence["warnings"].([]string)
-	if !ok || !slices.Contains(warnings, "FIELD_FALLBACK:description:AIDescription") {
-		t.Fatalf("warnings = %#v", result.Candidate.Evidence["warnings"])
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !ok }, func() bool { return !slices.Contains(warnings, "FIELD_FALLBACK:description:AIDescription") }), "warnings = %#v", result.Candidate.Evidence["warnings"])
 }
 
 func TestLookupClassifiesMissAndOversize(t *testing.T) {
@@ -113,9 +92,7 @@ func TestLookupClassifiesMissAndOversize(t *testing.T) {
 				return response(test.code, "text/plain", test.body), nil
 			}), nil, time.Now)
 			result, err := provider.LookupByHash(context.Background(), hash)
-			if err != nil || result.Outcome != test.want {
-				t.Fatalf("result/err = %#v / %v", result, err)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return result.Outcome != test.want }), "result/err = %#v / %v", result, err)
 		})
 	}
 }
@@ -125,13 +102,9 @@ func TestFetchAssetValidatesImageAndEveryRedirect(t *testing.T) {
 	pngBytes, err := base64.StdEncoding.DecodeString(
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	public := resolverFunc(func(_ context.Context, host string) ([]net.IPAddr, error) {
-		if host != "hasheous.org" {
-			t.Fatalf("resolved host = %s", host)
-		}
+		testassert.Falsef(t, host != "hasheous.org", "resolved host = %s", host)
 		return []net.IPAddr{{IP: net.ParseIP("8.8.8.8")}}, nil
 	})
 	provider := New(roundTripFunc(func(_ *http.Request) (*http.Response, error) {
@@ -145,9 +118,7 @@ func TestFetchAssetValidatesImageAndEveryRedirect(t *testing.T) {
 		context.Background(),
 		AssetRef{ProviderAssetID: "one", Path: "/api/v1/images/one"},
 	)
-	if err != nil || asset.MediaType != "image/png" || asset.Width != 1 || asset.Height != 1 {
-		t.Fatalf("asset/err = %#v / %v", asset, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return asset.MediaType != "image/png" }, func() bool { return asset.Width != 1 }, func() bool { return asset.Height != 1 }), "asset/err = %#v / %v", asset, err)
 
 	redirecting := New(roundTripFunc(func(_ *http.Request) (*http.Response, error) {
 		redirect := response(http.StatusFound, "text/plain", "")
@@ -165,13 +136,9 @@ func TestValidateImageUsesDecodedBytesWhenSupportedImageHeaderIsMislabeled(t *te
 	pngBytes, err := base64.StdEncoding.DecodeString(
 		"iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mNk+A8AAQUBAScY42YAAAAASUVORK5CYII=",
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	asset, err := ValidateImage(pngBytes, "image/jpeg; x-api-version=1")
-	if err != nil || asset.MediaType != "image/png" || asset.Width != 1 || asset.Height != 1 {
-		t.Fatalf("mislabeled supported image = %#v, error=%v", asset, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return asset.MediaType != "image/png" }, func() bool { return asset.Width != 1 }, func() bool { return asset.Height != 1 }), "mislabeled supported image = %#v, error=%v", asset, err)
 	if _, err := ValidateImage(pngBytes, "text/html"); !errors.Is(err, ErrAssetMediaTypeMismatch) {
 		t.Fatalf("non-image declared media type error = %v", err)
 	}
@@ -186,9 +153,7 @@ func TestLookupRejectsInvalidHashAndCandidate(t *testing.T) {
 		t.Fatal("invalid hash accepted")
 	}
 	result, err := provider.LookupByHash(context.Background(), ContentHashes{MD5: strings.Repeat("0", 32)})
-	if err != nil || result.Outcome != OutcomeInvalidResponse {
-		t.Fatalf("result/err = %#v / %v", result, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return result.Outcome != OutcomeInvalidResponse }), "result/err = %#v / %v", result, err)
 }
 
 func TestRestoreCachedRevalidatesHitAndMiss(t *testing.T) {
@@ -197,14 +162,9 @@ func TestRestoreCachedRevalidatesHitAndMiss(t *testing.T) {
 	provider := New(nil, nil, func() time.Time { return time.Date(2026, time.August, 6, 0, 0, 0, 0, time.UTC) })
 	raw := []byte(`{"id":42,"name":"Cached","signature":{"game":{"year":"2001"}}}`)
 	hit, err := provider.RestoreCached(hashes, OutcomeHit, http.StatusOK, raw)
-	if err != nil || hit.Candidate == nil || hit.Candidate.Metadata["title"] != "Cached" ||
-		len(hit.RequestDigest) != 64 {
-		t.Fatalf("cached hit = %#v, error=%v", hit, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return hit.Candidate == nil }, func() bool { return hit.Candidate.Metadata["title"] != "Cached" }, func() bool { return len(hit.RequestDigest) != 64 }), "cached hit = %#v, error=%v", hit, err)
 	miss, err := provider.RestoreCached(hashes, OutcomeMiss, http.StatusNotFound, nil)
-	if err != nil || miss.Outcome != OutcomeMiss || miss.Candidate != nil || miss.RequestDigest != hit.RequestDigest {
-		t.Fatalf("cached miss = %#v, error=%v", miss, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return miss.Outcome != OutcomeMiss }, func() bool { return miss.Candidate != nil }, func() bool { return miss.RequestDigest != hit.RequestDigest }), "cached miss = %#v, error=%v", miss, err)
 	if _, err := provider.RestoreCached(hashes, OutcomeInvalidResponse, http.StatusOK, raw); err == nil {
 		t.Fatal("non-cacheable response restored")
 	}

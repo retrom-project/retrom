@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.3 |
-| 日期 | 2026-08-10 |
+| 版本 | 1.4 |
+| 日期 | 2026-08-22 |
 | 用途 | 规定实现顺序、依赖和里程碑退出条件，不复制领域规格 |
 
 ## 1. 使用方式
@@ -81,9 +81,9 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 ### M0：可重复工程基线
 
-范围：固定 Go/Node/npm 和工具版本；建立 Makefile、lint、测试、OpenAPI 生成、`web/` App Shell、CI；实现 manifest 小文件校验、依赖物化/离线校验和双镜像骨架。`make dev` 只编排宿主机进程。
+范围：固定 Go/Node/npm 和工具版本；建立 Makefile、全仓源码结构门禁、lint、测试、OpenAPI 生成、`web/` App Shell、CI；Go API 文件在后端编译前按需生成且不提交，TypeScript schema 提交并检查漂移；实现 manifest 小文件校验、依赖物化/离线校验和双镜像骨架。`make dev` 只编排宿主机进程。
 
-退出门禁：`ACC-QA-001`–`003`、`ACC-PKG-001`–`003`、`ACC-DEV-001`。镜像 Case 可以在本机无 Docker 时明确留到具备 Docker 的 runner，但不得因此开始依赖镜像内部未定义路径的功能。
+退出门禁：`ACC-QA-001`–`003`、`ACC-PKG-001`–`003`、`ACC-DEV-001`，并证明 `make quality-structure-check` 对所有手写新旧生产/测试源码执行同一规则。镜像 Case 可以在本机无 Docker 时明确留到具备 Docker 的 runner，但不得因此开始依赖镜像内部未定义路径的功能。
 
 ### M1：进程、数据与协议骨架
 
@@ -185,7 +185,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 1. migration/seed（若需要）；
 2. store 与领域不变量测试；
-3. OpenAPI、两端生成物与 contract test；
+3. OpenAPI、编译期 Go 生成结果、须提交的 TypeScript schema 与 contract test；
 4. handler/worker 与错误映射；
 5. 前端真实 API 状态和交互；
 6. 对应聚焦测试、回归用例和正式文档同步。

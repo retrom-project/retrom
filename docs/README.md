@@ -18,7 +18,7 @@ Migration 040 已把游戏目录初始化从数据库 seed 收口为 release 代
 | 联机 allowlist、房间、SSE/WebSocket、rollback 与 Player 差异 | 已锁定；仅 FCEUmm/FBNeo 两个 core profile | [`dependency-management.md`](./dependency-management.md)、[`data-model.md`](./data-model.md)、[`http-api-contract.md`](./http-api-contract.md)、[`runtime-and-play-data.md`](./runtime-and-play-data.md) |
 | 测试、CI、镜像与最终通过规则 | 已锁定 | [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md)、[`project-acceptance.md`](./project-acceptance.md) |
 
-`api/openapi.yaml`、两端生成物、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余外部条件包括依赖首次物化需要公网、生产需要前置 NG，以及外部分发需要许可复核；公开 `make web-e2e` 使用仓库自有的确定性 GBA、NES 与 Arcade ROM，不属于外部前置条件。FBA2012 当前没有真实 ROM 产品链路兼容基线；FCEUmm 与 FBNeo 已有双浏览器联机产品链路基线，但该结果只覆盖 manifest 锁定 artifact 和项目自有测试程序，不能外推到未登记核心、其他 artifact 或任意游戏内容。阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
+`api/openapi.yaml`、编译期 Go 生成结果、须提交的 TypeScript schema、migration、Makefile 和应用代码是按垂直切片产出的实施资产，不是允许临场改变上述契约的待定设计。剩余外部条件包括依赖首次物化需要公网、生产需要前置 NG，以及外部分发需要许可复核；公开 `make web-e2e` 使用仓库自有的确定性 GBA、NES 与 Arcade ROM，不属于外部前置条件。FBA2012 当前没有真实 ROM 产品链路兼容基线；FCEUmm 与 FBNeo 已有双浏览器联机产品链路基线，但该结果只覆盖 manifest 锁定 artifact 和项目自有测试程序，不能外推到未登记核心、其他 artifact 或任意游戏内容。阻塞/适用语义统一见实施计划第 6 节和验收规范，不构成产品决策缺口。
 
 ## 从这里开始
 

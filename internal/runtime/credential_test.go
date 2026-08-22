@@ -7,6 +7,8 @@ import (
 	"sync"
 	"testing"
 
+	"retrom/internal/testassert"
+
 	"github.com/google/uuid"
 )
 
@@ -20,20 +22,14 @@ func TestCredentialsConcurrentCreationConverges(t *testing.T) {
 	go func() { defer wait.Done(); first, firstErr = LoadOrCreateCredentials(directory) }()
 	go func() { defer wait.Done(); second, secondErr = LoadOrCreateCredentials(directory) }()
 	wait.Wait()
-	if firstErr != nil || secondErr != nil {
-		t.Fatalf("LoadOrCreateCredentials() errors = %v, %v", firstErr, secondErr)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return firstErr != nil }, func() bool { return secondErr != nil }), "LoadOrCreateCredentials() errors = %v, %v", firstErr, secondErr)
 	launchID := uuid.MustParse("01980000-0000-7000-8000-000000000001")
 	if left, right := first.Capability(launchID), second.Capability(launchID); !bytes.Equal(left[:], right[:]) {
 		t.Fatal("concurrent initialization produced different keys")
 	}
 	info, err := os.Stat(filepath.Join(directory, "secrets", "launch-capability.key"))
-	if err != nil {
-		t.Fatalf("stat launch key: %v", err)
-	}
-	if info.Mode().Perm() != 0o600 || info.Size() != 32 {
-		t.Fatalf("launch key mode/size = %o/%d", info.Mode().Perm(), info.Size())
-	}
+	testassert.Falsef(t, err != nil, "stat launch key: %v", err)
+	testassert.Falsef(t, testassert.Any(func() bool { return info.Mode().Perm() != 0o600 }, func() bool { return info.Size() != 32 }), "launch key mode/size = %o/%d", info.Mode().Perm(), info.Size())
 }
 
 func TestCredentialsRejectSymlink(t *testing.T) {
@@ -58,9 +54,7 @@ func TestCredentialsRejectSymlink(t *testing.T) {
 func TestCredentialPurposeSeparationAndAccountLinkValidation(t *testing.T) {
 	t.Parallel()
 	credentials, err := LoadOrCreateCredentials(t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if code := credentials.SetupCode(); len(code) != 43 || !credentials.MatchesSetupCode(code) || credentials.MatchesSetupCode(code+"x") {
 		t.Fatalf("setup code validation failed: length=%d", len(code))
 	}
@@ -74,15 +68,10 @@ func TestCredentialPurposeSeparationAndAccountLinkValidation(t *testing.T) {
 	}
 	login := credentials.RateLimitSubject("LOGIN_ACCOUNT", "alice")
 	setup := credentials.RateLimitSubject("SETUP_IP", "alice")
-	if bytes.Equal(login[:], setup[:]) {
-		t.Fatal("rate-limit scopes were not separated")
-	}
+	testassert.False(t, bytes.Equal(login[:], setup[:]), "rate-limit scopes were not separated")
 	root := credentials.ServerImportRootDigest("bios-root", "/srv/bios")
 	same := credentials.ServerImportRootDigest("bios-root", "/srv/bios")
 	changedID := credentials.ServerImportRootDigest("other-root", "/srv/bios")
 	changedPath := credentials.ServerImportRootDigest("bios-root", "/srv/other")
-	if !bytes.Equal(root[:], same[:]) || bytes.Equal(root[:], changedID[:]) || bytes.Equal(root[:], changedPath[:]) ||
-		bytes.Equal(root[:], login[:]) {
-		t.Fatal("server import root digest is not deterministic and purpose separated")
-	}
+	testassert.False(t, testassert.Any(func() bool { return !bytes.Equal(root[:], same[:]) }, func() bool { return bytes.Equal(root[:], changedID[:]) }, func() bool { return bytes.Equal(root[:], changedPath[:]) }, func() bool { return bytes.Equal(root[:], login[:]) }), "server import root digest is not deterministic and purpose separated")
 }

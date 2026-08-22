@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 const (
@@ -23,7 +24,7 @@ const (
 
 func seedFavoriteConstraintRows(t *testing.T, database *sql.DB) {
 	t.Helper()
-	if _, err := database.Exec(`
+	if _, err := database.ExecContext(context.Background(), `
 PRAGMA defer_foreign_keys=ON;
 BEGIN;
 INSERT INTO platform_instances(
@@ -32,26 +33,26 @@ INSERT INTO platform_instances(
   '01980000-0000-7000-8000-000000000005','gba','GBA 测试目录','gba-test-games','mgba',1,10,1,1000,1000
 );
 INSERT INTO profiles(id,display_name,created_at_ms) VALUES
-  ('` + migrationProfileA + `','Favorite A',1000),
-  ('` + migrationProfileB + `','Favorite B',1000);
+  ('`+migrationProfileA+`','Favorite A',1000),
+  ('`+migrationProfileB+`','Favorite B',1000);
 INSERT INTO game_metadata_revisions(
   id,game_id,title,description,developer,publisher,genre,players,release_year,
   source_kind,source_ref_id,created_at_ms
 ) VALUES(
-  '01980000-0000-7000-8000-00000000f202','` + migrationGame + `','Favorite Fixture',
+  '01980000-0000-7000-8000-00000000f202','`+migrationGame+`','Favorite Fixture',
   '','','','',NULL,2001,'ADMIN_EDIT',NULL,1000
 );
 INSERT INTO game_content_revisions(
   id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms
 ) VALUES(
-  '01980000-0000-7000-8000-00000000f203','` + migrationGame + `','ADMIN_REPLACE',
+  '01980000-0000-7000-8000-00000000f203','`+migrationGame+`','ADMIN_REPLACE',
   'favorite-fixture','[]','aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa',1000
 );
 INSERT INTO games(
   id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
   search_text,version,created_at_ms,updated_at_ms
 ) VALUES(
-  '` + migrationGame + `','01980000-0000-7000-8000-000000000005','PUBLISHED',
+  '`+migrationGame+`','01980000-0000-7000-8000-000000000005','PUBLISHED',
   '01980000-0000-7000-8000-00000000f202','01980000-0000-7000-8000-00000000f203',
   'favorite fixture',1,1000,1000
 );
@@ -63,7 +64,7 @@ COMMIT;
 
 func requireSQLFailure(t *testing.T, database *sql.DB, statement string, arguments ...any) {
 	t.Helper()
-	if _, err := database.Exec(statement, arguments...); err == nil {
+	if _, err := database.ExecContext(context.Background(), statement, arguments...); err == nil {
 		t.Fatalf("expected SQL failure: %s", statement)
 	}
 }
@@ -71,9 +72,7 @@ func requireSQLFailure(t *testing.T, database *sql.DB, statement string, argumen
 func TestFavoritesMigrationConstraintsAndIndexes(t *testing.T) {
 	t.Parallel()
 	database, err := Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", database.Close()) }()
 	seedFavoriteConstraintRows(t, database.SQL)
 	for _, insert := range []struct {
@@ -94,7 +93,7 @@ VALUES(?,?,'Arcade','arcade',1,1000,1000),(?,?,'Arcade','arcade',1,1000,1000)`,
 			[]any{migrationProfileA, migrationFolderA, migrationGame},
 		},
 	} {
-		if _, err := database.SQL.Exec(insert.query, insert.args...); err != nil {
+		if _, err := database.SQL.ExecContext(context.Background(), insert.query, insert.args...); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -120,18 +119,16 @@ VALUES(?,?,'Arcade','arcade',1,1000,1000),(?,?,'Arcade','arcade',1,1000,1000)`,
 		migrationFolderA)
 	requireSQLFailure(t, database.SQL,
 		`DELETE FROM favorite_games WHERE profile_id=? AND game_id=?`, migrationProfileA, migrationGame)
-	if _, err := database.SQL.Exec(`
+	if _, err := database.SQL.ExecContext(context.Background(), `
 UPDATE favorite_folders SET name='Changed',name_key='changed',version=2,updated_at_ms=2000 WHERE id=?
 `, migrationFolderA); err != nil {
 		t.Fatalf("valid folder rename: %v", err)
 	}
-	planRows, err := database.SQL.Query(`
+	planRows, err := database.SQL.QueryContext(context.Background(), `
 EXPLAIN QUERY PLAN SELECT game_id FROM favorite_games
 WHERE profile_id=? ORDER BY created_at_ms DESC,game_id DESC
 `, migrationProfileA)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", planRows.Close()) }()
 	var plan strings.Builder
 	for planRows.Next() {
@@ -145,9 +142,7 @@ WHERE profile_id=? ORDER BY created_at_ms DESC,game_id DESC
 	if err := planRows.Err(); err != nil {
 		t.Fatal(err)
 	}
-	if !strings.Contains(plan.String(), "favorite_games_profile_created") {
-		t.Fatalf("query plan = %s", plan.String())
-	}
+	testassert.Truef(t, strings.Contains(plan.String(), "favorite_games_profile_created"), "query plan = %s", plan.String())
 	if err := database.IntegrityCheck(context.Background()); err != nil {
 		t.Fatal(err)
 	}
@@ -160,9 +155,7 @@ func TestFavoritesMigrationUpgradesVersion24AndPreservesFixture(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -172,9 +165,7 @@ func TestFavoritesMigrationUpgradesVersion24AndPreservesFixture(t *testing.T) {
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 24)
 	fixture, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "testdata", "024_fixture.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := legacy.ExecContext(ctx, string(fixture)); err != nil {
 		t.Fatal(err)
 	}
@@ -184,14 +175,12 @@ func TestFavoritesMigrationUpgradesVersion24AndPreservesFixture(t *testing.T) {
 	upgraded := openHistoricalSchemaForTest(ctx, t, databasePath, repositoryRoot, func() time.Time { return time.UnixMilli(3000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	var version, userCount, idempotencyCount int
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT (SELECT max(version) FROM schema_migrations),
        (SELECT count(*) FROM users WHERE username LIKE 'migration024.%'),
        (SELECT count(*) FROM idempotency_records WHERE operation_id='fixture-024-operation')
 `).Scan(&version, &userCount, &idempotencyCount); err != nil {
 		t.Fatal(err)
 	}
-	if version != 39 || userCount != 2 || idempotencyCount != 1 {
-		t.Fatalf("upgrade values = version:%d users:%d idempotency:%d", version, userCount, idempotencyCount)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return version != 39 }, func() bool { return userCount != 2 }, func() bool { return idempotencyCount != 1 }), "upgrade values = version:%d users:%d idempotency:%d", version, userCount, idempotencyCount)
 }

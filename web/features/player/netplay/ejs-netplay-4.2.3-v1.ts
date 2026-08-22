@@ -44,8 +44,8 @@ type NetplayManager = Required<Pick<NonNullable<EmulatorInstance["gameManager"]>
   };
 
 function equalBytes(left: Uint8Array, right: Uint8Array) {
-  if (left.byteLength !== right.byteLength) return false;
-  for (let index = 0; index < left.byteLength; index += 1) if (left[index] !== right[index]) return false;
+  if (left.byteLength !== right.byteLength) {return false;}
+  for (let index = 0; index < left.byteLength; index += 1) {if (left[index] !== right[index]) {return false;}}
   return true;
 }
 
@@ -65,34 +65,34 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
       promise,
       complete: () => {
         const index = loadSignals.indexOf(signal);
-        if (index < 0) return;
+        if (index < 0) {return;}
         loadSignals.splice(index, 1);
         signal.resolve();
       },
       cancel: () => {
         const index = loadSignals.indexOf(signal);
-        if (index >= 0) loadSignals.splice(index, 1);
+        if (index >= 0) {loadSignals.splice(index, 1);}
       },
     };
   };
   const observeNativeLog = (args: unknown[]) => {
     const message = args.map(String).join(" ");
-    if (!message.includes("[State]") || !message.includes("game.state")) return;
+    if (!message.includes("[State]") || !message.includes("game.state")) {return;}
     const signal = loadSignals.shift();
-    if (!signal) return;
-    if (/failed/i.test(message)) target.queueMicrotask(() => signal.reject(new Error("STATE_INVALID")));
-    else if (/loading state/i.test(message)) target.queueMicrotask(signal.resolve);
-    else loadSignals.unshift(signal);
+    if (!signal) {return;}
+    if (/failed/i.test(message)) {target.queueMicrotask(() => signal.reject(new Error("STATE_INVALID")));}
+    else if (/loading state/i.test(message)) {target.queueMicrotask(signal.resolve);}
+    else {loadSignals.unshift(signal);}
   };
   const patchManager = (constructor: GameManagerConstructor | undefined) => {
     const prototype = constructor?.prototype;
-    if (!prototype || typeof prototype.mountFileSystems !== "function") throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
+    if (!prototype || typeof prototype.mountFileSystems !== "function") {throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");}
     if (prototype.loadStateAndWait || prototype.runNetplayFrame || prototype.cancelNetplayOperations) {
       throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
     }
     const originalMount = prototype.mountFileSystems;
     const mountInMemory = async function (this: { mkdir?: (path: string) => void }) {
-      if (typeof this.mkdir !== "function") throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
+      if (typeof this.mkdir !== "function") {throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");}
       this.mkdir("/data");
       this.mkdir("/data/saves");
     };
@@ -115,7 +115,7 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
       const fileSystem = this.FS as RuntimeFileSystem | undefined;
       const functions = (this as { functions?: { loadState?: (...args: unknown[]) => unknown } }).functions;
       if (!this.getState || !this.toggleMainLoop || !fileSystem?.writeFile || !fileSystem.unlink ||
-        typeof functions?.loadState !== "function") throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
+        typeof functions?.loadState !== "function") {throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");}
       const expected = new Uint8Array(state);
       const completion = registerLoadSignal();
       try {
@@ -135,7 +135,7 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
       }
     };
     const runNetplayFrame = async function (this: NonNullable<EmulatorInstance["gameManager"]>, timeoutMs = 5_000) {
-      if (!this.getFrameNum || !this.toggleMainLoop) return Promise.reject(new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE"));
+      if (!this.getFrameNum || !this.toggleMainLoop) {return Promise.reject(new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE"));}
       const original = target.__RETROM_POST_MAIN_LOOP__;
       const startFrame = this.getFrameNum();
       let resolveFrame!: (frame: number) => void;
@@ -143,7 +143,7 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
       const wrapper = () => {
         original?.();
         const completedFrame = this.getFrameNum!();
-        if (completedFrame > startFrame) resolveFrame(completedFrame);
+        if (completedFrame > startFrame) {resolveFrame(completedFrame);}
       };
       target.__RETROM_POST_MAIN_LOOP__ = wrapper;
       try {
@@ -151,14 +151,14 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
         return await raceWithActiveBudget(completion, timeoutMs, "NETPLAY_FRAME_STEP_TIMEOUT");
       } finally {
         this.toggleMainLoop(false);
-        if (target.__RETROM_POST_MAIN_LOOP__ === wrapper) target.__RETROM_POST_MAIN_LOOP__ = original;
+        if (target.__RETROM_POST_MAIN_LOOP__ === wrapper) {target.__RETROM_POST_MAIN_LOOP__ = original;}
       }
     };
     prototype.mountFileSystems = mountInMemory;
     prototype.loadStateAndWait = loadStateAndWait;
     prototype.runNetplayFrame = runNetplayFrame;
     prototype.cancelNetplayOperations = () => {
-      for (const budget of [...activeBudgets]) budget.cancel("NETPLAY_SESSION_ENDED");
+      for (const budget of [...activeBudgets]) {budget.cancel("NETPLAY_SESSION_ENDED");}
     };
     prototypeRestores.push(() => {
       prototype.mountFileSystems = originalMount;
@@ -169,9 +169,9 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
   };
 
   const managerDescriptor = Object.getOwnPropertyDescriptor(target, "EJS_GameManager");
-  if (managerDescriptor && !managerDescriptor.configurable) throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
+  if (managerDescriptor && !managerDescriptor.configurable) {throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");}
   let managerConstructor = target.EJS_GameManager;
-  if (managerConstructor) patchManager(managerConstructor);
+  if (managerConstructor) {patchManager(managerConstructor);}
   Object.defineProperty(target, "EJS_GameManager", {
     configurable: true,
     enumerable: managerDescriptor?.enumerable ?? true,
@@ -183,8 +183,8 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
   });
 
   const wrapRuntime = (factory: RuntimeFactory | undefined) => {
-    if (typeof factory !== "function") throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
-    if (factory.retromNetplayFrameHook) return factory;
+    if (typeof factory !== "function") {throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");}
+    if (factory.retromNetplayFrameHook) {return factory;}
     const wrapped = function (this: unknown, moduleConfig: RuntimeModuleConfig) {
       const originalPostMainLoop = moduleConfig?.postMainLoop;
       const patchedConfig: RuntimeModuleConfig = {
@@ -214,7 +214,7 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
     return wrapped;
   };
   const runtimeDescriptor = Object.getOwnPropertyDescriptor(target, "EJS_Runtime");
-  if (runtimeDescriptor && !runtimeDescriptor.configurable) throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");
+  if (runtimeDescriptor && !runtimeDescriptor.configurable) {throw new Error("NETPLAY_RUNTIME_COMPATIBILITY_UNAVAILABLE");}
   let runtimeFactory = target.EJS_Runtime ? wrapRuntime(target.EJS_Runtime) : undefined;
   Object.defineProperty(target, "EJS_Runtime", {
     configurable: true,
@@ -226,24 +226,24 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
   const originalFetch = target.fetch.bind(target);
   target.fetch = ((input: RequestInfo | URL, init?: RequestInit) => {
     const url = typeof input === "string" || input instanceof URL ? String(input) : input.url;
-    if (url === VERSION_URL) return Promise.resolve(new Response(JSON.stringify({ version: "4.2.3", current_version: "4.2.3" }), {
+    if (url === VERSION_URL) {return Promise.resolve(new Response(JSON.stringify({ version: "4.2.3", current_version: "4.2.3" }), {
       status: 200, headers: { "Content-Type": "application/json" },
-    }));
+    }));}
     return originalFetch(input, init);
   }) as typeof fetch;
 
   return () => {
-    if (!active) return;
+    if (!active) {return;}
     active = false;
     target.fetch = originalFetch;
-    for (const restore of prototypeRestores.reverse()) restore();
-    if (managerDescriptor) Object.defineProperty(target, "EJS_GameManager", managerDescriptor);
-    else Reflect.deleteProperty(target, "EJS_GameManager");
-    if (runtimeDescriptor) Object.defineProperty(target, "EJS_Runtime", runtimeDescriptor);
-    else Reflect.deleteProperty(target, "EJS_Runtime");
+    for (const restore of prototypeRestores.reverse()) {restore();}
+    if (managerDescriptor) {Object.defineProperty(target, "EJS_GameManager", managerDescriptor);}
+    else {Reflect.deleteProperty(target, "EJS_GameManager");}
+    if (runtimeDescriptor) {Object.defineProperty(target, "EJS_Runtime", runtimeDescriptor);}
+    else {Reflect.deleteProperty(target, "EJS_Runtime");}
     Reflect.deleteProperty(target, "__RETROM_POST_MAIN_LOOP__");
-    for (const budget of [...activeBudgets]) budget.cancel("NETPLAY_SESSION_ENDED");
-    for (const signal of loadSignals.splice(0)) signal.reject(new Error("NETPLAY_SESSION_ENDED"));
+    for (const budget of [...activeBudgets]) {budget.cancel("NETPLAY_SESSION_ENDED");}
+    for (const signal of loadSignals.splice(0)) {signal.reject(new Error("NETPLAY_SESSION_ENDED"));}
   };
 }
 
@@ -274,24 +274,24 @@ export class EJSNetplayFrameBridge {
   }
 
   async pauseAtBoundary() {
-    if (this.closed) throw new Error("NETPLAY_SESSION_ENDED");
+    if (this.closed) {throw new Error("NETPLAY_SESSION_ENDED");}
     await this.manager.runNetplayFrame();
     this.runtime.paused = true;
   }
 
   captureState() {
     const value = this.manager.getState();
-    if (!ArrayBuffer.isView(value) || value.byteLength < 8) throw new Error("STATE_INVALID");
+    if (!ArrayBuffer.isView(value) || value.byteLength < 8) {throw new Error("STATE_INVALID");}
     return new Uint8Array(value);
   }
 
   async loadStateAndWait(bytes: Uint8Array) {
     const result = await this.loadStateForTransfer(bytes);
-    if (!result.coreExact) throw new Error("STATE_INVALID");
+    if (!result.coreExact) {throw new Error("STATE_INVALID");}
   }
 
   async loadStateForTransfer(bytes: Uint8Array) {
-    if (!bytes.byteLength) throw new Error("STATE_INVALID");
+    if (!bytes.byteLength) {throw new Error("STATE_INVALID");}
     const expectedCore = coreStateBytes(bytes);
     const recaptured = await this.withSuppressedOutput(async () => {
       await this.manager.loadStateAndWait(new Uint8Array(bytes));
@@ -304,7 +304,7 @@ export class EJSNetplayFrameBridge {
     for (let index = 0; index < comparedLength; index += 1) {
       if (expectedCore[index] !== recapturedCore[index]) { firstCoreMismatch = index; break; }
     }
-    if (firstCoreMismatch < 0 && expectedCore.byteLength !== recapturedCore.byteLength) firstCoreMismatch = comparedLength;
+    if (firstCoreMismatch < 0 && expectedCore.byteLength !== recapturedCore.byteLength) {firstCoreMismatch = comparedLength;}
     return {
       recaptured,
       byteExact: equalBytes(recaptured, bytes),
@@ -316,16 +316,16 @@ export class EJSNetplayFrameBridge {
   }
 
   async runNetplayFrame(input: CanonicalInput, suppressOutput = false) {
-    if (input.length !== 4 || input.some((controls) => controls.length !== 24)) throw new Error("NETPLAY_INPUT_INVALID");
+    if (input.length !== 4 || input.some((controls) => controls.length !== 24)) {throw new Error("NETPLAY_INPUT_INVALID");}
     const run = async () => {
       for (let player = 0; player < 4; player += 1) {
-        for (let control = 0; control < 24; control += 1) this.nativeSimulateInput(player, control, input[player]![control]!);
+        for (let control = 0; control < 24; control += 1) {this.nativeSimulateInput(player, control, input[player]![control]!);}
       }
       await this.manager.runNetplayFrame();
       this.runtime.paused = true;
     };
-    if (suppressOutput) await this.withSuppressedOutput(run);
-    else await run();
+    if (suppressOutput) {await this.withSuppressedOutput(run);}
+    else {await run();}
   }
 
   private async withSuppressedOutput<T>(work: () => Promise<T>) {
@@ -333,14 +333,14 @@ export class EJSNetplayFrameBridge {
     const muted = this.runtime.muted === true;
     const volume = Number.isFinite(this.runtime.volume) ? this.runtime.volume! : 1;
     try {
-      if (this.runtime.canvas) this.runtime.canvas.style.visibility = "hidden";
+      if (this.runtime.canvas) {this.runtime.canvas.style.visibility = "hidden";}
       this.runtime.setVolume?.(0);
       this.runtime.muted = true;
       this.manager.toggleFastForward?.(true);
       return await work();
     } finally {
       this.manager.toggleFastForward?.(false);
-      if (this.runtime.canvas) this.runtime.canvas.style.visibility = canvasVisibility ?? "";
+      if (this.runtime.canvas) {this.runtime.canvas.style.visibility = canvasVisibility ?? "";}
       this.runtime.muted = muted;
       this.runtime.setVolume?.(muted ? 0 : volume);
     }
@@ -350,7 +350,7 @@ export class EJSNetplayFrameBridge {
     this.closed = true;
     this.manager.cancelNetplayOperations?.();
     this.manager.toggleMainLoop(false);
-    if (this.manager.simulateInput === this.inputCapture) this.manager.simulateInput = this.publicSimulateInput;
+    if (this.manager.simulateInput === this.inputCapture) {this.manager.simulateInput = this.publicSimulateInput;}
     this.localControls.fill(0);
   }
 
@@ -359,14 +359,14 @@ export class EJSNetplayFrameBridge {
 }
 
 export function coreStateBytes(value: Uint8Array) {
-  if (new TextDecoder().decode(value.subarray(0, 7)) !== "RASTATE" || value[7] !== 1) throw new Error("STATE_INVALID");
+  if (new TextDecoder().decode(value.subarray(0, 7)) !== "RASTATE" || value[7] !== 1) {throw new Error("STATE_INVALID");}
   const view = new DataView(value.buffer, value.byteOffset, value.byteLength);
   for (let offset = 8; offset + 8 <= value.byteLength;) {
     const marker = new TextDecoder().decode(value.subarray(offset, offset + 4));
     const size = view.getUint32(offset + 4, true); const start = offset + 8; const end = start + size;
-    if (end > value.byteLength) throw new Error("STATE_INVALID");
-    if (marker === "MEM ") return value.subarray(start, end);
-    if (marker === "END ") break;
+    if (end > value.byteLength) {throw new Error("STATE_INVALID");}
+    if (marker === "MEM ") {return value.subarray(start, end);}
+    if (marker === "END ") {break;}
     offset = start + ((size + 7) & ~7);
   }
   throw new Error("STATE_INVALID");
@@ -383,33 +383,36 @@ const fbneoNeoGeoAY8910StateBytes = 96;
 const fbneoYM2610OutputPositionBytes = 8;
 const fbneoNeoGeoRTCTicksPerSecond = 12_000_000;
 
-export function checkpointCoreStateBytes(value: Uint8Array, profileID: string) {
-  if (profileID !== "fbneo-423-v1") return value;
+function isRTCState(view: DataView, offset: number) {
+  const fields = Array.from({ length: 7 }, (_, index) => view.getUint32(offset + index * 4, true));
+  const [seconds, minutes, hours, day, month, year, weekDay] = fields;
+  const mode = view.getInt32(offset + 28, true);
+  const tpMode = view.getInt32(offset + 32, true);
+  const command = view.getUint32(offset + 44, true);
+  const outputs = view.getUint32(offset + 60, true);
+  const timeValid = [seconds! < 60, minutes! < 60, hours! < 24, day! >= 1, day! <= 31, month! >= 1, month! <= 12, year! < 100, weekDay! < 7].every(Boolean);
+  const modesValid = [mode >= 0, mode <= 2, tpMode >= 0, tpMode <= 2, command <= 15].every(Boolean);
+  const outputsValid = [(outputs & 0xff) <= 1, (outputs >>> 8 & 0xff) <= 1, (outputs >>> 16 & 0xff) <= 1].every(Boolean);
+  return timeValid && modesValid && outputsValid && view.getUint32(offset + 64, true) === fbneoNeoGeoRTCTicksPerSecond;
+}
+
+function rtcStateOffsets(value: Uint8Array) {
   const view = new DataView(value.buffer, value.byteOffset, value.byteLength);
-  const candidates: number[] = [];
+  const offsets: number[] = [];
   for (let offset = 0; offset + 68 <= value.byteLength; offset += 4) {
-    const seconds = view.getUint32(offset, true);
-    const minutes = view.getUint32(offset + 4, true);
-    const hours = view.getUint32(offset + 8, true);
-    const day = view.getUint32(offset + 12, true);
-    const month = view.getUint32(offset + 16, true);
-    const year = view.getUint32(offset + 20, true);
-    const weekDay = view.getUint32(offset + 24, true);
-    const mode = view.getInt32(offset + 28, true);
-    const tpMode = view.getInt32(offset + 32, true);
-    const command = view.getUint32(offset + 44, true);
-    const outputs = view.getUint32(offset + 60, true);
-    const ticksPerSecond = view.getUint32(offset + 64, true);
-    if (seconds < 60 && minutes < 60 && hours < 24 && day >= 1 && day <= 31 && month >= 1 && month <= 12 &&
-      year < 100 && weekDay < 7 && mode >= 0 && mode <= 2 && tpMode >= 0 && tpMode <= 2 && command <= 15 &&
-      (outputs & 0xff) <= 1 && ((outputs >>> 8) & 0xff) <= 1 && ((outputs >>> 16) & 0xff) <= 1 &&
-      ticksPerSecond === fbneoNeoGeoRTCTicksPerSecond) candidates.push(offset);
+    if (isRTCState(view, offset)) {offsets.push(offset);}
   }
-  if (candidates.length !== 1) return value;
+  return offsets;
+}
+
+export function checkpointCoreStateBytes(value: Uint8Array, profileID: string) {
+  if (profileID !== "fbneo-423-v1") {return value;}
+  const candidates = rtcStateOffsets(value);
+  if (candidates.length !== 1) {return value;}
   const audioEnd = candidates[0]!;
   const audioStart = audioEnd - fbneoNeoGeoAY8910StateBytes - fbneoYM2610OutputPositionBytes;
   const driverStateStart = fbneoLibretroFrameCounterBytes + fbneoNeoGeoYM2610StateBytes;
-  if (audioStart < 0 || driverStateStart > value.byteLength) return value;
+  if (audioStart < 0 || driverStateStart > value.byteLength) {return value;}
   const projected = new Uint8Array(value);
   projected.fill(0, fbneoLibretroFrameCounterBytes, driverStateStart);
   projected.fill(0, audioStart, audioEnd);

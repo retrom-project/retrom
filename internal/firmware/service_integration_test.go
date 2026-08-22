@@ -6,7 +6,6 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"crypto/sha1" //nolint:gosec // DAT compatibility checksum, not a security primitive.
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
@@ -20,6 +19,8 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
+	"retrom/internal/legacychecksum"
+	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
@@ -29,23 +30,17 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	contents := []byte("retrom-invalid-bios\n")
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(
@@ -57,18 +52,14 @@ func TestStaticBIOSHashMismatchIsInstalledAsWarning(t *testing.T) {
 			},
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(contents)
 	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)), "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(contents)); err != nil {
 		t.Fatal(err)
 	}
 	snapshot, _ := uploadService.Get(ctx, upload.ID)
 	jobID, _, err := uploadService.Complete(ctx, upload.ID, snapshot.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
@@ -80,9 +71,7 @@ WHERE id=?
 		if state == "SUCCEEDED" {
 			break
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("finalize state = %s", state)
-		}
+		testassert.Falsef(t, time.Now().After(deadline), "finalize state = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
 	var requirementID string
@@ -112,12 +101,8 @@ WHERE f.id=?
 		database.SQL,
 		time.Now,
 	).Install(ctx, requirementID, version, InstallRequest{UploadFileID: upload.Files[0].ID})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Status != "HASH_WARNING" || !result.Active {
-		t.Fatalf("installation = %#v", result)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "HASH_WARNING" }, func() bool { return !result.Active }), "installation = %#v", result)
 }
 
 func TestDATMachineBIOSScansUploadAndAcceptsContentMatchedFilenameAlias(t *testing.T) {
@@ -125,16 +110,12 @@ func TestDATMachineBIOSScansUploadAndAcceptsContentMatchedFilenameAlias(t *testi
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
@@ -145,7 +126,7 @@ SELECT id FROM core_artifacts WHERE core_id='mame2003_plus' AND enabled=1 LIMIT 
 		t.Fatal(err)
 	}
 	contents := []byte("deterministic ST-V BIOS fixture")
-	sha1Value := fmt.Sprintf("%x", sha1.Sum(contents))
+	_, sha1Value := legacychecksum.Sum(contents)
 	crc32Value := fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents))
 	now := time.Now().UnixMilli()
 	if _, err := database.SQL.ExecContext(ctx, `
@@ -193,16 +174,12 @@ VALUES('requirement-test','mame2003_plus',?,'DAT_MACHINE','stvbios','stvbios.zip
 	var archive bytes.Buffer
 	writer := zip.NewWriter(&archive)
 	entry, err := writer.Create("epr-19730.ic8")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := entry.Write(contents); err != nil {
 		t.Fatal(err)
 	}
 	extraEntry, err := writer.Create("notes/extra.bin")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := extraEntry.Write([]byte("extra")); err != nil {
 		t.Fatal(err)
 	}
@@ -210,23 +187,17 @@ VALUES('requirement-test','mame2003_plus',?,'DAT_MACHINE','stvbios','stvbios.zip
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	upload, err := uploadService.Create(ctx, uploads.CreateRequest{SourceType: "FILES", Files: []uploads.FileDeclaration{{ClientFileID: "bios", RelativePath: "stvbios.zip", SizeBytes: int64(archive.Len())}}})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(archive.Bytes())
 	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", archive.Len()-1, archive.Len()), "sha-256=:"+base64.StdEncoding.EncodeToString(digest[:])+":", bytes.NewReader(archive.Bytes())); err != nil {
 		t.Fatal(err)
 	}
 	snapshot, _ := uploadService.Get(ctx, upload.ID)
 	jobID, _, err := uploadService.Complete(ctx, upload.ID, snapshot.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	deadline := time.Now().Add(3 * time.Second)
 	for {
 		var state string
@@ -234,32 +205,19 @@ VALUES('requirement-test','mame2003_plus',?,'DAT_MACHINE','stvbios','stvbios.zip
 		if state == "SUCCEEDED" {
 			break
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("finalize state = %s", state)
-		}
+		testassert.Falsef(t, time.Now().After(deadline), "finalize state = %s", state)
 		time.Sleep(10 * time.Millisecond)
 	}
 	result, err := New(database.SQL, time.Now).WithBlobStore(blobs).Install(
 		ctx, "requirement-test", 1, InstallRequest{UploadFileID: upload.Files[0].ID},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if result.Status != "MATCHED" || !result.Active {
-		t.Fatalf("installation = %#v", result)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return result.Status != "MATCHED" }, func() bool { return !result.Active }), "installation = %#v", result)
 	warnings, ok := result.ValidationDetails["warnings"].([]string)
-	if !ok || len(warnings) != 1 || !strings.Contains(warnings[0], "epr-19730.ic8") {
-		t.Fatalf("alias warnings = %#v", result.ValidationDetails["warnings"])
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !ok }, func() bool { return len(warnings) != 1 }, func() bool { return !strings.Contains(warnings[0], "epr-19730.ic8") }), "alias warnings = %#v", result.ValidationDetails["warnings"])
 	inspection, err := New(database.SQL, time.Now).InspectArchive(ctx, "requirement-test")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if inspection.LogicalName != "stvbios.zip" || inspection.InstallationStatus != "MATCHED" ||
-		len(inspection.Entries) != 2 {
-		t.Fatalf("inspection = %#v", inspection)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return inspection.LogicalName != "stvbios.zip" }, func() bool { return inspection.InstallationStatus != "MATCHED" }, func() bool { return len(inspection.Entries) != 2 }), "inspection = %#v", inspection)
 	if comparison := inspection.Entries[0]; comparison.Status != "ALIASED" ||
 		comparison.Expected == nil || comparison.Expected.Name != "epr19730.ic8" ||
 		comparison.Actual == nil || comparison.Actual.Name != "epr-19730.ic8" ||

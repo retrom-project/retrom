@@ -20,13 +20,13 @@ export class ActiveTimeBudget {
   private readonly setTimer: (callback: () => void, delayMS: number) => number;
   private readonly clearTimer: (timer: number) => void;
   private readonly onVisibilityChange = () => {
-    if (this.settled) return;
-    if (this.visibility.visibilityState === "hidden") this.pause();
-    else this.arm();
+    if (this.settled) {return;}
+    if (this.visibility.visibilityState === "hidden") {this.pause();}
+    else {this.arm();}
   };
 
   constructor(budgetMS: number, options: ActiveTimeBudgetOptions = {}) {
-    if (!Number.isFinite(budgetMS) || budgetMS <= 0) throw new Error("ACTIVE_TIME_BUDGET_INVALID");
+    if (!Number.isFinite(budgetMS) || budgetMS <= 0) {throw new Error("ACTIVE_TIME_BUDGET_INVALID");}
     this.remainingMS = budgetMS;
     this.now = options.now ?? (() => performance.now());
     this.visibility = options.visibility ?? document;
@@ -35,7 +35,7 @@ export class ActiveTimeBudget {
   }
 
   race<T>(operation: Promise<T>, timeoutReason: string): Promise<T> {
-    if (this.rejectTimeout) throw new Error("ACTIVE_TIME_BUDGET_ALREADY_STARTED");
+    if (this.rejectTimeout) {throw new Error("ACTIVE_TIME_BUDGET_ALREADY_STARTED");}
     this.timeoutReason = timeoutReason;
     this.visibility.addEventListener("visibilitychange", this.onVisibilityChange);
     const timeout = new Promise<never>((_, reject) => { this.rejectTimeout = reject; });
@@ -44,14 +44,14 @@ export class ActiveTimeBudget {
   }
 
   cancel(reason = "ACTIVE_TIME_BUDGET_CANCELLED") {
-    if (this.settled) return;
+    if (this.settled) {return;}
     const reject = this.rejectTimeout;
     this.finish();
     reject?.(new Error(reason));
   }
 
   private arm() {
-    if (this.settled || this.timer !== null || this.visibility.visibilityState === "hidden") return;
+    if (this.settled || this.timer !== null || this.visibility.visibilityState === "hidden") {return;}
     this.startedAtMS = this.now();
     this.timer = this.setTimer(() => {
       this.timer = null;
@@ -63,16 +63,16 @@ export class ActiveTimeBudget {
   }
 
   private pause() {
-    if (this.timer === null) return;
+    if (this.timer === null) {return;}
     this.clearTimer(this.timer);
     this.timer = null;
     this.remainingMS = Math.max(0, this.remainingMS - Math.max(0, this.now() - this.startedAtMS));
   }
 
   private finish() {
-    if (this.settled) return;
+    if (this.settled) {return;}
     this.settled = true;
-    if (this.timer !== null) this.clearTimer(this.timer);
+    if (this.timer !== null) {this.clearTimer(this.timer);}
     this.timer = null;
     this.visibility.removeEventListener("visibilitychange", this.onVisibilityChange);
     this.rejectTimeout = null;

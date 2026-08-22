@@ -47,7 +47,7 @@ describe("TagManager", () => {
     expect(container.querySelector(".tag-kpis article:first-child strong")).toHaveTextContent("2");
 
     const actionRow = screen.getByRole("rowheader", { name: "动作" }).closest("tr");
-    if (!actionRow) throw new Error("action row missing");
+    if (!actionRow) {throw new Error("action row missing");}
     await user.click(within(actionRow).getByRole("button", { name: "编辑" }));
     const editSheet = screen.getByRole("dialog", { name: "编辑标签" });
     const editName = within(editSheet).getByRole("textbox", { name: "标签名称" });
@@ -59,7 +59,7 @@ describe("TagManager", () => {
     })));
 
     const renamedRow = (await screen.findByRole("rowheader", { name: "动作游戏" })).closest("tr");
-    if (!renamedRow) throw new Error("renamed row missing");
+    if (!renamedRow) {throw new Error("renamed row missing");}
     await user.click(within(renamedRow).getByRole("button", { name: "删除" }));
     const dialog = screen.getByRole("alertdialog", { name: "删除标签" });
     const confirm = within(dialog).getByRole("button", { name: "删除标签" });

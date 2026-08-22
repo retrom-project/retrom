@@ -3,8 +3,6 @@ package importing
 import (
 	"bytes"
 	"context"
-	"crypto/md5"  //nolint:gosec // Legacy catalog checksum only.
-	"crypto/sha1" //nolint:gosec // Legacy catalog checksum only.
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -22,6 +20,7 @@ import (
 	"github.com/bodgit/sevenzip"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/legacychecksum"
 )
 
 const (
@@ -45,7 +44,7 @@ type archiveWorkerCommandFactory func(context.Context, string, ...string) *exec.
 // pass the archive as inherited descriptor 3; filesystem paths are never
 // accepted by the worker protocol.
 //
-//nolint:gocyclo // The two private worker protocols independently validate every argument and failure response.
+// The two private worker protocols independently validate every argument and failure response.
 func RunArchiveWorker(arguments []string) (bool, error) {
 	if len(arguments) == 0 || arguments[0] != archiveWorkerCommand {
 		return false, nil
@@ -67,28 +66,36 @@ func RunArchiveWorker(arguments []string) (bool, error) {
 	}
 	switch arguments[1] {
 	case "scan":
-		limits, parseErr := archiveLimitsFromArguments(arguments[2:])
-		if parseErr != nil {
-			return true, writeWorkerResponse(os.Stdout, archiveWorkerResponse{ErrorCode: errorCode(ErrArchiveUnsafe)})
-		}
-		entries, scanErr := scanSevenZipReader(context.Background(), archive, info.Size(), limits)
-		response := archiveWorkerResponse{Entries: entries}
-		if scanErr != nil {
-			response = archiveWorkerResponse{ErrorCode: errorCode(scanErr)}
-		}
-		return true, writeWorkerResponse(os.Stdout, response)
+		return true, runArchiveScanWorker(archive, info.Size(), arguments[2:])
 	case "extract":
-		if len(arguments) != 3 {
-			return true, writeWorkerResponse(os.Stdout, archiveWorkerResponse{ErrorCode: errorCode(ErrArchiveUnsafe)})
-		}
-		ordinal, parseErr := strconv.Atoi(arguments[2])
-		if parseErr != nil || ordinal < 0 {
-			return true, writeWorkerResponse(os.Stdout, archiveWorkerResponse{ErrorCode: errorCode(ErrArchiveUnsafe)})
-		}
-		return true, extractSevenZipReader(archive, info.Size(), ordinal, os.Stdout, DefaultArchiveLimits())
+		return true, runArchiveExtractWorker(archive, info.Size(), arguments)
 	default:
 		return true, writeWorkerResponse(os.Stdout, archiveWorkerResponse{ErrorCode: errorCode(ErrArchiveUnsafe)})
 	}
+}
+
+func runArchiveScanWorker(archive *os.File, size int64, arguments []string) error {
+	limits, err := archiveLimitsFromArguments(arguments)
+	if err != nil {
+		return writeWorkerResponse(os.Stdout, archiveWorkerResponse{ErrorCode: errorCode(ErrArchiveUnsafe)})
+	}
+	entries, err := scanSevenZipReader(context.Background(), archive, size, limits)
+	response := archiveWorkerResponse{Entries: entries}
+	if err != nil {
+		response = archiveWorkerResponse{ErrorCode: errorCode(err)}
+	}
+	return writeWorkerResponse(os.Stdout, response)
+}
+
+func runArchiveExtractWorker(archive *os.File, size int64, arguments []string) error {
+	if len(arguments) != 3 {
+		return writeWorkerResponse(os.Stdout, archiveWorkerResponse{ErrorCode: errorCode(ErrArchiveUnsafe)})
+	}
+	ordinal, err := strconv.Atoi(arguments[2])
+	if err != nil || ordinal < 0 {
+		return writeWorkerResponse(os.Stdout, archiveWorkerResponse{ErrorCode: errorCode(ErrArchiveUnsafe)})
+	}
+	return extractSevenZipReader(archive, size, ordinal, os.Stdout, DefaultArchiveLimits())
 }
 
 func ScanSevenZip(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveEntry, error) {
@@ -289,7 +296,7 @@ func workerExecutionError(ctx context.Context, err error) error {
 	return ErrArchiveUnsafe
 }
 
-//nolint:gocognit,gocyclo // Every rejection is a security boundary of the archive contract.
+// Every rejection is a security boundary of the archive contract.
 func scanSevenZipReader(
 	ctx context.Context,
 	reader io.ReaderAt,
@@ -308,52 +315,16 @@ func scanSevenZipReader(
 	entries := make([]ArchiveEntry, 0, len(archive.File))
 	var total int64
 	for ordinal, item := range archive.File {
-		if err := ctx.Err(); err != nil {
-			return nil, fmt.Errorf("importing/sevenzip: %w", err)
+		entry, expanded, directory, err := scanSevenZipItem(
+			ctx, item, ordinal, limits, total, seenPath, seenFold,
+		)
+		if err != nil {
+			return nil, err
 		}
-		pathValue, directory, pathErr := archivePath(item.Name)
-		if pathErr != nil {
-			return nil, pathErr
-		}
-		mode := item.Mode()
-		if mode&os.ModeSymlink != 0 || mode&os.ModeType != 0 && !mode.IsDir() {
-			return nil, ErrArchiveUnsafe
-		}
-		if directory || mode.IsDir() {
+		if directory {
 			continue
 		}
-		if item.UncompressedSize > math.MaxInt64 ||
-			limits.MaxEntryBytes < 0 || int64(item.UncompressedSize) > limits.MaxEntryBytes ||
-			limits.MaxExpandedBytes < 0 || int64(item.UncompressedSize) > limits.MaxExpandedBytes-total {
-			return nil, ErrArchiveLimitExceeded
-		}
-		total += int64(item.UncompressedSize)
-		folded := ASCIICaseFold(pathValue)
-		if _, exists := seenPath[pathValue]; exists {
-			return nil, ErrArchiveUnsafe
-		}
-		if _, exists := seenFold[folded]; exists {
-			return nil, ErrArchiveCasefoldCollision
-		}
-		seenPath[pathValue] = struct{}{}
-		seenFold[folded] = struct{}{}
-		entryReader, openErr := item.Open()
-		if openErr != nil {
-			return nil, classifySevenZipReadError(openErr, true)
-		}
-		entry, readErr := hashSevenZipEntry(
-			ctx,
-			entryReader,
-			ordinal,
-			pathValue,
-			folded,
-			int64(item.UncompressedSize),
-			item.CRC32,
-		)
-		closeErr := entryReader.Close()
-		if readErr != nil || closeErr != nil {
-			return nil, classifySevenZipReadError(errors.Join(readErr, closeErr), false)
-		}
+		total += expanded
 		entries = append(entries, entry)
 	}
 	if archiveSize <= 0 && total > 0 || archiveSize > 0 && compressionRatioExceeded(
@@ -364,6 +335,67 @@ func scanSevenZipReader(
 		return nil, ErrArchiveLimitExceeded
 	}
 	return entries, nil
+}
+
+func scanSevenZipItem(
+	ctx context.Context,
+	item *sevenzip.File,
+	ordinal int,
+	limits ArchiveLimits,
+	total int64,
+	seenPath, seenFold map[string]struct{},
+) (ArchiveEntry, int64, bool, error) {
+	if err := ctx.Err(); err != nil {
+		return ArchiveEntry{}, 0, false, fmt.Errorf("importing/sevenzip: %w", err)
+	}
+	pathValue, directory, err := archivePath(item.Name)
+	if err != nil {
+		return ArchiveEntry{}, 0, false, err
+	}
+	mode := item.Mode()
+	if unsafeSevenZipMode(mode) {
+		return ArchiveEntry{}, 0, false, ErrArchiveUnsafe
+	}
+	if directory || mode.IsDir() {
+		return ArchiveEntry{}, 0, true, nil
+	}
+	expanded, err := sevenZipExpandedSize(item.UncompressedSize, limits, total)
+	if err != nil {
+		return ArchiveEntry{}, 0, false, err
+	}
+	folded := ASCIICaseFold(pathValue)
+	if err := recordArchivePath(seenPath, seenFold, pathValue, folded); err != nil {
+		return ArchiveEntry{}, 0, false, err
+	}
+	reader, err := item.Open()
+	if err != nil {
+		return ArchiveEntry{}, 0, false, classifySevenZipReadError(err, true)
+	}
+	entry, readErr := hashSevenZipEntry(
+		ctx, reader, ordinal, pathValue, folded, expanded, item.CRC32,
+	)
+	closeErr := reader.Close()
+	if readErr != nil || closeErr != nil {
+		return ArchiveEntry{}, 0, false,
+			classifySevenZipReadError(errors.Join(readErr, closeErr), false)
+	}
+	return entry, expanded, false, nil
+}
+
+func unsafeSevenZipMode(mode os.FileMode) bool {
+	return mode&os.ModeSymlink != 0 || mode&os.ModeType != 0 && !mode.IsDir()
+}
+
+func sevenZipExpandedSize(size uint64, limits ArchiveLimits, total int64) (int64, error) {
+	if size > math.MaxInt64 {
+		return 0, ErrArchiveLimitExceeded
+	}
+	expanded := int64(size)
+	if limits.MaxEntryBytes < 0 || expanded > limits.MaxEntryBytes ||
+		limits.MaxExpandedBytes < 0 || expanded > limits.MaxExpandedBytes-total {
+		return 0, ErrArchiveLimitExceeded
+	}
+	return expanded, nil
 }
 
 func compressionRatioExceeded(expanded, compressed, maximum int64) bool {
@@ -388,8 +420,7 @@ func hashSevenZipEntry(
 	expectedCRC32 uint32,
 ) (ArchiveEntry, error) {
 	sha256Hash := sha256.New()
-	md5Hash := md5.New()   //nolint:gosec // Legacy catalog checksum only.
-	sha1Hash := sha1.New() //nolint:gosec // Legacy catalog checksum only.
+	legacyHashes := legacychecksum.New()
 	crc32Hash := crc32.NewIEEE()
 	prefix := make([]byte, 512)
 	buffer := make([]byte, 1024*1024)
@@ -406,7 +437,7 @@ func hashSevenZipEntry(
 			if written < int64(len(prefix)) {
 				copy(prefix[written:], buffer[:count])
 			}
-			_, _ = io.MultiWriter(sha256Hash, md5Hash, sha1Hash, crc32Hash).Write(buffer[:count])
+			_, _ = io.MultiWriter(sha256Hash, legacyHashes.MD5, legacyHashes.SHA1, crc32Hash).Write(buffer[:count])
 			written += int64(count)
 		}
 		if errors.Is(err, io.EOF) {
@@ -425,8 +456,8 @@ func hashSevenZipEntry(
 	return ArchiveEntry{
 		Ordinal: ordinal, OriginalPath: pathValue, NormalizedPath: pathValue, ASCIICasefoldPath: folded,
 		ArchiveFormat: "SEVEN_Z", CompressionProfile: "SEVEN_Z_DECODER_VALIDATED", Size: written,
-		CRC32: hex.EncodeToString(crc32Hash.Sum(nil)), MD5: hex.EncodeToString(md5Hash.Sum(nil)),
-		SHA1: hex.EncodeToString(sha1Hash.Sum(nil)), SHA256: hex.EncodeToString(sha256Hash.Sum(nil)),
+		CRC32: hex.EncodeToString(crc32Hash.Sum(nil)), MD5: hex.EncodeToString(legacyHashes.MD5.Sum(nil)),
+		SHA1: hex.EncodeToString(legacyHashes.SHA1.Sum(nil)), SHA256: hex.EncodeToString(sha256Hash.Sum(nil)),
 	}, nil
 }
 

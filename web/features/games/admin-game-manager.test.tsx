@@ -1,12 +1,13 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as UploadModule from "@/lib/upload";
 import { AdminGameManager, type AdminGame, type PlatformInstanceOption } from "./admin-game-manager";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 const upload = vi.hoisted(() => ({ uploadFiles: vi.fn(), waitForJob: vi.fn() }));
 vi.mock("@/lib/upload", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@/lib/upload")>();
+  const original = await importOriginal<typeof UploadModule>();
   return { ...original, uploadFiles: upload.uploadFiles, waitForJob: upload.waitForJob };
 });
 

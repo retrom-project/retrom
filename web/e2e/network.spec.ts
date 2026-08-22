@@ -5,7 +5,7 @@ const noncePattern = /'nonce-([^']+)'/;
 async function navigationEvidence(page: Page) {
   const consoleErrors: string[] = [];
   page.on("console", (message) => {
-    if (message.type() === "error") consoleErrors.push(message.text());
+    if (message.type() === "error") {consoleErrors.push(message.text());}
   });
   const response = await page.goto("/", { waitUntil: "load" });
   await expect(page.getByRole("main")).toBeVisible();

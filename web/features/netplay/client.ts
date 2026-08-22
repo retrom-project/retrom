@@ -20,8 +20,8 @@ export async function roomMutation<T = NetplayRoom>(
   options: { version?: number; body?: unknown } = {},
 ) {
   const headers = new Headers({ "Idempotency-Key": newUuid() });
-  if (options.version !== undefined) headers.set("If-Match", `"v${options.version}"`);
-  if (options.body !== undefined) headers.set("Content-Type", "application/json");
+  if (options.version !== undefined) {headers.set("If-Match", `"v${options.version}"`);}
+  if (options.body !== undefined) {headers.set("Content-Type", "application/json");}
   const response = await authenticatedFetch(path, {
     method,
     headers,
@@ -31,13 +31,13 @@ export async function roomMutation<T = NetplayRoom>(
     const error = await readAPIError(response, `联机请求失败（HTTP ${response.status}）`);
     throw new NetplayAPIError(error.code, error.message);
   }
-  if (response.status === 204) return null as T;
+  if (response.status === 204) {return null as T;}
   return response.json() as Promise<T>;
 }
 
 export function applyRoomSnapshot(current: NetplayRoom, incoming: NetplayRoom) {
-  if (incoming.roomId !== current.roomId) return { room: current, gap: true };
-  if (incoming.version <= current.version) return { room: current, gap: false };
+  if (incoming.roomId !== current.roomId) {return { room: current, gap: true };}
+  if (incoming.version <= current.version) {return { room: current, gap: false };}
   return { room: incoming, gap: incoming.version > current.version + 1 };
 }
 

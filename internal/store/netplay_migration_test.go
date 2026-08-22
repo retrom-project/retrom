@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestNetplayMigrationUpgradesVersion31AndEnforcesRoomInvariants(t *testing.T) {
@@ -18,9 +19,7 @@ func TestNetplayMigrationUpgradesVersion31AndEnforcesRoomInvariants(t *testing.T
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -45,7 +44,7 @@ VALUES('01980000-0000-7000-8000-00000000a001','Netplay host',1)
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	if _, err := upgraded.SQL.ExecContext(ctx, `
@@ -76,7 +75,7 @@ WHERE id='01980000-0000-7000-8000-00000000c002'
 		t.Fatal("DRAFT member was marked ready")
 	}
 	var saveAccessDefault string
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT dflt_value FROM pragma_table_info('launch_sessions') WHERE name='save_access'
 `).Scan(&saveAccessDefault); err != nil || saveAccessDefault != "'NORMAL'" {
 		t.Fatalf("launch save_access default = %q, error=%v", saveAccessDefault, err)

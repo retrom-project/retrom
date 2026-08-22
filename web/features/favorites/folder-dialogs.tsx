@@ -15,7 +15,7 @@ function DialogFrame({
   const descriptionId = useId();
   const panel = useRef<HTMLElement>(null);
   useEffect(() => {
-    if (!open) return;
+    if (!open) {return;}
     const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const frame = window.requestAnimationFrame(() => {
       if (!modal && anchor && panel.current) {
@@ -44,15 +44,15 @@ function DialogFrame({
     };
   }, [anchor, modal, open, resolveReturnFocus]);
   useEffect(() => {
-    if (!open || modal) return;
+    if (!open || modal) {return;}
     const closeOutside = (event: PointerEvent) => {
-      if (!(event.target instanceof Node) || panel.current?.contains(event.target) || anchor?.contains(event.target)) return;
+      if (!(event.target instanceof Node) || panel.current?.contains(event.target) || anchor?.contains(event.target)) {return;}
       onClose();
     };
     document.addEventListener("pointerdown", closeOutside);
     return () => document.removeEventListener("pointerdown", closeOutside);
   }, [anchor, modal, onClose, open]);
-  if (!open) return null;
+  if (!open) {return null;}
   const dialog = <section
       className="app-dialog favorite-dialog"
       ref={panel}
@@ -62,9 +62,9 @@ function DialogFrame({
       aria-describedby={description ? descriptionId : undefined}
       onKeyDown={(event) => {
         if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); onClose(); return; }
-        if (!modal || event.key !== "Tab") return;
+        if (!modal || event.key !== "Tab") {return;}
         const focusable = Array.from(panel.current?.querySelectorAll<HTMLElement>("button:not(:disabled), input:not(:disabled), select:not(:disabled), [href], [tabindex]:not([tabindex='-1'])") ?? []);
-        if (!focusable.length) return;
+        if (!focusable.length) {return;}
         const first = focusable[0]; const last = focusable[focusable.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
         else if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first.focus(); }
@@ -75,7 +75,7 @@ function DialogFrame({
     </section>;
   const layer = !modal
     ? <div className="favorite-popover">{dialog}</div>
-    : <div className="dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) onClose(); }}>{dialog}</div>;
+    : <div className="dialog-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) {onClose();} }}>{dialog}</div>;
   return createPortal(layer, document.body);
 }
 
@@ -86,7 +86,7 @@ export function FolderPickerDialog({
   anchor?: HTMLElement | null; resolveReturnFocus?: () => HTMLElement | null;
   onSave: (folderIds: string[]) => void; onCreate: () => void; onClose: () => void;
 }) {
-  if (!open) return null;
+  if (!open) {return null;}
   return <OpenFolderPickerDialog key={selectedFolderIds.join("\u0000")} title={title} folders={folders} selectedFolderIds={selectedFolderIds} busy={busy} anchor={anchor} resolveReturnFocus={resolveReturnFocus} onSave={onSave} onCreate={onCreate} onClose={onClose} />;
 }
 
@@ -112,7 +112,7 @@ function OpenFolderPickerDialog({
           checked={selected.has(folder.folderId)}
           onChange={(event) => setSelected((current) => {
             const next = new Set(current);
-            if (event.target.checked) next.add(folder.folderId); else next.delete(folder.folderId);
+            if (event.target.checked) {next.add(folder.folderId);} else {next.delete(folder.folderId);}
             return next;
           })}
         />
@@ -130,7 +130,7 @@ export function FolderNameDialog({
   open: boolean; title: string; initialName?: string; submitLabel?: string; busy: boolean; error?: string;
   onSubmit: (name: string) => void; onClose: () => void;
 }) {
-  if (!open) return null;
+  if (!open) {return null;}
   return <OpenFolderNameDialog title={title} initialName={initialName} submitLabel={submitLabel} busy={busy} error={error} onSubmit={onSubmit} onClose={onClose} />;
 }
 
@@ -142,7 +142,7 @@ function OpenFolderNameDialog({
 }) {
   const [name, setName] = useState(initialName);
   return <DialogFrame open title={title} description="为收藏夹命名；之后可以随时重命名或删除，游戏本身不会受影响。" onClose={onClose}>
-    <form onSubmit={(event) => { event.preventDefault(); if (name.trim()) onSubmit(name); }}>
+    <form onSubmit={(event) => { event.preventDefault(); if (name.trim()) {onSubmit(name);} }}>
       <label className="favorite-folder-name"><span>收藏夹名称</span><input data-dialog-autofocus value={name} maxLength={160} placeholder="例如：纵版街机" onChange={(event) => setName(event.target.value)} autoComplete="off" /></label>
       {error ? <p className="favorite-form-error" role="alert">{error}</p> : null}
       <div className="dialog-actions"><button className="button secondary" type="button" disabled={busy} onClick={onClose}>取消</button><button className="button" type="submit" disabled={busy || !name.trim()}>{busy ? "保存中…" : submitLabel}</button></div>
@@ -156,7 +156,7 @@ export function FolderEditDialog({
   open: boolean; initialName: string; busy: boolean; error?: string;
   onSubmit: (name: string) => void; onDelete: () => void; onClose: () => void;
 }) {
-  if (!open) return null;
+  if (!open) {return null;}
   return <OpenFolderEditDialog initialName={initialName} busy={busy} error={error} onSubmit={onSubmit} onDelete={onDelete} onClose={onClose} />;
 }
 
@@ -168,7 +168,7 @@ function OpenFolderEditDialog({
 }) {
   const [name, setName] = useState(initialName);
   return <DialogFrame open title="编辑收藏夹" description="重命名只改变收藏夹名称，不影响其中的游戏。" onClose={onClose}>
-    <form onSubmit={(event) => { event.preventDefault(); if (name.trim()) onSubmit(name); }}>
+    <form onSubmit={(event) => { event.preventDefault(); if (name.trim()) {onSubmit(name);} }}>
       <label className="favorite-folder-name"><span>收藏夹名称</span><input data-dialog-autofocus value={name} maxLength={160} onChange={(event) => setName(event.target.value)} autoComplete="off" /></label>
       {error ? <p className="favorite-form-error" role="alert">{error}</p> : null}
       <div className="dialog-actions"><button className="button danger favorite-dialog-delete" type="button" disabled={busy} onClick={onDelete}>删除收藏夹…</button><button className="button secondary" type="button" disabled={busy} onClick={onClose}>取消</button><button className="button" type="submit" disabled={busy || !name.trim()}>{busy ? "保存中…" : "保存"}</button></div>

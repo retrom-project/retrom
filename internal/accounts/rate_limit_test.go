@@ -10,6 +10,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/config"
+	"retrom/internal/testassert"
 )
 
 func TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock(t *testing.T) {
@@ -42,9 +43,7 @@ func TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock(t *testing.T) {
 	wait.Wait()
 	close(outcomes)
 	for result := range outcomes {
-		if !errors.Is(result.err, ErrRateLimited) || RateLimitRetryAfter(result.err) != 900 {
-			t.Fatalf("concurrent threshold result = %v retry=%d", result.err, RateLimitRetryAfter(result.err))
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return !errors.Is(result.err, ErrRateLimited) }, func() bool { return RateLimitRetryAfter(result.err) != 900 }), "concurrent threshold result = %v retry=%d", result.err, RateLimitRetryAfter(result.err))
 	}
 	if _, err := fixture.service.LoginRateLimited(
 		context.Background(), "test", "test", "192.0.2.10",
@@ -53,7 +52,7 @@ func TestLoginRateLimitIsAtomicHashedAndExpiresWithInjectedClock(t *testing.T) {
 	}
 
 	var rows, hashBytes int
-	if err := fixture.database.SQL.QueryRow(`
+	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
 SELECT count(*),min(length(subject_hash)) FROM auth_rate_limits
 `).Scan(&rows, &hashBytes); err != nil || rows != 2 || hashBytes != 32 {
 		t.Fatalf("rate-limit storage = rows=%d hashBytes=%d error=%v", rows, hashBytes, err)
@@ -66,13 +65,13 @@ SELECT count(*),min(length(subject_hash)) FROM auth_rate_limits
 	}
 	accountHash := fixture.credentials.RateLimitSubject("LOGIN_ACCOUNT", "test")
 	var accountRows int
-	if err := fixture.database.SQL.QueryRow(`
+	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
 SELECT count(*) FROM auth_rate_limits WHERE scope='LOGIN_ACCOUNT' AND subject_hash=?
 `, accountHash[:]).Scan(&accountRows); err != nil || accountRows != 0 {
 		t.Fatalf("successful account bucket clear = %d, %v", accountRows, err)
 	}
 	var ipRows int
-	if err := fixture.database.SQL.QueryRow(`
+	if err := fixture.database.SQL.QueryRowContext(context.Background(), `
 SELECT count(*) FROM auth_rate_limits WHERE scope='LOGIN_IP'
 `).Scan(&ipRows); err != nil || ipRows != 1 {
 		t.Fatalf("successful login cleared IP bucket = %d, %v", ipRows, err)
@@ -91,12 +90,8 @@ func TestSetupAndLinkRateLimitsUseIndependentIPBuckets(t *testing.T) {
 	}
 	for attempt := 1; attempt <= 5; attempt++ {
 		_, err := release.service.InitializeRateLimited(context.Background(), invalidSetup, "198.51.100.5")
-		if attempt < 5 && !errors.Is(err, ErrInitializationProof) {
-			t.Fatalf("setup failure %d = %v", attempt, err)
-		}
-		if attempt == 5 && (!errors.Is(err, ErrRateLimited) || RateLimitRetryAfter(err) != 900) {
-			t.Fatalf("setup threshold = %v retry=%d", err, RateLimitRetryAfter(err))
-		}
+		testassert.Falsef(t, testassert.All(func() bool { return attempt < 5 }, func() bool { return !errors.Is(err, ErrInitializationProof) }), "setup failure %d = %v", attempt, err)
+		testassert.Falsef(t, testassert.All(func() bool { return attempt == 5 }, func() bool { return (!errors.Is(err, ErrRateLimited) || RateLimitRetryAfter(err) != 900) }), "setup threshold = %v retry=%d", err, RateLimitRetryAfter(err))
 	}
 
 	fixture := newAccountFixture(t, config.ModeTest)
@@ -104,19 +99,13 @@ func TestSetupAndLinkRateLimitsUseIndependentIPBuckets(t *testing.T) {
 	invitation, _, err := fixture.service.CreateInvitation(
 		context.Background(), admin.Principal, "USER", false, uuid.NewString(),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	for attempt := 1; attempt <= 20; attempt++ {
 		_, inspectErr := fixture.service.InspectAccountLinkRateLimited(
 			context.Background(), "INVITATION", "invalid", "203.0.113.7",
 		)
-		if attempt < 20 && !errors.Is(inspectErr, ErrAccountLinkUnavailable) {
-			t.Fatalf("link failure %d = %v", attempt, inspectErr)
-		}
-		if attempt == 20 && !errors.Is(inspectErr, ErrRateLimited) {
-			t.Fatalf("link threshold = %v", inspectErr)
-		}
+		testassert.Falsef(t, testassert.All(func() bool { return attempt < 20 }, func() bool { return !errors.Is(inspectErr, ErrAccountLinkUnavailable) }), "link failure %d = %v", attempt, inspectErr)
+		testassert.Falsef(t, testassert.All(func() bool { return attempt == 20 }, func() bool { return !errors.Is(inspectErr, ErrRateLimited) }), "link threshold = %v", inspectErr)
 	}
 	if _, err := fixture.service.InspectAccountLinkRateLimited(
 		context.Background(), "INVITATION", invitation.CapabilityToken, "203.0.113.7",

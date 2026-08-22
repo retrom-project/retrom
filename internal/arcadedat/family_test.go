@@ -3,6 +3,8 @@ package arcadedat
 import (
 	"reflect"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestCoreFamiliesAreClosedAndComplete(t *testing.T) {
@@ -13,9 +15,7 @@ func TestCoreFamiliesAreClosedAndComplete(t *testing.T) {
 	}
 	for _, coreID := range want {
 		family, exists := FamilyForCore(coreID)
-		if !exists || family == "" || !SupportsCore(coreID) {
-			t.Fatalf("supported core %q has family %q, exists=%v", coreID, family, exists)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return !exists }, func() bool { return family == "" }, func() bool { return !SupportsCore(coreID) }), "supported core %q has family %q, exists=%v", coreID, family, exists)
 	}
 	for _, coreID := range []string{"azahar", "genesis_plus_gx_wide", "mame2010", ""} {
 		if _, exists := FamilyForCore(coreID); exists || SupportsCore(coreID) {

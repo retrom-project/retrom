@@ -7,7 +7,7 @@ class EventTargetStub {
     this.listeners.set(name, [...(this.listeners.get(name) ?? []), listener]);
   }
   emit(name: string, event = new ProgressEvent(name)) {
-    for (const listener of this.listeners.get(name) ?? []) listener(event);
+    for (const listener of this.listeners.get(name) ?? []) {listener(event);}
   }
 }
 

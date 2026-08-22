@@ -3,19 +3,19 @@ package importing
 import (
 	"archive/zip"
 	"context"
-	"crypto/md5"  //nolint:gosec // Legacy catalog checksum only.
-	"crypto/sha1" //nolint:gosec // Legacy catalog checksum only.
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
 	"fmt"
 	"hash/crc32"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/legacychecksum"
 	"retrom/internal/zipentry"
 )
 
@@ -68,7 +68,6 @@ type ArchiveEntry struct {
 	SHA256             string
 }
 
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveEntry, error) {
 	file, err := os.Open(path) //nolint:gosec // Caller supplies a CAS path, and this scanner never writes beside it.
 	if err != nil {
@@ -94,59 +93,22 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 		if err := ctx.Err(); err != nil {
 			return nil, fmt.Errorf("importing/archive: %w", err)
 		}
-		entryName, err := zipEntryName(item)
+		pathValue, directory, err := validateZIPItem(item, limits, total)
 		if err != nil {
 			return nil, err
-		}
-		pathValue, directory, err := archivePath(entryName)
-		if err != nil {
-			return nil, err
-		}
-		mode := item.Mode()
-		if mode&os.ModeSymlink != 0 || mode&os.ModeType != 0 && !mode.IsDir() {
-			return nil, ErrArchiveUnsafe
 		}
 		if directory {
-			if !mode.IsDir() && item.ExternalAttrs != 0 {
-				return nil, ErrArchiveUnsafe
-			}
 			continue
 		}
-		if item.Flags&0x1 != 0 {
-			return nil, ErrArchiveUnsafe
-		}
-		if item.Method != zip.Store && item.Method != zip.Deflate {
-			return nil, ErrArchiveMethodUnsupported
-		}
-		if limits.MaxEntryBytes < 0 ||
-			item.UncompressedSize64 > uint64(
-				limits.MaxEntryBytes,
-			) {
+		expanded, ok := checkedArchiveSize(item.UncompressedSize64)
+		if !ok {
 			return nil, ErrArchiveLimitExceeded
 		}
-		// The signed ratio limit is proven nonnegative before conversion.
-		if item.CompressedSize64 == 0 && item.UncompressedSize64 > 0 ||
-			item.CompressedSize64 > 0 && (limits.MaxCompressionRatio < 0 ||
-				item.UncompressedSize64/item.CompressedSize64 > uint64(limits.MaxCompressionRatio)) &&
-				item.UncompressedSize64 > 16<<20 {
-			return nil, ErrArchiveLimitExceeded
-		}
-		if item.UncompressedSize64 > ^uint64(0)>>1 ||
-			int64(
-				item.UncompressedSize64,
-			) > limits.MaxExpandedBytes-total {
-			return nil, ErrArchiveLimitExceeded
-		}
-		total += int64(item.UncompressedSize64)
+		total += expanded
 		folded := ASCIICaseFold(pathValue)
-		if _, exists := seenPath[pathValue]; exists {
-			return nil, ErrArchiveUnsafe
+		if err := recordArchivePath(seenPath, seenFold, pathValue, folded); err != nil {
+			return nil, err
 		}
-		if _, exists := seenFold[folded]; exists {
-			return nil, ErrArchiveCasefoldCollision
-		}
-		seenPath[pathValue] = struct{}{}
-		seenFold[folded] = struct{}{}
 		entry, err := readArchiveEntry(
 			ctx, item, ordinal, pathValue, folded, limits.MaxEntryBytes, limits.AllowNestedArchives,
 		)
@@ -156,6 +118,68 @@ func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveE
 		result = append(result, entry)
 	}
 	return result, nil
+}
+
+func checkedArchiveSize(value uint64) (int64, bool) {
+	if value > uint64(math.MaxInt64) {
+		return 0, false
+	}
+	return int64(value), true
+}
+
+func validateZIPItem(item *zip.File, limits ArchiveLimits, expanded int64) (string, bool, error) {
+	entryName, err := zipEntryName(item)
+	if err != nil {
+		return "", false, err
+	}
+	pathValue, directory, err := archivePath(entryName)
+	if err != nil {
+		return "", false, err
+	}
+	mode := item.Mode()
+	if mode&os.ModeSymlink != 0 || mode&os.ModeType != 0 && !mode.IsDir() {
+		return "", false, ErrArchiveUnsafe
+	}
+	if directory {
+		if !mode.IsDir() && item.ExternalAttrs != 0 {
+			return "", false, ErrArchiveUnsafe
+		}
+		return pathValue, true, nil
+	}
+	if item.Flags&0x1 != 0 {
+		return "", false, ErrArchiveUnsafe
+	}
+	if item.Method != zip.Store && item.Method != zip.Deflate {
+		return "", false, ErrArchiveMethodUnsupported
+	}
+	if invalidZIPSize(item, limits, expanded) {
+		return "", false, ErrArchiveLimitExceeded
+	}
+	return pathValue, false, nil
+}
+
+func invalidZIPSize(item *zip.File, limits ArchiveLimits, expanded int64) bool {
+	if limits.MaxEntryBytes < 0 || item.UncompressedSize64 > uint64(limits.MaxEntryBytes) {
+		return true
+	}
+	invalidRatio := item.CompressedSize64 == 0 && item.UncompressedSize64 > 0 ||
+		item.CompressedSize64 > 0 && (limits.MaxCompressionRatio < 0 ||
+			item.UncompressedSize64/item.CompressedSize64 > uint64(limits.MaxCompressionRatio)) &&
+			item.UncompressedSize64 > 16<<20
+	return invalidRatio || item.UncompressedSize64 > ^uint64(0)>>1 ||
+		int64(item.UncompressedSize64) > limits.MaxExpandedBytes-expanded
+}
+
+func recordArchivePath(seenPath, seenFold map[string]struct{}, pathValue, folded string) error {
+	if _, exists := seenPath[pathValue]; exists {
+		return ErrArchiveUnsafe
+	}
+	if _, exists := seenFold[folded]; exists {
+		return ErrArchiveCasefoldCollision
+	}
+	seenPath[pathValue] = struct{}{}
+	seenFold[folded] = struct{}{}
+	return nil
 }
 
 // ScanFlatZIP applies the shared ZIP safety and resource limits and then
@@ -225,8 +249,7 @@ func readArchiveEntry(
 	}
 	defer func() { cleanup.Error("close", reader.Close()) }()
 	sha256Hash := sha256.New()
-	md5Hash := md5.New()   //nolint:gosec // Legacy catalog checksum only.
-	sha1Hash := sha1.New() //nolint:gosec // Legacy catalog checksum only.
+	legacyHashes := legacychecksum.New()
 	crc32Hash := crc32.NewIEEE()
 	prefix := make([]byte, 512)
 	written := int64(0)
@@ -243,7 +266,7 @@ func readArchiveEntry(
 			if written < int64(len(prefix)) {
 				copy(prefix[written:], buffer[:count])
 			}
-			_, _ = io.MultiWriter(sha256Hash, md5Hash, sha1Hash, crc32Hash).Write(buffer[:count])
+			_, _ = io.MultiWriter(sha256Hash, legacyHashes.MD5, legacyHashes.SHA1, crc32Hash).Write(buffer[:count])
 			written += int64(count)
 		}
 		if errors.Is(readErr, io.EOF) {
@@ -266,7 +289,7 @@ func readArchiveEntry(
 		Ordinal: ordinal, OriginalPath: pathValue, NormalizedPath: pathValue, ASCIICasefoldPath: folded,
 		ArchiveFormat: "ZIP", CompressionProfile: zipCompressionProfile(item.Method),
 		Size: written, CRC32: hex.EncodeToString(crc32Hash.Sum(nil)),
-		MD5: hex.EncodeToString(md5Hash.Sum(nil)), SHA1: hex.EncodeToString(sha1Hash.Sum(nil)),
+		MD5: hex.EncodeToString(legacyHashes.MD5.Sum(nil)), SHA1: hex.EncodeToString(legacyHashes.SHA1.Sum(nil)),
 		SHA256: hex.EncodeToString(sha256Hash.Sum(nil)),
 	}, nil
 }

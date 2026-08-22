@@ -36,10 +36,10 @@ describe("ReviewPreviewPlayer", () => {
     });
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/config")) return Promise.resolve(new Response(JSON.stringify({
+      if (url.endsWith("/config")) {return Promise.resolve(new Response(JSON.stringify({
         gameTitle: "1944",
         reviewPreview: { importItemId: "item-1", captureAllowed: true, captureAfterMs: 5000 },
-      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));}
       if (url.endsWith("/review-screenshot") && init?.method === "POST") {
         return Promise.resolve(new Response(JSON.stringify({ screenshotId: "shot-1" }), { status: 201, headers: { "Content-Type": "application/json" } }));
       }
@@ -74,10 +74,10 @@ describe("ReviewPreviewPlayer", () => {
       return vi.fn();
     });
     const fetchMock = vi.fn((input: RequestInfo | URL) => {
-      if (String(input).endsWith("/config")) return Promise.resolve(new Response(JSON.stringify({
+      if (String(input).endsWith("/config")) {return Promise.resolve(new Response(JSON.stringify({
         gameTitle: "Blocked game",
         reviewPreview: { importItemId: "item-2", captureAllowed: true, captureAfterMs: 5000 },
-      }), { status: 200, headers: { "Content-Type": "application/json" } }));
+      }), { status: 200, headers: { "Content-Type": "application/json" } }));}
       return Promise.resolve(new Response(JSON.stringify({ screenshotId: "shot-blocked" }), {
         status: 201, headers: { "Content-Type": "application/json" },
       }));

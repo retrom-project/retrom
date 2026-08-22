@@ -9,6 +9,8 @@ import (
 	"runtime"
 	"testing"
 
+	"retrom/internal/testassert"
+
 	_ "modernc.org/sqlite"
 )
 
@@ -16,9 +18,7 @@ func TestPegasusFailureDiagnosticsMigrationBackfillsArcadeSourceLimit(t *testing
 	t.Parallel()
 	ctx := context.Background()
 	database, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "migration-029.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { _ = database.Close() })
 	if _, err := database.ExecContext(ctx, `
 CREATE TABLE pegasus_import_collections(
@@ -60,9 +60,7 @@ INSERT INTO pegasus_import_item_files VALUES('primary',0,'1944j.zip');
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	migration, err := os.ReadFile(filepath.Join(repositoryRoot, "migrations", "029_pegasus_failure_diagnostics.sql"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := database.ExecContext(ctx, string(migration)); err != nil {
 		t.Fatal(err)
 	}
@@ -77,14 +75,7 @@ FROM pegasus_import_items WHERE id='primary'
 `).Scan(&stage, &operation, &cause, &relativePath, &observed, &allowed, &detail); err != nil {
 		t.Fatal(err)
 	}
-	if stage != "LIBRARY_IMPORT" || operation != "CREATE_SERVER_SOURCE" ||
-		cause != "SOURCE_FILE_LIMIT_EXCEEDED" || relativePath != "1944j.zip" ||
-		observed != 65 || allowed != 64 || detail == "" {
-		t.Fatalf(
-			"details = %s/%s/%s path=%s files=%d/%d detail=%q",
-			stage, operation, cause, relativePath, observed, allowed, detail,
-		)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return stage != "LIBRARY_IMPORT" }, func() bool { return operation != "CREATE_SERVER_SOURCE" }, func() bool { return cause != "SOURCE_FILE_LIMIT_EXCEEDED" }, func() bool { return relativePath != "1944j.zip" }, func() bool { return observed != 65 }, func() bool { return allowed != 64 }, func() bool { return detail == "" }), "details = %s/%s/%s path=%s files=%d/%d detail=%q", stage, operation, cause, relativePath, observed, allowed, detail)
 	if _, err := database.ExecContext(
 		ctx, `UPDATE pegasus_import_items SET error_details_json='[]' WHERE id='primary'`,
 	); err == nil {

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestReviewBulkMigrationUpgradesVersion36AndPreservesJobs(t *testing.T) {
@@ -19,9 +20,7 @@ func TestReviewBulkMigrationUpgradesVersion36AndPreservesJobs(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -54,7 +53,7 @@ VALUES(?,'BLOB','migration-037','QUEUED','{}',1)
 		t.Fatal(err)
 	}
 	var version, jobs, events int
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT (SELECT max(version) FROM schema_migrations),
        (SELECT count(*) FROM jobs WHERE id=?),
        (SELECT count(*) FROM job_events WHERE job_id=?)
@@ -67,11 +66,11 @@ SELECT (SELECT max(version) FROM schema_migrations),
 		"review_bulk_approval_items_frozen_update", "review_bulk_approval_items_published_update",
 	} {
 		var found int
-		if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM sqlite_master WHERE name=?`, name).Scan(&found); err != nil || found != 1 {
+		if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT count(*) FROM sqlite_master WHERE name=?`, name).Scan(&found); err != nil || found != 1 {
 			t.Fatalf("schema object %s = %d, %v", name, found, err)
 		}
 	}
-	if _, err := upgraded.SQL.Exec(`
+	if _, err := upgraded.SQL.ExecContext(context.Background(), `
 INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,
 attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)
 VALUES('01980000-0000-7000-8000-000000000038','IMPORT_ITEM','wrong','REVIEW_BULK_APPROVE',?,

@@ -41,7 +41,7 @@ function MultiDiscPreflightState({ result, allowIncomplete }: { result: MultiDis
   function toggle(directory: string) {
     setExpanded((current) => {
       const next = new Set(current);
-      if (next.has(directory)) next.delete(directory); else next.add(directory);
+      if (next.has(directory)) {next.delete(directory);} else {next.add(directory);}
       return next;
     });
   }

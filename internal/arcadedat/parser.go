@@ -57,7 +57,6 @@ type machineInfo struct {
 	bios    bool
 }
 
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func Parse(ctx context.Context, source io.Reader, coreID string) (Stats, error) {
 	family, supported := FamilyForCore(coreID)
 	if !supported {
@@ -66,14 +65,11 @@ func Parse(ctx context.Context, source io.Reader, coreID string) (Stats, error) 
 	limited := &io.LimitedReader{R: source, N: maxDATBytes + 1}
 	decoder := xml.NewDecoder(limited)
 	decoder.Strict = true
-	stats := Stats{}
-	machines := make(map[string]machineInfo)
-	baseTargets := make(map[string]struct{})
-	rootSeen := false
-	directiveSeen := false
-	depth := 0
-	elements := 0
-	currentMachine := ""
+	state := datParseState{
+		family:      family,
+		machines:    make(map[string]machineInfo),
+		baseTargets: make(map[string]struct{}),
+	}
 	for {
 		if err := ctx.Err(); err != nil {
 			return Stats{}, fmt.Errorf("arcadedat/parser: %w", err)
@@ -88,131 +84,179 @@ func Parse(ctx context.Context, source io.Reader, coreID string) (Stats, error) 
 		if limited.N <= 0 {
 			return Stats{}, ErrLimitExceeded
 		}
-		switch value := token.(type) {
-		case xml.Directive:
-			if rootSeen || directiveSeen {
-				return Stats{}, ErrUnsafeDTD
-			}
-			if err := validateDirective(value); err != nil {
-				return Stats{}, ErrUnsafeDTD
-			}
-			directiveSeen = true
-		case xml.ProcInst:
-			if value.Target != "xml" || rootSeen {
-				return Stats{}, ErrUnsafeDTD
-			}
-		case xml.StartElement:
-			depth++
-			elements++
-			if depth > maxDepth || elements > maxElements || len(value.Attr) > maxAttributes {
-				return Stats{}, ErrLimitExceeded
-			}
-			if !rootSeen {
-				expected := "mame"
-				if family == FamilyLogiqxDatafile {
-					expected = "datafile"
-				}
-				if value.Name.Local != expected || value.Name.Space != "" {
-					return Stats{}, fmt.Errorf("%w: root", ErrInvalidDocument)
-				}
-				rootSeen = true
-				continue
-			}
-			if value.Name.Space != "" {
-				return Stats{}, fmt.Errorf("%w: namespace", ErrInvalidDocument)
-			}
-			switch value.Name.Local {
-			case "machine", "game":
-				name := attribute(value, "name")
-				if name == "" || !validName(name) {
-					return Stats{}, fmt.Errorf("%w: machine name", ErrInvalidDocument)
-				}
-				if _, exists := machines[name]; exists {
-					return Stats{}, fmt.Errorf("%w: duplicate machine", ErrInvalidDocument)
-				}
-				info := machineInfo{
-					cloneof: attribute(value, "cloneof"),
-					romof:   attribute(value, "romof"),
-					bios:    attribute(value, "isbios") == "yes",
-				}
-				machines[name] = info
-				currentMachine = name
-				stats.MachineCount++
-				if info.cloneof != "" {
-					stats.CloneofRelationCount++
-				}
-				if info.romof != "" {
-					stats.RomofRelationCount++
-				}
-				if info.bios {
-					stats.ExplicitBIOSMachineCount++
-					baseTargets[name] = struct{}{}
-				}
-				if info.romof != "" && info.romof != info.cloneof {
-					baseTargets[info.romof] = struct{}{}
-				}
-			case "rom":
-				if currentMachine == "" {
-					return Stats{}, fmt.Errorf("%w: rom outside machine", ErrInvalidDocument)
-				}
-				if err := countROM(value, &stats); err != nil {
-					return Stats{}, err
-				}
-			case "disk":
-				stats.DiskEntryCount++
-				status := normalizedStatus(attribute(value, "status"))
-				sha1Value := attribute(value, "sha1")
-				if sha1Value == "" {
-					stats.DiskMissingSHA1Count++
-					if status != "nodump" {
-						return Stats{}, fmt.Errorf("%w: disk hash", ErrInvalidDocument)
-					}
-				} else if !validHex(sha1Value, 40) {
-					return Stats{}, fmt.Errorf("%w: disk sha1", ErrInvalidDocument)
-				}
-			case "biosset":
-				stats.BIOSSetCount++
-				if attribute(value, "default") == "yes" {
-					stats.DefaultBIOSSetCount++
-				}
-			case "sample":
-				stats.SampleEntryCount++
-			}
-		case xml.CharData:
-			if len(value) > maxFieldBytes {
-				return Stats{}, ErrLimitExceeded
-			}
-		case xml.EndElement:
-			if (value.Name.Local == "machine" || value.Name.Local == "game") && depth == 2 {
-				currentMachine = ""
-			}
-			depth--
-			if depth < 0 {
-				return Stats{}, ErrInvalidDocument
-			}
+		if err := state.consume(token); err != nil {
+			return Stats{}, err
 		}
 	}
-	if !rootSeen || depth != 0 {
+	if !state.rootSeen || state.depth != 0 {
 		return Stats{}, ErrInvalidDocument
 	}
+	state.resolveRelations()
+	return state.stats, nil
+}
+
+type datParseState struct {
+	family         Family
+	stats          Stats
+	machines       map[string]machineInfo
+	baseTargets    map[string]struct{}
+	rootSeen       bool
+	directiveSeen  bool
+	depth          int
+	elements       int
+	currentMachine string
+}
+
+func (state *datParseState) consume(token xml.Token) error {
+	switch value := token.(type) {
+	case xml.Directive:
+		if state.rootSeen || state.directiveSeen || validateDirective(value) != nil {
+			return ErrUnsafeDTD
+		}
+		state.directiveSeen = true
+	case xml.ProcInst:
+		if value.Target != "xml" || state.rootSeen {
+			return ErrUnsafeDTD
+		}
+	case xml.StartElement:
+		return state.start(value)
+	case xml.CharData:
+		if len(value) > maxFieldBytes {
+			return ErrLimitExceeded
+		}
+	case xml.EndElement:
+		return state.end(value)
+	}
+	return nil
+}
+
+func (state *datParseState) start(element xml.StartElement) error {
+	state.depth++
+	state.elements++
+	if state.depth > maxDepth || state.elements > maxElements || len(element.Attr) > maxAttributes {
+		return ErrLimitExceeded
+	}
+	if !state.rootSeen {
+		return state.startRoot(element)
+	}
+	if element.Name.Space != "" {
+		return fmt.Errorf("%w: namespace", ErrInvalidDocument)
+	}
+	switch element.Name.Local {
+	case "machine", "game":
+		return state.startMachine(element)
+	case "rom":
+		if state.currentMachine == "" {
+			return fmt.Errorf("%w: rom outside machine", ErrInvalidDocument)
+		}
+		return countROM(element, &state.stats)
+	case "disk":
+		return state.countDisk(element)
+	case "biosset":
+		state.stats.BIOSSetCount++
+		if attribute(element, "default") == "yes" {
+			state.stats.DefaultBIOSSetCount++
+		}
+	case "sample":
+		state.stats.SampleEntryCount++
+	}
+	return nil
+}
+
+func (state *datParseState) startRoot(element xml.StartElement) error {
+	expected := "mame"
+	if state.family == FamilyLogiqxDatafile {
+		expected = "datafile"
+	}
+	if element.Name.Local != expected || element.Name.Space != "" {
+		return fmt.Errorf("%w: root", ErrInvalidDocument)
+	}
+	state.rootSeen = true
+	return nil
+}
+
+func (state *datParseState) startMachine(element xml.StartElement) error {
+	name := attribute(element, "name")
+	if !validName(name) {
+		return fmt.Errorf("%w: machine name", ErrInvalidDocument)
+	}
+	if _, exists := state.machines[name]; exists {
+		return fmt.Errorf("%w: duplicate machine", ErrInvalidDocument)
+	}
+	info := machineInfo{
+		cloneof: attribute(element, "cloneof"),
+		romof:   attribute(element, "romof"),
+		bios:    attribute(element, "isbios") == "yes",
+	}
+	state.machines[name] = info
+	state.currentMachine = name
+	state.stats.MachineCount++
+	state.recordMachineRelations(name, info)
+	return nil
+}
+
+func (state *datParseState) recordMachineRelations(name string, info machineInfo) {
+	if info.cloneof != "" {
+		state.stats.CloneofRelationCount++
+	}
+	if info.romof != "" {
+		state.stats.RomofRelationCount++
+	}
+	if info.bios {
+		state.stats.ExplicitBIOSMachineCount++
+		state.baseTargets[name] = struct{}{}
+	}
+	if info.romof != "" && info.romof != info.cloneof {
+		state.baseTargets[info.romof] = struct{}{}
+	}
+}
+
+func (state *datParseState) countDisk(element xml.StartElement) error {
+	state.stats.DiskEntryCount++
+	status := normalizedStatus(attribute(element, "status"))
+	sha1Value := attribute(element, "sha1")
+	if sha1Value == "" {
+		state.stats.DiskMissingSHA1Count++
+		if status != "nodump" {
+			return fmt.Errorf("%w: disk hash", ErrInvalidDocument)
+		}
+		return nil
+	}
+	if !validHex(sha1Value, 40) {
+		return fmt.Errorf("%w: disk sha1", ErrInvalidDocument)
+	}
+	return nil
+}
+
+func (state *datParseState) end(element xml.EndElement) error {
+	if (element.Name.Local == "machine" || element.Name.Local == "game") && state.depth == 2 {
+		state.currentMachine = ""
+	}
+	state.depth--
+	if state.depth < 0 {
+		return ErrInvalidDocument
+	}
+	return nil
+}
+
+func (state *datParseState) resolveRelations() {
 	unresolvedCloneof := make(map[string]struct{})
 	unresolvedRomof := make(map[string]struct{})
-	for _, info := range machines {
+	for _, info := range state.machines {
 		if info.cloneof != "" {
-			if _, exists := machines[info.cloneof]; !exists {
+			if _, exists := state.machines[info.cloneof]; !exists {
 				unresolvedCloneof[info.cloneof] = struct{}{}
 			}
 		}
 		if info.romof != "" {
-			if _, exists := machines[info.romof]; !exists {
+			if _, exists := state.machines[info.romof]; !exists {
 				unresolvedRomof[info.romof] = struct{}{}
 			}
 		}
 	}
-	stats.UnresolvedCloneofTargetCount = len(unresolvedCloneof)
-	stats.UnresolvedRomofTargetCount = len(unresolvedRomof)
-	stats.BaseDependencyTargetCount = len(baseTargets)
-	return stats, nil
+	state.stats.UnresolvedCloneofTargetCount = len(unresolvedCloneof)
+	state.stats.UnresolvedRomofTargetCount = len(unresolvedRomof)
+	state.stats.BaseDependencyTargetCount = len(state.baseTargets)
 }
 
 func validateDirective(value xml.Directive) error {
@@ -236,7 +280,6 @@ func attribute(element xml.StartElement, name string) string {
 	return ""
 }
 
-//nolint:gocyclo // Contract branches stay contiguous for a single auditable decision.
 func countROM(element xml.StartElement, stats *Stats) error {
 	name := attribute(element, "name")
 	if !validName(name) {
@@ -253,6 +296,14 @@ func countROM(element xml.StartElement, stats *Stats) error {
 		return fmt.Errorf("%w: rom hash", ErrInvalidDocument)
 	}
 	status := normalizedStatus(attribute(element, "status"))
+	recordROMStats(element, stats, crc, sha1Value, status)
+	if crc == "" && sha1Value == "" && status != "nodump" {
+		return fmt.Errorf("%w: rom missing hash", ErrInvalidDocument)
+	}
+	return nil
+}
+
+func recordROMStats(element xml.StartElement, stats *Stats, crc, sha1Value, status string) {
 	stats.ROMEntryCount++
 	if attribute(element, "merge") != "" {
 		stats.ROMEntryWithMergeCount++
@@ -276,10 +327,8 @@ func countROM(element xml.StartElement, stats *Stats) error {
 		stats.ROMMissingAllHashCount++
 		if status != "nodump" {
 			stats.NonNodumpROMMissingAllHashCount++
-			return fmt.Errorf("%w: rom missing hash", ErrInvalidDocument)
 		}
 	}
-	return nil
 }
 
 func validName(value string) bool {

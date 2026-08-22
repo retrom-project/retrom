@@ -32,7 +32,7 @@ const compatibilityLabels: Record<string, string> = {
 };
 
 export function reviewCompatibilityLabel(code: string, status: string) {
-  if (status === "READY") return compatibilityLabels.READY;
+  if (status === "READY") {return compatibilityLabels.READY;}
   return compatibilityLabels[code] ?? "运行检查未通过";
 }
 
@@ -41,7 +41,7 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot }
   compatibilityCode: string;
   snapshot?: ReviewDependencySnapshot;
 }) {
-  if (status === "READY") return null;
+  if (status === "READY") {return null;}
   const missingBIOS = (snapshot?.bios ?? []).filter((item) => item.requirementMode !== "OPTIONAL" && !item.blobId);
   const missingEntries = snapshot?.missingEntries ?? [];
   const mismatchedEntries = snapshot?.mismatchedEntries ?? [];
@@ -51,15 +51,7 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot }
   const title = reviewCompatibilityLabel(compatibilityCode, status);
 
   if (compatibilityCode === "LAUNCH_BIOS_MISSING") {
-    const logicalNames = [...new Set([
-      ...missingBIOS.map((item) => item.logicalName).filter((item): item is string => Boolean(item)),
-      ...missingArcadeArchives,
-      ...missingEntries.filter((entry) => entry.toLocaleLowerCase("en-US").endsWith(".zip")),
-    ])];
-    const scrollable = logicalNames.length > 8;
-    const query = logicalNames[0];
-    const href = `/admin/bios?scope=FULL_CATALOG&status=MISSING${query ? `&q=${encodeURIComponent(query)}` : ""}`;
-    return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance" tabIndex={scrollable ? 0 : undefined} role={scrollable ? "region" : undefined} aria-label={scrollable ? "运行检查错误详情，可滚动查看" : undefined}><strong>{title}</strong><p>发布已暂停。安装下面准确列出的必需文件或街机依赖包后返回本页，点击“重新运行检查”，无需重新导入游戏。</p>{logicalNames.length ? <ul>{logicalNames.map((logicalName) => <li key={logicalName}><code>{logicalName}</code></li>)}</ul> : <code>{compatibilityCode}</code>}<Link className="button secondary compact" href={href}>安装所需 BIOS 文件</Link></div></FeedbackBanner>;
+    return <MissingBIOSGuidance {...{ compatibilityCode, missingArcadeArchives, missingBIOS, missingEntries, title }} />;
   }
 
   if (compatibilityCode === "ARCADE_DAT_UNAVAILABLE") {
@@ -67,5 +59,37 @@ export function ReviewValidationGuidance({ status, compatibilityCode, snapshot }
   }
 
   const scrollable = missingEntries.length + mismatchedEntries.length > 8;
-  return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance" tabIndex={scrollable ? 0 : undefined} role={scrollable ? "region" : undefined} aria-label={scrollable ? "运行检查错误详情，可滚动查看" : undefined}><strong>{title}</strong><p>{status === "PENDING" || compatibilityCode === "NEEDS_VALIDATION" ? "点击“重新运行检查”获取最新结论。" : "发布已暂停。修正下列运行依赖后重新运行检查；如果目录选择错误，也可以返回任务进度重新配置。"}</p>{missingEntries.length || mismatchedEntries.length ? <ul>{missingEntries.map((entry) => <li key={`missing-${entry}`}><code>{entry}</code> 缺失</li>)}{mismatchedEntries.map((entry) => <li key={`mismatch-${entry}`}><code>{entry}</code> 不匹配</li>)}</ul> : <code>{compatibilityCode || status}</code>}</div></FeedbackBanner>;
+  return <DependencyGuidance {...{ compatibilityCode, mismatchedEntries, missingEntries, scrollable, status, title }} />;
+}
+
+function MissingBIOSGuidance({ compatibilityCode, missingArcadeArchives, missingBIOS, missingEntries, title }: {
+  compatibilityCode: string;
+  missingArcadeArchives: string[];
+  missingBIOS: NonNullable<ReviewDependencySnapshot["bios"]>;
+  missingEntries: string[];
+  title: string;
+}) {
+  const logicalNames = [...new Set([
+    ...missingBIOS.map((item) => item.logicalName).filter((item): item is string => Boolean(item)),
+    ...missingArcadeArchives,
+    ...missingEntries.filter((entry) => entry.toLocaleLowerCase("en-US").endsWith(".zip")),
+  ])];
+  const scrollable = logicalNames.length > 8;
+  const query = logicalNames[0];
+  const suffix = query ? `&q=${encodeURIComponent(query)}` : "";
+  const href = `/admin/bios?scope=FULL_CATALOG&status=MISSING${suffix}`;
+  return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance" tabIndex={scrollable ? 0 : undefined} role={scrollable ? "region" : undefined} aria-label={scrollable ? "运行检查错误详情，可滚动查看" : undefined}><strong>{title}</strong><p>发布已暂停。安装下面准确列出的必需文件或街机依赖包后返回本页，点击“重新运行检查”，无需重新导入游戏。</p>{logicalNames.length ? <ul>{logicalNames.map((logicalName) => <li key={logicalName}><code>{logicalName}</code></li>)}</ul> : <code>{compatibilityCode}</code>}<Link className="button secondary compact" href={href}>安装所需 BIOS 文件</Link></div></FeedbackBanner>;
+}
+
+function DependencyGuidance({ compatibilityCode, mismatchedEntries, missingEntries, scrollable, status, title }: {
+  compatibilityCode: string;
+  mismatchedEntries: string[];
+  missingEntries: string[];
+  scrollable: boolean;
+  status: string;
+  title: string;
+}) {
+  const pending = status === "PENDING" || compatibilityCode === "NEEDS_VALIDATION";
+  const hasEntries = missingEntries.length > 0 || mismatchedEntries.length > 0;
+  return <FeedbackBanner tone="bad" marker={false}><div className="review-validation-guidance" tabIndex={scrollable ? 0 : undefined} role={scrollable ? "region" : undefined} aria-label={scrollable ? "运行检查错误详情，可滚动查看" : undefined}><strong>{title}</strong><p>{pending ? "点击“重新运行检查”获取最新结论。" : "发布已暂停。修正下列运行依赖后重新运行检查；如果目录选择错误，也可以返回任务进度重新配置。"}</p>{hasEntries ? <ul>{missingEntries.map((entry) => <li key={`missing-${entry}`}><code>{entry}</code> 缺失</li>)}{mismatchedEntries.map((entry) => <li key={`mismatch-${entry}`}><code>{entry}</code> 不匹配</li>)}</ul> : <code>{compatibilityCode || status}</code>}</div></FeedbackBanner>;
 }

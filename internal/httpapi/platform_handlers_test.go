@@ -13,6 +13,7 @@ import (
 
 	"retrom/internal/blobstore"
 	"retrom/internal/contentcapability"
+	"retrom/internal/testassert"
 )
 
 func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T) {
@@ -21,7 +22,7 @@ func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T
 	handler := server.Handler()
 
 	get := httptest.NewRecorder()
-	handler.ServeHTTP(get, httptest.NewRequest(http.MethodGet, "/api/v1/admin/platform-instances/recommendations", nil))
+	handler.ServeHTTP(get, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/platform-instances/recommendations", nil))
 	var initial struct {
 		CatalogVersion int `json:"catalogVersion"`
 		Summary        struct {
@@ -37,22 +38,16 @@ func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T
 	if err := json.Unmarshal(get.Body.Bytes(), &initial); err != nil || get.Code != http.StatusOK {
 		t.Fatalf("initial recommendations = %d %s error=%v", get.Code, get.Body.String(), err)
 	}
-	if initial.CatalogVersion != 1 || initial.Summary.TotalCount != 27 || initial.Summary.MissingCount != 27 || len(initial.Items) != 27 {
-		t.Fatalf("initial recommendations = %#v", initial)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return initial.CatalogVersion != 1 }, func() bool { return initial.Summary.TotalCount != 27 }, func() bool { return initial.Summary.MissingCount != 27 }, func() bool { return len(initial.Items) != 27 }), "initial recommendations = %#v", initial)
 	for _, item := range initial.Items {
-		if item.TemplateKey == "fds/fceumm" || item.TemplateKey == "arcade/mame2003" {
-			t.Fatalf("retired template was recommended: %#v", item)
-		}
-		if item.TemplateKey == "nes/fceumm" && !strings.Contains(strings.Join(item.SupportedExtensions, ","), ".fds") {
-			t.Fatalf("NES extensions do not include FDS: %#v", item.SupportedExtensions)
-		}
+		testassert.Falsef(t, testassert.Any(func() bool { return item.TemplateKey == "fds/fceumm" }, func() bool { return item.TemplateKey == "arcade/mame2003" }), "retired template was recommended: %#v", item)
+		testassert.Falsef(t, testassert.All(func() bool { return item.TemplateKey == "nes/fceumm" }, func() bool { return !strings.Contains(strings.Join(item.SupportedExtensions, ","), ".fds") }), "NES extensions do not include FDS: %#v", item.SupportedExtensions)
 	}
 
 	key := uuid.NewString()
 	apply := func(body string, idempotencyKey string) *httptest.ResponseRecorder {
 		t.Helper()
-		request := httptest.NewRequest(
+		request := httptest.NewRequestWithContext(context.Background(),
 			http.MethodPost, "/api/v1/admin/platform-instances/recommendations/apply", strings.NewReader(body),
 		)
 		request.Header.Set("Content-Type", "application/json")
@@ -62,35 +57,23 @@ func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T
 		return response
 	}
 	created := apply(`{}`, key)
-	if created.Code != http.StatusOK || !strings.Contains(created.Body.String(), `"createdCount":27`) ||
-		!strings.Contains(created.Body.String(), `"remainingMissingCount":0`) {
-		t.Fatalf("apply = %d %s", created.Code, created.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return created.Code != http.StatusOK }, func() bool { return !strings.Contains(created.Body.String(), `"createdCount":27`) }, func() bool { return !strings.Contains(created.Body.String(), `"remainingMissingCount":0`) }), "apply = %d %s", created.Code, created.Body.String())
 	replayed := apply(`{}`, key)
-	if replayed.Code != created.Code || replayed.Body.String() != created.Body.String() ||
-		replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" {
-		t.Fatalf("replay = %d header=%q %s", replayed.Code, replayed.Header().Get("X-Retrom-Idempotent-Replay"), replayed.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return replayed.Code != created.Code }, func() bool { return replayed.Body.String() != created.Body.String() }, func() bool { return replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" }), "replay = %d header=%q %s", replayed.Code, replayed.Header().Get("X-Retrom-Idempotent-Replay"), replayed.Body.String())
 	second := apply(`{}`, uuid.NewString())
-	if second.Code != http.StatusOK || !strings.Contains(second.Body.String(), `"createdCount":0`) {
-		t.Fatalf("second apply = %d %s", second.Code, second.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return second.Code != http.StatusOK }, func() bool { return !strings.Contains(second.Body.String(), `"createdCount":0`) }), "second apply = %d %s", second.Code, second.Body.String())
 	invalid := apply(`{"unexpected":true}`, uuid.NewString())
-	if invalid.Code != http.StatusBadRequest || !strings.Contains(invalid.Body.String(), `"code":"INVALID_REQUEST"`) {
-		t.Fatalf("invalid apply = %d %s", invalid.Code, invalid.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return invalid.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(invalid.Body.String(), `"code":"INVALID_REQUEST"`) }), "invalid apply = %d %s", invalid.Code, invalid.Body.String())
 
 	var directoryCount, auditCount int
-	if err := server.database.QueryRow(`
+	if err := server.database.QueryRowContext(context.Background(), `
 SELECT
   (SELECT count(*) FROM platform_instances WHERE deleted_at_ms IS NULL),
   (SELECT count(*) FROM audit_events WHERE action='PLATFORM_INSTANCE_RECOMMENDED_CREATED')
 `).Scan(&directoryCount, &auditCount); err != nil {
 		t.Fatal(err)
 	}
-	if directoryCount != 27 || auditCount != 27 {
-		t.Fatalf("applied rows = directories:%d audits:%d", directoryCount, auditCount)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return directoryCount != 27 }, func() bool { return auditCount != 27 }), "applied rows = directories:%d audits:%d", directoryCount, auditCount)
 }
 
 func TestPlatformSlugBaseUsesReadableASCIIOrPlatformFallback(t *testing.T) {
@@ -123,23 +106,19 @@ func TestCreateImportContentModeDefaultsToStandardAndMapsMultiDiscAdmissionError
 	}
 	server.importer.WithMultiDiscImportEnabled(true)
 	metadata, err := server.blobs.Put(strings.NewReader("MComprHDdeterministic CHD fixture"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	blobID, err := blobstore.EnsureRecord(t.Context(), server.database, metadata, "application/octet-stream", now.UnixMilli())
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	createUpload := func(uploadID, fileID string) {
 		t.Helper()
-		if _, err := server.database.Exec(`
+		if _, err := server.database.ExecContext(context.Background(), `
 INSERT INTO upload_sessions(id,state,source_type,total_files,total_bytes,manifest_digest,version,
 expires_at_ms,created_at_ms,updated_at_ms)
 VALUES(?,'COMPLETE','DIRECTORY',1,?, ?,1,?,?,?)
 `, uploadID, metadata.Size, strings.Repeat("a", 64), now.Add(time.Hour).UnixMilli(), now.UnixMilli(), now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := server.database.Exec(`
+		if _, err := server.database.ExecContext(context.Background(), `
 INSERT INTO upload_files(id,upload_session_id,relative_path,declared_size_bytes,received_size_bytes,
 final_blob_id,state,created_at_ms,updated_at_ms)
 VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
@@ -153,38 +132,29 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 	createUpload(secondUpload, "01980000-0000-7000-8000-000000007112")
 	send := func(body string) *httptest.ResponseRecorder {
 		t.Helper()
-		request := httptest.NewRequest(http.MethodPost, "/api/v1/admin/imports", strings.NewReader(body))
+		request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/imports", strings.NewReader(body))
 		request.Header.Set("Content-Type", "application/json")
 		response := httptest.NewRecorder()
 		server.createImport(response, request)
 		return response
 	}
 	missing := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
-	if missing.Code != http.StatusUnprocessableEntity || !strings.Contains(missing.Body.String(), "MULTI_DISC_PLAYLIST_MISSING") {
-		t.Fatalf("missing playlist = %d %s", missing.Code, missing.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return missing.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(missing.Body.String(), "MULTI_DISC_PLAYLIST_MISSING") }), "missing playlist = %d %s", missing.Code, missing.Body.String())
 	unsupported := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000019","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
-	if unsupported.Code != http.StatusUnprocessableEntity || !strings.Contains(unsupported.Body.String(), "MULTI_DISC_MODE_UNAVAILABLE") {
-		t.Fatalf("unsupported target = %d %s", unsupported.Code, unsupported.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return unsupported.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(unsupported.Body.String(), "MULTI_DISC_MODE_UNAVAILABLE") }), "unsupported target = %d %s", unsupported.Code, unsupported.Body.String())
 	omitted := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","tagIds":[]}`)
 	explicit := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
-	if omitted.Code != http.StatusAccepted || explicit.Code != http.StatusAccepted {
-		t.Fatalf("standard admission omitted=%d %s explicit=%d %s", omitted.Code, omitted.Body.String(), explicit.Code, explicit.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return omitted.Code != http.StatusAccepted }, func() bool { return explicit.Code != http.StatusAccepted }), "standard admission omitted=%d %s explicit=%d %s", omitted.Code, omitted.Body.String(), explicit.Code, explicit.Body.String())
 	var omittedConfig, explicitConfig, omittedDigest, explicitDigest string
-	if err := server.database.QueryRow(`SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, firstUpload).
+	if err := server.database.QueryRowContext(context.Background(), `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, firstUpload).
 		Scan(&omittedConfig, &omittedDigest); err != nil {
 		t.Fatal(err)
 	}
-	if err := server.database.QueryRow(`SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, secondUpload).
+	if err := server.database.QueryRowContext(context.Background(), `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, secondUpload).
 		Scan(&explicitConfig, &explicitDigest); err != nil {
 		t.Fatal(err)
 	}
-	if omittedConfig != explicitConfig || omittedDigest != explicitDigest ||
-		!strings.Contains(omittedConfig, `"contentMode":"STANDARD"`) {
-		t.Fatalf("default/explicit snapshots differ: %s/%s digest=%s/%s", omittedConfig, explicitConfig, omittedDigest, explicitDigest)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return omittedConfig != explicitConfig }, func() bool { return omittedDigest != explicitDigest }, func() bool { return !strings.Contains(omittedConfig, `"contentMode":"STANDARD"`) }), "default/explicit snapshots differ: %s/%s digest=%s/%s", omittedConfig, explicitConfig, omittedDigest, explicitDigest)
 }
 
 func TestPlatformSlugSuffixStaysWithinStorageLimit(t *testing.T) {
@@ -195,36 +165,62 @@ func TestPlatformSlugSuffixStaysWithinStorageLimit(t *testing.T) {
 	}
 }
 
+type platformCapabilityProjection struct {
+	PlatformID          string                               `json:"platformId"`
+	Name                string                               `json:"name"`
+	SupportedExtensions []string                             `json:"supportedExtensions"`
+	ImportCapabilities  contentcapability.ImportCapabilities `json:"importCapabilities"`
+}
+
+func assertUniquePlatformExtensions(t *testing.T, items map[string]platformCapabilityProjection) {
+	t.Helper()
+	for platformID, item := range items {
+		testassert.Falsef(t, len(item.SupportedExtensions) == 0, "%s has no supported extensions", platformID)
+		seen := make(map[string]struct{}, len(item.SupportedExtensions))
+		for _, extension := range item.SupportedExtensions {
+			if _, duplicate := seen[extension]; duplicate {
+				t.Fatalf("%s has duplicate extension %q", platformID, extension)
+			}
+			seen[extension] = struct{}{}
+		}
+	}
+}
+
+func assertPlatformExtensions(
+	t *testing.T,
+	items map[string]platformCapabilityProjection,
+	wantExtensions map[string][]string,
+) {
+	t.Helper()
+	for platformID, want := range wantExtensions {
+		got := items[platformID].SupportedExtensions
+		testassert.Falsef(t, len(got) != len(want), "%s extensions = %#v, want %#v", platformID, got, want)
+		for index := range want {
+			testassert.Falsef(t, got[index] != want[index], "%s extensions = %#v, want %#v", platformID, got, want)
+		}
+	}
+}
+
 func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
 	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.UnixMilli(1_786_000_000_000)); err != nil {
 		t.Fatal(err)
 	}
-	type platform struct {
-		PlatformID          string                               `json:"platformId"`
-		Name                string                               `json:"name"`
-		SupportedExtensions []string                             `json:"supportedExtensions"`
-		ImportCapabilities  contentcapability.ImportCapabilities `json:"importCapabilities"`
-	}
-	read := func() map[string]platform {
+	read := func() map[string]platformCapabilityProjection {
 		t.Helper()
 		response := httptest.NewRecorder()
-		server.platformInstances(response, httptest.NewRequest(http.MethodGet, "/api/v1/admin/platform-instances", nil))
-		if response.Code != http.StatusOK {
-			t.Fatalf("platform response = %d %s", response.Code, response.Body.String())
-		}
+		server.platformInstances(response, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/platform-instances", nil))
+		testassert.Falsef(t, response.Code != http.StatusOK, "platform response = %d %s", response.Code, response.Body.String())
 		var body struct {
-			Items []platform `json:"items"`
+			Items []platformCapabilityProjection `json:"items"`
 		}
 		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 			t.Fatal(err)
 		}
-		result := make(map[string]platform, len(body.Items))
+		result := make(map[string]platformCapabilityProjection, len(body.Items))
 		for _, item := range body.Items {
-			if item.Name == "FDS 游戏" || item.Name == "MAME 2003 游戏" {
-				t.Fatalf("retired seed directory remained visible: %#v", item)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return item.Name == "FDS 游戏" }, func() bool { return item.Name == "MAME 2003 游戏" }), "retired seed directory remained visible: %#v", item)
 			result[item.PlatformID] = item
 		}
 		return result
@@ -234,35 +230,14 @@ func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *
 	}
 	server.config.MultiDiscImportEnabled = true
 	items := read()
-	for platformID, item := range items {
-		if len(item.SupportedExtensions) == 0 {
-			t.Fatalf("%s has no supported extensions", platformID)
-		}
-		seen := make(map[string]struct{}, len(item.SupportedExtensions))
-		for _, extension := range item.SupportedExtensions {
-			if _, duplicate := seen[extension]; duplicate {
-				t.Fatalf("%s has duplicate extension %q", platformID, extension)
-			}
-			seen[extension] = struct{}{}
-		}
-	}
+	assertUniquePlatformExtensions(t, items)
 	wantExtensions := map[string][]string{
 		"virtualboy": {".vb"}, "wonderswan": {".ws", ".wsc"},
 		"mastersystem": {".sms"}, "nintendo3ds": {".3ds", ".cci"},
 		"arcade": {".zip"}, "dos": {".exe", ".com", ".bat"},
 		"nes": {".nes", ".unf", ".unif", ".fds"},
 	}
-	for platformID, want := range wantExtensions {
-		got := items[platformID].SupportedExtensions
-		if len(got) != len(want) {
-			t.Fatalf("%s extensions = %#v, want %#v", platformID, got, want)
-		}
-		for index := range want {
-			if got[index] != want[index] {
-				t.Fatalf("%s extensions = %#v, want %#v", platformID, got, want)
-			}
-		}
-	}
+	assertPlatformExtensions(t, items, wantExtensions)
 	if saturn := items["saturn"].ImportCapabilities; len(saturn.ContentModes) != 2 ||
 		saturn.ContentModes[1] != contentcapability.ModeMultiDiscM3UV1 || saturn.MultiDisc == nil {
 		t.Fatalf("Saturn capabilities = %#v", saturn)

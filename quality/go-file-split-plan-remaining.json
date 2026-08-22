@@ -1,0 +1,6 @@
+[
+  {"source":"internal/uploads/service.go","outputs":[{"path":"internal/uploads/service.go","line":1},{"path":"internal/uploads/finalize.go","line":551}]},
+  {"source":"internal/httpapi/server_test.go","outputs":[{"path":"internal/httpapi/server_test.go","line":1},{"path":"internal/httpapi/review_detail_test.go","line":696},{"path":"internal/httpapi/game_detail_test.go","line":1308},{"path":"internal/httpapi/api_contract_test.go","line":2168},{"path":"internal/httpapi/platform_lifecycle_test.go","line":2344},{"path":"internal/httpapi/job_stream_test.go","line":2596}]},
+  {"source":"internal/libraryimport/service_integration_test.go","outputs":[{"path":"internal/libraryimport/service_integration_test.go","line":1},{"path":"internal/libraryimport/retry_duplicate_integration_test.go","line":570},{"path":"internal/libraryimport/dos_arcade_integration_test.go","line":1101},{"path":"internal/libraryimport/arcade_closure_integration_test.go","line":1590}]},
+  {"source":"internal/launch/service_integration_test.go","outputs":[{"path":"internal/launch/service_integration_test.go","line":1},{"path":"internal/launch/review_preview_integration_test.go","line":572},{"path":"internal/launch/bios_integration_test.go","line":837},{"path":"internal/launch/dos_integration_test.go","line":1050}]}
+]

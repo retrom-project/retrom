@@ -190,8 +190,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：900 秒。
 - 执行：`make ci`。
-- 流程：从依赖锁文件安装工具；先验证 OpenAPI 3.0.3 能由固定 `oapi-codegen v2.8.0` 与 TypeScript 生成器处理且两端生成物无漂移，再依次执行 Go format/build/test/lint、Web lint/typecheck/test/production build、integration test 和提交数据基线校验。
-- 通过标准：命令退出码为 0；Go/ESLint 为零 warning；OpenAPI/Go/TS generated diff 为空；没有跳过 required suite；报告列出实际固定工具版本。
+- 流程：从依赖锁文件安装工具；先运行全仓源码结构门禁，再验证 OpenAPI 3.0.3 能由固定 `oapi-codegen v2.8.0` 与 TypeScript 生成器处理；确认 Go 生成物由后端编译链按需生成、被 ignore 且不在 Git index，TypeScript 生成物无漂移；再依次执行 Go format/build/test/lint、Web lint/typecheck/test/production build、integration test 和提交数据基线校验。
+- 通过标准：命令退出码为 0；全部手写新旧生产/测试文件与函数满足当前规模和复杂度阈值，结构性 suppression 与前端 inline disable/ignore 为零，非结构性 Go suppression 与中央清单双向一致；Go/ESLint 为零 warning；OpenAPI 两端生成结果有效、TS generated diff 为空且 Go generated 未被跟踪；没有跳过 required suite；报告列出实际固定工具版本。
 - 证据：完整 stdout/stderr 和各子 target 耗时。
 
 ### ACC-QA-002：质量规则哨兵

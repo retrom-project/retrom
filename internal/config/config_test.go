@@ -6,6 +6,8 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestParsePublicOriginRequiresExplicitDevelopmentOptInForHTTPHosts(t *testing.T) {
@@ -27,9 +29,7 @@ func TestParsePublicOriginRequiresExplicitDevelopmentOptInForHTTPHosts(t *testin
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := parsePublicOrigin(test.value, test.allowInsecure)
-			if (err != nil) != test.wantErr {
-				t.Fatalf("parsePublicOrigin(%q, %t) error = %v", test.value, test.allowInsecure, err)
-			}
+			testassert.Falsef(t, (err != nil) != test.wantErr, "parsePublicOrigin(%q, %t) error = %v", test.value, test.allowInsecure, err)
 		})
 	}
 }
@@ -48,9 +48,7 @@ func TestParseServerImportRootsStrictSchemaAndOverlap(t *testing.T) {
 	}
 	valid := `[{"id":"rom-library","label":"ROM 仓库","path":"` + rootA + `"},{"id":"archive","label":"归档盘","path":"` + rootB + `"}]`
 	roots, err := parseServerImportRoots(valid, dataDir, dependencyRoot)
-	if err != nil || len(roots) != 2 || roots[0].CanonicalPath != rootA {
-		t.Fatalf("valid roots = %#v, %v", roots, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(roots) != 2 }, func() bool { return roots[0].CanonicalPath != rootA }), "valid roots = %#v, %v", roots, err)
 	invalid := []string{
 		`null`,
 		`[] {}`,
@@ -125,9 +123,7 @@ func TestParseVersionsRequiresStrictSortedSemver(t *testing.T) {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			_, err := parseVersions(test.value)
-			if (err != nil) != test.wantErr {
-				t.Fatalf("parseVersions(%q) error = %v", test.value, err)
-			}
+			testassert.Falsef(t, (err != nil) != test.wantErr, "parseVersions(%q) error = %v", test.value, err)
 		})
 	}
 }
@@ -184,9 +180,7 @@ func TestParseStrictBooleanRejectsImplicitOrMisspelledValues(t *testing.T) {
 	}
 	for _, test := range tests {
 		result, err := parseStrictBoolean("RETROM_MULTI_DISC_IMPORT_ENABLED", test.value, test.defaultValue)
-		if (err != nil) != test.wantErr || !test.wantErr && result != test.want {
-			t.Errorf("parseStrictBoolean(%q, %t) = %t, %v", test.value, test.defaultValue, result, err)
-		}
+		testassert.CheckFalsef(t, testassert.Any(func() bool { return (err != nil) != test.wantErr }, func() bool { return !test.wantErr && result != test.want }), "parseStrictBoolean(%q, %t) = %t, %v", test.value, test.defaultValue, result, err)
 	}
 }
 
@@ -207,9 +201,7 @@ func TestParseModeIsClosed(t *testing.T) {
 func TestParseTrustedProxiesRequiresCanonicalCIDRs(t *testing.T) {
 	t.Parallel()
 	valid, err := parseTrustedProxies("10.0.0.0/8,2001:db8::/32")
-	if err != nil || len(valid) != 2 {
-		t.Fatalf("valid trusted proxies = %#v, %v", valid, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(valid) != 2 }), "valid trusted proxies = %#v, %v", valid, err)
 	for _, value := range []string{
 		"0.0.0.0/0", "10.0.0.1/8", "10.0.0.0/8, 192.0.2.0/24", "not-a-prefix",
 	} {

@@ -51,9 +51,9 @@ describe("UserAdmin", () => {
     const disabled = { ...alice, status: "DISABLED" as const, version: 3 };
     auth.fetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.includes("role=ADMIN")) return json({ ...initialUsers, items: [admin] });
-      if (url.endsWith("/user-2") && !init?.method) return json(alice, 200, { ETag: '"v2"' });
-      if (url.endsWith("/user-2") && init?.method === "PATCH") return json(disabled, 200, { ETag: '"v3"' });
+      if (url.includes("role=ADMIN")) {return json({ ...initialUsers, items: [admin] });}
+      if (url.endsWith("/user-2") && !init?.method) {return json(alice, 200, { ETag: '"v2"' });}
+      if (url.endsWith("/user-2") && init?.method === "PATCH") {return json(disabled, 200, { ETag: '"v3"' });}
       throw new Error(`unexpected ${url}`);
     });
     const user = userEvent.setup();
@@ -72,8 +72,8 @@ describe("UserAdmin", () => {
   it("destroys a one-time invitation URL after the result dialog closes", async () => {
     const secretURL = "http://retrom.local/register#invite=one-time-secret";
     auth.fetch.mockImplementation(async (input: RequestInfo | URL, init?: RequestInit) => {
-      if (String(input) === "/api/v1/admin/invitations" && init?.method === "POST") return json({ url: secretURL, role: "USER", expiresAtMs: 1_900_000_000_000 }, 201);
-      if (String(input).startsWith("/api/v1/admin/invitations?")) return json(initialInvitations);
+      if (String(input) === "/api/v1/admin/invitations" && init?.method === "POST") {return json({ url: secretURL, role: "USER", expiresAtMs: 1_900_000_000_000 }, 201);}
+      if (String(input).startsWith("/api/v1/admin/invitations?")) {return json(initialInvitations);}
       throw new Error(`unexpected ${String(input)}`);
     });
     const user = userEvent.setup();

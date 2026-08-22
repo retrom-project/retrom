@@ -27,7 +27,7 @@ type arcadeRelationResolver func(machine string) (arcadeMachineRelation, bool)
 // arcadeDependencyClosureV2 is deliberately independent of storage. Callers
 // provide the locked DAT relation resolver; the returned order is canonical.
 //
-//nolint:gocognit,gocyclo,nestif // Bounded traversal keeps cycle, romof, cloneof, and the 64-node guard together.
+// Bounded traversal keeps cycle, romof, cloneof, and the 64-node guard together.
 func arcadeDependencyClosureV2(
 	machine string,
 	resolve arcadeRelationResolver,
@@ -35,73 +35,121 @@ func arcadeDependencyClosureV2(
 	if machine == "" {
 		return nil, false, false
 	}
-	nodes := []arcadeClosureNode{{Machine: machine, Kind: "CONTENT", Depth: 0}}
-	index := map[string]int{machine: 0}
-	chain := make(map[string]struct{})
-	current := machine
-	depth := 0
-	for current != "" {
-		if _, exists := chain[current]; exists {
-			return nil, true, true
-		}
-		chain[current] = struct{}{}
-		relation, exists := resolve(current)
-		if !exists {
-			return nil, false, false
-		}
-		if relation.romOf != "" && relation.romOf != relation.cloneOf {
-			if _, exists := resolve(relation.romOf); !exists {
-				return nil, false, false
-			}
-			if _, exists := index[relation.romOf]; !exists {
-				if len(nodes) >= maxArcadeDependencyNodes {
-					return nil, true, true
-				}
-				requiredBy := current
-				index[relation.romOf] = len(nodes)
-				nodes = append(nodes, arcadeClosureNode{
-					Machine: relation.romOf, Kind: "BIOS_OR_BASE", RequiredBy: &requiredBy, Depth: depth + 1,
-				})
-			}
-		}
-		if relation.cloneOf == "" {
-			break
-		}
-		if _, exists := chain[relation.cloneOf]; exists {
-			return nil, true, true
-		}
-		if _, exists := resolve(relation.cloneOf); !exists {
-			return nil, false, false
-		}
-		requiredBy := current
-		if existing, exists := index[relation.cloneOf]; exists {
-			nodes[existing] = arcadeClosureNode{
-				Machine: relation.cloneOf, Kind: "PARENT", RequiredBy: &requiredBy, Depth: depth + 1,
-			}
-		} else {
-			if len(nodes) >= maxArcadeDependencyNodes {
-				return nil, true, true
-			}
-			index[relation.cloneOf] = len(nodes)
-			nodes = append(nodes, arcadeClosureNode{
-				Machine: relation.cloneOf, Kind: "PARENT", RequiredBy: &requiredBy, Depth: depth + 1,
-			})
-		}
-		current = relation.cloneOf
-		depth++
+	traversal := arcadeClosureTraversal{
+		resolve: resolve,
+		nodes:   []arcadeClosureNode{{Machine: machine, Kind: "CONTENT", Depth: 0}},
+		index:   map[string]int{machine: 0},
+		chain:   make(map[string]struct{}),
+		current: machine,
 	}
-	sort.Slice(nodes, func(left, right int) bool {
-		if nodes[left].Depth != nodes[right].Depth {
-			return nodes[left].Depth < nodes[right].Depth
+	for traversal.current != "" {
+		done, cyclic, available := traversal.step()
+		if done {
+			return nil, cyclic, available
 		}
-		leftKind := arcadeClosureKindOrder(nodes[left].Kind)
-		rightKind := arcadeClosureKindOrder(nodes[right].Kind)
+	}
+	traversal.sort()
+	return traversal.nodes, false, true
+}
+
+type arcadeClosureTraversal struct {
+	resolve arcadeRelationResolver
+	nodes   []arcadeClosureNode
+	index   map[string]int
+	chain   map[string]struct{}
+	current string
+	depth   int
+}
+
+func (traversal *arcadeClosureTraversal) step() (bool, bool, bool) {
+	if _, exists := traversal.chain[traversal.current]; exists {
+		return true, true, true
+	}
+	traversal.chain[traversal.current] = struct{}{}
+	relation, exists := traversal.resolve(traversal.current)
+	if !exists {
+		return true, false, false
+	}
+	if !traversal.appendROMDependency(relation) {
+		return true, traversal.capacityExceeded(), traversal.capacityExceeded()
+	}
+	if relation.cloneOf == "" {
+		traversal.current = ""
+		return false, false, true
+	}
+	return traversal.advanceToParent(relation.cloneOf)
+}
+
+func (traversal *arcadeClosureTraversal) appendROMDependency(relation arcadeMachineRelation) bool {
+	if relation.romOf == "" || relation.romOf == relation.cloneOf {
+		return true
+	}
+	if _, exists := traversal.resolve(relation.romOf); !exists {
+		return false
+	}
+	if _, exists := traversal.index[relation.romOf]; exists {
+		return true
+	}
+	if len(traversal.nodes) >= maxArcadeDependencyNodes {
+		return false
+	}
+	requiredBy := traversal.current
+	traversal.index[relation.romOf] = len(traversal.nodes)
+	traversal.nodes = append(traversal.nodes, arcadeClosureNode{
+		Machine: relation.romOf, Kind: "BIOS_OR_BASE",
+		RequiredBy: &requiredBy, Depth: traversal.depth + 1,
+	})
+	return true
+}
+
+func (traversal *arcadeClosureTraversal) advanceToParent(parent string) (bool, bool, bool) {
+	if _, exists := traversal.chain[parent]; exists {
+		return true, true, true
+	}
+	if _, exists := traversal.resolve(parent); !exists {
+		return true, false, false
+	}
+	if !traversal.upsertParent(parent) {
+		return true, true, true
+	}
+	traversal.current = parent
+	traversal.depth++
+	return false, false, true
+}
+
+func (traversal *arcadeClosureTraversal) upsertParent(parent string) bool {
+	requiredBy := traversal.current
+	node := arcadeClosureNode{
+		Machine: parent, Kind: "PARENT", RequiredBy: &requiredBy, Depth: traversal.depth + 1,
+	}
+	if existing, exists := traversal.index[parent]; exists {
+		traversal.nodes[existing] = node
+		return true
+	}
+	if len(traversal.nodes) >= maxArcadeDependencyNodes {
+		return false
+	}
+	traversal.index[parent] = len(traversal.nodes)
+	traversal.nodes = append(traversal.nodes, node)
+	return true
+}
+
+func (traversal *arcadeClosureTraversal) capacityExceeded() bool {
+	return len(traversal.nodes) >= maxArcadeDependencyNodes
+}
+
+func (traversal *arcadeClosureTraversal) sort() {
+	sort.Slice(traversal.nodes, func(left, right int) bool {
+		if traversal.nodes[left].Depth != traversal.nodes[right].Depth {
+			return traversal.nodes[left].Depth < traversal.nodes[right].Depth
+		}
+		leftKind := arcadeClosureKindOrder(traversal.nodes[left].Kind)
+		rightKind := arcadeClosureKindOrder(traversal.nodes[right].Kind)
 		if leftKind != rightKind {
 			return leftKind < rightKind
 		}
-		return nodes[left].Machine < nodes[right].Machine
+		return traversal.nodes[left].Machine < traversal.nodes[right].Machine
 	})
-	return nodes, false, true
 }
 
 func arcadeClosureKindOrder(kind string) int {

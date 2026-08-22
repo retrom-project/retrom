@@ -4,7 +4,7 @@ export function scalarSearchParams(values: Record<string, string | string[] | un
   const result: Record<string, string> = {};
   for (const name of allowed) {
     const value = values[name];
-    if (typeof value === "string" && value) result[name] = value;
+    if (typeof value === "string" && value) {result[name] = value;}
   }
   return result;
 }
@@ -15,13 +15,13 @@ export function withQuery(path: string, values: Record<string, string>) {
 }
 
 export function formatTime(value: number | null | undefined) {
-  if (!value) return "尚无记录";
+  if (!value) {return "尚无记录";}
   return new Intl.DateTimeFormat("zh-CN", { dateStyle: "medium", timeStyle: "short" }).format(new Date(value));
 }
 
 export function formatBytes(value: number) {
-  if (!Number.isFinite(value) || value < 0) return "—";
-  if (value < 1024) return `${value} B`;
+  if (!Number.isFinite(value) || value < 0) {return "—";}
+  if (value < 1024) {return `${value} B`;}
   const units = ["KB", "MB", "GB", "TB"];
   let amount = value;
   let unit = -1;

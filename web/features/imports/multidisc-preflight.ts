@@ -103,21 +103,15 @@ async function inspectPlaylist(file: File, maxDiscs: number): Promise<ParsedPlay
   if (file.size > 65_536) {
     return { references: [], reasonCode: "MULTI_DISC_LIMIT_EXCEEDED", reason: "M3U 超过 64 KiB" };
   }
-  let text: string;
-  try {
-    const bytes = new Uint8Array(await file.arrayBuffer());
-    const body = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf
-      ? bytes.subarray(3)
-      : bytes;
-    text = new TextDecoder("utf-8", { fatal: true }).decode(body);
-  } catch {
+  const text = await readPlaylistText(file);
+  if (text === null) {
     return { references: [], reasonCode: "MULTI_DISC_PLAYLIST_INVALID", reason: "M3U 无法读取或不是有效 UTF-8" };
   }
   const references: string[] = [];
   const seen = new Set<string>();
   for (const rawLine of text.split("\n")) {
     const value = rawLine.endsWith("\r") ? rawLine.slice(0, -1) : rawLine;
-    if (!value || value.startsWith("#")) continue;
+    if (!value || value.startsWith("#")) {continue;}
     if (!safeBasename(value)) {
       return { references: [], reasonCode: "MULTI_DISC_REFERENCE_UNSAFE", reason: "M3U 引用必须是安全的同目录文件名" };
     }
@@ -140,8 +134,20 @@ async function inspectPlaylist(file: File, maxDiscs: number): Promise<ParsedPlay
   return { references, reasonCode: "", reason: "" };
 }
 
+async function readPlaylistText(file: File) {
+  try {
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const body = bytes.length >= 3 && bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf
+      ? bytes.subarray(3)
+      : bytes;
+    return new TextDecoder("utf-8", { fatal: true }).decode(body);
+  } catch {
+    return null;
+  }
+}
+
 async function hasCHDMagic(file: File) {
-  if (file.size < 8) return false;
+  if (file.size < 8) {return false;}
   try {
     const header = new Uint8Array(await file.slice(0, 8).arrayBuffer());
     return new TextDecoder("ascii").decode(header) === "MComprHD";
@@ -161,7 +167,7 @@ async function inspectGroup(
   limits: MultiDiscPreflightLimits,
   referencedPaths: Set<string>,
 ): Promise<MultiDiscGroupPreview> {
-  for (const playlist of playlists) referencedPaths.add(playlist.path);
+  for (const playlist of playlists) {referencedPaths.add(playlist.path);}
   const directoryFiles = groupFiles(files, directory);
   if (playlists.length !== 1) {
     const ignored = directoryFiles.filter((entry) => !referencedPaths.has(entry.path)).map((entry) => basename(entry.path));
@@ -175,46 +181,14 @@ async function inspectGroup(
   }
 
   const candidates = directoryFiles.filter((entry) => entry.path !== playlist.path);
-  const exact = new Map<string, PreflightFile[]>();
-  const folded = new Map<string, PreflightFile[]>();
-  for (const candidate of candidates) {
-    const name = basename(candidate.path);
-    exact.set(name, [...(exact.get(name) ?? []), candidate]);
-    folded.set(fold(name), [...(folded.get(fold(name)) ?? []), candidate]);
+  const inspected = await inspectDiscReferences(parsed.references, candidates, limits, referencedPaths);
+  if (inspected.error) {
+    const ignored = candidates.filter((entry) => !referencedPaths.has(entry.path)).map((entry) => basename(entry.path));
+    return rejected(
+      directory, basename(playlist.path), playlist.file.size, inspected.error.code, inspected.error.reason, ignored,
+    );
   }
-
-  const entries: MultiDiscEntryPreview[] = [];
-  let presentTotalBytes = 0;
-  for (const [discIndex, reference] of parsed.references.entries()) {
-    const exactMatches = exact.get(reference) ?? [];
-    const matches = exactMatches.length ? exactMatches : folded.get(fold(reference)) ?? [];
-    if (matches.length > 1) {
-      const ignored = candidates.filter((entry) => !referencedPaths.has(entry.path)).map((entry) => basename(entry.path));
-      return rejected(directory, basename(playlist.path), playlist.file.size, "MULTI_DISC_PLAYLIST_INVALID", `光盘引用 ${reference} 的大小写匹配不唯一`, ignored);
-    }
-    const matched = matches[0];
-    if (matched) {
-      if (!await hasCHDMagic(matched.file)) {
-        const ignored = candidates.filter((entry) => !referencedPaths.has(entry.path)).map((entry) => basename(entry.path));
-        return rejected(directory, basename(playlist.path), playlist.file.size, "MULTI_DISC_CHD_INVALID", `${reference} 不是有效 CHD`, ignored);
-      }
-      if (matched.file.size > limits.maxTotalBytes - presentTotalBytes) {
-        const ignored = candidates.filter((entry) => !referencedPaths.has(entry.path)).map((entry) => basename(entry.path));
-        return rejected(directory, basename(playlist.path), playlist.file.size, "MULTI_DISC_LIMIT_EXCEEDED", `光盘总大小超过 ${limits.maxTotalBytes} bytes`, ignored);
-      }
-      referencedPaths.add(matched.path);
-      presentTotalBytes += matched.file.size;
-    }
-    entries.push({
-      discIndex,
-      label: `光盘 ${discIndex + 1}`,
-      sourceReference: reference,
-      canonicalName: `disc-${String(discIndex + 1).padStart(3, "0")}.chd`,
-      state: matched ? "PRESENT" : "MISSING",
-      sourceBasename: matched ? basename(matched.path) : null,
-      sizeBytes: matched?.file.size ?? null,
-    });
-  }
+  const { entries, presentTotalBytes } = inspected;
   const missing = entries.filter((entry) => entry.state === "MISSING").map((entry) => entry.sourceReference);
   const ignored = candidates.filter((entry) => !referencedPaths.has(entry.path)).map((entry) => basename(entry.path));
   return {
@@ -230,6 +204,56 @@ async function inspectGroup(
     ignoredCount: ignored.length,
     state: missing.length ? "BLOCKED" : "COMPLETE",
   };
+}
+
+function indexDiscCandidates(candidates: PreflightFile[]) {
+  const exact = new Map<string, PreflightFile[]>();
+  const folded = new Map<string, PreflightFile[]>();
+  for (const candidate of candidates) {
+    const name = basename(candidate.path);
+    exact.set(name, [...(exact.get(name) ?? []), candidate]);
+    folded.set(fold(name), [...(folded.get(fold(name)) ?? []), candidate]);
+  }
+  return { exact, folded };
+}
+
+async function inspectDiscReferences(
+  references: string[],
+  candidates: PreflightFile[],
+  limits: MultiDiscPreflightLimits,
+  referencedPaths: Set<string>,
+) {
+  const { exact, folded } = indexDiscCandidates(candidates);
+  const entries: MultiDiscEntryPreview[] = [];
+  let presentTotalBytes = 0;
+  for (const [discIndex, reference] of references.entries()) {
+    const exactMatches = exact.get(reference) ?? [];
+    const matches = exactMatches.length ? exactMatches : folded.get(fold(reference)) ?? [];
+    if (matches.length > 1) {
+      return { entries, presentTotalBytes, error: { code: "MULTI_DISC_PLAYLIST_INVALID", reason: `光盘引用 ${reference} 的大小写匹配不唯一` } };
+    }
+    const matched = matches[0];
+    if (matched) {
+      if (!await hasCHDMagic(matched.file)) {
+        return { entries, presentTotalBytes, error: { code: "MULTI_DISC_CHD_INVALID", reason: `${reference} 不是有效 CHD` } };
+      }
+      if (matched.file.size > limits.maxTotalBytes - presentTotalBytes) {
+        return { entries, presentTotalBytes, error: { code: "MULTI_DISC_LIMIT_EXCEEDED", reason: `光盘总大小超过 ${limits.maxTotalBytes} bytes` } };
+      }
+      referencedPaths.add(matched.path);
+      presentTotalBytes += matched.file.size;
+    }
+    entries.push({
+      discIndex,
+      label: `光盘 ${discIndex + 1}`,
+      sourceReference: reference,
+      canonicalName: `disc-${String(discIndex + 1).padStart(3, "0")}.chd`,
+      state: matched ? "PRESENT" : "MISSING",
+      sourceBasename: matched ? basename(matched.path) : null,
+      sizeBytes: matched?.file.size ?? null,
+    });
+  }
+  return { entries, presentTotalBytes, error: null };
 }
 
 export async function preflightMultiDisc(
@@ -250,7 +274,7 @@ export async function preflightMultiDisc(
     unassociatedFiles: [],
     limits: normalizedLimits,
   } satisfies MultiDiscPreflight;
-  if (playlists.length === 0) return empty;
+  if (playlists.length === 0) {return empty;}
 
   const byDirectory = new Map<string, PreflightFile[]>();
   for (const playlist of playlists) {

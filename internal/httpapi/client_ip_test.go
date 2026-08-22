@@ -1,10 +1,13 @@
 package httpapi
 
 import (
+	"context"
 	"net/http/httptest"
 	"net/netip"
 	"strings"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestCanonicalClientIPTrustsOnlyConfiguredProxyChain(t *testing.T) {
@@ -49,16 +52,14 @@ func TestCanonicalClientIPTrustsOnlyConfiguredProxyChain(t *testing.T) {
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
-			request := httptest.NewRequest("POST", "http://retrom.example/api/v1/auth/login", nil)
+			request := httptest.NewRequestWithContext(context.Background(), "POST", "http://retrom.example/api/v1/auth/login", nil)
 			request.RemoteAddr = test.remote
 			for _, value := range test.forwarded {
 				request.Header.Add("X-Forwarded-For", value)
 			}
 			request.Header.Set("X-Real-IP", "198.51.100.200")
 			address, diagnostic := canonicalClientIP(request, test.proxies)
-			if address != test.want || diagnostic != test.diagnostic {
-				t.Fatalf("canonicalClientIP() = %q/%q, want %q/%q", address, diagnostic, test.want, test.diagnostic)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return address != test.want }, func() bool { return diagnostic != test.diagnostic }), "canonicalClientIP() = %q/%q, want %q/%q", address, diagnostic, test.want, test.diagnostic)
 		})
 	}
 }

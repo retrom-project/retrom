@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -14,6 +15,7 @@ import (
 
 	"retrom/internal/config"
 	"retrom/internal/pegasusimport"
+	"retrom/internal/testassert"
 )
 
 func TestPegasusImportHTTPScanMappingAndSourceDrift(t *testing.T) {
@@ -35,7 +37,7 @@ func TestPegasusImportHTTPScanMappingAndSourceDrift(t *testing.T) {
 		[]config.ServerImportRoot{{ID: "games", Label: "Game Library", Path: root, CanonicalPath: root}}, time.Now,
 	)
 	server.pegasusImports.Start()
-	if _, err := server.database.Exec(`
+	if _, err := server.database.ExecContext(context.Background(), `
 INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
 source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
 VALUES('pegasus-http-artifact','fceumm','4.2.3','pegasus-http','WASM','data/pegasus-http.js',1,
@@ -45,22 +47,20 @@ lower(hex(zeroblob(32))),NULL,'{}','{}',1,1,1,1)`); err != nil {
 	handler := server.Handler()
 	cookie, csrf := testSessionCredentials()
 
-	createRequest := httptest.NewRequest(http.MethodPost, "/api/v1/admin/pegasus-imports", strings.NewReader(`{"rootId":"games","sourceRelativePath":"library"}`))
+	createRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/pegasus-imports", strings.NewReader(`{"rootId":"games","sourceRelativePath":"library"}`))
 	createRequest.Header.Set("Content-Type", "application/json")
 	createRequest.Header.Set("Idempotency-Key", uuid.NewString())
 	setCSRFCredentials(createRequest, cookie, csrf)
 	created := httptest.NewRecorder()
 	handler.ServeHTTP(created, createRequest)
-	if created.Code != http.StatusAccepted || strings.Contains(created.Body.String(), root) {
-		t.Fatalf("create = %d %s", created.Code, created.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return created.Code != http.StatusAccepted }, func() bool { return strings.Contains(created.Body.String(), root) }), "create = %d %s", created.Code, created.Body.String())
 	var summary pegasusimport.Summary
 	if err := json.Unmarshal(created.Body.Bytes(), &summary); err != nil {
 		t.Fatal(err)
 	}
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) {
-		request := httptest.NewRequest(http.MethodGet, "/api/v1/admin/pegasus-imports/"+summary.ID, nil)
+		request := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/pegasus-imports/"+summary.ID, nil)
 		request.AddCookie(cookie)
 		response := httptest.NewRecorder()
 		handler.ServeHTTP(response, request)
@@ -69,50 +69,42 @@ lower(hex(zeroblob(32))),NULL,'{}','{}',1,1,1,1)`); err != nil {
 		}
 		time.Sleep(10 * time.Millisecond)
 	}
-	if summary.State != "AWAITING_MAPPING" || summary.Counts.Collections != 1 || summary.Counts.Games != 1 || summary.Counts.MappedCollections != 0 {
-		t.Fatalf("scanned summary = %#v", summary)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return summary.State != "AWAITING_MAPPING" }, func() bool { return summary.Counts.Collections != 1 }, func() bool { return summary.Counts.Games != 1 }, func() bool { return summary.Counts.MappedCollections != 0 }), "scanned summary = %#v", summary)
 
-	collectionsRequest := httptest.NewRequest(http.MethodGet, "/api/v1/admin/pegasus-imports/"+summary.ID+"/collections", nil)
+	collectionsRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/pegasus-imports/"+summary.ID+"/collections", nil)
 	collectionsRequest.AddCookie(cookie)
 	collectionsResponse := httptest.NewRecorder()
 	handler.ServeHTTP(collectionsResponse, collectionsRequest)
 	var page struct {
 		Items []pegasusimport.Collection `json:"items"`
 	}
-	if collectionsResponse.Code != http.StatusOK || json.Unmarshal(collectionsResponse.Body.Bytes(), &page) != nil || len(page.Items) != 1 || page.Items[0].MappingAction != nil {
-		t.Fatalf("collections = %d %s", collectionsResponse.Code, collectionsResponse.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return collectionsResponse.Code != http.StatusOK }, func() bool { return json.Unmarshal(collectionsResponse.Body.Bytes(), &page) != nil }, func() bool { return len(page.Items) != 1 }, func() bool { return page.Items[0].MappingAction != nil }), "collections = %d %s", collectionsResponse.Code, collectionsResponse.Body.String())
 	var platformInstanceID string
-	if err := server.database.QueryRow(`SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&platformInstanceID); err != nil {
+	if err := server.database.QueryRowContext(context.Background(), `SELECT id FROM platform_instances WHERE platform_id='nes' AND enabled=1 ORDER BY sort_order,id LIMIT 1`).Scan(&platformInstanceID); err != nil {
 		t.Fatal(err)
 	}
 	mappingBody, _ := json.Marshal(map[string]any{"mappings": []map[string]any{{"collectionId": page.Items[0].ID, "action": "IMPORT", "platformInstanceId": platformInstanceID, "tagIds": []string{}}}})
-	mappingRequest := httptest.NewRequest(http.MethodPut, "/api/v1/admin/pegasus-imports/"+summary.ID+"/collection-mappings", strings.NewReader(string(mappingBody)))
+	mappingRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPut, "/api/v1/admin/pegasus-imports/"+summary.ID+"/collection-mappings", strings.NewReader(string(mappingBody)))
 	mappingRequest.Header.Set("Content-Type", "application/json")
 	mappingRequest.Header.Set("If-Match", `"v`+jsonInt(summary.Version)+`"`)
 	mappingRequest.Header.Set("Idempotency-Key", uuid.NewString())
 	setCSRFCredentials(mappingRequest, cookie, csrf)
 	mapped := httptest.NewRecorder()
 	handler.ServeHTTP(mapped, mappingRequest)
-	if mapped.Code != http.StatusOK || json.Unmarshal(mapped.Body.Bytes(), &summary) != nil || summary.Counts.MappedCollections != 1 {
-		t.Fatalf("mapping = %d %s", mapped.Code, mapped.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return mapped.Code != http.StatusOK }, func() bool { return json.Unmarshal(mapped.Body.Bytes(), &summary) != nil }, func() bool { return summary.Counts.MappedCollections != 1 }), "mapping = %d %s", mapped.Code, mapped.Body.String())
 
 	if err := os.WriteFile(metadataPath, []byte("collection: Changed\ngame: Fixture\nfile: fixture.nes\n"), 0o600); err != nil {
 		t.Fatal(err)
 	}
 	startBody := `{"version":` + jsonInt(summary.Version) + `}`
-	startRequest := httptest.NewRequest(http.MethodPost, "/api/v1/admin/pegasus-imports/"+summary.ID+"/start", strings.NewReader(startBody))
+	startRequest := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/pegasus-imports/"+summary.ID+"/start", strings.NewReader(startBody))
 	startRequest.Header.Set("Content-Type", "application/json")
 	startRequest.Header.Set("If-Match", `"v`+jsonInt(summary.Version)+`"`)
 	startRequest.Header.Set("Idempotency-Key", uuid.NewString())
 	setCSRFCredentials(startRequest, cookie, csrf)
 	started := httptest.NewRecorder()
 	handler.ServeHTTP(started, startRequest)
-	if started.Code != http.StatusConflict || !strings.Contains(started.Body.String(), "PEGASUS_SOURCE_CHANGED") || strings.Contains(started.Body.String(), root) {
-		t.Fatalf("source drift = %d %s", started.Code, started.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return started.Code != http.StatusConflict }, func() bool { return !strings.Contains(started.Body.String(), "PEGASUS_SOURCE_CHANGED") }, func() bool { return strings.Contains(started.Body.String(), root) }), "source drift = %d %s", started.Code, started.Body.String())
 }
 
 func jsonInt(value int64) string {

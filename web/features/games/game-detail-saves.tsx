@@ -28,12 +28,12 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
   const previewTriggerRef = useRef<HTMLElement | null>(null);
 
   useEffect(() => {
-    if (!drawerOpen && !previewSave) return;
+    if (!drawerOpen && !previewSave) {return;}
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
     function onKeyDown(event: KeyboardEvent) {
-      if (event.key !== "Escape") return;
-      if (previewSave) setPreviewSave(null);
+      if (event.key !== "Escape") {return;}
+      if (previewSave) {setPreviewSave(null);}
       else {
         setDrawerOpen(false);
         window.setTimeout(() => drawerTriggerRef.current?.focus(), 0);
@@ -47,12 +47,12 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
   }, [drawerOpen, previewSave]);
 
   useEffect(() => {
-    if (previewSave) previewCloseRef.current?.focus();
-    else previewTriggerRef.current?.focus();
+    if (previewSave) {previewCloseRef.current?.focus();}
+    else {previewTriggerRef.current?.focus();}
   }, [previewSave]);
 
   useEffect(() => {
-    if (drawerOpen) drawerRef.current?.querySelector<HTMLElement>("button, a[href]")?.focus();
+    if (drawerOpen) {drawerRef.current?.querySelector<HTMLElement>("button, a[href]")?.focus();}
   }, [drawerOpen]);
 
   function closeDrawer() {
@@ -99,7 +99,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
       </div> : <div className="game-detail-saves-empty"><strong>还没有手动存档</strong><span>游玩时创建存档后，可以从这里快速恢复。</span></div>}
     </section>
 
-    <div className={`game-detail-drawer-backdrop${drawerOpen ? " is-open" : ""}`} aria-hidden="true" onMouseDown={(event) => { if (event.target === event.currentTarget) closeDrawer(); }} />
+    <div className={`game-detail-drawer-backdrop${drawerOpen ? " is-open" : ""}`} aria-hidden="true" onMouseDown={(event) => { if (event.target === event.currentTarget) {closeDrawer();} }} />
     <aside
       ref={drawerRef}
       className={`game-detail-save-drawer${drawerOpen ? " is-open" : ""}`}
@@ -109,9 +109,9 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
       aria-hidden={!drawerOpen || Boolean(previewSave)}
       inert={!drawerOpen || Boolean(previewSave)}
       onKeyDown={(event) => {
-        if (event.key !== "Tab") return;
+        if (event.key !== "Tab") {return;}
         const focusable = Array.from(drawerRef.current?.querySelectorAll<HTMLElement>("button:not(:disabled), a[href], [tabindex]:not([tabindex='-1'])") ?? []);
-        if (!focusable.length) return;
+        if (!focusable.length) {return;}
         const first = focusable[0];
         const last = focusable[focusable.length - 1];
         if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last.focus(); }
@@ -133,7 +133,7 @@ export function GameDetailSaves({ gameId, gameTitle, saves, nowMs, threadCoreIds
       </div>
     </aside>
 
-    {previewSave ? <div className="game-detail-preview" onMouseDown={(event) => { if (event.target === event.currentTarget) setPreviewSave(null); }}>
+    {previewSave ? <div className="game-detail-preview" onMouseDown={(event) => { if (event.target === event.currentTarget) {setPreviewSave(null);} }}>
       <section role="dialog" aria-modal="true" aria-label="存档截图预览" onKeyDown={(event) => {
         if (event.key === "Tab") { event.preventDefault(); previewCloseRef.current?.focus(); }
       }}>

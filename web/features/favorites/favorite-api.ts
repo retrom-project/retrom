@@ -43,9 +43,9 @@ async function request<T>(
 ) {
   const headers = new Headers({ Accept: "application/json" });
   const method = options.method ?? "GET";
-  if (options.body !== undefined) headers.set("Content-Type", "application/json");
-  if (options.idempotent) headers.set("Idempotency-Key", newUuid());
-  if (options.etag) headers.set("If-Match", options.etag);
+  if (options.body !== undefined) {headers.set("Content-Type", "application/json");}
+  if (options.idempotent) {headers.set("Idempotency-Key", newUuid());}
+  if (options.etag) {headers.set("If-Match", options.etag);}
   const response = await authenticatedFetch(path, {
     method,
     cache: "no-store",
@@ -53,8 +53,8 @@ async function request<T>(
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     signal: options.signal,
   });
-  if (!response.ok) await parseError(response);
-  if (response.status === 204) return { data: null as T, response };
+  if (!response.ok) {await parseError(response);}
+  if (response.status === 204) {return { data: null as T, response };}
   return { data: await response.json() as T, response };
 }
 

@@ -31,16 +31,16 @@ type Review = ReviewWorkspace & {
 const roleLabels: Record<string, string> = { CONTENT: "游戏文件", DOS_SOURCE: "DOS 游戏文件", COMPANION: "配套文件" };
 
 function GameFiles({ review }: { review: Review }) {
-  if (review.sourceFiles?.length) return <div className="review-source-packages">{review.sourceFiles.map((file) => <details className="review-source-package" open={file.archive} key={file.uploadFileId}><summary><span>{file.archive ? `${file.archiveFormat === "SEVEN_Z" ? "7z" : "ZIP"} 来源包` : "游戏文件"}</span><strong title={file.name}>{file.name}</strong><small title={`${formatBytes(file.sizeBytes)} / SHA-256 ${file.sha256}`}>{formatBytes(file.sizeBytes)} / {file.sha256.slice(0, 12)}…</small></summary>{file.archive ? <div className="review-archive-entries" aria-label={`${file.name} 文件列表`}><p>运行时使用下列唯一匹配成员物化后的原始内容，来源包仅保留为证据。</p>{file.archiveEntries.length ? file.archiveEntries.map((entry, index) => <div key={`${entry.name}-${index}`}><strong title={entry.name}>{entry.name}</strong><span>{formatBytes(entry.sizeBytes)}</span><code title={`CRC32 ${entry.crc32}`}>{entry.crc32}</code></div>) : <p>压缩包内没有可展示的文件记录。</p>}</div> : null}</details>)}</div>;
+  if (review.sourceFiles?.length) {return <div className="review-source-packages">{review.sourceFiles.map((file) => <details className="review-source-package" open={file.archive} key={file.uploadFileId}><summary><span>{file.archive ? `${file.archiveFormat === "SEVEN_Z" ? "7z" : "ZIP"} 来源包` : "游戏文件"}</span><strong title={file.name}>{file.name}</strong><small title={`${formatBytes(file.sizeBytes)} / SHA-256 ${file.sha256}`}>{formatBytes(file.sizeBytes)} / {file.sha256.slice(0, 12)}…</small></summary>{file.archive ? <div className="review-archive-entries" aria-label={`${file.name} 文件列表`}><p>运行时使用下列唯一匹配成员物化后的原始内容，来源包仅保留为证据。</p>{file.archiveEntries.length ? file.archiveEntries.map((entry, index) => <div key={`${entry.name}-${index}`}><strong title={entry.name}>{entry.name}</strong><span>{formatBytes(entry.sizeBytes)}</span><code title={`CRC32 ${entry.crc32}`}>{entry.crc32}</code></div>) : <p>压缩包内没有可展示的文件记录。</p>}</div> : null}</details>)}</div>;}
   return <div className="review-file-list">{review.sourceManifest.files.map((file, index) => <div key={`${file.role}-${file.logicalName}-${index}`}><span>{roleLabels[file.role] ?? "文件"}</span><strong title={file.logicalName}>{file.logicalName}</strong><small>{file.sizeBytes === undefined ? "大小未知" : formatBytes(file.sizeBytes)}</small></div>)}</div>;
 }
 
 function safeReturnTo(raw: string | undefined) {
-  if (!raw) return "/admin/reviews";
+  if (!raw) {return "/admin/reviews";}
   const parsed = new URL(raw, "http://retrom.invalid");
   const allowed = new Set(["q", "tagId", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode", "sort"]);
-  if (parsed.origin !== "http://retrom.invalid" || parsed.pathname !== "/admin/reviews") return "/admin/reviews";
-  for (const [name] of parsed.searchParams) if (!allowed.has(name) || parsed.searchParams.getAll(name).length !== 1) return "/admin/reviews";
+  if (parsed.origin !== "http://retrom.invalid" || parsed.pathname !== "/admin/reviews") {return "/admin/reviews";}
+  for (const [name] of parsed.searchParams) {if (!allowed.has(name) || parsed.searchParams.getAll(name).length !== 1) {return "/admin/reviews";}}
   return `${parsed.pathname}${parsed.search}`;
 }
 
@@ -48,7 +48,7 @@ async function loadPendingReview(itemId: string) {
   try {
     return await backendJSON<Review>(`/api/v1/admin/reviews/${itemId}`);
   } catch (error) {
-    if (error instanceof BackendResponseError && error.status === 404) return null;
+    if (error instanceof BackendResponseError && error.status === 404) {return null;}
     throw error;
   }
 }
@@ -57,6 +57,90 @@ function staleReviewReturnTo(returnTo: string) {
   const parsed = new URL(returnTo, "http://retrom.invalid");
   parsed.searchParams.set("reviewNotice", "stale");
   return `${parsed.pathname}${parsed.search}`;
+}
+
+type ReviewDetailSummary = {
+  compatibilityCode: string;
+  compatibilityLabel: string;
+  dependencyCount: number;
+  dependencyIssueCount: number;
+  dependencySnapshot: DependencySnapshot | undefined;
+  sourceDisplayName: string;
+  validationStatus: string;
+};
+
+function missingRequiredBIOSCount(snapshot: DependencySnapshot | undefined) {
+  return (snapshot?.bios ?? [])
+    .filter((item) => item.requirementMode !== "OPTIONAL" && !item.blobId).length;
+}
+
+function dependencyIssueCount(snapshot: DependencySnapshot | undefined) {
+  return (snapshot?.missingEntries?.length ?? 0)
+    + (snapshot?.mismatchedEntries?.length ?? 0)
+    + (snapshot?.warnings?.length ?? 0)
+    + missingRequiredBIOSCount(snapshot);
+}
+
+function dependencyCount(snapshot: DependencySnapshot | undefined) {
+  return (snapshot?.dependencies?.length ?? 0) + (snapshot?.bios?.length ?? 0);
+}
+
+function reviewSourceDisplayName(review: Review) {
+  return review.sourceFiles?.[0]?.name
+    ?? review.sourceManifest.files[0]?.logicalName
+    ?? "游戏文件";
+}
+
+function summarizeReview(review: Review): ReviewDetailSummary {
+  const validationStatus = review.validation?.status ?? "PENDING";
+  const compatibilityCode = review.validation?.compatibilityCode ?? validationStatus;
+  const dependencySnapshot = review.validation?.dependencySnapshot;
+  return {
+    compatibilityCode,
+    compatibilityLabel: reviewCompatibilityLabel(compatibilityCode, validationStatus),
+    dependencyCount: dependencyCount(dependencySnapshot),
+    dependencyIssueCount: dependencyIssueCount(dependencySnapshot),
+    dependencySnapshot,
+    sourceDisplayName: reviewSourceDisplayName(review),
+    validationStatus,
+  };
+}
+
+function ReviewCapability({ review, summary }: { review: Review; summary: ReviewDetailSummary }) {
+  const sourceSize = review.sourceFiles?.[0]
+    ? formatBytes(review.sourceFiles[0].sizeBytes)
+    : `${review.sourceManifest.files.length} 个来源文件`;
+  const runtimeCheck = summary.dependencySnapshot?.machine
+    ? `识别为 ${summary.dependencySnapshot.machine} · ${summary.compatibilityLabel}`
+    : summary.compatibilityLabel;
+  const dependencyCheck = summary.dependencySnapshot
+    ? `${summary.dependencyCount} 项运行依赖 · ${summary.dependencyIssueCount ? `${summary.dependencyIssueCount} 项需要处理` : "没有发现异常"}`
+    : "检查结果尚未生成";
+  return <section className="panel review-workflow-capability">
+    <div className="panel-head"><div><h2>① 能不能发布？</h2><p>直接展示文件、运行方式和依赖检查结论。</p></div><StatusBadge tone={statusTone(summary.compatibilityCode)}>{summary.compatibilityLabel}</StatusBadge></div>
+    <div className="panel-body review-capability-list">
+      <ReviewValidationGuidance status={summary.validationStatus} compatibilityCode={summary.compatibilityCode} snapshot={summary.dependencySnapshot} />
+      <div><strong>游戏文件</strong><span>{summary.sourceDisplayName} · {sourceSize}</span></div>
+      <div><strong>运行检查</strong><span>{runtimeCheck}</span></div>
+      <div><strong>依赖检查</strong><span>{dependencyCheck}</span></div>
+    </div>
+  </section>;
+}
+
+function ReviewDetail({ activeTags, nextItemId, returnTo, review }: {
+  activeTags: Awaited<ReturnType<typeof loadActiveTags>>;
+  nextItemId: string | null;
+  returnTo: string;
+  review: Review;
+}) {
+  const summary = summarizeReview(review);
+  return <div className="import-workflow-page review-detail-prototype"><FlashToast />
+    <PageHeader eyebrow="待审核 / 条目" title="审核条目" description="先判断能不能发布，再确认发布成什么。技术证据按需展开，不挤占主决策。" actions={<ButtonLink href={returnTo} secondary>← 返回待审核列表</ButtonLink>} />
+    <ReviewActions review={review} activeTags={activeTags} returnTo={returnTo} nextItemId={nextItemId} sourceDisplayName={summary.sourceDisplayName} platformInstanceName={review.platformInstance.name}>
+      <ReviewCapability review={review} summary={summary} />
+      <section className="panel review-workflow-files"><div className="panel-head"><div><h2>来源文件</h2><p>用于核对这条游戏来自哪份内容。</p></div></div><div className="panel-body"><GameFiles review={review} /></div></section>
+    </ReviewActions>
+  </div>;
 }
 
 export default async function ReviewDetailPage({ params, searchParams }: { params: Promise<{ itemId: string }>; searchParams: Promise<Record<string, string | string[] | undefined>> }) {
@@ -69,24 +153,7 @@ export default async function ReviewDetailPage({ params, searchParams }: { param
     backendJSON<ListResponse<ReviewQueueItem>>(`/api/v1/admin/reviews${listQuery}${listQuery ? "&" : "?"}limit=20`),
     loadActiveTags(),
   ]);
-  if (!review) redirect(staleReviewReturnTo(returnTo));
-  const validationStatus = review.validation?.status ?? "PENDING";
+  if (!review) {redirect(staleReviewReturnTo(returnTo));}
   const nextItemId = adjacentReviewItemId(context.items.map((item) => item.itemId), itemId);
-  const sourceDisplayName = review.sourceFiles?.[0]?.name ?? review.sourceManifest.files[0]?.logicalName ?? "游戏文件";
-  const compatibilityCode = review.validation?.compatibilityCode ?? validationStatus;
-  const compatibilityLabel = reviewCompatibilityLabel(compatibilityCode, validationStatus);
-  const dependencySnapshot = review.validation?.dependencySnapshot;
-  const missingRequiredBIOSCount = (dependencySnapshot?.bios ?? []).filter((item) => item.requirementMode !== "OPTIONAL" && !item.blobId).length;
-  const dependencyIssueCount = (dependencySnapshot?.missingEntries?.length ?? 0)
-    + (dependencySnapshot?.mismatchedEntries?.length ?? 0)
-    + (dependencySnapshot?.warnings?.length ?? 0)
-    + missingRequiredBIOSCount;
-  const dependencyCount = (dependencySnapshot?.dependencies?.length ?? 0) + (dependencySnapshot?.bios?.length ?? 0);
-  return <div className="import-workflow-page review-detail-prototype"><FlashToast />
-    <PageHeader eyebrow="待审核 / 条目" title="审核条目" description="先判断能不能发布，再确认发布成什么。技术证据按需展开，不挤占主决策。" actions={<ButtonLink href={returnTo} secondary>← 返回待审核列表</ButtonLink>} />
-    <ReviewActions review={review} activeTags={activeTags} returnTo={returnTo} nextItemId={nextItemId} sourceDisplayName={sourceDisplayName} platformInstanceName={review.platformInstance.name}>
-      <section className="panel review-workflow-capability"><div className="panel-head"><div><h2>① 能不能发布？</h2><p>直接展示文件、运行方式和依赖检查结论。</p></div><StatusBadge tone={statusTone(compatibilityCode)}>{compatibilityLabel}</StatusBadge></div><div className="panel-body review-capability-list"><ReviewValidationGuidance status={validationStatus} compatibilityCode={compatibilityCode} snapshot={dependencySnapshot} /><div><strong>游戏文件</strong><span>{sourceDisplayName} · {review.sourceFiles?.[0] ? formatBytes(review.sourceFiles[0].sizeBytes) : `${review.sourceManifest.files.length} 个来源文件`}</span></div><div><strong>运行检查</strong><span>{dependencySnapshot?.machine ? `识别为 ${dependencySnapshot.machine} · ${compatibilityLabel}` : compatibilityLabel}</span></div><div><strong>依赖检查</strong><span>{dependencySnapshot ? `${dependencyCount} 项运行依赖 · ${dependencyIssueCount ? `${dependencyIssueCount} 项需要处理` : "没有发现异常"}` : "检查结果尚未生成"}</span></div></div></section>
-      <section className="panel review-workflow-files"><div className="panel-head"><div><h2>来源文件</h2><p>用于核对这条游戏来自哪份内容。</p></div></div><div className="panel-body"><GameFiles review={review} /></div></section>
-    </ReviewActions>
-  </div>;
+  return <ReviewDetail activeTags={activeTags} nextItemId={nextItemId} returnTo={returnTo} review={review} />;
 }

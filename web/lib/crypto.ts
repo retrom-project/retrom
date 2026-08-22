@@ -44,7 +44,7 @@ function sha256Fallback(input: Uint8Array) {
   ]);
   const words = new Uint32Array(64);
   for (let offset = 0; offset < message.byteLength; offset += 64) {
-    for (let index = 0; index < 16; index += 1) words[index] = messageView.getUint32(offset + index * 4);
+    for (let index = 0; index < 16; index += 1) {words[index] = messageView.getUint32(offset + index * 4);}
     for (let index = 16; index < 64; index += 1) {
       const before15 = words[index - 15];
       const before2 = words[index - 2];
@@ -87,7 +87,7 @@ function sha256Fallback(input: Uint8Array) {
 }
 
 export function newUuid(provider: CryptoProvider = activeCrypto()) {
-  if (typeof provider.randomUUID === "function") return provider.randomUUID.call(provider);
+  if (typeof provider.randomUUID === "function") {return provider.randomUUID.call(provider);}
   const bytes = provider.getRandomValues(new Uint8Array(16));
   bytes[6] = (bytes[6] & 0x0f) | 0x40;
   bytes[8] = (bytes[8] & 0x3f) | 0x80;

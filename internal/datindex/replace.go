@@ -15,7 +15,6 @@ import (
 	"retrom/internal/cleanup"
 )
 
-//nolint:funlen // Contract branches stay contiguous for a single auditable decision.
 func Replace(ctx context.Context, transaction *sql.Tx, datID string, catalog arcadedat.Catalog) error {
 	if _, err := transaction.ExecContext(ctx, `
 DELETE
@@ -24,6 +23,42 @@ WHERE dat_version_id=?
 `, datID); err != nil {
 		return fmt.Errorf("datindex/replace: %w", err)
 	}
+	statements, err := prepareReplacementStatements(ctx, transaction)
+	if err != nil {
+		return err
+	}
+	defer statements.close()
+	for _, machine := range catalog.Machines {
+		if _, err := statements.machine.ExecContext(
+			ctx,
+			datID,
+			machine.Name,
+			machine.Description,
+			machine.Year,
+			machine.Manufacturer,
+			nullable(machine.CloneOf),
+			nullable(machine.ROMOf),
+			boolInteger(machine.ExplicitBIOS),
+			machine.Classification,
+		); err != nil {
+			return fmt.Errorf("datindex/replace: %w", err)
+		}
+		if err := insertMachineContents(ctx, statements, datID, machine); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+type replacementStatements struct {
+	machine *sql.Stmt
+	bios    *sql.Stmt
+	rom     *sql.Stmt
+	disk    *sql.Stmt
+}
+
+func prepareReplacementStatements(ctx context.Context, transaction *sql.Tx) (replacementStatements, error) {
+	var statements replacementStatements
 	machineStatement, err := transaction.PrepareContext(
 		ctx,
 		`
@@ -47,9 +82,9 @@ classification) VALUES(?,
 `,
 	)
 	if err != nil {
-		return fmt.Errorf("datindex/replace: %w", err)
+		return statements, fmt.Errorf("datindex/replace: %w", err)
 	}
-	defer func() { cleanup.Error("close", machineStatement.Close()) }()
+	statements.machine = machineStatement
 	biosStatement, err := transaction.PrepareContext(
 		ctx,
 		`
@@ -65,9 +100,10 @@ is_default) VALUES(?,
 `,
 	)
 	if err != nil {
-		return fmt.Errorf("datindex/replace: %w", err)
+		statements.close()
+		return statements, fmt.Errorf("datindex/replace: %w", err)
 	}
-	defer func() { cleanup.Error("close", biosStatement.Close()) }()
+	statements.bios = biosStatement
 	romStatement, err := transaction.PrepareContext(
 		ctx,
 		`
@@ -93,9 +129,10 @@ bios_name) VALUES(?,
 `,
 	)
 	if err != nil {
-		return fmt.Errorf("datindex/replace: %w", err)
+		statements.close()
+		return statements, fmt.Errorf("datindex/replace: %w", err)
 	}
-	defer func() { cleanup.Error("close", romStatement.Close()) }()
+	statements.rom = romStatement
 	diskStatement, err := transaction.PrepareContext(
 		ctx,
 		`
@@ -113,71 +150,73 @@ status) VALUES(?,
 `,
 	)
 	if err != nil {
-		return fmt.Errorf("datindex/replace: %w", err)
+		statements.close()
+		return statements, fmt.Errorf("datindex/replace: %w", err)
 	}
-	defer func() { cleanup.Error("close", diskStatement.Close()) }()
-	for _, machine := range catalog.Machines {
-		if _, err := machineStatement.ExecContext(
+	statements.disk = diskStatement
+	return statements, nil
+}
+
+func (statements replacementStatements) close() {
+	for _, statement := range []*sql.Stmt{statements.machine, statements.bios, statements.rom, statements.disk} {
+		if statement != nil {
+			cleanup.Error("close", statement.Close())
+		}
+	}
+}
+
+func insertMachineContents(
+	ctx context.Context,
+	statements replacementStatements,
+	datID string,
+	machine arcadedat.Machine,
+) error {
+	for _, bios := range machine.BIOSSets {
+		if _, err := statements.bios.ExecContext(
 			ctx,
 			datID,
 			machine.Name,
-			machine.Description,
-			machine.Year,
-			machine.Manufacturer,
-			nullable(machine.CloneOf),
-			nullable(machine.ROMOf),
-			boolInteger(machine.ExplicitBIOS),
-			machine.Classification,
+			bios.Name,
+			bios.Description,
+			boolInteger(bios.Default),
 		); err != nil {
 			return fmt.Errorf("datindex/replace: %w", err)
 		}
-		for _, bios := range machine.BIOSSets {
-			if _, err := biosStatement.ExecContext(
-				ctx,
-				datID,
-				machine.Name,
-				bios.Name,
-				bios.Description,
-				boolInteger(bios.Default),
-			); err != nil {
-				return fmt.Errorf("datindex/replace: %w", err)
-			}
+	}
+	for _, rom := range machine.ROMs {
+		if _, err := statements.rom.ExecContext(
+			ctx,
+			datID,
+			machine.Name,
+			rom.Ordinal,
+			rom.Name,
+			rom.SizeBytes,
+			nullable(rom.CRC32),
+			nullable(rom.SHA1),
+			rom.Status,
+			nullable(rom.MergeName),
+			nullable(rom.BIOSName),
+		); err != nil {
+			return fmt.Errorf("datindex/replace: %w", err)
 		}
-		for _, rom := range machine.ROMs {
-			if _, err := romStatement.ExecContext(
-				ctx,
-				datID,
-				machine.Name,
-				rom.Ordinal,
-				rom.Name,
-				rom.SizeBytes,
-				nullable(rom.CRC32),
-				nullable(rom.SHA1),
-				rom.Status,
-				nullable(rom.MergeName),
-				nullable(rom.BIOSName),
-			); err != nil {
-				return fmt.Errorf("datindex/replace: %w", err)
-			}
-		}
-		for _, disk := range machine.Disks {
-			if _, err := diskStatement.ExecContext(
-				ctx,
-				datID,
-				machine.Name,
-				disk.Ordinal,
-				disk.Name,
-				nullable(disk.SHA1),
-				disk.Status,
-			); err != nil {
-				return fmt.Errorf("datindex/replace: %w", err)
-			}
+	}
+	for _, disk := range machine.Disks {
+		if _, err := statements.disk.ExecContext(
+			ctx,
+			datID,
+			machine.Name,
+			disk.Ordinal,
+			disk.Name,
+			nullable(disk.SHA1),
+			disk.Status,
+		); err != nil {
+			return fmt.Errorf("datindex/replace: %w", err)
 		}
 	}
 	return nil
 }
 
-//nolint:funlen // Requirement upserts and stale-row deactivation must remain one auditable atomic synchronization.
+// Requirement upserts and stale-row deactivation must remain one auditable atomic synchronization.
 func SyncRequirements(ctx context.Context, transaction *sql.Tx, datID string, now time.Time) error {
 	var coreID, artifactID, datSHA256 string
 	if err := transaction.QueryRowContext(ctx, `

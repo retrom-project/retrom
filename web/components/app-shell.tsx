@@ -6,8 +6,10 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from "rea
 import { AppIcon, type AppIconName } from "@/components/app-icon";
 import { ResponsiveSheet } from "@/components/responsive-sheet";
 import { useAuth } from "@/features/auth/auth-provider";
+import type { AuthContext, AuthUser } from "@/features/auth/types";
 
 type NavItem = { href: string; label: string; icon: AppIconName; exact?: boolean; child?: boolean };
+type CompactPanel = "navigation" | "more" | "health" | "account" | null;
 
 const userNavigation: NavItem[] = [
   { href: "/", label: "首页", icon: "home", exact: true },
@@ -34,8 +36,8 @@ const adminNavigation: NavItem[] = [
 
 function navState(item: NavItem, pathname: string): "active" | "context" | "" {
   if (item.href === "/admin/imports" && pathname !== item.href &&
-    (pathname.startsWith("/admin/imports") || pathname.startsWith("/admin/reviews"))) return "context";
-  if (item.exact) return pathname === item.href ? "active" : "";
+    (pathname.startsWith("/admin/imports") || pathname.startsWith("/admin/reviews"))) {return "context";}
+  if (item.exact) {return pathname === item.href ? "active" : "";}
   return pathname === item.href || pathname.startsWith(`${item.href}/`) ? "active" : "";
 }
 
@@ -81,7 +83,7 @@ function useServiceHealth(): ServiceHealthState {
         setDetail(payload?.error?.message ?? (checks || `服务异常（HTTP ${response.status}）`));
       })
       .catch((error: unknown) => {
-        if (error instanceof DOMException && error.name === "AbortError") return;
+        if (error instanceof DOMException && error.name === "AbortError") {return;}
         setState("unavailable"); setDetail(error instanceof Error ? `服务连接失败：${error.message}` : "服务连接失败");
       });
     return () => controller.abort();
@@ -92,43 +94,51 @@ function useServiceHealth(): ServiceHealthState {
 function ServiceHealth({ health, onClick, buttonRef }: { health: ServiceHealthState; onClick?: () => void; buttonRef?: RefObject<HTMLButtonElement | null> }) {
   const { state, detail } = health;
   const label = state === "checking" ? "正在检查服务" : state === "ready" ? "服务正常" : "服务存在异常";
-  if (onClick) return <button ref={buttonRef} className={`connection compact-health ${state}`} type="button" aria-label={label} onClick={onClick}><i aria-hidden="true" /></button>;
+  if (onClick) {return <button ref={buttonRef} className={`connection compact-health ${state}`} type="button" aria-label={label} onClick={onClick}><i aria-hidden="true" /></button>;}
   return <span className={`connection ${state}`} aria-live="polite" tabIndex={0}><i aria-hidden="true" /><span className="connection-tooltip" role="tooltip"><strong>{label}</strong><small>{detail}</small></span></span>;
 }
 
+const exactPageTitles = new Map<string, string>([
+  ["/", "首页"],
+  ["/library", "游戏库"],
+  ["/saves", "我的存档"],
+  ["/favorites", "我的收藏"],
+  ["/recent", "最近游玩"],
+  ["/netplay", "联机游玩"],
+  ["/account", "账户设置"],
+  ["/admin/imports/server", "本地扫描"],
+  ["/admin/imports/new", "导入游戏"],
+  ["/admin/imports/tasks", "任务进度"],
+  ["/admin/imports", "游戏入库"],
+  ["/admin/reviews/history", "审核历史"],
+  ["/admin/reviews", "待审核"],
+  ["/admin/games", "游戏管理"],
+  ["/admin/tags", "标签管理"],
+  ["/admin/platform-instances", "游戏目录"],
+  ["/admin/users", "用户管理"],
+  ["/admin/bios", "运行依赖"],
+]);
+
+const prefixPageTitles: Array<[string, string]> = [
+  ["/admin/imports/server/pegasus/", "Pegasus 导入详情"],
+  ["/admin/imports/server/", "服务器导入详情"],
+  ["/admin/reviews/", "审核详情"],
+  ["/admin/games/", "游戏管理详情"],
+  ["/netplay/rooms/", "联机房间"],
+  ["/games/", "游戏详情"],
+];
+
 function pageTitle(pathname: string) {
-  if (pathname === "/") return "首页";
-  if (pathname.startsWith("/games/")) return "游戏详情";
-  if (pathname === "/library") return "游戏库";
-  if (pathname === "/saves") return "我的存档";
-  if (pathname === "/favorites") return "我的收藏";
-  if (pathname === "/recent") return "最近游玩";
-  if (pathname.startsWith("/netplay/rooms/")) return "联机房间";
-  if (pathname === "/netplay") return "联机游玩";
-  if (pathname === "/account") return "账户设置";
-  if (pathname.startsWith("/admin/imports/server/pegasus/")) return "Pegasus 导入详情";
-  if (pathname.startsWith("/admin/imports/server/")) return "服务器导入详情";
-  if (pathname === "/admin/imports/server") return "本地扫描";
-  if (pathname === "/admin/imports/new") return "导入游戏";
-  if (pathname === "/admin/imports/tasks") return "任务进度";
-  if (pathname === "/admin/imports") return "游戏入库";
-  if (pathname === "/admin/reviews/history") return "审核历史";
-  if (pathname.startsWith("/admin/reviews/")) return "审核详情";
-  if (pathname === "/admin/reviews") return "待审核";
-  if (pathname.startsWith("/admin/games/")) return "游戏管理详情";
-  if (pathname === "/admin/games") return "游戏管理";
-  if (pathname === "/admin/tags") return "标签管理";
-  if (pathname === "/admin/platform-instances") return "游戏目录";
-  if (pathname === "/admin/users") return "用户管理";
-  if (pathname === "/admin/bios") return "运行依赖";
-  return "Retrom";
+  const exact = exactPageTitles.get(pathname);
+  if (exact) {return exact;}
+  return prefixPageTitles.find(([prefix]) => pathname.startsWith(prefix))?.[1] ?? "Retrom";
 }
 
 function mobileSection(pathname: string): "home" | "library" | "saves" | "favorites" | "more" {
-  if (pathname === "/") return "home";
-  if (pathname === "/library" || pathname.startsWith("/games/")) return "library";
-  if (pathname === "/saves") return "saves";
-  if (pathname === "/favorites") return "favorites";
+  if (pathname === "/") {return "home";}
+  if (pathname === "/library" || pathname.startsWith("/games/")) {return "library";}
+  if (pathname === "/saves") {return "saves";}
+  if (pathname === "/favorites") {return "favorites";}
   return "more";
 }
 
@@ -141,9 +151,9 @@ export function AppShell({ children }: { children: ReactNode }) {
   const moreButtonRef = useRef<HTMLButtonElement>(null);
   const healthButtonRef = useRef<HTMLButtonElement>(null);
   const accountButtonRef = useRef<HTMLButtonElement>(null);
-  const [compactPanelState, setCompactPanelState] = useState<{ pathname: string; panel: "navigation" | "more" | "health" | "account" | null }>(() => ({ pathname, panel: null }));
+  const [compactPanelState, setCompactPanelState] = useState<{ pathname: string; panel: CompactPanel }>(() => ({ pathname, panel: null }));
   const compactPanel = compactPanelState.pathname === pathname ? compactPanelState.panel : null;
-  const setCompactPanel = (panel: "navigation" | "more" | "health" | "account" | null) => setCompactPanelState({ pathname, panel });
+  const setCompactPanel = (panel: CompactPanel) => setCompactPanelState({ pathname, panel });
   useEffect(() => {
     const closeAccountMenu = (event: PointerEvent) => {
       const menu = accountMenuRef.current;
@@ -154,7 +164,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     document.addEventListener("pointerdown", closeAccountMenu);
     return () => document.removeEventListener("pointerdown", closeAccountMenu);
   }, []);
-  if (pathname.startsWith("/play/")) return <>{children}</>;
+  if (pathname.startsWith("/play/")) {return <>{children}</>;}
   const publicRoute = ["/setup", "/login", "/register", "/reset-password"].includes(pathname);
   if (context.instanceState === "INITIALIZATION_REQUIRED") {
     return pathname === "/setup" ? <>{children}</> : <FullScreenLoading />;
@@ -162,8 +172,8 @@ export function AppShell({ children }: { children: ReactNode }) {
   if (context.authenticationState !== "AUTHENTICATED") {
     return publicRoute ? <>{children}</> : <FullScreenLoading />;
   }
-  if (publicRoute) return <FullScreenLoading />;
-  if (pathname.startsWith("/admin/review-previews/") && context.user?.role === "ADMIN") return <>{children}</>;
+  if (publicRoute) {return <FullScreenLoading />;}
+  if (pathname.startsWith("/admin/review-previews/") && context.user?.role === "ADMIN") {return <>{children}</>;}
   if (pathname.startsWith("/admin") && context.user?.role !== "ADMIN") {
     return <Forbidden />;
   }
@@ -172,87 +182,195 @@ export function AppShell({ children }: { children: ReactNode }) {
   const visibleUserNavigation = userNavigation.filter((item) => item.href !== "/netplay" || context.netplayEnabled);
   const section = mobileSection(pathname);
   const navigationItems = administrator ? adminNavigation : visibleUserNavigation;
+  return <AppFrame {...{
+    accountButtonRef, accountMenuRef, administrator, children, compactPanel, context, health, healthButtonRef,
+    logout, moreButtonRef, navigationButtonRef, navigationItems, pathname, section, setCompactPanel, user,
+  }} />;
+}
+
+type AppFrameProps = {
+  accountButtonRef: RefObject<HTMLButtonElement | null>;
+  accountMenuRef: RefObject<HTMLDetailsElement | null>;
+  administrator: boolean;
+  children: ReactNode;
+  compactPanel: CompactPanel;
+  context: AuthContext;
+  health: ServiceHealthState;
+  healthButtonRef: RefObject<HTMLButtonElement | null>;
+  logout: () => Promise<void>;
+  moreButtonRef: RefObject<HTMLButtonElement | null>;
+  navigationButtonRef: RefObject<HTMLButtonElement | null>;
+  navigationItems: NavItem[];
+  pathname: string;
+  section: ReturnType<typeof mobileSection>;
+  setCompactPanel: (panel: CompactPanel) => void;
+  user: AuthUser | null;
+};
+
+function AppFrame({
+  accountButtonRef, accountMenuRef, administrator, children, compactPanel, context, health, healthButtonRef,
+  logout, moreButtonRef, navigationButtonRef, navigationItems, pathname, section, setCompactPanel, user,
+}: AppFrameProps) {
   return (
     <div className="app-frame">
-      <aside className="sidebar">
-        <Link className="brand" href="/" aria-label="Retrom 首页">
-          <span className="brand-mark" aria-hidden="true">R</span>
-          <span><strong>Retrom</strong><small>复古游戏管理平台</small></span>
-        </Link>
-        <Navigation items={navigationItems} pathname={pathname} />
-        <div className="sidebar-foot">
-          <div className="sidebar-account-row">
-            <details className="account-menu" ref={accountMenuRef}>
-              <summary>
-                <span className="account-initial" aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span>
-                <span className="account-copy"><strong>{user?.displayName}</strong><small>@{user?.username}</small></span>
-              </summary>
-              <div className="account-menu-popover">
-                <Link href="/account">账户设置</Link>
-                <button type="button" onClick={() => void logout()}><AppIcon name="log-out" />退出登录</button>
-              </div>
-            </details>
-            <ServiceHealth health={health} />
-          </div>
-          {administrator || user?.role === "ADMIN" ? <Link className="context-switch" href={administrator ? "/" : "/admin/imports"}>
-            <AppIcon className="nav-icon" name={administrator ? "arrow-left" : "settings"} />
-            {administrator ? "返回用户侧" : "管理后台"}
-          </Link> : null}
-        </div>
-      </aside>
-      <header className={`compact-app-bar${administrator ? " is-admin" : " is-user"}`}>
-        <button ref={navigationButtonRef} className="compact-nav-trigger" type="button" aria-label="打开主要导航" aria-expanded={compactPanel === "navigation"} aria-controls="compact-navigation-sheet" onClick={() => setCompactPanel("navigation")}><AppIcon name="menu" /></button>
-        <Link className="compact-user-brand" href="/" aria-label="Retrom 首页"><span className="brand-mark" aria-hidden="true">R</span></Link>
-        <strong className="compact-page-title">{pageTitle(pathname)}</strong>
-        <div className="compact-app-actions">
-          <ServiceHealth health={health} buttonRef={healthButtonRef} onClick={() => setCompactPanel("health")} />
-          <button ref={accountButtonRef} className="compact-account-trigger" type="button" aria-label="打开账户菜单" aria-expanded={compactPanel === "account"} onClick={() => setCompactPanel("account")}><span aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span></button>
-        </div>
-      </header>
+      <DesktopSidebar {...{ accountMenuRef, administrator, health, logout, navigationItems, pathname, user }} />
+      <CompactHeader {...{
+        accountButtonRef, administrator, compactPanel, health, healthButtonRef, navigationButtonRef, pathname,
+        setCompactPanel, user,
+      }} />
       <div className="app-body">
         <main className="content">{children}</main>
       </div>
-      {!administrator ? <nav className="mobile-bottom-nav" aria-label="手机主导航">
-        <Link className={section === "home" ? "is-active" : ""} aria-current={section === "home" ? "page" : undefined} href="/"><AppIcon name="home" /><span>首页</span></Link>
-        <Link className={section === "library" ? "is-active" : ""} aria-current={section === "library" ? "page" : undefined} href="/library"><AppIcon name="library" /><span>游戏库</span></Link>
-        <Link className={section === "saves" ? "is-active" : ""} aria-current={section === "saves" ? "page" : undefined} href="/saves"><AppIcon name="save" /><span>存档</span></Link>
-        <Link className={section === "favorites" ? "is-active" : ""} aria-current={section === "favorites" ? "page" : undefined} href="/favorites"><AppIcon name="heart" /><span>收藏</span></Link>
-        <button ref={moreButtonRef} className={section === "more" ? "is-active" : ""} type="button" aria-label="更多导航" aria-pressed={section === "more"} aria-expanded={compactPanel === "more"} aria-controls="compact-more-sheet" onClick={() => setCompactPanel("more")}><AppIcon name="more" /><span>更多</span></button>
-      </nav> : null}
-
-      <ResponsiveSheet open={compactPanel === "navigation"} title={administrator ? "管理后台" : "Retrom 导航"} description={administrator ? "选择管理能力，或返回用户侧。" : "浏览资料库和账户能力。"} placement="left" onClose={() => setCompactPanel(null)} returnFocusRef={navigationButtonRef} className="compact-navigation-sheet">
-        <div id="compact-navigation-sheet" className="compact-navigation-content">
-          <Navigation items={navigationItems} pathname={pathname} label="紧凑主要导航" onNavigate={() => setCompactPanel(null)} />
-          <div className="compact-navigation-foot">
-            <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" />账户设置</Link>
-            {administrator || user?.role === "ADMIN" ? <Link href={administrator ? "/" : "/admin/imports"} onClick={() => setCompactPanel(null)}><AppIcon name={administrator ? "arrow-left" : "settings"} />{administrator ? "返回用户侧" : "管理后台"}</Link> : null}
-          </div>
-        </div>
-      </ResponsiveSheet>
-
-      <ResponsiveSheet open={compactPanel === "more"} title="更多" description="最近游玩、联机和账户能力。" placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={moreButtonRef} className="compact-more-sheet">
-        <div id="compact-more-sheet" className="compact-action-list">
-          <Link href="/recent" onClick={() => setCompactPanel(null)}><AppIcon name="history" /><span><strong>最近游玩</strong><small>查看游玩历史与累计时长</small></span></Link>
-          {context.netplayEnabled ? <Link href="/netplay" onClick={() => setCompactPanel(null)}><AppIcon name="gamepad" /><span><strong>联机游玩</strong><small>创建或加入同源房间</small></span></Link> : null}
-          <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>账户设置</strong><small>{user?.displayName} · @{user?.username}</small></span></Link>
-          {user?.role === "ADMIN" ? <Link href="/admin/imports" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>管理后台</strong><small>入库、审核和运行依赖</small></span></Link> : null}
-          <button type="button" onClick={() => setCompactPanel("health")}><AppIcon name="chip" /><span><strong>服务状态</strong><small>{health.state === "ready" ? "服务正常" : health.state === "checking" ? "正在检查" : "服务存在异常"}</small></span></button>
-          <button className="is-danger" type="button" onClick={() => void logout()}><AppIcon name="log-out" /><span><strong>退出登录</strong><small>结束当前浏览器会话</small></span></button>
-        </div>
-      </ResponsiveSheet>
-
-      <ResponsiveSheet open={compactPanel === "health"} title="服务状态" description="当前 Retrom 后端就绪检查。" placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={healthButtonRef} className="compact-info-sheet">
-        <div className={`compact-health-detail is-${health.state}`} role="status"><i aria-hidden="true" /><div><strong>{health.state === "ready" ? "服务正常" : health.state === "checking" ? "正在检查服务" : "服务存在异常"}</strong><p>{health.detail}</p></div></div>
-      </ResponsiveSheet>
-
-      <ResponsiveSheet open={compactPanel === "account"} title="账户" description={`${user?.displayName} · @${user?.username}`} placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={accountButtonRef} className="compact-account-sheet">
-        <div className="compact-action-list">
-          <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>账户设置</strong><small>修改密码和查看身份</small></span></Link>
-          <button className="is-danger" type="button" onClick={() => void logout()}><AppIcon name="log-out" /><span><strong>退出登录</strong><small>结束当前浏览器会话</small></span></button>
-        </div>
-      </ResponsiveSheet>
+      <MobileBottomNavigation {...{ administrator, compactPanel, moreButtonRef, section, setCompactPanel }} />
+      <CompactSheets {...{
+        accountButtonRef, administrator, compactPanel, context, health, healthButtonRef, logout, moreButtonRef,
+        navigationButtonRef, navigationItems, pathname, setCompactPanel, user,
+      }} />
     </div>
   );
+}
+
+function DesktopSidebar({ accountMenuRef, administrator, health, logout, navigationItems, pathname, user }: {
+  accountMenuRef: RefObject<HTMLDetailsElement | null>;
+  administrator: boolean;
+  health: ServiceHealthState;
+  logout: () => Promise<void>;
+  navigationItems: NavItem[];
+  pathname: string;
+  user: AuthUser | null;
+}) {
+  const canSwitchContext = administrator || user?.role === "ADMIN";
+  return <aside className="sidebar">
+    <Link className="brand" href="/" aria-label="Retrom 首页">
+      <span className="brand-mark" aria-hidden="true">R</span>
+      <span><strong>Retrom</strong><small>复古游戏管理平台</small></span>
+    </Link>
+    <Navigation items={navigationItems} pathname={pathname} />
+    <div className="sidebar-foot">
+      <div className="sidebar-account-row">
+        <details className="account-menu" ref={accountMenuRef}>
+          <summary>
+            <span className="account-initial" aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span>
+            <span className="account-copy"><strong>{user?.displayName}</strong><small>@{user?.username}</small></span>
+          </summary>
+          <div className="account-menu-popover">
+            <Link href="/account">账户设置</Link>
+            <button type="button" onClick={() => void logout()}><AppIcon name="log-out" />退出登录</button>
+          </div>
+        </details>
+        <ServiceHealth health={health} />
+      </div>
+      {canSwitchContext ? <Link className="context-switch" href={administrator ? "/" : "/admin/imports"}>
+        <AppIcon className="nav-icon" name={administrator ? "arrow-left" : "settings"} />
+        {administrator ? "返回用户侧" : "管理后台"}
+      </Link> : null}
+    </div>
+  </aside>;
+}
+
+function CompactHeader({
+  accountButtonRef, administrator, compactPanel, health, healthButtonRef, navigationButtonRef, pathname,
+  setCompactPanel, user,
+}: Pick<AppFrameProps, "accountButtonRef" | "administrator" | "compactPanel" | "health" | "healthButtonRef" |
+  "navigationButtonRef" | "pathname" | "setCompactPanel" | "user">) {
+  return <header className={`compact-app-bar${administrator ? " is-admin" : " is-user"}`}>
+    <button ref={navigationButtonRef} className="compact-nav-trigger" type="button" aria-label="打开主要导航" aria-expanded={compactPanel === "navigation"} aria-controls="compact-navigation-sheet" onClick={() => setCompactPanel("navigation")}><AppIcon name="menu" /></button>
+    <Link className="compact-user-brand" href="/" aria-label="Retrom 首页"><span className="brand-mark" aria-hidden="true">R</span></Link>
+    <strong className="compact-page-title">{pageTitle(pathname)}</strong>
+    <div className="compact-app-actions">
+      <ServiceHealth health={health} buttonRef={healthButtonRef} onClick={() => setCompactPanel("health")} />
+      <button ref={accountButtonRef} className="compact-account-trigger" type="button" aria-label="打开账户菜单" aria-expanded={compactPanel === "account"} onClick={() => setCompactPanel("account")}><span aria-hidden="true">{user?.displayName.slice(0, 1).toUpperCase()}</span></button>
+    </div>
+  </header>;
+}
+
+function MobileBottomNavigation({ administrator, compactPanel, moreButtonRef, section, setCompactPanel }: Pick<
+  AppFrameProps, "administrator" | "compactPanel" | "moreButtonRef" | "section" | "setCompactPanel"
+>) {
+  if (administrator) {return null;}
+  const links: Array<[Exclude<AppFrameProps["section"], "more">, string, AppIconName, string]> = [
+    ["home", "/", "home", "首页"],
+    ["library", "/library", "library", "游戏库"],
+    ["saves", "/saves", "save", "存档"],
+    ["favorites", "/favorites", "heart", "收藏"],
+  ];
+  return <nav className="mobile-bottom-nav" aria-label="手机主导航">
+    {links.map(([key, href, icon, label]) => <Link
+      className={section === key ? "is-active" : ""}
+      aria-current={section === key ? "page" : undefined}
+      href={href}
+      key={key}
+    ><AppIcon name={icon} /><span>{label}</span></Link>)}
+    <button ref={moreButtonRef} className={section === "more" ? "is-active" : ""} type="button" aria-label="更多导航" aria-pressed={section === "more"} aria-expanded={compactPanel === "more"} aria-controls="compact-more-sheet" onClick={() => setCompactPanel("more")}><AppIcon name="more" /><span>更多</span></button>
+  </nav>;
+}
+
+function CompactSheets(props: Omit<AppFrameProps,
+  "accountMenuRef" | "children" | "section"
+>) {
+  return <>
+    <CompactNavigationSheet {...props} />
+    <CompactMoreSheet {...props} />
+    <CompactHealthSheet {...props} />
+    <CompactAccountSheet {...props} />
+  </>;
+}
+
+function CompactNavigationSheet({
+  administrator, compactPanel, navigationButtonRef, navigationItems, pathname, setCompactPanel, user,
+}: Pick<AppFrameProps, "administrator" | "compactPanel" | "navigationButtonRef" | "navigationItems" |
+  "pathname" | "setCompactPanel" | "user">) {
+  const canSwitchContext = administrator || user?.role === "ADMIN";
+  return <ResponsiveSheet open={compactPanel === "navigation"} title={administrator ? "管理后台" : "Retrom 导航"} description={administrator ? "选择管理能力，或返回用户侧。" : "浏览资料库和账户能力。"} placement="left" onClose={() => setCompactPanel(null)} returnFocusRef={navigationButtonRef} className="compact-navigation-sheet">
+    <div id="compact-navigation-sheet" className="compact-navigation-content">
+      <Navigation items={navigationItems} pathname={pathname} label="紧凑主要导航" onNavigate={() => setCompactPanel(null)} />
+      <div className="compact-navigation-foot">
+        <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" />账户设置</Link>
+        {canSwitchContext ? <Link href={administrator ? "/" : "/admin/imports"} onClick={() => setCompactPanel(null)}><AppIcon name={administrator ? "arrow-left" : "settings"} />{administrator ? "返回用户侧" : "管理后台"}</Link> : null}
+      </div>
+    </div>
+  </ResponsiveSheet>;
+}
+
+function healthLabel(state: ServiceHealthState["state"], checkingLabel = "正在检查") {
+  if (state === "ready") {return "服务正常";}
+  if (state === "checking") {return checkingLabel;}
+  return "服务存在异常";
+}
+
+function CompactMoreSheet({
+  compactPanel, context, health, logout, moreButtonRef, setCompactPanel, user,
+}: Pick<AppFrameProps, "compactPanel" | "context" | "health" | "logout" | "moreButtonRef" |
+  "setCompactPanel" | "user">) {
+  return <ResponsiveSheet open={compactPanel === "more"} title="更多" description="最近游玩、联机和账户能力。" placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={moreButtonRef} className="compact-more-sheet">
+    <div id="compact-more-sheet" className="compact-action-list">
+      <Link href="/recent" onClick={() => setCompactPanel(null)}><AppIcon name="history" /><span><strong>最近游玩</strong><small>查看游玩历史与累计时长</small></span></Link>
+      {context.netplayEnabled ? <Link href="/netplay" onClick={() => setCompactPanel(null)}><AppIcon name="gamepad" /><span><strong>联机游玩</strong><small>创建或加入同源房间</small></span></Link> : null}
+      <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>账户设置</strong><small>{user?.displayName} · @{user?.username}</small></span></Link>
+      {user?.role === "ADMIN" ? <Link href="/admin/imports" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>管理后台</strong><small>入库、审核和运行依赖</small></span></Link> : null}
+      <button type="button" onClick={() => setCompactPanel("health")}><AppIcon name="chip" /><span><strong>服务状态</strong><small>{healthLabel(health.state)}</small></span></button>
+      <button className="is-danger" type="button" onClick={() => void logout()}><AppIcon name="log-out" /><span><strong>退出登录</strong><small>结束当前浏览器会话</small></span></button>
+    </div>
+  </ResponsiveSheet>;
+}
+
+function CompactHealthSheet({ compactPanel, health, healthButtonRef, setCompactPanel }: Pick<
+  AppFrameProps, "compactPanel" | "health" | "healthButtonRef" | "setCompactPanel"
+>) {
+  return <ResponsiveSheet open={compactPanel === "health"} title="服务状态" description="当前 Retrom 后端就绪检查。" placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={healthButtonRef} className="compact-info-sheet">
+    <div className={`compact-health-detail is-${health.state}`} role="status"><i aria-hidden="true" /><div><strong>{healthLabel(health.state, "正在检查服务")}</strong><p>{health.detail}</p></div></div>
+  </ResponsiveSheet>;
+}
+
+function CompactAccountSheet({ accountButtonRef, compactPanel, logout, setCompactPanel, user }: Pick<
+  AppFrameProps, "accountButtonRef" | "compactPanel" | "logout" | "setCompactPanel" | "user"
+>) {
+  return <ResponsiveSheet open={compactPanel === "account"} title="账户" description={`${user?.displayName} · @${user?.username}`} placement="bottom" onClose={() => setCompactPanel(null)} returnFocusRef={accountButtonRef} className="compact-account-sheet">
+    <div className="compact-action-list">
+      <Link href="/account" onClick={() => setCompactPanel(null)}><AppIcon name="settings" /><span><strong>账户设置</strong><small>修改密码和查看身份</small></span></Link>
+      <button className="is-danger" type="button" onClick={() => void logout()}><AppIcon name="log-out" /><span><strong>退出登录</strong><small>结束当前浏览器会话</small></span></button>
+    </div>
+  </ResponsiveSheet>;
 }
 
 function FullScreenLoading() {

@@ -11,6 +11,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
+	"retrom/internal/testassert"
 )
 
 func insertJob(t *testing.T, database *store.DB, id, kind, state string, retryable any, now int64) {
@@ -20,7 +21,7 @@ func insertJob(t *testing.T, database *store.DB, id, kind, state string, retryab
 	if state == "FAILED" {
 		finished = now
 	}
-	_, err := database.SQL.Exec(
+	_, err := database.SQL.ExecContext(context.Background(),
 		`
 INSERT INTO jobs(id,
 scope_type,
@@ -69,9 +70,7 @@ updated_at_ms) VALUES(?,
 		now,
 		now,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 }
 
 func TestCancelAndRetryEnforceVersionedState(t *testing.T) {
@@ -79,32 +78,24 @@ func TestCancelAndRetryEnforceVersionedState(t *testing.T) {
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000)
 	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	service := New(database.SQL, func() time.Time { return now })
 	insertJob(t, database, "cancel-job", "BLOB_GC", "QUEUED", nil, now.UnixMilli())
 	canceled, pending, err := service.Cancel(ctx, "cancel-job", 1, "operator canceled")
-	if err != nil || pending || canceled.State != "CANCELLED" || canceled.Version != 2 {
-		t.Fatalf("cancel = %#v, pending=%v, error=%v", canceled, pending, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending }, func() bool { return canceled.State != "CANCELLED" }, func() bool { return canceled.Version != 2 }), "cancel = %#v, pending=%v, error=%v", canceled, pending, err)
 	if _, _, err := service.Cancel(ctx, "cancel-job", 2, "again"); !errors.Is(err, ErrConflict) {
 		t.Fatalf("terminal cancellation = %v", err)
 	}
 	insertJob(t, database, "failed-cancel-job", "BLOB_GC", "FAILED", int64(1), now.UnixMilli())
 	failedCanceled, pending, err := service.Cancel(ctx, "failed-cancel-job", 1, "discard retryable attachment")
-	if err != nil || pending || failedCanceled.State != "CANCELLED" || failedCanceled.Version != 2 {
-		t.Fatalf("failed cancel = %#v, pending=%v, error=%v", failedCanceled, pending, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending }, func() bool { return failedCanceled.State != "CANCELLED" }, func() bool { return failedCanceled.Version != 2 }), "failed cancel = %#v, pending=%v, error=%v", failedCanceled, pending, err)
 
 	insertJob(t, database, "retry-job", "GAME_FILE_REVISION", "FAILED", int64(1), now.UnixMilli())
 	retried, err := service.Retry(ctx, "retry-job", 1)
-	if err != nil || retried.State != "QUEUED" || retried.ExecutionNo != 2 || retried.Version != 2 {
-		t.Fatalf("retry = %#v, error=%v", retried, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return retried.State != "QUEUED" }, func() bool { return retried.ExecutionNo != 2 }, func() bool { return retried.Version != 2 }), "retry = %#v, error=%v", retried, err)
 	var snapshots int
-	if err := database.SQL.QueryRow(`
+	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT count(*)
 FROM job_input_snapshots
 WHERE job_id='retry-job'
@@ -119,9 +110,7 @@ func TestMetadataScrapeRetryMustUseDomainAction(t *testing.T) {
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000)
 	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	insertJob(t, database, "scrape-job", "METADATA_SCRAPE", "FAILED", int64(1), now.UnixMilli())
 	if _, err := New(database.SQL, func() time.Time { return now }).Retry(ctx, "scrape-job", 1); !errors.Is(

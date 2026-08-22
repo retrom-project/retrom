@@ -14,11 +14,11 @@ export function subscribePreferredDOSEntries(onStoreChange: () => void) {
 export function readPreferredDOSEntry(userId: string | null | undefined, gameId: string): string | null {
   try {
     const key = userStorageKey(userId, "player", `preferred-dos-entry:${gameId}`);
-    if (!key) return null;
+    if (!key) {return null;}
     const raw = window.localStorage.getItem(key);
-    if (raw === null) return null;
+    if (raw === null) {return null;}
     const parsed = JSON.parse(raw) as { version?: unknown; entry?: unknown };
-    if (parsed.version !== 1 || parsed.entry !== null && typeof parsed.entry !== "string") return null;
+    if (parsed.version !== 1 || parsed.entry !== null && typeof parsed.entry !== "string") {return null;}
     return raw;
   } catch {
     return null;
@@ -26,10 +26,10 @@ export function readPreferredDOSEntry(userId: string | null | undefined, gameId:
 }
 
 export function decodePreferredDOSEntry(raw: string | null): { present: boolean; entry: string | null } {
-  if (raw === null) return { present: false, entry: null };
+  if (raw === null) {return { present: false, entry: null };}
   try {
     const parsed = JSON.parse(raw) as { version?: unknown; entry?: unknown };
-    if (parsed.version !== 1 || parsed.entry !== null && typeof parsed.entry !== "string") return { present: false, entry: null };
+    if (parsed.version !== 1 || parsed.entry !== null && typeof parsed.entry !== "string") {return { present: false, entry: null };}
     return { present: true, entry: parsed.entry };
   } catch {
     return { present: false, entry: null };
@@ -39,7 +39,7 @@ export function decodePreferredDOSEntry(raw: string | null): { present: boolean;
 export function writePreferredDOSEntry(userId: string | null | undefined, gameId: string, entry: string | null) {
   try {
     const key = userStorageKey(userId, "player", `preferred-dos-entry:${gameId}`);
-    if (!key) return;
+    if (!key) {return;}
     window.localStorage.setItem(key, JSON.stringify({ version: 1, entry }));
     window.dispatchEvent(new Event(preferenceEvent));
   } catch {

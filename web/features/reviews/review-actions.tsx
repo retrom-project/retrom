@@ -3,294 +3,72 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
-import { queueFlashToast, Toast, type ToastMessage } from "@/components/flash-toast";
+import { Toast, type ToastMessage } from "@/components/flash-toast";
 import { FeedbackBanner } from "@/components/ui";
-import { newUuid } from "@/lib/crypto";
 import { writeHeaders } from "@/lib/api/client";
 import { formatBytes } from "@/lib/backend";
-import { useAuth } from "@/features/auth/auth-provider";
-import { userStorageKey } from "@/features/auth/storage";
-import { responseError, uploadFiles, uploadOne, waitForJob, waitForJobEvents } from "@/lib/upload";
+import { responseError } from "@/lib/upload";
 import { ArcadeDependencyCard } from "./arcade-dependencies";
-import { type ArcadeDependencies, type ArcadeDependencyNode, type ArcadeParentAttachment } from "./arcade-dependency-tree";
+import type { ArcadeDependencies } from "./arcade-dependency-tree";
 import { MultiDiscAttachmentDrawer } from "./multi-disc-attachment-drawer";
 import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
-
-export type ReviewAsset = {
-  candidateAssetId: string;
-  kind: "COVER" | "BACKGROUND" | "SCREENSHOT" | "UNKNOWN";
-  ordinal: number;
-  status: string;
-  widthPx: number | null;
-  heightPx: number | null;
-  mediaType: string | null;
-  errorCode: string | null;
-};
-
-export type UploadedReviewAsset = {
-  assetId: string;
-  kind: "COVER";
-  widthPx: number;
-  heightPx: number;
-  mediaType: string;
-  url: string;
-  createdAtMs: number;
-};
-
-export type ReviewCandidate = {
-  candidateId: string;
-  scrapeRunId: string;
-  providerGameId: string;
-  metadata: Record<string, unknown>;
-  evidence: unknown;
-  assets: ReviewAsset[];
-};
-
-export type ReviewScrapeRun = {
-  scrapeRunId: string;
-  jobId: string;
-  provider: "HASHEOUS" | "NONE";
-  state: string;
-  jobState: string;
-  createdAtMs: number;
-  completedAtMs: number | null;
-  errorCode: string | null;
-  evidenceCount: number;
-  attemptCount: number;
-  candidateCount: number;
-  outcomes: { hit: number; miss: number; rateLimited: number; timeout: number; invalidResponse: number; networkError: number };
-};
-
-export type ReviewMultiDiscAttachment = {
-  attachmentId: string;
-  state: string;
-  errorCode: string | null;
-  diagnostics?: unknown;
-  jobId: string;
-  jobState: string;
-  version?: number;
-  jobVersion?: number;
-  canRetry?: boolean;
-};
-
-export type ReviewMultiDisc = {
-  contentKind: "MULTI_DISC_M3U_V1";
-  playlist: { name: string; sizeBytes: number; sha256: string };
-  discCount: number;
-  presentDiscCount: number;
-  missingDiscCount: number;
-  totalPresentBytes: number;
-  maxDiscs?: number;
-  maxTotalBytes?: number;
-  entries: Array<{
-    index: number; discIndex: number; label: string; sourceReference: string;
-    canonicalName: string; state: "PRESENT" | "MISSING"; logicalName: string | null;
-    sizeBytes: number | null; sha256: string | null;
-  }>;
-  missingReferences: string[];
-  canAttachMissingDiscs: boolean;
-  latestAttachment: ReviewMultiDiscAttachment | null;
-  activeAttachment: ReviewMultiDiscAttachment | null;
-};
-
-export type ReviewWorkspace = {
-  itemId: string;
-  version: number;
-  platformInstance?: { id: string; name: string };
-  effectiveSourceSnapshotId?: string;
-  canApprove?: boolean;
-  validationStale?: boolean;
-  arcadeDependencies?: ArcadeDependencies | null;
-  multiDisc?: ReviewMultiDisc | null;
-  metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
-  validation: { id: string; status: string; current: boolean; compatibilityCode: string } | null;
-  candidates: ReviewCandidate[];
-  uploadedAssets?: UploadedReviewAsset[];
-  sourceMedia?: {
-    sourceKind: "PEGASUS";
-    sourceRefId: string;
-    pegasusImportId: string;
-    sourceLabel: string | null;
-    coverUrl: string | null;
-    coverWidthPx: number | null;
-    coverHeightPx: number | null;
-    videoUrl: string | null;
-  } | null;
-  runtimeScreenshot?: {
-    screenshotId: string;
-    validationId: string;
-    coreArtifactId: string;
-    widthPx: number;
-    heightPx: number;
-    capturedAfterMs: 5000;
-    capturedAtMs: number;
-    url: string;
-  } | null;
-  scrapeRuns?: ReviewScrapeRun[];
-  selectedCandidateId: string | null;
-  selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
-  defaultDosEntry: string | null;
-  dosEntries: Array<{ path: string; originalPath: string; kind: string; enabled: boolean; directLaunchSafe: boolean }>;
-  duplicateGames?: DuplicateGame[];
-  contentIdentityDigest?: string;
-  tags?: TagReference[];
-};
-
-export type DuplicateGame = {
-  gameId: string;
-  title: string;
-  platformInstanceId: string;
-  platformInstanceName: string;
-};
-
-type MetadataForm = { title: string; description: string; developer: string; publisher: string; genre: string; players: string; releaseYear: string };
-type CoverSelection = { candidateId: string | null; uploadedId: string | null };
-type PreviewAsset = { id: string; url: string; width: number; height: number };
-type DraftPayload = {
-  metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
-  selectedCandidateId: string | null;
-  selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };
-  defaultDosEntry: string | null;
-  tagIds: string[];
-};
-type Comparison = { candidate: ReviewCandidate; current: MetadataForm; next: MetadataForm; currentCover: CoverSelection; nextCover: CoverSelection };
-
-const compareFields: Array<{ key: keyof MetadataForm; label: string; multiline?: boolean; type?: "number" }> = [
-  { key: "title", label: "标题" }, { key: "description", label: "简介", multiline: true },
-  { key: "developer", label: "开发商" }, { key: "publisher", label: "发行商" },
-  { key: "genre", label: "类型" }, { key: "players", label: "玩家数", type: "number" },
-  { key: "releaseYear", label: "发行年份", type: "number" },
-];
-
-function metadataForm(review: ReviewWorkspace): MetadataForm {
-  return { ...review.metadata, players: review.metadata.players === null ? "" : String(review.metadata.players), releaseYear: review.metadata.releaseYear === null ? "" : String(review.metadata.releaseYear) };
-}
-
-function candidateForm(candidate: ReviewCandidate, fallback: MetadataForm): MetadataForm {
-  const stringField = (key: keyof MetadataForm) => typeof candidate.metadata[key] === "string" ? String(candidate.metadata[key]) : fallback[key];
-  const numberField = (key: "players" | "releaseYear") => typeof candidate.metadata[key] === "number" && Number.isInteger(candidate.metadata[key]) ? String(candidate.metadata[key]) : fallback[key];
-  return { title: stringField("title"), description: stringField("description"), developer: stringField("developer"), publisher: stringField("publisher"), genre: stringField("genre"), players: numberField("players"), releaseYear: numberField("releaseYear") };
-}
-
-function readyCover(candidate: ReviewCandidate | null) {
-  return candidate?.assets.find((asset) => asset.kind === "COVER" && asset.status === "READY") ?? null;
-}
-
-function toPayload(form: MetadataForm, candidateId: string | null, cover: CoverSelection, backgroundId: string | null, screenshotIds: string[], defaultDosEntry: string | null, tags: TagReference[]): DraftPayload {
-  return {
-    metadata: { ...form, players: form.players === "" ? null : Number(form.players), releaseYear: form.releaseYear === "" ? null : Number(form.releaseYear) },
-    selectedCandidateId: candidateId,
-    selectedAssets: { coverCandidateAssetId: cover.candidateId, coverUploadedAssetId: cover.uploadedId, backgroundCandidateAssetId: backgroundId, screenshotCandidateAssetIds: screenshotIds },
-    defaultDosEntry,
-    tagIds: tags.map((tag) => tag.tagId),
-  };
-}
-
-function workspaceDraftPayload(review: ReviewWorkspace): DraftPayload {
-  return toPayload(
-    metadataForm(review),
-    review.selectedCandidateId,
-    {
-      candidateId: review.selectedAssets.coverCandidateAssetId,
-      uploadedId: review.selectedAssets.coverUploadedAssetId ?? null,
-    },
-    review.selectedAssets.backgroundCandidateAssetId,
-    review.selectedAssets.screenshotCandidateAssetIds,
-    review.defaultDosEntry,
-    review.tags ?? [],
-  );
-}
-
-function sameDraftPayload(left: DraftPayload, right: DraftPayload) {
-  const canonical = (value: DraftPayload) => JSON.stringify({
-    ...value,
-    tagIds: [...value.tagIds].sort(),
-  });
-  return canonical(left) === canonical(right);
-}
-
-function reviewReadyForPublish(review: ReviewWorkspace) {
-  const parentActive = review.arcadeDependencies?.activeAttachment?.state;
-  const multiDiscActive = review.multiDisc?.activeAttachment?.state;
-  const attachmentActive = parentActive === "QUEUED" || parentActive === "RUNNING" ||
-    multiDiscActive === "QUEUED" || multiDiscActive === "RUNNING";
-  const canApprove = review.canApprove ?? (review.validation?.current === true && review.validation.status === "READY");
-  return canApprove && !attachmentActive;
-}
-
-function previewAsset(candidates: ReviewCandidate[], uploaded: UploadedReviewAsset[], cover: CoverSelection): PreviewAsset | null {
-  if (cover.uploadedId) {
-    const asset = uploaded.find((entry) => entry.assetId === cover.uploadedId);
-    return asset ? { id: asset.assetId, url: asset.url, width: asset.widthPx, height: asset.heightPx } : null;
-  }
-  if (!cover.candidateId) return null;
-  const asset = candidates.flatMap((candidate) => candidate.assets).find((entry) => entry.candidateAssetId === cover.candidateId);
-  return asset?.status === "READY" && asset.widthPx && asset.heightPx ? { id: asset.candidateAssetId, url: `/api/v1/admin/review-assets/${asset.candidateAssetId}`, width: asset.widthPx, height: asset.heightPx } : null;
-}
+import { useReviewAttachments } from "./review-attachments";
+import { useReviewCommands } from "./review-commands";
+import {
+  activeAttachmentJobId, compareFields, initialDraftState, initialRuntimeState, reviewCoverPresentation,
+  reviewReadiness, saveStateLabel, toPayload,
+  type Comparison, type CoverSelection, type DraftPayload, type MetadataForm, type PreviewAsset,
+  type ReviewMultiDisc, type ReviewMultiDiscAttachment, type ReviewWorkspace,
+} from "./review-actions-model";
+export type { ReviewAsset, ReviewCandidate, ReviewMultiDisc, ReviewMultiDiscAttachment, ReviewScrapeRun, ReviewWorkspace, UploadedReviewAsset } from "./review-actions-model";
 
 function AssetPreview({ asset, label }: { asset: PreviewAsset | null; label: string }) {
   return asset ? <Image src={asset.url} alt={label} width={asset.width} height={asset.height} unoptimized /> : <div className="asset-placeholder">暂无封面</div>;
 }
 
-function scrapeResult(run: ReviewScrapeRun) {
-  if (run.candidateCount > 0) return `找到 ${run.candidateCount} 组可用信息`;
-  if (run.outcomes.invalidResponse > 0) return "上游响应无法解析";
-  if (run.outcomes.rateLimited + run.outcomes.timeout + run.outcomes.networkError > 0) return "上游限流、超时或网络异常";
-  if (run.outcomes.miss > 0) return "精确文件特征查询未命中";
-  return run.evidenceCount === 0 ? "没有可查询的文件特征" : "没有找到可用信息";
-}
-
 export function ReviewActions({ review, activeTags = [], returnTo = "/admin/reviews", nextItemId = null, sourceDisplayName = "游戏文件", platformInstanceName = "游戏目录", children }: { review: ReviewWorkspace; activeTags?: TagReference[]; returnTo?: string; nextItemId?: string | null; sourceDisplayName?: string; platformInstanceName?: string; children?: ReactNode }) {
   const router = useRouter();
-  const { context } = useAuth();
-  const validationWasCurrent = review.validation?.current ?? false;
-  const initialMetadata = metadataForm(review);
-  const automaticCandidate = review.selectedCandidateId ? null : review.candidates[0] ?? null;
-  const automaticCover = readyCover(automaticCandidate);
-  const initialCover = { candidateId: review.selectedAssets.coverCandidateAssetId ?? automaticCover?.candidateAssetId ?? null, uploadedId: review.selectedAssets.coverUploadedAssetId ?? null };
-  const [form, setForm] = useState<MetadataForm>(() => automaticCandidate ? candidateForm(automaticCandidate, initialMetadata) : initialMetadata);
-  const [candidateId, setCandidateId] = useState<string | null>(review.selectedCandidateId ?? automaticCandidate?.candidateId ?? null);
-  const [cover, setCover] = useState<CoverSelection>(initialCover);
+  const initial = initialDraftState(review);
+  const initialRuntime = initialRuntimeState(review);
+  const validationWasCurrent = initialRuntime.validationWasCurrent;
+  const [form, setForm] = useState<MetadataForm>(initial.form);
+  const [candidateId, setCandidateId] = useState<string | null>(initial.candidateId);
+  const [cover, setCover] = useState<CoverSelection>(initial.cover);
   const [backgroundId, setBackgroundId] = useState<string | null>(review.selectedAssets.backgroundCandidateAssetId);
   const [screenshotIds, setScreenshotIds] = useState(review.selectedAssets.screenshotCandidateAssetIds);
   const [defaultDosEntry, setDefaultDosEntry] = useState<string | null>(review.defaultDosEntry);
-  const [tags, setTags] = useState<TagReference[]>(review.tags ?? []);
-  const [candidates, setCandidates] = useState(review.candidates);
-  const [uploadedAssets, setUploadedAssets] = useState(review.uploadedAssets ?? []);
+  const [tags, setTags] = useState<TagReference[]>(initial.tags);
+  const [candidates, setCandidates] = useState(initial.candidates);
+  const [uploadedAssets, setUploadedAssets] = useState(initial.uploadedAssets);
   const [comparison, setComparison] = useState<Comparison | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
-  const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">(automaticCandidate ? "pending" : "saved");
-  const [notice, setNotice] = useState(automaticCandidate ? "首次查询到的信息已自动填入，系统会实时保存。" : "");
+  const [saveState, setSaveState] = useState<"saved" | "pending" | "saving" | "error">(initial.saveState);
+  const [notice, setNotice] = useState(initial.notice);
   const [jobProgress, setJobProgress] = useState("");
   const [toast, setToast] = useState<ToastMessage | null>(null);
   const [validationCurrent, setValidationCurrent] = useState(validationWasCurrent);
-  const [currentValidation, setCurrentValidation] = useState(review.validation);
-  const [effectiveSourceSnapshotId, setEffectiveSourceSnapshotId] = useState(review.effectiveSourceSnapshotId ?? "");
-  const [arcadeDependencies, setArcadeDependencies] = useState(review.arcadeDependencies ?? null);
-  const [multiDisc, setMultiDisc] = useState(review.multiDisc ?? null);
-  const [serverCanApprove, setServerCanApprove] = useState(review.canApprove ?? (validationWasCurrent && review.validation?.status === "READY"));
-  const [parentProgress, setParentProgress] = useState("");
-  const [multiDiscProgress, setMultiDiscProgress] = useState("");
-  const [duplicateConfirmation, setDuplicateConfirmation] = useState<DuplicateGame[] | null>(null);
-  const [runtimeScreenshot, setRuntimeScreenshot] = useState(review.runtimeScreenshot ?? null);
+  const [currentValidation, setCurrentValidation] = useState(initialRuntime.validation);
+  const [effectiveSourceSnapshotId, setEffectiveSourceSnapshotId] = useState(initialRuntime.effectiveSourceSnapshotId);
+  const [arcadeDependencies, setArcadeDependencies] = useState(initialRuntime.arcadeDependencies);
+  const [multiDisc, setMultiDisc] = useState(initialRuntime.multiDisc);
+  const [serverCanApprove, setServerCanApprove] = useState(initialRuntime.canApprove);
+  const [runtimeScreenshot, setRuntimeScreenshot] = useState(initialRuntime.runtimeScreenshot);
   const versionRef = useRef(review.version);
-  const watchedParentJobRef = useRef("");
-  const watchedMultiDiscJobRef = useRef("");
   const validationRefreshRequestedRef = useRef(false);
   const latestKeyRef = useRef("");
   const saveQueueRef = useRef<Promise<boolean>>(Promise.resolve(true));
-  const serverPayload = toPayload(initialMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: review.selectedAssets.coverUploadedAssetId ?? null }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, review.tags ?? []);
+  const serverPayload = toPayload(initial.baseMetadata, review.selectedCandidateId, { candidateId: review.selectedAssets.coverCandidateAssetId, uploadedId: initial.cover.uploadedId }, review.selectedAssets.backgroundCandidateAssetId, review.selectedAssets.screenshotCandidateAssetIds, review.defaultDosEntry, initial.tags);
   const lastSavedKeyRef = useRef(JSON.stringify(serverPayload));
   const draftPayload = useMemo(() => toPayload(form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags), [form, candidateId, cover, backgroundId, screenshotIds, defaultDosEntry, tags]);
   const draftKey = useMemo(() => JSON.stringify(draftPayload), [draftPayload]);
   const latestPayloadRef = useRef(draftPayload);
-  const validationStatus = currentValidation?.status ?? null;
+  const validationStatus = currentValidation ? currentValidation.status : null;
 
   const refreshReview = useCallback(async () => {
     const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { cache: "no-store" });
-    if (!response.ok) throw new Error(await responseError(response, "校验完成，但无法读取最新审核状态"));
+    if (!response.ok) {throw new Error(await responseError(response, "校验完成，但无法读取最新审核状态"));}
     const updated = await response.json() as ReviewWorkspace;
     versionRef.current = updated.version;
     setCurrentValidation(updated.validation);
@@ -305,13 +83,13 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     setTags(updated.tags ?? []);
     router.refresh();
     return updated;
-  }, [review.itemId, router]);
+  }, [review.itemId, router, setArcadeDependencies, setCandidates, setCurrentValidation, setEffectiveSourceSnapshotId, setMultiDisc, setRuntimeScreenshot, setServerCanApprove, setTags, setUploadedAssets, setValidationCurrent]);
 
   useEffect(() => {
     const onPreviewMessage = (event: MessageEvent<unknown>) => {
-      if (event.origin !== window.location.origin || !event.data || typeof event.data !== "object") return;
+      if (event.origin !== window.location.origin || !event.data || typeof event.data !== "object") {return;}
       const message = event.data as { type?: string; importItemId?: string };
-      if (message.type !== "retrom-review-screenshot" || message.importItemId !== review.itemId) return;
+      if (message.type !== "retrom-review-screenshot" || message.importItemId !== review.itemId) {return;}
       void refreshReview().then(() => {
         setToast({ message: "已更新第 5 秒运行截图", tone: "good" });
       }).catch((error: unknown) => {
@@ -324,15 +102,15 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
 
   const enqueueSave = useCallback((key: string, payload: DraftPayload, force = false) => {
     saveQueueRef.current = saveQueueRef.current.catch(() => false).then(async () => {
-      if (!force && lastSavedKeyRef.current === key) return true;
-      if (latestKeyRef.current === key) setSaveState("saving");
+      if (!force && lastSavedKeyRef.current === key) {return true;}
+      if (latestKeyRef.current === key) {setSaveState("saving");}
       try {
         const response = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { method: "PATCH", credentials: "same-origin", keepalive: true, headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"` }), body: JSON.stringify(payload) });
-        if (!response.ok) throw new Error(await responseError(response, "实时保存失败：字段、来源或版本已经变化"));
+        if (!response.ok) {throw new Error(await responseError(response, "实时保存失败：字段、来源或版本已经变化"));}
         const result = await response.json() as { version: number };
         versionRef.current = result.version;
         lastSavedKeyRef.current = key;
-        if (latestKeyRef.current === key) setSaveState("saved");
+        if (latestKeyRef.current === key) {setSaveState("saved");}
         return true;
       } catch (caught) {
         const message = caught instanceof Error ? caught.message : "实时保存失败";
@@ -341,7 +119,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
       }
     });
     return saveQueueRef.current;
-  }, [review.itemId]);
+  }, [review.itemId, setSaveState, setToast]);
 
   useEffect(() => {
     latestKeyRef.current = draftKey;
@@ -359,18 +137,18 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
   }, [enqueueSave]);
 
   useEffect(() => {
-    if (validationStatus !== "READY" || validationWasCurrent || validationRefreshRequestedRef.current) return;
+    if (validationStatus !== "READY" || validationWasCurrent || validationRefreshRequestedRef.current) {return;}
     validationRefreshRequestedRef.current = true;
     setSaveState("pending");
     void enqueueSave(draftKey, draftPayload, true).then(async (saved) => {
-      if (!saved) return;
+      if (!saved) {return;}
       try { await refreshReview(); }
       catch (caught) { setToast({ message: caught instanceof Error ? caught.message : "无法读取更新后的运行检查", tone: "bad" }); }
     });
   }, [draftKey, draftPayload, enqueueSave, refreshReview, validationStatus, validationWasCurrent]);
 
   useEffect(() => {
-    if (!notice) return;
+    if (!notice) {return;}
     const timer = window.setTimeout(() => setNotice(""), 2_000);
     return () => window.clearTimeout(timer);
   }, [notice]);
@@ -381,7 +159,7 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     setBusy(label); setNotice("");
     try { await operation(); return true; }
     catch (caught) { const message = caught instanceof Error ? caught.message : `${label}失败`; setToast({ message, tone: "bad" }); return false; }
-    finally { setBusy(null); setJobProgress(""); setParentProgress(""); setMultiDiscProgress(""); }
+    finally { setBusy(null); setJobProgress(""); }
   }
 
   async function flushDraft() {
@@ -389,360 +167,132 @@ export function ReviewActions({ review, activeTags = [], returnTo = "/admin/revi
     return enqueueSave(draftKey, draftPayload);
   }
 
-  async function rescrape(metadataProvider: "HASHEOUS" | "NONE") {
-    const label = metadataProvider === "HASHEOUS" ? "重新查询 Hasheous" : "停用元信息源";
-    if (!await flushDraft()) return;
-    await run(label, async () => {
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/scrape-candidates`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify({ metadataProvider }) });
-      if (!response.ok) throw new Error(await responseError(response, "重新查询失败：条目或版本已经变化"));
-      const result = await response.json() as { version: number; state: string; scrapeRunId: string; jobId: string };
-      versionRef.current = result.version;
-      setJobProgress(`${result.state} · Job ${result.jobId.slice(0, 8)}…`);
-      await waitForJob(result.jobId, setJobProgress);
-      const updatedResponse = await fetch(`/api/v1/admin/reviews/${review.itemId}`, { cache: "no-store" });
-      if (!updatedResponse.ok) throw new Error(await responseError(updatedResponse, "查询完成，但无法读取新游戏信息"));
-      const updated = await updatedResponse.json() as ReviewWorkspace;
-      setCandidates(updated.candidates); setUploadedAssets(updated.uploadedAssets ?? uploadedAssets);
-      if (metadataProvider === "NONE") { setNotice("已记录不使用在线游戏信息"); return; }
-      const completed = (updated.scrapeRuns ?? []).find((entry) => entry.scrapeRunId === result.scrapeRunId);
-      const latest = updated.candidates.find((entry) => entry.scrapeRunId === result.scrapeRunId);
-      if (!completed) throw new Error("查询完成，但服务器没有返回对应结果");
-      if (!latest) { const message = `查询完成，但${scrapeResult(completed)}`; setNotice(message); setToast({ message, tone: "warn" }); return; }
-      setComparison({ candidate: latest, current: { ...form }, next: candidateForm(latest, form), currentCover: cover, nextCover: { candidateId: readyCover(latest)?.candidateAssetId ?? null, uploadedId: null } });
-    });
-  }
+  const attachments = useReviewAttachments({
+    reviewId: review.itemId,
+    versionRef,
+    currentValidationId: currentValidation?.id,
+    effectiveSourceSnapshotId,
+    activeParentJobId: activeAttachmentJobId(arcadeDependencies),
+    multiDisc,
+    setMultiDisc,
+    refreshReview,
+    flushDraft,
+    run,
+    setToast,
+  });
 
-  async function uploadCover(file: File, target: "current" | "comparison") {
-    await run("上传封面", async () => {
-      const uploaded = await uploadOne(file, setNotice);
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/assets`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind: "COVER" }) });
-      if (!response.ok) throw new Error(await responseError(response, "封面上传失败"));
-      const asset = await response.json() as UploadedReviewAsset;
-      setUploadedAssets((current) => current.some((entry) => entry.assetId === asset.assetId) ? current : [...current, asset]);
-      if (target === "current") setCover({ candidateId: null, uploadedId: asset.assetId });
-      else setComparison((current) => current ? { ...current, nextCover: { candidateId: null, uploadedId: asset.assetId } } : null);
-      setNotice(target === "current" ? "新封面已上传，正在实时保存。" : "新封面已放入右侧对比结果，点击应用后生效。");
-    });
-  }
+  const commands = useReviewCommands({
+    review, returnTo, nextItemId, versionRef, latestPayloadRef, validationRefreshRequestedRef,
+    draftKey, draftPayload, form, cover, uploadedAssets, comparison, refreshReview, flushDraft,
+    enqueueSave, run, setJobProgress, setNotice, setToast, setCandidates, setUploadedAssets,
+    setComparison, setForm, setCandidateId, setCover, setBackgroundId, setScreenshotIds,
+  });
 
-  const watchParentJob = useCallback(async (jobId: string) => {
-    watchedParentJobRef.current = jobId;
-    let terminalError: Error | null = null;
-    try {
-      await waitForJobEvents(jobId, setParentProgress);
-    } catch (caught) {
-      terminalError = caught instanceof Error ? caught : new Error("Parent ROM 校验失败");
-    }
-    const updated = await refreshReview();
-    if (terminalError) setToast({ message: terminalError.message, tone: "bad" });
-    else if (updated.validation?.status === "READY") setToast({ message: "Parent ROM 已匹配，运行检查已通过", tone: "good" });
-    else setToast({ message: "Parent ROM 已匹配，仍有依赖需要处理", tone: "warn" });
-  }, [refreshReview]);
+  const covers = reviewCoverPresentation(review, candidates, uploadedAssets, cover, comparison);
+  const readiness = reviewReadiness(validationStatus, validationCurrent, runtimeScreenshot, serverCanApprove, arcadeDependencies?.activeAttachment?.state, multiDisc?.activeAttachment?.state);
 
-  const activeParentJobId = arcadeDependencies?.activeAttachment?.jobId ?? "";
-  useEffect(() => {
-    if (!activeParentJobId || watchedParentJobRef.current === activeParentJobId) return;
-    setParentProgress("恢复 Parent ROM 校验进度…");
-    void watchParentJob(activeParentJobId).catch((caught: unknown) => {
-      setToast({ message: caught instanceof Error ? caught.message : "无法恢复 Parent ROM 校验状态", tone: "bad" });
-    }).finally(() => setParentProgress(""));
-  }, [activeParentJobId, watchParentJob]);
+  return <ReviewActionsView model={{ review, activeTags, sourceDisplayName, platformInstanceName, children, form, updateField, candidateId, cover, setCover, defaultDosEntry, setDefaultDosEntry, tags, setTags, busy, saveState, notice, jobProgress, validationStatus, runtimeScreenshot, sourceCover: covers.source, selectedCover: covers.selected, currentCompareCover: covers.currentComparison, nextCompareCover: covers.nextComparison, comparison, setComparison, arcadeDependencies, multiDisc, ...readiness, saveLabel: saveStateLabel(saveState), attachments, commands, toast, setToast }} />;
+}
 
-  async function attachParent(node: ArcadeDependencyNode, file: File) {
-    if (!await flushDraft()) return false;
-    return run("补充 Parent ROM", async () => {
-      setParentProgress("正在上传 Parent ZIP…");
-      const uploaded = await uploadOne(file, setParentProgress);
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/arcade-parent-attachments`, {
-        method: "POST",
-        credentials: "same-origin",
-        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }),
-        body: JSON.stringify({
-          validationId: currentValidation?.id,
-          baseSourceSnapshotId: effectiveSourceSnapshotId,
-          dependencyMachine: node.machine,
-          uploadFileId: uploaded.uploadFileId,
-        }),
-      });
-      if (!response.ok) throw new Error(await responseError(response, "无法创建 Parent ROM 校验任务"));
-      const result = await response.json() as { jobId: string };
-      const version = response.headers.get("ETag")?.match(/^"v(\d+)"$/)?.[1];
-      if (version) versionRef.current = Number(version);
-      await watchParentJob(result.jobId);
-    });
-  }
+type ReviewViewModel = {
+  review: ReviewWorkspace; activeTags: TagReference[]; sourceDisplayName: string; platformInstanceName: string; children?: ReactNode;
+  form: MetadataForm; updateField: (key: keyof MetadataForm, value: string) => void; candidateId: string | null;
+  cover: CoverSelection; setCover: Dispatch<SetStateAction<CoverSelection>>; defaultDosEntry: string | null; setDefaultDosEntry: Dispatch<SetStateAction<string | null>>;
+  tags: TagReference[]; setTags: Dispatch<SetStateAction<TagReference[]>>; busy: string | null; saveState: "saved" | "pending" | "saving" | "error";
+  notice: string; jobProgress: string; validationStatus: string | null; runtimeScreenshot: ReviewWorkspace["runtimeScreenshot"];
+  sourceCover: PreviewAsset | null; selectedCover: PreviewAsset | null; currentCompareCover: PreviewAsset | null; nextCompareCover: PreviewAsset | null;
+  comparison: Comparison | null; setComparison: Dispatch<SetStateAction<Comparison | null>>; arcadeDependencies: ArcadeDependencies | null; multiDisc: ReviewMultiDisc | null;
+  parentAttachmentActive: boolean; multiDiscAttachmentActive: boolean; validationReady: boolean; screenshotOverride: boolean; publishReady: boolean; saveLabel: string;
+  attachments: ReturnType<typeof useReviewAttachments>; commands: ReturnType<typeof useReviewCommands>; toast: ToastMessage | null; setToast: Dispatch<SetStateAction<ToastMessage | null>>;
+};
 
-  async function retryParent(attachment: ArcadeParentAttachment) {
-    await run("重试 Parent ROM 校验", async () => {
-      const snapshot = await fetch(`/api/v1/admin/jobs/${attachment.jobId}`, { cache: "no-store" });
-      if (!snapshot.ok) throw new Error(await responseError(snapshot, "无法读取待重试任务"));
-      const job = await snapshot.json() as { version: number };
-      const response = await fetch(`/api/v1/admin/jobs/${attachment.jobId}/retry`, {
-        method: "POST", credentials: "same-origin",
-        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${job.version}"`, "Idempotency-Key": newUuid() }), body: "{}",
-      });
-      if (!response.ok) throw new Error(await responseError(response, "Parent ROM 校验无法重试"));
-      await watchParentJob(attachment.jobId);
-    });
-  }
-
-  const watchMultiDiscJob = useCallback(async (jobId: string) => {
-    watchedMultiDiscJobRef.current = jobId;
-    let terminalError: Error | null = null;
-    try {
-      await waitForJob(jobId, setMultiDiscProgress);
-    } catch (caught) {
-      terminalError = caught instanceof Error ? caught : new Error("补盘校验失败");
-    }
-    const updated = await refreshReview();
-    if (terminalError) throw terminalError;
-    if (updated.multiDisc?.missingDiscCount) throw new Error("补盘未通过：所选文件与当前缺失盘不一致");
-    setToast({ message: "缺失光盘已补齐，正在更新审核结果", tone: "good" });
-  }, [refreshReview]);
-
-  const activeMultiDiscJobId = multiDisc?.activeAttachment?.jobId ?? "";
-  useEffect(() => {
-    if (!activeMultiDiscJobId || watchedMultiDiscJobRef.current === activeMultiDiscJobId) return;
-    setMultiDiscProgress("恢复补盘校验进度…");
-    void watchMultiDiscJob(activeMultiDiscJobId).catch((caught: unknown) => {
-      setToast({ message: caught instanceof Error ? caught.message : "无法恢复补盘校验状态", tone: "bad" });
-    }).finally(() => setMultiDiscProgress(""));
-  }, [activeMultiDiscJobId, watchMultiDiscJob]);
-
-  async function attachMissingDiscs(files: File[], onQueued: () => void) {
-    if (!multiDisc || !await flushDraft()) return;
-    await run("补充缺失光盘", async () => {
-      const uploaded = await uploadFiles(files, setMultiDiscProgress);
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/multi-disc-attachments`, {
-        method: "POST", credentials: "same-origin",
-        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }),
-        body: JSON.stringify({ uploadId: uploaded.uploadId }),
-      });
-      if (!response.ok) {
-        const payload = await response.json().catch(() => null) as { error?: { code?: string; message?: string } } | null;
-        const code = payload?.error?.code ?? "";
-        if (["REVIEW_VERSION_CONFLICT", "REVIEW_MULTI_DISC_INPUT_STALE", "REVIEW_MULTI_DISC_ATTACHMENT_SET_MISMATCH", "REVIEW_MULTI_DISC_CONTENT_INVALID", "REVIEW_MULTI_DISC_ATTACHMENT_IN_PROGRESS", "REVIEW_MULTI_DISC_ATTACHMENT_RETRY_REQUIRED"].includes(code)) {
-          await refreshReview();
-        }
-        throw new Error(payload?.error?.message ?? "无法创建补盘校验任务");
-      }
-      const result = await response.json() as { attachmentId: string; state: string; jobId: string; reviewVersion?: number };
-      const responseVersion = response.headers.get("ETag")?.match(/^"v(\d+)"$/)?.[1];
-      if (responseVersion) versionRef.current = Number(responseVersion);
-      else if (result.reviewVersion) versionRef.current = result.reviewVersion;
-      const queuedAttachment: ReviewMultiDiscAttachment = { attachmentId: result.attachmentId, state: result.state, errorCode: null, jobId: result.jobId, jobState: "QUEUED", canRetry: false };
-      setMultiDisc((current) => current ? { ...current, canAttachMissingDiscs: false, latestAttachment: queuedAttachment, activeAttachment: queuedAttachment } : current);
-      setMultiDiscProgress(`正在校验补充光盘 · Job ${result.jobId.slice(0, 8)}…`);
-      onQueued();
-      await watchMultiDiscJob(result.jobId);
-    });
-  }
-
-  async function retryMultiDisc(attachment: ReviewMultiDiscAttachment) {
-    await run("重试补盘校验", async () => {
-      const snapshot = await fetch(`/api/v1/admin/jobs/${attachment.jobId}`, { cache: "no-store" });
-      if (!snapshot.ok) throw new Error(await responseError(snapshot, "无法读取待重试补盘任务"));
-      const job = await snapshot.json() as { version: number };
-      const response = await fetch(`/api/v1/admin/jobs/${attachment.jobId}/retry`, {
-        method: "POST", credentials: "same-origin",
-        headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${job.version}"`, "Idempotency-Key": newUuid() }), body: "{}",
-      });
-      if (!response.ok) throw new Error(await responseError(response, "补盘校验无法重试"));
-      setMultiDiscProgress(`正在重试补盘校验 · Job ${attachment.jobId.slice(0, 8)}…`);
-      await watchMultiDiscJob(attachment.jobId);
-    });
-  }
-
-  function applyComparison() {
-    if (!comparison) return;
-    setForm(comparison.next); setCandidateId(comparison.candidate.candidateId); setCover(comparison.nextCover);
-    setBackgroundId(null); setScreenshotIds([]); setComparison(null);
-    setNotice("新查询结果已应用，系统会实时保存；旧候选素材选择已清除。");
-  }
-
-  function clearQueueCache() {
-    const query = new URL(returnTo, window.location.origin).searchParams.toString();
-    const key = userStorageKey(context.user?.userId, "reviews", `queue:${query}`);
-    if (key) sessionStorage.removeItem(key);
-  }
-
-  async function publish(duplicateGames: DuplicateGame[] = []) {
-    await run("发布", async () => {
-      const body = duplicateGames.length ? { duplicatePolicy: "ALLOW_NEW", acknowledgedGameIds: duplicateGames.map((game) => game.gameId) } : {};
-      let staleRetryAvailable = true;
-      for (;;) {
-        const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/approve`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: JSON.stringify(body) });
-        if (response.ok) {
-          setDuplicateConfirmation(null);
-          clearQueueCache(); queueFlashToast({ message: "游戏已成功发布，待审核队列已更新。", tone: "good" });
-          router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
-          return;
-        }
-        const payload = await response.json().catch(() => null) as { error?: { code?: string; message?: string; details?: { games?: DuplicateGame[] } } } | null;
-        if (payload?.error?.code === "DUPLICATE_GAME_CONFIRMATION_REQUIRED" && payload.error.details?.games?.length) {
-          setDuplicateConfirmation(payload.error.details.games);
-          return;
-        }
-        if (payload?.error?.code === "REVIEW_VALIDATION_STALE" && staleRetryAvailable) {
-          staleRetryAvailable = false;
-          const updated = await refreshReview();
-          const targetChanged = review.platformInstance && updated.platformInstance &&
-            review.platformInstance.id !== updated.platformInstance.id;
-          if (targetChanged || !sameDraftPayload(workspaceDraftPayload(updated), latestPayloadRef.current)) {
-            throw new Error("审核发布信息已在其他位置发生变化，请刷新页面核对后重试");
-          }
-          if (!reviewReadyForPublish(updated)) {
-            throw new Error("审核状态已更新，请等待补传校验完成或按最新运行检查继续处理");
-          }
-          continue;
-        }
-        throw new Error(payload?.error?.message ?? "发布失败：请确认实时保存和运行检查均已完成");
-      }
-    });
-  }
-
-  async function approve() {
-    if (!await flushDraft()) return;
-    const duplicates = review.duplicateGames ?? [];
-    if (duplicates.length) {
-      setDuplicateConfirmation(duplicates);
-      return;
-    }
-    await publish();
-  }
-
-  function openPreviewWindow() {
-    const popup = window.open("about:blank", "_blank", "popup=yes,width=1280,height=820,resizable=yes,scrollbars=no");
-    if (!popup) {
-      setToast({ message: "浏览器阻止了游戏子窗体，请允许本站弹出窗口后重试", tone: "warn" });
-      return null;
-    }
-    popup.document.title = "正在准备审核游戏预览";
-    popup.document.body.style.cssText = "margin:0;display:grid;place-items:center;min-height:100vh;background:#0b0d12;color:#d9dce5;font:14px system-ui";
-    popup.document.body.textContent = "正在准备审核游戏预览…";
-    return popup;
-  }
-
-  async function createPreview(popup: Window) {
-    const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/previews`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
-      body: JSON.stringify({
-        clientCapabilities: {
-          secureContext: window.isSecureContext,
-          crossOriginIsolated: window.crossOriginIsolated,
-          sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
-        },
-      }),
-    });
-    if (!response.ok) throw new Error(await responseError(response, "当前审核来源无法组成游戏预览"));
-    const result = await response.json() as { playUrl: string };
-    if (popup.closed) throw new Error("游戏子窗体已关闭");
-    popup.location.replace(result.playUrl);
-  }
-
-  async function launchPreview() {
-    const popup = openPreviewWindow();
-    if (!popup) return;
-    const succeeded = await run("运行游戏", async () => {
-      if (!await flushDraft()) throw new Error("无法保存当前审核内容");
-      await createPreview(popup);
-    });
-    if (!succeeded && !popup.closed) popup.close();
-  }
-
-  async function revalidate() {
-    return run("重新运行检查", async () => {
-      if (!await enqueueSave(draftKey, draftPayload, true)) throw new Error("无法保存当前审核内容");
-      validationRefreshRequestedRef.current = true;
-      const updated = await refreshReview();
-      const ready = updated.canApprove ?? (updated.validation?.current === true && updated.validation.status === "READY");
-      setNotice(ready ? "运行检查已通过，可以发布。" : "运行检查已更新，请按最新提示继续处理。");
-    });
-  }
-
-  async function confirmDuplicatePublish() {
-    if (!duplicateConfirmation || !await flushDraft()) return;
-    await publish(duplicateConfirmation);
-  }
-
-  async function discard() {
-    if (!await flushDraft()) return;
-    await run("丢弃", async () => {
-      const response = await fetch(`/api/v1/admin/reviews/${review.itemId}/discard`, { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${versionRef.current}"`, "Idempotency-Key": newUuid() }), body: "{}" });
-      if (!response.ok) throw new Error(await responseError(response, "丢弃失败：审核状态或版本已经变化"));
-      clearQueueCache(); queueFlashToast({ message: "条目已丢弃，待审核队列已更新。", tone: "good" });
-      router.replace(nextItemId ? `/admin/reviews/${nextItemId}?returnTo=${encodeURIComponent(returnTo)}` : returnTo);
-    });
-  }
-
-  const sourceCover = review.sourceMedia?.coverUrl ? {
-    id: review.sourceMedia.sourceRefId,
-    url: review.sourceMedia.coverUrl,
-    width: review.sourceMedia.coverWidthPx ?? 600,
-    height: review.sourceMedia.coverHeightPx ?? 800,
-  } : null;
-  const selectedCover = previewAsset(candidates, uploadedAssets, cover) ?? sourceCover;
-  const currentCompareCover = comparison ? previewAsset(candidates, uploadedAssets, comparison.currentCover) ?? sourceCover : null;
-  const nextCompareCover = comparison ? previewAsset(candidates, uploadedAssets, comparison.nextCover) ?? sourceCover : null;
-  const saveLabel = saveState === "saving" ? "正在实时保存…" : saveState === "pending" ? "等待保存…" : saveState === "error" ? "实时保存失败" : "已实时保存";
-
-  const parentAttachmentActive = Boolean(arcadeDependencies?.activeAttachment?.state === "QUEUED" || arcadeDependencies?.activeAttachment?.state === "RUNNING");
-  const multiDiscAttachmentActive = Boolean(multiDisc?.activeAttachment?.state === "QUEUED" || multiDisc?.activeAttachment?.state === "RUNNING");
-  const validationReady = validationStatus === "READY" && validationCurrent;
-  const screenshotOverride = Boolean(runtimeScreenshot) && !validationReady;
-  const publishReady = serverCanApprove && !parentAttachmentActive && !multiDiscAttachmentActive;
-
+function ReviewActionsView({ model }: { model: ReviewViewModel }) {
   return <div className="review-workflow-detail">
-    <nav className="review-mobile-stepper" aria-label="审核步骤">
-      <a href="#review-step-source"><span>1</span>来源与依赖</a>
-      <a href="#review-step-runtime"><span>2</span>运行检查</a>
-      <a href="#review-step-publish"><span>3</span>发布信息</a>
-      <a href="#review-step-decision"><span>4</span>审核决定</a>
-    </nav>
-    <div className="review-workflow-top">
-      <section id="review-step-source" className="review-workflow-summary-card">
-        <div className="review-workflow-summary-copy"><StatusPill tone="info">来源：{review.sourceMedia ? `Pegasus · ${review.sourceMedia.sourceLabel ?? sourceDisplayName}` : sourceDisplayName}</StatusPill><h2>{form.title || sourceDisplayName}</h2><p>目标目录：{platformInstanceName}</p><TagChips tags={tags} /><div className="review-workflow-summary-pills"><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={publishReady ? "good" : "warn"}>{validationReady ? "运行检查通过" : screenshotOverride ? "已取得运行截图" : validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过"}</StatusPill><StatusPill tone={candidateId || review.sourceMedia ? "info" : "warn"}>{candidateId ? "已找到游戏信息" : review.sourceMedia ? "已读取 Pegasus 信息" : "未找到游戏信息"}</StatusPill></div></div>
-        <aside className="review-runtime-screenshot" aria-label="第 5 秒运行截图"><span>第 5 秒运行截图</span>{runtimeScreenshot ? <Image src={runtimeScreenshot.url} alt={`${form.title || sourceDisplayName} 的第 5 秒运行截图`} width={runtimeScreenshot.widthPx} height={runtimeScreenshot.heightPx} unoptimized /> : <div><strong>{validationReady ? "等待生成" : "等待运行截图"}</strong><small>运行游戏后在第 5 秒自动截取，可作为管理员放行依据</small></div>}</aside>
-      </section>
-      <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p>{validationReady ? "运行检查已经通过，可以发布。" : screenshotOverride ? "已取得第 5 秒运行截图，可由管理员确认后发布。" : "可先运行游戏；取得第 5 秒截图后允许人工放行。"}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${saveState}`}><i aria-hidden="true" /><span>{saveLabel}</span></strong></div><div className="review-workflow-preview-actions"><button type="button" className="button secondary review-revalidate" aria-busy={busy === "重新运行检查"} disabled={busy !== null || saveState === "error"} onClick={() => void revalidate()}>{busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button><button type="button" className="button secondary review-launch-preview" aria-busy={busy === "运行游戏"} disabled={busy !== null || saveState === "error"} onClick={() => void launchPreview()}>{busy === "运行游戏" ? "正在准备…" : "运行游戏"}</button></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={busy !== null} onClick={() => void discard()}>{busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={busy === "发布"} disabled={busy !== null || !publishReady || saveState === "error"} onClick={() => void approve()}>{busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>
-    </div>
-    {notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{notice}</FeedbackBanner></div> : null}
-    {review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。仍可发布为新游戏，但发布时需要二次确认。</FeedbackBanner></div> : null}
-    <div className="review-workflow-columns">
-      <div id="review-step-runtime" className="review-workflow-left">{children}{multiDisc ? <MultiDiscReviewCard value={multiDisc} disabled={busy !== null || multiDiscAttachmentActive} progress={multiDiscProgress} onAttach={attachMissingDiscs} onRetry={retryMultiDisc} /> : null}{arcadeDependencies ? <ArcadeDependencyCard value={arcadeDependencies} disabled={busy !== null || parentAttachmentActive} progress={parentProgress} onAttach={attachParent} onRetry={retryParent} /> : null}</div>
-      <section id="review-step-publish" className="panel review-workflow-metadata">
-        <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介和封面；修改会实时保存。</p></div><div className="review-workflow-query-actions">{jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{jobProgress}</p> : null}<button type="button" className="button secondary" disabled={busy !== null} aria-busy={busy === "重新查询 Hasheous"} onClick={() => void rescrape("HASHEOUS")}>{busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>
-        <div className="panel-body review-workflow-editor">
-          <div className="review-tag-editor"><TagPicker label="游戏标签" options={activeTags} selected={tags} onChange={setTags} disabled={busy !== null} description="与其他发布信息一起实时保存；通过审核后会原子复制到游戏。" /></div>
-          <div className="review-workflow-publish-layout">
-            <div className="form-grid review-workflow-metadata-fields">
-              <label className="field full">标题<input value={form.title} onChange={(event) => updateField("title", event.target.value)} maxLength={200} /></label>
-              <label className="field full">简介<textarea value={form.description} onChange={(event) => updateField("description", event.target.value)} maxLength={10000} /></label>
-              <label className="field review-workflow-field-half">开发商<input value={form.developer} onChange={(event) => updateField("developer", event.target.value)} maxLength={200} /></label>
-              <label className="field review-workflow-field-half">发行商<input value={form.publisher} onChange={(event) => updateField("publisher", event.target.value)} maxLength={200} /></label>
-              <label className="field review-workflow-field-third">类型<input value={form.genre} onChange={(event) => updateField("genre", event.target.value)} maxLength={200} /></label>
-              <label className="field review-workflow-field-third">玩家数<input type="number" min={1} max={64} value={form.players} onChange={(event) => updateField("players", event.target.value)} /></label>
-              <label className="field review-workflow-field-third">发行年份<input type="number" min={1950} value={form.releaseYear} onChange={(event) => updateField("releaseYear", event.target.value)} /></label>
-              {review.dosEntries.length ? <label className="field full">DOS 默认程序<select value={defaultDosEntry ?? ""} onChange={(event) => setDefaultDosEntry(event.target.value || null)}><option value="">打开 DOSBox 程序菜单</option>{review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}
-            </div>
-            <aside className="review-cover-panel review-workflow-cover-side"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCover(file, "current"); event.currentTarget.value = ""; }} /></label>{cover.candidateId || cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => setCover({ candidateId: null, uploadedId: null })}>{sourceCover ? "恢复 Pegasus 封面" : "移除封面"}</button> : null}{review.sourceMedia?.videoUrl ? <div className="review-source-video"><span className="field-label">Pegasus 视频预览</span><video controls preload="metadata" src={review.sourceMedia.videoUrl}>浏览器无法播放这段视频。</video><small>通过审核后会随游戏一并发布。</small></div> : null}</aside>
-          </div>
-        </div>
-      </section>
-    </div>
-    <ConfirmDialog open={comparison !== null} wide title="对比最新查询结果" description="左栏是当前信息，右栏是最新结果；每栏上方为基础信息与封面，下方为完整简介。红色表示内容不同，绿色表示一致；右栏可编辑。" confirmLabel="应用" busy={busy !== null} onCancel={() => setComparison(null)} onConfirm={applyComparison}>
-      {comparison ? <div className="metadata-compare metadata-compare-columns">
-        <section className="metadata-compare-column" aria-label="当前信息"><header><strong>当前信息</strong><span>只读</span></header><div className="metadata-compare-column-top"><div className="metadata-compare-fields">{compareFields.filter((field) => !field.multiline).map((field) => <div className="compare-readonly" key={field.key}><span>{field.label}</span><p>{comparison.current[field.key] || "未填写"}</p></div>)}</div><div className="metadata-compare-column-cover"><span>封面</span><AssetPreview asset={currentCompareCover} label="当前游戏封面" /></div></div><div className="metadata-compare-column-description"><span>游戏说明</span><p>{comparison.current.description || "未填写"}</p></div></section>
-        <section className="metadata-compare-column" aria-label="最新信息"><header><strong>最新信息</strong><span>可编辑</span></header><div className="metadata-compare-column-top"><div className="metadata-compare-fields">{compareFields.filter((field) => !field.multiline).map((field) => { const same = comparison.current[field.key] === comparison.next[field.key]; return <label className={`compare-field ${same ? "is-same" : "is-changed"}`} key={field.key}><span>{field.label}</span><input aria-label={field.label} type={field.type ?? "text"} value={comparison.next[field.key]} onChange={(event) => setComparison((current) => current ? { ...current, next: { ...current.next, [field.key]: event.target.value } } : null)} /></label>; })}</div><div className={`metadata-compare-column-cover ${comparison.currentCover.candidateId === comparison.nextCover.candidateId && comparison.currentCover.uploadedId === comparison.nextCover.uploadedId ? "is-same" : "is-changed"}`}><span>封面</span><label className="review-cover-upload"><AssetPreview asset={nextCompareCover} label="最新查询封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={busy !== null} onChange={(event) => { const file = event.target.files?.[0]; if (file) void uploadCover(file, "comparison"); event.currentTarget.value = ""; }} /></label>{comparison.nextCover.candidateId || comparison.nextCover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => setComparison((current) => current ? { ...current, nextCover: { candidateId: null, uploadedId: null } } : null)}>不使用新封面</button> : null}</div></div><label className={`metadata-compare-column-description ${comparison.current.description === comparison.next.description ? "is-same" : "is-changed"}`}><span>游戏说明（可编辑）</span><textarea aria-label="简介" value={comparison.next.description} onChange={(event) => setComparison((current) => current ? { ...current, next: { ...current.next, description: event.target.value } } : null)} /></label></section>
-      </div> : null}
-    </ConfirmDialog>
-    <ConfirmDialog open={duplicateConfirmation !== null} title="仍然发布为新游戏？" description="相同游戏文件已经存在。继续发布会创建另一个游戏条目，可能造成重复游戏。" confirmLabel="仍然发布为新游戏" tone="danger" busy={busy === "发布"} onCancel={() => setDuplicateConfirmation(null)} onConfirm={() => void confirmDuplicatePublish()}>
-      {duplicateConfirmation ? <ul>{duplicateConfirmation.map((game) => <li key={game.gameId}><Link href={`/games/${game.gameId}`}>{game.title}</Link><span> · {game.platformInstanceName}</span></li>)}</ul> : null}
-    </ConfirmDialog>
-    <Toast toast={toast} onDismiss={() => setToast(null)} />
+    <ReviewStepper />
+    <div className="review-workflow-top"><ReviewSummary model={model} /><ReviewDecision model={model} /></div>
+    <ReviewFeedback model={model} />
+    <ReviewColumns model={model} />
+    <ComparisonDialog model={model} />
+    <DuplicateDialog model={model} />
+    <Toast toast={model.toast} onDismiss={() => model.setToast(null)} />
   </div>;
+}
+
+function ReviewStepper() {
+  return <nav className="review-mobile-stepper" aria-label="审核步骤"><a href="#review-step-source"><span>1</span>来源与依赖</a><a href="#review-step-runtime"><span>2</span>运行检查</a><a href="#review-step-publish"><span>3</span>发布信息</a><a href="#review-step-decision"><span>4</span>审核决定</a></nav>;
+}
+
+function ReviewSummary({ model }: { model: ReviewViewModel }) {
+  const source = model.review.sourceMedia ? `Pegasus · ${model.review.sourceMedia.sourceLabel ?? model.sourceDisplayName}` : model.sourceDisplayName;
+  const validationLabel = model.validationReady ? "运行检查通过" : model.screenshotOverride ? "已取得运行截图" : model.validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过";
+  const metadataLabel = model.candidateId ? "已找到游戏信息" : model.review.sourceMedia ? "已读取 Pegasus 信息" : "未找到游戏信息";
+  return <section id="review-step-source" className="review-workflow-summary-card">
+    <div className="review-workflow-summary-copy"><StatusPill tone="info">来源：{source}</StatusPill><h2>{model.form.title || model.sourceDisplayName}</h2><p>目标目录：{model.platformInstanceName}</p><TagChips tags={model.tags} /><div className="review-workflow-summary-pills"><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={model.publishReady ? "good" : "warn"}>{validationLabel}</StatusPill><StatusPill tone={model.candidateId || model.review.sourceMedia ? "info" : "warn"}>{metadataLabel}</StatusPill></div></div>
+    <RuntimeScreenshot model={model} />
+  </section>;
+}
+
+function RuntimeScreenshot({ model }: { model: ReviewViewModel }) {
+  if (!model.runtimeScreenshot) {return <aside className="review-runtime-screenshot" aria-label="第 5 秒运行截图"><span>第 5 秒运行截图</span><div><strong>{model.validationReady ? "等待生成" : "等待运行截图"}</strong><small>运行游戏后在第 5 秒自动截取，可作为管理员放行依据</small></div></aside>;}
+  return <aside className="review-runtime-screenshot" aria-label="第 5 秒运行截图"><span>第 5 秒运行截图</span><Image src={model.runtimeScreenshot.url} alt={`${model.form.title || model.sourceDisplayName} 的第 5 秒运行截图`} width={model.runtimeScreenshot.widthPx} height={model.runtimeScreenshot.heightPx} unoptimized /></aside>;
+}
+
+function ReviewDecision({ model }: { model: ReviewViewModel }) {
+  const message = model.validationReady ? "运行检查已经通过，可以发布。" : model.screenshotOverride ? "已取得第 5 秒运行截图，可由管理员确认后发布。" : "可先运行游戏；取得第 5 秒截图后允许人工放行。";
+  return <aside id="review-step-decision" className="review-workflow-decision"><h2>审核决定</h2><p>{message}</p><div className="review-workflow-save"><span>实时保存</span><strong className={`autosave-state ${model.saveState}`}><i aria-hidden="true" /><span>{model.saveLabel}</span></strong></div><div className="review-workflow-preview-actions"><button type="button" className="button secondary review-revalidate" aria-busy={model.busy === "重新运行检查"} disabled={model.busy !== null || model.saveState === "error"} onClick={() => void model.commands.revalidate()}>{model.busy === "重新运行检查" ? "正在检查…" : "重新运行检查"}</button><button type="button" className="button secondary review-launch-preview" aria-busy={model.busy === "运行游戏"} disabled={model.busy !== null || model.saveState === "error"} onClick={() => void model.commands.launchPreview()}>{model.busy === "运行游戏" ? "正在准备…" : "运行游戏"}</button></div><div className="review-workflow-decision-actions"><button type="button" className="button secondary" disabled={model.busy !== null} onClick={() => void model.commands.discard()}>{model.busy === "丢弃" ? "正在丢弃…" : "丢弃条目"}</button><button type="button" className="button" aria-busy={model.busy === "发布"} disabled={model.busy !== null || !model.publishReady || model.saveState === "error"} onClick={() => void model.commands.approve()}>{model.busy === "发布" ? <><i className="button-spinner" aria-hidden="true" />正在发布…</> : "通过并发布"}</button></div></aside>;
+}
+
+function ReviewFeedback({ model }: { model: ReviewViewModel }) {
+  return <>{model.notice ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">{model.notice}</FeedbackBanner></div> : null}{model.review.duplicateGames?.length ? <div className="review-workflow-feedback"><FeedbackBanner tone="info">相同游戏文件已经关联到 {model.review.duplicateGames.map((game, index) => <span key={game.gameId}>{index ? "、" : ""}<Link href={`/games/${game.gameId}`}>{game.title}</Link></span>)}。仍可发布为新游戏，但发布时需要二次确认。</FeedbackBanner></div> : null}</>;
+}
+
+function ReviewColumns({ model }: { model: ReviewViewModel }) {
+  return <div className="review-workflow-columns"><RuntimeDependencies model={model} /><MetadataEditor model={model} /></div>;
+}
+
+function RuntimeDependencies({ model }: { model: ReviewViewModel }) {
+  return <div id="review-step-runtime" className="review-workflow-left">{model.children}{model.multiDisc ? <MultiDiscReviewCard value={model.multiDisc} disabled={model.busy !== null || model.multiDiscAttachmentActive} progress={model.attachments.multiDiscProgress} onAttach={model.attachments.attachMissingDiscs} onRetry={model.attachments.retryMultiDisc} /> : null}{model.arcadeDependencies ? <ArcadeDependencyCard value={model.arcadeDependencies} disabled={model.busy !== null || model.parentAttachmentActive} progress={model.attachments.parentProgress} onAttach={model.attachments.attachParent} onRetry={model.attachments.retryParent} /> : null}</div>;
+}
+
+function MetadataEditor({ model }: { model: ReviewViewModel }) {
+  return <section id="review-step-publish" className="panel review-workflow-metadata"><MetadataHeader model={model} /><div className="panel-body review-workflow-editor"><div className="review-tag-editor"><TagPicker label="游戏标签" options={model.activeTags} selected={model.tags} onChange={model.setTags} disabled={model.busy !== null} description="与其他发布信息一起实时保存；通过审核后会原子复制到游戏。" /></div><div className="review-workflow-publish-layout"><MetadataFields model={model} /><CoverEditor model={model} /></div></div></section>;
+}
+
+function MetadataHeader({ model }: { model: ReviewViewModel }) {
+  return <div className="panel-head"><div><h2>② 发布成什么？</h2><p>核对标题、简介和封面；修改会实时保存。</p></div><div className="review-workflow-query-actions">{model.jobProgress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在查询游戏信息：{model.jobProgress}</p> : null}<button type="button" className="button secondary" disabled={model.busy !== null} aria-busy={model.busy === "重新查询 Hasheous"} onClick={() => void model.commands.rescrape("HASHEOUS")}>{model.busy === "重新查询 Hasheous" ? <><i className="button-spinner" aria-hidden="true" />查询中…</> : "重新查询游戏信息"}</button></div></div>;
+}
+
+function MetadataFields({ model }: { model: ReviewViewModel }) {
+  return <div className="form-grid review-workflow-metadata-fields"><label className="field full">标题<input value={model.form.title} onChange={(event) => model.updateField("title", event.target.value)} maxLength={200} /></label><label className="field full">简介<textarea value={model.form.description} onChange={(event) => model.updateField("description", event.target.value)} maxLength={10000} /></label><label className="field review-workflow-field-half">开发商<input value={model.form.developer} onChange={(event) => model.updateField("developer", event.target.value)} maxLength={200} /></label><label className="field review-workflow-field-half">发行商<input value={model.form.publisher} onChange={(event) => model.updateField("publisher", event.target.value)} maxLength={200} /></label><label className="field review-workflow-field-third">类型<input value={model.form.genre} onChange={(event) => model.updateField("genre", event.target.value)} maxLength={200} /></label><label className="field review-workflow-field-third">玩家数<input type="number" min={1} max={64} value={model.form.players} onChange={(event) => model.updateField("players", event.target.value)} /></label><label className="field review-workflow-field-third">发行年份<input type="number" min={1950} value={model.form.releaseYear} onChange={(event) => model.updateField("releaseYear", event.target.value)} /></label>{model.review.dosEntries.length ? <label className="field full">DOS 默认程序<select value={model.defaultDosEntry ?? ""} onChange={(event) => model.setDefaultDosEntry(event.target.value || null)}><option value="">打开 DOSBox 程序菜单</option>{model.review.dosEntries.map((entry) => <option key={entry.path} value={entry.path} disabled={!entry.enabled}>{entry.originalPath}{entry.directLaunchSafe ? "" : " · 仅程序菜单"}</option>)}</select></label> : null}</div>;
+}
+
+function CoverEditor({ model }: { model: ReviewViewModel }) {
+  const upload = (file: File | undefined) => {if (file) {void model.commands.uploadCover(file, "current");}};
+  return <aside className="review-cover-panel review-workflow-cover-side"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={model.selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={model.busy !== null} onChange={(event) => {upload(event.target.files?.[0]); event.currentTarget.value = "";}} /></label>{model.cover.candidateId || model.cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => model.setCover({ candidateId: null, uploadedId: null })}>{model.sourceCover ? "恢复 Pegasus 封面" : "移除封面"}</button> : null}{model.review.sourceMedia?.videoUrl ? <div className="review-source-video"><span className="field-label">Pegasus 视频预览</span><video controls preload="metadata" src={model.review.sourceMedia.videoUrl}>浏览器无法播放这段视频。</video><small>通过审核后会随游戏一并发布。</small></div> : null}</aside>;
+}
+
+function ComparisonDialog({ model }: { model: ReviewViewModel }) {
+  return <ConfirmDialog open={model.comparison !== null} wide title="对比最新查询结果" description="左栏是当前信息，右栏是最新结果；每栏上方为基础信息与封面，下方为完整简介。红色表示内容不同，绿色表示一致；右栏可编辑。" confirmLabel="应用" busy={model.busy !== null} onCancel={() => model.setComparison(null)} onConfirm={model.commands.applyComparison}>{model.comparison ? <ComparisonColumns model={model} comparison={model.comparison} /> : null}</ConfirmDialog>;
+}
+
+function ComparisonColumns({ model, comparison }: { model: ReviewViewModel; comparison: Comparison }) {
+  return <div className="metadata-compare metadata-compare-columns"><CurrentComparison comparison={comparison} cover={model.currentCompareCover} /><NextComparison model={model} comparison={comparison} /></div>;
+}
+
+function CurrentComparison({ comparison, cover }: { comparison: Comparison; cover: PreviewAsset | null }) {
+  return <section className="metadata-compare-column" aria-label="当前信息"><header><strong>当前信息</strong><span>只读</span></header><div className="metadata-compare-column-top"><div className="metadata-compare-fields">{compareFields.filter((field) => !field.multiline).map((field) => <div className="compare-readonly" key={field.key}><span>{field.label}</span><p>{comparison.current[field.key] || "未填写"}</p></div>)}</div><div className="metadata-compare-column-cover"><span>封面</span><AssetPreview asset={cover} label="当前游戏封面" /></div></div><div className="metadata-compare-column-description"><span>游戏说明</span><p>{comparison.current.description || "未填写"}</p></div></section>;
+}
+
+function NextComparison({ model, comparison }: { model: ReviewViewModel; comparison: Comparison }) {
+  const setNext = (key: keyof MetadataForm, value: string) => model.setComparison((current) => current ? { ...current, next: { ...current.next, [key]: value } } : null);
+  const upload = (file: File | undefined) => {if (file) {void model.commands.uploadCover(file, "comparison");}};
+  const sameCover = comparison.currentCover.candidateId === comparison.nextCover.candidateId && comparison.currentCover.uploadedId === comparison.nextCover.uploadedId;
+  return <section className="metadata-compare-column" aria-label="最新信息"><header><strong>最新信息</strong><span>可编辑</span></header><div className="metadata-compare-column-top"><div className="metadata-compare-fields">{compareFields.filter((field) => !field.multiline).map((field) => <label className={`compare-field ${comparison.current[field.key] === comparison.next[field.key] ? "is-same" : "is-changed"}`} key={field.key}><span>{field.label}</span><input aria-label={field.label} type={field.type ?? "text"} value={comparison.next[field.key]} onChange={(event) => setNext(field.key, event.target.value)} /></label>)}</div><div className={`metadata-compare-column-cover ${sameCover ? "is-same" : "is-changed"}`}><span>封面</span><label className="review-cover-upload"><AssetPreview asset={model.nextCompareCover} label="最新查询封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={model.busy !== null} onChange={(event) => {upload(event.target.files?.[0]); event.currentTarget.value = "";}} /></label>{comparison.nextCover.candidateId || comparison.nextCover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => model.setComparison((current) => current ? { ...current, nextCover: { candidateId: null, uploadedId: null } } : null)}>不使用新封面</button> : null}</div></div><label className={`metadata-compare-column-description ${comparison.current.description === comparison.next.description ? "is-same" : "is-changed"}`}><span>游戏说明（可编辑）</span><textarea aria-label="简介" value={comparison.next.description} onChange={(event) => setNext("description", event.target.value)} /></label></section>;
+}
+
+function DuplicateDialog({ model }: { model: ReviewViewModel }) {
+  const duplicates = model.commands.duplicateConfirmation;
+  return <ConfirmDialog open={duplicates !== null} title="仍然发布为新游戏？" description="相同游戏文件已经存在。继续发布会创建另一个游戏条目，可能造成重复游戏。" confirmLabel="仍然发布为新游戏" tone="danger" busy={model.busy === "发布"} onCancel={() => model.commands.setDuplicateConfirmation(null)} onConfirm={() => void model.commands.confirmDuplicatePublish()}>{duplicates ? <ul>{duplicates.map((game) => <li key={game.gameId}><Link href={`/games/${game.gameId}`}>{game.title}</Link><span> · {game.platformInstanceName}</span></li>)}</ul> : null}</ConfirmDialog>;
 }
 
 function StatusPill({ tone, children }: { tone: "good" | "warn" | "info"; children: ReactNode }) {
@@ -756,13 +306,36 @@ function MultiDiscReviewCard({ value, disabled, progress, onAttach, onRetry }: {
   const latest = value.latestAttachment;
   const validating = Boolean(progress || value.activeAttachment);
   return <section className="panel review-multidisc-card" aria-labelledby="review-multidisc-title">
-    <div className="panel-head"><div><h2 id="review-multidisc-title">多盘内容</h2><p>{value.playlist.name} · {formatBytes(value.playlist.sizeBytes)} · SHA-256 {value.playlist.sha256.slice(0, 12)}…</p><small>{value.discCount} / {maxDiscs} 张光盘 · 已接收 {formatBytes(value.totalPresentBytes)} / 上限 {formatBytes(maxTotalBytes)}</small></div><StatusPill tone={value.missingDiscCount ? "warn" : "good"}>{value.missingDiscCount ? `缺少 ${value.missingDiscCount} 张` : "盘序完整"}</StatusPill></div>
+    <MultiDiscHeader value={value} maxDiscs={maxDiscs} maxTotalBytes={maxTotalBytes} />
     <div className="panel-body">
-      <ol className="review-multidisc-list">{value.entries.map((entry) => <li key={entry.discIndex}><span><strong>{entry.label} · {entry.sourceReference}</strong><small>规范文件名：{entry.canonicalName}</small>{entry.sha256 ? <small>SHA-256 {entry.sha256.slice(0, 12)}…</small> : null}</span><span className={`status ${entry.state === "PRESENT" ? "good" : "warn"}`}><i />{entry.state === "PRESENT" ? entry.sizeBytes === null ? "已接收" : formatBytes(entry.sizeBytes) : "待补齐"}</span></li>)}</ol>
-      {validating ? <FeedbackBanner tone="info">正在校验补充光盘。{value.activeAttachment?.jobId ? `Job ${value.activeAttachment.jobId}` : progress}</FeedbackBanner> : value.missingDiscCount ? latest?.state === "FAILED_RETRYABLE" ? <FeedbackBanner tone="bad">补盘校验服务暂时不可用；可以复用已上传文件重试。错误码：{latest.errorCode ?? "REVIEW_MULTI_DISC_VALIDATION_UNAVAILABLE"}</FeedbackBanner> : latest?.state === "REJECTED" ? <FeedbackBanner tone="bad">上次补盘未通过：{latest.errorCode ?? "REVIEW_MULTI_DISC_CONTENT_INVALID"}</FeedbackBanner> : <FeedbackBanner tone="bad">多盘内容不完整，发布已阻止。请一次上传当前全部缺失光盘。</FeedbackBanner> : <FeedbackBanner tone="good">多盘内容完整，运行检查结果已更新。</FeedbackBanner>}
-      {progress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在校验补充光盘：{progress}</p> : null}
-      {value.missingDiscCount ? <div className="review-multidisc-actions">{latest?.state === "FAILED_RETRYABLE" && latest.canRetry ? <button className="button secondary" type="button" disabled={disabled} onClick={() => void onRetry(latest)}>重试校验</button> : null}<button className="button secondary" type="button" disabled={disabled || !value.canAttachMissingDiscs} onClick={() => setDrawerOpen(true)}>{latest?.state === "REJECTED" ? "重新上传全部缺失光盘" : "上传全部缺失光盘"}</button></div> : null}
+      <ol className="review-multidisc-list">{value.entries.map((entry) => <MultiDiscEntry key={entry.discIndex} entry={entry} />)}</ol>
+      <MultiDiscFeedback value={value} validating={validating} progress={progress} />
+      <MultiDiscActions value={value} latest={latest} disabled={disabled} onRetry={onRetry} onOpen={() => setDrawerOpen(true)} />
     </div>
     <MultiDiscAttachmentDrawer open={drawerOpen} missingReferences={value.missingReferences} presentBytes={value.totalPresentBytes} maxTotalBytes={maxTotalBytes} busy={disabled} progress={progress} onClose={() => setDrawerOpen(false)} onSubmit={onAttach} />
   </section>;
+}
+
+function MultiDiscHeader({ value, maxDiscs, maxTotalBytes }: { value: ReviewMultiDisc; maxDiscs: number; maxTotalBytes: number }) {
+  return <div className="panel-head"><div><h2 id="review-multidisc-title">多盘内容</h2><p>{value.playlist.name} · {formatBytes(value.playlist.sizeBytes)} · SHA-256 {value.playlist.sha256.slice(0, 12)}…</p><small>{value.discCount} / {maxDiscs} 张光盘 · 已接收 {formatBytes(value.totalPresentBytes)} / 上限 {formatBytes(maxTotalBytes)}</small></div><StatusPill tone={value.missingDiscCount ? "warn" : "good"}>{value.missingDiscCount ? `缺少 ${value.missingDiscCount} 张` : "盘序完整"}</StatusPill></div>;
+}
+
+function MultiDiscEntry({ entry }: { entry: ReviewMultiDisc["entries"][number] }) {
+  const stateLabel = entry.state === "PRESENT" ? entry.sizeBytes === null ? "已接收" : formatBytes(entry.sizeBytes) : "待补齐";
+  return <li><span><strong>{entry.label} · {entry.sourceReference}</strong><small>规范文件名：{entry.canonicalName}</small>{entry.sha256 ? <small>SHA-256 {entry.sha256.slice(0, 12)}…</small> : null}</span><span className={`status ${entry.state === "PRESENT" ? "good" : "warn"}`}><i />{stateLabel}</span></li>;
+}
+
+function MultiDiscFeedback({ value, validating, progress }: { value: ReviewMultiDisc; validating: boolean; progress: string }) {
+  const latest = value.latestAttachment;
+  if (validating) {return <><FeedbackBanner tone="info">正在校验补充光盘。{value.activeAttachment?.jobId ? `Job ${value.activeAttachment.jobId}` : progress}</FeedbackBanner>{progress ? <p className="scrape-live" role="status"><i className="button-spinner" aria-hidden="true" />正在校验补充光盘：{progress}</p> : null}</>;}
+  if (!value.missingDiscCount) {return <FeedbackBanner tone="good">多盘内容完整，运行检查结果已更新。</FeedbackBanner>;}
+  if (latest?.state === "FAILED_RETRYABLE") {return <FeedbackBanner tone="bad">补盘校验服务暂时不可用；可以复用已上传文件重试。错误码：{latest.errorCode ?? "REVIEW_MULTI_DISC_VALIDATION_UNAVAILABLE"}</FeedbackBanner>;}
+  if (latest?.state === "REJECTED") {return <FeedbackBanner tone="bad">上次补盘未通过：{latest.errorCode ?? "REVIEW_MULTI_DISC_CONTENT_INVALID"}</FeedbackBanner>;}
+  return <FeedbackBanner tone="bad">多盘内容不完整，发布已阻止。请一次上传当前全部缺失光盘。</FeedbackBanner>;
+}
+
+function MultiDiscActions({ value, latest, disabled, onRetry, onOpen }: { value: ReviewMultiDisc; latest: ReviewMultiDiscAttachment | null; disabled: boolean; onRetry: (attachment: ReviewMultiDiscAttachment) => Promise<void>; onOpen: () => void }) {
+  if (!value.missingDiscCount) {return null;}
+  const retryable = latest?.state === "FAILED_RETRYABLE" && latest.canRetry;
+  return <div className="review-multidisc-actions">{retryable ? <button className="button secondary" type="button" disabled={disabled} onClick={() => void onRetry(latest)}>重试校验</button> : null}<button className="button secondary" type="button" disabled={disabled || !value.canAttachMissingDiscs} onClick={onOpen}>{latest?.state === "REJECTED" ? "重新上传全部缺失光盘" : "上传全部缺失光盘"}</button></div>;
 }

@@ -1,6 +1,7 @@
 package httpapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
@@ -11,6 +12,7 @@ import (
 	"github.com/google/uuid"
 
 	"retrom/internal/config"
+	"retrom/internal/testassert"
 )
 
 type accountHTTPAuth struct {
@@ -20,7 +22,7 @@ type accountHTTPAuth struct {
 
 func accountHTTPLogin(t *testing.T, handler http.Handler) accountHTTPAuth {
 	t.Helper()
-	request := httptest.NewRequest(
+	request := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost, "/api/v1/auth/login",
 		strings.NewReader(`{"username":"test","password":"test"}`),
 	)
@@ -35,9 +37,7 @@ func accountHTTPLogin(t *testing.T, handler http.Handler) accountHTTPAuth {
 		t.Fatal(err)
 	}
 	cookies := recorder.Result().Cookies()
-	if recorder.Code != http.StatusOK || len(cookies) != 1 || body.CSRF == "" {
-		t.Fatalf("login = %d cookies=%#v body=%s", recorder.Code, cookies, recorder.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return recorder.Code != http.StatusOK }, func() bool { return len(cookies) != 1 }, func() bool { return body.CSRF == "" }), "login = %d cookies=%#v body=%s", recorder.Code, cookies, recorder.Body.String())
 	return accountHTTPAuth{cookie: cookies[0], csrf: body.CSRF}
 }
 
@@ -48,7 +48,7 @@ func accountHTTPRequest(
 	auth *accountHTTPAuth,
 ) *httptest.ResponseRecorder {
 	t.Helper()
-	request := httptest.NewRequest(method, target, strings.NewReader(body))
+	request := httptest.NewRequestWithContext(context.Background(), method, target, strings.NewReader(body))
 	if body != "" {
 		request.Header.Set("Content-Type", "application/json")
 	}
@@ -70,7 +70,7 @@ func TestAccountAdministrationHTTPInvitationAndAuthorization(t *testing.T) {
 	handler := server.Handler()
 	admin := accountHTTPLogin(t, handler)
 
-	createRequest := httptest.NewRequest(
+	createRequest := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost, "/api/v1/admin/invitations", strings.NewReader(`{"role":"USER","confirmAdminRole":false}`),
 	)
 	createRequest.Header.Set("Content-Type", "application/json")
@@ -87,25 +87,17 @@ func TestAccountAdministrationHTTPInvitationAndAuthorization(t *testing.T) {
 	if err := json.Unmarshal(created.Body.Bytes(), &invitation); err != nil {
 		t.Fatal(err)
 	}
-	if created.Code != http.StatusCreated || invitation.AccountLinkID == "" || invitation.URL == "" {
-		t.Fatalf("create invitation = %d %s", created.Code, created.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return created.Code != http.StatusCreated }, func() bool { return invitation.AccountLinkID == "" }, func() bool { return invitation.URL == "" }), "create invitation = %d %s", created.Code, created.Body.String())
 	linkURL, err := url.Parse(invitation.URL)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	token, err := url.QueryUnescape(strings.TrimPrefix(linkURL.Fragment, "invite="))
-	if err != nil || token == "" {
-		t.Fatalf("invitation token = %q, %v", token, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return token == "" }), "invitation token = %q, %v", token, err)
 
 	inspection := accountHTTPRequest(
 		t, handler, http.MethodPost, "/api/v1/auth/account-links/inspect",
 		`{"expectedKind":"INVITATION","token":"`+token+`"}`, nil,
 	)
-	if inspection.Code != http.StatusOK || !strings.Contains(inspection.Body.String(), `"role":"USER"`) {
-		t.Fatalf("inspect invitation = %d %s", inspection.Code, inspection.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return inspection.Code != http.StatusOK }, func() bool { return !strings.Contains(inspection.Body.String(), `"role":"USER"`) }), "inspect invitation = %d %s", inspection.Code, inspection.Body.String())
 
 	accepted := accountHTTPRequest(
 		t, handler, http.MethodPost, "/api/v1/auth/invitations/accept",
@@ -120,23 +112,15 @@ func TestAccountAdministrationHTTPInvitationAndAuthorization(t *testing.T) {
 		t.Fatal(err)
 	}
 	acceptedCookies := accepted.Result().Cookies()
-	if accepted.Code != http.StatusCreated || len(acceptedCookies) != 1 || acceptedBody.CSRF == "" ||
-		!acceptedBody.TestDefaultAccountActive {
-		t.Fatalf("accept invitation = %d cookies=%#v body=%s", accepted.Code, acceptedCookies, accepted.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return accepted.Code != http.StatusCreated }, func() bool { return len(acceptedCookies) != 1 }, func() bool { return acceptedBody.CSRF == "" }, func() bool { return !acceptedBody.TestDefaultAccountActive }), "accept invitation = %d cookies=%#v body=%s", accepted.Code, acceptedCookies, accepted.Body.String())
 	member := accountHTTPAuth{cookie: acceptedCookies[0], csrf: acceptedBody.CSRF}
 
 	users := accountHTTPRequest(t, handler, http.MethodGet, "/api/v1/admin/users?q=alice", "", &admin)
-	if users.Code != http.StatusOK || !strings.Contains(users.Body.String(), `"username":"alice"`) ||
-		strings.Contains(users.Body.String(), "passwordHash") {
-		t.Fatalf("list users = %d %s", users.Code, users.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return users.Code != http.StatusOK }, func() bool { return !strings.Contains(users.Body.String(), `"username":"alice"`) }, func() bool { return strings.Contains(users.Body.String(), "passwordHash") }), "list users = %d %s", users.Code, users.Body.String())
 	emptyQuery := accountHTTPRequest(t, handler, http.MethodGet, "/api/v1/admin/users?q=%20", "", &admin)
-	if emptyQuery.Code != http.StatusBadRequest || !strings.Contains(emptyQuery.Body.String(), "INVALID_QUERY") {
-		t.Fatalf("empty user query = %d %s", emptyQuery.Code, emptyQuery.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return emptyQuery.Code != http.StatusBadRequest }, func() bool { return !strings.Contains(emptyQuery.Body.String(), "INVALID_QUERY") }), "empty user query = %d %s", emptyQuery.Code, emptyQuery.Body.String())
 
-	memberCreate := httptest.NewRequest(
+	memberCreate := httptest.NewRequestWithContext(context.Background(),
 		http.MethodPost, "/api/v1/admin/invitations", strings.NewReader(`{"role":"USER","confirmAdminRole":false}`),
 	)
 	memberCreate.Header.Set("Content-Type", "application/json")
@@ -146,7 +130,5 @@ func TestAccountAdministrationHTTPInvitationAndAuthorization(t *testing.T) {
 	memberCreate.AddCookie(member.cookie)
 	forbidden := httptest.NewRecorder()
 	handler.ServeHTTP(forbidden, memberCreate)
-	if forbidden.Code != http.StatusForbidden || !strings.Contains(forbidden.Body.String(), "ADMIN_REQUIRED") {
-		t.Fatalf("member admin operation = %d %s", forbidden.Code, forbidden.Body.String())
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return forbidden.Code != http.StatusForbidden }, func() bool { return !strings.Contains(forbidden.Body.String(), "ADMIN_REQUIRED") }), "member admin operation = %d %s", forbidden.Code, forbidden.Body.String())
 }

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestTagMigrationUpgradesVersion33AndPreservesPegasusCollections(t *testing.T) {
@@ -19,9 +20,7 @@ func TestTagMigrationUpgradesVersion33AndPreservesPegasusCollections(t *testing.
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -79,7 +78,7 @@ VALUES(?,?,'tag.migration','Tag Migration Admin','ADMIN','ENABLED',1,1)`, []any{
 	}
 	var version int
 	var snapshot string
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT (SELECT max(version) FROM schema_migrations),tag_snapshot_json
 FROM pegasus_import_collections WHERE id=?
 `, collectionID).Scan(&version, &snapshot); err != nil || version != 39 || snapshot != "[]" {
@@ -87,7 +86,7 @@ FROM pegasus_import_collections WHERE id=?
 	}
 	for _, table := range []string{"tags", "game_tags", "review_draft_tags", "pegasus_collection_tags"} {
 		var found int
-		if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&found); err != nil || found != 1 {
+		if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&found); err != nil || found != 1 {
 			t.Fatalf("table %s = %d, %v", table, found, err)
 		}
 	}

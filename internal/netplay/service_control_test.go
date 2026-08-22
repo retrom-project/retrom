@@ -13,15 +13,14 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
+	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
 
 func openNetplayTestDatabase(ctx context.Context, t *testing.T, now func() time.Time) *store.DB {
 	t.Helper()
 	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {
 		cleanup.Error("close", database.Close())
 		t.Fatal(err)
@@ -37,7 +36,7 @@ func TestRoomCreationCapacityAndDraftExpiryAreTransactional(t *testing.T) {
 	defer func() { cleanup.Error("close", database.Close()) }()
 	profiles := []string{"01980000-0000-7000-8000-000000000001", "01980000-0000-7000-8000-000000000002"}
 	for index, profileID := range profiles {
-		if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)`, profileID, "Player", int64(index)); err != nil {
+		if _, err := database.SQL.ExecContext(context.Background(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)`, profileID, "Player", int64(index)); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -45,9 +44,7 @@ func TestRoomCreationCapacityAndDraftExpiryAreTransactional(t *testing.T) {
 		MaxActiveRooms: 1, DraftIdle: time.Minute, WaitingIdle: 2 * time.Minute, ReconnectLease: 10 * time.Second,
 	}, func() time.Time { return now })
 	created, err := service.CreateRoom(ctx, profiles[0])
-	if err != nil || created.State != RoomStateDraft || created.Version != 1 || created.SelfMemberID == nil || len(created.Members) != 1 {
-		t.Fatalf("created room = %#v, %v", created, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.State != RoomStateDraft }, func() bool { return created.Version != 1 }, func() bool { return created.SelfMemberID == nil }, func() bool { return len(created.Members) != 1 }), "created room = %#v, %v", created, err)
 	if _, err := service.CreateRoom(ctx, profiles[0]); !errors.Is(err, ErrCapacity) && !errors.Is(err, ErrRoomConflict) {
 		t.Fatalf("second hosted room error = %v", err)
 	}
@@ -59,11 +56,9 @@ func TestRoomCreationCapacityAndDraftExpiryAreTransactional(t *testing.T) {
 		t.Fatal(err)
 	}
 	expired, err := service.Room(ctx, created.RoomID, profiles[0])
-	if err != nil || expired.State != "EXPIRED" || expired.EndReason == nil || *expired.EndReason != "HARD_EXPIRED" || expired.EndedAtMS == nil {
-		t.Fatalf("expired room = %#v, %v", expired, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return expired.State != "EXPIRED" }, func() bool { return expired.EndReason == nil }, func() bool { return *expired.EndReason != "HARD_EXPIRED" }, func() bool { return expired.EndedAtMS == nil }), "expired room = %#v, %v", expired, err)
 	var eventType string
-	if err := database.SQL.QueryRow(`SELECT event_type FROM netplay_events WHERE room_id=? ORDER BY id DESC LIMIT 1`, created.RoomID).Scan(&eventType); err != nil || eventType != "ROOM_EXPIRED" {
+	if err := database.SQL.QueryRowContext(context.Background(), `SELECT event_type FROM netplay_events WHERE room_id=? ORDER BY id DESC LIMIT 1`, created.RoomID).Scan(&eventType); err != nil || eventType != "ROOM_EXPIRED" {
 		t.Fatalf("expiry event = %q, %v", eventType, err)
 	}
 }
@@ -78,22 +73,20 @@ func TestAcceptanceNP011SeventeenthActiveRoomIsRejectedWithoutEviction(t *testin
 	rooms := make([]string, 0, 16)
 	for index := 0; index < 17; index++ {
 		profileID := fmt.Sprintf("01980000-0000-7000-8000-%012x", index+1)
-		if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)`, profileID, "Player", now.UnixMilli()); err != nil {
+		if _, err := database.SQL.ExecContext(context.Background(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)`, profileID, "Player", now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
 		room, err := service.CreateRoom(ctx, profileID)
 		if index < 16 {
-			if err != nil {
-				t.Fatalf("room %d: %v", index+1, err)
-			}
+			testassert.Falsef(t, err != nil, "room %d: %v", index+1, err)
 			rooms = append(rooms, room.RoomID)
-		} else if !errors.Is(err, ErrCapacity) {
-			t.Fatalf("17th room error = %v", err)
+		} else {
+			testassert.Truef(t, errors.Is(err, ErrCapacity), "17th room error = %v", err)
 		}
 	}
 	for _, roomID := range rooms {
 		var state string
-		if err := database.SQL.QueryRow(`SELECT state FROM netplay_rooms WHERE id=?`, roomID).Scan(&state); err != nil || state != RoomStateDraft {
+		if err := database.SQL.QueryRowContext(context.Background(), `SELECT state FROM netplay_rooms WHERE id=?`, roomID).Scan(&state); err != nil || state != RoomStateDraft {
 			t.Fatalf("existing room %s state=%s err=%v", roomID, state, err)
 		}
 	}
@@ -127,34 +120,32 @@ func TestGamePageBoundsInitialCatalogWorkAndUsesStableCursor(t *testing.T) {
 	now := time.UnixMilli(1_786_000_000_000).UTC()
 	database := openNetplayTestDatabase(ctx, t, func() time.Time { return now })
 	defer func() { cleanup.Error("close", database.Close()) }()
-	if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('paging-profile','Player',?)`, now.UnixMilli()); err != nil {
+	if _, err := database.SQL.ExecContext(context.Background(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('paging-profile','Player',?)`, now.UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
 	transaction, err := database.SQL.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.Exec(`PRAGMA defer_foreign_keys=ON`); err != nil {
+	if _, err := transaction.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
 	for index := 0; index < 205; index++ {
 		gameID := fmt.Sprintf("01980000-0000-7000-8100-%012x", index)
 		metadataID := fmt.Sprintf("01980000-0000-7000-8200-%012x", index)
 		contentID := fmt.Sprintf("01980000-0000-7000-8300-%012x", index)
-		if _, err := transaction.Exec(`
+		if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO game_metadata_revisions(id,game_id,title,description,developer,publisher,genre,players,release_year,source_kind,created_at_ms)
 VALUES(?,?,?,'','','','',NULL,NULL,'ADMIN_EDIT',?)
 `, metadataID, gameID, fmt.Sprintf("Game %03d", index), now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := transaction.Exec(`
+		if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
 VALUES(?,?,'ADMIN_REPLACE',?,'{}',?,?)
 `, contentID, gameID, gameID, strings.Repeat("7", 64), now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
-		if _, err := transaction.Exec(`
+		if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
 VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
 `, gameID, metadataID, contentID, fmt.Sprintf("game %03d", index), now.UnixMilli(), now.UnixMilli()); err != nil {
@@ -166,42 +157,26 @@ VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
 	}
 	service := NewService(database.SQL, nil, nil, Options{}, func() time.Time { return now })
 	first, hasMore, err := service.GamePage(ctx, "paging-profile", "ALL", "", "", 100)
-	if err != nil || !hasMore || len(first) != 100 {
-		t.Fatalf("first game page = len %d more %t error=%v", len(first), hasMore, err)
-	}
-	if first[0].Title != "Game 000" || first[99].Title != "Game 099" {
-		t.Fatalf("first game page bounds = %q/%q", first[0].Title, first[99].Title)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !hasMore }, func() bool { return len(first) != 100 }), "first game page = len %d more %t error=%v", len(first), hasMore, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return first[0].Title != "Game 000" }, func() bool { return first[99].Title != "Game 099" }), "first game page bounds = %q/%q", first[0].Title, first[99].Title)
 	second, hasMore, err := service.GamePage(
 		ctx, "paging-profile", "ALL", strings.ToLower(first[99].Title), first[99].GameID, 100,
 	)
-	if err != nil || !hasMore || len(second) != 100 {
-		t.Fatalf("second game page = len %d more %t error=%v", len(second), hasMore, err)
-	}
-	if second[0].Title != "Game 100" || second[99].Title != "Game 199" {
-		t.Fatalf("second game page bounds = %q/%q", second[0].Title, second[99].Title)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !hasMore }, func() bool { return len(second) != 100 }), "second game page = len %d more %t error=%v", len(second), hasMore, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return second[0].Title != "Game 100" }, func() bool { return second[99].Title != "Game 199" }), "second game page bounds = %q/%q", second[0].Title, second[99].Title)
 	third, hasMore, err := service.GamePage(
 		ctx, "paging-profile", "ALL", strings.ToLower(second[99].Title), second[99].GameID, 100,
 	)
-	if err != nil || hasMore || len(third) != 5 {
-		t.Fatalf("third game page = len %d more %t error=%v", len(third), hasMore, err)
-	}
-	if third[0].Title != "Game 200" || third[4].Title != "Game 204" {
-		t.Fatalf("third game page bounds = %q/%q", third[0].Title, third[4].Title)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return hasMore }, func() bool { return len(third) != 5 }), "third game page = len %d more %t error=%v", len(third), hasMore, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return third[0].Title != "Game 200" }, func() bool { return third[4].Title != "Game 204" }), "third game page bounds = %q/%q", third[0].Title, third[4].Title)
 }
 
 func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 	t.Parallel()
 	manifest, err := os.ReadFile(filepath.Join("..", "..", "data", "netplay", "v1", "manifest.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	registry, err := parseRegistry(manifest, fixtureDependencySet())
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	service := &Service{registry: registry}
 	tests := []struct {
 		profileID, coreID, artifactSHA, logicalName string
@@ -221,30 +196,22 @@ func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 		t.Run(test.coreID, func(t *testing.T) {
 			t.Parallel()
 			profile, ok := registry.Profile(test.profileID)
-			if !ok {
-				t.Fatalf("profile %q missing", test.profileID)
-			}
+			testassert.Truef(t, ok, "profile %q missing", test.profileID)
 			contentAllowed, artifactMatches := service.matchesCoreProfile(eligibilityRow{
 				coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
 				artifactEnabled: 1, contentKind: "SINGLE_FILE", logicalName: test.logicalName,
 			}, profile)
-			if !contentAllowed || !artifactMatches {
-				t.Fatalf("arbitrary %s content did not match core profile", test.coreID)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return !artifactMatches }), "arbitrary %s content did not match core profile", test.coreID)
 			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
 				coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
 				artifactEnabled: 1, contentKind: "MULTI_DISC_M3U_V1",
 			}, profile)
-			if contentAllowed || artifactMatches {
-				t.Fatalf("unsupported %s content kind matched core profile", test.coreID)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return contentAllowed }, func() bool { return artifactMatches }), "unsupported %s content kind matched core profile", test.coreID)
 			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
 				coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: strings.Repeat("f", 64),
 				artifactEnabled: 1, contentKind: "SINGLE_FILE",
 			}, profile)
-			if !contentAllowed || artifactMatches {
-				t.Fatalf("drifted %s artifact matched core profile", test.coreID)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return artifactMatches }), "drifted %s artifact matched core profile", test.coreID)
 		})
 	}
 }
@@ -268,11 +235,9 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	)
 	snapshot := fmt.Sprintf(`{"schemaVersion":2,"machine":"child","datVersionId":%q,"closure":[{"machine":"child","kind":"CONTENT","requiredBy":null,"depth":0},{"machine":"bios","kind":"BIOS_OR_BASE","requiredBy":"child","depth":1}],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","requiredBy":"child","depth":1,"expectedLogicalName":"bios.zip","state":"SATISFIED_EXTERNAL","requiredEntryCount":1,"requiredEntries":["bios.bin"]}],"missingEntries":[],"mismatchedEntries":[],"warnings":[]}`, datID)
 	tx, err := database.SQL.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(tx)
-	if _, err := tx.Exec(`PRAGMA defer_foreign_keys=ON`); err != nil {
+	if _, err := tx.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
 	statements := []struct {
@@ -294,7 +259,7 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 		{`INSERT INTO variant_files(game_variant_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'BIOS_BUNDLE','bios.zip',?,0)`, []any{revisionID, biosBlob}},
 	}
 	for _, statement := range statements {
-		if _, err := tx.Exec(statement.query, statement.args...); err != nil {
+		if _, err := tx.ExecContext(context.Background(), statement.query, statement.args...); err != nil {
 			t.Fatalf("fixture statement %q: %v", statement.query, err)
 		}
 	}
@@ -307,14 +272,10 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 		datVersionID: sql.NullString{String: datID, Valid: true},
 	}
 	runnable, err := service.arcadeDependencySnapshotRunnable(ctx, row)
-	if err != nil || !runnable {
-		t.Fatalf("schema-v2 Arcade revision runnable=%t error=%v", runnable, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !runnable }), "schema-v2 Arcade revision runnable=%t error=%v", runnable, err)
 	row.dependencyJSON = `{"schemaVersion":1,"bios":[]}`
 	runnable, err = service.arcadeDependencySnapshotRunnable(ctx, row)
-	if err != nil || runnable {
-		t.Fatalf("legacy Arcade revision runnable=%t error=%v", runnable, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return runnable }), "legacy Arcade revision runnable=%t error=%v", runnable, err)
 }
 
 func TestHostCannotClaimGuestSeatThroughTheService(t *testing.T) {
@@ -372,7 +333,7 @@ func TestPrepareFailureReturnsRoomToWaitingAndClearsReady(t *testing.T) {
 	hostID := "01980000-0000-7000-8000-000000000001"
 	guestID := "01980000-0000-7000-8000-000000000002"
 	for _, profileID := range []string{hostID, guestID} {
-		if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)`, profileID, "Player", now.UnixMilli()); err != nil {
+		if _, err := database.SQL.ExecContext(context.Background(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES(?,?,?)`, profileID, "Player", now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
 	}
@@ -380,9 +341,7 @@ func TestPrepareFailureReturnsRoomToWaitingAndClearsReady(t *testing.T) {
 		MaxActiveRooms: 16, DraftIdle: time.Minute, WaitingIdle: 2 * time.Minute, ReconnectLease: 10 * time.Second,
 	}, func() time.Time { return now })
 	room, err := service.CreateRoom(ctx, hostID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	const (
 		gameID            = "01980000-0000-7000-8000-000000000010"
 		metadataID        = "01980000-0000-7000-8000-000000000011"
@@ -395,11 +354,9 @@ func TestPrepareFailureReturnsRoomToWaitingAndClearsReady(t *testing.T) {
 		contentBlobID     = "01980000-0000-7000-8000-000000000018"
 	)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.Exec(`PRAGMA defer_foreign_keys=ON`); err != nil {
+	if _, err := transaction.ExecContext(context.Background(), `PRAGMA defer_foreign_keys=ON`); err != nil {
 		t.Fatal(err)
 	}
 	statements := []struct {
@@ -424,20 +381,20 @@ VALUES(?,?,?,?,?,9001,'READY','READY','{"schemaVersion":1,"bios":[]}',?)`, []any
 		{`UPDATE netplay_rooms SET state='WAITING',selected_game_id=?,selected_game_variant_revision_id=?,netplay_profile_id='fixture',profile_digest=?,max_players=2 WHERE id=?`, []any{gameID, variantRevisionID, strings.Repeat("4", 64), room.RoomID}},
 	}
 	for _, statement := range statements {
-		if _, err := transaction.Exec(statement.query, statement.args...); err != nil {
+		if _, err := transaction.ExecContext(context.Background(), statement.query, statement.args...); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := transaction.Exec(`
+	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO netplay_room_members(id,room_id,profile_id,role,player_no,ready,version,joined_at_ms,updated_at_ms)
 VALUES(?,?,?,'GUEST',2,1,1,?,?)
 `, guestMemberID, room.RoomID, guestID, now.UnixMilli(), now.UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := transaction.Exec(`UPDATE netplay_room_members SET ready=1 WHERE room_id=? AND role='HOST'`, room.RoomID); err != nil {
+	if _, err := transaction.ExecContext(context.Background(), `UPDATE netplay_room_members SET ready=1 WHERE room_id=? AND role='HOST'`, room.RoomID); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := transaction.Exec(`
+	if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO netplay_sessions(id,room_id,session_no,state,game_id,game_variant_revision_id,core_artifact_id,
 netplay_profile_id,profile_json,profile_digest,player_count,occupied_seat_mask,authority_player_no,resync_count,version,created_at_ms,updated_at_ms)
 VALUES(?,?,1,'PREPARING',?,?,?,'fixture','{}',?,2,3,1,0,1,?,?)
@@ -450,14 +407,14 @@ VALUES(?,?,1,'PREPARING',?,?,?,'fixture','{}',?,2,3,1,0,1,?,?)
 	}{
 		{hostID, *room.SelfMemberID, 1}, {guestID, guestMemberID, 2},
 	} {
-		if _, err := transaction.Exec(`
+		if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO netplay_session_participants(netplay_session_id,profile_id,room_member_id,player_no,state,credential_generation,version,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 `, sessionID, participant.profileID, participant.memberID, participant.playerNo, now.UnixMilli(), now.UnixMilli()); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if _, err := transaction.Exec(`UPDATE netplay_rooms SET state='STARTING',current_session_id=? WHERE id=?`, sessionID, room.RoomID); err != nil {
+	if _, err := transaction.ExecContext(context.Background(), `UPDATE netplay_rooms SET state='STARTING',current_session_id=? WHERE id=?`, sessionID, room.RoomID); err != nil {
 		t.Fatal(err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -468,73 +425,47 @@ VALUES(?,?,?,?,'LOCKED',0,1,?,?)
 		t.Fatalf("failPreparation() error = %v", err)
 	}
 	updated, err := service.Room(ctx, room.RoomID, hostID)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if updated.State != RoomStateWaiting || len(updated.Members) != 2 || updated.Members[0].Ready || updated.Members[1].Ready || updated.CurrentSession != nil {
-		t.Fatalf("room after prepare failure = %#v", updated)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return updated.State != RoomStateWaiting }, func() bool { return len(updated.Members) != 2 }, func() bool { return updated.Members[0].Ready }, func() bool { return updated.Members[1].Ready }, func() bool { return updated.CurrentSession != nil }), "room after prepare failure = %#v", updated)
 	var sessionState, reason string
 	var left int
-	if err := database.SQL.QueryRow(`SELECT state,end_reason FROM netplay_sessions WHERE id=?`, sessionID).Scan(&sessionState, &reason); err != nil {
-		t.Fatal(err)
-	}
-	if err := database.SQL.QueryRow(`SELECT count(*) FROM netplay_session_participants WHERE netplay_session_id=? AND state='LEFT'`, sessionID).Scan(&left); err != nil {
-		t.Fatal(err)
-	}
-	if sessionState != "FAILED" || reason != "PREPARE_FAILED" || left != 2 {
-		t.Fatalf("session after prepare failure = state %q reason %q left %d", sessionState, reason, left)
-	}
+	err = database.SQL.QueryRowContext(context.Background(),
+		`SELECT state,end_reason FROM netplay_sessions WHERE id=?`, sessionID).Scan(&sessionState, &reason)
+	testassert.False(t, err != nil, err)
+	err = database.SQL.QueryRowContext(context.Background(),
+		`SELECT count(*) FROM netplay_session_participants WHERE netplay_session_id=? AND state='LEFT'`, sessionID,
+	).Scan(&left)
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return sessionState != "FAILED" }, func() bool { return reason != "PREPARE_FAILED" }, func() bool { return left != 2 }), "session after prepare failure = state %q reason %q left %d", sessionState, reason, left)
 	manifest, err := os.ReadFile(filepath.Join("..", "..", "data", "netplay", "v1", "manifest.json"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	service.registry, err = parseRegistry(manifest, fixtureDependencySet())
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	games, err := service.Games(ctx, hostID, "SUPPORTED")
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(games) != 1 || games[0].GameID != gameID || len(games[0].NetplayProfiles) != 1 ||
-		games[0].NetplayProfiles[0].ID != "fceumm-423-v1" || games[0].BlockerCode != nil {
-		t.Fatalf("eligible games = %#v", games)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return len(games) != 1 }, func() bool { return games[0].GameID != gameID }, func() bool { return len(games[0].NetplayProfiles) != 1 }, func() bool { return games[0].NetplayProfiles[0].ID != "fceumm-423-v1" }, func() bool { return games[0].BlockerCode != nil }), "eligible games = %#v", games)
 	eligible, err := service.eligibleProfiles(ctx, gameID)
-	if err != nil || len(eligible) != 1 {
-		t.Fatalf("eligible profile for retry = %#v, %v", eligible, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(eligible) != 1 }), "eligible profile for retry = %#v, %v", eligible, err)
 	_, retryDigest, err := service.registry.CanonicalProfile(CanonicalProfileInput{
 		ManifestProfile: eligible[0].Manifest, CoreArtifactID: eligible[0].CoreArtifactID,
 		GameVariantRevisionID:  eligible[0].VariantRevisionID,
 		DependencySnapshotJSON: eligible[0].DependencySnapshotJSON,
 		DefaultCoreOptions:     eligible[0].DefaultCoreOptions,
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.Exec(`
+	testassert.False(t, err != nil, err)
+	if _, err := database.SQL.ExecContext(context.Background(), `
 UPDATE netplay_rooms SET netplay_profile_id=?,profile_digest=?,version=version+1 WHERE id=?
 `, eligible[0].Manifest.ID, retryDigest, room.RoomID); err != nil {
 		t.Fatal(err)
 	}
 	updated, err = service.Room(ctx, room.RoomID, hostID)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	retryContext, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
 	updated, err = service.SetReady(retryContext, room.RoomID, hostID, true, updated.Version)
-	if err != nil {
-		t.Fatalf("host ready after preparation retry: %v", err)
-	}
+	testassert.Falsef(t, err != nil, "host ready after preparation retry: %v", err)
 	updated, err = service.SetReady(retryContext, room.RoomID, guestID, true, updated.Version)
-	if err != nil {
-		t.Fatalf("guest ready after preparation retry: %v", err)
-	}
+	testassert.Falsef(t, err != nil, "guest ready after preparation retry: %v", err)
 	updated, err = service.Start(retryContext, room.RoomID, hostID, updated.Version)
-	if err != nil || updated.State != RoomStateStarting || updated.CurrentSession == nil {
-		t.Fatalf("restart after preparation failure = %#v, %v", updated, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return updated.State != RoomStateStarting }, func() bool { return updated.CurrentSession == nil }), "restart after preparation failure = %#v, %v", updated, err)
 }

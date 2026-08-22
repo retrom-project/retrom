@@ -7,9 +7,9 @@ const INFO = new Set(["NEEDS_VALIDATION", "PENDING", "PARSING", "RUNNING", "QUEU
 
 export function statusTone(status: string | null | undefined): StatusTone {
   const normalized = status?.trim().toUpperCase() ?? "";
-  if (GOOD.has(normalized)) return "good";
-  if (WARN.has(normalized)) return "warn";
-  if (BAD.has(normalized)) return "bad";
-  if (INFO.has(normalized)) return "info";
+  if (GOOD.has(normalized)) {return "good";}
+  if (WARN.has(normalized)) {return "warn";}
+  if (BAD.has(normalized)) {return "bad";}
+  if (INFO.has(normalized)) {return "info";}
   return "neutral";
 }

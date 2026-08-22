@@ -53,7 +53,7 @@ func Load() ([]Edge, error) {
 	return value.Edges, nil
 }
 
-//nolint:gocyclo // Every branch validates a distinct generated registry/schema invariant in one audit pass.
+// Every branch validates a distinct generated registry/schema invariant in one audit pass.
 func ValidateSchema(ctx context.Context, database *sql.DB) error {
 	edges, err := Load()
 	if err != nil {
@@ -63,41 +63,56 @@ func ValidateSchema(ctx context.Context, database *sql.DB) error {
 	for _, edge := range edges {
 		expected[edge.Table+"."+edge.Column] = edge
 	}
-	rows, err := database.QueryContext(
-		ctx,
-		`
-SELECT name
-FROM sqlite_schema
-WHERE type='table'
-AND name NOT LIKE 'sqlite_%'
-ORDER BY name
-`,
-	)
+	actual, err := schemaBlobReferences(ctx, database)
 	if err != nil {
-		return fmt.Errorf("blobregistry/registry: %w", err)
+		return err
+	}
+	problems := compareBlobReferences(expected, actual)
+	sort.Strings(problems)
+	if len(problems) > 0 {
+		return fmt.Errorf("%w: %v", errRegistryMismatch, problems)
+	}
+	return nil
+}
+
+func schemaBlobReferences(ctx context.Context, database *sql.DB) (map[string]string, error) {
+	rows, err := database.QueryContext(ctx, `
+SELECT name FROM sqlite_schema
+WHERE type='table' AND name NOT LIKE 'sqlite_%'
+ORDER BY name
+`)
+	if err != nil {
+		return nil, fmt.Errorf("blobregistry/registry: %w", err)
 	}
 	defer func() { cleanup.Error("close", rows.Close()) }()
 	var tables []string
 	for rows.Next() {
 		var table string
 		if err := rows.Scan(&table); err != nil {
-			return fmt.Errorf("blobregistry/registry: %w", err)
+			return nil, fmt.Errorf("blobregistry/registry: %w", err)
 		}
 		tables = append(tables, table)
 	}
 	if err := rows.Err(); err != nil {
-		return fmt.Errorf("blobregistry/registry: %w", err)
+		return nil, fmt.Errorf("blobregistry/registry: %w", err)
 	}
-	actual := map[string]string{}
+	if err := rows.Close(); err != nil {
+		return nil, fmt.Errorf("blobregistry/registry: close schema rows: %w", err)
+	}
+	result := make(map[string]string)
 	for _, table := range tables {
 		keys, err := foreignKeyTargets(ctx, database, table)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		for key, target := range keys {
-			actual[key] = target
+			result[key] = target
 		}
 	}
+	return result, nil
+}
+
+func compareBlobReferences(expected map[string]Edge, actual map[string]string) []string {
 	var problems []string
 	for key, edge := range expected {
 		target := "blobs.id"
@@ -109,17 +124,12 @@ ORDER BY name
 		}
 	}
 	for key, target := range actual {
-		if target == "blobs.id" {
-			if _, exists := expected[key]; !exists {
-				problems = append(problems, "schema-only:"+key)
-			}
+		_, exists := expected[key]
+		if target == "blobs.id" && !exists {
+			problems = append(problems, "schema-only:"+key)
 		}
 	}
-	sort.Strings(problems)
-	if len(problems) > 0 {
-		return fmt.Errorf("%w: %v", errRegistryMismatch, problems)
-	}
-	return nil
+	return problems
 }
 
 func foreignKeyTargets(ctx context.Context, database *sql.DB, table string) (map[string]string, error) {

@@ -25,9 +25,9 @@ export function filterRecentGames(games: RecentGame[], filters: RecentGameFilter
   const periodDays = filters.period === "7d" ? 7 : filters.period === "30d" ? 30 : null;
   const cutoff = periodDays === null ? null : filters.nowMs - periodDays * DAY_MS;
   const result = games.filter((game) => {
-    if (filters.platformId && game.platform.id !== filters.platformId) return false;
-    if (cutoff !== null && game.lastPlayedAtMs < cutoff) return false;
-    if (!query) return true;
+    if (filters.platformId && game.platform.id !== filters.platformId) {return false;}
+    if (cutoff !== null && game.lastPlayedAtMs < cutoff) {return false;}
+    if (!query) {return true;}
     return [game.title, game.platform.name, game.platformInstance.name, ...(game.tags ?? []).map((tag) => tag.name)]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   });
@@ -60,9 +60,9 @@ export function startOfLocalDay(nowMs: number) {
 }
 
 export function formatRecentDuration(value: number) {
-  if (value < 60_000) return "少于 1 分钟";
+  if (value < 60_000) {return "少于 1 分钟";}
   const minutes = Math.floor(value / 60_000);
-  if (minutes < 60) return `${minutes} 分钟`;
+  if (minutes < 60) {return `${minutes} 分钟`;}
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return remainder === 0 ? `${hours} 小时` : `${hours} 小时 ${remainder} 分`;

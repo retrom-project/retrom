@@ -8,14 +8,13 @@ import (
 	"testing"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestDeclaredPathNormalization(t *testing.T) {
 	t.Parallel()
 	value, err := ResolveDeclaredPath("FC/metadata.pegasus.txt", `roms\Metal Max.zip`)
-	if err != nil || value != "FC/roms/Metal Max.zip" {
-		t.Fatalf("resolved = %q, error=%v", value, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return value != "FC/roms/Metal Max.zip" }), "resolved = %q, error=%v", value, err)
 	for _, value := range []string{"/absolute", `C:\game.rom`, `\\server\share`, "../escape", "a//b", "https://host/game"} {
 		if _, err := NormalizeDeclaredPath(value); !errors.Is(err, ErrPathInvalid) {
 			t.Fatalf("NormalizeDeclaredPath(%q) error = %v", value, err)
@@ -39,27 +38,19 @@ func TestWalkAndOpenStayWithinNoFollowDescriptors(t *testing.T) {
 		t.Fatal(err)
 	}
 	directory, err := OpenSelectedDirectory(rootPath, "selected")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", directory.Close()) }()
 	var found File
 	counts, err := WalkFiles(directory, Limits{MaxDepth: 4, MaxDirectories: 8, MaxFiles: 8}, func(file File) error {
 		found = file
 		return nil
 	})
-	if err != nil || found.RelativePath != "nested/game.rom" || counts.Files != 1 || counts.SkippedSpecial != 1 {
-		t.Fatalf("walk = %#v/%#v, error=%v", found, counts, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return found.RelativePath != "nested/game.rom" }, func() bool { return counts.Files != 1 }, func() bool { return counts.SkippedSpecial != 1 }), "walk = %#v/%#v, error=%v", found, counts, err)
 	handle, before, err := OpenRelativeFile(rootPath, "selected", found.RelativePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	after, err := handle.Stat()
 	cleanup.Error("close", handle.Close())
-	if err != nil || !SameFileFacts(before, after) {
-		t.Fatalf("file facts error=%v", err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !SameFileFacts(before, after) }), "file facts error=%v", err)
 	if _, _, err := OpenRelativeFile(rootPath, "selected", "escape/file"); err == nil {
 		t.Fatal("symlink escape opened")
 	}

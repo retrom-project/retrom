@@ -51,6 +51,8 @@ jobs:
             data/dat/emulatorjs/*/fbalpha2012_cps2
             data/auth/password-blocklists/*/payload
           key: retrom-dependencies-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('data/dat/**', 'data/auth/**', 'data/netplay/**', 'scripts/dependencies.py', 'scripts/fbalpha2012_dat.py', 'scripts/fbalpha2012-dat-enumerator.cpp') }}
+      - name: Run the fast source structure gate
+        run: make quality-structure-check
       - name: Prepare pinned runtime dependencies
         run: make prepare-deps
       - name: Run the repository quality gate

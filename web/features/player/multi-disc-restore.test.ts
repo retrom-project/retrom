@@ -38,7 +38,7 @@ describe("prepareMultiDiscLaunch", () => {
 
   it("keeps the main loop stopped when disc selection fails", () => {
     const { calls, instance } = fixture();
-    if (instance.gameManager) instance.gameManager.getDiskCount = () => 2;
+    if (instance.gameManager) {instance.gameManager.getDiskCount = () => 2;}
     expect(() => prepareMultiDiscLaunch(instance, discSet)).toThrow("PLAYER_DISC_SET_INVALID");
     expect(calls).toEqual(["loop:false"]);
   });

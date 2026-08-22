@@ -49,8 +49,8 @@ export const initialPlayerOrientationState: PlayerOrientationState = {
 };
 
 function resumeFromBlock(state: PlayerOrientationState): PlayerOrientationTransition {
-  if (!state.started) return { state: { ...state, phase: "preflight" }, effects: [] };
-  if (state.hidden) return { state, effects: [] };
+  if (!state.started) {return { state: { ...state, phase: "preflight" }, effects: [] };}
+  if (state.hidden) {return { state, effects: [] };}
   if (state.runtimeKind === "single" && !state.pausedBeforeBlock) {
     return { state: { ...state, phase: "running" }, effects: ["resume-single"] };
   }
@@ -61,39 +61,51 @@ function resumeFromBlock(state: PlayerOrientationState): PlayerOrientationTransi
 }
 
 export function reducePlayerOrientation(state: PlayerOrientationState, action: PlayerOrientationAction): PlayerOrientationTransition {
-  if (action.type === "config-ready") {
-    const next = {
-      ...state,
-      mobile: action.mobile,
-      portrait: action.portrait,
-      runtimeKind: action.runtimeKind,
-      phase: action.mobile && action.portrait ? "orientation-blocked" as const : "preflight" as const,
-    };
-    return { state: next, effects: [] };
+  switch (action.type) {
+    case "config-ready": return reduceConfigReady(state, action);
+    case "runtime-started":
+      return { state: { ...state, started: true, pausedBeforeBlock: action.paused, phase: "running" }, effects: [] };
+    case "exit":
+      return { state: { ...state, phase: "exiting" }, effects: state.mobile ? ["unlock"] : [] };
+    case "netplay-pause-owned": return reduceNetplayPauseOwned(state);
+    case "visibility": return reduceVisibility(state, action.hidden);
+    case "orientation-stable": return reduceOrientationStable(state, action);
   }
-  if (action.type === "runtime-started") {
-    return { state: { ...state, started: true, pausedBeforeBlock: action.paused, phase: "running" }, effects: [] };
+}
+
+function reduceConfigReady(
+  state: PlayerOrientationState,
+  action: Extract<PlayerOrientationAction, { type: "config-ready" }>,
+): PlayerOrientationTransition {
+  const phase = action.mobile && action.portrait ? "orientation-blocked" as const : "preflight" as const;
+  return { state: { ...state, mobile: action.mobile, portrait: action.portrait, runtimeKind: action.runtimeKind, phase }, effects: [] };
+}
+
+function reduceNetplayPauseOwned(state: PlayerOrientationState): PlayerOrientationTransition {
+  const next = { ...state, netplayPauseOwned: true };
+  if (!next.portrait && !next.hidden && next.started) {
+    return { state: { ...next, phase: "running", netplayPauseOwned: false }, effects: ["resume-netplay"] };
   }
-  if (action.type === "exit") {
-    return { state: { ...state, phase: "exiting" }, effects: state.mobile ? ["unlock"] : [] };
+  return { state: next, effects: [] };
+}
+
+function reduceVisibility(state: PlayerOrientationState, hidden: boolean): PlayerOrientationTransition {
+  const next = { ...state, hidden };
+  if (!hidden && next.mobile && !next.portrait && next.phase === "orientation-blocked") {
+    return resumeFromBlock(next);
   }
-  if (action.type === "netplay-pause-owned") {
-    const next = { ...state, netplayPauseOwned: true };
-    if (!next.portrait && !next.hidden && next.started) {
-      return { state: { ...next, phase: "running", netplayPauseOwned: false }, effects: ["resume-netplay"] };
-    }
-    return { state: next, effects: [] };
-  }
-  if (action.type === "visibility") {
-    const next = { ...state, hidden: action.hidden };
-    if (!action.hidden && next.mobile && !next.portrait && next.phase === "orientation-blocked") return resumeFromBlock(next);
-    return { state: next, effects: [] };
-  }
+  return { state: next, effects: [] };
+}
+
+function reduceOrientationStable(
+  state: PlayerOrientationState,
+  action: Extract<PlayerOrientationAction, { type: "orientation-stable" }>,
+): PlayerOrientationTransition {
   if (!state.mobile || state.phase === "exiting") {
     return { state: { ...state, portrait: action.portrait }, effects: [] };
   }
   if (action.portrait) {
-    if (state.portrait && state.phase === "orientation-blocked") return { state, effects: [] };
+    if (state.portrait && state.phase === "orientation-blocked") {return { state, effects: [] };}
     const next = {
       ...state,
       portrait: true,
@@ -101,39 +113,39 @@ export function reducePlayerOrientation(state: PlayerOrientationState, action: P
       pausedBeforeBlock: state.started ? action.paused : state.pausedBeforeBlock,
       netplayPauseOwned: false,
     };
-    if (!state.started) return { state: next, effects: [] };
+    if (!state.started) {return { state: next, effects: [] };}
     const effects: PlayerOrientationEffect[] = ["release-input"];
-    if (state.runtimeKind === "single" && !action.paused) effects.push("pause-single");
-    if (state.runtimeKind === "netplay-p1" && !action.paused) effects.push("pause-netplay");
-    if (state.runtimeKind === "netplay-p2") effects.push("warn-netplay-p2");
+    if (state.runtimeKind === "single" && !action.paused) {effects.push("pause-single");}
+    if (state.runtimeKind === "netplay-p1" && !action.paused) {effects.push("pause-netplay");}
+    if (state.runtimeKind === "netplay-p2") {effects.push("warn-netplay-p2");}
     return { state: next, effects };
   }
   const next = { ...state, portrait: false };
-  if (state.phase !== "orientation-blocked") return { state: next, effects: [] };
+  if (state.phase !== "orientation-blocked") {return { state: next, effects: [] };}
   return resumeFromBlock(next);
 }
 
 export function observeStableOrientation(query: MediaQueryList, callback: (portrait: boolean) => void, delayMs = orientationStabilityMs) {
   let timer: number | undefined;
   const schedule = () => {
-    if (timer !== undefined) window.clearTimeout(timer);
+    if (timer !== undefined) {window.clearTimeout(timer);}
     const expected = query.matches;
     timer = window.setTimeout(() => {
       timer = undefined;
-      if (query.matches === expected) callback(expected);
+      if (query.matches === expected) {callback(expected);}
     }, delayMs);
   };
   query.addEventListener("change", schedule);
   window.addEventListener("orientationchange", schedule);
   return () => {
-    if (timer !== undefined) window.clearTimeout(timer);
+    if (timer !== undefined) {window.clearTimeout(timer);}
     query.removeEventListener("change", schedule);
     window.removeEventListener("orientationchange", schedule);
   };
 }
 
 export function waitForStableLandscape(query: MediaQueryList, signal: AbortSignal, onPortrait: (portrait: boolean) => void) {
-  if (!query.matches) return Promise.resolve();
+  if (!query.matches) {return Promise.resolve();}
   onPortrait(true);
   return new Promise<void>((resolve, reject) => {
     const stop = observeStableOrientation(query, (portrait) => {
@@ -168,7 +180,7 @@ export async function requestFullscreenAndLandscape(root: HTMLElement = document
     .catch(() => document.fullscreenElement ? "active" as const : "denied" as const);
   const fullscreen = await fullscreenRequest;
   const orientation = screen.orientation as LockableOrientation | undefined;
-  if (typeof orientation?.lock !== "function") return { fullscreen, orientation: "unsupported" };
+  if (typeof orientation?.lock !== "function") {return { fullscreen, orientation: "unsupported" };}
   const locked = await orientation.lock("landscape").then(() => "locked" as const).catch(() => "denied" as const);
   return { fullscreen, orientation: locked };
 }

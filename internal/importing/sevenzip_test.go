@@ -3,8 +3,6 @@ package importing
 import (
 	"bytes"
 	"context"
-	"crypto/md5"  //nolint:gosec // The archive contract records legacy checksums.
-	"crypto/sha1" //nolint:gosec // The archive contract records legacy checksums.
 	"crypto/sha256"
 	"encoding/binary"
 	"encoding/hex"
@@ -15,6 +13,9 @@ import (
 	"path/filepath"
 	"testing"
 	"time"
+
+	"retrom/internal/legacychecksum"
+	"retrom/internal/testassert"
 )
 
 func TestMain(m *testing.M) {
@@ -32,36 +33,20 @@ func TestSevenZipWorkerScansAndExtractsDeterministicArchive(t *testing.T) {
 	t.Parallel()
 	archivePath := filepath.Join("testdata", "sevenzip", "single.7z")
 	payload, err := os.ReadFile(filepath.Join("testdata", "sevenzip", "payload", "game.a26"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	entries, err := ScanSevenZip(context.Background(), archivePath, DefaultArchiveLimits())
-	if err != nil {
-		t.Fatal(err)
-	}
-	if len(entries) != 1 {
-		t.Fatalf("entry count = %d", len(entries))
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, len(entries) != 1, "entry count = %d", len(entries))
 	entry := entries[0]
 	sha256Digest := sha256.Sum256(payload)
-	md5Digest := md5.Sum(payload)   //nolint:gosec // The archive contract records legacy checksums.
-	sha1Digest := sha1.Sum(payload) //nolint:gosec // The archive contract records legacy checksums.
-	if entry.Ordinal != 0 || entry.NormalizedPath != "game.a26" || entry.Size != int64(len(payload)) ||
-		entry.ArchiveFormat != "SEVEN_Z" || entry.CompressionProfile != "SEVEN_Z_DECODER_VALIDATED" ||
-		entry.MD5 != hex.EncodeToString(md5Digest[:]) || entry.SHA1 != hex.EncodeToString(sha1Digest[:]) ||
-		entry.SHA256 != hex.EncodeToString(sha256Digest[:]) {
-		t.Fatalf("entry = %#v", entry)
-	}
-	if entry.CRC32 != crc32Hex(payload) {
-		t.Fatalf("CRC32 = %s", entry.CRC32)
-	}
+	md5Digest, sha1Digest := legacychecksum.Sum(payload)
+	testassert.Falsef(t, testassert.Any(func() bool { return entry.Ordinal != 0 }, func() bool { return entry.NormalizedPath != "game.a26" }, func() bool { return entry.Size != int64(len(payload)) }, func() bool { return entry.ArchiveFormat != "SEVEN_Z" }, func() bool { return entry.CompressionProfile != "SEVEN_Z_DECODER_VALIDATED" }, func() bool { return entry.MD5 != md5Digest }, func() bool { return entry.SHA1 != sha1Digest }, func() bool { return entry.SHA256 != hex.EncodeToString(sha256Digest[:]) }), "entry = %#v", entry)
+	testassert.Falsef(t, entry.CRC32 != crc32Hex(payload), "CRC32 = %s", entry.CRC32)
 	var extracted bytes.Buffer
 	if err := ExtractSevenZip(context.Background(), archivePath, entry, &extracted); err != nil {
 		t.Fatal(err)
 	}
-	if !bytes.Equal(extracted.Bytes(), payload) {
-		t.Fatalf("extracted payload = %q", extracted.Bytes())
-	}
+	testassert.Truef(t, bytes.Equal(extracted.Bytes(), payload), "extracted payload = %q", extracted.Bytes())
 }
 
 func TestSevenZipWorkerRejectsUnsupportedContainers(t *testing.T) {
@@ -85,9 +70,7 @@ func TestSevenZipWorkerRejectsUnsupportedContainers(t *testing.T) {
 				filepath.Join("testdata", "sevenzip", test.path),
 				DefaultArchiveLimits(),
 			)
-			if !errors.Is(err, test.want) {
-				t.Fatalf("ScanSevenZip() error = %v, want %v", err, test.want)
-			}
+			testassert.Truef(t, errors.Is(err, test.want), "ScanSevenZip() error = %v, want %v", err, test.want)
 		})
 	}
 }
@@ -104,9 +87,7 @@ func TestSevenZipPathValidationRejectsTraversalAndInvalidNames(t *testing.T) {
 func TestSevenZipWorkerRejectsSFXCorruptionAndLimits(t *testing.T) {
 	t.Parallel()
 	source, err := os.ReadFile(filepath.Join("testdata", "sevenzip", "single.7z"))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	tests := []struct {
 		name   string
 		bytes  []byte
@@ -126,9 +107,7 @@ func TestSevenZipWorkerRejectsSFXCorruptionAndLimits(t *testing.T) {
 				t.Fatal(err)
 			}
 			_, err := ScanSevenZip(context.Background(), path, test.limits)
-			if !errors.Is(err, test.want) {
-				t.Fatalf("ScanSevenZip() error = %v, want %v", err, test.want)
-			}
+			testassert.Truef(t, errors.Is(err, test.want), "ScanSevenZip() error = %v, want %v", err, test.want)
 		})
 	}
 }
@@ -163,9 +142,7 @@ func TestSevenZipEntryChecksumMismatchIsUnsafeNotNested(t *testing.T) {
 		int64(len(payload)),
 		crc32.ChecksumIEEE(payload)+1,
 	)
-	if !errors.Is(err, ErrArchiveUnsafe) || errors.Is(err, ErrNestedArchiveUnsupported) {
-		t.Fatalf("hashSevenZipEntry() error = %v", err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !errors.Is(err, ErrArchiveUnsafe) }, func() bool { return errors.Is(err, ErrNestedArchiveUnsupported) }), "hashSevenZipEntry() error = %v", err)
 }
 
 func TestArchiveWorkerFailuresHaveStableClassification(t *testing.T) {
@@ -205,9 +182,7 @@ func TestArchiveWorkerProcessFaultInjection(t *testing.T) {
 				return command
 			}
 			_, err := runArchiveWorkerProcess(ctx, archivePath, factory, "scan", "1", "1", "1", "1")
-			if !errors.Is(err, test.want) {
-				t.Fatalf("runArchiveWorkerProcess() error = %v, want %v", err, test.want)
-			}
+			testassert.Truef(t, errors.Is(err, test.want), "runArchiveWorkerProcess() error = %v, want %v", err, test.want)
 		})
 	}
 }

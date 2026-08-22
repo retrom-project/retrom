@@ -74,7 +74,7 @@ const terminalStates = new Set(["COMPLETED", "PARTIAL_FAILURE", "CANCELLED", "FA
 function bulkScope(values: Record<string, string>): ReviewBulkScope {
   const scope: ReviewBulkScope = {};
   for (const key of ["q", "tagId", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode"] as const) {
-    if (values[key]) scope[key] = values[key];
+    if (values[key]) {scope[key] = values[key];}
   }
   return scope;
 }
@@ -84,9 +84,9 @@ function previewURL(scope: ReviewBulkScope) {
 }
 
 function scopeLabel(scope: ReviewBulkScope) {
-  if (scope.pegasusImportId) return `Pegasus 批次 ${scope.pegasusImportId.slice(0, 8)}… 的全部分页结果`;
-  if (scope.importJobId) return `导入批次 ${scope.importJobId.slice(0, 8)}… 的全部分页结果`;
-  if (Object.keys(scope).length) return "当前筛选范围的全部分页结果";
+  if (scope.pegasusImportId) {return `Pegasus 批次 ${scope.pegasusImportId.slice(0, 8)}… 的全部分页结果`;}
+  if (scope.importJobId) {return `导入批次 ${scope.importJobId.slice(0, 8)}… 的全部分页结果`;}
+  if (Object.keys(scope).length) {return "当前筛选范围的全部分页结果";}
   return "全部待审核条目";
 }
 
@@ -96,11 +96,88 @@ async function responseError(response: Response, fallback: string) {
 }
 
 function clearReviewQueueSnapshots(userId: string | null | undefined) {
-  if (!userId) return;
+  if (!userId) {return;}
   const expected = `${userStoragePrefix(userId)}reviews:`;
   const keys = Array.from({ length: sessionStorage.length }, (_, index) => sessionStorage.key(index))
     .filter((key): key is string => Boolean(key?.startsWith(expected)));
-  for (const key of keys) sessionStorage.removeItem(key);
+  for (const key of keys) {sessionStorage.removeItem(key);}
+}
+
+function BulkResultItems({ items }: { items: ReviewBulkItem[] }) {
+  if (!items.length) {return null;}
+  return <div className="review-bulk-results"><strong>审批结果（前 {items.length} 项）</strong>{items.map((item) => {
+    const href = item.state === "PUBLISHED" && item.gameId
+      ? `/admin/games/${item.gameId}`
+      : `/admin/reviews/${item.importItemId}?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
+    return <Link key={item.importItemId} href={href}><span>{item.title}</span><small>{item.outcomeCode ?? item.state}</small></Link>;
+  })}</div>;
+}
+
+function BulkStatus({ cancelling, error, onCancel, onRetry, resultItems, starting, summary }: {
+  cancelling: boolean;
+  error: string;
+  onCancel: () => void;
+  onRetry: () => void;
+  resultItems: ReviewBulkItem[];
+  starting: boolean;
+  summary: ReviewBulkSummary;
+}) {
+  const terminal = terminalStates.has(summary.state);
+  const retryable = summary.state === "FAILED" && summary.lastErrorCode === "REVIEW_BULK_WORKER_UNAVAILABLE";
+  const processedPercent = summary.counts.candidate ? summary.counts.processed / summary.counts.candidate * 100 : 0;
+  return <section className={`review-bulk-status ${terminal ? "is-terminal" : ""}`} aria-live="polite">
+    <div className="review-bulk-status-head">
+      <div><h2>{terminal ? "快速审批结果" : "正在快速审批"}</h2><p>{scopeLabel(summary.scope)} · 已处理 {summary.counts.processed} / {summary.counts.candidate}</p></div>
+      {!terminal ? <button className="button secondary" type="button" disabled={cancelling} onClick={onCancel}>{cancelling ? "正在停止…" : "停止未处理项目"}</button> : null}
+      {retryable ? <button className="button secondary" type="button" disabled={starting} onClick={onRetry}>{starting ? "正在重试…" : "重试未处理项目"}</button> : null}
+    </div>
+    <div className="review-bulk-meter" aria-label={`快速审批进度 ${summary.counts.processed} / ${summary.counts.candidate}`}><i style={{ width: `${processedPercent}%` }} /></div>
+    <div className="review-bulk-stats">
+      <span><small>已发布</small><strong>{summary.counts.published}</strong></span>
+      <span><small>需要人工处理</small><strong>{summary.counts.skippedDuplicate + summary.counts.skippedChanged + summary.counts.skippedNotReady}</strong></span>
+      <span><small>失败</small><strong>{summary.counts.failed}</strong></span>
+      <span><small>未处理/取消</small><strong>{summary.counts.candidate - summary.counts.processed + summary.counts.cancelled}</strong></span>
+    </div>
+    <BulkResultItems items={resultItems} />
+    {error ? <p className="review-bulk-error" role="alert">{error}</p> : null}
+  </section>;
+}
+
+function BulkPreview({ error, preview }: { error: string; preview: ReviewBulkPreview | null }) {
+  if (!preview) {return null;}
+  return <div className="review-bulk-preview">
+    <p><strong>审批范围</strong><span>{scopeLabel(preview.scope)}</span></p>
+    <div className="review-bulk-preview-counts"><span><small>可自动发布</small><strong>{preview.counts.strictReady}</strong></span><span><small>匹配待审核</small><strong>{preview.counts.matched}</strong></span></div>
+    <ul><li>检查未通过或证据已过期 <strong>{preview.counts.notReadyOrStale}</strong></li><li>发现重复内容 <strong>{preview.counts.duplicate}</strong></li><li>仅有运行截图人工放行 <strong>{preview.counts.screenshotOnly}</strong></li><li>附件仍在处理 <strong>{preview.counts.attachmentActive}</strong></li></ul>
+    <p className="review-bulk-warning">将使用当前已保存的信息。执行中发生变化的项目会被跳过；取消不会回滚已经发布的游戏。</p>
+    {error ? <p className="review-bulk-error" role="alert">{error}</p> : null}
+  </div>;
+}
+
+function ReviewBulkControls({ cancelDialogOpen, cancelling, dialogOpen, error, loadingPreview, onCancel, onCancelDialogClose, onOpen, onPreviewClose, onStart, preview, starting, summary }: {
+  cancelDialogOpen: boolean;
+  cancelling: boolean;
+  dialogOpen: boolean;
+  error: string;
+  loadingPreview: boolean;
+  onCancel: () => void;
+  onCancelDialogClose: () => void;
+  onOpen: () => void;
+  onPreviewClose: () => void;
+  onStart: () => void;
+  preview: ReviewBulkPreview | null;
+  starting: boolean;
+  summary: ReviewBulkSummary | null;
+}) {
+  const active = Boolean(summary && !terminalStates.has(summary.state));
+  const buttonLabel = loadingPreview ? "正在检查…" : active ? "查看快速审批进度" : "快速审批";
+  return <>
+    <button className="button" type="button" disabled={loadingPreview} onClick={onOpen}>{buttonLabel}</button>
+    <ConfirmDialog open={dialogOpen && Boolean(preview)} title="快速审批可直接发布的游戏" description="系统会冻结当前筛选范围，并在后台逐项重新验证后发布。" confirmLabel={`确认快速发布 ${preview?.counts.strictReady ?? 0} 个游戏`} confirmDisabled={!preview?.counts.strictReady} busy={starting} portalToBody onCancel={onPreviewClose} onConfirm={onStart}>
+      <BulkPreview error={error} preview={preview} />
+    </ConfirmDialog>
+    <ConfirmDialog open={cancelDialogOpen && active} title="停止快速审批？" description="只会停止尚未提交的项目；已经发布的游戏不会被撤销。" confirmLabel="停止未处理项目" busy={cancelling} portalToBody onCancel={onCancelDialogClose} onConfirm={onCancel} />
+  </>;
 }
 
 export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
@@ -124,14 +201,14 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
 
   const loadSummary = useCallback(async (bulkApprovalId: string) => {
     const response = await fetch(`/api/v1/admin/review-bulk-approvals/${bulkApprovalId}`, { cache: "no-store" });
-    if (!response.ok) throw new Error("无法读取快速审批进度");
+    if (!response.ok) {throw new Error("无法读取快速审批进度");}
     const next = await response.json() as ReviewBulkSummary;
     setSummary(next);
     return next;
   }, []);
 
   useEffect(() => {
-    if (!restoreBulkApprovalId) return;
+    if (!restoreBulkApprovalId) {return;}
     const timer = window.setTimeout(() => {
       void loadSummary(restoreBulkApprovalId).catch(() => setError("无法恢复快速审批进度，请稍后重试。"));
     }, 0);
@@ -139,7 +216,7 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
   }, [loadSummary, restoreBulkApprovalId]);
 
   useEffect(() => {
-    if (!summary || terminalStates.has(summary.state)) return;
+    if (!summary || terminalStates.has(summary.state)) {return;}
     const timer = window.setTimeout(() => {
       void loadSummary(summary.bulkApprovalId).catch(() => setError("连接中断，正在重试快速审批进度。"));
     }, 1000);
@@ -147,7 +224,7 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
   }, [loadSummary, summary]);
 
   useEffect(() => {
-    if (!summary || !terminalStates.has(summary.state) || refreshedBulk.current === summary.bulkApprovalId) return;
+    if (!summary || !terminalStates.has(summary.state) || refreshedBulk.current === summary.bulkApprovalId) {return;}
     refreshedBulk.current = summary.bulkApprovalId;
     clearReviewQueueSnapshots(context.user?.userId);
     router.refresh();
@@ -163,12 +240,12 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
   }
 
   async function openPreview() {
-    if (summary && !terminalStates.has(summary.state)) return;
+    if (summary && !terminalStates.has(summary.state)) {return;}
     setLoadingPreview(true);
     setError("");
     try {
       const response = await fetch(previewURL(scope), { cache: "no-store" });
-      if (!response.ok) throw new Error("无法计算快速审批范围");
+      if (!response.ok) {throw new Error("无法计算快速审批范围");}
       const next = await response.json() as ReviewBulkPreview;
       setPreview(next);
       if (next.activeBulkApproval) {
@@ -185,7 +262,7 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
   }
 
   async function start() {
-    if (!preview || preview.counts.strictReady === 0) return;
+    if (!preview || preview.counts.strictReady === 0) {return;}
     setStarting(true);
     setError("");
     try {
@@ -203,7 +280,7 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
         const failure = await responseError(response, "无法开始快速审批");
         if (failure.code === "REVIEW_BULK_PREVIEW_STALE") {
           const refreshed = await fetch(previewURL(scope), { cache: "no-store" });
-          if (refreshed.ok) setPreview(await refreshed.json() as ReviewBulkPreview);
+          if (refreshed.ok) {setPreview(await refreshed.json() as ReviewBulkPreview);}
           setError("待审核内容已经变化，数量已刷新，请再次确认。");
           return;
         }
@@ -221,7 +298,7 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
   }
 
   async function cancel() {
-    if (!summary || terminalStates.has(summary.state)) return;
+    if (!summary || terminalStates.has(summary.state)) {return;}
     setCancelling(true);
     setError("");
     try {
@@ -233,7 +310,7 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
         }),
         body: JSON.stringify({ reason: "管理员停止快速审批" }),
       });
-      if (!response.ok) throw new Error((await responseError(response, "无法停止快速审批")).message);
+      if (!response.ok) {throw new Error((await responseError(response, "无法停止快速审批")).message);}
       setSummary(await response.json() as ReviewBulkSummary);
       setCancelDialogOpen(false);
     } catch (caught) {
@@ -244,7 +321,7 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
   }
 
   async function retry() {
-    if (!summary || summary.state !== "FAILED") return;
+    if (!summary || summary.state !== "FAILED") {return;}
     setStarting(true);
     setError("");
     try {
@@ -256,7 +333,7 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
         }),
         body: "{}",
       });
-      if (!response.ok) throw new Error((await responseError(response, "无法重试快速审批")).message);
+      if (!response.ok) {throw new Error((await responseError(response, "无法重试快速审批")).message);}
       refreshedBulk.current = null;
       setResultItems([]);
       setSummary(await response.json() as ReviewBulkSummary);
@@ -268,27 +345,8 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
   }
 
   const status = summary && portalRoot ? createPortal(
-    <section className={`review-bulk-status ${terminalStates.has(summary.state) ? "is-terminal" : ""}`} aria-live="polite">
-      <div className="review-bulk-status-head">
-        <div><h2>{terminalStates.has(summary.state) ? "快速审批结果" : "正在快速审批"}</h2><p>{scopeLabel(summary.scope)} · 已处理 {summary.counts.processed} / {summary.counts.candidate}</p></div>
-        {!terminalStates.has(summary.state) ? <button className="button secondary" type="button" disabled={cancelling} onClick={() => setCancelDialogOpen(true)}>{cancelling ? "正在停止…" : "停止未处理项目"}</button> : null}
-        {summary.state === "FAILED" && summary.lastErrorCode === "REVIEW_BULK_WORKER_UNAVAILABLE" ? <button className="button secondary" type="button" disabled={starting} onClick={() => void retry()}>{starting ? "正在重试…" : "重试未处理项目"}</button> : null}
-      </div>
-      <div className="review-bulk-meter" aria-label={`快速审批进度 ${summary.counts.processed} / ${summary.counts.candidate}`}><i style={{ width: `${summary.counts.candidate ? summary.counts.processed / summary.counts.candidate * 100 : 0}%` }} /></div>
-      <div className="review-bulk-stats">
-        <span><small>已发布</small><strong>{summary.counts.published}</strong></span>
-        <span><small>需要人工处理</small><strong>{summary.counts.skippedDuplicate + summary.counts.skippedChanged + summary.counts.skippedNotReady}</strong></span>
-        <span><small>失败</small><strong>{summary.counts.failed}</strong></span>
-        <span><small>未处理/取消</small><strong>{summary.counts.candidate - summary.counts.processed + summary.counts.cancelled}</strong></span>
-      </div>
-      {resultItems.length ? <div className="review-bulk-results"><strong>审批结果（前 {resultItems.length} 项）</strong>{resultItems.map((item) => {
-        const href = item.state === "PUBLISHED" && item.gameId
-          ? `/admin/games/${item.gameId}`
-          : `/admin/reviews/${item.importItemId}?returnTo=${encodeURIComponent(window.location.pathname + window.location.search)}`;
-        return <Link key={item.importItemId} href={href}><span>{item.title}</span><small>{item.outcomeCode ?? item.state}</small></Link>;
-      })}</div> : null}
-      {error ? <p className="review-bulk-error" role="alert">{error}</p> : null}
-    </section>, portalRoot,
+    <BulkStatus cancelling={cancelling} error={error} onCancel={() => setCancelDialogOpen(true)} onRetry={() => void retry()} resultItems={resultItems} starting={starting} summary={summary} />,
+    portalRoot,
   ) : null;
 
   const standaloneError = portalRoot && error && !summary && !dialogOpen ? createPortal(
@@ -297,36 +355,7 @@ export function ReviewBulkApproval({ values, restoreBulkApprovalId }: {
   ) : null;
 
   return <>
-    <button className="button" type="button" disabled={loadingPreview} onClick={() => void openPreview()}>{loadingPreview ? "正在检查…" : summary && !terminalStates.has(summary.state) ? "查看快速审批进度" : "快速审批"}</button>
-    <ConfirmDialog
-      open={dialogOpen && Boolean(preview)}
-      title="快速审批可直接发布的游戏"
-      description="系统会冻结当前筛选范围，并在后台逐项重新验证后发布。"
-      confirmLabel={`确认快速发布 ${preview?.counts.strictReady ?? 0} 个游戏`}
-      confirmDisabled={!preview?.counts.strictReady}
-      busy={starting}
-      portalToBody
-      onCancel={() => { if (!starting) setDialogOpen(false); }}
-      onConfirm={() => void start()}
-    >
-      {preview ? <div className="review-bulk-preview">
-        <p><strong>审批范围</strong><span>{scopeLabel(preview.scope)}</span></p>
-        <div className="review-bulk-preview-counts"><span><small>可自动发布</small><strong>{preview.counts.strictReady}</strong></span><span><small>匹配待审核</small><strong>{preview.counts.matched}</strong></span></div>
-        <ul><li>检查未通过或证据已过期 <strong>{preview.counts.notReadyOrStale}</strong></li><li>发现重复内容 <strong>{preview.counts.duplicate}</strong></li><li>仅有运行截图人工放行 <strong>{preview.counts.screenshotOnly}</strong></li><li>附件仍在处理 <strong>{preview.counts.attachmentActive}</strong></li></ul>
-        <p className="review-bulk-warning">将使用当前已保存的信息。执行中发生变化的项目会被跳过；取消不会回滚已经发布的游戏。</p>
-        {error ? <p className="review-bulk-error" role="alert">{error}</p> : null}
-      </div> : null}
-    </ConfirmDialog>
-    <ConfirmDialog
-      open={cancelDialogOpen && Boolean(summary) && !terminalStates.has(summary?.state ?? "")}
-      title="停止快速审批？"
-      description="只会停止尚未提交的项目；已经发布的游戏不会被撤销。"
-      confirmLabel="停止未处理项目"
-      busy={cancelling}
-      portalToBody
-      onCancel={() => { if (!cancelling) setCancelDialogOpen(false); }}
-      onConfirm={() => void cancel()}
-    />
+    <ReviewBulkControls cancelDialogOpen={cancelDialogOpen} cancelling={cancelling} dialogOpen={dialogOpen} error={error} loadingPreview={loadingPreview} onCancel={() => void cancel()} onCancelDialogClose={() => { if (!cancelling) {setCancelDialogOpen(false);} }} onOpen={() => void openPreview()} onPreviewClose={() => { if (!starting) {setDialogOpen(false);} }} onStart={() => void start()} preview={preview} starting={starting} summary={summary} />
     {status}
     {standaloneError}
   </>;

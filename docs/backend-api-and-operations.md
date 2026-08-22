@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.3 |
-| 日期 | 2026-08-13 |
+| 版本 | 1.4 |
+| 日期 | 2026-08-22 |
 | 适用范围 | Retrom 一期 |
 | 技术栈 | Go、SQLite、Next.js、EmulatorJS、本地内容寻址存储、OCI/Docker 镜像 |
 
@@ -51,7 +51,7 @@ internal/blobstore/       CAS 写入、读取、引用与垃圾回收
 internal/jobs/            SQLite 队列、租约、重试和 Worker
 internal/store/           SQLite 连接、迁移和事务辅助
 internal/observability/   结构化日志、健康检查和诊断导出
-internal/httpapi/generated/ OpenAPI 生成的 strict server types；禁止手改
+internal/httpapi/generated/ OpenAPI 编译期生成的 strict server types；禁止手改且不提交 Git
 migrations/               Go package：embed.go 与有序 SQL migration，编译进后端
 api/openapi.yaml          OpenAPI 3.0.3 协议事实源
 api/oapi-codegen.yaml     固定 Go 生成器配置
@@ -98,7 +98,7 @@ web/components/           无业务状态的通用组件
 }
 ```
 
-状态码、认证/CSRF、幂等、分页、上传及全部 route 的唯一协议见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。后端以固定 `oapi-codegen` 的 strict `net/http` 接口实现 `api/openapi.yaml`，前端由同一文件生成 TypeScript schema 并用类型化 fetch client；`make api-check` 拒绝生成物漂移。不能维护另一组手写路径、DTO 或状态码。
+状态码、认证/CSRF、幂等、分页、上传及全部 route 的唯一协议见 [HTTP API、上传与启动凭据契约](./http-api-contract.md)。后端以固定 `oapi-codegen` 的 strict `net/http` 接口实现 `api/openapi.yaml`，Go 文件由标准后端 build/test/lint/integration/dev 和镜像构建在编译前按需生成、被 Git 忽略且不得提交；前端由同一文件生成须提交的 TypeScript schema 并用类型化 fetch client。`make api-check` 在临时目录验证两端生成结果并拒绝 TypeScript 漂移或 Go 生成物被跟踪。不能维护另一组手写路径、DTO 或状态码。
 
 `strict-server` 主要约束 handler/response type，并不自动完成全部请求验证。正式 handler 外层固定使用 `github.com/oapi-codegen/nethttp-middleware v1.2.0` 与其锁定的 `github.com/getkin/kin-openapi v0.142.0` 加载同一 OpenAPI 3.0.3，验证 path/query/header/body schema；所有固定 object schema 必须 `additionalProperties:false`。在它之前的 JSON lexical middleware 对 `application/json` body 施加 route 上限（全局最高 16 MiB），先 `utf8.Valid`，再用 token stack 拒绝重复 object key、depth >64、多个顶层值和尾随非空白，最后恢复 body 给 validator/generated binder。query middleware 根据匹配 operation 的参数集合拒绝未知名、标量重复值与非法 percent encoding。
 

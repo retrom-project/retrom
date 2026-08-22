@@ -3,6 +3,8 @@ package libraryimport
 import (
 	"encoding/json"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestPrepublishDigestV4GoldenAndSemanticInputs(t *testing.T) {
@@ -34,11 +36,7 @@ func TestPrepublishDigestV4GoldenAndSemanticInputs(t *testing.T) {
 	changedCompatibility.CompatibilityConfigDigest = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc"
 	changedKind := base
 	changedKind.ContentKind = "DOS_BUNDLE"
-	if prepublishDigest(base) == prepublishDigest(changedArtifact) ||
-		prepublishDigest(base) == prepublishDigest(changedCompatibility) ||
-		prepublishDigest(base) == prepublishDigest(changedKind) {
-		t.Fatal("prepublish digest ignored a semantic validation input")
-	}
+	testassert.False(t, testassert.Any(func() bool { return prepublishDigest(base) == prepublishDigest(changedArtifact) }, func() bool { return prepublishDigest(base) == prepublishDigest(changedCompatibility) }, func() bool { return prepublishDigest(base) == prepublishDigest(changedKind) }), "prepublish digest ignored a semantic validation input")
 }
 
 func TestPreparedGroupContentKind(t *testing.T) {

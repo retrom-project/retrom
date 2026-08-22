@@ -2,7 +2,8 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import type { FormEvent} from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { AppIcon } from "@/components/app-icon";
 import { TagChips } from "@/components/tag-picker";
 import { ConfirmDialog } from "@/components/confirm-dialog";
@@ -153,12 +154,12 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
   const dismissToast = useCallback(() => setToast(null), []);
 
   useEffect(() => {
-    if (!menuId) return;
+    if (!menuId) {return;}
     const closeOutside = (event: PointerEvent) => {
       const menu = event.target instanceof Element ? event.target.closest("[data-save-menu]") : null;
-      if (menu?.getAttribute("data-save-menu") !== menuId) setMenuId(null);
+      if (menu?.getAttribute("data-save-menu") !== menuId) {setMenuId(null);}
     };
-    const closeEscape = (event: KeyboardEvent) => { if (event.key === "Escape") setMenuId(null); };
+    const closeEscape = (event: KeyboardEvent) => { if (event.key === "Escape") {setMenuId(null);} };
     document.addEventListener("pointerdown", closeOutside);
     document.addEventListener("keydown", closeEscape);
     return () => {
@@ -168,10 +169,10 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
   }, [menuId]);
   useEffect(() => {
     const params = new URLSearchParams();
-    if (query.trim()) params.set("q", query.trim());
-    if (gameId) params.set("gameId", gameId);
-    if (availability !== "AVAILABLE") params.set("availability", availability);
-    if (sort !== "CREATED_DESC") params.set("sort", sort);
+    if (query.trim()) {params.set("q", query.trim());}
+    if (gameId) {params.set("gameId", gameId);}
+    if (availability !== "AVAILABLE") {params.set("availability", availability);}
+    if (sort !== "CREATED_DESC") {params.set("sort", sort);}
     const search = params.toString();
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
   }, [availability, gameId, query, sort]);
@@ -194,7 +195,7 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
         headers: await writeHeaders({ "Content-Type": "application/json", "If-Match": `"v${save.version}"` }),
         body: JSON.stringify({ name }),
       });
-      if (!response.ok) throw new Error(await responseError(response, "存档重命名失败"));
+      if (!response.ok) {throw new Error(await responseError(response, "存档重命名失败"));}
       const updated = await response.json() as { name: string; version: number };
       setItems((current) => current.map((item) => item.saveStateId === save.saveStateId ? { ...item, name: updated.name, version: updated.version } : item));
       setEditingId(null);
@@ -214,7 +215,7 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
         credentials: "same-origin",
         headers: await writeHeaders({ "If-Match": `"v${save.version}"` }),
       });
-      if (!response.ok) throw new Error(await responseError(response, "存档删除失败"));
+      if (!response.ok) {throw new Error(await responseError(response, "存档删除失败"));}
       setItems((current) => current.filter((item) => item.saveStateId !== save.saveStateId));
       setToast({ tone: "good", message: "存档已删除，底层内容会继续按保留期保护。" });
     } catch (caught) {
@@ -227,14 +228,7 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
   return <div className="page-layout page-layout-saves">
     <PageHeader eyebrow="我的游戏" title="我的存档" description="查看保存画面，找到想恢复的游戏状态，并随时从这里继续。" actions={<div className="save-head-summary"><div><span>存档</span><strong>{stats.saveCount} 份</strong></div><div><span>涉及游戏</span><strong>{stats.gameCount} 款</strong></div></div>} />
 
-    {items.length > 0 ? <section className="save-latest-section" aria-labelledby="save-latest-heading">
-      <div className="save-section-label"><div><h2 id="save-latest-heading">最近保存</h2><p>最近创建的一份可用手动存档</p></div></div>
-      {latest ? <div className="save-latest-card">
-        <div className="save-latest-shot"><Image src={latest.screenshotUrl} alt={`${latest.gameTitle} 最近存档画面`} fill sizes="360px" unoptimized /></div>
-        <div className="save-latest-copy"><div className="save-latest-kicker"><i />最近保存</div><Link href={`/games/${latest.gameId}`}><h3>{latest.gameTitle}</h3></Link><p>{latest.platform.name} · {latest.core.name}{latest.discLabel ? ` · ${latest.discLabel}` : ""}</p><div className="save-latest-facts"><div><span>保存时间</span><strong>{formatSaveTime(latest.createdAtMs, nowMs)}</strong></div><div><span>当时已游玩</span><strong>{formatSaveDuration(latest.activeDurationMs)}</strong></div><div><span>{latest.discLabel ? "保存位置" : "存档状态"}</span><strong>{latest.discLabel ?? "可以继续"}</strong></div></div></div>
-        <div className="save-latest-actions"><LaunchButton gameId={latest.gameId} saveStateId={latest.saveStateId} returnTo="/saves" label="从这里继续" /><Link className="button secondary" href={`/games/${latest.gameId}`}>查看游戏详情</Link><small>直接恢复这份手动存档</small></div>
-      </div> : <div className="save-latest-unavailable">当前没有可以直接恢复的存档，请在下方查看异常原因。</div>}
-    </section> : null}
+    <SaveLatestSection hasItems={items.length > 0} latest={latest} nowMs={nowMs} />
 
     <section className="save-library-toolbar" aria-label="筛选存档">
       <label className="save-library-search"><span>搜索</span><span><AppIcon name="search" /><input type="search" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="搜索游戏或存档名称" /></span></label>
@@ -244,23 +238,88 @@ export function SaveManager({ saves, nowMs, initialFilters }: { saves: SaveItem[
       <p>当前显示 <strong>{filtered.length}</strong> 份</p>
     </section>
 
-    {groups.length > 0 ? <div className="save-library-groups">{groups.map((group) => <SaveGameGroup
-      group={group}
-      nowMs={nowMs}
-      expanded={expandedGames.has(group.gameId)}
-      busyId={busyId}
-      menuId={menuId}
-      editingId={editingId}
-      onExpand={() => setExpandedGames((current) => { const next = new Set(current); if (next.has(group.gameId)) next.delete(group.gameId); else next.add(group.gameId); return next; })}
-      onMenu={(saveStateId) => setMenuId((current) => current === saveStateId ? null : saveStateId)}
-      onEdit={(saveStateId) => { setEditingId(saveStateId); setMenuId(null); }}
-      onCancelEdit={() => setEditingId(null)}
-      onRename={(event, save) => void rename(event, save)}
-      onDelete={(save) => { setPendingDelete(save); setMenuId(null); }}
-      key={group.gameId}
-    />)}</div> : <EmptyState title={items.length === 0 ? "还没有手动存档" : "没有符合条件的存档"} description={items.length === 0 ? "游玩时使用工具栏的“创建存档”，存档会安全地出现在这里。" : "尝试更换游戏、存档状态或搜索关键词。"} />}
+    <SaveGroups {...{
+      busyId, editingId, expandedGames, groups, items, menuId, nowMs, rename, setEditingId, setExpandedGames,
+      setMenuId, setPendingDelete,
+    }} />
 
     <Toast toast={toast} onDismiss={dismissToast} />
-    <ConfirmDialog open={pendingDelete !== null} title="删除这份存档？" description={`“${pendingDelete?.name ?? ""}”将从你的存档列表中移除。`} confirmLabel="删除存档" tone="danger" busy={busyId !== null} onCancel={() => setPendingDelete(null)} onConfirm={() => { if (pendingDelete) void remove(pendingDelete); }}><ul><li>删除后不能再从这份进度继续</li><li>底层内容会先进入引用保护期，不会立即清除</li></ul></ConfirmDialog>
+    <SaveDeleteDialog {...{ busyId, pendingDelete, remove, setPendingDelete }} />
   </div>;
+}
+
+function SaveLatestSection({ hasItems, latest, nowMs }: {
+  hasItems: boolean;
+  latest: SaveItem | null;
+  nowMs: number;
+}) {
+  if (!hasItems) {return null;}
+  if (!latest) {
+    return <section className="save-latest-section" aria-labelledby="save-latest-heading">
+      <div className="save-section-label"><div><h2 id="save-latest-heading">最近保存</h2><p>最近创建的一份可用手动存档</p></div></div>
+      <div className="save-latest-unavailable">当前没有可以直接恢复的存档，请在下方查看异常原因。</div>
+    </section>;
+  }
+  return <section className="save-latest-section" aria-labelledby="save-latest-heading">
+    <div className="save-section-label"><div><h2 id="save-latest-heading">最近保存</h2><p>最近创建的一份可用手动存档</p></div></div>
+    <div className="save-latest-card">
+      <div className="save-latest-shot"><Image src={latest.screenshotUrl} alt={`${latest.gameTitle} 最近存档画面`} fill sizes="360px" unoptimized /></div>
+      <div className="save-latest-copy"><div className="save-latest-kicker"><i />最近保存</div><Link href={`/games/${latest.gameId}`}><h3>{latest.gameTitle}</h3></Link><p>{latest.platform.name} · {latest.core.name}{latest.discLabel ? ` · ${latest.discLabel}` : ""}</p><div className="save-latest-facts"><div><span>保存时间</span><strong>{formatSaveTime(latest.createdAtMs, nowMs)}</strong></div><div><span>当时已游玩</span><strong>{formatSaveDuration(latest.activeDurationMs)}</strong></div><div><span>{latest.discLabel ? "保存位置" : "存档状态"}</span><strong>{latest.discLabel ?? "可以继续"}</strong></div></div></div>
+      <div className="save-latest-actions"><LaunchButton gameId={latest.gameId} saveStateId={latest.saveStateId} returnTo="/saves" label="从这里继续" /><Link className="button secondary" href={`/games/${latest.gameId}`}>查看游戏详情</Link><small>直接恢复这份手动存档</small></div>
+    </div>
+  </section>;
+}
+
+type SaveGroupsProps = {
+  busyId: string | null;
+  editingId: string | null;
+  expandedGames: Set<string>;
+  groups: SaveGroup[];
+  items: SaveItem[];
+  menuId: string | null;
+  nowMs: number;
+  rename: (event: FormEvent<HTMLFormElement>, save: SaveItem) => Promise<void>;
+  setEditingId: (id: string | null) => void;
+  setExpandedGames: (update: (current: Set<string>) => Set<string>) => void;
+  setMenuId: (update: string | null | ((current: string | null) => string | null)) => void;
+  setPendingDelete: (save: SaveItem | null) => void;
+};
+
+function SaveGroups(props: SaveGroupsProps) {
+  const { busyId, editingId, expandedGames, groups, items, menuId, nowMs, rename, setEditingId,
+    setExpandedGames, setMenuId, setPendingDelete } = props;
+  if (groups.length === 0) {
+    const empty = items.length === 0;
+    return <EmptyState title={empty ? "还没有手动存档" : "没有符合条件的存档"} description={empty ? "游玩时使用工具栏的“创建存档”，存档会安全地出现在这里。" : "尝试更换游戏、存档状态或搜索关键词。"} />;
+  }
+  const toggleExpanded = (gameID: string) => setExpandedGames((current) => {
+    const next = new Set(current);
+    if (next.has(gameID)) {next.delete(gameID);} else {next.add(gameID);}
+    return next;
+  });
+  return <div className="save-library-groups">{groups.map((group) => <SaveGameGroup
+    group={group}
+    nowMs={nowMs}
+    expanded={expandedGames.has(group.gameId)}
+    busyId={busyId}
+    menuId={menuId}
+    editingId={editingId}
+    onExpand={() => toggleExpanded(group.gameId)}
+    onMenu={(saveStateId) => setMenuId((current) => current === saveStateId ? null : saveStateId)}
+    onEdit={(saveStateId) => {setEditingId(saveStateId); setMenuId(null);}}
+    onCancelEdit={() => setEditingId(null)}
+    onRename={(event, save) => void rename(event, save)}
+    onDelete={(save) => {setPendingDelete(save); setMenuId(null);}}
+    key={group.gameId}
+  />)}</div>;
+}
+
+function SaveDeleteDialog({ busyId, pendingDelete, remove, setPendingDelete }: {
+  busyId: string | null;
+  pendingDelete: SaveItem | null;
+  remove: (save: SaveItem) => Promise<void>;
+  setPendingDelete: (save: SaveItem | null) => void;
+}) {
+  const confirm = () => {if (pendingDelete) {void remove(pendingDelete);}};
+  return <ConfirmDialog open={pendingDelete !== null} title="删除这份存档？" description={`“${pendingDelete?.name ?? ""}”将从你的存档列表中移除。`} confirmLabel="删除存档" tone="danger" busy={busyId !== null} onCancel={() => setPendingDelete(null)} onConfirm={confirm}><ul><li>删除后不能再从这份进度继续</li><li>底层内容会先进入引用保护期，不会立即清除</li></ul></ConfirmDialog>;
 }

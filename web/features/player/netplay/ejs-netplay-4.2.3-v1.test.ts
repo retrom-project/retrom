@@ -153,7 +153,7 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
           this.nativeLoadCalls += 1;
           window.setTimeout(() => {
             this.state = new Uint8Array(this.pendingState);
-            if (this.alterRecapturedByte) this.state[0] = (this.state[0] ?? 0) ^ 1;
+            if (this.alterRecapturedByte) {this.state[0] = (this.state[0] ?? 0) ^ 1;}
             runtimeConfig.print?.('[INFO] [State] Loading state "game.state"');
           }, 0);
           return 1;
@@ -171,7 +171,7 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
       getState() { return new Uint8Array(this.state); }
       loadState() { throw new Error("PUBLIC_LOAD_STATE_MUST_NOT_BE_USED_FOR_ROLLBACK"); }
       toggleMainLoop(running: boolean) {
-        if (running) window.setTimeout(() => { this.frame += 1; runtimeConfig.postMainLoop?.(); }, 0);
+        if (running) {window.setTimeout(() => { this.frame += 1; runtimeConfig.postMainLoop?.(); }, 0);}
       }
     }
     Reflect.set(window, "EJS_GameManager", GameManager);
@@ -213,7 +213,7 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
       FS = {
         unlink: (path: string) => {
           removedFiles.push(path);
-          if (!files.delete(path)) throw new Error("ENOENT");
+          if (!files.delete(path)) {throw new Error("ENOENT");}
         },
         writeFile: (path: string) => { files.add(path); },
       };

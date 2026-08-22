@@ -18,8 +18,8 @@ export async function backendJSON<T>(path: string): Promise<T> {
     .map((cookie) => `${cookie.name}=${cookie.value}`)
     .join("; ");
   const headers = new Headers({ Accept: "application/json" });
-  if (sessionCookies) headers.set("Cookie", sessionCookies);
+  if (sessionCookies) {headers.set("Cookie", sessionCookies);}
   const response = await fetch(`${backend}${path}`, { cache: "no-store", headers });
-  if (!response.ok) throw new BackendResponseError(path, response.status);
+  if (!response.ok) {throw new BackendResponseError(path, response.status);}
   return response.json() as Promise<T>;
 }

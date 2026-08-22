@@ -1,8 +1,6 @@
 package blobstore
 
 import (
-	"crypto/md5"  //nolint:gosec // MD5 is recorded only as a legacy ROM catalog checksum, never for security.
-	"crypto/sha1" //nolint:gosec // SHA-1 is recorded only as a legacy ROM catalog checksum, never for security.
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
@@ -13,6 +11,7 @@ import (
 	"path/filepath"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/legacychecksum"
 )
 
 var errExistingObjectIntegrity = errors.New("existing CAS object failed integrity check")
@@ -55,10 +54,9 @@ func (store *Store) Put(source io.Reader) (Metadata, error) {
 		return Metadata{}, fmt.Errorf("secure blob candidate: %w", err)
 	}
 	sha256Hash := sha256.New()
-	md5Hash := md5.New()   //nolint:gosec // See package-level checksum rationale above.
-	sha1Hash := sha1.New() //nolint:gosec // See package-level checksum rationale above.
+	legacyHashes := legacychecksum.New()
 	crc32Hash := crc32.NewIEEE()
-	written, err := io.Copy(io.MultiWriter(temporary, sha256Hash, md5Hash, sha1Hash, crc32Hash), source)
+	written, err := io.Copy(io.MultiWriter(temporary, sha256Hash, legacyHashes.MD5, legacyHashes.SHA1, crc32Hash), source)
 	if err != nil {
 		cleanup.Error("close", temporary.Close())
 		return Metadata{}, fmt.Errorf("write blob candidate: %w", err)
@@ -89,8 +87,8 @@ func (store *Store) Put(source io.Reader) (Metadata, error) {
 		return Metadata{}, err
 	}
 	return Metadata{
-		SHA256: sha256Value, MD5: hex.EncodeToString(md5Hash.Sum(nil)),
-		SHA1: hex.EncodeToString(sha1Hash.Sum(nil)), CRC32: hex.EncodeToString(crc32Hash.Sum(nil)),
+		SHA256: sha256Value, MD5: hex.EncodeToString(legacyHashes.MD5.Sum(nil)),
+		SHA1: hex.EncodeToString(legacyHashes.SHA1.Sum(nil)), CRC32: hex.EncodeToString(crc32Hash.Sum(nil)),
 		Size: written, Path: target, Existing: existing,
 	}, nil
 }

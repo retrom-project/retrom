@@ -1,6 +1,7 @@
 import { cleanup, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as UploadModule from "@/lib/upload";
 import { ReviewActions, type ReviewWorkspace } from "./review-actions";
 
 const router = vi.hoisted(() => ({ replace: vi.fn(), refresh: vi.fn(), push: vi.fn() }));
@@ -9,7 +10,7 @@ const upload = vi.hoisted(() => ({ uploadFiles: vi.fn(), uploadOne: vi.fn(), wai
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
 vi.mock("@/lib/upload", async (importOriginal) => {
-  const original = await importOriginal<typeof import("@/lib/upload")>();
+  const original = await importOriginal<typeof UploadModule>();
   return { ...original, uploadFiles: upload.uploadFiles, uploadOne: upload.uploadOne, waitForJob: upload.waitForJob, waitForJobEvents: upload.waitForJobEvents };
 });
 
@@ -27,14 +28,15 @@ function jsonResponse(body: unknown, status = 200) {
   return new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 }
 
-describe("ReviewActions", () => {
-  beforeEach(() => {
-    router.replace.mockReset(); router.refresh.mockReset(); router.push.mockReset();
-    upload.uploadFiles.mockReset(); upload.uploadOne.mockReset(); upload.waitForJob.mockReset().mockResolvedValue(undefined); upload.waitForJobEvents.mockReset().mockResolvedValue(undefined);
-    sessionStorage.clear();
-  });
+beforeEach(() => {
+  router.replace.mockReset(); router.refresh.mockReset(); router.push.mockReset();
+  upload.uploadFiles.mockReset(); upload.uploadOne.mockReset(); upload.waitForJob.mockReset().mockResolvedValue(undefined); upload.waitForJobEvents.mockReset().mockResolvedValue(undefined);
+  sessionStorage.clear();
+});
 
-  afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals(); });
+
+describe("ReviewActions metadata", () => {
 
   it("exposes the four-step mobile review workflow without changing decision actions", () => {
     render(<ReviewActions review={review}><section>来源文件与依赖</section></ReviewActions>);
@@ -52,9 +54,9 @@ describe("ReviewActions", () => {
     const updated: ReviewWorkspace = { ...review, version: 2, candidates: [candidate], scrapeRuns: [{ scrapeRunId: "run-1", jobId: "job-1", provider: "HASHEOUS", state: "COMPLETED", jobState: "SUCCEEDED", createdAtMs: 1, completedAtMs: 2, errorCode: null, evidenceCount: 1, attemptCount: 1, candidateCount: 1, outcomes: { hit: 1, miss: 0, rateLimited: 0, timeout: 0, invalidResponse: 0, networkError: 0 } }] };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/scrape-candidates")) return Promise.resolve(jsonResponse({ version: 2, state: "QUEUED", scrapeRunId: "run-1", jobId: "job-1" }, 202));
-      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(updated));
-      if (url.endsWith("/reviews/item-1") && init?.method === "PATCH") return Promise.resolve(jsonResponse({ version: 3 }));
+      if (url.endsWith("/scrape-candidates")) {return Promise.resolve(jsonResponse({ version: 2, state: "QUEUED", scrapeRunId: "run-1", jobId: "job-1" }, 202));}
+      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse(updated));}
+      if (url.endsWith("/reviews/item-1") && init?.method === "PATCH") {return Promise.resolve(jsonResponse({ version: 3 }));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -160,8 +162,8 @@ describe("ReviewActions", () => {
     upload.uploadOne.mockResolvedValue({ uploadId: "upload-1", uploadFileId: "file-1" });
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/assets")) return Promise.resolve(jsonResponse({ assetId: "asset-1", kind: "COVER", widthPx: 600, heightPx: 900, mediaType: "image/png", url: "/api/v1/admin/review-assets/asset-1", createdAtMs: 1 }, 201));
-      if (url.endsWith("/reviews/item-1") && init?.method === "PATCH") return Promise.resolve(jsonResponse({ version: 2 }));
+      if (url.endsWith("/assets")) {return Promise.resolve(jsonResponse({ assetId: "asset-1", kind: "COVER", widthPx: 600, heightPx: 900, mediaType: "image/png", url: "/api/v1/admin/review-assets/asset-1", createdAtMs: 1 }, 201));}
+      if (url.endsWith("/reviews/item-1") && init?.method === "PATCH") {return Promise.resolve(jsonResponse({ version: 2 }));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -207,7 +209,7 @@ describe("ReviewActions", () => {
     const open = vi.spyOn(window, "open").mockReturnValue(popup);
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/previews")) return Promise.resolve(jsonResponse({ previewId: "preview-1", playUrl: "/admin/review-previews/preview-1", captureAllowed: true, captureAfterMs: 5000 }, 201));
+      if (url.endsWith("/previews")) {return Promise.resolve(jsonResponse({ previewId: "preview-1", playUrl: "/admin/review-previews/preview-1", captureAllowed: true, captureAfterMs: 5000 }, 201));}
       return Promise.resolve(jsonResponse(init?.method === "PATCH" ? { version: 2 } : refreshed));
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -236,8 +238,8 @@ describe("ReviewActions", () => {
     };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/previews")) return Promise.resolve(jsonResponse({ previewId: "preview-best-effort", playUrl: "/admin/review-previews/preview-best-effort", captureAllowed: true, captureAfterMs: 5000 }, 201));
-      if (init?.method === "PATCH") return Promise.resolve(jsonResponse({ error: { code: "INVALID_REQUEST" } }, 400));
+      if (url.endsWith("/previews")) {return Promise.resolve(jsonResponse({ previewId: "preview-best-effort", playUrl: "/admin/review-previews/preview-best-effort", captureAllowed: true, captureAfterMs: 5000 }, 201));}
+      if (init?.method === "PATCH") {return Promise.resolve(jsonResponse({ error: { code: "INVALID_REQUEST" } }, 400));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -261,6 +263,9 @@ describe("ReviewActions", () => {
     expect(screen.getByAltText("Manual 的第 5 秒运行截图")).toHaveAttribute("src", expect.stringContaining("shot-1"));
     expect(screen.getByRole("button", { name: "运行游戏" })).toBeVisible();
   });
+});
+
+describe("ReviewActions validation", () => {
 
   it("enables an administrator screenshot override for a blocked validation", () => {
     render(<ReviewActions review={{
@@ -301,8 +306,8 @@ describe("ReviewActions", () => {
     upload.waitForJobEvents.mockImplementation(async (_jobId: string, onProgress?: (eventType: string) => void) => { onProgress?.("parent_matched"); });
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/arcade-parent-attachments")) return Promise.resolve(new Response(JSON.stringify({ attachmentId: "attachment-1", state: "QUEUED", jobId: "job-1" }), { status: 202, headers: { "Content-Type": "application/json", ETag: '"v8"' } }));
-      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(refreshed));
+      if (url.endsWith("/arcade-parent-attachments")) {return Promise.resolve(new Response(JSON.stringify({ attachmentId: "attachment-1", state: "QUEUED", jobId: "job-1" }), { status: 202, headers: { "Content-Type": "application/json", ETag: '"v8"' } }));}
+      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse(refreshed));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -353,8 +358,8 @@ describe("ReviewActions", () => {
     upload.uploadFiles.mockResolvedValue({ uploadId: "upload-multi", uploadFileIds: ["file-two"] });
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/multi-disc-attachments")) return Promise.resolve(new Response(JSON.stringify({ jobId: "job-multi", reviewVersion: 5 }), { status: 202, headers: { "Content-Type": "application/json", ETag: '"v5"' } }));
-      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(refreshed));
+      if (url.endsWith("/multi-disc-attachments")) {return Promise.resolve(new Response(JSON.stringify({ jobId: "job-multi", reviewVersion: 5 }), { status: 202, headers: { "Content-Type": "application/json", ETag: '"v5"' } }));}
+      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse(refreshed));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -400,8 +405,8 @@ describe("ReviewActions", () => {
     upload.uploadFiles.mockResolvedValue({ uploadId: "upload-multi", uploadFileIds: ["file-two"] });
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/multi-disc-attachments")) return Promise.resolve(jsonResponse({ error: { code: "REVIEW_VERSION_CONFLICT", message: "审核条目已发生变化" } }, 409));
-      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse({ ...blocked, version: 5 }));
+      if (url.endsWith("/multi-disc-attachments")) {return Promise.resolve(jsonResponse({ error: { code: "REVIEW_VERSION_CONFLICT", message: "审核条目已发生变化" } }, 409));}
+      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse({ ...blocked, version: 5 }));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -443,9 +448,9 @@ describe("ReviewActions", () => {
     };
     const fetchMock = vi.fn((input: RequestInfo | URL, init?: RequestInit) => {
       const url = String(input);
-      if (url.endsWith("/jobs/job-retry") && !init?.method) return Promise.resolve(jsonResponse({ version: 3 }));
-      if (url.endsWith("/jobs/job-retry/retry")) return Promise.resolve(jsonResponse({ state: "QUEUED" }, 202));
-      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(refreshed));
+      if (url.endsWith("/jobs/job-retry") && !init?.method) {return Promise.resolve(jsonResponse({ version: 3 }));}
+      if (url.endsWith("/jobs/job-retry/retry")) {return Promise.resolve(jsonResponse({ state: "QUEUED" }, 202));}
+      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse(refreshed));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -472,6 +477,9 @@ describe("ReviewActions", () => {
     expect(screen.getAllByRole("alert")).toHaveLength(1);
     expect(container.querySelector(".review-workflow-feedback")).toBeNull();
   });
+});
+
+describe("ReviewActions decisions", () => {
 
   it("retries publish with the current review version after a Parent attachment advances only validation state", async () => {
     const staleParentReview: ReviewWorkspace = {
@@ -499,7 +507,7 @@ describe("ReviewActions", () => {
           ? jsonResponse({ error: { code: "REVIEW_VALIDATION_STALE", message: "审核输入或验证结果已经变化" } }, 409)
           : jsonResponse({ gameId: "game-after-parent" }, 201));
       }
-      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(currentParentReview));
+      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse(currentParentReview));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -527,7 +535,7 @@ describe("ReviewActions", () => {
       if (url.endsWith("/approve")) {
         return Promise.resolve(jsonResponse({ error: { code: "REVIEW_VALIDATION_STALE", message: "审核输入或验证结果已经变化" } }, 409));
       }
-      if (url.endsWith("/reviews/item-1") && !init?.method) return Promise.resolve(jsonResponse(changedElsewhere));
+      if (url.endsWith("/reviews/item-1") && !init?.method) {return Promise.resolve(jsonResponse(changedElsewhere));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);
@@ -560,8 +568,8 @@ describe("ReviewActions", () => {
   it("publishes and discards without decision-reason fields", async () => {
     const fetchMock = vi.fn<(input: RequestInfo | URL, init?: RequestInit) => Promise<Response>>((input) => {
       const url = String(input);
-      if (url.endsWith("/approve")) return Promise.resolve(jsonResponse({ gameId: "game-1" }, 201));
-      if (url.endsWith("/discard")) return Promise.resolve(jsonResponse({ status: "DISCARDED" }));
+      if (url.endsWith("/approve")) {return Promise.resolve(jsonResponse({ gameId: "game-1" }, 201));}
+      if (url.endsWith("/discard")) {return Promise.resolve(jsonResponse({ status: "DISCARDED" }));}
       throw new Error(`unexpected fetch ${url}`);
     });
     vi.stubGlobal("fetch", fetchMock);

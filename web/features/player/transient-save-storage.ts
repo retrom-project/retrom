@@ -16,7 +16,7 @@ export type TransientSaveFileSystem = {
 };
 
 export function isTransientSaveFileSystem(value: unknown): value is TransientSaveFileSystem {
-  if (typeof value !== "object" || value === null) return false;
+  if (typeof value !== "object" || value === null) {return false;}
   return ["analyzePath", "mkdir", "unlink", "readdir", "lstat", "rmdir"]
     .every((name) => typeof Reflect.get(value, name) === "function");
 }
@@ -33,14 +33,14 @@ function ensureDirectory(fileSystem: TransientSaveFileSystem, directoryPath: str
   let current = "";
   for (const segment of directoryPath.split("/").filter(Boolean)) {
     current += `/${segment}`;
-    if (!fileSystem.analyzePath(current).exists) fileSystem.mkdir(current);
+    if (!fileSystem.analyzePath(current).exists) {fileSystem.mkdir(current);}
   }
 }
 
 function removeTree(fileSystem: TransientSaveFileSystem, directoryPath: string) {
-  if (!fileSystem.analyzePath(directoryPath).exists) return;
+  if (!fileSystem.analyzePath(directoryPath).exists) {return;}
   for (const name of fileSystem.readdir(directoryPath)) {
-    if (name === "." || name === "..") continue;
+    if (name === "." || name === "..") {continue;}
     const childPath = `${directoryPath}/${name}`;
     const stat = fileSystem.lstat(childPath);
     if (isDirectory(fileSystem, stat.mode)) {

@@ -31,7 +31,7 @@ describe("SaveManager", () => {
     router.push.mockReset();
     window.history.replaceState({}, "", "/saves");
     vi.stubGlobal("fetch", vi.fn(async (_input: RequestInfo | URL, init?: RequestInit) => {
-      if (init?.method === "DELETE") return new Response(null, { status: 204 });
+      if (init?.method === "DELETE") {return new Response(null, { status: 204 });}
       return Response.json({ name: "Boss 前", version: 4 });
     }));
   });

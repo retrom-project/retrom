@@ -55,36 +55,59 @@ func (codec *Codec) Encode(payload Payload) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(encoded) + "." + base64.RawURLEncoding.EncodeToString(mac.Sum(nil)), nil
 }
 
-//nolint:gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (codec *Codec) Decode(token, operationID, filterDigest, sortCode string) (Payload, error) {
-	if len(token) == 0 || len(token) > 8192 {
+	encoded, signature, err := decodeToken(token)
+	if err != nil || !codec.validSignature(encoded, signature) {
 		return Payload{}, ErrInvalid
 	}
-	payloadPart, signaturePart, found := strings.Cut(token, ".")
-	if !found || strings.Contains(signaturePart, ".") {
-		return Payload{}, ErrInvalid
-	}
-	encoded, err := base64.RawURLEncoding.DecodeString(payloadPart)
-	if err != nil || len(encoded) > 4096 {
-		return Payload{}, ErrInvalid
-	}
-	signature, err := base64.RawURLEncoding.DecodeString(signaturePart)
-	if err != nil || len(signature) != sha256.Size {
-		return Payload{}, ErrInvalid
-	}
-	mac := hmac.New(sha256.New, codec.key[:])
-	_, _ = mac.Write([]byte(signatureDomain))
-	_, _ = mac.Write(encoded)
-	if subtle.ConstantTimeCompare(signature, mac.Sum(nil)) != 1 {
-		return Payload{}, ErrInvalid
-	}
-	var payload Payload
-	decoder := json.NewDecoder(bytes.NewReader(encoded))
-	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&payload); err != nil || payload.Version != 1 || payload.OperationID != operationID ||
-		payload.FilterDigest != filterDigest || payload.SortCode != sortCode ||
-		payload.ExpiresAtMS <= codec.now().UnixMilli() || payload.ID == "" {
+	payload, err := decodePayload(encoded)
+	if err != nil || !codec.validPayload(payload, operationID, filterDigest, sortCode) {
 		return Payload{}, ErrInvalid
 	}
 	return payload, nil
+}
+
+func decodeToken(token string) ([]byte, []byte, error) {
+	if len(token) == 0 || len(token) > 8192 {
+		return nil, nil, ErrInvalid
+	}
+	payloadPart, signaturePart, found := strings.Cut(token, ".")
+	if !found || strings.Contains(signaturePart, ".") {
+		return nil, nil, ErrInvalid
+	}
+	encoded, err := base64.RawURLEncoding.DecodeString(payloadPart)
+	if err != nil || len(encoded) > 4096 {
+		return nil, nil, ErrInvalid
+	}
+	signature, err := base64.RawURLEncoding.DecodeString(signaturePart)
+	if err != nil || len(signature) != sha256.Size {
+		return nil, nil, ErrInvalid
+	}
+	return encoded, signature, nil
+}
+
+func (codec *Codec) validSignature(encoded, signature []byte) bool {
+	mac := hmac.New(sha256.New, codec.key[:])
+	_, _ = mac.Write([]byte(signatureDomain))
+	_, _ = mac.Write(encoded)
+	return subtle.ConstantTimeCompare(signature, mac.Sum(nil)) == 1
+}
+
+func decodePayload(encoded []byte) (Payload, error) {
+	var payload Payload
+	decoder := json.NewDecoder(bytes.NewReader(encoded))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(&payload); err != nil {
+		return Payload{}, ErrInvalid
+	}
+	return payload, nil
+}
+
+func (codec *Codec) validPayload(payload Payload, operationID, filterDigest, sortCode string) bool {
+	return payload.Version == 1 &&
+		payload.OperationID == operationID &&
+		payload.FilterDigest == filterDigest &&
+		payload.SortCode == sortCode &&
+		payload.ExpiresAtMS > codec.now().UnixMilli() &&
+		payload.ID != ""
 }

@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"retrom/internal/importing"
+	"retrom/internal/testassert"
 )
 
 func TestStaticRankingNeverLetsSizeBeatExactHash(t *testing.T) {
@@ -15,9 +16,7 @@ func TestStaticRankingNeverLetsSizeBeatExactHash(t *testing.T) {
 		EvaluateStatic(expectation, FileFacts{RelativePath: "renamed.bin", Basename: "renamed.bin", SizeBytes: 4, SHA256: "good"}),
 	}
 	SortStatic(values)
-	if values[0].Method != "EXACT_HASH" || values[0].Facts.RelativePath != "renamed.bin" {
-		t.Fatalf("winner = %#v", values[0])
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return values[0].Method != "EXACT_HASH" }, func() bool { return values[0].Facts.RelativePath != "renamed.bin" }), "winner = %#v", values[0])
 }
 
 func TestDATRankingPrefersLaunchableArchive(t *testing.T) {
@@ -39,7 +38,5 @@ func TestDATRankingPrefersLaunchableArchive(t *testing.T) {
 	)
 	values := []DATEvaluation{partial, warning}
 	SortDAT(values)
-	if !values[0].Launchable || values[0].Method != "DAT_ENTRY_WARNING" {
-		t.Fatalf("winner = %#v", values[0])
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return !values[0].Launchable }, func() bool { return values[0].Method != "DAT_ENTRY_WARNING" }), "winner = %#v", values[0])
 }

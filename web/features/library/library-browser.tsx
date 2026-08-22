@@ -48,13 +48,13 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
   const autoLoadArmed = useRef(true);
   const requestGeneration = useRef(0);
   const platformInstances = useMemo(() => facets.platformInstances.filter((item) => !platformId || item.platformId === platformId), [facets.platformInstances, platformId]);
-  const hasFilters = Boolean(query.trim() || platformId || platformInstanceId || tagId);
+  const hasFilters = [query.trim(), platformId, platformInstanceId, tagId].some(Boolean);
 
   const filters = useMemo<LibraryFilters>(() => ({ query, platformId, platformInstanceId, tagId, sort }), [platformId, platformInstanceId, query, sort, tagId]);
 
   const requestPage = useCallback(async (requestedFilters: LibraryFilters, cursor: string | null, signal?: AbortSignal) => {
     const response = await authenticatedFetch(`/api/v1/games?${gamePageQuery(requestedFilters, cursor)}`, { cache: "no-store", signal });
-    if (!response.ok) throw new Error("暂时无法读取游戏库，请稍后重试");
+    if (!response.ok) {throw new Error("暂时无法读取游戏库，请稍后重试");}
     return response.json() as Promise<GamePage>;
   }, [authenticatedFetch]);
 
@@ -74,19 +74,19 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
     const controller = new AbortController();
     const timeout = window.setTimeout(() => {
       void requestPage(filters, null, controller.signal).then((page) => {
-        if (requestGeneration.current !== generation) return;
+        if (requestGeneration.current !== generation) {return;}
         setGames(page.items);
         setNextCursor(page.nextCursor);
         setFilteredCount(page.filteredCount ?? page.items.length);
-        if (page.facets) setFacets(page.facets);
+        if (page.facets) {setFacets(page.facets);}
         setNowMs(page.generatedAtMs);
         autoLoadArmed.current = true;
       }).catch((caught: unknown) => {
-        if (caught instanceof DOMException && caught.name === "AbortError") return;
-        if (requestGeneration.current !== generation) return;
+        if (caught instanceof DOMException && caught.name === "AbortError") {return;}
+        if (requestGeneration.current !== generation) {return;}
         setLoadError(caught instanceof Error ? caught.message : "暂时无法读取游戏库，请稍后重试");
       }).finally(() => {
-        if (!controller.signal.aborted && requestGeneration.current === generation) setRefreshing(false);
+        if (!controller.signal.aborted && requestGeneration.current === generation) {setRefreshing(false);}
       });
     }, 180);
     return () => {
@@ -97,11 +97,11 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
 
   useEffect(() => {
     const params = new URLSearchParams();
-    if (query.trim()) params.set("q", query.trim());
-    if (platformId) params.set("platformId", platformId);
-    if (platformInstanceId) params.set("platformInstanceId", platformInstanceId);
-    if (tagId) params.set("tagId", tagId);
-    if (sort !== "RECENT_DESC") params.set("sort", sort);
+    if (query.trim()) {params.set("q", query.trim());}
+    if (platformId) {params.set("platformId", platformId);}
+    if (platformInstanceId) {params.set("platformInstanceId", platformInstanceId);}
+    if (tagId) {params.set("tagId", tagId);}
+    if (sort !== "RECENT_DESC") {params.set("sort", sort);}
     const search = params.toString();
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${search ? `?${search}` : ""}`);
   }, [platformId, platformInstanceId, query, sort, tagId]);
@@ -110,7 +110,7 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
     const focusSearch = (event: KeyboardEvent) => {
       const target = event.target;
       const editing = target instanceof HTMLElement && (target.matches("input, select, textarea") || target.isContentEditable);
-      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey || editing) return;
+      if (event.key !== "/" || event.metaKey || event.ctrlKey || event.altKey || editing) {return;}
       event.preventDefault();
       searchRef.current?.focus();
     };
@@ -121,7 +121,7 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
   function selectPlatform(nextPlatformId: string) {
     setNextCursor(null);
     setPlatformId(nextPlatformId);
-    if (!platformInstanceId) return;
+    if (!platformInstanceId) {return;}
     const selectedCollection = facets.platformInstances.find((instance) => instance.id === platformInstanceId);
     if (nextPlatformId && selectedCollection?.platformId !== nextPlatformId) {
       setPlatformInstanceId("");
@@ -147,19 +147,19 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
   const mobileFilterCount = Number(Boolean(platformInstanceId)) + Number(Boolean(tagId)) + Number(sort !== "RECENT_DESC");
 
   const loadMore = useCallback(async () => {
-    if (!nextCursor || loadMoreRequest.current) return;
+    if (!nextCursor || loadMoreRequest.current) {return;}
     loadMoreRequest.current = true;
     setLoadingMore(true);
     setLoadError(null);
     const generation = requestGeneration.current;
     try {
       const page = await requestPage(filters, nextCursor);
-      if (requestGeneration.current !== generation) return;
+      if (requestGeneration.current !== generation) {return;}
       setGames((current) => mergeGames(current, page.items));
       setNextCursor(page.nextCursor);
       setNowMs(page.generatedAtMs);
     } catch (caught) {
-      if (requestGeneration.current !== generation) return;
+      if (requestGeneration.current !== generation) {return;}
       setLoadError(caught instanceof Error ? caught.message : "暂时无法读取下一页，请稍后重试");
     } finally {
       if (requestGeneration.current === generation) {
@@ -171,14 +171,14 @@ export function LibraryBrowser({ initialPage, initialFilters }: { initialPage: G
 
   useEffect(() => {
     const target = loadMoreRef.current;
-    if (!target || !nextCursor || typeof IntersectionObserver === "undefined") return;
+    if (!target || !nextCursor || typeof IntersectionObserver === "undefined") {return;}
     const observer = new IntersectionObserver((entries) => {
       const intersects = entries.some((entry) => entry.isIntersecting);
       if (!intersects) {
         autoLoadArmed.current = true;
         return;
       }
-      if (!autoLoadArmed.current) return;
+      if (!autoLoadArmed.current) {return;}
       autoLoadArmed.current = false;
       void loadMore();
     }, { rootMargin: "600px 0px" });

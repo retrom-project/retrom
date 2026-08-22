@@ -32,7 +32,7 @@ class HangingSocket extends EventTarget {
   constructor(public readonly url: URL, public readonly protocol: string) { super(); HangingSocket.instances.push(this); }
   send() { throw new Error("SOCKET_NOT_OPEN"); }
   close(code?: number, reason?: string) {
-    if (this.readyState === 3) return;
+    if (this.readyState === 3) {return;}
     this.closes.push([code, reason]); this.readyState = 3;
     this.dispatchEvent(new CloseEvent("close", { code, reason }));
   }
@@ -322,7 +322,9 @@ describe("NetplayController reconnect lease", () => {
     expect(onEnded).not.toHaveBeenCalled();
     controller.dispose();
   });
+});
 
+describe("NetplayController lockstep", () => {
   it("disposes a superseded controller without ending the shared session", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeSocket);
@@ -389,10 +391,10 @@ describe("NetplayController reconnect lease", () => {
     await vi.waitFor(() => expect(runNetplayFrame).toHaveBeenCalledOnce());
     expect(bridge.captureState).not.toHaveBeenCalled();
 
-    for (let frame = 1; frame < 120; frame += 1) socket.message(JSON.stringify({
+    for (let frame = 1; frame < 120; frame += 1) {socket.message(JSON.stringify({
       v: 1, type: "CANONICAL", sessionId: launch.sessionId, epoch: 0, seq: frame + 2,
       frame, occupiedSeatMask: 3, players,
-    }));
+    }));}
     await vi.waitFor(() => expect(runNetplayFrame).toHaveBeenCalledTimes(120));
     expect(bridge.captureState).toHaveBeenCalledOnce();
     expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "HASH")
@@ -553,7 +555,7 @@ describe("NetplayController reconnect lease", () => {
       v: 1, type: "START_EPOCH", sessionId: launch.sessionId, epoch: 0, seq: 1,
       nextFrame: 0, occupiedSeatMask: 3,
     }));
-    for (let index = 0; index < 20; index += 1) await Promise.resolve();
+    for (let index = 0; index < 20; index += 1) {await Promise.resolve();}
     expect(runNetplayFrame).toHaveBeenCalledTimes(8);
     await vi.advanceTimersByTimeAsync(99);
     expect(onStatus.mock.calls.filter(([text]) => text === "等待其他玩家输入…")).toHaveLength(0);
@@ -562,7 +564,7 @@ describe("NetplayController reconnect lease", () => {
       v: 1, type: "CANONICAL", sessionId: launch.sessionId, epoch: 0, seq: 2,
       frame: 0, occupiedSeatMask: 3, players,
     }));
-    for (let index = 0; index < 10; index += 1) await Promise.resolve();
+    for (let index = 0; index < 10; index += 1) {await Promise.resolve();}
     expect(runNetplayFrame).toHaveBeenCalledTimes(9);
     expect(onStatus.mock.calls.filter(([text]) => text === "网络稳定")).toHaveLength(1);
     await vi.advanceTimersByTimeAsync(99);
@@ -573,7 +575,9 @@ describe("NetplayController reconnect lease", () => {
     expect(onStatus.mock.calls.filter(([text]) => text === "等待其他玩家输入…")).toHaveLength(1);
     controller.end();
   });
+});
 
+describe("NetplayController rollback", () => {
   it("sends a deferred checkpoint after its post-frame state enters the rollback ring", async () => {
     vi.stubGlobal("WebSocket", FakeSocket);
     let stateByte = 0;
@@ -581,9 +585,9 @@ describe("NetplayController reconnect lease", () => {
     let calls = 0;
     const runNetplayFrame = vi.fn(() => {
       calls += 1;
-      if (calls === 1) return new Promise<void>((resolve) => {
+      if (calls === 1) {return new Promise<void>((resolve) => {
         releaseFirstFrame = () => { stateByte += 1; resolve(); };
-      });
+      });}
       stateByte += 1;
       return Promise.resolve();
     });
@@ -604,10 +608,10 @@ describe("NetplayController reconnect lease", () => {
     }));
     await vi.waitFor(() => expect(runNetplayFrame).toHaveBeenCalledOnce());
     const players = Array.from({ length: 4 }, () => Array(24).fill(0));
-    for (let frame = 0; frame < 120; frame += 1) socket.message(JSON.stringify({
+    for (let frame = 0; frame < 120; frame += 1) {socket.message(JSON.stringify({
       v: 1, type: "CANONICAL", sessionId: launch.sessionId, epoch: 0, seq: frame + 2,
       frame, occupiedSeatMask: 3, players,
-    }));
+    }));}
     await vi.waitFor(() => expect(onCanonical).toHaveBeenCalledWith({ frame: 119, predictionFrames: 0 }));
     expect(socket.sent.filter((value) => typeof value === "string" && JSON.parse(value).type === "HASH")).toHaveLength(0);
     releaseFirstFrame();
@@ -715,7 +719,7 @@ describe("NetplayController reconnect lease", () => {
     let frameCalls = 0;
     const runNetplayFrame = vi.fn(() => {
       frameCalls += 1;
-      if (frameCalls !== 1) return Promise.resolve();
+      if (frameCalls !== 1) {return Promise.resolve();}
       frameRunning = true;
       return new Promise<void>((resolve) => {
         releaseFrame = () => { frameRunning = false; resolve(); };

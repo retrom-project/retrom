@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestBuiltInArcadeDATMigrationRetiresUserCatalogManagement(t *testing.T) {
@@ -19,9 +20,7 @@ func TestBuiltInArcadeDATMigrationRetiresUserCatalogManagement(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -42,7 +41,7 @@ func TestBuiltInArcadeDATMigrationRetiresUserCatalogManagement(t *testing.T) {
 	}
 	var version, active int
 	var parseStatus, jobState, cancelReason string
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT (SELECT max(version) FROM schema_migrations),
        d.is_active,d.parse_status,j.state,j.cancel_reason
 FROM dat_versions d
@@ -51,24 +50,21 @@ WHERE d.id='legacy-user-dat'
 `).Scan(&version, &active, &parseStatus, &jobState, &cancelReason); err != nil {
 		t.Fatal(err)
 	}
-	if version != 39 || active != 0 || parseStatus != "CANCELLED" ||
-		jobState != "CANCELLED" || cancelReason != "USER_DAT_RETIRED" {
-		t.Fatalf("upgrade = version:%d active:%d DAT:%s job:%s reason:%s", version, active, parseStatus, jobState, cancelReason)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return version != 39 }, func() bool { return active != 0 }, func() bool { return parseStatus != "CANCELLED" }, func() bool { return jobState != "CANCELLED" }, func() bool { return cancelReason != "USER_DAT_RETIRED" }), "upgrade = version:%d active:%d DAT:%s job:%s reason:%s", version, active, parseStatus, jobState, cancelReason)
 	var legacyActive int
-	if err := upgraded.SQL.QueryRow(`SELECT is_active FROM dat_versions WHERE id='legacy-active-user-dat'`).Scan(&legacyActive); err != nil || legacyActive != 0 {
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT is_active FROM dat_versions WHERE id='legacy-active-user-dat'`).Scan(&legacyActive); err != nil || legacyActive != 0 {
 		t.Fatalf("legacy active USER DAT = %d, %v", legacyActive, err)
 	}
 	for _, table := range []string{"dat_import_jobs", "dat_diff_snapshots", "dat_diff_items"} {
 		var found int
-		if err := upgraded.SQL.QueryRow(`SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&found); err != nil || found != 0 {
+		if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT count(*) FROM sqlite_master WHERE type='table' AND name=?`, table).Scan(&found); err != nil || found != 0 {
 			t.Fatalf("retired table %s = %d, %v", table, found, err)
 		}
 	}
-	if _, err := upgraded.SQL.Exec(`UPDATE dat_versions SET version=version+1 WHERE id='legacy-user-dat'`); err == nil {
+	if _, err := upgraded.SQL.ExecContext(context.Background(), `UPDATE dat_versions SET version=version+1 WHERE id='legacy-user-dat'`); err == nil {
 		t.Fatal("legacy USER DAT remained mutable")
 	}
-	if _, err := upgraded.SQL.Exec(`
+	if _, err := upgraded.SQL.ExecContext(context.Background(), `
 INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,blob_id,sha256,
 parser_version,compatibility_status,parse_status,is_active,version,created_at_ms,updated_at_ms)
 VALUES('new-user-dat','fbneo','artifact','USER',NULL,'blob',?,'retrom-dat-v1','UNKNOWN','PENDING',0,1,1,1)
@@ -103,7 +99,7 @@ VALUES('legacy-user-diff','legacy-user-dat','PENDING',?,0,1,1,1,1)`,
 		{strings.Repeat("f", 64)},
 	}
 	for index, statement := range statements {
-		if _, err := database.Exec(statement, arguments[index]...); err != nil {
+		if _, err := database.ExecContext(context.Background(), statement, arguments[index]...); err != nil {
 			t.Fatalf("seed statement %d: %v", index, err)
 		}
 	}

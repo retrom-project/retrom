@@ -7,12 +7,14 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestBIOSFullCatalogCursorTraverses286Items(t *testing.T) {
 	t.Parallel()
 	server := newTestServer(t)
-	if _, err := server.database.Exec(`
+	if _, err := server.database.ExecContext(context.Background(), `
 INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,
 source_commit,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
 VALUES('bios-page-artifact','mgba','4.2.3','paging','WASM','data/paging.js',1,lower(hex(zeroblob(32))),
@@ -21,11 +23,9 @@ NULL,'{}','{}',1,1,1,1)
 		t.Fatal(err)
 	}
 	transaction, err := server.database.BeginTx(context.Background(), nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	for index := 0; index < 286; index++ {
-		if _, err := transaction.Exec(`
+		if _, err := transaction.ExecContext(context.Background(), `
 INSERT INTO bios_requirements(id,core_id,core_artifact_id,source_kind,dat_machine_name,logical_name,
 requirement_mode,condition_code,activation_options_json,catalog_digest,size_bytes,md5,sha1,sha256,
 source_url,source_version,enabled,version,created_at_ms,updated_at_ms,delivery_kind,emulator_path)
@@ -55,17 +55,13 @@ VALUES(?, 'mgba','bios-page-artifact','STATIC',NULL,?,'REQUIRED',NULL,NULL,lower
 			url += "&cursor=" + cursorValue
 		}
 		response := httptest.NewRecorder()
-		server.bios(response, httptest.NewRequest(http.MethodGet, url, nil))
-		if response.Code != http.StatusOK {
-			t.Fatalf("page = %d %s", response.Code, response.Body.String())
-		}
+		server.bios(response, httptest.NewRequestWithContext(context.Background(), http.MethodGet, url, nil))
+		testassert.Falsef(t, response.Code != http.StatusOK, "page = %d %s", response.Code, response.Body.String())
 		var body page
 		if err := json.Unmarshal(response.Body.Bytes(), &body); err != nil {
 			t.Fatal(err)
 		}
-		if body.FilteredCount != 286 {
-			t.Fatalf("filtered = %d", body.FilteredCount)
-		}
+		testassert.Falsef(t, body.FilteredCount != 286, "filtered = %d", body.FilteredCount)
 		sizes = append(sizes, len(body.Items))
 		for _, item := range body.Items {
 			if _, exists := seen[item.ID]; exists {
@@ -78,12 +74,8 @@ VALUES(?, 'mgba','bios-page-artifact','STATIC',NULL,?,'REQUIRED',NULL,NULL,lower
 		}
 		cursorValue = *body.NextCursor
 	}
-	if fmt.Sprint(sizes) != "[100 100 86]" || len(seen) != 286 {
-		t.Fatalf("pages=%v seen=%d", sizes, len(seen))
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return fmt.Sprint(sizes) != "[100 100 86]" }, func() bool { return len(seen) != 286 }), "pages=%v seen=%d", sizes, len(seen))
 	invalid := httptest.NewRecorder()
-	server.bios(invalid, httptest.NewRequest(http.MethodGet, "/api/v1/admin/bios?scope=FULL_CATALOG&quick=OPTIONAL&limit=100&cursor="+cursorValue, nil))
-	if invalid.Code != http.StatusBadRequest {
-		t.Fatalf("cross-filter cursor = %d %s", invalid.Code, invalid.Body.String())
-	}
+	server.bios(invalid, httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/bios?scope=FULL_CATALOG&quick=OPTIONAL&limit=100&cursor="+cursorValue, nil))
+	testassert.Falsef(t, invalid.Code != http.StatusBadRequest, "cross-filter cursor = %d %s", invalid.Code, invalid.Body.String())
 }

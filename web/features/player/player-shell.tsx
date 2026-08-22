@@ -1,91 +1,29 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type RefObject } from "react";
 import { useAuth } from "@/features/auth/auth-provider";
-import { newUuid } from "@/lib/crypto";
-import { writeHeaders } from "@/lib/api/client";
-import { captureManualScreenshot, captureManualState, mountEmulatorJS, readDiscState, switchDiscPreservingPause, validateConfig, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
-import { installCanvasContain } from "./canvas-fit";
-import { closeEmulatorSettingsPanels, openEmulatorSettingsPanel, type EmulatorSettingsPanel } from "./emulator-settings";
-import { prepareMultiDiscLaunch } from "./multi-disc-restore";
-import { multiDiscPlayerResultCode, reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
+import { captureManualScreenshot, type DiscSet, type DiscState, type EmulatorInstance, type ManualScreenshot, type PlayerConfig } from "./adapters/ejs-4.2.3-v2";
+import { reportMultiDiscPlayerEvent, type MultiDiscPlayerEvent } from "./multi-disc-telemetry";
 import { setEmulatorPaused } from "./pause-control";
 import { captureBeforePause } from "./pause-screenshot";
-import { clearTransientSaveStorage, isTransientSaveFileSystem } from "./transient-save-storage";
-import { requiresExplicitStateRestore } from "./explicit-state-restore";
-import { canCreateRecoverableManualState } from "./dosbox-pure-state";
-import { uploadWithProgress, type SaveUploadProgress } from "./upload-with-progress";
-import { PlayerChrome, type PlayerDebugRuntime } from "./player-chrome";
+import { PlayerChrome, type PlayerChromeProps, type PlayerDebugRuntime } from "./player-chrome";
 import { shouldRevealPlayerControls } from "./player-controls-visibility";
-import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
-import { installPlayerFrameStyle } from "./player-frame-style";
-import { applyVideoRenderingMode, readVideoRenderingMode, subscribeVideoRenderingMode, writeVideoRenderingMode, type VideoRenderingMode } from "./video-rendering";
+import type { PlayerDebugMetrics } from "./player-debug";
+import { applyVideoRenderingMode, readVideoRenderingMode, subscribeVideoRenderingMode, type VideoRenderingMode } from "./video-rendering";
 import {
   initialPlayerOrientationState,
-  mobilePlayerQuery,
-  observeStableOrientation,
-  portraitPlayerQuery,
-  reducePlayerOrientation,
-  requestFullscreenAndLandscape,
-  unlockLandscape,
-  waitForStableLandscape,
-  type PlayerOrientationEffect,
   type PlayerOrientationState,
-  type PlayerRuntimeKind,
 } from "./orientation";
-import { NetplayController } from "./netplay/controller";
-import { digestHex, EJSNetplayFrameBridge } from "./netplay/ejs-netplay-4.2.3-v1";
+import type { NetplayController } from "./netplay/controller";
+import { usePlayerBootstrap } from "./player-bootstrap";
+import { usePlayerSession } from "./player-session";
+import { usePlayerRuntimeActions } from "./player-runtime-actions";
+import { usePlayerOrientationRuntime } from "./player-orientation-runtime";
+import { usePlayerRuntimeEffects } from "./player-runtime-effects";
+export { readBoundedResponse, reportsNativeExit } from "./player-shell-model";
 
 type ShellState = "loading" | "running" | "error";
-const SAVE_UPLOAD_PRESENTATION_MS = 400;
-
-export async function readBoundedResponse(response: Response, maximumBytes: number, errorCode = "PLAYER_SAVE_STATE_TOO_LARGE") {
-  const declared = Number(response.headers.get("content-length") ?? "0");
-  if (Number.isFinite(declared) && declared > maximumBytes) throw new Error(errorCode);
-  if (!response.body) {
-    const bytes = new Uint8Array(await response.arrayBuffer());
-    if (bytes.byteLength > maximumBytes) throw new Error(errorCode);
-    return bytes;
-  }
-  const reader = response.body.getReader();
-  const chunks: Uint8Array[] = [];
-  let length = 0;
-  try {
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      length += value.byteLength;
-      if (length > maximumBytes) throw new Error(errorCode);
-      chunks.push(value);
-    }
-  } finally {
-    reader.releaseLock();
-  }
-  const result = new Uint8Array(length);
-  let offset = 0;
-  for (const chunk of chunks) { result.set(chunk, offset); offset += chunk.byteLength; }
-  return result;
-}
-
-export function reportsNativeExit(mode: "single" | "netplay", finishing = false) {
-  return mode === "single" && !finishing;
-}
-
-function formatPlayerBytes(bytes: number) {
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KiB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MiB`;
-}
-
-async function waitForSaveUploadPresentation(startedAt: number) {
-  const remaining = SAVE_UPLOAD_PRESENTATION_MS - (performance.now() - startedAt);
-  if (remaining > 0) await new Promise<void>((resolve) => window.setTimeout(resolve, remaining));
-}
-
-function observedRuntimeDiscCount(instance: EmulatorInstance | undefined) {
-  const value = instance?.gameManager?.getDiskCount?.();
-  return typeof value === "number" && Number.isInteger(value) && value >= -1 && value <= 64 ? value : null;
-}
 
 export function PlayerShell({ launchId }: { launchId: string }) {
   const { context } = useAuth();
@@ -158,7 +96,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }, [launchId]);
 
   const clearControlsTimer = useCallback(() => {
-    if (controlsTimer.current !== null) window.clearTimeout(controlsTimer.current);
+    if (controlsTimer.current !== null) {window.clearTimeout(controlsTimer.current);}
     controlsTimer.current = null;
   }, []);
 
@@ -167,17 +105,17 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     clearControlsTimer();
     if (running.current && !pausedRef.current && !chromePinned.current) {
       controlsTimer.current = window.setTimeout(() => {
-        if (!pausedRef.current && !chromePinned.current) setControlsVisible(false);
+        if (!pausedRef.current && !chromePinned.current) {setControlsVisible(false);}
       }, 2_000);
     }
   }, [clearControlsTimer]);
 
   const revealControlsAtTopEdge = useCallback((clientY: number) => {
-    if (shouldRevealPlayerControls(clientY)) showControls();
+    if (shouldRevealPlayerControls(clientY)) {showControls();}
   }, [showControls]);
 
   const showToast = useCallback((value: string, timeout = 2_400) => {
-    if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
+    if (toastTimer.current !== null) {window.clearTimeout(toastTimer.current);}
     setToast(value);
     toastTimer.current = window.setTimeout(() => {
       setToast("");
@@ -207,8 +145,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }, [clearControlsTimer, controlsVisible, showControls]);
 
   const pauseForToolbarInteraction = useCallback(() => {
-    if (playerMode.current === "netplay") return;
-    if (!running.current || pausedRef.current || pausePending.current || !emulator.current) return;
+    if (playerMode.current === "netplay") {return;}
+    if (!running.current || pausedRef.current || pausePending.current || !emulator.current) {return;}
     const current = emulator.current;
     pausePending.current = true;
     const capture = captureManualScreenshot(current).then((screenshot) => {
@@ -217,7 +155,7 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     });
     pauseCapture.current = captureBeforePause(capture, () => {
       pausePending.current = false;
-      if (!running.current || pausedRef.current || !setEmulatorPaused(current, true)) return;
+      if (!running.current || pausedRef.current || !setEmulatorPaused(current, true)) {return;}
       pausedRef.current = true;
       setPaused(true);
       showToast("游戏已暂停，点击游戏画面继续");
@@ -227,9 +165,9 @@ export function PlayerShell({ launchId }: { launchId: string }) {
   }, [clearControlsTimer, showToast]);
 
   const handleGameSurfaceInteraction = useCallback(() => {
-    if (playerMode.current === "netplay") return;
-    if (!running.current) return;
-    if (!pausedRef.current || !setEmulatorPaused(emulator.current, false)) return;
+    if (playerMode.current === "netplay") {return;}
+    if (!running.current) {return;}
+    if (!pausedRef.current || !setEmulatorPaused(emulator.current, false)) {return;}
     pausedRef.current = false;
     lastManualScreenshot.current = null;
     setPaused(false);
@@ -237,119 +175,12 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     showControls();
   }, [showControls, showToast]);
 
-  const sendEvent = useCallback(async (kind: "start" | "heartbeat" | "finish") => {
-    if (kind === "heartbeat" && !started.current) throw new Error("PLAY_SESSION_NOT_STARTED");
-    const next = kind === "start" || kind === "finish" && !started.current ? 0 : sequence.current + 1;
-    const response = await fetch(`/runtime/launches/${launchId}/${kind}`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        clientSequence: next,
-        clientObservedAtMs: Date.now(),
-        previousInterval: kind === "start" || kind === "finish" && !started.current ? null : {
-          running: true,
-          visible: document.visibilityState === "visible",
-          paused: emulator.current?.paused === true
-        }
-      })
-    });
-    if (!response.ok) throw new Error("PLAY_SESSION_EVENT_FAILED");
-    sequence.current = next;
-    if (kind === "start") started.current = true;
-    if (kind === "finish") finishing.current = true;
-  }, [launchId]);
-
-  const reportSaveUploadProgress = useCallback((progress: SaveUploadProgress) => {
-    setSaveUploadProgress(progress.percent);
-    setSyncText(`正在上传存档 ${progress.percent}%`);
-    setSyncTone("busy");
-  }, []);
-
-  const uploadManualState = useCallback((payload: { screenshot: Blob; format: string; state: Uint8Array }) => {
-    const result = saveUploadQueue.current.then(async () => {
-      if (!payload.screenshot.size || !payload.state.byteLength) {
-        setSyncText("保存失败");
-        setSyncTone("warning");
-        showToast("状态或截图为空，未创建存档。", 4_000);
-        return false;
-      }
-      let discIndex: number | undefined;
-      if (discSetRef.current) {
-        try {
-          if (!emulator.current) throw new Error("PLAYER_DISC_STATE_UNAVAILABLE");
-          discIndex = readDiscState(emulator.current, discSetRef.current.count).currentIndex;
-        } catch {
-          setSyncText("保存失败");
-          setSyncTone("warning");
-          showToast("无法读取当前光盘，未创建存档。", 4_000);
-          return false;
-        }
-      }
-      const form = new FormData();
-      form.append("metadata", new Blob([JSON.stringify({
-        name: `手动存档 ${new Date().toLocaleString("zh-CN")}`,
-        ...(discIndex === undefined ? {} : { discIndex })
-      })], { type: "application/json" }));
-      const stateBytes = new Uint8Array(payload.state).slice().buffer;
-      form.append("state", new Blob([stateBytes], { type: "application/octet-stream" }), `state.${payload.format || "bin"}`);
-      form.append("screenshot", payload.screenshot, `screenshot.${payload.format || "png"}`);
-      const progressStartedAt = performance.now();
-      setSaveUploadProgress(0);
-      await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-      let response: Awaited<ReturnType<typeof uploadWithProgress>>;
-      try {
-        response = await uploadWithProgress({
-          url: `/runtime/launches/${launchId}/save-states`,
-          method: "POST",
-          headers: { "Idempotency-Key": newUuid() },
-          body: form,
-          totalBytes: payload.state.byteLength + payload.screenshot.size,
-          onProgress: reportSaveUploadProgress,
-        });
-      } finally {
-        await waitForSaveUploadPresentation(progressStartedAt);
-        setSaveUploadProgress(null);
-      }
-      if (response.ok) {
-        setSyncText("已同步");
-        setSyncTone("synced");
-        showToast("手动存档和截图已保存");
-        return true;
-      } else {
-        setSyncText("保存失败");
-        setSyncTone("warning");
-        showToast("手动存档失败，服务器未创建不完整记录", 4_000);
-        return false;
-      }
-    });
-    saveUploadQueue.current = result.then(() => undefined, () => undefined);
-    return result.catch(() => {
-      setSaveUploadProgress(null);
-      setSyncText("保存失败");
-      setSyncTone("warning");
-      showToast("手动存档上传失败，服务器未创建不完整记录", 4_000);
-      return false;
-    });
-  }, [launchId, reportSaveUploadProgress, showToast]);
-
-  const exit = useCallback(async () => {
-    if (finishing.current) return;
-    finishing.current = true;
-    const exiting = reducePlayerOrientation(orientationStateRef.current, { type: "exit" });
-    orientationStateRef.current = exiting.state;
-    setOrientationState(exiting.state);
-    if (exiting.effects.includes("unlock")) unlockLandscape();
-    try {
-      if (playerMode.current === "netplay") netplayController.current?.end();
-      // Wait only for an upload the user explicitly started. Exiting never
-      // captures or uploads emulator state or game save files.
-      await saveUploadQueue.current;
-      await sendEvent("finish");
-    } catch { /* expiry is already a terminal server state */ }
-    if (document.fullscreenElement) await document.exitFullscreen().catch(() => undefined);
-    window.location.replace(returnTo.current);
-  }, [sendEvent]);
+  const sessionParams = useMemo(() => ({
+    launchId, emulator, playerMode, sequence, started, finishing, saveUploadQueue, discSetRef,
+    orientationStateRef, returnTo, netplayController, setOrientationState, setSaveUploadProgress,
+    setSyncText, setSyncTone, showToast,
+  }), [launchId, showToast]);
+  const { sendEvent, uploadManualState, exit } = usePlayerSession(sessionParams);
 
   useEffect(() => {
     videoRenderingModeRef.current = videoRenderingMode;
@@ -357,719 +188,76 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     applyVideoRenderingMode(emulator.current, canvas, videoRenderingMode);
   }, [videoRenderingMode]);
 
-  useEffect(() => {
-    const controller = new AbortController();
-    let cleanup: (() => void) | undefined;
-    let canvasContain: ReturnType<typeof installCanvasContain> | undefined;
-    let cleanupFrameControls: (() => void) | undefined;
-    let nativeMenuObserver: MutationObserver | undefined;
-    let ownedNetplayController: NetplayController | undefined;
-    async function bootstrap() {
-      try {
-        setMessage("正在加载 Core、ROM 与依赖配置…");
-        const response = await fetch(`/runtime/launches/${launchId}/config`, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
-        if (!response.ok) throw new Error(`LAUNCH_CONFIG_${response.status}`);
-        const config = await response.json() as PlayerConfig;
-        validateConfig(config);
-        returnTo.current = config.returnTo;
-        playerMode.current = config.mode;
-        manualSaveAvailableRef.current = canCreateRecoverableManualState(config);
-        setManualSaveAvailable(manualSaveAvailableRef.current);
-        netplayConfig.current = config.netplay;
-        setNetplayPlayerNo(config.netplay?.playerNo ?? null);
-        setWarnings(config.warnings ?? []);
-        setGameTitle(config.gameTitle);
-        setCoreName(config.coreName || config.core);
-        setPlatformName(config.platformName);
-        setDebugRuntime({
-          coreId: config.core,
-          coreArtifactId: config.coreArtifactId,
-          emulatorJSVersion: config.emulatorjsVersion,
-          playerAdapterId: config.playerAdapterId,
-          inputMode: config.inputMode,
-          crossOriginIsolated: window.crossOriginIsolated,
-          sharedArrayBuffer: typeof SharedArrayBuffer !== "undefined",
-        });
-        discSetRef.current = config.discSet ?? null;
-        setDiscSet(config.discSet ?? null);
-        setDiscState(null);
+  const bootstrapParams = useMemo(() => ({
+    launchId, stage, frameRef, emulator, returnTo, playerMode, manualSaveAvailableRef, netplayConfig, discSetRef,
+    orientationStateRef, videoRenderingModeRef, lastAudibleVolume, pausedRef, started, finishing, heartbeat,
+    toastTimer, netplayController, netplayPausedRef, setMessage, setState, setManualSaveAvailable,
+    setNetplayPlayerNo, setWarnings, setGameTitle, setCoreName, setPlatformName, setDebugRuntime, setDiscSet,
+    setDiscState, setOrientationState, setFrameEnabled, setSyncText, setSyncTone, setEmulatorVolume,
+    setEmulatorMuted, setPaused, setNetplayPaused, reportPlayerEvent, revealControlsAtTopEdge, showControls,
+    sendEvent, uploadManualState,
+  }), [launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState]);
 
-        const mobileQuery = window.matchMedia(mobilePlayerQuery);
-        const portraitQuery = window.matchMedia(portraitPlayerQuery);
-        const runtimeKind: PlayerRuntimeKind = config.mode === "single"
-          ? "single"
-          : config.netplay?.playerNo === 1 ? "netplay-p1" : "netplay-p2";
-        let orientation = reducePlayerOrientation(orientationStateRef.current, {
-          type: "config-ready",
-          mobile: mobileQuery.matches,
-          portrait: portraitQuery.matches,
-          runtimeKind,
-        });
-        orientationStateRef.current = orientation.state;
-        setOrientationState(orientation.state);
-        if (orientation.state.phase === "orientation-blocked") {
-          setMessage("请横向握持设备开始游戏");
-          await waitForStableLandscape(portraitQuery, controller.signal, (portrait) => {
-            orientation = reducePlayerOrientation(orientationStateRef.current, {
-              type: "orientation-stable", portrait, paused: false,
-            });
-            orientationStateRef.current = orientation.state;
-            setOrientationState(orientation.state);
-          });
-        }
+  usePlayerBootstrap(bootstrapParams);
 
-        setFrameEnabled(true);
-        for (let attempt = 0; attempt < 12 && !frameRef.current; attempt += 1) {
-          await new Promise<void>((resolve) => window.requestAnimationFrame(() => resolve()));
-          if (controller.signal.aborted) return;
-        }
-        if (!frameRef.current) throw new Error("PLAYER_FRAME_UNAVAILABLE");
+  const runtimeEffectParams = useMemo(() => ({
+    state, debugOpen, orientationBlocked: orientationState.phase === "orientation-blocked", emulator, frameRef,
+    orientationButtonRef, running, pausedRef, chromePinned, controlsTimer, playerMode, netplayController,
+    clearControlsTimer, setControlsVisible, setFullscreen, setDebugOpen, setDebugMetrics,
+  }), [clearControlsTimer, debugOpen, orientationState.phase, state]);
+  const { toggleDebug } = usePlayerRuntimeEffects(runtimeEffectParams);
 
-        if (config.discSet) {
-          const sizes = await Promise.all(config.discSet.entries.map(async (entry) => {
-            const source = config.externalFiles[entry.virtualPath];
-            const head = await fetch(source, { method: "HEAD", credentials: "same-origin", cache: "no-store", signal: controller.signal });
-            if (!head.ok) throw new Error("PLAYER_DISC_SET_INVALID");
-            const size = Number(head.headers.get("content-length") ?? "NaN");
-            if (!Number.isSafeInteger(size) || size < 8) throw new Error("PLAYER_DISC_SET_INVALID");
-            return size;
-          }));
-          setMessage(`正在准备多盘内容 · ${config.discSet.count} 张光盘 · ${formatPlayerBytes(sizes.reduce((total, size) => total + size, 0))}`);
-        }
+  const runtimeActionParams = useMemo(() => ({
+    userId, state, emulator, frameRef, manualSaveAvailableRef, pauseCapture, lastManualScreenshot,
+    uploadManualState, discSetRef, discState, setDiscState, reportPlayerEvent, showToast, setSyncText,
+    setSyncTone, setEmulatorToolbarOpen, holdControls, releaseControls, lastAudibleVolume, emulatorVolume,
+    emulatorMuted, setEmulatorVolume, setEmulatorMuted, videoRenderingModeRef, netplayConfig,
+    netplayPaused, netplayPausedRef, setNetplayPaused,
+  }), [discState, emulatorMuted, emulatorVolume, holdControls, netplayPaused, releaseControls, reportPlayerEvent, showToast, state, uploadManualState, userId]);
+  const actions = usePlayerRuntimeActions(runtimeActionParams);
 
-        if (config.persistentSaveMode !== "NONE" || config.persistentSaveUrl !== null) {
-          throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
-        }
-        setSyncText(manualSaveAvailableRef.current ? "可创建存档" : "程序菜单模式不可存档");
-        setSyncTone(manualSaveAvailableRef.current ? "synced" : "warning");
+  const orientationParams = useMemo(() => ({
+    frameRef, playerMode, netplayController, emulator, pausedRef, netplayPausedRef, orientationStateRef,
+    setOrientationState, setPaused, setOrientationHelp, requestNetplayPause: actions.requestNetplayPause,
+    showControls, showToast,
+  }), [actions.requestNetplayPause, showControls, showToast]);
+  const { retryLandscape } = usePlayerOrientationRuntime(orientationParams);
 
-        let stateBytes: Uint8Array | null = null;
-        if ((config.discSet || requiresExplicitStateRestore(config)) && config.stateUrl) {
-          const stateResponse = await fetch(config.stateUrl, { credentials: "same-origin", cache: "no-store", signal: controller.signal });
-          if (!stateResponse.ok) throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");
-          stateBytes = await readBoundedResponse(stateResponse, 64 * 1024 * 1024);
-          if (stateBytes.byteLength === 0) throw new Error("PLAYER_SAVE_STATE_UNAVAILABLE");
-        }
+  const chromeProps: PlayerChromeProps = {
+    controlsVisible, running: state === "running", paused, fullscreen, gameTitle, coreName, platformName,
+    syncText, syncTone, saveUploadProgress, saveAvailable: manualSaveAvailable, toast, warnings,
+    emulatorToolbarOpen, emulatorVolume, emulatorMuted, videoRenderingMode, discSet, discState,
+    netplayPlayerNo, netplayPaused, debugOpen, debugMetrics, debugRuntime, runtimeState: state,
+    onHoldControls: holdControls, onReleaseControls: releaseControls, onToggleControls: toggleControls,
+    onSave: actions.saveManualState, onPauseForToolbarInteraction: pauseForToolbarInteraction,
+    onToggleFullscreen: () => void actions.toggleFullscreen(), onOpenEmulatorSettings: actions.openEmulatorSettings,
+    onCloseEmulatorSettings: actions.closeEmulatorSettings, onOpenEmulatorPanel: actions.openEmulatorPanel,
+    onChangeEmulatorVolume: actions.changeEmulatorVolume, onToggleEmulatorMute: actions.toggleEmulatorMute,
+    onChangeVideoRenderingMode: actions.changeVideoRenderingMode, onSelectDisc: actions.selectDisc,
+    onToggleNetplayPause: () => void actions.toggleNetplayPause(), onToggleDebug: toggleDebug, onExit: () => void exit(),
+  };
+  return <PlayerShellView paused={paused} orientationState={orientationState} chromeProps={chromeProps} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} gameTitle={gameTitle} orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef} onShowControls={showControls} onRevealControls={revealControlsAtTopEdge} onSurface={handleGameSurfaceInteraction} onRetryLandscape={() => void retryLandscape()} />;
+}
 
-        if (!stage.current || !frameRef.current) return;
-        const frame = frameRef.current;
-        const frameWindow = frame.contentWindow;
-        const frameDocument = frame.contentDocument;
-        if (!frameWindow || !frameDocument) throw new Error("PLAYER_FRAME_UNAVAILABLE");
-        frameDocument.documentElement.lang = "zh-CN";
-        frameDocument.documentElement.classList.add("retrom-native-menu-locked");
-        installPlayerFrameStyle(frameDocument);
-        const target = frameDocument.createElement("div");
-        target.id = "game";
-        frameDocument.body.append(target);
-        canvasContain = installCanvasContain(frameDocument, () => emulator.current?.gameManager?.getVideoDimensions?.("aspect"));
-        const handleFramePointerMove = (event: PointerEvent) => revealControlsAtTopEdge(event.clientY);
-        const handleFrameKeyDown = () => showControls();
-        const handleFrameClick = (event: MouseEvent) => {
-          const target = event.target;
-          if (target && "closest" in target && typeof target.closest === "function" && target.closest(".ejs_menu_bar,.ejs_popup_container,.ejs_cheat_parent,.ejs_control_bar,button,a,input,select,textarea,[role=button]")) return;
-          frame.dispatchEvent(new PointerEvent("pointerdown", { bubbles: true }));
-          frame.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-        };
-        frameDocument.addEventListener("pointermove", handleFramePointerMove, { passive: true });
-        frameDocument.addEventListener("keydown", handleFrameKeyDown);
-        if (config.inputMode === "STANDARD") frameDocument.addEventListener("click", handleFrameClick);
-        cleanupFrameControls = () => {
-          frameDocument.removeEventListener("pointermove", handleFramePointerMove);
-          frameDocument.removeEventListener("keydown", handleFrameKeyDown);
-          if (config.inputMode === "STANDARD") frameDocument.removeEventListener("click", handleFrameClick);
-        };
+function PlayerShellView({ paused, orientationState, chromeProps, stage, frameRef, frameEnabled, state, message, gameTitle, orientationHelp, orientationButtonRef, onShowControls, onRevealControls, onSurface, onRetryLandscape }: { paused: boolean; orientationState: PlayerOrientationState; chromeProps: PlayerChromeProps; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; gameTitle: string; orientationHelp: string; orientationButtonRef: RefObject<HTMLButtonElement | null>; onShowControls: () => void; onRevealControls: (clientY: number) => void; onSurface: () => void; onRetryLandscape: () => void }) {
+  const blocked = orientationState.phase === "orientation-blocked";
+  return <main className={`player-shell${paused ? " is-paused" : ""}${blocked ? " is-orientation-blocked" : ""}`} onKeyDown={onShowControls} onPointerMove={(event) => onRevealControls(event.clientY)}>
+    {!blocked ? <PlayerChrome {...chromeProps} /> : null}
+    <PlayerStage blocked={blocked} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} onSurface={onSurface} />
+    {blocked ? <OrientationGate state={orientationState} gameTitle={gameTitle} help={orientationHelp} buttonRef={orientationButtonRef} onRetry={onRetryLandscape} /> : null}
+  </main>;
+}
 
-        cleanup = mountEmulatorJS(config, target, {
-          onReady: (instance) => {
-            if (controller.signal.aborted) return;
-            emulator.current = instance;
-            const runningCanvas = instance.canvas ?? frameDocument.querySelector<HTMLCanvasElement>("canvas");
-            applyVideoRenderingMode(instance, runningCanvas, videoRenderingModeRef.current);
-            const initialVolume = Math.min(1, Math.max(0, typeof instance.volume === "number" ? instance.volume : 0.5));
-            setEmulatorVolume(initialVolume);
-            setEmulatorMuted(instance.muted === true || initialVolume === 0);
-            if (initialVolume > 0) lastAudibleVolume.current = initialVolume;
-            const nativeMenu = frameDocument.querySelector<HTMLElement>(".ejs_menu_bar");
-            if (nativeMenu) {
-              nativeMenuObserver = new MutationObserver(() => {
-                if (nativeMenu.classList.contains("ejs_menu_bar_hidden")) {
-                  frameDocument.documentElement.classList.add("retrom-native-menu-locked");
-                }
-              });
-              nativeMenuObserver.observe(nativeMenu, { attributes: true, attributeFilter: ["class"] });
-            }
-            instance.on("saveState", () => undefined);
-            instance.on("saveDatabaseLoaded", () => {
-              const fs = instance.gameManager?.FS;
-              if (!fs || !isTransientSaveFileSystem(fs)) {
-                setState("error");
-                setMessage("LAUNCH_TRANSIENT_SAVE_FS_UNAVAILABLE");
-                throw new Error("LAUNCH_TRANSIENT_SAVE_FS_UNAVAILABLE");
-              }
-              try {
-                // EmulatorJS mounts an auto-persisted IDBFS even when its
-                // database options are disabled. Clear it before every game
-                // so a plain start cannot resurrect a previous session.
-                clearTransientSaveStorage(fs);
-              } catch (error) {
-                setState("error");
-                setMessage(error instanceof Error ? error.message : "LAUNCH_TRANSIENT_SAVE_CLEAR_FAILED");
-                throw error;
-              }
-            });
-            instance.on("exit", () => {
-              if (!reportsNativeExit(playerMode.current, finishing.current)) return;
-              void sendEvent("finish").catch(() => {
-                setState("error");
-                setMessage("PLAY_SESSION_EVENT_FAILED");
-              });
-            });
-          },
-          onGameStart: () => {
-            if (controller.signal.aborted) return false;
-            frameDocument.documentElement.classList.add("retrom-native-menu-locked");
-            emulator.current?.menu?.close?.();
-            const manager = emulator.current?.gameManager;
-            const runningCanvas = emulator.current?.canvas ?? frameDocument.querySelector<HTMLCanvasElement>("canvas");
-            applyVideoRenderingMode(emulator.current, runningCanvas, videoRenderingModeRef.current);
-            const completeSinglePlayerStart = (resumeMainLoop: boolean) => {
-              if (controller.signal.aborted) return;
-              if (emulator.current) {
-                emulator.current.paused = false;
-                if (resumeMainLoop) emulator.current.gameManager?.toggleMainLoop?.(true);
-              }
-              pausedRef.current = false;
-              setPaused(false);
-              const startedOrientation = reducePlayerOrientation(orientationStateRef.current, { type: "runtime-started", paused: false });
-              orientationStateRef.current = startedOrientation.state;
-              setOrientationState(startedOrientation.state);
-              frameWindow.requestAnimationFrame(() => canvasContain?.refresh());
-              void sendEvent("start").then(() => {
-                setState("running");
-                setSyncText(manualSaveAvailableRef.current ? "可创建存档" : "程序菜单模式不可存档");
-                setSyncTone(manualSaveAvailableRef.current ? "synced" : "warning");
-                heartbeat.current = window.setInterval(() => { void sendEvent("heartbeat"); }, 30_000);
-              }).catch(() => {
-                setState("error");
-                setMessage("PLAY_SESSION_EVENT_FAILED");
-              });
-            };
-            try {
-              if (config.discSet) {
-                const lockedDiscSet = config.discSet;
-                setMessage(`正在切换到光盘 ${lockedDiscSet.initialDiscIndex + 1}`);
-                if (!emulator.current) throw new Error("PLAYER_DISC_API_UNAVAILABLE");
-                const selected = prepareMultiDiscLaunch(emulator.current, lockedDiscSet);
-                setDiscState(selected);
-                reportPlayerEvent({
-                  eventType: "START", resultCode: "OK", discCount: lockedDiscSet.count,
-                  observedDiscCount: selected.count,
-                });
-                if (stateBytes) {
-                  if (!manager?.loadExplicitStateAndWait) {
-                    throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
-                  }
-                  setMessage("正在恢复指定存档");
-                  void manager.loadExplicitStateAndWait(stateBytes).then(() => {
-                    reportPlayerEvent({
-                      eventType: "SAVE_RESTORE_SUCCESS", resultCode: "OK", discCount: lockedDiscSet.count,
-                      observedDiscCount: selected.count,
-                    });
-                    completeSinglePlayerStart(true);
-                  }).catch((caught: unknown) => {
-                    if (controller.signal.aborted) return;
-                    const observedDiscCount = observedRuntimeDiscCount(emulator.current);
-                    const resultCode = multiDiscPlayerResultCode(caught, "PLAYER_SAVE_STATE_RESTORE_FAILED");
-                    reportPlayerEvent({
-                      eventType: "SAVE_RESTORE_FAILURE", resultCode, discCount: lockedDiscSet.count,
-                      observedDiscCount,
-                    });
-                    setState("error");
-                    setMessage(resultCode);
-                  });
-                  return false;
-                }
-                manager?.toggleMainLoop?.(true);
-              } else if (stateBytes && requiresExplicitStateRestore(config)) {
-                if (!manager?.loadExplicitStateAndWait) throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
-                setMessage("正在恢复指定存档");
-                void manager.loadExplicitStateAndWait(stateBytes).then(() => {
-                  completeSinglePlayerStart(true);
-                }).catch(() => {
-                  if (controller.signal.aborted) return;
-                  setState("error");
-                  setMessage("PLAYER_SAVE_STATE_RESTORE_FAILED");
-                });
-                return false;
-              }
-            } catch (caught) {
-              if (config.discSet) {
-                const observedDiscCount = observedRuntimeDiscCount(emulator.current);
-                const resultCode = multiDiscPlayerResultCode(
-                  caught, stateBytes ? "PLAYER_SAVE_STATE_RESTORE_FAILED" : "PLAYER_DISC_API_UNAVAILABLE",
-                );
-                if (resultCode === "PLAYER_DISC_SET_INVALID" && observedDiscCount !== null &&
-                  observedDiscCount !== config.discSet.count) {
-                  reportPlayerEvent({
-                    eventType: "DISK_COUNT_MISMATCH", resultCode, discCount: config.discSet.count,
-                    observedDiscCount,
-                  });
-                }
-                if (stateBytes) reportPlayerEvent({
-                  eventType: "SAVE_RESTORE_FAILURE", resultCode, discCount: config.discSet.count,
-                  observedDiscCount,
-                });
-              }
-              setState("error");
-              setMessage(caught instanceof Error ? caught.message : "PLAYER_DISC_SET_INVALID");
-              return false;
-            }
-            if (config.mode === "netplay") {
-              if (!emulator.current || !config.netplay) throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");
-              try {
-                netplayController.current?.dispose();
-                const bridge = new EJSNetplayFrameBridge(emulator.current);
-                const controllerHolder: { current?: NetplayController } = {};
-                const isCurrent = () => !controller.signal.aborted && netplayController.current === controllerHolder.current;
-                const createdController = new NetplayController(config.netplay, "", bridge, {
-                  onStatus: (text, tone) => {
-                    if (!isCurrent()) return;
-                    setSyncText(text); setSyncTone(tone);
-                  },
-                  onRunning: () => {
-                    if (!isCurrent()) return;
-                    setNetplayPaused(false);
-                    netplayPausedRef.current = false;
-                    const startedOrientation = reducePlayerOrientation(orientationStateRef.current, { type: "runtime-started", paused: false });
-                    orientationStateRef.current = startedOrientation.state;
-                    setOrientationState(startedOrientation.state);
-                    if (started.current) return;
-                    void sendEvent("start").then(() => {
-                      setState("running");
-                      heartbeat.current = window.setInterval(() => { void sendEvent("heartbeat"); }, 30_000);
-                    }).catch(() => {
-                      setState("error");
-                      setMessage("PLAY_SESSION_EVENT_FAILED");
-                    });
-                  },
-                  onPaused: () => { if (isCurrent()) { netplayPausedRef.current = true; setNetplayPaused(true); } },
-                  onEnded: (reason) => {
-                    if (!isCurrent()) return;
-                    setSyncText("联机已结束");
-                    setSyncTone("warning");
-                    setMessage(reason);
-                    void sendEvent("finish").catch(() => undefined).finally(() => {
-                      window.setTimeout(() => window.location.replace(returnTo.current), 600);
-                    });
-                  },
-                });
-                controllerHolder.current = createdController;
-                ownedNetplayController = createdController;
-                netplayController.current = createdController;
-                setMessage("正在建立联机同步屏障…");
-                void digestHex(new TextEncoder().encode(JSON.stringify(config.netplay.netplayProfile)))
-                  .then((profileDigest) => createdController.setProfileDigest(profileDigest))
-                  .then(() => createdController.start())
-                  .catch((caught: unknown) => {
-                    if (!isCurrent()) { createdController.dispose(); return; }
-                    createdController.end();
-                    setState("error");
-                    setMessage(caught instanceof Error ? caught.message : "NETPLAY_START_FAILED");
-                  });
-                return true;
-              } catch (caught) {
-                setState("error");
-                setMessage(caught instanceof Error ? caught.message : "NETPLAY_START_FAILED");
-                return false;
-              }
-            }
-            completeSinglePlayerStart(false);
-            return true;
-          },
-          onSaveState: (payload) => { void uploadManualState(payload); },
-        }, frameWindow);
-      } catch (error) {
-        if (controller.signal.aborted) return;
-        const code = error instanceof Error ? error.message : "启动失败";
-        setMessage(code === "LAUNCH_CONFIG_401" ? "启动会话不可用，请从游戏详情或存档重新开始。" : code);
-        setState("error");
-      }
-    }
-    void bootstrap();
-    return () => {
-      controller.abort(); cleanup?.(); canvasContain?.cleanup(); cleanupFrameControls?.();
-      ownedNetplayController?.dispose();
-      if (netplayController.current === ownedNetplayController) netplayController.current = null;
-      closeEmulatorSettingsPanels(emulator.current);
-      nativeMenuObserver?.disconnect();
-      if (heartbeat.current !== null) window.clearInterval(heartbeat.current);
-      if (toastTimer.current !== null) window.clearTimeout(toastTimer.current);
-    };
-  }, [exit, launchId, reportPlayerEvent, revealControlsAtTopEdge, sendEvent, showControls, uploadManualState]);
+function PlayerStage({ blocked, stage, frameRef, frameEnabled, state, message, onSurface }: { blocked: boolean; stage: RefObject<HTMLDivElement | null>; frameRef: RefObject<HTMLIFrameElement | null>; frameEnabled: boolean; state: ShellState; message: string; onSurface: () => void }) {
+  return <div className="player-stage" ref={stage} inert={blocked ? true : undefined} aria-hidden={blocked || undefined} onClick={onSurface}>{frameEnabled ? <iframe ref={frameRef} title="Retrom EmulatorJS Player" className="player-frame" src="about:blank" /> : null}{state !== "running" ? <PlayerLoading state={state} message={message} /> : null}</div>;
+}
 
-  useEffect(() => {
-    running.current = state === "running";
-    clearControlsTimer();
-    if (running.current && !pausedRef.current && !chromePinned.current) controlsTimer.current = window.setTimeout(() => setControlsVisible(false), 2_000);
-    return clearControlsTimer;
-  }, [clearControlsTimer, state]);
+function PlayerLoading({ state, message }: { state: ShellState; message: string }) {
+  return <div className="player-loading">{state === "loading" ? <i /> : null}<strong>{message}</strong><p>{state === "error" ? <><span>凭据可能已过期或依赖不兼容。</span> <Link href="/library">返回游戏库</Link></> : "页面会在验证和指定存档恢复后自动开始，无需再次点击。"}</p></div>;
+}
 
-  useEffect(() => {
-    const updateFullscreen = () => setFullscreen(document.fullscreenElement !== null);
-    updateFullscreen();
-    document.addEventListener("fullscreenchange", updateFullscreen);
-    return () => document.removeEventListener("fullscreenchange", updateFullscreen);
-  }, []);
-
-  useEffect(() => {
-    if (orientationState.phase !== "orientation-blocked") return;
-    const frame = requestAnimationFrame(() => orientationButtonRef.current?.focus());
-    return () => cancelAnimationFrame(frame);
-  }, [orientationState.phase]);
-
-  useEffect(() => {
-    if (!debugOpen) return;
-    let previous: PlayerDebugSample | null = null;
-    const sample = () => {
-      const canvas = emulator.current?.canvas ?? frameRef.current?.contentDocument?.querySelector("canvas") ?? null;
-      const result = samplePlayerDebugMetrics(emulator.current, canvas, previous, performance.now(), {
-        width: window.innerWidth,
-        height: window.innerHeight,
-        devicePixelRatio: window.devicePixelRatio,
-      });
-      previous = result.sample;
-      setDebugMetrics(result.metrics);
-    };
-    const initialFrame = window.requestAnimationFrame(sample);
-    const timer = window.setInterval(sample, 1_000);
-    window.addEventListener("resize", sample);
-    return () => {
-      window.cancelAnimationFrame(initialFrame);
-      window.clearInterval(timer);
-      window.removeEventListener("resize", sample);
-    };
-  }, [debugOpen]);
-
-  function toggleDebug() {
-    if (!debugOpen) setDebugMetrics(null);
-    setDebugOpen((open) => !open);
-  }
-
-  useEffect(() => {
-    const handlePageHide = () => {
-      if (finishing.current) return;
-      const wasStarted = started.current;
-      const next = wasStarted ? sequence.current + 1 : 0;
-      void fetch(`/runtime/launches/${launchId}/finish`, {
-        method: "POST",
-        credentials: "same-origin",
-        keepalive: true,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          clientSequence: next,
-          clientObservedAtMs: Date.now(),
-          previousInterval: wasStarted ? { running: true, visible: document.visibilityState === "visible", paused: emulator.current?.paused === true } : null
-        })
-      });
-      finishing.current = true;
-    };
-    window.addEventListener("pagehide", handlePageHide);
-    return () => window.removeEventListener("pagehide", handlePageHide);
-  }, [launchId]);
-
-  useEffect(() => {
-    const releaseHiddenControls = () => {
-      if (document.visibilityState === "hidden" && playerMode.current === "netplay") netplayController.current?.handleFocusLoss();
-    };
-    const releaseBlurredControls = () => {
-      if (playerMode.current === "netplay") netplayController.current?.handleFocusLoss();
-    };
-    document.addEventListener("visibilitychange", releaseHiddenControls);
-    window.addEventListener("blur", releaseBlurredControls);
-    return () => {
-      document.removeEventListener("visibilitychange", releaseHiddenControls);
-      window.removeEventListener("blur", releaseBlurredControls);
-    };
-  }, []);
-
-  async function saveManualState() {
-    if (!manualSaveAvailableRef.current) {
-      setSyncText("程序菜单模式不可存档");
-      setSyncTone("warning");
-      showToast("请退出后从游戏详情选择一个具体 DOS 程序再开始；程序菜单模式无法创建可恢复存档。", 5_000);
-      return false;
-    }
-    const current = emulator.current;
-    if (!current) return false;
-    setSyncText("正在保存…");
-    setSyncTone("busy");
-    showToast("正在创建存档…");
-    try {
-      const capture = await pauseCapture.current ?? lastManualScreenshot.current;
-      if (!capture) throw new Error("PLAYER_SCREENSHOT_UNAVAILABLE");
-      return await uploadManualState(captureManualState(current, capture));
-    } catch {
-      setSyncText("保存失败");
-      setSyncTone("warning");
-      showToast("无法从模拟器读取完整状态和截图", 4_000);
-      return false;
-    }
-  }
-
-  async function selectDisc(index: number) {
-    const current = emulator.current;
-    const locked = discSetRef.current;
-    if (!current || !locked || !discState) return false;
-    if (index === discState.currentIndex) return true;
-    try {
-      const selected = switchDiscPreservingPause(current, index, locked.count);
-      setDiscState(selected);
-      reportPlayerEvent({
-        eventType: "SWITCH_SUCCESS", resultCode: "OK", discCount: locked.count,
-        observedDiscCount: selected.count,
-      });
-      showToast(`已切换到光盘 ${selected.currentIndex + 1}`);
-      return true;
-    } catch (caught) {
-      reportPlayerEvent({
-        eventType: "SWITCH_FAILURE",
-        resultCode: multiDiscPlayerResultCode(caught, "PLAYER_DISC_SWITCH_FAILED"),
-        discCount: locked.count,
-        observedDiscCount: observedRuntimeDiscCount(current),
-      });
-      showToast(`无法切换光盘，游戏仍停留在光盘 ${discState.currentIndex + 1}`, 4_000);
-      return false;
-    }
-  }
-
-  async function toggleFullscreen() {
-    if (document.fullscreenElement) await document.exitFullscreen().catch(() => showToast("浏览器未能退出全屏"));
-    else await document.documentElement.requestFullscreen({ navigationUI: "hide" }).catch(() => showToast("浏览器未允许全屏，游戏仍会继续运行。", 4_000));
-  }
-
-  function openEmulatorSettings() {
-    if (!emulator.current || state !== "running") {
-      showToast("模拟器设置尚未准备好，请稍后再试。", 3_000);
-      return;
-    }
-    setEmulatorToolbarOpen(true);
-    holdControls();
-  }
-
-  function closeEmulatorSettings() {
-    closeEmulatorSettingsPanels(emulator.current);
-    setEmulatorToolbarOpen(false);
-    releaseControls();
-  }
-
-  function openEmulatorPanel(panel: EmulatorSettingsPanel) {
-    const current = emulator.current;
-    if (!current || !openEmulatorSettingsPanel(current, panel)) {
-      showToast("当前模拟器未提供这项设置。", 3_000);
-      return;
-    }
-    holdControls();
-  }
-
-  function changeEmulatorVolume(volume: number) {
-    const current = emulator.current;
-    if (!current) return;
-    const normalized = Math.min(1, Math.max(0, volume));
-    current.volume = normalized;
-    current.muted = normalized === 0;
-    current.setVolume?.(normalized);
-    setEmulatorVolume(normalized);
-    setEmulatorMuted(normalized === 0);
-    if (normalized > 0) lastAudibleVolume.current = normalized;
-  }
-
-  function toggleEmulatorMute() {
-    const current = emulator.current;
-    if (!current) return;
-    if (emulatorMuted) {
-      const restored = Math.min(1, Math.max(0.01, lastAudibleVolume.current));
-      current.volume = restored;
-      current.muted = false;
-      current.setVolume?.(restored);
-      setEmulatorVolume(restored);
-      setEmulatorMuted(false);
-      return;
-    }
-    if (emulatorVolume > 0) lastAudibleVolume.current = emulatorVolume;
-    current.muted = true;
-    current.setVolume?.(0);
-    setEmulatorMuted(true);
-  }
-
-  function changeVideoRenderingMode(mode: VideoRenderingMode) {
-    videoRenderingModeRef.current = mode;
-    writeVideoRenderingMode(userId, mode);
-    const canvas = emulator.current?.canvas ?? frameRef.current?.contentDocument?.querySelector<HTMLCanvasElement>("canvas") ?? null;
-    const runtimeApplied = applyVideoRenderingMode(emulator.current, canvas, mode);
-    showToast(runtimeApplied ? "画面模式已应用" : "画面模式将在模拟器准备完成后应用");
-  }
-
-  async function toggleNetplayPause() {
-    const locked = netplayConfig.current;
-    if (!locked || locked.playerNo !== 1) return;
-    const action = netplayPaused ? "resume" : "pause";
-    const response = await fetch(`/api/v1/netplay/rooms/${locked.roomId}/sessions/${locked.sessionId}/${action}`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
-      body: "{}",
-    });
-    if (!response.ok) {
-      showToast("无法更改全局暂停状态，请重试。", 4_000);
-      return;
-    }
-    if (!netplayPaused) {
-      netplayPausedRef.current = true;
-      setNetplayPaused(true);
-    }
-  }
-
-  const requestNetplayPause = useCallback(async (action: "pause" | "resume") => {
-    const locked = netplayConfig.current;
-    if (!locked || locked.playerNo !== 1) return false;
-    const response = await fetch(`/api/v1/netplay/rooms/${locked.roomId}/sessions/${locked.sessionId}/${action}`, {
-      method: "POST",
-      credentials: "same-origin",
-      headers: writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
-      body: "{}",
-    }).catch(() => null);
-    if (!response?.ok) return false;
-    netplayPausedRef.current = action === "pause";
-    setNetplayPaused(action === "pause");
-    return true;
-  }, []);
-
-  const runOrientationEffects = useCallback(async (effects: PlayerOrientationEffect[]) => {
-    const queue = [...effects];
-    while (queue.length) {
-      const effect = queue.shift();
-      if (effect === "release-input") {
-        frameRef.current?.blur();
-        frameRef.current?.contentWindow?.dispatchEvent(new Event("blur"));
-        if (playerMode.current === "netplay") netplayController.current?.handleFocusLoss();
-      } else if (effect === "pause-single") {
-        if (setEmulatorPaused(emulator.current, true)) {
-          pausedRef.current = true;
-          setPaused(true);
-        }
-      } else if (effect === "resume-single") {
-        if (document.visibilityState === "visible" && setEmulatorPaused(emulator.current, false)) {
-          pausedRef.current = false;
-          setPaused(false);
-          showControls();
-        }
-      } else if (effect === "pause-netplay") {
-        const owned = await requestNetplayPause("pause");
-        if (!owned) {
-          showToast("无法在旋转时暂停联机，请立即横屏并手动确认状态。", 4_000);
-          continue;
-        }
-        const transition = reducePlayerOrientation(orientationStateRef.current, { type: "netplay-pause-owned" });
-        orientationStateRef.current = transition.state;
-        setOrientationState(transition.state);
-        queue.unshift(...transition.effects);
-      } else if (effect === "resume-netplay") {
-        if (!await requestNetplayPause("resume")) showToast("无法自动恢复联机，请由房主手动继续。", 4_000);
-      } else if (effect === "warn-netplay-p2") {
-        showToast("本局仍在进行，请立即横屏。", 4_000);
-      }
-    }
-  }, [requestNetplayPause, showControls, showToast]);
-
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const portraitQuery = window.matchMedia(portraitPlayerQuery);
-    const apply = (portrait: boolean) => {
-      const pausedNow = playerMode.current === "single" ? pausedRef.current : netplayPausedRef.current;
-      const transition = reducePlayerOrientation(orientationStateRef.current, { type: "orientation-stable", portrait, paused: pausedNow });
-      orientationStateRef.current = transition.state;
-      setOrientationState(transition.state);
-      void runOrientationEffects(transition.effects);
-    };
-    return observeStableOrientation(portraitQuery, apply);
-  }, [runOrientationEffects]);
-
-  useEffect(() => {
-    const updateVisibility = () => {
-      const transition = reducePlayerOrientation(orientationStateRef.current, { type: "visibility", hidden: document.visibilityState === "hidden" });
-      orientationStateRef.current = transition.state;
-      setOrientationState(transition.state);
-      void runOrientationEffects(transition.effects);
-    };
-    document.addEventListener("visibilitychange", updateVisibility);
-    return () => document.removeEventListener("visibilitychange", updateVisibility);
-  }, [runOrientationEffects]);
-
-  async function retryLandscape() {
-    const result = await requestFullscreenAndLandscape();
-    if (result.orientation === "unsupported") setOrientationHelp("当前浏览器不支持自动锁定方向，请手动旋转设备。");
-    else if (result.orientation === "denied") setOrientationHelp("浏览器拒绝了方向锁定，请手动旋转设备。");
-    else setOrientationHelp("方向已锁定；若画面没有变化，请手动旋转设备。");
-  }
-
-  return (
-    <main className={`player-shell${paused ? " is-paused" : ""}${orientationState.phase === "orientation-blocked" ? " is-orientation-blocked" : ""}`} onKeyDown={showControls} onPointerMove={(event) => revealControlsAtTopEdge(event.clientY)}>
-      {orientationState.phase !== "orientation-blocked" ? <PlayerChrome
-        controlsVisible={controlsVisible}
-        running={state === "running"}
-        paused={paused}
-        fullscreen={fullscreen}
-        gameTitle={gameTitle}
-        coreName={coreName}
-        platformName={platformName}
-        syncText={syncText}
-        syncTone={syncTone}
-        saveUploadProgress={saveUploadProgress}
-        saveAvailable={manualSaveAvailable}
-        toast={toast}
-        warnings={warnings}
-        emulatorToolbarOpen={emulatorToolbarOpen}
-        emulatorVolume={emulatorVolume}
-        emulatorMuted={emulatorMuted}
-        videoRenderingMode={videoRenderingMode}
-        discSet={discSet}
-        discState={discState}
-        netplayPlayerNo={netplayPlayerNo}
-        netplayPaused={netplayPaused}
-        debugOpen={debugOpen}
-        debugMetrics={debugMetrics}
-        debugRuntime={debugRuntime}
-        runtimeState={state}
-        onHoldControls={holdControls}
-        onReleaseControls={releaseControls}
-        onToggleControls={toggleControls}
-        onSave={saveManualState}
-        onPauseForToolbarInteraction={pauseForToolbarInteraction}
-        onToggleFullscreen={() => void toggleFullscreen()}
-        onOpenEmulatorSettings={openEmulatorSettings}
-        onCloseEmulatorSettings={closeEmulatorSettings}
-        onOpenEmulatorPanel={openEmulatorPanel}
-        onChangeEmulatorVolume={changeEmulatorVolume}
-        onToggleEmulatorMute={toggleEmulatorMute}
-        onChangeVideoRenderingMode={changeVideoRenderingMode}
-        onSelectDisc={selectDisc}
-        onToggleNetplayPause={() => void toggleNetplayPause()}
-        onToggleDebug={toggleDebug}
-        onExit={() => void exit()}
-      /> : null}
-      <div className="player-stage" ref={stage} inert={orientationState.phase === "orientation-blocked" ? true : undefined} aria-hidden={orientationState.phase === "orientation-blocked" || undefined} onClick={handleGameSurfaceInteraction}>
-        {frameEnabled ? <iframe ref={frameRef} title="Retrom EmulatorJS Player" className="player-frame" src="about:blank" /> : null}
-        {state !== "running" ? <div className="player-loading">{state === "loading" ? <i /> : null}<strong>{message}</strong><p>{state === "error" ? <><span>凭据可能已过期或依赖不兼容。</span> <Link href="/library">返回游戏库</Link></> : "页面会在验证和指定存档恢复后自动开始，无需再次点击。"}</p></div> : null}
-      </div>
-      {orientationState.phase === "orientation-blocked" ? <section className="player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="player-orientation-title" onKeyDown={(event) => { if (event.key === "Tab") { event.preventDefault(); orientationButtonRef.current?.focus(); } }}>
-        <div className="player-rotate-mark" aria-hidden="true"><span>↻</span></div>
-        <p>{orientationState.runtimeKind === "netplay-p2" && orientationState.started ? "联机仍在进行" : orientationState.started ? "游戏已暂停" : "移动 Player 需要横屏"}</p>
-        <h1 id="player-orientation-title">请横向握持设备开始游戏</h1>
-        <strong>{gameTitle}</strong>
-        <small>{orientationState.runtimeKind === "netplay-p2" && orientationState.started ? "你是 P2，不能暂停全局联机；本地输入已清空。" : orientationHelp}</small>
-        <button ref={orientationButtonRef} className="button" type="button" onClick={() => void retryLandscape()}>尝试进入全屏并横屏</button>
-      </section> : null}
-    </main>
-  );
+function OrientationGate({ state, gameTitle, help, buttonRef, onRetry }: { state: PlayerOrientationState; gameTitle: string; help: string; buttonRef: RefObject<HTMLButtonElement | null>; onRetry: () => void }) {
+  const activeP2 = state.runtimeKind === "netplay-p2" && state.started;
+  const status = activeP2 ? "联机仍在进行" : state.started ? "游戏已暂停" : "移动 Player 需要横屏";
+  return <section className="player-orientation-gate" role="dialog" aria-modal="true" aria-labelledby="player-orientation-title" onKeyDown={(event) => {if (event.key === "Tab") {event.preventDefault(); buttonRef.current?.focus();}}}><div className="player-rotate-mark" aria-hidden="true"><span>↻</span></div><p>{status}</p><h1 id="player-orientation-title">请横向握持设备开始游戏</h1><strong>{gameTitle}</strong><small>{activeP2 ? "你是 P2，不能暂停全局联机；本地输入已清空。" : help}</small><button ref={buttonRef} className="button" type="button" onClick={onRetry}>尝试进入全屏并横屏</button></section>;
 }

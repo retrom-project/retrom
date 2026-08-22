@@ -22,5 +22,9 @@ ln -s "$repository_root/go.sum" "$tmp_dir/go.sum"
   npx --no-install openapi-typescript "$repository_root/api/openapi.yaml" \
     -o "$tmp_dir/web/lib/api/generated/schema.d.ts"
 )
-cmp "$repository_root/internal/httpapi/generated/api.gen.go" "$tmp_dir/internal/httpapi/generated/api.gen.go"
+if git -C "$repository_root" ls-files --error-unmatch internal/httpapi/generated/api.gen.go >/dev/null 2>&1; then
+  echo "internal/httpapi/generated/api.gen.go is generated during backend builds and must not be tracked" >&2
+  exit 1
+fi
+git -C "$repository_root" check-ignore --quiet internal/httpapi/generated/api.gen.go
 cmp "$repository_root/web/lib/api/generated/schema.d.ts" "$tmp_dir/web/lib/api/generated/schema.d.ts"

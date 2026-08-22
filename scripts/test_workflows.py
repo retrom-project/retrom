@@ -21,6 +21,15 @@ class GitHubWorkflowDependencyTests(unittest.TestCase):
         self.assertNotEqual(ci_position, -1, workflow)
         self.assertLess(prepare_position, ci_position, workflow)
 
+    def test_pull_request_runs_structure_gate_before_runtime_preparation(self) -> None:
+        workflow = (REPOSITORY_ROOT / ".github/workflows/ci.yml").read_text(
+            encoding="utf-8"
+        )
+        structure_position = workflow.find("run: make quality-structure-check")
+        prepare_position = workflow.find("run: make prepare-deps")
+        self.assertTrue(0 <= structure_position < prepare_position, workflow)
+        self.assertNotIn("make quality-structure-check || true", workflow)
+
     def test_tag_release_builds_without_repeating_quality_job(self) -> None:
         workflow = (REPOSITORY_ROOT / ".github/workflows/docker-image.yml").read_text(
             encoding="utf-8"

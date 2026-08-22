@@ -62,7 +62,7 @@ func NewMenu(source io.ReaderAt, size int64) (*Overlay, error) {
 	return newOverlay(source, size, "")
 }
 
-//nolint:gocyclo // Each branch validates an independent classic-ZIP structural invariant.
+// Each branch validates an independent classic-ZIP structural invariant.
 func newOverlay(source io.ReaderAt, size int64, selectedEntry string) (*Overlay, error) {
 	if size < endMinimumSize {
 		return nil, ErrInvalid
@@ -74,10 +74,7 @@ func newOverlay(source io.ReaderAt, size int64, selectedEntry string) (*Overlay,
 	entries := binary.LittleEndian.Uint16(end[10:12])
 	centralSize := int64(binary.LittleEndian.Uint32(end[12:16]))
 	centralOffset := int64(binary.LittleEndian.Uint32(end[16:20]))
-	if binary.LittleEndian.Uint16(end[4:6]) != 0 || binary.LittleEndian.Uint16(end[6:8]) != 0 ||
-		binary.LittleEndian.Uint16(end[8:10]) != entries || entries == math.MaxUint16 ||
-		centralOffset == math.MaxUint32 || centralSize == math.MaxUint32 ||
-		centralOffset < 0 || centralSize < 0 || centralOffset+centralSize != endOffset {
+	if !validClassicEnd(end, entries, centralOffset, centralSize, endOffset) {
 		return nil, ErrInvalid
 	}
 	central := make([]byte, centralSize)
@@ -124,6 +121,13 @@ func newOverlay(source io.ReaderAt, size int64, selectedEntry string) (*Overlay,
 		size, endOffset, end, local, centralEntries, localParts, localSize,
 		central, retainedEntries, len(launchers),
 	)
+}
+
+func validClassicEnd(end []byte, entries uint16, centralOffset, centralSize, endOffset int64) bool {
+	return binary.LittleEndian.Uint16(end[4:6]) == 0 && binary.LittleEndian.Uint16(end[6:8]) == 0 &&
+		binary.LittleEndian.Uint16(end[8:10]) == entries && entries != math.MaxUint16 &&
+		centralOffset != math.MaxUint32 && centralSize != math.MaxUint32 &&
+		centralOffset >= 0 && centralSize >= 0 && centralOffset+centralSize == endOffset
 }
 
 func assembleOverlay(
@@ -517,99 +521,160 @@ func rewriteLocalHeader(source io.ReaderAt, entry archiveEntry, mappedName strin
 	return header, nil
 }
 
-//nolint:funlen,gocognit,gocyclo // Mirrors DOSBox Pure's ordered directory, 8.3, and collision state machine.
+// Mirrors DOSBox Pure's ordered directory, 8.3, and collision state machine.
 func resolveDOSPath(
 	central []byte,
 	entries uint16,
 	selectedEntry string,
 ) (string, error) {
-	selectedEntry = strings.ReplaceAll(selectedEntry, `\`, "/")
-	directories := map[string]string{"": ""}
-	used := map[string]map[string]struct{}{"": {"AUTOBOOT.DBP": {}}}
+	resolver := dosPathResolver{
+		selectedEntry: strings.ReplaceAll(selectedEntry, `\`, "/"),
+		directories:   map[string]string{"": ""},
+		used:          map[string]map[string]struct{}{"": {"AUTOBOOT.DBP": {}}},
+	}
 	offset := 0
 	for range entries {
-		if offset+46 > len(central) || binary.LittleEndian.Uint32(central[offset:offset+4]) != centralHeaderSignature {
-			return "", ErrInvalid
-		}
-		nameLength := int(binary.LittleEndian.Uint16(central[offset+28 : offset+30]))
-		extraLength := int(binary.LittleEndian.Uint16(central[offset+30 : offset+32]))
-		commentLength := int(binary.LittleEndian.Uint16(central[offset+32 : offset+34]))
-		next := offset + 46 + nameLength + extraLength + commentLength
-		if next > len(central) {
-			return "", ErrInvalid
-		}
-		rawOriginal := string(central[offset+46 : offset+46+nameLength])
-		nonUTF8 := binary.LittleEndian.Uint16(central[offset+8:offset+10])&(1<<11) == 0
-		original, decodeErr := zipentry.DecodeName(rawOriginal, nonUTF8)
-		if decodeErr != nil {
-			return "", ErrInvalid
+		original, rawOriginal, next, err := decodeCentralEntryName(central, offset)
+		if err != nil {
+			return "", err
 		}
 		offset = next
-		trimmed := strings.TrimSuffix(original, "/")
-		rawTrimmed := strings.TrimSuffix(rawOriginal, "/")
-		if trimmed == "" || (!strings.Contains(trimmed, "/") && isReservedLauncher(trimmed)) {
-			continue
+		resolved, found, err := resolver.resolveEntry(original, rawOriginal)
+		if err != nil {
+			return "", err
 		}
-		segments := strings.Split(trimmed, "/")
-		rawSegments := strings.Split(rawTrimmed, "/")
-		if len(rawSegments) != len(segments) {
-			return "", ErrInvalid
-		}
-		originalParent, dosParent := "", ""
-		for index, segment := range segments {
-			rawSegment := rawSegments[index]
-			if segment == "" || rawSegment == "" {
-				return "", ErrInvalid
-			}
-			originalPath := segment
-			if originalParent != "" {
-				originalPath = originalParent + "/" + segment
-			}
-			isDirectory := index < len(segments)-1 || strings.HasSuffix(original, "/")
-			if isDirectory {
-				if mapped, exists := directories[originalPath]; exists {
-					dosParent, originalParent = mapped, originalPath
-					continue
-				}
-			}
-			// DOSBox Pure derives its 8.3 alias from the bytes stored in the ZIP,
-			// while Retrom addresses the member by the normalized decoded path.
-			alias := make8Dot3(rawSegment)
-			parentUsed := used[dosParent]
-			if parentUsed == nil {
-				parentUsed = map[string]struct{}{}
-				used[dosParent] = parentUsed
-			}
-			for {
-				if _, exists := parentUsed[strings.ToUpper(alias)]; !exists {
-					break
-				}
-				var ok bool
-				alias, ok = increment8Dot3(alias)
-				if !ok {
-					return "", ErrInvalid
-				}
-			}
-			parentUsed[strings.ToUpper(alias)] = struct{}{}
-			dosPath := alias
-			if dosParent != "" {
-				dosPath = dosParent + `\` + alias
-			}
-			if isDirectory {
-				directories[originalPath] = dosPath
-				used[dosPath] = map[string]struct{}{}
-				dosParent, originalParent = dosPath, originalPath
-				continue
-			}
-			if originalPath == selectedEntry || strings.EqualFold(originalPath, selectedEntry) {
-				return dosPath, nil
-			}
+		if found {
+			return resolved, nil
 		}
 	}
 	if offset != len(central) {
 		return "", ErrInvalid
 	}
 	return "", ErrInvalid
+}
+
+func decodeCentralEntryName(central []byte, offset int) (string, string, int, error) {
+	if offset+46 > len(central) ||
+		binary.LittleEndian.Uint32(central[offset:offset+4]) != centralHeaderSignature {
+		return "", "", 0, ErrInvalid
+	}
+	nameLength := int(binary.LittleEndian.Uint16(central[offset+28 : offset+30]))
+	extraLength := int(binary.LittleEndian.Uint16(central[offset+30 : offset+32]))
+	commentLength := int(binary.LittleEndian.Uint16(central[offset+32 : offset+34]))
+	next := offset + 46 + nameLength + extraLength + commentLength
+	if next > len(central) {
+		return "", "", 0, ErrInvalid
+	}
+	raw := string(central[offset+46 : offset+46+nameLength])
+	nonUTF8 := binary.LittleEndian.Uint16(central[offset+8:offset+10])&(1<<11) == 0
+	decoded, err := zipentry.DecodeName(raw, nonUTF8)
+	if err != nil {
+		return "", "", 0, ErrInvalid
+	}
+	return decoded, raw, next, nil
+}
+
+type dosPathResolver struct {
+	selectedEntry string
+	directories   map[string]string
+	used          map[string]map[string]struct{}
+}
+
+type dosPathPosition struct {
+	originalParent string
+	dosParent      string
+}
+
+func (resolver *dosPathResolver) resolveEntry(original, rawOriginal string) (string, bool, error) {
+	trimmed := strings.TrimSuffix(original, "/")
+	rawTrimmed := strings.TrimSuffix(rawOriginal, "/")
+	if trimmed == "" || (!strings.Contains(trimmed, "/") && isReservedLauncher(trimmed)) {
+		return "", false, nil
+	}
+	segments := strings.Split(trimmed, "/")
+	rawSegments := strings.Split(rawTrimmed, "/")
+	if len(rawSegments) != len(segments) {
+		return "", false, ErrInvalid
+	}
+	position := dosPathPosition{}
+	for index, segment := range segments {
+		isDirectory := index < len(segments)-1 || strings.HasSuffix(original, "/")
+		dosPath, found, err := resolver.resolveSegment(
+			&position, segment, rawSegments[index], isDirectory,
+		)
+		if err != nil {
+			return "", false, err
+		}
+		if found {
+			return dosPath, true, nil
+		}
+	}
+	return "", false, nil
+}
+
+func (resolver *dosPathResolver) resolveSegment(
+	position *dosPathPosition,
+	segment, rawSegment string,
+	isDirectory bool,
+) (string, bool, error) {
+	if segment == "" || rawSegment == "" {
+		return "", false, ErrInvalid
+	}
+	originalPath := joinSlashPath(position.originalParent, segment)
+	if isDirectory {
+		if mapped, exists := resolver.directories[originalPath]; exists {
+			position.dosParent, position.originalParent = mapped, originalPath
+			return "", false, nil
+		}
+	}
+	alias, err := resolver.unusedAlias(position.dosParent, rawSegment)
+	if err != nil {
+		return "", false, err
+	}
+	dosPath := joinDOSPath(position.dosParent, alias)
+	if isDirectory {
+		resolver.directories[originalPath] = dosPath
+		resolver.used[dosPath] = map[string]struct{}{}
+		position.dosParent, position.originalParent = dosPath, originalPath
+		return "", false, nil
+	}
+	selected := originalPath == resolver.selectedEntry ||
+		strings.EqualFold(originalPath, resolver.selectedEntry)
+	return dosPath, selected, nil
+}
+
+func (resolver *dosPathResolver) unusedAlias(parent, rawSegment string) (string, error) {
+	parentUsed := resolver.used[parent]
+	if parentUsed == nil {
+		parentUsed = map[string]struct{}{}
+		resolver.used[parent] = parentUsed
+	}
+	alias := make8Dot3(rawSegment)
+	for {
+		if _, exists := parentUsed[strings.ToUpper(alias)]; !exists {
+			parentUsed[strings.ToUpper(alias)] = struct{}{}
+			return alias, nil
+		}
+		var ok bool
+		alias, ok = increment8Dot3(alias)
+		if !ok {
+			return "", ErrInvalid
+		}
+	}
+}
+
+func joinSlashPath(parent, segment string) string {
+	if parent == "" {
+		return segment
+	}
+	return parent + "/" + segment
+}
+
+func joinDOSPath(parent, segment string) string {
+	if parent == "" {
+		return segment
+	}
+	return parent + `\` + segment
 }
 
 func make8Dot3(source string) string {
@@ -676,8 +741,7 @@ func validDOSByte(value byte) bool {
 		value >= 0x99 && value <= 0x9f || value >= 0xa5
 }
 
-// dosUpperByte reproduces DOSBox Pure's built-in CP437 upper-case mapping for
-// the high bytes that its 8.3 validity table requires it to normalize.
+// dosUpperByte reproduces DOSBox Pure's built-in CP437 upper-case mapping used by its 8.3 validity table.
 func dosUpperByte(value byte) byte {
 	switch value {
 	case 0x81:

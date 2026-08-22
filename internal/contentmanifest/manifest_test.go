@@ -1,6 +1,10 @@
 package contentmanifest
 
-import "testing"
+import (
+	"testing"
+
+	"retrom/internal/testassert"
+)
 
 func TestBuildSortsFilesAndUsesCanonicalFields(t *testing.T) {
 	archive := "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
@@ -22,9 +26,7 @@ func TestBuildSortsFilesAndUsesCanonicalFields(t *testing.T) {
 		},
 	})
 	want := `[{"blobSha256":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","logicalName":"A.gba","role":"CONTENT","sizeBytes":2,"sourceArchiveEntryOrdinal":2,"sourceArchiveSha256":"bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"},{"blobSha256":"cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc","logicalName":"Z.EXE","role":"DOS_SOURCE","sizeBytes":3}]`
-	if err != nil || string(contents) != want || len(digest) != 64 {
-		t.Fatalf("manifest = %s digest=%s error=%v", contents, digest, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return string(contents) != want }, func() bool { return len(digest) != 64 }), "manifest = %s digest=%s error=%v", contents, digest, err)
 }
 
 func TestBuildRejectsHalfArchiveReference(t *testing.T) {

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"slices"
 	"testing"
+
+	"retrom/internal/testassert"
 )
 
 func TestArcadeDependencyClosureV2BuildsMultilevelParentAndBaseRelations(t *testing.T) {
@@ -13,9 +15,7 @@ func TestArcadeDependencyClosureV2BuildsMultilevelParentAndBaseRelations(t *test
 		"c": {romOf: "bios-x"}, "base-a": {}, "base-b": {}, "bios-x": {},
 	}
 	nodes, cyclic, available := arcadeDependencyClosureV2("a", relationMapResolver(relations))
-	if cyclic || !available {
-		t.Fatalf("closure flags = cyclic:%v available:%v", cyclic, available)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return cyclic }, func() bool { return !available }), "closure flags = cyclic:%v available:%v", cyclic, available)
 	got := make([]string, 0, len(nodes))
 	for _, node := range nodes {
 		requiredBy := "-"
@@ -28,9 +28,7 @@ func TestArcadeDependencyClosureV2BuildsMultilevelParentAndBaseRelations(t *test
 		"a:CONTENT:-:0", "b:PARENT:a:1", "base-a:BIOS_OR_BASE:a:1",
 		"c:PARENT:b:2", "base-b:BIOS_OR_BASE:b:2", "bios-x:BIOS_OR_BASE:c:3",
 	}
-	if !slices.Equal(got, want) {
-		t.Fatalf("closure = %#v, want %#v", got, want)
-	}
+	testassert.Truef(t, slices.Equal(got, want), "closure = %#v, want %#v", got, want)
 }
 
 func TestArcadeDependencyClosureV2RejectsCyclesMissingRelationsAndOverflow(t *testing.T) {
@@ -49,9 +47,7 @@ func TestArcadeDependencyClosureV2RejectsCyclesMissingRelationsAndOverflow(t *te
 		t.Run(test.name, func(t *testing.T) {
 			t.Parallel()
 			_, cyclic, available := arcadeDependencyClosureV2("a", relationMapResolver(test.relations))
-			if cyclic != test.cycle || available != test.available {
-				t.Fatalf("flags = cyclic:%v available:%v", cyclic, available)
-			}
+			testassert.Falsef(t, testassert.Any(func() bool { return cyclic != test.cycle }, func() bool { return available != test.available }), "flags = cyclic:%v available:%v", cyclic, available)
 		})
 	}
 	overflow := make(map[string]arcadeMachineRelation)
@@ -80,7 +76,7 @@ func TestArcadeDependencyClosureV2IsCanonicalAcrossMapConstructionOrder(t *testi
 	second["a"] = arcadeMachineRelation{cloneOf: "b", romOf: "bios"}
 	left, _, _ := arcadeDependencyClosureV2("a", relationMapResolver(first))
 	right, _, _ := arcadeDependencyClosureV2("a", relationMapResolver(second))
-	if !slices.EqualFunc(left, right, func(a, b arcadeClosureNode) bool {
+	testassert.True(t, slices.EqualFunc(left, right, func(a, b arcadeClosureNode) bool {
 		parentA, parentB := "", ""
 		if a.RequiredBy != nil {
 			parentA = *a.RequiredBy
@@ -89,9 +85,7 @@ func TestArcadeDependencyClosureV2IsCanonicalAcrossMapConstructionOrder(t *testi
 			parentB = *b.RequiredBy
 		}
 		return a.Machine == b.Machine && a.Kind == b.Kind && a.Depth == b.Depth && parentA == parentB
-	}) {
-		t.Fatal("closure changed with map construction order")
-	}
+	}), "closure changed with map construction order")
 }
 
 func relationMapResolver(relations map[string]arcadeMachineRelation) arcadeRelationResolver {

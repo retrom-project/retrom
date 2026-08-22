@@ -27,6 +27,15 @@ function readFrameCount(instance: EmulatorInstance | undefined) {
   }
 }
 
+function sampledFPS(previous: PlayerDebugSample | null, frameCount: number | null, sampledAtMs: number) {
+  if (!previous || previous.frameCount === null || frameCount === null) {return null;}
+  const elapsedMs = sampledAtMs - previous.sampledAtMs;
+  const frameDelta = frameCount - previous.frameCount;
+  if (elapsedMs <= 0 || frameDelta < 0) {return null;}
+  const value = frameDelta * 1_000 / elapsedMs;
+  return Number.isFinite(value) ? Math.round(value * 10) / 10 : null;
+}
+
 export function samplePlayerDebugMetrics(
   instance: EmulatorInstance | undefined,
   canvas: HTMLCanvasElement | null,
@@ -35,12 +44,7 @@ export function samplePlayerDebugMetrics(
   viewport: { width: number; height: number; devicePixelRatio: number },
 ): { metrics: PlayerDebugMetrics; sample: PlayerDebugSample } {
   const frameCount = readFrameCount(instance);
-  const elapsedMs = previous ? sampledAtMs - previous.sampledAtMs : 0;
-  const frameDelta = previous?.frameCount !== null && previous?.frameCount !== undefined && frameCount !== null
-    ? frameCount - previous.frameCount
-    : -1;
-  const rawFPS = elapsedMs > 0 && frameDelta >= 0 ? frameDelta * 1_000 / elapsedMs : null;
-  const fps = rawFPS === null || !Number.isFinite(rawFPS) ? null : Math.round(rawFPS * 10) / 10;
+  const fps = sampledFPS(previous, frameCount, sampledAtMs);
   const width = boundedRuntimeNumber(canvas?.width);
   const height = boundedRuntimeNumber(canvas?.height);
   return {

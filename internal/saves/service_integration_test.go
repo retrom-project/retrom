@@ -33,6 +33,7 @@ import (
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
+	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 )
 
@@ -54,30 +55,22 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	now := time.Date(2026, time.August, 6, 2, 0, 0, 0, time.UTC)
 	clock := func() time.Time { return now }
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), clock)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
-	if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
+	if _, err := database.SQL.ExecContext(context.Background(), `INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Fixture',0)`); err != nil {
 		t.Fatal(err)
 	}
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := dependencySet.Bootstrap(ctx, database.SQL, clock()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	content, err := blobs.Put(bytes.NewReader([]byte("save-fixture-gba")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	contentBlobID, err := blobstore.EnsureRecord(
 		ctx,
 		database.SQL,
@@ -85,9 +78,7 @@ func newSaveFixture(t *testing.T) *saveFixture {
 		"application/octet-stream",
 		clock().UnixMilli(),
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var artifactID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT id
@@ -103,26 +94,18 @@ AND enabled=1
 	variantID := uuid.NewString()
 	variantRevisionID := uuid.NewString()
 	dependencySnapshot, status, _, err := corevalidation.ResolveBIOS(ctx, database.SQL, artifactID, "save.gba")
-	if err != nil || status != "READY" {
-		t.Fatalf("save fixture dependencies = %#v/%s, error=%v", dependencySnapshot, status, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return status != "READY" }), "save fixture dependencies = %#v/%s, error=%v", dependencySnapshot, status, err)
 	validationDigest, err := corevalidation.ValidationInputDigest(
 		artifactID,
 		contentID,
 		sql.NullString{},
 		dependencySnapshot,
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	dependencySnapshotJSON, err := dependencySnapshot.JSON()
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	transaction, err := database.SQL.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(transaction)
 	if _, err := transaction.ExecContext(ctx, `
 PRAGMA defer_foreign_keys=ON
@@ -287,9 +270,7 @@ WHERE id=?
 		t.Fatal(err)
 	}
 	credentials, err := retromruntime.LoadOrCreateCredentials(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	launcher := launch.New(database.SQL, dependencySet, credentials, clock)
 	return &saveFixture{
 		ctx:         ctx,
@@ -320,9 +301,7 @@ SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND
 	compatibility["persistentSaveMode"] = mode
 	compatibility["persistentSaveKind"] = kind
 	updatedCompatibility, err := json.Marshal(compatibility)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := fixture.database.SQL.ExecContext(
 		fixture.ctx,
 		`UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?`,
@@ -343,9 +322,7 @@ func (fixture *saveFixture) createLaunch(t *testing.T) launch.Created {
 			SharedArrayBuffer:   true,
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := fixture.launches.Config(fixture.ctx, created.LaunchID, created.Capability); err != nil {
 		t.Fatal(err)
 	}
@@ -358,28 +335,20 @@ func manualRequest(t *testing.T, name string, state, screenshot []byte) *http.Re
 	writer := multipart.NewWriter(&body)
 	metadataHeader := makeTextHeader("metadata", "metadata.json", "application/json")
 	metadata, err := writer.CreatePart(metadataHeader)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	_, _ = metadata.Write([]byte(`{"name":"` + name + `"}`))
 	statePart, err := writer.CreateFormFile("state", "state.bin")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	_, _ = statePart.Write(state)
 	screenshotHeader := makeTextHeader("screenshot", "screenshot.png", "image/png")
 	screenshotPart, err := writer.CreatePart(screenshotHeader)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	_, _ = screenshotPart.Write(screenshot)
 	if err := writer.Close(); err != nil {
 		t.Fatal(err)
 	}
 	request, err := http.NewRequest(http.MethodPost, "/", &body)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	request.Header.Set("Content-Type", writer.FormDataContentType())
 	return request
 }
@@ -425,9 +394,7 @@ func TestManualStateRequiresAtomicNonEmptyStateAndScreenshot(t *testing.T) {
 		key,
 		manualRequest(t, "存档一", state, screenshot),
 	)
-	if err != nil || replayed || result.SaveStateID == "" {
-		t.Fatalf("manual state = %#v, replayed=%v, error=%v", result, replayed, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }, func() bool { return result.SaveStateID == "" }), "manual state = %#v, replayed=%v, error=%v", result, replayed, err)
 	var sourceLaunchID string
 	var stateSize, screenshotSize int64
 	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
@@ -451,9 +418,7 @@ WHERE s.id=?
 		key,
 		manualRequest(t, "存档一", state, screenshot),
 	)
-	if err != nil || !replayed || replay.SaveStateID != result.SaveStateID {
-		t.Fatalf("manual replay = %#v, replayed=%v, error=%v", replay, replayed, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replay.SaveStateID != result.SaveStateID }), "manual replay = %#v, replayed=%v, error=%v", replay, replayed, err)
 	if _, _, err := fixture.saves.CreateManual(fixture.ctx, created.LaunchID, created.Capability, uuid.NewString(), manualRequest(t, "空状态", nil, screenshot)); !errors.Is(
 		err,
 		ErrInvalid,
@@ -487,9 +452,7 @@ func TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence(t *testing.T) {
 		1,
 		bytes.NewReader(firstBytes),
 	)
-	if err != nil || replayed || firstResult.Sequence != 1 {
-		t.Fatalf("first persistent save = %#v, replayed=%v, error=%v", firstResult, replayed, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }, func() bool { return firstResult.Sequence != 1 }), "first persistent save = %#v, replayed=%v, error=%v", firstResult, replayed, err)
 	idempotentReplay, replayed, err := fixture.saves.PutPersistent(
 		fixture.ctx,
 		first.LaunchID,
@@ -500,9 +463,7 @@ func TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence(t *testing.T) {
 		1,
 		bytes.NewReader(firstBytes),
 	)
-	if err != nil || !replayed || idempotentReplay.RevisionID != firstResult.RevisionID {
-		t.Fatalf("persistent idempotency replay = %#v, replayed=%v, error=%v", idempotentReplay, replayed, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return idempotentReplay.RevisionID != firstResult.RevisionID }), "persistent idempotency replay = %#v, replayed=%v, error=%v", idempotentReplay, replayed, err)
 	conflicting := []byte("persistent-conflict")
 	if _, _, err := fixture.saves.PutPersistent(
 		fixture.ctx,
@@ -526,9 +487,7 @@ func TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence(t *testing.T) {
 		1,
 		bytes.NewReader(firstBytes),
 	)
-	if err != nil || !replayed || replay.RevisionID != firstResult.RevisionID {
-		t.Fatalf("persistent replay = %#v, replayed=%v, error=%v", replay, replayed, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replay.RevisionID != firstResult.RevisionID }), "persistent replay = %#v, replayed=%v, error=%v", replay, replayed, err)
 	changed := []byte("changed")
 	if _, _, err := fixture.saves.PutPersistent(fixture.ctx, first.LaunchID, first.Capability, uuid.NewString(), contentDigest(changed), "AUTO_INTERVAL", 1, bytes.NewReader(changed)); !errors.Is(
 		err,
@@ -558,9 +517,7 @@ func TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence(t *testing.T) {
 		t.Fatal(err)
 	}
 	metadata, exists, err := fixture.saves.GetPersistent(fixture.ctx, current.LaunchID, current.Capability)
-	if err != nil || !exists || metadata.SHA256 != contentDigestHex(firstBytes) {
-		t.Fatalf("locked persistent base = %#v, exists=%v, error=%v", metadata, exists, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !exists }, func() bool { return metadata.SHA256 != contentDigestHex(firstBytes) }), "locked persistent base = %#v, exists=%v, error=%v", metadata, exists, err)
 	secondBytes := []byte("persistent-two")
 	second, _, err := fixture.saves.PutPersistent(
 		fixture.ctx,
@@ -572,9 +529,7 @@ func TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence(t *testing.T) {
 		1,
 		bytes.NewReader(secondBytes),
 	)
-	if err != nil || second.RevisionID == firstResult.RevisionID {
-		t.Fatalf("advanced persistent save = %#v, error=%v", second, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return second.RevisionID == firstResult.RevisionID }), "advanced persistent save = %#v, error=%v", second, err)
 	if _, _, err := fixture.saves.PutPersistent(fixture.ctx, first.LaunchID, first.Capability, uuid.NewString(), contentDigest(secondBytes), "EXIT", 2, bytes.NewReader(secondBytes)); !errors.Is(
 		err,
 		ErrPersistentConflict,
@@ -619,9 +574,7 @@ SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND
 	compatibility["persistentSaveMode"] = "NONE"
 	compatibility["persistentSaveKind"] = nil
 	updatedCompatibility, err := json.Marshal(compatibility)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := fixture.database.SQL.ExecContext(
 		fixture.ctx,
 		`UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?`,

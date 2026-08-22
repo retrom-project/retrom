@@ -8,6 +8,8 @@ import (
 	"os"
 	"testing"
 
+	"retrom/internal/testassert"
+
 	"golang.org/x/text/encoding/simplifiedchinese"
 )
 
@@ -15,9 +17,7 @@ func writeZIP(t *testing.T, name string, contents []byte) string {
 	t.Helper()
 	path := t.TempDir() + "/fixture.zip"
 	file, err := os.Create(path) //nolint:gosec // Test path is isolated under t.TempDir.
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	archive := zip.NewWriter(file)
 	entry, err := archive.Create(name)
 	if err == nil {
@@ -29,23 +29,17 @@ func writeZIP(t *testing.T, name string, contents []byte) string {
 	if closeErr := file.Close(); err == nil {
 		err = closeErr
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	return path
 }
 
 func writeLegacyNamedZIP(t *testing.T, name string) string {
 	t.Helper()
 	encoded, err := simplifiedchinese.GB18030.NewEncoder().String(name)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	path := t.TempDir() + "/legacy.zip"
 	file, err := os.Create(path) //nolint:gosec // Test path is isolated under t.TempDir.
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	archive := zip.NewWriter(file)
 	header := &zip.FileHeader{Name: encoded, NonUTF8: true, Method: zip.Deflate}
 	entry, err := archive.CreateHeader(header)
@@ -58,9 +52,7 @@ func writeLegacyNamedZIP(t *testing.T, name string) string {
 	if closeErr := file.Close(); err == nil {
 		err = closeErr
 	}
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	return path
 }
 
@@ -71,9 +63,7 @@ func TestScanZIPDecodesLegacyGB18030EntryName(t *testing.T) {
 		writeLegacyNamedZIP(t, "RPG制造.gba"),
 		DefaultArchiveLimits(),
 	)
-	if err != nil || len(entries) != 1 || entries[0].NormalizedPath != "RPG制造.gba" {
-		t.Fatalf("ScanZIP() = %#v, error=%v", entries, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(entries) != 1 }, func() bool { return entries[0].NormalizedPath != "RPG制造.gba" }), "ScanZIP() = %#v, error=%v", entries, err)
 }
 
 func TestScanZIPValidatesDecodedLegacyPath(t *testing.T) {
@@ -83,9 +73,7 @@ func TestScanZIPValidatesDecodedLegacyPath(t *testing.T) {
 		writeLegacyNamedZIP(t, "目录/../game.gba"),
 		DefaultArchiveLimits(),
 	)
-	if !errors.Is(err, ErrUnsafeLogicalPath) {
-		t.Fatalf("ScanZIP() error = %v, want %v", err, ErrUnsafeLogicalPath)
-	}
+	testassert.Truef(t, errors.Is(err, ErrUnsafeLogicalPath), "ScanZIP() error = %v, want %v", err, ErrUnsafeLogicalPath)
 }
 
 func TestDOSArchiveLimitsAllowBoundedSparseSavesAndOpaqueNestedData(t *testing.T) {
@@ -99,9 +87,7 @@ func TestDOSArchiveLimitsAllowBoundedSparseSavesAndOpaqueNestedData(t *testing.T
 		t.Fatalf("default nested archive error = %v", err)
 	}
 	entries, err := ScanZIP(context.Background(), nested, DOSArchiveLimits())
-	if err != nil || len(entries) != 1 || entries[0].NormalizedPath != "GAME/DOSBOX/runtime.zip" {
-		t.Fatalf("DOS opaque nested data = %#v, error=%v", entries, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return len(entries) != 1 }, func() bool { return entries[0].NormalizedPath != "GAME/DOSBOX/runtime.zip" }), "DOS opaque nested data = %#v, error=%v", entries, err)
 }
 
 func TestZIPCompressionRatioStillRejectsLargeHighlyCompressedMembers(t *testing.T) {

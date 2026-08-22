@@ -9,6 +9,18 @@ const PLAYING_TIMEOUT_MS = 5_000;
 
 type MediaState = "cover" | "loading" | "video" | "paused" | "unavailable";
 
+function mediaStatus(videoUrl: string | null, state: MediaState, reducedMotion: boolean) {
+  if (!videoUrl) {return "正在展示封面";}
+  const statusByState: Partial<Record<MediaState, string>> = {
+    video: "正在循环播放视频预览",
+    loading: "正在载入视频预览",
+    unavailable: "此视频无法在当前浏览器播放，已恢复封面",
+    paused: "视频预览已暂停",
+  };
+  return statusByState[state]
+    ?? (reducedMotion ? "已减少动态效果，可手动播放视频预览" : "正在展示封面 · 可见满 2 秒后播放视频");
+}
+
 export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; coverUrl: string | null; videoUrl: string | null }) {
   const stageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -27,7 +39,7 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
   const [reducedMotion, setReducedMotion] = useState(false);
 
   const clearSchedule = useCallback(() => {
-    if (timerRef.current !== null) window.clearTimeout(timerRef.current);
+    if (timerRef.current !== null) {window.clearTimeout(timerRef.current);}
     timerRef.current = null;
     if (visibleSinceRef.current !== null) {
       visibleElapsedRef.current += Date.now() - visibleSinceRef.current;
@@ -36,7 +48,7 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
   }, []);
 
   const clearPlayingTimeout = useCallback(() => {
-    if (playingTimeoutRef.current !== null) window.clearTimeout(playingTimeoutRef.current);
+    if (playingTimeoutRef.current !== null) {window.clearTimeout(playingTimeoutRef.current);}
     playingTimeoutRef.current = null;
   }, []);
 
@@ -44,17 +56,17 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
     clearPlayingTimeout();
     videoRef.current?.pause();
     stateRef.current = unavailable ? "unavailable" : "cover";
-    if (mountedRef.current) setState(stateRef.current);
+    if (mountedRef.current) {setState(stateRef.current);}
   }, [clearPlayingTimeout]);
 
   const requestPlay = useCallback(async () => {
     const video = videoRef.current;
-    if (!video || !videoUrl || userPausedRef.current) return;
+    if (!video || !videoUrl || userPausedRef.current) {return;}
     clearSchedule();
     clearPlayingTimeout();
     video.muted = muted;
     stateRef.current = "loading";
-    if (mountedRef.current) setState("loading");
+    if (mountedRef.current) {setState("loading");}
     playingTimeoutRef.current = window.setTimeout(() => fallBack(true), PLAYING_TIMEOUT_MS);
     try {
       await video.play();
@@ -65,7 +77,7 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
 
   const schedule = useCallback(() => {
     clearSchedule();
-    if (!videoUrl || reducedMotionRef.current || userPausedRef.current || stateRef.current === "video" || stateRef.current === "loading" || !intersectingRef.current || !foregroundRef.current) return;
+    if (!videoUrl || reducedMotionRef.current || userPausedRef.current || stateRef.current === "video" || stateRef.current === "loading" || !intersectingRef.current || !foregroundRef.current) {return;}
     const remaining = Math.max(0, AUTO_PLAY_DELAY_MS - visibleElapsedRef.current);
     visibleSinceRef.current = Date.now();
     timerRef.current = window.setTimeout(() => {
@@ -80,7 +92,7 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
 
   useEffect(() => {
     mountedRef.current = true;
-    if (!videoUrl) return () => { mountedRef.current = false; };
+    if (!videoUrl) {return () => { mountedRef.current = false; };}
     const video = videoRef.current;
     const query = window.matchMedia("(prefers-reduced-motion: reduce)");
     const updateMotion = () => {
@@ -105,13 +117,13 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
   }, [clearPlayingTimeout, clearSchedule, fallBack, schedule, videoUrl]);
 
   useEffect(() => {
-    if (!videoUrl || !stageRef.current) return;
+    if (!videoUrl || !stageRef.current) {return;}
     const observer = new IntersectionObserver(([entry]) => {
       intersectingRef.current = Boolean(entry?.isIntersecting && entry.intersectionRatio > 0);
-      if (intersectingRef.current) schedule();
+      if (intersectingRef.current) {schedule();}
       else {
         clearSchedule();
-        if (stateRef.current === "video" || stateRef.current === "loading") fallBack(false);
+        if (stateRef.current === "video" || stateRef.current === "loading") {fallBack(false);}
       }
     }, { threshold: [0, 0.01] });
     observer.observe(stageRef.current);
@@ -119,13 +131,13 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
   }, [clearSchedule, fallBack, schedule, videoUrl]);
 
   useEffect(() => {
-    if (!videoUrl) return;
+    if (!videoUrl) {return;}
     const onVisibility = () => {
       foregroundRef.current = document.visibilityState === "visible";
-      if (foregroundRef.current) schedule();
+      if (foregroundRef.current) {schedule();}
       else {
         clearSchedule();
-        if (stateRef.current === "video" || stateRef.current === "loading") fallBack(false);
+        if (stateRef.current === "video" || stateRef.current === "loading") {fallBack(false);}
       }
     };
     document.addEventListener("visibilitychange", onVisibility);
@@ -147,7 +159,7 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
     void requestPlay();
   }
 
-  const status = !videoUrl ? "正在展示封面" : state === "video" ? "正在循环播放视频预览" : state === "loading" ? "正在载入视频预览" : state === "unavailable" ? "此视频无法在当前浏览器播放，已恢复封面" : state === "paused" ? "视频预览已暂停" : reducedMotion ? "已减少动态效果，可手动播放视频预览" : "正在展示封面 · 可见满 2 秒后播放视频";
+  const status = mediaStatus(videoUrl, state, reducedMotion);
 
   return <div className="game-detail-media">
     <div className="game-detail-poster" ref={stageRef}>
@@ -167,7 +179,7 @@ export function GameDetailMedia({ title, coverUrl, videoUrl }: { title: string; 
       /> : null}
       {videoUrl ? <div className="game-detail-media-controls">
         <button type="button" onClick={togglePlayback}><AppIcon name={state === "video" || state === "loading" ? "pause" : "play"} />{state === "video" || state === "loading" ? "暂停预览" : "播放视频预览"}</button>
-        <button type="button" aria-pressed={!muted} onClick={() => { const next = !muted; setMuted(next); if (videoRef.current) videoRef.current.muted = next; }}>{muted ? "已静音" : "开启声音"}</button>
+        <button type="button" aria-pressed={!muted} onClick={() => { const next = !muted; setMuted(next); if (videoRef.current) {videoRef.current.muted = next;} }}>{muted ? "已静音" : "开启声音"}</button>
       </div> : null}
     </div>
     <p className="game-detail-media-status" aria-live="polite">{status}</p>

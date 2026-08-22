@@ -251,39 +251,60 @@ type catalogItem struct {
 	ActiveValidatedVersion    *int64  `json:"activeValidatedRequirementVersion"`
 }
 
-//nolint:funlen,gocyclo // Validation, catalog freezing and task/item creation share one atomic create contract.
+// Validation, catalog freezing and task/item creation share one atomic create contract.
 func (service *Service) Create(ctx context.Context, request CreateRequest, userID string) (Summary, error) {
+	root, items, catalogDigest, err := service.prepareCreate(ctx, request)
+	if err != nil {
+		return Summary{}, err
+	}
+	return service.persistCreate(ctx, request, userID, root, items, catalogDigest)
+}
+
+func (service *Service) prepareCreate(
+	ctx context.Context,
+	request CreateRequest,
+) (Root, []catalogItem, string, error) {
 	if request.Kind != "BIOS_DIRECTORY" {
-		return Summary{}, ErrCatalogInvalid
+		return Root{}, nil, "", ErrCatalogInvalid
 	}
 	if err := ValidateRootID(request.RootID); err != nil {
-		return Summary{}, err
+		return Root{}, nil, "", err
 	}
 	root, ok := service.roots[request.RootID]
 	if !ok {
-		return Summary{}, ErrRootNotFound
+		return Root{}, nil, "", ErrRootNotFound
 	}
 	if err := ValidateRelativePath(request.SourceRelativePath); err != nil {
-		return Summary{}, err
+		return Root{}, nil, "", err
 	}
 	directory, err := openSelectedDirectory(root.path, request.SourceRelativePath)
 	if err != nil {
-		return Summary{}, ErrRootUnavailable
+		return Root{}, nil, "", ErrRootUnavailable
 	}
 	cleanup.Error("close", directory.Close())
 	items, err := service.freezeCatalog(ctx)
 	if err != nil {
-		return Summary{}, err
+		return Root{}, nil, "", err
 	}
 	if len(items) == 0 {
-		return Summary{}, ErrCatalogEmpty
+		return Root{}, nil, "", ErrCatalogEmpty
 	}
 	encoded, err := canonicalCatalogJSON(items)
 	if err != nil {
-		return Summary{}, fmt.Errorf("serverimport/catalog snapshot: %w", err)
+		return Root{}, nil, "", fmt.Errorf("serverimport/catalog snapshot: %w", err)
 	}
 	digest := sha256.Sum256(encoded)
-	catalogDigest := hex.EncodeToString(digest[:])
+	return root, items, hex.EncodeToString(digest[:]), nil
+}
+
+func (service *Service) persistCreate(
+	ctx context.Context,
+	request CreateRequest,
+	userID string,
+	root Root,
+	items []catalogItem,
+	catalogDigest string,
+) (Summary, error) {
 	importID, _ := uuid.NewV7()
 	jobID, _ := uuid.NewV7()
 	executionID, _ := uuid.NewV7()
@@ -386,7 +407,7 @@ func boolInteger(value bool) int {
 	return 0
 }
 
-//nolint:lll // Catalog validation keeps source readiness predicates together for auditability.
+// Catalog validation keeps source readiness predicates together for auditability.
 func (service *Service) freezeCatalog(ctx context.Context) ([]catalogItem, error) {
 	rows, err := service.database.QueryContext(ctx, `
 SELECT requirement.id,requirement.version,requirement.core_id,core.name,requirement.core_artifact_id,
@@ -427,10 +448,13 @@ ORDER BY requirement.id COLLATE BINARY
 		); err != nil {
 			return nil, fmt.Errorf("serverimport/scan catalog item: %w", err)
 		}
-		if item.SourceKind == "STATIC" && item.ExpectedMD5 == nil && item.ExpectedSHA1 == nil && item.ExpectedSHA256 == nil {
+		if item.SourceKind == "STATIC" && item.ExpectedMD5 == nil && item.ExpectedSHA1 == nil &&
+			item.ExpectedSHA256 == nil {
 			return nil, ErrCatalogInvalid
 		}
-		if item.SourceKind == "DAT_MACHINE" && (item.DATVersionID == nil || !datStatus.Valid || datStatus.String != "READY" || !datActive.Valid || datActive.Int64 != 1) {
+		if item.SourceKind == "DAT_MACHINE" &&
+			(item.DATVersionID == nil || !datStatus.Valid || datStatus.String != "READY" ||
+				!datActive.Valid || datActive.Int64 != 1) {
 			return nil, ErrCatalogInvalid
 		}
 		items = append(items, item)
@@ -442,7 +466,9 @@ ORDER BY requirement.id COLLATE BINARY
 }
 
 func insertCatalogItem(ctx context.Context, transaction *sql.Tx, importID string, item catalogItem, now int64) error {
-	_, err := transaction.ExecContext(ctx, `
+	_, err := transaction.ExecContext(
+		ctx,
+		`
 INSERT INTO server_bios_import_items(
 server_import_id,requirement_id,requirement_version,core_id,core_name_snapshot,core_artifact_id,
 core_artifact_version,source_kind,logical_name,requirement_mode,condition_code,delivery_kind,emulator_path,
@@ -451,12 +477,37 @@ expected_md5,expected_sha1,expected_sha256,
 active_installation_id_snapshot,active_installation_version_snapshot,active_blob_sha256_snapshot,
 active_status_snapshot,active_validated_requirement_version_snapshot,state,created_at_ms,updated_at_ms)
 VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING',?,?)
-`, importID, item.RequirementID, item.RequirementVersion, item.CoreID, item.CoreName, item.CoreArtifactID,
-		item.CoreArtifactVersion, item.SourceKind, item.LogicalName, item.RequirementMode, item.ConditionCode,
-		item.DeliveryKind, item.EmulatorPath, item.ActivationOptionsJSON, item.SourceVersion, item.CatalogDigest,
-		item.DATVersionID, item.DATMachineName, item.ExpectedSize,
-		item.ExpectedMD5, item.ExpectedSHA1, item.ExpectedSHA256, item.ActiveInstallationID, item.ActiveInstallationVersion,
-		item.ActiveBlobSHA256, item.ActiveStatus, item.ActiveValidatedVersion, now, now)
+`,
+		importID,
+		item.RequirementID,
+		item.RequirementVersion,
+		item.CoreID,
+		item.CoreName,
+		item.CoreArtifactID,
+		item.CoreArtifactVersion,
+		item.SourceKind,
+		item.LogicalName,
+		item.RequirementMode,
+		item.ConditionCode,
+		item.DeliveryKind,
+		item.EmulatorPath,
+		item.ActivationOptionsJSON,
+		item.SourceVersion,
+		item.CatalogDigest,
+		item.DATVersionID,
+		item.DATMachineName,
+		item.ExpectedSize,
+		item.ExpectedMD5,
+		item.ExpectedSHA1,
+		item.ExpectedSHA256,
+		item.ActiveInstallationID,
+		item.ActiveInstallationVersion,
+		item.ActiveBlobSHA256,
+		item.ActiveStatus,
+		item.ActiveValidatedVersion,
+		now,
+		now,
+	)
 	if err != nil {
 		return fmt.Errorf("serverimport/catalog item: %w", err)
 	}

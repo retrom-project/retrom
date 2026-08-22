@@ -196,7 +196,6 @@ func (service *Service) readBounded(source io.Reader, maximum int64) (blobstore.
 	return metadata, nil
 }
 
-//nolint:gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) parseManual(request *http.Request) (parsedManual, error) {
 	mediaType, parameters, err := mime.ParseMediaType(request.Header.Get("Content-Type"))
 	if err != nil || mediaType != "multipart/form-data" || parameters["boundary"] == "" {
@@ -219,31 +218,7 @@ func (service *Service) parseManual(request *http.Request) (parsedManual, error)
 			return parsedManual{}, ErrInvalid
 		}
 		seen[name] = true
-		switch name {
-		case "metadata":
-			if value := part.Header.Get("Content-Type"); value != "" && value != "application/json" {
-				cleanup.Error("close", part.Close())
-				return parsedManual{}, ErrInvalid
-			}
-			decoder := jsonDecoder(io.LimitReader(part, 4097))
-			decoder.DisallowUnknownFields()
-			if err := decoder.Decode(&result.metadata); err != nil || !validName(result.metadata.Name) {
-				cleanup.Error("close", part.Close())
-				return parsedManual{}, ErrInvalid
-			}
-			var trailing any
-			if !errors.Is(decoder.Decode(&trailing), io.EOF) {
-				cleanup.Error("close", part.Close())
-				return parsedManual{}, ErrInvalid
-			}
-		case "state":
-			result.state, err = service.readBounded(part, maxStateBytes)
-		case "screenshot":
-			result.screenshot, err = service.readBounded(part, maxScreenshotBytes)
-			if err == nil {
-				result.screenshotMediaType, err = validateScreenshot(result.screenshot.Path)
-			}
-		}
+		err = service.parseManualPart(part, name, &result)
 		cleanup.Error("close", part.Close())
 		if err != nil {
 			return parsedManual{}, err
@@ -253,6 +228,43 @@ func (service *Service) parseManual(request *http.Request) (parsedManual, error)
 		return parsedManual{}, ErrInvalid
 	}
 	return result, nil
+}
+
+func (service *Service) parseManualPart(part *multipart.Part, name string, result *parsedManual) error {
+	switch name {
+	case "metadata":
+		return parseManualMetadata(part, &result.metadata)
+	case "state":
+		metadata, err := service.readBounded(part, maxStateBytes)
+		result.state = metadata
+		return err
+	case "screenshot":
+		metadata, err := service.readBounded(part, maxScreenshotBytes)
+		result.screenshot = metadata
+		if err != nil {
+			return err
+		}
+		result.screenshotMediaType, err = validateScreenshot(metadata.Path)
+		return err
+	default:
+		return ErrInvalid
+	}
+}
+
+func parseManualMetadata(part *multipart.Part, metadata *manualMetadata) error {
+	if value := part.Header.Get("Content-Type"); value != "" && value != "application/json" {
+		return ErrInvalid
+	}
+	decoder := jsonDecoder(io.LimitReader(part, 4097))
+	decoder.DisallowUnknownFields()
+	if err := decoder.Decode(metadata); err != nil || !validName(metadata.Name) {
+		return ErrInvalid
+	}
+	var trailing any
+	if !errors.Is(decoder.Decode(&trailing), io.EOF) {
+		return ErrInvalid
+	}
+	return nil
 }
 
 // jsonDecoder is a seam kept narrow so multipart body handling never invokes ParseMultipartForm.
@@ -359,7 +371,6 @@ func validWebPDimensions(path string) bool {
 	return width > 0 && height > 0 && width*height <= maxPixels
 }
 
-//nolint:funlen // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) CreateManual(
 	ctx context.Context,
 	launchID, capability, idempotencyKey string,
@@ -381,6 +392,15 @@ func (service *Service) CreateManual(
 		[]byte(string(metadataDigest) + "\x00" + parsed.state.SHA256 + "\x00" + parsed.screenshot.SHA256),
 	)
 	requestDigest := hex.EncodeToString(digest[:])
+	return service.persistManualSave(ctx, launchID, idempotencyKey, requestDigest, launch, parsed)
+}
+
+func (service *Service) persistManualSave(
+	ctx context.Context,
+	launchID, idempotencyKey, requestDigest string,
+	launch launchSnapshot,
+	parsed parsedManual,
+) (ManualResult, bool, error) {
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return ManualResult{}, false, fmt.Errorf("saves/service: %w", err)
@@ -529,6 +549,13 @@ type PersistentResult struct {
 	CreatedAtMS      int64  `json:"createdAtMs"`
 }
 
+type persistentWrite struct {
+	launchID, idempotencyKey, event, requestDigest string
+	sequence, now                                  int64
+	launch                                         launchSnapshot
+	metadata                                       blobstore.Metadata
+}
+
 func (service *Service) GetPersistent(
 	ctx context.Context,
 	launchID, capability string,
@@ -575,7 +602,6 @@ func parseRFC9530(value string) (string, error) {
 	return hex.EncodeToString(decoded), nil
 }
 
-//nolint:funlen,gocognit,gocyclo // Contract branches stay contiguous for a single auditable decision.
 func (service *Service) PutPersistent(
 	ctx context.Context,
 	launchID, capability, idempotencyKey, digestHeader, event string,
@@ -603,158 +629,75 @@ func (service *Service) PutPersistent(
 	if subtle.ConstantTimeCompare([]byte(metadata.SHA256), []byte(expectedDigest)) != 1 {
 		return PersistentResult{}, false, ErrInvalid
 	}
-	if launch.persistentSaveMode == "FILE_TREE" {
-		stored, openErr := os.Open(metadata.Path)
-		if openErr != nil {
-			return PersistentResult{}, false, fmt.Errorf("saves/service: open persistent file tree: %w", openErr)
-		}
-		validationErr := validateFileTreeBundle(stored, launch.runtimeCoreID == "ppsspp")
-		if closeErr := stored.Close(); validationErr == nil && closeErr != nil {
-			return PersistentResult{}, false, fmt.Errorf("saves/service: close persistent file tree: %w", closeErr)
-		}
-		if validationErr != nil {
-			return PersistentResult{}, false, validationErr
-		}
+	if err := validatePersistentPayload(launch, metadata); err != nil {
+		return PersistentResult{}, false, err
 	}
 	now := service.now().UnixMilli()
+	requestDigestBytes := sha256.Sum256([]byte(strings.Join([]string{
+		launchID, fmt.Sprint(sequence), event, metadata.SHA256,
+	}, "\x00")))
+	return service.persistPersistent(ctx, persistentWrite{
+		launchID: launchID, idempotencyKey: idempotencyKey, event: event,
+		requestDigest: hex.EncodeToString(requestDigestBytes[:]), sequence: sequence, now: now,
+		launch: launch, metadata: metadata,
+	})
+}
+
+func validatePersistentPayload(launch launchSnapshot, metadata blobstore.Metadata) error {
+	if launch.persistentSaveMode != "FILE_TREE" {
+		return nil
+	}
+	stored, err := os.Open(metadata.Path)
+	if err != nil {
+		return fmt.Errorf("saves/service: open persistent file tree: %w", err)
+	}
+	validationErr := validateFileTreeBundle(stored, launch.runtimeCoreID == "ppsspp")
+	if closeErr := stored.Close(); validationErr == nil && closeErr != nil {
+		return fmt.Errorf("saves/service: close persistent file tree: %w", closeErr)
+	}
+	return validationErr
+}
+
+func (service *Service) persistPersistent(
+	ctx context.Context,
+	request persistentWrite,
+) (PersistentResult, bool, error) {
 	transaction, err := service.database.BeginTx(ctx, nil)
 	if err != nil {
 		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	requestDigestBytes := sha256.Sum256([]byte(strings.Join([]string{
-		launchID, fmt.Sprint(sequence), event, metadata.SHA256,
-	}, "\x00")))
-	requestDigest := hex.EncodeToString(requestDigestBytes[:])
-	var storedDigest string
-	var storedBody []byte
-	lookupErr := transaction.QueryRowContext(ctx, `
-SELECT request_digest,
-response_body
-FROM idempotency_records
-WHERE operation_id='putRuntimePersistentSave'
-AND key=?
-AND principal_id=?
-AND expires_at_ms>?
-`, idempotencyKey, launch.principalID, now).
-		Scan(&storedDigest, &storedBody)
-	if lookupErr == nil {
-		if subtle.ConstantTimeCompare([]byte(storedDigest), []byte(requestDigest)) != 1 {
-			return PersistentResult{}, false, ErrIdempotencyReused
-		}
-		var previous PersistentResult
-		if err := json.Unmarshal(storedBody, &previous); err != nil {
-			return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-		}
-		return previous, true, nil
+	if previous, replayed, err := replayPersistentRequest(
+		ctx, transaction, request.launch.principalID, request.idempotencyKey, request.requestDigest, request.now,
+	); err != nil || replayed {
+		return previous, replayed, err
 	}
-	if !errors.Is(lookupErr, sql.ErrNoRows) {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", lookupErr)
+	if previous, replayed, err := service.replayPersistentSequence(ctx, transaction, request); err != nil || replayed {
+		return previous, replayed, err
 	}
-	var existing PersistentResult
-	var existingEvent, existingDigest string
-	err = transaction.QueryRowContext(ctx, `
-SELECT p.id,
-r.id,
-r.client_sequence,
-r.source_event,
-b.sha256,
-r.created_at_ms
-FROM persistent_save_revisions r
-JOIN persistent_saves p ON p.id=r.persistent_save_id
-JOIN blobs b ON b.id=r.blob_id
-WHERE r.source_launch_session_id=?
-AND r.client_sequence=?
-`, launchID, sequence).
-		Scan(
-			&existing.PersistentSaveID,
-			&existing.RevisionID,
-			&existing.Sequence,
-			&existingEvent,
-			&existingDigest,
-			&existing.CreatedAtMS,
-		)
-	if err == nil {
-		if existingEvent != event || subtle.ConstantTimeCompare([]byte(existingDigest), []byte(metadata.SHA256)) != 1 {
-			return PersistentResult{}, false, ErrSequenceReused
-		}
-		if err := storePersistentIdempotency(
-			ctx, transaction, launch.principalID, idempotencyKey, requestDigest, existing, now,
-		); err != nil {
-			return PersistentResult{}, false, err
-		}
-		if err := transaction.Commit(); err != nil {
-			return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-		}
-		return existing, true, nil
-	}
-	if !errors.Is(err, sql.ErrNoRows) {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-	}
-	var lastSequence int64
-	_ = transaction.QueryRowContext(ctx, `
-SELECT COALESCE(MAX(client_sequence),
-0)
-FROM persistent_save_revisions
-WHERE source_launch_session_id=?
-`, launchID).
-		Scan(&lastSequence)
-	if sequence != lastSequence+1 {
-		return PersistentResult{}, false, ErrSequenceGap
-	}
-	kind := launch.persistentSaveKind
-	if kind != "CORE_SAVE" && kind != "DOS_OVERLAY" {
-		return PersistentResult{}, false, ErrPersistentUnsupported
-	}
-	var saveID, currentRevisionID string
-	err = transaction.QueryRowContext(ctx, `
-SELECT id,
-current_revision_id
-FROM persistent_saves
-WHERE profile_id=?
-AND game_variant_revision_id=?
-AND kind=?
-`, launch.profileID, launch.variantRevisionID, kind).
-		Scan(&saveID, &currentRevisionID)
-	base := ""
-	if sequence == 1 {
-		_ = transaction.QueryRowContext(ctx, `
-SELECT COALESCE(persistent_save_base_revision_id,
-'')
-FROM launch_sessions
-WHERE id=?
-`, launchID).
-			Scan(&base)
-	} else {
-		_ = transaction.QueryRowContext(ctx, `
-SELECT id
-FROM persistent_save_revisions
-WHERE source_launch_session_id=?
-AND client_sequence=?
-`, launchID, sequence-1).Scan(&base)
-	}
-	switch {
-	case errors.Is(err, sql.ErrNoRows):
-		if base != "" {
-			return PersistentResult{}, false, ErrPersistentConflict
-		}
-		generated, idErr := uuid.NewV7()
-		if idErr != nil {
-			return PersistentResult{}, false, fmt.Errorf("saves/service: %w", idErr)
-		}
-		saveID = generated.String()
-	case err != nil:
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
-	case currentRevisionID != base:
-		return PersistentResult{}, false, ErrPersistentConflict
-	}
-	blobID, err := blobstore.EnsureRecord(ctx, transaction, metadata, "application/octet-stream", now)
+	saveID, currentRevisionID, kind, err := resolvePersistentSave(ctx, transaction, request)
 	if err != nil {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
+		return PersistentResult{}, false, err
+	}
+	result, err := writePersistentRevision(ctx, transaction, request, saveID, currentRevisionID, kind)
+	return result, false, err
+}
+
+func writePersistentRevision(
+	ctx context.Context,
+	transaction *sql.Tx,
+	request persistentWrite,
+	saveID, currentRevisionID, kind string,
+) (PersistentResult, error) {
+	blobID, err := blobstore.EnsureRecord(
+		ctx, transaction, request.metadata, "application/octet-stream", request.now,
+	)
+	if err != nil {
+		return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
 	}
 	revisionID, err := uuid.NewV7()
 	if err != nil {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
+		return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
 	}
 	if currentRevisionID == "" {
 		_, err = transaction.ExecContext(
@@ -777,15 +720,15 @@ updated_at_ms) VALUES(?,
 ?)
 `,
 			saveID,
-			launch.profileID,
-			launch.variantRevisionID,
+			request.launch.profileID,
+			request.launch.variantRevisionID,
 			kind,
 			revisionID.String(),
-			now,
-			now,
+			request.now,
+			request.now,
 		)
 		if err != nil {
-			return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
+			return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
 		}
 	}
 	_, err = transaction.ExecContext(
@@ -808,13 +751,13 @@ created_at_ms) VALUES(?,
 		revisionID.String(),
 		saveID,
 		blobID,
-		launchID,
-		sequence,
-		event,
-		now,
+		request.launchID,
+		request.sequence,
+		request.event,
+		request.now,
 	)
 	if err != nil {
-		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
+		return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
 	}
 	if currentRevisionID != "" {
 		update, updateErr := transaction.ExecContext(
@@ -828,33 +771,155 @@ WHERE id=?
 AND current_revision_id=?
 `,
 			revisionID.String(),
-			now,
+			request.now,
 			saveID,
 			currentRevisionID,
 		)
 		if updateErr != nil {
-			return PersistentResult{}, false, fmt.Errorf("saves/service: %w", updateErr)
+			return PersistentResult{}, fmt.Errorf("saves/service: %w", updateErr)
 		}
 		rows, _ := update.RowsAffected()
 		if rows != 1 {
-			return PersistentResult{}, false, ErrPersistentConflict
+			return PersistentResult{}, ErrPersistentConflict
 		}
 	}
 	result := PersistentResult{
 		PersistentSaveID: saveID,
 		RevisionID:       revisionID.String(),
-		Sequence:         sequence,
-		CreatedAtMS:      now,
+		Sequence:         request.sequence,
+		CreatedAtMS:      request.now,
 	}
 	if err := storePersistentIdempotency(
-		ctx, transaction, launch.principalID, idempotencyKey, requestDigest, result, now,
+		ctx, transaction, request.launch.principalID, request.idempotencyKey,
+		request.requestDigest, result, request.now,
+	); err != nil {
+		return PersistentResult{}, err
+	}
+	if err := transaction.Commit(); err != nil {
+		return PersistentResult{}, fmt.Errorf("saves/service: %w", err)
+	}
+	return result, nil
+}
+
+func replayPersistentRequest(
+	ctx context.Context,
+	transaction *sql.Tx,
+	principalID, idempotencyKey, requestDigest string,
+	now int64,
+) (PersistentResult, bool, error) {
+	var storedDigest string
+	var storedBody []byte
+	err := transaction.QueryRowContext(ctx, `
+SELECT request_digest,response_body FROM idempotency_records
+WHERE operation_id='putRuntimePersistentSave' AND key=? AND principal_id=? AND expires_at_ms>?
+`, idempotencyKey, principalID, now).Scan(&storedDigest, &storedBody)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PersistentResult{}, false, nil
+	}
+	if err != nil {
+		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
+	}
+	if subtle.ConstantTimeCompare([]byte(storedDigest), []byte(requestDigest)) != 1 {
+		return PersistentResult{}, false, ErrIdempotencyReused
+	}
+	var previous PersistentResult
+	if err := json.Unmarshal(storedBody, &previous); err != nil {
+		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
+	}
+	return previous, true, nil
+}
+
+func (service *Service) replayPersistentSequence(
+	ctx context.Context,
+	transaction *sql.Tx,
+	request persistentWrite,
+) (PersistentResult, bool, error) {
+	var existing PersistentResult
+	var existingEvent, existingDigest string
+	err := transaction.QueryRowContext(ctx, `
+SELECT p.id,r.id,r.client_sequence,r.source_event,b.sha256,r.created_at_ms
+FROM persistent_save_revisions r JOIN persistent_saves p ON p.id=r.persistent_save_id
+JOIN blobs b ON b.id=r.blob_id
+WHERE r.source_launch_session_id=? AND r.client_sequence=?
+`, request.launchID, request.sequence).Scan(
+		&existing.PersistentSaveID, &existing.RevisionID, &existing.Sequence,
+		&existingEvent, &existingDigest, &existing.CreatedAtMS,
+	)
+	if errors.Is(err, sql.ErrNoRows) {
+		return PersistentResult{}, false, nil
+	}
+	if err != nil {
+		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
+	}
+	if existingEvent != request.event ||
+		subtle.ConstantTimeCompare([]byte(existingDigest), []byte(request.metadata.SHA256)) != 1 {
+		return PersistentResult{}, false, ErrSequenceReused
+	}
+	if err := storePersistentIdempotency(
+		ctx, transaction, request.launch.principalID, request.idempotencyKey,
+		request.requestDigest, existing, request.now,
 	); err != nil {
 		return PersistentResult{}, false, err
 	}
 	if err := transaction.Commit(); err != nil {
 		return PersistentResult{}, false, fmt.Errorf("saves/service: %w", err)
 	}
-	return result, false, nil
+	return existing, true, nil
+}
+
+func resolvePersistentSave(
+	ctx context.Context,
+	transaction *sql.Tx,
+	request persistentWrite,
+) (string, string, string, error) {
+	var lastSequence int64
+	_ = transaction.QueryRowContext(ctx, `
+SELECT COALESCE(MAX(client_sequence),0) FROM persistent_save_revisions
+WHERE source_launch_session_id=?
+`, request.launchID).Scan(&lastSequence)
+	if request.sequence != lastSequence+1 {
+		return "", "", "", ErrSequenceGap
+	}
+	kind := request.launch.persistentSaveKind
+	if kind != "CORE_SAVE" && kind != "DOS_OVERLAY" {
+		return "", "", "", ErrPersistentUnsupported
+	}
+	var saveID, currentRevisionID string
+	err := transaction.QueryRowContext(ctx, `
+SELECT id,current_revision_id FROM persistent_saves
+WHERE profile_id=? AND game_variant_revision_id=? AND kind=?
+`, request.launch.profileID, request.launch.variantRevisionID, kind).Scan(&saveID, &currentRevisionID)
+	base := persistentSaveBase(ctx, transaction, request.launchID, request.sequence)
+	switch {
+	case errors.Is(err, sql.ErrNoRows) && base != "":
+		return "", "", "", ErrPersistentConflict
+	case errors.Is(err, sql.ErrNoRows):
+		generated, idErr := uuid.NewV7()
+		if idErr != nil {
+			return "", "", "", fmt.Errorf("saves/service: %w", idErr)
+		}
+		return generated.String(), "", kind, nil
+	case err != nil:
+		return "", "", "", fmt.Errorf("saves/service: %w", err)
+	case currentRevisionID != base:
+		return "", "", "", ErrPersistentConflict
+	default:
+		return saveID, currentRevisionID, kind, nil
+	}
+}
+
+func persistentSaveBase(ctx context.Context, transaction *sql.Tx, launchID string, sequence int64) string {
+	var base string
+	if sequence == 1 {
+		_ = transaction.QueryRowContext(ctx, `
+SELECT COALESCE(persistent_save_base_revision_id,'') FROM launch_sessions WHERE id=?
+`, launchID).Scan(&base)
+		return base
+	}
+	_ = transaction.QueryRowContext(ctx, `
+SELECT id FROM persistent_save_revisions WHERE source_launch_session_id=? AND client_sequence=?
+`, launchID, sequence-1).Scan(&base)
+	return base
 }
 
 func storePersistentIdempotency(

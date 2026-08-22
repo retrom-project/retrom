@@ -55,13 +55,13 @@ type Home = {
 };
 
 function duration(value: number) {
-  if (value < 60_000) return "少于 1 分钟";
+  if (value < 60_000) {return "少于 1 分钟";}
   const hours = value / 3_600_000;
   return hours < 1 ? `${Math.floor(value / 60_000)} 分钟` : `${hours.toFixed(hours < 10 ? 1 : 0)} 小时`;
 }
 
 function platformCode(id: string) {
-  if (id === "arcade") return "ARC";
+  if (id === "arcade") {return "ARC";}
   return id.replaceAll(/[^a-z0-9]/gi, "").slice(0, 4).toUpperCase();
 }
 

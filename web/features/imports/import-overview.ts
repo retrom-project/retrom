@@ -45,16 +45,16 @@ const pegasusPhaseLabels: Record<string, string> = {
 };
 
 function pegasusTone(state: string): ImportOverviewActivity["tone"] {
-  if (state === "COMPLETED") return "good";
-  if (state === "PARTIAL_FAILURE" || state === "FAILED") return "bad";
-  if (state === "CANCEL_REQUESTED" || state === "CANCELLED" || state === "EXPIRED") return "warn";
+  if (state === "COMPLETED") {return "good";}
+  if (state === "PARTIAL_FAILURE" || state === "FAILED") {return "bad";}
+  if (state === "CANCEL_REQUESTED" || state === "CANCELLED" || state === "EXPIRED") {return "warn";}
   return "info";
 }
 
 function ordinaryTone(state: string): ImportOverviewActivity["tone"] {
-  if (state === "COMPLETED") return "good";
-  if (state === "PARTIAL_FAILURE" || state === "FAILED") return "bad";
-  if (state === "CANCEL_REQUESTED" || state === "CANCELLED") return "warn";
+  if (state === "COMPLETED") {return "good";}
+  if (state === "PARTIAL_FAILURE" || state === "FAILED") {return "bad";}
+  if (state === "CANCEL_REQUESTED" || state === "CANCELLED") {return "warn";}
   return "info";
 }
 
@@ -108,8 +108,8 @@ export function recentImportActivities(
     ...imports.map(ordinaryActivity),
     ...pegasusImports.map(pegasusActivity),
   ].sort((left, right) => {
-    if (left.createdAtMs !== right.createdAtMs) return right.createdAtMs - left.createdAtMs;
-    if (left.id === right.id) return 0;
+    if (left.createdAtMs !== right.createdAtMs) {return right.createdAtMs - left.createdAtMs;}
+    if (left.id === right.id) {return 0;}
     return left.id < right.id ? 1 : -1;
   }).slice(0, limit);
 }

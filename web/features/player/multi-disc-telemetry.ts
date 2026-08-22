@@ -29,5 +29,5 @@ export async function reportMultiDiscPlayerEvent(
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(event),
   });
-  if (!response.ok) throw new Error("PLAYER_EVENT_REPORT_FAILED");
+  if (!response.ok) {throw new Error("PLAYER_EVENT_REPORT_FAILED");}
 }

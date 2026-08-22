@@ -5,11 +5,11 @@ class Visibility extends EventTarget {
   visibilityState: DocumentVisibilityState = "visible";
   listeners = 0;
   override addEventListener(type: string, callback: EventListenerOrEventListenerObject | null, options?: AddEventListenerOptions | boolean) {
-    if (type === "visibilitychange") this.listeners += 1;
+    if (type === "visibilitychange") {this.listeners += 1;}
     super.addEventListener(type, callback, options);
   }
   override removeEventListener(type: string, callback: EventListenerOrEventListenerObject | null, options?: EventListenerOptions | boolean) {
-    if (type === "visibilitychange") this.listeners -= 1;
+    if (type === "visibilitychange") {this.listeners -= 1;}
     super.removeEventListener(type, callback, options);
   }
   set(value: DocumentVisibilityState) {

@@ -35,6 +35,15 @@ type ReadyWait = {
   timer: number;
 };
 
+type LoadCompletion = { promise: Promise<void>; cancel: () => void };
+type RestoreDependencies = {
+  target: StateRestoreWindow;
+  waitForSerializable: boolean;
+  isActive: () => boolean;
+  delay: (delayMs: number) => Promise<void>;
+  registerLoadSignal: (timeoutMs: number) => LoadCompletion;
+};
+
 export function requiresExplicitStateRestore(config: {
   emulatorjsVersion: string;
   runtimeCore?: string;
@@ -46,8 +55,59 @@ export function requiresExplicitStateRestore(config: {
 
 function removeItem<T>(items: T[], item: T) {
   const index = items.indexOf(item);
-  if (index >= 0) items.splice(index, 1);
+  if (index >= 0) {items.splice(index, 1);}
   return index >= 0;
+}
+
+async function waitForSerializableState(manager: StateRestoreManager, deadline: number, dependencies: RestoreDependencies, probe: () => unknown) {
+  while (dependencies.isActive()) {
+    try {
+      const [size, , succeeded] = String(probe()).split("|");
+      const frameReady = typeof manager.getFrameNum !== "function" || manager.getFrameNum() > 0;
+      if (frameReady && succeeded === "1" && Number.isSafeInteger(Number(size)) && Number(size) > 0) {return;}
+    } catch {
+      // PPSSPP returns an invalid state before its GPU has been created.
+    }
+    if (dependencies.target.performance.now() >= deadline) {throw new Error("PLAYER_SAVE_STATE_RESTORE_TIMEOUT");}
+    manager.toggleMainLoop?.(true);
+    await dependencies.delay(Math.min(50, Math.max(1, deadline - dependencies.target.performance.now())));
+  }
+  throw new Error("PLAYER_SESSION_ENDED");
+}
+
+function explicitLoadResources(manager: StateRestoreManager, state: Uint8Array, waitForSerializable: boolean) {
+  const fileSystem = manager.FS;
+  const nativeLoadState = manager.functions?.loadState;
+  const nativeSaveStateInfo = manager.functions?.saveStateInfo;
+  if (!manager.toggleMainLoop || !fileSystem?.writeFile || !fileSystem.unlink || typeof nativeLoadState !== "function" || !(state instanceof Uint8Array) || state.byteLength === 0) {
+    throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+  }
+  if (waitForSerializable && typeof nativeSaveStateInfo !== "function") {throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");}
+  return { fileSystem, nativeLoadState, nativeSaveStateInfo, toggleMainLoop: manager.toggleMainLoop.bind(manager) };
+}
+
+function createExplicitStateLoader(dependencies: RestoreDependencies) {
+  return async function loadExplicitStateAndWait(this: StateRestoreManager, state: Uint8Array, timeoutMs = 15_000) {
+    const { fileSystem, nativeLoadState, nativeSaveStateInfo, toggleMainLoop } = explicitLoadResources(this, state, dependencies.waitForSerializable);
+    const deadline = dependencies.target.performance.now() + timeoutMs;
+    if (dependencies.waitForSerializable && nativeSaveStateInfo) {
+      await waitForSerializableState(this, deadline, dependencies, () => nativeSaveStateInfo.call(this.functions));
+    }
+    if (!dependencies.isActive()) {throw new Error("PLAYER_SESSION_ENDED");}
+    const completion = dependencies.registerLoadSignal(Math.max(1, deadline - dependencies.target.performance.now()));
+    try {
+      try {fileSystem.unlink(stateFilePath);} catch { /* absent before the first load */ }
+      fileSystem.writeFile(stateFilePath, new Uint8Array(state));
+      this.clearEJSResetTimer?.();
+      nativeLoadState.call(this.functions, "game.state", 0);
+      toggleMainLoop(true);
+      await completion.promise;
+    } finally {
+      completion.cancel();
+      toggleMainLoop(false);
+      try {fileSystem.unlink(stateFilePath);} catch { /* native code may already remove it */ }
+    }
+  };
 }
 
 /**
@@ -88,26 +148,26 @@ export function installEmulatorJs423StateRestoreCompatibility(
         reject,
         resolve,
         timer: target.setTimeout(() => {
-          if (!removeItem(loadSignals, signal)) return;
+          if (!removeItem(loadSignals, signal)) {return;}
           reject(new Error("PLAYER_SAVE_STATE_RESTORE_TIMEOUT"));
         }, timeoutMs),
       };
       loadSignals.push(signal);
     });
     const finish = (error?: Error) => {
-      if (!removeItem(loadSignals, signal)) return;
+      if (!removeItem(loadSignals, signal)) {return;}
       target.clearTimeout(signal.timer);
-      if (error) signal.reject(error);
-      else signal.resolve();
+      if (error) {signal.reject(error);}
+      else {signal.resolve();}
     };
     return { promise, cancel: () => finish(), fail: (error: Error) => finish(error) };
   };
 
   const observeNativeLog = (args: unknown[]) => {
     const message = args.map(String).join(" ");
-    if (!message.includes("[State]") || !message.includes("game.state")) return;
+    if (!message.includes("[State]") || !message.includes("game.state")) {return;}
     const signal = loadSignals[0];
-    if (!signal) return;
+    if (!signal) {return;}
     if (/failed/i.test(message)) {
       signal.loading = false;
       target.queueMicrotask(() => {
@@ -119,10 +179,10 @@ export function installEmulatorJs423StateRestoreCompatibility(
       });
       return;
     }
-    if (!/loading state/i.test(message)) return;
+    if (!/loading state/i.test(message)) {return;}
     signal.loading = true;
     target.queueMicrotask(() => {
-      if (loadSignals[0] !== signal || !signal.loading) return;
+      if (loadSignals[0] !== signal || !signal.loading) {return;}
       target.clearTimeout(signal.timer);
       loadSignals.shift();
       signal.resolve();
@@ -134,59 +194,15 @@ export function installEmulatorJs423StateRestoreCompatibility(
     if (!prototype || prototype.loadExplicitStateAndWait) {
       throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
     }
-    const loadExplicitStateAndWait = async function (this: StateRestoreManager, state: Uint8Array, timeoutMs = 15_000) {
-      const fileSystem = this.FS;
-      const nativeLoadState = this.functions?.loadState;
-      const nativeSaveStateInfo = this.functions?.saveStateInfo;
-      if (!this.toggleMainLoop || !fileSystem?.writeFile || !fileSystem.unlink ||
-        typeof nativeLoadState !== "function" ||
-        !(state instanceof Uint8Array) || state.byteLength === 0) {
-        throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
-      }
-      if (waitForSerializable && typeof nativeSaveStateInfo !== "function") {
-        throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
-      }
-
-      const deadline = target.performance.now() + timeoutMs;
-      if (waitForSerializable && nativeSaveStateInfo) {
-        while (active) {
-          try {
-            const [size, , succeeded] = String(nativeSaveStateInfo.call(this.functions)).split("|");
-            const frameReady = typeof this.getFrameNum !== "function" || this.getFrameNum() > 0;
-            if (frameReady && succeeded === "1" && Number.isSafeInteger(Number(size)) && Number(size) > 0) break;
-          } catch {
-            // PPSSPP returns an invalid state before its GPU has been created.
-          }
-          if (target.performance.now() >= deadline) throw new Error("PLAYER_SAVE_STATE_RESTORE_TIMEOUT");
-          this.toggleMainLoop(true);
-          await delay(Math.min(50, Math.max(1, deadline - target.performance.now())));
-        }
-      }
-      if (!active) throw new Error("PLAYER_SESSION_ENDED");
-
-      const remainingMs = Math.max(1, deadline - target.performance.now());
-      const completion = registerLoadSignal(remainingMs);
-      try {
-        try { fileSystem.unlink(stateFilePath); } catch { /* absent before the first load */ }
-        fileSystem.writeFile(stateFilePath, new Uint8Array(state));
-        this.clearEJSResetTimer?.();
-        nativeLoadState.call(this.functions, "game.state", 0);
-        this.toggleMainLoop(true);
-        await completion.promise;
-      } finally {
-        completion.cancel();
-        this.toggleMainLoop(false);
-        try { fileSystem.unlink(stateFilePath); } catch { /* native code may already remove it */ }
-      }
-    };
+    const loadExplicitStateAndWait = createExplicitStateLoader({ target, waitForSerializable, isActive: () => active, delay, registerLoadSignal });
     prototype.loadExplicitStateAndWait = loadExplicitStateAndWait;
     prototypeRestores.push(() => Reflect.deleteProperty(prototype, "loadExplicitStateAndWait"));
   };
 
   const managerDescriptor = Object.getOwnPropertyDescriptor(target, "EJS_GameManager");
-  if (managerDescriptor && !managerDescriptor.configurable) throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+  if (managerDescriptor && !managerDescriptor.configurable) {throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");}
   let managerConstructor = target.EJS_GameManager;
-  if (managerConstructor) patchManager(managerConstructor);
+  if (managerConstructor) {patchManager(managerConstructor);}
   Object.defineProperty(target, "EJS_GameManager", {
     configurable: true,
     enumerable: managerDescriptor?.enumerable ?? true,
@@ -198,8 +214,8 @@ export function installEmulatorJs423StateRestoreCompatibility(
   });
 
   const wrapRuntime = (factory: RuntimeFactory | undefined) => {
-    if (typeof factory !== "function") throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
-    if (factory.retromStateRestoreHook) return factory;
+    if (typeof factory !== "function") {throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");}
+    if (factory.retromStateRestoreHook) {return factory;}
     const wrapped = function (this: unknown, moduleConfig: RuntimeModuleConfig) {
       return Reflect.apply(factory, this, [{
         ...moduleConfig,
@@ -212,7 +228,7 @@ export function installEmulatorJs423StateRestoreCompatibility(
   };
 
   const runtimeDescriptor = Object.getOwnPropertyDescriptor(target, "EJS_Runtime");
-  if (runtimeDescriptor && !runtimeDescriptor.configurable) throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
+  if (runtimeDescriptor && !runtimeDescriptor.configurable) {throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");}
   let runtimeFactory = target.EJS_Runtime ? wrapRuntime(target.EJS_Runtime) : undefined;
   Object.defineProperty(target, "EJS_Runtime", {
     configurable: true,
@@ -234,14 +250,14 @@ export function installEmulatorJs423StateRestoreCompatibility(
   }) as typeof fetch;
 
   return () => {
-    if (!active) return;
+    if (!active) {return;}
     active = false;
     target.fetch = originalFetch;
-    for (const restore of prototypeRestores.reverse()) restore();
-    if (managerDescriptor) Object.defineProperty(target, "EJS_GameManager", managerDescriptor);
-    else Reflect.deleteProperty(target, "EJS_GameManager");
-    if (runtimeDescriptor) Object.defineProperty(target, "EJS_Runtime", runtimeDescriptor);
-    else Reflect.deleteProperty(target, "EJS_Runtime");
+    for (const restore of prototypeRestores.reverse()) {restore();}
+    if (managerDescriptor) {Object.defineProperty(target, "EJS_GameManager", managerDescriptor);}
+    else {Reflect.deleteProperty(target, "EJS_GameManager");}
+    if (runtimeDescriptor) {Object.defineProperty(target, "EJS_Runtime", runtimeDescriptor);}
+    else {Reflect.deleteProperty(target, "EJS_Runtime");}
     for (const wait of readyWaits) {
       target.clearTimeout(wait.timer);
       wait.reject(new Error("PLAYER_SESSION_ENDED"));

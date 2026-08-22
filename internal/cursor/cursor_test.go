@@ -5,6 +5,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"retrom/internal/testassert"
 )
 
 func TestCodecBindsOperationFilterSortAndExpiry(t *testing.T) {
@@ -21,9 +23,7 @@ func TestCodecBindsOperationFilterSortAndExpiry(t *testing.T) {
 			ID:           "01980000-0000-7000-8000-000000000001",
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := codec.Decode(token, "getGames", filter, "TITLE_ASC"); err != nil {
 		t.Fatal(err)
 	}

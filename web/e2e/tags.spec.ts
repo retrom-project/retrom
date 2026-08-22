@@ -16,7 +16,7 @@ test.beforeEach(async ({ page }) => {
 
 function evidencePath(testInfo: TestInfo, name: string) {
   const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
-  if (!caseDirectory) return testInfo.outputPath(name);
+  if (!caseDirectory) {return testInfo.outputPath(name);}
   const screenshots = path.join(caseDirectory, "screenshots");
   mkdirSync(screenshots, { recursive: true });
   return path.join(screenshots, name);

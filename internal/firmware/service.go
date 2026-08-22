@@ -70,7 +70,7 @@ func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 	return service
 }
 
-//nolint:funlen,gocyclo // Contract branches stay contiguous for a single auditable decision.
+// Contract branches stay contiguous for a single auditable decision.
 func (service *Service) Install(
 	ctx context.Context,
 	requirementID string,
@@ -86,10 +86,37 @@ func (service *Service) Install(
 		return Installation{}, fmt.Errorf("firmware/service: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	var sourceKind, logicalName string
-	var size sql.NullInt64
-	var expectedMD5, expectedSHA1, expectedSHA256 sql.NullString
-	var version int64
+	snapshot, err := validateInstallSnapshot(ctx, transaction, requirementID, expectedVersion, request, prepared)
+	if err != nil {
+		return Installation{}, err
+	}
+	status, details, err := service.evaluateInstall(ctx, transaction, requirementID, prepared, snapshot)
+	if err != nil {
+		return Installation{}, err
+	}
+	return persistInstallation(
+		ctx, transaction, requirementID, request.UploadFileID, snapshot, status, details, service.now(),
+	)
+}
+
+type installSnapshot struct {
+	sourceKind, logicalName                string
+	uploadID, originalName, blobID         string
+	md5, sha1, sha256                      string
+	size, version                          int64
+	expectedSize                           sql.NullInt64
+	expectedMD5, expectedSHA1, expectedSHA sql.NullString
+}
+
+func validateInstallSnapshot(
+	ctx context.Context,
+	transaction *sql.Tx,
+	requirementID string,
+	expectedVersion int64,
+	request InstallRequest,
+	prepared preparedInstall,
+) (installSnapshot, error) {
+	var snapshot installSnapshot
 	if err := transaction.QueryRowContext(ctx, `
 SELECT source_kind,
 logical_name,
@@ -102,19 +129,17 @@ FROM bios_requirements
 WHERE id=?
 AND enabled=1
 `, requirementID).Scan(
-		&sourceKind,
-		&logicalName,
-		&size,
-		&expectedMD5,
-		&expectedSHA1,
-		&expectedSHA256,
-		&version,
+		&snapshot.sourceKind,
+		&snapshot.logicalName,
+		&snapshot.expectedSize,
+		&snapshot.expectedMD5,
+		&snapshot.expectedSHA1,
+		&snapshot.expectedSHA,
+		&snapshot.version,
 	); err != nil ||
-		version != expectedVersion {
-		return Installation{}, ErrInvalid
+		snapshot.version != expectedVersion {
+		return installSnapshot{}, ErrInvalid
 	}
-	var uploadID, originalName, blobID, md5Value, sha1Value, sha256Value string
-	var sizeValue int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT f.upload_session_id,
 f.relative_path,
@@ -128,45 +153,69 @@ JOIN blobs b ON b.id=f.final_blob_id
 WHERE f.id=?
 AND f.state='COMPLETE'
 `, request.UploadFileID).Scan(
-		&uploadID,
-		&originalName,
-		&blobID,
-		&sizeValue,
-		&md5Value,
-		&sha1Value,
-		&sha256Value,
+		&snapshot.uploadID,
+		&snapshot.originalName,
+		&snapshot.blobID,
+		&snapshot.size,
+		&snapshot.md5,
+		&snapshot.sha1,
+		&snapshot.sha256,
 	); err != nil {
-		return Installation{}, ErrInvalid
+		return installSnapshot{}, ErrInvalid
 	}
-	if sourceKind != prepared.sourceKind || blobID != prepared.blobID || sha256Value != prepared.sha256 {
-		return Installation{}, ErrInvalid
+	if snapshot.sourceKind != prepared.sourceKind || snapshot.blobID != prepared.blobID ||
+		snapshot.sha256 != prepared.sha256 {
+		return installSnapshot{}, ErrInvalid
 	}
+	return snapshot, nil
+}
+
+func (service *Service) evaluateInstall(
+	ctx context.Context,
+	transaction *sql.Tx,
+	requirementID string,
+	prepared preparedInstall,
+	snapshot installSnapshot,
+) (string, map[string]any, error) {
 	status := "MATCHED"
 	details := map[string]any{
-		"logicalName":   logicalName,
-		"sourceKind":    sourceKind,
-		"sizeMatched":   !size.Valid || size.Int64 == sizeValue,
-		"md5Matched":    !expectedMD5.Valid || expectedMD5.String == md5Value,
-		"sha1Matched":   !expectedSHA1.Valid || expectedSHA1.String == sha1Value,
-		"sha256Matched": !expectedSHA256.Valid || expectedSHA256.String == sha256Value,
+		"logicalName":   snapshot.logicalName,
+		"sourceKind":    snapshot.sourceKind,
+		"sizeMatched":   !snapshot.expectedSize.Valid || snapshot.expectedSize.Int64 == snapshot.size,
+		"md5Matched":    !snapshot.expectedMD5.Valid || snapshot.expectedMD5.String == snapshot.md5,
+		"sha1Matched":   !snapshot.expectedSHA1.Valid || snapshot.expectedSHA1.String == snapshot.sha1,
+		"sha256Matched": !snapshot.expectedSHA.Valid || snapshot.expectedSHA.String == snapshot.sha256,
 	}
 	if details["sizeMatched"] == false || details["md5Matched"] == false || details["sha1Matched"] == false ||
 		details["sha256Matched"] == false {
 		status = "HASH_WARNING"
 	}
-	if sourceKind == "DAT_MACHINE" {
+	if snapshot.sourceKind == "DAT_MACHINE" {
 		if err := persistArchiveEntries(
-			ctx, transaction, blobID, prepared.archiveEntries, service.now().UnixMilli(),
+			ctx, transaction, snapshot.blobID, prepared.archiveEntries, service.now().UnixMilli(),
 		); err != nil {
-			return Installation{}, err
+			return "", nil, err
 		}
+		var err error
 		status, details, err = validateDATMachineArchive(ctx, transaction, requirementID, prepared.archiveEntries)
 		if err != nil {
-			return Installation{}, err
+			return "", nil, err
 		}
 	}
+	return status, details, nil
+}
+
+func persistInstallation(
+	ctx context.Context,
+	transaction *sql.Tx,
+	requirementID, uploadFileID string,
+	snapshot installSnapshot,
+	status string,
+	details map[string]any,
+	nowTime time.Time,
+) (Installation, error) {
 	detailsJSON, _ := json.Marshal(details)
-	now := service.now().UnixMilli()
+	now := nowTime.UnixMilli()
 	id, _ := uuid.NewV7()
 	consumptionID, _ := uuid.NewV7()
 	if _, err := transaction.ExecContext(ctx, `
@@ -212,13 +261,13 @@ updated_at_ms) VALUES(?,
 `,
 		id.String(),
 		requirementID,
-		blobID,
-		originalName,
-		sizeValue,
-		md5Value,
-		sha1Value,
-		sha256Value,
-		version,
+		snapshot.blobID,
+		snapshot.originalName,
+		snapshot.size,
+		snapshot.md5,
+		snapshot.sha1,
+		snapshot.sha256,
+		snapshot.version,
 		status,
 		string(detailsJSON),
 		now,
@@ -238,7 +287,7 @@ created_at_ms) VALUES(?,
 'BIOS_INSTALLATION',
 ?,
 ?)
-`, consumptionID.String(), uploadID, request.UploadFileID, id.String(), now); err != nil {
+`, consumptionID.String(), snapshot.uploadID, uploadFileID, id.String(), now); err != nil {
 		return Installation{}, fmt.Errorf("%w: consume upload: %w", ErrInvalid, err)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -249,7 +298,7 @@ created_at_ms) VALUES(?,
 		RequirementID:               requirementID,
 		Status:                      status,
 		Active:                      true,
-		ValidatedRequirementVersion: version,
+		ValidatedRequirementVersion: snapshot.version,
 		ValidationDetails:           details,
 		CreatedAtMS:                 now,
 	}, nil

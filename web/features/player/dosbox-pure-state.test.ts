@@ -22,7 +22,7 @@ function wasmWithCustomPayload(payload: number[]) {
 function countPattern(bytes: Uint8Array, pattern: number[]) {
   let count = 0;
   for (let index = 0; index <= bytes.byteLength - pattern.length; index += 1) {
-    if (pattern.every((value, offset) => bytes[index + offset] === value)) count += 1;
+    if (pattern.every((value, offset) => bytes[index + offset] === value)) {count += 1;}
   }
   return count;
 }
@@ -139,13 +139,13 @@ describe("DOSBox Pure explicit state compatibility", () => {
         mkdir: () => undefined,
         writeFile: (path: string, bytes: Uint8Array) => files.set(path, new Uint8Array(bytes)),
         unlink: (path: string) => {
-          if (!files.delete(path)) throw new Error("ENOENT");
+          if (!files.delete(path)) {throw new Error("ENOENT");}
         },
       };
       getState() { return Uint8Array.of(0); }
       toggleMainLoop(running: boolean) {
         loop(running);
-        if (running) window.setTimeout(() => runtimeConfig.postMainLoop?.(), 0);
+        if (running) {window.setTimeout(() => runtimeConfig.postMainLoop?.(), 0);}
       }
     }
     const manager = new Manager();

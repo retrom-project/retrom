@@ -16,12 +16,12 @@ export function HorizontalRail({ children, className = "", label }: { children: 
   const rail = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const element = rail.current;
-    if (!element) return;
+    if (!element) {return;}
     const scrollHorizontally = (event: WheelEvent) => {
-      if (element.scrollWidth <= element.clientWidth || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;
+      if (element.scrollWidth <= element.clientWidth || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) {return;}
       const previous = element.scrollLeft;
       element.scrollLeft += event.deltaY;
-      if (element.scrollLeft !== previous) event.preventDefault();
+      if (element.scrollLeft !== previous) {event.preventDefault();}
     };
     element.addEventListener("wheel", scrollHorizontally, { passive: false });
     return () => element.removeEventListener("wheel", scrollHorizontally);
@@ -41,7 +41,7 @@ function readPinnedPlatforms(value: string) {
 
 function subscribeToPinnedPlatforms(onChange: () => void) {
   const storageChanged = (event: StorageEvent) => {
-    if (event.key?.includes(":home:pinned-platforms")) onChange();
+    if (event.key?.includes(":home:pinned-platforms")) {onChange();}
   };
   window.addEventListener("storage", storageChanged);
   window.addEventListener("retrom:pinned-platforms-change", onChange);
@@ -52,7 +52,7 @@ function subscribeToPinnedPlatforms(onChange: () => void) {
 }
 
 function platformCode(id: string) {
-  if (id === "arcade") return "ARC";
+  if (id === "arcade") {return "ARC";}
   return id.replaceAll(/[^a-z0-9]/gi, "").slice(0, 4).toUpperCase();
 }
 
@@ -72,8 +72,8 @@ export function PlatformRail({ platforms }: { platforms: HomePlatform[] }) {
       const leftPosition = positions.get(left.id);
       const rightPosition = positions.get(right.id);
       if (leftPosition !== undefined || rightPosition !== undefined) {
-        if (leftPosition === undefined) return 1;
-        if (rightPosition === undefined) return -1;
+        if (leftPosition === undefined) {return 1;}
+        if (rightPosition === undefined) {return -1;}
         return leftPosition - rightPosition;
       }
       return left.name.localeCompare(right.name, "zh-CN") || left.id.localeCompare(right.id);
@@ -81,7 +81,7 @@ export function PlatformRail({ platforms }: { platforms: HomePlatform[] }) {
   }, [pinned, platforms]);
 
   function togglePinned(id: string) {
-    if (!pinnedPlatformsKey) return;
+    if (!pinnedPlatformsKey) {return;}
     const next = pinned.includes(id) ? pinned.filter((item) => item !== id) : [id, ...pinned];
     localStorage.setItem(pinnedPlatformsKey, JSON.stringify(next));
     window.dispatchEvent(new Event("retrom:pinned-platforms-change"));

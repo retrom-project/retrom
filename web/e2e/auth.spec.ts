@@ -8,7 +8,7 @@ const userPassword = "A1!x2z";
 
 function evidencePath(testInfo: TestInfo, name: string) {
   const caseDirectory = process.env.RETROM_ACCEPTANCE_CASE_DIR;
-  if (!caseDirectory) return testInfo.outputPath(name);
+  if (!caseDirectory) {return testInfo.outputPath(name);}
   const screenshots = path.join(caseDirectory, "screenshots");
   mkdirSync(screenshots, { recursive: true });
   return path.join(screenshots, `${testInfo.project.name}-${name}`);

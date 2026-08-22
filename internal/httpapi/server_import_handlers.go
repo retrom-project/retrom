@@ -17,7 +17,7 @@ func (server *Server) serverImportRoots(writer http.ResponseWriter, _ *http.Requ
 	writeJSON(writer, http.StatusOK, map[string]any{"items": server.serverImports.Roots()})
 }
 
-//nolint:lll // Directory keyset cursor fields mirror the stable name/path ordering contract.
+// Directory keyset cursor fields mirror the stable name/path ordering contract.
 func (server *Server) serverImportDirectories(writer http.ResponseWriter, request *http.Request) {
 	rootID := request.PathValue("rootId")
 	path := request.URL.Query().Get("path")
@@ -28,7 +28,12 @@ func (server *Server) serverImportDirectories(writer http.ResponseWriter, reques
 	filter := cursor.FilterDigest(map[string]any{"rootId": rootID, "path": path})
 	afterName, afterPath := "", ""
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getAdminServerImportRootDirectories", filter, "SERVER_DIRECTORY_ASC")
+		payload, err := server.cursors.Decode(
+			token,
+			"getAdminServerImportRootDirectories",
+			filter,
+			"SERVER_DIRECTORY_ASC",
+		)
 		if err != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -41,7 +46,8 @@ func (server *Server) serverImportDirectories(writer http.ResponseWriter, reques
 		return
 	}
 	start := 0
-	for start < len(directories) && (directories[start].Name < afterName || directories[start].Name == afterName && directories[start].RelativePath <= afterPath) {
+	for start < len(directories) && (directories[start].Name < afterName ||
+		directories[start].Name == afterName && directories[start].RelativePath <= afterPath) {
 		start++
 	}
 	end := min(start+limit, len(directories))
@@ -49,7 +55,15 @@ func (server *Server) serverImportDirectories(writer http.ResponseWriter, reques
 	var next *string
 	if end < len(directories) && len(items) > 0 {
 		last := items[len(items)-1]
-		token, encodeErr := server.cursors.Encode(cursor.Payload{OperationID: "getAdminServerImportRootDirectories", FilterDigest: filter, SortCode: "SERVER_DIRECTORY_ASC", SortValues: []string{last.Name}, ID: last.RelativePath})
+		token, encodeErr := server.cursors.Encode(
+			cursor.Payload{
+				OperationID:  "getAdminServerImportRootDirectories",
+				FilterDigest: filter,
+				SortCode:     "SERVER_DIRECTORY_ASC",
+				SortValues:   []string{last.Name},
+				ID:           last.RelativePath,
+			},
+		)
 		if encodeErr != nil {
 			server.databaseError(writer, request, encodeErr)
 			return
@@ -76,7 +90,7 @@ func (server *Server) createServerImport(writer http.ResponseWriter, request *ht
 	writeJSON(writer, http.StatusAccepted, created)
 }
 
-//nolint:lll // Import history keyset cursor fields mirror the created-at/ID ordering contract.
+// Import history keyset cursor fields mirror the created-at/ID ordering contract.
 func (server *Server) serverImportList(writer http.ResponseWriter, request *http.Request) {
 	values := request.URL.Query()
 	kind := values.Get("kind")
@@ -118,13 +132,21 @@ func (server *Server) serverImportList(writer http.ResponseWriter, request *http
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(cursor.Payload{OperationID: "getAdminServerImports", FilterDigest: filter, SortCode: "SERVER_IMPORT_CREATED_DESC", SortValues: []string{strconv.FormatInt(last.CreatedAtMS, 10)}, ID: last.ID})
+		token, _ := server.cursors.Encode(
+			cursor.Payload{
+				OperationID:  "getAdminServerImports",
+				FilterDigest: filter,
+				SortCode:     "SERVER_IMPORT_CREATED_DESC",
+				SortValues:   []string{strconv.FormatInt(last.CreatedAtMS, 10)},
+				ID:           last.ID,
+			},
+		)
 		next = &token
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": next})
 }
 
-//nolint:lll // Item filters and cursor fields remain visibly aligned with the application query contract.
+// Item filters and cursor fields remain visibly aligned with the application query contract.
 func (server *Server) serverImportDetail(writer http.ResponseWriter, request *http.Request) {
 	importID := request.PathValue("serverImportId")
 	summary, err := server.serverImports.Get(request.Context(), importID)
@@ -138,7 +160,14 @@ func (server *Server) serverImportDetail(writer http.ResponseWriter, request *ht
 	if value := values.Get("limit"); value != "" {
 		limit, _ = strconv.Atoi(value)
 	}
-	filter := cursor.FilterDigest(map[string]any{"id": importID, "q": strings.TrimSpace(values.Get("q")), "outcome": outcome, "matchMethod": method})
+	filter := cursor.FilterDigest(
+		map[string]any{
+			"id":          importID,
+			"q":           strings.TrimSpace(values.Get("q")),
+			"outcome":     outcome,
+			"matchMethod": method,
+		},
+	)
 	afterCore, afterName, afterID := "", "", ""
 	if token := values.Get("cursor"); token != "" {
 		payload, decodeErr := server.cursors.Decode(token, "getAdminServerImport", filter, "SERVER_IMPORT_ITEM_ASC")
@@ -148,7 +177,17 @@ func (server *Server) serverImportDetail(writer http.ResponseWriter, request *ht
 		}
 		afterCore, afterName, afterID = payload.SortValues[0], payload.SortValues[1], payload.ID
 	}
-	items, err := server.serverImports.Items(request.Context(), importID, strings.TrimSpace(values.Get("q")), outcome, method, afterCore, afterName, afterID, limit+1)
+	items, err := server.serverImports.Items(
+		request.Context(),
+		importID,
+		strings.TrimSpace(values.Get("q")),
+		outcome,
+		method,
+		afterCore,
+		afterName,
+		afterID,
+		limit+1,
+	)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
@@ -157,14 +196,22 @@ func (server *Server) serverImportDetail(writer http.ResponseWriter, request *ht
 	if len(items) > limit {
 		items = items[:limit]
 		last := items[len(items)-1]
-		token, _ := server.cursors.Encode(cursor.Payload{OperationID: "getAdminServerImport", FilterDigest: filter, SortCode: "SERVER_IMPORT_ITEM_ASC", SortValues: []string{last.CoreName, last.LogicalName}, ID: last.RequirementID})
+		token, _ := server.cursors.Encode(
+			cursor.Payload{
+				OperationID:  "getAdminServerImport",
+				FilterDigest: filter,
+				SortCode:     "SERVER_IMPORT_ITEM_ASC",
+				SortValues:   []string{last.CoreName, last.LogicalName},
+				ID:           last.RequirementID,
+			},
+		)
 		next = &token
 	}
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, summary.Version))
 	writeJSON(writer, http.StatusOK, map[string]any{"summary": summary, "items": items, "nextCursor": next})
 }
 
-//nolint:lll // Candidate cursor fields mirror the rank/ID ordering contract.
+// Candidate cursor fields mirror the rank/ID ordering contract.
 func (server *Server) serverImportCandidates(writer http.ResponseWriter, request *http.Request) {
 	importID, requirementID := request.PathValue("serverImportId"), request.PathValue("requirementId")
 	limit := 50
@@ -175,7 +222,12 @@ func (server *Server) serverImportCandidates(writer http.ResponseWriter, request
 	var rank int64
 	afterID := ""
 	if token := request.URL.Query().Get("cursor"); token != "" {
-		payload, err := server.cursors.Decode(token, "getAdminServerImportBIOSCandidates", filter, "SERVER_CANDIDATE_ASC")
+		payload, err := server.cursors.Decode(
+			token,
+			"getAdminServerImportBIOSCandidates",
+			filter,
+			"SERVER_CANDIDATE_ASC",
+		)
 		if err != nil || len(payload.SortValues) != 1 {
 			writeError(writer, request, http.StatusBadRequest, "INVALID_CURSOR", "分页游标无效", map[string]any{})
 			return
@@ -200,7 +252,15 @@ func (server *Server) serverImportCandidates(writer http.ResponseWriter, request
 		if last.RankOrdinal != nil {
 			value = *last.RankOrdinal
 		}
-		token, _ := server.cursors.Encode(cursor.Payload{OperationID: "getAdminServerImportBIOSCandidates", FilterDigest: filter, SortCode: "SERVER_CANDIDATE_ASC", SortValues: []string{strconv.FormatInt(value, 10)}, ID: last.ID})
+		token, _ := server.cursors.Encode(
+			cursor.Payload{
+				OperationID:  "getAdminServerImportBIOSCandidates",
+				FilterDigest: filter,
+				SortCode:     "SERVER_CANDIDATE_ASC",
+				SortValues:   []string{strconv.FormatInt(value, 10)},
+				ID:           last.ID,
+			},
+		)
 		next = &token
 	}
 	writeJSON(writer, http.StatusOK, map[string]any{"items": items, "nextCursor": next})
@@ -210,11 +270,18 @@ type serverImportCancelBody struct {
 	Reason string `json:"reason"`
 }
 
-//nolint:lll // The domain cancellation call carries the complete optimistic-locking request.
+// The domain cancellation call carries the complete optimistic-locking request.
 func (server *Server) cancelServerImport(writer http.ResponseWriter, request *http.Request) {
 	version, err := ParseETag(request.Header.Get("If-Match"))
 	if err != nil {
-		writeError(writer, request, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "需要当前任务版本", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusPreconditionRequired,
+			"PRECONDITION_REQUIRED",
+			"需要当前任务版本",
+			map[string]any{},
+		)
 		return
 	}
 	var body serverImportCancelBody
@@ -223,7 +290,13 @@ func (server *Server) cancelServerImport(writer http.ResponseWriter, request *ht
 		return
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	summary, pending, err := server.serverImports.Cancel(request.Context(), request.PathValue("serverImportId"), version, body.Reason, principal.UserID)
+	summary, pending, err := server.serverImports.Cancel(
+		request.Context(),
+		request.PathValue("serverImportId"),
+		version,
+		body.Reason,
+		principal.UserID,
+	)
 	if err != nil {
 		server.writeServerImportError(writer, request, err)
 		return
@@ -236,11 +309,18 @@ func (server *Server) cancelServerImport(writer http.ResponseWriter, request *ht
 	writeJSON(writer, status, summary)
 }
 
-//nolint:lll // The domain retry call carries the complete optimistic-locking request.
+// The domain retry call carries the complete optimistic-locking request.
 func (server *Server) retryServerImport(writer http.ResponseWriter, request *http.Request) {
 	version, err := ParseETag(request.Header.Get("If-Match"))
 	if err != nil {
-		writeError(writer, request, http.StatusPreconditionRequired, "PRECONDITION_REQUIRED", "需要当前任务版本", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusPreconditionRequired,
+			"PRECONDITION_REQUIRED",
+			"需要当前任务版本",
+			map[string]any{},
+		)
 		return
 	}
 	var body struct{}
@@ -249,7 +329,12 @@ func (server *Server) retryServerImport(writer http.ResponseWriter, request *htt
 		return
 	}
 	principal, _ := authn.PrincipalFromContext(request.Context())
-	summary, err := server.serverImports.Retry(request.Context(), request.PathValue("serverImportId"), version, principal.UserID)
+	summary, err := server.serverImports.Retry(
+		request.Context(),
+		request.PathValue("serverImportId"),
+		version,
+		principal.UserID,
+	)
 	if err != nil {
 		server.writeServerImportError(writer, request, err)
 		return
@@ -269,7 +354,14 @@ func validServerImportState(value string) bool {
 func (server *Server) writeServerImportError(writer http.ResponseWriter, request *http.Request, err error) {
 	switch {
 	case errors.Is(err, serverimport.ErrRootIDInvalid):
-		writeError(writer, request, http.StatusBadRequest, "SERVER_IMPORT_ROOT_ID_INVALID", "服务器位置标识无效", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusBadRequest,
+			"SERVER_IMPORT_ROOT_ID_INVALID",
+			"服务器位置标识无效",
+			map[string]any{},
+		)
 	case errors.Is(err, serverimport.ErrPathInvalid):
 		writeError(writer, request, http.StatusBadRequest, "SERVER_IMPORT_PATH_INVALID", "服务器目录无效", map[string]any{})
 	case errors.Is(err, serverimport.ErrRootNotFound):
@@ -277,9 +369,23 @@ func (server *Server) writeServerImportError(writer http.ResponseWriter, request
 	case errors.Is(err, serverimport.ErrNotFound), errors.Is(err, sql.ErrNoRows):
 		writeError(writer, request, http.StatusNotFound, "RESOURCE_NOT_FOUND", "请求的资源不存在", map[string]any{})
 	case errors.Is(err, serverimport.ErrRootUnavailable):
-		writeError(writer, request, http.StatusConflict, "SERVER_IMPORT_ROOT_UNAVAILABLE", "服务器位置当前不可用", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"SERVER_IMPORT_ROOT_UNAVAILABLE",
+			"服务器位置当前不可用",
+			map[string]any{},
+		)
 	case errors.Is(err, serverimport.ErrActive):
-		writeError(writer, request, http.StatusConflict, "SERVER_BIOS_IMPORT_ACTIVE", "已有 BIOS 服务器导入正在运行", map[string]any{})
+		writeError(
+			writer,
+			request,
+			http.StatusConflict,
+			"SERVER_BIOS_IMPORT_ACTIVE",
+			"已有 BIOS 服务器导入正在运行",
+			map[string]any{},
+		)
 	case errors.Is(err, serverimport.ErrCatalogEmpty):
 		writeError(writer, request, http.StatusConflict, "BIOS_CATALOG_EMPTY", "当前 BIOS 目录为空", map[string]any{})
 	case errors.Is(err, serverimport.ErrCatalogInvalid):

@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"retrom/internal/cleanup"
+	"retrom/internal/testassert"
 )
 
 func TestPegasusMigrationUpgradesVersion27AndPreservesImageAssets(t *testing.T) {
@@ -19,9 +20,7 @@ func TestPegasusMigrationUpgradesVersion27AndPreservesImageAssets(t *testing.T) 
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -68,14 +67,14 @@ COMMIT;
 	}
 	var version, width, height int
 	var kind, mediaType string
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT (SELECT max(version) FROM schema_migrations),kind,width_px,height_px,media_type
 FROM game_assets WHERE id='01980000-0000-7000-8000-00000000a805'
 `).Scan(&version, &kind, &width, &height, &mediaType); err != nil || version != 39 || kind != "COVER" ||
 		width != 320 || height != 480 || mediaType != "image/png" {
 		t.Fatalf("upgrade = version:%d asset:%s/%d/%d/%s error:%v", version, kind, width, height, mediaType, err)
 	}
-	if _, err := upgraded.SQL.Exec(`
+	if _, err := upgraded.SQL.ExecContext(context.Background(), `
 INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms)
 VALUES('01980000-0000-7000-8000-00000000a806',?,4,?,?,?,'video/mp4',2);
 INSERT INTO game_assets(id,game_id,metadata_revision_id,blob_id,kind,ordinal,width_px,height_px,media_type,created_at_ms)
@@ -104,9 +103,7 @@ func TestPegasusReviewHandoffMigrationPreservesVersion29Failures(t *testing.T) {
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	databasePath := filepath.Join(t.TempDir(), "retrom.db")
 	legacy, err := sql.Open("sqlite", databasePath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -167,7 +164,7 @@ INSERT INTO pegasus_import_items(
 	}
 	var version, reviewPending, reviewDiscarded int
 	var title, executionState, details string
-	if err := upgraded.SQL.QueryRow(`
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `
 SELECT (SELECT max(version) FROM schema_migrations),import.review_pending_item_count,
   import.review_discarded_item_count,item.title,item.execution_state,item.error_details_json
 FROM pegasus_imports import
@@ -178,14 +175,7 @@ WHERE import.id=? AND item.id=?
 	); err != nil {
 		t.Fatal(err)
 	}
-	if version != 39 || reviewPending != 0 || reviewDiscarded != 0 ||
-		title != "Legacy blocked game" || executionState != "BLOCKED_CONTENT" ||
-		!strings.Contains(details, "preserve me") {
-		t.Fatalf(
-			"upgrade = version:%d reviews:%d/%d item:%q/%q details:%q",
-			version, reviewPending, reviewDiscarded, title, executionState, details,
-		)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return version != 39 }, func() bool { return reviewPending != 0 }, func() bool { return reviewDiscarded != 0 }, func() bool { return title != "Legacy blocked game" }, func() bool { return executionState != "BLOCKED_CONTENT" }, func() bool { return !strings.Contains(details, "preserve me") }), "upgrade = version:%d reviews:%d/%d item:%q/%q details:%q", version, reviewPending, reviewDiscarded, title, executionState, details)
 }
 
 func TestPegasusReviewContentSnapshotMigrationUpgradesVersion34Trigger(t *testing.T) {
@@ -195,9 +185,7 @@ func TestPegasusReviewContentSnapshotMigrationUpgradesVersion34Trigger(t *testin
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	upgradedPath := filepath.Join(t.TempDir(), "upgraded.db")
 	legacy, err := sql.Open("sqlite", upgradedPath)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	legacy.SetMaxOpenConns(1)
 	if _, err := legacy.ExecContext(ctx, "PRAGMA foreign_keys=ON"); err != nil {
 		t.Fatal(err)
@@ -207,15 +195,13 @@ func TestPegasusReviewContentSnapshotMigrationUpgradesVersion34Trigger(t *testin
 	}
 	applyMigrationRange(ctx, t, legacy, repositoryRoot, 1, 34)
 	var oldTrigger string
-	if err := legacy.QueryRow(`
+	if err := legacy.QueryRowContext(context.Background(), `
 SELECT sql FROM sqlite_master
 WHERE type='trigger' AND name='game_content_revisions_pegasus_source_insert'
 `).Scan(&oldTrigger); err != nil {
 		t.Fatal(err)
 	}
-	if strings.Contains(oldTrigger, "effective_source_snapshot_id") {
-		t.Fatalf("version 34 trigger unexpectedly accepts review snapshots: %s", oldTrigger)
-	}
+	testassert.Falsef(t, strings.Contains(oldTrigger, "effective_source_snapshot_id"), "version 34 trigger unexpectedly accepts review snapshots: %s", oldTrigger)
 	if err := legacy.Close(); err != nil {
 		t.Fatal(err)
 	}
@@ -223,9 +209,7 @@ WHERE type='trigger' AND name='game_content_revisions_pegasus_source_insert'
 	upgraded := openHistoricalSchemaForTest(ctx, t, upgradedPath, repositoryRoot, func() time.Time { return time.UnixMilli(5000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	fresh, err := Open(ctx, filepath.Join(t.TempDir(), "fresh.db"), func() time.Time { return time.UnixMilli(5000) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer func() { cleanup.Error("close", fresh.Close()) }()
 	for _, database := range []*DB{upgraded, fresh} {
 		if err := database.IntegrityCheck(ctx); err != nil {
@@ -234,23 +218,19 @@ WHERE type='trigger' AND name='game_content_revisions_pegasus_source_insert'
 	}
 	var version int
 	var upgradedTrigger, freshTrigger string
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
+	if err := upgraded.SQL.QueryRowContext(context.Background(), `SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	for database, destination := range map[*DB]*string{
 		upgraded: &upgradedTrigger,
 		fresh:    &freshTrigger,
 	} {
-		if err := database.SQL.QueryRow(`
+		if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT sql FROM sqlite_master
 WHERE type='trigger' AND name='game_content_revisions_pegasus_source_insert'
 `).Scan(destination); err != nil {
 			t.Fatal(err)
 		}
 	}
-	if upgradedTrigger != freshTrigger ||
-		!strings.Contains(upgradedTrigger, "effective_source_snapshot_id") ||
-		!strings.Contains(upgradedTrigger, "item.library_import_item_id") {
-		t.Fatalf("Pegasus content trigger drifted after upgrade:\n%s\n--- fresh ---\n%s", upgradedTrigger, freshTrigger)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return upgradedTrigger != freshTrigger }, func() bool { return !strings.Contains(upgradedTrigger, "effective_source_snapshot_id") }, func() bool { return !strings.Contains(upgradedTrigger, "item.library_import_item_id") }), "Pegasus content trigger drifted after upgrade:\n%s\n--- fresh ---\n%s", upgradedTrigger, freshTrigger)
 }

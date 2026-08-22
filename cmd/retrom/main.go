@@ -55,7 +55,7 @@ func execute(arguments []string) error {
 	return executeWithPasswordReader(arguments, readPasswordFromTTY)
 }
 
-//nolint:funlen,gocyclo,gocognit // Each CLI command owns an explicit argument contract.
+// Each CLI command owns an explicit argument contract.
 func executeWithPasswordReader(arguments []string, readPassword func(string) (string, error)) error {
 	worker, err := importing.RunArchiveWorker(arguments)
 	if worker {
@@ -68,87 +68,100 @@ func executeWithPasswordReader(arguments []string, readPassword func(string) (st
 		return run(config.ModeRelease)
 	}
 	if arguments[0] == "--mode" || strings.HasPrefix(arguments[0], "--mode=") {
-		mode, parseErr := parseServeMode(arguments)
-		if parseErr != nil {
-			return parseErr
+		mode, err := parseServeMode(arguments)
+		if err != nil {
+			return err
 		}
 		return run(mode)
 	}
 	switch arguments[0] {
 	case "setup-code":
-		flags := flag.NewFlagSet("retrom setup-code", flag.ContinueOnError)
-		if err := flags.Parse(arguments[1:]); err != nil || flags.NArg() != 0 {
-			return errSetupArgument
-		}
-		configuration, err := config.LoadBackupMaintenance()
-		if err != nil {
-			return fmt.Errorf("retrom/main: %w", err)
-		}
-		code, err := readSetupCode(context.Background(), configuration)
-		if err != nil {
-			return fmt.Errorf("retrom/main: %w", err)
-		}
-		if _, err := fmt.Fprintln(os.Stdout, code); err != nil {
-			return fmt.Errorf("write setup code: %w", err)
-		}
-		return nil
+		return executeSetupCode(arguments[1:])
 	case "admin-reset":
-		flags := flag.NewFlagSet("retrom admin-reset", flag.ContinueOnError)
-		username := flags.String("username", "", "existing non-deleted administrator username")
-		if err := flags.Parse(arguments[1:]); err != nil || *username == "" || flags.NArg() != 0 {
-			return errAdminArgument
-		}
-		configuration, err := config.LoadBackupMaintenance()
-		if err != nil {
-			return fmt.Errorf("retrom/main: %w", err)
-		}
-		if err := resetOfflineAdmin(context.Background(), configuration, *username, readPassword); err != nil {
-			return fmt.Errorf("retrom/main: %w", err)
-		}
-		return writeCommandResult(map[string]any{"status": "admin_reset_complete", "username": *username})
+		return executeAdminReset(arguments[1:], readPassword)
 	case "backup":
-		flags := flag.NewFlagSet("retrom backup", flag.ContinueOnError)
-		output := flags.String("output", "", "absolute path for a new backup bundle")
-		if err := flags.Parse(arguments[1:]); err != nil || *output == "" || flags.NArg() != 0 {
-			return errBackupArgument
-		}
-		configuration, err := config.LoadBackupMaintenance()
-		if err != nil {
-			return fmt.Errorf("retrom/main: %w", err)
-		}
-		manifest, err := maintenance.Backup(context.Background(), configuration, *output, time.Now)
-		if err != nil {
-			return fmt.Errorf("retrom/main: %w", err)
-		}
-		return writeCommandResult(
-			map[string]any{"status": "backup_complete", "output": *output, "fileCount": manifest.Counts.FileCount},
-		)
+		return executeBackup(arguments[1:])
 	case "restore":
-		flags := flag.NewFlagSet("retrom restore", flag.ContinueOnError)
-		input := flags.String("input", "", "absolute path to a backup bundle")
-		output := flags.String("output-data-dir", "", "absolute path for a new data root")
-		if err := flags.Parse(arguments[1:]); err != nil || *input == "" || *output == "" || flags.NArg() != 0 {
-			return errRestoreArgument
-		}
-		configuration, err := config.LoadRestoreMaintenance()
-		if err != nil {
-			return fmt.Errorf("retrom/main: %w", err)
-		}
-		manifest, err := maintenance.Restore(context.Background(), configuration, *input, *output)
-		if err != nil {
-			return fmt.Errorf("retrom/main: %w", err)
-		}
-		return writeCommandResult(
-			map[string]any{
-				"status":                          "restore_complete",
-				"outputDataDir":                   *output,
-				"requiredDependencyVersions":      manifest.DependencyVersions,
-				"requiredActiveEmulatorjsVersion": manifest.ActiveEmulatorjsVersion,
-			},
-		)
+		return executeRestore(arguments[1:])
 	default:
 		return errCommand
 	}
+}
+
+func executeSetupCode(arguments []string) error {
+	flags := flag.NewFlagSet("retrom setup-code", flag.ContinueOnError)
+	if err := flags.Parse(arguments); err != nil || flags.NArg() != 0 {
+		return errSetupArgument
+	}
+	configuration, err := config.LoadBackupMaintenance()
+	if err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	code, err := readSetupCode(context.Background(), configuration)
+	if err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	if _, err := fmt.Fprintln(os.Stdout, code); err != nil {
+		return fmt.Errorf("write setup code: %w", err)
+	}
+	return nil
+}
+
+func executeAdminReset(arguments []string, readPassword func(string) (string, error)) error {
+	flags := flag.NewFlagSet("retrom admin-reset", flag.ContinueOnError)
+	username := flags.String("username", "", "existing non-deleted administrator username")
+	if err := flags.Parse(arguments); err != nil || *username == "" || flags.NArg() != 0 {
+		return errAdminArgument
+	}
+	configuration, err := config.LoadBackupMaintenance()
+	if err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	if err := resetOfflineAdmin(context.Background(), configuration, *username, readPassword); err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	return writeCommandResult(map[string]any{"status": "admin_reset_complete", "username": *username})
+}
+
+func executeBackup(arguments []string) error {
+	flags := flag.NewFlagSet("retrom backup", flag.ContinueOnError)
+	output := flags.String("output", "", "absolute path for a new backup bundle")
+	if err := flags.Parse(arguments); err != nil || *output == "" || flags.NArg() != 0 {
+		return errBackupArgument
+	}
+	configuration, err := config.LoadBackupMaintenance()
+	if err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	manifest, err := maintenance.Backup(context.Background(), configuration, *output, time.Now)
+	if err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	return writeCommandResult(map[string]any{
+		"status": "backup_complete", "output": *output, "fileCount": manifest.Counts.FileCount,
+	})
+}
+
+func executeRestore(arguments []string) error {
+	flags := flag.NewFlagSet("retrom restore", flag.ContinueOnError)
+	input := flags.String("input", "", "absolute path to a backup bundle")
+	output := flags.String("output-data-dir", "", "absolute path for a new data root")
+	if err := flags.Parse(arguments); err != nil || *input == "" || *output == "" || flags.NArg() != 0 {
+		return errRestoreArgument
+	}
+	configuration, err := config.LoadRestoreMaintenance()
+	if err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	manifest, err := maintenance.Restore(context.Background(), configuration, *input, *output)
+	if err != nil {
+		return fmt.Errorf("retrom/main: %w", err)
+	}
+	return writeCommandResult(map[string]any{
+		"status": "restore_complete", "outputDataDir": *output,
+		"requiredDependencyVersions":      manifest.DependencyVersions,
+		"requiredActiveEmulatorjsVersion": manifest.ActiveEmulatorjsVersion,
+	})
 }
 
 func readSetupCode(ctx context.Context, configuration config.Maintenance) (string, error) {
@@ -250,120 +263,191 @@ func writeCommandResult(value any) error {
 	return nil
 }
 
-//nolint:funlen,gocyclo // Process bootstrap branches are independent fail-fast checks kept in startup order.
+// Process bootstrap branches are independent fail-fast checks kept in startup order.
 func run(mode config.Mode) error {
+	configuration, err := loadServerConfiguration(mode)
+	if err != nil {
+		return err
+	}
+	startupContext, cancelStartup := context.WithTimeout(
+		context.Background(), configuration.StartupCheckTimeout,
+	)
+	defer cancelStartup()
+	resources, err := bootstrapServerResources(startupContext, configuration)
+	if err != nil {
+		return err
+	}
+	defer resources.close()
+	netplayService, accountService, err := initializeRuntimeServices(
+		startupContext, configuration, resources,
+	)
+	if err != nil {
+		return err
+	}
+	cancelCatalogs := startCatalogBootstrap(resources)
+	defer cancelCatalogs()
+	apiServer := httpapi.New(
+		configuration, resources.database.SQL, resources.dependencies, resources.blobs,
+		resources.credentials, accountService, accountService, time.Now,
+	).WithReadinessDatabase(resources.database.ReadOnly).WithNetplay(netplayService)
+	defer apiServer.Close()
+	return serveHTTP(configuration, apiServer)
+}
+
+func loadServerConfiguration(mode config.Mode) (config.Config, error) {
 	configuration, err := config.Load(mode)
 	if err != nil {
-		return fmt.Errorf("load configuration: %w", err)
+		return config.Config{}, fmt.Errorf("load configuration: %w", err)
 	}
 	level := slog.LevelInfo
 	if err := level.UnmarshalText([]byte(configuration.LogLevel)); err != nil {
-		return fmt.Errorf("parse log level: %w", err)
+		return config.Config{}, fmt.Errorf("parse log level: %w", err)
 	}
-	slog.SetDefault(slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: level})))
+	slog.SetDefault(slog.New(slog.NewJSONHandler(
+		os.Stdout, &slog.HandlerOptions{Level: level},
+	)))
+	return configuration, nil
+}
 
-	lock, err := processlock.Acquire(configuration.DataDir)
-	if err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
+type serverResources struct {
+	lock               *processlock.Lock
+	dependencies       *dependencies.Set
+	database           *store.DB
+	blobs              *blobstore.Store
+	credentials        *retromruntime.Credentials
+	netplayRegistry    *netplay.Registry
+	netplayCredentials *netplay.Credentials
+}
+
+func (resources *serverResources) close() {
+	if resources.database != nil {
+		cleanup.Error("close", resources.database.Close())
 	}
+	if resources.lock != nil {
+		if err := resources.lock.Close(); err != nil {
+			slog.Error("release data root lock", "error", err)
+		}
+	}
+}
+
+func bootstrapServerResources(
+	ctx context.Context,
+	configuration config.Config,
+) (serverResources, error) {
+	var result serverResources
+	succeeded := false
 	defer func() {
-		if closeErr := lock.Close(); closeErr != nil {
-			slog.Error("release data root lock", "error", closeErr)
+		if !succeeded {
+			result.close()
 		}
 	}()
-
-	startupContext, cancelStartup := context.WithTimeout(context.Background(), configuration.StartupCheckTimeout)
-	defer cancelStartup()
-	dependencySet, err := dependencies.Load(
+	lock, err := processlock.Acquire(configuration.DataDir)
+	if err != nil {
+		return result, fmt.Errorf("retrom/main: %w", err)
+	}
+	result.lock = lock
+	result.dependencies, err = dependencies.Load(
 		configuration.DependencyRoot,
 		configuration.DependencyVersions,
 		configuration.ActiveEJSVersion,
 	)
 	if err != nil {
-		return fmt.Errorf("verify dependencies: %w", err)
+		return result, fmt.Errorf("verify dependencies: %w", err)
 	}
-	database, err := store.Open(startupContext, configuration.DBPath, time.Now)
+	result.database, err = store.Open(ctx, configuration.DBPath, time.Now)
 	if err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
+		return result, fmt.Errorf("retrom/main: %w", err)
 	}
-	defer func() { cleanup.Error("close", database.Close()) }()
-	if err := dependencySet.Bootstrap(startupContext, database.SQL, time.Now()); err != nil {
-		return fmt.Errorf("bootstrap dependency records: %w", err)
+	if err := result.dependencies.Bootstrap(ctx, result.database.SQL, time.Now()); err != nil {
+		return result, fmt.Errorf("bootstrap dependency records: %w", err)
 	}
-	if err := platforminstance.New(database.SQL, time.Now).
-		ValidateCatalog(startupContext); err != nil {
-		return fmt.Errorf("validate recommended game directories: %w", err)
+	if err := platforminstance.New(result.database.SQL, time.Now).ValidateCatalog(ctx); err != nil {
+		return result, fmt.Errorf("validate recommended game directories: %w", err)
 	}
-	if err := database.IntegrityCheck(startupContext); err != nil {
-		return fmt.Errorf("retrom/main: %w", err)
+	if err := result.database.IntegrityCheck(ctx); err != nil {
+		return result, fmt.Errorf("retrom/main: %w", err)
 	}
-	blobs, err := blobstore.Open(configuration.DataDir)
+	result.blobs, err = blobstore.Open(configuration.DataDir)
 	if err != nil {
-		return fmt.Errorf("open blob store: %w", err)
+		return result, fmt.Errorf("open blob store: %w", err)
 	}
-	credentials, err := retromruntime.LoadOrCreateCredentials(configuration.DataDir)
+	result.credentials, err = retromruntime.LoadOrCreateCredentials(configuration.DataDir)
 	if err != nil {
-		return fmt.Errorf("load launch credentials: %w", err)
+		return result, fmt.Errorf("load launch credentials: %w", err)
 	}
-	netplayRegistry, err := netplay.LoadRegistry(configuration.DependencyRoot, dependencySet)
+	result.netplayRegistry, err = netplay.LoadRegistry(
+		configuration.DependencyRoot, result.dependencies,
+	)
 	if err != nil {
-		return fmt.Errorf("load netplay registry: %w", err)
+		return result, fmt.Errorf("load netplay registry: %w", err)
 	}
-	netplayCredentials, err := netplay.LoadOrCreateCredentials(configuration.DataDir)
+	result.netplayCredentials, err = netplay.LoadOrCreateCredentials(configuration.DataDir)
 	if err != nil {
-		return fmt.Errorf("load netplay credentials: %w", err)
+		return result, fmt.Errorf("load netplay credentials: %w", err)
 	}
-	netplayService := netplay.NewService(database.SQL, netplayRegistry, netplayCredentials, netplay.Options{
-		MaxActiveRooms: configuration.NetplayMaxActiveRooms,
-		DraftIdle:      configuration.NetplayRoomIdleDraft,
-		WaitingIdle:    configuration.NetplayRoomIdleWaiting,
-		ReconnectLease: configuration.NetplayReconnectLease,
-	}, time.Now)
-	if err := netplayService.Recover(startupContext, "SERVER_RESTARTED"); err != nil {
-		return fmt.Errorf("recover netplay state: %w", err)
+	succeeded = true
+	return result, nil
+}
+
+func initializeRuntimeServices(
+	ctx context.Context,
+	configuration config.Config,
+	resources serverResources,
+) (*netplay.Service, *accounts.Service, error) {
+	netplayService := netplay.NewService(
+		resources.database.SQL, resources.netplayRegistry, resources.netplayCredentials,
+		netplay.Options{
+			MaxActiveRooms: configuration.NetplayMaxActiveRooms,
+			DraftIdle:      configuration.NetplayRoomIdleDraft,
+			WaitingIdle:    configuration.NetplayRoomIdleWaiting,
+			ReconnectLease: configuration.NetplayReconnectLease,
+		}, time.Now,
+	)
+	if err := netplayService.Recover(ctx, "SERVER_RESTARTED"); err != nil {
+		return nil, nil, fmt.Errorf("recover netplay state: %w", err)
 	}
 	blocklist, err := authn.LoadBlocklist(configuration.DependencyRoot)
 	if err != nil {
-		return fmt.Errorf("load password blocklist: %w", err)
+		return nil, nil, fmt.Errorf("load password blocklist: %w", err)
 	}
 	accountService, err := accounts.New(
-		startupContext, database.SQL, credentials, configuration.Mode, blocklist, time.Now,
+		ctx, resources.database.SQL, resources.credentials,
+		configuration.Mode, blocklist, time.Now,
 	)
 	if err != nil {
-		return fmt.Errorf("initialize account service: %w", err)
+		return nil, nil, fmt.Errorf("initialize account service: %w", err)
 	}
-	if err := accountService.Start(startupContext); err != nil {
-		return fmt.Errorf("validate account state: %w", err)
+	if err := accountService.Start(ctx); err != nil {
+		return nil, nil, fmt.Errorf("validate account state: %w", err)
 	}
-	catalogContext, cancelCatalogs := context.WithCancel(context.Background())
-	defer cancelCatalogs()
-	go func() {
-		if catalogErr := dependencySet.BootstrapCatalogs(catalogContext, database.SQL, time.Now()); catalogErr != nil {
-			slog.Error("background DAT indexing failed", "error", catalogErr)
-			return
-		}
-		slog.Info("background DAT indexing complete")
-	}()
+	return netplayService, accountService, nil
+}
 
-	apiServer := httpapi.New(
-		configuration, database.SQL, dependencySet, blobs, credentials, accountService, accountService, time.Now,
-	).WithReadinessDatabase(database.ReadOnly).WithNetplay(netplayService)
-	defer apiServer.Close()
+func startCatalogBootstrap(resources serverResources) context.CancelFunc {
+	catalogContext, cancel := context.WithCancel(context.Background())
+	go bootstrapCatalogs(catalogContext, resources.dependencies, resources.database.SQL)
+	return cancel
+}
+
+func bootstrapCatalogs(ctx context.Context, dependencySet *dependencies.Set, database *sql.DB) {
+	if err := dependencySet.BootstrapCatalogs(ctx, database, time.Now()); err != nil {
+		slog.Error("background DAT indexing failed", "error", err)
+		return
+	}
+	slog.Info("background DAT indexing complete")
+}
+
+func serveHTTP(configuration config.Config, apiServer *httpapi.Server) error {
 	server := &http.Server{
-		Addr:              configuration.HTTPAddr,
-		Handler:           apiServer.Handler(),
-		ReadHeaderTimeout: 10 * time.Second,
-		ReadTimeout:       2 * time.Minute,
-		WriteTimeout:      2 * time.Minute,
-		IdleTimeout:       75 * time.Second,
-		MaxHeaderBytes:    64 << 10,
+		Addr: configuration.HTTPAddr, Handler: apiServer.Handler(),
+		ReadHeaderTimeout: 10 * time.Second, ReadTimeout: 2 * time.Minute,
+		WriteTimeout: 2 * time.Minute, IdleTimeout: 75 * time.Second, MaxHeaderBytes: 64 << 10,
 	}
 	serveErrors := make(chan error, 1)
 	go func() {
 		slog.Info("retrom HTTP listening")
 		serveErrors <- server.ListenAndServe()
 	}()
-
 	stopSignals := make(chan os.Signal, 1)
 	signal.Notify(stopSignals, syscall.SIGINT, syscall.SIGTERM)
 	defer signal.Stop(stopSignals)
@@ -376,7 +460,6 @@ func run(mode config.Mode) error {
 	case signalName := <-stopSignals:
 		slog.Info("shutdown requested", "signal", signalName.String())
 	}
-
 	shutdownContext, cancelShutdown := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancelShutdown()
 	if err := server.Shutdown(shutdownContext); err != nil {

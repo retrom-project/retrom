@@ -1,0 +1,464 @@
+{
+  "version": 1,
+  "exceptions": [
+    {
+      "path": "internal/authn/blocklist.go",
+      "line": 32,
+      "symbol": "func LoadBlocklist(dependencyRoot string) (*FileBlocklist, error)",
+      "linter": "gosec",
+      "reason": "Path is rooted in validated dependency configuration.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/blobstore/blobstore.go",
+      "line": 109,
+      "symbol": "func (store *Store) OpenDigest(digest string) (*os.File, error)",
+      "linter": "gosec",
+      "reason": "Validated digest path; O_NOFOLLOW blocks symlinks.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/blobstore/blobstore.go",
+      "line": 122,
+      "symbol": "func verifyExisting(path string, size int64, expectedDigest string) error",
+      "linter": "gosec",
+      "reason": "Locally derived digest path with O_NOFOLLOW.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/blobstore/blobstore.go",
+      "line": 140,
+      "symbol": "func syncDirectory(path string) error",
+      "linter": "gosec",
+      "reason": "Path is the parent shard of a digest-derived CAS object.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/config/config.go",
+      "line": 496,
+      "symbol": "func checkedDataDir(raw string) (string, error)",
+      "linter": "gosec",
+      "reason": "Validated non-root configuration path.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/config/config.go",
+      "line": 502,
+      "symbol": "func checkedDataDir(raw string) (string, error)",
+      "linter": "gosec",
+      "reason": "Validated configuration root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/config/config.go",
+      "line": 517,
+      "symbol": "func checkedExistingDir(name, raw string) (string, error)",
+      "linter": "gosec",
+      "reason": "Validated dependency root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/dependencies/manifest.go",
+      "line": 186,
+      "symbol": "func loadManifest(datRoot, versionName string) (Manifest, string, error)",
+      "linter": "gosec",
+      "reason": "Version and manifest slot are strict allowlist values.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/dependencies/manifest.go",
+      "line": 487,
+      "symbol": "func checkFile(root, relative string, expectedSize int64, expectedDigest string) error",
+      "linter": "gosec",
+      "reason": "Manifest-allowlisted safe relative path.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/httpapi/bios_list_handler.go",
+      "line": 24,
+      "symbol": "func (server *Server) bios(writer http.ResponseWriter, request *http.Request)",
+      "linter": "gosec",
+      "reason": "SQL fragments come only from closed filters; values remain placeholders.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/httpapi/json_http.go",
+      "line": 391,
+      "symbol": "func (server *Server) runtimeFile(writer http.ResponseWriter, request *http.Request)",
+      "linter": "gosec",
+      "reason": "runtimePath must match the versioned dependency allowlist exactly.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/httpapi/launch_handlers.go",
+      "line": 897,
+      "symbol": "func deterministicStoreZIPHeader(name string) *zip.FileHeader",
+      "linter": "staticcheck",
+      "reason": "Required by RETROM_EJS_DEP_ZIP_V1.",
+      "invariant": "The deterministic dependency ZIP header must retain the exact contract-defined DOS date and time values.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/httpapi/launch_handlers.go",
+      "line": 898,
+      "symbol": "func deterministicStoreZIPHeader(name string) *zip.FileHeader",
+      "linter": "staticcheck",
+      "reason": "Required by RETROM_EJS_DEP_ZIP_V1.",
+      "invariant": "The deterministic dependency ZIP header must retain the exact contract-defined DOS date and time values.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/httpapi/sse.go",
+      "line": 331,
+      "symbol": "func (server *Server) writeSSE(writer http.ResponseWriter, payload string) error",
+      "linter": "gosec",
+      "reason": "Server-marshaled SSE framing, not HTML.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/importing/archive.go",
+      "line": 72,
+      "symbol": "func ScanZIP(ctx context.Context, path string, limits ArchiveLimits) ([]ArchiveEntry, error)",
+      "linter": "gosec",
+      "reason": "Caller supplies a CAS path, and this scanner never writes beside it.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/importing/archive_test.go",
+      "line": 19,
+      "symbol": "func writeZIP(t *testing.T, name string, contents []byte) string",
+      "linter": "gosec",
+      "reason": "Test path is isolated under t.TempDir.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/importing/archive_test.go",
+      "line": 41,
+      "symbol": "func writeLegacyNamedZIP(t *testing.T, name string) string",
+      "linter": "gosec",
+      "reason": "Test path is isolated under t.TempDir.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/importing/sevenzip.go",
+      "line": 142,
+      "symbol": "func ExtractSevenZip(",
+      "linter": "gosec",
+      "reason": "The executable and command are fixed; the ordinal is numeric.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/importing/sevenzip.go",
+      "line": 269,
+      "symbol": "func openSevenZip(path string) (*os.File, error)",
+      "linter": "gosec",
+      "reason": "Caller passes a verified CAS path.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/importing/sevenzip.go",
+      "line": 570,
+      "symbol": "func writeWorkerResponse(writer io.Writer, response archiveWorkerResponse) error",
+      "linter": "gosec",
+      "reason": "Payload is bounded to 64 MiB above.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/importing/sevenzip_test.go",
+      "line": 125,
+      "symbol": "func TestArchiveWorkerProtocolRejectsOversizeAndUnknownFields(t *testing.T)",
+      "linter": "gosec",
+      "reason": "The test payload is a fixed short literal.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/importing/sevenzip_test.go",
+      "line": 180,
+      "symbol": "func TestArchiveWorkerProcessFaultInjection(t *testing.T)",
+      "linter": "gosec",
+      "reason": "The current test binary is the intentional fake worker.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/legacychecksum/checksum.go",
+      "line": 6,
+      "symbol": "import crypto/md5",
+      "linter": "gosec",
+      "reason": "Catalog protocols require MD5; callers also retain authoritative SHA-256 identity.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/legacychecksum/checksum.go",
+      "line": 7,
+      "symbol": "import crypto/sha1",
+      "linter": "gosec",
+      "reason": "Catalog protocols require SHA-1; callers also retain authoritative SHA-256 identity.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/legacychecksum/checksum.go",
+      "line": 21,
+      "symbol": "func New() Hashes",
+      "linter": "gosec",
+      "reason": "Compatibility output is never accepted as a security identity.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/legacychecksum/checksum.go",
+      "line": 22,
+      "symbol": "func New() Hashes",
+      "linter": "gosec",
+      "reason": "Compatibility output is never accepted as a security identity.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/libraryimport/dos_corpus_test.go",
+      "line": 47,
+      "symbol": "func discoverDOSCorpusArchives(root string) ([]string, error)",
+      "linter": "gosec",
+      "reason": "The operator explicitly opts this test into traversing their local legal corpus root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/libraryimport/dos_corpus_test.go",
+      "line": 70,
+      "symbol": "func validateDOSCorpusArchive(archivePath string) (bool, error)",
+      "linter": "gosec",
+      "reason": "Explicit opt-in test corpus path supplied by its operator.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/maintenance/bundle_validation.go",
+      "line": 46,
+      "symbol": "func loadBundleManifest(root string) (Manifest, error)",
+      "linter": "gosec",
+      "reason": "Fixed slot in an exclusive bundle root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/maintenance/bundle_validation.go",
+      "line": 287,
+      "symbol": "func copyVerified(source, target, relative, kind, expected string) (FileEntry, error)",
+      "linter": "gosec",
+      "reason": "Validated path in a new exclusive root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/maintenance/bundle_validation.go",
+      "line": 311,
+      "symbol": "func openRegular(path string) (*os.File, error)",
+      "linter": "gosec",
+      "reason": "Lstat plus O_NOFOLLOW blocks symlinks.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/maintenance/bundle_validation.go",
+      "line": 337,
+      "symbol": "func writeExclusive(path string, contents []byte) error",
+      "linter": "gosec",
+      "reason": "Validated slot in a new exclusive restore root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/maintenance/bundle_validation.go",
+      "line": 435,
+      "symbol": "func syncDirectory(path string) error",
+      "linter": "gosec",
+      "reason": "Application-created directory in an exclusive root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/maintenance/bundle_validation.go",
+      "line": 456,
+      "symbol": "func syncTree(root string) error",
+      "linter": "gosec",
+      "reason": "Directories require owner execute permission and remain owner-only.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/maintenance/bundle_validation.go",
+      "line": 461,
+      "symbol": "func syncTree(root string) error",
+      "linter": "gosec",
+      "reason": "No untrusted writer can race the exclusive root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/netplay/credential.go",
+      "line": 34,
+      "symbol": "func LoadOrCreateCredentials(dataDir string) (*Credentials, error)",
+      "linter": "gosec",
+      "reason": "Owner-only secret directory.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/netplay/credential.go",
+      "line": 92,
+      "symbol": "func readCredentialKey(path string) ([32]byte, error)",
+      "linter": "gosec",
+      "reason": "Fixed secret slot with O_NOFOLLOW.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/netplay/credential.go",
+      "line": 112,
+      "symbol": "func syncCredentialDirectory(path string) error",
+      "linter": "gosec",
+      "reason": "Fixed secrets directory below the configured data root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/netplay/profile.go",
+      "line": 71,
+      "symbol": "func LoadRegistry(dependencyRoot string, dependencySet *dependencies.Set) (*Registry, error)",
+      "linter": "gosec",
+      "reason": "Fixed path below validated dependency root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/netplay/protocol_test.go",
+      "line": 46,
+      "symbol": "func TestStateFrameParsesRAStateAndBindsHeader(t *testing.T)",
+      "linter": "gosec",
+      "reason": "MaxStateBytes bounds the fixture.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/netplay/protocol_test.go",
+      "line": 78,
+      "symbol": "func raState(core []byte) []byte",
+      "linter": "gosec",
+      "reason": "Fixture length is bounded.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/netplay/recovery.go",
+      "line": 20,
+      "symbol": "func (service *Service) Recover(ctx context.Context, reason string) error",
+      "linter": "errcheck",
+      "reason": "Commit is the authoritative result.",
+      "invariant": "Commit remains the authoritative transaction result; deferred rollback is best-effort cleanup only.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/processlock/lock.go",
+      "line": 28,
+      "symbol": "func Acquire(dataDir string) (*Lock, error)",
+      "linter": "gosec",
+      "reason": "path is the fixed lock filename beneath checked RETROM_DATA_DIR.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/runtime/credential.go",
+      "line": 104,
+      "symbol": "func LoadOrCreateCredentials(dataDir string) (*Credentials, error)",
+      "linter": "gosec",
+      "reason": "Owner-only secret directory.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/runtime/credential.go",
+      "line": 163,
+      "symbol": "func readKey(path string) ([32]byte, error)",
+      "linter": "gosec",
+      "reason": "Fixed secret slot with O_NOFOLLOW.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/runtime/credential.go",
+      "line": 231,
+      "symbol": "func syncDirectory(path string) error",
+      "linter": "gosec",
+      "reason": "Fixed secrets directory under the validated data root.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/saves/service.go",
+      "line": 351,
+      "symbol": "func validWebPDimensions(path string) bool",
+      "linter": "gosec",
+      "reason": "The default implementation receives a digest-derived CAS path.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/serverimport/discovery.go",
+      "line": 450,
+      "symbol": "func (reader *cancelReader) Read(buffer []byte) (int, error)",
+      "linter": "wrapcheck",
+      "reason": "io.Reader must return the underlying io.EOF sentinel unchanged to satisfy io.Copy.",
+      "invariant": "The reader must return the underlying io.EOF sentinel unchanged so io.Copy termination semantics remain intact.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/serverimport/query.go",
+      "line": 106,
+      "symbol": "func (service *Service) Items(ctx context.Context, serverImportID string, filter ItemFilter)",
+      "linter": "gosec",
+      "reason": "SQL fragments come only from closed predicates; values remain bound parameters.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "internal/serversource/nofollow_linux.go",
+      "line": 81,
+      "symbol": "func fileFromDescriptor(descriptor int, name string) *os.File",
+      "linter": "gosec",
+      "reason": "Validated Unix file descriptor.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    },
+    {
+      "path": "scripts/acceptance/seed-public-arcade-dat.go",
+      "line": 70,
+      "symbol": "func loadSmokeCatalog(ctx context.Context, coreID, datPath string) (arcadedat.Catalog, string, error)",
+      "linter": "gosec",
+      "reason": "The acceptance operator explicitly supplies the DAT fixture path.",
+      "invariant": "The documented trusted-path or bounded-input precondition must remain enforced and covered by its package tests.",
+      "reviewAfter": "2027-08-22"
+    }
+  ]
+}

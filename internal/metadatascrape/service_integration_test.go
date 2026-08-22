@@ -6,11 +6,10 @@ import (
 	"archive/zip"
 	"bytes"
 	"context"
-	"crypto/md5"
-	"crypto/sha1"
 	"crypto/sha256"
 	"database/sql"
 	"encoding/base64"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"hash/crc32"
@@ -30,8 +29,10 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/dependencies"
 	"retrom/internal/hasheous"
+	"retrom/internal/legacychecksum"
 	"retrom/internal/libraryimport"
 	"retrom/internal/metadatascrape"
+	"retrom/internal/testassert"
 	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
@@ -51,25 +52,20 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	contents := []byte("deterministic metadata fixture")
+	legacyMD5, legacySHA1 := legacychecksum.Sum(contents)
 	upload, err := uploadService.Create(
 		ctx,
 		uploads.CreateRequest{
@@ -79,9 +75,7 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 			},
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(contents)
 	digestHeader := "sha-256=:" + base64.StdEncoding.EncodeToString(digest[:]) + ":"
 	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(contents)-1, len(contents)), digestHeader, bytes.NewReader(contents)); err != nil {
@@ -89,9 +83,7 @@ func TestImportPersistsHasheousEvidenceCandidateAndAsset(t *testing.T) {
 	}
 	current, _ := uploadService.Get(ctx, upload.ID)
 	jobID, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForState(t, database.SQL.QueryRowContext, `
 SELECT state
 FROM jobs
@@ -107,13 +99,7 @@ WHERE id=?
 			<-lookupGate
 			body, readErr := io.ReadAll(request.Body)
 			var hashes map[string]string
-			if readErr != nil || json.Unmarshal(body, &hashes) != nil || len(hashes) != 4 ||
-				hashes["crc"] != fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents)) ||
-				hashes["mD5"] != fmt.Sprintf("%x", md5.Sum(contents)) ||
-				hashes["shA1"] != fmt.Sprintf("%x", sha1.Sum(contents)) ||
-				hashes["shA256"] != fmt.Sprintf("%x", sha256.Sum256(contents)) {
-				t.Errorf("raw/member lookup body = %s, read error=%v", body, readErr)
-			}
+			testassert.CheckFalsef(t, testassert.Any(func() bool { return readErr != nil }, func() bool { return json.Unmarshal(body, &hashes) != nil }, func() bool { return len(hashes) != 4 }, func() bool { return hashes["crc"] != fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents)) }, func() bool { return hashes["mD5"] != legacyMD5 }, func() bool { return hashes["shA1"] != legacySHA1 }, func() bool { return hashes["shA256"] != fmt.Sprintf("%x", sha256.Sum256(contents)) }), "raw/member lookup body = %s, read error=%v", body, readErr)
 			if lookupCount.Add(1) == 1 {
 				return httpResponse(http.StatusTooManyRequests, "text/plain", "retry"), nil
 			}
@@ -142,12 +128,8 @@ WHERE id=?
 			MetadataProvider:         "HASHEOUS",
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if created.State != "RUNNING" {
-		t.Fatalf("initial import state = %s", created.State)
-	}
+	testassert.False(t, err != nil, err)
+	testassert.Falsef(t, created.State != "RUNNING", "initial import state = %s", created.State)
 	var initialItemState, initialJobState string
 	var initialRunning, initialReviewPending int
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -202,8 +184,8 @@ WHERE r.job_id=?
 `, scrapeJobID).Scan(&rawProfile, &rawCRC32, &rawMD5, &rawSHA1, &rawSHA256); err != nil ||
 		rawProfile != "RAW_FILE_V1" ||
 		rawCRC32 != fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents)) ||
-		rawMD5 != fmt.Sprintf("%x", md5.Sum(contents)) ||
-		rawSHA1 != fmt.Sprintf("%x", sha1.Sum(contents)) ||
+		rawMD5 != legacyMD5 ||
+		rawSHA1 != legacySHA1 ||
 		rawSHA256 != fmt.Sprintf("%x", sha256.Sum256(contents)) {
 		t.Fatalf("raw evidence = %s %s %s %s %s, error=%v", rawProfile, rawCRC32, rawMD5, rawSHA1, rawSHA256, err)
 	}
@@ -237,16 +219,7 @@ AND p.raw_response_blob_id IS NOT NULL)
 	); err != nil {
 		t.Fatal(err)
 	}
-	if lookupCount.Load() != 2 || candidates != 1 || attempts != 2 || readyAssets != 1 || rawResponses != 2 {
-		t.Fatalf(
-			"lookup/candidates/attempts/assets/raw = %d/%d/%d/%d/%d",
-			lookupCount.Load(),
-			candidates,
-			attempts,
-			readyAssets,
-			rawResponses,
-		)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return lookupCount.Load() != 2 }, func() bool { return candidates != 1 }, func() bool { return attempts != 2 }, func() bool { return readyAssets != 1 }, func() bool { return rawResponses != 2 }), "lookup/candidates/attempts/assets/raw = %d/%d/%d/%d/%d", lookupCount.Load(), candidates, attempts, readyAssets, rawResponses)
 	var firstItemID, candidateID, candidateAssetID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT i.id,
@@ -309,9 +282,7 @@ WHERE i.id=?
 			},
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	archiveDigest := sha256.Sum256(archiveContents)
 	archiveDigestHeader := "sha-256=:" + base64.StdEncoding.EncodeToString(archiveDigest[:]) + ":"
 	if err := uploadService.PutPart(ctx, secondUpload.ID, secondUpload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(archiveContents)-1, len(archiveContents)), archiveDigestHeader, bytes.NewReader(archiveContents)); err != nil {
@@ -319,9 +290,7 @@ WHERE i.id=?
 	}
 	secondCurrent, _ := uploadService.Get(ctx, secondUpload.ID)
 	secondFinalizeJob, _, err := uploadService.Complete(ctx, secondUpload.ID, secondCurrent.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForState(t, database.SQL.QueryRowContext, `
 SELECT state
 FROM jobs
@@ -335,9 +304,7 @@ WHERE id=?
 			MetadataProvider:         "HASHEOUS",
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var secondScrapeJobID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT job_id
@@ -381,20 +348,10 @@ WHERE provider='HASHEOUS')
 `).Scan(&networkAttempts, &cacheAttempts, &providerResponses); err != nil {
 		t.Fatal(err)
 	}
-	if lookupCount.Load() != 2 || networkAttempts != 2 || cacheAttempts != 1 || providerResponses != 2 {
-		t.Fatalf(
-			"cache reuse lookup/network/cache/responses = %d/%d/%d/%d",
-			lookupCount.Load(),
-			networkAttempts,
-			cacheAttempts,
-			providerResponses,
-		)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return lookupCount.Load() != 2 }, func() bool { return networkAttempts != 2 }, func() bool { return cacheAttempts != 1 }, func() bool { return providerResponses != 2 }), "cache reuse lookup/network/cache/responses = %d/%d/%d/%d", lookupCount.Load(), networkAttempts, cacheAttempts, providerResponses)
 	reason := "已核对 Hasheous 候选与封面"
 	approved, err := importer.ApproveWithReason(ctx, firstItemID, 1, &reason)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var publishedAssets int
 	var providerEvidence, storedReason string
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -430,9 +387,7 @@ AND event_type='APPROVED'
 			},
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	failureDigest := sha256.Sum256(failureContents)
 	failureDigestHeader := "sha-256=:" + base64.StdEncoding.EncodeToString(failureDigest[:]) + ":"
 	if err := uploadService.PutPart(
@@ -448,9 +403,7 @@ AND event_type='APPROVED'
 	}
 	failureCurrent, _ := uploadService.Get(ctx, failureUpload.ID)
 	failureFinalizeJob, _, err := uploadService.Complete(ctx, failureUpload.ID, failureCurrent.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForState(t, database.SQL.QueryRowContext, `
 SELECT state
 FROM jobs
@@ -464,9 +417,7 @@ WHERE id=?
 			MetadataProvider:         "NONE",
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var failureItemID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT id
@@ -476,9 +427,7 @@ WHERE import_job_id=?
 		t.Fatal(err)
 	}
 	failureTransaction, err := database.SQL.BeginTx(ctx, nil)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	defer cleanup.Rollback(failureTransaction)
 	if _, err := failureTransaction.ExecContext(ctx, `
 UPDATE import_items
@@ -497,9 +446,7 @@ WHERE id=?
 		t.Fatal(err)
 	}
 	failureScrape, err := scraper.ScheduleImport(ctx, failureTransaction, failureItemID, "HASHEOUS")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if _, err := failureTransaction.ExecContext(ctx, `
 UPDATE jobs
 SET payload_json='{'
@@ -557,27 +504,19 @@ func TestArcadeHasheousEvidenceUsesMatchedDATEntriesOnly(t *testing.T) {
 	ctx := context.Background()
 	dataDir := t.TempDir()
 	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	if err := dependencySet.Bootstrap(ctx, database.SQL, time.Now()); err != nil {
 		t.Fatal(err)
 	}
 	blobs, err := blobstore.Open(dataDir)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	dummy, err := blobs.Put(bytes.NewReader([]byte("arcade evidence dat")))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	var artifactID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT id
@@ -673,13 +612,9 @@ NULL,
 	archiveFiles["duplicate.bin"] = append([]byte(nil), archiveFiles["rom-09.bin"]...)
 	archiveBytes := makeDeterministicZIP(t, archiveFiles)
 	archiveMetadata, err := blobs.Put(bytes.NewReader(archiveBytes))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	entries, err := scanZIPForTest(blobs.Path(archiveMetadata.SHA256))
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	for ordinal, entry := range entries {
 		if _, err := database.SQL.ExecContext(ctx, `
 INSERT INTO dat_rom_entries(dat_version_id,
@@ -711,9 +646,7 @@ status) VALUES(?,
 			},
 		},
 	)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	digest := sha256.Sum256(archiveBytes)
 	digestHeader := "sha-256=:" + base64.StdEncoding.EncodeToString(digest[:]) + ":"
 	if err := uploadService.PutPart(ctx, upload.ID, upload.Files[0].ID, 0, fmt.Sprintf("bytes 0-%d/%d", len(archiveBytes)-1, len(archiveBytes)), digestHeader, bytes.NewReader(archiveBytes)); err != nil {
@@ -721,9 +654,7 @@ status) VALUES(?,
 	}
 	current, _ := uploadService.Get(ctx, upload.ID)
 	finalizeJob, _, err := uploadService.Complete(ctx, upload.ID, current.Version)
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForState(t, database.SQL.QueryRowContext, `
 SELECT state
 FROM jobs
@@ -771,9 +702,7 @@ WHERE id=?
 			MetadataProvider:         "NONE",
 		},
 	)
-	if err != nil || created.ItemCount != 1 {
-		t.Fatalf("create arcade import = %#v, error=%v", created, err)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "create arcade import = %#v, error=%v", created, err)
 	var itemID string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT id
@@ -783,9 +712,7 @@ WHERE import_job_id=?
 		t.Fatal(err)
 	}
 	scheduled, _, err := scraper.ScheduleReview(ctx, itemID, 1, "HASHEOUS")
-	if err != nil {
-		t.Fatal(err)
-	}
+	testassert.False(t, err != nil, err)
 	waitForState(t, database.SQL.QueryRowContext, `
 SELECT state
 FROM jobs
@@ -805,15 +732,7 @@ WHERE scrape_run_id=?
 	requestLock.Lock()
 	bodies := append([][]byte(nil), requestBodies...)
 	requestLock.Unlock()
-	if evidenceCount != 8 || arcadeProfileCount != 8 || leakedHashCount != 0 || len(bodies) != 8 {
-		t.Fatalf(
-			"arcade evidence/profile/leaked/requests = %d/%d/%d/%d",
-			evidenceCount,
-			arcadeProfileCount,
-			leakedHashCount,
-			len(bodies),
-		)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return evidenceCount != 8 }, func() bool { return arcadeProfileCount != 8 }, func() bool { return leakedHashCount != 0 }, func() bool { return len(bodies) != 8 }), "arcade evidence/profile/leaked/requests = %d/%d/%d/%d", evidenceCount, arcadeProfileCount, leakedHashCount, len(bodies))
 	for _, body := range bodies {
 		var values map[string]string
 		if err := json.Unmarshal(body, &values); err != nil || len(values) != 2 || values["crc"] == "" ||
@@ -835,9 +754,7 @@ WHERE c.scrape_run_id=? AND a.status='READY')
 `, scheduled.RunID, scheduled.RunID, scheduled.RunID).Scan(&candidateCount, &hitCount, &readyAssetCount); err != nil {
 		t.Fatal(err)
 	}
-	if candidateCount != 1 || hitCount != 8 || readyAssetCount != 1 {
-		t.Fatalf("aggregated arcade candidate/hits/ready assets = %d/%d/%d", candidateCount, hitCount, readyAssetCount)
-	}
+	testassert.Falsef(t, testassert.Any(func() bool { return candidateCount != 1 }, func() bool { return hitCount != 8 }, func() bool { return readyAssetCount != 1 }), "aggregated arcade candidate/hits/ready assets = %d/%d/%d", candidateCount, hitCount, readyAssetCount)
 }
 
 type testArchiveEntry struct {
@@ -876,8 +793,9 @@ func scanZIPForTest(path string) ([]testArchiveEntry, error) {
 }
 
 func sha1Digest(contents []byte) []byte {
-	digest := sha1.Sum(contents)
-	return digest[:]
+	_, digest := legacychecksum.Sum(contents)
+	decoded, _ := hex.DecodeString(digest)
+	return decoded
 }
 
 func makeDeterministicZIP(t *testing.T, files map[string][]byte) []byte {
@@ -894,9 +812,7 @@ func makeDeterministicZIP(t *testing.T, files map[string][]byte) []byte {
 		header.SetMode(0o644)
 		header.Modified = time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
 		part, err := writer.CreateHeader(header)
-		if err != nil {
-			t.Fatal(err)
-		}
+		testassert.False(t, err != nil, err)
 		if _, err := part.Write(files[name]); err != nil {
 			t.Fatal(err)
 		}
@@ -917,9 +833,7 @@ func waitForState(t *testing.T, query queryRow, statement string, id string, exp
 		if err := query(context.Background(), statement, id).Scan(&state); err == nil && state == expected {
 			return
 		}
-		if time.Now().After(deadline) {
-			t.Fatalf("state did not become %s", expected)
-		}
+		testassert.Falsef(t, time.Now().After(deadline), "state did not become %s", expected)
 		time.Sleep(10 * time.Millisecond)
 	}
 }

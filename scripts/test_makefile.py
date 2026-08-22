@@ -35,6 +35,35 @@ class MakefileDependencyTests(unittest.TestCase):
     def test_api_generate_installs_locked_web_dependencies_first(self) -> None:
         self.assert_web_install_precedes("api-generate", "npm run api:generate")
 
+    def test_backend_build_generates_go_api_before_compiling(self) -> None:
+        output = subprocess.run(
+            ["make", "--no-print-directory", "--dry-run", "--always-make", "build"],
+            cwd=REPOSITORY_ROOT,
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout
+        generator_position = output.find("oapi-codegen")
+        build_position = output.find("go build ./cmd/retrom")
+        self.assertTrue(0 <= generator_position < build_position, output)
+
+    def test_generated_go_api_is_ignored_and_untracked(self) -> None:
+        generated = "internal/httpapi/generated/api.gen.go"
+        ignored = subprocess.run(
+            ["git", "check-ignore", "--quiet", generated],
+            cwd=REPOSITORY_ROOT,
+            check=False,
+        )
+        tracked = subprocess.run(
+            ["git", "ls-files", "--error-unmatch", generated],
+            cwd=REPOSITORY_ROOT,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(ignored.returncode, 0, "api.gen.go must be ignored")
+        self.assertNotEqual(tracked.returncode, 0, "api.gen.go must not be tracked")
+
     def test_web_e2e_prepares_locked_browser_after_web_dependencies(self) -> None:
         output = self.dry_run("web-e2e")
         install_position = output.find("npm ci")
@@ -79,6 +108,18 @@ class MakefileDependencyTests(unittest.TestCase):
         makefile = (REPOSITORY_ROOT / "Makefile").read_text(encoding="utf-8")
         self.assertIn("RETROM_DEV_CONFIG ?= $(abspath .dev-data/dev.mk)", makefile)
         self.assertIn("-include $(RETROM_DEV_CONFIG)", makefile)
+
+    def test_ci_runs_the_structure_gate_without_warning_only_bypass(self) -> None:
+        output = self.dry_run("ci")
+        structure_position = output.find("scripts/quality_structure.py")
+        api_position = output.find("scripts/api-check.sh")
+        self.assertTrue(0 <= structure_position < api_position, output)
+        self.assertNotIn("quality_structure.py || true", output)
+
+    def test_backend_and_web_checks_run_the_same_structure_gate(self) -> None:
+        for target in ("backend-check", "web-check"):
+            output = self.dry_run(target)
+            self.assertEqual(output.count("scripts/quality_structure.py"), 1, output)
 
 
 if __name__ == "__main__":

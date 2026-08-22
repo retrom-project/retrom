@@ -10,7 +10,7 @@ async function screenshotCenterBrightRatio(page: Page, screenshot: Buffer) {
     sample.width = 64;
     sample.height = 64;
     const context = sample.getContext("2d", { alpha: false });
-    if (!context) return 0;
+    if (!context) {return 0;}
     context.drawImage(
       bitmap,
       bitmap.width * 0.25,
@@ -26,7 +26,7 @@ async function screenshotCenterBrightRatio(page: Page, screenshot: Buffer) {
     const pixels = context.getImageData(0, 0, sample.width, sample.height).data;
     let brightPixels = 0;
     for (let index = 0; index < pixels.length; index += 4) {
-      if ((pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3 > 8) brightPixels += 1;
+      if ((pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3 > 8) {brightPixels += 1;}
     }
     return brightPixels / (pixels.length / 4);
   }, screenshot.toString("base64"));
@@ -87,8 +87,8 @@ test("HTML CSP uses a fresh nonce and only development enables unsafe-eval", asy
   const csp = response?.headers()["content-security-policy"] ?? "";
   expect(csp).toContain("'nonce-");
   expect(csp).toContain("'wasm-unsafe-eval'");
-  if (process.env.RETROM_E2E_PRODUCTION === "1") expect(csp).not.toContain("'unsafe-eval'");
-  else expect(csp).toContain("'unsafe-eval'");
+  if (process.env.RETROM_E2E_PRODUCTION === "1") {expect(csp).not.toContain("'unsafe-eval'");}
+  else {expect(csp).toContain("'unsafe-eval'");}
 });
 
 test("one click creates a capability launch and advances real emulator frames", async ({ page }, testInfo) => {
@@ -98,8 +98,8 @@ test("one click creates a capability launch and advances real emulator frames", 
   const persistentRequests: string[] = [];
   page.on("request", (request) => {
     const pathname = new URL(request.url()).pathname;
-    if (request.method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(pathname)) saveWrites.push(pathname);
-    if (/\/runtime\/launches\/[^/]+\/persistent-save$/.test(pathname)) persistentRequests.push(pathname);
+    if (request.method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(pathname)) {saveWrites.push(pathname);}
+    if (/\/runtime\/launches\/[^/]+\/persistent-save$/.test(pathname)) {persistentRequests.push(pathname);}
   });
   const games = await page.request.get("/api/v1/games");
   const payload = await games.json() as { items: Array<{ gameId: string; title: string }> };
@@ -143,13 +143,13 @@ test("one click creates a capability launch and advances real emulator frames", 
   expect(createdSave).toBeTruthy();
   const screenshotStats = await page.evaluate(async (screenshotUrl) => {
     const response = await fetch(screenshotUrl, { credentials: "same-origin", cache: "no-store" });
-    if (!response.ok) throw new Error(`save screenshot request failed: ${response.status}`);
+    if (!response.ok) {throw new Error(`save screenshot request failed: ${response.status}`);}
     const bitmap = await createImageBitmap(await response.blob());
     const canvas = document.createElement("canvas");
     canvas.width = 64;
     canvas.height = 64;
     const context = canvas.getContext("2d", { alpha: false });
-    if (!context) throw new Error("2D canvas unavailable");
+    if (!context) {throw new Error("2D canvas unavailable");}
     context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
     bitmap.close();
     const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data;
@@ -158,7 +158,7 @@ test("one click creates a capability launch and advances real emulator frames", 
     let maximum = 0;
     for (let index = 0; index < pixels.length; index += 4) {
       const luminance = (pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3;
-      if (luminance > 8) brightPixels += 1;
+      if (luminance > 8) {brightPixels += 1;}
       minimum = Math.min(minimum, luminance);
       maximum = Math.max(maximum, luminance);
     }
@@ -233,7 +233,7 @@ test("library grid and management workbench match desktop breakpoints", async ({
     expect(libraryCard.cardWidth).toBeLessThanOrEqual(321);
     expect(Math.abs(libraryCard.coverRatio - 0.75)).toBeLessThanOrEqual(0.01);
     await page.goto(`/admin/games/${payload.items[0].gameId}`);
-    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作"]) await expect(page.getByRole("heading", { name: heading })).toBeVisible();
+    for (const heading of ["发布信息", "媒体", "游戏文件与运行环境", "管理操作"]) {await expect(page.getByRole("heading", { name: heading })).toBeVisible();}
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= document.documentElement.clientWidth)).toBe(true);
   }
   await page.screenshot({ path: testInfo.outputPath("library-and-game-admin.png"), fullPage: true });
@@ -272,7 +272,7 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
     })(),
   }));
   expect(layout.overflow).toBe(false);
-  if (testInfo.project.name === "chrome-1280") expect(layout.savesTop).toBeLessThan(layout.viewportHeight);
+  if (testInfo.project.name === "chrome-1280") {expect(layout.savesTop).toBeLessThan(layout.viewportHeight);}
   else {
     expect(layout.savesBottom).toBeLessThanOrEqual(layout.viewportHeight);
     expect(layout.heroHeight).toBeLessThanOrEqual(415);
@@ -306,7 +306,7 @@ test("game detail keeps its one-screen hierarchy and opens saves without navigat
     const firstSaveCard = page.locator(".game-detail-save-card").first();
     await expect(firstSaveCard.getByText("最近存档", { exact: true })).toBeVisible();
     await expect(firstSaveCard.locator(".game-detail-save-fact-row > span")).toHaveCount(3);
-    for (const label of ["保存位置", "运行核心", "当时已游玩"]) await expect(firstSaveCard.getByText(label, { exact: true })).toBeVisible();
+    for (const label of ["保存位置", "运行核心", "当时已游玩"]) {await expect(firstSaveCard.getByText(label, { exact: true })).toBeVisible();}
     const cardAndAction = await firstSaveCard.evaluate((card) => {
       const body = card.querySelector(".game-detail-save-body")?.getBoundingClientRect();
       const action = card.querySelector(".game-detail-save-body .button")?.getBoundingClientRect();
@@ -395,7 +395,7 @@ test("BIOS and save controls are labeled and keyboard reachable", async ({ page 
   await page.goto("/saves?availability=ALL");
   await expect(page.getByRole("heading", { name: "我的存档" })).toBeVisible();
   const rename = page.getByRole("button", { name: /编辑存档.*的名称/ }).first();
-  if (await rename.count()) await expect(rename).toBeVisible();
+  if (await rename.count()) {await expect(rename).toBeVisible();}
   await page.keyboard.press("Tab");
   expect(await page.evaluate(() => document.activeElement?.tagName !== "BODY")).toBe(true);
   await page.screenshot({ path: testInfo.outputPath("bios-saves.png"), fullPage: true });

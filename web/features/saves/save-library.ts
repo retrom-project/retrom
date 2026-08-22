@@ -48,8 +48,8 @@ export async function collectSavePages(loadPage: (cursor: string | null) => Prom
     generatedAtMs ??= page.generatedAtMs;
     items.push(...page.items);
     cursor = page.nextCursor;
-    if (cursor && seenCursors.has(cursor)) throw new Error("Retrom API returned a repeated save cursor");
-    if (cursor) seenCursors.add(cursor);
+    if (cursor && seenCursors.has(cursor)) {throw new Error("Retrom API returned a repeated save cursor");}
+    if (cursor) {seenCursors.add(cursor);}
   } while (cursor);
   return { generatedAtMs: generatedAtMs ?? 0, items };
 }
@@ -61,9 +61,9 @@ export function saveAvailable(save: SaveItem) {
 export function filterSaveItems(saves: SaveItem[], filters: SaveFilters) {
   const query = filters.query.trim().toLocaleLowerCase("zh-CN");
   return saves.filter((save) => {
-    if (filters.gameId && save.gameId !== filters.gameId) return false;
-    if (filters.availability !== "ALL" && save.availability.status !== filters.availability) return false;
-    if (!query) return true;
+    if (filters.gameId && save.gameId !== filters.gameId) {return false;}
+    if (filters.availability !== "ALL" && save.availability.status !== filters.availability) {return false;}
+    if (!query) {return true;}
     return [save.gameTitle, save.name, save.core.name, save.platform.name, save.platformInstance.name, ...(save.tags ?? []).map((tag) => tag.name)]
       .some((value) => value.toLocaleLowerCase("zh-CN").includes(query));
   }).sort((left, right) => {
@@ -79,7 +79,7 @@ export function groupSaveItems(saves: SaveItem[]) {
     if (group) {
       group.saves.push(save);
       group.latestCreatedAtMs = Math.max(group.latestCreatedAtMs, save.createdAtMs);
-      if (!group.coreNames.includes(save.core.name)) group.coreNames.push(save.core.name);
+      if (!group.coreNames.includes(save.core.name)) {group.coreNames.push(save.core.name);}
       continue;
     }
     groups.set(save.gameId, {
@@ -104,9 +104,9 @@ export function latestAvailableSave(saves: SaveItem[]) {
 }
 
 export function formatSaveDuration(value: number) {
-  if (value < 60_000) return "少于 1 分钟";
+  if (value < 60_000) {return "少于 1 分钟";}
   const minutes = Math.floor(value / 60_000);
-  if (minutes < 60) return `${minutes} 分钟`;
+  if (minutes < 60) {return `${minutes} 分钟`;}
   const hours = Math.floor(minutes / 60);
   const remainder = minutes % 60;
   return remainder === 0 ? `${hours} 小时` : `${hours} 小时 ${remainder} 分`;

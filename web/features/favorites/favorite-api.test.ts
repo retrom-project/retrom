@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
-import { createFavoriteFolder, deleteFavoriteFolder, FavoriteAPIError } from "./favorite-api";
+import type { FavoriteAPIError } from "./favorite-api";
+import { createFavoriteFolder, deleteFavoriteFolder } from "./favorite-api";
 
 describe("favorite API client", () => {
   it("adds principal-scoped mutation headers and exact ETags", async () => {

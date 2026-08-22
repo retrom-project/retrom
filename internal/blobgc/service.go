@@ -42,7 +42,7 @@ func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retenti
 	return &Service{database: database, blobs: blobs, now: now, retention: retention}, nil
 }
 
-//nolint:funlen // GC staging and deletion remain one auditable operation.
+// GC staging and deletion remain one auditable operation.
 func (service *Service) RunOnce(ctx context.Context) (Result, error) {
 	if err := blobregistry.ValidateSchema(ctx, service.database); err != nil {
 		return Result{}, fmt.Errorf("blobgc/service: %w", err)

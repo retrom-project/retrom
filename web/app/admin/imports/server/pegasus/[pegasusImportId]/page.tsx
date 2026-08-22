@@ -14,7 +14,7 @@ async function loadCollections(importId: string) {
   let cursor: string | null = null;
   do {
     const query = new URLSearchParams({ limit: "100" });
-    if (cursor) query.set("cursor", cursor);
+    if (cursor) {query.set("cursor", cursor);}
     const page = await backendJSON<{ items: PegasusCollection[]; nextCursor: string | null }>(`/api/v1/admin/pegasus-imports/${encodeURIComponent(importId)}/collections?${query.toString()}`);
     items.push(...page.items);
     cursor = page.nextCursor;
@@ -29,10 +29,10 @@ export default async function PegasusImportDetailPage({ params, searchParams }: 
   const { pegasusImportId } = await params;
   const filters = scalarSearchParams(await searchParams, ["q", "outcome", "warning", "collectionId"]);
   const itemQuery = new URLSearchParams({ limit: "50" });
-  if (filters.q) itemQuery.set("q", filters.q);
-  if (filters.outcome) itemQuery.set("outcome", filters.outcome);
-  if (filters.warning) itemQuery.set("warning", filters.warning);
-  if (filters.collectionId) itemQuery.set("collectionId", filters.collectionId);
+  if (filters.q) {itemQuery.set("q", filters.q);}
+  if (filters.outcome) {itemQuery.set("outcome", filters.outcome);}
+  if (filters.warning) {itemQuery.set("warning", filters.warning);}
+  if (filters.collectionId) {itemQuery.set("collectionId", filters.collectionId);}
   let loaded: [PegasusImportSummary, PegasusItemList, PegasusCollection[], { items: ServerImportRoot[] }, ListResponse<PegasusPlatformInstance>, TagReference[]];
   try {
     loaded = await Promise.all([
@@ -44,7 +44,7 @@ export default async function PegasusImportDetailPage({ params, searchParams }: 
       loadActiveTags(),
     ]);
   } catch (error) {
-    if (error instanceof Error && error.message.includes("returned 404")) notFound();
+    if (error instanceof Error && error.message.includes("returned 404")) {notFound();}
     throw error;
   }
   const [summary, items, collections, roots, platformInstances, activeTags] = loaded;
