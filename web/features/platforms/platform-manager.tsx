@@ -245,7 +245,7 @@ export function PlatformManager({ instances, platforms, recommendations = null, 
       setToast({ message: `已创建 ${result.summary.createdCount} 个；已有 ${result.summary.coveredCount} 个目录保持不变${suppressed}。`, tone: "good" });
       router.refresh();
     } catch (caught) {
-      setToast({ message: caught instanceof Error ? caught.message : "补全推荐目录失败。没有创建任何目录，请重试。", tone: "bad" });
+      setToast({ message: caught instanceof Error ? caught.message : "创建推荐目录失败。没有创建任何目录，请重试。", tone: "bad" });
     } finally {
       setBusy(null);
     }

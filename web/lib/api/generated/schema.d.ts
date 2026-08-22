@@ -1347,7 +1347,7 @@ export interface paths {
             };
             cookie?: never;
         };
-        /** @description Immutable before/after metadata and evidence captured for an approved or discarded review decision. */
+        /** @description Immutable before/after metadata and evidence captured for an approved or discarded review decision. The nullable coverUrl prefers the selected uploaded or candidate cover and falls back to the retained Pegasus source cover linked to the final ImportItem, so pre-existing Pegasus decisions remain renderable without using mutable current Game media. */
         get: operations["getAdminReviewHistoryEvent"];
         put?: never;
         post?: never;

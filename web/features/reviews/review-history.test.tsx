@@ -31,11 +31,21 @@ describe("ReviewHistory", () => {
   });
 
   it("replays a manually uploaded cover from the review snapshot", async () => {
-    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reviewEventId: "event-1", eventType: "APPROVED", reason: null, createdAtMs: item.createdAtMs, before: { metadata: { title: "1943: The Battle of Midway" }, selectedAssets: { coverCandidateAssetId: "candidate-cover", coverUploadedAssetId: "uploaded-cover" } } }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reviewEventId: "event-1", eventType: "APPROVED", reason: null, createdAtMs: item.createdAtMs, coverUrl: "/api/v1/admin/review-assets/uploaded-cover", before: { metadata: { title: "1943: The Battle of Midway" }, selectedAssets: { coverCandidateAssetId: "candidate-cover", coverUploadedAssetId: "uploaded-cover" } } }), { status: 200, headers: { "Content-Type": "application/json" } })));
     const user = userEvent.setup();
     render(<ReviewHistory items={[item]} />);
 
     await user.click(screen.getByRole("button", { name: "查看“1941”的审核快照" }));
     expect((await screen.findByRole("img", { name: "1943: The Battle of Midway 审核时封面" })).getAttribute("src")).toMatch(/\/api\/v1\/admin\/review-assets\/uploaded-cover$/);
+  });
+
+  it("replays a Pegasus source cover from the history projection", async () => {
+    vi.stubGlobal("fetch", vi.fn(async () => new Response(JSON.stringify({ reviewEventId: "event-1", eventType: "APPROVED", reason: null, createdAtMs: item.createdAtMs, coverUrl: "/api/v1/admin/review-assets/pegasus-item?kind=COVER", before: { metadata: { title: "Strikers 1945 Plus" }, selectedAssets: { coverCandidateAssetId: null, coverUploadedAssetId: null } } }), { status: 200, headers: { "Content-Type": "application/json" } })));
+    const user = userEvent.setup();
+    render(<ReviewHistory items={[item]} />);
+
+    await user.click(screen.getByRole("button", { name: "查看“1941”的审核快照" }));
+    expect((await screen.findByRole("img", { name: "Strikers 1945 Plus 审核时封面" })).getAttribute("src"))
+      .toMatch(/\/api\/v1\/admin\/review-assets\/pegasus-item\?kind=COVER$/);
   });
 });

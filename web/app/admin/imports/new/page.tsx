@@ -1,5 +1,5 @@
 import { ButtonLink, PageHeader } from "@/components/ui";
-import { UploadPicker } from "@/features/imports/upload-picker";
+import { ImportSetup } from "@/features/imports/import-setup";
 import type { ImportDetail } from "@/features/imports/import-workflow";
 import { scalarSearchParams, type ListResponse } from "@/lib/backend";
 import { backendJSON } from "@/lib/server-backend";
@@ -36,7 +36,7 @@ export default async function NewImportPage({ searchParams }: { searchParams: Pr
   return (
     <div className="import-workflow-page import-new-page">
       <PageHeader eyebrow="New import" title="导入游戏" description="通过三个明确阶段提交内容。导入任务创建后进入“任务进度”，不会直接跳到尚未准备好的审核队列。" actions={<ButtonLink href="/admin/imports" secondary>返回总览</ButtonLink>} />
-      <UploadPicker directories={directories} activeTags={activeTags} reconfigureSource={reconfigureSource} />
+      <ImportSetup directories={directories} activeTags={activeTags} reconfigureSource={reconfigureSource} />
     </div>
   );
 }

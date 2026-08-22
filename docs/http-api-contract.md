@@ -475,7 +475,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/reviews/{importItemId}/previews` | 创建审核专用 best-effort 子窗体运行快照；不发布、不累计游玩、不提供存档。 |
 | `POST /api/v1/admin/reviews/{importItemId}/scrape-candidates` | 审核中切换/重新执行 HASHEOUS 或 NONE 元信息源；显式请求不使用旧 cache。 |
 | `POST /api/v1/admin/reviews/{importItemId}/approve`、`POST /api/v1/admin/reviews/{importItemId}/discard` | 最终审核决策。 |
-| `GET /api/v1/admin/review-history`、`GET /api/v1/admin/review-history/{reviewEventId}` | 只读最终决策列表与完整事件回放。详情的 `actor={kind,userId,label}` 与 ReviewEvent 的规范 actor 三元组一致：USER 只有 `userId`，SYSTEM 只有封闭 `label`。 |
+| `GET /api/v1/admin/review-history`、`GET /api/v1/admin/review-history/{reviewEventId}` | 只读最终决策列表与完整事件回放。详情的 `actor={kind,userId,label}` 与 ReviewEvent 的规范 actor 三元组一致：USER 只有 `userId`，SYSTEM 只有封闭 `label`。详情另返回可空 `coverUrl`，优先使用最终事件选择的人工上传/READY 候选封面；选择 ID 为空时按事件所属 ImportItem 回退到仍保留的 Pegasus COPIED COVER，不读取可变的 Game 当前媒体，并兼容变更前事件。 |
 | `GET /api/v1/admin/games`、`GET /api/v1/admin/games/{gameId}`、`PATCH /api/v1/admin/games/{gameId}`、`DELETE /api/v1/admin/games/{gameId}` | 游戏管理、MetadataRevision 与软删除；详情投影包含 `generatedAtMs`，使最近更新时间在客户端确定性格式化。 |
 | `POST /api/v1/admin/games/{gameId}/assets` | 从已完成 UploadFile 创建新 Asset。 |
 | `POST /api/v1/admin/games/{gameId}/content-revisions` | 从已完成 UploadSession 创建游戏内容验证 Job；成功才创建 ContentRevision/VariantRevision 并切换两个 current。 |

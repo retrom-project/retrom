@@ -857,6 +857,11 @@ AND event_type IN ('APPROVED',
 		server.databaseError(writer, request, err)
 		return
 	}
+	coverURL, err := server.reviewHistoryCoverURL(request.Context(), itemID, before)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	decode := func(value string) any { var result any; _ = json.Unmarshal([]byte(value), &result); return result }
 	writeJSON(
 		writer,
@@ -876,6 +881,7 @@ AND event_type IN ('APPROVED',
 			"configEvidence":   decode(config),
 			"datEvidence":      decode(dat),
 			"providerEvidence": decode(provider),
+			"coverUrl":         nullableString(coverURL),
 			"reason":           nullableString(reason),
 			"createdAtMs":      created,
 		},

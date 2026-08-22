@@ -91,6 +91,22 @@ describe("PegasusImportDrawer", () => {
     expect(screen.queryByRole("button", { name: "确认映射" })).not.toBeInTheDocument();
   });
 
+  it("directs mapping to create recommended game directories when none exist", async () => {
+    const awaiting = summary("AWAITING_MAPPING", 2);
+    const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, tagSnapshot: [], ignoredRules: [], warningFields: [] };
+    vi.stubGlobal("fetch", vi.fn()
+      .mockResolvedValueOnce(json(awaiting))
+      .mockResolvedValueOnce(json({ items: [collection], nextCursor: null })));
+
+    render(<PegasusImportDrawer open roots={[root]} platformInstances={[]} resumablePlan={awaiting} onClose={vi.fn()} onStarted={vi.fn()} />);
+
+    expect(await screen.findByRole("heading", { name: "还没有游戏目录" })).toBeVisible();
+    expect(screen.getByText(/一键创建推荐目录/)).toBeVisible();
+    expect(screen.getByRole("link", { name: "前往游戏目录" })).toHaveAttribute("href", "/admin/platform-instances");
+    expect(screen.queryByRole("combobox", { name: "FC 处理方式" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "确认映射" })).toBeDisabled();
+  });
+
   it("keeps focus, scroll lock, and mapping drafts stable when the parent refreshes the same plan", async () => {
     const awaiting = summary("AWAITING_MAPPING", 2);
     const collection = { id: "66666666-6666-4666-8666-666666666666", metadataRelativePath: "metadata.pegasus.txt", segmentOrdinal: 0, name: "FC", shortName: "nes", description: "", gameCount: 3, issueCount: 1, mappingAction: null, targetPlatformInstanceId: null, targetPlatformInstanceName: null, targetDefaultCoreId: null, targetDefaultCoreName: null, tagSnapshot: [], ignoredRules: [], warningFields: [] };
