@@ -68,7 +68,7 @@ type Registry struct {
 
 func LoadRegistry(dependencyRoot string, dependencySet *dependencies.Set) (*Registry, error) {
 	manifestPath := filepath.Join(dependencyRoot, ManifestRelativePath)
-	contents, err := os.ReadFile(manifestPath) //nolint:gosec // Fixed path below validated dependency root.
+	contents, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return nil, fmt.Errorf("%w: manifest unavailable", ErrManifestInvalid)
 	}

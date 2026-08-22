@@ -101,7 +101,7 @@ func LoadOrCreateCredentials(dataDir string) (*Credentials, error) {
 		return nil, fmt.Errorf("create launch key directory: %w", err)
 	}
 	// Secret directories need owner execute permission and remain owner-only.
-	if err := os.Chmod(directory, 0o700); err != nil { //nolint:gosec // Owner-only secret directory.
+	if err := os.Chmod(directory, 0o700); err != nil {
 		return nil, fmt.Errorf("secure launch key directory: %w", err)
 	}
 	target := filepath.Join(directory, "launch-capability.key")
@@ -160,7 +160,7 @@ func readKey(path string) ([32]byte, error) {
 	if !info.Mode().IsRegular() || info.Mode()&os.ModeSymlink != 0 || info.Mode().Perm() != 0o600 || info.Size() != 32 {
 		return key, ErrLaunchKeyInvalid
 	}
-	file, err := os.OpenFile( //nolint:gosec // Fixed secret slot with O_NOFOLLOW.
+	file, err := os.OpenFile(
 		path,
 		os.O_RDONLY|syscallNoFollow(),
 		0,
@@ -228,7 +228,7 @@ func MatchesCapability(encoded string, expectedHash []byte) bool {
 }
 
 func syncDirectory(path string) error {
-	directory, err := os.Open(path) //nolint:gosec // Fixed secrets directory under the validated data root.
+	directory, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open directory for sync: %w", err)
 	}

@@ -183,7 +183,7 @@ func loadVersion(root, versionName string) (*Version, error) {
 
 func loadManifest(datRoot, versionName string) (Manifest, string, error) {
 	manifestPath := filepath.Join(datRoot, "manifest.json")
-	contents, err := os.ReadFile(manifestPath) //nolint:gosec // Version and manifest slot are strict allowlist values.
+	contents, err := os.ReadFile(manifestPath)
 	if err != nil {
 		return Manifest{}, "", fmt.Errorf("%w: manifest unavailable", ErrInvalid)
 	}
@@ -484,7 +484,7 @@ func checkFile(root, relative string, expectedSize int64, expectedDigest string)
 	if !safeRelative(relative) || len(expectedDigest) != 64 || expectedDigest != strings.ToLower(expectedDigest) {
 		return fmt.Errorf("%w: file declaration", ErrInvalid)
 	}
-	file, err := os.Open( //nolint:gosec // Manifest-allowlisted safe relative path.
+	file, err := os.Open(
 		filepath.Join(root, filepath.FromSlash(relative)),
 	)
 	if err != nil {

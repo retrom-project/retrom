@@ -3,8 +3,8 @@
 package legacychecksum
 
 import (
-	"crypto/md5"  //nolint:gosec // Catalog protocols require MD5; callers also retain authoritative SHA-256 identity.
-	"crypto/sha1" //nolint:gosec // Catalog protocols require SHA-1; callers also retain authoritative SHA-256 identity.
+	"crypto/md5"
+	"crypto/sha1"
 	"encoding/hex"
 	"hash"
 )
@@ -18,8 +18,8 @@ type Hashes struct {
 // New creates isolated legacy catalog digest writers.
 func New() Hashes {
 	return Hashes{
-		MD5:  md5.New(),  //nolint:gosec // Compatibility output is never accepted as a security identity.
-		SHA1: sha1.New(), //nolint:gosec // Compatibility output is never accepted as a security identity.
+		MD5:  md5.New(),
+		SHA1: sha1.New(),
 	}
 }
 

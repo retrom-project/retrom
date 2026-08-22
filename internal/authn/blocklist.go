@@ -29,7 +29,7 @@ type FileBlocklist struct{ values map[string]struct{} }
 
 func LoadBlocklist(dependencyRoot string) (*FileBlocklist, error) {
 	path := filepath.Join(dependencyRoot, filepath.FromSlash(blocklistRelativePath))
-	file, err := os.Open(path) //nolint:gosec // Path is rooted in validated dependency configuration.
+	file, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("%w: run make prepare-deps", ErrBlocklistInvalid)
 	}

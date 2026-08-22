@@ -43,7 +43,7 @@ func TestStateFrameParsesRAStateAndBindsHeader(t *testing.T) {
 	binary.BigEndian.PutUint32(frame[36:40], 7)
 	binary.BigEndian.PutUint64(frame[40:48], 1234)
 	// The fixture is bounded by MaxStateBytes, so the uint32 conversion cannot overflow.
-	binary.BigEndian.PutUint32(frame[48:52], uint32(len(state))) //nolint:gosec // MaxStateBytes bounds the fixture.
+	binary.BigEndian.PutUint32(frame[48:52], uint32(len(state)))
 	copy(frame[52:], state)
 	parsed, err := ParseStateFrame(frame)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return parsed.SessionID != sessionID }, func() bool { return parsed.Transfer != transferID }, func() bool { return parsed.Epoch != 7 }, func() bool { return parsed.NextFrame != 1234 }), "parsed frame = %#v, %v", parsed, err)
@@ -75,7 +75,7 @@ func raState(core []byte) []byte {
 	copy(state[:8], "RASTATE\x01")
 	copy(state[8:12], "MEM ")
 	// The deterministic fixture is much smaller than uint32's maximum.
-	binary.LittleEndian.PutUint32(state[12:16], uint32(len(core))) //nolint:gosec // Fixture length is bounded.
+	binary.LittleEndian.PutUint32(state[12:16], uint32(len(core)))
 	copy(state[16:16+len(core)], core)
 	copy(state[16+padded:20+padded], "END ")
 	return state

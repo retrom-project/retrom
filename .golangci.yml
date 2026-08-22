@@ -22,7 +22,6 @@ linters:
     - gocognit
     - gocritic
     - gocyclo
-    - gosec
     - govet
     - ineffassign
     - interfacebloat

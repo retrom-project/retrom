@@ -493,13 +493,13 @@ func checkedDataDir(raw string) (string, error) {
 		return "", fmt.Errorf("%w: RETROM_DATA_DIR", errInvalidConfig)
 	}
 	// raw is already absolute, clean, non-root and different from the current user's home directory.
-	if info, err := os.Lstat(raw); err == nil && //nolint:gosec // Validated non-root configuration path.
+	if info, err := os.Lstat(raw); err == nil &&
 		info.Mode()&os.ModeSymlink != 0 {
 		return "", fmt.Errorf("%w: RETROM_DATA_DIR", errInvalidConfig)
 	} else if err != nil && !errors.Is(err, os.ErrNotExist) {
 		return "", fmt.Errorf("%w: RETROM_DATA_DIR", errInvalidConfig)
 	}
-	if err := os.MkdirAll(raw, 0o700); err != nil { //nolint:gosec // Validated configuration root.
+	if err := os.MkdirAll(raw, 0o700); err != nil {
 		return "", fmt.Errorf("%w: RETROM_DATA_DIR", errInvalidConfig)
 	}
 	return raw, nil
@@ -514,7 +514,7 @@ func checkedExistingDir(name, raw string) (string, error) {
 		return "", fmt.Errorf("%w: %s", errInvalidConfig, name)
 	}
 	// raw passed the same absolute/clean/non-root boundary above and must already exist.
-	info, err := os.Lstat(raw) //nolint:gosec // Validated dependency root.
+	info, err := os.Lstat(raw)
 	if err != nil || !info.IsDir() || info.Mode()&os.ModeSymlink != 0 {
 		return "", fmt.Errorf("%w: %s", errInvalidConfig, name)
 	}

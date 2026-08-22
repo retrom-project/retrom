@@ -139,7 +139,7 @@ func ExtractSevenZip(
 	if err != nil {
 		return fmt.Errorf("archive worker executable: %w", err)
 	}
-	command := exec.CommandContext( //nolint:gosec // The executable and command are fixed; the ordinal is numeric.
+	command := exec.CommandContext(
 		workerContext,
 		executable,
 		archiveWorkerCommand,
@@ -266,7 +266,7 @@ func archiveLimitsFromArguments(arguments []string) (ArchiveLimits, error) {
 }
 
 func openSevenZip(path string) (*os.File, error) {
-	archive, err := os.Open(path) //nolint:gosec // Caller passes a verified CAS path.
+	archive, err := os.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open 7z: %w", err)
 	}
@@ -567,7 +567,7 @@ func writeWorkerResponse(writer io.Writer, response archiveWorkerResponse) error
 		return ErrArchiveLimitExceeded
 	}
 	var length [4]byte
-	binary.BigEndian.PutUint32(length[:], uint32(len(payload))) //nolint:gosec // Payload is bounded to 64 MiB above.
+	binary.BigEndian.PutUint32(length[:], uint32(len(payload)))
 	if _, err := writer.Write(length[:]); err != nil {
 		return fmt.Errorf("write archive response length: %w", err)
 	}

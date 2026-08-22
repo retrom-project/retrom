@@ -388,7 +388,7 @@ func (server *Server) runtimeFile(writer http.ResponseWriter, request *http.Requ
 		return
 	}
 	path := filepath.Join(version.RuntimeRoot, filepath.FromSlash(runtimePath))
-	file, err := os.Open(path) //nolint:gosec // runtimePath must match the versioned dependency allowlist exactly.
+	file, err := os.Open(path)
 	if err != nil {
 		server.notFound(writer, request)
 		return

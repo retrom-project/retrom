@@ -13,6 +13,26 @@ from pathlib import Path
 import quality_structure
 
 
+REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
+
+
+class RepositoryLintConfigurationTests(unittest.TestCase):
+    def test_gosec_stays_removed_from_lint_config_and_allowlist(self) -> None:
+        configuration = (REPOSITORY_ROOT / ".golangci.yml").read_text(
+            encoding="utf-8"
+        )
+        allowlist = json.loads(
+            (REPOSITORY_ROOT / "quality" / "go-suppressions.json").read_text(
+                encoding="utf-8"
+            )
+        )
+
+        self.assertNotRegex(configuration, r"(?m)^\s*-\s+gosec\s*$")
+        self.assertNotIn(
+            "gosec", {entry["linter"] for entry in allowlist["exceptions"]}
+        )
+
+
 class PhysicalLineTests(unittest.TestCase):
     def test_counts_empty_newline_and_missing_final_newline(self) -> None:
         self.assertEqual(quality_structure.count_physical_lines(b""), 0)
@@ -165,7 +185,7 @@ class RepositoryGateTests(unittest.TestCase):
     def test_nonstructural_suppression_and_allowlist_are_bidirectional(self) -> None:
         self.write(
             "internal/sample/service.go",
-            "package sample\n\nfunc open() {\n\t_ = source() //nolint:gosec // fixed trusted path\n}",
+            "package sample\n\nfunc open() {\n\t_ = source() //nolint:errcheck // fixed trusted source\n}",
         )
         self.write_allowlist(
             [
@@ -173,7 +193,7 @@ class RepositoryGateTests(unittest.TestCase):
                     "path": "internal/sample/service.go",
                     "line": 4,
                     "symbol": "open",
-                    "linter": "gosec",
+                    "linter": "errcheck",
                     "reason": "The tool cannot infer that the path is fixed.",
                     "invariant": "No request-controlled value reaches the path.",
                     "reviewAfter": "2027-08-22",
@@ -182,7 +202,7 @@ class RepositoryGateTests(unittest.TestCase):
                     "path": "internal/sample/unused.go",
                     "line": 9,
                     "symbol": "unused",
-                    "linter": "gosec",
+                    "linter": "errcheck",
                     "reason": "Unused fixture.",
                     "invariant": "No source suppression exists.",
                     "reviewAfter": "2027-08-22",
@@ -201,8 +221,8 @@ class RepositoryGateTests(unittest.TestCase):
         self.write(
             "internal/sample/service.go",
             "package sample\n\n"
-            "func first() { _ = source() } //nolint:gosec // trusted\n"
-            "func second() { _ = source() } //nolint:gosec,errcheck // invalid bundle\n",
+            "func first() { _ = source() } //nolint:errcheck // reviewed exception\n"
+            "func second() { _ = source() } //nolint:staticcheck,errcheck // invalid bundle\n",
         )
         self.write_allowlist(
             [
@@ -210,7 +230,7 @@ class RepositoryGateTests(unittest.TestCase):
                     "path": "internal/sample/service.go",
                     "line": 4,
                     "symbol": "first",
-                    "linter": "gosec",
+                    "linter": "staticcheck",
                     "reason": "The source is constant.",
                     "invariant": "No request-controlled value reaches the source.",
                     "reviewAfter": "2026-08-21",

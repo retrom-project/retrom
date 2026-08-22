@@ -67,7 +67,7 @@ func loadSmokeCatalog(ctx context.Context, coreID, datPath string) (arcadedat.Ca
 	if !supportedSmokeCore(coreID) {
 		return arcadedat.Catalog{}, "", fmt.Errorf("%w: %q", errUnsupportedSmokeCore, coreID)
 	}
-	//nolint:gosec // The acceptance operator explicitly supplies the DAT fixture path.
+
 	contents, err := os.ReadFile(datPath)
 	if err != nil {
 		return arcadedat.Catalog{}, "", fmt.Errorf("read DAT: %w", err)

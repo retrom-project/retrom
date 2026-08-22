@@ -106,7 +106,7 @@ func (store *Store) OpenDigest(digest string) (*os.File, error) {
 		return nil, os.ErrNotExist
 	}
 	// The path is derived solely from a validated 64-byte lowercase digest and the configured CAS root.
-	file, err := os.OpenFile( //nolint:gosec // Validated digest path; O_NOFOLLOW blocks symlinks.
+	file, err := os.OpenFile(
 		path,
 		os.O_RDONLY|syscallNoFollow(),
 		0,
@@ -119,7 +119,7 @@ func (store *Store) OpenDigest(digest string) (*os.File, error) {
 
 func verifyExisting(path string, size int64, expectedDigest string) error {
 	// The caller produced this path with Store.Path from a locally computed SHA-256 digest.
-	file, err := os.OpenFile( //nolint:gosec // Locally derived digest path with O_NOFOLLOW.
+	file, err := os.OpenFile(
 		path,
 		os.O_RDONLY|syscallNoFollow(),
 		0,
@@ -137,7 +137,7 @@ func verifyExisting(path string, size int64, expectedDigest string) error {
 }
 
 func syncDirectory(path string) error {
-	directory, err := os.Open(path) //nolint:gosec // Path is the parent shard of a digest-derived CAS object.
+	directory, err := os.Open(path)
 	if err != nil {
 		return fmt.Errorf("open blob directory: %w", err)
 	}
