@@ -113,8 +113,12 @@ describe("ReviewActions metadata", () => {
     const { container } = render(<ReviewActions review={{ ...review, candidates: [{ candidateId: "candidate-layout", scrapeRunId: "run-layout", providerGameId: "42", metadata: { title: "Scraped title" }, evidence: {}, assets: [] }], selectedCandidateId: "candidate-layout" }} />);
 
     const layout = container.querySelector(".review-workflow-publish-layout");
+    const fields = layout?.querySelector(".review-workflow-metadata-fields");
+    const tagEditor = fields?.querySelector(".review-tag-editor");
     expect(layout).not.toBeNull();
-    expect(layout?.querySelector(".review-workflow-metadata-fields")).not.toBeNull();
+    expect(fields).not.toBeNull();
+    expect(tagEditor).not.toBeNull();
+    expect(fields?.lastElementChild).toBe(tagEditor);
     expect(layout?.lastElementChild).toHaveClass("review-workflow-cover-side");
     expect(screen.getByText("当前封面")).toBeInTheDocument();
     expect(screen.queryByText("Hasheous 候选信息")).not.toBeInTheDocument();

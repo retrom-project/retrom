@@ -424,6 +424,7 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
     const left = element.querySelector<HTMLElement>(".review-workflow-left")!.getBoundingClientRect();
     const metadata = element.querySelector<HTMLElement>(".review-workflow-metadata")!.getBoundingClientRect();
     const fields = element.querySelector<HTMLElement>(".review-workflow-metadata-fields")!.getBoundingClientRect();
+    const tagEditor = element.querySelector<HTMLElement>(".review-tag-editor")!;
     const cover = element.querySelector<HTMLElement>(".review-workflow-cover-side")!.getBoundingClientRect();
     const coverImage = element.querySelector<HTMLElement>(".review-workflow-cover-side .review-cover-upload")!.getBoundingClientRect();
     const coverStyle = getComputedStyle(element.querySelector<HTMLElement>(".review-workflow-cover-side")!);
@@ -432,13 +433,14 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
     const descriptionText = document.createRange();
     descriptionText.selectNodeContents(descriptionLabel.firstChild!);
     const descriptionGap = description.getBoundingClientRect().top - descriptionText.getBoundingClientRect().bottom;
-    return { leftHeight: left.height, metadataHeight: metadata.height, fieldsRight: fields.right, coverLeft: cover.left, coverWidth: cover.width, coverBottomGap: cover.bottom - coverImage.bottom - Number.parseFloat(coverStyle.paddingBottom), descriptionGap };
+    return { leftHeight: left.height, metadataHeight: metadata.height, fieldsRight: fields.right, coverLeft: cover.left, coverWidth: cover.width, coverBottomGap: cover.bottom - coverImage.bottom - Number.parseFloat(coverStyle.paddingBottom), descriptionGap, tagInsideFields: tagEditor.parentElement?.classList.contains("review-workflow-metadata-fields") ?? false };
   });
   expect(Math.abs(reviewLayout.leftHeight - reviewLayout.metadataHeight)).toBeLessThanOrEqual(1);
   expect(reviewLayout.coverLeft).toBeGreaterThanOrEqual(reviewLayout.fieldsRight);
   expect(reviewLayout.coverWidth).toBeGreaterThanOrEqual(360);
   expect(Math.abs(reviewLayout.coverBottomGap)).toBeLessThanOrEqual(1);
   expect(reviewLayout.descriptionGap).toBeLessThanOrEqual(8);
+  expect(reviewLayout.tagInsideFields).toBe(true);
   await expect(page.locator(".review-workflow-metadata").getByText("Hasheous 候选信息")).toHaveCount(0);
   await expect(page.locator(".review-workflow-metadata").getByText("信息来源", { exact: true })).toHaveCount(0);
   await page.screenshot({ path: evidencePath(testInfo, "review-workbench-3840-css-ultrawide.png"), fullPage: true });
@@ -455,6 +457,17 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
 
   await page.setViewportSize({ width: 1280, height: 800 });
   expect(await page.locator(".review-workflow-columns").evaluate((element) => getComputedStyle(element).gridTemplateColumns.split(" ").length)).toBe(1);
+  const collapsedReviewLayout = await page.locator(".review-workflow-metadata").evaluate((element) => {
+    const panel = element.getBoundingClientRect();
+    const editor = element.querySelector<HTMLElement>(".review-workflow-editor")!.getBoundingClientRect();
+    const publish = element.querySelector<HTMLElement>(".review-workflow-publish-layout")!.getBoundingClientRect();
+    const fields = element.querySelector<HTMLElement>(".review-workflow-metadata-fields")!.getBoundingClientRect();
+    const cover = element.querySelector<HTMLElement>(".review-workflow-cover-side")!.getBoundingClientRect();
+    return { panelBottom: panel.bottom, editorBottom: editor.bottom, publishBottom: publish.bottom, fieldsBottom: fields.bottom, coverBottom: cover.bottom };
+  });
+  expect(collapsedReviewLayout.publishBottom).toBeLessThanOrEqual(collapsedReviewLayout.editorBottom);
+  expect(collapsedReviewLayout.fieldsBottom).toBeLessThanOrEqual(collapsedReviewLayout.panelBottom);
+  expect(collapsedReviewLayout.coverBottom).toBeLessThanOrEqual(collapsedReviewLayout.panelBottom);
   await page.screenshot({ path: evidencePath(testInfo, "review-detail-1280.png"), fullPage: true });
   await page.getByRole("button", { name: "通过并发布" }).click();
   const duplicateDialog = page.getByRole("alertdialog", { name: "仍然发布为新游戏？" });
