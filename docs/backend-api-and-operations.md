@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.4 |
-| 日期 | 2026-08-22 |
+| 版本 | 1.5 |
+| 日期 | 2026-08-23 |
 | 适用范围 | Retrom 一期 |
 | 技术栈 | Go、SQLite、Next.js、EmulatorJS、本地内容寻址存储、OCI/Docker 镜像 |
 
@@ -292,6 +292,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 - 联机只在 Room/Session 转移、upgrade 拒绝、resync、终局与 recovery 记录低基数结构化事件；不记录每帧 input/canonical/hash/state bytes、credential、显示名、IP、内容 hash 或路径。可聚合字段限 profile ID、playerNo、状态、终因、耗时、frame lag、rollback/resync 计数。
 - 多盘结构化事件覆盖 Import mode/parser 结果、Attachment 状态/重试/执行时长、Validation 结果、Launch 盘数、playlist/DISC 内容响应状态与 bytes，以及 Player 开始/盘数不一致/换盘/存档恢复结果。可聚合标签仅限 platform key、core key、artifact version、盘数 bucket、HTTP 状态与稳定错误码；不得记录标题、basename、路径、内容 hash 或 capability。Import/Attachment/Validation 使用持久 JobEvent，运行端使用固定 schema 的结构化日志；不存在自由形式客户端 telemetry body。
 - `GET /api/v1/admin/diagnostics` 提供 HTTP 契约规定的封闭 JSON 诊断摘要，只含版本与状态计数；不打包原始日志、ROM/BIOS，不输出资源 ID、内容 hash、环境变量值或宿主路径。响应必须 `private, no-store`，字段变化先升级 schemaVersion/OpenAPI/验收，不能临时追加自由形式 map。
+- `GET /api/v1/admin/storage-analysis` 使用独立只读连接池和一个 snapshot transaction，按存储专题固定口径返回已登记 CAS payload 的用途总量；不得扫描宿主目录、返回资源标识或提供清理动作。`OTHER_REFERENCED` 非零时日志只记录 category、count 和 bytes，禁止输出 Blob ID/hash/路径。
 
 ## 11. 备份、恢复与 lineage
 

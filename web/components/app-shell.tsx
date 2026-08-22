@@ -31,7 +31,8 @@ const adminNavigation: NavItem[] = [
   { href: "/admin/tags", label: "标签管理", icon: "list" },
   { href: "/admin/platform-instances", label: "游戏目录", icon: "list" },
   { href: "/admin/users", label: "用户管理", icon: "settings" },
-  { href: "/admin/bios", label: "运行依赖", icon: "chip", exact: true }
+  { href: "/admin/bios", label: "运行依赖", icon: "chip", exact: true },
+  { href: "/admin/storage", label: "容量分析", icon: "storage", exact: true }
 ];
 
 function navState(item: NavItem, pathname: string): "active" | "context" | "" {
@@ -117,6 +118,7 @@ const exactPageTitles = new Map<string, string>([
   ["/admin/platform-instances", "游戏目录"],
   ["/admin/users", "用户管理"],
   ["/admin/bios", "运行依赖"],
+  ["/admin/storage", "容量分析"],
 ]);
 
 const prefixPageTitles: Array<[string, string]> = [

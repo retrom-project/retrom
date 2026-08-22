@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.7 |
-| 日期 | 2026-08-22 |
+| 版本 | 1.8 |
+| 日期 | 2026-08-23 |
 | 适用范围 | Go 后端、Next.js 前端、SQLite 集成、WebSocket rollback 联机与 EmulatorJS 运行时验证 |
 | 质量原则 | 零 lint warning、关键路径有测试、每个已发现 bug 有回归用例、不设覆盖率百分比门槛 |
 
@@ -279,6 +279,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 游玩时长 | 心跳幂等、页面不可见/暂停不累计、失联上限、重复 finish、异常时钟、整数毫秒持久化 |
 | SQLite migration | 空库 001–010 建表、当前有序前缀续跑、名称/checksum/gap/unknown/future 拒绝、重复启动、事务回滚、外键/索引、所有业务时刻列为 `INTEGER` |
 | Blob GC/备份恢复 | 引用扫描、竞态保护、孤儿回收、仍被存档/任务引用的 Blob 保留、恢复后数据库与内容引用一致 |
+| 已登记 CAS 容量分析 | registry 每条 `PROTECTIVE` 边与容量语义双向覆盖；保护集与 GC 共用；Archive 用途单向传播；长期用途优先/跨长期用途共享；同大小不同 Blob 不误去重；九类含零值且总量恒等；int64 溢出失败；存档/候选引用视图不与分类相加；ADMIN/USER/匿名、未知 query、脱敏、空库与读库失败 |
 
 ### 7.2 前端与浏览器
 
@@ -290,6 +291,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | 默认全屏 | Fullscreen 请求发生在原始用户激活链；拒绝/刷新深链有恢复入口；阻断失败退出全屏并返回可修复错误 |
 | 存档快速启动 | 首页、存档页和详情存档都直接启动；使用存档绑定环境，不重新询问核心或 DOS 程序 |
 | 多盘导入与审核 | capability 隐藏/自动 mode/退回 STANDARD、递归目录预检、完整/缺盘/非法/ignored 计数、精确缺盘上传、Job resume/retry、审核刷新、管理详情和完整目录替换 |
+| 容量分析 | BigInt IEC 格式化、精确 byte 可访问文本、loading/empty/initial error/refresh success/refresh failure 保留快照、九类固定顺序、范围说明、导航顺序，以及 320/768/1280/2560/物理 4K 的 overflow/axe |
 | DOS 启动 | 程序列表、默认项、缺失选择校验和 launch payload；不能在浏览器端猜测可执行文件；4.3 thread core 的 7z/ZIP Worker 在生产 CSP 下完成无 `eval` 精确转换，源形状漂移 fail closed |
 | 管理侧信息架构 | “游戏入库”为父级总览；导入、任务、待审核、历史同级缩进；父/子高亮和直接路由一致 |
 | 认证与路由守卫 | 初始化、登录、邀请注册、重置、账户设置；匿名 returnTo、已登录认证页重定向、USER 后台 403、401 清除内存状态；secret fragment 立即清除且不进任何浏览器存储 |

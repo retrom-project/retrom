@@ -21,6 +21,7 @@
 @import "../features/player/player.css";
 @import "../features/netplay/netplay.css";
 @import "../features/tags/tags.css";
+@import "../features/storage-analysis/storage-analysis.css";
 @import "../styles/responsive.css";
 @import "../features/home/home-wide.css";
 @import "../styles/mobile.css";

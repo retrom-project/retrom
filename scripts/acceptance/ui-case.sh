@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-00[23467]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-MEDIA-001|ACC-NP-01[456])$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-RUN-006|ACC-RUN-007|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-MEDIA-001|ACC-NP-014|ACC-NP-015|ACC-NP-016" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-00[23467]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-01[456])$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-RUN-006|ACC-RUN-007|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-014|ACC-NP-015|ACC-NP-016" >&2
   exit 2
 fi
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -143,6 +143,9 @@ fi
 if [[ "$case_id" == "ACC-TAG-005" ]]; then
   specification="e2e/tags.spec.ts"
 fi
+if [[ "$case_id" == "ACC-STOR-001" ]]; then
+  specification="e2e/storage-analysis.spec.ts"
+fi
 if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" || "$case_id" == "ACC-PEG-005" || "$case_id" == "ACC-PEG-006" || "$case_id" == "ACC-MEDIA-001" ]]; then
   specification="e2e/server-import.spec.ts"
 fi
@@ -155,7 +158,7 @@ if [[ "$case_id" == "ACC-UI-010" ]]; then
   playwright_grep="ACC-UI-008|ACC-UI-010"
 fi
 playwright_args=(playwright test "$specification" --grep "$playwright_grep")
-if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-MEDIA-001" ]]; then
+if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-MEDIA-001" && "$case_id" != "ACC-STOR-001" ]]; then
   playwright_args+=(--project=chrome-1280)
 else
   playwright_args+=(--workers=1)

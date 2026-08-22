@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期唯一验收基线 |
-| 版本 | 1.8 |
-| 日期 | 2026-08-22 |
+| 版本 | 1.9 |
+| 日期 | 2026-08-23 |
 | 执行者 | AI Agent，必要时由人工复核当前运行生成的画面证据 |
 | 范围 | 工程质量、镜像、本地开发、账户认证与隔离、游戏目录、导入审核、BIOS/DAT、存储、安全、运行时、联机、35 核兼容性、PSP ISO/CSO、320px 起的响应式 UI 和 4K UI |
 
@@ -293,6 +293,14 @@ make acceptance-case CASE=<case-id>
 - 流程：创建旧 GameContentRevision/VariantRevision、未删除 SaveState、失败但可重试的游戏文件替换 Job/Upload、审核证据与孤儿 Blob；另建两份小型 archive 并物化各自一个 entry，一份仍被 UploadFile 保护，一份已过期且无消费/复合 entry 引用。运行一轮 GC；软删除 SaveState 并移除其余引用，先在 7 天保留期内再运行；随后用 fake clock 推进超过配置保留期并再运行一轮，同时故障注入一个并发新引用。输入不超过 16 个 Blob。
 - 通过标准：被 ContentRevision、VariantRevision、未到期软删除 SaveState、Import/游戏文件替换 Job 或审核历史引用的 Blob 均保留；有业务根的 archive、ArchiveEntry 及已物化内层 Blob 一起保留。保留期后 SaveState 行才可物理清除；无业务根的过期 archive 不被自身 ArchiveEntry 永久保活，GC 事务成组删除其 entry/外层 Blob，无其他引用的物化内层 Blob 在自己的后续保留期到期后删除；`blob_gc_candidates` 自身不阻止回收。解除全部引用后只有目标孤儿被删除；删除前新增的并发引用不会被误删。
 - 证据：三轮前后带边分类的引用闭包、ArchiveEntry/文件清单、fake clock 推进值和 GC 决策日志。
+
+### ACC-STOR-001：已登记 CAS 容量分析
+
+- 上限：240 秒。
+- 执行：`make acceptance-case CASE=ACC-STOR-001`。
+- 流程：在隔离空库通过标准导入流写入项目自有 fixture，再加入 durable、workflow、runtime、跨长期用途共享、受保护 archive/member、无业务根 archive/member、软删除存档和 GC 候选的确定性小型组合；从 ADMIN 调用 `GET /api/v1/admin/storage-analysis`，以 USER/匿名和未知 query 重试，并打开 `/admin/storage`。页面依次在 `320×568`、`768×1024`、`1280×800`、`2560×1440` 与物理 4K 150% 检查，执行一次成功刷新与一次失败刷新。
+- 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 相同；受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。USER/匿名分别为 403/401，未知 query 为 400；响应和低基数日志没有 Blob/资源 ID、hash、文件名、路径、Profile/Game/Launch、capability。页面导航紧跟运行依赖，loading/空/错误/刷新失败保留旧快照语义明确，精确 bytes 可键盘读取，范围说明始终存在，不提供清理动作，各 viewport 无 document 横向溢出且 axe 无 serious/critical。
+- 证据：API JSON 与直接 `SUM(blobs.size_bytes)`/行数对比、registry/分类单元与 SQLite 组合测试输出、鉴权/脱敏矩阵、viewport DOM/axe 断言和当前截图。
 
 ### ACC-BKP-001：备份与空目录恢复
 
@@ -886,8 +894,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-006`。
-- 流程：在 `1280×800`、`2560×1440` 与物理 4K 150% 三个场景打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理和 `/admin/bios`；另断言已移除的 `/admin/bios/dats` 返回 404。
-- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面中，可见按钮和链接的操作文案均不追加字面量箭头字符 `→`，且在同一 CSS viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560 CSS/物理 4K 150% 下历史 diff、任务阶段和 BIOS hash 不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备。游戏目录页零数据时不自动打开 Drawer，页首/空状态的“一键创建推荐目录”与手动新建入口可达；请求中按钮禁用，成功/失败 toast 不推动布局。目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个场景均可达；封面容器保持 3:4 并等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
+- 流程：在 `1280×800`、`2560×1440` 与物理 4K 150% 三个场景打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理、`/admin/bios` 和 `/admin/storage`；另断言已移除的 `/admin/bios/dats` 返回 404。
+- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面中，可见按钮和链接的操作文案均不追加字面量箭头字符 `→`，且在同一 CSS viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560 CSS/物理 4K 150% 下历史 diff、任务阶段、BIOS hash 和容量九类不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备；容量分析紧跟运行依赖并保持只读范围说明。游戏目录页零数据时不自动打开 Drawer，页首/空状态的“一键创建推荐目录”与手动新建入口可达；请求中按钮禁用，成功/失败 toast 不推动布局。目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个场景均可达；封面容器保持 3:4 并等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
 - 证据：布局断言和每类页面当前截图。
 
 ### ACC-UI-007：键盘、标签与减少动画
@@ -1134,7 +1142,7 @@ make acceptance-case CASE=<case-id>
 ### ACC-MOB-004：管理完整流程
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-MOB-004`。
-- 流程：ADMIN 在 `390×844` 完成推荐目录补齐、导入配置、任务恢复、待审核筛选与详情四步锚点、一次逐项决定、用户全屏 Drawer 和 BIOS 条目对比；USER 直达同一路由一次，并确认已移除的 DAT 管理路由返回 404。
+- 流程：ADMIN 在 `390×844` 完成推荐目录补齐、导入配置、任务恢复、待审核筛选与详情四步锚点、一次逐项决定、用户全屏 Drawer、BIOS 条目对比和容量分析；USER 直达同一路由一次，并确认已移除的 DAT 管理路由返回 404。
 - 通过标准：推荐补齐、手动新建与状态提示的触控目标均不小于 44px，零目录不会自动弹 Drawer，请求中防重复提交且 toast 可读；每个桌面表格行在手机有同字段/状态/主操作的卡片投影。来源、运行检查、发布内容、审核决定顺序与 Tab 顺序一致；autosave、ETag、阻断截图放行和逐项决策没有弱化；Drawer/确认可关闭并恢复焦点，USER 仍为应用级 403。
 - 证据：Chrome trace、API/ETag 记录、四步/卡片语义断言、axe 和页面截图。
 
@@ -1194,7 +1202,7 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | --- | --- |
 | 工程质量与回归 | `ACC-QA-001`–`003` |
 | 镜像、本地开发、NG/TLS | `ACC-PKG-001`–`003`、`ACC-DEV-001`、`ACC-NET-001`–`002`（`002` 为部署条件 Case） |
-| SQLite、CAS、备份、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-BKP-001`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
+| SQLite、CAS、容量、备份、安全、API、运维 | `ACC-DB-001`–`002`、`ACC-CAS-001`–`002`、`ACC-STOR-001`、`ACC-BKP-001`、`ACC-SEC-001`–`004`、`ACC-API-001`、`ACC-OPS-001` |
 | 游戏目录 | `ACC-PLAT-001`–`005` |
 | 游戏管理 | `ACC-GAME-001`–`003` |
 | 导入、Hasheous、审核、任务恢复 | `ACC-IMP-001`–`008` |

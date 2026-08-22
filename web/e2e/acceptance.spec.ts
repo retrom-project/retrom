@@ -203,6 +203,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
     ["/admin/reviews", ".import-workflow-page"], ["/admin/reviews/history", ".import-workflow-page"],
     ["/admin/games", ".page-header"], ["/admin/platform-instances", ".platform-directory-manager"],
     ["/admin/users", ".user-admin-page"], ["/admin/bios", ".page-layout-admin"],
+    ["/admin/storage", ".storage-analysis-page"],
   ] as const;
   let sharedPageGaps: HorizontalGaps | null = null;
   for (const [route, selector] of routes) {
