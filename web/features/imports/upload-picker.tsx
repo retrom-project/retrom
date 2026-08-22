@@ -160,7 +160,7 @@ function ProgressActions({ completed, error, onBack, onComplete, reconfiguring }
     ? "后台会继续识别、运行检查和游戏信息准备。"
     : reconfiguring ? "文件内容不会再次通过网络上传。" : "上传过程中可以离开页面；已创建的后台任务会继续运行。";
   let action = null;
-  if (completed) {action = <button className="button" type="button" onClick={onComplete}>查看任务进度 →</button>;}
+  if (completed) {action = <button className="button" type="button" onClick={onComplete}>查看任务进度</button>;}
   else if (error) {action = <button className="button secondary" type="button" onClick={onBack}>返回配置</button>;}
   return <div className="import-stage-actions"><span>{description}</span>{action}</div>;
 }

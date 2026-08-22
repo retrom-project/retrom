@@ -90,7 +90,7 @@ function FeaturedGamePanel({ game }: { game: FeaturedGame | null }) {
           </div>
         </div>
       </div>
-      <div className="home-featured-bottom"><div><h3>{game.title}</h3><p>{sessionSave ? `上次存档保存于 ${formatTime(sessionSave.createdAtMs)}${sessionSave.discLabel ? `（${sessionSave.discLabel}）` : ""}，可以直接回到当时的进度。` : "你最近玩过这款游戏；本次会使用当前运行配置从头开始。"}</p></div><Link href={`/games/${game.gameId}`}>查看游戏详情 →</Link></div>
+      <div className="home-featured-bottom"><div><h3>{game.title}</h3><p>{sessionSave ? `上次存档保存于 ${formatTime(sessionSave.createdAtMs)}${sessionSave.discLabel ? `（${sessionSave.discLabel}）` : ""}，可以直接回到当时的进度。` : "你最近玩过这款游戏；本次会使用当前运行配置从头开始。"}</p></div><Link href={`/games/${game.gameId}`}>查看游戏详情</Link></div>
     </div>
   </article>;
 }
@@ -140,7 +140,7 @@ export default async function HomePage() {
     </section>
 
     <section className="home-layer home-platform-section" data-home-layer="4">
-      <div className="home-section-head"><div><h2>换个平台逛逛</h2></div><Link href="/library">进入游戏库 →</Link></div>
+      <div className="home-section-head"><div><h2>换个平台逛逛</h2></div><Link href="/library">进入游戏库</Link></div>
       <PlatformRail platforms={home.platforms} />
     </section>
 

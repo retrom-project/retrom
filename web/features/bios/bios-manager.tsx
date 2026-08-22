@@ -444,7 +444,7 @@ export function BIOSManager({ initialResponse, initialScope = "REQUIRED_BY_LIBRA
       scope={scope}
       sentinel={sentinel}
     />
-    <p className="runtime-server-import-link"><Link href="/admin/imports/server?action=bios">从服务器目录批量导入 BIOS →</Link></p>
+    <p className="runtime-server-import-link"><Link href="/admin/imports/server?action=bios">从服务器目录批量导入 BIOS</Link></p>
     <ArchiveInspectionDialog archiveDialog={archiveDialog} onClose={() => setArchiveDialog(null)} />
     <Toast toast={error ? { message: error, tone: "bad" } : notice ? { message: notice, tone: "good" } : null} onDismiss={() => { setNotice(""); setError(""); }} />
   </div>;

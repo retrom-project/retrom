@@ -12,7 +12,7 @@ function RoomCard({ room }: { room: NetplayRoom }) {
     <div><StatusBadge tone={room.state === "RUNNING" ? "good" : room.state === "ENDED" || room.state === "EXPIRED" ? "neutral" : "warn"}>{room.state}</StatusBadge><span>#{room.roomId.slice(0, 8)}</span></div>
     <h2>{room.game?.title ?? "等待选择游戏"}</h2>
     <p>{room.game ? `${room.game.platformName} · ${room.game.coreName}` : "创建后先选择一个经过验证的联机游戏"}</p>
-    <footer><span>{room.members.length} / {room.game?.maxPlayers ?? 4} 位玩家</span><strong>进入房间 →</strong></footer>
+    <footer><span>{room.members.length} / {room.game?.maxPlayers ?? 4} 位玩家</span><strong>进入房间</strong></footer>
   </Link>;
 }
 

@@ -40,7 +40,7 @@ export function GameGrid({ games, nowMs, filtered = false }: { games: GameSummar
   return <div className="library-game-grid">
     {games.map((game) => <article className="library-game-card" data-library-game={game.gameId} key={game.gameId}>
       <div className="library-game-cover">
-        <Link href={`/games/${game.gameId}`} aria-label={`查看${game.title}游戏详情`}><GamePoster game={game} /><span className="library-platform-tag">{game.platform.name}</span><span className="library-card-hover"><strong>查看游戏详情 →</strong></span></Link>
+        <Link href={`/games/${game.gameId}`} aria-label={`查看${game.title}游戏详情`}><GamePoster game={game} /><span className="library-platform-tag">{game.platform.name}</span><span className="library-card-hover"><strong>查看游戏详情</strong></span></Link>
         <FavoriteActions
           ref={(handle) => {
             if (handle) {favoriteManagers.current.set(game.gameId, handle);}

@@ -1,11 +1,45 @@
 import { expect, type Page, type TestInfo } from "@playwright/test";
-import { evidencePath, expectHomeCoverRatios, noPageOverflow, pageCanvasGaps, pngDimensions, type HorizontalGaps } from "./acceptance-support";
+import { evidencePath, expectHomeCoverRatios, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, type HorizontalGaps } from "./acceptance-support";
 
 export async function verifyUserDesktopLayouts(page: Page, testInfo: TestInfo) {
   await page.addInitScript(() => {Object.defineProperty(document.documentElement, "requestFullscreen", { configurable: true, value: () => Promise.resolve() });});
   const sharedGaps = await verifyPageLayouts(page);
   await verifyHomeLayout(page, testInfo);
   await verifyLibraryAndPlayerLayout(page, testInfo, sharedGaps);
+}
+
+export async function verifyCompactFeaturedHome(page: Page, testInfo: TestInfo) {
+  await page.setViewportSize({ width: 2086, height: 920 });
+  await expectHomeCoverRatios(page);
+  await expectNoTextArrowsInInteractiveControls(page);
+  await expect(page.locator(".home-featured-details")).toBeVisible();
+  await expect(page.locator(".home-featured-actions")).toBeVisible();
+  const layout = await page.evaluate(() => {
+    const rectangle = (selector: string) => document.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
+    const media = rectangle(".home-featured-media");
+    const cover = rectangle(".home-featured-cover");
+    const copy = rectangle(".home-featured-copy");
+    const actions = rectangle(".home-featured-actions");
+    if (!media || !cover || !copy || !actions) {return null;}
+    return {
+      media: { top: media.top, bottom: media.bottom, height: media.height },
+      cover: { top: cover.top, bottom: cover.bottom },
+      copy: { top: copy.top, bottom: copy.bottom },
+      actionsBottom: actions.bottom,
+      documentHeight: document.documentElement.scrollHeight,
+      viewportHeight: document.documentElement.clientHeight,
+    };
+  });
+  expect(layout).not.toBeNull();
+  if (!layout) {throw new Error("ACCEPTANCE_COMPACT_FEATURED_LAYOUT_UNAVAILABLE");}
+  expect(layout.media.height).toBeGreaterThanOrEqual(160);
+  expect(layout.cover.top).toBeGreaterThanOrEqual(layout.media.top);
+  expect(layout.cover.bottom).toBeLessThanOrEqual(layout.media.bottom + 1);
+  expect(layout.copy.top).toBeGreaterThanOrEqual(layout.media.top - 1);
+  expect(layout.copy.bottom).toBeLessThanOrEqual(layout.media.bottom + 1);
+  expect(layout.actionsBottom).toBeLessThanOrEqual(layout.media.bottom + 1);
+  expect(layout.documentHeight).toBeLessThanOrEqual(layout.viewportHeight);
+  await page.screenshot({ path: evidencePath(testInfo, "home-2086x920-css-equivalent.png"), fullPage: true });
 }
 
 async function verifyPageLayouts(page: Page) {
@@ -20,6 +54,7 @@ async function verifyPageLayouts(page: Page) {
     const layout = page.locator(selector);
     await expect(layout).toBeVisible();
     await expect(layout.locator(".page-header")).toBeVisible();
+    await expectNoTextArrowsInInteractiveControls(page);
     await noPageOverflow(page);
     const gaps = await pageCanvasGaps(page, selector);
     if (shared) {

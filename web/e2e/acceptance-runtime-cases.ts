@@ -1,5 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { currentEmulatorBrightRatio, evidencePath, noPageOverflow } from "./acceptance-support";
+import { verifyCompactFeaturedHome } from "./acceptance-user-layout";
 
 export function registerRuntimeAcceptanceTests(): void {
   test.describe("post-publication runtime acceptance", () => {
@@ -536,6 +537,7 @@ function registerSave002(): void {
     expect(await page.locator(".recent-filter-panel").evaluate((element) => element.getBoundingClientRect().height)).toBe(filterHeight);
     await noPageOverflow(page);
     await page.goto("/");
+    await verifyCompactFeaturedHome(page, testInfo);
     const homeResumeConfigResponse = page.waitForResponse((response) =>
       /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);
     await page.getByRole("button", { name: "继续游玩" }).click();
@@ -585,7 +587,7 @@ function registerLanUpload(): void {
     await page.locator("#provider").selectOption("NONE");
     await page.getByRole("button", { name: "开始上传并验证" }).click();
     await expect(page.getByRole("heading", { name: "导入任务已创建" })).toBeVisible({ timeout: 30_000 });
-    await page.getByRole("button", { name: "查看任务进度 →" }).click();
+    await page.getByRole("button", { name: "查看任务进度" }).click();
     await expect(page).toHaveURL(/\/admin\/imports\/tasks$/);
   });
 }

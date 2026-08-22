@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { evidencePath, noPageOverflow, pageCanvasGaps, pngDimensions, type HorizontalGaps } from "./acceptance-support";
+import { evidencePath, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, type HorizontalGaps } from "./acceptance-support";
 import { registerRuntimeAcceptanceTests } from "./acceptance-runtime-cases";
 import { verifyUserDesktopLayouts } from "./acceptance-user-layout";
 
@@ -209,6 +209,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
     await page.goto(route);
     await expect(page.locator(".page-header")).toBeVisible();
     await noPageOverflow(page);
+    await expectNoTextArrowsInInteractiveControls(page);
     await expect(page.getByRole("main")).toBeVisible();
     const gaps = await pageCanvasGaps(page, selector);
     if (sharedPageGaps) {
