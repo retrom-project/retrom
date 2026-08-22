@@ -42,6 +42,61 @@ func tagHTTPRequest(
 	return response
 }
 
+func TestTagDefaultsHTTPIsAtomicAndIdempotent(t *testing.T) {
+	t.Parallel()
+	server, _ := newAuthHTTPServer(t, config.ModeTest)
+	handler := server.Handler()
+	auth := accountHTTPLogin(t, handler)
+
+	created := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags",
+		`{"name":"动作冒险"}`, map[string]string{"Idempotency-Key": uuid.NewString()})
+	testassert.Falsef(t, created.Code != http.StatusCreated, "seed common tag = %d %s", created.Code, created.Body.String())
+	key := uuid.NewString()
+	apply := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags/defaults",
+		`{}`, map[string]string{"Idempotency-Key": key})
+	var result tagging.CommonTagsResult
+	if err := json.Unmarshal(apply.Body.Bytes(), &result); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return apply.Code != http.StatusOK },
+		func() bool { return len(result.CreatedItems) != 9 },
+		func() bool { return len(result.ExistingItems) != 1 },
+	), "apply defaults = %d %#v %s", apply.Code, result, apply.Body.String())
+	replayed := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags/defaults",
+		`{}`, map[string]string{"Idempotency-Key": key})
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return replayed.Code != apply.Code },
+		func() bool { return replayed.Body.String() != apply.Body.String() },
+		func() bool { return replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" },
+	), "replay defaults = %d header=%q %s", replayed.Code, replayed.Header().Get("X-Retrom-Idempotent-Replay"), replayed.Body.String())
+	second := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags/defaults",
+		`{}`, map[string]string{"Idempotency-Key": uuid.NewString()})
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return second.Code != http.StatusOK },
+		func() bool { return !strings.Contains(second.Body.String(), `"createdItems":[]`) },
+	), "second defaults = %d %s", second.Code, second.Body.String())
+	invalid := tagHTTPRequest(t, handler, &auth, http.MethodPost, "/api/v1/admin/tags/defaults",
+		`{"unexpected":true}`, map[string]string{"Idempotency-Key": uuid.NewString()})
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return invalid.Code != http.StatusBadRequest },
+		func() bool { return !strings.Contains(invalid.Body.String(), `"code":"INVALID_REQUEST"`) },
+	), "invalid defaults = %d %s", invalid.Code, invalid.Body.String())
+
+	var activeCount, auditCount int
+	if err := server.database.QueryRowContext(context.Background(), `
+SELECT
+  (SELECT count(*) FROM tags WHERE status='ACTIVE'),
+  (SELECT count(*) FROM audit_events WHERE action='TAG_CREATED')
+`).Scan(&activeCount, &auditCount); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return activeCount != len(tagging.CommonTagNames()) },
+		func() bool { return auditCount != len(tagging.CommonTagNames()) },
+	), "default tag rows = active:%d audits:%d", activeCount, auditCount)
+}
+
 func TestTagHTTPCRUDGameAssignmentSearchAndDeleteInvalidation(t *testing.T) {
 	t.Parallel()
 	server, _ := newAuthHTTPServer(t, config.ModeTest)

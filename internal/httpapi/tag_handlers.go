@@ -163,6 +163,23 @@ func (server *Server) createAdminTag(writer http.ResponseWriter, request *http.R
 	writeTagItem(writer, http.StatusCreated, result)
 }
 
+func (server *Server) applyAdminTagDefaults(writer http.ResponseWriter, request *http.Request) {
+	if !requireTagIdempotency(writer, request) {
+		return
+	}
+	var body struct{}
+	if err := decodeJSON(writer, request, &body, 1024); err != nil {
+		return
+	}
+	result, err := server.tagService.EnsureCommonTags(request.Context(), tagActorID(request))
+	if err != nil {
+		writeTagError(writer, request, err)
+		return
+	}
+	writer.Header().Set("Cache-Control", "private, no-store")
+	writeJSON(writer, http.StatusOK, result)
+}
+
 func writeTagItem(writer http.ResponseWriter, status int, result tagging.AdminItem) {
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, result.Version))
 	writer.Header().Set("Cache-Control", "private, no-store")

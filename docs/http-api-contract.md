@@ -674,7 +674,7 @@ room cookie 名为 `retrom_netplay_{roomId去连字符}`。原始 32 bytes 固�
 
 ## 14. 游戏标签 API
 
-`GET /api/v1/admin/tags`、`POST /api/v1/admin/tags` 与 `GET|PATCH|DELETE /api/v1/admin/tags/{tagId}` 只允许 ADMIN。列表接受 `q/status=ACTIVE|DELETED|ALL/sort=NAME_ASC|UPDATED_DESC/cursor/limit`，返回 `generatedAtMs/summary/items/nextCursor`；cursor 绑定 principal 与全部筛选。item 固定含 `tagId/name/status/version/usage/createdAtMs/updatedAtMs/deletedAtMs`，写响应返回 ETag。create 使用 Idempotency-Key；rename/delete 同时要求 Tag `If-Match`，delete body 为精确 `confirmName`，成功为 204 并回送新 tombstone ETag。
+`GET /api/v1/admin/tags`、`POST /api/v1/admin/tags`、`POST /api/v1/admin/tags/defaults` 与 `GET|PATCH|DELETE /api/v1/admin/tags/{tagId}` 只允许 ADMIN。列表接受 `q/status=ACTIVE|DELETED|ALL/sort=NAME_ASC|UPDATED_DESC/cursor/limit`，返回 `generatedAtMs/summary/items/nextCursor`；cursor 绑定 principal 与全部筛选。item 固定含 `tagId/name/status/version/usage/createdAtMs/updatedAtMs/deletedAtMs`，写响应返回 ETag。create 使用 Idempotency-Key；defaults 接受严格空对象，以同一事务补齐当前 common-tag 模板，响应把新建与已存在活动项分别放入 `createdItems/existingItems`，容量不足零部分写入；rename/delete 同时要求 Tag `If-Match`，delete body 为精确 `confirmName`，成功为 204 并回送新 tombstone ETag。
 
 `PUT /api/v1/admin/games/{gameId}/tags` 以 Game `If-Match`、Idempotency-Key 和严格 `{"tagIds":[]}` 原子替换当前集合，响应为 `gameId/version/tags` 与新 Game ETag。普通 import/reconfigure body 必须含 `tagIds`，服务端兼容旧客户端省略时按 `[]`；Review PATCH 和 Pegasus Collection mapping 的 `tagIds` 必须显式存在，`SKIP` Collection 只接受空数组。Import detail 的 config、Pegasus Collection/item 和 Review/Game DTO 按 OpenAPI 投影标签或名称 snapshot。
 

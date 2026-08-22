@@ -21,6 +21,8 @@ export type TagAdminPage = {
   nextCursor: string | null;
 };
 
+type CommonTagsResult = { createdItems: TagAdminItem[]; existingItems: TagAdminItem[] };
+
 type Editor = { mode: "create" | "edit"; item: TagAdminItem | null };
 
 export function TagManager({ initial, filters }: { initial: TagAdminPage; filters: { q: string; status: string; sort: string } }) {
@@ -33,11 +35,12 @@ export function TagManager({ initial, filters }: { initial: TagAdminPage; filter
   const [confirmName, setConfirmName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   const triggerRef = useRef<HTMLButtonElement>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
   function openEditor(next: Editor) {
-    setEditor(next); setName(next.item?.name ?? ""); setError("");
+    setEditor(next); setName(next.item?.name ?? ""); setError(""); setNotice("");
   }
 
   async function save() {
@@ -84,18 +87,40 @@ export function TagManager({ initial, filters }: { initial: TagAdminPage; filter
       const response = await fetch(`/api/v1/admin/tags?${query}`, { cache: "no-store" });
       if (!response.ok) {throw new Error(await responseError(response, "加载更多标签失败"));}
       const page = await response.json() as TagAdminPage;
-      setItems((current) => [...current, ...page.items]); setNextCursor(page.nextCursor);
+      setItems((current) => mergeTagItems(current, page.items, filters.sort)); setNextCursor(page.nextCursor);
     } catch (caught) { setError(caught instanceof Error ? caught.message : "加载更多标签失败"); }
     finally { setBusy(false); }
   }
 
+  async function addCommonTags() {
+    if (busy) {return;}
+    setBusy(true); setError(""); setNotice("");
+    try {
+      const response = await fetch("/api/v1/admin/tags/defaults", {
+        method: "POST", credentials: "same-origin",
+        headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }),
+        body: JSON.stringify({}),
+      });
+      if (!response.ok) {throw new Error(await responseError(response, "添加常用标签失败"));}
+      const result = await response.json() as CommonTagsResult;
+      const visibleCreated = filters.status === "DELETED" ? [] : result.createdItems.filter((item) => tagMatchesQuery(item, filters.q));
+      setItems((current) => mergeTagItems(current, visibleCreated, filters.sort));
+      setSummary((current) => ({ ...current, activeTagCount: current.activeTagCount + result.createdItems.length }));
+      setNotice(result.createdItems.length
+        ? `已添加 ${result.createdItems.length} 个常用标签，${result.existingItems.length} 个已存在。`
+        : `${result.existingItems.length} 个常用标签已全部存在。`);
+    } catch (caught) { setError(caught instanceof Error ? caught.message : "添加常用标签失败"); }
+    finally { setBusy(false); }
+  }
+
   return <TagManagerView {...{
-    busy, confirmName, deleteItem, editor, error, filters, items, name, nameRef, nextCursor, openEditor, remove,
-    save, setConfirmName, setDeleteItem, setEditor, setError, setName, summary, triggerRef,
+    addCommonTags, busy, confirmName, deleteItem, editor, error, filters, items, name, nameRef, nextCursor,
+    notice, openEditor, remove, save, setConfirmName, setDeleteItem, setEditor, setError, setName, summary, triggerRef,
   }} onLoadMore={() => void loadMore()} />;
 }
 
 type TagManagerViewProps = {
+  addCommonTags: () => Promise<void>;
   busy: boolean;
   confirmName: string;
   deleteItem: TagAdminItem | null;
@@ -106,6 +131,7 @@ type TagManagerViewProps = {
   name: string;
   nameRef: RefObject<HTMLInputElement | null>;
   nextCursor: string | null;
+  notice: string;
   onLoadMore: () => void;
   openEditor: (editor: Editor) => void;
   remove: () => Promise<void>;
@@ -120,18 +146,33 @@ type TagManagerViewProps = {
 };
 
 function TagManagerView({
-  busy, confirmName, deleteItem, editor, error, filters, items, name, nameRef, nextCursor, onLoadMore,
-  openEditor, remove, save, setConfirmName, setDeleteItem, setEditor, setError, setName, summary, triggerRef,
+  addCommonTags, busy, confirmName, deleteItem, editor, error, filters, items, name, nameRef, nextCursor,
+  notice, onLoadMore, openEditor, remove, save, setConfirmName, setDeleteItem, setEditor, setError, setName,
+  summary, triggerRef,
 }: TagManagerViewProps) {
   return <div className="tag-manager">
     <div className="tag-kpis" aria-label="标签摘要"><article><span>活动标签</span><strong>{summary.activeTagCount}</strong><small>实例上限 1000</small></article><article><span>已关联游戏</span><strong>{summary.taggedGameCount}</strong><small>至少包含一个活动标签</small></article><article><span>待审核引用</span><strong>{summary.pendingReviewCount}</strong><small>等待管理员发布或丢弃</small></article></div>
-    <div className="tag-manager-toolbar"><form action="/admin/tags"><label><span>名称搜索</span><input name="q" defaultValue={filters.q} placeholder="搜索标签名称" /></label><label><span>状态</span><select name="status" defaultValue={filters.status}><option value="ACTIVE">活动标签</option><option value="DELETED">已删除</option><option value="ALL">全部状态</option></select></label><label><span>排序</span><select name="sort" defaultValue={filters.sort}><option value="NAME_ASC">名称 A–Z</option><option value="UPDATED_DESC">最近更新</option></select></label><button className="button secondary" type="submit">应用筛选</button><Link className="button ghost" href="/admin/tags">重置</Link></form><button ref={triggerRef} className="button" type="button" onClick={() => openEditor({ mode: "create", item: null })}>新建标签</button></div>
+    <div className="tag-manager-toolbar"><form action="/admin/tags"><label><span>名称搜索</span><input name="q" defaultValue={filters.q} placeholder="搜索标签名称" /></label><label><span>状态</span><select name="status" defaultValue={filters.status}><option value="ACTIVE">活动标签</option><option value="DELETED">已删除</option><option value="ALL">全部状态</option></select></label><label><span>排序</span><select name="sort" defaultValue={filters.sort}><option value="NAME_ASC">名称 A–Z</option><option value="UPDATED_DESC">最近更新</option></select></label><button className="button secondary" type="submit">应用筛选</button><Link className="button ghost" href="/admin/tags">重置</Link></form><div className="tag-manager-actions"><button className="button secondary" type="button" disabled={busy} onClick={() => void addCommonTags()}>{busy ? "正在添加…" : "添加常用标签"}</button><button ref={triggerRef} className="button" type="button" disabled={busy} onClick={() => openEditor({ mode: "create", item: null })}>新建标签</button></div></div>
     {error && !editor && !deleteItem ? <FeedbackBanner tone="bad">{error}。请刷新后重试；版本冲突时页面会保留当前输入。</FeedbackBanner> : null}
+    {notice && !editor && !deleteItem ? <FeedbackBanner tone="good">{notice}</FeedbackBanner> : null}
     <TagItems {...{ filters, items, openEditor, setConfirmName, setDeleteItem, setError }} />
     {nextCursor ? <button className="button secondary tag-load-more" type="button" disabled={busy} onClick={onLoadMore}>{busy ? "正在加载…" : "加载更多"}</button> : null}
     <TagEditorSheet {...{ busy, editor, error, name, nameRef, save, setEditor, setName, triggerRef }} />
     <TagDeleteDialog {...{ busy, confirmName, deleteItem, error, remove, setConfirmName, setDeleteItem }} />
   </div>;
+}
+
+function tagMatchesQuery(item: TagAdminItem, query: string) {
+  const normalized = query.trim().replace(/\s+/gu, " ").toLocaleLowerCase();
+  return !normalized || item.name.toLocaleLowerCase().includes(normalized);
+}
+
+function mergeTagItems(current: TagAdminItem[], incoming: TagAdminItem[], sort: string) {
+  const merged = new Map(current.map((item) => [item.tagId, item]));
+  for (const item of incoming) {merged.set(item.tagId, item);}
+  return [...merged.values()].sort(sort === "UPDATED_DESC"
+    ? (left, right) => right.updatedAtMs - left.updatedAtMs || right.tagId.localeCompare(left.tagId)
+    : (left, right) => left.name.localeCompare(right.name, "zh-CN") || left.tagId.localeCompare(right.tagId));
 }
 
 function TagItems({ filters, items, openEditor, setConfirmName, setDeleteItem, setError }: Pick<

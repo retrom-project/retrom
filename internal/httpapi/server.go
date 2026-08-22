@@ -350,6 +350,7 @@ func (server *Server) registerAdminLibraryRoutes(mux *http.ServeMux) {
 	}{
 		{"GET /api/v1/admin/tags", server.adminTags},
 		{"POST /api/v1/admin/tags", server.createAdminTag},
+		{"POST /api/v1/admin/tags/defaults", server.applyAdminTagDefaults},
 		{"GET /api/v1/admin/tags/{tagId}", server.adminTag},
 		{"PATCH /api/v1/admin/tags/{tagId}", server.patchAdminTag},
 		{"DELETE /api/v1/admin/tags/{tagId}", server.deleteAdminTag},

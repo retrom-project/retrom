@@ -12,6 +12,8 @@ import { MultiDiscModeField } from "./multidisc-mode-field";
 import { TagChips, TagPicker, type TagReference } from "@/components/tag-picker";
 import { MultiDiscPreflight as MultiDiscPreflightView } from "./multidisc-preflight-view";
 import { MULTI_DISC_DEFAULT_LIMITS, preflightMultiDisc, type MultiDiscPreflight } from "./multidisc-preflight";
+import { DirectoryPickerDialog } from "./directory-picker-dialog";
+import { directoryPickerAvailable, droppedDirectory, pickDirectory, type PickedDirectory, type PickedDirectoryFile } from "@/lib/directory-access";
 
 type ChosenFile = { id: string; file: File; name: string; size: number; path: string };
 type Directory = {
@@ -252,6 +254,10 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
   const [sourceType, setSourceType] = useState<"FILES" | "DIRECTORY">("FILES");
   const [step, setStep] = useState<1 | 2 | 3>(1);
   const [showFiles, setShowFiles] = useState(false);
+  const [directoryDialogOpen, setDirectoryDialogOpen] = useState(false);
+  const [directoryBrowsing, setDirectoryBrowsing] = useState(false);
+  const [directoryBrowseError, setDirectoryBrowseError] = useState("");
+  const [pendingDirectory, setPendingDirectory] = useState<PickedDirectory | null>(null);
   const reusableFiles = reusableSourceFiles(reconfigureSource);
   const defaults = reconfigurationDefaults(reconfigureSource);
   const [target, setTarget] = useState(defaults.target);
@@ -271,9 +277,8 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
   const preflightRunRef = useRef(0);
   const multiDiscOptedOutRef = useRef(false);
 
-  function choose(list: FileList | null, selectedSourceType: "FILES" | "DIRECTORY") {
-    if (!list) {return;}
-    const chosen = Array.from(list).map((file, index) => ({ id: `f${index + 1}`, file, name: file.name, size: file.size, path: file.webkitRelativePath || file.name }));
+  function choose(selected: PickedDirectoryFile[], selectedSourceType: "FILES" | "DIRECTORY") {
+    const chosen = selected.map(({ file, relativePath }, index) => ({ id: `f${index + 1}`, file, name: file.name, size: file.size, path: relativePath }));
     setFiles(chosen);
     setSourceType(selectedSourceType);
     setPreflight(null);
@@ -329,7 +334,7 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
           body: JSON.stringify({ targetPlatformInstanceId: target, metadataProvider: provider, tagIds: tags.map((tag) => tag.tagId) }),
         });
       } else {
-        const uploaded = await uploadFiles(files.map((chosen) => chosen.file), setProgress);
+        const uploaded = await uploadFiles(files.map((chosen) => ({ file: chosen.file, relativePath: chosen.path })), setProgress);
         setProgress("正在创建导入任务…");
         imported = await fetch("/api/v1/admin/imports", { method: "POST", credentials: "same-origin", headers: await writeHeaders({ "Content-Type": "application/json", "Idempotency-Key": newUuid() }), body: JSON.stringify({ uploadId: uploaded.uploadId, targetPlatformInstanceId: target, metadataProvider: provider, contentMode, tagIds: tags.map((tag) => tag.tagId) }) });
       }
@@ -355,15 +360,54 @@ export function UploadPicker({ directories, activeTags = [], reconfigureSource =
     preflightRunRef.current++;
     setFiles([]); setPreflight(null); setPreflighting(false); setContentMode("STANDARD"); setShowFiles(false);
   };
+  const closeDirectoryDialog = () => {
+    setDirectoryDialogOpen(false);
+    setPendingDirectory(null);
+    setDirectoryBrowseError("");
+    if (directoryInput.current) {directoryInput.current.value = "";}
+  };
+  const browseDirectory = async () => {
+    setDirectoryBrowseError("");
+    if (!directoryPickerAvailable()) {
+      directoryInput.current?.click();
+      return;
+    }
+    setDirectoryBrowsing(true);
+    try {
+      const selected = await pickDirectory();
+      if (!selected) {return;}
+      if (!selected.files.length) {setDirectoryBrowseError("所选目录中没有可上传文件"); return;}
+      setPendingDirectory(selected);
+    } catch (caught) {
+      setDirectoryBrowseError(caught instanceof Error ? caught.message : "无法读取所选目录");
+    } finally {
+      setDirectoryBrowsing(false);
+    }
+  };
+  const confirmDirectory = () => {
+    if (!pendingDirectory?.files.length) {return;}
+    const selected = pendingDirectory.files;
+    setDirectoryDialogOpen(false);
+    setPendingDirectory(null);
+    setDirectoryBrowseError("");
+    if (directoryInput.current) {directoryInput.current.value = "";}
+    choose(selected, "DIRECTORY");
+  };
+  const receiveLegacyDirectory = (list: FileList | null) => {
+    const selected = droppedDirectory(Array.from(list ?? []));
+    if (selected.files.length) {setPendingDirectory(selected);}
+  };
   const chooseDroppedFiles = (dropped: FileList) => {
-    const directory = Array.from(dropped).some((file) => file.webkitRelativePath.includes("/"));
-    choose(dropped, directory ? "DIRECTORY" : "FILES");
+    const selected = Array.from(dropped);
+    const directory = selected.some((file) => file.webkitRelativePath.includes("/"));
+    choose(droppedDirectory(selected).files, directory ? "DIRECTORY" : "FILES");
   };
   return <div className="import-wizard">
     <ImportStepper reconfiguring={Boolean(reconfigureSource)} step={step} />
-    <input ref={fileInput} id="import-files" aria-label="选择导入文件" hidden type="file" multiple onChange={(event) => choose(event.target.files, "FILES")} />
-    <input ref={directoryInput} id="import-directory" aria-label="选择导入目录" hidden type="file" multiple onChange={(event) => choose(event.target.files, "DIRECTORY")} {...{ webkitdirectory: "" }} />
-    {step === 1 ? <SourceStep files={files} onDrop={chooseDroppedFiles} onNext={() => setStep(2)} onPickDirectory={() => directoryInput.current?.click()} onPickFiles={() => fileInput.current?.click()} onReset={resetFiles} onToggleFiles={() => setShowFiles((current) => !current)} preflight={preflight} preflighting={preflighting} reconfigureSource={reconfigureSource} reusableFiles={reusableFiles} showFiles={showFiles} totalBytes={totalBytes} /> : null}
+    <input ref={fileInput} id="import-files" aria-label="选择导入文件" hidden type="file" multiple onChange={(event) => choose(droppedDirectory(Array.from(event.target.files ?? [])).files, "FILES")} />
+    <input ref={directoryInput} id="import-directory" aria-label="选择导入目录" hidden type="file" multiple onChange={(event) => receiveLegacyDirectory(event.target.files)} {...{ webkitdirectory: "" }} />
+    {step === 1 ? <SourceStep files={files} onDrop={chooseDroppedFiles} onNext={() => setStep(2)} onPickDirectory={() => {setPendingDirectory(null); setDirectoryBrowseError(""); setDirectoryDialogOpen(true);}} onPickFiles={() => fileInput.current?.click()} onReset={resetFiles} onToggleFiles={() => setShowFiles((current) => !current)} preflight={preflight} preflighting={preflighting} reconfigureSource={reconfigureSource} reusableFiles={reusableFiles} showFiles={showFiles} totalBytes={totalBytes} /> : null}
+    <DirectoryPickerDialog browsing={directoryBrowsing} directory={pendingDirectory} error={directoryBrowseError} open={directoryDialogOpen} onBrowse={() => void browseDirectory()} onCancel={closeDirectoryDialog} onConfirm={confirmDirectory} onDrop={(dropped) => {setDirectoryBrowseError(""); setPendingDirectory(droppedDirectory(Array.from(dropped)));}} />
     {step === 2 ? <ConfigStep activeTags={activeTags} busy={busy} contentMode={contentMode} directories={directories} fileCount={fileCount} multiDiscInvalid={multiDiscInvalid} multiDiscLimits={multiDiscLimits} multiDiscSubmitLabel={submitLabel} multiDiscSupported={multiDiscSupported} onBack={() => setStep(1)} onContentMode={(selected) => { setContentMode(selected ? "MULTI_DISC_M3U_V1" : "STANDARD"); multiDiscOptedOutRef.current = !selected; }} onProvider={setProvider} onSubmit={() => void submitImport()} onTags={setTags} onTarget={changeTarget} preflight={preflight} preflighting={preflighting} provider={provider} reconfiguring={Boolean(reconfigureSource)} selectedDirectory={selectedDirectory} sourceIsDirectory={sourceType === "DIRECTORY"} tags={tags} target={target} totalBytes={totalBytes} visibleCapabilityNotice={visibleCapabilityNotice} /> : null}
     {step === 3 ? <ProgressStep busy={busy} completedJobId={completedJobId} error={error} onBack={() => setStep(2)} onComplete={() => { router.push("/admin/imports/tasks"); router.refresh(); }} progress={progress} reconfiguring={Boolean(reconfigureSource)} uploadPercent={uploadPercent} /> : null}
   </div>;

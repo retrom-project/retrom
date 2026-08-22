@@ -21,6 +21,27 @@ function json(value: unknown, status = 200) {
 }
 
 describe("TagManager", () => {
+  it("atomically adds the common tag template and reports existing items", async () => {
+    const createdItems = [
+      { ...initialTag, tagId: "01980000-0000-7000-8000-000000000910", name: "动作冒险", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, pegasusCollectionCount: 0 } },
+      { ...initialTag, tagId: "01980000-0000-7000-8000-000000000911", name: "益智解谜", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, pegasusCollectionCount: 0 } },
+    ];
+    const fetchMock = vi.fn().mockResolvedValue(json({ createdItems, existingItems: [initialTag] }));
+    vi.stubGlobal("fetch", fetchMock);
+    const user = userEvent.setup();
+    const { container } = render(<TagManager initial={initial} filters={{ q: "", status: "ACTIVE", sort: "NAME_ASC" }} />);
+
+    await user.click(screen.getByRole("button", { name: "添加常用标签" }));
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/tags/defaults", expect.objectContaining({
+      method: "POST", body: JSON.stringify({}), headers: expect.objectContaining({ "Idempotency-Key": expect.any(String) }),
+    })));
+    expect(await screen.findByText("已添加 2 个常用标签，1 个已存在。")).toBeVisible();
+    expect(screen.getByRole("rowheader", { name: "动作冒险" })).toBeVisible();
+    expect(screen.getByRole("rowheader", { name: "益智解谜" })).toBeVisible();
+    expect(container.querySelector(".tag-kpis article:first-child strong")).toHaveTextContent("3");
+  });
+
   it("creates, renames and name-confirms a soft delete using optimistic versions", async () => {
     const created: TagAdminItem = { ...initialTag, tagId: "01980000-0000-7000-8000-000000000902", name: "双人", version: 1, usage: { publishedGameCount: 0, deletedGameCount: 0, reviewDraftCount: 0, pegasusCollectionCount: 0 } };
     const renamed = { ...initialTag, name: "动作游戏", version: 3 };

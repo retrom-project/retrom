@@ -98,6 +98,42 @@ func TestTagLifecycleAndNameReuse(t *testing.T) {
 	}
 }
 
+func TestEnsureCommonTagsIsAtomicAndIdempotent(t *testing.T) {
+	t.Parallel()
+	database, service, _ := openTaggingTest(t)
+	defer func() { cleanup.Error("close", database.Close()) }()
+	ctx := context.Background()
+
+	existing, err := service.Create(ctx, testAdminID, "动作冒险")
+	testassert.False(t, err != nil, err)
+	first, err := service.EnsureCommonTags(ctx, testAdminID)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return err != nil },
+		func() bool { return len(first.CreatedItems) != 9 },
+		func() bool { return len(first.ExistingItems) != 1 },
+		func() bool { return first.ExistingItems[0].TagID != existing.TagID },
+	), "first ensure = %#v, %v", first, err)
+	second, err := service.EnsureCommonTags(ctx, testAdminID)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return err != nil },
+		func() bool { return len(second.CreatedItems) != 0 },
+		func() bool { return len(second.ExistingItems) != len(CommonTagNames()) },
+	), "second ensure = %#v, %v", second, err)
+
+	var activeCount, auditCount int
+	if err := database.SQL.QueryRowContext(ctx, `
+SELECT
+  (SELECT count(*) FROM tags WHERE status='ACTIVE'),
+  (SELECT count(*) FROM audit_events WHERE action='TAG_CREATED')
+`).Scan(&activeCount, &auditCount); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return activeCount != len(CommonTagNames()) },
+		func() bool { return auditCount != len(CommonTagNames()) },
+	), "common tags = active:%d audits:%d", activeCount, auditCount)
+}
+
 func TestReplaceGameTagsAndDeleteInvalidatesGameVersion(t *testing.T) {
 	t.Parallel()
 	database, service, clock := openTaggingTest(t)
@@ -157,6 +193,15 @@ FROM sequence
 	}
 	if _, err := service.Create(ctx, testAdminID, "超过实例上限"); !errors.Is(err, ErrLimitReached) {
 		t.Fatalf("capacity error = %v", err)
+	}
+	if _, err := service.EnsureCommonTags(ctx, testAdminID); !errors.Is(err, ErrLimitReached) {
+		t.Fatalf("common tag capacity error = %v", err)
+	}
+	for _, name := range CommonTagNames() {
+		var count int
+		if err := database.SQL.QueryRowContext(ctx, `SELECT count(*) FROM tags WHERE status='ACTIVE' AND name=?`, name).Scan(&count); err != nil || count != 0 {
+			t.Fatalf("common tag %q was partially created at capacity: count=%d error=%v", name, count, err)
+		}
 	}
 
 	for index := 1; index <= MaxTagsPerOwner; index++ {

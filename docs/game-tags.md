@@ -29,6 +29,8 @@
 
 标签 create/rename/delete 和每个关系集合变化都会推进相关 Tag version。重命名只改变 Tag 本身；由于搜索和投影动态连接活动 Tag，名称会立即更新而不会重写 `games.search_text` 或创建 MetadataRevision。
 
+标签页提供可重复执行的“添加常用标签”模板，固定包含：动作冒险、飞行射击、格斗对战、角色扮演、模拟经营、即时战略、体育竞技、益智解谜、光枪射击、生存恐怖。这些条目创建后仍是普通管理员标签，不增加系统标记、锁定或特殊删除规则。补齐操作按规范化 `name_key` 复用已有活动标签，只在一个事务内创建缺失项；容量不足时整批不写，重复执行不产生新标签。
+
 ## 3. 关系写入与事务
 
 所有集合替换遵守同一过程：先验证数组长度、规范 UUIDv7、重复和全部 Tag 的活动状态；读取当前活动集合；完全相同则 no-op；否则删除不再选择的活动关系、插入新增关系，保留指向 DELETED tombstone 的历史行，推进 touched Tag 和 owner aggregate 的版本并记录领域事件或审计。数据库 trigger 再次保护活动状态、owner 状态和 20 个上限。
@@ -57,7 +59,7 @@ Pegasus 在 Collection 映射步骤逐项选择默认标签，可用批量辅助
 
 ## 6. 管理与用户界面
 
-- App Shell 在“游戏管理”之后提供 `/admin/tags`。页面包含活动/关联游戏/待审核摘要、名称/状态/排序筛选、桌面表与移动卡片、创建/重命名 Drawer 和带 usage、完整名称确认的删除 Dialog。
+- App Shell 在“游戏管理”之后提供 `/admin/tags`。页面包含活动/关联游戏/待审核摘要、名称/状态/排序筛选、桌面表与移动卡片、“添加常用标签”、创建/重命名 Drawer 和带 usage、完整名称确认的删除 Dialog。常用标签补齐结束后明确报告新建与已存在数量。
 - 通用 TagPicker 使用 combobox/listbox 语义，支持 ArrowUp/Down、Enter、Escape、带完整名称的移除按钮、20 个上限朗读和空 taxonomy 管理链接；listbox 通过顶层浮动层呈现并随输入位置更新，按视口剩余空间向下或向上展开，不能被 Drawer、列表或其他滚动容器裁剪；它只管理受控选择，业务 feature 负责读取与提交。
 - 游戏库搜索提示明确包含标签，并用 `tagId` 单选筛选写入 URL；游戏详情的每个 chip 链接回 `/library?tagId=...`。genre 与 Tag 始终分开展示。
 - 普通导入、Pegasus Collection、ReviewDraft 和管理员游戏详情均使用同一活动 TagPicker；成功写入后必须采用响应的新 owner version，冲突时刷新真实聚合，不能在客户端猜测 rename/delete 结果。

@@ -1,13 +1,33 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import type * as DirectoryAccess from "@/lib/directory-access";
 import { UploadPicker } from "./upload-picker";
+
+const directoryAccess = vi.hoisted(() => ({ directoryPickerAvailable: vi.fn(), pickDirectory: vi.fn() }));
+
+vi.mock("@/lib/directory-access", async (loadOriginal) => {
+  const original = await loadOriginal<typeof DirectoryAccess>();
+  return { ...original, directoryPickerAvailable: directoryAccess.directoryPickerAvailable, pickDirectory: directoryAccess.pickDirectory };
+});
 
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
 
+beforeEach(() => {
+  directoryAccess.directoryPickerAvailable.mockReset().mockReturnValue(true);
+  directoryAccess.pickDirectory.mockReset();
+});
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
+
+async function useDirectory(files: Array<{ file: File; relativePath: string }>, name = "game") {
+  const user = userEvent.setup();
+  directoryAccess.pickDirectory.mockResolvedValue({ files, name });
+  await user.click(screen.getByRole("button", { name: "选择目录" }));
+  await user.click(screen.getByRole("button", { name: "浏览本机目录" }));
+  await user.click(await screen.findByRole("button", { name: "使用此目录" }));
+}
 
 describe("UploadPicker", () => {
   it("groups the file and directory actions in the centered dropzone control row", () => {
@@ -16,6 +36,44 @@ describe("UploadPicker", () => {
     const actions = screen.getByRole("button", { name: "选择文件" }).closest(".dropzone-actions");
     expect(actions).not.toBeNull();
     expect(actions).toContainElement(screen.getByRole("button", { name: "选择目录" }));
+  });
+
+  it("confirms a selected directory in an application dialog before using it", async () => {
+    const user = userEvent.setup();
+    render(<UploadPicker directories={[]} />);
+
+    const trigger = screen.getByRole("button", { name: "选择目录" });
+    await user.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "选择游戏目录" });
+    expect(dialog).toBeVisible();
+    expect(screen.getByRole("button", { name: "使用此目录" })).toBeDisabled();
+
+    const rom = new File(["rom"], "game.gba");
+    directoryAccess.pickDirectory.mockResolvedValue({ files: [{ file: rom, relativePath: "GBA/game.gba" }], name: "GBA" });
+    await user.click(screen.getByRole("button", { name: "浏览本机目录" }));
+    expect(within(dialog).getByRole("heading", { name: "GBA" })).toBeVisible();
+    expect(within(dialog).getByText("1 个文件 · 3 B")).toBeVisible();
+    expect(within(dialog).queryByText("目录已读取")).not.toBeInTheDocument();
+    expect(screen.queryByText(/文件相对路径会完整保留，上传前仍可重新选择/)).not.toBeInTheDocument();
+
+    await user.click(screen.getByRole("button", { name: "使用此目录" }));
+    expect(screen.queryByRole("dialog", { name: "选择游戏目录" })).not.toBeInTheDocument();
+    expect(screen.getByText(/文件相对路径会完整保留，上传前仍可重新选择/)).toBeVisible();
+  });
+
+  it("falls back to the browser directory input when the handle API is unavailable", async () => {
+    const user = userEvent.setup();
+    directoryAccess.directoryPickerAvailable.mockReturnValue(false);
+    render(<UploadPicker directories={[]} />);
+
+    await user.click(screen.getByRole("button", { name: "选择目录" }));
+    await user.click(screen.getByRole("button", { name: "浏览本机目录" }));
+    const rom = new File(["rom"], "game.gba");
+    Object.defineProperty(rom, "webkitRelativePath", { value: "GBA/game.gba" });
+    await user.upload(screen.getByLabelText("选择导入目录"), rom);
+
+    expect(await screen.findByRole("heading", { name: "GBA" })).toBeVisible();
+    expect(directoryAccess.pickDirectory).not.toHaveBeenCalled();
   });
 
   it("requires the user to choose a platform directory explicitly", async () => {
@@ -43,10 +101,10 @@ describe("UploadPicker", () => {
     ]} />);
     const playlist = new File(["one.chd\ntwo.chd\n"], "game.m3u");
     const firstDisc = new File(["MComprHDone"], "one.chd");
-    Object.defineProperty(playlist, "webkitRelativePath", { value: "game/game.m3u" });
-    Object.defineProperty(firstDisc, "webkitRelativePath", { value: "game/one.chd" });
-
-    await user.upload(screen.getByLabelText("选择导入目录"), [playlist, firstDisc]);
+    await useDirectory([
+      { file: playlist, relativePath: "game/game.m3u" },
+      { file: firstDisc, relativePath: "game/one.chd" },
+    ]);
     expect(await screen.findByText("可以继续，审核会阻断")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "下一步" }));
     expect(screen.queryByRole("checkbox", { name: /多盘游戏/ })).not.toBeInTheDocument();
@@ -65,7 +123,6 @@ describe("UploadPicker", () => {
   });
 
   it("lists recursive groups, expands the first incomplete group and counts only processable games", async () => {
-    const user = userEvent.setup();
     render(<UploadPicker directories={[]} />);
     const files = [
       new File(["a.chd\nb.chd\n"], "game.m3u"),
@@ -76,10 +133,8 @@ describe("UploadPicker", () => {
       new File(["one.chd\ntwo.chd\n"], "one.m3u"),
       new File(["one.chd\ntwo.chd\n"], "two.m3u"),
     ];
-    for (const [file, path] of files.map((file, index) => [file, ["complete/game.m3u", "complete/a.chd", "complete/b.chd", "blocked/game.m3u", "blocked/x.chd", "invalid/one.m3u", "invalid/two.m3u"][index]] as const)) {
-      Object.defineProperty(file, "webkitRelativePath", { value: path });
-    }
-    await user.upload(screen.getByLabelText("选择导入目录"), files);
+    const paths = ["complete/game.m3u", "complete/a.chd", "complete/b.chd", "blocked/game.m3u", "blocked/x.chd", "invalid/one.m3u", "invalid/two.m3u"];
+    await useDirectory(files.map((file, index) => ({ file, relativePath: paths[index] })));
 
     expect(await screen.findByText("发现多盘游戏")).toBeVisible();
     expect(screen.getByText("2", { selector: ".multi-disc-preflight-summary strong" })).toBeVisible();

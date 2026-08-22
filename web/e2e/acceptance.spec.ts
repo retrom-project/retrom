@@ -242,6 +242,12 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await expect(adminGameRow).toBeVisible();
   expect((await adminGameRow.boundingBox())?.height ?? 0).toBeGreaterThanOrEqual(84);
   await expect(page.getByRole("region", { name: "游戏管理摘要" })).toBeVisible();
+  const runtimeFilter = await page.getByRole("combobox", { name: "运行状态" }).boundingBox();
+  const sortFilter = await page.getByRole("combobox", { name: "排序" }).boundingBox();
+  expect(runtimeFilter).not.toBeNull();
+  expect(sortFilter).not.toBeNull();
+  expect(Math.abs(sortFilter!.y - runtimeFilter!.y)).toBeLessThanOrEqual(1);
+  expect(sortFilter!.x).toBeGreaterThan(runtimeFilter!.x);
   await page.evaluate(() => window.history.replaceState({ marker: "admin-games" }, "", window.location.href));
   await page.getByRole("searchbox", { name: "搜索游戏" }).fill("Sudoku");
   await expect(page.locator(".admin-game-table tbody tr")).toHaveCount(1);
@@ -337,6 +343,19 @@ test("ACC-UI-008 large review queue preserves filters, pagination, draft safety,
   await expect(page.getByRole("textbox", { name: "导入批次" })).toHaveValue(primaryJob);
   const rows = page.locator("[data-review-item]");
   await expect(rows).toHaveCount(20);
+  const reviewColumnAlignment = await rows.evaluateAll((elements) => {
+    const status = elements[0]?.querySelector(".status");
+    const longStatus = document.createTextNode(" · 缺少依赖，需要处理");
+    status?.append(longStatus);
+    const positions = elements.slice(0, 2).map((element) => ({
+      directory: element.querySelector<HTMLElement>(".review-workflow-directory")!.getBoundingClientRect().left,
+      candidate: element.querySelector<HTMLElement>(".review-workflow-candidate")!.getBoundingClientRect().left,
+    }));
+    longStatus.remove();
+    return positions;
+  });
+  expect(Math.abs(reviewColumnAlignment[0].directory - reviewColumnAlignment[1].directory)).toBeLessThanOrEqual(1);
+  expect(Math.abs(reviewColumnAlignment[0].candidate - reviewColumnAlignment[1].candidate)).toBeLessThanOrEqual(1);
   await page.getByRole("button", { name: "继续加载" }).click();
   await expect(rows).toHaveCount(40);
   await page.getByRole("button", { name: "继续加载" }).click();
