@@ -83,7 +83,7 @@ error_details_json=?,
 existing_game_id=COALESCE(?,existing_game_id),
 existing_content_revision_id=COALESCE(?,existing_content_revision_id),
 completed_at_ms=?,updated_at_ms=?
-WHERE id=? AND execution_state IN ('COPYING','VALIDATING','PUBLISHING')`,
+WHERE id=? AND execution_state IN ('COPYING','VALIDATING')`,
 		state,
 		nullIfEmpty(code),
 		boolInt(retryable),
@@ -167,7 +167,7 @@ existing_item_count=(
 ),
 blocked_item_count=(
   SELECT count(*) FROM pegasus_import_items
-  WHERE import_id=? AND execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT','BLOCKED_VALIDATION')
+  WHERE import_id=? AND execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')
 ),
 failed_item_count=(
   SELECT count(*) FROM pegasus_import_items
@@ -270,7 +270,7 @@ func (service *Service) finishImport(ctx context.Context, unit work) error {
 	var blocked, failed, reviewPending, published, reviewDiscarded, existing, cancelled int64
 	if err := transaction.QueryRowContext(ctx, `
 SELECT count(*) FILTER(
-  WHERE execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT','BLOCKED_VALIDATION')
+  WHERE execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')
 ),
 count(*) FILTER(
   WHERE execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')

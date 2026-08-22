@@ -8,7 +8,9 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"encoding/json"
 	"errors"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -65,7 +67,7 @@ INSERT INTO game_content_revisions(
 INSERT INTO games(
   id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
   search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,'01980000-0000-7000-8000-000000000005','PUBLISHED',?,?,lower(?),1,1000,1000)
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),'PUBLISHED',?,?,lower(?),1,1000,1000)
 `, backupGameID, metadataID, contentID, "Backup favorite"); err != nil {
 		t.Fatal(err)
 	}
@@ -286,7 +288,7 @@ VALUES(?,'backup-root','Backup root','games',?,'AWAITING_MAPPING',NULL,?,?,1,1,9
 	bundle := filepath.Join(root, "bundle")
 	manifest, err := Backup(ctx, configuration, bundle, time.Now)
 	testassert.False(t, err != nil, err)
-	testassert.Falsef(t, testassert.Any(func() bool { return manifest.Counts.UploadPartCount != 1 }, func() bool { return manifest.Counts.DependencyVersionCount != 1 }), "backup counts = %#v", manifest.Counts)
+	testassert.Falsef(t, testassert.Any(func() bool { return manifest.SchemaVersion != 2 }, func() bool { return manifest.DatabaseSchemaVersion != 10 }, func() bool { return len(manifest.MigrationLineageDigest) != 64 }, func() bool { return manifest.Counts.UploadPartCount != 1 }, func() bool { return manifest.Counts.DependencyVersionCount != 1 }), "backup manifest = %#v", manifest)
 	restored := filepath.Join(root, "restored")
 	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, restored); err != nil {
 		t.Fatal(err)
@@ -325,5 +327,27 @@ SELECT
 		ErrInvalidBundle,
 	) {
 		t.Fatalf("overwrite restore error = %v", err)
+	}
+	manifestPath := filepath.Join(bundle, "backup.json")
+	contents, err := os.ReadFile(manifestPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var obsolete map[string]any
+	if err := json.Unmarshal(contents, &obsolete); err != nil {
+		t.Fatal(err)
+	}
+	obsolete["schemaVersion"] = float64(1)
+	delete(obsolete, "migrationLineageDigest")
+	contents, err = json.Marshal(obsolete)
+	if err != nil {
+		t.Fatal(err)
+	}
+	contents = append(contents, '\n')
+	if err := os.WriteFile(manifestPath, contents, 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := Restore(ctx, config.Maintenance{DependencyRoot: dependencyRoot, DependencyVersions: []string{"4.2.3"}, ActiveEJSVersion: "4.2.3"}, bundle, filepath.Join(root, "obsolete-restored")); !errors.Is(err, ErrInvalidBundle) {
+		t.Fatalf("obsolete backup manifest error = %v", err)
 	}
 }

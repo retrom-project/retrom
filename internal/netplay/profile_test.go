@@ -12,7 +12,7 @@ import (
 
 func TestRegistryRejectsDependencyDriftAndProducesStableCanonicalProfile(t *testing.T) {
 	t.Parallel()
-	contents, err := os.ReadFile(filepath.Join("..", "..", "data", "netplay", "v1", "manifest.json"))
+	contents, err := os.ReadFile(filepath.Join("..", "..", "data", ManifestRelativePath))
 	testassert.False(t, err != nil, err)
 	set := fixtureDependencySet()
 	registry, err := parseRegistry(contents, set)
@@ -46,9 +46,9 @@ func TestRegistryRejectsDependencyDriftAndProducesStableCanonicalProfile(t *test
 func TestRegistryRejectsContentSpecificProfileFields(t *testing.T) {
 	t.Parallel()
 	contents := []byte(`{
-  "schemaVersion":3,
+  "schemaVersion":4,
   "protocol":{
-    "version":"retrom-netplay-v1","playerAdapterId":"ejs-4.2.3-v2",
+    "version":"retrom-netplay-v2","playerAdapterId":"ejs-4.2.3-v2",
     "netplayAdapterId":"ejs-netplay-4.2.3-v1","controlCount":24,
     "checkpointEveryFrames":120,"maxPredictionFrames":8,"maxRollbackFrames":120,
     "canonicalHistoryFrames":600,"maxStateBytes":1048576,

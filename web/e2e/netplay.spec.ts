@@ -115,17 +115,13 @@ async function waitForFrame(page: Page, frame: number) {
 async function canvasDigest(page: Page, testInfo: TestInfo, name: string) {
   const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
   await expect(canvas).toBeVisible({ timeout: 30_000 });
-  const overlays = page.locator(".player-pause-overlay, .player-controls-hint");
-  await overlays.evaluateAll((elements) => elements.forEach((element) => {
-    (element as HTMLElement).style.visibility = "hidden";
-  }));
-  try {
-    return createHash("sha256").update(await canvas.screenshot({ path: evidencePath(testInfo, name) })).digest("hex");
-  } finally {
-    await overlays.evaluateAll((elements) => elements.forEach((element) => {
-      (element as HTMLElement).style.removeProperty("visibility");
-    }));
-  }
+  // Element screenshots include fixed-position page chrome composited over the
+  // canvas crop. Read the canvas bitmap itself so the digest proves emulator
+  // output equality regardless of each player's surrounding layout.
+  const dataURL = await canvas.evaluate((element: HTMLCanvasElement) => element.toDataURL("image/png"));
+  const png = Buffer.from(dataURL.slice(dataURL.indexOf(",") + 1), "base64");
+  writeFileSync(evidencePath(testInfo, name), png);
+  return createHash("sha256").update(png).digest("hex");
 }
 
 async function setDirectionalInput(page: Page, pressed: boolean) {

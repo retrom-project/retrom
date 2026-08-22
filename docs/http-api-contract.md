@@ -77,7 +77,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 `GET /api/v1/auth/context` 是页面 bootstrap 的唯一事实源且永不返回 401。它只返回 `instanceState=INITIALIZATION_REQUIRED|READY`、`mode=release|test`、`authenticationState=NOT_APPLICABLE|UNAUTHENTICATED|AUTHENTICATED`、可空 User、可空 CSRF/idle/absolute expiry 和 `testDefaultAccountActive`。合法组合只有：INITIALIZATION_REQUIRED+NOT_APPLICABLE+全空、READY+UNAUTHENTICATED+全空、READY+AUTHENTICATED+全非空。
 
-无需有效 AuthSession 的路径仅有 health、auth context、release initialize、login/logout、account-link inspect、Invitation accept、PasswordReset complete、固定 runtime allowlist 和已经由 launch cookie 限定的 `/runtime/launches/**`。其余 `/api/v1/home|recent-games|games*|saves*|launches` 及 `/content/**` 要求已登录；`/api/v1/admin/**` 另要求 `role=ADMIN`。普通 USER 访问管理 API统一 `403 ADMIN_REQUIRED`；任意账号访问他人的 SaveState、截图、Launch、PersistentSave 或私有 cursor 统一 404/不可用，管理员没有 owner bypass。
+无需有效 AuthSession 的路径仅有 health、auth context、release initialize、login/logout、account-link inspect、Invitation accept、PasswordReset complete、固定 runtime allowlist 和已经由 launch cookie 限定的 `/runtime/launches/**`。其余 `/api/v1/home|recent-games|games*|saves*|launches` 及 `/content/**` 要求已登录；`/api/v1/admin/**` 另要求 `role=ADMIN`。普通 USER 访问管理 API统一 `403 ADMIN_REQUIRED`；任意账号访问他人的 SaveState、截图、Launch 或私有 cursor 统一 404/不可用，管理员没有 owner bypass。
 
 AuthSession cookie 在 HTTP 开发环境名为 `retrom_session`，HTTPS 为 `__Host-retrom_session`，固定 `Path=/; HttpOnly; SameSite=Strict`，HTTPS 另有 `Secure`；idle 8h、absolute 24h。数据库只存 token SHA-256。登录失败和 DISABLED/DELETED 账号统一 `401 AUTHENTICATION_FAILED` 与文案“用户名或密码不正确”。logout 是幂等例外：无效/缺失 cookie 不要求 CSRF也返回 204；有效 session必须通过 CSRF，成功撤销并发送过期 cookie及 `Clear-Site-Data: "cache", "cookies", "storage"`。
 
@@ -124,7 +124,7 @@ img-src 'self' data: blob:; media-src 'self' blob:; font-src 'self' data:
 - 创建上传、上传终结、ImportJob、Launch、账号管理、可能投递兼容性任务的游戏移动预览、游戏软删除、审核通过/Discard 等可能被重试的写操作必须携带规范小写 UUIDv4/UUIDv7 `Idempotency-Key`。服务端按 `principal + operationId + key` 保存语义请求摘要和结果 24 小时；同一账号同 key/同语义请求返回原 status/body 及白名单响应头，不同请求返回 `409 IDEMPOTENCY_KEY_REUSED`，跨账号使用同 key 是独立命名空间。白名单只含 `Content-Type/Location/ETag/Retry-After`，绝不持久化 `Set-Cookie`、认证 header、密码或任意 capability；Launch 与一次性链接 replay 按服务端 key/公开 ID重新派生同一 secret 响应。
 - 状态转换在单个短事务中同时写资源、不可变事件和 outbox/job 记录；重复请求不得重复发布、重复引用 Blob 或重复 ReviewEvent。
 
-语义请求摘要固定为 lowercase hex SHA-256(RFC 8785 canonical JSON)：object 包含 `operationId`、按 OpenAPI 名排序的规范 path/query 参数、可空 `If-Match`、规范 media type，以及 body 表示；不包含 cookie、`Idempotency-Key`、request ID 等非业务 header。普通 JSON body 在严格解析后以 canonical JSON 嵌入，空 body 为 `null`。需要 Idempotency-Key 的两个 runtime streaming operation 分别嵌入：SaveState 的 canonical metadata、两个 part 的 media type/length/SHA-256；PersistentSave 的 sequence/event/length/SHA-256。Upload part 不写 idempotency record，它按路径中的 upload/file/part、Content-Range 和声明/实际 digest 使用自身永久唯一规则。服务端必须先完成有界流式接收与摘要，再在一个 `BEGIN IMMEDIATE` 短事务中检查记录，并把领域变更、不可变事件和 COMPLETED idempotency record 一起提交；事务前产生但未引用的 CAS Blob 交给 GC。这样并发相同请求只有一份领域结果，不需要持有事务读取大 body，也不存在“已保存响应但领域事务回滚”的窗口。24 小时后相同 key 可视为新请求；永久唯一性仍由领域约束保证，不能依赖幂等记录充当数据库约束。
+语义请求摘要固定为 lowercase hex SHA-256(RFC 8785 canonical JSON)：object 包含 `operationId`、按 OpenAPI 名排序的规范 path/query 参数、可空 `If-Match`、规范 media type，以及 body 表示；不包含 cookie、`Idempotency-Key`、request ID 等非业务 header。普通 JSON body 在严格解析后以 canonical JSON 嵌入，空 body 为 `null`。runtime SaveState streaming operation 嵌入 canonical metadata、两个 part 的 media type/length/SHA-256。Upload part 不写 idempotency record，它按路径中的 upload/file/part、Content-Range 和声明/实际 digest 使用自身永久唯一规则。服务端必须先完成有界流式接收与摘要，再在一个 `BEGIN IMMEDIATE` 短事务中检查记录，并把领域变更、不可变事件和 COMPLETED idempotency record 一起提交；事务前产生但未引用的 CAS Blob 交给 GC。这样并发相同请求只有一份领域结果，不需要持有事务读取大 body，也不存在“已保存响应但领域事务回滚”的窗口。24 小时后相同 key 可视为新请求；永久唯一性仍由领域约束保证，不能依赖幂等记录充当数据库约束。
 
 ## 4. 浏览器文件与目录上传
 
@@ -210,7 +210,7 @@ source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 re
 
 ### 5.2 Arcade Parent Attachment
 
-Arcade Review GET 额外返回 `effectiveSourceSnapshotId` 和可空 `arcadeDependencies`。非 Arcade 为 null；Arcade object 固定含 `machine/status/compatibilityCode/nodes/activeAttachment`。每个 node 含 `kind/machine/requiredBy/depth/expectedLogicalName/state/requiredEntryCount/requiredEntries/canAttach/attachment`；BIOS/Base 另有站内 `managementUrl`。`canAttach=true` 仅限当前有效 Validation 的 Parent `MISSING/MISMATCH`，且 Item 可编辑、无 active Attachment、非 Merged/CHD/cycle/config stale。历史 V1 由服务端投影，客户端不得推断 Parent 层级。
+Arcade Review GET 额外返回 `effectiveSourceSnapshotId` 和可空 `arcadeDependencies`。非 Arcade 为 null；Arcade object 固定含 `machine/status/compatibilityCode/nodes/activeAttachment`。每个 node 含 `kind/machine/requiredBy/depth/expectedLogicalName/state/requiredEntryCount/requiredEntries/canAttach/attachment`；BIOS/Base 另有站内 `managementUrl`。`canAttach=true` 仅限当前有效 Validation 的 Parent `MISSING/MISMATCH`，且 Item 可编辑、无 active Attachment、非 Merged/CHD/cycle/config stale。服务端只投影当前 Arcade V2 依赖，客户端不得自行推断 Parent 层级。
 
 bytes 先使用第 4 节通用协议创建单文件 `sourceType=FILES` session、上传 parts、complete 并等待 UploadFile COMPLETE。随后创建业务 Attachment：
 
@@ -316,7 +316,7 @@ Idempotency-Key: <uuid>
 
 相同 Idempotency-Key/body 取得原 launchId 后重新计算同一 capability 和 `Set-Cookie`，因此无需把 secret 放进 idempotency record，也不会让并发重放互相作废。不同 launchId 经过域隔离得到不同输出；服务端仍常量时间比较 request cookie 的 SHA-256 与 session 行。`finish`/撤销响应用相同 name/path 和 `Max-Age=0` 尽力清理 cookie；session 撤销状态始终是最终防线。`launchId` 是可记录、可出现在 URL 的非秘密 UUIDv7；cookie 才是凭据。日志、JSON、路由、query、Referer、诊断和数据库不得出现 capability 明文。
 
-已有验证结果的预检阻断返回 `422 LAUNCH_BLOCKED`，`details.blockers` 和 `details.warnings` 使用稳定 code/level/message/details，不创建 credential。常用 code 统一加 `LAUNCH_` 前缀，例如 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`LAUNCH_SAVE_INCOMPATIBLE`、`LAUNCH_DOS_ENTRY_MISSING`、`LAUNCH_DOS_ENTRY_UNSAFE`、`LAUNCH_CORE_VALIDATION_UNAVAILABLE`、`LAUNCH_CORE_VALIDATION_TIMEOUT`、`LAUNCH_PERSISTENT_SAVE_TOO_LARGE`、`LAUNCH_THREADS_UNAVAILABLE`；全屏拒绝是浏览器侧 Warning，不是假装后端错误。
+已有验证结果的预检阻断返回 `422 LAUNCH_BLOCKED`，`details.blockers` 和 `details.warnings` 使用稳定 code/level/message/details，不创建 credential。常用 code 统一加 `LAUNCH_` 前缀，例如 `LAUNCH_BIOS_MISSING`、`LAUNCH_PARENT_MISSING`、`LAUNCH_SAVE_INCOMPATIBLE`、`LAUNCH_DOS_ENTRY_MISSING`、`LAUNCH_DOS_ENTRY_UNSAFE`、`LAUNCH_CORE_VALIDATION_UNAVAILABLE`、`LAUNCH_CORE_VALIDATION_TIMEOUT`、`LAUNCH_THREADS_UNAVAILABLE`；全屏拒绝是浏览器侧 Warning，不是假装后端错误。
 
 凭据创建后 5 分钟内没有请求 bootstrap 即过期；首次正确 config 请求转为 `ACTIVE`。在 ROM/core 下载和 `EJS_onGameStart` 之间没有 PlaySession，因此只受创建后 24 小时 hard expiry，不能用 2 分钟 idle 把较大内容加载到一半的合法启动误杀；真实 start 成功后设置 idle expiry 为服务端接收时刻 + 2 分钟，此后每个连续 heartbeat/finish 更新或终结它。hard/idle 任一到期即撤销；无 PlaySession 的显式退出或 `pagehide` 也必须调用下面定义的 pre-start finish 尽力撤销。管理员删除游戏同样撤销。复制 `/play/<launchId>` 到没有 cookie 的浏览器只能显示“启动会话不可用”，不能取得内容。
 
@@ -344,7 +344,6 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | `/runtime/launches/{launchId}/parent/bundle.zip` | 支持 GET/HEAD，只允许预检确定性 parent bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。HEAD 执行与 GET 相同的 capability、Launch 状态和 bundle 清单校验，返回相同的长度、ETag 与 Range 元数据但不返回 body。 |
 | `/runtime/launches/{launchId}/external-files/{logicalName}` | 只允许本 Launch 创建事务锁定的外部 BIOS 文件；需要 cookie；`private, no-store`、`Vary: Cookie`。未锁定名、跨 Launch、错误/过期 cookie 与 Blob 缺失不得泄露存在性。 |
 | `/runtime/launches/{launchId}/state` | 只允许选中状态存档；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
-| `/runtime/launches/{launchId}/persistent-save` | 历史兼容端点；当前 Launch mode 固定为 NONE，GET/PUT 都返回 `409 PERSISTENT_SAVE_UNSUPPORTED`，Player 不请求。`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/review-screenshot` | 只接受审核预览 capability 和 `image/png`，先鉴权再有界流式读取 ≤10 MiB；仍匹配当前来源、目标平台和 CoreArtifact 的 READY 或阻断 preview 均可写，固定记录 `capturedAfterMs=5000`。普通 Launch、过期 cookie 或来源/配置漂移均拒绝。 |
 
 `GET /runtime/launches/{launchId}/config` 是首次 bootstrap 请求；credential、5 分钟 bootstrap TTL 和全部预检快照有效后，服务端原子把 LaunchSession 从 `CREATED` 转为 `ACTIVE` 并返回：
@@ -368,8 +367,6 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
   "biosUrl": "/runtime/launches/0198.../bios/bundle.zip",
   "parentUrl": "/runtime/launches/0198.../parent/bundle.zip",
   "stateUrl": null,
-  "persistentSaveUrl": null,
-  "persistentSaveMode": "NONE",
   "inputMode": "STANDARD",
   "startupActions": [],
   "requiresThreads": false,
@@ -396,13 +393,12 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 - `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，且只允许三个 part：`metadata`（`application/json`，严格 `{ "name": string, "discIndex"?: integer|null }`，name trim 后 1–120 Unicode code points）、`state`（1 byte–64 MiB）和 `screenshot`（1 byte–10 MiB PNG/JPEG/WebP、解码 ≤40 MP）。多盘 Launch 必须提交当前范围内盘号，SINGLE/DOS 必须省略或为 null。服务端从 LaunchSession 推导 Profile/Game/VariantRevision/CoreArtifact/时长，并把该 LaunchSession 记录为 SaveState 的来源；三个 Blob/引用与 SaveState 必须全成或全不成，返回 `201`；网络重放不得重复创建存档。
 - Web 同源 `/runtime` rewrite 必须完整流式转发应用允许的最大 75 MiB multipart body；Next.js 的请求体克隆上限必须至少为 75 MiB，backend proxy timeout 固定为 150 秒。不得沿用框架默认的 10 MiB 克隆上限和 30 秒代理超时，否则大体积 PSP 状态会被截断并在后端等待剩余 body 时返回代理层 `500`。
-- `PUT /runtime/launches/{launchId}/persistent-save` 是仅为历史客户端与数据兼容保留的写协议，body、digest、sequence、event、64 MiB 上限以及 FILE_TREE/AUTO_STATE 校验规则维持原契约。当前所有选定 artifact 的 mode 均为 `NONE`，新 Launch 不绑定 persistent base、不返回该 URL，Player 不调用其 GET/PUT；因此当前 Launch 调用会返回 `409 PERSISTENT_SAVE_UNSUPPORTED`，且不得创建 revision/current。进度保存统一使用上面的显式 `/save-states` multipart 写入。
 
-这两个写端点在验证 launch cookie 后才读取 body；有 `Content-Length` 时先校验上限，没有时允许 HTTP/2/chunked 并在流式读取超过上限的第一个 byte 立即终止为 `413`。NG 必须关闭请求 buffering 或使用足够的临时空间，且自身限制不得低于应用上限；应用仍独立流式计数、校验 digest 并清理临时文件。`pagehide` 不发送 save body；显式退出只等待用户已经发起的 `/save-states` 上传完成，不生成退出存档。
+运行时写端点在验证 launch cookie 后才读取 body；有 `Content-Length` 时先校验上限，没有时允许 HTTP/2/chunked 并在流式读取超过上限的第一个 byte 立即终止为 `413`。NG 必须关闭请求 buffering 或使用足够的临时空间，且自身限制不得低于应用上限；应用仍独立流式计数、校验 digest 并清理临时文件。`pagehide` 不发送 save body；显式退出只等待用户已经发起的 `/save-states` 上传完成，不生成退出存档。
 
-OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState`、`putRuntimePersistentSave` 与 `postRuntimeReviewScreenshot` 四个 operation 必须且只能标记 `x-retrom-streaming-body: true`；生成物应分别暴露 `io.Reader`/`multipart.Reader`，不能生成 `[]byte` 或先 `ParseMultipartForm`。启动时基于同一份已加载 spec 构建两条不可变的 `nethttp-middleware` validator chain：普通链保持 `Options.Options.ExcludeRequestBody=false`，流式链设置 `Options.Options.ExcludeRequestBody=true`。前置 kin-openapi router 先匹配 operation 并读取该 extension，再把请求分派给对应链；请求处理中不得修改共享 options。流式链仍验证 method/path/query/header/content-type，领域 handler 的流式检查才是 body 的权威门禁；不得另维护 URL skip 清单，也不得用全局 `Skipper` 跳过完整验证。所有 `operationId` 使用唯一 lowerCamelCase，格式为 HTTP 动词加稳定领域动作；已经发布后改名视为生成代码破坏性变更。
+OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState` 与 `postRuntimeReviewScreenshot` 三个 operation 必须且只能标记 `x-retrom-streaming-body: true`；生成物应分别暴露 `io.Reader`/`multipart.Reader`，不能生成 `[]byte` 或先 `ParseMultipartForm`。启动时基于同一份已加载 spec 构建两条不可变的 `nethttp-middleware` validator chain：普通链保持 `Options.Options.ExcludeRequestBody=false`，流式链设置 `Options.Options.ExcludeRequestBody=true`。前置 kin-openapi router 先匹配 operation 并读取该 extension，再把请求分派给对应链；请求处理中不得修改共享 options。流式链仍验证 method/path/query/header/content-type，领域 handler 的流式检查才是 body 的权威门禁；不得另维护 URL skip 清单，也不得用全局 `Skipper` 跳过完整验证。所有 `operationId` 使用唯一 lowerCamelCase，格式为 HTTP 动词加稳定领域动作；已经发布后改名视为生成代码破坏性变更。
 
-`core` 表示产品目录 ID，`runtimeCore` 表示 EmulatorJS runtime ID；Player 只能把后者写入 `EJS_core`。schema 为历史兼容仍枚举 `SINGLE_FILE|DOS_OVERLAY|FILE_TREE|AUTO_STATE|NONE`，但当前 Launch 只能返回 `NONE` 且 URL 必须为 null。`inputMode` 只允许 `STANDARD|POINTER`。`externalFiles` 当前只用于 Variant dependency snapshot 锁定的 MelonDS 三个绝对虚拟路径，其 URL 必须属于同一 Launch 的 external-files 前缀；最多 16 项，重复路径/逻辑名或跨 Launch URL 均阻断。主机/掌机 ZIP/7z 已在入库时物化为唯一可运行 member；PSP `.iso/.cso` 作为 raw CONTENT 返回，不做运行时转换。
+`core` 表示产品目录 ID，`runtimeCore` 表示 EmulatorJS runtime ID；Player 只能把后者写入 `EJS_core`。`inputMode` 只允许 `STANDARD|POINTER`。`externalFiles` 当前只用于 Variant dependency snapshot 锁定的 MelonDS 三个绝对虚拟路径，其 URL 必须属于同一 Launch 的 external-files 前缀；最多 16 项，重复路径/逻辑名或跨 Launch URL 均阻断。主机/掌机 ZIP/7z 已在入库时物化为唯一可运行 member；PSP `.iso/.cso` 作为 raw CONTENT 返回，不做运行时转换。
 
 ## 9. 核心 API 路由表
 
@@ -460,9 +456,8 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/saves`、`PATCH /api/v1/saves/{saveStateId}`、`DELETE /api/v1/saves/{saveStateId}` | 手动存档列表、重命名和软删除。`gameId` 为精确游戏筛选并进入 cursor filter digest；列表项包含基础平台、游戏目录、锁定 Core、`screenshotUrl=/content/save-states/{saveStateId}/screenshot` 与累计有效游玩 `activeDurationMs`，不暴露截图 Blob ID。响应级 `generatedAtMs` 为分组页面的“今天/昨天”和分页聚合提供统一时钟。 |
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |
-| `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容、状态与 PersistentSave。 |
+| `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容与显式状态。 |
 | `POST /runtime/launches/{launchId}/save-states` | 用户显式触发的运行中状态与截图保存。 |
-| `PUT /runtime/launches/{launchId}/persistent-save` | 历史兼容路由；当前 Launch 不支持。 |
 | `POST /runtime/launches/{launchId}/review-screenshot` | 审核预览对当前 READY 或阻断 Validation 保存核心启动后第 5 秒 PNG；普通 Launch 禁止。 |
 | `POST /api/v1/admin/uploads` | 创建文件/目录 upload manifest。 |
 | `GET /api/v1/admin/uploads/{uploadId}`、`PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}` | 恢复状态与上传 part。 |
@@ -480,7 +475,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/reviews/{importItemId}/previews` | 创建审核专用 best-effort 子窗体运行快照；不发布、不累计游玩、不提供存档。 |
 | `POST /api/v1/admin/reviews/{importItemId}/scrape-candidates` | 审核中切换/重新执行 HASHEOUS 或 NONE 元信息源；显式请求不使用旧 cache。 |
 | `POST /api/v1/admin/reviews/{importItemId}/approve`、`POST /api/v1/admin/reviews/{importItemId}/discard` | 最终审核决策。 |
-| `GET /api/v1/admin/review-history`、`GET /api/v1/admin/review-history/{reviewEventId}` | 只读最终决策列表与完整事件回放。详情的 `actor={kind,userId,label}` 与 ReviewEvent 的规范 actor 三元组一致：USER 只有 `userId`，SYSTEM 只有封闭 `label`；不得读取 migration 023 前已移除的单值 `actor`。 |
+| `GET /api/v1/admin/review-history`、`GET /api/v1/admin/review-history/{reviewEventId}` | 只读最终决策列表与完整事件回放。详情的 `actor={kind,userId,label}` 与 ReviewEvent 的规范 actor 三元组一致：USER 只有 `userId`，SYSTEM 只有封闭 `label`。 |
 | `GET /api/v1/admin/games`、`GET /api/v1/admin/games/{gameId}`、`PATCH /api/v1/admin/games/{gameId}`、`DELETE /api/v1/admin/games/{gameId}` | 游戏管理、MetadataRevision 与软删除；详情投影包含 `generatedAtMs`，使最近更新时间在客户端确定性格式化。 |
 | `POST /api/v1/admin/games/{gameId}/assets` | 从已完成 UploadFile 创建新 Asset。 |
 | `POST /api/v1/admin/games/{gameId}/content-revisions` | 从已完成 UploadSession 创建游戏内容验证 Job；成功才创建 ContentRevision/VariantRevision 并切换两个 current。 |
@@ -636,7 +631,7 @@ Pegasus route 全部要求 ADMIN，写请求执行同一 Origin/Fetch Metadata/C
 | `PUT .../{id}/collection-mappings` | 最多 100 个精确 replacement；每项只能为 `IMPORT+platformInstanceId` 或 `SKIP`，没有 suggestion/default。 |
 | `POST .../{id}/start` | body `version` 必须等于 `If-Match`；映射完整、至少选择一个 Collection、计划未过期且 metadata snapshot 未漂移才返回 202。 |
 | `GET .../{id}/items` | `limit<=50`，cursor 绑定 `q/outcome/warning/collectionId`；返回映射、内容类型、COVER/VIDEO 状态、warning、全部 existing matches、可空 `reviewItemId` 与发布/已有 Game 链接 ID。execution state 包含 `REVIEW_PENDING/REVIEW_DISCARDED`；前者的 `reviewItemId` 是逐项审核入口。存在 library runtime validation 时同时返回 `runtimeCheck`：稳定 `status/code`、Core、machine、缺失/不匹配条目、parent/BIOS 逻辑依赖及其必需 entry、多盘缺失引用。内部失败时返回可空 `failureDetails`：stage、operation、causeCode、受限 technicalDetail、来源相对路径、观察文件数/上限，以及已创建时的内部 ImportJob/ImportItem ID；不得返回 Blob/hash、宿主绝对路径、凭据或未截断上游 payload。 |
-| `POST .../{id}/cancel|retry` | cancel 不回滚已发布 Game，也不删除已经交接的审核事项；retry 仅在 aggregate `retryable=true` 时创建新 execution。历史通用 `PEGASUS_RUNTIME_BLOCKED` 视为一次可重检项，复用原计划和映射、重新核对冻结的 source facts 并利用 CAS 去重，重检后写入真实 compatibility code；新产生的确定性 validation blocker进入审核处理，不作为 Pegasus retry 项。 |
+| `POST .../{id}/cancel|retry` | cancel 不回滚已发布 Game，也不删除已经交接的审核事项；retry 仅在 aggregate `retryable=true` 时创建新 execution。确定性 validation blocker 进入审核处理，不作为 Pegasus retry 项。 |
 
 Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 `reviewPending/published/reviewDiscarded`。任务 `COMPLETED` 只表示审核事项准备结束，不表示全部游戏已发布；后续逐项审核或严格 READY 快速审批的每个成功 Item 都原子推进三个计数和 aggregate version。快速审批使用独立 aggregate route，不在 Pegasus route 内建立第二套发布动作。
 
@@ -667,15 +662,15 @@ Room DTO 固定含 `roomId/state/version/game/members/currentSession/permissions
 
 WebSocket 固定 `GET /runtime/netplay/rooms/{roomId}/socket`、子协议 `retrom.netplay.v1`。Upgrade 必须同时满足唯一且逐字匹配的同源 `Origin`、有效 AuthSession、精确一项子协议、active 本人联机 Launch 和 room cookie；query/fragment/subprotocol 不得携带凭据。Chromium 的 WebSocket handshake 不发送 Fetch Metadata，因此该 header 缺失时仍只依靠强制 Origin；若出现则必须是唯一的 `Sec-Fetch-Site: same-origin`，多值或 cross-site 均拒绝。认证查询的“未找到/已撤销”映射为普通拒绝；数据库或存储失败必须保留为 service error，不能伪装成凭据失效并清 cookie。连接后的周期认证采用 `VALID/REVOKED/UNAVAILABLE` 三态：成功即清零连续不可用计数，前两次 UNAVAILABLE 只记录低基数 warning，连续第三次只丢弃该 transport；REVOKED 立即以 `AUTH_REVOKED` 结束全局 Session。
 
-JSON 最大 64 KiB、INPUT 最大 4 KiB且每连接采用 120 条/秒、burst 240 的 token bucket，连接 read limit 2 MiB；HELLO 必须在 10 秒内到达。重复 JSON key、未知字段、深度超过 8、非连续 client seq、错误 session/epoch/player、限流或越界 frame/control 都以 policy violation 结束全局 Session。服务端发送 WELCOME/REQUEST_STATE/STATE_META/START_EPOCH/CANONICAL/HISTORY/PAUSE/SESSION_ENDED；客户端发送 HELLO/RUNTIME_READY/INPUT/HASH/PAUSED/STATE_META/STATE_READY/STATE_APPLIED/HISTORY_APPLIED/END_REQUEST。END_REQUEST.reason 只接受 `USER_EXIT/ROLLBACK_WINDOW_EXCEEDED/STATE_RING_CAPACITY_EXCEEDED/STATE_INVALID/NETPLAY_UNSTABLE/INTERNAL_ERROR/PROTOCOL_VIOLATION`，服务端持久化相应终因并发出权威 SESSION_ENDED；客户端不得用 WebSocket close code 代替这次终局握手。旧客户端的 `SUSPEND_REQUEST(HIDDEN|BLUR)` 仅作为兼容 no-op 接受，不能暂停、关闭连接、撤销 Launch 或改变参与者状态；当前客户端不发送该消息。
+JSON 最大 64 KiB、INPUT 最大 4 KiB且每连接采用 120 条/秒、burst 240 的 token bucket，连接 read limit 2 MiB；HELLO 必须在 10 秒内到达。重复 JSON key、未知字段、深度超过 8、非连续 client seq、错误 session/epoch/player、限流或越界 frame/control 都以 policy violation 结束全局 Session。服务端发送 WELCOME/REQUEST_STATE/STATE_META/START_EPOCH/CANONICAL/HISTORY/PAUSE/SESSION_ENDED；客户端发送 HELLO/RUNTIME_READY/INPUT/HASH/PAUSED/STATE_META/STATE_READY/STATE_APPLIED/HISTORY_APPLIED/END_REQUEST。END_REQUEST.reason 只接受 `USER_EXIT/ROLLBACK_WINDOW_EXCEEDED/STATE_RING_CAPACITY_EXCEEDED/STATE_INVALID/NETPLAY_UNSTABLE/INTERNAL_ERROR/PROTOCOL_VIOLATION`，服务端持久化相应终因并发出权威 SESSION_ENDED；客户端不得用 WebSocket close code 代替这次终局握手。窗口失焦或隐藏只在浏览器本地清空输入，不发送协议消息。
 
 同一参与者的新连接替换旧连接时，旧连接的关闭不能解释为用户退出；若替换发生在初始 state transfer 中，服务端停止旧 transfer、生成新 transferId 并从 P1 重新发送完整状态。state transfer 没有独立的 15 秒 wall-clock 终局 timer，存活性只由 HELLO/socket/ping、认证、协议和 Session 恢复租约决定。PAUSE 后每个 occupied seat 必须先回滚到指定 canonical 边界并发送 PAUSED；恢复端还须以 HISTORY_APPLIED 确认服务端 history 的 `toFrame`，全部确认前不得 state transfer、resume 或开启新 epoch。二进制 state frame 为 `RNS1 + session UUID raw16 + transfer UUID raw16 + epoch uint32-be + nextFrame uint64-be + length uint32-be + RASTATE`，总 payload 上限 1 MiB，header 与 JSON meta/digest 必须完全一致。`STATE_APPLIED.recaptureMatched=true` 表示原生装载完成后重抓的 `MEM ` core bytes 与 `STATE_META.coreSha256` 一致；RASTATE 外层元数据可重建，因此 full-state byte exact 只记入诊断而不改变该字段。
 
 服务端只以 socket/ping、认证与协议状态判断连接有效性，不以浏览器短时未贡献输入推断断线；后台节流期间 canonical lockstep 可以等待，页面恢复执行后沿原连接继续。ping 超时、单连接 write 失败、queue bytes/frames 超限或连续认证 UNAVAILABLE 都只能通过一次性 peer transport drop 关闭目标 socket、释放其待 flush 记账并让 Session 进入租约恢复，不能调用全局 fail；重复 close/error/remove 必须幂等。只有 protocol violation、明确 END_REQUEST、AUTH_REVOKED、租约超时或其他领域终因结束全局 Session。`MarkDisconnected` 或终局持久化失败只记录不含原始 error/cookie/IP 的低基数日志，不能因一次数据库写失败扩大为全局断线风暴。服务端协议/权限关闭仍可使用 RFC 6455 `1008`；业务终因只认权威 SESSION_ENDED/持久 Session 状态。
 
-room cookie 名为 `retrom_netplay_{roomId去连字符}`。原始 32 bytes 固定为 `HMAC-SHA-256(netplayKey, "retrom-netplay-v1\\x00" || session UUID raw16 || profile UUID raw16 || credentialGeneration uint32-be)`，响应只写无 padding base64url；属性为 `HttpOnly; SameSite=Strict; Path=/runtime/netplay/rooms/{roomId}/; Max-Age=28800`，HTTPS public origin 时加 Secure，永不设 Domain。数据库只保存 raw credential 的 SHA-256，比较 constant-time；幂等重放重新派生并重发两类 cookie，不把明文或 Set-Cookie 存入 idempotency record。独立 key 位于 `RETROM_DATA_DIR/secrets/netplay-capability.key`，与 launch key 同样为 32 bytes、`0600`、no-follow、原子 hard-link 发布和目录 fsync，并进入离线 backup 的 `NETPLAY_KEY` 槽。
+room cookie 名为 `retrom_netplay_{roomId去连字符}`。原始 32 bytes 固定为 `HMAC-SHA-256(netplayKey, "retrom-netplay-v2\\x00" || session UUID raw16 || profile UUID raw16 || credentialGeneration uint32-be)`，响应只写无 padding base64url；属性为 `HttpOnly; SameSite=Strict; Path=/runtime/netplay/rooms/{roomId}/; Max-Age=28800`，HTTPS public origin 时加 Secure，永不设 Domain。数据库只保存 raw credential 的 SHA-256，比较 constant-time；幂等重放重新派生并重发两类 cookie，不把明文或 Set-Cookie 存入 idempotency record。独立 key 位于 `RETROM_DATA_DIR/secrets/netplay-capability.key`，与 launch key 同样为 32 bytes、`0600`、no-follow、原子 hard-link 发布和目录 fsync，并进入离线 backup 的 `NETPLAY_KEY` 槽。
 
-联机 Launch config 使用 `mode=netplay` 和 exact canonical profile；canonical `maxPredictionFrames` 必须来自锁定的 core profile 且不超过协议上限 8，当前 FCEUmm profile 为 8、FBNeo profile 为 0（严格 lockstep），前端不得覆盖该值。所有 persistent save、手动 save-state 和 state 内容 route 在鉴权后统一返回 `409 NETPLAY_SAVE_UNSUPPORTED`。普通 Launch 为 `mode=single,netplay=null`，不得因开启联机改变原有 cookie 或 DTO 行为。
+联机 Launch config 使用 `mode=netplay` 和 exact canonical profile；canonical `maxPredictionFrames` 必须来自锁定的 core profile 且不超过协议上限 8，当前 FCEUmm profile 为 8、FBNeo profile 为 0（严格 lockstep），前端不得覆盖该值。所有手动 save-state 和 state 内容 route 在鉴权后统一返回 `409 NETPLAY_SAVE_UNSUPPORTED`。普通 Launch 为 `mode=single,netplay=null`，不得因开启联机改变原有 cookie 或 DTO 行为。
 
 ## 14. 游戏标签 API
 

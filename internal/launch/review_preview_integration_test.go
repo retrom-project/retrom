@@ -96,8 +96,8 @@ SELECT id FROM import_items WHERE import_job_id=?
 		return itemID
 	}
 
-	readyItemID := createReview("ready.gba", []byte("review-preview-ready"), "01980000-0000-7000-8000-000000000005")
-	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), "01980000-0000-7000-8000-000000000001")
+	readyItemID := createReview("ready.gba", []byte("review-preview-ready"), testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"))
+	blockedItemID := createReview("blocked.fds", []byte("review-preview-blocked"), testsupport.MustPlatformInstanceID(t, database.SQL, "nes/fceumm"))
 	parentMetadata, err := blobs.Put(bytes.NewReader([]byte("review-preview-parent")))
 	testassert.False(t, err != nil, err)
 	parentBlobID, err := blobstore.EnsureRecord(ctx, database.SQL, parentMetadata, "application/zip", time.Now().UnixMilli())
@@ -150,7 +150,7 @@ WHERE import_item_id=? AND effective_source_snapshot_id=?
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed.PreviewID != ready.PreviewID }, func() bool { return replayed.Capability != ready.Capability }), "replayed review preview = %#v, error=%v", replayed, err)
 	configuration, err := service.ReviewPreviewConfig(ctx, ready.PreviewID, ready.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.ReviewPreview == nil }, func() bool { return !configuration.ReviewPreview.CaptureAllowed }, func() bool { return configuration.ReviewPreview.ImportItemID != readyItemID }, func() bool { return configuration.PersistentSaveMode != "NONE" }, func() bool { return configuration.ParentURL == nil }, func() bool { return configuration.StartupActions == nil }), "ready review config = %#v, error=%v", configuration, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return configuration.ReviewPreview == nil }, func() bool { return !configuration.ReviewPreview.CaptureAllowed }, func() bool { return configuration.ReviewPreview.ImportItemID != readyItemID }, func() bool { return configuration.ParentURL == nil }, func() bool { return configuration.StartupActions == nil }), "ready review config = %#v, error=%v", configuration, err)
 	encodedConfiguration, err := json.Marshal(configuration)
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !bytes.Contains(encodedConfiguration, []byte(`"startupActions":[]`)) }), "ready review config JSON = %s, error=%v", encodedConfiguration, err)
 	content, err := service.ReviewPreviewContent(ctx, ready.PreviewID, ready.Capability, "ready.gba")

@@ -65,7 +65,7 @@ VALUES(?,'COMPLETE','FILES',1,0,?,1,10000,1000,1000)
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
 platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
 state,total_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'01980000-0000-7000-8000-000000000005',1,'gba','mgba',?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,'NONE','{}',?,
 'PARTIAL_FAILURE',1,1,1,1000,1000)
 `, retryImportID, retryUploadID, artifactID, digest); err != nil {
 		t.Fatal(err)
@@ -104,7 +104,7 @@ WHERE job.id=? AND item.id=?
 INSERT INTO import_jobs(id,upload_session_id,target_platform_instance_id,platform_instance_version,
 platform_id,default_core_id,core_artifact_id,metadata_provider,config_snapshot_json,config_snapshot_digest,
 state,total_item_count,queued_item_count,review_pending_item_count,failed_item_count,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'01980000-0000-7000-8000-000000000005',1,'gba','mgba',?,'NONE','{}',?,
+VALUES(?,?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,'NONE','{}',?,
 'PARTIAL_FAILURE',4,1,1,2,1,1000,1000)
 `, cancelImportID, cancelUploadID, artifactID, digest); err != nil {
 		t.Fatal(err)
@@ -174,7 +174,7 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 	uploader := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
 	contents := []byte("duplicate-content-identity-fixture")
-	const platformInstanceID = "01980000-0000-7000-8000-000000000005"
+	platformInstanceID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 
 	createImport := func(name string) (Created, string) {
 		t.Helper()
@@ -330,7 +330,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 		ctx,
 		CreateRequest{
 			UploadID:                 upload.ID,
-			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005",
+			TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),
 			MetadataProvider:         "NONE",
 		},
 	)
@@ -417,7 +417,7 @@ WHERE id=?
 		t.Fatal(err)
 	}
 	reconfigured, err := importer.Reconfigure(ctx, created.ImportJobID, sourceVersion, ReconfigureRequest{
-		TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000023",
+		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "psp/ppsspp"),
 		MetadataProvider:         "NONE",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return reconfigured.State != "REVIEW_PENDING" }, func() bool { return reconfigured.ItemCount != 1 }), "reconfigured import = %#v, error=%v", reconfigured, err)
@@ -462,7 +462,7 @@ WHERE source.id=?
 		)
 	}
 	if _, err := importer.Reconfigure(ctx, created.ImportJobID, sourceVersion, ReconfigureRequest{
-		TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000023",
+		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "psp/ppsspp"),
 		MetadataProvider:         "NONE",
 	}); !errors.Is(err, ErrInvalid) {
 		t.Fatalf("stale reconfiguration error = %v", err)

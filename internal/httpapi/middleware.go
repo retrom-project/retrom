@@ -367,7 +367,6 @@ AND NOT EXISTS(SELECT 1
 FROM dat_versions d
 WHERE d.core_artifact_id=a.id
 AND d.is_active=1
-AND d.source='BUILTIN'
 AND d.parse_status='READY')
 `).
 		Scan(&missing)
@@ -389,12 +388,10 @@ AND NOT EXISTS(SELECT 1
 FROM dat_versions active
 WHERE active.core_artifact_id=a.id
 AND active.is_active=1
-AND active.source='BUILTIN'
 AND active.parse_status='READY')
 AND EXISTS(SELECT 1
 FROM dat_versions failed
 WHERE failed.core_artifact_id=a.id
-AND failed.source='BUILTIN'
 AND failed.parse_status='FAILED')
 `).
 		Scan(&failed)

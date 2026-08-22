@@ -47,33 +47,24 @@ flowchart LR
 - Launch 只能引用已提交的 READY VariantRevision 和依赖快照；Player 不自行选择 core、DAT、BIOS、ROM 或 URL。
 - 依赖准备发生在 `make dev`/镜像 builder 前置阶段；同步启动只校验依赖字节并登记缺失的 DAT_PARSE Job，Worker 可从已校验的只读本地 payload 建索引，但任何进程都不能为方便实现而加入运行期下载。
 
-## 3. Migration 落地顺序
+## 3. Clean migration 落地顺序
 
-Migration 文件一旦进入已发布分支不可改写。首版有序边界固定如下；可在同一边界内拆成多个小 migration，但不能把后置外键表提前到其依赖之前：
+项目首次发布前的唯一基线是下面的 current-schema 创建链；每张业务表只创建一次，不包含 ALTER/rename-copy-drop、业务回填或旧版本转换。首次公开发布后，已发布 migration 文件才进入不可改写的只追加纪律：
 
-1. `profiles/platforms/cores/core_artifacts/platform_cores/platform_instances` 与代码 seed；
-2. `blobs/jobs/job_input_snapshots/job_events/idempotency_records/audit_events/blob_gc_candidates`；
-3. `upload_sessions/upload_files/upload_parts/upload_consumptions/archive_entries`；
-4. `bios_requirements/bios_installations/dat_versions/dat_machines/dat_bios_sets/dat_rom_entries/dat_disk_entries`；旧版曾同时建立的 `dat_import_jobs/dat_diff_snapshots/dat_diff_items` 已由 migration 038 删除；
-5. `import_jobs/import_job_files/import_items/import_item_source_files/import_item_dos_entries/import_item_core_validations/import_item_validation_files/content_identity_claims/import_item_duplicate_matches`；
-6. `games/game_metadata_revisions/game_assets/game_content_revisions/game_content_files/game_variants/game_variant_revisions/variant_files/dos_entries/variant_dependencies`；这些循环 current FK 在同一 schema 边界声明 deferred；
-7. `metadata_scrape_runs/content_hash_evidence/metadata_provider_cache/metadata_provider_responses/metadata_scrape_query_attempts/scrape_candidates/scrape_candidate_hits/scrape_candidate_assets/review_uploaded_assets/review_drafts/review_draft_screenshot_assets/review_events`；Game owner 的 scrape run 因而不会引用尚未建立的 Game/ContentRevision；
-8. `launch_sessions/play_sessions/play_session_events/save_states/persistent_saves/persistent_save_revisions`；
-9. 全部 partial unique index、不可变/归属 trigger、搜索索引和 schema checksum 回归。
+1. `001_identity.sql`：账号、凭据、session、account link 与实例状态；
+2. `002_catalog.sql`：Platform/Core/reference relation 与零实例目录的 PlatformInstance；
+3. `003_storage_jobs.sql`：Blob、Job/Event/Input、幂等、审计与 GC；
+4. `004_upload_archive.sql`：上传、归档与当前 consumer 闭集；
+5. `005_dependencies.sql`：BIOS 与 release-managed DAT；
+6. `006_import_review.sql`：导入、来源快照、验证、审核、preview 与快速审批；
+7. `007_library.sql`：Game/revision/content/variant/media/tag/favorite；
+8. `008_server_import.sql`：Pegasus 当前 review-handoff 模型；
+9. `009_runtime.sql`：Launch、PlaySession、显式 SaveState 与 Netplay；
+10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的索引和 trigger。
 
-账户版本追加的 migration 顺序固定为：020 建立 User/Credential/AuthSession/AccountLink/InstanceState/RateLimit 并移除 `local` Profile；021 修正 test bootstrap 从 PENDING 首次完成时的默认密码状态 trigger；022 将幂等记录主键绑定 `principal_id`；023 把 AuditEvent、ReviewEvent 和 ImportJobFileResolution 重建为真实 USER/SYSTEM actor；024 增加多盘 content kind、来源 entry/attachment、Launch DISC 锁定和 SaveState `disc_index`，并把历史 prepublish validation 标为 generation 3/stale。私有数据与 cursor 的 principal 隔离由同一版本的 service/query 实现和测试保证，不伪装成额外 schema migration。020 是破坏性重建边界：既有 001–019 数据库在任何写入前拒绝，只有不存在的数据库、真正空的 schema 或已经包含 020 的库可以继续。
+循环 current pointer 使用数据模型规定的 deferred FK；clean migration 全程保持 `foreign_keys=ON`，每条在事务中应用并记录 name/checksum，最终执行 `foreign_key_check` 与 schema introspection。运行时代码不按 migration 数字分支，不关闭外键，不回填业务数据，也不动态修补 schema。
 
-测试环境允许直接重建数据库，当前 migration 集以新建库为交付基线；循环 current pointer 使用数据模型规定的 deferred FK，不能由运行时代码关闭 foreign keys、事后修补 NULL 或使用启动时 DDL。`archive_entries` 的 ZIP/7z 通用列在初始归档 migration 中建立；014 增加核心目录、BIOS delivery 与 Launch external-file 能力；015 收敛旧零 Item 导入；016 增加拒绝文件重新配置 lineage；017 增加重复内容识别证据；018 增加异步 DAT 差异快照与分页明细；019 增加审核来源快照、Validation/草稿快照归属、Arcade Parent Attachment、Job/ReviewEvent enum 和发布 digest 兜底。019 与 037 因 SQLite 无法原地改变 CHECK/非空列而使用带 `-- retrom: rebuild-with-foreign-keys-off` 的受控重建；store 只识别这些版本以及既有 024/026/028/030 重建边界，在事务外关闭外键、事务内重建/回填，提交前执行 `PRAGMA foreign_key_check`，随后无条件恢复外键，任何漂移或外键错误都使启动失败。026 增加服务器 BIOS 导入；027 增加收藏；028 增加 Pegasus 扫描/映射/导入聚合、`SERVER_PEGASUS_IMPORT` 来源及 VIDEO 媒体约束；029 为 Pegasus Item 增加受限结构化内部失败诊断，并为 028 的 Arcade companion 超限失败回填可判定证据；030 把 Pegasus 发布边界改为普通审核交接，增加待审核/审核丢弃状态和聚合计数；031 增加审核专用短时运行快照和 READY Validation 的第 5 秒运行截图；033 让 READY/阻断预览均在核心真实启动 5 秒后截图，并以最新且未漂移的阻断截图作为管理员逐项放行证据；037 增加严格 READY 快速审批 aggregate/item 与通用 Job 枚举；038 停止用户 DAT 管理、删除候选差异表并保留历史外键证据；039 合并重复 seed 游戏目录。040 增加推荐 template key，并在全新构建末尾清空历史目录 seed；部署时直接重建数据库，不实现 039→040 数据兼容或专用拒绝逻辑。推荐目录从此只由代码 catalog 创建，后续 migration 不再 seed PlatformInstance。正式发布后继续遵守只追加 migration 的升级纪律。
-
-Migration 032 在 031 之后增加 `netplay_rooms/netplay_room_members/netplay_sessions/netplay_session_participants/netplay_events`，并为 `launch_sessions` 增加联机 session/player 和 `save_access`。联机 snapshot 与 Participant 启动绑定一经锁定不可变，event append-only；032 同时覆盖 031 升级和全新库，运行时不得补 schema。
-
-Migration 033 在 032 之后替换审核 preview/screenshot trigger，不新增列；032 升级和全新库都必须证明旧 preview 不能越过最新 Validation，阻断截图只能在来源、目标、CoreArtifact、active DAT 与 generation 仍一致时解锁发布。
-
-Migration 034 在 033 之后增加 `tags/game_tags/review_draft_tags/pegasus_collection_tags`，并为 Pegasus Collection 墠加非空 `tag_snapshot_json`。它只新增表、索引、trigger 和带 `[]` 默认值的列；033 升级保留既有 Game/Review/Pegasus 数据并得到空标签集合。Tag tombstone 与历史关系不可硬删，运行时代码不得动态修补 schema。
-
-Migration 035 在 034 之后只替换 Pegasus ContentRevision 来源 trigger：旧 `PUBLISHING` 兼容边界仍锁定 Pegasus 初始 manifest，`REVIEW_PENDING` 发布则锁定一一关联 ReviewDraft 的当前有效来源快照，使 Parent ROM/多盘补传后的后继 manifest 可发布且仍保留 `SERVER_PEGASUS_IMPORT` 来源引用。034 升级与全新库 trigger 必须同构，运行时代码不得动态修补或改写历史 manifest。
-
-Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVIEW_BULK_APPROVE→REVIEW_BULK_APPROVAL` 加入通用 Job kind/scope 枚举。因为 SQLite 既有 CHECK 无法原地扩展，037 使用受控 foreign-keys-off rebuild 重建 `jobs/job_events` 并恢复全部既有 job 约束和 trigger；store 只额外允许版本 037 执行该边界，提交前必须通过 `foreign_key_check`。批次冻结 scope digest、候选 manifest 和每项 Review version/Validation/source snapshot；发布仍逐项短事务执行，不能把整个批次包进长写事务。
+推荐游戏平台目录由 `internal/platformcatalog` 的当前 catalog 和“应用推荐目录”服务创建，fresh DB 初始目录数为零。测试的低层 current-schema builder 创建 UUIDv7 并返回按 `catalog_template_key` 索引的引用；API/E2E 使用推荐目录产品路径，任何测试都不得复活历史 seed UUID 或 slug。
 
 ## 4. 里程碑
 
@@ -93,9 +84,9 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 ### M1A：账户与数据隔离边界
 
-范围：020–023 migration、release 初始化与显式 test 模式、Argon2id 密码和阻断列表、AuthSession/CSRF/Origin/限流、Invitation/PasswordReset、账号生命周期、principal-scoped 幂等/cursor、所有私有数据 SQL owner predicate、主机只读 `setup-code`、离线 `admin-reset` 与恢复安全围栏；前端完成 server-side 入口守卫、账户页和用户管理页。
+范围：当前 clean schema 中的账户模型、release 初始化与显式 test 模式、Argon2id 密码和阻断列表、AuthSession/CSRF/Origin/限流、Invitation/PasswordReset、账号生命周期、principal-scoped 幂等/cursor、所有私有数据 SQL owner predicate、主机只读 `setup-code`、离线 `admin-reset` 与恢复安全围栏；前端完成 server-side 入口守卫、账户页和用户管理页。
 
-退出门禁：`ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003`、`ACC-DB-002`、`ACC-BKP-001` 和 `ACC-UI-009`。任一既有共享 `local`、匿名写入或恢复旧 cookie 的断言必须同时移除，不能保留两套运行模式。
+退出门禁：`ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003`、`ACC-DB-002`、`ACC-BKP-001` 和 `ACC-UI-009`。数据库只验证当前账户模型与 lineage，不建立共享主体或匿名写入模式。
 
 ### M2：上传与持久任务
 
@@ -107,7 +98,7 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 范围：内置 DAT 安全解析/索引、BIOS catalog/installation、Arcade machine/多级 parent/逐级 romof V2 闭包与 Parent ZIP 审核补充；不可变 ImportItem 来源快照、Attachment Job/retry/cancel/cleanup；Hasheous adapter/cache/媒体安全；ImportItem 状态机、拒绝文件基于既有 CAS Blob 的重新配置导入与任务 lineage、ReviewDraft/Event、审核工作台与历史。普通测试只用 fake Hasheous，外部 smoke 有界且不决定测试结果。
 
-退出门禁：完整执行 `ACC-IMP-001`、`ACC-IMP-003`、`ACC-IMP-005`、`ACC-IMP-008`、`ACC-DAT-001`、`ACC-DAT-003`、`ACC-DAT-005`、`ACC-BIOS-001`、`ACC-SEC-001` 与 `ACC-SEC-004`；Arcade Parent 补充分步链的纯逻辑、018→019 migration、service/HTTP 与前端聚焦测试必须通过。其余聚焦 unit/integration test 全通过。在 Approve 事务接入前先完成 M4 的 Game aggregate store；M3 与 M4 可以按垂直切片交替推进，但不得用另一套临时发布表。涉及补充后 Approve/Launch、Game 移动/启动、DAT 对 Game 重校验或 BIOS Launch options 的 Case 明确留到 M4/M5，不能用半实现记录 PASS。
+退出门禁：完整执行 `ACC-IMP-001`、`ACC-IMP-003`、`ACC-IMP-005`、`ACC-IMP-008`、`ACC-DAT-001`、`ACC-DAT-003`、`ACC-DAT-005`、`ACC-BIOS-001`、`ACC-SEC-001` 与 `ACC-SEC-004`；Arcade Parent 补充分步链的纯逻辑、current-schema store、service/HTTP 与前端聚焦测试必须通过。其余聚焦 unit/integration test 全通过。在 Approve 事务接入前先完成 M4 的 Game aggregate store；M3 与 M4 可以按垂直切片交替推进，但不得用另一套临时发布表。涉及补充后 Approve/Launch、Game 移动/启动、DAT 对 Game 重校验或 BIOS Launch options 的 Case明确留到 M4/M5，不能用半实现记录 PASS。
 
 ### M4：目录与游戏聚合
 
@@ -129,37 +120,37 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 ### M7：恢复、打包与最终验收
 
-范围：离线 `retrom backup/restore`、数据根进程锁、统一 Blob reference registry、诊断脱敏全量复核、镜像最终 allowlist/许可、全量迁移升级、正式验收 runner/report；清除所有仅开发使用的 bypass、假数据和未归属 TODO。
+范围：离线 `retrom backup/restore`、数据根进程锁、统一 Blob reference registry、诊断脱敏全量复核、镜像最终 allowlist/许可、clean lineage/backup digest 保护、正式验收 runner/report；清除所有仅开发使用的 bypass、假数据和未归属 TODO。
 
 退出门禁：`ACC-BKP-001`、全部适用 `ACC-*`、`make ci` 与两个镜像 build target。`ACC-DAT-006` 仅在版本基线相对上一接受版本变化时执行；`NOT_APPLICABLE` 必须有版本比较证据。
 
 ### M8：Saturn 多盘垂直切片
 
-范围：024 migration、首次引入的 manifest V5/compatibility V3（当前已演进为 V6/V4）、`ejs-4.2.3-v2`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
+范围：当前 manifest V7/compatibility V5、`ejs-4.2.3-v2`、有界 M3U 解析、递归目录分组、缺盘审核补传、generation 4 验证、规范 playlist/Disc Launch 锁定、Player 换盘、带盘号状态存档与完整目录内容替换。启用门禁为 `ACC-MDISC-001`–`008`；PSX、3DO、PC-FX 在没有独立真实兼容证据前保持 fail closed。
 
 ### M9：收藏与收藏夹垂直切片
 
-范围：先同步正式契约和 OpenAPI；再落 Migration 025、`internal/favorites`、owner-scoped API 与游戏投影；最后接通游戏库、详情、`/favorites`、批量整理和两秒撤销。Folder 名称、批量上限、幂等、cursor、ETag、可见性和两个 Profile 隔离均按正式专题闭合，不引入 Job、Blob 或运行时变化。
+范围：先同步正式契约和 OpenAPI；再实现 `internal/favorites`、owner-scoped API 与游戏投影；最后接通游戏库、详情、`/favorites`、批量整理和两秒撤销。Folder 名称、批量上限、幂等、cursor、ETag、可见性和两个 Profile 隔离均按正式专题闭合，不引入 Job、Blob 或运行时变化。
 
-退出门禁：`ACC-FAV-001`–`004`、第 3 节的 023/024 升级路径、`make api-check`、`make ci` 与 `make web-e2e`。
+退出门禁：`ACC-FAV-001`–`004`、第 3 节 clean lineage 的 current-schema 测试、`make api-check`、`make ci` 与 `make web-e2e`。
 
 ### M10：服务器 BIOS 导入垂直切片
 
-范围：先同步正式契约与 OpenAPI，再落 Migration 026、root 配置和 no-follow 浏览、`ServerImport` 聚合、`SERVER_BIOS_IMPORT` Worker、STATIC/DAT 候选排序与防降级安装；最后接通 `/admin/imports/server`、任务详情、候选解释和 BIOS FULL_CATALOG cursor 分页。发现阶段必须完整闭合且命中扫描门禁时零安装；逐项 Installation、Item 结果和 JobEvent 同事务提交；重启恢复不得重复 revision，restore 必须终止外部 source 任务。
+范围：先同步正式契约与 OpenAPI，再实现 root 配置和 no-follow 浏览、`ServerImport` 聚合、`SERVER_BIOS_IMPORT` Worker、STATIC/DAT 候选排序与防降级安装；最后接通 `/admin/imports/server`、任务详情、候选解释和 BIOS FULL_CATALOG cursor 分页。发现阶段必须完整闭合且命中扫描门禁时零安装；逐项 Installation、Item 结果和 JobEvent 同事务提交；重启恢复不得重复 revision，restore 必须终止外部 source 任务。
 
-退出门禁：`ACC-BIOS-003`–`007`，并回归 `ACC-BIOS-001/002`、`ACC-SEC-001`、`ACC-BKP-001`；运行 `make api-check`、`make ci`、`make web-e2e`、全量核心 smoke。026 的受支持升级路径和全新库 schema 必须同构；正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
+退出门禁：`ACC-BIOS-003`–`007`，并回归 `ACC-BIOS-001/002`、`ACC-SEC-001`、`ACC-BKP-001`；运行 `make api-check`、`make ci`、`make web-e2e`、全量核心 smoke。当前 clean schema、lineage 拒绝与业务回归必须通过；正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
 
 ### M11：Pegasus 游戏目录与视频垂直切片
 
-范围：先同步正式契约与 OpenAPI，再落 Migration 028–030、Pegasus 文本 parser、外部目录安全 scanner、显式 Collection→游戏平台目录映射、异步 scan/import Worker、既有 library import/validation/review/publish 复用、重复内容投影、M3U+CHD 与 Arcade companion 装配。Worker 只复制、验证并生成普通审核事项；Game 只由后续普通 Approve 事务创建，Discard 保留审计。前端在服务器导入页接通等权能力卡、三步 Drawer、可恢复进度、批次限定审核入口和详情筛选；游戏媒体增加 MP4/WebM VIDEO revision，详情 Hero 使用受可见性、页面前台、播放失败、用户暂停与 reduced-motion 约束的渐进播放。后续 Migration 037 允许统一待审核页把其中严格 READY 的无重复项交给快速审批，但不改变 Pegasus Worker 的零 Game 边界。
+范围：先同步正式契约与 OpenAPI，再实现 Pegasus 文本 parser、外部目录安全 scanner、显式 Collection→游戏平台目录映射、异步 scan/import Worker、既有 library import/validation/review/publish 复用、重复内容投影、M3U+CHD 与 Arcade companion 装配。Worker 只复制、验证并生成普通审核事项；Game 只由后续普通 Approve 事务创建，Discard 保留审计。前端在服务器导入页接通等权能力卡、三步 Drawer、可恢复进度、批次限定审核入口和详情筛选；游戏媒体增加 MP4/WebM VIDEO revision，详情 Hero 使用受可见性、页面前台、播放失败、用户暂停与 reduced-motion 约束的渐进播放。统一待审核页可把其中严格 READY 的无重复项交给快速审批，但不改变 Pegasus Worker 的零 Game 边界。
 
-退出门禁：完整执行 `ACC-PEG-001`–`006`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。030 的 029 升级路径、035 的 034 升级路径和全新库 schema 必须同构，并证明审核前零 Game、Approve/Discard 原子联动、Pegasus Parent 后继快照可发布及交接崩溃恢复不重复内部 ImportItem；项目自有 GBA Pegasus fixture 必须完成真实目录扫描到 Chrome 核心帧执行，使用授权本地 Pegasus 样例时另完成隔离服务实测。正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
+退出门禁：完整执行 `ACC-PEG-001`–`006`、`ACC-MEDIA-001`，并回归 `ACC-IMP-001/003/007/008`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-BKP-001`、`ACC-CAS-002` 和 `ACC-GAME-001/003`；运行 `make api-check`、`make ci`、`make web-e2e`。当前 clean schema 必须证明审核前零 Game、Approve/Discard 原子联动、Pegasus Parent 后继快照可发布及交接崩溃恢复不重复内部 ImportItem；项目自有 GBA Pegasus fixture 必须完成真实目录扫描到 Chrome 核心帧执行，使用授权本地 Pegasus 样例时另完成隔离服务实测。正式 UI 源、导出 HTML 和 1280/2560/4K 当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。
 
 ### M12：受限异地联机垂直切片
 
-范围：先锁定 `data/netplay/v1` schema/manifest、4.2.3 Player/netplay adapter 映射与 FCEUmm/FBNeo 两个 core profile；再落 Migration 032、独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；最后接通 `/netplay`、房间 UI 与 Player 的 discriminated netplay mode。profile 按精确 EmulatorJS/core artifact 放开合格 READY 游戏，不建立逐 ROM 产品白名单。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面；普通 Launch、存档和未启用 flag 的路由必须回归不变。项目自有 NES/Arcade fixture 经过真实导入、Launch、内容端点与双浏览器 Player，作为两个精确 profile 的回归基线。
+范围：锁定 `data/netplay/v2` schema/manifest、4.2.3 Player/netplay adapter 映射与 FCEUmm/FBNeo 两个 core profile；实现独立 credential key、房间/成员/Session/Participant/Event service、启动 recovery、REST/SSE/同源 WebSocket hub；接通 `/netplay`、房间 UI 与 Player 的 discriminated netplay mode。profile 按精确 EmulatorJS/core artifact 放开合格 READY 游戏，不建立逐 ROM 产品白名单。实时路径只在单进程有界内存保存 input/history/state transfer，服务端不模拟游戏、不传输画面；普通 Launch、存档和未启用 flag 的路由必须回归不变。项目自有 NES/Arcade fixture 经过真实导入、Launch、内容端点与双浏览器 Player，作为两个精确 profile 的回归基线。
 
-退出门禁：完整执行 `ACC-NP-010`–`016`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002/006/007`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e` 和 `make build-images`；032 的 031 升级路径、全新库、正式 UI 源、导出 HTML 与当次本地视觉复核全部闭环后才可删除临时设计目录，本地图片不得提交。双浏览器结果只证明锁定 FCEUmm/FBNeo profile 与项目自有 fixture，不扩大内容或 core allowlist。
+退出门禁：完整执行 `ACC-NP-010`–`016`，并回归 `ACC-AUTH-003`、`ACC-ISO-002/003`、`ACC-SEC-002/003`、`ACC-BKP-001`、`ACC-RUN-001/002/006/007`、`ACC-SAVE-001/003`、`ACC-UI-001/004/005/007`。必须运行 `make data-check`、`make prepare-deps`、`make deps-check`、`make api-check`、`make ci`、`make web-e2e` 和 `make build-images`；当前 clean schema、正式 UI 源、导出 HTML 与当次本地视觉复核全部闭环后才可删除临时设计目录，本地图片不得提交。双浏览器结果只证明锁定 FCEUmm/FBNeo profile 与项目自有 fixture，不扩大内容或 core allowlist。
 
 ### M13：移动响应式与横屏 Player
 
@@ -169,15 +160,15 @@ Migration 037 在 036 之后增加快速审批 aggregate/item 表，并把 `REVI
 
 ### M14：游戏标签垂直切片
 
-范围：先同步 [标签领域契约](./game-tags.md) 与 OpenAPI，再落 Migration 034、`internal/tagging`、管理员 CRUD/usage、GameTag 集合替换、SQL 分页前的 `q/tagId` 搜索和批量 DTO 投影；随后把 `tagIds` 配置快照接入普通 import/reconfigure、ReviewDraft 自动保存与 Approve 原子发布、Pegasus Collection mapping/handoff/retry；最后接通 `/admin/tags`、共享 TagPicker、游戏库/详情、收藏/最近/存档/联机与管理入口。
+范围：先同步 [标签领域契约](./game-tags.md) 与 OpenAPI，再实现 `internal/tagging`、管理员 CRUD/usage、GameTag 集合替换、SQL 分页前的 `q/tagId` 搜索和批量 DTO 投影；随后把 `tagIds` 配置快照接入普通 import/reconfigure、ReviewDraft 自动保存与 Approve 原子发布、Pegasus Collection mapping/handoff/retry；最后接通 `/admin/tags`、共享 TagPicker、游戏库/详情、收藏/最近/存档/联机与管理入口。
 
-退出门禁：完整执行 `ACC-TAG-001`–`005`，运行 `make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、前端五门禁、`make api-check`、`make web-e2e` 与 `make ci`。034 的 033 升级和全新库必须通过完整性检查；正式 UI 源、导出 HTML、标签桌面/移动/Drawer 与受影响页面的当次本地视觉复核闭环，且本地 `make dev` 的 CRUD→导入/审核→发布→搜索主链实际通过后，才可删除临时设计目录。本地图片不得提交；标签不进入模拟器执行路径，因此本里程碑不运行 core smoke 或依赖/fixture 基线检查。
+退出门禁：完整执行 `ACC-TAG-001`–`005`，运行 `make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、前端五门禁、`make api-check`、`make web-e2e` 与 `make ci`。当前 clean schema 必须通过完整性检查；正式 UI 源、导出 HTML、标签桌面/移动/Drawer 与受影响页面的当次本地视觉复核闭环，且本地 `make dev` 的 CRUD→导入/审核→发布→搜索主链实际通过后，才可删除临时设计目录。本地图片不得提交；标签不进入模拟器执行路径，因此本里程碑不运行 core smoke 或依赖/fixture 基线检查。
 
 ### M15：严格 READY 快速审批垂直切片
 
-范围：先同步审核、数据、HTTP、UI、质量和验收契约与 OpenAPI，再落 Migration 037、`review_bulk_approvals/items`、`REVIEW_BULK_APPROVE` Worker 和 restore fence；复用普通 Approve 服务并把每项发布与批次结果原子提交。前端在统一待审核页接通当前筛选预览、确认、可恢复进度、取消/worker retry 和结果链接；截图人工放行、重复内容、活动补传和漂移输入继续逐项处理。
+范围：先同步审核、数据、HTTP、UI、质量和验收契约与 OpenAPI，再实现 `review_bulk_approvals/items`、`REVIEW_BULK_APPROVE` Worker 和 restore fence；复用普通 Approve 服务并把每项发布与批次结果原子提交。前端在统一待审核页接通当前筛选预览、确认、可恢复进度、取消/worker retry 和结果链接；截图人工放行、重复内容、活动补传和漂移输入继续逐项处理。
 
-退出门禁：完整执行 `ACC-IMP-009`、`ACC-UI-010`，回归 `ACC-IMP-004/007/008`、`ACC-PEG-003/004`、`ACC-TAG-003/004` 与 `ACC-BKP-001`；运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e` 与 `make ci`。036→037、fresh schema、restore、取消竞争和每项发布原子性必须有确定性证据；正式 UI 源、导出 HTML 和待审核桌面/移动的当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。本切片不进入模拟器执行路径，不运行 core smoke 或依赖/fixture 基线检查。
+退出门禁：完整执行 `ACC-IMP-009`、`ACC-UI-010`，回归 `ACC-IMP-004/007/008`、`ACC-PEG-003/004`、`ACC-TAG-003/004` 与 `ACC-BKP-001`；运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e` 与 `make ci`。当前 clean schema、restore、取消竞争和每项发布原子性必须有确定性证据；正式 UI 源、导出 HTML 和待审核桌面/移动的当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。本切片不进入模拟器执行路径，不运行 core smoke 或依赖/fixture 基线检查。
 
 ## 5. 垂直切片提交规则
 

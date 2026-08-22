@@ -148,11 +148,11 @@ describe("PegasusImportDetailManager", () => {
       id: "77777777-7777-4777-8777-777777777777", title: "1944 循环的征服者",
       collectionId: "66666666-6666-4666-8666-666666666666", collectionName: "飞机街机",
       targetPlatformInstanceId: platform.id, targetPlatformInstanceName: "FBNeo 游戏",
-      metadataRelativePath: "metadata.pegasus.txt", executionState: "BLOCKED_VALIDATION", contentKind: "SINGLE_FILE",
+      metadataRelativePath: "metadata.pegasus.txt", executionState: "REVIEW_PENDING", contentKind: "SINGLE_FILE",
       tags: [],
       media: { cover: "READY", video: "MISSING" }, warnings: [], discoveryCode: null,
-      errorCode: "LAUNCH_PARENT_MISSING", retryable: false, publishedGameId: null, existingGameId: null,
-      reviewItemId: null,
+      errorCode: null, retryable: false, publishedGameId: null, existingGameId: null,
+      reviewItemId: "99999999-9999-4999-8999-999999999999",
       failureDetails: null, existingMatches: [], updatedAtMs: 2,
       runtimeCheck: {
         status: "BLOCKED", code: "LAUNCH_PARENT_MISSING", coreId: "fbneo", coreName: "FinalBurn Neo",
@@ -160,12 +160,12 @@ describe("PegasusImportDetailManager", () => {
         dependencies: [{ kind: "PARENT", machine: "1944", requiredBy: "1944j", expectedLogicalName: "1944.zip", state: "MISSING", requiredEntries: ["nffe.03"] }],
       },
     };
-    const result = summary("PARTIAL_FAILURE", 4, { importJobId: "44444444-4444-4444-8444-444444444444", retryable: true, completedAtMs: 3 });
+    const result = summary("COMPLETED", 4, { importJobId: "44444444-4444-4444-8444-444444444444", retryable: false, completedAtMs: 3 });
     const user = userEvent.setup();
 
     render(<PegasusImportDetailManager initialSummary={result} initialItems={{ items: [blocked], nextCursor: null }} collections={[]} roots={[root]} platformInstances={[platform]} initialFilters={{ query: "", outcome: "", warning: "", collectionId: "" }} />);
 
-    expect(screen.getByRole("button", { name: "重试失败条目" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "重试失败条目" })).not.toBeInTheDocument();
     expect(screen.getAllByText("缺少父 ROM")[0]).toBeVisible();
     await user.click(screen.getByText("查看具体原因与处理建议"));
     expect(screen.getByText("LAUNCH_PARENT_MISSING")).toBeVisible();

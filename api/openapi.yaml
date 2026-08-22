@@ -1172,36 +1172,6 @@ paths:
               required: [metadata, state, screenshot]
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
-  /runtime/launches/{launchId}/persistent-save:
-    parameters: [{ $ref: '#/components/parameters/LaunchID' }]
-    get:
-      security: []
-      operationId: getRuntimePersistentSave
-      responses:
-        '200': { $ref: '#/components/responses/BinaryResponse' }
-        '204': { description: No persistent save }
-    put:
-      security: []
-      operationId: putRuntimePersistentSave
-      x-retrom-streaming-body: true
-      parameters:
-        - { $ref: '#/components/parameters/ContentDigest' }
-        - { $ref: '#/components/parameters/IdempotencyKey' }
-        - name: X-Retrom-Save-Sequence
-          in: header
-          required: true
-          schema: { type: integer, format: int64, minimum: 1 }
-        - name: X-Retrom-Save-Event
-          in: header
-          required: true
-          schema: { type: string, enum: [AUTO_INTERVAL, MANUAL_EXPORT, EXIT] }
-      requestBody:
-        required: true
-        content:
-          application/octet-stream:
-            schema: { type: string, format: binary }
-      responses:
-        '201': { $ref: '#/components/responses/JSONResponse' }
   /runtime/launches/{launchId}/game/{logicalName}:
     parameters: [{ $ref: '#/components/parameters/LaunchID' }, { $ref: '#/components/parameters/LogicalName' }]
     get:
@@ -1925,8 +1895,7 @@ components:
       additionalProperties: false
       required: [mode, launchId, emulatorjsVersion, playerAdapterId, core, runtimeCore, coreName,
         coreArtifactId, emulatorGameId, gameName, gameTitle, platformName, runtimeBaseUrl,
-        loaderUrl, gameUrl, biosUrl, parentUrl, stateUrl, persistentSaveMode,
-        persistentSaveUrl, inputMode, startupActions, requiresThreads, runtimePathOverrides,
+        loaderUrl, gameUrl, biosUrl, parentUrl, stateUrl, inputMode, startupActions, requiresThreads, runtimePathOverrides,
         defaultCoreOptions, externalFiles, discSet, dosEntry, warnings, returnTo, netplay]
       properties:
         mode: { type: string, enum: [single, netplay] }
@@ -1947,14 +1916,6 @@ components:
         biosUrl: { type: string, nullable: true }
         parentUrl: { type: string, nullable: true }
         stateUrl: { type: string, nullable: true }
-        persistentSaveMode:
-          type: string
-          enum: [SINGLE_FILE, DOS_OVERLAY, FILE_TREE, AUTO_STATE, NONE]
-          description: Active Player launches always return NONE. Other values are retained only for compatibility with historical artifact metadata and persistent-save records.
-        persistentSaveUrl:
-          type: string
-          nullable: true
-          description: Active Player launches always return null because saves are created only by an explicit save-state action.
         inputMode: { type: string, enum: [STANDARD, POINTER] }
         startupActions:
           type: array
@@ -1998,7 +1959,7 @@ components:
       required: [schemaVersion, protocolVersion, profileId, emulatorjsVersion, playerAdapterId, netplayAdapterId, coreArtifactId, coreArtifactSha256, gameVariantRevisionId, sourceManifestDigest, dependencySnapshotDigest, defaultCoreOptions, controlCount, maxPlayers, maxPredictionFrames, maxRollbackFrames, checkpointEveryFrames, canonicalHistoryFrames, maxStateBytes]
       properties:
         schemaVersion: { type: integer, enum: [1] }
-        protocolVersion: { type: string, enum: [retrom-netplay-v1] }
+        protocolVersion: { type: string, enum: [retrom-netplay-v2] }
         profileId: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
         emulatorjsVersion: { type: string, enum: ['4.2.3'] }
         playerAdapterId: { type: string, enum: ['ejs-4.2.3-v2'] }
@@ -2590,7 +2551,7 @@ components:
           properties: { id: { type: string }, label: { type: string } }
         sourceRelativePath: { type: string, maxLength: 4096 }
         state: { type: string, enum: [SCANNING, AWAITING_MAPPING, QUEUED, RUNNING, PARTIAL_FAILURE, COMPLETED, CANCEL_REQUESTED, CANCELLED, FAILED, EXPIRED] }
-        phase: { type: string, nullable: true, enum: [DISCOVERING_METADATA, PARSING_METADATA, RESOLVING_SOURCES, COPYING_CONTENT, VALIDATING, PREPARING_REVIEWS, PUBLISHING] }
+        phase: { type: string, nullable: true, enum: [DISCOVERING_METADATA, PARSING_METADATA, RESOLVING_SOURCES, COPYING_CONTENT, VALIDATING, PREPARING_REVIEWS] }
         scanJobId: { type: string, format: uuid }
         importJobId: { type: string, format: uuid, nullable: true }
         counts: { $ref: '#/components/schemas/PegasusImportCounts' }
@@ -2654,7 +2615,7 @@ components:
         targetPlatformInstanceId: { type: string, format: uuid, nullable: true }
         targetPlatformInstanceName: { type: string, nullable: true }
         metadataRelativePath: { type: string, maxLength: 4096 }
-        executionState: { type: string, enum: [PENDING, COPYING, VALIDATING, PUBLISHING, REVIEW_PENDING, PUBLISHED, REVIEW_DISCARDED, SKIPPED_EXISTING, SKIPPED_MAPPING, BLOCKED_SOURCE, BLOCKED_CONTENT, BLOCKED_VALIDATION, SOURCE_CHANGED, READ_FAILED, COMMIT_FAILED, CANCELLED] }
+        executionState: { type: string, enum: [PENDING, COPYING, VALIDATING, REVIEW_PENDING, PUBLISHED, REVIEW_DISCARDED, SKIPPED_EXISTING, SKIPPED_MAPPING, BLOCKED_SOURCE, BLOCKED_CONTENT, SOURCE_CHANGED, READ_FAILED, COMMIT_FAILED, CANCELLED] }
         contentKind: { type: string, nullable: true, enum: [SINGLE_FILE, DOS_BUNDLE, MULTI_DISC_M3U_V1] }
         tags: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/TagReference' } }
         media:
@@ -2837,7 +2798,7 @@ components:
           enum: [START, DISK_COUNT_MISMATCH, SWITCH_SUCCESS, SWITCH_FAILURE, SAVE_RESTORE_SUCCESS, SAVE_RESTORE_FAILURE]
         resultCode:
           type: string
-          enum: [OK, PLAYER_DISC_SET_INVALID, PLAYER_DISC_API_UNAVAILABLE, PLAYER_DISC_SWITCH_UNAVAILABLE, PLAYER_DISC_SWITCH_FAILED, PLAYER_SAVE_STATE_UNAVAILABLE, PLAYER_SAVE_STATE_RESTORE_FAILED, LAUNCH_PERSISTENT_SAVE_LOAD_FAILED]
+          enum: [OK, PLAYER_DISC_SET_INVALID, PLAYER_DISC_API_UNAVAILABLE, PLAYER_DISC_SWITCH_UNAVAILABLE, PLAYER_DISC_SWITCH_FAILED, PLAYER_SAVE_STATE_UNAVAILABLE, PLAYER_SAVE_STATE_RESTORE_FAILED]
         discCount: { type: integer, minimum: 2, maximum: 8 }
         observedDiscCount: { type: integer, minimum: -1, maximum: 64, nullable: true }
     HealthLive:
@@ -3030,7 +2991,6 @@ components:
         backgroundCandidateAssetId: {}
         base: {}
         baseContentRevisionId: {}
-        baseDatVersionId: {}
         binary: {}
         bios: {}
         biosSetCount: {}
@@ -3234,8 +3194,6 @@ components:
         path: {}
         paused: {}
         playlist: {}
-        persistentSaveId: {}
-        persistentSaveUrl: {}
         platform: {}
         platformId: {}
         platformInstance: {}

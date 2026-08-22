@@ -195,8 +195,17 @@ state_blob_id,screenshot_blob_id,source_launch_session_id,name,active_duration_m
 VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,'本次游玩存档',240000,1,?,?,NULL)
 `, sessionSaveID, gameID, variantRevisionID, coreArtifactID, screenshotBlobID, screenshotBlobID,
 		latestLaunchID, now+20, now+20)
+	var alternateLaunchID string
+	if err := server.database.QueryRowContext(
+		context.Background(),
+		`SELECT id FROM launch_sessions WHERE game_id=? AND id<>? ORDER BY id LIMIT 1`,
+		gameID,
+		latestLaunchID,
+	).Scan(&alternateLaunchID); err != nil {
+		t.Fatal(err)
+	}
 	if _, err := server.database.ExecContext(
-		context.Background(), `UPDATE save_states SET source_launch_session_id=NULL WHERE id=?`, sessionSaveID,
+		context.Background(), `UPDATE save_states SET source_launch_session_id=? WHERE id=?`, alternateLaunchID, sessionSaveID,
 	); err == nil ||
 		!strings.Contains(err.Error(), "source launch is immutable") {
 		t.Fatalf("mutable save source error = %v", err)
@@ -428,7 +437,7 @@ INSERT INTO game_content_revisions(
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO games(
  id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),'PUBLISHED',?,?,?,1,?,?)
 `, gameID, metadataID, contentID, strings.ToLower(title), createdAt, createdAt)
 	}
 	if err := transaction.Commit(); err != nil {
@@ -543,7 +552,7 @@ VALUES(?,?,'ADMIN_REPLACE',?,'{}',?,?)
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,
 version,created_at_ms,updated_at_ms)
-VALUES(?,'01980000-0000-7000-8000-000000000009','PUBLISHED',?,?,?,1,?,?)
+VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),'PUBLISHED',?,?,?,1,?,?)
 `, gameID, metadataID, contentID, fmt.Sprintf("recent fixture %02d", index), now+int64(index), now+int64(index))
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO game_variants(id,game_id,core_id,current_revision_id,version,created_at_ms,updated_at_ms)
@@ -638,7 +647,7 @@ search_text,
 version,
 created_at_ms,
 updated_at_ms) VALUES(?,
-'01980000-0000-7000-8000-000000000009',
+(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),
 'PUBLISHED',
 ?,
 ?,
@@ -745,18 +754,24 @@ VALUES(?,?,?,?,NULL,?,9001,'READY','READY','{}',NULL,?)
 	testassert.False(t, err != nil, err)
 	fixture.screenshotBlobID, err = blobstore.EnsureRecord(t.Context(), transaction, screenshotMetadata, "image/png", now)
 	testassert.False(t, err != nil, err)
+	sourceLaunchID := uuid.NewString()
+	mustExecHTTPTest(t, transaction, `
+INSERT INTO launch_sessions(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,return_to,
+credential_sha256,state,bootstrap_expires_at_ms,finished_at_ms,hard_expires_at_ms,created_at_ms,updated_at_ms,version)
+VALUES(?,'local',?,?,?,'/',zeroblob(32),'FINISHED',?,?,?, ?,?,1)
+`, sourceLaunchID, gameID, variantRevisionID, coreArtifactID, now+60_000, now, now+120_000, now, now)
 	mustExecHTTPTest(t, transaction, `
 INSERT INTO save_states(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,dat_version_id,dos_entry_path,
-state_blob_id,screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms)
-VALUES(?,'local',?,?,?,NULL,NULL,?,?,'入口存档',180000,1,?,?,NULL)
-`, saveStateID, gameID, variantRevisionID, coreArtifactID, fixture.screenshotBlobID, fixture.screenshotBlobID, now, now)
+state_blob_id,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms)
+VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,'入口存档',180000,1,?,?,NULL)
+`, saveStateID, gameID, variantRevisionID, coreArtifactID, fixture.screenshotBlobID, fixture.screenshotBlobID, sourceLaunchID, now, now)
 	for index := 0; index < 8; index++ {
 		mustExecHTTPTest(t, transaction, `
 INSERT INTO save_states(id,profile_id,game_id,game_variant_revision_id,core_artifact_id,dat_version_id,dos_entry_path,
-state_blob_id,screenshot_blob_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms)
-VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,60000,1,?,?,NULL)
+state_blob_id,screenshot_blob_id,source_launch_session_id,name,active_duration_ms,version,created_at_ms,updated_at_ms,deleted_at_ms)
+VALUES(?,'local',?,?,?,NULL,NULL,?,?,?,?,60000,1,?,?,NULL)
 `, uuid.NewString(), gameID, variantRevisionID, coreArtifactID, fixture.screenshotBlobID, fixture.screenshotBlobID,
-			fmt.Sprintf("额外存档 %d", index+1), now+int64(index+1), now+int64(index+1))
+			sourceLaunchID, fmt.Sprintf("额外存档 %d", index+1), now+int64(index+1), now+int64(index+1))
 	}
 	for index, duration := range []int64{120_000, 240_000} {
 		launchID, playID := uuid.NewString(), uuid.NewString()

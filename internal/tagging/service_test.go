@@ -53,7 +53,7 @@ INSERT INTO games(
   id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
   search_text,version,created_at_ms,updated_at_ms
 ) VALUES(
-  '`+testGameID+`','01980000-0000-7000-8000-000000000005','PUBLISHED',
+  '`+testGameID+`',(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),'PUBLISHED',
   '01980000-0000-7000-8000-00000000f402','01980000-0000-7000-8000-00000000f403',
   'tagged game',1,1,1
 );

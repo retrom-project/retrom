@@ -345,10 +345,6 @@ func (service *Service) persistLaunch(
 ) (Created, error) {
 	variantRevisionID, artifactID := selection.variantRevisionID, selection.artifactID
 	revisionCompatibilityCode := selection.revisionCompatibilityCode
-	// Retrom save states are explicit user actions. Launches never bind an
-	// implicit persistent-save revision, so a plain start always begins from
-	// the game's initial state.
-	var persistentBase sql.NullString
 	launchID, err := uuid.NewV7()
 	if err != nil {
 		return Created{}, fmt.Errorf("launch/service: %w", err)
@@ -373,7 +369,6 @@ game_variant_revision_id,
 core_artifact_id,
 save_state_id,
 dos_entry_path,
-persistent_save_base_revision_id,
 initial_disc_index,
 return_to,
 credential_sha256,
@@ -382,7 +377,6 @@ bootstrap_expires_at_ms,
 hard_expires_at_ms,
 created_at_ms,
 updated_at_ms) VALUES(?,
-?,
 ?,
 ?,
 ?,
@@ -405,7 +399,6 @@ updated_at_ms) VALUES(?,
 		artifactID,
 		request.SaveStateID,
 		selectedDOSEntry,
-		persistentBase,
 		initialDiscIndex,
 		request.ReturnTo,
 		capabilityHash[:],
@@ -497,20 +490,12 @@ func validArtifactCompatibility(compatibility artifactCompatibility) bool {
 	if compatibility.InputMode != "STANDARD" && compatibility.InputMode != "POINTER" {
 		return false
 	}
-	return validPersistentCapability(compatibility) &&
-		validDefaultOptions(compatibility.DefaultOptions) &&
+	return validDefaultOptions(compatibility.DefaultOptions) &&
 		validStartupActions(compatibility.StartupActions)
 }
 
 func validArtifactCompatibilitySchema(compatibility artifactCompatibility) bool {
-	switch compatibility.SchemaVersion {
-	case 2:
-		return len(compatibility.SupportedContentKinds) == 0 && compatibility.MultiDisc == nil
-	case 3, 4:
-		return validContentCapabilities(compatibility)
-	default:
-		return false
-	}
+	return compatibility.SchemaVersion == 5 && validContentCapabilities(compatibility)
 }
 
 func validContentCapabilities(compatibility artifactCompatibility) bool {
@@ -548,25 +533,6 @@ func validRuntimeCoreID(value string) bool {
 func validRequestedArtifactBasename(value string) bool {
 	return path.Base(value) == value && !strings.Contains(value, `\`) &&
 		!strings.Contains(value, "..") && strings.HasSuffix(value, "-wasm.data")
-}
-
-func validPersistentCapability(compatibility artifactCompatibility) bool {
-	switch compatibility.PersistentSaveMode {
-	case "SINGLE_FILE":
-		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "CORE_SAVE"
-	case "FILE_TREE":
-		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "CORE_SAVE" &&
-			(compatibility.SchemaVersion >= 4 || compatibility.RuntimeCoreID == "ppsspp")
-	case "AUTO_STATE":
-		return compatibility.SchemaVersion >= 4 && compatibility.PersistentSaveKind != nil &&
-			*compatibility.PersistentSaveKind == "CORE_SAVE"
-	case "DOS_OVERLAY":
-		return compatibility.PersistentSaveKind != nil && *compatibility.PersistentSaveKind == "DOS_OVERLAY"
-	case "NONE":
-		return compatibility.PersistentSaveKind == nil
-	default:
-		return false
-	}
 }
 
 func validDefaultOptions(options map[string]string) bool {

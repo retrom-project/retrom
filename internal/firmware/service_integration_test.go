@@ -130,11 +130,11 @@ SELECT id FROM core_artifacts WHERE core_id='mame2003_plus' AND enabled=1 LIMIT 
 	crc32Value := fmt.Sprintf("%08x", crc32.ChecksumIEEE(contents))
 	now := time.Now().UnixMilli()
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,
-compatibility_status,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
+INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,bios_set_count,
 default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,unresolved_relation_count,
 version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES('dat-test','mame2003_plus',?,'BUILTIN','test.dat',?,'test-parser','MATCHED','READY',1,1,1,0,1,1,1,0,0,1,?,?,?,?)
+VALUES('dat-test','mame2003_plus',?,'test.dat',?,'test-parser','READY',1,1,1,0,1,1,1,0,0,1,?,?,?,?)
 `, artifactID, strings.Repeat("a", 64), now, now, now, now); err != nil {
 		t.Fatal(err)
 	}

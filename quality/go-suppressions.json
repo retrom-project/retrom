@@ -3,7 +3,7 @@
   "exceptions": [
     {
       "path": "internal/httpapi/launch_handlers.go",
-      "line": 897,
+      "line": 774,
       "symbol": "func deterministicStoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
       "reason": "Required by RETROM_EJS_DEP_ZIP_V1.",
@@ -12,7 +12,7 @@
     },
     {
       "path": "internal/httpapi/launch_handlers.go",
-      "line": 898,
+      "line": 775,
       "symbol": "func deterministicStoreZIPHeader(name string) *zip.FileHeader",
       "linter": "staticcheck",
       "reason": "Required by RETROM_EJS_DEP_ZIP_V1.",

@@ -493,10 +493,10 @@ LIMIT 1
 	if err != nil {
 		return homeFeaturedResult{}, fmt.Errorf("home featured game: %w", err)
 	}
-	var historicalSaveCount int64
+	var saveCount int64
 	if err := server.database.QueryRowContext(ctx, `
 SELECT count(*) FROM save_states WHERE game_id=? AND profile_id=? AND deleted_at_ms IS NULL
-`, gameID, profileID).Scan(&historicalSaveCount); err != nil {
+`, gameID, profileID).Scan(&saveCount); err != nil {
 		return homeFeaturedResult{}, fmt.Errorf("home featured save count: %w", err)
 	}
 	lastSessionSave, err := server.featuredSessionSave(ctx, launchID, profileID)
@@ -513,7 +513,7 @@ SELECT count(*) FROM save_states WHERE game_id=? AND profile_id=? AND deleted_at
 		"platformInstance": map[string]any{"id": instanceID, "name": instanceName},
 		"lastPlayedAtMs":   lastPlayedAtMS, "activeDurationMs": activeDurationMS,
 		"sessionCount": sessionCount, "coverUrl": gameCoverURL(coverAssetID),
-		"hasSaveStates": historicalSaveCount > 0, "lastSessionSave": lastSessionSave.value, "tags": tags,
+		"hasSaveStates": saveCount > 0, "lastSessionSave": lastSessionSave.value, "tags": tags,
 	}}, nil
 }
 

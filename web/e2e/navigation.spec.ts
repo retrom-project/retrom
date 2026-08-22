@@ -95,11 +95,9 @@ test("one click creates a capability launch and advances real emulator frames", 
   test.setTimeout(120_000);
   test.skip(!["chrome-1280", "chrome-4k-150"].includes(testInfo.project.name), "The real core smoke covers the minimum desktop and physical 4K at 150% scaling.");
   const saveWrites: string[] = [];
-  const persistentRequests: string[] = [];
   page.on("request", (request) => {
     const pathname = new URL(request.url()).pathname;
     if (request.method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(pathname)) {saveWrites.push(pathname);}
-    if (/\/runtime\/launches\/[^/]+\/persistent-save$/.test(pathname)) {persistentRequests.push(pathname);}
   });
   const games = await page.request.get("/api/v1/games");
   const payload = await games.json() as { items: Array<{ gameId: string; title: string }> };
@@ -214,7 +212,6 @@ test("one click creates a capability launch and advances real emulator frames", 
   await directExitDialog.getByRole("button", { name: "退出游戏" }).click();
   await expect(page).toHaveURL(new RegExp(`/games/${game!.gameId}$`));
   expect(saveWrites).toHaveLength(1);
-  expect(persistentRequests).toEqual([]);
 });
 
 test("library grid and management workbench match desktop breakpoints", async ({ page }, testInfo) => {

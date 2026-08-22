@@ -1,3 +1,5 @@
+-- Clean pre-release baseline: upload_archive.
+
 CREATE TABLE upload_sessions (
   id TEXT PRIMARY KEY,
   state TEXT NOT NULL CHECK(state IN ('CREATED','UPLOADING','FINALIZING','COMPLETE','FAILED','CANCELLED','EXPIRED')),
@@ -41,17 +43,6 @@ CREATE TABLE upload_parts (
   PRIMARY KEY(upload_file_id, part_no)
 );
 
-CREATE TABLE upload_consumptions (
-  id TEXT PRIMARY KEY,
-  upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
-  upload_file_id TEXT REFERENCES upload_files(id),
-  consumer_type TEXT NOT NULL CHECK(consumer_type IN ('IMPORT_JOB','GAME_FILE_REVISION_JOB','GAME_ASSET','BIOS_INSTALLATION','DAT_VERSION')),
-  consumer_id TEXT NOT NULL,
-  created_at_ms INTEGER NOT NULL,
-  UNIQUE(consumer_type, consumer_id)
-);
-CREATE UNIQUE INDEX upload_consumptions_whole_session ON upload_consumptions(upload_session_id) WHERE upload_file_id IS NULL;
-
 CREATE TABLE archive_entries (
   archive_blob_id TEXT NOT NULL REFERENCES blobs(id),
   ordinal INTEGER NOT NULL CHECK(ordinal >= 0),
@@ -74,19 +65,15 @@ CREATE TABLE archive_entries (
         (archive_format='SEVEN_Z' AND compression_profile='SEVEN_Z_DECODER_VALIDATED'))
 );
 
-CREATE TRIGGER archive_entries_immutable_update
-BEFORE UPDATE ON archive_entries
-WHEN OLD.materialized_blob_id IS NOT NULL
-  OR NEW.materialized_blob_id IS NULL
-  OR NEW.archive_blob_id != OLD.archive_blob_id
-  OR NEW.ordinal != OLD.ordinal
-  OR NEW.original_relative_path != OLD.original_relative_path
-  OR NEW.normalized_path != OLD.normalized_path
-  OR NEW.ascii_casefold_path != OLD.ascii_casefold_path
-  OR NEW.archive_format != OLD.archive_format
-  OR NEW.compression_profile != OLD.compression_profile
-  OR NEW.uncompressed_size_bytes != OLD.uncompressed_size_bytes
-  OR NEW.crc32 != OLD.crc32 OR NEW.md5 != OLD.md5 OR NEW.sha1 != OLD.sha1 OR NEW.sha256 != OLD.sha256
-BEGIN
-  SELECT RAISE(ABORT, 'archive entry is immutable');
-END;
+CREATE TABLE "upload_consumptions" (
+  id TEXT PRIMARY KEY,
+  upload_session_id TEXT NOT NULL REFERENCES upload_sessions(id),
+  upload_file_id TEXT REFERENCES upload_files(id),
+  consumer_type TEXT NOT NULL CHECK(consumer_type IN (
+    'IMPORT_JOB','GAME_FILE_REVISION_JOB','GAME_ASSET','REVIEW_ASSET','REVIEW_ARCADE_PARENT',
+    'REVIEW_MULTI_DISC','BIOS_INSTALLATION'
+  )),
+  consumer_id TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
+  UNIQUE(consumer_type,consumer_id)
+);

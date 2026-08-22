@@ -283,18 +283,6 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 “FBNeo 游戏列表”和“FBNeo 飞行游戏”可以使用相同默认核心，但它们是两个独立的唯一归属目录。若未来需要让同一游戏同时出现在“飞行”“双人”“通关中”等视图，应另建 Tag/Collection，而不是让 Game 同时属于多个 PlatformInstance。
 
-## 10. 旧模型迁移
+## 10. 当前 schema 边界
 
-当前项目尚无已发布旧数据库，因此一期必须直接以 <code>games.platform_instance_id</code> 建表，不保留过渡性的 <code>games.platform_id</code>，也不实施“Arcade 待归类”目录或下面的兼容 migration。下面只记录未来接管真实旧库时的迁移决策；在没有实际旧 schema、数据样本和支持版本登记前，Agent 不得把它加入首版 migration 或 seed。
-
-未来若已有正式支持的旧数据库，迁移顺序为：
-
-1. 备份 SQLite 与 CAS，并暂停导入、审核和游戏编辑。
-2. 创建 <code>platform_instances</code>，为每个非 Arcade 平台建立一个继承旧默认核心的迁移目录。
-3. Arcade 游戏仅在“恰好有一个已验证有效核心”时自动进入对应核心目录；多核心均有效、均无效或没有历史结论的游戏进入“Arcade 待归类”迁移目录并生成待审核事项，不能仅凭扩展名或文件名猜测。该迁移目录暂用旧 Arcade 默认核心，但不把它视为兼容性结论。
-4. 由每个 Game 的活动用户源文件生成一个不可变 GameContentRevision/GameContentFiles，并让全部历史 VariantRevision 按其精确源文件映射到对应 ContentRevision；无法证明映射的记录必须进入迁移报告并阻止恢复写入，不能按文件名猜测。
-5. 暂时增加可空 <code>games.platform_instance_id/current_content_revision_id</code>，完成回填并检查每个游戏恰好归属一个目录且有一个 current content。
-6. 使用 SQLite 表重建将两列改为 <code>NOT NULL</code>，移除 <code>games.platform_id</code>，重建索引和触发器。
-7. 对全部 GameContentRevision、GameVariant/VariantRevision、存档、导入快照和审核记录做引用一致性检查，通过后恢复写入。
-
-“Arcade 待归类”只是迁移兜底目录，不作为新导入目标；管理员完成移动后应删除该空目录。
+当前项目尚无已发布数据库，clean schema 直接以非空 <code>games.platform_instance_id</code> 建模，不存在 <code>games.platform_id</code>、过渡列、迁移目录或推断归属的回填逻辑。fresh 数据库不 seed PlatformInstance；管理员通过“应用推荐目录”创建当前 catalog，Game 只能由当前导入、审核或管理路径进入明确目录。

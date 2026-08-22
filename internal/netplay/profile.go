@@ -16,7 +16,7 @@ import (
 )
 
 const (
-	ProtocolVersion        = "retrom-netplay-v1"
+	ProtocolVersion        = "retrom-netplay-v2"
 	WebSocketSubprotocol   = "retrom.netplay.v1"
 	PlayerAdapterID        = "ejs-4.2.3-v2"
 	NetplayAdapterID       = "ejs-netplay-4.2.3-v1"
@@ -26,8 +26,8 @@ const (
 	MaxRollbackFrames      = 120
 	CanonicalHistoryFrames = 600
 	MaxStateBytes          = 1_048_576
-	ManifestRelativePath   = "netplay/v1/manifest.json"
-	ManifestSchemaRelative = "netplay/v1/schema.json"
+	ManifestRelativePath   = "netplay/v2/manifest.json"
+	ManifestSchemaRelative = "netplay/v2/schema.json"
 )
 
 var ErrManifestInvalid = errors.New("NETPLAY_MANIFEST_INVALID")
@@ -92,7 +92,7 @@ func parseRegistry(contents []byte, dependencySet *dependencies.Set) (*Registry,
 	if err := decoder.Decode(&trailing); !errors.Is(err, io.EOF) {
 		return nil, fmt.Errorf("%w: trailing data", ErrManifestInvalid)
 	}
-	if manifest.SchemaVersion != 3 || !validProtocol(manifest.Protocol) || len(manifest.Profiles) == 0 {
+	if manifest.SchemaVersion != 4 || !validProtocol(manifest.Protocol) || len(manifest.Profiles) == 0 {
 		return nil, fmt.Errorf("%w: protocol", ErrManifestInvalid)
 	}
 	version := dependencySet.Versions["4.2.3"]

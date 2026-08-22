@@ -6,77 +6,89 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"retrom/internal/platformcatalog"
+	"retrom/internal/platforminstance"
 	"retrom/internal/store"
 )
 
-var errLegacyDirectoryIdentityMissing = errors.New("testsupport: missing legacy directory identity")
+type PlatformInstanceReference struct {
+	ID          string
+	Slug        string
+	TemplateKey string
+}
 
-// OpenDatabase opens a current-schema database and restores the historical directory fixture for tests whose
-// subject is unrelated to recommended-directory initialization.
+type PlatformInstanceReferences map[string]PlatformInstanceReference
+
+// OpenDatabase opens a current-schema database and creates current catalog directories for tests whose
+// subject is unrelated to recommended-directory initialization. Tests resolve identities through
+// catalog_template_key because fresh databases intentionally contain no instance directory rows.
 func OpenDatabase(ctx context.Context, path string, now func() time.Time) (*store.DB, error) {
 	database, err := store.Open(ctx, path, now)
 	if err != nil {
 		return nil, fmt.Errorf("testsupport: open database: %w", err)
 	}
-	if err := SeedPlatformInstances(ctx, database.SQL); err != nil {
+	if _, err := BuildPlatformInstances(ctx, database.SQL); err != nil {
 		return nil, errors.Join(err, database.Close())
 	}
 	return database, nil
 }
 
-var legacyDirectoryIdentity = map[string]struct {
-	ID   string
-	Slug string
-}{
-	"nes/fceumm":                {"01980000-0000-7000-8000-000000000001", "nes-games"},
-	"snes/snes9x":               {"01980000-0000-7000-8000-000000000003", "snes-games"},
-	"gbc/gambatte":              {"01980000-0000-7000-8000-000000000004", "gbc-games"},
-	"gba/mgba":                  {"01980000-0000-7000-8000-000000000005", "gba-games"},
-	"arcade/fbneo":              {"01980000-0000-7000-8000-000000000006", "fbneo-games"},
-	"arcade/mame2003_plus":      {"01980000-0000-7000-8000-000000000007", "mame2003-plus-games"},
-	"arcade/fbalpha2012_cps1":   {"01980000-0000-7000-8000-000000000027", "fbalpha2012-cps1-games"},
-	"arcade/fbalpha2012_cps2":   {"01980000-0000-7000-8000-000000000028", "fbalpha2012-cps2-games"},
-	"dos/dosbox_pure":           {"01980000-0000-7000-8000-000000000009", "dos-games"},
-	"nds/desmume2015":           {"01980000-0000-7000-8000-000000000010", "nds-games"},
-	"atari2600/stella2014":      {"01980000-0000-7000-8000-000000000011", "atari-2600-games"},
-	"atari5200/a5200":           {"01980000-0000-7000-8000-000000000012", "atari-5200-games"},
-	"atari7800/prosystem":       {"01980000-0000-7000-8000-000000000013", "atari-7800-games"},
-	"lynx/handy":                {"01980000-0000-7000-8000-000000000014", "atari-lynx-games"},
-	"megadrive/genesis_plus_gx": {"01980000-0000-7000-8000-000000000015", "mega-drive-games"},
-	"pce/mednafen_pce":          {"01980000-0000-7000-8000-000000000016", "pc-engine-games"},
-	"ngpc/mednafen_ngp":         {"01980000-0000-7000-8000-000000000017", "neo-geo-pocket-games"},
-	"n64/mupen64plus_next":      {"01980000-0000-7000-8000-000000000018", "nintendo-64-games"},
-	"psx/pcsx_rearmed":          {"01980000-0000-7000-8000-000000000019", "playstation-games"},
-	"saturn/yabause":            {"01980000-0000-7000-8000-000000000020", "sega-saturn-games"},
-	"pcfx/mednafen_pcfx":        {"01980000-0000-7000-8000-000000000021", "pc-fx-games"},
-	"3do/opera":                 {"01980000-0000-7000-8000-000000000022", "3do-games"},
-	"psp/ppsspp":                {"01980000-0000-7000-8000-000000000023", "psp-games"},
-	"virtualboy/beetle_vb":      {"01980000-0000-7000-8000-000000000024", "virtual-boy-games"},
-	"wonderswan/mednafen_wswan": {"01980000-0000-7000-8000-000000000025", "wonderswan-games"},
-	"mastersystem/smsplus":      {"01980000-0000-7000-8000-000000000026", "master-system-games"},
-	"nintendo3ds/azahar":        {"01980000-0000-7000-8000-000000000029", "nintendo-3ds-games"},
-}
-
-// SeedPlatformInstances restores the former fixed directory rows only for tests
-// whose subject is unrelated to recommended-directory initialization.
-func SeedPlatformInstances(ctx context.Context, database *sql.DB) error {
+// BuildPlatformInstances creates the current recommendation catalog with fresh identities and returns
+// references keyed by catalog template key. Every invocation creates fresh UUIDv7 identities.
+func BuildPlatformInstances(ctx context.Context, database *sql.DB) (PlatformInstanceReferences, error) {
+	references := make(PlatformInstanceReferences, len(platformcatalog.Current().Templates))
 	for _, template := range platformcatalog.Current().Templates {
-		identity, exists := legacyDirectoryIdentity[template.Key]
-		if !exists {
-			return fmt.Errorf("%w: %s", errLegacyDirectoryIdentityMissing, template.Key)
+		id, err := uuid.NewV7()
+		if err != nil {
+			return nil, fmt.Errorf("testsupport: create platform instance id: %w", err)
+		}
+		slug, err := platforminstance.NextSlug(ctx, database, template.PlatformID, template.Name)
+		if err != nil {
+			return nil, fmt.Errorf("testsupport: create platform instance slug %s: %w", template.Key, err)
 		}
 		if _, err := database.ExecContext(ctx, `
 INSERT INTO platform_instances(
   id,platform_id,default_core_id,name,slug,description,sort_order,enabled,version,
   created_at_ms,updated_at_ms,catalog_template_key
-) VALUES(?,?,?,?,?,?,?,1,1,0,0,NULL)
-`, identity.ID, template.PlatformID, template.DefaultCoreID, template.Name, identity.Slug,
-			template.Description, template.CatalogOrder); err != nil {
-			return fmt.Errorf("testsupport: seed platform instance %s: %w", template.Key, err)
+) VALUES(?,?,?,?,?,?,?,1,1,0,0,?)
+`, id.String(), template.PlatformID, template.DefaultCoreID, template.Name, slug,
+			template.Description, template.CatalogOrder, template.Key); err != nil {
+			return nil, fmt.Errorf("testsupport: create platform instance %s: %w", template.Key, err)
+		}
+		references[template.Key] = PlatformInstanceReference{
+			ID: id.String(), Slug: slug, TemplateKey: template.Key,
 		}
 	}
-	return nil
+	return references, nil
+}
+
+// SeedPlatformInstances is a convenience for tests that only need a populated current catalog.
+func SeedPlatformInstances(ctx context.Context, database *sql.DB) error {
+	_, err := BuildPlatformInstances(ctx, database)
+	return err
+}
+
+func PlatformInstanceID(ctx context.Context, database *sql.DB, templateKey string) (string, error) {
+	var id string
+	if err := database.QueryRowContext(ctx, `
+SELECT id FROM platform_instances
+WHERE catalog_template_key=? AND deleted_at_ms IS NULL
+`, templateKey).Scan(&id); err != nil {
+		return "", fmt.Errorf("testsupport: resolve platform instance %s: %w", templateKey, err)
+	}
+	return id, nil
+}
+
+func MustPlatformInstanceID(t testing.TB, database *sql.DB, templateKey string) string {
+	t.Helper()
+	id, err := PlatformInstanceID(t.Context(), database, templateKey)
+	if err != nil {
+		t.Fatalf("resolve platform instance fixture: %v", err)
+	}
+	return id
 }

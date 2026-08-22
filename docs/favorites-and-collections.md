@@ -18,12 +18,12 @@
 - 同一 Game 可以被多个 Profile 分别收藏；任何角色都没有跨 Profile 查看、搜索或维护收藏数据的旁路。
 - 一项 Favorite 可以进入零到多个 FavoriteFolder。加入 Folder 会自动收藏；从最后一个 Folder 移除后 Favorite 保留并进入“未分类”。
 - 删除 Folder 只删除该 Folder 及其 Membership，不取消 Favorite；取消 Favorite 才在同一事务删除其全部 Membership。
-- 收藏不改变 Game、PlatformInstance、GameContentRevision、GameVariantRevision、Launch、SaveState 或 PersistentSave 的归属和运行行为。
+- 收藏不改变 Game、PlatformInstance、GameContentRevision、GameVariantRevision、Launch 或 SaveState 的归属和运行行为。
 - Game 软删除、PlatformInstance 停用或 User 停用只隐藏用户投影，不删除收藏关系；资源恢复可见后原关系自然恢复。
 - 本能力不引入公开/分享/协作收藏夹、嵌套、描述、封面、图标、手工排序、智能规则、推荐、统计榜或管理员审计事件。
 - 本能力不引入后台 Job、Blob、外网请求、浏览器持久副本、Core/DAT/BIOS/Player 变化或新的第三方依赖。
 
-Migration 034 的实例 Tag 与本专题完全独立：Tag 由 ADMIN 预先创建并可跨 Profile 展示在可见 Game 上，FavoriteFolder 由每个用户管理且只有 owner 可见。收藏页必须把游戏 Tag 与紫色 Folder chip 放在两个有独立可访问 label 的区域；按标签的 `q` 只过滤可见游戏，不允许用 Tag API 推断其他 Profile 的收藏。Tag 细节见 [`game-tags.md`](./game-tags.md)。
+实例 Tag 与本专题完全独立：Tag 由 ADMIN 预先创建并可跨 Profile 展示在可见 Game 上，FavoriteFolder 由每个用户管理且只有 owner 可见。收藏页必须把游戏 Tag 与紫色 Folder chip 放在两个有独立可访问 label 的区域；按标签的 `q` 只过滤可见游戏，不允许用 Tag API 推断其他 Profile 的收藏。Tag 细节见 [`game-tags.md`](./game-tags.md)。
 
 ## 2. 用户行为不变量
 
@@ -67,7 +67,7 @@ database/sql + 既有 authn/cursor/idempotency
 - 列表、总计数、Folder 可见计数、平台摘要和当前页来自同一只读事务。主查询先按 Principal、PUBLISHED Game 和 enabled PlatformInstance 限定，不能先读其他 owner 或隐藏 Game 再在 Go 过滤。
 - Membership 按当前页 Game ID 集合一次聚合，Folder count 使用集合查询；不得形成每张卡一次查询。查询计划由索引断言保护，不使用易抖动的耗时阈值。
 
-字段、索引、trigger 和 Migration 025 的精确定义见 [`data-model.md`](./data-model.md)；route、DTO、上限、cursor、ETag、幂等和错误见 [`http-api-contract.md`](./http-api-contract.md)。
+字段、索引和 trigger 的精确定义见 [`data-model.md`](./data-model.md)；route、DTO、上限、cursor、ETag、幂等和错误见 [`http-api-contract.md`](./http-api-contract.md)。
 
 ## 4. 隔离、安全与并发结果
 
@@ -88,9 +88,9 @@ database/sql + 既有 authn/cursor/idempotency
 
 ## 6. 发布、回滚与验证
 
-- Web 与后端按同一 release-input 组合发布；新 Web 不单独部署到缺少收藏 API 的旧后端。Migration 025 完成后直接启用，不需要 feature flag 或运行期物化。
+- Web 与后端按同一 release-input 组合发布；收藏能力随当前 schema 直接启用，不需要 feature flag 或运行期物化。
 - 首次进入的所有账号都是空收藏状态；不得从最近游玩、存档、平台图钉或浏览器历史推断收藏。
-- 发布前执行离线 backup。回滚旧应用时停止服务并恢复发布前的完整数据根；不得删除 025 表、手工降低 `schema_migrations` 或让旧二进制继续写新 schema。
+- 发布前执行离线 backup。回滚应用时停止服务并恢复与目标二进制 lineage 精确匹配的完整数据根；不得局部删表、手工降低 `schema_migrations` 或让不匹配的二进制继续写库。
 - 数据与后端最低自动化见 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md#71-后端与数据)，前端与浏览器最低自动化见 [`engineering-quality-and-testing.md`](./engineering-quality-and-testing.md#72-前端与浏览器)。
 - 正式通过只以 [`ACC-FAV-001`–`004`](./project-acceptance.md#16-收藏与收藏夹) 的当次结果为准；专题不复制 Case 流程或通过标准。
 

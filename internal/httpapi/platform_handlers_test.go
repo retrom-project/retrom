@@ -14,6 +14,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/contentcapability"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 )
 
 func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T) {
@@ -130,6 +131,10 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 	const secondUpload = "01980000-0000-7000-8000-000000007102"
 	createUpload(firstUpload, "01980000-0000-7000-8000-000000007111")
 	createUpload(secondUpload, "01980000-0000-7000-8000-000000007112")
+	saturnID, err := testsupport.PlatformInstanceID(t.Context(), server.database, "saturn/yabause")
+	testassert.False(t, err != nil, err)
+	playstationID, err := testsupport.PlatformInstanceID(t.Context(), server.database, "psx/pcsx_rearmed")
+	testassert.False(t, err != nil, err)
 	send := func(body string) *httptest.ResponseRecorder {
 		t.Helper()
 		request := httptest.NewRequestWithContext(context.Background(), http.MethodPost, "/api/v1/admin/imports", strings.NewReader(body))
@@ -138,12 +143,12 @@ VALUES(?,?,'game.chd',?,?,?,'COMPLETE',?,?)
 		server.createImport(response, request)
 		return response
 	}
-	missing := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
+	missing := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return missing.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(missing.Body.String(), "MULTI_DISC_PLAYLIST_MISSING") }), "missing playlist = %d %s", missing.Code, missing.Body.String())
-	unsupported := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000019","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
+	unsupported := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"` + playstationID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"MULTI_DISC_M3U_V1"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return unsupported.Code != http.StatusUnprocessableEntity }, func() bool { return !strings.Contains(unsupported.Body.String(), "MULTI_DISC_MODE_UNAVAILABLE") }), "unsupported target = %d %s", unsupported.Code, unsupported.Body.String())
-	omitted := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","tagIds":[]}`)
-	explicit := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"01980000-0000-7000-8000-000000000020","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
+	omitted := send(`{"uploadId":"` + firstUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[]}`)
+	explicit := send(`{"uploadId":"` + secondUpload + `","targetPlatformInstanceId":"` + saturnID + `","metadataProvider":"NONE","tagIds":[],"contentMode":"STANDARD"}`)
 	testassert.Falsef(t, testassert.Any(func() bool { return omitted.Code != http.StatusAccepted }, func() bool { return explicit.Code != http.StatusAccepted }), "standard admission omitted=%d %s explicit=%d %s", omitted.Code, omitted.Body.String(), explicit.Code, explicit.Body.String())
 	var omittedConfig, explicitConfig, omittedDigest, explicitDigest string
 	if err := server.database.QueryRowContext(context.Background(), `SELECT config_snapshot_json,config_snapshot_digest FROM import_jobs WHERE upload_session_id=?`, firstUpload).

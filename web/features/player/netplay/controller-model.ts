@@ -1,6 +1,6 @@
 export type NetplayProfile = {
   schemaVersion: 1;
-  protocolVersion: "retrom-netplay-v1";
+  protocolVersion: "retrom-netplay-v2";
   profileId: string;
   emulatorjsVersion: "4.2.3";
   playerAdapterId: "ejs-4.2.3-v2";

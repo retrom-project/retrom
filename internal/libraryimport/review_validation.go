@@ -414,7 +414,7 @@ func resolveArcadeDraftBIOSState(
 func parseArcadeDraftSnapshot(raw string) (arcadeDraftSnapshot, bool) {
 	var snapshot arcadeDraftSnapshot
 	if json.Unmarshal([]byte(raw), &snapshot) != nil ||
-		(snapshot.SchemaVersion != 1 && snapshot.SchemaVersion != 2) || snapshot.Machine == "" ||
+		snapshot.SchemaVersion != 2 || snapshot.Machine == "" ||
 		snapshot.DatVersionID == "" || snapshot.Dependencies == nil {
 		return arcadeDraftSnapshot{}, false
 	}

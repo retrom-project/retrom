@@ -1,4 +1,10 @@
-DELETE FROM profiles WHERE id = 'local';
+-- Clean pre-release baseline: identity.
+
+CREATE TABLE profiles (
+  id TEXT PRIMARY KEY,
+  display_name TEXT NOT NULL,
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0)
+);
 
 CREATE TABLE users (
   id TEXT PRIMARY KEY,
@@ -26,30 +32,6 @@ CREATE TABLE users (
     status = 'DELETED' AND deleted_at_ms IS NOT NULL
   )
 );
-CREATE INDEX users_list_created ON users(created_at_ms DESC,id DESC);
-CREATE INDEX users_list_username ON users(username,id);
-CREATE INDEX users_list_last_login ON users(last_login_at_ms DESC,id DESC);
-
-CREATE TRIGGER users_identity_immutable
-BEFORE UPDATE OF profile_id,username,created_at_ms ON users
-BEGIN SELECT RAISE(ABORT, 'immutable user identity'); END;
-CREATE TRIGGER users_no_physical_delete
-BEFORE DELETE ON users
-BEGIN SELECT RAISE(ABORT, 'users are soft deleted'); END;
-CREATE TRIGGER users_deleted_terminal
-BEFORE UPDATE OF status ON users
-WHEN OLD.status='DELETED' AND NEW.status!='DELETED'
-BEGIN SELECT RAISE(ABORT, 'deleted user is terminal'); END;
-CREATE TRIGGER users_last_enabled_admin
-BEFORE UPDATE OF role,status ON users
-WHEN OLD.role='ADMIN' AND OLD.status='ENABLED' AND
-     (NEW.role!='ADMIN' OR NEW.status!='ENABLED')
-BEGIN
-  SELECT CASE WHEN NOT EXISTS (
-    SELECT 1 FROM users
-    WHERE id!=OLD.id AND role='ADMIN' AND status='ENABLED'
-  ) THEN RAISE(ABORT, 'last enabled admin') END;
-END;
 
 CREATE TABLE user_credentials (
   user_id TEXT PRIMARY KEY REFERENCES users(id),
@@ -77,8 +59,6 @@ CREATE TABLE auth_sessions (
   CHECK((revoked_at_ms IS NULL) = (revoked_reason IS NULL)),
   CHECK(revoked_at_ms IS NULL OR revoked_at_ms >= created_at_ms)
 );
-CREATE INDEX auth_sessions_user_active ON auth_sessions(user_id,revoked_at_ms,absolute_expires_at_ms);
-CREATE INDEX auth_sessions_expiry ON auth_sessions(absolute_expires_at_ms,revoked_at_ms);
 
 CREATE TABLE account_links (
   id TEXT PRIMARY KEY,
@@ -106,17 +86,6 @@ CREATE TABLE account_links (
   ),
   CHECK(consumed_at_ms IS NULL OR revoked_at_ms IS NULL)
 );
-CREATE INDEX account_links_kind_created ON account_links(kind,created_at_ms DESC,id DESC);
-CREATE INDEX account_links_target ON account_links(target_user_id,kind,created_at_ms DESC);
-CREATE INDEX account_links_creator ON account_links(created_by_user_id,kind,created_at_ms DESC);
-
-CREATE TRIGGER account_links_terminal_immutable
-BEFORE UPDATE ON account_links
-WHEN OLD.consumed_at_ms IS NOT NULL OR OLD.revoked_at_ms IS NOT NULL
-BEGIN SELECT RAISE(ABORT, 'terminal account link'); END;
-CREATE TRIGGER account_links_no_delete
-BEFORE DELETE ON account_links
-BEGIN SELECT RAISE(ABORT, 'account links are retained'); END;
 
 CREATE TABLE instance_state (
   id INTEGER PRIMARY KEY CHECK(id=1),
@@ -136,16 +105,6 @@ CREATE TABLE instance_state (
   ),
   CHECK(test_default_password_active=0 OR bootstrap_kind='TEST_DEFAULT')
 );
-INSERT INTO instance_state(id,state,created_at_ms,updated_at_ms) VALUES(1,'PENDING',0,0);
-
-CREATE TRIGGER instance_state_no_reopen
-BEFORE UPDATE OF state ON instance_state
-WHEN OLD.state='COMPLETED' AND NEW.state!='COMPLETED'
-BEGIN SELECT RAISE(ABORT, 'initialization is terminal'); END;
-CREATE TRIGGER instance_state_default_password_no_reenable
-BEFORE UPDATE OF test_default_password_active ON instance_state
-WHEN OLD.test_default_password_active=0 AND NEW.test_default_password_active=1
-BEGIN SELECT RAISE(ABORT, 'test default password cannot be re-enabled'); END;
 
 CREATE TABLE auth_rate_limits (
   scope TEXT NOT NULL CHECK(scope IN ('LOGIN_ACCOUNT','LOGIN_IP','SETUP_IP','LINK_IP')),
@@ -157,9 +116,7 @@ CREATE TABLE auth_rate_limits (
   PRIMARY KEY(scope,subject_hash)
 );
 
-CREATE TRIGGER profiles_require_user_after_initialization
-BEFORE INSERT ON profiles
-WHEN (SELECT state FROM instance_state WHERE id=1)='COMPLETED'
-BEGIN
-  SELECT CASE WHEN NEW.id='local' THEN RAISE(ABORT, 'reserved profile') END;
-END;
+INSERT INTO instance_state(
+  id,state,bootstrap_kind,initial_admin_user_id,test_default_password_active,
+  version,created_at_ms,updated_at_ms,initialized_at_ms
+) VALUES(1,'PENDING',NULL,NULL,0,1,0,0,NULL);

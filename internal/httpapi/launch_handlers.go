@@ -14,7 +14,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"time"
 
@@ -679,128 +678,6 @@ func (server *Server) createSaveState(writer http.ResponseWriter, request *http.
 		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
 	case err != nil:
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "存档请求无效", map[string]any{})
-	default:
-		if replayed {
-			writer.Header().Set("X-Retrom-Idempotent-Replay", "true")
-		}
-		writeJSON(writer, http.StatusCreated, result)
-	}
-}
-
-func (server *Server) getPersistentSave(writer http.ResponseWriter, request *http.Request) {
-	if server.rejectNetplaySave(writer, request) {
-		return
-	}
-	metadata, exists, err := server.saveService.GetPersistent(
-		request.Context(),
-		request.PathValue("launchId"),
-		server.launchCapability(request),
-	)
-	if errors.Is(err, saves.ErrCredential) {
-		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
-		return
-	}
-	if errors.Is(err, saves.ErrPersistentUnsupported) {
-		writeError(
-			writer,
-			request,
-			http.StatusConflict,
-			"PERSISTENT_SAVE_UNSUPPORTED",
-			"当前核心不支持自动持久存档",
-			map[string]any{},
-		)
-		return
-	}
-	if errors.Is(err, saves.ErrTooLarge) {
-		writeError(
-			writer,
-			request,
-			http.StatusRequestEntityTooLarge,
-			"LAUNCH_PERSISTENT_SAVE_TOO_LARGE",
-			"持久存档超过限制",
-			map[string]any{},
-		)
-		return
-	}
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	if !exists {
-		writer.Header().Set("Cache-Control", "private, no-store")
-		writer.Header().Set("Vary", "Cookie")
-		writer.WriteHeader(http.StatusNoContent)
-		return
-	}
-	server.serveBlob(writer, request, metadata.SHA256, "application/octet-stream", true)
-}
-
-func (server *Server) putPersistentSave(writer http.ResponseWriter, request *http.Request) {
-	if server.rejectNetplaySave(writer, request) {
-		return
-	}
-	key := request.Header.Get("Idempotency-Key")
-	if !validIdempotencyKey(key) {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
-		return
-	}
-	if request.ContentLength > 64<<20 {
-		writeError(
-			writer,
-			request,
-			http.StatusRequestEntityTooLarge,
-			"LAUNCH_PERSISTENT_SAVE_TOO_LARGE",
-			"持久存档超过限制",
-			map[string]any{},
-		)
-		return
-	}
-	sequence, err := strconv.ParseInt(request.Header.Get("X-Retrom-Save-Sequence"), 10, 64)
-	if err != nil {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "存档序号无效", map[string]any{})
-		return
-	}
-	result, replayed, err := server.saveService.PutPersistent(
-		request.Context(),
-		request.PathValue("launchId"),
-		server.launchCapability(request),
-		key,
-		request.Header.Get("Content-Digest"),
-		request.Header.Get("X-Retrom-Save-Event"),
-		sequence,
-		request.Body,
-	)
-	switch {
-	case errors.Is(err, saves.ErrCredential):
-		writeError(writer, request, http.StatusUnauthorized, "LAUNCH_CREDENTIAL_INVALID", "启动会话不可用", map[string]any{})
-	case errors.Is(err, saves.ErrPersistentUnsupported):
-		writeError(
-			writer,
-			request,
-			http.StatusConflict,
-			"PERSISTENT_SAVE_UNSUPPORTED",
-			"当前核心不支持自动持久存档",
-			map[string]any{},
-		)
-	case errors.Is(err, saves.ErrTooLarge):
-		writeError(
-			writer,
-			request,
-			http.StatusRequestEntityTooLarge,
-			"LAUNCH_PERSISTENT_SAVE_TOO_LARGE",
-			"持久存档超过限制",
-			map[string]any{},
-		)
-	case errors.Is(err, saves.ErrIdempotencyReused):
-		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
-	case errors.Is(err, saves.ErrSequenceGap):
-		writeError(writer, request, http.StatusConflict, "SAVE_SEQUENCE_GAP", "存档序号不连续", map[string]any{})
-	case errors.Is(err, saves.ErrSequenceReused):
-		writeError(writer, request, http.StatusConflict, "SAVE_SEQUENCE_REUSED", "存档序号已用于不同内容", map[string]any{})
-	case errors.Is(err, saves.ErrPersistentConflict):
-		writeError(writer, request, http.StatusConflict, "PERSISTENT_SAVE_CONFLICT", "服务器存档已由另一会话更新", map[string]any{})
-	case err != nil:
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "持久存档请求无效", map[string]any{})
 	default:
 		if replayed {
 			writer.Header().Set("X-Retrom-Idempotent-Replay", "true")

@@ -1,18 +1,18 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://retrom.invalid/schemas/netplay-manifest-v3.json",
-  "title": "Retrom netplay core profile allowlist manifest v3",
+  "$id": "https://retrom.invalid/schemas/netplay-manifest-v4.json",
+  "title": "Retrom netplay core profile allowlist manifest v4",
   "type": "object",
   "additionalProperties": false,
   "required": ["schemaVersion", "protocol", "profiles"],
   "properties": {
-    "schemaVersion": { "const": 3 },
+    "schemaVersion": { "const": 4 },
     "protocol": {
       "type": "object",
       "additionalProperties": false,
       "required": ["version", "playerAdapterId", "netplayAdapterId", "controlCount", "checkpointEveryFrames", "maxPredictionFrames", "maxRollbackFrames", "canonicalHistoryFrames", "maxStateBytes", "allowedContentKinds"],
       "properties": {
-        "version": { "const": "retrom-netplay-v1" },
+        "version": { "const": "retrom-netplay-v2" },
         "playerAdapterId": { "const": "ejs-4.2.3-v2" },
         "netplayAdapterId": { "const": "ejs-netplay-4.2.3-v1" },
         "controlCount": { "const": 24 },

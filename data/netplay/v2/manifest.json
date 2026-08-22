@@ -1,7 +1,7 @@
 {
-  "schemaVersion": 3,
+  "schemaVersion": 4,
   "protocol": {
-    "version": "retrom-netplay-v1",
+    "version": "retrom-netplay-v2",
     "playerAdapterId": "ejs-4.2.3-v2",
     "netplayAdapterId": "ejs-netplay-4.2.3-v1",
     "controlCount": 24,

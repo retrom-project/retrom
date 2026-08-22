@@ -5,7 +5,7 @@ repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$repository_root"
 
 go test -tags=integration ./internal/launch ./internal/libraryimport ./internal/saves \
-  -run 'TestPublishedGameLaunchLocksContentAndCredential|TestArcadeImportUsesInstalledBIOSBeforeCreatingReview|TestManualStateRequiresAtomicNonEmptyStateAndScreenshot|TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence' \
+  -run 'TestPublishedGameLaunchLocksContentAndCredential|TestArcadeImportUsesInstalledBIOSBeforeCreatingReview|TestManualStateRequiresAtomicNonEmptyStateAndScreenshot' \
   -count=1 -timeout=120s
 
 PATH="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin:$PATH"

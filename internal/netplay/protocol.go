@@ -81,7 +81,6 @@ func validClientMessageFields(contents []byte, messageType string) bool {
 		"RUNTIME_READY":   {"adapterId", "coreArtifactId"},
 		"INPUT":           {"frame", "playerNo", "controls"},
 		"HASH":            {"frame", "coreDigest"},
-		"SUSPEND_REQUEST": {"reason"},
 		"PAUSED":          {},
 		"STATE_META":      {"transferId", "nextFrame", "byteLength", "stateSha256", "coreSha256"},
 		"STATE_READY":     {"transferId", "stateSha256", "coreSha256", "recaptureMatched"},

@@ -126,7 +126,7 @@ VALUES('01990000-0000-7000-8000-000000000102',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 		time.Now().UnixMilli(), time.Now().UnixMilli()); err != nil {
 		t.Fatal(err)
 	}
-	previous := `{"schemaVersion":1,"machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
+	previous := `{"schemaVersion":2,"machine":"child","datVersionId":"dat-test","closure":["child","bios"],"dependencies":[{"kind":"BIOS_OR_BASE","machine":"bios","state":"MISSING","requiredEntries":["b.bin"]}],"missingEntries":["bios.zip"],"mismatchedEntries":[],"warnings":[]}`
 	transaction, err := database.SQL.BeginTx(ctx, nil)
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Rollback(transaction) })
@@ -175,11 +175,11 @@ WHERE core_artifact_id=? AND is_active=1
 	}
 	const datID = "01990000-0000-7000-8000-000000000201"
 	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,
-compatibility_status,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
+INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
 bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
 unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,'fbneo',?,'BUILTIN','testdata/installed-bios.dat',?,'test','MATCHED','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
+VALUES(?,'fbneo',?,'testdata/installed-bios.dat',?,'test','READY',1,2,2,0,0,0,1,1,0,1,?,?,?,?)
 `, datID, artifactID, dummy.SHA256, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}
@@ -274,8 +274,9 @@ VALUES('01990000-0000-7000-8000-000000000203',?,?,?, ?,?,?,?,1,'MATCHED','{}',1,
 	}
 	importService := New(database.SQL, time.Now).WithBlobStore(blobs)
 	created, err := importService.Create(ctx, CreateRequest{
-		UploadID: upload.ID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
-		MetadataProvider: "NONE",
+		UploadID:                 upload.ID,
+		TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"),
+		MetadataProvider:         "NONE",
 	})
 	testassert.False(t, err != nil, err)
 	var validationID, status, code, snapshotJSON string
@@ -315,28 +316,6 @@ WHERE item.import_job_id=?
 	}
 	approved, err := importService.Approve(ctx, itemID, draftVersion)
 	testassert.False(t, err != nil, err)
-	// Reproduce the immutable legacy production shape: older Arcade approvals
-	// could leave their current revision on a schema-v1 runtime snapshot even
-	// though the revision remained locked to the built-in DAT.
-	const legacyRevisionID = "01990000-0000-7000-8000-000000000205"
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO game_variant_revisions(id,game_variant_id,game_content_revision_id,core_artifact_id,dat_version_id,
-validation_input_digest,emulator_game_id,status,compatibility_code,dependency_snapshot_json,default_dos_entry,created_at_ms)
-SELECT ?,revision.game_variant_id,revision.game_content_revision_id,revision.core_artifact_id,revision.dat_version_id,
-?,revision.emulator_game_id+1,revision.status,revision.compatibility_code,'{"schemaVersion":1,"bios":[]}',
-revision.default_dos_entry,?
-FROM game_variant_revisions revision
-JOIN game_variants variant ON variant.current_revision_id=revision.id
-WHERE variant.game_id=? AND variant.core_id='fbneo'
-`, legacyRevisionID, strings.Repeat("f", 64), now, approved.GameID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE game_variants SET current_revision_id=?,version=version+1,updated_at_ms=?
-WHERE game_id=? AND core_id='fbneo'
-`, legacyRevisionID, now, approved.GameID); err != nil {
-		t.Fatal(err)
-	}
 	replacementMetadata, err := blobs.Put(bytes.NewReader(append(biosArchive, []byte("replacement")...)))
 	testassert.False(t, err != nil, err)
 	replacementBlobID, err := blobstore.EnsureRecord(
@@ -369,20 +348,11 @@ INSERT INTO profiles(id,display_name,created_at_ms) VALUES('local','Arcade BIOS 
 	capabilities := launch.Capabilities{
 		SecureContext: true, CrossOriginIsolated: true, SharedArrayBuffer: true,
 	}
-	legacyEntries, err := json.Marshal(snapshot.Dependencies[0].RequiredEntries)
-	testassert.False(t, err != nil, err)
-	if _, err := database.SQL.ExecContext(ctx, `
-INSERT INTO variant_dependencies(game_variant_revision_id,kind,logical_archive,dat_version_id,
-source_machine_name,required_entries_json,state,created_at_ms)
-VALUES(?,'BIOS_OR_BASE','codexbios.zip',?,'codexbios',?,'SATISFIED_EXTERNAL',?)
-`, legacyRevisionID, datID, string(legacyEntries), now); err != nil {
-		t.Fatal(err)
-	}
 	pending, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,
 		ClientCapabilities: capabilities,
 	})
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "legacy Arcade validation = %#v, error=%v", pending, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending.Status != "VALIDATION_PENDING" }, func() bool { return pending.JobID == "" }), "Arcade BIOS revalidation = %#v, error=%v", pending, err)
 	deadline = time.Now().Add(3 * time.Second)
 	for {
 		var state string
@@ -394,23 +364,23 @@ VALUES(?,'BIOS_OR_BASE','codexbios.zip',?,'codexbios',?,'SATISFIED_EXTERNAL',?)
 		if state == "SUCCEEDED" {
 			break
 		}
-		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "legacy Arcade BIOS validation = %s/%s", state, errorCode.String)
+		testassert.Falsef(t, testassert.Any(func() bool { return state == "FAILED" }, func() bool { return time.Now().After(deadline) }), "Arcade BIOS revalidation = %s/%s", state, errorCode.String)
 		time.Sleep(10 * time.Millisecond)
 	}
-	var migratedSnapshot string
+	var refreshedSnapshot string
 	if err := database.SQL.QueryRowContext(ctx, `
 SELECT revision.dependency_snapshot_json
 FROM game_variants variant
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
 WHERE variant.game_id=? AND variant.core_id='fbneo'
-`, approved.GameID).Scan(&migratedSnapshot); err != nil {
+`, approved.GameID).Scan(&refreshedSnapshot); err != nil {
 		t.Fatal(err)
 	}
-	var migratedEnvelope struct {
+	var refreshedEnvelope struct {
 		SchemaVersion int `json:"schemaVersion"`
 	}
-	if err := json.Unmarshal([]byte(migratedSnapshot), &migratedEnvelope); err != nil || migratedEnvelope.SchemaVersion != 2 {
-		t.Fatalf("migrated Arcade dependency snapshot = %s, error=%v", migratedSnapshot, err)
+	if err := json.Unmarshal([]byte(refreshedSnapshot), &refreshedEnvelope); err != nil || refreshedEnvelope.SchemaVersion != 2 {
+		t.Fatalf("refreshed Arcade dependency snapshot = %s, error=%v", refreshedSnapshot, err)
 	}
 	createdLaunch, err := launcher.Create(ctx, "local", launch.CreateRequest{
 		GameID: approved.GameID, CoreID: &coreID, ReturnTo: "/games/" + approved.GameID,

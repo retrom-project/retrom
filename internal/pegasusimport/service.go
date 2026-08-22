@@ -282,20 +282,6 @@ func (service *Service) runLoop() {
 	}
 }
 
-const recoverPublishedItemsSQL = `
-UPDATE pegasus_import_items SET execution_state='PUBLISHED',published_game_id=(
- SELECT game.id FROM games game JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
- JOIN game_content_revisions content ON content.id=game.current_content_revision_id
- WHERE metadata.source_kind='SERVER_PEGASUS_IMPORT' AND metadata.source_ref_id=pegasus_import_items.id
- AND content.source_kind='SERVER_PEGASUS_IMPORT' AND content.source_ref_id=pegasus_import_items.id LIMIT 1
-),completed_at_ms=?,updated_at_ms=?
-WHERE execution_state='PUBLISHING' AND EXISTS(
- SELECT 1 FROM games game JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
- JOIN game_content_revisions content ON content.id=game.current_content_revision_id
- WHERE metadata.source_kind='SERVER_PEGASUS_IMPORT' AND metadata.source_ref_id=pegasus_import_items.id
- AND content.source_kind='SERVER_PEGASUS_IMPORT' AND content.source_ref_id=pegasus_import_items.id
-)`
-
 const recoverTerminalImportsSQL = `
 UPDATE pegasus_imports SET state='FAILED',phase=NULL,
 last_error_code=(
@@ -329,9 +315,6 @@ func (service *Service) recoverWork(ctx context.Context) error {
 		return fmt.Errorf("pegasusimport/start recovery transaction: %w", err)
 	}
 	defer cleanup.Rollback(transaction)
-	if _, err := transaction.ExecContext(ctx, recoverPublishedItemsSQL, now, now); err != nil {
-		return fmt.Errorf("pegasusimport/recover published item: %w", err)
-	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
 SELECT job.id,'PEGASUS_IMPORT',job.scope_id,'FAILED',json_object('schemaVersion',1,'code',
@@ -349,7 +332,7 @@ UPDATE pegasus_import_items SET execution_state='COMMIT_FAILED',error_code='PEGA
 retryable=0,completed_at_ms=?,updated_at_ms=?
 WHERE import_id IN (SELECT scope_id FROM jobs WHERE scope_type='PEGASUS_IMPORT' AND state='RUNNING'
  AND leased_until_ms<=? AND (execution_deadline_at_ms<=? OR attempt_count>=max_attempts))
-AND execution_state IN ('COPYING','VALIDATING','PUBLISHING')`, now, now, now, now); err != nil {
+AND execution_state IN ('COPYING','VALIDATING')`, now, now, now, now); err != nil {
 		return fmt.Errorf("pegasusimport/recover terminal item: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -377,7 +360,7 @@ WHERE import_id IN (
  AND leased_until_ms<=?
  AND execution_deadline_at_ms>?
 )
-AND execution_state IN ('COPYING','VALIDATING','PUBLISHING')`, now, now, now); err != nil {
+AND execution_state IN ('COPYING','VALIDATING')`, now, now, now); err != nil {
 		return fmt.Errorf("pegasusimport/recover active item: %w", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `

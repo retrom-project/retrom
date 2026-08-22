@@ -25,7 +25,7 @@ func TestProjectRuntimeCheckReturnsActionableArcadeDependencies(t *testing.T) {
 	testassert.Falsef(t, testassert.Any(func() bool { return result == nil }, func() bool { return result.Machine == nil }, func() bool { return *result.Machine != "1944j" }, func() bool { return len(result.MissingEntries) != 1 }, func() bool { return result.MissingEntries[0] != "1944.zip" }, func() bool { return len(result.Dependencies) != 1 }, func() bool { return result.Dependencies[0].ExpectedLogicalName != "1944.zip" }, func() bool { return len(result.Dependencies[0].RequiredEntries) != 1 }), "runtime check = %#v", result)
 }
 
-func TestLegacyGenericRuntimeBlockCanBeRecheckedWithoutRescanning(t *testing.T) {
+func TestRetryableCurrentFailureCanBeRecheckedWithoutRescanning(t *testing.T) {
 	t.Parallel()
 	database, err := sql.Open("sqlite", filepath.Join(t.TempDir(), "retry.db"))
 	testassert.False(t, err != nil, err)
@@ -61,12 +61,12 @@ INSERT INTO pegasus_imports(
  mapping_version,version,created_by_user_id,last_error_code,retryable,created_at_ms,updated_at_ms,
  expires_at_ms,completed_at_ms
 ) VALUES(
- 'import','games','Games','Roms','PARTIAL_FAILURE',NULL,'scan','work',1,0,1,1,1,1,0,1,1,
- 0,0,0,0,0,0,0,0,0,1,4,'user',NULL,0,1,2,9999999999999,2
+ 'import','games','Games','Roms','PARTIAL_FAILURE',NULL,'scan','work',1,0,1,1,1,1,0,1,0,
+ 0,0,0,0,1,0,0,0,0,1,4,'user',NULL,1,1,2,9999999999999,2
 );
 INSERT INTO pegasus_import_items VALUES(
- 'item','import','BLOCKED_VALIDATION','PEGASUS_RUNTIME_BLOCKED',
- '{"schemaVersion":1,"stage":"LIBRARY_IMPORT"}',0,2,2
+ 'item','import','COMMIT_FAILED','PEGASUS_LIBRARY_IMPORT_FAILED',
+ '{"schemaVersion":1,"stage":"LIBRARY_IMPORT"}',1,2,2
 );
 INSERT INTO jobs VALUES('work',1,'SUCCEEDED','{}',1,1,1,1,NULL,NULL,2,NULL,NULL,NULL,NULL,NULL,1,2);
 `); err != nil {
@@ -75,7 +75,7 @@ INSERT INTO jobs VALUES('work',1,'SUCCEEDED','{}',1,1,1,1,NULL,NULL,2,NULL,NULL,
 	now := time.UnixMilli(10)
 	service := &Service{database: database, now: func() time.Time { return now }, wake: make(chan struct{}, 1)}
 	summary, err := service.Get(context.Background(), "import")
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !summary.Retryable }), "legacy summary = %#v, error=%v", summary, err)
+	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !summary.Retryable }), "current summary = %#v, error=%v", summary, err)
 	queued, err := service.Retry(context.Background(), "import", summary.Version, "user")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return queued.State != "QUEUED" }), "queued summary = %#v, error=%v", queued, err)
 	var state string
@@ -83,7 +83,7 @@ INSERT INTO jobs VALUES('work',1,'SUCCEEDED','{}',1,1,1,1,NULL,NULL,2,NULL,NULL,
 	if err := database.QueryRowContext(context.Background(),
 		`SELECT execution_state,error_code,error_details_json FROM pegasus_import_items WHERE id='item'`,
 	).Scan(&state, &code, &details); err != nil || state != "PENDING" || code.Valid || details.Valid {
-		t.Fatalf("legacy item = state:%q code:%#v details:%#v error:%v", state, code, details, err)
+		t.Fatalf("retried item = state:%q code:%#v details:%#v error:%v", state, code, details, err)
 	}
 }
 

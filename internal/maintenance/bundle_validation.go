@@ -22,6 +22,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
+	"retrom/internal/store"
 )
 
 func validateBundle(root string) (Manifest, error) {
@@ -52,8 +53,9 @@ func loadBundleManifest(root string) (Manifest, error) {
 	var manifest Manifest
 	decoder := json.NewDecoder(strings.NewReader(string(contents)))
 	decoder.DisallowUnknownFields()
-	if err := decoder.Decode(&manifest); err != nil || manifest.SchemaVersion != 1 ||
-		manifest.DatabaseSchemaVersion < 1 ||
+	lineage, lineageErr := store.CurrentMigrationLineage()
+	if err := decoder.Decode(&manifest); err != nil || lineageErr != nil || manifest.SchemaVersion != 2 ||
+		manifest.DatabaseSchemaVersion != lineage.Version || manifest.MigrationLineageDigest != lineage.Digest ||
 		manifest.Counts.FileCount != int64(len(manifest.Files)) ||
 		manifest.Counts.DependencyVersionCount != int64(len(manifest.DependencyVersions)) ||
 		len(manifest.DependencyManifests) != len(manifest.DependencyVersions) {
@@ -253,13 +255,14 @@ func manifestToMap(value Manifest) map[string]any {
 			"fileCount":              value.Counts.FileCount,
 			"uploadPartCount":        value.Counts.UploadPartCount,
 		},
-		"createdAtMs":           value.CreatedAtMS,
-		"databaseSchemaVersion": value.DatabaseSchemaVersion,
-		"databaseSha256":        value.DatabaseSHA256,
-		"dependencyManifests":   dependenciesValue,
-		"dependencyVersions":    value.DependencyVersions,
-		"files":                 files,
-		"schemaVersion":         value.SchemaVersion,
+		"createdAtMs":            value.CreatedAtMS,
+		"databaseSchemaVersion":  value.DatabaseSchemaVersion,
+		"databaseSha256":         value.DatabaseSHA256,
+		"migrationLineageDigest": value.MigrationLineageDigest,
+		"dependencyManifests":    dependenciesValue,
+		"dependencyVersions":     value.DependencyVersions,
+		"files":                  files,
+		"schemaVersion":          value.SchemaVersion,
 	}
 }
 

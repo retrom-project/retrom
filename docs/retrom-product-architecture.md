@@ -60,7 +60,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - Arcade Merged ROMset。
 - 成就、评分、评论、推荐算法和社交关系。
 
-“和朋友一起玩”包括通过管理员邀请共享游戏目录，以及在 `RETROM_NETPLAY_ENABLED=true` 时通过同源房间链接进行受限异地联机。每个账号固定拥有一个不可复用的 Profile；游戏目录共享，普通最近游玩、Launch、存档和 PersistentSave 私有。联机参与身份仍按 Profile 授权，但本局从头开始且不读取或写入任何个人存档。
+“和朋友一起玩”包括通过管理员邀请共享游戏目录，以及在 `RETROM_NETPLAY_ENABLED=true` 时通过同源房间链接进行受限异地联机。每个账号固定拥有一个不可复用的 Profile；游戏目录共享，普通最近游玩、Launch 和显式存档私有。联机参与身份仍按 Profile 授权，但本局从头开始且不读取或写入任何个人存档。
 
 ## 3. 关键产品与技术决策
 
@@ -133,12 +133,12 @@ flowchart LR
 
 SQLite 使用 WAL；所有用户文件写入一个明确的数据目录。Next.js + React + Tailwind CSS 位于仓库根目录 `web/`。
 
-### 3.7 账户边界与破坏性数据版本
+### 3.7 账户边界与数据库 lineage
 
 - 默认 `release` 模式的空实例进入 `PENDING`，只有持有主机侧 `retrom setup-code` 输出的人能创建首位启用管理员；初始化完成后不可重开。
 - `--mode=test` 只供明确的开发/验收数据根使用，会在空库创建 `test/test` 并显示警告；除此之外不放宽认证、授权、Origin、CSRF、cookie 或数据隔离。
 - 已初始化实例的普通 API 要求有效 AuthSession，`/api/v1/admin/**` 另要求 `ADMIN`。普通管理员只管理账号和共享内容，不能查看其他用户的存档名称、截图、游玩记录或保存内容。
-- 账户版本以 migration 020 为边界。任何 001–019 旧数据库在执行 DDL/DML 前以 `DATABASE_REBUILD_REQUIRED` 拒绝；发布时归档旧数据根并使用全新空根，不迁移旧 `local` 数据。
+- 数据库只接受当前 clean migration 集合的精确有序前缀或完整 lineage；名称、checksum、缺口、未知或未来记录都在执行 DDL/DML 前以 `DATABASE_REBUILD_REQUIRED` 拒绝。当前项目未发布，开发期旧 lineage 和旧备份必须使用全新空数据根重建，不做数据转换。
 - Session、Invitation、PasswordReset 和 Launch 都是服务端可撤销能力。停用/删除账号和恢复安全围栏会同步撤销相应凭据；密码变化撤销 AuthSession，但不扩大 Launch 权限。
 
 ### 3.8 多盘内容是一个不可拆分 revision
@@ -151,7 +151,7 @@ Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个�
 
 ### 3.10 联机是版本锁定的非串流 rollback 能力
 
-联机不是所有核心自动获得的通用能力。`data/netplay/v1/manifest.json` 同时锁定 EmulatorJS、普通 Player adapter、联机 adapter、FCEUmm/FBNeo core artifact SHA-256、允许的内容类型、24 个控制值和 prediction/rollback/state 上限；不按 ROM 名称、大小或 hash 决定资格。游戏仍须有引用该 artifact 与当前 ContentRevision 的 READY VariantRevision，依赖快照必须有效；房间和 Session 再锁定该不可变 revision，确保每位参与者运行同一内容。Go `internal/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 savestate 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile 漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
+联机不是所有核心自动获得的通用能力。`data/netplay/v2/manifest.json` 同时锁定 EmulatorJS、普通 Player adapter、联机 adapter、FCEUmm/FBNeo core artifact SHA-256、允许的内容类型、24 个控制值和 prediction/rollback/state 上限；不按 ROM 名称、大小或 hash 决定资格。游戏仍须有引用该 artifact 与当前 ContentRevision 的 READY VariantRevision，依赖快照必须有效；房间和 Session 再锁定该不可变 revision，确保每位参与者运行同一内容。Go `internal/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 savestate 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile 漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
 
 ### 3.11 标签是实例共享、管理员维护的分类
 
@@ -238,7 +238,7 @@ erDiagram
 | 基础平台（稳定 code） | 启用核心 | 推荐目录 → 默认核心 | 备注 |
 | --- | --- | --- | --- |
 | NES / Famicom (`nes`) | `fceumm`、`nestopia` | NES 游戏 → `fceumm` | 统一接收 `.nes/.unf/.unif/.fds`；只有 FDS 内容需要 `disksys.rom` |
-| Famicom Disk System (`fds`) | `fceumm`、`nestopia` | 无独立推荐目录 | 基础平台 code 仅为历史兼容保留；FDS 内容统一导入 NES 游戏目录 |
+| Famicom Disk System (`fds`) | `fceumm`、`nestopia` | 无独立推荐目录 | 基础平台 code 用于当前内容识别；FDS 内容统一导入 NES 游戏目录 |
 | SNES (`snes`) | `snes9x` | SNES 游戏 → `snes9x` | 标准游戏通常不要求 BIOS |
 | Game Boy / Color (`gbc`) | `gambatte`、`mgba` | Game Boy 游戏 → `gambatte` | 两个 core 均可供本次启动切换 |
 | Game Boy Advance (`gba`) | `mgba` | GBA 游戏 → `mgba` | BIOS 可选 |
@@ -357,7 +357,7 @@ flowchart LR
 - SQLite schema 中业务时刻全部为 Unix 毫秒 `INTEGER`；禁止后续 migration 引入 TEXT 时刻字段。
 - 用户上传内容、下载媒体、存档和截图进入运行时 CAS，不提交到代码仓库。
 - 预置 DAT 不可变且是唯一可创建、激活的 DatVersion 来源；release manifest 变化时先撤销旧选择并保持服务 not ready，待新版本索引成功后由启动引导原子激活。历史 DatVersion 只为旧 revision/Launch 提供可追溯引用。
-- DAT 更新不静默改写已发布 GameVariant 的历史兼容性快照；重校验产生新结果并可追踪来源。
+- DAT 更新不静默改写已发布 GameVariant 的不可变兼容性快照；重校验产生新结果并可追踪来源。
 - 联机 allowlist 是独立于普通兼容性的收紧层；只有 READY revision 使用 exact manifest core profile 的游戏可进入房间选择，但同一 profile 不再逐 ROM 限制名称、大小或 hash。
 
 ## 10. 一期实施阶段
@@ -401,19 +401,19 @@ Phase 0 未通过时，不进入大规模业务实现。
 
 ### Phase 5：收藏与收藏夹垂直切片
 
-- Migration 025、Profile 私有 Favorite/Folder/Membership、owner-scoped API 与签名 cursor。
+- Profile 私有 Favorite/Folder/Membership、owner-scoped API 与签名 cursor。
 - 游戏库、详情和 `/favorites` 的收藏、分类、批量整理、两秒撤销、键盘与多尺寸闭环。
 - 以 `ACC-FAV-001`–`004` 和 `make ci` 为退出门禁。
 
 ### Phase 6：受限异地联机垂直切片
 
-- Migration 032、netplay manifest、房间/Session/Participant 控制面、独立 credential key 与备份恢复围栏。
+- Netplay manifest、房间/Session/Participant 控制面、独立 credential key 与备份恢复围栏。
 - `/netplay`、房间 UI、SSE、同源 WebSocket hub、4.2.3 帧 adapter、rollback/state/hash/reconnect/end 全链路。
 - 以 `ACC-NP-010`–`016`、全量 Player E2E 和双镜像构建为退出门禁；项目自有 NES/Arcade fixture 建立 FCEUmm rollback、FBNeo 严格 lockstep、后台恢复与重连的双浏览器基线，但只证明锁定 profile/artifact，不扩大逐 ROM 或 core allowlist。
 
 ### Phase 7：游戏标签垂直切片
 
-- Migration 034、实例级 Tag 与 Game/Review/Pegasus 多对多关系、软删除 tombstone、版本联动和审计。
+- 实例级 Tag 与 Game/Review/Pegasus 多对多关系、软删除 tombstone、版本联动和审计。
 - 管理 CRUD、普通导入/Pegasus 默认值、审核原子发布、游戏维护、动态 `q` 与精确 `tagId` 搜索、全站活动标签投影。
 - 以 `ACC-TAG-001`–`005`、API/后端/前端/集成/Chrome E2E 和 `make ci` 为退出门禁；不进入 core smoke。
 

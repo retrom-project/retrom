@@ -166,14 +166,13 @@ FBNeo、MAME2003-Plus 与两个 FBA2012 source commit 按 EmulatorJS v4.2.3 官�
 ## 6. DAT 生命周期
 
 1. 仓库只保存 `data/dat/emulatorjs/<version>/manifest.json` 和 `SHA256SUMS`；真实 DAT payload 由 `make prepare-deps` 按固定配方预下载/生成到同一被 Git 忽略的版本目录。
-2. 服务同步启动阶段只校验、不下载；按 release manifest 为每个 DAT-capable CoreArtifact 登记唯一 `BUILTIN` DatVersion。若 manifest 选择与数据库当前 active 不同，启动引导先停用旧选择并推进 CoreArtifact version，使服务保持 not ready，不能在后台索引期间继续使用旧 DAT。
+2. 服务同步启动阶段只校验、不下载；按 release manifest 为每个 DAT-capable CoreArtifact 登记 DatVersion。`builtin_relative_path`、SHA-256 和 parser version 都是非空当前字段，不存在用户来源、上传 Blob 或兼容状态列。若 manifest 选择与数据库当前 active 不同，启动引导先停用旧选择并推进 CoreArtifact version，使服务保持 not ready，不能在后台索引期间继续使用旧 DAT。
 3. 缺少索引时创建唯一、不可取消的 `DAT_PARSE` Job，并在事务外使用第 7.1 节的 streaming XML parser。当前 enabled Arcade artifact 完成前服务 live 但以 `DEPENDENCY_INDEXING` not ready；确定性失败时以 `DEPENDENCY_DAT_PARSE_FAILED` not ready，不能回退到空目录、其他 core 的 DAT 或旧 artifact。
 4. 只有 manifest 固定的 SHA-256、EmulatorJS version 与实际 CoreArtifact 均匹配，且解析统计与 manifest 一致的内置 DatVersion 才能在短事务内成为 active。激活同时同步 DAT_MACHINE requirements、写系统审计；已建立正确索引的重复启动只修复 active 指针，不重复解析。
-5. 管理员和普通用户都不能上传、创建、比较、启用、回滚或删除 DAT。OpenAPI、HTTP router 和 Web UI 均不提供 Arcade DAT 管理面；SQLite migration 038 删除旧差异/候选任务表，停止旧用户解析任务，并用 trigger 拒绝新的 `USER` DatVersion。
-6. 历史 `USER` DatVersion 不硬删除，因为旧 Import、VariantRevision、ReviewEvent 或 Launch 仍可能引用它；它们在 migration 后固定为 inactive、只读证据，不能重新激活。DatVersion 身份因此仍是运行链路必需字段，而不是可由当前 active 指针替代的配置。
-7. release manifest 升级产生新的内置 DatVersion；成功索引后由启动引导激活，受影响稳定 GameVariant 通过既有版本/输入漂移机制按需重校验。旧 current VariantRevision 和历史 Launch 保留原 DatVersion 与依赖快照，不被静默改写。
+5. 管理员和普通用户都不能上传、创建、比较、启用、回滚或删除 DAT。OpenAPI、HTTP router、数据库 schema 和 Web UI 均不存在用户 DAT、DAT diff 或 base-version 输入分支。
+6. DatVersion 身份仍被 Import、VariantRevision、ReviewEvent 和 Launch 精确引用；release manifest 升级产生新的内置 DatVersion，成功索引后由启动引导激活，受影响稳定 GameVariant 通过既有版本/输入漂移机制按需重校验。既有 current VariantRevision 和 Launch 保留原 DatVersion 与依赖快照，不被静默改写。
 
-同步启动 60 秒预算不包含后台解析，解析使用通用 DAT_PARSE execution deadline 与重启 lease 恢复规则。文件名相同但 SHA-256 不同仍是不同内置版本；同一 `(CoreArtifact, SHA-256, parser version)` 只能有一条 BUILTIN 记录。
+同步启动 60 秒预算不包含后台解析，解析使用通用 DAT_PARSE execution deadline 与重启 lease 恢复规则。文件名相同但 SHA-256 不同仍是不同内置版本；同一 `(CoreArtifact, SHA-256, parser version)` 只能有一条记录。
 
 DAT 与任务时间字段使用数据模型中唯一命名的 `created_at_ms`、`activated_at_ms`、`parsed_at_ms` 等 Unix 毫秒 INTEGER；不存在另一套 `imported_at_ms` 字段。
 
@@ -228,7 +227,7 @@ Full Non-Merged 已包含 parent/BIOS entry 时显示“由游戏文件满足”
 
 ### 8.1 V2 完整闭包与审核补充
 
-Arcade 识别从 CONTENT machine 开始，沿每一级 `cloneof` 继续到根 parent，并在每一级把 `romof != cloneof` 的目标加入 `BIOS_OR_BASE`；闭包最大 64 个节点。每个节点显式记录 `kind/machine/requiredBy/depth/expectedLogicalName/state/requiredEntryCount/requiredEntries`，并按 depth、kind、machine 形成 canonical V2 dependency snapshot。自环、`a -> b -> a`、超限或关系目标缺失产生稳定的不兼容结果；历史 V1 snapshot 保持原 bytes，由读取层结合其锁定 DAT 投影为 V2，首次重验证才写 V2。
+Arcade 识别从 CONTENT machine 开始，沿每一级 `cloneof` 继续到根 parent，并在每一级把 `romof != cloneof` 的目标加入 `BIOS_OR_BASE`；闭包最大 64 个节点。每个节点显式记录 `kind/machine/requiredBy/depth/expectedLogicalName/state/requiredEntryCount/requiredEntries`，并按 depth、kind、machine 形成 canonical V2 dependency snapshot。自环、`a -> b -> a`、超限或关系目标缺失产生稳定的不兼容结果；所有 Arcade writer、reader、审核、Launch 与 Netplay 只接受 V2。
 
 Full Non-Merged 可以由 CONTENT 满足闭包；Split 的独立 Parent 使用来源快照中的 COMPANION。审核补充只允许 V2 闭包中可修复的 Parent `MISSING/MISMATCH` 节点，BIOS/Base 仍由 BIOS 管理页安装，Merged/CHD/cycle/DAT stale 不生成 `canAttach`。补传 ZIP 必须是单个安全 archive：拒绝加密、损坏、路径穿越、绝对路径、控制字符、symlink、ASCII case-insensitive 路径碰撞、真正嵌套的 archive 和超出统一 ArchiveLimits 的展开量/压缩比。Parent DAT 只匹配根级 regular-file entry；像 `1944.zip` 这样同时携带根级 parent ROM 与安全 clone 子目录的归档可以保留子目录 bytes 作为原始证据，但子目录 entry 只作为 diagnostics 中的 ignored extra，不能满足缺失的根 entry、参与 Parent 判定或放开 Merged 主 ROMset。客户端文件名不用于识别；请求 machine 与锁定 DAT 唯一决定期望逻辑名。
 

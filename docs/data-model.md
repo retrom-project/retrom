@@ -44,7 +44,7 @@ User 状态变更、Credential/Session/Link 撤销、待用 Launch 终止与安�
 
 `core_artifacts.provenance_json` 固定为 `{"schemaVersion":1,"dependencyManifestSha256":"<64 lowercase hex>","manifestEntryPointer":"/emulatorjs/selected_core_artifacts/<index>","sourceAssociationStatus":"EXACT_COMMIT|EMBEDDED_VERSION|INFERRED_BUILD_TIME|RELEASE_ONLY","sourceUrl":null|string,"notes":[]}`；notes 只存简短证据说明，不存宿主路径。`source_commit` 只在证据能锁定 40 位 Git commit 时填写，RELEASE_ONLY 必须为空。
 
-`compatibility_config_json` 当前写入 schema V4：`runtimeCoreId`、`requestedArtifactBasename`、`canvasResizePolicy`、`defaultOptions`、`persistentSaveMode`、可空 `persistentSaveKind`、`inputMode`、`startupActions`、`supportedContentKinds` 与可空 `multiDisc` 全部由依赖 manifest 明示；V2/V3 只为既有 artifact 兼容读取。schema 仍可读取 `SINGLE_FILE|DOS_OVERLAY|FILE_TREE|AUTO_STATE|NONE`，但当前所有被选 artifact 都写 `NONE` 且 kind 为 null；新 Launch 不从历史模式推导自动存档。`inputMode` 只允许 `STANDARD|POINTER`。启动动作最多 4 条，只允许有界的 `GAME_START/PRESS_CONTROL` 整数字段，`delayMs` 上限 30,000、`durationMs` 上限 1,000。basename 是所属 EmulatorJS 版本 loader 实际请求的 key；线程产物也使用其真实 `*-thread-wasm.data` basename。v4.2.3 只有 `mame2003` 使用 `ON_GAME_START_TO_CSS_PIXELS`，NDS 三核心与 Azahar 为 POINTER，PPSSPP 有 2 秒/5 秒两条 120ms 确认动作，Beetle VB 的四条确认动作延迟为 2/4/15/25 秒。前后端不得按 core ID 补默认值。
+`compatibility_config_json` 的唯一当前格式为 schema V5：`runtimeCoreId`、`requestedArtifactBasename`、`canvasResizePolicy`、`defaultOptions`、`inputMode`、`startupActions`、`supportedContentKinds` 与可空 `multiDisc` 全部由 dependency manifest schema V7 明示；其他 schema 或未知字段直接拒绝。`inputMode` 只允许 `STANDARD|POINTER`。启动动作最多 4 条，只允许有界的 `GAME_START/PRESS_CONTROL` 整数字段，`delayMs` 上限 30,000、`durationMs` 上限 1,000。basename 是所属 EmulatorJS 版本 loader 实际请求的 key；线程产物也使用其真实 `*-thread-wasm.data` basename。v4.2.3 只有 `mame2003` 使用 `ON_GAME_START_TO_CSS_PIXELS`，NDS 三核心与 Azahar为 POINTER，PPSSPP 有 2 秒/5 秒两条 120ms 确认动作，Beetle VB 的四条确认动作延迟为 2/4/15/25 秒。前后端不得按 core ID 补默认值。
 
 ## 3. Blob 与不可变游戏 revision
 
@@ -70,7 +70,7 @@ User 状态变更、Credential/Session/Link 撤销、待用 Launch 终止与安�
 
 `search_text` 的生成算法固定为：按字段指定顺序用一个 U+0020 连接，执行 Go `strings.ToLower`，把每段连续 `unicode.IsSpace` 折叠为单个 U+0020，再 trim；不执行语言相关 collation、拼音、分词或 SQLite `NOCASE` 猜测。Game 字段顺序为 current title/developer/publisher/genre；ImportItem 为候选 title 与 source relative paths。query `q` 用同一算法后以 `instr(search_text, :q) > 0` 匹配，空 query 不加条件。未来升级正规化算法必须新增 schema migration 重建两列和 cursor contract，不能只改 Go 函数。
 
-`games ↔ game_metadata_revisions`、`games ↔ game_content_revisions` 与 `persistent_saves ↔ persistent_save_revisions` 的循环外键，以及 GameVariant 非空 current pointer 的同槽引用，必须声明 `DEFERRABLE INITIALLY DEFERRED`，让创建/切换事务能先插任一侧并在 COMMIT 前闭合；Game 与 PersistentSave 不得把 current pointer 暂时设 NULL。GameVariant 仅允许在“尚无 READY 的备用 core 槽”持续为 NULL，不能在替换已有 READY 时先清空。`emulator_game_id` 只为 READY revision 分配 `1..9007199254740991` 的整数，在单写事务中取现有最大值 + 1；达到上限必须拒绝创建而非溢出。不可变 READY revision 不删除，因此不复用；API 以 JSON number 发送，使 `EJS_gameID` 保持 number 类型。
+`games ↔ game_metadata_revisions`、`games ↔ game_content_revisions` 的循环外键，以及 GameVariant 非空 current pointer 的同槽引用，必须声明 `DEFERRABLE INITIALLY DEFERRED`，让创建/切换事务能先插任一侧并在 COMMIT 前闭合；Game 不得把 current pointer 暂时设 NULL。GameVariant 仅允许在“尚无 READY 的备用 core 槽”持续为 NULL，不能在替换已有 READY 时先清空。`emulator_game_id` 只为 READY revision 分配 `1..9007199254740991` 的整数，在单写事务中取现有最大值 + 1；达到上限必须拒绝创建而非溢出。不可变 READY revision 不删除，因此不复用；API 以 JSON number 发送，使 `EJS_gameID` 保持 number 类型。
 
 一期不支持 Arcade CHD/disk 内容：DAT 可以解析 `disk` 元素作为诊断证据，但导入发现运行所需 CHD 时返回 `UNSUPPORTED_CHD`，不创建假装可运行的 VariantRevision。Merged ROMset 同样返回 `UNSUPPORTED_MERGED_ROMSET`；只支持 Split 与 Full Non-Merged。
 
@@ -80,14 +80,14 @@ User 状态变更、Credential/Session/Link 撤销、待用 Launch 终止与安�
 | --- | --- |
 | `bios_requirements` | `id PK`、`core_id/core_artifact_id`、`source_kind STATIC/DAT_MACHINE`、可空 `dat_machine_name`、`logical_name`、`requirement_mode REQUIRED/OPTIONAL/CONDITIONAL`、可空 `condition_code`、可空 `activation_options_json`、`delivery_kind BIOS_BUNDLE/EXTERNAL_FILE`、可空 `emulator_path`、`catalog_digest`、可空期望 `size_bytes/md5/sha1/sha256`、`source_url/source_version`、`enabled`、`version`、`created_at_ms/updated_at_ms`；`UNIQUE(core_artifact_id, logical_name)`，复合 FK 保证 artifact 属于同 core。BIOS_BUNDLE 的 path 必须为空，EXTERNAL_FILE 必须是规范绝对虚拟路径；交付方式和路径都进入 catalog/validation digest。STATIC 必须无 dat machine；DAT_MACHINE 固定为 bundle。release manifest 的内置 DAT 选择变化时按 slot upsert/disable，并在 digest 改变时递增 version，不删除历史 slot。 |
 | `bios_installations` | `id PK`、`requirement_id/blob_id`、`original_filename`、实际 hash、`validated_requirement_version`、`status MATCHED/HASH_WARNING/MISSING_ENTRY/INVALID`、`validation_details_json`、`is_active`、`version`、`created_at_ms/updated_at_ms`；同 requirement 只允许一条 active。错误静态 hash 可 active 为 HASH_WARNING；可读 Arcade archive 若必需 entry 名齐全但 size/hash 有差异，同样 active 为 HASH_WARNING 并允许装入；完全缺少任一必需 entry 才是可 active 但阻断启动的 MISSING_ENTRY；损坏/不安全 archive 为 INVALID 且不可 active。Requirement version 改变时由 release 引导在发布新 active DAT 前完成有界重验证，并更新 status/version。 |
-| `dat_versions` | `id PK`、`core_id`、`core_artifact_id`、`source BUILTIN/USER`、可空 `builtin_relative_path`、可空 `blob_id`（两者恰一）、`sha256`、`parser_version`、`compatibility_status MATCHED/USER_CONFIRMED/UNKNOWN/INCOMPATIBLE`、`parse_status PENDING/PARSING/READY/FAILED/CANCELLED`、`is_active`、可空 `machine_count/rom_entry_count/disk_entry_count/bios_set_count/default_bios_set_count/explicit_bios_machine_count/base_dependency_target_count/unresolved_relation_count`、`version`、`created_at_ms/updated_at_ms`、可空 `parsed_at_ms/activated_at_ms`；每个 core artifact 只允许一条 active，另以 partial unique index 保证同一 `(core_artifact_id, sha256, parser_version)` 只有一条 BUILTIN 行。新版本只能由 release manifest 创建为 `BUILTIN/MATCHED`；只有 `READY/MATCHED` 可由启动引导激活。`USER` 枚举与可空 `blob_id` 仅为兼容 migration 038 之前的历史外键而保留：升级时全部取消活动，之后由 trigger 禁止新建或修改，不能再成为活动版本。 |
+| `dat_versions` | `id PK`、`core_id/core_artifact_id`、非空 `builtin_relative_path`、`sha256`、`parser_version`、`parse_status PENDING/PARSING/READY/FAILED/CANCELLED`、`is_active`、可空解析统计、`version`、`created_at_ms/updated_at_ms`、可空 `parsed_at_ms/activated_at_ms`；每个 core artifact 只允许一条 active，`UNIQUE(core_artifact_id, sha256, parser_version)`。记录只由已校验 release manifest 创建；只有 READY 可由启动引导激活。schema 不包含用户来源、上传 Blob、diff 或常量兼容状态。 |
 | `dat_machines` | `(dat_version_id, machine_name) PK`、description/year/manufacturer、cloneof/romof、explicit BIOS flag、`classification NORMAL/EXPLICIT_BIOS/ROMOF_INFERENCE`。 |
 | `dat_bios_sets` | `(dat_version_id, machine_name, bios_name) PK`、`description`、`is_default`；同 machine 至多一个 default。MAME 实际 BIOS option 在此保存；FBNeo 当前为零行。 |
 | `dat_rom_entries` | `(dat_version_id, machine_name, ordinal) PK`、`name/size_bytes`、可空 `crc32/sha1/status/merge_name/bios_name`；bios_name 非空时必须命中同 machine BiosSet；索引 machine 与非空 hash。现实 FBNeo 条目没有 SHA-1，NODUMP 条目还可同时没有 CRC/SHA-1，不得用 NOT NULL 或伪哈希填充；除 NODUMP 外至少必须有一个 CRC32/SHA-1。未声明 status 的 FBNeo entry 规范为 GOOD，NODUMP 不进入必需闭包，BADDUMP 进入闭包但生成 Warning。 |
 | `dat_disk_entries` | `(dat_version_id, machine_name, ordinal) PK`、name、可空 SHA1/status；非 NODUMP disk 必须有 SHA-1，NODUMP 可空。一期只诊断，不表示 CHD 可运行。 |
 | `variant_dependencies` | `(game_variant_revision_id, kind, logical_archive) PK`、`dat_version_id`、`kind PARENT/BIOS_OR_BASE`、`source_machine_name`、`required_entries_json`、`state SATISFIED_BY_CONTENT/SATISFIED_EXTERNAL/HASH_WARNING/MISSING/MISMATCH/UNSUPPORTED`、`created_at_ms`；append-only。DatVersion 必须等于 VariantRevision 锁定值，logical archive 固定为 `<source_machine_name>.zip`。`HASH_WARNING` 只允许 `BIOS_OR_BASE` 且所有必需 entry 名存在、至少一项 size/hash 不匹配；它可出现在 READY revision 并装入 bundle。`MISMATCH` 用于 parent 等必须精确匹配的内容并阻断 READY。 |
 
-Builtin DatVersion 只读取 dependency manifest 物化且逐字节校验的只读 payload，不进入 CAS。`dat_import_jobs`、`dat_diff_snapshots` 与 `dat_diff_items` 已由 migration 038 删除；内置解析只使用通用 `jobs` 与 DatVersion 状态。release 切换 active DAT 只影响后续验证结果/新 VariantRevision，不改写历史依赖快照。
+DatVersion 只读取 dependency manifest 物化且逐字节校验的只读 payload，不进入 CAS；解析只使用通用 `jobs` 与 DatVersion 状态。release 切换 active DAT 只影响后续验证结果/新 VariantRevision，不改写既有依赖快照。
 
 BIOS Installation 不跨 CoreArtifact 自动复制：新 artifact 的 Requirement 初始没有 active installation；用户可再次选择同一 UploadFile/bytes 安装，CAS Blob 复用但 Installation 行与校验证据独立。旧 Requirement/Installation 在仍被历史依赖快照保护时保留。
 
@@ -104,7 +104,7 @@ DAT parse 状态投影固定为：Job 首次领取时 `PENDING→PARSING`；Job 
 | `upload_sessions` | `id PK`、`state CREATED/UPLOADING/FINALIZING/COMPLETE/FAILED/CANCELLED/EXPIRED`、`source_type FILES/DIRECTORY`、`total_files/total_bytes`、`manifest_digest`、`finalization_no`、可空 `finalize_job_id UNIQUE`、`version`、`expires_at_ms/created_at_ms/updated_at_ms`、可空 `unconsumed_pruned_at_ms/last_error_code`。`finalization_no` 初始为 0，每次接受 `POST complete` 的事务恰好加 1；manifest digest 是创建时对 source type 与按规范相对路径排序的 fileId/path/declared size 做 RFC 8785 SHA-256，之后不变。FINALIZING 必须引用 kind=`UPLOAD_FINALIZE`、同 scope 且 input `finalizationNo` 等于当前计数的 Job；COMPLETE 时所有 UploadFile 必须 COMPLETE。旧 finalization Job/事件永久保留，但 session 只指向当前一次。 |
 | `upload_files` | `id PK`、`upload_session_id`、规范 `relative_path`、`declared_size_bytes/received_size_bytes`、可空 `final_blob_id`、`state PENDING/PARTIAL/FINALIZING/COMPLETE/FAILED`、可空 `last_error_code`、`created_at_ms/updated_at_ms`；同 session 规范路径唯一，只有 COMPLETE 可有 final Blob。 |
 | `upload_parts` | `(upload_file_id, part_no) PK`、`offset_bytes/size_bytes/sha256`、相对于 `RETROM_DATA_DIR/tmp/uploads/` 的规范 `storage_key`、`created_at_ms`；key 满足 `SAFE_LOGICAL_PATH_V1`、不得包含 `tmp/uploads/` 前缀，且数据库唯一；partNo 从 0 连续，声明范围不重叠，完成后才要求无缺口。 |
-| `upload_consumptions` | `id PK`、`upload_session_id`、可空 `upload_file_id`、`consumer_type IMPORT_JOB/GAME_FILE_REVISION_JOB/GAME_ASSET/REVIEW_ASSET/REVIEW_ARCADE_PARENT/BIOS_INSTALLATION/DAT_VERSION`、`consumer_id`、`created_at_ms`；`UNIQUE(consumer_type, consumer_id)`，并为 `upload_file_id IS NULL` 建 `UNIQUE(upload_session_id)` partial index。`DAT_VERSION` 仅兼容 migration 038 之前的历史记录，不再有新生产者。ImportJob 与 kind=`GAME_FILE_REVISION` 的通用 Job 必须令 file ID 为空并独占消费整个 session；其余仍在用的类型必须令 file ID 非空且属于该 session。`REVIEW_ARCADE_PARENT` 只在 Attachment ACCEPTED 的提交事务写入并以 Attachment ID 为 consumer；REJECTED/FAILED 不消费，Upload cleanup 可按常规期限回收 bytes。整 session consumption 与任何其他 consumption 互斥；file-level consumption 之间可共存，一个 UploadFile 可被多个不同领域资源显式复用，但每次都留独立记录。有任何 consumption 的 session 不可取消；清理规则见下文，不能用“保留 session”误保留所有未消费 Blob。 |
+| `upload_consumptions` | `id PK`、`upload_session_id`、可空 `upload_file_id`、`consumer_type IMPORT_JOB/GAME_FILE_REVISION_JOB/GAME_ASSET/REVIEW_ASSET/REVIEW_ARCADE_PARENT/BIOS_INSTALLATION`、`consumer_id`、`created_at_ms`；`UNIQUE(consumer_type, consumer_id)`，并为 `upload_file_id IS NULL` 建 `UNIQUE(upload_session_id)` partial index。ImportJob 与 kind=`GAME_FILE_REVISION` 的通用 Job 必须令 file ID 为空并独占消费整个 session；其余类型必须令 file ID 非空且属于该 session。`REVIEW_ARCADE_PARENT` 只在 Attachment ACCEPTED 的提交事务写入并以 Attachment ID 为 consumer；REJECTED/FAILED 不消费。整 session consumption 与任何其他 consumption 互斥；file-level consumption 之间可共存，一个 UploadFile 可被多个不同领域资源显式复用，但每次都留独立记录。 |
 | `import_jobs` | `id PK`、`upload_session_id UNIQUE`、`target_platform_instance_id/platform_instance_version/platform_id/default_core_id/core_artifact_id`、可空 `dat_version_id`、`metadata_provider HASHEOUS/NONE`、`config_snapshot_json/config_snapshot_digest`、`state`、`total_item_count/queued_item_count/running_item_count/review_pending_item_count/published_item_count/discarded_item_count/failed_item_count/cancelled_item_count/ignored_file_count/rejected_file_count/resolved_rejected_file_count/already_imported_item_count/already_imported_file_count`、可空自引用 `reconfigured_from_import_job_id`、可空 `last_error_code/cancel_requested_at_ms/cancel_reason`、`version`、`created_at_ms/updated_at_ms`、可空 `completed_at_ms`。`rejected_file_count` 是不可丢失的原始拒绝证据计数，`resolved_rejected_file_count` 只统计已经转入新配置任务的拒绝文件且不得超过前者，二者之差才是当前待处理文件数；`already_imported_item_count` 是 `discarded_item_count` 的可解释子集，`already_imported_file_count` 按只被这些跳过 Item 使用、未同时服务于其他 Item 的不同 UploadFile 计数。item 分类计数总和必须等于 total，与 Item 状态在同一事务更新；仅 CANCEL_REQUESTED/CANCELLED 可有 cancel 字段。`completed_at_ms` 仅在 `COMPLETED/CANCELLED/FAILED` 非空，其余状态（包括仍可重试、审核或取消收口的 `PARTIAL_FAILURE`）必须为空。一个完成的 UploadSession 只能消费为一个 ImportJob；重新配置时由服务端创建新的 COMPLETE 逻辑 UploadSession/UploadFile 并复用相同 CAS Blob，不能让两个 ImportJob 消费同一 session。 |
 | `import_job_files` | `(import_job_id, upload_file_id) PK`、`disposition PENDING/SOURCE/IGNORED/REJECTED`、可空 `reason_code`、`created_at_ms/updated_at_ms`。创建 Import 时为 session 每个 UploadFile 建 PENDING 行；分组后每个文件必须有唯一终态 disposition。SOURCE 必须至少被一条 ItemSourceFile 引用且 reason 为空；IGNORED/REJECTED 必须有稳定 reason，并在任务页可见，不允许静默丢文件。 |
 | `import_job_file_resolutions` | `(import_job_id, upload_file_id) PK/FK ImportJobFile`、`action RECONFIGURED`、`replacement_import_job_id FK ImportJob`、`actor_kind USER/SYSTEM`、可空 `actor_user_id/actor_label`、`created_at_ms`，append-only。USER actor 必须引用真实用户，SYSTEM actor 只能使用封闭 label；它保留原 REJECTED disposition/reason，同时证明该文件已由哪个新任务接管。只有新 UploadSession、replacement ImportJob、全部 resolution 与 source 聚合计数在同一创建事务成功时才算已处理。 |
@@ -144,32 +144,30 @@ ImportJob 聚合规则按固定优先级执行：首次领取前为 `QUEUED`；�
 
 Upload 清理规则固定为：未完成 session 在 24 小时后进入 EXPIRED；清理器不与持有有效 lease 的 FINALIZING Job 竞态，过期时先取消 Job 再清理 part。COMPLETE 且无 consumption 的 session 保留 7 天供创建消费者，随后进入 EXPIRED 并移除 UploadFile 对 Blob 的引用。whole-session consumption 保留该 session 的全部 UploadFile 作为 Import/替换 Job 证据；只有 file-level consumption 时，后台在 24 小时后删除未被任何 consumption 引用的 UploadFile 行/Blob 引用并设置 `unconsumed_pruned_at_ms`，但保留 session、被消费文件和审计关系。物理 Blob 是否删除仍统一交给引用扫描 GC。
 
-### 5.1 Migration 019：审核来源快照与 Arcade Parent Attachment
+### 5.1 审核来源快照与 Arcade Parent Attachment
 
 | 表 | 必需字段与约束 |
 | --- | --- |
-| `import_item_source_snapshots` | `id PK`、`import_item_id/revision_no`、`source_manifest_json/source_manifest_digest`、`created_by IDENTIFICATION/ARCADE_PARENT_ATTACHMENT`、`created_at_ms`；同 Item revision 唯一，append-only。019 为所有旧 Item 以既有 canonical manifest 回填 revision 1；升级前必须复算并精确核对 manifest JSON/digest，漂移则 migration 失败。 |
+| `import_item_source_snapshots` | `id PK`、`import_item_id/revision_no`、`source_manifest_json/source_manifest_digest`、`created_by IDENTIFICATION/ARCADE_PARENT_ATTACHMENT`、`created_at_ms`；同 Item revision 唯一，append-only。首个 snapshot 由当前识别路径直接创建。 |
 | `import_item_source_snapshot_files` | `(source_snapshot_id,role,logical_name) PK`、`upload_file_id/blob_id`、可空 archive pair、连续 `sort_order`、`created_at_ms`；归属与 Blob/ArchiveEntry 约束等同初始 SourceFile，append-only。Blob registry 把这些行计作永久引用。 |
 | `review_arcade_parent_attachments` | `id PK`、Item/Draft/base snapshot/machine/expected logical name/requiredBy/depth/CoreArtifact/DatVersion/UploadFile/原文件名/Job、状态、可空 accepted Blob/result snapshot/observed hash-size/error/finished time、diagnostics、version/time；状态仅 `QUEUED/RUNNING/ACCEPTED/REJECTED/FAILED_RETRYABLE/CANCELLED`，终态字段与转移由 trigger 约束。每 Item 对 `QUEUED/RUNNING` 建 partial unique；ACCEPTED 必须同时有 Blob、后继快照、observed 值和 `REVIEW_ARCADE_PARENT` consumption，其他终态不能伪造后继快照。 |
 
-019 同时给 `import_item_core_validations` 增加非空 `source_snapshot_id`，给 `review_drafts` 增加非空 `effective_source_snapshot_id`，并把 `REVIEW_ARCADE_PARENT_VALIDATE→IMPORT_ITEM` 加入 Job kind/scope enum，把 Attachment 进度事件加入 JobEvent enum。新库直接建立约束；018 升级使用唯一受控的 foreign-keys-off rebuild，事务提交前必须执行 `foreign_key_check`，运行时代码不得提供通用关闭外键能力。Validation/SourceSnapshot/SourceSnapshotFile 均有 update/delete 阻断；GameContentRevision 从审核来源发布时，其 source digest 必须等于草稿有效快照 digest，旧应用不能忽略补充 Parent 后发布 child-only 内容。
+`import_item_core_validations.source_snapshot_id` 与 `review_drafts.effective_source_snapshot_id` 均非空；`REVIEW_ARCADE_PARENT_VALIDATE→IMPORT_ITEM` 属于当前 Job kind/scope 闭集。Validation/SourceSnapshot/SourceSnapshotFile 均有 update/delete 阻断；GameContentRevision 从审核来源发布时，其 source digest 必须等于草稿有效快照 digest，不能忽略补充 Parent 后发布 child-only 内容。
 
 ## 6. Launch、存档与游玩时长
 
 | 表 | 必需字段与约束 |
 | --- | --- |
-| `launch_sessions` | `id PK`、`profile_id/game_id/game_variant_revision_id/core_artifact_id`、可空 `save_state_id/dos_entry_path/persistent_save_base_revision_id`、非空 `return_to`、32-byte `credential_sha256 BLOB`、`state CREATED/ACTIVE/FINISHED/EXPIRED/REVOKED`、`bootstrap_expires_at_ms`、可空 `idle_expires_at_ms/activated_at_ms/finished_at_ms`、`hard_expires_at_ms/created_at_ms/updated_at_ms`、`version`；绝不保存明文 capability。persistent base 是创建 Launch 时该 Profile/Variant/kind 的 current revision 快照，可为空且之后不可改。ACTIVE 时 activated 必须非空；在 PlaySession 创建前 idle 必须为空，创建后必须非空。terminal 时 finished 必须非空。 |
-| `launch_content_files` | 每个 LaunchSession 恰一条不可变运行内容锁定：`launch_session_id PK`、站内内容 URL 使用的 `logical_name`、`blob_id`、`format_version=SOURCE_V1|RETROM_DOS_DIRECT_ZIP_V1`、`created_at_ms`。普通内容锁定 SOURCE；DOS 的程序菜单/直接启动都锁定已有规范 bundle Blob 并使用 `RETROM_DOS_DIRECT_ZIP_V1`，entry 只在 `launch_sessions.dos_entry_path` 锁定。内容端点按该 entry 生成带受控 `AUTOBOOT.DBP`（直接启动）或 `DOSBOX.BAT`（程序菜单）的 seekable ZIP 虚拟视图；旧式高位 byte 路径只在该视图中把所选入口的对应路径组件确定性映射为无碰撞 ASCII 名称，并同步改写受影响的 local/central name 与后续 local offset，不创建或改写 Blob、临时文件和数据库记录。源包的受控引导保留名不能覆盖生成文件。migration 011 只负责清除旧实现曾物化的派生 DOS Blob；不能据此把当前 V1 虚拟视图降为 SOURCE。后续 Variant cache 或内容 current 变化不能令本次 URL 漂移。 |
+| `launch_sessions` | `id PK`、`profile_id/game_id/game_variant_revision_id/core_artifact_id`、可空 `save_state_id/dos_entry_path`、非空 `return_to`、32-byte `credential_sha256 BLOB`、`state CREATED/ACTIVE/FINISHED/EXPIRED/REVOKED`、`bootstrap_expires_at_ms`、可空 `idle_expires_at_ms/activated_at_ms/finished_at_ms`、`hard_expires_at_ms/created_at_ms/updated_at_ms`、`version`；绝不保存明文 capability。ACTIVE 时 activated 必须非空；在 PlaySession 创建前 idle 必须为空，创建后必须非空。terminal 时 finished 必须非空。 |
+| `launch_content_files` | 每个 LaunchSession 恰一条不可变运行内容锁定：`launch_session_id PK`、站内内容 URL 使用的 `logical_name`、`blob_id`、`format_version=SOURCE_V1|RETROM_DOS_DIRECT_ZIP_V1`、`created_at_ms`。普通内容锁定 SOURCE；DOS 的程序菜单/直接启动都锁定已有规范 bundle Blob 并使用 `RETROM_DOS_DIRECT_ZIP_V1`，entry 只在 `launch_sessions.dos_entry_path` 锁定。内容端点按该 entry 生成带受控 `AUTOBOOT.DBP`（直接启动）或 `DOSBOX.BAT`（程序菜单）的 seekable ZIP 虚拟视图；高位 byte 路径只在该视图中把所选入口的对应路径组件确定性映射为无碰撞 ASCII 名称，并同步改写受影响的 local/central name 与后续 local offset，不创建或改写 Blob、临时文件和数据库记录。源包的受控引导保留名不能覆盖生成文件；当前 V1 虚拟视图不能降为 SOURCE。后续 Variant cache 或内容 current 变化不能令本次 URL 漂移。 |
 | `launch_external_files` | `(launch_session_id, virtual_path) PK`、`logical_name`、`blob_id`、`created_at_ms`，并对 `(launch_session_id, logical_name)` 唯一；append-only。只保存 Variant 依赖快照中 `EXTERNAL_FILE` 的已验证 Blob，当前用于 MelonDS 三个 BIOS；活动安装切换不能改变已创建 Launch。 |
 | `play_sessions` | `id PK`、`launch_session_id UNIQUE`、profile/game/variant revision、`started_at_ms/last_heartbeat_at_ms`、可空 `ended_at_ms`、`active_duration_ms`、`last_client_sequence`、`state ACTIVE/FINISHED/ABANDONED`、`version`、`created_at_ms/updated_at_ms`。 |
 | `play_session_events` | `(play_session_id, client_sequence) PK`、`event_kind START/HEARTBEAT/FINISH`、`client_observed_at_ms/server_received_at_ms`、`running/visible/paused` 布尔、`accepted_duration_ms`、`created_at_ms`；append-only，用于幂等与审计。START 固定 sequence 0/accepted 0；其余必须连续。 |
-| `save_states` | `id PK`、`profile_id/game_id/game_variant_revision_id/core_artifact_id`、可空 `dat_version_id/dos_entry_path/disc_index`、`state_blob_id`、非空 `screenshot_blob_id`、可空 `source_launch_session_id`、`name`、`active_duration_ms`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；状态与截图同事务创建。新建手动存档必须记录来源 LaunchSession，且 trigger 校验 Profile/Game/VariantRevision/CoreArtifact/DAT/DOS entry/盘号与来源启动一致；多盘必须记录范围内盘号，SINGLE/DOS 必须为空。历史迁移前存档允许来源为空，不能据此推断它属于某次游玩。软删除后保留引用 7 天，随后 GC 可物理删除该行并按引用规则回收 Blob；审核历史不依赖 SaveState 行。DOS entry 必须属于该 revision，DatVersion 必须等于 revision 快照。 |
-| `persistent_saves` | 历史自动持久化记录：`id PK`、`profile_id/game_variant_revision_id`、`kind CORE_SAVE/DOS_OVERLAY`、非空 `current_revision_id`、`version`、`created_at_ms/updated_at_ms`；`UNIQUE(profile_id, game_variant_revision_id, kind)`。当前 Player Launch 不读取、绑定或写入这些记录；显式存档统一进入 `save_states`。保留表只为数据兼容，不能使普通开始恢复旧进度。 |
-| `persistent_save_revisions` | `id PK`、`persistent_save_id/blob_id/source_launch_session_id`、`client_sequence`、`source_event AUTO_INTERVAL/MANUAL_EXPORT/EXIT`、`created_at_ms`；`UNIQUE(source_launch_session_id, client_sequence)`，append-only，成功写新 Blob 后才切换 current。launch 必须与 PersistentSave 指向相同 Profile/VariantRevision；每个 launch 的 sequence 从 1 连续递增，重复 sequence 只能命中相同 Blob/event。首个 revision 只在 PersistentSave current 仍等于 Launch 的可空 base 时提升；后续 revision 只在 current 仍等于该 launch 上一 sequence revision 时提升，防止并发会话丢失更新。 |
+| `save_states` | `id PK`、`profile_id/game_id/game_variant_revision_id/core_artifact_id`、可空 `dat_version_id/dos_entry_path/disc_index`、`state_blob_id`、非空 `screenshot_blob_id/source_launch_session_id`、`name`、`active_duration_ms`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；状态与截图同事务创建。每个显式存档必须记录来源 LaunchSession，且 trigger 校验 Profile/Game/VariantRevision/CoreArtifact/DAT/DOS entry/盘号与来源启动一致；多盘必须记录范围内盘号，SINGLE/DOS 必须为空。软删除后保留引用 7 天，随后 GC 可物理删除该行并按引用规则回收 Blob；审核历史不依赖 SaveState 行。DOS entry 必须属于该 revision，DatVersion 必须等于 revision 快照。 |
 
 heartbeat 带单调 `clientSequence` 和上一个区间的 `running/visible/paused` 状态；服务端只接受连续新序号，重复序号返回原结果，跳号返回冲突。单次可计入 delta 上限 45 秒；页面隐藏、模拟器暂停/未启动、超出 45 秒失联段计 0。异常关闭由最后一次已接受 heartbeat 截断。
 
-所有私有表（LaunchSession、PlaySession、SaveState、PersistentSave 及其派生读取）都以认证 Principal 的 `profile_id` 参与 SQL predicate；管理员没有 owner bypass。创建 Launch 时把 Profile 固化到不可变 LaunchSession，后续 runtime play/save/persistent-save 只能从该 Launch 派生，客户端不得提交或覆盖 owner。私有 cursor 与 Idempotency-Key 同样绑定当前 User；跨账号复用必须返回不可用/404，而不能命中另一账号的数据或重放结果。
+所有私有表（LaunchSession、PlaySession、SaveState 及其派生读取）都以认证 Principal 的 `profile_id` 参与 SQL predicate；管理员没有 owner bypass。创建 Launch 时把 Profile 固化到不可变 LaunchSession，后续 runtime play/save 只能从该 Launch 派生，客户端不得提交或覆盖 owner。私有 cursor 与 Idempotency-Key 同样绑定当前 User；跨账号复用必须返回不可用/404，而不能命中另一账号的数据或重放结果。
 
 ## 7. 通用任务、事件与审计
 
@@ -178,7 +176,7 @@ heartbeat 带单调 `clientSequence` 和上一个区间的 `running/visible/paus
 | `jobs` | `id PK`、`scope_type/scope_id`、`kind/dedupe_key`、`execution_no`、`payload_json`、`cancellable`、`state QUEUED/RUNNING/CANCEL_REQUESTED/SUCCEEDED/FAILED/CANCELLED`、`attempt_count/max_attempts`、`version`、`available_at_ms`、可空 `execution_started_at_ms/execution_deadline_at_ms/leased_until_ms/heartbeat_at_ms/finished_at_ms/worker_id/error_code/error_retryable/cancel_requested_at_ms/cancel_reason`、`created_at_ms/updated_at_ms`；`error_retryable` 可空或布尔。`UNIQUE(kind, dedupe_key)`，可领取索引 `(state, available_at_ms)`。第一次领取某 execution 时原子写 started/deadline；自动 attempt/退避共享该 deadline，人工 retry 增加 execution 并重新置空二者。CANCEL_REQUESTED 不是终态：保留当前 lease，不能被普通 worker 重新领取，原 worker 在有界检查点停止后才转 CANCELLED；若 lease 到期，恢复器只能执行取消确认/清理，不能继续领域计算。只有终态可有 finished；只有 CANCEL_REQUESTED/CANCELLED 可有 cancel request 字段。kind/scope 映射严格固定为 `UPLOAD_FINALIZE→UPLOAD_SESSION`、`IMPORT_GROUP→IMPORT_JOB`、`IMPORT_ITEM_PIPELINE→IMPORT_ITEM`、`REVIEW_ARCADE_PARENT_VALIDATE→IMPORT_ITEM`、`DAT_PARSE→DAT_VERSION`、`VARIANT_REVALIDATE→GAME_VARIANT`、`METADATA_SCRAPE→SCRAPE_RUN`、`MEDIA_FETCH→CANDIDATE_ASSET`、`GAME_FILE_REVISION→GAME`、`BLOB_GC→BLOB`、`UPLOAD_CLEANUP→UPLOAD_SESSION`、`REVIEW_BULK_APPROVE→REVIEW_BULK_APPROVAL`。IMPORT_GROUP 负责安全扫描/分组，并在每个 Item 创建事务中同时创建其 IMPORT_ITEM_PIPELINE Job。新的领域动作生成不透明 execution ID 作为新 Job dedupe key 的一部分；通用人工 retry 不改已存 Job/dedupe key，而是 `execution_no+1`、新建 InputSnapshot、重置 attempt 并追加事件。自动 retry 只增 attempt，不换 input snapshot。`METADATA_SCRAPE` 不允许通用 Job retry：一个 run 是不可混入新证据的用户批次，人工重试必须通过 review/game 领域端点创建新 Run/Job；Worker 只能在该 Job 最终失败前做有界自动 attempt。`REVIEW_ARCADE_PARENT_VALIDATE` 的 FAILED_RETRYABLE 允许通用 retry 复用同一 UploadFile，不能要求重新上传 bytes；`REVIEW_BULK_APPROVE` 只允许快速审批领域按冻结 aggregate retry。 |
 | `job_input_snapshots` | `(job_id, execution_no) PK`、`input_json/input_digest`、`created_at_ms`；append-only。execution 从 1 连续，`jobs.execution_no` 必须指向最新行。input 是下文固定的 canonical envelope，digest 为 lowercase SHA-256；自动 attempt 不新建行。 |
 | `job_events` | 递增 `id INTEGER PK`、`job_id`、冗余且校验一致的 `scope_type/scope_id`、`event_type QUEUED/STARTED/PROGRESS/RETRY_SCHEDULED/CANCEL_REQUESTED/MANUAL_RETRY/SUCCEEDED/FAILED/CANCELLED`、`data_json`、`created_at_ms`；SSE 按 scope 过滤并用该全局稳定 event ID resume。 |
-| `idempotency_records` | `(principal_id,operation_id,key) PK`、`request_digest`、`http_status`、`response_headers_json`、`response_body BLOB`、`created_at_ms/expires_at_ms`；登录写入的 `principal_id` 为 User ID，系统历史/维护命名空间为 `SYSTEM`。response body 是最大 1 MiB 的 SQLite BLOB，24h 后可清理。摘要绑定 principal User ID 但不得包含密码、session/CSRF 或 account-link capability；不得保存 Set-Cookie，Launch cookie 由本机 key 按 launchId 重派生。 |
+| `idempotency_records` | `(principal_id,operation_id,key) PK`、`request_digest`、`http_status`、`response_headers_json`、`response_body BLOB`、`created_at_ms/expires_at_ms`；登录写入的 `principal_id` 为 User ID，系统维护命名空间为 `SYSTEM`。response body 是最大 1 MiB 的 SQLite BLOB，24h 后可清理。摘要绑定 principal User ID 但不得包含密码、session/CSRF 或 account-link capability；不得保存 Set-Cookie，Launch cookie 由本机 key 按 launchId 重派生。 |
 | `audit_events` | `id UUIDv7 PK`、`actor_kind USER/SYSTEM`、可空 `actor_user_id/actor_label`、封闭 `action`、`resource_type/resource_id`、可空 `before_json/after_json/diff_json/request_id`、`created_at_ms`；append-only。USER actor 以外键引用永不硬删除的 User，SYSTEM actor 只能使用 `release-setup/offline-recovery/startup-test-bootstrap/restore-security-fence`；二者恰一成立。账户动作包括初始化、邀请、密码重置创建/消费/撤销、角色/状态/删除、改密、离线恢复与恢复围栏；普通登录/退出不写审计事件。JSON 禁止宿主绝对路径、IP、hash、cookie/capability 或 key material。 |
 | `blob_gc_candidates` | `blob_id PK`、`first_unreferenced_at_ms/scheduled_at_ms`、可空 `deleted_at_ms/last_failed_at_ms/error_code`、`attempt_count`。每次扫描若恢复引用则删除 candidate 行但不删 Blob；仅连续无引用超过宽限后才删物理 bytes 和 Blob 行。 |
 | `schema_migrations` | migration version PK、name、checksum、applied_at_ms；checksum 改变即启动失败。 |
@@ -209,9 +207,9 @@ Worker 默认并发：hash/copy 2、archive 1、DAT 1、metadata lookup 2、medi
 Migration 必须建立并测试：
 
 - partial unique indexes：每个 BIOS requirement 的 active installation、每个 core artifact 的 active DatVersion、每个 Core 的 enabled CoreArtifact 唯一，以及每个 `(core_artifact_id, sha256, parser_version)` 至多一条 BUILTIN DatVersion；启动校验另保证每个 enabled Core 恰有一条 enabled artifact；
-- trigger：MetadataRevision、GameAsset、GameContentRevision、GameContentFile、VariantRevision、VariantFile、DosEntry、VariantDependency、ImportItemSourceFile、ImportItemCoreValidation/ValidationFile、ContentHashEvidence、ProviderResponse、ScrapeQueryAttempt、ScrapeCandidate/Hit、ReviewEvent、AuditEvent、JobInputSnapshot、JobEvent、PlaySessionEvent 和 PersistentSaveRevision 创建后禁止 UPDATE/DELETE；Game/Variant/PersistentSave 只通过 current pointer 前移；
+- trigger：MetadataRevision、GameAsset、GameContentRevision、GameContentFile、VariantRevision、VariantFile、DosEntry、VariantDependency、ImportItemSourceFile、ImportItemCoreValidation/ValidationFile、ContentHashEvidence、ProviderResponse、ScrapeQueryAttempt、ScrapeCandidate/Hit、ReviewEvent、AuditEvent、JobInputSnapshot、JobEvent 和 PlaySessionEvent 创建后禁止 UPDATE/DELETE；Game/Variant 只通过 current pointer 前移；
 - trigger：ArchiveEntry 只允许 `materialized_blob_id` 从 NULL 一次性设为实际 size/CRC32/MD5/SHA-1/SHA-256 全部相等的 Blob；已非空、设回 NULL、改为另一 Blob 或修改任一其他字段都拒绝。DELETE 只在 owner-GC 事务中允许：同一 `archive_blob_id` 已无业务保护边，且不存在指向其任一 `(archive_blob_id, ordinal)` 的外部复合外键；服务必须按 archive_blob_id 成组删除并立即删除 owning Blob，普通 repository 不暴露 entry delete；
-- trigger：migration 038 之后只允许插入 `BUILTIN` DatVersion；历史 `USER` 行保持 inactive 且禁止 UPDATE，新版本与 active 选择只能由 release manifest 引导；曾激活或已被 VariantRevision 引用的 DatVersion 及其 machine/entry 继续禁止删除；
+- trigger：DatVersion 只能由 release manifest 引导创建和选择；曾激活或已被 VariantRevision 引用的 DatVersion 及其 machine/entry 禁止删除；
 - trigger：PlatformInstance 默认 core、GameVariant core 与间接平台关系有效；被目录/Variant 使用的 PlatformCore 不可禁用；
 - trigger：BIOS Requirement 的 STATIC/DAT_MACHINE XOR、logical name/catalog 字段成立；active Installation 的 requirement/version/status 关系有效，INVALID 永不 active，MISSING_ENTRY 永不用于 READY Variant dependency bundle；BIOS_OR_BASE 的 HASH_WARNING 可用于 READY，PARENT 的 MISMATCH 不可用于 READY；
 - trigger：Job kind/scope 只允许数据字典映射，`execution_no` 指向同 Job 最新连续 InputSnapshot，payload 只指向该 execution；JobEvent 的 scope/execution/attempt 与其 Job 一致；ProviderCache current response 与 cache key 的 provider/request digest 一致；
@@ -221,20 +219,19 @@ Migration 必须建立并测试：
 - trigger：MetadataRevision 的 source kind/ref nullability、ImportItem/Game ownership 和 ScrapeCandidate/run/current ContentRevision 必须符合上表；ADMIN_EDIT 的领域 service 另必须在同一事务写入指向该 Game 与新 MetadataRevision ID 的 AuditEvent，该跨表“同次操作必须存在事件”用 service 集成测试保护，不伪称 SQLite 有 deferred assertion；
 - trigger：GameContentRevision 的 source kind/ref 类型匹配；VariantRevision 的非空 default DOS entry 必须存在于其 ContentRevision 的 `dos_entries`；
 - trigger：GameContentFile 的可空 source archive pair 必须命中同一 ArchiveEntry，且 materialized Blob 与 `blob_id` 一致；
-- trigger：PersistentSaveRevision 的 Launch/Profile/VariantRevision 归属一致；同 launch 新 sequence 必须恰为既有最大值 + 1，重复请求由唯一键命中原 revision，不能插入空洞或改写既有 event/blob；提升 current 时首项必须匹配 Launch base、后续项必须匹配该 launch 前一项，竞态返回领域冲突而非覆盖；
 - trigger：UploadSession `finalization_no >= 0`；FINALIZING 必须指向同 scope、同 `finalizationNo` 的当前 UPLOAD_FINALIZE Job，旧 Job 不可改写，COMPLETE 时所有文件 COMPLETE；插入 whole-session Upload consumption 时该 session 必须 COMPLETE 且没有任何既有 consumption，且 consumer ID 必须指向匹配的 ImportJob 或 `GAME_FILE_REVISION` Job；插入 file-level consumption 时该 session/file 必须 COMPLETE、该 session 没有 whole-session consumption，且 UploadFile 必须属于该 session；两方向都在同一写事务防竞态；
 - CHECK：所有 size/duration/version 非负，结束时刻不早于开始，XOR 路径/blob 约束成立；
 - 索引：游戏搜索/目录/状态、存档 profile+game+created_at_ms、任务领取与 scope event、审核队列、DAT machine/hash、全部外键列。
 
 业务服务仍需在事务前返回可理解错误，trigger 是并发和遗漏的最后防线，不能以 trigger 错误字符串作为 HTTP 契约。
 
-## 9. Migration 024：多盘证据与运行锁定
+## 9. 多盘证据与运行锁定
 
 `content_kind`/`content_mode` 增加 `MULTI_DISC_M3U_V1`；Import source 与 GameContent file role 增加 `PLAYLIST_SOURCE`/`DISC`，VariantFile role 增加 `MULTI_DISC_PLAYLIST`。`import_item_multidisc_entries` 以 `(source_snapshot_id, ordinal)` 保存连续盘序、source reference、canonical name、PRESENT/MISSING 与可空 Blob；`review_multidisc_attachments` 关联 ImportItem、base/effective snapshot、Upload、Job、真实 User actor、状态、错误和诊断，并以局部唯一索引保证一个 active attachment。
 
-`launch_external_files.kind=DISC` 锁定每张盘的规范虚拟路径，`launch_sessions.initial_disc_index` 锁定普通启动或 SaveState 恢复盘号。完整多盘 revision 的依赖快照必须包含 content kind、parser/delivery 版本、盘数、ordered disc SHA-256 与 canonical playlist SHA-256；多盘 Variant validation 使用独立 V3 canonical digest，包含 Variant/Content/Artifact ID、artifact version、compatibility digest、DAT、BIOS、盘序和 playlist。SINGLE/DOS 保留 V2，不改写历史 identity。历史 prepublish evidence 回填 generation 3 并强制 stale；只有 generation 4 当前证据可发布。
+`launch_external_files.kind=DISC` 锁定每张盘的规范虚拟路径，`launch_sessions.initial_disc_index` 锁定普通启动或 SaveState 恢复盘号。完整多盘 revision 的依赖快照必须包含 content kind、parser/delivery 版本、盘数、ordered disc SHA-256 与 canonical playlist SHA-256；多盘 Variant validation 使用独立 V3 canonical digest，包含 Variant/Content/Artifact ID、artifact version、compatibility digest、DAT、BIOS、盘序和 playlist。SINGLE/DOS 使用 V2；只有 generation 4 当前 prepublish evidence 可发布。
 
-## 10. Migration 025：收藏与收藏夹
+## 10. 收藏与收藏夹
 
 ### 10.1 表、主键与外键
 
@@ -283,11 +280,11 @@ ON favorite_folder_games(profile_id,game_id,folder_id);
 
 Game `DELETED`、PlatformInstance 停用或 User 停用不删除三张表中的关系。所有用户列表、搜索、计数和 Folder visible count 必须在 SQL 中限定 PUBLISHED Game 与 enabled PlatformInstance；未来恢复可见后，原 Favorite 与 Membership 自动重新进入投影。管理 API 和 diagnostics 不提供逐用户收藏投影。
 
-### 10.4 升级与验证
+### 10.4 Schema 与验证
 
-`025_favorites.sql` 是纯增量 migration：不重建旧表、不关闭 foreign keys、不回填推断收藏，也不改变 Blob reference registry。空库执行 001→025；023 fixture 执行 024→025；024 fixture 直接执行 025。checksum 发布后不可改写，所有表、索引、trigger、升级路径、非法 SQL 和两个 Profile 隔离统一由 `ACC-FAV-001` 验证。
+当前 clean schema 直接创建收藏表、索引和 trigger，不回填或推断收藏，也不改变 Blob reference registry。所有结构、非法 SQL 和两个 Profile 隔离统一由 `ACC-FAV-001` 验证。
 
-## 11. Migration 026：服务器 BIOS 导入
+## 11. 服务器 BIOS 导入
 
 `server_imports` 是一次 `BIOS_DIRECTORY` 导入聚合，保存 root ID/label 快照、不可逆 root 配置 digest、规范相对目录、完整 catalog digest、覆盖授权、阶段、计数、Job/创建者、乐观版本和 Unix 毫秒时刻。partial unique index 保证全实例同一时刻至多一个非终态 BIOS ServerImport；终态行的各 Item 分类计数必须恰好覆盖冻结 catalog。
 
@@ -297,7 +294,7 @@ Game `DELETED`、PlatformInstance 停用或 User 停用不删除三张表中的�
 
 `jobs.kind` 增加 `SERVER_BIOS_IMPORT`，且强制 `scope_type=SERVER_IMPORT`。`bios_installations` 增加不可变的 `source_kind=BROWSER_UPLOAD|SERVER_DIRECTORY` 和可空候选外键；服务器来源必须引用所属 Requirement 的 selected Candidate。每个 Requirement 的 Installation、Item 终态、聚合计数与 `PROGRESS` 事件在同一短事务提交，进程恢复以终态 Item 为幂等边界。
 
-## 12. Migration 028：Pegasus 目录导入与 VIDEO
+## 12. Pegasus 目录导入与 VIDEO
 
 `pegasus_imports` 保存 root ID/label 与不可逆配置 digest、规范相对目录、metadata snapshot digest、scan/import Job、聚合状态/phase、映射版本、计数、7 天到期和创建者；partial unique index 保证全实例至多一个 `QUEUED|RUNNING|CANCEL_REQUESTED` execution。`pegasus_import_metadata_files` 只保存相对路径、大小、内容/facts digest 和解析结论，不保存原始 metadata bytes。
 
@@ -305,33 +302,33 @@ Game `DELETED`、PlatformInstance 停用或 User 停用不删除三张表中的�
 
 `jobs.kind` 增加 `SERVER_PEGASUS_SCAN|SERVER_PEGASUS_IMPORT` 并强制 `scope_type=PEGASUS_IMPORT`。scan 与 import 是不同 Job；retry 在原 import Job 增加 execution/input snapshot，不复活旧事件。发布来源扩展为 `game_metadata_revisions.source_kind` 与 `game_content_revisions.source_kind` 的 `SERVER_PEGASUS_IMPORT`，且 source_ref 必须指向处于审核发布边界的 Pegasus Item。
 
-`game_assets.kind` 增加 ordinal 0 的 `VIDEO`：只允许 `video/mp4|video/webm` 且 `width_px/height_px` 必须为 null；图片仍必须具有正尺寸和受限图片 MIME。每个 MetadataRevision 仍拥有完整媒体清单，管理替换/移除 VIDEO 或修改文字时复制未修改的 Asset 引用，历史 Asset 永不原地修改。Migration 028 重建受 enum 影响的表与触发器，026/027→028 与 fresh 001→028 必须同构并通过 foreign-key/integrity 检查。
+`game_assets.kind` 的 ordinal 0 `VIDEO` 只允许 `video/mp4|video/webm` 且 `width_px/height_px` 必须为 null；图片仍必须具有正尺寸和受限图片 MIME。每个 MetadataRevision 拥有完整媒体清单，管理替换/移除 VIDEO 或修改文字时复制未修改的 Asset 引用，既有 Asset 永不原地修改。
 
-## 13. Migration 029：Pegasus 管理员失败诊断
+## 13. Pegasus 管理员失败诊断
 
 `pegasus_import_items.error_details_json` 是可空、最大 8 KiB 的 JSON object，只保存管理员排障所需的封闭证据：schema version、失败阶段、内部操作、稳定 cause code、受限技术详情、来源相对路径、观察值/上限，以及已创建时的内部 ImportJob/ImportItem ID。不得写入宿主绝对路径、Blob ID/hash、凭据或未截断上游 payload；retry 把该字段与旧 `error_code` 一起清空，新 execution 重新生成证据。
 
-029 对 028 已产生且可确定为 Arcade companion 文件数超过 64 的 `PEGASUS_LIBRARY_IMPORT_FAILED` 进行一次性回填，记录实际组装数量和内部上限。其他无法从持久状态证明根因的历史失败不得猜测或伪造技术详情。
+当前 worker 在产生失败结果时直接记录精确 stage/operation/cause、实际数量和内部上限；无法从当前执行证据证明根因时不得猜测或伪造技术详情。
 
-## 14. Migration 030：Pegasus 审核交接
+## 14. Pegasus 审核交接
 
 `pegasus_imports` 增加 `review_pending_item_count/review_discarded_item_count`，phase 增加 `PREPARING_REVIEWS`；总量约束把待审核、已发布和审核丢弃计入互斥结果。`pegasus_import_items.execution_state` 增加 `REVIEW_PENDING/REVIEW_DISCARDED`，`library_import_item_id` 建立非空唯一索引，使一个普通 ImportItem 至多归属一个 Pegasus Item。`REVIEW_PENDING` 必须引用同一内部 ImportJob 中仍为 `REVIEW_PENDING` 的 ImportItem；`REVIEW_DISCARDED` 必须对应内部 Item 的 `DISCARDED`。
 
 Pegasus Worker 在复制、普通 content pipeline 与 CoreValidation 后只冻结 metadata、COVER/VIDEO 和内部 ImportItem 关联，再把 Pegasus Item 交接为 `REVIEW_PENDING`；此时普通审核队列才允许展示。交接未完成的关联 Item 不得出现在队列/详情，也不得被 Approve/Discard。崩溃恢复复用既有 `library_import_job_id/library_import_item_id` 并幂等补齐 metadata，不得创建第二个内部 ImportItem 或重复系统草稿事件。
 
-管理员 Approve 在普通审核发布事务内创建 `SERVER_PEGASUS_IMPORT` metadata/content revision、复制未被人工封面覆盖的来源 COVER 与来源 VIDEO，并把 Pegasus Item 原子转为 `PUBLISHED`；Discard 在普通审核事务内原子转为 `REVIEW_DISCARDED`。`source_ref_id` 始终保留 Pegasus Item 作为来源审计，content manifest 则必须匹配与其一一关联的 ReviewDraft 当前有效来源快照；Parent ROM 或多盘补传产生后继快照时不得退回校验 Pegasus Item 的初始 manifest。两种决策都同步重算 Pegasus 聚合计数。没有审核决策时不得创建 Game；Migration 037 的快速审批只复用严格 READY Approve，不改变这个发布边界。
+管理员 Approve 在普通审核发布事务内创建 `SERVER_PEGASUS_IMPORT` metadata/content revision、复制未被人工封面覆盖的来源 COVER 与来源 VIDEO，并把 Pegasus Item 原子转为 `PUBLISHED`；Discard 在普通审核事务内原子转为 `REVIEW_DISCARDED`。`source_ref_id` 始终保留 Pegasus Item 作为来源审计，content manifest 必须匹配与其一一关联的 ReviewDraft 当前有效来源快照；Parent ROM 或多盘补传产生后继快照时不得退回校验 Pegasus Item 的初始 manifest。两种决策都同步重算 Pegasus 聚合计数。没有审核决策时不得创建 Game；快速审批只复用严格 READY Approve，不改变这个发布边界。
 
-Migration 030 受控重建两个 Pegasus 主表和受影响 trigger，保留 029 的状态、诊断、映射、媒体与历史发布行，并把新增计数初始化为零。029→030 与 fresh 001→030 必须同构并通过 foreign-key/integrity 检查。
+Pegasus 表从 fresh schema 直接包含当前 review-handoff 状态、诊断、映射、媒体和聚合计数，不创建自动发布或通用阻断兼容状态。
 
-## 15. Migration 031：审核运行预览与第 5 秒截图
+## 15. 审核运行预览与第 5 秒截图
 
 `review_preview_sessions` 保存管理员从待审核条目创建的短时、不可变运行快照：锁定 ImportItem、有效来源快照、目标目录、默认 CoreArtifact、当次 Validation、主内容 Blob、依赖摘要、capability hash、启动/硬过期时间和是否允许截图。它不是 `launch_sessions` 或 `play_sessions`，不创建 Game、不累计游玩时长、不读写状态存档或持久存档。只有 `REVIEW_PENDING` Item、当前有效来源和 enabled 管理员能创建；主 ROM 始终必需，当前 Validation 中实际存在的 Parent、BIOS 和 external file 才复制为 `review_preview_files`，缺失依赖不会伪造占位。
 
-`review_preview_files` 只允许 `PARENT/BIOS_BUNDLE/EXTERNAL_FILE/DISC`，行创建后不可更新或删除；Blob、逻辑名和可空虚拟路径必须属于创建时锁定的来源/Validation。`review_runtime_screenshots` 以 `(import_item_id,validation_id)` 唯一保存 PNG、CoreArtifact、来源快照、尺寸和固定 `captured_after_ms=5000`；重新运行会以新不可变 Blob 替换该 Validation 的当前截图引用。031 初始 trigger 只允许草稿所选 READY Validation 写入；当前 schema 由 Migration 033 扩展为 READY/阻断 Validation，并收紧到最新一次当前证据。
+`review_preview_files` 只允许 `PARENT/BIOS_BUNDLE/EXTERNAL_FILE/DISC`，行创建后不可更新或删除；Blob、逻辑名和可空虚拟路径必须属于创建时锁定的来源/Validation。`review_runtime_screenshots` 以 `(import_item_id,validation_id)` 唯一保存 PNG、CoreArtifact、来源快照、尺寸和固定 `captured_after_ms=5000`；重新运行会以新不可变 Blob 替换该 Validation 的当前截图引用。当前 trigger 允许 READY/阻断 Validation，并收紧到最新一次当前证据。
 
-三张表的 Blob 外键全部进入唯一 reference registry。Migration 031 只追加表、索引和 trigger，不重建旧表；030→031 与 fresh 001→031 必须同构并通过 foreign-key/integrity 检查。
+三张表的 Blob 外键全部进入唯一 reference registry；fresh schema 直接建立最终表、索引和 trigger。
 
-## 16. Migration 032：受限联机控制面
+## 16. 受限联机控制面
 
 | 表/变更 | 唯一职责与稳定不变量 |
 | --- | --- |
@@ -339,18 +336,18 @@ Migration 030 受控重建两个 Pegasus 主表和受影响 trigger，保留 029
 | `netplay_room_members` | `(room_id,profile_id)` 唯一，active `(room_id,player_no)` 唯一；HOST 固定 P1 且每房恰一 active host，GUEST 为 P2–P4；ready 只在 active WAITING 成员上成立，离开必须清 ready 并记录封闭 reason。 |
 | `netplay_sessions` | 每次 Start 的不可变 game/variant/core/profile canonical snapshot；状态 `PREPARING/LOADING/SYNCHRONIZING/RUNNING/PAUSED_RECONNECT/RESYNCHRONIZING/FINISHED/FAILED`，每房最多一个 active session。`profile_json` 是 core-profile canonical object，`profile_digest` 是 lowercase SHA-256；它包含不可变 GameVariantRevision ID，从而在 core profile 覆盖多个游戏时仍锁定本局唯一内容 revision，而不是把 ROM hash 放回准入 manifest。P1 是唯一 state authority，occupied mask 必含 P1，resync 只递增。 |
 | `netplay_session_participants` | 锁定 Session 中每个 Profile/seat；状态 `LOCKED/LAUNCH_READY/RUNTIME_READY/SYNCHRONIZED/CONNECTED/DISCONNECTED/LEFT`。LOCKED 时 launch/credential 均空；LAUNCH_READY 起二者全有，credential generation 从 1 单调递增，数据库只存 SHA-256；seat/member/session/launch 绑定不可改。断线只存 10 秒 lease 时刻，不存输入或 state bytes。 |
-| `netplay_events` | 房间级 append-only 小事件；只允许 migration 中封闭 event type 和低基数 `data_json`，禁止 UPDATE/DELETE。不得记录显示名、输入、ROM/BIOS 名称或 hash、state、cookie、IP、宿主路径。每帧 input/canonical/hash 不入库。 |
+| `netplay_events` | 房间级 append-only 小事件；只允许 schema 中封闭 event type 和低基数 `data_json`，禁止 UPDATE/DELETE。不得记录显示名、输入、ROM/BIOS 名称或 hash、state、cookie、IP、宿主路径。每帧 input/canonical/hash 不入库。 |
 | `launch_sessions` | 新增可空 `netplay_session_id/netplay_player_no` 与非空 `save_access NORMAL/NETPLAY_DISABLED`。普通 Launch 必为 `NULL,NULL,NORMAL`；联机 Launch 三者同时锁定并与 Participant/Session snapshot 完全相同，每 Participant 最多一个 Launch。 |
 
 每个 Session 终态都会撤销关联 Launch 并把其 Participant 标为 LEFT。运行中任一 Participant 离开等价全局 `USER_EXIT`：访客释放自己的 RoomMember、房间回到 WAITING且全员 ready 清零；房主主动结束本局时保留成员并回 WAITING。房主丢失/关闭、profile 撤销、服务重启、restore 与硬到期把 Room 标为 ENDED，活动 RoomMember 以 ROOM_ENDED 收口。服务启动 recovery 把遗留 STARTING/RUNNING Session 标为 `FAILED/SERVER_RESTARTED` 并撤销 Launch；restore 使用 `RESTORE`。实时 input/history/hash/state transfer 只存在 `internal/netplay.Hub` 的有界内存，不新增 Job/Blob/CAS 表，也不允许由运行时 DDL 修补。
 
-## 17. Migration 033：阻断截图人工放行
+## 17. 阻断截图人工放行
 
-033 不增加表或列，只替换审核 preview/screenshot 的三个校验 trigger，并把升级瞬间仍存在的短时 preview session 统一设为 `capture_allowed=1`。新建 preview 及截图插入/替换都必须绑定该 Item、有效来源快照、草稿目标平台、默认 CoreArtifact 和同一组合下按 `created_at_ms,id` 选出的最新 Validation；Validation 必须使用当前 `prepublish_generation=4`，但状态可以是 READY 或阻断。重新检查产生更新 Validation 后，旧 preview 即使稍后上传截图也会被 trigger 拒绝。
+当前 schema 的审核 preview/screenshot 校验 trigger 要求新建 preview 及截图插入/替换都绑定该 Item、有效来源快照、草稿目标平台、默认 CoreArtifact 和同一组合下按 `created_at_ms,id` 选出的最新 Validation；Validation 必须使用当前 `prepublish_generation=4`，但状态可以是 READY 或阻断。重新检查产生更新 Validation 后，旧 preview 即使稍后上传截图也会被 trigger 拒绝。
 
-当前阻断 Validation 的第 5 秒截图可作为管理员放行证据；Approve 仍需在同一事务复核来源、目标、默认 CoreArtifact、active DAT 和配置版本，并把截图 ID 与 `REVIEW_SCREENSHOT_OVERRIDE` 写入不可变审核证据。032→033 与 fresh 001→033 必须同构并通过 foreign-key/integrity 检查。
+当前阻断 Validation 的第 5 秒截图可作为管理员放行证据；Approve 仍需在同一事务复核来源、目标、默认 CoreArtifact、active DAT 和配置版本，并把截图 ID 与 `REVIEW_SCREENSHOT_OVERRIDE` 写入不可变审核证据。fresh schema 必须通过 foreign-key/integrity 检查。
 
-## 18. Migration 034：实例级游戏标签
+## 18. 实例级游戏标签
 
 | 表/变更 | 唯一职责与稳定不变量 |
 | --- | --- |
@@ -362,15 +359,15 @@ Migration 030 受控重建两个 Pegasus 主表和受影响 trigger，保留 029
 
 Tag 名称的 NFC、Unicode 空白折叠、case-fold、control 拒绝、1–40 code point/160 byte 和实例 1,000 上限在唯一 Tagging service 执行；数据库对长度、活动唯一、owner 状态和关系上限再 fail closed。关系集合变化推进 touched Tag 与 owner version。Tag DELETE 在短事务内写 tombstone、推进全部受影响 Game、待审核 ReviewDraft 和未完成 Pegasus aggregate/mapping version，并保留关系和 AuditEvent。Tag 不进入 metadata/content/variant/runtime 表；完整领域语义见 [`game-tags.md`](./game-tags.md)。
 
-033→034 只新增上述表、索引/trigger和带默认值的列，既有 Pegasus Collection 得到 `[]`；升级库与新建库都必须通过 `foreign_key_check` 和 `integrity_check`。备份直接包含这些 SQLite 行，不新增 Blob reference。
+当前 clean schema 直接创建上述表、索引/trigger 和非空 `tag_snapshot_json`（默认 `[]`）；数据库必须通过 `foreign_key_check` 和 `integrity_check`。备份直接包含这些 SQLite 行，不新增 Blob reference。
 
-## 19. Migration 035：Pegasus 审核内容后继快照
+## 19. Pegasus 审核内容后继快照
 
-035 只替换 `game_content_revisions_pegasus_source_insert` trigger，不修改表和历史行。处于旧 `PUBLISHING` 边界的兼容流程仍只接受 Pegasus Item 冻结的初始 `source_manifest_digest/content_kind`；处于 `REVIEW_PENDING` 的当前流程必须通过 `library_import_item_id` 一一关联 ReviewDraft，并让待写入 ContentRevision 的 digest/content kind 与 Draft 的 `effective_source_snapshot_id` 精确一致。这样 metadata/content revision 仍以 Pegasus Item 作为 `SERVER_PEGASUS_IMPORT` 来源引用，同时 Parent ROM 或多盘补传形成的新 manifest 由不可变审核来源快照证明。
+`game_content_revisions_pegasus_source_insert` trigger 只接受 `REVIEW_PENDING` 当前流程：它必须通过 `library_import_item_id` 一一关联 ReviewDraft，并让待写入 ContentRevision 的 digest/content kind 与 Draft 的 `effective_source_snapshot_id` 精确一致。这样 metadata/content revision 仍以 Pegasus Item 作为 `SERVER_PEGASUS_IMPORT` 来源引用，同时 Parent ROM 或多盘补传形成的新 manifest 由不可变审核来源快照证明。
 
-034→035 与 fresh 001→035 的 trigger 必须同构并通过 `foreign_key_check` 和 `integrity_check`。发布服务集成回归必须覆盖 Pegasus Arcade 条目先因缺 Parent 阻断、补传生成后继快照和 READY Validation、再以当前 Review version 成功发布的完整事务；不得放宽到任意历史快照或只信任客户端 digest。
+发布服务集成回归必须覆盖 Pegasus Arcade 条目先因缺 Parent 阻断、补传生成后继快照和 READY Validation、再以当前 Review version 成功发布的完整事务；不得放宽到任意其他快照或只信任客户端 digest。
 
-## 20. Migration 037：严格 READY 快速审批
+## 20. 严格 READY 快速审批
 
 | 表/变更 | 唯一职责与稳定不变量 |
 | --- | --- |
@@ -380,22 +377,12 @@ Tag 名称的 NFC、Unicode 空白折叠、case-fold、control 拒绝、1–40 c
 
 预览在同一个只读快照中枚举整个规范筛选范围，不依赖浏览器当前加载页。候选必须为当前 `REVIEW_PENDING`、严格 generation 4 `READY`、目录/CoreArtifact/active DAT/DOS entry/dependency snapshot/来源/标题都未漂移、无 active Parent/多盘补传且无当前重复 Game。阻断截图只能支持逐项人工放行，不能进入自动候选。创建批次时服务端重新计算 scope 与 candidate manifest；任一 digest 漂移都拒绝创建。
 
-Worker 顺序处理冻结 Item；每项在普通 Approve 短事务内再次验证冻结输入和严格 READY，创建 Game/Revision/ReviewEvent、推进普通/Pegasus 聚合并写 `PUBLISHED` 批次结果，任何一步失败都整体回滚。重复、输入漂移和不再 READY 分别收口为 skip；意外项错误进入 `FAILED_FINAL`，不阻止剩余候选。取消只停止未提交项并保留已发布项；进程重启把未提交 RUNNING Item 退回 PENDING 后恢复，restore fence 则把非终态 Item 取消、aggregate/Job 置不可重试 `FAILED/RESTORE_INTERRUPTED`。037 受控重建 `jobs/job_events` 的 CHECK 并恢复既有 trigger，036→037 与 fresh 001→037 必须同构并通过 foreign-key/integrity 检查。
+Worker 顺序处理冻结 Item；每项在普通 Approve 短事务内再次验证冻结输入和严格 READY，创建 Game/Revision/ReviewEvent、推进普通/Pegasus 聚合并写 `PUBLISHED` 批次结果，任何一步失败都整体回滚。重复、输入漂移和不再 READY 分别收口为 skip；意外项错误进入 `FAILED_FINAL`，不阻止剩余候选。取消只停止未提交项并保留已发布项；进程重启把未提交 RUNNING Item 退回 PENDING 后恢复，restore fence 则把非终态 Item 取消、aggregate/Job 置不可重试 `FAILED/RESTORE_INTERRUPTED`。当前 clean schema 直接创建最终 job/event 约束并通过 foreign-key/integrity 检查。
 
-Migration 038 收口为 release 内置 DAT：升级时取消历史 USER DatVersion 的非终态 `DAT_PARSE`、取消其 active 状态并删除仅服务于上传候选比较的 `dat_import_jobs/dat_diff_snapshots/dat_diff_items`；保留历史 DatVersion 与索引行以维持 VariantRevision、Validation 和审核事件外键。新 trigger 禁止创建 USER DatVersion、禁止修改历史 USER 行，也禁止把 BUILTIN 改写为 USER。037→038 与 fresh 001→038 必须通过 `foreign_key_check` 和 `integrity_check`。
+## 21. 推荐目录代码 catalog
 
-## 21. Migration 039：初始游戏目录合并
+`platform_instances.catalog_template_key` 可空；非空值有 partial unique index。fresh DB 拥有完整 Platform/Core reference seed 但零 PlatformInstance。推荐模板由 `internal/platformcatalog` 管理，扩展名由 `internal/contentprofile` 管理；“应用推荐目录”以 UUIDv7 创建当前 27 个模板并保持幂等，clean schema 不插入实例目录。NES profile 稳定返回 `.nes/.unf/.unif/.fds`，Arcade 共同 `.zip` 只投影一次；扩展名稳定有序且无重复。
 
-039 将 `FDS 游戏`中的 Game 迁到 `NES 游戏`，将 `MAME 2003 游戏`中的 Game 迁到 `MAME 2003 Plus 游戏`，随后把两个来源目录设为 disabled soft-delete。Game ID、current metadata/content revision、GameVariant/VariantRevision、SaveState、Play/Launch 历史均保持不变；只推进被迁移 Game 和被改变目录的 version。旧目录行不能硬删，因为历史 ImportJob、Validation、Review、Pegasus 映射和运行预览仍可能通过外键引用它们。目标 seed 若此前被软删除，升级必须先恢复；未删除但被管理员停用的目标不覆盖其 enabled 选择。
-
-NES 内容 profile 合并 `.fds` 后稳定返回 `.nes/.unf/.unif/.fds`；Arcade 各目录共同的 `.zip` 只投影一次。扩展名集合必须稳定有序且无重复。038→039 与 fresh 001→039 都必须通过 `foreign_key_check`、`integrity_check` 和含既有 Game 的升级回归。
-
-## 22. Migration 040：推荐目录代码 catalog
-
-040 为 `platform_instances` 增加可空 `catalog_template_key` 和非空值 partial unique index，并在 fresh 001→040 构建中清空 001–039 的历史目录 seed，使新数据库最终拥有完整 Platform/Core 参考行但零 PlatformInstance。推荐模板改由 `internal/platformcatalog` 管理，扩展名继续只由 `internal/contentprofile` 管理；后续 migration 不再插入默认目录。
-
-当前项目尚未对外开放，部署本变更时直接重建数据库与数据根，不提供 039→040 数据保留、转换或专用拒绝分支。040 的交付基线只验证全新数据库；如果 fresh migration 链意外产生引用 PlatformInstance 的业务行，删除会因外键失败并视为 migration 缺陷，不能加入级联删除绕过。
-
-## 23. 统一验收入口
+## 22. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；标签由 `ACC-TAG-001`–`005`；状态机、lease 与快速审批由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。

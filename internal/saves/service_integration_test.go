@@ -5,11 +5,7 @@ package saves
 import (
 	"bytes"
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/base64"
-	"encoding/hex"
-	"encoding/json"
 	"errors"
 	"image"
 	"image/color"
@@ -19,7 +15,6 @@ import (
 	"net/textproto"
 	"path/filepath"
 	"runtime"
-	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -174,7 +169,7 @@ search_text,
 version,
 created_at_ms,
 updated_at_ms) VALUES(?,
-'01980000-0000-7000-8000-000000000005',
+(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
 'PUBLISHED',
 ?,
 ?,
@@ -284,34 +279,6 @@ WHERE id=?
 	}
 }
 
-// enableLegacyPersistent isolates compatibility coverage for historical
-// records. Current dependency manifests and Launch config never expose this.
-func (fixture *saveFixture) enableLegacyPersistent(t *testing.T, mode, kind string) {
-	t.Helper()
-	var artifactID, compatibilityJSON string
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
-SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND enabled=1
-`).Scan(&artifactID, &compatibilityJSON); err != nil {
-		t.Fatal(err)
-	}
-	var compatibility map[string]any
-	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil {
-		t.Fatal(err)
-	}
-	compatibility["persistentSaveMode"] = mode
-	compatibility["persistentSaveKind"] = kind
-	updatedCompatibility, err := json.Marshal(compatibility)
-	testassert.False(t, err != nil, err)
-	if _, err := fixture.database.SQL.ExecContext(
-		fixture.ctx,
-		`UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?`,
-		string(updatedCompatibility),
-		artifactID,
-	); err != nil {
-		t.Fatal(err)
-	}
-}
-
 func (fixture *saveFixture) createLaunch(t *testing.T) launch.Created {
 	t.Helper()
 	created, err := fixture.launches.Create(fixture.ctx, "local", launch.CreateRequest{
@@ -371,16 +338,6 @@ func screenshotPNG(t *testing.T) []byte {
 	return result.Bytes()
 }
 
-func contentDigest(contents []byte) string {
-	digest := sha256.Sum256(contents)
-	return "sha-256=:" + base64.StdEncoding.EncodeToString(digest[:]) + ":"
-}
-
-func contentDigestHex(contents []byte) string {
-	digest := sha256.Sum256(contents)
-	return hex.EncodeToString(digest[:])
-}
-
 func TestManualStateRequiresAtomicNonEmptyStateAndScreenshot(t *testing.T) {
 	fixture := newSaveFixture(t)
 	created := fixture.createLaunch(t)
@@ -432,240 +389,5 @@ FROM save_states
 `).Scan(&count); err != nil ||
 		count != 1 {
 		t.Fatalf("save count after invalid request = %d, error=%v", count, err)
-	}
-}
-
-func TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence(t *testing.T) {
-	fixture := newSaveFixture(t)
-	fixture.enableLegacyPersistent(t, "SINGLE_FILE", "CORE_SAVE")
-	first := fixture.createLaunch(t)
-	stale := fixture.createLaunch(t)
-	firstBytes := []byte("persistent-one")
-	firstKey := uuid.NewString()
-	firstResult, replayed, err := fixture.saves.PutPersistent(
-		fixture.ctx,
-		first.LaunchID,
-		first.Capability,
-		firstKey,
-		contentDigest(firstBytes),
-		"AUTO_INTERVAL",
-		1,
-		bytes.NewReader(firstBytes),
-	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return replayed }, func() bool { return firstResult.Sequence != 1 }), "first persistent save = %#v, replayed=%v, error=%v", firstResult, replayed, err)
-	idempotentReplay, replayed, err := fixture.saves.PutPersistent(
-		fixture.ctx,
-		first.LaunchID,
-		first.Capability,
-		firstKey,
-		contentDigest(firstBytes),
-		"AUTO_INTERVAL",
-		1,
-		bytes.NewReader(firstBytes),
-	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return idempotentReplay.RevisionID != firstResult.RevisionID }), "persistent idempotency replay = %#v, replayed=%v, error=%v", idempotentReplay, replayed, err)
-	conflicting := []byte("persistent-conflict")
-	if _, _, err := fixture.saves.PutPersistent(
-		fixture.ctx,
-		first.LaunchID,
-		first.Capability,
-		firstKey,
-		contentDigest(conflicting),
-		"AUTO_INTERVAL",
-		1,
-		bytes.NewReader(conflicting),
-	); !errors.Is(err, ErrIdempotencyReused) {
-		t.Fatalf("persistent idempotency conflict error = %v", err)
-	}
-	replay, replayed, err := fixture.saves.PutPersistent(
-		fixture.ctx,
-		first.LaunchID,
-		first.Capability,
-		uuid.NewString(),
-		contentDigest(firstBytes),
-		"AUTO_INTERVAL",
-		1,
-		bytes.NewReader(firstBytes),
-	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !replayed }, func() bool { return replay.RevisionID != firstResult.RevisionID }), "persistent replay = %#v, replayed=%v, error=%v", replay, replayed, err)
-	changed := []byte("changed")
-	if _, _, err := fixture.saves.PutPersistent(fixture.ctx, first.LaunchID, first.Capability, uuid.NewString(), contentDigest(changed), "AUTO_INTERVAL", 1, bytes.NewReader(changed)); !errors.Is(
-		err,
-		ErrSequenceReused,
-	) {
-		t.Fatalf("changed replay error = %v", err)
-	}
-	if _, _, err := fixture.saves.PutPersistent(fixture.ctx, first.LaunchID, first.Capability, uuid.NewString(), contentDigest(changed), "AUTO_INTERVAL", 3, bytes.NewReader(changed)); !errors.Is(
-		err,
-		ErrSequenceGap,
-	) {
-		t.Fatalf("sequence gap error = %v", err)
-	}
-	if _, _, err := fixture.saves.PutPersistent(fixture.ctx, stale.LaunchID, stale.Capability, uuid.NewString(), contentDigest(changed), "AUTO_INTERVAL", 1, bytes.NewReader(changed)); !errors.Is(
-		err,
-		ErrPersistentConflict,
-	) {
-		t.Fatalf("stale launch conflict = %v", err)
-	}
-	current := fixture.createLaunch(t)
-	if _, err := fixture.database.SQL.ExecContext(
-		fixture.ctx,
-		`UPDATE launch_sessions SET persistent_save_base_revision_id=? WHERE id=?`,
-		firstResult.RevisionID,
-		current.LaunchID,
-	); err != nil {
-		t.Fatal(err)
-	}
-	metadata, exists, err := fixture.saves.GetPersistent(fixture.ctx, current.LaunchID, current.Capability)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return !exists }, func() bool { return metadata.SHA256 != contentDigestHex(firstBytes) }), "locked persistent base = %#v, exists=%v, error=%v", metadata, exists, err)
-	secondBytes := []byte("persistent-two")
-	second, _, err := fixture.saves.PutPersistent(
-		fixture.ctx,
-		current.LaunchID,
-		current.Capability,
-		uuid.NewString(),
-		contentDigest(secondBytes),
-		"MANUAL_EXPORT",
-		1,
-		bytes.NewReader(secondBytes),
-	)
-	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return second.RevisionID == firstResult.RevisionID }), "advanced persistent save = %#v, error=%v", second, err)
-	if _, _, err := fixture.saves.PutPersistent(fixture.ctx, first.LaunchID, first.Capability, uuid.NewString(), contentDigest(secondBytes), "EXIT", 2, bytes.NewReader(secondBytes)); !errors.Is(
-		err,
-		ErrPersistentConflict,
-	) {
-		t.Fatalf("concurrent launch conflict = %v", err)
-	}
-	var baseBlobID string
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
-SELECT blob_id
-FROM persistent_save_revisions
-WHERE id=?
-`, firstResult.RevisionID).Scan(&baseBlobID); err != nil {
-		t.Fatal(err)
-	}
-	if _, err := fixture.database.SQL.ExecContext(fixture.ctx, `
-UPDATE blobs
-SET size_bytes=?
-WHERE id=?
-`, maxStateBytes+1, baseBlobID); err != nil {
-		t.Fatal(err)
-	}
-	if _, _, err := fixture.saves.GetPersistent(fixture.ctx, current.LaunchID, current.Capability); !errors.Is(
-		err,
-		ErrTooLarge,
-	) {
-		t.Fatalf("oversized locked base error = %v", err)
-	}
-}
-
-func TestPersistentSaveNoneRejectsGetAndPutWithoutCreatingRows(t *testing.T) {
-	fixture := newSaveFixture(t)
-	var artifactID, compatibilityJSON string
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
-SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND enabled=1
-`).Scan(&artifactID, &compatibilityJSON); err != nil {
-		t.Fatal(err)
-	}
-	var compatibility map[string]any
-	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil {
-		t.Fatal(err)
-	}
-	compatibility["persistentSaveMode"] = "NONE"
-	compatibility["persistentSaveKind"] = nil
-	updatedCompatibility, err := json.Marshal(compatibility)
-	testassert.False(t, err != nil, err)
-	if _, err := fixture.database.SQL.ExecContext(
-		fixture.ctx,
-		`UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?`,
-		string(updatedCompatibility),
-		artifactID,
-	); err != nil {
-		t.Fatal(err)
-	}
-	created := fixture.createLaunch(t)
-	var persistentBase sql.NullString
-	if err := fixture.database.SQL.QueryRowContext(
-		fixture.ctx,
-		`SELECT persistent_save_base_revision_id FROM launch_sessions WHERE id=?`,
-		created.LaunchID,
-	).Scan(&persistentBase); err != nil || persistentBase.Valid {
-		t.Fatalf("NONE persistent base = %v, error=%v", persistentBase, err)
-	}
-	if _, _, err := fixture.saves.GetPersistent(
-		fixture.ctx,
-		created.LaunchID,
-		created.Capability,
-	); !errors.Is(err, ErrPersistentUnsupported) {
-		t.Fatalf("NONE persistent GET error = %v", err)
-	}
-	if _, _, err := fixture.saves.PutPersistent(
-		fixture.ctx,
-		created.LaunchID,
-		created.Capability,
-		uuid.NewString(),
-		contentDigest([]byte("unsupported")),
-		"AUTO_INTERVAL",
-		1,
-		bytes.NewReader([]byte("unsupported")),
-	); !errors.Is(err, ErrPersistentUnsupported) {
-		t.Fatalf("NONE persistent PUT error = %v", err)
-	}
-	var count int
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `SELECT count(*) FROM persistent_saves`).Scan(&count); err != nil || count != 0 {
-		t.Fatalf("NONE persistent rows = %d, error=%v", count, err)
-	}
-}
-
-func TestLegacyPersistentFileTreeRejectsMalformedBundleBeforeCreatingRevision(t *testing.T) {
-	fixture := newSaveFixture(t)
-	fixture.enableLegacyPersistent(t, "FILE_TREE", "CORE_SAVE")
-	created := fixture.createLaunch(t)
-	malformed := []byte("not-a-file-tree")
-	if _, _, err := fixture.saves.PutPersistent(
-		fixture.ctx,
-		created.LaunchID,
-		created.Capability,
-		uuid.NewString(),
-		contentDigest(malformed),
-		"AUTO_INTERVAL",
-		1,
-		bytes.NewReader(malformed),
-	); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("malformed file tree error = %v", err)
-	}
-	valid := fileTreeBundle()
-	legacy := slices.Clone(valid)
-	copy(legacy[:8], legacyPSPFileTreeMagic[:])
-	if _, _, err := fixture.saves.PutPersistent(
-		fixture.ctx,
-		created.LaunchID,
-		created.Capability,
-		uuid.NewString(),
-		contentDigest(legacy),
-		"AUTO_INTERVAL",
-		1,
-		bytes.NewReader(legacy),
-	); !errors.Is(err, ErrInvalid) {
-		t.Fatalf("legacy PSP tree accepted for generic core: %v", err)
-	}
-	if _, _, err := fixture.saves.PutPersistent(
-		fixture.ctx,
-		created.LaunchID,
-		created.Capability,
-		uuid.NewString(),
-		contentDigest(valid),
-		"AUTO_INTERVAL",
-		1,
-		bytes.NewReader(valid),
-	); err != nil {
-		t.Fatalf("valid file tree error = %v", err)
-	}
-	var revisionCount int
-	if err := fixture.database.SQL.QueryRowContext(
-		fixture.ctx,
-		`SELECT count(*) FROM persistent_save_revisions`,
-	).Scan(&revisionCount); err != nil || revisionCount != 1 {
-		t.Fatalf("file tree revisions = %d, error=%v", revisionCount, err)
 	}
 }

@@ -124,7 +124,7 @@ WHERE id=?
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID:                 upload.ID,
-			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005",
+			TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),
 			MetadataProvider:         "HASHEOUS",
 		},
 	)
@@ -300,7 +300,7 @@ WHERE id=?
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID:                 secondUpload.ID,
-			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005",
+			TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),
 			MetadataProvider:         "HASHEOUS",
 		},
 	)
@@ -413,7 +413,7 @@ WHERE id=?
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID:                 failureUpload.ID,
-			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005",
+			TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba"),
 			MetadataProvider:         "NONE",
 		},
 	)
@@ -539,11 +539,9 @@ WHERE core_artifact_id=?
 INSERT INTO dat_versions(id,
 core_id,
 core_artifact_id,
-source,
 builtin_relative_path,
 sha256,
 parser_version,
-compatibility_status,
 parse_status,
 is_active,
 machine_count,
@@ -561,11 +559,9 @@ parsed_at_ms,
 activated_at_ms) VALUES(?,
 'fbneo',
 ?,
-'BUILTIN',
 'testdata/arcade-evidence.dat',
 ?,
 'test',
-'MATCHED',
 'READY',
 1,
 1,
@@ -698,7 +694,7 @@ WHERE id=?
 		ctx,
 		libraryimport.CreateRequest{
 			UploadID:                 upload.ID,
-			TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
+			TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo"),
 			MetadataProvider:         "NONE",
 		},
 	)

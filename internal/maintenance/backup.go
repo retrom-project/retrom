@@ -18,6 +18,7 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/dependencies"
 	"retrom/internal/processlock"
+	"retrom/internal/store"
 )
 
 var (
@@ -54,6 +55,7 @@ type Manifest struct {
 	SchemaVersion           int                  `json:"schemaVersion"`
 	CreatedAtMS             int64                `json:"createdAtMs"`
 	DatabaseSchemaVersion   int64                `json:"databaseSchemaVersion"`
+	MigrationLineageDigest  string               `json:"migrationLineageDigest"`
 	DatabaseSHA256          string               `json:"databaseSha256"`
 	ActiveEmulatorjsVersion string               `json:"activeEmulatorjsVersion"`
 	DependencyVersions      []string             `json:"dependencyVersions"`
@@ -87,7 +89,7 @@ func Backup(
 		return Manifest{}, err
 	}
 	manifest := Manifest{
-		SchemaVersion:           1,
+		SchemaVersion:           2,
 		CreatedAtMS:             now().UnixMilli(),
 		ActiveEmulatorjsVersion: configuration.ActiveEJSVersion,
 		DependencyVersions:      append([]string(nil), configuration.DependencyVersions...),
@@ -130,6 +132,10 @@ func checkpointBackupDatabase(ctx context.Context, databasePath string) error {
 	if err := checkDatabase(ctx, database); err != nil {
 		cleanup.Error("close", database.Close())
 		return err
+	}
+	if _, err := store.ValidateCurrentMigrationLineage(ctx, database); err != nil {
+		cleanup.Error("close", database.Close())
+		return ErrInvalidBundle
 	}
 	var busy, logFrames, checkpointed int
 	if err := database.QueryRowContext(ctx, `
@@ -175,14 +181,13 @@ func stageBackupDatabase(
 		cleanup.Error("close", stagingDatabase.Close())
 		return fmt.Errorf("maintenance/bundle: %w", err)
 	}
-	if err := stagingDatabase.QueryRowContext(ctx, `
-SELECT COALESCE(MAX(version),
-0)
-FROM schema_migrations
-	`).Scan(&manifest.DatabaseSchemaVersion); err != nil {
+	lineage, err := store.ValidateCurrentMigrationLineage(ctx, stagingDatabase)
+	if err != nil {
 		cleanup.Error("close", stagingDatabase.Close())
-		return fmt.Errorf("maintenance/bundle: %w", err)
+		return ErrInvalidBundle
 	}
+	manifest.DatabaseSchemaVersion = lineage.Version
+	manifest.MigrationLineageDigest = lineage.Digest
 	if err := copyBackupBlobs(ctx, stagingDatabase, configuration.DataDir, staging, manifest); err != nil {
 		cleanup.Error("close", stagingDatabase.Close())
 		return err

@@ -21,6 +21,7 @@ import (
 	"retrom/internal/launch"
 	"retrom/internal/libraryimport"
 	"retrom/internal/testassert"
+	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
 
@@ -113,7 +114,7 @@ func TestMultiDiscAttachmentHTTPContractAndReviewProjection(t *testing.T) {
 		{path: "game/notes.txt", contents: []byte("not referenced")},
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
-		UploadID: baseUploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		UploadID: baseUploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
 	})
 	testassert.False(t, err != nil, err)
@@ -223,7 +224,7 @@ func TestMultiDiscPlayerEventHTTPContract(t *testing.T) {
 		{path: "game/two.chd", contents: multiDiscHTTPCHD("two")},
 	})
 	createdImport, err := server.importer.Create(ctx, libraryimport.CreateRequest{
-		UploadID: uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		UploadID: uploadID, TargetPlatformInstanceID: testsupport.MustPlatformInstanceID(t, server.database, "saturn/yabause"),
 		MetadataProvider: "NONE", ContentMode: "MULTI_DISC_M3U_V1",
 	})
 	testassert.False(t, err != nil, err)

@@ -77,8 +77,9 @@ func TestReplacementPublishesAtomicallyAndFailureKeepsCurrent(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.gba", []byte("original"))
+	gbaID := testsupport.MustPlatformInstanceID(t, database.SQL, "gba/mgba")
 	createdImport, err := libraryimport.New(database.SQL, time.Now).
-		Create(ctx, libraryimport.CreateRequest{UploadID: initialUpload, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000005", MetadataProvider: "NONE"})
+		Create(ctx, libraryimport.CreateRequest{UploadID: initialUpload, TargetPlatformInstanceID: gbaID, MetadataProvider: "NONE"})
 	testassert.False(t, err != nil, err)
 	var itemID string
 	if err := database.SQL.QueryRowContext(ctx, `
@@ -157,7 +158,7 @@ WHERE c.id=?
 
 	if _, err := database.SQL.ExecContext(ctx, `
 UPDATE games
-SET platform_instance_id='01980000-0000-7000-8000-000000000006',
+SET platform_instance_id=(SELECT id FROM platform_instances WHERE catalog_template_key='arcade/fbneo'),
 version=version+1,
 updated_at_ms=?
 WHERE id=?
@@ -208,8 +209,9 @@ func TestMultiDiscReplacementPublishesCompleteRevisionAndRejectsMissingDisc(t *t
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	initialUpload := completeUpload(t, ctx, database.SQL, uploadService, "original.chd", fakeReplacementCHD("original"))
 	importer := libraryimport.New(database.SQL, time.Now).WithBlobStore(blobs)
+	saturnID := testsupport.MustPlatformInstanceID(t, database.SQL, "saturn/yabause")
 	createdImport, err := importer.Create(ctx, libraryimport.CreateRequest{
-		UploadID: initialUpload, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000020",
+		UploadID: initialUpload, TargetPlatformInstanceID: saturnID,
 		MetadataProvider: "NONE",
 	})
 	testassert.False(t, err != nil, err)

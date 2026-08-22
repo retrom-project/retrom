@@ -18,7 +18,7 @@ import (
 	"retrom/internal/cleanup"
 )
 
-const capabilityMACDomain = "retrom-netplay-v1\x00"
+const capabilityMACDomain = "retrom-netplay-v2\x00"
 
 var ErrCredentialKeyInvalid = errors.New("NETPLAY_KEY_INVALID")
 

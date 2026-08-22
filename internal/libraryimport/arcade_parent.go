@@ -248,7 +248,7 @@ WHERE id=? AND import_item_id=?
 	) {
 		return parentError(ParentErrorInputStale, ErrInvalid)
 	}
-	snapshot, err := setup.service.projectArcadeSnapshotV2WithQueryer(
+	snapshot, err := setup.service.canonicalArcadeSnapshotWithQueryer(
 		setup.ctx, setup.transaction, dependencyJSON,
 	)
 	if err != nil {
@@ -457,14 +457,14 @@ func attachmentDependency(snapshot arcadeDraftSnapshot, machine string) (arcadeD
 	return arcadeDraftDependency{}, false
 }
 
-func (service *Service) projectArcadeSnapshotV2(
+func (service *Service) canonicalArcadeSnapshot(
 	ctx context.Context,
 	raw string,
 ) (arcadeDraftSnapshot, error) {
-	return service.projectArcadeSnapshotV2WithQueryer(ctx, service.database, raw)
+	return service.canonicalArcadeSnapshotWithQueryer(ctx, service.database, raw)
 }
 
-func (service *Service) projectArcadeSnapshotV2WithQueryer(
+func (service *Service) canonicalArcadeSnapshotWithQueryer(
 	ctx context.Context,
 	queryer arcadeRelationQueryer,
 	raw string,
@@ -496,7 +496,6 @@ func (service *Service) projectArcadeSnapshotV2WithQueryer(
 	if err != nil {
 		return arcadeDraftSnapshot{}, fmt.Errorf("project arcade snapshot: %w", err)
 	}
-	snapshot.SchemaVersion = 2
 	snapshot.Closure = closure
 	sort.Slice(snapshot.Dependencies, func(left, right int) bool {
 		if snapshot.Dependencies[left].Kind != snapshot.Dependencies[right].Kind {

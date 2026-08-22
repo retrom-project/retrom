@@ -161,7 +161,7 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
   const gate = page.getByRole("dialog", { name: "请横向握持设备开始游戏" });
   await expect(gate).toBeVisible();
   await expect(page.locator('iframe[title="Retrom EmulatorJS Player"]')).toHaveCount(0);
-  expect(runtimeRequests.filter((url) => /\/runtime\/launches\/[^/]+\/(start|persistent-save)|\/runtime\/cores\//.test(url))).toEqual([]);
+  expect(runtimeRequests.filter((url) => /\/runtime\/launches\/[^/]+\/start|\/runtime\/cores\//.test(url))).toEqual([]);
   await expectNoDocumentOverflow(page);
 
   for (const viewport of [

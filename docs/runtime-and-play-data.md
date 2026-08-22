@@ -84,12 +84,12 @@ sequenceDiagram
 - `VARIANT_REVALIDATE` 按 gameVariant/input digest 跨请求去重且不可由单个 Player 取消；退出加载壳只终止本页订阅并退出全屏，后台任务继续，避免一个朋友中断另一个朋友正在等待的同一验证。
 - Launch 隐式发现依赖摘要漂移时会自动创建 `VARIANT_REVALIDATE`，不要求用户先在管理页手动发起。相同 digest 的既有 Job 若以可重试错误 FAILED，后续普通 Launch 必须创建新的不可变 input execution、重置并重新入队同一 Job；不得让一次临时失败永久把该游戏锁成 `LAUNCH_CORE_VALIDATION_UNAVAILABLE`。
 - DOS 只有 `DOS_SOURCE`、没有主机平台的 `CONTENT` 行；重校验必须以 ContentRevision 本身作为内容输入，并在内容 revision 未变化时把既有 `DOS_LAUNCH_BUNDLE` 与审核默认入口复制到新 VariantRevision。Worker 任一步骤失败都必须把 Job 收口为可重试 FAILED，进程重启时重新领取 lease 已过期且尚有 attempt 的 RUNNING Job，不能让 Player 永久等待在 `VALIDATION_PENDING`。
-- 正式 Launch 解析 Variant 依赖时同时接受静态 BIOS/多盘的 schema v1 与 Arcade DAT 的 schema v2。v1 中可用的 `EXTERNAL_FILE` 在签发时锁定并合并 activation options；v2 的 Parent/BIOS 已冻结为 VariantFiles，不得再交给 v1 parser，也不得因此把审核截图放行的已发布 Arcade 游戏误报为 `LAUNCH_BLOCKED`。历史 Arcade 修订若仍保存普通 schema v1，则在读取时必须以该修订锁定的 DAT、Content logical name 和不可变 `VariantDependencies` 投影成 schema v2 后再交给 Worker；成功重校验发布新的 v2 修订，不原地修改旧修订，也不能误用非 Arcade 的静态 BIOS 解析器。
+- 正式 Launch 按内容类型解析 Variant 依赖：静态 BIOS/多盘使用 schema v1，Arcade DAT 只接受 schema v2。v1 中可用的 `EXTERNAL_FILE` 在签发时锁定并合并 activation options；v2 的 Parent/BIOS 已冻结为 VariantFiles，不得交给 v1 parser，也不得因此把审核截图放行的已发布 Arcade 游戏误报为 `LAUNCH_BLOCKED`。Arcade 重校验始终从当前修订锁定的 DAT、Content logical name 和不可变 `VariantDependencies` 生成新的 schema v2 revision，不原地修改证据。
 - 默认核心不可运行时不静默尝试其他核心。
 
 ### 3.1 管理审核预览
 
-审核页的“运行游戏”不是普通用户 Launch。`POST /api/v1/admin/reviews/{itemId}/previews` 为当前 `REVIEW_PENDING` Item 创建短时、capability-scoped 的审核快照并打开 `/admin/review-previews/{previewId}` 子窗体；它锁定当前有效 source snapshot、目标目录默认 CoreArtifact、最新 Validation 和实际存在的依赖。主 ROM 必须存在，已有 Parent、BIOS bundle、external file 与完整多盘内容按普通 Player 协议交付，缺失依赖被省略。DAT 驱动的 Arcade Validation 以其不可变 `ValidationFiles` 作为 Parent/BIOS 交付事实源，不得把 V2 DAT 依赖快照误按普通 BIOS 快照解析；没有 DAT 的普通平台才从 V1 BIOS 快照装配 external file。预览不创建 Game、LaunchSession、PlaySession，不调用 start/heartbeat/finish，不加载或写入 SaveState/PersistentSave，也绝不把“看起来可运行”升级成 READY。
+审核页的“运行游戏”不是普通用户 Launch。`POST /api/v1/admin/reviews/{itemId}/previews` 为当前 `REVIEW_PENDING` Item 创建短时、capability-scoped 的审核快照并打开 `/admin/review-previews/{previewId}` 子窗体；它锁定当前有效 source snapshot、目标目录默认 CoreArtifact、最新 Validation 和实际存在的依赖。主 ROM 必须存在，已有 Parent、BIOS bundle、external file 与完整多盘内容按普通 Player 协议交付，缺失依赖被省略。DAT 驱动的 Arcade Validation 以其不可变 Arcade V2 `ValidationFiles` 作为 Parent/BIOS 交付事实源；没有 DAT 的普通平台才从当前普通 BIOS snapshot 装配 external file。预览不创建 Game、LaunchSession、PlaySession，不调用 start/heartbeat/finish，不加载或写入 SaveState，也绝不把“看起来可运行”升级成 READY。
 
 子窗体复用版本锁定的 Player adapter 与 canvas contain 规则。创建成功的 READY 或阻断预览都返回 `reviewPreview.captureAllowed=true`；在真实 `EJS_onGameStart` 回调发生后启动一次 5,000ms timer，通过 adapter 优先读取核心保存的最后一帧 PNG，使停止持续刷新的 ROM/BIOS 缺失错误页仍可进入审核证据；核心截图在 2 秒内不可用时回退到 EmulatorJS canvas 截图。截图上传到同一 preview capability 下的 `review-screenshot`。写入时仍须匹配当前来源快照、目标平台、CoreArtifact 和 prepublish generation；任一漂移都会拒绝旧截图。由于 EmulatorJS/WASM、用户激活和自动播放策略属于浏览器边界，后端不能脱离浏览器伪造这一画面；子窗体必须监听同源 iframe 的同步错误与未处理 Promise rejection，并在 30 秒内没有真实 `EJS_onGameStart` 时转为可见失败，不能永久停留在“正在加载”。弹窗、播放或截图上传被阻止时，审核页明确提示重试。
 
@@ -144,7 +144,7 @@ if (config.parentUrl !== null) window.EJS_gameParentUrl = config.parentUrl;
 if (config.stateUrl !== null) window.EJS_loadStateURL = config.stateUrl;
 ```
 
-`core` 是产品/数据库 core ID，只用于展示与审计；`runtimeCore` 是锁定 artifact compatibility V4 的 EmulatorJS core ID，只有它可以写入 `EJS_core`。`persistentSaveMode`、`inputMode`、`startupActions`、`externalFiles` 与按内容种类派生的可空 `discSet` 同样由该配置返回，Player 只做封闭 schema 校验，不按 `ppsspp`、`melonds` 或显示名推导行为。
+`core` 是产品/数据库 core ID，只用于展示与审计；`runtimeCore` 是锁定 artifact compatibility V5 的 EmulatorJS core ID，只有它可以写入 `EJS_core`。`inputMode`、`startupActions`、`externalFiles` 与按内容种类派生的可空 `discSet` 同样由该配置返回，Player 只做封闭 schema 校验，不按 `ppsspp`、`melonds` 或显示名推导行为。
 
 `EJS_fullscreenOnLoaded` 必须为 `false`：全屏由 Retrom host 在用户手势中唯一管理，避免 loader 稍后重复请求。`EJS_Buttons.exitEmulation=false` 从运行时配置移除 EmulatorJS 自带退出按钮，退出只能经过 Retrom 的确认和 PlaySession 结束流程。语言固定 `zh-CN`。v4.2.3 `loader.js` 对 `EJS_disableAutoLang` 的判断是 `!== false`，因此这里必须显式设为 `false` 才会禁用 system locale 分支；不能凭变量名改成 `true`。这样只请求 manifest 中的 `zh-CN.json`。`EJS_disableDatabases=true` 在 v4.2.3 只把 ROM/BIOS/core asset cache 换成 dummy storage，`EJS_disableLocalStorage=true` 关闭设置持久化，`EJS_CacheLimit=0` 防止 ROM cache；它们并不会关闭 `/data/saves` 的 IDBFS，也不会阻止 `saveDatabaseLoaded`。Retrom 必须按第 6 节在每次 Launch 清空该 IDBFS，防止普通开始复活浏览器历史保存；不得把开关名称误解为“所有 IndexedDB 均已禁用”。`EJS_gameID` 来自精确 GameVariantRevision 的稳定数字 surrogate，而不是 Game ID。
 
@@ -192,7 +192,7 @@ NDS 三核心与 Azahar 的 `inputMode=POINTER`：Player 不向 iframe 合成额
 
 `EJS_onSaveState` 的真实 payload 是 `{ screenshot: Blob, format: string, state: Uint8Array }`。只有用户点击 Retrom 的“创建存档”才调用核心状态捕获；Retrom 必须同时上传非空 state 与截图，任一失败都不创建 SaveState。上传用浏览器实际写出的字节持续显示 0–100% 进度，直到服务器成功响应、失败响应或网络错误才结束；失败必须显示明确提醒。工具栏交互最迟在 750ms 暂停 main loop，但截图可以在独立的 5 秒有界窗口继续完成。截图优先读取 core framebuffer；如果 PNG 宽高与核心显示 aspect 的互换方向更匹配，说明竖屏 rotation 尚未应用，必须回退到显示 canvas，保证存档封面方向与玩家看到的方向一致。核心截图能力不可用时也回退显示 canvas。
 
-EmulatorJS 即使设置 `EJS_disableDatabases=true`，仍会挂载并从 IDBFS 回灌 `/data/saves`。因此每个 Launch 都在 `saveDatabaseLoaded`、ROM/start 之前同步清空整个 mount；清理失败必须阻断启动。Player 不从 PersistentSave 端点恢复任何 bytes，也不调用 `getSaveFilePath/loadSaveFiles` 注入服务器或浏览器历史数据。这样没有 `saveStateId/stateUrl` 的“开始游戏/重新开始游戏”必然从游戏初始状态开始。
+EmulatorJS 即使设置 `EJS_disableDatabases=true`，仍会挂载并从 IDBFS 回灌 `/data/saves`。因此每个 Launch 都在 `saveDatabaseLoaded`、ROM/start 之前同步清空整个 mount；清理失败必须阻断启动。Player 不调用 `getSaveFilePath/loadSaveFiles` 注入服务器或浏览器遗留数据。这样没有 `saveStateId/stateUrl` 的“开始游戏/重新开始游戏”必然从游戏初始状态开始。
 
 带指定 SaveState 的 4.2.3 Launch 在 loader 前以 64 MiB 硬上限预取 state，清空 `EJS_loadStateURL`，并使用逐字节校验的 `data/src/*` loader 监听原生 `[State]` 任务。Player 至少等待一个核心帧，再用无日志的 `saveStateInfo()` 探测当次 serialization layout 已建立，然后写入 `/game.state` 并运行原生加载任务；只有没有收到 `Failed to load state` 才恢复 main loop、执行启动动作并提交 Retrom `start`。15 秒内未就绪、核心拒绝状态或 API 漂移都以 `PLAYER_SAVE_STATE_RESTORE_FAILED` 阻断，不能回到游戏开头并伪装恢复成功。该统一门禁覆盖 PPSSPP GPU 未就绪、FBA 2012 首次 serialize 前尺寸未初始化、MAME 2003 Plus 第 0 帧拒绝 unserialize，也用于其余 4.2.3 核心避免同类竞态。4.3 状态恢复继续由该版本锁定 loader 的 `EJS_loadStateURL` 完成。
 
@@ -238,15 +238,15 @@ Player 在开始、盘数不一致、换盘成功/失败和跨盘状态恢复成
 
 盘数匹配后工具栏在“创建存档”之前显示 `光盘 N / M`。菜单按 canonical 顺序列出全部盘，当前项带选中状态；选择其他盘时在短暂停止 main loop 后调用 `setCurrentDisk`，回读一致才更新界面并宣告成功，随后恢复换盘前的运行/暂停状态，不能留下无提示的暂停画面；失败则保持原盘号并同样恢复原状态。当前项只关闭菜单；Escape 关闭并把焦点还给触发器。手动存档从 runtime 回读当前盘号并写入 `disc_index`；恢复要求存档锁定的 VariantRevision、CoreArtifact、盘数和盘号全部兼容，绝不改用其他盘尝试加载。
 
-## 10. 显式状态存档与历史 PersistentSave
+## 10. 显式状态存档
 
 SaveState 同时引用 Profile、Game、GameVariantRevision、CoreArtifact、可空 DatVersion、DOS entry、状态 Blob、截图 Blob、名称、累计有效时长和创建时刻。默认禁止跨 CoreArtifact 或 VariantRevision 恢复；未来若有显式迁移器，必须另建兼容结果，不能自动尝试。
 
-Profile 必须等于当前认证用户唯一绑定的私有 Profile。存档列表、详情、创建、恢复、软删除、最近游玩、累计时长和 PersistentSave current/revision 查询都先按该 Profile 限定；客户端提交另一个 Profile ID、SaveState ID 或 Launch ID 不能扩大授权。用于写操作重放的 Idempotency-Key 同样按认证用户主体分区。
+Profile 必须等于当前认证用户唯一绑定的私有 Profile。存档列表、详情、创建、恢复、软删除、最近游玩和累计时长都先按该 Profile 限定；客户端提交另一个 Profile ID、SaveState ID 或 Launch ID 不能扩大授权。用于写操作重放的 Idempotency-Key 同样按认证用户主体分区。
 
 当前产品唯一的进度保存入口是 SaveState。用户主动点击“创建存档”后，Player 捕获同一时刻的 state 与截图并通过 `/save-states` 原子创建记录；退出对话框中的“创建存档”也是同一显式动作。直接退出、定时运行、原生 save-file callback 与 `pagehide` 都不能创建存档。显式上传正在进行时退出会等待该上传完成，但不会额外捕获终态。
 
-所有当前选定 artifact 的 PersistentSave mode 均为 `NONE`，Launch config 固定返回 `persistentSaveMode=NONE`、`persistentSaveUrl=null`，`launch_sessions.persistent_save_base_revision_id` 必须为空。`persistent_saves`、revision 与 `SINGLE_FILE/DOS_OVERLAY/FILE_TREE/AUTO_STATE` 协议只为历史数据/API 兼容保留；当前 Player 不请求这些端点，服务端对新 Launch 的 GET/PUT 返回 `409 PERSISTENT_SAVE_UNSUPPORTED`。历史 current revision 不能改变普通 Launch 的启动位置。
+当前产品没有隐式或自动持久化子系统，Launch config 不包含相应字段，数据库和 HTTP API 也不保存这类记录。普通 Launch 总是从游戏初始状态开始；只有请求中显式指定、且通过 Profile/VariantRevision/CoreArtifact/DOS entry/盘号门禁的 SaveState 可以改变启动位置。
 
 浏览器中的 `/data/saves` IDBFS 不是事实源。每个 Launch 都在 `saveDatabaseLoaded` 后、游戏 start 前清空该 mount，不论是否选择 SaveState，从而阻止同一浏览器、同一账号或账户切换时复活上一次会话的 SRAM/NVRAM/overlay。没有指定 SaveState 时直接从游戏初始状态运行；指定 SaveState 时只恢复该记录绑定的 state，且仍受同一 Profile、VariantRevision、CoreArtifact、DOS entry/盘号兼容门禁。
 
@@ -279,9 +279,9 @@ X-Content-Type-Options: nosniff
 
 ## 13. 联机 Launch、帧 adapter 与 rollback
 
-`GET /runtime/launches/:launchId/config` 使用 `mode` 区分普通与联机。普通为 `mode=single,netplay=null`；联机为 `mode=netplay`，并额外返回 `roomId/sessionId/playerNo/netplayProfile/runtimeSocketUrl`，同时强制 `persistentSaveMode=NONE`、`persistentSaveUrl/stateUrl/discSet=null`。前端必须在请求 game/core/runtime 之前验证这一组合、profile canonical 字段、EmulatorJS 4.2.3、`ejs-4.2.3-v2` 与 `ejs-netplay-4.2.3-v1`；矛盾或未知值立即阻断。联机 config、内容与普通 PlaySession 仍由本人的 Launch cookie 授权，room WebSocket 另用独立 room cookie。
+`GET /runtime/launches/:launchId/config` 使用 `mode` 区分普通与联机。普通为 `mode=single,netplay=null`；联机为 `mode=netplay`，并额外返回 `roomId/sessionId/playerNo/netplayProfile/runtimeSocketUrl`，同时强制 `stateUrl/discSet=null`。前端必须在请求 game/core/runtime 之前验证这一组合、profile canonical 字段、EmulatorJS 4.2.3、`ejs-4.2.3-v2` 与 `ejs-netplay-4.2.3-v1`；矛盾或未知值立即阻断。联机 config、内容与普通 PlaySession 仍由本人的 Launch cookie 授权，room WebSocket 另用独立 room cookie。
 
-联机 Player 不显示创建存档、普通暂停、换盘、控制重映射或 Core 设置；明确展示 P1/P2、网络/同步状态和“不读取或写入个人存档”。P1 可发起下一 canonical 边界的全局暂停/继续；隐藏或失焦只清空本地控制，不请求暂停、不断开 Socket 也不结束 Launch。退出发送全局 `USER_EXIT`，结束 PlaySession 后使用 `location.replace('/netplay/rooms/:roomId')`，浏览器后退不能复活旧 Player。所有 persistent/save-state runtime route 对联机 Launch 返回 `409 NETPLAY_SAVE_UNSUPPORTED`，前端也不得探测这些 URL。
+联机 Player 不显示创建存档、普通暂停、换盘、控制重映射或 Core 设置；明确展示 P1/P2、网络/同步状态和“不读取或写入个人存档”。P1 可发起下一 canonical 边界的全局暂停/继续；隐藏或失焦只清空本地控制，不请求暂停、不断开 Socket 也不结束 Launch。退出发送全局 `USER_EXIT`，结束 PlaySession 后使用 `location.replace('/netplay/rooms/:roomId')`，浏览器后退不能复活旧 Player。SaveState runtime route 对联机 Launch 返回 `409 NETPLAY_SAVE_UNSUPPORTED`，前端也不得探测该 URL。
 
 `EJSNetplayFrameBridge` 只适配 4.2.3：拦截本地 P1 physical controls、通过 `postMainLoop`/`toggleMainLoop` 精确推进一帧、用原生 `getState/loadState` 处理 RASTATE，并在 rollback replay 时抑制画面/音频。RASTATE 必须含 version 1 与 `MEM ` chunk；full state 和 core chunk 分别 SHA-256，state 最大 1 MiB。`loadState` 即使目标 bytes 与当前状态相同也必须真实调用；联机模式使用 manifest 锁定的 4.2.3 source loader，让 adapter 接收 RetroArch 的 `[State] ... game.state` 原生完成日志，同时显式关闭 EmulatorJS 实验性 netplay transport。每次加载由 adapter 先替换内存 FS 的 `/game.state`、调用固定 `functions.loadState("game.state", 0)`，在日志 callback 返回后的 microtask 暂停主循环并重抓 RASTATE。重抓结果必须与传入状态的 `MEM ` core bytes 逐字节一致；full-state 是否逐字节一致只作诊断证据，因为 FBNeo 可在合法装载后重建 RASTATE 外层元数据。P1 authority 初始状态也必须经原生加载/重抓归一化到 core bytes 的 fixed point 后才传输。验证完成后立即删除该文件；不能使用公共 `GameManager.loadState` 的五秒延迟清理、JS 函数返回、文件 open/close 或 digest 相同替代 native completion。native load 与单帧推进分别使用 15 秒和 5 秒“前台活跃时间”预算：只累计 `document.visibilityState != hidden` 的 `performance.now()` 差值，隐藏期间暂停、重新可见后续算剩余额度，普通 blur 不暂停；成功、超时、异常和控制器清理都必须移除 timer/listener、停止 main loop、恢复 hook 并清理临时 state 文件。
 

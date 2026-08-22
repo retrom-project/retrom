@@ -44,7 +44,7 @@ const launch: NetplayLaunchConfig = {
   playerNo: 2,
   runtimeSocketUrl: "/runtime/netplay/rooms/01980000-0000-7000-8000-000000000001/socket",
   netplayProfile: {
-    schemaVersion: 1, protocolVersion: "retrom-netplay-v1", profileId: "fceumm-423-v1", emulatorjsVersion: "4.2.3",
+    schemaVersion: 1, protocolVersion: "retrom-netplay-v2", profileId: "fceumm-423-v1", emulatorjsVersion: "4.2.3",
     playerAdapterId: "ejs-4.2.3-v2", netplayAdapterId: "ejs-netplay-4.2.3-v1",
     coreArtifactId: "01980000-0000-7000-8000-000000000003", gameVariantRevisionId: "01980000-0000-7000-8000-000000000004",
     coreArtifactSha256: "1".repeat(64), sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64), defaultCoreOptions: {},
@@ -678,9 +678,6 @@ describe("NetplayController rollback", () => {
     const resetsBeforeBlur = resetLocalControls.mock.calls.length;
     controller.handleFocusLoss();
     await vi.advanceTimersByTimeAsync(101);
-    const types = socket.sent.filter((value): value is string => typeof value === "string")
-      .map((value) => (JSON.parse(value) as { type: string }).type);
-    expect(types).not.toContain("SUSPEND_REQUEST");
     expect(resetLocalControls).toHaveBeenCalledTimes(resetsBeforeBlur + 1);
     controller.end();
   });

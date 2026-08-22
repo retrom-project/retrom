@@ -27,7 +27,6 @@ const (
 	testGameA    = "01980000-0000-7000-8000-00000000f301"
 	testGameB    = "01980000-0000-7000-8000-00000000f302"
 	testGameC    = "01980000-0000-7000-8000-00000000f303"
-	instanceGBA  = "01980000-0000-7000-8000-000000000005"
 )
 
 func insertFavoriteTestGame(t *testing.T, transaction *sql.Tx, gameID, suffix, title string, year int64) {
@@ -53,8 +52,8 @@ INSERT INTO game_content_revisions(
 INSERT INTO games(
   id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,
   search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,?,'PUBLISHED',?,?,lower(?),1,1000,1000)
-`, gameID, instanceGBA, metadataID, contentID, title); err != nil {
+) VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),'PUBLISHED',?,?,lower(?),1,1000,1000)
+`, gameID, metadataID, contentID, title); err != nil {
 		t.Fatal(err)
 	}
 }
@@ -470,7 +469,7 @@ func TestServiceListPaginationScopesAndVisibility(t *testing.T) {
 		Scope: ScopeFolder, FolderID: folder.FolderID, Sort: SortTitleAsc,
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return folderPage.TotalCount != 1 }, func() bool { return folderPage.Folders[0].VisibleGameCount != 1 }), "folder page = %#v, %v", folderPage, err)
-	if _, err := database.SQL.ExecContext(context.Background(), `UPDATE platform_instances SET enabled=0,version=version+1,updated_at_ms=4000 WHERE id=?`, instanceGBA); err != nil {
+	if _, err := database.SQL.ExecContext(context.Background(), `UPDATE platform_instances SET enabled=0,version=version+1,updated_at_ms=4000 WHERE catalog_template_key='gba/mgba'`); err != nil {
 		t.Fatal(err)
 	}
 	hidden, err := service.List(context.Background(), alice, ListOptions{})

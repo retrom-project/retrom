@@ -72,8 +72,9 @@ VALUES(?,?,'arcade.bulk.admin','Arcade Bulk Admin','ADMIN','ENABLED',1,1)
 	uploadService := uploads.New(database.SQL, blobs, dataDir, time.Now)
 	root := uploadCompleteFile(t, ctx, database.SQL, uploadService, "c.zip", arcadeZIP(t, "c.bin", []byte("root")))
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
 	created, err := importer.Create(ctx, CreateRequest{
-		UploadID: root.uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
+		UploadID: root.uploadID, TargetPlatformInstanceID: arcadeID,
 		MetadataProvider: "NONE",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "arcade import = %#v, error=%v", created, err)
@@ -137,8 +138,9 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	wrongZIP := arcadeZIP(t, "wrong.bin", []byte("wrong"))
 	child := uploadCompleteFile(t, ctx, database.SQL, uploadService, "a.zip", childZIP)
 	importer := New(database.SQL, time.Now).WithBlobStore(blobs)
+	arcadeID := testsupport.MustPlatformInstanceID(t, database.SQL, "arcade/fbneo")
 	created, err := importer.Create(ctx, CreateRequest{
-		UploadID: child.uploadID, TargetPlatformInstanceID: "01980000-0000-7000-8000-000000000006",
+		UploadID: child.uploadID, TargetPlatformInstanceID: arcadeID,
 		MetadataProvider: "NONE",
 	})
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return created.ItemCount != 1 }), "child import = %#v, error=%v", created, err)
@@ -371,12 +373,12 @@ INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,r
 sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)
 VALUES('attachment-artifact','fbneo','4.2.3','fixture','WASM','data/cores/attachment.data',1,
 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa','{}',
-'{"schemaVersion":3,"runtimeCoreId":"fbneo","requestedArtifactBasename":"fbneo-wasm.data","canvasResizePolicy":"NONE","defaultOptions":{},"persistentSaveMode":"NONE","persistentSaveKind":null,"inputMode":"STANDARD","startupActions":[],"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}',1,1,?,?);
-INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,sha256,parser_version,
-compatibility_status,parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES('attachment-dat','fbneo','attachment-artifact','BUILTIN','data/dat/attachment.xml',
+'{"schemaVersion":5,"runtimeCoreId":"fbneo","requestedArtifactBasename":"fbneo-wasm.data","canvasResizePolicy":"NONE","defaultOptions":{},"inputMode":"STANDARD","startupActions":[],"supportedContentKinds":["SINGLE_FILE"],"multiDisc":null}',1,1,?,?);
+INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,parser_version,
+parse_status,is_active,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
+VALUES('attachment-dat','fbneo','attachment-artifact','data/dat/attachment.xml',
 'bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb','fixture',
-'MATCHED','READY',1,1,?,?,?,?);
+'READY',1,1,?,?,?,?);
 `, now, now, now, now, now, now); err != nil {
 		t.Fatal(err)
 	}

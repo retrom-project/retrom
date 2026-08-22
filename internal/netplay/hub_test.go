@@ -83,19 +83,6 @@ func TestAcceptanceNP010InputRateLimitAllowsBurstAndRefillsAt120PerSecond(t *tes
 	testassert.False(t, testassert.Any(func() bool { return !client.allowInput(now) }, func() bool { return client.allowInput(now) }), "rate limiter did not refill exactly one token at 120/s")
 }
 
-func TestLegacyFocusSuspendDoesNotDisconnectOrPauseTheSession(t *testing.T) {
-	t.Parallel()
-	client := &peer{participant: SocketParticipant{PlayerNo: 2}}
-	session := &realtimeSession{running: true, nextFrame: 42}
-
-	if err := session.handleMessage(context.Background(), client, ClientMessage{
-		Type: "SUSPEND_REQUEST", Reason: "BLUR",
-	}, 0); err != nil {
-		t.Fatalf("legacy focus suspend = %v", err)
-	}
-	testassert.Falsef(t, testassert.Any(func() bool { return !session.running }, func() bool { return session.pause != nil }, func() bool { return session.nextFrame != 42 }), "focus suspend changed live session: running=%v pause=%#v next=%d", session.running, session.pause, session.nextFrame)
-}
-
 func TestReconnectDuringInitialTransferRestartsTheBarrier(t *testing.T) {
 	ctx := context.Background()
 	session := &realtimeSession{

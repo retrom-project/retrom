@@ -1,3 +1,116 @@
+-- Clean pre-release baseline: runtime.
+
+CREATE TABLE launch_sessions (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES profiles(id),
+  game_id TEXT NOT NULL REFERENCES games(id),
+  game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
+  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  save_state_id TEXT REFERENCES save_states(id),
+  dos_entry_path TEXT,
+  return_to TEXT NOT NULL,
+  credential_sha256 BLOB NOT NULL CHECK(length(credential_sha256) = 32),
+  state TEXT NOT NULL CHECK(state IN ('CREATED','ACTIVE','FINISHED','EXPIRED','REVOKED')),
+  bootstrap_expires_at_ms INTEGER NOT NULL,
+  idle_expires_at_ms INTEGER,
+  activated_at_ms INTEGER,
+  finished_at_ms INTEGER,
+  hard_expires_at_ms INTEGER NOT NULL,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1, initial_disc_index INTEGER NOT NULL DEFAULT 0 CHECK(initial_disc_index BETWEEN 0 AND 7), netplay_session_id TEXT REFERENCES netplay_sessions(id), netplay_player_no INTEGER CHECK(netplay_player_no IS NULL OR netplay_player_no BETWEEN 1 AND 4), save_access TEXT NOT NULL DEFAULT 'NORMAL'
+  CHECK(save_access IN ('NORMAL','NETPLAY_DISABLED')),
+  CHECK(hard_expires_at_ms >= bootstrap_expires_at_ms),
+  CHECK(state != 'ACTIVE' OR activated_at_ms IS NOT NULL),
+  CHECK((state IN ('FINISHED','EXPIRED','REVOKED')) = (finished_at_ms IS NOT NULL))
+);
+
+CREATE TABLE "launch_content_files" (
+  launch_session_id TEXT PRIMARY KEY REFERENCES launch_sessions(id),
+  logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 512),
+  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  format_version TEXT NOT NULL CHECK(format_version IN (
+    'SOURCE_V1','RETROM_DOS_DIRECT_ZIP_V1','RETROM_MULTIDISC_M3U_V1'
+  )),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0)
+);
+
+CREATE TABLE launch_external_files (
+  launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id),
+  virtual_path TEXT NOT NULL CHECK(length(virtual_path) BETWEEN 1 AND 512),
+  logical_name TEXT NOT NULL CHECK(length(logical_name) BETWEEN 1 AND 255),
+  blob_id TEXT NOT NULL REFERENCES blobs(id),
+  created_at_ms INTEGER NOT NULL CHECK(created_at_ms >= 0), kind TEXT NOT NULL DEFAULT 'BIOS' CHECK(kind IN ('BIOS','DISC')),
+  PRIMARY KEY(launch_session_id, virtual_path),
+  UNIQUE(launch_session_id, logical_name),
+  CHECK(substr(virtual_path,1,1)='/' AND
+        virtual_path NOT LIKE '%\%' AND
+        virtual_path NOT LIKE '%?%' AND
+        virtual_path NOT LIKE '%#%' AND
+        instr(virtual_path,char(0))=0 AND
+        virtual_path NOT LIKE '%//%' AND
+        virtual_path NOT LIKE '%/./%' AND
+        virtual_path NOT LIKE '%/../%' AND
+        virtual_path NOT LIKE '%/.' AND
+        virtual_path NOT LIKE '%/..'),
+  CHECK(logical_name NOT LIKE '%/%' AND
+        logical_name NOT LIKE '%\%' AND
+        logical_name NOT IN ('','.','..') AND
+        instr(logical_name,char(0))=0)
+);
+
+CREATE TABLE save_states (
+  id TEXT PRIMARY KEY,
+  profile_id TEXT NOT NULL REFERENCES profiles(id),
+  game_id TEXT NOT NULL REFERENCES games(id),
+  game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
+  core_artifact_id TEXT NOT NULL REFERENCES core_artifacts(id),
+  dat_version_id TEXT REFERENCES dat_versions(id),
+  dos_entry_path TEXT,
+  state_blob_id TEXT NOT NULL REFERENCES blobs(id),
+  screenshot_blob_id TEXT NOT NULL REFERENCES blobs(id),
+  name TEXT NOT NULL,
+  active_duration_ms INTEGER NOT NULL CHECK(active_duration_ms >= 0),
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  deleted_at_ms INTEGER
+, source_launch_session_id TEXT NOT NULL REFERENCES launch_sessions(id), disc_index INTEGER CHECK(disc_index BETWEEN 0 AND 7));
+
+CREATE TABLE play_sessions (
+  id TEXT PRIMARY KEY,
+  launch_session_id TEXT NOT NULL UNIQUE REFERENCES launch_sessions(id),
+  profile_id TEXT NOT NULL REFERENCES profiles(id),
+  game_id TEXT NOT NULL REFERENCES games(id),
+  game_variant_revision_id TEXT NOT NULL REFERENCES game_variant_revisions(id),
+  started_at_ms INTEGER NOT NULL,
+  last_heartbeat_at_ms INTEGER NOT NULL,
+  ended_at_ms INTEGER,
+  active_duration_ms INTEGER NOT NULL DEFAULT 0 CHECK(active_duration_ms >= 0),
+  last_client_sequence INTEGER NOT NULL DEFAULT 0 CHECK(last_client_sequence >= 0),
+  state TEXT NOT NULL CHECK(state IN ('ACTIVE','FINISHED','ABANDONED')),
+  version INTEGER NOT NULL DEFAULT 1,
+  created_at_ms INTEGER NOT NULL,
+  updated_at_ms INTEGER NOT NULL,
+  CHECK((state = 'ACTIVE') = (ended_at_ms IS NULL))
+);
+
+CREATE TABLE play_session_events (
+  play_session_id TEXT NOT NULL REFERENCES play_sessions(id),
+  client_sequence INTEGER NOT NULL CHECK(client_sequence >= 0),
+  event_kind TEXT NOT NULL CHECK(event_kind IN ('START','HEARTBEAT','FINISH')),
+  client_observed_at_ms INTEGER NOT NULL,
+  server_received_at_ms INTEGER NOT NULL,
+  running INTEGER NOT NULL CHECK(running IN (0,1)),
+  visible INTEGER NOT NULL CHECK(visible IN (0,1)),
+  paused INTEGER NOT NULL CHECK(paused IN (0,1)),
+  accepted_duration_ms INTEGER NOT NULL CHECK(accepted_duration_ms BETWEEN 0 AND 45000),
+  created_at_ms INTEGER NOT NULL,
+  PRIMARY KEY(play_session_id, client_sequence),
+  CHECK((event_kind = 'START') = (client_sequence = 0)),
+  CHECK(event_kind != 'START' OR accepted_duration_ms = 0)
+);
+
 CREATE TABLE netplay_rooms (
   id TEXT PRIMARY KEY CHECK(id=lower(id)),
   host_profile_id TEXT NOT NULL REFERENCES profiles(id),
@@ -32,9 +145,6 @@ CREATE TABLE netplay_rooms (
   CHECK((ended_at_ms IS NULL)=(end_reason IS NULL)),
   CHECK(ended_at_ms IS NULL OR ended_at_ms>=created_at_ms)
 );
-CREATE UNIQUE INDEX netplay_rooms_one_active_host
-ON netplay_rooms(host_profile_id) WHERE state IN ('DRAFT','WAITING','STARTING','RUNNING');
-CREATE INDEX netplay_rooms_expiry ON netplay_rooms(state,expires_at_ms,id);
 
 CREATE TABLE netplay_room_members (
   id TEXT PRIMARY KEY CHECK(id=lower(id)),
@@ -54,9 +164,6 @@ CREATE TABLE netplay_room_members (
   CHECK(left_at_ms IS NULL OR left_at_ms>=joined_at_ms),
   CHECK(left_at_ms IS NULL OR ready=0)
 );
-CREATE UNIQUE INDEX netplay_room_members_active_seat
-ON netplay_room_members(room_id,player_no) WHERE left_at_ms IS NULL;
-CREATE INDEX netplay_room_members_profile ON netplay_room_members(profile_id,left_at_ms,room_id);
 
 CREATE TABLE netplay_sessions (
   id TEXT PRIMARY KEY CHECK(id=lower(id)),
@@ -92,9 +199,6 @@ CREATE TABLE netplay_sessions (
   CHECK(started_at_ms IS NULL OR started_at_ms>=created_at_ms),
   CHECK(finished_at_ms IS NULL OR finished_at_ms>=created_at_ms)
 );
-CREATE UNIQUE INDEX netplay_sessions_one_active_room
-ON netplay_sessions(room_id) WHERE state NOT IN ('FINISHED','FAILED');
-CREATE INDEX netplay_sessions_state ON netplay_sessions(state,updated_at_ms,id);
 
 CREATE TABLE netplay_session_participants (
   netplay_session_id TEXT NOT NULL REFERENCES netplay_sessions(id),
@@ -129,8 +233,6 @@ CREATE TABLE netplay_session_participants (
     state!='DISCONNECTED' AND disconnected_at_ms IS NULL AND lease_expires_at_ms IS NULL
   )
 );
-CREATE INDEX netplay_session_participants_profile
-ON netplay_session_participants(profile_id,state,netplay_session_id);
 
 CREATE TABLE netplay_events (
   id INTEGER PRIMARY KEY,
@@ -147,117 +249,3 @@ CREATE TABLE netplay_events (
   data_json TEXT NOT NULL CHECK(json_valid(data_json) AND json_type(data_json)='object'),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0)
 );
-CREATE INDEX netplay_events_room ON netplay_events(room_id,id);
-CREATE INDEX netplay_events_session ON netplay_events(netplay_session_id,id);
-
-ALTER TABLE launch_sessions ADD COLUMN netplay_session_id TEXT REFERENCES netplay_sessions(id);
-ALTER TABLE launch_sessions ADD COLUMN netplay_player_no INTEGER CHECK(netplay_player_no IS NULL OR netplay_player_no BETWEEN 1 AND 4);
-ALTER TABLE launch_sessions ADD COLUMN save_access TEXT NOT NULL DEFAULT 'NORMAL'
-  CHECK(save_access IN ('NORMAL','NETPLAY_DISABLED'));
-
-CREATE UNIQUE INDEX launch_sessions_one_netplay_participant
-ON launch_sessions(netplay_session_id,profile_id) WHERE netplay_session_id IS NOT NULL;
-
-CREATE TRIGGER netplay_rooms_host_immutable
-BEFORE UPDATE OF host_profile_id,created_at_ms ON netplay_rooms
-BEGIN SELECT RAISE(ABORT,'immutable netplay room identity'); END;
-CREATE TRIGGER netplay_rooms_snapshot_immutable
-BEFORE UPDATE OF selected_game_id,selected_game_variant_revision_id,netplay_profile_id,profile_digest,max_players
-ON netplay_rooms WHEN OLD.state IN ('STARTING','RUNNING')
-BEGIN SELECT RAISE(ABORT,'locked netplay room snapshot'); END;
-CREATE TRIGGER netplay_rooms_current_session_immutable
-BEFORE UPDATE OF current_session_id ON netplay_rooms
-WHEN OLD.current_session_id IS NOT NULL AND NEW.current_session_id IS NOT OLD.current_session_id
-  AND NEW.state IN ('STARTING','RUNNING')
-BEGIN SELECT RAISE(ABORT,'locked netplay room session'); END;
-
-CREATE TRIGGER netplay_room_members_validate_insert
-BEFORE INSERT ON netplay_room_members
-WHEN NEW.role='HOST' AND NOT EXISTS(
-  SELECT 1 FROM netplay_rooms room WHERE room.id=NEW.room_id AND room.host_profile_id=NEW.profile_id
-) OR NEW.role='GUEST' AND EXISTS(
-  SELECT 1 FROM netplay_rooms room WHERE room.id=NEW.room_id AND room.host_profile_id=NEW.profile_id
-) OR NEW.ready=1 AND NOT EXISTS(
-  SELECT 1 FROM netplay_rooms room WHERE room.id=NEW.room_id AND room.state='WAITING'
-)
-BEGIN SELECT RAISE(ABORT,'invalid netplay room member'); END;
-CREATE TRIGGER netplay_room_members_validate_update
-BEFORE UPDATE ON netplay_room_members
-WHEN NEW.room_id!=OLD.room_id OR NEW.profile_id!=OLD.profile_id OR NEW.role!=OLD.role OR
-  NEW.role='HOST' AND NEW.player_no!=1 OR NEW.ready=1 AND (
-    NEW.left_at_ms IS NOT NULL OR NOT EXISTS(
-      SELECT 1 FROM netplay_rooms room WHERE room.id=NEW.room_id AND room.state='WAITING'
-    )
-  )
-BEGIN SELECT RAISE(ABORT,'invalid netplay room member update'); END;
-
-CREATE TRIGGER netplay_sessions_snapshot_immutable
-BEFORE UPDATE OF room_id,session_no,game_id,game_variant_revision_id,core_artifact_id,netplay_profile_id,
-  profile_json,profile_digest,player_count,occupied_seat_mask,authority_player_no,created_at_ms
-ON netplay_sessions
-BEGIN SELECT RAISE(ABORT,'immutable netplay session snapshot'); END;
-CREATE TRIGGER netplay_sessions_validate_insert
-BEFORE INSERT ON netplay_sessions
-WHEN NOT EXISTS(
-  SELECT 1 FROM netplay_rooms room
-  WHERE room.id=NEW.room_id AND room.selected_game_id=NEW.game_id
-    AND room.selected_game_variant_revision_id=NEW.game_variant_revision_id
-    AND room.netplay_profile_id=NEW.netplay_profile_id AND room.profile_digest=NEW.profile_digest
-)
-BEGIN SELECT RAISE(ABORT,'invalid netplay session snapshot'); END;
-
-CREATE TRIGGER netplay_session_participants_immutable_identity
-BEFORE UPDATE OF netplay_session_id,profile_id,room_member_id,player_no,launch_session_id,credential_sha256,credential_generation
-ON netplay_session_participants WHEN OLD.launch_session_id IS NOT NULL
-BEGIN SELECT RAISE(ABORT,'immutable netplay participant identity'); END;
-CREATE TRIGGER netplay_session_participants_validate_insert
-BEFORE INSERT ON netplay_session_participants
-WHEN NOT EXISTS(
-  SELECT 1 FROM netplay_sessions session
-  JOIN netplay_room_members member ON member.room_id=session.room_id
-  WHERE session.id=NEW.netplay_session_id AND member.id=NEW.room_member_id
-    AND member.profile_id=NEW.profile_id AND member.player_no=NEW.player_no AND member.left_at_ms IS NULL
-)
-BEGIN SELECT RAISE(ABORT,'invalid netplay participant snapshot'); END;
-
-CREATE TRIGGER netplay_events_immutable_update
-BEFORE UPDATE ON netplay_events BEGIN SELECT RAISE(ABORT,'immutable'); END;
-CREATE TRIGGER netplay_events_immutable_delete
-BEFORE DELETE ON netplay_events BEGIN SELECT RAISE(ABORT,'immutable'); END;
-
-CREATE TRIGGER launch_sessions_netplay_validate_insert
-BEFORE INSERT ON launch_sessions
-WHEN NOT (
-  NEW.netplay_session_id IS NULL AND NEW.netplay_player_no IS NULL AND NEW.save_access='NORMAL' OR
-  NEW.netplay_session_id IS NOT NULL AND NEW.netplay_player_no IS NOT NULL AND NEW.save_access='NETPLAY_DISABLED'
-) OR NEW.netplay_session_id IS NOT NULL AND NOT EXISTS(
-  SELECT 1 FROM netplay_session_participants participant
-  JOIN netplay_sessions session ON session.id=participant.netplay_session_id
-  WHERE participant.netplay_session_id=NEW.netplay_session_id AND participant.profile_id=NEW.profile_id
-    AND participant.player_no=NEW.netplay_player_no AND session.game_id=NEW.game_id
-    AND session.game_variant_revision_id=NEW.game_variant_revision_id
-    AND session.core_artifact_id=NEW.core_artifact_id
-)
-BEGIN SELECT RAISE(ABORT,'invalid netplay launch'); END;
-CREATE TRIGGER launch_sessions_netplay_immutable
-BEFORE UPDATE OF netplay_session_id,netplay_player_no,save_access ON launch_sessions
-BEGIN SELECT RAISE(ABORT,'immutable netplay launch binding'); END;
-
-CREATE TRIGGER netplay_rooms_require_host_after_update
-AFTER UPDATE ON netplay_rooms WHEN NEW.state IN ('DRAFT','WAITING','STARTING','RUNNING') AND NOT EXISTS(
-  SELECT 1 FROM netplay_room_members member
-  WHERE member.room_id=NEW.id AND member.profile_id=NEW.host_profile_id AND member.role='HOST'
-    AND member.player_no=1 AND member.left_at_ms IS NULL
-)
-BEGIN SELECT RAISE(ABORT,'active netplay room requires host'); END;
-
-CREATE TRIGGER netplay_rooms_current_session_fk_insert
-BEFORE INSERT ON netplay_rooms WHEN NEW.current_session_id IS NOT NULL AND NOT EXISTS(
-  SELECT 1 FROM netplay_sessions session WHERE session.id=NEW.current_session_id AND session.room_id=NEW.id
-)
-BEGIN SELECT RAISE(ABORT,'invalid netplay current session'); END;
-CREATE TRIGGER netplay_rooms_current_session_fk_update
-BEFORE UPDATE OF current_session_id ON netplay_rooms WHEN NEW.current_session_id IS NOT NULL AND NOT EXISTS(
-  SELECT 1 FROM netplay_sessions session WHERE session.id=NEW.current_session_id AND session.room_id=NEW.id
-)
-BEGIN SELECT RAISE(ABORT,'invalid netplay current session'); END;

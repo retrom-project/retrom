@@ -118,11 +118,11 @@ SELECT id FROM core_artifacts WHERE core_id=? AND enabled=1
 	nowMS := time.Now().UTC().UnixMilli()
 	stats := catalog.Stats
 	if _, err := transaction.ExecContext(ctx, `
-INSERT INTO dat_versions(id,core_id,core_artifact_id,source,builtin_relative_path,blob_id,sha256,
-parser_version,compatibility_status,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
+INSERT INTO dat_versions(id,core_id,core_artifact_id,builtin_relative_path,sha256,
+parser_version,parse_status,is_active,machine_count,rom_entry_count,disk_entry_count,
 bios_set_count,default_bios_set_count,explicit_bios_machine_count,base_dependency_target_count,
 unresolved_relation_count,version,created_at_ms,updated_at_ms,parsed_at_ms,activated_at_ms)
-VALUES(?,?,?,'BUILTIN',?,NULL,?,'retrom-dat-v1','MATCHED','READY',0,?,?,?,?,?,?,?,?,1,?,?,?,NULL)
+VALUES(?,?,?,?,?,'retrom-dat-v1','READY',0,?,?,?,?,?,?,?,?,1,?,?,?,NULL)
 `, datID, coreID, artifactID, "acceptance/"+coreID+"/"+filepath.Base(datPath), digestHex,
 		stats.MachineCount, stats.ROMEntryCount, stats.DiskEntryCount, stats.BIOSSetCount,
 		stats.DefaultBIOSSetCount, stats.ExplicitBIOSMachineCount, stats.BaseDependencyTargetCount,

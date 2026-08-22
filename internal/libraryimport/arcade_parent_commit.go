@@ -515,7 +515,7 @@ LEFT JOIN import_item_core_validations validation ON validation.id=COALESCE(
 	if platformID != "arcade" || !dependencyJSON.Valid {
 		return nil, false, nil
 	}
-	snapshot, err := service.projectArcadeSnapshotV2(ctx, dependencyJSON.String)
+	snapshot, err := service.canonicalArcadeSnapshot(ctx, dependencyJSON.String)
 	if err != nil {
 		return nil, false, err
 	}

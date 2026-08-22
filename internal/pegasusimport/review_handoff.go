@@ -248,13 +248,6 @@ func appendServerMetadataWarnings(
 	return nil
 }
 
-func runtimeBlockCode(item libraryimport.ServerImportItem) string {
-	if item.CompatibilityCode != "" {
-		return item.CompatibilityCode
-	}
-	return "PEGASUS_RUNTIME_BLOCKED"
-}
-
 func firstSourcePath(item executionItem) string {
 	if len(item.Files) == 0 {
 		return ""

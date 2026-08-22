@@ -418,10 +418,8 @@ UPDATE pegasus_import_items
 SET execution_state='PENDING',error_code=NULL,error_details_json=NULL,retryable=0,
 completed_at_ms=NULL,updated_at_ms=?
 WHERE import_id=?
-AND (
- (retryable=1 AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED'))
- OR (execution_state='BLOCKED_VALIDATION' AND error_code='PEGASUS_RUNTIME_BLOCKED')
-)`, now, importID); err != nil {
+AND retryable=1
+AND execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')`, now, importID); err != nil {
 		return Summary{}, fmt.Errorf("pegasusimport/reset retryable items: %w", err)
 	}
 	inputID, _ := uuid.NewV7()

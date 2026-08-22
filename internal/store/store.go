@@ -1,7 +1,6 @@
 package store
 
 import (
-	"bytes"
 	"context"
 	"crypto/sha256"
 	"database/sql"
@@ -20,7 +19,6 @@ import (
 	_ "modernc.org/sqlite" // Register the modernc SQLite driver used by Open.
 
 	"retrom/internal/cleanup"
-	"retrom/internal/contentmanifest"
 	"retrom/migrations"
 )
 
@@ -42,8 +40,19 @@ var (
 	errForeignKeyCheck   = errors.New("sqlite foreign key check failed")
 	errDatabaseFilename  = errors.New("invalid database filename")
 	errMigrationFilename = errors.New("invalid migration name")
-	errMigrationRebuild  = errors.New("unsupported migration foreign-key rebuild directive")
 )
+
+type migrationSource struct {
+	version  int
+	name     string
+	checksum string
+	contents []byte
+}
+
+type MigrationLineage struct {
+	Version int64
+	Digest  string
+}
 
 type DB struct {
 	SQL      *sql.DB
@@ -140,24 +149,19 @@ SELECT count(*) FROM sqlite_schema WHERE type='table' AND name NOT LIKE 'sqlite_
 }
 
 func inspectMigrationHistory(ctx context.Context, database *sql.DB, tableCount int) error {
-	var migrationTableCount int
-	if err := database.QueryRowContext(ctx, `
-SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'
-`).Scan(&migrationTableCount); err != nil {
-		return fmt.Errorf("%w: migration catalog", ErrSchemaInvalid)
+	migrationCatalogExists, err := migrationCatalogExists(ctx, database)
+	if err != nil {
+		return err
 	}
-	if migrationTableCount == 0 {
+	if !migrationCatalogExists {
 		if tableCount == 0 {
 			return nil
 		}
 		return fmt.Errorf("%w: migration catalog missing", ErrSchemaInvalid)
 	}
-	var count int
-	var minimum, maximum sql.NullInt64
-	if err := database.QueryRowContext(ctx, `
-SELECT count(*),min(version),max(version) FROM schema_migrations
-`).Scan(&count, &minimum, &maximum); err != nil {
-		return fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+	count, minimum, maximum, err := migrationHistoryBounds(ctx, database)
+	if err != nil {
+		return err
 	}
 	if count == 0 {
 		if tableCount == 1 {
@@ -165,39 +169,140 @@ SELECT count(*),min(version),max(version) FROM schema_migrations
 		}
 		return fmt.Errorf("%w: empty migration history with business tables", ErrSchemaInvalid)
 	}
-	latest, err := latestMigrationVersion()
+	sources, err := migrationSources()
 	if err != nil {
 		return err
 	}
-	if maximum.Int64 > int64(latest) {
+	if err := validateMigrationHistoryBounds(count, minimum, maximum, len(sources)); err != nil {
+		return err
+	}
+	return validateMigrationRecords(ctx, database, sources)
+}
+
+func migrationCatalogExists(ctx context.Context, database *sql.DB) (bool, error) {
+	var count int
+	if err := database.QueryRowContext(ctx, `
+SELECT count(*) FROM sqlite_schema WHERE type='table' AND name='schema_migrations'
+`).Scan(&count); err != nil {
+		return false, fmt.Errorf("%w: migration catalog", ErrSchemaInvalid)
+	}
+	return count == 1, nil
+}
+
+func migrationHistoryBounds(ctx context.Context, database *sql.DB) (int, sql.NullInt64, sql.NullInt64, error) {
+	var count int
+	var minimum, maximum sql.NullInt64
+	if err := database.QueryRowContext(ctx, `
+SELECT count(*),min(version),max(version) FROM schema_migrations
+`).Scan(&count, &minimum, &maximum); err != nil {
+		return 0, sql.NullInt64{}, sql.NullInt64{}, fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+	}
+	return count, minimum, maximum, nil
+}
+
+func validateMigrationHistoryBounds(count int, minimum, maximum sql.NullInt64, sourceCount int) error {
+	if maximum.Int64 > int64(sourceCount) {
 		return fmt.Errorf("%w: %d", ErrFutureSchema, maximum.Int64)
 	}
 	if !minimum.Valid || !maximum.Valid || minimum.Int64 != 1 || maximum.Int64 != int64(count) {
 		return fmt.Errorf("%w: migration history has gaps", ErrSchemaInvalid)
 	}
-	if maximum.Int64 < 23 {
-		return fmt.Errorf("%w: found=%d required=23; use a new data root", ErrDatabaseRebuild, maximum.Int64)
+	return nil
+}
+
+func validateMigrationRecords(ctx context.Context, database *sql.DB, sources []migrationSource) error {
+	rows, err := database.QueryContext(ctx, `
+SELECT version,name,checksum FROM schema_migrations ORDER BY version
+`)
+	if err != nil {
+		return fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+	}
+	defer func() { cleanup.Error("close", rows.Close()) }()
+	for rows.Next() {
+		var version int
+		var name, checksum string
+		if err := rows.Scan(&version, &name, &checksum); err != nil {
+			return fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+		}
+		expected := sources[version-1]
+		if name != expected.name {
+			return fmt.Errorf("%w: migration %03d is from another lineage", ErrDatabaseRebuild, version)
+		}
+		if checksum != expected.checksum {
+			return fmt.Errorf("%w: %03d", ErrMigrationChecksum, version)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
 	}
 	return nil
 }
 
-func latestMigrationVersion() (int, error) {
+func migrationSources() ([]migrationSource, error) {
 	entries, err := fs.ReadDir(migrations.Files, ".")
 	if err != nil {
-		return 0, fmt.Errorf("read migrations: %w", err)
+		return nil, fmt.Errorf("read migrations: %w", err)
 	}
-	latest := 0
+	sort.Slice(entries, func(left, right int) bool { return entries[left].Name() < entries[right].Name() })
+	sources := make([]migrationSource, 0, len(entries))
 	for _, entry := range entries {
 		if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
 			continue
 		}
 		version, parseErr := strconv.Atoi(strings.SplitN(entry.Name(), "_", 2)[0])
-		if parseErr != nil || version <= latest {
-			return 0, fmt.Errorf("%w: %s", errMigrationFilename, entry.Name())
+		if parseErr != nil || version != len(sources)+1 {
+			return nil, fmt.Errorf("%w: %s", errMigrationFilename, entry.Name())
 		}
-		latest = version
+		contents, readErr := migrations.Files.ReadFile(entry.Name())
+		if readErr != nil {
+			return nil, fmt.Errorf("read migration %s: %w", entry.Name(), readErr)
+		}
+		checksumBytes := sha256.Sum256(contents)
+		sources = append(sources, migrationSource{
+			version: version, name: entry.Name(), contents: contents,
+			checksum: hex.EncodeToString(checksumBytes[:]),
+		})
 	}
-	return latest, nil
+	if len(sources) == 0 {
+		return nil, fmt.Errorf("%w: no migrations", errMigrationFilename)
+	}
+	return sources, nil
+}
+
+func CurrentMigrationLineage() (MigrationLineage, error) {
+	sources, err := migrationSources()
+	if err != nil {
+		return MigrationLineage{}, err
+	}
+	digest := sha256.New()
+	for _, source := range sources {
+		_, _ = digest.Write([]byte(source.name))
+		_, _ = digest.Write([]byte{'\x00'})
+		_, _ = digest.Write([]byte(source.checksum))
+		_, _ = digest.Write([]byte{'\n'})
+	}
+	return MigrationLineage{
+		Version: int64(len(sources)),
+		Digest:  hex.EncodeToString(digest.Sum(nil)),
+	}, nil
+}
+
+func ValidateCurrentMigrationLineage(ctx context.Context, database *sql.DB) (MigrationLineage, error) {
+	lineage, err := CurrentMigrationLineage()
+	if err != nil {
+		return MigrationLineage{}, err
+	}
+	var count int64
+	if err := database.QueryRowContext(ctx, `SELECT count(*) FROM schema_migrations`).Scan(&count); err != nil {
+		return MigrationLineage{}, fmt.Errorf("%w: migration catalog unreadable", ErrSchemaInvalid)
+	}
+	if count != lineage.Version {
+		return MigrationLineage{}, fmt.Errorf("%w: incomplete migration lineage", ErrSchemaInvalid)
+	}
+	if err := inspectMigrationHistory(ctx, database, 2); err != nil {
+		return MigrationLineage{}, err
+	}
+	return lineage, nil
 }
 
 func (database *DB) Close() error {
@@ -266,76 +371,60 @@ func applyMigrations(ctx context.Context, database *sql.DB, now func() time.Time
 	if _, err := database.ExecContext(ctx, migrationTable); err != nil {
 		return fmt.Errorf("create migration table: %w", err)
 	}
-	entries, err := fs.ReadDir(migrations.Files, ".")
+	sources, err := migrationSources()
 	if err != nil {
-		return fmt.Errorf("read migrations: %w", err)
+		return err
 	}
-	sort.Slice(entries, func(left, right int) bool { return entries[left].Name() < entries[right].Name() })
-	latest := 0
-	for _, entry := range entries {
-		version, applied, err := applyMigrationEntry(ctx, database, entry, latest, now)
-		if err != nil {
+	for _, source := range sources {
+		if err := applyMigration(ctx, database, source, now); err != nil {
 			return err
-		}
-		if applied {
-			latest = version
 		}
 	}
 	var maximum sql.NullInt64
 	if err := database.QueryRowContext(ctx, "SELECT MAX(version) FROM schema_migrations").Scan(&maximum); err != nil {
 		return fmt.Errorf("read schema version: %w", err)
 	}
-	if maximum.Valid && maximum.Int64 > int64(latest) {
+	if maximum.Valid && maximum.Int64 > int64(len(sources)) {
 		return fmt.Errorf("%w: %d", ErrFutureSchema, maximum.Int64)
+	}
+	if err := verifyMigrationForeignKeys(ctx, database); err != nil {
+		return fmt.Errorf("verify migrated schema foreign keys: %w", err)
 	}
 	return nil
 }
 
-func applyMigrationEntry(
+func applyMigration(
 	ctx context.Context,
 	database *sql.DB,
-	entry fs.DirEntry,
-	latest int,
+	source migrationSource,
 	now func() time.Time,
-) (int, bool, error) {
-	if entry.IsDir() || !strings.HasSuffix(entry.Name(), ".sql") {
-		return latest, false, nil
-	}
-	version, err := strconv.Atoi(strings.SplitN(entry.Name(), "_", 2)[0])
-	if err != nil || version <= latest {
-		return 0, false, fmt.Errorf("%w: %s", errMigrationFilename, entry.Name())
-	}
-	contents, err := migrations.Files.ReadFile(entry.Name())
-	if err != nil {
-		return 0, false, fmt.Errorf("read migration %s: %w", entry.Name(), err)
-	}
-	checksumBytes := sha256.Sum256(contents)
-	checksum := hex.EncodeToString(checksumBytes[:])
-	var existing string
-	err = database.QueryRowContext(ctx,
-		"SELECT checksum FROM schema_migrations WHERE version = ?", version).Scan(&existing)
+) error {
+	var existingName, existingChecksum string
+	err := database.QueryRowContext(ctx,
+		"SELECT name,checksum FROM schema_migrations WHERE version = ?", source.version).
+		Scan(&existingName, &existingChecksum)
 	if err == nil {
-		if existing != checksum {
-			return 0, false, fmt.Errorf("%w: %03d", ErrMigrationChecksum, version)
+		if existingName != source.name {
+			return fmt.Errorf("%w: migration %03d is from another lineage", ErrDatabaseRebuild, source.version)
 		}
-		return version, true, nil
+		if existingChecksum != source.checksum {
+			return fmt.Errorf("%w: %03d", ErrMigrationChecksum, source.version)
+		}
+		return nil
 	}
 	if !errors.Is(err, sql.ErrNoRows) {
-		return 0, false, fmt.Errorf("read migration record: %w", err)
+		return fmt.Errorf("read migration record: %w", err)
 	}
-	if err := runMigration(ctx, database, version, entry.Name(), checksum, contents, now); err != nil {
-		return 0, false, err
+	if err := runMigration(ctx, database, source, now); err != nil {
+		return err
 	}
-	return version, true, nil
+	return nil
 }
 
 func runMigration(
 	ctx context.Context,
 	database *sql.DB,
-	version int,
-	name string,
-	checksum string,
-	contents []byte,
+	source migrationSource,
 	now func() time.Time,
 ) error {
 	connection, err := database.Conn(ctx)
@@ -343,17 +432,8 @@ func runMigration(
 		return fmt.Errorf("get migration connection: %w", err)
 	}
 	defer func() { cleanup.Error("close", connection.Close()) }()
-	foreignKeysDisabled := bytes.HasPrefix(contents, []byte("-- retrom: rebuild-with-foreign-keys-off\n"))
-	if foreignKeysDisabled {
-		if err := prepareForeignKeyRebuild(ctx, connection, version, name); err != nil {
-			return err
-		}
-		defer func() {
-			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "PRAGMA foreign_keys = ON")
-		}()
-	}
 	if _, err := connection.ExecContext(ctx, "BEGIN IMMEDIATE"); err != nil {
-		return fmt.Errorf("begin migration %s: %w", name, err)
+		return fmt.Errorf("begin migration %s: %w", source.name, err)
 	}
 	committed := false
 	defer func() {
@@ -361,43 +441,27 @@ func runMigration(
 			_, _ = connection.ExecContext(context.WithoutCancel(ctx), "ROLLBACK")
 		}
 	}()
-	if _, err := connection.ExecContext(ctx, string(contents)); err != nil {
-		return fmt.Errorf("apply migration %s: %w", name, err)
-	}
-	if foreignKeysDisabled {
-		if err := verifyMigrationForeignKeys(ctx, connection); err != nil {
-			return fmt.Errorf("verify migration %s foreign keys: %w", name, err)
-		}
+	if _, err := connection.ExecContext(ctx, string(source.contents)); err != nil {
+		return fmt.Errorf("apply migration %s: %w", source.name, err)
 	}
 	if _, err := connection.ExecContext(ctx,
 		"INSERT INTO schema_migrations(version, name, checksum, applied_at_ms) VALUES(?,?,?,?)",
-		version, name, checksum, now().UTC().UnixMilli()); err != nil {
-		return fmt.Errorf("record migration %s: %w", name, err)
+		source.version, source.name, source.checksum, now().UTC().UnixMilli()); err != nil {
+		return fmt.Errorf("record migration %s: %w", source.name, err)
 	}
 	if _, err := connection.ExecContext(ctx, "COMMIT"); err != nil {
-		return fmt.Errorf("commit migration %s: %w", name, err)
+		return fmt.Errorf("commit migration %s: %w", source.name, err)
 	}
 	committed = true
 	return nil
 }
 
-func prepareForeignKeyRebuild(ctx context.Context, connection *sql.Conn, version int, name string) error {
-	if version != 19 && version != 24 && version != 26 && version != 28 && version != 30 && version != 37 {
-		return fmt.Errorf("migration %s: %w", name, errMigrationRebuild)
-	}
-	if version == 19 {
-		if err := verifyImportItemSourceManifests(ctx, connection); err != nil {
-			return fmt.Errorf("preflight migration %s: %w", name, err)
-		}
-	}
-	if _, err := connection.ExecContext(ctx, "PRAGMA foreign_keys = OFF"); err != nil {
-		return fmt.Errorf("disable foreign keys for migration %s: %w", name, err)
-	}
-	return nil
+type foreignKeyQuerier interface {
+	QueryContext(context.Context, string, ...any) (*sql.Rows, error)
 }
 
-func verifyMigrationForeignKeys(ctx context.Context, connection *sql.Conn) error {
-	rows, err := connection.QueryContext(ctx, "PRAGMA foreign_key_check")
+func verifyMigrationForeignKeys(ctx context.Context, database foreignKeyQuerier) error {
+	rows, err := database.QueryContext(ctx, "PRAGMA foreign_key_check")
 	if err != nil {
 		return fmt.Errorf("query foreign key check: %w", err)
 	}
@@ -409,108 +473,4 @@ func verifyMigrationForeignKeys(ctx context.Context, connection *sql.Conn) error
 		return fmt.Errorf("scan foreign key check: %w", err)
 	}
 	return nil
-}
-
-type migrationImportItem struct {
-	id       string
-	manifest string
-	digest   string
-}
-
-func verifyImportItemSourceManifests(ctx context.Context, connection *sql.Conn) error {
-	items, err := readMigrationImportItems(ctx, connection)
-	if err != nil {
-		return err
-	}
-	for _, item := range items {
-		files, loadErr := migrationManifestFiles(ctx, connection, item.id)
-		if loadErr != nil {
-			return loadErr
-		}
-		manifest, digest, buildErr := contentmanifest.Build(files)
-		if buildErr != nil {
-			return fmt.Errorf("build import source manifest %s: %w", item.id, buildErr)
-		}
-		if string(manifest) != item.manifest || digest != item.digest {
-			return fmt.Errorf("import source manifest %s: %w", item.id, ErrMigrationChecksum)
-		}
-	}
-	return nil
-}
-
-func readMigrationImportItems(ctx context.Context, connection *sql.Conn) ([]migrationImportItem, error) {
-	rows, err := connection.QueryContext(ctx, `
-SELECT id,source_manifest_json,source_manifest_digest
-FROM import_items
-ORDER BY id
-`)
-	if err != nil {
-		return nil, fmt.Errorf("query import source manifests: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	items := make([]migrationImportItem, 0)
-	for rows.Next() {
-		var item migrationImportItem
-		if err := rows.Scan(&item.id, &item.manifest, &item.digest); err != nil {
-			return nil, fmt.Errorf("scan import source manifest: %w", err)
-		}
-		items = append(items, item)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan import source manifests: %w", err)
-	}
-	return items, nil
-}
-
-func migrationManifestFiles(
-	ctx context.Context,
-	connection *sql.Conn,
-	itemID string,
-) ([]contentmanifest.File, error) {
-	rows, err := connection.QueryContext(ctx, `
-SELECT source.role,
-source.logical_name,
-blob.sha256,
-blob.size_bytes,
-archive.sha256,
-source.source_archive_entry_ordinal
-FROM import_item_source_files source
-JOIN blobs blob ON blob.id=source.blob_id
-LEFT JOIN blobs archive ON archive.id=source.source_archive_blob_id
-WHERE source.import_item_id=?
-ORDER BY source.role,source.logical_name
-`, itemID)
-	if err != nil {
-		return nil, fmt.Errorf("query import source files %s: %w", itemID, err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	files := make([]contentmanifest.File, 0)
-	for rows.Next() {
-		var file contentmanifest.File
-		var archiveSHA sql.NullString
-		var archiveOrdinal sql.NullInt64
-		if err := rows.Scan(
-			&file.Role,
-			&file.LogicalName,
-			&file.BlobSHA256,
-			&file.SizeBytes,
-			&archiveSHA,
-			&archiveOrdinal,
-		); err != nil {
-			return nil, fmt.Errorf("scan import source file %s: %w", itemID, err)
-		}
-		if archiveSHA.Valid != archiveOrdinal.Valid {
-			return nil, fmt.Errorf("import source archive %s: %w", itemID, contentmanifest.ErrInvalid)
-		}
-		if archiveSHA.Valid {
-			ordinal := int(archiveOrdinal.Int64)
-			file.SourceArchiveSHA256 = &archiveSHA.String
-			file.SourceArchiveEntryOrdinal = &ordinal
-		}
-		files = append(files, file)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("scan import source files %s: %w", itemID, err)
-	}
-	return files, nil
 }

@@ -119,8 +119,7 @@ function validNetplayConfig(config: PlayerConfig) {
 
 function validNetplayRuntime(config: PlayerConfig) {
   return config.emulatorjsVersion === "4.2.3" && config.playerAdapterId === "ejs-4.2.3-v2" &&
-    config.persistentSaveMode === "NONE" && config.persistentSaveUrl === null && config.stateUrl === null &&
-    !config.discSet;
+    config.stateUrl === null && !config.discSet;
 }
 
 function validNetplayRoute(config: PlayerConfig, netplay: NonNullable<PlayerConfig["netplay"]>) {
@@ -132,7 +131,7 @@ function validNetplayProfileIdentity(
   config: PlayerConfig,
   profile: NonNullable<PlayerConfig["netplay"]>["netplayProfile"],
 ) {
-  return profile.schemaVersion === 1 && profile.protocolVersion === "retrom-netplay-v1" &&
+  return profile.schemaVersion === 1 && profile.protocolVersion === "retrom-netplay-v2" &&
     profile.playerAdapterId === config.playerAdapterId && profile.netplayAdapterId === "ejs-netplay-4.2.3-v1" &&
     profile.coreArtifactId === config.coreArtifactId && profile.emulatorjsVersion === config.emulatorjsVersion &&
     profile.gameVariantRevisionId.length > 0 && /^[0-9a-f]{64}$/.test(profile.coreArtifactSha256) &&
@@ -178,9 +177,6 @@ export function validateConfig(config: PlayerConfig) {
   if (config.mode === "netplay" && !validNetplayConfig(config)) {throw new Error("PLAYER_NETPLAY_CONFIG_INVALID");}
   if (!/^[a-z0-9_]{1,64}$/.test(config.runtimeCore)) {throw new Error("PLAYER_RUNTIME_CORE_INVALID");}
   if (!validRuntimePaths(config)) {throw new Error("PLAYER_RUNTIME_PATHS_INVALID");}
-  if (config.persistentSaveMode !== "NONE" || config.persistentSaveUrl !== null) {
-    throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
-  }
   if (config.inputMode !== "STANDARD" && config.inputMode !== "POINTER") {throw new Error("PLAYER_INPUT_MODE_INVALID");}
   if (!validCoreOptions(config)) {throw new Error("PLAYER_CORE_OPTIONS_INVALID");}
   if (!validStartupActions(config)) {throw new Error("PLAYER_STARTUP_ACTION_INVALID");}

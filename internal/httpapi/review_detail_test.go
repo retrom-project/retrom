@@ -190,7 +190,7 @@ INSERT INTO pegasus_import_collections(
  target_platform_instance_id,target_platform_instance_version,target_platform_id,target_default_core_id,
  target_core_artifact_id,target_core_artifact_version,created_at_ms,updated_at_ms
 ) VALUES(?,?,'FC/metadata.pegasus.txt',0,'FC',1,'IMPORT',
- '01980000-0000-7000-8000-000000000005',1,'gba','mgba',?,1,?,?)
+ (SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),1,'gba','mgba',?,1,?,?)
 `, pegasusCollectionID, pegasusImportID, artifactID, timestamp, timestamp)
 	mustExecHTTPTest(t, server.database, `
 INSERT INTO pegasus_import_items(
@@ -356,7 +356,7 @@ version,
 created_at_ms,
 updated_at_ms) VALUES(?,
 ?,
-'01980000-0000-7000-8000-000000000005',
+(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
 1,
 'gba',
 'mgba',
@@ -445,7 +445,7 @@ compatibility_code,
 dependency_snapshot_json,
 created_at_ms) VALUES(?,
 ?,
-'01980000-0000-7000-8000-000000000005',
+(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
 1,
 'mgba',
 ?,
@@ -468,7 +468,7 @@ version,
 created_at_ms,
 updated_at_ms) VALUES(?,
 ?,
-'01980000-0000-7000-8000-000000000005',
+(SELECT id FROM platform_instances WHERE catalog_template_key='gba/mgba'),
 NULL,
 ?,
 '{"title":"Blocked","description":"","developer":"","publisher":"","genre":"","players":null,"releaseYear":null}',

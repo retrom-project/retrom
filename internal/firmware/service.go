@@ -395,7 +395,7 @@ created_at_ms) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,NULL,?)
 	return nil
 }
 
-// validateDATMachineArchive accepts a historical filename alias only when its
+// validateDATMachineArchive accepts a catalog filename alias only when its
 // bytes match the active DAT entry. Exact-name files with different bytes stay
 // visible as HASH_WARNING; absent content remains blocking.
 func validateDATMachineArchive(
