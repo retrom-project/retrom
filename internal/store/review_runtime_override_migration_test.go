@@ -43,7 +43,7 @@ func TestReviewRuntimeOverrideMigrationUpgradesVersion32(t *testing.T) {
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 38 {
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	for _, trigger := range []string{

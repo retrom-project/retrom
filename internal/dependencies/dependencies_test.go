@@ -49,6 +49,18 @@ WHERE enabled = 1
 	if activeArtifacts != 35 {
 		t.Fatalf("active artifacts = %d, want 35", activeArtifacts)
 	}
+	var implicitPersistenceArtifacts int
+	if err := database.SQL.QueryRowContext(context.Background(), `
+SELECT count(*)
+FROM core_artifacts
+WHERE enabled=1
+AND (
+  json_extract(compatibility_config_json,'$.persistentSaveMode') != 'NONE'
+  OR json_type(compatibility_config_json,'$.persistentSaveKind') != 'null'
+)
+`).Scan(&implicitPersistenceArtifacts); err != nil || implicitPersistenceArtifacts != 0 {
+		t.Fatalf("active artifacts with implicit persistence = %d, error=%v", implicitPersistenceArtifacts, err)
+	}
 	var dosVersion string
 	if err := database.SQL.QueryRowContext(context.Background(), `
 SELECT emulatorjs_version
@@ -124,8 +136,8 @@ AND emulator_path IN ('/retroarch/userdata/system/bios7.bin',
 SELECT compatibility_config_json
 FROM core_artifacts
 WHERE core_id='ppsspp' AND enabled=1
-`).Scan(&compatibility); err != nil || !strings.Contains(compatibility, `"persistentSaveMode":"FILE_TREE"`) ||
-		!strings.Contains(compatibility, `"persistentSaveKind":"CORE_SAVE"`) ||
+`).Scan(&compatibility); err != nil || !strings.Contains(compatibility, `"persistentSaveMode":"NONE"`) ||
+		!strings.Contains(compatibility, `"persistentSaveKind":null`) ||
 		!strings.Contains(compatibility, `"requestedArtifactBasename":"ppsspp-thread-wasm.data"`) {
 		t.Fatalf("PPSSPP compatibility = %s, error=%v", compatibility, err)
 	}

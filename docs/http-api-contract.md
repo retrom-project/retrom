@@ -344,7 +344,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | `/runtime/launches/{launchId}/parent/bundle.zip` | 支持 GET/HEAD，只允许预检确定性 parent bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。HEAD 执行与 GET 相同的 capability、Launch 状态和 bundle 清单校验，返回相同的长度、ETag 与 Range 元数据但不返回 body。 |
 | `/runtime/launches/{launchId}/external-files/{logicalName}` | 只允许本 Launch 创建事务锁定的外部 BIOS 文件；需要 cookie；`private, no-store`、`Vary: Cookie`。未锁定名、跨 Launch、错误/过期 cookie 与 Blob 缺失不得泄露存在性。 |
 | `/runtime/launches/{launchId}/state` | 只允许选中状态存档；需要 cookie；`private, no-store`、`Vary: Cookie`。 |
-| `/runtime/launches/{launchId}/persistent-save` | 需要 cookie；返回创建 Launch 时锁定的可空 `CORE_SAVE/DOS_OVERLAY` revision bytes，不存在时 `204`；不会因另一会话稍后保存而漂移。`private, no-store`、`Vary: Cookie`。 |
+| `/runtime/launches/{launchId}/persistent-save` | 历史兼容端点；当前 Launch mode 固定为 NONE，GET/PUT 都返回 `409 PERSISTENT_SAVE_UNSUPPORTED`，Player 不请求。`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/review-screenshot` | 只接受审核预览 capability 和 `image/png`，先鉴权再有界流式读取 ≤10 MiB；仍匹配当前来源、目标平台和 CoreArtifact 的 READY 或阻断 preview 均可写，固定记录 `capturedAfterMs=5000`。普通 Launch、过期 cookie 或来源/配置漂移均拒绝。 |
 
 `GET /runtime/launches/{launchId}/config` 是首次 bootstrap 请求；credential、5 分钟 bootstrap TTL 和全部预检快照有效后，服务端原子把 LaunchSession 从 `CREATED` 转为 `ACTIVE` 并返回：
@@ -368,8 +368,8 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
   "biosUrl": "/runtime/launches/0198.../bios/bundle.zip",
   "parentUrl": "/runtime/launches/0198.../parent/bundle.zip",
   "stateUrl": null,
-  "persistentSaveUrl": "/runtime/launches/0198.../persistent-save",
-  "persistentSaveMode": "AUTO_STATE",
+  "persistentSaveUrl": null,
+  "persistentSaveMode": "NONE",
   "inputMode": "STANDARD",
   "startupActions": [],
   "requiresThreads": false,
@@ -396,13 +396,13 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 
 - `POST /runtime/launches/{launchId}/save-states` 使用 `multipart/form-data`，携带 UUID `Idempotency-Key`，且只允许三个 part：`metadata`（`application/json`，严格 `{ "name": string, "discIndex"?: integer|null }`，name trim 后 1–120 Unicode code points）、`state`（1 byte–64 MiB）和 `screenshot`（1 byte–10 MiB PNG/JPEG/WebP、解码 ≤40 MP）。多盘 Launch 必须提交当前范围内盘号，SINGLE/DOS 必须省略或为 null。服务端从 LaunchSession 推导 Profile/Game/VariantRevision/CoreArtifact/时长，并把该 LaunchSession 记录为 SaveState 的来源；三个 Blob/引用与 SaveState 必须全成或全不成，返回 `201`；网络重放不得重复创建存档。
 - Web 同源 `/runtime` rewrite 必须完整流式转发应用允许的最大 75 MiB multipart body；Next.js 的请求体克隆上限必须至少为 75 MiB，backend proxy timeout 固定为 150 秒。不得沿用框架默认的 10 MiB 克隆上限和 30 秒代理超时，否则大体积 PSP 状态会被截断并在后端等待剩余 body 时返回代理层 `500`。
-- `PUT /runtime/launches/{launchId}/persistent-save` body 是 1 byte–64 MiB 的单个二进制保存，必须带 RFC 9530 `Content-Digest`、UUID `Idempotency-Key`、`X-Retrom-Save-Sequence` 和 `X-Retrom-Save-Event: AUTO_INTERVAL|MANUAL_EXPORT|EXIT`。sequence 是每个 LaunchSession 独立、从 1 开始且无跳号的正十进制 int64；同 sequence/同 event/digest 返回原结果，复用 sequence 但任一不同返回 `409 SAVE_SEQUENCE_REUSED`，跳号返回 `409 SAVE_SEQUENCE_GAP`。Player 只在当前 sequence 成功后递增；进行中再次收到 callback 时保留最新 bytes 作为下一 sequence，不能换掉正在重试的 body。该上限同时保证 Player 能在启动前有界预取；一期不可配置调高。kind 由 core 决定（DOSBox Pure 为 `DOS_OVERLAY`，其他当前持久保存为 `CORE_SAVE`）。FILE_TREE body 固定为 `RETFS001`：8-byte ASCII magic、little-endian uint32 文件数，随后每项为 little-endian uint16 UTF-8、相对 `/data/saves` 的路径长度、uint32 文件长度、路径和文件 bytes；最多 4,096 个文件，路径最多 1,024 bytes，按 UTF-8 bytes 严格升序且唯一，不允许绝对路径、反斜杠、控制字符、空/`.`/`..` 段或尾随数据。旧 `RETPSP01` 仅在锁定 `runtimeCoreId=ppsspp` 时兼容读取，其相对路径映射到 `PSP/SAVEDATA`；非 PPSSPP 上传该 magic 必须拒绝。服务端在创建 revision 前流式校验 envelope；格式错误不得推进 current。AUTO_STATE body 是该锁定 CoreArtifact 生成的非空原始 core state，不带 envelope，恢复仍受同一 VariantRevision/CoreArtifact 绑定约束。通过后创建带 launch/sequence/event 的不可变 revision，再以 compare-and-swap 原子切换 current：首项期望 current 等于 Launch 创建时锁定的可空 base，后续项期望等于本 launch 前一项。另一会话已推进 current 时返回 `409 PERSISTENT_SAVE_CONFLICT`，不创建 revision、不覆盖服务器 current；Player 必须保留当前 bytes，提供本地下载并要求退出后重新启动，不能无限自动重试。其他失败也保留最后有效 revision。
+- `PUT /runtime/launches/{launchId}/persistent-save` 是仅为历史客户端与数据兼容保留的写协议，body、digest、sequence、event、64 MiB 上限以及 FILE_TREE/AUTO_STATE 校验规则维持原契约。当前所有选定 artifact 的 mode 均为 `NONE`，新 Launch 不绑定 persistent base、不返回该 URL，Player 不调用其 GET/PUT；因此当前 Launch 调用会返回 `409 PERSISTENT_SAVE_UNSUPPORTED`，且不得创建 revision/current。进度保存统一使用上面的显式 `/save-states` multipart 写入。
 
-这两个写端点在验证 launch cookie 后才读取 body；有 `Content-Length` 时先校验上限，没有时允许 HTTP/2/chunked 并在流式读取超过上限的第一个 byte 立即终止为 `413`。NG 必须关闭请求 buffering 或使用足够的临时空间，且自身限制不得低于应用上限；应用仍独立流式计数、校验 digest 并清理临时文件。`pagehide` 不尝试发送大 save body；显式退出等待最后一次有界 PUT，超时后提示保存失败并允许重试/强制退出。
+这两个写端点在验证 launch cookie 后才读取 body；有 `Content-Length` 时先校验上限，没有时允许 HTTP/2/chunked 并在流式读取超过上限的第一个 byte 立即终止为 `413`。NG 必须关闭请求 buffering 或使用足够的临时空间，且自身限制不得低于应用上限；应用仍独立流式计数、校验 digest 并清理临时文件。`pagehide` 不发送 save body；显式退出只等待用户已经发起的 `/save-states` 上传完成，不生成退出存档。
 
 OpenAPI 中 `putAdminUploadPart`、`postRuntimeSaveState`、`putRuntimePersistentSave` 与 `postRuntimeReviewScreenshot` 四个 operation 必须且只能标记 `x-retrom-streaming-body: true`；生成物应分别暴露 `io.Reader`/`multipart.Reader`，不能生成 `[]byte` 或先 `ParseMultipartForm`。启动时基于同一份已加载 spec 构建两条不可变的 `nethttp-middleware` validator chain：普通链保持 `Options.Options.ExcludeRequestBody=false`，流式链设置 `Options.Options.ExcludeRequestBody=true`。前置 kin-openapi router 先匹配 operation 并读取该 extension，再把请求分派给对应链；请求处理中不得修改共享 options。流式链仍验证 method/path/query/header/content-type，领域 handler 的流式检查才是 body 的权威门禁；不得另维护 URL skip 清单，也不得用全局 `Skipper` 跳过完整验证。所有 `operationId` 使用唯一 lowerCamelCase，格式为 HTTP 动词加稳定领域动作；已经发布后改名视为生成代码破坏性变更。
 
-`core` 表示产品目录 ID，`runtimeCore` 表示 EmulatorJS runtime ID；Player 只能把后者写入 `EJS_core`。`persistentSaveMode` 只允许 `SINGLE_FILE|DOS_OVERLAY|FILE_TREE|AUTO_STATE|NONE`；FILE_TREE 是受限 `/data/saves` 文件树，AUTO_STATE 是无可靠原生写盘钩子核心的自动状态后备。`inputMode` 只允许 `STANDARD|POINTER`。`externalFiles` 当前只用于 Variant dependency snapshot 锁定的 MelonDS 三个绝对虚拟路径，其 URL 必须属于同一 Launch 的 external-files 前缀；最多 16 项，重复路径/逻辑名或跨 Launch URL 均阻断。主机/掌机 ZIP/7z 已在入库时物化为唯一可运行 member；PSP `.iso/.cso` 作为 raw CONTENT 返回，不做运行时转换。
+`core` 表示产品目录 ID，`runtimeCore` 表示 EmulatorJS runtime ID；Player 只能把后者写入 `EJS_core`。schema 为历史兼容仍枚举 `SINGLE_FILE|DOS_OVERLAY|FILE_TREE|AUTO_STATE|NONE`，但当前 Launch 只能返回 `NONE` 且 URL 必须为 null。`inputMode` 只允许 `STANDARD|POINTER`。`externalFiles` 当前只用于 Variant dependency snapshot 锁定的 MelonDS 三个绝对虚拟路径，其 URL 必须属于同一 Launch 的 external-files 前缀；最多 16 项，重复路径/逻辑名或跨 Launch URL 均阻断。主机/掌机 ZIP/7z 已在入库时物化为唯一可运行 member；PSP `.iso/.cso` 作为 raw CONTENT 返回，不做运行时转换。
 
 ## 9. 核心 API 路由表
 
@@ -461,7 +461,8 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/launches` | READY 时预检并创建 LaunchSession/cookie；缺少当前 Variant 结果时返回 202 的可观察验证 Job，不先签发 credential。 |
 | `POST /runtime/launches/{launchId}/start`、`POST /runtime/launches/{launchId}/heartbeat`、`POST /runtime/launches/{launchId}/finish` | 第 7 节 PlaySession 连续事件、时长和撤销；使用限定 Path 的 launch cookie。 |
 | `GET /runtime/launches/{launchId}/config` 及第 8 节内容路径 | 受 capability 保护的配置、内容、状态与 PersistentSave。 |
-| `POST /runtime/launches/{launchId}/save-states`、`PUT /runtime/launches/{launchId}/persistent-save` | 运行中二进制保存。 |
+| `POST /runtime/launches/{launchId}/save-states` | 用户显式触发的运行中状态与截图保存。 |
+| `PUT /runtime/launches/{launchId}/persistent-save` | 历史兼容路由；当前 Launch 不支持。 |
 | `POST /runtime/launches/{launchId}/review-screenshot` | 审核预览对当前 READY 或阻断 Validation 保存核心启动后第 5 秒 PNG；普通 Launch 禁止。 |
 | `POST /api/v1/admin/uploads` | 创建文件/目录 upload manifest。 |
 | `GET /api/v1/admin/uploads/{uploadId}`、`PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}` | 恢复状态与上传 part。 |
@@ -486,7 +487,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/admin/games/{gameId}/scrape-candidates`、`POST /api/v1/admin/games/{gameId}/scrape-candidates`、`POST /api/v1/admin/games/{gameId}/scrape-candidates/{candidateId}/apply` | 重刮削候选列表、创建批次与选择字段/媒体应用。 |
 | `POST /api/v1/admin/games/{gameId}/move-preview`、`POST /api/v1/admin/games/{gameId}/move` | 同基础游戏目录移动影响预览与提交。 |
 | `GET /api/v1/admin/platforms`、`GET /api/v1/admin/core-artifacts` | 平台/启用核心关系与 artifact/version 只读字典，供目录和 BIOS 管理使用。 |
-| `GET /api/v1/admin/platform-instances`、`POST /api/v1/admin/platform-instances`、`GET /api/v1/admin/platform-instances/{platformInstanceId}`、`PATCH /api/v1/admin/platform-instances/{platformInstanceId}` | 游戏目录 CRUD；创建、列表和详情投影 `gameCount` 与基础平台的 `supportedExtensions[]`，PATCH 不允许改 platform/slug/default core。扩展名是带前导点、ASCII 小写且稳定有序的已验证游戏 payload 格式；不从目录默认核心反推。普通 ROM 的 ZIP/7z 只作上传 wrapper，不进入该字段；Arcade `.zip` 与 DOS `.exe/.com/.bat` 是 payload，必须进入。 |
+| `GET /api/v1/admin/platform-instances`、`POST /api/v1/admin/platform-instances`、`GET /api/v1/admin/platform-instances/{platformInstanceId}`、`PATCH /api/v1/admin/platform-instances/{platformInstanceId}` | 游戏目录 CRUD；创建、列表和详情投影 `gameCount` 与基础平台的 `supportedExtensions[]`，PATCH 不允许改 platform/slug/default core。扩展名是带前导点、ASCII 小写、稳定有序且无重复的已验证游戏 payload 格式；不从目录默认核心反推。NES 为 `.nes/.unf/.unif/.fds`，Arcade 合并目录后仍只返回一次 `.zip`。普通 ROM 的 ZIP/7z 只作上传 wrapper，不进入该字段；DOS `.exe/.com/.bat` 是 payload，必须进入。 |
 | `PUT /api/v1/admin/platform-instances/order` | 以全部目录的 ID/version 原子替换显示顺序，供拖拽和键盘排序。 |
 | `POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core-preview`、`POST /api/v1/admin/platform-instances/{platformInstanceId}/default-core` | 默认核心影响 digest 与提交。 |
 | `DELETE /api/v1/admin/platform-instances/{platformInstanceId}` | 只允许空目录软删除。 |

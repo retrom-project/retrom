@@ -404,15 +404,15 @@ make acceptance-case CASE=<case-id>
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-ISO-001`。
-- 流程：`test` 与 `alice` 对同一已发布游戏分别创建 PlaySession、SaveState 和 PersistentSave，再读取 home、library/detail、recent、saves、launch config；在同一 Chrome profile 依次登录两个账号。
-- 通过标准：两人看到相同公共游戏目录/元信息，只看到各自 Profile 的首页聚合、最近游玩、时长、存档和 persistent current；账户切换清理前一用户的查询缓存、平台图钉、DOS 偏好和内存状态。
+- 流程：`test` 与 `alice` 对同一已发布游戏分别创建 PlaySession 和显式 SaveState，再读取 home、library/detail、recent、saves、launch config；在同一 Chrome profile 依次登录两个账号。
+- 通过标准：两人看到相同公共游戏目录/元信息，只看到各自 Profile 的首页聚合、最近游玩、时长和显式存档；账户切换清理前一用户的查询缓存、平台图钉、DOS 偏好和内存状态，普通 Launch 均不绑定历史 PersistentSave。
 - 证据：双账号固定 fixture、API 响应、浏览器存储 namespace 与切换前后 DOM。
 
 ### ACC-ISO-002：跨账号 ID、cursor 与幂等探测
 
 - 上限：120 秒。
 - 执行：`make acceptance-case CASE=ACC-ISO-002`。
-- 流程：由另一账号直接使用 SaveState、截图、私有 Asset、Launch、PersistentSave、cursor 和 Idempotency-Key；对相同 key/body 在两主体下并发提交，并尝试从别人的存档启动。
+- 流程：由另一账号直接使用 SaveState、截图、私有 Asset、Launch、cursor 和 Idempotency-Key；对相同 key/body 在两主体下并发提交，并尝试从别人的存档启动；历史 PersistentSave 路由只验证不泄露凭据且不支持当前 Launch。
 - 通过标准：跨账号资源统一按契约 404/401，不泄露存在、字段或 bytes；cursor 绑定 route/filter/principal，幂等记录按主体分区，同 key 不串响应；客户端提交 owner/Profile ID 无法扩大授权。
 - 证据：每类交叉 ID 的状态/body/timing 摘要、数据库 owner 与幂等记录。
 
@@ -420,8 +420,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-ISO-003`。
-- 流程：两个并发 Chrome context 让目标用户保持页面与 Player 活跃，管理员分别停用、重新启用和软删除；在每个边界继续请求 context、heartbeat、状态/持久保存。使用同一 Chrome profile 令 A 留下 EJS IDBFS bytes，再以无服务器保存的 B 启动同一游戏。
-- 通过标准：停用/删除立即阻止新认证请求并撤销未结束 Launch，Player 写入不新增数据；重新启用仅恢复原 Profile 私有数据并需重新登录，删除不可恢复。B 启动前删除相同 EJS 路径残留并调用 `loadSaveFiles()`，失败则阻断，绝不运行 A 的 bytes。
+- 流程：两个并发 Chrome context 让目标用户保持页面与 Player 活跃，管理员分别停用、重新启用和软删除；在每个边界继续请求 context、heartbeat 和显式状态保存。使用同一 Chrome profile 令 A 留下 EJS IDBFS bytes，再以 B 普通启动同一游戏。
+- 通过标准：停用/删除立即阻止新认证请求并撤销未结束 Launch，Player 写入不新增数据；重新启用仅恢复原 Profile 私有数据并需重新登录，删除不可恢复。B 在 start 前清空整个 `/data/saves`，失败则阻断，绝不运行 A 的 bytes。
 - 证据：并发浏览器 trace、heartbeat/save 响应、IDBFS 操作序列和数据行前后摘要。
 
 ## 8. 游戏目录
@@ -799,7 +799,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-SAVE-001`。
 - 流程：启动游戏后打开退出确认，从操作区最左侧点击“创建存档”；等待成功提示，确认弹窗仍保持打开后取消退出；读取存档记录与“我的存档”卡片。另注入一次创建失败并从同一弹窗重试。
-- 通过标准：退出确认内“创建存档、取消、退出游戏”的视觉与 DOM 顺序一致；创建时暂停并锁定弹窗内的离开动作，成功后弹窗不自动退出、显示不可重复点击的“已创建存档”，失败明确说明未创建不完整记录并显示“重试创建存档”。状态 Blob 与非空截图 Blob 同时存在且在同一事务引用；截图在暂停前从仍运行的帧取得，工具栏最迟 750ms 暂停而截图可在独立 5 秒期限内继续完成，不能因暂停先完成就丢弃迟到截图；优先使用 core framebuffer 并在不可用时回退 canvas，结果可解码且具有非零亮度分布，已暂停时复用进入暂停瞬间缓存的最后一帧，不能生成全黑 canvas 截图；记录 Profile、Game、CoreArtifact、GameVariantRevision、名称、整数时间和累计时长；缺截图或空 state 的创建请求被拒绝。物理 4K 150% Player 必须完成同一创建、服务端截图解码和继续游戏流程。
+- 通过标准：退出确认内“创建存档、取消、退出游戏”的视觉与 DOM 顺序一致；创建时暂停并锁定弹窗内的离开动作，成功后弹窗不自动退出、显示不可重复点击的“已创建存档”，失败明确说明未创建不完整记录并显示“重试创建存档”。状态 Blob 与非空截图 Blob 同时存在且在同一事务引用；上传按实际字节显示 0–100% 进度，直到 HTTP 成功/失败或网络错误才结束，失败同时提醒用户。截图在暂停前从仍运行的帧取得，工具栏最迟 750ms 暂停而截图可在独立 5 秒期限内继续完成，不能因暂停先完成就丢弃迟到截图；优先使用 core framebuffer，核心原始帧方向与显示 aspect 互换时或能力不可用时回退 canvas，结果方向与 Player 一致、可解码且具有非零亮度分布，已暂停时复用进入暂停瞬间缓存的最后一帧，不能生成全黑 canvas 截图；记录 Profile、Game、CoreArtifact、GameVariantRevision、名称、整数时间和累计时长；缺截图或空 state 的创建请求被拒绝。物理 4K 150% Player 必须完成同一创建、服务端截图解码和继续游戏流程。
 - 证据：退出确认三个状态、存档 API/数据库、CAS hash 和当前截图。
 
 ### ACC-SAVE-002：三个入口快速恢复与不兼容拒绝
@@ -810,13 +810,13 @@ make acceptance-case CASE=<case-id>
 - 通过标准：三个入口均一次点击直达 Player Shell，不经过详情或二次 Start，且使用存档锁定环境；不匹配时明确拒绝，不静默迁移或改用目录默认核心。
 - 证据：三条 route/launch trace 和负向错误。
 
-### ACC-SAVE-003：PersistentSave 更新
+### ACC-SAVE-003：仅显式存档、全核心恢复与本地残留隔离
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-SAVE-003`。
-- 流程：先以 SINGLE_FILE seed 一份服务端 PersistentSave；创建两个锁定相同 base 的 Launch，在第一条加载 loader 前预取，记录 `EJS_ready → saveDatabaseLoaded → start` 顺序并验证恢复；让第一条触发两次并发 `saveSaveFiles`、一次手动 export 和 `exit`，记录每个 request 的 sequence/event/hash，再让第二条用旧 base 保存。随后以通用 FILE_TREE seed 含嵌套文件的 `RETFS001` revision，在真实 Player 的 `saveDatabaseLoaded` 后核对启动前 `/data/saves` 恢复；运行中写入/改写/删除文件，验证 flush、稳定防抖自动上传、退出最终快照与下一 Launch 恢复，并证明 PPSSPP 只采集 `PSP/SAVEDATA`。另以 PPSSPP 旧 `RETPSP01` seed 验证兼容读取，并证明非 PPSSPP capability 拒绝该 magic。再以 AUTO_STATE seed 验证 30 秒周期、退出终态、原生加载完成门禁以及显式 SaveState 优先级。重放相同 sequence/body，并分别复用 sequence 改 event/bytes、制造跳号。另以无服务端保存但浏览器存在旧 IDBFS 文件、畸形/穿越/重复/乱序 FILE_TREE、上传失败，以及 fake reader 报告超过 64 MiB 做负向测试；最后对 `persistentSaveMode=NONE` 的核心调用 PersistentSave GET/PUT。
-- 通过标准：保存按 `Profile + GameVariantRevision + kind` 隔离；Launch GET 始终返回其创建时锁定的 revision。最多 64 MiB 的服务端 bytes 在 loader 前形成一个有界 `Uint8Array`，超限不分配完整 body并以 `LAUNCH_PERSISTENT_SAVE_TOO_LARGE` 阻断；在真实 v4.2.3 且 `EJS_disableDatabases=true` 时 `saveDatabaseLoaded` 仍于 start 前触发。SINGLE_FILE 同步覆盖/清除目标并调用 `loadSaveFiles()`；FILE_TREE 在 ROM/start 前清空并精确重建 `/data/saves`，没有 revision 时不复活浏览器数据，畸形 envelope 在服务端和 Player 均 fail closed；PPSSPP 新包只包含 `PSP/SAVEDATA`，旧包只对 PPSSPP 可读。FILE_TREE 变化产生 `AUTO_INTERVAL`，退出产生最新 `EXIT`，Handy 的退出 reset 写盘且既有暂停不被误恢复；普通 `EJS_onSaveSave` 不被误用于 FILE_TREE。AUTO_STATE 只在内容变化时上传，恢复必须等待原生 task 成功并回到保存位置，不能跨 artifact/revision，也不能宣称为原生 NVRAM。在 `saveState()` 前已注册至少一个 saveState listener，v4.2.3 以 listener 数而非 callback 返回值阻止 fallback 写独立 state DB。revision 保存正确 LaunchSession、从 1 连续的 sequence 和 `AUTO_INTERVAL/MANUAL_EXPORT/EXIT`，并发 callback 被串行/合并到后续 sequence；相同重放返回原结果，改 event/bytes 与跳号返回稳定冲突。第一条按 base/上一项 CAS 连续提升；第二条以 `PERSISTENT_SAVE_CONFLICT` 拒绝且不创建 revision/不覆盖 current，页面保留 bytes、提供本地下载并不自动死循环。不同 CoreArtifact/VariantRevision 不串用；其他失败明确报告且不覆盖最后有效 Blob；NONE 模式的 GET/PUT 均返回 `PERSISTENT_SAVE_UNSUPPORTED` 且不创建 revision/current 行，Player 不请求该端点；实现没有不存在的 `EJS_onExit/EJS_onSaveUpdate`。
-- 证据：事件顺序、前后持久 Blob hash/revision、IDBFS 负向结果、网络请求和故障注入结果。
+- 流程：分别在已有真实产品覆盖的 NES、FBNeo 与其余选定核心上从普通 Launch 开始，记录 config 与网络请求；运行超过原自动保存周期后直接退出，再重新普通启动。随后在同一 Chrome profile 的 `/data/saves` 预置旧文件并再次普通启动。对每个受测核心只通过“创建存档”生成有效 state/截图，等待上传进度完成，再从该 SaveState 启动并比较保存前后的可辨识位置；MAME 竖屏游戏额外比较 Player 与存档截图方向。对上传失败、空 state/截图、畸形 state、跨 artifact/revision 与历史 PersistentSave GET/PUT 做负向验证。
+- 通过标准：全部当前 artifact 的 config 都是 `persistentSaveMode=NONE/persistentSaveUrl=null`，Launch 不绑定 persistent base；Player 不请求 PersistentSave、不监听/上传 `saveSaveFiles`，定时运行、直接退出与 `pagehide` 都不产生 SaveState 或 persistent revision。`saveDatabaseLoaded` 在 start 前清空整个 `/data/saves`，普通开始不从服务端或同浏览器 IDBFS 复活上次位置。只有点击“创建存档”产生 multipart 上传，0–100% 进度保持到 HTTP 成功/失败或网络错误，失败明确提醒且不创建不完整记录。指定存档在 4.2.3 至少等待一帧和 serialization readiness，再以原生 task 成功为 start 门禁；恢复画面/位置与保存点一致，失败必须阻断而不能伪装回到开头。竖屏存档截图与实际显示同向；不同 CoreArtifact/VariantRevision 不串用。历史 PersistentSave GET/PUT 返回 `PERSISTENT_SAVE_UNSUPPORTED` 且不创建 revision/current。
+- 证据：各核心 config/网络请求、普通启动前后画面对比、显式上传进度及成功/失败 UI、state-load 原生日志、恢复位置对比、竖屏截图尺寸/方向、IDBFS 清理与数据库行数。
 
 ### ACC-PLAY-001：有效游玩时长
 
@@ -960,8 +960,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-006`。
-- 流程：用确定性三盘 config 与实际 Player adapter 往返全部 index；以 `discIndex=1` 的 SaveState 驱动恢复状态机，同时运行服务端 PersistentSave revision/sequence 集成测试。
-- 通过标准：adapter 只接受连续三盘集合；恢复严格先完成 PersistentSave 注入、切到光盘 2 并回读，再显式 load state，之后恢复 main loop/start；失败保持暂停且单盘/PersistentSave 行为无回归。
+- 流程：用确定性三盘 config 与实际 Player adapter 往返全部 index；以 `discIndex=1` 的显式 SaveState 驱动恢复状态机，并确认没有 PersistentSave 请求。
+- 通过标准：adapter 只接受连续三盘集合；恢复严格先切到光盘 2 并回读，再显式 load state，之后恢复 main loop/start；失败保持暂停且单盘行为无回归。
 - 证据：存档服务集成测试、adapter 与 restore 状态机测试输出。本 Case 不宣称真实 Saturn ROM 已在浏览器中运行。
 
 ### ACC-MDISC-007：能力、替换与共享 adapter 回归
@@ -969,15 +969,15 @@ make acceptance-case CASE=<case-id>
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-007`。
 - 流程：检查 Saturn/yabause 与 PSX/3DO/PC-FX capability；验证省略 `contentMode`、默认核心影响、完整目录替换成功/失败、V2→V3→V3 bootstrap、关闭/重开 flag 对新建与既有任务/内容的影响，并运行共享 adapter 的多盘聚焦测试。
-- 通过标准：只有能力交集暴露 MULTI；缺省始终 STANDARD；替换创建新不可变 revision且失败保留旧 current；artifact ID 不变、version 只递增一次、重放不改 updated time，既有 Variant/PersistentSave 绑定不变；flag 关闭只阻止新建/替换，不偷换冻结任务且已发布内容仍可运行。共享 adapter 的盘数、换盘和恢复测试全部通过。
+- 通过标准：只有能力交集暴露 MULTI；缺省始终 STANDARD；替换创建新不可变 revision且失败保留旧 current；artifact ID 不变、version 只递增一次、重放不改 updated time，既有 SaveState 绑定不变；flag 关闭只阻止新建/替换，不偷换冻结任务且已发布内容仍可运行。共享 adapter 的盘数、换盘和恢复测试全部通过。
 - 证据：capability/flag 矩阵、替换前后 revision、bootstrap 行、在途/已发布行为和 adapter 测试输出。
 
 ### ACC-MDISC-008：授权、审计与私有数据隔离
 
 - 上限：600 秒。
 - 执行：`make acceptance-case CASE=ACC-MDISC-008`。
-- 流程：匿名、普通 USER 和两个 ADMIN 探测全部新增管理 route；两个管理员复用同一幂等键提交不同主体请求。再让两个普通账号运行同一个多盘 Game，分别创建 SaveState/PersistentSave并尝试交叉 ID、cursor、幂等和 Launch 访问，最后停用其中一个账号。
-- 通过标准：匿名为 401、USER 为 `ADMIN_REQUIRED`，ADMIN 写入保存真实 User actor，同 key 不跨 principal 串响应；两个 Profile 的盘号存档和持久保存互不可见/不可写，跨账号探测不泄露存在性；停用只撤销目标账号 Launch，不影响另一账号。结果同时满足本次 `ACC-AUTH-006` 与 `ACC-ISO-001`–`003` route/owner inventory。
+- 流程：匿名、普通 USER 和两个 ADMIN 探测全部新增管理 route；两个管理员复用同一幂等键提交不同主体请求。再让两个普通账号运行同一个多盘 Game，分别创建 SaveState 并尝试交叉 ID、cursor、幂等和 Launch 访问，最后停用其中一个账号。
+- 通过标准：匿名为 401、USER 为 `ADMIN_REQUIRED`，ADMIN 写入保存真实 User actor，同 key 不跨 principal 串响应；两个 Profile 的盘号存档互不可见/不可写，跨账号探测不泄露存在性；停用只撤销目标账号 Launch，不影响另一账号。结果同时满足本次 `ACC-AUTH-006` 与 `ACC-ISO-001`–`003` route/owner inventory。
 - 证据：非秘密 User/username、route 状态矩阵、actor/idempotency/owner 断言、Launch 撤销与通用 Case 引用；截图/API DTO 不暴露 Profile ID 或内容秘密。
 
 ## 17. 收藏与收藏夹
@@ -1075,7 +1075,7 @@ make acceptance-case CASE=<case-id>
 ### ACC-NP-013：普通单机回归与生产产物
 
 - 上限：180 秒。执行：`make acceptance-case CASE=ACC-NP-013`。
-- 流程：普通受支持游戏恢复/写 PersistentSave、创建 SaveState、使用 Player controls、退出并结算时长；以一次联机历史渲染首页“再玩一次”并检查 Launch body；再让不可变的旧 Arcade schema-v1 修订通过普通 Launch 自动重校验；最后检查 production web bundle。
+- 流程：普通受支持游戏从显式 SaveState 恢复、再次主动创建 SaveState、使用 Player controls、直接退出且不保存并结算时长；以一次联机历史渲染首页“再玩一次”并检查 Launch body；再让不可变的旧 Arcade schema-v1 修订通过普通 Launch 自动重校验；最后检查 production web bundle。
 - 通过：普通能力与联机改动前契约一致；联机历史的“再玩一次”只创建普通 single-player Launch，不携带 room/session 字段。旧 Arcade 修订按其锁定 DAT/依赖生成 schema v2 后成功启动，不能报 `LAUNCH_CORE_VALIDATION_UNAVAILABLE`；联机模式专属禁用不泄漏到 single mode；production 产物不存在测试故障注入或可写 telemetry hook。
 - 证据：普通 launch/save/play 断言、Player network/DOM 与产物扫描。
 

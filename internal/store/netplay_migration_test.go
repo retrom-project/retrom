@@ -48,7 +48,7 @@ VALUES('01980000-0000-7000-8000-00000000a001','Netplay host',1)
 		t.Fatal(err)
 	}
 	var version int
-	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 38 {
+	if err := upgraded.SQL.QueryRow(`SELECT max(version) FROM schema_migrations`).Scan(&version); err != nil || version != 39 {
 		t.Fatalf("schema version = %d, error=%v", version, err)
 	}
 	if _, err := upgraded.SQL.ExecContext(ctx, `

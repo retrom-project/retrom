@@ -86,6 +86,7 @@ if [[ "$case_id" == "ACC-RUN-006" ]]; then
     "$repository_root/testdata/public-roms/arcade-smoke/mame2003-smoke.xml"
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+  RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
     scripts/acceptance/arcade-flow.sh mame2003
   python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" mame2003
 fi
@@ -166,6 +167,7 @@ fi
   RETROM_NETPLAY_NES_FIXTURE_SHA256="$(jq -r '.fixtureSha256 // empty' "$netplay_nes_result" 2>/dev/null || true)" \
   RETROM_NETPLAY_FBNEO_GAME_ID="$(jq -r '.gameId // empty' "$netplay_fbneo_result" 2>/dev/null || true)" \
   RETROM_NETPLAY_FBNEO_FIXTURE_SHA256="$(jq -r '.fixtureSha256 // empty' "$netplay_fbneo_result" 2>/dev/null || true)" \
+  RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r '.platformInstanceId // empty' "$temporary_root/mame2003.json" 2>/dev/null || true)" \
   RETROM_ACCEPTANCE_CASE_DIR="${RETROM_ACCEPTANCE_CASE_DIR:-}" \
   npm exec -- "${playwright_args[@]}")
 

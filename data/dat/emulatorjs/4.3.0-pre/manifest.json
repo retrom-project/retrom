@@ -60,6 +60,96 @@
         "role": "loader"
       },
       {
+        "path_in_release": "data/emulator.css",
+        "size_bytes": 37832,
+        "sha256": "3b4b81e15cfbfa2c2dbdc7ec8d9254fdf7639d48534a4aac23f74af8df9a81d5",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/cache.js",
+        "size_bytes": 37147,
+        "sha256": "188523b25848281930b4c668aff72571466a8d25087866306047752642975c5c",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/compression.js",
+        "size_bytes": 9762,
+        "sha256": "353b470a726dfec26a89baa2d2989f70703a3e5aaf656b2dfd5543835fd0e2ea",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/consts.js",
+        "size_bytes": 1633,
+        "sha256": "e60f7d1c8af6e240c496a96648e6daf7633caa4c760b5da1d1fb9a30418cf03d",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/emulator.js",
+        "size_bytes": 317232,
+        "sha256": "182aa14dd0f874b308220fbaa8aad66eff4a83fe4dae4163543adebfa21f9ed9",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/GameManager.js",
+        "size_bytes": 20425,
+        "sha256": "d6e33a9316fe5db1c12bcdd41d83d831b602d9ac5fbc083098c44d18da5c2e7c",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/gamepad.js",
+        "size_bytes": 6042,
+        "sha256": "85fd777a46e9aa10a09a24f8c6455dc5ca0c5e2f1b2fbf66cf87e297b101b1ae",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/license.js",
+        "size_bytes": 35147,
+        "sha256": "c21287c9e6f229321d03f7f8a8540a1690127d7e15958c832f49e605a5e75a53",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/netplay.js",
+        "size_bytes": 87177,
+        "sha256": "4cf13de04948a289f34c6000d3ecec3fb0785d2240945c2a19d35c75fbe8d2d5",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/setup.js",
+        "size_bytes": 3310,
+        "sha256": "126278616a5bb4c9b0f471a9736d38ffc77e3f4437694d9801d017b114b3e17d",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/shaders.js",
+        "size_bytes": 139571,
+        "sha256": "4596d0c6098deb58b07dc0481c0cb2ecc45603e5f555282b89902295f6380ec9",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/storage.js",
+        "size_bytes": 8251,
+        "sha256": "e4feb992cd005838b4350a9727edbd04429438e7ebf85edd3148c489b31c1c26",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/utils.js",
+        "size_bytes": 1715,
+        "sha256": "661d8c91b9726b50237215b9392ab8be746d232cb6b430df453f898ef4318414",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/vendor/nipplejs.js",
+        "size_bytes": 20259,
+        "sha256": "cf745190f5dc5db942ad54f5683d56c6d6da445646f4b4fc23c049c9985a04df",
+        "role": "state_restore_loader_source"
+      },
+      {
+        "path_in_release": "data/src/vendor/socket.io.min.js",
+        "size_bytes": 46831,
+        "sha256": "b0e735814f8dcfecd6cdb8a7ce95a297a7e1e5f2727a29e6f5901801d52fa0c5",
+        "role": "state_restore_loader_source"
+      },
+      {
         "path_in_release": "data/compression/extract7z.js",
         "size_bytes": 280155,
         "sha256": "4ac9933b995a516cb6b3ca4027db860278372a20c21c405d93ceb1998498853a",
@@ -114,8 +204,8 @@
         "requested_artifact_basename": "dosbox_pure-thread-wasm.data",
         "canvas_resize_policy": "NONE",
         "default_options": {},
-        "persistent_save_mode": "DOS_OVERLAY",
-        "persistent_save_kind": "DOS_OVERLAY",
+        "persistent_save_mode": "NONE",
+        "persistent_save_kind": null,
         "input_mode": "STANDARD",
         "startup_actions": [],
         "report_path": "data/cores/reports/dosbox_pure.json",
@@ -136,8 +226,8 @@
         "requested_artifact_basename": "genesis_plus_gx_wide-wasm.data",
         "canvas_resize_policy": "NONE",
         "default_options": {},
-        "persistent_save_mode": "SINGLE_FILE",
-        "persistent_save_kind": "CORE_SAVE",
+        "persistent_save_mode": "NONE",
+        "persistent_save_kind": null,
         "input_mode": "STANDARD",
         "startup_actions": [],
         "report_path": "data/cores/reports/genesis_plus_gx_wide.json",
@@ -160,8 +250,8 @@
         "default_options": {
           "webgl2Enabled": "enabled"
         },
-        "persistent_save_mode": "FILE_TREE",
-        "persistent_save_kind": "CORE_SAVE",
+        "persistent_save_mode": "NONE",
+        "persistent_save_kind": null,
         "input_mode": "POINTER",
         "startup_actions": [],
         "report_path": "data/cores/reports/azahar.json",

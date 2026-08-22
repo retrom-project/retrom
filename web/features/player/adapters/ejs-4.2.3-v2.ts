@@ -1,9 +1,12 @@
 import { installEmulatorJs423NetplayCompatibility } from "../netplay/ejs-netplay-4.2.3-v1";
 import {
   installEmulatorJs423StateRestoreCompatibility,
-  requiresExplicitPersistentStateRestore,
-  requiresExplicitPspStateRestore,
-} from "../psp-state-restore";
+  requiresExplicitStateRestore,
+} from "../explicit-state-restore";
+import {
+  installDOSBoxPureStateCompatibility,
+  requiresDOSBoxPureStateCompatibility,
+} from "../dosbox-pure-state";
 import { retromShaders } from "../retrom-shaders";
 
 export type PlayerConfig = {
@@ -104,11 +107,7 @@ export type EmulatorInstance = {
     getDiskCount?: () => number;
     getCurrentDisk?: () => number;
     getState?: () => Uint8Array;
-    getSaveFile?: () => Promise<Uint8Array>;
-    getSaveFilePath?: () => string;
     getVideoDimensions?: (dimension: "aspect" | "width" | "height") => number | undefined;
-    loadSaveFiles?: () => void;
-    saveSaveFiles?: () => void;
     loadState?: (bytes: Uint8Array) => void;
     setCurrentDisk?: (index: number) => void;
     simulateInput?: (player: number, control: number, value: number) => void;
@@ -122,7 +121,7 @@ export type EmulatorInstance = {
       screenshot?: () => void;
     };
     loadStateAndWait?: (bytes: Uint8Array, timeoutMs?: number) => Promise<{ byteExact: boolean }>;
-    loadPersistentStateAndWait?: (bytes: Uint8Array, timeoutMs?: number) => Promise<void>;
+    loadExplicitStateAndWait?: (bytes: Uint8Array, timeoutMs?: number) => Promise<void>;
     runNetplayFrame?: (timeoutMs?: number) => Promise<number>;
   };
   downloadType?: { rom?: { dontExtractIfCore?: string[] } };
@@ -140,6 +139,19 @@ async function captureCanvasScreenshot(instance: EmulatorInstance): Promise<Manu
 
 const reviewCoreScreenshotTimeoutMs = 2_000;
 
+export function coreFramebufferNeedsCanvasOrientation(bytes: Uint8Array, expectedAspect: number | undefined) {
+  if (!Number.isFinite(expectedAspect) || !expectedAspect || expectedAspect <= 0 || bytes.byteLength < 24 ||
+    bytes[0] !== 0x89 || bytes[1] !== 0x50 || bytes[2] !== 0x4e || bytes[3] !== 0x47 ||
+    bytes[12] !== 0x49 || bytes[13] !== 0x48 || bytes[14] !== 0x44 || bytes[15] !== 0x52) return false;
+  const dimensions = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  const width = dimensions.getUint32(16);
+  const height = dimensions.getUint32(20);
+  if (!width || !height) return false;
+  const directError = Math.abs(Math.log(width / height / expectedAspect));
+  const rotatedError = Math.abs(Math.log(height / width / expectedAspect));
+  return rotatedError + 0.05 < directError;
+}
+
 async function captureCoreFramebuffer(instance: EmulatorInstance): Promise<ManualScreenshot> {
   const fileSystem = instance.gameManager?.FS;
   const requestScreenshot = instance.gameManager?.functions?.screenshot;
@@ -153,9 +165,15 @@ async function captureCoreFramebuffer(instance: EmulatorInstance): Promise<Manua
       const source = fileSystem.readFile("/screenshot.png");
       if (source.byteLength > 0) {
         const bytes = Uint8Array.from(new Uint8Array(source.buffer, source.byteOffset, source.byteLength));
+        if (coreFramebufferNeedsCanvasOrientation(bytes, instance.gameManager?.getVideoDimensions?.("aspect"))) {
+          throw new Error("PLAYER_CORE_SCREENSHOT_ORIENTATION_MISMATCH");
+        }
         return { screenshot: new Blob([bytes], { type: "image/png" }), format: "png" };
       }
-    } catch { /* EmulatorJS writes the screenshot asynchronously. */ }
+    } catch (error) {
+      if (error instanceof Error && error.message === "PLAYER_CORE_SCREENSHOT_ORIENTATION_MISMATCH") throw error;
+      // EmulatorJS writes the screenshot asynchronously.
+    }
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
   throw new Error("PLAYER_CORE_SCREENSHOT_TIMEOUT");
@@ -186,7 +204,6 @@ export type AdapterCallbacks = {
   onReady?: (emulator: EmulatorInstance) => void;
   onGameStart?: () => void | boolean;
   onSaveState?: (payload: { screenshot: Blob; format: string; state: Uint8Array }) => void;
-  onSaveSave?: (payload: { screenshot: Blob; format: string; save: Uint8Array }) => void;
 };
 
 type EJSGameManagerConstructor = {
@@ -548,10 +565,7 @@ export function validateConfig(config: PlayerConfig) {
   if (!config.runtimePathOverrides || Object.entries(config.runtimePathOverrides).length !== 1 || Object.entries(config.runtimePathOverrides).some(([name, source]) =>
     !/^[A-Za-z0-9_.-]+-wasm\.data$/.test(name) || name.includes("..") ||
     !source.startsWith(`/runtime/emulatorjs/${config.emulatorjsVersion}/`))) throw new Error("PLAYER_RUNTIME_PATHS_INVALID");
-  if (!["SINGLE_FILE", "DOS_OVERLAY", "FILE_TREE", "AUTO_STATE", "NONE"].includes(config.persistentSaveMode) ||
-    (config.persistentSaveMode === "NONE") !== (config.persistentSaveUrl === null) ||
-    config.persistentSaveMode !== "NONE" && config.persistentSaveUrl !== `/runtime/launches/${config.launchId}/persistent-save` ||
-    config.persistentSaveMode === "AUTO_STATE" && config.emulatorjsVersion !== "4.2.3") {
+  if (config.persistentSaveMode !== "NONE" || config.persistentSaveUrl !== null) {
     throw new Error("PLAYER_PERSISTENT_CAPABILITY_INVALID");
   }
   if (config.inputMode !== "STANDARD" && config.inputMode !== "POINTER") throw new Error("PLAYER_INPUT_MODE_INVALID");
@@ -637,9 +651,9 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_pathtodata = config.runtimeBaseUrl;
   runtimeWindow.EJS_biosUrl = config.biosUrl ?? undefined;
   runtimeWindow.EJS_gameParentUrl = config.parentUrl ?? undefined;
-  const explicitPspStateRestore = requiresExplicitPspStateRestore(config);
-  const explicitPersistentStateRestore = requiresExplicitPersistentStateRestore(config);
-  const explicitStateRestore = explicitPspStateRestore || explicitPersistentStateRestore;
+  const explicitStateRestore = requiresExplicitStateRestore(config);
+  const needsDOSBoxStateCompatibility = requiresDOSBoxPureStateCompatibility(config);
+  let dosboxStateCompatibility: ReturnType<typeof installDOSBoxPureStateCompatibility> | null = null;
   runtimeWindow.EJS_loadStateURL = config.discSet || explicitStateRestore ? undefined : config.stateUrl ?? undefined;
   const deferredDOSStart = config.emulatorjsVersion === "4.3.0-pre" && config.runtimeCore === "dosbox_pure";
   runtimeWindow.EJS_startOnLoaded = !deferredDOSStart;
@@ -648,8 +662,8 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.EJS_language = "zh-CN";
   runtimeWindow.EJS_disableAutoLang = false;
   // 4.2.3 only forwards RetroArch's native state-task completion log through
-  // its auditable source loader. Netplay and explicit PPSSPP restore consume
-  // that callback; the EmulatorJS experimental transport stays disabled.
+  // its auditable source loader. Netplay and every explicitly selected save
+  // consume that callback; the EmulatorJS experimental transport stays off.
   runtimeWindow.EJS_DEBUG_XX = config.mode === "netplay" || explicitStateRestore;
   runtimeWindow.EJS_EXPERIMENTAL_NETPLAY = false;
   runtimeWindow.EJS_threads = config.requiresThreads;
@@ -677,6 +691,9 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   let startupScheduled = false;
   let cleanupStartup: () => void = () => undefined;
   runtimeWindow.EJS_onGameStart = () => {
+    if (needsDOSBoxStateCompatibility && runtimeWindow.EJS_emulator) {
+      dosboxStateCompatibility?.prepare(runtimeWindow.EJS_emulator);
+    }
     if (callbacks.onGameStart?.() === false) return;
     if (!startupScheduled && runtimeWindow.EJS_emulator) {
       startupScheduled = true;
@@ -684,9 +701,7 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
     }
   };
   runtimeWindow.EJS_onSaveState = callbacks.onSaveState;
-  runtimeWindow.EJS_onSaveSave = config.persistentSaveMode === "SINGLE_FILE" || config.persistentSaveMode === "DOS_OVERLAY"
-    ? callbacks.onSaveSave
-    : undefined;
+  runtimeWindow.EJS_onSaveSave = undefined;
   runtimeWindow.EJS_defaultOptions = {
     ...config.defaultCoreOptions,
     ...(config.mode === "netplay" && config.runtimeCore === "fbneo" ? { "fbneo-hiscores": "disabled" } : {}),
@@ -697,9 +712,12 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   const cleanupNetplayCompatibility = config.mode === "netplay"
     ? installEmulatorJs423NetplayCompatibility(runtimeWindow)
     : () => undefined;
-  const cleanupStateRestoreCompatibility = explicitStateRestore
+  dosboxStateCompatibility = needsDOSBoxStateCompatibility
+    ? installDOSBoxPureStateCompatibility(runtimeWindow)
+    : null;
+  const cleanupStateRestoreCompatibility = explicitStateRestore && !needsDOSBoxStateCompatibility
     ? installEmulatorJs423StateRestoreCompatibility(runtimeWindow, {
-        waitForSerializable: explicitPspStateRestore || explicitPersistentStateRestore,
+        waitForSerializable: true,
       })
     : () => undefined;
   const cleanupArchiveWorkerCompatibility = config.emulatorjsVersion === "4.2.3"
@@ -717,6 +735,7 @@ export function mountEmulatorJS(config: PlayerConfig, target: HTMLElement, callb
   runtimeWindow.document.head.append(script);
   return () => {
     cleanupDeferredStart(); cleanupStartup(); script.remove(); cleanupExternalFileCompatibility();
-    cleanupArchiveWorkerCompatibility(); cleanupStateRestoreCompatibility(); cleanupNetplayCompatibility();
+    cleanupArchiveWorkerCompatibility(); cleanupStateRestoreCompatibility(); dosboxStateCompatibility?.cleanup();
+    cleanupNetplayCompatibility();
   };
 }

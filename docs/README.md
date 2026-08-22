@@ -4,7 +4,7 @@ Retrom 的规划文档按“总览 + 统一验收 + 领域专题 + 可执行数�
 
 ## 实施就绪结论
 
-Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft 当前有效来源快照：补传 Parent ROM 或多盘内容后仍保留 `SERVER_PEGASUS_IMPORT` 来源审计，但不会因 manifest 已从 Pegasus 初始快照演进而拒绝发布。Migration 034 实例级游戏标签已经进入当前代码、OpenAPI 和生成物：管理员先建立共享标签，再在普通导入、Pegasus Collection、审核或游戏维护中引用；活动标签参与游戏搜索和展示，但不进入内容、运行时或存档协议。Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清单和生成物：默认关闭，启用后开放 EmulatorJS 4.2.3 的 FCEUmm/FBNeo 两个精确 core profile、同源房间和服务端中继 rollback；每个 profile 覆盖使用该锁定 artifact 的全部合格 READY 游戏，不按单个 ROM 建产品白名单。
+Migration 039 已把重复初始游戏目录收敛为 `NES 游戏`与 `MAME 2003 Plus 游戏`：旧 FDS/MAME 2003 目录中的 Game 保持 ID、revision、变体和存档不变地迁入目标目录，旧目录只保留不可见 tombstone；NES 扩展名合并为 `.nes/.unf/.unif/.fds`，Arcade `.zip` 去重。Migration 035 已使 Pegasus 审核发布的内容来源校验跟随 ReviewDraft 当前有效来源快照：补传 Parent ROM 或多盘内容后仍保留 `SERVER_PEGASUS_IMPORT` 来源审计，但不会因 manifest 已从 Pegasus 初始快照演进而拒绝发布。Migration 034 实例级游戏标签已经进入当前代码、OpenAPI 和生成物：管理员先建立共享标签，再在普通导入、Pegasus Collection、审核或游戏维护中引用；活动标签参与游戏搜索和展示，但不进入内容、运行时或存档协议。Migration 032 受限异地联机也已进入当前代码、OpenAPI、机器清单和生成物：默认关闭，启用后开放 EmulatorJS 4.2.3 的 FCEUmm/FBNeo 两个精确 core profile、同源房间和服务端中继 rollback；每个 profile 覆盖使用该锁定 artifact 的全部合格 READY 游戏，不按单个 ROM 建产品白名单。
 
 一期基线、账户隔离升级、Saturn/yabause 多盘系统、服务器 BIOS 导入、Migration 028 Pegasus ROM 目录导入、Migration 029 Pegasus 管理诊断、Migration 030 Pegasus 审核交接、Migration 031 审核运行预览、Migration 033 截图人工放行和 Migration 037 快速审批已经落入代码、OpenAPI 和生成物。当前版本要求登录，区分 `ADMIN`/`USER`，每个账号拥有独立 Profile；旧的共享 `local` Profile 数据根不原地升级。部署者配置的只读 root 同时承载 BIOS 与 Pegasus 两种管理导入：前者按完整启用 catalog 逐项安装，后者按 `metadata.pegasus.txt` 扫描、显式 Collection 映射、复制与运行检查后生成普通审核事项。审核页可预览当前筛选范围，并把严格 `READY`、没有重复内容且没有活动补传的条目交给可恢复后台批次发布；截图人工放行、重复内容和其他需要判断的条目继续逐项处理。审核详情仍可在隔离子窗体中尽最大可能运行当前来源，核心真实启动后第 5 秒保存运行截图。详情页可在前台可见满两秒后静音播放当前 VIDEO，其他用户列表保持 cover-only。正式细节分别由数据、导入、HTTP、运维和 UI 专题维护。
 

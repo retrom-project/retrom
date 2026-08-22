@@ -13,7 +13,7 @@ type RuntimeFactory = ((config: RuntimeModuleConfig) => unknown) & { retromState
 
 type StateRestoreManager = NonNullable<EmulatorInstance["gameManager"]> & {
   clearEJSResetTimer?: () => void;
-  loadPersistentStateAndWait?: (state: Uint8Array, timeoutMs?: number) => Promise<void>;
+  loadExplicitStateAndWait?: (state: Uint8Array, timeoutMs?: number) => Promise<void>;
 };
 
 type GameManagerConstructor = { prototype?: StateRestoreManager };
@@ -35,21 +35,13 @@ type ReadyWait = {
   timer: number;
 };
 
-export function requiresExplicitPspStateRestore(config: {
+export function requiresExplicitStateRestore(config: {
   emulatorjsVersion: string;
-  runtimeCore: string;
-  persistentSaveMode: string;
+  runtimeCore?: string;
   stateUrl: string | null;
 }) {
-  return config.emulatorjsVersion === "4.2.3" &&
-    config.runtimeCore === "ppsspp" && config.persistentSaveMode === "FILE_TREE" && config.stateUrl !== null;
-}
-
-export function requiresExplicitPersistentStateRestore(config: {
-  emulatorjsVersion: string;
-  persistentSaveMode: string;
-}) {
-  return config.emulatorjsVersion === "4.2.3" && config.persistentSaveMode === "AUTO_STATE";
+  return config.stateUrl !== null && (config.emulatorjsVersion === "4.2.3" ||
+    config.emulatorjsVersion === "4.3.0-pre" && config.runtimeCore === "dosbox_pure");
 }
 
 function removeItem<T>(items: T[], item: T) {
@@ -60,12 +52,11 @@ function removeItem<T>(items: T[], item: T) {
 
 /**
  * EmulatorJS 4.2.3 may ask a core to restore before it has established its
- * serialization layout. PPSSPP needs its GPU to be ready, while the FBA 2012
- * cores initialise their expected state size on the first serialization,
- * and MAME 2003 Plus rejects an unserialize attempt during frame zero. This
- * patch can wait for both a completed frame and serialization readiness,
- * then waits for the native RetroArch state task and fails closed when it
- * rejects the file.
+ * serialization layout. Retrom therefore restores every explicitly selected
+ * state only after a completed frame and successful serialization probe, then
+ * waits for the native RetroArch state task and fails closed if it rejects the
+ * file. This covers PPSSPP GPU setup, FBA state-size initialization, MAME's
+ * frame-zero restriction, and the same race in any other 4.2.3 core.
  */
 export function installEmulatorJs423StateRestoreCompatibility(
   playerWindow: Window = window,
@@ -140,10 +131,10 @@ export function installEmulatorJs423StateRestoreCompatibility(
 
   const patchManager = (constructor: GameManagerConstructor | undefined) => {
     const prototype = constructor?.prototype;
-    if (!prototype || prototype.loadPersistentStateAndWait) {
+    if (!prototype || prototype.loadExplicitStateAndWait) {
       throw new Error("PLAYER_STATE_RESTORE_COMPATIBILITY_UNAVAILABLE");
     }
-    const loadPersistentStateAndWait = async function (this: StateRestoreManager, state: Uint8Array, timeoutMs = 15_000) {
+    const loadExplicitStateAndWait = async function (this: StateRestoreManager, state: Uint8Array, timeoutMs = 15_000) {
       const fileSystem = this.FS;
       const nativeLoadState = this.functions?.loadState;
       const nativeSaveStateInfo = this.functions?.saveStateInfo;
@@ -188,8 +179,8 @@ export function installEmulatorJs423StateRestoreCompatibility(
         try { fileSystem.unlink(stateFilePath); } catch { /* native code may already remove it */ }
       }
     };
-    prototype.loadPersistentStateAndWait = loadPersistentStateAndWait;
-    prototypeRestores.push(() => Reflect.deleteProperty(prototype, "loadPersistentStateAndWait"));
+    prototype.loadExplicitStateAndWait = loadExplicitStateAndWait;
+    prototypeRestores.push(() => Reflect.deleteProperty(prototype, "loadExplicitStateAndWait"));
   };
 
   const managerDescriptor = Object.getOwnPropertyDescriptor(target, "EJS_GameManager");

@@ -87,27 +87,13 @@ func newSaveFixture(t *testing.T) *saveFixture {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var artifactID, compatibilityJSON string
+	var artifactID string
 	if err := database.SQL.QueryRowContext(ctx, `
-SELECT id,compatibility_config_json
+SELECT id
 FROM core_artifacts
 WHERE core_id='mgba'
 AND enabled=1
-`).Scan(&artifactID, &compatibilityJSON); err != nil {
-		t.Fatal(err)
-	}
-	var compatibility map[string]any
-	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil {
-		t.Fatal(err)
-	}
-	compatibility["persistentSaveMode"] = "SINGLE_FILE"
-	updatedCompatibility, err := json.Marshal(compatibility)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := database.SQL.ExecContext(ctx, `
-UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?
-`, string(updatedCompatibility), artifactID); err != nil {
+`).Scan(&artifactID); err != nil {
 		t.Fatal(err)
 	}
 	gameID := uuid.NewString()
@@ -316,6 +302,36 @@ WHERE id=?
 	}
 }
 
+// enableLegacyPersistent isolates compatibility coverage for historical
+// records. Current dependency manifests and Launch config never expose this.
+func (fixture *saveFixture) enableLegacyPersistent(t *testing.T, mode, kind string) {
+	t.Helper()
+	var artifactID, compatibilityJSON string
+	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
+SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND enabled=1
+`).Scan(&artifactID, &compatibilityJSON); err != nil {
+		t.Fatal(err)
+	}
+	var compatibility map[string]any
+	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil {
+		t.Fatal(err)
+	}
+	compatibility["persistentSaveMode"] = mode
+	compatibility["persistentSaveKind"] = kind
+	updatedCompatibility, err := json.Marshal(compatibility)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := fixture.database.SQL.ExecContext(
+		fixture.ctx,
+		`UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?`,
+		string(updatedCompatibility),
+		artifactID,
+	); err != nil {
+		t.Fatal(err)
+	}
+}
+
 func (fixture *saveFixture) createLaunch(t *testing.T) launch.Created {
 	t.Helper()
 	created, err := fixture.launches.Create(fixture.ctx, "local", launch.CreateRequest{
@@ -453,8 +469,9 @@ FROM save_states
 	}
 }
 
-func TestPersistentSaveLocksLaunchBaseAndEnforcesSequence(t *testing.T) {
+func TestLegacyPersistentSaveLocksLaunchBaseAndEnforcesSequence(t *testing.T) {
 	fixture := newSaveFixture(t)
+	fixture.enableLegacyPersistent(t, "SINGLE_FILE", "CORE_SAVE")
 	first := fixture.createLaunch(t)
 	stale := fixture.createLaunch(t)
 	firstBytes := []byte("persistent-one")
@@ -531,6 +548,14 @@ func TestPersistentSaveLocksLaunchBaseAndEnforcesSequence(t *testing.T) {
 		t.Fatalf("stale launch conflict = %v", err)
 	}
 	current := fixture.createLaunch(t)
+	if _, err := fixture.database.SQL.ExecContext(
+		fixture.ctx,
+		`UPDATE launch_sessions SET persistent_save_base_revision_id=? WHERE id=?`,
+		firstResult.RevisionID,
+		current.LaunchID,
+	); err != nil {
+		t.Fatal(err)
+	}
 	metadata, exists, err := fixture.saves.GetPersistent(fixture.ctx, current.LaunchID, current.Capability)
 	if err != nil || !exists || metadata.SHA256 != contentDigestHex(firstBytes) {
 		t.Fatalf("locked persistent base = %#v, exists=%v, error=%v", metadata, exists, err)
@@ -638,32 +663,9 @@ SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND
 	}
 }
 
-func TestPersistentFileTreeRejectsMalformedBundleBeforeCreatingRevision(t *testing.T) {
+func TestLegacyPersistentFileTreeRejectsMalformedBundleBeforeCreatingRevision(t *testing.T) {
 	fixture := newSaveFixture(t)
-	var artifactID, compatibilityJSON string
-	if err := fixture.database.SQL.QueryRowContext(fixture.ctx, `
-SELECT id,compatibility_config_json FROM core_artifacts WHERE core_id='mgba' AND enabled=1
-`).Scan(&artifactID, &compatibilityJSON); err != nil {
-		t.Fatal(err)
-	}
-	var compatibility map[string]any
-	if err := json.Unmarshal([]byte(compatibilityJSON), &compatibility); err != nil {
-		t.Fatal(err)
-	}
-	compatibility["persistentSaveMode"] = "FILE_TREE"
-	compatibility["persistentSaveKind"] = "CORE_SAVE"
-	updatedCompatibility, err := json.Marshal(compatibility)
-	if err != nil {
-		t.Fatal(err)
-	}
-	if _, err := fixture.database.SQL.ExecContext(
-		fixture.ctx,
-		`UPDATE core_artifacts SET compatibility_config_json=? WHERE id=?`,
-		string(updatedCompatibility),
-		artifactID,
-	); err != nil {
-		t.Fatal(err)
-	}
+	fixture.enableLegacyPersistent(t, "FILE_TREE", "CORE_SAVE")
 	created := fixture.createLaunch(t)
 	malformed := []byte("not-a-file-tree")
 	if _, _, err := fixture.saves.PutPersistent(

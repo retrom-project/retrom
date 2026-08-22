@@ -202,6 +202,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 - 先选择基础平台，再选择该平台已启用的默认核心。
 - 名称在站点内可以重复；创建请求不接收 slug，服务端在事务内生成唯一的 <code>(platform_id, slug)</code>，选择器同时显示基础平台消除歧义。
 - 空库 bootstrap 必须幂等创建总览文档第 6 节列出的初始游戏目录；用户也可在管理后台新增。seed 使用稳定 `(platform_id, slug)`，不得每次启动生成新 UUID 行。
+- Migration 039 将旧 seed 的 `FDS 游戏`合并进 `NES 游戏`、将 `MAME 2003 游戏`合并进 `MAME 2003 Plus 游戏`。既有 Game 只改变 `platform_instance_id/version`，内容 revision、核心变体、存档和历史 Launch 不改写；旧目录以 disabled soft-delete tombstone 保留，供不可变导入与审计外键继续回放。若目标 seed 曾被软删除，升级会恢复它后再迁移 Game。
 
 ### 修改默认核心
 

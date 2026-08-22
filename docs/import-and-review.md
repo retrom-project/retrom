@@ -118,8 +118,8 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 
 | 基础平台 | 一期输入 | ImportItem 与 primary content 规则 |
 | --- | --- | --- |
-| NES (`nes`) | 原始 `.nes`、`.unf`、`.unif`；或一个 ZIP/7z | archive 必须恰有一个上述扩展的安全 entry，该 entry 是 `SINGLE_ARCHIVE_MEMBER_V1` hash 与运行内容来源。 |
-| Famicom Disk System (`fds`) | 原始 `.fds`；或一个 ZIP/7z | 与 NES 相同，但唯一候选 entry 必须是 `.fds`；启动仍检查 `disksys.rom`。 |
+| NES (`nes`) | 原始 `.nes`、`.unf`、`.unif`、`.fds`；或一个 ZIP/7z | archive 必须恰有一个上述扩展的安全 entry，该 entry 是 `SINGLE_ARCHIVE_MEMBER_V1` hash 与运行内容来源；`.fds` 启动仍检查 `disksys.rom`。Migration 039 后 FDS 不再有独立初始游戏目录。 |
+| Famicom Disk System (`fds`) | 原始 `.fds`；或一个 ZIP/7z | 仅兼容管理员自行建立的历史/自定义目录；新初始目录统一使用 NES 游戏。唯一候选 entry 必须是 `.fds`，启动仍检查 `disksys.rom`。 |
 | SNES (`snes`) | 原始 `.sfc`、`.smc`、`.swc`、`.fig`；或一个 ZIP/7z | archive 必须恰有一个支持 entry；不自动拼接多卷或补 copier header。 |
 | Game Boy / Color (`gbc`) | 原始 `.gb`、`.gbc`、`.dmg`；或一个 ZIP/7z | archive 必须恰有一个支持 entry。 |
 | Game Boy Advance (`gba`) | 原始 `.gba`；或一个 ZIP/7z | archive 必须恰有一个 `.gba` entry。 |

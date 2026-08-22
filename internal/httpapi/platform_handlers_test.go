@@ -123,6 +123,7 @@ func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *
 	}
 	type platform struct {
 		PlatformID          string                               `json:"platformId"`
+		Name                string                               `json:"name"`
 		SupportedExtensions []string                             `json:"supportedExtensions"`
 		ImportCapabilities  contentcapability.ImportCapabilities `json:"importCapabilities"`
 	}
@@ -141,6 +142,9 @@ func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *
 		}
 		result := make(map[string]platform, len(body.Items))
 		for _, item := range body.Items {
+			if item.Name == "FDS 游戏" || item.Name == "MAME 2003 游戏" {
+				t.Fatalf("retired seed directory remained visible: %#v", item)
+			}
 			result[item.PlatformID] = item
 		}
 		return result
@@ -154,11 +158,19 @@ func TestPlatformImportCapabilitiesUseFeaturePlatformAndArtifactIntersection(t *
 		if len(item.SupportedExtensions) == 0 {
 			t.Fatalf("%s has no supported extensions", platformID)
 		}
+		seen := make(map[string]struct{}, len(item.SupportedExtensions))
+		for _, extension := range item.SupportedExtensions {
+			if _, duplicate := seen[extension]; duplicate {
+				t.Fatalf("%s has duplicate extension %q", platformID, extension)
+			}
+			seen[extension] = struct{}{}
+		}
 	}
 	wantExtensions := map[string][]string{
 		"virtualboy": {".vb"}, "wonderswan": {".ws", ".wsc"},
 		"mastersystem": {".sms"}, "nintendo3ds": {".3ds", ".cci"},
 		"arcade": {".zip"}, "dos": {".exe", ".com", ".bat"},
+		"nes": {".nes", ".unf", ".unif", ".fds"},
 	}
 	for platformID, want := range wantExtensions {
 		got := items[platformID].SupportedExtensions

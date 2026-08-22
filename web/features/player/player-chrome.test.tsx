@@ -14,12 +14,12 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     gameTitle: "1943: The Battle of Midway",
     coreName: "FinalBurn Neo",
     platformName: "Arcade",
-    syncText: "已同步",
+    syncText: "可创建存档",
     syncTone: "synced",
     saveUploadProgress: null,
+    saveAvailable: true,
     toast: "",
     warnings: [],
-    hasPersistentConflict: false,
     emulatorToolbarOpen: false,
     emulatorVolume: 0.72,
     emulatorMuted: false,
@@ -52,7 +52,6 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     onToggleNetplayPause: vi.fn(),
     onToggleDebug: vi.fn(),
     onExit: vi.fn(),
-    onDownloadConflict: vi.fn(),
     ...overrides,
   };
 }
@@ -67,6 +66,20 @@ describe("PlayerChrome", () => {
     expect(progress.closest("[role='status']")).toHaveTextContent("正在上传存档47%");
     rerender(<PlayerChrome {...props({ saveUploadProgress: null })} />);
     expect(screen.queryByRole("progressbar", { name: "存档上传进度" })).not.toBeInTheDocument();
+  });
+
+  it("does not create an unrestorable save from the DOS program menu", async () => {
+    const user = userEvent.setup();
+    const values = props({ saveAvailable: false });
+    render(<PlayerChrome {...values} />);
+
+    expect(screen.getByRole("button", { name: "创建存档" })).toBeDisabled();
+    await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
+    const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
+    expect(dialog).toHaveTextContent("当前从 DOS 程序菜单启动，无法创建可恢复存档");
+    expect(within(dialog).getByRole("button", { name: "创建存档" })).toBeDisabled();
+    expect(dialog).toHaveTextContent("选择一个具体 DOS 程序再开始");
+    expect(values.onSave).not.toHaveBeenCalled();
   });
 
   it("locks local save, pause, disc and emulator settings controls in netplay mode", async () => {
@@ -227,19 +240,17 @@ describe("PlayerChrome", () => {
     expect(values.onCloseEmulatorSettings).toHaveBeenCalledOnce();
   });
 
-  it("requires exit confirmation and preserves the local-save conflict actions", async () => {
+  it("exits without creating a save unless the user chooses the explicit save action", async () => {
     const user = userEvent.setup();
-    const values = props({ hasPersistentConflict: true, syncText: "存档需要处理", syncTone: "warning" });
+    const values = props();
     render(<PlayerChrome {...values} />);
 
-    expect(screen.getByRole("alert")).toHaveTextContent("另一游戏会话更新了服务器存档");
-    await user.click(screen.getByRole("button", { name: "下载本地存档" }));
-    expect(values.onDownloadConflict).toHaveBeenCalledOnce();
-
     await user.click(screen.getByRole("button", { name: "返回并退出游戏" }));
-    expect(screen.getByRole("alertdialog", { name: "退出游戏？" })).toBeVisible();
-    await user.click(screen.getByRole("button", { name: "下载本地存档并退出" }));
-    expect(values.onDownloadConflict).toHaveBeenCalledTimes(2);
+    const dialog = screen.getByRole("alertdialog", { name: "退出游戏？" });
+    expect(dialog).toHaveTextContent("直接退出不会创建存档");
+    expect(dialog).toHaveTextContent("只有点击“创建存档”才会保存当前位置");
+    await user.click(within(dialog).getByRole("button", { name: "退出游戏" }));
+    expect(values.onSave).not.toHaveBeenCalled();
     expect(values.onExit).toHaveBeenCalledOnce();
   });
 

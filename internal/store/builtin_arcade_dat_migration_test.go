@@ -54,7 +54,7 @@ WHERE d.id='legacy-user-dat'
 `).Scan(&version, &active, &parseStatus, &jobState, &cancelReason); err != nil {
 		t.Fatal(err)
 	}
-	if version != 38 || active != 0 || parseStatus != "CANCELLED" ||
+	if version != 39 || active != 0 || parseStatus != "CANCELLED" ||
 		jobState != "CANCELLED" || cancelReason != "USER_DAT_RETIRED" {
 		t.Fatalf("upgrade = version:%d active:%d DAT:%s job:%s reason:%s", version, active, parseStatus, jobState, cancelReason)
 	}

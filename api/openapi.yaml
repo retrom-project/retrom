@@ -1936,8 +1936,11 @@ components:
         persistentSaveMode:
           type: string
           enum: [SINGLE_FILE, DOS_OVERLAY, FILE_TREE, AUTO_STATE, NONE]
-          description: FILE_TREE is a bounded /data/saves tree bundle; AUTO_STATE persists a bounded automatic core state for cores without a reliable native save-file flush hook.
-        persistentSaveUrl: { type: string, nullable: true }
+          description: Active Player launches always return NONE. Other values are retained only for compatibility with historical artifact metadata and persistent-save records.
+        persistentSaveUrl:
+          type: string
+          nullable: true
+          description: Active Player launches always return null because saves are created only by an explicit save-state action.
         inputMode: { type: string, enum: [STANDARD, POINTER] }
         startupActions:
           type: array

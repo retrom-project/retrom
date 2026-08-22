@@ -33,9 +33,9 @@ export function PlayerChrome({
   syncText,
   syncTone,
   saveUploadProgress,
+  saveAvailable,
   toast,
   warnings,
-  hasPersistentConflict,
   emulatorToolbarOpen,
   emulatorVolume,
   emulatorMuted,
@@ -64,7 +64,6 @@ export function PlayerChrome({
   onToggleNetplayPause,
   onToggleDebug,
   onExit,
-  onDownloadConflict,
 }: {
   controlsVisible: boolean;
   running: boolean;
@@ -76,9 +75,9 @@ export function PlayerChrome({
   syncText: string;
   syncTone: SyncTone;
   saveUploadProgress: number | null;
+  saveAvailable: boolean;
   toast: string;
   warnings: string[];
-  hasPersistentConflict: boolean;
   emulatorToolbarOpen: boolean;
   emulatorVolume: number;
   emulatorMuted: boolean;
@@ -107,14 +106,12 @@ export function PlayerChrome({
   onToggleNetplayPause: () => void;
   onToggleDebug: () => void;
   onExit: () => void;
-  onDownloadConflict: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [discMenuOpen, setDiscMenuOpen] = useState(false);
   const [discBusy, setDiscBusy] = useState(false);
   const [exitOpen, setExitOpen] = useState(false);
   const [exitSaveState, setExitSaveState] = useState<ExitSaveState>("idle");
-  const [conflictDismissed, setConflictDismissed] = useState(false);
   const [localToast, setLocalToast] = useState("");
   const menuRef = useRef<HTMLDivElement>(null);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
@@ -194,7 +191,7 @@ export function PlayerChrome({
   }
 
   async function createExitSave() {
-    if (isNetplay || !running || exitSavePending.current || exitSaveState === "saved") return;
+    if (isNetplay || !running || !saveAvailable || exitSavePending.current || exitSaveState === "saved") return;
     exitSavePending.current = true;
     onPauseForToolbarInteraction();
     setExitSaveState("saving");
@@ -237,15 +234,15 @@ export function PlayerChrome({
 
   const exitDescription = isNetplay
     ? "退出会结束所有参与者的本局联机，并返回房间。联机模式不会读取或写入个人存档。"
+    : !saveAvailable
+      ? "当前从 DOS 程序菜单启动，无法创建可恢复存档；直接退出不会保存当前位置。"
     : exitSaveState === "saving"
     ? "正在创建退出前存档…"
     : exitSaveState === "saved"
       ? "退出前存档已创建，可以安全退出。"
       : exitSaveState === "error"
         ? "创建存档失败，未生成不完整记录。可以重试或取消后继续游戏。"
-        : hasPersistentConflict
-          ? "检测到尚未同步的本地进度。"
-          : "游戏进度已同步，可以安全退出。";
+      : "直接退出不会创建存档；如需保留当前位置，请先创建存档。";
 
   return <>
     {saveUploadProgress !== null ? <div className="player-save-upload-progress" role="status" aria-live="polite">
@@ -315,7 +312,7 @@ export function PlayerChrome({
             <small>切换后游戏保持暂停，返回游戏即可继续。</small>
           </div></> : null}
         </div> : null}
-        {!isNetplay ? <button className={`player-control player-save-button player-context-action${actionLayout.primary === "save" ? " is-primary" : ""}`} type="button" disabled={!running} onClick={() => void onSave()}><AppIcon name="save" />创建存档</button> : null}
+        {!isNetplay ? <button className={`player-control player-save-button player-context-action${actionLayout.primary === "save" ? " is-primary" : ""}`} type="button" disabled={!running || !saveAvailable} title={!saveAvailable ? "请退出后从游戏详情选择具体 DOS 程序再开始" : undefined} onClick={() => void onSave()}><AppIcon name="save" />创建存档</button> : null}
         {isNetplay && netplayPlayerNo === 1 ? <button className="player-control player-context-action is-primary" type="button" disabled={!running} aria-pressed={netplayPaused} onClick={onToggleNetplayPause}><AppIcon name={netplayPaused ? "play" : "pause"} />{netplayPaused ? "继续联机" : "全局暂停"}</button> : null}
         {isNetplay && netplayPlayerNo !== 1 ? <span className="player-seat-context player-context-action is-primary">联机 · P{netplayPlayerNo}</span> : null}
         {!isNetplay ? <button className="player-control is-icon" type="button" aria-label={paused ? "已暂停，点击游戏画面继续" : "暂停"} title={paused ? "点击游戏画面继续" : "暂停"} aria-pressed={paused} disabled={!running}><AppIcon name="pause" /></button> : null}
@@ -410,15 +407,6 @@ export function PlayerChrome({
       </div>
     </section> : null}
 
-    {!conflictDismissed && hasPersistentConflict ? <aside className="player-conflict" role="alert">
-      <span className="player-conflict-mark" aria-hidden="true">!</span>
-      <div><strong>另一游戏会话更新了服务器存档</strong><p>当前本地进度尚未同步。退出前建议先保存一份本地副本。</p></div>
-      <div className="player-conflict-actions">
-        <button className="player-control" type="button" onClick={onDownloadConflict}><AppIcon name="download" />下载本地存档</button>
-        <button className="player-control" type="button" onClick={() => setConflictDismissed(true)}>稍后处理</button>
-      </div>
-    </aside> : null}
-
     <div className={`player-toast${visibleToast ? " is-visible" : ""}`} role="status" aria-live="polite">{visibleToast}</div>
     <div className={`player-controls-hint${controlsVisible ? " is-hidden" : ""}`}>移到屏幕顶部显示 Retrom 控制</div>
 
@@ -429,16 +417,18 @@ export function PlayerChrome({
       leadingLabel={isNetplay ? undefined : exitSaveState === "saved" ? "已创建存档" : exitSaveState === "error" ? "重试创建存档" : "创建存档"}
       leadingBusy={exitSaveState === "saving"}
       leadingBusyLabel="正在创建…"
-      leadingDisabled={isNetplay || !running || exitSaveState === "saved"}
+      leadingDisabled={isNetplay || !running || !saveAvailable || exitSaveState === "saved"}
       confirmLabel="退出游戏"
-      secondaryLabel={hasPersistentConflict ? "下载本地存档并退出" : undefined}
       tone="danger"
       onLeading={() => void createExitSave()}
       onCancel={() => setExitOpen(false)}
-      onSecondary={hasPersistentConflict ? () => { onDownloadConflict(); setExitOpen(false); onExit(); } : undefined}
       onConfirm={() => { setExitOpen(false); onExit(); }}
     >
-      {isNetplay ? <span>本局从头开始，退出后不会产生持久存档或状态存档。</span> : hasPersistentConflict ? <span>服务器存档已由另一会话推进；直接退出不会覆盖服务器版本，重新进入游戏后将从服务器最新版本开始。</span> : <span>退出时会刷新持久进度、结束本次游玩记录，并返回启动游戏前的页面。</span>}
+      {isNetplay
+        ? <span>本局从头开始，退出后不会产生状态存档。</span>
+        : saveAvailable
+          ? <span>只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录。</span>
+          : <span>请退出后从游戏详情选择一个具体 DOS 程序再开始，届时即可创建并恢复存档。</span>}
     </ConfirmDialog>
   </>;
 }

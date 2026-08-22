@@ -1,6 +1,6 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 import type { DiscSet, EmulatorInstance } from "./adapters/ejs-4.2.3-v2";
-import { restoreMultiDiscLaunch } from "./multi-disc-restore";
+import { prepareMultiDiscLaunch } from "./multi-disc-restore";
 
 const discSet: DiscSet = {
   contentKind: "MULTI_DISC_M3U_V1",
@@ -16,51 +16,30 @@ const discSet: DiscSet = {
 function fixture() {
   const calls: string[] = [];
   let currentDisc = 0;
-  const fileSystem = {
-    analyzePath: vi.fn((path: string) => ({ exists: ["/data", "/data/saves"].includes(path) })),
-    mkdir: vi.fn((path: string) => { calls.push(`mkdir:${path}`); }),
-    writeFile: vi.fn((path: string) => { calls.push(`write:${path}`); }),
-    unlink: vi.fn((path: string) => { calls.push(`unlink:${path}`); }),
-  };
   const instance: EmulatorInstance = {
     on: () => undefined,
     gameManager: {
-      FS: fileSystem,
       getDiskCount: () => 3,
       getCurrentDisk: () => currentDisc,
       setCurrentDisk: (index) => { calls.push(`disc:${index}`); currentDisc = index; },
-      loadSaveFiles: () => { calls.push("persistent:load"); },
-      loadState: () => { calls.push("state:load"); },
       toggleMainLoop: (running) => { calls.push(`loop:${running}`); },
     },
   };
-  return { calls, fileSystem, instance };
+  return { calls, instance };
 }
 
-describe("restoreMultiDiscLaunch", () => {
-  it("restores persistent bytes, selects the saved disc, and loads state before resuming", () => {
-    const { calls, fileSystem, instance } = fixture();
-    const selected = restoreMultiDiscLaunch(instance, discSet, {
-      fileSystem,
-      savePath: "/data/saves/game.srm",
-      bytes: Uint8Array.of(1, 2, 3),
-    }, Uint8Array.of(4, 5, 6));
+describe("prepareMultiDiscLaunch", () => {
+  it("selects the saved disc and leaves the loop paused for the explicit restore boundary", () => {
+    const { calls, instance } = fixture();
+    const selected = prepareMultiDiscLaunch(instance, discSet);
     expect(selected).toEqual({ count: 3, currentIndex: 1 });
-    expect(calls).toEqual([
-      "loop:false",
-      "write:/data/saves/game.srm",
-      "persistent:load",
-      "disc:1",
-      "state:load",
-      "loop:true",
-    ]);
+    expect(calls).toEqual(["loop:false", "disc:1"]);
   });
 
-  it("keeps the main loop stopped when a required restore boundary fails", () => {
+  it("keeps the main loop stopped when disc selection fails", () => {
     const { calls, instance } = fixture();
-    if (instance.gameManager) instance.gameManager.loadState = undefined;
-    expect(() => restoreMultiDiscLaunch(instance, discSet, null, Uint8Array.of(1)))
-      .toThrow("PLAYER_SAVE_STATE_UNAVAILABLE");
-    expect(calls).toEqual(["loop:false", "disc:1"]);
+    if (instance.gameManager) instance.gameManager.getDiskCount = () => 2;
+    expect(() => prepareMultiDiscLaunch(instance, discSet)).toThrow("PLAYER_DISC_SET_INVALID");
+    expect(calls).toEqual(["loop:false"]);
   });
 });

@@ -106,7 +106,16 @@ upload_files arcade "$fixture_root/pacman.zip" "$fixture_root/puckman.zip"
 arcade_upload_id="$(jq -r .uploadId "$evidence/arcade-result.json")"
 platform_instances="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/platform-instances")"
 printf '%s\n' "$platform_instances" >"$evidence/platform-instances.json"
-platform_instance_id="$(jq -er --arg coreId "$core_id" '.items[] | select(.defaultCoreId == $coreId) | .id' <<<"$platform_instances")"
+platform_instance_id="$(jq -r --arg coreId "$core_id" '[.items[] | select(.defaultCoreId == $coreId) | .id][0] // empty' <<<"$platform_instances")"
+if [[ -z "$platform_instance_id" ]]; then
+  platform_instance="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" \
+    -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" \
+    -d "$(jq -nc --arg coreId "$core_id" --arg name "$core_id acceptance games" \
+      '{platformId:"arcade",defaultCoreId:$coreId,name:$name,description:"Acceptance-only core directory",sortOrder:10000}')" \
+    "$backend/api/v1/admin/platform-instances")"
+  platform_instance_id="$(jq -er .id <<<"$platform_instance")"
+  printf '%s\n' "$platform_instance" >"$evidence/platform-instance-created.json"
+fi
 imported="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$(jq -nc --arg uploadId "$arcade_upload_id" --arg target "$platform_instance_id" '{uploadId:$uploadId,targetPlatformInstanceId:$target,metadataProvider:"NONE",tagIds:[]}')" "$backend/api/v1/admin/imports")"
 printf '%s\n' "$imported" >"$evidence/import.json"
 import_id="$(jq -r .importJobId <<<"$imported")"
@@ -223,9 +232,9 @@ unzip -p "$evidence/bios-bundle.zip" retrombios.zip | cmp "$fixture_root/retromb
 
 result="$(jq -nc \
   --arg status "PASSED" --arg coreId "$core_id" --arg initialLaunchStatus "$initial_launch_status" \
-  --arg datVersionId "$dat_version_id" --arg importJobId "$import_id" \
+  --arg datVersionId "$dat_version_id" --arg importJobId "$import_id" --arg platformInstanceId "$platform_instance_id" \
   --arg gameId "$game_id" --arg launchId "$launch_id" --arg fixtureSha256 "$fixture_sha256" --arg evidenceDirectory "$evidence" \
-  '{status:$status,coreId:$coreId,reviewDependencySnapshotSchemaVersion:2,initialLaunchStatus:$initialLaunchStatus,datVersionId:$datVersionId,importJobId:$importJobId,gameId:$gameId,launchId:$launchId,fixtureSha256:$fixtureSha256,evidenceDirectory:$evidenceDirectory}' \
+  '{status:$status,coreId:$coreId,reviewDependencySnapshotSchemaVersion:2,initialLaunchStatus:$initialLaunchStatus,datVersionId:$datVersionId,importJobId:$importJobId,platformInstanceId:$platformInstanceId,gameId:$gameId,launchId:$launchId,fixtureSha256:$fixtureSha256,evidenceDirectory:$evidenceDirectory}' \
 )"
 printf '%s\n' "$result" | tee "$evidence/result.json"
 if [[ -n "${RETROM_ACCEPTANCE_RESULT_FILE:-}" ]]; then

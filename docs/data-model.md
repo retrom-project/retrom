@@ -44,7 +44,7 @@ User 状态变更、Credential/Session/Link 撤销、待用 Launch 终止与安�
 
 `core_artifacts.provenance_json` 固定为 `{"schemaVersion":1,"dependencyManifestSha256":"<64 lowercase hex>","manifestEntryPointer":"/emulatorjs/selected_core_artifacts/<index>","sourceAssociationStatus":"EXACT_COMMIT|EMBEDDED_VERSION|INFERRED_BUILD_TIME|RELEASE_ONLY","sourceUrl":null|string,"notes":[]}`；notes 只存简短证据说明，不存宿主路径。`source_commit` 只在证据能锁定 40 位 Git commit 时填写，RELEASE_ONLY 必须为空。
 
-`compatibility_config_json` 当前写入 schema V4：`runtimeCoreId`、`requestedArtifactBasename`、`canvasResizePolicy`、`defaultOptions`、`persistentSaveMode`、可空 `persistentSaveKind`、`inputMode`、`startupActions`、`supportedContentKinds` 与可空 `multiDisc` 全部由依赖 manifest 明示；V2/V3 只为既有 artifact 兼容读取。`persistentSaveMode` 只允许 `SINGLE_FILE|DOS_OVERLAY|FILE_TREE|AUTO_STATE|NONE`：SINGLE_FILE、FILE_TREE 与 AUTO_STATE 的 kind 固定为 `CORE_SAVE`，DOS_OVERLAY 固定为 `DOS_OVERLAY`，NONE 必须为 null；AUTO_STATE 和非 PPSSPP FILE_TREE 只允许 schema V4。`inputMode` 只允许 `STANDARD|POINTER`。启动动作最多 4 条，只允许有界的 `GAME_START/PRESS_CONTROL` 整数字段，`delayMs` 上限 30,000、`durationMs` 上限 1,000。basename 是所属 EmulatorJS 版本 loader 实际请求的 key；线程产物也使用其真实 `*-thread-wasm.data` basename。v4.2.3 只有 `mame2003` 使用 `ON_GAME_START_TO_CSS_PIXELS`，NDS 三核心与 Azahar 为 POINTER，PPSSPP 有 2 秒/5 秒两条 120ms 确认动作，Beetle VB 的四条确认动作延迟为 2/4/15/25 秒。前后端不得按 core ID 补默认值。
+`compatibility_config_json` 当前写入 schema V4：`runtimeCoreId`、`requestedArtifactBasename`、`canvasResizePolicy`、`defaultOptions`、`persistentSaveMode`、可空 `persistentSaveKind`、`inputMode`、`startupActions`、`supportedContentKinds` 与可空 `multiDisc` 全部由依赖 manifest 明示；V2/V3 只为既有 artifact 兼容读取。schema 仍可读取 `SINGLE_FILE|DOS_OVERLAY|FILE_TREE|AUTO_STATE|NONE`，但当前所有被选 artifact 都写 `NONE` 且 kind 为 null；新 Launch 不从历史模式推导自动存档。`inputMode` 只允许 `STANDARD|POINTER`。启动动作最多 4 条，只允许有界的 `GAME_START/PRESS_CONTROL` 整数字段，`delayMs` 上限 30,000、`durationMs` 上限 1,000。basename 是所属 EmulatorJS 版本 loader 实际请求的 key；线程产物也使用其真实 `*-thread-wasm.data` basename。v4.2.3 只有 `mame2003` 使用 `ON_GAME_START_TO_CSS_PIXELS`，NDS 三核心与 Azahar 为 POINTER，PPSSPP 有 2 秒/5 秒两条 120ms 确认动作，Beetle VB 的四条确认动作延迟为 2/4/15/25 秒。前后端不得按 core ID 补默认值。
 
 ## 3. Blob 与不可变游戏 revision
 
@@ -164,7 +164,7 @@ Upload 清理规则固定为：未完成 session 在 24 小时后进入 EXPIRED�
 | `play_sessions` | `id PK`、`launch_session_id UNIQUE`、profile/game/variant revision、`started_at_ms/last_heartbeat_at_ms`、可空 `ended_at_ms`、`active_duration_ms`、`last_client_sequence`、`state ACTIVE/FINISHED/ABANDONED`、`version`、`created_at_ms/updated_at_ms`。 |
 | `play_session_events` | `(play_session_id, client_sequence) PK`、`event_kind START/HEARTBEAT/FINISH`、`client_observed_at_ms/server_received_at_ms`、`running/visible/paused` 布尔、`accepted_duration_ms`、`created_at_ms`；append-only，用于幂等与审计。START 固定 sequence 0/accepted 0；其余必须连续。 |
 | `save_states` | `id PK`、`profile_id/game_id/game_variant_revision_id/core_artifact_id`、可空 `dat_version_id/dos_entry_path/disc_index`、`state_blob_id`、非空 `screenshot_blob_id`、可空 `source_launch_session_id`、`name`、`active_duration_ms`、`version`、`created_at_ms/updated_at_ms`、可空 `deleted_at_ms`；状态与截图同事务创建。新建手动存档必须记录来源 LaunchSession，且 trigger 校验 Profile/Game/VariantRevision/CoreArtifact/DAT/DOS entry/盘号与来源启动一致；多盘必须记录范围内盘号，SINGLE/DOS 必须为空。历史迁移前存档允许来源为空，不能据此推断它属于某次游玩。软删除后保留引用 7 天，随后 GC 可物理删除该行并按引用规则回收 Blob；审核历史不依赖 SaveState 行。DOS entry 必须属于该 revision，DatVersion 必须等于 revision 快照。 |
-| `persistent_saves` | `id PK`、`profile_id/game_variant_revision_id`、`kind CORE_SAVE/DOS_OVERLAY`、非空 `current_revision_id`、`version`、`created_at_ms/updated_at_ms`；`UNIQUE(profile_id, game_variant_revision_id, kind)`。kind 从锁定 artifact compatibility 推导；`dosbox_pure` 为 DOS_OVERLAY；FILE_TREE 把 `/data/saves` 的确定性文件树包保存为 CORE_SAVE；AUTO_STATE 把自动核心状态保存为 CORE_SAVE；`prosystem/stella2014` 的模式为 NONE，不能创建 PersistentSave；SINGLE_FILE 仍保存单个 CORE_SAVE。 |
+| `persistent_saves` | 历史自动持久化记录：`id PK`、`profile_id/game_variant_revision_id`、`kind CORE_SAVE/DOS_OVERLAY`、非空 `current_revision_id`、`version`、`created_at_ms/updated_at_ms`；`UNIQUE(profile_id, game_variant_revision_id, kind)`。当前 Player Launch 不读取、绑定或写入这些记录；显式存档统一进入 `save_states`。保留表只为数据兼容，不能使普通开始恢复旧进度。 |
 | `persistent_save_revisions` | `id PK`、`persistent_save_id/blob_id/source_launch_session_id`、`client_sequence`、`source_event AUTO_INTERVAL/MANUAL_EXPORT/EXIT`、`created_at_ms`；`UNIQUE(source_launch_session_id, client_sequence)`，append-only，成功写新 Blob 后才切换 current。launch 必须与 PersistentSave 指向相同 Profile/VariantRevision；每个 launch 的 sequence 从 1 连续递增，重复 sequence 只能命中相同 Blob/event。首个 revision 只在 PersistentSave current 仍等于 Launch 的可空 base 时提升；后续 revision 只在 current 仍等于该 launch 上一 sequence revision 时提升，防止并发会话丢失更新。 |
 
 heartbeat 带单调 `clientSequence` 和上一个区间的 `running/visible/paused` 状态；服务端只接受连续新序号，重复序号返回原结果，跳号返回冲突。单次可计入 delta 上限 45 秒；页面隐藏、模拟器暂停/未启动、超出 45 秒失联段计 0。异常关闭由最后一次已接受 heartbeat 截断。
@@ -384,6 +384,12 @@ Worker 顺序处理冻结 Item；每项在普通 Approve 短事务内再次验�
 
 Migration 038 收口为 release 内置 DAT：升级时取消历史 USER DatVersion 的非终态 `DAT_PARSE`、取消其 active 状态并删除仅服务于上传候选比较的 `dat_import_jobs/dat_diff_snapshots/dat_diff_items`；保留历史 DatVersion 与索引行以维持 VariantRevision、Validation 和审核事件外键。新 trigger 禁止创建 USER DatVersion、禁止修改历史 USER 行，也禁止把 BUILTIN 改写为 USER。037→038 与 fresh 001→038 必须通过 `foreign_key_check` 和 `integrity_check`。
 
-## 21. 统一验收入口
+## 21. Migration 039：初始游戏目录合并
+
+039 将 `FDS 游戏`中的 Game 迁到 `NES 游戏`，将 `MAME 2003 游戏`中的 Game 迁到 `MAME 2003 Plus 游戏`，随后把两个来源目录设为 disabled soft-delete。Game ID、current metadata/content revision、GameVariant/VariantRevision、SaveState、Play/Launch 历史均保持不变；只推进被迁移 Game 和被改变目录的 version。旧目录行不能硬删，因为历史 ImportJob、Validation、Review、Pegasus 映射和运行预览仍可能通过外键引用它们。目标 seed 若此前被软删除，升级必须先恢复；未删除但被管理员停用的目标不覆盖其 enabled 选择。
+
+NES 内容 profile 合并 `.fds` 后稳定返回 `.nes/.unf/.unif/.fds`；Arcade 各目录共同的 `.zip` 只投影一次。扩展名集合必须稳定有序且无重复。038→039 与 fresh 001→039 都必须通过 `foreign_key_check`、`integrity_check` 和含既有 Game 的升级回归。
+
+## 22. 统一验收入口
 
 schema 与整数时间由 `ACC-DB-*` 覆盖；唯一归属由 `ACC-PLAT-*`；不可变 revision 与删除由 `ACC-GAME-*`、`ACC-SAVE-*`；Pegasus/VIDEO 由 `ACC-PEG-*` 与 `ACC-MEDIA-001`；标签由 `ACC-TAG-001`–`005`；状态机、lease 与快速审批由 `ACC-IMP-*`；凭据 hash 与内容授权由 `ACC-SEC-002`。
