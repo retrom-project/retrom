@@ -258,7 +258,7 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await page.goto("/admin/platform-instances");
   await expect(page.getByRole("heading", { name: "游戏目录", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "主要导航" }).getByText("游戏目录", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "✓ 推荐目录已补全" })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "✓ 推荐目录已创建" })).toBeDisabled();
   await expect(page.getByRole("columnheader", { name: "启用状态" })).toBeVisible();
   await expect(page.getByText("FDS 游戏", { exact: true })).toHaveCount(0);
   await expect(page.getByText("MAME 2003 游戏", { exact: true })).toHaveCount(0);

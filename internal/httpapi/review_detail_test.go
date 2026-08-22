@@ -268,11 +268,13 @@ WHERE id=?
 	testassert.Falsef(t, anyTrue(pegasusVideo.Code != http.StatusOK,
 		!bytes.Equal(pegasusVideo.Body.Bytes(), videoPayload), pegasusVideo.Header().Get("Content-Type") != "video/mp4"),
 		"Pegasus review video = %d/%s %q", pegasusVideo.Code, pegasusVideo.Header().Get("Content-Type"), pegasusVideo.Body.Bytes())
-	assertHistoricalReviewAssets(t, server, itemID, readyCoverAssetID, uploadedCoverAssetID, timestamp, coverPayload)
+	assertHistoricalReviewAssets(
+		t, server, itemID, pegasusItemID, readyCoverAssetID, uploadedCoverAssetID, timestamp, coverPayload,
+	)
 }
 
 func assertHistoricalReviewAssets(
-	t *testing.T, server *Server, itemID, readyCoverAssetID, uploadedCoverAssetID string,
+	t *testing.T, server *Server, itemID, pegasusItemID, readyCoverAssetID, uploadedCoverAssetID string,
 	timestamp int64, coverPayload []byte,
 ) {
 	mustExecHTTPTest(t, server.database, `
@@ -281,7 +283,7 @@ INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,
 config_evidence_json,dat_evidence_json,provider_evidence_json,reason,created_at_ms)
 VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','SYSTEM',NULL,'release-setup',?,
 '{"schemaVersion":1,"decision":"APPROVED"}','{}','{}','{}','{}',NULL,?)
-`, itemID, `{"schemaVersion":1,"selectedAssets":{"coverCandidateAssetId":"`+readyCoverAssetID+`"}}`, timestamp)
+`, itemID, `{"schemaVersion":1,"selectedAssets":{"coverCandidateAssetId":null,"coverUploadedAssetId":null}}`, timestamp)
 	historyDetail := httptest.NewRecorder()
 	historyRequest := httptest.NewRequestWithContext(context.Background(),
 		http.MethodGet,
@@ -294,6 +296,8 @@ VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','SYSTEM',NULL,'releas
 		return !strings.Contains(historyDetail.Body.String(), `"actor":{"kind":"SYSTEM","label":"release-setup","userId":null}`)
 	}, func() bool {
 		return !strings.Contains(historyDetail.Body.String(), `"before":{"schemaVersion":1,"selectedAssets"`)
+	}, func() bool {
+		return !strings.Contains(historyDetail.Body.String(), `"coverUrl":"/api/v1/admin/review-assets/`+pegasusItemID+`?kind=COVER"`)
 	}), "review history detail = %d %s", historyDetail.Code, historyDetail.Body.String())
 	historicalCover := httptest.NewRecorder()
 	historicalRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/review-assets/"+readyCoverAssetID, nil)

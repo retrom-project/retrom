@@ -63,9 +63,9 @@ function RecommendationButton({ busy, onApply, recommendations }: { busy: string
     const title = recommendations.summary.suppressedCount
       ? `推荐项均已处理；其中 ${recommendations.summary.suppressedCount} 个已停用或删除的目录不会自动恢复。`
       : "全部推荐目录均已覆盖";
-    return <button className="button secondary" type="button" disabled title={title}>✓ 推荐目录已补全</button>;
+    return <button className="button secondary" type="button" disabled title={title}>✓ 推荐目录已创建</button>;
   }
-  return <button className="button secondary" type="button" disabled={busy !== null} aria-busy={busy === "recommendations"} title="只创建尚未覆盖的推荐游戏平台与运行方式组合，不修改已有目录。" onClick={onApply}>{busy === "recommendations" ? <><span className="button-spinner" aria-hidden="true" />正在补全…</> : `补全推荐目录 ${recommendations.summary.missingCount}`}</button>;
+  return <button className="button secondary" type="button" disabled={busy !== null} aria-busy={busy === "recommendations"} title="只创建尚未覆盖的推荐游戏平台与运行方式组合，不修改已有目录。" onClick={onApply}>{busy === "recommendations" ? <><span className="button-spinner" aria-hidden="true" />正在创建…</> : `一键创建推荐目录 ${recommendations.summary.missingCount}`}</button>;
 }
 
 function DirectoryToolbar({ filters, onFilters, platforms, summary }: Pick<PlatformManagerViewProps, "filters" | "onFilters" | "platforms" | "summary">) {
@@ -114,7 +114,7 @@ function DirectoryRow({ index, instance, props }: { index: number; instance: Pla
 function DirectoryTable(props: PlatformManagerViewProps) {
   if (!props.visibleRows.length) {
     const hasRows = props.rows.length > 0;
-    const actions = !hasRows ? <div className="platform-directory-empty-actions">{props.recommendationState && props.recommendationState.summary.missingCount > 0 ? <button className="button" type="button" disabled={props.busy !== null} onClick={props.onApplyRecommendations}>补全推荐目录 {props.recommendationState.summary.missingCount}</button> : null}<button className="button secondary" type="button" disabled={props.busy !== null} onClick={() => props.onDrawer(true)}>新建游戏目录</button></div> : undefined;
+    const actions = !hasRows ? <div className="platform-directory-empty-actions">{props.recommendationState && props.recommendationState.summary.missingCount > 0 ? <button className="button" type="button" disabled={props.busy !== null} onClick={props.onApplyRecommendations}>一键创建推荐目录 {props.recommendationState.summary.missingCount}</button> : null}<button className="button secondary" type="button" disabled={props.busy !== null} onClick={() => props.onDrawer(true)}>新建游戏目录</button></div> : undefined;
     return <EmptyState title={hasRows ? "没有匹配的游戏目录" : "还没有游戏目录"} description={hasRows ? "请调整搜索或筛选条件。" : "可以一次创建 Retrom 推荐目录，也可以只建立自己的主题目录。"} action={actions} />;
   }
   return <section className="platform-directory-table-scroll" aria-label="游戏目录表格，可横向滚动" tabIndex={0}><div className="platform-directory-table" role="table" aria-label="游戏目录"><div role="rowgroup"><div className="platform-directory-table-head" role="row"><span role="columnheader">顺序</span><span role="columnheader">游戏目录</span><span role="columnheader">游戏平台</span><span role="columnheader">扩展名</span><span role="columnheader">游戏数</span><span className="platform-directory-core-head" role="columnheader">推荐运行方式 <span className="platform-directory-info" tabIndex={0}>i<span role="tooltip">更改推荐运行方式时，系统会先检查此目录中现有游戏的兼容性，并在应用前展示影响结果。</span></span></span><span role="columnheader">启用状态</span><span role="columnheader">操作</span></div></div><div role="rowgroup">{props.visibleRows.map((instance, index) => <DirectoryRow index={index} instance={instance} props={props} key={instance.id} />)}</div></div></section>;
@@ -136,9 +136,9 @@ function PendingDialog({ busy, onClose, onConfirm, pending }: { busy: string | n
 }
 
 export function PlatformManagerView(props: PlatformManagerViewProps) {
-  const announcement = props.busy === "recommendations" ? "正在补全推荐目录" : props.recommendationState?.summary.missingCount === 0 ? "推荐目录已补全" : "";
+  const announcement = props.busy === "recommendations" ? "正在创建推荐目录" : props.recommendationState?.summary.missingCount === 0 ? "推荐目录已创建" : "";
   return <div className="platform-directory-manager">
-    <PageHeader eyebrow="管理后台" title="游戏目录" description="维护游戏集合及其推荐运行方式。补全只会创建缺失项，不会修改已有目录。" actions={<><button className="button secondary" type="button" disabled={props.busy !== null} onClick={() => props.onSortHelp(true)}>排序说明</button><RecommendationButton busy={props.busy} onApply={props.onApplyRecommendations} recommendations={props.recommendationState} /><button className="button" type="button" disabled={props.busy !== null} onClick={() => props.onDrawer(true)}><AppIcon name="plus" />新建游戏目录</button></>} />
+    <PageHeader eyebrow="管理后台" title="游戏目录" description="维护游戏集合及其推荐运行方式。一键创建只会补充缺失项，不会修改已有目录。" actions={<><button className="button secondary" type="button" disabled={props.busy !== null} onClick={() => props.onSortHelp(true)}>排序说明</button><RecommendationButton busy={props.busy} onApply={props.onApplyRecommendations} recommendations={props.recommendationState} /><button className="button" type="button" disabled={props.busy !== null} onClick={() => props.onDrawer(true)}><AppIcon name="plus" />新建游戏目录</button></>} />
     <Toast toast={props.toast} onDismiss={props.onToastDismiss} /><p className="sr-only" role="status" aria-live="polite">{announcement}</p>
     <DirectoryToolbar filters={props.filters} onFilters={props.onFilters} platforms={props.platforms} summary={props.summary} />
     <DirectoryTable {...props} />

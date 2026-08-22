@@ -207,7 +207,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 - 先选择基础平台，再选择该平台已启用的默认核心。
 - 名称在站点内可以重复；创建请求不接收 slug，服务端在事务内生成唯一的 <code>(platform_id, slug)</code>，选择器同时显示基础平台消除歧义。
-- 全新数据库不预置任何 PlatformInstance。管理员可点击“补齐推荐目录”按 release catalog 一次性创建仍缺少的模板，也可继续手动创建自定义目录。
+- 全新数据库不预置任何 PlatformInstance。管理员可点击“一键创建推荐目录”按 release catalog 一次性创建仍缺少的模板，也可继续手动创建自定义目录。
 
 ### Release 推荐目录 catalog
 
@@ -221,7 +221,7 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 - `SUPPRESSED`：同 key 行已停用或软删除，表示管理员明确不希望再次补齐；
 - `MISSING`：以上均不成立，可以创建。
 
-“补齐推荐目录”只创建 `MISSING` 项。它在一个 `BEGIN IMMEDIATE` 短事务内重新读取状态，把新目录按 catalog 顺序追加到当前最大 `sort_order` 之后，并把目录、逐项 AuditEvent 和 domain idempotency response 一起提交；任一项失败即整体回滚。它不会覆盖自定义名称/核心、恢复停用或已删除目录、重排已有目录，也不会因同一基础平台已有别的核心目录而跳过。并发调用和相同 Idempotency-Key 重放只产生一组结果。
+“一键创建推荐目录”只创建 `MISSING` 项。它在一个 `BEGIN IMMEDIATE` 短事务内重新读取状态，把新目录按 catalog 顺序追加到当前最大 `sort_order` 之后，并把目录、逐项 AuditEvent 和 domain idempotency response 一起提交；任一项失败即整体回滚。它不会覆盖自定义名称/核心、恢复停用或已删除目录、重排已有目录，也不会因同一基础平台已有别的核心目录而跳过。并发调用和相同 Idempotency-Key 重放只产生一组结果。
 
 当前 catalog 含 27 项。FDS 不再是独立目录，`.fds` 由 NES/FCEUmm 模板所属平台规则接收；MAME 2003 不再是独立模板，Arcade 保留 FBNeo、MAME 2003 Plus 与 FBA CPS1/CPS2 四个推荐目录。启动时必须验证每个模板引用的 Platform、Core、启用 PlatformCore 和已登记 CoreArtifact；release catalog 与依赖不一致时快速失败，不能在补齐时静默跳过。
 

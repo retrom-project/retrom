@@ -22,6 +22,7 @@ type HistoryDetail = {
   eventType: "APPROVED" | "DISCARDED";
   reason: string | null;
   createdAtMs: number;
+  coverUrl?: string | null;
   before: {
     metadata?: { title?: string; description?: string; developer?: string; publisher?: string; genre?: string; players?: number | null; releaseYear?: number | null };
     selectedAssets?: { coverCandidateAssetId?: string | null; coverUploadedAssetId?: string | null };
@@ -32,11 +33,11 @@ const fields: Array<[string, keyof NonNullable<HistoryDetail["before"]["metadata
   ["开发商", "developer"], ["发行商", "publisher"], ["类型", "genre"], ["玩家数", "players"], ["发行年份", "releaseYear"],
 ];
 
-function HistoryCover({ assetId, title }: { assetId: string | null; title: string }) {
+function HistoryCover({ title, url }: { title: string; url: string | null }) {
   const [failed, setFailed] = useState(false);
-  if (!assetId) {return <div className="asset-placeholder">当时未选择封面</div>;}
+  if (!url) {return <div className="asset-placeholder">当时未选择封面</div>;}
   if (failed) {return <div className="asset-placeholder">历史封面暂不可用</div>;}
-  return <Image src={`/api/v1/admin/review-assets/${assetId}`} alt={`${title} 审核时封面`} width={360} height={480} unoptimized onError={() => setFailed(true)} />;
+  return <Image src={url} alt={`${title} 审核时封面`} width={360} height={480} unoptimized onError={() => setFailed(true)} />;
 }
 
 export function ReviewHistory({ items }: { items: HistoryItem[] }) {
@@ -57,12 +58,12 @@ export function ReviewHistory({ items }: { items: HistoryItem[] }) {
   }
 
   const metadata = detail?.before.metadata;
-  const coverId = detail?.before.selectedAssets?.coverUploadedAssetId
-    ?? detail?.before.selectedAssets?.coverCandidateAssetId
-    ?? null;
+  const selectedCoverId = detail?.before.selectedAssets?.coverUploadedAssetId
+    ?? detail?.before.selectedAssets?.coverCandidateAssetId;
+  const coverUrl = detail?.coverUrl ?? (selectedCoverId ? `/api/v1/admin/review-assets/${selectedCoverId}` : null);
   return <>
     <HistoryList items={items} onOpen={(item) => void open(item)} />
-    <HistoryDialog {...{ coverId, detail, error, loading, metadata, selected }} onClose={() => setSelected(null)} />
+    <HistoryDialog {...{ coverUrl, detail, error, loading, metadata, selected }} onClose={() => setSelected(null)} />
   </>;
 }
 
@@ -74,8 +75,8 @@ function HistoryList({ items, onOpen }: { items: HistoryItem[]; onOpen: (item: H
   })}</section>;
 }
 
-function HistoryDialog({ coverId, detail, error, loading, metadata, onClose, selected }: {
-  coverId: string | null;
+function HistoryDialog({ coverUrl, detail, error, loading, metadata, onClose, selected }: {
+  coverUrl: string | null;
   detail: HistoryDetail | null;
   error: string;
   loading: boolean;
@@ -86,12 +87,12 @@ function HistoryDialog({ coverId, detail, error, loading, metadata, onClose, sel
   const decision = selected?.decision === "APPROVED" ? "发布" : "丢弃";
   const description = selected ? `审核完成时的决策快照 · ${decision}于 ${formatTime(selected.createdAtMs)}` : undefined;
   return <ConfirmDialog open={selected !== null} wide hideCancel title={selected?.title ?? "审核完成时的游戏信息"} description={description} confirmLabel="关闭" busy={loading} onCancel={onClose} onConfirm={onClose}>
-    <HistoryDialogContents {...{ coverId, detail, error, loading, metadata, selected }} />
+    <HistoryDialogContents {...{ coverUrl, detail, error, loading, metadata, selected }} />
   </ConfirmDialog>;
 }
 
-function HistoryDialogContents({ coverId, detail, error, loading, metadata, selected }: {
-  coverId: string | null;
+function HistoryDialogContents({ coverUrl, detail, error, loading, metadata, selected }: {
+  coverUrl: string | null;
   detail: HistoryDetail | null;
   error: string;
   loading: boolean;
@@ -101,19 +102,19 @@ function HistoryDialogContents({ coverId, detail, error, loading, metadata, sele
   if (loading) {return <p className="scrape-live"><i className="button-spinner" aria-hidden="true" />正在读取当时的元信息…</p>;}
   if (error) {return <p role="alert">{error}</p>;}
   return <div className="history-snapshot">
-    <HistorySnapshotCover {...{ coverId, metadata, selected }} />
+    <HistorySnapshotCover {...{ coverUrl, metadata, selected }} />
     <HistorySnapshotDetails {...{ detail, metadata, selected }} />
   </div>;
 }
 
-function HistorySnapshotCover({ coverId, metadata, selected }: {
-  coverId: string | null;
+function HistorySnapshotCover({ coverUrl, metadata, selected }: {
+  coverUrl: string | null;
   metadata: HistoryDetail["before"]["metadata"];
   selected: HistoryItem | null;
 }) {
-  const key = coverId ?? selected?.reviewEventId;
+  const key = coverUrl ?? selected?.reviewEventId;
   const title = metadata?.title ?? selected?.title ?? "游戏";
-  return <div className="history-snapshot-cover"><HistoryCover key={key} assetId={coverId} title={title} /></div>;
+  return <div className="history-snapshot-cover"><HistoryCover key={key} title={title} url={coverUrl} /></div>;
 }
 
 function HistorySnapshotDetails({ detail, metadata, selected }: {

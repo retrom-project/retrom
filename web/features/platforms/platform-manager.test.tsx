@@ -181,7 +181,7 @@ describe("PlatformManager", () => {
 
     expect(screen.queryByRole("dialog", { name: "新建游戏目录" })).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "还没有游戏目录" })).toBeInTheDocument();
-    const buttons = screen.getAllByRole("button", { name: "补全推荐目录 1" });
+    const buttons = screen.getAllByRole("button", { name: "一键创建推荐目录 1" });
     await user.click(buttons[0]);
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
     const [path, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
@@ -189,7 +189,7 @@ describe("PlatformManager", () => {
     expect(options).toMatchObject({ method: "POST", body: "{}" });
     expect(await screen.findByText("GBA 游戏")).toBeInTheDocument();
     expect(screen.getByText("已创建 1 个；已有 0 个目录保持不变。")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "✓ 推荐目录已补全" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "✓ 推荐目录已创建" })).toBeDisabled();
     expect(navigation.refresh).toHaveBeenCalledTimes(1);
   });
 
@@ -201,7 +201,7 @@ describe("PlatformManager", () => {
     }));
     render(<PlatformManager instances={[]} platforms={platforms} recommendations={recommendations} createOpen={false} />);
 
-    await user.click(screen.getAllByRole("button", { name: "补全推荐目录 1" })[0]);
+    await user.click(screen.getAllByRole("button", { name: "一键创建推荐目录 1" })[0]);
     expect(await screen.findByRole("alert")).toHaveTextContent("服务暂时不可用");
     expect(screen.getByRole("heading", { name: "还没有游戏目录" })).toBeInTheDocument();
   });
@@ -213,6 +213,6 @@ describe("PlatformManager", () => {
       items: [{ ...recommendations.items[0], state: "SUPPRESSED", platformInstanceId: "11111111-1111-4111-8111-111111111111" }],
     }} createOpen={false} />);
 
-    expect(screen.getByRole("button", { name: "✓ 推荐目录已补全" })).toHaveAttribute("title", expect.stringContaining("1 个已停用或删除"));
+    expect(screen.getByRole("button", { name: "✓ 推荐目录已创建" })).toHaveAttribute("title", expect.stringContaining("1 个已停用或删除"));
   });
 });
