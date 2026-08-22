@@ -1,4 +1,9 @@
+import type { components } from "@/lib/api/generated/schema";
+
 export type Platform = { id: string; name: string; enabled: boolean; cores: Array<{ id: string; name: string; enabled: boolean }> };
+
+export type PlatformRecommendations = components["schemas"]["PlatformInstanceRecommendations"];
+export type PlatformRecommendationsApplyResult = components["schemas"]["PlatformInstanceRecommendationsApplyResult"];
 
 export type PlatformInstance = {
   id: string;
@@ -53,4 +58,23 @@ export function platformDirectorySummary(instances: PlatformInstance[]) {
 
 export function canReorderPlatformDirectories(filters: PlatformDirectoryFilters) {
   return !filters.query.trim() && !filters.platformId && filters.status === "ALL" && filters.sort === "ORDER";
+}
+
+export function summarizeRecommendations(items: PlatformRecommendations["items"]): PlatformRecommendations["summary"] {
+  const summary: PlatformRecommendations["summary"] = {
+    totalCount: items.length,
+    activeCount: 0,
+    customizedCount: 0,
+    coveredByEquivalentCount: 0,
+    suppressedCount: 0,
+    missingCount: 0,
+  };
+  for (const item of items) {
+    if (item.state === "ACTIVE") summary.activeCount++;
+    if (item.state === "CUSTOMIZED") summary.customizedCount++;
+    if (item.state === "COVERED_BY_EQUIVALENT") summary.coveredByEquivalentCount++;
+    if (item.state === "SUPPRESSED") summary.suppressedCount++;
+    if (item.state === "MISSING") summary.missingCount++;
+  }
+  return summary;
 }

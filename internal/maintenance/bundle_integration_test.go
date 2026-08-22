@@ -25,8 +25,8 @@ import (
 	"retrom/internal/netplay"
 	"retrom/internal/processlock"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/store"
 	"retrom/internal/tagging"
+	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
 
@@ -191,7 +191,7 @@ func TestBackupRestoreRoundTripAndOnlineRefusal(t *testing.T) {
 	_, filename, _, _ := runtime.Caller(0)
 	repositoryRoot := filepath.Clean(filepath.Join(filepath.Dir(filename), "..", ".."))
 	dependencyRoot := filepath.Join(repositoryRoot, "data")
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

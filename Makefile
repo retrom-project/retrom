@@ -9,10 +9,14 @@ DOCKER ?= docker
 BACKEND_IMAGE ?= retrom
 WEB_IMAGE ?= retrom-web
 IMAGE_TAG ?= latest
+RETROM_DEV_CONFIG ?= $(abspath .dev-data/dev.mk)
+-include $(RETROM_DEV_CONFIG)
+
 RETROM_DEPENDENCY_VERSIONS ?= 4.2.3,4.3.0-pre
 RETROM_ACTIVE_EMULATORJS_VERSION ?= 4.2.3
 RETROM_DEPENDENCY_ROOT ?= $(abspath data)
-RETROM_DATA_DIR ?= $(abspath .cache/retrom/user-management-v1-data)
+RETROM_DEV_STATE_DIR ?= $(abspath .dev-data/dev-state)
+RETROM_DATA_DIR ?= $(abspath .dev-data/data)
 RETROM_MODE ?= test
 RETROM_HTTP_ADDR ?= 127.0.0.1:8080
 RETROM_PUBLIC_ORIGIN ?= https://dev.sendev.cc
@@ -137,7 +141,8 @@ release-input-digest:
 ci: api-check backend-check web-check integration-test data-check
 
 dev: prepare-deps web-install
-	@RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
+	@RETROM_DEV_STATE_DIR="$(RETROM_DEV_STATE_DIR)" \
+	 RETROM_HTTP_ADDR="$(RETROM_HTTP_ADDR)" \
 	 RETROM_PUBLIC_ORIGIN="$(RETROM_PUBLIC_ORIGIN)" \
 	 RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN="$(RETROM_ALLOW_INSECURE_PUBLIC_ORIGIN)" \
 	 RETROM_MULTI_DISC_IMPORT_ENABLED="$(RETROM_MULTI_DISC_IMPORT_ENABLED)" \

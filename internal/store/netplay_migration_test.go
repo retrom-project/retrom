@@ -39,10 +39,7 @@ VALUES('01980000-0000-7000-8000-00000000a001','Netplay host',1)
 		t.Fatal(err)
 	}
 
-	upgraded, err := Open(ctx, databasePath, func() time.Time { return time.UnixMilli(2_000) })
-	if err != nil {
-		t.Fatal(err)
-	}
+	upgraded := openHistoricalSchemaForTest(ctx, t, databasePath, repositoryRoot, func() time.Time { return time.UnixMilli(2_000) })
 	defer func() { cleanup.Error("close", upgraded.Close()) }()
 	if err := upgraded.IntegrityCheck(ctx); err != nil {
 		t.Fatal(err)

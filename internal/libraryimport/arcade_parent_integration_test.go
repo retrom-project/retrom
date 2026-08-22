@@ -27,7 +27,7 @@ import (
 	"retrom/internal/dependencies"
 	"retrom/internal/launch"
 	retromruntime "retrom/internal/runtime"
-	"retrom/internal/store"
+	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
 
@@ -45,7 +45,7 @@ func TestReviewBulkApprovalPublishesCurrentArcadeSnapshotV2(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -139,7 +139,7 @@ func testArcadeParentAttachmentsAdvanceImmutableSnapshotsUntilReadyAndPublish(t 
 	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

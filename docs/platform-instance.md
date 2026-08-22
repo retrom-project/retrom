@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.1 |
-| 日期 | 2026-08-06 |
+| 版本 | 1.2 |
+| 日期 | 2026-08-22 |
 | 适用范围 | Retrom 一期 |
 
 ## 1. 结论与命名
@@ -77,6 +77,7 @@ erDiagram
 | version | 乐观并发版本，从 1 开始 |
 | created_at_ms / updated_at_ms | UTC Unix 毫秒时间戳，SQLite INTEGER |
 | deleted_at_ms | 软删除时刻；正常记录为空 |
+| catalog_template_key | 可空的 release 推荐模板 key；只由一键补全写入，管理员手动创建始终为空 |
 
 SQLite 关键约束示意：
 
@@ -103,11 +104,16 @@ CREATE TABLE platform_instances (
     created_at_ms INTEGER NOT NULL CHECK (created_at_ms >= 0),
     updated_at_ms INTEGER NOT NULL CHECK (updated_at_ms >= created_at_ms),
     deleted_at_ms INTEGER,
+    catalog_template_key TEXT,
     UNIQUE (platform_id, slug),
     FOREIGN KEY (platform_id, default_core_id)
         REFERENCES platform_cores(platform_id, core_id)
         ON DELETE RESTRICT
 );
+
+CREATE UNIQUE INDEX platform_instances_catalog_template_key_unique
+ON platform_instances(catalog_template_key)
+WHERE catalog_template_key IS NOT NULL;
 
 CREATE TABLE games (
     id TEXT PRIMARY KEY,
@@ -201,8 +207,23 @@ SQLite 无法仅靠上述外键验证 `platform_cores.enabled = 1` 或“GameVar
 
 - 先选择基础平台，再选择该平台已启用的默认核心。
 - 名称在站点内可以重复；创建请求不接收 slug，服务端在事务内生成唯一的 <code>(platform_id, slug)</code>，选择器同时显示基础平台消除歧义。
-- 空库 bootstrap 必须幂等创建总览文档第 6 节列出的初始游戏目录；用户也可在管理后台新增。seed 使用稳定 `(platform_id, slug)`，不得每次启动生成新 UUID 行。
-- Migration 039 将旧 seed 的 `FDS 游戏`合并进 `NES 游戏`、将 `MAME 2003 游戏`合并进 `MAME 2003 Plus 游戏`。既有 Game 只改变 `platform_instance_id/version`，内容 revision、核心变体、存档和历史 Launch 不改写；旧目录以 disabled soft-delete tombstone 保留，供不可变导入与审计外键继续回放。若目标 seed 曾被软删除，升级会恢复它后再迁移 Game。
+- 全新数据库不预置任何 PlatformInstance。管理员可点击“补齐推荐目录”按 release catalog 一次性创建仍缺少的模板，也可继续手动创建自定义目录。
+
+### Release 推荐目录 catalog
+
+推荐模板的唯一机器事实源是 `internal/platformcatalog`，每项只定义稳定 `templateKey=<platform_id>/<default_core_id>`、平台、默认核心、名称、说明和 catalog 顺序。模板不定义 slug 或扩展名：slug 仍由创建服务生成，支持的 payload 扩展名只从 `internal/contentprofile` 按基础平台读取，数据库、模板与前端不得复制该集合。
+
+每次读取推荐状态时，服务按全部未硬删除目录投影：
+
+- `ACTIVE`：同 template key 的目录仍保持模板 platform/core/name/description；
+- `CUSTOMIZED`：同 template key 已存在，但管理员修改过模板字段；
+- `COVERED_BY_EQUIVALENT`：没有同 key 行，但存在未删除且启用的同 platform/core 手动目录；
+- `SUPPRESSED`：同 key 行已停用或软删除，表示管理员明确不希望再次补齐；
+- `MISSING`：以上均不成立，可以创建。
+
+“补齐推荐目录”只创建 `MISSING` 项。它在一个 `BEGIN IMMEDIATE` 短事务内重新读取状态，把新目录按 catalog 顺序追加到当前最大 `sort_order` 之后，并把目录、逐项 AuditEvent 和 domain idempotency response 一起提交；任一项失败即整体回滚。它不会覆盖自定义名称/核心、恢复停用或已删除目录、重排已有目录，也不会因同一基础平台已有别的核心目录而跳过。并发调用和相同 Idempotency-Key 重放只产生一组结果。
+
+当前 catalog 含 27 项。FDS 不再是独立目录，`.fds` 由 NES/FCEUmm 模板所属平台规则接收；MAME 2003 不再是独立模板，Arcade 保留 FBNeo、MAME 2003 Plus 与 FBA CPS1/CPS2 四个推荐目录。启动时必须验证每个模板引用的 Platform、Core、启用 PlatformCore 和已登记 CoreArtifact；release catalog 与依赖不一致时快速失败，不能在补齐时静默跳过。
 
 ### 修改默认核心
 

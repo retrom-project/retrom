@@ -10,7 +10,6 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"strconv"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -20,6 +19,7 @@ import (
 	"retrom/internal/contentcapability"
 	"retrom/internal/contentprofile"
 	"retrom/internal/cursor"
+	"retrom/internal/platforminstance"
 
 	"github.com/google/uuid"
 )
@@ -27,7 +27,6 @@ import (
 var (
 	errPlatformInstanceOrderInvalid = errors.New("invalid platform instance order")
 	errPlatformInstanceOrderVersion = errors.New("platform instance order version conflict")
-	errPlatformSlugExhausted        = errors.New("platform slug space exhausted")
 )
 
 type createPlatformInstanceRequest struct {
@@ -75,82 +74,13 @@ func validText(value string, minimum, maximum int, allowNewline bool) bool {
 }
 
 func platformSlugBase(name, platformID string) string {
-	toSlug := func(value string) string {
-		var builder strings.Builder
-		separator := false
-		for _, character := range value {
-			if character >= 'A' && character <= 'Z' {
-				character += 'a' - 'A'
-			}
-			if character >= 'a' && character <= 'z' || character >= '0' && character <= '9' {
-				if separator && builder.Len() > 0 && builder.Len() < 80 {
-					builder.WriteByte('-')
-				}
-				separator = false
-				if builder.Len() < 80 {
-					builder.WriteRune(character)
-				}
-				continue
-			}
-			separator = builder.Len() > 0
-		}
-		return strings.TrimRight(builder.String(), "-")
-	}
-	if slug := toSlug(name); slug != "" {
-		return slug
-	}
-	prefix := toSlug(platformID)
-	if prefix == "" {
-		prefix = "game"
-	}
-	return prefix + "-library"
+	return platforminstance.SlugBase(name, platformID)
 }
 
 func platformSlugWithSuffix(base string, suffix int) string {
-	if suffix < 2 {
-		return base
-	}
-	ending := "-" + strconv.Itoa(suffix)
-	prefix := strings.TrimRight(base[:min(len(base), 80-len(ending))], "-")
-	return prefix + ending
+	return platforminstance.SlugWithSuffix(base, suffix)
 }
 
-func nextPlatformSlug(ctx context.Context, transaction *sql.Tx, platformID, name string) (string, error) {
-	base := platformSlugBase(name, platformID)
-	prefix := base + "-"
-	rows, err := transaction.QueryContext(
-		ctx,
-		`SELECT slug FROM platform_instances WHERE platform_id=? AND (slug=? OR substr(slug,1,?)=?)`,
-		platformID,
-		base,
-		len(prefix),
-		prefix,
-	)
-	if err != nil {
-		return "", fmt.Errorf("query platform slugs: %w", err)
-	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	used := make(map[string]struct{})
-	for rows.Next() {
-		var slug string
-		if err := rows.Scan(&slug); err != nil {
-			return "", fmt.Errorf("scan platform slug: %w", err)
-		}
-		used[slug] = struct{}{}
-	}
-	if err := rows.Err(); err != nil {
-		return "", fmt.Errorf("iterate platform slugs: %w", err)
-	}
-	for suffix := 1; suffix <= len(used)+1; suffix++ {
-		candidate := platformSlugWithSuffix(base, suffix)
-		if _, exists := used[candidate]; !exists {
-			return candidate, nil
-		}
-	}
-	return "", errPlatformSlugExhausted
-}
-
-//nolint:funlen // Request validation, uniqueness checks, creation, and audit write share one transaction.
 func (server *Server) createPlatformInstance(writer http.ResponseWriter, request *http.Request) {
 	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
 		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
@@ -162,60 +92,15 @@ func (server *Server) createPlatformInstance(writer http.ResponseWriter, request
 		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "平台目录字段无效", map[string]any{})
 		return
 	}
-	now := server.now().UnixMilli()
-	id, err := uuid.NewV7()
-	if err != nil {
-		writeError(writer, request, http.StatusInternalServerError, "INTERNAL_ERROR", "无法创建目录", map[string]any{})
-		return
-	}
-	transaction, err := server.database.BeginTx(request.Context(), nil)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	defer cleanup.Rollback(transaction)
-	slug, err := nextPlatformSlug(request.Context(), transaction, body.PlatformID, body.Name)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
-	_, err = transaction.ExecContext(
-		request.Context(),
-		`
-INSERT INTO platform_instances(id,
-platform_id,
-default_core_id,
-name,
-slug,
-description,
-sort_order,
-enabled,
-version,
-created_at_ms,
-updated_at_ms)
-VALUES(?,
-?,
-?,
-?,
-?,
-?,
-?,
-1,
-1,
-?,
-?)
-`,
-		id.String(),
-		body.PlatformID,
-		body.DefaultCoreID,
-		body.Name,
-		slug,
-		body.Description,
-		body.SortOrder,
-		now,
-		now,
-	)
-	if err != nil {
+	actor := authn.ActorFromContext(request.Context(), "release-setup")
+	requestID, _ := request.Context().Value(requestIDKey).(string)
+	created, err := server.platformDirectories.Create(request.Context(), platforminstance.AuditActor{
+		Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
+	}, platforminstance.CreateInput{
+		PlatformID: body.PlatformID, DefaultCoreID: body.DefaultCoreID,
+		Name: body.Name, Description: body.Description, SortOrder: body.SortOrder,
+	})
+	if errors.Is(err, platforminstance.ErrDefaultCoreInvalid) {
 		writeError(
 			writer,
 			request,
@@ -226,46 +111,82 @@ VALUES(?,
 		)
 		return
 	}
-	if err := insertAudit(
-		request,
-		transaction,
-		"PLATFORM_INSTANCE_CREATED",
-		"PLATFORM_INSTANCE",
-		id.String(),
-		nil,
-		map[string]any{
-			"platformId": body.PlatformID, "defaultCoreId": body.DefaultCoreID, "name": body.Name,
-			"slug": slug, "description": body.Description, "sortOrder": body.SortOrder,
-		},
-		now,
-	); err != nil {
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	if err := transaction.Commit(); err != nil {
+	item, err := server.readPlatformInstance(request, created.ID)
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
 	writer.Header().Set("ETag", `"v1"`)
-	writeJSON(
-		writer,
-		http.StatusCreated,
-		map[string]any{
-			"id":                  id.String(),
-			"platformId":          body.PlatformID,
-			"defaultCoreId":       body.DefaultCoreID,
-			"name":                body.Name,
-			"slug":                slug,
-			"description":         body.Description,
-			"sortOrder":           body.SortOrder,
-			"enabled":             true,
-			"gameCount":           0,
-			"supportedExtensions": contentprofile.SupportedExtensions(body.PlatformID),
-			"version":             1,
-			"createdAtMs":         now,
-			"updatedAtMs":         now,
+	writeJSON(writer, http.StatusCreated, item)
+}
+
+func (server *Server) platformInstanceRecommendations(writer http.ResponseWriter, request *http.Request) {
+	result, err := server.platformDirectories.Recommendations(request.Context())
+	if errors.Is(err, platforminstance.ErrCatalogInvalid) {
+		writeError(
+			writer, request, http.StatusInternalServerError, "PLATFORM_CATALOG_INVALID",
+			"推荐目录配置无效", map[string]any{},
+		)
+		return
+	}
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writeJSON(writer, http.StatusOK, result)
+}
+
+func (server *Server) applyPlatformInstanceRecommendations(writer http.ResponseWriter, request *http.Request) {
+	key := request.Header.Get("Idempotency-Key")
+	if !validIdempotencyKey(key) {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
+		return
+	}
+	var body map[string]json.RawMessage
+	if err := decodeJSON(writer, request, &body, 1024); err != nil {
+		return
+	}
+	if body == nil || len(body) != 0 {
+		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "补全请求必须为空对象", map[string]any{})
+		return
+	}
+	principal, _ := authn.PrincipalFromContext(request.Context())
+	actor := authn.ActorFromContext(request.Context(), "release-setup")
+	requestID, _ := request.Context().Value(requestIDKey).(string)
+	response, err := server.platformDirectories.Apply(
+		request.Context(),
+		platforminstance.AuditActor{
+			Kind: actor.Kind, UserID: actor.UserID, Label: actor.Label, RequestID: requestID,
 		},
+		principal.UserID,
+		key,
 	)
+	switch {
+	case errors.Is(err, platforminstance.ErrIdempotencyReused):
+		writeError(writer, request, http.StatusConflict, "IDEMPOTENCY_KEY_REUSED", "幂等键已用于另一请求", map[string]any{})
+		return
+	case errors.Is(err, platforminstance.ErrCatalogInvalid):
+		writeError(
+			writer, request, http.StatusInternalServerError, "PLATFORM_CATALOG_INVALID",
+			"推荐目录配置无效", map[string]any{},
+		)
+		return
+	case err != nil:
+		server.databaseError(writer, request, err)
+		return
+	}
+	for name, value := range response.Headers {
+		writer.Header().Set(name, value)
+	}
+	if response.Replayed {
+		writer.Header().Set("X-Retrom-Idempotent-Replay", "true")
+	}
+	writer.WriteHeader(response.Status)
+	_, _ = writer.Write(response.Body)
 }
 
 func insertAudit(

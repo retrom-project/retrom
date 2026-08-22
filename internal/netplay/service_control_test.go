@@ -13,16 +13,27 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/store"
+	"retrom/internal/testsupport"
 )
+
+func openNetplayTestDatabase(ctx context.Context, t *testing.T, now func() time.Time) *store.DB {
+	t.Helper()
+	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := testsupport.SeedPlatformInstances(ctx, database.SQL); err != nil {
+		cleanup.Error("close", database.Close())
+		t.Fatal(err)
+	}
+	return database
+}
 
 func TestRoomCreationCapacityAndDraftExpiryAreTransactional(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000).UTC()
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := openNetplayTestDatabase(ctx, t, func() time.Time { return now })
 	defer func() { cleanup.Error("close", database.Close()) }()
 	profiles := []string{"01980000-0000-7000-8000-000000000001", "01980000-0000-7000-8000-000000000002"}
 	for index, profileID := range profiles {
@@ -61,10 +72,7 @@ func TestAcceptanceNP011SeventeenthActiveRoomIsRejectedWithoutEviction(t *testin
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000).UTC()
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := openNetplayTestDatabase(ctx, t, func() time.Time { return now })
 	defer func() { cleanup.Error("close", database.Close()) }()
 	service := NewService(database.SQL, nil, nil, Options{MaxActiveRooms: 16, DraftIdle: time.Hour}, func() time.Time { return now })
 	rooms := make([]string, 0, 16)
@@ -117,10 +125,7 @@ func TestGamePageBoundsInitialCatalogWorkAndUsesStableCursor(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000).UTC()
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := openNetplayTestDatabase(ctx, t, func() time.Time { return now })
 	defer func() { cleanup.Error("close", database.Close()) }()
 	if _, err := database.SQL.Exec(`INSERT INTO profiles(id,display_name,created_at_ms) VALUES('paging-profile','Player',?)`, now.UnixMilli()); err != nil {
 		t.Fatal(err)
@@ -248,10 +253,7 @@ func TestArcadeV2EligibilityRequiresTheLockedDependencyBundle(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000).UTC()
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := openNetplayTestDatabase(ctx, t, func() time.Time { return now })
 	defer func() { cleanup.Error("close", database.Close()) }()
 	const (
 		gameID      = "01980000-0000-7000-8400-000000000001"
@@ -325,10 +327,7 @@ func TestHostCannotClaimGuestSeatThroughTheService(t *testing.T) {
 func TestAuthenticateSocketDistinguishesForbiddenFromDatabaseFailure(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := openNetplayTestDatabase(ctx, t, time.Now)
 	service := NewService(database.SQL, nil, nil, Options{}, time.Now)
 	if _, err := service.AuthenticateSocket(ctx, "missing", "missing", "invalid"); !errors.Is(err, ErrForbidden) {
 		t.Fatalf("missing socket participant = %v", err)
@@ -368,10 +367,7 @@ func TestPrepareFailureReturnsRoomToWaitingAndClearsReady(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	now := time.UnixMilli(1_786_000_000_000).UTC()
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), func() time.Time { return now })
-	if err != nil {
-		t.Fatal(err)
-	}
+	database := openNetplayTestDatabase(ctx, t, func() time.Time { return now })
 	defer func() { cleanup.Error("close", database.Close()) }()
 	hostID := "01980000-0000-7000-8000-000000000001"
 	guestID := "01980000-0000-7000-8000-000000000002"

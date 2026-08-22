@@ -20,21 +20,22 @@ import (
 const operationIDContextKey contextKey = "openapi-operation-id"
 
 var domainIdempotencyOperations = map[string]struct{}{
-	"deleteAdminAccountLink":         {},
-	"deleteAdminUser":                {},
-	"patchAdminUser":                 {},
-	"postAdminInvitation":            {},
-	"postAdminUserPasswordResetLink": {},
-	"postLaunch":                     {},
-	"postRuntimeSaveState":           {},
-	"putRuntimePersistentSave":       {},
-	"postAdminGameContentRevision":   {},
-	"postFavoriteOrganize":           {},
-	"postFavoriteUnfavorite":         {},
-	"postFavoriteRestore":            {},
-	"postFavoriteFolder":             {},
-	"patchFavoriteFolder":            {},
-	"deleteFavoriteFolder":           {},
+	"deleteAdminAccountLink":                        {},
+	"deleteAdminUser":                               {},
+	"patchAdminUser":                                {},
+	"postAdminInvitation":                           {},
+	"postAdminUserPasswordResetLink":                {},
+	"postLaunch":                                    {},
+	"postRuntimeSaveState":                          {},
+	"putRuntimePersistentSave":                      {},
+	"postAdminGameContentRevision":                  {},
+	"postAdminPlatformInstanceRecommendationsApply": {},
+	"postFavoriteOrganize":                          {},
+	"postFavoriteUnfavorite":                        {},
+	"postFavoriteRestore":                           {},
+	"postFavoriteFolder":                            {},
+	"patchFavoriteFolder":                           {},
+	"deleteFavoriteFolder":                          {},
 }
 
 type bufferedResponse struct {

@@ -9,9 +9,89 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
+
 	"retrom/internal/blobstore"
 	"retrom/internal/contentcapability"
 )
+
+func TestRecommendedPlatformDirectoryHTTPApplyIsAtomicAndIdempotent(t *testing.T) {
+	t.Parallel()
+	server := newRecommendationTestServer(t)
+	handler := server.Handler()
+
+	get := httptest.NewRecorder()
+	handler.ServeHTTP(get, httptest.NewRequest(http.MethodGet, "/api/v1/admin/platform-instances/recommendations", nil))
+	var initial struct {
+		CatalogVersion int `json:"catalogVersion"`
+		Summary        struct {
+			TotalCount   int `json:"totalCount"`
+			MissingCount int `json:"missingCount"`
+		} `json:"summary"`
+		Items []struct {
+			TemplateKey         string   `json:"templateKey"`
+			SupportedExtensions []string `json:"supportedExtensions"`
+			State               string   `json:"state"`
+		} `json:"items"`
+	}
+	if err := json.Unmarshal(get.Body.Bytes(), &initial); err != nil || get.Code != http.StatusOK {
+		t.Fatalf("initial recommendations = %d %s error=%v", get.Code, get.Body.String(), err)
+	}
+	if initial.CatalogVersion != 1 || initial.Summary.TotalCount != 27 || initial.Summary.MissingCount != 27 || len(initial.Items) != 27 {
+		t.Fatalf("initial recommendations = %#v", initial)
+	}
+	for _, item := range initial.Items {
+		if item.TemplateKey == "fds/fceumm" || item.TemplateKey == "arcade/mame2003" {
+			t.Fatalf("retired template was recommended: %#v", item)
+		}
+		if item.TemplateKey == "nes/fceumm" && !strings.Contains(strings.Join(item.SupportedExtensions, ","), ".fds") {
+			t.Fatalf("NES extensions do not include FDS: %#v", item.SupportedExtensions)
+		}
+	}
+
+	key := uuid.NewString()
+	apply := func(body string, idempotencyKey string) *httptest.ResponseRecorder {
+		t.Helper()
+		request := httptest.NewRequest(
+			http.MethodPost, "/api/v1/admin/platform-instances/recommendations/apply", strings.NewReader(body),
+		)
+		request.Header.Set("Content-Type", "application/json")
+		request.Header.Set("Idempotency-Key", idempotencyKey)
+		response := httptest.NewRecorder()
+		handler.ServeHTTP(response, request)
+		return response
+	}
+	created := apply(`{}`, key)
+	if created.Code != http.StatusOK || !strings.Contains(created.Body.String(), `"createdCount":27`) ||
+		!strings.Contains(created.Body.String(), `"remainingMissingCount":0`) {
+		t.Fatalf("apply = %d %s", created.Code, created.Body.String())
+	}
+	replayed := apply(`{}`, key)
+	if replayed.Code != created.Code || replayed.Body.String() != created.Body.String() ||
+		replayed.Header().Get("X-Retrom-Idempotent-Replay") != "true" {
+		t.Fatalf("replay = %d header=%q %s", replayed.Code, replayed.Header().Get("X-Retrom-Idempotent-Replay"), replayed.Body.String())
+	}
+	second := apply(`{}`, uuid.NewString())
+	if second.Code != http.StatusOK || !strings.Contains(second.Body.String(), `"createdCount":0`) {
+		t.Fatalf("second apply = %d %s", second.Code, second.Body.String())
+	}
+	invalid := apply(`{"unexpected":true}`, uuid.NewString())
+	if invalid.Code != http.StatusBadRequest || !strings.Contains(invalid.Body.String(), `"code":"INVALID_REQUEST"`) {
+		t.Fatalf("invalid apply = %d %s", invalid.Code, invalid.Body.String())
+	}
+
+	var directoryCount, auditCount int
+	if err := server.database.QueryRow(`
+SELECT
+  (SELECT count(*) FROM platform_instances WHERE deleted_at_ms IS NULL),
+  (SELECT count(*) FROM audit_events WHERE action='PLATFORM_INSTANCE_RECOMMENDED_CREATED')
+`).Scan(&directoryCount, &auditCount); err != nil {
+		t.Fatal(err)
+	}
+	if directoryCount != 27 || auditCount != 27 {
+		t.Fatalf("applied rows = directories:%d audits:%d", directoryCount, auditCount)
+	}
+}
 
 func TestPlatformSlugBaseUsesReadableASCIIOrPlatformFallback(t *testing.T) {
 	t.Parallel()

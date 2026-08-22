@@ -3,6 +3,7 @@ import {
   canReorderPlatformDirectories,
   filterPlatformDirectories,
   platformDirectorySummary,
+  summarizeRecommendations,
   type PlatformDirectoryFilters,
   type PlatformInstance,
 } from "./platform-directory-list";
@@ -51,5 +52,13 @@ describe("platform directory list", () => {
     expect(canReorderPlatformDirectories(baseFilters)).toBe(true);
     expect(canReorderPlatformDirectories({ ...baseFilters, query: "gba" })).toBe(false);
     expect(canReorderPlatformDirectories({ ...baseFilters, sort: "NAME" })).toBe(false);
+  });
+
+  it("summarizes recommendation states without parsing labels", () => {
+    expect(summarizeRecommendations([
+      { templateKey: "nes/fceumm", catalogOrder: 10, name: "NES", description: "", platform: { id: "nes", name: "NES" }, defaultCore: { id: "fceumm", name: "FCEUmm" }, supportedExtensions: [".nes"], state: "ACTIVE", platformInstanceId: "11111111-1111-4111-8111-111111111111" },
+      { templateKey: "gba/mgba", catalogOrder: 20, name: "GBA", description: "", platform: { id: "gba", name: "GBA" }, defaultCore: { id: "mgba", name: "mGBA" }, supportedExtensions: [".gba"], state: "MISSING", platformInstanceId: null },
+      { templateKey: "arcade/fbneo", catalogOrder: 30, name: "FBNeo", description: "", platform: { id: "arcade", name: "Arcade" }, defaultCore: { id: "fbneo", name: "FBNeo" }, supportedExtensions: [".zip"], state: "SUPPRESSED", platformInstanceId: "22222222-2222-4222-8222-222222222222" },
+    ])).toEqual({ totalCount: 3, activeCount: 1, customizedCount: 0, coveredByEquivalentCount: 0, suppressedCount: 1, missingCount: 1 });
   });
 });

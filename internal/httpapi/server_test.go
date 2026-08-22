@@ -31,6 +31,7 @@ import (
 	"retrom/internal/httpapi/generated"
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
+	"retrom/internal/testsupport"
 )
 
 func TestHealthIsPublicAndProtectedWritesRequireAuthentication(t *testing.T) {
@@ -380,7 +381,7 @@ func TestDiagnosticsUsesClosedSnapshotSchemaAndRequiredHeaders(t *testing.T) {
 		t.Fatalf("diagnostics schema: %v: %s", err, recorder.Body.String())
 	}
 	if response.SchemaVersion != 1 || response.GeneratedAtMS != fixed.UnixMilli() ||
-		response.DatabaseSchemaVersion != 39 ||
+		response.DatabaseSchemaVersion != 40 ||
 		!slices.Equal(response.Dependencies.Configured, []string{"4.2.3"}) ||
 		response.Dependencies.Active != "4.2.3" {
 		t.Fatalf("diagnostics values = %#v", response)
@@ -2826,6 +2827,20 @@ func TestGameMetadataPatchDistinguishesNullFromAbsent(t *testing.T) {
 }
 
 func newTestServer(t *testing.T) *Server {
+	return newTestServerWithPlatformFixtures(t, true, []string{"4.2.3"})
+}
+
+func newRecommendationTestServer(t *testing.T) *Server {
+	t.Helper()
+	server := newTestServerWithPlatformFixtures(t, false, []string{"4.2.3", "4.3.0-pre"})
+	if err := server.dependencies.Bootstrap(t.Context(), server.database, time.Now()); err != nil {
+		t.Fatalf("bootstrap recommendation dependencies: %v", err)
+	}
+	server.startupReady.Store(true)
+	return server
+}
+
+func newTestServerWithPlatformFixtures(t *testing.T, seedDirectories bool, versions []string) *Server {
 	t.Helper()
 	repositoryRoot, err := filepath.Abs(filepath.Join("..", ".."))
 	if err != nil {
@@ -2834,6 +2849,11 @@ func newTestServer(t *testing.T) *Server {
 	database, err := store.Open(context.Background(), filepath.Join(t.TempDir(), "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatalf("open database: %v", err)
+	}
+	if seedDirectories {
+		if err := testsupport.SeedPlatformInstances(context.Background(), database.SQL); err != nil {
+			t.Fatalf("seed platform instances: %v", err)
+		}
 	}
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	if _, err := database.SQL.Exec(`
@@ -2847,7 +2867,7 @@ VALUES('01980000-0000-7000-8000-000000009999','local','test-admin','Test Admin',
 `); err != nil {
 		t.Fatalf("seed service fixture user: %v", err)
 	}
-	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), []string{"4.2.3"}, "4.2.3")
+	dependencySet, err := dependencies.Load(filepath.Join(repositoryRoot, "data"), versions, "4.2.3")
 	if err != nil {
 		t.Fatalf("load dependencies: %v", err)
 	}

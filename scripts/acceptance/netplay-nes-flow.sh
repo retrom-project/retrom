@@ -21,6 +21,17 @@ login="$(curl --fail --silent --show-error "${common[@]}" -H "Origin: $origin" -
 csrf="$(jq -r .csrfToken <<<"$login")"
 write=(-H "Origin: $origin" -H "X-Retrom-Csrf: $csrf")
 
+platform_instances="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/platform-instances")"
+platform_instance_id="$(jq -r '[.items[] | select(.platformId == "nes" and .defaultCoreId == "fceumm") | .id][0] // empty' <<<"$platform_instances")"
+if [[ -z "$platform_instance_id" ]]; then
+  curl --fail --silent --show-error "${common[@]}" "${write[@]}" \
+    -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" \
+    -d '{}' "$backend/api/v1/admin/platform-instances/recommendations/apply" >/dev/null
+  platform_instances="$(curl --fail --silent --show-error "${common[@]}" "$backend/api/v1/admin/platform-instances")"
+  platform_instance_id="$(jq -r '[.items[] | select(.platformId == "nes" and .defaultCoreId == "fceumm") | .id][0] // empty' <<<"$platform_instances")"
+fi
+[[ -n "$platform_instance_id" ]] || { echo "recommended NES directory was not created" >&2; exit 1; }
+
 upload_body="$(jq -nc --argjson size "$size" '{sourceType:"FILES",files:[{clientFileId:"nes-netplay",relativePath:"Retrom Netplay Smoke.nes",sizeBytes:$size}]}')"
 upload="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$upload_body" "$backend/api/v1/admin/uploads")"
 upload_id="$(jq -r .uploadId <<<"$upload")"
@@ -45,7 +56,7 @@ for _ in $(seq 1 200); do
 done
 [[ "$state" == SUCCEEDED ]]
 
-import_body="$(jq -nc --arg upload "$upload_id" '{uploadId:$upload,targetPlatformInstanceId:"01980000-0000-7000-8000-000000000001",metadataProvider:"NONE",tagIds:[]}')"
+import_body="$(jq -nc --arg upload "$upload_id" --arg target "$platform_instance_id" '{uploadId:$upload,targetPlatformInstanceId:$target,metadataProvider:"NONE",tagIds:[]}')"
 imported="$(curl --fail --silent --show-error "${common[@]}" "${write[@]}" -H "Content-Type: application/json" -H "Idempotency-Key: $(new_id)" -d "$import_body" "$backend/api/v1/admin/imports")"
 import_id="$(jq -r .importJobId <<<"$imported")"
 item_id=""

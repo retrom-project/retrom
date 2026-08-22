@@ -2,10 +2,16 @@
 set -euo pipefail
 
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-state_directory="${RETROM_DEV_STATE_DIR:-$repository_root/.cache/retrom}"
+state_directory="${RETROM_DEV_STATE_DIR:-$repository_root/.dev-data/dev-state}"
 pid_file="$state_directory/dev.pid"
 takeover_lock="$state_directory/dev-takeover.lock"
-data_root="${RETROM_DATA_DIR:-$state_directory/data}"
+if [[ -v RETROM_DATA_DIR ]]; then
+  data_root="$RETROM_DATA_DIR"
+elif [[ -v RETROM_DEV_STATE_DIR ]]; then
+  data_root="$state_directory/data"
+else
+  data_root="$repository_root/.dev-data/data"
+fi
 data_root_lock="$data_root/retrom.lock"
 auth_mode="${RETROM_MODE:-test}"
 backend_pid=""

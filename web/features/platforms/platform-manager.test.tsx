@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { PlatformManager, type Platform, type PlatformInstance } from "./platform-manager";
+import { PlatformManager, type Platform, type PlatformInstance, type PlatformRecommendations } from "./platform-manager";
 
 const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
@@ -15,6 +15,15 @@ const instances: PlatformInstance[] = [{
   defaultCoreName: "mGBA", name: "掌机游戏", slug: "handheld", description: "", sortOrder: 10, enabled: true, version: 1, gameCount: 0,
   supportedExtensions: [".gba"]
 }];
+const recommendations: PlatformRecommendations = {
+  catalogVersion: 1,
+  summary: { totalCount: 1, activeCount: 0, customizedCount: 0, coveredByEquivalentCount: 0, suppressedCount: 0, missingCount: 1 },
+  items: [{
+    templateKey: "gba/mgba", catalogOrder: 40, name: "GBA 游戏", description: "",
+    platform: { id: "gba", name: "Game Boy Advance" }, defaultCore: { id: "mgba", name: "mGBA" },
+    supportedExtensions: [".gba"], state: "MISSING", platformInstanceId: null,
+  }],
+};
 
 describe("PlatformManager", () => {
   beforeEach(() => {
@@ -26,6 +35,15 @@ describe("PlatformManager", () => {
       if (String(input).endsWith("/order")) {
         const request = JSON.parse(String(init?.body)) as { items: Array<{ id: string; version: number }> };
         return new Response(JSON.stringify({ items: request.items.map((item, index) => ({ ...item, version: item.version + 1, sortOrder: (index + 1) * 100 })) }), { status: 200, headers: { "Content-Type": "application/json" } });
+      }
+      if (String(input).endsWith("/recommendations/apply")) {
+        return new Response(JSON.stringify({
+          catalogVersion: 1,
+          createdTemplateKeys: ["gba/mgba"],
+          created: [{ ...instances[0], id: "recommended-gba", name: "GBA 游戏", slug: "gba-games", sortOrder: 100, createdAtMs: 1, updatedAtMs: 1 }],
+          summary: { createdCount: 1, coveredCount: 0, suppressedCount: 0, remainingMissingCount: 0 },
+          items: [{ ...recommendations.items[0], state: "ACTIVE", platformInstanceId: "11111111-1111-4111-8111-111111111111" }],
+        }), { status: 200, headers: { "Content-Type": "application/json" } });
       }
       return new Response(JSON.stringify({ version: 2 }), { status: 200, headers: { "Content-Type": "application/json" } });
     }));
@@ -155,5 +173,46 @@ describe("PlatformManager", () => {
     expect(screen.getByRole("dialog", { name: "新建游戏目录" })).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "关闭新建游戏目录" }));
     expect(screen.queryByRole("dialog", { name: "新建游戏目录" })).not.toBeInTheDocument();
+  });
+
+  it("keeps an empty page explicit and applies missing recommendations once", async () => {
+    const user = userEvent.setup();
+    render(<PlatformManager instances={[]} platforms={platforms} recommendations={recommendations} createOpen={false} />);
+
+    expect(screen.queryByRole("dialog", { name: "新建游戏目录" })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "还没有游戏目录" })).toBeInTheDocument();
+    const buttons = screen.getAllByRole("button", { name: "补全推荐目录 1" });
+    await user.click(buttons[0]);
+    await waitFor(() => expect(fetch).toHaveBeenCalledTimes(1));
+    const [path, options] = (fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(path).toBe("/api/v1/admin/platform-instances/recommendations/apply");
+    expect(options).toMatchObject({ method: "POST", body: "{}" });
+    expect(await screen.findByText("GBA 游戏")).toBeInTheDocument();
+    expect(screen.getByText("已创建 1 个；已有 0 个目录保持不变。")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "✓ 推荐目录已补全" })).toBeDisabled();
+    expect(navigation.refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("reports an atomic recommendation failure and keeps the empty state", async () => {
+    const user = userEvent.setup();
+    vi.mocked(fetch).mockResolvedValueOnce(new Response(JSON.stringify({ error: { message: "服务暂时不可用" } }), {
+      status: 500,
+      headers: { "Content-Type": "application/json" },
+    }));
+    render(<PlatformManager instances={[]} platforms={platforms} recommendations={recommendations} createOpen={false} />);
+
+    await user.click(screen.getAllByRole("button", { name: "补全推荐目录 1" })[0]);
+    expect(await screen.findByRole("alert")).toHaveTextContent("服务暂时不可用");
+    expect(screen.getByRole("heading", { name: "还没有游戏目录" })).toBeInTheDocument();
+  });
+
+  it("explains suppressed recommendations when every item is handled", () => {
+    render(<PlatformManager instances={instances} platforms={platforms} recommendations={{
+      catalogVersion: 1,
+      summary: { totalCount: 1, activeCount: 0, customizedCount: 0, coveredByEquivalentCount: 0, suppressedCount: 1, missingCount: 0 },
+      items: [{ ...recommendations.items[0], state: "SUPPRESSED", platformInstanceId: "11111111-1111-4111-8111-111111111111" }],
+    }} createOpen={false} />);
+
+    expect(screen.getByRole("button", { name: "✓ 推荐目录已补全" })).toHaveAttribute("title", expect.stringContaining("1 个已停用或删除"));
   });
 });

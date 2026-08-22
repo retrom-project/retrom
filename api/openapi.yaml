@@ -848,6 +848,20 @@ paths:
       requestBody: { $ref: '#/components/requestBodies/CreatePlatformInstance' }
       responses:
         '201': { $ref: '#/components/responses/JSONResponse' }
+  /api/v1/admin/platform-instances/recommendations:
+    get:
+      operationId: getAdminPlatformInstanceRecommendations
+      description: Returns the versioned code catalog and its current coverage without creating or changing directories.
+      responses:
+        '200': { $ref: '#/components/responses/PlatformInstanceRecommendationsResponse' }
+  /api/v1/admin/platform-instances/recommendations/apply:
+    post:
+      operationId: postAdminPlatformInstanceRecommendationsApply
+      description: Atomically creates every currently missing recommendation without updating equivalent, customized, disabled, or explicitly deleted directories.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }]
+      requestBody: { $ref: '#/components/requestBodies/Empty' }
+      responses:
+        '200': { $ref: '#/components/responses/PlatformInstanceRecommendationsApplyResponse' }
   /api/v1/admin/platform-instances/order:
     put:
       operationId: putAdminPlatformInstanceOrder
@@ -2221,6 +2235,102 @@ components:
         name: { type: string, minLength: 1, maxLength: 200 }
         description: { type: string, maxLength: 10000 }
         sortOrder: { type: integer, format: int64 }
+    PlatformDirectoryReference:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id: { type: string }
+        name: { type: string }
+    PlatformInstanceRecommendation:
+      type: object
+      additionalProperties: false
+      required: [templateKey, catalogOrder, name, description, platform, defaultCore, supportedExtensions, state, platformInstanceId]
+      properties:
+        templateKey: { type: string, pattern: '^[a-z0-9_-]+/[a-z0-9_-]+$' }
+        catalogOrder: { type: integer, minimum: 1 }
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, maxLength: 10000 }
+        platform: { $ref: '#/components/schemas/PlatformDirectoryReference' }
+        defaultCore: { $ref: '#/components/schemas/PlatformDirectoryReference' }
+        supportedExtensions:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, pattern: '^\.[a-z0-9]+$' }
+        state: { type: string, enum: [ACTIVE, CUSTOMIZED, COVERED_BY_EQUIVALENT, SUPPRESSED, MISSING] }
+        platformInstanceId: { type: string, format: uuid, nullable: true }
+    PlatformInstanceRecommendationSummary:
+      type: object
+      additionalProperties: false
+      required: [totalCount, activeCount, customizedCount, coveredByEquivalentCount, suppressedCount, missingCount]
+      properties:
+        totalCount: { type: integer, minimum: 0 }
+        activeCount: { type: integer, minimum: 0 }
+        customizedCount: { type: integer, minimum: 0 }
+        coveredByEquivalentCount: { type: integer, minimum: 0 }
+        suppressedCount: { type: integer, minimum: 0 }
+        missingCount: { type: integer, minimum: 0 }
+    PlatformInstanceRecommendations:
+      type: object
+      additionalProperties: false
+      required: [catalogVersion, summary, items]
+      properties:
+        catalogVersion: { type: integer, minimum: 1 }
+        summary: { $ref: '#/components/schemas/PlatformInstanceRecommendationSummary' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PlatformInstanceRecommendation' }
+    RecommendedPlatformInstance:
+      type: object
+      additionalProperties: false
+      required: [id, platformId, platformName, defaultCoreId, defaultCoreName, name, slug, description, sortOrder, enabled, gameCount, supportedExtensions, version, createdAtMs, updatedAtMs]
+      properties:
+        id: { type: string, format: uuid }
+        platformId: { type: string }
+        platformName: { type: string }
+        defaultCoreId: { type: string }
+        defaultCoreName: { type: string }
+        name: { type: string }
+        slug: { type: string }
+        description: { type: string }
+        sortOrder: { type: integer, format: int64 }
+        enabled: { type: boolean }
+        gameCount: { type: integer, format: int64, minimum: 0 }
+        supportedExtensions:
+          type: array
+          minItems: 1
+          uniqueItems: true
+          items: { type: string, pattern: '^\.[a-z0-9]+$' }
+        version: { type: integer, format: int64, minimum: 1 }
+        createdAtMs: { type: integer, format: int64, minimum: 0 }
+        updatedAtMs: { type: integer, format: int64, minimum: 0 }
+    PlatformInstanceRecommendationsApplySummary:
+      type: object
+      additionalProperties: false
+      required: [createdCount, coveredCount, suppressedCount, remainingMissingCount]
+      properties:
+        createdCount: { type: integer, minimum: 0 }
+        coveredCount: { type: integer, minimum: 0 }
+        suppressedCount: { type: integer, minimum: 0 }
+        remainingMissingCount: { type: integer, minimum: 0 }
+    PlatformInstanceRecommendationsApplyResult:
+      type: object
+      additionalProperties: false
+      required: [catalogVersion, createdTemplateKeys, created, summary, items]
+      properties:
+        catalogVersion: { type: integer, minimum: 1 }
+        createdTemplateKeys:
+          type: array
+          uniqueItems: true
+          items: { type: string, pattern: '^[a-z0-9_-]+/[a-z0-9_-]+$' }
+        created:
+          type: array
+          items: { $ref: '#/components/schemas/RecommendedPlatformInstance' }
+        summary: { $ref: '#/components/schemas/PlatformInstanceRecommendationsApplySummary' }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/PlatformInstanceRecommendation' }
     PatchPlatformInstanceRequest:
       type: object
       additionalProperties: false
@@ -3357,6 +3467,12 @@ components:
     PlayEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/PlayEventRequest' } } } }
     MultiDiscPlayerEvent: { required: true, content: { application/json: { schema: { $ref: '#/components/schemas/MultiDiscPlayerEventRequest' } } } }
   responses:
+    PlatformInstanceRecommendationsResponse:
+      description: Recommended platform/core directory catalog and current coverage
+      content: { application/json: { schema: { $ref: '#/components/schemas/PlatformInstanceRecommendations' } } }
+    PlatformInstanceRecommendationsApplyResponse:
+      description: Atomic recommended-directory ensure result
+      content: { application/json: { schema: { $ref: '#/components/schemas/PlatformInstanceRecommendationsApplyResult' } } }
     ImportOverviewSummaryResponse:
       description: User-visible import batch and item totals
       content: { application/json: { schema: { $ref: '#/components/schemas/ImportOverviewSummary' } } }

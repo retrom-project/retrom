@@ -31,6 +31,7 @@ import (
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/store"
 	"retrom/internal/tagging"
+	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
 
@@ -49,7 +50,7 @@ func TestSevenZipImportMaterializesSingleROMAndPreservesEvidence(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -191,7 +192,7 @@ func TestUploadImportReviewPublishPipeline(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -569,7 +570,7 @@ WHERE id=?
 func TestRetryAndCancelKeepImportItemAggregatesInSync(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
-	database, err := store.Open(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(t.TempDir(), "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -732,7 +733,7 @@ func TestDuplicateContentIsSkippedDuringIdentificationAndConfirmedDuringReview(t
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -879,7 +880,7 @@ func TestImportGroupsSingleArchiveMemberAndReportsEveryFile(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1180,7 +1181,7 @@ func TestArcadeDraftBIOSStateRefreshesInstalledDATMachineDependency(t *testing.T
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1258,7 +1259,7 @@ func TestArcadeImportUsesInstalledBIOSBeforeCreatingReview(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -1590,7 +1591,7 @@ func TestArcadeGroupingBuildsCoreScopedParentAndBIOSClosure(t *testing.T) {
 	t.Parallel()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}

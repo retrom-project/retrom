@@ -29,6 +29,7 @@ import (
 	retromruntime "retrom/internal/runtime"
 	"retrom/internal/saves"
 	"retrom/internal/store"
+	"retrom/internal/testsupport"
 	"retrom/internal/uploads"
 )
 
@@ -100,7 +101,7 @@ func newMultiDiscImportFixture(t *testing.T) (context.Context, string, *store.DB
 	t.Helper()
 	ctx := context.Background()
 	dataDir := t.TempDir()
-	database, err := store.Open(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
+	database, err := testsupport.OpenDatabase(ctx, filepath.Join(dataDir, "retrom.db"), time.Now)
 	if err != nil {
 		t.Fatal(err)
 	}
