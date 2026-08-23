@@ -247,7 +247,8 @@ ORDER BY upload.relative_path,upload.id
 // Aggregate and item projections are read together to preserve one import snapshot response.
 func (server *Server) importDetail(writer http.ResponseWriter, request *http.Request) {
 	var id, uploadID, targetID, targetName, platformID, coreID, artifactID, provider, state, configJSON string
-	var datID, errorCode, cancelReason, reconfiguredFrom sql.NullString
+	var payloadState string
+	var datID, errorCode, cancelReason, reconfiguredFrom, payloadReleaseJobID sql.NullString
 	var version, total, queued, running, pending, published, discarded int64
 	var failed, canceled, ignored, rejected, resolvedRejected, alreadyImportedItems, alreadyImportedFiles int64
 	var created, updated int64
@@ -263,6 +264,8 @@ i.dat_version_id,
 i.metadata_provider,
 i.config_snapshot_json,
 i.state,
+i.payload_state,
+i.payload_release_job_id,
 i.total_item_count,
 i.queued_item_count,
 i.running_item_count,
@@ -298,6 +301,8 @@ WHERE i.id=?
 			&provider,
 			&configJSON,
 			&state,
+			&payloadState,
+			&payloadReleaseJobID,
 			&total,
 			&queued,
 			&running,
@@ -358,6 +363,8 @@ WHERE i.id=?
 		"alreadyImportedMatches":      alreadyImportedMatches,
 		"itemSummaries":               itemSummaries,
 		"state":                       state,
+		"payloadState":                payloadState,
+		"payloadReleaseJobId":         nullableString(payloadReleaseJobID),
 		"counts": map[string]any{
 			"total":                   total,
 			"queued":                  queued,
@@ -857,11 +864,6 @@ AND event_type IN ('APPROVED',
 		server.databaseError(writer, request, err)
 		return
 	}
-	coverURL, err := server.reviewHistoryCoverURL(request.Context(), itemID, before)
-	if err != nil {
-		server.databaseError(writer, request, err)
-		return
-	}
 	decode := func(value string) any { var result any; _ = json.Unmarshal([]byte(value), &result); return result }
 	writeJSON(
 		writer,
@@ -881,7 +883,6 @@ AND event_type IN ('APPROVED',
 			"configEvidence":   decode(config),
 			"datEvidence":      decode(dat),
 			"providerEvidence": decode(provider),
-			"coverUrl":         nullableString(coverURL),
 			"reason":           nullableString(reason),
 			"createdAtMs":      created,
 		},

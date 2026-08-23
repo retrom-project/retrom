@@ -12,6 +12,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
+	"retrom/internal/payloadrelease"
 )
 
 var ErrCatalogChanged = errors.New("BIOS_REQUIREMENT_CATALOG_CHANGED")
@@ -80,7 +81,7 @@ func (service *Service) InstallServerCandidate(
 	if handled {
 		return service.commitServerOutcome(ctx, transaction, request, result)
 	}
-	result, err = persistServerInstallation(ctx, transaction, request, version, now, result)
+	result, err = service.persistServerInstallation(ctx, transaction, request, version, now, result)
 	if err != nil {
 		return ServerInstallResult{}, err
 	}
@@ -197,7 +198,7 @@ func (service *Service) evaluateExistingInstallation(
 	return result, true, nil
 }
 
-func persistServerInstallation(
+func (service *Service) persistServerInstallation(
 	ctx context.Context,
 	transaction *sql.Tx,
 	request ServerInstallRequest,
@@ -213,11 +214,11 @@ func persistServerInstallation(
 			return ServerInstallResult{}, err
 		}
 	}
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE bios_installations SET is_active=0,version=version+1,updated_at_ms=?
-WHERE requirement_id=? AND is_active=1
-`, now, request.RequirementID); err != nil {
-		return ServerInstallResult{}, fmt.Errorf("firmware/server deactivate: %w", err)
+	retired, err := payloadrelease.RetireSupersededBIOS(
+		ctx, transaction, request.RequirementID, now,
+	)
+	if err != nil {
+		return ServerInstallResult{}, fmt.Errorf("firmware/server retire: %w", err)
 	}
 	details := request.Details
 	if details == nil {
@@ -237,6 +238,11 @@ INSERT INTO bios_installations(
 		request.Metadata.Size, request.Metadata.MD5, request.Metadata.SHA1, request.Metadata.SHA256,
 		version, request.Status, string(detailsJSON), now, now, request.CandidateID); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server persist installation: %w", err)
+	}
+	if service.releases != nil {
+		if err := service.releases.StageCandidates(ctx, transaction, retired.BlobIDs); err != nil {
+			return ServerInstallResult{}, fmt.Errorf("firmware/server stage retired: %w", err)
+		}
 	}
 	result.NewInstallationID = installationID.String()
 	switch request.Status {
@@ -304,6 +310,9 @@ VALUES(?,'SERVER_IMPORT',?,'PROGRESS',?,?)
 	}
 	if err := transaction.Commit(); err != nil {
 		return ServerInstallResult{}, fmt.Errorf("firmware/server commit: %w", err)
+	}
+	if service.releases != nil {
+		service.releases.Signal()
 	}
 	return result, nil
 }

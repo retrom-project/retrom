@@ -16,10 +16,10 @@ export type Variant = { id: string; coreId: string; coreName: string; currentRev
 export type Asset = { assetId: string; kind: string; ordinal: number; widthPx: number | null; heightPx: number | null; mediaType: string; url: string };
 
 export type AdminGame = {
-  gameId: string; status: string; title: string; description: string; developer: string; publisher: string; genre: string;
+  gameId: string; status: string; payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED"; payloadReleaseJobId: string | null; payloadLastErrorCode?: string | null; title: string; description: string; developer: string; publisher: string; genre: string;
   players: number | null; releaseYear: number | null; platformId: string; platformInstance: { id: string; name: string };
   currentContentRevisionId: string; currentMetadataRevisionId: string; version: number; createdAtMs: number; updatedAtMs: number; generatedAtMs: number;
-  deleteImpact: { saveStateCount: number; reviewEventCount: number; activeLaunchCount: number };
+  deleteImpact: { impactDigest: string; registeredBytes: string; exclusiveBytes: string; sharedBytes: string; blobCount: number; saveStateCount: number; assetCount: number; contentFileCount: number; activeLaunchCount: number; activeNetplayCount: number; reviewEventCount: number; sourceKinds: string[] };
   metadataRevisions: Revision[]; assets: Asset[]; contentRevisions: ContentRevision[]; variants: Variant[];
   tags?: TagReference[];
 };
@@ -179,7 +179,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       const response = await fetch(`/api/v1/admin/games/${game.gameId}/assets`, { method: "POST", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ uploadFileId: uploaded.uploadFileId, kind, ordinal }) });
       if (!response.ok) {throw new Error(await responseError(response, "媒体替换失败"));}
       const result = await response.json() as { assetId: string; metadataRevisionId: string };
-      return result.assetId && result.metadataRevisionId ? `${kind === "VIDEO" ? "视频" : "图片"}已更新，旧版本仍会保留。` : "媒体已更新。";
+      return result.assetId && result.metadataRevisionId ? `${kind === "VIDEO" ? "视频" : "图片"}已更新，旧媒体已进入待回收。` : "媒体已更新。";
     });
   }
 
@@ -189,7 +189,7 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       if (!response.ok) {throw new Error(await responseError(response, "视频移除失败"));}
       const match = response.headers.get("ETag")?.match(/^"v(\d+)"$/);
       if (match) {versionRef.current = Number(match[1]);}
-      return "视频已从当前媒体版本移除，历史版本仍会保留。";
+      return "视频已移除，原视频已进入待回收。";
     });
   }
 
@@ -200,8 +200,15 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
       if (!response.ok) {throw new Error(await responseError(response, "内容替换任务创建失败"));}
       const result = await response.json() as { jobId: string };
       setNotice("正在安全校验新游戏文件…");
-      await waitForJob(result.jobId, () => setNotice("正在检查新文件是否可以运行…"));
-      return "游戏文件已更新，旧内容和存档仍会保留。";
+      try {
+        await waitForJob(result.jobId, () => setNotice("正在检查新文件是否可以运行…"));
+      } catch (error) {
+        if (error instanceof Error && error.message === "GAME_CONTENT_UNCHANGED") {
+          throw new Error("所选游戏文件与当前内容相同，未执行替换。");
+        }
+        throw error;
+      }
+      return "游戏文件已更新，旧内容与关联存档已进入清理流程。";
     });
   }
 
@@ -274,12 +281,23 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
     });
   }
 
-  async function remove(confirmTitle: string) {
+  async function remove() {
     await action("delete", async () => {
-      if (confirmTitle !== game.title) {throw new Error("请输入完整游戏标题确认删除");}
-      const response = await fetch(`/api/v1/admin/games/${game.gameId}`, { method: "DELETE", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ confirmTitle }) });
+      const response = await fetch(`/api/v1/admin/games/${game.gameId}`, { method: "DELETE", credentials: "same-origin", headers: { ...await versionedHeaders(), "Idempotency-Key": newUuid() }, body: JSON.stringify({ confirmTitle: game.title, impactDigest: game.deleteImpact.impactDigest }) });
       if (!response.ok) {throw new Error(await responseError(response, "游戏删除失败"));}
-      return "游戏已从资料库移除；存档、审核记录和历史版本仍会保留。";
+      const result = await response.json() as { payloadState: string };
+      return result.payloadState === "RELEASING" ? "游戏已删除，正在清理数据。" : "游戏已经删除。";
+    });
+  }
+
+  async function retryPayloadRelease() {
+    if (!game.payloadReleaseJobId) {return;}
+    await action("payload-release", async () => {
+      const response = await fetch(`/api/v1/admin/jobs/${game.payloadReleaseJobId}/retry`, {
+        method: "POST", credentials: "same-origin", headers: { "Idempotency-Key": newUuid() },
+      });
+      if (!response.ok) {throw new Error(await responseError(response, "无法重试数据清理"));}
+      return "数据清理任务已重新排队。";
     });
   }
 
@@ -311,7 +329,8 @@ export function AdminGameManager({ game, platformInstances, candidates, activeTa
     onDismissToast={() => { setNotice(""); setError(""); }}
     onDraft={(field, value) => setDraft((current) => ({ ...current, [field]: value }))}
     onGameTags={setGameTags} onMoveTarget={setMoveTarget} onOpenComparison={setComparison}
-    onPreviewMove={(target) => void previewMove(target)} onRemove={(title) => void remove(title)}
+    onPreviewMove={(target) => void previewMove(target)} onRemove={() => void remove()}
+    onRetryPayloadRelease={() => void retryPayloadRelease()}
     onRemoveVideo={() => void removeVideo()} onReplaceAsset={(file, kind, ordinal) => void replaceAsset(file, kind, ordinal)}
     onReplaceContent={replaceContent} onRescrape={() => void rescrape()} onSaveMetadata={(event) => void saveMetadata(event)}
     onSaveTags={() => void saveTags()} pendingMove={pendingMove} runtime={runtimeRevision.runtime} scrapeCandidates={scrapeCandidates}

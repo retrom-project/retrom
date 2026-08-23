@@ -4,6 +4,10 @@ CREATE TABLE games (
   id TEXT PRIMARY KEY,
   platform_instance_id TEXT NOT NULL REFERENCES platform_instances(id),
   status TEXT NOT NULL CHECK(status IN ('PUBLISHED','DELETED')),
+  payload_state TEXT NOT NULL DEFAULT 'RETAINED' CHECK(payload_state IN ('RETAINED','RELEASING','RELEASED','FAILED')),
+  payload_release_job_id TEXT UNIQUE REFERENCES jobs(id),
+  payload_released_at_ms INTEGER,
+  payload_last_error_code TEXT,
   current_metadata_revision_id TEXT NOT NULL,
   current_content_revision_id TEXT NOT NULL,
   search_text TEXT NOT NULL,
@@ -13,7 +17,15 @@ CREATE TABLE games (
   deleted_at_ms INTEGER,
   FOREIGN KEY(current_metadata_revision_id) REFERENCES game_metadata_revisions(id) DEFERRABLE INITIALLY DEFERRED,
   FOREIGN KEY(current_content_revision_id) REFERENCES game_content_revisions(id) DEFERRABLE INITIALLY DEFERRED,
-  CHECK((status = 'DELETED') = (deleted_at_ms IS NOT NULL))
+  CHECK((status = 'DELETED') = (deleted_at_ms IS NOT NULL)),
+  CHECK(status<>'PUBLISHED' OR payload_state='RETAINED'),
+  CHECK(status<>'DELETED' OR payload_state IN ('RELEASING','RELEASED','FAILED')),
+  CHECK(
+    payload_state='RETAINED' AND payload_release_job_id IS NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
+    payload_state='RELEASING' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NULL OR
+    payload_state='RELEASED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NOT NULL AND payload_last_error_code IS NULL OR
+    payload_state='FAILED' AND payload_release_job_id IS NOT NULL AND payload_released_at_ms IS NULL AND payload_last_error_code IS NOT NULL
+  )
 );
 
 CREATE TABLE "game_metadata_revisions" (
@@ -212,4 +224,3 @@ CREATE TABLE favorite_folder_games (
     AND substr(game_id,9,1)='-' AND substr(game_id,14,1)='-'
     AND substr(game_id,19,1)='-' AND substr(game_id,24,1)='-')
 );
-

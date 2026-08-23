@@ -1,6 +1,8 @@
 export type RecentGame = {
   gameId: string;
   title: string;
+  status: "PUBLISHED" | "DELETED";
+  availability: "PUBLISHED" | "DELETED";
   platform: { id: string; name: string };
   platformInstance: { id: string; name: string };
   lastPlayedAtMs: number;

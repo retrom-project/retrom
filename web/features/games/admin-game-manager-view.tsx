@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import type { ChangeEvent, FormEvent } from "react";
+import { useState, type ChangeEvent, type FormEvent } from "react";
 import { ConfirmDialog } from "@/components/confirm-dialog";
 import { Toast } from "@/components/flash-toast";
 import { StatusBadge } from "@/components/ui";
@@ -59,7 +59,8 @@ export type AdminGameManagerViewProps = {
   onMoveTarget: (target: string) => void;
   onOpenComparison: (candidate: ScrapeCandidate) => void;
   onPreviewMove: (target: string) => void;
-  onRemove: (title: string) => void;
+  onRemove: () => void;
+  onRetryPayloadRelease: () => void;
   onRemoveVideo: () => void;
   onReplaceAsset: (file: File, kind: "COVER" | "VIDEO", ordinal: number) => void;
   onReplaceContent: (files: File[], mode: "STANDARD" | "MULTI_DISC_M3U_V1") => Promise<boolean>;
@@ -123,8 +124,8 @@ function RuntimeManager(props: Pick<AdminGameManagerViewProps, "canonicalPlaylis
   const multiDisc = props.currentContent?.contentKind === "MULTI_DISC_M3U_V1";
   return <section className="panel admin-game-runtime" id="admin-game-runtime"><div className="panel-head"><h2>游戏文件与运行环境</h2></div><div className="panel-body"><div className="admin-game-runtime-grid"><div><span>当前游戏文件</span><strong>{props.currentFile}</strong></div><div><span>内容类型</span><strong>{multiDisc ? "多盘 M3U" : "普通内容"}</strong></div><div><span>推荐运行方式</span><strong>{props.currentInstance?.defaultCoreName ?? props.currentVariant?.coreName ?? "尚未配置"}</strong></div><div><span>兼容状态</span><strong className={props.runtime.tone}>{props.runtime.label}</strong></div><div><span>最后验证</span><strong>{formatTime(props.currentRuntime?.createdAtMs)}</strong></div></div>
     <DiscEvidence canonicalPlaylistSHA256={props.canonicalPlaylistSHA256} discs={props.currentDiscs} />
-    <div className="admin-game-runtime-note"><p>替换游戏文件后会创建新的内容版本并执行兼容性验证；验证通过后才切换当前版本。原文件、历史版本和已有存档不会删除。</p><GameContentReplacementDialog key={`${props.currentContent?.id ?? "none"}:${props.multiDiscReplacementLimits ? "multi" : "standard"}`} initialMode={multiDisc ? "MULTI_DISC_M3U_V1" : "STANDARD"} multiDiscLimits={props.multiDiscReplacementLimits} disabled={props.disabled} onSubmit={props.onReplaceContent} /></div>
-    <details className="admin-game-technical"><summary>技术详情</summary><div>{props.game.contentRevisions.map((revision) => <p key={revision.id}><strong>{revision.current ? "当前内容" : "历史内容"}</strong> · {revision.contentKind} · {formatTime(revision.createdAtMs)} · {revision.files.map((file) => file.logicalName).join("、")}<code>{revision.id}</code></p>)}{props.game.variants.map((variant) => <p key={variant.id}><strong>{variant.coreName}</strong> · {variant.revisions.map((revision) => `${revision.current ? "当前" : "历史"} ${revision.status}`).join(" / ")}<code>{variant.id}</code></p>)}</div></details>
+    <div className="admin-game-runtime-note"><p>替换内容必须与当前 ROM 不同。新内容验证通过后才切换，并清理旧游戏文件、运行快照及其绑定存档；失败时不会改动当前内容。</p><GameContentReplacementDialog key={`${props.currentContent?.id ?? "none"}:${props.multiDiscReplacementLimits ? "multi" : "standard"}`} initialMode={multiDisc ? "MULTI_DISC_M3U_V1" : "STANDARD"} multiDiscLimits={props.multiDiscReplacementLimits} saveStateCount={props.game.deleteImpact.saveStateCount} disabled={props.disabled} onSubmit={props.onReplaceContent} /></div>
+    <details className="admin-game-technical"><summary>技术详情</summary><div>{props.game.contentRevisions.map((revision) => <p key={revision.id}><strong>{revision.current ? "当前内容" : "历史内容"}</strong> · {revision.contentKind} · {formatTime(revision.createdAtMs)} · {revision.files.length ? revision.files.map((file) => file.logicalName).join("、") : "载荷已释放"}<code>{revision.id}</code></p>)}{props.game.variants.map((variant) => <p key={variant.id}><strong>{variant.coreName}</strong> · {variant.revisions.map((revision) => `${revision.current ? "当前" : "历史"} ${revision.status}`).join(" / ")}<code>{variant.id}</code></p>)}</div></details>
   </div></section>;
 }
 
@@ -134,11 +135,15 @@ function ManagementActions(props: Pick<AdminGameManagerViewProps, "busy" | "disa
 }
 
 function RemoveGame({ disabled, game, onRemove }: Pick<AdminGameManagerViewProps, "disabled" | "game" | "onRemove">) {
-  const submit = (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault();
-    onRemove(String(new FormData(event.currentTarget).get("confirmTitle") ?? ""));
-  };
-  return <details className="panel admin-game-remove"><summary className="panel-head"><h2>从游戏库移除</h2><span>展开危险操作</span></summary><form className="panel-body" onSubmit={submit}><div><strong>游戏将不再对用户可见。</strong><p>已有 {game.deleteImpact.saveStateCount} 份存档、{game.deleteImpact.reviewEventCount} 条审核历史及历史版本会继续保留；当前 {game.deleteImpact.activeLaunchCount} 个活动游戏会话。</p></div><label>输入完整游戏标题确认<input name="confirmTitle" placeholder={game.title} autoComplete="off" disabled={disabled} /><button className="button danger" disabled={disabled}>移除游戏</button></label></form></details>;
+  const [open, setOpen] = useState(false);
+  const impact = game.deleteImpact;
+  const sources = impact.sourceKinds.map((source) => ({ USER_UPLOAD: "用户上传", SERVER_SCAN: "本机扫描", ADMIN_REPLACE: "管理替换" })[source] ?? source).join("、") || "未知";
+  return <section className="panel admin-game-remove"><div className="panel-head"><h2>危险操作</h2></div><div className="panel-body"><div><strong>永久删除游戏</strong><p>删除 ROM、媒体与存档 payload；原标题、审核及游玩历史保留为“已删除游戏”。</p></div><button className="button danger" type="button" disabled={disabled} onClick={() => setOpen(true)}>永久删除游戏</button></div><ConfirmDialog open={open} wide tone="danger" title={`永久删除“${game.title}”？`} description="此操作不可恢复；CAS 文件会在安全保留期后由存储回收任务清理。" confirmLabel="永久删除游戏" busy={disabled} onCancel={() => setOpen(false)} onConfirm={() => {onRemove(); setOpen(false);}}><ul><li>{impact.contentFileCount} 个内容文件、{impact.assetCount} 个媒体、{impact.saveStateCount} 份存档</li><li>预计独占回收 {formatBytes(Number(impact.exclusiveBytes))}；共享内容 {formatBytes(Number(impact.sharedBytes))} 继续保留</li><li>{impact.activeLaunchCount} 个活动游戏、{impact.activeNetplayCount} 个联机会话会立即终止</li><li>{impact.reviewEventCount} 条审核历史继续保留文字记录</li><li>来源：{sources}</li></ul></ConfirmDialog></section>;
+}
+
+function DeletedGameStatus({ game, onRetry }: { game: AdminGame; onRetry: () => void }) {
+  const messages = { RELEASING: "游戏已删除，正在清理数据", RELEASED: "数据引用已清理，将由存储回收任务处理", FAILED: "数据清理失败", RETAINED: "等待数据清理" };
+  return <section className="panel admin-game-remove"><div className="panel-head"><h2>已删除游戏</h2></div><div className="panel-body"><div><StatusBadge tone={game.payloadState === "FAILED" ? "bad" : game.payloadState === "RELEASED" ? "good" : "warn"}>{messages[game.payloadState]}</StatusBadge><p>游戏标题和结构化历史会继续保留；封面、视频、游戏内容和存档不可再访问。</p>{game.payloadLastErrorCode ? <code>{game.payloadLastErrorCode}</code> : null}</div>{game.payloadState === "FAILED" && game.payloadReleaseJobId ? <button className="button secondary" type="button" onClick={onRetry}>重试清理</button> : null}</div></section>;
 }
 
 function CandidateColumn({ candidate, comparisonCover, comparisonFields, cover, game }: { candidate: ScrapeCandidate; comparisonCover: AdminGameManagerViewProps["comparisonCover"]; comparisonFields: ComparisonField[]; cover: Asset | undefined; game: AdminGame }) {
@@ -157,6 +162,9 @@ function MoveDialog(props: Pick<AdminGameManagerViewProps, "busy" | "game" | "on
 }
 
 export function AdminGameManagerView(props: AdminGameManagerViewProps) {
+  if (props.game.status === "DELETED") {
+    return <div className="admin-game-detail"><Toast toast={props.error ? { message: props.error, tone: "bad" } : props.notice ? { message: props.notice, tone: "good" } : null} onDismiss={props.onDismissToast} /><GameHero cover={undefined} currentFile="已清理" currentInstance={props.currentInstance} currentRuntime={props.currentRuntime} currentVariant={props.currentVariant} game={props.game} gameTags={props.gameTags} metadataComplete={props.metadataComplete} runtime={props.runtime} /><DeletedGameStatus game={props.game} onRetry={props.onRetryPayloadRelease} /></div>;
+  }
   return <div className="admin-game-detail">
     <Toast toast={props.error ? { message: props.error, tone: "bad" } : props.notice ? { message: props.notice, tone: "good" } : null} onDismiss={props.onDismissToast} />
     <GameHero cover={props.cover} currentFile={props.currentFile} currentInstance={props.currentInstance} currentRuntime={props.currentRuntime} currentVariant={props.currentVariant} game={props.game} gameTags={props.gameTags} metadataComplete={props.metadataComplete} runtime={props.runtime} />

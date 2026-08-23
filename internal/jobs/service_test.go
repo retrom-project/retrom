@@ -81,13 +81,13 @@ func TestCancelAndRetryEnforceVersionedState(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	t.Cleanup(func() { cleanup.Error("close", database.Close()) })
 	service := New(database.SQL, func() time.Time { return now })
-	insertJob(t, database, "cancel-job", "BLOB_GC", "QUEUED", nil, now.UnixMilli())
+	insertJob(t, database, "cancel-job", "GAME_FILE_REVISION", "QUEUED", nil, now.UnixMilli())
 	canceled, pending, err := service.Cancel(ctx, "cancel-job", 1, "operator canceled")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending }, func() bool { return canceled.State != "CANCELLED" }, func() bool { return canceled.Version != 2 }), "cancel = %#v, pending=%v, error=%v", canceled, pending, err)
 	if _, _, err := service.Cancel(ctx, "cancel-job", 2, "again"); !errors.Is(err, ErrConflict) {
 		t.Fatalf("terminal cancellation = %v", err)
 	}
-	insertJob(t, database, "failed-cancel-job", "BLOB_GC", "FAILED", int64(1), now.UnixMilli())
+	insertJob(t, database, "failed-cancel-job", "GAME_FILE_REVISION", "FAILED", int64(1), now.UnixMilli())
 	failedCanceled, pending, err := service.Cancel(ctx, "failed-cancel-job", 1, "discard retryable attachment")
 	testassert.Falsef(t, testassert.Any(func() bool { return err != nil }, func() bool { return pending }, func() bool { return failedCanceled.State != "CANCELLED" }, func() bool { return failedCanceled.Version != 2 }), "failed cancel = %#v, pending=%v, error=%v", failedCanceled, pending, err)
 

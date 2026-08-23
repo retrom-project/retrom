@@ -121,8 +121,8 @@ UPDATE review_drafts SET cover_candidate_asset_id=? WHERE import_item_id=?
 		!strings.Contains(filteredList.Body.String(), `"itemId":"`+itemID+`"`)),
 		"review queue import filter = %d %s", filteredList.Code, filteredList.Body.String())
 	assertPegasusReviewSources(
-		t, server, itemID, importID, artifactID, coverBlobID, readyCoverAssetID, uploadedCoverAssetID,
-		manifest, digest, timestamp, coverMetadata, coverPayload,
+		t, server, itemID, importID, artifactID, coverBlobID,
+		manifest, digest, timestamp, coverMetadata,
 	)
 }
 
@@ -150,11 +150,10 @@ func createReviewCoverFixture(t *testing.T, server *Server, itemID, uploadFileID
 func assertPegasusReviewSources(
 	t *testing.T,
 	server *Server,
-	itemID, importID, artifactID, coverBlobID, readyCoverAssetID, uploadedCoverAssetID string,
+	itemID, importID, artifactID, coverBlobID string,
 	manifest, digest string,
 	timestamp int64,
 	coverMetadata blobstore.Metadata,
-	coverPayload []byte,
 ) {
 	pegasusImportID := "01980000-0000-7000-8000-000000000138"
 	pegasusScanJobID := "01980000-0000-7000-8000-000000000139"
@@ -268,22 +267,17 @@ WHERE id=?
 	testassert.Falsef(t, anyTrue(pegasusVideo.Code != http.StatusOK,
 		!bytes.Equal(pegasusVideo.Body.Bytes(), videoPayload), pegasusVideo.Header().Get("Content-Type") != "video/mp4"),
 		"Pegasus review video = %d/%s %q", pegasusVideo.Code, pegasusVideo.Header().Get("Content-Type"), pegasusVideo.Body.Bytes())
-	assertHistoricalReviewAssets(
-		t, server, itemID, pegasusItemID, readyCoverAssetID, uploadedCoverAssetID, timestamp, coverPayload,
-	)
+	assertHistoricalReviewEvent(t, server, itemID, timestamp)
 }
 
-func assertHistoricalReviewAssets(
-	t *testing.T, server *Server, itemID, pegasusItemID, readyCoverAssetID, uploadedCoverAssetID string,
-	timestamp int64, coverPayload []byte,
-) {
+func assertHistoricalReviewEvent(t *testing.T, server *Server, itemID string, timestamp int64) {
 	mustExecHTTPTest(t, server.database, `
 UPDATE import_items SET state='PUBLISHED' WHERE id=?;
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,after_json,diff_json,
 config_evidence_json,dat_evidence_json,provider_evidence_json,reason,created_at_ms)
 VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','SYSTEM',NULL,'release-setup',?,
-'{"schemaVersion":1,"decision":"APPROVED"}','{}','{}','{}','{}',NULL,?)
-`, itemID, `{"schemaVersion":1,"selectedAssets":{"coverCandidateAssetId":null,"coverUploadedAssetId":null}}`, timestamp)
+'{"schemaVersion":2,"decision":"APPROVED"}','{}','{}','{}','{}',NULL,?)
+`, itemID, `{"schemaVersion":2,"metadata":{"title":"Visible candidate"}}`, timestamp)
 	historyDetail := httptest.NewRecorder()
 	historyRequest := httptest.NewRequestWithContext(context.Background(),
 		http.MethodGet,
@@ -295,24 +289,11 @@ VALUES('01980000-0000-7000-8000-000000000135',?,'APPROVED','SYSTEM',NULL,'releas
 	testassert.Falsef(t, testassert.Any(func() bool { return historyDetail.Code != http.StatusOK }, func() bool {
 		return !strings.Contains(historyDetail.Body.String(), `"actor":{"kind":"SYSTEM","label":"release-setup","userId":null}`)
 	}, func() bool {
-		return !strings.Contains(historyDetail.Body.String(), `"before":{"schemaVersion":1,"selectedAssets"`)
+		return !strings.Contains(historyDetail.Body.String(), `"before":{"metadata":{"title":"Visible candidate"},"schemaVersion":2}`)
 	}, func() bool {
-		return !strings.Contains(historyDetail.Body.String(), `"coverUrl":"/api/v1/admin/review-assets/`+pegasusItemID+`?kind=COVER"`)
+		return strings.Contains(historyDetail.Body.String(), `"coverUrl"`) ||
+			strings.Contains(historyDetail.Body.String(), `"selectedAssets"`)
 	}), "review history detail = %d %s", historyDetail.Code, historyDetail.Body.String())
-	historicalCover := httptest.NewRecorder()
-	historicalRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/review-assets/"+readyCoverAssetID, nil)
-	historicalRequest.SetPathValue("assetId", readyCoverAssetID)
-	server.reviewCandidateAsset(historicalCover, historicalRequest)
-	testassert.Falsef(t, anyTrue(historicalCover.Code != http.StatusOK,
-		!bytes.Equal(historicalCover.Body.Bytes(), coverPayload)),
-		"historical review cover = %d %q", historicalCover.Code, historicalCover.Body.Bytes())
-	historicalUploadedCover := httptest.NewRecorder()
-	historicalUploadedRequest := httptest.NewRequestWithContext(context.Background(), http.MethodGet, "/api/v1/admin/review-assets/"+uploadedCoverAssetID, nil)
-	historicalUploadedRequest.SetPathValue("assetId", uploadedCoverAssetID)
-	server.reviewCandidateAsset(historicalUploadedCover, historicalUploadedRequest)
-	testassert.Falsef(t, anyTrue(historicalUploadedCover.Code != http.StatusOK,
-		!bytes.Equal(historicalUploadedCover.Body.Bytes(), coverPayload)),
-		"historical uploaded review cover = %d %q", historicalUploadedCover.Code, historicalUploadedCover.Body.Bytes())
 }
 
 func seedReviewSources(
@@ -547,12 +528,14 @@ provider,
 request_digest,
 http_status,
 outcome,
+raw_payload_state,
 fetched_at_ms,
 expires_at_ms) VALUES(?,
 'HASHEOUS',
 ?,
 200,
 'HIT',
+'NONE',
 ?,
 ?)
 `, providerResponseID, digest, timestamp, timestamp)

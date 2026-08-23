@@ -62,8 +62,10 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   expect(previewBounds).not.toBeNull();
   expect(helpBounds).not.toBeNull();
   expect(helpBounds!.y - (previewBounds!.y + previewBounds!.height)).toBeGreaterThanOrEqual(8);
-  await createSheet.getByRole("button", { name: "保存标签" }).focus();
-  await page.keyboard.press("Enter");
+  const createSave = createSheet.getByRole("button", { name: "保存标签" });
+  await createSave.focus();
+  await expect(createSave).toBeFocused();
+  await createSave.press("Enter");
   const createdRow = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: tagName }) });
   await expect(createdRow).toBeVisible();
 

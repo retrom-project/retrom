@@ -31,6 +31,7 @@ var (
 	errReviewVersionConflict = errors.New("REVIEW_VERSION_CONFLICT")
 	errGameVersionConflict   = errors.New("GAME_VERSION_CONFLICT")
 	errAssetStateConflict    = errors.New("ASSET_STATE_CONFLICT")
+	errGameDeleted           = errors.New("METADATA_GAME_DELETED")
 	errInitialItemState      = errors.New("initial review item state changed")
 	errInitialProgressState  = errors.New("initial import progress state changed")
 )

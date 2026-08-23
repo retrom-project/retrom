@@ -5,6 +5,8 @@ const nowMs = new Date("2026-08-08T12:00:00+08:00").getTime();
 
 function game(overrides: Partial<RecentGame> & Pick<RecentGame, "gameId" | "title">): RecentGame {
   return {
+    status: "PUBLISHED",
+    availability: "PUBLISHED",
     platform: { id: "arcade", name: "街机" },
     platformInstance: { id: "fbneo", name: "FBNeo 游戏" },
     lastPlayedAtMs: nowMs,

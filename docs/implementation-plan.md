@@ -102,7 +102,7 @@ flowchart LR
 
 ### M4：目录与游戏聚合
 
-范围：PlatformInstance 生命周期与默认 core 影响预览；Game/MetadataRevision/Asset、GameContentRevision/ContentFiles、Variant/VariantRevision；审核原子发布、异步游戏内容替换 Job/重试、游戏编辑/移动、带标题确认和幂等重放的软删除、搜索与 cursor。Game current content 是唯一普通启动来源；失败兼容验证按 `validation_input_digest` 去重，Variant current 只指 READY。
+范围：PlatformInstance 生命周期与默认 core 影响预览；Game/MetadataRevision/Asset、GameContentRevision/ContentFiles、Variant/VariantRevision；审核原子发布、异步游戏内容替换 Job/重试、游戏编辑/移动、带标题/影响摘要确认和幂等重放的墓碑式永久删除、搜索与 cursor。Game current content 是唯一普通启动来源；失败兼容验证按 `validation_input_digest` 去重，Variant current 只指 READY。
 
 退出门禁：完整执行 `ACC-IMP-002`、`ACC-IMP-004`、`ACC-IMP-006`、`ACC-IMP-007`、`ACC-PLAT-001`、`ACC-PLAT-002`、`ACC-PLAT-005` 与 `ACC-GAME-001`；Game store/审核发布/搜索/不可变 revision 的聚焦测试全通过。依赖普通 Launch 的 `ACC-PLAT-003/004`、`ACC-GAME-002/003` 留到 M5。完成后禁止任何页面继续读取硬编码游戏卡片。
 
@@ -169,6 +169,12 @@ flowchart LR
 范围：先同步审核、数据、HTTP、UI、质量和验收契约与 OpenAPI，再实现 `review_bulk_approvals/items`、`REVIEW_BULK_APPROVE` Worker 和 restore fence；复用普通 Approve 服务并把每项发布与批次结果原子提交。前端在统一待审核页接通当前筛选预览、确认、可恢复进度、取消/worker retry 和结果链接；截图人工放行、重复内容、活动补传和漂移输入继续逐项处理。
 
 退出门禁：完整执行 `ACC-IMP-009`、`ACC-UI-010`，回归 `ACC-IMP-004/007/008`、`ACC-PEG-003/004`、`ACC-TAG-003/004` 与 `ACC-BKP-001`；运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e` 与 `make ci`。当前 clean schema、restore、取消竞争和每项发布原子性必须有确定性证据；正式 UI 源、导出 HTML 和待审核桌面/移动的当次本地视觉复核闭环后才可删除临时设计目录，本地图片不得提交。本切片不进入模拟器执行路径，不运行 core smoke 或依赖/fixture 基线检查。
+
+### M16：Payload 生命周期与 Game 永久删除
+
+范围：先更新 OpenAPI 和 001–010 clean migration，建立 Blob/ownership registry 双向门禁、ReviewEvent v2 和各领域 payload state；随后实现持久 PayloadRelease/Provider TTL/BLOB_GC dispatcher，并把普通上传、Pegasus、文件/媒体替换的全部终态入口接通。最后实现 Game 影响摘要、墓碑式永久删除、共享引用保护、公共内容阻断、最近/收藏/联机历史墓碑和管理端进度/重试。
+
+退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、共享 Blob、进程中断、provider TTL、Game 删除和 GC 宽限均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
 
 ## 5. 垂直切片提交规则
 

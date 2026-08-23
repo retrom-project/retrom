@@ -33,19 +33,19 @@ SELECT '60000000-0000-7000-8000-000000000003',
 FROM game_content_revisions
 WHERE id=(SELECT content_id FROM acceptance_game);
 
-INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
-SELECT '60000000-0000-7000-8000-000000000003',role,
-       CASE WHEN role='CONTENT' THEN 'Acceptance-Missing-BIOS.fds' ELSE logical_name END,
-       blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
-FROM game_content_files
-WHERE game_content_revision_id=(SELECT content_id FROM acceptance_game);
-
 INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms,deleted_at_ms)
 SELECT '60000000-0000-7000-8000-000000000001',id,'PUBLISHED',
        '60000000-0000-7000-8000-000000000002','60000000-0000-7000-8000-000000000003',
        'acceptance missing fds bios',1,1786000300000,1786000300000,NULL
 FROM platform_instances
 WHERE catalog_template_key='nes/fceumm';
+
+INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
+SELECT '60000000-0000-7000-8000-000000000003',role,
+       CASE WHEN role='CONTENT' THEN 'Acceptance-Missing-BIOS.fds' ELSE logical_name END,
+       blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order
+FROM game_content_files
+WHERE game_content_revision_id=(SELECT content_id FROM acceptance_game);
 
 DROP TABLE acceptance_game;
 COMMIT;

@@ -192,5 +192,12 @@ async function verifyPlayerCanvas(page: Page) {
   expect(Math.min(Math.abs(canvasBox.width - dimensions.width), Math.abs(canvasBox.height - dimensions.height))).toBeLessThanOrEqual(2);
   expect(Math.abs(canvasBox.x - (dimensions.width - canvasBox.width) / 2)).toBeLessThanOrEqual(2); expect(Math.abs(canvasBox.y - (dimensions.height - canvasBox.height) / 2)).toBeLessThanOrEqual(2);
   await page.mouse.move(dimensions.width / 2, dimensions.height / 2); await expect(toolbar).toHaveCSS("opacity", "0");
-  await page.mouse.move(dimensions.width / 2, 1); await expect(toolbar).toHaveCSS("opacity", "1"); await noPageOverflow(page);
+  await canvas.click({ position: { x: Math.max(1, canvasBox.width / 2), y: Math.max(1, canvasBox.height / 2) } });
+  for (const key of ["w", "j", "ArrowUp", "5"]) {
+    await page.keyboard.press(key);
+    await expect(toolbar).toHaveCSS("opacity", "0");
+  }
+  await page.mouse.move(dimensions.width / 2, 1); await expect(toolbar).toHaveCSS("opacity", "1");
+  await page.mouse.move(dimensions.width / 2, dimensions.height / 2); await expect(toolbar).toHaveCSS("opacity", "0");
+  await noPageOverflow(page);
 }

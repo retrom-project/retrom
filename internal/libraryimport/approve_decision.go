@@ -1,8 +1,11 @@
 package libraryimport
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
+
+	"retrom/internal/payloadrelease"
 )
 
 type approvalEvidence struct {
@@ -32,8 +35,13 @@ INSERT INTO review_events(
 	if err := run.markItemPublished(); err != nil {
 		return err
 	}
-	return transitionServerReview(
+	if err := transitionServerReview(
 		run.ctx, run.transaction, run.itemID, "PUBLISHED", run.gameID, run.now,
+	); err != nil {
+		return err
+	}
+	return scheduleTerminalPayloads(
+		run.ctx, run.transaction, run.itemID, run.importID, payloadrelease.ReasonImportPublished, run.now,
 	)
 }
 
@@ -71,37 +79,28 @@ WHERE id=?
 
 func (run *approvalRun) marshalApprovalEvidence() approvalEvidence {
 	before, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "effectiveSourceSnapshotId": run.sourceSnapshotID,
-		"metadata": json.RawMessage(run.metadataJSON), "selectedValidationId": run.validationID,
-		"selectedCandidateId": nullable(run.candidateID),
-		"selectedAssets": map[string]any{
-			"coverCandidateAssetId":       nullable(run.coverID),
-			"coverUploadedAssetId":        nullable(run.uploadedCoverID),
-			"backgroundCandidateAssetId":  nullable(run.backgroundID),
-			"screenshotCandidateAssetIds": run.screenshotIDs,
+		"schemaVersion": 2, "metadata": json.RawMessage(run.metadataJSON),
+		"mediaSelection": map[string]any{
+			"cover":      hasText(run.coverID) || run.uploadedCoverID.Valid,
+			"background": hasText(run.backgroundID), "screenshotCount": len(run.screenshotIDs),
 		},
 		"defaultDosEntry": nullable(run.draftDOSEntry), "tags": run.publishedTags,
 	})
 	after, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "gameId": run.gameID, "metadataRevisionId": run.metadataID,
+		"schemaVersion": 2, "gameId": run.gameID, "metadataRevisionId": run.metadataID,
 		"contentRevisionId": run.contentID, "variantRevisionId": run.variantRevisionID,
 		"tags": run.publishedTags,
 	})
 	diff, _ := json.Marshal(run.approvalDiff())
 	config, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "configSnapshot": json.RawMessage(run.configJSON),
-		"validationId": run.validationID, "runtimeScreenshotId": nullable(run.approvalScreenshotID),
+		"schemaVersion": 2, "validation": "READY", "runtimeScreenshotOverride": run.screenshotOverride,
 	})
 	datEvidence, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "datVersionId": nullable(run.datID),
-		"dependencySnapshot": json.RawMessage(run.dependencySnapshotJSON),
+		"schemaVersion": 2, "datMatched": run.datID.Valid,
 	})
 	provider, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "selectedCandidateId": nullable(run.candidateID),
-		"coverCandidateAssetId":       nullable(run.coverID),
-		"coverUploadedAssetId":        nullable(run.uploadedCoverID),
-		"backgroundCandidateAssetId":  nullable(run.backgroundID),
-		"screenshotCandidateAssetIds": run.screenshotIDs,
+		"schemaVersion": 2, "selectedCandidateId": nullable(run.candidateID),
+		"candidateSelected": run.candidateID.Valid,
 	})
 	return approvalEvidence{
 		before: before, after: after, diff: diff, config: config, dat: datEvidence, provider: provider,
@@ -109,18 +108,18 @@ func (run *approvalRun) marshalApprovalEvidence() approvalEvidence {
 }
 
 func (run *approvalRun) approvalDiff() map[string]any {
+	mediaChanged := hasText(run.coverID) || run.uploadedCoverID.Valid ||
+		hasText(run.backgroundID) || len(run.screenshotIDs) > 0
 	diff := map[string]any{
-		"schemaVersion": 1, "decision": "APPROVED",
-		"contentIdentityDigest": run.contentIdentityDigest, "tags": run.publishedTags,
+		"schemaVersion": 2, "decision": "APPROVED", "tags": run.publishedTags,
+		"mediaChanged": mediaChanged,
 	}
 	if run.options.bulkApprovalID != "" {
 		diff["approvalMode"] = "QUICK_STRICT_READY"
 		diff["bulkApprovalId"] = run.options.bulkApprovalID
 	}
 	if run.screenshotOverride {
-		diff["runtimeScreenshotOverride"] = map[string]any{
-			"screenshotId": run.approvalScreenshotID.String, "validationId": run.validationID,
-		}
+		diff["runtimeScreenshotOverride"] = true
 	}
 	if run.input.decision.DuplicatePolicy == "ALLOW_NEW" {
 		diff["duplicatePolicy"] = run.input.decision.DuplicatePolicy
@@ -128,3 +127,5 @@ func (run *approvalRun) approvalDiff() map[string]any {
 	}
 	return diff
 }
+
+func hasText(value sql.NullString) bool { return value.Valid && value.String != "" }

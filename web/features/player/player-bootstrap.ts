@@ -15,6 +15,7 @@ import { mobilePlayerQuery, portraitPlayerQuery, reducePlayerOrientation, waitFo
 import { NetplayController } from "./netplay/controller";
 import { digestHex, EJSNetplayFrameBridge } from "./netplay/ejs-netplay-4.2.3-v1";
 import { readBoundedResponse, reportsNativeExit } from "./player-shell-model";
+import { shouldRevealPlayerControlsForKey } from "./player-controls-visibility";
 import type { PlayerDebugRuntime } from "./player-chrome";
 import { handlePlayerPauseShortcut } from "./keyboard-controls";
 
@@ -160,7 +161,7 @@ function mountFrame(params: PlayerBootstrapParams, resources: BootstrapResources
 function installFrameControls(document: Document, frame: HTMLIFrameElement, inputMode: string, params: PlayerBootstrapParams) {
   const pointer = (event: PointerEvent) => params.revealControlsAtTopEdge(event.clientY);
   const key = (event: KeyboardEvent) => {
-    params.showControls();
+    if (shouldRevealPlayerControlsForKey(event.key)) {params.showControls();}
     handlePlayerPauseShortcut(event, params.onKeyboardPause);
   };
   const click = (event: MouseEvent) => {

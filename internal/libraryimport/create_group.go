@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"retrom/internal/blobstore"
+	"retrom/internal/payloadrelease"
 )
 
 func (run *creationRun) persistGroup(group *preparedGroup) error {
@@ -87,6 +88,11 @@ WHERE id=?
 `, run.now, run.now, record.itemID)
 	if err != nil {
 		return false, fmt.Errorf("libraryimport/service: %w", err)
+	}
+	if _, err := payloadrelease.ScheduleTerminalImportItem(
+		run.ctx, run.transaction, record.itemID, payloadrelease.ReasonImportDiscarded, run.now,
+	); err != nil {
+		return false, fmt.Errorf("libraryimport/service: schedule duplicate release: %w", err)
 	}
 	run.duplicateItems++
 	for uploadFileID := range record.uploadFileIDs {

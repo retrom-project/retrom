@@ -14,11 +14,13 @@ export function GameContentReplacementDialog({
   initialMode,
   multiDiscLimits,
   disabled,
+  saveStateCount,
   onSubmit,
 }: {
   initialMode: ContentMode;
   multiDiscLimits: { maxDiscs: number; maxTotalBytes: number } | null;
   disabled: boolean;
+  saveStateCount: number;
   onSubmit: (files: File[], mode: ContentMode) => Promise<boolean>;
 }) {
   const [open, setOpen] = useState(false);
@@ -53,7 +55,7 @@ export function GameContentReplacementDialog({
 
   return <>
     <button className="button secondary" type="button" disabled={disabled} onClick={() => setOpen(true)}>替换游戏文件</button>
-    <ConfirmDialog open={open} wide title="替换游戏内容" description="新内容通过当前目录默认核心校验后才会成为当前版本；旧内容、历史版本和存档继续保留。" confirmLabel="上传并创建内容版本" busy={disabled} confirmDisabled={!files.length || preflighting || !multiDiscValid} onCancel={close} onConfirm={() => void submit()}>
+    <ConfirmDialog open={open} wide title="替换游戏内容" description={`只有新内容通过校验才会切换。成功后旧游戏文件、运行快照和 ${saveStateCount} 份存档会永久失效；内容完全相同时不会替换。`} confirmLabel="上传并替换内容" busy={disabled} confirmDisabled={!files.length || preflighting || !multiDiscValid} onCancel={close} onConfirm={() => void submit()}>
       <ReplacementDialogContents {...{
         disabled, files, mode, multiDiscLimits, preflight, preflighting, setFiles, setMode, setPreflight, totalBytes,
       }} />

@@ -124,7 +124,7 @@ web/components/           无业务状态的通用组件
 
 ## 6. 后台任务
 
-任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容 revision/兼容重校验、孤儿 Blob 垃圾回收。精确 Job kind/scope 映射以数据模型为准，不另起一组同义名称。联机不增加 Job kind；Room 到期由 30 秒维护 ticker 执行短事务，frame/input/hash/state/reconnect 只存在于有界 Hub 内存。
+任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容 revision/兼容重校验、业务 payload 引用释放和 Blob 宽限回收。`internal/payloadrelease` 统一执行 ImportItem/ImportJob/PegasusItem/UploadConsumption/Game ownership 释放、provider TTL 和 BLOB_GC；领域终态只创建持久 Job，不自行删 CAS。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。联机不增加 Job kind；Room 到期由 30 秒维护 ticker 执行短事务，frame/input/hash/state/reconnect 只存在于有界 Hub 内存。
 
 SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#7-通用任务事件与审计) 的字段、领取索引、60 秒 lease、15 秒 heartbeat、并发上限和四次 attempt 退避。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但等待上限 15 分钟。
 

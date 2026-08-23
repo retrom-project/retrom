@@ -6,8 +6,7 @@ tbody tr:hover { background: #fafaff; }
 .history-table tbody tr { cursor: pointer; }
 .history-table tbody tr:focus-visible { outline: 3px solid rgb(98 80 210 / 45%); outline-offset: -3px; background: #fafaff; }
 .history-table td:first-child small { display: block; margin-top: 3px; }
-.history-snapshot { display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 22px; }
-.history-snapshot-cover img, .history-snapshot-cover .asset-placeholder { width: 100%; aspect-ratio: 3 / 4; object-fit: contain; background: #eef0f4; }
+.history-snapshot { display: grid; grid-template-columns: minmax(0, 1fr); gap: 22px; }
 .history-snapshot h3 { margin: 0; font-size: 22px; }
 .history-snapshot > div:last-child > p { color: var(--muted); white-space: pre-wrap; }
 .history-snapshot dl { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }

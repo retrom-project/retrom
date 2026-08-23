@@ -268,22 +268,21 @@ QUEUED/RUNNING/FAILED_RETRYABLE -> CANCELLED
 
 Parent 改变有效 source manifest 和 content identity。每次接受后重新计算重复内容证据；进入人工审核的 Item 即使命中已发布游戏也不自动丢弃，Approve 继续以新 digest 做事务内最终重复检查并要求显式确认。发布时 ContentFiles 来自有效来源快照，VariantFiles 的 PARENT/BIOS 来自同快照 READY Validation，不得沿用 child-only 证据。若 Item 由 Pegasus 目录交接，最终 metadata/content 的来源仍记录为 `SERVER_PEGASUS_IMPORT` 并引用 Pegasus Item，但数据库必须沿一一关联的 `library_import_item_id -> ReviewDraft.effective_source_snapshot_id` 校验最终 content manifest；Pegasus 初始 manifest 只作为原始来源证据，不能阻断合法的 Parent 或多盘后继快照。
 
-审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都写 `SCRAPE_REQUESTED` ReviewEvent，服务端不会自动覆盖持久化草稿。首次自动刮削已有候选且草稿尚未选择来源时，前端把首个候选基础信息与 READY 封面填入客户端状态，并通过当前 ETag 防抖、串行实时保存。之后显式查询原位等待 Job 终态，并以单个“当前信息 / 最新信息”左右两栏对比对话框呈现结果；每栏内部上方为短元信息与 3:4 封面，下方为完整简介。右栏可编辑且可上传人工封面，取消不采用，应用更新客户端状态并触发实时 PATCH；不得把历次候选卡不断追加到页面正文。来源 run/candidate/候选 asset 或人工上传 asset ID 必须完整进入草稿和最终审核事件。
+审核页允许调整元信息源：`HASHEOUS` 会显式 bypass cache 新建 MetadataScrapeRun/Job，`NONE` 建立无网络的已完成 run；两者都写 `SCRAPE_REQUESTED` ReviewEvent，服务端不会自动覆盖持久化草稿。首次自动刮削已有候选且草稿尚未选择来源时，前端把首个候选基础信息与 READY 封面填入客户端状态，并通过当前 ETag 防抖、串行实时保存。之后显式查询原位等待 Job 终态，并以单个“当前信息 / 最新信息”左右两栏对比对话框呈现结果；每栏内部上方为短元信息与 3:4 封面，下方为完整简介。右栏可编辑且可上传人工封面，取消不采用，应用更新客户端状态并触发实时 PATCH；不得把历次候选卡不断追加到页面正文。草稿在决策前可以引用当前 run/candidate/asset；ReviewEvent v2 只冻结文字字段、候选/Validation/Run 等结构化审计 ID 与选择结论，不保存 asset/blob/upload ID 或媒体 URL。
 
 ## 10. 审核历史
 
-ReviewEvent 只追加不覆盖，至少包含：
+ReviewEvent v2 只追加不覆盖，至少包含：
 
 - ImportItem ID、事件类型和真实 `USER` actor；后台/离线系统事件使用封闭 `SYSTEM` actor label。
-- 输入、输出与字段 diff 快照。
-- 目标游戏目录和配置快照。
-- DAT 依赖证据。
-- 采用的 Hasheous candidate/provider/raw response 引用。
+- 输入、输出与文字/标签 diff 快照。
+- 目标游戏目录、候选/Validation/Run/Attachment 等结构化审计 ID 和决定结论。
+- DAT/provider 的文字结论与稳定错误码。
 - `decision`、可空兼容原因和 `created_at_ms`；当前 UI 不采集发布说明或丢弃原因。
 
-草稿实时保存、改变目标目录、应用/撤销候选、Approve 和 Discard 都写一条事件；纯自动 Worker 进度写 JobEvent，不混入 ReviewEvent。历史页默认按最终 `APPROVED/DISCARDED` 决策列出记录，详情可回放此前草稿事件。
+草稿实时保存、改变目标目录、应用/撤销候选、Approve 和 Discard 都写一条事件；纯自动 Worker 进度写 JobEvent，不混入 ReviewEvent。历史页默认按最终 `APPROVED/DISCARDED` 决策列出记录，详情可回放此前文字与结构化事件。
 
-Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选、修改和决策。历史详情的封面投影按“最终事件选择的人工上传封面—最终事件选择的 READY 候选封面—最终事件 ImportItem 一一关联的 Pegasus COPIED COVER”取值；Pegasus 回退关系来自不可变决策所属 ImportItem，而不是发布后仍可能变化的 Game 当前媒体，因此变更前已经落库且选择 ID 为空的 Pegasus 决策也可回放。最终审核事件所属 ImportItem 即使已进入 `PUBLISHED/DISCARDED`，其候选、人工上传和 Pegasus 来源媒体端点仍允许历史快照读取；前端在物理媒体确实缺失时显示占位，不留下裂图。
+ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入异步 PayloadRelease；历史页仍可还原来源名称、大小、manifest/hash 摘要、文字修改、标签、Validation/候选结论和最终决定，但不保存或回放封面、视频、运行截图、原始 provider response 或任何 CAS payload。历史列表和详情均为纯文字/结构化审计，不提供媒体占位或旧内容端点兜底。
 
 ### 10.1 管理后台页面职责
 
@@ -322,7 +321,7 @@ Discard 不立即删除 Blob，历史页可完整还原当时的文件、候选�
 
 ## 12. Worker
 
-默认并发固定为 Hash/Copy 2、Archive 1、DAT 1、Hasheous 2、图片 2、GC 1；配置可调低，调高上限分别为 4/2/1/4/4/1。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 SQLite 写事务。
+默认并发固定为 Hash/Copy 2、Archive 1、DAT 1、Hasheous 2、图片 2、PayloadRelease 最多 4、GC 1；业务释放和 GC 均不可由用户取消。最多 4 次 attempt，退避 1s/5s/30s/120s；上游 `Retry-After` 可覆盖但最长 15 分钟。任务必须有 lease、heartbeat、可观测阶段、进度、取消、重试和重启恢复；时间由可注入 clock 驱动，测试不 sleep。后台任务不得在哈希、网络或解析期间持有 SQLite 写事务。
 
 ## 13. 多盘目录、缺盘与补传
 
@@ -345,6 +344,8 @@ Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collect
 相同规范内容不生成审核事项或第二个 Game，而是保存所有匹配证据并以 `SKIPPED_EXISTING` 收口。运行检查未通过时必须保留 library validation 的精确 `status/compatibilityCode/core` 和经过封闭投影的依赖快照，包括 machine、缺失/不匹配条目、parent/BIOS 逻辑归档、必需 entry 与多盘缺失引用。library import 自身发生内部失败时收口为可重试 `PEGASUS_LIBRARY_IMPORT_FAILED`，并持久化失败 stage、operation、稳定 cause、受限技术文本、相对路径、输入数量/上限和可用内部关联 ID，不得只返回聚合错误码，也不得误报为内容不兼容。COVER/VIDEO 独立按 game 显式、Collection 显式、title 目录、file basename 目录的顺序选择；媒体读取或格式失败只留下 warning，不使可运行 ROM 失败。取消只停止尚未交接的工作，已经生成的审核事项继续保留；retry 只重开服务端标记 retryable 的失败 Item，复用冻结映射与 snapshot，不重做成功、待审核、已发布、审核丢弃、已存在或确定性阻断项，并清空旧失败详情。交接阶段崩溃时复用已关联的内部 ImportItem 并幂等补齐 metadata，不能制造不可见的第二个审核条目；原计划重检始终从当前冻结输入重新生成精确结论和详细证据。
 
 聚合状态为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `CANCEL_REQUESTED/CANCELLED/FAILED/EXPIRED`；等待映射计划 7 天过期，全实例至多 20 个未开始计划和一个执行中的 Pegasus import。统一验收见 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001`。
+
+Pegasus Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不可重试错误，就只长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。已交接普通 ImportItem 的条目共用普通 Item 的 PayloadRelease；未交接条目使用独立 Pegasus scope。文件和 COVER/VIDEO Blob 字段转为 `PAYLOAD_RELEASED` 形态，管理详情显示“源文件已清理”，不得尝试加载旧媒体 URL。仍可 retry 的错误和普通 `REVIEW_PENDING` 必须继续保留 payload。
 
 ## 15. 标签默认值与发布传播
 

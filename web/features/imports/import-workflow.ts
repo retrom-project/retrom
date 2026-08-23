@@ -34,6 +34,8 @@ export type ImportFileOutcome = {
 export type ImportDetail = {
   importJobId: string;
   state: string;
+  payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED";
+  payloadReleaseJobId: string | null;
   metadataProvider: string;
   targetPlatformInstance: { id: string; name: string };
   configSnapshot?: { contentMode?: "STANDARD" | "MULTI_DISC_M3U_V1"; tags?: Array<{ tagId: string; name: string }> };

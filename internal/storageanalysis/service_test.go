@@ -179,6 +179,11 @@ func seedReferences(t *testing.T, database *sql.DB) {
 	t.Helper()
 	statements := []string{
 		`DROP TRIGGER save_states_source_launch_insert`,
+		`DROP TRIGGER save_states_published_insert`,
+		`DROP TRIGGER game_content_files_published_insert`,
+		`DROP TRIGGER game_assets_published_insert`,
+		`DROP TRIGGER launch_content_files_published_insert`,
+		`DROP TRIGGER variant_files_published_insert`,
 		`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,source_archive_blob_id,source_archive_entry_ordinal,sort_order)
 VALUES('content-rev','CONTENT','game.rom','game','game-archive',0,0),
 ('shared-rev','CONTENT','shared.rom','shared',NULL,NULL,0)`,
@@ -198,8 +203,10 @@ VALUES('save-active','profile','game','variant','core',NULL,NULL,'shared','save-
 		`INSERT INTO archive_entries(archive_blob_id,ordinal,original_relative_path,normalized_path,ascii_casefold_path,archive_format,compression_profile,uncompressed_size_bytes,crc32,md5,sha1,sha256,materialized_blob_id,created_at_ms)
 VALUES('game-archive',0,'member.bin','member.bin','member.bin','ZIP','STORE',800,'00000001','00000000000000000000000000000001','0000000000000000000000000000000000000001','0000000000000000000000000000000000000000000000000000000000000001','game-member',0),
 ('orphan-archive',0,'orphan.bin','orphan.bin','orphan.bin','ZIP','STORE',900,'00000002','00000000000000000000000000000002','0000000000000000000000000000000000000002','0000000000000000000000000000000000000000000000000000000000000002','orphan-member',0)`,
-		`INSERT INTO blob_gc_candidates(blob_id,first_unreferenced_at_ms,scheduled_at_ms,attempt_count)
-VALUES('orphan-archive',0,1,0)`,
+		`INSERT INTO jobs(id,scope_type,scope_id,kind,dedupe_key,execution_no,payload_json,cancellable,state,attempt_count,max_attempts,version,available_at_ms,created_at_ms,updated_at_ms)
+VALUES('orphan-gc','BLOB','orphan-archive','BLOB_GC','0000000000000000000000000000000000000000000000000000000000000001',1,'{}',0,'QUEUED',0,4,1,1,0,0)`,
+		`INSERT INTO blob_gc_candidates(blob_id,gc_job_id,first_unreferenced_at_ms,scheduled_at_ms,attempt_count)
+VALUES('orphan-archive','orphan-gc',0,1,0)`,
 	}
 	for _, statement := range statements {
 		if _, err := database.ExecContext(context.Background(), statement); err != nil {

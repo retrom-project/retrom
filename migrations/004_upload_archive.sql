@@ -24,12 +24,17 @@ CREATE TABLE upload_files (
   declared_size_bytes INTEGER NOT NULL CHECK(declared_size_bytes BETWEEN 0 AND 8589934592),
   received_size_bytes INTEGER NOT NULL DEFAULT 0 CHECK(received_size_bytes >= 0),
   final_blob_id TEXT REFERENCES blobs(id),
-  state TEXT NOT NULL CHECK(state IN ('PENDING','PARTIAL','FINALIZING','COMPLETE','FAILED')),
+  state TEXT NOT NULL CHECK(state IN ('PENDING','PARTIAL','FINALIZING','COMPLETE','FAILED','PURGED')),
+  payload_released_at_ms INTEGER,
   last_error_code TEXT,
   created_at_ms INTEGER NOT NULL,
   updated_at_ms INTEGER NOT NULL,
   UNIQUE(upload_session_id, relative_path),
-  CHECK((state = 'COMPLETE') = (final_blob_id IS NOT NULL))
+  CHECK(
+    state='COMPLETE' AND final_blob_id IS NOT NULL AND payload_released_at_ms IS NULL OR
+    state='PURGED' AND final_blob_id IS NULL AND payload_released_at_ms IS NOT NULL OR
+    state NOT IN ('COMPLETE','PURGED') AND final_blob_id IS NULL AND payload_released_at_ms IS NULL
+  )
 );
 
 CREATE TABLE upload_parts (
@@ -74,6 +79,13 @@ CREATE TABLE "upload_consumptions" (
     'REVIEW_MULTI_DISC','BIOS_INSTALLATION'
   )),
   consumer_id TEXT NOT NULL,
+  version INTEGER NOT NULL DEFAULT 1 CHECK(version>=1),
+  released_at_ms INTEGER,
+  release_reason TEXT CHECK(release_reason IS NULL OR release_reason IN (
+    'IMPORT_PUBLISHED','IMPORT_DISCARDED','IMPORT_FAILED_FINAL','IMPORT_CANCELLED',
+    'IMPORT_JOB_TERMINAL','PEGASUS_TERMINAL','UPLOAD_CONSUMED','GAME_DELETED'
+  )),
   created_at_ms INTEGER NOT NULL CHECK(created_at_ms>=0),
-  UNIQUE(consumer_type,consumer_id)
+  UNIQUE(consumer_type,consumer_id),
+  CHECK((released_at_ms IS NULL)=(release_reason IS NULL))
 );

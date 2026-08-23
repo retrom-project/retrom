@@ -153,6 +153,8 @@ describe("UploadPicker", () => {
     ]} activeTags={[{ tagId: "tag-handheld", name: "掌机" }]} reconfigureSource={{
       importJobId: "source-import",
       state: "PARTIAL_FAILURE",
+      payloadState: "RETAINED",
+      payloadReleaseJobId: null,
       metadataProvider: "HASHEOUS",
       targetPlatformInstance: { id: "gba", name: "GBA 游戏" },
       counts: { total: 0, reviewPending: 0, failed: 0, rejectedFiles: 1, unresolvedRejectedFiles: 1, alreadyImportedItems: 0, alreadyImportedFiles: 0 },

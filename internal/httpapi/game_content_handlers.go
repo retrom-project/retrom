@@ -16,6 +16,7 @@ import (
 
 	"retrom/internal/cleanup"
 	"retrom/internal/gamecontent"
+	"retrom/internal/payloadrelease"
 )
 
 type gameMetadata struct {
@@ -134,9 +135,10 @@ func (server *Server) createGameContentRevision(writer http.ResponseWriter, requ
 
 // Contract branches stay contiguous for a single auditable decision.
 func (server *Server) adminGame(writer http.ResponseWriter, request *http.Request) {
-	var title, description, developer, publisher, genre, status string
+	var title, description, developer, publisher, genre, status, payloadState string
 	var instanceID, instanceName, platformID, contentID, metadataID string
 	var players, releaseYear, deletedAt sql.NullInt64
+	var releaseJobID, payloadError sql.NullString
 	var version, createdAt, updatedAt int64
 	err := server.database.QueryRowContext(request.Context(), `
 SELECT m.title,
@@ -147,6 +149,9 @@ m.genre,
 m.players,
 m.release_year,
 g.status,
+g.payload_state,
+g.payload_release_job_id,
+g.payload_last_error_code,
 pi.id,
 pi.name,
 pi.platform_id,
@@ -170,6 +175,9 @@ WHERE g.id=?
 			&players,
 			&releaseYear,
 			&status,
+			&payloadState,
+			&releaseJobID,
+			&payloadError,
 			&instanceID,
 			&instanceName,
 			&platformID,
@@ -188,29 +196,11 @@ WHERE g.id=?
 		server.databaseError(writer, request, err)
 		return
 	}
-	var saveCount, reviewCount, launchCount int64
-	_ = server.database.QueryRowContext(request.Context(), `
-SELECT count(*)
-FROM save_states
-WHERE game_id=?
-AND deleted_at_ms IS NULL
-`, request.PathValue("gameId")).
-		Scan(&saveCount)
-	_ = server.database.QueryRowContext(request.Context(), `
-SELECT count(*)
-FROM review_events
-WHERE json_extract(after_json,
-'$.gameId')=?
-`, request.PathValue("gameId")).
-		Scan(&reviewCount)
-	_ = server.database.QueryRowContext(request.Context(), `
-SELECT count(*)
-FROM launch_sessions
-WHERE game_id=?
-AND state IN ('CREATED',
-'ACTIVE')
-`, request.PathValue("gameId")).
-		Scan(&launchCount)
+	impact, err := payloadrelease.GameDeleteImpact(request.Context(), server.database, request.PathValue("gameId"))
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	metadataRevisions, err := server.gameMetadataRevisions(request.Context(), request.PathValue("gameId"), metadataID)
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -228,6 +218,12 @@ AND state IN ('CREATED',
 		server.databaseError(writer, request, err)
 		return
 	}
+	if status == "DELETED" {
+		assets = []map[string]any{}
+		for _, revision := range contentRevisions {
+			revision["files"] = []map[string]any{}
+		}
+	}
 	variants, err := server.adminGameVariants(request.Context(), request.PathValue("gameId"))
 	if err != nil {
 		server.databaseError(writer, request, err)
@@ -242,18 +238,16 @@ AND state IN ('CREATED',
 	writeJSON(writer, http.StatusOK, map[string]any{
 		"gameId": request.PathValue(
 			"gameId",
-		), "status": status, "title": title, "description": description, "developer": developer,
+		), "status": status, "payloadState": payloadState,
+		"payloadReleaseJobId": nullableString(releaseJobID), "payloadLastErrorCode": nullableString(payloadError),
+		"title": title, "description": description, "developer": developer,
 		"publisher": publisher, "genre": genre,
 		"players": nullableInteger(players), "releaseYear": nullableInteger(releaseYear),
 		"platformId": platformID, "platformInstance": map[string]any{"id": instanceID, "name": instanceName},
 		"currentContentRevisionId": contentID, "currentMetadataRevisionId": metadataID, "version": version,
 		"createdAtMs": createdAt, "updatedAtMs": updatedAt, "generatedAtMs": server.now().UnixMilli(),
-		"deletedAtMs": nullableInteger(deletedAt),
-		"deleteImpact": map[string]any{
-			"saveStateCount":    saveCount,
-			"reviewEventCount":  reviewCount,
-			"activeLaunchCount": launchCount,
-		},
+		"deletedAtMs":       nullableInteger(deletedAt),
+		"deleteImpact":      impact,
 		"metadataRevisions": metadataRevisions, "assets": assets, "contentRevisions": contentRevisions,
 		"variants": variants, "tags": tags,
 	})
@@ -692,6 +686,12 @@ AND version=?
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
+	if err := server.retireSupersededGameAssets(
+		request.Context(), transaction, request.PathValue("gameId"), revisionID.String(),
+	); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	if err := insertAudit(
 		request,
 		transaction,
@@ -709,6 +709,7 @@ AND version=?
 		server.databaseError(writer, request, err)
 		return
 	}
+	server.payloadReleases.Signal()
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
 	writeJSON(
 		writer,
@@ -724,103 +725,71 @@ AND version=?
 
 // Delete preconditions, reference checks, optimistic locking, and audit write share one transaction.
 func (server *Server) deleteAdminGame(writer http.ResponseWriter, request *http.Request) {
-	if !validIdempotencyKey(request.Header.Get("Idempotency-Key")) {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_IDEMPOTENCY_KEY", "幂等键无效", map[string]any{})
+	input, valid := parseDeleteGameInput(writer, request)
+	if !valid {
 		return
 	}
-	expected, err := ParseETag(request.Header.Get("If-Match"))
-	if err != nil {
-		writeError(
-			writer,
-			request,
-			http.StatusPreconditionRequired,
-			"PRECONDITION_REQUIRED",
-			"需要当前资源版本",
-			map[string]any{},
-		)
-		return
-	}
-	var body struct {
-		ConfirmTitle string `json:"confirmTitle"`
-	}
-	if err := decodeJSON(writer, request, &body, 4096); err != nil {
-		writeError(writer, request, http.StatusBadRequest, "INVALID_REQUEST", "删除确认无效", map[string]any{})
-		return
-	}
+	server.lockIdempotentRequest()
+	defer server.idempotency.Unlock()
 	transaction, err := server.database.BeginTx(request.Context(), nil)
 	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
 	defer cleanup.Rollback(transaction)
-	var title, status string
-	var version int64
-	if err := transaction.QueryRowContext(request.Context(), `
-SELECT m.title,
-g.status,
-g.version
-FROM games g
-JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
-WHERE g.id=?
-`, request.PathValue("gameId")).Scan(&title, &status, &version); err != nil {
+	now := server.now().UnixMilli()
+	if server.replayDeleteGameIfPresent(writer, request, transaction, input, now) {
+		return
+	}
+	state, err := loadDeleteGameState(request.Context(), transaction, request.PathValue("gameId"))
+	if err != nil {
 		writeError(writer, request, http.StatusNotFound, "GAME_NOT_FOUND", "游戏不存在", map[string]any{})
 		return
 	}
-	if status != "PUBLISHED" {
-		writeError(writer, request, http.StatusConflict, "GAME_ALREADY_DELETED", "游戏已删除", map[string]any{})
+	if server.respondToExistingGameTombstone(writer, request, transaction, input, state, now) {
 		return
 	}
-	if version != expected {
-		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
+	impact, valid := server.validateDeleteGameImpact(writer, request, transaction, input, state)
+	if !valid {
 		return
 	}
-	if body.ConfirmTitle != title {
-		writeError(
-			writer,
-			request,
-			http.StatusUnprocessableEntity,
-			"GAME_DELETE_CONFIRMATION_MISMATCH",
-			"确认标题不匹配",
-			map[string]any{},
-		)
-		return
-	}
-	now := server.now().UnixMilli()
-	if _, err := transaction.ExecContext(request.Context(), `
-UPDATE games
-SET status='DELETED',
-deleted_at_ms=?,
-version=version+1,
-updated_at_ms=?
-WHERE id=?
-AND version=?
-`, now, now, request.PathValue("gameId"), expected); err != nil {
+	releaseJob, err := payloadrelease.ScheduleGameDeletion(
+		request.Context(), transaction, request.PathValue("gameId"), input.expected, now,
+	)
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
-	if _, err := transaction.ExecContext(request.Context(), `
-UPDATE launch_sessions
-SET state='REVOKED',
-finished_at_ms=?,
-updated_at_ms=?,
-version=version+1
-WHERE game_id=?
-AND state IN ('CREATED',
-'ACTIVE')
-`, now, now, request.PathValue("gameId")); err != nil {
+	if err := transitionDeletedGameRuntime(request.Context(), transaction, request.PathValue("gameId"), now); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
 	if err := insertAudit(
 		request,
 		transaction,
-		"GAME_DELETED",
+		"GAME_PERMANENT_DELETE_REQUESTED",
 		"GAME",
 		request.PathValue("gameId"),
 		map[string]any{"status": "PUBLISHED"},
-		map[string]any{"status": "DELETED"},
+		map[string]any{
+			"status": "DELETED", "payloadState": "RELEASING", "payloadReleaseJobId": releaseJob,
+			"impact": payloadrelease.GameDeleteAuditImpact(impact),
+		},
 		now,
 	); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	response := deleteGameResponse{
+		GameID: request.PathValue("gameId"), Status: "DELETED", PayloadState: "RELEASING",
+		PayloadReleaseJobID: &releaseJob,
+	}
+	etag := fmt.Sprintf(`"v%d"`, input.expected+1)
+	responseBody, err := storeDeleteGameResponse(
+		request.Context(), transaction, input.principal.UserID, request.Header.Get("Idempotency-Key"),
+		input.requestDigest, etag, http.StatusAccepted, response, now,
+	)
+	if err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
@@ -828,6 +797,6 @@ AND state IN ('CREATED',
 		server.databaseError(writer, request, err)
 		return
 	}
-	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
-	writer.WriteHeader(http.StatusNoContent)
+	server.payloadReleases.Signal()
+	writeStoredJSON(writer, http.StatusAccepted, etag, responseBody)
 }

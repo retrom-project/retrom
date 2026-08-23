@@ -75,6 +75,7 @@ function room(state: NetplayRoom["state"] = "DRAFT"): NetplayRoom {
     version: 3,
     game: state === "DRAFT" ? null : {
       gameId: selected.gameId, title: selected.title, platformName: selected.platformName,
+      status: "PUBLISHED", availability: "PUBLISHED",
       profileId: selected.netplayProfiles[0]!.id, coreName: "FCEUmm", emulatorjsVersion: "4.2.3", maxPlayers: 2,
     },
     members: [{ memberId: hostMemberId, playerNo: 1, role: "HOST", displayName: "Host", avatarRef: null, ready: false, connectionState: "NOT_CONNECTED" }],
@@ -228,5 +229,37 @@ describe("NetplayRoomLobby", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "开始联机" })).toBeEnabled());
     expect(screen.getByText("Guest")).toBeInTheDocument();
     expect(screen.getByText("已准备")).toBeInTheDocument();
+  });
+
+  it("renders a deleted selected game as a terminal tombstone", () => {
+    const ended = room("ENDED");
+    ended.endReason = "GAME_DELETED";
+    ended.endedAtMs = 1_500;
+    ended.game!.status = "DELETED";
+    ended.game!.availability = "DELETED";
+    render(<NetplayRoomLobby initialRoom={ended} games={[]} />);
+
+    expect(screen.getByText("已删除")).toBeVisible();
+    expect(screen.getByText("原因：游戏已删除")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "开始联机" })).not.toBeInTheDocument();
+  });
+
+  it("explains when ROM replacement ends the locked session", () => {
+    const ended = room("ENDED");
+    ended.endReason = "GAME_CONTENT_REPLACED";
+    ended.endedAtMs = 1_500;
+    render(<NetplayRoomLobby initialRoom={ended} games={[]} />);
+
+    expect(screen.getByText("原因：游戏内容已替换")).toBeVisible();
+    expect(screen.queryByRole("button", { name: "开始联机" })).not.toBeInTheDocument();
+  });
+
+  it("explains when BIOS replacement ends the locked session", () => {
+    const ended = room("ENDED");
+    ended.endReason = "BIOS_REPLACED";
+    ended.endedAtMs = 1_500;
+    render(<NetplayRoomLobby initialRoom={ended} games={[]} />);
+
+    expect(screen.getByText("原因：运行所需 BIOS 已替换")).toBeVisible();
   });
 });

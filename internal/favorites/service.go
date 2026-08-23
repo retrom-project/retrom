@@ -802,15 +802,15 @@ func folderByID(ctx context.Context, database executor, profileID, folderID stri
 	var folder Folder
 	err := database.QueryRowContext(ctx, `
 SELECT folder.id,folder.name,folder.version,folder.created_at_ms,folder.updated_at_ms,
-       count(CASE WHEN game.status='PUBLISHED' AND instance.enabled=1 THEN 1 END)
+       count(CASE WHEN game.status='DELETED' OR game.status='PUBLISHED' AND instance.enabled=1 THEN 1 END)
 FROM favorite_folders folder
 LEFT JOIN favorite_folder_games membership
   ON membership.profile_id=folder.profile_id AND membership.folder_id=folder.id
 LEFT JOIN favorite_games favorite
   ON favorite.profile_id=membership.profile_id AND favorite.game_id=membership.game_id
-LEFT JOIN games game ON game.id=favorite.game_id AND game.status='PUBLISHED'
+LEFT JOIN games game ON game.id=favorite.game_id AND game.status IN ('PUBLISHED','DELETED')
 LEFT JOIN platform_instances instance
-  ON instance.id=game.platform_instance_id AND instance.enabled=1
+  ON instance.id=game.platform_instance_id
 WHERE folder.profile_id=? AND folder.id=?
 GROUP BY folder.id,folder.name,folder.version,folder.created_at_ms,folder.updated_at_ms
 `, profileID, folderID).Scan(

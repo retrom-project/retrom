@@ -148,10 +148,17 @@ AND current_content_revision_id=?
 		writeError(writer, request, http.StatusConflict, "VERSION_CONFLICT", "游戏已被修改", map[string]any{})
 		return
 	}
+	if err := server.retireSupersededGameAssets(
+		request.Context(), transaction, request.PathValue("gameId"), revisionID,
+	); err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
 	if err := transaction.Commit(); err != nil {
 		server.databaseError(writer, request, err)
 		return
 	}
+	server.payloadReleases.Signal()
 	writer.Header().Set("ETag", fmt.Sprintf(`"v%d"`, expected+1))
 	writeJSON(
 		writer,

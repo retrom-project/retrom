@@ -15,6 +15,7 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/contentcapability"
 	"retrom/internal/corevalidation"
+	"retrom/internal/payloadrelease"
 )
 
 var (
@@ -32,6 +33,7 @@ type Scheduled struct {
 type Service struct {
 	database               *sql.DB
 	blobs                  *blobstore.Store
+	payloadReleases        *payloadrelease.Service
 	multiDiscImportEnabled bool
 	now                    func() time.Time
 }
@@ -95,6 +97,11 @@ func New(database *sql.DB, now func() time.Time) *Service {
 
 func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 	service.blobs = blobs
+	return service
+}
+
+func (service *Service) WithPayloadRelease(releases *payloadrelease.Service) *Service {
+	service.payloadReleases = releases
 	return service
 }
 

@@ -410,7 +410,7 @@ VALUES(?,'IMPORT_ITEM',?,'QUEUED','{}',?)
 }
 
 func (setup *parentAttachmentSetup) advanceDraftAndRecordEvent(
-	attachmentID string,
+	_ string,
 	now int64,
 ) error {
 	result, err := setup.transaction.ExecContext(setup.ctx, `
@@ -424,20 +424,19 @@ WHERE id=? AND version=?
 		return parentError(ParentErrorVersion, ErrInvalid)
 	}
 	eventID, _ := uuid.NewV7()
-	evidence, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "attachmentId": attachmentID, "machine": setup.dependency.Machine,
-		"originalFilename":     filepath.Base(setup.originalName),
-		"baseSourceSnapshotId": setup.effectiveSnapshotID,
-		"validationId":         setup.request.ValidationID, "state": "QUEUED",
+	evidence := marshalReviewEventV2(map[string]any{
+		"attachmentKind": "ARCADE_PARENT", "machine": setup.dependency.Machine,
+		"originalFilename": filepath.Base(setup.originalName), "state": "QUEUED",
 	})
 	actor := reviewActor(setup.ctx)
 	_, err = setup.transaction.ExecContext(setup.ctx, `
 INSERT INTO review_events(
   id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,before_json,
   after_json,diff_json,config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms
-) VALUES(?,?,'PARENT_UPLOAD_REQUESTED',?,?,?,'{}',?,?,'{}',?,'{}',?)
+) VALUES(?,?,'PARENT_UPLOAD_REQUESTED',?,?,?,?,?,?,?,?,?,?)
 `, eventID.String(), setup.itemID, actor.Kind, actor.UserID, actor.Label,
-		string(evidence), string(evidence), string(evidence), now)
+		emptyReviewEventV2, evidence, evidence, emptyReviewEventV2, emptyReviewEventV2,
+		emptyReviewEventV2, now)
 	if err != nil {
 		return parentError(ParentErrorUnavailable, err)
 	}

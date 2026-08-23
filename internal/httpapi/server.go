@@ -23,6 +23,7 @@ import (
 	"retrom/internal/libraryimport"
 	"retrom/internal/metadatascrape"
 	"retrom/internal/netplay"
+	"retrom/internal/payloadrelease"
 	"retrom/internal/pegasusimport"
 	"retrom/internal/platforminstance"
 	retromruntime "retrom/internal/runtime"
@@ -83,6 +84,7 @@ type Server struct {
 	tagService              *tagging.Service
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
+	payloadReleases         *payloadrelease.Service
 	platformDirectories     *platforminstance.Service
 	storageAnalysis         *storageanalysis.Service
 	now                     func() time.Time
@@ -128,6 +130,10 @@ func New(
 	accountService *accounts.Service,
 	now func() time.Time,
 ) *Server {
+	payloadReleaseService, err := payloadrelease.New(database, blobs, now, 7*24*time.Hour)
+	if err != nil {
+		panic(err)
+	}
 	scraper := metadatascrape.New(database, blobs, hasheous.New(nil, nil, now), now)
 	launcher := launch.New(database, dependencySet, credentials, now).WithBlobStore(blobs)
 	launcher.ResumeQueuedValidationJobs()
@@ -137,7 +143,8 @@ func New(
 	importer.ResumeParentAttachmentJobs(context.Background())
 	importer.ResumeMultiDiscAttachmentJobs(context.Background())
 	importer.ResumeReviewBulkJobs(context.Background())
-	firmwareService := firmware.New(database, now).WithBlobStore(blobs)
+	firmwareService := firmware.New(database, now).WithBlobStore(blobs).
+		WithPayloadRelease(payloadReleaseService)
 	serverImportService := serverimport.New(
 		database,
 		blobs,
@@ -166,9 +173,11 @@ func New(
 		firmware:            firmwareService,
 		serverImports:       serverImportService,
 		pegasusImports:      pegasusImportService,
+		payloadReleases:     payloadReleaseService,
 		platformDirectories: platforminstance.New(database, now),
 		metadata:            scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
+			WithPayloadRelease(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
 		saveService:      saves.New(database, blobs, credentials, now),
 		favoriteService:  favorites.New(database, now),
@@ -178,6 +187,7 @@ func New(
 		netplayObservers: make(map[string]int),
 	}
 	server.idempotencyQueueDrained = sync.NewCond(&server.idempotencyQueueMu)
+	payloadReleaseService.Start()
 	return server
 }
 
@@ -188,6 +198,7 @@ func (server *Server) Close() {
 	}
 	server.serverImports.Close()
 	server.pegasusImports.Close()
+	server.payloadReleases.Close()
 }
 
 // Contract branches stay contiguous for a single auditable decision.

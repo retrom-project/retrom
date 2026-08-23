@@ -137,6 +137,8 @@ type Item struct {
 	TargetPlatformInstanceName *string             `json:"targetPlatformInstanceName"`
 	MetadataRelativePath       string              `json:"metadataRelativePath"`
 	ExecutionState             string              `json:"executionState"`
+	PayloadState               string              `json:"payloadState"`
+	PayloadReleaseJobID        *string             `json:"payloadReleaseJobId"`
 	ContentKind                *string             `json:"contentKind"`
 	Media                      ItemMedia           `json:"media"`
 	Warnings                   []map[string]any    `json:"warnings"`
@@ -329,7 +331,7 @@ AND (job.execution_deadline_at_ms<=? OR job.attempt_count>=job.max_attempts)
 	}
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_import_items SET execution_state='COMMIT_FAILED',error_code='PEGASUS_WORKER_ATTEMPTS_EXHAUSTED',
-retryable=0,completed_at_ms=?,updated_at_ms=?
+retryable=0,completed_at_ms=?,version=version+1,updated_at_ms=?
 WHERE import_id IN (SELECT scope_id FROM jobs WHERE scope_type='PEGASUS_IMPORT' AND state='RUNNING'
  AND leased_until_ms<=? AND (execution_deadline_at_ms<=? OR attempt_count>=max_attempts))
 AND execution_state IN ('COPYING','VALIDATING')`, now, now, now, now); err != nil {
@@ -376,6 +378,9 @@ WHERE id IN (
 )
 AND state='RUNNING'`, now); err != nil {
 		return fmt.Errorf("pegasusimport/recover aggregate: %w", err)
+	}
+	if err := scheduleAllTerminalItems(ctx, transaction, now); err != nil {
+		return err
 	}
 	if err := transaction.Commit(); err != nil {
 		return fmt.Errorf("pegasusimport/commit recovery: %w", err)

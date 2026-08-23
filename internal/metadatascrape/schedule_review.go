@@ -79,8 +79,9 @@ AND version=?
 		return Scheduled{}, 0, errReviewVersionConflict
 	}
 	after, _ := json.Marshal(
-		map[string]any{"metadataProvider": providerName, "scrapeRunId": scheduled.RunID, "jobId": scheduled.JobID},
+		map[string]any{"schemaVersion": 2, "metadataProvider": providerName, "scrapeRunId": scheduled.RunID},
 	)
+	beforeEvent, _ := json.Marshal(map[string]any{"schemaVersion": 2, "metadata": json.RawMessage(before)})
 	actor := authn.ActorFromContext(ctx, "release-setup")
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_events(id,
@@ -104,13 +105,13 @@ created_at_ms) VALUES(?,
 ?,
 ?,
 ?,
-'{}',
-'{}',
+'{"schemaVersion":2}',
+'{"schemaVersion":2}',
 ? ,
 ?)
 `,
 		newID(), itemID, actor.Kind, actor.UserID, actor.Label,
-		before, string(after), string(after), string(after), now,
+		string(beforeEvent), string(after), string(after), string(after), now,
 	); err != nil {
 		return Scheduled{}, 0, fmt.Errorf("metadatascrape/service: %w", err)
 	}

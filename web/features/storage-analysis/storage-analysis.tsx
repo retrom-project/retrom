@@ -98,7 +98,7 @@ function Details({ snapshot }: { snapshot: StorageSnapshot }) {
     <article className="panel">
       <div><span>清理候选视图</span><strong>{cleanup.blobCount} 个 Blob</strong></div>
       <ByteValue className="storage-detail-total" bytes={cleanup.bytes} label="清理候选引用量" />
-      <p>仅显示 GC 候选登记，不代表这些数据会立即删除，也不提供清理操作。</p>
+      <p>替换或移除后，失去最后引用的数据会先进入这里；已登记总量在默认 7 天宽限期后才会下降。ROM 与同一安装槽的 BIOS 替换会同步清理绑定的旧存档。</p>
     </article>
   </section>;
 }

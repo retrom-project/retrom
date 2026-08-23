@@ -23,6 +23,8 @@ type recentGameProjection struct {
 	ActiveDurationMS int64               `json:"activeDurationMs"`
 	SessionCount     int64               `json:"sessionCount"`
 	CoverURL         any                 `json:"coverUrl"`
+	Status           string              `json:"status"`
+	Availability     string              `json:"availability"`
 	Tags             []tagging.Reference `json:"tags"`
 }
 
@@ -41,12 +43,13 @@ func scanRecentGame(scanner rowScanner) (recentGameProjection, error) {
 	var platformID, platformName, instanceID, instanceName string
 	var coverAssetID sql.NullString
 	if err := scanner.Scan(&game.GameID, &game.Title, &platformID, &platformName, &instanceID, &instanceName,
-		&game.LastPlayedAtMS, &game.ActiveDurationMS, &game.SessionCount, &coverAssetID); err != nil {
+		&game.LastPlayedAtMS, &game.ActiveDurationMS, &game.SessionCount, &game.Status, &coverAssetID); err != nil {
 		return recentGameProjection{}, fmt.Errorf("scan recent game: %w", err)
 	}
 	game.Platform = map[string]any{"id": platformID, "name": platformName}
 	game.PlatformInstance = map[string]any{"id": instanceID, "name": instanceName}
 	game.CoverURL = gameCoverURL(coverAssetID)
+	game.Availability = game.Status
 	return game, nil
 }
 
@@ -301,6 +304,7 @@ pi.name,
 max(ps.started_at_ms),
 sum(ps.active_duration_ms),
 count(ps.id),
+g.status,
 (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
@@ -316,7 +320,7 @@ JOIN platforms p ON p.id=pi.platform_id
 WHERE g.status='PUBLISHED'
 AND pi.enabled=1
 AND ps.profile_id=?
-GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name
+GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name,g.status
 ORDER BY max(ps.started_at_ms) DESC,g.id DESC
 LIMIT 10
 `, profileID)
@@ -581,6 +585,7 @@ pi.name,
 max(ps.started_at_ms),
 sum(ps.active_duration_ms),
 count(ps.id),
+g.status,
 (SELECT a.id
  FROM game_assets a
  WHERE a.game_id=g.id
@@ -593,10 +598,10 @@ JOIN games g ON g.id=ps.game_id
 JOIN game_metadata_revisions m ON m.id=g.current_metadata_revision_id
 JOIN platform_instances pi ON pi.id=g.platform_instance_id
 JOIN platforms p ON p.id=pi.platform_id
-WHERE g.status='PUBLISHED'
-AND pi.enabled=1
+WHERE g.status IN ('PUBLISHED','DELETED')
+AND (g.status='DELETED' OR pi.enabled=1)
 AND ps.profile_id=?
-GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name
+GROUP BY g.id,m.title,p.id,p.name,pi.id,pi.name,g.status
 ORDER BY max(ps.started_at_ms) DESC,g.id DESC
 `, principal.ProfileID)
 	if err != nil {

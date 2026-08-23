@@ -4,6 +4,7 @@ import { useEffect, type Dispatch, type RefObject, type SetStateAction } from "r
 import type { EmulatorInstance, PlayerConfig } from "./adapters/ejs-4.2.3-v2";
 import { samplePlayerDebugMetrics, type PlayerDebugMetrics, type PlayerDebugSample } from "./player-debug";
 import type { NetplayController } from "./netplay/controller";
+import { shouldAutoHidePlayerControls } from "./player-controls-visibility";
 
 type Mutable<T> = { current: T };
 
@@ -69,5 +70,5 @@ export function usePlayerRuntimeEffects(params: RuntimeEffectParams) {
 function updateRunningState(params: RuntimeEffectParams) {
   params.running.current = params.state === "running";
   params.clearControlsTimer();
-  if (params.running.current && !params.pausedRef.current && !params.chromePinned.current) {params.controlsTimer.current = window.setTimeout(() => params.setControlsVisible(false), 2_000);}
+  params.setControlsVisible(!shouldAutoHidePlayerControls(params.state, params.pausedRef.current, params.chromePinned.current));
 }

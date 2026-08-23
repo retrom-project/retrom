@@ -19,6 +19,7 @@ import (
 	"retrom/internal/contentmanifest"
 	"retrom/internal/contentprofile"
 	"retrom/internal/multidisc"
+	"retrom/internal/payloadrelease"
 )
 
 func collectUploadFiles(ctx context.Context, database *sql.DB, uploadID string) ([]uploadedFile, error) {
@@ -284,6 +285,46 @@ WHERE id=?
 		now,
 		jobID,
 	)
+}
+
+func (service *Service) failUnchanged(ctx context.Context, jobID string) {
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		service.fail(ctx, jobID, "GAME_CONTENT_DATABASE_FAILED")
+		return
+	}
+	defer cleanup.Rollback(transaction)
+	now := service.now().UnixMilli()
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE jobs SET state='FAILED',error_code='GAME_CONTENT_UNCHANGED',error_retryable=0,
+finished_at_ms=?,leased_until_ms=NULL,version=version+1,updated_at_ms=?
+WHERE id=? AND state='RUNNING'
+`, now, now, jobID); err != nil {
+		return
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
+SELECT id,scope_type,scope_id,'FAILED','{"code":"GAME_CONTENT_UNCHANGED"}',?
+FROM jobs WHERE id=? AND state='FAILED'
+`, now, jobID); err != nil {
+		return
+	}
+	var consumptionID string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT id FROM upload_consumptions
+WHERE consumer_type='GAME_FILE_REVISION_JOB' AND consumer_id=?
+`, jobID).Scan(&consumptionID); err != nil {
+		return
+	}
+	if _, err := payloadrelease.ScheduleConsumption(ctx, transaction, consumptionID, now); err != nil {
+		return
+	}
+	if err := transaction.Commit(); err != nil {
+		return
+	}
+	if service.payloadReleases != nil {
+		service.payloadReleases.Signal()
+	}
 }
 
 func nullablePointer(value sql.NullString) *string {

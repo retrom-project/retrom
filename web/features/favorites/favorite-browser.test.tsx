@@ -21,6 +21,8 @@ function page(overrides: Partial<FavoritePage> = {}): FavoritePage {
     items: [1, 2].map((index) => ({
       gameId: `01980000-0000-7000-8000-00000000001${index}`,
       title: `Game ${index}`,
+      status: "PUBLISHED",
+      availability: "PUBLISHED",
       platform: { id: "gba", name: "Game Boy Advance" },
       platformInstance: { id: "instance", name: "GBA 游戏" },
       defaultCore: { id: "mgba", name: "mGBA" },
@@ -105,5 +107,22 @@ describe("FavoriteBrowser", () => {
 
     expect(await within(confirmation).findByRole("alert")).toHaveTextContent("已刷新真实版本");
     expect(confirmation).toBeInTheDocument();
+  });
+
+  it("keeps a deleted favorite as a removable text tombstone", async () => {
+    const deletedPage = page();
+    deletedPage.items[0] = {
+      ...deletedPage.items[0], status: "DELETED", availability: "DELETED", coverUrl: "/legacy-cover.png",
+    };
+    const user = userEvent.setup();
+    render(<FavoriteBrowser initialPage={deletedPage} initialQuery={query} />);
+
+    expect(screen.getByText("已删除")).toBeVisible();
+    expect(screen.queryByRole("link", { name: /Game 1/ })).not.toBeInTheDocument();
+    expect(screen.queryByAltText("Game 1 封面")).not.toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "批量整理" }));
+    expect(screen.queryByRole("button", { name: "选择游戏“Game 1”" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /整理“Game 1”/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "取消收藏“Game 1”" })).toBeVisible();
   });
 });

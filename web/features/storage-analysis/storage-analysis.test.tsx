@@ -52,6 +52,7 @@ describe("StorageAnalysis", () => {
       expect(within(breakdown).getByRole("heading", { name: label })).toBeInTheDocument();
     }
     expect(screen.getByText("仅计算已登记 CAS payload")).toBeInTheDocument();
+    expect(screen.getByText(/已登记总量在默认 7 天宽限期后才会下降/)).toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "刷新分析" }));
     expect(await screen.findByLabelText("已登记 CAS，精确值 2048 bytes")).toHaveTextContent("2 KiB");
     expect(fetchMock).toHaveBeenCalledWith("/api/v1/admin/storage-analysis", expect.objectContaining({ cache: "no-store", credentials: "same-origin" }));

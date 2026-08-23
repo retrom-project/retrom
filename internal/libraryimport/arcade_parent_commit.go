@@ -48,11 +48,8 @@ func (service *Service) commitAcceptedParentAttachment(
 	selectedValidation := selectedParentValidation(validation.validationStatus, validationID)
 	consumptionID, _ := uuid.NewV7()
 	eventID, _ := uuid.NewV7()
-	evidence, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "attachmentId": candidate.attachmentID, "machine": candidate.machine,
-		"originalFilename": candidate.originalName, "observedSizeBytes": candidate.blobSize,
-		"observedSha256": candidate.blobSHA, "baseSourceSnapshotId": candidate.baseSnapshotID,
-		"resultSourceSnapshotId": newSnapshotID, "validationId": validationID,
+	evidence := marshalReviewEventV2(map[string]any{
+		"attachmentKind": "ARCADE_PARENT", "machine": candidate.machine,
 		"validationStatus": validation.validationStatus, "state": "ACCEPTED",
 	})
 	result, err := transaction.ExecContext(ctx, `
@@ -88,9 +85,10 @@ UPDATE import_items SET version=version+1,updated_at_ms=? WHERE id=? AND state='
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,
 config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'PARENT_ATTACHMENT_ACCEPTED',?,?,?,'{}',?,?,'{}',?,'{}',?)
+VALUES(?,?,'PARENT_ATTACHMENT_ACCEPTED',?,?,?,?,?,?,?,?,?,?)
 `, eventID.String(), candidate.itemID, reviewActor(ctx).Kind, reviewActor(ctx).UserID, reviewActor(ctx).Label,
-		string(evidence), string(evidence), string(evidence), now); err != nil {
+		emptyReviewEventV2, evidence, evidence, emptyReviewEventV2,
+		emptyReviewEventV2, emptyReviewEventV2, now); err != nil {
 		return parentStoreError("record parent review event", err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
@@ -355,10 +353,8 @@ func (service *Service) finishRejectedParentAttachment(
 	})
 	now := service.now().UnixMilli()
 	eventID, _ := uuid.NewV7()
-	evidence, _ := json.Marshal(map[string]any{
-		"schemaVersion": 1, "attachmentId": candidate.attachmentID, "machine": candidate.machine,
-		"originalFilename": candidate.originalName, "observedSizeBytes": candidate.blobSize,
-		"observedSha256": candidate.blobSHA, "baseSourceSnapshotId": candidate.baseSnapshotID,
+	evidence := marshalReviewEventV2(map[string]any{
+		"attachmentKind": "ARCADE_PARENT", "machine": candidate.machine,
 		"state": "REJECTED", "errorCode": code,
 	})
 	transaction, err := service.database.BeginTx(ctx, nil)
@@ -391,9 +387,10 @@ VALUES(?,'IMPORT_ITEM',?,'PARENT_REJECTED',?,?),(?,'IMPORT_ITEM',?,'FAILED',?,?)
 INSERT INTO review_events(id,import_item_id,event_type,actor_kind,actor_user_id,actor_label,
 before_json,after_json,diff_json,
 config_evidence_json,dat_evidence_json,provider_evidence_json,created_at_ms)
-VALUES(?,?,'PARENT_ATTACHMENT_REJECTED',?,?,?,'{}',?,?,'{}',?,'{}',?)
+VALUES(?,?,'PARENT_ATTACHMENT_REJECTED',?,?,?,?,?,?,?,?,?,?)
 `, eventID.String(), candidate.itemID, reviewActor(ctx).Kind, reviewActor(ctx).UserID, reviewActor(ctx).Label,
-		string(evidence), string(evidence), string(evidence), now); err != nil {
+		emptyReviewEventV2, evidence, evidence, emptyReviewEventV2,
+		emptyReviewEventV2, emptyReviewEventV2, now); err != nil {
 		return
 	}
 	_ = transaction.Commit()

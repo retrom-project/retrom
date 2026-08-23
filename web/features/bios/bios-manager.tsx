@@ -140,6 +140,7 @@ function BIOSRowAction({ busy, inputRef, installed, item, onInstall }: {
   return <div className="runtime-row-actions" role="cell">
     <input ref={inputRef} hidden id={`bios-${item.id}`} type="file" disabled={busy !== null} onChange={chooseFile} />
     <button className={`button ${isBIOSAttention(item) ? "" : "secondary"} compact`} type="button" disabled={busy !== null} onClick={() => document.getElementById(`bios-${item.id}`)?.click()}>{busy === item.id ? "验证中…" : installed ? "替换文件" : "选择 BIOS 文件"}</button>
+    {installed ? <small>替换会清理依赖旧 BIOS 的存档与运行会话</small> : null}
   </div>;
 }
 

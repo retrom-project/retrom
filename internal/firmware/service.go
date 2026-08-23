@@ -12,6 +12,7 @@ import (
 	"retrom/internal/blobstore"
 	"retrom/internal/cleanup"
 	"retrom/internal/importing"
+	"retrom/internal/payloadrelease"
 
 	"github.com/google/uuid"
 )
@@ -58,6 +59,7 @@ type ArchiveInspection struct {
 type Service struct {
 	database *sql.DB
 	blobs    *blobstore.Store
+	releases *payloadrelease.Service
 	now      func() time.Time
 }
 
@@ -67,6 +69,11 @@ func New(database *sql.DB, now func() time.Time) *Service {
 
 func (service *Service) WithBlobStore(blobs *blobstore.Store) *Service {
 	service.blobs = blobs
+	return service
+}
+
+func (service *Service) WithPayloadRelease(releases *payloadrelease.Service) *Service {
+	service.releases = releases
 	return service
 }
 
@@ -96,6 +103,7 @@ func (service *Service) Install(
 	}
 	return persistInstallation(
 		ctx, transaction, requirementID, request.UploadFileID, snapshot, status, details, service.now(),
+		service.releases,
 	)
 }
 
@@ -213,20 +221,15 @@ func persistInstallation(
 	status string,
 	details map[string]any,
 	nowTime time.Time,
+	releases *payloadrelease.Service,
 ) (Installation, error) {
 	detailsJSON, _ := json.Marshal(details)
 	now := nowTime.UnixMilli()
 	id, _ := uuid.NewV7()
 	consumptionID, _ := uuid.NewV7()
-	if _, err := transaction.ExecContext(ctx, `
-UPDATE bios_installations
-SET is_active=0,
-version=version+1,
-updated_at_ms=?
-WHERE requirement_id=?
-AND is_active=1
-`, now, requirementID); err != nil {
-		return Installation{}, fmt.Errorf("%w: deactivate installation: %w", ErrInvalid, err)
+	retired, err := payloadrelease.RetireSupersededBIOS(ctx, transaction, requirementID, now)
+	if err != nil {
+		return Installation{}, fmt.Errorf("%w: retire installation: %w", ErrInvalid, err)
 	}
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO bios_installations(id,
@@ -290,8 +293,16 @@ created_at_ms) VALUES(?,
 `, consumptionID.String(), snapshot.uploadID, uploadFileID, id.String(), now); err != nil {
 		return Installation{}, fmt.Errorf("%w: consume upload: %w", ErrInvalid, err)
 	}
+	if releases != nil {
+		if err := releases.StageCandidates(ctx, transaction, retired.BlobIDs); err != nil {
+			return Installation{}, fmt.Errorf("%w: stage retired installation: %w", ErrInvalid, err)
+		}
+	}
 	if err := transaction.Commit(); err != nil {
 		return Installation{}, fmt.Errorf("firmware/service: %w", err)
+	}
+	if releases != nil {
+		releases.Signal()
 	}
 	return Installation{
 		InstallationID:              id.String(),

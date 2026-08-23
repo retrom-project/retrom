@@ -338,6 +338,12 @@ func assertGameAdminMutations(
 	t *testing.T, server *Server, gameID, contentID, coverBlobID string, now int64,
 	videoPayload []byte, videoMetadata blobstore.Metadata, videoBlobID string,
 ) {
+	var originalCoverAssetID, originalVideoAssetID string
+	mustScanHTTPTest(t, server.database.QueryRowContext(context.Background(), `
+SELECT
+ (SELECT id FROM game_assets WHERE game_id=? AND kind='COVER' ORDER BY created_at_ms,id LIMIT 1),
+ (SELECT id FROM game_assets WHERE game_id=? AND kind='VIDEO' ORDER BY created_at_ms,id LIMIT 1)
+`, gameID, gameID), &originalCoverAssetID, &originalVideoAssetID)
 	candidateID, candidateAssetID := seedCompletedGameScrape(t, server.database, gameID, contentID, coverBlobID, now)
 	candidates := httptest.NewRecorder()
 	server.Handler().ServeHTTP(
@@ -372,6 +378,8 @@ WHERE g.id=?
 GROUP BY m.title
 `, gameID), &appliedTitle, &preservedAssets)
 	testassert.Falsef(t, testassert.Any(func() bool { return appliedTitle != "Doom refreshed" }, func() bool { return preservedAssets != 2 }), "applied title/assets = %q/%d", appliedTitle, preservedAssets)
+	assertRetiredGameAssetUnavailable(t, server, originalCoverAssetID)
+	assertRetiredGameAssetUnavailable(t, server, originalVideoAssetID)
 	videoUploadID := "01980000-0000-7000-8000-000000000111"
 	videoUploadFileID := "01980000-0000-7000-8000-000000000112"
 	mustExecHTTPTest(t, server.database, `
@@ -395,15 +403,16 @@ VALUES(?,?,'preview.mp4',?,?,?,'COMPLETE',?,?)
 	removeVideoRequest.Header.Set("Idempotency-Key", uuid.NewString())
 	server.Handler().ServeHTTP(removeVideo, removeVideoRequest)
 	testassert.Falsef(t, testassert.Any(func() bool { return removeVideo.Code != http.StatusNoContent }, func() bool { return removeVideo.Header().Get("ETag") != `"v4"` }), "remove video = %d headers=%v: %s", removeVideo.Code, removeVideo.Header(), removeVideo.Body.String())
-	var currentVideos, historicalVideos int
+	var currentVideos, retiredAssets int
 	if err := server.database.QueryRowContext(context.Background(), `
 SELECT
 (SELECT count(*) FROM game_assets asset JOIN games game ON game.current_metadata_revision_id=asset.metadata_revision_id WHERE game.id=? AND asset.kind='VIDEO'),
-(SELECT count(*) FROM game_assets WHERE game_id=? AND kind='VIDEO')
-`, gameID, gameID).Scan(&currentVideos, &historicalVideos); err != nil {
+(SELECT count(*) FROM game_assets asset JOIN games game ON game.id=asset.game_id
+ WHERE game.id=? AND asset.metadata_revision_id<>game.current_metadata_revision_id)
+`, gameID, gameID).Scan(&currentVideos, &retiredAssets); err != nil {
 		t.Fatal(err)
 	}
-	testassert.Falsef(t, testassert.Any(func() bool { return currentVideos != 0 }, func() bool { return historicalVideos < 3 }), "video revision preservation = current:%d historical:%d", currentVideos, historicalVideos)
+	testassert.Falsef(t, testassert.Any(func() bool { return currentVideos != 0 }, func() bool { return retiredAssets != 0 }), "retired game media = current videos:%d retired assets:%d", currentVideos, retiredAssets)
 }
 
 func TestGameListUsesFilteredCursorPagesAndReturnsFacetsOnlyOnFirstPage(t *testing.T) {
@@ -497,8 +506,8 @@ VALUES(?,'GAME',?,'METADATA_SCRAPE',?,1,'{}',0,'SUCCEEDED',1,2,?,?,?,?)
 	}
 	if _, err := database.ExecContext(context.Background(), `
 INSERT INTO metadata_provider_responses(id,provider,request_digest,http_status,outcome,raw_response_blob_id,
-fetched_at_ms,expires_at_ms)
-VALUES(?,'HASHEOUS',?,200,'HIT',NULL,?,?)
+raw_payload_state,fetched_at_ms,expires_at_ms)
+VALUES(?,'HASHEOUS',?,200,'HIT',NULL,'NONE',?,?)
 `, responseID, strings.Repeat("8", 64), now, now+60_000); err != nil {
 		t.Fatal(err)
 	}

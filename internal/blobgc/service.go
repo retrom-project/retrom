@@ -3,17 +3,13 @@ package blobgc
 import (
 	"context"
 	"database/sql"
-	"errors"
 	"fmt"
-	"os"
 	"time"
 
 	"retrom/internal/blobregistry"
 	"retrom/internal/blobstore"
-	"retrom/internal/cleanup"
+	"retrom/internal/payloadrelease"
 )
-
-var errRetentionInvalid = errors.New("GC_RETENTION_INVALID")
 
 type Result struct {
 	Protected int `json:"protected"`
@@ -23,203 +19,57 @@ type Result struct {
 }
 
 type Service struct {
-	database  *sql.DB
-	blobs     *blobstore.Store
-	now       func() time.Time
-	retention time.Duration
-}
-
-type candidate struct {
-	id, digest string
-	protected  bool
+	database *sql.DB
+	release  *payloadrelease.Service
 }
 
 func New(database *sql.DB, blobs *blobstore.Store, now func() time.Time, retention time.Duration) (*Service, error) {
-	if retention < 24*time.Hour || retention > 30*24*time.Hour {
-		return nil, errRetentionInvalid
+	release, err := payloadrelease.New(database, blobs, now, retention)
+	if err != nil {
+		return nil, fmt.Errorf("blobgc/create release service: %w", err)
 	}
-	return &Service{database: database, blobs: blobs, now: now, retention: retention}, nil
+	return &Service{database: database, release: release}, nil
 }
 
-// GC staging and deletion remain one auditable operation.
+// RunOnce remains as the deterministic maintenance seam; production uses the
+// same payload-release dispatcher continuously.
 func (service *Service) RunOnce(ctx context.Context) (Result, error) {
-	if err := blobregistry.ValidateSchema(ctx, service.database); err != nil {
-		return Result{}, fmt.Errorf("blobgc/service: %w", err)
-	}
-	now := service.now().UnixMilli()
-	cutoff := now - service.retention.Milliseconds()
-	// SaveState rows remain protective throughout their soft-delete grace.
-	if _, err := service.database.ExecContext(ctx, `
-DELETE
-FROM save_states
-WHERE deleted_at_ms IS NOT NULL
-AND deleted_at_ms<=?
-AND NOT EXISTS(SELECT 1
-FROM launch_sessions
-WHERE save_state_id=save_states.id)
-`, cutoff); err != nil {
-		return Result{}, fmt.Errorf("blobgc/service: %w", err)
-	}
-	protected, err := blobregistry.ProtectiveSet(ctx, service.database)
-	if err != nil {
-		return Result{}, fmt.Errorf("blobgc/service: %w", err)
-	}
-	result := Result{Protected: len(protected)}
-	candidates, retained, err := collectCandidates(ctx, service.database, protected)
+	beforeBlobs, beforeCandidates, err := service.counts(ctx)
 	if err != nil {
 		return Result{}, err
 	}
-	result.Retained += retained
-	for _, item := range candidates {
-		if item.protected {
-			_, _ = service.database.ExecContext(ctx, `
-DELETE
-FROM blob_gc_candidates
-WHERE blob_id=?
-`, item.id)
-			continue
-		}
-		var scheduled int64
-		err := service.database.QueryRowContext(ctx, `
-SELECT scheduled_at_ms
-FROM blob_gc_candidates
-WHERE blob_id=?
-`, item.id).
-			Scan(&scheduled)
-		if errors.Is(err, sql.ErrNoRows) {
-			if _, err := service.database.ExecContext(ctx, `
-INSERT INTO blob_gc_candidates(blob_id,
-first_unreferenced_at_ms,
-scheduled_at_ms,
-attempt_count) VALUES(?,
-?,
-?,
-0)
-`, item.id, now, now+service.retention.Milliseconds()); err != nil {
-				return Result{}, fmt.Errorf("blobgc/service: %w", err)
-			}
-			result.Scheduled++
-			continue
-		}
-		if err != nil {
-			return Result{}, fmt.Errorf("blobgc/service: %w", err)
-		}
-		if scheduled > now {
-			result.Retained++
-			continue
-		}
-		deleted, err := service.deleteCandidate(ctx, item.id)
-		if err != nil {
-			_, _ = service.database.ExecContext(
-				ctx,
-				`
-UPDATE blob_gc_candidates
-SET last_failed_at_ms=?,
-error_code='GC_DELETE_FAILED',
-attempt_count=attempt_count+1
-WHERE blob_id=?
-`,
-				now,
-				item.id,
-			)
-			continue
-		}
-		if !deleted {
-			result.Retained++
-			continue
-		}
-		if err := os.Remove(service.blobs.Path(item.digest)); err != nil && !errors.Is(err, os.ErrNotExist) {
-			return Result{}, fmt.Errorf("remove CAS object: %w", err)
-		}
-		result.Deleted++
+	if err := service.release.ReconcileGC(ctx); err != nil {
+		return Result{}, fmt.Errorf("blobgc/reconcile: %w", err)
 	}
+	_, _ = service.release.RunOnce(ctx)
+	afterBlobs, afterCandidates, err := service.counts(ctx)
+	if err != nil {
+		return Result{}, err
+	}
+	protected, err := blobregistry.ProtectiveSet(ctx, service.database)
+	if err != nil {
+		return Result{}, fmt.Errorf("blobgc/protection: %w", err)
+	}
+	result := Result{Protected: len(protected)}
+	if afterCandidates > beforeCandidates {
+		result.Scheduled = afterCandidates - beforeCandidates
+	}
+	if beforeBlobs > afterBlobs {
+		result.Deleted = beforeBlobs - afterBlobs
+	}
+	result.Retained = afterBlobs - result.Protected
 	return result, nil
 }
 
-func collectCandidates(
-	ctx context.Context,
-	database *sql.DB,
-	protected map[string]struct{},
-) ([]candidate, int, error) {
-	rows, err := database.QueryContext(ctx, `
-SELECT id,
-sha256
-FROM blobs
-ORDER BY id
-`)
-	if err != nil {
-		return nil, 0, fmt.Errorf("blobgc/service: %w", err)
+func (service *Service) counts(ctx context.Context) (int, int, error) {
+	var blobs, candidates int
+	if err := service.database.QueryRowContext(ctx, `SELECT count(*) FROM blobs`).Scan(&blobs); err != nil {
+		return 0, 0, fmt.Errorf("blobgc/count blobs: %w", err)
 	}
-	defer func() { cleanup.Error("close", rows.Close()) }()
-	candidates := make([]candidate, 0)
-	retained := 0
-	for rows.Next() {
-		var item candidate
-		if err := rows.Scan(&item.id, &item.digest); err != nil {
-			return nil, 0, fmt.Errorf("blobgc/service: %w", err)
-		}
-		if _, keep := protected[item.id]; keep {
-			item.protected = true
-			retained++
-		}
-		candidates = append(candidates, item)
+	if err := service.database.QueryRowContext(
+		ctx, `SELECT count(*) FROM blob_gc_candidates`,
+	).Scan(&candidates); err != nil {
+		return 0, 0, fmt.Errorf("blobgc/count candidates: %w", err)
 	}
-	if err := rows.Err(); err != nil {
-		return nil, 0, fmt.Errorf("blobgc/service: %w", err)
-	}
-	return candidates, retained, nil
-}
-
-func (service *Service) deleteCandidate(ctx context.Context, blobID string) (bool, error) {
-	transaction, err := service.database.BeginTx(ctx, nil)
-	if err != nil {
-		return false, fmt.Errorf("blobgc/service: %w", err)
-	}
-	defer cleanup.Rollback(transaction)
-	protected, err := blobregistry.ProtectiveSet(ctx, transaction)
-	if err != nil {
-		return false, fmt.Errorf("blobgc/service: %w", err)
-	}
-	if _, keep := protected[blobID]; keep {
-		_, _ = transaction.ExecContext(ctx, `
-DELETE
-FROM blob_gc_candidates
-WHERE blob_id=?
-`, blobID)
-		if err := transaction.Commit(); err != nil {
-			return false, fmt.Errorf("commit retained GC candidate: %w", err)
-		}
-		return false, nil
-	}
-	// Ownership rows do not protect their archive; remove them as a group only
-	// after every composite business reference has disappeared.
-	if _, err := transaction.ExecContext(ctx, `
-DELETE
-FROM archive_entries
-WHERE archive_blob_id=?
-`, blobID); err != nil {
-		return false, fmt.Errorf("blobgc/service: %w", err)
-	}
-	if _, err := transaction.ExecContext(ctx, `
-DELETE
-FROM blob_gc_candidates
-WHERE blob_id=?
-`, blobID); err != nil {
-		return false, fmt.Errorf("blobgc/service: %w", err)
-	}
-	result, err := transaction.ExecContext(ctx, `
-DELETE
-FROM blobs
-WHERE id=?
-`, blobID)
-	if err != nil {
-		return false, fmt.Errorf("blobgc/service: %w", err)
-	}
-	if rows, _ := result.RowsAffected(); rows != 1 {
-		return false, nil
-	}
-	if err := transaction.Commit(); err != nil {
-		return false, fmt.Errorf("commit deleted GC candidate: %w", err)
-	}
-	return true, nil
+	return blobs, candidates, nil
 }

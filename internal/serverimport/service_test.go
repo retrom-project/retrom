@@ -165,6 +165,7 @@ SELECT count(*) FROM bios_installations WHERE requirement_id='fixture-requiremen
 `).Scan(&installationCount); err != nil || installationCount != 2 {
 		t.Fatalf("stale version installation count = %d, %v", installationCount, err)
 	}
+	assertRetiredServerBIOSPayload(ctx, t, database)
 	var installationID string
 	if err := database.QueryRowContext(ctx, `
 SELECT id FROM bios_installations WHERE requirement_id='fixture-requirement' AND is_active=1
@@ -172,6 +173,18 @@ SELECT id FROM bios_installations WHERE requirement_id='fixture-requirement' AND
 		t.Fatal(err)
 	}
 	return installationID
+}
+
+func assertRetiredServerBIOSPayload(ctx context.Context, t *testing.T, database *sql.DB) {
+	t.Helper()
+	var retiredPayloads int
+	if err := database.QueryRowContext(ctx, `
+SELECT count(*) FROM bios_installations
+WHERE requirement_id='fixture-requirement' AND is_active=0
+  AND blob_id IS NULL AND payload_released_at_ms IS NOT NULL
+`).Scan(&retiredPayloads); err != nil || retiredPayloads != 1 {
+		t.Fatalf("retired server BIOS payloads = %d, %v", retiredPayloads, err)
+	}
 }
 
 func verifyServerImportFallbacks(
