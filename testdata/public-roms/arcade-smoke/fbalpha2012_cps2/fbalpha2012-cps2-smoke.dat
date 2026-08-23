@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<datafile>
+  <header>
+    <name>Retrom public FBA2012 CPS2 smoke</name>
+    <description>Retrom public FBA2012 CPS2 smoke</description>
+    <version>1</version>
+  </header>
+  <game name="spf2t">
+    <description>Retrom public FBA2012 CPS2 loader parent</description>
+    <rom name="retrom-parent.marker" size="71" crc="b180ef9a" sha1="ead9a0e7fa76852640959046699306a43c909fc1" sha256="2bf8423627dbb80f398e30ca6214ea3c25ff2bec9ed85e82eae77dbbce224d96" status="good" />
+  </game>
+  <game name="spf2xjd" cloneof="spf2t" romof="spf2t">
+    <description>Retrom public FBA2012 CPS2 smoke</description>
+    <rom name="pzfjd.03a" size="524288" crc="5e85ed08" sha1="7a97fdd2f31929f35c81d18b78f4758e138169a6" sha256="5e130aeee3694241f64af48cf5b080e5e1b4ca6af276b9943ed99acbf02a1fe7" status="good" />
+    <rom name="pzf.04" size="524288" crc="b80649e2" sha1="a81dc40044dc485bdde1b846286e89352e35c04a" sha256="2106e67ded3ffd92968a8da01ec7528524b840285652a3fcebdca9f5cba4160f" status="good" />
+    <rom name="pzf.14m" size="1048576" crc="2d4881cb" sha1="78ca760903bb58c7f0b2f0e2255d802519bd686e" sha256="de2a51142aa10b42ab74ecda7de115aee53b4b382038b1b4b49796401b1ec2a8" status="good" />
+    <rom name="pzf.16m" size="1048576" crc="4b0fd1be" sha1="586901fdb438a51dcc08ddefbfae785791c13348" sha256="e9673812df77a5c0a1a9ef115fede702d5dda7d20665b48bb2572a2a0171acfd" status="good" />
+    <rom name="pzf.18m" size="1048576" crc="e43aac33" sha1="58b98ab4eceaa99b3fc46ed338ddd5acc7ca110f" sha256="6a7cd825385b599f8656c1a2091d430db007c0c298583a8c3a958e1f7fbf6256" status="good" />
+    <rom name="pzf.20m" size="1048576" crc="7f536ff1" sha1="04509ad782ae892c40fec93a4a5ef8dd4dd44314" sha256="bdd5301b7b760d21276da72142c125bad0db6cea5d4b99b80668fe656c9c34e1" status="good" />
+    <rom name="pzf.01" size="131072" crc="600fb2a3" sha1="68fb4a479819629eae6d06f90ce1179c9b789628" sha256="e879e7c342f51f7c97734d32c80a703efd16a317fecd8e4d6294129a54d2d6f0" status="good" />
+    <rom name="pzf.02" size="131072" crc="496076e0" sha1="a427b3e66d034ad674fee55d821c15855127fde5" sha256="a580ad41137450975d6da4766c7f66ccfa2de2af0294ad615b66b1bf85100408" status="good" />
+    <rom name="pzf.11m" size="2097152" crc="78442743" sha1="95a4f5f28e1f204d0cccae3bab91d098cc4bd72c" sha256="dbad0ca18f14ff959f4dd631b24f72f8d5b560a4630efc00de6e48e9cea9bc03" status="good" />
+    <rom name="pzf.12m" size="2097152" crc="399d2c7b" sha1="03001c31fc88a7f4efcf149e54d4a66f4ebe40be" sha256="6f83cbfc8c4b2e4d4cd6aede4bc442d57f8ab0df2aed553a33c1852ad2b65d9c" status="good" />
+  </game>
+</datafile>

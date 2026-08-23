@@ -59,7 +59,7 @@
 - 由仓库锁定 Playwright 物化的官方 Chrome for Testing；只验收 Chrome，不承诺其他浏览器，手机/平板使用 Chrome 的固定 CSS viewport 和 coarse-pointer 仿真，并在可用时补充真实移动 Chrome 复核；
 - 构建镜像 Case 需要 Docker daemon，但不授权启动容器；
 - 可选的已部署代理 Case 需要一个已由 NG 暴露的 HTTPS 地址，通过 `RETROM_ACCEPTANCE_BASE_URL` 提供；没有部署环境时只有明确标注的条件 Case 可为 `NOT_APPLICABLE`；
-- 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中的测试程序均由 Retrom 自有源码确定性生成、使用 MIT 许可并随仓库提交，不包含第三方游戏或 BIOS bytes。
+- 自动化验收不得读取或下载操作者私有 ROM/BIOS。`testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中的测试程序均由 Retrom 自有源码确定性生成、使用 MIT 许可并随仓库提交，不包含第三方游戏或 BIOS bytes。
 
 首次准备依赖可以执行：
 
@@ -67,7 +67,7 @@
 make install-deps
 ```
 
-日常项目初始化直接执行 `make install-deps`；单独的 `make prepare-deps` 只物化应用 runtime/DAT/许可。初始化会把固定 Chrome for Testing 写入被忽略的 `.cache/tools/`，校验仓库自有公开 GBA、NES 与 Arcade fixture 和生成源逐字节一致，并在正式计时前完成实际启动校验。依赖下载是验收前准备，不计入单 Case 时长；正式计时期间只运行离线 `make deps-check`。仓库不提供第三方 ROM/BIOS 下载器；没有合法公开 fixture 的核心登记为未覆盖，也不在 manifest 中保存主机名、远端绝对路径或凭据。
+日常项目初始化直接执行 `make install-deps`；单独的 `make prepare-deps` 只物化应用 runtime/DAT/许可。初始化会把固定 Chrome for Testing 写入被忽略的 `.cache/tools/`，校验仓库自有公开 GBA、NES、SNES 与 Arcade fixture 和生成源逐字节一致，并在正式计时前完成实际启动校验。依赖下载是验收前准备，不计入单 Case 时长；正式计时期间只运行离线 `make deps-check`。仓库不提供第三方 ROM/BIOS 下载器；没有合法公开 fixture 的核心登记为未覆盖，也不在 manifest 中保存主机名、远端绝对路径或凭据。
 
 ### 3.2 隔离数据与固定种子
 
@@ -102,12 +102,17 @@ make acceptance-report
 | Hasheous stub | 命中、未命中、429、超时、500、401 和畸形响应七种固定路由，不要求凭证 |
 | 公开 mGBA ROM | `testdata/public-roms/gba-smoke/gba-smoke.gba` 与同目录 `pegasus-smoke.gba`；项目自有源码生成、MIT 许可且具有不同内容身份，生成器与上传/Pegasus 实际消费者分别锁定 size/SHA-256/bytes |
 | 公开 FCEUmm NES ROM | `testdata/public-roms/nes-smoke/nes-smoke.nes`；项目自有 MIT iNES 1.0 NROM 程序，生成器与真实上传/导入/审核/发布/双浏览器消费者锁定 size/SHA-256/bytes，程序读取 P1/P2 控制器并更新可见画面；不需要 BIOS |
+| 公开 Nestopia NES ROM | `testdata/public-roms/nes-smoke/nestopia-smoke.nes`；与 FCEUmm fixture 由同一项目自有生成器产出，执行与图形 bytes 相同，只用未执行 marker 形成独立内容身份，使两个游戏分别通过产品去重、导入与审核链路；消费者独立锁定 size/SHA-256/bytes；不需要 BIOS |
+| 公开 SNES9x ROM | `testdata/public-roms/snes-smoke/snes-smoke.sfc`；项目自有 MIT 32 KiB LoROM，显式初始化 PPU/WRAM/自动 joypad，生成器与真实上传/审核/Launch/单浏览器/双浏览器消费者锁定 header/checksum/size/SHA-256/bytes；不需要 BIOS、SRAM 或私有 SDK |
 | 公开 MAME 2003 split set | `testdata/public-roms/arcade-smoke/`；项目自有 Z80 程序、生成资源、小型 DAT 与测试 BIOS，MIT 许可；生成器与消费者锁定 Child/Parent/BIOS archive、entry、size、CRC32、SHA-1 和 SHA-256；DAT 只由 acceptance-only 装置登记为 test-only BUILTIN，不经 HTTP 上传 |
+| 公开 MAME 2003 Plus split set | `testdata/public-roms/arcade-smoke/mame2003_plus/`；复用相同 driver-visible 项目自有成员，固定 ZIP comment 形成独立内容身份；独立小型 DAT 与消费者锁定 Child/Parent/BIOS 及完整 bytes |
 | 公开 FBNeo split set | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 Z80 程序、生成图形/PROM、Logiqx DAT 与测试 BIOS，MIT 许可；driver CRC32 由生成器对其控制的 4 bytes 做确定性校正，完整 bytes 由 SHA-1/SHA-256 锁定；DAT 只由 acceptance-only 装置登记为 test-only BUILTIN，不经 HTTP 上传 |
-| 联机 | `test` 与 `alice` 分别作为 P1/P2；`fceumm-423-v1` 与 `fbneo-423-v1` 的 EmulatorJS/core artifact/adapter 边界来自 `data/netplay/v2/manifest.json`；FCEUmm 使用上一行 NES，FBNeo 使用项目自有 split set，经真实导入/Launch/内容端点与两个 Chrome Player 验证，不建立逐 ROM 产品 allowlist |
+| 公开 FBA2012 CPS1 set | `testdata/public-roms/arcade-smoke/fbalpha2012_cps1/1941.zip`；按锁定 `1941` driver layout 生成的项目自有 68000/Z80/图形/静音 payload，小型 DAT 锁定完整 entry/CRC32/SHA-1/SHA-256；无 Parent/BIOS |
+| 公开 FBA2012 CPS2 set | `testdata/public-roms/arcade-smoke/fbalpha2012_cps2/`；项目自有 Phoenix `spf2xjd.zip` 与 marker-only `spf2t.zip` 父归档，小型 DAT 保留锁定 loader 实际要求的 clone/romof；Parent marker 不含第三方 ROM 且不被 driver 执行 |
+| 联机 | `test` 与 `alice` 分别作为 P1/P2；八个精确 profile 的 EmulatorJS/core artifact/adapter 边界来自 `data/netplay/v2/manifest.json`；FCEUmm 使用 prediction/rollback，其余七个使用严格 lockstep，经真实导入/Launch/内容端点与两个 Chrome Player 验证，不建立逐 ROM 产品 allowlist |
 | 游戏替换 revision | 基于测试内生成的确定性 ZIP 重打包：entry 字节不变，ZIP 时间固定且 comment 为 `retrom-acceptance-revision-2`；原始 Blob SHA-256 必须变化，提取内容 hash 必须不变 |
 | 媒体 | Hasheous stub 提供一张固定字节的小型合法 PNG，SHA-256 写入 seed manifest |
-| Production 内置 Arcade DAT | `make prepare-deps` 按 manifest 物化并逐字节校验真实 MAME 2003/FBNeo DAT，供 `ACC-DAT-001/002/004`；产品 ROM smoke 使用上一行项目自有 test-only BUILTIN，不上传替代 DAT，也不把两类证据混为一谈 |
+| Production 内置 Arcade DAT | `make prepare-deps` 按 manifest 物化并逐字节校验真实 MAME2003、MAME2003 Plus、FBNeo 与 FBA2012 CPS1/CPS2 DAT，供 `ACC-DAT-001/002/004`；产品 ROM smoke 使用上列项目自有 test-only BUILTIN，不上传替代 DAT，也不把两类证据混为一谈 |
 | 非法 BIOS | 临时目录内生成内容为 `retrom-invalid-bios\n`、逻辑文件名为 `gba_bios.bin` 的文件 |
 | 数据库 | 空库及每个受支持 migration 起始版本各一份最小确定性 fixture |
 | 安全夹具 | 小型 path traversal、绝对路径、symlink、超压缩比和 XXE 文件；不得真实展开超大内容 |
@@ -810,6 +815,41 @@ make acceptance-case CASE=<case-id>
 - 通过标准：test-only active DatVersion 为 `BUILTIN/READY` 且与小型 DAT SHA-256 一致，但不得被解释为 production manifest 基线；其 `pacman`、`cloneof=puckman`、`romof=retrombios` 与三份 archive entry 的 name、size、FBNeo 锁定驱动 CRC32 和 fixture bytes 一致。审核及发布 current revision 的依赖证据锁定同一 DatVersion 的 Arcade schema v2，包含 `PARENT puckman` 与 `BIOS_OR_BASE retrombios` 两个 `SATISFIED_EXTERNAL`，不能出现普通 BIOS schema v1 的 `bios` 字段；详情页在首次启动重验证前后都投影同一 DatVersion/READY/schema v2。正常发布、首次重验证与直接 Launch 都保留同一 ContentRevision、DatVersion、Parent 和 BIOS；config `parentUrl/biosUrl` 均非空，并保留 `REVIEW_SCREENSHOT_OVERRIDE` 诊断。config 精确选择 `fbneo`、`ejs-4.2.3-v2` 与锁定 4.2.3 core artifact；游戏、Parent 和 BIOS 端点 bytes 与 fixture 精确相同。Player 默认启用推荐清晰 shader 与像素合成缩放，无必需 runtime/content 请求失败或页面异常，canvas 两次采样不同，调试遥测为“运行中”且 FPS 大于 0；测试 BIOS 不被目标驱动执行，本 Case 不创建联机房间、不验证双浏览器 confirmed frame、lockstep 或 digest 收敛。
 - 证据：fixture/production manifest 分层校验、test-only DatVersion/import/review/launch ID、三路内容比对、Playwright trace、动画帧/遥测断言与运行截图。
 
+### ACC-RUN-008：SNES9x 自有 LoROM 单机执行与状态恢复
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-RUN-008`。
+- 流程：将 `snes-smoke.sfc` 经过真实 upload、Import、Review、Approve 建立 READY 游戏，以 `snes9x` 启动 Player，比对 config、ROM 和 core artifact；注入方向/动作输入后捕获 native state 与画面，创建显式存档，再从该存档独立启动两次。
+- 通过标准：config 精确为 EmulatorJS 4.2.3、`ejs-4.2.3-v2`、`snes9x-wasm.data`，不带 Parent/BIOS；ROM bytes 与项目自有 32 KiB LoROM 一致。输入后 core digest 和可见画面都发生变化，RASTATE `MEM` 非空且不超过 1 MiB；两次恢复均由原生 load 完成且得到同一完整 core digest，无页面异常或必需 runtime/content 请求失败。
+- 证据：产品导入/审核/发布结果、config/content/artifact 摘要、输入前后 state/画面、存档与两次恢复 digest、运行截图。
+
+### ACC-RUN-009：Nestopia 自有 NES 单机执行与状态恢复
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-RUN-009`。
+- 流程：把项目自有 `nestopia-smoke.nes` 作为独立游戏经过真实导入、审核与发布，使用 `nestopia` 重复 `ACC-RUN-008` 的输入、native state、显式存档与两次独立恢复链路。
+- 通过标准：config 精确为 `nestopia-wasm.data` 且不带 Parent/BIOS；ROM SHA-256 与 fixture 一致。实际核心帧、输入可见反应、1 MiB state 上限与两次恢复均通过，无静默回到开头。本 Case 验证普通存档恢复；Nestopia 联机 authority state 的精确 trailer 归一见 `ACC-NP-018`。
+- 证据：同 `ACC-RUN-008`，并包含 Nestopia core/artifact 与 ROM 哈希。
+
+### ACC-RUN-010：MAME 2003 Plus Split/Parent/BIOS 单机链路
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-RUN-010`。
+- 流程：使用 acceptance-only 装置登记项目自有 MAME 2003 Plus DAT，将 Child、Parent 与测试 BIOS 经真实产品链路导入、审核、发布并启动，再重复输入反应、存档与两次独立恢复。
+- 通过标准：test-only DAT 不冒充 production baseline；config 精确为 `mame2003_plus-wasm.data`，`parentUrl/biosUrl` 均存在，三路 bytes 与 fixture 一致。项目自有驱动程序产生可见输入反应，native state 不超过 1 MiB，两次恢复 digest 一致；测试 BIOS 不被目标驱动执行。
+- 证据：DAT 分层、产品导入/审核/发布结果、三路 content 摘要、config、state/恢复 digest 与截图。
+
+### ACC-RUN-011：FBA2012 CPS1 自有 68000 程序单机链路
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-RUN-011`。
+- 流程：登记项目自有 CPS1 test-only DAT，将根 machine 归档经真实导入、审核、发布和 Player 启动，执行输入、state、存档与两次恢复。
+- 通过标准：config 精确为 `fbalpha2012_cps1-wasm.data`且无 Parent/BIOS；实际 68000 程序已写入锁定 fixture marker 和 CPS palette RAM，输入后 digest/画面都变化，state 不超过 1 MiB，两次独立恢复完整 digest 一致。
+- 证据：DAT/ROM 哈希、config/content/artifact、marker/palette/state 断言、恢复 digest 与截图。
+
+### ACC-RUN-012：FBA2012 CPS2 Child/Parent 自有 68000 程序单机链路
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-RUN-012`。
+- 流程：登记项目自有 CPS2 test-only DAT，将 `spf2xjd` Child 和锁定核心按 zip-name 链强制打开的 `spf2t` Parent 经真实导入、审核、发布与 Player 启动，重复 CPS1 的输入、state 和恢复链路。
+- 通过标准：config 精确为 `fbalpha2012_cps2-wasm.data`，`parentUrl` 存在而 `biosUrl` 不存在；Child 运行完整自有 68000/图形程序，Parent 只含项目自有 marker、无第三方 ROM 且不被驱动执行。marker/palette、输入反应、1 MiB state 上限和两次独立恢复均通过。
+- 证据：DAT Child/Parent 闭包、两路 content 哈希、config、marker/palette/state 断言、恢复 digest 与截图。
+
 ### ACC-SAVE-001：手动状态存档与截图
 
 - 上限：180 秒。
@@ -846,7 +886,7 @@ make acceptance-case CASE=<case-id>
 
 核心运行兼容必须由实际 Retrom 产品链路证明，不能用直接加载 EmulatorJS 的独立页面形成验收 Case。当前覆盖范围、对应命令和未覆盖核心由 [`core-runtime-validation.md`](./core-runtime-validation.md) 维护；本验收目录只登记能够覆盖完整产品契约的 Case。
 
-`ACC-RUN-002`、`ACC-RUN-006`、`ACC-RUN-007` 与 `make web-e2e` 分别覆盖 mGBA、MAME 2003 和 FBNeo Arcade split set 的真实浏览器单机产品链路；`ACC-NP-014`–`016` 覆盖锁定 profile 的 FCEUmm/FBNeo 双浏览器联机链路。FBA2012 与其余未登记 enabled core 尚无真实 ROM 产品链路 E2E，不得从 manifest、协议、单元测试或相邻核心结果外推为已通过；双浏览器结果也不能外推到其他 artifact 或任意游戏内容。
+`ACC-RUN-002`、`ACC-RUN-006`–`012` 与 `make web-e2e` 覆盖 mGBA、MAME2003、FBNeo、SNES9x、Nestopia、MAME2003 Plus 与 FBA2012 CPS1/CPS2 的真实浏览器单机产品链路；`ACC-NP-014`–`022` 覆盖八个锁定 profile 的双浏览器联机链路。其余未登记 enabled core 尚无真实 ROM 产品链路 E2E，不得从 manifest、协议、单元测试或相邻核心结果外推为已通过；双浏览器结果也不能外推到其他 artifact 或任意游戏内容。
 
 ## 15. UI、4K 与无障碍
 
@@ -1065,7 +1105,7 @@ make acceptance-case CASE=<case-id>
 
 ## 19. 联机游玩
 
-本节由 `ACC-NP-010`–`013` 维护协议、安全、feature flag 与单机回归，由 `ACC-NP-014`–`016` 维护项目自有 fixture 的真实双浏览器核心运行与生命周期基线。机器证据除第 3.3 节通用字段外，记录适用的协议/profile digest、参与者数、拒绝原因、资源计数与终因；敏感 cookie、能力值与宿主绝对路径不得进入证据。
+本节由 `ACC-NP-010`–`013` 维护协议、安全、feature flag 与单机回归，由 `ACC-NP-014`–`022` 维护项目自有 fixture 的真实双浏览器核心运行与生命周期基线。机器证据除第 3.3 节通用字段外，记录适用的协议/profile digest、参与者数、拒绝原因、资源计数与终因；敏感 cookie、能力值与宿主绝对路径不得进入证据。
 
 ### ACC-NP-010：协议与安全负向
 
@@ -1099,7 +1139,7 @@ make acceptance-case CASE=<case-id>
 
 - 上限：240 秒。执行：`make acceptance-case CASE=ACC-NP-014`。
 - 流程：从 `nes-smoke.nes` 的真实 upload、complete、Import、Review、Approve 建立 READY 游戏；`test/alice` 以 P1/P2 创建房间、选择 `fceumm-423-v1`、ready/start，各自取得 Launch 并打开两个真实 Chrome Player。记录两路 config/内容请求和 native state capture/load；对 P2 INPUT 注入 80ms 传输延迟并按下/释放一个测试程序实际读取的控制，再等待 rollback 与至少 frame 239 的同帧 checkpoint；最后由 P1 在 canonical 边界暂停并抓取两端画面。
-- 通过：两路 config 锁定相同 revision/profile/artifact 且都没有 BIOS；ROM bytes 与 fixture SHA-256 一致。P1 authority state 经原生 fixed-point capture，P2 原生 load 完成且 core exact；延迟输入产生至少一次真实 rollback，回放后两端同 frame 的 core digest 一致，暂停后的 canvas SHA-256 一致，timeline retained count/bytes 始终不超过 profile 上限；无页面异常、意外 SESSION_ENDED 或存档请求。canvas 采样只临时隐藏覆盖其上的 Retrom 暂停/帮助 overlay，不修改 iframe、core 状态或像素。
+- 通过：两路 config 锁定相同 revision/profile/artifact 且都没有 BIOS；ROM bytes 与 fixture SHA-256 一致。P1 authority state 经原生 fixed-point capture，P2 原生 load 完成且 core exact；延迟输入产生至少一次真实 rollback，回放后两端同 frame 的 core digest 一致，暂停后的 canvas SHA-256 一致，timeline retained count/bytes 始终不超过 profile 上限；无页面异常、意外 SESSION_ENDED 或存档请求。canvas 采样只临时隐藏覆盖其上的 Retrom 暂停/帮助 overlay 与开发服务器 Next 调试入口，不修改 iframe、core 状态或像素。
 - 证据：导入/审核/房间/双 Launch ID，两个 context trace，config/内容摘要，state/rollback/checkpoint/retained 诊断 JSON、终态截图与 console/error 汇总。
 
 ### ACC-NP-015：FBNeo 双浏览器严格 lockstep 与局域网延迟基线
@@ -1115,6 +1155,48 @@ make acceptance-case CASE=<case-id>
 - 流程：对 `fceumm-423-v1` 与 `fbneo-423-v1` 各执行一次真实双浏览器房间；运行后通过 Chrome DevTools Protocol 把 P2 页面冻结 3 秒再恢复，随后关闭 P2 当前 WebSocket transport 3 秒并允许客户端按租约重连。
 - 通过：冻结期间不因 native frame/load 墙钟预算、缺少输入或 state transfer timer 异常结束；恢复后继续产生 canonical frame。transport drop 只暂停/重同步该 Session，不释放座位、不新建 Session/Launch；P2 在 lease 内以同一 room/session/participant 身份连接，收到严格更大的 epoch 后继续推进，结束回调计数为 0。两种 core 均无重复 controller、旧 generation 消息污染、页面异常或残留连接。
 - 证据：两种 profile 的双 context trace、freeze/恢复时刻、connect/epoch/canonical/ended 诊断 JSON、drop 前后 Room/Session/Participant/Launch identity 与资源计数。
+
+`ACC-NP-017`–`022` 共用严格 lockstep 产品矩阵：每个 Case 都从项目自有 fixture 的真实 upload、导入、审核、发布开始，先确认 manifest 把 profile 显式关联到预期 NES/SNES/Arcade 基础平台、房间 DRAFT 目录能按该平台列出游戏及 profile；再由 `test/alice` 两个真实账号与两个独立 Chrome context 创建房间和 Launch。验证 authority native state 捕获、target native load、1 MiB state 上限、每个 canonical input 恰推进一个原生帧，frame 119/239/719 的完整 core digest 默认必须一致；100ms RTT 使输入缓冲升高且恢复后下降、prediction/rollback 恒为 0。原生帧增长不是 1 必须阻断，不能容忍或用 checkpoint 投影掩盖。
+
+唯一窄例外是 `ACC-NP-017` 的 SNES9x 在整个 Session 的任一合法 120-frame 检查点最多出现一次边界瞬时摘要差异；它只能在本局尚未消费该例外时进入产品既有的 hash-resync，双方还必须各自提供相同的 12 个 SNES 取证块且至少一个块确实不同。块名只用于定位原生 serializer 相位，不能成为排除或允许差异的白名单。还必须同时证明：两端各只有一个 `STATE_MISMATCH` PAUSE；epoch 恰加一且 `nextFrame=atFrame+1`；P1 authority capture 与 P2 load 的 state/core digest 相等；P1 原生归一化没有差异；P2 在真实 native load 前后 `changed=false`，并且 `byteExact/coreExact/nativeCompletion=true`、`firstCoreMismatch=-1`；新 epoch 的前两个合法 120-frame 检查点连续完整一致，期间没有第二次 mismatch、resync、ended 或页面错误。`changed=true`、一局第二次瞬时差异、任一持续差异、跨 epoch 搜索任意较晚摘要或排除任何 SNES bytes 都必须失败；不能按 epoch 重置例外额度。其他五个新 profile 不适用此例外。
+
+随后冻结 P2 页面 3 秒，主动中断 transport 3 秒并在 lease 内重连；必须保持同一 room/session/participant/Launch、获得严格更大 epoch、不产生 ended，并在该 epoch 的首个合法检查点再次完整一致；SNES9x 只有在本局尚未消费上述唯一例外时，才能在此处消费一次并以新 epoch 连续两个完整一致的检查点闭环。最终暂停后的两端无遮挡 canvas PNG 必须逐字节一致，并分别包含超过 16 个 RGB 非零像素，禁止让“两端相同的纯黑画面”通过验收；全程不得有页面异常。每个 Case 的证据包含产品 upload/import/review/launch ID、房间平台/游戏枚举、两路 config/content 摘要、双 context trace、带事件序号/epoch 的 state、PAUSE、lockstep、checkpoint 诊断 JSON、终态截图与 console/error 汇总。
+
+### ACC-NP-017：SNES9x 严格 lockstep 产品链路
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-017`。
+- 流程：使用 `snes-smoke.sfc` 和 `snes9x-423-v1` 执行共用严格 lockstep 矩阵。
+- 通过：两路 config 精确锁定 `snes9x-wasm.data` 及同一 revision/profile/artifact，不带 Parent/BIOS；满足上述 state、checkpoint、缓冲、后台恢复、重连身份与画面收敛标准，包括全局检查点一致或整局唯一获准的 no-op hash recovery 完整证据；不得对 SNES core state 作 byte mask。
+
+### ACC-NP-018：Nestopia 严格 lockstep 与 authority state 精确归一
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-018`。
+- 流程：使用 `nestopia-smoke.nes` 和 `nestopia-423-v1` 执行共用严格 lockstep 矩阵。
+- 通过：两路 config 不带 Parent/BIOS。锁定 Nestopia 的 8-byte libretro 输入 trailer 以 `NST\x1a` 根块长度动态定位；authority、传输 bytes、target 重捕获与 checkpoint 只将该区间投影为零，根块、其他 padding、容器和长度仍全部逐字节一致。初始与断线重连的 native state load 均在该规则下通过，重连后的双方 checkpoint 再次一致；任何其他位置、形状、长度或 profile 命中都 fail closed，其余矩阵标准全部通过。
+
+### ACC-NP-019：MAME 2003 override 严格 lockstep 产品链路
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-019`。
+- 流程：使用 `mame2003-423-override-v1` 和项目自有 Split Child/Parent/BIOS fixture 执行共用矩阵。
+- 通过：两路 config 都带 `parentUrl/biosUrl`，精确锁定 4.2.1 `mame2003-wasm.data` override，三路 bytes 与 fixture 一致；测试 BIOS 不被驱动执行，其余矩阵标准全部通过。
+
+### ACC-NP-020：MAME 2003 Plus 严格 lockstep 产品链路
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-020`。
+- 流程：使用 `mame2003-plus-423-v1` 和独立的 MAME 2003 Plus fixture/DAT 执行共用矩阵。
+- 通过：两路 config 都带 `parentUrl/biosUrl`、精确锁定 `mame2003_plus-wasm.data`，三路 bytes 与 fixture 一致；测试 BIOS 不被驱动执行，其余矩阵标准全部通过。
+
+### ACC-NP-021：FBA2012 CPS1 严格 lockstep 产品链路
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-021`。
+- 流程：使用 `fbalpha2012-cps1-423-v1` 和项目自有 CPS1 68000 程序/DAT 执行共用矩阵。
+- 通过：两路 config 均无 Parent/BIOS、精确锁定 `fbalpha2012_cps1-wasm.data`；项目自有程序产生可见输入反应。重连的新 epoch 从 `nextFrame` 再执行至少 180 个 canonical frame 后才暂停取证，避免把真实启动/恢复流程中的短暂黑场误作终态；其余矩阵标准全部通过。
+
+### ACC-NP-022：FBA2012 CPS2 Child/Parent 严格 lockstep 产品链路
+
+- 上限：300 秒。执行：`make acceptance-case CASE=ACC-NP-022`。
+- 流程：使用 `fbalpha2012-cps2-423-v1`、项目自有 `spf2xjd` Child 和 `spf2t` marker Parent 执行共用矩阵。
+- 通过：两路 config 均有 `parentUrl`、均无 `biosUrl`并精确锁定 `fbalpha2012_cps2-wasm.data`；Parent 无第三方 ROM bytes 且不被驱动执行，Child 程序可见反应于输入。重连的新 epoch 从 `nextFrame` 再执行至少 180 个 canonical frame 后才暂停取证，并执行共用矩阵的非黑像素断言；其余矩阵标准全部通过。
 
 ## 20. 移动端与横屏 Player
 
@@ -1188,7 +1270,7 @@ make acceptance-case CASE=<case-id>
 - 条件 Case 要么 PASS，要么有可核实的 `NOT_APPLICABLE` 原因；
 - 没有 `FAIL`、`BLOCKED`、超时、缺失 Case 或未经解释的重跑；
 - 当前明确登记的产品 E2E 与产品集成测试全部通过；[`core-runtime-validation.md`](./core-runtime-validation.md) 中未覆盖核心和 Saturn 真实浏览器运行缺口已如实列入最终报告，不得表述为已验证；
-- `ACC-NP-010`–`016` 全部通过；FCEUmm/FBNeo 双浏览器结果只表述为锁定 profile/artifact 与项目自有 fixture 的产品链路基线，不得扩大为任意 ROM 或未登记 core 兼容性；
+- `ACC-NP-010`–`022` 全部通过；八个 profile 的双浏览器结果只表述为锁定 profile/artifact 与项目自有 fixture 的产品链路基线，不得扩大为任意 ROM 或未登记 core 兼容性；
 - 本次发现的每个 bug 均有回归测试和 red/green 证据；
 - `make ci` 和两个镜像 build target 通过，且镜像构建没有启动服务；
 - 最终报告记录 commit/dirty 状态、环境、Case 结果、缺陷、未执行项和残余风险；
@@ -1209,8 +1291,8 @@ AI Agent 的最终交付摘要必须列出：总结果、失败/阻塞 Case ID�
 | 多盘导入、运行、回归与隔离 | `ACC-MDISC-001`–`008` |
 | BIOS、服务器导入与 Arcade DAT | `ACC-DAT-001`–`006`、`ACC-BIOS-001`–`007` |
 | Pegasus 目录导入与游戏视频 | `ACC-PEG-001`–`006`、`ACC-MEDIA-001` |
-| 启动、存档与游玩时长 | `ACC-RUN-001`–`007`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
-| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`ACC-RUN-006`、`ACC-RUN-007`、`ACC-PEG-006`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
+| 启动、存档与游玩时长 | `ACC-RUN-001`–`012`、`ACC-SAVE-001`–`003`、`ACC-PLAY-001` |
+| EmulatorJS 产品运行链路 | `ACC-RUN-002`、`ACC-RUN-006`–`012`、`ACC-PEG-006`、`make web-e2e` 与 [`core-runtime-validation.md`](./core-runtime-validation.md) 登记的产品集成测试 |
 | 账户认证、用户管理与隔离 | `ACC-AUTH-001`–`006`、`ACC-ISO-001`–`003` |
 | UI、4K、待审队列与无障碍 | `ACC-UI-001`–`009` |
 | 移动 App Shell、响应式页面与横屏 Player | `ACC-MOB-001`–`007` |

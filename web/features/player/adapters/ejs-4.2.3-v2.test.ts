@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { adapterID, captureManualScreenshot, captureManualState, captureReviewScreenshot, coreFramebufferNeedsCanvasOrientation, mountEmulatorJS, scheduleStartupActions, switchDisc, switchDiscPreservingPause, type PlayerConfig } from "./ejs-4.2.3-v2";
+import { netplayProfilePredictionFrames } from "./ejs-config";
 
 const config: PlayerConfig = {
   mode: "single",
@@ -95,6 +96,7 @@ const fbneoNetplayConfig: PlayerConfig = {
       schemaVersion: 1,
       protocolVersion: "retrom-netplay-v2",
       profileId: "fbneo-423-v1",
+      platformIds: ["arcade"],
       emulatorjsVersion: "4.2.3",
       playerAdapterId: "ejs-4.2.3-v2",
       netplayAdapterId: "ejs-netplay-4.2.3-v1",
@@ -172,6 +174,20 @@ describe("EmulatorJS adapter", () => {
         netplayProfile: { ...fbneoNetplayConfig.netplay!.netplayProfile, maxPredictionFrames: 8 },
       },
     }, target)).toThrow("PLAYER_NETPLAY_CONFIG_INVALID");
+  });
+
+  it("freezes the exact eight-profile prediction policy", () => {
+    expect(netplayProfilePredictionFrames).toEqual({
+      "fceumm-423-v1": 8,
+      "fbneo-423-v1": 0,
+      "snes9x-423-v1": 0,
+      "mame2003-423-override-v1": 0,
+      "mame2003-plus-423-v1": 0,
+      "fbalpha2012-cps1-423-v1": 0,
+      "fbalpha2012-cps2-423-v1": 0,
+      "nestopia-423-v1": 0,
+    });
+    expect(Object.isFrozen(netplayProfilePredictionFrames)).toBe(true);
   });
 
   it("defers 4.3 DOS startup until the whole-archive mode is installed", async () => {

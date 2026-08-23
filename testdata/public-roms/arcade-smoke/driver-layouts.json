@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "drivers": {
+    "1941": {
+      "coreId": "fbalpha2012_cps1",
+      "sourceCommit": "d6f5267a3abe8b079ed31d2ab3521911e6498372",
+      "productionDatSha256": "54a95deb406fefbf4522498ee55a4d644724c3abc017d744538678204015b789",
+      "productionMachineCount": 227,
+      "entries": [
+        {"name": "41em_30.11f", "size": 131072, "crc32": "4249ec61", "region": "68000", "load": "odd-byte", "patchOffset": 131068},
+        {"name": "41em_35.11h", "size": 131072, "crc32": "ddbee5eb", "region": "68000", "load": "even-byte", "patchOffset": 131068},
+        {"name": "41em_31.12f", "size": 131072, "crc32": "584e88e5", "region": "68000", "load": "odd-byte", "patchOffset": 131068},
+        {"name": "41em_36.12h", "size": 131072, "crc32": "3cfc31d0", "region": "68000", "load": "even-byte", "patchOffset": 131068},
+        {"name": "41-32m.8h", "size": 524288, "crc32": "4e9648ca", "region": "68000", "load": "linear", "patchOffset": 524284},
+        {"name": "41-5m.7a", "size": 524288, "crc32": "01d1cb11", "region": "graphics", "load": "cps1-tile-0", "patchOffset": 524284},
+        {"name": "41-7m.9a", "size": 524288, "crc32": "aeaa3509", "region": "graphics", "load": "cps1-tile-1", "patchOffset": 524284},
+        {"name": "41-1m.3a", "size": 524288, "crc32": "ff77985a", "region": "graphics", "load": "cps1-tile-2", "patchOffset": 524284},
+        {"name": "41-3m.5a", "size": 524288, "crc32": "983be58f", "region": "graphics", "load": "cps1-tile-3", "patchOffset": 524284},
+        {"name": "41_9.12b", "size": 65536, "crc32": "0f9d8527", "region": "z80", "load": "linear", "patchOffset": 65532},
+        {"name": "41_18.11c", "size": 131072, "crc32": "d1f15aeb", "region": "samples", "load": "linear", "patchOffset": 131068},
+        {"name": "41_19.12c", "size": 131072, "crc32": "15aec3a6", "region": "samples", "load": "linear", "patchOffset": 131068},
+        {"name": "buf1", "size": 279, "crc32": "eb122de7", "region": "optional", "load": "ignored", "patchOffset": 275},
+        {"name": "ioa1", "size": 279, "crc32": "59c7ee3b", "region": "optional", "load": "ignored", "patchOffset": 275},
+        {"name": "prg1", "size": 279, "crc32": "f1129744", "region": "optional", "load": "ignored", "patchOffset": 275},
+        {"name": "rom1", "size": 279, "crc32": "41dc73b9", "region": "optional", "load": "ignored", "patchOffset": 275},
+        {"name": "sou1", "size": 279, "crc32": "84f4b2fe", "region": "optional", "load": "ignored", "patchOffset": 275},
+        {"name": "yi24b.1a", "size": 279, "crc32": "3004dcdf", "region": "optional", "load": "ignored", "patchOffset": 275},
+        {"name": "iob1.11e", "size": 279, "crc32": "3abc0700", "region": "optional", "load": "ignored", "patchOffset": 275}
+      ]
+    },
+    "spf2xjd": {
+      "coreId": "fbalpha2012_cps2",
+      "sourceCommit": "3fb5b89d2ab719e45e814e1ad0b5ff721bffdff2",
+      "productionDatSha256": "f59166dbd123d998ae874910275e5a0ab09b7aca83dde621f2c5a53af0407f99",
+      "productionMachineCount": 284,
+      "entries": [
+        {"name": "pzfjd.03a", "size": 524288, "crc32": "5e85ed08", "region": "68000", "load": "linear", "patchOffset": 524284},
+        {"name": "pzf.04", "size": 524288, "crc32": "b80649e2", "region": "68000", "load": "linear", "patchOffset": 524284},
+        {"name": "pzf.14m", "size": 1048576, "crc32": "2d4881cb", "region": "graphics", "load": "cps2-tile-0", "patchOffset": 1048572},
+        {"name": "pzf.16m", "size": 1048576, "crc32": "4b0fd1be", "region": "graphics", "load": "cps2-tile-1", "patchOffset": 1048572},
+        {"name": "pzf.18m", "size": 1048576, "crc32": "e43aac33", "region": "graphics", "load": "cps2-tile-2", "patchOffset": 1048572},
+        {"name": "pzf.20m", "size": 1048576, "crc32": "7f536ff1", "region": "graphics", "load": "cps2-tile-3", "patchOffset": 1048572},
+        {"name": "pzf.01", "size": 131072, "crc32": "600fb2a3", "region": "z80", "load": "linear", "patchOffset": 131068},
+        {"name": "pzf.02", "size": 131072, "crc32": "496076e0", "region": "z80", "load": "linear", "patchOffset": 131068},
+        {"name": "pzf.11m", "size": 2097152, "crc32": "78442743", "region": "qsound", "load": "word-swap", "patchOffset": 2097148},
+        {"name": "pzf.12m", "size": 2097152, "crc32": "399d2c7b", "region": "qsound", "load": "word-swap", "patchOffset": 2097148}
+      ]
+    }
+  }
+}

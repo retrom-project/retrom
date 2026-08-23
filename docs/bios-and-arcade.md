@@ -237,9 +237,11 @@ Parent 必需 ROM 排除 NODUMP、保留 BADDUMP warning，按 ASCII case-insens
 
 ### 8.2 公开自动化回归夹具
 
-[`testdata/public-roms/arcade-smoke/`](../testdata/public-roms/arcade-smoke/) 保存项目自有、MIT 许可且可确定性重建的 MAME 2003 与 FBNeo 测试程序、小型 DAT 与测试 BIOS 角色归档。生成的 Z80 程序持续更新整屏 tile，并读取 Pac-Man 驱动的 P1/P2 active-low 输入端口，把两路输入计数反映到可见 tile。生成器共同锁定 `pacman` Child、`puckman` Parent、`retrombios` BIOS 的 archive/entry/name/size/hash；FBNeo 对生成器控制的 4 bytes 做确定性 CRC32 校正，完整 bytes 另由 SHA-1/SHA-256 固定。
+[`testdata/public-roms/arcade-smoke/`](../testdata/public-roms/arcade-smoke/) 保存项目自有、MIT 许可且可确定性重建的 MAME2003、MAME2003 Plus、FBNeo 与 FBA2012 CPS1/CPS2 测试程序、小型 DAT 和测试依赖归档。Pac-Man Z80 程序读取 P1/P2 active-low 输入并更新可见 tile；CPS 68000 程序初始化工作 RAM/显示、读取两路输入并写入可验证 marker/palette，音频 CPU 运行确定性静音循环。生成器按锁定 driver layout 固定 archive/entry/name/size/CRC32，并用 SHA-1/SHA-256 锁定完整项目自有 bytes；CRC patch 只位于不执行、不显示的生成器自有窗口。
 
-真实 release DAT 的来源、物化、parser stats 与 manifest 精确 active 选择由 `ACC-DAT-001/002/004` 证明。`ACC-RUN-006/007` 与 `ACC-NP-015/016` 为了合法执行自制 ROM，由 acceptance-only 装置在临时数据库中把同目录小型 DAT 直接登记为 test-only `BUILTIN`；该装置没有 HTTP/UI 入口，不能在生产构建中调用，也不构成用户 DAT 功能。Case 仍经过真实产品导入、BIOS installation、审核 schema v2 `PARENT/BIOS_OR_BASE`、发布、三路受限内容和 Chrome Player；启动前后必须保持同一 DatVersion 和 schema v2。测试 BIOS 不被 Pac-Man 驱动执行，因此只证明 Retrom 的解析、装配、冻结与交付，不证明核心内部 BIOS 执行语义；双浏览器 Case 证明的是 FBNeo 锁定 profile 的 strict lockstep 与 digest 收敛。
+CPS1 测试 DAT 把 `1941` 表示为无 parent/BIOS 的完整根集合。锁定的 FBA2012 CPS2 core loader 在载入 Phoenix `spf2xjd` 时会按 driver 的 zip-name 链强制打开 `spf2t.zip`，因此测试 DAT 保留真实 `cloneof/romof=spf2t`，并提供只有 `retrom-parent.marker` 的项目自有父归档。该 marker 只让 Retrom 的 Parent 识别、依赖快照、bundle 和核心 loader 开包路径闭环，不冒充或复制 `spf2t` ROM，也不被目标 driver 执行；Launch 必须有 `parentUrl`、不得有 `biosUrl`。
+
+真实 release DAT 的来源、物化、parser stats 与 manifest 精确 active 选择由 `ACC-DAT-001/002/004` 证明。`ACC-RUN-006/007/010/011/012` 与 `ACC-NP-015/016/019/020/021/022` 为了合法执行自制 ROM，由 acceptance-only 装置在临时数据库中把对应小型 DAT 直接登记为 test-only `BUILTIN`；该装置只接受代码内固定的 fixture ID/path/hash/machine allowlist，没有 HTTP/UI 入口，不能在生产构建中调用，也不构成用户 DAT 功能。Case 仍经过真实产品导入、审核 schema v2、发布、受限内容和 Chrome Player；启动前后必须保持同一 DatVersion 和 schema v2。测试 BIOS 与 CPS2 marker parent 不被目标驱动执行，因此只证明 Retrom 的解析、装配、冻结与交付，不证明核心内部 BIOS/parent 程序执行语义；双浏览器 Case 只证明精确 profile 的 lockstep 与 digest 收敛。
 
 ## 9. 管理页面
 

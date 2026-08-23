@@ -210,6 +210,41 @@ class NetplayManifestValidationTests(unittest.TestCase):
             dependencies.validate_netplay_manifest(manifests, {})
 
 
+class CPSFixtureLayoutValidationTests(unittest.TestCase):
+    def test_production_registry_validation_does_not_depend_on_test_fixtures(self) -> None:
+        manifests = [
+            dependencies.load_manifest("4.2.3"),
+            dependencies.load_manifest("4.3.0-pre"),
+        ]
+        with mock.patch.object(
+            dependencies,
+            "CPS_FIXTURE_LAYOUT_PATH",
+            Path("/fixture-source-must-not-be-required-by-production-prepare"),
+        ):
+            dependencies.validate_registry(manifests)
+
+    def test_layout_matches_locked_source_and_production_dat(self) -> None:
+        manifests = [
+            dependencies.load_manifest("4.2.3"),
+            dependencies.load_manifest("4.3.0-pre"),
+        ]
+        dependencies.validate_cps_fixture_layouts(manifests)
+
+    def test_rejects_source_commit_drift(self) -> None:
+        manifests = [dependencies.load_manifest("4.2.3")]
+        core = next(
+            item
+            for item in manifests[0]["cores"]
+            if item["core_id"] == "fbalpha2012_cps1"
+        )
+        core["core_source"]["commit"] = "0" * 40
+        with self.assertRaisesRegex(
+            dependencies.CheckError,
+            "CPS_FIXTURE_LAYOUT_INVALID",
+        ):
+            dependencies.validate_cps_fixture_layouts(manifests)
+
+
 class ReleaseInputDigestTests(unittest.TestCase):
     def test_unstaged_delete_is_absent_and_untracked_rename_is_present(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

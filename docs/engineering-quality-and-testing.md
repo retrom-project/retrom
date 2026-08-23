@@ -87,7 +87,7 @@
 
 - `make ci` 包含全部可复现的仓库内单元、集成与数据检查；没有合法公开 fixture 的核心启动兼容性不在自动化测试中冒充已覆盖。
 - 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。浏览器缓存、Node 工具链和运行时 payload 不进入 Git 或镜像。
-- 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM 必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/` 与 `testdata/public-roms/arcade-smoke/`。
+- 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM 必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/`。
 - `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
 - OpenAPI 固定为 `api/openapi.yaml`（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。Go 侧由该版本以 `models + std-http-server + strict-server` 生成 `internal/httpapi/generated/api.gen.go`；该文件被 Git 忽略且不得提交，由标准后端 build/test/lint/integration/dev target 和后端镜像构建在编译前按需生成。生成器作为 `go.mod` 的 tool 依赖锁定，配置放 `api/oapi-codegen.yaml`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定执行 `openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client；该 TypeScript schema 必须提交并由漂移检查逐字节比较。两个生成文件都不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
@@ -241,7 +241,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 | Web 单元/组件测试 | 页面状态、表单、路由 payload、错误映射、用户交互 | 源文件旁 `*.test.ts(x)` + Vitest/RTL | 是 |
 | Chrome E2E | 路由联动、用户激活/Fullscreen、移动方向门禁、响应式与 4K 关键布局 | `web/e2e/` + Playwright Chrome | 按影响范围/发布门禁 |
 | 产品运行时 E2E | 真实 Retrom 导入/Launch/内容端点/Player 是否能驱动 EmulatorJS 核心 | `web/e2e/` + `testdata/public-roms/` 项目自有 ROM | 按影响范围/发布门禁 |
-| 联机协议与回归 | 房间/协议边界、安全拒绝、feature flag、容量、单机路径，以及 FCEUmm/FBNeo 双浏览器核心与生命周期 | 聚焦 Go/Web 测试 + `ACC-NP-010`–`016` | 按影响范围/发布门禁 |
+| 联机协议与回归 | 房间/协议边界、安全拒绝、feature flag、容量、单机路径，以及八个精确 profile 的双浏览器核心与生命周期 | 聚焦 Go/Web 测试 + `ACC-NP-010`–`022` | 按影响范围/发布门禁 |
 
 命名要求：
 
@@ -313,7 +313,7 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 
 影响多盘 parser、Launch content、Player adapter 或换盘时，除受影响单元/集成/Web 测试外还必须执行 `make web-e2e` 与 `ACC-MDISC-001`–`008` 的受影响产品测试。当前没有真实 Saturn ROM 的浏览器产品 E2E；交付时必须明确这一边界，不能用伪 CHD、独立 EmulatorJS 页面或历史截图替代。
 
-影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-010`–`016`](./project-acceptance.md#19-联机游玩) 生成当次协议、安全、feature flag、单机回归与双浏览器核心证据。`ACC-NP-014`–`016` 只证明锁定 FCEUmm/FBNeo profile/artifact 与项目自有 fixture；其他 ROM/core 版本仍必须明确列为未覆盖。
+影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-010`–`022`](./project-acceptance.md#19-联机游玩) 生成当次协议、安全、feature flag、单机回归与双浏览器核心证据。`ACC-NP-014`–`022` 只证明 manifest 锁定的八个 profile/artifact 与项目自有 fixture；其他 ROM/core 版本仍必须明确列为未覆盖。
 
 ## 8. Bug 回归固化流程
 
@@ -370,7 +370,7 @@ make web-e2e
 - 解析器可以使用小型、可读、带来源说明的确定性片段覆盖边界和畸形输入。
 - Arcade 兼容性结论必须另有针对 `make prepare-deps` 物化到 `data/dat/` 的完整、真实、版本锁定 DAT 的集成校验；小片段不能替代真实基线，payload 也不能因此提交 Git。
 - 负向安全测试可以构造恶意 ZIP/XML/路径，因为它们用于验证拒绝行为，不能被描述为真实游戏数据。
-- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；GBA 的两个身份覆盖普通上传与 Pegasus，NES 夹具覆盖 FCEUmm 双浏览器 rollback，Arcade 夹具覆盖 MAME 2003/FBNeo 的 Split Child/Parent/BIOS、单机帧执行和 FBNeo 双浏览器严格 lockstep。真实 release DAT 的物化、解析和精确 active 选择由 `ACC-DAT-004` 使用 production manifest 独立证明；Arcade 产品 Case 的项目自有小型 DAT 由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不得经过 DAT 上传 API，也不得冒充 production baseline。Case 必须显式核对 schema v2 的 `PARENT` 与 `BIOS_OR_BASE`、同一 DatVersion 及冻结内容 bytes。测试 BIOS 不被目标驱动执行；双浏览器结果也只证明锁定 profile/artifact 与项目自有 fixture。
+- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；GBA 的两个身份覆盖普通上传与 Pegasus，NES 的两个内容身份分别覆盖 FCEUmm/Nestopia，SNES 夹具覆盖 SNES9x，Arcade 夹具覆盖 MAME 2003/Plus、FBNeo 与 FBA2012 CPS1/CPS2 的依赖装配、单机帧执行和双浏览器联机。真实 release DAT 的物化、解析和精确 active 选择由 `ACC-DAT-004` 使用 production manifest 独立证明；Arcade 产品 Case 的项目自有小型 DAT 由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不得经过 DAT 上传 API，也不得冒充 production baseline。Case 必须显式核对 schema v2 的 `PARENT` 与 `BIOS_OR_BASE`、同一 DatVersion 及冻结内容 bytes。测试 BIOS 不被目标驱动执行；CPS2 的 `spf2t` 父归档只含项目自有 marker 且不被驱动执行；双浏览器结果只证明锁定 profile/artifact 与项目自有 fixture。
 
 ## 10. 后续实施清单
 

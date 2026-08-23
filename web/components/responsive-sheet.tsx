@@ -60,7 +60,10 @@ export function ResponsiveSheet({
     body.style.overflow = "hidden";
     if (scrollbarWidth > 0) {body.style.paddingRight = `${scrollbarWidth}px`;}
     const frame = window.requestAnimationFrame(() => {
-      (initialFocusRef?.current ?? panelRef.current?.querySelector<HTMLElement>(focusableSelector))?.focus();
+      const panel = panelRef.current;
+      if (panel && !panel.contains(document.activeElement)) {
+        (initialFocusRef?.current ?? panel.querySelector<HTMLElement>(focusableSelector))?.focus();
+      }
     });
     return () => {
       window.cancelAnimationFrame(frame);
@@ -80,7 +83,11 @@ export function ResponsiveSheet({
     }
     if (event.key !== "Tab") {return;}
     const focusable = Array.from(panelRef.current?.querySelectorAll<HTMLElement>(focusableSelector) ?? [])
-      .filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true");
+      .filter((element) => !element.hidden && element.getAttribute("aria-hidden") !== "true")
+      .sort((left, right) => {
+        if (left === right) {return 0;}
+        return left.compareDocumentPosition(right) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1;
+      });
     if (!focusable.length) {
       event.preventDefault();
       panelRef.current?.focus();

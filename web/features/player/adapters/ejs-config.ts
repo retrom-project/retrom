@@ -103,10 +103,21 @@ export function initializeMultiDiscSettings(instance: EmulatorInstance) {
   }
 }
 
+export const netplayProfilePredictionFrames: Readonly<Record<string, number>> = Object.freeze({
+  "fceumm-423-v1": 8,
+  "fbneo-423-v1": 0,
+  "snes9x-423-v1": 0,
+  "mame2003-423-override-v1": 0,
+  "mame2003-plus-423-v1": 0,
+  "fbalpha2012-cps1-423-v1": 0,
+  "fbalpha2012-cps2-423-v1": 0,
+  "nestopia-423-v1": 0,
+});
+
 function expectedPredictionFrames(profileID: string) {
-  if (profileID === "fceumm-423-v1") {return 8;}
-  if (profileID === "fbneo-423-v1") {return 0;}
-  return null;
+  return Object.hasOwn(netplayProfilePredictionFrames, profileID)
+    ? netplayProfilePredictionFrames[profileID]
+    : null;
 }
 
 function validNetplayConfig(config: PlayerConfig) {

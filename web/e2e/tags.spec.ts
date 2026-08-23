@@ -38,6 +38,14 @@ async function expectNoSeriousAxeViolations(page: Page) {
   expect(violations, `axe serious/critical violations: ${JSON.stringify(violations)}`).toEqual([]);
 }
 
+async function expectFocusedControl(page: Page, name: string) {
+  await expect.poll(() => page.evaluate(() => {
+    const active = document.activeElement;
+    if (!(active instanceof HTMLElement)) {return "non-html";}
+    return active.getAttribute("aria-label") || active.textContent?.trim() || `${active.tagName}.${active.className}`;
+  })).toBe(name);
+}
+
 test("ACC-TAG-005 tag administration, assignment, search, projection, responsive layout and accessibility", async ({ page }, testInfo) => {
   await page.goto("/admin/tags");
   const commonNames = ["动作冒险", "飞行射击", "格斗对战", "角色扮演", "模拟经营", "即时战略", "体育竞技", "益智解谜", "光枪射击", "生存恐怖"];
@@ -63,8 +71,11 @@ test("ACC-TAG-005 tag administration, assignment, search, projection, responsive
   expect(helpBounds).not.toBeNull();
   expect(helpBounds!.y - (previewBounds!.y + previewBounds!.height)).toBeGreaterThanOrEqual(8);
   const createSave = createSheet.getByRole("button", { name: "保存标签" });
-  await createSave.focus();
-  await expect(createSave).toBeFocused();
+  await expect(createSheet.getByRole("textbox", { name: "标签名称" })).toBeFocused();
+  await page.keyboard.press("Tab");
+  await expectFocusedControl(page, "取消");
+  await page.keyboard.press("Tab");
+  await expectFocusedControl(page, "保存标签");
   await createSave.press("Enter");
   const createdRow = page.getByRole("row").filter({ has: page.getByRole("rowheader", { name: tagName }) });
   await expect(createdRow).toBeVisible();

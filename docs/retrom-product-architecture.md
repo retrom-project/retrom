@@ -48,7 +48,7 @@ Retrom 是供用户与可信朋友共享的自托管复古游戏 Web 平台。�
 - 支持游戏元信息、文件 revision、游戏目录和 BIOS 管理；Arcade DAT 只使用 core release 固定的内置版本。
 - 支持安全初始化、邀请注册、账户密码轮换以及管理员维护账号角色与状态。
 - 所有私有游玩、存档和启动数据按账号 Profile 隔离；管理员没有读取他人私有数据的旁路。
-- 可选启用两人异地联机房间；首发开放 manifest 精确锁定的 EmulatorJS 4.2.3 FCEUmm/FBNeo core profile，覆盖其全部合格 READY 游戏，使用服务端中继输入的 rollback，不传输画面或音频。
+- 可选启用两人异地联机房间；manifest 精确锁定 EmulatorJS 4.2.3 的 FCEUmm、FBNeo、SNES9x、Nestopia、MAME2003、MAME2003 Plus 与 FBA2012 CPS1/CPS2 core profile，覆盖其全部合格 READY 游戏；FCEUmm 使用 prediction/rollback，其余使用严格 lockstep，均只由服务端中继输入和状态，不传输画面或音频。
 - 正式支持 35 个逐一验证的 EmulatorJS core；完整平台映射、默认目录与核心清单见第 6 节，画面证据见核心运行时验证基线。
 
 一期不包含：
@@ -151,7 +151,7 @@ Saturn/yabause 的 `MULTI_DISC_M3U_V1` 内容由同一物理目录中的一个�
 
 ### 3.10 联机是版本锁定的非串流 rollback 能力
 
-联机不是所有核心自动获得的通用能力。`data/netplay/v2/manifest.json` 同时锁定 EmulatorJS、普通 Player adapter、联机 adapter、FCEUmm/FBNeo core artifact SHA-256、允许的内容类型、24 个控制值和 prediction/rollback/state 上限；不按 ROM 名称、大小或 hash 决定资格。游戏仍须有引用该 artifact 与当前 ContentRevision 的 READY VariantRevision，依赖快照必须有效；房间和 Session 再锁定该不可变 revision，确保每位参与者运行同一内容。Go `internal/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 savestate 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile 漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
+联机不是所有核心自动获得的通用能力。`data/netplay/v2/manifest.json` 同时锁定 EmulatorJS、普通 Player adapter、联机 adapter、八个已发布 profile 的 core artifact SHA-256、适用基础平台、允许的内容类型、24 个控制值和 prediction/rollback/state 上限；不按 ROM 名称、大小或 hash 决定资格。当前平台标记为 FCEUmm/Nestopia→NES、SNES9x→SNES、五个 Arcade profile→Arcade；房间目录只枚举平台、artifact、内容类型与依赖快照同时合格的游戏。游戏仍须有引用该 artifact 与当前 ContentRevision 的 READY VariantRevision，依赖快照必须有效；房间和 Session 再锁定该不可变 revision，确保每位参与者运行同一内容。Go `internal/netplay` 只持久化房间控制面并在有界内存中排序输入、比较 checkpoint hash、转发不超过 1 MiB 的 savestate 和保留 10 秒断线租约。WebSocket 凭据使用独立 netplay key 与 HttpOnly room cookie，不复用 Launch capability。未知版本、profile/平台漂移、state 不一致或协议越界全部 fail closed；进程重启结束活动联机，不尝试跨进程恢复实时帧。
 
 ### 3.11 标签是实例共享、管理员维护的分类
 
@@ -364,7 +364,7 @@ flowchart LR
 - 用户上传内容、下载媒体、存档和截图进入运行时 CAS，不提交到代码仓库。
 - 预置 DAT 不可变且是唯一可创建、激活的 DatVersion 来源；release manifest 变化时先撤销旧选择并保持服务 not ready，待新版本索引成功后由启动引导原子激活。历史 DatVersion 只为旧 revision/Launch 提供可追溯引用。
 - DAT 更新不静默改写已发布 GameVariant 的不可变兼容性快照；重校验产生新结果并可追踪来源。
-- 联机 allowlist 是独立于普通兼容性的收紧层；只有 READY revision 使用 exact manifest core profile 的游戏可进入房间选择，但同一 profile 不再逐 ROM 限制名称、大小或 hash。
+- 联机 allowlist 是独立于普通兼容性的收紧层；只有基础平台出现在 profile `platformIds` 且 READY revision 使用 exact manifest core profile 的游戏可进入房间选择，但同一 profile 不再逐 ROM 限制名称、大小或 hash。
 
 ## 10. 一期实施阶段
 
@@ -433,7 +433,7 @@ Agent 不得根据本总览自行省略或合并 Case，也不得用 soak、压�
 
 以下决定均已进入一期基线，不再作为实施中的自由选择：使用 Hasheous 且不使用 ScreenScraper；DAT 只用于 Arcade 识别/依赖；Game 唯一属于游戏目录；详情页不是一级导航；正常启动一步完成并默认全屏；数据库时刻统一 Unix 毫秒 `INTEGER`；必须登录且账号 Profile 私有；一期只支持 Arcade Split / Full Non-Merged ROMset，不支持必需 CHD 和 Merged ROMset；联机是可关闭、按精确 EmulatorJS/core artifact allowlist、单进程服务端中继的非串流 rollback 且不支持存档；当前设计稿的现代复古、深色侧栏和紫色主操作色是视觉基线；前后端分别构建 `retrom`/`retrom-web` 镜像但构建不启动服务；`make dev` 只运行本地进程；TLS 只由前置 NG 终结。
 
-FCEUmm/FBNeo 之外的核心联机、自动匹配/聊天/观战/WebRTC、MFA/外部身份、必需 CHD 和 Merged ROMset 只能作为未来版本提案，必须新增设计、威胁模型、迁移和验收 Case；一期 agent 不得把两个已验证 core profile 扩大为任意核心都自动支持联机。
+当前八个 manifest profile 之外的核心联机、自动匹配/聊天/观战/WebRTC、MFA/外部身份、必需 CHD 和 Merged ROMset 只能作为未来版本提案，必须新增设计、威胁模型和验收 Case；一期 agent 不得把已验证 profile 扩大为任意核心都自动支持联机。
 
 ## 13. 评审入口与参考
 

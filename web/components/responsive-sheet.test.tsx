@@ -47,4 +47,41 @@ describe("ResponsiveSheet", () => {
     await user.click(closeActions.at(-1)!);
     expect(close).toHaveBeenCalledTimes(2);
   });
+
+  it("advances through body and footer controls without relying on viewport tab order", async () => {
+    const user = userEvent.setup();
+    const input = createRef<HTMLInputElement>();
+    render(
+      <ResponsiveSheet
+        open
+        title="新建标签"
+        onClose={() => undefined}
+        initialFocusRef={input}
+        footer={<><button disabled>不可用操作</button><button>取消</button><button>保存标签</button></>}
+      >
+        <input ref={input} aria-label="标签名称" />
+      </ResponsiveSheet>,
+    );
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+
+    expect(screen.getByRole("textbox", { name: "标签名称" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "取消" })).toHaveFocus();
+    await user.tab();
+    expect(screen.getByRole("button", { name: "保存标签" })).toHaveFocus();
+  });
+
+  it("does not steal focus already moved inside the sheet before initial focus runs", async () => {
+    const input = createRef<HTMLInputElement>();
+    render(
+      <ResponsiveSheet open title="新建标签" onClose={() => undefined} initialFocusRef={input}
+        footer={<button>取消</button>}>
+        <input ref={input} aria-label="标签名称" />
+      </ResponsiveSheet>,
+    );
+    const cancel = screen.getByRole("button", { name: "取消" });
+    cancel.focus();
+    await new Promise((resolve) => requestAnimationFrame(resolve));
+    expect(cancel).toHaveFocus();
+  });
 });

@@ -42,6 +42,13 @@ remove_e2e_dist() {
 cleanup() {
   local status=$?
   trap - EXIT
+  if (( status != 0 )) && [[ -f "$temporary_root/server.log" ]]; then
+    local failure_directory
+    mkdir -p "$repository_root/.cache/retrom/acceptance"
+    failure_directory="$(mktemp -d "$repository_root/.cache/retrom/acceptance/web-e2e-failure-XXXXXX")"
+    cp -p "$temporary_root/server.log" "$failure_directory/server.log"
+    printf 'web_e2e_failure_evidence=%s\n' "$failure_directory" >&2
+  fi
   if [[ -n "$process_id" ]]; then
     RETROM_DEV_STATE_DIR="$dev_state" RETROM_DATA_DIR="$temporary_root/data" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
     wait "$process_id" 2>/dev/null || true
@@ -105,40 +112,69 @@ RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/http-flow.sh
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
-RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/netplay-nes.json" \
-  scripts/acceptance/netplay-nes-flow.sh
+RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/netplay-fceumm.json" \
+  scripts/acceptance/netplay-nes-flow.sh fceumm
+RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/netplay-nestopia.json" \
+  scripts/acceptance/netplay-nes-flow.sh nestopia
+RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/netplay-snes9x.json" \
+  scripts/acceptance/netplay-nes-flow.sh snes9x
 go run scripts/acceptance/seed-public-arcade-dat.go \
-  "$temporary_root/data/retrom.db" \
-  mame2003 \
-  "$repository_root/testdata/public-roms/arcade-smoke/mame2003-smoke.xml" \
+  --database "$temporary_root/data/retrom.db" --fixture mame2003 \
   >"$temporary_root/mame2003-smoke-dat.json"
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
   scripts/acceptance/arcade-flow.sh mame2003
 go run scripts/acceptance/seed-public-arcade-dat.go \
-  "$temporary_root/data/retrom.db" \
-  fbneo \
-  "$repository_root/testdata/public-roms/arcade-smoke/fbneo/fbneo-smoke.dat" \
+  --database "$temporary_root/data/retrom.db" --fixture fbneo \
   >"$temporary_root/fbneo-smoke-dat.json"
 RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
 RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/netplay-fbneo.json" \
   scripts/acceptance/arcade-flow.sh fbneo
+for fixture_id in mame2003_plus fbalpha2012_cps1 fbalpha2012_cps2; do
+  go run scripts/acceptance/seed-public-arcade-dat.go \
+    --database "$temporary_root/data/retrom.db" --fixture "$fixture_id" \
+    >"$temporary_root/$fixture_id-smoke-dat.json"
+  RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+  RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+  RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/netplay-$fixture_id.json" \
+    scripts/acceptance/arcade-flow.sh "$fixture_id"
+done
 python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" mame2003
 python3 scripts/acceptance/seed-arcade-schema-v2-launch.py "$temporary_root/data/retrom.db" fbneo
 scripts/acceptance/seed-review-queue.sh "$temporary_root/data/retrom.db"
 scripts/acceptance/seed-run-blocker.sh "$temporary_root/data/retrom.db"
+netplay_expansion_results="$(jq -sc '[
+  .[0] + {caseId:"ACC-NP-017",profileId:"snes9x-423-v1"},
+  .[1] + {caseId:"ACC-NP-018",profileId:"nestopia-423-v1"},
+  .[2] + {caseId:"ACC-NP-019",profileId:"mame2003-423-override-v1"},
+  .[3] + {caseId:"ACC-NP-020",profileId:"mame2003-plus-423-v1"},
+  .[4] + {caseId:"ACC-NP-021",profileId:"fbalpha2012-cps1-423-v1"},
+  .[5] + {caseId:"ACC-NP-022",profileId:"fbalpha2012-cps2-423-v1"}
+]' \
+  "$temporary_root/netplay-snes9x.json" \
+  "$temporary_root/netplay-nestopia.json" \
+  "$temporary_root/mame2003.json" \
+  "$temporary_root/netplay-mame2003_plus.json" \
+  "$temporary_root/netplay-fbalpha2012_cps1.json" \
+  "$temporary_root/netplay-fbalpha2012_cps2.json")"
 
 (cd web && \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
-  RETROM_NETPLAY_NES_GAME_ID="$(jq -r .gameId "$temporary_root/netplay-nes.json")" \
-  RETROM_NETPLAY_NES_FIXTURE_SHA256="$(jq -r .fixtureSha256 "$temporary_root/netplay-nes.json")" \
+  RETROM_NETPLAY_NES_GAME_ID="$(jq -r .gameId "$temporary_root/netplay-fceumm.json")" \
+  RETROM_NETPLAY_NES_FIXTURE_SHA256="$(jq -r .fixtureSha256 "$temporary_root/netplay-fceumm.json")" \
   RETROM_NETPLAY_FBNEO_GAME_ID="$(jq -r .gameId "$temporary_root/netplay-fbneo.json")" \
   RETROM_NETPLAY_FBNEO_FIXTURE_SHA256="$(jq -r .fixtureSha256 "$temporary_root/netplay-fbneo.json")" \
   RETROM_FBNEO_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/netplay-fbneo.json")" \
   RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r .platformInstanceId "$temporary_root/mame2003.json")" \
+  RETROM_CORE_EXPANSION_RESULTS="$(jq -sc '.' "$temporary_root/netplay-snes9x.json" "$temporary_root/netplay-nestopia.json" "$temporary_root/netplay-mame2003_plus.json" "$temporary_root/netplay-fbalpha2012_cps1.json" "$temporary_root/netplay-fbalpha2012_cps2.json")" \
+  RETROM_NETPLAY_EXPANSION_RESULTS="$netplay_expansion_results" \
   E2E_SERVER_IMPORT_SEED="1" \
   npm run test:e2e)
 

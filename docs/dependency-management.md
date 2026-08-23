@@ -9,7 +9,7 @@
 
 ## 1. 结论
 
-Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、第三方或用户 ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。公开测试程序例外位于 `testdata/public-roms/`：`gba-smoke/` 由同一生成源产出两个各 1 KiB、内容身份不同的 mGBA 程序；`nes-smoke/` 产出读取 P1/P2 控制器并把输入反映到画面的 iNES NROM 程序；`arcade-smoke/` 是 MAME 2003 与 FBNeo 共用生成源产出的 Z80 程序、图形/PROM、测试 BIOS 角色归档与两种小型 DAT，其程序读取两个玩家输入端口并维持整屏动画。它们均由 Retrom 自有源码确定性生成、使用 MIT 许可，生成源与 bytes 同时提交并由 `data-check` 校验。Arcade 测试 BIOS 不含第三方 BIOS bytes，也不被目标驱动执行。其他真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得或从锁定源码确定性生成，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
+Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256、许可来源与解析统计，不保存 EmulatorJS 发布包、core、第三方或用户 ROM、BIOS、许可 payload、五份 Arcade DAT payload 或密码 blocklist payload。公开测试程序例外位于 `testdata/public-roms/`：`gba-smoke/` 产出两个内容身份不同的 mGBA 程序；`nes-smoke/` 产出分别供 FCEUmm/Nestopia 使用、内容身份不同且读取 P1/P2 的两个 iNES NROM 程序；`snes-smoke/` 产出供 SNES9x 使用的 32 KiB LoROM；`arcade-smoke/` 产出 MAME2003/Plus、FBNeo、FBA2012 CPS1/CPS2 的 Z80/68000 程序、生成图形/声音、测试依赖归档与五种小型 DAT。它们均由 Retrom 自有源码确定性生成、使用 MIT 许可，生成源与 bytes 同时提交并由 `data-check` 校验。测试 BIOS 与 CPS2 `spf2t` 父归档不含第三方 ROM/BIOS bytes，也不被目标驱动执行。其他真实 payload 在开发或镜像构建开始前按固定 URL/commit 取得或从锁定源码确定性生成，写到被 Git 忽略的固定目录，并在使用前逐字节校验。
 
 应用进程启动期间禁止联网下载或自动升级依赖。依赖缺失、大小或 SHA-256 不符时，后端必须拒绝进入 ready 状态并输出 `make prepare-deps` 这一条可操作命令；不能回退到 CDN、最新版本或另一个 core。
 
@@ -30,7 +30,9 @@ Git 只保存小型、可审查的来源清单、物化配方、大小、SHA-256
 
 `4.3.0-pre` 的 DOSBox Pure 状态兼容只允许作用于 manifest 已校验的精确 thread artifact：浏览器实例化时要求唯一 DOS marker 与恰好两个 4 MiB stack high-watermark 等长编码，再把这两个运行副本位置提升到 64 MiB；官方 core 文件、manifest size/SHA、runtime allowlist 与 CAS bytes 均不改写。兼容层同时绕过上游 `save_state_info` helper 对 stack pointer 的错误释放，并为指定 SaveState 使用延迟 native load。marker、计数、WASM validation 或 state 导出任一不符合时必须 fail closed；其他 core、其他 EmulatorJS 版本和不相关 WASM 不得继承该转换。升级 DOSBox Pure artifact 时必须重新取得源码/二进制证据并完成实际产品存档恢复 smoke，不能沿用旧 marker。
 
-联机使用独立的 [`data/netplay/v2/manifest.json`](../data/netplay/v2/manifest.json) 与 schema 作为普通兼容性之上的 core-profile allowlist。唯一当前 manifest schema 为 v4，profile 为 `fceumm-423-v1` 与 `fbneo-423-v1`：每项锁定 EmulatorJS 4.2.3、core artifact SHA-256、`maxPlayers=2` 和核心级 prediction 上限；FCEUmm 为 8 帧，FBNeo 为 0 帧严格 lockstep。协议另锁定 `SINGLE_FILE`、`retrom-netplay-v2`、`ejs-4.2.3-v2`、`ejs-netplay-4.2.3-v1`、24 controls、120-frame checkpoint、8 帧 prediction 协议上限、120 rollback、600 history 与 1 MiB state 上限。协议闭集不包含 suspend 消息；窗口失焦只清空本地输入。任意发布游戏只要当前 READY VariantRevision 使用该精确 artifact、内容类型受协议允许且依赖快照仍有效，即可选择此 profile；ROM 逻辑名、大小、hash 与来源 archive 不进入产品准入。校验器必须与 runtime manifest 的 core artifact、supported content kind 和前端 registry 双向一致，未知 EmulatorJS/adapter/profile 不得 fallback。`ACC-NP-014`–`016` 使用项目自有 NES/Arcade bytes 经过真实 Retrom 导入、Launch、内容端点和两个 Chrome Player，分别建立 FCEUmm rollback、FBNeo 严格 lockstep、后台恢复和断线重连基线；该证据只适用于精确 profile/artifact，不能改写为任意 ROM 的兼容承诺。
+联机使用独立的 [`data/netplay/v2/manifest.json`](../data/netplay/v2/manifest.json) 与 schema 作为普通兼容性之上的 core-profile allowlist。唯一当前 manifest schema 为 v4，精确 profile 为 `fceumm-423-v1`、`fbneo-423-v1`、`snes9x-423-v1`、`nestopia-423-v1`、`mame2003-423-override-v1`、`mame2003-plus-423-v1`、`fbalpha2012-cps1-423-v1` 与 `fbalpha2012-cps2-423-v1`。每项锁定 EmulatorJS 4.2.3、core artifact SHA-256、`maxPlayers=2` 与适用 `platformIds`；FCEUmm/Nestopia 只标记 `nes`，SNES9x 只标记 `snes`，五个 Arcade profile 只标记 `arcade`。FCEUmm 的核心级 prediction 上限为 8，其余七项为 0 帧严格 lockstep。协议另锁定 `SINGLE_FILE`、`retrom-netplay-v2`、`ejs-4.2.3-v2`、`ejs-netplay-4.2.3-v1`、24 controls、120-frame checkpoint、8 帧 prediction 协议上限、120 rollback、600 history 与 1 MiB state 上限。协议闭集不包含 suspend 消息；窗口失焦只清空本地输入。任意发布游戏只要所属基础平台在 profile `platformIds`、当前 READY VariantRevision 使用该精确 artifact、内容类型受协议允许且依赖快照仍有效，即可选择此 profile；ROM 逻辑名、大小、hash 与来源 archive 不进入产品准入。校验器必须与 runtime manifest 的 core artifact、supported content kind 和前端 registry 双向一致，未知 EmulatorJS/adapter/profile 不得 fallback。`ACC-NP-014`–`022` 使用项目自有 NES/SNES/Arcade bytes 经过真实 Retrom 导入、Launch、内容端点和两个 Chrome Player，建立八个 profile 的房间平台/游戏枚举、rollback/严格 lockstep、后台恢复和断线重连基线；该证据只适用于精确 profile/artifact，不能改写为任意 ROM 的兼容承诺。
+
+锁定 Nestopia core 的 `retro_serialize` 把 8 字节 libretro 输入跟踪块写在 Nestopia `NST\x1a` 根状态块之后，而 `retro_unserialize` 不会恢复该块；FDS 的内部 state 长度还会变化，所以它不能按固定 MEM 尾部定位。联机只对 `nestopia-423-v1` 解析根块长度，将紧随其后的精确 8 字节归零后形成传输与 checkpoint 摘要；authority 原生 load 前后、target 原生 load 后都必须在同一投影下逐字节一致，传输的 RASTATE 本身也携带归零后的 bytes，使服务端 raw full/core digest 校验保持成立。根块、根块外其他 padding、长度、容器形状或其他 profile 只要有一字节差异都以 `STATE_INVALID` fail closed。该投影不修改普通单机存档格式，也不允许忽略 ROM、FDS、BIOS 或模拟器机器状态。
 
 仓库与本地缓存边界固定为：
 
@@ -155,4 +157,4 @@ EmulatorJS 与各 libretro core 的许可证不同。manifest schema V7 的 `lic
 
 ## 7. 统一验收入口
 
-小型 manifest 结构（包括联机 exact manifest）由 `ACC-QA-001` 的 `make data-check` 覆盖；联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖，真实双端核心运行与生命周期由 `ACC-NP-014`–`016` 覆盖；完整 payload 准备与校验由 `ACC-DAT-001` 覆盖；密码 blocklist 的启动期校验与拒绝行为由 `ACC-AUTH-003` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。
+小型 manifest 结构（包括联机 exact manifest）由 `ACC-QA-001` 的 `make data-check` 覆盖；联机协议、安全、feature flag 与单机回归由 `ACC-NP-010`–`013` 覆盖，真实双端核心运行与生命周期由 `ACC-NP-014`–`022` 覆盖；完整 payload 准备与校验由 `ACC-DAT-001` 覆盖；密码 blocklist 的启动期校验与拒绝行为由 `ACC-AUTH-003` 覆盖；镜像内依赖、无启动期下载和许可文件由 `ACC-PKG-001` 覆盖；版本变化执行 `ACC-DAT-006`。

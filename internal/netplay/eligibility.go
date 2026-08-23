@@ -486,10 +486,10 @@ func lockedSnapshotJSON(raw string) ([]byte, bool) {
 }
 
 type eligibilityRow struct {
-	revisionID, artifactID, coreID, coreName, emulatorVersion, artifactSHA string
-	dependencyJSON, compatibilityJSON, contentKind, logicalName            string
-	datVersionID                                                           sql.NullString
-	artifactEnabled                                                        int
+	revisionID, artifactID, platformID, coreID, coreName, emulatorVersion, artifactSHA string
+	dependencyJSON, compatibilityJSON, contentKind, logicalName                        string
+	datVersionID                                                                       sql.NullString
+	artifactEnabled                                                                    int
 }
 
 func (service *Service) profileEligibility(ctx context.Context, gameID string) ([]eligibleProfile, string, error) {
@@ -525,10 +525,12 @@ func (service *Service) profileEligibility(ctx context.Context, gameID string) (
 
 func (service *Service) queryEligibilityRows(ctx context.Context, gameID string) ([]eligibilityRow, error) {
 	rows, err := service.database.QueryContext(ctx, `
-SELECT revision.id,artifact.id,artifact.core_id,core.name,artifact.emulatorjs_version,artifact.sha256,
+SELECT revision.id,artifact.id,platform.id,artifact.core_id,core.name,artifact.emulatorjs_version,artifact.sha256,
   revision.dependency_snapshot_json,artifact.compatibility_config_json,content.content_kind,
   file.logical_name,revision.dat_version_id,artifact.enabled
 FROM games game
+JOIN platform_instances instance ON instance.id=game.platform_instance_id
+JOIN platforms platform ON platform.id=instance.platform_id
 JOIN game_variants variant ON variant.game_id=game.id
 JOIN game_variant_revisions revision ON revision.id=variant.current_revision_id
   AND revision.game_content_revision_id=game.current_content_revision_id AND revision.status='READY'
@@ -547,7 +549,8 @@ ORDER BY artifact.core_id,revision.id,file.sort_order,file.logical_name
 	for rows.Next() {
 		var row eligibilityRow
 		if err := rows.Scan(
-			&row.revisionID, &row.artifactID, &row.coreID, &row.coreName, &row.emulatorVersion, &row.artifactSHA,
+			&row.revisionID, &row.artifactID, &row.platformID, &row.coreID, &row.coreName,
+			&row.emulatorVersion, &row.artifactSHA,
 			&row.dependencyJSON, &row.compatibilityJSON, &row.contentKind, &row.logicalName, &row.datVersionID,
 			&row.artifactEnabled,
 		); err != nil {
@@ -589,7 +592,8 @@ func (service *Service) matchEligibleProfile(
 
 func (service *Service) matchesCoreProfile(row eligibilityRow, candidate ManifestProfile) (bool, bool) {
 	contentKindAllowed := slices.Contains(service.registry.Manifest.Protocol.AllowedContentKinds, row.contentKind)
-	artifactMatches := contentKindAllowed && row.artifactEnabled == 1 && candidate.CoreID == row.coreID &&
+	artifactMatches := contentKindAllowed && slices.Contains(candidate.PlatformIDs, row.platformID) &&
+		row.artifactEnabled == 1 && candidate.CoreID == row.coreID &&
 		candidate.EmulatorJSVersion == row.emulatorVersion && candidate.CoreArtifactSHA256 == row.artifactSHA
 	return contentKindAllowed, artifactMatches
 }
