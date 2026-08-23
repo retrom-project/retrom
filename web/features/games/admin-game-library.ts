@@ -14,7 +14,7 @@ export type AdminGameFilters = {
   platformInstanceId: string;
   tagId?: string;
   visibility: "ALL" | "PUBLISHED" | "DELETED";
-  runtime: "ALL" | "READY" | "ATTENTION";
+  runtime: "ALL" | "READY" | "ATTENTION" | "DELETED";
   sort: "UPDATED_DESC" | "TITLE_ASC" | "ADDED_DESC";
 };
 
@@ -56,10 +56,16 @@ function matchesAdminGame(game: AdminGameSummary, filters: AdminGameFilters, que
   if (filters.platformInstanceId && game.platformInstance.id !== filters.platformInstanceId) {return false;}
   if (filters.tagId && !(game.tags ?? []).some((tag) => tag.tagId === filters.tagId)) {return false;}
   if (filters.visibility !== "ALL" && game.status !== filters.visibility) {return false;}
-  if (filters.runtime === "READY" && game.runtimeStatus !== "READY") {return false;}
-  if (filters.runtime === "ATTENTION" && game.runtimeStatus === "READY") {return false;}
+  if (!matchesRuntimeFilter(game, filters.runtime)) {return false;}
   if (!query) {return true;}
   return matchesAdminGameSearch(game, query);
+}
+
+function matchesRuntimeFilter(game: AdminGameSummary, runtime: AdminGameFilters["runtime"]) {
+  if (runtime === "ALL") {return true;}
+  if (runtime === "DELETED") {return game.status === "DELETED";}
+  if (game.status === "DELETED") {return false;}
+  return runtime === "READY" ? game.runtimeStatus === "READY" : game.runtimeStatus !== "READY";
 }
 
 function matchesAdminGameSearch(game: AdminGameSummary, query: string) {
@@ -79,7 +85,7 @@ function compareAdminGames(left: AdminGameSummary, right: AdminGameSummary, sort
 export function adminGameSummary(games: AdminGameSummary[]) {
   return {
     total: games.length,
-    runtimeAttention: games.filter((game) => game.runtimeStatus !== "READY").length,
+    runtimeAttention: games.filter((game) => game.status !== "DELETED" && game.runtimeStatus !== "READY").length,
     missingCover: games.filter((game) => !game.coverUrl).length,
     incompleteMetadata: games.filter((game) => !game.metadataComplete).length,
     hidden: games.filter((game) => game.status !== "PUBLISHED").length,
@@ -101,7 +107,8 @@ export function adminGameDirectories(games: AdminGameSummary[], platformId: stri
   return [...values.values()].sort((left, right) => left.name.localeCompare(right.name, "zh-CN") || left.id.localeCompare(right.id));
 }
 
-export function runtimePresentation(status: string | null) {
+export function runtimePresentation(status: string | null, gameStatus = "PUBLISHED") {
+  if (gameStatus === "DELETED") {return { label: "已删除", tone: "bad" as const, note: "游戏已删除" };}
   if (status === "READY") {return { label: "可以运行", tone: "good" as const, note: "运行验证已通过" };}
   if (status === "QUEUED" || status === "RUNNING" || status === "PENDING" || status === null) {
     return { label: "待验证", tone: "warn" as const, note: "等待兼容性验证" };
@@ -110,9 +117,9 @@ export function runtimePresentation(status: string | null) {
 }
 
 export function adminGameUpdateNote(game: AdminGameSummary) {
-  if (game.status !== "PUBLISHED") {return "已从用户侧移出";}
+  if (game.status === "DELETED") {return runtimePresentation(game.runtimeStatus, game.status).note;}
   if (!game.metadataComplete) {return "资料不完整";}
-  return runtimePresentation(game.runtimeStatus).note;
+  return runtimePresentation(game.runtimeStatus, game.status).note;
 }
 
 export function formatAdminGameTime(value: number, nowMs: number) {

@@ -41,7 +41,7 @@ function csvCell(value: string | number | null) {
 function exportGames(games: AdminGameSummary[]) {
   const rows = [
     ["游戏", "平台", "游戏目录", "推荐运行方式", "发行年份", "用户状态", "运行状态", "最近更新"],
-    ...games.map((game) => [game.title, game.platform.name, game.platformInstance.name, game.defaultCore.name, game.releaseYear, game.status, game.runtimeStatus ?? "PENDING", game.updatedAtMs]),
+    ...games.map((game) => [game.title, game.platform.name, game.platformInstance.name, game.defaultCore.name, game.releaseYear, game.status, runtimePresentation(game.runtimeStatus, game.status).label, game.updatedAtMs]),
   ];
   const blob = new Blob([`\uFEFF${rows.map((row) => row.map(csvCell).join(",")).join("\n")}`], { type: "text/csv;charset=utf-8" });
   const url = URL.createObjectURL(blob);
@@ -109,14 +109,14 @@ export function AdminGameBrowser({ games, nowMs, initialFilters }: { games: Admi
       <label><span>游戏目录</span><select value={filters.platformInstanceId} onChange={(event) => change({ platformInstanceId: event.target.value })}><option value="">所有目录</option>{directories.map((item) => <option key={item.id} value={item.id}>{item.name}</option>)}</select></label>
       <label><span>标签</span><select value={filters.tagId} onChange={(event) => change({ tagId: event.target.value })}><option value="">所有标签</option>{tags.map((tag) => <option key={tag.tagId} value={tag.tagId}>{tag.name} · {tag.count}</option>)}</select></label>
       <label><span>用户状态</span><select value={filters.visibility} onChange={(event) => change({ visibility: event.target.value as AdminGameFilters["visibility"] })}><option value="ALL">全部状态</option><option value="PUBLISHED">用户可见</option><option value="DELETED">用户不可见</option></select></label>
-      <label><span>运行状态</span><select value={filters.runtime} onChange={(event) => change({ runtime: event.target.value as AdminGameFilters["runtime"] })}><option value="ALL">全部状态</option><option value="READY">可以运行</option><option value="ATTENTION">需要处理</option></select></label>
+      <label><span>运行状态</span><select value={filters.runtime} onChange={(event) => change({ runtime: event.target.value as AdminGameFilters["runtime"] })}><option value="ALL">全部状态</option><option value="READY">可以运行</option><option value="ATTENTION">需要处理</option><option value="DELETED">已删除</option></select></label>
       <label><span>排序</span><select value={filters.sort} onChange={(event) => change({ sort: event.target.value as AdminGameFilters["sort"] })}><option value="UPDATED_DESC">最近更新</option><option value="ADDED_DESC">最近加入</option><option value="TITLE_ASC">名称排序</option></select></label>
     </section>
     {visibleGames.length === 0 ? <EmptyState title="没有可管理的游戏" description="当前搜索和筛选条件没有匹配项，请调整后重试。" /> : <div className="admin-game-table-scroll" tabIndex={0} aria-label="游戏管理表格，可横向滚动">
       <table className="admin-game-table">
         <thead><tr><th>封面</th><th>游戏</th><th>用户状态</th><th>运行状态</th><th>运行环境 / 目录</th><th>最近更新</th><th>操作</th></tr></thead>
         <tbody>{visibleGames.map((game) => {
-          const runtime = runtimePresentation(game.runtimeStatus);
+          const runtime = runtimePresentation(game.runtimeStatus, game.status);
           return <tr key={game.gameId}>
             <td><div className="admin-game-thumb">{game.coverUrl ? <Image src={game.coverUrl} alt={`${game.title} 封面`} fill sizes="70px" unoptimized /> : <span role="img" aria-label={`${game.title} 暂无封面`}><strong>{game.title}</strong><small>{game.platform.name}</small></span>}</div></td>
             <td><div className="admin-game-identity"><Link href={`/admin/games/${game.gameId}`}>{game.title}</Link><TagChips tags={game.tags ?? []} limit={3} label={`${game.title} 的标签`} /><p>{game.platform.name}{game.releaseYear ? ` · ${game.releaseYear}` : ""}</p><span>{game.platformInstance.name}</span></div></td>
