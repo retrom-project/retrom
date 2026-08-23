@@ -220,17 +220,30 @@ SELECT digest,media_type FROM (
 			return
 		}
 		err = server.database.QueryRowContext(request.Context(), `
-SELECT blob.sha256,asset.media_type
-FROM pegasus_import_item_assets asset
-JOIN blobs blob ON blob.id=asset.blob_id
-JOIN pegasus_import_items pegasus ON pegasus.id=asset.item_id
-JOIN import_items item ON item.id=pegasus.library_import_item_id
-WHERE pegasus.id=? AND asset.kind=? AND asset.state='COPIED'
-AND (item.state='REVIEW_PENDING' OR EXISTS(
+SELECT min(candidate.digest),min(candidate.media_type) FROM (
+ SELECT blob.sha256 AS digest,asset.media_type
+ FROM pegasus_import_item_assets asset
+ JOIN blobs blob ON blob.id=asset.blob_id
+ JOIN pegasus_import_items source ON source.id=asset.item_id
+ JOIN import_items item ON item.id=source.library_import_item_id
+ WHERE source.id=? AND asset.kind=? AND asset.state='COPIED'
+ AND (item.state='REVIEW_PENDING' OR EXISTS(
   SELECT 1 FROM review_events event
   WHERE event.import_item_id=item.id AND event.event_type IN ('APPROVED','DISCARDED')
-))
-`, request.PathValue("assetId"), kind).Scan(&digest, &mediaType)
+ ))
+ UNION ALL
+ SELECT blob.sha256 AS digest,asset.media_type
+ FROM emulationstation_import_item_assets asset
+ JOIN blobs blob ON blob.id=asset.blob_id
+ JOIN emulationstation_import_items source ON source.id=asset.item_id
+ JOIN import_items item ON item.id=source.library_import_item_id
+ WHERE source.id=? AND asset.kind=? AND asset.state='COPIED'
+ AND (item.state='REVIEW_PENDING' OR EXISTS(
+  SELECT 1 FROM review_events event
+  WHERE event.import_item_id=item.id AND event.event_type IN ('APPROVED','DISCARDED')
+ ))
+) candidate HAVING count(*)=1
+`, request.PathValue("assetId"), kind, request.PathValue("assetId"), kind).Scan(&digest, &mediaType)
 	}
 	if err != nil {
 		writeError(writer, request, http.StatusNotFound, "REVIEW_ASSET_NOT_FOUND", "候选媒体不存在", map[string]any{})

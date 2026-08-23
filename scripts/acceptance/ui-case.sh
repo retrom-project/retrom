@@ -2,8 +2,8 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-014..022" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-ES-00[56]|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-ES-005|ACC-ES-006|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-014..022" >&2
   exit 2
 fi
 
@@ -22,6 +22,15 @@ cp -p "$repository_root/web/next-env.d.ts" "$temporary_root/next-env.d.ts"
 cp -p "$repository_root/web/tsconfig.json" "$temporary_root/tsconfig.json"
 
 cleanup() {
+  local status=$?
+  trap - EXIT
+  if (( status != 0 )) && [[ -f "$temporary_root/server.log" ]]; then
+    local failure_directory
+    mkdir -p "$repository_root/.cache/retrom/acceptance"
+    failure_directory="$(mktemp -d "$repository_root/.cache/retrom/acceptance/ui-case-failure-XXXXXX")"
+    cp -p "$temporary_root/server.log" "$failure_directory/server.log"
+    printf 'ui_case_failure_evidence=%s\n' "$failure_directory" >&2
+  fi
   if [[ -n "$process_id" ]]; then
     RETROM_DEV_STATE_DIR="$dev_state" "$repository_root/scripts/dev.sh" --stop 2>/dev/null || true
     wait "$process_id" 2>/dev/null || true
@@ -30,6 +39,7 @@ cleanup() {
   cp -p "$temporary_root/tsconfig.json" "$repository_root/web/tsconfig.json"
   rm -rf -- "$temporary_root"
   rm -rf -- "$repository_root/web/$acceptance_dist_dir"
+  exit "$status"
 }
 trap cleanup EXIT
 
@@ -46,6 +56,7 @@ printf 'collection: NES\ngame: Acceptance Game\ndescription: Pegasus UI acceptan
 printf 'retrom deterministic pegasus acceptance fixture\n' >"$temporary_root/source/Games/acceptance.nes"
 printf '\000\000\000\030ftypisom\000\000\000\000isommp42' >"$temporary_root/source/Games/media/Acceptance Game/video.mp4"
 "$repository_root/scripts/acceptance/prepare-pegasus-gba-source.sh" "$temporary_root/source/Playable"
+"$repository_root/scripts/acceptance/prepare-emulationstation-gba-source.sh" "$temporary_root/source/EmulationStationPlayable"
 cd "$repository_root"
 RETROM_SERVER_IMPORT_ROOTS="[{\"id\":\"pegasus-bios\",\"label\":\"Pegasus BIOS\",\"path\":\"$temporary_root/source\"}]" \
 setsid make dev \
@@ -196,6 +207,9 @@ fi
 if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" || "$case_id" == "ACC-PEG-005" || "$case_id" == "ACC-PEG-006" || "$case_id" == "ACC-MEDIA-001" ]]; then
   specification="e2e/server-import.spec.ts"
 fi
+if [[ "$case_id" == "ACC-ES-005" || "$case_id" == "ACC-ES-006" ]]; then
+  specification="e2e/emulationstation-import.spec.ts"
+fi
 if [[ "$case_id" =~ ^ACC-NP-(01[456789]|02[012])$ ]]; then
   specification="e2e/netplay.spec.ts"
 fi
@@ -205,7 +219,7 @@ if [[ "$case_id" == "ACC-UI-010" ]]; then
   playwright_grep="ACC-UI-008|ACC-UI-010"
 fi
 playwright_args=(playwright test "$specification" --grep "$playwright_grep")
-if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-MEDIA-001" && "$case_id" != "ACC-STOR-001" ]]; then
+if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != "ACC-UI-009" && "$case_id" != "ACC-FAV-004" && "$case_id" != "ACC-BIOS-006" && "$case_id" != "ACC-PEG-005" && "$case_id" != "ACC-ES-005" && "$case_id" != "ACC-MEDIA-001" && "$case_id" != "ACC-STOR-001" ]]; then
   playwright_args+=(--project=chrome-1280)
 else
   playwright_args+=(--workers=1)

@@ -40,8 +40,14 @@ UNION ALL SELECT file.source_archive_blob_id FROM pegasus_import_item_files file
  JOIN pegasus_import_items item ON item.id=file.item_id WHERE item.library_import_item_id=?
 UNION ALL SELECT asset.blob_id FROM pegasus_import_item_assets asset
  JOIN pegasus_import_items item ON item.id=asset.item_id WHERE item.library_import_item_id=?
+UNION ALL SELECT file.blob_id FROM emulationstation_import_item_files file
+ JOIN emulationstation_import_items item ON item.id=file.item_id WHERE item.library_import_item_id=?
+UNION ALL SELECT file.source_archive_blob_id FROM emulationstation_import_item_files file
+ JOIN emulationstation_import_items item ON item.id=file.item_id WHERE item.library_import_item_id=?
+UNION ALL SELECT asset.blob_id FROM emulationstation_import_item_assets asset
+ JOIN emulationstation_import_items item ON item.id=asset.item_id WHERE item.library_import_item_id=?
 `, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID,
-		itemID, itemID, itemID, itemID, itemID, itemID)
+		itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID)
 }
 
 func importItemConsumptionSessions(ctx context.Context, transaction *sql.Tx, itemID string) ([]string, error) {
@@ -95,8 +101,16 @@ SELECT
      AND (file.blob_id IS NOT NULL OR file.source_archive_blob_id IS NOT NULL))+
   (SELECT count(*) FROM pegasus_import_item_assets asset
    JOIN pegasus_import_items item ON item.id=asset.item_id
+   WHERE item.library_import_item_id=? AND asset.blob_id IS NOT NULL)+
+  (SELECT count(*) FROM emulationstation_import_item_files file
+   JOIN emulationstation_import_items item ON item.id=file.item_id
+   WHERE item.library_import_item_id=?
+     AND (file.blob_id IS NOT NULL OR file.source_archive_blob_id IS NOT NULL))+
+  (SELECT count(*) FROM emulationstation_import_item_assets asset
+   JOIN emulationstation_import_items item ON item.id=asset.item_id
    WHERE item.library_import_item_id=? AND asset.blob_id IS NOT NULL)
-`, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID).Scan(&count)
+`, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID, itemID,
+		itemID, itemID).Scan(&count)
 	if err != nil || count != 0 {
 		return releaseFailure("PAYLOAD_RELEASE_REFERENCE_REMAINS")
 	}

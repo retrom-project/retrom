@@ -79,7 +79,7 @@ func validateApprovalInput(itemID string, decision ApprovalDecision) (approvalIn
 		return approvalInput{}, ErrInvalid
 	}
 	if decision.SourceKind != "" {
-		if decision.SourceKind != "SERVER_PEGASUS_IMPORT" || decision.SourceRefID == "" {
+		if !validServerSourceKind(decision.SourceKind) || decision.SourceRefID == "" {
 			return approvalInput{}, ErrInvalid
 		}
 		input.metadataSourceKind, input.metadataSourceRefID = decision.SourceKind, decision.SourceRefID
@@ -90,4 +90,8 @@ func validateApprovalInput(itemID string, decision ApprovalDecision) (approvalIn
 		return approvalInput{}, ErrInvalid
 	}
 	return input, nil
+}
+
+func validServerSourceKind(value string) bool {
+	return value == "SERVER_PEGASUS_IMPORT" || value == "SERVER_EMULATIONSTATION_IMPORT"
 }

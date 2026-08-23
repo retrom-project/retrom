@@ -209,6 +209,8 @@ func (service *Service) execute(ctx context.Context, job claimedJob) error {
 		return service.releaseImportJob(ctx, job)
 	case ScopePegasusImportItem:
 		return service.releasePegasusItem(ctx, job)
+	case ScopeEmulationStationImportItem:
+		return service.releaseEmulationStationItem(ctx, job)
 	case ScopeUploadConsumption:
 		return service.releaseConsumption(ctx, job)
 	case ScopeGame:

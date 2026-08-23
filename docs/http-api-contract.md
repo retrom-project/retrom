@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.5 |
-| 日期 | 2026-08-23 |
+| 版本 | 1.6 |
+| 日期 | 2026-08-24 |
 | 适用范围 | `/api/v1`、`/content`、`/runtime`、SSE 与同源安全 |
 
 ## 1. 协议基线
@@ -37,7 +37,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 | `/games` | `q`、`tagId`、`platformId`、`platformInstanceId`、`sort=RECENT_DESC|ADDED_DESC|TITLE_ASC`（默认 `RECENT_DESC`）、`cursor/limit`；`limit` 默认 50。 |
 | `/saves` | `q`、精确 `gameId`、`platformId`、`platformInstanceId`、`coreId`、`availability=AVAILABLE|BLOCKED|ALL`、`sort=CREATED_DESC|GAME_TITLE_ASC`、`cursor/limit` |
 | `/admin/imports` | `q`、`state`、`platformInstanceId`、`sort=UPDATED_DESC|CREATED_DESC`、`cursor/limit` |
-| `/admin/reviews` | `q`、`importJobId`、`pegasusImportId`、`platformInstanceId`、`blockerCode`、`sort=UPDATED_ASC|UPDATED_DESC`、`cursor/limit` |
+| `/admin/reviews` | `q`、`importJobId`、`pegasusImportId`、`emulationStationImportId`、`platformInstanceId`、`blockerCode`、`sort=UPDATED_ASC|UPDATED_DESC`、`cursor/limit`；三个来源批次筛选至多一个非空。 |
 | `/admin/review-history` | `q`、`decision=APPROVED|DISCARDED`、`platformInstanceId`、可空 `fromAtMs/toAtMs`、`sort=DECIDED_DESC|DECIDED_ASC`、`cursor/limit` |
 | `/admin/games` | `q`、`platformId`、`platformInstanceId`、`status=PUBLISHED|DELETED|ALL`、`sort=TITLE_ASC|UPDATED_DESC`、`cursor/limit`；列表项同时返回 `releaseYear`、`metadataComplete` 与目录默认核心当前 `runtimeStatus`，供管理列表健康摘要与筛选使用。 |
 | `/admin/platform-instances` | `platformId`、`enabled`、`sort=SORT_ORDER_ASC|NAME_ASC`、`cursor/limit` |
@@ -51,9 +51,9 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 
 `GET /api/v1/admin/imports` 的 cursor 绑定筛选及 `UPDATED_DESC|CREATED_DESC` 排序，每页最多 20 条。每个列表项返回冻结配置中的 `contentMode`，缺省历史配置投影为 `STANDARD`；同时返回 `failedItemCount`、`rejectedFileCount`、`unresolvedRejectedFileCount`、`alreadyImportedItemCount` 与 `alreadyImportedFileCount`。前三项分别表示 Item 失败、分组前未被接受的 UploadFile 总证据和其中尚未通过重新配置任务接管的数量，后两项表示识别阶段因已有未删除游戏使用完全相同内容而跳过的 Item/不同 UploadFile。任务页当前异常总数必须为 `failedItemCount + unresolvedRejectedFileCount`，已导入跳过不计异常并单独解释。Import 详情把参与跳过的 `fileOutcomes[].disposition/reasonCode` 投影为 `ALREADY_IMPORTED`，同时返回 `alreadyImportedMatches[{importItemId,contentIdentityDigest,existingGame{id,title,platformInstanceId,platformInstanceName}}]`；对 MULTI 任务还返回 `itemSummaries[{itemId,state,contentKind,playlist,discCount,presentDiscCount,missingDiscCount,ignoredFileCount,ignoredFiles}]`。其中 `ignoredFiles` 只含同目录未引用文件按相对路径排序后的前 20 个 basename，计数不截断；这些详情不得暴露 Blob ID 或宿主路径。数据库原始 ImportJobFile 仍保留 `SOURCE`。零 Item 且存在未解决拒绝文件的 ImportJob 必须直接聚合为 `PARTIAL_FAILURE`，不得停留在 `RUNNING`；零 Item 且全部文件均为可忽略系统边车，或全部拒绝文件已成功转入 replacement ImportJob 时直接为 `COMPLETED`。所有识别出的 Item 都因已导入而跳过且没有拒绝文件时也直接 `COMPLETED`。
 
-`GET /api/v1/admin/reviews` 只返回 state=`REVIEW_PENDING` 的 ImportItem，每页最多 20 条；`importJobId` 精确绑定同一普通导入批次，`pegasusImportId` 精确绑定已完成审核交接的 Pegasus 批次，二者都进入 cursor filter canonical object，不存在的批次返回空列表而不回退到全局队列。与 Pegasus Item 已关联但仍处于 COPYING/VALIDATING 的内部 Item 必须隐藏，不能从列表或详情提前审核。每个 `items[]` 固定包含 `itemId/reviewVersion/importJobId/sourceDisplayName/draftTitle/platformInstance{id,name}/validationStatus/validationJobId/blockerCodes/candidateCount/sourceTotalSizeBytes/sourceMd5/coverUrl/sourceKind/sourceLabel/pegasusImportId/updatedAtMs`。`sourceKind=STANDARD|PEGASUS`；Pegasus 的 `sourceLabel` 是 Collection 展示名，其他来源为 null。`sourceTotalSizeBytes` 是 Item 全部 source file Blob size 的非负总和；`sourceMd5` 优先取 CONTENT、再取 DOS_SOURCE/COMPANION 的首个文件，无法取得时为 null；`coverUrl` 优先取草稿已选人工封面、再取已选 READY 候选封面、再取已复制的 Pegasus COVER，值为 `/api/v1/admin/review-assets/{assetId}` 或 `/api/v1/admin/review-assets/{pegasusItemId}?kind=COVER`，没有时为 null。`validationStatus` 是队列投影枚举 `READY|BLOCKED|INCOMPATIBLE|NEEDS_VALIDATION`；`candidateCount` 只统计本 Item 已完成 Run 的候选，Pegasus source metadata 独立于该计数。列表不内嵌完整候选、媒体或 source manifest。
+`GET /api/v1/admin/reviews` 只返回 state=`REVIEW_PENDING` 且已满足来源交接门禁的 ImportItem，每页最多 20 条；`importJobId` 精确绑定普通导入，`pegasusImportId` 与 `emulationStationImportId` 分别绑定已完成审核交接的服务器批次，三者进入 cursor filter canonical object且互斥，不存在的批次返回空列表而不回退到全局队列。EmulationStation 内部 Item 从原子创建起携带不可变交接预留；在来源 Item attach 且进入 `REVIEW_PENDING` 前，即使普通 Item 已经待审核，也必须从全局/筛选列表、详情、批量预览/创建、Approve、Discard 与待审核统计中隐藏或拒绝。与 Pegasus/EmulationStation Item 已关联但仍处于复制或校验阶段的内部 Item 同样必须隐藏，不能提前审核。每个 `items[]` 固定包含 `itemId/reviewVersion/importJobId/sourceDisplayName/draftTitle/platformInstance{id,name}/validationStatus/validationJobId/blockerCodes/candidateCount/sourceTotalSizeBytes/sourceMd5/coverUrl/sourceKind/sourceLabel/pegasusImportId/emulationStationImportId/updatedAtMs`。`sourceKind=STANDARD|PEGASUS|EMULATIONSTATION`；服务器来源 `sourceLabel` 是 Collection 展示名，其他来源为 null，两个来源 import ID 不能同时非空。`sourceTotalSizeBytes` 是 Item 全部 source file Blob size 的非负总和；`sourceMd5` 优先取 CONTENT、再取 DOS_SOURCE/COMPANION 的首个文件，无法取得时为 null；`coverUrl` 优先取草稿已选人工封面、再取已选 READY 候选封面、再取已复制的来源 COVER，值为 `/api/v1/admin/review-assets/{assetId}` 或 `/api/v1/admin/review-assets/{sourceRefId}?kind=COVER`，没有时为 null。`validationStatus` 是队列投影枚举 `READY|BLOCKED|INCOMPATIBLE|NEEDS_VALIDATION`；`candidateCount` 只统计本 Item 已完成 Run 的候选，服务器 source metadata 独立于该计数。列表不内嵌完整候选、媒体或 source manifest。
 
-`GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 按 `createdAtMs,id` 倒序返回最近 10 个独立批次；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。`candidates` 仍只返回 COMPLETED run 的候选及媒体；`uploadedAssets` 返回该 Item 的不可变人工审核媒体。Pegasus Item 另返回可空 `sourceMedia={sourceKind:"PEGASUS",sourceRefId,pegasusImportId,sourceLabel,coverUrl,coverWidthPx,coverHeightPx,videoUrl}`；URL 使用受保护审核媒体路由，缺失单项为 null。详情另返回可空 `runtimeScreenshot={screenshotId,validationId,coreArtifactId,widthPx,heightPx,capturedAfterMs:5000,capturedAtMs,url}`；只有 Validation 仍匹配当前来源快照、目标平台、CoreArtifact 与 prepublish 输入时才投影，Validation 可以是 READY 或阻断状态。READY Validation 或当前 `runtimeScreenshot` 任一存在时 `canApprove=true`；截图随来源、目标或核心漂移而失效，不能继续解锁发布。`sourceFiles` 按 UploadFile 投影 name/size/SHA-256/MD5/CRC32；若来源是已支持归档则 `archive=true` 并返回有界导入时已解析的 `archiveEntries[{name,sizeBytes,crc32}]`，不会在 GET 时重新解压。识别同时覆盖“从归档中物化单成员”的来源和直接作为运行内容的完整 Arcade/DOS ZIP；后者依据 UploadFile 最终 Blob 已存在的 `archive_entries` 返回成员列表，不能因 `source_archive_blob_id` 为空而漏报。详情还必须返回当前 `contentIdentityDigest` 与 `duplicateGames[{gameId,title,platformInstanceId,platformInstanceName}]`；后者只含同基础平台、当前 `PUBLISHED` 且 current ContentRevision 文件集合完全相同的 Game，空集合返回 `[]`。
+`GET /api/v1/admin/reviews/{importItemId}` 的 `scrapeRuns` 按 `createdAtMs,id` 倒序返回最近 10 个独立批次；每项固定含 `scrapeRunId/jobId/provider/state/jobState/createdAtMs/completedAtMs/errorCode/evidenceCount/attemptCount/candidateCount/outcomes`，其中 `outcomes={hit,miss,rateLimited,timeout,invalidResponse,networkError}` 按该 run 的 QueryAttempt 计数。`candidates` 仍只返回 COMPLETED run 的候选及媒体；`uploadedAssets` 返回该 Item 的不可变人工审核媒体。服务器来源另返回可空 `sourceMedia={sourceKind:"PEGASUS"|"EMULATIONSTATION",sourceRefId,pegasusImportId,emulationStationImportId,sourceLabel,coverUrl,coverWidthPx,coverHeightPx,videoUrl,sourceFlags?}`；两个 import ID 互斥，EmulationStation 的 `sourceFlags={hidden,adult,kidGame}`，URL 使用受保护审核媒体路由，缺失单项为 null。详情另返回可空 `runtimeScreenshot={screenshotId,validationId,coreArtifactId,widthPx,heightPx,capturedAfterMs:5000,capturedAtMs,url}`；只有 Validation 仍匹配当前来源快照、目标平台、CoreArtifact 与 prepublish 输入时才投影，Validation 可以是 READY 或阻断状态。READY Validation 或当前 `runtimeScreenshot` 任一存在时 `canApprove=true`；截图随来源、目标或核心漂移而失效，不能继续解锁发布。`sourceFiles` 按 UploadFile 投影 name/size/SHA-256/MD5/CRC32；若来源是已支持归档则 `archive=true` 并返回有界导入时已解析的 `archiveEntries[{name,sizeBytes,crc32}]`，不会在 GET 时重新解压。识别同时覆盖“从归档中物化单成员”的来源和直接作为运行内容的完整 Arcade/DOS ZIP；后者依据 UploadFile 最终 Blob 已存在的 `archive_entries` 返回成员列表，不能因 `source_archive_blob_id` 为空而漏报。详情还必须返回当前 `contentIdentityDigest` 与 `duplicateGames[{gameId,title,platformInstanceId,platformInstanceName}]`；后者只含同基础平台、当前 `PUBLISHED` 且 current ContentRevision 文件集合完全相同的 Game，空集合返回 `[]`。
 
 错误统一为：
 
@@ -203,7 +203,7 @@ source ImportJob 必须为当前 `PARTIAL_FAILURE`，且至少有一个尚无 re
 
 ### 5.1 快速审批
 
-`GET /api/v1/admin/review-bulk-approval-preview` 接受审核列表同名的 `q/tagId/importJobId/pegasusImportId/platformInstanceId/blockerCode`，未知或重复 query 拒绝；不接受 sort/cursor/limit。它在一个只读快照中枚举完整筛选范围，返回规范 `scope`、`scopeDigest`、`candidateManifestDigest`、`generatedAtMs`、可空 `activeBulkApproval` 和 `counts={matched,strictReady,screenshotOnly,duplicate,attachmentActive,notReadyOrStale}`。`strictReady` 不含阻断截图人工放行、重复、active Attachment 或任何过期输入。
+`GET /api/v1/admin/review-bulk-approval-preview` 接受审核列表同名的 `q/tagId/importJobId/pegasusImportId/emulationStationImportId/platformInstanceId/blockerCode`，三个来源批次筛选互斥，未知或重复 query 拒绝；不接受 sort/cursor/limit。它在一个只读快照中枚举完整筛选范围，返回规范 `scope`、`scopeDigest`、`candidateManifestDigest`、`generatedAtMs`、可空 `activeBulkApproval` 和 `counts={matched,strictReady,screenshotOnly,duplicate,attachmentActive,sourceFlagged,notReadyOrStale}`。`sourceFlagged` 只统计本可成为候选但来源 `hidden|adult=true` 的 EmulationStation Item，且不与其他排除桶重复；`strictReady` 不含这些来源项、阻断截图人工放行、重复、active Attachment 或任何过期输入。
 
 `POST /api/v1/admin/review-bulk-approvals` 要求 ADMIN、同源/CSRF 与 Idempotency-Key，body 固定为 `{"scope":{...},"scopeDigest":"lowercase-sha256","candidateManifestDigest":"lowercase-sha256"}`。服务端在同一写事务重做预览；digest 不一致返回 `409 REVIEW_BULK_PREVIEW_STALE`，已有 active batch 返回 `409 REVIEW_BULK_APPROVAL_ACTIVE`，零 candidate 返回 `409 REVIEW_BULK_SCOPE_EMPTY`，超过 10,000 返回 `422 REVIEW_BULK_SCOPE_TOO_LARGE`。成功为 `202`，返回 aggregate summary、`ETag: "v1"`，并冻结每项 Review version/Validation/source snapshot 后启动 `REVIEW_BULK_APPROVE` Job。
 
@@ -338,7 +338,7 @@ PlaySession 事件 API 位于 launch cookie 的限定 Path 内，同时要求正
 | `/runtime/emulatorjs/{configuredVersion}/...` | 固定公开运行时；当前配置 `4.2.3,4.3.0-pre`，后者包含 DOSBox Pure、Genesis Plus GX Wide 与 Azahar 定向覆盖。版本参数接受规范 SemVer prerelease，且必须在后端启动时已验证的依赖列表内；路径必须命中该版本 manifest allowlist。允许 EmulatorJS 自身附加且仅附加一次的 `v` cache-buster 查询参数，该参数不参与文件选择；其他查询键仍拒绝。`public, max-age=31536000, immutable`，强 ETag。CSP 禁止 CDN fallback。 |
 | `/content/assets/{assetId}` | 只用于已发布封面/截图等站内可见媒体；服务端解析逻辑 asset ID。内容 revision URL 不变更 bytes，`public, max-age=31536000, immutable`。浏览器必须携带当前 session 直接请求该逻辑 URL；前端不得把受保护媒体交给不会转发 session cookie 的 Next.js 图片优化器。 |
 | `/content/save-states/{saveStateId}/screenshot` | 只用于未删除、且所属游戏仍已发布的手动存档截图；服务端解析逻辑 SaveState ID，不向浏览器暴露 Blob ID。响应固定为 `private, no-store`，存档删除或游戏下架后立即不可读取。 |
-| `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、最终 ReviewEvent 保留的候选媒体、人工上传审核媒体、Pegasus 来源媒体或审核运行截图；Pegasus `assetId` 为 Item ID并带 `kind=COVER|VIDEO`（默认 COVER）。响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器。 |
+| `/api/v1/admin/review-assets/{assetId}` | 用于仍待审核 Item、候选媒体、人工上传审核媒体、Pegasus/EmulationStation 来源媒体或审核运行截图；服务器来源 `assetId` 为格式专属 Item ID 并带 `kind=COVER|VIDEO`（默认 COVER），封闭 UNION 必须恰好命中一个来源。响应为 `private, no-store`，不得把上游 URL 或 Blob ID 暴露给浏览器；ReviewEvent 本身不长期保留媒体。 |
 | `/runtime/launches/{launchId}/config` | 需要 launch/review-preview cookie，返回逻辑 URL 和非秘密配置；`private, no-store`、`Vary: Cookie`。审核预览另带 `reviewPreview={importItemId,captureAllowed,captureAfterMs:5000}`。 |
 | `/runtime/launches/{launchId}/game/{logicalName}` | 只允许本次正式 Launch 或审核预览快照清单内的运行内容；需要路径限定 cookie；`private, no-store`、`Vary: Cookie`。 |
 | `/runtime/launches/{launchId}/bios/bundle.zip` | 支持 GET/HEAD，只允许预检 bundle；需要 cookie；`private, no-store`、`Vary: Cookie`。HEAD 执行与 GET 相同的 capability、Launch 状态和 bundle 清单校验，返回相同的长度、ETag 与 Range 元数据但不返回 body。 |
@@ -463,10 +463,10 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `POST /api/v1/admin/uploads` | 创建文件/目录 upload manifest。 |
 | `GET /api/v1/admin/uploads/{uploadId}`、`PUT /api/v1/admin/uploads/{uploadId}/files/{fileId}/parts/{partNo}` | 恢复状态与上传 part。 |
 | `POST /api/v1/admin/uploads/{uploadId}/complete`、`DELETE /api/v1/admin/uploads/{uploadId}` | 投递异步 UPLOAD_FINALIZE 或取消 upload；两者都使用当前 ETag，complete 另需 Idempotency-Key。 |
-| `GET /api/v1/admin/imports/summary` | 入库总览按用户可见顶层批次聚合：浏览器上传/重新配置产生的 ImportJob 各计一次，PegasusImport 各计一次，Pegasus 为审核交接逐游戏创建的内部 ImportJob 不再重复计数。`running/completed/failed` 是批次数，其中 `failed` 只含 `PARTIAL_FAILURE/FAILED`、不把主动取消当异常，并以 `ordinaryFailed/pegasusFailed` 提供正确处置入口；`processingItems/issueItems` 分别是当前处理中条目数和阻断/失败/未解决拒绝文件数；`reviewPending/publishedItems` 固定为全局实际处于对应状态的 ImportItem 数量。 |
+| `GET /api/v1/admin/imports/summary` | 入库总览按用户可见顶层批次聚合：浏览器上传/重新配置产生的 ImportJob 各计一次，PegasusImport/EmulationStationImport 各计一次，两类服务器来源为审核交接逐游戏创建的内部 ImportJob 不再重复计数。`running/completed/failed` 是批次数，其中 `failed` 只含 `PARTIAL_FAILURE/FAILED`、不把主动取消当异常，并以 `ordinaryFailed/pegasusFailed/emulationStationFailed` 提供正确处置入口；`processingItems/issueItems` 分别是当前处理中条目数和阻断/失败/未解决拒绝文件数；`reviewPending` 固定为全局实际可进入审核的 ImportItem 数量，不含尚未完成来源 attach 的 EmulationStation 预留 Item，`publishedItems` 为实际 `PUBLISHED` 的 ImportItem 数量。 |
 | `GET /api/v1/admin/users`、`GET|PATCH|DELETE /api/v1/admin/users/{userId}` | 只含账号与安全状态的用户列表/详情、角色状态变更和软删除。 |
 | `GET|POST /api/v1/admin/invitations`、`GET|POST /api/v1/admin/users/{userId}/password-reset-links`、`DELETE /api/v1/admin/account-links/{accountLinkId}` | 一次性链接的非秘密列表、创建和撤销；完整 URL只在 create/replay响应出现。 |
-| `GET /api/v1/admin/imports`、`POST /api/v1/admin/imports`、`GET /api/v1/admin/imports/{importJobId}` | 列表只投影用户发起的浏览器上传/重新配置 ImportJob，排除通过 `PegasusImportItem.library_import_job_id` 关联的逐游戏审核交接任务；Pegasus 顶层历史由 `/api/v1/admin/pegasus-imports` 返回。创建与详情契约不变，详情包含原文件处置和可空 resolution；已知内部 ID 的详情仍可用于管理员诊断。 |
+| `GET /api/v1/admin/imports`、`POST /api/v1/admin/imports`、`GET /api/v1/admin/imports/{importJobId}` | 列表只投影用户发起的浏览器上传/重新配置 ImportJob，排除通过 Pegasus 或 EmulationStation source Item 关联的逐游戏审核交接任务；两类顶层历史分别由格式专属 route 返回。创建与详情契约不变，详情包含原文件处置和可空 resolution；已知内部 ID 的详情仍可用于管理员诊断。 |
 | `GET /api/v1/admin/imports/{importJobId}/events`、`POST /api/v1/admin/imports/{importJobId}/cancel` | SSE 进度与取消。 |
 | `POST /api/v1/admin/imports/{importJobId}/reconfigure` | 携带 `If-Match`/`Idempotency-Key`，复用未解决 REJECTED 文件的 CAS Blob，以新游戏目录配置创建 replacement ImportJob。 |
 | `POST /api/v1/admin/import-items/{importItemId}/retry` | 仅重试 retryable item。 |
@@ -672,6 +672,72 @@ Aggregate `counts` 除扫描/映射/阻断/失败等既有字段外固定包含 
 
 `GET /api/v1/games/{gameId}` 增加可空 `videoUrl=/content/assets/{assetId}`，只指向 current MetadataRevision 的 ordinal 0 VIDEO；所有列表/Home/Recent/Favorites/Saves DTO 均无该字段。管理 `POST /api/v1/admin/games/{gameId}/assets` 接受 VIDEO，`DELETE .../assets/VIDEO` 以新 MetadataRevision 移除当前视频。current 切换后旧 Asset 行被删除，旧逻辑 URL 返回 404；同一 Asset ID 在存续期间仍沿用强 ETag、immutable cache、`nosniff`、完整 GET 与单 Range。非法/多 Range、不可见 Game 与未知/已退役 Asset 继续使用统一拒绝语义。
 
+## 12.1 EmulationStation 服务器目录导入 API
+
+全部 route 要求 ADMIN。写入沿用 strict JSON、唯一标量 query、Origin/Fetch Metadata、CSRF 与 UUID Idempotency-Key；除 create 外的状态写要求 `If-Match`。DTO 只返回 root ID/label、规范相对路径、稳定 code 与审计投影，不返回绝对路径、root/source facts digest、Blob ID/hash、XML 原文、`command/emulator/core/provider` 值或底层错误。
+
+| Route | 契约 |
+| --- | --- |
+| `POST /api/v1/admin/emulationstation-imports` | body `{rootId,sourceRelativePath}`；创建 aggregate 与 `SERVER_EMULATIONSTATION_SCAN` Job，返回 202、summary、Location 与 ETag。 |
+| `GET /api/v1/admin/emulationstation-imports` | `state/cursor/limit<=20`；按 `createdAtMs DESC,id DESC`。 |
+| `GET /api/v1/admin/emulationstation-imports/{id}` | aggregate、scan/import Job、phase、全部 counts、version/expiry/retryable 与 ETag。 |
+| `DELETE /api/v1/admin/emulationstation-imports/{id}` | 仅无 execution 结果的 `AWAITING_MAPPING|EXPIRED` 计划；成功 204，其他状态冲突。 |
+| `GET .../{id}/gamelists` | `parseState/cursor/limit<=100`；返回有效/无效文件与稳定错误，不返回 XML。 |
+| `GET .../{id}/collections` | `cursor/limit<=100`；返回清单路径、相对目录、展示名、扩展摘要、folder/hidden/adult/issue 计数和当前 mapping。 |
+| `PUT .../{id}/collection-mappings` | body `{mappings:[{collectionId,action,platformInstanceId?,tagIds}]}`，1–100 项精确 replacement；只接受 `IMPORT+target` 或 `SKIP`，没有 suggestion/default。 |
+| `POST .../{id}/start` | body `{version}` 必须与 ETag 一致；同步重验不超过 64 MiB 的全部清单、完整 mapping、至少一个非空 IMPORT、计划/root/source/target snapshot 后返回 202。 |
+| `GET .../{id}/items` | cursor 绑定 `q/outcome/warning/collectionId`，`limit<=50`；返回执行/释放/运行检查/失败详情、媒体、来源 flag、review 与 Game 链接。 |
+| `POST .../{id}/cancel` | body `{reason}`；同步收口为 200，否则 202；不删除已交接审核事项或回滚已发布 Game。 |
+| `POST .../{id}/retry` | 仅 aggregate `retryable=true`；创建同一 import Job 的新 execution/input snapshot并先重验 root/清单，返回 202。 |
+
+`EmulationStationImportSummary.counts` 固定包含 `gamelists/invalidGamelists/collections/foldersIgnored/games/estimatedSourceBytes/mappedCollections/skippedCollections/skippedMapping/processable/blocked/reviewPending/published/reviewDiscarded/existing/failed/cancelled/mediaWarnings/covers/videos`。任务 `COMPLETED` 只表示审核事项准备结束，不代表全部发布；后续逐项或严格 READY 快速审批的成功决定原子推进来源 aggregate 与普通 ImportJob。
+
+Gamelist item 固定为 `relativePath/parseState/errorCode/gameCount/folderCount/providerPresent/ignoredFieldNames/ignoredFieldOtherCount/createdAtMs`。`ignoredFieldNames` 去重后按 ASCII 元素名排序且最多 64 个；无效清单也只返回相对路径和稳定 code。Collection 固定为 `id/gamelistRelativePath/relativeDirectory/displayName/gameCount/issueCount/folderEntryCount/hiddenGameCount/adultGameCount/extensionSummary[{extension,count}]/extensionOtherCount/mappingAction/targetPlatformInstanceId/name/targetDefaultCoreId/name/tags`。Item 与 Pegasus Item 同构并增加 `gamelistRelativePath/sourceFlags{hidden,adult,kidGame}`；其余固定投影 `executionState/payloadState/contentKind/media/warnings/discoveryCode/errorCode/failureDetails/runtimeCheck/retryable/reviewItemId/publishedGameId/existingGameId/existingMatches/tags/updatedAtMs`。
+
+计划级稳定错误为：
+
+```text
+EMULATIONSTATION_GAMELIST_NOT_FOUND
+EMULATIONSTATION_NO_VALID_GAMELIST
+EMULATIONSTATION_SCAN_LIMIT_EXCEEDED
+EMULATIONSTATION_MAPPING_INCOMPLETE
+EMULATIONSTATION_NO_COLLECTION_SELECTED
+EMULATIONSTATION_MAPPING_TARGET_CHANGED
+EMULATIONSTATION_SOURCE_CHANGED
+EMULATIONSTATION_PLAN_EXPIRED
+EMULATIONSTATION_IMPORT_ACTIVE
+EMULATIONSTATION_IMPORT_NOT_FOUND
+EMULATIONSTATION_IMPORT_NOT_CANCELLABLE
+EMULATIONSTATION_IMPORT_NOT_RETRYABLE
+EMULATIONSTATION_LIBRARY_IMPORT_FAILED
+SERVER_IMPORT_ROOT_CHANGED
+SERVER_IMPORT_SOURCE_NOT_RESTORED
+```
+
+解析/条目级稳定错误为：
+
+```text
+EMULATIONSTATION_GAMELIST_TOO_LARGE
+EMULATIONSTATION_GAMELIST_INVALID_UTF8
+EMULATIONSTATION_XML_INVALID
+EMULATIONSTATION_XML_ROOT_INVALID
+EMULATIONSTATION_XML_LIMIT_EXCEEDED
+EMULATIONSTATION_GAME_PATH_MISSING
+EMULATIONSTATION_GAME_PATH_AMBIGUOUS
+EMULATIONSTATION_PATH_INVALID
+EMULATIONSTATION_SOURCE_NOT_FOUND
+EMULATIONSTATION_SOURCE_NOT_REGULAR
+EMULATIONSTATION_CONTENT_FORMAT_UNSUPPORTED
+EMULATIONSTATION_MEDIA_MISSING
+EMULATIONSTATION_MEDIA_READ_FAILED
+EMULATIONSTATION_IMAGE_INVALID
+EMULATIONSTATION_VIDEO_UNSUPPORTED
+EMULATIONSTATION_VIDEO_TOO_LARGE
+EMULATIONSTATION_EXECUTION_FIELD_IGNORED
+```
+
+M3U 与 library validation 保留现有 `MULTI_DISC_*`、`LAUNCH_*`、`ARCADE_*` code，不包装为模糊来源错误。`failureDetails.causeCode` 复用 Pegasus 的 `SOURCE_FILE_LIMIT_EXCEEDED/LIBRARY_IMPORT_INPUT_INVALID/MULTI_DISC_MODE_UNAVAILABLE/DATABASE_BUSY/DATABASE_CONSTRAINT_FAILED/OPERATION_TIMEOUT/OPERATION_CANCELLED/METADATA_JSON_INVALID/INTERNAL_OPERATION_FAILED`。HTTP 状态继续遵循统一 envelope；扫描期 XML/路径/容量问题进入 Job/aggregate，不把 create 伪装成同步解析。
+
 ## 13. 受限联机 REST、SSE、WebSocket 与凭据
 
 全部 `/api/v1/netplay/**` 要求有效 AuthSession；写入继续要求同源 Origin/Fetch Metadata、CSRF 和表中列出的幂等/ETag。`RETROM_NETPLAY_ENABLED=false` 时路由根本不注册并返回 404，auth context 投影 `netplayEnabled=false`。Room GET 对任意已登录房间链接访问者开放最小投影，成员身份、权限和写入始终从当前 Profile 推导，不能相信 body 中的 actor/seat/profile。
@@ -709,7 +775,7 @@ room cookie 名为 `retrom_netplay_{roomId去连字符}`。原始 32 bytes 固�
 
 `GET /api/v1/admin/tags`、`POST /api/v1/admin/tags`、`POST /api/v1/admin/tags/defaults` 与 `GET|PATCH|DELETE /api/v1/admin/tags/{tagId}` 只允许 ADMIN。列表接受 `q/status=ACTIVE|DELETED|ALL/sort=NAME_ASC|UPDATED_DESC/cursor/limit`，返回 `generatedAtMs/summary/items/nextCursor`；cursor 绑定 principal 与全部筛选。item 固定含 `tagId/name/status/version/usage/createdAtMs/updatedAtMs/deletedAtMs`，写响应返回 ETag。create 使用 Idempotency-Key；defaults 接受严格空对象，以同一事务补齐当前 common-tag 模板，响应把新建与已存在活动项分别放入 `createdItems/existingItems`，容量不足零部分写入；rename/delete 同时要求 Tag `If-Match`，delete body 为精确 `confirmName`，成功为 204 并回送新 tombstone ETag。
 
-`PUT /api/v1/admin/games/{gameId}/tags` 以 Game `If-Match`、Idempotency-Key 和严格 `{"tagIds":[]}` 原子替换当前集合，响应为 `gameId/version/tags` 与新 Game ETag。普通 import/reconfigure body 必须含 `tagIds`，服务端兼容旧客户端省略时按 `[]`；Review PATCH 和 Pegasus Collection mapping 的 `tagIds` 必须显式存在，`SKIP` Collection 只接受空数组。Import detail 的 config、Pegasus Collection/item 和 Review/Game DTO 按 OpenAPI 投影标签或名称 snapshot。
+`PUT /api/v1/admin/games/{gameId}/tags` 以 Game `If-Match`、Idempotency-Key 和严格 `{"tagIds":[]}` 原子替换当前集合，响应为 `gameId/version/tags` 与新 Game ETag。普通 import/reconfigure body 必须含 `tagIds`，服务端兼容旧客户端省略时按 `[]`；Review PATCH、Pegasus 与 EmulationStation Collection mapping 的 `tagIds` 必须显式存在，`SKIP` Collection 只接受空数组。Import detail、两类服务器 Collection/item 和 Review/Game DTO 按 OpenAPI 投影标签或名称 snapshot。
 
 `GET /api/v1/games`、`GET /api/v1/admin/games`、`GET /api/v1/admin/reviews` 接受单个 `tagId`；它与 `q` 及其他条件取交集并进入 cursor digest。合法但不存在或 DELETED 的 ID 返回空页；格式非法返回 `400 INVALID_REQUEST`。这些 route 的 `q` 在 SQL 分页前动态匹配活动标签名。Favorite、Home、Recent、Save 与 Netplay 的既有 game summary 同样投影活动 `tags`，但普通用户没有全 taxonomy 管理列表。
 
@@ -719,7 +785,7 @@ room cookie 名为 `retrom_netplay_{roomId去连字符}`。原始 32 bytes 固�
 
 `GET /api/v1/admin/games/{gameId}` 的 `deleteImpact` 和 DELETE response 以 OpenAPI 为准。删除前 impact digest 绑定全部计数、去重 Blob 数、registered/exclusive/shared bytes 与排序后的 sourceKinds；任一新存档、媒体、内容引用或活动运行使旧 digest 返回 `409 GAME_DELETE_IMPACT_STALE`。标题不匹配为 `422 GAME_DELETE_CONFIRMATION_MISMATCH`，Game ETag 不匹配为 `409 VERSION_CONFLICT`，非管理员为 403，未知或对非管理员不可见统一为 404。
 
-ImportJob/ImportItem、Pegasus Item 和管理员 Game 详情均投影 `payloadState/payloadReleaseJobId`，FAILED 另给稳定 `payloadLastErrorCode`；重试使用已有 `POST /api/v1/admin/jobs/{jobId}/retry`，不会重新执行第二次删除。RELEASED 后仍返回来源类型、文件名、总大小、manifest/hash 摘要、状态、warning/error 和审核文字，但不返回 review asset、preview、runtime screenshot、Pegasus 媒体或内容下载 URL。前端显示“源文件已清理”。
+ImportJob/ImportItem、Pegasus/EmulationStation Item 和管理员 Game 详情均投影 `payloadState/payloadReleaseJobId`，FAILED 另给稳定 `payloadLastErrorCode`；重试使用已有 `POST /api/v1/admin/jobs/{jobId}/retry`，不会重新执行第二次删除。RELEASED 后仍返回来源类型、文件名、总大小、manifest/hash 摘要、状态、warning/error 和审核文字，但不返回 review asset、preview、runtime screenshot、来源媒体或内容下载 URL。前端显示“源文件已清理”。
 
 Game 一旦 DELETED，公共 `GET /api/v1/games/{gameId}`、Launch 创建、Game media/content、Save 下载及已签发但尚未使用的 capability 都使用 404，不泄露墓碑存在性。管理员墓碑读取不复用公共内容端点。写入新 Metadata/ContentRevision、Asset、Save、Launch 或联机选择均由数据库/领域双重阻断。
 
@@ -727,4 +793,4 @@ Game 一旦 DELETED，公共 `GET /api/v1/games/{gameId}`、Launch 创建、Game
 
 ## 16. 统一验收入口
 
-通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001` 覆盖；标签由 `ACC-TAG-002`–`005` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖；联机协议、transport/auth/SSE 错误边界和双浏览器生命周期由 `ACC-NP-010`–`016` 覆盖。
+通用协议由 `ACC-API-001` 覆盖；认证/账户隔离由 `ACC-AUTH-*` 与 `ACC-ISO-*` 覆盖；同源 CSRF、launch cookie、受限缓存和媒体 SSRF 由 `ACC-SEC-002`–`ACC-SEC-004` 覆盖；上传协议由 `ACC-IMP-001`、`ACC-IMP-002` 和 `ACC-IMP-008` 覆盖；Pegasus/VIDEO 由 `ACC-PEG-001`–`006` 与 `ACC-MEDIA-001` 覆盖；EmulationStation 协议、扫描/映射、审核扩展与释放由 `ACC-ES-001`–`006` 覆盖；标签由 `ACC-TAG-002`–`005` 覆盖；多盘协议由 `ACC-MDISC-001`–`004`、`007`–`008` 覆盖；一次点击启动由 `ACC-RUN-*` 覆盖；联机协议、transport/auth/SSE 错误边界和双浏览器生命周期由 `ACC-NP-010`–`016` 覆盖。

@@ -177,6 +177,9 @@ WHERE payload_released_at_ms IS NULL AND scrape_run_id IN (
 	if err := service.releaseLinkedPegasusItem(ctx, transaction, itemID, now); err != nil {
 		return err
 	}
+	if err := service.releaseLinkedEmulationStationItem(ctx, transaction, itemID, now); err != nil {
+		return err
+	}
 	return nil
 }
 

@@ -149,6 +149,30 @@ describe("ReviewActions metadata", () => {
     expect(video?.autoplay).toBe(false);
   });
 
+  it("labels EmulationStation source media without presenting it as scraped metadata", () => {
+    const { container } = render(<ReviewActions review={{
+      ...review,
+      sourceMedia: {
+        sourceKind: "EMULATIONSTATION",
+        sourceRefId: "emulationstation-item-1",
+        emulationStationImportId: "emulationstation-import-1",
+        sourceLabel: "NES gamelist.xml",
+        coverUrl: "/api/v1/admin/review-assets/emulationstation-item-1?kind=COVER",
+        coverWidthPx: 320,
+        coverHeightPx: 480,
+        videoUrl: "/api/v1/admin/review-assets/emulationstation-item-1?kind=VIDEO",
+      },
+    }} />);
+
+    expect(screen.getByText("来源：EmulationStation · NES gamelist.xml")).toBeVisible();
+    expect(screen.getByText("已读取 Gamelist 信息")).toBeVisible();
+    expect(screen.getByText("EmulationStation 视频预览")).toBeVisible();
+    expect(container.querySelector<HTMLVideoElement>(".review-source-video video")).toHaveAttribute(
+      "src",
+      "/api/v1/admin/review-assets/emulationstation-item-1?kind=VIDEO",
+    );
+  });
+
   it("flushes a pending edit when the review page unmounts", async () => {
     const fetchMock = vi.fn(() => Promise.resolve(jsonResponse({ version: 2 })));
     vi.stubGlobal("fetch", fetchMock);

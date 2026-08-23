@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.3 |
-| 日期 | 2026-08-08 |
+| 版本 | 1.4 |
+| 日期 | 2026-08-24 |
 | 元信息源 | Hasheous 公共 Hash Lookup |
 
 ## 1. 边界
@@ -107,7 +107,7 @@ Job 交接只有一条实现路径：`IMPORT_ITEM_PIPELINE` 完成 hash、分组
 - 每个 Item 的 `ImportItemSourceFile` 是 source manifest 与 Approve 复制 GameContentFile 的唯一关系来源；`group_key` 使用数据模型的 canonical digest，重试不得因 worker 遍历顺序改变分组。
 - 浏览器目录上传优先从 Retrom 自绘 Dialog 调用 File System Access API 的 `showDirectoryPicker`，递归读取 `FileSystemDirectoryHandle` 并只传递以所选根目录开头的规范相对路径；Chrome / Edge 走该路径时，系统选择完成后不再出现“上传 N 个文件到此网站”的二次确认。Brave 虽基于 Chromium但禁用该 API，因此能力检测失败时回退到 `input[webkitdirectory]` 与 `File.webkitRelativePath`，并接受 Brave 自身不可绕过的原生上传确认。两条路径的选择结果都必须回到同一个 Dialog 展示根目录名、文件数、总大小和相对路径预览，管理员明确点击“使用此目录”后才进入导入配置；取消系统选择、Dialog 取消或 Escape 均不保留待确认文件。
 - 局域网开发允许通过非 localhost 的明文 HTTP 域名访问；该上下文可能只有 `crypto.getRandomValues`，没有 `crypto.randomUUID` 或 `crypto.subtle`。前端必须用 CSPRNG bytes 生成规范小写 UUIDv4，并以经过标准 SHA-256 向量验证的本地实现完成分块 digest fallback；不能降级为 `Math.random`、时间戳、跳过 `Content-Digest` 或把整个文件交给后端代算。
-- 普通用户导入不接受服务器路径；管理员可从部署者 `RETROM_SERVER_IMPORT_ROOTS` allowlist 中选择规范相对目录，分别创建 BIOS 或 Pegasus 任务。浏览器永远不能提交或读取任意宿主绝对路径。拖放目录仍只是普通浏览器导入的 Chrome 增强能力。
+- 普通用户导入不接受服务器路径；管理员可从部署者 `RETROM_SERVER_IMPORT_ROOTS` allowlist 中选择规范相对目录，分别创建 BIOS、Pegasus 或 EmulationStation 任务。浏览器永远不能提交或读取任意宿主绝对路径。拖放目录仍只是普通浏览器导入的 Chrome 增强能力。
 - Arcade DAT 发现 machine 依赖 disk/CHD 或 Merged ROMset 时保留文件证据并进入带 `UNSUPPORTED_CHD` / `UNSUPPORTED_MERGED_ROMSET` 的待审核 Blocker；这条只约束 Arcade ROMset，不影响 PSX/Saturn/3DO/PC-FX 明确支持的单文件 CHD。
 
 分组与扩展名规则从目标游戏目录的基础平台推导。默认核心是导入流水线唯一自动执行的兼容性目标；一期不得在导入后为其他核心自动投递后台验证。用户在详情页首次显式选择其他核心启动时，才按运行时专题的 `EnsureVariant` 流程按需验证。
@@ -292,14 +292,14 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入�
 | --- | --- | --- | --- |
 | 游戏入库总览 | `/admin/imports` | 当前流水线是否健康、哪里需要处理 | 新建导入、跳转任务/待审核/历史 |
 | 导入游戏 | `/admin/imports/new` | 本次导入什么、归属哪个游戏目录、冻结什么配置 | 选择内容、配置、预检、创建 ImportJob |
-| 本地扫描 | `/admin/imports/server` | 配置的只读服务端目录中有哪些 BIOS 或 Pegasus 游戏 | 浏览允许目录、创建服务器 BIOS/Pegasus 导入、映射与查看结果 |
+| 本地扫描 | `/admin/imports/server` | 配置的只读服务端目录中有哪些 BIOS、Pegasus 或 EmulationStation 游戏 | 浏览允许目录、创建对应服务器导入、映射与查看结果 |
 | 任务进度 | `/admin/imports/tasks` | ImportJob/ImportItem 运行到哪里、为何失败 | 查看事件、取消任务、重试失败条目 |
 | 待审核 | `/admin/reviews`、`/admin/reviews/:itemId` | 候选是否正确、最终发布内容是什么 | 预览/启动严格 READY 快速审批；实时编辑、替换封面、Discard、逐项通过并发布 |
 | 审核历史 | `/admin/reviews/history` | 当时依据什么作出什么决策 | 筛选、查看不可变快照与字段 diff |
 
-总览的数据是聚合摘要，不复制完整任务管理能力。页首先展示待审核与异常任务两类优先事项，随后用进行中批次、等待审核、异常条目和历史完成批次四项 KPI，以及“上传与校验—识别—运行检查—游戏信息—人工审核—发布”六阶段流水线和最近任务摘要解释当前状态。所有批次数按用户发起的顶层操作统计：浏览器上传/重新配置产生的 ImportJob 各计一次，PegasusImport 各计一次；Pegasus 为复用普通审核管线而逐游戏创建的 ImportJob 是内部交接记录，不得出现在普通任务列表、最近任务或批次 KPI 中。处理中条目使用非终态顶层批次当前已知的普通 `total_item_count` 或 Pegasus `game_count`，异常条目使用普通失败 Item 加未解决 REJECTED 文件、或 Pegasus blocked/failed Item；不得从“最近三条任务”反推任何流水线统计。“待审核条目/等待审核/人工审核”三处必须共用实际 `state=REVIEW_PENDING` 的 ImportItem 总数，“发布”使用实际 `state=PUBLISHED` 的 ImportItem 总数，不能把含待审核内容的任务数、任务缓存计数或已经 DISCARDED 的 Item 计入。界面不能为不可观测阶段伪造精确进度。
+总览的数据是聚合摘要，不复制完整任务管理能力。页首先展示待审核与异常任务两类优先事项，随后用进行中批次、等待审核、异常条目和历史完成批次四项 KPI，以及“上传与校验—识别—运行检查—游戏信息—人工审核—发布”六阶段流水线和最近任务摘要解释当前状态。所有批次数按用户发起的顶层操作统计：浏览器上传/重新配置产生的 ImportJob 各计一次，PegasusImport 与 EmulationStationImport 各计一次；服务器目录任务为复用普通审核管线而逐游戏创建的 ImportJob 是内部交接记录，不得出现在普通任务列表、最近任务或批次 KPI 中。处理中条目使用非终态顶层批次当前已知的普通 `total_item_count` 或对应服务器计划 `game_count`，异常条目使用普通失败 Item 加未解决 REJECTED 文件、或服务器计划 blocked/failed Item；不得从“最近三条任务”反推任何流水线统计。“待审核条目/等待审核/人工审核”三处必须共用实际可进入审核的 `state=REVIEW_PENDING` ImportItem 总数；带 EmulationStation handoff 预留但尚未 attach 到 `REVIEW_PENDING` 来源 Item 的内部条目不得计入。“发布”使用实际 `state=PUBLISHED` 的 ImportItem 总数，不能把含待审核内容的任务数、任务缓存计数或已经 DISCARDED 的 Item 计入。界面不能为不可观测阶段伪造精确进度。
 
-“导入游戏”固定为选择内容、确认配置、上传并验证三步；目标游戏目录没有默认值，用户选择后才显示基础平台和推荐运行方式。实例不存在任何游戏目录时，普通导入不得展示不可完成的内容选择步骤，Pegasus 的 `AWAITING_MAPPING` 也不得展示空映射选择器或允许确认；两处都说明需先进入“游戏目录”执行“一键创建推荐目录”，并提供“前往游戏目录”入口。上传、终结校验与创建 ImportJob 按顺序执行，成功后进入任务进度，不直接跳入尚未生成内容的待审核队列。任务进度只列浏览器上传/重新配置产生的普通 ImportJob；Pegasus 批次在“本地扫描”按一个顶层计划展示，其内部逐游戏 ImportJob 仅供详情诊断。普通任务进度按更新时间游标分页，每页最多 20 条；滚动到已加载列表末尾再取下一页。只对已加载且仍为 `QUEUED/RUNNING/CANCEL_REQUESTED` 的任务每秒读取一次详情，同页多批任务并行更新，全部进入终态后停止；尚未加载的运行任务不轮询。任务卡展示阶段、条目分布、异常和下一步；异常数必须同时包含失败 Item 与尚未解决的 REJECTED 文件，并分别说明“条目失败”和“文件未被接受”，不能把仅含拒绝文件的任务显示为 0 异常。任务同时存在待审核条目和拒绝文件时，“审核 N 个条目”与进度条下可点击的“N 异常”必须同时可见；异常数为零时只显示文本，不提供无效操作。展开区以普通语言说明六阶段和处理路径；每个稳定 reason code 可聚焦并以 tooltip 展示具体含义，REJECTED 文件提供“重新配置并导入”入口，不暴露内部 UUID。已导入并跳过不是异常：完成任务明确展示被跳过文件、`ALREADY_IMPORTED` 原因和已有游戏链接。
+“导入游戏”固定为选择内容、确认配置、上传并验证三步；目标游戏目录没有默认值，用户选择后才显示基础平台和推荐运行方式。实例不存在任何游戏目录时，普通导入和服务器计划的 `AWAITING_MAPPING` 都不得展示不可完成的内容/映射选择器或允许确认；页面说明需先进入“游戏目录”执行“一键创建推荐目录”，并提供“前往游戏目录”入口。上传、终结校验与创建 ImportJob 按顺序执行，成功后进入任务进度，不直接跳入尚未生成内容的待审核队列。任务进度只列浏览器上传/重新配置产生的普通 ImportJob；Pegasus 与 EmulationStation 批次在“本地扫描”各按一个顶层计划展示，其内部逐游戏 ImportJob 仅供详情诊断。普通任务进度按更新时间游标分页，每页最多 20 条；滚动到已加载列表末尾再取下一页。只对已加载且仍为 `QUEUED/RUNNING/CANCEL_REQUESTED` 的任务每秒读取一次详情，同页多批任务并行更新，全部进入终态后停止；尚未加载的运行任务不轮询。任务卡展示阶段、条目分布、异常和下一步；异常数必须同时包含失败 Item 与尚未解决的 REJECTED 文件，并分别说明“条目失败”和“文件未被接受”，不能把仅含拒绝文件的任务显示为 0 异常。任务同时存在待审核条目和拒绝文件时，“审核 N 个条目”与进度条下可点击的“N 异常”必须同时可见；异常数为零时只显示文本，不提供无效操作。展开区以普通语言说明六阶段和处理路径；每个稳定 reason code 可聚焦并以 tooltip 展示具体含义，REJECTED 文件提供“重新配置并导入”入口，不暴露内部 UUID。已导入并跳过不是异常：完成任务明确展示被跳过文件、`ALREADY_IMPORTED` 原因和已有游戏链接。
 
 “重新配置并导入”只处理 STANDARD 原任务中尚未解决的 REJECTED UploadFile。页面读取原任务详情，展示只读文件清单与原平台/元信息源，允许重新选择游戏目录后提交；浏览器不恢复或伪造 file input。服务端为这些文件创建新的 COMPLETE UploadSession/UploadFile，逐项引用原 final Blob，并以新配置创建 replacement ImportJob，所以网络不重新上传 bytes、原 session 也不会被二次消费。新任务创建、source file resolution、source 聚合计数和双向任务 lineage 在同一 Import 创建事务提交；失败时 source 仍保持待处理。原 REJECTED reason 永久保留，任务页改显示 replacement 链接且不再把已接管文件计入异常。重新处理仍执行当前归档安全和平台 profile 规则，绝不把 `ARCHIVE_UNSAFE` 当作用户可绕过的门禁。MULTI 的拒绝目录必须重新选择完整 DIRECTORY 并重新预检，不能把 M3U 或 CHD 子集送入此复用流程。
 
@@ -313,7 +313,7 @@ ImportItem 进入 `PUBLISHED/DISCARDED/FAILED_FINAL/CANCELLED` 后立即进入�
 
 “快速审批”先打开影响预览，明确 matched、严格 READY candidate，以及阻断截图放行、重复内容、活动 Parent/多盘补传和其他不 READY/已过期排除数。只有严格 `READY`、当前 generation/来源/目录/CoreArtifact/active DAT/BIOS/DOS entry/dependency snapshot 均一致、标题合法、没有重复内容和活动 Attachment 的 Item 才能进入 candidate；仅靠第 5 秒阻断截图启用逐项按钮的条目永不自动发布。dependency snapshot 必须按内容类型进入同一普通发布校验分支：静态 BIOS/多盘使用 `corevalidation` schema v1，Arcade 使用含 machine/DAT/closure/dependencies 的 schema v2，并重新核对当前 active DAT 的闭包、required entries 与冻结 ValidationFile；不得把合法 Arcade v2 送入 BIOS v1 解析器后误计为 stale。预览返回 scope digest 与候选 manifest digest；确认创建时服务端在一个事务重新枚举，任何筛选或 Item 输入漂移都以 `REVIEW_BULK_PREVIEW_STALE` 要求重新确认。空范围拒绝启动，单批上限 10,000，全实例同时只允许一个 active batch。
 
-后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/Revision/ReviewEvent、普通/Pegasus 聚合与批次 `PUBLISHED` 结果必须同事务提交；ReviewEvent diff 增加 `approvalMode=QUICK_STRICT_READY` 和 `bulkApprovalId`，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项，restore 使遗留批次以 `RESTORE_INTERRUPTED` 失败且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
+后台按冻结顺序逐项复用普通 Approve 事务。成功 Item 的 Game/Revision/ReviewEvent、普通与对应服务器来源聚合和批次 `PUBLISHED` 结果必须同事务提交；ReviewEvent diff 增加 `approvalMode=QUICK_STRICT_READY` 和 `bulkApprovalId`，不建立第二套发布规则。处理前重复变为 `SKIPPED_DUPLICATE`，版本/Validation/来源漂移为 `SKIPPED_CHANGED`，严格门禁不再满足为 `SKIPPED_NOT_READY`，意外项故障为 `FAILED_FINAL` 并继续剩余项。取消只收口尚未提交的 Item；进程重启恢复未提交项，restore 使遗留批次以 `RESTORE_INTERRUPTED` 失败且不回滚已发布 Game。终态页面清除相关审核队列缓存、刷新列表，并提供逐项结果链接。
 
 ## 11. API
 
@@ -347,7 +347,25 @@ Pegasus source 以每个 `metadata.pegasus.txt` 中的 segment 为独立 Collect
 
 Pegasus Item 一旦发布、审核丢弃、跳过、阻断、取消或进入不可重试错误，就只长期保留 metadata、来源相对路径、大小/facts digest、映射、warning/error、审核关联和发布/已有 Game ID。已交接普通 ImportItem 的条目共用普通 Item 的 PayloadRelease；未交接条目使用独立 Pegasus scope。文件和 COVER/VIDEO Blob 字段转为 `PAYLOAD_RELEASED` 形态，管理详情显示“源文件已清理”，不得尝试加载旧媒体 URL。仍可 retry 的错误和普通 `REVIEW_PENDING` 必须继续保留 payload。
 
-## 15. 标签默认值与发布传播
+## 15. EmulationStation 服务器目录导入
+
+EmulationStation import 复用 `RETROM_SERVER_IMPORT_ROOTS`、服务器目录浏览和普通导入主链，不读取 `es_systems.cfg`。扫描从管理员选择的规范相对目录递归发现文件名精确为小写 `gamelist.xml` 的普通文件；不跟随符号链接或跨 root，每份可解析清单形成一个独立 Collection。因而同一入口同时支持两种稳定形态：一个所选目录包含多个子目录、每个子目录各有自己的 `gamelist.xml`；或一个没有子目录的目录只含一份 `gamelist.xml` 与多份游戏文件。其他大小写的清单名不匹配，也不能把父子清单合并为一个 Collection。
+
+XML 必须是严格 UTF-8，可带 UTF-8 BOM，根元素必须是无 namespace 的 `gameList`。DTD、实体声明、外部实体、其他 processing instruction、namespace、非 UTF-8、未知根结构和重复必填字段均 fail closed；解析器只接受受限的 `game` 与已登记纯文本字段。`command/emulator/core` 即使出现也一律忽略，原值不得持久化、返回或记录；`folder` 只计数，`provider` 只保留存在性。每个 `game` 恰有一个非空 `path`，标题缺失时使用内容文件 basename；`players` 仅接受 `N` 或 `N-M` 并取最大值，日期只接受 `YYYYMMDD[THHMMSS]` 或 `DD/MM/YYYY`。`hidden/adult/kidgame` 只是管理员可见来源提示，不改变权限、兼容性或自动发布规则。
+
+游戏和媒体路径都以所属 `gamelist.xml` 的目录为基准。`./foo`、普通相对路径与 Windows 分隔符在验证后规范化；空值、控制/空白路径、`..`、绝对路径、`~`、盘符、UNC、URI、过长路径、符号链接逃逸和类型漂移必须阻断。扫描只读取有界 XML、目录 facts、M3U 与媒体头，并且只打开 M3U 实际引用的 CHD 读取固定头；同目录未引用 CHD 不得因候选枚举被打开。XML parser 至少每消费 256 个 token 检查一次取消；目录发现、清单、媒体和 CHD 读取都进入共享 reader semaphore。扫描不读取完整 ROM，不创建业务 Blob、内部 ImportJob、ReviewDraft 或 Game。每次计划冻结 root/source facts、XML digest、确定性 source key、Collection/game 顺序、媒体候选、warning、来源 manifest 和预计读取量；重新扫描同一不变输入必须得到相同业务快照。
+
+每个有效 Collection 必须由管理员显式选择 `IMPORT + PlatformInstance + tagIds` 或 `SKIP`；没有默认映射，不依据清单路径、扩展名、外部平台名或同名目录猜测。批量标签只以去重 union 追加到尚未跳过的 Collection，`SKIP` 清空标签。start 前要求至少一个非空 `IMPORT` Collection，并以 plan ETag 同时校验 source snapshot、root snapshot、目标 PlatformInstance/version/default CoreArtifact/DAT 与 Tag 状态；目标漂移返回可修复的重新映射冲突，来源漂移要求新建计划，不能沿旧 mapping 静默执行。
+
+执行阶段重新 no-follow 打开冻结 source manifest，流式复制到 CAS，再复用普通 import 的格式分组、内容身份、CoreValidation、DAT、BIOS、重复检查、审核与发布服务。M3U 只接受与清单同目录的 2–8 个现存 CHD；其他多文件格式不猜分组。Arcade companion 只允许来自同一次 execution、同一目标目录与同一冻结 DAT 的显式 ZIP 依赖闭包。封面按 `image → boxart → mix → thumbnail/s` 选择，video 独立；缺失或坏媒体只写 warning，不阻断可运行内容。
+
+Worker 对每个新候选在普通 `REVIEW_PENDING` 停止，审核前 Game 数必须为零；`CreateServerSourceOnce` 在创建内部 ImportJob/ImportItem 的同一事务写入不可变 `EMULATIONSTATION` handoff 预留，并在崩溃重试时复用同一 Item。在来源 Item attach 且进入 `REVIEW_PENDING` 之前，该普通 Item 不进入队列、详情、批量审批、审核决定或待审核 KPI；attach 完成后这些入口才同时开放。队列可按 `emulationStationImportId` 精确收窄，来源类型为 `EMULATIONSTATION`，并显示清单/Collection、cover/video 与来源 flag。只有普通 Approve 或既有严格 READY 快速审批事务可创建 `SERVER_EMULATIONSTATION_IMPORT` 的 MetadataRevision/ContentRevision/Game；Discard、重复与内部失败继续复用普通审计和确定性错误边界。取消不删除已交接审核事项，retry 只重跑服务端声明可重试的失败 Item，崩溃恢复复用既有关联，不能创建第二个不可见 ImportItem。
+
+聚合状态固定为 `SCANNING → AWAITING_MAPPING → QUEUED → RUNNING → COMPLETED|PARTIAL_FAILURE`，另有 `EXPIRED/CANCEL_REQUESTED/CANCELLED/FAILED`；phase 封闭为 `DISCOVERING_GAMELISTS/PARSING_GAMELISTS/RESOLVING_SOURCES/COPYING_CONTENT/VALIDATING/PREPARING_REVIEWS`。Item 的发现状态封闭为 `READY/BLOCKED_SOURCE/BLOCKED_CONTENT`，执行状态封闭为 `PENDING/COPYING/VALIDATING/REVIEW_PENDING/PUBLISHED/REVIEW_DISCARDED/SKIPPED_EXISTING/SKIPPED_MAPPING/BLOCKED_SOURCE/BLOCKED_CONTENT/SOURCE_CHANGED/READ_FAILED/COMMIT_FAILED/CANCELLED`。`COMPLETED` 只表示全部所选条目已准备审核或进入其他确定性结果，不表示 Game 已发布；至少一个 Item 失败时使用 `PARTIAL_FAILURE`。扫描深度至多 64、目录 250,000、普通文件 2,000,000、清单 1,000、单清单读取上限 8 MiB、XML 总读取量 64 MiB、游戏 100,000、每游戏来源文件 64、warning 64、预计来源 2 TiB；超过单清单上限的文件以 `INVALID/EMULATIONSTATION_GAMELIST_TOO_LARGE` 独立留证，不读取内容且不阻断其他合法清单。单次 execution 最长 8 小时。实例最多保留 20 个未开始/等待映射计划、等待 7 天后过期，同一时刻最多一个 EmulationStation execution，外部目录读取与其他服务器导入共享容量为 2 的 reader semaphore。
+
+发布、丢弃、跳过、阻断、取消或不可重试失败后的来源 payload 按普通/Pegasus 同一 ownership registry 与 PayloadRelease/GC 规则释放；已交接条目共用普通 ImportItem scope，未交接条目使用 EmulationStation scope。Game 永久删除继续保留墓碑审计，并异步解除 Game 内容、媒体、存档与运行 payload；任何共享 Blob 引用仍受保护。恢复前所有依赖外部 source 的 EmulationStation 计划和 execution 必须先以稳定原因收口，已进入 CAS 的待审/已发布内容随 backup/restore 保留。统一验收见 `ACC-ES-001`–`006`。
+
+## 16. 标签默认值与发布传播
 
 普通 Import 创建与 rejected-only reconfigure 接受既有活动 `tagIds`。服务在同一写事务先验证 0–20 个唯一 ID，再冻结按名称排序的 `{tagId,name}` 到配置 snapshot，并将集合复制到本次创建的每个 ReviewDraft；任一 Tag 不存在或已删除时不创建 ImportJob/Item，也不消费 Upload。reconfigure 页面只预填旧 snapshot 中仍活动的 Tag；标签不进入 source manifest、content identity 或重复内容判定。
 
@@ -355,6 +373,8 @@ ReviewDraft PATCH 必须携带当前完整 `tagIds`，并与元信息、Validati
 
 Pegasus Collection 的 `IMPORT` mapping 必须显式提供 `tagIds`，`SKIP` 必须为空；mapping 事务同时保存关系与名称 snapshot。start 后冻结，retry、lease recovery 和 handoff 复用同一 Collection 选择，尚未 handoff 的 Item 只继承仍 ACTIVE 的 ID；已经待审/发布/丢弃/跳过的 Item 不重复分配。Pegasus metadata 的 `tags:`、genre 及其他外部标签绝不自动创建或按名称关联 Retrom Tag；`SKIPPED_EXISTING` 不改变既有 GameTag。完整生命周期见 [`game-tags.md`](./game-tags.md)。
 
-## 16. 统一验收入口
+EmulationStation Collection 使用完全相同的 `tagIds`、snapshot、删除并发与 handoff 规则；XML `genre` 或其他来源字段同样不能创建或按名称猜测 Retrom Tag，`SKIPPED_EXISTING` 不修改已有 GameTag。
 
-本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-008` 与 `ACC-PEG-001`–`006`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与 CAS 约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。
+## 17. 统一验收入口
+
+本专题统一执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-IMP-001`–`ACC-IMP-009`、`ACC-PEG-001`–`006` 与 `ACC-ES-001`–`006`；详情媒体执行 `ACC-MEDIA-001`，标签默认值、删除并发和原子发布执行 `ACC-TAG-003`–`004`。游戏目录唯一归属由 `ACC-PLAT-*`、时间与 CAS 约束由 `ACC-DB-*` 和 `ACC-CAS-*` 联合覆盖。流程、通过标准和证据只在统一文档维护。

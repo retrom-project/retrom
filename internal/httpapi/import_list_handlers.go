@@ -18,15 +18,16 @@ import (
 )
 
 type importOverviewSummary struct {
-	Running         int64 `json:"running"`
-	ReviewPending   int64 `json:"reviewPending"`
-	PublishedItems  int64 `json:"publishedItems"`
-	Completed       int64 `json:"completed"`
-	Failed          int64 `json:"failed"`
-	OrdinaryFailed  int64 `json:"ordinaryFailed"`
-	PegasusFailed   int64 `json:"pegasusFailed"`
-	ProcessingItems int64 `json:"processingItems"`
-	IssueItems      int64 `json:"issueItems"`
+	Running                int64 `json:"running"`
+	ReviewPending          int64 `json:"reviewPending"`
+	PublishedItems         int64 `json:"publishedItems"`
+	Completed              int64 `json:"completed"`
+	Failed                 int64 `json:"failed"`
+	OrdinaryFailed         int64 `json:"ordinaryFailed"`
+	PegasusFailed          int64 `json:"pegasusFailed"`
+	EmulationStationFailed int64 `json:"emulationStationFailed"`
+	ProcessingItems        int64 `json:"processingItems"`
+	IssueItems             int64 `json:"issueItems"`
 }
 
 func (server *Server) importSummary(writer http.ResponseWriter, request *http.Request) {
@@ -39,6 +40,7 @@ func (server *Server) importSummary(writer http.ResponseWriter, request *http.Re
 		&summary.Failed,
 		&summary.OrdinaryFailed,
 		&summary.PegasusFailed,
+		&summary.EmulationStationFailed,
 		&summary.ProcessingItems,
 		&summary.IssueItems,
 	)
@@ -52,6 +54,9 @@ func (server *Server) importSummary(writer http.ResponseWriter, request *http.Re
 const userVisibleImportJobPredicate = `i.id NOT IN (
  SELECT pegasus_item.library_import_job_id FROM pegasus_import_items pegasus_item
  WHERE pegasus_item.library_import_job_id IS NOT NULL
+ UNION ALL
+ SELECT source_item.library_import_job_id FROM emulationstation_import_items source_item
+ WHERE source_item.library_import_job_id IS NOT NULL
 )`
 
 const importOverviewSummarySQL = `
@@ -63,24 +68,44 @@ WITH ordinary AS (
 SELECT
  (SELECT count(*) FROM ordinary WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED'))+
  (SELECT count(*) FROM pegasus_imports
+  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED'))+
+ (SELECT count(*) FROM emulationstation_imports
   WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),
- (SELECT count(*) FROM import_items WHERE state='REVIEW_PENDING'),
+ (SELECT count(*)
+  FROM import_items item
+  WHERE item.state='REVIEW_PENDING'
+  AND (
+   item.review_handoff_kind='DIRECT'
+   OR EXISTS (
+    SELECT 1
+    FROM emulationstation_import_items source
+    WHERE source.library_import_item_id=item.id
+    AND source.execution_state='REVIEW_PENDING'
+   )
+  )),
  (SELECT count(*) FROM import_items WHERE state='PUBLISHED'),
  (SELECT count(*) FROM ordinary WHERE state='COMPLETED')+
- (SELECT count(*) FROM pegasus_imports WHERE state='COMPLETED'),
+ (SELECT count(*) FROM pegasus_imports WHERE state='COMPLETED')+
+ (SELECT count(*) FROM emulationstation_imports WHERE state='COMPLETED'),
  (SELECT count(*) FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED'))+
- (SELECT count(*) FROM pegasus_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
+ (SELECT count(*) FROM pegasus_imports WHERE state IN ('PARTIAL_FAILURE','FAILED'))+
+ (SELECT count(*) FROM emulationstation_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
  (SELECT count(*) FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED')),
  (SELECT count(*) FROM pegasus_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
+	(SELECT count(*) FROM emulationstation_imports WHERE state IN ('PARTIAL_FAILURE','FAILED')),
  COALESCE((SELECT sum(total_item_count) FROM ordinary
   WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED')),0)+
  COALESCE((SELECT sum(game_count) FROM pegasus_imports
+  WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),0)+
+ COALESCE((SELECT sum(game_count) FROM emulationstation_imports
   WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')),0),
  COALESCE((SELECT sum(failed_item_count+CASE
    WHEN rejected_file_count>resolved_rejected_file_count
    THEN rejected_file_count-resolved_rejected_file_count ELSE 0 END)
   FROM ordinary WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)+
  COALESCE((SELECT sum(blocked_item_count+failed_item_count) FROM pegasus_imports
+  WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)+
+ COALESCE((SELECT sum(blocked_item_count+failed_item_count) FROM emulationstation_imports
   WHERE state IN ('PARTIAL_FAILURE','FAILED')),0)
 `
 

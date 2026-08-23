@@ -13,16 +13,17 @@ var errOwnershipRegistryMismatch = errors.New("PAYLOAD_OWNERSHIP_REGISTRY_MISMAT
 type Ownership string
 
 const (
-	GameOwned        Ownership = "GAME_OWNED"
-	GameRuntimeOwned Ownership = "GAME_RUNTIME_OWNED"
-	ImportItemOwned  Ownership = "IMPORT_ITEM_OWNED"
-	PegasusItemOwned Ownership = "PEGASUS_ITEM_OWNED"
-	ScrapeRunOwned   Ownership = "SCRAPE_RUN_OWNED"
-	UploadOwned      Ownership = "UPLOAD_OWNED"
-	GlobalTTL        Ownership = "GLOBAL_TTL"
-	GlobalDurable    Ownership = "GLOBAL_DURABLE"
-	ArchiveOwnership Ownership = "ARCHIVE_OWNERSHIP"
-	Bookkeeping      Ownership = "BOOKKEEPING"
+	GameOwned                 Ownership = "GAME_OWNED"
+	GameRuntimeOwned          Ownership = "GAME_RUNTIME_OWNED"
+	ImportItemOwned           Ownership = "IMPORT_ITEM_OWNED"
+	PegasusItemOwned          Ownership = "PEGASUS_ITEM_OWNED"
+	EmulationStationItemOwned Ownership = "EMULATIONSTATION_ITEM_OWNED"
+	ScrapeRunOwned            Ownership = "SCRAPE_RUN_OWNED"
+	UploadOwned               Ownership = "UPLOAD_OWNED"
+	GlobalTTL                 Ownership = "GLOBAL_TTL"
+	GlobalDurable             Ownership = "GLOBAL_DURABLE"
+	ArchiveOwnership          Ownership = "ARCHIVE_OWNERSHIP"
+	Bookkeeping               Ownership = "BOOKKEEPING"
 )
 
 type OwnershipEdge struct {
@@ -54,6 +55,9 @@ var ownershipRegistry = []OwnershipEdge{
 	{"launch_content_files", "blob_id", GameRuntimeOwned},
 	{"launch_external_files", "blob_id", GameRuntimeOwned},
 	{"metadata_provider_responses", "raw_response_blob_id", GlobalTTL},
+	{"emulationstation_import_item_assets", "blob_id", EmulationStationItemOwned},
+	{"emulationstation_import_item_files", "blob_id", EmulationStationItemOwned},
+	{"emulationstation_import_item_files", "source_archive_blob_id", EmulationStationItemOwned},
 	{"pegasus_import_item_assets", "blob_id", PegasusItemOwned},
 	{"pegasus_import_item_files", "blob_id", PegasusItemOwned},
 	{"pegasus_import_item_files", "source_archive_blob_id", PegasusItemOwned},

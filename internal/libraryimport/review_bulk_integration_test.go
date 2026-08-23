@@ -191,8 +191,8 @@ VALUES(?,1,'{}',?,10)
 		if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_bulk_approvals(id,job_id,state,scope_json,scope_digest,candidate_manifest_digest,
 matched_count,candidate_count,screenshot_only_count,duplicate_count,attachment_active_count,
-not_ready_or_stale_count,created_by_user_id,version,created_at_ms,started_at_ms,updated_at_ms)
-VALUES(?,? ,?,'{}',?,?,1,1,0,0,0,0,?,1,10,?,20)
+source_flagged_count,not_ready_or_stale_count,created_by_user_id,version,created_at_ms,started_at_ms,updated_at_ms)
+VALUES(?,? ,?,'{}',?,?,1,1,0,0,0,0,0,?,1,10,?,20)
 `, bulkID, jobID, state, currentPreview.ScopeDigest, currentPreview.CandidateManifestDigest, adminID, startedAt); err != nil {
 			t.Fatal(err)
 		}

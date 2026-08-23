@@ -62,9 +62,19 @@ ORDER BY candidate.created_at_ms DESC,
 candidate.id DESC LIMIT 1)
 WHERE i.id=?
 AND i.state='REVIEW_PENDING'
+AND (i.review_handoff_kind='DIRECT' OR EXISTS(
+  SELECT 1 FROM emulationstation_import_items reserved_source
+  WHERE reserved_source.library_import_item_id=i.id
+  AND reserved_source.execution_state='REVIEW_PENDING'
+))
 AND NOT EXISTS(
   SELECT 1 FROM pegasus_import_items pegasus
   WHERE pegasus.library_import_item_id=i.id AND pegasus.execution_state<>'REVIEW_PENDING'
+)
+AND NOT EXISTS(
+  SELECT 1 FROM emulationstation_import_items emulationstation
+  WHERE emulationstation.library_import_item_id=i.id
+  AND emulationstation.execution_state<>'REVIEW_PENDING'
 )
 `, request.PathValue("importItemId")).
 		Scan(
@@ -268,34 +278,55 @@ func (server *Server) optionalReviewServerSourceMedia(
 }
 
 func (server *Server) reviewServerSourceMedia(ctx context.Context, itemID string) (any, bool, error) {
-	var sourceRefID, importID, collectionName string
+	var sourceRefID, importID, sourceKind, collectionName string
 	var hasCover, hasVideo int
 	var coverWidth, coverHeight sql.NullInt64
 	err := server.database.QueryRowContext(ctx, `
-SELECT pegasus.id,pegasus.import_id,COALESCE(collection.name,''),
+WITH source(source_kind,id,import_id,source_label) AS (
+ SELECT 'PEGASUS',pegasus.id,pegasus.import_id,COALESCE(collection.name,'')
+ FROM pegasus_import_items pegasus
+ LEFT JOIN pegasus_import_collections collection ON collection.id=pegasus.collection_id
+ WHERE pegasus.library_import_item_id=?
+ UNION ALL
+ SELECT 'EMULATIONSTATION',emulationstation.id,emulationstation.import_id,
+        COALESCE(collection.display_name,'')
+ FROM emulationstation_import_items emulationstation
+ LEFT JOIN emulationstation_import_collections collection ON collection.id=emulationstation.collection_id
+ WHERE emulationstation.library_import_item_id=?
+), assets(source_kind,item_id,kind,state,blob_id,width_px,height_px) AS (
+ SELECT 'PEGASUS',item_id,kind,state,blob_id,width_px,height_px
+ FROM pegasus_import_item_assets
+ UNION ALL
+ SELECT 'EMULATIONSTATION',item_id,kind,state,blob_id,width_px,height_px
+ FROM emulationstation_import_item_assets
+)
+SELECT source.id,source.import_id,source.source_kind,source.source_label,
 EXISTS(
- SELECT 1 FROM pegasus_import_item_assets asset
- WHERE asset.item_id=pegasus.id AND asset.kind='COVER' AND asset.state='COPIED'
+ SELECT 1 FROM assets asset
+ WHERE asset.source_kind=source.source_kind AND asset.item_id=source.id
+ AND asset.kind='COVER' AND asset.state='COPIED'
 AND asset.blob_id IS NOT NULL
 ),
 (
- SELECT asset.width_px FROM pegasus_import_item_assets asset
- WHERE asset.item_id=pegasus.id AND asset.kind='COVER' AND asset.state='COPIED'
+ SELECT asset.width_px FROM assets asset
+ WHERE asset.source_kind=source.source_kind AND asset.item_id=source.id
+ AND asset.kind='COVER' AND asset.state='COPIED'
 ),
 (
- SELECT asset.height_px FROM pegasus_import_item_assets asset
- WHERE asset.item_id=pegasus.id AND asset.kind='COVER' AND asset.state='COPIED'
+ SELECT asset.height_px FROM assets asset
+ WHERE asset.source_kind=source.source_kind AND asset.item_id=source.id
+ AND asset.kind='COVER' AND asset.state='COPIED'
 ),
 EXISTS(
- SELECT 1 FROM pegasus_import_item_assets asset
- WHERE asset.item_id=pegasus.id AND asset.kind='VIDEO' AND asset.state='COPIED'
+ SELECT 1 FROM assets asset
+ WHERE asset.source_kind=source.source_kind AND asset.item_id=source.id
+ AND asset.kind='VIDEO' AND asset.state='COPIED'
  AND asset.blob_id IS NOT NULL
 )
-FROM pegasus_import_items pegasus
-LEFT JOIN pegasus_import_collections collection ON collection.id=pegasus.collection_id
-WHERE pegasus.library_import_item_id=?
-`, itemID).Scan(
-		&sourceRefID, &importID, &collectionName, &hasCover, &coverWidth, &coverHeight, &hasVideo,
+FROM source
+`, itemID, itemID).Scan(
+		&sourceRefID, &importID, &sourceKind, &collectionName,
+		&hasCover, &coverWidth, &coverHeight, &hasVideo,
 	)
 	if errors.Is(err, sql.ErrNoRows) {
 		return nil, false, nil
@@ -308,9 +339,14 @@ WHERE pegasus.library_import_item_id=?
 		sourceLabel = collectionName
 	}
 	result := map[string]any{
-		"sourceKind": "PEGASUS", "sourceRefId": sourceRefID, "pegasusImportId": importID,
+		"sourceKind": sourceKind, "sourceRefId": sourceRefID,
 		"sourceLabel": sourceLabel, "coverUrl": nil, "coverWidthPx": nil, "coverHeightPx": nil,
 		"videoUrl": nil,
+	}
+	if sourceKind == "PEGASUS" {
+		result["pegasusImportId"] = importID
+	} else {
+		result["emulationStationImportId"] = importID
 	}
 	baseURL := "/api/v1/admin/review-assets/" + sourceRefID
 	if hasCover == 1 {

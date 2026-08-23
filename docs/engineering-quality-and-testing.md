@@ -3,9 +3,9 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.8 |
-| 日期 | 2026-08-23 |
-| 适用范围 | Go 后端、Next.js 前端、SQLite 集成、WebSocket rollback 联机与 EmulatorJS 运行时验证 |
+| 版本 | 1.9 |
+| 日期 | 2026-08-24 |
+| 适用范围 | Go 后端、Next.js 前端、SQLite/XML 集成、WebSocket rollback 联机与 EmulatorJS 运行时验证 |
 | 质量原则 | 零 lint warning、关键路径有测试、每个已发现 bug 有回归用例、不设覆盖率百分比门槛 |
 
 ## 1. 文档职责
@@ -69,7 +69,8 @@
 | `make integration-test` | 按需生成被 Git 忽略的 Go API 文件，再运行 Go `integration` build tag：migration、SQLite、HTTP 与跨模块流程 | 会写被忽略的 Go 生成物 |
 | `make api-generate` | 先以锁文件安装前端依赖，再从 `api/openapi.yaml` 生成被忽略的 Go strict stdlib server types 与须提交的前端 TypeScript schema | 会重建依赖目录并修改两端 generated 文件 |
 | `make api-check` | 在临时目录用固定生成器验证 OpenAPI 和两端生成结果，逐字节比较已提交的 TypeScript schema，并拒绝 Go 生成物被跟踪或未被 ignore | 仅依赖产物 |
-| `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景，包括项目自有 GBA/NES/Arcade 单机与双浏览器联机产品链路 | 会写浏览器缓存并产生本地报告 |
+| `make web-e2e` | 先执行 `prepare-e2e-browser`，再用缓存中固定 Chrome for Testing 运行关键 Playwright 场景，包括项目自有 GBA/NES/SNES/Arcade 单机与双浏览器联机产品链路 | 会写浏览器缓存并产生本地报告 |
+| `make public-fixtures-check` | 从仓库内唯一生成源重建公开 ROM/metadata fixture 到临时目录，逐字节核对 bytes、SHA-256、许可、三个 GBA 来源身份及真实产品消费者；不得读取私有 source | 否 |
 | `make data-check` | 离线校验 Makefile/GitHub Actions 的 clean-checkout 依赖顺序、`docs/design` 图片不跟踪/不引用边界，以及已提交的小型依赖 manifest/SHA-256/DAT/许可配方 schema；无 payload 也通过 | 否 |
 | `make prepare-deps` | 按固定 manifest 物化 EmulatorJS/core/五份 DAT/许可文件并生成 notice；两个 FBA2012 DAT 从锁定源码确定性原生生成两次；正确缓存不联网；完成后执行 `deps-check` | 会写被忽略的依赖缓存 |
 | `make deps-check` | 完全离线校验本地 allowlist、core、DAT、override、许可输入/notice 及 DAT 统计 | 否 |
@@ -87,7 +88,7 @@
 
 - `make ci` 包含全部可复现的仓库内单元、集成与数据检查；没有合法公开 fixture 的核心启动兼容性不在自动化测试中冒充已覆盖。
 - 全新 checkout 的统一初始化入口是 `make install-deps`。它允许在测试或服务启动前联网下载锁定依赖；正确缓存后 `prepare-deps` 与 `prepare-e2e-browser` 均幂等复用。浏览器缓存、Node 工具链和运行时 payload 不进入 Git 或镜像。
-- 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM 必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/`。
+- 自动化测试不得读取操作者私有 ROM/BIOS。可提交 ROM 必须由项目所有或有明确再分发许可、保留可审查的唯一生成源，并由 `data-check`、`public-fixtures-check` 和实际产品消费者共同逐字节校验；当前实例是 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/`。
 - `make ci` 默认不构建容器镜像；Dockerfile、镜像内容或发布资产变化时，在 PR 验证中额外执行 `make build-images`。tag 发布流水线不重复运行 PR 的 quality job，只执行自身的双镜像构建、输入校验和推送。
 - Go package 列表应显式覆盖 `./cmd/...`、`./internal/...` 和 `./migrations/...`，避免未来 `web/node_modules` 或本地数据目录中的意外 Go 文件污染 `./...`。根 `migrations` 是可导入的 Go embed package，SQL 与 `embed.go` 同目录，不能依赖运行容器中另有源码目录。
 - OpenAPI 固定为 `api/openapi.yaml`（项目协议基线为 OpenAPI 3.0.3；锁定的 `oapi-codegen v2.8.0` 虽支持 3.1，但不得在普通实现任务中变更规范方言）。Go 侧由该版本以 `models + std-http-server + strict-server` 生成 `internal/httpapi/generated/api.gen.go`；该文件被 Git 忽略且不得提交，由标准后端 build/test/lint/integration/dev target 和后端镜像构建在编译前按需生成。生成器作为 `go.mod` 的 tool 依赖锁定，配置放 `api/oapi-codegen.yaml`。请求验证固定 `nethttp-middleware v1.2.0`，另加 HTTP 专题的重复 JSON key/未知 query lexical guard。前端 `web/package.json#scripts.api:generate` 固定执行 `openapi-typescript ../api/openapi.yaml -o lib/api/generated/schema.d.ts`，并用 `openapi-fetch 0.17.0` 封装同源 client；该 TypeScript schema 必须提交并由漂移检查逐字节比较。两个生成文件都不得手改；改用 OpenAPI 3.1 必须单独完成两端生成、validator 与 contract test 的契约迁移。
@@ -370,7 +371,7 @@ make web-e2e
 - 解析器可以使用小型、可读、带来源说明的确定性片段覆盖边界和畸形输入。
 - Arcade 兼容性结论必须另有针对 `make prepare-deps` 物化到 `data/dat/` 的完整、真实、版本锁定 DAT 的集成校验；小片段不能替代真实基线，payload 也不能因此提交 Git。
 - 负向安全测试可以构造恶意 ZIP/XML/路径，因为它们用于验证拒绝行为，不能被描述为真实游戏数据。
-- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check` 逐字节验证的夹具；GBA 的两个身份覆盖普通上传与 Pegasus，NES 的两个内容身份分别覆盖 FCEUmm/Nestopia，SNES 夹具覆盖 SNES9x，Arcade 夹具覆盖 MAME 2003/Plus、FBNeo 与 FBA2012 CPS1/CPS2 的依赖装配、单机帧执行和双浏览器联机。真实 release DAT 的物化、解析和精确 active 选择由 `ACC-DAT-004` 使用 production manifest 独立证明；Arcade 产品 Case 的项目自有小型 DAT 由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不得经过 DAT 上传 API，也不得冒充 production baseline。Case 必须显式核对 schema v2 的 `PARENT` 与 `BIOS_OR_BASE`、同一 DatVersion 及冻结内容 bytes。测试 BIOS 不被目标驱动执行；CPS2 的 `spf2t` 父归档只含项目自有 marker 且不被驱动执行；双浏览器结果只证明锁定 profile/artifact 与项目自有 fixture。
+- 自动化测试不得读取或下载用户 ROM/BIOS。仓库内公开 ROM 只允许使用项目自有、许可清晰、生成源可审查且由 `data-check/public-fixtures-check` 逐字节验证的夹具；GBA 的三个独立身份分别覆盖普通上传、Pegasus 与 EmulationStation，其中 `emulationstation-smoke.gba` 随最小严格 `gamelist.xml` 使用且不能复用已发布的另一个身份；NES 的两个内容身份分别覆盖 FCEUmm/Nestopia，SNES 夹具覆盖 SNES9x，Arcade 夹具覆盖 MAME 2003/Plus、FBNeo 与 FBA2012 CPS1/CPS2 的依赖装配、单机帧执行和双浏览器联机。真实 release DAT 的物化、解析和精确 active 选择由 `ACC-DAT-004` 使用 production manifest 独立证明；Arcade 产品 Case 的项目自有小型 DAT 由 acceptance-only 装置直接登记为 test-only `BUILTIN`，不得经过 DAT 上传 API，也不得冒充 production baseline。Case 必须显式核对 schema v2 的 `PARENT` 与 `BIOS_OR_BASE`、同一 DatVersion 及冻结内容 bytes。测试 BIOS 不被目标驱动执行；CPS2 的 `spf2t` 父归档只含项目自有 marker 且不被驱动执行；双浏览器结果只证明锁定 profile/artifact 与项目自有 fixture。
 
 ## 10. 后续实施清单
 
@@ -455,21 +456,33 @@ make web-e2e
 - parser/scanner：UTF-8 BOM、LF/CRLF、续行与 flowing text、字段别名、同一 metadata 多 game、目录内多个 metadata、大小/条目/深度门禁、非法命令值、路径穿越、symlink/special file、来源中途变化和稳定 `sourceKey`。
 - 映射/持久化：当前 clean schema 只包含 review handoff、精确诊断与受当前来源/目标/CoreArtifact/generation 约束的 preview/screenshot Blob 保护边；Collection 显式映射、ETag、版本冻结；最大 64 文件的投影、全部声明文件参与确定性 key、M3U+CHD 有序分组、Arcade 当前 ZIP 与冻结 DAT 依赖闭包内的同目标显式 companion 集。
 - 审核/发布/重复：单文件和多盘沿用既有 library import/validation/review/publish 事务；Worker 完成后只产生 `REVIEW_PENDING` 且零 Game，READY 与 blocker 都可在统一队列处理；初始 Arcade Validation 会采用导入前已经安装且匹配当前 CoreArtifact 的 DAT BIOS，生成 `SATISFIED_EXTERNAL` 依赖与 `BIOS_BUNDLE` 文件，真正仍缺 Parent/内容的条目继续阻断。Approve/Discard 原子推进普通与 Pegasus 两组状态/计数，来源 COVER/VIDEO 正确保留，用户封面选择优先。快速审批覆盖完整筛选枚举、preview/create digest 漂移、严格 READY 与截图 override 分界、duplicate/Attachment 排除、逐项原子记账、取消竞争、重启恢复、restore fence、worker-only retry、10,000/10,001 上限和两个并发创建；另以真实 Arcade dependency snapshot schema v2 覆盖预览 candidate 与最终发布，证明它走 Arcade DAT closure/required-entry/ValidationFile 校验而不是 BIOS schema v1 解析失败分支。交接崩溃恢复复用已有内部 ImportItem 且不重复系统草稿事件；未完成交接的 Item 不出现在队列/详情且不能发布。同一来源重扫和内容重复列出全部已有游戏并返回稳定结果；失败/取消不删除审核事项或回滚已经提交的游戏，重试不重复 Game/Revision/Blob。
-- Worker/存储：BIOS 与 Pegasus 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、restore fence、外部 root 变更、媒体告警、保护边 GC 和 backup/restore 均有确定性测试。
-- HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；`pegasusImportId` 精确队列筛选、来源媒体 GET/HEAD 与 COVER/VIDEO kind；审核 best-effort preview 锁定现有依赖，READY/阻断均在 `EJS_onGameStart + 5000ms` 优先读取核心最后一帧并上传 PNG，核心截图有界失败时回退 canvas，使静态 ROM/BIOS 错误画面不退化成黑帧；当前阻断截图启用人工发布 override，过期 Validation 拒绝、弹窗失败提示和四个等宽决策按钮。快速审批 UI 覆盖当前筛选的服务端影响预览、零候选/active/stale、进度恢复、取消/retry、终态缓存清理、结果链接与 390/1280/物理 4K 150% scale 的键盘/reduced-motion。Pegasus 双能力卡、三步 Drawer、无默认映射、关闭恢复、同计划轮询重渲染不重置映射/焦点/滚动、详情审核行动区和逐行审核入口保持不变。
+- Worker/存储：BIOS、Pegasus 与 EmulationStation 共用 2-reader limiter；lease/heartbeat/deadline/attempt 耗尽、重启恢复、restore fence、外部 root 变更、媒体告警、保护边 GC 和 backup/restore 均有确定性测试。
+- HTTP/UI：ADMIN/USER/匿名/CSRF、strict body、Idempotency、ETag、cursor/filter/SSE；`pegasusImportId` 精确队列筛选、来源媒体 GET/HEAD 与 COVER/VIDEO kind；审核 best-effort preview 锁定现有依赖，READY/阻断均在 `EJS_onGameStart + 5000ms` 优先读取核心最后一帧并上传 PNG，核心截图有界失败时回退 canvas，使静态 ROM/BIOS 错误画面不退化成黑帧；当前阻断截图启用人工发布 override，过期 Validation 拒绝、弹窗失败提示和四个等宽决策按钮。快速审批 UI 覆盖当前筛选的服务端影响预览、零候选/active/stale、进度恢复、取消/retry、终态缓存清理、结果链接与 390/1280/物理 4K 150% scale 的键盘/reduced-motion。三张服务器导入能力卡中 Pegasus 的三步 Drawer、无默认映射、关闭恢复、同计划轮询重渲染不重置映射/焦点/滚动、详情审核行动区和逐行审核入口保持不变。
 - 产品运行：独立的项目自有 `pegasus-smoke.gba` 必须从临时服务器 root 经 Chrome 完成目录选择、真实扫描、显式 GBA 映射、Worker、待审核、逐项发布、Game 详情、Launch config、受限内容端点与 mGBA 帧推进；不得复用普通上传已经发布的相同内容、直接写库、mock Pegasus API 或只检查 canvas 元素。
 - 总览聚合：一个包含多个游戏的 PegasusImport 只能贡献一个最近任务和一个顶层批次；其逐游戏内部 ImportJob 不进入普通任务分页。进行中/完成/异常批次、处理中条目、异常条目和实际待审核 Item 分别按正式口径断言，主动取消不误报为异常，最近三条不能反向决定流水线数字。
 - VIDEO：MP4/WebM magic 与限额、nullable dimensions、Range/HEAD/MIME、不可变 revision、元信息编辑保留、删除保留历史；详情 2 秒累计可见自动播放、后台页不计时、5 秒/拒绝/错误回退、用户暂停和 reduced-motion 手动模式，以及列表零视频请求。
 
 该切片除聚焦用例外必须运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-PEG-001`–`006`、`ACC-MEDIA-001` 与 `make ci`。使用操作者授权的真实 Pegasus 目录时只记录相对统计和结果，不把 ROM、完整宿主路径或媒体内容写入报告。
 
+## 12.1 EmulationStation 服务器目录导入测试矩阵
+
+- parser：严格 UTF-8/BOM、无 namespace `gameList`、game/folder、字段缺省/重复/尺寸边界、title fallback、players/date、hidden/adult/kidgame；DTD/实体/PI/namespace/非 UTF-8/深度/attribute/token/总 token 全部 fail closed。`command/emulator/core/provider` 值必须有负向存储/API/日志泄漏断言，warning 只能包含封闭结构。
+- 路径与扫描：`./`、普通路径、Windows 分隔符规范化；空白/control、`..`、absolute/tilde/drive/UNC/URI、大小写错误的清单名、symlink/special、rename/source/root 漂移、64/250k/2m/1000/8MiB/64MiB/100k/2TiB 上限和确定性 source key/snapshot。分别建立“所选父目录含多个子目录且每个子目录有 `gamelist.xml`”与“无子目录、只有一份 `gamelist.xml` 和多个游戏文件”集成 fixture，断言 Collection 边界、独立映射与错误隔离。
+- mapping/HTTP/store：ADMIN/USER/匿名、strict JSON/query、CSRF/Origin、Idempotency、If-Match/ETag、cursor/filter、create/get/list/delete/start/cancel/retry；无默认 mapping、IMPORT/SKIP/Tag union、目标/Tag 删除漂移、来源重验。fresh/前缀/非法 lineage、Job kind/scope、不可变发现 snapshot、Pegasus/EmulationStation 普通 ImportItem owner XOR、source revision/ref 与 Blob registry 均有非法 SQL 测试。
+- library handoff：单 ROM、M3U 同目录 2–8 CHD、Arcade 同 execution/target/DAT companion、COVER/VIDEO 优先级与媒体 warning；普通内容身份、CoreValidation/DAT/BIOS/重复、Parent/多盘后继快照。Worker 只能形成 `REVIEW_PENDING`，Approve 前零 Game；逐项 Approve/Discard 与严格 READY 快速审批原子推进两组聚合，hidden/adult 固定进入 `sourceFlagged` 且只允许逐项发布。崩溃恢复复用既有内部 ImportItem，未交接项不可见。
+- Worker/恢复/释放：共享 2-reader、单 active execution、20 waiting/7 天过期、lease60/heartbeat15、1/5/30/120 退避、4 attempts、8 小时 deadline、每 8 MiB cancel 检查；cancel/retry/delete/restore fence。发布、丢弃、已存在、确定性阻断、取消和不可重试失败分别验证 PayloadRelease；Game 发布后先证明 Launch/Player，再永久删除并以 fake clock 推进宽限 GC，断言流程/Game payload 释放、共享 Blob 保留、新引用撤销候选及墓碑不可启动。
+- React/Chrome：三张等权卡、EmulationStation 卡文案、760px 三步 Drawer、关闭/恢复/焦点/滚动、每 Gamelist 一行的 mapping、folder/flag/扩展/issues、批量与逐项 Tag、确认警告、详情 action、`emulationStationImportId` 固定审核筛选、source media/flag、快速审批排除桶、RELEASED 状态。固定 390×844、1280×800、2560×1440 和物理 4K 150% scale，键盘、reduced-motion、document 零横向溢出与 axe serious/critical 为零。
+- 产品运行：独立项目自有 `emulationstation-smoke.gba` 从临时 server root 经真实扫描、显式 GBA mapping、普通审核/Approve、Game 详情、Launch config、受限内容端点与 mGBA 核心帧推进；不得直接写库、mock source API、复用普通/Pegasus 已发布内容或只检查 canvas 元素。操作者授权的 Batocera 目录只可用于隔离开发实例人工 smoke，不进入 CI、Git 或自动证据。
+
+本切片必须完整执行 `ACC-ES-001`–`006`，并回归 `ACC-PEG-001`–`006`、`ACC-IMP-001/003/007/008/009`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-CAS-002`、`ACC-BKP-001`、`ACC-GAME-001/003`。命令门禁固定为 `make quality-structure-check`、`make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、`make web-install`、`make web-lint`、`make web-typecheck`、`make web-test`、`make web-build`、`make api-generate`、`make api-check`、`make public-fixtures-check`、`make web-e2e` 与 `make ci`；任一未运行或失败都不能宣称切片完成。
+
 ## 13. 游戏标签测试矩阵
 
 - migration/store：034 新库与 033 升级、表/列/partial unique/index/trigger/INTEGER 时刻/FK、DELETED 不可恢复、同名新 ID、20/21 owner 上限，以及 backup/restore 对 tombstone、关系和审计的保真。
 - Tagging/HTTP：NFC、Unicode whitespace/case-fold/control、40/41 code point、160/161 byte、1,000/1,001 实例上限；CRUD/usage/cursor/filter/sort、ADMIN/USER、strict JSON/CSRF/If-Match/Idempotency、同名并发、关系 no-op、delete 与 assignment 两种提交顺序、版本联动和审计。
 - 搜索/投影：Game/Admin/Review 的 `q/tagId` 在 SQL 分页前取交集，cursor 不跨筛选复用；Favorite/Recent/Save/Netplay 与 detail 的数组始终非 null、名称稳定排序、删除立即隐藏且列表批量读取无 N+1。
-- Import/Review/Pegasus：批次默认标签、多 Item 继承、reconfigure、逐项 autosave、删除后的旧 ETag、Approve 原子复制、Discard snapshot；逐 Collection 集合、SKIP 空值、mapping 恢复/start 漂移/retry/handoff 幂等和外部 metadata tags 不自动关联。
-- React/Chrome：TagPicker 键盘/20 上限/空 taxonomy，管理页 loading/empty/error/conflict/Drawer/Dialog 焦点，导入/Pegasus/审核/管理员游戏写入，Library/Admin/Favorite/Recent/Save/Netplay 的名称搜索和精确 URL 恢复；390/1280/2560/物理 4K 150% scale 无页面横向溢出且 axe serious/critical 为零。
+- Import/Review/Pegasus/EmulationStation：批次默认标签、多 Item 继承、reconfigure、逐项 autosave、删除后的旧 ETag、Approve 原子复制、Discard snapshot；逐 Collection 集合、SKIP 空值、mapping 恢复/start 漂移/retry/handoff 幂等和外部 metadata tags 不自动关联。
+- React/Chrome：TagPicker 键盘/20 上限/空 taxonomy，管理页 loading/empty/error/conflict/Drawer/Dialog 焦点，导入/Pegasus/EmulationStation/审核/管理员游戏写入，Library/Admin/Favorite/Recent/Save/Netplay 的名称搜索和精确 URL 恢复；390/1280/2560/物理 4K 150% scale 无页面横向溢出且 axe serious/critical 为零。
 
 该切片运行 `make api-check`、后端四门禁、`make integration-test`、前端五门禁、`make web-e2e`、`ACC-TAG-001`–`005` 与 `make ci`。标签不进入 EmulatorJS、内容字节、Variant 或存档协议，因此不因本切片运行 core smoke、fixture 或依赖基线；若实际调用链改变则重新判定。
 

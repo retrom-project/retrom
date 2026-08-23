@@ -113,10 +113,11 @@ func (run *creationRun) persistGroupSource(record *groupRecord) error {
 	record.searchParts = searchText
 	_, err := run.transaction.ExecContext(run.ctx, `
 INSERT INTO import_items(
-  id,import_job_id,group_key,state,source_manifest_json,source_manifest_digest,
+  id,import_job_id,group_key,state,review_handoff_kind,source_manifest_json,source_manifest_digest,
   search_text,version,created_at_ms,updated_at_ms
-) VALUES(?,?,?,?,?,?,?,1,?,?)
-`, record.itemID, run.importID, groupKey, run.progress.itemState, string(record.manifestJSON),
+) VALUES(?,?,?,?,?,?,?,?,1,?,?)
+`, record.itemID, run.importID, groupKey, run.progress.itemState, run.plan.request.reviewHandoffKind,
+		string(record.manifestJSON),
 		record.manifestDigest, strings.ToLower(strings.Join(searchText, " ")), run.now, run.now)
 	if err != nil {
 		return fmt.Errorf("libraryimport/service: %w", err)

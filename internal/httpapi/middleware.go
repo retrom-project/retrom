@@ -189,10 +189,12 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/netplay/rooms": {"view", "cursor", "limit"},
 	"GET /api/v1/admin/imports": {"q", "state", "platformInstanceId", "sort", "cursor", "limit"},
 	"GET /api/v1/admin/reviews": {
-		"q", "tagId", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode", "sort", "cursor", "limit",
+		"q", "tagId", "importJobId", "pegasusImportId", "emulationStationImportId",
+		"platformInstanceId", "blockerCode", "sort", "cursor", "limit",
 	},
 	"GET /api/v1/admin/review-bulk-approval-preview": {
-		"q", "tagId", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode",
+		"q", "tagId", "importJobId", "pegasusImportId", "emulationStationImportId",
+		"platformInstanceId", "blockerCode",
 	},
 	"GET /api/v1/admin/review-history": {
 		"q", "decision", "platformInstanceId", "fromAtMs", "toAtMs", "sort", "cursor", "limit",
@@ -213,11 +215,12 @@ var exactQueryAllowlists = map[string][]string{
 	"GET /api/v1/admin/bios": {
 		"q", "platformId", "coreId", "coreArtifactId", "scope", "status", "quick", "cursor", "limit",
 	},
-	"GET /api/v1/admin/server-import-roots": {},
-	"GET /api/v1/admin/server-imports":      {"kind", "state", "cursor", "limit"},
-	"GET /api/v1/admin/pegasus-imports":     {"state", "cursor", "limit"},
-	"GET /api/v1/admin/users":               {"q", "role", "status", "sort", "cursor", "limit"},
-	"GET /api/v1/admin/invitations":         {"state", "cursor", "limit"},
+	"GET /api/v1/admin/server-import-roots":      {},
+	"GET /api/v1/admin/server-imports":           {"kind", "state", "cursor", "limit"},
+	"GET /api/v1/admin/pegasus-imports":          {"state", "cursor", "limit"},
+	"GET /api/v1/admin/emulationstation-imports": {"state", "cursor", "limit"},
+	"GET /api/v1/admin/users":                    {"q", "role", "status", "sort", "cursor", "limit"},
+	"GET /api/v1/admin/invitations":              {"state", "cursor", "limit"},
 }
 
 func reviewBulkQueryParameterNames(method, path string) []string {
@@ -263,6 +266,9 @@ func resourceQueryParameterNames(method, path string) []string {
 	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/pegasus-imports/") {
 		return pegasusImportQueryParameterNames(path)
 	}
+	if method == http.MethodGet && strings.HasPrefix(path, "/api/v1/admin/emulationstation-imports/") {
+		return emulationStationImportQueryParameterNames(path)
+	}
 	return nil
 }
 
@@ -274,6 +280,19 @@ func serverImportQueryParameterNames(path string) []string {
 }
 
 func pegasusImportQueryParameterNames(path string) []string {
+	if strings.HasSuffix(path, "/collections") {
+		return []string{"cursor", "limit"}
+	}
+	if strings.HasSuffix(path, "/items") {
+		return []string{"q", "outcome", "warning", "collectionId", "cursor", "limit"}
+	}
+	return []string{}
+}
+
+func emulationStationImportQueryParameterNames(path string) []string {
+	if strings.HasSuffix(path, "/gamelists") {
+		return []string{"parseState", "cursor", "limit"}
+	}
 	if strings.HasSuffix(path, "/collections") {
 		return []string{"cursor", "limit"}
 	}

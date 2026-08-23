@@ -4,8 +4,11 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import hashlib
 import struct
+import zlib
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -13,9 +16,46 @@ from pathlib import Path
 OUTPUTS = {
     Path(__file__).with_name("gba-smoke.gba"): (b"RETROM SMOKE", b"RTSM"),
     Path(__file__).with_name("pegasus-smoke.gba"): (b"RETROM PEGAS", b"RTPG"),
+    Path(__file__).with_name("emulationstation-smoke.gba"): (
+        b"RETROM ESTAT",
+        b"RTES",
+    ),
 }
+GAMELIST_OUTPUT = Path(__file__).with_name("gamelist.xml")
+COVER_OUTPUT = Path(__file__).with_name("emulationstation-smoke-cover.png")
+VIDEO_OUTPUT = Path(__file__).with_name("emulationstation-smoke-video.webm")
+GAMELIST = b"""<?xml version="1.0" encoding="UTF-8"?>
+<gameList>
+  <game>
+    <path>./emulationstation-smoke.gba</path>
+    <image>./emulationstation-smoke-cover.png</image>
+    <video>./emulationstation-smoke-video.webm</video>
+    <name>EmulationStation GBA Smoke</name>
+    <desc>Retrom project-owned EmulationStation product E2E fixture</desc>
+    <developer>Retrom</developer>
+    <publisher>Retrom</publisher>
+    <genre>Smoke Test</genre>
+    <players>1</players>
+  </game>
+</gameList>
+"""
+VIDEO_WEBM_BASE64 = """
+GkXfo59ChoEBQveBAULygQRC84EIQoKEd2VibUKHgQJChYECGFOAZwH/////////EU2bdKtNu4tTq4QVSalmU6yBoU27i1OrhBZU
+rmtTrIG7TbuMU6uEElTDZ1OsggEI7AEAAAAAAABoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAVSalmlSrXsYMPQkBNgIRM
+YXZmV0GETGF2ZhZUrmvIrgEAAAAAAAA/14EBc8WIAAAAAAAAAAGcgQAitZyDdW5kiIEAhoVWX1ZQOIOBASPjg4QL68IA4JCwgaC6
+gXCagQJVsIRVuYEBElTDZ6xzc6ljwItjxYgAAAAAAAAAAWfImEWjh0VOQ09ERVJEh4tMYXZjIGxpYnZweB9DtnVBkOeBAKNBDIEA
+AIBwDwCdASqgAHAAAEcIhYWIhYSIAgICvRaF+A/iry7di8gP4A6ID+APYIFXwgOp/9H/5wG8zfwHqARB7Iokx9G7cKVFgqCy+LY0
+Ih4jCAKHwE+QKT8fmraOd0N3bQ/pWGmRtD+lYaZGzRapElruO7Kk5ahVH11wJxmhFr4+wFD4Ce+I+yPw/v3ZED/9aHqP94C/eAv/
+qjP/ExIdA8XNPb/LdivMikGj+iUKnJY29n746Ojy5JTeftyQ4aWqZoFr0L//55mNJ5m3ZH/7VyCLBdwkDFQUy4ABrXT4BQ0qVAD5
+L0EYTfPJO5VNPIXaG9uWzHBODXuIoAZdUdhOKDw7XvWlggrfOY2TBwCjroEAyABxAgABEBAAGAAZ8C/0ADsV4wkAm0JgAa540xc7
+AMQIAA3JMAARJCSIAACjmIEBkAARAgABEBAAGAAYWC/0AAiAgQqAAKOYgQJYABECAAEQEAAYABhYL/QACICBCoAAo5iBAyAAEQIA
+ARAQABgAGFgv9AAIgIEKgAA=
+"""
 ROM_SIZE = 1024
 CODE_OFFSET = 0xC0
+COVER_WIDTH = 70
+COVER_HEIGHT = 98
 
 COND_EQ = 0x0
 COND_NE = 0x1
@@ -295,6 +335,48 @@ def build_rom(title: bytes, product_code: bytes) -> bytes:
     return image.ljust(ROM_SIZE, b"\xFF")
 
 
+def png_chunk(kind: bytes, payload: bytes) -> bytes:
+    checksum = binascii.crc32(kind + payload) & 0xFFFFFFFF
+    return struct.pack(">I", len(payload)) + kind + payload + struct.pack(">I", checksum)
+
+
+def stored_zlib(payload: bytes) -> bytes:
+    result = bytearray(b"\x78\x01")
+    for offset in range(0, len(payload), 0xFFFF):
+        block = payload[offset : offset + 0xFFFF]
+        final = offset + len(block) == len(payload)
+        result.append(1 if final else 0)
+        result.extend(struct.pack("<HH", len(block), 0xFFFF ^ len(block)))
+        result.extend(block)
+    result.extend(struct.pack(">I", zlib.adler32(payload) & 0xFFFFFFFF))
+    return bytes(result)
+
+
+def build_cover() -> bytes:
+    rows = bytearray()
+    for y_coordinate in range(COVER_HEIGHT):
+        rows.append(0)
+        for x_coordinate in range(COVER_WIDTH):
+            if 8 <= x_coordinate < 62 and 10 <= y_coordinate < 88:
+                color = (75, 214, 197)
+            elif (x_coordinate // 7 + y_coordinate // 7) % 2 == 0:
+                color = (91, 70, 216)
+            else:
+                color = (16, 24, 39)
+            rows.extend(color)
+    header = struct.pack(">IIBBBBB", COVER_WIDTH, COVER_HEIGHT, 8, 2, 0, 0, 0)
+    return (
+        b"\x89PNG\r\n\x1a\n"
+        + png_chunk(b"IHDR", header)
+        + png_chunk(b"IDAT", stored_zlib(bytes(rows)))
+        + png_chunk(b"IEND", b"")
+    )
+
+
+def build_video() -> bytes:
+    return base64.b64decode("".join(VIDEO_WEBM_BASE64.split()), validate=True)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument(
@@ -307,6 +389,10 @@ def main() -> int:
     images = {
         output: build_rom(title, product_code)
         for output, (title, product_code) in OUTPUTS.items()
+    }
+    media = {
+        COVER_OUTPUT: build_cover(),
+        VIDEO_OUTPUT: build_video(),
     }
     if arguments.check:
         for output, image in images.items():
@@ -322,6 +408,29 @@ def main() -> int:
                 f"gba_smoke_check=passed name={output.name} "
                 f"size={len(image)} sha256={digest}"
             )
+        if not GAMELIST_OUTPUT.exists():
+            raise SystemExit(f"public EmulationStation gamelist is missing: {GAMELIST_OUTPUT}")
+        if GAMELIST_OUTPUT.read_bytes() != GAMELIST:
+            raise SystemExit(
+                "public EmulationStation gamelist drifted; run "
+                "python3 testdata/public-roms/gba-smoke/build.py"
+            )
+        print(
+            "emulationstation_gamelist_check=passed "
+            f"size={len(GAMELIST)} sha256={hashlib.sha256(GAMELIST).hexdigest()}"
+        )
+        for output, payload in media.items():
+            if not output.exists():
+                raise SystemExit(f"public EmulationStation media is missing: {output}")
+            if output.read_bytes() != payload:
+                raise SystemExit(
+                    f"public EmulationStation media drifted: {output.name}; run "
+                    "python3 testdata/public-roms/gba-smoke/build.py"
+                )
+            print(
+                f"emulationstation_media_check=passed name={output.name} "
+                f"size={len(payload)} sha256={hashlib.sha256(payload).hexdigest()}"
+            )
         return 0
 
     for output, image in images.items():
@@ -329,6 +438,17 @@ def main() -> int:
         digest = hashlib.sha256(image).hexdigest()
         print(
             f"gba_smoke_generated={output} size={len(image)} sha256={digest}"
+        )
+    GAMELIST_OUTPUT.write_bytes(GAMELIST)
+    print(
+        f"emulationstation_gamelist_generated={GAMELIST_OUTPUT} "
+        f"size={len(GAMELIST)} sha256={hashlib.sha256(GAMELIST).hexdigest()}"
+    )
+    for output, payload in media.items():
+        output.write_bytes(payload)
+        print(
+            f"emulationstation_media_generated={output} "
+            f"size={len(payload)} sha256={hashlib.sha256(payload).hexdigest()}"
         )
     return 0
 

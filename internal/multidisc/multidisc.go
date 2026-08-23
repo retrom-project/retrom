@@ -129,6 +129,17 @@ func Parse(playlist []byte, files []File, limits Limits) (Result, error) {
 	return result, nil
 }
 
+// References validates a playlist and returns its bounded source references.
+// Callers that need to acquire files can use this first so unrelated files in
+// the same directory are never opened merely because a playlist is present.
+func References(playlist []byte, limits Limits) ([]string, error) {
+	playlist, err := validatePlaylistInput(playlist, limits)
+	if err != nil {
+		return nil, err
+	}
+	return parseReferences(playlist, limits.MaxDiscs)
+}
+
 func validatePlaylistInput(playlist []byte, limits Limits) ([]byte, error) {
 	if limits.MaxDiscs < MinDiscs || limits.MaxDiscs > MaxDiscs || limits.MaxTotalBytes <= 0 {
 		return nil, invalid(CodeLimitExceeded, "invalid frozen limits")

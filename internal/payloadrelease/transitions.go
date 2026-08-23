@@ -83,17 +83,40 @@ func scheduleTerminalOwner(
 }
 
 func ScheduleTerminalPegasusItem(ctx context.Context, transaction *sql.Tx, itemID string, now int64) (string, error) {
+	return scheduleTerminalSourceImportItem(ctx, transaction, itemID, now, pegasusSourceImportItem)
+}
+
+func ScheduleTerminalEmulationStationItem(
+	ctx context.Context,
+	transaction *sql.Tx,
+	itemID string,
+	now int64,
+) (string, error) {
+	return scheduleTerminalSourceImportItem(
+		ctx, transaction, itemID, now, emulationStationSourceImportItem,
+	)
+}
+
+func scheduleTerminalSourceImportItem(
+	ctx context.Context,
+	transaction *sql.Tx,
+	itemID string,
+	now int64,
+	spec sourceImportItemSpec,
+) (string, error) {
 	var state, payloadState string
 	var retryable bool
 	var version int64
 	var publicItem, existing sql.NullString
-	if err := transaction.QueryRowContext(ctx, `
+	query := fmt.Sprintf(`
 SELECT execution_state,retryable,version,payload_state,library_import_item_id,payload_release_job_id
-FROM pegasus_import_items WHERE id=?
-`, itemID).Scan(&state, &retryable, &version, &payloadState, &publicItem, &existing); err != nil {
-		return "", fmt.Errorf("payloadrelease/schedule Pegasus item: %w", err)
+FROM %s WHERE id=?
+`, spec.itemsTable)
+	if err := transaction.QueryRowContext(ctx, query, itemID).
+		Scan(&state, &retryable, &version, &payloadState, &publicItem, &existing); err != nil {
+		return "", fmt.Errorf("payloadrelease/schedule %s item: %w", spec.label, err)
 	}
-	if !terminalPegasusItem(state, retryable) {
+	if !spec.terminal(state, retryable) {
 		return "", nil
 	}
 	if payloadState != "RETAINED" {
@@ -103,34 +126,46 @@ FROM pegasus_import_items WHERE id=?
 		return "", ErrScopeInvalid
 	}
 	if publicItem.Valid {
-		var sharedJob string
-		if err := transaction.QueryRowContext(ctx, `
-SELECT payload_release_job_id FROM import_items
-WHERE id=? AND payload_state IN ('RELEASING','RELEASED','FAILED')
-`, publicItem.String).Scan(&sharedJob); err != nil {
-			return "", fmt.Errorf("payloadrelease/link Pegasus schedule: %w", err)
-		}
-		_, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items SET payload_state='RELEASING',payload_release_job_id=?,version=version+1
-WHERE id=? AND payload_state='RETAINED'
-`, sharedJob, itemID)
-		if err != nil {
-			return "", fmt.Errorf("payloadrelease/link Pegasus release: %w", err)
-		}
-		return sharedJob, nil
+		return linkSourceImportItemRelease(ctx, transaction, itemID, publicItem.String, spec)
 	}
-	jobID, err := Schedule(ctx, transaction, ScopePegasusImportItem, itemID, version+1, ReasonPegasusTerminal, now)
+	jobID, err := Schedule(ctx, transaction, spec.scope, itemID, version+1, spec.reason, now)
 	if err != nil {
 		return "", err
 	}
-	_, err = transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items SET payload_state='RELEASING',payload_release_job_id=?,version=version+1
+	updateQuery := fmt.Sprintf(`
+UPDATE %s
+SET payload_state='RELEASING',payload_release_job_id=?,version=version+1
 WHERE id=? AND version=? AND payload_state='RETAINED'
-`, jobID, itemID, version)
+	`, spec.itemsTable)
+	_, err = transaction.ExecContext(ctx, updateQuery, jobID, itemID, version)
 	if err != nil {
-		return "", fmt.Errorf("payloadrelease/enter Pegasus release: %w", err)
+		return "", fmt.Errorf("payloadrelease/enter %s release: %w", spec.label, err)
 	}
 	return jobID, nil
+}
+
+func linkSourceImportItemRelease(
+	ctx context.Context,
+	transaction *sql.Tx,
+	itemID string,
+	publicItemID string,
+	spec sourceImportItemSpec,
+) (string, error) {
+	var sharedJob string
+	if err := transaction.QueryRowContext(ctx, `
+SELECT payload_release_job_id FROM import_items
+WHERE id=? AND payload_state IN ('RELEASING','RELEASED','FAILED')
+`, publicItemID).Scan(&sharedJob); err != nil {
+		return "", fmt.Errorf("payloadrelease/link %s schedule: %w", spec.label, err)
+	}
+	query := fmt.Sprintf(`
+UPDATE %s SET payload_state='RELEASING',payload_release_job_id=?,version=version+1
+WHERE id=? AND payload_state='RETAINED'
+`, spec.itemsTable)
+	if _, err := transaction.ExecContext(ctx, query, sharedJob, itemID); err != nil {
+		return "", fmt.Errorf("payloadrelease/link %s release: %w", spec.label, err)
+	}
+	return sharedJob, nil
 }
 
 func ScheduleConsumption(ctx context.Context, transaction *sql.Tx, consumptionID string, now int64) (string, error) {

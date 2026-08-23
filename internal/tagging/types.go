@@ -37,10 +37,11 @@ type Reference struct {
 }
 
 type Usage struct {
-	PublishedGameCount     int64 `json:"publishedGameCount"`
-	DeletedGameCount       int64 `json:"deletedGameCount"`
-	ReviewDraftCount       int64 `json:"reviewDraftCount"`
-	PegasusCollectionCount int64 `json:"pegasusCollectionCount"`
+	PublishedGameCount              int64 `json:"publishedGameCount"`
+	DeletedGameCount                int64 `json:"deletedGameCount"`
+	ReviewDraftCount                int64 `json:"reviewDraftCount"`
+	PegasusCollectionCount          int64 `json:"pegasusCollectionCount"`
+	EmulationStationCollectionCount int64 `json:"emulationStationCollectionCount"`
 }
 
 type AdminItem struct {
@@ -75,10 +76,11 @@ type ListFilter struct {
 }
 
 type DeleteImpact struct {
-	PublishedGameCount     int64 `json:"publishedGameCount"`
-	DeletedGameCount       int64 `json:"deletedGameCount"`
-	ReviewDraftCount       int64 `json:"reviewDraftCount"`
-	PegasusCollectionCount int64 `json:"pegasusCollectionCount"`
+	PublishedGameCount              int64 `json:"publishedGameCount"`
+	DeletedGameCount                int64 `json:"deletedGameCount"`
+	ReviewDraftCount                int64 `json:"reviewDraftCount"`
+	PegasusCollectionCount          int64 `json:"pegasusCollectionCount"`
+	EmulationStationCollectionCount int64 `json:"emulationStationCollectionCount"`
 }
 
 type GameTagResult struct {

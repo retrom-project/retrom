@@ -139,7 +139,9 @@ test("ACC-PEG-005 three-step Pegasus import recovers and remains bounded at desk
   await expect(page.getByText("Pegasus BIOS", { exact: true }).first()).toBeVisible();
   await expectNoPageOverflow(page);
 
-  const trigger = page.getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ });
+  const trigger = page
+    .locator(".pegasus-capability")
+    .getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ });
   await trigger.click();
   let drawer = page.getByRole("dialog", { name: "从 Pegasus 目录准备审核事项" });
   await expect(drawer).toBeVisible();
@@ -284,7 +286,10 @@ test("ACC-PEG-006 project-owned Pegasus GBA source publishes and advances real e
   expect(beforeGames.items.filter((game) => game.title === title)).toHaveLength(0);
 
   await page.goto("/admin/imports/server");
-  await page.getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ }).click();
+  await page
+    .locator(".pegasus-capability")
+    .getByRole("button", { name: /选择目录并扫描|继续扫描或映射/ })
+    .click();
   const drawer = page.getByRole("dialog", { name: "从 Pegasus 目录准备审核事项" });
   await drawer.getByRole("button", { name: /^Playable/ }).click();
   await expect(drawer).toContainText("Pegasus BIOS / Playable");

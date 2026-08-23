@@ -173,7 +173,7 @@ func (run *approvalRun) resolveServerOrigin() error {
 		return err
 	}
 	if found {
-		run.input.metadataSourceKind = "SERVER_PEGASUS_IMPORT"
+		run.input.metadataSourceKind = origin.SourceKind
 		run.input.metadataSourceRefID = origin.SourceRefID
 		run.input.decision.ExternalAssets = origin.Assets
 	}
@@ -278,6 +278,11 @@ AND v.core_artifact_id=a.id
 AND p.version=v.platform_instance_version
 AND a.version=v.core_artifact_version
 WHERE i.id=?
+AND (i.review_handoff_kind='DIRECT' OR EXISTS(
+  SELECT 1 FROM emulationstation_import_items reserved_source
+  WHERE reserved_source.library_import_item_id=i.id
+  AND reserved_source.execution_state='REVIEW_PENDING'
+))
 AND (v.status='READY' OR EXISTS(
   SELECT 1 FROM review_runtime_screenshots screenshot
   WHERE screenshot.import_item_id=i.id AND screenshot.validation_id=v.id

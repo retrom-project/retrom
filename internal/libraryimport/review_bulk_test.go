@@ -2,6 +2,7 @@ package libraryimport
 
 import (
 	"database/sql"
+	"errors"
 	"testing"
 
 	"retrom/internal/testassert"
@@ -45,4 +46,13 @@ func TestPreliminaryQuickApprovalReadyRequiresStrictCurrentReadyEvidence(t *test
 			testassert.False(t, preliminaryQuickApprovalReady(candidate), "non-strict candidate was accepted")
 		})
 	}
+}
+
+func TestNormalizeReviewBulkScopeRejectsMultipleSourceBatches(t *testing.T) {
+	t.Parallel()
+	_, err := normalizeReviewBulkScope(ReviewBulkScope{
+		ImportJobID:     "01980000-0000-7000-8000-000000000001",
+		PegasusImportID: "01980000-0000-7000-8000-000000000002",
+	})
+	testassert.Truef(t, errors.Is(err, ErrReviewBulkInvalidScope), "error = %v", err)
 }

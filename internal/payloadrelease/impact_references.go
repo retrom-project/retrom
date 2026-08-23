@@ -19,6 +19,11 @@ WITH game_import_items(id) AS (
  WHERE game_id=?1 AND source_kind='SERVER_PEGASUS_IMPORT'
  UNION SELECT source_ref_id FROM game_metadata_revisions
  WHERE game_id=?1 AND source_kind='SERVER_PEGASUS_IMPORT'
+), game_emulationstation_items(id) AS (
+ SELECT source_ref_id FROM game_content_revisions
+ WHERE game_id=?1 AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
+ UNION SELECT source_ref_id FROM game_metadata_revisions
+ WHERE game_id=?1 AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
 )
 SELECT count(*) FROM (
  SELECT asset.id FROM game_assets asset WHERE asset.game_id=?1 AND asset.blob_id=?2
@@ -104,6 +109,23 @@ SELECT count(*) FROM (
  WHERE file.item_id IN (SELECT id FROM game_pegasus_items) AND file.source_archive_blob_id=?2
  UNION ALL SELECT asset.rowid FROM pegasus_import_item_assets asset
  WHERE asset.item_id IN (SELECT id FROM game_pegasus_items) AND asset.blob_id=?2
+ UNION ALL SELECT file.rowid FROM emulationstation_import_item_files file
+ JOIN emulationstation_import_items item ON item.id=file.item_id
+ WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND file.blob_id=?2
+ UNION ALL SELECT file.rowid FROM emulationstation_import_item_files file
+ JOIN emulationstation_import_items item ON item.id=file.item_id
+ WHERE item.library_import_item_id IN (SELECT id FROM game_import_items)
+   AND file.source_archive_blob_id=?2
+ UNION ALL SELECT asset.rowid FROM emulationstation_import_item_assets asset
+ JOIN emulationstation_import_items item ON item.id=asset.item_id
+ WHERE item.library_import_item_id IN (SELECT id FROM game_import_items) AND asset.blob_id=?2
+ UNION ALL SELECT file.rowid FROM emulationstation_import_item_files file
+ WHERE file.item_id IN (SELECT id FROM game_emulationstation_items) AND file.blob_id=?2
+ UNION ALL SELECT file.rowid FROM emulationstation_import_item_files file
+ WHERE file.item_id IN (SELECT id FROM game_emulationstation_items)
+   AND file.source_archive_blob_id=?2
+ UNION ALL SELECT asset.rowid FROM emulationstation_import_item_assets asset
+ WHERE asset.item_id IN (SELECT id FROM game_emulationstation_items) AND asset.blob_id=?2
 )
 `, gameID, blobID).Scan(&count)
 	if err != nil {

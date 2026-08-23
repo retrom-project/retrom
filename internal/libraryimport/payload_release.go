@@ -29,6 +29,19 @@ SELECT id FROM pegasus_import_items WHERE library_import_item_id=? ORDER BY id
 			return fmt.Errorf("libraryimport/schedule Pegasus payload release: %w", err)
 		}
 	}
+	emulationStationIDs, err := payloadrelease.CollectScopeIDs(ctx, transaction, `
+SELECT id FROM emulationstation_import_items WHERE library_import_item_id=? ORDER BY id
+`, itemID)
+	if err != nil {
+		return fmt.Errorf("libraryimport/read EmulationStation payload owner: %w", err)
+	}
+	for _, emulationStationID := range emulationStationIDs {
+		if _, err := payloadrelease.ScheduleTerminalEmulationStationItem(
+			ctx, transaction, emulationStationID, now,
+		); err != nil {
+			return fmt.Errorf("libraryimport/schedule EmulationStation payload release: %w", err)
+		}
+	}
 	if _, err := payloadrelease.ScheduleTerminalImportJob(ctx, transaction, importID, now); err != nil {
 		return fmt.Errorf("libraryimport/schedule aggregate payload release: %w", err)
 	}

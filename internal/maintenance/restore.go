@@ -224,6 +224,10 @@ WHERE kind IN ('SERVER_PEGASUS_SCAN','SERVER_PEGASUS_IMPORT') AND state IN ('QUE
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored Pegasus jobs: %w", err)
 	}
+	emulationStationJobCount, err := fenceRestoredEmulationStation(ctx, transaction, nowMS)
+	if err != nil {
+		return err
+	}
 	if err := fenceRestoredReviewBulk(ctx, transaction, nowMS); err != nil {
 		return err
 	}
@@ -287,11 +291,26 @@ WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUEST
 `, nowMS, nowMS); err != nil {
 		return fmt.Errorf("maintenance/bundle: fence restored Pegasus imports: %w", err)
 	}
-	sessionCount, _ := sessions.RowsAffected()
-	linkCount, _ := links.RowsAffected()
-	launchCount, _ := launches.RowsAffected()
-	serverJobCount, _ := serverJobs.RowsAffected()
-	pegasusJobCount, _ := pegasusJobs.RowsAffected()
+	return finishRestoreSecurityFence(
+		ctx,
+		transaction,
+		nowMS,
+		[]sql.Result{sessions, links, launches, serverJobs, pegasusJobs},
+		emulationStationJobCount,
+	)
+}
+
+func finishRestoreSecurityFence(
+	ctx context.Context,
+	transaction *sql.Tx,
+	nowMS int64,
+	results []sql.Result,
+	emulationStationJobCount int64,
+) error {
+	counts := make([]int64, len(results))
+	for index, result := range results {
+		counts[index], _ = result.RowsAffected()
+	}
 	auditID, err := uuid.NewV7()
 	if err != nil {
 		return fmt.Errorf("maintenance/bundle: create restore audit ID: %w", err)
@@ -302,9 +321,11 @@ id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
 before_json,after_json,diff_json,request_id,created_at_ms)
 VALUES(?,'SYSTEM',NULL,'restore-security-fence','RESTORE_SECURITY_FENCE','INSTANCE','instance',
 NULL,json_object('revokedSessionCount',?,'revokedAccountLinkCount',?,
-'revokedLaunchCount',?,'failedServerImportCount',?,'failedPegasusJobCount',?),
+'revokedLaunchCount',?,'failedServerImportCount',?,'failedPegasusJobCount',?,
+'failedEmulationStationJobCount',?),
 '{}',NULL,?)
-`, auditID.String(), sessionCount, linkCount, launchCount, serverJobCount, pegasusJobCount, nowMS); err != nil {
+`, auditID.String(), counts[0], counts[1], counts[2], counts[3],
+		counts[4], emulationStationJobCount, nowMS); err != nil {
 		return fmt.Errorf("maintenance/bundle: audit restore security fence: %w", err)
 	}
 	if err := transaction.Commit(); err != nil {

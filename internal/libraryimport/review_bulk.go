@@ -35,12 +35,13 @@ var (
 )
 
 type ReviewBulkScope struct {
-	Q                  string `json:"q,omitempty"`
-	TagID              string `json:"tagId,omitempty"`
-	ImportJobID        string `json:"importJobId,omitempty"`
-	PegasusImportID    string `json:"pegasusImportId,omitempty"`
-	PlatformInstanceID string `json:"platformInstanceId,omitempty"`
-	BlockerCode        string `json:"blockerCode,omitempty"`
+	Q                        string `json:"q,omitempty"`
+	TagID                    string `json:"tagId,omitempty"`
+	ImportJobID              string `json:"importJobId,omitempty"`
+	PegasusImportID          string `json:"pegasusImportId,omitempty"`
+	EmulationStationImportID string `json:"emulationStationImportId,omitempty"`
+	PlatformInstanceID       string `json:"platformInstanceId,omitempty"`
+	BlockerCode              string `json:"blockerCode,omitempty"`
 }
 
 type ReviewBulkCounts struct {
@@ -49,6 +50,7 @@ type ReviewBulkCounts struct {
 	ScreenshotOnly   int `json:"screenshotOnly"`
 	Duplicate        int `json:"duplicate"`
 	AttachmentActive int `json:"attachmentActive"`
+	SourceFlagged    int `json:"sourceFlagged"`
 	NotReadyOrStale  int `json:"notReadyOrStale"`
 }
 
@@ -114,7 +116,7 @@ type reviewBulkCandidate struct {
 	validationID, validationStatus, dependencySnapshot                         sql.NullString
 	validationGeneration, validationPlatformVersion, validationArtifactVersion sql.NullInt64
 	validationDAT, currentDAT, validationDOSEntry, draftDOSEntry               sql.NullString
-	screenshotCurrent, attachmentActive                                        bool
+	screenshotCurrent, attachmentActive, sourceFlagged                         bool
 }
 
 func normalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
@@ -122,12 +124,25 @@ func normalizeReviewBulkScope(scope ReviewBulkScope) (ReviewBulkScope, error) {
 	scope.TagID = strings.TrimSpace(scope.TagID)
 	scope.ImportJobID = strings.TrimSpace(scope.ImportJobID)
 	scope.PegasusImportID = strings.TrimSpace(scope.PegasusImportID)
+	scope.EmulationStationImportID = strings.TrimSpace(scope.EmulationStationImportID)
 	scope.PlatformInstanceID = strings.TrimSpace(scope.PlatformInstanceID)
 	scope.BlockerCode = strings.TrimSpace(scope.BlockerCode)
 	if !utf8.ValidString(scope.Q) || len([]rune(scope.Q)) > 200 || len(scope.BlockerCode) > 120 {
 		return ReviewBulkScope{}, ErrReviewBulkInvalidScope
 	}
-	for _, value := range []string{scope.TagID, scope.ImportJobID, scope.PegasusImportID, scope.PlatformInstanceID} {
+	sourceFilterCount := 0
+	for _, value := range []string{scope.ImportJobID, scope.PegasusImportID, scope.EmulationStationImportID} {
+		if value != "" {
+			sourceFilterCount++
+		}
+	}
+	if sourceFilterCount > 1 {
+		return ReviewBulkScope{}, ErrReviewBulkInvalidScope
+	}
+	for _, value := range []string{
+		scope.TagID, scope.ImportJobID, scope.PegasusImportID,
+		scope.EmulationStationImportID, scope.PlatformInstanceID,
+	} {
 		if value == "" {
 			continue
 		}
@@ -169,7 +184,9 @@ SELECT item.id,draft.version,draft.effective_source_snapshot_id,
        EXISTS(SELECT 1 FROM review_arcade_parent_attachments attachment
          WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')) OR
        EXISTS(SELECT 1 FROM review_multidisc_attachments attachment
-         WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING'))
+         WHERE attachment.import_item_id=item.id AND attachment.state IN ('QUEUED','RUNNING')),
+       COALESCE(json_extract(emulationstation.source_flags_json,'$.hidden'),0)=1 OR
+       COALESCE(json_extract(emulationstation.source_flags_json,'$.adult'),0)=1
 FROM import_items item
 JOIN review_drafts draft ON draft.import_item_id=item.id
 JOIN import_item_source_snapshots source ON source.id=draft.effective_source_snapshot_id
@@ -184,8 +201,13 @@ LEFT JOIN import_item_core_validations validation ON validation.id=(
   ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1
 )
 LEFT JOIN pegasus_import_items pegasus ON pegasus.library_import_item_id=item.id
+LEFT JOIN emulationstation_import_items emulationstation
+ ON emulationstation.library_import_item_id=item.id
 WHERE item.state='REVIEW_PENDING'
-AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')`
+AND (item.review_handoff_kind='DIRECT' OR
+  emulationstation.execution_state='REVIEW_PENDING')
+AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
+AND (emulationstation.id IS NULL OR emulationstation.execution_state='REVIEW_PENDING')`
 	arguments := make([]any, 0, 8)
 	if scope.ImportJobID != "" {
 		query += " AND item.import_job_id=?"
@@ -194,6 +216,10 @@ AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')`
 	if scope.PegasusImportID != "" {
 		query += " AND pegasus.import_id=?"
 		arguments = append(arguments, scope.PegasusImportID)
+	}
+	if scope.EmulationStationImportID != "" {
+		query += " AND emulationstation.import_id=?"
+		arguments = append(arguments, scope.EmulationStationImportID)
 	}
 	if scope.Q != "" {
 		query += ` AND (instr(item.search_text,?)>0 OR EXISTS(
@@ -242,7 +268,7 @@ func scanReviewBulkCandidates(
 			&candidate.validationPlatformVersion, &candidate.validationArtifactVersion,
 			&candidate.validationDAT, &candidate.currentDAT, &candidate.validationDOSEntry,
 			&candidate.draftDOSEntry, &candidate.dependencySnapshot, &candidate.contentKind,
-			&candidate.screenshotCurrent, &candidate.attachmentActive,
+			&candidate.screenshotCurrent, &candidate.attachmentActive, &candidate.sourceFlagged,
 		); err != nil {
 			return nil, fmt.Errorf("libraryimport/review bulk candidates: %w", err)
 		}
@@ -314,6 +340,10 @@ func (service *Service) classifyReviewBulkCandidates(
 			counts.Duplicate++
 			continue
 		}
+		if candidate.sourceFlagged {
+			counts.SourceFlagged++
+			continue
+		}
 		qualified = append(qualified, candidate)
 	}
 	counts.StrictReady = len(qualified)
@@ -341,7 +371,8 @@ func scanReviewBulkSummary(scanner interface{ Scan(...any) error }) (ReviewBulkS
 	err := scanner.Scan(
 		&summary.BulkApprovalID, &summary.JobID, &summary.State, &summary.Version, &scopeJSON,
 		&summary.Counts.Matched, &summary.Counts.StrictReady, &summary.Counts.ScreenshotOnly,
-		&summary.Counts.Duplicate, &summary.Counts.AttachmentActive, &summary.Counts.NotReadyOrStale,
+		&summary.Counts.Duplicate, &summary.Counts.AttachmentActive, &summary.Counts.SourceFlagged,
+		&summary.Counts.NotReadyOrStale,
 		&summary.Progress.Candidate, &summary.Progress.Processed, &summary.Progress.Published,
 		&summary.Progress.SkippedDuplicate, &summary.Progress.SkippedChanged,
 		&summary.Progress.SkippedNotReady, &summary.Progress.Failed, &summary.Progress.Cancelled,
@@ -362,7 +393,8 @@ func scanReviewBulkSummary(scanner interface{ Scan(...any) error }) (ReviewBulkS
 const reviewBulkSummarySelect = `
 SELECT bulk.id,bulk.job_id,bulk.state,bulk.version,bulk.scope_json,
        bulk.matched_count,bulk.candidate_count,bulk.screenshot_only_count,
-       bulk.duplicate_count,bulk.attachment_active_count,bulk.not_ready_or_stale_count,
+       bulk.duplicate_count,bulk.attachment_active_count,bulk.source_flagged_count,
+       bulk.not_ready_or_stale_count,
        bulk.candidate_count,bulk.processed_count,bulk.published_count,
        bulk.skipped_duplicate_count,bulk.skipped_changed_count,bulk.skipped_not_ready_count,
        bulk.failed_count,bulk.cancelled_count,bulk.created_at_ms,bulk.started_at_ms,
@@ -482,12 +514,13 @@ VALUES(?,'REVIEW_BULK_APPROVAL',?,'QUEUED',json_object('candidateCount',?),?)
 	if _, err := transaction.ExecContext(ctx, `
 INSERT INTO review_bulk_approvals(id,job_id,state,scope_json,scope_digest,candidate_manifest_digest,
 matched_count,candidate_count,screenshot_only_count,duplicate_count,attachment_active_count,
-not_ready_or_stale_count,created_by_user_id,version,created_at_ms,updated_at_ms)
-VALUES(?,?,'QUEUED',?,?,?,?,?,?,?,?,?,?,1,?,?)
+source_flagged_count,not_ready_or_stale_count,created_by_user_id,version,created_at_ms,updated_at_ms)
+VALUES(?,?,'QUEUED',?,?,?,?,?,?,?,?,?,?,?,1,?,?)
 `,
 		bulkID.String(), jobID.String(), scopeJSON, preview.ScopeDigest, preview.CandidateManifestDigest,
 		preview.Counts.Matched, len(candidates), preview.Counts.ScreenshotOnly, preview.Counts.Duplicate,
-		preview.Counts.AttachmentActive, preview.Counts.NotReadyOrStale, createdBy, now, now,
+		preview.Counts.AttachmentActive, preview.Counts.SourceFlagged,
+		preview.Counts.NotReadyOrStale, createdBy, now, now,
 	); err != nil {
 		if strings.Contains(err.Error(), "review_bulk_approvals_one_active") {
 			return ReviewBulkSummary{}, ErrReviewBulkActive

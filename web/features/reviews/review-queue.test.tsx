@@ -57,6 +57,22 @@ describe("ReviewQueue", () => {
     expect(screen.getByRole("button", { name: "未找到信息 0" })).toBeVisible();
   });
 
+  it("identifies EmulationStation metadata and keeps its zero-candidate items reviewable", () => {
+    const emulationStation = {
+      ...item,
+      sourceKind: "EMULATIONSTATION" as const,
+      sourceLabel: "NES gamelist.xml",
+      candidateCount: 0,
+      emulationStationImportId: "es-batch-1",
+    };
+    render(<ReviewQueue initial={{ items: [emulationStation], nextCursor: null }} values={{ emulationStationImportId: "es-batch-1" }} />);
+
+    expect(screen.getByText("已读取 Gamelist 信息")).toBeVisible();
+    expect(screen.getByText("EmulationStation · NES gamelist.xml")).toBeVisible();
+    expect(screen.getByText("等待管理员核对来源标记与媒体")).toBeVisible();
+    expect(screen.getByRole("button", { name: "未找到信息 0" })).toBeVisible();
+  });
+
   it("ignores a persisted queue after a stale review link is recovered", async () => {
     const staleItem = { ...item, itemId: "stale-item", draftTitle: "Already processed game" };
     sessionStorage.setItem("retrom:v2:user:user-1:reviews:queue:", JSON.stringify({

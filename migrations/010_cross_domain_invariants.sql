@@ -94,6 +94,11 @@ CREATE INDEX games_library ON games(status, platform_instance_id, search_text, i
 
 CREATE INDEX import_items_queue ON import_items(state, updated_at_ms, id);
 
+CREATE TRIGGER import_items_review_handoff_kind_immutable
+BEFORE UPDATE OF review_handoff_kind ON import_items
+WHEN NEW.review_handoff_kind<>OLD.review_handoff_kind
+BEGIN SELECT RAISE(ABORT,'immutable import review handoff kind'); END;
+
 CREATE INDEX import_job_file_resolutions_actor
 ON import_job_file_resolutions(actor_user_id,created_at_ms);
 
@@ -153,6 +158,30 @@ CREATE INDEX pegasus_items_outcome ON pegasus_import_items(import_id,execution_s
 CREATE INDEX pegasus_items_page ON pegasus_import_items(import_id,title,id);
 
 CREATE INDEX pegasus_metadata_page ON pegasus_import_metadata_files(import_id,relative_path);
+
+CREATE INDEX emulationstation_collection_tags_tag ON emulationstation_collection_tags(tag_id,collection_id);
+
+CREATE INDEX emulationstation_collections_mapping ON emulationstation_import_collections(import_id,mapping_action,id);
+
+CREATE INDEX emulationstation_collections_page ON emulationstation_import_collections(import_id,gamelist_relative_path,id);
+
+CREATE INDEX emulationstation_gamelists_page ON emulationstation_import_gamelists(import_id,relative_path);
+
+CREATE INDEX emulationstation_imports_history ON emulationstation_imports(created_at_ms DESC,id DESC);
+
+CREATE UNIQUE INDEX emulationstation_imports_one_active_execution ON emulationstation_imports((1))
+WHERE state IN ('QUEUED','RUNNING','CANCEL_REQUESTED');
+
+CREATE INDEX emulationstation_imports_state ON emulationstation_imports(state,updated_at_ms DESC,id DESC);
+
+CREATE INDEX emulationstation_items_collection ON emulationstation_import_items(import_id,collection_id,title,id);
+
+CREATE UNIQUE INDEX emulationstation_items_library_review ON emulationstation_import_items(library_import_item_id)
+WHERE library_import_item_id IS NOT NULL;
+
+CREATE INDEX emulationstation_items_outcome ON emulationstation_import_items(import_id,execution_state,title,id);
+
+CREATE INDEX emulationstation_items_page ON emulationstation_import_items(import_id,title,id);
 
 CREATE UNIQUE INDEX platform_instances_catalog_template_key_unique
 ON platform_instances(catalog_template_key)
@@ -494,6 +523,27 @@ WHEN NEW.source_kind='SERVER_PEGASUS_IMPORT' AND NOT EXISTS(
 )
 BEGIN SELECT RAISE(ABORT,'invalid Pegasus content source'); END;
 
+CREATE TRIGGER game_content_revisions_emulationstation_source_insert
+BEFORE INSERT ON game_content_revisions
+WHEN NEW.source_kind='SERVER_EMULATIONSTATION_IMPORT' AND NOT EXISTS(
+  SELECT 1
+  FROM emulationstation_import_items item
+  WHERE item.id=NEW.source_ref_id
+  AND item.content_kind=NEW.content_kind
+  AND item.execution_state='REVIEW_PENDING'
+  AND item.library_import_item_id IS NOT NULL
+  AND EXISTS(
+    SELECT 1
+    FROM review_drafts draft
+    JOIN import_item_source_snapshots snapshot ON snapshot.id=draft.effective_source_snapshot_id
+    WHERE draft.import_item_id=item.library_import_item_id
+    AND snapshot.import_item_id=item.library_import_item_id
+    AND snapshot.content_kind=NEW.content_kind
+    AND snapshot.source_manifest_digest=NEW.source_manifest_digest
+  )
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation content source'); END;
+
 CREATE TRIGGER game_content_revisions_review_snapshot_insert
 BEFORE INSERT ON game_content_revisions
 WHEN NEW.source_kind='IMPORT_REVIEW' AND EXISTS(SELECT 1 FROM import_items item WHERE item.id=NEW.source_ref_id)
@@ -517,6 +567,17 @@ WHEN NEW.source_kind='SERVER_PEGASUS_IMPORT' AND NOT EXISTS(
   AND item.execution_state='REVIEW_PENDING'
 )
 BEGIN SELECT RAISE(ABORT,'invalid Pegasus metadata source'); END;
+
+CREATE TRIGGER game_metadata_revisions_emulationstation_source_insert
+BEFORE INSERT ON game_metadata_revisions
+WHEN NEW.source_kind='SERVER_EMULATIONSTATION_IMPORT' AND NOT EXISTS(
+  SELECT 1 FROM emulationstation_import_items item
+  JOIN import_items public_item ON public_item.id=item.library_import_item_id
+  JOIN review_drafts draft ON draft.import_item_id=public_item.id
+  WHERE item.id=NEW.source_ref_id AND item.execution_state='REVIEW_PENDING'
+    AND public_item.state='REVIEW_PENDING' AND draft.effective_source_snapshot_id IS NOT NULL
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation metadata source'); END;
 
 CREATE TRIGGER game_tags_immutable_update
 BEFORE UPDATE ON game_tags
@@ -1029,6 +1090,603 @@ BEGIN SELECT RAISE(ABORT,'immutable Pegasus item snapshot'); END;
 
 CREATE TRIGGER pegasus_metadata_files_immutable_update BEFORE UPDATE ON pegasus_import_metadata_files BEGIN SELECT RAISE(ABORT,'immutable'); END;
 
+CREATE TRIGGER emulationstation_import_initial_insert
+BEFORE INSERT ON emulationstation_imports
+WHEN NEW.state<>'SCANNING' OR NEW.phase<>'DISCOVERING_GAMELISTS'
+  OR NEW.source_snapshot_digest IS NOT NULL OR NEW.import_job_id IS NOT NULL
+  OR NEW.scan_completed_at_ms IS NOT NULL OR NEW.started_at_ms IS NOT NULL OR NEW.completed_at_ms IS NOT NULL
+  OR NEW.gamelist_count<>0 OR NEW.invalid_gamelist_count<>0 OR NEW.collection_count<>0
+  OR NEW.folder_entry_count<>0 OR NEW.game_count<>0 OR NEW.estimated_source_bytes<>0
+  OR NEW.mapped_collection_count<>0 OR NEW.skipped_collection_count<>0
+  OR NEW.skipped_mapping_item_count<>0 OR NEW.processable_item_count<>0 OR NEW.blocked_item_count<>0
+  OR NEW.review_pending_item_count<>0 OR NEW.published_item_count<>0 OR NEW.review_discarded_item_count<>0
+  OR NEW.existing_item_count<>0 OR NEW.failed_item_count<>0 OR NEW.cancelled_item_count<>0
+  OR NEW.media_warning_count<>0 OR NEW.discovered_cover_count<>0 OR NEW.discovered_video_count<>0
+BEGIN SELECT RAISE(ABORT,'invalid initial EmulationStation import'); END;
+
+CREATE TRIGGER emulationstation_import_identity_update
+BEFORE UPDATE OF id,root_id,root_label_snapshot,source_relative_path,root_config_digest,release_year_max,
+  scan_job_id,created_by_user_id,created_at_ms,expires_at_ms ON emulationstation_imports
+WHEN NEW.id<>OLD.id OR NEW.root_id<>OLD.root_id OR NEW.root_label_snapshot<>OLD.root_label_snapshot
+  OR NEW.source_relative_path<>OLD.source_relative_path OR NEW.root_config_digest<>OLD.root_config_digest
+  OR NEW.release_year_max<>OLD.release_year_max OR NEW.scan_job_id<>OLD.scan_job_id
+  OR NEW.created_by_user_id<>OLD.created_by_user_id OR NEW.created_at_ms<>OLD.created_at_ms
+  OR NEW.expires_at_ms<>OLD.expires_at_ms
+BEGIN SELECT RAISE(ABORT,'immutable EmulationStation import identity'); END;
+
+CREATE TRIGGER emulationstation_import_scan_job_insert
+BEFORE INSERT ON emulationstation_imports
+WHEN NOT EXISTS(
+  SELECT 1 FROM jobs job WHERE job.id=NEW.scan_job_id
+  AND job.kind='SERVER_EMULATIONSTATION_SCAN'
+  AND job.scope_type='EMULATIONSTATION_IMPORT' AND job.scope_id=NEW.id
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation scan job'); END;
+
+CREATE TRIGGER emulationstation_import_job_update
+BEFORE UPDATE OF import_job_id ON emulationstation_imports
+WHEN OLD.import_job_id IS NOT NEW.import_job_id AND (
+  OLD.import_job_id IS NOT NULL OR NEW.import_job_id IS NULL OR NOT EXISTS(
+    SELECT 1 FROM jobs job WHERE job.id=NEW.import_job_id
+    AND job.kind='SERVER_EMULATIONSTATION_IMPORT'
+    AND job.scope_type='EMULATIONSTATION_IMPORT' AND job.scope_id=NEW.id
+  )
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation import job'); END;
+
+CREATE TRIGGER emulationstation_import_state_update
+BEFORE UPDATE OF state ON emulationstation_imports
+WHEN OLD.state<>NEW.state AND NOT (
+  OLD.state='SCANNING' AND NEW.state IN ('AWAITING_MAPPING','FAILED') OR
+  OLD.state='AWAITING_MAPPING' AND NEW.state IN ('QUEUED','EXPIRED','FAILED') OR
+  OLD.state='QUEUED' AND NEW.state IN ('RUNNING','CANCELLED','FAILED') OR
+  OLD.state='RUNNING' AND NEW.state IN ('QUEUED','COMPLETED','PARTIAL_FAILURE','CANCEL_REQUESTED','CANCELLED','FAILED') OR
+  OLD.state='CANCEL_REQUESTED' AND NEW.state IN ('CANCELLED','FAILED') OR
+  OLD.state IN ('PARTIAL_FAILURE','FAILED') AND OLD.retryable=1 AND NEW.state='QUEUED'
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation import state transition'); END;
+
+CREATE TRIGGER emulationstation_import_lifecycle_update
+BEFORE UPDATE OF state,phase,source_snapshot_digest,import_job_id,scan_completed_at_ms,started_at_ms,completed_at_ms,
+  cancel_reason,last_error_code,retryable ON emulationstation_imports
+WHEN NOT (
+  NEW.state='SCANNING' AND NEW.import_job_id IS NULL AND NEW.source_snapshot_digest IS NULL
+    AND NEW.scan_completed_at_ms IS NULL AND NEW.started_at_ms IS NULL AND NEW.completed_at_ms IS NULL
+    AND NEW.phase IN ('DISCOVERING_GAMELISTS','PARSING_GAMELISTS','RESOLVING_SOURCES')
+  OR NEW.state='AWAITING_MAPPING' AND NEW.import_job_id IS NULL AND NEW.source_snapshot_digest IS NOT NULL
+    AND NEW.scan_completed_at_ms IS NOT NULL AND NEW.started_at_ms IS NULL AND NEW.completed_at_ms IS NULL AND NEW.phase IS NULL
+  OR NEW.state='QUEUED' AND NEW.import_job_id IS NOT NULL AND NEW.source_snapshot_digest IS NOT NULL
+    AND NEW.scan_completed_at_ms IS NOT NULL AND NEW.completed_at_ms IS NULL AND NEW.phase IS NULL
+  OR NEW.state='RUNNING' AND NEW.import_job_id IS NOT NULL AND NEW.source_snapshot_digest IS NOT NULL
+    AND NEW.scan_completed_at_ms IS NOT NULL AND NEW.started_at_ms IS NOT NULL AND NEW.completed_at_ms IS NULL
+    AND NEW.phase IN ('COPYING_CONTENT','VALIDATING','PREPARING_REVIEWS')
+  OR NEW.state='CANCEL_REQUESTED' AND NEW.import_job_id IS NOT NULL AND NEW.cancel_reason IS NOT NULL
+    AND NEW.completed_at_ms IS NULL AND NEW.phase IN ('COPYING_CONTENT','VALIDATING','PREPARING_REVIEWS')
+  OR NEW.state IN ('COMPLETED','PARTIAL_FAILURE','CANCELLED') AND NEW.import_job_id IS NOT NULL
+    AND NEW.source_snapshot_digest IS NOT NULL AND NEW.scan_completed_at_ms IS NOT NULL
+    AND NEW.completed_at_ms IS NOT NULL AND NEW.phase IS NULL
+  OR NEW.state='EXPIRED' AND NEW.import_job_id IS NULL AND NEW.source_snapshot_digest IS NOT NULL
+    AND NEW.scan_completed_at_ms IS NOT NULL AND NEW.completed_at_ms IS NOT NULL AND NEW.phase IS NULL
+  OR NEW.state='FAILED' AND NEW.completed_at_ms IS NOT NULL AND NEW.phase IS NULL
+    AND NEW.last_error_code IS NOT NULL
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation import lifecycle'); END;
+
+CREATE TRIGGER emulationstation_import_version_update
+BEFORE UPDATE ON emulationstation_imports
+WHEN NEW.version<OLD.version OR NEW.mapping_version<OLD.mapping_version OR NEW.updated_at_ms<OLD.updated_at_ms
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation import version'); END;
+
+CREATE TRIGGER emulationstation_import_scan_complete_update
+BEFORE UPDATE OF state ON emulationstation_imports
+WHEN NEW.state='AWAITING_MAPPING' AND (
+  NEW.gamelist_count<>(SELECT count(*) FROM emulationstation_import_gamelists source WHERE source.import_id=NEW.id) OR
+  NEW.invalid_gamelist_count<>(SELECT count(*) FROM emulationstation_import_gamelists source WHERE source.import_id=NEW.id AND source.parse_state='INVALID') OR
+  NEW.collection_count<>(SELECT count(*) FROM emulationstation_import_collections source WHERE source.import_id=NEW.id) OR
+  NEW.game_count<>(SELECT count(*) FROM emulationstation_import_items source WHERE source.import_id=NEW.id) OR
+  NEW.folder_entry_count<>(SELECT COALESCE(sum(source.folder_count),0) FROM emulationstation_import_gamelists source WHERE source.import_id=NEW.id) OR
+  NEW.blocked_item_count<>(SELECT count(*) FROM emulationstation_import_items source WHERE source.import_id=NEW.id AND source.discovery_state<>'READY') OR
+  NEW.processable_item_count<>(SELECT count(*) FROM emulationstation_import_items source WHERE source.import_id=NEW.id AND source.discovery_state='READY') OR
+  EXISTS(SELECT 1 FROM emulationstation_import_collections collection
+    LEFT JOIN emulationstation_import_gamelists source
+      ON source.import_id=collection.import_id AND source.relative_path=collection.gamelist_relative_path
+    WHERE collection.import_id=NEW.id AND (source.relative_path IS NULL OR source.parse_state<>'VALID'))
+)
+BEGIN SELECT RAISE(ABORT,'incomplete EmulationStation scan snapshot'); END;
+
+CREATE TRIGGER emulationstation_import_terminal_counts_update
+BEFORE UPDATE OF state,skipped_mapping_item_count,review_pending_item_count,published_item_count,
+  review_discarded_item_count,existing_item_count,blocked_item_count,failed_item_count,cancelled_item_count
+ON emulationstation_imports
+WHEN NEW.state IN ('PARTIAL_FAILURE','COMPLETED','CANCELLED','FAILED','EXPIRED') AND (
+  NEW.skipped_mapping_item_count+NEW.review_pending_item_count+NEW.published_item_count+
+    NEW.review_discarded_item_count+NEW.existing_item_count+NEW.blocked_item_count+
+    NEW.failed_item_count+NEW.cancelled_item_count<>NEW.game_count OR
+  NEW.skipped_mapping_item_count<>(SELECT count(*) FROM emulationstation_import_items item WHERE item.import_id=NEW.id AND item.execution_state='SKIPPED_MAPPING') OR
+  NEW.review_pending_item_count<>(SELECT count(*) FROM emulationstation_import_items item WHERE item.import_id=NEW.id AND item.execution_state='REVIEW_PENDING') OR
+  NEW.published_item_count<>(SELECT count(*) FROM emulationstation_import_items item WHERE item.import_id=NEW.id AND item.execution_state='PUBLISHED') OR
+  NEW.review_discarded_item_count<>(SELECT count(*) FROM emulationstation_import_items item WHERE item.import_id=NEW.id AND item.execution_state='REVIEW_DISCARDED') OR
+  NEW.existing_item_count<>(SELECT count(*) FROM emulationstation_import_items item WHERE item.import_id=NEW.id AND item.execution_state='SKIPPED_EXISTING') OR
+  NEW.blocked_item_count<>(SELECT count(*) FROM emulationstation_import_items item WHERE item.import_id=NEW.id AND item.execution_state IN ('BLOCKED_SOURCE','BLOCKED_CONTENT')) OR
+  NEW.failed_item_count<>(SELECT count(*) FROM emulationstation_import_items item WHERE item.import_id=NEW.id AND item.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')) OR
+  NEW.cancelled_item_count<>(SELECT count(*) FROM emulationstation_import_items item WHERE item.import_id=NEW.id AND item.execution_state='CANCELLED')
+)
+BEGIN SELECT RAISE(ABORT,'invalid terminal EmulationStation counts'); END;
+
+CREATE TRIGGER emulationstation_import_delete
+BEFORE DELETE ON emulationstation_imports
+WHEN OLD.import_job_id IS NOT NULL OR OLD.state NOT IN ('AWAITING_MAPPING','EXPIRED')
+  OR OLD.state='AWAITING_MAPPING' AND EXISTS(
+    SELECT 1 FROM emulationstation_import_items item
+    WHERE item.import_id=OLD.id AND item.execution_state<>'PENDING'
+  )
+  OR OLD.state='EXPIRED' AND EXISTS(
+    SELECT 1 FROM emulationstation_import_items item
+    WHERE item.import_id=OLD.id AND item.execution_state<>'CANCELLED'
+  )
+BEGIN SELECT RAISE(ABORT,'EmulationStation import is not deletable'); END;
+
+CREATE TRIGGER emulationstation_gamelist_insert
+BEFORE INSERT ON emulationstation_import_gamelists
+WHEN NOT EXISTS(SELECT 1 FROM emulationstation_imports import WHERE import.id=NEW.import_id AND import.state='SCANNING')
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation gamelist staging insert'); END;
+
+CREATE TRIGGER emulationstation_gamelist_json_insert
+BEFORE INSERT ON emulationstation_import_gamelists
+WHEN json_array_length(NEW.ignored_fields_json)>64 OR EXISTS(
+  SELECT 1 FROM json_each(NEW.ignored_fields_json) entry
+  WHERE entry.type<>'text' OR length(entry.value)=0 OR length(CAST(entry.value AS BLOB))>1024
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation ignored fields'); END;
+
+CREATE TRIGGER emulationstation_gamelist_delete
+BEFORE DELETE ON emulationstation_import_gamelists
+WHEN NOT EXISTS(SELECT 1 FROM emulationstation_imports import
+  WHERE import.id=OLD.import_id AND import.state IN ('SCANNING','AWAITING_MAPPING','EXPIRED'))
+BEGIN SELECT RAISE(ABORT,'EmulationStation gamelist snapshot is frozen'); END;
+
+CREATE TRIGGER emulationstation_gamelists_immutable_update
+BEFORE UPDATE ON emulationstation_import_gamelists
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
+
+CREATE TRIGGER emulationstation_collection_insert
+BEFORE INSERT ON emulationstation_import_collections
+WHEN NOT EXISTS(
+  SELECT 1 FROM emulationstation_imports import
+  JOIN emulationstation_import_gamelists source ON source.import_id=import.id
+  WHERE import.id=NEW.import_id AND import.state='SCANNING'
+    AND source.relative_path=NEW.gamelist_relative_path AND source.parse_state='VALID'
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation collection owner'); END;
+
+CREATE TRIGGER emulationstation_collection_json_insert
+BEFORE INSERT ON emulationstation_import_collections
+WHEN json_array_length(NEW.extension_summary_json)>32 OR EXISTS(
+  SELECT 1 FROM json_each(NEW.extension_summary_json) entry
+  WHERE entry.type<>'object'
+    OR (SELECT count(*) FROM json_each(entry.value))<>2
+    OR EXISTS(SELECT 1 FROM json_each(entry.value) member WHERE member.key NOT IN ('extension','count'))
+    OR json_type(entry.value,'$.extension')<>'text' OR length(json_extract(entry.value,'$.extension'))=0
+    OR json_type(entry.value,'$.count')<>'integer' OR json_extract(entry.value,'$.count')<=0
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation extension summary'); END;
+
+CREATE TRIGGER emulationstation_collection_snapshot_update
+BEFORE UPDATE OF id,import_id,gamelist_relative_path,relative_directory,display_name,game_count,issue_count,
+  folder_entry_count,hidden_game_count,adult_game_count,extension_summary_json,extension_other_count,created_at_ms
+ON emulationstation_import_collections
+BEGIN SELECT RAISE(ABORT,'immutable EmulationStation collection snapshot'); END;
+
+CREATE TRIGGER emulationstation_collection_mapping_update
+BEFORE UPDATE OF mapping_action,target_platform_instance_id,target_platform_instance_version,target_platform_id,
+  target_default_core_id,target_core_artifact_id,target_core_artifact_version,target_dat_version_id,tag_snapshot_json
+ON emulationstation_import_collections
+WHEN NOT EXISTS(SELECT 1 FROM emulationstation_imports import WHERE import.id=OLD.import_id AND import.state='AWAITING_MAPPING')
+BEGIN SELECT RAISE(ABORT,'EmulationStation mapping is frozen'); END;
+
+CREATE TRIGGER emulationstation_collection_mapping_validate_update
+BEFORE UPDATE OF mapping_action,target_platform_instance_id,target_platform_instance_version,target_platform_id,
+  target_default_core_id,target_core_artifact_id,target_core_artifact_version,target_dat_version_id,tag_snapshot_json
+ON emulationstation_import_collections
+WHEN NEW.mapping_action='IMPORT' AND (
+  NOT EXISTS(
+    SELECT 1 FROM platform_instances instance
+    JOIN platforms platform ON platform.id=instance.platform_id AND platform.enabled=1
+    JOIN cores core ON core.id=instance.default_core_id AND core.enabled=1
+    JOIN platform_cores relation ON relation.platform_id=instance.platform_id
+      AND relation.core_id=instance.default_core_id AND relation.enabled=1
+    JOIN core_artifacts artifact ON artifact.id=NEW.target_core_artifact_id
+      AND artifact.core_id=instance.default_core_id AND artifact.enabled=1
+    WHERE instance.id=NEW.target_platform_instance_id AND instance.enabled=1 AND instance.deleted_at_ms IS NULL
+      AND instance.version=NEW.target_platform_instance_version AND instance.platform_id=NEW.target_platform_id
+      AND instance.default_core_id=NEW.target_default_core_id AND artifact.version=NEW.target_core_artifact_version
+  ) OR NEW.target_dat_version_id IS NOT NULL AND NOT EXISTS(
+    SELECT 1 FROM dat_versions dat WHERE dat.id=NEW.target_dat_version_id
+      AND dat.core_id=NEW.target_default_core_id AND dat.core_artifact_id=NEW.target_core_artifact_id
+      AND dat.is_active=1 AND dat.parse_status='READY'
+  ) OR json_array_length(NEW.tag_snapshot_json)<>(
+    SELECT count(*) FROM emulationstation_collection_tags relation
+    JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+    WHERE relation.collection_id=NEW.id
+  ) OR EXISTS(
+    SELECT 1 FROM json_each(NEW.tag_snapshot_json) entry
+    LEFT JOIN tags tag ON tag.id=json_extract(entry.value,'$.tagId') AND tag.status='ACTIVE'
+    LEFT JOIN emulationstation_collection_tags relation
+      ON relation.collection_id=NEW.id AND relation.tag_id=tag.id
+    WHERE tag.id IS NULL OR relation.tag_id IS NULL OR tag.name<>json_extract(entry.value,'$.name')
+  )
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation mapping target'); END;
+
+CREATE TRIGGER emulationstation_collection_tag_json_update
+BEFORE UPDATE OF tag_snapshot_json ON emulationstation_import_collections
+WHEN json_array_length(NEW.tag_snapshot_json)>20 OR EXISTS(
+  SELECT 1 FROM json_each(NEW.tag_snapshot_json) entry
+  WHERE entry.type<>'object' OR (SELECT count(*) FROM json_each(entry.value))<>2
+    OR EXISTS(SELECT 1 FROM json_each(entry.value) member WHERE member.key NOT IN ('tagId','name'))
+    OR json_type(entry.value,'$.tagId')<>'text' OR length(json_extract(entry.value,'$.tagId'))=0
+    OR json_type(entry.value,'$.name')<>'text' OR length(json_extract(entry.value,'$.name'))=0
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation tag snapshot'); END;
+
+CREATE TRIGGER emulationstation_collection_delete
+BEFORE DELETE ON emulationstation_import_collections
+WHEN NOT EXISTS(SELECT 1 FROM emulationstation_imports import
+  WHERE import.id=OLD.import_id AND import.state IN ('SCANNING','AWAITING_MAPPING','EXPIRED'))
+BEGIN SELECT RAISE(ABORT,'EmulationStation collection snapshot is frozen'); END;
+
+CREATE TRIGGER emulationstation_collection_tags_immutable_update
+BEFORE UPDATE ON emulationstation_collection_tags
+BEGIN SELECT RAISE(ABORT,'immutable'); END;
+
+CREATE TRIGGER emulationstation_collection_tags_validate_delete
+BEFORE DELETE ON emulationstation_collection_tags
+WHEN EXISTS(SELECT 1 FROM tags WHERE id=OLD.tag_id AND status='ACTIVE') AND NOT EXISTS(
+  SELECT 1 FROM emulationstation_import_collections collection
+  JOIN emulationstation_imports import ON import.id=collection.import_id
+  WHERE collection.id=OLD.collection_id AND import.state IN ('AWAITING_MAPPING','EXPIRED')
+)
+BEGIN SELECT RAISE(ABORT,'EmulationStation collection tag mapping is frozen'); END;
+
+CREATE TRIGGER emulationstation_collection_tags_validate_insert
+BEFORE INSERT ON emulationstation_collection_tags
+WHEN NOT EXISTS(SELECT 1 FROM tags WHERE id=NEW.tag_id AND status='ACTIVE') OR NOT EXISTS(
+    SELECT 1 FROM emulationstation_import_collections collection
+    JOIN emulationstation_imports import ON import.id=collection.import_id
+    WHERE collection.id=NEW.collection_id AND import.state='AWAITING_MAPPING'
+  ) OR (SELECT count(*) FROM emulationstation_collection_tags relation
+      JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+      WHERE relation.collection_id=NEW.collection_id)>=20
+BEGIN SELECT RAISE(ABORT,'invalid active EmulationStation collection tag'); END;
+
+CREATE TRIGGER emulationstation_item_insert
+BEFORE INSERT ON emulationstation_import_items
+WHEN NEW.execution_state<>'PENDING' OR NEW.payload_state<>'RETAINED'
+  OR NEW.library_import_job_id IS NOT NULL OR NEW.library_import_item_id IS NOT NULL
+  OR NEW.published_game_id IS NOT NULL OR NEW.existing_game_id IS NOT NULL OR NEW.existing_content_revision_id IS NOT NULL
+  OR NEW.existing_matches_json<>'[]' OR NEW.error_details_json IS NOT NULL OR NEW.completed_at_ms IS NOT NULL
+  OR json_array_length(NEW.warnings_json)>64 OR EXISTS(
+    SELECT 1 FROM json_each(NEW.warnings_json) entry
+    WHERE entry.type<>'object' OR (SELECT count(*) FROM json_each(entry.value)) NOT BETWEEN 1 AND 6
+      OR EXISTS(SELECT 1 FROM json_each(entry.value) member
+        WHERE member.key NOT IN ('code','field','pathKind','omittedCount','originalLength','retainedLength') OR member.type='null')
+      OR json_type(entry.value,'$.code')<>'text' OR json_extract(entry.value,'$.code') NOT IN (
+        'DUPLICATE_SINGLETON_FIELD','FIELD_IGNORED','FIELD_VALUE_INVALID','FIELD_STRUCTURE_INVALID','FIELD_TRUNCATED',
+        'PLAYER_RANGE_NORMALIZED','EMULATIONSTATION_EXECUTION_FIELD_IGNORED','WARNING_LIMIT_REACHED',
+        'EMULATIONSTATION_PATH_INVALID','EMULATIONSTATION_MEDIA_MISSING',
+        'EMULATIONSTATION_IMAGE_INVALID','EMULATIONSTATION_VIDEO_UNSUPPORTED','EMULATIONSTATION_VIDEO_TOO_LARGE',
+        'EMULATIONSTATION_SOURCE_CHANGED','EMULATIONSTATION_MEDIA_READ_FAILED')
+      OR json_type(entry.value,'$.field') IS NOT NULL AND json_type(entry.value,'$.field')<>'text'
+      OR json_type(entry.value,'$.pathKind') IS NOT NULL AND json_type(entry.value,'$.pathKind')<>'text'
+      OR json_type(entry.value,'$.omittedCount') IS NOT NULL AND (
+        json_type(entry.value,'$.omittedCount')<>'integer' OR json_extract(entry.value,'$.omittedCount')<1)
+      OR json_type(entry.value,'$.originalLength') IS NOT NULL AND (
+        json_type(entry.value,'$.originalLength')<>'integer' OR json_extract(entry.value,'$.originalLength')<0)
+      OR json_type(entry.value,'$.retainedLength') IS NOT NULL AND (
+        json_type(entry.value,'$.retainedLength')<>'integer' OR json_extract(entry.value,'$.retainedLength')<0)
+  ) OR NOT EXISTS(
+    SELECT 1 FROM emulationstation_imports import
+    JOIN emulationstation_import_collections collection ON collection.import_id=import.id
+    JOIN emulationstation_import_gamelists source
+      ON source.import_id=import.id AND source.relative_path=collection.gamelist_relative_path
+    WHERE import.id=NEW.import_id AND import.state='SCANNING' AND collection.id=NEW.collection_id
+      AND source.parse_state='VALID' AND NEW.gamelist_relative_path=collection.gamelist_relative_path
+  )
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation item staging insert'); END;
+
+CREATE TRIGGER emulationstation_item_json_insert
+BEFORE INSERT ON emulationstation_import_items
+WHEN (SELECT count(*) FROM json_each(NEW.source_flags_json))<>3
+  OR EXISTS(SELECT 1 FROM json_each(NEW.source_flags_json) member WHERE member.key NOT IN ('hidden','adult','kidGame'))
+  OR json_type(NEW.source_flags_json,'$.hidden') NOT IN ('true','false')
+  OR json_type(NEW.source_flags_json,'$.adult') NOT IN ('true','false')
+  OR json_type(NEW.source_flags_json,'$.kidGame') NOT IN ('true','false')
+  OR (SELECT count(*) FROM json_each(NEW.metadata_json))<>8
+  OR EXISTS(SELECT 1 FROM json_each(NEW.metadata_json) member
+    WHERE member.key NOT IN ('schemaVersion','title','description','developer','publisher','genre','players','releaseYear'))
+  OR json_type(NEW.metadata_json,'$.schemaVersion')<>'integer' OR json_extract(NEW.metadata_json,'$.schemaVersion')<>1
+  OR json_type(NEW.metadata_json,'$.title')<>'text' OR json_extract(NEW.metadata_json,'$.title')<>NEW.title
+  OR json_type(NEW.metadata_json,'$.description')<>'text' OR json_type(NEW.metadata_json,'$.developer')<>'text'
+  OR json_type(NEW.metadata_json,'$.publisher')<>'text' OR json_type(NEW.metadata_json,'$.genre')<>'text'
+  OR json_type(NEW.metadata_json,'$.players') NOT IN ('null','integer')
+  OR json_type(NEW.metadata_json,'$.players')='integer' AND json_extract(NEW.metadata_json,'$.players') NOT BETWEEN 1 AND 64
+  OR json_type(NEW.metadata_json,'$.releaseYear') NOT IN ('null','integer')
+  OR json_type(NEW.metadata_json,'$.releaseYear')='integer' AND (
+    json_extract(NEW.metadata_json,'$.releaseYear')<1950 OR json_extract(NEW.metadata_json,'$.releaseYear')>(
+      SELECT release_year_max FROM emulationstation_imports WHERE id=NEW.import_id
+    )
+  )
+  OR (SELECT count(*) FROM json_each(NEW.source_manifest_json))<>3
+  OR EXISTS(SELECT 1 FROM json_each(NEW.source_manifest_json) member WHERE member.key NOT IN ('schemaVersion','contentKind','files'))
+  OR json_type(NEW.source_manifest_json,'$.schemaVersion')<>'integer'
+  OR json_extract(NEW.source_manifest_json,'$.schemaVersion')<>1
+  OR json_type(NEW.source_manifest_json,'$.contentKind')<>'text'
+  OR json_extract(NEW.source_manifest_json,'$.contentKind')<>NEW.content_kind
+  OR json_type(NEW.source_manifest_json,'$.files')<>'array'
+  OR json_array_length(NEW.source_manifest_json,'$.files')>64
+  OR EXISTS(
+    SELECT 1 FROM json_each(NEW.source_manifest_json,'$.files') entry
+    WHERE entry.type<>'object' OR (SELECT count(*) FROM json_each(entry.value))<>5
+      OR EXISTS(SELECT 1 FROM json_each(entry.value) member
+        WHERE member.key NOT IN ('ordinal','declaredKind','relativePath','sizeBytes','sourceFactsDigest'))
+      OR json_type(entry.value,'$.ordinal')<>'integer' OR json_extract(entry.value,'$.ordinal')<>CAST(entry.key AS INTEGER)
+      OR json_type(entry.value,'$.declaredKind')<>'text'
+      OR json_extract(entry.value,'$.declaredKind') NOT IN ('FILE','PLAYLIST','DISC')
+      OR json_type(entry.value,'$.relativePath')<>'text'
+      OR length(CAST(json_extract(entry.value,'$.relativePath') AS BLOB)) NOT BETWEEN 1 AND 4096
+      OR json_type(entry.value,'$.sizeBytes')<>'integer' OR json_extract(entry.value,'$.sizeBytes')<0
+      OR json_type(entry.value,'$.sourceFactsDigest')<>'text'
+      OR length(json_extract(entry.value,'$.sourceFactsDigest'))<>64
+      OR json_extract(entry.value,'$.sourceFactsDigest')<>lower(json_extract(entry.value,'$.sourceFactsDigest'))
+  )
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation item JSON snapshot'); END;
+
+CREATE TRIGGER emulationstation_item_json_update
+BEFORE UPDATE OF warnings_json,existing_matches_json,error_details_json ON emulationstation_import_items
+WHEN json_array_length(NEW.warnings_json)>64 OR EXISTS(
+    SELECT 1 FROM json_each(NEW.warnings_json) entry
+    WHERE entry.type<>'object' OR (SELECT count(*) FROM json_each(entry.value)) NOT BETWEEN 1 AND 6
+      OR EXISTS(SELECT 1 FROM json_each(entry.value) member
+        WHERE member.key NOT IN ('code','field','pathKind','omittedCount','originalLength','retainedLength') OR member.type='null')
+      OR json_type(entry.value,'$.code')<>'text' OR json_extract(entry.value,'$.code') NOT IN (
+        'DUPLICATE_SINGLETON_FIELD','FIELD_IGNORED','FIELD_VALUE_INVALID','FIELD_STRUCTURE_INVALID','FIELD_TRUNCATED',
+        'PLAYER_RANGE_NORMALIZED','EMULATIONSTATION_EXECUTION_FIELD_IGNORED','WARNING_LIMIT_REACHED',
+        'EMULATIONSTATION_PATH_INVALID','EMULATIONSTATION_MEDIA_MISSING',
+        'EMULATIONSTATION_IMAGE_INVALID','EMULATIONSTATION_VIDEO_UNSUPPORTED','EMULATIONSTATION_VIDEO_TOO_LARGE',
+        'EMULATIONSTATION_SOURCE_CHANGED','EMULATIONSTATION_MEDIA_READ_FAILED')
+      OR json_type(entry.value,'$.field') IS NOT NULL AND json_type(entry.value,'$.field')<>'text'
+      OR json_type(entry.value,'$.pathKind') IS NOT NULL AND json_type(entry.value,'$.pathKind')<>'text'
+      OR json_type(entry.value,'$.omittedCount') IS NOT NULL AND (
+        json_type(entry.value,'$.omittedCount')<>'integer' OR json_extract(entry.value,'$.omittedCount')<1)
+      OR json_type(entry.value,'$.originalLength') IS NOT NULL AND (
+        json_type(entry.value,'$.originalLength')<>'integer' OR json_extract(entry.value,'$.originalLength')<0)
+      OR json_type(entry.value,'$.retainedLength') IS NOT NULL AND (
+        json_type(entry.value,'$.retainedLength')<>'integer' OR json_extract(entry.value,'$.retainedLength')<0)
+  ) OR EXISTS(
+    SELECT 1 FROM json_each(NEW.existing_matches_json) entry
+    LEFT JOIN games game ON game.id=json_extract(entry.value,'$.gameId')
+    LEFT JOIN game_content_revisions revision
+      ON revision.id=json_extract(entry.value,'$.contentRevisionId') AND revision.game_id=game.id
+    WHERE entry.type<>'object' OR (SELECT count(*) FROM json_each(entry.value))<>2
+      OR EXISTS(SELECT 1 FROM json_each(entry.value) member WHERE member.key NOT IN ('gameId','contentRevisionId') OR member.type='null')
+      OR json_type(entry.value,'$.gameId')<>'text' OR json_type(entry.value,'$.contentRevisionId')<>'text'
+      OR game.id IS NULL OR revision.id IS NULL
+  ) OR NEW.error_details_json IS NOT NULL AND (
+    (SELECT count(*) FROM json_each(NEW.error_details_json))<>10
+    OR EXISTS(SELECT 1 FROM json_each(NEW.error_details_json) member WHERE member.key NOT IN (
+      'schemaVersion','stage','operation','causeCode','technicalDetail','relativePath','observedFileCount',
+      'allowedFileCount','libraryImportJobId','libraryImportItemId'))
+    OR json_type(NEW.error_details_json,'$.schemaVersion')<>'integer'
+    OR json_extract(NEW.error_details_json,'$.schemaVersion')<>1
+    OR json_type(NEW.error_details_json,'$.stage')<>'text' OR length(json_extract(NEW.error_details_json,'$.stage'))=0
+    OR json_type(NEW.error_details_json,'$.operation')<>'text' OR length(json_extract(NEW.error_details_json,'$.operation'))=0
+    OR json_type(NEW.error_details_json,'$.causeCode')<>'text' OR json_extract(NEW.error_details_json,'$.causeCode') NOT IN (
+      'SOURCE_FILE_LIMIT_EXCEEDED','LIBRARY_IMPORT_INPUT_INVALID','MULTI_DISC_MODE_UNAVAILABLE','DATABASE_BUSY',
+      'DATABASE_CONSTRAINT_FAILED','OPERATION_TIMEOUT','OPERATION_CANCELLED','METADATA_JSON_INVALID','INTERNAL_OPERATION_FAILED')
+    OR json_type(NEW.error_details_json,'$.technicalDetail')<>'text'
+    OR json_type(NEW.error_details_json,'$.relativePath') NOT IN ('null','text')
+    OR json_type(NEW.error_details_json,'$.observedFileCount') NOT IN ('null','integer')
+    OR json_type(NEW.error_details_json,'$.allowedFileCount') NOT IN ('null','integer')
+    OR (json_type(NEW.error_details_json,'$.observedFileCount')='null')<>(json_type(NEW.error_details_json,'$.allowedFileCount')='null')
+    OR json_type(NEW.error_details_json,'$.libraryImportJobId') NOT IN ('null','text')
+    OR json_type(NEW.error_details_json,'$.libraryImportItemId') NOT IN ('null','text')
+  )
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation mutable JSON'); END;
+
+CREATE TRIGGER emulationstation_item_snapshot_update
+BEFORE UPDATE OF import_id,collection_id,gamelist_relative_path,game_ordinal,source_key,title,source_flags_json,
+  discovery_state,content_kind,metadata_json,source_manifest_json,source_manifest_digest,discovery_code,created_at_ms
+ON emulationstation_import_items
+BEGIN SELECT RAISE(ABORT,'immutable EmulationStation item snapshot'); END;
+
+CREATE TRIGGER emulationstation_item_state_update
+BEFORE UPDATE OF execution_state ON emulationstation_import_items
+WHEN OLD.execution_state<>NEW.execution_state AND NOT (
+  OLD.execution_state='PENDING' AND NEW.execution_state IN ('COPYING','SKIPPED_MAPPING','BLOCKED_SOURCE','BLOCKED_CONTENT','COMMIT_FAILED','CANCELLED') OR
+  OLD.execution_state='COPYING' AND NEW.execution_state IN ('VALIDATING','SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED','CANCELLED') OR
+  OLD.execution_state='VALIDATING' AND NEW.execution_state IN ('REVIEW_PENDING','SKIPPED_EXISTING','BLOCKED_CONTENT','COMMIT_FAILED','CANCELLED') OR
+  OLD.execution_state='REVIEW_PENDING' AND NEW.execution_state IN ('PUBLISHED','REVIEW_DISCARDED') OR
+  OLD.execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED') AND OLD.retryable=1 AND NEW.execution_state='PENDING'
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation item state transition'); END;
+
+CREATE TRIGGER emulationstation_item_execution_update
+BEFORE UPDATE OF execution_state,error_code,retryable,library_import_job_id,library_import_item_id,
+  published_game_id,existing_game_id,existing_content_revision_id,error_details_json,completed_at_ms
+ON emulationstation_import_items
+WHEN (NEW.library_import_job_id IS NULL)<>(NEW.library_import_item_id IS NULL)
+  OR NEW.execution_state='PUBLISHED' AND (NEW.published_game_id IS NULL OR NEW.existing_game_id IS NOT NULL)
+  OR NEW.execution_state<>'PUBLISHED' AND NEW.published_game_id IS NOT NULL
+  OR NEW.execution_state='SKIPPED_EXISTING' AND (NEW.existing_game_id IS NULL OR NEW.existing_content_revision_id IS NULL)
+  OR NEW.execution_state<>'SKIPPED_EXISTING' AND (NEW.existing_game_id IS NOT NULL OR NEW.existing_content_revision_id IS NOT NULL)
+  OR NEW.retryable=1 AND NEW.execution_state NOT IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
+  OR NEW.error_details_json IS NOT NULL AND NEW.execution_state NOT IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED')
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation item execution'); END;
+
+CREATE TRIGGER emulationstation_item_version_update
+BEFORE UPDATE ON emulationstation_import_items
+WHEN NEW.version<OLD.version OR NEW.updated_at_ms<OLD.updated_at_ms
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation item version'); END;
+
+CREATE TRIGGER emulationstation_item_library_review_insert
+BEFORE INSERT ON emulationstation_import_items
+WHEN NEW.library_import_item_id IS NOT NULL AND EXISTS(
+  SELECT 1 FROM pegasus_import_items WHERE library_import_item_id=NEW.library_import_item_id
+)
+BEGIN SELECT RAISE(ABORT,'server source review already owned'); END;
+
+CREATE TRIGGER emulationstation_item_library_review_update
+BEFORE UPDATE OF library_import_job_id,library_import_item_id ON emulationstation_import_items
+WHEN NEW.library_import_item_id IS NOT NULL AND (
+  EXISTS(SELECT 1 FROM pegasus_import_items WHERE library_import_item_id=NEW.library_import_item_id) OR
+  NOT EXISTS(SELECT 1 FROM import_items item
+    WHERE item.id=NEW.library_import_item_id AND item.import_job_id=NEW.library_import_job_id)
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation review owner'); END;
+
+CREATE TRIGGER pegasus_item_library_review_cross_owner_insert
+BEFORE INSERT ON pegasus_import_items
+WHEN NEW.library_import_item_id IS NOT NULL AND EXISTS(
+  SELECT 1 FROM emulationstation_import_items WHERE library_import_item_id=NEW.library_import_item_id
+)
+BEGIN SELECT RAISE(ABORT,'server source review already owned'); END;
+
+CREATE TRIGGER pegasus_item_library_review_cross_owner_update
+BEFORE UPDATE OF library_import_item_id ON pegasus_import_items
+WHEN NEW.library_import_item_id IS NOT NULL AND EXISTS(
+  SELECT 1 FROM emulationstation_import_items WHERE library_import_item_id=NEW.library_import_item_id
+)
+BEGIN SELECT RAISE(ABORT,'server source review already owned'); END;
+
+CREATE TRIGGER emulationstation_item_payload_update
+BEFORE UPDATE OF payload_state,payload_release_job_id,payload_released_at_ms,payload_last_error_code
+ON emulationstation_import_items
+WHEN OLD.payload_state<>NEW.payload_state AND NOT (
+  OLD.payload_state='RETAINED' AND NEW.payload_state='RELEASING' OR
+  OLD.payload_state='RELEASING' AND NEW.payload_state IN ('RELEASED','FAILED') OR
+  OLD.payload_state='FAILED' AND NEW.payload_state IN ('RELEASING','RELEASED')
+) OR NEW.payload_release_job_id IS NOT NULL AND NOT EXISTS(
+  SELECT 1 FROM jobs job WHERE job.id=NEW.payload_release_job_id AND job.kind='PAYLOAD_RELEASE' AND (
+    job.scope_type='EMULATIONSTATION_IMPORT_ITEM' AND job.scope_id=NEW.id OR
+    job.scope_type='IMPORT_ITEM' AND job.scope_id=NEW.library_import_item_id
+  )
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation payload transition'); END;
+
+CREATE TRIGGER emulationstation_item_delete
+BEFORE DELETE ON emulationstation_import_items
+WHEN NOT EXISTS(SELECT 1 FROM emulationstation_imports import WHERE import.id=OLD.import_id AND (
+  import.state='SCANNING' OR import.state='AWAITING_MAPPING' AND OLD.execution_state='PENDING'
+  OR import.state='EXPIRED' AND OLD.execution_state='CANCELLED'
+))
+BEGIN SELECT RAISE(ABORT,'EmulationStation item snapshot is frozen'); END;
+
+CREATE TRIGGER emulationstation_file_insert
+BEFORE INSERT ON emulationstation_import_item_files
+WHEN NEW.state<>'DISCOVERED' OR NEW.blob_id IS NOT NULL OR NEW.source_archive_blob_id IS NOT NULL
+  OR NEW.source_archive_entry_ordinal IS NOT NULL OR NEW.payload_released_at_ms IS NOT NULL OR NOT EXISTS(
+    SELECT 1 FROM emulationstation_import_items item
+    JOIN emulationstation_imports import ON import.id=item.import_id
+    WHERE item.id=NEW.item_id AND import.state='SCANNING'
+  )
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation file staging insert'); END;
+
+CREATE TRIGGER emulationstation_file_snapshot_update
+BEFORE UPDATE OF item_id,ordinal,declared_kind,relative_path,size_bytes,source_facts_digest,created_at_ms
+ON emulationstation_import_item_files
+BEGIN SELECT RAISE(ABORT,'immutable EmulationStation file snapshot'); END;
+
+CREATE TRIGGER emulationstation_file_state_update
+BEFORE UPDATE OF state,blob_id,source_archive_blob_id,source_archive_entry_ordinal,role,logical_name,payload_released_at_ms
+ON emulationstation_import_item_files
+WHEN OLD.state<>NEW.state AND NOT (
+  OLD.state='DISCOVERED' AND NEW.state IN ('COPIED','SOURCE_CHANGED','READ_FAILED','UNSUPPORTED') OR
+  OLD.state='COPIED' AND NEW.state='PAYLOAD_RELEASED'
+) OR NEW.state='COPIED' AND NEW.blob_id IS NULL
+  OR NEW.state IN ('DISCOVERED','SOURCE_CHANGED','READ_FAILED','UNSUPPORTED','PAYLOAD_RELEASED') AND NEW.blob_id IS NOT NULL
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation file transition'); END;
+
+CREATE TRIGGER emulationstation_file_delete
+BEFORE DELETE ON emulationstation_import_item_files
+WHEN NOT EXISTS(
+  SELECT 1 FROM emulationstation_import_items item
+  JOIN emulationstation_imports import ON import.id=item.import_id
+  WHERE item.id=OLD.item_id AND (
+    import.state='SCANNING' OR import.state='AWAITING_MAPPING' AND item.execution_state='PENDING'
+    OR import.state='EXPIRED' AND item.execution_state='CANCELLED'
+  )
+)
+BEGIN SELECT RAISE(ABORT,'EmulationStation file snapshot is frozen'); END;
+
+CREATE TRIGGER emulationstation_asset_insert
+BEFORE INSERT ON emulationstation_import_item_assets
+WHEN NEW.blob_id IS NOT NULL OR NEW.payload_released_at_ms IS NOT NULL OR NOT EXISTS(
+  SELECT 1 FROM emulationstation_import_items item
+  JOIN emulationstation_imports import ON import.id=item.import_id
+  WHERE item.id=NEW.item_id AND import.state='SCANNING'
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation asset staging insert'); END;
+
+CREATE TRIGGER emulationstation_asset_snapshot_update
+BEFORE UPDATE OF item_id,kind,resolution_method,relative_path,size_bytes,source_facts_digest,media_type,width_px,height_px,created_at_ms
+ON emulationstation_import_item_assets
+BEGIN SELECT RAISE(ABORT,'immutable EmulationStation asset snapshot'); END;
+
+CREATE TRIGGER emulationstation_asset_state_update
+BEFORE UPDATE OF state,blob_id,payload_released_at_ms,warning_code ON emulationstation_import_item_assets
+WHEN OLD.state<>NEW.state AND NOT (
+  OLD.state='DISCOVERED' AND NEW.state IN ('COPIED','SOURCE_CHANGED','READ_FAILED') OR
+  OLD.state='COPIED' AND NEW.state='PAYLOAD_RELEASED'
+) OR NEW.state='COPIED' AND NEW.blob_id IS NULL
+  OR NEW.state IN ('DISCOVERED','MISSING','INVALID','TOO_LARGE','SOURCE_CHANGED','READ_FAILED','PAYLOAD_RELEASED') AND NEW.blob_id IS NOT NULL
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation asset transition'); END;
+
+CREATE TRIGGER emulationstation_asset_delete
+BEFORE DELETE ON emulationstation_import_item_assets
+WHEN NOT EXISTS(
+  SELECT 1 FROM emulationstation_import_items item
+  JOIN emulationstation_imports import ON import.id=item.import_id
+  WHERE item.id=OLD.item_id AND (
+    import.state='SCANNING' OR import.state='AWAITING_MAPPING' AND item.execution_state='PENDING'
+    OR import.state='EXPIRED' AND item.execution_state='CANCELLED'
+  )
+)
+BEGIN SELECT RAISE(ABORT,'EmulationStation asset snapshot is frozen'); END;
+
+CREATE TRIGGER emulationstation_item_published_update
+BEFORE UPDATE OF execution_state,published_game_id ON emulationstation_import_items
+WHEN NEW.execution_state='PUBLISHED' AND (
+  NEW.published_game_id IS NULL OR NOT EXISTS(
+    SELECT 1 FROM games game
+    JOIN game_metadata_revisions metadata ON metadata.id=game.current_metadata_revision_id
+    JOIN game_content_revisions content ON content.id=game.current_content_revision_id
+    WHERE game.id=NEW.published_game_id AND metadata.source_kind='SERVER_EMULATIONSTATION_IMPORT'
+    AND metadata.source_ref_id=NEW.id AND content.source_kind='SERVER_EMULATIONSTATION_IMPORT'
+    AND content.source_ref_id=NEW.id
+  )
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation published game'); END;
+
+CREATE TRIGGER emulationstation_item_review_discarded_update
+BEFORE UPDATE OF execution_state ON emulationstation_import_items
+WHEN NEW.execution_state='REVIEW_DISCARDED' AND NOT EXISTS(
+  SELECT 1 FROM import_items item
+  JOIN review_events event ON event.import_item_id=item.id AND event.event_type='DISCARDED'
+  WHERE item.id=NEW.library_import_item_id AND item.state='DISCARDED'
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation review discard'); END;
+
+CREATE TRIGGER emulationstation_item_review_pending_update
+BEFORE UPDATE OF execution_state ON emulationstation_import_items
+WHEN NEW.execution_state='REVIEW_PENDING' AND (
+  NEW.library_import_job_id IS NULL OR NEW.library_import_item_id IS NULL OR NOT EXISTS(
+    SELECT 1 FROM import_items item
+    WHERE item.id=NEW.library_import_item_id AND item.import_job_id=NEW.library_import_job_id
+    AND item.state='REVIEW_PENDING'
+  )
+)
+BEGIN SELECT RAISE(ABORT,'invalid EmulationStation review handoff'); END;
+
 CREATE TRIGGER platform_cores_in_use_disable
 BEFORE UPDATE OF enabled ON platform_cores WHEN NEW.enabled = 0
 BEGIN
@@ -1143,7 +1801,7 @@ BEGIN SELECT RAISE(ABORT,'invalid review bulk approval job'); END;
 
 CREATE TRIGGER review_bulk_approvals_frozen_update
 BEFORE UPDATE OF job_id,scope_json,scope_digest,candidate_manifest_digest,matched_count,candidate_count,
-screenshot_only_count,duplicate_count,attachment_active_count,not_ready_or_stale_count,
+screenshot_only_count,duplicate_count,attachment_active_count,source_flagged_count,not_ready_or_stale_count,
 created_by_user_id,created_at_ms ON review_bulk_approvals
 BEGIN SELECT RAISE(ABORT,'immutable review bulk approval input'); END;
 

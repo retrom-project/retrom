@@ -72,3 +72,7 @@ func terminalPegasusItem(state string, retryable bool) bool {
 		return false
 	}
 }
+
+func terminalEmulationStationItem(state string, retryable bool) bool {
+	return terminalPegasusItem(state, retryable)
+}

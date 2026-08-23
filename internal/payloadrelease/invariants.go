@@ -28,11 +28,18 @@ execution_state IN (
  'BLOCKED_SOURCE','BLOCKED_CONTENT','CANCELLED'
 )
 OR execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED') AND retryable=0)`,
+		`SELECT count(*) FROM emulationstation_import_items WHERE payload_state='RETAINED' AND (
+execution_state IN (
+ 'PUBLISHED','REVIEW_DISCARDED','SKIPPED_EXISTING','SKIPPED_MAPPING',
+ 'BLOCKED_SOURCE','BLOCKED_CONTENT','CANCELLED'
+)
+OR execution_state IN ('SOURCE_CHANGED','READ_FAILED','COMMIT_FAILED') AND retryable=0)`,
 		`SELECT count(*) FROM games WHERE status='DELETED' AND payload_state='RETAINED'`,
 		`SELECT count(*) FROM (
 SELECT payload_release_job_id FROM import_items WHERE payload_state<>'RETAINED'
 UNION ALL SELECT payload_release_job_id FROM import_jobs WHERE payload_state<>'RETAINED'
 UNION ALL SELECT payload_release_job_id FROM pegasus_import_items WHERE payload_state<>'RETAINED'
+UNION ALL SELECT payload_release_job_id FROM emulationstation_import_items WHERE payload_state<>'RETAINED'
 UNION ALL SELECT payload_release_job_id FROM games WHERE payload_state<>'RETAINED'
 ) owner LEFT JOIN jobs job ON job.id=owner.payload_release_job_id WHERE job.id IS NULL`,
 	}
