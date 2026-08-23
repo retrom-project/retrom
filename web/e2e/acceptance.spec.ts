@@ -261,13 +261,41 @@ test("ACC-UI-006 admin pages remain reachable at desktop breakpoints", async ({ 
   await expect(page.getByRole("heading", { name: "游戏目录", exact: true })).toBeVisible();
   await expect(page.getByRole("navigation", { name: "主要导航" }).getByText("游戏目录", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "✓ 推荐目录已创建" })).toBeDisabled();
+  await expect(page.getByRole("columnheader", { name: /^联机/ })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "启用状态" })).toBeVisible();
+  const platformHeader = await page.getByRole("columnheader", { name: "游戏平台" }).boundingBox();
+  const netplayHeader = await page.getByRole("columnheader", { name: /^联机/ }).boundingBox();
+  const extensionHeader = await page.getByRole("columnheader", { name: "扩展名" }).boundingBox();
+  expect(platformHeader).not.toBeNull();
+  expect(netplayHeader).not.toBeNull();
+  expect(extensionHeader).not.toBeNull();
+  expect(platformHeader!.x).toBeLessThan(netplayHeader!.x);
+  expect(netplayHeader!.x).toBeLessThan(extensionHeader!.x);
   await expect(page.getByText("FDS 游戏", { exact: true })).toHaveCount(0);
   await expect(page.getByText("MAME 2003 游戏", { exact: true })).toHaveCount(0);
-  const nesDirectory = page.locator(".platform-directory-row").filter({ hasText: "NES 游戏" });
+  const nesDirectory = page.locator(".platform-directory-row").filter({ has: page.getByRole("heading", { name: "NES 游戏", exact: true }) });
   await expect(nesDirectory.getByText(".fds", { exact: true })).toHaveCount(1);
-  const mamePlusDirectory = page.locator(".platform-directory-row").filter({ hasText: "MAME 2003 Plus 游戏" });
+  const supportedNetplayIndicator = nesDirectory.getByLabel("支持联机");
+  await expect(supportedNetplayIndicator).toHaveCount(1);
+  const iconCenterOffset = await supportedNetplayIndicator.evaluate((indicator) => {
+    const icon = indicator.querySelector("svg");
+    if (!(icon instanceof SVGGraphicsElement)) {return null;}
+    const matrix = icon.getScreenCTM();
+    if (!matrix) {return null;}
+    const indicatorBounds = indicator.getBoundingClientRect();
+    const iconBounds = icon.getBBox();
+    const topLeft = new DOMPoint(iconBounds.x, iconBounds.y).matrixTransform(matrix);
+    const bottomRight = new DOMPoint(iconBounds.x + iconBounds.width, iconBounds.y + iconBounds.height).matrixTransform(matrix);
+    return { x: (topLeft.x + bottomRight.x - indicatorBounds.left - indicatorBounds.right) / 2, y: (topLeft.y + bottomRight.y - indicatorBounds.top - indicatorBounds.bottom) / 2 };
+  });
+  expect(iconCenterOffset).not.toBeNull();
+  expect(Math.abs(iconCenterOffset!.x)).toBeLessThanOrEqual(0.5);
+  expect(Math.abs(iconCenterOffset!.y)).toBeLessThanOrEqual(0.5);
+  const mamePlusDirectory = page.locator(".platform-directory-row").filter({ has: page.getByRole("heading", { name: "MAME 2003 Plus 游戏", exact: true }) });
   await expect(mamePlusDirectory.getByText(".zip", { exact: true })).toHaveCount(1);
+  await expect(mamePlusDirectory.getByLabel("支持联机")).toHaveCount(1);
+  const gbaDirectory = page.locator(".platform-directory-row").filter({ has: page.getByRole("heading", { name: "GBA 游戏", exact: true }) });
+  await expect(gbaDirectory.getByLabel("不支持联机")).toHaveCount(1);
   const directoryRowHeights = await page.locator(".platform-directory-row").evaluateAll((rows) => rows.map((row) => row.getBoundingClientRect().height));
   expect(directoryRowHeights.length).toBeGreaterThan(0);
   expect(directoryRowHeights.every((height) => height >= 87 && height <= 90)).toBe(true);

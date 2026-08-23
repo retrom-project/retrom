@@ -21,8 +21,8 @@
 .platform-directory-quick p strong { color: var(--ink); }
 .platform-directory-table-scroll { max-width: 100%; overflow-x: auto; overflow-y: hidden; border: 1px solid var(--line); border-radius: 15px; background: white; outline: 0; }
 .platform-directory-table-scroll:focus-visible { box-shadow: 0 0 0 3px rgb(98 80 210 / 14%); }
-.platform-directory-table { min-width: 1280px; }
-.platform-directory-table-head, .platform-directory-row { display: grid; grid-template-columns: 70px minmax(230px, 1.1fr) minmax(160px, .75fr) minmax(140px, .55fr) 90px minmax(210px, .9fr) 115px 60px; gap: 12px; align-items: center; }
+.platform-directory-table { min-width: 1370px; }
+.platform-directory-table-head, .platform-directory-row { display: grid; grid-template-columns: 70px minmax(230px, 1.1fr) minmax(160px, .75fr) 72px minmax(140px, .55fr) 90px minmax(210px, .9fr) 115px 60px; gap: 12px; align-items: center; }
 .platform-directory-table-head { min-height: 42px; padding: 0 18px; color: #788294; border-bottom: 1px solid var(--line); border-radius: 15px 15px 0 0; background: #f8f9fb; font-size: 11px; font-weight: 800; }
 .platform-directory-table-head > span:last-child { text-align: right; }
 .platform-directory-core-head { display: inline-flex; align-items: center; gap: 5px; }
@@ -54,6 +54,12 @@
 .platform-directory-extensions code { padding: 3px 6px; color: #4f596a; border: 1px solid #e1e5eb; border-radius: 6px; background: #f7f8fa; font-family: var(--font-geist-mono), monospace; font-size: 11px; font-weight: 650; white-space: nowrap; }
 .platform-directory-games strong.is-empty { color: #8b95a5; }
 .platform-directory-row select { width: 100%; height: 40px; padding: 0 10px; color: var(--ink); border: 1px solid var(--line); border-radius: 10px; background: white; }
+.platform-directory-netplay { display: flex; align-items: center; }
+.platform-directory-netplay > span { position: relative; width: 32px; height: 32px; display: grid; place-items: center; color: #7d8796; border-radius: 50%; background: #eef1f4; }
+.platform-directory-netplay > span::after { position: absolute; width: 21px; height: 2px; content: ""; border-radius: 2px; background: currentColor; transform: rotate(-45deg); }
+.platform-directory-netplay > span.is-supported { color: #08737c; background: #dff7f5; }
+.platform-directory-netplay > span.is-supported::after { display: none; }
+.platform-directory-netplay svg { width: 18px; height: 18px; transform: translateY(-1.5px); }
 .platform-directory-state { display: flex; align-items: center; }
 .platform-directory-toggle { position: relative; display: inline-flex; align-items: center; gap: 8px; color: #374151; cursor: pointer; font-size: 12px; font-weight: 700; white-space: nowrap; }
 .platform-directory-toggle input { position: absolute; width: 1px; height: 1px; opacity: 0; }

@@ -99,6 +99,12 @@ func NewService(
 	}
 }
 
+func (service *Service) SupportsPlatformCoreArtifact(platformID, coreID, emulatorVersion, artifactSHA string) bool {
+	return service != nil && service.registry.SupportsPlatformCoreArtifact(
+		platformID, coreID, emulatorVersion, artifactSHA,
+	)
+}
+
 func (service *Service) StartMaintenance() {
 	go func() {
 		defer close(service.done)

@@ -173,6 +173,19 @@ func (registry *Registry) Profiles() []ManifestProfile {
 	return result
 }
 
+func (registry *Registry) SupportsPlatformCoreArtifact(platformID, coreID, emulatorVersion, artifactSHA string) bool {
+	if registry == nil {
+		return false
+	}
+	for _, profile := range registry.Manifest.Profiles {
+		if profile.CoreID == coreID && profile.EmulatorJSVersion == emulatorVersion &&
+			profile.CoreArtifactSHA256 == artifactSHA && slices.Contains(profile.PlatformIDs, platformID) {
+			return true
+		}
+	}
+	return false
+}
+
 func validDigest(value string) bool {
 	if len(value) != 64 || value != strings.ToLower(value) {
 		return false

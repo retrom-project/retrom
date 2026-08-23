@@ -21,10 +21,13 @@ p.sort_order,
 p.enabled,
 pc.core_id,
 c.name,
-pc.enabled
+pc.enabled,
+a.emulatorjs_version,
+a.sha256
 FROM platforms p
 LEFT JOIN platform_cores pc ON pc.platform_id=p.id
 LEFT JOIN cores c ON c.id=pc.core_id
+LEFT JOIN core_artifacts a ON a.core_id=pc.core_id AND a.enabled=1
 ORDER BY p.sort_order,
 pc.core_id
 `,
@@ -39,9 +42,11 @@ pc.core_id
 	for rows.Next() {
 		var id, name string
 		var sortOrder, enabled int
-		var coreID, coreName sql.NullString
+		var coreID, coreName, emulatorVersion, artifactSHA sql.NullString
 		var coreEnabled sql.NullInt64
-		if err := rows.Scan(&id, &name, &sortOrder, &enabled, &coreID, &coreName, &coreEnabled); err != nil {
+		if err := rows.Scan(
+			&id, &name, &sortOrder, &enabled, &coreID, &coreName, &coreEnabled, &emulatorVersion, &artifactSHA,
+		); err != nil {
 			server.databaseError(writer, request, err)
 			return
 		}
@@ -70,9 +75,16 @@ pc.core_id
 				)
 				return
 			}
+			netplaySupported := emulatorVersion.Valid && artifactSHA.Valid &&
+				server.netplay.SupportsPlatformCoreArtifact(
+					id, coreID.String, emulatorVersion.String, artifactSHA.String,
+				)
 			item["cores"] = append(
 				cores,
-				map[string]any{"id": coreID.String, "name": coreName.String, "enabled": coreEnabled.Int64 == 1},
+				map[string]any{
+					"id": coreID.String, "name": coreName.String, "enabled": coreEnabled.Int64 == 1,
+					"netplaySupported": netplaySupported,
+				},
 			)
 		}
 	}

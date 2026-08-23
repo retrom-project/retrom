@@ -841,6 +841,7 @@ paths:
   /api/v1/admin/platforms:
     get:
       operationId: getAdminPlatforms
+      description: The platform/core catalog. Each core projects netplaySupported from the exact platform, enabled CoreArtifact version and SHA-256 recorded in the current netplay manifest; it is a core capability marker, not per-game eligibility.
       responses:
         '200': { $ref: '#/components/responses/JSONResponse' }
   /api/v1/admin/core-artifacts:

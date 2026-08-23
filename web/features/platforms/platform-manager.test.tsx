@@ -7,8 +7,8 @@ const navigation = vi.hoisted(() => ({ refresh: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 
 const platforms: Platform[] = [{ id: "gba", name: "Game Boy Advance", enabled: true, cores: [
-  { id: "mgba", name: "mGBA", enabled: true },
-  { id: "vba_next", name: "VBA Next", enabled: true }
+  { id: "mgba", name: "mGBA", enabled: true, netplaySupported: false },
+  { id: "vba_next", name: "VBA Next", enabled: true, netplaySupported: true }
 ] }];
 const instances: PlatformInstance[] = [{
   id: "instance-1", platformId: "gba", platformName: "Game Boy Advance", defaultCoreId: "mgba",
@@ -51,11 +51,13 @@ describe("PlatformManager", () => {
 
   afterEach(() => { cleanup(); vi.unstubAllGlobals(); vi.restoreAllMocks(); });
 
-  it("places the platform extension column between platform and game count", () => {
+  it("places platform formats and netplay capability in dedicated columns", () => {
     render(<PlatformManager instances={instances} platforms={platforms} createOpen={false} />);
     const headers = screen.getAllByRole("columnheader").map((header) => header.textContent?.trim());
-    expect(headers.slice(1, 6)).toEqual(["游戏目录", "游戏平台", "扩展名", "游戏数", expect.stringContaining("推荐运行方式")]);
+    expect(headers.slice(1, 8)).toEqual(["游戏目录", "游戏平台", expect.stringContaining("联机"), "扩展名", "游戏数", expect.stringContaining("推荐运行方式"), "启用状态"]);
     expect(screen.getByRole("cell", { name: "Game Boy Advance 支持的扩展名" })).toHaveTextContent(".gba");
+    expect(screen.getByLabelText("不支持联机")).toBeInTheDocument();
+    expect(screen.queryByText("不支持", { exact: true })).not.toBeInTheDocument();
   });
 
   it("previews impact and only commits after the application dialog is confirmed", async () => {
@@ -71,6 +73,8 @@ describe("PlatformManager", () => {
     await user.click(screen.getByRole("button", { name: "应用更改" }));
     await waitFor(() => expect(fetch).toHaveBeenCalledTimes(2));
     expect(within(row).getByLabelText("“掌机游戏”的推荐运行方式")).toHaveValue("vba_next");
+    expect(within(row).getByLabelText("支持联机")).toBeInTheDocument();
+    expect(within(row).queryByText("可联机", { exact: true })).not.toBeInTheDocument();
   });
 
   it("keeps the generated URL slug out of the creation form and request", async () => {
