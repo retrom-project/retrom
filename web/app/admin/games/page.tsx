@@ -15,7 +15,7 @@ export default async function AdminGamesPage({ searchParams }: { searchParams: P
     platformInstanceId: values.platformInstanceId ?? "",
     tagId: values.tagId ?? "",
     visibility: values.status === "PUBLISHED" || values.status === "DELETED" ? values.status : "ALL",
-    runtime: values.runtime === "READY" || values.runtime === "ATTENTION" ? values.runtime : "ALL",
+    runtime: values.runtime === "READY" || values.runtime === "ATTENTION" || values.runtime === "DELETED" ? values.runtime : "ALL",
     sort: values.sort === "TITLE_ASC" || values.sort === "ADDED_DESC" ? values.sort : "UPDATED_DESC",
   };
   return <>

@@ -79,6 +79,13 @@ describe("AdminGameManager", () => {
     expect(screen.getByRole("button", { name: "保存新版本" })).toBeDisabled();
   });
 
+  it("shows a deleted game as deleted instead of runnable", () => {
+    render(<AdminGameManager game={{ ...game, status: "DELETED" }} platformInstances={directories} candidates={[]} />);
+
+    expect(screen.getAllByText("已删除").length).toBeGreaterThan(0);
+    expect(screen.queryByText("可以运行")).not.toBeInTheDocument();
+  });
+
   it("confirms permanent deletion without a title field and submits the loaded title internally", async () => {
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ payloadState: "RELEASING" }), {
       status: 202,

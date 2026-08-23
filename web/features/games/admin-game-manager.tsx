@@ -77,7 +77,7 @@ function runtimeRevisionPresentation(game: AdminGame, instance: PlatformInstance
   return {
     canonicalPlaylistSHA256: revision?.dependencySnapshot?.multiDisc?.canonicalPlaylistSha256 ?? "",
     revision,
-    runtime: runtimePresentation(revision?.status ?? null),
+    runtime: runtimePresentation(revision?.status ?? null, game.status),
     variant,
   };
 }

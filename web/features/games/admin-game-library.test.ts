@@ -31,7 +31,7 @@ describe("admin game library", () => {
   const games = [
     game({ gameId: "a", title: "1943", updatedAtMs: 300 }),
     game({ gameId: "b", title: "Metal Slug", platformInstance: { id: "neo", name: "Neo Geo" }, runtimeStatus: null, metadataComplete: false, coverUrl: null, updatedAtMs: 200 }),
-    game({ gameId: "c", title: "Final Fight", status: "DELETED", updatedAtMs: 400 }),
+    game({ gameId: "c", title: "Final Fight", status: "DELETED", runtimeStatus: null, updatedAtMs: 400 }),
   ];
 
   it("summarizes management health independently of active filters", () => {
@@ -40,6 +40,8 @@ describe("admin game library", () => {
 
   it("filters by dependent directory, visibility, runtime, and immediate text", () => {
     expect(filterAdminGames(games, { query: "metal", platformId: "arcade", platformInstanceId: "neo", visibility: "PUBLISHED", runtime: "ATTENTION", sort: "UPDATED_DESC" }).map((item) => item.gameId)).toEqual(["b"]);
+    expect(filterAdminGames(games, { query: "", platformId: "", platformInstanceId: "", visibility: "ALL", runtime: "ATTENTION", sort: "UPDATED_DESC" }).map((item) => item.gameId)).toEqual(["b"]);
+    expect(filterAdminGames(games, { query: "", platformId: "", platformInstanceId: "", visibility: "ALL", runtime: "DELETED", sort: "UPDATED_DESC" }).map((item) => item.gameId)).toEqual(["c"]);
     expect(adminGameDirectories(games, "arcade").map((item) => item.id)).toEqual(["fbneo", "neo"]);
   });
 
@@ -53,6 +55,7 @@ describe("admin game library", () => {
     expect(runtimePresentation("READY").label).toBe("可以运行");
     expect(runtimePresentation(null).label).toBe("待验证");
     expect(runtimePresentation("BLOCKED").label).toBe("需要处理");
+    expect(runtimePresentation("READY", "DELETED")).toEqual({ label: "已删除", tone: "bad", note: "游戏已删除" });
   });
 
   it("collects every cursor page and rejects repeated cursors", async () => {

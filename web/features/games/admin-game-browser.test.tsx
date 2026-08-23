@@ -58,4 +58,19 @@ describe("AdminGameBrowser", () => {
     await user.selectOptions(screen.getByRole("combobox", { name: "平台" }), "nes");
     expect(within(screen.getByRole("combobox", { name: "游戏目录" })).queryByRole("option", { name: "FBNeo 游戏" })).not.toBeInTheDocument();
   });
+
+  it("shows deleted games as deleted instead of inheriting their last runnable state", async () => {
+    const user = userEvent.setup();
+    render(<AdminGameBrowser games={[game(1), game(2, { status: "DELETED", runtimeStatus: "READY" })]} nowMs={500} initialFilters={filters} />);
+    const deletedRow = screen.getByRole("link", { name: "Game 2" }).closest("tr");
+
+    expect(deletedRow).not.toBeNull();
+    expect(within(deletedRow!).getByText("已删除")).toBeInTheDocument();
+    expect(within(deletedRow!).queryByText("可以运行")).not.toBeInTheDocument();
+    expect(within(deletedRow!).getByText("游戏已删除")).toBeInTheDocument();
+
+    await user.selectOptions(screen.getByRole("combobox", { name: "运行状态" }), "DELETED");
+    expect(screen.getByRole("link", { name: "Game 2" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Game 1" })).not.toBeInTheDocument();
+  });
 });
