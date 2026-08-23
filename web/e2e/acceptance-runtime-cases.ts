@@ -221,6 +221,7 @@ function registerRun004(): void {
     await page.getByRole("button", { name: "查看运行提醒" }).click();
     await expect(page.getByText("BIOS 校验值与目录期望不同，但当前允许运行。", { exact: true })).toBeVisible();
     await page.screenshot({ path: evidencePath(testInfo, "bios-hash-warning-autostart.png"), fullPage: true });
+    await page.mouse.move(20, 20);
     await page.getByRole("button", { name: "返回并退出游戏" }).click();
     const exitDialog = page.getByRole("alertdialog", { name: "退出游戏？" });
     await expect(exitDialog).toBeVisible();

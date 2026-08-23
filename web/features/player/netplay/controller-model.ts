@@ -2,6 +2,7 @@ export type NetplayProfile = {
   schemaVersion: 1;
   protocolVersion: "retrom-netplay-v2";
   profileId: string;
+  platformIds: string[];
   emulatorjsVersion: "4.2.3";
   playerAdapterId: "ejs-4.2.3-v2";
   netplayAdapterId: "ejs-netplay-4.2.3-v1";
@@ -28,19 +29,53 @@ export type NetplayLaunchConfig = {
   runtimeSocketUrl: string;
 };
 
+type CoreMismatchRange = { start: number; end: number };
+type AuthorityNormalizationEvidence = {
+  epoch: number;
+  nextFrame: number;
+  attempt: number;
+  expectedCoreBytes: number;
+  recapturedCoreBytes: number;
+  firstCoreMismatch: number;
+  lastCoreMismatch: number;
+  coreMismatchCount: number;
+  coreMismatchRanges: CoreMismatchRange[];
+};
+type StateLoadEvidence = {
+  epoch: number;
+  nextFrame: number;
+  byteLength: number;
+  stateDigest: string;
+  coreDigest: string;
+  changed: boolean;
+  nativeCompletion: boolean;
+  byteExact: boolean;
+  coreExact: boolean;
+  expectedCoreBytes: number;
+  recapturedCoreBytes: number;
+  firstCoreMismatch: number;
+};
+type CheckpointBlockDigest = { tag: string; start: number; end: number; digest: string };
+type FrameStepEvidence = {
+  frame: number;
+  phase: "STARTED" | "COMPLETED";
+};
+
 export type NetplayDiagnostics = {
   perturbInitialState?: boolean;
   delayForMessage?: (type: string, fields: Record<string, unknown>) => number;
   onConnect?: (reconnect: boolean) => void;
-  onStateCapture?: (evidence: { byteLength: number; stateDigest: string; coreDigest: string }) => void;
-  onStateLoad?: (evidence: { byteLength: number; stateDigest: string; coreDigest: string; changed: boolean; nativeCompletion: boolean; byteExact: boolean; coreExact: boolean; expectedCoreBytes: number; recapturedCoreBytes: number; firstCoreMismatch: number }) => void;
+  onStateCapture?: (evidence: { epoch: number; nextFrame: number; byteLength: number; stateDigest: string; coreDigest: string }) => void;
+  onAuthorityNormalization?: (evidence: AuthorityNormalizationEvidence) => void;
+  onStateLoad?: (evidence: StateLoadEvidence) => void;
+  onPause?: (evidence: { epoch: number; reason: string; atFrame: number }) => void;
   onEpoch?: (evidence: { epoch: number; nextFrame: number; resync: boolean }) => void;
   onCanonical?: (evidence: { frame: number; predictionFrames: number }) => void;
   onRollback?: (evidence: { frame: number; through: number; depth: number }) => void;
   onLockstep?: (evidence: { frame: number; inputBufferFrames: number; roundTripMS: number | null }) => void;
-  onFrameStep?: (evidence: { frame: number; phase: "STARTED" | "COMPLETED" }) => void;
+  onFrameStep?: (evidence: FrameStepEvidence) => void;
   onRetained?: (evidence: { states: number; predicted: number; canonical: number; stateBytes: number }) => void;
-  onCheckpoint?: (evidence: { frame: number; coreDigest: string }) => void;
+  onCheckpoint?: (evidence: { epoch: number; frame: number; coreDigest: string; stateBlocks?: CheckpointBlockDigest[] }) => void;
   onEnded?: (reason: string) => void;
 };
 
@@ -78,7 +113,7 @@ export function terminalReason(error: unknown) {
   if (message === "USER_EXIT") {return message;}
   if (message === "STATE_LOAD_TIMEOUT" || message === "STATE_INVALID" || message.includes("RASTATE")) {return "STATE_INVALID";}
   if (terminalReasons.has(message)) {return message;}
-  if (message === "NETPLAY_FRAME_STEP_TIMEOUT") {return "INTERNAL_ERROR";}
+  if (message === "NETPLAY_FRAME_STEP_TIMEOUT" || message === "NETPLAY_FRAME_STEP_INVALID") {return "INTERNAL_ERROR";}
   if (message.startsWith("NETPLAY_") && ["NETPLAY_HISTORY_GAP", "NETPLAY_CANONICAL_INVALID", "NETPLAY_CANONICAL_MUTATED", "NETPLAY_INPUT_INVALID"].includes(message)) {return "PROTOCOL_VIOLATION";}
   return "INTERNAL_ERROR";
 }

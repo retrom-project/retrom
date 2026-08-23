@@ -46,12 +46,13 @@ type Protocol struct {
 }
 
 type ManifestProfile struct {
-	ID                  string `json:"id"`
-	EmulatorJSVersion   string `json:"emulatorjsVersion"`
-	CoreID              string `json:"coreId"`
-	CoreArtifactSHA256  string `json:"coreArtifactSha256"`
-	MaxPlayers          int    `json:"maxPlayers"`
-	MaxPredictionFrames int    `json:"maxPredictionFrames"`
+	ID                  string   `json:"id"`
+	EmulatorJSVersion   string   `json:"emulatorjsVersion"`
+	CoreID              string   `json:"coreId"`
+	PlatformIDs         []string `json:"platformIds"`
+	CoreArtifactSHA256  string   `json:"coreArtifactSha256"`
+	MaxPlayers          int      `json:"maxPlayers"`
+	MaxPredictionFrames int      `json:"maxPredictionFrames"`
 }
 
 type Manifest struct {
@@ -132,10 +133,33 @@ func validProtocol(protocol Protocol) bool {
 
 func validManifestProfile(profile ManifestProfile, core dependencies.SelectedCore) bool {
 	return profile.ID != "" && profile.ID == strings.ToLower(profile.ID) && len(profile.ID) <= 64 &&
+		validPlatformIDs(profile.PlatformIDs) &&
 		profile.EmulatorJSVersion == "4.2.3" && profile.CoreArtifactSHA256 == core.SHA256 &&
 		profile.MaxPlayers >= 2 && profile.MaxPlayers <= 4 &&
 		profile.MaxPredictionFrames >= 0 && profile.MaxPredictionFrames <= MaxPredictionFrames &&
 		slices.Contains(core.SupportedContentKinds, "SINGLE_FILE")
+}
+
+func validPlatformIDs(platformIDs []string) bool {
+	if len(platformIDs) < 1 || len(platformIDs) > 8 {
+		return false
+	}
+	seen := make(map[string]struct{}, len(platformIDs))
+	for _, platformID := range platformIDs {
+		if platformID == "" || len(platformID) > 64 || platformID != strings.ToLower(platformID) {
+			return false
+		}
+		for _, character := range platformID {
+			if (character < 'a' || character > 'z') && (character < '0' || character > '9') && character != '-' {
+				return false
+			}
+		}
+		if _, duplicate := seen[platformID]; duplicate {
+			return false
+		}
+		seen[platformID] = struct{}{}
+	}
+	return true
 }
 
 func (registry *Registry) Profile(id string) (ManifestProfile, bool) {
@@ -174,6 +198,7 @@ func (registry *Registry) CanonicalProfile(input CanonicalProfileInput) ([]byte,
 	value := map[string]any{
 		"schemaVersion": 1, "protocolVersion": ProtocolVersion, "profileId": input.ID,
 		"emulatorjsVersion": input.EmulatorJSVersion, "playerAdapterId": PlayerAdapterID,
+		"platformIds":      input.PlatformIDs,
 		"netplayAdapterId": NetplayAdapterID, "coreArtifactId": input.CoreArtifactID,
 		"coreArtifactSha256":       input.CoreArtifactSHA256,
 		"gameVariantRevisionId":    input.GameVariantRevisionID,

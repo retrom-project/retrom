@@ -179,17 +179,47 @@ func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 	testassert.False(t, err != nil, err)
 	service := &Service{registry: registry}
 	tests := []struct {
-		profileID, coreID, artifactSHA, logicalName string
+		profileID, platformID, coreID, artifactSHA, logicalName string
 	}{
 		{
-			profileID: "fceumm-423-v1", coreID: "fceumm",
+			profileID: "fceumm-423-v1", platformID: "nes", coreID: "fceumm",
 			artifactSHA: "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493",
 			logicalName: "unverified-region-build.nes",
 		},
 		{
-			profileID: "fbneo-423-v1", coreID: "fbneo",
+			profileID: "fbneo-423-v1", platformID: "arcade", coreID: "fbneo",
 			artifactSHA: "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c",
 			logicalName: "another-machine.zip",
+		},
+		{
+			profileID: "snes9x-423-v1", platformID: "snes", coreID: "snes9x",
+			artifactSHA: "eaa0bcfce67673809886e50387a80a616b719502175db64c090d04c9d75958ee",
+			logicalName: "homebrew.sfc",
+		},
+		{
+			profileID: "mame2003-423-override-v1", platformID: "arcade", coreID: "mame2003",
+			artifactSHA: "1d8283ce042f71607b9b55656cd4068f703c52faa7a3d0940855c9dd21d542df",
+			logicalName: "another-machine.zip",
+		},
+		{
+			profileID: "mame2003-plus-423-v1", platformID: "arcade", coreID: "mame2003_plus",
+			artifactSHA: "cb6d9c80a88b65d1579d16d02128a678f8d1cd3f51de1479e647cea27b13247b",
+			logicalName: "another-machine.zip",
+		},
+		{
+			profileID: "fbalpha2012-cps1-423-v1", platformID: "arcade", coreID: "fbalpha2012_cps1",
+			artifactSHA: "15b47667eb3c3746649c79e997b9f8c463f83bed9f61f51322cbe4db3d6e078e",
+			logicalName: "another-machine.zip",
+		},
+		{
+			profileID: "fbalpha2012-cps2-423-v1", platformID: "arcade", coreID: "fbalpha2012_cps2",
+			artifactSHA: "432c2dd513603b04ccbf4e81f282f012763d2435311805443e2bd0cc9021d8d1",
+			logicalName: "another-machine.zip",
+		},
+		{
+			profileID: "nestopia-423-v1", platformID: "nes", coreID: "nestopia",
+			artifactSHA: "051de1b67a5b582b8a1bac6b99471d4f9f883ce3b3603d00330c1a066e546375",
+			logicalName: "homebrew.nes",
 		},
 	}
 	for _, test := range tests {
@@ -198,20 +228,25 @@ func TestCoreProfilesIgnorePerGameContentIdentity(t *testing.T) {
 			profile, ok := registry.Profile(test.profileID)
 			testassert.Truef(t, ok, "profile %q missing", test.profileID)
 			contentAllowed, artifactMatches := service.matchesCoreProfile(eligibilityRow{
-				coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
+				platformID: test.platformID, coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
 				artifactEnabled: 1, contentKind: "SINGLE_FILE", logicalName: test.logicalName,
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return !artifactMatches }), "arbitrary %s content did not match core profile", test.coreID)
 			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
-				coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
+				platformID: test.platformID, coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: test.artifactSHA,
 				artifactEnabled: 1, contentKind: "MULTI_DISC_M3U_V1",
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return contentAllowed }, func() bool { return artifactMatches }), "unsupported %s content kind matched core profile", test.coreID)
 			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
-				coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: strings.Repeat("f", 64),
+				platformID: test.platformID, coreID: test.coreID, emulatorVersion: "4.2.3", artifactSHA: strings.Repeat("f", 64),
 				artifactEnabled: 1, contentKind: "SINGLE_FILE",
 			}, profile)
 			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return artifactMatches }), "drifted %s artifact matched core profile", test.coreID)
+			contentAllowed, artifactMatches = service.matchesCoreProfile(eligibilityRow{
+				platformID: "unverified-platform", coreID: test.coreID, emulatorVersion: "4.2.3",
+				artifactSHA: test.artifactSHA, artifactEnabled: 1, contentKind: "SINGLE_FILE",
+			}, profile)
+			testassert.Falsef(t, testassert.Any(func() bool { return !contentAllowed }, func() bool { return artifactMatches }), "unverified %s platform matched core profile", test.coreID)
 		})
 	}
 }
@@ -365,7 +400,7 @@ VALUES(?,?,'Prepare fixture','','','','',2,NULL,'ADMIN_EDIT',?)`, []any{metadata
 		{`INSERT INTO game_content_revisions(id,game_id,source_kind,source_ref_id,source_manifest_json,source_manifest_digest,created_at_ms)
 VALUES(?,?,'ADMIN_REPLACE','prepare-fixture','{}',?,?)`, []any{contentID, gameID, strings.Repeat("1", 64), now.UnixMilli()}},
 		{`INSERT INTO games(id,platform_instance_id,status,current_metadata_revision_id,current_content_revision_id,search_text,version,created_at_ms,updated_at_ms)
-VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='dos/dosbox_pure'),'PUBLISHED',?,?,'prepare fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
+VALUES(?,(SELECT id FROM platform_instances WHERE catalog_template_key='nes/fceumm'),'PUBLISHED',?,?,'prepare fixture',1,?,?)`, []any{gameID, metadataID, contentID, now.UnixMilli(), now.UnixMilli()}},
 		{`INSERT INTO blobs(id,sha256,size_bytes,md5,sha1,crc32,media_type,created_at_ms) VALUES(?,?,32768,?,?,?,'application/octet-stream',?)`, []any{contentBlobID, strings.Repeat("9", 64), strings.Repeat("5", 32), strings.Repeat("6", 40), strings.Repeat("7", 8), now.UnixMilli()}},
 		{`INSERT INTO game_content_files(game_content_revision_id,role,logical_name,blob_id,sort_order) VALUES(?,'CONTENT','another-game.nes',?,0)`, []any{contentID, contentBlobID}},
 		{`INSERT INTO core_artifacts(id,core_id,emulatorjs_version,bundle_version,flavor,relative_path,size_bytes,sha256,provenance_json,compatibility_config_json,enabled,version,created_at_ms,updated_at_ms)

@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<datafile>
+  <header>
+    <name>Retrom public FBA2012 CPS1 smoke</name>
+    <description>Retrom public FBA2012 CPS1 smoke</description>
+    <version>1</version>
+  </header>
+  <game name="1941">
+    <description>Retrom public FBA2012 CPS1 smoke</description>
+    <rom name="41em_30.11f" size="131072" crc="4249ec61" sha1="b8fd0866445023fcb5036cdd765418082bd0a513" sha256="c52798e9754c60ee516a421b2a08fb40f9a57aa4cf8f973f83b17a9339f0b872" status="good" />
+    <rom name="41em_35.11h" size="131072" crc="ddbee5eb" sha1="f9e1c796c090caa740059cb99b64eaf8cd858b45" sha256="366c3925575281e22f3058b53e05bc2f5a3849bd5772d8ac53752b3138790f2b" status="good" />
+    <rom name="41em_31.12f" size="131072" crc="584e88e5" sha1="7be480f6cc2acb71421dac29189a4a378b8816ef" sha256="c3e12bf5569a75e8c181d67eaa8a34499e30c9b6b7bfa387398e64ab200c7537" status="good" />
+    <rom name="41em_36.12h" size="131072" crc="3cfc31d0" sha1="74461ed810b16955accb442bc2437c08765b28b3" sha256="f8a636f1ce24b8d4758d6720b1c5946d874f7e21586c3557efb831fa0b2e583b" status="good" />
+    <rom name="41-32m.8h" size="524288" crc="4e9648ca" sha1="e1759fe73f26ed2edda418bab73e73002521f065" sha256="82e05eabfd5a33fa5e4fc8e69298edbdbeee302d6ed12edf3de3613785658ee7" status="good" />
+    <rom name="41-5m.7a" size="524288" crc="01d1cb11" sha1="61a24d4bd8fb818c2111135a7fb91ad6f8df053f" sha256="4056eeeea20ce11c04efe9e64f48f65e1b0021f96b2970e89913ea23bcaae373" status="good" />
+    <rom name="41-7m.9a" size="524288" crc="aeaa3509" sha1="5fc40d59b8d7f1ed2783b097104586b7032ca4cd" sha256="fae2f605795c17d005f7d1ed635aad3859f087873ff96a4313449ccf928dfa1a" status="good" />
+    <rom name="41-1m.3a" size="524288" crc="ff77985a" sha1="63d82daab210afc844e7b3a9b905fe04bdf4bdf0" sha256="0e7fbc94eb28a48905d3238907ece8be532543723a9f9e96d4f431ef9a3c08ca" status="good" />
+    <rom name="41-3m.5a" size="524288" crc="983be58f" sha1="4274334c53108111694368c8fe853e601396ba31" sha256="1a164058cd2f597341a8cc4c01b6ba2ab2551fedd575efda4346cee56b1dc2da" status="good" />
+    <rom name="41_9.12b" size="65536" crc="0f9d8527" sha1="13defca0c2696d5ba5fef9ed4b2d58e346ea3c7b" sha256="0404860ed91530d252365e28c6bf13e401f7306b01ca55a63bd853bde8c33b41" status="good" />
+    <rom name="41_18.11c" size="131072" crc="d1f15aeb" sha1="1eee61f277ccc74930a69feb30fadc8cfdd2e5ca" sha256="eb172ad50435f225d90ef27ac63356f77c3ac9b7c20b8c479a3885009532a402" status="good" />
+    <rom name="41_19.12c" size="131072" crc="15aec3a6" sha1="579fa85f8e84d659a791ce17581253b53eee1356" sha256="9dc25726b1b00f4903e0cd17dd3c0111eac7d1e8c1cebaf64a70774032e9c36a" status="good" />
+    <rom name="buf1" size="279" crc="eb122de7" sha1="20c3388c320ac4fce89dd2897a5fc19f910b9126" sha256="3ae610630d8fd280e2be5e65c2a46732d76f56955a62f499389641bc2240ffde" status="good" />
+    <rom name="ioa1" size="279" crc="59c7ee3b" sha1="47b6771af4b44e9fa0108f556aab5354f1003e4c" sha256="ca5c2222008f6ca49eeee96f03def367cd26eecb562e47f78a123115f6fa78aa" status="good" />
+    <rom name="prg1" size="279" crc="f1129744" sha1="f67ed62a465797b20b514644ec31a6061cb06189" sha256="ab7d38a3c53481c9ac1c7b4cc68c98da9b585866c5de292ddadcdc362eb13728" status="good" />
+    <rom name="rom1" size="279" crc="41dc73b9" sha1="b92102809fd941a9c178040cc4cba6801b8235da" sha256="c6959b43c51f4ac9c471435bac6fadef82751a914bb41757f75b171b74cdcaf7" status="good" />
+    <rom name="sou1" size="279" crc="84f4b2fe" sha1="6b593784e9c1a621644cc3abf06f7f5c09a99ef2" sha256="dc6404d97a50fbe67e9312c3e44a85b46259a9d8583b0a9a8e21884a31faa18c" status="good" />
+    <rom name="yi24b.1a" size="279" crc="3004dcdf" sha1="5c76807e3b7732427ea8ac0fcb85d7fee05a4e40" sha256="99193f0e24ec70faeebd77124bb621885ba3a566538b0893592280bdb1fe7533" status="good" />
+    <rom name="iob1.11e" size="279" crc="3abc0700" sha1="c332cb2386a79838b01af125f3f2eb98ba5234b3" sha256="5656259768b05ac73ec03a4f1c37d3e3ab0e9138b93a3abc948c70a6c3bb0360" status="good" />
+  </game>
+</datafile>

@@ -1867,7 +1867,7 @@ components:
         addedAtMs: { type: integer, format: int64 }
         tags: { type: array, maxItems: 20, items: { $ref: '#/components/schemas/TagReference' } }
         availability: { type: string, enum: [SUPPORTED, UNSUPPORTED] }
-        netplayProfiles: { type: array, maxItems: 4, items: { $ref: '#/components/schemas/NetplayProfileSummary' } }
+        netplayProfiles: { type: array, maxItems: 8, items: { $ref: '#/components/schemas/NetplayProfileSummary' } }
         blockerCode: { type: string, enum: [CONTENT_NOT_ALLOWLISTED, CORE_NOT_ALLOWLISTED, DEPENDENCY_STALE, GAME_UNAVAILABLE], nullable: true }
     NetplayGameList:
       type: object

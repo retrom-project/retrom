@@ -1,6 +1,7 @@
 import { expect, test } from "@playwright/test";
 import { evidencePath, expectNoTextArrowsInInteractiveControls, noPageOverflow, pageCanvasGaps, pngDimensions, type HorizontalGaps } from "./acceptance-support";
 import { registerRuntimeAcceptanceTests } from "./acceptance-runtime-cases";
+import { registerCoreExpansionAcceptanceTests } from "./acceptance-core-expansion-cases";
 import { verifyUserDesktopLayouts } from "./acceptance-user-layout";
 
 test.beforeEach(async ({ page }, testInfo) => {
@@ -559,3 +560,4 @@ test("ACC-UI-010 strict READY quick approval previews and publishes the complete
 });
 
 registerRuntimeAcceptanceTests();
+registerCoreExpansionAcceptanceTests();

@@ -1,6 +1,13 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { EmulatorInstance } from "../adapters/ejs-4.2.3-v2";
-import { checkpointCoreStateBytes, coreStateBytes, EJSNetplayFrameBridge, installEmulatorJs423NetplayCompatibility } from "./ejs-netplay-4.2.3-v1";
+import {
+  checkpointCoreStateBytes,
+  coreStateBytes,
+  EJSNetplayFrameBridge,
+  installEmulatorJs423NetplayCompatibility,
+  transferCoreStateBytes,
+  transferStateBytes,
+} from "./ejs-netplay-4.2.3-v1";
 
 function raState(core: number[], envelope: number[] = []) {
   const envelopePadded = (envelope.length + 7) & ~7;
@@ -57,6 +64,26 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
   it("keeps strict FBNeo checkpoint bytes when a unique Neo Geo RTC layout is absent", () => {
     const core = new Uint8Array(320).fill(7);
     expect(checkpointCoreStateBytes(core, "fbneo-423-v1")).toBe(core);
+  });
+
+  it("projects Nestopia's tracked input at the root-state boundary, including FDS padding", () => {
+    const core = new Uint8Array(35).fill(7);
+    core.set([0x4e, 0x53, 0x54, 0x1a]);
+    new DataView(core.buffer).setUint32(4, 16, true);
+    core.set([0x4e, 0x46, 0x4f, 0, 8, 0, 0, 0, 1, 2, 3, 4, 5, 6, 7, 8], 8);
+    core.set([2, 2, 2, 2, 0, 0, 0, 0], 24);
+    const projected = transferCoreStateBytes(core, "nestopia-423-v1");
+    expect(projected).not.toBe(core);
+    expect([...projected.subarray(0, 24)]).toEqual([...core.subarray(0, 24)]);
+    expect([...projected.subarray(24, 32)]).toEqual(Array(8).fill(0));
+    expect([...projected.subarray(32)]).toEqual([7, 7, 7]);
+    expect(checkpointCoreStateBytes(core, "nestopia-423-v1")).toEqual(projected);
+    expect(transferCoreStateBytes(core, "snes9x-423-v1")).toBe(core);
+    expect([...coreStateBytes(transferStateBytes(raState([...core]), "nestopia-423-v1"))])
+      .toEqual([...projected]);
+    const malformed = new Uint8Array(core);
+    malformed[8] = 0;
+    expect(transferCoreStateBytes(malformed, "nestopia-423-v1")).toBe(malformed);
   });
 
   it("intercepts local controls and applies all canonical players for one exact frame", async () => {
@@ -144,6 +171,8 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
     class GameManager {
       paths: string[] = [];
       frame = 0;
+      frameStep = 1;
+      running = false;
       nativeLoadCalls = 0;
       alterRecapturedByte = false;
       pendingState = Uint8Array.from([]);
@@ -171,7 +200,15 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
       getState() { return new Uint8Array(this.state); }
       loadState() { throw new Error("PUBLIC_LOAD_STATE_MUST_NOT_BE_USED_FOR_ROLLBACK"); }
       toggleMainLoop(running: boolean) {
-        if (running) {window.setTimeout(() => { this.frame += 1; runtimeConfig.postMainLoop?.(); }, 0);}
+        this.running = running;
+        if (running) {
+          window.setTimeout(() => {
+            if (!this.running) {return;}
+            this.frame += this.frameStep;
+            runtimeConfig.postMainLoop?.();
+            if (this.running) {this.toggleMainLoop(true);}
+          }, 0);
+        }
       }
     }
     Reflect.set(window, "EJS_GameManager", GameManager);
@@ -185,6 +222,11 @@ describe("EmulatorJS 4.2.3 netplay bridge", () => {
     await manager.mountFileSystems();
     expect(manager.paths).toEqual(["/data", "/data/saves"]);
     expect(await manager.runNetplayFrame()).toBe(1);
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(manager.frame).toBe(1);
+    manager.frameStep = 2;
+    await expect(manager.runNetplayFrame()).rejects.toThrow("NETPLAY_FRAME_STEP_INVALID");
+    manager.frameStep = 1;
     await expect(manager.loadStateAndWait(Uint8Array.from([9, 8, 7]))).resolves.toEqual({ byteExact: true });
     expect(manager.state).toEqual(Uint8Array.from([9, 8, 7]));
     await expect(manager.loadStateAndWait(Uint8Array.from([9, 8, 7]))).resolves.toEqual({ byteExact: true });

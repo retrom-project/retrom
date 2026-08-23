@@ -1,15 +1,14 @@
-import type { EJSNetplayFrameBridge} from "./ejs-netplay-4.2.3-v1";
-import { coreStateBytes, digestHex } from "./ejs-netplay-4.2.3-v1";
+import type { EJSNetplayFrameBridge } from "./ejs-netplay-4.2.3-v1";
+import { prepareAuthorityTransfer } from "./authority-state";
 import { decodeServerMessage, encodeStateFrame, type ServerMessage } from "./protocol";
 import { RollbackTimeline, predictInputs, type CanonicalInput } from "./rollback";
 import { lockstepFrameDurationMS, terminalReason, updateLockstepBuffer, type NetplayDiagnostics, type NetplayLaunchConfig, type NetplayProfile } from "./controller-model";
 import { NetplayCheckpointQueue } from "./checkpoint-queue";
 import { OrderedSocketSender } from "./ordered-socket-sender";
-import { applyTransferredState, type PendingState } from "./state-transfer";
+import { applyTransferredState, pendingStateFromMessage, type PendingState } from "./state-transfer";
 import { NetplayStatusPublisher } from "./status-publisher";
 
 export type { NetplayDiagnostics, NetplayLaunchConfig, NetplayProfile };
-
 
 // Strict lockstep may submit controls ahead to cover network RTT, but never
 // executes those frames until the server returns their canonical inputs.
@@ -18,8 +17,6 @@ export type { NetplayDiagnostics, NetplayLaunchConfig, NetplayProfile };
 const initialReconnectLeaseMS = 10_000;
 const initialSocketOpenTimeoutMS = 5_000;
 const reconnectSocketOpenTimeoutMS = 2_000;
-
-
 export class NetplayController {
   private socket: WebSocket | null = null;
   private clientSeq = 0;
@@ -298,6 +295,7 @@ export class NetplayController {
 
   private async acceptPause(message: ServerMessage) {
     await this.pauseAtCanonicalBoundary(message.atFrame);
+    this.diagnostics?.onPause?.({ epoch: this.epoch, reason: message.reason ?? "UNKNOWN", atFrame: message.atFrame! });
     this.send("PAUSED");
     this.status.publish("paused", message.affectedPlayerNo ? `等待 P${message.affectedPlayerNo} 重新连接` : "联机已暂停", "warning");
     this.callbacks.onPaused();
@@ -305,32 +303,39 @@ export class NetplayController {
 
   private async sendAuthorityState(message: ServerMessage) {
     if (this.config.playerNo !== 1 || !message.transferId || !Number.isSafeInteger(message.nextFrame)) {throw new Error("PROTOCOL_VIOLATION");}
-    const captured = this.bridge.captureState();
-    const normalized = await this.bridge.loadStateForTransfer(captured);
-    let state = normalized.recaptured;
-    if (!normalized.coreExact) {
-      const fixedPoint = await this.bridge.loadStateForTransfer(state);
-      if (!fixedPoint.coreExact) {throw new Error("STATE_INVALID");}
-      state = fixedPoint.recaptured;
-    }
-    if (state.byteLength > this.config.netplayProfile.maxStateBytes) {throw new Error("STATE_RING_CAPACITY_EXCEEDED");}
-    const [stateSha256, coreSha256] = await Promise.all([digestHex(state), digestHex(coreStateBytes(state))]);
-    this.diagnostics?.onStateCapture?.({ byteLength: state.byteLength, stateDigest: stateSha256, coreDigest: coreSha256 });
+    const profileID = this.config.netplayProfile.profileId;
+    const transfer = await prepareAuthorityTransfer(
+      profileID, this.config.netplayProfile.maxStateBytes, this.bridge, this.diagnostics,
+      { epoch: this.epoch, nextFrame: message.nextFrame! },
+    );
+    const { state, stateSha256, coreSha256 } = transfer;
     this.send("STATE_META", { transferId: message.transferId, nextFrame: message.nextFrame, byteLength: state.byteLength, stateSha256, coreSha256 });
     if (!this.socket) {throw new Error("NETPLAY_SOCKET_UNAVAILABLE");}
     this.sender.enqueue(this.socket, encodeStateFrame(this.config.sessionId, message.transferId, this.epoch, message.nextFrame!, state), 0);
-    this.send("STATE_READY", { transferId: message.transferId, stateSha256, coreSha256, recaptureMatched: equalBytes(state, this.bridge.captureState()) });
+    this.send("STATE_READY", {
+      transferId: message.transferId,
+      stateSha256,
+      coreSha256,
+      recaptureMatched: transfer.recaptureMatched,
+    });
   }
 
   private acceptStateMeta(message: ServerMessage) {
-    if (!message.transferId || !Number.isSafeInteger(message.nextFrame) || !Number.isSafeInteger(message.byteLength) || !message.stateSha256 || !message.coreSha256 || message.byteLength! < 1 || message.byteLength! > 1048576) {throw new Error("PROTOCOL_VIOLATION");}
-    this.pendingState = { transferId: message.transferId, nextFrame: message.nextFrame!, byteLength: message.byteLength!, stateSha256: message.stateSha256, coreSha256: message.coreSha256 };
+    this.pendingState = pendingStateFromMessage(message);
   }
 
   private async receiveState(frame: Uint8Array) {
     const pending = this.pendingState;
     if (!pending) {throw new Error("PROTOCOL_VIOLATION");}
-    const digests = await applyTransferredState(frame, pending, this.config.sessionId, this.epoch, this.bridge, this.diagnostics);
+    const digests = await applyTransferredState(
+      frame,
+      pending,
+      this.config.sessionId,
+      this.epoch,
+      this.config.netplayProfile.profileId,
+      this.bridge,
+      this.diagnostics,
+    );
     this.send("STATE_APPLIED", { transferId: pending.transferId, ...digests, nativeLoadCompleted: true, recaptureMatched: true });
     this.pendingState = null;
   }
@@ -430,7 +435,7 @@ export class NetplayController {
       this.status.publish("stable", "网络稳定", "synced");
     }
     if (advancesFrame && (frame + 1) % this.config.netplayProfile.checkpointEveryFrames === 0) {
-      this.checkpoints.queueLockstep(frame);
+      this.checkpoints.queueLockstep(frame, this.epoch);
     }
     this.requestAdvance();
   }
@@ -455,7 +460,7 @@ export class NetplayController {
       this.status.publish("stable", "网络稳定", "synced");
     }
     if ((message.frame! + 1) % this.config.netplayProfile.checkpointEveryFrames === 0) {
-      this.checkpoints.queue(message.frame!);
+      this.checkpoints.queue(message.frame!, this.epoch);
     }
     this.requestAdvance();
     this.diagnostics?.onRetained?.(this.timeline.retained());
@@ -583,7 +588,6 @@ export class NetplayController {
     }
     this.requestTerminalEnd(error);
   }
-
 	private dropConnectionForTest(durationMs: number) {
 		if (process.env.NODE_ENV === "production") {return;}
 		this.resumeBlocked = true;
@@ -593,7 +597,4 @@ export class NetplayController {
 			this.scheduleReconnect();
 		}, Math.max(0, Math.min(durationMs, 15_000)));
 	}
-
 }
-
-function equalBytes(left: Uint8Array, right: Uint8Array) { return left.byteLength === right.byteLength && left.every((value, index) => value === right[index]); }

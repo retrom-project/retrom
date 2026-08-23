@@ -2,10 +2,11 @@
 set -euo pipefail
 
 case_id="${1:-}"
-if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-00[23467]|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-01[456])$ ]]; then
-  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002|ACC-RUN-003|ACC-RUN-004|ACC-RUN-006|ACC-RUN-007|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-014|ACC-NP-015|ACC-NP-016" >&2
+if [[ ! "$case_id" =~ ^(ACC-UI-(00[1-9]|010)|ACC-RUN-(00[2346789]|01[012])|ACC-SAVE-002|ACC-FAV-00[34]|ACC-TAG-005|ACC-BIOS-00[67]|ACC-PEG-00[56]|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-(01[456789]|02[012]))$ ]]; then
+  echo "usage: ui-case.sh ACC-UI-001..010|ACC-RUN-002..004|ACC-RUN-006..012|ACC-SAVE-002|ACC-FAV-003|ACC-FAV-004|ACC-TAG-005|ACC-BIOS-006|ACC-BIOS-007|ACC-PEG-005|ACC-PEG-006|ACC-MEDIA-001|ACC-STOR-001|ACC-NP-014..022" >&2
   exit 2
 fi
+
 repository_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 PATH="$repository_root/.cache/tools/node-v24.18.0-linux-x64/bin:$PATH"
 export PATH
@@ -79,11 +80,33 @@ RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
 RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   scripts/acceptance/http-flow.sh
 
+core_expansion_result="$temporary_root/core-expansion.json"
+if [[ "$case_id" =~ ^ACC-RUN-0(08|09|10|11|12)$ ]]; then
+  case "$case_id" in
+    ACC-RUN-008) fixture_id="snes9x" ;;
+    ACC-RUN-009) fixture_id="nestopia" ;;
+    ACC-RUN-010) fixture_id="mame2003_plus" ;;
+    ACC-RUN-011) fixture_id="fbalpha2012_cps1" ;;
+    ACC-RUN-012) fixture_id="fbalpha2012_cps2" ;;
+  esac
+  if [[ "$fixture_id" == "snes9x" || "$fixture_id" == "nestopia" ]]; then
+    RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+    RETROM_ACCEPTANCE_RESULT_FILE="$core_expansion_result" \
+      scripts/acceptance/netplay-nes-flow.sh "$fixture_id"
+  else
+    go run scripts/acceptance/seed-public-arcade-dat.go \
+      --database "$temporary_root/data/retrom.db" --fixture "$fixture_id"
+    RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+    RETROM_ACCEPTANCE_RESULT_FILE="$core_expansion_result" \
+      scripts/acceptance/arcade-flow.sh "$fixture_id"
+  fi
+fi
+
 if [[ "$case_id" == "ACC-RUN-006" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
-    "$temporary_root/data/retrom.db" \
-    mame2003 \
-    "$repository_root/testdata/public-roms/arcade-smoke/mame2003-smoke.xml"
+    --database "$temporary_root/data/retrom.db" --fixture mame2003
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$temporary_root/mame2003.json" \
@@ -93,9 +116,7 @@ fi
 
 if [[ "$case_id" == "ACC-RUN-007" ]]; then
   go run scripts/acceptance/seed-public-arcade-dat.go \
-    "$temporary_root/data/retrom.db" \
-    fbneo \
-    "$repository_root/testdata/public-roms/arcade-smoke/fbneo/fbneo-smoke.dat"
+    --database "$temporary_root/data/retrom.db" --fixture fbneo
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
     scripts/acceptance/arcade-flow.sh fbneo
@@ -110,13 +131,39 @@ if [[ "$case_id" =~ ^ACC-NP-01[456]$ ]]; then
   RETROM_ACCEPTANCE_RESULT_FILE="$netplay_nes_result" \
     scripts/acceptance/netplay-nes-flow.sh
   go run scripts/acceptance/seed-public-arcade-dat.go \
-    "$temporary_root/data/retrom.db" \
-    fbneo \
-    "$repository_root/testdata/public-roms/arcade-smoke/fbneo/fbneo-smoke.dat"
+    --database "$temporary_root/data/retrom.db" --fixture fbneo
   RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
   RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
   RETROM_ACCEPTANCE_RESULT_FILE="$netplay_fbneo_result" \
     scripts/acceptance/arcade-flow.sh fbneo
+fi
+
+netplay_expansion_result="$temporary_root/netplay-expansion.json"
+if [[ "$case_id" =~ ^ACC-NP-(01[789]|02[012])$ ]]; then
+  case "$case_id" in
+    ACC-NP-017) fixture_id="snes9x"; profile_id="snes9x-423-v1" ;;
+    ACC-NP-018) fixture_id="nestopia"; profile_id="nestopia-423-v1" ;;
+    ACC-NP-019) fixture_id="mame2003"; profile_id="mame2003-423-override-v1" ;;
+    ACC-NP-020) fixture_id="mame2003_plus"; profile_id="mame2003-plus-423-v1" ;;
+    ACC-NP-021) fixture_id="fbalpha2012_cps1"; profile_id="fbalpha2012-cps1-423-v1" ;;
+    ACC-NP-022) fixture_id="fbalpha2012_cps2"; profile_id="fbalpha2012-cps2-423-v1" ;;
+  esac
+  if [[ "$fixture_id" == "snes9x" || "$fixture_id" == "nestopia" ]]; then
+    RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+    RETROM_ACCEPTANCE_RESULT_FILE="$netplay_expansion_result.source" \
+      scripts/acceptance/netplay-nes-flow.sh "$fixture_id"
+  else
+    go run scripts/acceptance/seed-public-arcade-dat.go \
+      --database "$temporary_root/data/retrom.db" --fixture "$fixture_id"
+    RETROM_ACCEPTANCE_ORIGIN="$web_origin" \
+    RETROM_ACCEPTANCE_BACKEND="$backend_origin" \
+    RETROM_ACCEPTANCE_RESULT_FILE="$netplay_expansion_result.source" \
+      scripts/acceptance/arcade-flow.sh "$fixture_id"
+  fi
+  jq -c --arg caseId "$case_id" --arg profileId "$profile_id" \
+    '. + {caseId:$caseId,profileId:$profileId}' \
+    "$netplay_expansion_result.source" >"$netplay_expansion_result"
 fi
 
 if [[ "$case_id" == "ACC-BIOS-007" ]]; then
@@ -149,7 +196,7 @@ fi
 if [[ "$case_id" == "ACC-BIOS-006" || "$case_id" == "ACC-BIOS-007" || "$case_id" == "ACC-PEG-005" || "$case_id" == "ACC-PEG-006" || "$case_id" == "ACC-MEDIA-001" ]]; then
   specification="e2e/server-import.spec.ts"
 fi
-if [[ "$case_id" =~ ^ACC-NP-01[456]$ ]]; then
+if [[ "$case_id" =~ ^ACC-NP-(01[456789]|02[012])$ ]]; then
   specification="e2e/netplay.spec.ts"
 fi
 playwright_grep="$case_id"
@@ -163,6 +210,14 @@ if [[ "$case_id" != "ACC-UI-005" && "$case_id" != "ACC-UI-006" && "$case_id" != 
 else
   playwright_args+=(--workers=1)
 fi
+core_expansion_results='[]'
+if [[ -f "$core_expansion_result" ]]; then
+  core_expansion_results="$(jq -sc '.' "$core_expansion_result")"
+fi
+netplay_expansion_results='[]'
+if [[ -f "$netplay_expansion_result" ]]; then
+  netplay_expansion_results="$(jq -sc '.' "$netplay_expansion_result")"
+fi
 (cd web && \
   RETROM_WEB_ORIGIN="$web_origin" \
   RETROM_E2E_DATABASE="$temporary_root/data/retrom.db" \
@@ -171,6 +226,8 @@ fi
   RETROM_NETPLAY_FBNEO_GAME_ID="$(jq -r '.gameId // empty' "$netplay_fbneo_result" 2>/dev/null || true)" \
   RETROM_NETPLAY_FBNEO_FIXTURE_SHA256="$(jq -r '.fixtureSha256 // empty' "$netplay_fbneo_result" 2>/dev/null || true)" \
   RETROM_MAME2003_PLATFORM_INSTANCE_ID="$(jq -r '.platformInstanceId // empty' "$temporary_root/mame2003.json" 2>/dev/null || true)" \
+  RETROM_CORE_EXPANSION_RESULTS="$core_expansion_results" \
+  RETROM_NETPLAY_EXPANSION_RESULTS="$netplay_expansion_results" \
   RETROM_ACCEPTANCE_CASE_DIR="${RETROM_ACCEPTANCE_CASE_DIR:-}" \
   npm exec -- "${playwright_args[@]}")
 

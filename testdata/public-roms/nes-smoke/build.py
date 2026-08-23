@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build Retrom's deterministic project-owned NES netplay smoke ROM."""
+"""Build Retrom's deterministic project-owned NES netplay smoke ROMs."""
 
 from __future__ import annotations
 
@@ -11,7 +11,10 @@ from pathlib import Path
 
 
 OUTPUT_ROOT = Path(__file__).resolve().parent
-OUTPUT_NAME = "nes-smoke.nes"
+OUTPUTS = {
+    "nes-smoke.nes": b"RETROM PUBLIC NES NETPLAY SMOKE - MIT",
+    "nestopia-smoke.nes": b"RETROM PUBLIC NESTOPIA NETPLAY SMOKE - MIT",
+}
 CPU_ORIGIN = 0x8000
 
 
@@ -57,7 +60,7 @@ class Assembler:
         return bytes(result), self.labels
 
 
-def build_program() -> bytes:
+def build_program(marker: bytes) -> bytes:
     code = Assembler()
     code.label("reset")
     code.emit(0x78, 0xD8)  # SEI; CLD
@@ -130,7 +133,6 @@ def build_program() -> bytes:
     machine_code, labels = code.build()
     prg = bytearray(0x4000)
     prg[: len(machine_code)] = machine_code
-    marker = b"RETROM PUBLIC NES NETPLAY SMOKE - MIT"
     prg[0x3F00 : 0x3F00 + len(marker)] = marker
     prg[0x3FFA:0x4000] = (
         labels["nmi"].to_bytes(2, "little")
@@ -140,7 +142,7 @@ def build_program() -> bytes:
     return bytes(prg)
 
 
-def build_rom() -> bytes:
+def build_rom(marker: bytes) -> bytes:
     header = b"NES\x1a" + bytes((1, 1, 0, 0)) + bytes(8)
     chr_rom = bytearray(0x2000)
     patterns = (
@@ -151,23 +153,25 @@ def build_rom() -> bytes:
     )
     for index, pattern in enumerate(patterns, start=1):
         chr_rom[index * 16 : (index + 1) * 16] = pattern
-    return header + build_program() + bytes(chr_rom)
+    return header + build_program(marker) + bytes(chr_rom)
 
 
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--check", action="store_true")
     args = parser.parse_args()
-    content = build_rom()
-    destination = OUTPUT_ROOT / OUTPUT_NAME
+    contents = {name: build_rom(marker) for name, marker in OUTPUTS.items()}
     if args.check:
-        if not destination.is_file() or destination.read_bytes() != content:
-            raise SystemExit("public NES fixture drifted; run build.py")
+        for name, content in contents.items():
+            destination = OUTPUT_ROOT / name
+            if not destination.is_file() or destination.read_bytes() != content:
+                raise SystemExit(f"public NES fixture {name} drifted; run build.py")
         return
     with tempfile.TemporaryDirectory(prefix="retrom-nes-smoke-", dir=OUTPUT_ROOT) as temporary:
-        generated = Path(temporary) / OUTPUT_NAME
-        generated.write_bytes(content)
-        shutil.move(generated, destination)
+        for name, content in contents.items():
+            generated = Path(temporary) / name
+            generated.write_bytes(content)
+            shutil.move(generated, OUTPUT_ROOT / name)
 
 
 if __name__ == "__main__":

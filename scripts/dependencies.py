@@ -17,6 +17,7 @@ import urllib.error
 import urllib.request
 from pathlib import Path, PurePosixPath
 from typing import Any
+from xml.etree import ElementTree
 
 import fbalpha2012_dat
 
@@ -26,6 +27,9 @@ DATA_ROOT = REPOSITORY_ROOT / "data"
 AUTH_MANIFEST_PATH = DATA_ROOT / "auth/password-blocklists/v1/manifest.json"
 NETPLAY_MANIFEST_PATH = DATA_ROOT / "netplay/v2/manifest.json"
 NETPLAY_SCHEMA_PATH = DATA_ROOT / "netplay/v2/schema.json"
+CPS_FIXTURE_LAYOUT_PATH = (
+    REPOSITORY_ROOT / "testdata/public-roms/arcade-smoke/driver-layouts.json"
+)
 HEX_64 = re.compile(r"^[0-9a-f]{64}$")
 PINNED_RAW = re.compile(
     r"^https://raw\.githubusercontent\.com/[^/]+/[^/]+/[0-9a-f]{40}/.+$"
@@ -309,6 +313,69 @@ def validate_registry(manifests: list[dict[str, Any]]) -> None:
     validate_netplay_manifest(manifests, netplay_registered)
 
 
+def validate_cps_fixture_layouts(manifests: list[dict[str, Any]]) -> None:
+    layout = load_json(CPS_FIXTURE_LAYOUT_PATH)
+    drivers = layout.get("drivers")
+    if layout.get("schemaVersion") != 1 or not isinstance(drivers, dict):
+        raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+    runtime_manifest = next(
+        (item for item in manifests if item.get("emulatorjs", {}).get("version") == "4.2.3"),
+        None,
+    )
+    if runtime_manifest is None:
+        raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+    cores = {
+        item.get("core_id"): item
+        for item in runtime_manifest.get("cores", [])
+        if isinstance(item, dict)
+    }
+    expected = {
+        "1941": "fbalpha2012_cps1",
+        "spf2xjd": "fbalpha2012_cps2",
+    }
+    if set(drivers) != set(expected):
+        raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+    for driver_name, core_id in expected.items():
+        driver = drivers[driver_name]
+        core = cores.get(core_id)
+        if not isinstance(driver, dict) or not isinstance(core, dict):
+            raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+        dat = core.get("dat")
+        stats = core.get("parse_stats")
+        local_path = dat.get("local_path") if isinstance(dat, dict) else None
+        if (
+            driver.get("coreId") != core_id
+            or driver.get("sourceCommit") != core.get("core_source", {}).get("commit")
+            or driver.get("productionDatSha256") != (dat or {}).get("sha256")
+            or driver.get("productionMachineCount") != (stats or {}).get("machine_count")
+            or not isinstance(local_path, str)
+        ):
+            raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+        production_path = DATA_ROOT / "dat/emulatorjs/4.2.3" / local_path
+        _, digest = file_digest(production_path)
+        if digest != driver["productionDatSha256"]:
+            raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+        root = ElementTree.parse(production_path).getroot()
+        machine = next(
+            (item for item in root.findall("machine") if item.attrib.get("name") == driver_name),
+            None,
+        )
+        entries = driver.get("entries")
+        if machine is None or not isinstance(entries, list):
+            raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+        declared = [
+            (entry.get("name"), str(entry.get("size")), entry.get("crc32"))
+            for entry in entries
+            if isinstance(entry, dict)
+        ]
+        actual = [
+            (entry.attrib.get("name"), entry.attrib.get("size"), entry.attrib.get("crc"))
+            for entry in machine.findall("rom")
+        ]
+        if len(declared) != len(entries) or declared != actual:
+            raise CheckError("CPS_FIXTURE_LAYOUT_INVALID")
+
+
 def validate_netplay_manifest(
     manifests: list[dict[str, Any]], netplay_adapters: dict[str, str]
 ) -> None:
@@ -347,10 +414,28 @@ def validate_netplay_manifest(
     }
     expected_profiles = {
         "fceumm-423-v1": (
-            "fceumm", "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493", 8,
+            "fceumm", ["nes"], "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493", 8,
         ),
         "fbneo-423-v1": (
-            "fbneo", "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c", 0,
+            "fbneo", ["arcade"], "315a25e0bcd61d58ee0d9e8b1dbf3740b9e0ca4b7d0726f848ce1068de73437c", 0,
+        ),
+        "snes9x-423-v1": (
+            "snes9x", ["snes"], "eaa0bcfce67673809886e50387a80a616b719502175db64c090d04c9d75958ee", 0,
+        ),
+        "mame2003-423-override-v1": (
+            "mame2003", ["arcade"], "1d8283ce042f71607b9b55656cd4068f703c52faa7a3d0940855c9dd21d542df", 0,
+        ),
+        "mame2003-plus-423-v1": (
+            "mame2003_plus", ["arcade"], "cb6d9c80a88b65d1579d16d02128a678f8d1cd3f51de1479e647cea27b13247b", 0,
+        ),
+        "fbalpha2012-cps1-423-v1": (
+            "fbalpha2012_cps1", ["arcade"], "15b47667eb3c3746649c79e997b9f8c463f83bed9f61f51322cbe4db3d6e078e", 0,
+        ),
+        "fbalpha2012-cps2-423-v1": (
+            "fbalpha2012_cps2", ["arcade"], "432c2dd513603b04ccbf4e81f282f012763d2435311805443e2bd0cc9021d8d1", 0,
+        ),
+        "nestopia-423-v1": (
+            "nestopia", ["nes"], "051de1b67a5b582b8a1bac6b99471d4f9f883ce3b3603d00330c1a066e546375", 0,
         ),
     }
     profiles = manifest.get("profiles")
@@ -358,7 +443,8 @@ def validate_netplay_manifest(
         raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
     seen: set[str] = set()
     required_keys = {
-        "id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "maxPlayers", "maxPredictionFrames",
+        "id", "emulatorjsVersion", "coreId", "platformIds", "coreArtifactSha256", "maxPlayers",
+        "maxPredictionFrames",
     }
     for profile in profiles:
         if not isinstance(profile, dict) or set(profile) != required_keys:
@@ -368,7 +454,10 @@ def validate_netplay_manifest(
         if expected is None or profile_id in seen:
             raise CheckError("NETPLAY_PROFILE_MANIFEST_INVALID")
         seen.add(profile_id)
-        actual = (profile.get("coreId"), profile.get("coreArtifactSha256"), profile.get("maxPredictionFrames"))
+        actual = (
+            profile.get("coreId"), profile.get("platformIds"),
+            profile.get("coreArtifactSha256"), profile.get("maxPredictionFrames"),
+        )
         artifact = artifacts.get(profile.get("coreId"))
         if actual != expected or profile.get("emulatorjsVersion") != "4.2.3" or \
                 profile.get("maxPlayers") != 2 or \
@@ -1036,6 +1125,8 @@ def main() -> int:
         for version, manifest in zip(versions, manifests, strict=True):
             validate_small_manifest(version, manifest)
         validate_registry(manifests)
+        if args.action == "data-check":
+            validate_cps_fixture_layouts(manifests)
         if args.action == "prepare":
             for version, manifest in zip(versions, manifests, strict=True):
                 prepare(version, manifest)

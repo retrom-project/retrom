@@ -20,15 +20,19 @@ export function fitCanvasToViewport(canvas: HTMLCanvasElement, viewportWidth: nu
     ? containSize(viewportWidth, viewportHeight, aspectRatio, 1)
     : containSize(viewportWidth, viewportHeight, canvas.width, canvas.height);
   if (!size) {return false;}
-  canvas.style.setProperty("width", `${size.width}px`, "important");
-  canvas.style.setProperty("height", `${size.height}px`, "important");
+  // Pixel-align the CSS box so two peers rendering the same frame cannot be
+  // sampled through different sub-pixel boundaries by the browser compositor.
+  const alignedWidth = Math.max(1, Math.round(size.width));
+  const alignedHeight = Math.max(1, Math.round(size.height));
+  canvas.style.setProperty("width", `${alignedWidth}px`, "important");
+  canvas.style.setProperty("height", `${alignedHeight}px`, "important");
   canvas.style.setProperty("max-width", "none", "important");
   canvas.style.setProperty("max-height", "none", "important");
   canvas.style.setProperty("justify-self", "center", "important");
   canvas.style.setProperty("align-self", "center", "important");
   canvas.style.setProperty("position", "absolute", "important");
-  canvas.style.setProperty("left", `${(viewportWidth - size.width) / 2}px`, "important");
-  canvas.style.setProperty("top", `${(viewportHeight - size.height) / 2}px`, "important");
+  canvas.style.setProperty("left", `${Math.floor((viewportWidth - alignedWidth) / 2)}px`, "important");
+  canvas.style.setProperty("top", `${Math.floor((viewportHeight - alignedHeight) / 2)}px`, "important");
   return true;
 }
 

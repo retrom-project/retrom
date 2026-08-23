@@ -139,11 +139,21 @@ export function installEmulatorJs423NetplayCompatibility(playerWindow: Window = 
       const original = target.__RETROM_POST_MAIN_LOOP__;
       const startFrame = this.getFrameNum();
       let resolveFrame!: (frame: number) => void;
-      const completion = new Promise<number>((resolve) => { resolveFrame = resolve; });
+      let rejectFrame!: (error: Error) => void;
+      const completion = new Promise<number>((resolve, reject) => {
+        resolveFrame = resolve; rejectFrame = reject;
+      });
       const wrapper = () => {
         original?.();
         const completedFrame = this.getFrameNum!();
-        if (completedFrame > startFrame) {resolveFrame(completedFrame);}
+        if (completedFrame <= startFrame) {return;}
+        // Stop synchronously inside postMainLoop. Waiting for the Promise
+        // continuation leaves a task-sized window in which Emscripten can
+        // schedule another native frame, making one canonical input advance
+        // different peers by different amounts under load.
+        this.toggleMainLoop!(false);
+        if (completedFrame === startFrame + 1) {resolveFrame(completedFrame);}
+        else {rejectFrame(new Error("NETPLAY_FRAME_STEP_INVALID"));}
       };
       target.__RETROM_POST_MAIN_LOOP__ = wrapper;
       try {
@@ -300,11 +310,27 @@ export class EJSNetplayFrameBridge {
     this.runtime.paused = true;
     const recapturedCore = coreStateBytes(recaptured);
     let firstCoreMismatch = -1;
+    let lastCoreMismatch = -1;
+    let coreMismatchCount = 0;
+    const coreMismatchRanges: Array<{ start: number; end: number }> = [];
     const comparedLength = Math.min(expectedCore.byteLength, recapturedCore.byteLength);
     for (let index = 0; index < comparedLength; index += 1) {
-      if (expectedCore[index] !== recapturedCore[index]) { firstCoreMismatch = index; break; }
+      if (expectedCore[index] === recapturedCore[index]) {continue;}
+      if (firstCoreMismatch < 0) {firstCoreMismatch = index;}
+      lastCoreMismatch = index;
+      coreMismatchCount += 1;
+      const tail = coreMismatchRanges.at(-1);
+      if (tail?.end === index) {tail.end = index + 1;}
+      else if (coreMismatchRanges.length < 32) {coreMismatchRanges.push({ start: index, end: index + 1 });}
     }
-    if (firstCoreMismatch < 0 && expectedCore.byteLength !== recapturedCore.byteLength) {firstCoreMismatch = comparedLength;}
+    if (expectedCore.byteLength !== recapturedCore.byteLength) {
+      if (firstCoreMismatch < 0) {firstCoreMismatch = comparedLength;}
+      lastCoreMismatch = Math.max(expectedCore.byteLength, recapturedCore.byteLength) - 1;
+      coreMismatchCount += Math.abs(expectedCore.byteLength - recapturedCore.byteLength);
+      if (coreMismatchRanges.length < 32) {
+        coreMismatchRanges.push({ start: comparedLength, end: Math.max(expectedCore.byteLength, recapturedCore.byteLength) });
+      }
+    }
     return {
       recaptured,
       byteExact: equalBytes(recaptured, bytes),
@@ -312,6 +338,9 @@ export class EJSNetplayFrameBridge {
       expectedCoreBytes: expectedCore.byteLength,
       recapturedCoreBytes: recapturedCore.byteLength,
       firstCoreMismatch,
+      lastCoreMismatch,
+      coreMismatchCount,
+      coreMismatchRanges,
     };
   }
 
@@ -372,6 +401,41 @@ export function coreStateBytes(value: Uint8Array) {
   throw new Error("STATE_INVALID");
 }
 
+const nestopiaTrackedInputStateBytes = 8;
+
+function nestopiaTrackedInputRange(value: Uint8Array) {
+  // The locked Nestopia core appends libretro's tracked input immediately
+  // after the variable-length NST root chunk. FDS may leave padding after it,
+  // so the range must come from the root length rather than the MEM tail.
+  if (value.byteLength < 32 || value[0] !== 0x4e || value[1] !== 0x53 ||
+    value[2] !== 0x54 || value[3] !== 0x1a) {return null;}
+  const view = new DataView(value.buffer, value.byteOffset, value.byteLength);
+  const rootBytes = view.getUint32(4, true);
+  if (rootBytes < 16 || value[8] !== 0x4e || value[9] !== 0x46 ||
+    value[10] !== 0x4f || value[11] !== 0 || view.getUint32(12, true) !== 8) {return null;}
+  const start = 8 + rootBytes;
+  const end = start + nestopiaTrackedInputStateBytes;
+  return end <= value.byteLength ? { start, end } : null;
+}
+
+export function transferCoreStateBytes(value: Uint8Array, profileID: string) {
+  if (profileID !== "nestopia-423-v1") {return value;}
+  const range = nestopiaTrackedInputRange(value);
+  if (!range) {return value;}
+  const projected = new Uint8Array(value);
+  projected.fill(0, range.start, range.end);
+  return projected;
+}
+
+export function transferStateBytes(value: Uint8Array, profileID: string) {
+  const core = coreStateBytes(value);
+  const projectedCore = transferCoreStateBytes(core, profileID);
+  if (projectedCore === core) {return value;}
+  const projected = new Uint8Array(value);
+  projected.set(projectedCore, core.byteOffset - value.byteOffset);
+  return projected;
+}
+
 // FBNeo scans the Neo Geo AY8910 sound generator through its driver state (96 bytes), then
 // nYM2610Position and nAY8910Position (8 bytes), immediately before uPD4990A.
 // These audio-output states depend on browser sample scheduling, not game logic.
@@ -406,6 +470,7 @@ function rtcStateOffsets(value: Uint8Array) {
 }
 
 export function checkpointCoreStateBytes(value: Uint8Array, profileID: string) {
+  if (profileID === "nestopia-423-v1") {return transferCoreStateBytes(value, profileID);}
   if (profileID !== "fbneo-423-v1") {return value;}
   const candidates = rtcStateOffsets(value);
   if (candidates.length !== 1) {return value;}

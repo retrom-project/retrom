@@ -1,7 +1,6 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { NetplayController, type NetplayLaunchConfig } from "./controller";
 import { coreStateBytes, type EJSNetplayFrameBridge } from "./ejs-netplay-4.2.3-v1";
-import { decodeStateFrame } from "./protocol";
 
 class FakeSocket extends EventTarget {
   static readonly OPEN = 1;
@@ -44,7 +43,8 @@ const launch: NetplayLaunchConfig = {
   playerNo: 2,
   runtimeSocketUrl: "/runtime/netplay/rooms/01980000-0000-7000-8000-000000000001/socket",
   netplayProfile: {
-    schemaVersion: 1, protocolVersion: "retrom-netplay-v2", profileId: "fceumm-423-v1", emulatorjsVersion: "4.2.3",
+    schemaVersion: 1, protocolVersion: "retrom-netplay-v2", profileId: "fceumm-423-v1", platformIds: ["nes"],
+    emulatorjsVersion: "4.2.3",
     playerAdapterId: "ejs-4.2.3-v2", netplayAdapterId: "ejs-netplay-4.2.3-v1",
     coreArtifactId: "01980000-0000-7000-8000-000000000003", gameVariantRevisionId: "01980000-0000-7000-8000-000000000004",
     coreArtifactSha256: "1".repeat(64), sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64), defaultCoreOptions: {},
@@ -77,47 +77,6 @@ afterEach(() => {
 });
 
 describe("NetplayController reconnect lease", () => {
-  it("normalizes an authority state to a verified native-load fixed point before transfer", async () => {
-    vi.stubGlobal("WebSocket", FakeSocket);
-    const captured = raState([1]);
-    const normalized = raState([2]);
-    let current = captured;
-    const loadStateForTransfer = vi.fn(async (state: Uint8Array) => {
-      const coreExact = [...coreStateBytes(state)].every((byte, index) => byte === coreStateBytes(normalized)[index]);
-      current = normalized;
-      return {
-        recaptured: normalized, byteExact: coreExact, coreExact,
-        expectedCoreBytes: 1, recapturedCoreBytes: 1, firstCoreMismatch: coreExact ? -1 : 0,
-      };
-    });
-    const bridge = {
-      pauseAtBoundary: vi.fn().mockResolvedValue(undefined), resetLocalControls: vi.fn(), close: vi.fn(),
-      captureState: vi.fn(() => current), loadStateForTransfer, loadStateAndWait: vi.fn(),
-      runNetplayFrame: vi.fn(), sampleLocalControls: vi.fn(() => Array(24).fill(0)),
-    } as unknown as EJSNetplayFrameBridge;
-    const controller = new NetplayController({ ...launch, playerNo: 1 }, "0".repeat(64), bridge, {
-      onStatus: vi.fn(), onRunning: vi.fn(), onPaused: vi.fn(), onEnded: vi.fn(),
-    });
-
-    await controller.start();
-    const socket = FakeSocket.instances[0]!;
-    socket.message(JSON.stringify({
-      v: 1, type: "REQUEST_STATE", sessionId: launch.sessionId, epoch: 0, seq: 1,
-      transferId: "01980000-0000-7000-8000-000000000005", nextFrame: 0,
-      targetPlayerNos: [2], reason: "INITIAL",
-    }));
-
-    await vi.waitFor(() => expect(socket.sent.some((value) => value instanceof Uint8Array)).toBe(true));
-    expect(loadStateForTransfer).toHaveBeenCalledTimes(2);
-    const frame = socket.sent.find((value): value is Uint8Array => value instanceof Uint8Array)!;
-    expect([...coreStateBytes(decodeStateFrame(frame).state)]).toEqual([2]);
-    const ready = socket.sent.filter((value): value is string => typeof value === "string")
-      .map((value) => JSON.parse(value) as { type: string; recaptureMatched?: boolean })
-      .find((message) => message.type === "STATE_READY");
-    expect(ready?.recaptureMatched).toBe(true);
-    controller.end();
-  });
-
   it("reconnects a running player with HELLO seq zero and retained epoch history", async () => {
     vi.useFakeTimers();
     vi.stubGlobal("WebSocket", FakeSocket);

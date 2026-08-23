@@ -30,11 +30,18 @@
       "items": {
         "type": "object",
         "additionalProperties": false,
-        "required": ["id", "emulatorjsVersion", "coreId", "coreArtifactSha256", "maxPlayers", "maxPredictionFrames"],
+        "required": ["id", "emulatorjsVersion", "coreId", "platformIds", "coreArtifactSha256", "maxPlayers", "maxPredictionFrames"],
         "properties": {
           "id": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" },
           "emulatorjsVersion": { "const": "4.2.3" },
-          "coreId": { "enum": ["fceumm", "fbneo"] },
+          "coreId": { "enum": ["fceumm", "fbneo", "snes9x", "mame2003", "mame2003_plus", "fbalpha2012_cps1", "fbalpha2012_cps2", "nestopia"] },
+          "platformIds": {
+            "type": "array",
+            "minItems": 1,
+            "maxItems": 8,
+            "uniqueItems": true,
+            "items": { "type": "string", "pattern": "^[a-z0-9-]{1,64}$" }
+          },
           "coreArtifactSha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
           "maxPlayers": { "type": "integer", "minimum": 2, "maximum": 4 },
           "maxPredictionFrames": { "type": "integer", "minimum": 0, "maximum": 8 }

@@ -33,5 +33,6 @@ describe("netplay room snapshots", () => {
       expect(netplayBlocker(code)).toBeTruthy();
     }
     expect(netplayBlocker("CONTENT_NOT_ALLOWLISTED")).toBe("当前内容类型尚未支持联机");
+    expect(netplayBlocker("CORE_NOT_ALLOWLISTED")).toBe("当前平台与核心组合尚未验证联机");
   });
 });

@@ -12,9 +12,11 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"os"
 	"path/filepath"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -25,19 +27,61 @@ import (
 	"retrom/internal/datindex"
 )
 
-var errUnsupportedSmokeCore = errors.New("unsupported smoke core")
+var errUnsupportedSmokeFixture = errors.New("unsupported smoke fixture")
+
+type smokeFixture struct {
+	CoreID       string
+	RelativePath string
+	SHA256       string
+	Machines     []string
+}
+
+var smokeFixtures = map[string]smokeFixture{
+	"mame2003": {
+		CoreID: "mame2003", RelativePath: "testdata/public-roms/arcade-smoke/mame2003-smoke.xml",
+		SHA256:   "746f0828479bd8749596c0f57af43e5f46afca215f0bb3e005d53a2adb2994c8",
+		Machines: []string{"retrombios", "puckman", "pacman"},
+	},
+	"fbneo": {
+		CoreID: "fbneo", RelativePath: "testdata/public-roms/arcade-smoke/fbneo/fbneo-smoke.dat",
+		SHA256:   "f460da0fd6d2f2613df3838dad956df05f453d023db04b112eba44ff4121341a",
+		Machines: []string{"retrombios", "puckman", "pacman"},
+	},
+	"mame2003_plus": {
+		CoreID: "mame2003_plus", RelativePath: "testdata/public-roms/arcade-smoke/mame2003_plus/mame2003-plus-smoke.xml",
+		SHA256:   "746f0828479bd8749596c0f57af43e5f46afca215f0bb3e005d53a2adb2994c8",
+		Machines: []string{"retrombios", "puckman", "pacman"},
+	},
+	"fbalpha2012_cps1": {
+		CoreID: "fbalpha2012_cps1", RelativePath: "testdata/public-roms/arcade-smoke/fbalpha2012_cps1/fbalpha2012-cps1-smoke.dat",
+		SHA256:   "9d1dfba059d6e9f5429dbe982c6a13ae5ba4b7ddbea053279392fd3da637d205",
+		Machines: []string{"1941"},
+	},
+	"fbalpha2012_cps2": {
+		CoreID: "fbalpha2012_cps2", RelativePath: "testdata/public-roms/arcade-smoke/fbalpha2012_cps2/fbalpha2012-cps2-smoke.dat",
+		SHA256:   "121e3e16c7a604448392b5086f2c28293b98c830b6face5a00d778d311b439c4",
+		Machines: []string{"spf2t", "spf2xjd"},
+	},
+}
 
 func main() {
-	if len(os.Args) != 4 {
-		fatalf("usage: seed-public-arcade-dat <database> <mame2003|fbneo> <dat-file>")
+	arguments := flag.NewFlagSet("seed-public-arcade-dat", flag.ContinueOnError)
+	fixtureID := arguments.String("fixture", "", "allowlisted public fixture ID")
+	databasePath := arguments.String("database", "", "acceptance SQLite database")
+	if err := arguments.Parse(os.Args[1:]); err != nil || arguments.NArg() != 0 || *fixtureID == "" || *databasePath == "" {
+		fatalf("usage: seed-public-arcade-dat --database <database> --fixture <mame2003|fbneo|mame2003_plus|fbalpha2012_cps1|fbalpha2012_cps2>")
 	}
-	if err := run(context.Background(), os.Args[1], os.Args[2], os.Args[3]); err != nil {
+	if err := run(context.Background(), *databasePath, *fixtureID); err != nil {
 		fatalf("seed public Arcade DAT: %v", err)
 	}
 }
 
-func run(ctx context.Context, databasePath, coreID, datPath string) error {
-	catalog, digestHex, err := loadSmokeCatalog(ctx, coreID, datPath)
+func run(ctx context.Context, databasePath, fixtureID string) error {
+	fixture, ok := smokeFixtures[fixtureID]
+	if !ok {
+		return fmt.Errorf("%w: %q", errUnsupportedSmokeFixture, fixtureID)
+	}
+	catalog, digestHex, datPath, err := loadSmokeCatalog(ctx, fixture)
 	if err != nil {
 		return err
 	}
@@ -46,13 +90,13 @@ func run(ctx context.Context, databasePath, coreID, datPath string) error {
 		return err
 	}
 	defer func() { cleanup.Error("close acceptance database", database.Close()) }()
-	artifactID, datID, err := installSmokeDAT(ctx, database, coreID, datPath, digestHex, catalog)
+	artifactID, datID, err := installSmokeDAT(ctx, database, fixture.CoreID, datPath, digestHex, catalog)
 	if err != nil {
 		return err
 	}
 	if err := json.NewEncoder(os.Stdout).Encode(map[string]any{
 		"artifactId":   artifactID,
-		"coreId":       coreID,
+		"coreId":       fixture.CoreID,
 		"datVersionId": datID,
 		"sha256":       digestHex,
 		"source":       "BUILTIN",
@@ -63,21 +107,57 @@ func run(ctx context.Context, databasePath, coreID, datPath string) error {
 	return nil
 }
 
-func loadSmokeCatalog(ctx context.Context, coreID, datPath string) (arcadedat.Catalog, string, error) {
-	if !supportedSmokeCore(coreID) {
-		return arcadedat.Catalog{}, "", fmt.Errorf("%w: %q", errUnsupportedSmokeCore, coreID)
+func loadSmokeCatalog(
+	ctx context.Context,
+	fixture smokeFixture,
+) (arcadedat.Catalog, string, string, error) {
+	relativePath := filepath.Clean(fixture.RelativePath)
+	if filepath.IsAbs(relativePath) || relativePath != fixture.RelativePath || !filepath.IsLocal(relativePath) {
+		return arcadedat.Catalog{}, "", "", errors.New("unsafe smoke fixture path")
 	}
-
+	repositoryRoot, err := findRepositoryRoot()
+	if err != nil {
+		return arcadedat.Catalog{}, "", "", err
+	}
+	datPath := filepath.Join(repositoryRoot, relativePath)
 	contents, err := os.ReadFile(datPath)
 	if err != nil {
-		return arcadedat.Catalog{}, "", fmt.Errorf("read DAT: %w", err)
-	}
-	catalog, err := arcadedat.ParseCatalog(ctx, bytes.NewReader(contents), coreID)
-	if err != nil {
-		return arcadedat.Catalog{}, "", fmt.Errorf("parse DAT: %w", err)
+		return arcadedat.Catalog{}, "", "", fmt.Errorf("read DAT: %w", err)
 	}
 	digest := sha256.Sum256(contents)
-	return catalog, hex.EncodeToString(digest[:]), nil
+	digestHex := hex.EncodeToString(digest[:])
+	if digestHex != fixture.SHA256 {
+		return arcadedat.Catalog{}, "", "", errors.New("smoke fixture DAT digest drift")
+	}
+	catalog, err := arcadedat.ParseCatalog(ctx, bytes.NewReader(contents), fixture.CoreID)
+	if err != nil {
+		return arcadedat.Catalog{}, "", "", fmt.Errorf("parse DAT: %w", err)
+	}
+	machines := make([]string, 0, len(catalog.Machines))
+	for _, machine := range catalog.Machines {
+		machines = append(machines, machine.Name)
+	}
+	if !slices.Equal(machines, fixture.Machines) {
+		return arcadedat.Catalog{}, "", "", errors.New("smoke fixture machine set drift")
+	}
+	return catalog, digestHex, datPath, nil
+}
+
+func findRepositoryRoot() (string, error) {
+	directory, err := os.Getwd()
+	if err != nil {
+		return "", fmt.Errorf("resolve acceptance working directory: %w", err)
+	}
+	for {
+		if _, statErr := os.Stat(filepath.Join(directory, "go.mod")); statErr == nil {
+			return directory, nil
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			return "", errors.New("acceptance repository root not found")
+		}
+		directory = parent
+	}
 }
 
 func openSmokeDatabase(ctx context.Context, databasePath string) (*sql.DB, error) {
@@ -155,10 +235,6 @@ UPDATE core_artifacts SET version=version+1,updated_at_ms=? WHERE id=?
 		return "", "", fmt.Errorf("commit test-only built-in DAT: %w", err)
 	}
 	return artifactID, datID, nil
-}
-
-func supportedSmokeCore(coreID string) bool {
-	return coreID == "mame2003" || coreID == "fbneo"
 }
 
 func fatalf(format string, arguments ...any) {

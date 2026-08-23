@@ -2,7 +2,7 @@
 
 ## 1. 文档职责
 
-本文定义 EmulatorJS 核心的产品链路验证边界。核心版本、artifact、SHA-256、DAT 与 adapter 映射以 [`data/dat/`](../data/dat/) 的版本化 manifest 和前端 adapter registry 为机器事实源。公开产品 E2E 使用 [`testdata/public-roms/`](../testdata/public-roms/) 中由本项目源码确定性生成并许可分发的 GBA、NES 与 Arcade 测试程序。自动化测试不读取操作者私有 ROM/BIOS；`make dev` 的 `.dev-data/` 服务器导入语料也不属于测试 fixture。
+本文定义 EmulatorJS 核心的产品链路验证边界。核心版本、artifact、SHA-256、DAT 与 adapter 映射以 [`data/dat/`](../data/dat/) 的版本化 manifest 和前端 adapter registry 为机器事实源。公开产品 E2E 使用 [`testdata/public-roms/`](../testdata/public-roms/) 中由本项目源码确定性生成并许可分发的 GBA、NES、SNES 与 Arcade 测试程序。自动化测试不读取操作者私有 ROM/BIOS；`make dev` 的 `.dev-data/` 服务器导入语料也不属于测试 fixture。
 
 独立 HTML 页面直接装载 EmulatorJS 会绕过 Retrom 的导入、审核、发布、Launch capability、内容端点和 Player，因此不能作为产品集成或验收证据。仓库不再维护这种 example runner，也不再用逐核心独立页面的成功结果宣称 Retrom 已覆盖对应核心。
 
@@ -12,11 +12,16 @@
 | --- | --- | --- | --- |
 | `mgba` | `make web-e2e`、`ACC-RUN-002`、`ACC-PEG-006` | `testdata/public-roms/gba-smoke/gba-smoke.gba` 与 `pegasus-smoke.gba`；项目自有 MIT 夹具，使用不同 GBA header/内容身份，size/SHA-256 与生成一致性由各自消费者锁定 | 普通上传与 Pegasus 服务器目录两种真实 Retrom 导入入口，审核发布、Launch、受限内容端点、Player、Chrome canvas 与核心帧推进 |
 | `fceumm` | `make web-e2e`、`ACC-NP-014`、`ACC-NP-016` | `testdata/public-roms/nes-smoke/nes-smoke.nes`；项目自有 MIT iNES 1.0 NROM 程序，确定性读取 P1/P2 输入并更新画面 | 真实上传、导入、审核、发布、联机房间、双 Launch/cookie、两路受限内容、两个 Chrome Player、native state transfer/load、输入延迟触发 rollback、120-frame checkpoint digest 收敛、后台冻结恢复与 3 秒 transport drop 后同 session/new epoch 重连；无需 BIOS |
-| `mame2003` | `make web-e2e`、`ACC-RUN-006` | `testdata/public-roms/arcade-smoke/`；项目自有 MIT 的 Z80 程序、图形/声音资源、小型 MAME XML 和测试 BIOS 角色归档 | `ACC-DAT-004` 独立证明 release 真实 DAT 的物化/选版；产品 E2E 将项目自有小型 DAT 通过测试装置登记为 test-only `BUILTIN`（无上传/API），再覆盖 Split Child/Parent/BIOS 识别、审核与发布 schema v2、详情页同一 DatVersion、首次启动重验证仍保持 v2、schema v2 current revision 直接 Launch、三路受限内容、Player、Chrome 动画帧与运行遥测；测试 BIOS 不被 Pac-Man 驱动执行，不证明核心内部 BIOS 执行语义 |
+| `nestopia` | `make web-e2e`、`ACC-RUN-009`、`ACC-NP-018` | 与 FCEUmm 由同一项目自有生成器产出功能等价但内容身份不同的 `nestopia-smoke.nes`，建立独立 Game/Variant | 普通上传、审核发布、单机 state capture/load 与两次独立 SaveState 恢复；严格 lockstep 双浏览器验证 119/239/719 及断线后 checkpoint、输入缓冲升降、冻结与断线重连。锁定 core 不恢复紧随 `NST\x1a` 根块的 8-byte libretro input trailer；传输、接收与 checkpoint 只对该精确动态位置作零值投影，其余 MEM 全量逐字节校验；无需 BIOS |
+| `snes9x` | `make web-e2e`、`ACC-RUN-008`、`ACC-NP-017` | `testdata/public-roms/snes-smoke/snes-smoke.sfc`；项目自有 MIT 32 KiB LoROM，显式初始化 WRAM/PPU/输入 | 真实上传、审核发布、单机可见 P1/P2/帧变化、native state 与两次 SaveState 恢复；严格 lockstep 双浏览器 checkpoint、缓冲升降、冻结、重连与最终 canvas 一致；整局任一合法检查点若出现一次边界瞬时差异，只接受完整 state 在 load 前已自然一致的唯一 no-op hash recovery，并要求新 epoch 连续两个 checkpoint 一致；取证块不作允许列表，SNES state 不作 byte mask；无需 BIOS/SRAM |
+| `mame2003` | `make web-e2e`、`ACC-RUN-006`、`ACC-NP-019` | `testdata/public-roms/arcade-smoke/`；项目自有 MIT 的 Z80 程序、图形/声音资源、小型 MAME XML 和测试 BIOS 角色归档 | `ACC-DAT-004` 独立证明 release 真实 DAT；产品 E2E 以 test-only `BUILTIN` DAT 覆盖 Split Child/Parent/BIOS、审核发布 schema v2、三路内容、4.2.1 override core、单机动画/遥测与严格 lockstep 双浏览器恢复；测试 BIOS 不被驱动执行 |
+| `mame2003_plus` | `make web-e2e`、`ACC-RUN-010`、`ACC-NP-020` | `arcade-smoke/mame2003_plus/`；driver-visible member 与 MAME2003 相同，ZIP 使用项目自有固定 comment 取得独立内容身份 | 独立 test-only DAT、Split Child/Parent/BIOS、审核发布、三路内容、锁定 4.2.3 core、单机 state/恢复和严格 lockstep 双浏览器 checkpoint/冻结/重连；测试 BIOS 不被驱动执行 |
 | `fbneo` | `make web-e2e`、`ACC-RUN-007`、`ACC-NP-015`、`ACC-NP-016` | `testdata/public-roms/arcade-smoke/fbneo/`；项目自有 MIT 的双输入 Z80 程序、生成图形/PROM、Logiqx DAT 和测试 BIOS；生成器将其控制的 4 bytes 校正到锁定驱动所需 CRC32，完整 bytes 另由 SHA-1/SHA-256 固定 | `ACC-DAT-004` 独立证明 release 真实 DAT；单机链路覆盖 test-only DAT、Split Child/Parent/BIOS、审核发布、三路内容、Player 动画与遥测。双浏览器链路覆盖两个 Chrome Player、严格零 prediction/rollback、原始消息到达 RTT 驱动的 1–8 帧输入缓冲升降、720-frame checkpoint digest 收敛、后台冻结恢复与 3 秒 transport drop 后同 session/new epoch 重连；测试 BIOS 仅作为装配内容，不被 Pac-Man 驱动执行 |
+| `fbalpha2012_cps1` | `make web-e2e`、`ACC-RUN-011`、`ACC-NP-021` | `arcade-smoke/fbalpha2012_cps1/1941.zip`；按锁定 `1941` driver layout 生成的完整项目自有 68000/Z80/图形/静音 set | test-only DAT 的无 parent/BIOS 根集合、真实审核发布与内容端点、锁定 core 启动、程序 state marker/palette、输入/画面、两次 SaveState 恢复和严格 lockstep 双浏览器 checkpoint/冻结/重连；重连后执行 180 帧视觉稳定窗口，双端 PNG 必须一致且非纯黑 |
+| `fbalpha2012_cps2` | `make web-e2e`、`ACC-RUN-012`、`ACC-NP-022` | `arcade-smoke/fbalpha2012_cps2/spf2xjd.zip` 与项目自有 marker-only `spf2t.zip`；Phoenix 明文程序，不含第三方 bytes | 锁定 core loader 实际要求的 child/parent 装配、审核 schema v2 `PARENT SATISFIED_EXTERNAL`、`parentUrl` 非空而 `biosUrl` 为空、程序 state marker/palette、单机两次恢复和严格 lockstep 双浏览器 checkpoint/冻结/重连；marker 父归档不被 driver 执行；重连后执行 180 帧视觉稳定窗口，双端 PNG 必须一致且非纯黑 |
 | Saturn 多盘 | `ACC-MDISC-001`–`008` | 普通测试使用确定性临时夹具 | 产品 parser、导入、发布、Launch 内容协议、Player adapter 换盘与存档恢复；当前不包含真实 ROM 的浏览器运行 |
 
-其余 enabled core（包括 FBA2012）目前只有 manifest/schema、依赖物化、adapter 配置、协议或相邻纯逻辑测试，尚没有走完整 Retrom 产品链路的真实浏览器 E2E。发布或依赖升级不能把这些结构检查解释为“核心已实际启动”。FCEUmm/FBNeo 的联机基线只覆盖表中精确 artifact/profile 和项目自有 fixture，不证明其他 ROM 或 core 版本；新增覆盖仍应扩展 `make web-e2e` 或对应产品 E2E，并使用项目自有或有明确再分发许可、可确定性生成且能够提交的测试程序。
+其余 enabled core 目前只有 manifest/schema、依赖物化、adapter 配置、协议或相邻纯逻辑测试，尚没有走完整 Retrom 产品链路的真实浏览器 E2E。发布或依赖升级不能把这些结构检查解释为“核心已实际启动”。表中联机基线只覆盖精确 artifact/profile 和项目自有 fixture，不证明其他 ROM 或 core 版本；新增覆盖仍应扩展 `make web-e2e` 或对应产品 E2E，并使用项目自有或有明确再分发许可、可确定性生成且能够提交的测试程序。
 
 ## 3. 验证原则
 

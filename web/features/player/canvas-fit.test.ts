@@ -15,11 +15,11 @@ describe("player canvas contain sizing", () => {
     canvas.width = 256;
     canvas.height = 224;
     expect(fitCanvasToViewport(canvas, 1600, 900)).toBe(true);
-    expect(Number.parseFloat(canvas.style.width)).toBeCloseTo(900 * 256 / 224);
+    expect(canvas.style.width).toBe(`${Math.round(900 * 256 / 224)}px`);
     expect(canvas.style.height).toBe("900px");
     expect(canvas.style.justifySelf).toBe("center");
     expect(canvas.style.alignSelf).toBe("center");
-    expect(Number.parseFloat(canvas.style.left)).toBeCloseTo((1600 - 900 * 256 / 224) / 2);
+    expect(canvas.style.left).toBe(`${Math.floor((1600 - Math.round(900 * 256 / 224)) / 2)}px`);
     expect(canvas.style.top).toBe("0px");
     expect(containSize(0, 900, 256, 224)).toBeNull();
   });
@@ -31,5 +31,16 @@ describe("player canvas contain sizing", () => {
     expect(fitCanvasToViewport(canvas, 1920, 1080, 3 / 4)).toBe(true);
     expect(canvas.style.width).toBe("810px");
     expect(canvas.style.height).toBe("1080px");
+  });
+
+  it("uses an integer CSS box and origin for fractional contained geometry", () => {
+    const canvas = document.createElement("canvas");
+    canvas.width = 256;
+    canvas.height = 192;
+    expect(fitCanvasToViewport(canvas, 1280, 800, 256 / 196)).toBe(true);
+    expect(canvas.style.width).toBe("1045px");
+    expect(canvas.style.height).toBe("800px");
+    expect(canvas.style.left).toBe("117px");
+    expect(canvas.style.top).toBe("0px");
   });
 });
