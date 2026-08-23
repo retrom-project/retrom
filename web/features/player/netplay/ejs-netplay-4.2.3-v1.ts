@@ -3,7 +3,7 @@ import type { EmulatorInstance } from "../adapters/ejs-4.2.3-v2";
 import { ActiveTimeBudget } from "./active-time-budget";
 import type { CanonicalInput } from "./rollback";
 
-export const netplayAdapterID = "ejs-netplay-4.2.3-v1" as const;
+export const netplayAdapterID = "ejs-netplay-4.2.3-v2" as const;
 export const netplayRuntimeVersion = "4.2.3" as const;
 
 const VERSION_URL = "https://cdn.emulatorjs.org/stable/data/version.json";
@@ -376,9 +376,9 @@ export class EJSNetplayFrameBridge {
   }
 
   close() {
+    if (this.closed) {return;}
     this.closed = true;
     this.manager.cancelNetplayOperations?.();
-    this.manager.toggleMainLoop(false);
     if (this.manager.simulateInput === this.inputCapture) {this.manager.simulateInput = this.publicSimulateInput;}
     this.localControls.fill(0);
   }

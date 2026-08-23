@@ -3150,9 +3150,9 @@ export interface components {
             /** @enum {string} */
             emulatorjsVersion: "4.2.3";
             /** @enum {string} */
-            playerAdapterId: "ejs-4.2.3-v2";
+            playerAdapterId: "ejs-4.2.3-v3";
             /** @enum {string} */
-            netplayAdapterId: "ejs-netplay-4.2.3-v1";
+            netplayAdapterId: "ejs-netplay-4.2.3-v2";
             /** Format: uuid */
             coreArtifactId: string;
             coreArtifactSha256: string;

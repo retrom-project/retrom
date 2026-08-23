@@ -19,7 +19,7 @@
     "tag_commit": "5628818822054610a2f06e61a6dc802fd1a3681f",
     "release_published_at": "2026-05-17T17:48:47Z",
     "player_adapter": {
-      "id": "ejs-4.3.0-pre-v1",
+      "id": "ejs-4.3.0-pre-v2",
       "runtime_base_path_in_release": "data/",
       "loader_path_in_release": "data/loader.js"
     },

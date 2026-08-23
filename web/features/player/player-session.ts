@@ -66,8 +66,11 @@ async function exitPlayer(params: PlayerSessionParams, sendEvent: (kind: "start"
   params.orientationStateRef.current = exiting.state;
   params.setOrientationState(exiting.state);
   if (exiting.effects.includes("unlock")) {unlockLandscape();}
+  if (params.playerMode.current === "netplay") {
+    params.netplayController.current?.end();
+    return;
+  }
   try {
-    if (params.playerMode.current === "netplay") {params.netplayController.current?.end();}
     await params.saveUploadQueue.current;
     await sendEvent("finish");
   } catch { /* expiry is already a terminal server state */ }

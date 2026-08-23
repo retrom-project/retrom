@@ -155,7 +155,7 @@ test("one click creates a capability launch and advances real emulator frames", 
   await page.mouse.move(20, 20);
   await expect(page.locator(".player-game-meta")).toContainText("Sudoku");
   await page.getByRole("button", { name: "返回并退出游戏" }).click();
-  const exitDialog = page.getByRole("alertdialog", { name: "退出游戏？" });
+  const exitDialog = page.getByRole("alertdialog", { name: /退出《.+》？/ });
   await expect(exitDialog).toBeVisible();
   const saveResponsePromise = page.waitForResponse((response) => response.request().method() === "POST" && /\/runtime\/launches\/[^/]+\/save-states$/.test(response.url()));
   await exitDialog.getByRole("button", { name: "创建存档" }).click();
@@ -167,7 +167,7 @@ test("one click creates a capability launch and advances real emulator frames", 
   await expect(page.getByText("手动存档和截图已保存")).toBeVisible({ timeout: 20_000 });
   await expect(exitDialog.getByRole("button", { name: "已创建存档" })).toBeDisabled();
   await expect(exitDialog).toContainText("退出前存档已创建，可以安全退出。");
-  await exitDialog.getByRole("button", { name: "取消" }).click();
+  await exitDialog.getByRole("button", { name: "继续游戏" }).click();
   await expect(exitDialog).toBeHidden();
   const saves = await page.request.get("/api/v1/saves?limit=100");
   expect(saves.ok()).toBe(true);
@@ -203,8 +203,8 @@ test("one click creates a capability launch and advances real emulator frames", 
   await page.getByRole("button", { name: "继续游戏" }).click();
   await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 10_000 }).toBeGreaterThan(pausedForSave + 5);
   await page.mouse.move(20, 20);
-  await page.getByRole("button", { name: "更多操作" }).click();
-  await page.getByRole("menuitem", { name: "模拟器设置" }).click();
+  await page.getByRole("button", { name: "Retrom 菜单" }).click();
+  await page.getByRole("menuitem", { name: "画面、声音与高级设置" }).click();
   const emulatorToolbar = page.getByRole("region", { name: "模拟器设置工具栏" });
   await expect(emulatorToolbar).toBeVisible();
   await expect(nativeMenu).toBeHidden();
@@ -242,7 +242,7 @@ test("one click creates a capability launch and advances real emulator frames", 
   await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 10_000 }).toBeGreaterThan(pausedAt + 5);
   await page.mouse.move(20, 1);
   await page.getByRole("button", { name: "返回并退出游戏" }).click();
-  const directExitDialog = page.getByRole("alertdialog", { name: "退出游戏？" });
+  const directExitDialog = page.getByRole("alertdialog", { name: /退出《.+》？/ });
   await expect(directExitDialog).toContainText("只有点击“创建存档”才会保存当前位置");
   await directExitDialog.getByRole("button", { name: "退出游戏" }).click();
   await expect(page).toHaveURL(new RegExp(`/games/${game!.gameId}$`));
