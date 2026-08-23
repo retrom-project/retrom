@@ -1,6 +1,11 @@
 import type { components } from "@/lib/api/generated/schema";
 
-export type Platform = { id: string; name: string; enabled: boolean; cores: Array<{ id: string; name: string; enabled: boolean }> };
+export type Platform = {
+  id: string;
+  name: string;
+  enabled: boolean;
+  cores: Array<{ id: string; name: string; enabled: boolean; netplaySupported: boolean }>;
+};
 
 export type PlatformRecommendations = components["schemas"]["PlatformInstanceRecommendations"];
 export type PlatformRecommendationsApplyResult = components["schemas"]["PlatformInstanceRecommendationsApplyResult"];

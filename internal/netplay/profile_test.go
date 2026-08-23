@@ -98,6 +98,19 @@ func TestRegistryContainsOnlyTheEightArtifactBoundProfiles(t *testing.T) {
 			t.Fatalf("profile %q = %+v, exists=%t", profileID, profile, ok)
 		}
 	}
+	testassert.True(t, registry.SupportsPlatformCoreArtifact(
+		"nes", "fceumm", "4.2.3", "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493",
+	), "FCEUmm manifest artifact should support netplay on NES")
+	for _, mismatch := range []struct{ platformID, coreID, version, sha string }{
+		{"snes", "fceumm", "4.2.3", "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493"},
+		{"nes", "fceumm", "4.3.0-pre", "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493"},
+		{"nes", "fceumm", "4.2.3", "7c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493"},
+		{"nes", "mgba", "4.2.3", "8c449fd5c36646fb0769423ed6ffa9efbdfc21fbfdc9bac7952b559d34d5b493"},
+	} {
+		testassert.False(t, registry.SupportsPlatformCoreArtifact(
+			mismatch.platformID, mismatch.coreID, mismatch.version, mismatch.sha,
+		), "mismatched platform/core artifact was marked as netplay capable")
+	}
 }
 
 func fixtureDependencySet() *dependencies.Set {

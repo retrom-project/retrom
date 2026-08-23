@@ -1603,6 +1603,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
+        /** @description The platform/core catalog. Each core projects netplaySupported from the exact platform, enabled CoreArtifact version and SHA-256 recorded in the current netplay manifest; it is a core capability marker, not per-game eligibility. */
         get: operations["getAdminPlatforms"];
         put?: never;
         post?: never;
