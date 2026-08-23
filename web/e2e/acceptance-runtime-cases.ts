@@ -1,6 +1,6 @@
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
 import { currentEmulatorBrightRatio, evidencePath, noPageOverflow } from "./acceptance-support";
-import { verifyCompactFeaturedHome } from "./acceptance-user-layout";
+import { verifyCompactFeaturedHome, verifyMobileSavedFeaturedHome } from "./acceptance-user-layout";
 
 export function registerRuntimeAcceptanceTests(): void {
   test.describe("post-publication runtime acceptance", () => {
@@ -137,7 +137,8 @@ function registerRun002(): void {
       return runtimeWindow.EJS_emulator?.allSettings?.shader;
     })).toBe("retrom-adaptive-sharpen");
     await renderingToolbar.getByRole("button", { name: "收起" }).click();
-    await playerCanvas.click({ position: { x: 100, y: 100 } });
+    await page.locator(".player-pause-overlay").click();
+    await expect(page.locator(".player-shell")).not.toHaveClass(/is-paused/);
     await expect.poll(() => currentEmulatorBrightRatio(page), { timeout: 15_000, intervals: [500] }).toBeGreaterThan(0.02);
     await page.mouse.move(20, 20);
     await page.getByRole("button", { name: "更多操作" }).click();
@@ -537,6 +538,7 @@ function registerSave002(): void {
     expect(await page.locator(".recent-filter-panel").evaluate((element) => element.getBoundingClientRect().height)).toBe(filterHeight);
     await noPageOverflow(page);
     await page.goto("/");
+    await verifyMobileSavedFeaturedHome(page, testInfo);
     await verifyCompactFeaturedHome(page, testInfo);
     const homeResumeConfigResponse = page.waitForResponse((response) =>
       /\/runtime\/launches\/[^/]+\/config$/.test(response.url()) && response.status() === 200);

@@ -200,7 +200,7 @@ test("one click creates a capability launch and advances real emulator frames", 
   expect(screenshotStats.brightRatio).toBeGreaterThan(0.02);
   expect(screenshotStats.luminanceRange).toBeGreaterThan(16);
 
-  await canvas.click({ position: { x: 100, y: 100 } });
+  await page.getByRole("button", { name: "继续游戏" }).click();
   await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 10_000 }).toBeGreaterThan(pausedForSave + 5);
   await page.mouse.move(20, 20);
   await page.getByRole("button", { name: "更多操作" }).click();
@@ -238,7 +238,7 @@ test("one click creates a capability launch and advances real emulator frames", 
   await emulatorToolbar.getByRole("button", { name: "收起" }).click();
   await expect(emulatorToolbar).toBeHidden();
   await expect(nativeMenu).toBeHidden();
-  await canvas.click({ position: { x: 100, y: 100 } });
+  await page.getByRole("button", { name: "继续游戏" }).click();
   await expect.poll(async () => playerFrame!.evaluate(() => window.EJS_emulator?.gameManager?.getFrameNum?.() ?? 0), { timeout: 10_000 }).toBeGreaterThan(pausedAt + 5);
   await page.mouse.move(20, 1);
   await page.getByRole("button", { name: "返回并退出游戏" }).click();

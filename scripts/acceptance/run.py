@@ -375,8 +375,8 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-UI-010": (180, "scripts/acceptance/ui-case.sh ACC-UI-010"),
     "ACC-STOR-001": (
         240,
-        "go test ./internal/storageanalysis ./internal/httpapi "
-        "-run 'TestAnalyze|TestReferenceCoverage|TestAdminStorageAnalysis' -count=1 && "
+        "go test ./internal/storageanalysis ./internal/httpapi ./internal/payloadrelease "
+        "-run 'TestAnalyze|TestReferenceCoverage|TestAdminStorageAnalysis|TestImmediateGC' -count=1 && "
         "scripts/acceptance/ui-case.sh ACC-STOR-001",
     ),
 }

@@ -2104,13 +2104,17 @@
       #retrom-ui-review .rt-review-detail-columns { grid-template-columns: minmax(0, 1fr); }
       #retrom-ui-review .rt-home-featured-media { grid-template-columns: 88.571px minmax(0, 1fr); }
       #retrom-ui-review .rt-home-featured-media { height: auto; min-height: 0; padding: 16px; display: grid; grid-template-columns: 88.571px minmax(0, 1fr); gap: 14px; align-items: center; }
+      #retrom-ui-review .rt-home-featured-media.has-session-save { grid-template-columns: minmax(88.571px, 32.381%) minmax(0, 1fr); grid-template-rows: auto auto; align-items: start; }
       #retrom-ui-review .rt-home-featured-cover { position: relative; left: auto; top: auto; width: 88.571px; height: 124px; }
       #retrom-ui-review .rt-home-featured-copy,
       #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { position: relative; left: auto; right: auto; top: auto; transform: none; }
+      #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-cover { width: 100%; height: auto; grid-column: 1; grid-row: 1; aspect-ratio: 5 / 7; }
+      #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-copy { min-width: 0; grid-column: 2; grid-row: 1; }
       #retrom-ui-review .rt-home-featured-copy h2 { font-size: 20px; }
       #retrom-ui-review .rt-home-facts { margin-top: 10px; display: grid; gap: 3px; }
       #retrom-ui-review .rt-home-featured-actions { margin-top: 12px; display: grid; }
       #retrom-ui-review .rt-home-featured-save-preview { display: none; }
+      #retrom-ui-review .rt-home-featured-media.has-session-save .rt-home-featured-save-preview { position: relative; right: auto; bottom: auto; width: 100%; display: block; grid-column: 1 / -1; grid-row: 2; transform: none; }
       #retrom-ui-review .rt-home-recent-card { height: 132px; min-height: 0; }
       #retrom-ui-review .rt-home-recent-card .rt-cover { height: 100%; }
       #retrom-ui-review .rt-home-rail { grid-auto-columns: minmax(150px, 72%); overflow-x: auto; scroll-snap-type: x proximity; }
@@ -2934,13 +2938,13 @@
           <div class="rt-runtime-list"><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>ZIP</i><div><button type="button" class="rt-runtime-entry-button" data-open-bios-entries>stvbios.zip</button><small>必需 · 点击文件名核对 ZIP 内容</small></div></div><div class="rt-runtime-cell"><strong>MAME 2003 Plus</strong><small>mame2003_plus</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>DAT 条目级校验已通过</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div><div class="rt-runtime-bios-row"><div class="rt-runtime-file"><i>BIOS</i><div><strong>gb_bios.bin</strong><small>可选 · 按游戏内容决定是否需要</small></div></div><div class="rt-runtime-cell"><strong>Gambatte</strong><small>gambatte</small></div><span class="rt-badge rt-badge-green">已安装并匹配</span><div class="rt-runtime-cell"><strong>当前游戏库已就绪</strong><small>未安装可选项不会作为必需依赖阻断</small></div><div class="rt-runtime-actions"><button type="button" class="rt-button">替换文件</button></div></div></div>
       </section>
       <section class="rt-page" data-page="admin-storage">
-        <div class="rt-page-head"><div><div class="rt-eyebrow">系统存储</div><h1>容量分析</h1><p class="rt-subtitle">查看 Retrom 已登记 CAS 数据的业务用途，定位长期数据、流程数据与等待回收内容。</p></div><button type="button" class="rt-button">刷新分析</button></div>
+        <div class="rt-page-head"><div><div class="rt-eyebrow">系统存储</div><h1>容量分析</h1><p class="rt-subtitle">查看 Retrom 已登记 CAS 数据的业务用途，定位长期数据、流程数据与等待回收内容。</p></div><div class="rt-page-head-actions"><button type="button" class="rt-button rt-button-danger" data-open-storage-cleanup>立即清理</button><button type="button" class="rt-button">刷新分析</button></div></div>
         <p class="rt-subtitle" style="text-align:right">统计生成于 2026/8/23 01:20:00</p>
         <div class="rt-storage-summary"><article><span>已登记 CAS</span><strong>18.6 GiB</strong><small>482 个 Blob</small></article><article><span>受保护数据</span><strong>17.3 GiB</strong><small>93.0% 已被引用</small></article><article><span>等待回收</span><strong>1.3 GiB</strong><small>7.0% 当前未引用</small></article></div>
         <section class="rt-storage-panel"><div class="rt-panel-heading"><div><h2>按用途分析</h2><p class="rt-subtitle">同一个 Blob 只统计一次；长期业务用途优先于流程和运行快照。</p></div></div><div class="rt-storage-bar" aria-label="容量用途比例"><i></i><i></i><i></i><i></i><i></i><i></i></div><div class="rt-storage-categories">
           <article class="rt-storage-category"><strong>ROM 与游戏内容</strong><small>8.6 GiB · 126 个 Blob</small></article><article class="rt-storage-category"><strong>BIOS 与运行 bundle</strong><small>2.2 GiB · 38 个 Blob</small></article><article class="rt-storage-category"><strong>存档</strong><small>1.5 GiB · 94 个 Blob</small></article><article class="rt-storage-category"><strong>游戏媒体</strong><small>2.6 GiB · 81 个 Blob</small></article><article class="rt-storage-category"><strong>导入与审核工作区</strong><small>2.4 GiB · 70 个 Blob</small></article><article class="rt-storage-category"><strong>运行快照</strong><small>320 MiB · 11 个 Blob</small></article><article class="rt-storage-category"><strong>跨领域共享</strong><small>180 MiB · 9 个 Blob</small></article><article class="rt-storage-category"><strong>其他受保护数据</strong><small>0 B · 0 个 Blob</small></article><article class="rt-storage-category"><strong>未引用、等待回收</strong><small>1.3 GiB · 53 个 Blob</small></article>
         </div></section>
-        <div class="rt-storage-details"><article class="rt-storage-detail"><span>存档引用视图</span><strong>67 份有效 · 4 份软删除</strong><small>状态文件 1.1 GiB · 截图文件 420 MiB；两个引用视图不与用途分类相加。</small></article><article class="rt-storage-detail"><span>清理候选视图</span><strong>31 个 Blob · 760 MiB</strong><small>候选登记不代表立即删除，本页不提供清理操作。</small></article></div>
+        <div class="rt-storage-details"><article class="rt-storage-detail"><span>存档引用视图</span><strong>67 份有效 · 4 份软删除</strong><small>状态文件 1.1 GiB · 截图文件 420 MiB；两个引用视图不与用途分类相加。</small></article><article class="rt-storage-detail"><span>清理候选视图</span><strong>31 个 Blob · 760 MiB</strong><small>候选默认保留 7 天；管理员确认后可立即推进回收，删除前仍会复核引用。</small></article></div>
         <div class="rt-storage-scope"><strong>仅计算已登记 CAS payload</strong> · REGISTERED_CAS_PAYLOAD_V1<br>不包含 SQLite/WAL/SHM、上传分片、任务临时文件、依赖根、文件系统开销、未登记孤立文件和卷剩余空间。</div>
       </section>
     </main>
@@ -2952,6 +2956,8 @@
       <button type="button" data-mobile-page="more"><i data-lucide="ellipsis" aria-hidden="true"></i><span>更多</span></button>
     </nav>
   </div>
+
+  <div class="rt-dialog-backdrop" data-storage-cleanup-dialog hidden><section class="rt-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-storage-cleanup-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-storage-cleanup-title">立即清理未引用数据？</h2><p class="rt-dialog-copy">这会跳过默认保留期并立即安排回收，操作不可撤销；每个 Blob 删除前仍会重新检查是否已被引用。</p></div></div><div class="rt-dialog-impact">当前快照中有 <strong>53 个 Blob</strong>、<strong>1.3 GiB</strong> 未被引用。实际回收量以后台复核结果为准。</div><div class="rt-dialog-actions"><button type="button" class="rt-button" data-close-storage-cleanup>取消</button><button type="button" class="rt-button rt-button-danger" data-close-storage-cleanup>立即清理</button></div></section></div>
 
   <div class="rt-dialog-backdrop rt-player-exit-backdrop" data-player-exit-dialog hidden><section class="rt-dialog rt-player-exit-dialog" role="alertdialog" aria-modal="true" aria-labelledby="rt-player-exit-title"><div class="rt-dialog-head"><span class="rt-dialog-mark" aria-hidden="true">!</span><div><h2 id="rt-player-exit-title">退出游戏？</h2><p class="rt-dialog-copy" data-player-exit-copy>直接退出不会创建存档；如需保留当前位置，请先创建存档。</p></div></div><div class="rt-dialog-impact">只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录并返回启动前的页面。</div><div class="rt-dialog-actions"><button type="button" class="rt-button rt-player-exit-save" data-save-before-player-exit><i data-lucide="save" aria-hidden="true"></i>创建存档</button><button type="button" class="rt-button" data-cancel-player-exit>取消</button><button type="button" class="rt-button rt-button-danger" data-confirm-player-exit>退出游戏</button></div></section></div>
 
@@ -3765,6 +3771,9 @@
       const gameDeleteDialog = root.querySelector('[data-game-delete-dialog]');
       root.querySelector('[data-open-game-delete]').addEventListener('click', () => { gameDeleteDialog.hidden = false; });
       root.querySelectorAll('[data-close-game-delete]').forEach((button) => button.addEventListener('click', () => { gameDeleteDialog.hidden = true; }));
+      const storageCleanupDialog = root.querySelector('[data-storage-cleanup-dialog]');
+      root.querySelector('[data-open-storage-cleanup]').addEventListener('click', () => { storageCleanupDialog.hidden = false; });
+      root.querySelectorAll('[data-close-storage-cleanup]').forEach((button) => button.addEventListener('click', () => { storageCleanupDialog.hidden = true; }));
 
       root.querySelectorAll('.rt-home-rail').forEach((rail) => rail.addEventListener('wheel', (event) => {
         if (rail.scrollWidth <= rail.clientWidth || Math.abs(event.deltaY) <= Math.abs(event.deltaX)) return;

@@ -1075,6 +1075,13 @@ paths:
       description: Returns one read-only snapshot of registered CAS payload usage. Byte quantities are decimal strings.
       responses:
         '200': { $ref: '#/components/responses/StorageAnalysisResponse' }
+  /api/v1/admin/storage-cleanups:
+    post:
+      operationId: postAdminStorageCleanup
+      description: Skips the retention delay for all registered CAS payload that is still unreferenced when scheduled. Every Blob is rechecked against the protection registry before deletion.
+      parameters: [{ $ref: '#/components/parameters/IdempotencyKey' }, { $ref: '#/components/parameters/CSRFToken' }]
+      responses:
+        '202': { $ref: '#/components/responses/StorageCleanupResponse' }
   /content/assets/{assetId}:
     parameters: [{ $ref: '#/components/parameters/AssetID' }]
     get:
@@ -1339,6 +1346,14 @@ components:
       properties:
         blobCount: { type: integer, format: int64, minimum: 0 }
         bytes: { type: string, pattern: '^[0-9]+$' }
+    StorageCleanupResult:
+      type: object
+      additionalProperties: false
+      required: [scheduledBlobCount, scheduledBytes, acceptedAtMs]
+      properties:
+        scheduledBlobCount: { type: integer, format: int64, minimum: 0 }
+        scheduledBytes: { type: string, pattern: '^[0-9]+$' }
+        acceptedAtMs: { type: integer, format: int64, minimum: 0 }
     ImportOverviewSummary:
       type: object
       additionalProperties: false
@@ -3527,6 +3542,9 @@ components:
     StorageAnalysisResponse:
       description: Registered CAS payload capacity snapshot
       content: { application/json: { schema: { $ref: '#/components/schemas/StorageAnalysis' } } }
+    StorageCleanupResponse:
+      description: Registered CAS payload accepted for immediate retention-aware garbage collection
+      content: { application/json: { schema: { $ref: '#/components/schemas/StorageCleanupResult' } } }
     PlatformInstanceRecommendationsResponse:
       description: Recommended platform/core directory catalog and current coverage
       content: { application/json: { schema: { $ref: '#/components/schemas/PlatformInstanceRecommendations' } } }

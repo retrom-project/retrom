@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 
 	"github.com/google/uuid"
@@ -15,6 +16,190 @@ import (
 	"retrom/internal/blobregistry"
 	"retrom/internal/cleanup"
 )
+
+var (
+	errImmediateGCAuditActorMissing = errors.New("IMMEDIATE_GC_AUDIT_ACTOR_MISSING")
+	errImmediateGCBytesOverflow     = errors.New("IMMEDIATE_GC_BYTES_OVERFLOW")
+	errImmediateGCJobStateInvalid   = errors.New("IMMEDIATE_GC_JOB_STATE_INVALID")
+)
+
+type ImmediateGCResult struct {
+	BlobCount    int64
+	Bytes        int64
+	AcceptedAtMS int64
+}
+
+type immediateGCCandidate struct {
+	blobID      string
+	jobID       string
+	jobState    string
+	executionNo int64
+	sizeBytes   int64
+}
+
+// ScheduleImmediateGC keeps the normal worker and final protection recheck,
+// but advances every currently unreferenced Blob past the retention delay.
+func (service *Service) ScheduleImmediateGC(
+	ctx context.Context,
+	actorUserID string,
+) (ImmediateGCResult, error) {
+	if actorUserID == "" {
+		return ImmediateGCResult{}, errImmediateGCAuditActorMissing
+	}
+	if err := service.stageAllUnreferenced(ctx); err != nil {
+		return ImmediateGCResult{}, err
+	}
+	transaction, err := service.database.BeginTx(ctx, nil)
+	if err != nil {
+		return ImmediateGCResult{}, fmt.Errorf("payloadrelease/immediate GC transaction: %w", err)
+	}
+	defer cleanup.Rollback(transaction)
+	protected, err := blobregistry.ProtectiveSet(ctx, transaction)
+	if err != nil {
+		return ImmediateGCResult{}, fmt.Errorf("payloadrelease/immediate GC protection: %w", err)
+	}
+	candidates, err := immediateGCCandidates(ctx, transaction, protected)
+	if err != nil {
+		return ImmediateGCResult{}, err
+	}
+	result := ImmediateGCResult{AcceptedAtMS: service.now().UnixMilli()}
+	for _, candidate := range candidates {
+		if err := scheduleImmediateGCCandidate(ctx, transaction, candidate, result.AcceptedAtMS); err != nil {
+			return ImmediateGCResult{}, err
+		}
+		if candidate.sizeBytes > math.MaxInt64-result.Bytes {
+			return ImmediateGCResult{}, errImmediateGCBytesOverflow
+		}
+		result.BlobCount++
+		result.Bytes += candidate.sizeBytes
+	}
+	if err := auditImmediateGC(ctx, transaction, actorUserID, result); err != nil {
+		return ImmediateGCResult{}, err
+	}
+	if err := transaction.Commit(); err != nil {
+		return ImmediateGCResult{}, fmt.Errorf("payloadrelease/immediate GC commit: %w", err)
+	}
+	service.Signal()
+	return result, nil
+}
+
+func immediateGCCandidates(
+	ctx context.Context,
+	transaction *sql.Tx,
+	protected map[string]struct{},
+) ([]immediateGCCandidate, error) {
+	rows, err := transaction.QueryContext(ctx, `
+SELECT candidate.blob_id,candidate.gc_job_id,job.state,job.execution_no,blob.size_bytes
+FROM blob_gc_candidates candidate
+JOIN jobs job ON job.id=candidate.gc_job_id
+JOIN blobs blob ON blob.id=candidate.blob_id
+ORDER BY candidate.blob_id
+`)
+	if err != nil {
+		return nil, fmt.Errorf("payloadrelease/immediate GC candidates: %w", err)
+	}
+	defer func() { cleanup.Error("close immediate GC candidates", rows.Close()) }()
+	var candidates []immediateGCCandidate
+	for rows.Next() {
+		var candidate immediateGCCandidate
+		if err := rows.Scan(
+			&candidate.blobID, &candidate.jobID, &candidate.jobState,
+			&candidate.executionNo, &candidate.sizeBytes,
+		); err != nil {
+			return nil, fmt.Errorf("payloadrelease/scan immediate GC candidate: %w", err)
+		}
+		if _, keep := protected[candidate.blobID]; !keep {
+			candidates = append(candidates, candidate)
+		}
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("payloadrelease/iterate immediate GC candidates: %w", err)
+	}
+	return candidates, nil
+}
+
+func scheduleImmediateGCCandidate(
+	ctx context.Context,
+	transaction *sql.Tx,
+	candidate immediateGCCandidate,
+	now int64,
+) error {
+	const advanceCandidate = `
+UPDATE blob_gc_candidates SET scheduled_at_ms=MAX(first_unreferenced_at_ms,?) WHERE blob_id=?
+`
+	if _, err := transaction.ExecContext(
+		ctx, advanceCandidate, now, candidate.blobID,
+	); err != nil {
+		return fmt.Errorf("payloadrelease/advance immediate GC candidate: %w", err)
+	}
+	switch candidate.jobState {
+	case "QUEUED":
+		_, err := transaction.ExecContext(ctx, `
+UPDATE jobs SET available_at_ms=?,version=version+1,updated_at_ms=? WHERE id=? AND state='QUEUED'
+`, now, now, candidate.jobID)
+		if err != nil {
+			return fmt.Errorf("payloadrelease/advance immediate GC job: %w", err)
+		}
+	case "RUNNING":
+		return nil
+	case "FAILED":
+		return retryImmediateGCJob(ctx, transaction, candidate, now)
+	default:
+		return fmt.Errorf("payloadrelease/immediate GC: %w: %s", errImmediateGCJobStateInvalid, candidate.jobState)
+	}
+	return nil
+}
+
+func retryImmediateGCJob(
+	ctx context.Context,
+	transaction *sql.Tx,
+	candidate immediateGCCandidate,
+	now int64,
+) error {
+	nextExecution := candidate.executionNo + 1
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_input_snapshots(job_id,execution_no,input_json,input_digest,created_at_ms)
+SELECT job_id,?,input_json,input_digest,? FROM job_input_snapshots WHERE job_id=? AND execution_no=?
+`, nextExecution, now, candidate.jobID, candidate.executionNo); err != nil {
+		return fmt.Errorf("payloadrelease/retry immediate GC input: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE jobs SET state='QUEUED',execution_no=?,attempt_count=0,available_at_ms=?,finished_at_ms=NULL,
+error_code=NULL,error_retryable=NULL,version=version+1,updated_at_ms=? WHERE id=? AND state='FAILED'
+`, nextExecution, now, now, candidate.jobID); err != nil {
+		return fmt.Errorf("payloadrelease/retry immediate GC job: %w", err)
+	}
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO job_events(job_id,scope_type,scope_id,event_type,data_json,created_at_ms)
+VALUES(?,'BLOB',?,'MANUAL_RETRY',json_object('schemaVersion',1,'executionNo',?,'reason','IMMEDIATE_STORAGE_CLEANUP'),?)
+`, candidate.jobID, candidate.blobID, nextExecution, now); err != nil {
+		return fmt.Errorf("payloadrelease/retry immediate GC event: %w", err)
+	}
+	return nil
+}
+
+func auditImmediateGC(
+	ctx context.Context,
+	transaction *sql.Tx,
+	actorUserID string,
+	result ImmediateGCResult,
+) error {
+	auditID, err := uuid.NewV7()
+	if err != nil {
+		return fmt.Errorf("payloadrelease/immediate GC audit ID: %w", err)
+	}
+	after, _ := json.Marshal(map[string]any{
+		"schemaVersion": 1, "scheduledBlobCount": result.BlobCount, "scheduledBytes": result.Bytes,
+	})
+	if _, err := transaction.ExecContext(ctx, `
+INSERT INTO audit_events(id,actor_kind,actor_user_id,actor_label,action,resource_type,resource_id,
+before_json,after_json,diff_json,request_id,created_at_ms)
+VALUES(?,'USER',?,NULL,'STORAGE_CLEANUP_REQUESTED','STORAGE','REGISTERED_CAS_PAYLOAD_V1',NULL,?,NULL,NULL,?)
+`, auditID.String(), actorUserID, string(after), result.AcceptedAtMS); err != nil {
+		return fmt.Errorf("payloadrelease/immediate GC audit: %w", err)
+	}
+	return nil
+}
 
 func (service *Service) stageAllUnreferenced(ctx context.Context) error {
 	if err := service.cancelProtectedCandidates(ctx); err != nil {

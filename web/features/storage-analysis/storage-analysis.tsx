@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ConfirmDialog } from "@/components/confirm-dialog";
 import { EmptyState, FeedbackBanner, PageHeader } from "@/components/ui";
+import { writeHeaders } from "@/lib/api/client";
+import { newUuid } from "@/lib/crypto";
 import { responseError } from "@/lib/upload";
 import { formatStorageBytes, storageBarWidth, storagePercentage } from "./format";
 import {
@@ -12,12 +15,29 @@ import {
 } from "./model";
 
 const storageEndpoint = "/api/v1/admin/storage-analysis";
+const cleanupEndpoint = "/api/v1/admin/storage-cleanups";
 const fixedExcluded = Object.keys(excludedPresentation) as StorageSnapshot["excluded"];
+
+type StorageCleanupResult = {
+  scheduledBlobCount: number;
+  scheduledBytes: string;
+  acceptedAtMs: number;
+};
 
 async function fetchSnapshot(signal?: AbortSignal): Promise<StorageSnapshot> {
   const response = await fetch(storageEndpoint, { cache: "no-store", credentials: "same-origin", signal });
   if (!response.ok) {throw new Error(await responseError(response, "无法读取容量分析"));}
   return response.json() as Promise<StorageSnapshot>;
+}
+
+async function scheduleCleanup(): Promise<StorageCleanupResult> {
+  const response = await fetch(cleanupEndpoint, {
+    method: "POST",
+    credentials: "same-origin",
+    headers: writeHeaders({ "Idempotency-Key": newUuid() }),
+  });
+  if (!response.ok) {throw new Error(await responseError(response, "无法开始立即清理"));}
+  return response.json() as Promise<StorageCleanupResult>;
 }
 
 function ByteValue({ bytes, label, className }: { bytes: string; label: string; className?: string }) {
@@ -116,11 +136,14 @@ function LoadingState() {
   </div>;
 }
 
-export function StorageAnalysis() {
+function useStorageAnalysis() {
   const [snapshot, setSnapshot] = useState<StorageSnapshot | null>(null);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [cleanupOpen, setCleanupOpen] = useState(false);
+  const [cleaning, setCleaning] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
   useEffect(() => {
     const controller = new AbortController();
     void fetchSnapshot(controller.signal).then((value) => {
@@ -137,16 +160,88 @@ export function StorageAnalysis() {
     catch (reason) {setError(reason instanceof Error ? reason.message : "刷新容量分析失败");}
     finally {setRefreshing(false);}
   };
+  const cleanup = async () => {
+    setCleaning(true); setError(""); setNotice("");
+    try {
+      const result = await scheduleCleanup();
+      setCleanupOpen(false);
+      setNotice(result.scheduledBlobCount
+        ? `已安排立即清理 ${result.scheduledBlobCount} 个 Blob（${formatStorageBytes(result.scheduledBytes)}）；后台会逐项复核引用并回收。`
+        : "当前没有仍可立即清理的未引用数据。");
+      try {setSnapshot(await fetchSnapshot());}
+      catch (reason) {setError(reason instanceof Error ? `清理已提交，但刷新分析失败：${reason.message}` : "清理已提交，但刷新分析失败");}
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : "无法开始立即清理");
+    } finally {
+      setCleaning(false);
+    }
+  };
+  return {
+    cleanup, cleanupOpen, cleaning, error, loading, notice, refresh, refreshing, setCleanupOpen, snapshot,
+  };
+}
+
+type StorageViewState = ReturnType<typeof useStorageAnalysis>;
+
+function StorageHeader({ state }: { state: StorageViewState }) {
+  const busy = state.loading || state.refreshing || state.cleaning;
+  const canCleanup = Boolean(state.snapshot && state.snapshot.totals.unreferencedBytes !== "0");
+  return <PageHeader
+    eyebrow="系统存储"
+    title="容量分析"
+    description="查看 Retrom 已登记 CAS 数据的业务用途，定位长期数据、流程数据与等待回收内容。"
+    actions={<div className="storage-header-actions">
+      <button className="button danger" type="button" disabled={busy || !canCleanup} onClick={() => state.setCleanupOpen(true)}>立即清理</button>
+      <button className="button secondary" type="button" disabled={busy} onClick={() => void state.refresh()}>{state.refreshing ? "正在刷新…" : "刷新分析"}</button>
+    </div>}
+  />;
+}
+
+function StorageFeedback({ state, generated }: { state: StorageViewState; generated: string }) {
+  return <>
+    {state.notice ? <FeedbackBanner tone="good">{state.notice}</FeedbackBanner> : null}
+    {state.error ? <FeedbackBanner tone="bad">{state.snapshot ? `操作失败，继续显示 ${generated} 的快照：${state.error}` : state.error}</FeedbackBanner> : null}
+  </>;
+}
+
+function StorageContent({ state, generated }: { state: StorageViewState; generated: string }) {
+  if (state.loading) {return <LoadingState />;}
+  if (!state.snapshot) {
+    return <EmptyState title="容量分析暂时不可用" description="读取失败后可以重新尝试；该操作不会修改任何数据。" action={<button className="button" type="button" onClick={() => void state.refresh()}>重新读取</button>} />;
+  }
+  return <>
+    <p className="storage-generated" aria-live="polite">统计生成于 {generated}</p>
+    <Summary snapshot={state.snapshot} />
+    <Breakdown snapshot={state.snapshot} />
+    <Details snapshot={state.snapshot} />
+  </>;
+}
+
+function StorageCleanupDialog({ state }: { state: StorageViewState }) {
+  const unreferenced = state.snapshot?.categories.find((category) => category.code === "UNREFERENCED");
+  return <ConfirmDialog
+    open={state.cleanupOpen}
+    title="立即清理未引用数据？"
+    description="这会跳过默认保留期并立即安排回收，操作不可撤销；每个 Blob 删除前仍会重新检查是否已被引用。"
+    confirmLabel="立即清理"
+    tone="danger"
+    busy={state.cleaning}
+    onCancel={() => state.setCleanupOpen(false)}
+    onConfirm={() => void state.cleanup()}
+  >
+    <p>当前快照中有 <strong>{unreferenced?.blobCount ?? 0} 个 Blob</strong>、<strong>{formatStorageBytes(state.snapshot?.totals.unreferencedBytes ?? "0")}</strong> 未被引用。实际回收量以后台复核结果为准。</p>
+  </ConfirmDialog>;
+}
+
+export function StorageAnalysis() {
+  const state = useStorageAnalysis();
+  const { snapshot } = state;
   const generated = snapshot ? new Date(snapshot.generatedAtMs).toLocaleString("zh-CN", { hour12: false }) : "尚未生成";
   return <div className="page-layout page-layout-admin storage-analysis-page">
-    <PageHeader eyebrow="系统存储" title="容量分析" description="查看 Retrom 已登记 CAS 数据的业务用途，定位长期数据、流程数据与等待回收内容。" actions={<button className="button secondary" type="button" disabled={loading || refreshing} onClick={() => void refresh()}>{refreshing ? "正在刷新…" : "刷新分析"}</button>} />
-    {error ? <FeedbackBanner tone="bad">{snapshot ? `刷新失败，继续显示 ${generated} 的快照：${error}` : error}</FeedbackBanner> : null}
-    {loading ? <LoadingState /> : snapshot ? <>
-      <p className="storage-generated" aria-live="polite">统计生成于 {generated}</p>
-      <Summary snapshot={snapshot} />
-      <Breakdown snapshot={snapshot} />
-      <Details snapshot={snapshot} />
-    </> : <EmptyState title="容量分析暂时不可用" description="读取失败后可以重新尝试；该操作不会修改任何数据。" action={<button className="button" type="button" onClick={() => void refresh()}>重新读取</button>} />}
+    <StorageHeader state={state} />
+    <StorageFeedback state={state} generated={generated} />
+    <StorageContent state={state} generated={generated} />
     <ScopeNote excluded={snapshot?.excluded} />
+    <StorageCleanupDialog state={state} />
   </div>;
 }

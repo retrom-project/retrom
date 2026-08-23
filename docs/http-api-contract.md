@@ -45,7 +45,7 @@ cursor 是服务端签名/校验的不透明字符串，绑定路由、排序和
 | `/admin/invitations`、`/admin/users/{userId}/password-reset-links` | `state=ACTIVE|CONSUMED|REVOKED|EXPIRED|ALL`、`cursor/limit`；默认 ACTIVE |
 | `/admin/bios` | `platformId`、`coreId`、`coreArtifactId`、`scope=REQUIRED_BY_LIBRARY|FULL_CATALOG`、`status`、`cursor/limit` |
 | `/admin/bios/{requirementId}/entries` | 无 query；只读当前 active `DAT_MACHINE` installation 的持久化归档条目对比 |
-| `/admin/storage-analysis` | 无 query；只读已登记 CAS payload 容量快照 |
+| `/admin/storage-analysis` | 无 query；只读已登记 CAS payload 容量快照；写操作使用独立 `/admin/storage-cleanups` 资源 |
 
 `platformInstanceId` 与 `platformId` 同时出现时必须验证目录属于该平台；`fromAtMs <= toAtMs`。`q` 使用数据模型定义的 `strings.ToLower + unicode.IsSpace` 折叠算法并以 SQLite `instr(search_text, :q)` 匹配；不使用仅 ASCII 的 `NOCASE`，也不把用户输入当 LIKE pattern。排序和 cursor 均以数据库值加 ID 完成，不能先分页再在 Go 内存二次筛选。
 
@@ -492,6 +492,7 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 | `GET /api/v1/admin/bios`、`GET /api/v1/admin/bios/{requirementId}/entries`、`POST /api/v1/admin/bios/{requirementId}/installations` | BIOS 状态、Arcade ZIP 条目对比与从已完成 UploadFile 新建 installation revision。同 Requirement 的替换是破坏性边界，旧 Installation 只保留结构化审计并释放 payload；一期没有独立删除 Installation API。 |
 | `GET /api/v1/admin/diagnostics` | 下载不含内容标识与路径的封闭 JSON 诊断摘要；只读、无需 Idempotency-Key，但仍受全局 readiness 门禁。 |
 | `GET /api/v1/admin/storage-analysis` | ADMIN-only、`private, no-store` 的已登记 CAS payload 容量快照；无 query，不返回 Blob ID、hash、文件名、路径或 capability。 |
+| `POST /api/v1/admin/storage-cleanups` | ADMIN-only 立即回收请求；无 query/body，要求 CSRF 与 UUID `Idempotency-Key`，202 返回被推进到立即执行的 Blob 数、byte 与接受时刻；不返回 Blob/Job 标识。 |
 
 `GET /api/v1/games/{gameId}` 顶层返回非空 `currentContentRevisionId` 和全部未删除存档总数 `saveStateCount`，并在 `saveStates[]` 保留该游戏最近 8 份未删除手动存档的 `saveStateId/name/createdAtMs/core{id,name}` 轻量投影。详情页的一屏最近 3 份与全量 Drawer 统一通过 `GET /api/v1/saves?gameId=<id>&availability=ALL` 分页取全，避免把 8 份投影误当成全量。其 `coreOptions` 必须覆盖该基础平台全部 enabled Core，稳定按平台配置顺序返回：`coreId`、`name`、`isDefault`、`status=READY|NEEDS_VALIDATION|DEPENDENCY_MISSING|INCOMPATIBLE`、`revalidationStatus=NOT_REQUIRED|PENDING|FAILED`、可空 `currentVariantRevisionId/coreArtifactId/datVersionId/revalidationJobId`、`requiresThreads`、结构化 `reasons[]`。DEPENDENCY_MISSING 覆盖 BIOS/parent/base 的可修复缺失，具体标签由 reason code 决定，不得把 parent 缺失误称为 BIOS。主 status 以是否存在直接引用当前 ContentRevision 的 READY 结果及其锁定快照是否仍可部署计算；旧内容或相同 bytes 的另一 ContentRevision 曾验证成功不能冒充当前 READY，但活动 DAT 更新也不能让当前内容的旧锁定快照突然不可运行。`POST /api/v1/launches` 收到显式/默认 core 时按游戏目录第 5.1 节执行同一 `EnsureVariant`，必要时先返回同一 `VARIANT_REVALIDATE` Job；前端预热不是正确性前提，也没有第二个启动 endpoint。
 
@@ -544,7 +545,9 @@ Upload manifest/part/complete、Import 创建、Launch、PlaySession 与 runtime
 }
 ```
 
-Byte 数只能是无符号十进制字符串；count 和 `generatedAtMs` 为非负 int64。`categories` 恰含上述九类和顺序，零值不省略；顶层与分类恒等式、归类优先级和排除边界由[存储专题第 7.1 节](./storage-and-database.md#71-已登记-cas-容量分析)定义。该接口不设置下载 header，不提供 query、cursor、清理 action 或任何资源标识；失败返回通用错误 envelope，不返回半个快照。统一验证为 `ACC-STOR-001`。
+Byte 数只能是无符号十进制字符串；count 和 `generatedAtMs` 为非负 int64。`categories` 恰含上述九类和顺序，零值不省略；顶层与分类恒等式、归类优先级和排除边界由[存储专题第 7.1 节](./storage-and-database.md#71-已登记-cas-容量分析)定义。GET 不设置下载 header，不提供 query、cursor 或任何资源标识；失败返回通用错误 envelope，不返回半个快照。
+
+立即清理成功响应固定为 `{"scheduledBlobCount":0,"scheduledBytes":"0","acceptedAtMs":1787448000000}`。POST 先按同一 registry 补齐未引用候选，再把当前仍未引用候选推进为立即可执行；失败的 BLOB_GC Job 以新 execution 重排队。返回值是已接受调度量而非已物理删除量，worker 删除前仍复核引用，恢复引用的 Blob 会被保留。相同 principal/operation/key 重放原 202 响应；缺少/复用错误 key、USER/匿名、CSRF 失败和数据库失败使用通用稳定错误。统一验证为 `ACC-STOR-001`。
 
 ## 10. 收藏与收藏夹 API
 

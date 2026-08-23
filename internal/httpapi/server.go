@@ -382,6 +382,7 @@ func (server *Server) registerAdminLibraryRoutes(mux *http.ServeMux) {
 		{"POST /api/v1/admin/games/{gameId}/move-preview", server.previewGameMove},
 		{"POST /api/v1/admin/games/{gameId}/move", server.moveGame},
 		{"GET /api/v1/admin/storage-analysis", server.adminStorageAnalysis},
+		{"POST /api/v1/admin/storage-cleanups", server.adminStorageCleanup},
 	}
 	for _, route := range routes {
 		mux.HandleFunc(route.pattern, route.handler)

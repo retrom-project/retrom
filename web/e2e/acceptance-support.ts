@@ -59,14 +59,13 @@ export async function expectHomeCoverRatios(page: Page) {
 }
 
 export async function currentEmulatorBrightRatio(page: Page) {
-  const playerFrame = page.frames().find((frame) => frame !== page.mainFrame());
-  if (!playerFrame) {return 0;}
-  return playerFrame.evaluate(async () => {
-    const emulator = window.EJS_emulator;
-    if (!emulator?.takeScreenshot) {return 0;}
-    const result = await Promise.race([emulator.takeScreenshot("canvas", "png", 1), new Promise<null>((resolve) => setTimeout(() => resolve(null), 1_000))]);
-    if (!result?.blob.size) {return 0;}
-    const bitmap = await createImageBitmap(result.blob);
+  const canvas = page.frameLocator('iframe[title="Retrom EmulatorJS Player"]').locator("canvas.ejs_canvas");
+  const screenshot = await canvas.screenshot({ timeout: 1_000 }).catch(() => null);
+  if (!screenshot?.length) {return 0;}
+  return page.evaluate(async (encoded) => {
+    const binary = atob(encoded);
+    const bytes = Uint8Array.from(binary, (character) => character.charCodeAt(0));
+    const bitmap = await createImageBitmap(new Blob([bytes], { type: "image/png" }));
     const sample = document.createElement("canvas");
     sample.width = 64; sample.height = 64;
     const context = sample.getContext("2d", { alpha: false });
@@ -79,7 +78,7 @@ export async function currentEmulatorBrightRatio(page: Page) {
       if ((pixels[index] + pixels[index + 1] + pixels[index + 2]) / 3 > 8) {brightPixels += 1;}
     }
     return brightPixels / (pixels.length / 4);
-  });
+  }, screenshot.toString("base64"));
 }
 
 export type HorizontalGaps = { left: number; right: number };

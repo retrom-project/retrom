@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"strconv"
 
+	"retrom/internal/authn"
 	"retrom/internal/storageanalysis"
 )
 
@@ -49,6 +50,12 @@ type storageAnalysisCleanupCandidates struct {
 	Bytes     string `json:"bytes"`
 }
 
+type storageCleanupResponse struct {
+	ScheduledBlobCount int64  `json:"scheduledBlobCount"`
+	ScheduledBytes     string `json:"scheduledBytes"`
+	AcceptedAtMS       int64  `json:"acceptedAtMs"`
+}
+
 func (server *Server) adminStorageAnalysis(writer http.ResponseWriter, request *http.Request) {
 	if server.storageAnalysis == nil {
 		server.databaseError(writer, request, errStorageAnalysisDatabaseMissing)
@@ -61,6 +68,21 @@ func (server *Server) adminStorageAnalysis(writer http.ResponseWriter, request *
 	}
 	writer.Header().Set("Cache-Control", "private, no-store")
 	writeJSON(writer, http.StatusOK, storageAnalysisHTTPResponse(snapshot))
+}
+
+func (server *Server) adminStorageCleanup(writer http.ResponseWriter, request *http.Request) {
+	principal, _ := authn.PrincipalFromContext(request.Context())
+	result, err := server.payloadReleases.ScheduleImmediateGC(request.Context(), principal.UserID)
+	if err != nil {
+		server.databaseError(writer, request, err)
+		return
+	}
+	writer.Header().Set("Cache-Control", "private, no-store")
+	writeJSON(writer, http.StatusAccepted, storageCleanupResponse{
+		ScheduledBlobCount: result.BlobCount,
+		ScheduledBytes:     decimalBytes(result.Bytes),
+		AcceptedAtMS:       result.AcceptedAtMS,
+	})
 }
 
 func storageAnalysisHTTPResponse(snapshot storageanalysis.Snapshot) storageAnalysisResponse {

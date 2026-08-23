@@ -42,6 +42,39 @@ export async function verifyCompactFeaturedHome(page: Page, testInfo: TestInfo) 
   await page.screenshot({ path: evidencePath(testInfo, "home-2086x920-css-equivalent.png"), fullPage: true });
 }
 
+export async function verifyMobileSavedFeaturedHome(page: Page, testInfo: TestInfo) {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect(page.locator(".home-featured-media.has-session-save")).toBeVisible();
+  const layout = await page.evaluate(() => {
+    const rectangle = (selector: string) => document.querySelector<HTMLElement>(selector)?.getBoundingClientRect() ?? null;
+    const media = rectangle(".home-featured-media");
+    const cover = rectangle(".home-featured-cover");
+    const copy = rectangle(".home-featured-copy");
+    const actions = rectangle(".home-featured-actions");
+    const preview = rectangle(".home-featured-save-preview");
+    if (!media || !cover || !copy || !actions || !preview) {return null;}
+    return {
+      media: { top: media.top, right: media.right, bottom: media.bottom },
+      cover: { top: cover.top, right: cover.right, bottom: cover.bottom },
+      copy: { top: copy.top, left: copy.left, right: copy.right, bottom: copy.bottom },
+      actions: { right: actions.right, bottom: actions.bottom },
+      preview: { top: preview.top, right: preview.right, bottom: preview.bottom },
+    };
+  });
+  expect(layout).not.toBeNull();
+  if (!layout) {throw new Error("ACCEPTANCE_MOBILE_SAVED_FEATURED_LAYOUT_UNAVAILABLE");}
+  expect(layout.cover.top).toBeGreaterThanOrEqual(layout.media.top);
+  expect(layout.copy.top).toBeGreaterThanOrEqual(layout.media.top);
+  expect(layout.cover.right).toBeLessThanOrEqual(layout.copy.left);
+  expect(layout.copy.right).toBeLessThanOrEqual(layout.media.right + 1);
+  expect(layout.actions.right).toBeLessThanOrEqual(layout.media.right + 1);
+  expect(layout.actions.bottom).toBeLessThanOrEqual(layout.preview.top - 8);
+  expect(layout.preview.right).toBeLessThanOrEqual(layout.media.right + 1);
+  expect(layout.preview.bottom).toBeLessThanOrEqual(layout.media.bottom + 1);
+  await noPageOverflow(page);
+  await page.screenshot({ path: evidencePath(testInfo, "home-mobile-saved-featured.png"), fullPage: true });
+}
+
 async function verifyPageLayouts(page: Page) {
   const routes = [
     ["/", ".home-page"], ["/library", ".page-layout-library"], ["/saves", ".page-layout-saves"],
