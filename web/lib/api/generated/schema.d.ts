@@ -2103,6 +2103,23 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/storage-cleanups": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** @description Skips the retention delay for all registered CAS payload that is still unreferenced when scheduled. Every Blob is rechecked against the protection registry before deletion. */
+        post: operations["postAdminStorageCleanup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/content/assets/{assetId}": {
         parameters: {
             query?: never;
@@ -2447,6 +2464,13 @@ export interface components {
             /** Format: int64 */
             blobCount: number;
             bytes: string;
+        };
+        StorageCleanupResult: {
+            /** Format: int64 */
+            scheduledBlobCount: number;
+            scheduledBytes: string;
+            /** Format: int64 */
+            acceptedAtMs: number;
         };
         ImportOverviewSummary: {
             /**
@@ -4290,6 +4314,15 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["StorageAnalysis"];
+            };
+        };
+        /** @description Registered CAS payload accepted for immediate retention-aware garbage collection */
+        StorageCleanupResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["StorageCleanupResult"];
             };
         };
         /** @description Recommended platform/core directory catalog and current coverage */
@@ -7480,6 +7513,21 @@ export interface operations {
         requestBody?: never;
         responses: {
             200: components["responses"]["StorageAnalysisResponse"];
+        };
+    };
+    postAdminStorageCleanup: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            202: components["responses"]["StorageCleanupResponse"];
         };
     };
     getContentAsset: {

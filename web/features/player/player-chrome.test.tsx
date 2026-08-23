@@ -51,6 +51,7 @@ function props(overrides: Partial<Parameters<typeof PlayerChrome>[0]> = {}): Par
     onSelectDisc: vi.fn().mockResolvedValue(true),
     onToggleNetplayPause: vi.fn(),
     onToggleDebug: vi.fn(),
+    onGameSurface: vi.fn(),
     onExit: vi.fn(),
     ...overrides,
   };
@@ -219,6 +220,8 @@ describe("PlayerChrome", () => {
     expect(screen.getByText("已暂停")).toBeVisible();
     expect(screen.getByText("点击游戏画面继续")).toBeVisible();
     expect(screen.getByRole("button", { name: "已暂停，点击游戏画面继续" })).toHaveAttribute("aria-pressed", "true");
+    await user.click(screen.getByRole("button", { name: "继续游戏" }));
+    expect(values.onGameSurface).toHaveBeenCalledOnce();
     await user.click(screen.getByRole("button", { name: "创建存档" }));
     expect(values.onPauseForToolbarInteraction).toHaveBeenCalledOnce();
     expect(values.onSave).toHaveBeenCalledOnce();

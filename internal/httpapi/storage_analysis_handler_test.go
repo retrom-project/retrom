@@ -56,6 +56,58 @@ VALUES('storage-test','000000000000000000000000000000000000000000000000000000000
 	testassert.Falsef(t, unknownQuery.Code != http.StatusBadRequest,
 		"storage query = %d %s", unknownQuery.Code, unknownQuery.Body.String())
 
+	cleanupKey := uuid.NewString()
+	cleanupRequest := httptest.NewRequestWithContext(
+		context.Background(), http.MethodPost, "/api/v1/admin/storage-cleanups", nil,
+	)
+	cleanupRequest.Header.Set("Idempotency-Key", cleanupKey)
+	cleanupRequest.Header.Set("X-Retrom-Csrf", "test-only")
+	cleanupResponse := httptest.NewRecorder()
+	handler.ServeHTTP(cleanupResponse, cleanupRequest)
+	if cleanupResponse.Code != http.StatusAccepted {
+		t.Fatalf("storage cleanup = %d %s", cleanupResponse.Code, cleanupResponse.Body.String())
+	}
+	var cleanupBody storageCleanupResponse
+	if err := json.Unmarshal(cleanupResponse.Body.Bytes(), &cleanupBody); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return cleanupResponse.Header().Get("Cache-Control") != "private, no-store" },
+		func() bool { return cleanupBody.ScheduledBlobCount != 1 },
+		func() bool { return cleanupBody.ScheduledBytes != "42" },
+		func() bool { return cleanupBody.AcceptedAtMS <= 0 },
+	), "storage cleanup response = headers:%v body:%s", cleanupResponse.Header(), cleanupResponse.Body.String())
+
+	replayRequest := httptest.NewRequestWithContext(
+		context.Background(), http.MethodPost, "/api/v1/admin/storage-cleanups", nil,
+	)
+	replayRequest.Header.Set("Idempotency-Key", cleanupKey)
+	replayRequest.Header.Set("X-Retrom-Csrf", "test-only")
+	replay := httptest.NewRecorder()
+	handler.ServeHTTP(replay, replayRequest)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return replay.Code != http.StatusAccepted },
+		func() bool { return replay.Header().Get("X-Retrom-Idempotent-Replay") != "true" },
+		func() bool { return replay.Body.String() != cleanupResponse.Body.String() },
+	), "storage cleanup replay = %d %v %s", replay.Code, replay.Header(), replay.Body.String())
+	var cleanupAuditCount int64
+	if err := server.database.QueryRowContext(context.Background(), `
+SELECT count(*) FROM audit_events WHERE action='STORAGE_CLEANUP_REQUESTED'
+`).Scan(&cleanupAuditCount); err != nil {
+		t.Fatal(err)
+	}
+	testassert.Falsef(t, cleanupAuditCount != 1, "storage cleanup audits = %d", cleanupAuditCount)
+	missingKeyRequest := httptest.NewRequestWithContext(
+		context.Background(), http.MethodPost, "/api/v1/admin/storage-cleanups", nil,
+	)
+	missingKeyRequest.Header.Set("X-Retrom-Csrf", "test-only")
+	missingKey := httptest.NewRecorder()
+	handler.ServeHTTP(missingKey, missingKeyRequest)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return missingKey.Code != http.StatusBadRequest },
+		func() bool { return !strings.Contains(missingKey.Body.String(), "INVALID_IDEMPOTENCY_KEY") },
+	), "storage cleanup missing key = %d %s", missingKey.Code, missingKey.Body.String())
+
 	server.authenticator = fixedAuthenticator{Principal: authn.Principal{
 		UserID: uuid.NewString(), ProfileID: uuid.NewString(), Username: "member", DisplayName: "Member", Role: "USER",
 	}}
@@ -67,6 +119,17 @@ VALUES('storage-test','000000000000000000000000000000000000000000000000000000000
 		func() bool { return member.Code != http.StatusForbidden },
 		func() bool { return !strings.Contains(member.Body.String(), "ADMIN_REQUIRED") },
 	), "member storage = %d %s", member.Code, member.Body.String())
+	memberCleanupRequest := httptest.NewRequestWithContext(
+		context.Background(), http.MethodPost, "/api/v1/admin/storage-cleanups", nil,
+	)
+	memberCleanupRequest.Header.Set("Idempotency-Key", uuid.NewString())
+	memberCleanupRequest.Header.Set("X-Retrom-Csrf", "test-only")
+	memberCleanup := httptest.NewRecorder()
+	handler.ServeHTTP(memberCleanup, memberCleanupRequest)
+	testassert.Falsef(t, testassert.Any(
+		func() bool { return memberCleanup.Code != http.StatusForbidden },
+		func() bool { return !strings.Contains(memberCleanup.Body.String(), "ADMIN_REQUIRED") },
+	), "member cleanup = %d %s", memberCleanup.Code, memberCleanup.Body.String())
 
 	server.authenticator = fixedAuthenticator{Err: accounts.ErrAuthenticationNeeded}
 	anonymous := httptest.NewRecorder()

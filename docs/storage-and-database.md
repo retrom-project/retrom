@@ -312,7 +312,7 @@ data/
 - GameContentRevision、ImportItem/Upload/Job、Review snapshot、SaveState、媒体、旧 GameVariantRevision 和 DAT 均可能引用 Blob。
 - Pegasus 扫描阶段不写 Blob；执行阶段复制出的 item file、source archive 与 COVER/VIDEO 在 `pegasus_import_item_files/assets` 中形成 protective 边。发布后的 Game revision/Asset 继续独立保护相同 CAS bytes，计划历史与 Game 生命周期互不代替。
 - Import publish/discard/final-fail/cancel、Pegasus 终态、替换文件/媒体消费完成会异步解除流程 payload；Game 永久删除会解除 Game/运行时及其已终态来源链的 payload。游戏媒体 current revision 切换还会在同一事务删除旧 GameAsset 叶子引用并登记 GC 候选，避免文字 metadata 历史长期保护旧封面/视频。领域事务不直接删除 Blob 或 CAS 文件。
-- 失去最后保护引用后先进入默认 7 天回收保留期，配置只允许 24 小时至 30 天；每个候选关联唯一 BLOB_GC Job。宽限到期时再次计算完整保护集，有新引用就撤销候选，不得误删共享内容。
+- 失去最后保护引用后先进入默认 7 天回收保留期，配置只允许 24 小时至 30 天；每个候选关联唯一 BLOB_GC Job。宽限到期时再次计算完整保护集，有新引用就撤销候选，不得误删共享内容。ADMIN 可通过容量页显式确认立即回收；该操作先补齐全部未引用候选，再把仍未引用候选的 `available_at_ms/scheduled_at_ms` 推进到当前时刻，失败 Job 创建新 execution 后重排队，并写 `STORAGE_CLEANUP_REQUESTED` AuditEvent。它只跳过保留时间，不绕过 worker、保护集合复核、物理删除重试或共享引用保护。
 - 过期的无消费 Upload archive 在失去最后 `PROTECTIVE` 边后可正常进入 GC，不能被自身 ArchiveEntry 永久保活。删除事务再次计算保护集并检查所有 entry 复合外键；有新引用即撤销 candidate。无引用 archive 先成组删索引再删 Blob 行，事务提交后才删除物理文件；物理删除失败由同一 Job 输入幂等重试。UploadFile 最后一个 consumption 释放且没有领域叶子后转 `PURGED` 并清空 final Blob，但保留相对路径、声明/接收大小与结果。
 - Hasheous raw response 是独立 TTL owner：每小时按到期时间和 ID 每批最多 200 个处理；仍被 RUNNING ScrapeRun 使用时保留，安全到期后删除 cache pointer、清空 raw Blob、转 `RELEASED` 并进入相同候选流程。
 
@@ -340,7 +340,7 @@ data/
 
 替换封面或移除视频后，失去最后引用的旧媒体会立即从 `MEDIA/protectedBytes` 转入 `UNREFERENCED/unreferencedBytes` 并登记候选；`registeredBytes` 与物理 CAS 文件在默认 7 天宽限期结束前保持不变。ROM 或多盘内容成功替换是显式破坏性边界：事务切换 current 后删除旧 ContentFile/VariantFile、旧运行快照与其绑定存档，失去最后引用的 Blob 同样立即转 `UNREFERENCED` 并登记候选；与 current 完全相同或验证失败的输入不得触发这些删除。同一 Requirement 的 BIOS 真正替换也会撤销依赖旧 Installation 的运行与存档、删除旧 `BIOS_BUNDLE` VariantFile 载荷、清空旧 Installation Blob 引用并登记候选；不同 Requirement/CoreArtifact 的安装仍是独立有效资产。这与上传工作流引用是否已经释放是两个独立不变量。
 
-明确不在本口径内的项目为 `DATABASE_FILES`、`UPLOAD_PARTS`、`JOB_SCRATCH`、`DEPENDENCY_ROOT`、`FILESYSTEM_OVERHEAD`、`UNREGISTERED_ORPHANS`、`VOLUME_FREE_SPACE`。因此该分析不能回答卷总量、剩余空间或完整磁盘占用，也不得提供清理动作。统一验证为 [`ACC-STOR-001`](./project-acceptance.md#acc-stor-001已登记-cas-容量分析)。
+`POST /api/v1/admin/storage-cleanups` 是唯一在线手动回收入口：ADMIN-only，要求 CSRF 与 UUID `Idempotency-Key`，无 body/query，返回本次已推进的 `scheduledBlobCount/scheduledBytes/acceptedAtMs`，不返回 Blob/Job 标识。相同 key 重放原结果；提交成功为 202，后台逐 Blob 执行最终保护复核。明确不在本口径内的项目为 `DATABASE_FILES`、`UPLOAD_PARTS`、`JOB_SCRATCH`、`DEPENDENCY_ROOT`、`FILESYSTEM_OVERHEAD`、`UNREGISTERED_ORPHANS`、`VOLUME_FREE_SPACE`。因此该分析不能回答卷总量、剩余空间或完整磁盘占用，立即清理也不处理这些范围。统一验证为 [`ACC-STOR-001`](./project-acceptance.md#acc-stor-001已登记-cas-容量分析)。
 
 ## 8. 备份与恢复
 

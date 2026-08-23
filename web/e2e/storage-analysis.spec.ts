@@ -27,7 +27,7 @@ test.beforeEach(async ({ page }) => {
   expect(login.ok()).toBe(true);
 });
 
-test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and read-only", async ({ page }, testInfo) => {
+test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and exposes guarded cleanup", async ({ page }, testInfo) => {
   const response = await page.request.get("/api/v1/admin/storage-analysis");
   expect(response.status()).toBe(200);
   expect(response.headers()["cache-control"]).toBe("private, no-store");
@@ -60,7 +60,15 @@ test("ACC-STOR-001 registered CAS analysis is exact, private, responsive, and re
     await expect(page.getByRole("region", { name: "按用途分析" })).toBeVisible();
     await expect(page.getByRole("heading", { name: "仅计算已登记 CAS payload" })).toBeVisible();
     await expect(page.getByText("REGISTERED_CAS_PAYLOAD_V1", { exact: true })).toBeVisible();
-    await expect(page.getByRole("button", { name: /清理|删除|回收/ })).toHaveCount(0);
+    const cleanup = page.getByRole("button", { name: "立即清理" });
+    await expect(cleanup).toBeVisible();
+    if (await cleanup.isEnabled()) {
+      await cleanup.click();
+      const dialog = page.getByRole("alertdialog", { name: "立即清理未引用数据？" });
+      await expect(dialog).toContainText("删除前仍会重新检查是否已被引用");
+      await expect(dialog.getByRole("textbox")).toHaveCount(0);
+      await dialog.getByRole("button", { name: "取消" }).click();
+    }
     await noPageOverflow(page);
   }
 

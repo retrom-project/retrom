@@ -1,4 +1,5 @@
 .storage-analysis-page { max-width: 1760px; margin-inline: auto; }
+.storage-header-actions { display: flex; gap: 8px; }
 .storage-analysis-page > .feedback-banner { margin: -10px 0 20px; }
 .storage-generated { margin: -20px 0 12px; color: var(--muted); font-size: 12px; text-align: right; }
 .storage-summary { margin-bottom: 18px; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
@@ -75,6 +76,7 @@
 @media (max-width: 400px) {
   .storage-analysis-page .page-header { display: grid; gap: 12px; }
   .storage-analysis-page .header-actions, .storage-analysis-page .header-actions button { width: 100%; }
+  .storage-header-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .storage-category { padding: 14px 12px; }
   .storage-details article, .storage-breakdown .panel-body { padding: 15px; }
   .storage-details dl { grid-template-columns: minmax(0, 1fr); }

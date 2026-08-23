@@ -298,8 +298,8 @@ make acceptance-case CASE=<case-id>
 
 - 上限：240 秒。
 - 执行：`make acceptance-case CASE=ACC-STOR-001`。
-- 流程：在隔离空库通过标准导入流写入项目自有 fixture，再加入 durable、非终态 workflow、终态待释放 workflow、runtime、跨长期用途共享、受保护 archive/member、无业务根 archive/member、软删除存档和 GC 候选的确定性小型组合；执行 PayloadRelease 前后分别调用容量 API，再从 ADMIN 打开 `/admin/storage`。以 USER/匿名和未知 query 重试，并覆盖既有 viewport、刷新和失败刷新矩阵。
-- 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 使用同一 registry；终态释放前 payload 仍计 workflow，释放后只在没有其他边时进入未引用，独占/共享字节和游戏删除影响摘要逐 Blob 去重且完全一致。封面替换/视频移除后旧 Asset URL 立即 404；ROM/多盘或同 Requirement BIOS 的成功替换同时清理旧运行/存档与旧 durable 边；各自失去最后引用的 Blob 从原分类转入 UNREFERENCED/候选，但 registered 总量只在宽限期后下降。完全相同 ROM、多盘或失败替换不得释放 current；不同 Requirement/CoreArtifact 的 BIOS 继续受保护。受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。其余鉴权、脱敏、交互、响应式和无障碍标准不变。
+- 流程：在隔离空库通过标准导入流写入项目自有 fixture，再加入 durable、非终态 workflow、终态待释放 workflow、runtime、跨长期用途共享、受保护 archive/member、无业务根 archive/member、软删除存档和 GC 候选的确定性小型组合；执行 PayloadRelease 前后分别调用容量 API，再从 ADMIN 打开 `/admin/storage`，确认一次立即清理并等待 worker 收口。以同一幂等 key 重放，再以缺 key、USER/匿名和未知 query 重试，并覆盖既有 viewport、刷新、失败刷新和确认框矩阵。
+- 通过标准：API 只使用 `REGISTERED_CAS_PAYLOAD_V1`，带 `private, no-store`，byte 为无符号十进制字符串；九类按固定顺序含零值，分类 byte/count 之和等于顶层，`protectedBytes + unreferencedBytes = registeredBytes`，同大小不同 Blob 分别计数。保护集合与 GC 使用同一 registry；终态释放前 payload 仍计 workflow，释放后只在没有其他边时进入未引用，独占/共享字节和游戏删除影响摘要逐 Blob 去重且完全一致。封面替换/视频移除后旧 Asset URL 立即 404；ROM/多盘或同 Requirement BIOS 的成功替换同时清理旧运行/存档与旧 durable 边；各自失去最后引用的 Blob 从原分类转入 UNREFERENCED/候选，正常情况下 registered 总量只在宽限期后下降；ADMIN 确认立即清理后，POST 只跳过保留期并返回已调度量，worker 仍逐 Blob 复核保护集合，真正无引用数据收口后 registered/unreferenced/candidate 同步下降，恢复引用的数据不删除。相同 key 只产生一条 `STORAGE_CLEANUP_REQUESTED` 审计并重放原响应，缺 key/CSRF、USER/匿名均失败。完全相同 ROM、多盘或失败替换不得释放 current；不同 Requirement/CoreArtifact 的 BIOS 继续受保护。受保护 archive 的用途单向传播到 member，无业务根 archive 不反向保护；一个长期用途压过 workflow/runtime，两个长期用途归共享。存档状态/截图和清理候选是去重引用视图，不与分类相加；溢出、registry 新增/删除保护边未同步容量语义、读库失败都 fail closed。其余鉴权、脱敏、交互、响应式和无障碍标准不变。
 - 证据：API JSON 与直接 `SUM(blobs.size_bytes)`/行数对比、registry/分类单元与 SQLite 组合测试输出、鉴权/脱敏矩阵、viewport DOM/axe 断言和当前截图。
 
 ### ACC-BKP-001：备份与空目录恢复
@@ -822,9 +822,9 @@ make acceptance-case CASE=<case-id>
 
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-SAVE-002`。
-- 流程：先在本 Case 的 seed 中按 `ACC-SAVE-001` 规则创建一份带截图的有效存档；分别从详情存档、我的存档和首页继续入口恢复；首页继续前把 viewport 调整为物理 `3129×1380`、150% 缩放所对应的 `2086×920` CSS 尺寸并记录主视觉截图；再用不同 Core/revision 尝试加载。
-- 通过标准：三个入口均一次点击直达 Player Shell，不经过详情或二次 Start，且使用存档锁定环境；`2086×920` 下首页不产生 document 纵向滚动，最近玩的游戏媒体区高度至少 160px，5:7 封面、游戏信息和主操作均完整位于媒体区内；不匹配时明确拒绝，不静默迁移或改用目录默认核心。
-- 证据：三条 route/launch trace、`2086×920` 首页截图和负向错误。
+- 流程：先在本 Case 的 seed 中按 `ACC-SAVE-001` 规则创建一份带截图的有效存档；分别从详情存档、我的存档和首页继续入口恢复；首页继续前先在 `390×844` 核对带存档卡片，再调整为物理 `3129×1380`、150% 缩放所对应的 `2086×920` CSS 尺寸并记录主视觉截图；再用不同 Core/revision 尝试加载。
+- 通过标准：三个入口均一次点击直达 Player Shell，不经过详情或二次 Start，且使用存档锁定环境；`390×844` 下封面与游戏信息同处首行，继续按钮完整留在信息列，16:9 存档预览独占第二行，四者均在媒体区内且按钮与预览至少间隔 8px；`2086×920` 下首页不产生 document 纵向滚动，最近玩的游戏媒体区高度至少 160px，5:7 封面、游戏信息和主操作均完整位于媒体区内；不匹配时明确拒绝，不静默迁移或改用目录默认核心。
+- 证据：三条 route/launch trace、`390×844` 与 `2086×920` 首页截图和负向错误。
 
 ### ACC-SAVE-003：仅显式 SaveState、全核心恢复与本地残留隔离
 
@@ -895,7 +895,7 @@ make acceptance-case CASE=<case-id>
 - 上限：180 秒。
 - 执行：`make acceptance-case CASE=ACC-UI-006`。
 - 流程：在 `1280×800`、`2560×1440` 与物理 4K 150% 三个场景打开入库总览、新建导入、任务、待审核、历史、游戏管理列表与详情、游戏目录、用户管理、`/admin/bios` 和 `/admin/storage`；另断言已移除的 `/admin/bios/dats` 返回 404。
-- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面中，可见按钮和链接的操作文案均不追加字面量箭头字符 `→`，且在同一 CSS viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560 CSS/物理 4K 150% 下历史 diff、任务阶段、BIOS hash 和容量九类不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备；容量分析紧跟运行依赖并保持只读范围说明。游戏目录页零数据时不自动打开 Drawer，页首/空状态的“一键创建推荐目录”与手动新建入口可达；请求中按钮禁用，成功/失败 toast 不推动布局。目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个场景均可达；封面容器保持 3:4 并等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
+- 通过标准：表格/卡片密度可读，筛选和主操作可达；所有列出的管理页面中，可见按钮和链接的操作文案均不追加字面量箭头字符 `→`，且在同一 CSS viewport 下相对应用内容区的左、右间距分别一致，测量误差均不超过 1px。2560 CSS/物理 4K 150% 下历史 diff、任务阶段、BIOS hash 和容量九类不被截断或横向藏在视口外，Arcade BIOS 条目对比左右栏可读。运行依赖导航不存在 DAT 子项，BIOS 页说明 Arcade DAT 随 release 自动准备；容量分析紧跟运行依赖，统计范围说明保持只读，立即清理只作用于未引用类别并经危险确认。游戏目录页零数据时不自动打开 Drawer，页首/空状态的“一键创建推荐目录”与手动新建入口可达；请求中按钮禁用，成功/失败 toast 不推动布局。目录表按“游戏目录—游戏平台—扩展名—游戏数”排列，扩展名与平台级已验证 payload 规则一致，名称列收窄后仍可读。1280 下没有页面级横向溢出；确需横向滚动的宽表只在带可见提示的局部容器中滚动，行首标识与行末主操作 sticky、键盘可达。游戏管理详情的发布信息/媒体/运行版本/管理操作四区在三个场景均可达；封面容器保持 3:4 并等比延伸到媒体内容底边，发布信息与媒体面板同高且媒体不能撑出左侧空白。
 - 证据：布局断言和每类页面当前截图。
 
 ### ACC-UI-007：键盘、标签与减少动画

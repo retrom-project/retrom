@@ -264,7 +264,8 @@ export function PlayerShell({ launchId }: { launchId: string }) {
     onCloseEmulatorSettings: actions.closeEmulatorSettings, onOpenEmulatorPanel: actions.openEmulatorPanel,
     onChangeEmulatorVolume: actions.changeEmulatorVolume, onToggleEmulatorMute: actions.toggleEmulatorMute,
     onChangeVideoRenderingMode: actions.changeVideoRenderingMode, onSelectDisc: actions.selectDisc,
-    onToggleNetplayPause: () => void actions.toggleNetplayPause(), onToggleDebug: toggleDebug, onExit: () => void exit(),
+    onToggleNetplayPause: () => void actions.toggleNetplayPause(), onToggleDebug: toggleDebug,
+    onGameSurface: handleGameSurfaceInteraction, onExit: () => void exit(),
   };
   return <PlayerShellView paused={paused} orientationState={orientationState} chromeProps={chromeProps} stage={stage} frameRef={frameRef} frameEnabled={frameEnabled} state={state} message={message} gameTitle={gameTitle} orientationHelp={orientationHelp} orientationButtonRef={orientationButtonRef} onShowControls={showControls} onRevealControls={revealControlsAtTopEdge} onSurface={handleGameSurfaceInteraction} onRetryLandscape={() => void retryLandscape()} />;
 }

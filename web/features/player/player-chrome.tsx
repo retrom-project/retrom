@@ -34,7 +34,7 @@ export type PlayerChromeProps = {
   onCloseEmulatorSettings: () => void; onOpenEmulatorPanel: (panel: EmulatorSettingsPanel) => void;
   onChangeEmulatorVolume: (volume: number) => void; onToggleEmulatorMute: () => void;
   onChangeVideoRenderingMode: (mode: VideoRenderingMode) => void; onSelectDisc: (index: number) => Promise<boolean>;
-  onToggleNetplayPause: () => void; onToggleDebug: () => void; onExit: () => void;
+  onToggleNetplayPause: () => void; onToggleDebug: () => void; onGameSurface: () => void; onExit: () => void;
 };
 
 function exitDescriptionFor(netplay: boolean, saveAvailable: boolean, state: ExitSaveState) {
@@ -50,6 +50,14 @@ function warningCopyFor(warnings: string[]) {
   return warnings.includes("BIOS_HASH_WARNING")
     ? "BIOS 校验值与目录期望不同，但当前允许运行。"
     : "当前运行环境有需要留意的提示。";
+}
+
+function PauseOverlay({ isNetplay, netplayPaused, paused, onGameSurface }: {
+  isNetplay: boolean; netplayPaused: boolean; paused: boolean; onGameSurface: () => void;
+}) {
+  return <button className={`player-pause-overlay${paused || netplayPaused ? " is-visible" : ""}`} type="button" aria-label="继续游戏" aria-hidden={!paused && !netplayPaused} disabled={!paused || isNetplay} onClick={onGameSurface}>
+    <div className="player-pause-pill"><AppIcon name="pause" /><strong>{isNetplay ? "联机已暂停" : "已暂停"}</strong><small>{isNetplay ? "等待房主继续" : "点击游戏画面继续"}</small></div>
+  </button>;
 }
 
 export function PlayerChrome({
@@ -93,6 +101,7 @@ export function PlayerChrome({
   onSelectDisc,
   onToggleNetplayPause,
   onToggleDebug,
+  onGameSurface,
   onExit,
 }: PlayerChromeProps) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -224,9 +233,7 @@ export function PlayerChrome({
 
     <PlayerDebugPanel open={debugOpen} metrics={debugMetrics} runtime={debugRuntime} runtimeState={runtimeState} paused={paused} netplayPaused={netplayPaused} coreName={coreName} playerNo={netplayPlayerNo} discSet={discSet} discState={discState} onClose={onToggleDebug} />
 
-    <div className={`player-pause-overlay${paused || netplayPaused ? " is-visible" : ""}`} aria-hidden={!paused && !netplayPaused}>
-      <div className="player-pause-pill"><AppIcon name="pause" /><strong>{isNetplay ? "联机已暂停" : "已暂停"}</strong><small>{isNetplay ? "等待房主继续" : "点击游戏画面继续"}</small></div>
-    </div>
+    <PauseOverlay isNetplay={isNetplay} netplayPaused={netplayPaused} paused={paused} onGameSurface={onGameSurface} />
 
     {!isNetplay ? <EmulatorToolbar open={emulatorToolbarOpen} volume={emulatorVolume} muted={emulatorMuted} renderingMode={videoRenderingMode} onHold={onHoldControls} onOpenPanel={onOpenEmulatorPanel} onVolume={onChangeEmulatorVolume} onRenderingMode={onChangeVideoRenderingMode} onMute={onToggleEmulatorMute} onClose={onCloseEmulatorSettings} /> : null}
 

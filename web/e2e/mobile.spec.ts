@@ -200,9 +200,12 @@ test("ACC-MOB-005 portrait Player validates config before it creates a frame or 
       expect(bottomGaps).toEqual([70, 70]);
     }
 
-    if (await handle.getAttribute("aria-pressed") === "false") {await handle.click();}
+    if (await handle.getAttribute("aria-pressed") === "true") {await handle.click();}
+    await handle.click();
+    await expect(handle).toHaveAttribute("aria-pressed", "true");
     const more = page.getByRole("button", { name: "更多操作" });
     await expect(more).toBeVisible();
+    await expect(more).toBeInViewport();
     await more.click();
     const moreMenu = page.getByRole("menu", { name: "Player 更多操作" });
     await expect(moreMenu).toBeVisible();

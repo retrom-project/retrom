@@ -477,10 +477,12 @@
   .home-panel-head h2 { font-size: 18px; }
   .home-featured-body { padding: 12px; }
   .home-featured-media { height: 300px; }
-  .home-featured-media.has-session-save { height: 420px; }
+  .home-featured-media.has-session-save { height: auto; min-height: 0; padding: 16px; display: grid; grid-template-columns: minmax(96px, 32.381%) minmax(0, 1fr); grid-template-rows: auto auto; gap: 16px; align-items: start; }
   .home-featured-cover { left: 16px; top: 20px; width: 32.381%; height: auto; aspect-ratio: 5 / 7; }
   .home-featured-copy,
   .home-featured-media.has-session-save .home-featured-copy { left: calc(32.381% + 32px); right: 14px; top: 20px; transform: none; }
+  .home-featured-media.has-session-save .home-featured-cover { position: relative; z-index: 2; grid-column: 1; grid-row: 1; left: auto; top: auto; width: 100%; }
+  .home-featured-media.has-session-save .home-featured-copy { position: relative; z-index: 3; grid-column: 2; grid-row: 1; left: auto; right: auto; top: auto; min-width: 0; }
   .home-featured-copy h2 { overflow: visible; font-size: 22px; text-overflow: clip; white-space: normal; }
   .home-featured-description { display: -webkit-box; overflow: hidden; -webkit-box-orient: vertical; -webkit-line-clamp: 3; }
   .home-featured-facts { margin-top: 10px; gap: 7px 10px; }
@@ -488,6 +490,7 @@
   .home-featured-actions .button { width: 100%; min-height: 48px; }
   .home-launch-note { align-items: flex-start; font-size: 12px; }
   .home-featured-save-preview { right: 16px; bottom: 16px; left: 16px; top: auto; width: auto; transform: none; }
+  .home-featured-media.has-session-save .home-featured-save-preview { position: relative; z-index: 3; grid-column: 1 / -1; grid-row: 2; right: auto; bottom: auto; left: auto; top: auto; width: 100%; transform: none; }
   .home-featured-bottom { gap: 12px; flex-direction: column; }
   .home-quick-links { padding: 8px 10px; }
   .home-quick-link { min-height: 58px; }
