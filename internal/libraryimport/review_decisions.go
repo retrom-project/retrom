@@ -102,16 +102,16 @@ func (service *Service) Discard(
 	if err := discardReviewItemAndAggregate(ctx, transaction, itemID, evidence.importID, now); err != nil {
 		return DecisionResult{}, err
 	}
+	eventID, err := insertDiscardReviewEvent(ctx, transaction, itemID, reason, evidence, now)
+	if err != nil {
+		return DecisionResult{}, err
+	}
 	if err := transitionServerReview(ctx, transaction, itemID, "REVIEW_DISCARDED", nil, now); err != nil {
 		return DecisionResult{}, err
 	}
 	if err := scheduleTerminalPayloads(
 		ctx, transaction, itemID, evidence.importID, payloadrelease.ReasonImportDiscarded, now,
 	); err != nil {
-		return DecisionResult{}, err
-	}
-	eventID, err := insertDiscardReviewEvent(ctx, transaction, itemID, reason, evidence, now)
-	if err != nil {
 		return DecisionResult{}, err
 	}
 	if err := transaction.Commit(); err != nil {
@@ -156,6 +156,11 @@ JOIN import_jobs j ON j.id=i.import_job_id
 JOIN review_drafts d ON d.import_item_id=i.id
 LEFT JOIN import_item_core_validations v ON v.id=d.selected_validation_id
 WHERE i.id=? AND i.state='REVIEW_PENDING'
+AND (i.review_handoff_kind='DIRECT' OR EXISTS(
+  SELECT 1 FROM emulationstation_import_items reserved_source
+  WHERE reserved_source.library_import_item_id=i.id
+  AND reserved_source.execution_state='REVIEW_PENDING'
+))
 `, itemID).Scan(
 		&value.draftID, &value.importID, &value.metadataJSON, &value.currentVersion,
 		&value.configSnapshotJSON, &value.validationID,

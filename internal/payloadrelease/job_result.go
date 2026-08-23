@@ -150,7 +150,9 @@ VALUES(?,?,?,?,?,?)
 func markDomainFailedTx(ctx context.Context, transaction *sql.Tx, job claimedJob, code string) error {
 	table := map[ScopeType]string{
 		ScopeImportItem: "import_items", ScopeImportJob: "import_jobs",
-		ScopePegasusImportItem: "pegasus_import_items", ScopeGame: "games",
+		ScopePegasusImportItem:          "pegasus_import_items",
+		ScopeEmulationStationImportItem: "emulationstation_import_items",
+		ScopeGame:                       "games",
 	}[job.ScopeType]
 	if table == "" {
 		return nil

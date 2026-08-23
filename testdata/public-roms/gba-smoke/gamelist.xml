@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<gameList>
+  <game>
+    <path>./emulationstation-smoke.gba</path>
+    <image>./emulationstation-smoke-cover.png</image>
+    <video>./emulationstation-smoke-video.webm</video>
+    <name>EmulationStation GBA Smoke</name>
+    <desc>Retrom project-owned EmulationStation product E2E fixture</desc>
+    <developer>Retrom</developer>
+    <publisher>Retrom</publisher>
+    <genre>Smoke Test</genre>
+    <players>1</players>
+  </game>
+</gameList>

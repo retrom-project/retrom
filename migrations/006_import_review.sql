@@ -81,6 +81,8 @@ CREATE TABLE import_items (
   import_job_id TEXT NOT NULL REFERENCES import_jobs(id),
   group_key TEXT NOT NULL CHECK(length(group_key) = 64),
   state TEXT NOT NULL CHECK(state IN ('QUEUED','HASHING','IDENTIFYING','SCRAPING','REVIEW_PENDING','PUBLISHED','DISCARDED','FAILED_RETRYABLE','FAILED_FINAL','CANCELLED')),
+  review_handoff_kind TEXT NOT NULL DEFAULT 'DIRECT'
+    CHECK(review_handoff_kind IN ('DIRECT','EMULATIONSTATION')),
   source_manifest_json TEXT NOT NULL,
   source_manifest_digest TEXT NOT NULL CHECK(length(source_manifest_digest) = 64),
   search_text TEXT NOT NULL,
@@ -445,6 +447,7 @@ CREATE TABLE review_bulk_approvals (
   screenshot_only_count INTEGER NOT NULL CHECK(screenshot_only_count>=0),
   duplicate_count INTEGER NOT NULL CHECK(duplicate_count>=0),
   attachment_active_count INTEGER NOT NULL CHECK(attachment_active_count>=0),
+  source_flagged_count INTEGER NOT NULL CHECK(source_flagged_count>=0),
   not_ready_or_stale_count INTEGER NOT NULL CHECK(not_ready_or_stale_count>=0),
   processed_count INTEGER NOT NULL DEFAULT 0 CHECK(processed_count>=0 AND processed_count<=candidate_count),
   published_count INTEGER NOT NULL DEFAULT 0 CHECK(published_count>=0),

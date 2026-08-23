@@ -37,6 +37,13 @@ func normalizeCreateRequest(request CreateRequest) (CreateRequest, string, error
 	if request.TagIDs == nil {
 		request.TagIDs = []string{}
 	}
+	if request.reviewHandoffKind == "" {
+		request.reviewHandoffKind = reviewHandoffDirect
+	}
+	if request.reviewHandoffKind != reviewHandoffDirect &&
+		request.reviewHandoffKind != reviewHandoffEmulationStation {
+		return CreateRequest{}, "", ErrInvalid
+	}
 	contentMode := request.ContentMode
 	if contentMode == "" {
 		contentMode = contentcapability.ModeStandard

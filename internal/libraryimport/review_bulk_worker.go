@@ -284,6 +284,11 @@ LEFT JOIN import_item_core_validations validation ON validation.id=(
  AND candidate.core_artifact_id=artifact.id
  ORDER BY candidate.created_at_ms DESC,candidate.id DESC LIMIT 1)
 WHERE import_item.id=?
+AND (import_item.review_handoff_kind='DIRECT' OR EXISTS(
+ SELECT 1 FROM emulationstation_import_items reserved_source
+ WHERE reserved_source.library_import_item_id=import_item.id
+ AND reserved_source.execution_state='REVIEW_PENDING'
+))
 `, item.itemID).Scan(&state, &version, &sourceSnapshotID, &validationID, &validationStatus)
 	return err == nil && state == "REVIEW_PENDING" && version == item.reviewVersion &&
 		sourceSnapshotID == item.sourceSnapshotID && validationID.String == item.validationID &&

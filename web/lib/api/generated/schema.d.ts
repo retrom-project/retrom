@@ -860,7 +860,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description User-visible import overview. Browser/reconfigure ImportJobs count once, Pegasus imports count once, and the per-game ImportJobs created only for Pegasus review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items. */
+        /** @description User-visible import overview. Browser/reconfigure ImportJobs, Pegasus imports, and EmulationStation imports each count once; per-game ImportJobs created only for server-import review handoff are excluded. `reviewPending` is the exact count of `REVIEW_PENDING` import items. */
         get: operations["getAdminImportsSummary"];
         put?: never;
         post?: never;
@@ -877,7 +877,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus review handoff are excluded; Pegasus aggregate history is available from `/api/v1/admin/pegasus-imports`. */
+        /** @description Cursor-paged browser/reconfigure ImportJobs. Per-game ImportJobs created internally by Pegasus or EmulationStation review handoff are excluded; aggregate server-import history is available from `/api/v1/admin/pegasus-imports` and `/api/v1/admin/emulationstation-imports`. */
         get: operations["getAdminImports"];
         put?: never;
         post: operations["postAdminImport"];
@@ -1056,7 +1056,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** @description Pending review summaries including sourceTotalSizeBytes, sourceMd5, and a nullable coverUrl for compact queue previews. */
+        /** @description Pending review summaries including sourceTotalSizeBytes, sourceMd5, a nullable coverUrl, and STANDARD/PEGASUS/EMULATIONSTATION source identity for compact queue previews. */
         get: operations["getAdminReviews"];
         put?: never;
         post?: never;
@@ -2033,6 +2033,166 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/admin/emulationstation-imports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["getAdminEmulationStationImports"];
+        put?: never;
+        post: operations["postAdminEmulationStationImport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminEmulationStationImport"];
+        put?: never;
+        post?: never;
+        delete: operations["deleteAdminEmulationStationImport"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/gamelists": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminEmulationStationImportGamelists"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/collections": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminEmulationStationImportCollections"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/collection-mappings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["putAdminEmulationStationImportCollectionMappings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAdminEmulationStationImportStart"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        get: operations["getAdminEmulationStationImportItems"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAdminEmulationStationImportCancel"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/admin/emulationstation-imports/{emulationStationImportId}/retry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["postAdminEmulationStationImportRetry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/admin/bios/{requirementId}/installations": {
         parameters: {
             query?: never;
@@ -2509,6 +2669,11 @@ export interface components {
              * @description Pegasus imports included in failed.
              */
             pegasusFailed: number;
+            /**
+             * Format: int64
+             * @description EmulationStation imports included in failed.
+             */
+            emulationStationFailed: number;
             /**
              * Format: int64
              * @description Known game/item count in currently non-terminal user-visible batches.
@@ -3054,6 +3219,46 @@ export interface components {
             duplicatePolicy?: "ALLOW_NEW";
             acknowledgedGameIds?: string[];
         };
+        /** @enum {string} */
+        ReviewSourceKind: "STANDARD" | "PEGASUS" | "EMULATIONSTATION";
+        ReviewQueueItem: {
+            /** Format: uuid */
+            itemId: string;
+            /** Format: int64 */
+            reviewVersion: number;
+            /** Format: uuid */
+            importJobId: string;
+            sourceDisplayName: string;
+            draftTitle: string;
+            platformInstance: {
+                /** Format: uuid */
+                id: string;
+                name: string;
+            };
+            /** @enum {string} */
+            validationStatus: "READY" | "BLOCKED" | "INCOMPATIBLE" | "NEEDS_VALIDATION";
+            /** Format: uuid */
+            validationJobId: string | null;
+            blockerCodes: string[];
+            /** Format: int64 */
+            candidateCount: number;
+            /** Format: int64 */
+            sourceTotalSizeBytes: number;
+            sourceMd5: string | null;
+            coverUrl: string | null;
+            sourceKind: components["schemas"]["ReviewSourceKind"];
+            sourceLabel: string | null;
+            /** Format: uuid */
+            pegasusImportId: string | null;
+            /** Format: uuid */
+            emulationStationImportId: string | null;
+            /** Format: int64 */
+            updatedAtMs: number;
+        };
+        ReviewQueueList: {
+            items: components["schemas"]["ReviewQueueItem"][];
+            nextCursor: string | null;
+        };
         ReviewBulkApprovalScope: {
             q?: string;
             /** Format: uuid */
@@ -3062,6 +3267,8 @@ export interface components {
             importJobId?: string;
             /** Format: uuid */
             pegasusImportId?: string;
+            /** Format: uuid */
+            emulationStationImportId?: string;
             /** Format: uuid */
             platformInstanceId?: string;
             blockerCode?: string;
@@ -3299,6 +3506,26 @@ export interface components {
             mappings: components["schemas"]["PegasusCollectionMapping"][];
         };
         PegasusImportStartRequest: {
+            /** Format: int64 */
+            version: number;
+        };
+        CreateEmulationStationImportRequest: {
+            rootId: string;
+            sourceRelativePath: string;
+        };
+        EmulationStationCollectionMapping: {
+            /** Format: uuid */
+            collectionId: string;
+            /** @enum {string} */
+            action: "IMPORT" | "SKIP";
+            /** Format: uuid */
+            platformInstanceId?: string;
+            tagIds: string[];
+        };
+        EmulationStationCollectionMappingsRequest: {
+            mappings: components["schemas"]["EmulationStationCollectionMapping"][];
+        };
+        EmulationStationImportStartRequest: {
             /** Format: int64 */
             version: number;
         };
@@ -3657,6 +3884,214 @@ export interface components {
         };
         PegasusItemList: {
             items: components["schemas"]["PegasusItem"][];
+            nextCursor: string | null;
+        };
+        EmulationStationImportCounts: {
+            /** Format: int64 */
+            gamelists: number;
+            /** Format: int64 */
+            invalidGamelists: number;
+            /** Format: int64 */
+            collections: number;
+            /** Format: int64 */
+            foldersIgnored: number;
+            /** Format: int64 */
+            games: number;
+            /** Format: int64 */
+            estimatedSourceBytes: number;
+            /** Format: int64 */
+            mappedCollections: number;
+            /** Format: int64 */
+            skippedCollections: number;
+            /** Format: int64 */
+            skippedMapping: number;
+            /** Format: int64 */
+            processable: number;
+            /** Format: int64 */
+            blocked: number;
+            /** Format: int64 */
+            reviewPending: number;
+            /** Format: int64 */
+            published: number;
+            /** Format: int64 */
+            reviewDiscarded: number;
+            /** Format: int64 */
+            existing: number;
+            /** Format: int64 */
+            failed: number;
+            /** Format: int64 */
+            cancelled: number;
+            /** Format: int64 */
+            mediaWarnings: number;
+            /** Format: int64 */
+            covers: number;
+            /** Format: int64 */
+            videos: number;
+        };
+        EmulationStationImportSummary: {
+            /** Format: uuid */
+            id: string;
+            root: {
+                id: string;
+                label: string;
+            };
+            sourceRelativePath: string;
+            /** @enum {string} */
+            state: "SCANNING" | "AWAITING_MAPPING" | "QUEUED" | "RUNNING" | "PARTIAL_FAILURE" | "COMPLETED" | "CANCEL_REQUESTED" | "CANCELLED" | "FAILED" | "EXPIRED";
+            /** @enum {string|null} */
+            phase: "DISCOVERING_GAMELISTS" | "PARSING_GAMELISTS" | "RESOLVING_SOURCES" | "COPYING_CONTENT" | "VALIDATING" | "PREPARING_REVIEWS" | null;
+            /** Format: uuid */
+            scanJobId: string;
+            /** Format: uuid */
+            importJobId: string | null;
+            counts: components["schemas"]["EmulationStationImportCounts"];
+            /** Format: int64 */
+            mappingVersion: number;
+            /** Format: int64 */
+            version: number;
+            createdBy: {
+                /** Format: uuid */
+                id: string;
+                displayName: string;
+            };
+            lastErrorCode: string | null;
+            retryable: boolean;
+            /** Format: int64 */
+            createdAtMs: number;
+            /** Format: int64 */
+            updatedAtMs: number;
+            /** Format: int64 */
+            expiresAtMs: number;
+            /** Format: int64 */
+            completedAtMs: number | null;
+        };
+        EmulationStationImportList: {
+            items: components["schemas"]["EmulationStationImportSummary"][];
+            nextCursor: string | null;
+        };
+        EmulationStationGamelist: {
+            relativePath: string;
+            /** @enum {string} */
+            parseState: "VALID" | "INVALID";
+            errorCode: string | null;
+            /** Format: int64 */
+            gameCount: number;
+            /** Format: int64 */
+            folderCount: number;
+            providerPresent: boolean;
+            ignoredFieldNames: string[];
+            /** Format: int64 */
+            ignoredFieldOtherCount: number;
+            /** Format: int64 */
+            createdAtMs: number;
+        };
+        EmulationStationGamelistList: {
+            items: components["schemas"]["EmulationStationGamelist"][];
+            nextCursor: string | null;
+        };
+        EmulationStationExtensionSummary: {
+            extension: string;
+            /** Format: int64 */
+            count: number;
+        };
+        EmulationStationSourceCollection: {
+            /** Format: uuid */
+            id: string;
+            gamelistRelativePath: string;
+            relativeDirectory: string;
+            displayName: string;
+            /** Format: int64 */
+            gameCount: number;
+            /** Format: int64 */
+            issueCount: number;
+            /** Format: int64 */
+            folderEntryCount: number;
+            /** Format: int64 */
+            hiddenGameCount: number;
+            /** Format: int64 */
+            adultGameCount: number;
+            extensionSummary: components["schemas"]["EmulationStationExtensionSummary"][];
+            /** Format: int64 */
+            extensionOtherCount: number;
+            /** @enum {string|null} */
+            mappingAction: "IMPORT" | "SKIP" | null;
+            /** Format: uuid */
+            targetPlatformInstanceId: string | null;
+            targetPlatformInstanceName: string | null;
+            targetDefaultCoreId: string | null;
+            targetDefaultCoreName: string | null;
+            tagSnapshot: components["schemas"]["TagReference"][];
+        };
+        EmulationStationCollectionList: {
+            items: components["schemas"]["EmulationStationSourceCollection"][];
+            nextCursor: string | null;
+        };
+        EmulationStationSourceFlags: {
+            hidden: boolean;
+            adult: boolean;
+            kidGame: boolean;
+        };
+        EmulationStationWarningValue: {
+            code: string;
+            field?: string;
+            pathKind?: string;
+            /** Format: int64 */
+            omittedCount?: number;
+            /** Format: int64 */
+            originalLength?: number;
+            /** Format: int64 */
+            retainedLength?: number;
+        };
+        EmulationStationItem: {
+            /** Format: uuid */
+            id: string;
+            title: string;
+            /** Format: uuid */
+            collectionId: string | null;
+            collectionName: string | null;
+            /** Format: uuid */
+            targetPlatformInstanceId: string | null;
+            targetPlatformInstanceName: string | null;
+            gamelistRelativePath: string;
+            sourceFlags: components["schemas"]["EmulationStationSourceFlags"];
+            /** @enum {string} */
+            executionState: "PENDING" | "COPYING" | "VALIDATING" | "REVIEW_PENDING" | "PUBLISHED" | "REVIEW_DISCARDED" | "SKIPPED_EXISTING" | "SKIPPED_MAPPING" | "BLOCKED_SOURCE" | "BLOCKED_CONTENT" | "SOURCE_CHANGED" | "READ_FAILED" | "COMMIT_FAILED" | "CANCELLED";
+            /** @enum {string} */
+            payloadState: "RETAINED" | "RELEASING" | "RELEASED" | "FAILED";
+            /** Format: uuid */
+            payloadReleaseJobId: string | null;
+            /** @enum {string|null} */
+            contentKind: "SINGLE_FILE" | "DOS_BUNDLE" | "MULTI_DISC_M3U_V1" | null;
+            tags: components["schemas"]["TagReference"][];
+            media: {
+                /** @enum {string} */
+                cover: "READY" | "MISSING" | "WARNING";
+                /** @enum {string} */
+                video: "READY" | "MISSING" | "WARNING";
+            };
+            warnings: components["schemas"]["EmulationStationWarningValue"][];
+            discoveryCode: string | null;
+            errorCode: string | null;
+            failureDetails: components["schemas"]["PegasusItemFailureDetails"] | null;
+            runtimeCheck: components["schemas"]["PegasusRuntimeCheck"] | null;
+            retryable: boolean;
+            /** Format: uuid */
+            reviewItemId: string | null;
+            /** Format: uuid */
+            publishedGameId: string | null;
+            /** Format: uuid */
+            existingGameId: string | null;
+            existingMatches: {
+                /** Format: uuid */
+                gameId: string;
+                /** Format: uuid */
+                contentRevisionId: string;
+            }[];
+            /** Format: int64 */
+            updatedAtMs: number;
+        };
+        EmulationStationItemList: {
+            items: components["schemas"]["EmulationStationItem"][];
             nextCursor: string | null;
         };
         BIOSInstallationSummary: {
@@ -4353,6 +4788,15 @@ export interface components {
                 "application/json": components["schemas"]["ImportOverviewSummary"];
             };
         };
+        /** @description Cursor-paged pending review summaries */
+        ReviewQueueListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ReviewQueueList"];
+            };
+        };
         /** @description Administrator tag projection */
         TagAdminItemResponse: {
             headers: {
@@ -4491,6 +4935,52 @@ export interface components {
             };
             content: {
                 "application/json": components["schemas"]["PegasusItemList"];
+            };
+        };
+        /** @description EmulationStation gamelist scan/import aggregate */
+        EmulationStationImportResponse: {
+            headers: {
+                ETag?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EmulationStationImportSummary"];
+            };
+        };
+        /** @description EmulationStation gamelist scan/import history */
+        EmulationStationImportListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EmulationStationImportList"];
+            };
+        };
+        /** @description Discovered EmulationStation gamelist page */
+        EmulationStationGamelistListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EmulationStationGamelistList"];
+            };
+        };
+        /** @description EmulationStation source collection mapping page */
+        EmulationStationCollectionListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EmulationStationCollectionList"];
+            };
+        };
+        /** @description EmulationStation item result page */
+        EmulationStationItemListResponse: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["EmulationStationItemList"];
             };
         };
         /** @description Process is live */
@@ -4733,6 +5223,7 @@ export interface components {
         CoreArtifactIDQuery: string;
         ImportJobIDQuery: string;
         PegasusImportIDQuery: string;
+        EmulationStationImportIDQuery: string;
         Availability: string;
         State: string;
         Status: string;
@@ -4746,6 +5237,9 @@ export interface components {
         PegasusWarning: string;
         ReviewSourceMediaKind: "COVER" | "VIDEO";
         PegasusCollectionIDQuery: string;
+        EmulationStationGamelistParseStateFilter: "VALID" | "INVALID";
+        EmulationStationWarning: string;
+        EmulationStationCollectionIDQuery: string;
         ServerImportKind: "BIOS_DIRECTORY";
         ServerRelativePath: string;
         FavoriteScope: "ALL" | "UNCATEGORIZED" | "FOLDER";
@@ -4788,6 +5282,7 @@ export interface components {
         ServerImportRootID: string;
         ServerImportID: string;
         PegasusImportID: string;
+        EmulationStationImportID: string;
         GameAssetKind: "VIDEO";
         AssetID: string;
         LaunchID: string;
@@ -5083,6 +5578,21 @@ export interface components {
         PegasusImportStart: {
             content: {
                 "application/json": components["schemas"]["PegasusImportStartRequest"];
+            };
+        };
+        CreateEmulationStationImport: {
+            content: {
+                "application/json": components["schemas"]["CreateEmulationStationImportRequest"];
+            };
+        };
+        EmulationStationCollectionMappings: {
+            content: {
+                "application/json": components["schemas"]["EmulationStationCollectionMappingsRequest"];
+            };
+        };
+        EmulationStationImportStart: {
+            content: {
+                "application/json": components["schemas"]["EmulationStationImportStartRequest"];
             };
         };
         PlayEvent: {
@@ -6316,6 +6826,7 @@ export interface operations {
                 tagId?: components["parameters"]["TagIDQuery"];
                 importJobId?: components["parameters"]["ImportJobIDQuery"];
                 pegasusImportId?: components["parameters"]["PegasusImportIDQuery"];
+                emulationStationImportId?: components["parameters"]["EmulationStationImportIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
                 blockerCode?: components["parameters"]["BlockerCode"];
                 sort?: components["parameters"]["Sort"];
@@ -6328,7 +6839,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            200: components["responses"]["JSONResponse"];
+            200: components["responses"]["ReviewQueueListResponse"];
         };
     };
     getAdminReviewBulkApprovalPreview: {
@@ -6338,6 +6849,7 @@ export interface operations {
                 tagId?: components["parameters"]["TagIDQuery"];
                 importJobId?: components["parameters"]["ImportJobIDQuery"];
                 pegasusImportId?: components["parameters"]["PegasusImportIDQuery"];
+                emulationStationImportId?: components["parameters"]["EmulationStationImportIDQuery"];
                 platformInstanceId?: components["parameters"]["PlatformInstanceIDQuery"];
                 blockerCode?: components["parameters"]["BlockerCode"];
             };
@@ -7458,6 +7970,204 @@ export interface operations {
         requestBody: components["requestBodies"]["Empty"];
         responses: {
             202: components["responses"]["PegasusImportResponse"];
+        };
+    };
+    getAdminEmulationStationImports: {
+        parameters: {
+            query?: {
+                state?: components["parameters"]["State"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit20"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["EmulationStationImportListResponse"];
+        };
+    };
+    postAdminEmulationStationImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["CreateEmulationStationImport"];
+        responses: {
+            202: components["responses"]["EmulationStationImportResponse"];
+        };
+    };
+    getAdminEmulationStationImport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["EmulationStationImportResponse"];
+        };
+    };
+    deleteAdminEmulationStationImport: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Unstarted EmulationStation import plan deleted */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+        };
+    };
+    getAdminEmulationStationImportGamelists: {
+        parameters: {
+            query?: {
+                parseState?: components["parameters"]["EmulationStationGamelistParseStateFilter"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit100"];
+            };
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["EmulationStationGamelistListResponse"];
+        };
+    };
+    getAdminEmulationStationImportCollections: {
+        parameters: {
+            query?: {
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit100"];
+            };
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["EmulationStationCollectionListResponse"];
+        };
+    };
+    putAdminEmulationStationImportCollectionMappings: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["EmulationStationCollectionMappings"];
+        responses: {
+            200: components["responses"]["EmulationStationImportResponse"];
+        };
+    };
+    postAdminEmulationStationImportStart: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["EmulationStationImportStart"];
+        responses: {
+            202: components["responses"]["EmulationStationImportResponse"];
+        };
+    };
+    getAdminEmulationStationImportItems: {
+        parameters: {
+            query?: {
+                q?: components["parameters"]["Q"];
+                outcome?: components["parameters"]["Outcome"];
+                warning?: components["parameters"]["EmulationStationWarning"];
+                collectionId?: components["parameters"]["EmulationStationCollectionIDQuery"];
+                cursor?: components["parameters"]["Cursor"];
+                limit?: components["parameters"]["Limit50"];
+            };
+            header?: never;
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            200: components["responses"]["EmulationStationItemListResponse"];
+        };
+    };
+    postAdminEmulationStationImportCancel: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Reason"];
+        responses: {
+            200: components["responses"]["EmulationStationImportResponse"];
+            202: components["responses"]["EmulationStationImportResponse"];
+        };
+    };
+    postAdminEmulationStationImportRetry: {
+        parameters: {
+            query?: never;
+            header: {
+                "If-Match": components["parameters"]["IfMatch"];
+                "Idempotency-Key": components["parameters"]["IdempotencyKey"];
+                "X-Retrom-Csrf": components["parameters"]["CSRFToken"];
+            };
+            path: {
+                emulationStationImportId: components["parameters"]["EmulationStationImportID"];
+            };
+            cookie?: never;
+        };
+        requestBody: components["requestBodies"]["Empty"];
+        responses: {
+            202: components["responses"]["EmulationStationImportResponse"];
         };
     };
     postAdminBIOSInstallation: {

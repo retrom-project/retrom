@@ -172,7 +172,18 @@ AND pi.enabled=1`,
 	}
 	if err := server.database.QueryRowContext(
 		request.Context(),
-		"SELECT count(*) FROM import_items WHERE state = 'REVIEW_PENDING'",
+		`SELECT count(*)
+FROM import_items item
+WHERE item.state='REVIEW_PENDING'
+AND (
+ item.review_handoff_kind='DIRECT'
+ OR EXISTS (
+  SELECT 1
+  FROM emulationstation_import_items source
+  WHERE source.library_import_item_id=item.id
+  AND source.execution_state='REVIEW_PENDING'
+ )
+)`,
 	).Scan(
 		&reviewCount,
 	); err != nil {

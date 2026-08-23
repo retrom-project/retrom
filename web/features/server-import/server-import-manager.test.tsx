@@ -80,6 +80,15 @@ afterEach(() => {
 });
 
 describe("ServerImportManager", () => {
+  it("presents EmulationStation as a third equal server import capability", () => {
+    render(<ServerImportManager initialRoots={[availableRoot]} initialImports={imports()} />);
+
+    expect(screen.getByRole("heading", { name: "扫描并导入 BIOS" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "扫描并准备审核事项" })).toBeVisible();
+    expect(screen.getByRole("heading", { name: "扫描 gamelist.xml 并准备审核" })).toBeVisible();
+    expect(screen.getByText(/不执行 command、emulator 或 core/)).toBeVisible();
+  });
+
   it("does not offer an import when every configured root is unavailable", () => {
     render(<ServerImportManager initialRoots={[{ ...availableRoot, status: "UNAVAILABLE" }]} initialImports={imports()} />);
     expect(screen.getByRole("button", { name: "选择目录并开始" })).toBeDisabled();

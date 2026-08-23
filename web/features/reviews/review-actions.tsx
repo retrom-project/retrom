@@ -222,10 +222,22 @@ function ReviewStepper() {
   return <nav className="review-mobile-stepper" aria-label="审核步骤"><a href="#review-step-source"><span>1</span>来源与依赖</a><a href="#review-step-runtime"><span>2</span>运行检查</a><a href="#review-step-publish"><span>3</span>发布信息</a><a href="#review-step-decision"><span>4</span>审核决定</a></nav>;
 }
 
+function serverSourceName(model: ReviewViewModel) {
+  return model.review.sourceMedia?.sourceKind === "EMULATIONSTATION" ? "EmulationStation" : "Pegasus";
+}
+
+function reviewMetadataLabel(model: ReviewViewModel) {
+  if (model.candidateId) {return "已找到游戏信息";}
+  if (model.review.sourceMedia?.sourceKind === "EMULATIONSTATION") {return "已读取 Gamelist 信息";}
+  if (model.review.sourceMedia) {return "已读取 Pegasus 信息";}
+  return "未找到游戏信息";
+}
+
 function ReviewSummary({ model }: { model: ReviewViewModel }) {
-  const source = model.review.sourceMedia ? `Pegasus · ${model.review.sourceMedia.sourceLabel ?? model.sourceDisplayName}` : model.sourceDisplayName;
+  const sourceName = serverSourceName(model);
+  const source = model.review.sourceMedia ? `${sourceName} · ${model.review.sourceMedia.sourceLabel ?? model.sourceDisplayName}` : model.sourceDisplayName;
   const validationLabel = model.validationReady ? "运行检查通过" : model.screenshotOverride ? "已取得运行截图" : model.validationStatus === "READY" ? "运行检查更新中" : "运行检查未通过";
-  const metadataLabel = model.candidateId ? "已找到游戏信息" : model.review.sourceMedia ? "已读取 Pegasus 信息" : "未找到游戏信息";
+  const metadataLabel = reviewMetadataLabel(model);
   return <section id="review-step-source" className="review-workflow-summary-card">
     <div className="review-workflow-summary-copy"><StatusPill tone="info">来源：{source}</StatusPill><h2>{model.form.title || model.sourceDisplayName}</h2><p>目标目录：{model.platformInstanceName}</p><TagChips tags={model.tags} /><div className="review-workflow-summary-pills"><StatusPill tone="info">已接收来源文件</StatusPill><StatusPill tone={model.publishReady ? "good" : "warn"}>{validationLabel}</StatusPill><StatusPill tone={model.candidateId || model.review.sourceMedia ? "info" : "warn"}>{metadataLabel}</StatusPill></div></div>
     <RuntimeScreenshot model={model} />
@@ -268,7 +280,8 @@ function MetadataFields({ model }: { model: ReviewViewModel }) {
 
 function CoverEditor({ model }: { model: ReviewViewModel }) {
   const upload = (file: File | undefined) => {if (file) {void model.commands.uploadCover(file, "current");}};
-  return <aside className="review-cover-panel review-workflow-cover-side"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={model.selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={model.busy !== null} onChange={(event) => {upload(event.target.files?.[0]); event.currentTarget.value = "";}} /></label>{model.cover.candidateId || model.cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => model.setCover({ candidateId: null, uploadedId: null })}>{model.sourceCover ? "恢复 Pegasus 封面" : "移除封面"}</button> : null}{model.review.sourceMedia?.videoUrl ? <div className="review-source-video"><span className="field-label">Pegasus 视频预览</span><video controls preload="metadata" src={model.review.sourceMedia.videoUrl}>浏览器无法播放这段视频。</video><small>通过审核后会随游戏一并发布。</small></div> : null}</aside>;
+  const sourceName = model.review.sourceMedia?.sourceKind === "EMULATIONSTATION" ? "EmulationStation" : "Pegasus";
+  return <aside className="review-cover-panel review-workflow-cover-side"><span className="field-label">当前封面</span><label className="review-cover-upload" title="点击上传替换封面"><AssetPreview asset={model.selectedCover} label="当前选择的游戏封面" /><span>点击图片上传替换</span><input type="file" accept="image/png,image/jpeg,image/webp" disabled={model.busy !== null} onChange={(event) => {upload(event.target.files?.[0]); event.currentTarget.value = "";}} /></label>{model.cover.candidateId || model.cover.uploadedId ? <button type="button" className="button secondary compact" onClick={() => model.setCover({ candidateId: null, uploadedId: null })}>{model.sourceCover ? `恢复 ${sourceName} 封面` : "移除封面"}</button> : null}{model.review.sourceMedia?.videoUrl ? <div className="review-source-video"><span className="field-label">{sourceName} 视频预览</span><video controls preload="metadata" src={model.review.sourceMedia.videoUrl}>浏览器无法播放这段视频。</video><small>通过审核后会随游戏一并发布。</small></div> : null}</aside>;
 }
 
 function ComparisonDialog({ model }: { model: ReviewViewModel }) {

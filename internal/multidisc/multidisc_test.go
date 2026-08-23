@@ -69,6 +69,21 @@ func TestParseBoundaries(t *testing.T) {
 	}
 }
 
+func TestReferencesReturnsOnlyValidatedPlaylistEntries(t *testing.T) {
+	t.Parallel()
+	references, err := References(
+		[]byte("# ignored\r\nDisc One.CHD\r\ntwo.chd\r\n"),
+		DefaultLimits(),
+	)
+	testassert.False(t, err != nil, err)
+	if got, want := strings.Join(references, "|"), "Disc One.CHD|two.chd"; got != want {
+		t.Fatalf("references = %q, want %q", got, want)
+	}
+	if _, err := References([]byte("../one.chd\ntwo.chd\n"), DefaultLimits()); !ErrorHasCode(err, CodeReferenceUnsafe) {
+		t.Fatalf("unsafe reference error = %v", err)
+	}
+}
+
 func TestParseRejectsUnsafeOrInvalidReferences(t *testing.T) {
 	t.Parallel()
 	unsafe := []string{

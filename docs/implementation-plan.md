@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 文档状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.4 |
-| 日期 | 2026-08-22 |
+| 版本 | 1.5 |
+| 日期 | 2026-08-24 |
 | 用途 | 规定实现顺序、依赖和里程碑退出条件，不复制领域规格 |
 
 ## 1. 使用方式
@@ -58,7 +58,7 @@ flowchart LR
 5. `005_dependencies.sql`：BIOS 与 release-managed DAT；
 6. `006_import_review.sql`：导入、来源快照、验证、审核、preview 与快速审批；
 7. `007_library.sql`：Game/revision/content/variant/media/tag/favorite；
-8. `008_server_import.sql`：Pegasus 当前 review-handoff 模型；
+8. `008_server_import.sql`：Pegasus 与 EmulationStation 当前 review-handoff 模型；
 9. `009_runtime.sql`：Launch、PlaySession、显式 SaveState 与 Netplay；
 10. `010_cross_domain_invariants.sql`：只能在全部 owner table 存在后建立的索引和 trigger。
 
@@ -176,6 +176,12 @@ flowchart LR
 
 退出门禁：完整执行 `ACC-GAME-003`、`ACC-IMP-007/008`、`ACC-PEG-004`、`ACC-CAS-002`、`ACC-STOR-001`、`ACC-UI-008`，并运行 API、后端、集成、前端、`make web-e2e` 与 `make ci` 全门禁。全新数据库和开发实例必须重建；普通上传与 Pegasus 发布/丢弃、共享 Blob、进程中断、provider TTL、Game 删除和 GC 宽限均需确定性证据。正式文档与统一 UI 源/导出 HTML 闭环后删除临时方案目录。
 
+### M17：EmulationStation 服务器目录导入垂直切片
+
+范围：先同步导入、数据、HTTP、UI、质量、验收契约与 OpenAPI，再在 clean `001`–`010` lineage 内完成严格 EmulationStation XML parser、受信 root 下精确小写 `gamelist.xml` 的递归 no-follow 扫描、每份有效清单一个 Collection 的显式 `IMPORT|SKIP` 映射、来源/目标快照与漂移检查、异步复制和普通 library import/review handoff。扫描期只读取有界 XML、目录 facts、M3U 和媒体/CHD 头，不读取完整游戏内容、不写业务 Blob；执行期复用普通去重、CoreValidation、DAT、BIOS、M3U/Arcade 依赖、审核、严格 READY 快速审批与 payload release。Worker 在 `REVIEW_PENDING` 停止，只有普通 Approve 或现有快速审批事务创建 Game。前端把服务器导入页扩展为 BIOS、Pegasus、EmulationStation 三张等权卡，接通 EmulationStation 三步 Drawer、可恢复详情和来源限定审核入口。
+
+退出门禁：完整执行 `ACC-ES-001`–`006`，并回归 `ACC-PEG-001`–`006`、`ACC-IMP-001/003/007/008/009`、`ACC-MDISC-001/004`、`ACC-BIOS-003/006`、`ACC-CAS-002`、`ACC-BKP-001`、`ACC-GAME-001/003`。必须运行 `make quality-structure-check`、`make fmt-check`、`make build`、`make test`、`make lint-go`、`make integration-test`、`make web-install`、`make web-lint`、`make web-typecheck`、`make web-test`、`make web-build`、`make api-generate`、`make api-check`、`make public-fixtures-check`、`make web-e2e` 与 `make ci`。验收必须分别证明“一个所选目录含多个子目录且每个子目录各有 `gamelist.xml`”与“一个无子目录的目录内只有一份 `gamelist.xml` 和多份游戏文件”均正确扫描、逐 Collection 映射并交接审核；项目自有 GBA EmulationStation fixture 必须从真实扫描、审核、发布走到 mGBA 核心帧，发布后 Game 删除还须证明流程 payload、Game payload 与共享 Blob 引用按宽限期安全释放。授权本地 Batocera 目录只可用于隔离开发实例人工验证，不进入自动测试、证据正文或仓库。正式 UI 源、导出 HTML 和 390/1280/2560/物理 4K 150% 当次视觉与无障碍复核全部闭环后才可删除临时设计目录，本地图片不得提交。
+
 ## 5. 垂直切片提交规则
 
 每个可合并切片必须闭合以下链条，不允许把长期不工作的半成品推给后续 Agent：
@@ -197,7 +203,7 @@ flowchart LR
 
 - 第一次项目初始化运行 `make install-deps`，需要访问固定 Go/npm/Playwright 与 manifest 公开来源；Node、Chrome for Testing 和其他工具写入仓库忽略的 `.cache/tools/`，应用 runtime/DAT/许可按既有目录物化。镜像 dependency builder 仍只准备发布所需 payload；正确缓存后校验与服务启动离线。
 - 默认构建契约只产生私有自托管镜像；若未来要 push、公开或商业分发，必须先完成 manifest 标记的受限制 core 人工许可审查。这是分发授权边界，不允许实现 Agent通过删 notice、换浮动 core 或绕过检查来处理。
-- 公开 `make web-e2e` 使用 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中由 Retrom 自有源码确定性生成、带独立 MIT 许可且随仓库提交的测试程序；生成器与消费者共同锁定 bytes。GBA 覆盖普通上传与 Pegasus；NES 覆盖 FCEUmm/Nestopia；SNES 覆盖 SNES9x；Arcade 覆盖 MAME2003/Plus、FBNeo、FBA2012 CPS1/CPS2 的装配、单机帧执行与双浏览器联机。镜像必须排除整个公开 fixture 目录。Arcade 小型 DAT 只由 acceptance-only 装置登记为 test-only `BUILTIN`；production manifest 的真实 DAT 另由 `ACC-DAT-004` 验证，测试 BIOS 与 CPS2 父集 marker 不被目标驱动执行。其他产品测试不得读取或下载用户私有 ROM/BIOS；没有合法公开 fixture 的核心必须登记为未覆盖，不能改用 mock 或相邻核心结果冒充兼容性证据。
+- 公开 `make web-e2e` 使用 `testdata/public-roms/gba-smoke/`、`testdata/public-roms/nes-smoke/`、`testdata/public-roms/snes-smoke/` 与 `testdata/public-roms/arcade-smoke/` 中由 Retrom 自有源码确定性生成、带独立 MIT 许可且随仓库提交的测试程序；生成器与消费者共同锁定 bytes。GBA 分别以普通上传、Pegasus 与 EmulationStation 三个独立来源身份覆盖，其中 EmulationStation fixture 带最小严格 `gamelist.xml`；NES 覆盖 FCEUmm/Nestopia；SNES 覆盖 SNES9x；Arcade 覆盖 MAME2003/Plus、FBNeo、FBA2012 CPS1/CPS2 的装配、单机帧执行与双浏览器联机。镜像必须排除整个公开 fixture 目录。Arcade 小型 DAT 只由 acceptance-only 装置登记为 test-only `BUILTIN`；production manifest 的真实 DAT 另由 `ACC-DAT-004` 验证，测试 BIOS 与 CPS2 父集 marker 不被目标驱动执行。其他产品测试不得读取或下载用户私有 ROM/BIOS；没有合法公开 fixture 的核心必须登记为未覆盖，不能改用 mock 或相邻核心结果冒充兼容性证据。
 - 生产需要前置 NG 提供同源 HTTPS、保留 nonce CSP/隔离头并挂载持久数据卷；Retrom 本身不实现 TLS。
 - Hasheous 可临时不可用；导入仍进入人工审核，自动测试不依赖实时命中。
 

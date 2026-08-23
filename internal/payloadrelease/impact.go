@@ -144,6 +144,26 @@ UNION ALL SELECT blob_id FROM pegasus_import_item_assets WHERE item_id=?
 		}
 		ids = append(ids, values...)
 	}
+	emulationStationIDs, err := collectIDs(ctx, transaction, `
+SELECT source_ref_id FROM game_content_revisions
+ WHERE game_id=? AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
+UNION SELECT source_ref_id FROM game_metadata_revisions
+ WHERE game_id=? AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
+`, gameID, gameID)
+	if err != nil {
+		return nil, err
+	}
+	for _, itemID := range uniqueStrings(emulationStationIDs) {
+		values, itemErr := collectIDs(ctx, transaction, `
+SELECT blob_id FROM emulationstation_import_item_files WHERE item_id=?
+UNION ALL SELECT source_archive_blob_id FROM emulationstation_import_item_files WHERE item_id=?
+UNION ALL SELECT blob_id FROM emulationstation_import_item_assets WHERE item_id=?
+`, itemID, itemID, itemID)
+		if itemErr != nil {
+			return nil, itemErr
+		}
+		ids = append(ids, values...)
+	}
 	return uniqueStrings(ids), nil
 }
 
@@ -229,16 +249,11 @@ ORDER BY source_kind
 		if err := rows.Scan(&source); err != nil {
 			return nil, fmt.Errorf("payloadrelease/impact source: %w", err)
 		}
-		switch source {
-		case "SERVER_PEGASUS_IMPORT":
-			set["SERVER_SCAN"] = struct{}{}
-		case "ADMIN_REPLACE":
-			set["ADMIN_REPLACE"] = struct{}{}
-		case "IMPORT_REVIEW":
-			set["USER_UPLOAD"] = struct{}{}
+		if normalized, ok := normalizedImpactSourceKind(source); ok {
+			set[normalized] = struct{}{}
 		}
 	}
-	var result []string
+	result := make([]string, 0, len(set))
 	for source := range set {
 		result = append(result, source)
 	}
@@ -247,4 +262,17 @@ ORDER BY source_kind
 		return nil, fmt.Errorf("payloadrelease/impact source rows: %w", err)
 	}
 	return result, nil
+}
+
+func normalizedImpactSourceKind(source string) (string, bool) {
+	switch source {
+	case "SERVER_PEGASUS_IMPORT", "SERVER_EMULATIONSTATION_IMPORT":
+		return "SERVER_SCAN", true
+	case "ADMIN_REPLACE":
+		return "ADMIN_REPLACE", true
+	case "IMPORT_REVIEW":
+		return "USER_UPLOAD", true
+	default:
+		return "", false
+	}
 }

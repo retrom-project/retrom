@@ -25,9 +25,10 @@ export type ReviewQueueItem = {
   sourceTotalSizeBytes: number;
   sourceMd5: string | null;
   coverUrl: string | null;
-  sourceKind?: "STANDARD" | "PEGASUS";
+  sourceKind?: "STANDARD" | "PEGASUS" | "EMULATIONSTATION";
   sourceLabel?: string | null;
   pegasusImportId?: string | null;
+  emulationStationImportId?: string | null;
   updatedAtMs: number;
   tags?: TagReference[];
 };
@@ -39,7 +40,7 @@ function queryString(values: Record<string, string>) {
 const validationLabels: Record<string, string> = { READY: "可以发布", BLOCKED: "缺少依赖", DEPENDENCY_MISSING: "缺少依赖", INCOMPATIBLE: "不兼容", NEEDS_VALIDATION: "等待检查" };
 
 function hasReviewMetadata(item: ReviewQueueItem) {
-  return item.candidateCount > 0 || item.sourceKind === "PEGASUS";
+  return item.candidateCount > 0 || item.sourceKind === "PEGASUS" || item.sourceKind === "EMULATIONSTATION";
 }
 
 function formatBytes(value: number) {
@@ -208,13 +209,14 @@ function ReviewQueueRow({ item, listURL, onRemember }: {
 
 function reviewCandidateCopy(item: ReviewQueueItem): [string, string] {
   if (item.sourceKind === "PEGASUS") {return ["已读取 Pegasus 信息", "等待管理员核对"];}
+  if (item.sourceKind === "EMULATIONSTATION") {return ["已读取 Gamelist 信息", "等待管理员核对来源标记与媒体"];}
   if (item.candidateCount > 0) {return ["已找到游戏信息", `${item.candidateCount} 个候选`];}
   return ["未找到游戏信息", "需要手动填写"];
 }
 
 function ReviewQueueGame({ item }: { item: ReviewQueueItem }) {
-  const pegasus = item.sourceKind === "PEGASUS";
+  const sourceLabel = item.sourceKind === "PEGASUS" ? "Pegasus" : item.sourceKind === "EMULATIONSTATION" ? "EmulationStation" : "";
   const md5Title = item.sourceMd5 ? `MD5 ${item.sourceMd5}` : "MD5 暂不可用";
   const md5Label = item.sourceMd5 ? `MD5 ${item.sourceMd5.slice(0, 4)}…` : "MD5 暂不可用";
-  return <div className="review-workflow-game"><div className="review-workflow-thumb">{item.coverUrl ? <Image src={item.coverUrl} alt={`${item.draftTitle} 封面缩略图`} width={56} height={56} unoptimized /> : <span role="img" aria-label={`${item.draftTitle} 暂无封面`}>{item.draftTitle.slice(0, 2).toUpperCase() || "R"}</span>}</div><div><h3>{item.draftTitle}{pegasus ? <span className="review-source-tag">Pegasus{item.sourceLabel ? ` · ${item.sourceLabel}` : ""}</span> : null}</h3><TagChips tags={item.tags ?? []} limit={2} label={`${item.draftTitle} 的标签`} /><p title={item.sourceDisplayName}><span>{item.sourceDisplayName}</span> · <span>{formatBytes(item.sourceTotalSizeBytes)}</span> · <code title={md5Title}>{md5Label}</code></p></div></div>;
+  return <div className="review-workflow-game"><div className="review-workflow-thumb">{item.coverUrl ? <Image src={item.coverUrl} alt={`${item.draftTitle} 封面缩略图`} width={56} height={56} unoptimized /> : <span role="img" aria-label={`${item.draftTitle} 暂无封面`}>{item.draftTitle.slice(0, 2).toUpperCase() || "R"}</span>}</div><div><h3>{item.draftTitle}{sourceLabel ? <span className="review-source-tag">{sourceLabel}{item.sourceLabel ? ` · ${item.sourceLabel}` : ""}</span> : null}</h3><TagChips tags={item.tags ?? []} limit={2} label={`${item.draftTitle} 的标签`} /><p title={item.sourceDisplayName}><span>{item.sourceDisplayName}</span> · <span>{formatBytes(item.sourceTotalSizeBytes)}</span> · <code title={md5Title}>{md5Label}</code></p></div></div>;
 }

@@ -64,6 +64,19 @@ ORDER BY relation.collection_id,tag.name_key,tag.id
 `, collectionIDs)
 }
 
+func (service *Service) EmulationStationReferences(
+	ctx context.Context,
+	collectionIDs []string,
+) (map[string][]Reference, error) {
+	return batchReferences(ctx, service.database, `
+SELECT relation.collection_id,tag.id,tag.name
+FROM emulationstation_collection_tags relation
+JOIN tags tag ON tag.id=relation.tag_id AND tag.status='ACTIVE'
+WHERE relation.collection_id IN (SELECT value FROM json_each(?))
+ORDER BY relation.collection_id,tag.name_key,tag.id
+`, collectionIDs)
+}
+
 func replaceOwnerReferences(
 	ctx context.Context,
 	database executor,
@@ -244,4 +257,36 @@ func (service *Service) PegasusCollectionReferences(
 	collectionID string,
 ) ([]Reference, error) {
 	return activeReferences(ctx, transaction, "pegasus_collection_tags", "collection_id", collectionID)
+}
+
+func (service *Service) ReplaceEmulationStationCollectionTags(
+	ctx context.Context,
+	transaction *sql.Tx,
+	collectionID string,
+	tagIDs []string,
+	actorUserID string,
+	now int64,
+) ([]Reference, error) {
+	if !ValidID(collectionID) || !ValidID(actorUserID) {
+		return nil, ErrInvalid
+	}
+	desired, err := ValidateActiveReferences(ctx, transaction, tagIDs)
+	if err != nil {
+		return nil, err
+	}
+	_, after, err := replaceOwnerReferences(
+		ctx, transaction, "emulationstation_collection_tags", "collection_id",
+		collectionID, actorUserID, desired, now,
+	)
+	return after, err
+}
+
+func (service *Service) EmulationStationCollectionReferences(
+	ctx context.Context,
+	transaction *sql.Tx,
+	collectionID string,
+) ([]Reference, error) {
+	return activeReferences(
+		ctx, transaction, "emulationstation_collection_tags", "collection_id", collectionID,
+	)
 }

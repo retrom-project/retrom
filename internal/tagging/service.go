@@ -66,7 +66,8 @@ SELECT tag.id,tag.name,tag.status,tag.version,tag.created_at_ms,tag.updated_at_m
    JOIN review_drafts draft ON draft.id=relation.review_draft_id
    JOIN import_items item ON item.id=draft.import_item_id
    WHERE relation.tag_id=tag.id AND (tag.status='DELETED' OR item.state='REVIEW_PENDING')),
-  (SELECT count(*) FROM pegasus_collection_tags relation WHERE relation.tag_id=tag.id)
+  (SELECT count(*) FROM pegasus_collection_tags relation WHERE relation.tag_id=tag.id),
+  (SELECT count(*) FROM emulationstation_collection_tags relation WHERE relation.tag_id=tag.id)
 FROM tags tag`
 
 type scanner interface{ Scan(...any) error }
@@ -79,6 +80,7 @@ func scanAdminItem(row scanner) (AdminItem, error) {
 		&result.CreatedAtMS, &result.UpdatedAtMS, &deletedAt,
 		&result.Usage.PublishedGameCount, &result.Usage.DeletedGameCount,
 		&result.Usage.ReviewDraftCount, &result.Usage.PegasusCollectionCount,
+		&result.Usage.EmulationStationCollectionCount,
 	)
 	if deletedAt.Valid {
 		result.DeletedAtMS = &deletedAt.Int64
@@ -408,6 +410,20 @@ AND id IN (
 )
 `, now, tagID); err != nil {
 			return fmt.Errorf("tagging: advance Pegasus plans after delete: %w", err)
+		}
+		if _, err := connection.ExecContext(ctx, `
+UPDATE emulationstation_imports
+SET version=version+1,
+    mapping_version=mapping_version+CASE WHEN state='AWAITING_MAPPING' THEN 1 ELSE 0 END,
+    updated_at_ms=?
+WHERE state IN ('SCANNING','AWAITING_MAPPING','QUEUED','RUNNING','CANCEL_REQUESTED')
+AND id IN (
+  SELECT collection.import_id FROM emulationstation_collection_tags relation
+  JOIN emulationstation_import_collections collection ON collection.id=relation.collection_id
+  WHERE relation.tag_id=?
+)
+`, now, tagID); err != nil {
+			return fmt.Errorf("tagging: advance EmulationStation plans after delete: %w", err)
 		}
 		result, err = adminItemByID(ctx, connection, tagID)
 		if err != nil {

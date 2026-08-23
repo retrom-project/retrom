@@ -13,13 +13,18 @@ export type ReviewMultiDisc = {
   missingReferences: string[]; canAttachMissingDiscs: boolean; latestAttachment: ReviewMultiDiscAttachment | null; activeAttachment: ReviewMultiDiscAttachment | null;
 };
 export type DuplicateGame = { gameId: string; title: string; platformInstanceId: string; platformInstanceName: string };
+type ReviewSourceMediaBase = { sourceRefId: string; sourceLabel: string | null; coverUrl: string | null; coverWidthPx: number | null; coverHeightPx: number | null; videoUrl: string | null };
+export type ReviewSourceMedia = ReviewSourceMediaBase & (
+  | { sourceKind: "PEGASUS"; pegasusImportId: string; emulationStationImportId?: never }
+  | { sourceKind: "EMULATIONSTATION"; emulationStationImportId: string; pegasusImportId?: never }
+);
 export type ReviewWorkspace = {
   itemId: string; version: number; platformInstance?: { id: string; name: string }; effectiveSourceSnapshotId?: string; canApprove?: boolean; validationStale?: boolean;
   arcadeDependencies?: ArcadeDependencies | null; multiDisc?: ReviewMultiDisc | null;
   metadata: { title: string; description: string; developer: string; publisher: string; genre: string; players: number | null; releaseYear: number | null };
   validation: { id: string; status: string; current: boolean; compatibilityCode: string } | null;
   candidates: ReviewCandidate[]; uploadedAssets?: UploadedReviewAsset[];
-  sourceMedia?: { sourceKind: "PEGASUS"; sourceRefId: string; pegasusImportId: string; sourceLabel: string | null; coverUrl: string | null; coverWidthPx: number | null; coverHeightPx: number | null; videoUrl: string | null } | null;
+  sourceMedia?: ReviewSourceMedia | null;
   runtimeScreenshot?: { screenshotId: string; validationId: string; coreArtifactId: string; widthPx: number; heightPx: number; capturedAfterMs: 5000; capturedAtMs: number; url: string } | null;
   scrapeRuns?: ReviewScrapeRun[]; selectedCandidateId: string | null;
   selectedAssets: { coverCandidateAssetId: string | null; coverUploadedAssetId?: string | null; backgroundCandidateAssetId: string | null; screenshotCandidateAssetIds: string[] };

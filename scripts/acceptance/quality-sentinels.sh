@@ -110,8 +110,8 @@ catalog = module.all_cases()
 missing_multidisc = [f"ACC-MDISC-{number:03d}" for number in range(1, 9) if f"ACC-MDISC-{number:03d}" not in catalog]
 if missing_multidisc:
     raise SystemExit(f"acceptance catalog omitted multi-disc cases: {missing_multidisc}")
-if len(catalog) != 121:
-    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 121")
+if len(catalog) != 137:
+    raise SystemExit(f"acceptance catalog size is {len(catalog)}, want 137")
 print(f"acceptance_catalog={len(catalog)}")
 PY
 

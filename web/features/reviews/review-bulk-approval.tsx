@@ -15,6 +15,7 @@ type ReviewBulkScope = {
   tagId?: string;
   importJobId?: string;
   pegasusImportId?: string;
+  emulationStationImportId?: string;
   platformInstanceId?: string;
   blockerCode?: string;
 };
@@ -25,6 +26,7 @@ type ReviewBulkCounts = {
   screenshotOnly: number;
   duplicate: number;
   attachmentActive: number;
+  sourceFlagged: number;
   notReadyOrStale: number;
 };
 
@@ -73,7 +75,7 @@ const terminalStates = new Set(["COMPLETED", "PARTIAL_FAILURE", "CANCELLED", "FA
 
 function bulkScope(values: Record<string, string>): ReviewBulkScope {
   const scope: ReviewBulkScope = {};
-  for (const key of ["q", "tagId", "importJobId", "pegasusImportId", "platformInstanceId", "blockerCode"] as const) {
+  for (const key of ["q", "tagId", "importJobId", "pegasusImportId", "emulationStationImportId", "platformInstanceId", "blockerCode"] as const) {
     if (values[key]) {scope[key] = values[key];}
   }
   return scope;
@@ -85,6 +87,7 @@ function previewURL(scope: ReviewBulkScope) {
 
 function scopeLabel(scope: ReviewBulkScope) {
   if (scope.pegasusImportId) {return `Pegasus 批次 ${scope.pegasusImportId.slice(0, 8)}… 的全部分页结果`;}
+  if (scope.emulationStationImportId) {return `EmulationStation 批次 ${scope.emulationStationImportId.slice(0, 8)}… 的全部分页结果`;}
   if (scope.importJobId) {return `导入批次 ${scope.importJobId.slice(0, 8)}… 的全部分页结果`;}
   if (Object.keys(scope).length) {return "当前筛选范围的全部分页结果";}
   return "全部待审核条目";
@@ -148,7 +151,7 @@ function BulkPreview({ error, preview }: { error: string; preview: ReviewBulkPre
   return <div className="review-bulk-preview">
     <p><strong>审批范围</strong><span>{scopeLabel(preview.scope)}</span></p>
     <div className="review-bulk-preview-counts"><span><small>可自动发布</small><strong>{preview.counts.strictReady}</strong></span><span><small>匹配待审核</small><strong>{preview.counts.matched}</strong></span></div>
-    <ul><li>检查未通过或证据已过期 <strong>{preview.counts.notReadyOrStale}</strong></li><li>发现重复内容 <strong>{preview.counts.duplicate}</strong></li><li>仅有运行截图人工放行 <strong>{preview.counts.screenshotOnly}</strong></li><li>附件仍在处理 <strong>{preview.counts.attachmentActive}</strong></li></ul>
+    <ul><li>检查未通过或证据已过期 <strong>{preview.counts.notReadyOrStale}</strong></li><li>发现重复内容 <strong>{preview.counts.duplicate}</strong></li><li>仅有运行截图人工放行 <strong>{preview.counts.screenshotOnly}</strong></li><li>附件仍在处理 <strong>{preview.counts.attachmentActive}</strong></li><li>hidden/adult 来源标记需逐项核对 <strong>{preview.counts.sourceFlagged}</strong></li></ul>
     <p className="review-bulk-warning">将使用当前已保存的信息。执行中发生变化的项目会被跳过；取消不会回滚已经发布的游戏。</p>
     {error ? <p className="review-bulk-error" role="alert">{error}</p> : null}
   </div>;

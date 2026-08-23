@@ -285,6 +285,27 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     ),
     "ACC-PEG-005": (240, "scripts/acceptance/ui-case.sh ACC-PEG-005"),
     "ACC-PEG-006": (300, "scripts/acceptance/ui-case.sh ACC-PEG-006"),
+    "ACC-ES-001": (
+        180,
+        "go test ./internal/emulationstationmeta -run 'TestParse|TestNormalizeDeclaredPath|TestSourceFlags' -count=1",
+    ),
+    "ACC-ES-002": (
+        240,
+        "go test ./internal/emulationstationimport ./internal/serversource ./internal/httpapi -run 'TestScan|TestWalkAndOpenStayWithinNoFollowDescriptors|TestEmulationStationImportHTTP' -count=1",
+    ),
+    "ACC-ES-003": (
+        300,
+        "go test ./internal/emulationstationimport ./internal/libraryimport -count=1",
+    ),
+    "ACC-ES-004": (
+        300,
+        "go test ./internal/emulationstationimport ./internal/payloadrelease ./internal/blobgc -count=1 && go test -tags=integration ./internal/httpapi -run '^TestGamePermanentDeleteIsIdempotentReleasesPayloadAndPreservesTombstone$' -count=1",
+    ),
+    "ACC-ES-005": (300, "scripts/acceptance/ui-case.sh ACC-ES-005"),
+    "ACC-ES-006": (
+        360,
+        "make public-fixtures-check && scripts/acceptance/ui-case.sh ACC-ES-006",
+    ),
     "ACC-MEDIA-001": (
         240,
         "go test ./internal/mediaasset ./internal/httpapi -run 'TestInspect|TestGameDetailReturnsCoreValidationChoicesAndDOSPrograms' -count=1 && scripts/acceptance/ui-case.sh ACC-MEDIA-001",

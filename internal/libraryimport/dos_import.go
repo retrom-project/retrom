@@ -35,6 +35,7 @@ type CreateRequest struct {
 	MetadataProvider         string   `json:"metadataProvider"`
 	ContentMode              string   `json:"contentMode,omitempty"`
 	TagIDs                   []string `json:"tagIds"`
+	reviewHandoffKind        string
 }
 
 type ReconfigureRequest struct {

@@ -15,25 +15,27 @@ import (
 type ScopeType string
 
 const (
-	ScopeImportItem        ScopeType = "IMPORT_ITEM"
-	ScopeImportJob         ScopeType = "IMPORT_JOB"
-	ScopePegasusImportItem ScopeType = "PEGASUS_IMPORT_ITEM"
-	ScopeUploadConsumption ScopeType = "UPLOAD_CONSUMPTION"
-	ScopeGame              ScopeType = "GAME"
-	ScopeBlob              ScopeType = "BLOB"
+	ScopeImportItem                 ScopeType = "IMPORT_ITEM"
+	ScopeImportJob                  ScopeType = "IMPORT_JOB"
+	ScopePegasusImportItem          ScopeType = "PEGASUS_IMPORT_ITEM"
+	ScopeEmulationStationImportItem ScopeType = "EMULATIONSTATION_IMPORT_ITEM"
+	ScopeUploadConsumption          ScopeType = "UPLOAD_CONSUMPTION"
+	ScopeGame                       ScopeType = "GAME"
+	ScopeBlob                       ScopeType = "BLOB"
 )
 
 type Reason string
 
 const (
-	ReasonImportPublished Reason = "IMPORT_PUBLISHED"
-	ReasonImportDiscarded Reason = "IMPORT_DISCARDED"
-	ReasonImportFailed    Reason = "IMPORT_FAILED_FINAL"
-	ReasonImportCancelled Reason = "IMPORT_CANCELLED"
-	ReasonImportTerminal  Reason = "IMPORT_JOB_TERMINAL"
-	ReasonPegasusTerminal Reason = "PEGASUS_TERMINAL"
-	ReasonUploadConsumed  Reason = "UPLOAD_CONSUMED"
-	ReasonGameDeleted     Reason = "GAME_DELETED"
+	ReasonImportPublished          Reason = "IMPORT_PUBLISHED"
+	ReasonImportDiscarded          Reason = "IMPORT_DISCARDED"
+	ReasonImportFailed             Reason = "IMPORT_FAILED_FINAL"
+	ReasonImportCancelled          Reason = "IMPORT_CANCELLED"
+	ReasonImportTerminal           Reason = "IMPORT_JOB_TERMINAL"
+	ReasonPegasusTerminal          Reason = "PEGASUS_TERMINAL"
+	ReasonEmulationStationTerminal Reason = "EMULATIONSTATION_TERMINAL"
+	ReasonUploadConsumed           Reason = "UPLOAD_CONSUMED"
+	ReasonGameDeleted              Reason = "GAME_DELETED"
 )
 
 var (
@@ -115,7 +117,8 @@ VALUES(?,?,?,'QUEUED','{"schemaVersion":1,"executionNo":1,"attempt":0}',?)
 
 func validScope(value ScopeType) bool {
 	switch value {
-	case ScopeImportItem, ScopeImportJob, ScopePegasusImportItem, ScopeUploadConsumption, ScopeGame:
+	case ScopeImportItem, ScopeImportJob, ScopePegasusImportItem,
+		ScopeEmulationStationImportItem, ScopeUploadConsumption, ScopeGame:
 		return true
 	case ScopeBlob:
 		return false
@@ -127,7 +130,8 @@ func validScope(value ScopeType) bool {
 func validReason(value Reason) bool {
 	switch value {
 	case ReasonImportPublished, ReasonImportDiscarded, ReasonImportFailed, ReasonImportCancelled,
-		ReasonImportTerminal, ReasonPegasusTerminal, ReasonUploadConsumed, ReasonGameDeleted:
+		ReasonImportTerminal, ReasonPegasusTerminal, ReasonEmulationStationTerminal,
+		ReasonUploadConsumed, ReasonGameDeleted:
 		return true
 	default:
 		return false

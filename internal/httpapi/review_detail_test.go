@@ -5,8 +5,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"strings"
 	"testing"
 	"time"
@@ -17,6 +19,16 @@ import (
 	"retrom/internal/cleanup"
 	"retrom/internal/testassert"
 )
+
+func TestReviewListRejectsMultipleSourceBatchFilters(t *testing.T) {
+	t.Parallel()
+	values := url.Values{
+		"importJobId":              {"01980000-0000-7000-8000-000000000001"},
+		"emulationStationImportId": {"01980000-0000-7000-8000-000000000002"},
+	}
+	_, _, _, err := applyReviewListFilters("SELECT 1 WHERE 1=1", values)
+	testassert.Truef(t, errors.Is(err, errInvalidReviewQuery), "error = %v", err)
+}
 
 func TestBlockedReviewDetailRemainsVisibleWithoutSelectedValidation(t *testing.T) {
 	t.Parallel()

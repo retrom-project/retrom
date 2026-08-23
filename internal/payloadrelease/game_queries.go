@@ -62,7 +62,21 @@ UNION SELECT source_ref_id FROM game_metadata_revisions WHERE game_id=? AND sour
 	if err != nil {
 		return err
 	}
-	return service.releaseGamePegasusSources(ctx, transaction, uniqueStrings(pegasusItems), now)
+	if err := service.releaseGamePegasusSources(ctx, transaction, uniqueStrings(pegasusItems), now); err != nil {
+		return err
+	}
+	emulationStationItems, err := collectIDs(ctx, transaction, `
+SELECT source_ref_id FROM game_content_revisions
+ WHERE game_id=? AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
+UNION SELECT source_ref_id FROM game_metadata_revisions
+ WHERE game_id=? AND source_kind='SERVER_EMULATIONSTATION_IMPORT'
+`, gameID, gameID)
+	if err != nil {
+		return err
+	}
+	return service.releaseGameEmulationStationSources(
+		ctx, transaction, uniqueStrings(emulationStationItems), now,
+	)
 }
 
 func (service *Service) releaseGameImportSources(
@@ -118,6 +132,35 @@ SELECT library_import_item_id,payload_state FROM pegasus_import_items WHERE id=?
 		}
 		if payloadState != "RELEASED" {
 			if err := service.releasePegasusPayload(ctx, transaction, itemID, now); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+func (service *Service) releaseGameEmulationStationSources(
+	ctx context.Context,
+	transaction *sql.Tx,
+	itemIDs []string,
+	now int64,
+) error {
+	for _, itemID := range itemIDs {
+		var publicItem sql.NullString
+		var payloadState string
+		if err := transaction.QueryRowContext(ctx, `
+SELECT library_import_item_id,payload_state FROM emulationstation_import_items WHERE id=?
+`, itemID).Scan(&publicItem, &payloadState); err != nil {
+			return releaseFailure("PAYLOAD_RELEASE_SOURCE_NOT_TERMINAL")
+		}
+		if publicItem.Valid {
+			continue
+		}
+		if payloadState == "RETAINED" {
+			return releaseFailure("PAYLOAD_RELEASE_SOURCE_NOT_TERMINAL")
+		}
+		if payloadState != "RELEASED" {
+			if err := service.releaseEmulationStationPayload(ctx, transaction, itemID, now); err != nil {
 				return err
 			}
 		}

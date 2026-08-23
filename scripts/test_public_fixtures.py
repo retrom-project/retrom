@@ -18,6 +18,18 @@ FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "gba-smoke"
 GBA_ROMS = {
     "gba-smoke.gba": (b"RETROM SMOKE", b"RTSM", "f86c63b35aea59190f5e1cf99f8f3d576c3646b26da02f3f826fde192a47239b"),
     "pegasus-smoke.gba": (b"RETROM PEGAS", b"RTPG", "6550cc49ddd91337c7c44bc827e2e9305b91c811ef6b032e1ee35fa5884a2e3a"),
+    "emulationstation-smoke.gba": (b"RETROM ESTAT", b"RTES", "b2e50f15541e172933fd1f0d02355105233f5e36b55d121c07f39079f21347c5"),
+}
+EMULATIONSTATION_GAMELIST_SHA256 = "f58df21608d161b9d3d53bba57fa2744658d66ae603026265b01686a685db50c"
+EMULATIONSTATION_MEDIA = {
+    "emulationstation-smoke-cover.png": (
+        20_746,
+        "0d72b89ed87fcf349a3422d7f3888183ce57a3fa757bc6baab0365a70f7ccc02",
+    ),
+    "emulationstation-smoke-video.webm": (
+        767,
+        "39a3044ce78c029049bda10b617724203bb91f4e2cb32ec5f15e3bdd45f6d10d",
+    ),
 }
 ARCADE_FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "arcade-smoke"
 NES_FIXTURE_ROOT = REPOSITORY_ROOT / "testdata" / "public-roms" / "nes-smoke"
@@ -105,6 +117,54 @@ class PublicFixtureTests(unittest.TestCase):
                 )
                 identities.add(digest)
         self.assertEqual(len(GBA_ROMS), len(identities))
+
+    def test_emulationstation_gamelist_locks_its_rom_and_media(self) -> None:
+        gamelist = (FIXTURE_ROOT / "gamelist.xml").read_bytes()
+        self.assertEqual(478, len(gamelist))
+        self.assertEqual(
+            EMULATIONSTATION_GAMELIST_SHA256,
+            hashlib.sha256(gamelist).hexdigest(),
+        )
+        root = ElementTree.fromstring(gamelist)
+        self.assertEqual("gameList", root.tag)
+        games = root.findall("game")
+        self.assertEqual(1, len(games))
+        declared_path = games[0].findtext("path")
+        self.assertEqual("./emulationstation-smoke.gba", declared_path)
+        self.assertEqual(
+            "EmulationStation GBA Smoke",
+            games[0].findtext("name"),
+        )
+        self.assertEqual(
+            "./emulationstation-smoke-cover.png",
+            games[0].findtext("image"),
+        )
+        self.assertEqual(
+            "./emulationstation-smoke-video.webm",
+            games[0].findtext("video"),
+        )
+        referenced_rom = FIXTURE_ROOT / declared_path.removeprefix("./")
+        self.assertTrue(referenced_rom.is_file())
+        self.assertEqual(
+            GBA_ROMS["emulationstation-smoke.gba"][2],
+            hashlib.sha256(referenced_rom.read_bytes()).hexdigest(),
+        )
+
+    def test_emulationstation_media_have_locked_project_owned_bytes(self) -> None:
+        for name, (expected_size, expected_sha256) in EMULATIONSTATION_MEDIA.items():
+            with self.subTest(name=name):
+                payload = (FIXTURE_ROOT / name).read_bytes()
+                self.assertEqual(expected_size, len(payload))
+                self.assertEqual(expected_sha256, hashlib.sha256(payload).hexdigest())
+        cover = (FIXTURE_ROOT / "emulationstation-smoke-cover.png").read_bytes()
+        self.assertEqual(b"\x89PNG\r\n\x1a\n", cover[:8])
+        self.assertEqual((70, 98), (
+            int.from_bytes(cover[16:20], "big"),
+            int.from_bytes(cover[20:24], "big"),
+        ))
+        video = (FIXTURE_ROOT / "emulationstation-smoke-video.webm").read_bytes()
+        self.assertEqual(b"\x1a\x45\xdf\xa3", video[:4])
+        self.assertIn(b"webm", video[:128])
 
     def test_arcade_smoke_outputs_match_their_generator(self) -> None:
         subprocess.run(

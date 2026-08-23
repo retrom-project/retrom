@@ -30,7 +30,8 @@ type reviewListSpec struct {
 
 func validReviewQueryKeys(values url.Values) bool {
 	allowed := map[string]struct{}{
-		"q": {}, "tagId": {}, "importJobId": {}, "pegasusImportId": {}, "platformInstanceId": {},
+		"q": {}, "tagId": {}, "importJobId": {}, "pegasusImportId": {},
+		"emulationStationImportId": {}, "platformInstanceId": {},
 		"blockerCode": {}, "sort": {}, "cursor": {}, "limit": {},
 	}
 	for key := range values {
@@ -43,6 +44,15 @@ func validReviewQueryKeys(values url.Values) bool {
 
 func applyReviewListFilters(query string, values url.Values) (string, []any, string, error) {
 	arguments := make([]any, 0, 8)
+	sourceFilterCount := 0
+	for _, key := range []string{"importJobId", "pegasusImportId", "emulationStationImportId"} {
+		if values.Get(key) != "" {
+			sourceFilterCount++
+		}
+	}
+	if sourceFilterCount > 1 {
+		return "", nil, "", errInvalidReviewQuery
+	}
 	if importJobID := values.Get("importJobId"); importJobID != "" {
 		query += " AND i.import_job_id=?"
 		arguments = append(arguments, importJobID)
@@ -50,6 +60,10 @@ func applyReviewListFilters(query string, values url.Values) (string, []any, str
 	if pegasusImportID := values.Get("pegasusImportId"); pegasusImportID != "" {
 		query += " AND pegasus.import_id=?"
 		arguments = append(arguments, pegasusImportID)
+	}
+	if importID := values.Get("emulationStationImportId"); importID != "" {
+		query += " AND emulationstation.import_id=?"
+		arguments = append(arguments, importID)
 	}
 	normalizedQ := strings.ToLower(strings.Join(strings.Fields(values.Get("q")), " "))
 	if len([]rune(normalizedQ)) > 200 {
@@ -157,7 +171,8 @@ func (server *Server) prepareReviewList(
 		filterDigest: cursor.FilterDigest(map[string]any{
 			"principalId": principalID, "q": normalizedQ, "tagId": values.Get("tagId"),
 			"importJobId": values.Get("importJobId"), "pegasusImportId": values.Get("pegasusImportId"),
-			"platformInstanceId": values.Get("platformInstanceId"), "blockerCode": values.Get("blockerCode"),
+			"emulationStationImportId": values.Get("emulationStationImportId"),
+			"platformInstanceId":       values.Get("platformInstanceId"), "blockerCode": values.Get("blockerCode"),
 		}),
 	}
 	if err := server.applyReviewListCursor(&spec, values.Get("cursor")); err != nil {
@@ -227,12 +242,21 @@ EXISTS(
  SELECT 1 FROM pegasus_import_item_assets pegasus_asset
  WHERE pegasus_asset.item_id=pegasus.id AND pegasus_asset.kind='COVER'
  AND pegasus_asset.state='COPIED' AND pegasus_asset.blob_id IS NOT NULL
+),emulationstation.id,emulationstation.import_id,emulationstation_collection.display_name,
+EXISTS(
+ SELECT 1 FROM emulationstation_import_item_assets source_asset
+ WHERE source_asset.item_id=emulationstation.id AND source_asset.kind='COVER'
+ AND source_asset.state='COPIED' AND source_asset.blob_id IS NOT NULL
 )
 FROM import_items i
 JOIN review_drafts d ON d.import_item_id=i.id
 JOIN platform_instances pi ON pi.id=d.target_platform_instance_id
 	LEFT JOIN pegasus_import_items pegasus ON pegasus.library_import_item_id=i.id
 	LEFT JOIN pegasus_import_collections pegasus_collection ON pegasus_collection.id=pegasus.collection_id
+	LEFT JOIN emulationstation_import_items emulationstation
+	 ON emulationstation.library_import_item_id=i.id
+	LEFT JOIN emulationstation_import_collections emulationstation_collection
+	 ON emulationstation_collection.id=emulationstation.collection_id
 	LEFT
 JOIN import_item_core_validations v ON v.id=COALESCE(d.selected_validation_id,
 (SELECT candidate.id
@@ -243,7 +267,10 @@ AND candidate.target_platform_instance_id=d.target_platform_instance_id
 ORDER BY candidate.created_at_ms DESC,
 candidate.id DESC LIMIT 1))
 WHERE i.state='REVIEW_PENDING'
+AND (i.review_handoff_kind='DIRECT' OR
+  emulationstation.execution_state='REVIEW_PENDING')
 AND (pegasus.id IS NULL OR pegasus.execution_state='REVIEW_PENDING')
+AND (emulationstation.id IS NULL OR emulationstation.execution_state='REVIEW_PENDING')
 `
 	values := request.URL.Query()
 	spec, err := server.prepareReviewList(query, values, principal.UserID)
@@ -307,7 +334,8 @@ func scanReviewListRows(rows *sql.Rows, capacity int) ([]map[string]any, error) 
 		var reviewVersion, updatedAtMS, candidateCount, sourceTotalSizeBytes int64
 		var validationStatus, compatibilityCode, sourceMD5, coverAssetID sql.NullString
 		var pegasusItemID, pegasusImportID, pegasusCollectionName sql.NullString
-		var hasPegasusCover int
+		var emulationStationItemID, emulationStationImportID, emulationStationCollectionName sql.NullString
+		var hasPegasusCover, hasEmulationStationCover int
 		if err := rows.Scan(
 			&itemID,
 			&reviewVersion,
@@ -327,6 +355,10 @@ func scanReviewListRows(rows *sql.Rows, capacity int) ([]map[string]any, error) 
 			&pegasusImportID,
 			&pegasusCollectionName,
 			&hasPegasusCover,
+			&emulationStationItemID,
+			&emulationStationImportID,
+			&emulationStationCollectionName,
+			&hasEmulationStationCover,
 		); err != nil {
 			return nil, fmt.Errorf("scan review list item: %w", err)
 		}
@@ -342,30 +374,38 @@ func scanReviewListRows(rows *sql.Rows, capacity int) ([]map[string]any, error) 
 		if coverURL == nil && pegasusItemID.Valid && hasPegasusCover == 1 {
 			coverURL = "/api/v1/admin/review-assets/" + pegasusItemID.String + "?kind=COVER"
 		}
+		if coverURL == nil && emulationStationItemID.Valid && hasEmulationStationCover == 1 {
+			coverURL = "/api/v1/admin/review-assets/" + emulationStationItemID.String + "?kind=COVER"
+		}
 		sourceKind := "STANDARD"
+		sourceLabel := nullableString(pegasusCollectionName)
 		if pegasusImportID.Valid {
 			sourceKind = "PEGASUS"
+		} else if emulationStationImportID.Valid {
+			sourceKind = "EMULATIONSTATION"
+			sourceLabel = nullableString(emulationStationCollectionName)
 		}
 		items = append(
 			items,
 			map[string]any{
-				"itemId":               itemID,
-				"reviewVersion":        reviewVersion,
-				"importJobId":          importJobID,
-				"sourceDisplayName":    sourceName,
-				"draftTitle":           title,
-				"platformInstance":     map[string]any{"id": platformID, "name": platformName},
-				"validationStatus":     status,
-				"validationJobId":      nil,
-				"blockerCodes":         blockers,
-				"candidateCount":       candidateCount,
-				"sourceTotalSizeBytes": sourceTotalSizeBytes,
-				"sourceMd5":            nullableString(sourceMD5),
-				"coverUrl":             coverURL,
-				"sourceKind":           sourceKind,
-				"sourceLabel":          nullableString(pegasusCollectionName),
-				"pegasusImportId":      nullableString(pegasusImportID),
-				"updatedAtMs":          updatedAtMS,
+				"itemId":                   itemID,
+				"reviewVersion":            reviewVersion,
+				"importJobId":              importJobID,
+				"sourceDisplayName":        sourceName,
+				"draftTitle":               title,
+				"platformInstance":         map[string]any{"id": platformID, "name": platformName},
+				"validationStatus":         status,
+				"validationJobId":          nil,
+				"blockerCodes":             blockers,
+				"candidateCount":           candidateCount,
+				"sourceTotalSizeBytes":     sourceTotalSizeBytes,
+				"sourceMd5":                nullableString(sourceMD5),
+				"coverUrl":                 coverURL,
+				"sourceKind":               sourceKind,
+				"sourceLabel":              sourceLabel,
+				"pegasusImportId":          nullableString(pegasusImportID),
+				"emulationStationImportId": nullableString(emulationStationImportID),
+				"updatedAtMs":              updatedAtMS,
 			},
 		)
 	}

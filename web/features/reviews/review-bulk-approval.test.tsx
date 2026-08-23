@@ -9,7 +9,7 @@ vi.mock("next/navigation", () => ({ useRouter: () => navigation }));
 vi.mock("@/features/auth/auth-provider", () => ({ useAuth: () => ({ context: { user: { userId: "user-1" } } }) }));
 
 const counts = {
-  matched: 12, strictReady: 7, screenshotOnly: 2, duplicate: 1, attachmentActive: 1, notReadyOrStale: 1,
+  matched: 12, strictReady: 7, screenshotOnly: 2, duplicate: 1, attachmentActive: 1, notReadyOrStale: 1, sourceFlagged: 3,
 };
 
 const preview = {
@@ -57,12 +57,33 @@ describe("ReviewBulkApproval", () => {
     expect(screen.getByText("可自动发布").parentElement).toHaveTextContent("7");
     expect(screen.getByText("仅有运行截图人工放行").parentElement).toHaveTextContent("2");
     expect(screen.getByText("发现重复内容").parentElement).toHaveTextContent("1");
+    expect(screen.getByText(/hidden\/adult 来源标记需逐项核对/)).toHaveTextContent("3");
     expect(screen.getByRole("button", { name: "确认快速发布 7 个游戏" })).toBeEnabled();
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("pegasusImportId=01990000-0000-7000-8000-000000000001"),
       { cache: "no-store" },
     );
     expect(String(fetchMock.mock.calls[0]?.[0])).not.toContain("sort=");
+  });
+
+  it("keeps an EmulationStation batch as an independent frozen scope", async () => {
+    const user = userEvent.setup();
+    const emulationStationId = "01990000-0000-7000-8000-000000000099";
+    const emulationStationPreview = { ...preview, scope: { emulationStationImportId: emulationStationId } };
+    const fetchMock = vi.fn().mockResolvedValue({ ok: true, json: async () => emulationStationPreview });
+    vi.stubGlobal("fetch", fetchMock);
+    const root = document.createElement("div");
+    root.id = "review-bulk-status-root";
+    document.body.append(root);
+    render(<ReviewBulkApproval values={{ emulationStationImportId: emulationStationId }} />);
+
+    await user.click(screen.getByRole("button", { name: "快速审批" }));
+
+    expect(await screen.findByText(/EmulationStation 批次 .* 的全部分页结果/)).toBeVisible();
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.stringContaining(`emulationStationImportId=${emulationStationId}`),
+      { cache: "no-store" },
+    );
   });
 
   it("starts a frozen background batch and exposes recoverable progress", async () => {

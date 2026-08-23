@@ -2,9 +2,7 @@ package libraryimport
 
 import (
 	"context"
-	"crypto/sha256"
 	"database/sql"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -15,7 +13,6 @@ import (
 
 	"retrom/internal/authn"
 	"retrom/internal/cleanup"
-	"retrom/internal/contentcapability"
 )
 
 type ServerSourceFile struct {
@@ -25,6 +22,11 @@ type ServerSourceFile struct {
 }
 
 const ServerSourceFileLimit = 64
+
+const (
+	reviewHandoffDirect           = "DIRECT"
+	reviewHandoffEmulationStation = "EMULATIONSTATION"
+)
 
 type ServerImportItem struct {
 	ItemID                    string
@@ -71,6 +73,7 @@ const (
 
 type serverReviewOrigin struct {
 	SourceRefID string
+	SourceKind  string
 	Assets      []ExternalAsset
 }
 
@@ -85,44 +88,75 @@ func (service *Service) CreateServerSource(
 	tagIDs []string,
 	assignedByUserID string,
 ) (ServerImportResult, error) {
-	if len(files) == 0 || len(files) > ServerSourceFileLimit {
+	return service.createServerSource(
+		ctx, "", targetPlatformInstanceID, contentMode, files, tagIDs, assignedByUserID,
+	)
+}
+
+// CreateServerSourceOnce gives a server-owned source item an idempotent handoff
+// into the ordinary import pipeline. Repeating the same key and frozen inputs
+// returns the original import instead of creating a second hidden review.
+func (service *Service) CreateServerSourceOnce(
+	ctx context.Context,
+	idempotencyKey, targetPlatformInstanceID, contentMode string,
+	files []ServerSourceFile,
+	tagIDs []string,
+	assignedByUserID string,
+) (ServerImportResult, error) {
+	if idempotencyKey == "" {
 		return ServerImportResult{}, ErrInvalid
 	}
-	if contentMode == "" {
-		contentMode = contentcapability.ModeStandard
-	}
-	sorted, reusable, totalBytes, err := service.validateServerFiles(ctx, files)
+	return service.createServerSource(
+		ctx, idempotencyKey, targetPlatformInstanceID, contentMode, files, tagIDs, assignedByUserID,
+	)
+}
+
+func (service *Service) createServerSource(
+	ctx context.Context,
+	idempotencyKey, targetPlatformInstanceID, contentMode string,
+	files []ServerSourceFile,
+	tagIDs []string,
+	assignedByUserID string,
+) (ServerImportResult, error) {
+	prepared, err := service.prepareServerSource(ctx, idempotencyKey, contentMode, files)
 	if err != nil {
 		return ServerImportResult{}, err
 	}
-	uploadID, _ := uuid.NewV7()
-	manifest, _ := json.Marshal(map[string]any{"schemaVersion": 1, "files": sorted})
-	digest := sha256.Sum256(manifest)
-	sourceType := "FILES"
-	if contentMode == contentcapability.ModeMultiDiscM3UV1 {
-		sourceType = "DIRECTORY"
-	}
-	now := service.now().UnixMilli()
-	if err := service.insertServerUpload(
-		ctx,
-		uploadID.String(),
-		sourceType,
-		reusable,
-		hex.EncodeToString(digest[:]),
-		now,
-		totalBytes,
-	); err != nil {
+	created, found, err := service.ensureServerSourceUpload(ctx, prepared, targetPlatformInstanceID)
+	if err != nil {
 		return ServerImportResult{}, err
 	}
+	if found {
+		return service.serverImportResult(ctx, created)
+	}
+	return service.createPreparedServerSource(
+		ctx, prepared, targetPlatformInstanceID, tagIDs, assignedByUserID,
+	)
+}
+
+func (service *Service) createPreparedServerSource(
+	ctx context.Context,
+	prepared preparedServerSource,
+	targetPlatformInstanceID string,
+	tagIDs []string,
+	assignedByUserID string,
+) (ServerImportResult, error) {
 	if len(tagIDs) > 0 {
 		ctx = authn.WithPrincipal(ctx, authn.Principal{UserID: assignedByUserID})
 	}
 	created, err := service.create(ctx, CreateRequest{
-		UploadID: uploadID.String(), TargetPlatformInstanceID: targetPlatformInstanceID,
-		MetadataProvider: "NONE", ContentMode: contentMode, TagIDs: tagIDs,
+		UploadID: prepared.uploadID, TargetPlatformInstanceID: targetPlatformInstanceID,
+		MetadataProvider: "NONE", ContentMode: prepared.contentMode, TagIDs: tagIDs,
+		reviewHandoffKind: prepared.reviewHandoffKind(),
 	}, nil)
 	if err != nil {
-		service.removeUnusedClonedUpload(ctx, uploadID.String())
+		created, found, lookupErr := service.serverSourceCreation(
+			ctx, prepared.uploadID, targetPlatformInstanceID, prepared.contentMode,
+		)
+		if prepared.idempotent && lookupErr == nil && found {
+			return service.serverImportResult(ctx, created)
+		}
+		service.removeUnusedClonedUpload(ctx, prepared.uploadID)
 		return ServerImportResult{}, err
 	}
 	return service.serverImportResult(ctx, created)
@@ -419,14 +453,25 @@ func normalizeServerReviewMetadata(
 	return metadata, warnings, nil
 }
 
-// SeedServerReviewMetadata applies the trusted, frozen Pegasus text fields to
+// SeedServerReviewMetadata applies trusted server-import text fields to
 // the ordinary review draft. Publication remains an explicit review decision.
 func (service *Service) SeedServerReviewMetadata(
 	ctx context.Context,
 	importItemID string,
 	metadata ServerMetadata,
 ) (int64, []ServerMetadataWarning, error) {
-	normalized, warnings, err := normalizeServerReviewMetadata(metadata, service.now().UTC().Year()+1)
+	return service.SeedServerReviewMetadataAtYear(
+		ctx, importItemID, metadata, service.now().UTC().Year()+1,
+	)
+}
+
+func (service *Service) SeedServerReviewMetadataAtYear(
+	ctx context.Context,
+	importItemID string,
+	metadata ServerMetadata,
+	maximumYear int,
+) (int64, []ServerMetadataWarning, error) {
+	normalized, warnings, err := normalizeServerReviewMetadata(metadata, maximumYear)
 	if err != nil {
 		return 0, nil, err
 	}
@@ -472,18 +517,28 @@ func loadServerReviewOrigin(
 ) (serverReviewOrigin, bool, error) {
 	var origin serverReviewOrigin
 	if err := transaction.QueryRowContext(ctx, `
-SELECT id
-FROM pegasus_import_items
-WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
-`, importItemID).Scan(&origin.SourceRefID); err != nil {
+SELECT source_ref_id,source_kind FROM (
+ SELECT id AS source_ref_id,'SERVER_PEGASUS_IMPORT' AS source_kind
+ FROM pegasus_import_items
+ WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
+ UNION ALL
+ SELECT id AS source_ref_id,'SERVER_EMULATIONSTATION_IMPORT' AS source_kind
+ FROM emulationstation_import_items
+ WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
+) ORDER BY source_kind LIMIT 1
+`, importItemID, importItemID).Scan(&origin.SourceRefID, &origin.SourceKind); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return serverReviewOrigin{}, false, nil
 		}
 		return serverReviewOrigin{}, false, fmt.Errorf("libraryimport/server review origin: %w", err)
 	}
+	assetTable := "pegasus_import_item_assets"
+	if origin.SourceKind == "SERVER_EMULATIONSTATION_IMPORT" {
+		assetTable = "emulationstation_import_item_assets"
+	}
 	rows, err := transaction.QueryContext(ctx, `
 SELECT kind,blob_id,media_type,width_px,height_px
-FROM pegasus_import_item_assets
+FROM `+assetTable+`
 WHERE item_id=? AND state='COPIED' AND blob_id IS NOT NULL AND media_type IS NOT NULL
 ORDER BY CASE kind WHEN 'COVER' THEN 0 ELSE 1 END
 `, origin.SourceRefID)
@@ -527,30 +582,64 @@ func transitionServerReview(
 	if state != "PUBLISHED" && state != "REVIEW_DISCARDED" {
 		return ErrInvalid
 	}
+	pegasusAffected, err := transitionServerReviewOwner(
+		ctx, transaction, "pegasus_import_items", importItemID, state, gameID, now,
+	)
+	if err != nil {
+		return err
+	}
+	emulationStationAffected, err := transitionServerReviewOwner(
+		ctx, transaction, "emulationstation_import_items", importItemID, state, gameID, now,
+	)
+	if err != nil {
+		return err
+	}
+	if pegasusAffected+emulationStationAffected == 0 {
+		return nil
+	}
+	if pegasusAffected > 0 {
+		return refreshPegasusReviewCounts(ctx, transaction, importItemID, now)
+	}
+	return refreshEmulationStationReviewCounts(ctx, transaction, importItemID, now)
+}
+
+func transitionServerReviewOwner(
+	ctx context.Context,
+	transaction *sql.Tx,
+	table, importItemID, state string,
+	gameID any,
+	now int64,
+) (int64, error) {
 	result, err := transaction.ExecContext(ctx, `
-UPDATE pegasus_import_items
+UPDATE `+table+`
 SET execution_state=?,published_game_id=?,version=version+1,updated_at_ms=?
 WHERE library_import_item_id=? AND execution_state='REVIEW_PENDING'
 `, state, gameID, now, importItemID)
 	if err != nil {
-		return fmt.Errorf("libraryimport/server review transition: %w", err)
+		return 0, fmt.Errorf("libraryimport/server review transition: %w", err)
 	}
 	affected, err := result.RowsAffected()
 	if err != nil {
-		return fmt.Errorf("libraryimport/server review rows affected: %w", err)
+		return 0, fmt.Errorf("libraryimport/server review rows affected: %w", err)
 	}
 	if affected == 0 {
 		var linked int
-		if err := transaction.QueryRowContext(ctx, `
-SELECT count(*) FROM pegasus_import_items WHERE library_import_item_id=?
-`, importItemID).Scan(&linked); err != nil {
-			return fmt.Errorf("libraryimport/server review link: %w", err)
+		if err := transaction.QueryRowContext(
+			ctx, `SELECT count(*) FROM `+table+` WHERE library_import_item_id=?`, importItemID,
+		).Scan(&linked); err != nil {
+			return 0, fmt.Errorf("libraryimport/server review link: %w", err)
 		}
 		if linked > 0 {
-			return ErrInvalid
+			return 0, ErrInvalid
 		}
-		return nil
+		return 0, nil
 	}
+	return affected, nil
+}
+
+func refreshPegasusReviewCounts(
+	ctx context.Context, transaction *sql.Tx, importItemID string, now int64,
+) error {
 	if _, err := transaction.ExecContext(ctx, `
 UPDATE pegasus_imports
 SET review_pending_item_count=(
@@ -569,6 +658,29 @@ version=version+1,updated_at_ms=?
 WHERE id=(SELECT import_id FROM pegasus_import_items WHERE library_import_item_id=? LIMIT 1)
 `, now, importItemID); err != nil {
 		return fmt.Errorf("libraryimport/server review aggregate: %w", err)
+	}
+	return nil
+}
+
+func refreshEmulationStationReviewCounts(
+	ctx context.Context, transaction *sql.Tx, importItemID string, now int64,
+) error {
+	if _, err := transaction.ExecContext(ctx, `
+UPDATE emulationstation_imports
+SET review_pending_item_count=(
+ SELECT count(*) FROM emulationstation_import_items item
+ WHERE item.import_id=emulationstation_imports.id AND item.execution_state='REVIEW_PENDING'
+),published_item_count=(
+ SELECT count(*) FROM emulationstation_import_items item
+ WHERE item.import_id=emulationstation_imports.id AND item.execution_state='PUBLISHED'
+),review_discarded_item_count=(
+ SELECT count(*) FROM emulationstation_import_items item
+ WHERE item.import_id=emulationstation_imports.id AND item.execution_state='REVIEW_DISCARDED'
+),version=version+1,updated_at_ms=?
+WHERE id=(SELECT import_id FROM emulationstation_import_items
+ WHERE library_import_item_id=? LIMIT 1)
+`, now, importItemID); err != nil {
+		return fmt.Errorf("libraryimport/EmulationStation review aggregate: %w", err)
 	}
 	return nil
 }

@@ -12,6 +12,8 @@ import type { components } from "@/lib/api/generated/schema";
 import { newUuid } from "@/lib/crypto";
 import { responseError } from "@/lib/upload";
 import { PegasusImportDrawer, type PegasusImportList, type PegasusImportSummary, type PegasusPlatformInstance, pegasusStateLabels, pegasusStateTone } from "./pegasus-import-manager";
+import { EmulationStationImportDrawer, type EmulationStationImportList, type EmulationStationImportSummary } from "./emulationstation-import-manager";
+import { emulationStationStateLabels, emulationStationStateTone } from "./emulationstation-import-model";
 import type { TagReference } from "@/components/tag-picker";
 
 export type ServerImportRoot = components["schemas"]["ServerImportRoot"];
@@ -51,14 +53,18 @@ function errorMessage(response: Response, fallback: string) {
 
 type MergedHistoryEntry =
   | { kind: "BIOS"; createdAtMs: number; item: ServerImportSummary }
-  | { kind: "PEGASUS"; createdAtMs: number; item: PegasusImportSummary };
+  | { kind: "PEGASUS"; createdAtMs: number; item: PegasusImportSummary }
+  | { kind: "EMULATIONSTATION"; createdAtMs: number; item: EmulationStationImportSummary };
 
-function ImportCapabilities({ catalogSummary, imports, onBIOSOpen, onPegasusOpen, pegasusImports, resumablePegasus, roots }: {
+function ImportCapabilities({ catalogSummary, emulationStationImports, imports, onBIOSOpen, onEmulationStationOpen, onPegasusOpen, pegasusImports, resumableEmulationStation, resumablePegasus, roots }: {
   catalogSummary: { totalCount: number; attentionCount: number };
+  emulationStationImports: EmulationStationImportSummary[];
   imports: ServerImportSummary[];
   onBIOSOpen: () => void;
+  onEmulationStationOpen: () => void;
   onPegasusOpen: () => void;
   pegasusImports: PegasusImportSummary[];
+  resumableEmulationStation: EmulationStationImportSummary | undefined;
   resumablePegasus: PegasusImportSummary | undefined;
   roots: ServerImportRoot[];
 }) {
@@ -66,8 +72,11 @@ function ImportCapabilities({ catalogSummary, imports, onBIOSOpen, onPegasusOpen
   const biosActive = imports.some((item) => ["QUEUED", "RUNNING", "CANCEL_REQUESTED"].includes(item.state));
   const mappingCount = pegasusImports.filter((item) => item.state === "AWAITING_MAPPING").length;
   const reviewCount = pegasusImports.reduce((total, item) => total + item.counts.reviewPending, 0);
+  const emulationStationMappingCount = emulationStationImports.filter((item) => item.state === "AWAITING_MAPPING").length;
+  const emulationStationReviewCount = emulationStationImports.reduce((total, item) => total + item.counts.reviewPending, 0);
   return <div className="server-import-capabilities"><section className="server-import-hero panel"><div><span className="eyebrow">BIOS DIRECTORY</span><h2>扫描并导入 BIOS</h2><p>从部署者允许的只读位置检查完整 BIOS 目录。完整发现结束后才逐项安装；默认不会替换已有 BIOS。</p><dl className="server-import-capability-stats"><div><dt>完整目录</dt><dd>{catalogSummary.totalCount}</dd></div><div><dt>需要处理</dt><dd>{catalogSummary.attentionCount}</dd></div><div><dt>最近任务</dt><dd>{imports[0] ? stateLabels[imports[0].state] : "暂无"}</dd></div></dl></div><button type="button" className="button" disabled={!availableRoots || biosActive} onClick={onBIOSOpen}>选择目录并开始</button></section>
-    <section className="server-import-hero pegasus-capability panel"><div><span className="eyebrow">PEGASUS ROM DIRECTORY</span><h2>扫描并准备审核事项</h2><p>读取 metadata.pegasus.txt，显式映射每个 Collection，再复制 ROM、封面与视频并运行检查。候选只进入待审核，不会自动发布。</p><dl className="server-import-capability-stats"><div><dt>可用位置</dt><dd>{availableRoots}</dd></div><div><dt>待配置计划</dt><dd>{mappingCount}</dd></div><div><dt>待逐项审核</dt><dd>{reviewCount}</dd></div></dl></div><button type="button" className="button" disabled={!availableRoots} onClick={onPegasusOpen}>{resumablePegasus ? "继续扫描或映射" : "选择目录并扫描"}</button></section></div>;
+    <section className="server-import-hero pegasus-capability panel"><div><span className="eyebrow">PEGASUS ROM DIRECTORY</span><h2>扫描并准备审核事项</h2><p>读取 metadata.pegasus.txt，显式映射每个 Collection，再复制 ROM、封面与视频并运行检查。候选只进入待审核，不会自动发布。</p><dl className="server-import-capability-stats"><div><dt>可用位置</dt><dd>{availableRoots}</dd></div><div><dt>待配置计划</dt><dd>{mappingCount}</dd></div><div><dt>待逐项审核</dt><dd>{reviewCount}</dd></div></dl></div><button type="button" className="button" disabled={!availableRoots} onClick={onPegasusOpen}>{resumablePegasus ? "继续扫描或映射" : "选择目录并扫描"}</button></section>
+    <section className="server-import-hero emulationstation-capability panel"><div><span className="eyebrow">EMULATIONSTATION GAMELIST</span><h2>扫描 gamelist.xml 并准备审核</h2><p>递归读取精确小写 gamelist.xml，每份有效清单独立映射。系统不执行 command、emulator 或 core，候选不会自动发布。</p><dl className="server-import-capability-stats"><div><dt>可用位置</dt><dd>{availableRoots}</dd></div><div><dt>待配置计划</dt><dd>{emulationStationMappingCount}</dd></div><div><dt>待逐项审核</dt><dd>{emulationStationReviewCount}</dd></div></dl></div><button type="button" className="button" disabled={!availableRoots} onClick={onEmulationStationOpen}>{resumableEmulationStation ? "继续扫描或映射" : "选择目录并扫描"}</button></section></div>;
 }
 
 function ImportRoots({ roots }: { roots: ServerImportRoot[] }) {
@@ -77,17 +86,22 @@ function ImportRoots({ roots }: { roots: ServerImportRoot[] }) {
 
 function BIOSHistoryEntry({ item }: { item: ServerImportSummary }) {
   const source = item.sourceRelativePath ? ` / ${item.sourceRelativePath}` : " / 根目录";
-  return <Link href={`/admin/imports/server/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">BIOS</span><StatusBadge tone={stateTone(item.state)}>{stateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ? phaseLabels[item.phase] : "等待任务进度"} · {new Date(item.createdAtMs).toLocaleString("zh-CN")}</p></div><dl><div><dt>候选</dt><dd>{item.counts.candidates}</dd></div><div><dt>已评估</dt><dd>{item.counts.evaluatedItems}/{item.counts.catalogItems}</dd></div><div><dt>已导入</dt><dd>{item.counts.imported}</dd></div><div><dt>失败</dt><dd>{item.counts.failed}</dd></div></dl></Link>;
+  return <Link href={`/admin/imports/server/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">BIOS</span><StatusBadge tone={stateTone(item.state)}>{stateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ? phaseLabels[item.phase] : "等待任务进度"} · {new Date(item.createdAtMs).toLocaleString("zh-CN")}</p></div><dl tabIndex={0} aria-label="BIOS 导入统计"><div><dt>候选</dt><dd>{item.counts.candidates}</dd></div><div><dt>已评估</dt><dd>{item.counts.evaluatedItems}/{item.counts.catalogItems}</dd></div><div><dt>已导入</dt><dd>{item.counts.imported}</dd></div><div><dt>失败</dt><dd>{item.counts.failed}</dd></div></dl></Link>;
 }
 
 function PegasusHistoryEntry({ item }: { item: PegasusImportSummary }) {
   const source = item.sourceRelativePath ? ` / ${item.sourceRelativePath}` : " / 根目录";
-  return <Link href={`/admin/imports/server/pegasus/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">Pegasus ROM</span><StatusBadge tone={pegasusStateTone(item.state)}>{pegasusStateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ?? "等待任务进度"} · {new Date(item.createdAtMs).toLocaleString("zh-CN")}</p></div><dl><div><dt>游戏</dt><dd>{item.counts.games}</dd></div><div><dt>待审核</dt><dd>{item.counts.reviewPending}</dd></div><div><dt>已发布/丢弃</dt><dd>{item.counts.published}/{item.counts.reviewDiscarded}</dd></div><div><dt>阻断/失败</dt><dd>{item.counts.blocked + item.counts.failed}</dd></div></dl></Link>;
+  return <Link href={`/admin/imports/server/pegasus/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">Pegasus ROM</span><StatusBadge tone={pegasusStateTone(item.state)}>{pegasusStateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ?? "等待任务进度"} · {new Date(item.createdAtMs).toLocaleString("zh-CN")}</p></div><dl tabIndex={0} aria-label="Pegasus 导入统计"><div><dt>游戏</dt><dd>{item.counts.games}</dd></div><div><dt>待审核</dt><dd>{item.counts.reviewPending}</dd></div><div><dt>已发布/丢弃</dt><dd>{item.counts.published}/{item.counts.reviewDiscarded}</dd></div><div><dt>阻断/失败</dt><dd>{item.counts.blocked + item.counts.failed}</dd></div></dl></Link>;
+}
+
+function EmulationStationHistoryEntry({ item }: { item: EmulationStationImportSummary }) {
+  const source = item.sourceRelativePath ? ` / ${item.sourceRelativePath}` : " / 根目录";
+  return <Link href={`/admin/imports/server/emulationstation/${item.id}`} className="server-import-task panel"><div><span className="server-import-kind">EmulationStation</span><StatusBadge tone={emulationStationStateTone(item.state)}>{emulationStationStateLabels[item.state]}</StatusBadge><h3>{item.root.label}{source}</h3><p>{item.phase ?? "等待任务进度"} · {new Date(item.createdAtMs).toLocaleString("zh-CN")}</p></div><dl tabIndex={0} aria-label="EmulationStation 导入统计"><div><dt>清单 / 游戏</dt><dd>{item.counts.gamelists} / {item.counts.games}</dd></div><div><dt>待审核</dt><dd>{item.counts.reviewPending}</dd></div><div><dt>已发布/丢弃</dt><dd>{item.counts.published}/{item.counts.reviewDiscarded}</dd></div><div><dt>阻断/失败</dt><dd>{item.counts.blocked + item.counts.failed}</dd></div></dl></Link>;
 }
 
 function ImportHistory({ canLoadMore, entries, historyLoading, onLoadMore }: { canLoadMore: boolean; entries: MergedHistoryEntry[]; historyLoading: boolean; onLoadMore: () => void }) {
-  let content = <div className="runtime-inline-empty"><h2>还没有服务器导入任务</h2><p>选择一个允许的位置和目录后，可以扫描 BIOS 或 Pegasus ROM。</p></div>;
-  if (entries.length) {content = <><div className="server-import-task-list">{entries.map((entry) => entry.kind === "BIOS" ? <BIOSHistoryEntry item={entry.item} key={`bios-${entry.item.id}`} /> : <PegasusHistoryEntry item={entry.item} key={`pegasus-${entry.item.id}`} />)}</div>{canLoadMore ? <button type="button" className="button secondary server-import-history-more" disabled={historyLoading} onClick={onLoadMore}>{historyLoading ? "正在读取…" : "查看全部历史"}</button> : null}</>;}
+  let content = <div className="runtime-inline-empty"><h2>还没有服务器导入任务</h2><p>选择一个允许的位置和目录后，可以扫描 BIOS、Pegasus 或 EmulationStation 内容。</p></div>;
+  if (entries.length) {content = <><div className="server-import-task-list">{entries.map((entry) => entry.kind === "BIOS" ? <BIOSHistoryEntry item={entry.item} key={`bios-${entry.item.id}`} /> : entry.kind === "PEGASUS" ? <PegasusHistoryEntry item={entry.item} key={`pegasus-${entry.item.id}`} /> : <EmulationStationHistoryEntry item={entry.item} key={`emulationstation-${entry.item.id}`} />)}</div>{canLoadMore ? <button type="button" className="button secondary server-import-history-more" disabled={historyLoading} onClick={onLoadMore}>{historyLoading ? "正在读取…" : "查看全部历史"}</button> : null}</>;}
   return <section className="server-import-history"><div className="runtime-section-heading"><div><h2>导入历史</h2><p>任务离开页面后仍会继续；详情页会恢复实时进度。</p></div><Link href="/admin/bios">查看 BIOS 文件</Link></div>{content}</section>;
 }
 
@@ -132,25 +146,30 @@ function ServerDirectoryDrawer({ breadcrumbs, busy, catalogSummary, directories,
   </div><footer><button type="button" className="button secondary" disabled={busy} onClick={onClose}>取消</button><button type="button" className="button" disabled={busy || !rootId || selectedRoot?.status !== "AVAILABLE"} onClick={onCreate}>{busy ? "正在创建…" : "开始异步导入"}</button></footer></aside></>;
 }
 
-export function ServerImportManager({ initialRoots, initialImports, initialPegasusImports = { items: [], nextCursor: null }, platformInstances = [], activeTags = [], initialOpen = false, initialPegasusOpen = false, initialCatalogSummary }: {
+export function ServerImportManager({ initialRoots, initialImports, initialPegasusImports = { items: [], nextCursor: null }, initialEmulationStationImports = { items: [], nextCursor: null }, platformInstances = [], activeTags = [], initialOpen = false, initialPegasusOpen = false, initialEmulationStationOpen = false, initialCatalogSummary }: {
   initialRoots: ServerImportRoot[];
   initialImports: ServerImportList;
   initialPegasusImports?: PegasusImportList;
+  initialEmulationStationImports?: EmulationStationImportList;
   platformInstances?: PegasusPlatformInstance[];
   activeTags?: TagReference[];
   initialOpen?: boolean;
   initialPegasusOpen?: boolean;
+  initialEmulationStationOpen?: boolean;
   initialCatalogSummary?: { totalCount: number; attentionCount: number };
 }) {
   const router = useRouter();
   const roots = initialRoots;
   const [imports, setImports] = useState(initialImports.items);
   const [pegasusImports, setPegasusImports] = useState(initialPegasusImports.items);
+  const [emulationStationImports, setEmulationStationImports] = useState(initialEmulationStationImports.items);
   const [historyCursor, setHistoryCursor] = useState(initialImports.nextCursor);
   const [pegasusHistoryCursor, setPegasusHistoryCursor] = useState(initialPegasusImports.nextCursor);
+  const [emulationStationHistoryCursor, setEmulationStationHistoryCursor] = useState(initialEmulationStationImports.nextCursor);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(initialOpen);
   const [pegasusDrawerOpen, setPegasusDrawerOpen] = useState(initialPegasusOpen);
+  const [emulationStationDrawerOpen, setEmulationStationDrawerOpen] = useState(initialEmulationStationOpen);
   const [rootId, setRootId] = useState(initialRoots.find((root) => root.status === "AVAILABLE")?.id ?? "");
   const [path, setPath] = useState("");
   const [directories, setDirectories] = useState<Directory[]>([]);
@@ -231,8 +250,19 @@ export function ServerImportManager({ initialRoots, initialImports, initialPegas
     return () => window.clearInterval(timer);
   }, [pegasusImports]);
 
+  useEffect(() => {
+    const active = emulationStationImports.some((item) => ["SCANNING", "QUEUED", "RUNNING", "CANCEL_REQUESTED"].includes(item.state));
+    if (!active) {return;}
+    const timer = window.setInterval(() => {
+      void api.GET("/api/v1/admin/emulationstation-imports", { params: { query: { limit: 20 } } }).then(({ data }) => {
+        if (data) {setEmulationStationImports(data.items); setEmulationStationHistoryCursor(data.nextCursor);}
+      });
+    }, 3000);
+    return () => window.clearInterval(timer);
+  }, [emulationStationImports]);
+
   async function loadMoreHistory() {
-    if ((!historyCursor && !pegasusHistoryCursor) || historyLoading) {return;}
+    if ((!historyCursor && !pegasusHistoryCursor && !emulationStationHistoryCursor) || historyLoading) {return;}
     setHistoryLoading(true); setError("");
     try {
       if (historyCursor) {
@@ -246,6 +276,12 @@ export function ServerImportManager({ initialRoots, initialImports, initialPegas
         if (!data) {throw new Error(await errorMessage(response, "Pegasus 导入历史读取失败"));}
         setPegasusImports((current) => [...current, ...data.items.filter((item) => !current.some((known) => known.id === item.id))]);
         setPegasusHistoryCursor(data.nextCursor);
+      }
+      if (emulationStationHistoryCursor) {
+        const { data, response } = await api.GET("/api/v1/admin/emulationstation-imports", { params: { query: { cursor: emulationStationHistoryCursor, limit: 20 } } });
+        if (!data) {throw new Error(await errorMessage(response, "EmulationStation 导入历史读取失败"));}
+        setEmulationStationImports((current) => [...current, ...data.items.filter((item) => !current.some((known) => known.id === item.id))]);
+        setEmulationStationHistoryCursor(data.nextCursor);
       }
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : "导入历史读取失败");
@@ -281,16 +317,19 @@ export function ServerImportManager({ initialRoots, initialImports, initialPegas
 
   const catalogSummary = initialCatalogSummary ?? { totalCount: 0, attentionCount: 0 };
   const resumablePegasus = pegasusImports.find((item) => item.state === "SCANNING" || item.state === "AWAITING_MAPPING");
+  const resumableEmulationStation = emulationStationImports.find((item) => item.state === "SCANNING" || item.state === "AWAITING_MAPPING");
   const mergedHistory = [
     ...imports.map((item) => ({ kind: "BIOS" as const, createdAtMs: item.createdAtMs, item })),
     ...pegasusImports.map((item) => ({ kind: "PEGASUS" as const, createdAtMs: item.createdAtMs, item })),
+    ...emulationStationImports.map((item) => ({ kind: "EMULATIONSTATION" as const, createdAtMs: item.createdAtMs, item })),
   ].sort((left, right) => right.createdAtMs - left.createdAtMs);
   return <div className="server-import-page">
-    <ImportCapabilities catalogSummary={catalogSummary} imports={imports} onBIOSOpen={() => setDrawerOpen(true)} onPegasusOpen={() => setPegasusDrawerOpen(true)} pegasusImports={pegasusImports} resumablePegasus={resumablePegasus} roots={roots} />
+    <ImportCapabilities catalogSummary={catalogSummary} emulationStationImports={emulationStationImports} imports={imports} onBIOSOpen={() => setDrawerOpen(true)} onEmulationStationOpen={() => setEmulationStationDrawerOpen(true)} onPegasusOpen={() => setPegasusDrawerOpen(true)} pegasusImports={pegasusImports} resumableEmulationStation={resumableEmulationStation} resumablePegasus={resumablePegasus} roots={roots} />
     <ImportRoots roots={roots} />
-    <ImportHistory canLoadMore={Boolean(historyCursor || pegasusHistoryCursor)} entries={mergedHistory} historyLoading={historyLoading} onLoadMore={() => void loadMoreHistory()} />
+    <ImportHistory canLoadMore={Boolean(historyCursor || pegasusHistoryCursor || emulationStationHistoryCursor)} entries={mergedHistory} historyLoading={historyLoading} onLoadMore={() => void loadMoreHistory()} />
     <ServerDirectoryDrawer breadcrumbs={breadcrumbs} busy={busy} catalogSummary={catalogSummary} directories={directories} directoryLoading={directoryLoading} directoryNextCursor={directoryNextCursor} onClose={closeDrawer} onCreate={() => void createImport()} onLoadMore={() => void loadMoreDirectories()} onPath={setPath} onReplaceIfBetter={setReplaceIfBetter} onRoot={(id) => { setRootId(id); setPath(""); }} open={drawerOpen} path={path} replaceIfBetter={replaceIfBetter} rootId={rootId} roots={roots} selectedRoot={selectedRoot} />
     <PegasusImportDrawer open={pegasusDrawerOpen} roots={roots} platformInstances={platformInstances} activeTags={activeTags} resumablePlan={resumablePegasus} onClose={() => setPegasusDrawerOpen(false)} onStarted={(summary: PegasusImportSummary) => setPegasusImports((current) => [summary, ...current.filter((item) => item.id !== summary.id)])} />
+    <EmulationStationImportDrawer open={emulationStationDrawerOpen} roots={roots} platformInstances={platformInstances} activeTags={activeTags} resumablePlan={resumableEmulationStation} onClose={() => setEmulationStationDrawerOpen(false)} onStarted={(summary: EmulationStationImportSummary) => setEmulationStationImports((current) => [summary, ...current.filter((item) => item.id !== summary.id)])} />
     <Toast toast={error ? { message: error, tone: "bad" } : null} onDismiss={() => setError("")} />
   </div>;
 }

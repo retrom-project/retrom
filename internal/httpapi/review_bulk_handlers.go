@@ -13,7 +13,8 @@ func parseReviewBulkScope(request *http.Request) (libraryimport.ReviewBulkScope,
 	values := request.URL.Query()
 	allowed := map[string]struct{}{
 		"q": {}, "tagId": {}, "importJobId": {}, "pegasusImportId": {},
-		"platformInstanceId": {}, "blockerCode": {},
+		"emulationStationImportId": {},
+		"platformInstanceId":       {}, "blockerCode": {},
 	}
 	for key := range values {
 		if _, ok := allowed[key]; !ok {
@@ -25,8 +26,9 @@ func parseReviewBulkScope(request *http.Request) (libraryimport.ReviewBulkScope,
 	}
 	return libraryimport.ReviewBulkScope{
 		Q: values.Get("q"), TagID: values.Get("tagId"), ImportJobID: values.Get("importJobId"),
-		PegasusImportID:    values.Get("pegasusImportId"),
-		PlatformInstanceID: values.Get("platformInstanceId"), BlockerCode: values.Get("blockerCode"),
+		PegasusImportID:          values.Get("pegasusImportId"),
+		EmulationStationImportID: values.Get("emulationStationImportId"),
+		PlatformInstanceID:       values.Get("platformInstanceId"), BlockerCode: values.Get("blockerCode"),
 	}, nil
 }
 

@@ -3,8 +3,8 @@
 | 属性 | 内容 |
 | --- | --- |
 | 状态 | 已审定 / 一期实施基线 |
-| 版本 | 1.5 |
-| 日期 | 2026-08-23 |
+| 版本 | 1.6 |
+| 日期 | 2026-08-24 |
 | 适用范围 | Retrom 一期 |
 | 技术栈 | Go、SQLite、Next.js、EmulatorJS、本地内容寻址存储、OCI/Docker 镜像 |
 
@@ -40,6 +40,8 @@ cmd/retrom/               进程入口、配置和优雅关闭
 internal/httpapi/         路由、中间件、DTO、错误映射
 internal/catalog/         Platform、PlatformInstance、Game、GameVariant
 internal/importing/       导入任务、分组、刮削与审核编排
+internal/emulationstationmeta/ 严格 EmulationStation XML 解析与规范化；不读环境/数据库/CAS
+internal/emulationstationimport/ EmulationStation 扫描、映射快照、执行与普通审核交接
 internal/metadata/        Hasheous 适配器与缓存
 internal/arcadedat/       DAT 安装、解析、依赖图与诊断
 internal/bios/            BIOS 要求、安装和状态聚合
@@ -111,10 +113,10 @@ web/components/           无业务状态的通用组件
 - 用户读取：home、game library/detail、save list。
 - 用户写入：创建 LaunchSession、heartbeat/finish、手动状态存档。
 - 联机用户：列出精确支持的游戏、创建/查看房间、选座/准备/开始/结束；房间状态使用 SSE，运行输入和 state transfer 使用同源 WebSocket。
-- 管理写入：upload、import、review、game revision、platform instance、BIOS installation、Arcade DAT installation。
-- 管理读取：入库总览/任务/SSE、待审核/历史、游戏管理、BIOS/DAT 状态、审计事件和脱敏诊断摘要。
+- 管理写入：upload、import、受信服务器 BIOS/Pegasus/EmulationStation scan、review、game revision、platform instance、BIOS installation、Arcade DAT installation。
+- 管理读取：入库总览/任务/SSE、服务器扫描计划与映射、待审核/历史、游戏管理、BIOS/DAT 状态、审计事件和脱敏诊断摘要。
 
-详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。所有普通 API 必须先完成账户认证，管理 API 还要求 `ADMIN`；所有已认证写请求同时执行 Origin、Fetch Metadata、CSRF、乐观并发与幂等校验。浏览器目录上传只传相对路径，服务端不提供任意宿主目录扫描端点。
+详情页和存档快速启动都调用同一 `POST /api/v1/launches`；区别只在是否携带 `saveStateId`。所有普通 API 必须先完成账户认证，管理 API 还要求 `ADMIN`；所有已认证写请求同时执行 Origin、Fetch Metadata、CSRF、乐观并发与幂等校验。浏览器目录上传只传相对路径；服务器扫描只接受已配置 capability 的 root ID 与规范相对路径，不提供任意宿主路径入口。
 
 ## 5. 内容端点与 LaunchSession capability
 
@@ -124,7 +126,7 @@ web/components/           无业务状态的通用组件
 
 ## 6. 后台任务
 
-任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容 revision/兼容重校验、业务 payload 引用释放和 Blob 宽限回收。`internal/payloadrelease` 统一执行 ImportItem/ImportJob/PegasusItem/UploadConsumption/Game ownership 释放、provider TTL 和 BLOB_GC；领域终态只创建持久 Job，不自行删 CAS。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。联机不增加 Job kind；Room 到期由 30 秒维护 ticker 执行短事务，frame/input/hash/state/reconnect 只存在于有界 Hub 内存。
+任务至少覆盖：Upload 终结组装与 Blob 哈希落库、Import 安全扫描/分组与逐 Item pipeline、Pegasus/EmulationStation scan 与 review handoff、Archive 检查、DAT 解析/索引、Arcade 依赖识别、Hasheous 查询与图片获取、严格 READY 快速审批、游戏内容 revision/兼容重校验、业务 payload 引用释放和 Blob 宽限回收。`internal/payloadrelease` 统一执行 ImportItem/ImportJob/PegasusItem/EmulationStationItem/UploadConsumption/Game ownership 释放、provider TTL 和 BLOB_GC；领域终态只创建持久 Job，不自行删 CAS。精确 Job kind/scope 映射以数据模型为准，不另起同义名称。联机不增加 Job kind；Room 到期由 30 秒维护 ticker 执行短事务，frame/input/hash/state/reconnect 只存在于有界 Hub 内存。
 
 SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#7-通用任务事件与审计) 的字段、领取索引、60 秒 lease、15 秒 heartbeat、并发上限和四次 attempt 退避。领取任务必须在短事务内完成，租约到期后可恢复；任务处理必须幂等。网络任务尊重上游 `Retry-After`，但等待上限 15 分钟。
 
@@ -134,7 +136,7 @@ SQLite 队列表和 worker 必须实现 [数据模型第 7 节](./data-model.md#
 
 不要把长时间哈希、网络请求、DAT 解析或归档扫描放在持有数据库写锁的事务中。先执行可重入计算，再用短事务提交结果和状态转换。
 
-快速审批在创建时冻结最多 10,000 个严格 READY Item，Worker 顺序领取并逐项调用唯一 Approve 服务；整个批次不得持有一个长写事务。每项成功的发布对象、ReviewEvent、普通/Pegasus 聚合和批次结果共用同一事务及 state/worker fence。取消在 Item 边界检查，重启只把未提交 RUNNING Item 恢复为 PENDING；restore 不继续旧批次。只有 worker 基础设施故障允许快速审批领域 retry，业务 skip/final failure 不通过 retry 复活。
+快速审批在创建时冻结最多 10,000 个严格 READY Item，Worker 顺序领取并逐项调用唯一 Approve 服务；整个批次不得持有一个长写事务。EmulationStation `hidden/adult` 来源项在预览中计入 `sourceFlagged` 并排除候选。每项成功的发布对象、ReviewEvent、普通与对应服务器来源聚合和批次结果共用同一事务及 state/worker fence。取消在 Item 边界检查，重启只把未提交 RUNNING Item 恢复为 PENDING；restore 不继续旧批次。只有 worker 基础设施故障允许快速审批领域 retry，业务 skip/final failure 不通过 retry 复活。
 
 导入任务及审核语义见 [导入、刮削与审核](./import-and-review.md)。
 
@@ -198,9 +200,9 @@ Action 负责 registry 登录和 push，不改变 Make target 的本地构建边
 
 开发拓扑仍只有一个标准 Go 进程和一个标准 `next dev` 进程。`scripts/dev.sh` 只给 Next 子进程预加载仓库内的 upgrade hook；该 hook 仅匹配精确的 `/runtime/netplay/rooms/{roomId}/socket` 路径，把 method、Origin、Cookie、Fetch Metadata、Upgrade 与 `Sec-WebSocket-Protocol` 原样转发到 `NEXT_BACKEND_ORIGIN`，并逐字节桥接升级后的 socket。其他 upgrade（包括 HMR）继续由 Next 自己处理，普通 HTTP 仍走既有 rewrite。验收必须证明未认证的合法联机 upgrade 经前端端口到达 Go 并返回 `401 AUTHENTICATION_REQUIRED`，而不是由 Next 返回自己的 403；生产不加载此开发 hook，仍由上一节 NG 路由负责。
 
-未显式设置 `RETROM_SERVER_IMPORT_ROOTS` 时，`make dev` 在真正启动进程前幂等创建两个被 Git 忽略的仓库目录：`.dev-data/bios` 作为 ID `local-bios`、标签“本地 BIOS”的默认只读扫描 root，`.dev-data/roms` 作为 ID `local-roms`、标签“本地 ROM”的默认只读扫描 root。前者用于放置开发 BIOS，后者用于放置含 `metadata.pegasus.txt`、ROM 与媒体的 Pegasus 测试目录；其中内容均不得提交。调用者可以显式提供 JSON 数组整体替换这两个默认值，也可以传 `[]` 关闭本地扫描；`scripts/dev.sh --stop` 不创建目录。两个扫描目录与 `.dev-data/data`、`.dev-data/dev-state` 相互隔离，都不属于依赖物化目录或镜像输入。
+未显式设置 `RETROM_SERVER_IMPORT_ROOTS` 时，`make dev` 在真正启动进程前幂等创建两个被 Git 忽略的仓库目录：`.dev-data/bios` 作为 ID `local-bios`、标签“本地 BIOS”的默认只读扫描 root，`.dev-data/roms` 作为 ID `local-roms`、标签“本地 ROM”的默认只读扫描 root。前者用于放置开发 BIOS，后者用于放置含 `metadata.pegasus.txt` 或 `gamelist.xml`、ROM 与媒体的 Pegasus/EmulationStation 测试目录；其中内容均不得提交。调用者可以显式提供 JSON 数组整体替换这两个默认值，也可以传 `[]` 关闭本地扫描；`scripts/dev.sh --stop` 不创建目录。两个扫描目录与 `.dev-data/data`、`.dev-data/dev-state` 相互隔离，都不属于依赖物化目录或镜像输入。
 
-同一 root 配置同时服务 BIOS 批量导入和 Pegasus 目录导入。客户端只能提交 `rootId` 与相对路径；后端逐段无跟随打开并拒绝 symlink、special file、路径穿越、根替换和扫描中的来源漂移。BIOS 与 Pegasus 共用全局 2 个内容读取槽，避免两类任务各自达到上限后叠加压满磁盘；数据库写事务只提交已完成的有界结果，不覆盖文件读取、哈希、媒体探测或归档扫描。
+同一 root 配置同时服务 BIOS、Pegasus 与 EmulationStation 导入。客户端只能提交 `rootId` 与相对路径；后端逐段无跟随打开并拒绝 symlink、special file、路径穿越、根替换和扫描中的来源漂移。三类任务共用全局 2 个内容读取槽，避免各自达到上限后叠加压满磁盘；数据库写事务只提交已完成的有界结果，不覆盖文件读取、XML/哈希、媒体探测或归档扫描。
 
 ### 7.4 TLS 只在 NG 终结
 
@@ -291,6 +293,7 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 - 启动失败日志关联 `launchId`、game、VariantRevision、CoreArtifact、DAT 版本和缺失依赖，但不记录 capability。
 - 联机只在 Room/Session 转移、upgrade 拒绝、resync、终局与 recovery 记录低基数结构化事件；不记录每帧 input/canonical/hash/state bytes、credential、显示名、IP、内容 hash 或路径。可聚合字段限 profile ID、playerNo、状态、终因、耗时、frame lag、rollback/resync 计数。
 - 多盘结构化事件覆盖 Import mode/parser 结果、Attachment 状态/重试/执行时长、Validation 结果、Launch 盘数、playlist/DISC 内容响应状态与 bytes，以及 Player 开始/盘数不一致/换盘/存档恢复结果。可聚合标签仅限 platform key、core key、artifact version、盘数 bucket、HTTP 状态与稳定错误码；不得记录标题、basename、路径、内容 hash 或 capability。Import/Attachment/Validation 使用持久 JobEvent，运行端使用固定 schema 的结构化日志；不存在自由形式客户端 telemetry body。
+- EmulationStation 事件只记录 import/job ID、phase、封闭计数、执行时长和稳定错误码；不得记录 XML 文本、`command/emulator/core/provider` 值、标题、ROM/媒体 basename、绝对路径、facts digest 或底层 `os.PathError`。管理员失败详情只使用 OpenAPI 封闭字段和截断后的低敏技术 code。
 - `GET /api/v1/admin/diagnostics` 提供 HTTP 契约规定的封闭 JSON 诊断摘要，只含版本与状态计数；不打包原始日志、ROM/BIOS，不输出资源 ID、内容 hash、环境变量值或宿主路径。响应必须 `private, no-store`，字段变化先升级 schemaVersion/OpenAPI/验收，不能临时追加自由形式 map。
 - `GET /api/v1/admin/storage-analysis` 使用独立只读连接池和一个 snapshot transaction，按存储专题固定口径返回已登记 CAS payload 的用途总量；不得扫描宿主目录或返回资源标识。`POST /api/v1/admin/storage-cleanups` 只允许 ADMIN 在 CSRF/幂等保护下把当前未引用候选推进为立即可执行，仍由既有 PayloadRelease/BLOB_GC worker 逐 Blob 复核并回收；HTTP 不同步删除文件，也不返回 Blob/Job 标识。`OTHER_REFERENCED` 非零时日志只记录 category、count 和 bytes，禁止输出 Blob ID/hash/路径。
 
@@ -300,17 +303,19 @@ SQLite 基线：启用外键、WAL 和合理的 `busy_timeout`；仅通过版本
 
 精确命令、原子发布、引用 registry、目标必须不存在和恢复校验见[存储与数据库第 8 节](./storage-and-database.md#8-备份与恢复)。恢复发布前还要在单一事务撤销全部旧 AuthSession、ACTIVE AccountLink和非终态 Launch，把遗留联机 Session/Room 以 `RESTORE` 收口，并写 SYSTEM安全围栏审计；因此恢复后的旧 cookie/capability/WebSocket 全部无效，实时 history 不尝试恢复。命令本身不启动服务、不覆盖旧目录。
 
-当前未发布基线只接受 001–010 clean lineage 的精确有序前缀或完整集合；旧开发 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。部署本次改造时归档或删除标准开发数据库并以空根初始化；回退只能恢复与目标二进制 lineage 精确匹配的完整数据根，不得混合数据库、CAS 或密钥。首次正式发布后再按当时契约设计只追加升级，不预留未验证的转换分支。
+当前未发布基线只接受 001–010 clean lineage 的精确有序前缀或完整集合；旧开发 lineage、旧 manifest schema、部分备份和名称/checksum 漂移都在写入前拒绝。部署本次改造时归档或删除标准开发数据库并以空根初始化；回退只能恢复与目标二进制 lineage 精确匹配的完整数据根，不得混合数据库、CAS 或密钥。恢复服务开放 HTTP 前把所有依赖外部 source 的非终态 BIOS/Pegasus/EmulationStation Job 与 aggregate 以 `SERVER_IMPORT_SOURCE_NOT_RESTORED` 失败收口；普通待审和已发布 CAS bytes 保留。首次正式发布后再按当时契约设计只追加升级，不预留未验证的转换分支。
 
 ## 12. 统一验收入口
 
-工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，联机协议、安全、feature flag、单机回归与双浏览器核心生命周期执行 `ACC-NP-010`–`016`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏、共享读取治理和产品运行链执行 `ACC-PEG-001`–`006`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
+工程门禁与双镜像执行 [一期项目验收规范](./project-acceptance.md) 的 `ACC-QA-*` 和 `ACC-PKG-*`，联机协议、安全、feature flag、单机回归与双浏览器核心生命周期执行 `ACC-NP-010`–`016`，本地进程与 NG/TLS 边界执行 `ACC-DEV-001` 和 `ACC-NET-001`–`002`（后者仅在已部署 NG 时适用），游戏维护执行 `ACC-GAME-*`，API、健康检查及诊断执行 `ACC-API-001` 和 `ACC-OPS-001`。多盘 feature flag、替换和既有内容连续性执行 `ACC-MDISC-007`；Pegasus 外部来源、恢复栅栏、共享读取治理和产品运行链执行 `ACC-PEG-001`–`006`；EmulationStation parser、外部来源、handoff、恢复/释放和产品运行链执行 `ACC-ES-001`–`006`；游戏视频资产执行 `ACC-MEDIA-001`。数据库、内容端点、任务恢复和备份由统一文档中对应 `ACC-DB-*`、`ACC-SEC-*`、`ACC-IMP-008` 与 `ACC-BKP-001` 联合覆盖。
 
 ## 13. 服务器导入运维
 
 `RETROM_SERVER_IMPORT_ROOTS` 缺省或 `[]` 时能力为空但服务正常；非空值必须是最多 8 项的封闭 JSON 数组，每项为 `id/label/path`。ID、label 必须唯一且满足长度/字符约束；path 必须是已存在的 clean absolute 普通目录且 root 本身不是 symlink。拒绝 `/`、home、Retrom data root、dependency root、这些目录任一方向的重叠，以及各配置 root 的相同/祖先关系。非法值启动失败，只记录变量名。生产部署仅以只读 volume 映射 source，不改变双镜像或 TLS 契约。
 
-服务从现有 credential root key 目的分离派生 HMAC，任务保存 `rootId + canonical real path` 的不可逆 digest；同 ID 被重定向后 retry 以 `SERVER_IMPORT_ROOT_CHANGED` 失败。单实例只运行一个 ServerImport，hash worker 固定 2、archive scanner 固定 1；深度/目录/file/候选/单 Item 候选/hash bytes/deadline 固定为 64、250000、2000000、100000、10000、2 TiB、8 小时，HTTP 不能放宽。
+服务从现有 credential root key 目的分离派生 HMAC，任务保存 `rootId + canonical real path` 的不可逆 digest；同 ID 被重定向后 retry 以 `SERVER_IMPORT_ROOT_CHANGED` 失败。共享 reader semaphore 固定为 2，hash worker 固定 2、archive scanner 固定 1；数据库/HTTP 不能按格式再建立一套磁盘并发额度。
+
+EmulationStation 单实例至多一个 active execution、20 个未开始/等待映射计划，等待映射 7 天过期。扫描上限固定为深度 64、目录 250,000、普通文件 2,000,000、精确小写 `gamelist.xml` 1,000、单 XML 8 MiB、XML 总量 64 MiB、XML depth/attributes 16、单 token 1 MiB、总 token 1,000,000、游戏 100,000、单 Item source file 64、warning 64、预计来源 2 TiB与单 execution 8 小时；HTTP 不能放宽。扫描只读取 XML/facts/M3U/媒体与 CHD 头，执行才复制完整内容。
 
 Worker lease 为 60 秒、每 15 秒 heartbeat，并每读取 8 MiB 检查 cancel/deadline。进程恢复复用完整发现结果和终态 Item；root 暂不可用或内部瞬时错误只在零终态 Item 时按 1/5/30/120 秒有界自动重试，最多 4 attempt。日志、JobEvent 和 diagnostics 仅记录 root ID、相对路径的必要脱敏投影和稳定错误码，不记录绝对路径、basename/hash 或底层 `os.PathError`。
 

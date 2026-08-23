@@ -14,6 +14,7 @@ import (
 	"retrom/internal/config"
 	"retrom/internal/cursor"
 	"retrom/internal/dependencies"
+	"retrom/internal/emulationstationimport"
 	"retrom/internal/favorites"
 	"retrom/internal/firmware"
 	"retrom/internal/gamecontent"
@@ -84,6 +85,7 @@ type Server struct {
 	tagService              *tagging.Service
 	serverImports           *serverimport.Service
 	pegasusImports          *pegasusimport.Service
+	emulationStationImports *emulationstationimport.Service
 	payloadReleases         *payloadrelease.Service
 	platformDirectories     *platforminstance.Service
 	storageAnalysis         *storageanalysis.Service
@@ -156,26 +158,31 @@ func New(
 	serverImportService.Start()
 	pegasusImportService := pegasusimport.New(database, blobs, importer, credentials, config.ServerImportRoots, now)
 	pegasusImportService.Start()
+	emulationStationImportService := emulationstationimport.New(
+		database, blobs, importer, credentials, config.ServerImportRoots, now,
+	)
+	emulationStationImportService.Start()
 	server := &Server{
-		config:              config,
-		database:            database,
-		readinessDatabase:   database,
-		dependencies:        dependencySet,
-		blobs:               blobs,
-		credentials:         credentials,
-		authenticator:       authenticator,
-		accounts:            accountService,
-		cursors:             cursor.New(credentials.CursorKey(), now),
-		uploads:             uploads.New(database, blobs, config.DataDir, now),
-		importer:            importer,
-		launcher:            launcher,
-		jobService:          jobs.New(database, now),
-		firmware:            firmwareService,
-		serverImports:       serverImportService,
-		pegasusImports:      pegasusImportService,
-		payloadReleases:     payloadReleaseService,
-		platformDirectories: platforminstance.New(database, now),
-		metadata:            scraper,
+		config:                  config,
+		database:                database,
+		readinessDatabase:       database,
+		dependencies:            dependencySet,
+		blobs:                   blobs,
+		credentials:             credentials,
+		authenticator:           authenticator,
+		accounts:                accountService,
+		cursors:                 cursor.New(credentials.CursorKey(), now),
+		uploads:                 uploads.New(database, blobs, config.DataDir, now),
+		importer:                importer,
+		launcher:                launcher,
+		jobService:              jobs.New(database, now),
+		firmware:                firmwareService,
+		serverImports:           serverImportService,
+		pegasusImports:          pegasusImportService,
+		emulationStationImports: emulationStationImportService,
+		payloadReleases:         payloadReleaseService,
+		platformDirectories:     platforminstance.New(database, now),
+		metadata:                scraper,
 		gameContent: gamecontent.New(database, now).WithBlobStore(blobs).
 			WithPayloadRelease(payloadReleaseService).
 			WithMultiDiscImportEnabled(config.MultiDiscImportEnabled),
@@ -198,6 +205,7 @@ func (server *Server) Close() {
 	}
 	server.serverImports.Close()
 	server.pegasusImports.Close()
+	server.emulationStationImports.Close()
 	server.payloadReleases.Close()
 }
 
@@ -314,6 +322,44 @@ func (server *Server) registerAdminImportRoutes(mux *http.ServeMux) {
 	mux.HandleFunc("GET /api/v1/admin/pegasus-imports/{pegasusImportId}/items", server.pegasusImportItems)
 	mux.HandleFunc("POST /api/v1/admin/pegasus-imports/{pegasusImportId}/cancel", server.cancelPegasusImport)
 	mux.HandleFunc("POST /api/v1/admin/pegasus-imports/{pegasusImportId}/retry", server.retryPegasusImport)
+	mux.HandleFunc("POST /api/v1/admin/emulationstation-imports", server.createEmulationStationImport)
+	mux.HandleFunc("GET /api/v1/admin/emulationstation-imports", server.emulationStationImportList)
+	mux.HandleFunc(
+		"GET /api/v1/admin/emulationstation-imports/{emulationStationImportId}",
+		server.emulationStationImportDetail,
+	)
+	mux.HandleFunc(
+		"DELETE /api/v1/admin/emulationstation-imports/{emulationStationImportId}",
+		server.deleteEmulationStationImport,
+	)
+	mux.HandleFunc(
+		"GET /api/v1/admin/emulationstation-imports/{emulationStationImportId}/gamelists",
+		server.emulationStationImportGamelists,
+	)
+	mux.HandleFunc(
+		"GET /api/v1/admin/emulationstation-imports/{emulationStationImportId}/collections",
+		server.emulationStationImportCollections,
+	)
+	mux.HandleFunc(
+		"PUT /api/v1/admin/emulationstation-imports/{emulationStationImportId}/collection-mappings",
+		server.updateEmulationStationMappings,
+	)
+	mux.HandleFunc(
+		"POST /api/v1/admin/emulationstation-imports/{emulationStationImportId}/start",
+		server.startEmulationStationImport,
+	)
+	mux.HandleFunc(
+		"GET /api/v1/admin/emulationstation-imports/{emulationStationImportId}/items",
+		server.emulationStationImportItems,
+	)
+	mux.HandleFunc(
+		"POST /api/v1/admin/emulationstation-imports/{emulationStationImportId}/cancel",
+		server.cancelEmulationStationImport,
+	)
+	mux.HandleFunc(
+		"POST /api/v1/admin/emulationstation-imports/{emulationStationImportId}/retry",
+		server.retryEmulationStationImport,
+	)
 	mux.HandleFunc("GET /api/v1/admin/imports/summary", server.importSummary)
 	mux.HandleFunc("GET /api/v1/admin/imports", server.imports)
 	mux.HandleFunc("POST /api/v1/admin/imports", server.createImport)
