@@ -6,8 +6,8 @@ import type { RollbackTimeline } from "./rollback";
 
 const profile: NetplayProfile = {
   schemaVersion: 1, protocolVersion: "retrom-netplay-v2", profileId: "snes9x-423-v1",
-  platformIds: ["snes"], emulatorjsVersion: "4.2.3", playerAdapterId: "ejs-4.2.3-v2",
-  netplayAdapterId: "ejs-netplay-4.2.3-v1", coreArtifactId: "core", coreArtifactSha256: "1".repeat(64),
+  platformIds: ["snes"], emulatorjsVersion: "4.2.3", playerAdapterId: "ejs-4.2.3-v3",
+  netplayAdapterId: "ejs-netplay-4.2.3-v2", coreArtifactId: "core", coreArtifactSha256: "1".repeat(64),
   gameVariantRevisionId: "revision", sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64),
   defaultCoreOptions: {}, controlCount: 24, maxPlayers: 2, maxPredictionFrames: 0,
   maxRollbackFrames: 120, checkpointEveryFrames: 120, canonicalHistoryFrames: 600, maxStateBytes: 1_048_576,

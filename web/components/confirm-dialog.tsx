@@ -77,6 +77,8 @@ export function ConfirmDialog(input: ConfirmDialogProps) {
       <section
         ref={dialogRef}
         className={`app-dialog ${tone === "danger" ? "is-danger" : ""} ${wide ? "is-wide" : ""}`}
+        data-gamepad-scope
+        data-gamepad-open="true"
         role={role}
         aria-modal="true"
         aria-labelledby={titleId}
@@ -133,7 +135,7 @@ function DialogActions(props: DialogActionsProps) {
   } = props;
   return <div className="dialog-actions">
     {leadingLabel && onLeading ? <button className="button secondary dialog-leading-action" type="button" disabled={locked || leadingDisabled} onClick={onLeading}>{leadingBusy ? leadingBusyLabel : leadingLabel}</button> : null}
-    {hideCancel ? null : <button ref={cancelRef} className="button secondary" type="button" disabled={locked} onClick={onCancel}>{cancelLabel}</button>}
+    {hideCancel ? null : <button ref={cancelRef} className="button secondary" type="button" data-gamepad-default="true" data-gamepad-back="true" disabled={locked} onClick={onCancel}>{cancelLabel}</button>}
     {secondaryLabel && onSecondary ? <button className="button secondary" type="button" disabled={locked} onClick={onSecondary}>{secondaryLabel}</button> : null}
     <button className={`button${tone === "danger" ? " danger" : ""}`} type="button" disabled={locked || confirmDisabled} onClick={onConfirm}>{busy ? "处理中…" : confirmLabel}</button>
   </div>;

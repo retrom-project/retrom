@@ -361,6 +361,20 @@ printf 'release_input=%s\\ncontainers_before=%s\\ncontainers_after=%s\\nnetworks
     "ACC-NP-020": (300, "scripts/acceptance/ui-case.sh ACC-NP-020"),
     "ACC-NP-021": (300, "scripts/acceptance/ui-case.sh ACC-NP-021"),
     "ACC-NP-022": (300, "scripts/acceptance/ui-case.sh ACC-NP-022"),
+    "ACC-GPAD-001": (90, "scripts/acceptance/ui-case.sh ACC-GPAD-001"),
+    "ACC-GPAD-002": (180, "scripts/acceptance/ui-case.sh ACC-GPAD-002"),
+    "ACC-GPAD-003": (120, "scripts/acceptance/ui-case.sh ACC-GPAD-003"),
+    "ACC-GPAD-004": (
+        600,
+        "scripts/acceptance/multidisc-regression.sh && scripts/acceptance/ui-case.sh ACC-GPAD-004",
+    ),
+    "ACC-GPAD-005": (240, "scripts/acceptance/ui-case.sh ACC-GPAD-005"),
+    "ACC-GPAD-006": (120, "scripts/acceptance/ui-case.sh ACC-GPAD-006"),
+    "ACC-GPAD-007": (
+        180,
+        "make data-check && make deps-check && scripts/acceptance/ui-case.sh ACC-GPAD-007",
+    ),
+    "ACC-GPAD-008": (300, "scripts/acceptance/ui-case.sh ACC-GPAD-008"),
     "ACC-PLAY-001": (120, "go test -tags=integration ./internal/launch -run '^TestPublishedGameLaunchLocksContentAndCredential$' -count=1"),
     "ACC-MDISC-001": (
         600,

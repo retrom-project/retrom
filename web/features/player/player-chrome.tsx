@@ -29,15 +29,23 @@ export type PlayerChromeProps = {
   emulatorToolbarOpen: boolean; emulatorVolume: number; emulatorMuted: boolean; videoRenderingMode: VideoRenderingMode;
   discSet: DiscSet | null; discState: DiscState | null; netplayPlayerNo: number | null; netplayPaused: boolean;
   debugOpen: boolean; debugMetrics: PlayerDebugMetrics | null; debugRuntime: PlayerDebugRuntime; runtimeState: "loading" | "running" | "error";
+  gamepadMenuRequest: number; gamepadExitRequest: number;
   onHoldControls: () => void; onReleaseControls: () => void; onToggleControls: () => void; onSave: () => Promise<boolean>;
   onPauseForToolbarInteraction: () => void; onToggleFullscreen: () => void; onOpenEmulatorSettings: () => void;
   onCloseEmulatorSettings: () => void; onOpenEmulatorPanel: (panel: EmulatorSettingsPanel) => void;
   onChangeEmulatorVolume: (volume: number) => void; onToggleEmulatorMute: () => void;
   onChangeVideoRenderingMode: (mode: VideoRenderingMode) => void; onSelectDisc: (index: number) => Promise<boolean>;
   onToggleNetplayPause: () => void; onToggleDebug: () => void; onGameSurface: () => void; onExit: () => void;
+  onSystemOverlayChange: (open: boolean) => void;
 };
 
-function exitDescriptionFor(netplay: boolean, saveAvailable: boolean, state: ExitSaveState) {
+function exitDescriptionFor(
+  netplay: boolean,
+  running: boolean,
+  saveAvailable: boolean,
+  state: ExitSaveState,
+) {
+  if (!running) {return "取消只会结束当前 Player 等待，不会取消可能被其他 Launch 复用的共享校验任务。";}
   if (netplay) {return "退出会结束所有参与者的本局联机，并返回房间。联机模式不会读取或写入个人存档。";}
   if (!saveAvailable) {return "当前从 DOS 程序菜单启动，无法创建可恢复存档；直接退出不会保存当前位置。";}
   if (state === "saving") {return "正在创建退出前存档…";}
@@ -86,6 +94,8 @@ export function PlayerChrome({
   debugMetrics,
   debugRuntime,
   runtimeState,
+  gamepadMenuRequest,
+  gamepadExitRequest,
   onHoldControls,
   onReleaseControls,
   onToggleControls,
@@ -103,6 +113,7 @@ export function PlayerChrome({
   onToggleDebug,
   onGameSurface,
   onExit,
+  onSystemOverlayChange,
 }: PlayerChromeProps) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [discMenuOpen, setDiscMenuOpen] = useState(false);
@@ -113,13 +124,34 @@ export function PlayerChrome({
   const toolbarHovered = useRef(false);
   const toolbarFocused = useRef(false);
   const exitSavePending = useRef(false);
+  const handledMenuRequest = useRef(gamepadMenuRequest);
+  const handledExitRequest = useRef(gamepadExitRequest);
+  const settingsWasOpen = useRef(false);
+
+  useEffect(() => {
+    if (gamepadMenuRequest === handledMenuRequest.current) {return;}
+    handledMenuRequest.current = gamepadMenuRequest;
+    setExitOpen(false);
+    setMenuOpen(true);
+  }, [gamepadMenuRequest]);
+
+  useEffect(() => {
+    if (gamepadExitRequest === handledExitRequest.current) {return;}
+    handledExitRequest.current = gamepadExitRequest;
+    requestExit();
+  }, [gamepadExitRequest]);
 
   useEffect(() => {
     if (!menuOpen) {return;}
     const menu = document.getElementById("player-more-menu");
-    menu?.querySelector<HTMLElement>(".player-menu button:not(:disabled)")?.focus();
+    (menu?.querySelector<HTMLElement>("[data-gamepad-default='true']") ??
+      menu?.querySelector<HTMLElement>(".player-menu button:not(:disabled)"))?.focus();
     const closeOnOutside = (event: PointerEvent) => {
-      if (event.target instanceof Node && !menu?.contains(event.target)) {setMenuOpen(false);}
+      if (!(event.target instanceof Node) || menu?.contains(event.target)) {return;}
+      if (event.target instanceof Element && event.target.closest(
+        "[data-gamepad-scope][data-gamepad-open='true']",
+      )) {return;}
+      setMenuOpen(false);
     };
     const closeOnEscape = (event: KeyboardEvent) => {
       if (event.key === "Escape") {setMenuOpen(false); document.getElementById("player-more-button")?.focus();}
@@ -156,9 +188,27 @@ export function PlayerChrome({
   }, [discMenuOpen]);
 
   useEffect(() => {
+    if (emulatorToolbarOpen) {
+      settingsWasOpen.current = true;
+      document.querySelector<HTMLElement>(
+        ".player-emulator-toolbar [data-gamepad-default='true']",
+      )?.focus();
+      return;
+    }
+    if (settingsWasOpen.current && menuOpen) {
+      document.querySelector<HTMLElement>("[data-player-settings-trigger='true']")?.focus();
+    }
+    settingsWasOpen.current = false;
+  }, [emulatorToolbarOpen, menuOpen]);
+
+  useEffect(() => {
     if (menuOpen || discMenuOpen || exitOpen || emulatorToolbarOpen || debugOpen) {onHoldControls();}
     else if (!toolbarHovered.current && !toolbarFocused.current) {onReleaseControls();}
   }, [debugOpen, discMenuOpen, emulatorToolbarOpen, exitOpen, menuOpen, onHoldControls, onReleaseControls]);
+
+  useEffect(() => {
+    onSystemOverlayChange(menuOpen || discMenuOpen || exitOpen || emulatorToolbarOpen);
+  }, [discMenuOpen, emulatorToolbarOpen, exitOpen, menuOpen, onSystemOverlayChange]);
 
   useEffect(() => {
     if (!localToast) {return;}
@@ -224,12 +274,12 @@ export function PlayerChrome({
     items[target]?.focus();
   }
 
-  const exitDescription = exitDescriptionFor(isNetplay, saveAvailable, exitSaveState);
+  const exitDescription = exitDescriptionFor(isNetplay, running, saveAvailable, exitSaveState);
 
   return <>
     <SaveUploadProgress value={saveUploadProgress} />
     <button className="player-hud-handle" type="button" aria-label={controlsVisible ? "隐藏 Player 控制栏" : "显示 Player 控制栏"} aria-pressed={controlsVisible} onClick={onToggleControls}><span aria-hidden="true" /></button>
-    <PlayerToolbar controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={syncText} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} netplay={isNetplay} playerNo={netplayPlayerNo} netplayPaused={netplayPaused} saveAvailable={saveAvailable} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} blockingOverlay={exitOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onToggleFullscreen={onToggleFullscreen} onToggleNetplayPause={onToggleNetplayPause} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onEmulatorSettings={onOpenEmulatorSettings} />
+    <PlayerToolbar controlsVisible={controlsVisible} paused={paused} running={running} fullscreen={fullscreen} gameTitle={gameTitle} coreName={coreName} platformName={platformName} syncText={syncText} syncTone={syncTone} warnings={warnings} warningCopy={warningCopy} netplay={isNetplay} playerNo={netplayPlayerNo} netplayPaused={netplayPaused} saveAvailable={saveAvailable} actionLayout={actionLayout} debugOpen={debugOpen} discSet={discSet} discState={discState} discBusy={discBusy} discMenuOpen={discMenuOpen} menuOpen={menuOpen} blockingOverlay={exitOpen || emulatorToolbarOpen || debugOpen} onPause={onPauseForToolbarInteraction} onHold={onHoldControls} onRelease={onReleaseControls} onHover={(hovered) => {toolbarHovered.current = hovered;}} onFocus={(focused) => {toolbarFocused.current = focused;}} onExit={requestExit} onWarning={setLocalToast} onDebug={onToggleDebug} onSave={() => void onSave()} onToggleFullscreen={onToggleFullscreen} onToggleNetplayPause={onToggleNetplayPause} onChooseDisc={(index) => void chooseDisc(index)} onDiscMenu={setDiscMenuOpen} onDiscKey={moveDiscMenuFocus} onMenu={setMenuOpen} onContinue={() => setMenuOpen(false)} onEmulatorSettings={onOpenEmulatorSettings} />
 
     <PlayerDebugPanel open={debugOpen} metrics={debugMetrics} runtime={debugRuntime} runtimeState={runtimeState} paused={paused} netplayPaused={netplayPaused} coreName={coreName} playerNo={netplayPlayerNo} discSet={discSet} discState={discState} onClose={onToggleDebug} />
 
@@ -240,7 +290,7 @@ export function PlayerChrome({
     <div className={`player-toast${visibleToast ? " is-visible" : ""}`} role="status" aria-live="polite">{visibleToast}</div>
     <div className={`player-controls-hint${controlsVisible ? " is-hidden" : ""}`}>移到屏幕顶部显示 Retrom 控制</div>
 
-    <ExitGameDialog open={exitOpen} description={exitDescription} netplay={isNetplay} running={running} saveAvailable={saveAvailable} saveState={exitSaveState} onSave={() => void createExitSave()} onCancel={() => setExitOpen(false)} onConfirm={() => {setExitOpen(false); onExit();}} />
+    <ExitGameDialog open={exitOpen} description={exitDescription} gameTitle={gameTitle} netplay={isNetplay} running={running} saveAvailable={saveAvailable} saveState={exitSaveState} onSave={() => void createExitSave()} onCancel={() => setExitOpen(false)} onConfirm={() => {setExitOpen(false); onExit();}} />
   </>;
 }
 
@@ -262,6 +312,7 @@ type ToolbarProps = {
   onPause: () => void; onHold: () => void; onRelease: () => void; onExit: () => void; onWarning: (message: string) => void; onDebug: () => void; onSave: () => void;
   onToggleFullscreen: () => void; onToggleNetplayPause: () => void; onChooseDisc: (index: number) => void; onDiscMenu: Dispatch<SetStateAction<boolean>>;
   onDiscKey: (event: ReactKeyboardEvent<HTMLDivElement>) => void; onMenu: Dispatch<SetStateAction<boolean>>; onEmulatorSettings: () => void;
+  onContinue: () => void;
 };
 
 function DiscControl({ props }: { props: ToolbarProps }) {
@@ -269,8 +320,143 @@ function DiscControl({ props }: { props: ToolbarProps }) {
   return <div id="player-disc-menu" className="player-menu-wrap player-disc-wrap"><button id="player-disc-button" className={`player-control player-disc-button player-context-action${props.actionLayout.primary === "disc" ? " is-primary" : ""}`} type="button" disabled={!props.running || props.discBusy} aria-label={`光盘 ${props.discState.currentIndex + 1} / ${props.discSet.count}`} aria-expanded={props.discMenuOpen} aria-haspopup="menu" onClick={() => props.onDiscMenu((open) => !open)}><span aria-hidden="true">◉</span>光盘 {props.discState.currentIndex + 1} / {props.discSet.count}</button>{props.discMenuOpen ? <><button className="player-menu-backdrop" type="button" tabIndex={-1} aria-label="关闭光盘选择" onClick={() => props.onDiscMenu(false)} /><div className="player-menu player-disc-menu" role="menu" aria-label="选择光盘" onKeyDown={props.onDiscKey}><strong>选择光盘</strong>{props.discSet.entries.map((entry) => <button key={entry.index} type="button" role="menuitemradio" aria-checked={entry.index === props.discState!.currentIndex} disabled={props.discBusy} onClick={() => props.onChooseDisc(entry.index)}><span aria-hidden="true">{entry.index === props.discState!.currentIndex ? "✓" : "○"}</span>{entry.label}{entry.index === props.discState!.currentIndex ? " · 当前" : ""}</button>)}<small>切换后游戏保持暂停，返回游戏即可继续。</small></div></> : null}</div>;
 }
 
+function playerMenuRuntimeContext(props: ToolbarProps) {
+  if (props.netplay) {return props.playerNo === 1 ? "联机 P1 · 暂停由房主控制" : "联机 P2 · 游戏仍由 P1 继续";}
+  if (props.paused) {return "当前已暂停";}
+  return props.running ? "正在暂停" : "正在准备游戏";
+}
+
+function playerMenuContinueLabel(props: ToolbarProps) {
+  if (!props.running) {return "继续等待";}
+  return props.netplay ? "继续联机" : "继续游戏";
+}
+
+function PlayerDiscMenuAction({ props }: { props: ToolbarProps }) {
+  if (!props.discSet || !props.discState) {return null;}
+  return <button
+    type="button"
+    role="menuitem"
+    aria-label="在 Retrom 菜单中选择光盘"
+    disabled={props.discBusy}
+    onClick={() => {
+      props.onMenu(false);
+      props.onDiscMenu(true);
+    }}
+  >
+    <AppIcon name="database" />
+    <span>
+      <strong>光盘 {props.discState.currentIndex + 1} / {props.discSet.count}</strong>
+      <small>选择当前运行光盘</small>
+    </span>
+  </button>;
+}
+
+function SinglePlayerMenuActions({ props }: { props: ToolbarProps }) {
+  if (!props.running || props.netplay) {return null;}
+  return <>
+    <button type="button" role="menuitem" disabled={!props.saveAvailable} onClick={props.onSave}>
+      <AppIcon name="save" />创建手动存档
+    </button>
+    <PlayerDiscMenuAction props={props} />
+    <button type="button" role="menuitem" data-player-settings-trigger="true" onClick={props.onEmulatorSettings}>
+      <AppIcon name="settings" />画面、声音与高级设置
+    </button>
+  </>;
+}
+
+function PlayerWarningMenuAction({ props }: { props: ToolbarProps }) {
+  if (!props.warnings.length) {return null;}
+  return <button type="button" role="menuitem" onClick={() => props.onWarning(props.warningCopy)}>
+    <AppIcon name="warning" />查看运行提醒
+  </button>;
+}
+
+function PlayerExitMenuAction({ props }: { props: ToolbarProps }) {
+  const label = props.running ? props.netplay ? "结束联机" : "退出游戏" : "取消本次启动";
+  return <><hr /><button className="is-danger" type="button" role="menuitem" onClick={props.onExit}>
+    <AppIcon name="log-out" />{label}
+  </button></>;
+}
+
 function MoreActions({ props }: { props: ToolbarProps }) {
-  return <div id="player-more-menu" className="player-menu-wrap"><button id="player-more-button" className="player-control is-icon" type="button" aria-label="更多操作" title="更多操作" aria-expanded={props.menuOpen} aria-haspopup="menu" onClick={() => props.onMenu((open) => !open)}><AppIcon name="more" /></button>{props.menuOpen ? <><button className="player-menu-backdrop" type="button" tabIndex={-1} aria-label="关闭更多操作" onClick={() => props.onMenu(false)} /><div className="player-menu" role="menu" aria-label="Player 更多操作"><header className="player-menu-head"><div><small>Retrom Player</small><strong>更多操作</strong></div><button type="button" aria-label="关闭更多操作" onClick={() => {props.onMenu(false); document.getElementById("player-more-button")?.focus();}}><AppIcon name="x" /></button></header><div className={`player-menu-runtime is-${props.syncTone}`} role="status"><i aria-hidden="true" /><span><strong>{props.syncText}</strong><small>{props.netplay ? `联机座位 P${props.playerNo}` : props.paused ? "当前已暂停" : "游戏运行中"}</small></span></div>{!props.netplay && props.discSet && props.discState ? <button type="button" role="menuitem" aria-label="在更多操作中选择光盘" disabled={!props.running || props.discBusy} onClick={() => {props.onMenu(false); props.onDiscMenu(true);}}><AppIcon name="database" /><span><strong>光盘 {props.discState.currentIndex + 1} / {props.discSet.count}</strong><small>选择当前运行光盘</small></span></button> : null}{!props.netplay ? <button type="button" role="menuitem" onClick={() => {props.onMenu(false); props.onEmulatorSettings();}}><AppIcon name="settings" />模拟器设置</button> : null}<button type="button" role="menuitem" aria-label={props.fullscreen ? "在更多操作中退出全屏" : "在更多操作中进入全屏"} onClick={() => {props.onMenu(false); props.onToggleFullscreen();}}><AppIcon name={props.fullscreen ? "minimize" : "maximize"} />{props.fullscreen ? "退出全屏" : "进入全屏"}</button><button type="button" role="menuitem" aria-label="在更多操作中打开调试信息" onClick={() => {props.onMenu(false); props.onDebug();}}><AppIcon name="chip" />调试信息</button><button className="player-shortcut-action" type="button" role="menuitem" onClick={() => {props.onMenu(false); props.onWarning("将鼠标移到屏幕顶部可显示控制栏；Esc 只退出浏览器全屏，不会退出游戏。");}}><AppIcon name="keyboard" />查看快捷键</button>{props.warnings.length ? <button type="button" role="menuitem" onClick={() => {props.onMenu(false); props.onWarning(props.warningCopy);}}><AppIcon name="warning" />查看运行提醒</button> : null}<hr /><button className="is-danger" type="button" role="menuitem" onClick={props.onExit}><AppIcon name="log-out" />退出游戏</button></div></> : null}</div>;
+  const runtimeContext = playerMenuRuntimeContext(props);
+  const continueLabel = playerMenuContinueLabel(props);
+
+  return <div id="player-more-menu" className="player-menu-wrap">
+    <button
+      id="player-more-button"
+      className="player-control is-icon"
+      type="button"
+      aria-label="Retrom 菜单"
+      title="Retrom 菜单"
+      aria-expanded={props.menuOpen}
+      aria-haspopup="dialog"
+      onClick={() => props.onMenu((open) => !open)}
+    >
+      <AppIcon name="more" />
+    </button>
+    {props.menuOpen ? <>
+      {!props.blockingOverlay ? <button
+        className="player-menu-backdrop"
+        type="button"
+        tabIndex={-1}
+        aria-label="关闭 Retrom 菜单"
+        onClick={props.onContinue}
+      /> : null}
+      <div
+        className="player-menu player-system-menu"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Retrom 菜单"
+        aria-hidden={props.blockingOverlay || undefined}
+        inert={props.blockingOverlay || undefined}
+        data-gamepad-scope
+        data-gamepad-open="true"
+      >
+        <header className="player-menu-head">
+          <div><small>Retrom Player</small><strong>{props.running ? "Retrom 菜单" : "启动选项"}</strong></div>
+          <button type="button" aria-label="关闭 Retrom 菜单" onClick={props.onContinue}>
+            <AppIcon name="x" />
+          </button>
+        </header>
+        <div className={`player-menu-runtime is-${props.syncTone}`} role="status">
+          <i aria-hidden="true" />
+          <span><strong>{props.syncText}</strong><small>{runtimeContext}</small></span>
+        </div>
+        <button
+          type="button"
+          role="menuitem"
+          data-gamepad-default="true"
+          data-gamepad-back="true"
+          onClick={props.onContinue}
+        >
+          <AppIcon name="play" />{continueLabel}
+        </button>
+        <SinglePlayerMenuActions props={props} />
+        <button
+          type="button"
+          role="menuitem"
+          aria-label={props.fullscreen ? "退出全屏" : "进入全屏"}
+          onClick={props.onToggleFullscreen}
+        >
+          <AppIcon name={props.fullscreen ? "minimize" : "maximize"} />
+          {props.fullscreen ? "退出全屏" : "进入全屏"}
+        </button>
+        <button
+          className="player-shortcut-action"
+          type="button"
+          role="menuitem"
+          onClick={() => props.onWarning(
+            "方向移动，确认选择，返回继续；中心键或 Select + Start 打开 Retrom 菜单，长按 1.2 秒进入退出确认。",
+          )}
+        >
+          <AppIcon name="gamepad" />手柄状态与快捷键
+        </button>
+        <PlayerWarningMenuAction props={props} />
+        <PlayerExitMenuAction props={props} />
+      </div>
+    </> : null}
+  </div>;
 }
 
 function ToolbarActions({ props }: { props: ToolbarProps }) {
@@ -309,10 +495,93 @@ function DisplayDebug({ metrics, discSet, discState }: { metrics: PlayerDebugMet
 
 function EmulatorToolbar({ open, volume, muted, renderingMode, onHold, onOpenPanel, onVolume, onRenderingMode, onMute, onClose }: { open: boolean; volume: number; muted: boolean; renderingMode: VideoRenderingMode; onHold: () => void; onOpenPanel: (panel: EmulatorSettingsPanel) => void; onVolume: (volume: number) => void; onRenderingMode: (mode: VideoRenderingMode) => void; onMute: () => void; onClose: () => void }) {
   const volumePercent = Math.round(volume * 100);
-  return <section className={`player-emulator-toolbar${open ? " is-open" : ""}`} aria-label="模拟器设置工具栏" aria-hidden={!open} onFocusCapture={onHold} onPointerEnter={onHold}><div className="player-emulator-group"><span className="player-emulator-label">模拟器</span><button type="button" disabled={!open} onClick={() => onOpenPanel("controls")}><AppIcon name="gamepad" />控制</button><button type="button" disabled={!open} onClick={() => onOpenPanel("display")}><span aria-hidden="true">▤</span>显示</button><button type="button" disabled={!open} onClick={() => onOpenPanel("core")}><span aria-hidden="true">⚙</span>Core 设置</button></div><label className="player-emulator-rendering"><span className="player-emulator-label">画面</span><select aria-label="画面模式" disabled={!open} value={renderingMode} onChange={(event) => onRenderingMode(event.currentTarget.value as VideoRenderingMode)}>{videoRenderingModeOptions.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}</select></label><div className="player-emulator-group"><label className="player-emulator-volume"><span className="player-emulator-label">音量</span><input type="range" min="0" max="100" step="1" value={volumePercent} aria-label="模拟器音量" aria-valuetext={muted ? `已静音，音量 ${volumePercent}%` : `${volumePercent}%`} disabled={!open} onChange={(event) => onVolume(Number(event.currentTarget.value) / 100)} /></label><button type="button" disabled={!open} aria-label={muted ? "取消静音" : "静音"} aria-pressed={muted} onClick={onMute}><span aria-hidden="true">{muted ? "🔇" : "🔊"}</span></button><button type="button" disabled={!open} onClick={onClose}>收起</button></div></section>;
+  return <section
+    className={`player-emulator-toolbar${open ? " is-open" : ""}`}
+    aria-label="模拟器设置工具栏"
+    aria-hidden={!open}
+    data-gamepad-scope
+    data-gamepad-open={open ? "true" : "false"}
+    onFocusCapture={onHold}
+    onPointerEnter={onHold}
+  >
+    <div className="player-emulator-group">
+      <span className="player-emulator-label">模拟器</span>
+      <button type="button" disabled={!open} onClick={() => onOpenPanel("controls")}>
+        <AppIcon name="gamepad" />控制
+      </button>
+      <button type="button" disabled={!open} onClick={() => onOpenPanel("display")}>
+        <span aria-hidden="true">▤</span>显示
+      </button>
+      <button type="button" disabled={!open} onClick={() => onOpenPanel("core")}>
+        <span aria-hidden="true">⚙</span>Core 设置
+      </button>
+    </div>
+    <label className="player-emulator-rendering">
+      <span className="player-emulator-label">画面</span>
+      <select
+        aria-label="画面模式"
+        data-gamepad-default="true"
+        disabled={!open}
+        value={renderingMode}
+        onChange={(event) => onRenderingMode(event.currentTarget.value as VideoRenderingMode)}
+      >
+        {videoRenderingModeOptions.map((option) => (
+          <option key={option.value} value={option.value}>{option.label}</option>
+        ))}
+      </select>
+    </label>
+    <div className="player-emulator-group">
+      <label className="player-emulator-volume">
+        <span className="player-emulator-label">音量</span>
+        <input
+          type="range"
+          min="0"
+          max="100"
+          step="1"
+          value={volumePercent}
+          aria-label="模拟器音量"
+          aria-valuetext={muted ? `已静音，音量 ${volumePercent}%` : `${volumePercent}%`}
+          data-gamepad-step="5"
+          data-gamepad-group-step="20"
+          disabled={!open}
+          onChange={(event) => onVolume(Number(event.currentTarget.value) / 100)}
+        />
+      </label>
+      <button
+        type="button"
+        disabled={!open}
+        aria-label={muted ? "取消静音" : "静音"}
+        aria-pressed={muted}
+        onClick={onMute}
+      >
+        <span aria-hidden="true">{muted ? "🔇" : "🔊"}</span>
+      </button>
+      <button type="button" data-gamepad-back="true" disabled={!open} onClick={onClose}>收起</button>
+    </div>
+  </section>;
 }
 
-function ExitGameDialog({ open, description, netplay, running, saveAvailable, saveState, onSave, onCancel, onConfirm }: { open: boolean; description: string; netplay: boolean; running: boolean; saveAvailable: boolean; saveState: ExitSaveState; onSave: () => void; onCancel: () => void; onConfirm: () => void }) {
-  const leadingLabel = saveState === "saved" ? "已创建存档" : saveState === "error" ? "重试创建存档" : "创建存档";
-  return <ConfirmDialog open={open} title="退出游戏？" description={description} leadingLabel={netplay ? undefined : leadingLabel} leadingBusy={saveState === "saving"} leadingBusyLabel="正在创建…" leadingDisabled={netplay || !running || !saveAvailable || saveState === "saved"} confirmLabel="退出游戏" tone="danger" onLeading={onSave} onCancel={onCancel} onConfirm={onConfirm}>{netplay ? <span>本局从头开始，退出后不会产生状态存档。</span> : saveAvailable ? <span>只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录。</span> : <span>请退出后从游戏详情选择一个具体 DOS 程序再开始，届时即可创建并恢复存档。</span>}</ConfirmDialog>;
+function exitDialogLabels(gameTitle: string, netplay: boolean, running: boolean) {
+  if (netplay) {return { title: `退出《${gameTitle}》？`, cancel: "继续联机", confirm: "结束联机" };}
+  if (running) {return { title: `退出《${gameTitle}》？`, cancel: "继续游戏", confirm: "退出游戏" };}
+  return { title: "取消启动？", cancel: "继续等待", confirm: "取消启动" };
+}
+
+function exitSaveLabel(saveState: ExitSaveState) {
+  if (saveState === "saved") {return "已创建存档";}
+  return saveState === "error" ? "重试创建存档" : "创建存档";
+}
+
+function ExitDialogImpact({ netplay, running, saveAvailable }: { netplay: boolean; running: boolean; saveAvailable: boolean }) {
+  if (netplay) {return <span>本局从头开始，退出后不会产生状态存档。</span>;}
+  if (!running) {return <span>共享校验任务不会被这个操作取消。</span>;}
+  if (saveAvailable) {return <span>只有点击“创建存档”才会保存当前位置；直接退出只结束本次游玩记录。</span>;}
+  return <span>请退出后从游戏详情选择一个具体 DOS 程序再开始，届时即可创建并恢复存档。</span>;
+}
+
+function ExitGameDialog({ open, description, gameTitle, netplay, running, saveAvailable, saveState, onSave, onCancel, onConfirm }: { open: boolean; description: string; gameTitle: string; netplay: boolean; running: boolean; saveAvailable: boolean; saveState: ExitSaveState; onSave: () => void; onCancel: () => void; onConfirm: () => void }) {
+  const labels = exitDialogLabels(gameTitle, netplay, running);
+  const leadingLabel = netplay || !running ? undefined : exitSaveLabel(saveState);
+  const leadingDisabled = netplay || !running || !saveAvailable || saveState === "saved";
+  return <ConfirmDialog open={open} title={labels.title} description={description} cancelLabel={labels.cancel} leadingLabel={leadingLabel} leadingBusy={saveState === "saving"} leadingBusyLabel="正在创建…" leadingDisabled={leadingDisabled} confirmLabel={labels.confirm} tone="danger" onLeading={onSave} onCancel={onCancel} onConfirm={onConfirm}><ExitDialogImpact netplay={netplay} running={running} saveAvailable={saveAvailable} /></ConfirmDialog>;
 }

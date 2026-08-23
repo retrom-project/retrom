@@ -45,7 +45,7 @@ const launch: NetplayLaunchConfig = {
   netplayProfile: {
     schemaVersion: 1, protocolVersion: "retrom-netplay-v2", profileId: "fceumm-423-v1", platformIds: ["nes"],
     emulatorjsVersion: "4.2.3",
-    playerAdapterId: "ejs-4.2.3-v2", netplayAdapterId: "ejs-netplay-4.2.3-v1",
+    playerAdapterId: "ejs-4.2.3-v3", netplayAdapterId: "ejs-netplay-4.2.3-v2",
     coreArtifactId: "01980000-0000-7000-8000-000000000003", gameVariantRevisionId: "01980000-0000-7000-8000-000000000004",
     coreArtifactSha256: "1".repeat(64), sourceManifestDigest: "2".repeat(64), dependencySnapshotDigest: "3".repeat(64), defaultCoreOptions: {},
     controlCount: 24, maxPlayers: 2, maxPredictionFrames: 8, maxRollbackFrames: 120,

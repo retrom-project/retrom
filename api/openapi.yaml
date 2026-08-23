@@ -2156,8 +2156,8 @@ components:
         protocolVersion: { type: string, enum: [retrom-netplay-v2] }
         profileId: { type: string, pattern: '^[a-z0-9-]{1,64}$' }
         emulatorjsVersion: { type: string, enum: ['4.2.3'] }
-        playerAdapterId: { type: string, enum: ['ejs-4.2.3-v2'] }
-        netplayAdapterId: { type: string, enum: ['ejs-netplay-4.2.3-v1'] }
+        playerAdapterId: { type: string, enum: ['ejs-4.2.3-v3'] }
+        netplayAdapterId: { type: string, enum: ['ejs-netplay-4.2.3-v2'] }
         coreArtifactId: { type: string, format: uuid }
         coreArtifactSha256: { type: string, pattern: '^[0-9a-f]{64}$' }
         gameVariantRevisionId: { type: string, format: uuid }

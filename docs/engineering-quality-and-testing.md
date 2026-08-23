@@ -316,6 +316,10 @@ flat config 必须设置 `linterOptions.noInlineConfig=true` 且 unused disable 
 
 影响 `internal/netplay`、联机 manifest、WebSocket、Player netplay adapter 或房间 UI 时，必须运行聚焦 Go/Web 测试、`go test -race ./internal/netplay`、migration/HTTP integration、`make web-e2e`，并按 [`ACC-NP-010`–`022`](./project-acceptance.md#19-联机游玩) 生成当次协议、安全、feature flag、单机回归与双浏览器核心证据。`ACC-NP-014`–`022` 只证明 manifest 锁定的八个 profile/artifact 与项目自有 fixture；其他 ROM/core 版本仍必须明确列为未覆盖。
 
+影响用户侧手柄导航、焦点空间算法、Player Gamepad 过滤、系统快捷键、覆盖层暂停或重连时，必须同时运行纯模型单测、组件键盘/焦点回归和 [`ACC-GPAD-001`–`008`](./project-acceptance.md#21-手柄导航与客厅模式)。自动化用标准 Gamepad 快照驱动真实浏览器 `navigator.getGamepads()` 产品路径，不得只调用 reducer 或直接触发 click；至少覆盖未声明→中性门限→ready、轴迟滞/重复、DOM 变化、弹层焦点、页面切换、单机 GBA/Arcade Player、联机 P1/P2、断连替换、按钮 16 与 Select+Start 过滤、4×24 release、存档、设置和安全退出。共享 adapter ID 或过滤边界发生变化时还必须执行 `make data-check`、`make deps-check`、`make web-e2e`、受影响的多盘链路和 `ACC-NP-014`–`022`。
+
+真实硬件矩阵不能被 synthetic Gamepad 替代。候选 release 必须在锁定 Chrome 上分别以一只 XInput 手柄、一只 DualShock 4/DualSense 和一只没有中心键但提供标准 Select/Start 的通用手柄执行 `ACC-GPAD-008` 的物理 smoke，记录浏览器识别为 `mapping="standard"`、声明/中性门限、方向/A/B/Start、Player 系统菜单、断连重连与全屏拒绝回退；证据只记录类别、浏览器映射、Case 结果和截图，不记录设备 ID 或原始输入采样。缺少设备时该物理子项为 `BLOCKED`，不得把自动化 PASS 改写成整组 PASS。
+
 ## 8. Bug 回归固化流程
 
 任何在 Agent 自测、人工验收、代码评审或实际使用中发现的 bug，都执行同一流程：

@@ -2,19 +2,19 @@
   "schemaVersion": 2,
   "adapters": [
     {
-      "id": "ejs-4.2.3-v2",
+      "id": "ejs-4.2.3-v3",
       "version": "4.2.3",
       "module": "ejs-4.2.3-v2.ts"
     },
     {
-      "id": "ejs-4.3.0-pre-v1",
+      "id": "ejs-4.3.0-pre-v2",
       "version": "4.3.0-pre",
       "module": "ejs-4.3.0-pre-v1.ts"
     }
   ],
   "netplayAdapters": [
     {
-      "id": "ejs-netplay-4.2.3-v1",
+      "id": "ejs-netplay-4.2.3-v2",
       "version": "4.2.3",
       "module": "ejs-netplay-4.2.3-v1.ts"
     }

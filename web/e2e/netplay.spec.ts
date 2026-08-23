@@ -6,6 +6,10 @@ import {
   checkpointMismatches, checkpointPair, diagnosticEvents, matchingCheckpoint, verifySNESNoOpHashRecovery,
   type DiagnosticEvent,
 } from "./netplay-checkpoints";
+import {
+  installSyntheticGamepads,
+} from "./gamepad-support";
+import { verifyGamepadNetplayOwnership } from "./gamepad-netplay-case";
 
 const origin = process.env.RETROM_WEB_ORIGIN ?? "http://localhost:3000";
 const alicePassword = "A1!retrom-netplay-acceptance";
@@ -270,7 +274,12 @@ async function createSession(
   const guestLaunch = await guestLaunchResponse.json() as { launchId: string; playUrl: string };
   const hostPage = await host.newPage();
   const guestPage = await guest.newPage();
-  await Promise.all([installDiagnostics(hostPage), installDiagnostics(guestPage)]);
+  await Promise.all([
+    installDiagnostics(hostPage),
+    installDiagnostics(guestPage),
+    installSyntheticGamepads(hostPage),
+    installSyntheticGamepads(guestPage),
+  ]);
   const consoleErrors: string[] = [];
   for (const [label, page] of [["P1", hostPage], ["P2", guestPage]] as const) {
     page.on("console", (message) => { if (message.type() === "error") {consoleErrors.push(`${label}:${message.text()}`);} });
@@ -736,6 +745,21 @@ test.describe.serial("real dual-browser netplay", () => {
       }
     });
   }
+
+  test("ACC-GPAD-005 controller menu preserves P1 and P2 netplay ownership", async ({ browser }, testInfo) => {
+    test.setTimeout(240_000);
+    test.skip(testInfo.project.name !== "chrome-1280", "The dual-controller ownership case runs once.");
+    const gameId = process.env.RETROM_NETPLAY_NES_GAME_ID;
+    const fixtureSha256 = process.env.RETROM_NETPLAY_NES_FIXTURE_SHA256;
+    expect(gameId).toBeTruthy();
+    expect(fixtureSha256).toMatch(/^[0-9a-f]{64}$/);
+    const session = await createSession(browser, testInfo, gameId!, "fceumm-423-v1", fixtureSha256!);
+    try {
+      await verifyGamepadNetplayOwnership(session, waitForFrame);
+    } finally {
+      await session.cleanup();
+    }
+  });
 
   for (const [caseId, profileId] of [
     ["ACC-NP-017", "snes9x-423-v1"],

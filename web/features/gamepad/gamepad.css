@@ -1,0 +1,240 @@
+html[data-input-mode="gamepad"] :focus-visible {
+  outline: 3px solid #8f7cff;
+  outline-offset: 3px;
+  box-shadow: 0 0 0 2px rgba(10, 18, 34, 0.92), 0 0 0 6px rgba(143, 124, 255, 0.28);
+  transform: translateY(-2px);
+}
+
+.controller-hint-bar {
+  position: fixed;
+  z-index: 90;
+  right: max(20px, env(safe-area-inset-right));
+  bottom: max(20px, calc(env(safe-area-inset-bottom) + 10px));
+  left: calc(var(--sidebar-width, 242px) + 20px);
+  display: flex;
+  justify-content: center;
+  gap: 28px;
+  padding: 12px 18px;
+  color: #f7f4ff;
+  background: rgba(15, 22, 39, 0.94);
+  border: 1px solid rgba(170, 153, 255, 0.45);
+  border-radius: 14px;
+  box-shadow: 0 12px 32px rgba(8, 13, 26, 0.25);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.controller-hint-bar.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.controller-connected-toast {
+  position: fixed;
+  z-index: 120;
+  right: 24px;
+  bottom: 92px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-width: 290px;
+  padding: 14px 16px;
+  color: #f7f4ff;
+  background: #172238;
+  border: 1px solid rgba(170, 153, 255, 0.4);
+  border-radius: 14px;
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(10px);
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.controller-connected-toast.is-visible {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.controller-connected-toast span,
+.controller-fullscreen-prompt span {
+  display: grid;
+  gap: 3px;
+}
+
+.controller-connected-toast small {
+  color: #c8d0df;
+}
+
+.controller-fullscreen-prompt small {
+  color: #5a6170;
+}
+
+.controller-fullscreen-prompt {
+  position: fixed;
+  z-index: 95;
+  top: 24px;
+  right: 32px;
+  display: grid;
+  grid-template-columns: auto minmax(260px, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  max-width: 760px;
+  padding: 14px 16px;
+  background: #fff;
+  border: 1px solid #ddd7f5;
+  border-radius: 16px;
+  box-shadow: 0 18px 45px rgba(12, 19, 34, 0.18);
+}
+
+.controller-fullscreen-prompt button,
+.controller-navigation-panel button,
+.controller-help-panel button {
+  min-height: 48px;
+}
+
+.controller-overlay {
+  position: fixed;
+  z-index: 130;
+  inset: 0;
+  display: flex;
+}
+
+.controller-overlay-backdrop {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(7, 12, 24, 0.62);
+  border: 0;
+  border-radius: 0;
+}
+
+.controller-navigation-panel,
+.controller-help-panel {
+  position: relative;
+  z-index: 1;
+  width: min(420px, calc(100vw - 24px));
+  margin: 12px;
+  padding: 22px;
+  overflow: auto;
+  background: #f8f7fb;
+  border: 1px solid #dfdbea;
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(8, 14, 28, 0.32);
+}
+
+.controller-navigation-panel header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 18px;
+}
+
+.controller-navigation-panel h2,
+.controller-help-panel h2 {
+  margin: 0;
+}
+
+.controller-navigation-panel nav,
+.controller-navigation-actions,
+.controller-help-panel dl {
+  display: grid;
+  gap: 8px;
+}
+
+.controller-navigation-panel nav a,
+.controller-navigation-actions button,
+.controller-close {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding: 10px 14px;
+  color: #172238;
+  background: #fff;
+  border: 1px solid #e1ddea;
+  border-radius: 12px;
+  text-decoration: none;
+}
+
+.controller-navigation-panel nav a[aria-current="page"] {
+  color: #5036cc;
+  background: #eeeaff;
+  border-color: #bcb0f8;
+}
+
+.controller-navigation-actions {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #ded9e8;
+}
+
+.controller-navigation-actions p {
+  color: #667085;
+}
+
+.controller-close {
+  width: 100%;
+  justify-content: center;
+  margin-top: 16px;
+}
+
+.controller-help-panel {
+  width: min(520px, calc(100vw - 24px));
+  max-height: calc(100vh - 24px);
+  margin: auto;
+}
+
+.controller-help-panel dl div {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 44px;
+  padding: 10px 0;
+  border-bottom: 1px solid #e4e0ec;
+}
+
+.controller-help-panel dd {
+  margin: 0;
+  color: #5a6170;
+  text-align: right;
+}
+
+.controller-help-panel footer {
+  display: flex;
+  gap: 10px;
+  justify-content: flex-end;
+  margin-top: 20px;
+}
+
+@media (max-width: 899px) {
+  .controller-hint-bar {
+    left: 12px;
+    right: 12px;
+    bottom: calc(82px + env(safe-area-inset-bottom));
+    gap: 12px;
+    justify-content: space-around;
+    font-size: 12px;
+  }
+
+  .controller-fullscreen-prompt {
+    top: 76px;
+    right: 12px;
+    left: 12px;
+    grid-template-columns: auto 1fr;
+  }
+
+  .controller-fullscreen-prompt button {
+    grid-column: span 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-input-mode="gamepad"] :focus-visible,
+  .controller-connected-toast,
+  .controller-hint-bar {
+    transition: none;
+    transform: none;
+  }
+}

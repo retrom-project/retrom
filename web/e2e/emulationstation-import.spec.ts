@@ -425,7 +425,7 @@ async function verifyFullProductLifecycle(page: Page, testInfo: TestInfo) {
     gameTitle: title,
     core: "mgba",
     coreName: "mGBA",
-    playerAdapterId: "ejs-4.2.3-v2",
+    playerAdapterId: "ejs-4.2.3-v3",
     emulatorjsVersion: "4.2.3",
   });
   expect(config.gameUrl).toMatch(
